@@ -1,6 +1,8 @@
 Unreal Engine
 =============
 
+Note: This branch contains all of the VR Editor and Mesh Editor features demonstrated at the **State of Unreal** keynote at the 2017 Game Developers Conference. The VR Editor and Mesh Editor are experimental features. For this particular release, features were tested exclusively on Windows, so there may be complications compiling for Mac or Linux. For documentation on the new features and updates, please see our [VR & Mesh Editor GDC 2017 Features Preview](https://docs.unrealengine.com/latest/INT/Engine/Editor/VR/GDC2017/index.html) docs.
+
 Welcome to the Unreal Engine source code! 
 
 From this repository you can build the Unreal Editor for Windows and Mac, compile Unreal Engine games for Android, iOS, Playstation 4, Xbox One, HTML5 and Linux,

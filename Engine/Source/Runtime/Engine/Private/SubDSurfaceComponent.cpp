@@ -455,7 +455,7 @@ static float const g_creaseweights[4] = { 3.0f, 3.0f, 3.0f, 3.0f };
 //   InDeltaPos[0]=InPos[1]-InPos[0], InDeltaPos[1]=InPos[2]-InPos[0]
 //   InDeltaUV[0]=InUV[1]-InUV[0], InDeltaUV[1]=InUV[2]-InUV[0]
 // degenerated cases are not handled yet
-void ComputeTangents(FVector OutTangentXYZ[3], FVector InDeltaPos[2], FVector2D InDeltaUV[2])
+ENGINE_API void ComputeTangents(FVector OutTangentXYZ[3], FVector InDeltaPos[2], FVector2D InDeltaUV[2])
 {
 	// originally from: Lengyel, Eric. "Computing Tangent Space Basis Vectors for an Arbitrary Mesh". Terathon Software 3D Graphics Library, 2001. http://www.terathon.com/code/tangent.html
 

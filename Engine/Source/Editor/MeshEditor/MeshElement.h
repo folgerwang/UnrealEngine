@@ -1,0 +1,178 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+
+#include "EditableMeshTypes.h"
+
+/**
+ * Uniquely identifies a specific element within a mesh
+ */
+struct FEditableMeshElementAddress
+{
+	/** The sub-mesh address that the element is contained by */
+	FEditableMeshSubMeshAddress SubMeshAddress;
+
+	/** The type of element */
+	EEditableMeshElementType ElementType;
+
+	/** For polygons, the section ID the polygon belongs to, otherwise FEditableMeshSectionID::Invalid */
+	FSectionID SectionID;
+
+	/** The ID of the element within the mesh */
+	FElementID ElementID;
+
+
+	/** Default constructor that initializes variables to an invalid element address */
+	FEditableMeshElementAddress()
+		: SubMeshAddress(),
+		  ElementType( EEditableMeshElementType::Invalid ),
+		  SectionID( FSectionID::Invalid ),
+		  ElementID( FElementID::Invalid )
+	{
+	}
+
+	FEditableMeshElementAddress( const FEditableMeshSubMeshAddress& InSubMeshAddress, FVertexID InVertexID )
+		: SubMeshAddress( InSubMeshAddress ),
+		  ElementType( EEditableMeshElementType::Vertex ),
+		  SectionID( FSectionID::Invalid ),
+		  ElementID( InVertexID )
+	{
+	}
+
+	FEditableMeshElementAddress( const FEditableMeshSubMeshAddress& InSubMeshAddress, FEdgeID InEdgeID )
+		: SubMeshAddress( InSubMeshAddress ),
+		  ElementType( EEditableMeshElementType::Edge ),
+		  SectionID( FSectionID::Invalid ),
+		  ElementID( InEdgeID )
+	{
+	}
+
+	FEditableMeshElementAddress( const FEditableMeshSubMeshAddress& InSubMeshAddress, FPolygonRef InPolygonRef )
+		: SubMeshAddress( InSubMeshAddress ),
+		  ElementType( EEditableMeshElementType::Polygon ),
+		  SectionID( InPolygonRef.SectionID ),
+		  ElementID( InPolygonRef.PolygonID )
+	{
+	}
+
+	/** Equality check */
+	inline bool operator==( const FEditableMeshElementAddress& Other ) const
+	{
+		return
+			SubMeshAddress == Other.SubMeshAddress &&
+			ElementType == Other.ElementType &&
+			SectionID == Other.SectionID &&
+			ElementID == Other.ElementID;
+	}
+
+	/** Convert to a string */
+	inline FString ToString() const
+	{
+		FString ElementTypeString;
+		switch( ElementType )
+		{
+			case EEditableMeshElementType::Invalid:
+				ElementTypeString = TEXT( "Invalid" );
+				break;
+
+			case EEditableMeshElementType::Vertex:
+				ElementTypeString = TEXT( "Vertex" );
+				break;
+
+			case EEditableMeshElementType::Edge:
+				ElementTypeString = TEXT( "Edge" );
+				break;
+
+			case EEditableMeshElementType::Polygon:
+				ElementTypeString = TEXT( "Polygon" );
+				break;
+
+			default:
+				check( 0 );	// Unrecognized type
+		}
+
+		return FString::Printf(
+			TEXT( "%s, ElementType:%s, SectionID:%s, ElementID:%s" ),
+			*SubMeshAddress.ToString(),
+			*ElementTypeString,
+			*SectionID.ToString(),
+			*ElementID.ToString() );
+	}
+};
+
+
+struct FMeshElement
+{
+	/** The component that is referencing the mesh.  Does not necessarily own the mesh!  The mesh could be shared
+		between many components. */
+	TWeakObjectPtr<class UPrimitiveComponent> Component;
+
+	/** The address of the mesh element */
+	FEditableMeshElementAddress ElementAddress;
+
+	/** Real time in seconds that we were last hovered over */
+	double LastHoverTime;
+
+	/** Real time in seconds that we were last selected */
+	double LastSelectTime;
+
+
+	/** Default constructor that initializes everything to safe values */
+	FMeshElement()
+		: Component( nullptr ),
+		  ElementAddress(),
+		  LastHoverTime( 0.0 ),
+		  LastSelectTime( 0.0 )
+	{
+	}
+
+	FMeshElement( UPrimitiveComponent* InComponent, const FEditableMeshSubMeshAddress& InSubMeshAddress, FVertexID InVertexID, double InLastHoverTime = 0.0, double InLastSelectTime = 0.0 )
+		: Component( InComponent ),
+		  ElementAddress( InSubMeshAddress, InVertexID ),
+		  LastHoverTime( InLastHoverTime ),
+		  LastSelectTime( InLastSelectTime )
+	{
+	}
+
+	FMeshElement( UPrimitiveComponent* InComponent, const FEditableMeshSubMeshAddress& InSubMeshAddress, FEdgeID InEdgeID, double InLastHoverTime = 0.0, double InLastSelectTime = 0.0 )
+		: Component( InComponent ),
+		  ElementAddress( InSubMeshAddress, InEdgeID ),
+		  LastHoverTime( InLastHoverTime ),
+		  LastSelectTime( InLastSelectTime )
+	{
+	}
+
+	FMeshElement( UPrimitiveComponent* InComponent, const FEditableMeshSubMeshAddress& InSubMeshAddress, FPolygonRef InPolygonRef, double InLastHoverTime = 0.0, double InLastSelectTime = 0.0 )
+		: Component( InComponent ),
+		  ElementAddress( InSubMeshAddress, InPolygonRef ),
+		  LastHoverTime( InLastHoverTime ),
+		  LastSelectTime( InLastSelectTime )
+	{
+	}
+
+	/** Checks to see if we have something valid */
+	inline bool IsValidMeshElement() const
+	{
+		return
+			( Component.IsValid() &&
+				ElementAddress.SubMeshAddress.EditableMeshFormat != nullptr &&
+				ElementAddress.ElementType != EEditableMeshElementType::Invalid );
+	}
+
+	/** Checks to see if this mesh element points to the same element as another mesh element */
+	inline bool IsSameMeshElement( const FMeshElement& Other ) const
+	{
+		// NOTE: We only care that the element addresses are the same, not other transient state
+		return Component == Other.Component && ElementAddress == Other.ElementAddress;
+	}
+
+	/** Convert to a string */
+	FString ToString() const
+	{
+		return FString::Printf(
+			TEXT( "Component:%s, %s" ),
+			*Component->GetName(),
+			*ElementAddress.ToString() );
+	}
+};
+

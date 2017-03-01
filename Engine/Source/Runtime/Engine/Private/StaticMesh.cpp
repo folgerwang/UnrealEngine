@@ -35,6 +35,7 @@
 #include "Interfaces/ITargetPlatformManagerModule.h"
 #include "Engine/Engine.h"
 #include "EngineGlobals.h"
+#include "EditableMesh.h"
 
 #if WITH_EDITOR
 #include "RawMesh.h"
@@ -124,19 +125,22 @@ void FStaticMeshVertexBuffer::Init(const TArray<FStaticMeshBuildVertex>& InVerti
 
 	// Allocate the vertex data buffer.
 	VertexData->ResizeBuffer(NumVertices);
-	Data = VertexData->GetDataPointer();
-
-	// Copy the vertices into the buffer.
-	for(int32 VertexIndex = 0;VertexIndex < InVertices.Num();VertexIndex++)
+	if( NumVertices > 0 )
 	{
-		const FStaticMeshBuildVertex& SourceVertex = InVertices[VertexIndex];
-		const uint32 DestVertexIndex = VertexIndex;
-		SetVertexTangents(DestVertexIndex, SourceVertex.TangentX, SourceVertex.TangentY, SourceVertex.TangentZ);
-
-		for(uint32 UVIndex = 0; UVIndex < NumTexCoords; UVIndex++)
-		{
-			SetVertexUV(DestVertexIndex,UVIndex,SourceVertex.UVs[UVIndex]);
-		}
+	    Data = VertexData->GetDataPointer();
+    
+	    // Copy the vertices into the buffer.
+	    for(int32 VertexIndex = 0;VertexIndex < InVertices.Num();VertexIndex++)
+	    {
+		    const FStaticMeshBuildVertex& SourceVertex = InVertices[VertexIndex];
+		    const uint32 DestVertexIndex = VertexIndex;
+		    SetVertexTangents(DestVertexIndex, SourceVertex.TangentX, SourceVertex.TangentY, SourceVertex.TangentZ);
+    
+		    for(uint32 UVIndex = 0; UVIndex < NumTexCoords; UVIndex++)
+		    {
+			    SetVertexUV(DestVertexIndex,UVIndex,SourceVertex.UVs[UVIndex]);
+		    }
+	    }
 	}
 }
 
@@ -156,24 +160,52 @@ void FStaticMeshVertexBuffer::Init(const FStaticMeshVertexBuffer& InVertexBuffer
 		AllocateData();
 		check( GetStride() == InVertexBuffer.GetStride() );
 		VertexData->ResizeBuffer(NumVertices);
-		Data = VertexData->GetDataPointer();
-		const uint8* InData = InVertexBuffer.GetRawVertexData();
-		FMemory::Memcpy( Data, InData, Stride * NumVertices );
+		if( NumVertices > 0 )
+		{
+			Data = VertexData->GetDataPointer();
+			const uint8* InData = InVertexBuffer.GetRawVertexData();
+			FMemory::Memcpy( Data, InData, Stride * NumVertices );
+		}
 	}
 }
 
-/**
-* Removes the cloned vertices used for extruding shadow volumes.
-* @param NumVertices - The real number of static mesh vertices which should remain in the buffer upon return.
-*/
-void FStaticMeshVertexBuffer::RemoveLegacyShadowVolumeVertices(uint32 InNumVertices)
+void FStaticMeshVertexBuffer::AppendVertices( const FStaticMeshBuildVertex* Vertices, const uint32 NumVerticesToAppend )
 {
-	check(VertexData);
-	VertexData->ResizeBuffer(InNumVertices);
-	NumVertices = InNumVertices;
+	if (VertexData == nullptr && NumVerticesToAppend > 0)
+	{
+		NumTexCoords = 1;
 
-	// Make a copy of the vertex data pointer.
-	Data = VertexData->GetDataPointer();
+		// Allocate the vertex data storage type if it has never been allocated before
+		AllocateData();
+	}
+
+	check( VertexData != nullptr );	// Must only be called after Init() has already initialized the buffer!
+	if( NumVerticesToAppend > 0 )
+	{
+		check( Vertices != nullptr );
+
+		const uint32 FirstDestVertexIndex = NumVertices;
+		NumVertices += NumVerticesToAppend;
+		VertexData->ResizeBuffer( NumVertices );
+		if( NumVertices > 0 )
+		{
+			Data = VertexData->GetDataPointer();
+
+			// Copy the vertices into the buffer.
+			for( uint32 VertexIter = 0; VertexIter < NumVerticesToAppend; ++VertexIter )
+			{
+				const FStaticMeshBuildVertex& SourceVertex = Vertices[ VertexIter ];
+
+				const uint32 DestVertexIndex = FirstDestVertexIndex + VertexIter;
+
+				SetVertexTangents( DestVertexIndex, SourceVertex.TangentX, SourceVertex.TangentY, SourceVertex.TangentZ );
+				for( uint32 UVIndex = 0; UVIndex < NumTexCoords; UVIndex++ )
+				{
+					SetVertexUV( DestVertexIndex, UVIndex, SourceVertex.UVs[ UVIndex ] );
+				}
+			}
+		}
+	}
 }
 
 template<typename SrcVertexTypeT, typename DstVertexTypeT>
@@ -248,7 +280,10 @@ void FStaticMeshVertexBuffer::Serialize( FArchive& Ar, bool bNeedsCPUAccess )
 			VertexData->Serialize(Ar);
 
 			// Make a copy of the vertex data pointer.
-			Data = VertexData->GetDataPointer();
+			if( NumVertices > 0 )
+			{
+				Data = VertexData->GetDataPointer();
+			}
 		}
 	}
 }
@@ -1876,6 +1911,14 @@ void UStaticMesh::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedE
 	UProperty* PropertyThatChanged = PropertyChangedEvent.Property;
 	const FName PropertyName = PropertyThatChanged ? PropertyThatChanged->GetFName() : NAME_None;
 	
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(UStaticMesh, LODGroup))
+	{
+		// Force an update of LOD group settings
+
+		// Dont rebuild inside here.  We're doing that below.
+		bool bRebuild = false;
+		SetLODGroup(LODGroup, bRebuild);
+	}
 	LightMapResolution = FMath::Max(LightMapResolution, 0);
 
 	if (PropertyChangedEvent.MemberProperty 
@@ -1919,7 +1962,7 @@ void UStaticMesh::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedE
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 
-void UStaticMesh::SetLODGroup(FName NewGroup)
+void UStaticMesh::SetLODGroup(FName NewGroup, bool bRebuildImmediately)
 {
 #if WITH_EDITORONLY_DATA
 	const bool bBeforeDerivedDataCached = (RenderData == nullptr);
@@ -1959,6 +2002,11 @@ void UStaticMesh::SetLODGroup(FName NewGroup)
 	if (!bBeforeDerivedDataCached)
 	{
 		bAutoComputeLODScreenSize = true;
+		
+	}
+
+	if (bRebuildImmediately && !bBeforeDerivedDataCached)
+	{
 		PostEditChange();
 	}
 #endif
@@ -2226,7 +2274,12 @@ FArchive& operator<<(FArchive& Ar, FMeshSectionInfo& Info)
 
 void FMeshSectionInfoMap::Serialize(FArchive& Ar)
 {
-	Ar << Map;
+	Ar.UsingCustomVersion(FReleaseObjectVersion::GUID);
+
+	if (Ar.CustomVer(FReleaseObjectVersion::GUID) < FReleaseObjectVersion::UPropertryForMeshSectionSerialize)
+	{
+		Ar << Map;
+	}
 }
 
 #endif // #if WITH_EDITORONLY_DATA
@@ -2591,7 +2644,7 @@ void UStaticMesh::PostLoad()
 		}
 
 		CacheDerivedData();
-		
+
 		// Only required in an editor build as other builds process this in a different place
 		if (bRequiresLODDistanceConversion)
 		{
@@ -2656,12 +2709,42 @@ void UStaticMesh::PostLoad()
 	{
 		CalculateExtendedBounds();
 	}
+
+	if (SectionInfoMap.Map.Num() == 0)
+	{
+		UE_LOG(LogStaticMesh, Warning, TEXT("StaticMesh '%s' has no SectionInfoMap. Please re-export from the original source data."), *GetName());
+
+		// Before this serialization issue was fixed, some assets were resaved and permanently lost their section info map.
+		// This attempts to recreate it based on the render data.
+		SectionInfoMap.Clear();
+		for (int32 LODResourceIndex = 0; LODResourceIndex < RenderData->LODResources.Num(); ++LODResourceIndex)
+		{
+			FStaticMeshLODResources& LOD = RenderData->LODResources[LODResourceIndex];
+			const int32 NumSections = LOD.Sections.Num();
+			for (int32 SectionIndex = 0; SectionIndex < NumSections; ++SectionIndex)
+			{
+				const int32 MaterialIndex = LOD.Sections[SectionIndex].MaterialIndex;
+				if (StaticMaterials.IsValidIndex(MaterialIndex))
+				{
+					SectionInfoMap.Set(LODResourceIndex, SectionIndex, FMeshSectionInfo(MaterialIndex));
+				}
+			}
+		}
+	}
 #endif // #if WITH_EDITOR
 
 	// We want to always have a BodySetup, its used for per-poly collision as well
 	if(BodySetup == NULL)
 	{
 		CreateBodySetup();
+	}
+
+
+	// @todo mesheditor: think about how to make this better
+	// We have an editable mesh, so supersede the vertex/index buffers from the DDC with those generated by the editable mesh
+	if (EditableMesh && !EditableMesh->IsPreviewingSubdivisions())
+	{
+		EditableMesh->RebuildRenderMesh();
 	}
 
 	CreateNavCollision();

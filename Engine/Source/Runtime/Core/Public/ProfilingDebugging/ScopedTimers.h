@@ -37,12 +37,7 @@ public:
 		return StopTime;
 	}
 
-	double GetAccumulatedTime() const
-	{
-		return Accumulator;
-	}
-
-private:
+protected:
 	/** Start time, captured in ctor. */
 	double StartTime;
 	/** Time variable to update. */
@@ -53,7 +48,7 @@ private:
  * Utility class for tracking the duration of a scoped action (the user 
  * doesn't have to call Start() and Stop() manually).
  */
-class FScopedDurationTimer : private FDurationTimer
+class FScopedDurationTimer : public FDurationTimer
 {
 public:
 	explicit FScopedDurationTimer(double& AccumulatorIn)
@@ -66,6 +61,28 @@ public:
 	{
 		Stop();
 	}
+};
+
+/**
+ * Same as FScopedDurationTimer, except that it tracks the time value internally so you don't have to
+ * pass in a double to accumulate.  Call GetTime() to get the total time since starting.
+ */
+class FAutoScopedDurationTimer : public FScopedDurationTimer
+{
+public:
+	FAutoScopedDurationTimer()
+		: FScopedDurationTimer(AccumulatorValue)
+	{
+	}
+
+	double GetTime()
+	{
+		Stop();
+		return AccumulatorValue;
+	}
+
+private:
+	double AccumulatorValue;
 };
 
 /**

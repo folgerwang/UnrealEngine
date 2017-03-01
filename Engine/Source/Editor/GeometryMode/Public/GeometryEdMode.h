@@ -250,7 +250,7 @@ public:
 
 	virtual void SelectNone() override;
 	virtual bool BoxSelect( FBox& InBox, bool InSelect = true ) override;
-	virtual bool FrustumSelect( const FConvexVolume& InFrustum, bool InSelect = true ) override;
+	virtual bool FrustumSelect( const FConvexVolume& InFrustum, FEditorViewportClient* InViewportClient, bool InSelect = true ) override;
 
 	/** @name Modifier iterators */
 	//@{

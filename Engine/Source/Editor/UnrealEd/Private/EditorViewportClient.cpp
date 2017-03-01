@@ -43,6 +43,8 @@
 #include "ComponentRecreateRenderStateContext.h"
 #include "EditorBuildUtils.h"
 #include "AudioDevice.h"
+#include "EditorWorldExtension.h"
+#include "ViewportWorldInteraction.h"
 
 #define LOCTEXT_NAMESPACE "EditorViewportClient"
 
@@ -1417,8 +1419,16 @@ EMouseCursor::Type FEditorViewportClient::GetCursor(FViewport* InViewport,int32 
 			}
 		}
 	}
-
-
+	
+	// Allow the viewport interaction to override any previously set mouse cursor
+	UViewportWorldInteraction* WorldInteraction = Cast<UViewportWorldInteraction>(GEditor->GetEditorWorldExtensionsManager()->GetEditorWorldExtensions(GetWorld())->FindExtension(UViewportWorldInteraction::StaticClass()));
+	if (WorldInteraction != nullptr && WorldInteraction->ShouldSuppressExistingCursor())
+	{
+			MouseCursor = EMouseCursor::None;
+			RequiredCursorVisibiltyAndAppearance.bHardwareCursorVisible = false;
+			RequiredCursorVisibiltyAndAppearance.bSoftwareCursorVisible = false;
+			UpdateRequiredCursorVisibility();
+	}
 
 	CachedMouseX = X;
 	CachedMouseY = Y;
@@ -2266,6 +2276,12 @@ bool FEditorViewportClient::InputKey(FViewport* InViewport, int32 ControllerId, 
 
 	// Let the current mode have a look at the input before reacting to it.
 	if (ModeTools->InputKey(this, Viewport, Key, Event))
+	{
+		return true;
+	}
+
+	UEditorWorldExtensionCollection& EditorWorldExtensionCollection = *GEditor->GetEditorWorldExtensionsManager()->GetEditorWorldExtensions( GetWorld() );
+	if( EditorWorldExtensionCollection.InputKey(this, Viewport, Key, Event))
 	{
 		return true;
 	}
@@ -4268,7 +4284,7 @@ void FEditorViewportClient::UpdateRequiredCursorVisibility()
 			return;
 		}
 
-		if( MouseDeltaTracker->UsingDragTool() )
+		if (MouseDeltaTracker->UsingDragTool() )
 		{
 			RequiredCursorVisibiltyAndAppearance.bOverrideAppearance = false;
 		}

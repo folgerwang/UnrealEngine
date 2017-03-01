@@ -36,9 +36,10 @@ namespace VREd
 
 	static FAutoConsoleVariable ScaleProgressBarLength( TEXT( "VREd.ScaleProgressBarLength" ), 50.0f, TEXT( "Length of the progressbar that appears when scaling" ) );
 	static FAutoConsoleVariable ScaleProgressBarRadius( TEXT( "VREd.ScaleProgressBarRadius" ), 1.0f, TEXT( "Radius of the progressbar that appears when scaling" ) );
-
-	static FAutoConsoleVariable ShowMovementGrid( TEXT( "VREd.ShowMovementGrid" ), 1, TEXT( "Showing the ground movement grid" ) );
-	static FAutoConsoleVariable ShowWorldMovementPostProcess( TEXT( "VREd.ShowWorldMovementPostProcess" ), 1, TEXT( "Showing the movement post processing" ) );
+	
+	static FAutoConsoleVariable ShowWorldScaleProgressBar( TEXT( "VREd.ShowWorldScaleProgressBar" ), 0, TEXT( "Whether we show a visual progress bar when scaling the world" ) );
+	static FAutoConsoleVariable ShowMovementGrid( TEXT( "VREd.ShowMovementGrid" ), 0, TEXT( "Showing the ground movement grid" ) );
+	static FAutoConsoleVariable ShowWorldMovementPostProcess( TEXT( "VREd.ShowWorldMovementPostProcess" ), 0, TEXT( "Showing the movement post processing" ) );
 }
 
 AVREditorAvatarActor::AVREditorAvatarActor( const FObjectInitializer& ObjectInitializer ) :
@@ -71,6 +72,7 @@ AVREditorAvatarActor::AVREditorAvatarActor( const FObjectInitializer& ObjectInit
 		HeadMeshComponent->SetStaticMesh( HeadMesh );
 		HeadMeshComponent->SetMobility( EComponentMobility::Movable );
 		HeadMeshComponent->SetCollisionEnabled( ECollisionEnabled::NoCollision );
+		HeadMeshComponent->bSelectable = false;
 	}
 
 	// World movement grid mesh
@@ -84,6 +86,7 @@ AVREditorAvatarActor::AVREditorAvatarActor( const FObjectInitializer& ObjectInit
 		WorldMovementGridMeshComponent->SetStaticMesh( GridMesh );
 		WorldMovementGridMeshComponent->SetMobility( EComponentMobility::Movable );
 		WorldMovementGridMeshComponent->SetCollisionEnabled( ECollisionEnabled::NoCollision );
+		WorldMovementGridMeshComponent->bSelectable = false;
 
 		UMaterialInterface* GridMaterial = LoadObject<UMaterialInterface>( nullptr, TEXT( "/Engine/VREditor/WorldMovementGrid/GridMaterial" ) );
 		check( GridMaterial != nullptr );
@@ -130,6 +133,7 @@ AVREditorAvatarActor::AVREditorAvatarActor( const FObjectInitializer& ObjectInit
 				ScaleProgressMeshComponent->SetCollisionEnabled( ECollisionEnabled::NoCollision );
 				ScaleProgressMeshComponent->SetMaterial( 0, FixedUserScaleMID );
 				ScaleProgressMeshComponent->SetMaterial( 1, TranslucentFixedUserScaleMID );
+				ScaleProgressMeshComponent->bSelectable = false;
 
 				// The user scale indicator starts invisible
 				ScaleProgressMeshComponent->SetVisibility( false );
@@ -146,6 +150,7 @@ AVREditorAvatarActor::AVREditorAvatarActor( const FObjectInitializer& ObjectInit
 				CurrentScaleProgressMeshComponent->SetCollisionEnabled( ECollisionEnabled::NoCollision );
 				CurrentScaleProgressMeshComponent->SetMaterial( 0, CurrentUserScaleMID );
 				CurrentScaleProgressMeshComponent->SetMaterial( 1, TranslucentCurrentUserScaleMID );
+				CurrentScaleProgressMeshComponent->bSelectable = false;
 
 				// The user scale indicator starts invisible
 				CurrentScaleProgressMeshComponent->SetVisibility( false );
@@ -167,6 +172,7 @@ AVREditorAvatarActor::AVREditorAvatarActor( const FObjectInitializer& ObjectInit
 			UserScaleIndicatorText->SetMobility( EComponentMobility::Movable );
 			UserScaleIndicatorText->SetCollisionEnabled( ECollisionEnabled::NoCollision );
 			UserScaleIndicatorText->SetCollisionProfileName( UCollisionProfile::NoCollision_ProfileName );
+			UserScaleIndicatorText->bSelectable = false;
 
 			UserScaleIndicatorText->bGenerateOverlapEvents = false;
 			UserScaleIndicatorText->SetCanEverAffectNavigation( false );
@@ -226,16 +232,16 @@ void AVREditorAvatarActor::Init( UVREditorMode* InVRMode  )
 	// Set the default color for the progress bar
 	{
 		static FName StaticLaserColorName( "LaserColor" );
-		const FLinearColor FixedProgressbarColor = VRMode->GetColor( UVREditorMode::EColors::WorldDraggingColor_TwoHands );
+		const FLinearColor FixedProgressbarColor = VRMode->GetColor( UVREditorMode::EColors::WorldDraggingColor );
 		FixedUserScaleMID->SetVectorParameterValue( StaticLaserColorName, FixedProgressbarColor );
 		TranslucentFixedUserScaleMID->SetVectorParameterValue( StaticLaserColorName, FixedProgressbarColor );
 
-		const FLinearColor CurrentProgressbarColor = VRMode->GetColor( UVREditorMode::EColors::GreenGizmoColor );
+		const FLinearColor CurrentProgressbarColor = VRMode->GetColor( UVREditorMode::EColors::DefaultColor );
 		CurrentUserScaleMID->SetVectorParameterValue( StaticLaserColorName, CurrentProgressbarColor );
 		TranslucentCurrentUserScaleMID->SetVectorParameterValue( StaticLaserColorName, CurrentProgressbarColor );
 	}
 
-	UserScaleIndicatorText->SetTextRenderColor( VRMode->GetColor( UVREditorMode::EColors::WorldDraggingColor_TwoHands ).ToFColor( false ) );
+	UserScaleIndicatorText->SetTextRenderColor( VRMode->GetColor( UVREditorMode::EColors::WorldDraggingColor ).ToFColor( false ) );
 
 	// Tell the grid to stay relative to the rootcomponent
 	const FAttachmentTransformRules AttachmentTransformRules = FAttachmentTransformRules( EAttachmentRule::KeepRelative, true );
@@ -281,7 +287,8 @@ void AVREditorAvatarActor::TickManually( const float DeltaTime )
 		UVREditorInteractor* LeftHandInteractor = VRMode->GetHandInteractor( EControllerHand::Left );
 		UVREditorInteractor* RightHandInteractor = VRMode->GetHandInteractor( EControllerHand::Right );
 
-		if ( LeftHandInteractor != nullptr && RightHandInteractor != nullptr &&
+		if ( VREd::ShowWorldScaleProgressBar->GetInt() != 0 &&
+			LeftHandInteractor != nullptr && RightHandInteractor != nullptr &&
 			 ( ( LeftHandInteractor->GetDraggingMode() == EViewportInteractionDraggingMode::World && RightHandInteractor->GetDraggingMode() == EViewportInteractionDraggingMode::AssistingDrag ) ||
 			   ( LeftHandInteractor->GetDraggingMode() == EViewportInteractionDraggingMode::AssistingDrag && RightHandInteractor->GetDraggingMode() == EViewportInteractionDraggingMode::World ) ) )
 		{

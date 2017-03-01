@@ -1011,6 +1011,7 @@ void UEngine::Init(IEngineLoop* InEngineLoop)
 	// Dynamically load engine runtime modules
 	{
 		FModuleManager::Get().LoadModuleChecked(TEXT("StreamingPauseRendering"));
+		FModuleManager::Get().LoadModuleChecked(TEXT("MeshEditingRuntime"));
 		FModuleManager::Get().LoadModuleChecked(TEXT("Niagara"));
 		FModuleManager::Get().LoadModuleChecked(TEXT("GeometryCache"));
 	}

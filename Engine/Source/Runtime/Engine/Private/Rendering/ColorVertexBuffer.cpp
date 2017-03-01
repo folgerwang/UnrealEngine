@@ -119,14 +119,17 @@ void FColorVertexBuffer::Init(const TArray<FStaticMeshBuildVertex>& InVertices)
 
 		// Allocate the vertex data buffer.
 		VertexData->ResizeBuffer(NumVertices);
-		Data = VertexData->GetDataPointer();
-
-		// Copy the vertices into the buffer.
-		for(int32 VertexIndex = 0;VertexIndex < InVertices.Num();VertexIndex++)
+		if( NumVertices > 0 )
 		{
-			const FStaticMeshBuildVertex& SourceVertex = InVertices[VertexIndex];
-			const uint32 DestVertexIndex = VertexIndex;
-			VertexColor(DestVertexIndex) = SourceVertex.Color;
+			Data = VertexData->GetDataPointer();
+
+			// Copy the vertices into the buffer.
+			for(int32 VertexIndex = 0;VertexIndex < InVertices.Num();VertexIndex++)
+			{
+				const FStaticMeshBuildVertex& SourceVertex = InVertices[VertexIndex];
+				const uint32 DestVertexIndex = VertexIndex;
+				VertexColor(DestVertexIndex) = SourceVertex.Color;
+			}
 		}
 	}
 }
@@ -143,25 +146,38 @@ void FColorVertexBuffer::Init(const FColorVertexBuffer& InVertexBuffer)
 		AllocateData();
 		check( Stride == InVertexBuffer.GetStride() );
 		VertexData->ResizeBuffer(NumVertices);
-		Data = VertexData->GetDataPointer();
-		const uint8* InData = InVertexBuffer.Data;
-		FMemory::Memcpy( Data, InData, Stride * NumVertices );
+		if( NumVertices > 0 )
+		{
+			Data = VertexData->GetDataPointer();
+			const uint8* InData = InVertexBuffer.Data;
+			FMemory::Memcpy( Data, InData, Stride * NumVertices );
+		}
 	}
 }
 
-/**
-* Removes the cloned vertices used for extruding shadow volumes.
-* @param NumVertices - The real number of static mesh vertices which should remain in the buffer upon return.
-*/
-void FColorVertexBuffer::RemoveLegacyShadowVolumeVertices(uint32 InNumVertices)
+void FColorVertexBuffer::AppendVertices( const FStaticMeshBuildVertex* Vertices, const uint32 NumVerticesToAppend )
 {
-	if( VertexData != NULL )
+	check( VertexData != nullptr );	// Must only be called after Init() has already initialized the buffer!
+	if( NumVerticesToAppend > 0 )
 	{
-		VertexData->ResizeBuffer(InNumVertices);
-		NumVertices = InNumVertices;
+		check( Vertices != nullptr );
 
-		// Make a copy of the vertex data pointer.
-		Data = VertexData->GetDataPointer();
+		const uint32 FirstDestVertexIndex = NumVertices;
+		NumVertices += NumVerticesToAppend;
+		VertexData->ResizeBuffer( NumVertices );
+		if( NumVertices > 0 )
+		{
+			Data = VertexData->GetDataPointer();
+
+			// Copy the vertices into the buffer.
+			for( uint32 VertexIter = 0; VertexIter < NumVerticesToAppend; ++VertexIter )
+			{
+				const FStaticMeshBuildVertex& SourceVertex = Vertices[ VertexIter ];
+
+				const uint32 DestVertexIndex = FirstDestVertexIndex + VertexIter;
+				VertexColor( DestVertexIndex ) = SourceVertex.Color;
+			}
+		}
 	}
 }
 
@@ -337,7 +353,10 @@ void FColorVertexBuffer::InitFromColorArray( const FColor *InColors, const uint3
 	}
 
 	// Make a copy of the vertex data pointer.
-	Data = VertexData->GetDataPointer();
+	if( NumVertices > 0 )
+	{
+		Data = VertexData->GetDataPointer();
+	}
 }
 
 uint32 FColorVertexBuffer::GetAllocatedSize() const

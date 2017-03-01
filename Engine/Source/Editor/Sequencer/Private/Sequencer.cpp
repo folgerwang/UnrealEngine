@@ -134,8 +134,9 @@ struct FSequencerTemplateStore : FMovieSceneSequenceTemplateStore
 
 		if (TUniquePtr<FCachedMovieSceneEvaluationTemplate>* ExistingTemplate = Templates.Find(SequenceKey))
 		{
-			(*ExistingTemplate)->Regenerate(TemplateParameters);
-			return **ExistingTemplate;
+			FCachedMovieSceneEvaluationTemplate* Template = ExistingTemplate->Get();
+			Template->Regenerate(TemplateParameters);
+			return *Template;
 		}
 		else
 		{
@@ -501,6 +502,8 @@ void FSequencer::ResetToNewRootSequence(UMovieSceneSequence& NewSequence)
 {
 	RootSequence = &NewSequence;
 	RestorePreAnimatedState();
+
+	RootTemplateInstance.Finish(*this);
 
 	TemplateStore->Reset();
 
@@ -984,6 +987,18 @@ void FSequencer::NotifyMovieSceneDataChanged( EMovieSceneDataChangeType DataChan
 			bNeedTreeRefresh = true;
 		}
 		bNeedInstanceRefresh = true;
+	}
+
+	if (DataChangeType == EMovieSceneDataChangeType::TrackValueChanged || 
+		DataChangeType == EMovieSceneDataChangeType::TrackValueChangedRefreshImmediately || 
+		DataChangeType == EMovieSceneDataChangeType::Unknown ||
+		DataChangeType == EMovieSceneDataChangeType::MovieSceneStructureItemRemoved)
+	{
+		FSequencerEdMode* SequencerEdMode = (FSequencerEdMode*)(GLevelEditorModeTools().GetActiveMode(FSequencerEdMode::EM_SequencerMode));
+		if (SequencerEdMode != nullptr)
+		{
+			SequencerEdMode->CleanUpMeshTrails();
+		}
 	}
 
 	bNeedsEvaluate = true;
@@ -1917,26 +1932,34 @@ void FSequencer::SetViewportSettings(const TMap<FViewportClient*, EMovieSceneVie
 
 	for (FLevelEditorViewportClient* LevelVC : GEditor->LevelViewportClients)
 	{
-		if (LevelVC && LevelVC->IsPerspective() && LevelVC->AllowsCinematicPreview())
+		if (LevelVC && LevelVC->IsPerspective())
 		{
-			if (ViewportParamsMap.Contains(LevelVC))
+			if (LevelVC->AllowsCinematicPreview())
 			{
-				const EMovieSceneViewportParams* ViewportParams = ViewportParamsMap.Find(LevelVC);
-				if (ViewportParams->SetWhichViewportParam & EMovieSceneViewportParams::SVP_FadeAmount)
+				if (ViewportParamsMap.Contains(LevelVC))
 				{
-					LevelVC->FadeAmount = ViewportParams->FadeAmount;
-					LevelVC->bEnableFading = true;
+					const EMovieSceneViewportParams* ViewportParams = ViewportParamsMap.Find(LevelVC);
+					if (ViewportParams->SetWhichViewportParam & EMovieSceneViewportParams::SVP_FadeAmount)
+					{
+						LevelVC->FadeAmount = ViewportParams->FadeAmount;
+						LevelVC->bEnableFading = true;
+					}
+					if (ViewportParams->SetWhichViewportParam & EMovieSceneViewportParams::SVP_FadeColor)
+					{
+						LevelVC->FadeColor = ViewportParams->FadeColor.ToRGBE();
+						LevelVC->bEnableFading = true;
+					}
+					if (ViewportParams->SetWhichViewportParam & EMovieSceneViewportParams::SVP_ColorScaling)
+					{
+						LevelVC->bEnableColorScaling = ViewportParams->bEnableColorScaling;
+						LevelVC->ColorScale = ViewportParams->ColorScale;
+					}
 				}
-				if (ViewportParams->SetWhichViewportParam & EMovieSceneViewportParams::SVP_FadeColor)
-				{
-					LevelVC->FadeColor = ViewportParams->FadeColor.ToRGBE();
-					LevelVC->bEnableFading = true;
-				}
-				if (ViewportParams->SetWhichViewportParam & EMovieSceneViewportParams::SVP_ColorScaling)
-				{
-					LevelVC->bEnableColorScaling = ViewportParams->bEnableColorScaling;
-					LevelVC->ColorScale = ViewportParams->ColorScale;
-				}
+			}
+			else
+			{
+				LevelVC->bEnableFading = false;
+				LevelVC->bEnableColorScaling = false;
 			}
 		}
 	}
@@ -3725,6 +3748,13 @@ void FSequencer::AddActors(const TArray<TWeakObjectPtr<AActor> >& InActors)
 void FSequencer::OnSelectedOutlinerNodesChanged()
 {
 	SynchronizeExternalSelectionWithSequencerSelection();
+	FSequencerEdMode* SequencerEdMode = (FSequencerEdMode*)(GLevelEditorModeTools().GetActiveMode(FSequencerEdMode::EM_SequencerMode));
+	AActor* NewlySelectedActor = GEditor->GetSelectedActors()->GetTop<AActor>();
+	// If we selected an Actor or a node for an Actor that is a potential autokey candidate, clean up any existing mesh trails
+	if (NewlySelectedActor && !NewlySelectedActor->IsEditorOnly())
+	{
+		SequencerEdMode->CleanUpMeshTrails();
+	}
 	OnSelectionChangedObjectGuidsDelegate.Broadcast(Selection.GetBoundObjectsGuids());
 }
 

@@ -103,6 +103,7 @@ public class Engine : ModuleRules
                 "CinematicCamera",
 				"Analytics",
 				"AnalyticsET",
+                "MeshEditingRuntime"
             }
 		);
 
@@ -157,6 +158,8 @@ public class Engine : ModuleRules
         CircularlyReferencedDependentModules.Add("UMG");
         CircularlyReferencedDependentModules.Add("MaterialShaderQualitySettings");
         CircularlyReferencedDependentModules.Add("CinematicCamera");
+        // @todo mesheditor: See if we can find a way to break this cycle later on
+        CircularlyReferencedDependentModules.Add("MeshEditingRuntime");
 
         // The AnimGraphRuntime module is not needed by Engine proper, but it is loaded in LaunchEngineLoop.cpp,
         // and needs to be listed in an always-included module in order to be compiled into standalone games

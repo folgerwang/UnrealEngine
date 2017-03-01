@@ -1609,6 +1609,7 @@ FLODMask FStaticMeshSceneProxy::GetLODMask(const FSceneView* View) const
 				}
 
 			}
+
 			if (bUseDithered)
 			{
 				for (int32 Sample = 0; Sample < 2; Sample++)

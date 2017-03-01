@@ -103,6 +103,7 @@ private:
 	FVertexSnappingImpl VertexSnappingImpl;
 };
 
+
 //////////////////////////////////////////////////////////////////////////
 // FEditorViewportSnapping
 
@@ -287,7 +288,14 @@ bool FEditorViewportSnapping::SnapActorsToNearestActor( FVector& Drag, FLevelEdi
 
 void FEditorViewportSnapping::SnapPointToGrid(FVector& Point, const FVector& GridBase)
 {
-	if( IsSnapToGridEnabled() )
+	/**
+	bool bAlignedSnapUsed = false;
+	if (!LastBestAlignedLocation.IsNearlyZero(EditorViewportSnapping::SnapTolerance->GetFloat()))
+	{
+		Point = LastBestAlignedLocation;
+		bAlignedSnapUsed = true;
+	}**/
+	if(IsSnapToGridEnabled())
 	{
 		Point = (Point - GridBase).GridSnap( GEditor->GetGridSize() ) + GridBase;
 	}
@@ -366,13 +374,15 @@ bool FEditorViewportSnapping::SnapToBSPVertex(FVector& Location, FVector GridBas
 
 void FEditorViewportSnapping::ClearSnappingHelpers( bool bClearImmediately )
 {
-	VertexSnappingImpl.ClearSnappingHelpers( bClearImmediately );
+	VertexSnappingImpl.ClearSnappingHelpers(bClearImmediately);
 }
 
-void FEditorViewportSnapping::DrawSnappingHelpers(const FSceneView* View,FPrimitiveDrawInterface* PDI)
+void FEditorViewportSnapping::DrawSnappingHelpers(const FSceneView* View, FPrimitiveDrawInterface* PDI)
 {
 	VertexSnappingImpl.DrawSnappingHelpers( View, PDI );
 }
+
+
 
 bool FEditorViewportSnapping::SnapLocationToNearestVertex( FVector& Location, const FVector2D& MouseLocation, FLevelEditorViewportClient* ViewportClient, FVector& OutVertexNormal, bool bDrawVertHelpers )
 {
@@ -409,7 +419,6 @@ bool FEditorViewportSnapping::SnapDragLocationToNearestVertex( const FVector& Ba
 	}
 	return bSnapped;
 }
-
 //////////////////////////////////////////////////////////////////////////
 // FSnappingUtils
 

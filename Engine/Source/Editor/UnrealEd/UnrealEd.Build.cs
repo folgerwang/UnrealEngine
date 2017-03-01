@@ -63,8 +63,6 @@ public class UnrealEd : ModuleRules
                 "PortalRpc",
                 "PortalServices",
                 "BlueprintNativeCodeGen",
-                "ViewportInteraction",
-                "VREditor",
                 "Persona",
             }
 		);
@@ -151,8 +149,7 @@ public class UnrealEd : ModuleRules
                 "PixelInspectorModule",
 				"MovieScene",
 				"MovieSceneTracks",
-                "ViewportInteraction",
-                "VREditor"
+                "ViewportInteraction"
             }
 		);
 
@@ -218,7 +215,8 @@ public class UnrealEd : ModuleRules
                 "IOSPlatformEditor",
 				"HTML5PlatformEditor",
 				"SizeMap",
-                "PortalProxies",
+				"MeshEditor",
+				"PortalProxies",
                 "PortalServices",
                 "GeometryCacheEd",
                 "BlueprintNativeCodeGen",
@@ -235,7 +233,8 @@ public class UnrealEd : ModuleRules
 			{
                 "GraphEditor",
 				"Kismet",
-				"AudioEditor"
+				"AudioEditor",
+                "ViewportInteraction"
             }
 		); 
 

@@ -91,6 +91,7 @@ public:
 	bool IntersectBox(const FVector& Origin,const FVector& Extent, bool& bOutFullyContained) const;
 	bool IntersectSphere(const FVector& Origin,const float& Radius) const;
 	bool IntersectSphere(const FVector& Origin,const float& Radius, bool& bOutFullyContained) const;
+	bool IntersectLineSegment(const FVector& Start, const FVector& End) const;
 
 	/**
 	 * Intersection test with a translated axis-aligned box.
@@ -101,8 +102,14 @@ public:
 	 */
 	bool IntersectBox(const FVector& Origin,const FVector& Translation,const FVector& Extent) const;
 
+	/** Determines whether the given point lies inside the convex volume */
+	bool IntersectPoint(const FVector& Point) const
+	{
+		return IntersectSphere(Point, 0.0f);
+	}
+
 	/**
-	 * Serializor
+	 * Serializer
 	 *
 	 * @param	Ar				Archive to serialize data to
 	 * @param	ConvexVolume	Convex volumes to serialize to archive

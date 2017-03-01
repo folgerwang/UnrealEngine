@@ -18,6 +18,9 @@
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
 #include "Engine/LevelStreaming.h"
+#include "ViewportWorldInteraction.h"
+#include "Public/EditorWorldExtension.h"
+#include "Editor/EditorEngine.h"
 
 /*------------------------------------------------------------------------------
 	FEditorModeTools.
@@ -217,7 +220,18 @@ void FEditorModeTools::SetPivotLocation( const FVector& Location, const bool bIn
 
 ECoordSystem FEditorModeTools::GetCoordSystem(bool bGetRawValue)
 {
-	if (!bGetRawValue && (GetWidgetMode() == FWidget::WM_Scale))
+	bool bAligningToActors = false;
+	if (GEditor->GetEditorWorldExtensionsManager() != nullptr)
+	{
+
+		UViewportWorldInteraction* ViewportWorldInteraction = Cast<UViewportWorldInteraction>(GEditor->GetEditorWorldExtensionsManager()->GetEditorWorldExtensions(GetWorld())->FindExtension(UViewportWorldInteraction::StaticClass()));
+		if (ViewportWorldInteraction != nullptr && ViewportWorldInteraction->AreAligningToActors() == true)
+		{
+			bAligningToActors = true;
+		}
+	}
+	if (!bGetRawValue && 
+		((GetWidgetMode() == FWidget::WM_Scale) || bAligningToActors))
 	{
 		return COORD_Local;
 	}
@@ -229,6 +243,20 @@ ECoordSystem FEditorModeTools::GetCoordSystem(bool bGetRawValue)
 
 void FEditorModeTools::SetCoordSystem(ECoordSystem NewCoordSystem)
 {
+	// If we are trying to enter world space but are aligning to actors, turn off aligning to actors
+	if (GEditor->GetEditorWorldExtensionsManager() != nullptr &&
+		NewCoordSystem == COORD_World)
+	{
+		UViewportWorldInteraction* ViewportWorldInteraction = Cast<UViewportWorldInteraction>(GEditor->GetEditorWorldExtensionsManager()->GetEditorWorldExtensions(GetWorld())->FindExtension(UViewportWorldInteraction::StaticClass()));
+		if (ViewportWorldInteraction != nullptr && ViewportWorldInteraction->AreAligningToActors() == true)
+		{
+			if (ViewportWorldInteraction->HasCandidatesSelected())
+			{
+				ViewportWorldInteraction->SetSelectionAsCandidates();
+			}
+			GUnrealEd->Exec(GetWorld(), TEXT("VI.EnableGuides 0"));
+		}
+	}
 	CoordSystem = NewCoordSystem;
 }
 
@@ -569,13 +597,13 @@ bool FEditorModeTools::BoxSelect( FBox& InBox, bool InSelect )
 }
 
 /** Notifies all active modes of frustum selection attempts */
-bool FEditorModeTools::FrustumSelect( const FConvexVolume& InFrustum, bool InSelect )
+bool FEditorModeTools::FrustumSelect( const FConvexVolume& InFrustum, FEditorViewportClient* InViewportClient, bool InSelect )
 {
 	bool bHandled = false;
 	for( int32 ModeIndex = 0; ModeIndex < Modes.Num(); ++ModeIndex )
 	{
 		const TSharedPtr<FEdMode>& Mode = Modes[ ModeIndex ];
-		bHandled |= Mode->FrustumSelect( InFrustum, InSelect );
+		bHandled |= Mode->FrustumSelect( InFrustum, InViewportClient, InSelect );
 	}
 	return bHandled;
 }
