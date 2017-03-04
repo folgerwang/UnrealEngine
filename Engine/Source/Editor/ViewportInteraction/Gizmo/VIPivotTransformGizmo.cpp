@@ -8,7 +8,8 @@
 #include "VIStretchGizmoHandle.h"
 #include "VIUniformScaleGizmoHandle.h"
 #include "ViewportWorldInteraction.h"
-#include "VREditorFloatingText.h"
+#include "ViewportInteractor.h"
+#include "ViewportInteractionAssetContainer.h"
 #include "Materials/Material.h"
 #include "Engine/Font.h"
 #include "Engine/CollisionProfile.h"
@@ -27,10 +28,13 @@ namespace VREd //@todo VREditor: Duplicates of TransformGizmo
 	static FAutoConsoleVariable PivotGizmoPlaneTranslationPivotOffsetYZ(TEXT("VI.PivotGizmoPlaneTranslationPivotOffsetYZ" ), 40.0f, TEXT( "How much the plane translation is offsetted from the pivot" ) );
 	static FAutoConsoleVariable PivotGizmoTranslationScaleMultiply( TEXT( "VI.PivotGizmoTranslationScaleMultiply" ), 2.0f, TEXT( "Multiplies translation handles scale" ) );
 	static FAutoConsoleVariable PivotGizmoTranslationHoverScaleMultiply( TEXT( "VI.PivotGizmoTranslationHoverScaleMultiply" ), 0.75f, TEXT( "Multiplies translation handles hover scale" ) );
+	static FAutoConsoleVariable PivotGizmoAimAtShrinkSize( TEXT( "VI.PivotGizmoAimAtShrinkSize" ), 0.3f, TEXT( "The minimum size when not aiming at the gizmo (0 to 1)" ) );
+	static FAutoConsoleVariable PivotGizmoAimAtAnimationSpeed( TEXT( "VI.PivotGizmoAimAtAnimationSpeed" ), 0.15f, TEXT( "The speed to animate to the gizmo full size when aiming at it" ) );
 }
 
 APivotTransformGizmo::APivotTransformGizmo() :
-	Super()
+	Super(),
+	AimingAtMeFadeAlpha(0.0f)
 {
 	UniformScaleGizmoHandleGroup = CreateDefaultSubobject<UUniformScaleGizmoHandleGroup>( TEXT( "UniformScaleHandles" ), true );
 	UniformScaleGizmoHandleGroup->SetOwningTransformGizmo(this);
@@ -89,9 +93,45 @@ void APivotTransformGizmo::UpdateGizmo(const EGizmoHandleTypes InGizmoType, cons
 
 	// Increase scale with distance, to make gizmo handles easier to click on
 	const float WorldSpaceDistanceToToPivot = FMath::Max(VREd::PivotGizmoMinDistanceForScaling->GetFloat(), FMath::Sqrt(FVector::DistSquared( GetActorLocation(), InViewLocation )));
-	const float WorldScaleFactor = GetWorld()->GetWorldSettings()->WorldToMeters / 100.0f;
-	const float GizmoScale(InScaleMultiplier * ((WorldSpaceDistanceToToPivot / WorldScaleFactor) * VREd::PivotGizmoDistanceScaleFactor->GetFloat() ) * WorldScaleFactor);
+	const float WorldScaleFactor = WorldInteraction->GetWorldScaleFactor();
+	float GizmoScale = (InScaleMultiplier * ((WorldSpaceDistanceToToPivot / WorldScaleFactor) * VREd::PivotGizmoDistanceScaleFactor->GetFloat())) * WorldScaleFactor;
 	const bool bIsWorldSpaceGizmo = (WorldInteraction->GetTransformGizmoCoordinateSpace() == COORD_World);
+
+	// Only scale the gizmo down when not aiming at it for VR implementations
+	if (WorldInteraction->IsInVR())
+	{
+		bool bIsAimingTowards = false;
+		const float GizmoRadius = (GizmoScale * 350) * 0.5f; //@todo ViewportInteraction: Hardcoded radius multiplier.
+
+		// Check if any interactor has a laser close to the gizmo
+		for (UViewportInteractor* Interactor : WorldInteraction->GetInteractors())
+		{	
+			FVector LaserPointerStart, LaserPointerEnd;
+			if (Interactor->GetLaserPointer(/*Out*/ LaserPointerStart, /*Out*/ LaserPointerEnd))
+			{
+				const FVector ClosestPointOnLaser = FMath::ClosestPointOnLine(LaserPointerStart, LaserPointerEnd, InLocalToWorld.GetLocation());
+				const float ClosestPointDistance = (ClosestPointOnLaser - InLocalToWorld.GetLocation()).Size();
+				if (ClosestPointDistance <= GizmoRadius)
+				{
+					bIsAimingTowards = true;
+					break;
+				}
+			}
+		}
+
+		const float DeltaTime = WorldInteraction->GetCurrentDeltaTime();
+		if (bIsAimingTowards)
+		{
+			AimingAtMeFadeAlpha += DeltaTime / VREd::PivotGizmoAimAtAnimationSpeed->GetFloat();
+		}
+		else
+		{
+			AimingAtMeFadeAlpha -= DeltaTime / VREd::PivotGizmoAimAtAnimationSpeed->GetFloat();
+		}
+		AimingAtMeFadeAlpha = FMath::Clamp(AimingAtMeFadeAlpha, VREd::PivotGizmoAimAtShrinkSize->GetFloat(), 1.0f);
+
+		GizmoScale *= AimingAtMeFadeAlpha;
+	}
 
 	// Update animation
 	float AnimationAlpha = GetAnimationAlpha();
@@ -120,14 +160,8 @@ void APivotTransformGizmo::UpdateGizmo(const EGizmoHandleTypes InGizmoType, cons
 UPivotTranslationGizmoHandleGroup::UPivotTranslationGizmoHandleGroup() :
 	Super()
 {
-	UStaticMesh* TranslationHandleMesh = nullptr;
-	{
-		static ConstructorHelpers::FObjectFinder<UStaticMesh> ObjectFinder( TEXT( "/Engine/VREditor/TransformGizmo/TranslateArrowHandle" ) );
-		TranslationHandleMesh = ObjectFinder.Object;
-		check( TranslationHandleMesh != nullptr );
-	}
-
-	CreateHandles( TranslationHandleMesh, FString( "PivotTranslationHandle" ) );
+	const UViewportInteractionAssetContainer& AssetContainer = UViewportWorldInteraction::LoadAssetContainer();
+	CreateHandles( AssetContainer.TranslationHandleMesh, FString( "PivotTranslationHandle" ) );
 }
 
 
@@ -160,14 +194,8 @@ EGizmoHandleTypes UPivotTranslationGizmoHandleGroup::GetHandleType() const
 UPivotScaleGizmoHandleGroup::UPivotScaleGizmoHandleGroup() :
 	Super()
 {
-	UStaticMesh* ScaleHandleMesh = nullptr;
-	{
-		static ConstructorHelpers::FObjectFinder<UStaticMesh> ObjectFinder( TEXT( "/Engine/VREditor/TransformGizmo/UniformScaleHandle" ) );
-		ScaleHandleMesh = ObjectFinder.Object;
-		check( ScaleHandleMesh != nullptr );
-	}
-
-	CreateHandles( ScaleHandleMesh, FString( "PivotScaleHandle" ) );	
+	const UViewportInteractionAssetContainer& AssetContainer = UViewportWorldInteraction::LoadAssetContainer();
+	CreateHandles( AssetContainer.UniformScaleHandleMesh, FString( "PivotScaleHandle" ) );	
 }
 
 void UPivotScaleGizmoHandleGroup::UpdateGizmoHandleGroup( const FTransform& LocalToWorld, const FBox& LocalBounds, const FVector ViewLocation, const bool bAllHandlesVisible, class UActorComponent* DraggingHandle, 
@@ -201,14 +229,8 @@ bool UPivotScaleGizmoHandleGroup::SupportsWorldCoordinateSpace() const
 UPivotPlaneTranslationGizmoHandleGroup::UPivotPlaneTranslationGizmoHandleGroup() :
 	Super()
 {
-	UStaticMesh* TranslationHandleMesh = nullptr;
-	{
-		static ConstructorHelpers::FObjectFinder<UStaticMesh> ObjectFinder( TEXT( "/Engine/VREditor/TransformGizmo/PlaneTranslationHandle" ) );
-		TranslationHandleMesh = ObjectFinder.Object;
-		check( TranslationHandleMesh != nullptr );
-	}
-
-	CreateHandles( TranslationHandleMesh, FString( "PlaneTranslationHandle" ) );
+	const UViewportInteractionAssetContainer& AssetContainer = UViewportWorldInteraction::LoadAssetContainer();
+	CreateHandles( AssetContainer.PlaneTranslationHandleMesh, FString( "PlaneTranslationHandle" ) );
 }
 
 void UPivotPlaneTranslationGizmoHandleGroup::UpdateGizmoHandleGroup( const FTransform& LocalToWorld, const FBox& LocalBounds, const FVector ViewLocation, const bool bAllHandlesVisible, class UActorComponent* DraggingHandle,
@@ -238,24 +260,18 @@ EGizmoHandleTypes UPivotPlaneTranslationGizmoHandleGroup::GetHandleType() const
 UPivotRotationGizmoHandleGroup::UPivotRotationGizmoHandleGroup() :
 	Super()
 {
-	UStaticMesh* QuarterRotationHandleMesh = nullptr;
-	{
-		static ConstructorHelpers::FObjectFinder<UStaticMesh> ObjectFinder(TEXT("/Engine/VREditor/TransformGizmo/RotationHandleQuarter"));
-		QuarterRotationHandleMesh = ObjectFinder.Object;
-		check(QuarterRotationHandleMesh != nullptr);
-	}
+	const UViewportInteractionAssetContainer& AssetContainer = UViewportWorldInteraction::LoadAssetContainer();
 
+	UStaticMesh* QuarterRotationHandleMesh = AssetContainer.RotationHandleMesh;
 	CreateHandles(QuarterRotationHandleMesh, FString("RotationHandle"));
-
 
 	{
 		RootFullRotationHandleComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootFullRotationHandleComponent"));
 		RootFullRotationHandleComponent->SetMobility(EComponentMobility::Movable);
 		RootFullRotationHandleComponent->SetupAttachment(this);
 
-		static ConstructorHelpers::FObjectFinder<UStaticMesh> ObjectFinder(TEXT("/Engine/VREditor/TransformGizmo/RotationHandleFull"));
-		UStaticMesh* FullRotationHandleMesh = ObjectFinder.Object;
-		check(QuarterRotationHandleMesh != nullptr);
+		UStaticMesh* FullRotationHandleMesh = AssetContainer.RotationHandleSelectedMesh;
+		check(FullRotationHandleMesh != nullptr);
 
 		FullRotationHandleMeshComponent = CreateMeshHandle(FullRotationHandleMesh, FString("FullRotationHandle"));
 		FullRotationHandleMeshComponent->SetVisibility(false);
@@ -264,8 +280,7 @@ UPivotRotationGizmoHandleGroup::UPivotRotationGizmoHandleGroup() :
 	}
 
 	{
-		static ConstructorHelpers::FObjectFinder<UStaticMesh> ObjectFinder(TEXT("/Engine/VREditor/TransformGizmo/StartRotationHandleIndicator"));
-		UStaticMesh* RotationHandleIndicatorMesh = ObjectFinder.Object;
+		UStaticMesh* RotationHandleIndicatorMesh = AssetContainer.StartRotationIndicatorMesh;
 		check(RotationHandleIndicatorMesh != nullptr);
 
 		//Start rotation indicator
@@ -275,8 +290,7 @@ UPivotRotationGizmoHandleGroup::UPivotRotationGizmoHandleGroup() :
 	}
 
 	{
-		static ConstructorHelpers::FObjectFinder<UStaticMesh> ObjectFinder(TEXT("/Engine/VREditor/TransformGizmo/RotationHandleIndicator"));
-		UStaticMesh* RotationHandleIndicatorMesh = ObjectFinder.Object;
+		UStaticMesh* RotationHandleIndicatorMesh = AssetContainer.CurrentRotationIndicatorMesh;
 		check(RotationHandleIndicatorMesh != nullptr);
 
 		//Delta rotation indicator
@@ -286,18 +300,14 @@ UPivotRotationGizmoHandleGroup::UPivotRotationGizmoHandleGroup() :
 	}
 
 	{
-		UMaterialInstance* MaterialInst = LoadObject<UMaterialInstance>(nullptr, TEXT("/Engine/VREditor/TransformGizmo/TransformGizmoMaterial_Inst"));
-		check(MaterialInst != nullptr);
-		UMaterialInstanceDynamic* DynamicMaterialInst = UMaterialInstanceDynamic::Create(MaterialInst, GetTransientPackage());
+		UMaterialInstanceDynamic* DynamicMaterialInst = UMaterialInstanceDynamic::Create(AssetContainer.TransformGizmoMaterial, GetTransientPackage());
 		check(DynamicMaterialInst != nullptr);
 
 		DeltaRotationIndicatorMeshComponent->SetMaterial(0, DynamicMaterialInst);
 		StartRotationIndicatorMeshComponent->SetMaterial(0, DynamicMaterialInst);
 		FullRotationHandleMeshComponent->SetMaterial(0, DynamicMaterialInst);
 
-		UMaterialInstance* TranslucentMaterialInst = LoadObject<UMaterialInstance>(nullptr, TEXT("/Engine/VREditor/TransformGizmo/TranslucentTransformGizmoMaterial_Inst"));
-		check(TranslucentMaterialInst != nullptr);
-		UMaterialInstanceDynamic* TranslucentDynamicMaterialInst = UMaterialInstanceDynamic::Create(TranslucentMaterialInst, GetTransientPackage());
+		UMaterialInstanceDynamic* TranslucentDynamicMaterialInst = UMaterialInstanceDynamic::Create(AssetContainer.TranslucentTransformGizmoMaterial, GetTransientPackage());
 		check(TranslucentDynamicMaterialInst != nullptr);
 
 		DeltaRotationIndicatorMeshComponent->SetMaterial(1, TranslucentDynamicMaterialInst);

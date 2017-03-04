@@ -198,9 +198,9 @@ public:
 	/** @return Returns the type of HMD we're dealing with */
 	EHMDDeviceType::Type GetHMDDeviceType() const;
 
-	/** @return Checks to see if the specified hand is aiming roughly toward the specified capsule */
-	bool IsHandAimingTowardsCapsule( class UViewportInteractor* Interactor, const FTransform& CapsuleTransform, const FVector CapsuleStart, const FVector CapsuleEnd, const float CapsuleRadius, const float MinDistanceToCapsule, const FVector CapsuleFrontDirection, const float MinDotForAimingAtCapsule ) const;
-	
+	/** @return Checks to see if the specified interactor is aiming roughly toward the specified capsule */
+	bool IsHandAimingTowardsCapsule(class UViewportInteractor* Interactor, const FTransform& CapsuleTransform, const FVector CapsuleStart, const FVector CapsuleEnd, const float CapsuleRadius, const float MinDistanceToCapsule, const FVector CapsuleFrontDirection, const float MinDotForAimingAtCapsule) const;
+
 	/** Gets the hand interactor  */
 	class UVREditorInteractor* GetHandInteractor( const EControllerHand ControllerHand ) const;
 
@@ -268,8 +268,9 @@ public:
 	/** Create a static motion controller mesh for the current HMD platform */
 	UStaticMeshComponent* CreateMotionControllerMesh( AActor* OwningActor, USceneComponent* AttachmentToComponent );
 
-	/** Helper function to create a static mesh */
+	/** Helper functions to create a static mesh */
 	UStaticMeshComponent* CreateMesh( AActor* OwningActor, const FString& MeshName, USceneComponent* AttachmentToComponent /*= nullptr */ );
+	UStaticMeshComponent* CreateMesh(AActor* OwningActor, UStaticMesh* Mesh, USceneComponent* AttachmentToComponent /*= nullptr */);
 
 	/** Sets a delegate for the context-specific actions menu */
 	void SetActionsMenuGenerator(const FOnRadialMenuGenerated NewMenuGenerator, const FText NewLabel);
@@ -287,7 +288,7 @@ public:
 	bool GetStartedPlayFromVREditor() const;
 	
 	/** Gets the container for all the assets of VREditor. */
-	const struct FVREditorAssetContainer& GetAssetContainer() const;
+	const class UVREditorAssetContainer& GetAssetContainer() const;
 	
 	/** Plays sound at location. */
 	void PlaySound(USoundBase* SoundBase, const FVector& InWorldLocation, const float InVolume = 1.0f);
@@ -458,6 +459,9 @@ public:
 	/** Returns the currently active sequencer */
 	class ISequencer* GetCurrentSequencer();
 
+	/** The asset container path */
+	static const FString AssetContainerPath;
+
 private:
 
 	// All the colors for this mode
@@ -479,5 +483,6 @@ private:
 	bool bStartedPlayFromVREditor;	
 	
 	/** Container of assets */
-	TSharedPtr<const struct FVREditorAssetContainer> AssetContainer;
+	UPROPERTY()
+	class UVREditorAssetContainer* AssetContainer;
 };

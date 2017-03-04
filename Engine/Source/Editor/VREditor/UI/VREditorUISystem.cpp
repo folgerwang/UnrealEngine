@@ -1354,7 +1354,7 @@ void UVREditorUISystem::ShowEditorUIPanel(AVREditorFloatingUI* Panel, UVREditorI
 
 		if( bPlaySound )
 		{
-			const FVREditorAssetContainer& AssetContainer = VRMode->GetAssetContainer();
+			const UVREditorAssetContainer& AssetContainer = VRMode->GetAssetContainer();
 			VRMode->PlaySound(bShouldShow ? AssetContainer.DockableWindowOpenSound : AssetContainer.DockableWindowCloseSound, Panel->GetActorLocation());
 		}
 	}
@@ -1565,7 +1565,7 @@ void UVREditorUISystem::TogglePanelsVisibility()
 	if (UIInteractor)
 	{
 		// Play sound
-		const FVREditorAssetContainer& AssetContainer = VRMode->GetAssetContainer();
+		const UVREditorAssetContainer& AssetContainer = VRMode->GetAssetContainer();
 		VRMode->PlaySound(bShowUI ? AssetContainer.DockableWindowOpenSound : AssetContainer.DockableWindowCloseSound, UIInteractor->GetTransform().GetLocation());
 	}
 }
@@ -1796,7 +1796,7 @@ TSharedRef<SWidget> UVREditorUISystem::AddHoverableButton(TSharedRef<SWidget>& B
 		Button->SetRenderTransformPivot(FVector2D(0.5, 0.5));
 		FSlateSound SlateButtonPressSound = FSlateSound();
 
-		const FVREditorAssetContainer& AssetContainer = VRMode->GetAssetContainer();
+		const UVREditorAssetContainer& AssetContainer = VRMode->GetAssetContainer();
 		SlateButtonPressSound.SetResourceObject(AssetContainer.ButtonPressSound);
 		Button->SetPressedSound(SlateButtonPressSound);
 	}

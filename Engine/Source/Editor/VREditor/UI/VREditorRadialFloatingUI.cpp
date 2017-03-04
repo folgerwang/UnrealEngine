@@ -39,6 +39,8 @@ AVREditorRadialFloatingUI::AVREditorRadialFloatingUI()
 
 	DefaultGlowAmount = 2.0f;
 
+	UVREditorAssetContainer* AssetContainer = LoadObject<UVREditorAssetContainer>(nullptr, *UVREditorMode::AssetContainerPath);
+
 	{
 		WindowMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WindowMesh"));
 		WindowMeshComponent->SetMobility(EComponentMobility::Movable);
@@ -47,12 +49,7 @@ AVREditorRadialFloatingUI::AVREditorRadialFloatingUI()
 		WindowMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 		WindowMeshComponent->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 
-		UStaticMesh* RadialMesh = nullptr;
-		{
-			RadialMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/VREditor/UI/SM_Radial_Disk"));
-			check(RadialMesh != nullptr);
-		}
-		WindowMeshComponent->SetStaticMesh(RadialMesh);
+		WindowMeshComponent->SetStaticMesh(AssetContainer->RadialMenuMainMesh);
 		WindowMeshComponent->CreateAndSetMaterialInstanceDynamic(0);
 		UMaterialInstanceDynamic* DiskMaterial = Cast<UMaterialInstanceDynamic>(WindowMeshComponent->GetMaterial(0));
 		GlowAmount = DefaultGlowAmount;
@@ -77,12 +74,7 @@ AVREditorRadialFloatingUI::AVREditorRadialFloatingUI()
 		ArrowMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 		ArrowMeshComponent->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 
-		UStaticMesh* ArrowMesh = nullptr;
-		{
-			ArrowMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/VREditor/UI/SM_Radial_Pointer"));
-			check(ArrowMesh != nullptr);
-		}
-		ArrowMeshComponent->SetStaticMesh(ArrowMesh);
+		ArrowMeshComponent->SetStaticMesh(AssetContainer->RadialMenuPointerMesh);
 		ArrowMeshComponent->bGenerateOverlapEvents = false;
 		ArrowMeshComponent->SetCanEverAffectNavigation(false);
 		ArrowMeshComponent->bCastDynamicShadow = false;
@@ -388,7 +380,7 @@ void AVREditorRadialFloatingUI::ShowUI( const bool bShow, const bool bAllowFadin
 
 		if (VRMode != nullptr && bPlaySound)
 		{
-			const FVREditorAssetContainer& AssetContainer = VRMode->GetAssetContainer();
+			const UVREditorAssetContainer& AssetContainer = VRMode->GetAssetContainer();
 			VRMode->PlaySound(bShow ? AssetContainer.RadialMenuOpenSound : AssetContainer.RadialMenuCloseSound, GetActorLocation());
 		}
 

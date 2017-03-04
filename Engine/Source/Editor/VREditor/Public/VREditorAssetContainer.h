@@ -2,81 +2,150 @@
 
 #pragma once
 
-#include "SlateWidgetStyleContainerBase.h"
-#include "SlateWidgetStyle.h"
-#include "Sound/SoundBase.h"
+#include "Engine/DataAsset.h"
 #include "VREditorAssetContainer.generated.h"
 
+
+// Forward declarations
+class USoundBase;
+class USoundCue;
+class UStaticMesh;
+class UMaterial;
+class UMaterialInterface;
+class UMaterialInstance;
+class UFont;
+
 /**
- * Represents the common menu sounds used in viewport interaction
+ * Asset container for VREditor.
  */
-USTRUCT()
-struct FVREditorAssetContainer : public FSlateWidgetStyle
+UCLASS()
+class VREDITOR_API UVREditorAssetContainer : public UDataAsset
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
-	FVREditorAssetContainer();
-	virtual ~FVREditorAssetContainer();
+public:
+	
+	//
+	// Sounds
+	//
 
-	// FSlateWidgetStyle
-	virtual void GetResources(TArray<const FSlateBrush*>& OutBrushes) const override;
-	static const FName TypeName;
-	virtual const FName GetTypeName() const override { return TypeName; };
-	static const FVREditorAssetContainer& GetDefault();
-
-	/** The sound that should play when starting the game */
 	UPROPERTY(EditAnywhere, Category = Sound)
 	USoundBase* DockableWindowCloseSound;
-	FVREditorAssetContainer& SetDockableWindowCloseSound(USoundBase* InSound) { DockableWindowCloseSound = InSound; return *this; }
 
 	UPROPERTY(EditAnywhere, Category = Sound)
 	USoundBase* DockableWindowOpenSound;
-	FVREditorAssetContainer& SetDockableWindowOpenSound(USoundBase* InSound) { DockableWindowOpenSound = InSound; return *this; }
 
 	UPROPERTY(EditAnywhere, Category = Sound)
 	USoundBase* DockableWindowDropSound;
-	FVREditorAssetContainer& SetDockableWindowDropSound(USoundBase* InSound) { DockableWindowDropSound = InSound; return *this; }
 
 	UPROPERTY(EditAnywhere, Category = Sound)
 	USoundBase* DockableWindowDragSound;
-	FVREditorAssetContainer& SetDockableWindowDragSound(USoundBase* InSound) { DockableWindowDragSound = InSound; return *this; }
 
 	UPROPERTY(EditAnywhere, Category = Sound)
 	USoundBase* DropFromContentBrowserSound;
-	FVREditorAssetContainer& SetDropFromContentBrowserSound(USoundBase* InSound) { DropFromContentBrowserSound = InSound; return *this; }
 
 	UPROPERTY(EditAnywhere, Category = Sound)
 	USoundBase* RadialMenuOpenSound;
-	FVREditorAssetContainer& SetRadialMenuOpenSound(USoundBase* InSound) { RadialMenuOpenSound = InSound; return *this; }
 
 	UPROPERTY(EditAnywhere, Category = Sound)
 	USoundBase* RadialMenuCloseSound;
-	FVREditorAssetContainer& SetRadialMenuCloseSound(USoundBase* InSound) { RadialMenuCloseSound = InSound; return *this; }
 
 	UPROPERTY(EditAnywhere, Category = Sound)
 	USoundBase* TeleportSound;
-	FVREditorAssetContainer& SetTeleportSound(USoundBase* InSound) { TeleportSound = InSound; return *this; }
 
 	UPROPERTY(EditAnywhere, Category = Sound)
 	USoundCue* ButtonPressSound;
-	FVREditorAssetContainer& SetTeleportSound(USoundCue* InSound) { ButtonPressSound = InSound; return *this; }
-};
 
+	//
+	// Meshes
+	//
 
-/**
- */
-UCLASS(hidecategories=Object, MinimalAPI)
-class UVREditorStyleContainer : public USlateWidgetStyleContainerBase
-{
-	GENERATED_UCLASS_BODY()
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* GenericHMDMesh;
 
-public:
-	/** The actual data describing the sounds */
-	UPROPERTY(Category=Appearance, EditAnywhere, meta=(ShowOnlyInnerProperties))
-	FVREditorAssetContainer SoundsStyle;
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* PlaneMesh;
 
-	virtual const struct FSlateWidgetStyle* const GetStyle() const override
-	{
-		return static_cast< const struct FSlateWidgetStyle* >( &SoundsStyle );
-	}
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* CylinderMesh;
+
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* LaserPointerStartMesh;
+
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* LaserPointerMesh;
+
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* LaserPointerEndMesh;
+
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* LaserPointerHoverMesh;
+
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* VivePreControllerMesh;
+
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* OculusControllerMesh;
+
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* GenericControllerMesh;
+
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* TeleportRootMesh;
+
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* WindowMesh;
+
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* WindowSelectionBarMesh;
+
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* WindowCloseButtonMesh;
+
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* RadialMenuMainMesh;
+
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* RadialMenuPointerMesh;
+	
+	//
+	// Materials
+	//
+
+	UPROPERTY(EditAnywhere, Category = Material)
+	UMaterialInterface* GridMaterial;
+
+	UPROPERTY(EditAnywhere, Category = Material)
+	UMaterialInterface* LaserPointerMaterial;
+
+	UPROPERTY(EditAnywhere, Category = Material)
+	UMaterialInterface* LaserPointerTranslucentMaterial;
+
+	UPROPERTY(EditAnywhere, Category = Material)
+	UMaterial* WorldMovementPostProcessMaterial;
+
+	UPROPERTY(EditAnywhere, Category = Material)
+	UMaterialInterface* TextMaterial;
+	
+	UPROPERTY(EditAnywhere, Category = Material)
+	UMaterialInterface* VivePreControllerMaterial;
+
+	UPROPERTY(EditAnywhere, Category = Material)
+	UMaterialInterface* OculusControllerMaterial;
+
+	UPROPERTY(EditAnywhere, Category = Material)
+	UMaterialInterface* TeleportMaterial;
+
+	UPROPERTY(EditAnywhere, Category = Material)
+	UMaterialInterface* WindowMaterial;
+
+	UPROPERTY(EditAnywhere, Category = Material)
+	UMaterialInterface* WindowTranslucentMaterial;
+
+	//
+	// Fonts
+	//
+
+	UPROPERTY(EditAnywhere, Category = Font)
+	UFont* TextFont;
 };

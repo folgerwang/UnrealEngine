@@ -11,6 +11,7 @@
 #include "VREditorWidgetComponent.h"
 #include "ViewportWorldInteraction.h"
 #include "VREditorInteractor.h"
+#include "VREditorAssetContainer.h"
 
 namespace VREd
 {
@@ -33,23 +34,20 @@ AVREditorDockableWindow::AVREditorDockableWindow() :
 	CloseButtonHoverAlpha(0.0f),
 	DockSelectDistance(0.0f)
 {
+	UVREditorAssetContainer* AssetContainer = LoadObject<UVREditorAssetContainer>(nullptr, *UVREditorMode::AssetContainerPath);
 
-	UStaticMesh* WindowMesh = nullptr;
 	{
-		static ConstructorHelpers::FObjectFinder<UStaticMesh> ObjectFinder(TEXT("/Engine/VREditor/UI/SM_ContentWindow_01"));
-		WindowMesh = ObjectFinder.Object;
-		check(WindowMesh != nullptr);
+		UStaticMesh* WindowMesh = AssetContainer->WindowMesh;
+		WindowMeshComponent->SetStaticMesh(WindowMesh);
+		check(WindowMeshComponent != nullptr);
 	}
-	WindowMeshComponent->SetStaticMesh(WindowMesh);
+
+	UMaterialInterface* HoverMaterial = AssetContainer->WindowMaterial;
+	UMaterialInterface* TranslucentHoverMaterial = AssetContainer->WindowMaterial;
 
 	const FRotator RelativeRotation(30.f, 0.f, 0.f);
 	{
-		UStaticMesh* SelectionMesh = nullptr;
-		{
-			static ConstructorHelpers::FObjectFinder<UStaticMesh> ObjectFinder( TEXT( "/Engine/VREditor/TransformGizmo/SM_Dialog_Move" ) );
-			SelectionMesh = ObjectFinder.Object;
-			check( SelectionMesh != nullptr );
-		}
+		UStaticMesh* SelectionMesh = AssetContainer->WindowSelectionBarMesh;
 
 		SelectionBarMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>( TEXT( "SelectionBarMesh" ) );
 		SelectionBarMeshComponent->SetStaticMesh( SelectionMesh );
@@ -63,34 +61,17 @@ AVREditorDockableWindow::AVREditorDockableWindow() :
 		SelectionBarMeshComponent->bAffectDistanceFieldLighting = false;
 		SelectionBarMeshComponent->SetRelativeRotation(RelativeRotation);
 
-		UMaterial* HoverMaterial = nullptr;
-		{
-			static ConstructorHelpers::FObjectFinder<UMaterial> ObjectFinder( TEXT( "/Engine/VREditor/TransformGizmo/TransformGizmoMaterial" ) );
-			HoverMaterial = ObjectFinder.Object;
-			check( HoverMaterial != nullptr );
-		}
+
 		SelectionBarMID = UMaterialInstanceDynamic::Create( HoverMaterial, GetTransientPackage() );
 		check( SelectionBarMID != nullptr );
 		SelectionBarMeshComponent->SetMaterial( 0, SelectionBarMID );
-
-		UMaterial* TranslucentHoverMaterial = nullptr;
-		{
-			static ConstructorHelpers::FObjectFinder<UMaterial> ObjectFinder( TEXT( "/Engine/VREditor/TransformGizmo/TranslucentTransformGizmoMaterial" ) );
-			TranslucentHoverMaterial = ObjectFinder.Object;
-			check( TranslucentHoverMaterial != nullptr );
-		}
 		SelectionBarTranslucentMID = UMaterialInstanceDynamic::Create( TranslucentHoverMaterial, GetTransientPackage() );
 		check( SelectionBarTranslucentMID != nullptr );
 		SelectionBarMeshComponent->SetMaterial( 1, SelectionBarTranslucentMID );
 	}
 
 	{
-		UStaticMesh* CloseButtonMesh = nullptr;
-		{
-			static ConstructorHelpers::FObjectFinder<UStaticMesh> ObjectFinder( TEXT( "/Engine/VREditor/TransformGizmo/SM_Dialog_Close" ) );
-			CloseButtonMesh = ObjectFinder.Object;
-			check( CloseButtonMesh != nullptr );
-		}
+		UStaticMesh* CloseButtonMesh = AssetContainer->WindowCloseButtonMesh;
 
 		CloseButtonMeshComponent= CreateDefaultSubobject<UStaticMeshComponent>( TEXT( "CloseButtonMesh" ) );
 		CloseButtonMeshComponent->SetStaticMesh( CloseButtonMesh );
@@ -104,22 +85,9 @@ AVREditorDockableWindow::AVREditorDockableWindow() :
 		CloseButtonMeshComponent->bAffectDistanceFieldLighting = false;
 		CloseButtonMeshComponent->SetRelativeRotation(RelativeRotation);
 
-		UMaterial* HoverMaterial = nullptr;
-		{
-			static ConstructorHelpers::FObjectFinder<UMaterial> ObjectFinder( TEXT( "/Engine/VREditor/TransformGizmo/TransformGizmoMaterial" ) );
-			HoverMaterial = ObjectFinder.Object;
-			check( HoverMaterial != nullptr );
-		}
 		CloseButtonMID = UMaterialInstanceDynamic::Create( HoverMaterial, GetTransientPackage() );
 		check( CloseButtonMID != nullptr );
 		CloseButtonMeshComponent->SetMaterial( 0, CloseButtonMID );
-
-		UMaterial* TranslucentHoverMaterial = nullptr;
-		{
-			static ConstructorHelpers::FObjectFinder<UMaterial> ObjectFinder( TEXT( "/Engine/VREditor/TransformGizmo/TranslucentTransformGizmoMaterial" ) );
-			TranslucentHoverMaterial = ObjectFinder.Object;
-			check( TranslucentHoverMaterial != nullptr );
-		}
 		CloseButtonTranslucentMID = UMaterialInstanceDynamic::Create( TranslucentHoverMaterial, GetTransientPackage() );
 		check( CloseButtonTranslucentMID != nullptr );
 		CloseButtonMeshComponent->SetMaterial( 1, CloseButtonTranslucentMID );

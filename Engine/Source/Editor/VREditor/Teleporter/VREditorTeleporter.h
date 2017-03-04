@@ -75,7 +75,8 @@ private:
 	/** Calculated the scale for animation */
 	float CalculateAnimatedScaleFactor() const;
 
-	void ResetTeleporter();
+	/** Get slide delta to push/pull or scale the teleporter */
+	float GetSlideDelta(UVREditorMotionControllerInteractor* Interactor, const bool Axis);
 	
 	/** The owning VR mode */
 	UPROPERTY()

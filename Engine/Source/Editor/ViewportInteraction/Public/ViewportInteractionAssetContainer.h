@@ -2,74 +2,95 @@
 
 #pragma once
 
-#include "SlateWidgetStyleContainerBase.h"
-#include "SlateWidgetStyle.h"
-#include "Sound/SoundBase.h"
+#include "Engine/DataAsset.h"
 #include "ViewportInteractionAssetContainer.generated.h"
 
+// Forward declarations
+class USoundBase;
+
 /**
- * Represents the common menu sounds used in viewport interaction
+ * Asset container for viewport interaction.
  */
-USTRUCT()
-struct FViewportInteractionAssetContainer : public FSlateWidgetStyle
+UCLASS()
+class VIEWPORTINTERACTION_API UViewportInteractionAssetContainer : public UDataAsset
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
-	FViewportInteractionAssetContainer();
-	virtual ~FViewportInteractionAssetContainer();
+public:
 
-	// FSlateWidgetStyle
-	virtual void GetResources(TArray<const FSlateBrush*>& OutBrushes) const override;
-	static const FName TypeName;
-	virtual const FName GetTypeName() const override { return TypeName; };
-	static const FViewportInteractionAssetContainer& GetDefault();
+	//
+	// Sound
+	//
 
-	/** The sound that should play when starting the game */
 	UPROPERTY(EditAnywhere, Category = Sound)
 	USoundBase* GizmoHandleSelectedSound;
-	FViewportInteractionAssetContainer& SetGizmoHandleSelectedSound(USoundBase* InSound) { GizmoHandleSelectedSound = InSound; return *this; }
 
 	UPROPERTY(EditAnywhere, Category = Sound)
 	USoundBase* GizmoHandleDropSound;
-	FViewportInteractionAssetContainer& SetGizmoHandleDropSound(USoundBase* InSound) { GizmoHandleDropSound = InSound; return *this; }
-
 
 	UPROPERTY(EditAnywhere, Category = Sound)
 	USoundBase* SelectionChangeSound;
-	FViewportInteractionAssetContainer& SetSelectionChangeSound(USoundBase* InSound) { SelectionChangeSound = InSound; return *this; }
 
 	UPROPERTY(EditAnywhere, Category = Sound)
 	USoundBase* SelectionDropSound;
-	FViewportInteractionAssetContainer& SetSelectionDropSound(USoundBase* InSound) { SelectionDropSound = InSound; return *this; }
 
 	UPROPERTY(EditAnywhere, Category = Sound)
 	USoundBase* SelectionStartDragSound;
-	FViewportInteractionAssetContainer& SetSelectionStartDragSound(USoundBase* InSound) { SelectionStartDragSound = InSound; return *this; }
 
 	UPROPERTY(EditAnywhere, Category = Sound)
 	USoundBase* GridSnapSound;
-	FViewportInteractionAssetContainer& SetGridSnapSound(USoundBase* InSound) { GridSnapSound = InSound; return *this; }
 
 	UPROPERTY(EditAnywhere, Category = Sound)
 	USoundBase* ActorSnapSound;
-	FViewportInteractionAssetContainer& SetActorSnapSound(USoundBase* InSound) { ActorSnapSound = InSound; return *this; }
-};
+
+	UPROPERTY(EditAnywhere, Category = Sound)
+	USoundBase* UndoSound;
+
+	UPROPERTY(EditAnywhere, Category = Sound)
+	USoundBase* RedoSound;
+
+	//
+	// Meshes
+	//
+
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* GridMesh;
+
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* TranslationHandleMesh;
+
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* UniformScaleHandleMesh;
+
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* ScaleHandleMesh;
+
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* PlaneTranslationHandleMesh;
+
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* RotationHandleMesh;
+
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* RotationHandleSelectedMesh;
+
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* StartRotationIndicatorMesh;
+
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	UStaticMesh* CurrentRotationIndicatorMesh;
 
 
-/**
- */
-UCLASS(hidecategories=Object, MinimalAPI)
-class UViewportInteractionStyleContainer : public USlateWidgetStyleContainerBase
-{
-	GENERATED_UCLASS_BODY()
+	//
+	// Materials
+	//
 
-public:
-	/** The actual data describing the sounds */
-	UPROPERTY(Category=Appearance, EditAnywhere, meta=(ShowOnlyInnerProperties))
-	FViewportInteractionAssetContainer SoundsStyle;
+	UPROPERTY(EditAnywhere, Category = Material)
+	UMaterialInterface* GridMaterial;
 
-	virtual const struct FSlateWidgetStyle* const GetStyle() const override
-	{
-		return static_cast< const struct FSlateWidgetStyle* >( &SoundsStyle );
-	}
+	UPROPERTY(EditAnywhere, Category = Material)
+	UMaterialInterface* TransformGizmoMaterial;
+
+	UPROPERTY(EditAnywhere, Category = Material)
+	UMaterialInterface* TranslucentTransformGizmoMaterial;
 };

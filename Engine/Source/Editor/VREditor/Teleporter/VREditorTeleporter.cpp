@@ -23,11 +23,12 @@ namespace VREd
 	static FAutoConsoleVariable TeleportDistance(TEXT("VREd.TeleportDistance"), 500.0f, TEXT("Default distance for teleporting when not hitting anything"));
 	static FAutoConsoleVariable TeleportScaleSensitivity(TEXT("VREd.TeleportScaleSensitivity"), 0.05f, TEXT("Teleport world to meters scale touchpad sensitivity"));
 	static FAutoConsoleVariable TeleportOffsetMultiplier(TEXT("VREd.TeleportOffsetMultiplier"), 0.3f, TEXT("Teleport offset multiplier"));
-	static FAutoConsoleVariable TeleportEnableChangeScale(TEXT("VREd.TeleportEnableChangeScale"), 0, TEXT("Ability to change the world to meters scale while teleporting"));
+	static FAutoConsoleVariable TeleportEnableChangeScale(TEXT("VREd.TeleportEnableChangeScale"), 1, TEXT("Ability to change the world to meters scale while teleporting"));
 	static FAutoConsoleVariable TeleportFadeInAnimateSpeed(TEXT("VREd.TeleportAnimateSpeed"), 3.0f, TEXT("How fast the teleporter should fade in"));
 	static FAutoConsoleVariable TeleportDragSpeed(TEXT("VREd.TeleportDragSpeed"), 0.3f, TEXT("How fast the teleporter should drag behind the laser aiming location"));
 	static FAutoConsoleVariable TeleportAllowScaleBackToDefault(TEXT("VREd.TeleportAllowScaleBackToDefault"), 1, TEXT("Scale back to default world to meters scale"));
-	static FAutoConsoleVariable TeleportAllowPushPull(TEXT("VREd.TeleportAllowPushPull"), 0, TEXT("Allow being able to push and pull the teleporter along the laser."));
+	static FAutoConsoleVariable TeleportAllowPushPull(TEXT("VREd.TeleportAllowPushPull"), 1, TEXT("Allow being able to push and pull the teleporter along the laser."));
+	static FAutoConsoleVariable TeleportSlideBuffer(TEXT("VREd.TeleportSlideBuffer"), 0.3f, TEXT("The minimum slide on trackpad to push/pull or change scale."));
 }
 
 AVREditorTeleporter::AVREditorTeleporter():
@@ -76,15 +77,17 @@ void AVREditorTeleporter::Init(UVREditorMode* InMode)
 
 	SetActorEnableCollision(false);
 
+	const UVREditorAssetContainer& AssetContainer = VRMode->GetAssetContainer();
+
 	{
-		UMaterialInstance* RoomSpaceMaterialInstance = LoadObject<UMaterialInstance>(nullptr, TEXT("/Engine/VREditor/Teleport/TeleportDirectionMaterial_Inst"));
-		check(RoomSpaceMaterialInstance != nullptr);
-		TeleportMID = UMaterialInstanceDynamic::Create(RoomSpaceMaterialInstance, GetTransientPackage());
+		UMaterialInterface* RoomSpaceMaterial = AssetContainer.TeleportMaterial;
+		check(RoomSpaceMaterial != nullptr);
+		TeleportMID = UMaterialInstanceDynamic::Create(RoomSpaceMaterial, GetTransientPackage());
 		check(TeleportMID != nullptr);
 	}
 
 	{
-		TeleportDirectionMeshComponent = VRMode->CreateMesh(this, FString("/Engine/VREditor/Teleport/TeleportDirectionMesh"), GetRootComponent());
+		TeleportDirectionMeshComponent = VRMode->CreateMesh(this, AssetContainer.TeleportRootMesh, GetRootComponent());
 		TeleportDirectionMeshComponent->SetWorldScale3D(FVector(1, 1, 1));
 		TeleportDirectionMeshComponent->SetMaterial(0, TeleportMID);
 		TeleportDirectionMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -92,7 +95,7 @@ void AVREditorTeleporter::Init(UVREditorMode* InMode)
 		TeleportDirectionMeshComponent->SetCollisionResponseToChannel(COLLISION_GIZMO, ECollisionResponse::ECR_Ignore);
 		TeleportDirectionMeshComponent->SetCastShadow(false);
 
-		HMDMeshComponent = VRMode->CreateMesh(this, FString("/Engine/VREditor/Devices/Generic/GenericHMD"), GetRootComponent());
+		HMDMeshComponent = VRMode->CreateMesh(this, AssetContainer.GenericHMDMesh, GetRootComponent());
 		HMDMeshComponent->SetMaterial(0, TeleportMID);
 		HMDMeshComponent->SetCastShadow(false);
 
@@ -162,7 +165,7 @@ void AVREditorTeleporter::StartTeleport(UViewportInteractor* Interactor)
 	TeleportingState = EState::Teleporting;
 	TeleportLerpAlpha = 0.0f;
 
-	const FVREditorAssetContainer& AssetContainer = VRMode->GetAssetContainer();
+	const UVREditorAssetContainer& AssetContainer = VRMode->GetAssetContainer();
 	VRMode->PlaySound(AssetContainer.TeleportSound, TeleportGoalLocation);
 	Interactor->PlayHapticEffect(1.0f);
 }
@@ -258,20 +261,17 @@ void AVREditorTeleporter::UpdateTeleportAim(const float DeltaTime)
 
 			if (VREd::TeleportEnableChangeScale->GetInt() != 0)
 			{
-				// Calaclate the new goal scale with the trackpad delta X axis 
-				TeleportGoalScale += VREditorInteractor->GetTrackpadSlideDelta(0) * (TeleportGoalScale * VREd::TeleportScaleSensitivity->GetFloat());
-
-				const float MinScale = VRMode->GetWorldInteraction().GetMinScale() * 0.01f;
-				const float MaxScale = VRMode->GetWorldInteraction().GetMaxScale() * 0.01f;
-
-				// The scale must be in the limits of the worldinteraction minimum and maximum scale
-				if (TeleportGoalScale > MaxScale)
+				const float SlideDelta = GetSlideDelta(VREditorInteractor, 0);
+				if (SlideDelta != 0.0f)
 				{
-					TeleportGoalScale = MaxScale;
-				}
-				else if (TeleportGoalScale < MinScale)
-				{
-					TeleportGoalScale = MinScale;
+					// Calculate the new goal scale with the trackpad delta X axis 
+					TeleportGoalScale += SlideDelta * (TeleportGoalScale * VREd::TeleportScaleSensitivity->GetFloat());
+
+					const float MinScale = VRMode->GetWorldInteraction().GetMinScale() * 0.01f;
+					const float MaxScale = VRMode->GetWorldInteraction().GetMaxScale() * 0.01f;
+
+					// The scale must be in the limits of the worldinteraction minimum and maximum scale
+					TeleportGoalScale = FMath::Clamp(TeleportGoalScale, MinScale, MaxScale);
 				}
 			}
 			else if (VREd::TeleportAllowScaleBackToDefault->GetInt() != 0)
@@ -306,7 +306,7 @@ void AVREditorTeleporter::UpdateTeleportAim(const float DeltaTime)
 			}
 
 			// The trackpad has been used while aiming for teleporting, so the teleporter won't go to the end of the laser after this
-			if (!FMath::IsNearlyZero(VREditorInteractor->GetTrackpadSlideDelta(1)) && !bPushedFromEndOfLaser && bAllowPushPull)
+			if (!bPushedFromEndOfLaser && bAllowPushPull &&  GetSlideDelta(VREditorInteractor, 1) != 0.0f)
 			{
 				bPushedFromEndOfLaser = true;
 			} 
@@ -329,7 +329,7 @@ void AVREditorTeleporter::UpdateTeleportAim(const float DeltaTime)
 
 FVector AVREditorTeleporter::UpdatePushPullTeleporter(UVREditorMotionControllerInteractor* VREditorInteractor, const FVector& LaserPointerStart, const FVector& LaserPointerEnd, const bool bEnablePushPull /* = true */)
 {
-	if (bEnablePushPull)
+	if (bEnablePushPull && GetSlideDelta(VREditorInteractor, 1) != 0.0f)
 	{
 		VREditorInteractor->CalculateDragRay(DragRayLength, DragRayLengthVelocity);
 	}
@@ -447,4 +447,27 @@ float AVREditorTeleporter::CalculateAnimatedScaleFactor() const
 	// Animate vertically more than horizontally; just looks a little better
 	const float Scale = FMath::Max(0.001f, EasedAlpha);
 	return Scale * Scale;
+}
+
+float AVREditorTeleporter::GetSlideDelta(UVREditorMotionControllerInteractor* Interactor, const bool Axis)
+{
+	FVector2D SlideDelta = FVector2D::ZeroVector;
+	if (VRMode->GetHMDDeviceType() == EHMDDeviceType::DT_SteamVR)
+	{
+		SlideDelta = FVector2D(Interactor->GetTrackpadSlideDelta(0), Interactor->GetTrackpadSlideDelta(1));
+	}
+	else
+	{
+		SlideDelta = Interactor->GetTrackpadPosition();
+	}
+	SlideDelta.Normalize();
+
+	const bool OtherAxis = !Axis;
+	float Result = 0.0f;
+	if (!FMath::IsNearlyZero(SlideDelta[Axis], VREd::TeleportSlideBuffer->GetFloat()) && 
+		 FMath::IsNearlyZero(SlideDelta[OtherAxis], VREd::TeleportSlideBuffer->GetFloat()))
+	{
+		Result = SlideDelta.X;
+	}
+	return Result;
 }

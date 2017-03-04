@@ -61,6 +61,7 @@ namespace VREd
 	static FAutoConsoleVariable SFXMultiplier(TEXT("VREd.SFXMultiplier"), 1.5f, TEXT("Default Sound Effect Volume Multiplier"));
 }
 
+const FString UVREditorMode::AssetContainerPath = FString("/Engine/VREditor/VREditorAssetContainerData");
 
 UVREditorMode::UVREditorMode() : 
 	Super(),
@@ -81,7 +82,7 @@ UVREditorMode::UVREditorMode() :
 	bIsActive( false ),
 	SavedWorldToMetersScaleForPIE(0.0f),
 	bStartedPlayFromVREditor(false),
-	AssetContainer()
+	AssetContainer(nullptr)
 {
 }
 
@@ -128,12 +129,9 @@ void UVREditorMode::Init()
 		check( WorldInteraction != nullptr );
 	}
 
-	// Setup the asset editor
-	{
-		USlateWidgetStyleAsset* ContainerObject = LoadObject<USlateWidgetStyleAsset>(this, TEXT("/Engine/VREditor/VREditorAssetContainer"));
-		check(ContainerObject != nullptr);
-		AssetContainer = MakeShared<FVREditorAssetContainer>(*ContainerObject->GetStyle<FVREditorAssetContainer>());
-	}
+	// Setup the asset container.
+	AssetContainer = LoadObject<UVREditorAssetContainer>(nullptr, *UVREditorMode::AssetContainerPath);
+	check(AssetContainer != nullptr);
 
 	bIsFullyInitialized = true;
 }
@@ -150,7 +148,7 @@ void UVREditorMode::Shutdown()
 	WorldInteraction = nullptr;
 	LeftHandInteractor = nullptr;
 	RightHandInteractor = nullptr;
-	AssetContainer.Reset();
+	AssetContainer = nullptr;
 
 	// @todo vreditor urgent: Disable global editor hacks for VR Editor mode
 	GEnableVREditorHacks = false;
@@ -202,6 +200,7 @@ void UVREditorMode::Enter()
 			SavedEditorState.TransformGizmoScale = WorldInteraction->GetTransformGizmoScale();
 			WorldInteraction->SetTransformGizmoScale( VREd::GizmoScaleInVR->GetFloat() );
 			WorldInteraction->SetShouldSuppressExistingCursor(true);
+			WorldInteraction->SetInVR(true);
 		}
 	}
 
@@ -367,6 +366,7 @@ void UVREditorMode::Exit(const bool bShouldDisableStereo)
 		if( bActuallyUsingVR )
 		{
 			WorldInteraction->AddMouseCursorInteractor();
+			WorldInteraction->SetInVR(false);
 		}
 
 		WorldInteraction->SetDefaultOptionalViewportClient( nullptr );
@@ -1049,37 +1049,45 @@ void UVREditorMode::RestoreWorldToMeters()
 
 UStaticMeshComponent* UVREditorMode::CreateMotionControllerMesh( AActor* OwningActor, USceneComponent* AttachmentToComponent )
 {
-	FString MeshName;
-	if( GetHMDDeviceType() == EHMDDeviceType::DT_SteamVR )
+	UStaticMesh* ControllerMesh = nullptr;
+	if(GetHMDDeviceType() == EHMDDeviceType::DT_SteamVR)
 	{
-		MeshName = TEXT( "/Engine/VREditor/Devices/Vive/VivePreControllerMesh" );
+		ControllerMesh = AssetContainer->VivePreControllerMesh;
 	}
-	else if( GetHMDDeviceType() == EHMDDeviceType::DT_OculusRift )
+	else if(GetHMDDeviceType() == EHMDDeviceType::DT_OculusRift)
 	{
-		MeshName = TEXT( "/Engine/VREditor/Devices/Oculus/OculusControllerMesh" );
+		ControllerMesh = AssetContainer->OculusControllerMesh;
+	}
+	else
+	{
+		ControllerMesh = AssetContainer->GenericControllerMesh;
 	}
 
-	return !MeshName.IsEmpty() ? CreateMesh( OwningActor, MeshName, AttachmentToComponent ) : nullptr;
+	return CreateMesh(OwningActor, ControllerMesh, AttachmentToComponent);
 }
 
 UStaticMeshComponent* UVREditorMode::CreateMesh( AActor* OwningActor, const FString& MeshName, USceneComponent* AttachmentToComponent /*= nullptr */ )
 {
-	UStaticMeshComponent* CreatedMeshComponent = NewObject<UStaticMeshComponent>( OwningActor );
-	OwningActor->AddOwnedComponent( CreatedMeshComponent );
-	if( AttachmentToComponent != nullptr )
+	UStaticMesh* Mesh = LoadObject<UStaticMesh>(nullptr, *MeshName);
+	check(Mesh != nullptr);
+	return CreateMesh(OwningActor, Mesh, AttachmentToComponent);
+}
+
+UStaticMeshComponent* UVREditorMode::CreateMesh(AActor* OwningActor, UStaticMesh* Mesh, USceneComponent* AttachmentToComponent /*= nullptr */)
+{
+	UStaticMeshComponent* CreatedMeshComponent = NewObject<UStaticMeshComponent>(OwningActor);
+	OwningActor->AddOwnedComponent(CreatedMeshComponent);
+	if (AttachmentToComponent != nullptr)
 	{
-		CreatedMeshComponent->SetupAttachment( AttachmentToComponent );
+		CreatedMeshComponent->SetupAttachment(AttachmentToComponent);
 	}
 
 	CreatedMeshComponent->RegisterComponent();
 
-	UStaticMesh* Mesh = LoadObject<UStaticMesh>( nullptr, *MeshName );
-	check( Mesh != nullptr );
-
-	CreatedMeshComponent->SetStaticMesh( Mesh );
-	CreatedMeshComponent->SetMobility( EComponentMobility::Movable );
-	CreatedMeshComponent->SetCollisionEnabled( ECollisionEnabled::NoCollision );
-	CreatedMeshComponent->SetCollisionResponseToAllChannels( ECollisionResponse::ECR_Ignore );
+	CreatedMeshComponent->SetStaticMesh(Mesh);
+	CreatedMeshComponent->SetMobility(EComponentMobility::Movable);
+	CreatedMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	CreatedMeshComponent->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 	return CreatedMeshComponent;
 }
 
@@ -1099,7 +1107,7 @@ bool UVREditorMode::GetStartedPlayFromVREditor() const
 	return bStartedPlayFromVREditor;
 }
 
-const FVREditorAssetContainer& UVREditorMode::GetAssetContainer() const
+const UVREditorAssetContainer& UVREditorMode::GetAssetContainer() const
 {
 	return *AssetContainer;
 }

@@ -331,10 +331,19 @@ public:
 	};
 
 	/** Gets the container for all the assets of ViewportInteraction. */
-	const struct FViewportInteractionAssetContainer& GetAssetContainer() const;
+	const class UViewportInteractionAssetContainer& GetAssetContainer() const;
+
+	/** Static function to load the asset container */
+	static const class UViewportInteractionAssetContainer& LoadAssetContainer();
 
 	/** Plays sound at location. */
 	void PlaySound(USoundBase* SoundBase, const FVector& InWorldLocation, const float InVolume = 1.0f);
+
+	/** Set if this world interaction is in VR. */
+	void SetInVR(const bool bInVR);
+
+	/** Get if this world interaction is in VR. */
+	bool IsInVR() const;
 
 protected:
 
@@ -470,6 +479,9 @@ public:
 
 	/** Gets the color from color type */
 	FLinearColor GetColor(const EColors Color, const float Multiplier = 1.f) const;
+
+	/** The path of the asset container */
+	static const FString AssetContainerPath;
 
 private:
 
@@ -673,6 +685,12 @@ private:
 	UPROPERTY()
 	TArray<TWeakObjectPtr<AActor>> ActorsToExcludeFromHitTest;
 
+	//
+	// VR
+	//
+	
+	/** If this world interaction is in VR */
+	bool bIsInVR;
 
 	//
 	// Configuration
@@ -699,10 +717,10 @@ private:
 	/** The current tick number */
 	uint32 CurrentTickNumber;
 
-	//
-	// Assets
-	//
-
 	/** Container of assets */
-	TSharedPtr<const struct FViewportInteractionAssetContainer> AssetContainer;
+	UPROPERTY()
+	class UViewportInteractionAssetContainer* AssetContainer;
+
+	/** If we want to skip playing the sound when refreshing the transform gizmo next time */
+	bool bPlayNextRefreshTransformGizmoSound;
 };

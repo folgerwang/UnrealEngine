@@ -32,6 +32,7 @@
 #include "Components/SplineMeshComponent.h"
 #include "DrawDebugHelpers.h"
 #include "VREditorActions.h"
+#include "VREditorAssetContainer.h"
 
 namespace VREd
 {
@@ -212,39 +213,30 @@ void UVREditorMotionControllerInteractor::SetupComponent( AActor* OwningActor )
 		MotionControllerComponent->bDisableLowLatencyUpdate = true;
 	}
 
+	const UVREditorAssetContainer& AssetContainer = VRMode->GetAssetContainer();
+
 	// Hand mesh
 	{
 		HandMeshComponent = VRMode->CreateMotionControllerMesh( OwningActor, MotionControllerComponent ); 
 		check( HandMeshComponent != nullptr );
 		HandMeshComponent->SetCastShadow(false);
 
-		// @todo vreditor extensibility: We need this to be able to be overridden externally, or simply based on the HMD name (but allowing external folders)
-		FString MaterialName;
-		if( GetVRMode().GetHMDDeviceType() == EHMDDeviceType::DT_SteamVR )
-		{
-			MaterialName = TEXT( "/Engine/VREditor/Devices/Vive/VivePreControllerMaterial_Inst" );
-		}
-		else
-		{
-			MaterialName = TEXT( "/Engine/VREditor/Devices/Oculus/OculusControllerMaterial_Inst" );
-		}
-
-		UMaterialInstance* HandMeshMaterialInst = LoadObject<UMaterialInstance>( nullptr, *MaterialName );
-		check( HandMeshMaterialInst != nullptr );
-		HandMeshMID = UMaterialInstanceDynamic::Create( HandMeshMaterialInst, GetTransientPackage() );
+		UMaterialInterface* HandMeshMaterial = GetVRMode().GetHMDDeviceType() == EHMDDeviceType::DT_SteamVR ? AssetContainer.VivePreControllerMaterial : AssetContainer.OculusControllerMaterial;
+		check( HandMeshMaterial != nullptr );
+		HandMeshMID = UMaterialInstanceDynamic::Create( HandMeshMaterial, GetTransientPackage() );
 		check( HandMeshMID != nullptr );
 		HandMeshComponent->SetMaterial( 0, HandMeshMID );
 	}
 
 	{
-		UMaterialInstance* LaserPointerMaterialInst = LoadObject<UMaterialInstance>(nullptr, TEXT("/Engine/VREditor/LaserPointer/LaserPointerMaterialInst"));
-		check(LaserPointerMaterialInst != nullptr);
-		LaserPointerMID = UMaterialInstanceDynamic::Create(LaserPointerMaterialInst, GetTransientPackage());
+		UMaterialInterface* LaserPointerMaterial = AssetContainer.LaserPointerMaterial;
+		check(LaserPointerMaterial != nullptr);
+		LaserPointerMID = UMaterialInstanceDynamic::Create(LaserPointerMaterial, GetTransientPackage());
 		check(LaserPointerMID != nullptr);
 
-		UMaterialInstance* TranslucentLaserPointerMaterialInst = LoadObject<UMaterialInstance>(nullptr, TEXT("/Engine/VREditor/LaserPointer/TranslucentLaserPointerMaterialInst"));
-		check(TranslucentLaserPointerMaterialInst != nullptr);
-		TranslucentLaserPointerMID = UMaterialInstanceDynamic::Create(TranslucentLaserPointerMaterialInst, GetTransientPackage());
+		UMaterialInterface* TranslucentLaserPointerMaterial = AssetContainer.LaserPointerTranslucentMaterial;
+		check(TranslucentLaserPointerMaterial != nullptr);
+		TranslucentLaserPointerMID = UMaterialInstanceDynamic::Create(TranslucentLaserPointerMaterial, GetTransientPackage());
 		check(TranslucentLaserPointerMID != nullptr);
 	}
 
@@ -255,7 +247,7 @@ void UVREditorMotionControllerInteractor::SetupComponent( AActor* OwningActor )
 		HoverMeshComponent->SetupAttachment( OwningActor->GetRootComponent() );
 		HoverMeshComponent->RegisterComponent();
 
-		UStaticMesh* HoverMesh = LoadObject<UStaticMesh>( nullptr, TEXT( "/Engine/VREditor/LaserPointer/HoverMesh" ) );
+		UStaticMesh* HoverMesh = AssetContainer.LaserPointerHoverMesh;
 		check( HoverMesh != nullptr );
 		HoverMeshComponent->SetStaticMesh( HoverMesh );
 		HoverMeshComponent->SetMobility( EComponentMobility::Movable );
@@ -284,13 +276,12 @@ void UVREditorMotionControllerInteractor::SetupComponent( AActor* OwningActor )
 
 	{
 		const int32 NumLaserSplinePoints = 12;
-		UStaticMesh* MiddleSplineMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/VREditor/LaserPointer/LaserPointerMesh"));
+
+		UStaticMesh* MiddleSplineMesh = AssetContainer.LaserPointerMesh;
 		check (MiddleSplineMesh != nullptr);
-
-		UStaticMesh* StartSplineMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/VREditor/LaserPointer/LaserPointerMesh_Start"));
+		UStaticMesh* StartSplineMesh = AssetContainer.LaserPointerStartMesh;
 		check (StartSplineMesh != nullptr);
-
-		UStaticMesh* EndSplineMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/VREditor/LaserPointer/LaserPointerMesh_End"));
+		UStaticMesh* EndSplineMesh = AssetContainer.LaserPointerEndMesh;
 		check (EndSplineMesh != nullptr);
 
 		LaserSplineComponent = NewObject<USplineComponent>(OwningActor);
@@ -1443,7 +1434,7 @@ void UVREditorMotionControllerInteractor::UpdateRadialMenuInput( const float Del
 				bFlickActionExecuted == false && 
 				!IsHoveringOverUI())
 			{
-				FLevelEditorActionCallbacks::ExecuteExecCommand(FString(TEXT("TRANSACTION UNDO")));
+				VRMode->GetWorldInteraction().Undo();
 				bFlickActionExecuted = true;
 			}
 			// Move thumbstick right to redo
@@ -1451,7 +1442,7 @@ void UVREditorMotionControllerInteractor::UpdateRadialMenuInput( const float Del
 				bFlickActionExecuted == false &&
 				!IsHoveringOverUI())
 			{
-				FLevelEditorActionCallbacks::ExecuteExecCommand(FString(TEXT("TRANSACTION REDO")));
+				VRMode->GetWorldInteraction().Redo();
 				bFlickActionExecuted = true;
 			}
 			// Center to reset
@@ -1477,12 +1468,12 @@ void UVREditorMotionControllerInteractor::UndoRedoFromSwipe(const ETouchSwipeDir
 	{
 		if (InSwipeDirection == ETouchSwipeDirection::Left)
 		{
-			FLevelEditorActionCallbacks::ExecuteExecCommand(FString(TEXT("TRANSACTION UNDO")));
+			VRMode->GetWorldInteraction().Undo();
 			bFlickActionExecuted = true;
 		}
 		else if (InSwipeDirection == ETouchSwipeDirection::Right)
 		{
-			FLevelEditorActionCallbacks::ExecuteExecCommand(FString(TEXT("TRANSACTION REDO")));
+			VRMode->GetWorldInteraction().Redo();
 			bFlickActionExecuted = true;
 		}
 	}

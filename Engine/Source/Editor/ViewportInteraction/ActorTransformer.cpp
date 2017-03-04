@@ -26,7 +26,7 @@ void UActorTransformer::Shutdown()
 
 void UActorTransformer::OnStartDragging(class UViewportInteractor* Interactor)
 {
-	const FViewportInteractionAssetContainer& AssetContainer = ViewportWorldInteraction->GetAssetContainer();
+	const UViewportInteractionAssetContainer& AssetContainer = ViewportWorldInteraction->GetAssetContainer();
 	const FVector& SoundLocation = Interactor->GetInteractorData().GizmoLastTransform.GetLocation();
 	const EViewportInteractionDraggingMode DraggingMode = Interactor->GetDraggingMode();
 
@@ -43,7 +43,7 @@ void UActorTransformer::OnStartDragging(class UViewportInteractor* Interactor)
 
 void UActorTransformer::OnStopDragging(class UViewportInteractor* Interactor)
 {
-	const FViewportInteractionAssetContainer& AssetContainer = ViewportWorldInteraction->GetAssetContainer();
+	const UViewportInteractionAssetContainer& AssetContainer = ViewportWorldInteraction->GetAssetContainer();
 	const FVector& SoundLocation = Interactor->GetInteractorData().GizmoLastTransform.GetLocation();
 	const EViewportInteractionDraggingMode DraggingMode = Interactor->GetDraggingMode();
 

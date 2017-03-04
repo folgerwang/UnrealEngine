@@ -52,6 +52,8 @@ private:
 	/** Stretch handle group component */
 	UPROPERTY()
 	class UStretchGizmoHandleGroup* StretchGizmoHandleGroup;
+
+	float AimingAtMeFadeAlpha;
 };
 
 /**

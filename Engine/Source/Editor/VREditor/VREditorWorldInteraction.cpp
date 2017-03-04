@@ -204,7 +204,7 @@ void UVREditorWorldInteraction::OnAssetDragStartedFromContentBrowser( const TArr
 				const bool bShouldInterpolateFromDragLocation = VREd::PlacementInterpolationDuration->GetFloat() > KINDA_SMALL_NUMBER;
 				StartPlacingObjects( DroppedObjects, FactoryToUse, PlacingWithInteractor, bShouldInterpolateFromDragLocation );
 
-				const FVREditorAssetContainer& AssetContainer = Owner->GetAssetContainer();
+				const UVREditorAssetContainer& AssetContainer = Owner->GetAssetContainer();
 				Owner->PlaySound(AssetContainer.DropFromContentBrowserSound, PlacingWithInteractor->GetTransform().GetLocation());
 			}
 		}
@@ -460,7 +460,7 @@ void UVREditorWorldInteraction::PlaceDraggedMaterialOrTexture( UViewportInteract
 					const int32 TargetMaterialSlot = -1;	// All materials
 					bool bPlaced = FComponentEditorUtils::AttemptApplyMaterialToComponent( HitComponent, DroppedObjAsMaterial, TargetMaterialSlot );
 
-					const FVREditorAssetContainer& AssetContainer = Owner->GetAssetContainer();
+					const UVREditorAssetContainer& AssetContainer = Owner->GetAssetContainer();
 					Owner->PlaySound(AssetContainer.DropFromContentBrowserSound, Interactor->GetTransform().GetLocation());
 				}
 			}

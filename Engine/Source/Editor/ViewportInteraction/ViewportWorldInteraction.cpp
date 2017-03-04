@@ -83,6 +83,8 @@ namespace VI
 	static FAutoConsoleVariable SFXMultiplier(TEXT("VI.SFXMultiplier"), 1.5f, TEXT("Default Sound Effect Volume Multiplier"));
 }
 
+const FString UViewportWorldInteraction::AssetContainerPath = FString("/Engine/VREditor/ViewportInteractionAssetContainerData");
+
 struct FGuideData
 {
 	const AActor* AlignedActor;
@@ -283,13 +285,15 @@ UViewportWorldInteraction::UViewportWorldInteraction():
 	DraggedInteractable( nullptr ),
 	DefaultMouseCursorInteractor( nullptr ),
 	DefaultMouseCursorInteractorRefCount( 0 ),
+	bIsInVR( false ),
 	bActive( false ),
 	bUseInputPreprocessor( false ),
 	bAllowWorldMovement( true ),
 	CurrentDeltaTime(0.0f),
 	bShouldSuppressCursor(false),
 	CurrentTickNumber(0),
-	AssetContainer()
+	AssetContainer(nullptr),
+	bPlayNextRefreshTransformGizmoSound(true)
 {
 }
 
@@ -308,12 +312,9 @@ void UViewportWorldInteraction::Init()
 
 	AppTimeEntered = FTimespan::FromSeconds( FApp::GetCurrentTime() );
 
-	// Setup the asset editor
-	{
-		USlateWidgetStyleAsset* ContainerObject = LoadObject<USlateWidgetStyleAsset>(this, TEXT("/Engine/VREditor/ViewportInteractionAssetContainer"));
-		check(ContainerObject != nullptr);
-		AssetContainer = MakeShared<FViewportInteractionAssetContainer>(*ContainerObject->GetStyle<FViewportInteractionAssetContainer>());
-	}
+	// Setup the asset container.
+	AssetContainer = LoadObject<UViewportInteractionAssetContainer>(nullptr, *UViewportWorldInteraction::AssetContainerPath);
+	check(AssetContainer != nullptr);
 
 	IViewportWorldInteractionManager& WorldInteractionManager = IViewportInteractionModule::Get().GetWorldInteractionManager();
 	WorldInteractionManager.SetCurrentViewportWorldInteraction( this );
@@ -390,7 +391,7 @@ void UViewportWorldInteraction::Shutdown()
 		ViewportTransformer = nullptr;
 	}
 
-	AssetContainer.Reset();
+	AssetContainer = nullptr;
 
 	USelection::SelectionChangedEvent.RemoveAll( this );
 	GEditor->OnEditorClose().RemoveAll( this );
@@ -697,11 +698,15 @@ FEditorViewportClient* UViewportWorldInteraction::GetDefaultOptionalViewportClie
 
 void UViewportWorldInteraction::Undo()
 {
+	PlaySound(AssetContainer->UndoSound, TransformGizmoActor->GetActorLocation());
+	bPlayNextRefreshTransformGizmoSound = false;
 	ExecCommand(FString("TRANSACTION UNDO"));
 }
 
 void UViewportWorldInteraction::Redo()
 {
+	PlaySound(AssetContainer->RedoSound, TransformGizmoActor->GetActorLocation());
+	bPlayNextRefreshTransformGizmoSound = false;
 	ExecCommand(FString("TRANSACTION REDO"));
 }
 
@@ -2800,10 +2805,12 @@ void UViewportWorldInteraction::RefreshTransformGizmo( const bool bNewObjectsSel
 	        SnapGridActor->GetRootComponent()->SetVisibility( bShouldBeVisible, bPropagateToChildren );
 		}
 
-		if (bNewObjectsSelected)
+		if (bNewObjectsSelected && bPlayNextRefreshTransformGizmoSound)
 		{
 			PlaySound(AssetContainer->SelectionChangeSound, TransformGizmoActor->GetActorLocation());
 		}
+
+		bPlayNextRefreshTransformGizmoSound = true;
 	}
 	else
 	{
@@ -3065,9 +3072,14 @@ bool UViewportWorldInteraction::ShouldSuppressExistingCursor() const
 
 }
 
-const FViewportInteractionAssetContainer& UViewportWorldInteraction::GetAssetContainer() const
+const UViewportInteractionAssetContainer& UViewportWorldInteraction::GetAssetContainer() const
 {
-	return *AssetContainer.Get();
+	return *AssetContainer;
+}
+
+const class UViewportInteractionAssetContainer& UViewportWorldInteraction::LoadAssetContainer()
+{
+	return *LoadObject<UViewportInteractionAssetContainer>(nullptr, *UViewportWorldInteraction::AssetContainerPath);
 }
 
 void UViewportWorldInteraction::PlaySound(USoundBase* SoundBase, const FVector& InWorldLocation, const float InVolume /*= 1.0f*/)
@@ -3077,6 +3089,16 @@ void UViewportWorldInteraction::PlaySound(USoundBase* SoundBase, const FVector& 
 		const float Volume = InVolume*VI::SFXMultiplier->GetFloat();
 		UGameplayStatics::PlaySoundAtLocation(GetWorld(), SoundBase, InWorldLocation, FRotator::ZeroRotator, Volume);
 	}
+}
+
+void UViewportWorldInteraction::SetInVR(const bool bInVR)
+{
+	bIsInVR = bInVR;
+}
+
+bool UViewportWorldInteraction::IsInVR() const
+{
+	return bIsInVR;
 }
 
 EGizmoHandleTypes UViewportWorldInteraction::GetCurrentGizmoType() const
@@ -3172,13 +3194,13 @@ void UViewportWorldInteraction::SpawnGridMeshActor()
 		SnapGridActor->SetRootComponent( SnapGridMeshComponent );
 		SnapGridMeshComponent->RegisterComponent();
 
-		UStaticMesh* GridMesh = LoadObject<UStaticMesh>( nullptr, TEXT( "/Engine/VREditor/SnapGrid/SnapGridPlaneMesh" ) );
+		UStaticMesh* GridMesh = AssetContainer->GridMesh;
 		check( GridMesh != nullptr );
 		SnapGridMeshComponent->SetStaticMesh( GridMesh );
 		SnapGridMeshComponent->SetMobility( EComponentMobility::Movable );
 		SnapGridMeshComponent->SetCollisionEnabled( ECollisionEnabled::NoCollision );
 
-		UMaterialInterface* GridMaterial = LoadObject<UMaterialInterface>( nullptr, TEXT( "/Engine/VREditor/SnapGrid/SnapGridMaterial" ) );
+		UMaterialInterface* GridMaterial = AssetContainer->GridMaterial;
 		check( GridMaterial != nullptr );
 
 		SnapGridMID = UMaterialInstanceDynamic::Create( GridMaterial, GetTransientPackage() );
