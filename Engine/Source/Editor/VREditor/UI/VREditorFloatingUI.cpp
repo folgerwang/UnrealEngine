@@ -7,11 +7,11 @@
 #include "Components/WidgetComponent.h"
 #include "VREditorWidgetComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "VRModeSettings.h"
 
 namespace VREd
 {
 	static FAutoConsoleVariable UIFadeSpeed( TEXT( "VREd.UIFadeSpeed" ), 6.0f, TEXT( "How fast UI should fade in and out" ) );
-	static FAutoConsoleVariable UIBrightness( TEXT( "VREd.UIBrightness" ), 1.5f, TEXT( "How bright the UI should be" ) );
 }
 
 
@@ -240,7 +240,7 @@ void AVREditorFloatingUI::UpdateFadingState( const float DeltaTime )
 		}
 
  		// Set material color
-		const float UIBrightness = FadeAlpha * VREd::UIBrightness->GetFloat();
+		const float UIBrightness = FadeAlpha * GetDefault<UVRModeSettings>()->UIBrightness;
 		WidgetComponent->SetTintColorAndOpacity( FLinearColor( UIBrightness, UIBrightness, UIBrightness ).CopyWithNewOpacity( FadeAlpha ) );
 
 	}

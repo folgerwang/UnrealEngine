@@ -38,13 +38,15 @@
 #include "SequencerSettings.h"
 #include "Kismet/GameplayStatics.h"
 #include "Components/AudioComponent.h"
+#include "VREditorActions.h"
+#include "EditorModes.h"
+#include "VRModeSettings.h"
 
 #define LOCTEXT_NAMESPACE "VREditorMode"
 
 namespace VREd
 {
 	static FAutoConsoleVariable DefaultVRNearClipPlane(TEXT("VREd.DefaultVRNearClipPlane"), 1.0f, TEXT("The near clip plane to use for VR"));
-	static FAutoConsoleVariable GizmoScaleInVR( TEXT( "VREd.GizmoScaleInVR" ), 0.8f, TEXT( "Size of transform gizmo while in VR" ) );
 	static FAutoConsoleVariable SlateDragDistanceOverride( TEXT( "VREd.SlateDragDistanceOverride" ), 40.0f, TEXT( "How many pixels you need to drag before a drag and drop operation starts in VR" ) );
 	static FAutoConsoleVariable DefaultWorldToMeters(TEXT("VREd.DefaultWorldToMeters"), 100.0f, TEXT("Default world to meters scale"));
 
@@ -198,11 +200,16 @@ void UVREditorMode::Enter()
 
 			// When actually in VR, make sure the transform gizmo is big!
 			SavedEditorState.TransformGizmoScale = WorldInteraction->GetTransformGizmoScale();
-			WorldInteraction->SetTransformGizmoScale( VREd::GizmoScaleInVR->GetFloat() );
+			WorldInteraction->SetTransformGizmoScale(GetDefault<UVRModeSettings>()->GizmoScale);
 			WorldInteraction->SetShouldSuppressExistingCursor(true);
 			WorldInteraction->SetInVR(true);
 		}
 	}
+
+	// Switch us back to placement mode and close any open sequencer windows
+	FVREditorActionCallbacks::ChangeEditorModes(FBuiltinEditorModes::EM_Placement);
+	FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
+	LevelEditorModule.GetLevelEditorTabManager()->InvokeTab(FTabId("Sequencer"))->RequestCloseTab();
 
 	// Setup our avatar
 	if (AvatarActor == nullptr)
@@ -283,6 +290,8 @@ void UVREditorMode::Enter()
 void UVREditorMode::Exit(const bool bShouldDisableStereo)
 {
 	{
+		FVREditorActionCallbacks::ChangeEditorModes(FBuiltinEditorModes::EM_Placement);
+
 		//Destroy the avatar
 		{
 			DestroyTransientActor(AvatarActor);
@@ -669,7 +678,7 @@ void UVREditorMode::RefreshVREditorSequencer(class ISequencer* InCurrentSequence
 {
 	CurrentSequencer = InCurrentSequencer;
 	// Tell the VR Editor UI system to refresh the Sequencer UI
-	if (bActuallyUsingVR)
+	if (bActuallyUsingVR && InCurrentSequencer != nullptr)
 	{
 		GetUISystem().UpdateSequencerUI();
 	}

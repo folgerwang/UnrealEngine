@@ -275,7 +275,7 @@ void UVRRadialMenuHandler::SnapMenuGenerator(FMenuBuilder MenuBuilder, TSharedPt
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::GetTranslationSnapState)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	TAttribute<FText> DynamicTranslationSizeLabel;
 	DynamicTranslationSizeLabel.BindStatic(&FVREditorActionCallbacks::GetTranslationSnapSizeText);
@@ -289,7 +289,7 @@ void UVRRadialMenuHandler::SnapMenuGenerator(FMenuBuilder MenuBuilder, TSharedPt
 			FCanExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::DefaultCanExecuteAction)
 			),
 		NAME_None,
-		EUserInterfaceActionType::CollapsedButton
+		EUserInterfaceActionType::ToggleButton
 		);
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("ToggleRotationSnap", "Rotate Snap"),
@@ -302,7 +302,7 @@ void UVRRadialMenuHandler::SnapMenuGenerator(FMenuBuilder MenuBuilder, TSharedPt
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::GetRotationSnapState)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	TAttribute<FText> DynamicRotationSizeLabel;
 	DynamicRotationSizeLabel.BindStatic(&FVREditorActionCallbacks::GetRotationSnapSizeText);
@@ -329,7 +329,7 @@ void UVRRadialMenuHandler::SnapMenuGenerator(FMenuBuilder MenuBuilder, TSharedPt
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::GetScaleSnapState)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	TAttribute<FText> DynamicScaleSizeLabel;
 	DynamicScaleSizeLabel.BindStatic(&FVREditorActionCallbacks::GetScaleSnapSizeText);
@@ -356,7 +356,7 @@ void UVRRadialMenuHandler::SnapMenuGenerator(FMenuBuilder MenuBuilder, TSharedPt
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::AreAligningToActors, VRMode)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 
 	TAttribute<FText> DynamicAlignSelectionLabel;
@@ -388,7 +388,7 @@ void UVRRadialMenuHandler::GizmoMenuGenerator(FMenuBuilder MenuBuilder, TSharedP
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::IsActiveCoordinateSystem, VRMode, ECoordSystem::COORD_Local)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("WorldSpace", "World Space"),
@@ -401,7 +401,7 @@ void UVRRadialMenuHandler::GizmoMenuGenerator(FMenuBuilder MenuBuilder, TSharedP
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::IsActiveCoordinateSystem, VRMode, ECoordSystem::COORD_World)
 		),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("Universal", "Universal"),
@@ -414,7 +414,7 @@ void UVRRadialMenuHandler::GizmoMenuGenerator(FMenuBuilder MenuBuilder, TSharedP
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::IsActiveGizmoMode, VRMode, EGizmoHandleTypes::All)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("Translate", "Translate"),
@@ -427,7 +427,7 @@ void UVRRadialMenuHandler::GizmoMenuGenerator(FMenuBuilder MenuBuilder, TSharedP
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::IsActiveGizmoMode, VRMode, EGizmoHandleTypes::Translate)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("Rotate", "Rotate"),
@@ -440,7 +440,7 @@ void UVRRadialMenuHandler::GizmoMenuGenerator(FMenuBuilder MenuBuilder, TSharedP
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::IsActiveGizmoMode, VRMode, EGizmoHandleTypes::Rotate)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("Scale", "Scale"),
@@ -453,7 +453,7 @@ void UVRRadialMenuHandler::GizmoMenuGenerator(FMenuBuilder MenuBuilder, TSharedP
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::IsActiveGizmoMode, VRMode, EGizmoHandleTypes::Scale)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 }
 
@@ -470,7 +470,7 @@ void UVRRadialMenuHandler::UIMenuGenerator(FMenuBuilder MenuBuilder, TSharedPtr<
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::GetUIToggledState, VRMode, UVREditorUISystem::EEditorUIPanel::ActorDetails)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("ContentBrowser", "Content Browser"),
@@ -483,7 +483,7 @@ void UVRRadialMenuHandler::UIMenuGenerator(FMenuBuilder MenuBuilder, TSharedPtr<
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::GetUIToggledState, VRMode, UVREditorUISystem::EEditorUIPanel::ContentBrowser)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("Modes", "Modes Panel"),
@@ -496,7 +496,7 @@ void UVRRadialMenuHandler::UIMenuGenerator(FMenuBuilder MenuBuilder, TSharedPtr<
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::GetUIToggledState, VRMode, UVREditorUISystem::EEditorUIPanel::Modes)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("WorldOutliner", "World Outliner"),
@@ -509,7 +509,7 @@ void UVRRadialMenuHandler::UIMenuGenerator(FMenuBuilder MenuBuilder, TSharedPtr<
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::GetUIToggledState, VRMode, UVREditorUISystem::EEditorUIPanel::WorldOutliner)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("WorldSettings", "World Settings"),
@@ -522,7 +522,7 @@ void UVRRadialMenuHandler::UIMenuGenerator(FMenuBuilder MenuBuilder, TSharedPtr<
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::GetUIToggledState, VRMode, UVREditorUISystem::EEditorUIPanel::WorldSettings)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("CreateNewSequence", "Create Sequence"),
@@ -726,7 +726,7 @@ void UVRRadialMenuHandler::ModesMenuGenerator(FMenuBuilder MenuBuilder, TSharedP
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::EditorModeActive, FBuiltinEditorModes::EM_Placement)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("Foliage", "Foliage"),
@@ -739,7 +739,7 @@ void UVRRadialMenuHandler::ModesMenuGenerator(FMenuBuilder MenuBuilder, TSharedP
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::EditorModeActive, FBuiltinEditorModes::EM_Foliage)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("Landscape", "Landscape"),
@@ -752,7 +752,7 @@ void UVRRadialMenuHandler::ModesMenuGenerator(FMenuBuilder MenuBuilder, TSharedP
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::EditorModeActive, FBuiltinEditorModes::EM_Landscape)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("MeshPaint", "Paint"),
@@ -765,7 +765,7 @@ void UVRRadialMenuHandler::ModesMenuGenerator(FMenuBuilder MenuBuilder, TSharedP
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::EditorModeActive, FBuiltinEditorModes::EM_MeshPaint)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("Mesh", "Mesh"),
@@ -778,7 +778,7 @@ void UVRRadialMenuHandler::ModesMenuGenerator(FMenuBuilder MenuBuilder, TSharedP
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::MeshEditModeActive, EEditableMeshElementType::Any)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("Polygon", "Polygon"),
@@ -791,7 +791,7 @@ void UVRRadialMenuHandler::ModesMenuGenerator(FMenuBuilder MenuBuilder, TSharedP
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::MeshEditModeActive, EEditableMeshElementType::Polygon)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("Edge", "Edge"),
@@ -804,7 +804,7 @@ void UVRRadialMenuHandler::ModesMenuGenerator(FMenuBuilder MenuBuilder, TSharedP
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::MeshEditModeActive, EEditableMeshElementType::Edge)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("Vertex", "Vertex"),
@@ -817,7 +817,7 @@ void UVRRadialMenuHandler::ModesMenuGenerator(FMenuBuilder MenuBuilder, TSharedP
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::MeshEditModeActive, EEditableMeshElementType::Vertex)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	
 }

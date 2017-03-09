@@ -20,6 +20,7 @@
 #include "EngineGlobals.h"
 #include "IHeadMountedDisplay.h"
 #include "VREditorAssetContainer.h"
+#include "VRModeSettings.h"
 
 namespace VREd
 {
@@ -37,10 +38,6 @@ namespace VREd
 
 	static FAutoConsoleVariable ScaleProgressBarLength( TEXT( "VREd.ScaleProgressBarLength" ), 50.0f, TEXT( "Length of the progressbar that appears when scaling" ) );
 	static FAutoConsoleVariable ScaleProgressBarRadius( TEXT( "VREd.ScaleProgressBarRadius" ), 1.0f, TEXT( "Radius of the progressbar that appears when scaling" ) );
-	
-	static FAutoConsoleVariable ShowWorldScaleProgressBar( TEXT( "VREd.ShowWorldScaleProgressBar" ), 0, TEXT( "Whether we show a visual progress bar when scaling the world" ) );
-	static FAutoConsoleVariable ShowMovementGrid( TEXT( "VREd.ShowMovementGrid" ), 0, TEXT( "Showing the ground movement grid" ) );
-	static FAutoConsoleVariable ShowWorldMovementPostProcess( TEXT( "VREd.ShowWorldMovementPostProcess" ), 0, TEXT( "Showing the movement post processing" ) );
 }
 
 AVREditorAvatarActor::AVREditorAvatarActor( const FObjectInitializer& ObjectInitializer ) :
@@ -212,7 +209,7 @@ AVREditorAvatarActor::AVREditorAvatarActor( const FObjectInitializer& ObjectInit
 		PostProcessComponent->SetupAttachment( this->GetRootComponent( ) );
 
 		// Unlimited size
-		PostProcessComponent->bEnabled = VREd::ShowWorldMovementPostProcess->GetInt( ) == 1 ? true : false;
+		PostProcessComponent->bEnabled = GetDefault<UVRModeSettings>()->bShowWorldMovementPostProcess;
 		PostProcessComponent->bUnbound = true;
 	}
 
@@ -292,7 +289,7 @@ void AVREditorAvatarActor::TickManually( const float DeltaTime )
 		UVREditorInteractor* LeftHandInteractor = VRMode->GetHandInteractor( EControllerHand::Left );
 		UVREditorInteractor* RightHandInteractor = VRMode->GetHandInteractor( EControllerHand::Right );
 
-		if ( VREd::ShowWorldScaleProgressBar->GetInt() != 0 &&
+		if (GetDefault<UVRModeSettings>()->bShowWorldScaleProgressBar &&
 			LeftHandInteractor != nullptr && RightHandInteractor != nullptr &&
 			 ( ( LeftHandInteractor->GetDraggingMode() == EViewportInteractionDraggingMode::World && RightHandInteractor->GetDraggingMode() == EViewportInteractionDraggingMode::AssistingDrag ) ||
 			   ( LeftHandInteractor->GetDraggingMode() == EViewportInteractionDraggingMode::AssistingDrag && RightHandInteractor->GetDraggingMode() == EViewportInteractionDraggingMode::World ) ) )
@@ -364,7 +361,7 @@ void AVREditorAvatarActor::TickManually( const float DeltaTime )
 
 	// Updating the opacity and visibility of the grid according to the controllers //@todo
 	{
-		if ( VREd::ShowMovementGrid->GetInt( ) == 1 )
+		if (GetDefault<UVRModeSettings>()->bShowWorldMovementGrid)
 		{
 			UVREditorInteractor* LeftHandInteractor = VRMode->GetHandInteractor( EControllerHand::Left );
 			UVREditorInteractor* RightHandInteractor = VRMode->GetHandInteractor( EControllerHand::Right );
@@ -428,7 +425,7 @@ void AVREditorAvatarActor::TickManually( const float DeltaTime )
 	// that are not nearby, and completely hides the skybox and other very distant objects.  This is to help
 	// prevent simulation sickness when moving/rotating/scaling the entire world around them.
 	{
-		PostProcessComponent->bEnabled = VREd::ShowWorldMovementPostProcess->GetInt( ) == 1 ? true : false;
+		PostProcessComponent->bEnabled = GetDefault<UVRModeSettings>()->bShowWorldMovementPostProcess;
 
 		// Make sure our world size is reflected in the post process material
 		static FName WorldScaleFactorParameterName( "WorldScaleFactor" );

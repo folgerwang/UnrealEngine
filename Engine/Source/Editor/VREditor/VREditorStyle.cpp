@@ -146,6 +146,15 @@ TSharedRef< FSlateStyleSet > FVREditorStyle::Create()
 	Style->Set("VRRadialStyle.Label", FTextBlockStyle(NormalText)
 		.SetFont(RadialFont)
 		.SetColorAndOpacity(FLinearColor::White));
+
+	Style->Set("VRRadialStyle.InactiveFont", FSlateFontInfo(RadialFont));
+
+	FSlateFontInfo ActiveRadialFont = TTF_CORE_FONT("Fonts/Roboto-Regular", 10);
+	FFontOutlineSettings ActiveRadialOutline;
+	ActiveRadialOutline.OutlineColor = FLinearColor::Black;
+	ActiveRadialOutline.OutlineSize = 1.0f;
+	ActiveRadialFont.OutlineSettings = ActiveRadialOutline;
+	Style->Set("VRRadialStyle.ActiveFont", FSlateFontInfo(ActiveRadialFont));
 	
 	FSlateFontInfo NumpadRadialFont = TTF_CORE_FONT("Fonts/Roboto-Regular", 24);
 	NumpadRadialFont.OutlineSettings = RadialOutline;

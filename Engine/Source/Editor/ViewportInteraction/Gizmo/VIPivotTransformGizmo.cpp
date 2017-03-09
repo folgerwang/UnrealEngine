@@ -34,7 +34,8 @@ namespace VREd //@todo VREditor: Duplicates of TransformGizmo
 
 APivotTransformGizmo::APivotTransformGizmo() :
 	Super(),
-	AimingAtMeFadeAlpha(0.0f)
+	AimingAtGizmoScaleAlpha(0.0f),
+	LastDraggingHandle(nullptr)
 {
 	UniformScaleGizmoHandleGroup = CreateDefaultSubobject<UUniformScaleGizmoHandleGroup>( TEXT( "UniformScaleHandles" ), true );
 	UniformScaleGizmoHandleGroup->SetOwningTransformGizmo(this);
@@ -97,40 +98,55 @@ void APivotTransformGizmo::UpdateGizmo(const EGizmoHandleTypes InGizmoType, cons
 	float GizmoScale = (InScaleMultiplier * ((WorldSpaceDistanceToToPivot / WorldScaleFactor) * VREd::PivotGizmoDistanceScaleFactor->GetFloat())) * WorldScaleFactor;
 	const bool bIsWorldSpaceGizmo = (WorldInteraction->GetTransformGizmoCoordinateSpace() == COORD_World);
 
+	if (LastDraggingHandle != nullptr && DraggingHandle == nullptr)
+	{
+		AimingAtGizmoScaleAlpha = 0.0f;
+	}
+
 	// Only scale the gizmo down when not aiming at it for VR implementations
 	if (WorldInteraction->IsInVR())
 	{
 		bool bIsAimingTowards = false;
-		const float GizmoRadius = (GizmoScale * 350) * 0.5f; //@todo ViewportInteraction: Hardcoded radius multiplier.
+		bool bAnyInteractorInCorrectState = false;
+		const float GizmoRadius = (GizmoScale * 350) * 0.5f;
 
 		// Check if any interactor has a laser close to the gizmo
 		for (UViewportInteractor* Interactor : WorldInteraction->GetInteractors())
 		{	
-			FVector LaserPointerStart, LaserPointerEnd;
-			if (Interactor->GetLaserPointer(/*Out*/ LaserPointerStart, /*Out*/ LaserPointerEnd))
+			// We only want the interactor to affect the size when aiming at the gizmo if they are dragging nothing
+			if (Interactor->GetDraggingMode() == EViewportInteractionDraggingMode::Nothing)
 			{
-				const FVector ClosestPointOnLaser = FMath::ClosestPointOnLine(LaserPointerStart, LaserPointerEnd, InLocalToWorld.GetLocation());
-				const float ClosestPointDistance = (ClosestPointOnLaser - InLocalToWorld.GetLocation()).Size();
-				if (ClosestPointDistance <= GizmoRadius)
+				bAnyInteractorInCorrectState = true;			
+
+				FVector LaserPointerStart, LaserPointerEnd;
+				if (Interactor->GetLaserPointer(/*Out*/ LaserPointerStart, /*Out*/ LaserPointerEnd))
 				{
-					bIsAimingTowards = true;
-					break;
+					const FVector ClosestPointOnLaser = FMath::ClosestPointOnLine(LaserPointerStart, LaserPointerEnd, InLocalToWorld.GetLocation());
+					const float ClosestPointDistance = (ClosestPointOnLaser - InLocalToWorld.GetLocation()).Size();
+					if (ClosestPointDistance <= GizmoRadius)
+					{
+						bIsAimingTowards = true;
+						break;
+					}
 				}
 			}
 		}
 
-		const float DeltaTime = WorldInteraction->GetCurrentDeltaTime();
-		if (bIsAimingTowards)
+		if (bAnyInteractorInCorrectState)
 		{
-			AimingAtMeFadeAlpha += DeltaTime / VREd::PivotGizmoAimAtAnimationSpeed->GetFloat();
-		}
-		else
-		{
-			AimingAtMeFadeAlpha -= DeltaTime / VREd::PivotGizmoAimAtAnimationSpeed->GetFloat();
-		}
-		AimingAtMeFadeAlpha = FMath::Clamp(AimingAtMeFadeAlpha, VREd::PivotGizmoAimAtShrinkSize->GetFloat(), 1.0f);
+			const float DeltaTime = WorldInteraction->GetCurrentDeltaTime();
+			if (bIsAimingTowards)
+			{
+				AimingAtGizmoScaleAlpha += DeltaTime / VREd::PivotGizmoAimAtAnimationSpeed->GetFloat();
+			}
+			else
+			{
+				AimingAtGizmoScaleAlpha -= DeltaTime / VREd::PivotGizmoAimAtAnimationSpeed->GetFloat();
+			}
+			AimingAtGizmoScaleAlpha = FMath::Clamp(AimingAtGizmoScaleAlpha, VREd::PivotGizmoAimAtShrinkSize->GetFloat(), 1.0f);
 
-		GizmoScale *= AimingAtMeFadeAlpha;
+			GizmoScale *= AimingAtGizmoScaleAlpha;
+		}
 	}
 
 	// Update animation
@@ -152,6 +168,8 @@ void APivotTransformGizmo::UpdateGizmo(const EGizmoHandleTypes InGizmoType, cons
 			}
 		}
 	}
+
+	LastDraggingHandle = DraggingHandle;
 }
 
 /************************************************************************/

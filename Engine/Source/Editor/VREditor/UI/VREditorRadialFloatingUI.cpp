@@ -75,12 +75,17 @@ AVREditorRadialFloatingUI::AVREditorRadialFloatingUI()
 		ArrowMeshComponent->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 
 		ArrowMeshComponent->SetStaticMesh(AssetContainer->RadialMenuPointerMesh);
+		ArrowMeshComponent->CreateAndSetMaterialInstanceDynamic(0);
+		UMaterialInstanceDynamic* ArrowMaterial = Cast<UMaterialInstanceDynamic>(ArrowMeshComponent->GetMaterial(0));
+		ArrowAlpha = 0.0f;
+		ArrowMaterial->SetScalarParameterValue("Alpha", ArrowAlpha);
 		ArrowMeshComponent->bGenerateOverlapEvents = false;
 		ArrowMeshComponent->SetCanEverAffectNavigation(false);
 		ArrowMeshComponent->bCastDynamicShadow = false;
 		ArrowMeshComponent->bCastStaticShadow = false;
 		ArrowMeshComponent->bAffectDistanceFieldLighting = false;
 		ArrowMeshComponent->bSelectable = false;
+		ArrowMeshComponent->SetVisibility(false);
 	}
 
 	{
@@ -256,6 +261,19 @@ void AVREditorRadialFloatingUI::UpdateFadingState( const float DeltaTime )
 			GlowAmount = FMath::Max(DefaultGlowAmount, GlowAmount - VREd::RadialUIFadeSpeed->GetFloat() * DeltaTime);
 		}
 		DiskMaterial->SetScalarParameterValue("GlowAmount", GlowAmount);
+	}
+	if (ArrowMeshComponent != nullptr)
+	{
+		UMaterialInstanceDynamic* ArrowMaterial = Cast<UMaterialInstanceDynamic>(ArrowMeshComponent->GetMaterial(0));
+		if (ArrowAlpha < 1.0 && ArrowMeshComponent->IsVisible())
+		{
+			ArrowAlpha = FMath::Min(1.0f, ArrowAlpha + VREd::RadialUIFadeSpeed->GetFloat() * DeltaTime);
+		}
+		if (!ArrowMeshComponent->IsVisible())
+		{
+			ArrowAlpha = 0.0f;
+		}
+		ArrowMaterial->SetScalarParameterValue("Alpha", ArrowAlpha);
 	}
 	if ( FadeDelay > 0.f )
 	{

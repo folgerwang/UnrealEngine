@@ -3,7 +3,6 @@
 #include "VREditorModeManager.h"
 #include "InputCoreTypes.h"
 #include "VREditorMode.h"
-#include "Settings/EditorExperimentalSettings.h"
 #include "Modules/ModuleManager.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/WorldSettings.h"
@@ -14,6 +13,7 @@
 #include "IHeadMountedDisplay.h"
 #include "EditorWorldExtension.h"
 #include "ViewportWorldInteraction.h"
+#include "VRModeSettings.h"
 
 FVREditorModeManager::FVREditorModeManager() :
 	CurrentVREditorMode( nullptr ),
@@ -36,7 +36,7 @@ void FVREditorModeManager::Tick( const float DeltaTime )
 	TimeSinceHMDChecked += DeltaTime;
 
 	// You can only auto-enter VR if the setting is enabled. Other criteria are that the VR Editor is enabled in experimental settings, that you are not in PIE, and that the editor is foreground.
-	bool bCanAutoEnterVR = GetDefault<UEditorExperimentalSettings>()->bEnableAutoVREditMode && 
+	bool bCanAutoEnterVR = GetDefault<UVRModeSettings>()->bEnableAutoVREditMode && 
 		(GEditor->PlayWorld == nullptr || (CurrentVREditorMode != nullptr && CurrentVREditorMode->GetStartedPlayFromVREditor())) && 
 		FPlatformProcess::IsThisApplicationForeground();
 

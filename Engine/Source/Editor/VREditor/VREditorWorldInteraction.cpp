@@ -21,6 +21,7 @@
 #include "VREditorUISystem.h"
 #include "VREditorFloatingUI.h"
 #include "VREditorInteractor.h"
+#include "VREditorMotionControllerInteractor.h"
 
 // For actor placement
 #include "ObjectTools.h"
@@ -79,23 +80,30 @@ void UVREditorWorldInteraction::StopDragging( UViewportInteractor* Interactor )
 {
 	EViewportInteractionDraggingMode InteractorDraggingMode = Interactor->GetDraggingMode();
 
-	// If we were placing a material, go ahead and do that now
 	if ( InteractorDraggingMode == EViewportInteractionDraggingMode::Material )
 	{
+		// If we were placing a material, go ahead and do that now
 		PlaceDraggedMaterialOrTexture( Interactor );
 	}	
-
-	// If we were placing something, bring the window back
-	if ( FloatingUIAssetDraggedFrom != nullptr && 
+	else if ( FloatingUIAssetDraggedFrom != nullptr && 
 		( InteractorDraggingMode == EViewportInteractionDraggingMode::TransformablesAtLaserImpact ||
 		  InteractorDraggingMode == EViewportInteractionDraggingMode::Material ) )
 	{
+		// If we were placing something, bring the window back
 		const bool bShouldShow = true;
 		const bool bSpawnInFront = false;
 		const bool bDragFromOpen = false;
 		const bool bPlaySound = false;
 		Owner->GetUISystem().ShowEditorUIPanel(FloatingUIAssetDraggedFrom, Cast<UVREditorInteractor>(Interactor->GetOtherInteractor()), bShouldShow, bSpawnInFront, bDragFromOpen, bPlaySound);
 		FloatingUIAssetDraggedFrom = nullptr;
+	}
+	else if (Interactor->GetDraggingMode() == EViewportInteractionDraggingMode::TransformablesFreely)
+	{
+		UVREditorMotionControllerInteractor* MotionController = Cast<UVREditorMotionControllerInteractor>(Interactor);
+		if (Owner->GetUISystem().GetUIInteractor() == MotionController)
+		{
+			MotionController->SetControllerType(EControllerType::UI);
+		}
 	}
 }
 

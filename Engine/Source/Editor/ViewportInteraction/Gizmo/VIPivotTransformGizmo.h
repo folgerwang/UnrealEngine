@@ -20,7 +20,7 @@ public:
 
 	/** Default constructor that sets up CDO properties */
 	APivotTransformGizmo();
-
+	
 	/** Called by the world interaction system after we've been spawned into the world, to allow
 	    us to create components and set everything up nicely for the selected objects that we'll be
 		used to manipulate */
@@ -53,7 +53,12 @@ private:
 	UPROPERTY()
 	class UStretchGizmoHandleGroup* StretchGizmoHandleGroup;
 
-	float AimingAtMeFadeAlpha;
+	/** The alpha for gizmo animation when aiming at it with a laser */
+	float AimingAtGizmoScaleAlpha;
+
+	/** Handle from previous tick that was dragged */
+	UPROPERTY()
+	UActorComponent* LastDraggingHandle;
 };
 
 /**

@@ -85,6 +85,7 @@
 #include "Widgets/Layout/SDPIScaler.h"
 #include "Widgets/Docking/SDockTab.h"
 #include "Widgets/Colors/SColorPicker.h"
+#include "Widgets/Input/SCheckBox.h"
 #include "MultiBox.h"
 #include "LevelEditorActions.h"
 #include "VREditorActions.h"
@@ -98,6 +99,7 @@
 #include "SImage.h"
 
 #include "DrawDebugHelpers.h"
+#include "VRModeSettings.h"
 
 #define LOCTEXT_NAMESPACE "VREditor"
 
@@ -123,7 +125,6 @@ namespace VREd
 	static FAutoConsoleVariable UIAbsoluteScrollSpeed( TEXT( "VREd.UIAbsoluteScrollSpeed" ), 8.0f, TEXT( "How fast the UI scrolls when dragging the touchpad" ) );
 	static FAutoConsoleVariable UIRelativeScrollSpeed( TEXT( "VREd.UIRelativeScrollSpeed" ), 0.75f, TEXT( "How fast the UI scrolls when holding an analog stick" ) );
 	static FAutoConsoleVariable MinUIScrollDeltaForInertia( TEXT( "VREd.MinUIScrollDeltaForInertia" ), 0.25f, TEXT( "Minimum amount of touch pad input before inertial UI scrolling kicks in" ) );
-	static FAutoConsoleVariable DoubleClickTime( TEXT( "VREd.DoubleClickTime" ), 0.25f, TEXT( "Minimum duration between clicks for a double click event to fire" ) );
 	static FAutoConsoleVariable UIPressHapticFeedbackStrength( TEXT( "VREd.UIPressHapticFeedbackStrength" ), 0.4f, TEXT( "Strenth of haptic when clicking on the UI" ) );
 	static FAutoConsoleVariable UIAssetEditorSummonedOnHandHapticFeedbackStrength( TEXT( "VREd.UIAssetEditorSummonedOnHandHapticFeedbackStrength" ), 1.0f, TEXT( "Strenth of haptic to play to remind a user which hand an asset editor was spawned on" ) );
 	static FAutoConsoleVariable MaxDockWindowSize( TEXT( "VREd.MaxDockWindowSize" ), 250, TEXT( "Maximum size for dockable windows" ) );
@@ -132,7 +133,6 @@ namespace VREd
 	static FAutoConsoleVariable UIPanelOpenRotationPitchOffset( TEXT( "VREd.UIPanelOpenRotationPitchOffset" ), 45.0f, TEXT( "The pitch rotation offset in degrees when spawning a panel in front of the motioncontroller" ) );
 	static FAutoConsoleVariable ColorPickerDockSpawnOffset( TEXT( "VREd.ColorPickerDockSpawnOffset" ),  3.f, TEXT( "Offset of where the color picker spawns" ) );
 	static FAutoConsoleVariable EnableQuickMenu(TEXT("VREd.EnableQuickMenu"), 0, TEXT("Whether the quick menu should be enabled. Disabled by default."));
-	static FAutoConsoleVariable LeftHandDominant(TEXT("VREd.LeftHandDominant"), 0, TEXT("Set to 1 to make the left hand the dominant hand"));
 	static FAutoConsoleVariable SteamVRTrackpadDeadzone(TEXT("VREd.SteamVRTrackpadDeadzone"), 0.3f, TEXT("The deadzone for the Vive motion controller trackpad"));
 	static const FTransform DefaultColorPickerTransform(	FRotator( -10, 180, 0), FVector( 30, 35, 0 ), FVector( 1 ) );
 }
@@ -151,7 +151,7 @@ UVREditorUISystem::UVREditorUISystem( const FObjectInitializer& Initializer ) :
 	ColorPickerUI( nullptr ),
 	bRefocusViewport(false),
 	LastDraggingHoverLocation( FVector::ZeroVector ),
-	bSequencerOpenendFromRadialMenu(false),
+	bSequencerOpenedFromRadialMenu(false),
 	bDragPanelFromOpen(false),
 	DragPanelFromOpenTime(0.0f),
 	bPanelCanScale(true)
@@ -169,7 +169,7 @@ void UVREditorUISystem::Init()
 	FSlateApplication::Get().OnDragDropCheckOverride.BindUObject(this, &UVREditorUISystem::CheckForVRDragDrop);
 
 	// TODO: asymmetry hardcoded right now
-	if (VREd::LeftHandDominant->GetInt() == 1)
+	if (GetDefault<UVRModeSettings>()->InteractorHand == EInteractorHand::Left)
 	{
 		LaserInteractor = Cast<UVREditorMotionControllerInteractor>(GetOwner().GetHandInteractor(EControllerHand::Left));
 		UIInteractor = Cast<UVREditorMotionControllerInteractor>(GetOwner().GetHandInteractor(EControllerHand::Right));
@@ -266,7 +266,10 @@ void UVREditorUISystem::OnPreviewInputAction(FEditorViewportClient& ViewportClie
 		VREditorInteractor == UIInteractor && 
 		(VREditorInteractor->GetDraggingMode() != EViewportInteractionDraggingMode::World || (VREditorInteractor->GetOtherInteractor() != nullptr && VREditorInteractor->GetOtherInteractor()->GetDraggingMode() != EViewportInteractionDraggingMode::World && VREditorInteractor->GetDraggingMode() == EViewportInteractionDraggingMode::AssistingDrag )))
 	{
-		if (Action.Event == EInputEvent::IE_Pressed && VRMode->GetHMDDeviceType() == EHMDDeviceType::DT_OculusRift && Action.ActionType == VRActionTypes::ConfirmRadialSelection)
+		if (Action.Event == EInputEvent::IE_Pressed && 
+			VRMode->GetHMDDeviceType() == EHMDDeviceType::DT_OculusRift 
+			&& Action.ActionType == VRActionTypes::ConfirmRadialSelection
+			&& GIsDemoMode)
 		{
 			ResetAll();
 			bWasHandled = true;
@@ -460,7 +463,7 @@ void UVREditorUISystem::OnPreviewInputAction(FEditorViewportClient& ViewportClie
 									if (Action.Event == IE_Pressed)
 									{
 										const double CurrentTime = FPlatformTime::Seconds();
-										if (CurrentTime - VREditorInteractor->GetLastUIPressTime() <= VREd::DoubleClickTime->GetFloat())
+										if (CurrentTime - VREditorInteractor->GetLastUIPressTime() <= GetDefault<UVRModeSettings>()->DoubleClickTime)
 										{
 											// Trigger a double click event!
 											Reply = FSlateApplication::Get().RoutePointerDoubleClickEvent(WidgetPathUnderFinger, PointerEvent);
@@ -1634,8 +1637,8 @@ void UVREditorUISystem::TogglePanelVisibility( const EEditorUIPanel EditorUIPane
 		}
 		else
 		{
+			const bool bDragFromOpen = ShouldPreviewPanel();
 			const bool bSpawnInFront = true;
-			const bool bDragFromOpen = true;
 			const bool bPlaySound = false;
 			ShowEditorUIPanel(Panel, UIInteractor, !bIsShowing, bSpawnInFront, bDragFromOpen, bPlaySound);
 		}
@@ -1769,7 +1772,7 @@ void UVREditorUISystem::MakeUniformGridMenu(const TSharedRef<FMultiBox>& MultiBo
 				];
 
 			//AddHoverableButton(BlockWidget, TEXT("SMenuEntryButton"), TestOverlay);
-			SetButtonTextWrap(BlockWidget, 50.0);
+			//SetButtonTextWrap(BlockWidget, 50.0);
 			Index++;
 		}
 	}
@@ -1803,41 +1806,49 @@ TSharedRef<SWidget> UVREditorUISystem::AddHoverableButton(TSharedRef<SWidget>& B
 	return BlockWidget;
 }
 
-TSharedRef<SWidget> UVREditorUISystem::SetButtonTextWrap(TSharedRef<SWidget>& BlockWidget, float WrapSize)
+TSharedRef<SWidget> UVREditorUISystem::SetButtonFormatting(TSharedRef<SWidget>& BlockWidget, float WrapSize)
 {
-
-	TArray<TSharedRef<SWidget>> TestWidgets;
-	FindAllWidgetsOfType(TestWidgets, BlockWidget, FName(TEXT("SImage")));
-	if (TestWidgets.Num() > 0)
+	TSharedRef<SWidget> TestWidget = FindWidgetOfType(BlockWidget, FName(TEXT("SImage")));
+	if (TestWidget != SNullWidget::NullWidget)
 	{
-		for (const TSharedRef<SWidget> TestWidget : TestWidgets)
-		{
-			TSharedRef<SImage> Image = StaticCastSharedRef<SImage>(TestWidget);
-			Image->SetRenderTransformPivot(FVector2D(0.5f, 0.5f));
-			Image->SetRenderTransform(FSlateRenderTransform::FTransform2D(4.0f));
-		}
+		TSharedRef<SImage> Image = StaticCastSharedRef<SImage>(TestWidget);
+		Image->SetRenderTransformPivot(FVector2D(0.5f, 0.5f));
+		Image->SetRenderTransform(FSlateRenderTransform::FTransform2D(4.0f));	
 	}
 
-	TestWidgets.Empty();
-	FindAllWidgetsOfType(TestWidgets, BlockWidget, FName(TEXT("SBox")));
-	if (TestWidgets.Num() > 0)
-	{
-		for (const TSharedRef<SWidget> TestWidget : TestWidgets)
-		{
-				TSharedRef<SBox> Box = StaticCastSharedRef<SBox>(TestWidget);
-				Box->SetMinDesiredHeight(64.0f);
-		}
-	}
-
-	TSharedRef<SWidget> TestWidget = FindWidgetOfType(BlockWidget, FName(TEXT("STextBlock")));
+	// Format the button text
+	TestWidget = FindWidgetOfType(BlockWidget, FName(TEXT("STextBlock")));
 	if (TestWidget != SNullWidget::NullWidget)
 	{
 		TSharedRef<STextBlock> TextBlock = StaticCastSharedRef<STextBlock>(TestWidget);
 		TextBlock->SetWrapTextAt(WrapSize);
 		TextBlock->SetJustification(ETextJustify::Center);
+		
+		// Change the button font color based on whether the option is checked or not
+		TSharedRef<SWidget> TestCheckbox = FindWidgetOfType(BlockWidget, FName(TEXT("SCheckBox")));
+		if (TestCheckbox != SNullWidget::NullWidget)
+		{
+			TSharedRef<SCheckBox> CheckBox = StaticCastSharedRef<SCheckBox>(TestCheckbox);
+			TAttribute<FSlateColor> DynamicSelectedTextColor = TAttribute<FSlateColor>::Create(
+				TAttribute<FSlateColor>::FGetter::CreateLambda([this, CheckBox]() -> FSlateColor
+				{
+					return CheckBox->IsChecked() ? this->GetOwner().GetColor(UVREditorMode::EColors::UIColor) : FSlateColor(FLinearColor::White);
+				}
+				)
+				);
+				TAttribute<FSlateFontInfo> DynamicSelectedTextFont = TAttribute<FSlateFontInfo>::Create(
+					TAttribute<FSlateFontInfo>::FGetter::CreateLambda([CheckBox]() -> FSlateFontInfo
+				{
+					return CheckBox->IsChecked() ? FVREditorStyle::Get().GetFontStyle("VRRadialStyle.ActiveFont") : FVREditorStyle::Get().GetFontStyle("VRRadialStyle.InactiveFont");
+				}
+				)
+				);
+				TextBlock->SetColorAndOpacity(DynamicSelectedTextColor);
+				TextBlock->SetFont(DynamicSelectedTextFont);
+			}
+		
+
 	}	
-
-
 	return BlockWidget;
 }
 
@@ -1888,7 +1899,7 @@ void UVREditorUISystem::MakeRadialBoxMenu(const TSharedRef<FMultiBox>& MultiBox,
 			TSharedRef<SOverlay> TestOverlay = SNew(SOverlay);
 
 			BlockWidget = AddHoverableButton(BlockWidget, ButtonTypeOverride, TestOverlay);
-			BlockWidget = SetButtonTextWrap(BlockWidget, 50.0f);
+			BlockWidget = SetButtonFormatting(BlockWidget, 50.0f);
 			TSharedRef<SBox> RadialMenuElement = SNew(SBox);
 			RadialMenuElement->SetContent(
 				SNew(SDPIScaler)
@@ -1968,7 +1979,7 @@ TSharedRef<SWidget> UVREditorUISystem::BuildQuickMenuWidget()
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::AreAligningToActors, VRMode)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 
 	TAttribute<FText> DynamicAlignSelectionLabel;
@@ -2005,7 +2016,7 @@ TSharedRef<SWidget> UVREditorUISystem::BuildQuickMenuWidget()
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::GetTranslationSnapState)
 		),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	TAttribute<FText> DynamicTranslationSizeLabel;
 	DynamicTranslationSizeLabel.BindStatic(&FVREditorActionCallbacks::GetTranslationSnapSizeText);
@@ -2032,7 +2043,7 @@ TSharedRef<SWidget> UVREditorUISystem::BuildQuickMenuWidget()
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::GetRotationSnapState)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	TAttribute<FText> DynamicRotationSizeLabel;
 	DynamicRotationSizeLabel.BindStatic(&FVREditorActionCallbacks::GetRotationSnapSizeText);
@@ -2059,7 +2070,7 @@ TSharedRef<SWidget> UVREditorUISystem::BuildQuickMenuWidget()
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::GetScaleSnapState)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	TAttribute<FText> DynamicScaleSizeLabel;
 	DynamicScaleSizeLabel.BindStatic(&FVREditorActionCallbacks::GetScaleSnapSizeText);
@@ -2094,7 +2105,7 @@ TSharedRef<SWidget> UVREditorUISystem::BuildQuickMenuWidget()
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::GetUIToggledState, VRMode, UVREditorUISystem::EEditorUIPanel::ActorDetails)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	InterfaceMenuBuilder.AddMenuEntry(
 		LOCTEXT("ContentBrowser", "Content Browser"),
@@ -2107,7 +2118,7 @@ TSharedRef<SWidget> UVREditorUISystem::BuildQuickMenuWidget()
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::GetUIToggledState, VRMode, UVREditorUISystem::EEditorUIPanel::ContentBrowser)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	InterfaceMenuBuilder.AddMenuEntry(
 		LOCTEXT("Modes", "Modes"),
@@ -2120,7 +2131,7 @@ TSharedRef<SWidget> UVREditorUISystem::BuildQuickMenuWidget()
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::GetUIToggledState, VRMode, UVREditorUISystem::EEditorUIPanel::Modes)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	InterfaceMenuBuilder.AddMenuEntry(
 		LOCTEXT("WorldOutliner", "World Outliner"),
@@ -2133,7 +2144,7 @@ TSharedRef<SWidget> UVREditorUISystem::BuildQuickMenuWidget()
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::GetUIToggledState, VRMode, UVREditorUISystem::EEditorUIPanel::WorldOutliner)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	InterfaceMenuBuilder.AddMenuEntry(
 		LOCTEXT("WorldSettings", "World Settings"),
@@ -2146,7 +2157,7 @@ TSharedRef<SWidget> UVREditorUISystem::BuildQuickMenuWidget()
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::GetUIToggledState, VRMode, UVREditorUISystem::EEditorUIPanel::WorldSettings)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	InterfaceMenuBuilder.AddMenuEntry(
 		LOCTEXT("CreateNewSequence", "Create Sequence"), 
@@ -2603,12 +2614,17 @@ void UVREditorUISystem::OnHoverEndEffect(UVREditorWidgetComponent* Button)
 
 void UVREditorUISystem::SequencerOpenendFromRadialMenu(const bool bInOpenedFromRadialMenu /*= true*/)
 {
-	bSequencerOpenendFromRadialMenu = bInOpenedFromRadialMenu;
+	bSequencerOpenedFromRadialMenu = bInOpenedFromRadialMenu;
 }
 
 bool UVREditorUISystem::CanScalePanel() const
 {
 	return bPanelCanScale || (DraggingUI != nullptr && LaserInteractor != nullptr && InteractorDraggingUI != nullptr && LaserInteractor == InteractorDraggingUI);
+}
+
+UVREditorMotionControllerInteractor* UVREditorUISystem::GetUIInteractor()
+{
+	return UIInteractor;
 }
 
 void UVREditorUISystem::SequencerRadialMenuGenerator(FMenuBuilder MenuBuilder, TSharedPtr<FUICommandList> CommandList, class UVREditorMode* VRMode, float& RadiusOverride)
@@ -2666,7 +2682,7 @@ void UVREditorUISystem::SequencerRadialMenuGenerator(FMenuBuilder MenuBuilder, T
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::GetSequencerScrubState, UIInteractor)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("ToggleLooping", "Toggle Looping"),
@@ -2679,7 +2695,7 @@ void UVREditorUISystem::SequencerRadialMenuGenerator(FMenuBuilder MenuBuilder, T
 			FGetActionCheckState::CreateStatic(&FVREditorActionCallbacks::IsLoopingChecked, VRMode)
 			),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 }
 
@@ -2696,7 +2712,7 @@ void UVREditorUISystem::HandleEditorModeChanged(FEdMode* Mode, bool IsEnabled)
 			{
 				const bool bShouldShow = true;
 				const bool bSpawnInFront = true;
-				const bool bDragFromOpen = true;
+				const bool bDragFromOpen = ShouldPreviewPanel();
 				ShowEditorUIPanel(Panel, UIInteractor, bShouldShow, bSpawnInFront, bDragFromOpen);
 			}
 		}
@@ -2760,6 +2776,24 @@ bool UVREditorUISystem::CheckForVRDragDrop()
 	}
 }
 
+bool UVREditorUISystem::ShouldPreviewPanel()
+{
+	bool bDragFromOpen = true;
+	if (LaserInteractor != nullptr)
+	{
+		// If we are clicking with the laser interactor, instantly spawn the panel
+		FHitResult HitResult = LaserInteractor->GetHitResultFromLaserPointer();
+		if (HitResult.Actor.IsValid())
+		{
+			if (HitResult.Actor == QuickRadialMenu)
+			{
+				bDragFromOpen = !LaserInteractor->IsClickingOnUI();
+			}
+		}
+	}
+	return bDragFromOpen;
+}
+
 AVREditorRadialFloatingUI* UVREditorUISystem::GetRadialMenuFloatingUI() const
 {
 	return QuickRadialMenu;
@@ -2800,10 +2834,13 @@ void UVREditorUISystem::UpdateSequencerUI()
 			const bool bWithSceneComponent = false;
 			SequencerPanel->SetSlateWidget(*this, WidgetToDraw, FIntPoint(VREd::SequencerUIResolutionX->GetFloat(), VREd::SequencerUIResolutionY->GetFloat()), VREd::EditorUISize->GetFloat(), AVREditorFloatingUI::EDockedTo::Nothing);
 	
-			if (bSequencerOpenendFromRadialMenu == true)
+			if (bSequencerOpenedFromRadialMenu == true)
 			{
-				ShowEditorUIPanel(SequencerPanel, UIInteractor, true, true, false, true);
-				bSequencerOpenendFromRadialMenu = false;
+				const bool bDragFromOpen = ShouldPreviewPanel();
+				const bool bShouldShow = true;
+				const bool bSpawnInFront = true;
+				ShowEditorUIPanel(SequencerPanel, UIInteractor, bShouldShow, bSpawnInFront, bDragFromOpen);
+				bSequencerOpenedFromRadialMenu = false;
 			}
 			else
 			{

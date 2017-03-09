@@ -235,6 +235,9 @@ public:
 	/** If a dockable window can be scaled */
 	bool CanScalePanel() const;
 
+	/** Get the interactor that holds the radial menu */
+	class UVREditorMotionControllerInteractor* GetUIInteractor();
+
 protected:
 
 	/** Called to "preview" an input event to get a first chance at it. */
@@ -286,7 +289,7 @@ protected:
 	/** Adds a hoverable button of a given type to an overlay, using menu data from a BlockWidget */
 	TSharedRef<SWidget> AddHoverableButton(TSharedRef<SWidget>& BlockWidget, FName ButtonType, TSharedRef<SOverlay>& TestOverlay);
 	/** Sets the text wrap size of the text block element nested in a BlockWidget */
-	TSharedRef<SWidget> SetButtonTextWrap(TSharedRef<SWidget>& BlockWidget, float WrapSize);
+	TSharedRef<SWidget> SetButtonFormatting(TSharedRef<SWidget>& BlockWidget, float WrapSize);
 	
 	/** Builds the quick menu Slate widget */
 	TSharedRef<SWidget> BuildQuickMenuWidget();
@@ -312,6 +315,9 @@ protected:
 
 	/**The VR Editor UI System's rules for when drag drop should be checked for */
 	bool CheckForVRDragDrop();
+
+	/** Preview the UI panel's location if spawning with the UI interactor, else spawn immediately */
+	bool ShouldPreviewPanel();
 
 protected:
 
@@ -403,7 +409,7 @@ protected:
 	FTimespan RadialMenuModifierSpawnTime;
 
 	/** If sequenced was opened from the radial menu or somewhere else such as the content browser. */
-	bool bSequencerOpenendFromRadialMenu;
+	bool bSequencerOpenedFromRadialMenu;
 
 	/** If started dragging from opening a UI panel */
 	bool bDragPanelFromOpen;

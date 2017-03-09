@@ -207,5 +207,9 @@ private:
 	float GlowAmount;
 
 	float DefaultGlowAmount;
+
+	/** Alpha of arrow - VFX */
+	float ArrowAlpha;
+
 };
 

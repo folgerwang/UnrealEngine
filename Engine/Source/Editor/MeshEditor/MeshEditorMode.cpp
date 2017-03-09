@@ -6202,7 +6202,7 @@ void FMeshEditorMode::MeshEditActionsGenerator(FMenuBuilder MenuBuilder, TShared
 			FExecuteAction::CreateSP(this, &FMeshEditorMode::AddOrRemoveSubdivisionLevel, true )
 		),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("RemoveSubdivision", "Remove SubD"),
@@ -6213,7 +6213,7 @@ void FMeshEditorMode::MeshEditActionsGenerator(FMenuBuilder MenuBuilder, TShared
 			FExecuteAction::CreateSP(this, &FMeshEditorMode::AddOrRemoveSubdivisionLevel, false)
 		),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("EditInstance", "Edit Instance"),
@@ -6226,7 +6226,7 @@ void FMeshEditorMode::MeshEditActionsGenerator(FMenuBuilder MenuBuilder, TShared
 			FIsActionChecked::CreateLambda([this] { return IsEditingPerInstance(); })
 		),
 		NAME_None,
-		EUserInterfaceActionType::Check
+		EUserInterfaceActionType::ToggleButton
 		);
 
 	if (GetMeshElementSelectionMode() == EEditableMeshElementType::Polygon)
@@ -6242,7 +6242,7 @@ void FMeshEditorMode::MeshEditActionsGenerator(FMenuBuilder MenuBuilder, TShared
 				FIsActionChecked::CreateLambda([this] { return (EquippedPolygonAction == EMeshEditAction::Move); })
 				),
 			NAME_None,
-			EUserInterfaceActionType::Check
+			EUserInterfaceActionType::ToggleButton
 			);
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("Delete", "Delete"),
@@ -6254,7 +6254,7 @@ void FMeshEditorMode::MeshEditActionsGenerator(FMenuBuilder MenuBuilder, TShared
 				FCanExecuteAction::CreateSP(this, &FMeshEditorMode::IsMeshElementTypeSelected, EEditableMeshElementType::Polygon)
 				),
 			NAME_None,
-			EUserInterfaceActionType::Button
+			EUserInterfaceActionType::CollapsedButton
 			);
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("Extrude", "Extrude"),
@@ -6267,7 +6267,7 @@ void FMeshEditorMode::MeshEditActionsGenerator(FMenuBuilder MenuBuilder, TShared
 				FIsActionChecked::CreateLambda([this] { return (EquippedPolygonAction == EMeshEditAction::ExtrudePolygon); })
 			),
 			NAME_None,
-			EUserInterfaceActionType::Check
+			EUserInterfaceActionType::ToggleButton
 			);
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("Inset", "Inset"),
@@ -6280,7 +6280,7 @@ void FMeshEditorMode::MeshEditActionsGenerator(FMenuBuilder MenuBuilder, TShared
 				FIsActionChecked::CreateLambda([this] { return (EquippedPolygonAction == EMeshEditAction::InsetPolygon); })
 			),
 			NAME_None,
-			EUserInterfaceActionType::Check
+			EUserInterfaceActionType::ToggleButton
 			);
 	}
 	else if (GetMeshElementSelectionMode() == EEditableMeshElementType::Edge)
@@ -6296,7 +6296,7 @@ void FMeshEditorMode::MeshEditActionsGenerator(FMenuBuilder MenuBuilder, TShared
 				FIsActionChecked::CreateLambda([this] { return (EquippedEdgeAction == EMeshEditAction::Move); })
 			),
 			NAME_None,
-			EUserInterfaceActionType::Check
+			EUserInterfaceActionType::ToggleButton
 			);
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("Delete", "Delete"),
@@ -6308,7 +6308,7 @@ void FMeshEditorMode::MeshEditActionsGenerator(FMenuBuilder MenuBuilder, TShared
 				FCanExecuteAction::CreateSP(this, &FMeshEditorMode::IsMeshElementTypeSelected, EEditableMeshElementType::Edge)
 				),
 			NAME_None,
-			EUserInterfaceActionType::Button
+			EUserInterfaceActionType::CollapsedButton
 			);
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("RemoveSelected", "Remove Selected"),
@@ -6320,7 +6320,7 @@ void FMeshEditorMode::MeshEditActionsGenerator(FMenuBuilder MenuBuilder, TShared
 				FCanExecuteAction::CreateSP(this, &FMeshEditorMode::IsMeshElementTypeSelected, EEditableMeshElementType::Edge)
 				),
 			NAME_None,
-			EUserInterfaceActionType::Button
+			EUserInterfaceActionType::CollapsedButton
 			);
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT( "SelectEdgeLoop", "Select Edge Loop" ),
@@ -6332,7 +6332,7 @@ void FMeshEditorMode::MeshEditActionsGenerator(FMenuBuilder MenuBuilder, TShared
 				FCanExecuteAction::CreateSP(this, &FMeshEditorMode::IsMeshElementTypeSelected, EEditableMeshElementType::Edge)
 				),
 			NAME_None,
-			EUserInterfaceActionType::Button
+			EUserInterfaceActionType::CollapsedButton
 			);
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("InsertEdgeLoop", "Insert Loop"),
@@ -6345,7 +6345,7 @@ void FMeshEditorMode::MeshEditActionsGenerator(FMenuBuilder MenuBuilder, TShared
 				FIsActionChecked::CreateLambda([this] { return (EquippedEdgeAction == EMeshEditAction::InsertEdgeLoop); })
 				),
 			NAME_None,
-			EUserInterfaceActionType::Check
+			EUserInterfaceActionType::ToggleButton
 			);
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("ExtendEdge", "Extend"),
@@ -6358,7 +6358,7 @@ void FMeshEditorMode::MeshEditActionsGenerator(FMenuBuilder MenuBuilder, TShared
 				FIsActionChecked::CreateLambda([this] { return (EquippedEdgeAction == EMeshEditAction::ExtendEdge); })
 				),
 			NAME_None,
-			EUserInterfaceActionType::Check
+			EUserInterfaceActionType::ToggleButton
 			);
 	}
 	else if (GetMeshElementSelectionMode() == EEditableMeshElementType::Vertex)
@@ -6374,7 +6374,7 @@ void FMeshEditorMode::MeshEditActionsGenerator(FMenuBuilder MenuBuilder, TShared
 				FIsActionChecked::CreateLambda([this] { return (EquippedVertexAction == EMeshEditAction::Move); })
 				),
 			NAME_None,
-			EUserInterfaceActionType::Check
+			EUserInterfaceActionType::ToggleButton
 			);
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("Delete", "Delete"),
@@ -6386,7 +6386,7 @@ void FMeshEditorMode::MeshEditActionsGenerator(FMenuBuilder MenuBuilder, TShared
 				FCanExecuteAction::CreateSP(this, &FMeshEditorMode::IsMeshElementTypeSelected, EEditableMeshElementType::Vertex)
 			),
 			NAME_None,
-			EUserInterfaceActionType::Button
+			EUserInterfaceActionType::CollapsedButton
 			);
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("RemoveSelected", "Remove Selected"),
@@ -6398,7 +6398,7 @@ void FMeshEditorMode::MeshEditActionsGenerator(FMenuBuilder MenuBuilder, TShared
 				FCanExecuteAction::CreateSP(this, &FMeshEditorMode::IsMeshElementTypeSelected, EEditableMeshElementType::Vertex)
 			),
 			NAME_None,
-			EUserInterfaceActionType::Button
+			EUserInterfaceActionType::CollapsedButton
 			);
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("Extend", "Extend"),
@@ -6411,7 +6411,7 @@ void FMeshEditorMode::MeshEditActionsGenerator(FMenuBuilder MenuBuilder, TShared
 				FIsActionChecked::CreateLambda([this] { return (EquippedVertexAction == EMeshEditAction::ExtendVertex); })
 				),
 			NAME_None,
-			EUserInterfaceActionType::Check
+			EUserInterfaceActionType::ToggleButton
 			);
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("WeldSelected", "Weld Selected"),
@@ -6423,7 +6423,7 @@ void FMeshEditorMode::MeshEditActionsGenerator(FMenuBuilder MenuBuilder, TShared
 				FCanExecuteAction::CreateSP(this, &FMeshEditorMode::IsMeshElementTypeSelected, EEditableMeshElementType::Vertex)
 				),
 			NAME_None,
-			EUserInterfaceActionType::Button
+			EUserInterfaceActionType::CollapsedButton
 			);
 	}
 }
