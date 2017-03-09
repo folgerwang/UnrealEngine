@@ -339,8 +339,7 @@ public class Engine : ModuleRules
 				"UEOgg",
 				"Vorbis",
 				"VorbisFile",
-				"libOpus",
-			    "OpenSubdiv"
+				"libOpus"
 				);
 
 			if (UEBuildConfiguration.bCompileLeanAndMeanUE == false)

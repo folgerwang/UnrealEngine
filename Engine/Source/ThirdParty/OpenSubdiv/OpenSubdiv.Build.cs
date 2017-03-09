@@ -13,7 +13,7 @@ public class OpenSubdiv : ModuleRules
 
 		PublicIncludePaths.Add( OpenSubdivPath + "/opensubdiv" );
 
-		// @todo SubDSurface: Support other platforms
+		// @todo mesheditor subdiv: Support other platforms
 		if (Target.Platform == UnrealTargetPlatform.Win64)
 		{
             string LibFolder = "";
