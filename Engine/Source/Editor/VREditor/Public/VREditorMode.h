@@ -297,6 +297,10 @@ public:
 	DECLARE_EVENT_ThreeParams( UVREditorWorldInteraction, FOnPlaceDraggedMaterial, UPrimitiveComponent*, UMaterialInterface*, bool& );
 	FOnPlaceDraggedMaterial& OnPlaceDraggedMaterial() { return OnPlaceDraggedMaterialEvent; };
 
+	/** Call this to force the 'Actions' radial menu to refresh.  This is useful if the menu generator that you've bound
+	    needs to be re-run (usually because it switches on something that has changed since the last time it ran.) */
+	void RefreshRadialMenuActionsSubmenu();
+
 protected:
 
 	virtual void TransitionWorld(UWorld* NewWorld) override;

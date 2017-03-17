@@ -301,7 +301,7 @@ protected:
 	void SwapRadialMenu();
 
 	/** Creates the sequencer radial menu to pass to the radial menu generator */
-	void SequencerRadialMenuGenerator(FMenuBuilder MenuBuilder, TSharedPtr<FUICommandList> CommandList, class UVREditorMode* VRMode, float& RadiusOverride);
+	void SequencerRadialMenuGenerator(FMenuBuilder& MenuBuilder, TSharedPtr<FUICommandList> CommandList, class UVREditorMode* VRMode, float& RadiusOverride);
 
 	/**
 	* Handles being notified when any editor mode changes to see if any VR Editor UI needs to change.

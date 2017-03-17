@@ -1110,6 +1110,10 @@ void UVREditorMode::ResetActionsMenuGenerator()
 	GetUISystem().GetRadialMenuHandler()->ResetActionsMenuGenerator();
 }
 
+void UVREditorMode::RefreshRadialMenuActionsSubmenu()
+{
+	GetUISystem().GetRadialMenuHandler()->RegisterMenuGenerator( GetUISystem().GetRadialMenuHandler()->GetActionsMenuGenerator() );
+}
 
 bool UVREditorMode::GetStartedPlayFromVREditor() const
 {

@@ -215,7 +215,6 @@ public class UnrealEd : ModuleRules
                 "IOSPlatformEditor",
 				"HTML5PlatformEditor",
 				"SizeMap",
-				"MeshEditor",
 				"PortalProxies",
                 "PortalServices",
                 "GeometryCacheEd",

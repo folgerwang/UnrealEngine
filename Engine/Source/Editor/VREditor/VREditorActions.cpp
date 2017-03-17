@@ -26,8 +26,6 @@
 #include "Editor/UnrealEdEngine.h"
 #include "EditorModes.h"
 #include "EdMode.h"
-#include "IMeshEditorMode.h"
-#include "IMeshEditorModule.h"
 #include "Engine/Selection.h"
 #include "VREditorMotionControllerInteractor.h"
 #include "LevelEditorActions.h"
@@ -561,51 +559,6 @@ void FVREditorActionCallbacks::ChangeEditorModes(FEditorModeID InMode)
 ECheckBoxState FVREditorActionCallbacks::EditorModeActive(FEditorModeID InMode)
 {
 	return GLevelEditorModeTools().IsModeActive(InMode) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-}
-
-void FVREditorActionCallbacks::ChangeMeshEditModes(UVREditorMode* InVRMode, EEditableMeshElementType InMode)
-{
-	// *Important* - activate the mode first since FEditorModeTools::DeactivateMode will
-	// activate the default mode when the stack becomes empty, resulting in multiple active visible modes.
-	GLevelEditorModeTools().ActivateMode(IMeshEditorModule::GetEditorModeID());
-
-	// Find and disable any other 'visible' modes since we only ever allow one of those active at a time.
-	TArray<FEdMode*> ActiveModes;
-	GLevelEditorModeTools().GetActiveModes(ActiveModes);
-	for (FEdMode* Mode : ActiveModes)
-	{
-		if (Mode->GetID() != IMeshEditorModule::GetEditorModeID() && Mode->GetModeInfo().bVisible)
-		{
-			GLevelEditorModeTools().DeactivateMode(Mode->GetID());
-		}
-	}
-
-	IMeshEditorMode* MeshEditingMode = IMeshEditorModule::Get().GetLevelEditorMeshEditorMode();
-	if (MeshEditingMode != nullptr)
-	{
-		MeshEditingMode->SetMeshElementSelectionMode(InMode);
-		InVRMode->GetUISystem().GetRadialMenuHandler()->RegisterMenuGenerator(InVRMode->GetUISystem().GetRadialMenuHandler()->GetActionsMenuGenerator());
-	}
-}
-
-ECheckBoxState FVREditorActionCallbacks::MeshEditModeActive(EEditableMeshElementType InMode)
-{
-	bool bMeshModeActive = false;
-	IMeshEditorMode* MeshEditingMode = IMeshEditorModule::Get().GetLevelEditorMeshEditorMode();
-	if (MeshEditingMode != nullptr)
-	{
-		bMeshModeActive = MeshEditingMode->GetMeshElementSelectionMode() == InMode;
-	}
-
-	return bMeshModeActive ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-}
-
-bool FVREditorActionCallbacks::ModeActionsMenuActive(UVREditorMode* VRMode)
-{
-	IMeshEditorMode* MeshEditingMode = IMeshEditorModule::Get().GetLevelEditorMeshEditorMode();
-
-	bool bShouldModeActionsBeActive = (VRMode->GetCurrentSequencer() != nullptr) || (MeshEditingMode != nullptr);
-	return bShouldModeActionsBeActive;
 }
 
 void FVREditorActionCallbacks::DeselectAll()

@@ -20,6 +20,7 @@
 
 #include "Framework/MultiBox/MultiBox.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Framework/Docking/TabManager.h"
 #include "Framework/Commands/UICommandInfo.h"
@@ -93,8 +94,6 @@
 
 #include "ISequencer.h"
 #include "Engine/StaticMesh.h"
-#include "IMeshEditorMode.h"
-#include "IMeshEditorModule.h"
 #include "EdMode.h"
 #include "SImage.h"
 
@@ -186,11 +185,7 @@ void UVREditorUISystem::Init()
 	bRadialMenuIsNumpad = false;
 	RadialMenuHandler = NewObject<UVRRadialMenuHandler>();
 	RadialMenuHandler->Init(this);
-	IMeshEditorMode* MeshEditingMode = IMeshEditorModule::Get().GetLevelEditorMeshEditorMode();
-	if (MeshEditingMode != nullptr)
-	{
-		MeshEditingMode->RegisterWithExternalMenuSystem();
-	}
+
 	CreateUIs();
 
 	// Bind the color picker creation & destruction overrides
@@ -212,12 +207,6 @@ void UVREditorUISystem::Init()
 void UVREditorUISystem::Shutdown()
 {
 	FSlateApplication::Get().OnDragDropCheckOverride.Unbind();
-
-	IMeshEditorMode* MeshEditingMode = IMeshEditorModule::Get().GetLevelEditorMeshEditorMode();
-	if (MeshEditingMode != nullptr)
-	{
-		MeshEditingMode->UnregisterWithExternalMenuSystem();
-	}
 
 	if ( VRMode != nullptr && &VRMode->GetWorldInteraction() != nullptr )
 	{
@@ -2368,9 +2357,8 @@ void UVREditorUISystem::BuildRadialMenuWidget()
 
 	FMultiBox::FOnMakeMultiBoxBuilderOverride VREditorMenuBuilderOverride;
 	
-	const TSharedRef<FExtender> MenuExtender = MakeShareable(new FExtender());
 	TSharedPtr<FUICommandList> CommandList = MakeShareable(new FUICommandList());
-	FMenuBuilder MenuBuilder(false, CommandList, MenuExtender);
+	FMenuBuilder MenuBuilder(false, CommandList, IVREditorModule::Get().GetRadialMenuExtender());
 	float RadiusOverride = 1.0f;
 	if (RadialMenuHandler != nullptr)
 	{
@@ -2627,7 +2615,7 @@ UVREditorMotionControllerInteractor* UVREditorUISystem::GetUIInteractor()
 	return UIInteractor;
 }
 
-void UVREditorUISystem::SequencerRadialMenuGenerator(FMenuBuilder MenuBuilder, TSharedPtr<FUICommandList> CommandList, class UVREditorMode* VRMode, float& RadiusOverride)
+void UVREditorUISystem::SequencerRadialMenuGenerator(FMenuBuilder& MenuBuilder, TSharedPtr<FUICommandList> CommandList, class UVREditorMode* VRMode, float& RadiusOverride)
 {
 	RadiusOverride = 1.0f;
 	// First menu entry is at 90 degrees 

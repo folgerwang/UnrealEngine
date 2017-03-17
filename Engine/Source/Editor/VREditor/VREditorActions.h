@@ -213,15 +213,6 @@ public:
 	/** Checks whether the editor mode for the given ID is active*/
 	static ECheckBoxState EditorModeActive(FEditorModeID InMode);
 
-	/** Changes the editor mode to the given ID */
-	static void ChangeMeshEditModes(UVREditorMode* InVRMode, EEditableMeshElementType InMode);
-
-	/** Checks whether the editor mode for the given ID is active*/
-	static ECheckBoxState MeshEditModeActive(EEditableMeshElementType InMode);
-
-	/** True if a specialized menu is available */
-	static bool ModeActionsMenuActive(class UVREditorMode* VRMode);
-
 	/** Deselects everything currently selected */
 	static void DeselectAll();
 

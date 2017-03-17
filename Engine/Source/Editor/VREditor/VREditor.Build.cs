@@ -35,7 +35,6 @@ namespace UnrealBuildTool.Rules
 			PrivateIncludePathModuleNames.AddRange(
 				new string[] {
 					"PlacementMode",
-                    "MeshEditor",
                     "MeshEditingRuntime"
 				}
 			);
@@ -43,7 +42,6 @@ namespace UnrealBuildTool.Rules
 			DynamicallyLoadedModuleNames.AddRange(
 				new string[] {
                     "PlacementMode",
-                    "MeshEditor",
                     "MeshEditingRuntime"
                 }
 			);
