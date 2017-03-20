@@ -1051,7 +1051,7 @@ void UEditableMesh::RefreshOpenSubdiv()
 
 			// Face-varying vertex data.  This maps to our GetPolygonVertexAttribute() calls.
 			OsdTopologyDescriptor.numFVarChannels = OsdFVarChannels.Num();
-			OsdTopologyDescriptor.fvarChannels = reinterpret_cast<OpenSubdiv::v3_0_2::Far::TopologyDescriptor::FVarChannel*>( OsdFVarChannels.GetData() );
+			OsdTopologyDescriptor.fvarChannels = reinterpret_cast<OpenSubdiv::v3_2_0::Far::TopologyDescriptor::FVarChannel*>( OsdFVarChannels.GetData() );
 		}
 
 		// We always want Catmull-Clark subdivisions

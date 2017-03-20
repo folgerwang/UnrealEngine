@@ -13,7 +13,7 @@
 
 namespace OpenSubdiv
 {
-	namespace v3_0_2
+	namespace v3_2_0
 	{
 		namespace Far
 		{
@@ -365,7 +365,7 @@ protected:
 
 	/** OpenSubdiv topology refiner object.  This is generated for meshes that have subdivision levels, and reused to generate new limit surfaces 
 	    when geometry is moved.  When the mesh's topology changes, this object is regenerated from scratch. */
-	TSharedPtr<OpenSubdiv::v3_0_2::Far::TopologyRefiner> OsdTopologyRefiner;
+	TSharedPtr<OpenSubdiv::v3_2_0::Far::TopologyRefiner> OsdTopologyRefiner;
 
 	/** Various cached arrays of mesh data in the form that OpenSubdiv expects to read it.  Required by GenerateOpenSubdivLimitSurfaceData(). */
 	TArray<int> OsdNumVerticesPerFace;

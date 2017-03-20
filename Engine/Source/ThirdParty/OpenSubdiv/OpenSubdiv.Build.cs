@@ -9,7 +9,7 @@ public class OpenSubdiv : ModuleRules
 		Type = ModuleType.External;
 
 		// Compile and link with OpenSubDiv
-        string OpenSubdivPath = UEBuildConfiguration.UEThirdPartySourceDirectory + "OpenSubdiv/3.0.2";
+        string OpenSubdivPath = UEBuildConfiguration.UEThirdPartySourceDirectory + "OpenSubdiv/3.2.0";
 
 		PublicIncludePaths.Add( OpenSubdivPath + "/opensubdiv" );
 
@@ -20,9 +20,6 @@ public class OpenSubdiv : ModuleRules
             {
                 switch (WindowsPlatform.Compiler)
                 {
-                    case WindowsCompiler.VisualStudio2013:
-						LibFolder = "/libVS2013";
-						break;
                     case WindowsCompiler.VisualStudio2017:
                     case WindowsCompiler.VisualStudio2015:
 						LibFolder = "/libVS2015";
@@ -37,10 +34,7 @@ public class OpenSubdiv : ModuleRules
 
                 PublicLibraryPaths.Add(OpenSubdivPath + LibFolder + ConfigFolder);
 
-                PublicAdditionalLibraries.Add("osd_cpu_obj.lib");
-                PublicAdditionalLibraries.Add("sdc_obj.lib");
-                PublicAdditionalLibraries.Add("vtr_obj.lib");
-                PublicAdditionalLibraries.Add("far_obj.lib");
+                PublicAdditionalLibraries.Add("osdCPU.lib");
             }
         }
 	}
