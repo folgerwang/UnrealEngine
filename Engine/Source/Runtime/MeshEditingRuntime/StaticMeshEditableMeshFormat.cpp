@@ -35,7 +35,7 @@ UEditableMesh* FStaticMeshEditableMeshFormat::MakeEditableMesh( UPrimitiveCompon
 		const UStaticMeshComponent& StaticMeshComponent = *StaticMeshComponentPtr;
 		if( StaticMeshComponent.GetStaticMesh() != nullptr )
 		{
-			UEditableMesh* EditableMesh = StaticMeshComponent.GetStaticMesh()->EditableMesh;
+			UEditableMesh* EditableMesh = Cast<UEditableMesh>( StaticMeshComponent.GetStaticMesh()->EditableMesh );
 			if( EditableMesh )
 			{
 				EditableMesh->SetSubMeshAddress( SubMeshAddress );

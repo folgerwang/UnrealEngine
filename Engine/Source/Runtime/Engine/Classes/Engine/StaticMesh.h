@@ -601,7 +601,7 @@ public:
 	/** The editable mesh representation of this static mesh */
 	// @todo: Maybe we don't want this visible in the details panel in the end; for now, this might aid debugging.
 	UPROPERTY(Instanced, VisibleAnywhere, Category = EditableMesh)
-	class UEditableMesh* EditableMesh;
+	class UObject* EditableMesh;
 
 	/** Pre-build navigation collision */
 	UPROPERTY(VisibleAnywhere, transient, duplicatetransient, Instanced, Category = Navigation)
