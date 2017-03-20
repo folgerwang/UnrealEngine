@@ -25,16 +25,6 @@ public partial class Project : CommandUtils
 
 	private static readonly object SyncLock = new object();
 
-	private static readonly object EncryptionKeysLock = new object();
-	
-	private static void GetEncryptionKeys(ProjectParams InParams, UnrealTargetPlatform InTargetPlatform, out string[] OutRSAKeys, out string OutAESKey)
-	{
-		lock (EncryptionKeysLock)
-		{
-			UEBuildTarget.ParseEncryptionIni(new DirectoryReference(CommandUtils.GetDirectoryName(InParams.RawProjectPath.FullName)), InTargetPlatform, out OutRSAKeys, out OutAESKey);
-		}
-	}
-
 	/// <returns>The path for the BuildPatchTool executable depending on host platform.</returns>
 	private static string GetBuildPatchToolExecutable()
 	{
@@ -121,8 +111,9 @@ public partial class Project : CommandUtils
 		var UnrealPakExe = CombinePaths(CmdEnv.LocalRoot, "Engine/Binaries/Win64/UnrealPak.exe");
 		Log("Running UnrealPak *******");
 		string CmdLine = CommandUtils.MakePathSafeToUseWithCommandLine(OutputLocation) + " -create=" + CommandUtils.MakePathSafeToUseWithCommandLine(UnrealPakResponseFileName);
+		string LogFileName = CombinePaths(CmdEnv.LogFolder, "PakLog_" + PakName + ".log");
 
-		CmdLine += String.Format(" -encryptionini -enginedir=\"{0}\" -projectdir=\"{1}\" -platform={2}", EngineDir, ProjectDir, Platform);
+		CmdLine += String.Format(" -encryptionini -enginedir=\"{0}\" -projectdir=\"{1}\" -platform={2} -abslog=\"{3}\"", EngineDir, ProjectDir, Platform, LogFileName);
 
 		if (GlobalCommandLine.Installed)
 		{
@@ -215,7 +206,16 @@ public partial class Project : CommandUtils
 		}
 	}
 
-    private static void StageLocalizationDataForCulture(DeploymentContext SC, string CultureName, string SourceDirectory, string DestinationDirectory = null, bool bRemap = true)
+	private static void StageLocalizationDataForTarget(DeploymentContext SC, List<string> CulturesToStage, string SourceDirectory, string DestinationDirectory = null, bool bRemap = true)
+	{
+		SC.StageFiles(StagedFileType.UFS, SourceDirectory, "*.locmeta", false, null, DestinationDirectory, true, bRemap);
+		foreach (string Culture in CulturesToStage)
+		{
+			StageLocalizationDataForCulture(SC, Culture, SourceDirectory, DestinationDirectory, bRemap);
+		}
+	}
+
+	private static void StageLocalizationDataForCulture(DeploymentContext SC, string CultureName, string SourceDirectory, string DestinationDirectory = null, bool bRemap = true)
     {
         CultureName = CultureName.Replace('-', '_');
 
@@ -240,7 +240,7 @@ public partial class Project : CommandUtils
             PotentialParentCultures.Add(LocaleTags[0]);
         }
 
-        string[] FoundDirectories = CommandUtils.FindDirectories(true, "*", false, new string[] { SourceDirectory });
+        string[] FoundDirectories = CommandUtils.FindDirectories(true, "*", false, SourceDirectory);
         foreach (string FoundDirectory in FoundDirectories)
         {
             string DirectoryName = CommandUtils.GetLastDirectoryName(FoundDirectory);
@@ -263,6 +263,14 @@ public partial class Project : CommandUtils
 
 		Log("Creating Staging Manifest...");
 
+		if (Params.IterateSharedCookedBuild)
+		{
+			// can't do shared cooked builds with DLC that's madness!!
+			//check( Params.HasDLCName == false );
+
+			// stage all the previously staged files
+			SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Saved", "SharedIterativeBuild", SC.CookPlatform, "StagedBuild"), "*", true, null, "", true); // remap to the root directory
+		}
         if (Params.HasDLCName)
         {
             string DLCName = Params.DLCName;
@@ -279,10 +287,11 @@ public partial class Project : CommandUtils
             string[] ExcludeWildCards = {"AssetRegistry.bin"};
 
             // Stage any loose files in the root folder
+			// TODO: not sure if we should stage the loose files if we have pak files enabled... 
 			SC.StageFiles(StagedFileType.UFS, PlatformCookDir, "*", false, ExcludeWildCards, SC.RelativeProjectRootForStage, true, !Params.UsePak(SC.StageTargetPlatform));
 
 			// Stage each sub directory separately so that we can skip Engine if need be
-			string[] SubDirs = CommandUtils.FindDirectories(true, "*", false, new string[] { PlatformCookDir });
+			string[] SubDirs = CommandUtils.FindDirectories(true, "*", false, PlatformCookDir);
 
             foreach (string SubDir in SubDirs)
             {
@@ -343,13 +352,7 @@ public partial class Project : CommandUtils
 
 
             // Initialize internationalization preset.
-            string InternationalizationPreset = null;
-
-            // Use parameters if provided.
-            if (string.IsNullOrEmpty(InternationalizationPreset))
-            {
-                InternationalizationPreset = Params.InternationalizationPreset;
-            }
+            string InternationalizationPreset = Params.InternationalizationPreset;
 
             // Use configuration if otherwise lacking an internationalization preset.
             if (string.IsNullOrEmpty(InternationalizationPreset))
@@ -396,10 +399,7 @@ public partial class Project : CommandUtils
             // Engine ufs (content)
             SC.StageFiles(StagedFileType.UFS, CombinePaths(SC.LocalRoot, "Engine/Config"), "*", true, null, null, false, !Params.UsePak(SC.StageTargetPlatform)); // TODO: Exclude localization data generation config files.
 
-            foreach (string Culture in CulturesToStage)
-            {
-                StageLocalizationDataForCulture(SC, Culture, CombinePaths(SC.LocalRoot, "Engine/Content/Localization/Engine"), null, !Params.UsePak(SC.StageTargetPlatform));
-            }
+            StageLocalizationDataForTarget(SC, CulturesToStage, CombinePaths(SC.LocalRoot, "Engine/Content/Localization/Engine"), null, !Params.UsePak(SC.StageTargetPlatform));
 			
             // Game ufs (content)
 			SC.StageFiles(StagedFileType.UFS, CombinePaths(SC.ProjectRoot), "*.uproject", false, null, CombinePaths(SC.RelativeProjectRootForStage), true, !Params.UsePak(SC.StageTargetPlatform));
@@ -432,13 +432,10 @@ public partial class Project : CommandUtils
 				var ProjectLocRootDirectory = CombinePaths(SC.ProjectRoot, "Content/Localization");
 				if (DirectoryExists(ProjectLocRootDirectory))
 				{
-					string[] ProjectLocTargetDirectories = CommandUtils.FindDirectories(true, "*", false, new string[] { ProjectLocRootDirectory });
+					string[] ProjectLocTargetDirectories = CommandUtils.FindDirectories(true, "*", false, ProjectLocRootDirectory);
 					foreach (string ProjectLocTargetDirectory in ProjectLocTargetDirectories)
 					{
-						foreach (string Culture in CulturesToStage)
-						{
-							StageLocalizationDataForCulture(SC, Culture, ProjectLocTargetDirectory, null, !Params.UsePak(SC.StageTargetPlatform));
-						}
+						StageLocalizationDataForTarget(SC, CulturesToStage, ProjectLocTargetDirectory, null, !Params.UsePak(SC.StageTargetPlatform));
 					}
 				}
 			}
@@ -450,8 +447,8 @@ public partial class Project : CommandUtils
 				List<PluginInfo> AvailablePlugins = Plugins.ReadAvailablePlugins(new DirectoryReference(CombinePaths(SC.LocalRoot, "Engine")), new FileReference(CombinePaths(SC.ProjectRoot, Params.ShortProjectName + ".uproject")), Project.AdditionalPluginDirectories);
 				foreach (var Plugin in AvailablePlugins)
 				{
-					if (!UProjectInfo.IsPluginEnabledForProject(Plugin, Project, SC.StageTargetPlatform.PlatformType, TargetRules.TargetType.Game) &&
-						UProjectInfo.IsPluginEnabledForProject(Plugin, Project, SC.StageTargetPlatform.PlatformType, TargetRules.TargetType.Client))
+					if (!UProjectInfo.IsPluginEnabledForProject(Plugin, Project, SC.StageTargetPlatform.PlatformType, TargetType.Game) &&
+						UProjectInfo.IsPluginEnabledForProject(Plugin, Project, SC.StageTargetPlatform.PlatformType, TargetType.Client))
 					{
 						// skip editor plugins
 						continue;
@@ -474,10 +471,7 @@ public partial class Project : CommandUtils
 						var PluginLocTargetDirectory = CombinePaths(Plugin.Directory.FullName, "Content", "Localization", LocalizationTarget.Name);
 						if (DirectoryExists(PluginLocTargetDirectory))
 						{
-							foreach (string Culture in CulturesToStage)
-							{
-								StageLocalizationDataForCulture(SC, Culture, PluginLocTargetDirectory, null, !Params.UsePak(SC.StageTargetPlatform));
-							}
+							StageLocalizationDataForTarget(SC, CulturesToStage, PluginLocTargetDirectory, null, !Params.UsePak(SC.StageTargetPlatform));
 						}
 					}
 				}
@@ -567,10 +561,9 @@ public partial class Project : CommandUtils
                 if (string.IsNullOrEmpty(Architecture))
                 {
                     Architecture = "";
-                    var BuildPlatform = UEBuildPlatform.GetBuildPlatform(SC.StageTargetPlatform.PlatformType, true);
-                    if (BuildPlatform != null)
+                    if (PlatformExports.IsPlatformAvailable(SC.StageTargetPlatform.PlatformType))
                     {
-                        Architecture = BuildPlatform.CreateContext(Params.RawProjectPath, null).GetActiveArchitecture();
+                        Architecture = PlatformExports.GetDefaultArchitecture(SC.StageTargetPlatform.PlatformType, Params.RawProjectPath);
                     }
                 }
 
@@ -594,7 +587,7 @@ public partial class Project : CommandUtils
                 SC.StageRuntimeDependenciesFromReceipt(Receipt, true, Params.UsePak(SC.StageTargetPlatform));
 
 				// Add config files.
-				SC.StageFiles( StagedFileType.NonUFS, CombinePaths( SC.LocalRoot, "Engine/Programs/CrashReportClient/Config" ) );
+				SC.StageFiles( StagedFileType.NonUFS, CombinePaths( SC.LocalRoot, "Engine/Programs/CrashReportClient/Config" ), bAllowNotForLicenseesFiles:false );
 			}
 
 			// check if the game will be verifying ssl connections - if not, we can skip staging files that won't be needed
@@ -959,6 +952,12 @@ public partial class Project : CommandUtils
         {
             PostFix += "_P";
         }
+		if (Params.IterateSharedCookedBuild)
+		{
+			// shared cooked builds will produce a patch
+			// then be combined with the shared cooked build
+			PostFix += "_S_P";
+		}
 		var OutputRelativeLocation = CombinePaths(SC.RelativeProjectRootForStage, "Content/Paks/", PakName + "-" + SC.FinalCookPlatform + PostFix + ".pak");
 		if (SC.StageTargetPlatform.DeployLowerCaseFilenames(true))
 		{
@@ -1003,6 +1002,22 @@ public partial class Project : CommandUtils
 				{
 					Log("Copying source pak from {0} to {1} instead of creating new pak", SourceOutputLocation, OutputLocation);
 					bCopiedExistingPak = true;
+
+					string InSigFile = Path.ChangeExtension(SourceOutputLocation, ".sig");
+
+					if (File.Exists(InSigFile))
+					{
+						string OutSigFile = Path.ChangeExtension(OutputLocation, ".sig");
+
+						Log("Copying pak sig from {0} to {1}", InSigFile, OutSigFile);
+
+						if (!InternalUtils.SafeCopyFile(InSigFile, OutSigFile))
+						{
+							Log("Failed to copy pak sig {0} to {1}, creating new pak", InSigFile, InSigFile);
+							bCopiedExistingPak = false;
+						}
+					}
+
 				}
 			}
 			if (!bCopiedExistingPak)
@@ -1781,10 +1796,9 @@ public partial class Project : CommandUtils
                         if (string.IsNullOrEmpty(Architecture))
                         {
                             Architecture = "";
-                            var BuildPlatform = UEBuildPlatform.GetBuildPlatform(ReceiptPlatform, true);
-                            if (BuildPlatform != null)
-                            {
-                                Architecture = BuildPlatform.CreateContext(Params.RawProjectPath, null).GetActiveArchitecture();
+							if(PlatformExports.IsPlatformAvailable(ReceiptPlatform))
+							{
+                                Architecture = PlatformExports.GetDefaultArchitecture(ReceiptPlatform, Params.RawProjectPath);
                             }
                         }
 						string ReceiptFileName = TargetReceipt.GetDefaultPath(ReceiptBaseDir, Target, ReceiptPlatform, Config, Architecture);

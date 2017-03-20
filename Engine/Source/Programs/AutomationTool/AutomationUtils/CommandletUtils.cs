@@ -10,6 +10,36 @@ using UnrealBuildTool;
 
 namespace AutomationTool
 {
+	/// <summary>
+	/// Exception thrown when the execution of a commandlet fails
+	/// </summary>
+	public class CommandletException : AutomationException
+	{
+		/// <summary>
+		/// The log file output by this commandlet
+		/// </summary>
+		public string LogFileName;
+
+		/// <summary>
+		/// The exit code
+		/// </summary>
+		public int ErrorNumber;
+
+		/// <summary>
+		/// Constructor
+		/// </summary>
+		/// <param name="LogFilename">File containing the error log</param>
+		/// <param name="ErrorNumber">The exit code from the commandlet</param>
+		/// <param name="Format">Formatting string for the message</param>
+		/// <param name="Args">Arguments for the formatting string</param>
+		public CommandletException(string LogFilename, int ErrorNumber, string Format, params object[] Args)
+			: base(Format,Args)
+		{
+			this.LogFileName = LogFilename;
+			this.ErrorNumber = ErrorNumber;
+		}
+	}
+
 	public partial class CommandUtils
 	{
 		#region Commandlets
@@ -53,16 +83,16 @@ namespace AutomationTool
 			}
 			else
 			{
-				string MapsToCookArg = "-Map=" + CombineCommandletParams(Maps);
-                MapsToCookArg.Trim();
+				string MapsToCookArg = "-Map=" + CombineCommandletParams(Maps).Trim();
                 CommandletArguments += (CommandletArguments.Length > 0 ? " " : "") + MapsToCookArg;
 			}
 
 			if (!IsNullOrEmpty(Dirs))
 			{
-				string DirsToCookArg = "-CookDir=" + CombineCommandletParams(Dirs);
-                DirsToCookArg.Trim();
-                CommandletArguments += (CommandletArguments.Length > 0 ? " " : "") + DirsToCookArg;
+				foreach(string Dir in Dirs)
+				{
+					CommandletArguments += (CommandletArguments.Length > 0 ? " " : "") + String.Format("-CookDir={0}", CommandUtils.MakePathSafeToUseWithCommandLine(Dir));
+				}
             }
 
             if (!String.IsNullOrEmpty(InternationalizationPreset))
@@ -72,8 +102,7 @@ namespace AutomationTool
 
             if (!IsNullOrEmpty(CulturesToCook))
             {
-                string CulturesToCookArg = "-CookCultures=" + CombineCommandletParams(CulturesToCook);
-                CulturesToCookArg.Trim();
+                string CulturesToCookArg = "-CookCultures=" + CombineCommandletParams(CulturesToCook).Trim();
                 CommandletArguments += (CommandletArguments.Length > 0 ? " " : "") + CulturesToCookArg;
             }
 
@@ -93,8 +122,7 @@ namespace AutomationTool
             string MapsToCook = "";
             if (!IsNullOrEmpty(Maps))
             {
-                MapsToCook = "-Map=" + CombineCommandletParams(Maps);
-                MapsToCook.Trim();
+                MapsToCook = "-Map=" + CombineCommandletParams(Maps).Trim();
             }
 
             RunCommandlet(ProjectName, UE4Exe, "DerivedDataCache", String.Format("{0} -TargetPlatform={1} {2}", MapsToCook, TargetPlatform, Parameters));
@@ -112,8 +140,7 @@ namespace AutomationTool
 			string MapsToRebuildLighting = "";
 			if (!IsNullOrEmpty(Maps))
 			{
-				MapsToRebuildLighting = "-Map=" + CombineCommandletParams(Maps);
-				MapsToRebuildLighting.Trim();
+				MapsToRebuildLighting = "-Map=" + CombineCommandletParams(Maps).Trim();
 			}
 
 			RunCommandlet(ProjectName, UE4Exe, "ResavePackages", String.Format("-buildlighting -MapsOnly -ProjectOnly -AllowCommandletRendering -SkipSkinVerify {0} {1}", MapsToRebuildLighting, Parameters));
@@ -131,8 +158,7 @@ namespace AutomationTool
             string MapsToRebuildLighting = "";
             if (!IsNullOrEmpty(Maps))
             {
-                MapsToRebuildLighting = "-Map=" + CombineCommandletParams(Maps);
-                MapsToRebuildLighting.Trim();
+                MapsToRebuildLighting = "-Map=" + CombineCommandletParams(Maps).Trim();
             }
 
             RunCommandlet(ProjectName, UE4Exe, "ResavePackages", String.Format((!String.IsNullOrEmpty(MapsToRebuildLighting) ? "-MapsOnly" : "") + "-ProjectOnly {0} {1}", MapsToRebuildLighting, Parameters));
@@ -151,8 +177,7 @@ namespace AutomationTool
             string MapsToCook = "";
             if (!IsNullOrEmpty(Maps))
             {
-                MapsToCook = CombineCommandletParams(Maps, " ");
-                MapsToCook.Trim();
+                MapsToCook = CombineCommandletParams(Maps, " ").Trim();
             }
             var Dir = Path.GetDirectoryName(ManifestFile);
             var Filename = Path.GetFileName(ManifestFile);
@@ -375,7 +400,7 @@ namespace AutomationTool
 
 			if (RunResult.ExitCode != 0)
 			{
-				throw new AutomationException(DestLogFile, RunResult.ExitCode, "BUILD FAILED: Failed while running {0} for {1}; see log {2}", Commandlet, ProjectName, DestLogFile);
+				throw new CommandletException(DestLogFile, RunResult.ExitCode, "BUILD FAILED: Failed while running {0} for {1}; see log {2}", Commandlet, ProjectName, DestLogFile);
 			}
 		}
 		

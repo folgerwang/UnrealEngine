@@ -5,7 +5,7 @@ using System;
 
 public class RHI : ModuleRules
 {
-	public RHI(TargetInfo Target)
+	public RHI(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PrivateDependencyModuleNames.Add("Core");
 
@@ -28,27 +28,8 @@ public class RHI : ModuleRules
 				DynamicallyLoadedModuleNames.Add("VulkanRHI");
 			}
 
-			// need to dynamically load an assembly to check if the SDK exists (not everyone will have access to this)
-			// don't include in monolithic builds, however, because we don't want to put it into the UE4Game in the binary builds
-			if (Target.Platform == UnrealTargetPlatform.Win64 && !Target.IsMonolithic)
-			{
-				System.Type SwitchSDKType = System.Type.GetType("UnrealBuildTool.SwitchPlatformSDK,UnrealBuildTool");
-				if (SwitchSDKType != null)
-				{
-					// check for the location of the SDK
-					string RHIModuleName = SwitchSDKType.GetMethod("GetRHIModuleNameIfAvailable").Invoke(null, null) as string;
-					// compile the Switch RHI if possible
-					if (!string.IsNullOrEmpty(RHIModuleName))
-					{
-						DynamicallyLoadedModuleNames.Add(RHIModuleName);
-						Definitions.Add("SWITCHRHI=" + RHIModuleName);
-					}
-				}
-			}
-
 			if ((Target.Platform == UnrealTargetPlatform.Win32) ||
 				(Target.Platform == UnrealTargetPlatform.Win64) ||
-				(Target.Platform == UnrealTargetPlatform.Mac)   ||
                 (Target.Platform == UnrealTargetPlatform.Linux && Target.Type != TargetRules.TargetType.Server) ||  // @todo should servers on all platforms skip this?
                 (Target.Platform == UnrealTargetPlatform.HTML5))
 			{

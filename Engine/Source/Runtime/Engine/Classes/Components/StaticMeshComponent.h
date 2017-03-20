@@ -134,7 +134,7 @@ private:
 };
 
 template<>
-struct TStructOpsTypeTraits<FStaticMeshComponentLODInfo> : public TStructOpsTypeTraitsBase
+struct TStructOpsTypeTraits<FStaticMeshComponentLODInfo> : public TStructOpsTypeTraitsBase2<FStaticMeshComponentLODInfo>
 {
 	enum
 	{
@@ -193,9 +193,15 @@ class ENGINE_API UStaticMeshComponent : public UMeshComponent
 	/** The section currently selected in the Editor. Used for highlighting */
 	UPROPERTY(transient)
 	int32 SelectedEditorSection;
+	/** The material currently selected in the Editor. Used for highlighting */
+	UPROPERTY(transient)
+	int32 SelectedEditorMaterial;
 	/** Index of the section to preview. If set to INDEX_NONE, all section will be rendered. Used for isolating in Static Mesh Tool **/
 	UPROPERTY(transient)
 	int32 SectionIndexPreview;
+	/** Index of the material to preview. If set to INDEX_NONE, all section will be rendered. Used for isolating in Static Mesh Tool **/
+	UPROPERTY(transient)
+	int32 MaterialIndexPreview;
 
 	/*
 	 * The import version of the static mesh when it was assign this is update when:
@@ -417,7 +423,7 @@ public:
 	virtual bool HasValidSettingsForStaticLighting(bool bOverlookInvalidComponents) const override;
 
 	virtual void GetLightAndShadowMapMemoryUsage( int32& LightMapMemoryUsage, int32& ShadowMapMemoryUsage ) const override;
-	virtual void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials) const override;
+	virtual void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials, bool bGetDebugMaterials = false) const override;
 	virtual UMaterialInterface* GetMaterial(int32 MaterialIndex) const override;
 	virtual int32 GetMaterialIndex(FName MaterialSlotName) const override;
 	virtual TArray<FName> GetMaterialSlotNames() const override;
@@ -530,6 +536,12 @@ public:
 	*	@param	InSectionIndexPreview		New value of SectionIndexPreview.
 	*/
 	void SetSectionPreview(int32 InSectionIndexPreview);
+
+	/**
+	*	Sets the value of the MaterialIndexPreview flag and reattaches the component as necessary.
+	*	@param	InMaterialIndexPreview		New value of MaterialIndexPreview.
+	*/
+	void SetMaterialPreview(int32 InMaterialIndexPreview);
 	
 	/** Sets the BodyInstance to use the mesh's body setup for external collision information*/
 	void UpdateCollisionFromStaticMesh();

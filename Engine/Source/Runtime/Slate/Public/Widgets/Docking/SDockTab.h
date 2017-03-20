@@ -14,9 +14,9 @@
 #include "Animation/CurveSequence.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Framework/Docking/TabManager.h"
-#include "Runtime/Slate/Private/Framework/Docking/SDockingArea.h"
 
 class FActiveTimerHandle;
+class SDockingArea;
 class SDockingTabStack;
 class SDockingTabWell;
 class SImage;
@@ -234,6 +234,9 @@ public:
 
 	/** Get the tab manager currently managing this tab. Note that a user move the tab between Tab Managers, so this return value may change. */
 	TSharedRef<FTabManager> GetTabManager() const;
+
+	/** Draws attention to the tab. */
+	void DrawAttention();
 
 	/** Provide a default tab label in case the spawner did not set one. */
 	void ProvideDefaultLabel( const FText& InDefaultLabel );

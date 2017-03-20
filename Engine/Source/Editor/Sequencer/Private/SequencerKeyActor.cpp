@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerKeyActor.h"
+#include "Components/StaticMeshComponent.h"
 #include "Sections/MovieScene3DTransformSection.h"
 #include "SequencerEdMode.h"
 #include "Materials/MaterialInstance.h" 
@@ -9,6 +10,8 @@
 #include "EditorModeTools.h"
 #include "EditorModeManager.h"
 #include "ModuleManager.h"
+#include "EditorViewportClient.h"
+#include "UnrealClient.h"
 
 ASequencerKeyActor::ASequencerKeyActor()
 	: Super()

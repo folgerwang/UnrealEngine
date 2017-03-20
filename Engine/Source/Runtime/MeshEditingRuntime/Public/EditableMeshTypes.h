@@ -146,12 +146,6 @@ struct FElementID	// @todo mesheditor script: BP doesn't have name spaces, so we
 		return FString::Printf( TEXT( "%lu" ), GetValue() );
 	}
 
-	/** Hashing */
-	FORCEINLINE friend uint32 GetTypeHash( const FElementID& Other )
-	{
-		return GetTypeHash( Other.IDValue );
-	}
-
 	friend FArchive& operator<<( FArchive& Ar, FElementID& Element )
 	{
 		Ar << Element.IDValue;
@@ -188,6 +182,11 @@ struct FVertexID : public FElementID
 	{
 	}
 
+	FORCEINLINE friend uint32 GetTypeHash( const FVertexID& Other )
+	{
+		return GetTypeHash( Other.IDValue );
+	}
+
 	/** Invalid vertex ID */
 	MESHEDITINGRUNTIME_API static const FVertexID Invalid;
 };
@@ -210,6 +209,11 @@ struct FEdgeID : public FElementID
 	explicit FEdgeID( const int32 InitIDValue )
 		: FElementID( InitIDValue )
 	{
+	}
+
+	FORCEINLINE friend uint32 GetTypeHash( const FEdgeID& Other )
+	{
+		return GetTypeHash( Other.IDValue );
 	}
 
 	/** Invalid edge ID */
@@ -236,6 +240,11 @@ struct FSectionID : public FElementID
 	{
 	}
 
+	FORCEINLINE friend uint32 GetTypeHash( const FSectionID& Other )
+	{
+		return GetTypeHash( Other.IDValue );
+	}
+
 	/** Invalid section ID */
 	MESHEDITINGRUNTIME_API static const FSectionID Invalid;
 };
@@ -260,6 +269,11 @@ struct FPolygonID : public FElementID
 	{
 	}
 
+	FORCEINLINE friend uint32 GetTypeHash( const FPolygonID& Other )
+	{
+		return GetTypeHash( Other.IDValue );
+	}
+
 	/** Invalid polygon ID */
 	MESHEDITINGRUNTIME_API static const FPolygonID Invalid;	// @todo mesheditor script: Can we expose these to BP nicely?	Do we even need to?
 };
@@ -282,6 +296,11 @@ struct FTriangleID : public FElementID
 	explicit FTriangleID( const uint32 InitIDValue )
 		: FElementID( InitIDValue )
 	{
+	}
+
+	FORCEINLINE friend uint32 GetTypeHash( const FTriangleID& Other )
+	{
+		return GetTypeHash( Other.IDValue );
 	}
 
 	/** Invalid triangle ID */

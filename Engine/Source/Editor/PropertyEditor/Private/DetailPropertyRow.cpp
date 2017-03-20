@@ -196,7 +196,7 @@ FDetailWidgetRow FDetailPropertyRow::GetWidgetRow()
 	}
 }
 
-void FDetailPropertyRow::OnItemNodeInitialized( TSharedRef<FDetailCategoryImpl> InParentCategory, const TAttribute<bool>& InIsParentEnabled )
+void FDetailPropertyRow::OnItemNodeInitialized( TSharedRef<FDetailCategoryImpl> InParentCategory, const TAttribute<bool>& InIsParentEnabled, TSharedPtr<IDetailGroup> InParentGroup)
 {
 	IsParentEnabled = InIsParentEnabled;
 
@@ -216,7 +216,7 @@ void FDetailPropertyRow::OnItemNodeInitialized( TSharedRef<FDetailCategoryImpl> 
 
 	if( bShowCustomPropertyChildren && CustomTypeInterface.IsValid() )
 	{
-		PropertyTypeLayoutBuilder = MakeShareable(new FCustomChildrenBuilder(InParentCategory));
+		PropertyTypeLayoutBuilder = MakeShareable(new FCustomChildrenBuilder(InParentCategory, InParentGroup));
 
 		/** Does this row pass its custom reset behavior to its children? */
 		if (CustomResetToDefault.IsSet() && CustomResetToDefault->PropagatesToChildren())
@@ -400,6 +400,11 @@ void FDetailPropertyRow::MakeNameOrKeyWidget( FDetailWidgetRow& Row, const TShar
 	if (bHasKeyNode)
 	{
 		Slot.Padding(0.0f, 0.0f, 20.0f, 0.0f);
+	}
+	else if (InCustomRow.IsValid())
+	{
+		//Allow custom name slot to fill all the area. If the user add a SHorizontalBox with left and right align slot
+		Slot.FillWidth(1.0f);
 	}
 	else
 	{

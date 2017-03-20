@@ -84,7 +84,6 @@
 #include "Private/SLevelEditor.h"
 #include "DebuggerCommands.h"
 #include "UMGStyle.h"
-#include "EditableMeshTypes.h"
 
 #include "UI/VREditorRadialFloatingUI.h"
 
@@ -500,7 +499,7 @@ void UVRRadialMenuHandler::UIMenuGenerator(FMenuBuilder& MenuBuilder, TSharedPtr
 		EUserInterfaceActionType::ToggleButton
 		);
 	MenuBuilder.AddMenuEntry(
-		LOCTEXT("Modes", "Modes Panel"),
+		LOCTEXT("ModesPanel", "Modes Panel"),
 		FText(),
 		FSlateIcon(FVREditorStyle::GetStyleSetName(), "VREditorStyle.ModesPanel"),
 		FUIAction
@@ -656,7 +655,7 @@ void UVRRadialMenuHandler::ToolsMenuGenerator(FMenuBuilder& MenuBuilder, TShared
 
 
 	MenuBuilder.AddMenuEntry(
-		LOCTEXT("KeepSimulationChanges", "Save Actors"),
+		LOCTEXT("SaveActors", "Save Actors"),
 		FText(),
 		FSlateIcon(FVREditorStyle::GetStyleSetName(), "VREditorStyle.SaveSimulation"),
 		FUIAction
@@ -702,7 +701,7 @@ void UVRRadialMenuHandler::ToolsMenuGenerator(FMenuBuilder& MenuBuilder, TShared
 		FUIAction
 		(
 			FExecuteAction::CreateStatic(&FVREditorActionCallbacks::OnPlayButtonClicked, VRMode),
-			FCanExecuteAction::CreateStatic(&FVREditorActionCallbacks::CanPlay)
+			FCanExecuteAction::CreateStatic(&FVREditorActionCallbacks::CanPlay, VRMode)
 			),
 		NAME_None,
 		EUserInterfaceActionType::CollapsedButton

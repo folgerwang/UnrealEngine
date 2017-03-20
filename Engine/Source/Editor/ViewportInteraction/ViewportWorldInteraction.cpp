@@ -274,11 +274,12 @@ UViewportWorldInteraction::UViewportWorldInteraction():
 	TransformablesInterpolationDuration( 1.0f ),
 	TransformGizmoActor( nullptr ),
 	TransformGizmoClass( APivotTransformGizmo::StaticClass() ),
-	GizmoLocalBounds( FBox( 0 ) ),
+	GizmoLocalBounds( FBox(ForceInit) ),
 	StartDragAngleOnRotation(),
 	DraggingRotationHandleDirection(),
 	bShouldTransformGizmoBeVisible( true ),
 	TransformGizmoScale( VI::GizmoScaleInDesktop->GetFloat() ),
+	GizmoType(),
 	SnapGridActor( nullptr ),
 	SnapGridMeshComponent( nullptr ),
 	SnapGridMID( nullptr ),
@@ -286,7 +287,6 @@ UViewportWorldInteraction::UViewportWorldInteraction():
 	DefaultMouseCursorInteractor( nullptr ),
 	DefaultMouseCursorInteractorRefCount( 0 ),
 	bIsInVR( false ),
-	bActive( false ),
 	bUseInputPreprocessor( false ),
 	bAllowWorldMovement( true ),
 	CurrentDeltaTime(0.0f),
@@ -336,7 +336,7 @@ void UViewportWorldInteraction::Init()
 	// We need a mouse cursor!
 	this->AddMouseCursorInteractor();
 
-	bActive = true;
+	SetActive(true);
 
 	CandidateActors.Reset();
 
@@ -348,7 +348,7 @@ void UViewportWorldInteraction::Init()
 
 void UViewportWorldInteraction::Shutdown()
 {
-	bActive = false;
+	SetActive(false);
 
 	if( DefaultMouseCursorInteractorRefCount == 1 )
 	{
@@ -393,6 +393,8 @@ void UViewportWorldInteraction::Shutdown()
 
 	AssetContainer = nullptr;
 
+	GizmoType.Reset();
+
 	USelection::SelectionChangedEvent.RemoveAll( this );
 	GEditor->OnEditorClose().RemoveAll( this );
 }
@@ -421,7 +423,7 @@ void UViewportWorldInteraction::LeftSimulateInEditor()
 
 void UViewportWorldInteraction::OnEditorClosed()
 {
-	if( bActive )
+	if( IsActive() )
 	{
 		Shutdown();
 	}
@@ -533,11 +535,6 @@ void UViewportWorldInteraction::SetDefaultOptionalViewportClient(const TSharedPt
 	DefaultOptionalViewportClient = InEditorViewportClient.Get();
 }
 
-bool UViewportWorldInteraction::IsActive() const
-{
-	return bActive;
-}
-
 void UViewportWorldInteraction::PairInteractors( UViewportInteractor* FirstInteractor, UViewportInteractor* SecondInteractor )
 {
 	FirstInteractor->SetOtherInteractor( SecondInteractor );
@@ -548,19 +545,19 @@ bool UViewportWorldInteraction::InputKey( FEditorViewportClient* InViewportClien
 {
 	bool bWasHandled = false;
 
-	if( bActive )
+	if( IsActive() )
 	{
 		check(InViewportClient != nullptr);
 		OnKeyInputEvent.Broadcast(InViewportClient, Key, Event, bWasHandled);
 
-		if( !bWasHandled || !bActive )
+		if( !bWasHandled || !IsActive() )
 		{
 			for( UViewportInteractor* Interactor : Interactors )
 			{
 				bWasHandled = Interactor->HandleInputKey( *InViewportClient, Key, Event );
 
 				// Stop iterating if the input was handled by an Interactor
-				if( bWasHandled || !bActive )
+				if( bWasHandled || !IsActive() )
 				{
 					break;
 				}
@@ -596,19 +593,19 @@ bool UViewportWorldInteraction::InputAxis( FEditorViewportClient* InViewportClie
 {
 	bool bWasHandled = false;
 
-	if( bActive )
+	if( IsActive() )
 	{
 		check( InViewportClient != nullptr );
 		OnAxisInputEvent.Broadcast( InViewportClient, ControllerId, Key, Delta, DeltaTime, bWasHandled );
 
-		if( !bWasHandled || !bActive )
+		if( !bWasHandled || !IsActive() )
 		{
 			for( UViewportInteractor* Interactor : Interactors )
 			{
 				bWasHandled = Interactor->HandleInputAxis( *InViewportClient, Key, Delta, DeltaTime );
 
 				// Stop iterating if the input was handled by an interactor
-				if( bWasHandled || !bActive )
+				if( bWasHandled || !IsActive() )
 				{
 					break;
 				}
@@ -2303,7 +2300,7 @@ void UViewportWorldInteraction::StartDragging( UViewportInteractor* Interactor, 
 	{
 		InteractorData.TransformGizmoInteractionType = ETransformGizmoInteractionType::None;
 		InteractorData.GizmoStartTransform = FTransform::Identity;
-		InteractorData.GizmoStartLocalBounds = FBox( 0 );
+		InteractorData.GizmoStartLocalBounds = FBox(ForceInit);
 	}
 	InteractorData.GizmoLastTransform = InteractorData.GizmoTargetTransform = InteractorData.GizmoUnsnappedTargetTransform = InteractorData.GizmoInterpolationSnapshotTransform = InteractorData.GizmoStartTransform;
 	InteractorData.GizmoSpaceFirstDragUpdateOffsetAlongAxis = FVector::ZeroVector;	// Will be determined on first update
@@ -2585,7 +2582,6 @@ void UViewportWorldInteraction::RefreshTransformGizmo( const bool bNewObjectsSel
 		const bool bPropagateToChildren = true;
 		TransformGizmoActor->GetRootComponent()->SetVisibility( bShouldBeVisible, bPropagateToChildren );
 
-
 		UViewportInteractor* DraggingWithInteractor = nullptr;
 		static TArray< UActorComponent* > HoveringOverHandles;
 		HoveringOverHandles.Reset();
@@ -2658,7 +2654,7 @@ void UViewportWorldInteraction::RefreshTransformGizmo( const bool bNewObjectsSel
 			TransformGizmoActor->OnNewObjectsSelected();
 		}
 
-		const EGizmoHandleTypes GizmoType = GetCurrentGizmoType();
+		const EGizmoHandleTypes CurrentGizmoType = GetCurrentGizmoType();
 		const ECoordSystem GizmoCoordinateSpace = GetTransformGizmoCoordinateSpace();
 
 		GizmoLocalBounds = GizmoSpaceSelectedObjectsBounds;
@@ -2677,7 +2673,7 @@ void UViewportWorldInteraction::RefreshTransformGizmo( const bool bNewObjectsSel
 		}
 
 		TransformGizmoActor->UpdateGizmo( 
-			GizmoType, 
+			CurrentGizmoType,
 			GizmoCoordinateSpace, 
 			GizmoToWorld, 
 			GizmoSpaceSelectedObjectsBounds, 
@@ -2694,9 +2690,9 @@ void UViewportWorldInteraction::RefreshTransformGizmo( const bool bNewObjectsSel
 		SpawnGridMeshActor();
 		if ( FSnappingUtils::IsSnapToGridEnabled() )
 		{
-	        const bool bShouldBeVisible = true;
-	        const bool bPropagateToChildren = true;
-	        SnapGridActor->GetRootComponent()->SetVisibility( bShouldBeVisible, bPropagateToChildren );
+	        const bool bShouldGridBeVisible = true;
+	        const bool bPropagateToGridChildren = true;
+	        SnapGridActor->GetRootComponent()->SetVisibility( bShouldGridBeVisible, bPropagateToGridChildren );
 
 			const float GizmoAnimationAlpha = TransformGizmoActor->GetAnimationAlpha();
 
@@ -2800,9 +2796,9 @@ void UViewportWorldInteraction::RefreshTransformGizmo( const bool bNewObjectsSel
 		else
 		{
 			// Grid snap not enabled
-	        const bool bShouldBeVisible = false;
-	        const bool bPropagateToChildren = true;
-	        SnapGridActor->GetRootComponent()->SetVisibility( bShouldBeVisible, bPropagateToChildren );
+	        const bool bShouldGridBeVisible = false;
+	        const bool bPropagateToGridChildren = true;
+	        SnapGridActor->GetRootComponent()->SetVisibility( bShouldGridBeVisible, bPropagateToGridChildren );
 		}
 
 		if (bNewObjectsSelected && bPlayNextRefreshTransformGizmoSound)
@@ -2821,7 +2817,7 @@ void UViewportWorldInteraction::RefreshTransformGizmo( const bool bNewObjectsSel
 	        const bool bPropagateToChildren = true;
 	        TransformGizmoActor->GetRootComponent()->SetVisibility( bShouldBeVisible, bPropagateToChildren );
 		}
-		GizmoLocalBounds = FBox( 0 );
+		GizmoLocalBounds = FBox(ForceInit);
 
 		// Hide the snap actor
 		if( SnapGridActor != nullptr )
@@ -3084,7 +3080,7 @@ const class UViewportInteractionAssetContainer& UViewportWorldInteraction::LoadA
 
 void UViewportWorldInteraction::PlaySound(USoundBase* SoundBase, const FVector& InWorldLocation, const float InVolume /*= 1.0f*/)
 {
-	if (bActive)
+	if (IsActive() && GEditor != nullptr && GEditor->CanPlayEditorSound())
 	{
 		const float Volume = InVolume*VI::SFXMultiplier->GetFloat();
 		UGameplayStatics::PlaySoundAtLocation(GetWorld(), SoundBase, InWorldLocation, FRotator::ZeroRotator, Volume);
@@ -3103,19 +3099,26 @@ bool UViewportWorldInteraction::IsInVR() const
 
 EGizmoHandleTypes UViewportWorldInteraction::GetCurrentGizmoType() const
 {
-	switch( GLevelEditorModeTools().GetWidgetMode() )
+	if (GizmoType.IsSet())
 	{
-		case FWidget::WM_TranslateRotateZ:
-			return EGizmoHandleTypes::All;
+		return GizmoType.GetValue();
+	}
+	else
+	{
+		switch( GLevelEditorModeTools().GetWidgetMode() )
+		{
+			case FWidget::WM_TranslateRotateZ:
+				return EGizmoHandleTypes::All;
 
-		case FWidget::WM_Translate:
-			return EGizmoHandleTypes::Translate;
+			case FWidget::WM_Translate:
+				return EGizmoHandleTypes::Translate;
 
-		case FWidget::WM_Rotate:
-			return EGizmoHandleTypes::Rotate;
+			case FWidget::WM_Rotate:
+				return EGizmoHandleTypes::Rotate;
 
-		case FWidget::WM_Scale:
-			return EGizmoHandleTypes::Scale;
+			case FWidget::WM_Scale:
+				return EGizmoHandleTypes::Scale;
+		}
 	}
 
 	return EGizmoHandleTypes::Translate;
@@ -3123,11 +3126,12 @@ EGizmoHandleTypes UViewportWorldInteraction::GetCurrentGizmoType() const
 
 void UViewportWorldInteraction::SetGizmoHandleType( const EGizmoHandleTypes InGizmoHandleType )
 {
+	GizmoType.Reset();
+
 	switch( InGizmoHandleType )
 	{
 		case EGizmoHandleTypes::All:
-			// @todo gizmo: This handle type requires an editor preference to be enabled.  Think about how we actually want to expose the 'universal' gizmo type
-			GLevelEditorModeTools().SetWidgetMode( FWidget::WM_TranslateRotateZ );
+			GizmoType = InGizmoHandleType;
 			break;
 
 		case EGizmoHandleTypes::Translate:

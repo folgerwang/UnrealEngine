@@ -17,6 +17,8 @@ class FSkeletalMeshResource;
 class FSkeletalMeshVertexBuffer;
 struct FSkelMeshSection;
 class FColorVertexBuffer;
+class FSkinWeightVertexBuffer;
+
 //
 // Forward declarations
 //
@@ -114,6 +116,20 @@ struct FActiveMorphTarget
 	}
 };
 
+/** Vertex skin weight info supplied for a component override. */
+USTRUCT(BlueprintType, meta = (HasNativeMake = "Engine.KismetRenderingLibrary.MakeSkinWeightInfo", HasNativeBreak = "Engine.KismetRenderingLibrary.BreakSkinWeightInfo"))
+struct FSkelMeshSkinWeightInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** Index of bones that influence this vertex */
+	UPROPERTY()
+	int32	Bones[8];
+	/** Influence of each bone on this vertex */
+	UPROPERTY()
+	uint8	Weights[8];
+};
+
 /** LOD specific setup for the skeletal mesh component. */
 USTRUCT()
 struct FSkelMeshComponentLODInfo
@@ -124,14 +140,20 @@ struct FSkelMeshComponentLODInfo
 	UPROPERTY()
 	TArray<bool> HiddenMaterials;
 
+	/** Vertex buffer used to override vertex colors */
 	FColorVertexBuffer* OverrideVertexColors;
+
+	/** Vertex buffer used to override skin weights */
+	FSkinWeightVertexBuffer* OverrideSkinWeights;
 
 	FSkelMeshComponentLODInfo();
 	~FSkelMeshComponentLODInfo();
 
 	void ReleaseOverrideVertexColorsAndBlock();
-
 	void BeginReleaseOverrideVertexColors();
+
+	void ReleaseOverrideSkinWeightsAndBlock();
+	void BeginReleaseOverrideSkinWeights();
 
 	void CleanUp();
 };
@@ -231,6 +253,10 @@ public:
 	/** Index of the section to preview... If set to -1, all section will be rendered */
 	UPROPERTY(transient)
 	int32 SectionIndexPreview;
+
+	/** Index of the material to preview... If set to -1, all section will be rendered */
+	UPROPERTY(transient)
+	int32 MaterialIndexPreview;
 
 #endif // WITH_EDITORONLY_DATA
 	//
@@ -523,7 +549,7 @@ public:
 	virtual TArray<FName> GetMaterialSlotNames() const override;
 	virtual bool IsMaterialSlotNameValid(FName MaterialSlotName) const override;
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
-	virtual void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials) const override;
+	virtual void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials, bool bGetDebugMaterials = false) const override;
 	virtual bool GetMaterialStreamingData(int32 MaterialIndex, FPrimitiveMaterialInfo& MaterialData) const override;
 	virtual void GetStreamingTextureInfo(FStreamingTextureLevelContext& LevelContext, TArray<FStreamingTexturePrimitiveInfo>& OutStreamingTextures) const override;
 	virtual int32 GetNumMaterials() const override;
@@ -542,6 +568,7 @@ public:
 	*	@param	InSectionIndexPreview		New value of SectionIndexPreview.
 	*/
 	void SetSectionPreview(int32 InSectionIndexPreview);
+	void SetMaterialPreview(int32 InMaterialIndexPreview);
 
 	/**
 	 * Function returns whether or not CPU skinning should be applied
@@ -597,6 +624,19 @@ public:
 	* @param TexCoordChannel	Texture coordinate channel Index.
 	*/
 	FVector2D GetVertexUV(int32 VertexIndex, uint32 UVChannel) const;
+
+
+	/** Allow override of skin weights on a per-component basis. */
+	UFUNCTION(BlueprintCallable, Category = "Components|SkinnedMesh")
+	void SetSkinWeightOverride(int32 LODIndex, const TArray<FSkelMeshSkinWeightInfo>& SkinWeights);
+
+	/** Clear any applied skin weight override */
+	UFUNCTION(BlueprintCallable, Category = "Components|SkinnedMesh")
+	void ClearSkinWeightOverride(int32 LODIndex);
+
+	/** Returns skin weight vertex buffer to use for specific LOD (will look at override) */
+	FSkinWeightVertexBuffer* GetSkinWeightBuffer(int32 LODIndex) const;
+
 
 	/**
 	 * Update functions
@@ -1034,9 +1074,9 @@ public:
 	* @param MaxDistanceFactor : Largest SkinnedMeshComponent of this Actor drawn on screen. */
 	void AnimUpdateRateSetParams(uint8 UpdateRateShift, float DeltaTime, const bool & bInRecentlyRendered, const float& InMaxDistanceFactor, const bool & bPlayingRootMotion);
 
-	virtual bool IsPlayingRootMotion(){ return false; }
-
-	virtual bool IsPlayingRootMotionFromEverything(){ return false; }
+	virtual bool IsPlayingRootMotion() const { return false; }
+	virtual bool IsPlayingNetworkedRootMotionMontage() const { return false; }
+	virtual bool IsPlayingRootMotionFromEverything() const { return false; }
 
 	bool ShouldUseUpdateRateOptimizations() const;
 

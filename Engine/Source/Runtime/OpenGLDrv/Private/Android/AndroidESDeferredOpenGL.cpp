@@ -32,6 +32,11 @@ ENUM_GL_ENTRYPOINTS_CORE(DEFINE_GL_ENTRYPOINTS) \
 ENUM_GL_ENTRYPOINTS_MANUAL(DEFINE_GL_ENTRYPOINTS) \
 ENUM_GL_ENTRYPOINTS_OPTIONAL(DEFINE_GL_ENTRYPOINTS)
 
+PFNEGLGETSYSTEMTIMENVPROC eglGetSystemTimeNV_p = NULL;
+PFNEGLCREATESYNCKHRPROC eglCreateSyncKHR_p = NULL;
+PFNEGLDESTROYSYNCKHRPROC eglDestroySyncKHR_p = NULL;
+PFNEGLCLIENTWAITSYNCKHRPROC eglClientWaitSyncKHR_p = NULL;
+
 ///////////////////////////////////////////////////////////////////////////////
 
 bool FAndroidESDeferredOpenGL::bSupportsBindlessTexture = false;
@@ -166,6 +171,11 @@ void FPlatformOpenGLDevice::Init()
 	ENUM_GL_ENTRYPOINTS_CORE(GET_GL_ENTRYPOINTS);
 	ENUM_GL_ENTRYPOINTS_MANUAL(GET_GL_ENTRYPOINTS);
 	ENUM_GL_ENTRYPOINTS_OPTIONAL(GET_GL_ENTRYPOINTS);
+
+	eglGetSystemTimeNV_p = (PFNEGLGETSYSTEMTIMENVPROC)((void*)eglGetProcAddress("eglGetSystemTimeNV"));
+	eglCreateSyncKHR_p = (PFNEGLCREATESYNCKHRPROC)((void*)eglGetProcAddress("eglCreateSyncKHR"));
+	eglDestroySyncKHR_p = (PFNEGLDESTROYSYNCKHRPROC)((void*)eglGetProcAddress("eglDestroySyncKHR"));
+	eglClientWaitSyncKHR_p = (PFNEGLCLIENTWAITSYNCKHRPROC)((void*)eglGetProcAddress("eglClientWaitSyncKHR"));
 
 	// Check that all of the required entry points have been initialized
 	bool bFoundAllEntryPoints = true;
@@ -308,7 +318,7 @@ bool PlatformBlitToViewport( FPlatformOpenGLDevice* Device, const FOpenGLViewpor
 {
 	if (FOpenGL::IsES2())
 	{
-		AndroidEGL::GetInstance()->SwapBuffers();
+		AndroidEGL::GetInstance()->SwapBuffers(bLockToVsync ? SyncInterval : 0);
 	}
 	else
 	{
@@ -341,7 +351,7 @@ bool PlatformBlitToViewport( FPlatformOpenGLDevice* Device, const FOpenGLViewpor
 		{
 			uint32 IdleStart = FPlatformTime::Cycles();
 
-			AndroidEGL::GetInstance()->SwapBuffers();
+			AndroidEGL::GetInstance()->SwapBuffers(bLockToVsync ? SyncInterval : 0);
 			REPORT_GL_END_BUFFER_EVENT_FOR_FRAME_DUMP();
 //			INITIATE_GL_FRAME_DUMP_EVERY_X_CALLS( 1000 );
 
@@ -393,7 +403,7 @@ FRHITexture* PlatformCreateBuiltinBackBuffer(FOpenGLDynamicRHI* OpenGLRHI, uint3
 	if ( FOpenGL::IsES2())
 	{
 		uint32 Flags = TexCreate_RenderTargetable;
-		Texture2D = new FOpenGLTexture2D(OpenGLRHI, AndroidEGL::GetInstance()->GetOnScreenColorRenderBuffer(), GL_RENDERBUFFER, GL_COLOR_ATTACHMENT0, SizeX, SizeY, 0, 1, 1, 1, PF_B8G8R8A8, false, false, Flags, nullptr, FClearValueBinding::Transparent);
+		Texture2D = new FOpenGLTexture2D(OpenGLRHI, AndroidEGL::GetInstance()->GetOnScreenColorRenderBuffer(), GL_RENDERBUFFER, GL_COLOR_ATTACHMENT0, SizeX, SizeY, 0, 1, 1, 1, 1, PF_B8G8R8A8, false, false, Flags, nullptr, FClearValueBinding::Transparent);
 		OpenGLTextureAllocated(Texture2D, Flags);
 	}
 

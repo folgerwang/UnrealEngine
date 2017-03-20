@@ -853,6 +853,7 @@ public:
 	ENGINE_API virtual void OverrideTexture( const UTexture* InTextureToOverride, UTexture* OverrideTexture, ERHIFeatureLevel::Type InFeatureLevel ) override;
 	ENGINE_API virtual void OverrideVectorParameterDefault(FName ParameterName, const FLinearColor& Value, bool bOverride, ERHIFeatureLevel::Type FeatureLevel) override;
 	ENGINE_API virtual void OverrideScalarParameterDefault(FName ParameterName, float Value, bool bOverride, ERHIFeatureLevel::Type FeatureLevel) override;
+	ENGINE_API virtual float GetScalarParameterDefault(FName ParameterName, ERHIFeatureLevel::Type FeatureLevel) override;
 	ENGINE_API virtual bool CheckMaterialUsage(const EMaterialUsage Usage, const bool bSkipPrim = false) override;
 	ENGINE_API virtual bool CheckMaterialUsage_Concurrent(const EMaterialUsage Usage, const bool bSkipPrim = false) const override;
 	ENGINE_API virtual FMaterialResource* AllocateResource();
@@ -1064,21 +1065,7 @@ public:
 	template<typename ExpressionType>
 	ExpressionType* FindExpressionByGUID(const FGuid &InGUID)
 	{
-		ExpressionType* Result = NULL;
-
-		for(int32 ExpressionIndex = 0;ExpressionIndex < Expressions.Num();ExpressionIndex++)
-		{
-			ExpressionType* ExpressionPtr =
-				Cast<ExpressionType>(Expressions[ExpressionIndex]);
-
-			if(ExpressionPtr && ExpressionPtr->ExpressionGUID.IsValid() && ExpressionPtr->ExpressionGUID==InGUID)
-			{
-				Result = ExpressionPtr;
-				break;
-			}
-		}
-
-		return Result;
+		return FindExpressionByGUIDRecursive<ExpressionType>(InGUID, Expressions);
 	}
 
 	/* Get all expressions of the requested type */
@@ -1371,6 +1358,7 @@ public:
 
 	/* Returns any UMaterialExpressionCustomOutput expressions */
 	ENGINE_API void GetAllCustomOutputExpressions(TArray<class UMaterialExpressionCustomOutput*>& OutCustomOutputs) const;
+	ENGINE_API void GetAllExpressionsForCustomInterpolators(TArray<class UMaterialExpression*>& OutExpressions) const;
 
 #if WITH_EDITOR
 	/**
@@ -1472,6 +1460,32 @@ private:
 
 	// DO NOT CALL outside of FMaterialEditor!
 	ENGINE_API static void ForceNoCompilationInPostLoad(bool bForceNoCompilation);
+
+	/* Helper function to help finding expression GUID taking into account UMaterialExpressionMaterialFunctionCall */
+	template<typename ExpressionType>
+	ExpressionType* FindExpressionByGUIDRecursive(const FGuid &InGUID, const TArray<UMaterialExpression*>& InMaterialExpression)
+	{
+		for (int32 ExpressionIndex = 0; ExpressionIndex < InMaterialExpression.Num(); ++ExpressionIndex)
+		{
+			UMaterialExpression* ExpressionPtr = InMaterialExpression[ExpressionIndex];
+			UMaterialExpressionMaterialFunctionCall* MaterialFunctionCall = Cast<UMaterialExpressionMaterialFunctionCall>(ExpressionPtr);
+
+			if (MaterialFunctionCall != nullptr)
+			{
+				if (MaterialFunctionCall->MaterialFunction != nullptr)
+				{
+					return FindExpressionByGUIDRecursive<ExpressionType>(InGUID, MaterialFunctionCall->MaterialFunction->FunctionExpressions);
+				}
+			}
+			else if (ExpressionPtr && ExpressionPtr->bIsParameterExpression && ExpressionPtr->GetParameterExpressionId() == InGUID)
+			{
+				return Cast<ExpressionType>(ExpressionPtr);
+			}
+		}
+
+		return nullptr;
+	}
+
 };
 
 

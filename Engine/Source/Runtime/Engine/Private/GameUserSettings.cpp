@@ -128,12 +128,11 @@ bool UGameUserSettings::IsScreenResolutionDirty() const
 bool UGameUserSettings::IsFullscreenModeDirty() const
 {
 	bool bIsDirty = false;
-	if ( GEngine && GEngine->GameViewport && GEngine->GameViewport->ViewportFrame )
+	if (GEngine && GEngine->GameViewport && GEngine->GameViewport->ViewportFrame)
 	{
-		EWindowMode::Type WindowMode = GEngine->GameViewport->IsFullScreenViewport() ? EWindowMode::Fullscreen : EWindowMode::Windowed;
-		EWindowMode::Type CurrentFullscreenMode = GetWindowModeType(WindowMode);
+		EWindowMode::Type CurrentFullscreenMode = GEngine->GameViewport->Viewport->GetWindowMode();
 		EWindowMode::Type NewFullscreenMode = GetFullscreenMode();
-		bIsDirty = (CurrentFullscreenMode != NewFullscreenMode) ? true : false;
+		bIsDirty = (CurrentFullscreenMode != NewFullscreenMode);
 	}
 	return bIsDirty;
 }
@@ -247,6 +246,13 @@ float UGameUserSettings::GetDefaultResolutionScale()
 	const float DesiredResQuality = FindResolutionQualityForScreenSize(DesiredScreenWidth, DesiredScreenHeight);
 
 	return FMath::Max(DesiredResQuality, MinResolutionScale);
+}
+
+float UGameUserSettings::GetRecommendedResolutionScale()
+{
+	const float RecommendedResQuality = FindResolutionQualityForScreenSize(LastRecommendedScreenWidth, LastRecommendedScreenHeight);
+
+	return FMath::Max(RecommendedResQuality, MinResolutionScale);
 }
 
 float UGameUserSettings::FindResolutionQualityForScreenSize(float Width, float Height)
@@ -531,7 +537,8 @@ FIntPoint UGameUserSettings::GetDefaultWindowPosition()
 
 EWindowMode::Type UGameUserSettings::GetDefaultWindowMode()
 {
-	return EWindowMode::Windowed;
+	// WindowedFullscreen should be the general default or games
+	return EWindowMode::WindowedFullscreen;
 }
 
 void UGameUserSettings::ResetToCurrentSettings()
@@ -731,7 +738,7 @@ void UGameUserSettings::ApplyHardwareBenchmarkResults()
 	SaveSettings();
 }
 
-bool UGameUserSettings::SupportsHDRDisplayOutput()
+bool UGameUserSettings::SupportsHDRDisplayOutput() const
 {
 	return GRHISupportsHDROutput;
 }
@@ -810,4 +817,14 @@ void UGameUserSettings::EnableHDRDisplayOutput(bool bEnable, int32 DisplayNits /
 		bUseHDRDisplayOutput = bEnable;
 		HDRDisplayOutputNits = DisplayNitLevel;
 	}
+}
+
+int32 UGameUserSettings::GetCurrentHDRDisplayNits() const
+{
+	return bUseHDRDisplayOutput ? HDRDisplayOutputNits : 0;
+}
+
+bool UGameUserSettings::IsHDREnabled() const
+{
+	return bUseHDRDisplayOutput;
 }

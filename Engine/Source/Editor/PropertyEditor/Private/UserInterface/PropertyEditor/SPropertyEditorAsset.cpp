@@ -30,23 +30,7 @@ DECLARE_DELEGATE( FOnPaste );
 
 bool SPropertyEditorAsset::ShouldDisplayThumbnail( const FArguments& InArgs )
 {
-	// Decide whether we should display the thumbnail or not
-	bool bDisplayThumbnailByDefault = false;
-	if(PropertyEditor.IsValid())
-	{
-		UProperty* NodeProperty = PropertyEditor->GetPropertyNode()->GetProperty();
-		UClass* Class = GetObjectPropertyClass(NodeProperty);
-
-		bDisplayThumbnailByDefault |= Class->IsChildOf(UMaterialInterface::StaticClass()) ||
-									  Class->IsChildOf(UTexture::StaticClass()) ||
-									  Class->IsChildOf(UStaticMesh::StaticClass()) ||
-									  Class->IsChildOf(UStaticMeshComponent::StaticClass()) ||
-									  Class->IsChildOf(USkeletalMesh::StaticClass()) ||
-									  Class->IsChildOf(USkeletalMeshComponent::StaticClass()) ||
-									  Class->IsChildOf(UParticleSystem::StaticClass());
-	}
-
-	bool bDisplayThumbnail = ( bDisplayThumbnailByDefault || InArgs._DisplayThumbnail ) && InArgs._ThumbnailPool.IsValid();
+	bool bDisplayThumbnail = InArgs._DisplayThumbnail && InArgs._ThumbnailPool.IsValid();
 
 	if(PropertyEditor.IsValid())
 	{
@@ -89,8 +73,6 @@ void SPropertyEditorAsset::Construct( const FArguments& InArgs, const TSharedPtr
 	PropertyHandle = InArgs._PropertyHandle;
 	OnSetObject = InArgs._OnSetObject;
 	OnShouldFilterAsset = InArgs._OnShouldFilterAsset;
-	bAllowActorPicker = InArgs._AllowActorPicker;
-	bSearchInBlueprint = InArgs._SearchInBlueprint;
 
 	UProperty* Property = nullptr;
 	if(PropertyEditor.IsValid())
@@ -175,35 +157,6 @@ void SPropertyEditorAsset::Construct( const FArguments& InArgs, const TSharedPtr
 				}
 			}
 		}
-
-		// Make sure we're not trying to allow an actor picker on a property of an archetype object
-		if (bAllowActorPicker)
-		{
-			TSharedPtr<FPropertyNode> PropertyNode;
-
-			if (PropertyEditor.IsValid())
-			{
-				PropertyNode = PropertyEditor->GetPropertyNode();
-			}
-			else if (PropertyHandle.IsValid() && PropertyHandle->IsValidHandle())
-			{
-				PropertyNode = StaticCastSharedPtr<FPropertyHandleBase>(PropertyHandle)->GetPropertyNode();
-			}
-
-			FObjectPropertyNode* RootObjectNode = PropertyNode->FindRootObjectItemParent();			
-			if(RootObjectNode)
-			{
-				// One of the object is an archetype, we can't allow actor picker
-				for(int32 i = 0; i < RootObjectNode->GetNumObjects(); ++i)
-				{
-					if(RootObjectNode->GetUObject(i)->HasAnyFlags(RF_ArchetypeObject))
-					{
-						bAllowActorPicker = false;
-						break;
-					}
-				}
-			}
-		}
 	}
 
 	if (InArgs._NewAssetFactories.IsSet())
@@ -229,11 +182,14 @@ void SPropertyEditorAsset::Construct( const FArguments& InArgs, const TSharedPtr
 	TAttribute<bool> IsEnabledAttribute(this, &SPropertyEditorAsset::CanEdit);
 	TAttribute<FText> TooltipAttribute(this, &SPropertyEditorAsset::OnGetToolTip);
 
-	if (Property && Property->HasAllPropertyFlags(CPF_DisableEditOnTemplate))
+	if (Property && Property->HasAnyPropertyFlags(CPF_EditConst | CPF_DisableEditOnTemplate))
 	{
 		// There are some cases where editing an Actor Property is not allowed, such as when it is contained within a struct or a CDO
 		TArray<UObject*> ObjectList;
-		PropertyEditor->GetPropertyHandle()->GetOuterObjects(ObjectList);
+		if (PropertyEditor.IsValid())
+		{
+			PropertyEditor->GetPropertyHandle()->GetOuterObjects(ObjectList);
+		}
 
 		// If there is no objects, that means we must have a struct asset managing this property
 		if (ObjectList.Num() == 0)
@@ -400,7 +356,7 @@ void SPropertyEditorAsset::Construct( const FArguments& InArgs, const TSharedPtr
 		];
 	}
 
-	if( bIsActor && bAllowActorPicker)
+	if( bIsActor )
 	{
 		TSharedRef<SWidget> ActorPicker = PropertyCustomizationHelpers::MakeInteractiveActorPicker( FOnGetAllowedClasses::CreateSP(this, &SPropertyEditorAsset::OnGetAllowedClasses), FOnShouldFilterActor(), FOnActorSelected::CreateSP( this, &SPropertyEditorAsset::OnActorSelected ) );
 		ActorPicker->SetEnabled( IsEnabledAttribute );
@@ -500,7 +456,7 @@ TSharedRef<SWidget> SPropertyEditorAsset::OnGetMenuContent()
 	FObjectOrAssetData Value;
 	GetValue(Value);
 
-	if(bIsActor && bAllowActorPicker)
+	if(bIsActor)
 	{
 		return PropertyCustomizationHelpers::MakeActorPickerWithMenu(Cast<AActor>(Value.Object),
 																	 bAllowClear,
@@ -513,7 +469,6 @@ TSharedRef<SWidget> SPropertyEditorAsset::OnGetMenuContent()
 	{
 		return PropertyCustomizationHelpers::MakeAssetPickerWithMenu(Value.AssetData,
 																	 bAllowClear,
-																	 bSearchInBlueprint,
 																	 CustomClassFilters,
 																	 NewAssetFactories,
 																	 OnShouldFilterAsset,
@@ -986,18 +941,10 @@ bool SPropertyEditorAsset::CanSetBasedOnCustomClasses( const FAssetData& InAsset
 	{
 		bAllowedToSetBasedOnFilter = false;
 		UClass* AssetClass = InAssetData.GetClass();
-		UClass* ParentClass	= nullptr;
-		FString ParentClassPath = InAssetData.GetTagValueRef<FString>(FName("ParentClass"));
-
-		if (!ParentClassPath.IsEmpty())
-		{
-			ParentClass = FindObject<UClass>(nullptr, *ParentClassPath);
-		}
-
 		for( const UClass* AllowedClass : CustomClassFilters )
 		{
 			const bool bAllowedClassIsInterface = AllowedClass->HasAnyClassFlags(CLASS_Interface);
-			if( AssetClass->IsChildOf( AllowedClass ) || (bAllowedClassIsInterface && AssetClass->ImplementsInterface(AllowedClass)) || (ParentClass == AllowedClass))
+			if( AssetClass->IsChildOf( AllowedClass ) || (bAllowedClassIsInterface && AssetClass->ImplementsInterface(AllowedClass)) )
 			{
 				bAllowedToSetBasedOnFilter = true;
 				break;

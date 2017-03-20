@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 
 /**
  * Represents an object that we're actively interacting with, such as a selected actor
@@ -14,6 +15,10 @@ public:
 	/** Sets up safe defaults */
 	FViewportTransformable()
 		: StartTransform( FTransform::Identity )
+	{
+	}
+
+	virtual ~FViewportTransformable()
 	{
 	}
 

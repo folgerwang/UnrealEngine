@@ -1347,6 +1347,12 @@ EMouseCursor::Type FEditorViewportClient::GetCursor(FViewport* InViewport,int32 
 {
 	EMouseCursor::Type MouseCursor = EMouseCursor::Default;
 
+	// StaticFindObject is used lower down in this code, and that's not allowed while saving packages.
+	if ( GIsSavingPackage )
+	{
+		return MouseCursor;
+	}
+
 	bool bMoveCanvasMovement = ShouldUseMoveCanvasMovement();
 	
 	if (RequiredCursorVisibiltyAndAppearance.bOverrideAppearance &&
@@ -3105,7 +3111,7 @@ void FEditorViewportClient::SetWidgetMode(FWidget::EWidgetMode NewMode)
 
 bool FEditorViewportClient::CanSetWidgetMode(FWidget::EWidgetMode NewMode) const
 {
-	return ModeTools->GetShowWidget() == true;
+	return ModeTools->UsesTransformWidget(NewMode) == true;
 }
 
 FWidget::EWidgetMode FEditorViewportClient::GetWidgetMode() const
@@ -4284,7 +4290,7 @@ void FEditorViewportClient::UpdateRequiredCursorVisibility()
 			return;
 		}
 
-		if (MouseDeltaTracker->UsingDragTool() )
+		if( MouseDeltaTracker->UsingDragTool() )
 		{
 			RequiredCursorVisibiltyAndAppearance.bOverrideAppearance = false;
 		}
@@ -5001,12 +5007,20 @@ void FEditorViewportClient::ProcessScreenShots(FViewport* InViewport)
 		// properties, such as it being aspect ratio constrained
 		if (GIsHighResScreenshot && !bCaptureAreaValid)
 		{
+			// Screen Percentage is an optimization and should not affect the editor by default, unless we're rendering in stereo
+			static TConsoleVariableData<int32>* ScreenPercentageEditorCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.ScreenPercentage.Editor"));
+			bool bUseScreenPercentage = (GEngine && GEngine->IsStereoscopic3D(InViewport)) 
+										|| (ScreenPercentageEditorCVar && ScreenPercentageEditorCVar->GetValueOnAnyThread() != 0);
+
 			FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(
 				InViewport,
 				GetScene(),
 				EngineShowFlags)
 				.SetRealtimeUpdate(IsRealtime())
 				.SetViewModeParam(ViewModeParam, ViewModeParamName));
+
+			ViewFamily.EngineShowFlags.SetScreenPercentage(bUseScreenPercentage);
+
 			auto* ViewportBak = Viewport;
 			Viewport = InViewport;
 			FSceneView* View = CalcSceneView(&ViewFamily);

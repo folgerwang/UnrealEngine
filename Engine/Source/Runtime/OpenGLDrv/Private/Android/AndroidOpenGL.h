@@ -152,10 +152,10 @@ extern PFNGLVERTEXATTRIBIPOINTERPROC	glVertexAttribIPointer;
 
 extern "C"
 {
-	extern PFNEGLGETSYSTEMTIMENVPROC eglGetSystemTimeNV;
-	extern PFNEGLCREATESYNCKHRPROC eglCreateSyncKHR;
-	extern PFNEGLDESTROYSYNCKHRPROC eglDestroySyncKHR;
-	extern PFNEGLCLIENTWAITSYNCKHRPROC eglClientWaitSyncKHR;
+	extern PFNEGLGETSYSTEMTIMENVPROC eglGetSystemTimeNV_p;
+	extern PFNEGLCREATESYNCKHRPROC eglCreateSyncKHR_p;
+	extern PFNEGLDESTROYSYNCKHRPROC eglDestroySyncKHR_p;
+	extern PFNEGLCLIENTWAITSYNCKHRPROC eglClientWaitSyncKHR_p;
 }
 
 struct FAndroidOpenGL : public FOpenGLES2
@@ -205,7 +205,7 @@ struct FAndroidOpenGL : public FOpenGLES2
 		if (GUseThreadedRendering)
 		{
 			//handle error here
-			EGLBoolean Result = eglDestroySyncKHR( AndroidEGL::GetInstance()->GetDisplay(), Sync );
+			EGLBoolean Result = eglDestroySyncKHR_p( AndroidEGL::GetInstance()->GetDisplay(), Sync );
 			if(Result == EGL_FALSE)
 			{
 				//handle error here
@@ -216,7 +216,7 @@ struct FAndroidOpenGL : public FOpenGLES2
 	static FORCEINLINE UGLsync FenceSync(GLenum Condition, GLbitfield Flags)
 	{
 		check(Condition == GL_SYNC_GPU_COMMANDS_COMPLETE && Flags == 0);
-		return GUseThreadedRendering ? eglCreateSyncKHR( AndroidEGL::GetInstance()->GetDisplay(), EGL_SYNC_FENCE_KHR, NULL ) : 0;
+		return GUseThreadedRendering ? eglCreateSyncKHR_p( AndroidEGL::GetInstance()->GetDisplay(), EGL_SYNC_FENCE_KHR, NULL ) : 0;
 	}
 	
 	static FORCEINLINE bool IsSync(UGLsync Sync)
@@ -236,7 +236,7 @@ struct FAndroidOpenGL : public FOpenGLES2
 		if (GUseThreadedRendering)
 		{
 			// check( Flags == GL_SYNC_FLUSH_COMMANDS_BIT );
-			GLenum Result = eglClientWaitSyncKHR( AndroidEGL::GetInstance()->GetDisplay(), Sync, EGL_SYNC_FLUSH_COMMANDS_BIT_KHR, Timeout );
+			GLenum Result = eglClientWaitSyncKHR_p( AndroidEGL::GetInstance()->GetDisplay(), Sync, EGL_SYNC_FLUSH_COMMANDS_BIT_KHR, Timeout );
 			switch (Result)
 			{
 			case EGL_TIMEOUT_EXPIRED_KHR:		return FR_TimeoutExpired;
@@ -468,6 +468,8 @@ struct FAndroidOpenGL : public FOpenGLES2
 
 	static FORCEINLINE GLenum GetDepthFormat() { return GL_DEPTH_COMPONENT24; }
 
+	static FORCEINLINE GLint GetMaxMSAASamplesTileMem() { return MaxMSAASamplesTileMem; }
+
 	static void ProcessExtensions(const FString& ExtensionsString);
 
 	// whether to use ES 3.0 function glTexStorage2D to allocate storage for GL_HALF_FLOAT_OES render target textures
@@ -493,6 +495,9 @@ struct FAndroidOpenGL : public FOpenGLES2
 
 	/** Whether device supports mobile multi-view */
 	static bool bSupportsMobileMultiView;
+
+	/** Maximum number of MSAA samples supported on chip in tile memory, or 1 if not available */
+	static GLint MaxMSAASamplesTileMem;
 
 	enum class EFeatureLevelSupport : uint8
 	{

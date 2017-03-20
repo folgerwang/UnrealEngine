@@ -1,6 +1,10 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "ActorViewportTransformable.h"
+#include "GameFramework/Actor.h"
+#include "Editor.h"
+#include "Editor/EditorEngine.h"
+#include "Components/PrimitiveComponent.h"
 
 
 void FActorViewportTransformable::ApplyTransform( const FTransform& NewTransform, const bool bSweep )
@@ -60,7 +64,7 @@ const FTransform FActorViewportTransformable::GetTransform() const
 
 FBox FActorViewportTransformable::BuildBoundingBox( const FTransform& BoundingBoxToWorld ) const
 {
-	FBox BoundingBox( 0 );
+	FBox BoundingBox(ForceInit);
 	AActor* Actor = Cast<AActor>( ActorWeakPtr.Get() );
 
 	if( Actor != nullptr )

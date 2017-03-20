@@ -230,19 +230,44 @@ FAutoReimportDirectoryConfig::FParseContext::FParseContext(bool bInEnableLogging
 	for (FString& RootPath : RootContentPaths)
 	{
 		FString ContentFolder = FPaths::ConvertRelativePathToFull(FPackageName::LongPackageNameToFilename(RootPath));
-		MountedPaths.Add( TPairInitializer<FString, FString>(MoveTemp(ContentFolder), MoveTemp(RootPath)) );
+		MountedPaths.Emplace( MoveTemp(ContentFolder), MoveTemp(RootPath) );
 	}
 }
 
 bool FAutoReimportDirectoryConfig::ParseSourceDirectoryAndMountPoint(FString& SourceDirectory, FString& MountPoint, const FParseContext& InContext)
 {
 	SourceDirectory.ReplaceInline(TEXT("\\"), TEXT("/"));
+	MountPoint.ReplaceInline(TEXT("\\"), TEXT("/"));
+
+	// Check if starts with relative path.
+	if (SourceDirectory.StartsWith("../"))
+	{
+		// Normalize. Interpret setting as a relative path from the Game User directory (Named after the Game)
+		SourceDirectory = FPaths::ConvertRelativePathToFull(FPaths::GameUserDir() / SourceDirectory);
+	}
 
 	// Check if the source directory is actually a mount point
-	if (!FPackageName::GetPackageMountPoint(SourceDirectory).IsNone())
+	const FName SourceDirectoryMountPointName = FPackageName::GetPackageMountPoint(SourceDirectory);
+	if (!SourceDirectoryMountPointName.IsNone())
 	{
-		MountPoint = SourceDirectory;
-		SourceDirectory = FString();
+		FString SourceDirectoryMountPoint = SourceDirectoryMountPointName.ToString();
+		if (SourceDirectoryMountPoint.Len() + 2 == SourceDirectory.Len())
+		{
+			// Mount point name + 2 for the directory slashes is the equal, this is exactly a mount point
+			MountPoint = SourceDirectory;
+			SourceDirectory = FPackageName::LongPackageNameToFilename(MountPoint);
+		}
+		else
+		{
+			// Starts off with a mount point (not case sensitive)
+			MountPoint = TEXT("/") + SourceDirectoryMountPoint + TEXT("/");
+			FString SourceDirectoryLeftChop = SourceDirectory.Left(MountPoint.Len());
+			FString SourceDirectoryRightChop = SourceDirectory.RightChop(MountPoint.Len());
+
+			// Resolve mount point on file system (possibly case sensitive, so re-use original source path)
+			SourceDirectory = FPaths::ConvertRelativePathToFull(
+				FPackageName::LongPackageNameToFilename(SourceDirectoryLeftChop) / SourceDirectoryRightChop);
+		}
 	}
 
 	if (!SourceDirectory.IsEmpty() && !MountPoint.IsEmpty())
@@ -257,6 +282,8 @@ bool FAutoReimportDirectoryConfig::ParseSourceDirectoryAndMountPoint(FString& So
 		if (FPackageName::GetPackageMountPoint(MountPoint).IsNone())
 		{
 			UE_CLOG(InContext.bEnableLogging, LogAutoReimportManager, Warning, TEXT("Unable to setup directory %s to map to %s, as it's not a valid mounted path. Continuing without mounted path (auto reimports will still work, but auto add won't)."), *SourceDirectory, *MountPoint);
+			MountPoint = FString();
+			return false; // Return false when unable to determine mount point.
 		}
 	}
 	else if(!MountPoint.IsEmpty())
@@ -283,11 +310,16 @@ bool FAutoReimportDirectoryConfig::ParseSourceDirectoryAndMountPoint(FString& So
 		auto* Pair = InContext.MountedPaths.FindByPredicate([&](const TPair<FString, FString>& InPair){
 			return SourceDirectory.StartsWith(InPair.Key);
 		});
-
 		if (Pair)
 		{
+			// Resolve source directory by replacing mount point with actual path
 			MountPoint = Pair->Value / SourceDirectory.RightChop(Pair->Key.Len());
 			MountPoint.ReplaceInline(TEXT("\\"), TEXT("/"));
+		}
+		else
+		{
+			UE_CLOG(InContext.bEnableLogging, LogAutoReimportManager, Warning, TEXT("Unable to watch directory %s as not associated with mounted path."), *SourceDirectory);
+			return false;
 		}
 	}
 	else
@@ -359,6 +391,7 @@ ULevelEditorPlaySettings::ULevelEditorPlaySettings( const FObjectInitializer& Ob
 	bAutoCompileBlueprintsOnLaunch = true;
 	CenterNewWindow = true;
 	CenterStandaloneWindow = true;
+	EnablePIEEnterAndExitSounds = false;
 }
 
 void ULevelEditorPlaySettings::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
@@ -627,20 +660,9 @@ void UProjectPackagingSettings::PostEditChangeProperty( FPropertyChangedEvent& P
 					if (UBlueprint* Blueprint = FindObject<UBlueprint>(Package, *FPaths::GetBaseFilename(PackageName)))
 					{
 						// We're toggling the transient flag on or off.
-						if (Blueprint->bSelectedForNativization != bSelect)
+						if ((Blueprint->NativizationFlag == EBlueprintNativizationFlag::ExplicitlyEnabled) != bSelect)
 						{
-							// Get a reference to the property.
-							UProperty* PropertyToChange = UBlueprint::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UBlueprint, bSelectedForNativization));
-							check(PropertyToChange != nullptr);
-
-							// Update the transient property's value.
-							Blueprint->PreEditChange(PropertyToChange);
-							Blueprint->bSelectedForNativization = bSelect;
-
-							// If selecting for nativization, this will propagate the transient flag to any dependencies. Note that we don't reverse-propagate here
-							// back to the config settings until/unless Blueprint assets are saved, so this will only set the transient flag and mark dependencies dirty.
-							FPropertyChangedEvent BlueprintPropertyChangedEvent(PropertyToChange);
-							Blueprint->PostEditChangeProperty(BlueprintPropertyChangedEvent);
+							Blueprint->NativizationFlag = bSelect ? EBlueprintNativizationFlag::ExplicitlyEnabled : EBlueprintNativizationFlag::Disabled;
 						}
 					}
 				}
@@ -737,16 +759,7 @@ bool UProjectPackagingSettings::AddBlueprintAssetToNativizationList(const class 
 		const FString PackageName = InBlueprint->GetOutermost()->GetName();
 
 		// Make sure it's not already in the exclusive list. This can happen if the user previously added this asset in the Project Settings editor.
-		bool bFound = false;
-		for (int AssetIndex = 0; AssetIndex < NativizeBlueprintAssets.Num(); ++AssetIndex)
-		{
-			if (NativizeBlueprintAssets[AssetIndex].FilePath.Equals(PackageName, ESearchCase::IgnoreCase))
-			{
-				bFound = true;
-				break;
-			}
-		}
-
+		const bool bFound = IsBlueprintAssetInNativizationList(InBlueprint);
 		if (!bFound)
 		{
 			// Add this Blueprint asset to the exclusive list.
@@ -770,23 +783,39 @@ bool UProjectPackagingSettings::RemoveBlueprintAssetFromNativizationList(const c
 	{
 		const FString PackageName = InBlueprint->GetOutermost()->GetName();
 
-		// Remove this Blueprint asset from the exclusive list (if found).
-		for (int AssetIndex = 0; AssetIndex < NativizeBlueprintAssets.Num(); ++AssetIndex)
+		int32 AssetIndex = FindBlueprintInNativizationList(InBlueprint);
+		if (AssetIndex >= 0)
 		{
-			if (NativizeBlueprintAssets[AssetIndex].FilePath.Equals(PackageName, ESearchCase::IgnoreCase))
-			{
-				// Note: Intentionally not using RemoveAtSwap() here, so that the order is preserved.
-				NativizeBlueprintAssets.RemoveAt(AssetIndex);
+			// Note: Intentionally not using RemoveAtSwap() here, so that the order is preserved.
+			NativizeBlueprintAssets.RemoveAt(AssetIndex);
 
-				// Also remove it from the mirrored list (for tracking edits).
-				CachedNativizeBlueprintAssets.RemoveAt(AssetIndex);
-				
-				return true;
-			}
+			// Also remove it from the mirrored list (for tracking edits).
+			CachedNativizeBlueprintAssets.RemoveAt(AssetIndex);
+
+			return true;
 		}
 	}
 
 	return false;
+}
+
+int32 UProjectPackagingSettings::FindBlueprintInNativizationList(const UBlueprint* InBlueprint) const
+{
+	int32 ListIndex = INDEX_NONE;
+	if (InBlueprint)
+	{
+		const FString PackageName = InBlueprint->GetOutermost()->GetName();
+
+		for (int32 AssetIndex = 0; AssetIndex < NativizeBlueprintAssets.Num(); ++AssetIndex)
+		{
+			if (NativizeBlueprintAssets[AssetIndex].FilePath.Equals(PackageName, ESearchCase::IgnoreCase))
+			{
+				ListIndex = AssetIndex;
+				break;
+			}
+		}
+	}
+	return ListIndex;
 }
 
 /* UCrashReporterSettings interface

@@ -70,8 +70,8 @@ static const VkImageTiling GVulkanViewTypeTilingMode[VK_IMAGE_VIEW_TYPE_RANGE_SI
     VK_IMAGE_TILING_OPTIMAL,	// VK_IMAGE_VIEW_TYPE_3D
     VK_IMAGE_TILING_OPTIMAL,	// VK_IMAGE_VIEW_TYPE_CUBE
     VK_IMAGE_TILING_LINEAR,		// VK_IMAGE_VIEW_TYPE_1D_ARRAY
-    VK_IMAGE_TILING_OPTIMAL,		// VK_IMAGE_VIEW_TYPE_2D_ARRAY
-    VK_IMAGE_TILING_LINEAR,		// VK_IMAGE_VIEW_TYPE_CUBE_ARRAY
+    VK_IMAGE_TILING_OPTIMAL,	// VK_IMAGE_VIEW_TYPE_2D_ARRAY
+    VK_IMAGE_TILING_OPTIMAL,	// VK_IMAGE_VIEW_TYPE_CUBE_ARRAY
 };
 
 
@@ -147,11 +147,11 @@ VkImage FVulkanSurface::CreateImage(
 	ImageCreateInfo.extent.height = SizeY;
 	ImageCreateInfo.extent.depth = ResourceType == VK_IMAGE_VIEW_TYPE_3D ? SizeZ : 1;
 	ImageCreateInfo.mipLevels = NumMips;
-	uint32 LayerCount = (ResourceType == VK_IMAGE_VIEW_TYPE_CUBE) ? 6 : 1;
-	ImageCreateInfo.arrayLayers = (bArray ? SizeZ : 1) * LayerCount;
+	uint32 LayerCount = (ResourceType == VK_IMAGE_VIEW_TYPE_CUBE || ResourceType == VK_IMAGE_VIEW_TYPE_CUBE_ARRAY) ? 6 : 1;
+	ImageCreateInfo.arrayLayers = (bArray ? ArraySize : 1) * LayerCount;
 	check(ImageCreateInfo.arrayLayers <= DeviceProperties.limits.maxImageArrayLayers);
 
-	ImageCreateInfo.flags = (ResourceType == VK_IMAGE_VIEW_TYPE_CUBE) ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
+	ImageCreateInfo.flags = (ResourceType == VK_IMAGE_VIEW_TYPE_CUBE || ResourceType == VK_IMAGE_VIEW_TYPE_CUBE_ARRAY) ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
 	if ((UEFlags & TexCreate_SRGB) == TexCreate_SRGB)
 	{
 		ImageCreateInfo.flags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
@@ -315,8 +315,8 @@ FVulkanSurface::FVulkanSurface(FVulkanDevice& InDevice, VkImageViewType Resource
 	, Depth(SizeZ)
 	, PixelFormat(InFormat)
 	, UEFlags(InUEFlags)
-	, FormatKey(255)
 	, MemProps(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+	, FormatKey(255)
 	, Tiling(VK_IMAGE_TILING_MAX_ENUM)	// Can be expanded to a per-platform definition
 	, ViewType(ResourceType)
 	, bIsImageOwner(true)
@@ -391,8 +391,8 @@ FVulkanSurface::FVulkanSurface(FVulkanDevice& InDevice, VkImageViewType Resource
 	, Depth(SizeZ)
 	, PixelFormat(InFormat)
 	, UEFlags(InUEFlags)
-	, FormatKey(255)
 	, MemProps(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+	, FormatKey(255)
 	, Tiling(VK_IMAGE_TILING_MAX_ENUM)	// Can be expanded to a per-platform definition
 	, ViewType(ResourceType)
 	, bIsImageOwner(false)
@@ -1110,10 +1110,11 @@ VkImageView FVulkanTextureView::StaticCreate(FVulkanDevice& Device, VkImage Imag
 
 	ViewInfo.subresourceRange.aspectMask = AspectFlags;
 	ViewInfo.subresourceRange.baseMipLevel = FirstMip;
-	ensure(NumMips > 0);
+	ensure(NumMips != 0xFFFFFFFF);
 	ViewInfo.subresourceRange.levelCount = NumMips;
+	ensure(ArraySliceIndex != 0xFFFFFFFF);
 	ViewInfo.subresourceRange.baseArrayLayer = ArraySliceIndex;
-	ensure(NumArraySlices > 0);
+	ensure(NumArraySlices != 0xFFFFFFFF);
 	switch (ViewType)
 	{
 	case VK_IMAGE_VIEW_TYPE_3D:
@@ -1179,12 +1180,13 @@ void FVulkanTextureView::Destroy(FVulkanDevice& Device)
 
 FVulkanTextureBase::FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType ResourceType, EPixelFormat InFormat, uint32 SizeX, uint32 SizeY, uint32 SizeZ, bool bArray, uint32 ArraySize, uint32 NumMips, uint32 NumSamples, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo)
 	#if !VULKAN_USE_MSAA_RESOLVE_ATTACHMENTS
-	 : Surface(Device, ResourceType, InFormat, SizeX, SizeY, SizeZ, bArray, ArraySize, NumMips, NumSamples, UEFlags, CreateInfo)
-	#else
-	 : Surface(Device, ResourceType, InFormat, SizeX, SizeY, SizeZ, bArray, ArraySize, NumMips, (UEFlags & TexCreate_DepthStencilTargetable) ? NumSamples : 1, UEFlags, CreateInfo)
-	 , MSAASurface(nullptr)
-	#endif
+	: Surface(Device, ResourceType, InFormat, SizeX, SizeY, SizeZ, bArray, ArraySize, NumMips, NumSamples, UEFlags, CreateInfo)
 	, PartialView(nullptr)
+	#else
+	: Surface(Device, ResourceType, InFormat, SizeX, SizeY, SizeZ, bArray, ArraySize, NumMips, (UEFlags & TexCreate_DepthStencilTargetable) ? NumSamples : 1, UEFlags, CreateInfo)
+	, PartialView(nullptr)
+	, MSAASurface(nullptr)
+	#endif
 {
 	if (Surface.ViewFormat == VK_FORMAT_UNDEFINED)
 	{
@@ -1235,6 +1237,8 @@ FVulkanTextureBase::FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType Re
 	FVulkanCmdBuffer* CmdBuffer = Device.GetImmediateContext().GetCommandBufferManager()->GetUploadCmdBuffer();
 	ensure(CmdBuffer->IsOutsideRenderPass());
 
+	int32 LayersPerArrayIndex = (ResourceType == VK_IMAGE_VIEW_TYPE_CUBE_ARRAY || ResourceType == VK_IMAGE_VIEW_TYPE_CUBE) ? 6 : 1;
+
 	VkBufferImageCopy Region;
 	FMemory::Memzero(Region);
 	//#todo-rco: Use real Buffer offset when switching to suballocations!
@@ -1244,7 +1248,7 @@ FVulkanTextureBase::FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType Re
 	
 	Region.imageSubresource.mipLevel = 0;
 	Region.imageSubresource.baseArrayLayer = 0;
-	Region.imageSubresource.layerCount = ArraySize;
+	Region.imageSubresource.layerCount = ArraySize * LayersPerArrayIndex;
 	Region.imageSubresource.aspectMask = Surface.GetFullAspectMask();
 
 	Region.imageExtent.width = Region.bufferRowLength;
@@ -1257,7 +1261,7 @@ FVulkanTextureBase::FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType Re
 	//SubresourceRange.baseMipLevel = 0;
 	SubresourceRange.levelCount = Surface.GetNumMips();
 	//SubresourceRange.baseArrayLayer = 0;
-	SubresourceRange.layerCount = ArraySize;
+	SubresourceRange.layerCount = ArraySize * LayersPerArrayIndex;
 	VulkanSetImageLayout(CmdBuffer->GetHandle(), Surface.Image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, SubresourceRange);
 
 	// Copy buffer to image
@@ -1333,7 +1337,7 @@ FVulkanTexture2D::~FVulkanTexture2D()
 {
 	if ((Surface.UEFlags & (TexCreate_DepthStencilTargetable | TexCreate_RenderTargetable)) != 0)
 	{
-		Surface.Device->NotifyDeletedRenderTarget(this);
+		Surface.Device->NotifyDeletedRenderTarget(Surface.Image);
 	}
 }
 
@@ -1345,7 +1349,7 @@ FVulkanBackBuffer::FVulkanBackBuffer(FVulkanDevice& Device, EPixelFormat Format,
 
 FVulkanBackBuffer::~FVulkanBackBuffer()
 {
-	Surface.Device->NotifyDeletedRenderTarget(this);
+	Surface.Device->NotifyDeletedRenderTarget(Surface.Image);
 	// Clear flags so ~FVulkanTexture2D() doesn't try to re-destroy it
 	Surface.UEFlags = 0;
 	DefaultView.View = VK_NULL_HANDLE;
@@ -1362,7 +1366,7 @@ void FVulkanTextureReference::SetReferencedTexture(FRHITexture* InTexture)
 FVulkanTextureCube::FVulkanTextureCube(FVulkanDevice& Device, EPixelFormat Format, uint32 Size, bool bArray, uint32 ArraySize, uint32 NumMips, uint32 Flags, FResourceBulkDataInterface* BulkData, const FClearValueBinding& InClearValue)
 :	 FRHITextureCube(Size, NumMips, Format, Flags, InClearValue)
 	//#todo-rco: Array/slices count
-,	FVulkanTextureBase(Device, VK_IMAGE_VIEW_TYPE_CUBE, Format, Size, Size, 1, bArray, ArraySize, NumMips, /*NumSamples=*/ 1, Flags, BulkData)
+,	FVulkanTextureBase(Device, bArray ? VK_IMAGE_VIEW_TYPE_CUBE_ARRAY : VK_IMAGE_VIEW_TYPE_CUBE, Format, Size, Size, 1, bArray, ArraySize, NumMips, /*NumSamples=*/ 1, Flags, BulkData)
 {
 }
 
@@ -1370,7 +1374,7 @@ FVulkanTextureCube::~FVulkanTextureCube()
 {
 	if ((GetFlags() & (TexCreate_DepthStencilTargetable | TexCreate_RenderTargetable)) != 0)
 	{
-		Surface.Device->NotifyDeletedRenderTarget(this);
+		Surface.Device->NotifyDeletedRenderTarget(Surface.Image);
 	}
 }
 
@@ -1387,7 +1391,7 @@ FVulkanTexture3D::~FVulkanTexture3D()
 {
 	if ((GetFlags() & (TexCreate_DepthStencilTargetable | TexCreate_RenderTargetable)) != 0)
 	{
-		Surface.Device->NotifyDeletedRenderTarget(this);
+		Surface.Device->NotifyDeletedRenderTarget(Surface.Image);
 	}
 
 	delete Texture2DArray;
@@ -1451,7 +1455,7 @@ void FVulkanDynamicRHI::RHIUnlockTextureCubeFace(FTextureCubeRHIParamRef Texture
 
 	VkImageSubresourceRange SubresourceRange;
 	FMemory::Memzero(SubresourceRange);
-	SubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	SubresourceRange.aspectMask = Texture->Surface.GetPartialAspectMask();
 	SubresourceRange.baseMipLevel = MipIndex;
 	SubresourceRange.levelCount = 1;
 	SubresourceRange.baseArrayLayer = FaceIndex;
@@ -1464,9 +1468,9 @@ void FVulkanDynamicRHI::RHIUnlockTextureCubeFace(FTextureCubeRHIParamRef Texture
 	//Region.bufferOffset = 0;
 	//Region.bufferRowLength = 0;
 	//Region.bufferImageHeight = 0;
-	Region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	Region.imageSubresource.aspectMask = Texture->Surface.GetPartialAspectMask();
 	Region.imageSubresource.mipLevel = MipIndex;
-	Region.imageSubresource.baseArrayLayer = FaceIndex;
+	Region.imageSubresource.baseArrayLayer = ArrayIndex * 6 + FaceIndex;
 	Region.imageSubresource.layerCount = 1;
 	Region.imageExtent.width = MipWidth;
 	Region.imageExtent.height = MipHeight;

@@ -5,12 +5,11 @@
 #include "SlateTypes.h"
 #include "InputCoreTypes.h"
 #include "Editor.h"
+#include "UnrealWidget.h"
 
 // Forward declarations 
 class UVREditorMode;
-enum ECoordSystem;
 enum class EGizmoHandleTypes : uint8;
-enum class EEditableMeshElementType;
 
 /**
 * Implementation of various VR editor action callback functions
@@ -125,7 +124,7 @@ public:
 	/**
 	 * If we are allowed to enter play.
 	 */
-	static bool CanPlay();
+	static bool CanPlay(UVREditorMode* InVRMode);
 
 	/**
 	 * Enters Simulate mode for physics and animation playback

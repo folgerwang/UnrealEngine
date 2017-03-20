@@ -4,7 +4,7 @@ using UnrealBuildTool;
 
 public class OpenSubdiv : ModuleRules
 {
-	public OpenSubdiv(TargetInfo Target)
+	public OpenSubdiv(ReadOnlyTargetRules Target) : base(Target)
 	{
 		Type = ModuleType.External;
 

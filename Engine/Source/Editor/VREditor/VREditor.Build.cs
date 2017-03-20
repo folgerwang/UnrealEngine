@@ -4,7 +4,7 @@ namespace UnrealBuildTool.Rules
 {
 	public class VREditor : ModuleRules
 	{
-        public VREditor(TargetInfo Target)
+        public VREditor(ReadOnlyTargetRules Target) : base(Target)
 		{
             PrivateDependencyModuleNames.AddRange(
                 new string[] {
@@ -34,15 +34,13 @@ namespace UnrealBuildTool.Rules
 
 			PrivateIncludePathModuleNames.AddRange(
 				new string[] {
-					"PlacementMode",
-                    "MeshEditingRuntime"
+					"PlacementMode"
 				}
 			);
 
 			DynamicallyLoadedModuleNames.AddRange(
 				new string[] {
-                    "PlacementMode",
-                    "MeshEditingRuntime"
+                    "PlacementMode"
                 }
 			);
 

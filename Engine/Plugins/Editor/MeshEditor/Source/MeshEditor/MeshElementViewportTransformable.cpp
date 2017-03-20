@@ -26,7 +26,7 @@ void FMeshElementViewportTransformable::ApplyTransform( const FTransform& NewTra
 
 FBox FMeshElementViewportTransformable::BuildBoundingBox( const FTransform& BoundingBoxToWorld ) const
 {
-	FBox BoundingBox = FBox( 0 );
+	FBox BoundingBox = FBox( ForceInit );
 
 	if( MeshElement.IsValidMeshElement() )
 	{

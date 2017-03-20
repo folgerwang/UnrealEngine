@@ -5,9 +5,8 @@
 #include "UObject/ObjectMacros.h"
 #include "ProfilingDebugging/ResourceSize.h"
 #include "DynamicMeshBuilder.h"
-#include "GeometryObjectVersion.h"
+#include "UObject/GeometryObjectVersion.h"
 #include "GeometryCacheMeshData.generated.h"
-
 
 /** Stores per-batch data used for rendering */
 USTRUCT()

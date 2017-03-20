@@ -721,51 +721,50 @@ void UMaterialInstance::GetUsedTextures(TArray<UTexture*>& OutTextures, EMateria
 			QualityLevel = GetCachedScalabilityCVars().MaterialQualityLevel;
 		}
 
+		const UMaterial* BaseMaterial = GetMaterial();
 		const UMaterialInstance* MaterialInstanceToUse = this;
-		// Walk up the material instance chain to the first parent that has static parameters
-		while (MaterialInstanceToUse && !MaterialInstanceToUse->bHasStaticPermutationResource)
-		{
-			MaterialInstanceToUse = Cast<const UMaterialInstance>(MaterialInstanceToUse->Parent);
-		}
 
-		// Use the uniform expressions from the lowest material instance with static parameters in the chain, if one exists
-		if (MaterialInstanceToUse
-			&& MaterialInstanceToUse->bHasStaticPermutationResource)
+		if (BaseMaterial && !BaseMaterial->IsDefaultMaterial())
 		{
-			for (int32 QualityLevelIndex = 0; QualityLevelIndex < EMaterialQualityLevel::Num; QualityLevelIndex++)
+			// Walk up the material instance chain to the first parent that has static parameters
+			while (MaterialInstanceToUse && !MaterialInstanceToUse->bHasStaticPermutationResource)
 			{
-				for (int32 FeatureLevelIndex = 0; FeatureLevelIndex < ERHIFeatureLevel::Num; FeatureLevelIndex++)
-				{
-					const FMaterialResource* CurrentResource = MaterialInstanceToUse->StaticPermutationMaterialResources[QualityLevelIndex][FeatureLevelIndex];
-					if (CurrentResource == nullptr || (FeatureLevelIndex != FeatureLevel && !bAllFeatureLevels))
-						continue;
+				MaterialInstanceToUse = Cast<const UMaterialInstance>(MaterialInstanceToUse->Parent);
+			}
 
-					//@todo - GetUsedTextures is incorrect during cooking since we don't cache shaders for the current platform during cooking
-					if (QualityLevelIndex == QualityLevel || bAllQualityLevels)
+			// Use the uniform expressions from the lowest material instance with static parameters in the chain, if one exists
+			if (MaterialInstanceToUse && MaterialInstanceToUse->bHasStaticPermutationResource)
+			{
+				for (int32 QualityLevelIndex = 0; QualityLevelIndex < EMaterialQualityLevel::Num; QualityLevelIndex++)
+				{
+					for (int32 FeatureLevelIndex = 0; FeatureLevelIndex < ERHIFeatureLevel::Num; FeatureLevelIndex++)
 					{
-						GetTextureExpressionValues(CurrentResource, OutTextures);
+						const FMaterialResource* CurrentResource = MaterialInstanceToUse->StaticPermutationMaterialResources[QualityLevelIndex][FeatureLevelIndex];
+						if (CurrentResource == nullptr || (FeatureLevelIndex != FeatureLevel && !bAllFeatureLevels))
+							continue;
+
+						//@todo - GetUsedTextures is incorrect during cooking since we don't cache shaders for the current platform during cooking
+						if (QualityLevelIndex == QualityLevel || bAllQualityLevels)
+						{
+							GetTextureExpressionValues(CurrentResource, OutTextures);
+						}
 					}
 				}
 			}
-		}
-		else
-		{
-			// Use the uniform expressions from the base material
-			const UMaterial* Material = GetMaterial();
-
-			if (Material)
+			else
 			{
-				const FMaterialResource* MaterialResource = Material->GetMaterialResource(FeatureLevel, QualityLevel);
+				// Use the uniform expressions from the base material
+				const FMaterialResource* MaterialResource = BaseMaterial->GetMaterialResource(FeatureLevel, QualityLevel);
 				if( MaterialResource )
 				{
 					GetTextureExpressionValues(MaterialResource, OutTextures);
 				}
 			}
-			else
-			{
-				// If the material instance has no material, use the default material.
-				UMaterial::GetDefaultMaterial(MD_Surface)->GetUsedTextures(OutTextures, QualityLevel, bAllQualityLevels, FeatureLevel, bAllFeatureLevels);
-			}
+		}
+		else
+		{
+			// If the material instance has no material, use the default material.
+			UMaterial::GetDefaultMaterial(MD_Surface)->GetUsedTextures(OutTextures, QualityLevel, bAllQualityLevels, FeatureLevel, bAllFeatureLevels);
 		}
 	}
 }
@@ -1026,6 +1025,40 @@ void UMaterialInstance::OverrideScalarParameterDefault(FName ParameterName, floa
 #endif // #if WITH_EDITOR
 }
 
+float UMaterialInstance::GetScalarParameterDefault(FName ParameterName, ERHIFeatureLevel::Type InFeatureLevel)
+{
+	if (bHasStaticPermutationResource )
+	{
+		if (FApp::CanEverRender())
+		{
+			const FMaterialResource* SourceMaterialResource = GetMaterialResource(InFeatureLevel);
+			if (ensureAlways(SourceMaterialResource))
+			{
+				const TArray<TRefCountPtr<FMaterialUniformExpression> >& UniformExpressions = SourceMaterialResource->GetUniformScalarParameterExpressions();
+
+				// Iterate over each of the material's texture expressions.
+				for (int32 ExpressionIndex = 0; ExpressionIndex < UniformExpressions.Num(); ExpressionIndex++)
+				{
+					FMaterialUniformExpression* UniformExpression = UniformExpressions[ExpressionIndex];
+					if (UniformExpression->GetType() == &FMaterialUniformExpressionScalarParameter::StaticType)
+					{
+						FMaterialUniformExpressionScalarParameter* ScalarExpression = static_cast<FMaterialUniformExpressionScalarParameter*>(UniformExpression);
+
+						if (ScalarExpression->GetParameterName() == ParameterName)
+						{
+							float Value = 0.f;
+							ScalarExpression->GetDefaultValue(Value);
+							return Value;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return 0.f;
+}
+
 bool UMaterialInstance::CheckMaterialUsage(const EMaterialUsage Usage, const bool bSkipPrim)
 {
 	check(IsInGameThread());
@@ -1067,24 +1100,23 @@ bool UMaterialInstance::CheckMaterialUsage_Concurrent(const EMaterialUsage Usage
 					UMaterialInstance* Material;
 					EMaterialUsage Usage;
 					bool bSkipPrim;
-					bool& bUsageSetSuccessfully;
 
-					FCallSMU(UMaterialInstance* InMaterial, EMaterialUsage InUsage, bool bInSkipPrim, bool& bInUsageSetSuccessfully)
+					FCallSMU(UMaterialInstance* InMaterial, EMaterialUsage InUsage, bool bInSkipPrim)
 						: Material(InMaterial)
 						, Usage(InUsage)
 						, bSkipPrim(bInSkipPrim)
-						, bUsageSetSuccessfully(bInUsageSetSuccessfully)
 					{
 					}
 
 					void Task()
 					{
-						bUsageSetSuccessfully = Material->CheckMaterialUsage(Usage, bSkipPrim);
+						Material->CheckMaterialUsage(Usage, bSkipPrim);
 					}
 				};
-				UE_LOG(LogMaterial, Warning, TEXT("Has to pass SMU back to game thread. This stalls the tasks graph, but since it is editor only, is not such a big deal."));
+				UE_LOG(LogMaterial, Log, TEXT("Had to pass SMU back to game thread. Please ensure correct material usage flags."));
 
-				TSharedRef<FCallSMU, ESPMode::ThreadSafe> CallSMU = MakeShareable(new FCallSMU(const_cast<UMaterialInstance*>(this), Usage, bSkipPrim, bUsageSetSuccessfully));
+				TSharedRef<FCallSMU, ESPMode::ThreadSafe> CallSMU = MakeShareable(new FCallSMU(const_cast<UMaterialInstance*>(this), Usage, bSkipPrim));
+				bUsageSetSuccessfully = false;
 
 				DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.CheckMaterialUsage"),
 					STAT_FSimpleDelegateGraphTask_CheckMaterialUsage,
@@ -1997,11 +2029,12 @@ void UMaterialInstance::PostLoad()
 	AssertDefaultMaterialsPostLoaded();
 
 	// Ensure that the instance's parent is PostLoaded before the instance.
-	if(Parent)
+	if (Parent)
 	{
-#if !WITH_EDITORONLY_DATA
-		check(!Parent->HasAnyFlags(RF_NeedLoad));
-#endif
+		if (GEventDrivenLoaderEnabled && EVENT_DRIVEN_ASYNC_LOAD_ACTIVE_AT_RUNTIME)
+		{
+			check(!Parent->HasAnyFlags(RF_NeedLoad));
+		}
 		Parent->ConditionalPostLoad();
 	}
 
@@ -2386,7 +2419,7 @@ void UMaterialInstance::UpdateStaticPermutation(const FStaticParameterSet& NewPa
 
 	const bool bWantsStaticPermutationResource = Parent && (!CompareParameters.IsEmpty() || bHasBasePropertyOverrides);
 
-	if (bHasStaticPermutationResource != bWantsStaticPermutationResource || bParamsHaveChanged || (bBasePropertyOverridesHaveChanged && bHasBasePropertyOverrides))
+	if (bHasStaticPermutationResource != bWantsStaticPermutationResource || bParamsHaveChanged || (bBasePropertyOverridesHaveChanged && bWantsStaticPermutationResource))
 	{
 		// This will flush the rendering thread which is necessary before changing bHasStaticPermutationResource, since the RT is reading from that directly
 		// The update context will also make sure any dependent MI's with static parameters get recompiled

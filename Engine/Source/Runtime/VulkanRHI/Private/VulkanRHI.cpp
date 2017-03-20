@@ -326,17 +326,15 @@ FVulkanDynamicRHI::FVulkanDynamicRHI()
 	: Instance(VK_NULL_HANDLE)
 	, Device(nullptr)
 	, DrawingViewport(nullptr)
+	, SavePipelineCacheCmd(nullptr)
+	, RebuildPipelineCacheCmd(nullptr)
+#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
+	, DumpMemoryCmd(nullptr)
+#endif
 #if VULKAN_HAS_DEBUGGING_ENABLED
 	, MsgCallback(VK_NULL_HANDLE)
 #endif
 	, PresentCount(0)
-#if VULKAN_ENABLE_PIPELINE_CACHE
-	, SavePipelineCacheCmd(nullptr)
-	, RebuildPipelineCacheCmd(nullptr)
-#endif
-#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
-	, DumpMemoryCmd(nullptr)
-#endif
 {
 	// This should be called once at the start 
 	check(IsInGameThread());
@@ -422,10 +420,8 @@ void FVulkanDynamicRHI::Shutdown()
 
 	VulkanRHI::vkDestroyInstance(Instance, nullptr);
 
-#if VULKAN_ENABLE_PIPELINE_CACHE
 	IConsoleManager::Get().UnregisterConsoleObject(SavePipelineCacheCmd);
 	IConsoleManager::Get().UnregisterConsoleObject(RebuildPipelineCacheCmd);
-#endif
 
 #if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
 	IConsoleManager::Get().UnregisterConsoleObject(DumpMemoryCmd);
@@ -655,7 +651,6 @@ void FVulkanDynamicRHI::InitInstance()
 
 		GIsRHIInitialized = true;
 
-#if VULKAN_ENABLE_PIPELINE_CACHE
 		SavePipelineCacheCmd = IConsoleManager::Get().RegisterConsoleCommand(
 			TEXT("r.Vulkan.SavePipelineCache"),
 			TEXT("Save pipeline cache."),
@@ -669,7 +664,6 @@ void FVulkanDynamicRHI::InitInstance()
 			FConsoleCommandDelegate::CreateStatic(RebuildPipelineCache),
 			ECVF_Default
 			);
-#endif
 
 #if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
 		DumpMemoryCmd = IConsoleManager::Get().RegisterConsoleCommand(
@@ -737,7 +731,7 @@ void FVulkanCommandListContext::RHIEndDrawingViewport(FViewportRHIParamRef Viewp
 
 	WriteEndTimestamp(CmdBuffer);
 
-	bool bNativePresent = Viewport->Present(CmdBuffer, Device->GetQueue(), bLockToVsync);
+	bool bNativePresent = Viewport->Present(CmdBuffer, Device->GetGraphicsQueue(), bLockToVsync);
 	if (bNativePresent)
 	{
 		//#todo-rco: Check for r.FinishCurrentFrame
@@ -970,7 +964,7 @@ void FVulkanDescriptorSetsLayout::AddDescriptor(int32 DescriptorSetIndex, const 
 	LayoutTypes[Descriptor.descriptorType]++;
 
 	if (DescriptorSetIndex >= SetLayouts.Num())
-		{
+	{
 		SetLayouts.SetNum(DescriptorSetIndex + 1, false);
 	}
 
@@ -979,6 +973,11 @@ void FVulkanDescriptorSetsLayout::AddDescriptor(int32 DescriptorSetIndex, const 
 	VkDescriptorSetLayoutBinding* Binding = new(DescSetLayout.LayoutBindings) VkDescriptorSetLayoutBinding;
 	FMemory::Memzero(*Binding);
 	*Binding = Descriptor;
+
+	for (int32 Index = 0; Index < BindingIndex; ++Index)
+	{
+		ensure(DescSetLayout.LayoutBindings[Index].binding != BindingIndex || &DescSetLayout.LayoutBindings[Index] != Binding);
+	}
 }
 
 void FVulkanDescriptorSetsLayout::Compile()
@@ -1130,6 +1129,7 @@ FVulkanRenderPass::FVulkanRenderPass(FVulkanDevice& InDevice, const FVulkanRende
 	RTLayout(InRTLayout),
 #endif
 	RenderPass(VK_NULL_HANDLE),
+	NumUsedClearValues(InRTLayout.GetNumUsedClearValues()),
 	Device(InDevice)
 {
 	INC_DWORD_STAT(STAT_VulkanNumRenderPasses);
@@ -1252,8 +1252,8 @@ void VulkanResolveImage(VkCommandBuffer Cmd, FTextureRHIParamRef SourceTextureRH
 
 FVulkanRingBuffer::FVulkanRingBuffer(FVulkanDevice* InDevice, uint64 TotalSize, VkFlags Usage, VkMemoryPropertyFlags MemPropertyFlags)
 	: VulkanRHI::FDeviceChild(InDevice)
-	, BufferOffset(0)
 	, BufferSize(TotalSize)
+	, BufferOffset(0)
 	, MinAlignment(0)
 {
 	FRHIResourceCreateInfo CreateInfo;
@@ -1284,7 +1284,6 @@ uint64 FVulkanRingBuffer::AllocateMemory(uint64 Size, uint32 Alignment)
 	return AllocOffset;
 }
 
-#if VULKAN_ENABLE_PIPELINE_CACHE
 void FVulkanDynamicRHI::SavePipelineCache()
 {
 	FString CacheFile = FPaths::GameSavedDir() / TEXT("VulkanPSO.cache");
@@ -1298,7 +1297,6 @@ void FVulkanDynamicRHI::RebuildPipelineCache()
 	FVulkanDynamicRHI* RHI = (FVulkanDynamicRHI*)GDynamicRHI;
 	RHI->Device->PipelineStateCache->RebuildCache();
 }
-#endif
 
 #if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
 void FVulkanDynamicRHI::DumpMemory()
@@ -1312,7 +1310,7 @@ void FVulkanDynamicRHI::DumpMemory()
 
 void FVulkanDynamicRHI::RecreateSwapChain(void* NewNativeWindow)
 {
-	if(NewNativeWindow)
+	if (NewNativeWindow)
 	{
 		FlushRenderingCommands();
 		FVulkanDynamicRHI* RHI = (FVulkanDynamicRHI*)GDynamicRHI;

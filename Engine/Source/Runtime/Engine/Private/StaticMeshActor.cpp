@@ -32,6 +32,9 @@ AStaticMeshActor::AStaticMeshActor(const FObjectInitializer& ObjectInitializer)
 	StaticMeshComponent->bUseDefaultCollision = true;
 
 	RootComponent = StaticMeshComponent;
+
+	// By default all static mesh actors can be put inside of a GC cluster (see ULevelActorContainer and ULevel::CreateCluster())
+	bCanBeInCluster = true;
 }
 
 void AStaticMeshActor::BeginPlay()
@@ -107,10 +110,6 @@ void AStaticMeshActor::PostEditChangeChainProperty(FPropertyChangedChainEvent& P
 		{
 			bReplicateMovement = bStaticMeshReplicateMovement;
 			SetReplicates(bReplicateMovement);
-		}
-		else if (PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_STRING_CHECKED(AStaticMeshActor, StaticMeshComponent) && StaticMeshComponent->GetStaticMesh() != nullptr)
-		{
-			StaticMeshComponent->CleanUpOverrideMaterials();
 		}
 	}
 

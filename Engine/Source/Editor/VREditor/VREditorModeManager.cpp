@@ -6,6 +6,7 @@
 #include "Modules/ModuleManager.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/WorldSettings.h"
+#include "GameFramework/PlayerInput.h"
 #include "Editor.h"
 
 #include "EngineGlobals.h"
@@ -14,6 +15,9 @@
 #include "EditorWorldExtension.h"
 #include "ViewportWorldInteraction.h"
 #include "VRModeSettings.h"
+#include "Dialogs.h"
+
+#define LOCTEXT_NAMESPACE "VREditor"
 
 FVREditorModeManager::FVREditorModeManager() :
 	CurrentVREditorMode( nullptr ),
@@ -87,6 +91,9 @@ void FVREditorModeManager::Tick( const float DeltaTime )
 				PlayerController->GetInputKeyTimeDown( EKeys::MotionController_Left_Trigger ) > ShutDownInputKeyTime)
 			{
 				CurrentVREditorMode->TogglePIEAndVREditor();
+				// We need to clear the input of the playercontroller when exiting PIE. 
+				// Otherwise the input will still be pressed down causing toggle between PIE and VR Editor to be called instantly whenever entering PIE a second time.
+				PlayerController->PlayerInput->FlushPressedKeys();
 				break;
 			}
 		}
@@ -109,7 +116,18 @@ void FVREditorModeManager::EnableVREditor( const bool bEnable, const bool bForce
 	{
 		if( bEnable && ( IsVREditorAvailable() || bForceWithoutHMD ))
 		{
-			StartVREditorMode( bForceWithoutHMD );
+			FSuppressableWarningDialog::FSetupInfo SetupInfo(LOCTEXT("VRModeEntry_Message", "VR Mode enables you to work on your project in virtual reality using motion controllers. This feature is still under development, so you may experience bugs or crashes while using it."),
+				LOCTEXT("VRModeEntry_Title", "Entering VR Mode - Experimental"), "Warning_VRModeEntry", GEditorSettingsIni);
+
+			SetupInfo.ConfirmText = LOCTEXT("VRModeEntry_ConfirmText", "Continue");
+			SetupInfo.CancelText = LOCTEXT("VRModeEntry_CancelText", "Cancel");
+			SetupInfo.bDefaultToSuppressInTheFuture = true;
+			FSuppressableWarningDialog VRModeEntryWarning(SetupInfo);
+
+			if (VRModeEntryWarning.ShowModal() != FSuppressableWarningDialog::Cancel)
+			{
+				StartVREditorMode(bForceWithoutHMD);
+			}
 		}
 		else if( !bEnable )
 		{
@@ -129,7 +147,7 @@ bool FVREditorModeManager::IsVREditorActive() const
 bool FVREditorModeManager::IsVREditorAvailable() const
 {
 	const bool bHasHMDDevice = GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsHMDEnabled();
-	return bHasHMDDevice;
+	return bHasHMDDevice && !GEditor->bIsSimulatingInEditor;
 }
 
 
@@ -207,3 +225,5 @@ void FVREditorModeManager::OnMapChanged( UWorld* World, EMapChangeType MapChange
 	}
 	CurrentVREditorMode = nullptr;
 }
+
+#undef LOCTEXT_NAMESPACE

@@ -73,6 +73,12 @@ FFontData::FFontData(FString InFontFilename, const UFontBulkData* const InBulkDa
 {
 }
 
+bool FFontData::HasFont() const
+{
+	FFontFaceDataConstPtr FontFaceData = GetFontFaceData();
+	return (FontFaceData.IsValid() && FontFaceData->HasData()) || (!GetFontFilename().IsEmpty());
+}
+
 const FString& FFontData::GetFontFilename() const
 {
 	if (FontFaceAsset)
@@ -101,6 +107,16 @@ EFontLoadingPolicy FFontData::GetLoadingPolicy() const
 		return FontFace->GetLoadingPolicy();
 	}
 	return LoadingPolicy;
+}
+
+EFontLayoutMethod FFontData::GetLayoutMethod() const
+{
+	if (FontFaceAsset)
+	{
+		const IFontFaceInterface* FontFace = CastChecked<const IFontFaceInterface>(FontFaceAsset);
+		return FontFace->GetLayoutMethod();
+	}
+	return EFontLayoutMethod::Metrics;
 }
 
 FFontFaceDataConstPtr FFontData::GetFontFaceData() const

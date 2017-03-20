@@ -103,7 +103,6 @@ private:
 	FVertexSnappingImpl VertexSnappingImpl;
 };
 
-
 //////////////////////////////////////////////////////////////////////////
 // FEditorViewportSnapping
 
@@ -288,14 +287,7 @@ bool FEditorViewportSnapping::SnapActorsToNearestActor( FVector& Drag, FLevelEdi
 
 void FEditorViewportSnapping::SnapPointToGrid(FVector& Point, const FVector& GridBase)
 {
-	/**
-	bool bAlignedSnapUsed = false;
-	if (!LastBestAlignedLocation.IsNearlyZero(EditorViewportSnapping::SnapTolerance->GetFloat()))
-	{
-		Point = LastBestAlignedLocation;
-		bAlignedSnapUsed = true;
-	}**/
-	if(IsSnapToGridEnabled())
+	if( IsSnapToGridEnabled() )
 	{
 		Point = (Point - GridBase).GridSnap( GEditor->GetGridSize() ) + GridBase;
 	}
@@ -419,6 +411,7 @@ bool FEditorViewportSnapping::SnapDragLocationToNearestVertex( const FVector& Ba
 	}
 	return bSnapped;
 }
+
 //////////////////////////////////////////////////////////////////////////
 // FSnappingUtils
 

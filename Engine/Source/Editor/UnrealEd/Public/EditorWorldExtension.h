@@ -3,10 +3,20 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "InputCoreTypes.h"
+#include "Templates/SubclassOf.h"
+#include "Templates/Casts.h"
+#include "Engine/EngineBaseTypes.h"
 #include "UObject/GCObject.h"
 #include "EditorWorldExtension.generated.h"
 
 struct FWorldContext;
+class UEditorWorldExtensionCollection;
+class UEditorWorldExtensionManager;
+class UEditorWorldExtension;
+class FViewport;
+class AActor;
+class FEditorViewportClient;
 
 UCLASS()
 class UNREALED_API UEditorWorldExtension : public UObject
@@ -50,6 +60,12 @@ public:
 	/** Destroys a transient actor we created earlier */
 	void DestroyTransientActor(AActor* Actor);
 
+	/** Sets if this extension should be ticked. */
+	void SetActive(const bool bInActive);
+
+	/** If this extension is currently being ticked. */
+	bool IsActive() const;
+
 	/** Get the owning collection of extensions */
 	UEditorWorldExtensionCollection* GetOwningCollection();
 
@@ -61,10 +77,10 @@ protected:
 	/** Reparent actors to a new world */
 	virtual void TransitionWorld(UWorld* NewWorld);
 
-	/** Give base class a chance to act on entering simulate mode */
+	/** Give child class a chance to act on entering simulate mode */
 	virtual void EnteredSimulateInEditor() {};
 	
-	/** Give base class a chance to act on leaving simulate mode */
+	/** Give child class a chance to act on leaving simulate mode */
 	virtual void LeftSimulateInEditor() {};
 
 	/** The collection of extensions that is owning this extension */
@@ -72,6 +88,7 @@ protected:
 
 private:
 
+	/** Reparent the actors to a new world. */
 	void ReparentActor(AActor* Actor, UWorld* NewWorld);
 
 	/** Let the FEditorWorldExtensionCollection set the world of this extension before init */
@@ -79,6 +96,9 @@ private:
 
 	UPROPERTY()
 	TArray<AActor*> ExtensionActors;
+
+	/** If this extension is currently being ticked */
+	bool bActive;
 };
 
 /**
@@ -139,6 +159,9 @@ public:
 	/** Notifies all extensions of axis movement */
 	bool InputAxis( FEditorViewportClient* InViewportClient, FViewport* Viewport, int32 ControllerId, FKey Key, float Delta, float DeltaTime);
 	
+	/** Show or hide all the actors of extensions that belong to this collection. */
+	void ShowAllActors(const bool bShow);
+
 private:
 
 	/** Sets the world for this collection and gives every extension an opportunity to transition */
@@ -146,6 +169,9 @@ private:
 
 	/** Called by the editor after PIE or Simulate is started */
 	void PostPIEStarted( bool bIsSimulatingInEditor );
+
+	/** Called just before PIE or Simulate ends */
+	void OnPreEndPIE(bool bWasSimulatingInEditor);
 
 	/** Called when PIE or Simulate ends */
 	void OnEndPIE( bool bWasSimulatingInEditor );
@@ -180,7 +206,7 @@ public:
 
 	/** Gets the editor world wrapper that is found with the world passed.
 	 * Adds one for this world if there was non found. */
-	UEditorWorldExtensionCollection* GetEditorWorldExtensions(UWorld* InWorld);
+	UEditorWorldExtensionCollection* GetEditorWorldExtensions(const UWorld* InWorld, const bool bCreateIfNeeded = true);
 
 	/** Ticks all the collections */
 	void Tick( float DeltaSeconds );

@@ -89,6 +89,8 @@ UStreamingSettings::UStreamingSettings()
 	PriorityAsyncLoadingExtraTime = 20.0f;
 	LevelStreamingActorsUpdateTimeLimit = 5.0f;
 	LevelStreamingComponentsRegistrationGranularity = 10;
+	LevelStreamingUnregisterComponentsTimeLimit = 1.0f;
+	LevelStreamingComponentsUnregistrationGranularity = 5;
 	EventDrivenLoaderEnabled = false;
 }
 
@@ -133,6 +135,8 @@ UGarbageCollectionSettings::UGarbageCollectionSettings()
 	MaxObjectsInGame = 2 * 1024 * 1024;
 	CreateGCClusters = true;
 	MergeGCClusters = false;
+	ActorClusteringEnabled = true;
+	BlueprintClusteringEnabled = false;
 }
 
 void UGarbageCollectionSettings::PostInitProperties()

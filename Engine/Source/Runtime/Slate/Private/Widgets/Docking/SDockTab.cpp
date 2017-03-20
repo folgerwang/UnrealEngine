@@ -10,6 +10,7 @@
 #include "Widgets/Input/SButton.h"
 #include "Framework/Docking/SDockingTabWell.h"
 #include "Framework/Docking/TabCommands.h"
+#include "Framework/Docking/SDockingArea.h"
 
 namespace SDockTabDefs
 {
@@ -399,6 +400,11 @@ void SDockTab::SetOnTabActivated( const FOnTabActivatedCallback& InDelegate )
 TSharedRef<FTabManager> SDockTab::GetTabManager() const
 {
 	return MyTabManager.Pin().ToSharedRef();
+}
+
+void SDockTab::DrawAttention()
+{
+	GetTabManager()->DrawAttention(SharedThis(this));
 }
 
 void SDockTab::ProvideDefaultLabel( const FText& InDefaultLabel )

@@ -5,7 +5,7 @@ using System.IO;
 
 public class UnrealEd : ModuleRules
 {
-	public UnrealEd(TargetInfo Target)
+	public UnrealEd(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PrivatePCHHeaderFile = "Private/UnrealEdPrivatePCH.h";
 
@@ -63,7 +63,10 @@ public class UnrealEd : ModuleRules
                 "PortalRpc",
                 "PortalServices",
                 "BlueprintNativeCodeGen",
+                "ViewportInteraction",
+                "VREditor",
                 "Persona",
+                "ClothingSystemEditorInterface",
             }
 		);
 
@@ -91,7 +94,7 @@ public class UnrealEd : ModuleRules
 				"UnrealAudio",
                 "FunctionalTesting",
 				"AutomationController",
-				"Internationalization",
+				"Localization",
 				"AudioEditor",
 			}
 		);
@@ -149,7 +152,10 @@ public class UnrealEd : ModuleRules
                 "PixelInspectorModule",
 				"MovieScene",
 				"MovieSceneTracks",
-                "ViewportInteraction"
+                "ViewportInteraction",
+                "VREditor",
+                "ClothingSystemEditor",
+                "ClothingSystemRuntime"
             }
 		);
 
@@ -186,7 +192,8 @@ public class UnrealEd : ModuleRules
 				"SettingsEditor",
 				"SessionFrontend",
 				"Sequencer",
-                "SuperSearch",
+				"StringTableEditor",
+				"SuperSearch",
                 "GeometryMode",
 				"TextureAlignMode",
 				"FoliageEdit",
@@ -219,6 +226,7 @@ public class UnrealEd : ModuleRules
                 "PortalServices",
                 "GeometryCacheEd",
                 "BlueprintNativeCodeGen",
+                "AnimationModifiers",
             }
 		);
 
@@ -233,7 +241,8 @@ public class UnrealEd : ModuleRules
                 "GraphEditor",
 				"Kismet",
 				"AudioEditor",
-                "ViewportInteraction"
+                "ViewportInteraction",
+                "VREditor"
             }
 		); 
 
@@ -248,7 +257,7 @@ public class UnrealEd : ModuleRules
 				"BlueprintGraph",
 				"AddContentDialog",                
                 "MeshUtilities"
-			}
+            }
 			);
 
 		if ((Target.Platform == UnrealTargetPlatform.Win64) ||

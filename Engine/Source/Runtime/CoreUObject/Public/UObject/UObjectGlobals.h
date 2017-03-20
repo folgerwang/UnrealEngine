@@ -10,6 +10,7 @@
 #include "Stats/Stats.h"
 #include "UObject/ObjectMacros.h"
 #include "Misc/OutputDeviceRedirector.h"
+#include "PrimaryAssetId.h"
 
 struct FCustomPropertyListNode;
 struct FObjectInstancingGraph;
@@ -375,7 +376,7 @@ COREUOBJECT_API int32 LoadPackageAsync(const FString& InName, const FGuid* InGui
 * @param	InPackagePriority		Loading priority
 * @return Unique ID associated with this load request (the same package can be associated with multiple IDs).
 */
-COREUOBJECT_API int32 LoadPackageAsync(const FString& InName, FLoadPackageAsyncDelegate InCompletionDelegate, TAsyncLoadPriority InPackagePriority = 0, EPackageFlags InPackageFlags = PKG_None);
+COREUOBJECT_API int32 LoadPackageAsync(const FString& InName, FLoadPackageAsyncDelegate InCompletionDelegate, TAsyncLoadPriority InPackagePriority = 0, EPackageFlags InPackageFlags = PKG_None, int32 InPIEInstanceID = INDEX_NONE);
 
 /**
 * Cancels all async package loading requests.
@@ -529,6 +530,7 @@ namespace EAsyncPackageState
 		Complete,
 	};
 }
+
 /**
  * Serializes a bit of data each frame with a soft time limit. The function is designed to be able
  * to fully load a package in a single pass given sufficient time.
@@ -539,6 +541,17 @@ namespace EAsyncPackageState
  * @return The minimum state of any of the queued packages.
  */
 COREUOBJECT_API EAsyncPackageState::Type ProcessAsyncLoading( bool bUseTimeLimit, bool bUseFullTimeLimit, float TimeLimit);
+
+/**
+ * Blocks and runs ProcessAsyncLoading until the time limit is hit, the completion predicate returns true, or all async loading is done
+ * 
+ * @param	CompletionPredicate	If this returns true, stop loading. This is called periodically as long as loading continues
+ * @param	TimeLimit			Hard time limit. 0 means infinite length
+ * @return The minimum state of any of the queued packages.
+ */
+COREUOBJECT_API EAsyncPackageState::Type ProcessAsyncLoadingUntilComplete(TFunctionRef<bool()> CompletionPredicate, float TimeLimit);
+
+/** UObjects are being loaded between these calls */
 COREUOBJECT_API void BeginLoad(const TCHAR* DebugContext = nullptr);
 COREUOBJECT_API void EndLoad();
 
@@ -1617,7 +1630,7 @@ public:
 	 * @param ReferencingProperty Referencing property (if available).
 	 */
 	template<class UObjectType>
-	void AddReferencedObject(UObjectType*& Object, const UObject* ReferencingObject = NULL, const UProperty* ReferencingProperty = NULL)
+	void AddReferencedObject(UObjectType*& Object, const UObject* ReferencingObject = nullptr, const UProperty* ReferencingProperty = nullptr)
 	{
 		HandleObjectReference(*(UObject**)&Object, ReferencingObject, ReferencingProperty);
 	}
@@ -1630,7 +1643,7 @@ public:
 	* @param ReferencingProperty Referencing property (if available).
 	*/
 	template<class UObjectType>
-	void AddReferencedObjects(TArray<UObjectType*>& ObjectArray, const UObject* ReferencingObject = NULL, const UProperty* ReferencingProperty = NULL)
+	void AddReferencedObjects(TArray<UObjectType*>& ObjectArray, const UObject* ReferencingObject = nullptr, const UProperty* ReferencingProperty = nullptr)
 	{
 		static_assert(TPointerIsConvertibleFromTo<UObjectType, const UObject>::Value, "'UObjectType' template parameter to AddReferencedObjects must be derived from UObject");
 		HandleObjectReferences(reinterpret_cast<UObject**>(ObjectArray.GetData()), ObjectArray.Num(), ReferencingObject, ReferencingProperty);
@@ -1644,7 +1657,7 @@ public:
 	* @param ReferencingProperty Referencing property (if available).
 	*/
 	template<class UObjectType>
-	void AddReferencedObjects(TSet<UObjectType>& ObjectSet, const UObject* ReferencingObject = NULL, const UProperty* ReferencingProperty = NULL)
+	void AddReferencedObjects(TSet<UObjectType>& ObjectSet, const UObject* ReferencingObject = nullptr, const UProperty* ReferencingProperty = nullptr)
 	{
 		for (auto& Object : ObjectSet)
 		{
@@ -1914,7 +1927,7 @@ struct COREUOBJECT_API FCoreUObjectDelegates
 	static FReinstanceHotReloadedClassesDelegate ReinstanceHotReloadedClassesDelegate;
 
 	// Sent at the very beginning of LoadMap
-	DECLARE_MULTICAST_DELEGATE_OneParam(FPreLoadMapDelegate, const FString&);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FPreLoadMapDelegate, const FString& /* MapName */);
 	static FPreLoadMapDelegate PreLoadMap;
 
 	// Sent at the _successful_ end of LoadMap
@@ -1928,6 +1941,12 @@ struct COREUOBJECT_API FCoreUObjectDelegates
 
 	// Called after garbage collection
 	static FSimpleMulticastDelegate PostGarbageCollect;
+
+	// Called before ConditionalBeginDestroy phase of garbage collection
+	static FSimpleMulticastDelegate PreGarbageCollectConditionalBeginDestroy;
+
+	// Called after ConditionalBeginDestroy phase of garbage collection
+	static FSimpleMulticastDelegate PostGarbageCollectConditionalBeginDestroy;
 
 	/** delegate type for querying whether a loaded object should replace an already existing one */
 	DECLARE_DELEGATE_RetVal_OneParam(bool, FOnLoadObjectsOnTop, const FString&);
@@ -1950,6 +1969,10 @@ struct COREUOBJECT_API FCoreUObjectDelegates
 	/** called when saving a string asset reference, can replace the value with something else */
 	DECLARE_DELEGATE_RetVal_OneParam(FString, FStringAssetReferenceSaving, FString const& /*SavingAssetLongPathname*/);
 	static FStringAssetReferenceSaving StringAssetReferenceSaving;
+
+	/** Called when trying to figure out if a UObject is a primary asset, if it doesn't know */
+	DECLARE_DELEGATE_RetVal_OneParam(FPrimaryAssetId, FGetPrimaryAssetIdForObject, const UObject*);
+	static FGetPrimaryAssetIdForObject GetPrimaryAssetIdForObject;
 };
 
 /** Allows release builds to override not verifying GC assumptions. Useful for profiling as it's hitchy. */

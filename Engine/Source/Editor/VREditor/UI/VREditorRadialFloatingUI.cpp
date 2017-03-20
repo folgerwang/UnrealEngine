@@ -478,8 +478,8 @@ const void AVREditorRadialFloatingUI::HighlightSlot(const FVector2D& TrackpadPos
 		{
 			NewArrowScaleFactor = 1.0f;
 		}
-		const FVector Scale = FVector(NewArrowScaleFactor, NewArrowScaleFactor, 2.0f * NewArrowScaleFactor);
-		ArrowMeshComponent->SetRelativeScale3D(Scale);
+		const FVector NewArrowScale = FVector(NewArrowScaleFactor, NewArrowScaleFactor, 2.0f * NewArrowScaleFactor);
+		ArrowMeshComponent->SetRelativeScale3D(NewArrowScale);
 	}
 	else
 	{
@@ -510,8 +510,8 @@ const void AVREditorRadialFloatingUI::HighlightSlot(const FVector2D& TrackpadPos
 		{
 			if (ButtonCount != Index)
 			{
-				TSharedRef<SWidget> CurrentChild = WidgetComponents[ButtonCount]->GetSlateWidget().ToSharedRef();
-				TestWidget = UVREditorUISystem::FindWidgetOfType(CurrentChild, ButtonTypeOverride);
+				TSharedRef<SWidget> ChildWidget = WidgetComponents[ButtonCount]->GetSlateWidget().ToSharedRef();
+				TestWidget = UVREditorUISystem::FindWidgetOfType(ChildWidget, ButtonTypeOverride);
 				TSharedRef<SButton> TestButton = StaticCastSharedRef<SButton>(TestWidget);
 				if (TestButton->IsHovered())
 				{

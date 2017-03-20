@@ -4,7 +4,7 @@ namespace UnrealBuildTool.Rules
 {
 	public class MeshEditingRuntime : ModuleRules
 	{
-        public MeshEditingRuntime(TargetInfo Target)
+        public MeshEditingRuntime(ReadOnlyTargetRules Target) : base(Target)
 		{
 			PrivateDependencyModuleNames.AddRange(
                 new string[] {

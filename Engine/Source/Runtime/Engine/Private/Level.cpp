@@ -53,7 +53,18 @@ Level.cpp: Level-related functions
 #include "Engine/LevelStreaming.h"
 #include "LevelUtils.h"
 #include "Components/ModelComponent.h"
+#include "Engine/LevelActorContainer.h"
+#include "Engine/StaticMeshActor.h"
+
 DEFINE_LOG_CATEGORY(LogLevel);
+
+int32 GActorClusteringEnabled = 1;
+static FAutoConsoleVariableRef CVarUseBackgroundLevelStreaming(
+	TEXT("gc.ActorClusteringEnabled"),
+	GActorClusteringEnabled,
+	TEXT("Whether to allow levels to create actor clusters for GC."),
+	ECVF_Default
+);
 
 /*-----------------------------------------------------------------------------
 ULevel implementation.
@@ -308,12 +319,14 @@ void ULevel::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collecto
 	ULevel* This = CastChecked<ULevel>(InThis);
 
 	// Let GC know that we're referencing some AActor objects
-	for (auto& Actor : This->Actors)
+	if (FPlatformProperties::RequiresCookedData() && GActorClusteringEnabled)
 	{
-		Collector.AddReferencedObject(Actor, This);
+		Collector.AddReferencedObjects(This->ActorsForGC, This);
 	}
-	UObject* ActorsOwner = This;
-	Collector.AddReferencedObject(ActorsOwner, This);
+	else
+	{
+		Collector.AddReferencedObjects(This->Actors, This);
+	}
 
 	Super::AddReferencedObjects( This, Collector );
 }
@@ -478,6 +491,11 @@ void ULevel::SortActorList()
 	// The WorldSettings tries to stay at index 0
 	NewActors.Add(WorldSettings);
 
+	if (OwningWorld != nullptr)
+	{
+		OwningWorld->AddNetworkActor(WorldSettings);
+	}
+
 	// Add non-net actors to the NewActors immediately, cache off the net actors to Append after
 	for (AActor* Actor : Actors)
 	{
@@ -486,6 +504,10 @@ void ULevel::SortActorList()
 			if (IsNetActor(Actor))
 			{
 				NewNetActors.Add(Actor);
+				if (OwningWorld != nullptr)
+				{
+					OwningWorld->AddNetworkActor(Actor);
+				}
 			}
 			else
 			{
@@ -494,36 +516,10 @@ void ULevel::SortActorList()
 		}
 	}
 
-	iFirstNetRelevantActor = NewActors.Num();
-
 	NewActors.Append(MoveTemp(NewNetActors));
 
 	// Replace with sorted list.
 	Actors = MoveTemp(NewActors);
-
-	// Add all network actors to the owning world
-	if ( OwningWorld != nullptr )
-	{
-		// Don't use sorted optimization outside of gameplay so we can safely shuffle around actors e.g. in the Editor
-		// without there being a chance to break code using dynamic/ net relevant actor iterators.
-		if (!OwningWorld->IsGameWorld())
-		{
-			iFirstNetRelevantActor = 0;
-		}
-		// Ensure the world settings actor is added if it's not going to get added in the loop below
-		else if ( IsNetActor( WorldSettings ) )
-		{
-			OwningWorld->AddNetworkActor( WorldSettings );
-		}
-
-		for ( int32 i = iFirstNetRelevantActor; i < Actors.Num(); i++ )
-		{
-			if ( Actors[ i ] != nullptr )
-			{
-				OwningWorld->AddNetworkActor( Actors[ i ] );
-			}
-		}
-	}
 }
 
 
@@ -634,7 +630,55 @@ void ULevel::PostLoad()
 		LevelSimplification[Index].PostLoadDeprecated();
 	}
 
+	if (LevelScriptActor)
+	{
+		if (ULevelScriptBlueprint* LevelBlueprint = Cast<ULevelScriptBlueprint>(LevelScriptActor->GetClass()->ClassGeneratedBy))
+		{
+			FBlueprintEditorUtils::FixLevelScriptActorBindings(LevelScriptActor, LevelBlueprint);
+		}
+	}
 #endif
+}
+
+bool ULevel::CanBeClusterRoot() const
+{
+	return !!GActorClusteringEnabled;
+}
+
+void ULevel::CreateCluster()
+{
+	check(GActorClusteringEnabled);
+
+	// ULevels are not cluster roots themselves, instead they create a special actor container
+	// that holds a reference to all actors that are to be clustered. This is because only
+	// specific actor types can be clustered so the remaining actors that are not clustered
+	// need to be referenced through the level.
+	// Also, we don't want the level to reference the actors that are clusters because that would
+	// make things work even slower (references to clustered objects are expensive). That's why
+	// we keep a separate array for referencing unclustered actors (ActorsForGC).
+	if (ActorCluster == nullptr)
+	{
+		TArray<AActor*> ClusterActors;
+
+		for (int32 ActorIndex = Actors.Num() - 1; ActorIndex >= 0; --ActorIndex)
+		{
+			AActor* Actor = Actors[ActorIndex];
+			if (Actor && Actor->CanBeInCluster())
+			{
+				ClusterActors.Add(Actor);
+			}
+			else
+			{
+				ActorsForGC.Add(Actor);
+			}
+		}
+		if (ClusterActors.Num())
+		{
+			ActorCluster = NewObject<ULevelActorContainer>(this, TEXT("ActorCluster"), RF_Transient);
+			ActorCluster->Actors = MoveTemp(ClusterActors);
+			ActorCluster->CreateCluster();
+		}
+	}
 }
 
 void ULevel::PostDuplicate(bool bDuplicateForPIE)
@@ -909,7 +953,7 @@ void ULevel::IncrementalUpdateComponents(int32 NumComponentsToUpdate, bool bReru
 	{
 		AActor* Actor = Actors[CurrentActorIndexForUpdateComponents];
 		bool bAllComponentsRegistered = true;
-		if (Actor)
+		if (Actor && !Actor->IsPendingKill())
 		{
 #if PERF_TRACK_DETAILED_ASYNC_STATS
 			FScopeCycleCounterUObject ContextScope(Actor);
@@ -960,6 +1004,7 @@ void ULevel::IncrementalUpdateComponents(int32 NumComponentsToUpdate, bool bReru
 					}
 				}
 			}
+			bHasRerunConstructionScripts = true;
 		}
 	}
 	// Only the game can use incremental update functionality.
@@ -1080,7 +1125,7 @@ void ULevel::CreateModelComponents()
 			if (Node.NumVertices > 0)
 			{
 				// Calculate the bounding box of this node.
-				FBox NodeBounds(0);
+				FBox NodeBounds(ForceInit);
 				for (int32 VertexIndex = 0; VertexIndex < Node.NumVertices; VertexIndex++)
 				{
 					NodeBounds += Model->Points[Model->Verts[Node.iVertPool + VertexIndex].pVertex];

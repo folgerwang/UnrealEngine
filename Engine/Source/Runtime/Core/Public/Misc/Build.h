@@ -20,9 +20,6 @@
 #ifndef UE_BUILD_SHIPPING
 	#define UE_BUILD_SHIPPING			0
 #endif
-#ifndef UE_BUILD_SHIPPING_EDITOR
-	#define UE_BUILD_SHIPPING_EDITOR	(#)
-#endif
 #ifndef UE_GAME
 	#define UE_GAME						0
 #endif
@@ -143,11 +140,6 @@
 #ifndef WITH_HOT_RELOAD
 	#define WITH_HOT_RELOAD (!IS_MONOLITHIC && !UE_BUILD_SHIPPING && !UE_BUILD_TEST && !UE_GAME && !UE_SERVER)
 #endif
-
-/**
- * Whether we want to use special hot-reload empty constructors.
- */
-#define WITH_HOT_RELOAD_CTORS 1
 
 /*----------------------------------------------------------------------------
 	Optional bridge options coming from UBT, do not modify directly!

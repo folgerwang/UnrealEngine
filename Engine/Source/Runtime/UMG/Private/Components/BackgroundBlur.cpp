@@ -10,6 +10,7 @@
 #include "SBackgroundBlur.h"
 #include "BackgroundBlurSlot.h"
 #include "EditorObjectVersion.h"
+#include "ObjectEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -69,7 +70,6 @@ void UBackgroundBlur::SynchronizeProperties()
 
 void UBackgroundBlur::OnSlotAdded(UPanelSlot* InSlot)
 {
-	// Copy the content properties into the new slot
 	UBackgroundBlurSlot* BackgroundBlurSlot = CastChecked<UBackgroundBlurSlot>(InSlot);
 	BackgroundBlurSlot->Padding = Padding;
 	BackgroundBlurSlot->HorizontalAlignment = HorizontalAlignment;
@@ -82,7 +82,7 @@ void UBackgroundBlur::OnSlotAdded(UPanelSlot* InSlot)
 		BackgroundBlurSlot->BuildSlot(MyBackgroundBlur.ToSharedRef());
 	}
 }
-
+	
 void UBackgroundBlur::OnSlotRemoved(UPanelSlot* InSlot)
 {
 	// Remove the widget from the live slot if it exists.
@@ -174,6 +174,45 @@ void UBackgroundBlur::PostLoad()
 }
 
 #if WITH_EDITOR
+
+void UBackgroundBlur::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	static bool IsReentrant = false;
+
+	if (!IsReentrant)
+	{
+		IsReentrant = true;
+
+		if (PropertyChangedEvent.Property)
+		{
+			static const FName PaddingName("Padding");
+			static const FName HorizontalAlignmentName("HorizontalAlignment");
+			static const FName VerticalAlignmentName("VerticalAlignment");
+
+			FName PropertyName = PropertyChangedEvent.Property->GetFName();
+
+			if (UBackgroundBlurSlot* BlurSlot = CastChecked<UBackgroundBlurSlot>(GetContentSlot()))
+			{
+				if (PropertyName == PaddingName)
+				{
+					FObjectEditorUtils::MigratePropertyValue(this, PaddingName, BlurSlot, PaddingName);
+				}
+				else if (PropertyName == HorizontalAlignmentName)
+				{
+					FObjectEditorUtils::MigratePropertyValue(this, HorizontalAlignmentName, BlurSlot, HorizontalAlignmentName);
+				}
+				else if (PropertyName == VerticalAlignmentName)
+				{
+					FObjectEditorUtils::MigratePropertyValue(this, VerticalAlignmentName, BlurSlot, VerticalAlignmentName);
+				}
+			}
+		}
+
+		IsReentrant = false;
+	}
+}
 
 const FText UBackgroundBlur::GetPaletteCategory()
 {

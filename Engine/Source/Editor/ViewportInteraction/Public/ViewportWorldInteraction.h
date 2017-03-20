@@ -19,10 +19,6 @@
 #include "GenericPlatform/ICursor.h"
 #include "ViewportWorldInteraction.generated.h"
 
-
-class IViewportInteractableInterface;
-class UViewportInteractor;
-
 namespace ViewportWorldActionTypes
 {
 	static const FName NoAction( "NoAction" );
@@ -39,7 +35,6 @@ enum class EGizmoHandleTypes : uint8;
 class IViewportInteractableInterface;
 class UViewportInteractor;
 
-
 UCLASS()
 class VIEWPORTINTERACTION_API UViewportWorldInteraction : public UEditorWorldExtension
 {
@@ -54,9 +49,6 @@ public:
 	virtual void Shutdown() override;
 	virtual void Tick( float DeltaSeconds ) override;
 	
-	/** Returns true if this worldinteraction is currently running */
-	bool IsActive() const;
-
 	/** Adds interactor to the worldinteraction */
 	void AddInteractor( UViewportInteractor* Interactor );
 
@@ -609,6 +601,9 @@ private:
 	/** All of the objects we're currently interacting with, such as selected actors */
 	TArray< TUniquePtr< FViewportTransformable > > Transformables;
 
+	/** The current gizmo type */ //@todo ViewportInteraction: Currently this is only used for universal gizmo.
+	TOptional<EGizmoHandleTypes> GizmoType;
+
 	//
 	// Snap grid
 	//
@@ -698,9 +693,6 @@ private:
 
 	/** Event that is fired when the world scale changes */
 	FOnWorldScaleChanged OnWorldScaleChangedEvent;
-
-	/** If the world interaction is active and running the tick function */
-	bool bActive;
 
 	/** If this world interaction should get input from the input processor */
 	bool bUseInputPreprocessor;

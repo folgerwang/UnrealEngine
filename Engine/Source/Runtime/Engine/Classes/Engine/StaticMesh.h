@@ -250,6 +250,9 @@ struct FMeshSectionInfoMap
 	/** Get the number of section for a LOD. */
 	ENGINE_API int32 GetSectionNumber(int32 LODIndex) const;
 
+	/** Return true if the section exist, false otherwise. */
+	ENGINE_API bool IsValidSection(int32 LODIndex, int32 SectionIndex) const;
+
 	/** Gets per-section settings for the specified LOD + section. */
 	ENGINE_API FMeshSectionInfo Get(int32 LODIndex, int32 SectionIndex) const;
 
@@ -355,7 +358,7 @@ struct FStaticMaterial
 
 #if WITH_EDITORONLY_DATA
 	/*This name should be use when we re-import a skeletal mesh so we can order the Materials array like it should be*/
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = StaticMesh)
+	UPROPERTY(VisibleAnywhere, Category = StaticMesh)
 	FName ImportedMaterialSlotName;
 #endif //WITH_EDITORONLY_DATA
 
@@ -475,6 +478,10 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 	/** The light map coordinate index */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=StaticMesh, meta=(ToolTip="The light map coordinate index"))
 	int32 LightMapCoordinateIndex;
+
+	/** Useful for reducing self shadowing from distance field methods when using world position offset to animate the mesh's vertices. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = StaticMesh)
+	float DistanceFieldSelfShadowBias;
 
 	/** 
 	 * Whether to generate a distance field for this mesh, which can be used by DistanceField Indirect Shadows.
@@ -621,6 +628,7 @@ public:
 	ENGINE_API virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 	ENGINE_API virtual FString GetDesc() override;
 	ENGINE_API virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
+	ENGINE_API virtual bool CanBeClusterRoot() const override;
 	//~ End UObject Interface.
 
 	/**
@@ -850,6 +858,7 @@ private:
 	 * Caches derived renderable data.
 	 */
 	void CacheDerivedData();
+
 
 	FOnPreMeshBuild PreMeshBuild;
 	FOnPostMeshBuild PostMeshBuild;

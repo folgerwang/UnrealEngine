@@ -219,7 +219,7 @@ struct FCachedActorLabels
 	FCachedActorLabels();
 
 	/** Constructor that populates the set of actor names */
-	explicit FCachedActorLabels(UWorld* World, const TSet<AActor*>& IgnoredActors = TSet<AActor*>());
+	explicit UNREALED_API FCachedActorLabels(UWorld* World, const TSet<AActor*>& IgnoredActors = TSet<AActor*>());
 
 	/** Populate the set of actor names */
 	void Populate(UWorld* World, const TSet<AActor*>& IgnoredActors = TSet<AActor*>());
@@ -1159,6 +1159,12 @@ public:
 
 	/** Plays an editor sound (if the user has sounds enabled.) */
 	void PlayEditorSound( USoundBase* InSound );
+
+	/**
+	 * Returns true if currently able to play a sound and if the user has sounds enabled.
+	 */
+	bool CanPlayEditorSound() const;
+
 
 	/**
 	 * Returns the preview audio component
@@ -2980,6 +2986,9 @@ public:
 
 private:
 	FTimerHandle CleanupPIEOnlineSessionsTimerHandle;
+
+	/** Delegate handle for game viewport close requests in PIE sessions. */
+	FDelegateHandle ViewportCloseRequestedDelegateHandle;
 };
 
 //////////////////////////////////////////////////////////////////////////

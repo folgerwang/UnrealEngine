@@ -34,6 +34,7 @@
 #include "Misc/CoreDelegates.h"
 #include "Misc/ObjectThumbnail.h"
 #include "Misc/App.h"
+#include "Misc/TimeGuard.h"
 #include "Modules/ModuleManager.h"
 #include "UObject/UObjectIterator.h"
 #include "UObject/Package.h"
@@ -154,7 +155,6 @@
 #include "Widgets/Notifications/SNotificationList.h"
 #include "Engine/UserInterfaceSettings.h"
 #include "ComponentRecreateRenderStateContext.h"
-#include "TextLocalizationResourceGenerator.h"
 
 #include "IMessageRpcClient.h"
 #include "IMessagingRpcModule.h"
@@ -174,11 +174,16 @@
 #include "Engine/EndUserSettings.h"
 
 #include "Engine/LODActor.h"
+#include "Engine/AssetManager.h"
 
 #if !UE_BUILD_SHIPPING
 #include "Interfaces/IAutomationWorkerModule.h"
 #include "HAL/ExceptionHandling.h"
 #endif	// UE_BUILD_SHIPPING
+
+#if ENABLE_LOC_TESTING
+#include "LocalizationModule.h"
+#endif
 
 #include "GeneralProjectSettings.h"
 #include "ProfilingDebugging/LoadTimeTracker.h"
@@ -251,7 +256,6 @@ static FAutoConsoleVariable CVarSystemResolution(
 	TEXT("e.g. 1280x720w for windowed\n")
 	TEXT("     1920x1080f for fullscreen\n")
 	TEXT("     1920x1080wf for windowed fullscreen\n")
-	TEXT("     1920x1080wm for windowed mirror")
 	);
 
 #if !UE_BUILD_SHIPPING
@@ -386,7 +390,7 @@ void SystemResolutionSinkCallback()
 	int32 WindowModeInt = GSystemResolution.WindowMode;
 
 	static const auto CVarHDROutputEnabled = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.HDR.EnableHDROutput"));
-	bool bHDROutputEnabled = GRHISupportsHDROutput && CVarHDROutputEnabled->GetValueOnAnyThread() != 0;
+	bool bHDROutputEnabled = GRHISupportsHDROutput && CVarHDROutputEnabled && CVarHDROutputEnabled->GetValueOnAnyThread() != 0;
 	
 	if (FParse::Resolution(*ResString, ResX, ResY, WindowModeInt))
 	{
@@ -810,6 +814,21 @@ void EngineMemoryWarningHandler(const FGenericMemoryWarningContext& GenericConte
 
 UEngine::FOnNewStatRegistered UEngine::NewStatDelegate;
 
+void UEngine::PreGarbageCollect()
+{
+	for (TObjectIterator<UWorld> WorldIt; WorldIt; ++WorldIt)
+	{
+		UWorld* World = *WorldIt;
+
+		if (World && World->HasEndOfFrameUpdates())
+		{
+			// Make sure deferred component updates have been sent to the rendering thread before deleting any UObjects which the rendering thread may be referencing
+			// This fixes rendering thread crashes in the following order of operations 1) UMeshComponent::SetMaterial 2) GC 3) Rendering command that dereferences the UMaterial
+			World->SendAllEndOfFrameUpdates();
+		}
+	}
+}
+
 //
 // Initialize the engine.
 //
@@ -848,6 +867,8 @@ void UEngine::Init(IEngineLoop* InEngineLoop)
 
 	// Add to root.
 	AddToRoot();
+
+	FCoreUObjectDelegates::PreGarbageCollect.AddStatic(UEngine::PreGarbageCollect);
 
 	// Initialize the HMDs and motion controllers, if any
 	InitializeHMDDevice();
@@ -1016,6 +1037,12 @@ void UEngine::Init(IEngineLoop* InEngineLoop)
 		FModuleManager::Get().LoadModuleChecked(TEXT("GeometryCache"));
 	}
 
+	// Finish asset manager loading
+	if (AssetManager)
+	{
+		AssetManager->FinishInitialLoading();
+	}
+
 	bool bIsRHS = true;
 	if (GConfig)
 	{
@@ -1153,6 +1180,10 @@ void UEngine::ShutdownHMD()
 
 void UEngine::TickDeferredCommands()
 {
+	SCOPE_TIME_GUARD(TEXT("UEngine::TickDeferredCommands"));
+
+	const double StartTime = FPlatformTime::Seconds();
+
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_UEngine_TickDeferredCommands);
 	// Execute all currently queued deferred commands (allows commands to be queued up for next frame).
 	const int32 DeferredCommandsCount = DeferredCommands.Num();
@@ -1170,6 +1201,20 @@ void UEngine::TickDeferredCommands()
 			Exec( GWorld, *DeferredCommands[DeferredCommandsIndex], *GLog );
 		}
 	}
+
+	const double ElapsedTimeMS = (FPlatformTime::Seconds() - StartTime) / 1000.0;
+
+	// If we're not in the editor, and commands took more than our target frame time to execute, print them out so there's a paper trail
+	if (GIsEditor == false && ElapsedTimeMS >= FEnginePerformanceTargets::GetTargetFrameTimeThresholdMS())
+	{
+		UE_LOG(LogEngine, Warning, TEXT("UEngine::TickDeferredCommands took %.02fms to execute %d commands!"), ElapsedTimeMS, DeferredCommandsCount);
+		
+		for (int32 i = 0; i < DeferredCommandsCount; i++)
+		{
+			UE_LOG(LogEngine, Warning, TEXT("\t%s"), *DeferredCommands[i]);
+		}	
+	}
+
 	DeferredCommands.RemoveAt(0, DeferredCommandsCount);
 }
 
@@ -1682,6 +1727,25 @@ void UEngine::InitializeObjectReferences()
 		}
 	}
 
+	if (AssetManager == nullptr && AssetManagerClassName.ToString().Len() > 0)
+	{
+		UClass *SingletonClass = LoadClass<UObject>(nullptr, *AssetManagerClassName.ToString());
+
+		if (SingletonClass)
+		{
+			AssetManager = NewObject<UAssetManager>(this, SingletonClass);
+
+			if (AssetManager)
+			{
+				AssetManager->StartInitialLoading();
+			}
+		}
+		else
+		{
+			UE_LOG(LogEngine, Error, TEXT("Engine config value AssetManagerClassName '%s' is not a valid class name."), *AssetManagerClassName.ToString());
+		}
+	}
+
 	UUserInterfaceSettings* UISettings = GetMutableDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass());
 	UISettings->ForceLoadResources();
 }
@@ -2088,7 +2152,7 @@ public:
 		RHICmdList.SetBlendState(TStaticBlendState<>::GetRHI());
 		RHICmdList.SetRasterizerState(TStaticRasterizerState<>::GetRHI());
 		RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
-		RHICmdList.ClearColorTexture(BackBuffer, FLinearColor::Black, FIntRect());
+		RHICmdList.ClearColorTexture(BackBuffer, FLinearColor::Black);
 	}
 
 	float FOVInDegrees;		// max(HFOV, VFOV) in degrees of imaginable HMD
@@ -2647,7 +2711,7 @@ bool UEngine::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 		FString ConfigFilePath;
 		if (FParse::Value(Cmd, TEXT("REGENLOC="), ConfigFilePath))
 		{
-			FTextLocalizationResourceGenerator::GenerateAndUpdateLiveEntriesFromConfig(ConfigFilePath, /*bSkipSourceCheck*/false);
+			ILocalizationModule::Get().HandleRegenLocCommand(ConfigFilePath, /*bSkipSourceCheck*/false);
 		}
 	}
 #endif
@@ -3025,7 +3089,7 @@ bool UEngine::HandleGameVerCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 	FString VersionString = FString::Printf( TEXT( "GameVersion Branch: %s, Configuration: %s, Build: %s, CommandLine: %s" ),
 											 *FApp::GetBranchName(), EBuildConfigurations::ToString( FApp::GetBuildConfiguration() ), FApp::GetBuildVersion(), FCommandLine::Get() );
 
-	Ar.Logf( *VersionString );
+	Ar.Logf( TEXT("%s"), *VersionString );
 	FPlatformMisc::ClipboardCopy( *VersionString );
 
 	if (FCString::Stristr(Cmd, TEXT("-display")))
@@ -3221,7 +3285,7 @@ static void DumpHelp(UWorld* InWorld)
 
 	// Notification in editor
 	{
-		auto Message = NSLOCTEXT("UnrealEd", "ConsoleHelpExported", "ConsoleHelp.html was saved as");
+		const FText Message = NSLOCTEXT("UnrealEd", "ConsoleHelpExported", "ConsoleHelp.html was saved as");
 		FNotificationInfo Info(Message);
 		Info.bFireAndForget = true;
 		Info.ExpireDuration = 5.0f;
@@ -3231,14 +3295,18 @@ static void DumpHelp(UWorld* InWorld)
 		const FString HyperLinkText = FPaths::ConvertRelativePathToFull(FilePath);
 		Info.Hyperlink = FSimpleDelegate::CreateStatic([](FString SourceFilePath) 
 		{
-			// open default browser, usually internet explorer (bit slower than Chrome)
-//			FPlatformProcess::LaunchURL(*SourceFilePath, TEXT(""), 0);
 			// open folder, you can choose the browser yourself
 			FPlatformProcess::ExploreFolder(*(FPaths::GetPath(SourceFilePath)));
 		}, HyperLinkText);
 		Info.HyperlinkText = FText::FromString(HyperLinkText);
 
 		FSlateNotificationManager::Get().AddNotification(Info);
+
+		// Always try to open the help file on Windows (including in -game, etc...)
+#if PLATFORM_WINDOWS
+		const FString LaunchableURL = FString(TEXT("file://")) + HyperLinkText;
+		FPlatformProcess::LaunchURL(*LaunchableURL, nullptr, nullptr);
+#endif
 	}
 }
 static FAutoConsoleCommandWithWorld GConsoleCommandHelp(
@@ -4020,7 +4088,7 @@ bool UEngine::HandleListParticleSystemsCommand( const TCHAR* Cmd, FOutputDevice&
 		FArchiveCountMem Count( Tree );
 		int32 RootSize = Count.GetMax();
 
-		SortedSets.Add(FSortedParticleSet(Description, RootSize, RootSize, 0, 0, 0, FResourceSizeEx(), FResourceSizeEx()));
+		SortedSets.Add(FSortedParticleSet(Description, RootSize, RootSize, 0, 0, 0, FResourceSizeEx(EResourceSizeMode::Inclusive), FResourceSizeEx(EResourceSizeMode::Exclusive)));
 		SortMap.Add(Tree,SortedSets.Num() - 1);
 	}
 
@@ -4201,6 +4269,8 @@ bool UEngine::HandleMemReportCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorl
 bool UEngine::HandleMemReportDeferredCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld )
 {
 #if ALLOW_DEBUG_FILES
+	QUICK_SCOPE_CYCLE_COUNTER(HandleMemReportDeferredCommand);
+
 	const bool bPerformSlowCommands = FParse::Param( Cmd, TEXT("FULL") );
 	const bool bLogOutputToFile = !FParse::Param( Cmd, TEXT("LOG") );
 	FString InFileName;
@@ -4234,7 +4304,7 @@ bool UEngine::HandleMemReportDeferredCommand( const TCHAR* Cmd, FOutputDevice& A
 		UE_LOG(LogEngine, Log, TEXT("MemReportDeferred: saving to %s"), *FilenameFull);		
 	}
 
-	ReportAr->Logf( *FString::Printf( TEXT( "CommandLine Options: %s" ) LINE_TERMINATOR, FCommandLine::Get() ) );
+	ReportAr->Logf( TEXT( "CommandLine Options: %s" ) LINE_TERMINATOR, FCommandLine::Get() );
 
 	// Run commands from the ini
 	FConfigSection* CommandsToRun = GConfig->GetSectionPrivate(TEXT("MemReportCommands"), 0, 1, GEngineIni);
@@ -5405,7 +5475,7 @@ bool UEngine::HandleObjCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 						continue;
 					}
 					FUObjectItem* ObjectItem = GUObjectArray.ObjectToObjectItem(*It);
-					if (ObjectItem->GetOwnerIndex())
+					if (ObjectItem->GetOwnerIndex() > 0)
 					{
 						continue;
 					}
@@ -6423,7 +6493,7 @@ bool UEngine::PerformError(const TCHAR* Cmd, FOutputDevice& Ar)
 	else if (FParse::Command(&Cmd, TEXT("CRTINVALID")))
 	{
 		SetCrashType(ECrashType::Debug);
-		FString::Printf(NULL);
+		FString::Printf(TEXT("%s"), (const char*)nullptr);
 		return true;
 	}
 	else if (FParse::Command(&Cmd, TEXT("HITCH")))
@@ -8844,7 +8914,7 @@ UNetDriver* CreateNetDriver_Local(UEngine *Engine, FWorldContext &Context, FName
 			// Try to create network driver.
 			NetDriver = NewObject<UNetDriver>(GetTransientPackage(), NetDriverClass);
 			check(NetDriver);
-			NetDriver->NetDriverName = NetDriver->GetFName();
+			NetDriver->SetNetDriverName(NetDriver->GetFName());
 
 			new (Context.ActiveNetDrivers) FNamedNetDriver(NetDriver, &NetDriverDef);
 			return NetDriver;
@@ -8868,7 +8938,7 @@ bool CreateNamedNetDriver_Local(UEngine *Engine, FWorldContext &Context, FName N
 		NetDriver = CreateNetDriver_Local(Engine, Context, NetDriverDefinition);
 		if (NetDriver)
 		{
-			NetDriver->NetDriverName = NetDriverName;
+			NetDriver->SetNetDriverName(NetDriverName);
 			return true;
 		}
 	}
@@ -10351,7 +10421,7 @@ void UEngine::MovePendingLevel(FWorldContext &Context)
 	if( NetDriver )
 	{
 		// The pending net driver is renamed to the current "game net driver"
-		NetDriver->NetDriverName = NAME_GameNetDriver;
+		NetDriver->SetNetDriverName(NAME_GameNetDriver);
 		NetDriver->SetWorld(Context.World());
 
 		FLevelCollection& SourceLevels = Context.World()->FindOrAddCollectionByType(ELevelCollectionType::DynamicSourceLevels);
@@ -10865,6 +10935,7 @@ void UEngine::VerifyLoadMapWorldCleanup()
 				FString						ErrorString	= FArchiveTraceRoute::PrintRootPath( Route, World );
 				UE_LOG(LogLoad, Log, TEXT("%s"),*ErrorString);
 				// before asserting.
+
 				UE_LOG(LogLoad, Fatal, TEXT("%s not cleaned up by garbage collection!") LINE_TERMINATOR TEXT("%s") , *World->GetFullName(), *ErrorString );
 			}
 		}
@@ -10901,7 +10972,7 @@ static void AsyncMapChangeLevelLoadCompletionCallback(const FName& PackageName, 
 			}
 		}
 
-		ULevel* Level = World ? World->PersistentLevel : NULL;	
+		ULevel* Level = World ? World->PersistentLevel : nullptr;	
 		
 		// Print out a warning and set the error if we couldn't find a level in this package.
 		if( !Level )
@@ -10919,7 +10990,7 @@ static void AsyncMapChangeLevelLoadCompletionCallback(const FName& PackageName, 
 	else
 	{
 		// Add NULL entry so we don't end up waiting forever on a level that is never going to be loaded.
-		Context.LoadedLevelsForPendingMapChange.Add( NULL );
+		Context.LoadedLevelsForPendingMapChange.Add( nullptr );
 		UE_LOG(LogEngine, Warning, TEXT("NULL LevelPackage as argument to AsyncMapChangeLevelCompletionCallback") );
 	}
 
@@ -10961,7 +11032,7 @@ bool UEngine::PrepareMapChange(FWorldContext &Context, const TArray<FName>& Leve
 #endif
 
 		// copy LevelNames into the WorldInfo's array to keep track of the map change that we're preparing (primarily for servers so clients that join in progress can be notified)
-		if (Context.World() != NULL)
+		if (Context.World() != nullptr)
 		{
 			Context.World()->PreparingLevelNames = LevelNames;
 		}
@@ -11126,7 +11197,7 @@ bool UEngine::CommitMapChange( FWorldContext &Context )
 
 		// The new fake persistent level is first in the LevelsToLoadForPendingMapChange array.
 		FName	FakePersistentLevelName = Context.LevelsToLoadForPendingMapChange[0];
-		ULevel*	FakePersistentLevel		= NULL;
+		ULevel*	FakePersistentLevel		= nullptr;
 		// copy to WorldInfo to keep track of the last map change we performed (primarily for servers so clients that join in progress can be notified)
 		// we don't need to remember secondary levels as the join code iterates over all streaming levels and updates them
 		Context.World()->CommittedPersistentLevelName = FakePersistentLevelName;
@@ -11147,7 +11218,7 @@ bool UEngine::CommitMapChange( FWorldContext &Context )
 
 		// Construct a new ULevelStreamingPersistent for the new persistent level.
 		ULevelStreamingPersistent* LevelStreamingPersistent = NewObject<ULevelStreamingPersistent>(
-			GetTransientPackage(),
+			Context.World(),
 			*FString::Printf(TEXT("LevelStreamingPersistent_%s"), *FakePersistentLevel->GetOutermost()->GetName()) );
 
 		// Propagate level and name to streaming object.
@@ -11157,8 +11228,16 @@ bool UEngine::CommitMapChange( FWorldContext &Context )
 		Context.World()->StreamingLevels.Add( LevelStreamingPersistent );
 
 		UWorld* FakeWorld = CastChecked<UWorld>(FakePersistentLevel->GetOuter());
-		// Add secondary levels to the world info levels array.
-		Context.World()->StreamingLevels += FakeWorld->StreamingLevels;
+
+		// Rename the newly loaded streaming levels so that their outer is correctly set to the main context's world,
+		// rather than the fake world.
+		for (ULevelStreaming* const FakeWorldStreamingLevel : FakeWorld->StreamingLevels)
+		{
+			FakeWorldStreamingLevel->Rename(nullptr, Context.World(), REN_ForceNoResetLoaders | REN_DontCreateRedirectors);
+		}
+
+		// Move the secondary levels to the world info levels array.
+		Context.World()->StreamingLevels += MoveTemp(FakeWorld->StreamingLevels);
 
 		// fixup up any kismet streaming objects to force them to be loaded if they were preloaded, this
 		// will keep streaming volumes from immediately unloading the levels that were just loaded
@@ -11371,22 +11450,22 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 	// Serialize out the modified properties on the old default object
 	TArray<uint8> SavedProperties;
 	TIndirectArray<FInstancedObjectRecord> SavedInstances;
-	TMap<FName, int32> OldInstanceMap;
+	TMap<FString, int32> OldInstanceMap;
 
-	const uint32 AdditinalPortFlags = Params.bCopyDeprecatedProperties ? PPF_UseDeprecatedProperties : PPF_None;
+	const uint32 AdditionalPortFlags = Params.bCopyDeprecatedProperties ? PPF_UseDeprecatedProperties : PPF_None;
 	// Save the modified properties of the old CDO
 	{
 		class FCopyPropertiesArchiveObjectWriter : public FObjectWriter
 		{
 		public:
-			FCopyPropertiesArchiveObjectWriter(UObject* InSrcObj, TArray<uint8>& InSrcBytes, UObject* InDstObject, bool bIgnoreClassRef, bool bIgnoreArchetypeRef, bool bDoDelta , uint32 AdditionalPortFlags, bool bInSkipCompilerGeneratedDefaults)
+			FCopyPropertiesArchiveObjectWriter(UObject* InSrcObj, TArray<uint8>& InSrcBytes, UObject* InDstObject, bool bIgnoreClassRef, bool bIgnoreArchetypeRef, bool bDoDelta , uint32 InAdditionalPortFlags, bool bInSkipCompilerGeneratedDefaults)
 				: FObjectWriter(InSrcBytes)
 			{	
 				bSkipCompilerGeneratedDefaults = bInSkipCompilerGeneratedDefaults;
 				ArIgnoreClassRef = bIgnoreClassRef;
 				ArIgnoreArchetypeRef = bIgnoreArchetypeRef;
 				ArNoDelta = !bDoDelta;
-				ArPortFlags |= AdditionalPortFlags;
+				ArPortFlags |= InAdditionalPortFlags;
 
 #if USE_STABLE_LOCALIZATION_KEYS
 				if (GIsEditor && !(ArPortFlags & PPF_DuplicateForPIE))
@@ -11410,7 +11489,7 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 			bool bSkipCompilerGeneratedDefaults;
 		};
 
-		FCopyPropertiesArchiveObjectWriter Writer(OldObject, SavedProperties, NewObject, true, true, Params.bDoDelta, AdditinalPortFlags, Params.bSkipCompilerGeneratedDefaults);
+		FCopyPropertiesArchiveObjectWriter Writer(OldObject, SavedProperties, NewObject, true, true, Params.bDoDelta, AdditionalPortFlags, Params.bSkipCompilerGeneratedDefaults);
 	}
 
 	{
@@ -11423,8 +11502,8 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 			FInstancedObjectRecord* pRecord = new(SavedInstances) FInstancedObjectRecord();
 			UObject* OldInstance = Components[Index];
 			pRecord->OldInstance = OldInstance;
-			OldInstanceMap.Add(OldInstance->GetFName(), SavedInstances.Num() - 1);
-			FObjectWriter Writer(OldInstance, pRecord->SavedProperties, true, true, true, AdditinalPortFlags);
+			OldInstanceMap.Add(OldInstance->GetPathName(OldObject), SavedInstances.Num() - 1);
+			FObjectWriter Writer(OldInstance, pRecord->SavedProperties, true, true, true, AdditionalPortFlags);
 		}
 	}
 
@@ -11447,7 +11526,7 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 		for (int32 Index = 0; Index < ComponentsOnNewObject.Num(); Index++)
 		{
 			UObject* NewInstance = ComponentsOnNewObject[Index];
-			if (int32* pOldInstanceIndex = OldInstanceMap.Find(NewInstance->GetFName()))
+			if (int32* pOldInstanceIndex = OldInstanceMap.Find(NewInstance->GetPathName(NewObject)))
 			{
 				FInstancedObjectRecord& Record = SavedInstances[*pOldInstanceIndex];
 				ReferenceReplacementMap.Add(Record.OldInstance, NewInstance);
@@ -11504,7 +11583,7 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 		for (int32 Index = 0; Index < ComponentsOnNewObject.Num(); Index++)
 		{
 			UObject* NewInstance = ComponentsOnNewObject[Index];
-			if (int32* pOldInstanceIndex = OldInstanceMap.Find(NewInstance->GetFName()))
+			if (int32* pOldInstanceIndex = OldInstanceMap.Find(NewInstance->GetPathName(NewObject)))
 			{
 				// Restore modified properties into the new instance
 				FInstancedObjectRecord& Record = SavedInstances[*pOldInstanceIndex];
@@ -11527,7 +11606,7 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 	});
 
 	// Replace references to old classes and instances on this object with the corresponding new ones
-	UPackage* NewPackage = Cast<UPackage>(NewObject->GetOutermost());
+	UPackage* NewPackage = NewObject->GetOutermost();
 	FArchiveReplaceOrClearExternalReferences<UObject> ReplaceInCDOAr(NewObject, ReferenceReplacementMap, NewPackage);
 
 	// Replace references inside each individual component. This is always required because if something is in ReferenceReplacementMap, the above replace code will skip fixing child properties
@@ -12102,7 +12181,7 @@ int32 UEngine::RenderStatLevelMap(UWorld* World, FViewport* Viewport, FCanvas* C
 	const TArray<FSubLevelStatus> SubLevelsStatusList = GetSubLevelsStatus(World);
 
 	// First iterate to find bounds of all streaming volumes
-	FBox AllVolBounds(0);
+	FBox AllVolBounds(ForceInit);
 	for (const FSubLevelStatus& LevelStatus : SubLevelsStatusList)
 	{
 		ULevelStreaming* LevelStreaming = World->GetLevelStreamingForPackageName(LevelStatus.PackageName);
@@ -12615,6 +12694,36 @@ void FAudioDevice::ResolveDesiredStats(FViewportClient* ViewportClient)
 		ClearStats |= ERequestedAudioStats::SoundMixes;
 	}
 
+	if (ViewportClient->IsStatEnabled(TEXT("Sounds")))
+	{
+		const FViewportClient::ESoundShowFlags::Type SoundShowFlags = ViewportClient->GetSoundShowFlags();
+		SetStats |= ERequestedAudioStats::Sounds;
+		
+		if (SoundShowFlags & FViewportClient::ESoundShowFlags::Debug)
+		{
+			SetStats |= ERequestedAudioStats::DebugSounds;
+		}
+		else
+		{
+			ClearStats |= ERequestedAudioStats::DebugSounds;
+		}
+
+		if (SoundShowFlags & FViewportClient::ESoundShowFlags::Long_Names)
+		{
+			SetStats |= ERequestedAudioStats::LongSoundNames;
+		}
+		else
+		{
+			ClearStats |= ERequestedAudioStats::LongSoundNames;
+		}
+	}
+	else
+	{
+		ClearStats |= ERequestedAudioStats::Sounds;
+		ClearStats |= ERequestedAudioStats::DebugSounds;
+		ClearStats |= ERequestedAudioStats::LongSoundNames;
+	}
+
 	DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.ResolveDesiredStats"), STAT_AudioResolveDesiredStats, STATGROUP_TaskGraphTasks);
 
 	FAudioDevice* AudioDevice = this;
@@ -12691,7 +12800,7 @@ int32 UEngine::RenderStatSoundWaves(UWorld* World, FViewport* Viewport, FCanvas*
 				{
 					if (WaveInstanceInfo.ActualVolume >= 0.01f)
 					{
-						WaveInstances.Add(TPairInitializer<const FAudioStats::FStatWaveInstanceInfo*, const FAudioStats::FStatSoundInfo*>(&WaveInstanceInfo, &StatSoundInfo));
+						WaveInstances.Emplace(&WaveInstanceInfo, &StatSoundInfo);
 					}
 				}
 			}
@@ -12781,7 +12890,7 @@ int32 UEngine::RenderStatSoundCues(UWorld* World, FViewport* Viewport, FCanvas* 
 // SOUNDS
 bool UEngine::ToggleStatSounds(UWorld* World, FCommonViewportClient* ViewportClient, const TCHAR* Stream)
 {
-	if( ViewportClient == nullptr )
+	if (ViewportClient == nullptr)
 	{
 		// Ignore if all Viewports are closed.
 		return false;
@@ -12806,7 +12915,7 @@ bool UEngine::ToggleStatSounds(UWorld* World, FCommonViewportClient* ViewportCli
 	uint32 OldSoundShowFlags = ViewportClient->GetSoundShowFlags();
 
 	uint32 ShowSounds = FViewportClient::ESoundShowFlags::Disabled;
-	
+
 	if (Stream)
 	{
 		const bool bHide = FParse::Command(&Stream, TEXT("off"));
@@ -12853,6 +12962,38 @@ bool UEngine::ToggleStatSounds(UWorld* World, FCommonViewportClient* ViewportCli
 		}
 	}
 
+	if (OldSoundShowFlags != FViewportClient::ESoundShowFlags::Disabled)
+	{
+		if (ShowSounds != FViewportClient::ESoundShowFlags::Disabled && ShowSounds != FViewportClient::ESoundShowFlags::Sort_Disabled)
+		{
+			if (!ViewportClient->IsStatEnabled(TEXT("Sounds")))
+			{
+				if (const TArray<FString>* CurrentStats = ViewportClient->GetEnabledStats())
+				{
+					TArray<FString> NewStats = *CurrentStats;
+					NewStats.Add(TEXT("Sounds"));
+					ViewportClient->SetEnabledStats(NewStats);
+					ViewportClient->SetShowStats(true);
+				}
+			}
+		}
+		else
+		{
+			ShowSounds = FViewportClient::ESoundShowFlags::Disabled;
+		}
+	}
+	else if (ShowSounds == FViewportClient::ESoundShowFlags::Disabled)
+	{
+		if (ViewportClient->IsStatEnabled(TEXT("Sounds")))
+		{
+			if (const TArray<FString>* CurrentStats = ViewportClient->GetEnabledStats())
+			{
+				TArray<FString> NewStats = *CurrentStats;
+				NewStats.Remove(TEXT("Sounds"));
+				ViewportClient->SetEnabledStats(NewStats);
+			}
+		}
+	}
 	ViewportClient->SetSoundShowFlags((FViewportClient::ESoundShowFlags::Type)ShowSounds);
 
 	if (FAudioDevice* AudioDevice = World->GetAudioDevice())
