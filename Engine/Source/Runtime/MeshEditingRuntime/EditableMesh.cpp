@@ -12,45 +12,25 @@
 // OpenSubdiv support
 // =========================================================
 
-	// @todo mesheditor urgent subdiv: OpenSubdiv currently isn't compiled for 32-bit; we need to do that to support runtime games properly
-
-	// Disable warning C4191: 'type cast' : unsafe conversion
+#if defined(_MSC_VER)
 	#pragma warning(push)
-	#pragma warning(disable:4191)
+	#pragma warning(disable:4191)		// Disable warning C4191: 'type cast' : unsafe conversion
+#endif
 
-	#define M_PI PI
-	#define or ||
-	#define and &&
-	#define not !
+#define M_PI PI		// OpenSubdiv is expecting M_PI to be defined already
 
-	#include "far/topologyRefinerFactory.h"
-	#include "far/topologyDescriptor.h"
-	#include "far/topologyRefiner.h"
-	#include "far/primvarRefiner.h"
+#include "far/topologyRefinerFactory.h"
+#include "far/topologyDescriptor.h"
+#include "far/topologyRefiner.h"
+#include "far/primvarRefiner.h"
 	
-	#if defined(_MSC_VER) && USING_CODE_ANALYSIS
-	#pragma warning(push)
-	#pragma warning(disable : 6011)  // Dereferencing NULL pointer 'X'
-	#pragma warning(disable : 6308)  // 'realloc' might return null pointer: assigning null pointer to 'X', which is passed as an argument to 'realloc', will cause the original memory block to be leaked.
-	#pragma warning(disable : 6385)  // Reading invalid data from 'X':  the readable size is 'Y' bytes, but 'Z' bytes may be read.
-	#pragma warning(disable : 6386)  // Buffer overrun while writing to 'X':  the writable size is 'Y' bytes, but 'Z' bytes might be written.
-	#pragma warning(disable : 28182) // Dereferencing NULL pointer. 'X' contains the same NULL value as 'Y' did.
-	#endif
+#undef M_PI
 
-	// for non manifold
-	// #include "hbr/mesh.h"
-	// #include "hbr/catmark.h"
-
-	#if defined(_MSC_VER) && USING_CODE_ANALYSIS
+#if defined(_MSC_VER)
 	#pragma warning(pop)
-	#endif
+#endif
 
-	#undef and
-	#undef not
-	#undef M_PI
-
-	// Restore warning C4191.
-	#pragma warning(pop)
+// =========================================================
 
 
 namespace EditableMesh
