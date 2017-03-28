@@ -2,6 +2,7 @@
 
 #include "MeshEditorMode.h"
 #include "MeshEditorCommands.h"
+#include "MeshEditorStyle.h"
 #include "MeshEditorModeToolkit.h"
 #include "EditableMesh.h"
 #include "EditableMeshFactory.h"
@@ -34,6 +35,8 @@
 #include "VREditorWorldInteraction.h"
 #include "MeshEditorAssetContainer.h"
 #include "Kismet/GameplayStatics.h"
+#include "UndoHelpers.h"
+
 
 #define LOCTEXT_NAMESPACE "MeshEditorMode"
 
@@ -559,8 +562,21 @@ void FMeshEditorMode::BindCommands()
 
 	RegisterPolygonCommand( MeshEditorPolygonActions.FlipPolygon, FExecuteAction::CreateLambda( [this] { FlipSelectedPolygons(); } ) );
 	RegisterPolygonCommand( MeshEditorPolygonActions.TriangulatePolygon, FExecuteAction::CreateLambda( [this] { TriangulateSelectedPolygons(); } ) );
-	RegisterPolygonCommand( MeshEditorPolygonActions.TessellatePolygon, FExecuteAction::CreateLambda( [ this ] { TessellateSelectedPolygons(); } ) );
 	RegisterPolygonCommand( MeshEditorPolygonActions.AssignMaterial, FExecuteAction::CreateLambda( [this] { AssignSelectedMaterialToSelectedPolygons(); } ) );
+
+	for( TObjectIterator<UMeshEditorPolygonCommand> PolygonCommandCDOIter( RF_NoFlags ); PolygonCommandCDOIter; ++PolygonCommandCDOIter )
+	{
+		UMeshEditorPolygonCommand* PolygonCommandCDO = *PolygonCommandCDOIter;
+		if( !( PolygonCommandCDO->GetClass()->GetClassFlags() & CLASS_Abstract ) )
+		{
+			RegisterPolygonCommand( PolygonCommandCDO->GetUICommandInfo(), FExecuteAction::CreateLambda( [this, PolygonCommandCDO]
+			{
+				bool bWasSuccessful = false;
+				PolygonCommandCDO->Execute( *this, /* Out */ bWasSuccessful );
+			} ) );
+		}
+	}
+
 
 	// Bind common actions
 	CommonCommands = MakeShared<FUICommandList>();
@@ -694,7 +710,8 @@ void FMeshEditorMode::Enter()
 	// Add toolkit
 	if( !Toolkit.IsValid() )
 	{
-		Toolkit = MakeShared< FMeshEditorModeToolkit >( *this );
+		IMeshEditorModeUIContract* UIContract = this;
+		Toolkit = MakeShared< FMeshEditorModeToolkit >( *UIContract );
 		Toolkit->Init( Owner->GetToolkitHost() );
 	}
 }
@@ -713,7 +730,7 @@ void FMeshEditorMode::Exit()
 	{
 		const FScopedTransaction Transaction( LOCTEXT( "UndoDeselectingAllMeshElements", "Deselect All Elements" ) );
 
-		StoreUndo( MeshEditorModeProxyObject, FDeselectAllMeshElementsChange( MoveTemp( FDeselectAllMeshElementsChangeInput() ) ).Execute( MeshEditorModeProxyObject ) );
+		UndoHelpers::StoreUndo( MeshEditorModeProxyObject, FDeselectAllMeshElementsChange( MoveTemp( FDeselectAllMeshElementsChangeInput() ) ).Execute( MeshEditorModeProxyObject ) );
 	}
 
 	FToolkitManager::Get().CloseToolkit( Toolkit.ToSharedRef() );
@@ -1036,7 +1053,7 @@ void FMeshEditorMode::CommitEditableMeshIfNecessary( UEditableMesh* EditableMesh
 				ChangeInput.MeshElementsToSelect.Add( NewMeshElement );
 			}
 		}
-		StoreUndo( MeshEditorModeProxyObject, FSelectOrDeselectMeshElementsChange( MoveTemp( ChangeInput ) ).Execute( MeshEditorModeProxyObject ) );
+		UndoHelpers::StoreUndo( MeshEditorModeProxyObject, FSelectOrDeselectMeshElementsChange( MoveTemp( ChangeInput ) ).Execute( MeshEditorModeProxyObject ) );
 
 		FixUpMeshElements( SelectedVertices );
 		FixUpMeshElements( SelectedEdges );
@@ -1132,6 +1149,30 @@ const UMeshEditorAssetContainer& FMeshEditorMode::GetAssetContainer() const
 	return *AssetContainer;
 }
 
+void FMeshEditorMode::SelectMeshElements( const TArray<FMeshElement>& MeshElementsToSelect )
+{
+	FCompoundChangeInput CompoundRevertInput;
+	FSelectOrDeselectMeshElementsChangeInput ChangeInput;
+	ChangeInput.MeshElementsToSelect = MeshElementsToSelect;
+
+	CompoundRevertInput.Subchanges.Add( MoveTemp( FSelectOrDeselectMeshElementsChange( MoveTemp( ChangeInput ) ).Execute( MeshEditorModeProxyObject ) ) );
+
+	UndoHelpers::StoreUndo( MeshEditorModeProxyObject, MakeUnique<FCompoundChange>( MoveTemp( CompoundRevertInput ) ) );
+}
+
+
+void FMeshEditorMode::DeselectMeshElements( const TArray<FMeshElement>& MeshElementsToDeselect )
+{
+	FCompoundChangeInput CompoundRevertInput;
+	FSelectOrDeselectMeshElementsChangeInput ChangeInput;
+	ChangeInput.MeshElementsToDeselect = MeshElementsToDeselect;
+
+	CompoundRevertInput.Subchanges.Add( MoveTemp( FSelectOrDeselectMeshElementsChange( MoveTemp( ChangeInput ) ).Execute( MeshEditorModeProxyObject ) ) );
+
+	UndoHelpers::StoreUndo( MeshEditorModeProxyObject, MakeUnique<FCompoundChange>( MoveTemp( CompoundRevertInput ) ) );
+}
+
+
 void FMeshEditorMode::DeselectMeshElements( const TMap<UEditableMesh*, TArray<FMeshElement>>& MeshElementsToDeselect )
 {
 	FCompoundChangeInput CompoundRevertInput;
@@ -1146,7 +1187,7 @@ void FMeshEditorMode::DeselectMeshElements( const TMap<UEditableMesh*, TArray<FM
 
 	CompoundRevertInput.Subchanges.Add( MoveTemp( FSelectOrDeselectMeshElementsChange( MoveTemp( ChangeInput ) ).Execute( MeshEditorModeProxyObject ) ) );
 
-	StoreUndo( MeshEditorModeProxyObject, MakeUnique<FCompoundChange>( MoveTemp( CompoundRevertInput ) ) );
+	UndoHelpers::StoreUndo( MeshEditorModeProxyObject, MakeUnique<FCompoundChange>( MoveTemp( CompoundRevertInput ) ) );
 }
 
 
@@ -1220,101 +1261,11 @@ bool FMeshEditorMode::DeleteSelectedMeshElement()
 
 		EditableMesh->EndModification();
 
-		StoreUndo( EditableMesh, EditableMesh->MakeUndo() );
+		UndoHelpers::StoreUndo( EditableMesh, EditableMesh->MakeUndo() );
 	}
 
 	// Make sure we're not still hovering over a polygon we deleted
-	StoreUndo( MeshEditorModeProxyObject, MoveTemp( ClearInvalidSelectedElements_Internal() ) );
-
-	return true;
-}
-
-
-bool FMeshEditorMode::TessellateSelectedPolygons()
-{
-	if( ActiveAction != EMeshEditAction::None )
-	{
-		return false;
-	}
-
-	static TMap<UEditableMesh*, TArray<FMeshElement>> SelectedMeshesAndPolygons;
-	GetSelectedMeshesAndPolygons( SelectedMeshesAndPolygons );
-	if( SelectedMeshesAndPolygons.Num() == 0 )
-	{
-		return false;
-	}
-
-	FScopedTransaction Transaction( LOCTEXT( "UndoTessellatePolygon", "Tessellate Polygon" ) );
-
-	CommitSelectedMeshes();
-
-	// Refresh selection (committing may have created a new mesh instance)
-	GetSelectedMeshesAndPolygons( SelectedMeshesAndPolygons );
-
-	// Deselect the mesh elements before we delete them.  This will make sure they become selected again after undo.
-	DeselectMeshElements( SelectedMeshesAndPolygons );
-
-	static TArray<FMeshElement> MeshElementsToSelect;
-	MeshElementsToSelect.Reset();
-
-	for( const auto& SelectedMeshAndPolygons : SelectedMeshesAndPolygons )
-	{
-		UEditableMesh* EditableMesh = SelectedMeshAndPolygons.Key;
-		const TArray<FMeshElement>& PolygonElements = SelectedMeshAndPolygons.Value;
-
-		static TArray<FPolygonRef> PolygonsToTessellate;
-		PolygonsToTessellate.Reset( PolygonElements.Num() );
-
-		for( const auto& PolygonElement : PolygonElements )
-		{
-			const FPolygonRef PolygonRef( PolygonElement.ElementAddress.SectionID, FPolygonID( PolygonElement.ElementAddress.ElementID ) );
-			PolygonsToTessellate.Add( PolygonRef );
-		}
-
-
-		EditableMesh->StartModification( EMeshModificationType::Final, EMeshTopologyChange::TopologyChange );
-
-		// @todo mesheditor: Expose as configurable parameter
-		const ETriangleTessellationMode TriangleTessellationMode = ETriangleTessellationMode::FourTriangles;
-
-		static TArray<FPolygonRef> NewPolygonRefs;
-		EditableMesh->TessellatePolygons( PolygonsToTessellate, TriangleTessellationMode, /* Out */ NewPolygonRefs );
-
-		// Select the new polygons
-		for( const FPolygonRef NewPolygonRef : NewPolygonRefs )
-		{
-			FMeshElement NewPolygonMeshElement;
-			{
-				NewPolygonMeshElement.Component = PolygonElements[0].Component;
-				NewPolygonMeshElement.ElementAddress = PolygonElements[0].ElementAddress;
-				NewPolygonMeshElement.ElementAddress.ElementType = EEditableMeshElementType::Polygon;
-				NewPolygonMeshElement.ElementAddress.SectionID = NewPolygonRef.SectionID;
-				NewPolygonMeshElement.ElementAddress.ElementID = NewPolygonRef.PolygonID;
-			}
-
-			MeshElementsToSelect.Add( NewPolygonMeshElement );
-		}
-
-		EditableMesh->EndModification();
-
-		StoreUndo( EditableMesh, EditableMesh->MakeUndo() );
-	}
-
-	{
-		FCompoundChangeInput CompoundRevertInput;
-
-		// Make sure we're not still hovering over a polygon we removed
-		CompoundRevertInput.Subchanges.Add( MoveTemp( ClearInvalidSelectedElements_Internal() ) );
-
-		// Select the polygon leftover after removing the edge
-		FSelectOrDeselectMeshElementsChangeInput ChangeInput;
-		ChangeInput.MeshElementsToSelect = MeshElementsToSelect;
-		CompoundRevertInput.Subchanges.Add( MoveTemp( FSelectOrDeselectMeshElementsChange( MoveTemp( ChangeInput ) ).Execute( MeshEditorModeProxyObject ) ) );
-
-		StoreUndo( MeshEditorModeProxyObject, MakeUnique<FCompoundChange>( MoveTemp( CompoundRevertInput ) ) );
-	}
-
-	StoreUndo( MeshEditorModeProxyObject, MoveTemp( ClearInvalidSelectedElements_Internal() ) );
+	ClearInvalidSelectedElements();
 
 	return true;
 }
@@ -1367,7 +1318,7 @@ void FMeshEditorMode::AddOrRemoveSubdivisionLevel( const bool bShouldAdd )
 
 			EditableMesh->EndModification();
 
-			StoreUndo( EditableMesh, EditableMesh->MakeUndo() );
+			UndoHelpers::StoreUndo( EditableMesh, EditableMesh->MakeUndo() );
 		}
 	}
 }
@@ -1404,7 +1355,7 @@ void FMeshEditorMode::QuadrangulateMesh()
 
 		FCompoundChangeInput CompoundRevertInput;
 		CompoundRevertInput.Subchanges.Add( MoveTemp( FDeselectAllMeshElementsChange( FDeselectAllMeshElementsChangeInput() ).Execute( MeshEditorModeProxyObject ) ) );
-		StoreUndo( MeshEditorModeProxyObject, MakeUnique<FCompoundChange>( MoveTemp( CompoundRevertInput ) ) );
+		UndoHelpers::StoreUndo( MeshEditorModeProxyObject, MakeUnique<FCompoundChange>( MoveTemp( CompoundRevertInput ) ) );
 
 		for( UEditableMesh* EditableMesh : SelectedMeshes )
 		{
@@ -1413,7 +1364,7 @@ void FMeshEditorMode::QuadrangulateMesh()
 			EditableMesh->QuadrangulateMesh( NewPolygonRefs );
 			EditableMesh->EndModification();
 
-			StoreUndo( EditableMesh, EditableMesh->MakeUndo() );
+			UndoHelpers::StoreUndo( EditableMesh, EditableMesh->MakeUndo() );
 		}
 	}
 }
@@ -1582,21 +1533,21 @@ bool FMeshEditorMode::RemoveSelectedEdges()
 
 		EditableMesh->EndModification();
 
-		StoreUndo( EditableMesh, EditableMesh->MakeUndo() );
+		UndoHelpers::StoreUndo( EditableMesh, EditableMesh->MakeUndo() );
 	}
 
 	{
-		FCompoundChangeInput CompoundRevertInput;
-
 		// Make sure we're not still hovering over a polygon we removed
-		CompoundRevertInput.Subchanges.Add( MoveTemp( ClearInvalidSelectedElements_Internal() ) );
+		ClearInvalidSelectedElements();
+
+		FCompoundChangeInput CompoundRevertInput;
 
 		// Select the polygon leftover after removing the edge
 		FSelectOrDeselectMeshElementsChangeInput ChangeInput;
 		ChangeInput.MeshElementsToSelect = MeshElementsToSelect;
 		CompoundRevertInput.Subchanges.Add( MoveTemp( FSelectOrDeselectMeshElementsChange( MoveTemp( ChangeInput ) ).Execute( MeshEditorModeProxyObject ) ) );
 
-		StoreUndo( MeshEditorModeProxyObject, MakeUnique<FCompoundChange>( MoveTemp( CompoundRevertInput ) ) );
+		UndoHelpers::StoreUndo( MeshEditorModeProxyObject, MakeUnique<FCompoundChange>( MoveTemp( CompoundRevertInput ) ) );
 	}
 
 	return true;
@@ -1656,7 +1607,7 @@ bool FMeshEditorMode::SelectEdgeLoops()
 		ChangeInput.MeshElementsToSelect = MeshElementsToSelect;
 		CompoundRevertInput.Subchanges.Add( MoveTemp( FSelectOrDeselectMeshElementsChange( MoveTemp( ChangeInput ) ).Execute( MeshEditorModeProxyObject ) ) );
 
-		StoreUndo( MeshEditorModeProxyObject, MakeUnique<FCompoundChange>( MoveTemp( CompoundRevertInput ) ) );
+		UndoHelpers::StoreUndo( MeshEditorModeProxyObject, MakeUnique<FCompoundChange>( MoveTemp( CompoundRevertInput ) ) );
 	}
 
 	return true;
@@ -1742,21 +1693,21 @@ bool FMeshEditorMode::RemoveSelectedVertices()
 
 		EditableMesh->EndModification();
 
-		StoreUndo( EditableMesh, EditableMesh->MakeUndo() );
+		UndoHelpers::StoreUndo( EditableMesh, EditableMesh->MakeUndo() );
 	}
 
 	{
-		FCompoundChangeInput CompoundRevertInput;
-
 		// Make sure we're not still hovering over a polygon we removed
-		CompoundRevertInput.Subchanges.Add( MoveTemp( ClearInvalidSelectedElements_Internal() ) );
+		ClearInvalidSelectedElements();
+
+		FCompoundChangeInput CompoundRevertInput;
 
 		// Select the edge that the vertex we removed was a member of
 		FSelectOrDeselectMeshElementsChangeInput ChangeInput;
 		ChangeInput.MeshElementsToSelect = MeshElementsToSelect;
 		CompoundRevertInput.Subchanges.Add( MoveTemp( FSelectOrDeselectMeshElementsChange( MoveTemp( ChangeInput ) ).Execute( MeshEditorModeProxyObject ) ) );
 
-		StoreUndo( MeshEditorModeProxyObject, MakeUnique<FCompoundChange>( MoveTemp( CompoundRevertInput ) ) );
+		UndoHelpers::StoreUndo( MeshEditorModeProxyObject, MakeUnique<FCompoundChange>( MoveTemp( CompoundRevertInput ) ) );
 	}
 
 	return true;
@@ -1836,20 +1787,21 @@ bool FMeshEditorMode::WeldSelectedVertices()
 
 		EditableMesh->EndModification();
 
-		StoreUndo( EditableMesh, EditableMesh->MakeUndo() );
+		UndoHelpers::StoreUndo( EditableMesh, EditableMesh->MakeUndo() );
 	}
 
 	{
-		FCompoundChangeInput CompoundRevertInput;
+		// Make sure we're not still hovering over a polygon we removed
+		ClearInvalidSelectedElements();
 
-		CompoundRevertInput.Subchanges.Add( MoveTemp( ClearInvalidSelectedElements_Internal() ) );
+		FCompoundChangeInput CompoundRevertInput;
 
 		// Select the vertex that was welded.
 		FSelectOrDeselectMeshElementsChangeInput ChangeInput;
 		ChangeInput.MeshElementsToSelect = MeshElementsToSelect;
 		CompoundRevertInput.Subchanges.Add( MoveTemp( FSelectOrDeselectMeshElementsChange( MoveTemp( ChangeInput ) ).Execute( MeshEditorModeProxyObject ) ) );
 
-		StoreUndo( MeshEditorModeProxyObject, MakeUnique<FCompoundChange>( MoveTemp( CompoundRevertInput ) ) );
+		UndoHelpers::StoreUndo( MeshEditorModeProxyObject, MakeUnique<FCompoundChange>( MoveTemp( CompoundRevertInput ) ) );
 	}
 
 	return true;
@@ -1899,7 +1851,7 @@ bool FMeshEditorMode::FlipSelectedPolygons()
 
 		EditableMesh->EndModification();
 
-		StoreUndo( EditableMesh, EditableMesh->MakeUndo() );
+		UndoHelpers::StoreUndo( EditableMesh, EditableMesh->MakeUndo() );
 	}
 
 	return true;
@@ -1980,21 +1932,21 @@ bool FMeshEditorMode::TriangulateSelectedPolygons()
 
 		EditableMesh->EndModification();
 
-		StoreUndo( EditableMesh, EditableMesh->MakeUndo() );
+		UndoHelpers::StoreUndo( EditableMesh, EditableMesh->MakeUndo() );
 	}
 
 	// Select the newly-created triangles
 	{
-		FCompoundChangeInput CompoundRevertInput;
-
 		// Make sure we're not still hovering over a polygon we removed
-		CompoundRevertInput.Subchanges.Add( MoveTemp( ClearInvalidSelectedElements_Internal() ) );
+		ClearInvalidSelectedElements();
+
+		FCompoundChangeInput CompoundRevertInput;
 
 		FSelectOrDeselectMeshElementsChangeInput ChangeInput;
 		ChangeInput.MeshElementsToSelect = MeshElementsToSelect;
 		CompoundRevertInput.Subchanges.Add( MoveTemp( FSelectOrDeselectMeshElementsChange( MoveTemp( ChangeInput ) ).Execute( MeshEditorModeProxyObject ) ) );
 
-		StoreUndo( MeshEditorModeProxyObject, MakeUnique<FCompoundChange>( MoveTemp( CompoundRevertInput ) ) );
+		UndoHelpers::StoreUndo( MeshEditorModeProxyObject, MakeUnique<FCompoundChange>( MoveTemp( CompoundRevertInput ) ) );
 	}
 
 
@@ -2092,21 +2044,21 @@ bool FMeshEditorMode::AssignMaterialToSelectedPolygons( UMaterialInterface* Sele
 			}
 			EditableMesh->EndModification();
 
-			StoreUndo( EditableMesh, EditableMesh->MakeUndo() );
+			UndoHelpers::StoreUndo( EditableMesh, EditableMesh->MakeUndo() );
 		}
 
 		// Select the newly-created triangles
 		{
-			FCompoundChangeInput CompoundRevertInput;
-
 			// Make sure we're not still hovering over a polygon we removed
-			CompoundRevertInput.Subchanges.Add( MoveTemp( ClearInvalidSelectedElements_Internal() ) );
+			ClearInvalidSelectedElements();
+
+			FCompoundChangeInput CompoundRevertInput;
 
 			FSelectOrDeselectMeshElementsChangeInput ChangeInput;
 			ChangeInput.MeshElementsToSelect = MeshElementsToSelect;
 			CompoundRevertInput.Subchanges.Add( MoveTemp( FSelectOrDeselectMeshElementsChange( MoveTemp( ChangeInput ) ).Execute( MeshEditorModeProxyObject ) ) );
 
-			StoreUndo( MeshEditorModeProxyObject, MakeUnique<FCompoundChange>( MoveTemp( CompoundRevertInput ) ) );
+			UndoHelpers::StoreUndo( MeshEditorModeProxyObject, MakeUnique<FCompoundChange>( MoveTemp( CompoundRevertInput ) ) );
 		}
 
 		return true;
@@ -2164,7 +2116,7 @@ bool FMeshEditorMode::MakeSelectedEdgesHardOrSoft(const bool bMakeEdgesHard)
 
 		EditableMesh->EndModification();
 
-		StoreUndo( EditableMesh, EditableMesh->MakeUndo() );
+		UndoHelpers::StoreUndo( EditableMesh, EditableMesh->MakeUndo() );
 	}
 
 	return true;
@@ -3118,7 +3070,7 @@ void FMeshEditorMode::OnViewportInteractionInputUnhandled( FEditorViewportClient
 			{
 				const FScopedTransaction Transaction( LOCTEXT( "UndoDeselectingAllMeshElements", "Deselect All Elements" ) );
 
-				StoreUndo( MeshEditorModeProxyObject, FDeselectAllMeshElementsChange( MoveTemp( FDeselectAllMeshElementsChangeInput() ) ).Execute( MeshEditorModeProxyObject ) );
+				UndoHelpers::StoreUndo( MeshEditorModeProxyObject, FDeselectAllMeshElementsChange( MoveTemp( FDeselectAllMeshElementsChangeInput() ) ).Execute( MeshEditorModeProxyObject ) );
 			}
 		}
 	}
@@ -3332,7 +3284,7 @@ void FMeshEditorMode::UpdateActiveAction( const bool bIsActionFinishing )
 	};
 
 
-	check( !IsUndoSystemAvailable() || GEditor->IsTransactionActive() );
+	check( !UndoHelpers::IsUndoSystemAvailable() || GEditor->IsTransactionActive() );
 
 	static TSet<UEditableMesh*> MeshesBeingModified;
 	MeshesBeingModified.Reset();
@@ -4397,14 +4349,10 @@ void FMeshEditorMode::UpdateActiveAction( const bool bIsActionFinishing )
 		{
 			CompoundRevertInput.Subchanges.Add( MoveTemp( FDeselectAllMeshElementsChange( FDeselectAllMeshElementsChangeInput() ).Execute( MeshEditorModeProxyObject ) ) );
 		}
-
-		// Make sure nothing is still selected that was deleted
+		else
 		{
-			TUniquePtr<FChange> ClearInvalidRevertChange = MoveTemp( ClearInvalidSelectedElements_Internal() );
-			if( ClearInvalidRevertChange.IsValid() )
-			{
-				CompoundRevertInput.Subchanges.Add( MoveTemp( ClearInvalidRevertChange ) );
-			}
+			// Make sure nothing is still selected that was deleted
+			ClearInvalidSelectedElements();
 		}
 
 		if( MeshElementsToSelect.Num() > 0 )
@@ -4587,7 +4535,7 @@ void FMeshEditorMode::UpdateActiveAction( const bool bIsActionFinishing )
 				TUniquePtr<FChange>& RevertChange = UpdateRevertChange.Get<1>();
 				check( RevertChange.IsValid() );
 
-				StoreUndo( Object, MoveTemp( RevertChange ) );
+				UndoHelpers::StoreUndo( Object, MoveTemp( RevertChange ) );
 			}
 		}
 		else
@@ -5144,7 +5092,7 @@ void FMeshEditorMode::SetMeshElementSelectionMode( EEditableMeshElementType Elem
 	const FScopedTransaction Transaction( LOCTEXT( "ChangeMeshElementSelectionMode", "Change Mesh Element Selection Mode" ) );
 	FSetElementSelectionModeChangeInput ChangeInput;
 	ChangeInput.Mode = ElementType;
-	StoreUndo( MeshEditorModeProxyObject, FSetElementSelectionModeChange( MoveTemp( ChangeInput ) ).Execute( MeshEditorModeProxyObject ) );
+	UndoHelpers::StoreUndo( MeshEditorModeProxyObject, FSetElementSelectionModeChange( MoveTemp( ChangeInput ) ).Execute( MeshEditorModeProxyObject ) );
 }
 
 
@@ -5204,6 +5152,14 @@ TUniquePtr<FChange> FMeshEditorMode::ClearInvalidSelectedElements_Internal()
 	}
 
 	return RevertInput.MeshElementsToDeselect.Num() > 0 ? ( FSelectOrDeselectMeshElementsChange( MoveTemp( RevertInput ) ).Execute( MeshEditorModeProxyObject ) ) : nullptr;
+}
+
+
+void FMeshEditorMode::ClearInvalidSelectedElements()
+{
+	// Make sure we're not still hovering over a polygon we removed
+	TUniquePtr<FChange> RevertChange = ClearInvalidSelectedElements_Internal();
+	UndoHelpers::StoreUndo( MeshEditorModeProxyObject, MoveTemp( RevertChange ) );
 }
 
 
@@ -5513,7 +5469,7 @@ void FMeshEditorMode::OnViewportInteractionInputAction( FEditorViewportClient& V
 
 						FSelectOrDeselectMeshElementsChangeInput ChangeInput;
 						ChangeInput.MeshElementsToDeselect.Add( SelectedMeshElements[ AlreadySelectedMeshElement ] );
-						StoreUndo( MeshEditorModeProxyObject, FSelectOrDeselectMeshElementsChange( MoveTemp( ChangeInput ) ).Execute( MeshEditorModeProxyObject ) );
+						UndoHelpers::StoreUndo( MeshEditorModeProxyObject, FSelectOrDeselectMeshElementsChange( MoveTemp( ChangeInput ) ).Execute( MeshEditorModeProxyObject ) );
 					}
 					else if( MeshElementSelectionMode == EEditableMeshElementType::Any || MeshElementSelectionMode == MeshEditorInteractorData.HoveredMeshElement.ElementAddress.ElementType )
 					{
@@ -5548,7 +5504,7 @@ void FMeshEditorMode::OnViewportInteractionInputAction( FEditorViewportClient& V
 						{
 							// If select by painting is disabled, add a transaction immediately
 							const FScopedTransaction Transaction( LOCTEXT( "SelectElement", "Select Element" ) );
-							StoreUndo( MeshEditorModeProxyObject, MoveTemp( RevertChange ) );
+							UndoHelpers::StoreUndo( MeshEditorModeProxyObject, MoveTemp( RevertChange ) );
 						}
 					}
 				}
@@ -5597,7 +5553,7 @@ void FMeshEditorMode::OnViewportInteractionInputAction( FEditorViewportClient& V
 							// canceled our transaction while the mouse was down.
 							if( GUndo != nullptr )
 							{
-								StoreUndo( MeshEditorModeProxyObject, MakeUnique<FCompoundChange>( MoveTemp( *SelectingByPaintingRevertChangeInput.Release() ) ) );
+								UndoHelpers::StoreUndo( MeshEditorModeProxyObject, MakeUnique<FCompoundChange>( MoveTemp( *SelectingByPaintingRevertChangeInput.Release() ) ) );
 							}
 						}
 						SelectingByPaintingRevertChangeInput.Reset();
@@ -5643,7 +5599,7 @@ void FMeshEditorMode::FinishAction()
 	// @todo mesheditor: Make sure this is called before Undo is invoked (PreEditUndo!), otherwise the previous action will be undone instead of the active one
 
 	check( ActiveAction != EMeshEditAction::None );
-	check( !IsUndoSystemAvailable() || GEditor->IsTransactionActive() );	// Someone must have started a transaction! (It might not have been us though.)
+	check( !UndoHelpers::IsUndoSystemAvailable() || GEditor->IsTransactionActive() );	// Someone must have started a transaction! (It might not have been us though.)
 
 	const bool bIsActionFinishing = true;
 
@@ -5682,25 +5638,6 @@ void FMeshEditorMode::FinishAction()
 	{
 		RefreshTransformables();
 	}
-}
-
-
-bool FMeshEditorMode::IsUndoSystemAvailable()
-{
-	return GUndo != nullptr;
-}
-
-
-void FMeshEditorMode::StoreUndo( UObject* Object, TUniquePtr<FChange> UndoChange )
-{
-	// Did you forget to use an FScopedTransaction?  If GUndo was null, then most likely we forgot to wrap this call within an editor transaction.
-	// The only exception is in Simulate mode, where Undo is not allowed.
-	check( IsUndoSystemAvailable() || GEditor == nullptr || GEditor->bIsSimulatingInEditor );
-
-	if( IsUndoSystemAvailable() )
-	{
-		GUndo->StoreUndo( Object, MoveTemp( UndoChange ) );
-	}	
 }
 
 
@@ -6043,7 +5980,7 @@ void FMeshEditorMode::PerformMarqueeSelect( EEditableMeshElementType ElementType
 			break;
 	}
 
-	StoreUndo( MeshEditorModeProxyObject, FSelectOrDeselectMeshElementsChange( MoveTemp( ChangeInput ) ).Execute( MeshEditorModeProxyObject ) );
+	UndoHelpers::StoreUndo( MeshEditorModeProxyObject, FSelectOrDeselectMeshElementsChange( MoveTemp( ChangeInput ) ).Execute( MeshEditorModeProxyObject ) );
 }
 
 
@@ -6169,7 +6106,7 @@ void FMeshEditorMode::OnActorSelectionChanged( const TArray<UObject*>& NewSelect
 
 			if( ChangeInput.MeshElementsToDeselect.Num() > 0 || ChangeInput.MeshElementsToSelect.Num() > 0 )
 			{
-				StoreUndo( MeshEditorModeProxyObject, FDeselectAllMeshElementsChange( MoveTemp( FDeselectAllMeshElementsChangeInput() ) ).Execute( MeshEditorModeProxyObject ) );
+				UndoHelpers::StoreUndo( MeshEditorModeProxyObject, FDeselectAllMeshElementsChange( MoveTemp( FDeselectAllMeshElementsChangeInput() ) ).Execute( MeshEditorModeProxyObject ) );
 			}
 		}
 	}

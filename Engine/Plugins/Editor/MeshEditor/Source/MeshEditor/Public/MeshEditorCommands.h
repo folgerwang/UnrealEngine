@@ -2,23 +2,52 @@
 
 #pragma once
 
-#include "MeshEditorStyle.h"
+#include "MeshEditorCommands.generated.h"
 
-#define LOCTEXT_NAMESPACE "MeshEditorCommands"
+
+UCLASS( abstract )
+class MESHEDITOR_API UMeshEditorCommand : public UObject
+{
+	GENERATED_BODY()
+
+public:
+
+	/** Registers the UI command for this mesh editor command */
+	virtual void RegisterUICommand( class FBindingContext* BindingContext ) PURE_VIRTUAL(,);
+
+	/** Runs this command */
+	virtual void Execute( class IMeshEditorModeEditingContract& MeshEditorMode, bool& bOutWasSuccessful ) PURE_VIRTUAL(,);
+
+	/** Gets the UI command info for this command */
+	const TSharedPtr<class FUICommandInfo>& GetUICommandInfo() const
+	{
+		return UICommandInfo;
+	}
+
+
+protected:
+
+	/** Our UI command for this action */
+	TSharedPtr<FUICommandInfo> UICommandInfo;
+};
+
+
+UCLASS( abstract )
+class MESHEDITOR_API UMeshEditorPolygonCommand : public UMeshEditorCommand
+{
+	GENERATED_BODY()
+
+public:
+
+};
+
+
 
 // Actions that can be invoked from this mode regardless of what type of elements are selected
 class FMeshEditorCommonCommands : public TCommands<FMeshEditorCommonCommands>
 {
 public:
-	FMeshEditorCommonCommands() : TCommands<FMeshEditorCommonCommands>
-	(
-		"MeshEditorCommon",
-		LOCTEXT("MeshEditorGeneral", "Mesh Editor Common"),
-		"MainFrame",
-		FMeshEditorStyle::GetStyleSetName()
-	)
-	{
-	}
+	FMeshEditorCommonCommands();
 
 	// TCommands<> interface
 	virtual void RegisterCommands() override;
@@ -64,15 +93,7 @@ public:
 class FMeshEditorVertexCommands : public TCommands<FMeshEditorVertexCommands>
 {
 public:
-	FMeshEditorVertexCommands() : TCommands<FMeshEditorVertexCommands>
-		(
-			"MeshEditorVertex",
-			LOCTEXT("MeshEditorVertex", "Mesh Editor Vertex"),
-			"MeshEditorCommon",
-			FMeshEditorStyle::GetStyleSetName()
-			)
-	{
-	}
+	FMeshEditorVertexCommands();
 
 	// TCommands<> interface
 	virtual void RegisterCommands() override;
@@ -101,15 +122,7 @@ public:
 class FMeshEditorEdgeCommands : public TCommands<FMeshEditorEdgeCommands>
 {
 public:
-	FMeshEditorEdgeCommands() : TCommands<FMeshEditorEdgeCommands>
-		(
-			"MeshEditorEdge",
-			LOCTEXT("MeshEditorEdge", "Mesh Editor Edge"),
-			"MeshEditorCommon",
-			FMeshEditorStyle::GetStyleSetName()
-			)
-	{
-	}
+	FMeshEditorEdgeCommands();
 
 	// TCommands<> interface
 	virtual void RegisterCommands() override;
@@ -153,15 +166,7 @@ public:
 class FMeshEditorPolygonCommands : public TCommands<FMeshEditorPolygonCommands>
 {
 public:
-	FMeshEditorPolygonCommands() : TCommands<FMeshEditorPolygonCommands>
-		(
-			"MeshEditorPolygon",
-			LOCTEXT("MeshEditorPolygon", "Mesh Editor Polygon"),
-			"MeshEditorCommon",
-			FMeshEditorStyle::GetStyleSetName()
-			)
-	{
-	}
+	FMeshEditorPolygonCommands();
 
 	// TCommands<> interface
 	virtual void RegisterCommands() override;
@@ -190,11 +195,7 @@ public:
 	/** Triangulates the currently selected polygon(s) */
 	TSharedPtr<FUICommandInfo> TriangulatePolygon;
 
-	/** Tessellates selected polygons into smaller polygons */
-	TSharedPtr<FUICommandInfo> TessellatePolygon;
-
 	/** Assigns the highlighted material to the currently selected polygon(s) */
 	TSharedPtr<FUICommandInfo> AssignMaterial;
 };
 
-#undef LOCTEXT_NAMESPACE

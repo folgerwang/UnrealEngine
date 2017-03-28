@@ -13,6 +13,8 @@
 #include "IVREditorModule.h"
 #include "VREditorMode.h"
 #include "Editor.h"
+#include "IMeshEditorModeUIContract.h"
+
 
 #define LOCTEXT_NAMESPACE "MeshEditor"
 
@@ -191,9 +193,10 @@ void FMeshEditorModule::OnMeshEditModeButtonClicked(EEditableMeshElementType InM
 	}
 
 	FMeshEditorMode* MeshEditorMode = static_cast<FMeshEditorMode*>( GLevelEditorModeTools().FindMode( GetEditorModeID() ) );
-	if (MeshEditorMode != nullptr)
+	if ( MeshEditorMode != nullptr)
 	{
-		MeshEditorMode->SetMeshElementSelectionMode(InMode);
+		IMeshEditorModeUIContract* MeshEditorModeUIContract = (IMeshEditorModeUIContract*)MeshEditorMode;
+		MeshEditorModeUIContract->SetMeshElementSelectionMode(InMode);
 
 		UVREditorMode* VREditorMode = IVREditorModule::Get().GetVRMode();
 		if( VREditorMode != nullptr )
@@ -207,10 +210,11 @@ ECheckBoxState FMeshEditorModule::IsMeshEditModeButtonChecked(EEditableMeshEleme
 {
 	bool bMeshModeActive = false;
 
-	FMeshEditorMode* MeshEditorMode = static_cast<FMeshEditorMode*>( GLevelEditorModeTools().FindMode( GetEditorModeID() ) );
+	const FMeshEditorMode* MeshEditorMode = static_cast<FMeshEditorMode*>( GLevelEditorModeTools().FindMode( GetEditorModeID() ) );
 	if( MeshEditorMode != nullptr )
 	{
-		bMeshModeActive = MeshEditorMode->GetMeshElementSelectionMode() == InMode;
+		const IMeshEditorModeUIContract* MeshEditorModeUIContract = (const IMeshEditorModeUIContract*)MeshEditorMode;
+		bMeshModeActive = MeshEditorModeUIContract->GetMeshElementSelectionMode() == InMode;
 	}
 	return bMeshModeActive ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 }

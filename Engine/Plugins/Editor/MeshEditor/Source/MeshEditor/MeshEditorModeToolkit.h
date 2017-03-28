@@ -2,8 +2,8 @@
 
 #pragma once
 #include "Toolkits/BaseToolkit.h"
-#include "MeshEditorMode.h"
 #include "EditorModeManager.h"
+
 
 /** Mesh Editor Mode widget for controls */
 class SMeshEditorModeControls : public SCompoundWidget
@@ -15,16 +15,10 @@ public:
 public:
 
 	/** SCompoundWidget functions */
-	void Construct( const FArguments& InArgs );
+	void Construct( const FArguments& InArgs, class IMeshEditorModeUIContract& MeshEditorMode );
 
 protected:
 
-	FMeshEditorMode* GetMeshEditorMode() const
-	{
-		return static_cast<FMeshEditorMode*>( GLevelEditorModeTools().GetActiveMode( "MeshEditor" ) );
-	}
-
-private:
 };
 
 
@@ -35,7 +29,7 @@ class FMeshEditorModeToolkit : public FModeToolkit
 {
 public:
 
-	FMeshEditorModeToolkit( FMeshEditorMode& InMeshEditorMode )
+	FMeshEditorModeToolkit( class IMeshEditorModeUIContract& InMeshEditorMode )
 		: MeshEditorMode( InMeshEditorMode )
 	{}
 
@@ -57,5 +51,5 @@ private:
 	TSharedPtr<SMeshEditorModeControls> ToolkitWidget;
 
 	/** Reference to the owning FMeshEditorMode */
-	FMeshEditorMode& MeshEditorMode;
+	IMeshEditorModeUIContract& MeshEditorMode;
 };

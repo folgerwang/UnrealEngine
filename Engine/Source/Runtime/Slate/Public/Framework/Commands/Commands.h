@@ -15,9 +15,11 @@
 SLATE_API void UI_COMMAND_Function( FBindingContext* This, TSharedPtr< FUICommandInfo >& OutCommand, const TCHAR* OutSubNamespace, const TCHAR* OutCommandName, const TCHAR* OutCommandNameUnderscoreTooltip, const ANSICHAR* DotOutCommandName, const TCHAR* FriendlyName, const TCHAR* InDescription, const EUserInterfaceActionType::Type CommandType, const FInputChord& InDefaultChord );
 
 // This macro requires LOCTEXT_NAMESPACE to be defined. If you don't want the command to be placed under a sub namespace, provide "" as the namespace.
+#define UI_COMMAND_EXT( BindingContext, CommandId, FriendlyName, InDescription, CommandType, InDefaultChord ) \
+	UI_COMMAND_Function( BindingContext, CommandId, TEXT(LOCTEXT_NAMESPACE), TEXT(#CommandId), TEXT(#CommandId) TEXT("_ToolTip"), "." #CommandId, TEXT(FriendlyName), TEXT(InDescription), CommandType, InDefaultChord );
 #define UI_COMMAND( CommandId, FriendlyName, InDescription, CommandType, InDefaultChord ) \
-	UI_COMMAND_Function( this, CommandId, TEXT(LOCTEXT_NAMESPACE), TEXT(#CommandId), TEXT(#CommandId) TEXT("_ToolTip"), "." #CommandId, TEXT(FriendlyName), TEXT(InDescription), CommandType, InDefaultChord );
-
+	UI_COMMAND_EXT( this, CommandId, FriendlyName, InDescription, CommandType, InDefaultChord )
+	
 #undef LOC_DEFINE_REGION
 
 /** A base class for a set of commands. Inherit from it to make a set of commands. See MainFrameActions for an example. */

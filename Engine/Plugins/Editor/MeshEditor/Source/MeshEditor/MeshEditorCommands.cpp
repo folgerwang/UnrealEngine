@@ -1,8 +1,19 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "MeshEditorCommands.h"
+#include "MeshEditorStyle.h"
 
 #define LOCTEXT_NAMESPACE "MeshEditorCommands"
+
+FMeshEditorCommonCommands::FMeshEditorCommonCommands() 
+	: TCommands<FMeshEditorCommonCommands>(
+		"MeshEditorCommon",
+		LOCTEXT( "MeshEditorGeneral", "Mesh Editor Common" ),
+		"MainFrame",
+		FMeshEditorStyle::GetStyleSetName()	)
+{
+}
+
 
 void FMeshEditorCommonCommands::RegisterCommands()
 {
@@ -22,6 +33,16 @@ void FMeshEditorCommonCommands::RegisterCommands()
 	UI_COMMAND(QuadrangulateMesh, "Quadrangulate Mesh", "Quadrangulates the selected mesh.", EUserInterfaceActionType::Button, FInputChord());
 }
 
+FMeshEditorVertexCommands::FMeshEditorVertexCommands() 
+	: TCommands<FMeshEditorVertexCommands>(
+		"MeshEditorVertex",
+		LOCTEXT("MeshEditorVertex", "Mesh Editor Vertex"),
+		"MeshEditorCommon",
+		FMeshEditorStyle::GetStyleSetName())
+{
+}
+
+
 void FMeshEditorVertexCommands::RegisterCommands()
 {
 	UI_COMMAND(MoveVertex, "Move Vertex Mode", "Set the primary action to move vertices.", EUserInterfaceActionType::RadioButton, FInputChord(EKeys::F1));
@@ -31,6 +52,16 @@ void FMeshEditorVertexCommands::RegisterCommands()
 	UI_COMMAND(RemoveVertex, "Remove Vertex", "Remove the selected vertex if possible.", EUserInterfaceActionType::Button, FInputChord(EKeys::BackSpace));
 	UI_COMMAND(WeldVertices, "Weld Vertices", "Weld the selected vertices, keeping the first selected vertex.", EUserInterfaceActionType::Button, FInputChord());
 }
+
+FMeshEditorEdgeCommands::FMeshEditorEdgeCommands()
+	: TCommands<FMeshEditorEdgeCommands>(
+		"MeshEditorEdge",
+		LOCTEXT("MeshEditorEdge", "Mesh Editor Edge"),
+		"MeshEditorCommon",
+		FMeshEditorStyle::GetStyleSetName() )
+{
+}
+
 
 void FMeshEditorEdgeCommands::RegisterCommands()
 {
@@ -47,6 +78,16 @@ void FMeshEditorEdgeCommands::RegisterCommands()
 	UI_COMMAND(SelectEdgeLoop, "Select Edge Loop", "Select the edge loops which contain the selected edges.", EUserInterfaceActionType::Button, FInputChord(EKeys::Two, EModifierKey::Shift));
 }
 
+FMeshEditorPolygonCommands::FMeshEditorPolygonCommands() 
+	: TCommands<FMeshEditorPolygonCommands>(
+		"MeshEditorPolygon",
+		LOCTEXT("MeshEditorPolygon", "Mesh Editor Polygon"),
+		"MeshEditorCommon",
+		FMeshEditorStyle::GetStyleSetName() )
+{
+}
+
+
 void FMeshEditorPolygonCommands::RegisterCommands()
 {
 	UI_COMMAND(MovePolygon, "Move Polygon Mode", "Set the primary action to move polygons.", EUserInterfaceActionType::RadioButton, FInputChord(EKeys::F1));
@@ -57,8 +98,16 @@ void FMeshEditorPolygonCommands::RegisterCommands()
 
 	UI_COMMAND(FlipPolygon, "Flip Polygon", "Flip the currently selected polygons.", EUserInterfaceActionType::Button, FInputChord(EKeys::F, EModifierKey::Shift));
 	UI_COMMAND(TriangulatePolygon, "Triangulate Polygon", "Triangulate the currently selected polygons.", EUserInterfaceActionType::Button, FInputChord(EKeys::T));
-	UI_COMMAND(TessellatePolygon, "Tessellate Selected Polygons", "Tessellate selected polygons into smaller polygons.", EUserInterfaceActionType::Button, FInputChord());
 	UI_COMMAND(AssignMaterial, "Assign Material", "Assigns the highlighted material in the Content Browser to the currently selected polygons.", EUserInterfaceActionType::Button, FInputChord(EKeys::M));
+
+	for( TObjectIterator<UMeshEditorPolygonCommand> PolygonCommandCDOIter( RF_NoFlags ); PolygonCommandCDOIter; ++PolygonCommandCDOIter )
+	{
+		UMeshEditorPolygonCommand* PolygonCommandCDO = *PolygonCommandCDOIter;
+		if( !( PolygonCommandCDO->GetClass()->GetClassFlags() & CLASS_Abstract ) )
+		{
+			PolygonCommandCDO->RegisterUICommand( this );
+		}
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

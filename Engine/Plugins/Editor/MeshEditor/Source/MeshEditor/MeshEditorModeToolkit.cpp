@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MeshEditorModeToolkit.h"
-#include "MeshEditorMode.h"
+#include "IMeshEditorModeUIContract.h"
 #include "MeshEditorCommands.h"
 #include "MeshEditorStyle.h"
 #include "SWidgetSwitcher.h"
@@ -119,7 +119,7 @@ public:
 	SLATE_END_ARGS()
 
 public:
-	void Construct( const FArguments& InArgs, FMeshEditorMode& MeshEditorMode, EEditableMeshElementType ElementType, const FText& Label )
+	void Construct( const FArguments& InArgs, IMeshEditorModeUIContract& MeshEditorMode, EEditableMeshElementType ElementType, const FText& Label )
 	{
 		ChildSlot
 		[
@@ -149,39 +149,36 @@ public:
 };
 
 
-void SMeshEditorModeControls::Construct( const FArguments& InArgs )
+void SMeshEditorModeControls::Construct( const FArguments& InArgs, IMeshEditorModeUIContract& MeshEditorMode )
 {
-	FMeshEditorMode* MeshEditorMode = GetMeshEditorMode();
-	check( MeshEditorMode );
-
 	// Uses the widget switcher widget so only the widget in the slot which corresponds to the selected mesh element type will be shown
 	TSharedRef<SWidgetSwitcher> WidgetSwitcher = SNew( SWidgetSwitcher )
-		.WidgetIndex_Lambda( [MeshEditorMode]() -> int32
+		.WidgetIndex_Lambda( [&MeshEditorMode]() -> int32
 			{
-				if( MeshEditorMode->GetMeshElementSelectionMode() != EEditableMeshElementType::Any )
+				if( MeshEditorMode.GetMeshElementSelectionMode() != EEditableMeshElementType::Any )
 				{
-					return static_cast<int32>( MeshEditorMode->GetMeshElementSelectionMode() );
+					return static_cast<int32>( MeshEditorMode.GetMeshElementSelectionMode() );
 				}
 				else
 				{
-					return static_cast<int32>( MeshEditorMode->GetSelectedMeshElementType() );
+					return static_cast<int32>( MeshEditorMode.GetSelectedMeshElementType() );
 				}
 			} 
 		);
 
 	WidgetSwitcher->AddSlot( static_cast<int32>( EEditableMeshElementType::Vertex ) )
 	[
-		SNew( SMeshEditorModeControlWidget, MeshEditorMode->GetVertexActions() )
+		SNew( SMeshEditorModeControlWidget, MeshEditorMode.GetVertexActions() )
 	];
 
 	WidgetSwitcher->AddSlot( static_cast<int32>( EEditableMeshElementType::Edge ) )
 	[
-		SNew( SMeshEditorModeControlWidget, MeshEditorMode->GetEdgeActions() )
+		SNew( SMeshEditorModeControlWidget, MeshEditorMode.GetEdgeActions() )
 	];
 
 	WidgetSwitcher->AddSlot( static_cast<int32>( EEditableMeshElementType::Polygon ) )
 	[
-		SNew( SMeshEditorModeControlWidget, MeshEditorMode->GetPolygonActions() )
+		SNew( SMeshEditorModeControlWidget, MeshEditorMode.GetPolygonActions() )
 	];
 
 	WidgetSwitcher->AddSlot( static_cast<int32>( EEditableMeshElementType::Invalid ) )
@@ -218,25 +215,25 @@ void SMeshEditorModeControls::Construct( const FArguments& InArgs )
 				.FillWidth( 1 )
 				.Padding( 2 )
 				[
-					SNew( SMeshEditorSelectionModeWidget, *MeshEditorMode, EEditableMeshElementType::Vertex, LOCTEXT( "Vertices", "Vertices" ) )
+					SNew( SMeshEditorSelectionModeWidget, MeshEditorMode, EEditableMeshElementType::Vertex, LOCTEXT( "Vertices", "Vertices" ) )
 				]
 				+SHorizontalBox::Slot()
 				.FillWidth( 1 )
 				.Padding( 2 )
 				[
-					SNew( SMeshEditorSelectionModeWidget, *MeshEditorMode, EEditableMeshElementType::Edge, LOCTEXT( "Edges", "Edges" ) )
+					SNew( SMeshEditorSelectionModeWidget, MeshEditorMode, EEditableMeshElementType::Edge, LOCTEXT( "Edges", "Edges" ) )
 				]
 				+SHorizontalBox::Slot()
 				.FillWidth( 1 )
 				.Padding( 2 )
 				[
-					SNew( SMeshEditorSelectionModeWidget, *MeshEditorMode, EEditableMeshElementType::Polygon, LOCTEXT( "Polygons", "Polygons" ) )
+					SNew( SMeshEditorSelectionModeWidget, MeshEditorMode, EEditableMeshElementType::Polygon, LOCTEXT( "Polygons", "Polygons" ) )
 				]
 				+SHorizontalBox::Slot()
 				.FillWidth( 1 )
 				.Padding( 2 )
 				[
-					SNew( SMeshEditorSelectionModeWidget, *MeshEditorMode, EEditableMeshElementType::Any, LOCTEXT( "Any", "Any" ) )
+					SNew( SMeshEditorSelectionModeWidget, MeshEditorMode, EEditableMeshElementType::Any, LOCTEXT( "Any", "Any" ) )
 				]
 			]
 			+SVerticalBox::Slot()
@@ -254,8 +251,8 @@ void SMeshEditorModeControls::Construct( const FArguments& InArgs )
 					.VAlign( VAlign_Center )
 					.Text( LOCTEXT( "Propagate", "Propagate" ) )
 					.ToolTip( SNew( SToolTip ).Text( LOCTEXT( "PropagateTooltip", "Propagates per-instance changes to the static mesh asset itself." ) ) )
-					.IsEnabled_Lambda( [ MeshEditorMode ] { return false; /*MeshEditorMode->CanPropagateInstanceChanges(); */ } )
-					.OnClicked_Lambda( [ MeshEditorMode ] { MeshEditorMode->PropagateInstanceChanges(); return FReply::Handled(); } )
+					.IsEnabled_Lambda( [ &MeshEditorMode ] { return false; /*MeshEditorMode.CanPropagateInstanceChanges(); */ } )
+					.OnClicked_Lambda( [ &MeshEditorMode ] { MeshEditorMode.PropagateInstanceChanges(); return FReply::Handled(); } )
 				]
 				+SHorizontalBox::Slot()
 				.AutoWidth()
@@ -269,8 +266,8 @@ void SMeshEditorModeControls::Construct( const FArguments& InArgs )
 						.Style( FMeshEditorStyle::Get(), "SelectionMode.Entry" )
 						.HAlign( HAlign_Fill )
 						.ToolTip( SNew( SToolTip ).Text( LOCTEXT( "PerInstanceTooltip", "Toggles editing mode between editing instances and editing the original static mesh asset." ) ) )
-						.IsChecked_Lambda( [ MeshEditorMode ] { return ( MeshEditorMode->IsEditingPerInstance() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked ); } )
-						.OnCheckStateChanged_Lambda( [ MeshEditorMode ]( ECheckBoxState State ) { MeshEditorMode->SetEditingPerInstance( State == ECheckBoxState::Checked ); } )
+						.IsChecked_Lambda( [ &MeshEditorMode ] { return ( MeshEditorMode.IsEditingPerInstance() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked ); } )
+						.OnCheckStateChanged_Lambda( [ &MeshEditorMode ]( ECheckBoxState State ) { MeshEditorMode.SetEditingPerInstance( State == ECheckBoxState::Checked ); } )
 						[
 							SNew( SHorizontalBox )
 							+SHorizontalBox::Slot()
@@ -310,7 +307,7 @@ void FMeshEditorModeToolkit::UnregisterTabSpawners( const TSharedRef<FTabManager
 
 void FMeshEditorModeToolkit::Init( const TSharedPtr<IToolkitHost>& InitToolkitHost )
 {
-	ToolkitWidget = SNew( SMeshEditorModeControls );
+	ToolkitWidget = SNew( SMeshEditorModeControls, MeshEditorMode );
 
 	FModeToolkit::Init( InitToolkitHost );
 }

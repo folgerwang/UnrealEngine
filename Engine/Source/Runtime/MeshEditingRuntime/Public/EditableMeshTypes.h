@@ -5,7 +5,6 @@
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
 #include "UObject/ScriptMacros.h"
-#include "Materials/MaterialInterface.h"
 #include "EditableMeshTypes.generated.h"
 
 // @todo mesheditor: Move elsewhere
@@ -1149,7 +1148,7 @@ struct FSectionToCreate
 
 	/** Material to assign to the new section */
 	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
-	UMaterialInterface* Material;
+	class UMaterialInterface* Material;
 
 	/** Whether the new section should have collision enabled */
 	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )

@@ -20,6 +20,11 @@
 			"Name" : "MeshEditor",
 			"Type" : "Editor",
 			"LoadingPhase" : "Default"
+		},
+		{
+			"Name" : "PolygonModeling",
+			"Type" : "Editor",
+			"LoadingPhase" : "Default"
 		}
 	]
 }
