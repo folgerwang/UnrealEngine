@@ -2,7 +2,6 @@
 
 #include "TessellatePolygons.h"
 #include "IMeshEditorModeEditingContract.h"
-#include "UndoHelpers.h"
 #include "UICommandInfo.h"
 #include "EditableMesh.h"
 #include "MeshElement.h"
@@ -13,14 +12,13 @@
 
 void UTessellatePolygonsCommand::RegisterUICommand( FBindingContext* BindingContext )
 {
-	UI_COMMAND_EXT( BindingContext, UICommandInfo, "Tessellate Selected Polygons", "Tessellate selected polygons into smaller polygons.", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "TessellatePolygons", "Tessellate Selected Polygons", "Tessellate selected polygons into smaller polygons.", EUserInterfaceActionType::Button, FInputChord() );
 }
 
 
-void UTessellatePolygonsCommand::Execute( IMeshEditorModeEditingContract& MeshEditorMode, bool& bOutWasSuccessful )
+void UTessellatePolygonsCommand::Execute( IMeshEditorModeEditingContract& MeshEditorMode )
 {
-	bOutWasSuccessful = false;
-	if( MeshEditorMode.GetActiveAction() != IMeshEditorModeEditingContract::EMeshEditAction::None )
+	if( MeshEditorMode.GetActiveAction() != EMeshEditAction::None )
 	{
 		return;
 	}
@@ -85,7 +83,7 @@ void UTessellatePolygonsCommand::Execute( IMeshEditorModeEditingContract& MeshEd
 
 		EditableMesh->EndModification();
 
-		UndoHelpers::StoreUndo( EditableMesh, EditableMesh->MakeUndo() );
+		MeshEditorMode.TrackUndo( EditableMesh, EditableMesh->MakeUndo() );
 	}
 
 	// Make sure we're not still hovering over a polygon we removed
@@ -93,8 +91,6 @@ void UTessellatePolygonsCommand::Execute( IMeshEditorModeEditingContract& MeshEd
 
 	// Select the new smaller polygons
 	MeshEditorMode.SelectMeshElements( MeshElementsToSelect );
-
-	bOutWasSuccessful = true;
 }
 
 

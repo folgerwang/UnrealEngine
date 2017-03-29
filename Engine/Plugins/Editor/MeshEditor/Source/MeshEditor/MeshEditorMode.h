@@ -30,7 +30,7 @@ public:
 /**
  * Mesh Editor Mode.  Extends editor viewports with the ability to edit meshes
  */
-class FMeshEditorMode : public FEdMode, protected IMeshEditorModeUIContract, protected IMeshEditorModeEditingContract
+class FMeshEditorMode : public FEdMode, protected IMeshEditorModeUIContract
 {
 public:
 
@@ -154,6 +154,8 @@ protected:
 	}
 	virtual void SetMeshElementSelectionMode( EEditableMeshElementType ElementType ) override;
 	virtual EEditableMeshElementType GetSelectedMeshElementType() const override;
+	virtual bool IsMeshElementTypeSelected( EEditableMeshElementType ElementType ) const override { return GetSelectedMeshElementType() == ElementType; }
+	virtual bool IsMeshElementTypeSelectedOrIsActiveSelectionMode( EEditableMeshElementType ElementType ) const override { return GetMeshElementSelectionMode() == ElementType || GetSelectedMeshElementType() == ElementType; }
 	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetVertexActions() const override { return VertexActions; }
 	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetEdgeActions() const override { return EdgeActions; }
 	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetPolygonActions() const override { return PolygonActions; }
@@ -161,37 +163,40 @@ protected:
 	virtual void SetEditingPerInstance( bool bPerInstance ) override { bPerInstanceEdits = bPerInstance; }
 	virtual void PropagateInstanceChanges() override;
 	virtual bool CanPropagateInstanceChanges() const override;
+	virtual EMeshEditAction::Type GetEquippedAction( const EEditableMeshElementType ForElementType ) const override;
+	virtual void SetEquippedAction( const EEditableMeshElementType ForElementType, const EMeshEditAction::Type ActionToEquip ) override;
 
 	// IMeshEditorModeEditingContract interface
-	virtual EMeshEditAction GetActiveAction() const	override { return ActiveAction; }
+	virtual EMeshEditAction::Type GetActiveAction() const override { return ActiveAction; }
+	virtual void TrackUndo( UObject* Object, TUniquePtr<FChange> RevertChange ) override;
 	virtual void CommitSelectedMeshes() override;
 	virtual void GetSelectedMeshesAndVertices( TMap<UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndVertices ) override 
 	{
-		GetSelectedMeshesAndElements( EEditableMeshElementType::Vertex, OutMeshesAndVertices ); 
+		GetSelectedMeshesAndElements( EEditableMeshElementType::Vertex, /* Out */ OutMeshesAndVertices ); 
 	}
 	virtual void GetSelectedMeshesAndEdges( TMap<UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndEdges ) override 
 	{
-		GetSelectedMeshesAndElements( EEditableMeshElementType::Edge, OutMeshesAndEdges ); 
+		GetSelectedMeshesAndElements( EEditableMeshElementType::Edge, /* Out */ OutMeshesAndEdges );
 	}
 	virtual void GetSelectedMeshesAndPolygons( TMap<UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndPolygons ) override 
 	{
-		GetSelectedMeshesAndElements( EEditableMeshElementType::Polygon, OutMeshesAndPolygons ); 
+		GetSelectedMeshesAndElements( EEditableMeshElementType::Polygon, /* Out */ OutMeshesAndPolygons );
 	}
 	virtual void SelectMeshElements( const TArray<FMeshElement>& MeshElementsToSelect ) override;
+	virtual void DeselectAllMeshElements() override;
 	virtual void DeselectMeshElements( const TArray<FMeshElement>& MeshElementsToDeselect ) override;
 	virtual void DeselectMeshElements( const TMap<UEditableMesh*, TArray<FMeshElement>>& MeshElementsToDeselect ) override;
 	virtual void ClearInvalidSelectedElements() override;
+	virtual void FindEdgeSplitUnderInteractor( UViewportInteractor* ViewportInteractor, const UEditableMesh* EditableMesh, const TArray<FMeshElement>& EdgeElements, TArray<float>& OutSplits ) override;
+	virtual class UViewportInteractor* GetActiveActionInteractor() override
+	{
+		return ActiveActionInteractor;
+	}
 
 
 
 	/** Gets the container of all the assets used in the mesh editor */
 	const class UMeshEditorAssetContainer& GetAssetContainer() const;
-
-	/** Returns whether the specified element type is selected */
-	bool IsMeshElementTypeSelected( EEditableMeshElementType ElementType ) const { return GetSelectedMeshElementType() == ElementType; }
-
-	/** Returns whether either the specified element type is selected, or we're in the selection mode for that element type */
-	bool IsMeshElementTypeSelectedOrIsActiveSelectionMode( EEditableMeshElementType ElementType ) const { return GetMeshElementSelectionMode() == ElementType || GetSelectedMeshElementType() == ElementType; }
 
 	/** Fills the specified dynamic mesh builder with primitives to render a mesh vertex */
 	void AddVertexToDynamicMesh( const UEditableMesh& EditableMesh, const FTransform& CameraToWorld, const FMatrix& ComponentToWorldMatrix, const FVertexID VertexID, const FColor ColorAndOpacity, const float SizeBias, const bool bApplyDepthBias, class FDynamicMeshBuilder& MeshBuilder );
@@ -248,7 +253,7 @@ protected:
 	void UpdateCameraToWorldTransform( const FEditorViewportClient& ViewportClient );
 
 	/** Begins an action */
-	void StartAction( const EMeshEditAction NewAction, class UViewportInteractor* ActionInteractor, const bool bActionNeedsHoverLocation, const FText& UndoText );
+	void StartAction( const EMeshEditAction::Type NewAction, class UViewportInteractor* ActionInteractor, const bool bActionNeedsHoverLocation, const FText& UndoText );
 
 	/** Ends an action that's currently in progress.  Usually called when the user commits a change by clicking/releasing, but can
 	    also be called when the user begins a new action while inertia is still influencing the active action */
@@ -257,10 +262,10 @@ protected:
 	/** Binds UI commands to actions for the mesh editor */
 	void BindCommands();
 
-	void RegisterCommonEditingMode( const TSharedPtr<FUICommandInfo>& Command, EMeshEditAction EditingMode );
-	void RegisterVertexEditingMode( const TSharedPtr<FUICommandInfo>& Command, EMeshEditAction EditingMode );
-	void RegisterEdgeEditingMode( const TSharedPtr<FUICommandInfo>& Command, EMeshEditAction EditingMode );
-	void RegisterPolygonEditingMode( const TSharedPtr<FUICommandInfo>& Command, EMeshEditAction EditingMode );
+	void RegisterCommonEditingMode( const TSharedPtr<FUICommandInfo>& Command, EMeshEditAction::Type EditingMode );
+	void RegisterVertexEditingMode( const TSharedPtr<FUICommandInfo>& Command, EMeshEditAction::Type EditingMode );
+	void RegisterEdgeEditingMode( const TSharedPtr<FUICommandInfo>& Command, EMeshEditAction::Type EditingMode );
+	void RegisterPolygonEditingMode( const TSharedPtr<FUICommandInfo>& Command, EMeshEditAction::Type EditingMode );
 
 	void RegisterCommand( const TSharedPtr<FUICommandInfo>& Command, const FExecuteAction& ExecuteAction );
 	void RegisterVertexCommand( const TSharedPtr<FUICommandInfo>& Command, const FExecuteAction& ExecuteAction );
@@ -324,18 +329,6 @@ protected:
 	/** Helper function that returns a map keying an editable mesh with its selected elements */
 	void GetSelectedMeshesAndElements( EEditableMeshElementType ElementType, TMap<UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndElements );
 
-	/** Helper function that converts selected vertices into a map of meshes to their respective selected vertex elements and vertex IDs */
-	void GetSelectedMeshesAndVertices( TMap< UEditableMesh*, TArray< TTuple< FMeshElement, FVertexID > > >& OutMeshesAndVertices );
-
-	/** Helper function that converts selected edges into a map of meshes to their respective selected edge elements and edge IDs */
-	void GetSelectedMeshesAndEdges( TMap< UEditableMesh*, TArray< TTuple< FMeshElement, FEdgeID > > >& OutMeshesAndEdges );
-
-	/** Helper function that converts selected polygons into a map of meshes to their respective selected polygon elements and polygon refs */
-	void GetSelectedMeshesAndPolygons( TMap< UEditableMesh*, TArray< TTuple< FMeshElement, FPolygonRef > > >& OutMeshesAndPolygons );
-
-	/** Given an interactor and a mesh, finds edges under the interactor along with their exact split position (progress along the edge) */
-	void FindEdgeSplitUnderInteractor( UViewportInteractor* ViewportInteractor, const UEditableMesh* EditableMesh, const TArray<TTuple<FMeshElement, FEdgeID>>& Edges, TArray<float>& OutSplits );
-
 	/** Selects elements of the given type captured by the last marquee select */
 	void PerformMarqueeSelect( EEditableMeshElementType ElementType );
 
@@ -361,10 +354,11 @@ protected:
 	bool IsActive() const { return ( ViewportWorldInteraction != nullptr ); }
 
 	/** Plays sound when starting a mesh edit action */
-	void PlayStartActionSound(EMeshEditAction NewAction, UViewportInteractor* ActionInteractor = nullptr);
+	void PlayStartActionSound(EMeshEditAction::Type NewAction, UViewportInteractor* ActionInteractor = nullptr);
 
 	/** Plays sound when mesh edit action was finished */
-	void PlayFinishActionSound(EMeshEditAction NewAction, UViewportInteractor* ActionInteractor = nullptr);
+	void PlayFinishActionSound(EMeshEditAction::Type NewAction, UViewportInteractor* ActionInteractor = nullptr);
+
 
 protected:
 
@@ -530,17 +524,34 @@ protected:
 	FTrackingTransaction TrackingTransaction;
 
 	/** The next action that will be started when interacting with a selected vertex */
-	EMeshEditAction EquippedVertexAction;
+	EMeshEditAction::Type EquippedVertexAction;
 
 	/** The next action that will be started when interacting with a selected edge */
-	EMeshEditAction EquippedEdgeAction;
+	EMeshEditAction::Type EquippedEdgeAction;
 
 	/** The next action that will be started when interacting with a selected polygon */
-	EMeshEditAction EquippedPolygonAction;
+	EMeshEditAction::Type EquippedPolygonAction;
 
 	/** The interactive action currently being performed (and previewed).  These usually happen over multiple frames, and
 	    result in a 'final' application of the change that performs a more exhaustive (and more expensive) update. */
-	EMeshEditAction ActiveAction;
+	EMeshEditAction::Type ActiveAction;
+
+	/** Whether we're actually in the middile of updating the active action.  This means that StoreUndo() will behave
+	    differently in this case -- instead of pushing undo data to the editor, we'll capture it temporarily in PreviewRevertChanges,
+		so that we can roll it back at the beginning of the next frame. */
+	bool bIsCapturingUndoForPreview;
+
+	/** When interactively dragging to preview a change (that might not be fully committed), this is the Change that
+	    will be used to roll back the previewed alternative from the previous frame */
+	TArray<TTuple<class UObject*,TUniquePtr<FChange>>> PreviewRevertChanges;
+
+	/** The set of meshes that we are expecting to be modified while updating the current active action.  These meshes
+	    will have StartModification() called at the beginning of UpdateActiveAction() and EndModification() afterwards. */
+	TSet<class UEditableMesh*> ActiveActionModifiedMeshes;
+
+	/** Proxy UObject to pass to the undo system when performing interactions that affect state of the mode itself,
+	    such as the selection set.  We need this because the UE4 undo system requires a UObject, but we're an FEdMode. */
+	UMeshEditorModeProxyObject* MeshEditorModeProxyObject;
 
 	/** When performing an interactive action that was initiated using an interactor, this is the interactor that was used. */
 	class UViewportInteractor* ActiveActionInteractor;
@@ -591,7 +602,7 @@ protected:
 	//
 
 	/** When splitting an edge and dragging a vertex, this is the list of edges that will be split */
-	TMap< UEditableMesh*, TArray< TTuple< FMeshElement, FEdgeID > > > SplitEdgeMeshesAndEdgesToSplit;
+	TMap< UEditableMesh*, TArray< FMeshElement > > SplitEdgeMeshesAndEdgesToSplit;
 
 	/** When splitting an edge and dragging a vertex, this is the list of split positions along those edges */
 	TArray<float> SplitEdgeSplitList;
@@ -614,17 +625,6 @@ protected:
 
 
 	// ...
-
-	/** When interactively dragging to preview a change (that might not be fully committed), this is the Change that
-	    will be used to roll back the previewed alternative from the previous frame */
-	TArray<TTuple<class UObject*,TUniquePtr<FChange>>> PreviewRevertChanges;
-
-	/** Whether topology changed while we were applying the preview changes that we might revert later */
-	EMeshTopologyChange PreviewTopologyChange;
-
-	/** Proxy UObject to pass to the undo system when performing interactions that affect state of the mode itself, 
-	    such as the selection set.  We need this because the UE4 undo system requires a UObject, but we're an FEdMode. */
-	UMeshEditorModeProxyObject* MeshEditorModeProxyObject;
 
 	/** When selecting by painting (EMeshEditAction::SelectByPainting), this is the compound change that can be applied to
 	    roll back the change to select.  We'll build this up as the user is painting select, then store it in the undo buffer */

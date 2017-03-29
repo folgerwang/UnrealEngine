@@ -16,6 +16,6 @@ protected:
 
 	// Overrides
 	virtual void RegisterUICommand( class FBindingContext* BindingContext ) override;
-	virtual void Execute( class IMeshEditorModeEditingContract& MeshEditorMode, bool& bOutWasSuccessful ) override;
+	virtual void Execute( class IMeshEditorModeEditingContract& MeshEditorMode ) override;
 
 };

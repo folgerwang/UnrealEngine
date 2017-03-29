@@ -2,8 +2,43 @@
 
 #include "MeshEditorCommands.h"
 #include "MeshEditorStyle.h"
+#include "IMeshEditorModeUIContract.h"
+
 
 #define LOCTEXT_NAMESPACE "MeshEditorCommands"
+
+
+FUIAction UMeshEditorCommand::MakeUIAction( IMeshEditorModeUIContract& MeshEditorMode )
+{
+	const EEditableMeshElementType ElementType = GetElementType();
+
+	FUIAction UIAction;
+	if( IsMode() )
+	{
+		const EMeshEditAction::Type MeshEditAction = GetCommandName();
+
+		UIAction = FUIAction(
+			FExecuteAction::CreateLambda( [&MeshEditorMode, ElementType, MeshEditAction] { MeshEditorMode.SetEquippedAction( ElementType, MeshEditAction ); } ),
+			FCanExecuteAction::CreateLambda( [&MeshEditorMode, ElementType] { return MeshEditorMode.IsMeshElementTypeSelectedOrIsActiveSelectionMode( ElementType ); } ),
+			FIsActionChecked::CreateLambda( [&MeshEditorMode, ElementType, MeshEditAction] { return ( MeshEditorMode.GetEquippedAction( ElementType ) == MeshEditAction ); } )
+		);
+	}
+	else
+	{
+		FExecuteAction ExecuteAction( FExecuteAction::CreateLambda( [&MeshEditorMode, this]
+		{
+			this->Execute( MeshEditorMode );
+		} ) );
+
+		UIAction = FUIAction(
+			ExecuteAction,
+			FCanExecuteAction::CreateLambda( [&MeshEditorMode, ElementType] { return MeshEditorMode.IsMeshElementTypeSelected( ElementType ); } )
+		);
+	}
+
+	return UIAction;
+}
+
 
 FMeshEditorCommonCommands::FMeshEditorCommonCommands() 
 	: TCommands<FMeshEditorCommonCommands>(
@@ -51,6 +86,16 @@ void FMeshEditorVertexCommands::RegisterCommands()
 
 	UI_COMMAND(RemoveVertex, "Remove Vertex", "Remove the selected vertex if possible.", EUserInterfaceActionType::Button, FInputChord(EKeys::BackSpace));
 	UI_COMMAND(WeldVertices, "Weld Vertices", "Weld the selected vertices, keeping the first selected vertex.", EUserInterfaceActionType::Button, FInputChord());
+
+	// @todo mesheditor extensibility: What's the plan for default keybinds for commands registered in a modular way?  Should we suggest available keys?
+	for( TObjectIterator<UMeshEditorVertexCommand> VertexCommandCDOIter( RF_NoFlags ); VertexCommandCDOIter; ++VertexCommandCDOIter )
+	{
+		UMeshEditorVertexCommand* VertexCommandCDO = *VertexCommandCDOIter;
+		if( !( VertexCommandCDO->GetClass()->GetClassFlags() & CLASS_Abstract ) )
+		{
+			VertexCommandCDO->RegisterUICommand( this );
+		}
+	}
 }
 
 FMeshEditorEdgeCommands::FMeshEditorEdgeCommands()
@@ -68,7 +113,6 @@ void FMeshEditorEdgeCommands::RegisterCommands()
 	UI_COMMAND(MoveEdge, "Move Edge Mode", "Set the primary action to move edges.", EUserInterfaceActionType::RadioButton, FInputChord(EKeys::F1));
 	UI_COMMAND(SplitEdge, "Split Edge Mode", "Set the primary action to split edges.", EUserInterfaceActionType::RadioButton, FInputChord(EKeys::F2));
 	UI_COMMAND(SplitEdgeAndDragVertex, "Split Edge and Drag Vertex Mode", "Set the primary action to split edges and drag vertices.", EUserInterfaceActionType::RadioButton, FInputChord(EKeys::F3));
-	UI_COMMAND(InsertEdgeLoop, "Insert Edge Loop Mode", "Set the primary action to insert edge loops.", EUserInterfaceActionType::RadioButton, FInputChord(EKeys::F4));
 	UI_COMMAND(ExtendEdge, "Extend Edge Mode", "Set the primary action to extend edges.", EUserInterfaceActionType::RadioButton, FInputChord(EKeys::F5));
 	UI_COMMAND(EditEdgeCreaseSharpness, "Edit Edge Crease Sharpness Mode", "Set the primary action to edit the edge's crease sharpness.", EUserInterfaceActionType::RadioButton, FInputChord(EKeys::F6));
 
@@ -76,6 +120,15 @@ void FMeshEditorEdgeCommands::RegisterCommands()
 	UI_COMMAND(SoftenEdge, "Soften Edge", "Make selected edge soft.", EUserInterfaceActionType::Button, FInputChord(EKeys::H, EModifierKey::Shift));
 	UI_COMMAND(HardenEdge, "Harden Edge", "Make selected edge hard.", EUserInterfaceActionType::Button, FInputChord(EKeys::H));
 	UI_COMMAND(SelectEdgeLoop, "Select Edge Loop", "Select the edge loops which contain the selected edges.", EUserInterfaceActionType::Button, FInputChord(EKeys::Two, EModifierKey::Shift));
+
+	for( TObjectIterator<UMeshEditorEdgeCommand> EdgeCommandCDOIter( RF_NoFlags ); EdgeCommandCDOIter; ++EdgeCommandCDOIter )
+	{
+		UMeshEditorEdgeCommand* EdgeCommandCDO = *EdgeCommandCDOIter;
+		if( !( EdgeCommandCDO->GetClass()->GetClassFlags() & CLASS_Abstract ) )
+		{
+			EdgeCommandCDO->RegisterUICommand( this );
+		}
+	}
 }
 
 FMeshEditorPolygonCommands::FMeshEditorPolygonCommands() 

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "MeshElement.h"
+#include "UIAction.h"
 #include "MeshEditorCommands.generated.h"
 
 
@@ -12,11 +14,58 @@ class MESHEDITOR_API UMeshEditorCommand : public UObject
 
 public:
 
+	/** What type of mesh element is this command for? */
+	virtual EEditableMeshElementType GetElementType() const PURE_VIRTUAL(,return EEditableMeshElementType::Invalid;);
+
 	/** Registers the UI command for this mesh editor command */
 	virtual void RegisterUICommand( class FBindingContext* BindingContext ) PURE_VIRTUAL(,);
 
 	/** Runs this command */
-	virtual void Execute( class IMeshEditorModeEditingContract& MeshEditorMode, bool& bOutWasSuccessful ) PURE_VIRTUAL(,);
+	virtual void Execute( class IMeshEditorModeEditingContract& MeshEditorMode )
+	{
+	}
+
+	/** Applies this command every frame while dragging */
+	virtual void ApplyDuringDrag( class IMeshEditorModeEditingContract& MeshEditorMode, bool& bOutShouldDeselectAllFirst, TArray<FMeshElement>& OutMeshElementsToSelect )
+	{
+	}
+
+	/** Allows this command to directly add a button to the VR Mode's radial menu */
+	virtual void AddToVRRadialMenuActionsMenu( class IMeshEditorModeUIContract& MeshEditorMode, class FMenuBuilder& MenuBuilder, TSharedPtr<FUICommandList> CommandList, const FName TEMPHACK_StyleSetName, class UVREditorMode* VRMode )
+	{
+	}
+
+	/** Gets the name of this command.  This is not to display to a user, but instead used to uniquely identify this command */
+	FName GetCommandName() const
+	{
+		return UICommandInfo->GetCommandName();
+	}
+
+	/** Gets the text to send to the transaction system when creating an undo/redo event for this action */
+	FText GetUndoText() const
+	{
+		check( !bIsMode || !UndoText.IsEmpty() );	// All mode-based commands must have supplied UndoText.  Instantaneous commands handle their own undo/redo.
+		return UndoText;
+	}
+
+	/** Returns true if this is a mesh editing 'Mode' that the user will stay in to perform the action multiple times, or false
+		if the action applies instantly */
+	bool IsMode() const
+	{
+		return bIsMode;
+	}
+
+	/** Returns whether we rely on a hover location under the interactor being updated as we drag during this action */
+	bool NeedsHoverLocation() const
+	{
+		return bNeedsHoverLocation;
+	}
+
+	/** Returns whether this command will kick off regular free translation of the selected mesh elements when dragging starts */
+	bool NeedsDraggingInitiated() const
+	{
+		return bNeedsDraggingInitiated;
+	}
 
 	/** Gets the UI command info for this command */
 	const TSharedPtr<class FUICommandInfo>& GetUICommandInfo() const
@@ -24,11 +73,63 @@ public:
 		return UICommandInfo;
 	}
 
+	/** Creates an UI action for this command */
+	FUIAction MakeUIAction( class IMeshEditorModeUIContract& MeshEditorMode );
+
 
 protected:
 
+	/** The text to send to the transaction system when creating an undo / redo event for this action */
+	UPROPERTY( EditAnywhere, Category=MeshEditor )
+	FText UndoText;
+
+	/** True if this is a mesh editing 'Mode' that the user will stay in to perform the action multiple times, or false
+	    if the action applies instantly */
+	UPROPERTY( EditAnywhere, Category=MeshEditor )
+	bool bIsMode;
+
+	/** Whether this command will kick off regular free translation of the selected mesh elements when dragging starts */
+	UPROPERTY( EditAnywhere, Category=MeshEditor )
+	bool bNeedsDraggingInitiated;
+
+	/** Whether we rely on a hover location under the interactor being updated as we drag during this action */
+	UPROPERTY( EditAnywhere, Category=MeshEditor )
+	bool bNeedsHoverLocation;
+
 	/** Our UI command for this action */
 	TSharedPtr<FUICommandInfo> UICommandInfo;
+};
+
+
+UCLASS( abstract )
+class MESHEDITOR_API UMeshEditorVertexCommand : public UMeshEditorCommand
+{
+	GENERATED_BODY()
+
+public:
+
+	// Overrides
+	virtual EEditableMeshElementType GetElementType() const override
+	{
+		return EEditableMeshElementType::Vertex;
+	}
+
+};
+
+
+UCLASS( abstract )
+class MESHEDITOR_API UMeshEditorEdgeCommand : public UMeshEditorCommand
+{
+	GENERATED_BODY()
+
+public:
+
+	// Overrides
+	virtual EEditableMeshElementType GetElementType() const override
+	{
+		return EEditableMeshElementType::Edge;
+	}
+
 };
 
 
@@ -38,6 +139,12 @@ class MESHEDITOR_API UMeshEditorPolygonCommand : public UMeshEditorCommand
 	GENERATED_BODY()
 
 public:
+
+	// Overrides
+	virtual EEditableMeshElementType GetElementType() const override
+	{
+		return EEditableMeshElementType::Polygon;
+	}
 
 };
 
@@ -138,9 +245,6 @@ public:
 
 	/** Sets the primary action to split edges and drag vertices */
 	TSharedPtr<FUICommandInfo> SplitEdgeAndDragVertex;
-
-	/** Sets the primary action to insert edge loops */
-	TSharedPtr<FUICommandInfo> InsertEdgeLoop;
 
 	/** Sets the primary action to extend edges */
 	TSharedPtr<FUICommandInfo> ExtendEdge;

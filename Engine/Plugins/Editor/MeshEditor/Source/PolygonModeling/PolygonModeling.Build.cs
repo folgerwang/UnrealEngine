@@ -12,9 +12,11 @@ namespace UnrealBuildTool.Rules
 				    "CoreUObject",
 					"Slate",
 					"Engine",
-				    "UnrealEd",
+					"InputCore",
+					"UnrealEd",
 					"MeshEditingRuntime",
-					"MeshEditor"
+					"MeshEditor",
+					"SlateCore"
 				}
 			);
 		}

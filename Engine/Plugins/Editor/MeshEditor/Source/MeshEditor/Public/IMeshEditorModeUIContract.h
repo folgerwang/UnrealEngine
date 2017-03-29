@@ -3,9 +3,9 @@
 #pragma once
 
 #include "EditableMeshTypes.h"
+#include "IMeshEditorModeEditingContract.h"
 
-
-class IMeshEditorModeUIContract
+class IMeshEditorModeUIContract : public IMeshEditorModeEditingContract
 {
 
 public:
@@ -19,6 +19,12 @@ public:
 	/** Returns the type of elements that are selected right now, or Invalid if nothing is selected */
 	virtual EEditableMeshElementType GetSelectedMeshElementType() const = 0;
 
+	/** Returns whether the specified element type is selected */
+	virtual bool IsMeshElementTypeSelected( EEditableMeshElementType ElementType ) const = 0;
+
+	/** Returns whether either the specified element type is selected, or we're in the selection mode for that element type */
+	virtual bool IsMeshElementTypeSelectedOrIsActiveSelectionMode( EEditableMeshElementType ElementType ) const = 0;
+
 	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetVertexActions() const = 0;
 	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetEdgeActions() const = 0;
 	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetPolygonActions() const = 0;
@@ -31,5 +37,11 @@ public:
 
 	/** Whether there are instance changes which can be propagated */
 	virtual bool CanPropagateInstanceChanges() const = 0;
+
+	/** Returns the current action to use when interacting the next time with the specified type of mesh element selection mode */
+	virtual EMeshEditAction::Type GetEquippedAction( const EEditableMeshElementType ForElementType ) const = 0;
+
+	/** Sets the current action to use when interacting the next time with the specified type of mesh element selection mode */
+	virtual void SetEquippedAction( const EEditableMeshElementType ForElementType, const EMeshEditAction::Type ActionToEquip ) = 0;
 
 };
