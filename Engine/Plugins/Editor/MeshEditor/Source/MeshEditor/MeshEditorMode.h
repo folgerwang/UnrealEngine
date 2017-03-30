@@ -585,16 +585,6 @@ protected:
 	TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>> EdgeActions;
 	TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>> PolygonActions;
 
-	//
-	// SplitEdgeAndDragVertex
-	//
-
-	/** When splitting an edge and dragging a vertex, this is the list of edges that will be split */
-	TMap< UEditableMesh*, TArray< FMeshElement > > SplitEdgeMeshesAndEdgesToSplit;
-
-	/** When splitting an edge and dragging a vertex, this is the list of split positions along those edges */
-	TArray<float> SplitEdgeSplitList;
-
 
 	//
 	// EditVertexCornerSharpness/EdgeEdgeCreaseSharpness

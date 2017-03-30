@@ -23,18 +23,6 @@ namespace EMeshEditAction
 	/** Moving selected mesh elements (vertices, edges or polygons) */
 	MESHEDITOR_API extern const FName Move;
 
-	/** Split an edge by inserting a vertex.  You can drag to preview where the vertex will be inserted. */
-	MESHEDITOR_API extern const FName SplitEdge;
-
-	/** Splits an edge by inserting a new vertex, then immediately starts dragging that vertex */
-	MESHEDITOR_API extern const FName SplitEdgeAndDragVertex;
-
-	/** Extend an edge by making a copy of it and allowing you to move it around */
-	MESHEDITOR_API extern const FName ExtendEdge;
-
-	/** Extend a vertex by making a copy of it, creating new polygons to join the geometry together */
-	MESHEDITOR_API extern const FName ExtendVertex;
-
 	/** For subdivision meshes, edits how sharp a vertex corner is by dragging in space */
 	MESHEDITOR_API extern const FName EditVertexCornerSharpness;
 

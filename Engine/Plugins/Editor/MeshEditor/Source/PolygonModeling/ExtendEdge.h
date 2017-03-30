@@ -3,28 +3,30 @@
 #pragma once
 
 #include "MeshEditorCommands.h"
-#include "InsertEdgeLoop.generated.h"
+#include "ExtendEdge.generated.h"
 
 
-/** With an edge selected, inserts a loop of edge perpendicular to that edge while dragging */
+/** Extends an edge by making a copy of it and allowing you to move it around */
 UCLASS()
-class UInsertEdgeLoopCommand : public UMeshEditorEdgeCommand
+class UExtendEdgeCommand : public UMeshEditorEdgeCommand
 {
 	GENERATED_BODY()
 
 protected:
 
-	UInsertEdgeLoopCommand()
+	UExtendEdgeCommand()
 	{
 		bIsMode = true;
-		UndoText = NSLOCTEXT( "MeshEditor", "UndoInsertEdgeLoop", "Insert Edge Loop" );
-		bNeedsHoverLocation = true;
-		bNeedsDraggingInitiated = false;
+		UndoText = NSLOCTEXT( "MeshEditor", "UndoExtendEdge", "Extend Edge" );
+		bNeedsHoverLocation = false;
+		bNeedsDraggingInitiated = true;
 	}
 
 	// Overrides
 	virtual void RegisterUICommand( class FBindingContext* BindingContext ) override;
 	virtual void ApplyDuringDrag( IMeshEditorModeEditingContract& MeshEditorMode, class UViewportInteractor* ViewportInteractor ) override;
 	virtual void AddToVRRadialMenuActionsMenu( class IMeshEditorModeUIContract& MeshEditorMode, class FMenuBuilder& MenuBuilder, TSharedPtr<FUICommandList> CommandList, const FName TEMPHACK_StyleSetName, class UVREditorMode* VRMode ) override;
+
+protected:
 
 };

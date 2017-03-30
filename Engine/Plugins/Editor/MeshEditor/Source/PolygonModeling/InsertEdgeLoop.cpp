@@ -19,7 +19,7 @@ void UInsertEdgeLoopCommand::RegisterUICommand( FBindingContext* BindingContext 
 }
 
 
-void UInsertEdgeLoopCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& MeshEditorMode, UViewportInteractor* ViewportInteractor, bool& bOutShouldDeselectAllFirst, TArray<FMeshElement>& OutMeshElementsToSelect )
+void UInsertEdgeLoopCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& MeshEditorMode, UViewportInteractor* ViewportInteractor )
 {
 	// Insert edge loop
 	static TMap< UEditableMesh*, TArray< FMeshElement > > SelectedMeshesAndEdges;
@@ -29,8 +29,10 @@ void UInsertEdgeLoopCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Me
 	{
 		// Deselect the edges first, since they'll be deleted or split up while inserting the edge loop,
 		// and we want them to be re-selected after undo
-		MeshEditorMode.DeselectMeshElements( SelectedMeshesAndEdges );
+		MeshEditorMode.DeselectAllMeshElements();
 
+		static TArray<FMeshElement> MeshElementsToSelect;
+		MeshElementsToSelect.Reset();
 
 		for( auto& MeshAndEdges : SelectedMeshesAndEdges )
 		{
@@ -71,8 +73,6 @@ void UInsertEdgeLoopCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Me
 					// Select all of the new edges that were created by inserting the loop
 					if( NewEdgeIDs.Num() > 0 )
 					{
-						bOutShouldDeselectAllFirst = true;	// Don't keep the edge selected
-
 						for( const FEdgeID NewEdgeID : NewEdgeIDs )
 						{
 							FMeshElement MeshElementToSelect;
@@ -84,7 +84,7 @@ void UInsertEdgeLoopCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Me
 							}
 
 							// Queue selection of this new element.  We don't want it to be part of the current action.
-							OutMeshElementsToSelect.Add( MeshElementToSelect );
+							MeshElementsToSelect.Add( MeshElementToSelect );
 						}
 					}
 				}
@@ -92,6 +92,8 @@ void UInsertEdgeLoopCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Me
 				MeshEditorMode.TrackUndo( EditableMesh, EditableMesh->MakeUndo() );
 			}
 		}
+
+		MeshEditorMode.SelectMeshElements( MeshElementsToSelect );
 	}
 }
 

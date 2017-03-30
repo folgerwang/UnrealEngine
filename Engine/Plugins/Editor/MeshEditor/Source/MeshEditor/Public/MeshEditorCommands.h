@@ -32,7 +32,7 @@ public:
 	}
 
 	/** Applies this command every frame while dragging */
-	virtual void ApplyDuringDrag( class IMeshEditorModeEditingContract& MeshEditorMode, class UViewportInteractor* ViewportInteractor, bool& bOutShouldDeselectAllFirst, TArray<FMeshElement>& OutMeshElementsToSelect )
+	virtual void ApplyDuringDrag( class IMeshEditorModeEditingContract& MeshEditorMode, class UViewportInteractor* ViewportInteractor )
 	{
 	}
 
@@ -217,9 +217,6 @@ public:
 	/** Sets the primary action to move vertices */
 	TSharedPtr<FUICommandInfo> MoveVertex;
 
-	/** Sets the primary action to extend vertices */
-	TSharedPtr<FUICommandInfo> ExtendVertex;
-
 	/** Sets the primary action to edit the vertex's corner sharpness */
 	TSharedPtr<FUICommandInfo> EditVertexCornerSharpness;
 
@@ -245,15 +242,6 @@ public:
 
 	/** Sets the primary action to move edges */
 	TSharedPtr<FUICommandInfo> MoveEdge;
-
-	/** Sets the primary action to split edges */
-	TSharedPtr<FUICommandInfo> SplitEdge;
-
-	/** Sets the primary action to split edges and drag vertices */
-	TSharedPtr<FUICommandInfo> SplitEdgeAndDragVertex;
-
-	/** Sets the primary action to extend edges */
-	TSharedPtr<FUICommandInfo> ExtendEdge;
 
 	/** Sets the primary action to edit the edge's crease sharpness */
 	TSharedPtr<FUICommandInfo> EditEdgeCreaseSharpness;

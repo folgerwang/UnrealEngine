@@ -115,7 +115,7 @@ bool UExtrudePolygonCommand::TryStartingToDrag( IMeshEditorModeEditingContract& 
 }
 
 
-void UExtrudePolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& MeshEditorMode, UViewportInteractor* ViewportInteractor, bool& bOutShouldDeselectAllFirst, TArray<FMeshElement>& OutMeshElementsToSelect )
+void UExtrudePolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& MeshEditorMode, UViewportInteractor* ViewportInteractor )
 {
 	static TMap< UEditableMesh*, TArray< FMeshElement > > MeshesWithPolygonsToExtrude;
 	MeshEditorMode.GetSelectedMeshesAndPolygons( /* Out */ MeshesWithPolygonsToExtrude );
@@ -124,6 +124,9 @@ void UExtrudePolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Me
 	{
 		// Deselect the mesh elements before we delete them.  This will make sure they become selected again after undo.
 		MeshEditorMode.DeselectMeshElements( MeshesWithPolygonsToExtrude );
+
+		static TArray<FMeshElement> MeshElementsToSelect;
+		MeshElementsToSelect.Reset();
 
 		for( auto& MeshAndPolygons : MeshesWithPolygonsToExtrude )
 		{
@@ -185,12 +188,14 @@ void UExtrudePolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Me
 					}
 
 					// Queue selection of this new element.  We don't want it to be part of the current action.
-					OutMeshElementsToSelect.Add( NewExtrudedPolygonMeshElement );
+					MeshElementsToSelect.Add( NewExtrudedPolygonMeshElement );
 				}
 			}
 
 			MeshEditorMode.TrackUndo( EditableMesh, EditableMesh->MakeUndo() );
 		}
+
+		MeshEditorMode.SelectMeshElements( MeshElementsToSelect );
 	}
 }
 

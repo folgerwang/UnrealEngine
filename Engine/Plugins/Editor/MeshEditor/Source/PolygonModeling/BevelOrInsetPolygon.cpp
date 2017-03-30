@@ -127,7 +127,7 @@ namespace BevelOrInsetPolygonHelpers
 	}
 
 
-	static void ApplyDuringDrag( const EBevelOrInset BevelOrInset, IMeshEditorModeEditingContract& MeshEditorMode, class UViewportInteractor* ViewportInteractor, bool& bOutShouldDeselectAllFirst, TArray<FMeshElement>& OutMeshElementsToSelect )
+	static void ApplyDuringDrag( const EBevelOrInset BevelOrInset, IMeshEditorModeEditingContract& MeshEditorMode, class UViewportInteractor* ViewportInteractor )
 	{
 		static TMap< UEditableMesh*, TArray< FMeshElement > > MeshesWithPolygonsToInset;
 		MeshEditorMode.GetSelectedMeshesAndPolygons( /* Out */ MeshesWithPolygonsToInset );
@@ -140,6 +140,11 @@ namespace BevelOrInsetPolygonHelpers
 			{
 				UPrimitiveComponent* InsetUsingComponent = InsetUsingPolygonElement.Component.Get();
 				check( InsetUsingComponent != nullptr );
+
+				MeshEditorMode.DeselectAllMeshElements();
+
+				static TArray<FMeshElement> MeshElementsToSelect;
+				MeshElementsToSelect.Reset();
 
 				const UEditableMesh* InsetUsingEditableMesh = MeshEditorMode.FindEditableMesh( *InsetUsingComponent, InsetUsingPolygonElement.ElementAddress.SubMeshAddress );
 				if( ensure( InsetUsingEditableMesh != nullptr ) )
@@ -217,7 +222,7 @@ namespace BevelOrInsetPolygonHelpers
 										}
 
 										// Queue selection of this new element.  We don't want it to be part of the current action.
-										OutMeshElementsToSelect.Add( PolygonMeshElement );
+										MeshElementsToSelect.Add( PolygonMeshElement );
 									}
 								}
 								else if( ensure( NewSideInsetPolygons.Num() > 0 ) )
@@ -237,7 +242,7 @@ namespace BevelOrInsetPolygonHelpers
 										}
 
 										// Queue selection of this new element.  We don't want it to be part of the current action.
-										OutMeshElementsToSelect.Add( PolygonMeshElement );
+										MeshElementsToSelect.Add( PolygonMeshElement );
 									}
 								}
 							}
@@ -246,6 +251,8 @@ namespace BevelOrInsetPolygonHelpers
 						}
 					}
 				}
+
+				MeshEditorMode.SelectMeshElements( MeshElementsToSelect );
 			}
 		}
 	}
@@ -264,9 +271,9 @@ bool UBevelPolygonCommand::TryStartingToDrag( IMeshEditorModeEditingContract& Me
 }
 
 
-void UBevelPolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& MeshEditorMode, UViewportInteractor* ViewportInteractor, bool& bOutShouldDeselectAllFirst, TArray<FMeshElement>& OutMeshElementsToSelect )
+void UBevelPolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& MeshEditorMode, UViewportInteractor* ViewportInteractor )
 {
-	BevelOrInsetPolygonHelpers::ApplyDuringDrag( BevelOrInsetPolygonHelpers::EBevelOrInset::Bevel, MeshEditorMode, ViewportInteractor, bOutShouldDeselectAllFirst, OutMeshElementsToSelect );
+	BevelOrInsetPolygonHelpers::ApplyDuringDrag( BevelOrInsetPolygonHelpers::EBevelOrInset::Bevel, MeshEditorMode, ViewportInteractor );
 }
 
 
@@ -299,9 +306,9 @@ bool UInsetPolygonCommand::TryStartingToDrag( IMeshEditorModeEditingContract& Me
 }
 
 
-void UInsetPolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& MeshEditorMode, UViewportInteractor* ViewportInteractor, bool& bOutShouldDeselectAllFirst, TArray<FMeshElement>& OutMeshElementsToSelect )
+void UInsetPolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& MeshEditorMode, UViewportInteractor* ViewportInteractor )
 {
-	BevelOrInsetPolygonHelpers::ApplyDuringDrag( BevelOrInsetPolygonHelpers::EBevelOrInset::Inset, MeshEditorMode, ViewportInteractor, bOutShouldDeselectAllFirst, OutMeshElementsToSelect );
+	BevelOrInsetPolygonHelpers::ApplyDuringDrag( BevelOrInsetPolygonHelpers::EBevelOrInset::Inset, MeshEditorMode, ViewportInteractor );
 }
 
 
