@@ -49,8 +49,6 @@ namespace EMeshEditAction
 	const Type Move( "Move" );
 	const Type SplitEdge( "SplitEdge" );
 	const Type SplitEdgeAndDragVertex( "SplitEdgeAndDragVertex" );
-	const Type ExtrudePolygon( "ExtrudePolygon" );
-	const Type FreelyExtrudePolygon( "FreelyExtrudePolygon" );
 	const Type ExtendEdge( "ExtendEdge" );
 	const Type ExtendVertex( "ExtendVertex" );
 	const Type EditVertexCornerSharpness( "EditVertexCornerSharpness" );
@@ -394,8 +392,6 @@ FMeshEditorMode::FMeshEditorMode()
 	  ActiveActionInteractor( nullptr ),
 	  bActiveActionNeedsHoverLocation( false ),
 	  bIsFirstActiveActionUpdate( false ),
-	  ExtrudePolygonAxisOrigin( FVector::ZeroVector ),
-	  ExtrudePolygonAxisDirection( FVector::ZeroVector ),
 	  SplitEdgeMeshesAndEdgesToSplit(),
 	  SplitEdgeSplitList(),
 	  EditSharpnessStartLocation( FVector::ZeroVector ),
@@ -541,9 +537,6 @@ void FMeshEditorMode::BindCommands()
 	RegisterEdgeEditingMode( MeshEditorEdgeActions.EditEdgeCreaseSharpness, EMeshEditAction::EditEdgeCreaseSharpness );
 
 	RegisterPolygonEditingMode( MeshEditorPolygonActions.MovePolygon, EMeshEditAction::Move );
-	RegisterPolygonEditingMode( MeshEditorPolygonActions.ExtrudePolygon, EMeshEditAction::ExtrudePolygon );
-//	RegisterPolygonEditingMode( MeshEditorPolygonActions.FreelyExtrudePolygon, EMeshEditAction::FreelyExtrudePolygon );	// @todo mesheditor: "Freely Extrude" disabled until we have proper gizmo/snap support
-
 	RegisterCommonEditingMode( MeshEditorCommonActions.DrawVertices, EMeshEditAction::DrawVertices );
 
 	// Register commands which work regardless of which element type is selected
@@ -3200,60 +3193,6 @@ void FMeshEditorMode::UpdateActiveAction( const bool bIsActionFinishing )
 	// sure that something is always selected after every type of interactive edit, but in the future that may not make sense.
 
 
-
-	auto FindExtrudeDistanceUsingInteractor = [](
-		FMeshEditorMode* This,
-		UViewportInteractor* ViewportInteractor,
-		const UEditableMesh* EditableMesh,
-		const FVector AxisOrigin,
-		const FVector AxisDirection,
-		const float AxisLength,
-		float& OutExtrudeDistance )
-	{
-		check( ViewportInteractor != nullptr );
-
-		OutExtrudeDistance = 0.0f;
-
-		float ClosestDistanceToRay = MAX_flt;
-		float BestExtrudeDistance = 0.0f;
-		
-
-		// Find the interactor ray that is closest to the axis line, and determine the distance from the origin of the
-		// axis to that point
-		FMeshEditorInteractorData& MeshEditorInteractorData = This->GetMeshEditorInteractorData( ViewportInteractor );
-		if( MeshEditorInteractorData.bLaserIsValid )	// @todo grabber: Grabber sphere impl neeed
-		{
-			const FVector AxisSegmentStart = AxisOrigin - AxisDirection * ( AxisLength * 0.5f );
-			const FVector AxisSegmentEnd = AxisOrigin + AxisDirection * ( AxisLength * 0.5f );
-
-			FVector ClosestPointOnAxis, ClosestPointOnRay;
-			FMath::SegmentDistToSegmentSafe(
-				AxisSegmentStart, AxisSegmentEnd,
-				MeshEditorInteractorData.LaserStart, MeshEditorInteractorData.LaserEnd,
-				/* Out */ ClosestPointOnAxis,
-				/* Out */ ClosestPointOnRay );
-			const float DistanceToRay = ( ClosestPointOnAxis - ClosestPointOnRay ).Size();
-
-			if( DistanceToRay < ClosestDistanceToRay )
-			{
-				ClosestDistanceToRay = DistanceToRay;
-
-				const FVector AxisToClosestPointVector = ( ClosestPointOnAxis - AxisOrigin );
-				BestExtrudeDistance = AxisToClosestPointVector.Size();
-
-				// Check to see if the closest point is actually behind the origin of the axis (negative extrusion distance)
-				const FVector ClosestPointDirection = AxisToClosestPointVector.GetSafeNormal();
-				if( FVector::DotProduct( ClosestPointDirection, AxisDirection ) < 0.0f )
-				{
-					BestExtrudeDistance *= -1.0f;
-				}
-			}
-		}
-
-		OutExtrudeDistance = BestExtrudeDistance;
-	};
-
-
 	// If this is an interim change, then everything that happens here -- all changes to our meshes, and even selection
 	// changes -- are guaranteed to be rolled back at the beginning of the next frame.  So we'll intercept any requests
 	// to store Undo history, and instead store those in a separate array to be processed ourselves next frame.
@@ -3408,113 +3347,6 @@ void FMeshEditorMode::UpdateActiveAction( const bool bIsActionFinishing )
 							// Drag the split elements right away!
 							bIsMovingSelectedMeshElements = true;
 						}
-					}
-				}
-
-				TrackUndo( EditableMesh, EditableMesh->MakeUndo() );
-			}
-		}
-	}
-
-	else if( ActiveAction == EMeshEditAction::ExtrudePolygon ||
-			 ActiveAction == EMeshEditAction::FreelyExtrudePolygon )
-	{
-		// Extrude polygon
-		static TMap< UEditableMesh*, TArray< FMeshElement > > MeshesWithPolygonsToExtrude;
-		GetSelectedMeshesAndPolygons( /* Out */ MeshesWithPolygonsToExtrude );
-
-		if( MeshesWithPolygonsToExtrude.Num() > 0 )
-		{
-			if( ActiveAction == EMeshEditAction::FreelyExtrudePolygon )
-			{
-				// Start moving the extruded polygon right away!
-				bIsMovingSelectedMeshElements = true;
-			}
-
-			// Deselect the mesh elements before we delete them.  This will make sure they become selected again after undo.
-			{
-				FCompoundChangeInput CompoundRevertInput;
-
-				FSelectOrDeselectMeshElementsChangeInput ChangeInput;
-				for( auto& MeshAndPolygons : MeshesWithPolygonsToExtrude )
-				{
-					UEditableMesh* EditableMesh = MeshAndPolygons.Key;
-					const TArray<FMeshElement>& PolygonsToExtrude = MeshAndPolygons.Value;
-
-					for( const FMeshElement& PolygonElement : PolygonsToExtrude )
-					{
-						ChangeInput.MeshElementsToDeselect.Add( PolygonElement );
-					}
-				}
-
-				CompoundRevertInput.Subchanges.Add( MoveTemp( FSelectOrDeselectMeshElementsChange( MoveTemp( ChangeInput ) ).Execute( MeshEditorModeProxyObject ) ) );
-
-				TrackUndo( MeshEditorModeProxyObject, MakeUnique<FCompoundChange>( MoveTemp( CompoundRevertInput ) ) );
-			}
-
-			for( auto& MeshAndPolygons : MeshesWithPolygonsToExtrude )
-			{
-				UEditableMesh* EditableMesh = MeshAndPolygons.Key;
-				const TArray<FMeshElement>& PolygonsToExtrude = MeshAndPolygons.Value;
-
-				static TArray<FPolygonRef> PolygonRefsToExtrude;
-				PolygonRefsToExtrude.Reset();
-				for( const FMeshElement& PolygonToExtrude : PolygonsToExtrude )
-				{
-					FPolygonRef PolygonRef( PolygonToExtrude.ElementAddress.SectionID, FPolygonID( PolygonToExtrude.ElementAddress.ElementID ) );
-					PolygonRefsToExtrude.Add( PolygonRef );
-				}
-
-
-				float ExtrudeDistance = 0.0f;
-
-				if( ActiveAction == EMeshEditAction::ExtrudePolygon )
-				{
-					// Figure out how far the extruded polygon should be from where it started
-					const float AxisLength = 10000.0f;	// @todo mesheditor tweak (ideally should be infinite)
-					FindExtrudeDistanceUsingInteractor(
-						this,
-						ActiveActionInteractor,
-						EditableMesh,
-						ExtrudePolygonAxisOrigin,
-						ExtrudePolygonAxisDirection,
-						AxisLength,
-						/* Out */ ExtrudeDistance );
-				}
-
-
-				{
-					verify( !EditableMesh->AnyChangesToUndo() );
-
-					// Position the new polygon to where the interactor is
-					UPrimitiveComponent* Component = PolygonsToExtrude[ 0 ].Component.Get();	// NOTE: All polygons in this array belong to the same mesh/component, so we just need the first element
-					check( Component != nullptr );
-					// @todo mesheditor: We're working with a float here, so we'll treat the component scale as a scalar (X)
-					const float ComponentSpaceExtrudeDistance = ExtrudeDistance / Component->ComponentToWorld.GetScale3D().X;
-
-					// Create a copy of the polygon with new extruded polygons for each edge
-					static TArray<FPolygonRef> NewExtrudedFrontPolygons;
-					NewExtrudedFrontPolygons.Reset();
-					EditableMesh->ExtrudePolygons( PolygonRefsToExtrude, ComponentSpaceExtrudeDistance, /* Out */ NewExtrudedFrontPolygons );
-
-
-					// Make sure the new polygons are selected.  The old polygon was deleted and will become deselected automatically.
-					for( int32 NewPolygonNumber = 0; NewPolygonNumber < NewExtrudedFrontPolygons.Num(); ++NewPolygonNumber )
-					{
-						const FPolygonRef& NewExtrudedFrontPolygon = NewExtrudedFrontPolygons[ NewPolygonNumber ];
-
-						const FMeshElement& MeshElement = PolygonsToExtrude[ NewPolygonNumber ];
-
-						FMeshElement NewExtrudedPolygonMeshElement;
-						{
-							NewExtrudedPolygonMeshElement.Component = MeshElement.Component;
-							NewExtrudedPolygonMeshElement.ElementAddress = MeshElement.ElementAddress;
-							NewExtrudedPolygonMeshElement.ElementAddress.SectionID = NewExtrudedFrontPolygon.SectionID;
-							NewExtrudedPolygonMeshElement.ElementAddress.ElementID = NewExtrudedFrontPolygon.PolygonID;
-						}
-
-						// Queue selection of this new element.  We don't want it to be part of the current action.
-						MeshElementsToSelect.Add( NewExtrudedPolygonMeshElement );
 					}
 				}
 
@@ -4910,60 +4742,6 @@ void FMeshEditorMode::OnViewportInteractionInputAction( FEditorViewportClient& V
 						const bool bActionNeedsHoverLocation = false;
 						StartAction( EMeshEditAction::Move, ViewportInteractor, bActionNeedsHoverLocation, LOCTEXT( "UndoDragPolygon", "Drag Polygon" ) );
 					}
-					// @todo mesheditor: Need a "Shift+Click+Drag" extrude instead of having to explicitly equip the action
-					else if( SelectedMeshElementType == EEditableMeshElementType::Polygon && EquippedPolygonAction == EMeshEditAction::ExtrudePolygon )
-					{
-						bool bHaveExtrudeAxis = false;
-						{
-							const FMeshElement& PolygonElement = MeshEditorInteractorData.HoveredMeshElement;
-
-							if( PolygonElement.IsValidMeshElement() &&
-								PolygonElement.ElementAddress.ElementType == EEditableMeshElementType::Polygon )
-							{
-								// Is it selected?
-								if( IsMeshElementSelected( PolygonElement ) )
-								{
-									UEditableMesh* EditableMesh = FindOrCreateEditableMesh( *PolygonElement.Component, PolygonElement.ElementAddress.SubMeshAddress );
-									if( EditableMesh != nullptr )
-									{
-										if( IsElementIDValid( PolygonElement, EditableMesh ) )
-										{
-											this->ExtrudePolygonAxisOrigin = MeshEditorInteractorData.HoverLocation;
-
-											// Use the polygon normal as the extrude axis direction
-											{
-												UPrimitiveComponent* Component = PolygonElement.Component.Get();
-												check( Component != nullptr );
-												const FMatrix ComponentToWorldMatrix = Component->GetRenderMatrix();
-
-												const FPolygonRef PolygonRef( PolygonElement.ElementAddress.SectionID, FPolygonID( PolygonElement.ElementAddress.ElementID ) );
-												const FVector ComponentSpacePolygonNormal = EditableMesh->ComputePolygonNormal( PolygonRef );
-
-												const FVector WorldSpacePolygonNormal = ComponentToWorldMatrix.TransformVector( ComponentSpacePolygonNormal ).GetSafeNormal();
-
-												this->ExtrudePolygonAxisDirection = WorldSpacePolygonNormal;
-											}
-
-											bHaveExtrudeAxis = true;
-										}
-									}
-								}
-							}
-						}
-
-						if( bHaveExtrudeAxis )
-						{
-							const bool bActionNeedsHoverLocation = false;
-							StartAction( EMeshEditAction::ExtrudePolygon, ViewportInteractor, bActionNeedsHoverLocation, LOCTEXT( "UndoExtrudePolygon", "Extrude Polygon" ) );
-							bOutIsInputCaptured = true;
-						}
-					}
-					else if( SelectedMeshElementType == EEditableMeshElementType::Polygon && EquippedPolygonAction == EMeshEditAction::FreelyExtrudePolygon )
-					{
-						bWantToStartMoving = true;
-						const bool bActionNeedsHoverLocation = false;
-						StartAction( EMeshEditAction::FreelyExtrudePolygon, ViewportInteractor, bActionNeedsHoverLocation, LOCTEXT( "UndoFreelyExtrudePolygon", "Freely Extrude Polygon" ) );
-					}
 					else if( SelectedMeshElementType == EEditableMeshElementType::Edge && EquippedEdgeAction == EMeshEditAction::SplitEdge )
 					{
 						const bool bActionNeedsHoverLocation = true;
@@ -5787,19 +5565,6 @@ void FMeshEditorMode::MakeVRRadialMenuActionsMenu(FMenuBuilder& MenuBuilder, TSh
 				),
 			NAME_None,
 			EUserInterfaceActionType::CollapsedButton
-			);
-		MenuBuilder.AddMenuEntry(
-			LOCTEXT("Extrude", "Extrude"),
-			FText(),
-			FSlateIcon(FMeshEditorStyle::GetStyleSetName(), "MeshEditorMode.PolyExtrude"),
-			FUIAction
-			(
-				FExecuteAction::CreateLambda([this] { SetEquippedAction( EEditableMeshElementType::Polygon, EMeshEditAction::ExtrudePolygon ); }),
-				FCanExecuteAction::CreateSP(this, &FMeshEditorMode::IsMeshElementTypeSelectedOrIsActiveSelectionMode, EEditableMeshElementType::Polygon),
-				FIsActionChecked::CreateLambda([this] { return (EquippedPolygonAction == EMeshEditAction::ExtrudePolygon); })
-			),
-			NAME_None,
-			EUserInterfaceActionType::ToggleButton
 			);
 	}
 	else if (GetMeshElementSelectionMode() == EEditableMeshElementType::Edge)

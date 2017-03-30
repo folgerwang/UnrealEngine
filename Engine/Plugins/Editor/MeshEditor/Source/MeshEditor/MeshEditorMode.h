@@ -586,16 +586,6 @@ protected:
 	TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>> PolygonActions;
 
 	//
-	// ExtrudePolygon
-	//
-
-	/** When extruding polygons, we need to keep track of the interactor's impact point and normal, because
-	    the user is going to be aiming their interactor along that axis to choose an extrusion point */
-	FVector ExtrudePolygonAxisOrigin;
-	FVector ExtrudePolygonAxisDirection;
-
-
-	//
 	// SplitEdgeAndDragVertex
 	//
 

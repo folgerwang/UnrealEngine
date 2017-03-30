@@ -287,12 +287,6 @@ public:
 	/** Sets the primary action to move polygons */
 	TSharedPtr<FUICommandInfo> MovePolygon;
 
-	/** Sets the primary action to extrude polygons */
-	TSharedPtr<FUICommandInfo> ExtrudePolygon;
-
-	/** Sets the primary action to freely extrude polygons */
-	TSharedPtr<FUICommandInfo> FreelyExtrudePolygon;
-
 	/** Flips the currently selected polygon(s) */
 	TSharedPtr<FUICommandInfo> FlipPolygon;
 

@@ -29,12 +29,6 @@ namespace EMeshEditAction
 	/** Splits an edge by inserting a new vertex, then immediately starts dragging that vertex */
 	MESHEDITOR_API extern const FName SplitEdgeAndDragVertex;
 
-	/** Extrude polygon by making a copy of it and allowing you to shift it along the polygon normal axis */
-	MESHEDITOR_API extern const FName ExtrudePolygon;
-
-	/** Extrude polygon by making a copy of it and allowing you to move it around freely */
-	MESHEDITOR_API extern const FName FreelyExtrudePolygon;
-
 	/** Extend an edge by making a copy of it and allowing you to move it around */
 	MESHEDITOR_API extern const FName ExtendEdge;
 
