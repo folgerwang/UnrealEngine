@@ -217,9 +217,6 @@ public:
 	/** Sets the primary action to move vertices */
 	TSharedPtr<FUICommandInfo> MoveVertex;
 
-	/** Sets the primary action to edit the vertex's corner sharpness */
-	TSharedPtr<FUICommandInfo> EditVertexCornerSharpness;
-
 	/** Removes the selected vertex if possible */
 	TSharedPtr<FUICommandInfo> RemoveVertex;
 
@@ -242,9 +239,6 @@ public:
 
 	/** Sets the primary action to move edges */
 	TSharedPtr<FUICommandInfo> MoveEdge;
-
-	/** Sets the primary action to edit the edge's crease sharpness */
-	TSharedPtr<FUICommandInfo> EditEdgeCreaseSharpness;
 
 	/** Removes the selected edge if possible */
 	TSharedPtr<FUICommandInfo> RemoveEdge;

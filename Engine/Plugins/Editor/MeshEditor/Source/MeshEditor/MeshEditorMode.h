@@ -163,12 +163,12 @@ protected:
 	virtual void SetEditingPerInstance( bool bPerInstance ) override { bPerInstanceEdits = bPerInstance; }
 	virtual void PropagateInstanceChanges() override;
 	virtual bool CanPropagateInstanceChanges() const override;
-	virtual EMeshEditAction::Type GetEquippedAction( const EEditableMeshElementType ForElementType ) const override;
-	virtual void SetEquippedAction( const EEditableMeshElementType ForElementType, const EMeshEditAction::Type ActionToEquip ) override;
+	virtual FName GetEquippedAction( const EEditableMeshElementType ForElementType ) const override;
+	virtual void SetEquippedAction( const EEditableMeshElementType ForElementType, const FName ActionToEquip ) override;
 
 	// IMeshEditorModeEditingContract interface
 	virtual const UEditableMesh* FindEditableMesh( class UPrimitiveComponent& Component, const FEditableMeshSubMeshAddress& SubMeshAddress ) const override;
-	virtual EMeshEditAction::Type GetActiveAction() const override { return ActiveAction; }
+	virtual FName GetActiveAction() const override { return ActiveAction; }
 	virtual void TrackUndo( UObject* Object, TUniquePtr<FChange> RevertChange ) override;
 	virtual void CommitSelectedMeshes() override;
 	virtual FMeshElement GetHoveredMeshElement( class UViewportInteractor* ViewportInteractor ) const override;
@@ -259,7 +259,7 @@ protected:
 	void UpdateCameraToWorldTransform( const FEditorViewportClient& ViewportClient );
 
 	/** Begins an action */
-	void StartAction( const EMeshEditAction::Type NewAction, class UViewportInteractor* ActionInteractor, const bool bActionNeedsHoverLocation, const FText& UndoText );
+	void StartAction( const FName NewAction, class UViewportInteractor* ActionInteractor, const bool bActionNeedsHoverLocation, const FText& UndoText );
 
 	/** Ends an action that's currently in progress.  Usually called when the user commits a change by clicking/releasing, but can
 	    also be called when the user begins a new action while inertia is still influencing the active action */
@@ -268,10 +268,10 @@ protected:
 	/** Binds UI commands to actions for the mesh editor */
 	void BindCommands();
 
-	void RegisterCommonEditingMode( const TSharedPtr<FUICommandInfo>& Command, EMeshEditAction::Type EditingMode );
-	void RegisterVertexEditingMode( const TSharedPtr<FUICommandInfo>& Command, EMeshEditAction::Type EditingMode );
-	void RegisterEdgeEditingMode( const TSharedPtr<FUICommandInfo>& Command, EMeshEditAction::Type EditingMode );
-	void RegisterPolygonEditingMode( const TSharedPtr<FUICommandInfo>& Command, EMeshEditAction::Type EditingMode );
+	void RegisterCommonEditingMode( const TSharedPtr<FUICommandInfo>& Command, FName EditingMode );
+	void RegisterVertexEditingMode( const TSharedPtr<FUICommandInfo>& Command, FName EditingMode );
+	void RegisterEdgeEditingMode( const TSharedPtr<FUICommandInfo>& Command, FName EditingMode );
+	void RegisterPolygonEditingMode( const TSharedPtr<FUICommandInfo>& Command, FName EditingMode );
 
 	void RegisterCommand( const TSharedPtr<FUICommandInfo>& Command, const FExecuteAction& ExecuteAction );
 	void RegisterVertexCommand( const TSharedPtr<FUICommandInfo>& Command, const FExecuteAction& ExecuteAction );
@@ -360,10 +360,10 @@ protected:
 	bool IsActive() const { return ( ViewportWorldInteraction != nullptr ); }
 
 	/** Plays sound when starting a mesh edit action */
-	void PlayStartActionSound(EMeshEditAction::Type NewAction, UViewportInteractor* ActionInteractor = nullptr);
+	void PlayStartActionSound( FName NewAction, UViewportInteractor* ActionInteractor = nullptr);
 
 	/** Plays sound when mesh edit action was finished */
-	void PlayFinishActionSound(EMeshEditAction::Type NewAction, UViewportInteractor* ActionInteractor = nullptr);
+	void PlayFinishActionSound( FName NewAction, UViewportInteractor* ActionInteractor = nullptr);
 
 
 protected:
@@ -530,17 +530,17 @@ protected:
 	FTrackingTransaction TrackingTransaction;
 
 	/** The next action that will be started when interacting with a selected vertex */
-	EMeshEditAction::Type EquippedVertexAction;
+	FName EquippedVertexAction;
 
 	/** The next action that will be started when interacting with a selected edge */
-	EMeshEditAction::Type EquippedEdgeAction;
+	FName EquippedEdgeAction;
 
 	/** The next action that will be started when interacting with a selected polygon */
-	EMeshEditAction::Type EquippedPolygonAction;
+	FName EquippedPolygonAction;
 
 	/** The interactive action currently being performed (and previewed).  These usually happen over multiple frames, and
 	    result in a 'final' application of the change that performs a more exhaustive (and more expensive) update. */
-	EMeshEditAction::Type ActiveAction;
+	FName ActiveAction;
 
 	/** Whether we're actually in the middile of updating the active action.  This means that StoreUndo() will behave
 	    differently in this case -- instead of pushing undo data to the editor, we'll capture it temporarily in PreviewRevertChanges,
@@ -586,14 +586,6 @@ protected:
 	TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>> PolygonActions;
 
 
-	//
-	// EditVertexCornerSharpness/EdgeEdgeCreaseSharpness
-	//
-
-	/** Where the active interactor's impact point was when the "edit sharpness" action started */
-	FVector EditSharpnessStartLocation;
-
-	
 	//
 	// DrawVertices
 	//

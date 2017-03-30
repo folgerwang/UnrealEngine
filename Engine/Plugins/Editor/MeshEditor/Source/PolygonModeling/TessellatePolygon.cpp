@@ -18,7 +18,7 @@ void UTessellatePolygonCommand::RegisterUICommand( FBindingContext* BindingConte
 
 void UTessellatePolygonCommand::Execute( IMeshEditorModeEditingContract& MeshEditorMode )
 {
-	if( MeshEditorMode.GetActiveAction() != EMeshEditAction::None )
+	if( MeshEditorMode.GetActiveAction() != NAME_None )
 	{
 		return;
 	}

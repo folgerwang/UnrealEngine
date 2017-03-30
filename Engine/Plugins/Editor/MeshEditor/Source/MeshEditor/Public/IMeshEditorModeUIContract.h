@@ -39,9 +39,9 @@ public:
 	virtual bool CanPropagateInstanceChanges() const = 0;
 
 	/** Returns the current action to use when interacting the next time with the specified type of mesh element selection mode */
-	virtual EMeshEditAction::Type GetEquippedAction( const EEditableMeshElementType ForElementType ) const = 0;
+	virtual FName GetEquippedAction( const EEditableMeshElementType ForElementType ) const = 0;
 
 	/** Sets the current action to use when interacting the next time with the specified type of mesh element selection mode */
-	virtual void SetEquippedAction( const EEditableMeshElementType ForElementType, const EMeshEditAction::Type ActionToEquip ) = 0;
+	virtual void SetEquippedAction( const EEditableMeshElementType ForElementType, const FName ActionToEquip ) = 0;
 
 };

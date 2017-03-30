@@ -43,16 +43,19 @@
 // @todo mesheditor extensibility: This should probably be removed after we've evicted all current mesh editing actions to another module
 namespace EMeshEditAction
 {
-	const Type None( "None" );
-	const Type SelectByPainting( "SelectByPainting" );
-	const Type MoveUsingGizmo( "MoveUsingGizmo" );
-	const Type Move( "Move" );
-	const Type EditVertexCornerSharpness( "EditVertexCornerSharpness" );
-	const Type EditEdgeCreaseSharpness( "EditEdgeCreaseSharpness" );
-	const Type DrawVertices( "DrawVertices" );
+	/** Selecting mesh elements by 'painting' over multiple elements */
+	const FName SelectByPainting( "SelectByPainting" );
+
+	/** Moving elements using a transform gizmo */
+	const FName MoveUsingGizmo( "MoveUsingGizmo" );
+
+	/** Moving selected mesh elements (vertices, edges or polygons) */
+	const FName Move( "Move" );
+
+	/** Freehand vertex drawing */
+	const FName DrawVertices( "DrawVertices" );
 }
 
-// @todo mesheditor urgent: Texture coords are getting trashed all the time (only for meshes with 1 UV set though?)
 
 namespace MeshEd
 {
@@ -380,7 +383,7 @@ FMeshEditorMode::FMeshEditorMode()
 	  EquippedVertexAction( EMeshEditAction::Move ),
 	  EquippedEdgeAction( EMeshEditAction::Move ),
 	  EquippedPolygonAction( EMeshEditAction::Move ),
-	  ActiveAction( EMeshEditAction::None ),
+	  ActiveAction( NAME_None ),
 	  bIsCapturingUndoForPreview( false ),
 	  PreviewRevertChanges(),
 	  ActiveActionModifiedMeshes(),
@@ -388,7 +391,6 @@ FMeshEditorMode::FMeshEditorMode()
 	  ActiveActionInteractor( nullptr ),
 	  bActiveActionNeedsHoverLocation( false ),
 	  bIsFirstActiveActionUpdate( false ),
-	  EditSharpnessStartLocation( FVector::ZeroVector ),
 	  SelectingByPaintingRevertChangeInput( nullptr ),
 	  bShowVertexNormals( false ),
 	  bMarqueeSelectTransactionActive( false ),
@@ -484,7 +486,7 @@ void FMeshEditorMode::RemoveEditableMeshReferences()
 	}
 }
 
-void FMeshEditorMode::PlayStartActionSound(EMeshEditAction::Type NewAction, UViewportInteractor* ActionInteractor)
+void FMeshEditorMode::PlayStartActionSound( FName NewAction, UViewportInteractor* ActionInteractor)
 {
 	if (ActionInteractor != nullptr)
 	{
@@ -498,7 +500,7 @@ void FMeshEditorMode::PlayStartActionSound(EMeshEditAction::Type NewAction, UVie
 	}
 }
 
-void FMeshEditorMode::PlayFinishActionSound(EMeshEditAction::Type NewAction, UViewportInteractor* ActionInteractor)
+void FMeshEditorMode::PlayFinishActionSound( FName NewAction, UViewportInteractor* ActionInteractor)
 {
 	if (ActionInteractor != nullptr)
 	{
@@ -521,10 +523,8 @@ void FMeshEditorMode::BindCommands()
 
 	// Register editing modes (equipped actions)
 	RegisterVertexEditingMode( MeshEditorVertexActions.MoveVertex, EMeshEditAction::Move );
-	RegisterVertexEditingMode( MeshEditorVertexActions.EditVertexCornerSharpness, EMeshEditAction::EditVertexCornerSharpness );
 
 	RegisterEdgeEditingMode( MeshEditorEdgeActions.MoveEdge, EMeshEditAction::Move );
-	RegisterEdgeEditingMode( MeshEditorEdgeActions.EditEdgeCreaseSharpness, EMeshEditAction::EditEdgeCreaseSharpness );
 
 	RegisterPolygonEditingMode( MeshEditorPolygonActions.MovePolygon, EMeshEditAction::Move );
 	RegisterCommonEditingMode( MeshEditorCommonActions.DrawVertices, EMeshEditAction::DrawVertices );
@@ -620,14 +620,14 @@ void FMeshEditorMode::BindCommands()
 }
 
 
-void FMeshEditorMode::RegisterCommonEditingMode( const TSharedPtr<FUICommandInfo>& Command, EMeshEditAction::Type EditingMode )
+void FMeshEditorMode::RegisterCommonEditingMode( const TSharedPtr<FUICommandInfo>& Command, FName EditingMode )
 {
 	RegisterVertexEditingMode( Command, EditingMode );
 	RegisterEdgeEditingMode( Command, EditingMode );
 	RegisterPolygonEditingMode( Command, EditingMode );
 }
 
-void FMeshEditorMode::RegisterVertexEditingMode( const TSharedPtr<FUICommandInfo>& Command, EMeshEditAction::Type EditingMode )
+void FMeshEditorMode::RegisterVertexEditingMode( const TSharedPtr<FUICommandInfo>& Command, FName EditingMode )
 {
 	VertexActions.Emplace( Command, FUIAction(
 		FExecuteAction::CreateLambda( [this, EditingMode] { SetEquippedAction( EEditableMeshElementType::Vertex, EditingMode ); } ),
@@ -637,7 +637,7 @@ void FMeshEditorMode::RegisterVertexEditingMode( const TSharedPtr<FUICommandInfo
 }
 
 
-void FMeshEditorMode::RegisterEdgeEditingMode( const TSharedPtr<FUICommandInfo>& Command, EMeshEditAction::Type EditingMode )
+void FMeshEditorMode::RegisterEdgeEditingMode( const TSharedPtr<FUICommandInfo>& Command, FName EditingMode )
 {
 	EdgeActions.Emplace( Command, FUIAction(
 		FExecuteAction::CreateLambda( [this, EditingMode] { SetEquippedAction( EEditableMeshElementType::Edge, EditingMode ); } ),
@@ -647,7 +647,7 @@ void FMeshEditorMode::RegisterEdgeEditingMode( const TSharedPtr<FUICommandInfo>&
 }
 
 
-void FMeshEditorMode::RegisterPolygonEditingMode( const TSharedPtr<FUICommandInfo>& Command, EMeshEditAction::Type EditingMode )
+void FMeshEditorMode::RegisterPolygonEditingMode( const TSharedPtr<FUICommandInfo>& Command, FName EditingMode )
 {
 	PolygonActions.Emplace( Command, FUIAction(
 		FExecuteAction::CreateLambda( [this, EditingMode] { SetEquippedAction(EEditableMeshElementType::Polygon, EditingMode ); } ),
@@ -933,7 +933,7 @@ void FMeshEditorMode::Tick( FEditorViewportClient* ViewportClient, float DeltaTi
 		}
 	}
 
-	if( ActiveAction != EMeshEditAction::None &&
+	if( ActiveAction != NAME_None &&
 		ActiveAction != EMeshEditAction::SelectByPainting )		// When selecting, no updates are needed
 	{
 		const bool bIsActionFinishing = false;
@@ -965,7 +965,7 @@ void FMeshEditorMode::Tick( FEditorViewportClient* ViewportClient, float DeltaTi
 		const EEditableMeshElementType SelectedMeshElementType = GetSelectedMeshElementType();
 		ViewportWorldInteraction->SetTransformGizmoVisible(
 			( ActiveAction == EMeshEditAction::MoveUsingGizmo ) ||
-			( ActiveAction == EMeshEditAction::None &&
+			( ActiveAction == NAME_None &&
 				( ( EquippedPolygonAction == EMeshEditAction::Move && SelectedMeshElementType == EEditableMeshElementType::Polygon ) ||
 				  ( EquippedVertexAction == EMeshEditAction::Move && SelectedMeshElementType == EEditableMeshElementType::Vertex ) ||
 				  ( EquippedEdgeAction == EMeshEditAction::Move && SelectedMeshElementType == EEditableMeshElementType::Edge ) ) ) 
@@ -1230,7 +1230,7 @@ void FMeshEditorMode::DeselectMeshElements( const TMap<UEditableMesh*, TArray<FM
 
 bool FMeshEditorMode::DeleteSelectedMeshElement()
 {
-	if( ActiveAction != EMeshEditAction::None )
+	if( ActiveAction != NAME_None )
 	{
 		return false;
 	}
@@ -1310,7 +1310,7 @@ bool FMeshEditorMode::DeleteSelectedMeshElement()
 
 void FMeshEditorMode::AddOrRemoveSubdivisionLevel( const bool bShouldAdd )
 {
-	if( ActiveAction == EMeshEditAction::None )
+	if( ActiveAction == NAME_None )
 	{
 		static TSet< UEditableMesh* > SelectedMeshes;
 		SelectedMeshes.Reset();
@@ -1363,7 +1363,7 @@ void FMeshEditorMode::AddOrRemoveSubdivisionLevel( const bool bShouldAdd )
 
 void FMeshEditorMode::QuadrangulateMesh()
 {
-	if( ActiveAction == EMeshEditAction::None )
+	if( ActiveAction == NAME_None )
 	{
 		static TSet< UEditableMesh* > SelectedMeshes;
 		SelectedMeshes.Reset();
@@ -1502,7 +1502,7 @@ void FMeshEditorMode::FrameSelectedElements( FEditorViewportClient* ViewportClie
 
 bool FMeshEditorMode::RemoveSelectedEdges()
 {
-	if( ActiveAction != EMeshEditAction::None )
+	if( ActiveAction != NAME_None )
 	{
 		return false;
 	}
@@ -1591,7 +1591,7 @@ bool FMeshEditorMode::RemoveSelectedEdges()
 
 bool FMeshEditorMode::SelectEdgeLoops()
 {
-	if( ActiveAction != EMeshEditAction::None )
+	if( ActiveAction != NAME_None )
 	{
 		return false;
 	}
@@ -1643,7 +1643,7 @@ bool FMeshEditorMode::SelectEdgeLoops()
 
 bool FMeshEditorMode::RemoveSelectedVertices()
 {
-	if( ActiveAction != EMeshEditAction::None )
+	if( ActiveAction != NAME_None )
 	{
 		return false;
 	}
@@ -1735,7 +1735,7 @@ bool FMeshEditorMode::RemoveSelectedVertices()
 
 bool FMeshEditorMode::WeldSelectedVertices()
 {
-	if( ActiveAction != EMeshEditAction::None )
+	if( ActiveAction != NAME_None )
 	{
 		return false;
 	}
@@ -1821,7 +1821,7 @@ bool FMeshEditorMode::WeldSelectedVertices()
 
 bool FMeshEditorMode::FlipSelectedPolygons()
 {
-	if( ActiveAction != EMeshEditAction::None )
+	if( ActiveAction != NAME_None )
 	{
 		return false;
 	}
@@ -1871,7 +1871,7 @@ bool FMeshEditorMode::FlipSelectedPolygons()
 
 bool FMeshEditorMode::TriangulateSelectedPolygons()
 {
-	if( ActiveAction != EMeshEditAction::None )
+	if( ActiveAction != NAME_None )
 	{
 		return false;
 	}
@@ -1975,7 +1975,7 @@ bool FMeshEditorMode::AssignMaterialToSelectedPolygons( UMaterialInterface* Sele
 {
 	if( SelectedMaterial )
 	{
-		if( ActiveAction != EMeshEditAction::None )
+		if( ActiveAction != NAME_None )
 		{
 			return false;
 		}
@@ -2067,7 +2067,7 @@ bool FMeshEditorMode::AssignMaterialToSelectedPolygons( UMaterialInterface* Sele
 
 bool FMeshEditorMode::MakeSelectedEdgesHardOrSoft(const bool bMakeEdgesHard)
 {
-	if( ActiveAction != EMeshEditAction::None )
+	if( ActiveAction != NAME_None )
 	{
 		return false;
 	}
@@ -2510,7 +2510,7 @@ void FMeshEditorMode::Render( const FSceneView* SceneView, FViewport* Viewport, 
 		}
 
 		// Only draw hover if we're not in the middle of an interactive edit
-		if( ActiveAction == EMeshEditAction::None )
+		if( ActiveAction == NAME_None )
 		{
 			for( FMeshEditorInteractorData& MeshEditorInteractorData : MeshEditorInteractorDatas )
 			{
@@ -2650,7 +2650,7 @@ void FMeshEditorMode::Render( const FSceneView* SceneView, FViewport* Viewport, 
 	// Draw hovered and selected elements
 	{
 		// Only draw hover if we're not in the middle of an interactive edit
-		if( ActiveAction == EMeshEditAction::None )
+		if( ActiveAction == NAME_None )
 		{
 			const float HoveredSizeBias = MeshEd::HoveredSizeBias->GetFloat() + MeshEd::HoveredAnimationExtraSizeBias->GetFloat() * FMath::MakePulsatingValue( HoverFeedbackTimeValue, 0.5f );
 			{
@@ -2804,14 +2804,14 @@ void FMeshEditorMode::OnViewportInteractionHoverUpdate( UViewportInteractor* Vie
 		FViewportActionKeyInput* SelectAndMoveAction = ViewportInteractor->GetActionWithName( ViewportWorldActionTypes::SelectAndMove );
 		FViewportActionKeyInput* WorldMovementAction = ViewportInteractor->GetActionWithName( ViewportWorldActionTypes::WorldMovement );
  		const bool bIsLaserPointerBusy = 
-			( SelectAndMoveAction != nullptr && SelectAndMoveAction->bIsInputCaptured && ActiveAction == EMeshEditAction::None ) ||
-			( WorldMovementAction != nullptr && WorldMovementAction->bIsInputCaptured && ActiveAction == EMeshEditAction::None );
+			( SelectAndMoveAction != nullptr && SelectAndMoveAction->bIsInputCaptured && ActiveAction == NAME_None ) ||
+			( WorldMovementAction != nullptr && WorldMovementAction->bIsInputCaptured && ActiveAction == NAME_None );
 
 		bool bIsGrabberSphereOverMeshElement = false;
 
 		if( !bIsLaserPointerBusy )
 		{
-			if( ActiveAction == EMeshEditAction::None || 
+			if( ActiveAction == NAME_None || 
 				bActiveActionNeedsHoverLocation )
 			{
 				const float WorldSpaceRayFuzzyDistance = MeshEd::LaserFuzzySelectionDistance->GetFloat() * ViewportWorldInteraction->GetWorldScaleFactor();
@@ -3079,7 +3079,7 @@ void FMeshEditorMode::OnViewportInteractionInputUnhandled( FEditorViewportClient
 
 void FMeshEditorMode::OnViewportInteractionStartDragging( UViewportInteractor* ViewportInteractor )
 {
-	if( ActiveAction == EMeshEditAction::None )
+	if( ActiveAction == NAME_None )
 	{
 		// NOTE: We pass an empty Undo text string to tell StartAction() that we don't need it to start a transaction
 		// because the caller of this delegate will have already done that (the viewport interaction system)
@@ -3100,7 +3100,7 @@ void FMeshEditorMode::OnViewportInteractionStopDragging( UViewportInteractor* Vi
 
 void FMeshEditorMode::OnViewportInteractionFinishedMovingTransformables()
 {
-	if( ActiveAction != EMeshEditAction::None )
+	if( ActiveAction != NAME_None )
 	{
 		FinishAction();
 	}
@@ -3137,7 +3137,7 @@ void FMeshEditorMode::UpdateActiveAction( const bool bIsActionFinishing )
 	RollbackPreviewChanges();
 
 	if( bIsFirstActiveActionUpdate &&
-	   ActiveAction != EMeshEditAction::None &&
+	   ActiveAction != NAME_None &&
 	   ActiveAction != EMeshEditAction::SelectByPainting )
 	{
 		CommitSelectedMeshes();
@@ -3193,126 +3193,6 @@ void FMeshEditorMode::UpdateActiveAction( const bool bIsActionFinishing )
 		ActiveAction == EMeshEditAction::MoveUsingGizmo )
 	{
 		bIsMovingSelectedMeshElements = true;
-	}
-	else if( ActiveAction == EMeshEditAction::EditVertexCornerSharpness ||
-			 ActiveAction == EMeshEditAction::EditEdgeCreaseSharpness )
-	{
-		static TMap< UEditableMesh*, TArray<FMeshElement> > MeshesWithSelectedVertices;
-		static TMap< UEditableMesh*, TArray<FMeshElement> > MeshesWithSelectedEdges;
-		GetSelectedMeshesAndVertices( /* Out */ MeshesWithSelectedVertices );
-		GetSelectedMeshesAndEdges( /* Out */ MeshesWithSelectedEdges );
-
-		if( MeshesWithSelectedVertices.Num() > 0 || MeshesWithSelectedEdges.Num() > 0 )
-		{
-			// @todo mesheditor subdiv: Hard coded tweakables; ideally should be sized in screen space
-			const float DragScaleFactor = 5.0f;
-			const float ProgressBarHeight = 1000.0f;
-
-			// Figure out how much to either increase or decrease sharpness based on how far the user has dragged up or down in world space.
-			float DragDeltaZ = 0.0f;
-			
-			{
-				FMeshEditorInteractorData& MeshEditorInteractorData = GetMeshEditorInteractorData( ActiveActionInteractor );
-				if( MeshEditorInteractorData.bLaserIsValid || MeshEditorInteractorData.bGrabberSphereIsValid )
-				{
-					const FVector ProgressBarStart( EditSharpnessStartLocation + FVector( 0.0f, 0.0f, -ProgressBarHeight * 0.5f ) );
-					const FVector ProgressBarEnd( EditSharpnessStartLocation + FVector( 0.0f, 0.0f, ProgressBarHeight * 0.5f ) );
-
-					// First check to see if we're within grabber sphere range.  Otherwise, we'll use the laser.
-					bool bIsInRange = false;
-					FVector ClosestPointOnProgressBar;
-					if( MeshEditorInteractorData.bGrabberSphereIsValid )
-					{
-						if( FMath::PointDistToSegment( MeshEditorInteractorData.GrabberSphere.Center, ProgressBarStart, ProgressBarEnd ) <= MeshEditorInteractorData.GrabberSphere.W )
-						{
-							bIsInRange = true;
-							ClosestPointOnProgressBar = FMath::ClosestPointOnSegment(
-								MeshEditorInteractorData.GrabberSphere.Center,
-								ProgressBarStart, ProgressBarEnd );
-						}
-					}
-					
-					if( !bIsInRange && ensure( MeshEditorInteractorData.bLaserIsValid ) )
-					{
-						bIsInRange = true;
-						FVector ClosestPointOnRay;
-						FMath::SegmentDistToSegment(
-							ProgressBarStart, ProgressBarEnd,
-							MeshEditorInteractorData.LaserStart, MeshEditorInteractorData.LaserEnd,
-							/* Out */ ClosestPointOnProgressBar,
-							/* Out */ ClosestPointOnRay );
-					}
-
-					if( bIsInRange )
-					{
-						// Generate a drag value between -1.0 and 1.0 based on the interaction of the ray and the progress bar line segment.
-						const float ProgressBarLength = ( ProgressBarEnd - ProgressBarStart ).Size();
-						DragDeltaZ = -1.0f + 2.0f * ( ( ClosestPointOnProgressBar - ProgressBarStart ).Size() / ProgressBarLength );
-					}
-				}
-			}
-
-			const float ScaledDragDelta = DragDeltaZ * DragScaleFactor;
-
-			for( auto& MeshAndSelectedVertices : MeshesWithSelectedVertices )
-			{
-				UEditableMesh* EditableMesh = MeshAndSelectedVertices.Key;
-				const TArray<FMeshElement>& VertexElements = MeshAndSelectedVertices.Value;
-
-				static TArray<FVertexID> VertexIDs;
-				VertexIDs.Reset();
-
-				static TArray<float> NewSharpnessValues;
-				NewSharpnessValues.Reset();
-
-				for( const FMeshElement& VertexElement : VertexElements )
-				{
-					const FVertexID VertexID( VertexElement.ElementAddress.ElementID );
-
-					const float CurrentSharpnessValue = EditableMesh->GetVertexAttribute( VertexID, UEditableMeshAttribute::VertexCornerSharpness(), 0 ).X;
-					const float NewSharpnessValue = FMath::Clamp( CurrentSharpnessValue + ScaledDragDelta, 0.0f, 1.0f );
-
-					VertexIDs.Add( VertexID );
-					NewSharpnessValues.Add( NewSharpnessValue );
-				}
-
-
-				verify( !EditableMesh->AnyChangesToUndo() );
-
-				EditableMesh->SetVerticesCornerSharpness( VertexIDs, NewSharpnessValues );
-
-				TrackUndo( EditableMesh, EditableMesh->MakeUndo() );
-			}
-
-			for( auto& MeshAndSelectedEdges : MeshesWithSelectedEdges )
-			{
-				UEditableMesh* EditableMesh = MeshAndSelectedEdges.Key;
-				const TArray<FMeshElement>& EdgeElements = MeshAndSelectedEdges.Value;
-
-				static TArray<FEdgeID> EdgeIDs;
-				EdgeIDs.Reset();
-
-				static TArray<float> NewSharpnessValues;
-				NewSharpnessValues.Reset();
-
-				for( const FMeshElement& EdgeElement : EdgeElements )
-				{
-					const FEdgeID EdgeID( EdgeElement.ElementAddress.ElementID );
-
-					const float CurrentSharpnessValue = EditableMesh->GetEdgeAttribute( EdgeID, UEditableMeshAttribute::EdgeCreaseSharpness(), 0 ).X;
-					const float NewSharpnessValue = FMath::Clamp( CurrentSharpnessValue + ScaledDragDelta, 0.0f, 1.0f );
-
-					EdgeIDs.Add( EdgeID );
-					NewSharpnessValues.Add( NewSharpnessValue );
-				}
-
-				verify( !EditableMesh->AnyChangesToUndo() );
-
-				EditableMesh->SetEdgesCreaseSharpness( EdgeIDs, NewSharpnessValues );
-
-				TrackUndo( EditableMesh, EditableMesh->MakeUndo() );
-			}
-		}
 	}
 	else if( ActiveAction == EMeshEditAction::DrawVertices )
 	{
@@ -4382,7 +4262,7 @@ void FMeshEditorMode::OnViewportInteractionInputAction( FEditorViewportClient& V
 
 		// If we're interactively editing something, clicking will commit that change
 		if( Action.Event == IE_Pressed &&
-			ActiveAction != EMeshEditAction::None )
+			ActiveAction != NAME_None )
 		{
 			// We're busy doing something else right now.  It might be an interactor trying to click while a different one is in the middle of something.
 			bWasHandled = true;
@@ -4391,7 +4271,7 @@ void FMeshEditorMode::OnViewportInteractionInputAction( FEditorViewportClient& V
 		// Otherwise, go ahead and try to interact with what's under the interactor
 		else if( Action.Event == IE_Pressed &&
 				 !bOutIsInputCaptured &&
-				 ActiveAction == EMeshEditAction::None )	// Only if we're not already doing something
+				 ActiveAction == NAME_None )	// Only if we're not already doing something
 		{
 			bool bWantToStartMoving = false;
 
@@ -4454,24 +4334,6 @@ void FMeshEditorMode::OnViewportInteractionInputAction( FEditorViewportClient& V
 						const bool bActionNeedsHoverLocation = false;
 						StartAction( EMeshEditAction::Move, ViewportInteractor, bActionNeedsHoverLocation, LOCTEXT( "UndoDragPolygon", "Drag Polygon" ) );
 					}
-					else if( SelectedMeshElementType == EEditableMeshElementType::Vertex && EquippedVertexAction == EMeshEditAction::EditVertexCornerSharpness )
-					{
-						EditSharpnessStartLocation = MeshEditorInteractorData.HoverLocation;
-
-						const bool bActionNeedsHoverLocation = false;
-						StartAction( EMeshEditAction::EditVertexCornerSharpness, ViewportInteractor, bActionNeedsHoverLocation, LOCTEXT( "UndoEditVertexCornerSharpness", "Edit Vertex Corner Sharpness" ) );
-
-						bOutIsInputCaptured = true;
-					}
-					else if( SelectedMeshElementType == EEditableMeshElementType::Edge && EquippedEdgeAction == EMeshEditAction::EditEdgeCreaseSharpness )
-					{
-						EditSharpnessStartLocation = MeshEditorInteractorData.HoverLocation;
-
-						const bool bActionNeedsHoverLocation = false;
-						StartAction( EMeshEditAction::EditEdgeCreaseSharpness, ViewportInteractor, bActionNeedsHoverLocation, LOCTEXT( "UndoEditEdgeCreaseSharpness", "Edit Edge Crease Sharpness" ) );
-
-						bOutIsInputCaptured = true;
-					}
 					else
 					{
 						for( TObjectIterator<UMeshEditorCommand> CommandCDOIter( RF_NoFlags ); CommandCDOIter; ++CommandCDOIter )
@@ -4479,7 +4341,7 @@ void FMeshEditorMode::OnViewportInteractionInputAction( FEditorViewportClient& V
 							UMeshEditorCommand* CommandCDO = *CommandCDOIter;
 							if( !( CommandCDO->GetClass()->GetClassFlags() & CLASS_Abstract ) )
 							{
-								EMeshEditAction::Type EquippedAction = EMeshEditAction::None;
+								FName EquippedAction = NAME_None;
 								switch( SelectedMeshElementType )
 								{
 									case EEditableMeshElementType::Vertex:
@@ -4593,7 +4455,7 @@ void FMeshEditorMode::OnViewportInteractionInputAction( FEditorViewportClient& V
 		}
 		else if( Action.Event == IE_Released )
 		{
-			if( ActiveAction != EMeshEditAction::None && 
+			if( ActiveAction != NAME_None && 
 				ActiveAction != EMeshEditAction::MoveUsingGizmo &&	// The button 'release' for gizmo-based movement is handled by the viewport world interaction system
 				bOutIsInputCaptured )
 			{
@@ -4628,10 +4490,10 @@ void FMeshEditorMode::OnViewportInteractionInputAction( FEditorViewportClient& V
 }
 
 
-void FMeshEditorMode::StartAction( EMeshEditAction::Type NewAction, UViewportInteractor* ActionInteractor, const bool bActionNeedsHoverLocation, const FText& UndoText )
+void FMeshEditorMode::StartAction( FName NewAction, UViewportInteractor* ActionInteractor, const bool bActionNeedsHoverLocation, const FText& UndoText )
 {
 	// Don't start a new action without finishing the previous one!
-	check( ActiveAction == EMeshEditAction::None );
+	check( ActiveAction == NAME_None );
 
 	PlayStartActionSound( NewAction, ActionInteractor );
 
@@ -4656,7 +4518,7 @@ void FMeshEditorMode::FinishAction()
 {
 	// @todo mesheditor: Make sure this is called before Undo is invoked (PreEditUndo!), otherwise the previous action will be undone instead of the active one
 
-	check( ActiveAction != EMeshEditAction::None );
+	check( ActiveAction != NAME_None );
 	check( GUndo == nullptr || GEditor->IsTransactionActive() );	// Someone must have started a transaction! (It might not have been us though.)
 
 	const bool bIsActionFinishing = true;
@@ -4680,7 +4542,7 @@ void FMeshEditorMode::FinishAction()
 		PlayFinishActionSound( ActiveAction, ActiveActionInteractor );
 	}
 
-	ActiveAction = EMeshEditAction::None;
+	ActiveAction = NAME_None;
 	ActiveActionInteractor = nullptr;
 	bActiveActionNeedsHoverLocation = false;
 
@@ -5046,7 +4908,7 @@ void FMeshEditorMode::RefreshTransformables()
 {
 	// Don't refresh transformables while we're actively moving them around
 	const bool bAllowRefresh =
-		ActiveAction == EMeshEditAction::None ||
+		ActiveAction == NAME_None ||
 		ActiveAction == EMeshEditAction::SelectByPainting ||
 		bIsFirstActiveActionUpdate;
 	if( !bAllowRefresh )
@@ -5352,9 +5214,9 @@ void FMeshEditorMode::MakeVRRadialMenuActionsMenu(FMenuBuilder& MenuBuilder, TSh
 }
 
 
-EMeshEditAction::Type FMeshEditorMode::GetEquippedAction( const EEditableMeshElementType ForElementType ) const
+FName FMeshEditorMode::GetEquippedAction( const EEditableMeshElementType ForElementType ) const
 {
-	EMeshEditAction::Type EquippedAction = EMeshEditAction::None;
+	FName EquippedAction = NAME_None;
 
 	switch( ForElementType )
 	{
@@ -5378,7 +5240,7 @@ EMeshEditAction::Type FMeshEditorMode::GetEquippedAction( const EEditableMeshEle
 }
 
 
-void FMeshEditorMode::SetEquippedAction( const EEditableMeshElementType ForElementType, const EMeshEditAction::Type ActionToEquip )
+void FMeshEditorMode::SetEquippedAction( const EEditableMeshElementType ForElementType, const FName ActionToEquip )
 {
 	switch( ForElementType )
 	{

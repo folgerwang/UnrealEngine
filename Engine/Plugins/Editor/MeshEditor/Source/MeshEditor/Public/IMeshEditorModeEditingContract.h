@@ -6,35 +6,6 @@
 #include "MeshElement.h"
 
 
-// @todo mesheditor extensibility: This should probably be removed after we've evicted all current mesh editing actions to another module
-namespace EMeshEditAction
-{
-	typedef FName Type;
-
-	/** Nothing going on right now */
-	MESHEDITOR_API extern const FName None;
-
-	/** Selecting mesh elements by 'painting' over multiple elements */
-	MESHEDITOR_API extern const FName SelectByPainting;
-
-	/** Moving elements using a transform gizmo */
-	MESHEDITOR_API extern const FName MoveUsingGizmo;
-
-	/** Moving selected mesh elements (vertices, edges or polygons) */
-	MESHEDITOR_API extern const FName Move;
-
-	/** For subdivision meshes, edits how sharp a vertex corner is by dragging in space */
-	MESHEDITOR_API extern const FName EditVertexCornerSharpness;
-
-	/** For subdivision meshes, edits how sharp an edge crease is by dragging in space */
-	MESHEDITOR_API extern const FName EditEdgeCreaseSharpness;
-
-	/** Freehand vertex drawing */
-	MESHEDITOR_API extern const FName DrawVertices;
-}
-
-
-
 class IMeshEditorModeEditingContract
 {
 
@@ -45,7 +16,7 @@ public:
 
 	/** Gets the interactive action currently being performed (and previewed).  These usually happen over multiple frames, and
 	    result in a 'final' application of the change that performs a more exhaustive (and more expensive) update. */
-	virtual EMeshEditAction::Type GetActiveAction() const = 0;
+	virtual FName GetActiveAction() const = 0;
 
 	/** Stores undo state for the specified object.  This will store the state different depending on whether we're
 	    currently in the middle of previewing a temporary change to meshes (bIsCapturingUndoForPreview) */
