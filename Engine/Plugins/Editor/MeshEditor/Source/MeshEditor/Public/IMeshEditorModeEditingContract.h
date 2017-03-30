@@ -35,12 +35,6 @@ namespace EMeshEditAction
 	/** Extrude polygon by making a copy of it and allowing you to move it around freely */
 	MESHEDITOR_API extern const FName FreelyExtrudePolygon;
 
-	/** Inset polygon by replacing it with a new polygon that is bordered by polygons of a specific relative size */
-	MESHEDITOR_API extern const FName InsetPolygon;
-
-	/** Bevel polygons by adding angled bordering polygons of a specific relative size */
-	MESHEDITOR_API extern const FName BevelPolygon;
-
 	/** Extend an edge by making a copy of it and allowing you to move it around */
 	MESHEDITOR_API extern const FName ExtendEdge;
 
@@ -64,6 +58,8 @@ class IMeshEditorModeEditingContract
 
 public:
 
+	/** Gets an editable mesh from our cache of editable meshes for the specified sub-mesh address */
+	virtual const class UEditableMesh* FindEditableMesh( class UPrimitiveComponent& Component, const FEditableMeshSubMeshAddress& SubMeshAddress ) const = 0;
 
 	/** Gets the interactive action currently being performed (and previewed).  These usually happen over multiple frames, and
 	    result in a 'final' application of the change that performs a more exhaustive (and more expensive) update. */
@@ -72,6 +68,12 @@ public:
 	/** Stores undo state for the specified object.  This will store the state different depending on whether we're
 	    currently in the middle of previewing a temporary change to meshes (bIsCapturingUndoForPreview) */
 	virtual void TrackUndo( UObject* Object, TUniquePtr<FChange> RevertChange ) = 0;
+
+	/** Returns true if the specified element is selected right now */
+	virtual bool IsMeshElementSelected( const FMeshElement MeshElement ) const = 0;
+
+	/** Returns the mesh element the specified viewport interactor is currently hovering over.  The returned element might be invalid if nothing valid is hovered right now */
+	virtual FMeshElement GetHoveredMeshElement( class UViewportInteractor* ViewportInteractor ) const = 0;
 
 	virtual void GetSelectedMeshesAndVertices( TMap<class UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndVertices ) = 0;
 	virtual void GetSelectedMeshesAndEdges( TMap<class UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndEdges ) = 0;

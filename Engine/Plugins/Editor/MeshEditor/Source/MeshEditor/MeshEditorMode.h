@@ -100,7 +100,7 @@ public:
 	virtual ~FMeshEditorMode();
 
 	/** Gets an editable mesh from our cache of editable meshes for the specified sub-mesh address, or tries to create and cache a new
-	editable mesh if we haven't seen this sub-mesh address before.  Can return nullptr if no mesh was possible for that address. */
+		editable mesh if we haven't seen this sub-mesh address before.  Can return nullptr if no mesh was possible for that address. */
 	UEditableMesh* FindOrCreateEditableMesh( class UPrimitiveComponent& Component, const FEditableMeshSubMeshAddress& SubMeshAddress );
 
 
@@ -167,9 +167,15 @@ protected:
 	virtual void SetEquippedAction( const EEditableMeshElementType ForElementType, const EMeshEditAction::Type ActionToEquip ) override;
 
 	// IMeshEditorModeEditingContract interface
+	virtual const UEditableMesh* FindEditableMesh( class UPrimitiveComponent& Component, const FEditableMeshSubMeshAddress& SubMeshAddress ) const override;
 	virtual EMeshEditAction::Type GetActiveAction() const override { return ActiveAction; }
 	virtual void TrackUndo( UObject* Object, TUniquePtr<FChange> RevertChange ) override;
 	virtual void CommitSelectedMeshes() override;
+	virtual FMeshElement GetHoveredMeshElement( class UViewportInteractor* ViewportInteractor ) const override;
+	virtual bool IsMeshElementSelected( const FMeshElement MeshElement ) const override
+	{
+		return GetSelectedMeshElementIndex( MeshElement ) != INDEX_NONE;
+	}
 	virtual void GetSelectedMeshesAndVertices( TMap<UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndVertices ) override 
 	{
 		GetSelectedMeshesAndElements( EEditableMeshElementType::Vertex, /* Out */ OutMeshesAndVertices ); 
@@ -324,7 +330,7 @@ protected:
 
 	/** Gets mesh editor interactor data for the specified viewport interactor.  If we've never seen this viewport interactor before,
 	    new (empty) data will be created for it on demand */
-	FMeshEditorInteractorData& GetMeshEditorInteractorData( UViewportInteractor* ViewportInteractor );
+	FMeshEditorInteractorData& GetMeshEditorInteractorData( UViewportInteractor* ViewportInteractor ) const;
 
 	/** Helper function that returns a map keying an editable mesh with its selected elements */
 	void GetSelectedMeshesAndElements( EEditableMeshElementType ElementType, TMap<UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndElements );
@@ -496,7 +502,7 @@ protected:
 	double HoverFeedbackTimeValue;
 
 	/** Interactors for the mouse cursor, and also for either virtual hand (when using VR) */
-	TArray<FMeshEditorInteractorData> MeshEditorInteractorDatas;
+	mutable TArray<FMeshEditorInteractorData> MeshEditorInteractorDatas;
 
 	/** Specifies the type of element which is currently being selected */
 	EEditableMeshElementType MeshElementSelectionMode;
@@ -587,14 +593,6 @@ protected:
 	    the user is going to be aiming their interactor along that axis to choose an extrusion point */
 	FVector ExtrudePolygonAxisOrigin;
 	FVector ExtrudePolygonAxisDirection;
-
-
-	//
-	// InsetPolygon
-	//
-
-	/** The selected polygon we clicked on to start the inset action */
-	FMeshElement InsetUsingPolygonElement;
 
 
 	//

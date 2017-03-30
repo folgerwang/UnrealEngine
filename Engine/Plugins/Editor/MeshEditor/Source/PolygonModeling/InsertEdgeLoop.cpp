@@ -19,7 +19,7 @@ void UInsertEdgeLoopCommand::RegisterUICommand( FBindingContext* BindingContext 
 }
 
 
-void UInsertEdgeLoopCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& MeshEditorMode, bool& bOutShouldDeselectAllFirst, TArray<FMeshElement>& OutMeshElementsToSelect )
+void UInsertEdgeLoopCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& MeshEditorMode, UViewportInteractor* ViewportInteractor, bool& bOutShouldDeselectAllFirst, TArray<FMeshElement>& OutMeshElementsToSelect )
 {
 	// Insert edge loop
 	static TMap< UEditableMesh*, TArray< FMeshElement > > SelectedMeshesAndEdges;
@@ -101,7 +101,7 @@ void UInsertEdgeLoopCommand::AddToVRRadialMenuActionsMenu( IMeshEditorModeUICont
 	if( MeshEditorMode.GetMeshElementSelectionMode() == EEditableMeshElementType::Edge )
 	{
 		MenuBuilder.AddMenuEntry(
-			LOCTEXT("InsertEdgeLoop", "Insert Loop"),
+			LOCTEXT("VRInsertEdgeLoop", "Insert Loop"),
 			FText(),
 			FSlateIcon(TEMPHACK_StyleSetName, "MeshEditorMode.EdgeInsert"),	// @todo mesheditor extensibility: TEMPHACK for style; Need PolygonModelingStyle, probably.  Or we're just cool with exporting MeshEditorModeStyle, since we're all the same plugin after all.
 			MakeUIAction( MeshEditorMode ),

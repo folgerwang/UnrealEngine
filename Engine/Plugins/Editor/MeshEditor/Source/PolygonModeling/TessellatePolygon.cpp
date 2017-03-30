@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "TessellatePolygons.h"
+#include "TessellatePolygon.h"
 #include "IMeshEditorModeEditingContract.h"
 #include "UICommandInfo.h"
 #include "EditableMesh.h"
@@ -10,13 +10,13 @@
 #define LOCTEXT_NAMESPACE "MeshEditorMode"
 
 
-void UTessellatePolygonsCommand::RegisterUICommand( FBindingContext* BindingContext )
+void UTessellatePolygonCommand::RegisterUICommand( FBindingContext* BindingContext )
 {
-	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "TessellatePolygons", "Tessellate Selected Polygons", "Tessellate selected polygons into smaller polygons.", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "TessellatePolygon", "Tessellate Polygon", "Tessellate selected polygons into smaller polygons.", EUserInterfaceActionType::Button, FInputChord() );
 }
 
 
-void UTessellatePolygonsCommand::Execute( IMeshEditorModeEditingContract& MeshEditorMode )
+void UTessellatePolygonCommand::Execute( IMeshEditorModeEditingContract& MeshEditorMode )
 {
 	if( MeshEditorMode.GetActiveAction() != EMeshEditAction::None )
 	{

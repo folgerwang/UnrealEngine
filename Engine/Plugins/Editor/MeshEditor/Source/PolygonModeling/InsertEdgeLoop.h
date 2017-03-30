@@ -6,7 +6,7 @@
 #include "InsertEdgeLoop.generated.h"
 
 
-/** With an edge select, inserts a loop of edge perpendicular to that edge while dragging */
+/** With an edge selected, inserts a loop of edge perpendicular to that edge while dragging */
 UCLASS()
 class UInsertEdgeLoopCommand : public UMeshEditorEdgeCommand
 {
@@ -24,7 +24,7 @@ protected:
 
 	// Overrides
 	virtual void RegisterUICommand( class FBindingContext* BindingContext ) override;
-	virtual void ApplyDuringDrag( IMeshEditorModeEditingContract& MeshEditorMode, bool& bOutShouldDeselectAllFirst, TArray<FMeshElement>& OutMeshElementsToSelect ) override;
+	virtual void ApplyDuringDrag( IMeshEditorModeEditingContract& MeshEditorMode, class UViewportInteractor* ViewportInteractor, bool& bOutShouldDeselectAllFirst, TArray<FMeshElement>& OutMeshElementsToSelect ) override;
 	virtual void AddToVRRadialMenuActionsMenu( class IMeshEditorModeUIContract& MeshEditorMode, class FMenuBuilder& MenuBuilder, TSharedPtr<FUICommandList> CommandList, const FName TEMPHACK_StyleSetName, class UVREditorMode* VRMode ) override;
 
 };

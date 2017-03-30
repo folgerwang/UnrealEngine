@@ -25,8 +25,14 @@ public:
 	{
 	}
 
+	/** Called when the user starts to drag on an element.  If this returns true, then the action will begin and ApplyDuringDrag() will be called each frame until the user releases the button. */
+	virtual bool TryStartingToDrag( IMeshEditorModeEditingContract& MeshEditorMode, class UViewportInteractor* ViewportInteractor )
+	{
+		return true;
+	}
+
 	/** Applies this command every frame while dragging */
-	virtual void ApplyDuringDrag( class IMeshEditorModeEditingContract& MeshEditorMode, bool& bOutShouldDeselectAllFirst, TArray<FMeshElement>& OutMeshElementsToSelect )
+	virtual void ApplyDuringDrag( class IMeshEditorModeEditingContract& MeshEditorMode, class UViewportInteractor* ViewportInteractor, bool& bOutShouldDeselectAllFirst, TArray<FMeshElement>& OutMeshElementsToSelect )
 	{
 	}
 
@@ -286,12 +292,6 @@ public:
 
 	/** Sets the primary action to freely extrude polygons */
 	TSharedPtr<FUICommandInfo> FreelyExtrudePolygon;
-
-	/** Sets the primary action to inset polygons */
-	TSharedPtr<FUICommandInfo> InsetPolygon;
-
-	/** Sets the primary action to bevel polygons */
-	TSharedPtr<FUICommandInfo> BevelPolygon;
 
 	/** Flips the currently selected polygon(s) */
 	TSharedPtr<FUICommandInfo> FlipPolygon;

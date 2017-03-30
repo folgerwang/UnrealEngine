@@ -3,12 +3,12 @@
 #pragma once
 
 #include "MeshEditorCommands.h"
-#include "TessellatePolygons.generated.h"
+#include "TessellatePolygon.generated.h"
 
 
 /** Tessellates selected polygons into smaller polygons */
 UCLASS()
-class UTessellatePolygonsCommand : public UMeshEditorPolygonCommand
+class UTessellatePolygonCommand : public UMeshEditorPolygonCommand
 {
 	GENERATED_BODY()
 
