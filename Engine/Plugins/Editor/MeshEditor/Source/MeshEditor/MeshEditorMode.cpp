@@ -551,12 +551,8 @@ void FMeshEditorMode::BindCommands()
 	RegisterCommand( MeshEditorCommonActions.QuadrangulateMesh, FExecuteAction::CreateLambda( [ this ] { QuadrangulateMesh(); } ) );
 
 	// Register element-specific commands
-	RegisterVertexCommand( MeshEditorVertexActions.RemoveVertex, FExecuteAction::CreateLambda( [this] { RemoveSelectedVertices(); } ) );
 	RegisterVertexCommand( MeshEditorVertexActions.WeldVertices, FExecuteAction::CreateLambda( [this] { WeldSelectedVertices(); } ) );
 
-	RegisterEdgeCommand( MeshEditorEdgeActions.RemoveEdge, FExecuteAction::CreateLambda( [this] { RemoveSelectedEdges(); } ) );
-	RegisterEdgeCommand( MeshEditorEdgeActions.SoftenEdge, FExecuteAction::CreateLambda( [this] { MakeSelectedEdgesHardOrSoft( false ); } ) );
-	RegisterEdgeCommand( MeshEditorEdgeActions.HardenEdge, FExecuteAction::CreateLambda( [this] { MakeSelectedEdgesHardOrSoft( true ); } ) );
 	RegisterEdgeCommand( MeshEditorEdgeActions.SelectEdgeLoop, FExecuteAction::CreateLambda( [ this ] { SelectEdgeLoops(); } ) );
 
 	RegisterPolygonCommand( MeshEditorPolygonActions.FlipPolygon, FExecuteAction::CreateLambda( [this] { FlipSelectedPolygons(); } ) );
@@ -1500,95 +1496,6 @@ void FMeshEditorMode::FrameSelectedElements( FEditorViewportClient* ViewportClie
 }
 
 
-bool FMeshEditorMode::RemoveSelectedEdges()
-{
-	if( ActiveAction != NAME_None )
-	{
-		return false;
-	}
-
-	// @todo mesheditor: Only if one edge is selected, for now.  It gets a bit confusing when performing this operation
-	// with more than one edge selected.  However, it can be very useful when collapsing away edges that don't share any
-	// common polygons, so we should try to support it.
-	if( SelectedMeshElements.Num() != 1 )
-	{
-		// @todo should this count as a failure case?
-		return false;
-	}
-
-	static TMap< UEditableMesh*, TArray< FMeshElement > > MeshesWithEdgesToRemove;
-	GetSelectedMeshesAndEdges( MeshesWithEdgesToRemove );
-
-	if( MeshesWithEdgesToRemove.Num() == 0 )
-	{
-		// @todo should this count as a failure case?
-		return false;
-	}
-
-	FScopedTransaction Transaction( LOCTEXT( "UndoRemoveEdge", "Remove Edge" ) );
-
-	CommitSelectedMeshes();
-
-	// Refresh selection (committing may have created a new mesh instance)
-	GetSelectedMeshesAndEdges( MeshesWithEdgesToRemove );
-
-	TArray<FMeshElement> MeshElementsToSelect;
-	for( const auto& MeshAndElements : MeshesWithEdgesToRemove )
-	{
-		UEditableMesh* EditableMesh = MeshAndElements.Key;
-
-		EditableMesh->StartModification( EMeshModificationType::Final, EMeshTopologyChange::TopologyChange );
-
-		const TArray<FMeshElement>& EdgeElementsToRemove = MeshAndElements.Value;
-
-		for( const FMeshElement& EdgeElementToRemove : EdgeElementsToRemove )
-		{
-			const FEdgeID EdgeID( EdgeElementToRemove.ElementAddress.ElementID );
-			{
-				bool bWasEdgeRemoved = false;
-				FPolygonRef NewPolygonRef;
-
-				EditableMesh->TryToRemovePolygonEdge( EdgeID, /* Out */ bWasEdgeRemoved, /* Out */ NewPolygonRef );
-
-				if( bWasEdgeRemoved )
-				{
-					// Select the new polygon
-					FMeshElement NewPolygonMeshElement;
-					{
-						NewPolygonMeshElement.Component = EdgeElementToRemove.Component;
-						NewPolygonMeshElement.ElementAddress = EdgeElementToRemove.ElementAddress;
-						NewPolygonMeshElement.ElementAddress.ElementType = EEditableMeshElementType::Polygon;
-						NewPolygonMeshElement.ElementAddress.SectionID = NewPolygonRef.SectionID;
-						NewPolygonMeshElement.ElementAddress.ElementID = NewPolygonRef.PolygonID;
-					}
-
-					MeshElementsToSelect.Add( NewPolygonMeshElement );
-				}
-				else
-				{
-					// Couldn't remove the edge
-					// @todo mesheditor: Needs good user feedback when this happens
-				}
-			}
-		}
-
-		EditableMesh->EndModification();
-
-		TrackUndo( EditableMesh, EditableMesh->MakeUndo() );
-	}
-
-	{
-		// Make sure we're not still hovering over a polygon we removed
-		ClearInvalidSelectedElements();
-
-		// Select the polygon leftover after removing the edge
-		SelectMeshElements( MeshElementsToSelect );
-	}
-
-	return true;
-}
-
-
 bool FMeshEditorMode::SelectEdgeLoops()
 {
 	if( ActiveAction != NAME_None )
@@ -1636,98 +1543,6 @@ bool FMeshEditorMode::SelectEdgeLoops()
 
 	DeselectAllMeshElements();
 	SelectMeshElements( MeshElementsToSelect );
-
-	return true;
-}
-
-
-bool FMeshEditorMode::RemoveSelectedVertices()
-{
-	if( ActiveAction != NAME_None )
-	{
-		return false;
-	}
-
-	// @todo mesheditor: Only if one vertex is selected, for now.  It gets a bit confusing when performing this operation
-	// with more than one vertex selected.  However, it can be very useful when collapsing away vertices that don't share any
-	// common polygons, so we should try to support it.
-	if( SelectedMeshElements.Num() != 1 )
-	{
-		// @todo should this count as a failure case?
-		return false;
-	}
-
-	static TMap< UEditableMesh*, TArray<FMeshElement> > MeshesWithVerticesToRemove;
-	GetSelectedMeshesAndVertices( MeshesWithVerticesToRemove );
-
-	// Remove selected vertices
-	if( MeshesWithVerticesToRemove.Num() == 0 )
-	{
-		// @todo should this count as a failure case?
-		return false;
-	}
-
-	FScopedTransaction Transaction( LOCTEXT( "UndoRemoveVertex", "Remove Vertex" ) );
-
-	CommitSelectedMeshes();
-
-	// Refresh selection (committing may have created a new mesh instance)
-	GetSelectedMeshesAndVertices( MeshesWithVerticesToRemove );
-
-	// Deselect the mesh elements before we delete them.  This will make sure they become selected again after undo.
-	DeselectMeshElements( MeshesWithVerticesToRemove );
-
-	TArray<FMeshElement> MeshElementsToSelect;
-	for( const auto& MeshAndElements : MeshesWithVerticesToRemove )
-	{
-		UEditableMesh* EditableMesh = MeshAndElements.Key;
-
-		EditableMesh->StartModification( EMeshModificationType::Final, EMeshTopologyChange::TopologyChange );
-
-		const TArray<FMeshElement>& VertexElementsToRemove = MeshAndElements.Value;
-
-		for( const FMeshElement& VertexElementToRemove : VertexElementsToRemove )
-		{
-			const FVertexID VertexID( VertexElementToRemove.ElementAddress.ElementID );
-			{
-				bool bWasVertexRemoved = false;
-				FEdgeID NewEdgeID = FEdgeID::Invalid;
-
-				EditableMesh->TryToRemoveVertex( VertexID, /* Out */ bWasVertexRemoved, /* Out */ NewEdgeID );
-
-				if( bWasVertexRemoved )
-				{
-					// Select the new edge
-					FMeshElement NewEdgeMeshElement;
-					{
-						NewEdgeMeshElement.Component = VertexElementToRemove.Component;
-						NewEdgeMeshElement.ElementAddress = VertexElementToRemove.ElementAddress;
-						NewEdgeMeshElement.ElementAddress.ElementType = EEditableMeshElementType::Edge;
-						NewEdgeMeshElement.ElementAddress.ElementID = NewEdgeID;
-					}
-
-					MeshElementsToSelect.Add( NewEdgeMeshElement );
-				}
-				else
-				{
-					// Couldn't remove the vertex
-					// @todo mesheditor: Needs good user feedback when this happens
-					// @todo mesheditor: If this fails, it will already potentially have created a new instance. To be 100% correct, it needs to do a prepass
-					// to determine whether the operation can complete successfully before actually doing it.
-				}
-			}
-		}
-
-		EditableMesh->EndModification();
-
-		TrackUndo( EditableMesh, EditableMesh->MakeUndo() );
-	}
-
-	{
-		// Make sure we're not still hovering over a polygon we removed
-		ClearInvalidSelectedElements();
-		SelectMeshElements( MeshElementsToSelect );
-	}
 
 	return true;
 }
@@ -2059,63 +1874,6 @@ bool FMeshEditorMode::AssignMaterialToSelectedPolygons( UMaterialInterface* Sele
 		}
 
 		return true;
-	}
-
-	return true;
-}
-
-
-bool FMeshEditorMode::MakeSelectedEdgesHardOrSoft(const bool bMakeEdgesHard)
-{
-	if( ActiveAction != NAME_None )
-	{
-		return false;
-	}
-
-	// Make edges hard or soft
-	static TMap< UEditableMesh*, TArray<FMeshElement> > MeshesAndEdges;
-	GetSelectedMeshesAndEdges( /* Out */ MeshesAndEdges );
-
-	if( MeshesAndEdges.Num() == 0 )
-	{
-		// @todo should this count as a failure case?
-		return false;
-	}
-
-	const FScopedTransaction Transaction( bMakeEdgesHard ? LOCTEXT( "UndoHardenEdge", "Harden Edge" ) : LOCTEXT( "UndoSoftenEdge", "Soften Edge" ) );
-
-	CommitSelectedMeshes();
-
-	// Refresh selection (committing may have created a new mesh instance)
-	GetSelectedMeshesAndEdges( /* Out */ MeshesAndEdges );
-
-	for( auto& MeshAndEdges : MeshesAndEdges )
-	{
-		static TArray<FEdgeID> EdgeIDs;
-		EdgeIDs.Reset();
-
-		static TArray<bool> EdgesNewIsHard;
-		EdgesNewIsHard.Reset();
-
-		for( FMeshElement& EdgeElement : MeshAndEdges.Value )
-		{
-			const FEdgeID EdgeID( EdgeElement.ElementAddress.ElementID );
-
-			EdgeIDs.Add( EdgeID );
-			EdgesNewIsHard.Add( bMakeEdgesHard );
-		}
-
-
-		UEditableMesh* EditableMesh = MeshAndEdges.Key;
-		verify( !EditableMesh->AnyChangesToUndo() );
-
-		EditableMesh->StartModification( EMeshModificationType::Final, EMeshTopologyChange::TopologyChange );
-
-		EditableMesh->SetEdgesHardness( EdgeIDs, EdgesNewIsHard );
-
-		EditableMesh->EndModification();
-
-		TrackUndo( EditableMesh, EditableMesh->MakeUndo() );
 	}
 
 	return true;
@@ -5126,18 +4884,6 @@ void FMeshEditorMode::MakeVRRadialMenuActionsMenu(FMenuBuilder& MenuBuilder, TSh
 			EUserInterfaceActionType::CollapsedButton
 			);
 		MenuBuilder.AddMenuEntry(
-			LOCTEXT("RemoveSelected", "Remove Selected"),
-			FText(),
-			FSlateIcon(FMeshEditorStyle::GetStyleSetName(), "MeshEditorMode.EdgeRemove"),
-			FUIAction
-			(
-				FExecuteAction::CreateLambda([this] { RemoveSelectedEdges(); }),
-				FCanExecuteAction::CreateSP(this, &FMeshEditorMode::IsMeshElementTypeSelected, EEditableMeshElementType::Edge)
-				),
-			NAME_None,
-			EUserInterfaceActionType::CollapsedButton
-			);
-		MenuBuilder.AddMenuEntry(
 			LOCTEXT( "SelectEdgeLoop", "Select Edge Loop" ),
 			FText(),
 			FSlateIcon(FMeshEditorStyle::GetStyleSetName(), "MeshEditorMode.SelectLoop"),
@@ -5172,18 +4918,6 @@ void FMeshEditorMode::MakeVRRadialMenuActionsMenu(FMenuBuilder& MenuBuilder, TSh
 			FUIAction
 			(
 				FExecuteAction::CreateLambda([this] { DeleteSelectedMeshElement(); }),
-				FCanExecuteAction::CreateSP(this, &FMeshEditorMode::IsMeshElementTypeSelected, EEditableMeshElementType::Vertex)
-			),
-			NAME_None,
-			EUserInterfaceActionType::CollapsedButton
-			);
-		MenuBuilder.AddMenuEntry(
-			LOCTEXT("RemoveSelected", "Remove Selected"),
-			FText(),
-			FSlateIcon(FMeshEditorStyle::GetStyleSetName(), "MeshEditorMode.VertexRemove"),
-			FUIAction
-			(
-				FExecuteAction::CreateLambda([this] { RemoveSelectedVertices(); }),
 				FCanExecuteAction::CreateSP(this, &FMeshEditorMode::IsMeshElementTypeSelected, EEditableMeshElementType::Vertex)
 			),
 			NAME_None,

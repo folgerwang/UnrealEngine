@@ -298,14 +298,8 @@ protected:
 	/** Moves the viewport camera to frame the currently selected elements */
 	void FrameSelectedElements( FEditorViewportClient* ViewportClient );
 
-	/** Removes the selected edge if possible; returns whether successful */
-	bool RemoveSelectedEdges();
-
 	/** Selects the edge loops which contain the selected edges */
 	bool SelectEdgeLoops();
-
-	/** Removes the selected vertex if possible; returns whether successful */
-	bool RemoveSelectedVertices();
 
 	/** Welds the selected vertices if possible, keeping the first selected vertex */
 	bool WeldSelectedVertices();
@@ -321,9 +315,6 @@ protected:
 
 	/** Assigns a material to the selected polygons; returns whether successful */
 	bool AssignMaterialToSelectedPolygons( UMaterialInterface* SelectedMaterial );
-
-	/** Creases selected edges; returns whether successful */
-	bool MakeSelectedEdgesHardOrSoft( bool bMakeEdgesHard );
 
 	/** Rolls back whatever we changed last time while previewing */
 	void RollbackPreviewChanges();

@@ -217,9 +217,6 @@ public:
 	/** Sets the primary action to move vertices */
 	TSharedPtr<FUICommandInfo> MoveVertex;
 
-	/** Removes the selected vertex if possible */
-	TSharedPtr<FUICommandInfo> RemoveVertex;
-
 	/** Welds the selected vertices */
 	TSharedPtr<FUICommandInfo> WeldVertices;
 };
@@ -239,15 +236,6 @@ public:
 
 	/** Sets the primary action to move edges */
 	TSharedPtr<FUICommandInfo> MoveEdge;
-
-	/** Removes the selected edge if possible */
-	TSharedPtr<FUICommandInfo> RemoveEdge;
-
-	/** Soften edge */
-	TSharedPtr<FUICommandInfo> SoftenEdge;
-
-	/** Harden edge */
-	TSharedPtr<FUICommandInfo> HardenEdge;
 
 	/** Select edge loop */
 	TSharedPtr<FUICommandInfo> SelectEdgeLoop;
