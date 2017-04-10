@@ -95,8 +95,6 @@ void URemoveVertexCommand::Execute( IMeshEditorModeEditingContract& MeshEditorMo
 		MeshEditorMode.TrackUndo( EditableMesh, EditableMesh->MakeUndo() );
 	}
 
-	// Make sure we're not still hovering over a polygon we removed
-	MeshEditorMode.ClearInvalidSelectedElements();
 	MeshEditorMode.SelectMeshElements( MeshElementsToSelect );
 }
 

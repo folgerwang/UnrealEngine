@@ -93,13 +93,8 @@ void URemoveEdgeCommand::Execute( IMeshEditorModeEditingContract& MeshEditorMode
 		MeshEditorMode.TrackUndo( EditableMesh, EditableMesh->MakeUndo() );
 	}
 
-	{
-		// Make sure we're not still hovering over a polygon we removed
-		MeshEditorMode.ClearInvalidSelectedElements();
-
-		// Select the polygon leftover after removing the edge
-		MeshEditorMode.SelectMeshElements( MeshElementsToSelect );
-	}
+	// Select the polygon leftover after removing the edge
+	MeshEditorMode.SelectMeshElements( MeshElementsToSelect );
 }
 
 

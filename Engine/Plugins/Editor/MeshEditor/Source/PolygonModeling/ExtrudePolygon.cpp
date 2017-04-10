@@ -81,7 +81,7 @@ bool UExtrudePolygonCommand::TryStartingToDrag( IMeshEditorModeEditingContract& 
 	bool bHaveExtrudeAxis = false;
 	{
 		const FMeshElement& PolygonElement = MeshEditorMode.GetHoveredMeshElement( ViewportInteractor );
-		if( PolygonElement.ElementAddress.ElementType == EEditableMeshElementType::Polygon )
+		if( PolygonElement.IsValidMeshElement() && PolygonElement.ElementAddress.ElementType == EEditableMeshElementType::Polygon )
 		{
 			// Is it selected?
 			if( MeshEditorMode.IsMeshElementSelected( PolygonElement ) )

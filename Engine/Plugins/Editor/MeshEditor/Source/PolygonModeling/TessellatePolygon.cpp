@@ -86,9 +86,6 @@ void UTessellatePolygonCommand::Execute( IMeshEditorModeEditingContract& MeshEdi
 		MeshEditorMode.TrackUndo( EditableMesh, EditableMesh->MakeUndo() );
 	}
 
-	// Make sure we're not still hovering over a polygon we removed
-	MeshEditorMode.ClearInvalidSelectedElements();
-
 	// Select the new smaller polygons
 	MeshEditorMode.SelectMeshElements( MeshElementsToSelect );
 }

@@ -26,7 +26,7 @@ public:
 	virtual bool IsMeshElementSelected( const FMeshElement MeshElement ) const = 0;
 
 	/** Returns the mesh element the specified viewport interactor is currently hovering over.  The returned element might be invalid if nothing valid is hovered right now */
-	virtual FMeshElement GetHoveredMeshElement( class UViewportInteractor* ViewportInteractor ) const = 0;
+	virtual FMeshElement GetHoveredMeshElement( const class UViewportInteractor* ViewportInteractor ) const = 0;
 
 	virtual void GetSelectedMeshesAndVertices( TMap<class UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndVertices ) = 0;
 	virtual void GetSelectedMeshesAndEdges( TMap<class UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndEdges ) = 0;
@@ -44,9 +44,6 @@ public:
 
 	/** Commits all selected meshes */
 	virtual void CommitSelectedMeshes() = 0;
-
-	/** Clears hover and selection on mesh elements that may no longer be valid.  You'll want to call this if you change the mesh topology */
-	virtual void ClearInvalidSelectedElements() = 0;
 
 	/** Given an interactor and a mesh, finds edges under the interactor along with their exact split position (progress along the edge) */
 	virtual void FindEdgeSplitUnderInteractor( class UViewportInteractor* ViewportInteractor, const UEditableMesh* EditableMesh, const TArray<FMeshElement>& EdgeElements, TArray<float>& OutSplits ) = 0;

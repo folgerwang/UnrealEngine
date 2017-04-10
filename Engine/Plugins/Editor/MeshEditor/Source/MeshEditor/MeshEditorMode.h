@@ -109,7 +109,7 @@ public:
 	{
 		bool bIsValid = false;
 
-		if( MeshElement.ElementAddress.ElementID != FElementID::Invalid )
+		if( EditableMesh != nullptr && MeshElement.ElementAddress.ElementID != FElementID::Invalid )
 		{
 			switch( MeshElement.ElementAddress.ElementType )
 			{
@@ -171,7 +171,7 @@ protected:
 	virtual FName GetActiveAction() const override { return ActiveAction; }
 	virtual void TrackUndo( UObject* Object, TUniquePtr<FChange> RevertChange ) override;
 	virtual void CommitSelectedMeshes() override;
-	virtual FMeshElement GetHoveredMeshElement( class UViewportInteractor* ViewportInteractor ) const override;
+	virtual FMeshElement GetHoveredMeshElement( const class UViewportInteractor* ViewportInteractor ) const override;
 	virtual bool IsMeshElementSelected( const FMeshElement MeshElement ) const override
 	{
 		return GetSelectedMeshElementIndex( MeshElement ) != INDEX_NONE;
@@ -192,7 +192,6 @@ protected:
 	virtual void DeselectAllMeshElements() override;
 	virtual void DeselectMeshElements( const TArray<FMeshElement>& MeshElementsToDeselect ) override;
 	virtual void DeselectMeshElements( const TMap<UEditableMesh*, TArray<FMeshElement>>& MeshElementsToDeselect ) override;
-	virtual void ClearInvalidSelectedElements() override;
 	virtual void FindEdgeSplitUnderInteractor( UViewportInteractor* ViewportInteractor, const UEditableMesh* EditableMesh, const TArray<FMeshElement>& EdgeElements, TArray<float>& OutSplits ) override;
 	virtual class UViewportInteractor* GetActiveActionInteractor() override
 	{
@@ -252,9 +251,6 @@ protected:
 	/** Returns the index of an element in the selection set, or INDEX_NONE if its not selected */
 	int32 GetSelectedMeshElementIndex( const FMeshElement& MeshElement ) const;
 
-	/** Clears hover on mesh elements that may no longer be valid.  You'll want to call this if you change the mesh topology */
-	void ClearInvalidHoveredElements();
-
 	/** Updates the current view location, from either the viewport client or the VR interface, whichever is in use */
 	void UpdateCameraToWorldTransform( const FEditorViewportClient& ViewportClient );
 
@@ -280,8 +276,6 @@ protected:
 
 	/** Return the CommandList pertinent to the currently selected element type, or nullptr if nothing is selected */
 	const FUICommandList* GetCommandListForSelectedElementType() const;
-
-	TUniquePtr<FChange> ClearInvalidSelectedElements_Internal();
 
 	/** Commits the mesh instance for the given component */
 	void CommitEditableMeshIfNecessary( UEditableMesh* EditableMesh, UPrimitiveComponent* Component );
@@ -321,7 +315,7 @@ protected:
 
 	/** Gets mesh editor interactor data for the specified viewport interactor.  If we've never seen this viewport interactor before,
 	    new (empty) data will be created for it on demand */
-	FMeshEditorInteractorData& GetMeshEditorInteractorData( UViewportInteractor* ViewportInteractor ) const;
+	FMeshEditorInteractorData& GetMeshEditorInteractorData( const UViewportInteractor* ViewportInteractor ) const;
 
 	/** Helper function that returns a map keying an editable mesh with its selected elements */
 	void GetSelectedMeshesAndElements( EEditableMeshElementType ElementType, TMap<UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndElements );
