@@ -166,9 +166,6 @@ namespace BevelOrInsetPolygonHelpers
 					if( InsetFixedDistance > SMALL_NUMBER ||
 						InsetProgressTowardCenter > SMALL_NUMBER )
 					{
-						// Deselect the mesh elements before we delete them.  This will make sure they become selected again after undo.
-						MeshEditorMode.DeselectMeshElements( MeshesWithPolygonsToInset );
-
 						for( auto& MeshAndPolygons : MeshesWithPolygonsToInset )
 						{
 							UEditableMesh* EditableMesh = MeshAndPolygons.Key;
