@@ -154,7 +154,8 @@ TUniquePtr<FChange> FMeshEditorMode::FSelectOrDeselectMeshElementsChange::Execut
 		}
 
 		// Update our transformable list
-		MeshEditorMode.RefreshTransformables();
+		const bool bNewObjectsSelected = true;
+		MeshEditorMode.RefreshTransformables( bNewObjectsSelected );
 	}
 
 	return MakeUnique<FCompoundChange>( MoveTemp( CompoundRevertInput ) );
@@ -182,7 +183,9 @@ TUniquePtr<FChange> FMeshEditorMode::FDeselectAllMeshElementsChange::Execute( UO
 	if( MeshEditorMode.IsActive() )
 	{
 		MeshEditorMode.SelectedMeshElements.Reset();
-		MeshEditorMode.RefreshTransformables();
+
+		const bool bNewObjectsSelected = true;
+		MeshEditorMode.RefreshTransformables( bNewObjectsSelected );
 	}
 
 	return ( RevertInput.MeshElementsToSelect.Num() > 0 ) ? MakeUnique <FSelectOrDeselectMeshElementsChange>( MoveTemp( RevertInput ) ) : nullptr;
@@ -482,7 +485,8 @@ void FMeshEditorMode::RemoveEditableMeshReferences()
 
 	if( ViewportWorldInteraction != nullptr )
 	{
-		RefreshTransformables();
+		const bool bNewObjectsSelected = false;
+		RefreshTransformables( bNewObjectsSelected );
 	}
 }
 
@@ -1104,7 +1108,8 @@ void FMeshEditorMode::CommitEditableMeshIfNecessary( UEditableMesh* EditableMesh
 		// 			}
 		// 		}
 
-		RefreshTransformables();
+		const bool bNewObjectsSelected = false;
+		RefreshTransformables( bNewObjectsSelected );
 	}
 	else if( !EditableMesh->IsCommitted() )
 	{
@@ -4210,7 +4215,8 @@ void FMeshEditorMode::FinishAction()
 	// If the action has finished, make sure the gizmo is in the correct place as elements may have moved.
 	if( bIsActionFinishing )
 	{
-		RefreshTransformables();
+		const bool bNewObjectsSelected = false;
+		RefreshTransformables( bNewObjectsSelected );
 	}
 }
 
@@ -4218,7 +4224,8 @@ void FMeshEditorMode::FinishAction()
 void FMeshEditorMode::PostUndo()
 {
 	// Update our transformable list
-	RefreshTransformables();
+	const bool bNewObjectsSelected = false;
+	RefreshTransformables( bNewObjectsSelected );
 }
 
 
@@ -4555,7 +4562,7 @@ void FMeshEditorMode::PerformMarqueeSelect( EEditableMeshElementType ElementType
 }
 
 
-void FMeshEditorMode::RefreshTransformables()
+void FMeshEditorMode::RefreshTransformables( const bool bNewObjectsSelected )
 {
 	// Don't refresh transformables while we're actively moving them around
 	const bool bAllowRefresh =
@@ -4648,7 +4655,7 @@ void FMeshEditorMode::RefreshTransformables()
 		}
 	}
 
-	ViewportWorldInteraction->SetTransformables( MoveTemp( Transformables ) );
+	ViewportWorldInteraction->SetTransformables( MoveTemp( Transformables ), bNewObjectsSelected );
 }
 
 

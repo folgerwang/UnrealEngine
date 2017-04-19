@@ -59,7 +59,7 @@ void UActorTransformer::OnStopDragging(class UViewportInteractor* Interactor)
 	}
 }
 
-void UActorTransformer::UpdateTransformables()
+void UActorTransformer::OnActorSelectionChanged( UObject* ChangedObject )
 {
 	TArray<TUniquePtr<FViewportTransformable>> NewTransformables;
 
@@ -87,12 +87,7 @@ void UActorTransformer::UpdateTransformables()
 		}
 	}
 
-	ViewportWorldInteraction->SetTransformables( MoveTemp( NewTransformables ) );
-}
-
-
-void UActorTransformer::OnActorSelectionChanged( UObject* ChangedObject )
-{
-	UpdateTransformables();
+	const bool bNewObjectsSelected = true;
+	ViewportWorldInteraction->SetTransformables( MoveTemp( NewTransformables ), bNewObjectsSelected );
 }
 

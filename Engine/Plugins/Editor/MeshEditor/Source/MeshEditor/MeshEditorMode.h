@@ -324,7 +324,7 @@ protected:
 	void PerformMarqueeSelect( EEditableMeshElementType ElementType );
 
 	/** Rebuilds the list of mesh element transformables and updates the world viewport interaction system with the new list */
-	void RefreshTransformables();
+	void RefreshTransformables( const bool bNewObjectsSelected );
 
 	/** Callback when PIE/SIE ends */
 	void OnEndPIE( bool bIsSimulating );

@@ -486,7 +486,8 @@ void UViewportWorldInteraction::RemoveInteractor( UViewportInteractor* Interacto
 void UViewportWorldInteraction::SetTransformer( UViewportTransformer* NewTransformer )
 {
 	// Clear all existing transformables
-	SetTransformables( TArray< TUniquePtr< class FViewportTransformable > >() );
+	const bool bNewObjectsSelected = false;
+	SetTransformables( TArray< TUniquePtr< class FViewportTransformable > >(), bNewObjectsSelected );
 
 	if( ViewportTransformer != nullptr )
 	{
@@ -506,7 +507,7 @@ void UViewportWorldInteraction::SetTransformer( UViewportTransformer* NewTransfo
 }
 
 
-void UViewportWorldInteraction::SetTransformables( TArray< TUniquePtr< class FViewportTransformable > >&& NewTransformables )
+void UViewportWorldInteraction::SetTransformables( TArray< TUniquePtr< class FViewportTransformable > >&& NewTransformables, const bool bNewObjectsSelected )
 {
 	// We're dealing with a new set of transformables, so clear out anything that was going on with the old ones.
 	bDraggedSinceLastSelection = false;
@@ -526,7 +527,6 @@ void UViewportWorldInteraction::SetTransformables( TArray< TUniquePtr< class FVi
 
 	Transformables = MoveTemp( NewTransformables );
 
-	const bool bNewObjectsSelected = true;
 	RefreshTransformGizmo( bNewObjectsSelected );
 }
 
