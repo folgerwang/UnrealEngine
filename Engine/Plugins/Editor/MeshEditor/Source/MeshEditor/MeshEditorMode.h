@@ -156,6 +156,9 @@ protected:
 	virtual EEditableMeshElementType GetSelectedMeshElementType() const override;
 	virtual bool IsMeshElementTypeSelected( EEditableMeshElementType ElementType ) const override { return GetSelectedMeshElementType() == ElementType; }
 	virtual bool IsMeshElementTypeSelectedOrIsActiveSelectionMode( EEditableMeshElementType ElementType ) const override { return GetMeshElementSelectionMode() == ElementType || GetSelectedMeshElementType() == ElementType; }
+	virtual const TArray<UEditableMesh*>& GetSelectedEditableMeshes() const override { return SelectedEditableMeshes; }
+	virtual const TArray<UEditableMesh*>& GetSelectedEditableMeshes() override { return SelectedEditableMeshes; }
+	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetCommonActions() const override { return CommonActions; }
 	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetVertexActions() const override { return VertexActions; }
 	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetEdgeActions() const override { return EdgeActions; }
 	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetPolygonActions() const override { return PolygonActions; }
@@ -251,6 +254,9 @@ protected:
 	/** Returns the index of an element in the selection set, or INDEX_NONE if its not selected */
 	int32 GetSelectedMeshElementIndex( const FMeshElement& MeshElement ) const;
 
+	/** Updates our list of selected editable meshes based on which actors/components are selected.  Will create new editable meshes as needed */
+	void UpdateSelectedEditableMeshes();
+
 	/** Updates the current view location, from either the viewport client or the VR interface, whichever is in use */
 	void UpdateCameraToWorldTransform( const FEditorViewportClient& ViewportClient );
 
@@ -269,7 +275,8 @@ protected:
 	void RegisterEdgeEditingMode( const TSharedPtr<FUICommandInfo>& Command, FName EditingMode );
 	void RegisterPolygonEditingMode( const TSharedPtr<FUICommandInfo>& Command, FName EditingMode );
 
-	void RegisterCommand( const TSharedPtr<FUICommandInfo>& Command, const FExecuteAction& ExecuteAction );
+	void RegisterCommonCommand( const TSharedPtr<FUICommandInfo>& Command, const FExecuteAction& ExecuteAction );
+	void RegisterAnyElementCommand( const TSharedPtr<FUICommandInfo>& Command, const FExecuteAction& ExecuteAction );
 	void RegisterVertexCommand( const TSharedPtr<FUICommandInfo>& Command, const FExecuteAction& ExecuteAction );
 	void RegisterEdgeCommand( const TSharedPtr<FUICommandInfo>& Command, const FExecuteAction& ExecuteAction );
 	void RegisterPolygonCommand( const TSharedPtr<FUICommandInfo>& Command, const FExecuteAction& ExecuteAction );
@@ -492,6 +499,31 @@ protected:
 	/** Specifies the type of element which is currently being selected */
 	EEditableMeshElementType MeshElementSelectionMode;
 
+	/** The editable meshes that are currently selected.  This generally maps to selected actors/components, and
+	    may contain meshes even when no elements are selected. */
+	TArray<UEditableMesh*> SelectedEditableMeshes;
+
+	struct FComponentAndEditableMesh
+	{
+		UPrimitiveComponent* Component;
+		UEditableMesh* EditableMesh;
+
+		FComponentAndEditableMesh( UPrimitiveComponent* InitComponent, UEditableMesh* InitEditableMesh )
+			: Component( InitComponent ),
+			  EditableMesh( InitEditableMesh )
+		{
+		}
+
+		inline bool operator==( const FComponentAndEditableMesh& Other ) const
+		{
+			return Component == Other.Component && EditableMesh == Other.EditableMesh;
+		}
+	};
+
+	/** The individual components that are selected along with the editable mesh for each component.  Note that the same
+	    editable mesh may appear more than once in this list, because it could be shared between components! */
+	TArray<FComponentAndEditableMesh> SelectedComponentsAndEditableMeshes;
+
 	/** List of mesh elements that we've selected.  All elements in this list will always have the same mesh element type.
 	    We don't allow users to select both edges, faces and/or polygons at the same time. */
 	TArray<FMeshElement> SelectedMeshElements;
@@ -555,6 +587,9 @@ protected:
 
 	/** Command list for actions available regardless of selection */
 	TSharedPtr<FUICommandList> CommonCommands;
+
+	/** Command list for actions available regardless of selection, as long as something is selected */
+	TSharedPtr<FUICommandList> AnyElementCommands;
 
 	/** Command list for actions available when a vertex is selected */
 	TSharedPtr<FUICommandList> VertexCommands;

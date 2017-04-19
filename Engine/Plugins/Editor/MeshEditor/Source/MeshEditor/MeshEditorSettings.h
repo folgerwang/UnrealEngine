@@ -18,7 +18,6 @@ public:
 
 	UMeshEditorSettings()
 		: bSeparateSelectionSetPerMode( false )
-		, bOnlyEditSelectedObjects( true )
 		, bOnlySelectVisibleMeshes( true )
 		, bOnlySelectVisibleElements( true )
 		, bAllowGrabberSphere( false )
@@ -30,10 +29,6 @@ public:
 	/** If set, each element selection mode remembers its own selection set. Otherwise, changing selection mode adapts the current selection as appropriate. */
 	UPROPERTY(EditAnywhere, config, Category=MeshEditor)
 	bool bSeparateSelectionSetPerMode;
-
-	/** Whether you must select objects before mesh editing features will be available.  This helps to prevent accidental mis-clicks. */
-	UPROPERTY(EditAnywhere, config, Category=MeshEditor)
-	bool bOnlyEditSelectedObjects;
 
 	/** Whether only unoccluded meshes will be selected by marquee select, or whether all meshes within the selection box will be selected, regardless of whether they are behind another. */
 	UPROPERTY(EditAnywhere, config, Category=MeshEditor)

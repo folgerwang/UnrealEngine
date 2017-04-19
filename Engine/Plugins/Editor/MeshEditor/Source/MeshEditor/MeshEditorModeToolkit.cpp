@@ -183,12 +183,25 @@ void SMeshEditorModeControls::Construct( const FArguments& InArgs, IMeshEditorMo
 
 	WidgetSwitcher->AddSlot( static_cast<int32>( EEditableMeshElementType::Invalid ) )
 	[
-		SNew( SBox )
-		.Padding( 20.0f )
-		.HAlign( HAlign_Center )
+		SNew( SVerticalBox )
+		+ SVerticalBox::Slot()
 		[
-			SNew( STextBlock )
-			.Text( LOCTEXT( "NothingSelected", "Nothing is selected" ) )
+			SNew( SBox )
+			.Visibility_Lambda( [&MeshEditorMode]() { return MeshEditorMode.GetSelectedEditableMeshes().Num() > 0 ? EVisibility::Visible : EVisibility::Collapsed; } )
+			[
+				SNew( SMeshEditorModeControlWidget, MeshEditorMode.GetCommonActions() )
+			]
+		]
+		+SVerticalBox::Slot()
+		[
+			SNew( SBox )
+			.Padding( 20.0f )
+			.HAlign( HAlign_Center )
+			.Visibility_Lambda( [&MeshEditorMode]() { return MeshEditorMode.GetSelectedEditableMeshes().Num() == 0 ? EVisibility::Visible : EVisibility::Collapsed; } )
+			[
+				SNew( STextBlock )
+				.Text( LOCTEXT( "NothingSelected", "Nothing is selected" ) )
+			]
 		]
 	];
 

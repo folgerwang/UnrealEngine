@@ -25,6 +25,13 @@ public:
 	/** Returns whether either the specified element type is selected, or we're in the selection mode for that element type */
 	virtual bool IsMeshElementTypeSelectedOrIsActiveSelectionMode( EEditableMeshElementType ElementType ) const = 0;
 
+	/** Gets all of the editable meshes that are currently selected (const) */
+	virtual const TArray<class UEditableMesh*>& GetSelectedEditableMeshes() const = 0;
+
+	/** Gets all of the editable meshes that are currently selected */
+	virtual const TArray<class UEditableMesh*>& GetSelectedEditableMeshes() = 0;
+
+	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetCommonActions() const = 0;
 	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetVertexActions() const = 0;
 	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetEdgeActions() const = 0;
 	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetPolygonActions() const = 0;

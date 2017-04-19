@@ -52,7 +52,6 @@ FMeshEditorCommonCommands::FMeshEditorCommonCommands()
 
 void FMeshEditorCommonCommands::RegisterCommands()
 {
-	UI_COMMAND(DeleteMeshElement, "Delete", "Delete selected mesh elements, including polygons partly defined by selected elements.", EUserInterfaceActionType::Button, FInputChord(EKeys::Delete));
 	UI_COMMAND(AddSubdivisionLevel, "Add Subdivision Level", "Increases the number of subdivision levels for the selected mesh.", EUserInterfaceActionType::Button, FInputChord(EKeys::Equals));
 	UI_COMMAND(RemoveSubdivisionLevel, "Remove Subdivision Level", "Decreases the number of subdivision levels for the selected mesh.", EUserInterfaceActionType::Button, FInputChord(EKeys::Hyphen));
 	UI_COMMAND(ShowVertexNormals, "Show Vertex Normals", "Toggles debug rendering of vertex normals.", EUserInterfaceActionType::ToggleButton, FInputChord(EKeys::V));
@@ -66,6 +65,21 @@ void FMeshEditorCommonCommands::RegisterCommands()
 	UI_COMMAND(SetPolygonSelectionMode, "Set Polygon Selection Mode", "Sets the selection mode so that only polygons will be selected.", EUserInterfaceActionType::None, FInputChord(EKeys::Three));
 	UI_COMMAND(SetAnySelectionMode, "Set Any Selection Mode", "Sets the selection mode so that any element type may be selected.", EUserInterfaceActionType::None, FInputChord(EKeys::Four));
 	UI_COMMAND(QuadrangulateMesh, "Quadrangulate Mesh", "Quadrangulates the selected mesh.", EUserInterfaceActionType::Button, FInputChord());
+}
+
+FMeshEditorAnyElementCommands::FMeshEditorAnyElementCommands() 
+	: TCommands<FMeshEditorAnyElementCommands>(
+		"MeshEditorAnyElement",
+		LOCTEXT( "MeshEditorGeneral", "Mesh Editor Any Element Type" ),
+		"MainFrame",
+		FMeshEditorStyle::GetStyleSetName()	)
+{
+}
+
+
+void FMeshEditorAnyElementCommands::RegisterCommands()
+{
+	UI_COMMAND(DeleteMeshElement, "Delete", "Delete selected mesh elements, including polygons partly defined by selected elements.", EUserInterfaceActionType::Button, FInputChord(EKeys::Delete));
 }
 
 FMeshEditorVertexCommands::FMeshEditorVertexCommands() 

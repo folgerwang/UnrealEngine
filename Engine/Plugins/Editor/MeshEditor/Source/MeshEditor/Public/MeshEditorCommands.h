@@ -156,7 +156,7 @@ public:
 
 
 
-// Actions that can be invoked from this mode regardless of what type of elements are selected
+// Actions that can be invoked from this mode as long as at least one mesh is selected
 class FMeshEditorCommonCommands : public TCommands<FMeshEditorCommonCommands>
 {
 public:
@@ -167,9 +167,6 @@ public:
 	// End of TCommands<> interface
 
 public:
-
-	/** Deletes selected mesh elements, including polygons partly defined by selected elements */
-	TSharedPtr<FUICommandInfo> DeleteMeshElement;
 
 	/** Increases the number of subdivision levels for the selected mesh. */
 	TSharedPtr<FUICommandInfo> AddSubdivisionLevel;
@@ -199,6 +196,23 @@ public:
 
 	/** Quadrangulate mesh */
 	TSharedPtr<FUICommandInfo> QuadrangulateMesh;
+};
+
+
+// Actions that can be invoked from this mode for any type of selected element
+class FMeshEditorAnyElementCommands : public TCommands<FMeshEditorAnyElementCommands>
+{
+public:
+	FMeshEditorAnyElementCommands();
+
+	// TCommands<> interface
+	virtual void RegisterCommands() override;
+	// End of TCommands<> interface
+
+public:
+
+	/** Deletes selected mesh elements, including polygons partly defined by selected elements */
+	TSharedPtr<FUICommandInfo> DeleteMeshElement;
 };
 
 
