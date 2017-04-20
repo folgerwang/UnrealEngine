@@ -2247,9 +2247,41 @@ void FMeshEditorMode::Render( const FSceneView* SceneView, FViewport* Viewport, 
 			// Draw subdivision limit surface if subdivision preview is enabled
 			if( EditableMesh->IsPreviewingSubdivisions() )
 			{
+				// Figure out all of the edges that should appear 'selected' on the subdivision preview, taking into
+				// account all currently selected edges and polygons that share those edges
+				static TSet<FEdgeID> HighlightedEdgeIDs;
+				HighlightedEdgeIDs.Reset();
+
+				// @todo mesheditor perf: O(N) process to setup list of highlighted edges.  We could instead maintain this as selection changes.
+				for( FMeshElement& SelectedMeshElement : SelectedMeshElements )
+				{
+					if( SelectedMeshElement.IsValidMeshElement() &&
+						SelectedMeshElement.Component == Component &&
+						SelectedMeshElement.ElementAddress.SubMeshAddress == EditableMesh->GetSubMeshAddress() )
+					{
+						if( SelectedMeshElement.ElementAddress.ElementType == EEditableMeshElementType::Edge )
+						{
+							// OK, this edge is selected so it's definitely going to be highlighted
+							HighlightedEdgeIDs.Add( FEdgeID( SelectedMeshElement.ElementAddress.ElementID ) );
+						}
+						else if( SelectedMeshElement.ElementAddress.ElementType == EEditableMeshElementType::Polygon )
+						{
+							// Find all of this polygons edges.  They'll all need to be highlighted.
+							static TArray<FEdgeID> SelectedPolygonPerimeterEdgeIDs;
+							EditableMesh->GetPolygonPerimeterEdges(
+								FPolygonRef( SelectedMeshElement.ElementAddress.SectionID, FPolygonID( SelectedMeshElement.ElementAddress.ElementID ) ),
+								/* Out */ SelectedPolygonPerimeterEdgeIDs );
+
+							HighlightedEdgeIDs.Append( SelectedPolygonPerimeterEdgeIDs );
+						}
+					}
+				}
+
+
 				const float SizeBias = 0.0f;
 				const FColor SubdivisionEdgeColorAndOpacity = FLinearColor( 0.05f, 0.05f, 0.05f, 0.6f ).ToFColor( false );
 				const FColor BaseCageCounterpartEdgeColorAndOpacity = FLinearColor( 0.0f, 0.0f, 0.2f, 0.8f ).ToFColor( false );
+				const FColor SelectedBaseCageCounterpartEdgeColorAndOpacity = FLinearColor::White.CopyWithNewOpacity( 0.8f ).ToFColor( false );
 
 				const FSubdivisionLimitData& SubdivisionLimitData = EditableMesh->GetSubdivisionLimitData();
 
@@ -2270,7 +2302,18 @@ void FMeshEditorMode::Render( const FSceneView* SceneView, FViewport* Viewport, 
 						WorldSpaceEdgeVertexPositions[ EdgeVertexNumber ] = ComponentToWorldMatrix.TransformPosition( EdgeVertexPositions[ EdgeVertexNumber ] );
 					}
 
-					const FColor ColorAndOpacity = SubdividedWireEdge.bIsBaseCageCounterpartEdge ? BaseCageCounterpartEdgeColorAndOpacity : SubdivisionEdgeColorAndOpacity;
+					FColor ColorAndOpacity = SubdivisionEdgeColorAndOpacity;
+					if( SubdividedWireEdge.CounterpartEdgeID != FEdgeID::Invalid )
+					{
+						if( HighlightedEdgeIDs.Contains( SubdividedWireEdge.CounterpartEdgeID ) )
+						{
+							ColorAndOpacity = SelectedBaseCageCounterpartEdgeColorAndOpacity;
+						}
+						else
+						{
+							ColorAndOpacity = BaseCageCounterpartEdgeColorAndOpacity;
+						}
+					}					
 
 					const bool bApplyDepthBias = true;
 					AddThickLineToDynamicMesh( CameraToWorld, WorldSpaceEdgeVertexPositions, ColorAndOpacity, SizeBias, bApplyDepthBias, VertexAndEdgeMeshBuilder );
@@ -2354,7 +2397,7 @@ void FMeshEditorMode::Render( const FSceneView* SceneView, FViewport* Viewport, 
 	}
 
 
-	// Draw hovered and selected elements
+	// Draw hovered elements
 	{
 		// Only draw hover if we're not in the middle of an interactive edit
 		if( ActiveAction == NAME_None )

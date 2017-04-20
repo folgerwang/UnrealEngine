@@ -264,6 +264,31 @@ void UEditableMesh::GetEdgeConnectedPolygons( const FEdgeID EdgeID, TArray<FPoly
 }
 
 
+FEdgeID UEditableMesh::GetEdgeThatConnectsVertices( const FVertexID VertexID0, const FVertexID VertexID1 ) const
+{
+	FEdgeID EdgeID = FEdgeID::Invalid;
+
+	const int32 Vertex0ConnectedEdgeCount = GetVertexConnectedEdgeCount( VertexID0 );
+	for( int32 Vertex0ConnectedEdgeNumber = 0; Vertex0ConnectedEdgeNumber < Vertex0ConnectedEdgeCount; ++Vertex0ConnectedEdgeNumber )
+	{
+		const FEdgeID Vertex0ConnectedEdge = GetVertexConnectedEdge( VertexID0, Vertex0ConnectedEdgeNumber );
+
+		FVertexID EdgeVertexID0, EdgeVertexID1;
+		GetEdgeVertices( Vertex0ConnectedEdge, /* Out */ EdgeVertexID0, /* Out */ EdgeVertexID1 );
+
+		if( ( EdgeVertexID0 == VertexID0 && EdgeVertexID1 == VertexID1 ) ||
+			( EdgeVertexID0 == VertexID1 && EdgeVertexID1 == VertexID0 ) )
+		{
+			EdgeID = Vertex0ConnectedEdge;
+			break;
+		}
+	}
+
+	check( EdgeID != FEdgeID::Invalid );
+	return EdgeID;
+}
+
+
 void UEditableMesh::GetEdgeLoopElements( const FEdgeID EdgeID, TArray<FEdgeID>& EdgeLoopIDs ) const
 {
 	EdgeLoopIDs.Reset();
@@ -1462,6 +1487,9 @@ void UEditableMesh::GenerateOpenSubdivLimitSurfaceData()
 			genTangSpaceDefault( &MikkTContext );
 		}
 
+
+		// Generate our edge information for the subdivided mesh.  We'll also figure out which subdivided edges have a 
+		// counterpart on the base cage mesh, so tools can display this information to the user.
 		{
 			const int32 LimitEdgeCount = OsdLimitLevel.GetNumEdges();
 			for( int32 LimitEdgeNumber = 0; LimitEdgeNumber < LimitEdgeCount; ++LimitEdgeNumber )
@@ -1476,66 +1504,74 @@ void UEditableMesh::GenerateOpenSubdivLimitSurfaceData()
 				SubdividedWireEdge.EdgeVertex1PositionIndex = OsdLimitEdgeVertices[ 1 ];
 
 				// Default to not highlighting this edge as a base cage counterpart.  We'll actually figure this out below.
-				SubdividedWireEdge.bIsBaseCageCounterpartEdge = false;
+				SubdividedWireEdge.CounterpartEdgeID = FEdgeID::Invalid;
 			}
-
-
 
 			{
-				// Figure out all of the unique polygon edges that make up the base cage
-				static TArray<int32> BaseCageEdges;
-				BaseCageEdges.Reset();
+				static TSet<int32> BaseCageEdgeSet;
+				BaseCageEdgeSet.Reset();
+
+				const OpenSubdiv::Far::TopologyLevel& OsdBaseCageLevel = OsdTopologyRefiner->GetLevel( 0 );
+				const int32 BaseCageFaceCount = OsdBaseCageLevel.GetNumFaces();
+				for( int32 BaseCageFaceNumber = 0; BaseCageFaceNumber < BaseCageFaceCount; ++BaseCageFaceNumber )
 				{
-					const OpenSubdiv::Far::TopologyLevel& OsdBaseCageLevel = OsdTopologyRefiner->GetLevel( 0 );
-					const int32 BaseCageFaceCount = OsdBaseCageLevel.GetNumFaces();
-					for( int32 BaseCageFaceNumber = 0; BaseCageFaceNumber < BaseCageFaceCount; ++BaseCageFaceNumber )
+					const OpenSubdiv::Far::ConstIndexArray& OsdBaseCageFaceEdges = OsdBaseCageLevel.GetFaceEdges( BaseCageFaceNumber );
+					for( int32 FaceEdgeNumber = 0; FaceEdgeNumber < OsdBaseCageFaceEdges.size(); ++FaceEdgeNumber )
 					{
-						const OpenSubdiv::Far::ConstIndexArray& OsdBaseCageFaceEdges = OsdBaseCageLevel.GetFaceEdges( BaseCageFaceNumber );
-						for( int32 FaceEdgeNumber = 0; FaceEdgeNumber < OsdBaseCageFaceEdges.size(); ++FaceEdgeNumber )
+						const int32 BaseCageEdgeIndex = OsdBaseCageFaceEdges[ FaceEdgeNumber ];
+						bool bIsAlreadyInSet = false;
+						BaseCageEdgeSet.Add( BaseCageEdgeIndex, /* Out */ &bIsAlreadyInSet );
+						if( !bIsAlreadyInSet )
 						{
-							BaseCageEdges.AddUnique( OsdBaseCageFaceEdges[ FaceEdgeNumber ] );	// @todo mesheditor now: Any better way to get all of the edges in base cage and avoid AddUnique 
-						}
-					}
-				}
+							// Find our original edge ID for each of the OpenSubdiv base cage edges
+							const OpenSubdiv::Far::ConstIndexArray& OsdEdgeVertices = OsdBaseCageLevel.GetEdgeVertices( BaseCageEdgeIndex );
+							check( OsdEdgeVertices.size() == 2 ); // Edges always connect two vertices
+																	// Figure out which edge goes with these vertices
+							const FEdgeID BaseCageEdgeID = GetEdgeThatConnectsVertices( FVertexID( OsdEdgeVertices[ 0 ] ), FVertexID( OsdEdgeVertices[ 1 ] ) );
 
-				// Go through and determine the limit child edges of all of the original base cage edges by drilling down through
-				// the subdivision heirarchy
-				int32 NextScratchBufferIndex = 0;
-				static TArray<int32> ScratchChildEdges[ 2 ];
-				ScratchChildEdges[ 0 ].Reset();
-				ScratchChildEdges[ 1 ].Reset();
-				{
-					for( int32 RefinementLevel = 0; RefinementLevel < SubdivisionCount; ++RefinementLevel )
-					{
-						const OpenSubdiv::Far::TopologyLevel& OsdLevel = OsdTopologyRefiner->GetLevel( RefinementLevel );
+							// Go through and determine the limit child edges of all of the original base cage edges by drilling down through
+							// the subdivision hierarchy
+							int32 NextScratchBufferIndex = 0;
+							static TArray<int32> ScratchChildEdges[ 2 ];
+							ScratchChildEdges[ 0 ].Reset();
+							ScratchChildEdges[ 1 ].Reset();
 
-						const TArray<int32>& SourceChildEdges = ( RefinementLevel == 0 ) ? BaseCageEdges : ScratchChildEdges[ !NextScratchBufferIndex ];
+							// Fill in our source buffer with the starting edge
+							ScratchChildEdges[ NextScratchBufferIndex ].Add( BaseCageEdgeIndex );
+							NextScratchBufferIndex = !NextScratchBufferIndex;
 
-						TArray<int32>& DestChildEdges = ScratchChildEdges[ NextScratchBufferIndex ];
-						DestChildEdges.Reset();
-
-						for( int32 SourceEdgeNumber = 0; SourceEdgeNumber < SourceChildEdges.Num(); ++SourceEdgeNumber )
-						{
-							const OpenSubdiv::Far::ConstIndexArray& OsdChildEdges = OsdLevel.GetEdgeChildEdges( SourceChildEdges[ SourceEdgeNumber ] );
-							for( int32 ChildEdgeNumber = 0; ChildEdgeNumber < OsdChildEdges.size(); ++ChildEdgeNumber )
+							for( int32 RefinementLevel = 0; RefinementLevel < SubdivisionCount; ++RefinementLevel )
 							{
-								DestChildEdges.Add( OsdChildEdges[ ChildEdgeNumber ] );
+								const OpenSubdiv::Far::TopologyLevel& OsdLevel = OsdTopologyRefiner->GetLevel( RefinementLevel );
+
+								const TArray<int32>& SourceChildEdges = ScratchChildEdges[ !NextScratchBufferIndex ];
+
+								TArray<int32>& DestChildEdges = ScratchChildEdges[ NextScratchBufferIndex ];
+								DestChildEdges.Reset();
+
+								for( int32 SourceEdgeNumber = 0; SourceEdgeNumber < SourceChildEdges.Num(); ++SourceEdgeNumber )
+								{
+									const OpenSubdiv::Far::ConstIndexArray& OsdChildEdges = OsdLevel.GetEdgeChildEdges( SourceChildEdges[ SourceEdgeNumber ] );
+									for( int32 ChildEdgeNumber = 0; ChildEdgeNumber < OsdChildEdges.size(); ++ChildEdgeNumber )
+									{
+										DestChildEdges.Add( OsdChildEdges[ ChildEdgeNumber ] );
+									}
+								}
+
+								NextScratchBufferIndex = !NextScratchBufferIndex;
+							}
+
+							// No go back and update our subdivided wire edges, marking the edges that we determined were descendants of the base cage edges
+							const TArray<int32>& BaseCageCounterpartEdgesAtLimit = ScratchChildEdges[ !NextScratchBufferIndex ];
+							for( const int32 CounterpartEdgeAtLimit : BaseCageCounterpartEdgesAtLimit )
+							{
+								check( CounterpartEdgeAtLimit < SubdivisionLimitData.SubdividedWireEdges.Num() );
+								SubdivisionLimitData.SubdividedWireEdges[ CounterpartEdgeAtLimit ].CounterpartEdgeID = BaseCageEdgeID;
 							}
 						}
-
-						NextScratchBufferIndex = !NextScratchBufferIndex;
 					}
 				}
-
-				// No go back and update our subdivided wire edges, marking the edges that we determined were decendants of the base cage edges
-				const TArray<int32>& BaseCageCounterpartEdgesAtLimit = ScratchChildEdges[ !NextScratchBufferIndex ];
-				for( const int32 CounterpartEdgeAtLimit : BaseCageCounterpartEdgesAtLimit )
-				{
-					check( CounterpartEdgeAtLimit < SubdivisionLimitData.SubdividedWireEdges.Num() );
-					SubdivisionLimitData.SubdividedWireEdges[ CounterpartEdgeAtLimit ].bIsBaseCageCounterpartEdge = true;
-				}
 			}
-
 		}
 	}
 }

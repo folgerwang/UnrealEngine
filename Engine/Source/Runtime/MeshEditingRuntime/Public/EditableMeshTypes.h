@@ -625,7 +625,7 @@ struct FSubdividedWireEdge
 
 	/** True if this edge is a counterpart to an original base cage edge of the mesh.  Otherwise it's a new edge that exists only
 	    in the subdivision surfaces */
-	bool bIsBaseCageCounterpartEdge;
+	FEdgeID CounterpartEdgeID;
 };
 
 
