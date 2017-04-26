@@ -730,9 +730,6 @@ void FMeshEditorMode::Enter()
 	ViewportWorldInteraction->OnStopDragging().AddRaw( this, &FMeshEditorMode::OnViewportInteractionStopDragging );
 	ViewportWorldInteraction->OnFinishedMovingTransformables().AddRaw( this, &FMeshEditorMode::OnViewportInteractionFinishedMovingTransformables );
 
-	// @todo gizmo: Forcing "All" mode when you enter Geometry mode, because it is generally the most useful.
-	ViewportWorldInteraction->SetGizmoHandleType( EGizmoHandleTypes::All );
-
 	// Register our system for transforming mesh elements
 	UMeshElementTransformer* MeshElementTransformer = NewObject<UMeshElementTransformer>();
 	ViewportWorldInteraction->SetTransformer( MeshElementTransformer );
