@@ -100,6 +100,9 @@ struct IStreamingManager
 
 	ENGINE_API static struct FStreamingManagerCollection& Get();
 
+	/** Same as get but could fail if state not allocated or shutdown. */
+	ENGINE_API static struct FStreamingManagerCollection* Get_Concurrent();
+
 	ENGINE_API static void Shutdown();
 
 	/** Checks if the streaming manager has already been shut down. **/
@@ -233,7 +236,7 @@ struct IStreamingManager
 	 * Only affects primitives that were already attached.
 	 * Replaces previous info.
 	 */
-	virtual void NotifyPrimitiveUpdated( const UPrimitiveComponent* Primitive )
+	virtual void NotifyPrimitiveUpdated_Concurrent( const UPrimitiveComponent* Primitive )
 	{
 	}
 
@@ -388,6 +391,9 @@ struct ITextureStreamingManager : public IStreamingManager
 
 	/** Set current pause state for texture streaming */
 	virtual void PauseTextureStreaming(bool bInShouldPause) = 0;
+
+	/** Return all bounds related to the ref object */
+	ENGINE_API virtual void GetObjectReferenceBounds(const UObject* RefObject, TArray<FBox>& AssetBoxes) = 0;
 };
 
 /**
@@ -585,7 +591,7 @@ struct FStreamingManagerCollection : public IStreamingManager
 	 * Only affects primitives that were already attached.
 	 * Replaces previous info.
 	 */
-	virtual void NotifyPrimitiveUpdated( const UPrimitiveComponent* Primitive ) override;
+	virtual void NotifyPrimitiveUpdated_Concurrent( const UPrimitiveComponent* Primitive ) override;
 
 protected:
 

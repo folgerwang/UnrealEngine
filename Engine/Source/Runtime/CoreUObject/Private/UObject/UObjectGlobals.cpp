@@ -10,7 +10,6 @@
 #include "Misc/ITransaction.h"
 #include "Serialization/ArchiveProxy.h"
 #include "Misc/CommandLine.h"
-#include "HAL/IOBase.h"
 #include "Misc/ConfigCacheIni.h"
 #include "HAL/IConsoleManager.h"
 #include "Misc/SlowTask.h"
@@ -25,6 +24,7 @@
 #include "UObject/Object.h"
 #include "UObject/GarbageCollection.h"
 #include "UObject/Class.h"
+#include "UObject/CoreRedirects.h"
 #include "UObject/UObjectIterator.h"
 #include "UObject/Package.h"
 #include "Templates/Casts.h"
@@ -44,8 +44,8 @@
 #include "UObject/UObjectThreadContext.h"
 #include "UObject/LinkerManager.h"
 #include "Misc/ExclusiveLoadPackageTimeTracker.h"
-#include "Misc/AssetRegistryInterface.h"
 #include "ProfilingDebugging/CookStats.h"
+#include "Modules/ModuleManager.h"
 
 DEFINE_LOG_CATEGORY(LogUObjectGlobals);
 
@@ -121,7 +121,10 @@ FSimpleMulticastDelegate FCoreUObjectDelegates::PreGarbageCollectConditionalBegi
 FSimpleMulticastDelegate FCoreUObjectDelegates::PostGarbageCollectConditionalBeginDestroy;
 
 FCoreUObjectDelegates::FPreLoadMapDelegate FCoreUObjectDelegates::PreLoadMap;
+FCoreUObjectDelegates::FPostLoadMapDelegate FCoreUObjectDelegates::PostLoadMapWithWorld;
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 FSimpleMulticastDelegate FCoreUObjectDelegates::PostLoadMap;
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 FSimpleMulticastDelegate FCoreUObjectDelegates::PostDemoPlay;
 FCoreUObjectDelegates::FOnLoadObjectsOnTop FCoreUObjectDelegates::ShouldLoadOnTop;
 
@@ -265,10 +268,9 @@ UObject* StaticFindObject( UClass* ObjectClass, UObject* InObjectPackage, const 
 
 	// Resolve the object and package name.
 	const bool bAnyPackage = InObjectPackage==ANY_PACKAGE;
-	UObject* ObjectPackage = bAnyPackage ? NULL : InObjectPackage;
-	FString InName = OrigInName;
+	UObject* ObjectPackage = bAnyPackage ? nullptr : InObjectPackage;
 
-	UObject* MatchingObject = NULL;
+	UObject* MatchingObject = nullptr;
 
 #if WITH_EDITOR
 	// If the editor is running, and T3D is being imported, ensure any packages referenced are fully loaded.
@@ -284,9 +286,9 @@ UObject* StaticFindObject( UClass* ObjectClass, UObject* InObjectPackage, const 
 				!NameCheck.Contains(TEXT(":"), ESearchCase::CaseSensitive) )
 			{
 				s_bCurrentlyLoading = true;
-				MatchingObject = StaticLoadObject(ObjectClass, NULL, OrigInName, NULL,  LOAD_NoWarn, NULL);
+				MatchingObject = StaticLoadObject(ObjectClass, nullptr, OrigInName, nullptr,  LOAD_NoWarn, nullptr);
 				s_bCurrentlyLoading = false;
-				if (MatchingObject != NULL)
+				if (MatchingObject != nullptr)
 				{
 					return MatchingObject;
 				}
@@ -295,13 +297,23 @@ UObject* StaticFindObject( UClass* ObjectClass, UObject* InObjectPackage, const 
 	}
 #endif	//#if !WITH_EDITOR
 
+	FName ObjectName;
+
 	// Don't resolve the name if we're searching in any package
-	if( !bAnyPackage && !ResolveName( ObjectPackage, InName, false, false ) )
+	if (!bAnyPackage)
 	{
-		return NULL;
+		FString InName = OrigInName;
+		if (!ResolveName(ObjectPackage, InName, false, false))
+		{
+			return nullptr;
+		}
+		ObjectName = FName(*InName, FNAME_Add);
+	}
+	else
+	{
+		ObjectName = FName(OrigInName, FNAME_Add);
 	}
 
-	FName ObjectName(*InName, FNAME_Add);
 	return StaticFindObjectFast(ObjectClass, ObjectPackage, ObjectName, ExactClass, bAnyPackage);
 }
 
@@ -717,9 +729,9 @@ bool ResolveName(UObject*& InPackage, FString& InOutName, bool Create, bool Thro
 
 		// if the next part of InOutName ends in two dots, it indicates that the next object in the path name
 		// is not a top-level object (i.e. it's a subobject).  e.g. SomePackage.SomeGroup.SomeObject..Subobject
-		if (InOutName.Mid(DotIndex + 1, 1) == TEXT("."))
+		if (InOutName.IsValidIndex(DotIndex+1) && InOutName[DotIndex+1] == TEXT('.'))
 		{
-			InOutName = PartialName + InOutName.Mid(DotIndex + 1);
+			InOutName.RemoveAt(DotIndex, 1, false);
 			bSubobjectPath = true;
 			Create         = false;
 		}
@@ -733,6 +745,12 @@ bool ResolveName(UObject*& InPackage, FString& InOutName, bool Create, bool Thro
 			{
 				PartialName = ScriptPackageName->ToString();
 			}
+		}
+
+		// Process any package redirects before calling CreatePackage/FindObject
+		{
+			const FCoreRedirectObjectName NewPackageName = FCoreRedirects::GetRedirectedName(ECoreRedirectFlags::Type_Package, FCoreRedirectObjectName(NAME_None, NAME_None, *PartialName));
+			PartialName = NewPackageName.PackageName.ToString();
 		}
 
 		// Only long package names are allowed so don't even attempt to create one because whatever the name represents
@@ -766,7 +784,7 @@ bool ResolveName(UObject*& InPackage, FString& InOutName, bool Create, bool Thro
 
 			check(InPackage);
 		}
-		InOutName = InOutName.Mid(DotIndex + 1);
+		InOutName.RemoveAt(0, DotIndex + 1, false);
 	}
 
 	return true;
@@ -1062,51 +1080,6 @@ public:
 
 #endif
 
-void ScanPackageDependenciesForLoadOrder(const TCHAR* InLongPackageName, TMap<FName, int32>& InOrderTracker, int32& Order, IAssetRegistryInterface* InAssetRegistry)
-{
-	check(FPlatformTLS::GetCurrentThreadId() == GGameThreadId || !WITH_EDITORONLY_DATA); // only the cooked asset registry is safe to access multithreaded
-	FString FileToLoad;
-	if (InLongPackageName && FCString::Strlen(InLongPackageName) > 0)
-	{
-		FileToLoad = InLongPackageName;
-	}
-	else
-	{
-		return;
-	}
-
-	// Make sure we're trying to load long package names only.
-	if (FPackageName::IsShortPackageName(FileToLoad))
-	{
-		FString LongPackageName;
-		FName* ScriptPackageName = FPackageName::FindScriptPackageName(*FileToLoad);
-		if (ScriptPackageName)
-		{
-			UE_LOG(LogUObjectGlobals, Warning, TEXT("LoadPackage: %s is a short script package name."), InLongPackageName);
-			FileToLoad = ScriptPackageName->ToString();
-		}
-		else if (!FPackageName::SearchForPackageOnDisk(FileToLoad, &FileToLoad))
-		{
-			UE_LOG(LogUObjectGlobals, Warning, TEXT("LoadPackage can't find package %s."), *FileToLoad);
-			return;
-		}
-	}
-
-	FName PackageName(InLongPackageName);
-	InOrderTracker.Add(PackageName, -1); // this is just a placeholder to prevent recursion
-
-	TArray<FName> PackageDependencies;
-	InAssetRegistry->GetDependencies(PackageName, PackageDependencies, EAssetRegistryDependencyType::Hard);
-	for (auto Dependency : PackageDependencies)
-	{
-		if (!InOrderTracker.Contains(Dependency) && !FindObjectFast<UPackage>(nullptr, Dependency, false, false))
-		{
-			ScanPackageDependenciesForLoadOrder(*Dependency.ToString(), InOrderTracker, Order, InAssetRegistry);
-		}
-	}
-	InOrderTracker.Add(PackageName, Order++);
-}
-
 /**
 * Loads a package and all contained objects that match context flags.
 *
@@ -1116,7 +1089,7 @@ void ScanPackageDependenciesForLoadOrder(const TCHAR* InLongPackageName, TMap<FN
 * @param	ImportLinker	Linker that requests this package through one of its imports
 * @return	Loaded package if successful, NULL otherwise
 */
-static UPackage* LoadPackageInternalInner(UPackage* InOuter, const TCHAR* InLongPackageNameOrFilename, uint32 LoadFlags, FLinkerLoad* ImportLinker, bool bSkipNameChecks = false)
+UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameOrFilename, uint32 LoadFlags, FLinkerLoad* ImportLinker)
 {
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("LoadPackageInternal"), STAT_LoadPackageInternal, STATGROUP_ObjectVerbose);
 
@@ -1149,67 +1122,51 @@ static UPackage* LoadPackageInternalInner(UPackage* InOuter, const TCHAR* InLong
 
 		FName PackageFName(*InPackageName);
 
-		Result = FindObjectFast<UPackage>(nullptr, PackageFName);
-		if (!Result || Result->LinkerLoad || !Result->IsFullyLoaded())
 		{
 			int32 RequestID = LoadPackageAsync(InName, nullptr, *InPackageName);
 			FlushAsyncLoading(RequestID);
 		}
 
-		if (InOuter)
-		{
-			return InOuter;
-		}
-		if (!Result)
-		{
-			Result = FindObjectFast<UPackage>(nullptr, PackageFName);
-		}
+		Result = FindObjectFast<UPackage>(nullptr, PackageFName);
 		return Result;
-}
+	}
 
 	FString FileToLoad;
 #if WITH_EDITOR
 	FString DiffFileToLoad;
 #endif
-	if (bSkipNameChecks)
+
+#if WITH_EDITOR
+	if (LoadFlags & LOAD_ForFileDiff)
+	{
+		FString TempFilenames = InLongPackageNameOrFilename;
+		ensure(TempFilenames.Split(TEXT(";"), &FileToLoad, &DiffFileToLoad, ESearchCase::CaseSensitive));
+	}
+	else
+#endif
+	if (InLongPackageNameOrFilename && FCString::Strlen(InLongPackageNameOrFilename) > 0)
 	{
 		FileToLoad = InLongPackageNameOrFilename;
 	}
-	else
+	else if (InOuter)
 	{
+		FileToLoad = InOuter->GetName();
+	}
 
-#if WITH_EDITOR
-		if (LoadFlags & LOAD_ForFileDiff)
+	// Make sure we're trying to load long package names only.
+	if (FPackageName::IsShortPackageName(FileToLoad))
+	{
+		FString LongPackageName;
+		FName* ScriptPackageName = FPackageName::FindScriptPackageName(*FileToLoad);
+		if (ScriptPackageName)
 		{
-			FString TempFilenames = InLongPackageNameOrFilename;
-			ensure(TempFilenames.Split(TEXT(";"), &FileToLoad, &DiffFileToLoad, ESearchCase::CaseSensitive));
+			UE_LOG(LogUObjectGlobals, Warning, TEXT("LoadPackage: %s is a short script package name."), InLongPackageNameOrFilename);
+			FileToLoad = ScriptPackageName->ToString();
 		}
-		else
-#endif
-		if (InLongPackageNameOrFilename && FCString::Strlen(InLongPackageNameOrFilename) > 0)
+		else if (!FPackageName::SearchForPackageOnDisk(FileToLoad, &FileToLoad))
 		{
-			FileToLoad = InLongPackageNameOrFilename;
-		}
-		else if (InOuter)
-		{
-			FileToLoad = InOuter->GetName();
-		}
-
-		// Make sure we're trying to load long package names only.
-		if (FPackageName::IsShortPackageName(FileToLoad))
-		{
-			FString LongPackageName;
-			FName* ScriptPackageName = FPackageName::FindScriptPackageName(*FileToLoad);
-			if (ScriptPackageName)
-			{
-				UE_LOG(LogUObjectGlobals, Warning, TEXT("LoadPackage: %s is a short script package name."), InLongPackageNameOrFilename);
-				FileToLoad = ScriptPackageName->ToString();
-			}
-			else if (!FPackageName::SearchForPackageOnDisk(FileToLoad, &FileToLoad))
-			{
-				UE_LOG(LogUObjectGlobals, Warning, TEXT("LoadPackage can't find package %s."), *FileToLoad);
-				return NULL;
-			}
+			UE_LOG(LogUObjectGlobals, Warning, TEXT("LoadPackage can't find package %s."), *FileToLoad);
+			return NULL;
 		}
 	}
 #if WITH_EDITOR
@@ -1320,14 +1277,7 @@ static UPackage* LoadPackageInternalInner(UPackage* InOuter, const TCHAR* InLong
 			// Make sure we pass the property that's currently being serialized by the linker that owns the import 
 			// that triggered this LoadPackage call
 			FSerializedPropertyScope SerializedProperty(*Linker, ImportLinker ? ImportLinker->GetSerializedProperty() : Linker->GetSerializedProperty());
-			if (GNewAsyncIO)
-			{
-			Linker->LoadAllObjects(true);
-			}
-			else
-			{
-			Linker->LoadAllObjects();
-			}	
+			Linker->LoadAllObjects(GEventDrivenLoaderEnabled);
 		}
 		else
 		{
@@ -1362,16 +1312,7 @@ static UPackage* LoadPackageInternalInner(UPackage* InOuter, const TCHAR* InLong
 			Result->SetLoadTime( FPlatformTime::Seconds() - StartTime );
 		}
 
-		if (GNewAsyncIO)
-		{
 		Linker->Flush();
-		}
-		// @todo: the next two conditions should check the file limit
-		else if (FPlatformProperties::RequiresCookedData())
-		{
-			// give a hint to the IO system that we are done with this file for now
-			FIOSystem::Get().HintDoneWithFile(*Linker->Filename);
-		}
 
 		// With UE4 and single asset per package, we load so many packages that some platforms will run out
 		// of file handles. So, this will close the package, but just things like bulk data loading will
@@ -1418,69 +1359,6 @@ static UPackage* LoadPackageInternalInner(UPackage* InOuter, const TCHAR* InLong
 		Result->SetFlags(RF_WasLoaded);
 	}
 
-	return Result;
-}
-
-bool IsPlatformFileCompatibleWithDependencyPreloading()
-{
-	static bool bResultCached = false;
-	static bool bResult = true;
-	if (!bResultCached)
-	{
-		IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
-		const TCHAR* PlatformFileType = PlatformFile.GetName();
-		bResultCached = true;
-		bResult = (FCString::Stricmp(TEXT("StreamingFile"), PlatformFileType) != 0) && (FCString::Stricmp(TEXT("NetworkFile"), PlatformFileType) != 0);
-	}
-	return bResult;
-}
-
-UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, FLinkerLoad* ImportLinker)
-{
-	IAssetRegistryInterface* AssetRegistry = nullptr;
-#if !WITH_EDITOR
-	bool bAllowDependencyPreloading = !InOuter && ((LoadFlags & (LOAD_DisableDependencyPreloading | LOAD_ForFileDiff)) == 0);
-	static auto CVarPreloadDependencies = IConsoleManager::Get().FindConsoleVariable(TEXT("s.PreloadPackageDependencies"));
-	
-	if (!GEventDrivenLoaderEnabled && bAllowDependencyPreloading && CVarPreloadDependencies && CVarPreloadDependencies->GetInt() != 0)
-	{		
-		if (IsPlatformFileCompatibleWithDependencyPreloading())
-		{
-			AssetRegistry = IAssetRegistryInterface::GetPtr();
-		}
-	}
-#endif
-	UPackage* Result = nullptr;
-	if (AssetRegistry)
-	{
-		//MaybeFlushCachedAsyncArchive();
-		check(!InOuter);
-		TMap<FName, int32> OrderTracker;
-		int32 Order = 0;
-		ScanPackageDependenciesForLoadOrder(InLongPackageName, OrderTracker, Order, AssetRegistry);
-
-		OrderTracker.ValueSort(TLess<int32>());
-		for (auto& Dependency : OrderTracker)
-		{
-			// might have already loaded this via a circular dependency
-			Result = FindObjectFast<UPackage>(nullptr, Dependency.Key, false, false); 
-
-			// In the case where the load request is coming from CreateImport, the package will exist and be found but still needs to be
-			// actually loaded.
-			if (Result && Result->bHasBeenFullyLoaded)
-			{
-				//UE_LOG(LogUObjectGlobals, Warning, TEXT("LoadPackage already loaded, skipping %s."), *Dependency.Key.ToString());
-			}
-			else
-			{
-				Result = LoadPackageInternalInner(nullptr, *Dependency.Key.ToString(), LoadFlags, ImportLinker, true);
-			}
-		}
-	}
-	else
-	{
-		Result = LoadPackageInternalInner(InOuter, InLongPackageName, LoadFlags, ImportLinker);
-	}
 	return Result;
 }
 
@@ -1770,6 +1648,8 @@ void EndLoad()
 				check(Linker->Loader == nullptr);
 			}
 		}
+
+		FBlueprintSupport::FlushReinstancingQueue();
 	}
 
 	// Loaded new objects, so allow reaccessing asset ptrs
@@ -2395,7 +2275,7 @@ UObject* StaticAllocateObject
 	checkSlow(TotalSize);
 
 	if( Obj == NULL )
-	{
+	{	
 		int32 Alignment	= FMath::Max( 4, InClass->GetMinAlignment() );
 		Obj = (UObject *)GUObjectAllocator.AllocateUObject(TotalSize,Alignment,GIsInitialLoad);
 	}

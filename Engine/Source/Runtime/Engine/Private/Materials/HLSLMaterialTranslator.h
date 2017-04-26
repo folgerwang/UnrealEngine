@@ -540,6 +540,11 @@ public:
 				}
 			}
 
+			if (Domain == MD_Volume && Material->GetBlendMode() != BLEND_Additive)
+			{
+				Errorf(TEXT("Volume materials must use an Additive blend mode."));
+			}
+
 			if (Material->IsLightFunction() && Material->GetBlendMode() != BLEND_Opaque)
 			{
 				Errorf(TEXT("Light function materials must be opaque."));
@@ -801,9 +806,7 @@ public:
 				case CompiledMP_EmissiveColorCS:
 			    	if (bCompileForComputeShader)
 				    {
-						{
-							GetFixedParameterCode(Chunk[PropertyId], SharedPropertyCodeChunks[SF_Compute], TranslatedCodeChunkDefinitions[PropertyId], TranslatedCodeChunks[PropertyId]);
-						}
+						GetFixedParameterCode(Chunk[PropertyId], SharedPropertyCodeChunks[SF_Compute], TranslatedCodeChunkDefinitions[PropertyId], TranslatedCodeChunks[PropertyId]);
 				    }
 					break;
 				case CompiledMP_PrevWorldPositionOffset:
@@ -939,7 +942,8 @@ public:
 		// Distortion uses tangent space transform 
 		OutEnvironment.SetDefine(TEXT("USES_DISTORTION"), Material->IsDistorted()); 
 
-		OutEnvironment.SetDefine(TEXT("ENABLE_TRANSLUCENCY_VERTEX_FOG"), Material->UseTranslucencyVertexFog());
+		OutEnvironment.SetDefine(TEXT("ENABLE_TRANSLUCENCY_FOGGING"), Material->ShouldApplyFogging());
+		OutEnvironment.SetDefine(TEXT("COMPUTE_FOG_PER_PIXEL"), Material->ComputeFogPerPixel());
 
 		for (int32 CollectionIndex = 0; CollectionIndex < ParameterCollections.Num(); CollectionIndex++)
 		{
@@ -1653,14 +1657,14 @@ protected:
 	}
 
 	// GetParameterType
-	EMaterialValueType GetParameterType(int32 Index) const
+	virtual EMaterialValueType GetParameterType(int32 Index) const override
 	{
 		check(Index >= 0 && Index < CurrentScopeChunks->Num());
 		return (*CurrentScopeChunks)[Index].Type;
 	}
 
 	// GetParameterUniformExpression
-	FMaterialUniformExpression* GetParameterUniformExpression(int32 Index) const
+	virtual FMaterialUniformExpression* GetParameterUniformExpression(int32 Index) const override
 	{
 		check(Index >= 0 && Index < CurrentScopeChunks->Num());
 
@@ -2135,6 +2139,7 @@ protected:
 			{MEVP_ViewSize, MCT_Float2, TEXT("View.ViewSizeAndInvSize.xy"), TEXT("View.ViewSizeAndInvSize.zw")},
 			{MEVP_WorldSpaceViewPosition, MCT_Float3, TEXT("ResolvedView.<PREV>WorldViewOrigin"), nullptr},
 			{MEVP_WorldSpaceCameraPosition, MCT_Float3, TEXT("ResolvedView.<PREV>WorldCameraOrigin"), nullptr},
+			{MEVP_ViewportOffset, MCT_Float2, TEXT("View.ViewRectMin.xy"), nullptr},
 		};
 		static_assert((sizeof(ViewPropertyMetaArray) / sizeof(ViewPropertyMetaArray[0])) == MEVP_MAX, "incoherency between EMaterialExposedViewProperty and ViewPropertyMetaArray");
 
@@ -2482,6 +2487,23 @@ protected:
 		}
 	}
 
+	virtual int32 Sign(int32 X) override
+	{
+		if(X == INDEX_NONE)
+		{
+			return INDEX_NONE;
+		}
+
+		if(GetParameterUniformExpression(X))
+		{
+			return AddUniformExpression(new FMaterialUniformExpressionSign(GetParameterUniformExpression(X)),GetParameterType(X),TEXT("sign(%s)"),*GetParameterCode(X));
+		}
+		else
+		{
+			return AddCodeChunk(GetParameterType(X),TEXT("sign(%s)"),*GetParameterCode(X));
+		}
+	}	
+
 	virtual int32 Frac(int32 X) override
 	{
 		if(X == INDEX_NONE)
@@ -2617,11 +2639,9 @@ protected:
 		switch (Mapping)
 		{
 		case MESP_SceneTextureUV:
-			return AddCodeChunk(MCT_Float2, TEXT("ScreenAlignedPosition(GetScreenPosition(Parameters))"));
+			return AddCodeChunk(MCT_Float2, TEXT("GetSceneTextureUV(Parameters)"));
 		case MESP_ViewportUV:
-			// Works for pixel and vertex shader.  The following commented line would optimize for pixel shader but doesnt work for vertex shader
-			return AddCodeChunk(MCT_Float2, TEXT("BufferUVToViewportUV(ScreenAlignedPosition(GetScreenPosition(Parameters)))"));
-			//return AddCodeChunk(MCT_Float2, TEXT("SvPositionToViewportUV(Parameters.SvPosition)"));
+			return AddCodeChunk(MCT_Float2, TEXT("GetViewportUV(Parameters)"));
 		default:
 			return Errorf(TEXT("Invalid UV mapping!"));
 		}		
@@ -2964,7 +2984,9 @@ protected:
 
 	virtual int32 TextureCoordinate(uint32 CoordinateIndex, bool UnMirrorU, bool UnMirrorV) override
 	{
-		const uint32 MaxNumCoordinates = (FeatureLevel == ERHIFeatureLevel::ES2) ? 3 : 8;
+		// For WebGL 1 which is essentially GLES2.0, we can safely assume a higher number of supported vertex attributes
+		// even when we are compiling ES 2 feature level shaders.
+		const uint32 MaxNumCoordinates = ((Platform == SP_OPENGL_ES2_WEBGL) || (FeatureLevel != ERHIFeatureLevel::ES2)) ? 8 : 3;
 
 		if (CoordinateIndex >= MaxNumCoordinates)
 		{
@@ -3097,7 +3119,8 @@ protected:
 		{
 			// Mobile: Sampling of a particular level depends on an extension; iOS does have it by default but
 			// there's a driver as of 7.0.2 that will cause a GPU hang if used with an Aniso > 1 sampler, so show an error for now
-			if (ErrorUnlessFeatureLevelSupported(ERHIFeatureLevel::ES3_1) == INDEX_NONE)
+			if ((Platform != SP_OPENGL_ES2_WEBGL) && // WebGL 2/GLES3.0 (or browsers with the texture lod extension) it is possible to sample from specific mip levels
+				ErrorUnlessFeatureLevelSupported(ERHIFeatureLevel::ES3_1) == INDEX_NONE)
 			{
 				Errorf(TEXT("Sampling for a specific mip-level is not supported for ES2"));
 				return INDEX_NONE;
@@ -3776,7 +3799,6 @@ protected:
 		UMaterialExpressionVertexInterpolator* Interpolator = CustomVertexInterpolators[InterpolatorIndex];
 		check(Interpolator && Interpolator->InterpolatorIndex == InterpolatorIndex);
 		check(Interpolator->InterpolatedType & MCT_Float);
-		check(Interpolator->InterpolatorOffset == INDEX_NONE);
 
 		// Assign interpolator offset and accumulate size
 		int32 InterpolatorSize = 0;
@@ -3788,8 +3810,12 @@ protected:
 		default:			InterpolatorSize = 1;
 		};
 
-		Interpolator->InterpolatorOffset = CurrentCustomVertexInterpolatorOffset;
-		CurrentCustomVertexInterpolatorOffset += InterpolatorSize;
+		if (Interpolator->InterpolatorOffset == INDEX_NONE)
+		{
+			Interpolator->InterpolatorOffset = CurrentCustomVertexInterpolatorOffset;
+			CurrentCustomVertexInterpolatorOffset += InterpolatorSize;
+		}
+		check(CurrentCustomVertexInterpolatorOffset != INDEX_NONE && Interpolator->InterpolatorOffset < CurrentCustomVertexInterpolatorOffset);
 
 		// Copy interpolated data from pixel parameters to local
 		const EMaterialValueType Type = Interpolator->InterpolatedType == MCT_Float ? MCT_Float1 : Interpolator->InterpolatedType;
@@ -3958,8 +3984,8 @@ protected:
 			return INDEX_NONE;
 		}
 
-		// use ClampedPow so artist are prevented to cause NAN creeping into the math
-		return AddCodeChunk(GetParameterType(Base),TEXT("ClampedPow(%s,%s)"),*GetParameterCode(Base),*CoerceParameter(Exponent,MCT_Float));
+		// Clamp Pow input to >= 0 to help avoid common NaN cases
+		return AddCodeChunk(GetParameterType(Base),TEXT("PositiveClampedPow(%s,%s)"),*GetParameterCode(Base),*CoerceParameter(Exponent,MCT_Float));
 	}
 	
 	virtual int32 Logarithm2(int32 X) override
@@ -4599,7 +4625,8 @@ protected:
 
 	virtual int32 DDX( int32 X ) override
 	{
-		if (ErrorUnlessFeatureLevelSupported(ERHIFeatureLevel::ES3_1) == INDEX_NONE)
+		if ((Platform != SP_OPENGL_ES2_WEBGL) && // WebGL 2/GLES3.0 - DDX() function is available
+			ErrorUnlessFeatureLevelSupported(ERHIFeatureLevel::ES3_1) == INDEX_NONE)
 		{
 			return INDEX_NONE;
 		}
@@ -4625,7 +4652,8 @@ protected:
 
 	virtual int32 DDY( int32 X ) override
 	{
-		if (ErrorUnlessFeatureLevelSupported(ERHIFeatureLevel::ES3_1) == INDEX_NONE)
+		if ((Platform != SP_OPENGL_ES2_WEBGL) && // WebGL 2/GLES3.0 - DDY() function is available
+			ErrorUnlessFeatureLevelSupported(ERHIFeatureLevel::ES3_1) == INDEX_NONE)
 		{
 			return INDEX_NONE;
 		}
@@ -5041,6 +5069,7 @@ protected:
 		FString OutputTypeString;
 		switch (OutputType)
 		{
+			case MCT_Float:
 			case MCT_Float1:
 				OutputTypeString = TEXT("MaterialFloat");
 				break;
@@ -5118,6 +5147,11 @@ protected:
 		if (ErrorUnlessFeatureLevelSupported(ERHIFeatureLevel::SM4) == INDEX_NONE)
 		{
 			return INDEX_NONE;
+		}
+
+		if (Material && Material->IsUsedWithSkeletalMesh())
+		{
+			return Error(TEXT("SpeedTree node not currently supported for Skeletal Meshes, please disable usage flag."));
 		}
 
 		if (ShaderFrequency != SF_Vertex)

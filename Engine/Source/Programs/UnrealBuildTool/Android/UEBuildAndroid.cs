@@ -51,7 +51,9 @@ namespace UnrealBuildTool
 		/// Accessors for fields on the inner TargetRules instance
 		/// </summary>
 		#region Read-only accessor properties 
+		#if !__MonoCS__
 		#pragma warning disable CS1591
+		#endif
 
 		public IReadOnlyList<string> Architectures
 		{
@@ -63,7 +65,9 @@ namespace UnrealBuildTool
 			get { return Inner.GPUArchitectures.AsReadOnly(); }
 		}
 
+		#if !__MonoCS__
 		#pragma warning restore CS1591
+		#endif
 		#endregion
 	}
 
@@ -135,8 +139,8 @@ namespace UnrealBuildTool
 		{
 			string[] BoolKeys = new string[] {
 				"bBuildForArmV7", "bBuildForArm64", "bBuildForX86", "bBuildForX8664", 
-				"bBuildForES2", "bBuildForESDeferred", "bBuildForES3"
-            };
+				"bBuildForES2", "bBuildForESDeferred", "bBuildForES3", "bBuildWithHiddenSymbolVisibility"
+			};
 
 			// look up Android specific settings
 			if (!DoProjectSettingsMatchDefault(Platform, ProjectPath, "/Script/AndroidRuntimeSettings.AndroidRuntimeSettings",
@@ -440,7 +444,7 @@ namespace UnrealBuildTool
 
 		protected override String GetRequiredScriptVersionString()
 		{
-			return "3.1";
+			return "3.2";
 		}
 
 		// prefer auto sdk on android as correct 'manual' sdk detection isn't great at the moment.

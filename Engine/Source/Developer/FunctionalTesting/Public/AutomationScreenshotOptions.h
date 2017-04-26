@@ -6,7 +6,7 @@
 #include "UObject/ObjectMacros.h"
 #include "AutomationScreenshotOptions.generated.h"
 
-UENUM()
+UENUM(BlueprintType)
 enum class EComparisonTolerance : uint8
 {
 	Zero,
@@ -16,7 +16,7 @@ enum class EComparisonTolerance : uint8
 	Custom
 };
 
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FComparisonToleranceAmount
 {
 	GENERATED_BODY()
@@ -75,7 +75,7 @@ public:
 		, Delay(0.2f)
 		, bDisableNoisyRenderingFeatures(true)
 		, VisualizeBuffer(NAME_None)
-		, Tolerance(EComparisonTolerance::Low)
+		, Tolerance(EComparisonTolerance::Zero)
 		, ToleranceAmount()
 		, MaximumLocalError(0.10f)
 		, MaximumGlobalError(0.02f)
@@ -89,7 +89,7 @@ public:
 		, Delay(0.2f)
 		, bDisableNoisyRenderingFeatures(true)
 		, VisualizeBuffer(NAME_None)
-		, Tolerance(EComparisonTolerance::Low)
+		, Tolerance(InTolerance)
 		, ToleranceAmount()
 		, MaximumLocalError(0.10f)
 		, MaximumGlobalError(0.02f)

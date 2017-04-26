@@ -53,9 +53,16 @@ public abstract class BaseWinPlatform : Platform
 					if (SC.NonUFSStagingFiles.ContainsKey(FullExecutablePath) && Path.GetExtension(FullExecutablePath) == ".exe")
 					{
 						string BootstrapArguments = "";
-						if (!SC.IsCodeBasedProject && !ShouldStageCommandLine(Params, SC))
+						if (!ShouldStageCommandLine(Params, SC))
 						{
-							BootstrapArguments = String.Format("..\\..\\..\\{0}\\{0}.uproject", SC.ShortProjectName);
+							if (!SC.IsCodeBasedProject)
+							{
+								BootstrapArguments = String.Format("..\\..\\..\\{0}\\{0}.uproject", SC.ShortProjectName);
+							}
+							else
+							{
+								BootstrapArguments = SC.ShortProjectName;
+							}
 						}
 
 						string BootstrapExeName;
@@ -194,18 +201,25 @@ public abstract class BaseWinPlatform : Platform
 		string Ext = AutomationTool.Platform.GetExeExtension(TargetPlatformType);
 		if (!String.IsNullOrEmpty(SC.CookPlatform))
 		{
-			if (SC.StageExecutables.Count() > 0)
+			if (SC.StageTargets.Count() > 0)
 			{
-				foreach (var StageExecutable in SC.StageExecutables)
+				DirectoryReference ProjectRoot = new DirectoryReference(SC.ProjectRoot);
+				foreach (StageTarget Target in SC.StageTargets)
 				{
-					string ExeName = SC.StageTargetPlatform.GetPlatformExecutableName(StageExecutable);
-					if(SC.IsCodeBasedProject)
+					foreach (BuildProduct Product in Target.Receipt.BuildProducts)
 					{
-						ExecutableNames.Add(CombinePaths(SC.RuntimeProjectRootDir, "Binaries", SC.PlatformDir, ExeName + Ext));
-					}
-					else
-					{
-						ExecutableNames.Add(CombinePaths(SC.RuntimeRootDir, "Engine/Binaries", SC.PlatformDir, ExeName + Ext));
+						if (Product.Type == BuildProductType.Executable)
+						{
+							FileReference BuildProductFile = new FileReference(Product.Path);
+							if(BuildProductFile.IsUnderDirectory(ProjectRoot))
+							{
+								ExecutableNames.Add(CombinePaths(SC.RuntimeProjectRootDir, BuildProductFile.MakeRelativeTo(ProjectRoot)));
+							}
+							else
+							{
+								ExecutableNames.Add(CombinePaths(SC.RuntimeRootDir, BuildProductFile.MakeRelativeTo(RootDirectory)));
+							}
+						}
 					}
 				}
 			}
@@ -275,7 +289,13 @@ public abstract class BaseWinPlatform : Platform
 
 	public void StageAppLocalDependencies(ProjectParams Params, DeploymentContext SC, string PlatformDir)
 	{
-		string BaseAppLocalDependenciesPath = Path.IsPathRooted(Params.AppLocalDirectory) ? CombinePaths(Params.AppLocalDirectory, PlatformDir) : CombinePaths(SC.ProjectRoot, Params.AppLocalDirectory, PlatformDir);
+		Dictionary<string, string> PathVariables = new Dictionary<string, string>();
+		PathVariables["EngineDir"] = Path.Combine(SC.LocalRoot, "Engine");
+		PathVariables["ProjectDir"] = SC.ProjectRoot;
+
+		string ExpandedAppLocalDir = Utils.ExpandVariables(Params.AppLocalDirectory, PathVariables);
+
+		string BaseAppLocalDependenciesPath = Path.IsPathRooted(ExpandedAppLocalDir) ? CombinePaths(ExpandedAppLocalDir, PlatformDir) : CombinePaths(SC.ProjectRoot, ExpandedAppLocalDir, PlatformDir);
 		if (Directory.Exists(BaseAppLocalDependenciesPath))
 		{
 			string ProjectBinaryPath = new DirectoryReference(SC.ProjectBinariesFolder).MakeRelativeTo(new DirectoryReference(CombinePaths(SC.ProjectRoot, "..")));

@@ -67,7 +67,8 @@ public class Engine : ModuleRules
 				"RenderCore",
 				"RHI",
 				"ShaderCore",
-				"AssetRegistry", // Here until FAssetData is moved to engine
+                "UtilityShaders",
+                "AssetRegistry", // Here until FAssetData is moved to engine
 				"EngineMessages",
 				"EngineSettings",
 				"SynthBenchmark",
@@ -331,7 +332,7 @@ public class Engine : ModuleRules
         }
 
 		SetupModulePhysXAPEXSupport(Target);
-        if(UEBuildConfiguration.bCompilePhysX && UEBuildConfiguration.bRuntimePhysicsCooking)
+        if(UEBuildConfiguration.bCompilePhysX && (UEBuildConfiguration.bBuildEditor || UEBuildConfiguration.bRuntimePhysicsCooking))
         {
             DynamicallyLoadedModuleNames.Add("PhysXFormats");
             PrivateIncludePathModuleNames.Add("PhysXFormats");

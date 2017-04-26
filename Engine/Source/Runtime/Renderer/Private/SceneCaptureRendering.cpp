@@ -36,6 +36,7 @@
 #include "ScreenRendering.h"
 #include "MobileSceneCaptureRendering.h"
 #include "ClearQuad.h"
+#include "PipelineStateCache.h"
 
 const TCHAR* GShaderSourceModeDefineName[] =
 {
@@ -44,6 +45,7 @@ const TCHAR* GShaderSourceModeDefineName[] =
 	nullptr,
 	TEXT("SOURCE_MODE_SCENE_COLOR_SCENE_DEPTH"),
 	TEXT("SOURCE_MODE_SCENE_DEPTH"),
+	TEXT("SOURCE_MODE_DEVICE_DEPTH"),
 	TEXT("SOURCE_MODE_NORMAL"),
 	TEXT("SOURCE_MODE_BASE_COLOR")
 };
@@ -80,7 +82,7 @@ public:
 
 	void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View)
 	{
-		FGlobalShader::SetParameters(RHICmdList, GetPixelShader(), View);
+		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, GetPixelShader(), View.ViewUniformBuffer);
 		DeferredParameters.Set(RHICmdList, GetPixelShader(), View);
 	}
 
@@ -99,6 +101,7 @@ IMPLEMENT_SHADER_TYPE(template<>, TSceneCapturePS<SCS_SceneColorHDR>, TEXT("Scen
 IMPLEMENT_SHADER_TYPE(template<>, TSceneCapturePS<SCS_SceneColorHDRNoAlpha>, TEXT("SceneCapturePixelShader"), TEXT("Main"), SF_Pixel);
 IMPLEMENT_SHADER_TYPE(template<>,TSceneCapturePS<SCS_SceneColorSceneDepth>,TEXT("SceneCapturePixelShader"),TEXT("Main"),SF_Pixel);
 IMPLEMENT_SHADER_TYPE(template<>,TSceneCapturePS<SCS_SceneDepth>,TEXT("SceneCapturePixelShader"),TEXT("Main"),SF_Pixel);
+IMPLEMENT_SHADER_TYPE(template<>, TSceneCapturePS<SCS_DeviceDepth>, TEXT("SceneCapturePixelShader"), TEXT("Main"), SF_Pixel);
 IMPLEMENT_SHADER_TYPE(template<>,TSceneCapturePS<SCS_Normal>,TEXT("SceneCapturePixelShader"),TEXT("Main"),SF_Pixel);
 IMPLEMENT_SHADER_TYPE(template<>,TSceneCapturePS<SCS_BaseColor>,TEXT("SceneCapturePixelShader"),TEXT("Main"),SF_Pixel);
 
@@ -115,84 +118,91 @@ void FDeferredShadingSceneRenderer::CopySceneCaptureComponentToTarget(FRHIComman
 	{
 		SCOPED_DRAW_EVENT(RHICmdList, CaptureSceneComponent);
 
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+
 		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 		{
 			FViewInfo& View = Views[ViewIndex];
 			FRHIRenderTargetView ColorView(ViewFamily.RenderTarget->GetRenderTargetTexture(), 0, -1, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::EStore);
 			FRHISetRenderTargetsInfo Info(1, &ColorView, FRHIDepthRenderTargetView());
 			RHICmdList.SetRenderTargetsAndClear(Info);
-
-			RHICmdList.SetRasterizerState(TStaticRasterizerState<FM_Solid, CM_None>::GetRHI());
-			RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
+			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
 			if (SceneCaptureSource == SCS_SceneColorHDR && ViewFamily.SceneCaptureCompositeMode == SCCM_Composite)
 			{
 				// Blend with existing render target color. Scene capture color is already pre-multiplied by alpha.
-				RHICmdList.SetBlendState(TStaticBlendState<CW_RGBA, BO_Add, BF_One, BF_SourceAlpha, BO_Add, BF_Zero, BF_SourceAlpha>::GetRHI());
+				GraphicsPSOInit.BlendState = TStaticBlendState<CW_RGBA, BO_Add, BF_One, BF_SourceAlpha, BO_Add, BF_Zero, BF_SourceAlpha>::GetRHI();
 			}
 			else if (SceneCaptureSource == SCS_SceneColorHDR && ViewFamily.SceneCaptureCompositeMode == SCCM_Additive)
 			{
 				// Add to existing render target color. Scene capture color is already pre-multiplied by alpha.
-				RHICmdList.SetBlendState( TStaticBlendState<CW_RGBA, BO_Add, BF_One, BF_One, BO_Add, BF_Zero, BF_SourceAlpha>::GetRHI());
+				GraphicsPSOInit.BlendState = TStaticBlendState<CW_RGBA, BO_Add, BF_One, BF_One, BO_Add, BF_Zero, BF_SourceAlpha>::GetRHI();
 			}
 			else
 			{
-				RHICmdList.SetBlendState(TStaticBlendState<>::GetRHI());
+				GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
 			}
 
 			TShaderMapRef<FScreenVS> VertexShader(View.ShaderMap);
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
 			if (SceneCaptureSource == SCS_SceneColorHDR)
 			{
 				TShaderMapRef<TSceneCapturePS<SCS_SceneColorHDR> > PixelShader(View.ShaderMap);
-
-				static FGlobalBoundShaderState BoundShaderState;
-				SetGlobalBoundShaderState(RHICmdList, View.GetFeatureLevel(), BoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
+				GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+				SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
 				PixelShader->SetParameters(RHICmdList, View);
 			}
 			else if (SceneCaptureSource == SCS_SceneColorHDRNoAlpha)
 			{
 				TShaderMapRef<TSceneCapturePS<SCS_SceneColorHDRNoAlpha> > PixelShader(View.ShaderMap);
-
-				static FGlobalBoundShaderState BoundShaderState;
-				SetGlobalBoundShaderState(RHICmdList, View.GetFeatureLevel(), BoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
+				GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+				SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
 				PixelShader->SetParameters(RHICmdList, View);
 			}
 			else if (SceneCaptureSource == SCS_SceneColorSceneDepth)
 			{
 				TShaderMapRef<TSceneCapturePS<SCS_SceneColorSceneDepth> > PixelShader(View.ShaderMap);
-
-				static FGlobalBoundShaderState BoundShaderState;
-				SetGlobalBoundShaderState(RHICmdList, View.GetFeatureLevel(), BoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
+				GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+				SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
 				PixelShader->SetParameters(RHICmdList, View);
 			}
 			else if (SceneCaptureSource == SCS_SceneDepth)
 			{
 				TShaderMapRef<TSceneCapturePS<SCS_SceneDepth> > PixelShader(View.ShaderMap);
+				GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+				SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-				static FGlobalBoundShaderState BoundShaderState;
-				SetGlobalBoundShaderState(RHICmdList, View.GetFeatureLevel(), BoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
+				PixelShader->SetParameters(RHICmdList, View);
+			}
+			else if (ViewFamily.SceneCaptureSource == SCS_DeviceDepth)
+			{
+				TShaderMapRef<TSceneCapturePS<SCS_DeviceDepth> > PixelShader(View.ShaderMap);
+				GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+				SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
 				PixelShader->SetParameters(RHICmdList, View);
 			}
 			else if (SceneCaptureSource == SCS_Normal)
 			{
 				TShaderMapRef<TSceneCapturePS<SCS_Normal> > PixelShader(View.ShaderMap);
-
-				static FGlobalBoundShaderState BoundShaderState;
-				SetGlobalBoundShaderState(RHICmdList, View.GetFeatureLevel(), BoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
+				GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+				SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
 				PixelShader->SetParameters(RHICmdList, View);
 			}
 			else if (SceneCaptureSource == SCS_BaseColor)
 			{
 				TShaderMapRef<TSceneCapturePS<SCS_BaseColor> > PixelShader(View.ShaderMap);
-
-				static FGlobalBoundShaderState BoundShaderState;
-				SetGlobalBoundShaderState(RHICmdList, View.GetFeatureLevel(), BoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
+				GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+				SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
 				PixelShader->SetParameters(RHICmdList, View);
 			}
@@ -201,7 +211,7 @@ void FDeferredShadingSceneRenderer::CopySceneCaptureComponentToTarget(FRHIComman
 				check(0);
 			}
 
-			VertexShader->SetParameters(RHICmdList, View);
+			VertexShader->SetParameters(RHICmdList, View.ViewUniformBuffer);
 
 			DrawRectangle(
 				RHICmdList,
@@ -385,18 +395,18 @@ FSceneRenderer* CreateSceneRendererForSceneCapture(
 
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
 	{
-		const FSceneCaptureViewInfo& ViewState = Views[ViewIndex];
+		const FSceneCaptureViewInfo& SceneCaptureViewInfo = Views[ViewIndex];
 
 		FSceneViewInitOptions ViewInitOptions;
-		ViewInitOptions.SetViewRectangle(ViewState.ViewRect);
+		ViewInitOptions.SetViewRectangle(SceneCaptureViewInfo.ViewRect);
 		ViewInitOptions.ViewFamily = &ViewFamily;
-		ViewInitOptions.ViewOrigin = ViewState.ViewLocation;
-		ViewInitOptions.ViewRotationMatrix = ViewState.ViewRotationMatrix;
+		ViewInitOptions.ViewOrigin = SceneCaptureViewInfo.ViewLocation;
+		ViewInitOptions.ViewRotationMatrix = SceneCaptureViewInfo.ViewRotationMatrix;
 		ViewInitOptions.BackgroundColor = FLinearColor::Black;
 		ViewInitOptions.OverrideFarClippingPlaneDistance = MaxViewDistance;
-		ViewInitOptions.StereoPass = ViewState.StereoPass;
-		ViewInitOptions.SceneViewStateInterface = (ViewInitOptions.StereoPass != EStereoscopicPass::eSSP_RIGHT_EYE) ? SceneCaptureComponent->GetViewState() : SceneCaptureComponent->GetStereoViewState();
-		ViewInitOptions.ProjectionMatrix = ViewState.ProjectionMatrix;
+		ViewInitOptions.StereoPass = SceneCaptureViewInfo.StereoPass;
+		ViewInitOptions.SceneViewStateInterface = SceneCaptureComponent->GetViewState(ViewIndex);
+		ViewInitOptions.ProjectionMatrix = SceneCaptureViewInfo.ProjectionMatrix;
 		ViewInitOptions.LODDistanceFactor = FMath::Clamp(SceneCaptureComponent->LODDistanceFactor, .01f, 100.0f);
 
 		if (bCaptureSceneColor)
@@ -464,7 +474,7 @@ FSceneRenderer* CreateSceneRendererForSceneCapture(
 
 		ViewFamily.Views.Add(View);
 
-		View->StartFinalPostprocessSettings(ViewState.ViewLocation);
+		View->StartFinalPostprocessSettings(SceneCaptureViewInfo.ViewLocation);
 		View->OverridePostProcessSettings(*PostProcessSettings, PostProcessBlendWeight);
 		View->EndFinalPostprocessSettings(ViewInitOptions);
 	}
@@ -486,19 +496,19 @@ FSceneRenderer* CreateSceneRendererForSceneCapture(
 	FPostProcessSettings* PostProcessSettings,
 	float PostProcessBlendWeight)
 {
-	FSceneCaptureViewInfo ViewState;
-	ViewState.ViewRotationMatrix = ViewRotationMatrix;
-	ViewState.ViewLocation = ViewLocation;
-	ViewState.ProjectionMatrix = ProjectionMatrix;
-	ViewState.StereoPass = EStereoscopicPass::eSSP_FULL;
-	ViewState.ViewRect = FIntRect(0, 0, RenderTargetSize.X, RenderTargetSize.Y);
+	FSceneCaptureViewInfo SceneCaptureViewInfo;
+	SceneCaptureViewInfo.ViewRotationMatrix = ViewRotationMatrix;
+	SceneCaptureViewInfo.ViewLocation = ViewLocation;
+	SceneCaptureViewInfo.ProjectionMatrix = ProjectionMatrix;
+	SceneCaptureViewInfo.StereoPass = EStereoscopicPass::eSSP_FULL;
+	SceneCaptureViewInfo.ViewRect = FIntRect(0, 0, RenderTargetSize.X, RenderTargetSize.Y);
 	
 	return CreateSceneRendererForSceneCapture(
 		Scene, 
 		SceneCaptureComponent, 
 		RenderTarget, 
 		RenderTargetSize, 
-		{ ViewState },
+		{ SceneCaptureViewInfo },
 		MaxViewDistance, 
 		bCaptureSceneColor, 
 		bIsPlanarReflection, 

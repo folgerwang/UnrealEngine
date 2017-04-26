@@ -168,7 +168,12 @@ namespace UnrealBuildTool
 			{
 				Result += " -fno-exceptions";
 			}
-
+			
+			string SanitizerMode = Environment.GetEnvironmentVariable("ENABLE_ADDRESS_SANITIZER");
+			if(SanitizerMode != null && SanitizerMode == "YES")
+			{
+				Result += " -fsanitize=address";
+			}
 
 			Result += GetRTTIFlag(CompileEnvironment);
 			Result += " -fvisibility=hidden"; // hides the linker warnings with PhysX
@@ -210,6 +215,7 @@ namespace UnrealBuildTool
 				Result += " -Wno-inconsistent-missing-override"; // too many missing overrides...
 				Result += " -Wno-unused-local-typedef"; // PhysX has some, hard to remove
 			}
+			
 
 			// fix for Xcode 8.3 enabling nonportable include checks, but p4 has some invalid cases in it
 			if (Settings.Value.IOSSDKVersionFloat >= 10.3)
@@ -425,11 +431,17 @@ namespace UnrealBuildTool
 			// parse the string
 			string[] Tokens = Archs.Split(",".ToCharArray());
 
+
 			string Result = "";
+
 			foreach (string Token in Tokens)
 			{
 				Result += " -arch " + Token;
 			}
+
+            //  Remove this in 4.16 
+            //  Commented this out, for now. @Pete let's conditionally check this when we re-implement this fix. 
+            //  Result += " -mcpu=cortex-a9";
 
 			return Result;
 		}
@@ -475,6 +487,13 @@ namespace UnrealBuildTool
 			Result += " -stdlib=libc++";
 			Result += " -ObjC";
 			//			Result += " -v";
+			
+			string SanitizerMode = Environment.GetEnvironmentVariable("ENABLE_ADDRESS_SANITIZER");
+			if(SanitizerMode != null && SanitizerMode == "YES")
+			{
+				Result += " -rpath \"@executable_path/Frameworks/libclang_rt.asan_ios_dynamic.dylib\"";
+				Result += " -fsanitize=address";
+			}
 
 			Result += " " + GetAdditionalLinkerFlags(LinkEnvironment.Configuration);
 
@@ -1310,13 +1329,21 @@ namespace UnrealBuildTool
 						// code sign the project
 						IOSProvisioningData ProvisioningData = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(Target.Platform)).ReadProvisioningData(ProjectSettings);
 						string CmdLine = new IOSToolChainSettings().XcodeDeveloperDir + "usr/bin/xcodebuild" +
-						                " -workspace \"" + Project + "\"" +
+										" -workspace \"" + Project + "\"" +
 										" -configuration \"" + ConfigName + "\"" +
 										" -scheme '" + SchemeName + "'" +
 										" -sdk " + GetCodesignPlatformName(Target.Platform) +
-										" -destination generic/platform=" + (Target.Platform == UnrealTargetPlatform.IOS ? "iOS" : "tvOS") +
-                                        " CODE_SIGN_IDENTITY=\"" + (!string.IsNullOrEmpty(ProvisioningData.SigningCertificate) ? ProvisioningData.SigningCertificate : "IPhoneDeveloper") + "\"" +
-                                        (!string.IsNullOrEmpty(ProvisioningData.MobileProvisionUUID) ? (" PROVISIONING_PROFILE_SPECIFIER=" + ProvisioningData.MobileProvisionUUID) : "");
+										" -destination generic/platform=" + (Target.Platform == UnrealTargetPlatform.IOS ? "iOS" : "tvOS") + 
+						                (!string.IsNullOrEmpty(ProvisioningData.TeamUUID) ? " DEVELOPMENT_TEAM=" + ProvisioningData.TeamUUID : "");
+						if (!ProjectSettings.bAutomaticSigning)
+						{
+							CmdLine += " CODE_SIGN_IDENTITY=\"" + (!string.IsNullOrEmpty(ProvisioningData.SigningCertificate) ? ProvisioningData.SigningCertificate : "IPhoneDeveloper") + "\"" +
+							(!string.IsNullOrEmpty(ProvisioningData.MobileProvisionUUID) ? (" PROVISIONING_PROFILE_SPECIFIER=" + ProvisioningData.MobileProvisionUUID) : "");
+						}
+						else
+						{
+							CmdLine += " CODE_SIGN_IDENTITY=\"iPhone Developer\"";
+						}
 
                         Console.WriteLine("Code signing with command line: " + CmdLine);
 

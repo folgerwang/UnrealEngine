@@ -55,10 +55,6 @@ class ENGINE_API UMeshComponent : public UPrimitiveComponent
 	virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
 #endif
 
-	//~ Begin UObject Interface
-	virtual void BeginDestroy() override;
-	//~ End UObject Interface
-
 	//~ Begin UPrimitiveComponent Interface
 	virtual int32 GetNumMaterials() const override;
 	virtual UMaterialInterface* GetMaterial(int32 ElementIndex) const override;
@@ -109,7 +105,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Rendering|Material")
 	void SetVectorParameterValueOnMaterials(const FName ParameterName, const FVector ParameterValue);
 
-	/**  Returns default value for the parameter input */
+	/**  
+	 * Returns default value for the parameter input. 
+	 *
+	 * NOTE: This is not reliable when cooking, as initializing the default value 
+	 *       requires a render resource that only exists if the owning world is rendering.
+	 */
 	float GetScalarParameterDefaultValue(const FName ParameterName)
 	{
 		float* Value = ScalarParameterDefaultValues.Find(ParameterName);

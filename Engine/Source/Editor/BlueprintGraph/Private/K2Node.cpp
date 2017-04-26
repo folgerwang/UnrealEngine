@@ -925,15 +925,13 @@ void FOptionalPinManager::RebuildPropertyList(TArray<FOptionalPinFromProperty>& 
 {
 	// Save the old visibility
 	TMap<FName, FOldOptionalPinSettings> OldPinSettings;
-	for (auto ExtraPropertyIt = Properties.CreateIterator(); ExtraPropertyIt; ++ExtraPropertyIt)
+	for (const FOptionalPinFromProperty& PropertyEntry : Properties)
 	{
-		FOptionalPinFromProperty& PropertyEntry = *ExtraPropertyIt;
-
 		OldPinSettings.Add(PropertyEntry.PropertyName, FOldOptionalPinSettings(PropertyEntry.bShowPin, PropertyEntry.bIsOverrideEnabled, PropertyEntry.bIsSetValuePinVisible, PropertyEntry.bIsOverridePinVisible));
 	}
 
 	// Rebuild the property list
-	Properties.Empty();
+	Properties.Reset();
 
 	// find all "bOverride_" properties
 	TMap<FName, UProperty*> OverridesMap;
@@ -1037,11 +1035,13 @@ void FOptionalPinManager::CreateVisiblePins(TArray<FOptionalPinFromProperty>& Pr
 						UEdGraphPin* NewPin = NULL;
 						if (PropertyEntry.bShowPin)
 						{
+							const FString PinName = FString::Printf(TEXT("%s_%d"), *PropertyEntry.PropertyName.ToString(), Index);
+
 							FFormatNamedArguments Args;
-							Args.Add(TEXT("PinName"), FText::FromName(PropertyEntry.PropertyName));
+							Args.Add(TEXT("PinName"), FText::FromString(PropertyEntry.PropertyFriendlyName.IsEmpty() ? PinName : PropertyEntry.PropertyFriendlyName));
 							Args.Add(TEXT("Index"), Index);
-							const FText PinFriendlyName = FText::Format(LOCTEXT("PinFriendlyNameWithIndex", "{PinName}_{Index}"), Args);
-							const FString PinName = PinFriendlyName.ToString();
+							const FText PinFriendlyName = FText::Format(LOCTEXT("PinFriendlyNameWithIndex", "{PinName} {Index}"), Args);
+
 							NewPin = TargetNode->CreatePin(Direction, PinType, PinName);
 							NewPin->PinFriendlyName = PinFriendlyName;
 							NewPin->bNotConnectable = !PropertyEntry.bIsSetValuePinVisible;
@@ -1078,7 +1078,7 @@ void FOptionalPinManager::CreateVisiblePins(TArray<FOptionalPinFromProperty>& Pr
 					{
 						const FString PinName = PropertyEntry.PropertyName.ToString();
 						NewPin = TargetNode->CreatePin(Direction, PinType, PinName);
-						NewPin->PinFriendlyName = PropertyEntry.PropertyFriendlyName.IsEmpty() ? FText::FromString(PinName) : FText::FromString(PropertyEntry.PropertyFriendlyName);
+						NewPin->PinFriendlyName = FText::FromString(PropertyEntry.PropertyFriendlyName.IsEmpty() ? PinName : PropertyEntry.PropertyFriendlyName);
 						NewPin->bNotConnectable = !PropertyEntry.bIsSetValuePinVisible;
 						NewPin->bDefaultValueIsIgnored = !PropertyEntry.bIsSetValuePinVisible;
 						Schema->ConstructBasicPinTooltip(*NewPin, PropertyEntry.PropertyTooltip, NewPin->PinToolTip);

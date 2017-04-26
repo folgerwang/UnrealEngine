@@ -57,14 +57,20 @@ PACKAGE_SCOPE:
 	TSharedRef<FOnlineSession> CreateSessionFromRoom(ovrRoomHandle Room);
 
 	void UpdateSessionFromRoom(FNamedOnlineSession& Session, ovrRoomHandle Room);
+	void UpdateSessionSettingsFromDataStore(FOnlineSessionSettings& SessionSettings, ovrDataStoreHandle DataStore);
 
 	void TickPendingInvites(float DeltaTime);
 
-	bool CreateRoomSession(int32 HostingPlayerNum, FName SessionName, FNamedOnlineSession& Session, const FOnlineSessionSettings& NewSessionSettings);
-	bool CreateMatchmakingSession(int32 HostingPlayerNum, FName SessionName, FNamedOnlineSession& Session, const FOnlineSessionSettings& NewSessionSettings);
+	bool CreateRoomSession(FNamedOnlineSession& Session, ovrRoomJoinPolicy JoinPolicy);
+	bool CreateMatchmakingSession(FNamedOnlineSession& Session, ovrRoomJoinPolicy JoinPolicy);
+	void OnCreateRoomComplete(ovrMessageHandle Message, bool bIsError, FName SessionName);
 
 	bool FindModeratedRoomSessions(const TSharedRef<FOnlineSessionSearch>& SearchSettings);
 	bool FindMatchmakingSessions(const FString Pool, const TSharedRef<FOnlineSessionSearch>& SearchSettings);
+
+	bool UpdateMatchmakingRoom(FName SessionName, FOnlineSessionSettings& UpdatedSessionSettings);
+	bool UpdateRoomDataStore(FName SessionName, FOnlineSessionSettings& UpdatedSessionSettings);
+
 public:
 
 	FOnlineSessionOculus(FOnlineSubsystemOculus& InSubsystem);
@@ -95,7 +101,7 @@ public:
 	virtual bool SendSessionInviteToFriend(const FUniqueNetId& LocalUserId, FName SessionName, const FUniqueNetId& Friend) override;
 	virtual bool SendSessionInviteToFriends(int32 LocalUserNum, FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Friends) override;
 	virtual bool SendSessionInviteToFriends(const FUniqueNetId& LocalUserId, FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Friends) override;
-	virtual bool GetResolvedConnectString(FName SessionName, FString& ConnectInfo) override;
+	virtual bool GetResolvedConnectString(FName SessionName, FString& ConnectInfo, FName PortType) override;
 	virtual bool GetResolvedConnectString(const class FOnlineSessionSearchResult& SearchResult, FName PortType, FString& ConnectInfo) override;
 	virtual FOnlineSessionSettings* GetSessionSettings(FName SessionName) override;
 	virtual bool RegisterPlayer(FName SessionName, const FUniqueNetId& PlayerId, bool bWasInvited) override;

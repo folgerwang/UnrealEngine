@@ -185,13 +185,6 @@ TSharedRef<SWidget> FAssetViewItemHelper::CreateListTileItemContents(T* const In
 			InThumbnail
 		];
 
-		// Tools for thumbnail edit mode
-		ItemContentsOverlay->AddSlot()
-		[
-			SNew(SThumbnailEditModeTools, InTileOrListItem->AssetThumbnail)
-			.SmallView(!InTileOrListItem->CanDisplayPrimitiveTools())
-			.Visibility(InTileOrListItem, &T::GetThumbnailEditModeUIVisibility)
-		];
 
 		// Source control state
 		ItemContentsOverlay->AddSlot()
@@ -214,6 +207,15 @@ TSharedRef<SWidget> FAssetViewItemHelper::CreateListTileItemContents(T* const In
 		[
 			SNew(SImage)
 			.Image(InTileOrListItem, &T::GetDirtyImage)
+		];
+
+
+		// Tools for thumbnail edit mode
+		ItemContentsOverlay->AddSlot()
+		[
+			SNew(SThumbnailEditModeTools, InTileOrListItem->AssetThumbnail)
+			.SmallView(!InTileOrListItem->CanDisplayPrimitiveTools())
+			.Visibility(InTileOrListItem, &T::GetThumbnailEditModeUIVisibility)
 		];
 	}
 
@@ -617,7 +619,7 @@ FText SAssetViewItem::GetAssetClassText() const
 
 const FSlateBrush* SAssetViewItem::GetSCCStateImage() const
 {
-	return SCCStateBrush;
+	return ThumbnailEditMode.Get() ? FEditorStyle::GetNoBrush() : SCCStateBrush;
 }
 
 void SAssetViewItem::HandleSourceControlProviderChanged(ISourceControlProvider& OldProvider, ISourceControlProvider& NewProvider)
@@ -1829,13 +1831,21 @@ FText SAssetColumnItem::GetAssetPathText() const
 	}
 }
 
-FText SAssetColumnItem::GetAssetTagText(FName AssetRegistryTag) const
+FText SAssetColumnItem::GetAssetTagText(FName AssetTag) const
 {
 	if ( AssetItem.IsValid() )
 	{
 		if(AssetItem->GetType() != EAssetItemType::Folder)
 		{
-			return StaticCastSharedPtr<FAssetViewAsset>(AssetItem)->Data.GetTagValueRef<FText>(AssetRegistryTag);
+			const TSharedPtr<FAssetViewAsset>& ItemAsAsset = StaticCastSharedPtr<FAssetViewAsset>(AssetItem);
+			// Check custom type
+			FString* FoundString = ItemAsAsset->CustomColumnData.Find(AssetTag);
+
+			if (FoundString)
+			{
+				return FText::FromString(*FoundString);
+			}
+			return ItemAsAsset->Data.GetTagValueRef<FText>(AssetTag);
 		}
 	}
 	

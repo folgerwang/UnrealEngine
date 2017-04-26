@@ -1,17 +1,17 @@
-/* Copyright 2016 Google Inc. All rights reserved.
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*   http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+/* Copyright 2016 Google Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "AndroidPermissionCallbackProxy.h"
 #include "AndroidPermission.h"
@@ -35,7 +35,7 @@ UAndroidPermissionCallbackProxy *UAndroidPermissionCallbackProxy::GetInstance()
 }
 
 #if PLATFORM_ANDROID
-extern "C" void Java_com_google_vr_sdk_samples_permission_PermissionHelper_onAcquirePermissions(JNIEnv *env, jclass clazz, jobjectArray permissions, jintArray grantResults) 
+JNI_METHOD void Java_com_google_vr_sdk_samples_permission_PermissionHelper_onAcquirePermissions(JNIEnv *env, jclass clazz, jobjectArray permissions, jintArray grantResults) 
 {
 	if (!pProxy) return;
 
@@ -55,6 +55,8 @@ extern "C" void Java_com_google_vr_sdk_samples_permission_PermissionHelper_onAcq
 
 	UE_LOG(LogAndroidPermission, Log, TEXT("PermissionHelper_onAcquirePermissions %s %d (%d), Broadcasting..."),
 		*(arrPermissions[0]), arrGranted[0], num);
-	pProxy->OnPermissionsGranted.Broadcast(arrPermissions, arrGranted);
+
+	pProxy->OnPermissionsGrantedDelegate.ExecuteIfBound(arrPermissions, arrGranted);
+	pProxy->OnPermissionsGrantedDynamicDelegate.Broadcast(arrPermissions, arrGranted);
 }
 #endif

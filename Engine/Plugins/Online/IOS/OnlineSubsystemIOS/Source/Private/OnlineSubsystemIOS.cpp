@@ -2,10 +2,17 @@
 
 #include "OnlineSubsystemIOSPrivatePCH.h"
 #import "OnlineStoreKitHelper.h"
+#import "OnlineAppStoreUtils.h"
 
 FOnlineSubsystemIOS::FOnlineSubsystemIOS()
 {
+	StoreHelper = nil;
+}
 
+FOnlineSubsystemIOS::FOnlineSubsystemIOS(FName InInstanceName)
+	: FOnlineSubsystemImpl(IOS_SUBSYSTEM, InInstanceName)
+{
+	StoreHelper = nil;
 }
 
 IOnlineSessionPtr FOnlineSubsystemIOS::GetSessionInterface() const
@@ -147,7 +154,7 @@ bool FOnlineSubsystemIOS::Init()
 	else
 	{
 		SessionInterface = MakeShareable(new FOnlineSessionIOS(this));
-		IdentityInterface = MakeShareable(new FOnlineIdentityIOS());
+		IdentityInterface = MakeShareable(new FOnlineIdentityIOS(this));
 		FriendsInterface = MakeShareable(new FOnlineFriendsIOS(this));
 		LeaderboardsInterface = MakeShareable(new FOnlineLeaderboardsIOS(this));
 		AchievementsInterface = MakeShareable(new FOnlineAchievementsIOS(this));
@@ -170,6 +177,8 @@ bool FOnlineSubsystemIOS::Init()
 			StoreInterface = MakeShareable(new FOnlineStoreInterfaceIOS());
 		}
 	}
+	
+	InitAppStoreHelper();
 
 	return bSuccessfullyStartedUp;
 }
@@ -190,6 +199,22 @@ void FOnlineSubsystemIOS::InitStoreKitHelper()
 void FOnlineSubsystemIOS::CleanupStoreKitHelper()
 {
 	[StoreHelper release];
+}
+
+void FOnlineSubsystemIOS::InitAppStoreHelper()
+{
+	AppStoreHelper = [[FAppStoreUtils alloc] init];
+	[AppStoreHelper retain];
+}
+
+void FOnlineSubsystemIOS::CleanupAppStoreHelper()
+{
+	[AppStoreHelper release];
+}
+
+FAppStoreUtils* FOnlineSubsystemIOS::GetAppStoreUtils()
+{
+	return AppStoreHelper;
 }
 
 bool FOnlineSubsystemIOS::Tick(float DeltaTime)
@@ -216,6 +241,7 @@ bool FOnlineSubsystemIOS::Shutdown()
 #define DESTRUCT_INTERFACE(Interface) \
 	if (Interface.IsValid()) \
 	{ \
+		UE_LOG(LogOnline, Display, TEXT(#Interface));\
 		ensure(Interface.IsUnique()); \
 		Interface = nullptr; \
 	}
@@ -232,9 +258,12 @@ bool FOnlineSubsystemIOS::Shutdown()
 	DESTRUCT_INTERFACE(StoreInterface);
 	DESTRUCT_INTERFACE(StoreV2Interface);
 	DESTRUCT_INTERFACE(PurchaseInterface);
+
+#undef DESTRUCT_INTERFACE
 	
 	// Cleanup after the interfaces are free
 	CleanupStoreKitHelper();
+	CleanupAppStoreHelper();
 	
 	return bSuccessfullyShutdown;
 }

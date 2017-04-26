@@ -79,13 +79,28 @@ public:
 	/**
 	 * Setup a new spawnable object with some default tracks and keys
 	 *
-	 * @param	SpawnedObject	The newly spawned object. This may be NULL in the case of a spawnable that has not yet bneen spawned.
+	 * @param	SpawnedObject	The newly spawned object. This may be NULL in the case of a spawnable that has not yet neen spawned.
 	 * @param	Guid			The ID of the spawnable to setup defaults for
 	 * @param	TransformData	The transform of the object to be spawned. This will usually be valid in the case of converting a possessable to a spawnable.
 	 * @param	Sequencer		The sequencer this spawnable was just created by
 	 * @param	Settings		The settings for this sequencer
 	 */
 	virtual void SetupDefaultsForSpawnable(UObject* SpawnedObject, const FGuid& Guid, const FTransformData& TransformData, TSharedRef<ISequencer> Sequencer, USequencerSettings* Settings) {}
+
+	/*
+ 	 * Whether this spawner can set up defaults
+	 *
+	 * @param	SpawnedObject	The newly spawned object. This may be NULL in the case of a spawnable that has not yet been spawned.
+	 * @return whether this spawned can set up defaults
+	 */
+	virtual bool CanSetupDefaultsForSpawnable(UObject* SpawnedObject) const { return SpawnedObject ? SpawnedObject->IsA(GetSupportedTemplateType()) : false; }
+
+	/**
+	 * Check whether the specified Spawnable can become a Possessable.
+	 * @param	Spawnable	The spawnable to check
+	 * @return whether the conversion from Spawnable to Possessable can occur.
+	 */
+	virtual bool CanConvertSpawnableToPossessable(FMovieSceneSpawnable& Spawnable) const { return true; }
 
 #endif
 

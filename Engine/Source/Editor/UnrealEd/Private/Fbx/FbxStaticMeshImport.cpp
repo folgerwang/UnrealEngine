@@ -1259,7 +1259,8 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 			bool bUnique = true;
 			for (int32 OtherMaterialIndex = MaterialIndex - 1; OtherMaterialIndex >= 0; --OtherMaterialIndex)
 			{
-				if (MeshMaterials[MaterialIndex].FbxMaterial == MeshMaterials[OtherMaterialIndex].FbxMaterial)
+				if (MeshMaterials[MaterialIndex].FbxMaterial == MeshMaterials[OtherMaterialIndex].FbxMaterial &&
+					MeshMaterials[MaterialIndex].Material == MeshMaterials[OtherMaterialIndex].Material)
 				{
 					int32 UniqueIndex = MaterialMap[OtherMaterialIndex];
 
@@ -1624,6 +1625,15 @@ void UnFbx::FFbxImporter::PostImportStaticMesh(UStaticMesh* StaticMesh, TArray<F
 
 			//Set the Number of LODs, this has to be done after we build the specified LOD Group
 			int32 LODCount = ImportOptions->LodNumber;
+			if (LODCount < 0)
+			{
+				LODCount = 0;
+			}
+			if (LODCount > MAX_STATIC_MESH_LODS)
+			{
+				LODCount = MAX_STATIC_MESH_LODS;
+			}
+
 			//Remove extra LODs
 			if (StaticMesh->SourceModels.Num() > LODCount)
 			{
@@ -1957,6 +1967,7 @@ void UnFbx::FFbxImporter::ImportStaticMeshLocalSockets(UStaticMesh* StaticMesh, 
 			{
 				// If the socket didn't exist create a new one now
 				Socket = NewObject<UStaticMeshSocket>(StaticMesh);
+				Socket->bSocketCreatedAtImport = true;
 				check(Socket);
 
 				Socket->SocketName = SocketNode.SocketName;
@@ -1984,6 +1995,12 @@ void UnFbx::FFbxImporter::ImportStaticMeshLocalSockets(UStaticMesh* StaticMesh, 
 			{
 				bool Found = false;
 				UStaticMeshSocket* MeshSocket = StaticMesh->Sockets[MeshSocketIx];
+				//Do not remove socket that was not generated at import
+				if (!MeshSocket->bSocketCreatedAtImport)
+				{
+					continue;
+				}
+
 				for (int32 FbxSocketIx = 0; FbxSocketIx < SocketNodes.Num(); FbxSocketIx++)
 				{
 					if (SocketNodes[FbxSocketIx].SocketName == MeshSocket->SocketName)
@@ -2034,9 +2051,10 @@ void UnFbx::FFbxImporter::ImportStaticMeshGlobalSockets( UStaticMesh* StaticMesh
 			Socket->RelativeLocation = SocketTransform.GetLocation();
 			Socket->RelativeRotation = SocketTransform.GetRotation().Rotator();
 			Socket->RelativeScale = SocketTransform.GetScale3D();
+
+			Socket->bSocketCreatedAtImport = true;
 		}
 	}
-
 	// Delete mesh sockets that were removed from the import data
 	if (StaticMesh->Sockets.Num() != SocketNodes.Num())
 	{
@@ -2044,6 +2062,12 @@ void UnFbx::FFbxImporter::ImportStaticMeshGlobalSockets( UStaticMesh* StaticMesh
 		{
 			bool Found = false;
 			UStaticMeshSocket* MeshSocket = StaticMesh->Sockets[MeshSocketIx];
+			//Do not remove socket that was not generated at import
+			if (!MeshSocket->bSocketCreatedAtImport)
+			{
+				continue;
+			}
+
 			for (int32 FbxSocketIx = 0; FbxSocketIx < SocketNodes.Num(); FbxSocketIx++)
 			{
 				if (SocketNodes[FbxSocketIx].SocketName == MeshSocket->SocketName)
@@ -2067,7 +2091,7 @@ bool UnFbx::FFbxImporter::FillCollisionModelList(FbxNode* Node)
 	FbxString NodeName = GetNodeNameWithoutNamespace( Node );
 
 	if ( NodeName.Find("UCX") != -1 || NodeName.Find("MCDCX") != -1 ||
-		 NodeName.Find("UBX") != -1 || NodeName.Find("USP") != -1 )
+		 NodeName.Find("UBX") != -1 || NodeName.Find("USP") != -1 || NodeName.Find("UCP") != -1)
 	{
 		// Get name of static mesh that the collision model connect to
 		uint32 StartIndex = NodeName.Find('_') + 1;
@@ -2126,8 +2150,9 @@ bool UnFbx::FFbxImporter::FillCollisionModelList(FbxNode* Node)
 }
 
 extern void AddConvexGeomFromVertices( const TArray<FVector>& Verts, FKAggregateGeom* AggGeom, const TCHAR* ObjName );
-extern void AddSphereGeomFromVerts( const TArray<FVector>& Verts, FKAggregateGeom* AggGeom, const TCHAR* ObjName );
-extern void AddBoxGeomFromTris( const TArray<FPoly>& Tris, FKAggregateGeom* AggGeom, const TCHAR* ObjName );
+extern void AddSphereGeomFromVerts(const TArray<FVector>& Verts, FKAggregateGeom* AggGeom, const TCHAR* ObjName);
+extern void AddCapsuleGeomFromVerts(const TArray<FVector>& Verts, FKAggregateGeom* AggGeom, const TCHAR* ObjName);
+extern void AddBoxGeomFromTris(const TArray<FPoly>& Tris, FKAggregateGeom* AggGeom, const TCHAR* ObjName);
 extern void DecomposeUCXMesh( const TArray<FVector>& CollisionVertices, const TArray<int32>& CollisionFaceIdx, UBodySetup* BodySetup );
 
 bool UnFbx::FFbxImporter::ImportCollisionModels(UStaticMesh* StaticMesh, const FbxString& InNodeName)
@@ -2326,6 +2351,28 @@ bool UnFbx::FFbxImporter::ImportCollisionModels(UStaticMesh* StaticMesh, const F
 					{
 						// The new element is a duplicate, remove it
 						AggGeo.SphereElems.RemoveAt(AggGeo.SphereElems.Num()-1);
+						break;
+					}
+				}
+			}
+		}
+		else if (ModelName.Find("UCP") != -1)
+		{
+			FKAggregateGeom& AggGeo = StaticMesh->BodySetup->AggGeom;
+
+			AddCapsuleGeomFromVerts(CollisionVertices, &AggGeo, ANSI_TO_TCHAR(Node->GetName()));
+
+			// Now test the late element in the AggGeo list and remove it if its a duplicate
+			if (AggGeo.SphylElems.Num() > 1)
+			{
+				FKSphylElem& NewElem = AggGeo.SphylElems.Last();
+				for (int32 ElementIndex = 0; ElementIndex < AggGeo.SphylElems.Num() - 1; ++ElementIndex)
+				{
+					FKSphylElem& CurrentElem = AggGeo.SphylElems[ElementIndex];
+					if (CurrentElem == NewElem)
+					{
+						// The new element is a duplicate, remove it
+						AggGeo.SphylElems.RemoveAt(AggGeo.SphylElems.Num() - 1);
 						break;
 					}
 				}

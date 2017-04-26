@@ -483,7 +483,7 @@ void FStreamableHandle::CallUpdateDelegate()
 	}
 }
 
-void FStreamableHandle::AsyncLoadCallbackWrapper(const FName& PackageName, UPackage* LevelPackage, EAsyncLoadingResult::Type Result, FStringAssetReference TargetName)
+void FStreamableHandle::AsyncLoadCallbackWrapper(const FName& PackageName, UPackage* Package, EAsyncLoadingResult::Type Result, FStringAssetReference TargetName)
 {
 	// Needed so we can bind with a shared pointer for safety
 	if (OwningManager)
@@ -494,6 +494,10 @@ void FStreamableHandle::AsyncLoadCallbackWrapper(const FName& PackageName, UPack
 		{
 			CallUpdateDelegate();
 		}
+	}
+	else if (!bCanceled)
+	{
+		UE_LOG(LogStreamableManager, Verbose, TEXT("FStreamableHandle::AsyncLoadCallbackWrapper called on request %s with result %d with no active manager!"), *DebugName, (int32)Result);
 	}
 }
 
@@ -567,7 +571,7 @@ struct FStreamable
 	{
 		if (ActiveHandles.Contains(NewRequest))
 		{
-			UE_LOG(LogStreamableManager, Verbose, TEXT("Duplicate item added to StreamableRequest"));
+			ensureMsgf(!ActiveHandles.Contains(NewRequest), TEXT("Duplicate item added to StreamableRequest"));
 			return;
 		}
 		
@@ -688,7 +692,9 @@ FStreamable* FStreamableManager::StreamInternal(const FStringAssetReference& InT
 		{
 			UE_LOG(LogStreamableManager, Verbose, TEXT("     Already in progress %s"), *TargetName.ToString());
 			check(!Existing->Target); // should not be a load request unless the target is invalid
-			return Existing;
+			ensure(IsAsyncLoading()); // Nothing should be pending if there is no async loading happening
+
+			// Don't return as we potentially want to sync load it
 		}
 		if (Existing->Target)
 		{
@@ -701,10 +707,16 @@ FStreamable* FStreamableManager::StreamInternal(const FStringAssetReference& InT
 		Existing = StreamableItems.Add(TargetName, new FStreamable());
 	}
 
-	FindInMemory(TargetName, Existing);
-
+	if (!Existing->bAsyncLoadRequestOutstanding)
+	{
+		FindInMemory(TargetName, Existing);
+	}
+	
 	if (!Existing->Target)
 	{
+		// Disable failed flag as it may have been added at a later point
+		Existing->bLoadFailed = false;
+
 		FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
 
 		// If async loading isn't safe or it's forced on, we have to do a sync load which will flush all async loading
@@ -741,9 +753,11 @@ FStreamable* FStreamableManager::StreamInternal(const FStringAssetReference& InT
 				Existing->bLoadFailed = true;
 				UE_LOG(LogStreamableManager, Log, TEXT("Failed attempt to load %s"), *TargetName.ToString());
 			}
+			Existing->bAsyncLoadRequestOutstanding = false;
 		}
 		else
 		{
+			// We always queue a new request in case the existing one gets cancelled
 			FString Package = TargetName.ToString();
 			int32 FirstDot = Package.Find(TEXT("."));
 			if (FirstDot != INDEX_NONE)
@@ -770,11 +784,6 @@ UObject* FStreamableManager::SynchronousLoad(FStringAssetReference const& Target
 
 TSharedPtr<FStreamableHandle> FStreamableManager::RequestAsyncLoad(const TArray<FStringAssetReference>& TargetsToStream, FStreamableDelegate DelegateToCall, TAsyncLoadPriority Priority, bool bManageActiveHandle, const FString& DebugName)
 {
-	if (TargetsToStream.Num() == 0)
-	{
-		return nullptr;
-	}
-
 	// Schedule a new callback, this will get called when all related async loads are completed
 	TSharedRef<FStreamableHandle> NewRequest = MakeShareable(new FStreamableHandle());
 	NewRequest->CompleteDelegate = DelegateToCall;
@@ -782,12 +791,62 @@ TSharedPtr<FStreamableHandle> FStreamableManager::RequestAsyncLoad(const TArray<
 	NewRequest->RequestedAssets = TargetsToStream;
 	NewRequest->DebugName = DebugName;
 
-	TArray<FStreamable *> ExistingStreamables;
-	ExistingStreamables.Reserve(TargetsToStream.Num());
+	// Remove null requests
+	NewRequest->RequestedAssets.Remove(FStringAssetReference());
 
-	for (int32 i = 0; i < TargetsToStream.Num(); i++)
+	if (NewRequest->RequestedAssets.Num() == 0)
 	{
-		FStreamable* Existing = StreamInternal(TargetsToStream[i], Priority, NewRequest);
+		// Original array was empty or all null
+		UE_LOG(LogStreamableManager, Error, TEXT("RequestAsyncLoad called with empty or only null assets!"));
+		NewRequest->CancelHandle();
+		return nullptr;
+	} 
+	else if (NewRequest->RequestedAssets.Num() != TargetsToStream.Num())
+	{
+		FString RequestedSet;
+
+		for (const FStringAssetReference& Asset : TargetsToStream)
+		{
+			if (!RequestedSet.IsEmpty())
+			{
+				RequestedSet += TEXT(", ");
+			}
+			RequestedSet += Asset.ToString();
+		}
+
+		// Some valid, some null
+		UE_LOG(LogStreamableManager, Warning, TEXT("RequestAsyncLoad called with both valid and null assets, null assets removed from %s!"), *RequestedSet);
+	}
+
+	// Remove any duplicates
+	TSet<FStringAssetReference> TargetSet(NewRequest->RequestedAssets);
+
+	if (TargetSet.Num() != NewRequest->RequestedAssets.Num())
+	{
+#if UE_BUILD_DEBUG
+		FString RequestedSet;
+
+		for (const FStringAssetReference& Asset : NewRequest->RequestedAssets)
+		{
+			if (!RequestedSet.IsEmpty())
+			{
+				RequestedSet += TEXT(", ");
+			}
+			RequestedSet += Asset.ToString();
+		}
+
+		UE_LOG(LogStreamableManager, Verbose, TEXT("RequestAsyncLoad called with duplicate assets, duplicates removed from %s!"), *RequestedSet);
+#endif
+
+		NewRequest->RequestedAssets = TargetSet.Array();
+	}
+
+	TArray<FStreamable *> ExistingStreamables;
+	ExistingStreamables.Reserve(NewRequest->RequestedAssets.Num());
+
+	for (int32 i = 0; i < NewRequest->RequestedAssets.Num(); i++)
+	{
+		FStreamable* Existing = StreamInternal(NewRequest->RequestedAssets[i], Priority, NewRequest);
 
 		if (!Existing)
 		{
@@ -801,13 +860,15 @@ TSharedPtr<FStreamableHandle> FStreamableManager::RequestAsyncLoad(const TArray<
 	}
 
 	// Go through and complete loading anything that's already in memory, this may call the callback right away
-	for (int32 i = 0; i < TargetsToStream.Num(); i++)
+	for (int32 i = 0; i < NewRequest->RequestedAssets.Num(); i++)
 	{
 		FStreamable* Existing = ExistingStreamables[i];
 
 		if (Existing && (Existing->Target || Existing->bLoadFailed))
 		{
-			CheckCompletedRequests(TargetsToStream[i], Existing);
+			Existing->bAsyncLoadRequestOutstanding = false;
+
+			CheckCompletedRequests(NewRequest->RequestedAssets[i], Existing);
 		}
 	}
 
@@ -837,8 +898,10 @@ TSharedPtr<FStreamableHandle>  FStreamableManager::RequestAsyncLoad(const FStrin
 
 TSharedPtr<FStreamableHandle> FStreamableManager::RequestSyncLoad(const TArray<FStringAssetReference>& TargetsToStream, bool bManageActiveHandle, const FString& DebugName)
 {
-	// If sync loads are faster, force them. This is false if currently async loading, or using EDL loading
-	bForceSynchronousLoads = !IsAsyncLoading() && !(FPlatformProperties::RequiresCookedData() && IsEventDrivenLoaderEnabledInCookedBuilds());
+	// If in async loading thread or from callback always do sync as recursive tick is unsafe
+	// If in EDL always do sync as EDL internally avoids flushing
+	// Otherwise, only do a sync load if there are no background sync loads, this is faster but will cause a sync flush
+	bForceSynchronousLoads = IsInAsyncLoadingThread() || IsEventDrivenLoaderEnabled() || !IsAsyncLoading();
 
 	// Do an async load and wait to complete. In some cases this will do a sync load due to safety issues
 	TSharedPtr<FStreamableHandle> Request = RequestAsyncLoad(TargetsToStream, FStreamableDelegate(), AsyncLoadHighPriority, bManageActiveHandle, DebugName);
@@ -847,7 +910,10 @@ TSharedPtr<FStreamableHandle> FStreamableManager::RequestSyncLoad(const TArray<F
 
 	if (Request.IsValid())
 	{
-		Request->WaitUntilComplete();
+		EAsyncPackageState::Type Result = Request->WaitUntilComplete();
+
+		ensureMsgf(Result == EAsyncPackageState::Complete, TEXT("RequestSyncLoad of %s resulted in bad async load result %d"), *DebugName, Result);
+		ensureMsgf(Request->HasLoadCompleted(), TEXT("RequestSyncLoad of %s completed early, not actually completed!"), *DebugName);
 	}
 
 	return Request;
@@ -869,7 +935,14 @@ UObject* FStreamableManager::LoadSynchronous(const FStringAssetReference& Target
 
 	if (Request.IsValid())
 	{
-		return Request->GetLoadedAsset();
+		UObject* Result = Request->GetLoadedAsset();
+
+		if (!Result)
+		{
+			UE_LOG(LogStreamableManager, Verbose, TEXT("LoadSynchronous failed for load of %s! File is missing or there is a loading system problem"), *Target.ToString());
+		}
+
+		return Result;
 	}
 
 	return nullptr;
@@ -936,6 +1009,10 @@ void FStreamableManager::AsyncLoadCallback(FStringAssetReference TargetName)
 
 			CheckCompletedRequests(TargetName, Existing);
 		}
+		else
+		{
+			UE_LOG(LogStreamableManager, Verbose, TEXT("AsyncLoadCallback called for %s when not waiting on a load request, was loaded early by sync load"), *TargetName.ToString());
+		}
 		if (Existing->Target)
 		{
 			UE_LOG(LogStreamableManager, Verbose, TEXT("    Found target %s"), *Existing->Target->GetFullName());
@@ -967,6 +1044,8 @@ void FStreamableManager::CheckCompletedRequests(const FStringAssetReference& Tar
 
 	for (TSharedRef<FStreamableHandle> Handle : Existing->LoadingHandles)
 	{
+		ensure(Handle->WasCanceled() || Handle->OwningManager == this);
+
 		// Decrement related requests, and call delegate if all are done and request is still active
 		Handle->StreamablesLoading--;
 		if (Handle->StreamablesLoading == 0)
@@ -1003,17 +1082,25 @@ void FStreamableManager::RemoveReferencedAsset(const FStringAssetReference& Targ
 		return;
 	}
 
+	ensureMsgf(Handle->OwningManager == this, TEXT("RemoveReferencedAsset called on wrong streamable manager for target %s"), *Target.ToString());
+
 	FStreamable* Existing = FindStreamable(Target);
 
 	// This should always be in the active handles list
-	if (ensure(Existing))
+	if (ensureMsgf(Existing, TEXT("Failed to find existing streamable for %s"), *Target.ToString()))
 	{
-		ensure(Existing->ActiveHandles.Remove(Handle) > 0);
+		ensureMsgf(Existing->ActiveHandles.Remove(Handle) > 0, TEXT("Failed to remove active handle for %s"), *Target.ToString());
 
 		// Try removing from loading list if it's still there, this won't call the callback as it's being called from cancel
 		if (Existing->LoadingHandles.Remove(Handle))
 		{
 			Handle->StreamablesLoading--;
+
+			if (Existing->LoadingHandles.Num() == 0)
+			{
+				// All requests cancelled, remove loading flag
+				Existing->bAsyncLoadRequestOutstanding = false;
+			}
 		}
 	}
 }
@@ -1075,6 +1162,8 @@ TSharedPtr<FStreamableHandle> FStreamableManager::CreateCombinedHandle(const TAr
 			return nullptr;
 		}
 
+		ensure(ChildHandle->OwningManager == this);
+
 		ChildHandle->ParentHandles.Add(NewRequest);
 		NewRequest->ChildHandles.Add(ChildHandle);
 	}
@@ -1097,10 +1186,13 @@ bool FStreamableManager::GetActiveHandles(const FStringAssetReference& Target, T
 
 			if (Handle.IsValid())
 			{
+				ensure(Handle->OwningManager == this);
+
 				TSharedRef<FStreamableHandle> HandleRef = Handle.ToSharedRef();
 				if (!bOnlyManagedHandles || ManagedActiveHandles.Contains(HandleRef))
-
-				HandleList.Add(HandleRef);
+				{
+					HandleList.Add(HandleRef);
+				}
 			}
 		}
 		return HandleList.Num() > 0;

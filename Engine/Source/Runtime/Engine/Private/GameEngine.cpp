@@ -49,6 +49,7 @@
 #include "Engine/DemoNetDriver.h"
 
 #include "Tickable.h"
+#include "AssetRegistryModule.h"
 
 ENGINE_API bool GDisallowNetworkTravel = false;
 
@@ -1239,6 +1240,9 @@ void UGameEngine::Tick( float DeltaSeconds, bool bIdleMode )
 	{
 		// Render everything.
 		RedrawViewports();
+
+		// Some tasks can only be done once we finish all scenes/viewports
+		GetRendererModule().PostRenderAllViewports();
 	}
 
 	if( GIsClient )
@@ -1275,6 +1279,9 @@ void UGameEngine::Tick( float DeltaSeconds, bool bIdleMode )
 
 #if WITH_EDITOR
 	BroadcastPostEditorTick(DeltaSeconds);
+
+	// Tick the asset registry
+	FAssetRegistryModule::TickAssetRegistry(DeltaSeconds);
 #endif
 }
 

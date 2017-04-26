@@ -235,18 +235,30 @@ public:
 	*/
 	ENGINE_API void operator=(const FStaticMeshVertexBuffer &Other);
 
+	template<EStaticMeshVertexTangentBasisType TangentBasisTypeT>
+	FORCEINLINE FVector4 VertexTangentX_Typed(uint32 VertexIndex)const
+	{
+		return reinterpret_cast<const TStaticMeshFullVertex<TangentBasisTypeT, EStaticMeshVertexUVType::Default, 1>*>(Data + VertexIndex * Stride)->GetTangentX();
+	}
+
 	FORCEINLINE FVector4 VertexTangentX(uint32 VertexIndex) const
 	{
 		checkSlow(VertexIndex < GetNumVertices());
 
 		if (GetUseHighPrecisionTangentBasis())
 		{
-			return reinterpret_cast<const TStaticMeshFullVertex<EStaticMeshVertexTangentBasisType::HighPrecision, EStaticMeshVertexUVType::Default, 1>*>(Data + VertexIndex * Stride)->GetTangentX();
+			return VertexTangentX_Typed<EStaticMeshVertexTangentBasisType::HighPrecision>(VertexIndex);
 		}
 		else
 		{
-			return reinterpret_cast<const TStaticMeshFullVertex<EStaticMeshVertexTangentBasisType::Default, EStaticMeshVertexUVType::Default, 1>*>(Data + VertexIndex * Stride)->GetTangentX();
+			return VertexTangentX_Typed<EStaticMeshVertexTangentBasisType::Default>(VertexIndex);
 		}
+	}
+
+	template<EStaticMeshVertexTangentBasisType TangentBasisTypeT>
+	FORCEINLINE FVector4 VertexTangentZ_Typed(uint32 VertexIndex)const
+	{
+		return reinterpret_cast<const TStaticMeshFullVertex<TangentBasisTypeT, EStaticMeshVertexUVType::Default, 1>*>(Data + VertexIndex * Stride)->GetTangentZ();
 	}
 
 	FORCEINLINE FVector VertexTangentZ(uint32 VertexIndex) const
@@ -255,12 +267,18 @@ public:
 
 		if (GetUseHighPrecisionTangentBasis())
 		{
-			return reinterpret_cast<const TStaticMeshFullVertex<EStaticMeshVertexTangentBasisType::HighPrecision, EStaticMeshVertexUVType::Default, 1>*>(Data + VertexIndex * Stride)->GetTangentZ();
+			return VertexTangentZ_Typed<EStaticMeshVertexTangentBasisType::HighPrecision>(VertexIndex);
 		}
 		else
 		{
-			return reinterpret_cast<const TStaticMeshFullVertex<EStaticMeshVertexTangentBasisType::Default, EStaticMeshVertexUVType::Default, 1>*>(Data + VertexIndex * Stride)->GetTangentZ();
+			return VertexTangentZ_Typed<EStaticMeshVertexTangentBasisType::Default>(VertexIndex);
 		}
+	}
+
+	template<EStaticMeshVertexTangentBasisType TangentBasisTypeT>
+	FORCEINLINE FVector4 VertexTangentY_Typed(uint32 VertexIndex)const
+	{
+		return reinterpret_cast<const TStaticMeshFullVertex<TangentBasisTypeT, EStaticMeshVertexUVType::Default, 1>*>(Data + VertexIndex * Stride)->GetTangentY();
 	}
 
 	/**
@@ -275,11 +293,11 @@ public:
 
 		if (GetUseHighPrecisionTangentBasis())
 		{
-			return reinterpret_cast<const TStaticMeshFullVertex<EStaticMeshVertexTangentBasisType::HighPrecision, EStaticMeshVertexUVType::Default, 1>*>(Data + VertexIndex * Stride)->GetTangentY();
+			return VertexTangentY_Typed<EStaticMeshVertexTangentBasisType::HighPrecision>(VertexIndex);
 		}
 		else
 		{
-			return reinterpret_cast<const TStaticMeshFullVertex<EStaticMeshVertexTangentBasisType::Default, EStaticMeshVertexUVType::Default, 1>*>(Data + VertexIndex * Stride)->GetTangentY();
+			return VertexTangentY_Typed<EStaticMeshVertexTangentBasisType::Default>(VertexIndex);
 		}
 	}
 
@@ -333,6 +351,12 @@ public:
 		}
 	}
 
+	template<EStaticMeshVertexTangentBasisType TangentBasisTypeT, EStaticMeshVertexUVType UVTypeT>
+	FORCEINLINE FVector2D GetVertexUV_Typed(uint32 VertexIndex, uint32 UVIndex)const
+	{
+		return reinterpret_cast<const TStaticMeshFullVertex<TangentBasisTypeT, UVTypeT, MAX_STATIC_TEXCOORDS>*>(Data + VertexIndex * Stride)->GetUV(UVIndex);
+	}
+
 	/**
 	* Set the vertex UV values at the given index in the vertex buffer
 	*
@@ -349,22 +373,22 @@ public:
 		{
 			if (GetUseFullPrecisionUVs())
 			{
-				return reinterpret_cast<const TStaticMeshFullVertex<EStaticMeshVertexTangentBasisType::HighPrecision, EStaticMeshVertexUVType::HighPrecision, MAX_STATIC_TEXCOORDS>*>(Data + VertexIndex * Stride)->GetUV(UVIndex);
+				return GetVertexUV_Typed<EStaticMeshVertexTangentBasisType::HighPrecision, EStaticMeshVertexUVType::HighPrecision>(VertexIndex, UVIndex);
 			}
 			else
 			{
-				return reinterpret_cast<const TStaticMeshFullVertex<EStaticMeshVertexTangentBasisType::HighPrecision, EStaticMeshVertexUVType::Default, MAX_STATIC_TEXCOORDS>*>(Data + VertexIndex * Stride)->GetUV(UVIndex);
+				return GetVertexUV_Typed<EStaticMeshVertexTangentBasisType::HighPrecision, EStaticMeshVertexUVType::Default>(VertexIndex, UVIndex);
 			}
 		}
 		else
 		{
 			if (GetUseFullPrecisionUVs())
 			{
-				return reinterpret_cast<const TStaticMeshFullVertex<EStaticMeshVertexTangentBasisType::Default, EStaticMeshVertexUVType::HighPrecision, MAX_STATIC_TEXCOORDS>*>(Data + VertexIndex * Stride)->GetUV(UVIndex);
+				return GetVertexUV_Typed<EStaticMeshVertexTangentBasisType::Default, EStaticMeshVertexUVType::HighPrecision>(VertexIndex, UVIndex);
 			}
 			else
 			{
-				return reinterpret_cast<const TStaticMeshFullVertex<EStaticMeshVertexTangentBasisType::Default, EStaticMeshVertexUVType::Default, MAX_STATIC_TEXCOORDS>*>(Data + VertexIndex * Stride)->GetUV(UVIndex);
+				return GetVertexUV_Typed<EStaticMeshVertexTangentBasisType::Default, EStaticMeshVertexUVType::Default>(VertexIndex, UVIndex);
 			}
 		}
 	}

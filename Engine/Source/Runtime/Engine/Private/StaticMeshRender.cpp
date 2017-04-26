@@ -127,7 +127,8 @@ FStaticMeshSceneProxy::FStaticMeshSceneProxy(UStaticMeshComponent* InComponent, 
 #endif
 #if !(UE_BUILD_SHIPPING)
 	, LODForCollision(InComponent->GetStaticMesh()->LODForCollision)
-	, bDrawMeshCollisionWireframe(InComponent->bDrawMeshCollisionWireframe)
+	, bDrawMeshCollisionIfComplex(InComponent->bDrawMeshCollisionIfComplex)
+	, bDrawMeshCollisionIfSimple(InComponent->bDrawMeshCollisionIfSimple)
 #endif
 {
 	check(RenderData);
@@ -748,7 +749,8 @@ void FStaticMeshSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PD
 							&& Material->WritesEveryPixel()
 							&& !Material->IsTwoSided()
 							&& !IsTranslucentBlendMode(Material->GetBlendMode())
-							&& !Material->MaterialModifiesMeshPosition_RenderThread();
+							&& !Material->MaterialModifiesMeshPosition_RenderThread()
+							&& Material->GetMaterialDomain() == MD_Surface;
 
 						bAllSectionsCastShadow &= Section.bCastShadow;
 					}
@@ -881,7 +883,8 @@ void FStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView
 	(	IsRichView(ViewFamily) || HasViewDependentDPG()
 		|| EngineShowFlags.Collision
 #if !(UE_BUILD_SHIPPING)
-		|| bDrawMeshCollisionWireframe
+		|| bDrawMeshCollisionIfComplex
+		|| bDrawMeshCollisionIfSimple
 #endif // !(UE_BUILD_SHIPPING)
 		|| EngineShowFlags.Bounds
 		|| bProxyIsSelected 
@@ -1067,10 +1070,14 @@ void FStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView
 			if(AllowDebugViewmodes())
 			{
 				// Should we draw the mesh wireframe to indicate we are using the mesh as collision
-				const bool bDrawComplexWireframeCollision = (EngineShowFlags.Collision && IsCollisionEnabled() && CollisionTraceFlag == ECollisionTraceFlag::CTF_UseComplexAsSimple);
+				bool bDrawComplexWireframeCollision = (EngineShowFlags.Collision && IsCollisionEnabled() && CollisionTraceFlag == ECollisionTraceFlag::CTF_UseComplexAsSimple);
+				// Requested drawing complex in wireframe, but check that we are not using simple as complex
+				bDrawComplexWireframeCollision |= (bDrawMeshCollisionIfComplex && CollisionTraceFlag != ECollisionTraceFlag::CTF_UseSimpleAsComplex);
+				// Requested drawing simple in wireframe, and we are using complex as simple
+				bDrawComplexWireframeCollision |= (bDrawMeshCollisionIfSimple && CollisionTraceFlag == ECollisionTraceFlag::CTF_UseComplexAsSimple);
 
 				// If drawing complex collision as solid or wireframe
-				if(bDrawMeshCollisionWireframe || bDrawComplexWireframeCollision || (bInCollisionView && bDrawComplexCollision))
+				if(bDrawComplexWireframeCollision || (bInCollisionView && bDrawComplexCollision))
 				{
 					// If we have at least one valid LOD to draw
 					if(RenderData->LODResources.Num() > 0)
@@ -1236,7 +1243,8 @@ FPrimitiveViewRelevance FStaticMeshSceneProxy::GetViewRelevance(const FSceneView
 		(IsSelected() && View->Family->EngineShowFlags.VertexColors) ||
 #endif
 #if !(UE_BUILD_SHIPPING)
-		bDrawMeshCollisionWireframe ||
+		bDrawMeshCollisionIfComplex ||
+		bDrawMeshCollisionIfSimple ||
 #endif // !(UE_BUILD_SHIPPING)
 		// Force down dynamic rendering path if invalid lightmap settings, so we can apply an error material in DrawRichMesh
 		(HasStaticLighting() && !HasValidSettingsForStaticLighting()) ||
@@ -1327,11 +1335,12 @@ void FStaticMeshSceneProxy::GetLightRelevance(const FLightSceneProxy* LightScene
 	}
 }
 
-void FStaticMeshSceneProxy::GetDistancefieldAtlasData(FBox& LocalVolumeBounds, FIntVector& OutBlockMin, FIntVector& OutBlockSize, bool& bOutBuiltAsIfTwoSided, bool& bMeshWasPlane, float& SelfShadowBias, TArray<FMatrix>& ObjectLocalToWorldTransforms) const
+void FStaticMeshSceneProxy::GetDistancefieldAtlasData(FBox& LocalVolumeBounds, FVector2D& OutDistanceMinMax, FIntVector& OutBlockMin, FIntVector& OutBlockSize, bool& bOutBuiltAsIfTwoSided, bool& bMeshWasPlane, float& SelfShadowBias, TArray<FMatrix>& ObjectLocalToWorldTransforms) const
 {
 	if (DistanceFieldData)
 	{
 		LocalVolumeBounds = DistanceFieldData->LocalBoundingBox;
+		OutDistanceMinMax = DistanceFieldData->DistanceMinMax;
 		OutBlockMin = DistanceFieldData->VolumeTexture.GetAllocationMin();
 		OutBlockSize = DistanceFieldData->VolumeTexture.GetAllocationSize();
 		bOutBuiltAsIfTwoSided = DistanceFieldData->bBuiltAsIfTwoSided;
@@ -1342,6 +1351,7 @@ void FStaticMeshSceneProxy::GetDistancefieldAtlasData(FBox& LocalVolumeBounds, F
 	else
 	{
 		LocalVolumeBounds = FBox(ForceInit);
+		OutDistanceMinMax = FVector2D(0, 0);
 		OutBlockMin = FIntVector(-1, -1, -1);
 		OutBlockSize = FIntVector(0, 0, 0);
 		bOutBuiltAsIfTwoSided = false;
@@ -1654,6 +1664,10 @@ FPrimitiveSceneProxy* UStaticMeshComponent::CreateSceneProxy()
 	}
 
 	FPrimitiveSceneProxy* Proxy = ::new FStaticMeshSceneProxy(this, false);
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	SendRenderDebugPhysics(Proxy);
+#endif
+
 	return Proxy;
 }
 

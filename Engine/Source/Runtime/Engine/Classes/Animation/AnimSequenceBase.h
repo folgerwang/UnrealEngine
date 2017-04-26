@@ -84,6 +84,8 @@ class UAnimSequenceBase : public UAnimationAsset
 	/** Evaluate curve data to Instance at the time of CurrentTime **/
 	ENGINE_API virtual void EvaluateCurveData(FBlendedCurve& OutCurve, float CurrentTime, bool bForceUseRawData=false) const;
 
+	ENGINE_API virtual const FRawCurveTracks& GetCurveData() const { return RawCurveData; }
+
 #if WITH_EDITOR
 	/** Return Number of Frames **/
 	virtual int32 GetNumberOfFrames() const;
@@ -112,7 +114,7 @@ class UAnimSequenceBase : public UAnimationAsset
 	ENGINE_API uint8* FindArrayProperty(const TCHAR* PropName, UArrayProperty*& ArrayProperty, int32 ArrayIndex);
 
 protected:
-	virtual void RefreshParentAssetData() override;
+	ENGINE_API virtual void RefreshParentAssetData() override;
 #endif	//WITH_EDITORONLY_DATA
 public: 
 	// update cache data (notify tracks, sync markers)

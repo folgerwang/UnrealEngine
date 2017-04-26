@@ -7,6 +7,7 @@
 #include "SkeletalRender.h"
 #include "SkeletalRenderPublic.h"
 #include "SceneManagement.h"
+#include "GPUSkinCache.h"
 
 /*-----------------------------------------------------------------------------
 Globals
@@ -33,6 +34,7 @@ FSkeletalMeshObject::FSkeletalMeshObject(USkinnedMeshComponent* InMeshComponent,
 #endif	
 ,	SkeletalMeshResource(InSkeletalMeshResource)
 ,	SkeletalMeshLODInfo(InMeshComponent->SkeletalMesh->LODInfo)
+,	SkinCacheEntry(nullptr)
 ,	LastFrameNumber(0)
 #if WITH_EDITORONLY_DATA
 ,	ProgressiveDrawingFraction(InMeshComponent->ProgressiveDrawingFraction)
@@ -52,9 +54,6 @@ FSkeletalMeshObject::FSkeletalMeshObject(USkinnedMeshComponent* InMeshComponent,
 	}
 #endif // #if WITH_EDITORONLY_DATA
 
-	// Assume no GPU skin cache
-	FMemory::Memset(GPUSkinCacheKeys, -1, sizeof(GPUSkinCacheKeys));
-
 	// We want to restore the most recent value of the MaxDistanceFactor the SkeletalMeshComponent
 	// cached, which will be 0.0 when first created, and a valid, updated value when recreating
 	// this mesh object (e.g. during a component reregister), avoiding issues with a transient
@@ -63,6 +62,10 @@ FSkeletalMeshObject::FSkeletalMeshObject(USkinnedMeshComponent* InMeshComponent,
 	WorkingMaxDistanceFactor = MaxDistanceFactor;
 
 	InitLODInfos(InMeshComponent);
+}
+
+FSkeletalMeshObject::~FSkeletalMeshObject()
+{
 }
 
 void FSkeletalMeshObject::UpdateMinDesiredLODLevel(const FSceneView* View, const FBoxSphereBounds& Bounds, int32 FrameNumber)
@@ -194,11 +197,22 @@ void UpdateRefToLocalMatrices( TArray<FMatrix>& ReferenceToLocal, const USkinned
 
 	const TArray<int32>& MasterBoneMap = InMeshComponent->GetMasterBoneMap();
 
-	check( ThisMesh->RefBasesInvMatrix.Num() != 0 );
-	if(ReferenceToLocal.Num() != ThisMesh->RefBasesInvMatrix.Num())
+	// Get inv ref pose matrices
+	const TArray<FMatrix>* RefBasesInvMatrix = &ThisMesh->RefBasesInvMatrix;
+
+	// Check if there is an override (and it's the right size)
+	if( InMeshComponent->GetRefPoseOverride() && 
+		InMeshComponent->GetRefPoseOverride()->RefBasesInvMatrix.Num() == RefBasesInvMatrix->Num() )
+	{
+		RefBasesInvMatrix = &InMeshComponent->GetRefPoseOverride()->RefBasesInvMatrix;
+	}
+
+	check( RefBasesInvMatrix->Num() != 0 );
+
+	if(ReferenceToLocal.Num() != RefBasesInvMatrix->Num())
 	{
 		ReferenceToLocal.Reset();
-		ReferenceToLocal.AddUninitialized(ThisMesh->RefBasesInvMatrix.Num());
+		ReferenceToLocal.AddUninitialized(RefBasesInvMatrix->Num());
 	}
 
 	const bool bIsMasterCompValid = MasterComp && MasterBoneMap.Num() == ThisMesh->RefSkeleton.GetNum();
@@ -217,7 +231,7 @@ void UpdateRefToLocalMatrices( TArray<FMatrix>& ReferenceToLocal, const USkinned
 		{
 			const int32 ThisBoneIndex = RequiredBoneIndices[BoneIndex];
 
-			if ( ThisMesh->RefBasesInvMatrix.IsValidIndex(ThisBoneIndex) )
+			if ( RefBasesInvMatrix->IsValidIndex(ThisBoneIndex) )
 			{
 				// On the off chance the parent matrix isn't valid, revert to identity.
 				ReferenceToLocal[ThisBoneIndex] = FMatrix::Identity;
@@ -277,7 +291,7 @@ void UpdateRefToLocalMatrices( TArray<FMatrix>& ReferenceToLocal, const USkinned
 
 	for (int32 ThisBoneIndex = 0; ThisBoneIndex < ReferenceToLocal.Num(); ++ThisBoneIndex)
 	{
-		ReferenceToLocal[ThisBoneIndex] = ThisMesh->RefBasesInvMatrix[ThisBoneIndex] * ReferenceToLocal[ThisBoneIndex];
+		ReferenceToLocal[ThisBoneIndex] = (*RefBasesInvMatrix)[ThisBoneIndex] * ReferenceToLocal[ThisBoneIndex];
 	}
 }
 

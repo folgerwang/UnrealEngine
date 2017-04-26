@@ -112,6 +112,9 @@
 
 #include "EditorCategoryUtils.h"
 #include "Styling/SlateIconFinder.h"
+
+extern COREUOBJECT_API bool GBlueprintUseCompilationManager;
+
 #define LOCTEXT_NAMESPACE "Blueprint"
 
 DEFINE_LOG_CATEGORY(LogBlueprintDebug);
@@ -1173,7 +1176,7 @@ struct FRegenerationHelper
 	by normal blueprint compilation is cleared here. If we don't then these functions and properties will
 	hang around when a class is converted from a real blueprint to a data only blueprint.
 */
-static void RemoveStaleFunctions(UBlueprintGeneratedClass* Class, UBlueprint* Blueprint)
+void FBlueprintEditorUtils::RemoveStaleFunctions(UBlueprintGeneratedClass* Class, UBlueprint* Blueprint)
 {
 	if (Class == nullptr)
 	{
@@ -1545,7 +1548,11 @@ UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, U
 	return bRegenerated ? Blueprint->GeneratedClass : nullptr;
 }
 
-
+void FBlueprintEditorUtils::LinkExternalDependencies(UBlueprint* Blueprint)
+{
+	TArray<UObject*> Unused;
+	FRegenerationHelper::LinkExternalDependencies(Blueprint, Unused);
+}
 
 void FBlueprintEditorUtils::RecreateClassMetaData(UBlueprint* Blueprint, UClass* Class, bool bRemoveExistingMetaData)
 {
@@ -2052,8 +2059,8 @@ void FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(UBlueprint* Blue
 		{
 			if (!Blueprint->bIsRegeneratingOnLoad)
 			{
-			GetDerivedClasses(SkelClass, ChildrenOfClass, false);
-		}
+				GetDerivedClasses(SkelClass, ChildrenOfClass, false);
+			}
 		}
 
 		{
@@ -2083,6 +2090,11 @@ void FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(UBlueprint* Blue
 // Blueprint has changed in some manner that invalidates the compiled data (link made/broken, default value changed, etc...)
 void FBlueprintEditorUtils::MarkBlueprintAsModified(UBlueprint* Blueprint, FPropertyChangedEvent PropertyChangedEvent)
 {
+	if(Blueprint->bBeingCompiled && GBlueprintUseCompilationManager)
+	{
+		return;
+	}
+
 	Blueprint->bCachedDependenciesUpToDate = false;
 	if (Blueprint->Status != BS_BeingCreated)
 	{
@@ -2098,20 +2110,11 @@ void FBlueprintEditorUtils::MarkBlueprintAsModified(UBlueprint* Blueprint, FProp
 			}
 		}
 
-		if (PropertyChangedEvent.Property)
+		// If this was called the CDO was probably modified. Regenerate the post construct property list
+		UBlueprintGeneratedClass* BPGC = Cast<UBlueprintGeneratedClass>(Blueprint->GeneratedClass);
+		if (!Blueprint->bBeingCompiled && BPGC)
 		{
-			// If the property was an array, regenerate the custom property list since it contains an
-			// entry for every array element and some elements may be gone now.
-			// Regenerate for structs as well because they may contain arrays and we will only get one property
-			// event if the whole struct changes at once, thus implicitly changing the arrays inside.
-			if (PropertyChangedEvent.Property->IsA(UArrayProperty::StaticClass()) || PropertyChangedEvent.Property->IsA(UStructProperty::StaticClass()))
-			{
-				UBlueprintGeneratedClass* BPGC = Cast<UBlueprintGeneratedClass>(Blueprint->GeneratedClass);
-				if (BPGC)
-				{
-					BPGC->UpdateCustomPropertyListForPostConstruction();
-				}
-			}
+			BPGC->UpdateCustomPropertyListForPostConstruction();
 		}
 
 		Blueprint->Status = BS_Dirty;
@@ -2120,6 +2123,9 @@ void FBlueprintEditorUtils::MarkBlueprintAsModified(UBlueprint* Blueprint, FProp
 		// certain cases, we needed to be able to pass along specific FPropertyChangedEvent that initially triggered
 		// this call so that we could keep the Blueprint from refreshing under certain conditions.
 		Blueprint->PostEditChangeProperty(PropertyChangedEvent);
+
+		// Clear out the cache as the user may have added or removed a latent action to a macro graph
+		FBlueprintEditorUtils::ClearMacroCosmeticInfoCache(Blueprint);
 	}
 }
 
@@ -2418,6 +2424,9 @@ void FBlueprintEditorUtils::RemoveGraph(UBlueprint* Blueprint, class UEdGraph* G
 						FBlueprintEditorUtils::RemoveNode(Blueprint, Node);
 					}
 				}
+
+				// Clear the cache since it's indexed by graph and one of the graphs is going away
+				FBlueprintEditorUtils::ClearMacroCosmeticInfoCache(Blueprint);
 			}
 
 			for (FBPInterfaceDescription& CurrInterface : Blueprint->ImplementedInterfaces)
@@ -3387,6 +3396,30 @@ void FBlueprintEditorUtils::SetBlueprintOnlyEditableFlag(UBlueprint* Blueprint, 
 		else
 		{
 			Blueprint->NewVariables[VarIndex].PropertyFlags &= ~CPF_DisableEditOnInstance;
+		}
+	}
+
+	FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
+}
+
+void FBlueprintEditorUtils::SetBlueprintPropertyReadOnlyFlag(UBlueprint* Blueprint, const FName& VarName, const bool bVariableReadOnly)
+{
+	const int32 VarIndex = FBlueprintEditorUtils::FindNewVariableIndex(Blueprint, VarName);
+
+	if (bVariableReadOnly)
+	{
+		FBlueprintEditorUtils::RemoveBlueprintVariableMetaData(Blueprint, VarName, nullptr, FEdMode::MD_MakeEditWidget);
+	}
+
+	if (VarIndex != INDEX_NONE)
+	{
+		if (bVariableReadOnly)
+		{
+			Blueprint->NewVariables[VarIndex].PropertyFlags |= CPF_BlueprintReadOnly;
+		}
+		else
+		{
+			Blueprint->NewVariables[VarIndex].PropertyFlags &= ~CPF_BlueprintReadOnly;
 		}
 	}
 
@@ -5367,6 +5400,54 @@ bool FBlueprintEditorUtils::PropagateNativizationSetting(UBlueprint* Blueprint)
 	return bSettingsChanged;
 }
 
+bool FBlueprintEditorUtils::ShouldNativizeImplicitly(const UBlueprint* Blueprint)
+{
+	if (Blueprint)
+	{
+		TArray<UK2Node_Event*> AllEventNodes;
+		FBlueprintEditorUtils::GetAllNodesOfClass<UK2Node_Event>(Blueprint, AllEventNodes);
+
+		// Add all events overridden by this Blueprint.
+		TArray<FName> CheckFunctionNames;
+		for (const UK2Node_Event* EventNode : AllEventNodes)
+		{
+			if (EventNode->bOverrideFunction)
+			{
+				CheckFunctionNames.Add(EventNode->EventReference.GetMemberName());
+			}
+		}
+
+		// Add all function graphs implemented by this Blueprint.
+		for (const UEdGraph* FunctionGraph : Blueprint->FunctionGraphs)
+		{
+			CheckFunctionNames.Add(FunctionGraph->GetFName());
+		}
+
+		// Check each overridable/callable function defined by all ancestors to see if any names match an implementation found in this Blueprint.
+		UClass* ParentClass = Blueprint->SkeletonGeneratedClass ? Blueprint->SkeletonGeneratedClass->GetSuperClass() : *Blueprint->ParentClass;
+		for (TFieldIterator<UFunction> FunctionIt(ParentClass, EFieldIteratorFlags::IncludeSuper); FunctionIt; ++FunctionIt)
+		{
+			const UFunction* Function = *FunctionIt;
+			if (UEdGraphSchema_K2::CanKismetOverrideFunction(Function) && UEdGraphSchema_K2::CanUserKismetCallFunction(Function) && CheckFunctionNames.Contains(Function->GetFName()))
+			{
+				// This Blueprint overrides a callable event/function. If the function is defined in a parent BP that is flagged for nativization, OR if
+				// the parent BP has itself been implicitly flagged for nativization, then this Blueprint will also be implicitly flagged for nativization.
+				// Currently, any calls to such a function within a nativized parent hierarchy are not able to invoke an override in a non-nativized child,
+				// so the current solution is to implicitly force the child BP to also be nativized along with its parent hierarchy in this particular case.
+				const UClass* SignatureClass = CastChecked<UClass>(Function->GetOuter());
+				const UBlueprint* ParentBP = UBlueprint::GetBlueprintFromClass(SignatureClass);
+				if (ParentBP != nullptr
+					&& (ParentBP->NativizationFlag == EBlueprintNativizationFlag::ExplicitlyEnabled || ShouldNativizeImplicitly(ParentBP)))
+				{
+					return true;
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
 //////////////////////////////////////////////////////////////////////////
 // Interfaces
 
@@ -6487,6 +6568,34 @@ void FBlueprintEditorUtils::UpdateStalePinWatches( UBlueprint* Blueprint )
 	}
 }
 
+void FBlueprintEditorUtils::ClearMacroCosmeticInfoCache(UBlueprint* Blueprint)
+{
+	Blueprint->PRIVATE_CachedMacroInfo.Reset();
+}
+
+FBlueprintMacroCosmeticInfo FBlueprintEditorUtils::GetCosmeticInfoForMacro(UEdGraph* MacroGraph)
+{
+	if (UBlueprint* MacroOwnerBP = FBlueprintEditorUtils::FindBlueprintForGraph(MacroGraph))
+	{
+		checkSlow(MacroGraph->GetSchema()->GetGraphType(MacroGraph) == GT_Macro);
+		
+		// See if it's in the cache
+		if (FBlueprintMacroCosmeticInfo* pCosmeticInfo = MacroOwnerBP->PRIVATE_CachedMacroInfo.Find(MacroGraph))
+		{
+			return *pCosmeticInfo;
+		}
+		else
+		{
+			FBlueprintMacroCosmeticInfo& CosmeticInfo = MacroOwnerBP->PRIVATE_CachedMacroInfo.Add(MacroGraph);
+			CosmeticInfo.bContainsLatentNodes = FBlueprintEditorUtils::CheckIfGraphHasLatentFunctions(MacroGraph);
+
+			return CosmeticInfo;
+		}
+	}
+
+	return FBlueprintMacroCosmeticInfo();
+}
+
 FName FBlueprintEditorUtils::FindUniqueKismetName(const UBlueprint* InBlueprint, const FString& InBaseName, UStruct* InScope/* = nullptr*/)
 {
 	int32 Count = 0;
@@ -6847,6 +6956,17 @@ FBlueprintEditorUtils::FFixLevelScriptActorBindingsEvent& FBlueprintEditorUtils:
 bool FBlueprintEditorUtils::FixLevelScriptActorBindings(ALevelScriptActor* LevelScriptActor, const ULevelScriptBlueprint* ScriptBlueprint)
 {
 	if( ScriptBlueprint->BlueprintType != BPTYPE_LevelScript )
+	{
+		return false;
+	}
+
+	UPackage* ActorPackage = LevelScriptActor->GetOutermost();
+	UPackage* BlueprintPkg = ScriptBlueprint->GetOutermost();
+	// the nodes in the Blueprint are going to be bound to actors within the same
+	// (level) package, they're the actors in the editor; if LevelScriptActor 
+	// doesn't belong to that package, then it is likely a copy (for PIE), this guard 
+	// prevents us from cross-binding instantiated (PIE) actors to editor objects
+	if (ActorPackage != BlueprintPkg)
 	{
 		return false;
 	}
@@ -7337,6 +7457,7 @@ public:
 		return InFilterFuncs->IfInChildOfClassesSet( AllowedChildrenOfClasses, InClass) != EFilterReturn::Failed && 
 			InFilterFuncs->IfInChildOfClassesSet(DisallowedChildrenOfClasses, InClass) != EFilterReturn::Passed && 
 			InFilterFuncs->IfInClassesSet(DisallowedClasses, InClass) != EFilterReturn::Passed &&
+			!InClass->GetCppTypeInfo()->IsAbstract() &&
 			!InClass->HasAnyClassFlags(CLASS_Deprecated | CLASS_NewerVersionExists) &&
 			InClass->HasAnyClassFlags(CLASS_Interface) &&
 			// Here is some loaded classes only logic, Blueprints will never have this info
@@ -7423,34 +7544,6 @@ TSharedRef<SWidget> FBlueprintEditorUtils::ConstructBlueprintInterfaceClassPicke
 	}
 
 	return FModuleManager::LoadModuleChecked<FClassViewerModule>("ClassViewer").CreateClassViewer(Options, OnPicked);
-}
-
-void FBlueprintEditorUtils::UpdateOldPureFunctions( UBlueprint* Blueprint )
-{
-	if(UBlueprintGeneratedClass* GeneratedClass = Cast<UBlueprintGeneratedClass>(Blueprint->SkeletonGeneratedClass))
-	{
-		for (UFunction* Function : TFieldRange<UFunction>(GeneratedClass, EFieldIteratorFlags::ExcludeSuper))
-		{
-			if(Function && ((Function->FunctionFlags & FUNC_BlueprintPure) > 0))
-			{
-				for (UEdGraph* FunctionGraph : Blueprint->FunctionGraphs)
-				{
-					if (FunctionGraph->GetFName() == Function->GetFName())
-					{
-						TArray<UK2Node_FunctionEntry*> EntryNodes;
-						FunctionGraph->GetNodesOfClass(EntryNodes);
-
-						if( EntryNodes.Num() > 0 )
-						{
-							UK2Node_FunctionEntry* Entry = EntryNodes[0];
-							Entry->Modify();
-							Entry->AddExtraFlags(FUNC_BlueprintPure);
-						}
-					}
-				}
-			}
-		}
-	}
 }
 
 /** Call PostEditChange() on any Actors that are based on this Blueprint */
@@ -8275,12 +8368,12 @@ FText FBlueprintEditorUtils::GetGraphDescription(const UEdGraph* InGraph)
 	UK2Node_EditablePinBase* FunctionEntryNode = GetEntryNode(InGraph);
 	if (UK2Node_FunctionEntry* TypedEntryNode = Cast<UK2Node_FunctionEntry>(FunctionEntryNode))
 	{
-		return FText::FromString(TypedEntryNode->MetaData.ToolTip);
+		return TypedEntryNode->MetaData.ToolTip;
 	}
 	else if (UK2Node_Tunnel* TunnelNode = ExactCast<UK2Node_Tunnel>(FunctionEntryNode))
 	{
 		// Must be exactly a tunnel, not a macro instance
-		return FText::FromString(TunnelNode->MetaData.ToolTip);
+		return TunnelNode->MetaData.ToolTip;
 	}
 
 	return LOCTEXT( "NoGraphTooltip", "(None)" );
@@ -8451,6 +8544,11 @@ bool FBlueprintEditorUtils::HasGetTypeHash(const FEdGraphPinType& PinType)
 		return false;
 	}
 
+	if (PinType.PinCategory == K2Schema->PC_Text)
+	{
+		return false;
+	}
+
 	if (PinType.PinCategory != K2Schema->PC_Struct)
 	{
 		// even object or class types can be hashed, no reason to investigate further
@@ -8596,6 +8694,25 @@ void FBlueprintEditorUtils::HandleDisableEditableWhenInherited(UObject* Modified
 	}
 }
 
+UClass* FBlueprintEditorUtils::GetNativeParent(const UBlueprint* BP)
+{
+	UClass* Ret = BP->ParentClass;
+	while(Ret && !Ret->HasAnyClassFlags(CLASS_Native))
+	{
+		Ret = Ret->GetSuperClass();
+	}
+	return Ret;
+}
+
+bool FBlueprintEditorUtils::ImplentsGetWorld(const UBlueprint* BP)
+{
+	if(UClass* NativeParent = GetNativeParent(BP))
+	{
+		return NativeParent->GetDefaultObject()->ImplementsGetWorld();
+	}
+	return false;
+}
+
 struct FComponentInstancingDataUtils
 {
 	// Recursively gathers properties that differ from class/struct defaults, and fills out the cooked property list structure.
@@ -8603,9 +8720,9 @@ struct FComponentInstancingDataUtils
 	{
 		for (UProperty* Property = InStruct->PropertyLink; Property; Property = Property->PropertyLinkNext)
 		{
-			// Skip editor-only properties since they won't be compiled in a non-editor configuration. Also skip transient properties since they won't be serialized. 
+			// Skip editor-only properties since they won't be compiled in a non-editor configuration. Also skip transient and deprecated properties since they won't be serialized on save/duplicate. 
 			if (!Property->IsEditorOnlyProperty()
-				&& !Property->HasAnyPropertyFlags(CPF_Transient | CPF_DuplicateTransient | CPF_NonPIEDuplicateTransient))
+				&& !Property->HasAnyPropertyFlags(CPF_Transient | CPF_DuplicateTransient | CPF_NonPIEDuplicateTransient | CPF_Deprecated))
 			{
 				for (int32 Idx = 0; Idx < Property->ArrayDim; Idx++)
 				{

@@ -198,6 +198,7 @@ enum EPixelFormat
 	PF_BC6H,
 	PF_BC7,
 	PF_R8_UINT,
+	PF_L8,
 	PF_MAX,
 };
 
@@ -587,7 +588,7 @@ struct FBox2D
 	FVector2D Max;
 
 	UPROPERTY()
-	uint8 IsValid;
+	uint8 bIsValid;
 
 };
 
@@ -952,13 +953,23 @@ struct FStringClassReference : public FStringAssetReference
 {
 };
 
+/** A type of primary asset, this is a wrapper around FName and can be cast back and forth */
+USTRUCT(noexport, BlueprintType)
+struct FPrimaryAssetType
+{
+private:
+	/** The Type of this object, by default it's base class's name */
+	UPROPERTY()
+	FName Name;
+};
+
 /** This identifies an object as a "primary" asset that can be searched for by the AssetManager and used in various tools */
 USTRUCT(noexport, BlueprintType)
 struct FPrimaryAssetId
 {
 	/** The Type of this object, by default it's base class's name */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PrimaryAssetId)
-	FName PrimaryAssetType;
+	FPrimaryAssetType PrimaryAssetType;
 
 	/** The Name of this object, by default it's short name */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PrimaryAssetId)

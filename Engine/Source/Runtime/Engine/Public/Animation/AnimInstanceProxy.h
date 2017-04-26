@@ -224,6 +224,7 @@ public:
 
 	/** Access UObject base of UAnimInstance */
 	UObject* GetAnimInstanceObject() { return AnimInstanceObject; }
+	const UObject* GetAnimInstanceObject() const { return AnimInstanceObject; }
 
 	/** Gets an unchecked (can return nullptr) node given an index into the node property array */
 	FAnimNode_Base* GetNodeFromIndexUntyped(int32 NodeIdx, UScriptStruct* RequiredStructType);
@@ -261,6 +262,18 @@ public:
 	int32 GetLODLevel() const
 	{
 		return LODLevel;
+	}
+
+	// Cached SkeletalMeshComponent LocalToWorld Transform.
+	const FTransform& GetSkelMeshCompLocalToWorld() const
+	{
+		return SkelMeshCompLocalToWorld;
+	}
+
+	// Cached SkeletalMeshComponent Owner Transform.
+	const FTransform& GetSkelMeshCompOwnerTransform() const
+	{
+		return SkelMeshCompOwnerTransform;
 	}
 
 	/** Get the current skeleton we are using. Note that this will return nullptr outside of pre/post update */
@@ -378,6 +391,15 @@ public:
 	bool IsSlotNodeRelevantForNotifies(const FName& SlotNodeName) const;
 	/** Reset any dynamics running simulation-style updates (e.g. on teleport, time skip etc.) */
 	void ResetDynamics();
+
+	/** Get the relative transform of the component we are running on */
+	const FTransform& GetComponentRelativeTransform() { return ComponentRelativeTransform; }
+
+	/** Get the component to world transform of the component we are running on */
+	const FTransform& GetComponentTransform() { return ComponentTransform; }
+
+	/** Get the transform of the actor we are running on */
+	const FTransform& GetActorTransform() { return ActorTransform; }
 
 	/** Only restricted classes can access the protected interface */
 	friend class UAnimInstance;
@@ -627,6 +649,15 @@ protected:
 	void InitializeRootNode();
 
 private:
+	/** The component to world transform of the component we are running on */
+	FTransform ComponentTransform;
+
+	/** The relative transform of the component we are running on */
+	FTransform ComponentRelativeTransform;
+
+	/** The transform of the actor we are running on */
+	FTransform ActorTransform;
+
 	/** Object ptr to our UAnimInstance */
 	mutable UObject* AnimInstanceObject;
 
@@ -721,7 +752,14 @@ private:
 	/** LODLevel used by RequiredBones */
 	int32 LODLevel;
 
+	/** Cached SkeletalMeshComponent LocalToWorld transform. */
+	FTransform SkelMeshCompLocalToWorld;
+
+	/** Cached SkeletalMeshComponent Owner Transform */
+	FTransform SkelMeshCompOwnerTransform;
+
 protected:
+
 	/** When RequiredBones mapping has changed, AnimNodes need to update their bones caches. */
 	bool bBoneCachesInvalidated;
 

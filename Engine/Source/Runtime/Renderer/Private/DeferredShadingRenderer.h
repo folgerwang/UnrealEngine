@@ -25,8 +25,6 @@ public:
 	TRefCountPtr<IPooledRenderTarget> LightShaftOcclusion;
 };
 
-extern bool SupportSceneAlpha();
-
 /**
  * Scene renderer that implements a deferred shading pipeline and associated features.
  */
@@ -125,9 +123,6 @@ public:
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	void RenderVisualizeTexturePool(FRHICommandListImmediate& RHICmdList);
 #endif
-
-	/** bound shader state for occlusion test prims */
-	static FGlobalBoundShaderState OcclusionTestBoundShaderState;
 
 private:
 
@@ -385,14 +380,46 @@ private:
 	/** Filters the translucency lighting volumes to reduce aliasing. */
 	void FilterTranslucentVolumeLighting(FRHICommandListImmediate& RHICmdList);
 
+	void SetupVolumetricFog();
+
+	void RenderLocalLightsForVolumetricFog(
+		FRHICommandListImmediate& RHICmdList,
+		FViewInfo& View,
+		const FExponentialHeightFogSceneInfo& FogInfo,
+		IPooledRenderTarget* VBufferA,
+		FIntVector VolumetricFogGridSize,
+		FVector GridZParams,
+		const FPooledRenderTargetDesc& VolumeDesc,
+		TRefCountPtr<IPooledRenderTarget>& OutLocalShadowedLightScattering);
+
+	void RenderLightFunctionForVolumetricFog(
+		FRHICommandListImmediate& RHICmdList,
+		FViewInfo& View,
+		FIntVector VolumetricFogGridSize,
+		float VolumetricFogMaxDistance,
+		FMatrix& OutLightFunctionWorldToShadow,
+		TRefCountPtr<IPooledRenderTarget>& OutLightFunctionTexture,
+		bool& bOutUseDirectionalLightShadowing);
+
+	void VoxelizeFogVolumePrimitives(
+		FRHICommandListImmediate& RHICmdList,
+		const FViewInfo& View,
+		FIntVector VolumetricFogGridSize,
+		FVector GridZParams,
+		float VolumetricFogDistance,
+		IPooledRenderTarget* VBufferA,
+		IPooledRenderTarget* VBufferB);
+
+	void ComputeVolumetricFog(FRHICommandListImmediate& RHICmdList);
+
 	/** Output SpecularColor * IndirectDiffuseGI for metals so they are not black in reflections */
-	void RenderReflectionCaptureSpecularBounceForAllViews(FRHICommandListImmediate& RHICmdList);
+	void RenderReflectionCaptureSpecularBounceForAllViews(FRHICommandListImmediate& RHICmdList, FGraphicsPipelineStateInitializer& GraphicsPSOInit);
 
 	/** Render image based reflections (SSR, Env, SkyLight) with compute shaders */
 	void RenderTiledDeferredImageBasedReflections(FRHICommandListImmediate& RHICmdList, const TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO, TRefCountPtr<IPooledRenderTarget>& VelocityRT);
 
 	/** Render image based reflections (SSR, Env, SkyLight) without compute shaders */
-	void RenderStandardDeferredImageBasedReflections(FRHICommandListImmediate& RHICmdList, bool bReflectionEnv, const TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO, TRefCountPtr<IPooledRenderTarget>& VelocityRT);
+	void RenderStandardDeferredImageBasedReflections(FRHICommandListImmediate& RHICmdList, FGraphicsPipelineStateInitializer& GraphicsPSOInit, bool bReflectionEnv, const TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO, TRefCountPtr<IPooledRenderTarget>& VelocityRT);
 
 	bool RenderDeferredPlanarReflections(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, bool bLightAccumulationIsInUse, TRefCountPtr<IPooledRenderTarget>& Output);
 

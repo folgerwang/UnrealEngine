@@ -8,6 +8,10 @@
 #include "GenericPlatform/GenericPlatformMisc.h"
 #include "IOS/IOSSystemIncludes.h"
 
+#ifndef IOS_PROFILING_ENABLED
+#define IOS_PROFILING_ENABLED (UE_BUILD_DEBUG | UE_BUILD_DEVELOPMENT)
+#endif
+
 #ifdef __OBJC__
 
 class FScopeAutoreleasePool
@@ -108,7 +112,9 @@ struct CORE_API FIOSPlatformMisc : public FGenericPlatformMisc
 
 	FORCEINLINE static void MemoryBarrier()
 	{
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		OSMemoryBarrier();
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	}
 
 	static void LowLevelOutputDebugString(const TCHAR *Message);
@@ -121,6 +127,7 @@ struct CORE_API FIOSPlatformMisc : public FGenericPlatformMisc
 	static void LoadPreInitModules();
 	static void SetMemoryWarningHandler(void (* Handler)(const FGenericMemoryWarningContext& Context));
 	static bool HasPlatformFeature(const TCHAR* FeatureName);
+	static FString GetDefaultLanguage();
 	static FString GetDefaultLocale();
 	static bool SetStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName, const FString& InValue);
 	static bool GetStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName, FString& OutValue);
@@ -145,7 +152,13 @@ struct CORE_API FIOSPlatformMisc : public FGenericPlatformMisc
 	static void RegisterForRemoteNotifications();
 
 	static class IPlatformChunkInstall* GetPlatformChunkInstall();
-    
+	
+#if IOS_PROFILING_ENABLED
+	static void BeginNamedEvent(const struct FColor& Color,const TCHAR* Text);
+	static void BeginNamedEvent(const struct FColor& Color,const ANSICHAR* Text);
+	static void EndNamedEvent();
+#endif
+	
 	//////// Platform specific
 	static void* CreateAutoreleasePool();
 	static void ReleaseAutoreleasePool(void *Pool);

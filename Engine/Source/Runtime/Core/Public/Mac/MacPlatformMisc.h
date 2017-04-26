@@ -8,6 +8,10 @@
 #include "GenericPlatform/GenericPlatformMisc.h"
 #include "Mac/MacSystemIncludes.h"
 
+#ifndef MAC_PROFILING_ENABLED
+#define MAC_PROFILING_ENABLED (UE_BUILD_DEBUG | UE_BUILD_DEVELOPMENT)
+#endif
+
 typedef void (*UpdateCachedMacMenuStateProc)(void);
 
 /**
@@ -80,7 +84,9 @@ struct CORE_API FMacPlatformMisc : public FGenericPlatformMisc
 
 	FORCEINLINE static void MemoryBarrier()
 	{
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		OSMemoryBarrier();
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	}
 
 	static void PumpMessages(bool bFromMainLoop);
@@ -153,6 +159,7 @@ struct CORE_API FMacPlatformMisc : public FGenericPlatformMisc
 	
 	static void SetCrashHandler(void (* CrashHandler)(const FGenericCrashContext& Context));
 
+	static FString GetDefaultLanguage();
 	static FString GetDefaultLocale();
 
 	/** @return Get the name of the platform specific file manager (Finder) */
@@ -225,6 +232,14 @@ struct CORE_API FMacPlatformMisc : public FGenericPlatformMisc
     static void UpdateDriverMonitorStatistics(int32 DeviceIndex);
 
 	static float GetDPIScaleFactorAtPoint(float X, float Y);
+	
+#if MAC_PROFILING_ENABLED
+	static void BeginNamedEvent(const struct FColor& Color,const TCHAR* Text);
+	static void BeginNamedEvent(const struct FColor& Color,const ANSICHAR* Text);
+	static void EndNamedEvent();
+#endif
+	static void* CreateAutoreleasePool();
+	static void ReleaseAutoreleasePool(void *Pool);
 };
 
 #ifdef __OBJC__

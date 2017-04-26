@@ -6,10 +6,14 @@
 
 #pragma once
 
+#include "VulkanResources.h"
+#include "VulkanDescriptorSets.h"
+
 class FVulkanDevice;
 class FVulkanFramebuffer;
 
 // High level description of the state
+/*
 struct FVulkanComputePipelineState
 {
 	FVulkanComputePipelineState()
@@ -28,8 +32,7 @@ struct FVulkanComputePipelineState
 	}
 
 	TRefCountPtr<FVulkanComputeShaderState> CSS;
-	TArray<FVulkanUnorderedAccessView*> UAVListForAutoFlush;
-};
+};*/
 
 
 // High level description of the state
@@ -77,12 +80,7 @@ struct FVulkanGfxPipelineStateKey
 		FMemory::Memcpy(ShaderHashes, InShaderHashes, sizeof(ShaderHashes));
 	}
 	
-	FVulkanGfxPipelineStateKey(const FVulkanPipelineGraphicsKey& InPipelineKey, uint32 InVertexInputKey, const FVulkanBoundShaderState* State) :
-		PipelineKey(InPipelineKey),
-		VertexInputKey(InVertexInputKey)
-	{
-		FMemory::Memcpy(ShaderHashes, State->GetShaderHashes(), sizeof(ShaderHashes));
-	}
+	FVulkanGfxPipelineStateKey(const FVulkanPipelineGraphicsKey& InPipelineKey, uint32 InVertexInputKey, const FVulkanBoundShaderState* State);
 
 	FVulkanPipelineGraphicsKey PipelineKey;
 	uint32 VertexInputKey;
@@ -111,16 +109,41 @@ public:
 		return Pipeline;
 	}
 
+	inline const FVulkanLayout& GetLayout() const
+	{
+		return Layout;
+	}
+
 protected:
 	FVulkanDevice* Device;
 	VkPipeline Pipeline;
+	FVulkanLayout Layout;
+
 	friend class FVulkanPipelineStateCache;
 };
 
-class FVulkanComputePipeline : public FVulkanPipeline
+class FVulkanComputePipeline : public FVulkanPipeline, public FRHIComputePipelineState
 {
 public:
-	FVulkanComputePipeline(FVulkanDevice* InDevice, FVulkanComputeShaderState* CSS);
+	FVulkanComputePipeline(FVulkanDevice* InDevice, FVulkanComputeShader* InComputeShader);
+
+	inline const FVulkanCodeHeader& GetShaderCodeHeader() const
+	{
+		return ComputeShader->GetCodeHeader();
+	}
+
+	inline const FVulkanComputeShader* GetShader() const
+	{
+		return ComputeShader;
+	}
+
+	inline void Bind(VkCommandBuffer CmdBuffer)
+	{
+		VulkanRHI::vkCmdBindPipeline(CmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, Pipeline);
+	}
+
+protected:
+	FVulkanComputeShader* ComputeShader;
 };
 
 class FVulkanGfxPipeline : public FVulkanPipeline

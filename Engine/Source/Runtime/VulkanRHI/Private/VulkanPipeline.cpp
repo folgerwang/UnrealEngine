@@ -9,6 +9,7 @@
 #include "Misc/FileHelper.h"
 #include "Serialization/MemoryReader.h"
 #include "Serialization/MemoryWriter.h"
+#include "VulkanBoundShaderState.h"
 
 static const double HitchTime = 1.0 / 1000.0;
 
@@ -51,6 +52,7 @@ void FVulkanGfxPipelineState::InitializeDefaultStates()
 FVulkanPipeline::FVulkanPipeline(FVulkanDevice* InDevice)
 	: Device(InDevice)
 	, Pipeline(VK_NULL_HANDLE)
+	, Layout(InDevice)
 {
 }
 
@@ -60,18 +62,23 @@ FVulkanPipeline::~FVulkanPipeline()
 	Pipeline = VK_NULL_HANDLE;
 }
 
-FVulkanComputePipeline::FVulkanComputePipeline(FVulkanDevice* InDevice, FVulkanComputeShaderState* CSS)
+FVulkanComputePipeline::FVulkanComputePipeline(FVulkanDevice* InDevice, FVulkanComputeShader* InComputeShader)
 	: FVulkanPipeline(InDevice)
+	, ComputeShader(InComputeShader)
 {
+	check(ComputeShader);
+	Layout.AddBindingsForStage(VK_SHADER_STAGE_COMPUTE_BIT, EDescriptorSetStage::Compute, ComputeShader->GetCodeHeader());
+	Layout.Compile();
+
 	//#todo-rco: Move to shader pipeline
 	VkComputePipelineCreateInfo PipelineInfo;
 	FMemory::Memzero(PipelineInfo);
 	PipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
 	PipelineInfo.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	PipelineInfo.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-	PipelineInfo.stage.module = CSS->ComputeShader->GetHandle();
+	PipelineInfo.stage.module = ComputeShader->GetHandle();
 	PipelineInfo.stage.pName = "main";
-	PipelineInfo.layout = CSS->GetPipelineLayout();
+	PipelineInfo.layout = Layout.GetPipelineLayout();
 
 	double BeginTime = FPlatformTime::Seconds();
 	VERIFYVULKANRESULT(VulkanRHI::vkCreateComputePipelines(Device->GetInstanceHandle(), VK_NULL_HANDLE, 1, &PipelineInfo, nullptr, &Pipeline));
@@ -80,10 +87,9 @@ FVulkanComputePipeline::FVulkanComputePipeline(FVulkanDevice* InDevice, FVulkanC
 	if (Delta > HitchTime)
 	{
 		UE_LOG(LogVulkanRHI, Warning, TEXT("Hitchy compute pipeline key CS %s (%.3f ms)"),
-			*CSS->ComputeShader->DebugName,
+			*ComputeShader->DebugName,
 			(float)(Delta * 1000.0));
 	}
-
 }
 
 void FVulkanGfxPipeline::InternalUpdateDynamicStates(FVulkanCmdBuffer* Cmd, FVulkanGfxPipelineState& State, bool bNeedsViewportUpdate, bool bNeedsScissorUpdate, bool bNeedsStencilRefUpdate, bool bCmdNeedsDynamicState)
@@ -214,7 +220,7 @@ bool FVulkanPipelineStateCache::Load(const TArray<FString>& CacheFilenames, TArr
 							if (DeviceID == Device->GetDeviceProperties().deviceID)
 							{
 								uint8* Uuid = (uint8*)Data;
-								if (FMemory::Memcmp(Device->GetDeviceProperties().pipelineCacheUUID, Uuid, sizeof(VK_UUID_SIZE)) == 0)
+								if (FMemory::Memcmp(Device->GetDeviceProperties().pipelineCacheUUID, Uuid, VK_UUID_SIZE) == 0)
 								{
 									bLoaded = true;
 								}
@@ -881,7 +887,7 @@ void FVulkanPipelineStateCache::PopulateGfxEntry(const FVulkanGfxPipelineState& 
 		}
 	}
 
-	const TArray<FVulkanDescriptorSetsLayout::FSetLayout>& Layouts = State.BSS->GetDescriptorSetsLayout().GetLayouts();
+	const TArray<FVulkanDescriptorSetsLayout::FSetLayout>& Layouts = State.BSS->GetLayout().GetDescriptorSetsLayout().GetLayouts();
 	OutGfxEntry->DescriptorSetLayoutBindings.AddDefaulted(Layouts.Num());
 	for (int32 Index = 0; Index < Layouts.Num(); ++Index)
 	{
@@ -891,7 +897,7 @@ void FVulkanPipelineStateCache::PopulateGfxEntry(const FVulkanGfxPipelineState& 
 			Binding->ReadFrom(Layouts[Index].LayoutBindings[SubIndex]);
 		}
 	}
-	OutGfxEntry->PipelineLayout = State.BSS->GetPipelineLayout();
+	OutGfxEntry->PipelineLayout = State.BSS->Layout.GetPipelineLayout();
 
 	OutGfxEntry->Rasterizer.ReadFrom(State.RasterizerState->RasterizerState);
 
@@ -1064,4 +1070,11 @@ void FVulkanPipelineStateCache::RebuildCache()
 		FlushRenderingCommands();
 	}
 	DestroyCache();
+}
+
+FVulkanGfxPipelineStateKey::FVulkanGfxPipelineStateKey(const FVulkanPipelineGraphicsKey& InPipelineKey, uint32 InVertexInputKey, const FVulkanBoundShaderState* State) :
+	PipelineKey(InPipelineKey),
+	VertexInputKey(InVertexInputKey)
+{
+	FMemory::Memcpy(ShaderHashes, State->GetShaderHashes(), sizeof(ShaderHashes));
 }

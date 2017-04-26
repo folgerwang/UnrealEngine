@@ -456,6 +456,13 @@ public:
 	static FbxDouble3   ConvertToFbxColor(FColor Color);
 	static FbxString	ConvertToFbxString(FName Name);
 	static FbxString	ConvertToFbxString(const FString& String);
+
+	// FbxCamera with no rotation faces X with Y-up while ours faces X with Z-up so add a -90 degrees roll to compensate
+	static FRotator GetCameraRotation() { return FRotator(0.f, 0.f, -90.f); }
+
+	// FbxLight with no rotation faces -Z while ours faces Y so add a 90 degrees pitch to compensate
+	static FRotator GetLightRotation() { return FRotator(0.f, 90.f, 0.f); }
+
 private:
 	static FbxAMatrix JointPostConversionMatrix;
 };
@@ -579,7 +586,7 @@ public:
 	* @param NodeLodGroup	The LOD group fbx node
 	* @param LodIndex		The index of the LOD we search the mesh node
 	*/
-	void FindAllLODGroupNode(TArray<FbxNode*> &OutNodeInLod, FbxNode* NodeLodGroup, int32 LodIndex);
+	UNREALED_API void FindAllLODGroupNode(TArray<FbxNode*> &OutNodeInLod, FbxNode* NodeLodGroup, int32 LodIndex);
 
 	/**
 	* Find the first parent node containing a eLODGroup attribute.
@@ -622,7 +629,7 @@ public:
 	* 2. Reorder the material array to follow the fbx file material order
 	*/
 	UNREALED_API void PostImportStaticMesh(UStaticMesh* StaticMesh, TArray<FbxNode*>& MeshNodeArray);
-
+    
 	static void UpdateStaticMeshImportData(UStaticMesh *StaticMesh, UFbxStaticMeshImportData* StaticMeshImportData);
 	static void UpdateSkeletalMeshImportData(USkeletalMesh *SkeletalMesh, UFbxSkeletalMeshImportData* SkeletalMeshImportData, int32 SpecificLod, TArray<FName> *ImportMaterialOriginalNameData, TArray<FImportMeshLodSectionsData> *ImportMeshLodData);
 	void ImportStaticMeshGlobalSockets( UStaticMesh* StaticMesh );
@@ -708,7 +715,7 @@ public:
 		FImportMeshLodSectionsData *ImportMeshSectionsData;
 	};
 
-	USkeletalMesh* ImportSkeletalMesh(FImportSkeletalMeshArgs &ImportSkeletalMeshArgs);
+	UNREALED_API USkeletalMesh* ImportSkeletalMesh(FImportSkeletalMeshArgs &ImportSkeletalMeshArgs);
 
 	/**
 	 * Add to the animation set, the animations contained within the FBX scene, for the given skeletal mesh
@@ -815,7 +822,7 @@ public:
 	* @param Node Root node to find skeletal meshes
 	* @param outSkelMeshArray return Fbx meshes they are grouped by skeleton
 	*/
-	void FillFbxSkelMeshArrayInScene(FbxNode* Node, TArray< TArray<FbxNode*>* >& outSkelMeshArray, bool ExpandLOD, bool bForceFindRigid = false);
+	UNREALED_API void FillFbxSkelMeshArrayInScene(FbxNode* Node, TArray< TArray<FbxNode*>* >& outSkelMeshArray, bool ExpandLOD, bool bForceFindRigid = false);
 	
 	/**
 	 * Find FBX meshes that match Unreal skeletal mesh according to the bone of mesh
@@ -1070,7 +1077,7 @@ protected:
 	// FBX scene may contain multiple meshes, importer can import them at one time.
 	// Initialized as true when start to import a FBX scene
 	bool bFirstMesh;
-
+	
 	//Value is true if the file was create by blender
 	EFbxCreator FbxCreator;
 	
@@ -1501,7 +1508,7 @@ public:
 	void SetupAnimationDataFromMesh(USkeletalMesh * SkeletalMesh, UObject* InParent, TArray<FbxNode*>& NodeArray, UFbxAnimSequenceImportData* ImportData, const FString& Filename);
 
 	/** error message handler */
-	void AddTokenizedErrorMessage(TSharedRef<FTokenizedMessage> Error, FName FbxErrorName );
+	UNREALED_API void AddTokenizedErrorMessage(TSharedRef<FTokenizedMessage> Error, FName FbxErrorName );
 	void ClearTokenizedErrorMessages();
 	void FlushToTokenizedErrorMessage(enum EMessageSeverity::Type Severity);
 
@@ -1530,7 +1537,7 @@ private:
 
 
 /** message Logger for FBX. Saves all the messages and prints when it's destroyed */
-class FFbxLogger
+class UNREALED_API FFbxLogger
 {
 	FFbxLogger();
 	~FFbxLogger();
@@ -1550,7 +1557,7 @@ class FFbxLogger
 * We add this only top level of functions where it needs to be handled
 * if the importer already has logger set, it won't set anymore
 */
-class FFbxLoggerSetter
+class UNREALED_API FFbxLoggerSetter
 {
 	class FFbxLogger Logger;
 	FFbxImporter * Importer;

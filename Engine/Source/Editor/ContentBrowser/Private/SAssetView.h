@@ -185,6 +185,9 @@ public:
 		/** Columns to hide by default */
 		SLATE_ARGUMENT( TArray<FString>, HiddenColumnNames )
 
+		/** Custom columns that can be use specific */
+		SLATE_ARGUMENT(TArray<FAssetViewCustomColumn>, CustomColumns)
+
 	SLATE_END_ARGS()
 
 	~SAssetView();
@@ -291,6 +294,13 @@ public:
 
 	/** Called when a folder is removed from the asset registry */
 	void OnAssetRegistryPathRemoved(const FString& Path);
+
+	/**
+	 * Forces the plugin content folder to be shown.
+	 *
+	 * @param bEnginePlugin		If true, also forces the engine folder to be shown.
+	 */
+	void ForceShowPluginFolder( bool bEnginePlugin );
 
 private:
 
@@ -989,6 +999,8 @@ private:
 	TArray<FString> DefaultHiddenColumnNames;
 	TArray<FString> HiddenColumnNames;
 	int32 NumVisibleColumns;
+
+	TArray<FAssetViewCustomColumn> CustomColumns;
 public:
 	bool ShouldColumnGenerateWidget(const FString ColumnName) const;
 };

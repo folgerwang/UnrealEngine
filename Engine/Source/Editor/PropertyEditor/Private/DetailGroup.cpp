@@ -62,6 +62,19 @@ IDetailPropertyRow& FDetailGroup::AddPropertyRow( TSharedRef<IPropertyHandle> Pr
 	return *NewCustomization.PropertyRow;
 }
 
+TSharedPtr<IDetailPropertyRow> FDetailGroup::FindPropertyRow(TSharedRef<IPropertyHandle> PropertyHandle) const
+{
+	for (const FDetailLayoutCustomization& Customization : GroupChildren)
+	{
+		if (Customization.PropertyRow.IsValid() && Customization.PropertyRow->GetPropertyHandle() == PropertyHandle)
+		{
+			return Customization.PropertyRow;
+		}
+	}
+
+	return nullptr;
+}
+
 IDetailGroup& FDetailGroup::AddGroup(FName NewGroupName, const FText& InLocalizedDisplayName, bool bInStartExpanded)
 {
 	FDetailLayoutCustomization NewCustomization;
@@ -87,6 +100,16 @@ bool FDetailGroup::GetExpansionState() const
 		return ParentCategory.Pin()->GetSavedExpansionState(*OwnerTreeNode.Pin().Get());
 	}
 	return false;
+}
+
+TSharedPtr<FDetailPropertyRow> FDetailGroup::GetHeaderPropertyRow() const
+{
+	return HeaderCustomization.IsValid() ? HeaderCustomization->PropertyRow : nullptr;
+}
+
+TSharedPtr<FPropertyNode> FDetailGroup::GetHeaderPropertyNode() const
+{
+	return HeaderCustomization.IsValid() ? HeaderCustomization->GetPropertyNode() : nullptr;
 }
 
 bool FDetailGroup::HasColumns() const
@@ -233,6 +256,8 @@ FReply FDetailGroup::OnResetClicked()
 			{
 				PropertyHandle->ResetToDefault();
 			}
+
+			OnDetailGroupReset.Broadcast();
 		}
 	}
 

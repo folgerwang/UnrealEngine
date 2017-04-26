@@ -30,10 +30,14 @@
 #include "Abilities/GameplayAbilityTargetActor.h"
 #include "TickableAttributeSetInterface.h"
 #include "GameplayTagResponseTable.h"
+#include "Engine/DemoNetDriver.h"
+
 #define LOCTEXT_NAMESPACE "AbilitySystemComponent"
 
 /** Enable to log out all render state create, destroy and updatetransform events */
 #define LOG_RENDER_STATE 0
+
+static TAutoConsoleVariable<float> CVarReplayMontageErrorThreshold(TEXT("replay.MontageErrorThreshold"), 0.5f, TEXT("Tolerance level for when montage playback position correction occurs in replays"));
 
 void UAbilitySystemComponent::InitializeComponent()
 {
@@ -489,6 +493,18 @@ void UAbilitySystemComponent::CheckForClearedAbilities()
 		{
 			AllReplicatedInstancedAbilities.RemoveAt(i);
 			i--;
+		}
+	}
+
+	// Clear any out of date ability spec handles on active gameplay effects
+	for (FActiveGameplayEffect& ActiveGE : &ActiveGameplayEffects)
+	{
+		for (FGameplayAbilitySpecDef& AbilitySpec : ActiveGE.Spec.GrantedAbilitySpecs)
+		{
+			if (AbilitySpec.AssignedHandle.IsValid() && FindAbilitySpecFromHandle(AbilitySpec.AssignedHandle) == nullptr)
+			{
+				AbilitySpec.AssignedHandle = FGameplayAbilitySpecHandle();
+			}
 		}
 	}
 }
@@ -1947,21 +1963,18 @@ void UAbilitySystemComponent::BindAbilityActivationToInputComponent(UInputCompon
 
 	for(int32 idx=0; idx < EnumBinds->NumEnums(); ++idx)
 	{
-		FString FullStr = EnumBinds->GetNameStringByIndex(idx);
-		FString BindStr;
-
-		FullStr.Split(TEXT("::"), nullptr, &BindStr);
-
+		const FString FullStr = EnumBinds->GetNameStringByIndex(idx);
+		
 		// Pressed event
 		{
-			FInputActionBinding AB(FName(*BindStr), IE_Pressed);
+			FInputActionBinding AB(FName(*FullStr), IE_Pressed);
 			AB.ActionDelegate.GetDelegateForManualSet().BindUObject(this, &UAbilitySystemComponent::AbilityLocalInputPressed, idx);
 			InputComponent->AddActionBinding(AB);
 		}
 
 		// Released event
 		{
-			FInputActionBinding AB(FName(*BindStr), IE_Released);
+			FInputActionBinding AB(FName(*FullStr), IE_Released);
 			AB.ActionDelegate.GetDelegateForManualSet().BindUObject(this, &UAbilitySystemComponent::AbilityLocalInputReleased, idx);
 			InputComponent->AddActionBinding(AB);
 		}
@@ -2358,7 +2371,11 @@ bool UAbilitySystemComponent::IsReadyForReplicatedMontage()
 /**	Replicated Event for AnimMontages */
 void UAbilitySystemComponent::OnRep_ReplicatedAnimMontage()
 {
-	static const float MONTAGE_REP_POS_ERR_THRESH = 0.1f;
+	UWorld* World = GetWorld();
+
+	const bool bIsPlayingReplay = World && World->DemoNetDriver && World->DemoNetDriver->IsPlaying();
+
+	const float MONTAGE_REP_POS_ERR_THRESH = bIsPlayingReplay ? CVarReplayMontageErrorThreshold.GetValueOnGameThread() : 0.1f;
 
 	UAnimInstance* AnimInstance = AbilityActorInfo.IsValid() ? AbilityActorInfo->GetAnimInstance() : nullptr;
 	if (AnimInstance == nullptr || !IsReadyForReplicatedMontage())

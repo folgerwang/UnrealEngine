@@ -200,6 +200,28 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Returns a list of this module's dependencies.
+		/// </summary>
+		/// <returns>An enumerable containing the dependencies of the module.</returns>
+		public HashSet<UEBuildModule> GetDependencies(bool bWithIncludePathModules, bool bWithDynamicallyLoadedModules)
+		{
+			HashSet<UEBuildModule> Modules = new HashSet<UEBuildModule>();
+			Modules.UnionWith(PublicDependencyModules);
+			Modules.UnionWith(PrivateDependencyModules);
+			if(bWithIncludePathModules)
+			{
+				Modules.UnionWith(PublicIncludePathModules);
+				Modules.UnionWith(PrivateIncludePathModules);
+			}
+			if(bWithDynamicallyLoadedModules)
+			{
+				Modules.UnionWith(DynamicallyLoadedModules);
+				Modules.UnionWith(PlatformSpecificDynamicallyLoadedModules);
+			}
+			return Modules;
+		}
+
+		/// <summary>
 		/// Returns a list of this module's immediate dependencies.
 		/// </summary>
 		/// <returns>An enumerable containing the dependencies of the module.</returns>
@@ -249,11 +271,6 @@ namespace UnrealBuildTool
 				// Find all the directories that this module references
 				HashSet<DirectoryReference> ReferencedDirs = new HashSet<DirectoryReference>();
 				GetReferencedDirectories(ReferencedDirs);
-
-				if(Name == "WinDualShock")
-				{
-					Console.Write("");
-				}
 
 				// Remove all the whitelisted folders
 				ReferencedDirs.ExceptWith(WhitelistRestrictedFolders);

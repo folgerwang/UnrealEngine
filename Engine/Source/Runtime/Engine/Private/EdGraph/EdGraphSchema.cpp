@@ -82,7 +82,7 @@ void FEdGraphSchemaAction::UpdateSearchText()
 	}
 }
 
-void FEdGraphSchemaAction::UpdateSearchData(FText NewMenuDescription, FString NewToolTipDescription, FText NewCategory, FText NewKeywords)
+void FEdGraphSchemaAction::UpdateSearchData(FText NewMenuDescription, FText NewToolTipDescription, FText NewCategory, FText NewKeywords)
 {
 	MenuDescription = MoveTemp(NewMenuDescription);
 	TooltipDescription = MoveTemp(NewToolTipDescription);
@@ -778,6 +778,7 @@ void UEdGraphSchema::GetContextMenuActions(const UEdGraph* CurrentGraph, const U
 						SelectedNode->PreEditChange(NodeCommentProperty);
 
 						SelectedNode->NodeComment = NewString;
+						SelectedNode->SetMakeCommentBubbleVisible(true);
 
 						FPropertyChangedEvent NodeCommentPropertyChangedEvent(NodeCommentProperty);
 						SelectedNode->PostEditChangeProperty(NodeCommentPropertyChangedEvent);

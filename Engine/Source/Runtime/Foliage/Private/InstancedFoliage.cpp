@@ -39,6 +39,7 @@ InstancedFoliage.cpp: Instanced foliage implementation.
 #include "ProceduralFoliageVolume.h"
 #include "EngineUtils.h"
 #include "EngineGlobals.h"
+#include "Engine/StaticMesh.h"
 
 #define LOCTEXT_NAMESPACE "InstancedFoliage"
 
@@ -918,6 +919,18 @@ void FFoliageMeshInfo::UpdateComponentSettings(const UFoliageType* InSettings)
 		if (FoliageComponent && FoliageComponent->FoliageHiddenEditorViews != InSettings->HiddenEditorViews)
 		{
 			FoliageComponent->FoliageHiddenEditorViews = InSettings->HiddenEditorViews;
+			bNeedsMarkRenderStateDirty = true;
+		}
+
+		if (Component->bRenderCustomDepth != FoliageType->bRenderCustomDepth)
+		{
+			Component->bRenderCustomDepth = FoliageType->bRenderCustomDepth;
+			bNeedsMarkRenderStateDirty = true;
+		}
+
+		if (Component->CustomDepthStencilValue != FoliageType->CustomDepthStencilValue)
+		{
+			Component->CustomDepthStencilValue = FoliageType->CustomDepthStencilValue;
 			bNeedsMarkRenderStateDirty = true;
 		}
 

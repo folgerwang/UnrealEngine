@@ -555,17 +555,20 @@ void UBlueprint::PostDuplicate(bool bDuplicateForPIE)
 	}
 }
 
-extern COREUOBJECT_API bool GMinimalCompileOnLoad;
+extern COREUOBJECT_API bool GBlueprintUseCompilationManager;
 
 UClass* UBlueprint::RegenerateClass(UClass* ClassToRegenerate, UObject* PreviousCDO, TArray<UObject*>& ObjLoaded)
 {
-	if(GMinimalCompileOnLoad)
+	if(GBlueprintUseCompilationManager)
 	{
 		// ensure that we have UProperties for any properties declared in the blueprint:
-		if(!GeneratedClass || !HasAnyFlags(RF_NeedPostLoad))
+		if(!GeneratedClass || !HasAnyFlags(RF_BeingRegenerated) || bIsRegeneratingOnLoad || bHasBeenRegenerated)
 		{
 			return GeneratedClass;
 		}
+		
+		// tag ourself as bIsRegeneratingOnLoad so that any reentrance via ForceLoad calls doesn't recurse:
+		bIsRegeneratingOnLoad = true;
 		
 		UPackage* Package = Cast<UPackage>(GetOutermost());
 		bool bIsPackageDirty = Package ? Package->IsDirty() : false;
@@ -581,47 +584,27 @@ UClass* UBlueprint::RegenerateClass(UClass* ClassToRegenerate, UObject* Previous
 		UBlueprint::ForceLoadMembers(this);
 
 		FBlueprintEditorUtils::RefreshVariables(this);
-
-		// clone generated class into skeleton class:
-		FObjectDuplicationParameters Params(GeneratedClassResolved, GeneratedClassResolved->GetOuter());
-		if (SimpleConstructionScript)
-		{
-			Params.DuplicationSeed.Add(SimpleConstructionScript, SimpleConstructionScript);
-		}
-		Params.ApplyFlags = RF_Transient;
-		Params.DestName = *(FString("SKEL_") + GeneratedClassResolved->GetName());
-		SkeletonGeneratedClass = (UClass*)StaticDuplicateObjectEx(Params);
-		SkeletonGeneratedClass->ClassDefaultObject = nullptr;
-		if (UClass* Super = SkeletonGeneratedClass->GetSuperClass())
-		{
-			if (UBlueprint* GeneratedByBP = Cast<UBlueprint>(Super->ClassGeneratedBy))
-			{
-				check(GeneratedByBP->SkeletonGeneratedClass != nullptr);
-				SkeletonGeneratedClass->SetSuperStruct(GeneratedByBP->SkeletonGeneratedClass);
-			}
-		}
-		SkeletonGeneratedClass->Bind();
-		SkeletonGeneratedClass->StaticLink(true);
-		if(UBlueprintGeneratedClass* BPGC_Skel = Cast<UBlueprintGeneratedClass>(SkeletonGeneratedClass))
-		{
-			if( BPGC_Skel->UberGraphFunction )
-			{
-				BPGC_Skel->UberGraphFunction->StaticLink(true);
-			}
-		}
-		SkeletonGeneratedClass->GetDefaultObject(); // forces CDO to generate
-
 		FBlueprintEditorUtils::PreloadConstructionScript( this );
+		
+		// Preload Overridden Components
+		if (InheritableComponentHandler)
+		{
+			InheritableComponentHandler->PreloadAll();
+		}
+
+		FBlueprintEditorUtils::LinkExternalDependencies( this );
 
 		FBlueprintCompilationManager::NotifyBlueprintLoaded( this ); 
 		
+		// clear this now that we're not in a re-entrrant context - bHasBeenRegenerated will guard against 'real' 
+		// double regeneration calls:
+		bIsRegeneratingOnLoad = false;
+
 		if( Package )
 		{
 			Package->SetDirtyFlag(bIsPackageDirty);
 		}
 
-		// give the world the generated class... The only time this will be changed is if the generated class
-		// was null:
 		return GeneratedClassResolved;
 	}
 	else
@@ -676,18 +659,6 @@ void UBlueprint::PostLoad()
 
 	// Purge any NULL graphs
 	FBlueprintEditorUtils::PurgeNullGraphs(this);
-
-	// Remove old AutoConstructionScript graph
-	for (int32 i = 0; i < FunctionGraphs.Num(); ++i)
-	{
-		UEdGraph* FuncGraph = FunctionGraphs[i];
-		if ((FuncGraph != NULL) && (FuncGraph->GetName() == TEXT("AutoConstructionScript")))
-		{
-			UE_LOG(LogBlueprint, Log, TEXT("!!! Removing AutoConstructionScript from %s"), *GetPathName());
-			FunctionGraphs.RemoveAt(i);
-			break;
-		}
-	}
 
 	// Remove stale breakpoints
 	for (int32 i = 0; i < Breakpoints.Num(); ++i)
@@ -748,17 +719,6 @@ void UBlueprint::PostLoad()
 
 	// Update old Anim Blueprints
 	FBlueprintEditorUtils::UpdateOutOfDateAnimBlueprints(this);
-
-	// Update old macro blueprints
-	if(BPTYPE_MacroLibrary == BlueprintType)
-	{
-		//macros were moved into a separate array
-		MacroGraphs.Append(FunctionGraphs);
-		FunctionGraphs.Empty();
-	}
-
-	// Update old pure functions to be pure using new system
-	FBlueprintEditorUtils::UpdateOldPureFunctions(this);
 
 #if WITH_EDITORONLY_DATA
 	// Ensure all the pin watches we have point to something useful
@@ -946,7 +906,8 @@ void UBlueprint::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 			FBlueprintEditorUtils::IsDataOnlyBlueprint(this) ? TEXT("True") : TEXT("False"),
 			FAssetRegistryTag::TT_Alphabetical ) );
 
-	if ( ParentClass )
+	// Only add the FiB tags in the editor, this now gets run for standalone uncooked games
+	if ( ParentClass && GIsEditor)
 	{
 		OutTags.Add( FAssetRegistryTag("FiBData", FFindInBlueprintSearchManager::Get().QuerySingleBlueprint((UBlueprint*)this, false), FAssetRegistryTag::TT_Hidden) );
 	}
@@ -1218,7 +1179,7 @@ void UBlueprint::BeginCacheForCookedPlatformData(const ITargetPlatform *TargetPl
 		if (GeneratedClass != nullptr && NativeCodeGenCore != nullptr && FParse::Param(FCommandLine::Get(), TEXT("NativizeAssets")))
 		{
 			ensure(TargetPlatform);
-			const FCompilerNativizationOptions& NativizationOptions = NativeCodeGenCore->GetNativizationOptionsForPlatform(TargetPlatform ? TargetPlatform->PlatformName() : FString{});
+			const FCompilerNativizationOptions& NativizationOptions = NativeCodeGenCore->GetNativizationOptionsForPlatform(TargetPlatform);
 			TArray<const UBlueprintGeneratedClass*> ParentBPClassStack;
 			UBlueprintGeneratedClass::GetGeneratedClassesHierarchy(GeneratedClass->GetSuperClass(), ParentBPClassStack);
 			for (const UBlueprintGeneratedClass *ParentBPClass : ParentBPClassStack)

@@ -175,7 +175,6 @@ void FAutomationControllerManager::Init()
 
 	AutomationTestState = EAutomationControllerModuleState::Disabled;
 	bTestResultsAvailable = false;
-	bScreenshotsEnabled = true;
 	bSendAnalytics = FParse::Param(FCommandLine::Get(), TEXT("SendAutomationAnalytics"));
 }
 
@@ -442,7 +441,7 @@ void FAutomationControllerManager::ExecuteNextTask( int32 ClusterIndex, OUT bool
 							FMessageAddress DeviceAddress = DeviceAddresses[AddressIndex];
 
 							// Send the test to the device for execution!
-							MessageEndpoint->Send(new FAutomationWorkerRunTests(ExecutionCount, AddressIndex, NextTest->GetCommand(), NextTest->GetDisplayName(), bScreenshotsEnabled, bSendAnalytics), DeviceAddress);
+							MessageEndpoint->Send(new FAutomationWorkerRunTests(ExecutionCount, AddressIndex, NextTest->GetCommand(), NextTest->GetDisplayName(), bSendAnalytics), DeviceAddress);
 
 							// Add a test so we can check later if the device is still active
 							TestRunningArray.Add(FTestRunningInfo(DeviceAddress));
@@ -1056,13 +1055,16 @@ void FAutomationControllerManager::UpdateDeviceGroups( )
 TArray<FString> FAutomationControllerManager::GetCheckpointFileContents()
 {
 	TestsRun.Empty();
-	FString CheckpointFileName = FString::Printf(TEXT("%sautomationcheckpoint.txt"), *FPaths::AutomationDir());
+	FString CheckpointFileName = FString::Printf(TEXT("%sautomationcheckpoint.log"), *FPaths::AutomationDir());
 	if (IFileManager::Get().FileExists(*CheckpointFileName))
 	{
 		FString FileData;
 		FFileHelper::LoadFileToString(FileData, *CheckpointFileName);
 		FileData.ParseIntoArrayLines(TestsRun);
-		
+		for (int i = 0; i < TestsRun.Num(); i++)
+		{
+			GLog->Log(TEXT("AutomationCheckpoint"), ELogVerbosity::Log, *TestsRun[i]);
+		}
 	}
 	return TestsRun;
 }
@@ -1071,7 +1073,7 @@ FArchive* FAutomationControllerManager::GetCheckpointFileForWrite()
 {
 	if (!CheckpointFile)
 	{
-		FString CheckpointFileName = FString::Printf(TEXT("%sautomationcheckpoint.txt"), *FPaths::AutomationDir());
+		FString CheckpointFileName = FString::Printf(TEXT("%sautomationcheckpoint.log"), *FPaths::AutomationDir());
 		CheckpointFile = IFileManager::Get().CreateFileWriter(*CheckpointFileName, 8);
 	}
 	return CheckpointFile;
@@ -1084,7 +1086,7 @@ void FAutomationControllerManager::CleanUpCheckpointFile()
 		CheckpointFile->Close();
 		CheckpointFile = nullptr;
 	}
-	FString CheckpointFileName = FString::Printf(TEXT("%sautomationcheckpoint.txt"), *FPaths::AutomationDir());
+	FString CheckpointFileName = FString::Printf(TEXT("%sautomationcheckpoint.log"), *FPaths::AutomationDir());
 	if (IFileManager::Get().FileExists(*CheckpointFileName))
 	{
 		IFileManager::Get().Delete(*CheckpointFileName);
@@ -1094,10 +1096,14 @@ void FAutomationControllerManager::CleanUpCheckpointFile()
 void FAutomationControllerManager::WriteLoadedCheckpointDataToFile()
 {
 	GetCheckpointFileForWrite();
-	for (int i = 0; i < TestsRun.Num(); i++)
+	if (CheckpointFile)
 	{
-		FString LineToWrite = FString::Printf(TEXT("%s\n"), *TestsRun[i]);
-		CheckpointFile->Serialize(TCHAR_TO_ANSI(*LineToWrite), LineToWrite.Len());
+		for (int i = 0; i < TestsRun.Num(); i++)
+		{
+			FString LineToWrite = FString::Printf(TEXT("%s\r\n"), *TestsRun[i]);
+			CheckpointFile->Serialize(TCHAR_TO_ANSI(*LineToWrite), LineToWrite.Len());
+			CheckpointFile->Flush();
+		}
 	}
 }
 
@@ -1106,7 +1112,7 @@ void FAutomationControllerManager::WriteLineToCheckpointFile(FString StringToWri
 	GetCheckpointFileForWrite();
 	if (CheckpointFile)
 	{
-		FString LineToWrite = FString::Printf(TEXT("%s\n"), *StringToWrite);
+		FString LineToWrite = FString::Printf(TEXT("%s\r\n"), *StringToWrite);
 		CheckpointFile->Serialize(TCHAR_TO_ANSI(*LineToWrite), LineToWrite.Len());
 		CheckpointFile->Flush();
 	}

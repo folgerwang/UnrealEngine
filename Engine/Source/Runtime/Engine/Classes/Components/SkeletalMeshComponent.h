@@ -256,6 +256,8 @@ UCLASS(ClassGroup=(Rendering, Common), hidecategories=Object, config=Engine, edi
 class ENGINE_API USkeletalMeshComponent : public USkinnedMeshComponent, public IInterface_CollisionDataProvider
 {
 	GENERATED_UCLASS_BODY()
+
+	friend class FSkeletalMeshComponentRecreateRenderStateContext;
 	
 	/**
 	 * Animation 
@@ -324,6 +326,10 @@ public:
 	/** Used to scale speed of all animations on this skeletal mesh. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Animation)
 	float GlobalAnimRateScale;
+
+	/** The simulation scene to use for this instance. By default we use what's in the physics asset (which defaults to the sync scene) */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics)
+	EDynamicActorScene UseAsyncScene;
 
 	/** If true, there is at least one body in the current PhysicsAsset with a valid bone in the current SkeletalMesh */
 	UPROPERTY(transient)
@@ -449,7 +455,9 @@ public:
 
 	void CreateBodySetup();
 
-	virtual void SendRenderDebugPhysics() override;
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	virtual void SendRenderDebugPhysics(FPrimitiveSceneProxy* OverrideSceneProxy = nullptr) override;
+#endif
 
 	/**
 	 * Misc 
@@ -842,6 +850,9 @@ public:
 	/** Get the current clothing simulation (read only) */
 	const class IClothingSimulation* GetClothingSimulation() const;
 
+	/** Callback when the parallel clothing task finishes, copies needed data back to component for gamethread */
+	void CompleteParallelClothSimulation();
+
 	/** Get the current simulation data map for the clothing on this component. Only valid on the game thread */
 	const TMap<int32, FClothSimulData>& GetCurrentClothingData_GameThread() const
 	{
@@ -877,17 +888,17 @@ private:
 	IClothingSimulation* ClothingSimulation;
 	IClothingSimulationContext* ClothingSimulationContext;
 
+	/** Ref for the clothing parallel task, so we can detect whether or not a sim is running */
+	FGraphEventRef ParallelClothTask;
+
+	/** Stalls on any currently running clothing simulations, needed when changing core sim state */
+	void HandleExistingParallelClothSimulation();
+
 	/** Flag denoting whether or not the clothing transform needs to update */
 	bool bPendingClothTransformUpdate;
 
 	/** Teleport type to use on the next update */
 	ETeleportType PendingTeleportType;
-
-	/** Simulation data written back to the component after the simulation has taken place
-	 * This should only ever be written to during the clothing completion task. Then subsequently
-	 * only ever read on the game thread
-	 */
-	TMap<int32, FClothSimulData> CurrentSimulationData_GameThread;
 
 	/** Called by the clothing completion event to perform a writeback of the simulation data 
 	 * to the game thread, the task is friended to gain access to this and not allow any
@@ -898,11 +909,19 @@ private:
 	/** Gets the factory responsible for building the clothing simulation and simulation contexts */
 	UClothingSimulationFactory* GetClothingSimFactory() const;
 
+protected:
+
+	/** Simulation data written back to the component after the simulation has taken place
+	* This should only ever be written to during the clothing completion task. Then subsequently
+	* only ever read on the game thread
+	*/
+	TMap<int32, FClothSimulData> CurrentSimulationData_GameThread;
+
 public:
 
 	float ClothMaxDistanceScale;
 
-	static uint32 GetPhysicsSceneType(const UPhysicsAsset& PhysAsset, const FPhysScene& PhysScene);
+	static uint32 GetPhysicsSceneType(const UPhysicsAsset& PhysAsset, const FPhysScene& PhysScene, EDynamicActorScene SimulationScene);
 
 private:
 
@@ -971,6 +990,11 @@ public:
 	 */
 	void RecalcRequiredBones(int32 LODIndex);
 
+	/** Computes the required bones in this SkeletalMeshComponent based on current SkeletalMesh, LOD and PhysicsAsset
+	  * @param	LODIndex	Index of LOD [0-(MaxLOD-1)]
+	*/
+	void ComputeRequiredBones(TArray<FBoneIndexType>& OutRequiredBones, TArray<FBoneIndexType>& OutFillComponentSpaceTransformsRequiredBones, int32 LODIndex, bool bIgnorePhysicsAsset) const;
+
 	/**
 	* Recalculates the AnimCurveUids array in RequiredBone of this SkeletalMeshComponent based on current required bone set
 	* Is called when Skeleton->IsRequiredCurvesUpToDate() = false
@@ -1004,7 +1028,6 @@ public:
 protected:
 	virtual void OnRegister() override;
 	virtual void OnUnregister() override;
-	virtual void CreateRenderState_Concurrent() override;
 	virtual bool ShouldCreatePhysicsState() const override;
 	virtual void OnCreatePhysicsState() override;
 	virtual void OnDestroyPhysicsState() override;
@@ -1199,6 +1222,8 @@ public:
 	virtual bool IsPlayingNetworkedRootMotionMontage() const override;
 	virtual bool IsPlayingRootMotionFromEverything() const override;
 	virtual void FinalizeBoneTransform() override;
+	virtual void SetRefPoseOverride(const TArray<FTransform>& NewRefPoseTransforms) override;
+	virtual void ClearRefPoseOverride() override;
 	//~ End USkinnedMeshComponent Interface
 
 	void GetCurrentRefToLocalMatrices(TArray<FMatrix>& OutRefToLocals, int32 InLodIdx);
@@ -1621,8 +1646,16 @@ private:
 	 */
 	void ResetMorphTargetCurves();
 
+	// Can't rely on time value, because those may be affected by dilation and whether or not
+	// the game is paused.
+	// Also can't just rely on a flag as other components (like CharacterMovementComponent) may tick
+	// the pose and we can't guarantee tick order.
+	UPROPERTY(Transient)
+	uint32 LastPoseTickFrame;
+
 public:
 	/** Keep track of when animation has been ticked to ensure it is ticked only once per frame. */
+	DEPRECATED(4.16, "This property is deprecated. Please use PoseTickedThisFrame instead.")
 	UPROPERTY(Transient)
 	float LastPoseTickTime;
 

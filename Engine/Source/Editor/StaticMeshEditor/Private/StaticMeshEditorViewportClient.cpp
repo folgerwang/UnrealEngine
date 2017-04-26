@@ -28,6 +28,7 @@
 
 #include "Engine/AssetUserData.h"
 
+#include "Editor/EditorPerProjectUserSettings.h"
 #include "AssetViewerSettings.h"
 
 #define LOCTEXT_NAMESPACE "FStaticMeshEditorViewportClient"
@@ -73,7 +74,8 @@ FStaticMeshEditorViewportClient::FStaticMeshEditorViewportClient(TWeakPtr<IStati
 	OverrideNearClipPlane(1.0f);
 	bUsingOrbitCamera = true;
 
-	bShowCollision = false;
+	bShowSimpleCollision = false;
+	bShowComplexCollision = false;
 	bShowSockets = true;
 	bDrawUVs = false;
 	bDrawNormals = false;
@@ -92,7 +94,7 @@ FStaticMeshEditorViewportClient::FStaticMeshEditorViewportClient(TWeakPtr<IStati
 	// Register delegate to update the show flags when the post processing is turned on or off
 	UAssetViewerSettings::Get()->OnAssetViewerSettingsChanged().AddRaw(this, &FStaticMeshEditorViewportClient::OnAssetViewerSettingsChanged);
 	// Set correct flags according to current profile settings
-	SetAdvancedShowFlagsForScene();
+	SetAdvancedShowFlagsForScene(UAssetViewerSettings::Get()->Profiles[GetMutableDefault<UEditorPerProjectUserSettings>()->AssetViewerProfileIndex].bPostProcessingEnabled);
 }
 
 FStaticMeshEditorViewportClient::~FStaticMeshEditorViewportClient()
@@ -447,13 +449,14 @@ void FStaticMeshEditorViewportClient::Draw(const FSceneView* View,FPrimitiveDraw
 		return;
 	}
 
-	if (bShowCollision && StaticMesh->BodySetup)
+	// Draw simple shapes if we are showing simple, or showing complex but using simple as complex
+	if (StaticMesh->BodySetup && (bShowSimpleCollision || (bShowComplexCollision && StaticMesh->BodySetup->CollisionTraceFlag == ECollisionTraceFlag::CTF_UseSimpleAsComplex)))
 	{
 		// Ensure physics mesh is created before we try and draw it
 		StaticMesh->BodySetup->CreatePhysicsMeshes();
 
-		const FColor SelectedColor(149, 223, 157);
-		const FColor UnselectedColor(157, 149, 223);
+		const FColor SelectedColor(20, 220, 20);
+		const FColor UnselectedColor(0, 125, 0);
 
 		const FVector VectorScaleOne(1.0f);
 
@@ -783,7 +786,11 @@ void FStaticMeshEditorViewportClient::DrawCanvas( FViewport& InViewport, FSceneV
 
 			if (VolumeData.Size.GetMax() > 0)
 			{
-				float MemoryMb = (VolumeData.Size.X * VolumeData.Size.Y * VolumeData.Size.Z * sizeof(FFloat16)) / (1024.0f * 1024.0f);
+				static const auto CVarEightBit = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DistanceFieldBuild.EightBit"));
+				const bool bEightBitFixedPoint = CVarEightBit->GetValueOnAnyThread() != 0;
+				const int32 FormatSize = GPixelFormats[bEightBitFixedPoint ? PF_G8 : PF_R16F].BlockBytes;
+
+				float MemoryMb = (VolumeData.Size.X * VolumeData.Size.Y * VolumeData.Size.Z * FormatSize + VolumeData.CompressedDistanceFieldVolume.Num() * VolumeData.CompressedDistanceFieldVolume.GetTypeSize()) / (1024.0f * 1024.0f);
 
 				FNumberFormattingOptions NumberOptions;
 				NumberOptions.MinimumFractionalDigits = 2;
@@ -1210,15 +1217,14 @@ void FStaticMeshEditorViewportClient::PerspectiveCameraMoved()
 
 void FStaticMeshEditorViewportClient::OnAssetViewerSettingsChanged(const FName& InPropertyName)
 {
-	if (InPropertyName == GET_MEMBER_NAME_CHECKED(FPreviewSceneProfile, bPostProcessingEnabled))
+	if (InPropertyName == GET_MEMBER_NAME_CHECKED(FPreviewSceneProfile, bPostProcessingEnabled) || InPropertyName == NAME_None)
 	{
-		SetAdvancedShowFlagsForScene();
+		SetAdvancedShowFlagsForScene(UAssetViewerSettings::Get()->Profiles[AdvancedPreviewScene->GetCurrentProfileIndex()].bPostProcessingEnabled);
 	}
 }
 
-void FStaticMeshEditorViewportClient::SetAdvancedShowFlagsForScene()
-{
-	const bool bAdvancedShowFlags = UAssetViewerSettings::Get()->Profiles[AdvancedPreviewScene->GetCurrentProfileIndex()].bPostProcessingEnabled;
+void FStaticMeshEditorViewportClient::SetAdvancedShowFlagsForScene(const bool bAdvancedShowFlags)
+{	
 	if (bAdvancedShowFlags)
 	{
 		EngineShowFlags.EnableAdvancedFeatures();
@@ -1242,7 +1248,8 @@ void FStaticMeshEditorViewportClient::SetPreviewMesh(UStaticMesh* InStaticMesh, 
 
 	if(StaticMeshComponent != nullptr)
 	{
-		StaticMeshComponent->bDrawMeshCollisionWireframe = bShowCollision;
+		StaticMeshComponent->bDrawMeshCollisionIfSimple = bShowSimpleCollision;
+		StaticMeshComponent->bDrawMeshCollisionIfComplex = bShowComplexCollision;
 		StaticMeshComponent->MarkRenderStateDirty();
 	}
 	
@@ -1364,27 +1371,50 @@ bool FStaticMeshEditorViewportClient::IsSetDrawVerticesChecked() const
 	return bDrawVertices;
 }
 
-void FStaticMeshEditorViewportClient::SetShowWireframeCollision()
+void FStaticMeshEditorViewportClient::SetShowSimpleCollision()
 {
-	bShowCollision = !bShowCollision;
+	bShowSimpleCollision = !bShowSimpleCollision;
 
-	if(StaticMeshComponent != nullptr)
+	if (StaticMeshComponent != nullptr)
 	{
-		StaticMeshComponent->bDrawMeshCollisionWireframe = bShowCollision;
+		// Have to set this flag in case we are using 'use complex as simple'
+		StaticMeshComponent->bDrawMeshCollisionIfSimple = bShowSimpleCollision;
 		StaticMeshComponent->MarkRenderStateDirty();
 	}
 
 	if (FEngineAnalytics::IsAvailable())
 	{
-		FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.StaticMesh.Toolbar"), TEXT("bShowCollision"), bShowCollision ? TEXT("True") : TEXT("False"));
+		FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.StaticMesh.Toolbar"), TEXT("bShowCollision"), (bShowSimpleCollision || bShowComplexCollision) ? TEXT("True") : TEXT("False"));
 	}
 	StaticMeshEditorPtr.Pin()->ClearSelectedPrims();
 	Invalidate();
 }
 
-bool FStaticMeshEditorViewportClient::IsSetShowWireframeCollisionChecked() const
+bool FStaticMeshEditorViewportClient::IsSetShowSimpleCollisionChecked() const
 {
-	return bShowCollision;
+	return bShowSimpleCollision;
+}
+
+void FStaticMeshEditorViewportClient::SetShowComplexCollision()
+{
+	bShowComplexCollision = !bShowComplexCollision;
+
+	if (StaticMeshComponent != nullptr)
+	{
+		StaticMeshComponent->bDrawMeshCollisionIfComplex = bShowComplexCollision;
+		StaticMeshComponent->MarkRenderStateDirty();
+	}
+
+	if (FEngineAnalytics::IsAvailable())
+	{
+		FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.StaticMesh.Toolbar"), TEXT("bShowCollision"), (bShowSimpleCollision || bShowComplexCollision) ? TEXT("True") : TEXT("False"));
+	}
+	Invalidate();
+}
+
+bool FStaticMeshEditorViewportClient::IsSetShowComplexCollisionChecked() const
+{
+	return bShowComplexCollision;
 }
 
 void FStaticMeshEditorViewportClient::SetShowSockets()

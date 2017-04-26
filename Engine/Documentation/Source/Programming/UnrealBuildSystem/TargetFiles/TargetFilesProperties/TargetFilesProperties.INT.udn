@@ -2,7 +2,7 @@ Availability: NoPublish
 Title: Build Configuration Properties Page
 Crumbs:
 Description: This is a procedurally generated markdown page.
-Version: 4.16
+Version: 4.17
 
 ### Read-Only Properties
 
@@ -43,6 +43,8 @@ $ PakSigningKeysFile (String): Path to the set of pak signing keys to embed in t
 $ SolutionDirectory (String): Allows a Program Target to specify it's own solution folder path.
 
 $ bOutputToEngineBinaries (Boolean): Output the executable to the engine binaries folder.
+
+$ bShouldCompileAsDLL (Boolean): Whether this target should be compiled as a DLL.  Requires LinkType to be set to TargetLinkType.Monolithic.
 
 $ ExeBinariesSubFolder (String): Subfolder to place executables in, relative to the default location.
 
@@ -231,5 +233,7 @@ $ GlobalDefinitions (List&lt;String&gt;): Macros to define globally across the w
 $ ExtraModuleNames (List&lt;String&gt;): List of additional modules to be compiled into the target.
 
 $ BuildEnvironment (TargetBuildEnvironment): Specifies the build environment for this target. See TargetBuildEnvironment for more infomation on the available options.
+
+$ OverrideExecutableFileExtension (String): Can be set to override the file extension of the executable file (normally .exe or .dll on Windows, for example)
 
 

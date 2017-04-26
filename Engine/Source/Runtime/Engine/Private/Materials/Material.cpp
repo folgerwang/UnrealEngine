@@ -99,7 +99,7 @@ int32 FMaterialResource::CompilePropertyAndSetMaterialProperty(EMaterialProperty
 
 	int32 SelectionColorIndex = INDEX_NONE;
 
-	if (ShaderFrequency == SF_Pixel)
+	if (ShaderFrequency == SF_Pixel && GetMaterialDomain() != MD_Volume)
 	{
 		SelectionColorIndex = Compiler->ComponentMask(Compiler->VectorParameter(NAME_SelectionColor,FLinearColor::Black),1,1,1,0);
 	}
@@ -123,10 +123,10 @@ int32 FMaterialResource::CompilePropertyAndSetMaterialProperty(EMaterialProperty
 			break;
 
 		case MP_DiffuseColor: 
-			Ret = Compiler->Mul(MaterialInterface->CompileProperty(Compiler, MP_DiffuseColor, MFCF_ForceCast), Compiler->Sub(Compiler->Constant(1.0f), SelectionColorIndex));
+			Ret = MaterialInterface->CompileProperty(Compiler, MP_DiffuseColor, MFCF_ForceCast);
 			break;
 		case MP_BaseColor: 
-			Ret = Compiler->Mul(MaterialInterface->CompileProperty(Compiler, MP_BaseColor, MFCF_ForceCast), Compiler->Sub(Compiler->Constant(1.0f), SelectionColorIndex));
+			Ret = MaterialInterface->CompileProperty(Compiler, MP_BaseColor, MFCF_ForceCast);
 			break;
 		case MP_MaterialAttributes:
 			Ret = INDEX_NONE;
@@ -134,9 +134,29 @@ int32 FMaterialResource::CompilePropertyAndSetMaterialProperty(EMaterialProperty
 		default:
 			Ret = MaterialInterface->CompileProperty(Compiler, Property);
 	};
+	
+	EMaterialValueType AttributeType = FMaterialAttributeDefinitionMap::GetValueType(Property);
+	FMaterialUniformExpression* Expression = Compiler->GetParameterUniformExpression(Ret);
 
-	// output should always be the right type for this property
-	return Compiler->ForceCast(Ret, FMaterialAttributeDefinitionMap::GetValueType(Property));
+	if (Expression && Expression->IsConstant())
+	{
+		// Where possible we want to preserve constant expressions allowing default value checks
+		EMaterialValueType ResultType = Compiler->GetParameterType(Ret);
+		EMaterialValueType ExactAttributeType = (AttributeType == MCT_Float) ? MCT_Float1 : AttributeType;
+		EMaterialValueType ExactResultType = (ResultType == MCT_Float) ? MCT_Float1 : ResultType;
+
+		if (ExactAttributeType == ExactResultType)
+		{
+			return Ret;
+		}
+		else if (ResultType == MCT_Float || (ExactAttributeType == MCT_Float1 && ResultType & MCT_Float))
+		{
+			return Compiler->ComponentMask(Ret, true, ExactAttributeType >= MCT_Float2, ExactAttributeType >= MCT_Float3, ExactAttributeType >= MCT_Float4);
+		}
+	}
+
+	// Output should always be the right type for this property
+	return Compiler->ForceCast(Ret, AttributeType);
 #else // WITH_EDITOR
 	check(0); // This is editor-only function
 	return INDEX_NONE;
@@ -353,6 +373,9 @@ static const TCHAR* GDefaultMaterialNames[MD_MAX] =
 	TEXT("engine-ini:/Script/Engine.Engine.DefaultDeferredDecalMaterialName"),
 	// Light Function
 	TEXT("engine-ini:/Script/Engine.Engine.DefaultLightFunctionMaterialName"),
+	// Volume
+	//@todo - get a real MD_Volume default material
+	TEXT("engine-ini:/Script/Engine.Engine.DefaultMaterialName"),
 	// Post Process
 	TEXT("engine-ini:/Script/Engine.Engine.DefaultPostProcessMaterialName"),
 	// User Interface 
@@ -819,6 +842,8 @@ void UMaterial::GetUsedTexturesAndIndices(TArray<UTexture*>& OutTextures, TArray
 	OutTextures.Empty();
 	OutIndices.Empty();
 
+	check(QualityLevel != EMaterialQualityLevel::Num && FeatureLevel != ERHIFeatureLevel::Num);
+
 	if (!FPlatformProperties::IsServerOnly())
 	{
 		const FMaterialResource* CurrentResource = MaterialResources[QualityLevel][FeatureLevel];
@@ -1085,6 +1110,9 @@ bool UMaterial::GetUsageByFlag(EMaterialUsage Usage) const
 		case MATUSAGE_ParticleSprites: UsageValue = bUsedWithParticleSprites; break;
 		case MATUSAGE_BeamTrails: UsageValue = bUsedWithBeamTrails; break;
 		case MATUSAGE_MeshParticles: UsageValue = bUsedWithMeshParticles; break;
+		case MATUSAGE_NiagaraSprites: UsageValue = bUsedWithNiagaraSprites; break;
+		case MATUSAGE_NiagaraRibbons: UsageValue = bUsedWithNiagaraRibbons; break;
+		case MATUSAGE_NiagaraMeshParticles: UsageValue = bUsedWithNiagaraMeshParticles; break;
 		case MATUSAGE_StaticLighting: UsageValue = bUsedWithStaticLighting; break;
 		case MATUSAGE_MorphTargets: UsageValue = bUsedWithMorphTargets; break;
 		case MATUSAGE_SplineMesh: UsageValue = bUsedWithSplineMeshes; break;
@@ -1148,6 +1176,18 @@ void UMaterial::SetUsageByFlag(EMaterialUsage Usage, bool NewValue)
 		{
 			bUsedWithMeshParticles = NewValue; break;
 		}
+		case MATUSAGE_NiagaraSprites:
+		{
+			bUsedWithNiagaraSprites = NewValue; break;
+		}
+		case MATUSAGE_NiagaraRibbons:
+		{
+			bUsedWithNiagaraRibbons = NewValue; break;
+		}
+		case MATUSAGE_NiagaraMeshParticles:
+		{
+			bUsedWithNiagaraMeshParticles = NewValue; break;
+		}
 		case MATUSAGE_StaticLighting:
 		{
 			bUsedWithStaticLighting = NewValue; break;
@@ -1185,6 +1225,9 @@ FString UMaterial::GetUsageName(EMaterialUsage Usage) const
 		case MATUSAGE_ParticleSprites: UsageName = TEXT("bUsedWithParticleSprites"); break;
 		case MATUSAGE_BeamTrails: UsageName = TEXT("bUsedWithBeamTrails"); break;
 		case MATUSAGE_MeshParticles: UsageName = TEXT("bUsedWithMeshParticles"); break;
+		case MATUSAGE_NiagaraSprites: UsageName = TEXT("bUsedWithNiagaraSprites"); break;
+		case MATUSAGE_NiagaraRibbons: UsageName = TEXT("bUsedWithNiagaraRibbons"); break;
+		case MATUSAGE_NiagaraMeshParticles: UsageName = TEXT("bUsedWithNiagaraMeshParticles"); break;
 		case MATUSAGE_StaticLighting: UsageName = TEXT("bUsedWithStaticLighting"); break;
 		case MATUSAGE_MorphTargets: UsageName = TEXT("bUsedWithMorphTargets"); break;
 		case MATUSAGE_SplineMesh: UsageName = TEXT("bUsedWithSplineMeshes"); break;
@@ -1257,6 +1300,9 @@ static bool IsPrimitiveTypeUsageFlag(EMaterialUsage Usage)
 		|| Usage == MATUSAGE_ParticleSprites
 		|| Usage == MATUSAGE_BeamTrails
 		|| Usage == MATUSAGE_MeshParticles
+		|| Usage == MATUSAGE_NiagaraSprites
+		|| Usage == MATUSAGE_NiagaraRibbons
+		|| Usage == MATUSAGE_NiagaraMeshParticles
 		|| Usage == MATUSAGE_MorphTargets
 		|| Usage == MATUSAGE_SplineMesh
 		|| Usage == MATUSAGE_InstancedStaticMeshes
@@ -1267,7 +1313,7 @@ bool UMaterial::NeedsSetMaterialUsage_Concurrent(bool &bOutHasUsage, EMaterialUs
 {
 	bOutHasUsage = true;
 	// Material usage is only relevant for materials that can be applied onto a mesh / use with different vertex factories.
-	if (MaterialDomain != MD_Surface && MaterialDomain != MD_DeferredDecal)
+	if (MaterialDomain != MD_Surface && MaterialDomain != MD_DeferredDecal && MaterialDomain != MD_Volume)
 	{
 		bOutHasUsage = false;
 		return false;
@@ -1297,7 +1343,7 @@ bool UMaterial::SetMaterialUsage(bool &bNeedsRecompile, EMaterialUsage Usage, co
 	bNeedsRecompile = false;
 
 	// Material usage is only relevant for materials that can be applied onto a mesh / use with different vertex factories.
-	if (MaterialDomain != MD_Surface && MaterialDomain != MD_DeferredDecal)
+	if (MaterialDomain != MD_Surface && MaterialDomain != MD_DeferredDecal && MaterialDomain != MD_Volume)
 	{
 		return false;
 	}
@@ -2394,6 +2440,8 @@ void UMaterial::RebuildExpressionTextureReferences()
 
 FMaterialResource* UMaterial::GetMaterialResource(ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type QualityLevel)
 {
+	check(InFeatureLevel != ERHIFeatureLevel::Num);
+
 	if (QualityLevel == EMaterialQualityLevel::Num)
 	{
 		QualityLevel = GetCachedScalabilityCVars().MaterialQualityLevel;
@@ -2420,9 +2468,17 @@ void UMaterial::Serialize(FArchive& Ar)
 
 	Super::Serialize(Ar);
 
-	if (FPlatformProperties::RequiresCookedData() && Ar.IsLoading())
+	if(Ar.IsLoading())
 	{
-		Expressions.Remove(nullptr);
+#if WITH_EDITOR
+		bool bCooked = FPlatformProperties::RequiresCookedData() || GetOutermost()->bIsCookedForEditor;
+#else
+		bool bCooked = FPlatformProperties::RequiresCookedData();
+#endif
+		if (bCooked)
+		{
+			Expressions.Remove(nullptr);
+		}
 	}
 
 	if (Ar.UE4Ver() >= VER_UE4_PURGED_FMATERIAL_COMPILE_OUTPUTS)
@@ -3020,7 +3076,7 @@ bool UMaterial::CanEditChange(const UProperty* InProperty) const
 
 		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, BlendMode))
 		{
-			return MaterialDomain == MD_DeferredDecal || MaterialDomain == MD_Surface || MaterialDomain == MD_UI;
+			return MaterialDomain == MD_DeferredDecal || MaterialDomain == MD_Surface || MaterialDomain == MD_Volume || MaterialDomain == MD_UI;
 		}
 	
 		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, ShadingModel))
@@ -3048,7 +3104,8 @@ bool UMaterial::CanEditChange(const UProperty* InProperty) const
 			|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bEnableResponsiveAA)
 			|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bScreenSpaceReflections)
 			|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bDisableDepthTest)
-			|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bUseTranslucencyVertexFog))
+			|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bUseTranslucencyVertexFog)
+			|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bComputeFogPerPixel))
 		{
 			return MaterialDomain != MD_DeferredDecal && IsTranslucentBlendMode(BlendMode);
 		}
@@ -4342,6 +4399,7 @@ EMaterialShadingModel UMaterial::GetShadingModel() const
 	switch (MaterialDomain)
 	{
 		case MD_Surface:
+		case MD_Volume:
 			return ShadingModel;
 		case MD_DeferredDecal:
 			return MSM_DefaultLit;
@@ -4487,6 +4545,12 @@ bool UMaterial::IsPropertyActive(EMaterialProperty InProperty) const
 				// if you create a new mode it needs to expose the right pins
 				return false;
 		}
+	}
+	else if (MaterialDomain == MD_Volume)
+	{
+		return InProperty == MP_EmissiveColor
+			|| InProperty == MP_Opacity
+			|| InProperty == MP_BaseColor;
 	}
 	else if ( MaterialDomain == MD_UI )
 	{

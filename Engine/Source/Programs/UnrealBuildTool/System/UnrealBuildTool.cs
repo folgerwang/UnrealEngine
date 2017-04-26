@@ -675,6 +675,10 @@ namespace UnrealBuildTool
 						{
 							ProjectFileTypes.Add(ProjectFileType.XCode);
 						}
+						else if (LowercaseArg.StartsWith("-eddieprojectfile"))
+						{
+							ProjectFileTypes.Add(ProjectFileType.Eddie);
+						}
 						else if (LowercaseArg == "development" || LowercaseArg == "debug" || LowercaseArg == "shipping" || LowercaseArg == "test" || LowercaseArg == "debuggame")
 						{
 							//ConfigName = Arg;
@@ -832,6 +836,9 @@ namespace UnrealBuildTool
 									break;
 								case ProjectFileType.XCode:
 									Generator = new XcodeProjectFileGenerator(ProjectFile);
+									break;
+								case ProjectFileType.Eddie:
+									Generator = new EddieProjectFileGenerator(ProjectFile);
 									break;
 								default:
 									throw new BuildException("Unhandled project file type '{0}", ProjectFileType);
@@ -1704,7 +1711,7 @@ namespace UnrealBuildTool
 
 			if (!ProjectFileGenerator.bGenerateProjectFiles && !BuildConfiguration.bGenerateManifest && bIsEditorTarget)
 			{
-				List<FileReference> EditorProcessFilenames = UEBuildTarget.MakeExecutablePaths(UnrealBuildTool.EngineDirectory, "UE4Editor", TargetDesc.Platform, TargetDesc.Configuration, "", UnrealTargetConfiguration.Development, false, null, null, null);
+				List<FileReference> EditorProcessFilenames = UEBuildTarget.MakeBinaryPaths(UnrealBuildTool.EngineDirectory, "UE4Editor", TargetDesc.Platform, TargetDesc.Configuration, UEBuildBinaryType.Executable, "", UnrealTargetConfiguration.Development, false, null, null, null, null);
 				if (EditorProcessFilenames.Count != 1)
 				{
 					throw new BuildException("ShouldDoHotReload cannot handle multiple binaries returning from UEBuildTarget.MakeExecutablePaths");

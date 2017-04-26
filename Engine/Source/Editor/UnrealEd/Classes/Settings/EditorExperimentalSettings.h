@@ -42,14 +42,7 @@ public:
 	UPROPERTY(EditAnywhere, config, Category = Tools, meta = (DisplayName = "Enable Details Panel Favorites"))
 	bool bEnableFavoriteSystem;
 
-	/** Enables content hot-reloading in the editor (eg, when syncing new assets via source control) */
-	UPROPERTY(EditAnywhere, config, Category = Tools, meta = (DisplayName = "Content Hot-Reloading"))
-	bool bEnableContentHotReloading;
 
-	/** Enable being able to subclass components in blueprints */
-	UPROPERTY(EditAnywhere, config, Category=Tools, meta=(ConfigRestartRequired=true))
-	bool bBlueprintableComponents;
-	
 	/** Device output log window (currently implemented for Android only)*/
 	UPROPERTY(EditAnywhere, config, Category = Tools, meta = (DisplayName = "Device Output Log"))
 	bool bDeviceOutputLog;
@@ -130,8 +123,12 @@ public:
 	bool bAllowPotentiallyUnsafePropertyEditing;
 
 	/** Enable experimental bulk facial animation importer (found in Developer Tools menu, requires editor restart) */
-	UPROPERTY(EditAnywhere, config, Category = Tools)
+	UPROPERTY(EditAnywhere, config, Category = Tools, meta = (ConfigRestartRequired = true))
 	bool bFacialAnimationImporter;
+
+	/** Enable experimental clothing tools (parameter painting and simulation configuration) found in the skeletal mesh editor */
+	UPROPERTY(EditAnywhere, config, Category = Tools)
+	bool bClothingTools;
 
 	/**
 	 * Returns an event delegate that is executed when a setting has changed.

@@ -51,8 +51,6 @@ enum EPhysBodyOp
 	PBO_None,
 	/** Terminate - if you terminate, you won't be able to re-init when unhidden. */
 	PBO_Term,
-	/** Disable collision - it will enable collision when unhidden. */
-	PBO_Disable,
 	PBO_MAX,
 };
 
@@ -158,6 +156,14 @@ struct FSkelMeshComponentLODInfo
 	void CleanUp();
 };
 
+/** Struct used to store per-component ref pose override */
+struct FSkelMeshRefPoseOverride
+{
+	/** Inverse of (component space) ref pose matrices  */
+	TArray<FMatrix> RefBasesInvMatrix;
+	/** Per bone transforms (local space) for new ref pose */
+	TArray<FTransform> RefBonePoses;
+};
 
 /**
  *
@@ -216,6 +222,10 @@ protected:
 
 	/** Incremented every time the master bone map changes. Used to keep in sync with any duplicate data needed by other threads */
 	int32 MasterBoneMapCacheCount;
+
+	/** Information for current ref pose override, if present */
+	FSkelMeshRefPoseOverride* RefPoseOverride;
+
 public:
 
 	const TArray<int32>& GetMasterBoneMap() const { return MasterBoneMap; }
@@ -443,6 +453,24 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Components|SkinnedMesh")
 	void SetForcedLOD(int32 InNewForcedLOD);
 
+#if WITH_EDITOR
+	/**
+	 * Get the LOD Bias of this component
+	 *
+	 * @return	The LOD bias of this component. Derived classes can override this to ignore or override LOD bias settings.
+	 */
+	virtual int32 GetLODBias() const;
+#endif
+
+	UFUNCTION(BlueprintCallable, Category="Lighting")
+	void SetCastCapsuleDirectShadow(bool bNewValue);
+
+	UFUNCTION(BlueprintCallable, Category="Lighting")
+	void SetCastCapsuleIndirectShadow(bool bNewValue);
+
+	UFUNCTION(BlueprintCallable, Category="Lighting")
+	void SetCapsuleIndirectShadowMinVisibility(float NewValue);
+
 	/**
 	*  Returns the number of bones in the skeleton.
 	*/
@@ -637,6 +665,14 @@ public:
 	/** Returns skin weight vertex buffer to use for specific LOD (will look at override) */
 	FSkinWeightVertexBuffer* GetSkinWeightBuffer(int32 LODIndex) const;
 
+	/** Apply an override for the current mesh ref pose */
+	virtual void SetRefPoseOverride(const TArray<FTransform>& NewRefPoseTransforms);
+
+	/** Accessor for RefPoseOverride */
+	virtual const FSkelMeshRefPoseOverride* GetRefPoseOverride() const { return RefPoseOverride; }
+
+	/** Clear any applied ref pose override */
+	virtual void ClearRefPoseOverride();
 
 	/**
 	 * Update functions

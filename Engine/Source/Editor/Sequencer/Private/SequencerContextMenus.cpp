@@ -137,7 +137,7 @@ void FKeyContextMenu::PopulateMenu(FMenuBuilder& MenuBuilder)
 
 	MenuBuilder.BeginSection("SequencerKeys", LOCTEXT("KeysMenu", "Keys"));
 	{
-		const bool bUseFrames = SequencerSnapValues::IsTimeSnapIntervalFrameRate(Sequencer->GetSettings()->GetTimeSnapInterval());
+		const bool bUseFrames = SequencerSnapValues::IsTimeSnapIntervalFrameRate(Sequencer->GetFixedFrameInterval());
 
 		MenuBuilder.AddMenuEntry(
 			bUseFrames ? LOCTEXT("SetKeyFrame", "Set Key Frame") : LOCTEXT("SetKeyTime", "Set Key Time"),
@@ -756,9 +756,8 @@ bool FSectionContextMenu::CanPrimeForRecording() const
 	if(SelectedSections.Num() > 0)
 	{
 		const FSectionHandle& Handle = SelectedSections[0];
-		UMovieSceneSubSection* SubSection = Cast<UMovieSceneSubSection>(Handle.GetSectionObject());
-		UMovieSceneCinematicShotSection* CinematicShotSection = Cast<UMovieSceneCinematicShotSection>(Handle.GetSectionObject());
-		if (SubSection && !CinematicShotSection)
+		UMovieSceneSubSection* SubSection = ExactCast<UMovieSceneSubSection>(Handle.GetSectionObject());
+		if (SubSection)
 		{
 			return true;
 		}	

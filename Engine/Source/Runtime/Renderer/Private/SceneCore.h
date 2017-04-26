@@ -215,6 +215,13 @@ public:
 	float FullyDirectionalInscatteringColorDistance;
 	float NonDirectionalInscatteringColorDistance;
 
+	bool bEnableVolumetricFog;
+	float VolumetricFogScatteringDistribution;
+	FLinearColor VolumetricFogAlbedo;
+	float VolumetricFogExtinctionScale;
+	float VolumetricFogDistance;
+	bool bOverrideLightColorsWithFogInscatteringColors;
+
 	/** Initialization constructor. */
 	FExponentialHeightFogSceneInfo(const UExponentialHeightFogComponent* InComponent);
 };

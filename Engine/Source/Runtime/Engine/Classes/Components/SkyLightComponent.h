@@ -148,11 +148,17 @@ class ENGINE_API USkyLightComponent : public ULightComponentBase
 	/** 
 	 * Contrast S-curve applied to the computed AO.  A value of 0 means no contrast increase, 1 is a significant contrast increase.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=DistanceFieldAmbientOcclusion, meta=(UIMin = "0", UIMax = "1"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=DistanceFieldAmbientOcclusion, meta=(UIMin = "0", UIMax = "1", DisplayName = "Occlusion Contrast"))
 	float Contrast;
 
 	/** 
-	 * Controls the darkest that a fully occluded area can get.
+	 * Exponent applied to the computed AO.  Values lower than 1 brighten occlusion overall without losing contact shadows.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=DistanceFieldAmbientOcclusion, meta=(UIMin = ".6", UIMax = "1.6"))
+	float OcclusionExponent;
+
+	/** 
+	 * Controls the darkest that a fully occluded area can get.  This tends to destroy contact shadows, use Contrast or OcclusionExponent instead.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=DistanceFieldAmbientOcclusion, meta=(UIMin = "0", UIMax = "1"))
 	float MinOcclusion;
@@ -161,6 +167,10 @@ class ENGINE_API USkyLightComponent : public ULightComponentBase
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=DistanceFieldAmbientOcclusion)
 	FColor OcclusionTint;
 
+	/** Controls how occlusion from Distance Field Ambient Occlusion is combined with Screen Space Ambient Occlusion. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=DistanceFieldAmbientOcclusion)
+	TEnumAsByte<enum EOcclusionCombineMode> OcclusionCombineMode;
+		
 	class FSkyLightSceneProxy* CreateSceneProxy() const;
 
 	//~ Begin UObject Interface
@@ -171,6 +181,9 @@ class ENGINE_API USkyLightComponent : public ULightComponentBase
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual bool CanEditChange(const UProperty* InProperty) const override;
 	virtual void CheckForErrors() override;
+
+	// Test if editor needs to update mobile's reflection captures. 
+	static bool MobileSkyCapturesNeedForcedUpdate(UWorld* WorldToUpdate);
 #endif // WITH_EDITOR
 	virtual void BeginDestroy() override;
 	virtual bool IsReadyForFinishDestroy() override;
@@ -191,6 +204,9 @@ class ENGINE_API USkyLightComponent : public ULightComponentBase
 
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|Light")
 	void SetIndirectLightingIntensity(float NewIntensity);
+
+	UFUNCTION(BlueprintCallable, Category="Rendering|Components|Light")
+	void SetVolumetricScatteringIntensity(float NewIntensity);
 
 	/** Set color of the light */
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|SkyLight")
@@ -213,9 +229,18 @@ class ENGINE_API USkyLightComponent : public ULightComponentBase
 	void SetOcclusionTint(const FColor& InTint);
 
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|SkyLight")
+	void SetOcclusionContrast(float InOcclusionContrast);
+
+	UFUNCTION(BlueprintCallable, Category="Rendering|Components|SkyLight")
+	void SetOcclusionExponent(float InOcclusionExponent);
+
+	UFUNCTION(BlueprintCallable, Category="Rendering|Components|SkyLight")
 	void SetMinOcclusion(float InMinOcclusion);
 
-	virtual void SetVisibility(bool bNewVisibility, bool bPropagateToChildren=false) override;
+protected:
+	virtual void OnVisibilityChanged() override;
+
+public:
 
 	/** Indicates that the capture needs to recapture the scene, adds it to the recapture queue. */
 	void SetCaptureIsDirty();
@@ -234,6 +259,8 @@ class ENGINE_API USkyLightComponent : public ULightComponentBase
 	{
 		IrradianceEnvironmentMap = InIrradianceEnvironmentMap;
 	}
+
+	virtual void Serialize(FArchive& Ar) override;
 
 protected:
 
@@ -262,6 +289,10 @@ protected:
 	FRenderCommandFence ReleaseResourcesFence;
 
 	FSkyLightSceneProxy* SceneProxy;
+
+	/** Indicate that the sky capture update was required from load, 
+		used to trigger updates that have been delayed by shader compilation. */
+	bool bSkyCaptureRequiredFromLoad;
 
 	/** 
 	 * List of sky captures that need to be recaptured.

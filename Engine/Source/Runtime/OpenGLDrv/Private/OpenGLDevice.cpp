@@ -739,6 +739,11 @@ static void InitRHICapabilitiesForGL()
 
 	// Emulate uniform buffers on ES2, unless we're on a desktop platform emulating ES2.
 	GUseEmulatedUniformBuffers = IsES2Platform(GMaxRHIShaderPlatform) && !IsPCPlatform(GMaxRHIShaderPlatform);
+#if PLATFORM_HTML5
+	// On browser builds, ask the current browser we are running on whether it supports uniform buffers or not.
+	GUseEmulatedUniformBuffers = !FOpenGL::SupportsUniformBuffers();
+#endif
+
 	if (!GUseEmulatedUniformBuffers && IsPCPlatform(GMaxRHIShaderPlatform))
 	{
 		static auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("OpenGL.UseEmulatedUBs"));
@@ -784,7 +789,7 @@ static void InitRHICapabilitiesForGL()
 	GMaxShadowDepthBufferSizeX = FMath::Min<int32>(Value_GL_MAX_RENDERBUFFER_SIZE, 4096); // Limit to the D3D11 max.
 	GMaxShadowDepthBufferSizeY = FMath::Min<int32>(Value_GL_MAX_RENDERBUFFER_SIZE, 4096);
 	GHardwareHiddenSurfaceRemoval = FOpenGL::HasHardwareHiddenSurfaceRemoval();
-	GRHISupportsInstancing = FOpenGL::SupportsInstancing(); // HTML5 does not support it. Android supports it with OpenGL ES3.0+
+	GRHISupportsInstancing = FOpenGL::SupportsInstancing(); // HTML5 supports it with ANGLE_instanced_arrays or WebGL 2.0+. Android supports it with OpenGL ES3.0+
 	GSupportsTimestampRenderQueries = FOpenGL::SupportsTimestampQueries();
 
 	GSupportsHDR32bppEncodeModeIntrinsic = FOpenGL::SupportsHDR32bppEncodeModeIntrinsic();
@@ -1382,9 +1387,7 @@ void FOpenGLDynamicRHI::Init()
 	VERIFY_GL_SCOPE();
 
 	FOpenGLProgramBinaryCache::Initialize();
-#if PLATFORM_DESKTOP
-	FShaderCache::InitShaderCache(SCO_Default, FOpenGL::GetMaxTextureImageUnits());
-#endif
+	FShaderCache::SetMaxShaderResources(FOpenGL::GetMaxTextureImageUnits());
 
 	InitializeStateResources();
 
@@ -1444,10 +1447,6 @@ void FOpenGLDynamicRHI::Init()
 
 	CheckTextureCubeLodSupport();
 	CheckVaryingLimit();
-
-#if PLATFORM_DESKTOP
-	FShaderCache::LoadBinaryCache();
-#endif
 }
 
 void FOpenGLDynamicRHI::Shutdown()
@@ -1466,9 +1465,6 @@ void FOpenGLDynamicRHI::Cleanup()
 {
 	if(GIsRHIInitialized)
 	{
-#if PLATFORM_DESKTOP
-		FShaderCache::ShutdownShaderCache();
-#endif
 		FOpenGLProgramBinaryCache::Shutdown();
 
 		// Reset the RHI initialized flag.

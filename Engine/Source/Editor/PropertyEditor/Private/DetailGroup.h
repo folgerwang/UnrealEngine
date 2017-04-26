@@ -30,8 +30,11 @@ public:
 	virtual void ToggleExpansion( bool bExpand ) override;
 	virtual bool GetExpansionState() const override;
 
+	TSharedPtr<FDetailPropertyRow> GetHeaderPropertyRow() const;
+	TSharedPtr<FPropertyNode> GetHeaderPropertyNode() const;
+
 	/** @return The name of the group */
-	FName GetGroupName() const { return GroupName; }
+	virtual FName GetGroupName() const override { return GroupName; }
 
 	/** Whether or not the group has columns */
 	bool HasColumns() const;
@@ -72,6 +75,16 @@ public:
 	*/
 	virtual void EnableReset(bool InValue);
 
+	/**
+	* Return the property row associated with the specified property handle
+	*/
+	virtual TSharedPtr<IDetailPropertyRow> FindPropertyRow(TSharedRef<IPropertyHandle> PropertyHandle) const override;
+
+	/**
+	* Return the delegate called when user press the Group Reset ui
+	*/
+	virtual FDetailGroupReset& GetOnDetailGroupReset() override { return OnDetailGroupReset; }
+
 private:
 	/**
 	 * Called when the name of the group is clicked to expand the group
@@ -108,4 +121,6 @@ private:
 	bool bStartExpanded;
 	/** Permit resetting all the properties in the group */
 	bool ResetEnabled;
+	/**	Delegate called when user press the Group Reset ui */
+	FDetailGroupReset OnDetailGroupReset;
 };

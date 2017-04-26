@@ -196,12 +196,6 @@ public:
 	 */
 	virtual void DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer ) = 0;
 	
-	/** 
-	 * Renders a window using resources stored from a previous call to DrawWindows, if
-	 * the previous call did store that data. Optional implementation.
-	 */
-	virtual void DrawWindows() {}
-	
 	/** Callback that fires after Slate has rendered each window, each frame */
 	DECLARE_MULTICAST_DELEGATE_TwoParams( FOnSlateWindowRendered, SWindow&, void* );
 	FOnSlateWindowRendered& OnSlateWindowRendered() { return SlateWindowRendered; }
@@ -452,6 +446,8 @@ public:
 
 	/** Reset the internal Scene tracking.*/
 	virtual void ClearScenes() = 0;
+
+	virtual bool HasLostDevice() const { return false; }
 
 private:
 

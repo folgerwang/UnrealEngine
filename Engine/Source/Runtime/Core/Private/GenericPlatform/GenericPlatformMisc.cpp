@@ -926,6 +926,16 @@ void FGenericPlatformMisc::SetOverrideGameDir(const FString& InOverrideDir)
 	OverrideGameDir = InOverrideDir;
 }
 
+bool FGenericPlatformMisc::AllowThreadHeartBeat()
+{
+	if (FParse::Param(FCommandLine::Get(), TEXT("noheartbeatthread")))
+	{
+		return false;
+	}
+
+	return true;
+}
+
 int32 FGenericPlatformMisc::NumberOfCoresIncludingHyperthreads()
 {
 	return FPlatformMisc::NumberOfCores();
@@ -968,6 +978,11 @@ bool FGenericPlatformMisc::GetSHA256Signature(const void* Data, uint32 ByteSize,
 	checkf(false, TEXT("No SHA256 Platform implementation"));
 	FMemory::Memzero(OutSignature.Signature);
 	return false;
+}
+
+FString FGenericPlatformMisc::GetDefaultLanguage()
+{
+	return FPlatformMisc::GetDefaultLocale();
 }
 
 FString FGenericPlatformMisc::GetDefaultLocale()

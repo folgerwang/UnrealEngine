@@ -25,6 +25,7 @@ LandscapeRender.cpp: New terrain rendering
 #include "UnrealEngine.h"
 #include "LandscapeLight.h"
 #include "Containers/Algo/Find.h"
+#include "Engine/StaticMesh.h"
 
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FLandscapeUniformShaderParameters, TEXT("LandscapeParameters"));
@@ -459,93 +460,6 @@ UMaterialInterface* GSelectionRegionMaterial = nullptr;
 UMaterialInterface* GMaskRegionMaterial = nullptr;
 UTexture2D* GLandscapeBlackTexture = nullptr;
 UMaterialInterface* GLandscapeLayerUsageMaterial = nullptr;
-
-// Game thread update
-void FLandscapeEditToolRenderData::Update(UMaterialInterface* InToolMaterial)
-{
-	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-		UpdateEditToolRenderData,
-		FLandscapeEditToolRenderData*, LandscapeEditToolRenderData, this,
-		FPrimitiveSceneProxy*, SceneProxy, LandscapeComponent->SceneProxy,
-		UMaterialInterface*, NewToolMaterial, InToolMaterial,
-		{
-			LandscapeEditToolRenderData->ToolMaterial = NewToolMaterial;
-
-			if (SceneProxy)
-			{
-				SceneProxy->AddUsedMaterialForVerification(NewToolMaterial);
-			}
-		});
-}
-
-void FLandscapeEditToolRenderData::UpdateGizmo(UMaterialInterface* InGizmoMaterial)
-{
-	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-		UpdateEditToolRenderData,
-		FLandscapeEditToolRenderData*, LandscapeEditToolRenderData, this,
-		FPrimitiveSceneProxy*, SceneProxy, LandscapeComponent->SceneProxy,
-		UMaterialInterface*, NewGizmoMaterial, InGizmoMaterial,
-		{
-			LandscapeEditToolRenderData->GizmoMaterial = NewGizmoMaterial;
-
-			if (SceneProxy)
-			{
-				SceneProxy->AddUsedMaterialForVerification(NewGizmoMaterial);
-			}
-		});
-}
-
-// Allows game thread to queue the deletion by the render thread
-void FLandscapeEditToolRenderData::Cleanup()
-{
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		CleanupEditToolRenderData,
-		FLandscapeEditToolRenderData*, LandscapeEditToolRenderData, this,
-		{
-			delete LandscapeEditToolRenderData;
-		}
-	);
-}
-
-
-void FLandscapeEditToolRenderData::UpdateDebugColorMaterial()
-{
-	if (!LandscapeComponent)
-	{
-		return;
-	}
-
-	// Debug Color Rendering Material....
-	DebugChannelR = INDEX_NONE, DebugChannelG = INDEX_NONE, DebugChannelB = INDEX_NONE;
-	LandscapeComponent->GetLayerDebugColorKey(DebugChannelR, DebugChannelG, DebugChannelB);
-}
-
-void FLandscapeEditToolRenderData::UpdateSelectionMaterial(int32 InSelectedType)
-{
-	if (!LandscapeComponent)
-	{
-		return;
-	}
-
-	// Check selection
-	if (SelectedType != InSelectedType && (SelectedType & ST_REGION) && !(InSelectedType & ST_REGION))
-	{
-		// Clear Select textures...
-		if (DataTexture)
-		{
-			FLandscapeEditDataInterface LandscapeEdit(LandscapeComponent->GetLandscapeInfo());
-			LandscapeEdit.ZeroTexture(DataTexture);
-		}
-	}
-
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		UpdateSelectionMaterial,
-		FLandscapeEditToolRenderData*, LandscapeEditToolRenderData, this,
-		int32, InSelectedType, InSelectedType,
-		{
-			LandscapeEditToolRenderData->SelectedType = InSelectedType;
-		});
-}
 #endif
 
 void ULandscapeComponent::GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials, bool bGetDebugMaterials) const
@@ -563,18 +477,20 @@ void ULandscapeComponent::GetUsedMaterials(TArray<UMaterialInterface*>& OutMater
 		OutMaterials.Add(OverrideHoleMaterial);
 	}
 
-#if WITH_EDITORONLY_DATA
-	if (EditToolRenderData)
+	if (MobileMaterialInterface)
 	{
-		if (EditToolRenderData->ToolMaterial)
-		{
-			OutMaterials.Add(EditToolRenderData->ToolMaterial);
-		}
+		OutMaterials.AddUnique(MobileMaterialInterface);
+	}
 
-		if (EditToolRenderData->GizmoMaterial)
-		{
-			OutMaterials.Add(EditToolRenderData->GizmoMaterial);
-		}
+#if WITH_EDITORONLY_DATA
+	if (EditToolRenderData.ToolMaterial)
+	{
+		OutMaterials.Add(EditToolRenderData.ToolMaterial);
+	}
+
+	if (EditToolRenderData.GizmoMaterial)
+	{
+		OutMaterials.Add(EditToolRenderData.GizmoMaterial);
 	}
 #endif
 
@@ -599,7 +515,7 @@ TMap<FLandscapeNeighborInfo::FLandscapeKey, TMap<FIntPoint, const FLandscapeNeig
 
 const static FName NAME_LandscapeResourceNameForDebugging(TEXT("Landscape"));
 
-FLandscapeComponentSceneProxy::FLandscapeComponentSceneProxy(ULandscapeComponent* InComponent, TArrayView<UMaterialInterface* const> InMaterialInterfacesByLOD, FLandscapeEditToolRenderData* InEditToolRenderData)
+FLandscapeComponentSceneProxy::FLandscapeComponentSceneProxy(ULandscapeComponent* InComponent, TArrayView<UMaterialInterface* const> InMaterialInterfacesByLOD)
 	: FPrimitiveSceneProxy(InComponent, NAME_LandscapeResourceNameForDebugging)
 	, FLandscapeNeighborInfo(InComponent->GetWorld(), InComponent->GetLandscapeProxy()->GetLandscapeGuid(), InComponent->GetSectionBase() / InComponent->ComponentSizeQuads, InComponent->HeightmapTexture, InComponent->ForcedLOD, InComponent->LODBias)
 	, MaxLOD(FMath::CeilLogTwo(InComponent->SubsectionSizeQuads + 1) - 1)
@@ -623,7 +539,9 @@ FLandscapeComponentSceneProxy::FLandscapeComponentSceneProxy(ULandscapeComponent
 	, SharedBuffersKey(0)
 	, SharedBuffers(nullptr)
 	, VertexFactory(nullptr)
-	, EditToolRenderData(InEditToolRenderData)
+#if WITH_EDITORONLY_DATA
+	, EditToolRenderData(InComponent->EditToolRenderData)
+#endif
 	, ComponentLightInfo(nullptr)
 	, LandscapeComponent(InComponent)
 	, LODFalloff(InComponent->GetLandscapeProxy()->LODFalloff)
@@ -945,31 +863,28 @@ FPrimitiveViewRelevance FLandscapeComponentSceneProxy::GetViewRelevance(const FS
 		FMaterialRelevance ToolRelevance = MaterialRelevance;
 
 		// Tool brushes and Gizmo
-		if (EditToolRenderData)
+		if (EditToolRenderData.ToolMaterial)
 		{
-			if (EditToolRenderData->ToolMaterial)
-			{
-				Result.bDynamicRelevance = true;
-				ToolRelevance |= EditToolRenderData->ToolMaterial->GetRelevance_Concurrent(FeatureLevel);
-			}
+			Result.bDynamicRelevance = true;
+			ToolRelevance |= EditToolRenderData.ToolMaterial->GetRelevance_Concurrent(FeatureLevel);
+		}
 
-			if (EditToolRenderData->GizmoMaterial)
-			{
-				Result.bDynamicRelevance = true;
-				ToolRelevance |= EditToolRenderData->GizmoMaterial->GetRelevance_Concurrent(FeatureLevel);
-			}
+		if (EditToolRenderData.GizmoMaterial)
+		{
+			Result.bDynamicRelevance = true;
+			ToolRelevance |= EditToolRenderData.GizmoMaterial->GetRelevance_Concurrent(FeatureLevel);
 		}
 
 		// Region selection
-		if (EditToolRenderData && EditToolRenderData->SelectedType)
+		if (EditToolRenderData.SelectedType)
 		{
-			if ((GLandscapeEditRenderMode & ELandscapeEditRenderMode::SelectRegion) && (EditToolRenderData->SelectedType & FLandscapeEditToolRenderData::ST_REGION)
+			if ((GLandscapeEditRenderMode & ELandscapeEditRenderMode::SelectRegion) && (EditToolRenderData.SelectedType & FLandscapeEditToolRenderData::ST_REGION)
 				&& !(GLandscapeEditRenderMode & ELandscapeEditRenderMode::Mask) && GSelectionRegionMaterial)
 			{
 				Result.bDynamicRelevance = true;
 				ToolRelevance |= GSelectionRegionMaterial->GetRelevance_Concurrent(FeatureLevel);
 			}
-			if ((GLandscapeEditRenderMode & ELandscapeEditRenderMode::SelectComponent) && (EditToolRenderData->SelectedType & FLandscapeEditToolRenderData::ST_COMPONENT) && GSelectionColorMaterial)
+			if ((GLandscapeEditRenderMode & ELandscapeEditRenderMode::SelectComponent) && (EditToolRenderData.SelectedType & FLandscapeEditToolRenderData::ST_COMPONENT) && GSelectionColorMaterial)
 			{
 				Result.bDynamicRelevance = true;
 				ToolRelevance |= GSelectionColorMaterial->GetRelevance_Concurrent(FeatureLevel);
@@ -978,7 +893,7 @@ FPrimitiveViewRelevance FLandscapeComponentSceneProxy::GetViewRelevance(const FS
 
 		// Mask
 		if ((GLandscapeEditRenderMode & ELandscapeEditRenderMode::Mask) && GMaskRegionMaterial != nullptr &&
-			((EditToolRenderData && (EditToolRenderData->SelectedType & FLandscapeEditToolRenderData::ST_REGION)) || (!(GLandscapeEditRenderMode & ELandscapeEditRenderMode::InvertedMask))))
+			(((EditToolRenderData.SelectedType & FLandscapeEditToolRenderData::ST_REGION)) || (!(GLandscapeEditRenderMode & ELandscapeEditRenderMode::InvertedMask))))
 		{
 			Result.bDynamicRelevance = true;
 			ToolRelevance |= GMaskRegionMaterial->GetRelevance_Concurrent(FeatureLevel);
@@ -1620,15 +1535,15 @@ void FLandscapeComponentSceneProxy::GetDynamicMeshElements(const TArray<const FS
 			switch (GLandscapeViewMode)
 			{
 			case ELandscapeViewMode::DebugLayer:
-				if (GLayerDebugColorMaterial && EditToolRenderData)
+				if (GLayerDebugColorMaterial)
 				{
 					auto DebugColorMaterialInstance = new FLandscapeDebugMaterialRenderProxy(GLayerDebugColorMaterial->GetRenderProxy(false),
-						(EditToolRenderData->DebugChannelR >= 0 ? WeightmapTextures[EditToolRenderData->DebugChannelR / 4] : nullptr),
-						(EditToolRenderData->DebugChannelG >= 0 ? WeightmapTextures[EditToolRenderData->DebugChannelG / 4] : nullptr),
-						(EditToolRenderData->DebugChannelB >= 0 ? WeightmapTextures[EditToolRenderData->DebugChannelB / 4] : nullptr),
-						(EditToolRenderData->DebugChannelR >= 0 ? DebugColorMask::Masks[EditToolRenderData->DebugChannelR % 4] : DebugColorMask::Masks[4]),
-						(EditToolRenderData->DebugChannelG >= 0 ? DebugColorMask::Masks[EditToolRenderData->DebugChannelG % 4] : DebugColorMask::Masks[4]),
-						(EditToolRenderData->DebugChannelB >= 0 ? DebugColorMask::Masks[EditToolRenderData->DebugChannelB % 4] : DebugColorMask::Masks[4])
+						(EditToolRenderData.DebugChannelR >= 0 ? WeightmapTextures[EditToolRenderData.DebugChannelR / 4] : nullptr),
+						(EditToolRenderData.DebugChannelG >= 0 ? WeightmapTextures[EditToolRenderData.DebugChannelG / 4] : nullptr),
+						(EditToolRenderData.DebugChannelB >= 0 ? WeightmapTextures[EditToolRenderData.DebugChannelB / 4] : nullptr),
+						(EditToolRenderData.DebugChannelR >= 0 ? DebugColorMask::Masks[EditToolRenderData.DebugChannelR % 4] : DebugColorMask::Masks[4]),
+						(EditToolRenderData.DebugChannelG >= 0 ? DebugColorMask::Masks[EditToolRenderData.DebugChannelG % 4] : DebugColorMask::Masks[4]),
+						(EditToolRenderData.DebugChannelB >= 0 ? DebugColorMask::Masks[EditToolRenderData.DebugChannelB % 4] : DebugColorMask::Masks[4])
 						);
 
 					MeshTools.MaterialRenderProxy = DebugColorMaterialInstance;
@@ -1646,7 +1561,6 @@ void FLandscapeComponentSceneProxy::GetDynamicMeshElements(const TArray<const FS
 				break;
 
 			case ELandscapeViewMode::LayerDensity:
-				if (EditToolRenderData)
 				{
 					int32 ColorIndex = FMath::Min<int32>(NumWeightmapLayerAllocations, GEngine->ShaderComplexityColors.Num());
 					auto LayerDensityMaterialInstance = new FColoredMaterialRenderProxy(GEngine->LevelColorationUnlitMaterial->GetRenderProxy(false), ColorIndex ? GEngine->ShaderComplexityColors[ColorIndex - 1] : FLinearColor::Black);
@@ -1666,7 +1580,7 @@ void FLandscapeComponentSceneProxy::GetDynamicMeshElements(const TArray<const FS
 				break;
 
 			case ELandscapeViewMode::LayerUsage:
-				if (EditToolRenderData && GLandscapeLayerUsageMaterial)
+				if (GLandscapeLayerUsageMaterial)
 				{
 					float Rotation = ((SectionBase.X / ComponentSizeQuads) ^ (SectionBase.Y / ComponentSizeQuads)) & 1 ? 0 : 2.f * PI;
 					auto LayerUsageMaterialInstance = new FLandscapeLayerUsageRenderProxy(GLandscapeLayerUsageMaterial->GetRenderProxy(false), ComponentSizeVerts, LayerColors, Rotation);
@@ -1797,14 +1711,14 @@ void FLandscapeComponentSceneProxy::GetDynamicMeshElements(const TArray<const FS
 			if (GLandscapeEditModeActive)
 			{
 				// Region selection
-				if (EditToolRenderData && EditToolRenderData->SelectedType)
+				if (EditToolRenderData.SelectedType)
 				{
-					if ((GLandscapeEditRenderMode & ELandscapeEditRenderMode::SelectRegion) && (EditToolRenderData->SelectedType & FLandscapeEditToolRenderData::ST_REGION)
+					if ((GLandscapeEditRenderMode & ELandscapeEditRenderMode::SelectRegion) && (EditToolRenderData.SelectedType & FLandscapeEditToolRenderData::ST_REGION)
 						&& !(GLandscapeEditRenderMode & ELandscapeEditRenderMode::Mask))
 					{
 						FMeshBatch& SelectMesh = Collector.AllocateMesh();
 						SelectMesh = MeshTools;
-						auto SelectMaterialInstance = new FLandscapeSelectMaterialRenderProxy(GSelectionRegionMaterial->GetRenderProxy(false), EditToolRenderData->DataTexture ? EditToolRenderData->DataTexture : GLandscapeBlackTexture);
+						auto SelectMaterialInstance = new FLandscapeSelectMaterialRenderProxy(GSelectionRegionMaterial->GetRenderProxy(false), EditToolRenderData.DataTexture ? EditToolRenderData.DataTexture : GLandscapeBlackTexture);
 						SelectMesh.MaterialRenderProxy = SelectMaterialInstance;
 						Collector.RegisterOneFrameMaterialProxy(SelectMaterialInstance);
 						Collector.AddMesh(ViewIndex, SelectMesh);
@@ -1813,7 +1727,7 @@ void FLandscapeComponentSceneProxy::GetDynamicMeshElements(const TArray<const FS
 						NumDrawCalls += SelectMesh.Elements.Num();
 					}
 
-					if ((GLandscapeEditRenderMode & ELandscapeEditRenderMode::SelectComponent) && (EditToolRenderData->SelectedType & FLandscapeEditToolRenderData::ST_COMPONENT))
+					if ((GLandscapeEditRenderMode & ELandscapeEditRenderMode::SelectComponent) && (EditToolRenderData.SelectedType & FLandscapeEditToolRenderData::ST_COMPONENT))
 					{
 						FMeshBatch& SelectMesh = Collector.AllocateMesh();
 						SelectMesh = MeshTools;
@@ -1828,11 +1742,11 @@ void FLandscapeComponentSceneProxy::GetDynamicMeshElements(const TArray<const FS
 				// Mask
 				if ((GLandscapeEditRenderMode & ELandscapeEditRenderMode::SelectRegion) && (GLandscapeEditRenderMode & ELandscapeEditRenderMode::Mask))
 				{
-					if (EditToolRenderData && (EditToolRenderData->SelectedType & FLandscapeEditToolRenderData::ST_REGION))
+					if (EditToolRenderData.SelectedType & FLandscapeEditToolRenderData::ST_REGION)
 					{
 						FMeshBatch& MaskMesh = Collector.AllocateMesh();
 						MaskMesh = MeshTools;
-						auto MaskMaterialInstance = new FLandscapeMaskMaterialRenderProxy(GMaskRegionMaterial->GetRenderProxy(false), EditToolRenderData->DataTexture ? EditToolRenderData->DataTexture : GLandscapeBlackTexture, !!(GLandscapeEditRenderMode & ELandscapeEditRenderMode::InvertedMask));
+						auto MaskMaterialInstance = new FLandscapeMaskMaterialRenderProxy(GMaskRegionMaterial->GetRenderProxy(false), EditToolRenderData.DataTexture ? EditToolRenderData.DataTexture : GLandscapeBlackTexture, !!(GLandscapeEditRenderMode & ELandscapeEditRenderMode::InvertedMask));
 						MaskMesh.MaterialRenderProxy = MaskMaterialInstance;
 						Collector.RegisterOneFrameMaterialProxy(MaskMaterialInstance);
 						Collector.AddMesh(ViewIndex, MaskMesh);
@@ -1855,29 +1769,26 @@ void FLandscapeComponentSceneProxy::GetDynamicMeshElements(const TArray<const FS
 				}
 
 				// Edit mode tools
-				if (EditToolRenderData)
+				if (EditToolRenderData.ToolMaterial)
 				{
-					if (EditToolRenderData->ToolMaterial)
-					{
-						FMeshBatch& EditMesh = Collector.AllocateMesh();
-						EditMesh = MeshTools;
-						EditMesh.MaterialRenderProxy = EditToolRenderData->ToolMaterial->GetRenderProxy(0);
-						Collector.AddMesh(ViewIndex, EditMesh);
-						NumPasses++;
-						NumTriangles += EditMesh.GetNumPrimitives();
-						NumDrawCalls += EditMesh.Elements.Num();
-					}
+					FMeshBatch& EditMesh = Collector.AllocateMesh();
+					EditMesh = MeshTools;
+					EditMesh.MaterialRenderProxy = EditToolRenderData.ToolMaterial->GetRenderProxy(0);
+					Collector.AddMesh(ViewIndex, EditMesh);
+					NumPasses++;
+					NumTriangles += EditMesh.GetNumPrimitives();
+					NumDrawCalls += EditMesh.Elements.Num();
+				}
 
-					if (EditToolRenderData->GizmoMaterial && GLandscapeEditRenderMode & ELandscapeEditRenderMode::Gizmo)
-					{
-						FMeshBatch& EditMesh = Collector.AllocateMesh();
-						EditMesh = MeshTools;
-						EditMesh.MaterialRenderProxy = EditToolRenderData->GizmoMaterial->GetRenderProxy(0);
-						Collector.AddMesh(ViewIndex, EditMesh);
-						NumPasses++;
-						NumTriangles += EditMesh.GetNumPrimitives();
-						NumDrawCalls += EditMesh.Elements.Num();
-					}
+				if (EditToolRenderData.GizmoMaterial && GLandscapeEditRenderMode & ELandscapeEditRenderMode::Gizmo)
+				{
+					FMeshBatch& EditMesh = Collector.AllocateMesh();
+					EditMesh = MeshTools;
+					EditMesh.MaterialRenderProxy = EditToolRenderData.GizmoMaterial->GetRenderProxy(0);
+					Collector.AddMesh(ViewIndex, EditMesh);
+					NumPasses++;
+					NumTriangles += EditMesh.GetNumPrimitives();
+					NumDrawCalls += EditMesh.Elements.Num();
 				}
 			}
 #endif // WITH_EDITOR
@@ -2697,6 +2608,9 @@ public:
 	bool IsUsedWithParticleSprites()       const override { return false; }
 	bool IsUsedWithBeamTrails()            const override { return false; }
 	bool IsUsedWithMeshParticles()         const override { return false; }
+	bool IsUsedWithNiagaraSprites()       const override { return false; }
+	bool IsUsedWithNiagaraRibbons()       const override { return false; }
+	bool IsUsedWithNiagaraMeshParticles()       const override { return false; }
 	bool IsUsedWithMorphTargets()          const override { return false; }
 	bool IsUsedWithSplineMeshes()          const override { return false; }
 	bool IsUsedWithInstancedStaticMeshes() const override { return false; }
@@ -3000,12 +2914,12 @@ void ULandscapeComponent::GetStreamingTextureInfo(FStreamingTextureLevelContext&
 	}
 
 #if WITH_EDITOR
-	if (GIsEditor && EditToolRenderData && EditToolRenderData->DataTexture)
+	if (GIsEditor && EditToolRenderData.DataTexture)
 	{
 		FStreamingTexturePrimitiveInfo& StreamingDatamap = *new(OutStreamingTextures)FStreamingTexturePrimitiveInfo;
 		StreamingDatamap.Bounds = BoundingSphere;
 		StreamingDatamap.TexelFactor = TexelFactor;
-		StreamingDatamap.Texture = EditToolRenderData->DataTexture;
+		StreamingDatamap.Texture = EditToolRenderData.DataTexture;
 	}
 #endif
 }

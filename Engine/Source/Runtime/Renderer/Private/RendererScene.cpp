@@ -49,6 +49,8 @@
 #include "SpeedTreeWind.h"
 #include "Components/WindDirectionalSourceComponent.h"
 #include "PlanarReflectionSceneProxy.h"
+#include "Engine/StaticMesh.h"
+#include "GPUSkinCache.h"
 
 // Enable this define to do slow checks for components being added to the wrong
 // world's scene, when using PIE. This can happen if a PIE component is reattached
@@ -283,6 +285,8 @@ FDistanceFieldSceneData::FDistanceFieldSceneData(EShaderPlatform ShaderPlatform)
 	static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.GenerateMeshDistanceFields"));
 
 	bTrackAllPrimitives = (DoesPlatformSupportDistanceFieldAO(ShaderPlatform) || DoesPlatformSupportDistanceFieldShadowing(ShaderPlatform)) && CVar->GetValueOnGameThread() != 0;
+	
+	bCanUse16BitObjectIndices = !IsMetalPlatform(ShaderPlatform);
 }
 
 FDistanceFieldSceneData::~FDistanceFieldSceneData() 
@@ -532,7 +536,9 @@ FORCEINLINE static void VerifyProperPIEScene(UPrimitiveComponent* Component, UWo
 #endif
 }
 
-FScene::FReadOnlyCVARCache::FReadOnlyCVARCache()
+FReadOnlyCVARCache* FReadOnlyCVARCache::Singleton = nullptr;
+
+FReadOnlyCVARCache::FReadOnlyCVARCache()
 {
 	static const auto CVarSupportAtmosphericFog = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.SupportAtmosphericFog"));
 	static const auto CVarSupportStationarySkylight = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.SupportStationarySkylight"));
@@ -541,6 +547,13 @@ FScene::FReadOnlyCVARCache::FReadOnlyCVARCache()
 	static const auto CVarSupportAllShaderPermutations = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.SupportAllShaderPermutations"));	
 	static const auto CVarVertexFoggingForOpaque = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.VertexFoggingForOpaque"));	
 	static const auto CVarForwardShading = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.ForwardShading"));
+	static const auto CVarAllowStaticLighting = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowStaticLighting"));
+
+	static const auto CVarMobileAllowMovableDirectionalLights = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.AllowMovableDirectionalLights"));
+	static const auto CVarMobileEnableStaticAndCSMShadowReceivers = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.EnableStaticAndCSMShadowReceivers"));
+	static const auto CVarAllReceiveDynamicCSM = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllReceiveDynamicCSM"));
+	static const auto CVarMobileAllowDistanceFieldShadows = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.AllowDistanceFieldShadows"));
+	static const auto CVarMobileNumDynamicPointLights = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileNumDynamicPointLights"));
 
 	const bool bForceAllPermutations = CVarSupportAllShaderPermutations && CVarSupportAllShaderPermutations->GetValueOnAnyThread() != 0;
 
@@ -548,6 +561,14 @@ FScene::FReadOnlyCVARCache::FReadOnlyCVARCache()
 	bEnableStationarySkylight = !CVarSupportStationarySkylight || CVarSupportStationarySkylight->GetValueOnAnyThread() != 0 || bForceAllPermutations;
 	bEnablePointLightShadows = !CVarSupportPointLightWholeSceneShadows || CVarSupportPointLightWholeSceneShadows->GetValueOnAnyThread() != 0 || bForceAllPermutations;
 	bEnableLowQualityLightmaps = !CVarSupportLowQualityLightmaps || CVarSupportLowQualityLightmaps->GetValueOnAnyThread() != 0 || bForceAllPermutations;
+	bAllowStaticLighting = CVarAllowStaticLighting->GetValueOnAnyThread() != 0;
+
+	// mobile
+	bMobileAllowMovableDirectionalLights = CVarMobileAllowMovableDirectionalLights->GetValueOnAnyThread() != 0;
+	bAllReceiveDynamicCSM = CVarAllReceiveDynamicCSM->GetValueOnAnyThread() != 0;
+	bMobileAllowDistanceFieldShadows = CVarMobileAllowDistanceFieldShadows->GetValueOnAnyThread() != 0;
+	bMobileEnableStaticAndCSMShadowReceivers = CVarMobileEnableStaticAndCSMShadowReceivers->GetValueOnAnyThread() != 0;
+	NumMobileMovablePointLights = CVarMobileNumDynamicPointLights->GetValueOnAnyThread();
 
 	// Only enable VertexFoggingForOpaque if ForwardShading is enabled 
 	const bool bForwardShading = CVarForwardShading && CVarForwardShading->GetValueOnAnyThread() != 0;
@@ -582,12 +603,17 @@ FScene::FScene(UWorld* InWorld, bool bInRequiresHitProxies, bool bInIsEditorScen
 ,	bRequiresHitProxies(bInRequiresHitProxies)
 ,	bIsEditorScene(bInIsEditorScene)
 ,	NumUncachedStaticLightingInteractions(0)
+,	NumMobileStaticAndCSMLights_RenderThread(0)
+,	NumMobileMovableDirectionalLights_RenderThread(0)
+,	GPUSkinCache(nullptr)
 ,	SceneLODHierarchy(this)
 ,	DefaultMaxDistanceFieldOcclusionDistance(InWorld->GetWorldSettings()->DefaultMaxDistanceFieldOcclusionDistance)
 ,	GlobalDistanceFieldViewDistance(InWorld->GetWorldSettings()->GlobalDistanceFieldViewDistance)
 ,	DynamicIndirectShadowsSelfShadowingIntensity(FMath::Clamp(InWorld->GetWorldSettings()->DynamicIndirectShadowsSelfShadowingIntensity, 0.0f, 1.0f))
+,	ReadOnlyCVARCache(FReadOnlyCVARCache::Get())
 ,	NumVisibleLights_GameThread(0)
 ,	NumEnabledSkylights_GameThread(0)
+,	SceneFrameNumber(0)
 {
 	FMemory::Memzero(MobileDirectionalLights);
 
@@ -622,6 +648,12 @@ FScene::FScene(UWorld* InWorld, bool bInRequiresHitProxies, bool bInIsEditorScen
 		SetFXSystem(NULL);
 	}
 
+	if (IsGPUSkinCacheAvailable())
+	{
+		const bool bRequiresMemoryLimit = !bInIsEditorScene;
+		GPUSkinCache = new FGPUSkinCache(bRequiresMemoryLimit);
+	}
+
 	World->UpdateParameterCollectionInstances(false);
 }
 
@@ -645,7 +677,13 @@ FScene::~FScene()
 	if (AtmosphericFog)
 	{
 		delete AtmosphericFog;
-		AtmosphericFog = NULL;
+		AtmosphericFog = nullptr;
+	}
+
+	if (GPUSkinCache)
+	{
+		delete GPUSkinCache;
+		GPUSkinCache = nullptr;
 	}
 }
 
@@ -714,9 +752,8 @@ void FScene::AddPrimitive(UPrimitiveComponent* Primitive)
 			TEXT("Nans found on Bounds for Primitive %s: Origin %s, BoxExtent %s, SphereRadius %f"), *Primitive->GetName(), *Primitive->Bounds.Origin.ToString(), *Primitive->Bounds.BoxExtent.ToString(), Primitive->Bounds.SphereRadius);
 
 	// Create any RenderThreadResources required.
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		FCreateRenderThreadResourcesCommand,
-		FCreateRenderThreadParameters, Params, Params,
+	ENQUEUE_RENDER_COMMAND(CreateRenderThreadResourcesCommand)(
+		[Params](FRHICommandListImmediate& RHICmdList)
 	{
 		FPrimitiveSceneProxy* SceneProxy = Params.PrimitiveSceneProxy;
 		FScopeCycleCounter Context(SceneProxy->GetStatId());
@@ -735,10 +772,9 @@ void FScene::AddPrimitive(UPrimitiveComponent* Primitive)
 	Primitive->AttachmentCounter.Increment();
 
 	// Send a command to the rendering thread to add the primitive to the scene.
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		FAddPrimitiveCommand,
-		FScene*,Scene,this,
-		FPrimitiveSceneInfo*,PrimitiveSceneInfo,PrimitiveSceneInfo,
+	FScene* Scene = this;
+	ENQUEUE_RENDER_COMMAND(AddPrimitiveCommand)(
+		[Scene, PrimitiveSceneInfo](FRHICommandListImmediate& RHICmdList)
 		{
 			FScopeCycleCounter Context(PrimitiveSceneInfo->Proxy->GetStatId());
 			Scene->AddPrimitiveSceneInfo_RenderThread(RHICmdList, PrimitiveSceneInfo);
@@ -833,9 +869,8 @@ void FScene::UpdatePrimitiveTransform(UPrimitiveComponent* Primitive)
 			ensureMsgf(!Primitive->Bounds.BoxExtent.ContainsNaN() && !Primitive->Bounds.Origin.ContainsNaN() && !FMath::IsNaN(Primitive->Bounds.SphereRadius) && FMath::IsFinite(Primitive->Bounds.SphereRadius),
 				TEXT("Nans found on Bounds for Primitive %s: Origin %s, BoxExtent %s, SphereRadius %f"), *Primitive->GetName(), *Primitive->Bounds.Origin.ToString(), *Primitive->Bounds.BoxExtent.ToString(), Primitive->Bounds.SphereRadius);
 
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-				UpdateTransformCommand,
-				FPrimitiveUpdateParams,UpdateParams,UpdateParams,
+			ENQUEUE_RENDER_COMMAND(UpdateTransformCommand)(
+				[UpdateParams](FRHICommandListImmediate& RHICmdList)
 				{
 					FScopeCycleCounter Context(UpdateParams.PrimitiveSceneProxy->GetStatId());
 					UpdateParams.Scene->UpdatePrimitiveTransform_RenderThread(RHICmdList, UpdateParams.PrimitiveSceneProxy, UpdateParams.WorldBounds, UpdateParams.LocalBounds, UpdateParams.LocalToWorld, UpdateParams.AttachmentRootPosition);
@@ -1062,14 +1097,26 @@ void FScene::AddLightSceneInfo_RenderThread(FLightSceneInfo* LightSceneInfo)
 
 		if(GetShadingPath() == EShadingPath::Mobile)
 		{
+			const bool bUseCSMForDynamicObjects = LightSceneInfo->Proxy->UseCSMForDynamicObjects();
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+			// these are tracked for disabled shader permutation warnings
+			if (LightSceneInfo->Proxy->IsMovable())
+			{
+				NumMobileMovableDirectionalLights_RenderThread++;
+			}
+			if (bUseCSMForDynamicObjects)
+			{
+				NumMobileStaticAndCSMLights_RenderThread++;
+			}
+#endif
 		    // Set MobileDirectionalLights entry
 		    int32 FirstLightingChannel = GetFirstLightingChannelFromMask(LightSceneInfo->Proxy->GetLightingChannelMask());
 		    if (FirstLightingChannel >= 0 && MobileDirectionalLights[FirstLightingChannel] == nullptr)
 		    {
 			    MobileDirectionalLights[FirstLightingChannel] = LightSceneInfo;
     
-			    // if this light is a dynamic shadowcast then we need to update the static draw lists to pick a new lightingpolicy:
-			    if (!LightSceneInfo->Proxy->HasStaticShadowing() || LightSceneInfo->Proxy->UseCSMForDynamicObjects())
+			    // if this light is a dynamic shadowcast then we need to update the static draw lists to pick a new lighting policy:
+			    if (!LightSceneInfo->Proxy->HasStaticShadowing() || bUseCSMForDynamicObjects)
 				{
 		    		bScenesPrimitivesNeedStaticMeshElementUpdate = true;
 				}
@@ -1200,15 +1247,17 @@ void FScene::SetSkyLight(FSkyLightSceneProxy* LightProxy)
 	{
 		check(!Scene->SkyLightStack.Contains(LightProxy));
 		Scene->SkyLightStack.Push(LightProxy);
-		const bool bHadSkylight = Scene->SkyLight != NULL;
+		const bool bOriginalHadSkylight = Scene->ShouldRenderSkylightInBasePass(BLEND_Opaque);
 
 		// Use the most recently enabled skylight
 		Scene->SkyLight = LightProxy;
 
-		if (!bHadSkylight)
+		const bool bNewHasSkylight = Scene->ShouldRenderSkylightInBasePass(BLEND_Opaque);
+
+		if (bOriginalHadSkylight != bNewHasSkylight)
 		{
-		// Mark the scene as needing static draw lists to be recreated if needed
-		// The base pass chooses shaders based on whether there's a skylight in the scene, and that is cached in static draw lists
+			// Mark the scene as needing static draw lists to be recreated if needed
+			// The base pass chooses shaders based on whether there's a skylight in the scene, and that is cached in static draw lists
 			Scene->bScenesPrimitivesNeedStaticMeshElementUpdate = true;
 		}
 	});
@@ -1224,7 +1273,7 @@ void FScene::DisableSkyLight(FSkyLightSceneProxy* LightProxy)
 		FScene*,Scene,this,
 		FSkyLightSceneProxy*,LightProxy,LightProxy,
 	{
-		const bool bHadSkylight = Scene->SkyLight != NULL;
+		const bool bOriginalHadSkylight = Scene->ShouldRenderSkylightInBasePass(BLEND_Opaque);
 
 		Scene->SkyLightStack.RemoveSingle(LightProxy);
 
@@ -1238,8 +1287,10 @@ void FScene::DisableSkyLight(FSkyLightSceneProxy* LightProxy)
 			Scene->SkyLight = NULL;
 		}
 
+		const bool bNewHasSkylight = Scene->ShouldRenderSkylightInBasePass(BLEND_Opaque);
+
 		// Update the scene if we switched skylight enabled states
-		if ((Scene->SkyLight != NULL) != bHadSkylight)
+		if (bOriginalHadSkylight != bNewHasSkylight)
 		{
 			Scene->bScenesPrimitivesNeedStaticMeshElementUpdate = true;
 		}
@@ -1398,6 +1449,7 @@ void FScene::UpdateReflectionCaptureTransform(UReflectionCaptureComponent* Compo
 
 void FScene::ReleaseReflectionCubemap(UReflectionCaptureComponent* CaptureComponent)
 {
+	bool bRemoved = false;
 	for (TSparseArray<UReflectionCaptureComponent*>::TIterator It(ReflectionSceneData.AllocatedReflectionCapturesGameThread); It; ++It)
 	{
 		UReflectionCaptureComponent* CurrentCapture = *It;
@@ -1405,27 +1457,28 @@ void FScene::ReleaseReflectionCubemap(UReflectionCaptureComponent* CaptureCompon
 		if (CurrentCapture == CaptureComponent)
 		{
 			It.RemoveCurrent();
+			bRemoved = true;
 			break;
 		}
 	}
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		RemoveCaptureCommand,
-		UReflectionCaptureComponent*,Component,CaptureComponent,
-		FScene*,Scene,this,
+	if (bRemoved)
 	{
-		// In SM5 we track removed captures so we can remap them when reallocating the cubemap array
-		if (Scene->GetFeatureLevel() >= ERHIFeatureLevel::SM5)
+		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
+			RemoveCaptureCommand,
+			UReflectionCaptureComponent*, Component, CaptureComponent,
+			FScene*, Scene, this,
 		{
 			const FCaptureComponentSceneState* ComponentStatePtr = Scene->ReflectionSceneData.AllocatedReflectionCaptureState.Find(Component);
 			if (ComponentStatePtr)
 			{
-				Scene->ReflectionSceneData.CubemapIndicesRemovedSinceLastRealloc.Add(ComponentStatePtr->CaptureIndex);
+				// We track removed captures so we can remap them when reallocating the cubemap array
+				check(ComponentStatePtr->CaptureIndex != -1);
+				Scene->ReflectionSceneData.CubemapArraySlotsUsed[ComponentStatePtr->CaptureIndex] = false;
 			}
-		}
-
-		Scene->ReflectionSceneData.AllocatedReflectionCaptureState.Remove(Component);
-	});
+			Scene->ReflectionSceneData.AllocatedReflectionCaptureState.Remove(Component);
+		});
+	}
 }
 
 const FReflectionCaptureProxy* FScene::FindClosestReflectionCapture(FVector Position) const
@@ -1670,11 +1723,13 @@ void FScene::UpdateLightColorAndBrightness(ULightComponent* Light)
 		{
 			FLinearColor NewColor;
 			float NewIndirectLightingScale;
+			float NewVolumetricScatteringIntensity;
 		};
 
 		FUpdateLightColorParameters NewParameters;
 		NewParameters.NewColor = FLinearColor(Light->LightColor) * Light->ComputeLightBrightness();
 		NewParameters.NewIndirectLightingScale = Light->IndirectLightingIntensity;
+		NewParameters.NewVolumetricScatteringIntensity = Light->VolumetricScatteringIntensity;
 
 		if( Light->bUseTemperature )
 		{
@@ -1699,6 +1754,7 @@ void FScene::UpdateLightColorAndBrightness(ULightComponent* Light)
 
 					LightSceneInfo->Proxy->SetColor(Parameters.NewColor);
 					LightSceneInfo->Proxy->IndirectLightingScale = Parameters.NewIndirectLightingScale;
+					LightSceneInfo->Proxy->VolumetricScatteringIntensity = Parameters.NewVolumetricScatteringIntensity;
 
 					// Also update the LightSceneInfoCompact
 					if( LightSceneInfo->Id != INDEX_NONE )
@@ -1724,14 +1780,32 @@ void FScene::RemoveLightSceneInfo_RenderThread(FLightSceneInfo* LightSceneInfo)
 
 		if(GetShadingPath() == EShadingPath::Mobile)
 		{
-		    // check MobileDirectionalLights
+			const bool bUseCSMForDynamicObjects = LightSceneInfo->Proxy->UseCSMForDynamicObjects();
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+			// Tracked for disabled shader permutation warnings.
+			// Condition must match that in AddLightSceneInfo_RenderThread
+			if (LightSceneInfo->Proxy->GetLightType() == LightType_Directional && !LightSceneInfo->Proxy->HasStaticLighting())
+			{
+				if (LightSceneInfo->Proxy->IsMovable())
+				{
+					NumMobileMovableDirectionalLights_RenderThread--;
+				}
+				if (bUseCSMForDynamicObjects)
+				{
+					NumMobileStaticAndCSMLights_RenderThread--;
+				}
+			}
+#endif
+
+			// check MobileDirectionalLights
 		    for (int32 LightChannelIdx = 0; LightChannelIdx < ARRAY_COUNT(MobileDirectionalLights); LightChannelIdx++)
 		    {
 			    if (LightSceneInfo == MobileDirectionalLights[LightChannelIdx])
 			    {
 				    MobileDirectionalLights[LightChannelIdx] = nullptr;
-				    // if this light is a dynamic shadowcast then we need to update the static draw lists to pick a new lightingpolicy
-					if (!LightSceneInfo->Proxy->HasStaticShadowing() || LightSceneInfo->Proxy->UseCSMForDynamicObjects())
+					// if this light is a dynamic shadowcast then we need to update the static draw lists to pick a new lightingpolicy
+					if (!LightSceneInfo->Proxy->HasStaticShadowing() || bUseCSMForDynamicObjects)
 					{
 						bScenesPrimitivesNeedStaticMeshElementUpdate = true;
 					}

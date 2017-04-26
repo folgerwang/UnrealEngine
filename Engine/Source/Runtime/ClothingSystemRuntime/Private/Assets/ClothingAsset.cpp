@@ -13,23 +13,40 @@
 #include "PhysicsPublic.h"
 #include "UObjectIterator.h"
 #include "ModuleManager.h"
+#include "SNotificationList.h"
+#include "NotificationManager.h"
+#include "ComponentReregisterContext.h"
 
 DEFINE_LOG_CATEGORY(LogClothingAsset)
 
+#define LOCTEXT_NAMESPACE "ClothingAsset"
+
 UClothingAsset::UClothingAsset(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, ReferenceBoneIndex(0)
+	, CustomData(nullptr)
 {
 
 }
 
 #if WITH_EDITOR
 
+void LogAndToastClothingInfo(const FText& Error)
+{
+	FNotificationInfo Info(Error);
+	Info.ExpireDuration = 5.0f;
+	FSlateNotificationManager::Get().AddNotification(Info);
+
+	UE_LOG(LogClothingAsset, Warning, TEXT("%s"), *Error.ToString());
+}
+
 bool UClothingAsset::BindToSkeletalMesh(USkeletalMesh* InSkelMesh, int32 InMeshLodIndex, int32 InSectionIndex, int32 InAssetLodIndex)
 {
 	// If we've been added to the wrong mesh
 	if(InSkelMesh != GetOuter())
 	{
-		UE_LOG(LogClothingAsset, Warning, TEXT("Failed to bind clothing asset %s as the provided mesh is not the owner of this asset."), *GetName());
+		FText Error = FText::Format(LOCTEXT("Error_WrongMesh", "Failed to bind clothing asset {0} as the provided mesh is not the owner of this asset."), FText::FromString(GetName()));
+		LogAndToastClothingInfo(Error);
 
 		return false;
 	}
@@ -37,7 +54,8 @@ bool UClothingAsset::BindToSkeletalMesh(USkeletalMesh* InSkelMesh, int32 InMeshL
 	// If we don't have clothing data
 	if(!LodData.IsValidIndex(InAssetLodIndex))
 	{
-		UE_LOG(LogClothingAsset, Warning, TEXT("Failed to bind clothing asset %s LOD%d as LOD%d does not exist."), *GetName(), InAssetLodIndex, InAssetLodIndex);
+		FText Error = FText::Format(LOCTEXT("Error_NoClothingLod", "Failed to bind clothing asset {0} LOD{1} as LOD{2} does not exist."), FText::FromString(GetName()), FText::AsNumber(InAssetLodIndex), FText::AsNumber(InAssetLodIndex));
+		LogAndToastClothingInfo(Error);
 
 		return false;
 	}
@@ -45,7 +63,8 @@ bool UClothingAsset::BindToSkeletalMesh(USkeletalMesh* InSkelMesh, int32 InMeshL
 	// If we don't have a mesh
 	if(!InSkelMesh)
 	{
-		UE_LOG(LogClothingAsset, Warning, TEXT("Failed to bind clothing asset %s as provided skel mesh does not exist."), *GetName());
+		FText Error = FText::Format(LOCTEXT("Error_NoMesh", "Failed to bind clothing asset {0} as provided skel mesh does not exist."), FText::FromString(GetName()));
+		LogAndToastClothingInfo(Error);
 
 		return false;
 	}
@@ -53,16 +72,22 @@ bool UClothingAsset::BindToSkeletalMesh(USkeletalMesh* InSkelMesh, int32 InMeshL
 	// If the mesh LOD index is invalid
 	if(!InSkelMesh->GetImportedResource()->LODModels.IsValidIndex(InMeshLodIndex))
 	{
-		UE_LOG(LogClothingAsset, Warning, TEXT("Failed to bind clothing asset %s as mesh LOD%d does not exist."), *GetName(), InMeshLodIndex);
+		FText Error = FText::Format(LOCTEXT("Error_InvalidMeshLOD", "Failed to bind clothing asset {0} as mesh LOD{1} does not exist."), FText::FromString(GetName()), FText::AsNumber(InMeshLodIndex));
+		LogAndToastClothingInfo(Error);
 
 		return false;
 	}
 
-	for(const int32& MappedLod : LodMap)
+	const int32 NumMapEntries = LodMap.Num();
+	for(int MapIndex = 0; MapIndex < NumMapEntries; ++MapIndex)
 	{
+		const int32& MappedLod = LodMap[MapIndex];
+
 		if(MappedLod == InAssetLodIndex)
 		{
-			UE_LOG(LogClothingAsset, Warning, TEXT("Failed to bind clothing asset %s LOD%d as LOD%d is already mapped to mesh LOD%d."), *GetName(), InAssetLodIndex, InAssetLodIndex, InMeshLodIndex);
+			FText Error = FText::Format(LOCTEXT("Error_LodMapped", "Failed to bind clothing asset {0} LOD{1} as LOD{2} is already mapped to mesh LOD{3}."), FText::FromString(GetName()), FText::AsNumber(InAssetLodIndex), FText::AsNumber(InAssetLodIndex), FText::AsNumber(MapIndex));
+			LogAndToastClothingInfo(Error);
+
 			return false;
 		}
 	}
@@ -72,6 +97,9 @@ bool UClothingAsset::BindToSkeletalMesh(USkeletalMesh* InSkelMesh, int32 InMeshL
 		// Already mapped
 		return false;
 	}
+
+	BuildSelfCollisionData();
+	CalculateReferenceBoneIndex();
 
 	// Grab the clothing and skel lod data
 	FClothLODData& ClothLodData = LodData[InAssetLodIndex];
@@ -106,6 +134,13 @@ bool UClothingAsset::BindToSkeletalMesh(USkeletalMesh* InSkelMesh, int32 InMeshL
 													  ClothLodData.PhysicalMeshData.Normals,
 													  ClothLodData.PhysicalMeshData.Indices);
 
+	if(MeshToMeshData.Num() == 0)
+	{
+		// Failed to generate skinning data, the function above will have notified
+		// with the cause of the failure, so just exit
+		return false;
+	}
+
 	// Calculate fixed verts
 	for(FMeshToMeshVertData& VertData : MeshToMeshData)
 	{
@@ -132,6 +167,17 @@ bool UClothingAsset::BindToSkeletalMesh(USkeletalMesh* InSkelMesh, int32 InMeshL
 		if(BoneIndex != INDEX_NONE)
 		{
 			NewClothSection.BoneMap.AddUnique(BoneIndex);
+		}
+	}
+
+	// Array of re-import contexts for components using this mesh
+	TIndirectArray<FComponentReregisterContext> ComponentContexts;
+	for (TObjectIterator<USkeletalMeshComponent> It; It; ++It)
+	{
+		USkeletalMeshComponent* Component = *It;
+		if (Component && !Component->IsTemplate() && Component->SkeletalMesh == InSkelMesh)
+		{
+			new(ComponentContexts) FComponentReregisterContext(Component);
 		}
 	}
 
@@ -247,16 +293,7 @@ bool UClothingAsset::BindToSkeletalMesh(USkeletalMesh* InSkelMesh, int32 InMeshL
 	if(bRequireBoneChange)
 	{
 		SkelLod.RequiredBones.Sort();
-		SkelLod.ActiveBoneIndices.Sort();
-	}
-
-	for(TObjectIterator<USkeletalMeshComponent> It; It; ++It)
-	{
-		USkeletalMeshComponent* Component = *It;
-		if(Component && !Component->IsTemplate() && Component->SkeletalMesh == InSkelMesh)
-		{
-			Component->ReregisterComponent();
-		}
+		InSkelMesh->RefSkeleton.EnsureParentExists(SkelLod.ActiveBoneIndices);
 	}
 
 	if(CustomData)
@@ -276,6 +313,8 @@ bool UClothingAsset::BindToSkeletalMesh(USkeletalMesh* InSkelMesh, int32 InMeshL
 	InSkelMesh->PostEditChange();
 
 	return true;
+
+	// ComponentContexts goes out of scope, causing components to be re-registered
 }
 
 void UClothingAsset::UnbindFromSkeletalMesh(USkeletalMesh* InSkelMesh)
@@ -300,7 +339,9 @@ void UClothingAsset::UnbindFromSkeletalMesh(USkeletalMesh* InSkelMesh, int32 InM
 	{
 		if(!Mesh->LODModels.IsValidIndex(InMeshLodIndex))
 		{
-			UE_LOG(LogClothingAsset, Warning, TEXT("Failed to remove clothing asset %s from mesh LOD%d as that LOD doesn't exist."), *GetName(), InMeshLodIndex);
+			FText Error = FText::Format(LOCTEXT("Error_UnbindNoMeshLod", "Failed to remove clothing asset {0} from mesh LOD{1} as that LOD doesn't exist."), FText::FromString(GetName()), FText::AsNumber(InMeshLodIndex));
+			LogAndToastClothingInfo(Error);
+
 			return;
 		}
 
@@ -485,6 +526,7 @@ void UClothingAsset::InvalidateCachedData()
 			InvMasses[Index2] += TriArea;
 		}
 
+		PhysMesh.NumFixedVerts = 0;
 		float MassSum = 0.0f;
 		for(int32 CurrVertIndex = 0; CurrVertIndex < NumVerts; ++CurrVertIndex)
 		{
@@ -494,6 +536,7 @@ void UClothingAsset::InvalidateCachedData()
 			if(MaxDistance < SMALL_NUMBER)
 			{
 				InvMass = 0.0f;
+				++PhysMesh.NumFixedVerts;
 			}
 			else
 			{
@@ -552,7 +595,214 @@ void UClothingAsset::BuildLodTransitionData()
 		}
 	}
 }
+
+bool UClothingAsset::IsValidLod(int32 InLodIndex)
+{
+	return LodData.IsValidIndex(InLodIndex);
+}
+
+int32 UClothingAsset::GetNumLods()
+{
+	return LodData.Num();
+}
+
 #endif
+
+void UClothingAsset::BuildSelfCollisionData()
+{
+	if(!ClothConfig.HasSelfCollision())
+	{
+		// No self collision, can't generate data
+		return;
+	}
+
+	// We can inflate here by close to half, because we're only trying to make it so the spheres
+	// can't pass through the network of other spheres.
+	const float SCRadius = ClothConfig.SelfCollisionRadius * 1.4f;
+	const float SCRadiusSq = SCRadius * SCRadius;
+
+	for(FClothLODData& Lod : LodData)
+	{
+		FClothPhysicalMeshData& PhysMesh = Lod.PhysicalMeshData;
+		
+		// Start with the full set
+		const int32 NumVerts = PhysMesh.Vertices.Num();
+		PhysMesh.SelfCollisionIndices.Reset();
+		for(int32 Index = 0; Index < NumVerts; ++Index)
+		{
+			PhysMesh.SelfCollisionIndices.Add(Index);
+		}
+
+		// Strip any verts that are fixed from the beginning of the array so we always
+		// start with a valid movable vertex
+		int32 PrepassIndex = PhysMesh.SelfCollisionIndices[0];
+		while(PhysMesh.MaxDistances[PrepassIndex] < SMALL_NUMBER)
+		{
+			PhysMesh.SelfCollisionIndices.RemoveAt(0);
+
+			if(PhysMesh.SelfCollisionIndices.Num() > 0)
+			{
+				// Take index again
+				PrepassIndex = PhysMesh.SelfCollisionIndices[0];
+			}
+			else
+			{
+				// We've cleared out the array, bail as we have no movable verts
+				break;
+			}
+		}
+
+		// Now start aggresively culling verts that are near others that we have accepted
+		for(int32 Vert0Itr = 0; Vert0Itr < PhysMesh.SelfCollisionIndices.Num(); ++Vert0Itr)
+		{
+			uint32 V0Index = PhysMesh.SelfCollisionIndices[Vert0Itr];
+			const FVector& V0Pos = PhysMesh.Vertices[V0Index];
+			float MaxDist0 = PhysMesh.MaxDistances[V0Index];
+
+			// Start one after our current V0, we've done the other checks
+			for(int32 Vert1Itr = Vert0Itr + 1; Vert1Itr < PhysMesh.SelfCollisionIndices.Num(); )
+			{
+				uint32 V1Index = PhysMesh.SelfCollisionIndices[Vert1Itr];
+				const FVector& V1Pos = PhysMesh.Vertices[V1Index];
+
+				float V0ToV1DistSq = (V1Pos - V0Pos).SizeSquared();
+				float MaxDist1 = PhysMesh.MaxDistances[V1Index];
+
+				if(V0ToV1DistSq < SCRadiusSq || MaxDist1 < SMALL_NUMBER)
+				{
+					// Too close, remove it
+					PhysMesh.SelfCollisionIndices.RemoveAt(Vert1Itr);
+					continue;
+				}
+				else
+				{
+					// Move to next if we didn't remove
+					++Vert1Itr;
+				}
+			}
+		}
+	}
+}
+
+void UClothingAsset::PostLoad()
+{
+	Super::PostLoad();
+
+	BuildSelfCollisionData();
+
+#if WITH_EDITORONLY_DATA
+	CalculateReferenceBoneIndex();
+#endif
+}
+
+void UClothingAsset::CalculateReferenceBoneIndex()
+{
+	// Starts at root
+	ReferenceBoneIndex = 0;
+
+	// Find the root bone for this clothing asset (common bone for all used bones)
+	typedef TArray<int32> BoneIndexArray;
+
+	// List of valid paths to the root bone from each weighted bone
+	TArray<BoneIndexArray> PathsToRoot;
+	
+	USkeletalMesh* OwnerMesh = Cast<USkeletalMesh>(GetOuter());
+
+	if(OwnerMesh)
+	{
+		FReferenceSkeleton& RefSkel = OwnerMesh->RefSkeleton;
+		// First build a list per used bone for it's path to root
+		const int32 NumUsedBones = UsedBoneIndices.Num();
+
+		// List of actually weighted (not just used) bones
+		TArray<int32> WeightedBones;
+
+		for(FClothLODData& CurLod : LodData)
+		{
+			FClothPhysicalMeshData& MeshData = CurLod.PhysicalMeshData;
+
+			for(FClothVertBoneData& VertBoneData : MeshData.BoneData)
+			{
+				for(int32 InfluenceIndex = 0; InfluenceIndex < MAX_TOTAL_INFLUENCES; ++InfluenceIndex)
+				{
+					if(VertBoneData.BoneWeights[InfluenceIndex] > SMALL_NUMBER)
+					{
+						WeightedBones.AddUnique(VertBoneData.BoneIndices[InfluenceIndex]);
+					}
+					else
+					{
+						// Hit the last weight (they're sorted)
+						break;
+					}
+				}
+			}
+		}
+
+		const int32 NumWeightedBones = WeightedBones.Num();
+		PathsToRoot.Reserve(NumWeightedBones);
+		
+		// Compute paths to the root bone
+		for(int32 WeightedBoneIndex = 0; WeightedBoneIndex < NumWeightedBones; ++WeightedBoneIndex)
+		{
+			PathsToRoot.AddDefaulted();
+			BoneIndexArray& Path = PathsToRoot.Last();
+			
+			int32 CurrentBone = WeightedBones[WeightedBoneIndex];
+			Path.Add(CurrentBone);
+			
+			while(CurrentBone != 0 && CurrentBone != INDEX_NONE)
+			{
+				CurrentBone = RefSkel.GetParentIndex(CurrentBone);
+				Path.Add(CurrentBone);
+			}
+		}
+
+		// Paths are from leaf->root, we want the other way
+		for(BoneIndexArray& Path : PathsToRoot)
+		{
+			Algo::Reverse(Path);
+		}
+
+		// Verify the last common bone in all paths as the root of the sim space
+		const int32 NumPaths = PathsToRoot.Num();
+		if(NumPaths > 0)
+		{
+			BoneIndexArray& FirstPath = PathsToRoot[0];
+		
+			const int32 FirstPathSize = FirstPath.Num();
+			for(int32 PathEntryIndex = 0; PathEntryIndex < FirstPathSize; ++PathEntryIndex)
+			{
+				const int32 CurrentQueryIndex = FirstPath[PathEntryIndex];
+				bool bValidRoot = true;
+
+				for(int32 PathIndex = 1; PathIndex < NumPaths; ++PathIndex)
+				{
+					if(!PathsToRoot[PathIndex].Contains(CurrentQueryIndex))
+					{
+						bValidRoot = false;
+						break;
+					}
+				}
+
+				if(bValidRoot)
+				{
+					ReferenceBoneIndex = CurrentQueryIndex;
+				}
+				else
+				{
+					// Once we fail to find a valid root we're done.
+					break;
+				}
+			}
+		}
+		else
+		{
+			// Just use root
+			ReferenceBoneIndex = 0;
+		}
+	}
+}
+
 
 void ClothingAssetUtils::GetMeshClothingAssetBindings(USkeletalMesh* InSkelMesh, TArray<FClothingAssetMeshBinding>& OutBindings)
 {
@@ -690,6 +940,27 @@ void ClothingAssetUtils::GenerateMeshToMeshSkinningData(TArray<FMeshToMeshVertDa
 		const FVector& NB = Mesh1Normals[Mesh1Indices[ClosestTriangleBaseIdx + 1]];
 		const FVector& NC = Mesh1Normals[Mesh1Indices[ClosestTriangleBaseIdx + 2]];
 
+		// Before generating the skinning data we need to check for a degenerate triangle.
+		// If we find _any_ degenerate triangles we will notify and fail to generate the skinning data
+		const FVector TriNormal = FVector::CrossProduct(B - A, C - A);
+		if(TriNormal.SizeSquared() < SMALL_NUMBER)
+		{
+			// Failed, we have 2 identical vertices
+			OutSkinningData.Reset();
+
+			// Log and toast
+			FText Error = FText::Format(LOCTEXT("DegenerateTriangleError", "Failed to generate skinning data, found conincident vertices in triangle A={0} B={1} C={2}"), FText::FromString(A.ToString()), FText::FromString(B.ToString()), FText::FromString(C.ToString()));
+
+			UE_LOG(LogClothingAsset, Warning, TEXT("%s"), *Error.ToString());
+
+#if WITH_EDITOR
+			FNotificationInfo Info(Error);
+			Info.ExpireDuration = 5.0f;
+			FSlateNotificationManager::Get().AddNotification(Info);
+#endif
+			return;
+		}
+
 		SkinningData.PositionBaryCoordsAndDist = GetPointBaryAndDist(A, B, C, NA, NB, NC, VertPosition);
 		SkinningData.NormalBaryCoordsAndDist = GetPointBaryAndDist(A, B, C, NA, NB, NC, VertPosition + VertNormal);
 		SkinningData.TangentBaryCoordsAndDist = GetPointBaryAndDist(A, B, C, NA, NB, NC, VertPosition + VertTangent);
@@ -750,3 +1021,141 @@ void FClothCollisionData::Append(const FClothCollisionData& InOther)
 
 	Convexes.Append(InOther.Convexes);
 }
+
+void FClothPhysicalMeshData::Reset(const int32 InNumVerts)
+{
+	Vertices.Reset();
+	Normals.Reset();
+	MaxDistances.Reset();
+	BackstopDistances.Reset();
+	BackstopRadiuses.Reset();
+	InverseMasses.Reset();
+	BoneData.Reset();
+
+	Vertices.AddDefaulted(InNumVerts);
+	Normals.AddDefaulted(InNumVerts);
+	MaxDistances.AddDefaulted(InNumVerts);
+	BackstopDistances.AddDefaulted(InNumVerts);
+	BackstopRadiuses.AddDefaulted(InNumVerts);
+	InverseMasses.AddDefaulted(InNumVerts);
+	BoneData.AddDefaulted(InNumVerts);
+
+	MaxBoneWeights = 0;
+	NumFixedVerts = 0;
+}
+
+void FClothParameterMask_PhysMesh::Initialize(const FClothPhysicalMeshData& InMeshData)
+{
+	const int32 NumVerts = InMeshData.Vertices.Num();
+
+	// Set up value array
+	Values.Reset(NumVerts);
+	Values.AddZeroed(NumVerts);
+}
+
+void FClothParameterMask_PhysMesh::SetValue(int32 InVertexIndex, float InValue)
+{
+	if(InVertexIndex < Values.Num())
+	{
+		Values[InVertexIndex] = InValue;
+
+		float TempMax = 0.0f;
+		for(const float& Value : Values)
+		{
+			TempMax = FMath::Max(TempMax, Value);
+		}
+
+		MaxValue = TempMax;
+	}
+}
+
+float FClothParameterMask_PhysMesh::GetValue(int32 InVertexIndex) const
+{
+	return InVertexIndex < Values.Num() ? Values[InVertexIndex] : 0.0f;
+}
+
+#if WITH_EDITOR
+
+void FClothParameterMask_PhysMesh::CalcRanges()
+{
+	MinValue = MAX_flt;
+	MaxValue = -MinValue;
+
+	for(const float& Value : Values)
+	{
+		MaxValue = FMath::Max(Value, MaxValue);
+
+		if(Value > 0.0f)
+		{
+			MinValue = FMath::Min(Value, MinValue);
+		}
+	}
+}
+
+FColor FClothParameterMask_PhysMesh::GetValueAsColor(int32 InVertexIndex) const
+{
+	if(InVertexIndex < Values.Num())
+	{
+		const float& Value = Values[InVertexIndex];
+
+		if(Value == 0.0f)
+		{
+			return FColor::Magenta;
+		}
+
+		uint8 ScaledValue = uint8(((Value - MinValue) / (MaxValue - MinValue)) * 255.0f);
+		return FColor(ScaledValue, ScaledValue, ScaledValue);
+	}
+
+	return FColor::Red;
+}
+#endif
+
+void FClothParameterMask_PhysMesh::Apply(FClothPhysicalMeshData& InTargetMesh)
+{
+	if(CurrentTarget == MaskTarget_PhysMesh::None)
+	{
+		// Nothing to do here, just return
+		return;
+	}
+
+	const int32 NumValues = Values.Num();
+	const int32 NumTargetMeshVerts = InTargetMesh.Vertices.Num();
+
+	if(NumTargetMeshVerts == NumValues)
+	{
+		TArray<float>* TargetArray = nullptr;
+		switch(CurrentTarget)
+		{
+			case MaskTarget_PhysMesh::MaxDistance:
+				TargetArray = &InTargetMesh.MaxDistances;
+				break;
+			case MaskTarget_PhysMesh::BackstopDistance:
+				TargetArray = &InTargetMesh.BackstopDistances;
+				break;
+			case MaskTarget_PhysMesh::BackstopRadius:
+				TargetArray = &InTargetMesh.BackstopRadiuses;
+				break;
+			default:
+				break;
+		}
+
+		if(!TargetArray)
+		{
+			return;
+		}
+
+		check((*TargetArray).Num() == NumValues);
+
+		for(int32 Index = 0; Index < NumTargetMeshVerts; ++Index)
+		{
+			(*TargetArray)[Index] = Values[Index];
+		}
+	}
+	else
+	{
+		UE_LOG(LogClothingAsset, Warning, TEXT("Aborted applying mask to physical mesh at %p, value mismatch (NumValues: %d, NumVerts: %d)."), &InTargetMesh, NumValues, NumTargetMeshVerts);
+	}
+}
+
+#undef LOCTEXT_NAMESPACE

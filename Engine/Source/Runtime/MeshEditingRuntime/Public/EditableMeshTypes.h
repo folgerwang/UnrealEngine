@@ -1180,7 +1180,7 @@ struct FSectionToCreate
 	{
 		return FString::Printf(
 			TEXT( "Material:%s, bEnableCollision:%s, bCastShadow:%s, OriginalSectionID:%s" ),
-			Material ? *Material->GetName() : TEXT( "<none>" ),
+			Material ? *((UObject*)Material )->GetName() : TEXT( "<none>" ),
 			*LexicalConversion::ToString( bEnableCollision ),
 			*LexicalConversion::ToString( bCastShadow ),
 			*OriginalSectionID.ToString() );

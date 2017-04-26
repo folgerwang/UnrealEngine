@@ -718,7 +718,7 @@ public:
 	FStringClassReference LevelScriptActorClassName;
 	
 	/** Name of the base class to use for new blueprints, configurable on a per-game basis */
-	UPROPERTY(globalconfig, noclear, EditAnywhere, Category=DefaultClasses, meta=(MetaClass="Object", AllowAbstract="true", IsBlueprintBaseOnly="true", DisplayName="Default Blueprint Base Class"), AdvancedDisplay)
+	UPROPERTY(globalconfig, noclear, EditAnywhere, Category=DefaultClasses, meta=(MetaClass="Object", DisplayName="Default Blueprint Base Class", AllowAbstract, BlueprintBaseOnly), AdvancedDisplay)
 	FStringClassReference DefaultBlueprintBaseClassName;
 
 	/** Name of a singleton class to create at startup time, configurable per game */
@@ -911,6 +911,14 @@ public:
 	/** @todo document */
 	UPROPERTY(globalconfig)
 	FStringAssetReference BoneWeightMaterialName;
+
+	/** Material used to render cloth properties on skeletal meshes */
+	UPROPERTY()
+	class UMaterial* ClothPaintMaterial;
+
+	/** @todo document */
+	UPROPERTY(globalconfig)
+	FStringAssetReference ClothPaintMaterialName;
 #endif
 
 	/** Material used to render constraint limits */
@@ -1718,9 +1726,6 @@ public:
 	bool HandleViewnamesCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleFreezeStreamingCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );		// Smedis
 	bool HandleFreezeAllCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );			// Smedis
-
-	bool HandleFlushIOManagerCommand( const TCHAR* Cmd, FOutputDevice& Ar );						// Smedis
-	bool HandleListPreCacheMapPackagesCommand(const TCHAR* Cmd, FOutputDevice& Ar);
 
 	bool HandleToggleRenderingThreadCommand( const TCHAR* Cmd, FOutputDevice& Ar );	
 	bool HandleToggleAsyncComputeCommand( const TCHAR* Cmd, FOutputDevice& Ar );

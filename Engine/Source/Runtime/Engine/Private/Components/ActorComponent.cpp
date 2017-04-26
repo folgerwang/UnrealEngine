@@ -865,6 +865,17 @@ void UActorComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, F
 	check(bRegistered);
 
 	ReceiveTick(DeltaTime);
+
+	// Update any latent actions we have for this component, this will update even if paused if bUpdateWhilePaused is enabled
+	// If this tick is skipped on a frame because we've got a TickInterval, our latent actions will be ticked
+	// anyway by UWorld::Tick(). Given that, our latent actions don't need to be passed a larger
+	// DeltaSeconds to make up the frames that they missed (because they wouldn't have missed any).
+	// So pass in the world's DeltaSeconds value rather than our specific DeltaSeconds value.
+	UWorld* ComponentWorld = GetWorld();
+	if (ComponentWorld)
+	{
+		ComponentWorld->GetLatentActionManager().ProcessLatentActions(this, ComponentWorld->GetDeltaSeconds());
+	}
 }
 
 void UActorComponent::RegisterComponentWithWorld(UWorld* InWorld)
@@ -1003,13 +1014,6 @@ void UActorComponent::UnregisterComponent()
 
 	// If registered, should have a world
 	checkf(WorldPrivate != nullptr, TEXT("%s"), *GetFullName());
-
-	// Notify the texture streaming system
-	const UPrimitiveComponent* Primitive = Cast<const UPrimitiveComponent>(this);
-	if ( Primitive )
-	{
-		IStreamingManager::Get().NotifyPrimitiveDetached( Primitive );
-	}
 
 	RegisterAllComponentTickFunctions(false);
 	ExecuteUnregisterEvents();
@@ -1488,11 +1492,6 @@ void UActorComponent::ToggleActive()
 	SetActive(!bIsActive);
 }
 
-bool UActorComponent::IsActive() const
-{
-	return bIsActive;
-}
-
 void UActorComponent::SetTickableWhenPaused(bool bTickableWhenPaused)
 {
 	PrimaryComponentTick.bTickEvenWhenPaused = bTickableWhenPaused;
@@ -1751,6 +1750,13 @@ void UActorComponent::Serialize(FArchive& Ar)
 	{
 		bHasBeenCreated = true;
 	}
+}
+
+AActor* UActorComponent::GetActorOwnerNoninline() const
+{
+	// This is defined out-of-line because AActor isn't defined where the inlined function is.
+
+	return GetTypedOuter<AActor>();
 }
 
 #undef LOCTEXT_NAMESPACE

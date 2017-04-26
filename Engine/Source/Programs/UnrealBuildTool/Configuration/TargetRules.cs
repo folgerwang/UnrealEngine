@@ -146,7 +146,9 @@ namespace UnrealBuildTool
 			/// Settings exposed from the TargetRules instance
 			/// </summary>
 			#region Forwarded fields
+			#if !__MonoCS__
 			#pragma warning disable CS1591
+			#endif
 
 			public bool bHasExports
 			{
@@ -166,7 +168,9 @@ namespace UnrealBuildTool
 				set { Inner.bDisableSymbolCache = value; }
 			}
 
+			#if !__MonoCS__
 			#pragma warning restore CS1591
+			#endif
 			#endregion
 		}
 
@@ -193,7 +197,9 @@ namespace UnrealBuildTool
 			/// Settings exposed from the TargetRules instance
 			/// </summary>
 			#region Forwarded fields
+			#if !__MonoCS__
 			#pragma warning disable CS1591
+			#endif
 
 			public List<string> Definitions
 			{
@@ -206,7 +212,9 @@ namespace UnrealBuildTool
 				set { Inner.bEnableOSX109Support = value; }
 			}
 
+			#if !__MonoCS__
 			#pragma warning restore CS1591
+			#endif
 			#endregion
 		}
 
@@ -310,6 +318,11 @@ namespace UnrealBuildTool
 		/// </summary>
 		public bool bOutputToEngineBinaries = false;
 
+		/// <summary>
+		/// Whether this target should be compiled as a DLL.  Requires LinkType to be set to TargetLinkType.Monolithic.
+		/// </summary>
+		public bool bShouldCompileAsDLL = false;
+		
 		/// <summary>
 		/// Subfolder to place executables in, relative to the default location.
 		/// </summary>
@@ -586,7 +599,7 @@ namespace UnrealBuildTool
 		/// Disables force-included PCHs for files that are in the adaptive non-unity working set.
 		/// </summary>
 		[XmlConfigFile(Category = "BuildConfiguration")]
-		public bool bAdaptiveUnityDisablesPCH = false;
+		public bool bAdaptiveUnityDisablesPCH = true;
 
 		/// <summary>
 		/// The number of source files in a game module before unity build will be activated for that module.  This
@@ -1155,6 +1168,11 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Can be set to override the file extension of the executable file (normally .exe or .dll on Windows, for example)
+		/// </summary>
+		public string OverrideExecutableFileExtension = String.Empty;
+
+		/// <summary>
 		/// Whether this target should be compiled in monolithic mode
 		/// </summary>
 		/// <param name="InPlatform">The platform being built</param>
@@ -1356,7 +1374,9 @@ namespace UnrealBuildTool
 		/// Accessors for fields on the inner TargetRules instance
 		/// </summary>
 		#region Read-only accessor properties 
+		#if !__MonoCS__
 		#pragma warning disable CS1591
+		#endif
 
 		public string Name
 		{
@@ -1959,7 +1979,19 @@ namespace UnrealBuildTool
 			private set;
 		}
 
+		public string OverrideExecutableFileExtension
+		{
+			get { return Inner.OverrideExecutableFileExtension; }
+		}
+		
+		public bool bShouldCompileAsDLL
+		{
+			get { return Inner.bShouldCompileAsDLL; }
+		}
+
+		#if !__MonoCS__
 		#pragma warning restore C1591
+		#endif
 		#endregion
 
 		/// <summary>

@@ -283,6 +283,9 @@ namespace UnrealBuildTool
 					case "IOS_9":
 						MinVersion = "9.0";
 						break;
+					case "IOS_10":
+						MinVersion = "10.0";
+						break;
 				}
 			}
 			else
@@ -383,6 +386,7 @@ namespace UnrealBuildTool
 				}
 			}
 			Text.AppendLine("\t</array>");
+
 			Text.AppendLine("\t<key>CFBundleIcons</key>");
 			Text.AppendLine("\t<dict>");
 			Text.AppendLine("\t\t<key>CFBundlePrimaryIcon</key>");
@@ -856,7 +860,7 @@ namespace UnrealBuildTool
 
 			// Passing in true for distribution is not ideal here but given the way that ios packaging happens and this call chain it seems unavoidable for now, maybe there is a way to correctly pass it in that I can't find?
 			string RelativeEnginePath = UnrealBuildTool.EngineDirectory.MakeRelativeTo(DirectoryReference.GetCurrentDirectory());
-			UPL.Init (ProjectArches, true, RelativeEnginePath, BundlePath, ProjectDirectory);
+			UPL.Init (ProjectArches, true, RelativeEnginePath, BundlePath, ProjectDirectory, Configuration.ToString());
 
 			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac && Environment.GetEnvironmentVariable("UBT_NO_POST_DEPLOY") != "true")
 			{

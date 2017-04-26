@@ -49,8 +49,8 @@ class USoundMix;
 class FAudioEffectsManager;
 class FViewportClient;
 class ICompressedAudioInfo;
-class IAudioSpatializationPlugin;
-class IAudioSpatializationAlgorithm;
+class IAudioPlugin;
+class IAudioSpatialization;
 class UReverbEffect;
 class USoundConcurrency;
 class FViewport;
@@ -104,6 +104,19 @@ namespace ESoundMixState
 		// Time elapsed, just about to be removed
 		AwaitingRemoval,
 	};
+
+	static const TCHAR* GetString(ESoundMixState::Type InType)
+	{
+		switch (InType)
+		{
+			case ESoundMixState::Inactive: return TEXT("Inactive");
+			case ESoundMixState::FadingIn: return TEXT("FadingIn");
+			case ESoundMixState::Active: return TEXT("Active");
+			case ESoundMixState::FadingOut: return TEXT("FadingOut");
+			case ESoundMixState::AwaitingRemoval: return TEXT("AwaitingRemoval");
+			default: return TEXT("unknown");
+		}
+	}
 }
 
 namespace ESortedActiveWaveGetType
@@ -124,6 +137,38 @@ namespace ERequestedAudioStats
 	static const uint8 SoundMixes = 0x8;
 	static const uint8 DebugSounds = 0x10;
 	static const uint8 LongSoundNames = 0x20;
+};
+
+/** Simple class that wraps the math involved with interpolating a parameter over time based on audio device update time. */
+class ENGINE_API FDynamicParameter
+{
+public:
+	explicit FDynamicParameter(float Value);
+
+	void Set(float Value, float InDuration);
+	void Update(float DeltaTime);
+
+	bool IsDone() const
+	{
+		return CurrTimeSec >= DurationSec;
+	}
+	float GetValue() const
+	{
+		return CurrValue;
+	}
+	float GetTargetValue() const
+	{
+		return TargetValue;
+	}
+
+private:
+	float CurrValue;
+	float StartValue;
+	float DeltaValue;
+	float CurrTimeSec;
+	float DurationSec;
+	float LastTime;
+	float TargetValue;
 };
 
 /** 
@@ -152,6 +197,7 @@ struct FListener
 	float InteriorLPFInterp;
 	float ExteriorVolumeInterp;
 	float ExteriorLPFInterp;
+	FAudioDevice* AudioDevice;
 
 	FVector GetUp() const		{ return Transform.GetUnitAxis(EAxis::Z); }
 	FVector GetFront() const	{ return Transform.GetUnitAxis(EAxis::Y); }
@@ -172,7 +218,7 @@ struct FListener
 	 */
 	void ApplyInteriorSettings(uint32 AudioVolumeID, const FInteriorSettings& Settings);
 
-	FListener()
+	FListener(FAudioDevice* InAudioDevice)
 		: Transform(FTransform::Identity)
 		, Velocity(ForceInit)
 		, AudioVolumeID(0)
@@ -185,8 +231,12 @@ struct FListener
 		, InteriorLPFInterp(0.f)
 		, ExteriorVolumeInterp(0.f)
 		, ExteriorLPFInterp(0.f)
+		, AudioDevice(InAudioDevice)
 	{
 	}
+
+private:
+	FListener();
 };
 
 /** 
@@ -494,6 +544,12 @@ public:
 	 */
 	int32 GetSortedActiveWaveInstances(TArray<FWaveInstance*>& WaveInstances, const ESortedActiveWaveGetType::Type GetType);
 
+	/** Update the active sound playback time. This is done here to do after all audio is updated. */
+	void UpdateActiveSoundPlaybackTime();
+
+	/** Optional fadeout of audio to avoid clicks when closing audio device. */
+	virtual void FadeOut() {}
+
 	/**
 	 * Stop all the audio components and sources attached to the world. nullptr world means all components.
 	 */
@@ -521,8 +577,9 @@ public:
 	 * @param	SoundWave		Resource to be precached.
 	 * @param	bSynchronous	If true, this function will block until a vorbis decompression is complete
 	 * @param	bTrackMemory	If true, the audio mem stats will be updated
+	 * @param   bForceFullDecompression If true, the sound wave will be fully decompressed regardless of size.
 	 */
-	virtual void Precache(USoundWave* SoundWave, bool bSynchronous = false, bool bTrackMemory=true);
+	virtual void Precache(USoundWave* SoundWave, bool bSynchronous = false, bool bTrackMemory = true, bool bForceFullDecompression = false);
 
 	/**
 	 * Precaches all existing sounds. Called when audio setup is complete
@@ -533,6 +590,9 @@ public:
 	 * Sets the maximum number of channels dynamically. Can't raise the cap over the initial value but can lower it 
 	 */
 	virtual void SetMaxChannels(int32 InMaxChannels);
+
+	/** Returns the max channels used by the audio device. */
+	int32 GetMaxChannels() const;
 
 	/**
 	* Stops any sound sources which are using the given buffer.
@@ -576,6 +636,7 @@ public:
 
 		USoundAttenuation* AttenuationSettings;
 		USoundConcurrency* ConcurrencySettings;
+		bool bAutoDestroy;
 		bool bPlay;
 		bool bStopWhenOwnerDestroyed;
 
@@ -712,18 +773,12 @@ public:
 	virtual void InitSoundSubmixes() {}
 
 	/** Registers the sound submix */
-	virtual void RegisterSoundSubmix(USoundSubmix* SoundSubmix) {}
+	virtual void RegisterSoundSubmix(USoundSubmix* SoundSubmix, bool bInit) {}
 
 	/** Unregisters the sound submix */
 	virtual void UnregisterSoundSubmix(USoundSubmix* SoundSubmix) {}
 
-	virtual void InitSoundEffectPresets();
-
-	virtual void RegisterSoundEffectSourcePreset(USoundEffectSourcePreset* SoundEffectPreset);
-	virtual void UnregisterSoundEffectSourcePreset(USoundEffectSourcePreset* SoundEffectPreset);
-
-	virtual void RegisterSoundEffectSubmixPreset(USoundEffectSubmixPreset* SoundEffectPreset);
-	virtual void UnregisterSoundEffectSubmixPreset(USoundEffectSubmixPreset* SoundEffectPreset);
+	virtual void InitSoundEffectPresets() {}
 
 	/**
 	* Gets the current properties of a sound class, if the sound class hasn't been registered, then it returns nullptr
@@ -773,7 +828,7 @@ public:
 	 * @param SoundMix The SoundMix to push.
 	 * @param bIsPassive Whether this is a passive push from a playing sound.
 	 */
-	void PushSoundMixModifier(USoundMix* SoundMix, bool bIsPassive = false);
+	void PushSoundMixModifier(USoundMix* SoundMix, bool bIsPassive = false, bool bIsRetrigger = false);
 
 	/** 
 	 * Sets a sound class override in the given sound mix.
@@ -936,15 +991,51 @@ public:
 	virtual int32 GetNumActiveSources() const { return 0; }
 
 	/** Returns the sample rate used by the audio device. */
-	float GetSampleRate() const { return AUDIO_SAMPLE_RATE; }
+	float GetSampleRate() const { return SampleRate; }
 
 	/** Returns the buffer length of the audio device. */
 	int32 GetBufferLength() const { return DeviceOutputBufferLength; }
 
-	/** Whether or not the spatialization plugin is enabled. */
+	/** Whether or not there's a spatialization plugin enabled. */
 	bool IsSpatializationPluginEnabled() const
 	{
-		return bSpatializationExtensionEnabled;
+		return bSpatializationInterfaceEnabled && SpatializationPluginInterface.IsValid();
+	}
+
+	/** Return the spatialization plugin interface. */
+	TSharedPtr<IAudioSpatialization> GetSpatializationPluginInterface()
+	{
+		return SpatializationPluginInterface;
+	}
+
+	/** Whether or not there's an occlusion plugin enabled. */
+	bool IsOcclusionPluginEnabled() const
+	{
+		return bOcclusionInterfaceEnabled && OcclusionInterface.IsValid();
+	}
+
+	static bool IsOcclusionPluginLoaded()
+	{
+		if (FAudioDevice* MainAudioDevice = GEngine->GetMainAudioDevice())
+		{
+			return MainAudioDevice->OcclusionInterface.IsValid();
+		}
+		return false;
+	}
+
+	/** Whether or not there's a reverb plugin enabled. */
+	bool IsReverbPluginEnabled() const
+	{
+		return bReverbInterfaceEnabled && ReverbPluginInterface.IsValid();
+	}
+
+	static bool IsReverbPluginLoaded()
+	{
+		if (FAudioDevice* MainAudioDevice = GEngine->GetMainAudioDevice())
+		{
+			return MainAudioDevice->ReverbPluginInterface.IsValid();
+		}
+		return false;
 	}
 
 	/** Returns if this is the multi-platform audio mixer. */
@@ -952,6 +1043,12 @@ public:
 	{
 		return bAudioMixerModuleLoaded;
 	}
+
+	/** Updates the source effect chain. Only implemented in audio mixer. */
+	virtual void UpdateSourceEffectChain(const uint32 SourceEffectChainId, const TArray<FSourceEffectChainEntry>& SourceEffectChain, const bool bPlayEffectChainTails) {}
+
+	/** Returns the current source effect chain entries set dynamically from BP or elsewhere. */
+	virtual bool GetCurrentSourceEffectChain(const uint32 SourceEffectChainId, TArray<FSourceEffectChainEntry>& OutCurrentSourceEffectChainEntries) { return false; }
 
 protected:
 	friend class FSoundSource;
@@ -1223,6 +1320,12 @@ public:
 	/** Whether or not virtual sounds are enabled, */
 	bool VirtualSoundsEnabled() const { return bAllowVirtualizedSounds; }
 
+	bool IsMainAudioDevice()
+	{
+		FAudioDevice* MainAudioDevice = GEngine->GetMainAudioDevice();
+		return (MainAudioDevice == nullptr || MainAudioDevice == this);
+	}
+
 public:
 
 	/** The maximum number of concurrent audible sounds */
@@ -1238,7 +1341,6 @@ public:
 	int32 DeviceOutputBufferLength;
 
 	/** The length of output callback buffer */
-	int32 BufferLength;
 
 	/** The amount of memory to reserve for always resident sounds */
 	int32 CommonAudioPoolSize;
@@ -1252,11 +1354,20 @@ public:
 	/** The handle for this audio device used in the audio device manager. */
 	uint32 DeviceHandle;
 
-	/** Audio spatialization plugin. */
-	IAudioSpatializationPlugin* SpatializationPlugin;
+	/** An audio plugin. */
+	IAudioPlugin* AudioPlugin;
 
-	/** Audio spatialization algorithm (derived from a plugin). */
-	IAudioSpatializationAlgorithm* SpatializeProcessor;
+	/** 3rd party audio spatialization interface. */
+	TSharedPtr<IAudioSpatialization> SpatializationPluginInterface;
+
+	/** 3rd party reverb interface. */
+	TSharedPtr<IAudioReverb> ReverbPluginInterface;
+
+	/** 3rd party occlusion interface. */
+	TSharedPtr<IAudioOcclusion> OcclusionInterface;
+
+	/** 3rd party listener observer. */
+	TSharedPtr<IAudioListenerObserver> ListenerObserver;
 
 private:
 	// Audio thread representation of listeners
@@ -1316,10 +1427,6 @@ protected:
 	/** Interface to audio effects processing */
 	FAudioEffectsManager* Effects;
 
-	/** Map of static sound effect static data objects to dynamic instances. */
-	TMap<USoundEffectSourcePreset*, USoundEffectSourcePreset*> SoundEffectSourcePresetInstances;
-	TMap<USoundEffectSubmixPreset*, USoundEffectSubmixPreset*> SoundEffectSubmixPresetInstances;
-
 private:
 	UReverbEffect* CurrentReverbEffect;
 
@@ -1351,8 +1458,11 @@ private:
 	/* True once the startup sounds have been precached */
 	uint8 bStartupSoundsPreCached:1;
 
-	/** Whether or not the spatialization plugin is enabled. */
-	uint8 bSpatializationExtensionEnabled:1;
+	/** Whether or not various audio plugin interfaces are enabled. */
+	uint8 bSpatializationInterfaceEnabled:1;
+	uint8 bOcclusionInterfaceEnabled:1;
+	uint8 bReverbInterfaceEnabled:1;
+	uint8 bListenerObserverInterfaceEnabled:1;
 
 	/** Whether HRTF is enabled for all 3d sounds. */
 	uint8 bHRTFEnabledForAll:1;

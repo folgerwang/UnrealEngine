@@ -32,6 +32,8 @@ extern int32 GMetalRuntimeDebugLevel;
 
 @synthesize InnerBuffer;
 
+APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugCommandBuffer)
+
 -(id)initWithCommandBuffer:(id<MTLCommandBuffer>)Buffer
 {
 	id Self = [super init];
@@ -114,12 +116,21 @@ extern int32 GMetalRuntimeDebugLevel;
 
 - (void)presentDrawable:(id <MTLDrawable>)drawable
 {
-	[InnerBuffer presentDrawable:drawable];
+    [InnerBuffer presentDrawable:drawable];
 }
+
+#if !PLATFORM_MAC
+- (void)presentDrawable:(id <MTLDrawable>)drawable afterMinimumDuration:(CFTimeInterval)duration
+{
+#if (__clang_major__ > 8) || (__clang_major__ == 8 && __clang_minor__ >= 1)
+    [InnerBuffer presentDrawable:drawable afterMinimumDuration:duration];
+#endif
+}
+#endif
 
 - (void)presentDrawable:(id <MTLDrawable>)drawable atTime:(CFTimeInterval)presentationTime
 {
-	[InnerBuffer presentDrawable:drawable atTime:presentationTime];
+    [InnerBuffer presentDrawable:drawable atTime:presentationTime];
 }
 
 - (void)waitUntilScheduled
@@ -142,7 +153,7 @@ extern int32 GMetalRuntimeDebugLevel;
 - (id <MTLBlitCommandEncoder>)blitCommandEncoder
 {
 	[self beginBlitCommandEncoder:DebugGroup.lastObject ? DebugGroup.lastObject : @"Blit"];
-    return [[[FMetalDebugBlitCommandEncoder alloc] initWithEncoder:[InnerBuffer blitCommandEncoder] andCommandBuffer:self] autorelease];
+	return [[[FMetalDebugBlitCommandEncoder alloc] initWithEncoder:[InnerBuffer blitCommandEncoder] andCommandBuffer:self] autorelease];
 }
 
 - (id <MTLRenderCommandEncoder>)renderCommandEncoderWithDescriptor:(MTLRenderPassDescriptor *)renderPassDescriptor

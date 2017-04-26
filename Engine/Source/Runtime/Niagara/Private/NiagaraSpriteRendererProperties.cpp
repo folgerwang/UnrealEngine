@@ -4,7 +4,11 @@
 #include "NiagaraEffectRenderer.h"
 
 UNiagaraSpriteRendererProperties::UNiagaraSpriteRendererProperties()
-	: SubImageInfo(1.0f, 1.0f)
+	: SubImageSize(1.0f, 1.0f)
+	, Alignment(ENiagaraSpriteAlignment::Unaligned)
+	, FacingMode(ENiagaraSpriteFacingMode::FaceCamera)
+	, CustomFacingVectorMask(EForceInit::ForceInitToZero)
+	, SortMode(ENiagaraSortMode::SortNone)
 {
 }
 
@@ -13,11 +17,17 @@ NiagaraEffectRenderer* UNiagaraSpriteRendererProperties::CreateEffectRenderer(ER
 	return new NiagaraEffectRendererSprites(FeatureLevel, this);
 }
 
+void UNiagaraSpriteRendererProperties::GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials) const
+{
+	//OutMaterials.Add(Material);
+	//Material should live here.
+}
+
 #if WITH_EDITORONLY_DATA
 
 bool UNiagaraSpriteRendererProperties::IsMaterialValidForRenderer(UMaterial* Material, FText& InvalidMessage)
 {
-	if (Material->bUsedWithParticleSprites == false)
+	if (Material->bUsedWithNiagaraSprites == false)
 	{
 		InvalidMessage = NSLOCTEXT("NiagaraSpriteRendererProperties", "InvalidMaterialMessage", "The material isn't marked as \"Used with particle sprites\"");
 		return false;
@@ -28,9 +38,12 @@ bool UNiagaraSpriteRendererProperties::IsMaterialValidForRenderer(UMaterial* Mat
 void UNiagaraSpriteRendererProperties::FixMaterial(UMaterial* Material)
 {
 	Material->Modify();
-	Material->bUsedWithParticleSprites = true;
+	Material->bUsedWithNiagaraSprites = true;
 	Material->ForceRecompileForRendering();
 }
 
 #endif // WITH_EDITORONLY_DATA
+
+
+
 

@@ -21,7 +21,17 @@
 class UMovieSceneSequence;
 
 USTRUCT()
-struct FMovieSceneGenerationLedger
+struct FMovieSceneTrackIdentifiers
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	TArray<FMovieSceneTrackIdentifier> Data;
+};
+
+
+USTRUCT()
+struct FMovieSceneTemplateGenerationLedger
 {
 	GENERATED_BODY()
 
@@ -31,20 +41,20 @@ public:
 
 	void AddTrack(const FGuid& InSignature, FMovieSceneTrackIdentifier Identifier);
 
-	bool Serialize(FArchive& Ar);
-
 public:
 
 	UPROPERTY()
 	FMovieSceneTrackIdentifier LastTrackIdentifier;
 
-	/** Custom serialized - map of track identifiers to number of references within th template (generally 1, maybe >1 for shared tracks) */
+	/** Map of track identifiers to number of references within th template (generally 1, maybe >1 for shared tracks) */
+	UPROPERTY()
 	TMap<FMovieSceneTrackIdentifier, int32> TrackReferenceCounts;
 
-	/** Custom serialized - map of track signature to array of track identifiers that it created */
-	TMap<FGuid, TArray<FMovieSceneTrackIdentifier, TInlineAllocator<1>>> TrackSignatureToTrackIdentifier;
+	/** Map of track signature to array of track identifiers that it created */
+	UPROPERTY()
+	TMap<FGuid, FMovieSceneTrackIdentifiers> TrackSignatureToTrackIdentifier;
 };
-template<> struct TStructOpsTypeTraits<FMovieSceneGenerationLedger> : public TStructOpsTypeTraitsBase2<FMovieSceneGenerationLedger> { enum { WithSerializer = true, WithCopy = true }; };
+template<> struct TStructOpsTypeTraits<FMovieSceneTemplateGenerationLedger> : public TStructOpsTypeTraitsBase2<FMovieSceneTemplateGenerationLedger> { enum { WithCopy = true }; };
 
 /**
  * Template that is used for efficient runtime evaluation of a movie scene sequence. Potentially serialized into the asset.
@@ -144,9 +154,21 @@ public:
 	MOVIESCENE_API const TMap<FMovieSceneTrackIdentifier, FMovieSceneEvaluationTrack>& GetTracks() const;
 
 	/**
+	 * Iterate this template's tracks (non-const).
+	 * NOTE that this is intended for use during the compilation phase in-editor. 
+	 * Beware of using this to modify tracks afterwards as it will almost certainly break evaluation.
+	 */
+	MOVIESCENE_API TMap<FMovieSceneTrackIdentifier, FMovieSceneEvaluationTrack>& GetTracks();
+
+	/**
 	 * Find tracks within this template that relate to the specified signature
 	 */
 	MOVIESCENE_API TArrayView<FMovieSceneTrackIdentifier> FindTracks(const FGuid& InSignature);
+
+	/**
+	 * Called after this template has been serialized in some way
+	 */
+	MOVIESCENE_API void PostSerialize(const FArchive& Ar);
 
 	/**
 	 * Purge any stale tracks we may have
@@ -161,7 +183,7 @@ public:
 	/**
 	 * Get this template's generation ledger
 	 */
-	const FMovieSceneGenerationLedger& GetLedger() const
+	const FMovieSceneTemplateGenerationLedger& GetLedger() const
 	{
 		return Ledger;
 	}
@@ -188,7 +210,7 @@ public:
 private:
 
 	UPROPERTY()
-	FMovieSceneGenerationLedger Ledger;
+	FMovieSceneTemplateGenerationLedger Ledger;
 
 public:
 
@@ -200,6 +222,7 @@ public:
 	UPROPERTY()
 	uint32 bKeepStaleTracks : 1;
 };
+template<> struct TStructOpsTypeTraits<FMovieSceneEvaluationTemplate> : public TStructOpsTypeTraitsBase2<FMovieSceneEvaluationTemplate> { enum { WithPostSerialize = true }; };
 
 USTRUCT()
 struct FMovieSceneSequenceCachedSignature
@@ -229,6 +252,13 @@ struct FCachedMovieSceneEvaluationTemplate : public FMovieSceneEvaluationTemplat
 		bKeepStaleTracks = 1;
 	}
 
+	FCachedMovieSceneEvaluationTemplate(UMovieSceneSequence& InSequence)
+		: Origin(nullptr)
+	{
+		bKeepStaleTracks = 1;
+		Initialize(InSequence);
+	}
+
 	MOVIESCENE_API void Initialize(UMovieSceneSequence& InSequence, FMovieSceneSequenceTemplateStore* InOrigin = nullptr);
 
 	MOVIESCENE_API void Regenerate();
@@ -255,4 +285,4 @@ private:
 #endif
 };
 
-template<> struct TStructOpsTypeTraits<FCachedMovieSceneEvaluationTemplate> : public TStructOpsTypeTraitsBase2<FCachedMovieSceneEvaluationTemplate> { enum { WithCopy = false }; };
+template<> struct TStructOpsTypeTraits<FCachedMovieSceneEvaluationTemplate> : public TStructOpsTypeTraitsBase2<FCachedMovieSceneEvaluationTemplate> { enum { WithCopy = false, WithPostSerialize = true }; };

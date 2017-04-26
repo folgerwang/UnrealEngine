@@ -164,6 +164,14 @@ static TAutoConsoleVariable<int32> CVarParallelInitViews(
 	ECVF_RenderThreadSafe
 	);
 
+float GLightMaxDrawDistanceScale = 1.0f;
+static FAutoConsoleVariableRef CVarLightMaxDrawDistanceScale(
+	TEXT("r.LightMaxDrawDistanceScale"),
+	GLightMaxDrawDistanceScale,
+	TEXT("Scale applied to the MaxDrawDistance of lights.  Useful for fading out local lights more aggressively on some platforms."),
+	ECVF_Scalability | ECVF_RenderThreadSafe
+);
+
 /*------------------------------------------------------------------------------
 	Visibility determination.
 ------------------------------------------------------------------------------*/
@@ -1420,6 +1428,7 @@ struct FRelevancePacket
 	FRelevancePrimSet<FPrimitiveSceneInfo*> LazyUpdatePrimitives;
 	FRelevancePrimSet<FPrimitiveSceneInfo*> DirtyPrecomputedLightingBufferPrimitives;
 	FRelevancePrimSet<FPrimitiveSceneInfo*> VisibleEditorPrimitives;
+	FRelevancePrimSet<FPrimitiveSceneProxy*> VolumetricPrimSet;
 	uint16 CombinedShadingModelMask;
 	bool bUsesGlobalDistanceField;
 	bool bUsesLightingChannels;
@@ -1535,6 +1544,11 @@ struct FRelevancePacket
 					// Add to set of dynamic distortion primitives
 					DistortionPrimSet.AddPrim(PrimitiveSceneInfo->Proxy);
 				}
+			}
+
+			if (ViewRelevance.bHasVolumeMaterialDomain)
+			{
+				VolumetricPrimSet.AddPrim(PrimitiveSceneInfo->Proxy);
 			}
 
 			CombinedShadingModelMask |= ViewRelevance.ShadingModelMaskRelevance;
@@ -1745,6 +1759,7 @@ struct FRelevancePacket
 		MeshDecalPrimSet.AppendTo(WriteView.MeshDecalPrimSet.Prims);
 		CustomDepthSet.AppendTo(WriteView.CustomDepthSet);
 		DirtyPrecomputedLightingBufferPrimitives.AppendTo(WriteView.DirtyPrecomputedLightingBufferPrimitives);
+		VolumetricPrimSet.AppendTo(WriteView.VolumetricPrimSet);
 		for (int32 Index = 0; Index < LazyUpdatePrimitives.NumPrims; Index++)
 		{
 			LazyUpdatePrimitives.Prims[Index]->ConditionalLazyUpdateForRendering(RHICmdList);
@@ -2696,7 +2711,7 @@ void FSceneRenderer::PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTask
 					{
 						FSphere Bounds = Proxy->GetBoundingSphere();
 						float DistanceSquared = (Bounds.Center - View.ViewMatrices.GetViewOrigin()).SizeSquared();
-						float MaxDistSquared = Proxy->GetMaxDrawDistance() * Proxy->GetMaxDrawDistance();
+						float MaxDistSquared = Proxy->GetMaxDrawDistance() * Proxy->GetMaxDrawDistance() * GLightMaxDrawDistanceScale * GLightMaxDrawDistanceScale;
 						const bool bDrawLight = (FMath::Square(FMath::Min(0.0002f, GMinScreenRadiusForLights / Bounds.W) * View.LODDistanceFactor) * DistanceSquared < 1.0f)
 													&& (MaxDistSquared == 0 || DistanceSquared < MaxDistSquared);
 							
@@ -2901,6 +2916,8 @@ bool FDeferredShadingSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdLi
 			View.InitRHIResources();
 		}
 	}
+
+	SetupVolumetricFog();
 
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_InitViews_OnStartFrame);

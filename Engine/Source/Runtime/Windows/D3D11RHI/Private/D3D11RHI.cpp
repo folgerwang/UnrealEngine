@@ -7,6 +7,7 @@
 #include "D3D11RHIPrivate.h"
 #include "RHIStaticStates.h"
 #include "StaticBoundShaderState.h"
+#include "Engine/GameViewportClient.h"
 
 #if WITH_DX_PERF
 	// For perf events
@@ -34,6 +35,7 @@ void FD3D11DynamicRHI::RHIBeginFrame()
 	RHIPrivateBeginFrame();
 	UniformBufferBeginFrame();
 	GPUProfilingData.BeginFrame(this);
+	PSOPrimitiveType = PT_Num;
 }
 
 template <int32 Frequency>
@@ -278,8 +280,6 @@ void FD3D11DynamicRHI::ClearAllShaderResources()
 	ClearAllShaderResourcesForFrequency<SF_Compute>();
 }
 
-FGlobalBoundShaderState LongGPUTaskBoundShaderState;
-
 void FD3D11DynamicRHI::IssueLongGPUTask()
 {
 	if (GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM4)
@@ -304,16 +304,26 @@ void FD3D11DynamicRHI::IssueLongGPUTask()
 
 			FRHICommandList_RecursiveHazardous RHICmdList(this);
 
+			FGraphicsPipelineStateInitializer GraphicsPSOInit;
 			SetRenderTarget(RHICmdList, Viewport->GetBackBuffer(), FTextureRHIRef());
-			RHICmdList.SetBlendState(TStaticBlendState<CW_RGBA, BO_Add, BF_One, BF_One>::GetRHI(), FLinearColor::Black);
-			RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI(), 0);
-			RHICmdList.SetRasterizerState(TStaticRasterizerState<FM_Solid, CM_None>::GetRHI());
+			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+
+			GraphicsPSOInit.BlendState = TStaticBlendState<CW_RGBA, BO_Add, BF_One, BF_One>::GetRHI();
+			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
 
 			auto ShaderMap = GetGlobalShaderMap(GMaxRHIFeatureLevel);
 			TShaderMapRef<TOneColorVS<true> > VertexShader(ShaderMap);
 			TShaderMapRef<FLongGPUTaskPS> PixelShader(ShaderMap);
 
-			RHICmdList.SetLocalBoundShaderState(RHICmdList.BuildLocalBoundShaderState(GD3D11Vector4VertexDeclaration.VertexDeclarationRHI, VertexShader->GetVertexShader(), FHullShaderRHIRef(), FDomainShaderRHIRef(), PixelShader->GetPixelShader(), FGeometryShaderRHIRef()));
+			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GD3D11Vector4VertexDeclaration.VertexDeclarationRHI;
+			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+			GraphicsPSOInit.PrimitiveType = PT_TriangleStrip;
+
+			FLocalGraphicsPipelineState BaseGraphicsPSO = RHICmdList.BuildLocalGraphicsPipelineState(GraphicsPSOInit);
+			RHICmdList.SetLocalGraphicsPipelineState(BaseGraphicsPSO);
+			RHICmdList.SetBlendFactor(FLinearColor::Black);
 
 			// Draw a fullscreen quad
 			FVector4 Vertices[4];
@@ -550,6 +560,27 @@ void FD3D11DynamicRHI::RHIEndScene()
 
 void FD3DGPUProfiler::PushEvent(const TCHAR* Name, FColor Color)
 {
+#if NV_AFTERMATH
+	if(GDX11NVAfterMathEnabled)
+	{
+		uint32 CRC = FCrc::StrCrc32<TCHAR>(Name);	
+		
+		if (CachedStrings.Num() > 10000)
+		{
+			CachedStrings.Empty(10000);
+		}
+
+		if (CachedStrings.Find(CRC) == nullptr)
+		{
+			CachedStrings.Emplace(CRC, FString(Name));
+		}
+		PushPopStack.Push(CRC);
+
+		auto* DeviceContext = D3D11RHI->GetDeviceContext();
+		GFSDK_Aftermath_DX11_SetEventMarker(DeviceContext, &PushPopStack[0], PushPopStack.Num() * sizeof(uint32));
+	}
+#endif
+
 #if WITH_DX_PERF
 	D3DPERF_BeginEvent(Color.DWColor(),Name);
 #endif
@@ -559,11 +590,54 @@ void FD3DGPUProfiler::PushEvent(const TCHAR* Name, FColor Color)
 
 void FD3DGPUProfiler::PopEvent()
 {
+#if NV_AFTERMATH
+	if (GDX11NVAfterMathEnabled)
+	{
+		PushPopStack.Pop(false);
+	}
+#endif
+
 #if WITH_DX_PERF
 	D3DPERF_EndEvent();
 #endif
 
 	FGPUProfiler::PopEvent();
+}
+
+bool FD3DGPUProfiler::CheckGpuHeartbeat() const
+{
+#if NV_AFTERMATH
+	if (GDX11NVAfterMathEnabled)
+	{
+		auto* DeviceContext = D3D11RHI->GetDeviceContext();
+		GFSDK_Aftermath_Status Status;
+		GFSDK_Aftermath_ContextData ContextDataOut;
+		auto Result = GFSDK_Aftermath_DX11_GetData(1, &DeviceContext, &ContextDataOut, &Status);
+		if (Result == GFSDK_Aftermath_Result_Success)
+		{
+			if (Status != GFSDK_Aftermath_Status_Active)
+			{
+				const TCHAR* AftermathReason[] = { TEXT("Active"), TEXT("Timeout"), TEXT("OutOfMemory"), TEXT("PageFault"), TEXT("Unknown") };
+				check(Status < 5);
+				UE_LOG(LogRHI, Error, TEXT("[Aftermath] Status: %s"), AftermathReason[Status]);
+				UE_LOG(LogRHI, Error, TEXT("[Aftermath] GPU Stack Dump"));
+				uint32 NumCRCs = ContextDataOut.markerSize / sizeof(uint32);
+				uint32* Data = (uint32*)ContextDataOut.markerData;
+				for (uint32 i = 0; i < NumCRCs; i++)
+				{
+					const FString* Frame = CachedStrings.Find(Data[i]);
+					if (Frame != nullptr)
+					{
+						UE_LOG(LogRHI, Error, TEXT("[Aftermath] %i: %s"), i, *(*Frame));
+					}
+				}
+				UE_LOG(LogRHI, Error, TEXT("[Aftermath] GPU Stack Dump"));
+				return false;
+			}
+		}
+	}
+#endif
+	return true;
 }
 
 /** Start this frame of per tracking */

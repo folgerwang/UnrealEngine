@@ -5,6 +5,8 @@
 #include "EditableMeshTypes.h"
 #include "EditableMesh.h"
 #include "EdMode.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/Commands/UICommandList.h"
 #include "MeshElement.h"
 #include "ArrayView.h"
 #include "LevelEditorViewport.h"	// For FTrackingTransaction

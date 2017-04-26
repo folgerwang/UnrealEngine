@@ -128,7 +128,6 @@ public:
 	bool					bLoaderIsFArchiveAsync2;
 	FORCEINLINE FArchiveAsync2* GetFArchiveAsync2Loader()
 	{
-		check(GNewAsyncIO);
 		return bLoaderIsFArchiveAsync2 ? (FArchiveAsync2*)Loader : nullptr;
 	}
 
@@ -189,6 +188,12 @@ public:
 	 * Register that a package is now known missing and that it should silence future warnings/issues
 	 */
 	COREUOBJECT_API static void AddKnownMissingPackage(FName PackageName);
+
+	/**
+	 * Register that a package is no longer known missing and that it should be searched for again in the future
+	 * @return true if the provided package was removed from the KnownMissingPackage list
+	 */
+	COREUOBJECT_API static bool RemoveKnownMissingPackage(FName PackageName);
 
 	/** 
 	 * Checks if the linker has any objects in the export table that require loading.
@@ -283,16 +288,6 @@ private:
 		}
 	};
 
-	/** Map that keeps track of any precached full package reads															*/
-	static TMap<FString, FPackagePrecacheInfo> PackagePrecacheMap;
-
-	/**
-	* Fills in the passed in TArray with the packages that are in its PrecacheMap
-	*
-	* @param TArray<FString> to be populated
-	*/
-public:
-	COREUOBJECT_API static void GetListOfPackagesInPackagePrecacheMap(TArray<FString>& ListOfPackages);
 private:
 
 	/** Allows access to UTexture2D::StaticClass() without linking Core with Engine											*/
@@ -447,7 +442,7 @@ public:
 	 * @param bForcePreload	Whether to explicitly call Preload (serialize) right away instead of being
 	 *						called from EndLoad()
 	 */
-	COREUOBJECT_API void LoadAllObjects(bool bForcePreload = false);
+	COREUOBJECT_API void LoadAllObjects(bool bForcePreload);
 
 	/**
 	 * Returns the ObjectName associated with the resource indicated.
@@ -518,13 +513,6 @@ public:
 	 * @return				true of the export should be loaded
 	 */
 	COREUOBJECT_API bool WillTextureBeLoaded( UClass* Class, int32 ExportIndex );
-
-	/**
-	 * Kick off an async load of a package file into memory
-	 * 
-	 * @param PackageName Name of package to read in. Must be the same name as passed into LoadPackage/CreateLinker
-	 */
-	COREUOBJECT_API static void AsyncPreloadPackage(const TCHAR* PackageName);
 
 	/**
 	 * Called when an object begins serializing property data using script serialization.
@@ -620,7 +608,7 @@ private:
 	 * @return If found returns index of meta data object in the export map,
 	 *         INDEX_NONE otherwise.
 	 */
-	int32 LoadMetaDataFromExportMap(bool bForcePreload = false);
+	int32 LoadMetaDataFromExportMap(bool bForcePreload);
 
 	UObject* CreateImport( int32 Index );
 

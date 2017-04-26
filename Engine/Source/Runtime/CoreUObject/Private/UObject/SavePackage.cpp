@@ -13,7 +13,6 @@
 #include "Serialization/LargeMemoryWriter.h"
 #include "Serialization/LargeMemoryReader.h"
 #include "Serialization/BufferArchive.h"
-#include "HAL/IOBase.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/FeedbackContext.h"
 #include "Misc/ScopedSlowTask.h"
@@ -236,15 +235,6 @@ namespace SavePackageStats
 	});
 }
 #endif
-
-#if WITH_EDITOR
-static const FCompilerNativizationOptions& GetNativizationOptionsForPlatform(const ITargetPlatform* TargetPlatform, const IBlueprintNativeCodeGenCore* Coordinator)
-{
-	check(Coordinator);
-	const FString PlatformName = ensure(TargetPlatform) ? TargetPlatform->PlatformName() : FString();
-	return Coordinator->GetNativizationOptionsForPlatform(PlatformName);
-}
-#endif //WITH_EDITOR
 
 static bool HasUnsaveableOuter(UObject* InObj, UPackage* InSavingPackage)
 {
@@ -631,7 +621,7 @@ public:
 	{
 		if (const IBlueprintNativeCodeGenCore* Coordinator = IBlueprintNativeCodeGenCore::Get())
 		{
-			const FCompilerNativizationOptions& NativizationOptions = GetNativizationOptionsForPlatform(TargetPlatform, Coordinator);
+			const FCompilerNativizationOptions& NativizationOptions = Coordinator->GetNativizationOptionsForPlatform(TargetPlatform);
 			if (const UClass* ReplObjClass = Coordinator->FindReplacedClassForObject(Obj, NativizationOptions))
 			{
 				MarkNameAsReferenced(ReplObjClass->GetFName());
@@ -756,7 +746,7 @@ static void ConditionallyExcludeObjectForTarget(UObject* Obj, EObjectMark Exclud
 	// Check for nativization replacement
 	if (const IBlueprintNativeCodeGenCore* Coordinator = IBlueprintNativeCodeGenCore::Get())
 	{
-		const FCompilerNativizationOptions& NativizationOptions = GetNativizationOptionsForPlatform(TargetPlatform, Coordinator);
+		const FCompilerNativizationOptions& NativizationOptions = Coordinator->GetNativizationOptionsForPlatform(TargetPlatform);
 		FName UnusedName;
 		if (UClass* ReplacedClass = Coordinator->FindReplacedClassForObject(Obj, NativizationOptions))
 		{
@@ -1219,7 +1209,7 @@ FArchive& FArchiveSaveTagImports::operator<<( UObject*& Obj )
 				if(const IBlueprintNativeCodeGenCore* Coordinator = IBlueprintNativeCodeGenCore::Get())
 				{
 					FName UnusedName;
-					UObject* ReplacedOuter = Coordinator->FindReplacedNameAndOuter(Obj, /*out*/UnusedName, GetNativizationOptionsForPlatform(CookingTarget(), Coordinator));
+					UObject* ReplacedOuter = Coordinator->FindReplacedNameAndOuter(Obj, /*out*/UnusedName, Coordinator->GetNativizationOptionsForPlatform(CookingTarget()));
 					Parent = ReplacedOuter ? ReplacedOuter : Obj->GetOuter();
 				}
 #endif //WITH_EDITOR
@@ -1311,497 +1301,6 @@ void FArchiveSaveTagImports::MarkSearchableName(const UObject* TypeObject, const
 	SavePackageState->MarkNameAsReferenced(ValueName);
 
 	Linker->SearchableNamesObjectMap.FindOrAdd(TypeObject).AddUnique(ValueName);
-}
-
-/**
- * Helper class for package compression.
- */
-struct FFileCompressionHelper
-{
-public:
-	/**
-	 * Compresses the passed in src file and writes it to destination.
-	 *
-	 * @param	SrcFilename		Filename to compress
-	 * @param	DstFilename		Output name of compressed file, cannot be the same as SrcFilename
-	 * @param	SrcLinker		FLinkerSave object used to save src file
-	 *
-	 * @return true if sucessful, false otherwise
-	 */
-	bool CompressFile( const TCHAR* SrcFilename, const TCHAR* DstFilename, FLinkerSave* SrcLinker )
-	{
-		FString TmpFilename = FPaths::GetPath( DstFilename ) / ( FPaths::GetBaseFilename( DstFilename ) + TEXT( "_SaveCompressed.tmp" ));
-
-		// Create file reader and writer...
-		FArchive* FileReader = IFileManager::Get().CreateFileReader( SrcFilename );
-		FArchive* FileWriter = IFileManager::Get().CreateFileWriter( *TmpFilename );
-		// ... and abort if either operation wasn't successful.
-		if( !FileReader || !FileWriter )
-		{
-			// Delete potentially created reader or writer.
-			delete FileReader;
-			delete FileWriter;
-			// Delete temporary file.
-			IFileManager::Get().Delete( *TmpFilename );
-			// Failure.
-			return false;
-		}
-
-		CompressArchive(FileReader,FileWriter,SrcLinker);
-
-		// Tear down file reader and write. This will flush the writer first.
-		delete FileReader;
-		delete FileWriter;
-
-		// Compression was successful, now move file.
-		bool bMoveSucceded = IFileManager::Get().Move( DstFilename, *TmpFilename );
-		return bMoveSucceded;
-	}
-	/**
-	 * Compresses the passed in src file and writes it to destination. The file comes from the "Saver" in the FLinker
-	 *
-	 * @param	DstFilename		Output name of compressed file, cannot be the same as SrcFilename
-	 * @param	SrcLinker		FLinkerSave object used to save src file
-	 *
-	 * @return true if successful, false otherwise
-	 */
-	bool CompressFile( const TCHAR* DstFilename, FLinkerSave* SrcLinker )
-	{
-		FString TmpFilename = FPaths::GetPath( DstFilename ) / ( FPaths::GetBaseFilename( DstFilename ) + TEXT( "_SaveCompressed.tmp" ));
-		// Create file reader and writer...
-		FLargeMemoryWriter* Writer = (FLargeMemoryWriter*)(SrcLinker->Saver);
-		FLargeMemoryReader Reader(Writer->GetData(), Writer->TotalSize(), (ELargeMemoryReaderFlags::TakeOwnership | ELargeMemoryReaderFlags::Persistent), FName(*Writer->GetArchiveName()));
-		Writer->ReleaseOwnership();
-		FArchive* FileWriter = IFileManager::Get().CreateFileWriter( *TmpFilename );
-		// ... and abort if either operation wasn't successful.
-		if( !FileWriter )
-		{
-			// Delete potentially created reader or writer.
-			delete FileWriter;
-			// Delete temporary file.
-			IFileManager::Get().Delete( *TmpFilename );
-			// Failure.
-			return false;
-		}
-
-
-		CompressArchive(&Reader,FileWriter,SrcLinker);
-
-		// Tear down file writer. This will flush the writer first.
-		delete FileWriter;
-
-		// Compression was successful, now move file.
-		bool bMoveSucceded = IFileManager::Get().Move( DstFilename, *TmpFilename );
-		return bMoveSucceded;
-	}
-	/**
-	* Compresses the passed in src archive and writes it to destination archive.
-	*
-	* @param	FileReader		archive to read from
-	* @param	FileWriter		archive to write to
-	* @param	SrcLinker		FLinkerSave object used to save src file
-	*
-	* @return true if successful, false otherwise
-	*/
-	void CompressArchive(FArchive* FileReader, FArchive* FileWriter, const bool bForceByteSwapping, const int32 TotalHeaderSize, const TArray<int32> &ExportSizes)
-	{
-
-		// Read package file summary from source file.
-		FPackageFileSummary FileSummary;
-		(*FileReader) << FileSummary;
-
-		// Propagate byte swapping.
-		FileWriter->SetByteSwapping(bForceByteSwapping);
-
-		// We don't compress the package file summary but treat everything afterwards
-		// till the first export as a single chunk. This basically lumps name and import 
-		// tables into one compressed block.
-		int32 StartOffset = FileReader->Tell();
-		int32 RemainingHeaderSize = TotalHeaderSize - StartOffset;
-		CurrentChunk.UncompressedSize = RemainingHeaderSize;
-		CurrentChunk.UncompressedOffset = StartOffset;
-
-		// finish header chunk
-		FinishCurrentAndCreateNewChunk(0);
-
-		// Iterate over all exports and add them separately. The underlying code will take
-		// care of merging small blocks.
-		for (int32 ExportIndex = 0; ExportIndex<ExportSizes.Num(); ExportIndex++)
-		{
-			AddToChunk(ExportSizes[ExportIndex]);
-		}
-
-		// Finish chunk in flight and reset current chunk with size 0.
-		FinishCurrentAndCreateNewChunk(0);
-
-		ECompressionFlags BaseCompressionMethod = COMPRESS_Default;
-		if (FileWriter->IsCooking())
-		{
-			BaseCompressionMethod = FileWriter->CookingTarget()->GetBaseCompressionMethod();
-		}
-
-		// Write base version of package file summary after updating compressed chunks array and compression flags.
-		FileSummary.CompressionFlags = BaseCompressionMethod;
-		FileSummary.CompressedChunks = CompressedChunks;
-		(*FileWriter) << FileSummary;
-
-		// Reset internal state so subsequent calls will work.
-		CompressedChunks.Empty();
-		CurrentChunk = FCompressedChunk();
-
-		// Allocate temporary buffers for reading and compression.
-		int32	SrcBufferSize = RemainingHeaderSize;
-		void*	SrcBuffer = FMemory::Malloc(SrcBufferSize);
-
-		// Iterate over all chunks, read the data, compress and write it out to destination file.
-		for (int32 ChunkIndex = 0; ChunkIndex<FileSummary.CompressedChunks.Num(); ChunkIndex++)
-		{
-			FCompressedChunk& Chunk = FileSummary.CompressedChunks[ChunkIndex];
-
-			// Increase temporary buffer sizes if they are too small.
-			if (SrcBufferSize < Chunk.UncompressedSize)
-			{
-				SrcBufferSize = Chunk.UncompressedSize;
-				SrcBuffer = FMemory::Realloc(SrcBuffer, SrcBufferSize);
-			}
-
-			// Verify that we're not skipping any data.
-			check(Chunk.UncompressedOffset == FileReader->Tell());
-
-			// Read src/ uncompressed data.
-			FileReader->Serialize(SrcBuffer, Chunk.UncompressedSize);
-
-			// Keep track of offset.
-			Chunk.CompressedOffset = FileWriter->Tell();
-			// Serialize compressed. This is compatible with async LoadCompressedData.
-			FileWriter->SerializeCompressed(SrcBuffer, Chunk.UncompressedSize, (ECompressionFlags)FileSummary.CompressionFlags, false, true);
-			// Keep track of compressed size.
-			Chunk.CompressedSize = FileWriter->Tell() - Chunk.CompressedOffset;
-		}
-
-		// get the start of the bulkdata and update it in the summary
-		FileSummary.BulkDataStartOffset = FileWriter->Tell();
-
-		// serialize the bulkdata directly, as bulkdata is handling the compression already
-		int64 SizeToCopy = FileReader->TotalSize() - FileReader->Tell();
-		if (SrcBufferSize < SizeToCopy)
-		{
-			SrcBufferSize = SizeToCopy;
-			SrcBuffer = FMemory::Realloc(SrcBuffer, SizeToCopy);
-		}
-
-		// Read src/ uncompressed data.
-		FileReader->Serialize(SrcBuffer, SizeToCopy);
-		FileWriter->Serialize(SrcBuffer, SizeToCopy);
-
-		// Verify that we've compressed everything.
-		check(FileReader->AtEnd());
-
-		// Serialize file summary again - this time CompressedChunks array is going to contain compressed size and offsets.
-		FileWriter->Seek(0);
-		(*FileWriter) << FileSummary;
-
-		// Free intermediate buffers.
-		FMemory::Free(SrcBuffer);
-
-	}
-
-
-	/**
-	 * Compresses the passed in src archive and writes it to destination archive.
-	 *
-	 * @param	FileReader		archive to read from
-	 * @param	FileWriter		archive to write to
-	 * @param	SrcLinker		FLinkerSave object used to save src file
-	 *
-	 * @return true if successful, false otherwise
-	 */
-	void CompressArchive( FArchive* FileReader, FArchive* FileWriter, FLinkerSave* SrcLinker )
-	{
-
-		// Read package file summary from source file.
-		FPackageFileSummary FileSummary;
-		(*FileReader) << FileSummary;
-
-		// Propagate byte swapping.
-		FileWriter->SetByteSwapping( SrcLinker->ForceByteSwapping() );
-
-		// We don't compress the package file summary but treat everything afterwards
-		// till the first export as a single chunk. This basically lumps name and import 
-		// tables into one compressed block.
-		int32 StartOffset			= FileReader->Tell();
-		int32 RemainingHeaderSize	= SrcLinker->Summary.TotalHeaderSize - StartOffset;
-		CurrentChunk.UncompressedSize	= RemainingHeaderSize;
-		CurrentChunk.UncompressedOffset	= StartOffset;
-
-		// finish header chunk
-		FinishCurrentAndCreateNewChunk( 0 );
-		
-		// Iterate over all exports and add them separately. The underlying code will take
-		// care of merging small blocks.
-		for( int32 ExportIndex=0; ExportIndex<SrcLinker->ExportMap.Num(); ExportIndex++ )
-		{
-			const FObjectExport& Export = SrcLinker->ExportMap[ExportIndex];		
-			AddToChunk( Export.SerialSize );
-		}
-		
-		// Finish chunk in flight and reset current chunk with size 0.
-		FinishCurrentAndCreateNewChunk( 0 );
-
-		ECompressionFlags BaseCompressionMethod = COMPRESS_Default;
-		if (FileWriter->IsCooking())
-		{
-			BaseCompressionMethod = FileWriter->CookingTarget()->GetBaseCompressionMethod();
-		}
-
-		// Write base version of package file summary after updating compressed chunks array and compression flags.
-		FileSummary.CompressionFlags = BaseCompressionMethod;
-		FileSummary.CompressedChunks = CompressedChunks;
-		(*FileWriter) << FileSummary;
-
-		// Reset internal state so subsequent calls will work.
-		CompressedChunks.Empty();
-		CurrentChunk = FCompressedChunk();
-
-		// Allocate temporary buffers for reading and compression.
-		int32	SrcBufferSize	= RemainingHeaderSize;
-		void*	SrcBuffer		= FMemory::Malloc( SrcBufferSize );
-
-		// Iterate over all chunks, read the data, compress and write it out to destination file.
-		for( int32 ChunkIndex=0; ChunkIndex<FileSummary.CompressedChunks.Num(); ChunkIndex++ )
-		{
-			FCompressedChunk& Chunk = FileSummary.CompressedChunks[ChunkIndex];
-
-			// Increase temporary buffer sizes if they are too small.
-			if( SrcBufferSize < Chunk.UncompressedSize )
-			{
-				SrcBufferSize = Chunk.UncompressedSize;
-				SrcBuffer = FMemory::Realloc( SrcBuffer, SrcBufferSize );
-			}
-			
-			// Verify that we're not skipping any data.
-			check( Chunk.UncompressedOffset == FileReader->Tell() );
-
-			// Read src/ uncompressed data.
-			FileReader->Serialize( SrcBuffer, Chunk.UncompressedSize );
-
-			// Keep track of offset.
-			Chunk.CompressedOffset	= FileWriter->Tell();
-			// Serialize compressed. This is compatible with async LoadCompressedData.
-			FileWriter->SerializeCompressed( SrcBuffer, Chunk.UncompressedSize, (ECompressionFlags) FileSummary.CompressionFlags, false, true );
-			// Keep track of compressed size.
-			Chunk.CompressedSize	= FileWriter->Tell() - Chunk.CompressedOffset;		
-		}
-
-		// get the start of the bulkdata and update it in the summary
-		FileSummary.BulkDataStartOffset = FileWriter->Tell();
-		
-		// serialize the bulkdata directly, as bulkdata is handling the compression already
-		int64 SizeToCopy = FileReader->TotalSize() - FileReader->Tell();
-		if (SrcBufferSize < SizeToCopy)
-		{
-			SrcBufferSize = SizeToCopy;
-			SrcBuffer = FMemory::Realloc( SrcBuffer, SizeToCopy );
-		}
-
-		// Read src/ uncompressed data.
-		FileReader->Serialize( SrcBuffer, SizeToCopy );
-		FileWriter->Serialize( SrcBuffer, SizeToCopy );
-
-		// Verify that we've compressed everything.
-		check( FileReader->AtEnd() );
-
-		// Serialize file summary again - this time CompressedChunks array is going to contain compressed size and offsets.
-		FileWriter->Seek( 0 );
-		(*FileWriter) << FileSummary;
-
-		// Free intermediate buffers.
-		FMemory::Free( SrcBuffer );
-
-	}
-
-	/**
-	 * Compresses the passed in src file and writes it to destination.
-	 *
-	 * @param	SrcFilename			Filename to compress
-	 * @param	DstFilename			Output name of compressed file, cannot be the same as SrcFilename
-	 * @param	bForceByteswapping	Should the output file be force-byteswapped (we can't tell as there's no Source Linker with the info)
-	 *
-	 * @return true if successful, false otherwise
-	 */
-	bool FullyCompressFile( const TCHAR* SrcFilename, const TCHAR* DstFilename, bool bForceByteSwapping )
-	{
-		FString TmpFilename = FPaths::GetPath( DstFilename ) / TEXT( "SaveCompressed.tmp" );
-
-		// Create file reader and writer...
-		FArchive* FileReader = IFileManager::Get().CreateFileReader( SrcFilename );
-		FArchive* FileWriter = IFileManager::Get().CreateFileWriter( *TmpFilename );
-
-		// ... and abort if either operation wasn't successful.
-		if( !FileReader || !FileWriter )
-		{
-			// Delete potentially created reader or writer.
-			delete FileReader;
-			delete FileWriter;
-			// Delete temporary file.
-			IFileManager::Get().Delete( *TmpFilename );
-			// Failure.
-			return false;
-		}
-
-		// read in source file
-		const int32 FileSize = FileReader->TotalSize();
-		
-		// Force byte swapping if needed
-		FileWriter->SetByteSwapping(bForceByteSwapping);
-		
-		// write it out compressed (passing in the FileReader so that the writer can read in small chunks to avoid 
-		// single huge allocation of the entire source package size)
-		FileWriter->SerializeCompressed(FileReader, FileSize, COMPRESS_Default, true, true);
-		
-		delete FileReader;
-		delete FileWriter;
-		
-		// make the 
-		// Compression was successful, now move file.
-		bool bMoveSucceded = IFileManager::Get().Move( DstFilename, *TmpFilename );
-
-		// if the move succeeded, create a .uncompressed_size file in the cooked directory so that the 
-		// cooker frontend can create the table of contents
-		if (bMoveSucceded)
-		{
-			// write out the size of the original file to the string
-			FString SizeString = FString::Printf(TEXT("%d%s"), FileSize, LINE_TERMINATOR);
-			FFileHelper::SaveStringToFile(SizeString, *(FString(DstFilename) + TEXT(".uncompressed_size")));
-		}
-		return bMoveSucceded;
-	}
-
-private:
-	/**
-	 * Tries to add bytes to current chunk and creates a new one if there is not enough space.
-	 *
-	 * @param	Size	Number of bytes to try to add to current chunk
-	 */
-	void AddToChunk( int32 Size )
-	{
-		// Resulting chunk would be too big.
-		if( CurrentChunk.UncompressedSize > 0 && CurrentChunk.UncompressedSize + Size > MAX_MERGED_COMPRESSION_CHUNKSIZE )
-		{
-			// Finish up current chunk and create a new one of passed in size.
-			FinishCurrentAndCreateNewChunk( Size );
-		}
-		// Add bytes to existing chunk.
-		else
-		{
-			CurrentChunk.UncompressedSize += Size;
-		}
-	}
-
-	/**
-	 * Finish current chunk and add it to the CompressedChunks array. This also creates a new
-	 * chunk with a base size passed in.
-	 *
-	 * @param	Size	Size in bytes of new chunk to create.
-	 */
-	void FinishCurrentAndCreateNewChunk( int32 Size )
-	{
-		CompressedChunks.Add( CurrentChunk );
-		int32 Offset = CurrentChunk.UncompressedOffset + CurrentChunk.UncompressedSize;
-		CurrentChunk = FCompressedChunk();
-		CurrentChunk.UncompressedOffset	= Offset;
-		CurrentChunk.UncompressedSize	= Size;
-	}
-	
-	/** Compressed chunks, populated by AddToChunk/ FinishCurrentAndCreateNewChunk.	*/
-	TArray<FCompressedChunk>	CompressedChunks;
-	/** Current chunk, used by merging code.										*/
-	FCompressedChunk			CurrentChunk;
-};
-
-
-
-void AsyncWriteCompressedFile(FLargeMemoryPtr Data, const int64 DataSize, const TCHAR* Filename, const FDateTime& TimeStamp, const bool bForceByteSwapping, const int32 TotalHeaderSize, const TArray<int32>& ExportSizes)
-{
-	class FAsyncWriteWorker : public FNonAbandonableTask
-	{
-	public:
-		/** Filename To write to**/
-		FString Filename;
-		/** Data for the file. Will be freed after writing **/
-		FLargeMemoryPtr Data;
-		/** Size of the data */
-		const int64 DataSize;
-		/** Timestamp to give the file. MinValue if shouldn't be modified */
-		FDateTime FinalTimeStamp;
-
-		bool bForceByteSwapping;
-		int32 TotalHeaderSize;
-		TArray<int32> ExportSizes;
-
-		/** Constructor
-		*/
-		FAsyncWriteWorker(FLargeMemoryPtr InData, const int64 InDataSize, const TCHAR* InFilename, const FDateTime& InTimeStamp, bool InBForceByteSwapping, const int32 InTotalHeaderSize, const TArray<int32>& InExportSizes)
-			: Filename(InFilename)
-			, Data(MoveTemp(InData))
-			, DataSize(InDataSize)
-			, FinalTimeStamp(InTimeStamp)
-			, bForceByteSwapping(InBForceByteSwapping)
-			, TotalHeaderSize(InTotalHeaderSize)
-			, ExportSizes(InExportSizes)
-		{
-		}
-
-		/** Write the file  */
-		void DoWork()
-		{
-			FString TmpFilename = FPaths::GetPath(Filename) / (FPaths::GetBaseFilename(Filename) + TEXT("_SaveCompressed.tmp"));
-			// Create memory reader and file writer...
-			FLargeMemoryReader Reader(Data.Get(), DataSize, ELargeMemoryReaderFlags::Persistent, *Filename);
-			FArchive* FileWriter = IFileManager::Get().CreateFileWriter(*TmpFilename);
-			// ... and abort if either operation wasn't successful.
-			if (!FileWriter)
-			{
-				// Delete potentially created reader or writer.
-				delete FileWriter;
-				// Delete temporary file.
-				IFileManager::Get().Delete(*TmpFilename);
-				// Failure.
-				UE_LOG(LogSavePackage, Fatal, TEXT("Could not write to %s!"), *TmpFilename);
-			}
-
-			FFileCompressionHelper CompressionHelper;
-			CompressionHelper.CompressArchive(&Reader, FileWriter, bForceByteSwapping, TotalHeaderSize, ExportSizes);
-
-			delete FileWriter;
-
-			// Clean-up the memory as soon as we save the file to reduce the memory footprint.
-			Data.Reset();
-
-			if (!IFileManager::Get().Move(*Filename, *TmpFilename, true, true, false, false))
-			{
-				UE_LOG(LogSavePackage, Fatal, TEXT("Could not move from %s to %s."), *TmpFilename, *Filename);
-			}
-			else
-			{
-				if (FinalTimeStamp != FDateTime::MinValue())
-				{
-					IFileManager::Get().SetTimeStamp(*Filename, FinalTimeStamp);
-				}
-			}
-
-			OutstandingAsyncWrites.Decrement();
-		}
-
-		FORCEINLINE TStatId GetStatId() const
-		{
-			RETURN_QUICK_DECLARE_CYCLE_STAT(FAsyncWriteWorker, STATGROUP_ThreadPoolAsyncTasks);
-		}
-
-	};
-
-	OutstandingAsyncWrites.Increment();
-	(new FAutoDeleteAsyncTask<FAsyncWriteWorker>(MoveTemp(Data), DataSize, Filename, TimeStamp, bForceByteSwapping, TotalHeaderSize, ExportSizes))->StartBackgroundTask();
 }
 
 /**
@@ -3768,7 +3267,7 @@ void VerifyEDLCookInfo()
 
 extern FGCCSyncObject GGarbageCollectionGuardCritical;
 
-ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags TopLevelFlags, const TCHAR* Filename,
+FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags TopLevelFlags, const TCHAR* Filename,
 	FOutputDevice* Error, FLinkerLoad* Conform, bool bForceByteSwapping, bool bWarnOfLongFilename, uint32 SaveFlags, 
 	const class ITargetPlatform* TargetPlatform, const FDateTime&  FinalTimeStamp, bool bSlowTask)
 {
@@ -3848,13 +3347,9 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 
 		(*GFlushStreamingFunc)();
 
-		if (!GNewAsyncIO)
-		{
-			FIOSystem::Get().BlockTillAllRequestsFinishedAndFlushHandles();
-		}
-
 		uint32 Time = 0; CLOCK_CYCLES(Time);
-
+		int64 TotalPackageSizeUncompressed = 0;
+		
 		// Make sure package is fully loaded before saving. 
 		if (!Base && !InOuter->IsFullyLoaded())
 		{
@@ -3969,7 +3464,6 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 		}
 		SlowTask.EnterProgressFrame();
 
-	
 		// Untag all objects and names.
 		UnMarkAllObjects();
 
@@ -4067,9 +3561,6 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 				// and a structure to track non-redirector references
 				TSet<UObject*> DependenciesReferencedByNonRedirectors;
 		
-				/** If true, we are going to compress the package to memory to save a little time */
-				const bool bCompressFromMemory = InOuter->HasAnyPackageFlags(PKG_StoreCompressed);
-
 				/** If true, we are going to save to disk async to save time. */
 				bool bSaveAsync = !!(SaveFlags & SAVE_Async);
 
@@ -4096,7 +3587,7 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 				}
 				else 
 #endif
-				if (bCompressFromMemory || bSaveAsync)
+				if (bSaveAsync)
 				{
 					// Allocate the linker with a memory writer, forcing byte swapping if wanted.
 					Linker = new FLinkerSave(InOuter, bForceByteSwapping, bSaveUnversioned);
@@ -4168,7 +3659,7 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 #if WITH_EDITOR
 					if (const IBlueprintNativeCodeGenCore* Coordinator = IBlueprintNativeCodeGenCore::Get())
 					{
-						EReplacementResult ReplacmentResult = Coordinator->IsTargetedForReplacement(InOuter, GetNativizationOptionsForPlatform(TargetPlatform, Coordinator));
+						EReplacementResult ReplacmentResult = Coordinator->IsTargetedForReplacement(InOuter, Coordinator->GetNativizationOptionsForPlatform(TargetPlatform));
 						if (ReplacmentResult == EReplacementResult::ReplaceCompletely)
 						{
 							if (IsEventDrivenLoaderEnabledInCookedBuilds() && TargetPlatform)
@@ -4652,7 +4143,7 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 						FName ReplacedName = NAME_None;
 						if (const IBlueprintNativeCodeGenCore* Coordinator = IBlueprintNativeCodeGenCore::Get())
 						{
-							const FCompilerNativizationOptions& NativizationOptions = GetNativizationOptionsForPlatform(TargetPlatform, Coordinator);
+							const FCompilerNativizationOptions& NativizationOptions = Coordinator->GetNativizationOptionsForPlatform(TargetPlatform);
 							if (UClass* ReplacedClass = Coordinator->FindReplacedClassForObject(Obj, NativizationOptions))
 							{
 								ObjClass = ReplacedClass;
@@ -5482,8 +4973,6 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 				}
 				SlowTask.EnterProgressFrame(1, NSLOCTEXT("Core", "SerializingBulkData", "Serializing bulk data"));
 
-				COOK_STAT(uint64 TotalPackageSizeUncompressed = 0);
-
 				// now we write all the bulkdata that is supposed to be at the end of the package
 				// and fix up the offset
 				int64 StartOfBulkDataArea = Linker->Tell();
@@ -5573,7 +5062,7 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 
 					if (BulkArchive)
 					{
-						COOK_STAT(TotalPackageSizeUncompressed += BulkArchive->TotalSize());
+						TotalPackageSizeUncompressed += BulkArchive->TotalSize();
 						BulkArchive->Close();
 						if ( bSaveAsync )
 						{
@@ -5716,7 +5205,7 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 				SlowTask.EnterProgressFrame();
 
 				// Detach archive used for saving, closing file handle.
-				if( Linker && !bCompressFromMemory && !bSaveAsync)
+				if (Linker && !bSaveAsync)
 				{
 					Linker->Detach();
 				}
@@ -5732,69 +5221,19 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 				if( Success == true )
 				{
 					// Compress the temporarily file to destination.
-					if (bCompressFromMemory && bSaveAsync)
-					{
-						UE_LOG(LogSavePackage, Log, TEXT("Async compressing from memory to '%s'"), *NewPath);
-
-						// Detach archive used for memory saving.
-						if (Linker)
-						{
-							COOK_STAT(FScopedDurationTimer SaveTimer(SavePackageStats::AsyncWriteTimeSec));
-							TArray<int32> ExportSizes;
-							for (int I = 0; I < Linker->ExportMap.Num(); ++I)
-							{
-								ExportSizes.Add(Linker->ExportMap[I].SerialSize);
-							}
-							
-							COOK_STAT(TotalPackageSizeUncompressed += ((FLargeMemoryWriter*)(Linker->Saver))->TotalSize());
-							
-							FLargeMemoryWriter* Writer = (FLargeMemoryWriter*)(Linker->Saver);
-							int64 DataSize = Writer->TotalSize();
-							FLargeMemoryPtr DataPtr = FLargeMemoryPtr(Writer->GetData());
-							Writer->ReleaseOwnership();
-							AsyncWriteCompressedFile(MoveTemp(DataPtr), DataSize, *NewPath, FinalTimeStamp, Linker->ForceByteSwapping(), Linker->Summary.TotalHeaderSize, ExportSizes);
-							Linker->Detach();
-						}
-					}
-					else if( bCompressFromMemory )
-					{
-						UE_LOG(LogSavePackage, Log,  TEXT("Compressing from memory to '%s'"), *NewPath );
-						FFileCompressionHelper CompressionHelper;
-						COOK_STAT(TotalPackageSizeUncompressed += ((FLargeMemoryWriter*)(Linker->Saver))->TotalSize());
-						Success = CompressionHelper.CompressFile( *NewPath, Linker );
-						// Detach archive used for memory saving.
-						if( Linker )
-						{
-							Linker->Detach();
-						}
-					}
-					// Compress the temporarily file to destination.
-					else if( InOuter->HasAnyPackageFlags(PKG_StoreCompressed) )
-					{
-						UE_LOG(LogSavePackage, Log,  TEXT("Compressing '%s' to '%s'"), *TempFilename, *NewPath );
-						FFileCompressionHelper CompressionHelper;
-						COOK_STAT(TotalPackageSizeUncompressed += IFileManager::Get().FileSize(*TempFilename));
-						Success = CompressionHelper.CompressFile( *TempFilename, *NewPath, Linker );
-					}
-					// Fully compress package in one "block".
-					else if( InOuter->HasAnyPackageFlags(PKG_StoreFullyCompressed) )
-					{
-						UE_LOG(LogSavePackage, Log,  TEXT("Full-package compressing '%s' to '%s'"), *TempFilename, *NewPath );
-						FFileCompressionHelper CompressionHelper;
-						Success = CompressionHelper.FullyCompressFile( *TempFilename, *NewPath, Linker->ForceByteSwapping() );
-					}
-					else if (bSaveAsync)
+					if (bSaveAsync)
 					{
 						UE_LOG(LogSavePackage, Log,  TEXT("Async saving from memory to '%s'"), *NewPath );
 
 						// Detach archive used for memory saving.
 						if (Linker)
 						{
-							COOK_STAT(FScopedDurationTimer SaveTimer(SavePackageStats::AsyncWriteTimeSec));
-							COOK_STAT(TotalPackageSizeUncompressed += ((FLargeMemoryWriter*)(Linker->Saver))->TotalSize());
-
 							FLargeMemoryWriter* Writer = (FLargeMemoryWriter*)(Linker->Saver);
 							int64 DataSize = Writer->TotalSize();
+
+							COOK_STAT(FScopedDurationTimer SaveTimer(SavePackageStats::AsyncWriteTimeSec));
+							TotalPackageSizeUncompressed += DataSize;
+
 							FLargeMemoryPtr DataPtr(Writer->GetData());
 							Writer->ReleaseOwnership();
 							if (IsEventDrivenLoaderEnabledInCookedBuilds() && Linker->IsCooking())
@@ -5813,6 +5252,7 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 					else
 					{
 						UE_LOG(LogSavePackage, Log,  TEXT("Moving '%s' to '%s'"), *TempFilename, *NewPath );
+						TotalPackageSizeUncompressed += IFileManager::Get().FileSize(*TempFilename);
 						Success = IFileManager::Get().Move( *NewPath, *TempFilename );
 						if (FinalTimeStamp != FDateTime::MinValue())
 						{
@@ -5820,12 +5260,6 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 						}
 					}
 
-					// Make sure to clean up any stale .uncompressed_size files.
-					if( !InOuter->HasAnyPackageFlags(PKG_StoreFullyCompressed) )
-					{
-						IFileManager::Get().Delete( *(NewPath + TEXT(".uncompressed_size")) );
-					}
-			
 					if( Success == false )
 					{
 						if (SaveFlags & SAVE_NoError)
@@ -5937,11 +5371,11 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 		{
 			if (bRequestStub)
 			{
-				return ESavePackageResult::GenerateStub;
+				return FSavePackageResultStruct(ESavePackageResult::GenerateStub, TotalPackageSizeUncompressed);
 			}
 			else
 			{
-				return ESavePackageResult::Success;
+				return FSavePackageResultStruct(ESavePackageResult::Success, TotalPackageSizeUncompressed);
 			}
 		}
 		else
@@ -5963,7 +5397,7 @@ bool UPackage::SavePackage(UPackage* InOuter, UObject* Base, EObjectFlags TopLev
 	FOutputDevice* Error, FLinkerLoad* Conform, bool bForceByteSwapping, bool bWarnOfLongFilename, uint32 SaveFlags,
 	const class ITargetPlatform* TargetPlatform, const FDateTime&  FinalTimeStamp, bool bSlowTask)
 {
-	const ESavePackageResult Result = Save(InOuter, Base, TopLevelFlags, Filename, Error, Conform, bForceByteSwapping, 
+	const FSavePackageResultStruct Result = Save(InOuter, Base, TopLevelFlags, Filename, Error, Conform, bForceByteSwapping,
 		bWarnOfLongFilename, SaveFlags, TargetPlatform, FinalTimeStamp, bSlowTask);
 	return Result == ESavePackageResult::Success;
 }

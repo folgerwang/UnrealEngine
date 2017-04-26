@@ -34,7 +34,8 @@ void SGameLayerManager::Construct(const SGameLayerManager::FArguments& InArgs)
 		SNew(SDPIScaler)
 		.DPIScale(this, &SGameLayerManager::GetGameViewportDPIScale)
 		[
-			SNew(SVerticalBox)
+			// All user widgets live inside this vertical box.
+			SAssignNew(WidgetHost, SVerticalBox)
 
 			+ SVerticalBox::Slot()
 			.AutoHeight()
@@ -127,6 +128,11 @@ void SGameLayerManager::Construct(const SGameLayerManager::FArguments& InArgs)
 	SetDefaultWindowTitleBarContentAsCurrent();
 }
 
+const FGeometry& SGameLayerManager::GetViewportWidgetHostGeometry() const
+{
+	return WidgetHost->GetCachedGeometry();
+}
+
 void SGameLayerManager::NotifyPlayerAdded(int32 PlayerIndex, ULocalPlayer* AddedPlayer)
 {
 	UpdateLayout();
@@ -216,6 +222,10 @@ void SGameLayerManager::ClearWidgets()
 		}
 	}
 	PlayerLayers.Reset();
+
+	WindowTitleBarContentStack.Empty();
+	bIsWindowTitleBarVisible = false;
+	SetDefaultWindowTitleBarContentAsCurrent();
 }
 
 void SGameLayerManager::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)

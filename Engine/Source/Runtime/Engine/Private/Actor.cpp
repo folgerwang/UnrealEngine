@@ -489,9 +489,9 @@ void AActor::BeginDestroy()
 {
 	ULevel* OwnerLevel = Cast<ULevel>(GetOuter());
 	UnregisterAllComponents();
-	if (OwnerLevel)
+	if (OwnerLevel && !OwnerLevel->HasAnyInternalFlags(EInternalObjectFlags::Unreachable))
 	{
-		OwnerLevel->Actors.Remove(this);
+		OwnerLevel->Actors.RemoveSingleSwap(this, false);
 	}
 	Super::BeginDestroy();
 }
@@ -630,7 +630,7 @@ void AActor::PostLoadSubobjects(FObjectInstancingGraph* OuterInstanceGraph)
 
 	// If this is a Blueprint class, we may need to manually apply default value overrides to some inherited components in a cooked
 	// build scenario. This can occur, for example, if we have a nativized Blueprint class somewhere in the class inheritance hierarchy.
-	if (FPlatformProperties::RequiresCookedData())
+	if (FPlatformProperties::RequiresCookedData() && !IsTemplate())
 	{
 		const UBlueprintGeneratedClass* BPGC = Cast<UBlueprintGeneratedClass>(GetClass());
 		if (BPGC != nullptr && BPGC->bHasNativizedParent)
@@ -2376,19 +2376,20 @@ void AActor::CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult)
 	GetActorEyesViewPoint(OutResult.Location, OutResult.Rotation);
 }
 
-bool AActor::HasActiveCameraComponent()
+bool AActor::HasActiveCameraComponent() const
 {
 	if (bFindCameraComponentWhenViewTarget)
 	{
 		// Look for the first active camera component and use that for the view
-		TInlineComponentArray<UCameraComponent*> Cameras;
-		GetComponents<UCameraComponent>(Cameras);
-
-		for (UCameraComponent* CameraComponent : Cameras)
+		for (const UActorComponent* Component : OwnedComponents)
 		{
-			if (CameraComponent->bIsActive)
+			const UCameraComponent* CameraComponent = Cast<const UCameraComponent>(Component);
+			if (CameraComponent)
 			{
-				return true;
+				if (CameraComponent->bIsActive)
+				{
+					return true;
+				}
 			}
 		}
 	}
@@ -2400,14 +2401,15 @@ bool AActor::HasActivePawnControlCameraComponent() const
 	if (bFindCameraComponentWhenViewTarget)
 	{
 		// Look for the first active camera component and use that for the view
-		TInlineComponentArray<UCameraComponent*> Cameras;
-		GetComponents<UCameraComponent>(Cameras);
-
-		for (UCameraComponent* CameraComponent : Cameras)
+		for (const UActorComponent* Component : OwnedComponents)
 		{
-			if (CameraComponent->bIsActive && CameraComponent->bUsePawnControlRotation)
+			const UCameraComponent* CameraComponent = Cast<const UCameraComponent>(Component);
+			if (CameraComponent)
 			{
-				return true;
+				if (CameraComponent->bIsActive && CameraComponent->bUsePawnControlRotation)
+				{
+					return true;
+				}
 			}
 		}
 	}

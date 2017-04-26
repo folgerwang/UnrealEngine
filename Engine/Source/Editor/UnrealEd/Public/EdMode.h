@@ -193,7 +193,7 @@ public:
 	 */
 	virtual bool FrustumSelect( const FConvexVolume& InFrustum, FEditorViewportClient* InViewportClient, bool InSelect = true );
 
-	void SelectNone();
+	virtual void SelectNone();
 	virtual void SelectionChanged() {}
 
 	virtual bool HandleClick(FEditorViewportClient* InViewportClient, HHitProxy* HitProxy, const FViewportClick& Click);

@@ -55,6 +55,13 @@ private:
 	bool NeedsToAdvertise( FNamedOnlineSession& Session );
 
 	/**
+	 * Determines whether this particular session is joinable.
+	 *
+	 * @return true if yes
+	 */
+	bool IsSessionJoinable( const FNamedOnlineSession& Session) const;
+
+	/**
 	 * Updates the status of LAN session (creates it if needed, shuts down if not)
 	 * 
 	 * @return ERROR_SUCCESS if everything went successful, an error code otherwise
@@ -301,7 +308,7 @@ public:
 	virtual bool SendSessionInviteToFriend(const FUniqueNetId& LocalUserId, FName SessionName, const FUniqueNetId& Friend) override;
 	virtual bool SendSessionInviteToFriends(int32 LocalUserNum, FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Friends) override;
 	virtual bool SendSessionInviteToFriends(const FUniqueNetId& LocalUserId, FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Friends) override;
-	virtual bool GetResolvedConnectString(FName SessionName, FString& ConnectInfo) override;
+	virtual bool GetResolvedConnectString(FName SessionName, FString& ConnectInfo, FName PortType) override;
 	virtual bool GetResolvedConnectString(const class FOnlineSessionSearchResult& SearchResult, FName PortType, FString& ConnectInfo) override;
 	virtual FOnlineSessionSettings* GetSessionSettings(FName SessionName) override;
 	virtual bool RegisterPlayer(FName SessionName, const FUniqueNetId& PlayerId, bool bWasInvited) override;

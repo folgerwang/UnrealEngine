@@ -73,7 +73,19 @@
 #include "IDocumentation.h"
 #include "Widgets/Input/STextComboBox.h"
 
+#include "UObject/TextProperty.h"
+
 #define LOCTEXT_NAMESPACE "BlueprintDetailsCustomization"
+
+namespace BlueprintDocumentationDetailDefs
+{
+	/** Minimum size of the details title panel */
+	static const float DetailsTitleMinWidth = 125.f;
+	/** Maximum size of the details title panel */
+	static const float DetailsTitleMaxWidth = 300.f;
+	/** magic number retrieved from SGraphNodeComment::GetWrapAt() */
+	static const float DetailsTitleWrapPadding = 32.0f;
+};
 
 void FBlueprintDetails::AddEventsCategory(IDetailLayoutBuilder& DetailBuilder, UProperty* VariableProperty)
 {
@@ -293,12 +305,12 @@ void FBlueprintVarActionDetails::CustomizeDetails( IDetailLayoutBuilder& DetailL
 
 	TSharedPtr<SToolTip> EditableTooltip = IDocumentation::Get()->CreateToolTip(LOCTEXT("VarEditableTooltip", "Whether this variable is publicly editable on instances of this Blueprint."), NULL, DocLink, TEXT("Editable"));
 
-	Category.AddCustomRow( LOCTEXT("IsVariableEditableLabel", "Editable") )
+	Category.AddCustomRow( LOCTEXT("IsVariableEditableLabel", "Instance Editable") )
 	.Visibility(TAttribute<EVisibility>(this, &FBlueprintVarActionDetails::ShowEditableCheckboxVisibilty))
 	.NameContent()
 	[
 		SNew(STextBlock)
-		.Text( LOCTEXT("IsVariableEditableLabel", "Editable") )
+		.Text( LOCTEXT("IsVariableEditableLabel", "Instance Editable") )
 		.ToolTip(EditableTooltip)
 		.Font( IDetailLayoutBuilder::GetDetailFont() )
 	]
@@ -309,6 +321,26 @@ void FBlueprintVarActionDetails::CustomizeDetails( IDetailLayoutBuilder& DetailL
 		.OnCheckStateChanged( this, &FBlueprintVarActionDetails::OnEditableChanged )
 		.IsEnabled(IsVariableInBlueprint())
 		.ToolTip(EditableTooltip)
+	];
+	
+	TSharedPtr<SToolTip> ReadOnlyTooltip = IDocumentation::Get()->CreateToolTip(LOCTEXT("VarReadOnlyTooltip", "Whether this variable can be set by Blueprint nodes or if it is read-only."), NULL, DocLink, TEXT("ReadOnly"));
+
+	Category.AddCustomRow(LOCTEXT("IsVariableReadOnlyLabel", "Blueprint Read Only"))
+	.Visibility(TAttribute<EVisibility>(this, &FBlueprintVarActionDetails::ShowReadOnlyCheckboxVisibilty))
+	.NameContent()
+	[
+		SNew(STextBlock)
+		.Text(LOCTEXT("IsVariableReadOnlyLabel", "Blueprint Read Only"))
+		.ToolTip(ReadOnlyTooltip)
+		.Font(IDetailLayoutBuilder::GetDetailFont())
+	]
+	.ValueContent()
+	[
+		SNew(SCheckBox)
+		.IsChecked(this, &FBlueprintVarActionDetails::OnReadyOnlyCheckboxState)
+		.OnCheckStateChanged(this, &FBlueprintVarActionDetails::OnReadyOnlyChanged)
+		.IsEnabled(IsVariableInBlueprint())
+		.ToolTip(ReadOnlyTooltip)
 	];
 
 	TSharedPtr<SToolTip> ToolTipTooltip = IDocumentation::Get()->CreateToolTip(LOCTEXT("VarToolTipTooltip", "Extra information about this variable, shown when cursor is over it."), NULL, DocLink, TEXT("Tooltip"));
@@ -918,6 +950,26 @@ void FBlueprintVarActionDetails::CustomizeDetails( IDetailLayoutBuilder& DetailL
 				.OnCheckStateChanged(this, &FBlueprintVarActionDetails::OnAdvancedDisplayChanged)
 				.IsEnabled(IsVariableInBlueprint())
 				.ToolTip(AdvancedDisplayTooltip)
+			];
+
+		TSharedPtr<SToolTip> MultilineTooltip = IDocumentation::Get()->CreateToolTip(LOCTEXT("VariableMultilineTooltip_Tooltip", "Allow the value of this variable to have newlines (use Ctrl+Enter to add one while editing)"), NULL, DocLink, TEXT("Multiline"));
+
+		Category.AddCustomRow(LOCTEXT("VariableMultilineTooltip", "Multi line"), true)
+			.Visibility(TAttribute<EVisibility>(this, &FBlueprintVarActionDetails::GetMultilineVisibility))
+			.NameContent()
+			[
+				SNew(STextBlock)
+				.ToolTip(MultilineTooltip)
+				.Text(LOCTEXT("VariableMultiline", "Multi line"))
+				.Font(DetailFontInfo)
+			]
+		.ValueContent()
+			[
+				SNew(SCheckBox)
+				.IsChecked(this, &FBlueprintVarActionDetails::OnGetMultilineCheckboxState)
+				.OnCheckStateChanged(this, &FBlueprintVarActionDetails::OnMultilineChanged)
+				.IsEnabled(IsVariableInBlueprint())
+				.ToolTip(MultilineTooltip)
 			];
 
 		TSharedPtr<SToolTip> PropertyFlagsTooltip = IDocumentation::Get()->CreateToolTip(LOCTEXT("DefinedPropertyFlags_Tooltip", "List of defined flags for this property"), NULL, DocLink, TEXT("PropertyFlags"));
@@ -1555,6 +1607,40 @@ void FBlueprintVarActionDetails::OnEditableChanged(ECheckBoxState InNewState)
 
 	UBlueprint* BlueprintObj = MyBlueprint.Pin()->GetBlueprintObj();
 	FBlueprintEditorUtils::SetBlueprintOnlyEditableFlag(BlueprintObj, VarName, !bVariableIsExposed);
+}
+
+EVisibility FBlueprintVarActionDetails::ShowReadOnlyCheckboxVisibilty() const
+{
+	UProperty* VariableProperty = CachedVariableProperty.Get();
+	if (VariableProperty && GetPropertyOwnerBlueprint())
+	{
+		if (IsABlueprintVariable(VariableProperty) && !IsASCSVariable(VariableProperty))
+		{
+			return EVisibility::Visible;
+		}
+	}
+	return EVisibility::Collapsed;
+}
+
+ECheckBoxState FBlueprintVarActionDetails::OnReadyOnlyCheckboxState() const
+{
+	UProperty* VariableProperty = CachedVariableProperty.Get();
+	if (VariableProperty)
+	{
+		return VariableProperty->HasAnyPropertyFlags(CPF_BlueprintReadOnly) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+	}
+	return ECheckBoxState::Unchecked;
+}
+
+void FBlueprintVarActionDetails::OnReadyOnlyChanged(ECheckBoxState InNewState)
+{
+	FName VarName = CachedVariableName;
+
+	// Toggle the flag on the blueprint's version of the variable description, based on state
+	const bool bVariableIsReadOnly = InNewState == ECheckBoxState::Checked;
+
+	UBlueprint* BlueprintObj = MyBlueprint.Pin()->GetBlueprintObj();
+	FBlueprintEditorUtils::SetBlueprintPropertyReadOnlyFlag(BlueprintObj, VarName, bVariableIsReadOnly);
 }
 
 ECheckBoxState FBlueprintVarActionDetails::OnCreateWidgetCheckboxState() const
@@ -2322,11 +2408,45 @@ ECheckBoxState FBlueprintVarActionDetails::OnGetAdvancedDisplayCheckboxState() c
 
 void FBlueprintVarActionDetails::OnAdvancedDisplayChanged(ECheckBoxState InNewState)
 {
-	UProperty* Property = CachedVariableProperty.Get();
-	if (Property)
+	if (UProperty* Property = CachedVariableProperty.Get())
 	{
 		const bool bAdvancedFlag = (InNewState == ECheckBoxState::Checked);
 		FBlueprintEditorUtils::SetVariableAdvancedDisplayFlag(GetBlueprintObj(), Property->GetFName(), bAdvancedFlag);
+	}
+}
+
+EVisibility FBlueprintVarActionDetails::GetMultilineVisibility() const
+{
+	if (UProperty* VariableProperty = CachedVariableProperty.Get())
+	{
+		if (IsABlueprintVariable(VariableProperty))
+		{
+			if (VariableProperty->IsA(UTextProperty::StaticClass()) || VariableProperty->IsA(UStrProperty::StaticClass()))
+			{
+				return EVisibility::Visible;
+			}
+		}
+	}
+	return EVisibility::Collapsed;
+}
+
+ECheckBoxState FBlueprintVarActionDetails::OnGetMultilineCheckboxState() const
+{
+	UProperty* Property = CachedVariableProperty.Get();
+	if (Property)
+	{
+		return (Property && Property->GetBoolMetaData(TEXT("MultiLine"))) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+	}
+	return ECheckBoxState::Unchecked;
+}
+
+void FBlueprintVarActionDetails::OnMultilineChanged(ECheckBoxState InNewState)
+{
+	UProperty* Property = CachedVariableProperty.Get();
+	if (Property)
+	{
+		const bool bMultiline = (InNewState == ECheckBoxState::Checked);
+		FBlueprintEditorUtils::SetBlueprintVariableMetaData(GetBlueprintObj(), Property->GetFName(), GetLocalVariableScope(CachedVariableProperty.Get()), TEXT("MultiLine"), bMultiline ? TEXT("true") : TEXT("false"));
 	}
 }
 
@@ -2918,6 +3038,7 @@ void FBlueprintGraphActionDetails::CustomizeDetails( IDetailLayoutBuilder& Detai
 					.Text( this, &FBlueprintGraphActionDetails::OnGetTooltipText )
 					.OnTextCommitted( this, &FBlueprintGraphActionDetails::OnTooltipTextCommitted )
 					.Font( IDetailLayoutBuilder::GetDetailFont() )
+					.ModiferKeyForNewLine(EModifierKey::Shift)
 			];
 
 			// Composite graphs are auto-categorized into their parent graph
@@ -3222,7 +3343,7 @@ void FBlueprintGraphActionDetails::CustomizeDetails( IDetailLayoutBuilder& Detai
 				]
 			];
 		}
-		const bool bShowCallInEditor = IsCustomEvent() || FBlueprintEditorUtils::IsBlutility( GetBlueprintObj() );
+		const bool bShowCallInEditor = IsCustomEvent() || FBlueprintEditorUtils::IsBlutility( GetBlueprintObj() ) || (FunctionEntryNode && FunctionEntryNode->IsEditable());
 		if( bShowCallInEditor )
 		{
 			Category.AddCustomRow( LOCTEXT( "EditorCallable", "Call In Editor" ) )
@@ -4071,7 +4192,7 @@ FText FBlueprintGraphActionDetails::OnGetTooltipText() const
 {
 	if (FKismetUserDeclaredFunctionMetadata* Metadata = GetMetadataBlock())
 	{
-		return FText::FromString(Metadata->ToolTip);
+		return Metadata->ToolTip;
 	}
 	else
 	{
@@ -4083,7 +4204,7 @@ void FBlueprintGraphActionDetails::OnTooltipTextCommitted(const FText& NewText, 
 {
 	if (FKismetUserDeclaredFunctionMetadata* Metadata = GetMetadataBlock())
 	{
-		Metadata->ToolTip = NewText.ToString();
+		Metadata->ToolTip = NewText;
 		if(auto Function = FindFunction())
 		{
 			Function->Modify();
@@ -5136,7 +5257,7 @@ bool FBlueprintGlobalOptionsDetails::IsNativizeEnabled() const
 	bool bIsEnabled = false;
 	if (UBlueprint* Blueprint = GetBlueprintObj())
 	{
-		bIsEnabled = (Blueprint->BlueprintType != BPTYPE_MacroLibrary) && (Blueprint->BlueprintType != BPTYPE_LevelScript);
+		bIsEnabled = (Blueprint->BlueprintType != BPTYPE_MacroLibrary) && (Blueprint->BlueprintType != BPTYPE_LevelScript) && (!FBlueprintEditorUtils::ShouldNativizeImplicitly(Blueprint));
 	}
 	return bIsEnabled;
 }
@@ -5146,20 +5267,27 @@ ECheckBoxState FBlueprintGlobalOptionsDetails::GetNativizeState() const
 	ECheckBoxState CheckboxState = ECheckBoxState::Undetermined;
 	if (UBlueprint* Blueprint = GetBlueprintObj())
 	{
-		switch (Blueprint->NativizationFlag)
+		if (FBlueprintEditorUtils::ShouldNativizeImplicitly(Blueprint))
 		{
-		case EBlueprintNativizationFlag::Disabled:
-			CheckboxState = ECheckBoxState::Unchecked;
-			break;
-
-		case EBlueprintNativizationFlag::ExplicitlyEnabled:
 			CheckboxState = ECheckBoxState::Checked;
-			break;
+		}
+		else
+		{
+			switch (Blueprint->NativizationFlag)
+			{
+			case EBlueprintNativizationFlag::Disabled:
+				CheckboxState = ECheckBoxState::Unchecked;
+				break;
 
-		case EBlueprintNativizationFlag::Dependency:
-		default:
-			// leave "Undetermined"
-			break;
+			case EBlueprintNativizationFlag::ExplicitlyEnabled:
+				CheckboxState = ECheckBoxState::Checked;
+				break;
+
+			case EBlueprintNativizationFlag::Dependency:
+			default:
+				// leave "Undetermined"
+				break;
+			}
 		}
 	}
 	return CheckboxState;	
@@ -5169,7 +5297,14 @@ FText FBlueprintGlobalOptionsDetails::GetNativizeTooltip() const
 {
 	if (!IsNativizeEnabled())
 	{
-		return LOCTEXT("NativizeDisabledTooltip", "Macro libraries and level Blueprints cannot be nativized.");
+		if (FBlueprintEditorUtils::ShouldNativizeImplicitly(GetBlueprintObj()))
+		{
+			return LOCTEXT("NativizeImplicitlyTooltip", "This Blueprint must be nativized because it overrides one or more BlueprintCallable functions inherited from a parent Blueprint class that has also been flagged for nativization.");
+		}
+		else
+		{
+			return LOCTEXT("NativizeDisabledTooltip", "Macro libraries and level Blueprints cannot be nativized.");
+		}
 	}
 	else if (GetNativizeState() == ECheckBoxState::Undetermined)
 	{
@@ -5244,8 +5379,6 @@ void FBlueprintComponentDetails::CustomizeDetails(IDetailLayoutBuilder& DetailLa
 	check(BlueprintObj != nullptr);
 
 	TArray<FSCSEditorTreeNodePtrType> Nodes = Editor->GetSelectedNodes();
-
-	AddExperimentalWarningCategory(DetailLayout, Nodes);
 
 	if (!Nodes.Num())
 	{
@@ -5670,70 +5803,6 @@ void FBlueprintComponentDetails::OnSocketSelection( FName SocketName )
 	}
 }
 
-void FBlueprintComponentDetails::AddExperimentalWarningCategory( IDetailLayoutBuilder& DetailBuilder, const TArray<FSCSEditorTreeNodePtrType>& Nodes )
-{
-	bool bIsExperimental = false;
-	bool bIsEarlyAccess = false;
-	for (const FSCSEditorTreeNodePtrType& Node : Nodes)
-	{
-		
-		if (UActorComponent* Component = Node->GetComponentTemplate())
-		{
-			bool bObjectClassIsExperimental, bObjectClassIsEarlyAccess;
-			FObjectEditorUtils::GetClassDevelopmentStatus(Component->GetClass(), bObjectClassIsExperimental, bObjectClassIsEarlyAccess);
-			bIsExperimental |= bObjectClassIsExperimental;
-			bIsEarlyAccess |= bObjectClassIsEarlyAccess;
-		}
-	}
-	
-	if (bIsExperimental || bIsEarlyAccess)
-	{
-		const FName CategoryName(TEXT("Warning"));
-		const FText CategoryDisplayName = LOCTEXT("WarningCategoryDisplayName", "Warning");
-		FString ClassUsed = DetailBuilder.GetTopLevelProperty().ToString();
-		const FText WarningText = bIsExperimental ? FText::Format( LOCTEXT("ExperimentalClassWarning", "Uses experimental class: {0}"), FText::FromString(*ClassUsed) )
-			: FText::Format( LOCTEXT("EarlyAccessClassWarning", "Uses early access class: {0}"), FText::FromString(*ClassUsed) );
-		const FText SearchString = WarningText;
-		const FText Tooltip = bIsExperimental ? LOCTEXT("ExperimentalClassTooltip", "Here be dragons!  Uses one or more unsupported 'experimental' classes") : LOCTEXT("EarlyAccessClassTooltip", "Uses one or more 'early access' classes");
-		const FString ExcerptName = bIsExperimental ? TEXT("ComponentUsesExperimentalClass") : TEXT("ComponentUsesEarlyAccessClass");
-		const FSlateBrush* WarningIcon = FEditorStyle::GetBrush(bIsExperimental ? "PropertyEditor.ExperimentalClass" : "PropertyEditor.EarlyAccessClass");
-
-		IDetailCategoryBuilder& WarningCategory = DetailBuilder.EditCategory(CategoryName, CategoryDisplayName, ECategoryPriority::Variable);
-
-		FDetailWidgetRow& WarningRow = WarningCategory.AddCustomRow(SearchString)
-			.WholeRowContent()
-			[
-				SNew(SBorder)
-				.BorderImage(FEditorStyle::GetBrush("SettingsEditor.CheckoutWarningBorder"))
-				.BorderBackgroundColor(FColor(166,137,0))
-				[
-					SNew(SHorizontalBox)
-					.ToolTip(IDocumentation::Get()->CreateToolTip(Tooltip, nullptr, TEXT("Shared/LevelEditor"), ExcerptName))
-					.Visibility(EVisibility::Visible)
-
-					+ SHorizontalBox::Slot()
-					.VAlign(VAlign_Center)
-					.AutoWidth()
-					.Padding(4.0f, 0.0f, 0.0f, 0.0f)
-					[
-						SNew(SImage)
-						.Image(WarningIcon)
-					]
-
-					+SHorizontalBox::Slot()
-					.VAlign(VAlign_Center)
-					.AutoWidth()
-					.Padding(4.0f, 0.0f, 0.0f, 0.0f)
-					[
-						SNew(STextBlock)
-						.Text(WarningText)
-						.Font(IDetailLayoutBuilder::GetDetailFont())
-					]
-				]
-			];
-	}
-}
-
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void FBlueprintGraphNodeDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 {
@@ -5774,6 +5843,8 @@ void FBlueprintGraphNodeDetails::CustomizeDetails( IDetailLayoutBuilder& DetailL
 	}
 
 	TSharedPtr<SWidget> EditNameWidget;
+	float WidgetMinDesiredWidth = BlueprintDocumentationDetailDefs::DetailsTitleMinWidth;
+	float WidgetMaxDesiredWidth = BlueprintDocumentationDetailDefs::DetailsTitleMaxWidth;
 	if( bNameAllowsMultiLine )
 	{
 		SAssignNew(MultiLineNameEditableTextBox, SMultiLineEditableTextBox)
@@ -5785,7 +5856,8 @@ void FBlueprintGraphNodeDetails::CustomizeDetails( IDetailLayoutBuilder& DetailL
 		.RevertTextOnEscape(true)
 		.SelectAllTextWhenFocused(true)
 		.IsReadOnly(this, &FBlueprintGraphNodeDetails::IsNameReadOnly)
-		.Font(DetailFontInfo);
+		.Font(DetailFontInfo)
+		.WrapTextAt(WidgetMaxDesiredWidth - BlueprintDocumentationDetailDefs::DetailsTitleWrapPadding);
 
 		EditNameWidget = MultiLineNameEditableTextBox;
 	}
@@ -5798,6 +5870,7 @@ void FBlueprintGraphNodeDetails::CustomizeDetails( IDetailLayoutBuilder& DetailL
 		.Font(DetailFontInfo);
 
 		EditNameWidget = NameEditableTextBox;
+		WidgetMaxDesiredWidth = WidgetMinDesiredWidth;
 	}
 
 	Category.AddCustomRow( RowHeader )
@@ -5808,6 +5881,8 @@ void FBlueprintGraphNodeDetails::CustomizeDetails( IDetailLayoutBuilder& DetailL
 		.Font(DetailFontInfo)
 	]
 	.ValueContent()
+	.MinDesiredWidth(WidgetMinDesiredWidth)
+	.MaxDesiredWidth(WidgetMaxDesiredWidth)
 	[
 		EditNameWidget.ToSharedRef()
 	];
@@ -5983,14 +6058,6 @@ void FChildActorComponentDetails::CustomizeDetails(IDetailLayoutBuilder& DetailB
 		}));
 	}
 }
-
-namespace BlueprintDocumentationDetailDefs
-{
-	/** Minimum size of the details title panel */
-	static const float DetailsTitleMinWidth = 125.f;
-	/** Maximum size of the details title panel */
-	static const float DetailsTitleMaxWidth = 300.f;
-};
 
 void FBlueprintDocumentationDetails::CustomizeDetails(IDetailLayoutBuilder& DetailLayout)
 {

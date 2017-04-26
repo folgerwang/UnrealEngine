@@ -81,7 +81,7 @@ struct FSectionLocalizer
 class FSkelMeshReductionSettingsLayout : public IDetailCustomNodeBuilder, public TSharedFromThis<FSkelMeshReductionSettingsLayout>
 {
 public:
-	FSkelMeshReductionSettingsLayout(int32 InLODIndex, TSharedRef<class FPersonaMeshDetails> InParentLODSettings, TSharedPtr<IPropertyHandle> InBoneToRemoveProperty);
+	FSkelMeshReductionSettingsLayout(int32 InLODIndex, TSharedRef<class FPersonaMeshDetails> InParentLODSettings, TSharedPtr<IPropertyHandle> InBoneToRemoveProperty, const USkeleton* InSkeleton);
 	virtual ~FSkelMeshReductionSettingsLayout();
 
 	const FSkeletalMeshOptimizationSettings& GetSettings() const;
@@ -114,6 +114,10 @@ private:
 	void OnMaxBonesPerVertexChanged(int32 NewValue);
 	void OnBaseLODChanged(int32 NewBasedLOD);
 
+	FString GetBakePosePath() const;
+	bool FilterOutBakePose(const FAssetData& AssetData) const;
+	void SetBakePose(const FAssetData& AssetData);
+
 	void OnSilhouetteImportanceChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
 	void OnTextureImportanceChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
 	void OnShadingImportanceChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
@@ -127,6 +131,8 @@ private:
 	TWeakPtr<class FPersonaMeshDetails> ParentLODSettings;
 	TSharedPtr<IPropertyHandle>	BoneToRemoveProperty;
 	FSkeletalMeshOptimizationSettings ReductionSettings;
+
+	const USkeleton* Skeleton;
 
 	TArray<TSharedPtr<FString> > ImportanceOptions;
 	TArray<TSharedPtr<FString> > SimplificationOptions;
@@ -503,6 +509,9 @@ private:
 	// Clothing entries available to bind to the mesh
 	TArray<TSharedPtr<FClothingEntry>> NewClothingAssetEntries;
 
+	// Cached item in above array that is used as the "None" entry in the list
+	TSharedPtr<FClothingEntry> ClothingNoneEntry;
+
 	// Update the list of valid entries
 	void UpdateClothingEntries();
 
@@ -516,7 +525,7 @@ private:
 	FText OnGetClothingComboText(int32 InLodIdx, int32 InSectionIdx) const;
 
 	// Callback when the clothing asset is changed
-	void OnClothingSelectionChanged(TSharedPtr<FClothingEntry> InNewEntry, ESelectInfo::Type InSelectType, int32 InLodIdx, int32 InSectionIdx);
+	void OnClothingSelectionChanged(TSharedPtr<FClothingEntry> InNewEntry, ESelectInfo::Type InSelectType, int32 BoxIndex, int32 InLodIdx, int32 InSectionIdx);
 
 	// If the clothing details widget is editable
 	bool IsClothingPanelEnabled() const;

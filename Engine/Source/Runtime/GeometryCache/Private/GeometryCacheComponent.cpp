@@ -171,7 +171,7 @@ int32 UGeometryCacheComponent::GetNumMaterials() const
 UMaterialInterface* UGeometryCacheComponent::GetMaterial(int32 MaterialIndex) const
 {
 	// If we have a base materials array, use that
-	if (MaterialIndex < OverrideMaterials.Num() && OverrideMaterials[MaterialIndex])
+	if (OverrideMaterials.IsValidIndex(MaterialIndex) && OverrideMaterials[MaterialIndex])
 	{
 		return OverrideMaterials[MaterialIndex];
 	}
@@ -431,6 +431,16 @@ bool UGeometryCacheComponent::SetGeometryCache(UGeometryCache* NewGeomCache)
 UGeometryCache* UGeometryCacheComponent::GetGeometryCache() const
 {
 	return GeometryCache;
+}
+
+float UGeometryCacheComponent::GetStartTimeOffset() const
+{
+	return StartTimeOffset;
+}
+
+void UGeometryCacheComponent::SetStartTimeOffset(const float NewStartTimeOffset)
+{
+	StartTimeOffset = NewStartTimeOffset;
 }
 
 void UGeometryCacheComponent::PlayReversedFromEnd()

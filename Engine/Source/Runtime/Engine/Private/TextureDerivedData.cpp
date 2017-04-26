@@ -755,12 +755,20 @@ class FTextureCacheDerivedDataWorker : public FNonAbandonableTask
 	/** Build the texture. This function is safe to call from any thread. */
 	void BuildTexture()
 	{
-		if (SourceMips.Num())
+		ensure(Compressor);
+		if (Compressor && SourceMips.Num())
 		{
+			// Adding some extra logs to track crash UE-42168
+			FTextureMemoryStats Stats;
+			RHIGetTextureMemoryStats(Stats);
+
 			FFormatNamedArguments Args;
 			Args.Add( TEXT("TextureName"), FText::FromString( Texture.GetName() ) );
 			Args.Add( TEXT("TextureFormatName"), FText::FromString( BuildSettings.TextureFormatName.GetPlainNameString() ) );
-			FTextureStatusMessageContext StatusMessage( FText::Format( NSLOCTEXT("Engine", "BuildTextureStatus", "Building textures: {TextureName} ({TextureFormatName})"), Args ) );
+			Args.Add( TEXT("TextureResolutionX"), FText::FromString( FString::FromInt(SourceMips[0].SizeX) ) );
+			Args.Add( TEXT("TextureResolutionY"), FText::FromString( FString::FromInt(SourceMips[0].SizeY) ) );
+			Args.Add( TEXT("UsedVRAM"), FText::FromString( FString::FromInt(Stats.AllocatedMemorySize / 1024 / 1024 ) ) );
+			FTextureStatusMessageContext StatusMessage( FText::Format( NSLOCTEXT("Engine", "BuildTextureStatus", "Building textures: {TextureName} ({TextureFormatName}, {TextureResolutionX}X{TextureResolutionY}) - {UsedVRAM} MB total VRAM"), Args ) );
 
 			check(DerivedData->Mips.Num() == 0);
 			DerivedData->SizeX = 0;
@@ -1168,7 +1176,13 @@ bool FTexturePlatformData::TryLoadMips(int32 FirstMipToLoad, void** OutMipData)
 			if (OutMipData)
 			{
 				OutMipData[MipIndex - FirstMipToLoad] = FMemory::Malloc(Mip.BulkData.GetBulkDataSize());
+#if 0
 				checkSlow(!Mip.BulkData.GetFilename().EndsWith(TEXT(".ubulk"))); // We want to make sure that any non-streamed mips are coming from the texture asset file, and not from an external bulk file
+#else
+				UE_CLOG(Mip.BulkData.GetFilename().EndsWith(TEXT(".ubulk")), LogTexture, Error, TEXT("Loading non-streamed mips from an external bulk file.  This is not desireable.  File %s"), *(Mip.BulkData.GetFilename() ) );
+#endif
+				
+				
 				Mip.BulkData.GetCopy(&OutMipData[MipIndex - FirstMipToLoad]);
 			}
 			NumMipsCached++;
@@ -1459,10 +1473,13 @@ void UTexture2D::GetMipData(int32 FirstMipToLoad, void** OutMipData)
 		UE_LOG(LogTexture,Warning,TEXT("GetMipData failed for %s (%s)"),
 			*GetPathName(), GPixelFormats[GetPixelFormat()].Name);
 #if WITH_EDITOR
-		ForceRebuildPlatformData();
-		if (PlatformData->TryLoadMips(FirstMipToLoad, OutMipData) == false)
+		if (!GetOutermost()->bIsCookedForEditor)
 		{
-			UE_LOG(LogTexture,Error,TEXT("Failed to build texture %s."), *GetPathName());
+			ForceRebuildPlatformData();
+			if (PlatformData->TryLoadMips(FirstMipToLoad, OutMipData) == false)
+			{
+				UE_LOG(LogTexture, Error, TEXT("Failed to build texture %s."), *GetPathName());
+			}
 		}
 #endif // #if WITH_EDITOR
 	}

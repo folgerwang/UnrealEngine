@@ -13,7 +13,7 @@
 
 namespace AssetDataGathererConstants
 {
-	static const int32 CacheSerializationVersion = 8;
+	static const int32 CacheSerializationVersion = 9;
 	static const int32 MaxFilesToDiscoverBeforeFlush = 2500;
 	static const int32 MaxFilesToGatherBeforeFlush = 250;
 	static const int32 MaxFilesToProcessBeforeCacheWrite = 50000;
@@ -464,8 +464,8 @@ uint32 FAssetDataGatherer::Run()
 	if ( bLoadAndSaveCache )
 	{
 		// load the cached data
-		FNameTableArchiveReader CachedAssetDataReader;
-		if (CachedAssetDataReader.LoadFile(*CacheFilename, CacheSerializationVersion))
+		FNameTableArchiveReader CachedAssetDataReader(CacheSerializationVersion, CacheFilename);
+		if (!CachedAssetDataReader.IsError())
 		{
 			SerializeCache(CachedAssetDataReader);
 		}
@@ -558,6 +558,15 @@ uint32 FAssetDataGatherer::Run()
 
 					if (DiskCachedAssetData)
 					{
+						if (DiskCachedAssetData->DependencyData.PackageName != PackageName)
+						{
+							UE_LOG(LogAssetRegistry, Display, TEXT("Cached dependency data for package '%s' is invalid. Discarding cached data."), *PackageName.ToString());
+							DiskCachedAssetData = nullptr;
+						}
+					}
+
+					if (DiskCachedAssetData)
+					{
 						bLoadedFromCache = true;
 
 						++NumCachedFiles;
@@ -568,7 +577,10 @@ uint32 FAssetDataGatherer::Run()
 							LocalAssetResults.Add(new FAssetData(AssetData));
 						}
 
-						LocalDependencyResults.Add(DiskCachedAssetData->DependencyData);
+						if (bGatherDependsData)
+						{
+							LocalDependencyResults.Add(DiskCachedAssetData->DependencyData);
+						}
 
 						NewCachedAssetDataMap.Add(PackageName, DiskCachedAssetData);
 					}
@@ -585,7 +597,10 @@ uint32 FAssetDataGatherer::Run()
 						++NumUncachedFiles;
 
 						LocalAssetResults.Append(AssetDataFromFile);
-						LocalDependencyResults.Add(DependencyData);
+						if (bGatherDependsData)
+						{
+							LocalDependencyResults.Add(DependencyData);
+						}
 						LocalCookedPackageNamesWithoutAssetDataResults.Append(CookedPackageNamesWithoutAssetData);
 
 						// Don't store info on cooked packages

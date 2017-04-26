@@ -461,7 +461,14 @@ void FVREditorActionCallbacks::ToggleLooping(UVREditorMode* InVRMode)
 	ISequencer* CurrentSequencer = InVRMode->GetCurrentSequencer();
 	if (CurrentSequencer != nullptr)
 	{
-		CurrentSequencer->GetSequencerSettings()->SetLooping(!CurrentSequencer->GetSequencerSettings()->IsLooping());
+		if (CurrentSequencer->GetSequencerSettings()->GetLoopMode() == SLM_NoLoop)
+		{
+			CurrentSequencer->GetSequencerSettings()->SetLoopMode(SLM_Loop);
+		}
+		else
+		{
+			CurrentSequencer->GetSequencerSettings()->SetLoopMode(SLM_NoLoop);
+		}
 	}
 }
 
@@ -471,7 +478,7 @@ ECheckBoxState FVREditorActionCallbacks::IsLoopingChecked(UVREditorMode* InVRMod
 	ISequencer* CurrentSequencer = InVRMode->GetCurrentSequencer();
 	if (CurrentSequencer != nullptr)
 	{
-		bShouldReturnChecked = InVRMode->GetCurrentSequencer()->GetSequencerSettings()->IsLooping();
+		bShouldReturnChecked = CurrentSequencer->GetSequencerSettings()->GetLoopMode() != SLM_NoLoop;
 	}
 	return bShouldReturnChecked ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 

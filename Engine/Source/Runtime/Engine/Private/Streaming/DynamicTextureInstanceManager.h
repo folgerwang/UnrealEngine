@@ -36,7 +36,7 @@ public:
 	-----------------------------------*/
 
 	/** Return whether this component can be managed by this manager. */
-	FORCEINLINE bool IsReferenced(const UPrimitiveComponent* Component) const final override { return StateSync.GetState()->HasComponentReferences(Component) || PendingComponents.Contains(Component); }
+	bool IsReferenced(const UPrimitiveComponent* Component) const final;
 
 	/** Return whether this component is be managed by this manager. */
 	bool CanManage(const UPrimitiveComponent* Component) const final override;
@@ -54,7 +54,7 @@ public:
 	void PrepareAsyncView() final override;
 
 	/** Return a view of the data that has to be 100% thread safe. The content is allowed to be updated, but not memory must be reallocated. */
-	const FTextureInstanceView* GetAsyncView() final override;
+	const FTextureInstanceView* GetAsyncView(bool bCreateIfNull) final override;
 
 	/** Return the size taken for sub-allocation. */
 	uint32 GetAllocatedSize() const final override;
@@ -91,6 +91,6 @@ private:
 	/** The free bound index to be used as defrag destination. */
 	int32 PendingDefragDstBoundIndex;
 
-	/** The list of components to be processed. */
-	TSet<const UPrimitiveComponent*> PendingComponents;
+	/** The list of components to be processed (could have duplicates). */
+	TArray<const UPrimitiveComponent*> PendingComponents;
 };

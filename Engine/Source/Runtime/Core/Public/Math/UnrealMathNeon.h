@@ -2,6 +2,8 @@
 
 #pragma once
 
+PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
+
 // Include the intrinsic functions header
 #include <arm_neon.h>
 
@@ -1331,6 +1333,22 @@ FORCEINLINE VectorRegisterInt VectorIntSelect(const VectorRegisterInt& Mask, con
 #define VectorIntLoad( Ptr )				vld1q_s32( (int32*)((void*)(Ptr)) )
 
 /**
+* Stores a vector to memory (aligned).
+*
+* @param Vec	Vector to store
+* @param Ptr	Aligned Memory pointer
+*/
+#define VectorIntStoreAligned( Vec, Ptr )			vst1q_s32( (VectorRegisterInt*)(Ptr), Vec )
+
+/**
+* Loads 4 int32s from aligned memory.
+*
+* @param Ptr	Aligned memory pointer to the 4 int32s
+* @return		VectorRegisterInt(Ptr[0], Ptr[1], Ptr[2], Ptr[3])
+*/
+#define VectorIntLoadAligned( Ptr )				vld1q_s32( (int32*)((void*)(Ptr)) )
+
+/**
 * Loads 1 int32 from unaligned memory into all components of a vector register.
 *
 * @param Ptr	Unaligned memory pointer to the 4 int32s
@@ -1339,3 +1357,5 @@ FORCEINLINE VectorRegisterInt VectorIntSelect(const VectorRegisterInt& Mask, con
 #define VectorIntLoad1( Ptr )	vld1q_dup_s32((int32*)Ptr)
 
 // To be continued...
+
+PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS

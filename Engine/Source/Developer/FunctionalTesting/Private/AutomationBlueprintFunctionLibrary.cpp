@@ -24,6 +24,8 @@
 #include "ShaderCompiler.h"
 #include "AutomationBlueprintFunctionLibrary.h"
 #include "BufferVisualizationData.h"
+#include "Engine/LocalPlayer.h"
+#include "ContentStreaming.h"
 
 #define LOCTEXT_NAMESPACE "Automation"
 
@@ -41,6 +43,18 @@ static TAutoConsoleVariable<int32> CVarAutomationScreenshotResolutionHeight(
 	0,
 	TEXT("The height of automation screenshots."),
 	ECVF_Default);
+
+
+void FinishLoadingBeforeScreenshot()
+{
+	// Force all shader compiling to finish.
+	GShaderCompilingManager->FinishAllCompilation();
+
+	// Force all mip maps to load before taking the screenshot.
+	UTexture::ForceUpdateTextureStreaming();
+
+	IStreamingManager::Get().StreamAllResources(0.0f);
+}
 
 
 #if (WITH_DEV_AUTOMATION_TESTS || WITH_PERF_AUTOMATION_TESTS)
@@ -92,21 +106,10 @@ private:
 
 class FAutomationScreenshotTaker
 {
-	FString	Name;
-	FAutomationScreenshotOptions Options;
-
-	FConsoleVariableSwapper DefaultFeature_AntiAliasing;
-	FConsoleVariableSwapper DefaultFeature_AutoExposure;
-	FConsoleVariableSwapper DefaultFeature_MotionBlur;
-	FConsoleVariableSwapper PostProcessAAQuality;
-	FConsoleVariableSwapper MotionBlurQuality;
-	FConsoleVariableSwapper ScreenSpaceReflectionQuality;
-	FConsoleVariableSwapper EyeAdaptationQuality;
-	FConsoleVariableSwapper ContactShadows;
-
 public:
-	FAutomationScreenshotTaker(const FString& InName, FAutomationScreenshotOptions InOptions)
-		: Name(InName)
+	FAutomationScreenshotTaker(UWorld* InWorld, const FString& InName, FAutomationScreenshotOptions InOptions)
+		: World(InWorld)
+		, Name(InName)
 		, Options(InOptions)
 		, DefaultFeature_AntiAliasing(TEXT("r.DefaultFeature.AntiAliasing"))
 		, DefaultFeature_AutoExposure(TEXT("r.DefaultFeature.AutoExposure"))
@@ -123,15 +126,17 @@ public:
 
 		if ( Options.bDisableNoisyRenderingFeatures )
 		{
-			DefaultFeature_AntiAliasing.Set(1);
+			DefaultFeature_AntiAliasing.Set(0);
 			DefaultFeature_AutoExposure.Set(0);
 			DefaultFeature_MotionBlur.Set(0);
-			PostProcessAAQuality.Set(1);
+			PostProcessAAQuality.Set(0);
 			MotionBlurQuality.Set(0);
 			ScreenSpaceReflectionQuality.Set(0);
 			EyeAdaptationQuality.Set(0);
 			ContactShadows.Set(0);
 		}
+
+		Options.SetToleranceAmounts(Options.Tolerance);
 
 		if ( UGameViewportClient* ViewportClient = GEngine->GameViewport )
 		{
@@ -148,7 +153,7 @@ public:
 		}
 	}
 
-	~FAutomationScreenshotTaker()
+	virtual ~FAutomationScreenshotTaker()
 	{
 		check(IsInGameThread());
 
@@ -242,6 +247,22 @@ public:
 
 		delete this;
 	}
+
+private:
+
+	TWeakObjectPtr<UWorld> World;
+	
+	FString	Name;
+	FAutomationScreenshotOptions Options;
+
+	FConsoleVariableSwapper DefaultFeature_AntiAliasing;
+	FConsoleVariableSwapper DefaultFeature_AutoExposure;
+	FConsoleVariableSwapper DefaultFeature_MotionBlur;
+	FConsoleVariableSwapper PostProcessAAQuality;
+	FConsoleVariableSwapper MotionBlurQuality;
+	FConsoleVariableSwapper ScreenSpaceReflectionQuality;
+	FConsoleVariableSwapper EyeAdaptationQuality;
+	FConsoleVariableSwapper ContactShadows;
 };
 
 #endif
@@ -251,13 +272,9 @@ UAutomationBlueprintFunctionLibrary::UAutomationBlueprintFunctionLibrary(const c
 {
 }
 
-bool UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshotInternal(const FString& Name, FAutomationScreenshotOptions Options)
+bool UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshotInternal(UObject* WorldContextObject, const FString& Name, FAutomationScreenshotOptions Options)
 {
-	if ( !FAutomationTestFramework::Get().IsScreenshotAllowed() )
-	{
-		UE_LOG(AutomationFunctionLibrary, Log, TEXT("Attempted to capture screenshot (%s) but screenshots are not enabled."), *Name);
-		return false;
-	}
+	FinishLoadingBeforeScreenshot();
 
 	// Fallback resolution if all else fails for screenshots.
 	uint32 ResolutionX = 1280;
@@ -295,14 +312,8 @@ bool UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshotInternal(const
 		}
 	}
 
-	// Force all mip maps to load before taking the screenshot.
-	UTexture::ForceUpdateTextureStreaming();
-
-	// Force all shader compiling to finish.
-	GShaderCompilingManager->FinishAllCompilation();
-
 #if (WITH_DEV_AUTOMATION_TESTS || WITH_PERF_AUTOMATION_TESTS)
-	FAutomationScreenshotTaker* TempObject = new FAutomationScreenshotTaker(Name, Options);
+	FAutomationScreenshotTaker* TempObject = new FAutomationScreenshotTaker(WorldContextObject ? WorldContextObject->GetWorld() : nullptr, Name, Options);
 #endif
 
 	//static IConsoleVariable* HighResScreenshotDelay = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HighResScreenshotDelay"));
@@ -395,24 +406,7 @@ void UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshotAtCamera(UObje
 
 void UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshotOfUI(UObject* WorldContextObject, FLatentActionInfo LatentInfo, const FString& Name, const FAutomationScreenshotOptions& Options)
 {
-	if ( !FAutomationTestFramework::Get().IsScreenshotAllowed() )
-	{
-		UE_LOG(AutomationFunctionLibrary, Log, TEXT("Attempted to capture screenshot (%s) but screenshots are not enabled."), *Name);
-
-		if ( UWorld* World = WorldContextObject->GetWorld() )
-		{
-			FLatentActionManager& LatentActionManager = World->GetLatentActionManager();
-			if ( LatentActionManager.FindExistingAction<FDelayAction>(LatentInfo.CallbackTarget, LatentInfo.UUID) == nullptr )
-			{
-				LatentActionManager.AddNewAction(LatentInfo.CallbackTarget, LatentInfo.UUID, new FDelayAction(0, LatentInfo));
-			}
-		}
-
-		return;
-	}
-
-	// Force all mip maps to load before taking the screenshot.
-	UTexture::ForceUpdateTextureStreaming();
+	FinishLoadingBeforeScreenshot();
 
 	if ( UWorld* World = WorldContextObject->GetWorld() )
 	{
@@ -426,7 +420,7 @@ void UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshotOfUI(UObject* 
 				if ( FSlateApplication::Get().TakeScreenshot(Viewport.ToSharedRef(), OutColorData, OutSize) )
 				{
 #if (WITH_DEV_AUTOMATION_TESTS || WITH_PERF_AUTOMATION_TESTS)
-					FAutomationScreenshotTaker* TempObject = new FAutomationScreenshotTaker(Name, Options);
+					FAutomationScreenshotTaker* TempObject = new FAutomationScreenshotTaker(GEngine->GetWorldFromContextObject(WorldContextObject), Name, Options);
 
 					FAutomationScreenshotData Data = AutomationCommon::BuildScreenshotData(GWorld->GetName(), Name, OutSize.X, OutSize.Y);
 

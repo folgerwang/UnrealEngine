@@ -299,6 +299,14 @@ public:
 	virtual void UpdateSceneSettings(AWorldSettings* WorldSettings) {}
 
 	/**
+	* Gets the GPU Skin Cache system associated with the scene.
+	*/
+	virtual class FGPUSkinCache* GetGPUSkinCache()
+	{
+		return nullptr;
+	}
+
+	/**
 	 * Sets the FX system associated with the scene.
 	 */
 	virtual void SetFXSystem( class FFXSystemInterface* InFXSystem ) = 0;
@@ -399,6 +407,9 @@ public:
 	 * Returns the FPrimitiveComponentId for all primitives in the scene
 	 */
 	virtual ENGINE_API TArray<FPrimitiveComponentId> GetScenePrimitiveComponentIds() const;
+
+	virtual uint32 GetFrameNumber() const { return 0; }
+	virtual void IncrementFrameNumber() {}
 
 protected:
 	virtual ~FSceneInterface() {}

@@ -210,6 +210,19 @@ enum EIndirectLightingCacheQuality
 	ILCQ_Volume
 };
 
+UENUM()
+enum EOcclusionCombineMode
+{
+	/** Take the minimum occlusion value.  This is effective for avoiding over-occlusion from multiple methods, but can result in indoors looking too flat. */
+	OCM_Minimum,
+	/** 
+	 * Multiply together occlusion values from Distance Field Ambient Occlusion and Screen Space Ambient Occlusion.  
+	 * This gives a good sense of depth everywhere, but can cause over-occlusion. 
+	 * SSAO should be tweaked to be less strong compard to Minimum.
+	 */
+	OCM_Multiply,
+	OCM_MAX,
+};
 
 /** Note: This is mirrored in Lightmass, be sure to update the blend mode structure and logic there if this changes. */
 // Note: Check UMaterialInstance::Serialize if changed!!
@@ -329,6 +342,7 @@ enum ESceneCaptureSource
 	SCS_FinalColorLDR UMETA(DisplayName="Final Color (LDR) in RGB"),
 	SCS_SceneColorSceneDepth UMETA(DisplayName="SceneColor (HDR) in RGB, SceneDepth in A"),
 	SCS_SceneDepth UMETA(DisplayName="SceneDepth in R"),
+	SCS_DeviceDepth UMETA(DisplayName = "DeviceDepth in RGB"),
 	SCS_Normal UMETA(DisplayName="Normal in RGB (Deferred Renderer only)"),
 	SCS_BaseColor UMETA(DisplayName="BaseColor in RGB (Deferred Renderer only)")
 };
@@ -2000,10 +2014,16 @@ struct ENGINE_API FHitResult
 	}
 
 	/** Utility to return the Actor that owns the Component that was hit. */
-	AActor* GetActor() const;
+	FORCEINLINE AActor* GetActor() const
+	{
+		return Actor.Get();
+	}
 
 	/** Utility to return the Component that was hit. */
-	UPrimitiveComponent* GetComponent() const;
+	FORCEINLINE UPrimitiveComponent* GetComponent() const
+	{
+		return Component.Get();
+	}
 
 	/** Optimized serialize function */
 	bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess);
@@ -2273,6 +2293,8 @@ public:
 	/** Map of LOD levels to frame skip amounts. if bShouldUseLodMap is set these values will be used for
 	 * the frameskip amounts and the distance factor thresholds will be ignored. The flag and these values
 	 * should be configured using the customization callback when parameters are created for a component.
+	 *
+	 * Note that this is # of frames to skip, so if you have 20, that means every 21th frame, it will update, and evaluate. 
 	 */
 	UPROPERTY()
 	TMap<int32, int32> LODToFrameSkipMap;

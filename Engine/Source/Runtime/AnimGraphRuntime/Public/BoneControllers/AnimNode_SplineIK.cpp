@@ -7,7 +7,7 @@
 #include "SplineIK.h"
 
 FAnimNode_SplineIK::FAnimNode_SplineIK() 
-	: BoneAxis(EAxis::X)
+	: BoneAxis(ESplineBoneAxis::X)
 	, bAutoCalculateSpline(true)
 	, PointCount(2)
 	, Roll(0.0f)
@@ -46,11 +46,11 @@ struct FSplineIKScratchArea : public TThreadSingleton<FSplineIKScratchArea>
 	TArray<FCompactPoseBoneIndex> CompactPoseBoneIndices;
 };
 
-void FAnimNode_SplineIK::EvaluateBoneTransforms(USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, TArray<FBoneTransform>& OutBoneTransforms)
+void FAnimNode_SplineIK::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseContext& Output, TArray<FBoneTransform>& OutBoneTransforms)
 {
 	if (CachedBoneReferences.Num() > 0)
 	{
-		const FBoneContainer& BoneContainer = MeshBases.GetPose().GetBoneContainer();
+		const FBoneContainer& BoneContainer = Output.Pose.GetPose().GetBoneContainer();
 
 		TransformSpline();
 
@@ -75,10 +75,10 @@ void FAnimNode_SplineIK::EvaluateBoneTransforms(USkeletalMeshComponent* SkelComp
 			}
 
 			int32 CompactPoseIndexIndex = CompactPoseBoneIndices.Add(BoneData.Bone.GetCompactPoseIndex(BoneContainer));
-			InTransforms.Add(MeshBases.GetComponentSpaceTransform(CompactPoseBoneIndices[CompactPoseIndexIndex]));
+			InTransforms.Add(Output.Pose.GetComponentSpaceTransform(CompactPoseBoneIndices[CompactPoseIndexIndex]));
 		}
 
-		AnimationCore::SolveSplineIK(InTransforms, TransformedSpline.Position, TransformedSpline.Rotation, TransformedSpline.Scale, TotalSplineAlpha, TotalSplineLength, FFloatMapping::CreateRaw(this, &FAnimNode_SplineIK::GetTwist, TotalSplineAlpha), Roll, Stretch, Offset, BoneAxis, FFindParamAtFirstSphereIntersection::CreateRaw(this, &FAnimNode_SplineIK::FindParamAtFirstSphereIntersection), CachedOffsetRotations, CachedBoneLengths, OriginalSplineLength, OutTransforms);
+		AnimationCore::SolveSplineIK(InTransforms, TransformedSpline.Position, TransformedSpline.Rotation, TransformedSpline.Scale, TotalSplineAlpha, TotalSplineLength, FFloatMapping::CreateRaw(this, &FAnimNode_SplineIK::GetTwist, TotalSplineAlpha), Roll, Stretch, Offset, (EAxis::Type)BoneAxis, FFindParamAtFirstSphereIntersection::CreateRaw(this, &FAnimNode_SplineIK::FindParamAtFirstSphereIntersection), CachedOffsetRotations, CachedBoneLengths, OriginalSplineLength, OutTransforms);
 
 		check(InTransforms.Num() == OutTransforms.Num());
 		check(InTransforms.Num() == CompactPoseBoneIndices.Num());
@@ -307,7 +307,7 @@ void FAnimNode_SplineIK::BuildBoneSpline(const FReferenceSkeleton& RefSkeleton)
 				BoneLength = BoneDir.Size();
 
 				// Calculate a quaternion that gets us from our current rotation to the desired one.
-				FVector TransformedAxis = Transform.GetRotation().RotateVector(FMatrix::Identity.GetUnitAxis(BoneAxis)).GetSafeNormal();
+				FVector TransformedAxis = Transform.GetRotation().RotateVector(FMatrix::Identity.GetUnitAxis((EAxis::Type)BoneAxis)).GetSafeNormal();
 				BoneOffsetRotation = FQuat::FindBetweenNormals(BoneDir.GetSafeNormal(), TransformedAxis);
 			}
 

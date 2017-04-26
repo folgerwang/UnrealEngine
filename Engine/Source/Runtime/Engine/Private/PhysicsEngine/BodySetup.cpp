@@ -33,6 +33,7 @@
 #include "PhysicsEngine/PhysDerivedData.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "ProfilingDebugging/CookStats.h"
+#include "AnimPhysObjectVersion.h"
 
 #if ENABLE_COOK_STATS
 namespace PhysXBodySetupCookStats
@@ -492,7 +493,7 @@ template <> bool FBodySetupShapeIterator::PopulatePhysXGeometryAndTransform(cons
 	if (OutGeometry.isValid())
 	{
 		// The stored capsule transform assumes the capsule axis is down Z. In PhysX, it points down X, so we twiddle the matrix a bit here (swap X and Z and negate Y).
-		OutTM = PxTransform(U2PVector(ScaledSphylElem.Center), U2PQuat(ScaledSphylElem.Orientation) * U2PSphylBasis);
+		OutTM = PxTransform(U2PVector(ScaledSphylElem.Center), U2PQuat(ScaledSphylElem.Rotation.Quaternion()) * U2PSphylBasis);
 
 		if (ensure(OutTM.isValid()))
 		{
@@ -792,7 +793,7 @@ void UBodySetup::InvalidatePhysicsData()
 		CookedFormatData.FlushData();
 	}
 }
-#endif // WITH_EDITOR
+#endif // WITH_RUNTIME_PHYSICS_COOKING || WITH_EDITOR
 
 
 void UBodySetup::BeginDestroy()
@@ -869,10 +870,9 @@ void UBodySetup::Serialize(FArchive& Ar)
 		}
 	}
 
-	if ( Ar.IsLoading() )
-	{
-		AggGeom.Serialize( Ar );
-	}
+#if WITH_EDITOR
+	AggGeom.FixupDeprecated( Ar );
+#endif
 }
 
 void UBodySetup::PostLoad()
@@ -1293,24 +1293,21 @@ void UBodySetup::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 	UVInfo.GetResourceSizeEx(CumulativeResourceSize);
 }
 
-void FKAggregateGeom::Serialize( const FArchive& Ar )
+void FKAggregateGeom::FixupDeprecated(FArchive& Ar)
 {
-	if ( Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_REFACTOR_PHYSICS_TRANSFORMS )
+	for (auto SphereElemIt = SphereElems.CreateIterator(); SphereElemIt; ++SphereElemIt)
 	{
-		for ( auto SphereElemIt = SphereElems.CreateIterator(); SphereElemIt; ++SphereElemIt )
-		{
-			SphereElemIt->Serialize( Ar );
-		}
+		SphereElemIt->FixupDeprecated(Ar);
+	}
 
-		for ( auto BoxElemIt = BoxElems.CreateIterator(); BoxElemIt; ++BoxElemIt )
-		{
-			BoxElemIt->Serialize( Ar );
-		}
+	for (auto BoxElemIt = BoxElems.CreateIterator(); BoxElemIt; ++BoxElemIt)
+	{
+		BoxElemIt->FixupDeprecated(Ar);
+	}
 
-		for ( auto SphylElemIt = SphylElems.CreateIterator(); SphylElemIt; ++SphylElemIt )
-		{
-			SphylElemIt->Serialize( Ar );
-		}
+	for (auto SphylElemIt = SphylElems.CreateIterator(); SphylElemIt; ++SphylElemIt)
+	{
+		SphylElemIt->FixupDeprecated(Ar);
 	}
 }
 
@@ -1433,7 +1430,7 @@ float FKConvexElem::GetVolume(const FVector& Scale) const
 	return Volume;
 }
 
-void FKSphereElem::Serialize( const FArchive& Ar )
+void FKSphereElem::FixupDeprecated( FArchive& Ar )
 {
 	if ( Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_REFACTOR_PHYSICS_TRANSFORMS )
 	{
@@ -1502,12 +1499,18 @@ FKSphereElem FKSphereElem::GetFinalScaled(const FVector& Scale3D, const FTransfo
 	return ScaledSphere;
 }
 
-void FKBoxElem::Serialize( const FArchive& Ar )
+void FKBoxElem::FixupDeprecated( FArchive& Ar )
 {
 	if ( Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_REFACTOR_PHYSICS_TRANSFORMS )
 	{
 		Center = TM_DEPRECATED.GetOrigin();
-		Orientation = TM_DEPRECATED.ToQuat();
+		Orientation_DEPRECATED = TM_DEPRECATED.ToQuat();
+	}
+
+	Ar.UsingCustomVersion(FAnimPhysObjectVersion::GUID);
+	if (Ar.IsLoading() && Ar.CustomVer(FAnimPhysObjectVersion::GUID) < FAnimPhysObjectVersion::BoxSphylElemsUseRotators)
+	{
+		Rotation = Orientation_DEPRECATED.Rotator();
 	}
 }
 
@@ -1580,12 +1583,18 @@ float FKBoxElem::GetClosestPointAndNormal(const FVector& WorldPosition, const FT
 	return bIsOutside ? Error : 0.f;
 }
 
-void FKSphylElem::Serialize( const FArchive& Ar )
+void FKSphylElem::FixupDeprecated( FArchive& Ar )
 {
 	if ( Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_REFACTOR_PHYSICS_TRANSFORMS )
 	{
 		Center = TM_DEPRECATED.GetOrigin();
-		Orientation = TM_DEPRECATED.ToQuat();
+		Orientation_DEPRECATED = TM_DEPRECATED.ToQuat();
+	}
+
+	Ar.UsingCustomVersion(FAnimPhysObjectVersion::GUID);
+	if (Ar.IsLoading() && Ar.CustomVer(FAnimPhysObjectVersion::GUID) < FAnimPhysObjectVersion::BoxSphylElemsUseRotators)
+	{
+		Rotation = Orientation_DEPRECATED.Rotator();
 	}
 }
 
@@ -1630,7 +1639,8 @@ FKSphylElem FKSphylElem::GetFinalScaled(const FVector& Scale3D, const FTransform
 
 	FVector LocalOrigin = RelativeTM.TransformPosition(Center) * Scale3D;
 	ScaledSphylElem.Center = LocalOrigin;
-	
+	ScaledSphylElem.Rotation = FRotator(RelativeTM.GetRotation() * FQuat(ScaledSphylElem.Rotation));
+
 	return ScaledSphylElem;
 }
 

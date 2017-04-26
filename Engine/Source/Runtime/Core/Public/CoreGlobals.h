@@ -288,9 +288,6 @@ extern CORE_API FString GSystemStartTime;
 /** Whether we are still in the initial loading process. */
 extern CORE_API bool GIsInitialLoad;
 
-/* Whether we are using the new async IO */
-extern CORE_API bool GNewAsyncIO;
-
 /* Whether we are using the event driven loader */
 extern CORE_API bool GEventDrivenLoaderEnabled;
 
@@ -398,7 +395,7 @@ FORCEINLINE bool IsInGameThread()
 	if(GIsGameThreadIdInitialized)
 	{
 		const uint32 CurrentThreadId = FPlatformTLS::GetCurrentThreadId();
-		return CurrentThreadId == GGameThreadId || CurrentThreadId == GSlateLoadingThreadId;
+		return CurrentThreadId == GGameThreadId;
 	}
 
 	return true;

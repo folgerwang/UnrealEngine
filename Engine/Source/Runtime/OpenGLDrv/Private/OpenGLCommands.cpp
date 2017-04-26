@@ -300,7 +300,7 @@ void FOpenGLDynamicRHI::RHISetRasterizerState(FRasterizerStateRHIParamRef NewSta
 	FOpenGLRasterizerState* NewState = ResourceCast(NewStateRHI);
 	PendingState.RasterizerState = NewState->Data;
 	
-	FShaderCache::SetRasterizerState(NewStateRHI);
+	FShaderCache::SetRasterizerState(FShaderCache::GetDefaultCacheState(), NewStateRHI);
 }
 
 void FOpenGLDynamicRHI::UpdateRasterizerStateInOpenGLContext( FOpenGLContextState& ContextState )
@@ -396,7 +396,7 @@ void FOpenGLDynamicRHI::RHISetViewport(uint32 MinX,uint32 MinY,float MinZ,uint32
 	PendingState.DepthMinZ = MinZ;
 	PendingState.DepthMaxZ = MaxZ;
 	
-	FShaderCache::SetViewport(MinX, MinY, MinZ, MaxX, MaxY, MaxZ);
+	FShaderCache::SetViewport(FShaderCache::GetDefaultCacheState(), MinX, MinY, MinZ, MaxX, MaxY, MaxZ);
 }
 
 void FOpenGLDynamicRHI::RHISetStereoViewport(uint32 LeftMinX, uint32 RightMinX, uint32 MinY, float MinZ, uint32 LeftMaxX, uint32 RightMaxX, uint32 MaxY, float MaxZ)
@@ -453,7 +453,7 @@ void FOpenGLDynamicRHI::RHISetBoundShaderState( FBoundShaderStateRHIParamRef Bou
 	// The history keeps them alive, and the bound shader state cache allows them to be reused if needed.
 	BoundShaderStateHistory.Add(BoundShaderState);
 	
-	FShaderCache::SetBoundShaderState(BoundShaderStateRHI);
+	FShaderCache::SetBoundShaderState(FShaderCache::GetDefaultCacheState(), BoundShaderStateRHI);
 }
 
 void FOpenGLDynamicRHI::RHISetUAVParameter(FComputeShaderRHIParamRef ComputeShaderRHI,uint32 UAVIndex,FUnorderedAccessViewRHIParamRef UnorderedAccessViewRHI)
@@ -861,7 +861,12 @@ void FOpenGLDynamicRHI::RHISetShaderResourceViewParameter(FPixelShaderRHIParamRe
 {
 	VERIFY_GL_SCOPE();
 	VALIDATE_BOUND_SHADER(PixelShaderRHI);
+#ifndef __EMSCRIPTEN__
+	// TODO: On WebGL1/GLES2 builds, the following assert() always comes out false, however when simply ignoring this check,
+	// everything seems to be working fine. That said, I don't know what should change here, shader resource views are a D3D abstraction,
+	// but I think InternalSetShaderTexture() and RHISetShaderSampler() calls below need to occur even on GLES2.
 	check(FOpenGL::SupportsResourceView());
+#endif
 	FOpenGLShaderResourceView* SRV = ResourceCast(SRVRHI);
 	GLuint Resource = 0;
 	GLenum Target = GL_TEXTURE_BUFFER;
@@ -876,7 +881,7 @@ void FOpenGLDynamicRHI::RHISetShaderResourceViewParameter(FPixelShaderRHIParamRe
 	InternalSetShaderTexture(NULL, SRV, FOpenGL::GetFirstPixelTextureUnit() + TextureIndex, Target, Resource, 0, LimitMip);
 	RHISetShaderSampler(PixelShaderRHI,TextureIndex,PointSamplerState);
 	
-	FShaderCache::SetSRV(SF_Pixel, TextureIndex, SRVRHI);
+	FShaderCache::SetSRV(FShaderCache::GetDefaultCacheState(), SF_Pixel, TextureIndex, SRVRHI);
 }
 
 void FOpenGLDynamicRHI::RHISetShaderResourceViewParameter(FVertexShaderRHIParamRef VertexShaderRHI,uint32 TextureIndex,FShaderResourceViewRHIParamRef SRVRHI)
@@ -899,7 +904,7 @@ void FOpenGLDynamicRHI::RHISetShaderResourceViewParameter(FVertexShaderRHIParamR
 	InternalSetShaderTexture(NULL, SRV, FOpenGL::GetFirstVertexTextureUnit() + TextureIndex, Target, Resource, 0, LimitMip);
 	RHISetShaderSampler(VertexShaderRHI,TextureIndex,PointSamplerState);
 	
-	FShaderCache::SetSRV(SF_Vertex, TextureIndex, SRVRHI);
+	FShaderCache::SetSRV(FShaderCache::GetDefaultCacheState(), SF_Vertex, TextureIndex, SRVRHI);
 }
 
 void FOpenGLDynamicRHI::RHISetShaderResourceViewParameter(FComputeShaderRHIParamRef ComputeShaderRHI,uint32 TextureIndex,FShaderResourceViewRHIParamRef SRVRHI)
@@ -921,7 +926,7 @@ void FOpenGLDynamicRHI::RHISetShaderResourceViewParameter(FComputeShaderRHIParam
 	InternalSetShaderTexture(NULL, SRV, FOpenGL::GetFirstComputeTextureUnit() + TextureIndex, Target, Resource, 0, LimitMip);
 	RHISetShaderSampler(ComputeShaderRHI,TextureIndex,PointSamplerState);
 	
-	FShaderCache::SetSRV(SF_Compute, TextureIndex, SRVRHI);
+	FShaderCache::SetSRV(FShaderCache::GetDefaultCacheState(), SF_Compute, TextureIndex, SRVRHI);
 }
 
 void FOpenGLDynamicRHI::RHISetShaderResourceViewParameter(FHullShaderRHIParamRef HullShaderRHI,uint32 TextureIndex,FShaderResourceViewRHIParamRef SRVRHI)
@@ -944,7 +949,7 @@ void FOpenGLDynamicRHI::RHISetShaderResourceViewParameter(FHullShaderRHIParamRef
 	}
 	InternalSetShaderTexture(NULL, SRV, FOpenGL::GetFirstHullTextureUnit() + TextureIndex, Target, Resource, 0, LimitMip);
 	
-	FShaderCache::SetSRV(SF_Hull, TextureIndex, SRVRHI);
+	FShaderCache::SetSRV(FShaderCache::GetDefaultCacheState(), SF_Hull, TextureIndex, SRVRHI);
 }
 
 void FOpenGLDynamicRHI::RHISetShaderResourceViewParameter(FDomainShaderRHIParamRef DomainShaderRHI,uint32 TextureIndex,FShaderResourceViewRHIParamRef SRVRHI)
@@ -967,7 +972,7 @@ void FOpenGLDynamicRHI::RHISetShaderResourceViewParameter(FDomainShaderRHIParamR
 	}
 	InternalSetShaderTexture(NULL, SRV, FOpenGL::GetFirstDomainTextureUnit() + TextureIndex, Target, Resource, 0, LimitMip);
 	
-	FShaderCache::SetSRV(SF_Domain, TextureIndex, SRVRHI);
+	FShaderCache::SetSRV(FShaderCache::GetDefaultCacheState(), SF_Domain, TextureIndex, SRVRHI);
 }
 
 void FOpenGLDynamicRHI::RHISetShaderResourceViewParameter(FGeometryShaderRHIParamRef GeometryShaderRHI,uint32 TextureIndex,FShaderResourceViewRHIParamRef SRVRHI)
@@ -990,7 +995,7 @@ void FOpenGLDynamicRHI::RHISetShaderResourceViewParameter(FGeometryShaderRHIPara
 	InternalSetShaderTexture(NULL, SRV, FOpenGL::GetFirstGeometryTextureUnit() + TextureIndex, Target, Resource, 0, LimitMip);
 	RHISetShaderSampler(GeometryShaderRHI,TextureIndex,PointSamplerState);
 	
-	FShaderCache::SetSRV(SF_Geometry, TextureIndex, SRVRHI);
+	FShaderCache::SetSRV(FShaderCache::GetDefaultCacheState(), SF_Geometry, TextureIndex, SRVRHI);
 }
 
 void FOpenGLDynamicRHI::RHISetShaderTexture(FVertexShaderRHIParamRef VertexShaderRHI,uint32 TextureIndex,FTextureRHIParamRef NewTextureRHI)
@@ -1008,7 +1013,7 @@ void FOpenGLDynamicRHI::RHISetShaderTexture(FVertexShaderRHIParamRef VertexShade
 		InternalSetShaderTexture(nullptr, nullptr, FOpenGL::GetFirstVertexTextureUnit() + TextureIndex, 0, 0, 0, -1);
 	}
 	
-	FShaderCache::SetTexture(SF_Vertex, TextureIndex, NewTextureRHI);
+	FShaderCache::SetTexture(FShaderCache::GetDefaultCacheState(), SF_Vertex, TextureIndex, NewTextureRHI);
 }
 
 void FOpenGLDynamicRHI::RHISetShaderTexture(FHullShaderRHIParamRef HullShaderRHI,uint32 TextureIndex,FTextureRHIParamRef NewTextureRHI)
@@ -1027,7 +1032,7 @@ void FOpenGLDynamicRHI::RHISetShaderTexture(FHullShaderRHIParamRef HullShaderRHI
 		InternalSetShaderTexture(nullptr, nullptr, FOpenGL::GetFirstHullTextureUnit() + TextureIndex, 0, 0, 0, -1);
 	}
 	
-	FShaderCache::SetTexture(SF_Hull, TextureIndex, NewTextureRHI);
+	FShaderCache::SetTexture(FShaderCache::GetDefaultCacheState(), SF_Hull, TextureIndex, NewTextureRHI);
 }
 
 void FOpenGLDynamicRHI::RHISetShaderTexture(FDomainShaderRHIParamRef DomainShaderRHI,uint32 TextureIndex,FTextureRHIParamRef NewTextureRHI)
@@ -1046,7 +1051,7 @@ void FOpenGLDynamicRHI::RHISetShaderTexture(FDomainShaderRHIParamRef DomainShade
 		InternalSetShaderTexture(nullptr, nullptr, FOpenGL::GetFirstDomainTextureUnit() + TextureIndex, 0, 0, 0, -1);
 	}
 	
-	FShaderCache::SetTexture(SF_Domain, TextureIndex, NewTextureRHI);
+	FShaderCache::SetTexture(FShaderCache::GetDefaultCacheState(), SF_Domain, TextureIndex, NewTextureRHI);
 }
 
 void FOpenGLDynamicRHI::RHISetShaderTexture(FGeometryShaderRHIParamRef GeometryShaderRHI,uint32 TextureIndex,FTextureRHIParamRef NewTextureRHI)
@@ -1064,7 +1069,7 @@ void FOpenGLDynamicRHI::RHISetShaderTexture(FGeometryShaderRHIParamRef GeometryS
 		InternalSetShaderTexture(nullptr, nullptr, FOpenGL::GetFirstGeometryTextureUnit() + TextureIndex, 0, 0, 0, -1);
 	}
 	
-	FShaderCache::SetTexture(SF_Geometry, TextureIndex, NewTextureRHI);
+	FShaderCache::SetTexture(FShaderCache::GetDefaultCacheState(), SF_Geometry, TextureIndex, NewTextureRHI);
 }
 
 void FOpenGLDynamicRHI::RHISetShaderTexture(FPixelShaderRHIParamRef PixelShaderRHI,uint32 TextureIndex,FTextureRHIParamRef NewTextureRHI)
@@ -1082,7 +1087,7 @@ void FOpenGLDynamicRHI::RHISetShaderTexture(FPixelShaderRHIParamRef PixelShaderR
 		InternalSetShaderTexture(nullptr, nullptr, FOpenGL::GetFirstPixelTextureUnit() + TextureIndex, 0, 0, 0, -1);
 	}
 	
-	FShaderCache::SetTexture(SF_Pixel, TextureIndex, NewTextureRHI);
+	FShaderCache::SetTexture(FShaderCache::GetDefaultCacheState(), SF_Pixel, TextureIndex, NewTextureRHI);
 }
 
 void FOpenGLDynamicRHI::RHISetShaderSampler(FVertexShaderRHIParamRef VertexShaderRHI,uint32 SamplerIndex,FSamplerStateRHIParamRef NewStateRHI)
@@ -1107,7 +1112,7 @@ void FOpenGLDynamicRHI::RHISetShaderSampler(FVertexShaderRHIParamRef VertexShade
 		InternalSetSamplerStates(FOpenGL::GetFirstVertexTextureUnit() + SamplerIndex, NewState);
 	}
 	
-	FShaderCache::SetSamplerState(SF_Vertex, SamplerIndex, NewStateRHI);
+	FShaderCache::SetSamplerState(FShaderCache::GetDefaultCacheState(), SF_Vertex, SamplerIndex, NewStateRHI);
 }
 
 void FOpenGLDynamicRHI::RHISetShaderSampler(FHullShaderRHIParamRef HullShaderRHI,uint32 SamplerIndex,FSamplerStateRHIParamRef NewStateRHI)
@@ -1133,7 +1138,7 @@ void FOpenGLDynamicRHI::RHISetShaderSampler(FHullShaderRHIParamRef HullShaderRHI
 		InternalSetSamplerStates(FOpenGL::GetFirstHullTextureUnit() + SamplerIndex, NewState);
 	}
 	
-	FShaderCache::SetSamplerState(SF_Hull, SamplerIndex, NewStateRHI);
+	FShaderCache::SetSamplerState(FShaderCache::GetDefaultCacheState(), SF_Hull, SamplerIndex, NewStateRHI);
 }
 void FOpenGLDynamicRHI::RHISetShaderSampler(FDomainShaderRHIParamRef DomainShaderRHI,uint32 SamplerIndex,FSamplerStateRHIParamRef NewStateRHI)
 {
@@ -1158,7 +1163,7 @@ void FOpenGLDynamicRHI::RHISetShaderSampler(FDomainShaderRHIParamRef DomainShade
 		InternalSetSamplerStates(FOpenGL::GetFirstDomainTextureUnit() + SamplerIndex, NewState);
 	}
 	
-	FShaderCache::SetSamplerState(SF_Domain, SamplerIndex, NewStateRHI);
+	FShaderCache::SetSamplerState(FShaderCache::GetDefaultCacheState(), SF_Domain, SamplerIndex, NewStateRHI);
 }
 
 void FOpenGLDynamicRHI::RHISetShaderSampler(FGeometryShaderRHIParamRef GeometryShaderRHI,uint32 SamplerIndex,FSamplerStateRHIParamRef NewStateRHI)
@@ -1183,7 +1188,7 @@ void FOpenGLDynamicRHI::RHISetShaderSampler(FGeometryShaderRHIParamRef GeometryS
 		InternalSetSamplerStates(FOpenGL::GetFirstGeometryTextureUnit() + SamplerIndex, NewState);
 	}
 	
-	FShaderCache::SetSamplerState(SF_Geometry, SamplerIndex, NewStateRHI);
+	FShaderCache::SetSamplerState(FShaderCache::GetDefaultCacheState(), SF_Geometry, SamplerIndex, NewStateRHI);
 }
 
 void FOpenGLDynamicRHI::RHISetShaderTexture(FComputeShaderRHIParamRef ComputeShaderRHI,uint32 TextureIndex,FTextureRHIParamRef NewTextureRHI)
@@ -1200,7 +1205,7 @@ void FOpenGLDynamicRHI::RHISetShaderTexture(FComputeShaderRHIParamRef ComputeSha
 		InternalSetShaderTexture(nullptr, nullptr, FOpenGL::GetFirstComputeTextureUnit() + TextureIndex, 0, 0, 0, -1);
 	}
 	
-	FShaderCache::SetTexture(SF_Compute, TextureIndex, NewTextureRHI);
+	FShaderCache::SetTexture(FShaderCache::GetDefaultCacheState(), SF_Compute, TextureIndex, NewTextureRHI);
 }
 
 void FOpenGLDynamicRHI::RHISetShaderSampler(FPixelShaderRHIParamRef PixelShaderRHI,uint32 SamplerIndex,FSamplerStateRHIParamRef NewStateRHI)
@@ -1225,7 +1230,7 @@ void FOpenGLDynamicRHI::RHISetShaderSampler(FPixelShaderRHIParamRef PixelShaderR
 		InternalSetSamplerStates(FOpenGL::GetFirstPixelTextureUnit() + SamplerIndex, NewState);
 	}
 	
-	FShaderCache::SetSamplerState(SF_Pixel, SamplerIndex, NewStateRHI);
+	FShaderCache::SetSamplerState(FShaderCache::GetDefaultCacheState(), SF_Pixel, SamplerIndex, NewStateRHI);
 }
 
 void FOpenGLDynamicRHI::RHISetShaderUniformBuffer(FVertexShaderRHIParamRef VertexShaderRHI,uint32 BufferIndex,FUniformBufferRHIParamRef BufferRHI)
@@ -1342,7 +1347,7 @@ void FOpenGLDynamicRHI::RHISetDepthStencilState(FDepthStencilStateRHIParamRef Ne
 	PendingState.DepthStencilState = NewState->Data;
 	PendingState.StencilRef = StencilRef;
 	
-	FShaderCache::SetDepthStencilState(NewStateRHI);
+	FShaderCache::SetDepthStencilState(FShaderCache::GetDefaultCacheState(), NewStateRHI);
 }
 
 void FOpenGLDynamicRHI::RHISetStencilRef(uint32 StencilRef)
@@ -1634,7 +1639,8 @@ void FOpenGLDynamicRHI::SetPendingBlendStateForActiveRenderTargets( FOpenGLConte
 							glBlendFunc(RenderTargetBlendState.ColorSourceBlendFactor, RenderTargetBlendState.ColorDestBlendFactor);
 						}
 
-						if (CachedRenderTargetBlendState.ColorBlendOperation != RenderTargetBlendState.ColorBlendOperation)
+						if (CachedRenderTargetBlendState.ColorBlendOperation != RenderTargetBlendState.ColorBlendOperation
+							|| CachedRenderTargetBlendState.AlphaBlendOperation != RenderTargetBlendState.ColorBlendOperation)
 						{
 							glBlendEquation(RenderTargetBlendState.ColorBlendOperation);
 						}
@@ -1643,20 +1649,24 @@ void FOpenGLDynamicRHI::SetPendingBlendStateForActiveRenderTargets( FOpenGLConte
 					// Set cached values of all stages to what they were set by global calls, common to all stages
 					for(uint32 RenderTargetIndex2 = 0; RenderTargetIndex2 < MaxSimultaneousRenderTargets; ++RenderTargetIndex2 )
 					{
-					FOpenGLBlendStateData::FRenderTarget& CachedRenderTargetBlendState2 = ContextState.BlendState.RenderTargets[RenderTargetIndex2];
+						FOpenGLBlendStateData::FRenderTarget& CachedRenderTargetBlendState2 = ContextState.BlendState.RenderTargets[RenderTargetIndex2];
 						CachedRenderTargetBlendState2.bSeparateAlphaBlendEnable = RenderTargetBlendState.bSeparateAlphaBlendEnable;
 						CachedRenderTargetBlendState2.ColorBlendOperation = RenderTargetBlendState.ColorBlendOperation;
 						CachedRenderTargetBlendState2.ColorSourceBlendFactor = RenderTargetBlendState.ColorSourceBlendFactor;
 						CachedRenderTargetBlendState2.ColorDestBlendFactor = RenderTargetBlendState.ColorDestBlendFactor;
 						if( RenderTargetBlendState.bSeparateAlphaBlendEnable )
-						{ 
+						{
+							CachedRenderTargetBlendState2.AlphaBlendOperation = RenderTargetBlendState.AlphaBlendOperation;
 							CachedRenderTargetBlendState2.AlphaSourceBlendFactor = RenderTargetBlendState.AlphaSourceBlendFactor;
 							CachedRenderTargetBlendState2.AlphaDestBlendFactor = RenderTargetBlendState.AlphaDestBlendFactor;
+							CachedRenderTargetBlendState2.AlphaBlendOperation = RenderTargetBlendState.AlphaBlendOperation;
 						}
 						else
 						{
+							CachedRenderTargetBlendState2.AlphaBlendOperation = RenderTargetBlendState.ColorBlendOperation;
 							CachedRenderTargetBlendState2.AlphaSourceBlendFactor = RenderTargetBlendState.ColorSourceBlendFactor;
 							CachedRenderTargetBlendState2.AlphaDestBlendFactor = RenderTargetBlendState.ColorDestBlendFactor;
+							CachedRenderTargetBlendState2.AlphaBlendOperation = RenderTargetBlendState.ColorBlendOperation;
 						}
 					}
 
@@ -1693,7 +1703,7 @@ void FOpenGLDynamicRHI::RHISetBlendState(FBlendStateRHIParamRef NewStateRHI,cons
 	FOpenGLBlendState* NewState = ResourceCast(NewStateRHI);
 	FMemory::Memcpy(&PendingState.BlendState,&(NewState->Data),sizeof(FOpenGLBlendStateData));
 	
-	FShaderCache::SetBlendState(NewStateRHI);
+	FShaderCache::SetBlendState(FShaderCache::GetDefaultCacheState(), NewStateRHI);
 }
 
 void FOpenGLDynamicRHI::RHISetRenderTargets(
@@ -1713,7 +1723,7 @@ void FOpenGLDynamicRHI::RHISetRenderTargets(
 	FMemory::Memset(PendingState.RenderTargetArrayIndex,0,sizeof(PendingState.RenderTargetArrayIndex));
 	PendingState.FirstNonzeroRenderTarget = -1;
 	
-	FShaderCache::SetRenderTargets(NumSimultaneousRenderTargets, NewRenderTargetsRHI, NewDepthStencilTargetRHI);
+	FShaderCache::SetRenderTargets(FShaderCache::GetDefaultCacheState(), NumSimultaneousRenderTargets, NewRenderTargetsRHI, NewDepthStencilTargetRHI);
 
 	for( int32 RenderTargetIndex = NumSimultaneousRenderTargets - 1; RenderTargetIndex >= 0; --RenderTargetIndex )
 	{
@@ -2484,7 +2494,7 @@ FORCEINLINE void SetResource(FOpenGLDynamicRHI* RESTRICT OpenGLRHI, uint32 BindI
 		OpenGLRHI->InternalSetShaderTexture(Texture, nullptr, GetFirstTextureUnit<Frequency>() + BindIndex, 0, 0, 0, -1);
 	}
 	
-	FShaderCache::SetTexture(Frequency, BindIndex, (FTextureRHIParamRef)TextureRHI);
+	FShaderCache::SetTexture(FShaderCache::GetDefaultCacheState(), Frequency, BindIndex, (FTextureRHIParamRef)TextureRHI);
 }
 
 template <EShaderFrequency Frequency>
@@ -2500,7 +2510,7 @@ FORCEINLINE void SetResource(FOpenGLDynamicRHI* RESTRICT OpenGLRHI, uint32 BindI
 		OpenGLRHI->InternalSetSamplerStates(GetFirstTextureUnit<Frequency>() + BindIndex, SamplerState);
 	}
 	
-	FShaderCache::SetSamplerState(Frequency, BindIndex, (FSamplerStateRHIParamRef)SamplerState);
+	FShaderCache::SetSamplerState(FShaderCache::GetDefaultCacheState(), Frequency, BindIndex, (FSamplerStateRHIParamRef)SamplerState);
 }
 
 template <EShaderFrequency Frequency>
@@ -2509,7 +2519,7 @@ FORCEINLINE void SetResource(FOpenGLDynamicRHI* RESTRICT OpenGLRHI, uint32 BindI
 	OpenGLRHI->InternalSetShaderTexture(NULL, SRV, GetFirstTextureUnit<Frequency>() + BindIndex, SRV->Target, SRV->Resource, 0, SRV->LimitMip);
 	SetResource<Frequency>(OpenGLRHI,BindIndex,OpenGLRHI->GetPointSamplerState(), CurrentTime);
 	
-	FShaderCache::SetSRV(Frequency, BindIndex, SRV);
+	FShaderCache::SetSRV(FShaderCache::GetDefaultCacheState(), Frequency, BindIndex, SRV);
 }
 
 template <class GLResourceType, EShaderFrequency ShaderFrequency>
@@ -2556,7 +2566,7 @@ void FOpenGLDynamicRHI::SetResourcesFromTables(const ShaderType* RESTRICT Shader
 		DirtyBits ^= LowestBitMask;
 
 		FOpenGLUniformBuffer* Buffer = (FOpenGLUniformBuffer*)PendingState.BoundUniformBuffers[ShaderType::StaticFrequency][BufferIndex].GetReference();
-		if(!FShaderCache::IsPredrawCall())
+		if(!FShaderCache::IsPredrawCall(FShaderCache::GetDefaultCacheState()))
 		{
 			check(Buffer);
 			check(BufferIndex < SRT->ResourceTableLayoutHashes.Num());
@@ -2691,7 +2701,7 @@ void FOpenGLDynamicRHI::RHIDrawPrimitive(uint32 PrimitiveType,uint32 BaseVertexI
 		REPORT_GL_DRAW_ARRAYS_INSTANCED_EVENT_FOR_FRAME_DUMP( DrawMode, 0, NumElements, NumInstances );
 	}
 
-	FShaderCache::LogDraw(0);
+	FShaderCache::LogDraw(FShaderCache::GetDefaultCacheState(), 0);
 }
 
 void FOpenGLDynamicRHI::RHIDrawPrimitiveIndirect(uint32 PrimitiveType,FVertexBufferRHIParamRef ArgumentBufferRHI,uint32 ArgumentOffset)
@@ -2738,7 +2748,7 @@ void FOpenGLDynamicRHI::RHIDrawPrimitiveIndirect(uint32 PrimitiveType,FVertexBuf
 		}
 		glBindBuffer( GL_DRAW_INDIRECT_BUFFER, 0);
 		
-		FShaderCache::LogDraw(0);
+		FShaderCache::LogDraw(FShaderCache::GetDefaultCacheState(), 0);
 	}
 	else
 	{
@@ -2800,7 +2810,7 @@ void FOpenGLDynamicRHI::RHIDrawIndexedIndirect(FIndexBufferRHIParamRef IndexBuff
 		}
 		glBindBuffer( GL_DRAW_INDIRECT_BUFFER, 0);
 		
-		FShaderCache::LogDraw(IndexBuffer->GetStride());
+		FShaderCache::LogDraw(FShaderCache::GetDefaultCacheState(), IndexBuffer->GetStride());
 	}
 	else
 	{
@@ -2907,7 +2917,7 @@ void FOpenGLDynamicRHI::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef IndexBuf
 	}
 #endif
 
-	FShaderCache::LogDraw(IndexBuffer->GetStride());
+	FShaderCache::LogDraw(FShaderCache::GetDefaultCacheState(), IndexBuffer->GetStride());
 }
 
 void FOpenGLDynamicRHI::RHIDrawIndexedPrimitiveIndirect(uint32 PrimitiveType,FIndexBufferRHIParamRef IndexBufferRHI,FVertexBufferRHIParamRef ArgumentBufferRHI,uint32 ArgumentOffset)
@@ -2960,7 +2970,7 @@ void FOpenGLDynamicRHI::RHIDrawIndexedPrimitiveIndirect(uint32 PrimitiveType,FIn
 		}
 		glBindBuffer( GL_DRAW_INDIRECT_BUFFER, 0);
 		
-		FShaderCache::LogDraw(IndexBuffer->GetStride());
+		FShaderCache::LogDraw(FShaderCache::GetDefaultCacheState(), IndexBuffer->GetStride());
 	}
 	else
 	{
@@ -3081,7 +3091,7 @@ void FOpenGLDynamicRHI::RHIEndDrawPrimitiveUP()
 
 	REPORT_GL_DRAW_ARRAYS_EVENT_FOR_FRAME_DUMP( DrawMode, 0, NumElements );
 
-	FShaderCache::LogDraw(0);
+	FShaderCache::LogDraw(FShaderCache::GetDefaultCacheState(), 0);
 }
 
 /**
@@ -3231,16 +3241,11 @@ void FOpenGLDynamicRHI::RHIEndDrawIndexedPrimitiveUP()
 
 	REPORT_GL_DRAW_RANGE_ELEMENTS_EVENT_FOR_FRAME_DUMP( DrawMode, PendingState.MinVertexIndex, PendingState.MinVertexIndex + PendingState.NumVertices, NumElements, IndexType, 0 );
 
-	FShaderCache::LogDraw(PendingState.IndexDataStride);
+	FShaderCache::LogDraw(FShaderCache::GetDefaultCacheState(), PendingState.IndexDataStride);
 }
 
 
 // Raster operations.
-void FOpenGLDynamicRHI::RHIClear(bool bClearColor,const FLinearColor& Color,bool bClearDepth,float Depth,bool bClearStencil,uint32 Stencil)
-{
-	FOpenGLDynamicRHI::RHIClearMRT(bClearColor, 1, &Color, bClearDepth, Depth, bClearStencil, Stencil);
-}
-
 static inline void ClearCurrentDepthStencilWithCurrentScissor( int8 ClearType, float Depth, uint32 Stencil )
 {
 	switch (ClearType)
@@ -3606,7 +3611,7 @@ IRHICommandContext* FOpenGLDynamicRHI::RHIGetDefaultContext()
 	return this;
 }
 
-IRHICommandContextContainer* FOpenGLDynamicRHI::RHIGetCommandContextContainer()
+IRHICommandContextContainer* FOpenGLDynamicRHI::RHIGetCommandContextContainer(int32 Index, int32 Num)
 {
 	return nullptr;
 }

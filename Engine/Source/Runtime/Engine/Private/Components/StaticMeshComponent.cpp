@@ -36,6 +36,7 @@
 #include "PhysicsEngine/BodySetup.h"
 #include "EngineGlobals.h"
 #include "ComponentRecreateRenderStateContext.h"
+#include "Engine/StaticMesh.h"
 
 #define LOCTEXT_NAMESPACE "StaticMeshComponent"
 
@@ -1227,6 +1228,7 @@ void UStaticMeshComponent::PrivateFixupOverrideColors()
 		return;
 	}
 
+	FStaticMeshLODResources& SourceRenderData = GetStaticMesh()->RenderData->LODResources[0];
 	for (uint32 LODIndex = 0; LODIndex < NumLODs; ++LODIndex)
 	{
 		FStaticMeshComponentLODInfo& LODInfo = LODData[LODIndex];
@@ -1253,6 +1255,8 @@ void UStaticMeshComponent::PrivateFixupOverrideColors()
 			RemapPaintedVertexColors(
 				LODInfo.PaintedVertices,
 				*LODInfo.OverrideVertexColors,
+				SourceRenderData.PositionVertexBuffer,
+				SourceRenderData.VertexBuffer,
 				CurRenderData.PositionVertexBuffer,
 				&CurRenderData.VertexBuffer,
 				NewOverrideColors
@@ -1263,6 +1267,8 @@ void UStaticMeshComponent::PrivateFixupOverrideColors()
 			RemapPaintedVertexColors(
 				LOD0Info.PaintedVertices,
 				*LOD0Info.OverrideVertexColors,
+				SourceRenderData.PositionVertexBuffer,
+				SourceRenderData.VertexBuffer,
 				CurRenderData.PositionVertexBuffer,
 				&CurRenderData.VertexBuffer,
 				NewOverrideColors
@@ -2064,7 +2070,7 @@ bool UStaticMeshComponent::IsMaterialSlotNameValid(FName MaterialSlotName) const
 UMaterialInterface* UStaticMeshComponent::GetMaterial(int32 MaterialIndex) const
 {
 	// If we have a base materials array, use that
-	if(MaterialIndex < OverrideMaterials.Num() && OverrideMaterials[MaterialIndex])
+	if(OverrideMaterials.IsValidIndex(MaterialIndex) && OverrideMaterials[MaterialIndex])
 	{
 		return OverrideMaterials[MaterialIndex];
 	}
@@ -2226,6 +2232,44 @@ bool UStaticMeshComponent::DoCustomNavigableGeometryExport(FNavigableGeometryExp
 
 	return true;
 }
+
+UMaterialInterface* UStaticMeshComponent::GetMaterialFromCollisionFaceIndex(int32 FaceIndex) const
+{
+	UMaterialInterface* Result = nullptr;
+	UStaticMesh* Mesh = GetStaticMesh();
+	if (Mesh && Mesh->RenderData.IsValid())
+	{
+		// Get the info for the LOD that is used for collision
+		int32 LODIndex = Mesh->LODForCollision;
+		FStaticMeshRenderData* RenderData = Mesh->RenderData.Get();
+		if (RenderData->LODResources.IsValidIndex(LODIndex))
+		{
+			const FStaticMeshLODResources& LODResource = RenderData->LODResources[LODIndex];
+
+			// Look for section that corresponds to the supplied face
+			int32 TotalFaceCount = 0;
+			for (int32 SectionIndex = 0; SectionIndex < LODResource.Sections.Num(); SectionIndex++)
+			{
+				const FStaticMeshSection& Section = LODResource.Sections[SectionIndex];
+				// Only count faces if collision is enabled
+				if (Section.bEnableCollision)
+				{
+					TotalFaceCount += Section.NumTriangles;
+
+					if (FaceIndex < TotalFaceCount)
+					{
+						// Get the current material for it, from this component
+						Result = GetMaterial(Section.MaterialIndex);
+						break;
+					}
+				}
+			}
+		}		
+	}
+
+	return Result;
+}
+
 
 bool UStaticMeshComponent::IsNavigationRelevant() const
 {

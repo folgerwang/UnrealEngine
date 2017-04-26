@@ -19,6 +19,7 @@
 #include "Misc/MapErrors.h"
 #include "ShaderCompiler.h"
 #include "Components/BillboardComponent.h"
+#include "Interfaces/ITargetPlatform.h"
 
 #define LOCTEXT_NAMESPACE "SkyLightComponent"
 
@@ -113,12 +114,16 @@ FSkyLightSceneProxy::FSkyLightSceneProxy(const USkyLightComponent* InLightCompon
 	, bCastShadows(InLightComponent->CastShadows)
 	, bWantsStaticShadowing(InLightComponent->Mobility == EComponentMobility::Stationary)
 	, bHasStaticLighting(InLightComponent->HasStaticLighting())
+	, bCastVolumetricShadow(InLightComponent->bCastVolumetricShadow)
 	, LightColor(FLinearColor(InLightComponent->LightColor) * InLightComponent->Intensity)
 	, IndirectLightingIntensity(InLightComponent->IndirectLightingIntensity)
+	, VolumetricScatteringIntensity(FMath::Max(InLightComponent->VolumetricScatteringIntensity, 0.0f))
 	, OcclusionMaxDistance(InLightComponent->OcclusionMaxDistance)
 	, Contrast(InLightComponent->Contrast)
-	, MinOcclusion(InLightComponent->MinOcclusion)
+	, OcclusionExponent(FMath::Clamp(InLightComponent->OcclusionExponent, .1f, 10.0f))
+	, MinOcclusion(FMath::Clamp(InLightComponent->MinOcclusion, 0.0f, 1.0f))
 	, OcclusionTint(InLightComponent->OcclusionTint)
+	, OcclusionCombineMode(InLightComponent->OcclusionCombineMode)
 {
 	ENQUEUE_UNIQUE_RENDER_COMMAND_SIXPARAMETER(
 		FInitSkyProxy,
@@ -159,16 +164,21 @@ USkyLightComponent::USkyLightComponent(const FObjectInitializer& ObjectInitializ
 	bHasEverCaptured = false;
 	OcclusionMaxDistance = 1000;
 	MinOcclusion = 0;
+	OcclusionExponent = 1;
 	OcclusionTint = FColor::Black;
 	CubemapResolution = 128;
 	LowerHemisphereColor = FLinearColor::Black;
 	AverageBrightness = 1.0f;
 	BlendDestinationAverageBrightness = 1.0f;
+	bSkyCaptureRequiredFromLoad = false;
+	bCastVolumetricShadow = true;
 }
 
 FSkyLightSceneProxy* USkyLightComponent::CreateSceneProxy() const
 {
-	if (ProcessedSkyTexture)
+	// Mobile doesnt use SkyTexture.
+	const bool bMobileSkyLight = GetWorld()->FeatureLevel <= ERHIFeatureLevel::ES3_1;
+	if (ProcessedSkyTexture || bMobileSkyLight)
 	{
 		return new FSkyLightSceneProxy(this);
 	}
@@ -266,6 +276,10 @@ void USkyLightComponent::PostLoad()
 		FScopeLock Lock(&SkyCapturesToUpdateLock);
 		SkyCapturesToUpdate.Remove(this);
 	}
+	else
+	{
+		bSkyCaptureRequiredFromLoad = true;
+	}
 }
 
 /** 
@@ -276,14 +290,16 @@ void USkyLightComponent::UpdateLimitedRenderingStateFast()
 {
 	if (SceneProxy)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
+		ENQUEUE_UNIQUE_RENDER_COMMAND_FOURPARAMETER(
 			FFastUpdateSkyLightCommand,
 			FSkyLightSceneProxy*,LightSceneProxy,SceneProxy,
 			FLinearColor,LightColor,FLinearColor(LightColor) * Intensity,
 			float,IndirectLightingIntensity,IndirectLightingIntensity,
+			float,VolumetricScatteringIntensity,VolumetricScatteringIntensity,
 		{
 			LightSceneProxy->LightColor = LightColor;
 			LightSceneProxy->IndirectLightingIntensity = IndirectLightingIntensity;
+			LightSceneProxy->VolumetricScatteringIntensity = VolumetricScatteringIntensity;
 		});
 	}
 }
@@ -298,11 +314,13 @@ void USkyLightComponent::PostInterpChange(UProperty* PropertyThatChanged)
 	static FName LightColorName(TEXT("LightColor"));
 	static FName IntensityName(TEXT("Intensity"));
 	static FName IndirectLightingIntensityName(TEXT("IndirectLightingIntensity"));
+	static FName VolumetricScatteringIntensityName(TEXT("VolumetricScatteringIntensity"));
 
 	FName PropertyName = PropertyThatChanged->GetFName();
 	if (PropertyName == LightColorName
 		|| PropertyName == IntensityName
-		|| PropertyName == IndirectLightingIntensityName)
+		|| PropertyName == IndirectLightingIntensityName
+		|| PropertyName == VolumetricScatteringIntensityName)
 	{
 		UpdateLimitedRenderingStateFast();
 	}
@@ -407,6 +425,33 @@ void USkyLightComponent::CheckForErrors()
 				->AddToken(FMapErrorToken::Create(FMapErrors::MultipleSkyLights));
 		}
 	}
+}
+
+// If the feature level preview has been set before on-load captures have been built then the editor must update them.
+bool USkyLightComponent::MobileSkyCapturesNeedForcedUpdate(UWorld* WorldToUpdate)
+{
+	if (WorldToUpdate->Scene
+		&& WorldToUpdate->Scene->GetFeatureLevel() <= ERHIFeatureLevel::ES3_1
+		&& (GShaderCompilingManager == NULL || !GShaderCompilingManager->IsCompiling()))
+	{
+		FScopeLock Lock(&SkyCapturesToUpdateLock);
+		for (int32 CaptureIndex = SkyCapturesToUpdate.Num() - 1; CaptureIndex >= 0; CaptureIndex--)
+		{
+			USkyLightComponent* CaptureComponent = SkyCapturesToUpdate[CaptureIndex];
+			AActor* Owner = CaptureComponent->GetOwner();
+			if (CaptureComponent->bSkyCaptureRequiredFromLoad
+				&& !CaptureComponent->IsPendingKill()
+				&& CaptureComponent->bVisible
+				&& CaptureComponent->bAffectsWorld
+				&& Owner
+				&& WorldToUpdate->ContainsActor(Owner)
+				&& !WorldToUpdate->IsPendingKill())
+			{
+				return true;
+			}
+		}
+	}
+	return false;
 }
 
 #endif // WITH_EDITOR
@@ -540,6 +585,7 @@ void USkyLightComponent::UpdateSkyCaptureContentsArray(UWorld* WorldToUpdate, TA
 
 				CaptureComponent->IrradianceMapFence.BeginFence();
 				CaptureComponent->bHasEverCaptured = true;
+				CaptureComponent->bSkyCaptureRequiredFromLoad = false;
 				CaptureComponent->MarkRenderStateDirty();
 			}
 
@@ -551,7 +597,7 @@ void USkyLightComponent::UpdateSkyCaptureContentsArray(UWorld* WorldToUpdate, TA
 
 void USkyLightComponent::UpdateSkyCaptureContents(UWorld* WorldToUpdate)
 {
-	if (WorldToUpdate->Scene)
+	if (WorldToUpdate->Scene && WorldToUpdate->FeatureLevel >= ERHIFeatureLevel::SM4)
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_SkylightCaptures);
 		if (SkyCapturesToUpdate.Num() > 0)
@@ -605,6 +651,17 @@ void USkyLightComponent::SetIndirectLightingIntensity(float NewIntensity)
 	}
 }
 
+void USkyLightComponent::SetVolumetricScatteringIntensity(float NewIntensity)
+{
+	// Can't set brightness on a static light
+	if (AreDynamicDataChangesAllowed()
+		&& VolumetricScatteringIntensity != NewIntensity)
+	{
+		VolumetricScatteringIntensity = NewIntensity;
+		UpdateLimitedRenderingStateFast();
+	}
+}
+
 /** Set color of the light */
 void USkyLightComponent::SetLightColor(FLinearColor NewLightColor)
 {
@@ -626,7 +683,6 @@ void USkyLightComponent::SetCubemap(UTextureCube* NewCubemap)
 		&& Cubemap != NewCubemap)
 	{
 		Cubemap = NewCubemap;
-		// Note: this will cause all static draw lists to be recreated, which is often 10ms in a large level
 		MarkRenderStateDirty();
 		// Note: this will cause the cubemap to be reprocessed including readback from the GPU
 		SetCaptureIsDirty();
@@ -682,7 +738,26 @@ void USkyLightComponent::SetOcclusionTint(const FColor& InTint)
 		&& OcclusionTint != InTint)
 	{
 		OcclusionTint = InTint;
-		// Note: this will cause all static draw lists to be recreated, which is often 10ms in a large level
+		MarkRenderStateDirty();
+	}
+}
+
+void USkyLightComponent::SetOcclusionContrast(float InOcclusionContrast)
+{
+	if (AreDynamicDataChangesAllowed()
+		&& Contrast != InOcclusionContrast)
+	{
+		Contrast = InOcclusionContrast;
+		MarkRenderStateDirty();
+	}
+}
+
+void USkyLightComponent::SetOcclusionExponent(float InOcclusionExponent)
+{
+	if (AreDynamicDataChangesAllowed()
+		&& OcclusionExponent != InOcclusionExponent)
+	{
+		OcclusionExponent = InOcclusionExponent;
 		MarkRenderStateDirty();
 	}
 }
@@ -694,18 +769,15 @@ void USkyLightComponent::SetMinOcclusion(float InMinOcclusion)
 		&& MinOcclusion != InMinOcclusion)
 	{
 		MinOcclusion = InMinOcclusion;
-		// Note: this will cause all static draw lists to be recreated, which is often 10ms in a large level
 		MarkRenderStateDirty();
 	}
 }
 
-void USkyLightComponent::SetVisibility(bool bNewVisibility, bool bPropagateToChildren)
+void USkyLightComponent::OnVisibilityChanged()
 {
-	const bool bOldWasVisible = bVisible;
+	Super::OnVisibilityChanged();
 
-	Super::SetVisibility(bNewVisibility, bPropagateToChildren);
-
-	if (bVisible && !bOldWasVisible && !bHasEverCaptured)
+	if (bVisible && !bHasEverCaptured)
 	{
 		// Capture if we are being enabled for the first time
 		SetCaptureIsDirty();
@@ -717,6 +789,31 @@ void USkyLightComponent::RecaptureSky()
 {
 	SetCaptureIsDirty();
 }
+
+void USkyLightComponent::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	if (Ar.UE4Ver() >= VER_UE4_SKYLIGHT_MOBILE_IRRADIANCE_MAP)
+	{
+		if (bHasEverCaptured)
+		{
+			IrradianceMapFence.Wait();
+		}
+		Ar << IrradianceEnvironmentMap;
+	}
+	else
+	{
+		if(Ar.IsCooking() && Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::MobileRendering) )
+		{
+			// Temporary warning until the cooker can do sky captures itself.
+			UE_LOG(LogMaterial, Warning, TEXT("Sky light's mobile data is not present. This light will provide no lighting contribution on mobile."));
+			UE_LOG(LogMaterial, Warning, TEXT("Fix by resaving the map in the editor.  %s."), *GetFullName());
+		}
+	}
+}
+
+
 
 ASkyLight::ASkyLight(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

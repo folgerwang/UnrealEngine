@@ -2133,7 +2133,7 @@ public:
 	void RemoveControllingMatineeActor( AMatineeActor& InMatineeActor );
 
 	/** Dispatches ReceiveHit virtual and OnComponentHit delegate */
-	void DispatchPhysicsCollisionHit(const struct FRigidBodyCollisionInfo& MyInfo, const struct FRigidBodyCollisionInfo& OtherInfo, const FCollisionImpactData& RigidCollisionData);
+	virtual void DispatchPhysicsCollisionHit(const struct FRigidBodyCollisionInfo& MyInfo, const struct FRigidBodyCollisionInfo& OtherInfo, const FCollisionImpactData& RigidCollisionData);
 	
 	/** @return the actor responsible for replication, if any.  Typically the player controller */
 	virtual const AActor* GetNetOwner() const;
@@ -2571,7 +2571,7 @@ public:
 	virtual void CalcCamera(float DeltaTime, struct FMinimalViewInfo& OutResult);
 
 	// Returns true if the actor contains an active camera component
-	virtual bool HasActiveCameraComponent();
+	virtual bool HasActiveCameraComponent() const;
 
 	// Returns true if the actor contains an active locked to HMD camera component
 	virtual bool HasActivePawnControlCameraComponent() const;
@@ -2703,8 +2703,6 @@ public:
 	{
 		static_assert(TPointerIsConvertibleFromTo<T, const UActorComponent>::Value, "'T' template parameter to GetComponents must be derived from UActorComponent");
 		SCOPE_CYCLE_COUNTER(STAT_GetComponentsTime);
-
-		OutComponents.Reset(OwnedComponents.Num());
 
 		TArray<UChildActorComponent*> ChildActorComponents;
 
@@ -3195,28 +3193,6 @@ FORCEINLINE_DEBUGGABLE bool AActor::IsNetMode(ENetMode Mode) const
 	{
 		return (InternalGetNetMode() == Mode);
 	}
-#endif
-}
-
-//////////////////////////////////////////////////////////////////////////
-// UActorComponent inlines
-
-FORCEINLINE_DEBUGGABLE class AActor* UActorComponent::GetOwner() const
-{
-#if WITH_EDITOR
-	// During undo/redo the cached owner is unreliable so just used GetTypedOuter
-	if (bCanUseCachedOwner)
-	{
-		checkSlow(OwnerPrivate == GetTypedOuter<AActor>()); // verify cached value is correct
-		return OwnerPrivate;
-	}
-	else
-	{
-		return GetTypedOuter<AActor>();
-	}
-#else
-	checkSlow(OwnerPrivate == GetTypedOuter<AActor>()); // verify cached value is correct
-	return OwnerPrivate;
 #endif
 }
 

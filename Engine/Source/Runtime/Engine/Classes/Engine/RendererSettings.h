@@ -221,6 +221,13 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ConfigRestartRequired=true))
 	uint32 bGenerateMeshDistanceFields:1;
 
+	UPROPERTY(config, EditAnywhere, Category=Lighting, meta=(
+		EditCondition = "bGenerateMeshDistanceFields",
+		ConsoleVariable="r.DistanceFieldBuild.EightBit",
+		ToolTip="Whether to store mesh distance fields in an 8 bit fixed point format instead of 16 bit floating point.  8 bit uses half the memory, but introduces artifacts for large meshes or thin meshes.  Changing this setting requires restarting the editor.",
+		ConfigRestartRequired=true))
+	uint32 bEightBitMeshDistanceFields:1;
+
 	UPROPERTY(config, EditAnywhere, Category = Lighting, meta = (
 		EditCondition = "bGenerateMeshDistanceFields",
 		ConsoleVariable = "r.GenerateLandscapeGIData", DisplayName = "Generate Landscape Real-time GI Data",
@@ -228,7 +235,8 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 	uint32 bGenerateLandscapeGIData : 1;
 
 	UPROPERTY(config, EditAnywhere, Category=Lighting, meta=(
-		ConsoleVariable="r.CompressMeshDistanceFields",
+		EditCondition = "bGenerateMeshDistanceFields",
+		ConsoleVariable="r.DistanceFieldBuild.Compress",
 		ToolTip="Whether to store mesh distance fields compressed in memory, which reduces how much memory they take, but also causes serious hitches when making new levels visible.  Only enable if your project does not stream levels in-game.  Changing this setting requires restarting the editor.",
 		ConfigRestartRequired=true))
 	uint32 bCompressMeshDistanceFields:1;
@@ -384,13 +392,20 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 	uint32 bMultiView : 1;
 
 	UPROPERTY(config, EditAnywhere, Category = VR, meta = (
-		ConsoleVariable = "vr.MobileMultiView", DisplayName = "Mobile Multi-View (Experimental)",
-		ToolTip = "Enable mobile multi-view rendering (only available on some GearVR Android devices using OpenGL ES 3.1).",
+		ConsoleVariable = "vr.MobileMultiView", DisplayName = "Mobile Multi-View",
+		ToolTip = "Enable mobile multi-view rendering (only available on some GearVR Android devices using OpenGL ES 2.0).",
 		ConfigRestartRequired = true))
 		uint32 bMobileMultiView : 1;
 
 	UPROPERTY(config, EditAnywhere, Category = VR, meta = (
-		ConsoleVariable = "vr.MonoscopicFarField", DisplayName = "Monoscopic Far Field (Experimental)",
+		EditCondition = "bMobileMultiView",
+		ConsoleVariable = "vr.MobileMultiView.Direct", DisplayName = "Mobile Multi-View Direct",
+		ToolTip = "Enable direct mobile multi-view rendering (only available on multi-view enabled GearVR Android devices).",
+		ConfigRestartRequired = true))
+		uint32 bMobileMultiViewDirect : 1;
+
+	UPROPERTY(config, EditAnywhere, Category = VR, meta = (
+		ConsoleVariable = "vr.MonoscopicFarField", DisplayName = "Monoscopic Far Field",
 		ToolTip = "Enable monoscopic far field rendering (only available for mobile).",
 		ConfigRestartRequired = true))
 		uint32 bMonoscopicFarField : 1;
@@ -409,7 +424,7 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		uint32 bSupportStationarySkylight : 1;
 
 	/**
-	"Low quality lightmap requires permutations of the lightmap rendering shaders.  Disabling will reduce the number of shader permutations required per material. Changing this setting requires restarting the editor."
+	"Low quality lightmap requires permutations of the lightmap rendering shaders.  Disabling will reduce the number of shader permutations required per material. Note that the mobile renderer requires low quality lightmaps, so disabling this setting is not recommended for mobile titles using static lighting. Changing this setting requires restarting the editor."
 	*/
 	UPROPERTY(config, EditAnywhere, Category = ShaderPermutationReduction, meta = (
 		ConsoleVariable = "r.SupportLowQualityLightmaps", DisplayName = "Support low quality lightmap shader permutations",
@@ -471,6 +486,11 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ToolTip = "If this setting is enabled, the same shader will be used for any number of dynamic point lights (up to the maximum specified above) hitting a surface. This is slightly slower but reduces the number of shaders generated. Changing this setting requires restarting the editor.",
 		ConfigRestartRequired = true))
 		uint32 bMobileDynamicPointLightsUseStaticBranch : 1;
+
+	UPROPERTY(config, EditAnywhere, Category = Optimizations, meta = (
+		ConsoleVariable = "r.SkinCache.SceneMemoryLimitInMB", DisplayName = "Maximum memory for Compute Skincache per world (MB)",
+		ToolTip = "Maximum amount of memory (in MB) per world/scene allowed for the Compute Skincache to generate output vertex data and recompute tangents."))
+		float SkinCacheSceneMemoryLimitInMB;
 
 public:
 

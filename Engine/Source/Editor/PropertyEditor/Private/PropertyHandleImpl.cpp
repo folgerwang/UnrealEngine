@@ -1979,15 +1979,46 @@ TSharedRef<SWidget> FPropertyHandleBase::CreatePropertyNameWidget( const FText& 
 {
 	if( Implementation.IsValid() && Implementation->GetPropertyNode().IsValid() )
 	{
-		if( !NameOverride.IsEmpty() )
+		struct FPropertyNodeDisplayNameOverrideHelper
 		{
-			Implementation->GetPropertyNode()->SetDisplayNameOverride( NameOverride );
-		}
+			FPropertyNodeDisplayNameOverrideHelper(TSharedPtr<FPropertyValueImpl> InImplementation, const FText& InNameOverride, const FText& InToolTipOverride)
+				:Implementation(InImplementation)
+				,bResetDisplayName(false)
+				,bResetToolTipText(false)
+			{
+				if (!InNameOverride.IsEmpty())
+				{
+					bResetDisplayName = true;
+					Implementation->GetPropertyNode()->SetDisplayNameOverride(InNameOverride);
+				}
+				
+				if (!InToolTipOverride.IsEmpty())
+				{
+					bResetToolTipText = true;
+					Implementation->GetPropertyNode()->SetToolTipOverride(InToolTipOverride);
+				}
+			}
 
-		if( !ToolTipOverride.IsEmpty() )
-		{
-			Implementation->GetPropertyNode()->SetToolTipOverride( ToolTipOverride );
-		}
+			~FPropertyNodeDisplayNameOverrideHelper()
+			{
+				if (bResetDisplayName)
+				{
+					Implementation->GetPropertyNode()->SetDisplayNameOverride(FText::GetEmpty());
+				}
+				
+				if (bResetToolTipText)
+				{
+					Implementation->GetPropertyNode()->SetToolTipOverride(FText::GetEmpty());
+				}
+			}
+
+		private:
+			TSharedPtr<FPropertyValueImpl> Implementation;
+			bool bResetDisplayName;
+			bool bResetToolTipText;
+		};
+
+		FPropertyNodeDisplayNameOverrideHelper TempPropertyNameOverride(Implementation, NameOverride, ToolTipOverride);
 
 		TSharedPtr<FPropertyEditor> PropertyEditor = FPropertyEditor::Create( Implementation->GetPropertyNode().ToSharedRef(), Implementation->GetPropertyUtilities().ToSharedRef() );
 
@@ -2073,7 +2104,18 @@ TSharedPtr<IPropertyHandle> FPropertyHandleBase::GetParentHandle() const
 	TSharedPtr<FPropertyNode> ParentNode = Implementation->GetPropertyNode()->GetParentNodeSharedPtr();
 	if( ParentNode.IsValid() )
 	{
-		return PropertyEditorHelpers::GetPropertyHandle( ParentNode.ToSharedRef(), Implementation->GetNotifyHook(), Implementation->GetPropertyUtilities() ).ToSharedRef();
+		return PropertyEditorHelpers::GetPropertyHandle( ParentNode.ToSharedRef(), Implementation->GetNotifyHook(), Implementation->GetPropertyUtilities() );
+	}
+
+	return nullptr;
+}
+
+TSharedPtr<IPropertyHandle> FPropertyHandleBase::GetKeyHandle() const
+{
+	TSharedPtr<FPropertyNode> KeyNode = Implementation->GetPropertyNode()->GetPropertyKeyNode();
+	if (KeyNode.IsValid())
+	{
+		return PropertyEditorHelpers::GetPropertyHandle(KeyNode.ToSharedRef(), Implementation->GetNotifyHook(), Implementation->GetPropertyUtilities());
 	}
 
 	return nullptr;
@@ -2297,6 +2339,17 @@ void FPropertyHandleBase::SetToolTipText( const FText& ToolTip )
 	{
 		PropertyNode->SetToolTipOverride( ToolTip );
 	}
+}
+
+uint8* FPropertyHandleBase::GetValueBaseAddress( uint8* Base )
+{
+	TSharedPtr<FPropertyNode> PropertyNode = Implementation->GetPropertyNode();
+	if (PropertyNode.IsValid())
+	{
+		return PropertyNode->GetValueBaseAddress(Base);
+	}
+
+	return nullptr;
 }
 
 int32 FPropertyHandleBase::GetNumPerObjectValues() const
@@ -2549,7 +2602,7 @@ void FPropertyHandleBase::NotifyPreChange()
 	}
 }
 
-void FPropertyHandleBase::NotifyPostChange()
+void FPropertyHandleBase::NotifyPostChange( EPropertyChangeType::Type ChangeType )
 {
 	TSharedPtr<FPropertyNode> PropertyNode = Implementation->GetPropertyNode();
 	if( PropertyNode.IsValid() )
@@ -2565,7 +2618,7 @@ void FPropertyHandleBase::NotifyPostChange()
 			}
 		}
 
-		FPropertyChangedEvent PropertyChangedEvent( PropertyNode->GetProperty(), EPropertyChangeType::Unspecified, &ObjectsBeingChanged );
+		FPropertyChangedEvent PropertyChangedEvent( PropertyNode->GetProperty(), ChangeType, &ObjectsBeingChanged );
 		PropertyNode->NotifyPostChange( PropertyChangedEvent, Implementation->GetNotifyHook());
 	}
 }

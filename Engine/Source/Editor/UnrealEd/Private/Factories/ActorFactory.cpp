@@ -264,6 +264,7 @@ AActor* UActorFactory::CreateActor( UObject* Asset, ULevel* InLevel, FTransform 
 			PostSpawnActor(Asset, NewActor);
 		}
 
+
 		// Only do this if the actor wasn't already given a name
 		if (Name == NAME_None && Asset)
 		{
@@ -744,7 +745,7 @@ void UActorFactoryPhysicsAsset::PostSpawnActor(UObject* Asset, AActor* NewActor)
 	NewSkelActor->GetSkeletalMeshComponent()->PhysicsAssetOverride = PhysicsAsset;
 
 	// set physics setup
-	NewSkelActor->GetSkeletalMeshComponent()->KinematicBonesUpdateType = EKinematicBonesUpdateToPhysics::SkipAllBones;
+	NewSkelActor->GetSkeletalMeshComponent()->KinematicBonesUpdateType = EKinematicBonesUpdateToPhysics::SkipSimulatingBones;
 	NewSkelActor->GetSkeletalMeshComponent()->BodyInstance.bSimulatePhysics = true;
 	NewSkelActor->GetSkeletalMeshComponent()->bBlendPhysics = true;
 
@@ -773,7 +774,7 @@ void UActorFactoryPhysicsAsset::PostCreateBlueprint( UObject* Asset, AActor* CDO
 		}
 
 		// set physics setup
-		SkeletalPhysicsActor->GetSkeletalMeshComponent()->KinematicBonesUpdateType = EKinematicBonesUpdateToPhysics::SkipAllBones;
+		SkeletalPhysicsActor->GetSkeletalMeshComponent()->KinematicBonesUpdateType = EKinematicBonesUpdateToPhysics::SkipSimulatingBones;
 		SkeletalPhysicsActor->GetSkeletalMeshComponent()->BodyInstance.bSimulatePhysics = true;
 		SkeletalPhysicsActor->GetSkeletalMeshComponent()->bBlendPhysics = true;
 
@@ -867,12 +868,15 @@ bool UActorFactoryAnimationAsset::CanCreateActorFrom( const FAssetData& AssetDat
 USkeletalMesh* UActorFactoryAnimationAsset::GetSkeletalMeshFromAsset( UObject* Asset ) const
 {
 	USkeletalMesh* SkeletalMesh = NULL;
-	UAnimSequenceBase* AnimationAsset = Cast<UAnimSequenceBase>( Asset );
-
-	if( AnimationAsset != NULL )
+	
+	if(UAnimSequenceBase* AnimationAsset = Cast<UAnimSequenceBase>(Asset))
 	{
 		// base it on preview skeletal mesh, just to have something
-		SkeletalMesh = AnimationAsset->GetSkeleton()? AnimationAsset->GetSkeleton()->GetAssetPreviewMesh(AnimationAsset) : NULL;
+		SkeletalMesh = AnimationAsset->GetSkeleton() ? AnimationAsset->GetSkeleton()->GetAssetPreviewMesh(AnimationAsset) : nullptr;
+	}
+	else if(UAnimBlueprint* AnimBlueprint = Cast<UAnimBlueprint>(Asset))
+	{
+		SkeletalMesh = AnimBlueprint->TargetSkeleton ? AnimBlueprint->TargetSkeleton->GetAssetPreviewMesh(AnimBlueprint) : nullptr;
 	}
 
 	// Check to see if it's actually a DestructibleMesh, in which case we won't use this factory
@@ -1143,6 +1147,7 @@ UActorFactoryEmptyActor::UActorFactoryEmptyActor(const FObjectInitializer& Objec
 {
 	DisplayName = LOCTEXT("ActorFactoryEmptyActorDisplayName", "Empty Actor");
 	NewActorClass = AActor::StaticClass();
+	bVisualizeActor = true;
 }
 
 bool UActorFactoryEmptyActor::CanCreateActorFrom( const FAssetData& AssetData, FText& OutErrorMsg )
@@ -1159,7 +1164,7 @@ AActor* UActorFactoryEmptyActor::SpawnActor( UObject* Asset, ULevel* InLevel, co
 
 		USceneComponent* RootComponent = NewObject<USceneComponent>(NewActor, USceneComponent::GetDefaultSceneRootVariableName(), RF_Transactional);
 		RootComponent->Mobility = EComponentMobility::Movable;
-		RootComponent->bVisualizeComponent = true;
+		RootComponent->bVisualizeComponent = bVisualizeActor;
 		RootComponent->SetWorldTransform(Transform);
 
 		NewActor->SetRootComponent(RootComponent);

@@ -32,9 +32,11 @@
 #include "VREditorMode.h" // @TODO: remove once radial menu code is in a non-VREditor module
 #include "MultiBoxBuilder.h"
 #include "UICommandList.h"
-#include "VREditorWorldInteraction.h"
 #include "MeshEditorAssetContainer.h"
 #include "Kismet/GameplayStatics.h"
+#include "SlateApplication.h"	// For GetCurrentTime()
+#include "Materials/Material.h"
+#include "Materials/MaterialInterface.h"
 
 
 #define LOCTEXT_NAMESPACE "MeshEditorMode"
@@ -711,8 +713,14 @@ void FMeshEditorMode::Enter()
 
 	UEditorWorldExtensionCollection* ExtensionCollection = GEditor->GetEditorWorldExtensionsManager()->GetEditorWorldExtensions( GetWorld() );
 	check( ExtensionCollection != nullptr );
-	this->ViewportWorldInteraction = CastChecked<UViewportWorldInteraction>( ExtensionCollection->AddExtension( UViewportWorldInteraction::StaticClass() ) );
+
+	this->ViewportWorldInteraction = Cast<UViewportWorldInteraction>( ExtensionCollection->FindExtension( UViewportWorldInteraction::StaticClass() ) );
+	if( ViewportWorldInteraction == nullptr )
+	{
+		ViewportWorldInteraction = NewObject<UViewportWorldInteraction>();
+	}
 	check( ViewportWorldInteraction != nullptr );
+	ExtensionCollection->AddExtension( ViewportWorldInteraction );
 
 	// Register to find out about viewport interaction events
 	ViewportWorldInteraction->OnViewportInteractionHoverUpdate().AddRaw( this, &FMeshEditorMode::OnViewportInteractionHoverUpdate );
@@ -1186,8 +1194,8 @@ bool FMeshEditorMode::CanPropagateInstanceChanges() const
 	// @todo mesheditor: this could be more thorough:
 	// it should not allow instance changes to be propagated if more than one instance is selected which derives from the same static mesh.
 	// However MeshEditorMode has no generic way to know if this is the case (and it's unclear how that might be presented in the API).
-	const TArray<UEditableMesh*>& SelectedEditableMeshes = GetSelectedEditableMeshes();
-	for( const UEditableMesh* EditableMesh : SelectedEditableMeshes )
+	const TArray<UEditableMesh*>& LocalSelectedEditableMeshes = GetSelectedEditableMeshes();
+	for( const UEditableMesh* EditableMesh : LocalSelectedEditableMeshes )
 	{
 		if( EditableMesh != nullptr && EditableMesh->IsCommittedAsInstance() )
 		{

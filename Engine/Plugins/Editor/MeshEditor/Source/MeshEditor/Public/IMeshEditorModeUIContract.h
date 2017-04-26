@@ -5,6 +5,9 @@
 #include "EditableMeshTypes.h"
 #include "IMeshEditorModeEditingContract.h"
 
+class FUICommandInfo;
+struct FUIAction;
+
 class IMeshEditorModeUIContract : public IMeshEditorModeEditingContract
 {
 

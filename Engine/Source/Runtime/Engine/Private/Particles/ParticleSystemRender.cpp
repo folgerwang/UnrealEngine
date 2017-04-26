@@ -36,6 +36,7 @@
 #include "ParticleBeamTrailVertexFactory.h"
 #include "Private/SceneRendering.h"
 #include "Particles/ParticleLODLevel.h"
+#include "Engine/StaticMesh.h"
 
 DECLARE_CYCLE_STAT(TEXT("ParticleSystemSceneProxy GetMeshElements"), STAT_FParticleSystemSceneProxy_GetMeshElements, STATGROUP_Particles);
 DECLARE_CYCLE_STAT(TEXT("DynamicSpriteEmitterData GetDynamicMeshElementsEmitter GetParticleOrderData"), STAT_FDynamicSpriteEmitterData_GetDynamicMeshElementsEmitter_GetParticleOrderData, STATGROUP_Particles);
@@ -901,6 +902,7 @@ void GatherParticleLightData(const FDynamicSpriteEmitterReplayDataBase& Source, 
 				ParticleLight.Radius =  LightPayload->RadiusScale * (Size.X + Size.Y) / 2.0f;
 				ParticleLight.Color = FVector(Particle.Color) * Particle.Color.A * LightPayload->ColorScale;
 				ParticleLight.Exponent = LightPayload->LightExponent;
+				ParticleLight.VolumetricScatteringIntensity = Source.LightVolumetricScatteringIntensity;
 				ParticleLight.bAffectTranslucency = LightPayload->bAffectsTranslucency;
 
 				// Early out if the light will have no visible contribution
@@ -1006,6 +1008,7 @@ FParticleVertexFactoryBase *FDynamicSpriteEmitterData::CreateVertexFactory()
 	FParticleSpriteVertexFactory *VertexFactory = new FParticleSpriteVertexFactory();
 	VertexFactory->SetParticleFactoryType(PVFT_Sprite);
 	const UParticleModuleRequired* RequiredModule = GetSourceData()->RequiredModule;
+	// this check needs to match the code inside FDynamicSpriteEmitterData::GetDynamicMeshElementsEmitter()
 	VertexFactory->SetNumVertsInInstanceBuffer(RequiredModule->IsBoundingGeometryValid() && RequiredModule->AlphaThreshold ? RequiredModule->GetNumBoundingVertices() : 4);
 	VertexFactory->InitResource();
 	return VertexFactory;
@@ -1033,7 +1036,8 @@ void FDynamicSpriteEmitterData::GetDynamicMeshElementsEmitter(const FParticleSys
 			int32 NumVerticesPerParticle = 4;
 			int32 NumTrianglesPerParticle = 2;
 
-			if (SourceData->RequiredModule->IsBoundingGeometryValid())
+			// this check needs to match the code inside FDynamicSpriteEmitterData::CreateVertexFactory()
+			if (SourceData->RequiredModule->IsBoundingGeometryValid() && SourceData->RequiredModule->AlphaThreshold)
 			{
 				NumVerticesPerParticle = SourceData->RequiredModule->GetNumBoundingVertices();
 				NumTrianglesPerParticle = SourceData->RequiredModule->GetNumBoundingTriangles();
@@ -1150,7 +1154,13 @@ void FDynamicSpriteEmitterData::GetDynamicMeshElementsEmitter(const FParticleSys
 
 					// Set the sprite uniform buffer for this view.
 					SpriteVertexFactory->SetSpriteUniformBuffer(CollectorResources.UniformBuffer);
-					SpriteVertexFactory->SetInstanceBuffer(Allocation.VertexBuffer, Allocation.VertexOffset, VertexSize, bInstanced);
+#if PLATFORM_SWITCH
+					// use the full vertex for non-instancing case, and the "4 float" instance data for the instanced case
+					uint32 InstanceBufferStride = bInstanced ? ((sizeof(float) * 4) * NumVerticesPerParticle) : VertexSize;
+#else
+					uint32 InstanceBufferStride = VertexSize;
+#endif
+					SpriteVertexFactory->SetInstanceBuffer(Allocation.VertexBuffer, Allocation.VertexOffset, InstanceBufferStride, bInstanced);
 					SpriteVertexFactory->SetDynamicParameterBuffer(DynamicParameterAllocation.VertexBuffer, DynamicParameterAllocation.VertexOffset, GetDynamicParameterVertexStride(), bInstanced);
 
 					if (SourceData->RequiredModule->IsBoundingGeometryValid() && SourceData->RequiredModule->AlphaThreshold)

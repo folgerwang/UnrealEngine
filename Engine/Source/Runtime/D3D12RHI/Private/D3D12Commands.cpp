@@ -26,12 +26,7 @@ static FAutoConsoleVariableRef CVarSyncTemporalResources(
 
 namespace D3D12RHI
 {
-	FGlobalBoundShaderState GD3D12ClearMRTBoundShaderState[8];
 	TGlobalResource<FVector4VertexDeclaration> GD3D12Vector4VertexDeclaration;
-
-	FGlobalBoundShaderState GD3D12ResolveBoundShaderState_Depth;
-	FGlobalBoundShaderState GD3D12ResolveBoundShaderState_DepthNonMS;
-	FGlobalBoundShaderState GD3D12ResolveBoundShaderState_SingleSamplePS;
 }
 using namespace D3D12RHI;
 
@@ -58,60 +53,11 @@ DECLARE_ISBOUNDSHADER(ComputeShader)
 
 void FD3D12DynamicRHI::SetupRecursiveResources()
 {
-	extern ENGINE_API FShaderCompilingManager* GShaderCompilingManager;
-	check(FPlatformProperties::RequiresCookedData() || GShaderCompilingManager);
-
-	FRHICommandList_RecursiveHazardous RHICmdList(RHIGetDefaultContext());
 	auto ShaderMap = GetGlobalShaderMap(GMaxRHIFeatureLevel);
-	TShaderMapRef<TOneColorVS<true> > VertexShader(ShaderMap);
-	GD3D12Vector4VertexDeclaration.InitRHI();
 
-	for (int32 NumBuffers = 1; NumBuffers <= MaxSimultaneousRenderTargets; NumBuffers++)
 	{
-		FOneColorPS* PixelShader = NULL;
-
-		if (NumBuffers <= 1)
-		{
-			TShaderMapRef<TOneColorPixelShaderMRT<1> > MRTPixelShader(ShaderMap);
-			PixelShader = *MRTPixelShader;
-		}
-		else if (NumBuffers == 2)
-		{
-			TShaderMapRef<TOneColorPixelShaderMRT<2> > MRTPixelShader(ShaderMap);
-			PixelShader = *MRTPixelShader;
-		}
-		else if (NumBuffers == 3)
-		{
-			TShaderMapRef<TOneColorPixelShaderMRT<3> > MRTPixelShader(ShaderMap);
-			PixelShader = *MRTPixelShader;
-		}
-		else if (NumBuffers == 4)
-		{
-			TShaderMapRef<TOneColorPixelShaderMRT<4> > MRTPixelShader(ShaderMap);
-			PixelShader = *MRTPixelShader;
-		}
-		else if (NumBuffers == 5)
-		{
-			TShaderMapRef<TOneColorPixelShaderMRT<5> > MRTPixelShader(ShaderMap);
-			PixelShader = *MRTPixelShader;
-		}
-		else if (NumBuffers == 6)
-		{
-			TShaderMapRef<TOneColorPixelShaderMRT<6> > MRTPixelShader(ShaderMap);
-			PixelShader = *MRTPixelShader;
-		}
-		else if (NumBuffers == 7)
-		{
-			TShaderMapRef<TOneColorPixelShaderMRT<7> > MRTPixelShader(ShaderMap);
-			PixelShader = *MRTPixelShader;
-		}
-		else if (NumBuffers == 8)
-		{
-			TShaderMapRef<TOneColorPixelShaderMRT<8> > MRTPixelShader(ShaderMap);
-			PixelShader = *MRTPixelShader;
-		}
-
-		SetGlobalBoundShaderState(RHICmdList, GMaxRHIFeatureLevel, GD3D12ClearMRTBoundShaderState[NumBuffers - 1], GD3D12Vector4VertexDeclaration.VertexDeclarationRHI, *VertexShader, PixelShader);
+		TShaderMapRef<FLongGPUTaskPS> PixelShader(ShaderMap);
+		PixelShader->GetPixelShader();
 	}
 
 	extern ENGINE_API TGlobalResource<FScreenVertexDeclaration> GScreenVertexDeclaration;
@@ -124,15 +70,15 @@ void FD3D12DynamicRHI::SetupRecursiveResources()
 	if (GMaxRHIShaderPlatform == SP_PCD3D_SM5 || GMaxRHIShaderPlatform == SP_XBOXONE)
 	{
 		TShaderMapRef<FResolveDepthPS> ResolvePixelShader_Depth(ShaderMap);
-		SetGlobalBoundShaderState(RHICmdList, GMaxRHIFeatureLevel, GD3D12ResolveBoundShaderState_Depth, GScreenVertexDeclaration.VertexDeclarationRHI, *ResolveVertexShader, *ResolvePixelShader_Depth);
+		ResolvePixelShader_Depth->GetPixelShader();
 
 		TShaderMapRef<FResolveDepthPS> ResolvePixelShader_SingleSample(ShaderMap);
-		SetGlobalBoundShaderState(RHICmdList, GMaxRHIFeatureLevel, GD3D12ResolveBoundShaderState_SingleSamplePS, GScreenVertexDeclaration.VertexDeclarationRHI, *ResolveVertexShader, *ResolvePixelShader_SingleSample);
+		ResolvePixelShader_SingleSample->GetPixelShader();
 	}
 	else
 	{
 		TShaderMapRef<FResolveDepthNonMSPS> ResolvePixelShader_DepthNonMS(ShaderMap);
-		SetGlobalBoundShaderState(RHICmdList, GMaxRHIFeatureLevel, GD3D12ResolveBoundShaderState_DepthNonMS, GScreenVertexDeclaration.VertexDeclarationRHI, *ResolveVertexShader, *ResolvePixelShader_DepthNonMS);
+		ResolvePixelShader_DepthNonMS->GetPixelShader();
 	}
 }
 
@@ -518,18 +464,6 @@ void FD3D12CommandContext::RHISetGraphicsPipelineState(FGraphicsPipelineStateRHI
 
 	// TODO: [PSO API] Every thing inside this scope is only necessary to keep the PSO shadow in sync while we convert the high level to only use PSOs
 	{
-		FLinearColor BlendFactor(*reinterpret_cast<const FLinearColor*>(StateCache.GetBlendFactor()));
-		if (PsoInit.GetOptionalSetState() & FGraphicsPipelineStateInitializer::OptionalState::OS_SetBlendFactor)
-		{
-			BlendFactor = PsoInit.GetBlendFactor();
-		}
-
-		uint32 StencilRef = StateCache.GetStencilRef();
-		if (PsoInit.GetOptionalSetState() & FGraphicsPipelineStateInitializer::OptionalState::OS_SetStencilRef)
-		{
-			StencilRef = PsoInit.GetStencilRef();
-		}
-
 		TRenderTargetFormatsArray RenderTargetFormats;
 		DXGI_FORMAT DepthStencilFormat = DXGI_FORMAT_UNKNOWN;
 		uint32 NumTargets = PsoInit.ComputeNumValidRenderTargets();
@@ -550,9 +484,9 @@ void FD3D12CommandContext::RHISetGraphicsPipelineState(FGraphicsPipelineStateRHI
 			)
 		);
 
-		RHISetBlendState(PsoInit.BlendState, BlendFactor);
+		RHISetBlendState(PsoInit.BlendState, FLinearColor(1.0f, 1.0f, 1.0f));
 		RHISetRasterizerState(PsoInit.RasterizerState);
-		RHISetDepthStencilState(PsoInit.DepthStencilState, StencilRef);
+		RHISetDepthStencilState(PsoInit.DepthStencilState, 0);
 
 		StateCache.SetPrimitiveTopologyType(D3D12PrimitiveTypeToTopologyType(TranslatePrimitiveType(PsoInit.PrimitiveType)));
 		StateCache.SetRenderDepthStencilTargetFormats(NumTargets, RenderTargetFormats, DepthStencilFormat, PsoInit.NumSamples);
@@ -728,6 +662,7 @@ void FD3D12CommandContext::RHISetShaderUniformBuffer(FVertexShaderRHIParamRef Ve
 
 	StateCache.SetConstantsFromUniformBuffer<SF_Vertex>(BufferIndex, Buffer);
 
+	BoundUniformBufferRefs[SF_Vertex][BufferIndex] = BufferRHI;
 	BoundUniformBuffers[SF_Vertex][BufferIndex] = Buffer;
 	DirtyUniformBuffers[SF_Vertex] |= (1 << BufferIndex);
 }
@@ -740,6 +675,7 @@ void FD3D12CommandContext::RHISetShaderUniformBuffer(FHullShaderRHIParamRef Hull
 
 	StateCache.SetConstantsFromUniformBuffer<SF_Hull>(BufferIndex, Buffer);
 
+	BoundUniformBufferRefs[SF_Hull][BufferIndex] = BufferRHI;
 	BoundUniformBuffers[SF_Hull][BufferIndex] = Buffer;
 	DirtyUniformBuffers[SF_Hull] |= (1 << BufferIndex);
 }
@@ -752,6 +688,7 @@ void FD3D12CommandContext::RHISetShaderUniformBuffer(FDomainShaderRHIParamRef Do
 	
 	StateCache.SetConstantsFromUniformBuffer<SF_Domain>(BufferIndex, Buffer);
 
+	BoundUniformBufferRefs[SF_Domain][BufferIndex] = BufferRHI;
 	BoundUniformBuffers[SF_Domain][BufferIndex] = Buffer;
 	DirtyUniformBuffers[SF_Domain] |= (1 << BufferIndex);
 }
@@ -764,6 +701,7 @@ void FD3D12CommandContext::RHISetShaderUniformBuffer(FGeometryShaderRHIParamRef 
 
 	StateCache.SetConstantsFromUniformBuffer<SF_Geometry>(BufferIndex, Buffer);
 
+	BoundUniformBufferRefs[SF_Geometry][BufferIndex] = BufferRHI;
 	BoundUniformBuffers[SF_Geometry][BufferIndex] = Buffer;
 	DirtyUniformBuffers[SF_Geometry] |= (1 << BufferIndex);
 }
@@ -776,6 +714,7 @@ void FD3D12CommandContext::RHISetShaderUniformBuffer(FPixelShaderRHIParamRef Pix
 
 	StateCache.SetConstantsFromUniformBuffer<SF_Pixel>(BufferIndex, Buffer);
 
+	BoundUniformBufferRefs[SF_Pixel][BufferIndex] = BufferRHI;
 	BoundUniformBuffers[SF_Pixel][BufferIndex] = Buffer;
 	DirtyUniformBuffers[SF_Pixel] |= (1 << BufferIndex);
 }
@@ -788,6 +727,7 @@ void FD3D12CommandContext::RHISetShaderUniformBuffer(FComputeShaderRHIParamRef C
 
 	StateCache.SetConstantsFromUniformBuffer<SF_Compute>(BufferIndex, Buffer);
 
+	BoundUniformBufferRefs[SF_Compute][BufferIndex] = BufferRHI;
 	BoundUniformBuffers[SF_Compute][BufferIndex] = Buffer;
 	DirtyUniformBuffers[SF_Compute] |= (1 << BufferIndex);
 }
@@ -1795,11 +1735,6 @@ void FD3D12CommandContext::RHIEndDrawIndexedPrimitiveUP()
 }
 
 // Raster operations.
-void FD3D12CommandContext::RHIClear(bool bClearColor, const FLinearColor& Color, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil)
-{
-	RHIClearMRTImpl(bClearColor, 1, &Color, bClearDepth, Depth, bClearStencil, Stencil);
-}
-
 void FD3D12CommandContext::RHIClearMRT(bool bClearColor, int32 NumClearColors, const FLinearColor* ClearColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil)
 {
 	RHIClearMRTImpl(bClearColor, NumClearColors, ClearColorArray, bClearDepth, Depth, bClearStencil, Stencil);

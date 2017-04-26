@@ -25,6 +25,7 @@ public class DetailCustomizations : ModuleRules
 				"KismetWidgets",
 				"MovieSceneCapture",
 				"MovieSceneTools",
+				"MovieSceneTracks",
 				"MovieScene",
 				"SharedSettingsWidgets",
                 "ContentBrowser",
@@ -42,7 +43,6 @@ public class DetailCustomizations : ModuleRules
 				"SourceCodeAccess",
 				"RHI",
                 "HardwareTargeting",
-				"SharedSettingsWidgets",
                 "AIModule", 
                 "MeshUtilities",
 				"ConfigEditor",
@@ -50,6 +50,8 @@ public class DetailCustomizations : ModuleRules
                 "CinematicCamera",
 				"ComponentVisualizers",
                 "SkeletonEditor",
+                "LevelSequence",
+                "AdvancedPreviewScene",
             }
 		);
 

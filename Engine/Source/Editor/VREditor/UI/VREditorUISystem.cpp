@@ -139,8 +139,8 @@ namespace VREd
 }
 
 
-UVREditorUISystem::UVREditorUISystem( const FObjectInitializer& Initializer ) : 
-	Super( Initializer ),
+UVREditorUISystem::UVREditorUISystem() : 
+	Super(),
 	VRMode( nullptr ),
 	FloatingUIs(),
 	QuickMenuUI( nullptr ),
@@ -160,8 +160,11 @@ UVREditorUISystem::UVREditorUISystem( const FObjectInitializer& Initializer ) :
 	EditorUIPanels.SetNumZeroed( (int32)EEditorUIPanel::TotalCount );
 }
 
-void UVREditorUISystem::Init()
+void UVREditorUISystem::Init(UVREditorMode* InVRMode)
 {
+	check (InVRMode != nullptr);
+	VRMode = InVRMode;
+
 	// Register to find out about VR events
 	GetOwner().GetWorldInteraction().OnPreviewInputAction().AddUObject( this, &UVREditorUISystem::OnPreviewInputAction );
 	GetOwner().GetWorldInteraction().OnViewportInteractionInputAction().AddUObject( this, &UVREditorUISystem::OnVRAction );
@@ -187,6 +190,7 @@ void UVREditorUISystem::Init()
 	bRadialMenuIsNumpad = false;
 	RadialMenuHandler = NewObject<UVRRadialMenuHandler>();
 	RadialMenuHandler->Init(this);
+
 	CreateUIs();
 
 	// Bind the color picker creation & destruction overrides
@@ -209,11 +213,15 @@ void UVREditorUISystem::Shutdown()
 {
 	FSlateApplication::Get().OnDragDropCheckOverride.Unbind();
 
-	if ( VRMode != nullptr && &VRMode->GetWorldInteraction() != nullptr )
+	if (VRMode != nullptr)
 	{
-		GetOwner().GetWorldInteraction().OnPreviewInputAction().RemoveAll( this );
-		GetOwner().GetWorldInteraction().OnViewportInteractionInputAction().RemoveAll( this );
-		GetOwner().GetWorldInteraction().OnViewportInteractionHoverUpdate().RemoveAll( this );
+		UViewportWorldInteraction* WorldInteraction = &VRMode->GetWorldInteraction();
+		if (WorldInteraction != nullptr)
+		{
+			WorldInteraction->OnPreviewInputAction().RemoveAll(this);
+			WorldInteraction->OnViewportInteractionInputAction().RemoveAll(this);
+			WorldInteraction->OnViewportInteractionHoverUpdate().RemoveAll(this);
+		}
 	}
 
 	GLevelEditorModeTools().OnEditorModeChanged().RemoveAll(this);
@@ -223,7 +231,33 @@ void UVREditorUISystem::Shutdown()
 	SColorPicker::OnColorPickerDestroyOverride.Unbind();
 	FGlobalTabmanager::Get()->OnOverrideDockableAreaRestore_Handler.Unbind();
 
-	CleanupActorsBeforeShutdown();
+	// If we have a sequence tab open, reset its widget and close the associated Sequencer
+	if (GetOwner().GetCurrentSequencer() != nullptr)
+	{
+		EditorUIPanels[(int32)EEditorUIPanel::SequencerUI]->SetSlateWidget(*this, SNullWidget::NullWidget, FIntPoint(VREd::SequencerUIResolutionX->GetFloat(), VREd::SequencerUIResolutionY->GetFloat()), VREd::EditorUISize->GetFloat(), AVREditorFloatingUI::EDockedTo::Nothing);
+		FVREditorActionCallbacks::CloseSequencer(GetOwner().GetCurrentSequencer()->GetRootMovieSceneSequence());
+	}
+
+	for (AVREditorFloatingUI* FloatingUIPtr : FloatingUIs)
+	{
+		if (FloatingUIPtr != nullptr)
+		{
+			FloatingUIPtr->Destroy(false, false);
+			FloatingUIPtr = nullptr;
+		}
+	}
+
+	FloatingUIs.Reset();
+	EditorUIPanels.Reset();
+	QuickRadialMenu->Destroy(false, false);
+	QuickRadialMenu = nullptr;
+	QuickMenuUI = nullptr;
+
+	ProxyTabManager.Reset();
+
+	// Remove the proxy tab manager, we don't want to steal tabs any more.
+	FGlobalTabmanager::Get()->SetProxyTabManager(TSharedPtr<FProxyTabmanager>());
+	FAssetEditorManager::Get().OnAssetEditorOpened().RemoveAll(this);
 
 	VRMode = nullptr;
 	DraggingUI = nullptr;
@@ -1145,37 +1179,6 @@ void UVREditorUISystem::CreateUIs()
 	}
 }
 
-void UVREditorUISystem::CleanupActorsBeforeShutdown()
-{
-	// If we have a sequence tab open, reset its widget and close the associated Sequencer
-	if (GetOwner().GetCurrentSequencer() != nullptr)
-	{
-		EditorUIPanels[(int32)EEditorUIPanel::SequencerUI]->SetSlateWidget(*this, SNullWidget::NullWidget, FIntPoint(VREd::SequencerUIResolutionX->GetFloat(), VREd::SequencerUIResolutionY->GetFloat()), VREd::EditorUISize->GetFloat(), AVREditorFloatingUI::EDockedTo::Nothing);
-		FVREditorActionCallbacks::CloseSequencer(GetOwner().GetCurrentSequencer()->GetRootMovieSceneSequence());
-	}
-
-	for( AVREditorFloatingUI* FloatingUIPtr : FloatingUIs )
-	{
-		if( FloatingUIPtr != nullptr )
-		{
-			FloatingUIPtr->Destroy( false, false );
-			FloatingUIPtr = nullptr;
-		}
-	}
-
-	FloatingUIs.Reset();
-	EditorUIPanels.Reset();
-	QuickRadialMenu->Destroy(false, false);
-	QuickRadialMenu = nullptr;
-	QuickMenuUI = nullptr;
-
-	ProxyTabManager.Reset();
-
-	// Remove the proxy tab manager, we don't want to steal tabs any more.
-	FGlobalTabmanager::Get()->SetProxyTabManager(TSharedPtr<FProxyTabmanager>());
-	FAssetEditorManager::Get().OnAssetEditorOpened().RemoveAll(this);
-}
-
 void UVREditorUISystem::OnAssetEditorOpened(UObject* Asset)
 {
 	// We need to disable drag drop on the tabs spawned in VR mode.
@@ -1372,12 +1375,12 @@ void UVREditorUISystem::TryToSpawnRadialMenu( UVREditorInteractor* Interactor, c
 }
 
 
-void UVREditorUISystem::HideRadialMenu( const bool bPlaySound /*= true */ )
+void UVREditorUISystem::HideRadialMenu(const bool bPlaySound /*= true */, const bool bAllowFading /*= true*/)
 {
 	// Only hide the radial menu if the passed interactor is actually the interactor with the radial menu
 	if( IsShowingRadialMenu( UIInteractor ) )
 	{
-		QuickRadialMenu->ShowUI( false, true, VREd::RadialMenuFadeDelay->GetFloat(), bPlaySound );
+		QuickRadialMenu->ShowUI( false, bAllowFading, VREd::RadialMenuFadeDelay->GetFloat(), bPlaySound );
 	}
 }
 
@@ -2165,7 +2168,7 @@ TSharedRef<SWidget> UVREditorUISystem::BuildQuickMenuWidget()
 
 
 	ExtrasMenuBuilder.AddMenuEntry(
-		LOCTEXT("PauseSimulation", "Pause Simulation"),
+		LOCTEXT("PauseSimulationLegacy", "Pause Simulation"),
 		LOCTEXT("PauseSimulationTooltip", "Pause Simulation"),
 		FSlateIcon(FEditorStyle::GetStyleSetName(), "PlayWorld.Simulate"),
 		FUIAction
@@ -2178,7 +2181,7 @@ TSharedRef<SWidget> UVREditorUISystem::BuildQuickMenuWidget()
 		);
 
 	ExtrasMenuBuilder.AddMenuEntry(
-		LOCTEXT("ResumeSimulation", "Resume Simulation"),
+		LOCTEXT("ResumeSimulationLegacy", "Resume Simulation"),
 		LOCTEXT("ResumeSimulationTooltip", "Resume Simulation"),
 		FSlateIcon(FEditorStyle::GetStyleSetName(), "PlayWorld.Simulate"),
 		FUIAction

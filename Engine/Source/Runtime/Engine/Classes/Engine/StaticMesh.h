@@ -17,10 +17,8 @@
 #include "Interfaces/Interface_CollisionDataProvider.h"
 #include "Engine/MeshMerging.h"
 #include "UniquePtr.h"
+#include "StaticMeshResources.h"
 #include "StaticMesh.generated.h"
-
-/** The maximum number of static mesh LODs allowed. */
-#define MAX_STATIC_MESH_LODS 8
 
 class FSpeedTreeWind;
 class UAssetUserData;
@@ -444,6 +442,10 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 	UPROPERTY()
 	TArray<FMaterialRemapIndex> MaterialRemapIndexPerImportVersion;
 	
+	/* The lightmap UV generation version used during the last derived data build */
+	UPROPERTY()
+	int32 LightmapUVVersion;
+
 	/**
 	* If true on post load we need to calculate Display Factors from the
 	* loaded LOD distances.
@@ -511,6 +513,10 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 	    Set to false for distant meshes (always outside navigation bounds) to save memory on collision data. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Navigation)
 	uint32 bHasNavigationData:1;
+
+	/** If true, mesh will calculate data for fast uniform random sampling. This is approx 8 bytes per triangle so should not be enabled unless needed. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = StaticMesh)
+	uint32 bRequiresAreaWeightedSampling : 1;
 
 	/** Bias multiplier for Light Propagation Volume lighting */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=StaticMesh, meta=(UIMin = "0.0", UIMax = "3.0"))
@@ -769,6 +775,9 @@ public:
 
 	FORCEINLINE const UNavCollision* GetNavCollision() const { return NavCollision; }
 
+	/** Configures this SM as bHasNavigationData = false and clears stored UNavCollision */
+	ENGINE_API void MarkAsNotHavingNavigationData();
+
 	const FGuid& GetLightingGuid() const
 	{
 #if WITH_EDITORONLY_DATA
@@ -862,6 +871,11 @@ private:
 
 	FOnPreMeshBuild PreMeshBuild;
 	FOnPostMeshBuild PostMeshBuild;
+
+	/**
+	 * Fixes up the material when it was converted to the new staticmesh build process
+	 */
+	bool CleanUpRedondantMaterialPostLoad;
 
 #endif // #if WITH_EDITOR
 };

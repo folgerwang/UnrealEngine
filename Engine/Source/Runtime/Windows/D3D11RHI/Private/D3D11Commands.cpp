@@ -23,7 +23,6 @@
 #include "HideWindowsPlatformTypes.h"
 #endif
 
-FGlobalBoundShaderState GD3D11ClearMRTBoundShaderState[8];
 TGlobalResource<FVector4VertexDeclaration> GD3D11Vector4VertexDeclaration;
 
 #define DECLARE_ISBOUNDSHADER(ShaderType) inline void ValidateBoundShader(FD3D11StateCache& InStateCache, F##ShaderType##RHIParamRef ShaderType##RHI) \
@@ -282,6 +281,9 @@ void FD3D11DynamicRHI::RHISetScissorRect(bool bEnable,uint32 MinX,uint32 MinY,ui
 */
 void FD3D11DynamicRHI::RHISetBoundShaderState( FBoundShaderStateRHIParamRef BoundShaderStateRHI)
 {
+	// Non-PSO
+	PSOPrimitiveType = PT_Num;
+
 	FD3D11BoundShaderState* BoundShaderState = ResourceCast(BoundShaderStateRHI);
 
 	StateCache.SetInputLayout(BoundShaderState->InputLayout);
@@ -1273,6 +1275,10 @@ static D3D11_PRIMITIVE_TOPOLOGY GetD3D11PrimitiveType(uint32 PrimitiveType, bool
 	return D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 }
 
+static inline void VerifyPrimitiveType(EPrimitiveType PSOPrimitiveType, uint32 PrimitiveType)
+{
+	ensureAlwaysMsgf(PSOPrimitiveType == PT_Num || (EPrimitiveType)PrimitiveType == PSOPrimitiveType, TEXT("PSO was created using PrimitiveType %d, but the Draw call is using %d! This will break D3D12, Metal and Vulkan"), (uint32)PSOPrimitiveType, (uint32)PrimitiveType);
+}
 
 void FD3D11DynamicRHI::CommitNonComputeShaderConstants()
 {
@@ -1565,7 +1571,7 @@ void FD3D11DynamicRHI::RHIDrawPrimitive(uint32 PrimitiveType,uint32 BaseVertexIn
 	uint32 VertexCount = GetVertexCountForPrimitiveCount(NumPrimitives,PrimitiveType);
 
 	GPUProfilingData.RegisterGPUWork(NumPrimitives * NumInstances, VertexCount * NumInstances);
-
+	VerifyPrimitiveType(PSOPrimitiveType, PrimitiveType);
 	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PrimitiveType,bUsingTessellation));
 	if(NumInstances > 1)
 	{
@@ -1588,6 +1594,7 @@ void FD3D11DynamicRHI::RHIDrawPrimitiveIndirect(uint32 PrimitiveType,FVertexBuff
 	CommitGraphicsResourceTables();
 	CommitNonComputeShaderConstants();
 
+	VerifyPrimitiveType(PSOPrimitiveType, PrimitiveType);
 	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PrimitiveType,bUsingTessellation));
 	Direct3DDeviceIMContext->DrawInstancedIndirect(ArgumentBuffer->Resource,ArgumentOffset);
 }
@@ -1609,6 +1616,7 @@ void FD3D11DynamicRHI::RHIDrawIndexedIndirect(FIndexBufferRHIParamRef IndexBuffe
 	const DXGI_FORMAT Format = (IndexBuffer->GetStride() == sizeof(uint16) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT);
 
 	StateCache.SetIndexBuffer(IndexBuffer->Resource, Format, 0);
+	VerifyPrimitiveType(PSOPrimitiveType, PrimitiveType);
 	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PrimitiveType,bUsingTessellation));
 
 	if(NumInstances > 1)
@@ -1647,6 +1655,7 @@ void FD3D11DynamicRHI::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef IndexBuff
 		TEXT("Start %u, Count %u, Type %u, Buffer Size %u, Buffer stride %u"), StartIndex, IndexCount, PrimitiveType, IndexBuffer->GetSize(), IndexBuffer->GetStride());
 
 	StateCache.SetIndexBuffer(IndexBuffer->Resource, Format, 0);
+	VerifyPrimitiveType(PSOPrimitiveType, PrimitiveType);
 	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PrimitiveType,bUsingTessellation));
 
 	if (NumInstances > 1 || FirstInstance != 0)
@@ -1675,6 +1684,7 @@ void FD3D11DynamicRHI::RHIDrawIndexedPrimitiveIndirect(uint32 PrimitiveType,FInd
 	const uint32 SizeFormat = sizeof(DXGI_FORMAT);
 	const DXGI_FORMAT Format = (IndexBuffer->GetStride() == sizeof(uint16) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT);
 	StateCache.SetIndexBuffer(IndexBuffer->Resource, Format, 0);
+	VerifyPrimitiveType(PSOPrimitiveType, PrimitiveType);
 	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PrimitiveType,bUsingTessellation));
 	Direct3DDeviceIMContext->DrawIndexedInstancedIndirect(ArgumentBuffer->Resource,ArgumentOffset);
 }
@@ -1720,6 +1730,7 @@ void FD3D11DynamicRHI::RHIEndDrawPrimitiveUP()
 	CommitGraphicsResourceTables();
 	CommitNonComputeShaderConstants();
 	StateCache.SetStreamSource(D3DBuffer, 0, PendingVertexDataStride, VBOffset);
+	VerifyPrimitiveType(PSOPrimitiveType, PendingPrimitiveType);
 	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PendingPrimitiveType,bUsingTessellation));
 	Direct3DDeviceIMContext->Draw(PendingNumVertices,0);
 
@@ -1782,7 +1793,8 @@ void FD3D11DynamicRHI::RHIEndDrawIndexedPrimitiveUP()
 	CommitNonComputeShaderConstants();
 	StateCache.SetStreamSource(VertexBuffer, 0, PendingVertexDataStride, VBOffset);
 	StateCache.SetIndexBuffer(IndexBuffer, PendingIndexDataStride == sizeof(uint16) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT, 0);
-	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PendingPrimitiveType,bUsingTessellation));
+	VerifyPrimitiveType(PSOPrimitiveType, PendingPrimitiveType);
+	StateCache.SetPrimitiveTopology(GetD3D11PrimitiveType(PendingPrimitiveType, bUsingTessellation));
 	Direct3DDeviceIMContext->DrawIndexed(PendingNumIndices,0,PendingMinVertexIndex);
 
 	// Clear these parameters.
@@ -1796,73 +1808,9 @@ void FD3D11DynamicRHI::RHIEndDrawIndexedPrimitiveUP()
 }
 
 // Raster operations.
-void FD3D11DynamicRHI::RHIClear(bool bClearColor, const FLinearColor& Color, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil)
-{
-	FD3D11DynamicRHI::RHIClearMRTImpl(bClearColor, 1, &Color, bClearDepth, Depth, bClearStencil, Stencil);
-}
-
 void FD3D11DynamicRHI::RHIClearMRT(bool bClearColor, int32 NumClearColors, const FLinearColor* ClearColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil)
 {
 	RHIClearMRTImpl(bClearColor, NumClearColors, ClearColorArray, bClearDepth, Depth, bClearStencil, Stencil);
-}
-
-void FD3D11DynamicRHI::RHIClearDepthStencilTexture(FTextureRHIParamRef Texture, EClearDepthStencil ClearDepthStencil, float Depth, uint32 Stencil)
-{
-	check(Texture && Texture->GetTexture2D());
-	FD3D11Texture2D* Texture2D = ResourceCast(Texture->GetTexture2D());
-	{
-#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
-//#todo-rco: Temporary check to track down texture mismatches
-		check(CurrentDepthStencilTarget);
-		ID3D11Resource* Resource;
-		CurrentDepthStencilTarget->GetResource(&Resource);
-		ensureMsgf(Resource == Texture2D->GetResource(), TEXT("Texture passed to ClearDepthStencil is not what is currently set as RenderTarget! Please fix!"));
-		Resource->Release();
-#endif
-	}
-	FD3D11DynamicRHI::RHIClearMRTImpl(false, 0, nullptr, ClearDepthStencil != EClearDepthStencil::Stencil, Depth, ClearDepthStencil != EClearDepthStencil::Depth, Stencil);
-}
-
-void FD3D11DynamicRHI::RHIClearColorTexture(FTextureRHIParamRef Texture, const FLinearColor& ColorArray)
-{
-	RHIClearColorTextures(1, &Texture, &ColorArray);
-}
-
-void FD3D11DynamicRHI::RHIClearColorTextures(int32 NumTextures, FTextureRHIParamRef* Textures, const FLinearColor* ColorArray)
-{
-#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
-	//#todo-rco: Temporary check to track down texture mismatches
-	for (int32 Index = 0; Index < NumTextures; ++Index)
-	{
-		auto VerifyHandle = [Index](ID3D11RenderTargetView* Source, ID3D11Resource* DestResource)
-		{
-			ID3D11Resource* SourceResource;
-			Source->GetResource(&SourceResource);
-			ensureMsgf(SourceResource == DestResource, TEXT("Texture %d passed to ClearColorTexture(s) is not what is currently set as RenderTarget! Please fix!"), Index);
-			SourceResource->Release();
-		};
-
-		FRHITexture* Texture = Textures[Index];
-		check(Texture);
-		if (FRHITexture2D* Texture2D = Texture->GetTexture2D())
-		{
-			VerifyHandle(CurrentRenderTargets[Index], ResourceCast(Texture2D)->GetResource());
-		}
-		else if (FRHITextureCube* TextureCube = Texture->GetTextureCube())
-		{
-			VerifyHandle(CurrentRenderTargets[Index], ResourceCast(TextureCube)->GetResource());
-		}
-		else if (FRHITexture3D* Texture3D = Texture->GetTexture3D())
-		{
-			VerifyHandle(CurrentRenderTargets[Index], ResourceCast(Texture3D)->GetResource());
-		}
-		else
-		{
-			ensure(0);
-		}
-	}
-#endif
-	FD3D11DynamicRHI::RHIClearMRTImpl(true, NumTextures, ColorArray, false, 0, false, 0);
 }
 
 void FD3D11DynamicRHI::RHIClearMRTImpl(bool bClearColor, int32 NumClearColors, const FLinearColor* ClearColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil)
@@ -1998,7 +1946,7 @@ IRHICommandContext* FD3D11DynamicRHI::RHIGetDefaultContext()
 	return this;
 }
 
-IRHICommandContextContainer* FD3D11DynamicRHI::RHIGetCommandContextContainer()
+IRHICommandContextContainer* FD3D11DynamicRHI::RHIGetCommandContextContainer(int32 Index, int32 Num)
 {
 	return nullptr;
 }

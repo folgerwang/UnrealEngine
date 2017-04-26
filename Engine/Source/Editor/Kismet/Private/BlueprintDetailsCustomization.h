@@ -155,6 +155,10 @@ private:
 	ECheckBoxState OnEditableCheckboxState() const;
 	void OnEditableChanged(ECheckBoxState InNewState);
 
+	EVisibility ShowReadOnlyCheckboxVisibilty() const;
+	ECheckBoxState OnReadyOnlyCheckboxState() const;
+	void OnReadyOnlyChanged(ECheckBoxState InNewState);
+
 	ECheckBoxState OnCreateWidgetCheckboxState() const;
 	void OnCreateWidgetChanged(ECheckBoxState InNewState);
 	EVisibility Show3DWidgetVisibility() const;
@@ -211,6 +215,10 @@ private:
 	EVisibility GetAdvancedDisplayVisibility() const;
 	ECheckBoxState OnGetAdvancedDisplayCheckboxState() const;
 	void OnAdvancedDisplayChanged(ECheckBoxState InNewState);
+
+	EVisibility GetMultilineVisibility() const;
+	ECheckBoxState OnGetMultilineCheckboxState() const;
+	void OnMultilineChanged(ECheckBoxState InNewState);
 
 	/** Refresh the property flags list */
 	void RefreshPropertyFlags();
@@ -803,8 +811,6 @@ protected:
 	void OnSocketSelection( FName SocketName );
 
 	void PopulateVariableCategories();
-	
-	void AddExperimentalWarningCategory( IDetailLayoutBuilder& DetailBuilder, const TArray<TSharedPtr<class FSCSEditorTreeNode>>& Nodes );
 
 private:
 	/** Weak reference to the Blueprint editor */

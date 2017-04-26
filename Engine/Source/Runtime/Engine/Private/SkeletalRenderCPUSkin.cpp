@@ -2,22 +2,6 @@
 
 /*=============================================================================
 	SkeletalRenderCPUSkin.cpp: CPU skinned skeletal mesh rendering code.
-
-	This code contains embedded portions of source code from dqconv.c Conversion routines between (regular quaternion, translation) and dual quaternion, Version 1.0.0, Copyright ?2006-2007 University of Dublin, Trinity College, All Rights Reserved, which have been altered from their original version.
-
-	The following terms apply to dqconv.c Conversion routines between (regular quaternion, translation) and dual quaternion, Version 1.0.0:
-
-	This software is provided 'as-is', without any express or implied warranty.  In no event will the author(s) be held liable for any damages arising from the use of this software.
-
-	Permission is granted to anyone to use this software for any purpose, including commercial applications, and to alter it and redistribute it freely, subject to the following restrictions:
-
-	1. The origin of this software must not be misrepresented; you must not
-	claim that you wrote the original software. If you use this software
-	in a product, an acknowledgment in the product documentation would be
-	appreciated but is not required.
-	2. Altered source versions must be plainly marked as such, and must not be
-	misrepresented as being the original software.
-	3. This notice may not be removed or altered from any source distribution.
 =============================================================================*/
 
 #include "SkeletalRenderCPUSkin.h"
@@ -219,32 +203,41 @@ void FSkeletalMeshObjectCPUSkin::UpdateRecomputeTangent(int32 MaterialIndex, int
 
 void FSkeletalMeshObjectCPUSkin::Update(int32 LODIndex,USkinnedMeshComponent* InMeshComponent,const TArray<FActiveMorphTarget>& ActiveMorphTargets, const TArray<float>& MorphTargetWeights)
 {
-	// create the new dynamic data for use by the rendering thread
-	// this data is only deleted when another update is sent
-	FDynamicSkelMeshObjectDataCPUSkin* NewDynamicData = new FDynamicSkelMeshObjectDataCPUSkin(InMeshComponent,SkeletalMeshResource,LODIndex,ActiveMorphTargets, MorphTargetWeights);
-
-	// We prepare the next frame but still have the value from the last one
-	uint32 FrameNumberToPrepare = GFrameNumber + 1;
-
-	// queue a call to update this data
-	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-		SkelMeshObjectUpdateDataCommand,
-		FSkeletalMeshObjectCPUSkin*, MeshObject, this,
-		uint32, FrameNumberToPrepare, FrameNumberToPrepare,
-		FDynamicSkelMeshObjectDataCPUSkin*, NewDynamicData, NewDynamicData,
+	if (InMeshComponent)
 	{
-		FScopeCycleCounter Context(MeshObject->GetStatId());
-		MeshObject->UpdateDynamicData_RenderThread(RHICmdList, NewDynamicData, FrameNumberToPrepare);
-	}
-	);
+		// create the new dynamic data for use by the rendering thread
+		// this data is only deleted when another update is sent
+		FDynamicSkelMeshObjectDataCPUSkin* NewDynamicData = new FDynamicSkelMeshObjectDataCPUSkin(InMeshComponent,SkeletalMeshResource,LODIndex,ActiveMorphTargets, MorphTargetWeights);
 
-	if( GIsEditor )
-	{
-		// this does not need thread-safe update
+		// We prepare the next frame but still have the value from the last one
+		uint32 FrameNumberToPrepare = GFrameNumber + 1;
+
+		if (InMeshComponent->SceneProxy)
+		{
+			// We allow caching of per-frame, per-scene data
+			FrameNumberToPrepare = InMeshComponent->SceneProxy->GetScene().GetFrameNumber() + 1;
+		}
+
+		// queue a call to update this data
+		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
+			SkelMeshObjectUpdateDataCommand,
+			FSkeletalMeshObjectCPUSkin*, MeshObject, this,
+			uint32, FrameNumberToPrepare, FrameNumberToPrepare,
+			FDynamicSkelMeshObjectDataCPUSkin*, NewDynamicData, NewDynamicData,
+		{
+			FScopeCycleCounter Context(MeshObject->GetStatId());
+			MeshObject->UpdateDynamicData_RenderThread(RHICmdList, NewDynamicData, FrameNumberToPrepare);
+		}
+		);
+
+		if( GIsEditor )
+		{
+			// this does not need thread-safe update
 #if WITH_EDITORONLY_DATA
-		ProgressiveDrawingFraction = InMeshComponent->ProgressiveDrawingFraction;
+			ProgressiveDrawingFraction = InMeshComponent->ProgressiveDrawingFraction;
 #endif // #if WITH_EDITORONLY_DATA
-		CustomSortAlternateIndexMode = (ECustomSortAlternateIndexMode)InMeshComponent->CustomSortAlternateIndexMode;
+			CustomSortAlternateIndexMode = (ECustomSortAlternateIndexMode)InMeshComponent->CustomSortAlternateIndexMode;
+		}
 	}
 }
 
@@ -443,11 +436,11 @@ const FTwoVectors& FSkeletalMeshObjectCPUSkin::GetCustomLeftRightVectors(int32 S
 	}
 }
 
-void FSkeletalMeshObjectCPUSkin::DrawVertexElements(FPrimitiveDrawInterface* PDI, const FTransform& ToWorldSpace, bool bDrawNormals, bool bDrawTangents, bool bDrawBinormals) const
+void FSkeletalMeshObjectCPUSkin::DrawVertexElements(FPrimitiveDrawInterface* PDI, const FMatrix& ToWorldSpace, bool bDrawNormals, bool bDrawTangents, bool bDrawBinormals) const
 {
 	uint32 NumIndices = CachedFinalVertices.Num();
 
-	FMatrix LocalToWorldInverseTranspose = ToWorldSpace.ToMatrixWithScale().InverseFast().GetTransposed();
+	FMatrix LocalToWorldInverseTranspose = ToWorldSpace.InverseFast().GetTransposed();
 
 	for (uint32 i = 0; i < NumIndices; i++)
 	{

@@ -21,6 +21,7 @@ class FBlueprintEditor;
 class FCompilerResultsLog;
 class INameValidatorInterface;
 class UActorComponent;
+class UBlueprintGeneratedClass;
 class UK2Node_Variable;
 class ULevelScriptBlueprint;
 class USCS_Node;
@@ -173,6 +174,11 @@ public:
 	 */
 	static void PatchNewCDOIntoLinker(UObject* CDO, FLinkerLoad* Linker, int32 ExportIndex, TArray<UObject*>& ObjLoaded);
 
+	/** 
+	 * Procedure used to remove old function implementations and child properties from data only blueprints.
+	 */
+	static void RemoveStaleFunctions(UBlueprintGeneratedClass* Class, UBlueprint* Blueprint);
+
 	/**
 	 *  Synchronizes Blueprint's GeneratedClass's properties with the NewVariable declarations in the blueprint
 	 */
@@ -182,6 +188,11 @@ public:
 	 * Regenerates the class at class load time, and refreshes the blueprint
 	 */
 	static UClass* RegenerateBlueprintClass(UBlueprint* Blueprint, UClass* ClassToRegenerate, UObject* PreviousCDO, TArray<UObject*>& ObjLoaded);
+	
+	/**
+	 * Links external dependencies
+	 */
+	static void LinkExternalDependencies(UBlueprint* Blueprint);
 
 	/**
 	 * Replace subobjects of CDO in linker
@@ -913,6 +924,14 @@ public:
 	static void SetBlueprintOnlyEditableFlag(UBlueprint* Blueprint, const FName& VarName, const bool bNewBlueprintOnly);
 
 	/**
+	 * Sets the Blueprint read-only flag on the variable with the specified name
+	 *
+	 * @param	VarName				Name of the var to set the flag on
+	 * @param	bVariableReadOnly	The new value to set the bitflag to
+	 */
+	static void SetBlueprintPropertyReadOnlyFlag(UBlueprint* Blueprint, const FName& VarName, const bool bVariableReadOnly);
+
+	/**
 	 * Sets the Interp flag on the variable with the specified name to make available to matinee
 	 *
 	 * @param	VarName				Name of the var to set the flag on
@@ -1090,6 +1109,9 @@ public:
 	/** Retrieves all dependencies that need to be nativized for this to work as a nativized Blueprint */
 	static void FindNativizationDependencies(UBlueprint* Blueprint, TArray<UClass*>& NativizeDependenciesOut);
 
+	/** Returns whether or not the given Blueprint should be nativized implicitly, regardless of whether or not the user has explicitly enabled it */
+	static bool ShouldNativizeImplicitly(const UBlueprint* Blueprint);
+
 	//////////////////////////////////////////////////////////////////////////
 	// Interface
 
@@ -1130,9 +1152,6 @@ public:
 	/** Handle old AnimBlueprints (state machines in the wrong position, transition graphs with the wrong schema, etc...) */
 	static void UpdateOutOfDateAnimBlueprints(UBlueprint* Blueprint);
 
-	/* Update old pure functions to be pure using new system*/
-	static void UpdateOldPureFunctions(UBlueprint* Blueprint);
-
 	/** Handle fixing up composite nodes within the blueprint*/
 	static void UpdateOutOfDateCompositeNodes(UBlueprint* Blueprint);
 
@@ -1147,6 +1166,12 @@ public:
 
 	/** Handle stale pin watches */
 	static void UpdateStalePinWatches( UBlueprint* Blueprint );
+
+	/** Updates the cosmetic information cache for macros */
+	static void ClearMacroCosmeticInfoCache(UBlueprint* Blueprint);
+
+	/** Returns the cosmetic information for the specified macro graph, caching it if necessary */
+	static FBlueprintMacroCosmeticInfo GetCosmeticInfoForMacro(UEdGraph* MacroGraph);
 
 	/** Return the first function from implemented interface with given name */
 	static UFunction* FindFunctionInImplementedInterfaces(const UBlueprint* Blueprint, const FName& FunctionName, bool* bOutInvalidInterface = nullptr, bool bGetAllInterfaces = false);
@@ -1460,6 +1485,16 @@ public:
 	 * Remove overridden component templates from instance component handlers when a parent class disables editable when inherited boolean.
 	 */
 	static void HandleDisableEditableWhenInherited(UObject* ModifiedObject, TArray<UObject*>& ArchetypeInstances);
+
+	/**
+	 * Returns the BPs most derived native parent type:
+	 */
+	static UClass* GetNativeParent(const UBlueprint* BP);
+
+	/**
+	 * Returns true if this BP is currently based on a type that returns true for the UObject::ImplementsGetWorld() call:
+	 */
+	static bool ImplentsGetWorld(const UBlueprint* BP);
 };
 
 struct UNREALED_API FBlueprintDuplicationScopeFlags

@@ -549,7 +549,7 @@ TSharedPtr<FFbxSceneInfo> UFbxSceneImportFactory::ConvertSceneInfo(void* VoidFbx
 		MeshInfoPtr->OptionName = DefaultOptionName;
 
 		MeshInfoPtr->IsLod = MeshInfoPtr->LODLevel > 0;
-		MeshInfoPtr->IsCollision = MeshInfoPtr->Name.Contains(TEXT("UCX")) || MeshInfoPtr->Name.Contains(TEXT("UBX")) || MeshInfoPtr->Name.Contains(TEXT("MCDCX")) || MeshInfoPtr->Name.Contains(TEXT("USP"));
+		MeshInfoPtr->IsCollision = MeshInfoPtr->Name.Contains(TEXT("UCX")) || MeshInfoPtr->Name.Contains(TEXT("UBX")) || MeshInfoPtr->Name.Contains(TEXT("MCDCX")) || MeshInfoPtr->Name.Contains(TEXT("USP")) || MeshInfoPtr->Name.Contains(TEXT("UCP"));
 
 		SceneInfoPtr->MeshInfo.Add(MeshInfoPtr);
 	}
@@ -709,7 +709,11 @@ UObject *FFbxAttributeInfo::GetContentObject()
 	ContentObject = nullptr;
 	FString ImportPath = PackageTools::SanitizePackageName(GetImportPath());
 	FString AssetName = GetFullImportName();
-	ContentPackage = LoadPackage(nullptr, *ImportPath, LOAD_Verify | LOAD_NoWarn);
+	if (!ImportPath.IsEmpty())
+	{
+		ContentPackage = LoadPackage(nullptr, *ImportPath, LOAD_Verify | LOAD_NoWarn);
+	}
+
 	if (ContentPackage != nullptr)
 	{
 		ContentPackage->FullyLoad();
@@ -845,6 +849,7 @@ bool UFbxSceneImportFactory::FactoryCanImport(const FString& Filename)
 	}
 	return false;
 }
+
 
 TSharedPtr<FFbxNodeInfo> GetNodeInfoPtrById(TArray<TSharedPtr<FFbxNodeInfo>> &HierarchyInfo, uint64 SearchId)
 {
@@ -2194,7 +2199,7 @@ UObject* UFbxSceneImportFactory::ImportANode(void* VoidFbxImporter, TArray<void*
 	UObject* NewObject = nullptr;
 	// skip collision models
 	if (NodeName.Find("UCX") != -1 || NodeName.Find("MCDCX") != -1 ||
-		NodeName.Find("UBX") != -1 || NodeName.Find("USP") != -1)
+		NodeName.Find("UBX") != -1 || NodeName.Find("USP") != -1 || NodeName.Find("UCP") != -1)
 	{
 		return nullptr;
 	}

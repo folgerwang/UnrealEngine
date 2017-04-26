@@ -8,6 +8,7 @@
 
 class UDynamicClass;
 struct FCompilerNativizationOptions;
+class ITargetPlatform;
 
 struct FBlueprintWarningDeclaration
 {
@@ -20,6 +21,8 @@ struct FBlueprintWarningDeclaration
 	FName WarningIdentifier;
 	FText WarningDescription;
 };
+
+typedef void (*FFlushReinstancingQueueFPtr)();
 
 /** 
  * This set of functions contains blueprint related UObject functionality.
@@ -45,6 +48,13 @@ struct FBlueprintSupport
 	static bool IsDeferredExportCreationDisabled();
 	static bool IsDeferredCDOInitializationDisabled();
 
+	/** Initializes the BP Compilation Manager if it's enabled: */
+	COREUOBJECT_API static void InitializeCompilationManager();
+
+	/** Checks for any old instances and reinstances them: */
+	static void FlushReinstancingQueue();
+	COREUOBJECT_API static void SetFlushReinstancingQueueFPtr(FFlushReinstancingQueueFPtr Ptr);
+
 	/** Tells if the specified object is one of the many flavors of FLinkerPlaceholderBase that we have. */
 	COREUOBJECT_API static bool IsDeferredDependencyPlaceholder(UObject* LoadedObj);
 
@@ -56,6 +66,14 @@ struct FBlueprintSupport
 	COREUOBJECT_API static void UpdateWarningBehavior(const TArray<FName>& WarningIdentifiersToTreatAsError, const TArray<FName>& WarningIdentifiersToSuppress);
 	COREUOBJECT_API static bool ShouldTreatWarningAsError(FName WarningIdentifier);
 	COREUOBJECT_API static bool ShouldSuppressWarning(FName WarningIdentifier);
+
+#if WITH_EDITOR
+	/** Function that walks the object graph, ensuring that there are no references to TRASH or REINST classes: */
+	COREUOBJECT_API static void ValidateNoRefsToOutOfDateClasses();
+
+	/** Function that walks the object graph, ensuring that there are no references to SKEL classes: */
+	COREUOBJECT_API static void ValidateNoExternalRefsToSkeletons();
+#endif
 };
 
 #if WITH_EDITOR
@@ -174,7 +192,7 @@ struct IBlueprintNativeCodeGenCore
 	/*
 	 * Return nativization options for given platform.
 	 */
-	virtual const FCompilerNativizationOptions& GetNativizationOptionsForPlatform(const FString& PlatformName) const = 0;
+	virtual const FCompilerNativizationOptions& GetNativizationOptionsForPlatform(const ITargetPlatform* Platform) const = 0;
 };
 
 #endif // WITH_EDITOR

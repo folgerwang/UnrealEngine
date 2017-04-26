@@ -171,7 +171,7 @@ public:
 	bool operator!=( const FConfigSection& Other ) const;
 
 	// process the '+' and '.' commands, takingf into account ArrayOfStruct unique keys
-	void HandleAddCommand(FName Key, const FString& Value, bool bAppendValueIfNotArrayOfStructsKeyUsed);
+	void CORE_API HandleAddCommand(FName Key, const FString& Value, bool bAppendValueIfNotArrayOfStructsKeyUsed);
 
 	template<typename Allocator> 
 	void MultiFind(const FName Key, TArray<FConfigValue, Allocator>& OutValues, const bool bMaintainOrder = false) const
@@ -309,7 +309,7 @@ public:
 	CORE_API ~FConfigFile();
 	
 	// looks for a section by name, and creates an empty one if it can't be found
-	FConfigSection* FindOrAddSection(const FString& Name);
+	CORE_API FConfigSection* FindOrAddSection(const FString& Name);
 
 	bool operator==( const FConfigFile& Other ) const;
 	bool operator!=( const FConfigFile& Other ) const;
@@ -322,6 +322,8 @@ public:
 
 	CORE_API bool GetString( const TCHAR* Section, const TCHAR* Key, FString& Value ) const;
 	CORE_API bool GetText( const TCHAR* Section, const TCHAR* Key, FText& Value ) const;
+	CORE_API bool GetInt(const TCHAR* Section, const TCHAR* Key, int& Value) const;
+	CORE_API bool GetFloat(const TCHAR* Section, const TCHAR* Key, float& Value) const;
 	CORE_API bool GetInt64( const TCHAR* Section, const TCHAR* Key, int64& Value ) const;
 	CORE_API bool GetBool( const TCHAR* Section, const TCHAR* Key, bool& Value ) const;
 	CORE_API int32 GetArray(const TCHAR* Section, const TCHAR* Key, TArray<FString>& Value) const;
@@ -487,8 +489,13 @@ public:
 	*/
 	virtual void Parse1ToNSectionOfNames(const TCHAR* Section, const TCHAR* KeyOne, const TCHAR* KeyN, TMap<FName, TArray<FName> >& OutMap, const FString& Filename);
 
+	/** Finds Config file based on the final, generated ini name */
 	FConfigFile* FindConfigFile( const FString& Filename );
 	FConfigFile* Find( const FString& InFilename, bool CreateIfNotFound );
+
+	/** Finds Config file that matches the base name such as "Engine" */
+	FConfigFile* FindConfigFileWithBaseName(FName BaseName);
+
 	void Flush( bool Read, const FString& Filename=TEXT("") );
 
 	void LoadFile( const FString& InFilename, const FConfigFile* Fallback = NULL, const TCHAR* PlatformString = NULL );

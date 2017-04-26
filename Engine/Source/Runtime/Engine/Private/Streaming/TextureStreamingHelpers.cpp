@@ -165,8 +165,8 @@ TAutoConsoleVariable<int32> CVarStreamingCheckBuildStatus(
 	ECVF_Scalability);
 
 
-TAutoConsoleVariable<int32> CVarScaleTexturesByGlobalMyBias(
-	TEXT("r.Streaming.ScaleTexturesByGlobalMyBias"),
+TAutoConsoleVariable<int32> CVarScaleTexturesByGlobalMipBias(
+	TEXT("r.Streaming.ScaleTexturesByGlobalMipBias"),
 	0,
 	TEXT("If non-zero, streaming textures wanted resolution will be scaled down by the global mip bias"),
 	ECVF_Default);
@@ -210,7 +210,7 @@ void FTextureStreamingSettings::Update()
 	bLimitPoolSizeToVRAM = !GIsEditor && CVarStreamingLimitPoolSizeToVRAM.GetValueOnAnyThread() != 0;
 	bFullyLoadUsedTextures = CVarStreamingFullyLoadUsedTextures.GetValueOnAnyThread() != 0;
 	bUseAllMips = CVarStreamingUseAllMips.GetValueOnAnyThread() != 0;
-	bScaleTexturesByGlobalMyBias = CVarScaleTexturesByGlobalMyBias.GetValueOnAnyThread() != 0;
+	bScaleTexturesByGlobalMipBias = CVarScaleTexturesByGlobalMipBias.GetValueOnAnyThread() != 0;
 	MinMipForSplitRequest = CVarStreamingMinMipForSplitRequest.GetValueOnAnyThread();
 
 	bUseMaterialData = bUseNewMetrics && CVarStreamingUseMaterialData.GetValueOnAnyThread() != 0;
@@ -283,5 +283,4 @@ void FTextureStreamingStats::Apply()
 	SET_CYCLE_COUNTER(STAT_Streaming02_UpdateStreamingData, UpdateStreamingDataCycles);
 	SET_CYCLE_COUNTER(STAT_Streaming03_StreamTextures, StreamTexturesCycles);
 	SET_CYCLE_COUNTER(STAT_Streaming04_Notifications, CallbacksCycles);
-	CallbacksCycles = 0;
 }

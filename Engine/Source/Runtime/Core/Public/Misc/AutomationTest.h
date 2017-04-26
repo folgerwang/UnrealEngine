@@ -723,17 +723,6 @@ public:
 	FOnTestScreenshotCaptured& OnScreenshotCaptured();
 
 	/**
-	 * Sets screenshot options
-	 * @param bInScreenshotsEnabled - If screenshots are enabled
-	 */
-	void SetScreenshotOptions( const bool bInScreenshotsEnabled );
-
-	/**
-	 * Gets if screenshots are allowed
-	 */
-	bool IsScreenshotAllowed() const;
-
-	/**
 	 * Sets forcing smoke tests.
 	 */
 	void SetForceSmokeTests(const bool bInForceSmokeTests)
@@ -886,9 +875,6 @@ private:
 
 	/** Whether we want to run automation tests on content within the Developer Directories */
 	bool bDeveloperDirectoryIncluded;
-
-	/** Wheather screenshots are enabled */
-	bool bScreenshotsEnabled;
 
 	/** Participation role as given by the automation controller */
 	uint32 NetworkRoleIndex;
@@ -2380,8 +2366,12 @@ public: \
 							"All AutomationTests must have exactly 1 filter type specified.  See AutomationTest.h."); \
 		} \
 		virtual uint32 GetTestFlags() const override { return TFlags; } \
+        using FAutomationSpecBase::GetTestSourceFileName; \
 		virtual FString GetTestSourceFileName() const override { return FileName; } \
+        using FAutomationSpecBase::GetTestSourceFileLine; \
 		virtual int32 GetTestSourceFileLine() const override { return LineNumber; } \
+		virtual FString GetTestSourceFileName(const FString&) const override { return GetTestSourceFileName(); } \
+		virtual int32 GetTestSourceFileLine(const FString&) const override { return GetTestSourceFileLine(); } \
 	protected: \
 		virtual FString GetBeautifiedTestName() const override { return PrettyName; } \
 		virtual void Define() override; \

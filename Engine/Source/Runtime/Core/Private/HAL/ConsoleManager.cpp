@@ -732,6 +732,36 @@ private:
 	FConsoleCommandWithWorldAndArgsDelegate Delegate;
 };
 
+/* Console command that can be given a world parameter, args and an output device. */
+class FConsoleCommandWithWorldArgsAndOutputDevice : public FConsoleCommandBase
+{
+
+public:
+	FConsoleCommandWithWorldArgsAndOutputDevice(const FConsoleCommandWithWorldArgsAndOutputDeviceDelegate& InitDelegate, const TCHAR* InitHelp, const EConsoleVariableFlags InitFlags)
+		: FConsoleCommandBase(InitHelp, InitFlags),
+		Delegate(InitDelegate)
+	{
+	}
+
+	// interface IConsoleCommand -----------------------------------
+
+	virtual void Release() override
+	{
+		delete this;
+	}
+
+	virtual bool Execute(const TArray< FString >& Args, UWorld* InWorld, FOutputDevice& OutputDevice) override
+	{
+		return Delegate.ExecuteIfBound(Args, InWorld, OutputDevice);
+	}
+
+private:
+
+	/** User function to call when the console command is executed */
+	FConsoleCommandWithWorldArgsAndOutputDeviceDelegate Delegate;
+};
+
+
 /* Console command that can be given an output device. */
 class FConsoleCommandWithOutputDevice : public FConsoleCommandBase
 {
@@ -839,6 +869,11 @@ IConsoleCommand* FConsoleManager::RegisterConsoleCommand(const TCHAR* Name, cons
 IConsoleCommand* FConsoleManager::RegisterConsoleCommand(const TCHAR* Name, const TCHAR* Help, const FConsoleCommandWithWorldAndArgsDelegate& Command, uint32 Flags)
 {
 	return AddConsoleObject(Name, new FConsoleCommandWithWorldAndArgs(Command, Help, (EConsoleVariableFlags)Flags))->AsCommand();
+}
+
+IConsoleCommand* FConsoleManager::RegisterConsoleCommand(const TCHAR* Name, const TCHAR* Help, const FConsoleCommandWithWorldArgsAndOutputDeviceDelegate& Command, uint32 Flags)
+{
+	return AddConsoleObject(Name, new FConsoleCommandWithWorldArgsAndOutputDevice(Command, Help, (EConsoleVariableFlags)Flags))->AsCommand();
 }
 
 IConsoleCommand* FConsoleManager::RegisterConsoleCommand(const TCHAR* Name, const TCHAR* Help, const FConsoleCommandWithOutputDeviceDelegate& Command, uint32 Flags)
@@ -2113,6 +2148,14 @@ static TAutoConsoleVariable<int32> CVarSetVSyncEditorEnabled(
 	TEXT("0: VSync is disabled in editor.(default)\n")
 	TEXT("1: VSync is enabled in editor."),
 	ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<int32> CVarMobileForceRHISwitchVerticalAxis(
+	TEXT("r.Mobile.ForceRHISwitchVerticalAxis"),
+	0,
+	TEXT("Enable RHISwitchVerticalAxis when previewing mobile renderer. (Useful to test GLES y-axis flip codepaths)\n")
+	TEXT("0: RHISwitchVerticalAxis disabled (default).\n")
+	TEXT("1: RHISwitchVerticalAxis enabled.\n"),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
 #endif
 
 static TAutoConsoleVariable<int32> CVarFinishCurrentFrame(
@@ -2131,6 +2174,12 @@ static TAutoConsoleVariable<int32> CVarShadowMaxResolution(
 	TEXT("r.Shadow.MaxResolution"),
 	2048,
 	TEXT("Max square dimensions (in texels) allowed for rendering shadow depths. Range 4 to hardware limit. Higher = better quality shadows but at a performance cost."),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<int32> CVarShadowMaxCSMShadowResolution(
+	TEXT("r.Shadow.MaxCSMResolution"),
+	2048,
+	TEXT("Max square dimensions (in texels) allowed for rendering Cascaded Shadow depths. Range 4 to hardware limit. Higher = better quality shadows but at a performance cost."),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<float> CVarShadowCSMTransitionScale(
