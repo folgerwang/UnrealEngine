@@ -158,8 +158,6 @@ protected:
 	virtual EEditableMeshElementType GetSelectedMeshElementType() const override;
 	virtual bool IsMeshElementTypeSelected( EEditableMeshElementType ElementType ) const override { return GetSelectedMeshElementType() == ElementType; }
 	virtual bool IsMeshElementTypeSelectedOrIsActiveSelectionMode( EEditableMeshElementType ElementType ) const override { return GetMeshElementSelectionMode() == ElementType || GetSelectedMeshElementType() == ElementType; }
-	virtual const TArray<UEditableMesh*>& GetSelectedEditableMeshes() const override { return SelectedEditableMeshes; }
-	virtual const TArray<UEditableMesh*>& GetSelectedEditableMeshes() override { return SelectedEditableMeshes; }
 	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetCommonActions() const override { return CommonActions; }
 	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetVertexActions() const override { return VertexActions; }
 	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetEdgeActions() const override { return EdgeActions; }
@@ -193,6 +191,8 @@ protected:
 	{
 		GetSelectedMeshesAndElements( EEditableMeshElementType::Polygon, /* Out */ OutMeshesAndPolygons );
 	}
+	virtual const TArray<UEditableMesh*>& GetSelectedEditableMeshes() const override { return SelectedEditableMeshes; }
+	virtual const TArray<UEditableMesh*>& GetSelectedEditableMeshes() override { return SelectedEditableMeshes; }
 	virtual void SelectMeshElements( const TArray<FMeshElement>& MeshElementsToSelect ) override;
 	virtual void DeselectAllMeshElements() override;
 	virtual void DeselectMeshElements( const TArray<FMeshElement>& MeshElementsToDeselect ) override;
@@ -294,9 +294,6 @@ protected:
 
 	/** Adds or removes a subdivision level for selected meshes */
 	void AddOrRemoveSubdivisionLevel( const bool bShouldAdd );
-
-	/** Quadrangulates the currently selected mesh */
-	void QuadrangulateMesh();
 
 	/** Moves the viewport camera to frame the currently selected elements */
 	void FrameSelectedElements( FEditorViewportClient* ViewportClient );

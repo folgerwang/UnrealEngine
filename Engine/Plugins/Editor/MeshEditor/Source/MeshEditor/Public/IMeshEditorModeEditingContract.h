@@ -4,6 +4,7 @@
 
 #include "EditableMeshTypes.h"
 #include "MeshElement.h"
+#include "Change.h"
 
 
 class IMeshEditorModeEditingContract
@@ -31,6 +32,12 @@ public:
 	virtual void GetSelectedMeshesAndVertices( TMap<class UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndVertices ) = 0;
 	virtual void GetSelectedMeshesAndEdges( TMap<class UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndEdges ) = 0;
 	virtual void GetSelectedMeshesAndPolygons( TMap<class UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndPolygons ) = 0;
+
+	/** Gets all of the editable meshes that are currently selected (const) */
+	virtual const TArray<class UEditableMesh*>& GetSelectedEditableMeshes() const = 0;
+
+	/** Gets all of the editable meshes that are currently selected */
+	virtual const TArray<class UEditableMesh*>& GetSelectedEditableMeshes() = 0;
 
 	/** Selects the specified mesh elements */
 	virtual void SelectMeshElements( const TArray<FMeshElement>& MeshElementsToSelect ) = 0;

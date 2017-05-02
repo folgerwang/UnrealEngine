@@ -3,6 +3,8 @@
 #include "MeshEditorCommands.h"
 #include "MeshEditorStyle.h"
 #include "IMeshEditorModeUIContract.h"
+#include "UIAction.h"
+#include "UObjectIterator.h"
 
 
 #define LOCTEXT_NAMESPACE "MeshEditorCommands"
@@ -30,10 +32,21 @@ FUIAction UMeshEditorCommand::MakeUIAction( IMeshEditorModeUIContract& MeshEdito
 			this->Execute( MeshEditorMode );
 		} ) );
 
-		UIAction = FUIAction(
-			ExecuteAction,
-			FCanExecuteAction::CreateLambda( [&MeshEditorMode, ElementType] { return MeshEditorMode.IsMeshElementTypeSelected( ElementType ); } )
-		);
+		if( ElementType == EEditableMeshElementType::Invalid )
+		{
+			// Common command
+			UIAction = FUIAction(
+				ExecuteAction,
+				FCanExecuteAction::CreateLambda( [&MeshEditorMode] { return MeshEditorMode.GetSelectedEditableMeshes().Num() > 0; } )
+			);
+		}
+		else
+		{
+			UIAction = FUIAction(
+				ExecuteAction,
+				FCanExecuteAction::CreateLambda( [&MeshEditorMode, ElementType] { return MeshEditorMode.IsMeshElementTypeSelected( ElementType ); } )
+			);
+		}
 	}
 
 	return UIAction;
@@ -64,7 +77,15 @@ void FMeshEditorCommonCommands::RegisterCommands()
 	UI_COMMAND(SetEdgeSelectionMode, "Set Edge Selection Mode", "Sets the selection mode so that only edges will be selected.", EUserInterfaceActionType::None, FInputChord(EKeys::Two));
 	UI_COMMAND(SetPolygonSelectionMode, "Set Polygon Selection Mode", "Sets the selection mode so that only polygons will be selected.", EUserInterfaceActionType::None, FInputChord(EKeys::Three));
 	UI_COMMAND(SetAnySelectionMode, "Set Any Selection Mode", "Sets the selection mode so that any element type may be selected.", EUserInterfaceActionType::None, FInputChord(EKeys::Four));
-	UI_COMMAND(QuadrangulateMesh, "Quadrangulate Mesh", "Quadrangulates the selected mesh.", EUserInterfaceActionType::Button, FInputChord());
+
+	for( TObjectIterator<UMeshEditorCommonCommand> CommonCommandCDOIter( RF_NoFlags ); CommonCommandCDOIter; ++CommonCommandCDOIter )
+	{
+		UMeshEditorCommonCommand* CommonCommandCDO = *CommonCommandCDOIter;
+		if( !( CommonCommandCDO->GetClass()->GetClassFlags() & CLASS_Abstract ) )
+		{
+			CommonCommandCDO->RegisterUICommand( this );
+		}
+	}
 }
 
 FMeshEditorAnyElementCommands::FMeshEditorAnyElementCommands() 

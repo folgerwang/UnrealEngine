@@ -566,8 +566,6 @@ void FMeshEditorMode::BindCommands()
 	RegisterCommonCommand( MeshEditorCommonCommands.SetPolygonSelectionMode, FExecuteAction::CreateLambda( [this] { SetMeshElementSelectionMode( EEditableMeshElementType::Polygon ); } ) );
 	RegisterCommonCommand( MeshEditorCommonCommands.SetAnySelectionMode, FExecuteAction::CreateLambda( [this] { SetMeshElementSelectionMode( EEditableMeshElementType::Any ); } ) );
 
-	RegisterCommonCommand( MeshEditorCommonCommands.QuadrangulateMesh, FExecuteAction::CreateLambda( [ this ] { QuadrangulateMesh(); } ) );
-
 	// Register element-specific commands
 	RegisterVertexCommand( MeshEditorVertexCommands.WeldVertices, FExecuteAction::CreateLambda( [this] { WeldSelectedVertices(); } ) );
 
@@ -582,22 +580,33 @@ void FMeshEditorMode::BindCommands()
 		UMeshEditorCommand* CommandCDO = *CommandCDOIter;
 		if( !( CommandCDO->GetClass()->GetClassFlags() & CLASS_Abstract ) )
 		{
-			const EEditableMeshElementType ElementType = CommandCDO->GetElementType();
-			if( ElementType == EEditableMeshElementType::Vertex )
+			switch( CommandCDO->GetElementType() )
 			{
-				VertexActions.Emplace( CommandCDO->GetUICommandInfo(), CommandCDO->MakeUIAction( *this ) );
-			}
-			else if( ElementType == EEditableMeshElementType::Edge )
-			{
-				EdgeActions.Emplace( CommandCDO->GetUICommandInfo(), CommandCDO->MakeUIAction( *this ));
-			}
-			else if( ElementType == EEditableMeshElementType::Polygon )
-			{
-				PolygonActions.Emplace( CommandCDO->GetUICommandInfo(), CommandCDO->MakeUIAction( *this ) );
-			}
-			else
-			{
-				check( 0 );
+				case EEditableMeshElementType::Invalid:
+					{
+						// Common action
+						FUIAction UIAction = CommandCDO->MakeUIAction( *this );
+						CommonActions.Emplace( CommandCDO->GetUICommandInfo(), UIAction );
+						VertexActions.Emplace( CommandCDO->GetUICommandInfo(), UIAction );
+						EdgeActions.Emplace( CommandCDO->GetUICommandInfo(), UIAction );
+						PolygonActions.Emplace( CommandCDO->GetUICommandInfo(), UIAction );
+					}
+					break;
+
+				case EEditableMeshElementType::Vertex:
+					VertexActions.Emplace( CommandCDO->GetUICommandInfo(), CommandCDO->MakeUIAction( *this ) );
+					break;
+				
+				case EEditableMeshElementType::Edge:
+					EdgeActions.Emplace( CommandCDO->GetUICommandInfo(), CommandCDO->MakeUIAction( *this ) );
+					break;
+
+				case EEditableMeshElementType::Polygon:
+					PolygonActions.Emplace( CommandCDO->GetUICommandInfo(), CommandCDO->MakeUIAction( *this ) );
+					break;
+
+				default:
+					check( 0 );
 			}
 		}
 	}
@@ -673,18 +682,20 @@ void FMeshEditorMode::RegisterPolygonEditingMode( const TSharedPtr<FUICommandInf
 
 void FMeshEditorMode::RegisterCommonCommand( const TSharedPtr<FUICommandInfo>& Command, const FExecuteAction& ExecuteAction )
 {
-	CommonActions.Emplace( Command, FUIAction( ExecuteAction, FCanExecuteAction::CreateLambda( [this] { return GetSelectedEditableMeshes().Num() > 0; } ) ) );
-	VertexActions.Emplace( Command, FUIAction( ExecuteAction, FCanExecuteAction::CreateLambda( [this] { return GetSelectedEditableMeshes().Num() > 0; } ) ) );
-	EdgeActions.Emplace( Command, FUIAction( ExecuteAction, FCanExecuteAction::CreateLambda( [this] { return GetSelectedEditableMeshes().Num() > 0; } ) ) );
-	PolygonActions.Emplace( Command, FUIAction( ExecuteAction, FCanExecuteAction::CreateLambda( [this] { return GetSelectedEditableMeshes().Num() > 0; } ) ) );
+	FCanExecuteAction CanExecute = FCanExecuteAction::CreateLambda( [this] { return GetSelectedEditableMeshes().Num() > 0; } );
+	CommonActions.Emplace( Command, FUIAction( ExecuteAction, CanExecute ) );
+	VertexActions.Emplace( Command, FUIAction( ExecuteAction, CanExecute ) );
+	EdgeActions.Emplace( Command, FUIAction( ExecuteAction, CanExecute ) );
+	PolygonActions.Emplace( Command, FUIAction( ExecuteAction, CanExecute ) );
 }
 
 
 void FMeshEditorMode::RegisterAnyElementCommand( const TSharedPtr<FUICommandInfo>& Command, const FExecuteAction& ExecuteAction )
 {
-	VertexActions.Emplace( Command, FUIAction( ExecuteAction, FCanExecuteAction::CreateLambda( [this] { return GetSelectedMeshElementType() != EEditableMeshElementType::Invalid;} ) ) );
-	EdgeActions.Emplace( Command, FUIAction( ExecuteAction, FCanExecuteAction::CreateLambda( [this] { return GetSelectedMeshElementType() != EEditableMeshElementType::Invalid;} ) ) );
-	PolygonActions.Emplace( Command, FUIAction( ExecuteAction, FCanExecuteAction::CreateLambda( [this] { return GetSelectedMeshElementType() != EEditableMeshElementType::Invalid;} ) ) );
+	FCanExecuteAction CanExecute = FCanExecuteAction::CreateLambda( [this] { return GetSelectedMeshElementType() != EEditableMeshElementType::Invalid;} );
+	VertexActions.Emplace( Command, FUIAction( ExecuteAction, CanExecute ) );
+	EdgeActions.Emplace( Command, FUIAction( ExecuteAction, CanExecute ) );
+	PolygonActions.Emplace( Command, FUIAction( ExecuteAction, CanExecute ) );
 }
 
 
@@ -1364,36 +1375,6 @@ void FMeshEditorMode::AddOrRemoveSubdivisionLevel( const bool bShouldAdd )
 				EditableMesh->SetSubdivisionCount( FMath::Max( 0, EditableMesh->GetSubdivisionCount() + ( bShouldAdd ? 1 : -1 ) ) );
 			}
 
-			EditableMesh->EndModification();
-
-			TrackUndo( EditableMesh, EditableMesh->MakeUndo() );
-		}
-	}
-}
-
-
-void FMeshEditorMode::QuadrangulateMesh()
-{
-	if( ActiveAction == NAME_None )
-	{
-		if( GetSelectedEditableMeshes().Num() == 0 )
-		{
-			return;
-		}
-
-		FScopedTransaction Transaction( LOCTEXT( "UndoQuadrangulateMesh", "Quadrangulate Mesh" ) );
-
-		CommitSelectedMeshes();
-
-		const TArray<UEditableMesh*>& SelectedMeshes = GetSelectedEditableMeshes();
-
-		DeselectAllMeshElements();
-
-		for( UEditableMesh* EditableMesh : SelectedMeshes )
-		{
-			static TArray<FPolygonRef> NewPolygonRefs;
-			EditableMesh->StartModification( EMeshModificationType::Final, EMeshTopologyChange::TopologyChange );
-			EditableMesh->QuadrangulateMesh( NewPolygonRefs );
 			EditableMesh->EndModification();
 
 			TrackUndo( EditableMesh, EditableMesh->MakeUndo() );
@@ -4056,7 +4037,9 @@ void FMeshEditorMode::OnViewportInteractionInputAction( FEditorViewportClient& V
 										break;
 								}
 
-								if( CommandCDO->GetElementType() == SelectedMeshElementType && EquippedAction == CommandCDO->GetCommandName() )
+								const EEditableMeshElementType CommandElementType = CommandCDO->GetElementType();
+								if( ( CommandElementType == SelectedMeshElementType || CommandElementType == EEditableMeshElementType::Invalid || CommandElementType == EEditableMeshElementType::Any ) && 
+									EquippedAction == CommandCDO->GetCommandName() )
 								{
 									if( CommandCDO->TryStartingToDrag( *this, ViewportInteractor ) )
 									{

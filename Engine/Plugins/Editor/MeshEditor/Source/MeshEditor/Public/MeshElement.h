@@ -3,6 +3,7 @@
 #pragma once
 
 #include "EditableMeshTypes.h"
+#include "Components/PrimitiveComponent.h"
 
 /**
  * Uniquely identifies a specific element within a mesh

@@ -4,6 +4,8 @@
 
 #include "MeshElement.h"
 #include "UIAction.h"
+#include "UICommandInfo.h"
+#include "Commands.h"
 #include "MeshEditorCommands.generated.h"
 
 
@@ -37,7 +39,7 @@ public:
 	}
 
 	/** Allows this command to directly add a button to the VR Mode's radial menu */
-	virtual void AddToVRRadialMenuActionsMenu( class IMeshEditorModeUIContract& MeshEditorMode, class FMenuBuilder& MenuBuilder, TSharedPtr<FUICommandList> CommandList, const FName TEMPHACK_StyleSetName, class UVREditorMode* VRMode )
+	virtual void AddToVRRadialMenuActionsMenu( class IMeshEditorModeUIContract& MeshEditorMode, class FMenuBuilder& MenuBuilder, TSharedPtr<class FUICommandList> CommandList, const FName TEMPHACK_StyleSetName, class UVREditorMode* VRMode )
 	{
 	}
 
@@ -74,7 +76,7 @@ public:
 	}
 
 	/** Gets the UI command info for this command */
-	const TSharedPtr<class FUICommandInfo>& GetUICommandInfo() const
+	const TSharedPtr<FUICommandInfo>& GetUICommandInfo() const
 	{
 		return UICommandInfo;
 	}
@@ -104,6 +106,22 @@ protected:
 
 	/** Our UI command for this action */
 	TSharedPtr<FUICommandInfo> UICommandInfo;
+};
+
+
+UCLASS( abstract )
+class MESHEDITOR_API UMeshEditorCommonCommand : public UMeshEditorCommand
+{
+	GENERATED_BODY()
+
+public:
+
+	// Overrides
+	virtual EEditableMeshElementType GetElementType() const override
+	{
+		return EEditableMeshElementType::Invalid;
+	}
+
 };
 
 
@@ -193,9 +211,6 @@ public:
 	TSharedPtr<FUICommandInfo> SetEdgeSelectionMode;
 	TSharedPtr<FUICommandInfo> SetPolygonSelectionMode;
 	TSharedPtr<FUICommandInfo> SetAnySelectionMode;
-
-	/** Quadrangulate mesh */
-	TSharedPtr<FUICommandInfo> QuadrangulateMesh;
 };
 
 
