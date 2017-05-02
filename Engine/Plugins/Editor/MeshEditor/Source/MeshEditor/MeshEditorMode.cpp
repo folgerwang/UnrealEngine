@@ -4982,8 +4982,10 @@ void FMeshEditorMode::TrackUndo( UObject* Object, TUniquePtr<FChange> RevertChan
 			// Did you forget to use an FScopedTransaction?  If GUndo was null, then most likely we forgot to wrap this call within an editor transaction.
 			// The only exception is in Simulate mode, where Undo is not allowed.
 			check( GUndo != nullptr || GEditor == nullptr || GEditor->bIsSimulatingInEditor );
-
-			GUndo->StoreUndo( Object, MoveTemp( RevertChange ) );
+			if( GUndo != nullptr )
+			{
+				GUndo->StoreUndo( Object, MoveTemp( RevertChange ) );
+			}
 		}
 		else
 		{
