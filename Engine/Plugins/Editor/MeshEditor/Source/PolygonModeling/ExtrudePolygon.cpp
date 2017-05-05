@@ -169,7 +169,8 @@ void UExtrudePolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Me
 				// Create a copy of the polygon with new extruded polygons for each edge
 				static TArray<FPolygonRef> NewExtrudedFrontPolygons;
 				NewExtrudedFrontPolygons.Reset();
-				EditableMesh->ExtrudePolygons( PolygonRefsToExtrude, ComponentSpaceExtrudeDistance, /* Out */ NewExtrudedFrontPolygons );
+				const bool bKeepNeighborsTogether = true;	// @todo mesheditor: Make configurable in UI
+				EditableMesh->ExtrudePolygons( PolygonRefsToExtrude, ComponentSpaceExtrudeDistance, bKeepNeighborsTogether, /* Out */ NewExtrudedFrontPolygons );
 
 
 				// Make sure the new polygons are selected.  The old polygon was deleted and will become deselected automatically.
