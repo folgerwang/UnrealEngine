@@ -25,11 +25,6 @@ public:
 	/** Creates an UI action for this command */
 	virtual FUIAction MakeUIAction( class IMeshEditorModeUIContract& MeshEditorMode ) PURE_VIRTUAL(,return FUIAction(););
 
-	/** Runs this command */
-	virtual void Execute( class IMeshEditorModeEditingContract& MeshEditorMode )
-	{
-	}
-
 	/** Allows this command to directly add a button to the VR Mode's radial menu */
 	virtual void AddToVRRadialMenuActionsMenu( class IMeshEditorModeUIContract& MeshEditorMode, class FMenuBuilder& MenuBuilder, TSharedPtr<class FUICommandList> CommandList, const FName TEMPHACK_StyleSetName, class UVREditorMode* VRMode )
 	{
@@ -61,6 +56,11 @@ class MESHEDITOR_API UMeshEditorInstantCommand : public UMeshEditorCommand
 	GENERATED_BODY()
 
 public:
+
+	/** Runs this command */
+	virtual void Execute( class IMeshEditorModeEditingContract& MeshEditorMode )
+	{
+	}
 
 	// UMeshEditorCommand overrides
 	virtual FUIAction MakeUIAction( class IMeshEditorModeUIContract& MeshEditorMode ) override;
