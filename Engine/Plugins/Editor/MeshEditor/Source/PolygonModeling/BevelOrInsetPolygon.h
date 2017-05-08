@@ -8,7 +8,7 @@
 
 /** Adds a beveled edge to an existing polygon */
 UCLASS()
-class UBevelPolygonCommand : public UMeshEditorPolygonCommand
+class UBevelPolygonCommand : public UMeshEditorEditCommand
 {
 	GENERATED_BODY()
 
@@ -16,13 +16,16 @@ protected:
 
 	UBevelPolygonCommand()
 	{
-		bIsMode = true;
 		UndoText = NSLOCTEXT( "MeshEditor", "UndoBevelPolygon", "Bevel Polygon" );
 		bNeedsHoverLocation = true;
 		bNeedsDraggingInitiated = false;
 	}
 
 	// Overrides
+	virtual EEditableMeshElementType GetElementType() const override
+	{
+		return EEditableMeshElementType::Polygon;
+	}
 	virtual void RegisterUICommand( class FBindingContext* BindingContext ) override;
 	virtual bool TryStartingToDrag( IMeshEditorModeEditingContract& MeshEditorMode, class UViewportInteractor* ViewportInteractor ) override;
 	virtual void ApplyDuringDrag( IMeshEditorModeEditingContract& MeshEditorMode, class UViewportInteractor* ViewportInteractor ) override;
@@ -33,7 +36,7 @@ protected:
 
 /** Adds a new polygon on the inside of an existing polygon, allowing the user to drag to set exactly where it should be placed. */
 UCLASS()
-class UInsetPolygonCommand : public UMeshEditorPolygonCommand
+class UInsetPolygonCommand : public UMeshEditorEditCommand
 {
 	GENERATED_BODY()
 
@@ -41,13 +44,16 @@ protected:
 
 	UInsetPolygonCommand()
 	{
-		bIsMode = true;
 		UndoText = NSLOCTEXT( "MeshEditor", "UndoInsetPolygon", "Inset Polygon" );
 		bNeedsHoverLocation = true;
 		bNeedsDraggingInitiated = false;
 	}
 
 	// Overrides
+	virtual EEditableMeshElementType GetElementType() const override
+	{
+		return EEditableMeshElementType::Polygon;
+	}
 	virtual void RegisterUICommand( class FBindingContext* BindingContext ) override;
 	virtual bool TryStartingToDrag( class IMeshEditorModeEditingContract& MeshEditorMode, class UViewportInteractor* ViewportInteractor ) override;
 	virtual void ApplyDuringDrag( IMeshEditorModeEditingContract& MeshEditorMode, class UViewportInteractor* ViewportInteractor ) override;

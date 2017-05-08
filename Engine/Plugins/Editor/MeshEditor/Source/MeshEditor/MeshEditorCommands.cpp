@@ -10,22 +10,11 @@
 #define LOCTEXT_NAMESPACE "MeshEditorCommands"
 
 
-FUIAction UMeshEditorCommand::MakeUIAction( IMeshEditorModeUIContract& MeshEditorMode )
+FUIAction UMeshEditorInstantCommand::MakeUIAction( IMeshEditorModeUIContract& MeshEditorMode )
 {
 	const EEditableMeshElementType ElementType = GetElementType();
 
 	FUIAction UIAction;
-	if( IsMode() )
-	{
-		const FName CommandName = GetCommandName();
-
-		UIAction = FUIAction(
-			FExecuteAction::CreateLambda( [&MeshEditorMode, ElementType, CommandName] { MeshEditorMode.SetEquippedAction( ElementType, CommandName ); } ),
-			FCanExecuteAction::CreateLambda( [&MeshEditorMode, ElementType] { return MeshEditorMode.IsMeshElementTypeSelectedOrIsActiveSelectionMode( ElementType ); } ),
-			FIsActionChecked::CreateLambda( [&MeshEditorMode, ElementType, CommandName] { return ( MeshEditorMode.GetEquippedAction( ElementType ) == CommandName ); } )
-		);
-	}
-	else
 	{
 		FExecuteAction ExecuteAction( FExecuteAction::CreateLambda( [&MeshEditorMode, this]
 		{
@@ -53,10 +42,29 @@ FUIAction UMeshEditorCommand::MakeUIAction( IMeshEditorModeUIContract& MeshEdito
 }
 
 
+FUIAction UMeshEditorEditCommand::MakeUIAction( IMeshEditorModeUIContract& MeshEditorMode )
+{
+	const EEditableMeshElementType ElementType = GetElementType();
+
+	FUIAction UIAction;
+	{
+		const FName CommandName = GetCommandName();
+
+		UIAction = FUIAction(
+			FExecuteAction::CreateLambda( [&MeshEditorMode, ElementType, CommandName] { MeshEditorMode.SetEquippedAction( ElementType, CommandName ); } ),
+			FCanExecuteAction::CreateLambda( [&MeshEditorMode, ElementType] { return MeshEditorMode.IsMeshElementTypeSelectedOrIsActiveSelectionMode( ElementType ); } ),
+			FIsActionChecked::CreateLambda( [&MeshEditorMode, ElementType, CommandName] { return ( MeshEditorMode.GetEquippedAction( ElementType ) == CommandName ); } )
+		);
+	}
+
+	return UIAction;
+}
+
+
 FMeshEditorCommonCommands::FMeshEditorCommonCommands() 
 	: TCommands<FMeshEditorCommonCommands>(
 		"MeshEditorCommon",
-		LOCTEXT( "MeshEditorGeneral", "Mesh Editor Common" ),
+		LOCTEXT( "MeshEditorCommon", "Mesh Editor Common" ),
 		"MainFrame",
 		FMeshEditorStyle::GetStyleSetName()	)
 {
@@ -78,12 +86,15 @@ void FMeshEditorCommonCommands::RegisterCommands()
 	UI_COMMAND(SetPolygonSelectionMode, "Set Polygon Selection Mode", "Sets the selection mode so that only polygons will be selected.", EUserInterfaceActionType::None, FInputChord(EKeys::Three));
 	UI_COMMAND(SetAnySelectionMode, "Set Any Selection Mode", "Sets the selection mode so that any element type may be selected.", EUserInterfaceActionType::None, FInputChord(EKeys::Four));
 
-	for( TObjectIterator<UMeshEditorCommonCommand> CommonCommandCDOIter( RF_NoFlags ); CommonCommandCDOIter; ++CommonCommandCDOIter )
+	for( TObjectIterator<UMeshEditorCommand> CommandCDOIter( RF_NoFlags ); CommandCDOIter; ++CommandCDOIter )
 	{
-		UMeshEditorCommonCommand* CommonCommandCDO = *CommonCommandCDOIter;
-		if( !( CommonCommandCDO->GetClass()->GetClassFlags() & CLASS_Abstract ) )
+		UMeshEditorCommand* CommandCDO = *CommandCDOIter;
+		if( !( CommandCDO->GetClass()->GetClassFlags() & CLASS_Abstract ) )
 		{
-			CommonCommandCDO->RegisterUICommand( this );
+			if( CommandCDO->GetElementType() == EEditableMeshElementType::Invalid )
+			{
+				CommandCDO->RegisterUICommand( this );
+			}
 		}
 	}
 }
@@ -115,17 +126,19 @@ FMeshEditorVertexCommands::FMeshEditorVertexCommands()
 
 void FMeshEditorVertexCommands::RegisterCommands()
 {
-	UI_COMMAND(MoveVertex, "Move Vertex Mode", "Set the primary action to move vertices.", EUserInterfaceActionType::RadioButton, FInputChord(EKeys::F1));
+	UI_COMMAND(MoveVertex, "Move Vertex Mode", "Set the primary action to move vertices.", EUserInterfaceActionType::RadioButton, FInputChord());
 
 	UI_COMMAND(WeldVertices, "Weld Vertices", "Weld the selected vertices, keeping the first selected vertex.", EUserInterfaceActionType::Button, FInputChord());
 
-	// @todo mesheditor extensibility: What's the plan for default keybinds for commands registered in a modular way?  Should we suggest available keys?
-	for( TObjectIterator<UMeshEditorVertexCommand> VertexCommandCDOIter( RF_NoFlags ); VertexCommandCDOIter; ++VertexCommandCDOIter )
+	for( TObjectIterator<UMeshEditorCommand> CommandCDOIter( RF_NoFlags ); CommandCDOIter; ++CommandCDOIter )
 	{
-		UMeshEditorVertexCommand* VertexCommandCDO = *VertexCommandCDOIter;
-		if( !( VertexCommandCDO->GetClass()->GetClassFlags() & CLASS_Abstract ) )
+		UMeshEditorCommand* CommandCDO = *CommandCDOIter;
+		if( !( CommandCDO->GetClass()->GetClassFlags() & CLASS_Abstract ) )
 		{
-			VertexCommandCDO->RegisterUICommand( this );
+			if( CommandCDO->GetElementType() == EEditableMeshElementType::Vertex )
+			{
+				CommandCDO->RegisterUICommand( this );
+			}
 		}
 	}
 }
@@ -142,16 +155,19 @@ FMeshEditorEdgeCommands::FMeshEditorEdgeCommands()
 
 void FMeshEditorEdgeCommands::RegisterCommands()
 {
-	UI_COMMAND(MoveEdge, "Move Edge Mode", "Set the primary action to move edges.", EUserInterfaceActionType::RadioButton, FInputChord(EKeys::F1));
+	UI_COMMAND(MoveEdge, "Move Edge Mode", "Set the primary action to move edges.", EUserInterfaceActionType::RadioButton, FInputChord());
 
 	UI_COMMAND(SelectEdgeLoop, "Select Edge Loop", "Select the edge loops which contain the selected edges.", EUserInterfaceActionType::Button, FInputChord(EKeys::Two, EModifierKey::Shift));
 
-	for( TObjectIterator<UMeshEditorEdgeCommand> EdgeCommandCDOIter( RF_NoFlags ); EdgeCommandCDOIter; ++EdgeCommandCDOIter )
+	for( TObjectIterator<UMeshEditorCommand> CommandCDOIter( RF_NoFlags ); CommandCDOIter; ++CommandCDOIter )
 	{
-		UMeshEditorEdgeCommand* EdgeCommandCDO = *EdgeCommandCDOIter;
-		if( !( EdgeCommandCDO->GetClass()->GetClassFlags() & CLASS_Abstract ) )
+		UMeshEditorCommand* CommandCDO = *CommandCDOIter;
+		if( !( CommandCDO->GetClass()->GetClassFlags() & CLASS_Abstract ) )
 		{
-			EdgeCommandCDO->RegisterUICommand( this );
+			if( CommandCDO->GetElementType() == EEditableMeshElementType::Edge )
+			{
+				CommandCDO->RegisterUICommand( this );
+			}
 		}
 	}
 }
@@ -168,17 +184,20 @@ FMeshEditorPolygonCommands::FMeshEditorPolygonCommands()
 
 void FMeshEditorPolygonCommands::RegisterCommands()
 {
-	UI_COMMAND(MovePolygon, "Move Polygon Mode", "Set the primary action to move polygons.", EUserInterfaceActionType::RadioButton, FInputChord(EKeys::F1));
+	UI_COMMAND(MovePolygon, "Move Polygon Mode", "Set the primary action to move polygons.", EUserInterfaceActionType::RadioButton, FInputChord());
 	UI_COMMAND(FlipPolygon, "Flip Polygon", "Flip the currently selected polygons.", EUserInterfaceActionType::Button, FInputChord(EKeys::F, EModifierKey::Shift));
 	UI_COMMAND(TriangulatePolygon, "Triangulate Polygon", "Triangulate the currently selected polygons.", EUserInterfaceActionType::Button, FInputChord(EKeys::T));
 	UI_COMMAND(AssignMaterial, "Assign Material", "Assigns the highlighted material in the Content Browser to the currently selected polygons.", EUserInterfaceActionType::Button, FInputChord(EKeys::M));
 
-	for( TObjectIterator<UMeshEditorPolygonCommand> PolygonCommandCDOIter( RF_NoFlags ); PolygonCommandCDOIter; ++PolygonCommandCDOIter )
+	for( TObjectIterator<UMeshEditorCommand> CommandCDOIter( RF_NoFlags ); CommandCDOIter; ++CommandCDOIter )
 	{
-		UMeshEditorPolygonCommand* PolygonCommandCDO = *PolygonCommandCDOIter;
-		if( !( PolygonCommandCDO->GetClass()->GetClassFlags() & CLASS_Abstract ) )
+		UMeshEditorCommand* CommandCDO = *CommandCDOIter;
+		if( !( CommandCDO->GetClass()->GetClassFlags() & CLASS_Abstract ) )
 		{
-			PolygonCommandCDO->RegisterUICommand( this );
+			if( CommandCDO->GetElementType() == EEditableMeshElementType::Polygon )
+			{
+				CommandCDO->RegisterUICommand( this );
+			}
 		}
 	}
 }

@@ -8,13 +8,17 @@
 
 /** Tessellates selected polygons into smaller polygons */
 UCLASS()
-class UTessellatePolygonCommand : public UMeshEditorPolygonCommand
+class UTessellatePolygonCommand : public UMeshEditorInstantCommand
 {
 	GENERATED_BODY()
 
 protected:
 
 	// Overrides
+	virtual EEditableMeshElementType GetElementType() const override
+	{
+		return EEditableMeshElementType::Polygon;
+	}
 	virtual void RegisterUICommand( class FBindingContext* BindingContext ) override;
 	virtual void Execute( class IMeshEditorModeEditingContract& MeshEditorMode ) override;
 

@@ -3249,9 +3249,9 @@ void FMeshEditorMode::UpdateActiveAction( const bool bIsActionFinishing )
 	{
 		// Check for registered commands that are active right now
 		bool bFoundValidCommand = false;
-		for( TObjectIterator<UMeshEditorCommand> CommandCDOIter( RF_NoFlags ); CommandCDOIter; ++CommandCDOIter )
+		for( TObjectIterator<UMeshEditorEditCommand> CommandCDOIter( RF_NoFlags ); CommandCDOIter; ++CommandCDOIter )
 		{
-			UMeshEditorCommand* CommandCDO = *CommandCDOIter;
+			UMeshEditorEditCommand* CommandCDO = *CommandCDOIter;
 			if( !( CommandCDO->GetClass()->GetClassFlags() & CLASS_Abstract ) )
 			{
 				if( ActiveAction == CommandCDO->GetCommandName() )
@@ -4016,9 +4016,9 @@ void FMeshEditorMode::OnViewportInteractionInputAction( FEditorViewportClient& V
 					}
 					else
 					{
-						for( TObjectIterator<UMeshEditorCommand> CommandCDOIter( RF_NoFlags ); CommandCDOIter; ++CommandCDOIter )
+						for( TObjectIterator<UMeshEditorEditCommand> CommandCDOIter( RF_NoFlags ); CommandCDOIter; ++CommandCDOIter )
 						{
-							UMeshEditorCommand* CommandCDO = *CommandCDOIter;
+							UMeshEditorEditCommand* CommandCDO = *CommandCDOIter;
 							if( !( CommandCDO->GetClass()->GetClassFlags() & CLASS_Abstract ) )
 							{
 								FName EquippedAction = NAME_None;

@@ -8,7 +8,7 @@
 
 /** Inserts a vertex along an edge and allows the user to move it around */
 UCLASS()
-class USplitEdgeCommand : public UMeshEditorEdgeCommand
+class USplitEdgeCommand : public UMeshEditorEditCommand
 {
 	GENERATED_BODY()
 
@@ -18,13 +18,16 @@ protected:
 	  : SplitEdgeMeshesAndEdgesToSplit(),
 	    SplitEdgeSplitList()
 	{
-		bIsMode = true;
 		UndoText = NSLOCTEXT( "MeshEditor", "UndoSplitEdge", "Split Edge" );
 		bNeedsHoverLocation = false;
 		bNeedsDraggingInitiated = true;
 	}
 
 	// Overrides
+	virtual EEditableMeshElementType GetElementType() const override
+	{
+		return EEditableMeshElementType::Edge;
+	}
 	virtual void RegisterUICommand( class FBindingContext* BindingContext ) override;
 	virtual bool TryStartingToDrag( IMeshEditorModeEditingContract& MeshEditorMode, class UViewportInteractor* ViewportInteractor ) override;
 	virtual void ApplyDuringDrag( IMeshEditorModeEditingContract& MeshEditorMode, class UViewportInteractor* ViewportInteractor ) override;

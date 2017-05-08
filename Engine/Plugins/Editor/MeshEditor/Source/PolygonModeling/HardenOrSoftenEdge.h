@@ -8,13 +8,17 @@
 
 /** Makes an edge hard */
 UCLASS()
-class UHardenEdgeCommand : public UMeshEditorEdgeCommand
+class UHardenEdgeCommand : public UMeshEditorInstantCommand
 {
 	GENERATED_BODY()
 
 protected:
 
 	// Overrides
+	virtual EEditableMeshElementType GetElementType() const override
+	{
+		return EEditableMeshElementType::Edge;
+	}
 	virtual void RegisterUICommand( class FBindingContext* BindingContext ) override;
 	virtual void Execute( class IMeshEditorModeEditingContract& MeshEditorMode ) override;
 
@@ -23,13 +27,17 @@ protected:
 
 /** Makes an edge soft */
 UCLASS()
-class USoftenEdgeCommand : public UMeshEditorEdgeCommand
+class USoftenEdgeCommand : public UMeshEditorInstantCommand
 {
 	GENERATED_BODY()
 
 protected:
 
 	// Overrides
+	virtual EEditableMeshElementType GetElementType() const override
+	{
+		return EEditableMeshElementType::Edge;
+	}
 	virtual void RegisterUICommand( class FBindingContext* BindingContext ) override;
 	virtual void Execute( class IMeshEditorModeEditingContract& MeshEditorMode ) override;
 

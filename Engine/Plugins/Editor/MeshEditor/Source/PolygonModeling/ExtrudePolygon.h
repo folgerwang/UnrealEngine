@@ -8,7 +8,7 @@
 
 /** Extrudes the polygon along an axis */
 UCLASS()
-class UExtrudePolygonCommand : public UMeshEditorPolygonCommand
+class UExtrudePolygonCommand : public UMeshEditorEditCommand
 {
 	GENERATED_BODY()
 
@@ -18,7 +18,6 @@ protected:
 		: ExtrudePolygonAxisOrigin( FVector::ZeroVector ),
 		  ExtrudePolygonAxisDirection( FVector::ZeroVector )
 	{
-		bIsMode = true;
 		UndoText = NSLOCTEXT( "MeshEditor", "UndoExtrudePolygon", "Extrude Polygon" );
 		bNeedsHoverLocation = false;
 		bNeedsDraggingInitiated = false;
@@ -35,6 +34,10 @@ protected:
 		float& OutExtrudeDistance );
 
 	// Overrides
+	virtual EEditableMeshElementType GetElementType() const override
+	{
+		return EEditableMeshElementType::Polygon;
+	}
 	virtual void RegisterUICommand( class FBindingContext* BindingContext ) override;
 	virtual bool TryStartingToDrag( IMeshEditorModeEditingContract& MeshEditorMode, class UViewportInteractor* ViewportInteractor ) override;
 	virtual void ApplyDuringDrag( IMeshEditorModeEditingContract& MeshEditorMode, class UViewportInteractor* ViewportInteractor ) override;

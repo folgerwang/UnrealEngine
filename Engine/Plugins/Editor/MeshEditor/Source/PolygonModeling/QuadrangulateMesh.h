@@ -8,13 +8,17 @@
 
 /** Quadrangulates the currently selected mesh */
 UCLASS()
-class UQuadrangulateMeshCommand : public UMeshEditorCommonCommand
+class UQuadrangulateMeshCommand : public UMeshEditorInstantCommand
 {
 	GENERATED_BODY()
 
 protected:
 
 	// Overrides
+	virtual EEditableMeshElementType GetElementType() const override
+	{
+		return EEditableMeshElementType::Invalid;
+	}
 	virtual void RegisterUICommand( class FBindingContext* BindingContext ) override;
 	virtual void Execute( class IMeshEditorModeEditingContract& MeshEditorMode ) override;
 

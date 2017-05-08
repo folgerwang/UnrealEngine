@@ -16,25 +16,17 @@ class MESHEDITOR_API UMeshEditorCommand : public UObject
 
 public:
 
-	/** What type of mesh element is this command for? */
+	/** Which mesh element does this command apply to? */
 	virtual EEditableMeshElementType GetElementType() const PURE_VIRTUAL(,return EEditableMeshElementType::Invalid;);
 
 	/** Registers the UI command for this mesh editor command */
 	virtual void RegisterUICommand( class FBindingContext* BindingContext ) PURE_VIRTUAL(,);
 
+	/** Creates an UI action for this command */
+	virtual FUIAction MakeUIAction( class IMeshEditorModeUIContract& MeshEditorMode ) PURE_VIRTUAL(,return FUIAction(););
+
 	/** Runs this command */
 	virtual void Execute( class IMeshEditorModeEditingContract& MeshEditorMode )
-	{
-	}
-
-	/** Called when the user starts to drag on an element.  If this returns true, then the action will begin and ApplyDuringDrag() will be called each frame until the user releases the button. */
-	virtual bool TryStartingToDrag( IMeshEditorModeEditingContract& MeshEditorMode, class UViewportInteractor* ViewportInteractor )
-	{
-		return true;
-	}
-
-	/** Applies this command every frame while dragging */
-	virtual void ApplyDuringDrag( class IMeshEditorModeEditingContract& MeshEditorMode, class UViewportInteractor* ViewportInteractor )
 	{
 	}
 
@@ -49,18 +41,62 @@ public:
 		return UICommandInfo->GetCommandName();
 	}
 
+	/** Gets the UI command info for this command */
+	const TSharedPtr<FUICommandInfo>& GetUICommandInfo() const
+	{
+		return UICommandInfo;
+	}
+
+
+protected:
+
+	/** Our UI command for this action */
+	TSharedPtr<FUICommandInfo> UICommandInfo;
+};
+
+
+UCLASS( abstract )
+class MESHEDITOR_API UMeshEditorInstantCommand : public UMeshEditorCommand
+{
+	GENERATED_BODY()
+
+public:
+
+	// UMeshEditorCommand overrides
+	virtual FUIAction MakeUIAction( class IMeshEditorModeUIContract& MeshEditorMode ) override;
+
+protected:
+
+};
+
+
+
+UCLASS( abstract )
+class MESHEDITOR_API UMeshEditorEditCommand : public UMeshEditorCommand
+{
+	GENERATED_BODY()
+
+public:
+
+	// UMeshEditorCommand overrides
+	virtual FUIAction MakeUIAction( class IMeshEditorModeUIContract& MeshEditorMode ) override;
+
+	/** Called when the user starts to drag on an element.  If this returns true, then the action will begin and ApplyDuringDrag() will be called each frame until the user releases the button. */
+	virtual bool TryStartingToDrag( IMeshEditorModeEditingContract& MeshEditorMode, class UViewportInteractor* ViewportInteractor )
+	{
+		return true;
+	}
+
+	/** Applies this command every frame while dragging */
+	virtual void ApplyDuringDrag( class IMeshEditorModeEditingContract& MeshEditorMode, class UViewportInteractor* ViewportInteractor )
+	{
+	}
+
 	/** Gets the text to send to the transaction system when creating an undo/redo event for this action */
 	FText GetUndoText() const
 	{
-		check( !bIsMode || !UndoText.IsEmpty() );	// All mode-based commands must have supplied UndoText.  Instantaneous commands handle their own undo/redo.
+		check( !UndoText.IsEmpty() );
 		return UndoText;
-	}
-
-	/** Returns true if this is a mesh editing 'Mode' that the user will stay in to perform the action multiple times, or false
-		if the action applies instantly */
-	bool IsMode() const
-	{
-		return bIsMode;
 	}
 
 	/** Returns whether we rely on a hover location under the interactor being updated as we drag during this action */
@@ -75,26 +111,12 @@ public:
 		return bNeedsDraggingInitiated;
 	}
 
-	/** Gets the UI command info for this command */
-	const TSharedPtr<FUICommandInfo>& GetUICommandInfo() const
-	{
-		return UICommandInfo;
-	}
-
-	/** Creates an UI action for this command */
-	FUIAction MakeUIAction( class IMeshEditorModeUIContract& MeshEditorMode );
-
 
 protected:
 
 	/** The text to send to the transaction system when creating an undo / redo event for this action */
 	UPROPERTY( EditAnywhere, Category=MeshEditor )
 	FText UndoText;
-
-	/** True if this is a mesh editing 'Mode' that the user will stay in to perform the action multiple times, or false
-	    if the action applies instantly */
-	UPROPERTY( EditAnywhere, Category=MeshEditor )
-	bool bIsMode;
 
 	/** Whether this command will kick off regular free translation of the selected mesh elements when dragging starts */
 	UPROPERTY( EditAnywhere, Category=MeshEditor )
@@ -103,73 +125,6 @@ protected:
 	/** Whether we rely on a hover location under the interactor being updated as we drag during this action */
 	UPROPERTY( EditAnywhere, Category=MeshEditor )
 	bool bNeedsHoverLocation;
-
-	/** Our UI command for this action */
-	TSharedPtr<FUICommandInfo> UICommandInfo;
-};
-
-
-UCLASS( abstract )
-class MESHEDITOR_API UMeshEditorCommonCommand : public UMeshEditorCommand
-{
-	GENERATED_BODY()
-
-public:
-
-	// Overrides
-	virtual EEditableMeshElementType GetElementType() const override
-	{
-		return EEditableMeshElementType::Invalid;
-	}
-
-};
-
-
-UCLASS( abstract )
-class MESHEDITOR_API UMeshEditorVertexCommand : public UMeshEditorCommand
-{
-	GENERATED_BODY()
-
-public:
-
-	// Overrides
-	virtual EEditableMeshElementType GetElementType() const override
-	{
-		return EEditableMeshElementType::Vertex;
-	}
-
-};
-
-
-UCLASS( abstract )
-class MESHEDITOR_API UMeshEditorEdgeCommand : public UMeshEditorCommand
-{
-	GENERATED_BODY()
-
-public:
-
-	// Overrides
-	virtual EEditableMeshElementType GetElementType() const override
-	{
-		return EEditableMeshElementType::Edge;
-	}
-
-};
-
-
-UCLASS( abstract )
-class MESHEDITOR_API UMeshEditorPolygonCommand : public UMeshEditorCommand
-{
-	GENERATED_BODY()
-
-public:
-
-	// Overrides
-	virtual EEditableMeshElementType GetElementType() const override
-	{
-		return EEditableMeshElementType::Polygon;
-	}
-
 };
 
 
