@@ -172,7 +172,7 @@ struct FMeshElement
 	{
 		return FString::Printf(
 			TEXT( "Component:%s, %s" ),
-			*Component->GetName(),
+			Component.IsValid() ? *Component->GetName() : TEXT( "<Invalid>" ),
 			*ElementAddress.ToString() );
 	}
 };
