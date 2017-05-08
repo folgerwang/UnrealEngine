@@ -42,25 +42,13 @@ void UInsertEdgeLoopCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Me
 			const TArray<FMeshElement>& EdgeElements = MeshAndEdges.Value;
 
 			// Figure out where to add the loop along the edge
-			static TArray<float> Splits;
-			MeshEditorMode.FindEdgeSplitUnderInteractor( MeshEditorMode.GetActiveActionInteractor(), EditableMesh, EdgeElements, /* Out */ Splits );
+			FEdgeID ClosestEdgeID = FEdgeID::Invalid;
+			float Split = 0.0f;
+			const bool bFoundSplit = MeshEditorMode.FindEdgeSplitUnderInteractor( MeshEditorMode.GetActiveActionInteractor(), EditableMesh, EdgeElements, /* Out */ ClosestEdgeID, /* Out */ Split );
 
 			// Insert the edge loop
-			if( Splits.Num() > 0 )
+			if( bFoundSplit )
 			{
-				// @todo mesheditor edgeloop: Test code
-				if( false )
-				{
-					if( Splits[ 0 ] > 0.25f )
-					{
-						Splits.Insert( FMath::Max( Splits[ 0 ] - 0.2f, 0.0f ), 0 );
-					}
-					if( Splits.Last() < 0.75f )
-					{
-						Splits.Add( FMath::Min( Splits.Last() + 0.2f, 1.0f ) );
-					}
-				}
-
 				for( const FMeshElement& EdgeMeshElement : EdgeElements )
 				{
 					const FEdgeID EdgeID( EdgeMeshElement.ElementAddress.ElementID );
@@ -68,6 +56,9 @@ void UInsertEdgeLoopCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Me
 					static TArray<FEdgeID> NewEdgeIDs;
 					NewEdgeIDs.Reset();
 
+					static TArray<float> Splits;	// @todo mesheditor edgeloop: Add support for inserting multiple splits at once!
+					Splits.Reset();
+					Splits.Add( Split );
 					EditableMesh->InsertEdgeLoop( EdgeID, Splits, /* Out */ NewEdgeIDs );
 
 					// Select all of the new edges that were created by inserting the loop

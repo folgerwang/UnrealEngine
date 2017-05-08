@@ -251,3 +251,26 @@ public:
 	TSharedPtr<FUICommandInfo> AssignMaterial;
 };
 
+
+UCLASS()
+class UMeshEditorCommandList : public UObject
+{
+	GENERATED_BODY()
+
+public:
+
+	void HarvestMeshEditorCommands();
+
+	/** All of the mesh editor commands that were registered at startup */
+	UPROPERTY()
+	TArray<UMeshEditorCommand*> MeshEditorCommands;
+};
+
+
+namespace MeshEditorCommands
+{
+	extern const TArray<UMeshEditorCommand*>& Get();
+}
+
+
+

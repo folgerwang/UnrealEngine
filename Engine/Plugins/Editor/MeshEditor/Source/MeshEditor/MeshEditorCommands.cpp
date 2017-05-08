@@ -10,6 +10,24 @@
 #define LOCTEXT_NAMESPACE "MeshEditorCommands"
 
 
+namespace MeshEditorCommands
+{
+	const TArray<UMeshEditorCommand*>& Get()
+	{
+		static UMeshEditorCommandList* MeshEditorCommandList = nullptr;
+		if( MeshEditorCommandList == nullptr )
+		{
+			MeshEditorCommandList = NewObject<UMeshEditorCommandList>();
+			MeshEditorCommandList->AddToRoot();
+
+			MeshEditorCommandList->HarvestMeshEditorCommands();
+		}
+
+		return MeshEditorCommandList->MeshEditorCommands;
+	}
+}
+
+
 FUIAction UMeshEditorInstantCommand::MakeUIAction( IMeshEditorModeUIContract& MeshEditorMode )
 {
 	const EEditableMeshElementType ElementType = GetElementType();
@@ -86,15 +104,11 @@ void FMeshEditorCommonCommands::RegisterCommands()
 	UI_COMMAND(SetPolygonSelectionMode, "Set Polygon Selection Mode", "Sets the selection mode so that only polygons will be selected.", EUserInterfaceActionType::None, FInputChord(EKeys::Three));
 	UI_COMMAND(SetAnySelectionMode, "Set Any Selection Mode", "Sets the selection mode so that any element type may be selected.", EUserInterfaceActionType::None, FInputChord(EKeys::Four));
 
-	for( TObjectIterator<UMeshEditorCommand> CommandCDOIter( RF_NoFlags ); CommandCDOIter; ++CommandCDOIter )
+	for( UMeshEditorCommand* Command : MeshEditorCommands::Get() )
 	{
-		UMeshEditorCommand* CommandCDO = *CommandCDOIter;
-		if( !( CommandCDO->GetClass()->GetClassFlags() & CLASS_Abstract ) )
+		if( Command->GetElementType() == EEditableMeshElementType::Invalid )
 		{
-			if( CommandCDO->GetElementType() == EEditableMeshElementType::Invalid )
-			{
-				CommandCDO->RegisterUICommand( this );
-			}
+			Command->RegisterUICommand( this );
 		}
 	}
 }
@@ -130,15 +144,11 @@ void FMeshEditorVertexCommands::RegisterCommands()
 
 	UI_COMMAND(WeldVertices, "Weld Vertices", "Weld the selected vertices, keeping the first selected vertex.", EUserInterfaceActionType::Button, FInputChord());
 
-	for( TObjectIterator<UMeshEditorCommand> CommandCDOIter( RF_NoFlags ); CommandCDOIter; ++CommandCDOIter )
+	for( UMeshEditorCommand* Command : MeshEditorCommands::Get() )
 	{
-		UMeshEditorCommand* CommandCDO = *CommandCDOIter;
-		if( !( CommandCDO->GetClass()->GetClassFlags() & CLASS_Abstract ) )
+		if( Command->GetElementType() == EEditableMeshElementType::Vertex )
 		{
-			if( CommandCDO->GetElementType() == EEditableMeshElementType::Vertex )
-			{
-				CommandCDO->RegisterUICommand( this );
-			}
+			Command->RegisterUICommand( this );
 		}
 	}
 }
@@ -159,15 +169,11 @@ void FMeshEditorEdgeCommands::RegisterCommands()
 
 	UI_COMMAND(SelectEdgeLoop, "Select Edge Loop", "Select the edge loops which contain the selected edges.", EUserInterfaceActionType::Button, FInputChord(EKeys::Two, EModifierKey::Shift));
 
-	for( TObjectIterator<UMeshEditorCommand> CommandCDOIter( RF_NoFlags ); CommandCDOIter; ++CommandCDOIter )
+	for( UMeshEditorCommand* Command : MeshEditorCommands::Get() )
 	{
-		UMeshEditorCommand* CommandCDO = *CommandCDOIter;
-		if( !( CommandCDO->GetClass()->GetClassFlags() & CLASS_Abstract ) )
+		if( Command->GetElementType() == EEditableMeshElementType::Edge )
 		{
-			if( CommandCDO->GetElementType() == EEditableMeshElementType::Edge )
-			{
-				CommandCDO->RegisterUICommand( this );
-			}
+			Command->RegisterUICommand( this );
 		}
 	}
 }
@@ -189,17 +195,28 @@ void FMeshEditorPolygonCommands::RegisterCommands()
 	UI_COMMAND(TriangulatePolygon, "Triangulate Polygon", "Triangulate the currently selected polygons.", EUserInterfaceActionType::Button, FInputChord(EKeys::T));
 	UI_COMMAND(AssignMaterial, "Assign Material", "Assigns the highlighted material in the Content Browser to the currently selected polygons.", EUserInterfaceActionType::Button, FInputChord(EKeys::M));
 
+	for( UMeshEditorCommand* Command : MeshEditorCommands::Get() )
+	{
+		if( Command->GetElementType() == EEditableMeshElementType::Polygon )
+		{
+			Command->RegisterUICommand( this );
+		}
+	}
+}
+
+
+void UMeshEditorCommandList::HarvestMeshEditorCommands()
+{
+	MeshEditorCommands.Reset();
 	for( TObjectIterator<UMeshEditorCommand> CommandCDOIter( RF_NoFlags ); CommandCDOIter; ++CommandCDOIter )
 	{
 		UMeshEditorCommand* CommandCDO = *CommandCDOIter;
 		if( !( CommandCDO->GetClass()->GetClassFlags() & CLASS_Abstract ) )
 		{
-			if( CommandCDO->GetElementType() == EEditableMeshElementType::Polygon )
-			{
-				CommandCDO->RegisterUICommand( this );
-			}
+			MeshEditorCommands.Add( NewObject<UMeshEditorCommand>( this, CommandCDO->GetClass() ) );
 		}
 	}
 }
+
 
 #undef LOCTEXT_NAMESPACE

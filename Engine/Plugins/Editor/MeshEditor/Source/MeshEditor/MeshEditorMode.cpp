@@ -575,39 +575,35 @@ void FMeshEditorMode::BindCommands()
 	RegisterPolygonCommand( MeshEditorPolygonCommands.TriangulatePolygon, FExecuteAction::CreateLambda( [this] { TriangulateSelectedPolygons(); } ) );
 	RegisterPolygonCommand( MeshEditorPolygonCommands.AssignMaterial, FExecuteAction::CreateLambda( [this] { AssignSelectedMaterialToSelectedPolygons(); } ) );
 
-	for( TObjectIterator<UMeshEditorCommand> CommandCDOIter( RF_NoFlags ); CommandCDOIter; ++CommandCDOIter )
+	for( UMeshEditorCommand* Command : MeshEditorCommands::Get() )
 	{
-		UMeshEditorCommand* CommandCDO = *CommandCDOIter;
-		if( !( CommandCDO->GetClass()->GetClassFlags() & CLASS_Abstract ) )
+		switch( Command->GetElementType() )
 		{
-			switch( CommandCDO->GetElementType() )
-			{
-				case EEditableMeshElementType::Invalid:
-					{
-						// Common action
-						FUIAction UIAction = CommandCDO->MakeUIAction( *this );
-						CommonActions.Emplace( CommandCDO->GetUICommandInfo(), UIAction );
-						VertexActions.Emplace( CommandCDO->GetUICommandInfo(), UIAction );
-						EdgeActions.Emplace( CommandCDO->GetUICommandInfo(), UIAction );
-						PolygonActions.Emplace( CommandCDO->GetUICommandInfo(), UIAction );
-					}
-					break;
+			case EEditableMeshElementType::Invalid:
+				{
+					// Common action
+					FUIAction UIAction = Command->MakeUIAction( *this );
+					CommonActions.Emplace( Command->GetUICommandInfo(), UIAction );
+					VertexActions.Emplace( Command->GetUICommandInfo(), UIAction );
+					EdgeActions.Emplace( Command->GetUICommandInfo(), UIAction );
+					PolygonActions.Emplace( Command->GetUICommandInfo(), UIAction );
+				}
+				break;
 
-				case EEditableMeshElementType::Vertex:
-					VertexActions.Emplace( CommandCDO->GetUICommandInfo(), CommandCDO->MakeUIAction( *this ) );
-					break;
+			case EEditableMeshElementType::Vertex:
+				VertexActions.Emplace( Command->GetUICommandInfo(), Command->MakeUIAction( *this ) );
+				break;
 				
-				case EEditableMeshElementType::Edge:
-					EdgeActions.Emplace( CommandCDO->GetUICommandInfo(), CommandCDO->MakeUIAction( *this ) );
-					break;
+			case EEditableMeshElementType::Edge:
+				EdgeActions.Emplace( Command->GetUICommandInfo(), Command->MakeUIAction( *this ) );
+				break;
 
-				case EEditableMeshElementType::Polygon:
-					PolygonActions.Emplace( CommandCDO->GetUICommandInfo(), CommandCDO->MakeUIAction( *this ) );
-					break;
+			case EEditableMeshElementType::Polygon:
+				PolygonActions.Emplace( Command->GetUICommandInfo(), Command->MakeUIAction( *this ) );
+				break;
 
-				default:
-					check( 0 );
-			}
+			default:
+				check( 0 );
 		}
 	}
 
@@ -3249,16 +3245,16 @@ void FMeshEditorMode::UpdateActiveAction( const bool bIsActionFinishing )
 	{
 		// Check for registered commands that are active right now
 		bool bFoundValidCommand = false;
-		for( TObjectIterator<UMeshEditorEditCommand> CommandCDOIter( RF_NoFlags ); CommandCDOIter; ++CommandCDOIter )
+		for( UMeshEditorCommand* Command : MeshEditorCommands::Get() )
 		{
-			UMeshEditorEditCommand* CommandCDO = *CommandCDOIter;
-			if( !( CommandCDO->GetClass()->GetClassFlags() & CLASS_Abstract ) )
+			UMeshEditorEditCommand* EditCommand = Cast<UMeshEditorEditCommand>( Command );
+			if( EditCommand != nullptr )
 			{
-				if( ActiveAction == CommandCDO->GetCommandName() )
+				if( ActiveAction == EditCommand->GetCommandName() )
 				{
-					CommandCDO->ApplyDuringDrag( *this, ActiveActionInteractor );
+					EditCommand->ApplyDuringDrag( *this, ActiveActionInteractor );
 
-					bIsMovingSelectedMeshElements = CommandCDO->NeedsDraggingInitiated();
+					bIsMovingSelectedMeshElements = EditCommand->NeedsDraggingInitiated();
 
 					// Should always only be one candidate
 					bFoundValidCommand = true;
@@ -3457,11 +3453,12 @@ void FMeshEditorMode::GetSelectedMeshesAndElements( EEditableMeshElementType Ele
 }
 
 
-void FMeshEditorMode::FindEdgeSplitUnderInteractor(	UViewportInteractor* ViewportInteractor, const UEditableMesh* EditableMesh, const TArray<FMeshElement>& EdgeElements, TArray<float>& OutSplits )
+bool FMeshEditorMode::FindEdgeSplitUnderInteractor(	UViewportInteractor* ViewportInteractor, const UEditableMesh* EditableMesh, const TArray<FMeshElement>& EdgeElements, FEdgeID& OutClosestEdgeID, float& OutSplit )
 {
 	check( ViewportInteractor != nullptr );
 
-	OutSplits.Reset();
+	OutClosestEdgeID = FEdgeID::Invalid;
+	bool bFoundSplit = false;
 
 	// Figure out where to split based on where the interactor is aiming.  We'll look at all of the
 	// selected edges, and choose a split offset based on the closest point along one of those edges
@@ -3513,11 +3510,14 @@ void FMeshEditorMode::FindEdgeSplitUnderInteractor(	UViewportInteractor* Viewpor
 						1.0f );
 				}
 
-				OutSplits.Reset();
-				OutSplits.Add( ProgressAlongEdge );
+				bFoundSplit = true;
+				OutClosestEdgeID = EdgeID;
+				OutSplit = ProgressAlongEdge;
 			}
 		}
 	}
+
+	return bFoundSplit;
 }
 
 
@@ -4016,10 +4016,10 @@ void FMeshEditorMode::OnViewportInteractionInputAction( FEditorViewportClient& V
 					}
 					else
 					{
-						for( TObjectIterator<UMeshEditorEditCommand> CommandCDOIter( RF_NoFlags ); CommandCDOIter; ++CommandCDOIter )
+						for( UMeshEditorCommand* Command : MeshEditorCommands::Get() )
 						{
-							UMeshEditorEditCommand* CommandCDO = *CommandCDOIter;
-							if( !( CommandCDO->GetClass()->GetClassFlags() & CLASS_Abstract ) )
+							UMeshEditorEditCommand* EditCommand = Cast<UMeshEditorEditCommand>( Command );
+							if( EditCommand != nullptr )
 							{
 								FName EquippedAction = NAME_None;
 								switch( SelectedMeshElementType )
@@ -4037,15 +4037,15 @@ void FMeshEditorMode::OnViewportInteractionInputAction( FEditorViewportClient& V
 										break;
 								}
 
-								const EEditableMeshElementType CommandElementType = CommandCDO->GetElementType();
-								if( ( CommandElementType == SelectedMeshElementType || CommandElementType == EEditableMeshElementType::Invalid || CommandElementType == EEditableMeshElementType::Any ) && 
-									EquippedAction == CommandCDO->GetCommandName() )
+								const EEditableMeshElementType CommandElementType = EditCommand->GetElementType();
+								if( ( CommandElementType == SelectedMeshElementType || CommandElementType == EEditableMeshElementType::Invalid || CommandElementType == EEditableMeshElementType::Any ) &&
+									EquippedAction == EditCommand->GetCommandName() )
 								{
-									if( CommandCDO->TryStartingToDrag( *this, ViewportInteractor ) )
+									if( EditCommand->TryStartingToDrag( *this, ViewportInteractor ) )
 									{
-										StartAction( EquippedAction, ViewportInteractor, CommandCDO->NeedsHoverLocation(), CommandCDO->GetUndoText() );
+										StartAction( EquippedAction, ViewportInteractor, EditCommand->NeedsHoverLocation(), EditCommand->GetUndoText() );
 
-										if( CommandCDO->NeedsDraggingInitiated() )
+										if( EditCommand->NeedsDraggingInitiated() )
 										{
 											bWantToStartMoving = true;
 										}
@@ -4909,13 +4909,9 @@ void FMeshEditorMode::MakeVRRadialMenuActionsMenu(FMenuBuilder& MenuBuilder, TSh
 			);
 	}
 
-	for( TObjectIterator<UMeshEditorCommand> CommandCDOIter( RF_NoFlags ); CommandCDOIter; ++CommandCDOIter )
+	for( UMeshEditorCommand* Command : MeshEditorCommands::Get() )
 	{
-		UMeshEditorCommand* CommandCDO = *CommandCDOIter;
-		if( !( CommandCDO->GetClass()->GetClassFlags() & CLASS_Abstract ) )
-		{
-			CommandCDO->AddToVRRadialMenuActionsMenu( *this, MenuBuilder, CommandList, FMeshEditorStyle::GetStyleSetName(), VRMode );
-		}
+		Command->AddToVRRadialMenuActionsMenu( *this, MenuBuilder, CommandList, FMeshEditorStyle::GetStyleSetName(), VRMode );
 	}
 }
 

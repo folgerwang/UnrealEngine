@@ -52,8 +52,8 @@ public:
 	/** Commits all selected meshes */
 	virtual void CommitSelectedMeshes() = 0;
 
-	/** Given an interactor and a mesh, finds edges under the interactor along with their exact split position (progress along the edge) */
-	virtual void FindEdgeSplitUnderInteractor( class UViewportInteractor* ViewportInteractor, const UEditableMesh* EditableMesh, const TArray<FMeshElement>& EdgeElements, TArray<float>& OutSplits ) = 0;
+	/** Given an interactor and a mesh, finds edges under the interactor along with their exact split position (progress along the edge).  Returns true if we found a split position. */
+	virtual bool FindEdgeSplitUnderInteractor( class UViewportInteractor* ViewportInteractor, const UEditableMesh* EditableMesh, const TArray<FMeshElement>& EdgeElements, FEdgeID& OutClosestEdgeID, float& OutSplit ) = 0;
 
 	/** When performing an interactive action that was initiated using an interactor, this is the interactor that was used. */
 	virtual class UViewportInteractor* GetActiveActionInteractor() = 0;

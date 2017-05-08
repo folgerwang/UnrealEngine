@@ -26,6 +26,8 @@ bool USplitEdgeCommand::TryStartingToDrag( IMeshEditorModeEditingContract& MeshE
 	// Figure out what to split
 	MeshEditorMode.GetSelectedMeshesAndEdges( /* Out */ SplitEdgeMeshesAndEdgesToSplit );
 
+	SplitEdgeSplitList.Reset();
+
 	if( SplitEdgeMeshesAndEdgesToSplit.Num() > 0 )
 	{
 		for( auto& MeshAndEdges : SplitEdgeMeshesAndEdgesToSplit )
@@ -34,12 +36,15 @@ bool USplitEdgeCommand::TryStartingToDrag( IMeshEditorModeEditingContract& MeshE
 			const TArray<FMeshElement>& EdgeElements = MeshAndEdges.Value;
 
 			// Figure out where to split
-			MeshEditorMode.FindEdgeSplitUnderInteractor( ViewportInteractor, EditableMesh, EdgeElements, /* Out */ SplitEdgeSplitList );
+			FEdgeID ClosestEdgeID = FEdgeID::Invalid;
+			float Split = 0.0f;
+			const bool bFoundSplit = MeshEditorMode.FindEdgeSplitUnderInteractor( ViewportInteractor, EditableMesh, EdgeElements, /* Out */ ClosestEdgeID, /* Out */ Split );
 
-			// Split the edges
-			if( SplitEdgeSplitList.Num() > 0 )
+			if( bFoundSplit )
 			{
+				SplitEdgeSplitList.Add( Split );
 				bHaveEdge = true;
+				break;
 			}
 		}
 	}
