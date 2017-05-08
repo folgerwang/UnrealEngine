@@ -204,6 +204,20 @@ bool UEditableMesh::IsPreviewingSubdivisions() const
 }
 
 
+void UEditableMesh::GetVertexConnectedEdges( const FVertexID VertexID, TArray<FEdgeID>& OutConnectedEdgeIDs ) const
+{
+	OutConnectedEdgeIDs.Reset();
+
+	const int32 ConnectedEdgeCount = GetVertexConnectedEdgeCount( VertexID );
+	OutConnectedEdgeIDs.Reserve( ConnectedEdgeCount );
+	for( int32 EdgeNumber = 0; EdgeNumber < ConnectedEdgeCount; ++EdgeNumber )
+	{
+		const FEdgeID ConnectedEdgeID = GetVertexConnectedEdge( VertexID, EdgeNumber );
+		OutConnectedEdgeIDs.Add( ConnectedEdgeID );
+	}
+}
+
+
 void UEditableMesh::GetVertexConnectedPolygons( const FVertexID VertexID, TArray<FPolygonRef>& OutConnectedPolygonRefs ) const
 {
 	OutConnectedPolygonRefs.Reset();
