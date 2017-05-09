@@ -997,15 +997,6 @@ void FMeshEditorMode::Tick( FEditorViewportClient* ViewportClient, float DeltaTi
 	}
 
 
-	// Clear hover for all interactors.  We'll re-detect what's hovered every frame when OnViewportInteractionHoverUpdate() is called.
-	for( FMeshEditorInteractorData& MeshEditorInteractorData : MeshEditorInteractorDatas )
-	{
-		MeshEditorInteractorData.PreviouslyHoveredMeshElement = MeshEditorInteractorData.HoveredMeshElement;
-		MeshEditorInteractorData.HoveredMeshElement = FMeshElement();
-		MeshEditorInteractorData.HoverLocation = FVector::ZeroVector;
-	}
-
-
 	// Hide the transform gizmo while we're doing things.  It actually will get in the way of our hit tests!
 	{
 		const EEditableMeshElementType SelectedMeshElementType = GetSelectedMeshElementType();
@@ -1213,6 +1204,52 @@ bool FMeshEditorMode::CanPropagateInstanceChanges() const
 const UMeshEditorAssetContainer& FMeshEditorMode::GetAssetContainer() const
 {
 	return *AssetContainer;
+}
+
+
+void FMeshEditorMode::GetSelectedMeshesAndPolygonsPerimeterEdges( TMap<UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndPolygonsEdges )
+{
+	OutMeshesAndPolygonsEdges.Reset();
+
+	static TMap<UEditableMesh*, TArray<FMeshElement>> MeshesAndPolygons;
+	GetSelectedMeshesAndElements( EEditableMeshElementType::Polygon, /* Out */ MeshesAndPolygons );
+
+	for( auto& MeshAndPolygonElements : MeshesAndPolygons )
+	{
+		UEditableMesh* EditableMesh = MeshAndPolygonElements.Key;
+
+		static TArray<FEdgeID> UniqueSelectedEdgeIDs;
+		UniqueSelectedEdgeIDs.Reset();
+
+		FMeshElement FirstPolygonElement;
+		for( const FMeshElement& PolygonElement : MeshAndPolygonElements.Value )
+		{
+			if( !FirstPolygonElement.IsValidMeshElement() )
+			{
+				FirstPolygonElement = PolygonElement;
+			}
+
+			static TArray<FEdgeID> PerimeterEdgeIDs;
+			EditableMesh->GetPolygonPerimeterEdges( FPolygonRef( FSectionID( PolygonElement.ElementAddress.SectionID ), FPolygonID( PolygonElement.ElementAddress.ElementID ) ), /* Out */ PerimeterEdgeIDs );
+
+			for( const FEdgeID PerimeterEdgeID : PerimeterEdgeIDs )
+			{
+				UniqueSelectedEdgeIDs.AddUnique( PerimeterEdgeID );	// Unique add, because polygons can share edges
+			}
+		}
+
+		TArray<FMeshElement>& EdgeElementsToFill = OutMeshesAndPolygonsEdges.Add( EditableMesh, TArray<FMeshElement>() );
+		for( const FEdgeID EdgeID : UniqueSelectedEdgeIDs )
+		{
+			FMeshElement EdgeElement;
+			EdgeElement.Component = FirstPolygonElement.Component;
+			EdgeElement.ElementAddress.SubMeshAddress = FirstPolygonElement.ElementAddress.SubMeshAddress;
+			EdgeElement.ElementAddress.ElementID = EdgeID;
+			EdgeElement.ElementAddress.ElementType = EEditableMeshElementType::Edge;
+
+			EdgeElementsToFill.Add( EdgeElement );
+		}
+	}
 }
 
 void FMeshEditorMode::SelectMeshElements( const TArray<FMeshElement>& MeshElementsToSelect )
@@ -2573,10 +2610,18 @@ FMeshEditorMode::FMeshEditorInteractorData& FMeshEditorMode::GetMeshEditorIntera
 
 void FMeshEditorMode::OnViewportInteractionHoverUpdate( UViewportInteractor* ViewportInteractor, FVector& OutHoverImpactPoint, bool& bWasHandled )
 {
+	FMeshEditorInteractorData& MeshEditorInteractorData = GetMeshEditorInteractorData( ViewportInteractor );
+	MeshEditorInteractorData.PreviouslyHoveredMeshElement = MeshEditorInteractorData.HoveredMeshElement;
+	MeshEditorInteractorData.HoveredMeshElement = FMeshElement();
+	MeshEditorInteractorData.HoverLocation = FVector::ZeroVector;
+
+	// Make sure there are no outstanding changes being previewed.  Usually, OnViewportInteractionHoverUpdate() will be the first function
+	// called on our class each frame.  We definitely don't want to do hover testing against the mesh we were previewing at the end of
+	// the last frame.  So let's roll those changes back first thing.
+	RollbackPreviewChanges();
+
 	if( !bWasHandled )
 	{
-		FMeshEditorInteractorData& MeshEditorInteractorData = GetMeshEditorInteractorData( ViewportInteractor );
-
 		MeshEditorInteractorData.bGrabberSphereIsValid = ViewportInteractor->GetGrabberSphere( /* Out */ MeshEditorInteractorData.GrabberSphere );
 		MeshEditorInteractorData.bLaserIsValid = ViewportInteractor->GetLaserPointer( /* Out */ MeshEditorInteractorData.LaserStart, /* Out */ MeshEditorInteractorData.LaserEnd );
 

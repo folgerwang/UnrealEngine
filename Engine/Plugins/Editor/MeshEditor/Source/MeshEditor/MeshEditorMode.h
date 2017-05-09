@@ -191,6 +191,7 @@ protected:
 	{
 		GetSelectedMeshesAndElements( EEditableMeshElementType::Polygon, /* Out */ OutMeshesAndPolygons );
 	}
+	virtual void GetSelectedMeshesAndPolygonsPerimeterEdges( TMap<UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndPolygonsEdges ) override;
 	virtual const TArray<UEditableMesh*>& GetSelectedEditableMeshes() const override { return SelectedEditableMeshes; }
 	virtual const TArray<UEditableMesh*>& GetSelectedEditableMeshes() override { return SelectedEditableMeshes; }
 	virtual void SelectMeshElements( const TArray<FMeshElement>& MeshElementsToSelect ) override;

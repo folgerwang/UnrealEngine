@@ -32,6 +32,7 @@ public:
 	virtual void GetSelectedMeshesAndVertices( TMap<class UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndVertices ) = 0;
 	virtual void GetSelectedMeshesAndEdges( TMap<class UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndEdges ) = 0;
 	virtual void GetSelectedMeshesAndPolygons( TMap<class UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndPolygons ) = 0;
+	virtual void GetSelectedMeshesAndPolygonsPerimeterEdges( TMap<class UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndPolygonsEdges ) = 0;
 
 	/** Gets all of the editable meshes that are currently selected (const) */
 	virtual const TArray<class UEditableMesh*>& GetSelectedEditableMeshes() const = 0;
