@@ -50,6 +50,50 @@ private:
 };
 
 
+struct FDeleteVertexInstancesChangeInput
+{
+	/** The vertex instance IDs to delete */
+	TArray<FVertexInstanceID> VertexInstanceIDsToDelete;
+
+	/** Whether we should also delete any vertices if we delete their only instance */
+	bool bDeleteOrphanedVertices;
+
+	/** Default constructor */
+	FDeleteVertexInstancesChangeInput()
+		: VertexInstanceIDsToDelete(),
+		  bDeleteOrphanedVertices( true )
+	{
+	}
+};
+
+
+class FDeleteVertexInstancesChange : public FChange
+{
+
+public:
+
+	/** Constructor */
+	FDeleteVertexInstancesChange( const FDeleteVertexInstancesChangeInput& InitInput )
+		: Input( InitInput )
+	{
+	}
+
+	FDeleteVertexInstancesChange( FDeleteVertexInstancesChangeInput&& InitInput )
+		: Input( MoveTemp( InitInput ) )
+	{
+	}
+
+	// Parent class overrides
+	virtual TUniquePtr<FChange> Execute( UObject* Object ) override;
+	virtual FString ToString() const override;
+
+private:
+
+	/** The data we need to make this change */
+	FDeleteVertexInstancesChangeInput Input;
+};
+
+
 struct FDeleteEdgesChangeInput
 {
 	/** The edge IDs to get rid of */
@@ -134,6 +178,48 @@ private:
 	
 	/** The data we need to make this change */
 	FCreateVerticesChangeInput Input;
+
+};
+
+
+struct FCreateVertexInstancesChangeInput
+{
+	/** Information about each vertex instance that will be created */
+	TArray<FVertexInstanceToCreate> VertexInstancesToCreate;
+
+	/** Default constructor */
+	FCreateVertexInstancesChangeInput()
+		: VertexInstancesToCreate()
+	{
+	}
+};
+
+
+class FCreateVertexInstancesChange : public FChange
+{
+
+public:
+
+	/** Constructor */
+	FCreateVertexInstancesChange( const FCreateVertexInstancesChangeInput& InitInput )
+		: Input( InitInput )
+	{
+	}
+
+	FCreateVertexInstancesChange( FCreateVertexInstancesChangeInput&& InitInput )
+		: Input( MoveTemp( InitInput ) )
+	{
+	}
+
+	// Parent class overrides
+	virtual TUniquePtr<FChange> Execute( UObject* Object ) override;
+	virtual FString ToString() const override;
+
+
+private:
+
+	/** The data we need to make this change */
+	FCreateVertexInstancesChangeInput Input;
 
 };
 
@@ -225,7 +311,7 @@ private:
 struct FDeletePolygonsChangeInput
 {
 	/** The polygons to get rid of */
-	TArray<FPolygonRef> PolygonRefsToDelete;
+	TArray<FPolygonID> PolygonIDsToDelete;
 
 	/** Whether we should also delete any edges that are left orphaned after deleting this polygon */
 	bool bDeleteOrphanedEdges;
@@ -233,14 +319,18 @@ struct FDeletePolygonsChangeInput
 	/** Whether we should also delete any vertices that are left orphaned after deleting this polygon */
 	bool bDeleteOrphanedVertices;
 
+	/** Whether we should also delete any vertex instances that are left orphaned after deleting this polygon */
+	bool bDeleteOrphanedVertexInstances;
+
 	/** Whether we should also delete any sections that are left empty after deleting this polygon */
 	bool bDeleteEmptySections;
 
 	/** Default constructor */
 	FDeletePolygonsChangeInput()
-		: PolygonRefsToDelete(),
+		: PolygonIDsToDelete(),
 		  bDeleteOrphanedEdges( true ),
 		  bDeleteOrphanedVertices( true ),
+		  bDeleteOrphanedVertexInstances( true ),
 		  bDeleteEmptySections( false )
 	{
 	}
@@ -307,6 +397,41 @@ private:
 
 	/** The data we need to make this change */
 	FSetVerticesAttributesChangeInput Input;
+
+};
+
+
+struct FSetVertexInstancesAttributesChangeInput
+{
+	TArray<FAttributesForVertexInstance> AttributesForVertexInstances;
+};
+
+
+class FSetVertexInstancesAttributesChange : public FChange
+{
+
+public:
+
+	/** Constructor */
+	FSetVertexInstancesAttributesChange( const FSetVertexInstancesAttributesChangeInput& InitInput )
+		: Input( InitInput )
+	{
+	}
+
+	FSetVertexInstancesAttributesChange( FSetVertexInstancesAttributesChangeInput&& InitInput )
+		: Input( MoveTemp( InitInput ) )
+	{
+	}
+
+	// Parent class overrides
+	virtual TUniquePtr<FChange> Execute( UObject* Object ) override;
+	virtual FString ToString() const override;
+
+
+private:
+
+	/** The data we need to make this change */
+	FSetVertexInstancesAttributesChangeInput Input;
 
 };
 
@@ -395,6 +520,48 @@ private:
 };
 
 
+struct FChangePolygonsVertexInstancesChangeInput
+{
+	/** Which polygons we'll be setting vertex instances for, along with the vertex instances to set */
+	TArray<FChangeVertexInstancesForPolygon> VertexInstancesForPolygons;
+
+	/** Default constructor */
+	FChangePolygonsVertexInstancesChangeInput()
+		: VertexInstancesForPolygons()
+	{
+	}
+};
+
+
+class FChangePolygonsVertexInstancesChange : public FChange
+{
+
+public:
+
+	/** Constructor */
+	FChangePolygonsVertexInstancesChange( const FChangePolygonsVertexInstancesChangeInput& InitInput )
+		: Input( InitInput )
+	{
+	}
+
+	FChangePolygonsVertexInstancesChange( FChangePolygonsVertexInstancesChangeInput&& InitInput )
+		: Input( MoveTemp( InitInput ) )
+	{
+	}
+
+	// Parent class overrides
+	virtual TUniquePtr<FChange> Execute( UObject* Object ) override;
+	virtual FString ToString() const override;
+
+
+private:
+
+	/** The data we need to make this change */
+	FChangePolygonsVertexInstancesChangeInput Input;
+
+};
+
+
 struct FSetEdgesVerticesChangeInput
 {
 	/** The edge to set new vertices for */
@@ -440,7 +607,7 @@ private:
 struct FInsertPolygonPerimeterVerticesChangeInput
 {
 	/** The polygon we'll be inserting vertices into */
-	FPolygonRef PolygonRef;
+	FPolygonID PolygonID;
 
 	/** The first polygon perimeter vertex number to insert indices before */
 	uint32 InsertBeforeVertexNumber;
@@ -451,7 +618,7 @@ struct FInsertPolygonPerimeterVerticesChangeInput
 	
 	/** Default constructor */
 	FInsertPolygonPerimeterVerticesChangeInput()
-		: PolygonRef( FSectionID::Invalid, FPolygonID::Invalid ),
+		: PolygonID( FPolygonID::Invalid ),
 		  InsertBeforeVertexNumber( 0 ),
 		  VerticesToInsert()
 	{
@@ -491,7 +658,7 @@ private:
 struct FRemovePolygonPerimeterVerticesChangeInput
 {
 	/** The polygon we'll be removing vertices from */
-	FPolygonRef PolygonRef;
+	FPolygonID PolygonID;
 
 	/** The first polygon perimeter vertex number to remove */
 	uint32 FirstVertexNumberToRemove;
@@ -499,12 +666,16 @@ struct FRemovePolygonPerimeterVerticesChangeInput
 	/** The number of vertices to remove */
 	uint32 NumVerticesToRemove;
 
+	/** Whether orphaned vertex instances should be deleted or not */
+	bool bDeleteOrphanedVertexInstances;
+
 	
 	/** Default constructor */
 	FRemovePolygonPerimeterVerticesChangeInput()
-		: PolygonRef( FSectionID::Invalid, FPolygonID::Invalid ),
+		: PolygonID( FPolygonID::Invalid ),
 		  FirstVertexNumberToRemove( 0 ),
-		  NumVerticesToRemove( 0 )
+		  NumVerticesToRemove( 0 ),
+		  bDeleteOrphanedVertexInstances( false )
 	{
 	}
 };
@@ -580,52 +751,6 @@ private:
 };
 
 
-struct FRetrianglulatePolygonsChangeInput
-{
-	/** The polygons to retriangulate */
-	TArray<FPolygonRef> PolygonRefs;
-
-	/** Whether we should actually do the retriangulation.  This will be inverted every time an Undo/Redo happens */
-	bool bOnlyOnUndo;
-
-	/** Default constructor */
-	FRetrianglulatePolygonsChangeInput()
-		: PolygonRefs(),
-		  bOnlyOnUndo( true )
-	{
-	}
-};
-
-
-class FRetrianglulatePolygonsChange : public FChange
-{
-
-public:
-
-	/** Constructor */
-	FRetrianglulatePolygonsChange( const FRetrianglulatePolygonsChangeInput& InitInput )
-		: Input( InitInput )
-	{
-	}
-
- 	FRetrianglulatePolygonsChange( FRetrianglulatePolygonsChangeInput&& InitInput )
- 		: Input( MoveTemp( InitInput ) )
- 	{
- 	}
-
-	// Parent class overrides
-	virtual TUniquePtr<FChange> Execute( UObject* Object ) override;
-	virtual FString ToString() const override;
-
-
-private:
-
-	/** The data we need to make this change */
-	FRetrianglulatePolygonsChangeInput Input;
-
-};
-
-
 struct FSetSubdivisionCountChangeInput
 {
 	/** The new number of subdivisions to use */
@@ -663,26 +788,26 @@ private:
 };
 
 
-struct FCreateSectionChangeInput
+struct FCreatePolygonGroupsChangeInput
 {
-	/** Information about the section to create */
-	FSectionToCreate SectionToCreate;
+	/** Information about the polygon groups to create */
+	TArray<FPolygonGroupToCreate> PolygonGroupsToCreate;
 
 	/** Default constructor */
-	FCreateSectionChangeInput()
-		: SectionToCreate()
+	FCreatePolygonGroupsChangeInput()
+		: PolygonGroupsToCreate()
 	{
 	}
 };
 
 
-class FCreateSectionChange : public FChange
+class FCreatePolygonGroupsChange : public FChange
 {
 
 public:
 
 	/** Constructor */
-	FCreateSectionChange( const FCreateSectionChangeInput& InitInput )
+	FCreatePolygonGroupsChange( const FCreatePolygonGroupsChangeInput& InitInput )
 		: Input( InitInput )
 	{
 	}
@@ -695,30 +820,30 @@ public:
 private:
 
 	/** The data we need to make this change */
-	FCreateSectionChangeInput Input;
+	FCreatePolygonGroupsChangeInput Input;
 };
 
 
-struct FDeleteSectionChangeInput
+struct FDeletePolygonGroupsChangeInput
 {
-	/** The section to delete */
-	FSectionID SectionID;
+	/** The polygon group IDs to delete */
+	TArray<FPolygonGroupID> PolygonGroupIDs;
 
 	/** Default constructor */
-	FDeleteSectionChangeInput()
-		: SectionID( FSectionID::Invalid )
+	FDeletePolygonGroupsChangeInput()
+		: PolygonGroupIDs()
 	{
 	}
 };
 
 
-class FDeleteSectionChange : public FChange
+class FDeletePolygonGroupsChange : public FChange
 {
 
 public:
 
 	/** Constructor */
-	FDeleteSectionChange( const FDeleteSectionChangeInput& InitInput )
+	FDeletePolygonGroupsChange( const FDeletePolygonGroupsChangeInput& InitInput )
 		: Input( InitInput )
 	{
 	}
@@ -731,5 +856,5 @@ public:
 private:
 
 	/** The data we need to make this change */
-	FDeleteSectionChangeInput Input;
+	FDeletePolygonGroupsChangeInput Input;
 };

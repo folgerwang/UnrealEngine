@@ -6,7 +6,8 @@
 #include "UICommandInfo.h"
 #include "EditableMesh.h"
 #include "MeshElement.h"
-
+#include "Framework/Multibox/MultiBoxBuilder.h"
+#include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "MeshEditorMode"
 
@@ -62,9 +63,9 @@ void URemoveEdgeCommand::Execute( IMeshEditorModeEditingContract& MeshEditorMode
 			const FEdgeID EdgeID( EdgeElementToRemove.ElementAddress.ElementID );
 			{
 				bool bWasEdgeRemoved = false;
-				FPolygonRef NewPolygonRef;
+				FPolygonID NewPolygonID;
 
-				EditableMesh->TryToRemovePolygonEdge( EdgeID, /* Out */ bWasEdgeRemoved, /* Out */ NewPolygonRef );
+				EditableMesh->TryToRemovePolygonEdge( EdgeID, /* Out */ bWasEdgeRemoved, /* Out */ NewPolygonID );
 
 				if( bWasEdgeRemoved )
 				{
@@ -74,8 +75,7 @@ void URemoveEdgeCommand::Execute( IMeshEditorModeEditingContract& MeshEditorMode
 						NewPolygonMeshElement.Component = EdgeElementToRemove.Component;
 						NewPolygonMeshElement.ElementAddress = EdgeElementToRemove.ElementAddress;
 						NewPolygonMeshElement.ElementAddress.ElementType = EEditableMeshElementType::Polygon;
-						NewPolygonMeshElement.ElementAddress.SectionID = NewPolygonRef.SectionID;
-						NewPolygonMeshElement.ElementAddress.ElementID = NewPolygonRef.PolygonID;
+						NewPolygonMeshElement.ElementAddress.ElementID = NewPolygonID;
 					}
 
 					MeshElementsToSelect.Add( NewPolygonMeshElement );

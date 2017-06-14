@@ -5,6 +5,7 @@
 #include "UICommandInfo.h"
 #include "EditableMesh.h"
 #include "MeshElement.h"
+#include "ScopedTransaction.h"
 
 
 #define LOCTEXT_NAMESPACE "MeshEditorMode"
@@ -48,13 +49,13 @@ void UTessellatePolygonCommand::Execute( IMeshEditorModeEditingContract& MeshEdi
 		UEditableMesh* EditableMesh = SelectedMeshAndPolygons.Key;
 		const TArray<FMeshElement>& PolygonElements = SelectedMeshAndPolygons.Value;
 
-		static TArray<FPolygonRef> PolygonsToTessellate;
+		static TArray<FPolygonID> PolygonsToTessellate;
 		PolygonsToTessellate.Reset( PolygonElements.Num() );
 
 		for( const auto& PolygonElement : PolygonElements )
 		{
-			const FPolygonRef PolygonRef( PolygonElement.ElementAddress.SectionID, FPolygonID( PolygonElement.ElementAddress.ElementID ) );
-			PolygonsToTessellate.Add( PolygonRef );
+			const FPolygonID PolygonID( PolygonElement.ElementAddress.ElementID );
+			PolygonsToTessellate.Add( PolygonID );
 		}
 
 
@@ -63,19 +64,18 @@ void UTessellatePolygonCommand::Execute( IMeshEditorModeEditingContract& MeshEdi
 		// @todo mesheditor: Expose as configurable parameter
 		const ETriangleTessellationMode TriangleTessellationMode = ETriangleTessellationMode::FourTriangles;
 
-		static TArray<FPolygonRef> NewPolygonRefs;
-		EditableMesh->TessellatePolygons( PolygonsToTessellate, TriangleTessellationMode, /* Out */ NewPolygonRefs );
+		static TArray<FPolygonID> NewPolygonIDs;
+		EditableMesh->TessellatePolygons( PolygonsToTessellate, TriangleTessellationMode, /* Out */ NewPolygonIDs );
 
 		// Select the new polygons
-		for( const FPolygonRef NewPolygonRef : NewPolygonRefs )
+		for( const FPolygonID NewPolygonID : NewPolygonIDs )
 		{
 			FMeshElement NewPolygonMeshElement;
 			{
 				NewPolygonMeshElement.Component = PolygonElements[0].Component;
 				NewPolygonMeshElement.ElementAddress = PolygonElements[0].ElementAddress;
 				NewPolygonMeshElement.ElementAddress.ElementType = EEditableMeshElementType::Polygon;
-				NewPolygonMeshElement.ElementAddress.SectionID = NewPolygonRef.SectionID;
-				NewPolygonMeshElement.ElementAddress.ElementID = NewPolygonRef.PolygonID;
+				NewPolygonMeshElement.ElementAddress.ElementID = NewPolygonID;
 			}
 
 			MeshElementsToSelect.Add( NewPolygonMeshElement );

@@ -142,7 +142,7 @@ struct FElementID	// @todo mesheditor script: BP doesn't have name spaces, so we
 
 	FString ToString() const
 	{
-		return FString::Printf( TEXT( "%lu" ), GetValue() );
+		return ( IDValue == Invalid.GetValue() ) ? TEXT( "Invalid" ) : FString::Printf( TEXT( "%d" ), IDValue );
 	}
 
 	friend FArchive& operator<<( FArchive& Ar, FElementID& Element )
@@ -192,6 +192,35 @@ struct FVertexID : public FElementID
 
 
 USTRUCT( BlueprintType )
+struct FVertexInstanceID : public FElementID
+{
+	GENERATED_BODY()
+
+	FVertexInstanceID()
+	{
+	}
+
+	explicit FVertexInstanceID( const FElementID InitElementID )
+		: FElementID( InitElementID.GetValue() )
+	{
+	}
+
+	explicit FVertexInstanceID( const uint32 InitIDValue )
+		: FElementID( InitIDValue )
+	{
+	}
+
+	FORCEINLINE friend uint32 GetTypeHash( const FVertexInstanceID& Other )
+	{
+		return GetTypeHash( Other.IDValue );
+	}
+
+	/** Invalid rendering vertex ID */
+	MESHEDITINGRUNTIME_API static const FVertexInstanceID Invalid;
+};
+
+
+USTRUCT( BlueprintType )
 struct FEdgeID : public FElementID
 {
 	GENERATED_BODY()
@@ -221,31 +250,31 @@ struct FEdgeID : public FElementID
 
 
 USTRUCT( BlueprintType )
-struct FSectionID : public FElementID
+struct FPolygonGroupID : public FElementID
 {
 	GENERATED_BODY()
 
-	FSectionID()
+	FPolygonGroupID()
 	{
 	}
 
-	explicit FSectionID( const FElementID InitElementID )
+	explicit FPolygonGroupID( const FElementID InitElementID )
 		: FElementID( InitElementID.GetValue() )
 	{
 	}
 
-	explicit FSectionID( const int32 InitIDValue )
+	explicit FPolygonGroupID( const int32 InitIDValue )
 		: FElementID( InitIDValue )
 	{
 	}
 
-	FORCEINLINE friend uint32 GetTypeHash( const FSectionID& Other )
+	FORCEINLINE friend uint32 GetTypeHash( const FPolygonGroupID& Other )
 	{
 		return GetTypeHash( Other.IDValue );
 	}
 
 	/** Invalid section ID */
-	MESHEDITINGRUNTIME_API static const FSectionID Invalid;
+	MESHEDITINGRUNTIME_API static const FPolygonGroupID Invalid;
 };
 
 
@@ -275,35 +304,6 @@ struct FPolygonID : public FElementID
 
 	/** Invalid polygon ID */
 	MESHEDITINGRUNTIME_API static const FPolygonID Invalid;	// @todo mesheditor script: Can we expose these to BP nicely?	Do we even need to?
-};
-
-
-USTRUCT()
-struct FTriangleID : public FElementID
-{
-	GENERATED_BODY()
-
-	FTriangleID()
-	{
-	}
-
-	explicit FTriangleID( const FElementID InitElementID )
-		: FElementID( InitElementID.GetValue() )
-	{
-	}
-
-	explicit FTriangleID( const uint32 InitIDValue )
-		: FElementID( InitIDValue )
-	{
-	}
-
-	FORCEINLINE friend uint32 GetTypeHash( const FTriangleID& Other )
-	{
-		return GetTypeHash( Other.IDValue );
-	}
-
-	/** Invalid triangle ID */
-	MESHEDITINGRUNTIME_API static const FTriangleID Invalid;
 };
 
 
@@ -365,61 +365,6 @@ struct FEditableMeshSubMeshAddress
 };
 
 
-
-USTRUCT( BlueprintType )
-struct FPolygonRef
-{
-	GENERATED_BODY()
-
-	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
-	FSectionID SectionID;
-
-	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
-	FPolygonID PolygonID;
-
-	FPolygonRef()
-	{
-	}
-
-	FPolygonRef( const FSectionID InitSectionID, const FPolygonID InitPolygonID )
-		: SectionID( InitSectionID ),
-		  PolygonID( InitPolygonID )
-	{
-	}
-
-	inline bool operator==( const FPolygonRef& Other ) const
-	{
-		return SectionID == Other.SectionID && PolygonID == Other.PolygonID;
-	}
-
-	inline bool operator!=( const FPolygonRef& Other ) const
-	{
-		return SectionID != Other.SectionID || PolygonID != Other.PolygonID;
-	}
-
-	/** Hashing */
-	FORCEINLINE friend uint32 GetTypeHash( const FPolygonRef& Other )
-	{
-		return GetTypeHash( ( uint64( Other.PolygonID.GetValue() ) << 32 ) | uint64( Other.SectionID.GetValue() ) );
-	}
-
-	FString ToString() const
-	{
-		return FString::Printf( TEXT( "SectionID:%s, PolygonID:%s" ), *SectionID.ToString(), *PolygonID.ToString() );
-	}
-
-	friend FArchive& operator<<( FArchive& Ar, FPolygonRef& PolygonRef )
-	{
-		Ar << PolygonRef.SectionID;
-		Ar << PolygonRef.PolygonID;
-		return Ar;
-	}
-
-	/** Invalid polygon ref */
-	MESHEDITINGRUNTIME_API static const FPolygonRef Invalid;
-};
-
-
 UCLASS( abstract )
 class MESHEDITINGRUNTIME_API UEditableMeshAttribute : public UObject
 {
@@ -444,7 +389,7 @@ public:
 	}
 
 	//
-	// Polygon-specific vertex data (can also be set on the vertex itself to update all polygon vertices.)
+	// Vertex instance data
 	//
 
 	/** Static: The attribute name for vertex normal (tangent Z) */
@@ -493,6 +438,22 @@ public:
 		return EdgeCreaseSharpnessName;
 	}
 
+	//
+	// Polygons
+	//
+
+	/** Static: The attribute name for polygon normal */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) static inline FName PolygonNormal()
+	{
+		return PolygonNormalName;
+	}
+
+	/** Static: The attribute name for polygon center */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) static inline FName PolygonCenter()
+	{
+		return PolygonCenterName;
+	}
+
 private:
 
 	static const FName VertexPositionName;
@@ -504,6 +465,8 @@ private:
 	static const FName VertexColorName;
 	static const FName EdgeIsHardName;
 	static const FName EdgeCreaseSharpnessName;
+	static const FName PolygonNormalName;
+	static const FName PolygonCenterName;
 };
 
 
@@ -758,6 +721,41 @@ struct FVertexToCreate
 
 
 USTRUCT( BlueprintType )
+struct FVertexInstanceToCreate
+{
+	GENERATED_BODY()
+
+	/** Vertex ID which is being instanced */
+	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
+	FVertexID VertexID;
+
+	/** Attributes of this vertex instance */
+	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
+	FMeshElementAttributeList VertexInstanceAttributes;
+
+	/** The original ID of the vertex instance.  Should only be used by the undo system. */
+	UPROPERTY()
+	FVertexInstanceID OriginalVertexInstanceID;
+
+	FVertexInstanceToCreate()
+		: VertexID( FVertexID::Invalid ),
+		  VertexInstanceAttributes(),
+		  OriginalVertexInstanceID( FVertexInstanceID::Invalid )
+	{
+	}
+
+	FString ToString() const
+	{
+		return FString::Printf(
+			TEXT( "VertexID:%s, VertexInstanceAttributes:%s, OriginalVertexInstanceID:%s" ),
+			*VertexID.ToString(),
+			*VertexInstanceAttributes.ToString(),
+			*OriginalVertexInstanceID.ToString() );
+	}
+};
+
+
+USTRUCT( BlueprintType )
 struct FEdgeToCreate
 {
 	GENERATED_BODY()
@@ -772,7 +770,7 @@ struct FEdgeToCreate
 
 	/** The polygons that are connected to this edge. */
 	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
-	TArray<FPolygonRef> ConnectedPolygons;
+	TArray<FPolygonID> ConnectedPolygons;
 
 	/** Attributes of this edge itself */
 	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
@@ -811,17 +809,22 @@ struct FVertexAndAttributes
 {
 	GENERATED_BODY()
 
-	/** The vertex ID to insert into the polygon */
+	/** The vertex instance ID to insert into the polygon, or FVertexInstanceID::Invalid to create a new vertex instance with the given attributes */
+	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
+	FVertexInstanceID VertexInstanceID;
+
+	/** The vertex ID to insert into the polygon, if no valid vertex instance ID was supplied. */
 	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
 	FVertexID VertexID;
 
-	/** A list of polygon attributes to set for the vertex on the polygon we're inserting it into */
+	/** A list of polygon attributes to set for the vertex on the polygon we're inserting it into, if no valid vertex instance ID was supplied. */
 	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
 	FMeshElementAttributeList PolygonVertexAttributes;
 
 	/** Default constructor */
 	FVertexAndAttributes()
-		: VertexID( 0 ),
+		: VertexInstanceID( FVertexInstanceID::Invalid ),
+		  VertexID( FVertexID::Invalid ),
 		  PolygonVertexAttributes()
 	{
 	}
@@ -829,7 +832,8 @@ struct FVertexAndAttributes
 	FString ToString() const
 	{
 		return FString::Printf(
-			TEXT( "VertexID:%s, PolygonVertexAttributes:%s" ),
+			TEXT( "VertexInstanceID:%s, VertexID:%s, PolygonVertexAttributes:%s" ),
+			*VertexInstanceID.ToString(),
 			*VertexID.ToString(),
 			*PolygonVertexAttributes.ToString() );
 	}
@@ -860,15 +864,31 @@ struct FPolygonHoleVertices
 };
 
 
+UENUM( BlueprintType )
+enum class EPolygonEdgeHardness : uint8
+{
+	/** Create any new edges required by the polygon as soft, leaving existing edges as they are */
+	NewEdgesSoft,
+
+	/** Create any new edges required by the polygon as hard, leaving existing edges as they are */
+	NewEdgesHard,
+
+	/** Set all edges as soft, overriding edge hardness on existing edges */
+	AllEdgesSoft,
+
+	/** Set all edges as hard, overriding edge hardness on existing edges */
+	AllEdgesHard
+};
+
 
 USTRUCT( BlueprintType )
 struct FPolygonToCreate
 {
 	GENERATED_BODY()
 
-	/** The section the polygon will be added to */
+	/** The group the polygon will be added to */
 	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
-	FSectionID SectionID;
+	FPolygonGroupID PolygonGroupID;
 
 	/** Ordered list of vertices that defines the polygon's perimeter, along with the polygon vertex attributes to set for each vertex */
 	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
@@ -882,20 +902,25 @@ struct FPolygonToCreate
 	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
 	FPolygonID OriginalPolygonID;
 
+	/** Whether to create a hard-edged polygon */
+	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
+	EPolygonEdgeHardness PolygonEdgeHardness;
+
 	/** Default constructor */
 	FPolygonToCreate()
-		: SectionID( 0 ),
+		: PolygonGroupID( FPolygonGroupID::Invalid ),
 		  PerimeterVertices(),
 		  PolygonHoles(),
-		  OriginalPolygonID( FPolygonID::Invalid )
+		  OriginalPolygonID( FPolygonID::Invalid ),
+		  PolygonEdgeHardness( EPolygonEdgeHardness::NewEdgesSoft )
 	{
 	}
 
 	FString ToString() const
 	{
 		return FString::Printf(
-			TEXT( "SectionID:%s, PerimeterVertices:%s, PolygonHoles:%s, OriginalPolygonID:%s" ),
-			*SectionID.ToString(),
+			TEXT( "PolygonGroupID:%s, PerimeterVertices:%s, PolygonHoles:%s, OriginalPolygonID:%s" ),
+			*PolygonGroupID.ToString(),
 			*LogHelpers::ArrayToString( PerimeterVertices ),
 			*LogHelpers::ArrayToString( PolygonHoles ),
 			*OriginalPolygonID.ToString() );
@@ -935,7 +960,7 @@ struct FPolygonToSplit
 
 	/** The polygon that we'll be splitting */
 	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
-	FPolygonRef PolygonRef;
+	FPolygonID PolygonID;
 
 	/** A list of pairs of vertices that new edges will be created at.  The pairs must be ordered, and the vertices
 	    must already exist and be connected to the polygon */
@@ -944,7 +969,7 @@ struct FPolygonToSplit
 
 	/** Default constructor */
 	FPolygonToSplit()
-		: PolygonRef( FSectionID::Invalid, FPolygonID::Invalid ),
+		: PolygonID( FPolygonID::Invalid ),
 		  VertexPairsToSplitAt()
 	{
 	}
@@ -984,6 +1009,36 @@ struct FAttributesForVertex
 
 
 USTRUCT( BlueprintType )
+struct FAttributesForVertexInstance
+{
+	GENERATED_BODY()
+
+	/** The vertex instance ID to set attributes on */
+	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
+	FVertexInstanceID VertexInstanceID;
+
+	/** A list of attributes to set for the vertex instance */
+	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
+	FMeshElementAttributeList VertexInstanceAttributes;
+
+	/** Default constructor */
+	FAttributesForVertexInstance()
+		: VertexInstanceID( 0 ),
+		  VertexInstanceAttributes()
+	{
+	}
+
+	FString ToString() const
+	{
+		return FString::Printf(
+			TEXT( "VertexInstanceID:%s, VertexInstanceAttributes:%s" ),
+			*VertexInstanceID.ToString(),
+			*VertexInstanceAttributes.ToString() );
+	}
+};
+
+
+USTRUCT( BlueprintType )
 struct FAttributesForEdge
 {
 	GENERATED_BODY()
@@ -996,19 +1051,25 @@ struct FAttributesForEdge
 	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
 	FMeshElementAttributeList EdgeAttributes;
 
+	/** Whether this is being done as part of undo/redo */
+	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
+	bool bIsUndo;
+
 	/** Default constructor */
 	FAttributesForEdge()
 		: EdgeID( 0 ),
-		  EdgeAttributes()
+		  EdgeAttributes(),
+		  bIsUndo( false )
 	{
 	}
 
 	FString ToString() const
 	{
 		return FString::Printf(
-			TEXT( "EdgeID:%s, EdgeAttributes:%s" ),
+			TEXT( "EdgeID:%s, EdgeAttributes:%s, bIsUndo:%s" ),
 			*EdgeID.ToString(),
-			*EdgeAttributes.ToString() );
+			*EdgeAttributes.ToString(),
+			*LogHelpers::BoolToString( bIsUndo ) );
 	}
 };
 
@@ -1045,7 +1106,7 @@ struct FVertexAttributesForPolygon
 
 	/** The polygon to set vertex attributes on */
 	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
-	FPolygonRef PolygonRef;
+	FPolygonID PolygonID;
 
 	/** For each polygon vertex, a list of attributes for that vertex.  Can be left empty if you don't want to set any attributes. */
 	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
@@ -1058,7 +1119,7 @@ struct FVertexAttributesForPolygon
 
 	/** Default constructor */
 	FVertexAttributesForPolygon()
-		: PolygonRef( FSectionID::Invalid, FPolygonID::Invalid ),
+		: PolygonID( FPolygonID::Invalid ),
 		  PerimeterVertexAttributeLists(),
 		  VertexAttributeListsForEachHole()
 	{
@@ -1067,10 +1128,93 @@ struct FVertexAttributesForPolygon
 	FString ToString() const
 	{
 		return FString::Printf(
-			TEXT( "PolygonRef:%s, PerimeterVertexAttributeLists:%s, VertexAttributeListsForEachHole:%s" ),
-			*PolygonRef.ToString(),
+			TEXT( "PolygonID:%s, PerimeterVertexAttributeLists:%s, VertexAttributeListsForEachHole:%s" ),
+			*PolygonID.ToString(),
 			*LogHelpers::ArrayToString( PerimeterVertexAttributeLists ),
 			*LogHelpers::ArrayToString( VertexAttributeListsForEachHole ) );
+	}
+};
+
+
+USTRUCT( BlueprintType )
+struct FVertexIndexAndInstanceID
+{
+	GENERATED_BODY()
+
+	/** Contour index of the vertex to change */
+	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
+	int32 ContourIndex;
+
+	/** New vertex instance ID to assign */
+	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
+	FVertexInstanceID VertexInstanceID;
+
+	FString ToString() const
+	{
+		return FString::Printf(
+			TEXT( "ContourIndex:%d, VertexInstanceIDs:%s" ),
+			ContourIndex,
+			*VertexInstanceID.ToString() );
+	}
+};
+
+
+USTRUCT( BlueprintType )
+struct FVertexInstancesForPolygonHole
+{
+	GENERATED_BODY()
+
+	/** A list of vertex instance IDs for a polygon hole. */
+	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
+	TArray<FVertexIndexAndInstanceID> VertexIndicesAndInstanceIDs;
+
+	/** Default constructor */
+	FVertexInstancesForPolygonHole()
+		: VertexIndicesAndInstanceIDs()
+	{
+	}
+
+	FString ToString() const
+	{
+		return FString::Printf(
+			TEXT( "VertexInstanceIDs:%s" ),
+			*LogHelpers::ArrayToString( VertexIndicesAndInstanceIDs ) );
+	}
+};
+
+
+USTRUCT( BlueprintType )
+struct FChangeVertexInstancesForPolygon
+{
+	GENERATED_BODY()
+
+	/** The polygon to set vertex instances on */
+	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
+	FPolygonID PolygonID;
+
+	/** A list of vertex numbers and vertex instance IDs to change for the polygon perimeter. */
+	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
+	TArray<FVertexIndexAndInstanceID> PerimeterVertexIndicesAndInstanceIDs;
+
+	/** A list of vertex instance IDs for each hole. */
+	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
+	TArray<FVertexInstancesForPolygonHole> VertexIndicesAndInstanceIDsForEachHole;
+
+	/** Default constructor */
+	FChangeVertexInstancesForPolygon()
+		: PolygonID( FPolygonID::Invalid ),
+		  PerimeterVertexIndicesAndInstanceIDs(),
+		  VertexIndicesAndInstanceIDsForEachHole()
+	{
+	}
+
+	FString ToString() const
+	{
+		return FString::Printf(
+			TEXT( "PolygonID:%s, PerimeterVertexIndicesAndInstanceIDs:%s, VertexIndicesAndInstanceIDsForEachHole:%s" ),
+			*PolygonID.ToString(),
+			*LogHelpers::ArrayToString( PerimeterVertexIndicesAndInstanceIDs ),
+			*LogHelpers::ArrayToString( VertexIndicesAndInstanceIDsForEachHole ) );
 	}
 };
 
@@ -1142,47 +1286,45 @@ struct FVertexToMove
 
 
 USTRUCT( BlueprintType )
-struct FSectionToCreate
+struct FPolygonGroupToCreate
 {
 	GENERATED_BODY()
 
-	/** Material to assign to the new section */
+	// @todo mesheditor: Material, bEnableCollision and bCastShadow should all be implemented as PolygonGroup attributes.
+	// This would require making Material an asset name, rather than a UObject*, which is also safer.
+
+	/** Material to assign to the new polygon group */
 	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
 	class UMaterialInterface* Material;
 
-	/** Whether the new section should have collision enabled */
+	/** Whether the new polygon group should have collision enabled */
 	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
 	bool bEnableCollision;
 
-	/** Whether the new section casts a shadow */
+	/** Whether the new polygon group casts a shadow */
 	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
 	bool bCastShadow;
 
-	/** The original ID of the section.  Should only be used by the undo system. */
+	/** The original ID of the polygon group.  Should only be used by the undo system. */
 	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
-	FSectionID OriginalSectionID;
-
-	/** The original rendering section index.  Should only be used by the undo system. */
-	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
-	int32 OriginalRenderingSectionIndex;
+	FPolygonGroupID OriginalPolygonGroupID;
 
 	/** Default constructor */
-	FSectionToCreate()
+	FPolygonGroupToCreate()
 		: Material( nullptr )
 		, bEnableCollision( false )
 		, bCastShadow( false )
-		, OriginalSectionID( FSectionID::Invalid )
-		, OriginalRenderingSectionIndex( INDEX_NONE )
+		, OriginalPolygonGroupID( FPolygonGroupID::Invalid )
 	{
 	}
 
 	FString ToString() const
 	{
 		return FString::Printf(
-			TEXT( "Material:%s, bEnableCollision:%s, bCastShadow:%s, OriginalSectionID:%s" ),
+			TEXT( "Material:%s, bEnableCollision:%s, bCastShadow:%s, OriginalPolygonGroupID:%s" ),
 			Material ? *((UObject*)Material )->GetName() : TEXT( "<none>" ),
 			*LexicalConversion::ToString( bEnableCollision ),
 			*LexicalConversion::ToString( bCastShadow ),
-			*OriginalSectionID.ToString() );
+			*OriginalPolygonGroupID.ToString() );
 	}
 };

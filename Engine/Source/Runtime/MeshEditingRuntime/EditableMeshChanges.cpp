@@ -23,6 +23,25 @@ FString FDeleteOrphanVerticesChange::ToString() const
 }
 
 
+TUniquePtr<FChange> FDeleteVertexInstancesChange::Execute( UObject* Object )
+{
+	UEditableMesh* EditableMesh = CastChecked<UEditableMesh>( Object );
+	verify( !EditableMesh->AnyChangesToUndo() );
+
+	EditableMesh->DeleteVertexInstances( Input.VertexInstanceIDsToDelete, Input.bDeleteOrphanedVertices );
+
+	return EditableMesh->MakeUndo();
+}
+
+
+FString FDeleteVertexInstancesChange::ToString() const
+{
+	return FString::Printf(
+		TEXT( "Delete Vertex Instances [VertexInstanceIDsToDelete:%s]" ),
+		*LogHelpers::ArrayToString( Input.VertexInstanceIDsToDelete ) );
+}
+
+
 TUniquePtr<FChange> FDeleteEdgesChange::Execute( UObject* Object )
 {
 	UEditableMesh* EditableMesh = CastChecked<UEditableMesh>( Object );
@@ -63,6 +82,26 @@ FString FCreateVerticesChange::ToString() const
 }
 
 
+TUniquePtr<FChange> FCreateVertexInstancesChange::Execute( UObject* Object )
+{
+	UEditableMesh* EditableMesh = CastChecked<UEditableMesh>( Object );
+	verify( !EditableMesh->AnyChangesToUndo() );
+
+	static TArray<FVertexInstanceID> UnusedNewVertexInstanceIDs;
+	EditableMesh->CreateVertexInstances( Input.VertexInstancesToCreate, /* Out */ UnusedNewVertexInstanceIDs );
+
+	return EditableMesh->MakeUndo();
+}
+
+
+FString FCreateVertexInstancesChange::ToString() const
+{
+	return FString::Printf(
+		TEXT( "Create Vertex Instances [VertexInstancesToCreate:%s]" ),
+		*LogHelpers::ArrayToString( Input.VertexInstancesToCreate ) );
+}
+
+
 TUniquePtr<FChange> FCreateEdgesChange::Execute( UObject* Object )
 {
 	UEditableMesh* EditableMesh = CastChecked<UEditableMesh>( Object );
@@ -88,9 +127,9 @@ TUniquePtr<FChange> FCreatePolygonsChange::Execute( UObject* Object )
 	UEditableMesh* EditableMesh = CastChecked<UEditableMesh>( Object );
 	verify( !EditableMesh->AnyChangesToUndo() );
 	
-	static TArray<FPolygonRef> UnusedNewPolygonRefs;
+	static TArray<FPolygonID> UnusedNewPolygonIDs;
 	static TArray<FEdgeID> UnusedNewEdgeIDs;
-	EditableMesh->CreatePolygons( Input.PolygonsToCreate, /* Out */ UnusedNewPolygonRefs, /* Out */ UnusedNewEdgeIDs );
+	EditableMesh->CreatePolygons( Input.PolygonsToCreate, /* Out */ UnusedNewPolygonIDs, /* Out */ UnusedNewEdgeIDs );
 
 	return EditableMesh->MakeUndo();
 }
@@ -109,7 +148,7 @@ TUniquePtr<FChange> FDeletePolygonsChange::Execute( UObject* Object )
 	UEditableMesh* EditableMesh = CastChecked<UEditableMesh>( Object );
 	verify( !EditableMesh->AnyChangesToUndo() );
 
-	EditableMesh->DeletePolygons( Input.PolygonRefsToDelete, Input.bDeleteOrphanedEdges, Input.bDeleteOrphanedVertices, Input.bDeleteEmptySections );
+	EditableMesh->DeletePolygons( Input.PolygonIDsToDelete, Input.bDeleteOrphanedEdges, Input.bDeleteOrphanedVertices, Input.bDeleteOrphanedVertexInstances, Input.bDeleteEmptySections );
 	return EditableMesh->MakeUndo();
 }
 
@@ -117,8 +156,8 @@ TUniquePtr<FChange> FDeletePolygonsChange::Execute( UObject* Object )
 FString FDeletePolygonsChange::ToString() const
 {
 	return FString::Printf(
-		TEXT( "Delete Polygons [PolygonRefsToDelete:%s, %s, %s]" ),
-		*LogHelpers::ArrayToString( Input.PolygonRefsToDelete ),
+		TEXT( "Delete Polygons [PolygonIDsToDelete:%s, %s, %s]" ),
+		*LogHelpers::ArrayToString( Input.PolygonIDsToDelete ),
 		*LogHelpers::BoolToString( Input.bDeleteOrphanedEdges ),
 		*LogHelpers::BoolToString( Input.bDeleteOrphanedVertices ),
 		*LogHelpers::BoolToString( Input.bDeleteEmptySections ) );
@@ -140,6 +179,24 @@ FString FSetVerticesAttributesChange::ToString() const
 	return FString::Printf(
 		TEXT( "Set Vertices Attributes [AttributesForVertices:%s]" ),
 		*LogHelpers::ArrayToString( Input.AttributesForVertices ) );
+}
+
+
+TUniquePtr<FChange> FSetVertexInstancesAttributesChange::Execute( UObject* Object )
+{
+	UEditableMesh* EditableMesh = CastChecked<UEditableMesh>( Object );
+	verify( !EditableMesh->AnyChangesToUndo() );
+
+	EditableMesh->SetVertexInstancesAttributes( Input.AttributesForVertexInstances );
+	return EditableMesh->MakeUndo();
+}
+
+
+FString FSetVertexInstancesAttributesChange::ToString() const
+{
+	return FString::Printf(
+		TEXT( "Set Vertex Instances Attributes [AttributesForVertexInstances:%s]" ),
+		*LogHelpers::ArrayToString( Input.AttributesForVertexInstances ) );
 }
 
 
@@ -179,6 +236,24 @@ FString FSetPolygonsVertexAttributesChange::ToString() const
 }
 
 
+TUniquePtr<FChange> FChangePolygonsVertexInstancesChange::Execute( UObject* Object )
+{
+	UEditableMesh* EditableMesh = CastChecked<UEditableMesh>( Object );
+	verify( !EditableMesh->AnyChangesToUndo() );
+
+	EditableMesh->ChangePolygonsVertexInstances( Input.VertexInstancesForPolygons );
+	return EditableMesh->MakeUndo();
+}
+
+
+FString FChangePolygonsVertexInstancesChange::ToString() const
+{
+	return FString::Printf(
+		TEXT( "Change Polygons Vertex Instances [VertexInstancesForPolygons:%s]" ),
+		*LogHelpers::ArrayToString( Input.VertexInstancesForPolygons ) );
+}
+
+
 TUniquePtr<FChange> FSetEdgesVerticesChange::Execute( UObject* Object )
 {
 	UEditableMesh* EditableMesh = CastChecked<UEditableMesh>( Object );
@@ -203,7 +278,7 @@ TUniquePtr<FChange> FInsertPolygonPerimeterVerticesChange::Execute( UObject* Obj
 	UEditableMesh* EditableMesh = CastChecked<UEditableMesh>( Object );
 	verify( !EditableMesh->AnyChangesToUndo() );
 
-	EditableMesh->InsertPolygonPerimeterVertices( Input.PolygonRef, Input.InsertBeforeVertexNumber, Input.VerticesToInsert );
+	EditableMesh->InsertPolygonPerimeterVertices( Input.PolygonID, Input.InsertBeforeVertexNumber, Input.VerticesToInsert );
 	return EditableMesh->MakeUndo();
 }
 
@@ -211,8 +286,8 @@ TUniquePtr<FChange> FInsertPolygonPerimeterVerticesChange::Execute( UObject* Obj
 FString FInsertPolygonPerimeterVerticesChange::ToString() const
 {
 	return FString::Printf(
-		TEXT( "Insert Polygon Perimeter Vertices [PolygonRef:%s, InsertBeforeVertexNumber:%lu, VerticesToInsert:%s]" ),
-		*Input.PolygonRef.ToString(),
+		TEXT( "Insert Polygon Perimeter Vertices [PolygonID:%s, InsertBeforeVertexNumber:%lu, VerticesToInsert:%s]" ),
+		*Input.PolygonID.ToString(),
 		Input.InsertBeforeVertexNumber,
 		*LogHelpers::ArrayToString( Input.VerticesToInsert ) );
 }
@@ -223,7 +298,7 @@ TUniquePtr<FChange> FRemovePolygonPerimeterVerticesChange::Execute( UObject* Obj
 	UEditableMesh* EditableMesh = CastChecked<UEditableMesh>( Object );
 	verify( !EditableMesh->AnyChangesToUndo() );
 
-	EditableMesh->RemovePolygonPerimeterVertices( Input.PolygonRef, Input.FirstVertexNumberToRemove, Input.NumVerticesToRemove );
+	EditableMesh->RemovePolygonPerimeterVertices( Input.PolygonID, Input.FirstVertexNumberToRemove, Input.NumVerticesToRemove, Input.bDeleteOrphanedVertexInstances );
 	return EditableMesh->MakeUndo();
 }
 
@@ -231,8 +306,8 @@ TUniquePtr<FChange> FRemovePolygonPerimeterVerticesChange::Execute( UObject* Obj
 FString FRemovePolygonPerimeterVerticesChange::ToString() const
 {
 	return FString::Printf(
-		TEXT( "Remove Polygon Perimeter Vertices [PolygonRef:%s, FirstVertexNumberToRemove:%lu, NumVerticesToRemove:%lu]" ),
-		*Input.PolygonRef.ToString(),
+		TEXT( "Remove Polygon Perimeter Vertices [PolygonID:%s, FirstVertexNumberToRemove:%lu, NumVerticesToRemove:%lu]" ),
+		*Input.PolygonID.ToString(),
 		Input.FirstVertexNumberToRemove,
 		Input.NumVerticesToRemove );
 }
@@ -267,25 +342,6 @@ FString FStartOrEndModificationChange::ToString() const
 }
 
 
-TUniquePtr<FChange> FRetrianglulatePolygonsChange::Execute( UObject* Object )
-{
-	UEditableMesh* EditableMesh = CastChecked<UEditableMesh>( Object );
-	verify( !EditableMesh->AnyChangesToUndo() );
-
-	EditableMesh->RetriangulatePolygons( Input.PolygonRefs, Input.bOnlyOnUndo );
-	return EditableMesh->MakeUndo();
-}
-
-
-FString FRetrianglulatePolygonsChange::ToString() const
-{
-	return FString::Printf(
-		TEXT( "Retriangulate Polygons [PolygonRefs:%s, bOnlyOnUndo:%s]" ),
-		*LogHelpers::ArrayToString( Input.PolygonRefs ),
-		*LogHelpers::BoolToString( Input.bOnlyOnUndo ) );
-}
-
-
 TUniquePtr<FChange> FSetSubdivisionCountChange::Execute( UObject* Object )
 {
 	UEditableMesh* EditableMesh = CastChecked<UEditableMesh>( Object );
@@ -304,41 +360,40 @@ FString FSetSubdivisionCountChange::ToString() const
 }
 
 
-TUniquePtr<FChange> FCreateSectionChange::Execute( UObject* Object )
+TUniquePtr<FChange> FCreatePolygonGroupsChange::Execute( UObject* Object )
 {
 	UEditableMesh* EditableMesh = CastChecked<UEditableMesh>( Object );
 	verify( !EditableMesh->AnyChangesToUndo() );
 
-	EditableMesh->CreateSection( Input.SectionToCreate );
+	static TArray<FPolygonGroupID> UnusedPolygonGroupIDs;
+	EditableMesh->CreatePolygonGroups( Input.PolygonGroupsToCreate, UnusedPolygonGroupIDs );
 	return EditableMesh->MakeUndo();
 }
 
 
-FString FCreateSectionChange::ToString() const
+FString FCreatePolygonGroupsChange::ToString() const
 {
 	return FString::Printf(
-		TEXT( "Create Section [Material:%s, bEnableCollision:%i, bCastShadow:%i]" ),
-		Input.SectionToCreate.Material ? *Input.SectionToCreate.Material->GetName() : TEXT( "<none>" ),
-		Input.SectionToCreate.bEnableCollision,
-		Input.SectionToCreate.bCastShadow );
+		TEXT( "Create Section [PolygonGroupsToCreate:%s]" ),
+		*LogHelpers::ArrayToString( Input.PolygonGroupsToCreate ) );
 }
 
 
-TUniquePtr<FChange> FDeleteSectionChange::Execute( UObject* Object )
+TUniquePtr<FChange> FDeletePolygonGroupsChange::Execute( UObject* Object )
 {
 	UEditableMesh* EditableMesh = CastChecked<UEditableMesh>( Object );
 	verify( !EditableMesh->AnyChangesToUndo() );
 
-	EditableMesh->DeleteSection( Input.SectionID );
+	EditableMesh->DeletePolygonGroups( Input.PolygonGroupIDs );
 	return EditableMesh->MakeUndo();
 }
 
 
-FString FDeleteSectionChange::ToString() const
+FString FDeletePolygonGroupsChange::ToString() const
 {
 	return FString::Printf(
-		TEXT( "Delete Section [SectionID:%i]" ),
-		Input.SectionID.GetValue() );
+		TEXT( "Delete Section [PolygonGroupIDs:%s]" ),
+		*LogHelpers::ArrayToString( Input.PolygonGroupIDs ) );
 }
 
 

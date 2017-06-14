@@ -97,8 +97,8 @@ bool UExtrudePolygonCommand::TryStartingToDrag( IMeshEditorModeEditingContract& 
 						check( Component != nullptr );
 						const FMatrix ComponentToWorldMatrix = Component->GetRenderMatrix();
 
-						const FPolygonRef PolygonRef( PolygonElement.ElementAddress.SectionID, FPolygonID( PolygonElement.ElementAddress.ElementID ) );
-						const FVector ComponentSpacePolygonNormal = EditableMesh->ComputePolygonNormal( PolygonRef );
+						const FPolygonID PolygonID( PolygonElement.ElementAddress.ElementID );
+						const FVector ComponentSpacePolygonNormal = EditableMesh->ComputePolygonNormal( PolygonID );
 
 						const FVector WorldSpacePolygonNormal = ComponentToWorldMatrix.TransformVector( ComponentSpacePolygonNormal ).GetSafeNormal();
 
@@ -133,12 +133,12 @@ void UExtrudePolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Me
 			UEditableMesh* EditableMesh = MeshAndPolygons.Key;
 			const TArray<FMeshElement>& PolygonsToExtrude = MeshAndPolygons.Value;
 
-			static TArray<FPolygonRef> PolygonRefsToExtrude;
-			PolygonRefsToExtrude.Reset();
+			static TArray<FPolygonID> PolygonIDsToExtrude;
+			PolygonIDsToExtrude.Reset();
 			for( const FMeshElement& PolygonToExtrude : PolygonsToExtrude )
 			{
-				FPolygonRef PolygonRef( PolygonToExtrude.ElementAddress.SectionID, FPolygonID( PolygonToExtrude.ElementAddress.ElementID ) );
-				PolygonRefsToExtrude.Add( PolygonRef );
+				const FPolygonID PolygonID( PolygonToExtrude.ElementAddress.ElementID );
+				PolygonIDsToExtrude.Add( PolygonID );
 			}
 
 
@@ -167,16 +167,16 @@ void UExtrudePolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Me
 				const float ComponentSpaceExtrudeDistance = ExtrudeDistance / Component->ComponentToWorld.GetScale3D().X;
 
 				// Create a copy of the polygon with new extruded polygons for each edge
-				static TArray<FPolygonRef> NewExtrudedFrontPolygons;
+				static TArray<FPolygonID> NewExtrudedFrontPolygons;
 				NewExtrudedFrontPolygons.Reset();
 				const bool bKeepNeighborsTogether = true;	// @todo mesheditor: Make configurable in UI
-				EditableMesh->ExtrudePolygons( PolygonRefsToExtrude, ComponentSpaceExtrudeDistance, bKeepNeighborsTogether, /* Out */ NewExtrudedFrontPolygons );
+				EditableMesh->ExtrudePolygons( PolygonIDsToExtrude, ComponentSpaceExtrudeDistance, bKeepNeighborsTogether, /* Out */ NewExtrudedFrontPolygons );
 
 
 				// Make sure the new polygons are selected.  The old polygon was deleted and will become deselected automatically.
 				for( int32 NewPolygonNumber = 0; NewPolygonNumber < NewExtrudedFrontPolygons.Num(); ++NewPolygonNumber )
 				{
-					const FPolygonRef& NewExtrudedFrontPolygon = NewExtrudedFrontPolygons[ NewPolygonNumber ];
+					const FPolygonID NewExtrudedFrontPolygon = NewExtrudedFrontPolygons[ NewPolygonNumber ];
 
 					const FMeshElement& MeshElement = PolygonsToExtrude[ NewPolygonNumber ];
 
@@ -184,8 +184,7 @@ void UExtrudePolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Me
 					{
 						NewExtrudedPolygonMeshElement.Component = MeshElement.Component;
 						NewExtrudedPolygonMeshElement.ElementAddress = MeshElement.ElementAddress;
-						NewExtrudedPolygonMeshElement.ElementAddress.SectionID = NewExtrudedFrontPolygon.SectionID;
-						NewExtrudedPolygonMeshElement.ElementAddress.ElementID = NewExtrudedFrontPolygon.PolygonID;
+						NewExtrudedPolygonMeshElement.ElementAddress.ElementID = NewExtrudedFrontPolygon;
 					}
 
 					// Queue selection of this new element.  We don't want it to be part of the current action.

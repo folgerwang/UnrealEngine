@@ -16,9 +16,6 @@ struct FEditableMeshElementAddress
 	/** The type of element */
 	EEditableMeshElementType ElementType;
 
-	/** For polygons, the section ID the polygon belongs to, otherwise FEditableMeshSectionID::Invalid */
-	FSectionID SectionID;
-
 	/** The ID of the element within the mesh */
 	FElementID ElementID;
 
@@ -27,7 +24,6 @@ struct FEditableMeshElementAddress
 	FEditableMeshElementAddress()
 		: SubMeshAddress(),
 		  ElementType( EEditableMeshElementType::Invalid ),
-		  SectionID( FSectionID::Invalid ),
 		  ElementID( FElementID::Invalid )
 	{
 	}
@@ -35,7 +31,6 @@ struct FEditableMeshElementAddress
 	FEditableMeshElementAddress( const FEditableMeshSubMeshAddress& InSubMeshAddress, FVertexID InVertexID )
 		: SubMeshAddress( InSubMeshAddress ),
 		  ElementType( EEditableMeshElementType::Vertex ),
-		  SectionID( FSectionID::Invalid ),
 		  ElementID( InVertexID )
 	{
 	}
@@ -43,16 +38,14 @@ struct FEditableMeshElementAddress
 	FEditableMeshElementAddress( const FEditableMeshSubMeshAddress& InSubMeshAddress, FEdgeID InEdgeID )
 		: SubMeshAddress( InSubMeshAddress ),
 		  ElementType( EEditableMeshElementType::Edge ),
-		  SectionID( FSectionID::Invalid ),
 		  ElementID( InEdgeID )
 	{
 	}
 
-	FEditableMeshElementAddress( const FEditableMeshSubMeshAddress& InSubMeshAddress, FPolygonRef InPolygonRef )
+	FEditableMeshElementAddress( const FEditableMeshSubMeshAddress& InSubMeshAddress, FPolygonID InPolygonID )
 		: SubMeshAddress( InSubMeshAddress ),
 		  ElementType( EEditableMeshElementType::Polygon ),
-		  SectionID( InPolygonRef.SectionID ),
-		  ElementID( InPolygonRef.PolygonID )
+		  ElementID( InPolygonID )
 	{
 	}
 
@@ -62,7 +55,6 @@ struct FEditableMeshElementAddress
 		return
 			SubMeshAddress == Other.SubMeshAddress &&
 			ElementType == Other.ElementType &&
-			SectionID == Other.SectionID &&
 			ElementID == Other.ElementID;
 	}
 
@@ -93,10 +85,9 @@ struct FEditableMeshElementAddress
 		}
 
 		return FString::Printf(
-			TEXT( "%s, ElementType:%s, SectionID:%s, ElementID:%s" ),
+			TEXT( "%s, ElementType:%s, ElementID:%s" ),
 			*SubMeshAddress.ToString(),
 			*ElementTypeString,
-			*SectionID.ToString(),
 			*ElementID.ToString() );
 	}
 };
@@ -143,9 +134,9 @@ struct FMeshElement
 	{
 	}
 
-	FMeshElement( UPrimitiveComponent* InComponent, const FEditableMeshSubMeshAddress& InSubMeshAddress, FPolygonRef InPolygonRef, double InLastHoverTime = 0.0, double InLastSelectTime = 0.0 )
+	FMeshElement( UPrimitiveComponent* InComponent, const FEditableMeshSubMeshAddress& InSubMeshAddress, FPolygonID InPolygonID, double InLastHoverTime = 0.0, double InLastSelectTime = 0.0 )
 		: Component( InComponent ),
-		  ElementAddress( InSubMeshAddress, InPolygonRef ),
+		  ElementAddress( InSubMeshAddress, InPolygonID ),
 		  LastHoverTime( InLastHoverTime ),
 		  LastSelectTime( InLastSelectTime )
 	{

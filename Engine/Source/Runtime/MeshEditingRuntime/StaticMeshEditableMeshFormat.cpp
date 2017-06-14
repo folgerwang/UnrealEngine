@@ -5,7 +5,7 @@
 #include "Engine/StaticMesh.h"
 #include "Components/StaticMeshComponent.h"
 #include "StaticMeshResources.h"
-#include "EditableStaticMesh.h"
+#include "EditableStaticMeshAdapter.h"
 
 
 void FStaticMeshEditableMeshFormat::FillMeshObjectPtr( UPrimitiveComponent& Component, FEditableMeshSubMeshAddress& SubMeshAddress )
@@ -28,7 +28,7 @@ void FStaticMeshEditableMeshFormat::FillMeshObjectPtr( UPrimitiveComponent& Comp
 
 UEditableMesh* FStaticMeshEditableMeshFormat::MakeEditableMesh( UPrimitiveComponent& Component, const FEditableMeshSubMeshAddress& SubMeshAddress )
 {
-	// If the static mesh already has an attached UEditableStaticMesh, use that in preference to creating a new one
+	// If the static mesh already has an attached UEditableStaticMeshAdapter, use that in preference to creating a new one
 	const UStaticMeshComponent* StaticMeshComponentPtr = Cast<const UStaticMeshComponent>( &Component );
 	if( StaticMeshComponentPtr != nullptr )
 	{
@@ -44,17 +44,21 @@ UEditableMesh* FStaticMeshEditableMeshFormat::MakeEditableMesh( UPrimitiveCompon
 		}
 	}
 
-	UEditableStaticMesh* EditableStaticMesh = NewObject<UEditableStaticMesh>();
+	UEditableMesh* EditableMesh = NewObject<UEditableMesh>();
+	UEditableStaticMeshAdapter* EditableStaticMesh = NewObject<UEditableStaticMeshAdapter>( EditableMesh );
+	EditableMesh->Adapters.Add( EditableStaticMesh );
 
-	EditableStaticMesh->InitEditableStaticMesh( Component, SubMeshAddress );
+	EditableStaticMesh->InitEditableStaticMesh( EditableMesh, Component, SubMeshAddress );
 
 	// Don't bother returning a new mesh if it has no geometry
-	if( EditableStaticMesh->GetVertexCount() == 0 )
+	if( EditableMesh->GetVertexCount() == 0 )
 	{
+		EditableMesh->Adapters.Remove( EditableStaticMesh );
 		EditableStaticMesh->MarkPendingKill();
-		EditableStaticMesh = nullptr;
+		EditableMesh->MarkPendingKill();
+		EditableMesh = nullptr;
 	}
 
-	return EditableStaticMesh;
+	return EditableMesh;
 }
 

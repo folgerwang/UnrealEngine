@@ -60,10 +60,10 @@ FBox FMeshElementViewportTransformable::BuildBoundingBox( const FTransform& Boun
 
 					case EEditableMeshElementType::Polygon:
 					{
-						const FPolygonRef PolygonRef( MeshElement.ElementAddress.SectionID, FPolygonID( MeshElement.ElementAddress.ElementID ) );
+						const FPolygonID PolygonID( MeshElement.ElementAddress.ElementID );
 
 						static TArray<FVertexID> PerimeterVertexIDs;
-						EditableMesh->GetPolygonPerimeterVertices( PolygonRef, /* Out */ PerimeterVertexIDs );
+						EditableMesh->GetPolygonPerimeterVertices( PolygonID, /* Out */ PerimeterVertexIDs );
 
 						for( const FVertexID VertexID : PerimeterVertexIDs )
 						{

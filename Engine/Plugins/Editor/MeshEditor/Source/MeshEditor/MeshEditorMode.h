@@ -13,6 +13,9 @@
 #include "UnrealEdMisc.h"
 #include "IMeshEditorModeUIContract.h"
 #include "IMeshEditorModeEditingContract.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/Commands/UICommandInfo.h"
+#include "Framework/Commands/UICommandList.h"
 #include "MeshEditorMode.generated.h"
 
 
@@ -124,7 +127,7 @@ public:
 					break;
 
 				case EEditableMeshElementType::Polygon:
-					bIsValid = EditableMesh->IsValidPolygon( FPolygonRef( MeshElement.ElementAddress.SectionID, FPolygonID( MeshElement.ElementAddress.ElementID ) ) );
+					bIsValid = EditableMesh->IsValidPolygon( FPolygonID( MeshElement.ElementAddress.ElementID ) );
 					break;
 			}
 		}
@@ -219,7 +222,7 @@ protected:
 	void AddEdgeToDynamicMesh( const UEditableMesh& EditableMesh, const FTransform& CameraToWorld, const bool bIsPerspectiveView, const FMatrix& ComponentToWorldMatrix, const FEdgeID EdgeID, const FColor ColorAndOpacity, const float SizeBias, class FDynamicMeshBuilder& MeshBuilder );
 
 	/** Fills the specified dynamic mesh builders with primitives to render a polygon and it's edges */
-	void AddPolygonToDynamicMesh( const UEditableMesh& EditableMesh, const FTransform& CameraToWorld, const bool bIsPerspectiveView, const FMatrix& ComponentToWorldMatrix, const FPolygonRef PolygonRef, const FColor ColorAndOpacity, const float SizeBias, const bool bFillFaces, class FDynamicMeshBuilder& VertexAndEdgeMeshBuilder, class FDynamicMeshBuilder* PolygonFaceMeshBuilder );
+	void AddPolygonToDynamicMesh( const UEditableMesh& EditableMesh, const FTransform& CameraToWorld, const bool bIsPerspectiveView, const FMatrix& ComponentToWorldMatrix, const FPolygonID PolygonID, const FColor ColorAndOpacity, const FColor HardEdgeColorAndOpacity, const float SizeBias, const bool bFillFaces, class FDynamicMeshBuilder& VertexAndEdgeMeshBuilder, class FDynamicMeshBuilder* PolygonFaceMeshBuilder );
 
 	/** Renders the spceified mesh element */
 	void DrawMeshElements( const FTransform& CameraToWorld, const bool bIsPerspectiveView, FViewport* Viewport, FPrimitiveDrawInterface* PDI, const TArrayView<FMeshElement>& MeshElements, const FColor Color, const bool bFillFaces, const float HoverAnimation, const TArray<FColor>* OptionalPerElementColors = nullptr, const TArray<float>* OptionalPerElementSizeBiases = nullptr );

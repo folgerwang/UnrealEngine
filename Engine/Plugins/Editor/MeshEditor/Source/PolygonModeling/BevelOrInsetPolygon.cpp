@@ -30,7 +30,7 @@ namespace BevelOrInsetPolygonHelpers
 	static void FindInsetAmount(
 		IMeshEditorModeEditingContract& MeshEditorMode,
 		UViewportInteractor* ViewportInteractor,
-		const FPolygonRef& PolygonRef,
+		const FPolygonID PolygonID,
 		UPrimitiveComponent& Component,
 		const UEditableMesh* EditableMesh,
 		float& OutInsetFixedDistance,
@@ -50,8 +50,8 @@ namespace BevelOrInsetPolygonHelpers
 		{
 			const FMatrix ComponentToWorldMatrix = Component.GetRenderMatrix();
 
-			const FPlane PolygonPlane = EditableMesh->ComputePolygonPlane( PolygonRef );
-			const FVector PolygonCenter = EditableMesh->ComputePolygonCenter( PolygonRef );
+			const FPlane PolygonPlane = EditableMesh->ComputePolygonPlane( PolygonID );
+			const FVector PolygonCenter = EditableMesh->ComputePolygonCenter( PolygonID );
 
 			const FVector ComponentSpaceRayStart = ComponentToWorldMatrix.InverseTransformPosition( LaserStart );
 			const FVector ComponentSpaceRayEnd = ComponentToWorldMatrix.InverseTransformPosition( LaserEnd );
@@ -67,7 +67,7 @@ namespace BevelOrInsetPolygonHelpers
 				FVector BestEdgeVertex0Position, BestEdgeVertex1Position;
 				{
 					static TArray<FVertexID> PerimeterVertexIDs;
-					EditableMesh->GetPolygonPerimeterVertices( PolygonRef, /* Out */ PerimeterVertexIDs );
+					EditableMesh->GetPolygonPerimeterVertices( PolygonID, /* Out */ PerimeterVertexIDs );
 
 					for( int32 VertexNumber = 0; VertexNumber < PerimeterVertexIDs.Num(); ++VertexNumber )
 					{
@@ -149,7 +149,7 @@ namespace BevelOrInsetPolygonHelpers
 				const UEditableMesh* InsetUsingEditableMesh = MeshEditorMode.FindEditableMesh( *InsetUsingComponent, InsetUsingPolygonElement.ElementAddress.SubMeshAddress );
 				if( ensure( InsetUsingEditableMesh != nullptr ) )
 				{
-					const FPolygonRef InsetUsingPolygonRef( InsetUsingPolygonElement.ElementAddress.SectionID, FPolygonID( InsetUsingPolygonElement.ElementAddress.ElementID ) );
+					const FPolygonID InsetUsingPolygonID( InsetUsingPolygonElement.ElementAddress.ElementID );
 
 					// Figure out how far to inset the polygon
 					float InsetFixedDistance = 0.0f;
@@ -157,7 +157,7 @@ namespace BevelOrInsetPolygonHelpers
 					FindInsetAmount(
 						MeshEditorMode,
 						ViewportInteractor,
-						InsetUsingPolygonRef,
+						InsetUsingPolygonID,
 						*InsetUsingComponent,
 						InsetUsingEditableMesh,
 						/* Out */ InsetFixedDistance,
@@ -175,30 +175,30 @@ namespace BevelOrInsetPolygonHelpers
 							check( Component != nullptr );
 
 
-							static TArray<FPolygonRef> PolygonRefsToInset;
-							PolygonRefsToInset.Reset();
+							static TArray<FPolygonID> PolygonIDsToInset;
+							PolygonIDsToInset.Reset();
 							for( const FMeshElement& PolygonToInset : PolygonsToInset )
 							{
-								FPolygonRef PolygonRef( PolygonToInset.ElementAddress.SectionID, FPolygonID( PolygonToInset.ElementAddress.ElementID ) );
-								PolygonRefsToInset.Add( PolygonRef );
+								const FPolygonID PolygonID( PolygonToInset.ElementAddress.ElementID );
+								PolygonIDsToInset.Add( PolygonID );
 							}
 
 							{
 								verify( !EditableMesh->AnyChangesToUndo() );
 
 								// Inset time!!
-								static TArray<FPolygonRef> NewCenterInsetPolygons;
-								static TArray<FPolygonRef> NewSideInsetPolygons;
+								static TArray<FPolygonID> NewCenterInsetPolygons;
+								static TArray<FPolygonID> NewSideInsetPolygons;
 								if( BevelOrInset == EBevelOrInset::Inset )
 								{
 									const EInsetPolygonsMode InsetPolygonsMode = EInsetPolygonsMode::All;	// @todo mesheditor inset: Make configurable?
 																											// @todo mesheditor inset: Add options for Fixed distance (instead of Percentage distance, like now.)
 
-									EditableMesh->InsetPolygons( PolygonRefsToInset, InsetFixedDistance, InsetProgressTowardCenter, InsetPolygonsMode, /* Out */ NewCenterInsetPolygons, /* Out */ NewSideInsetPolygons );
+									EditableMesh->InsetPolygons( PolygonIDsToInset, InsetFixedDistance, InsetProgressTowardCenter, InsetPolygonsMode, /* Out */ NewCenterInsetPolygons, /* Out */ NewSideInsetPolygons );
 								}
 								else if( ensure( BevelOrInset == EBevelOrInset::Bevel ) )
 								{
-									EditableMesh->BevelPolygons( PolygonRefsToInset, InsetFixedDistance, InsetProgressTowardCenter, /* Out */ NewCenterInsetPolygons, /* Out */ NewSideInsetPolygons );
+									EditableMesh->BevelPolygons( PolygonIDsToInset, InsetFixedDistance, InsetProgressTowardCenter, /* Out */ NewCenterInsetPolygons, /* Out */ NewSideInsetPolygons );
 								}
 
 								// Make sure the new polygons are selected.  The old polygon was deleted and will become deselected automatically.
@@ -206,7 +206,7 @@ namespace BevelOrInsetPolygonHelpers
 								{
 									for( int32 NewPolygonNumber = 0; NewPolygonNumber < NewCenterInsetPolygons.Num(); ++NewPolygonNumber )
 									{
-										const FPolygonRef& NewInsetCenterPolygon = NewCenterInsetPolygons[ NewPolygonNumber ];
+										const FPolygonID NewInsetCenterPolygon = NewCenterInsetPolygons[ NewPolygonNumber ];
 
 										const FMeshElement& MeshElement = PolygonsToInset[ NewPolygonNumber ];
 
@@ -214,8 +214,7 @@ namespace BevelOrInsetPolygonHelpers
 										{
 											PolygonMeshElement.Component = MeshElement.Component;
 											PolygonMeshElement.ElementAddress = MeshElement.ElementAddress;
-											PolygonMeshElement.ElementAddress.SectionID = NewInsetCenterPolygon.SectionID;
-											PolygonMeshElement.ElementAddress.ElementID = NewInsetCenterPolygon.PolygonID;
+											PolygonMeshElement.ElementAddress.ElementID = NewInsetCenterPolygon;
 										}
 
 										// Queue selection of this new element.  We don't want it to be part of the current action.
@@ -226,7 +225,7 @@ namespace BevelOrInsetPolygonHelpers
 								{
 									for( int32 NewPolygonNumber = 0; NewPolygonNumber < NewSideInsetPolygons.Num(); ++NewPolygonNumber )
 									{
-										const FPolygonRef& NewInsetSidePolygon = NewSideInsetPolygons[ NewPolygonNumber ];
+										const FPolygonID NewInsetSidePolygon = NewSideInsetPolygons[ NewPolygonNumber ];
 
 										const FMeshElement& MeshElement = PolygonsToInset[ NewPolygonNumber ];
 
@@ -234,8 +233,7 @@ namespace BevelOrInsetPolygonHelpers
 										{
 											PolygonMeshElement.Component = MeshElement.Component;
 											PolygonMeshElement.ElementAddress = MeshElement.ElementAddress;
-											PolygonMeshElement.ElementAddress.SectionID = NewInsetSidePolygon.SectionID;
-											PolygonMeshElement.ElementAddress.ElementID = NewInsetSidePolygon.PolygonID;
+											PolygonMeshElement.ElementAddress.ElementID = NewInsetSidePolygon;
 										}
 
 										// Queue selection of this new element.  We don't want it to be part of the current action.

@@ -38,6 +38,10 @@
 #include "Materials/Material.h"
 #include "Materials/MaterialInterface.h"
 
+#include "Misc/FeedbackContext.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Materials/Material.h"
+#include "Components/PrimitiveComponent.h"
 
 #define LOCTEXT_NAMESPACE "MeshEditorMode"
 
@@ -272,11 +276,11 @@ TUniquePtr<FChange> FMeshEditorMode::FSetElementSelectionModeChange::Execute( UO
 					else if( ElementAddress.ElementType == EEditableMeshElementType::Polygon )
 					{
 						// Select vertices of the selected polygon
-						const FPolygonRef PolygonRef = FPolygonRef( ElementAddress.SectionID, FPolygonID( ElementAddress.ElementID ) );
-						const int32 PolygonVertexCount = EditableMesh->GetPolygonPerimeterVertexCount( PolygonRef );
+						const FPolygonID PolygonID = FPolygonID( ElementAddress.ElementID );
+						const int32 PolygonVertexCount = EditableMesh->GetPolygonPerimeterVertexCount( PolygonID );
 						for( int32 Index = 0; Index < PolygonVertexCount; ++Index )
 						{
-							ElementsToSelect.Emplace( Component, SubMeshAddress, EditableMesh->GetPolygonPerimeterVertex( PolygonRef, Index ) );
+							ElementsToSelect.Emplace( Component, SubMeshAddress, EditableMesh->GetPolygonPerimeterVertex( PolygonID, Index ) );
 						}
 					}
 				}
@@ -295,12 +299,12 @@ TUniquePtr<FChange> FMeshEditorMode::FSetElementSelectionModeChange::Execute( UO
 					else if( ElementAddress.ElementType == EEditableMeshElementType::Polygon )
 					{
 						// Select edges forming the selected polygon
-						const FPolygonRef PolygonRef = FPolygonRef( ElementAddress.SectionID, FPolygonID( ElementAddress.ElementID ) );
-						const int32 PolygonEdgeCount = EditableMesh->GetPolygonPerimeterEdgeCount( PolygonRef );
+						const FPolygonID PolygonID = FPolygonID( ElementAddress.ElementID );
+						const int32 PolygonEdgeCount = EditableMesh->GetPolygonPerimeterEdgeCount( PolygonID );
 						for( int32 Index = 0; Index < PolygonEdgeCount; ++Index )
 						{
 							bool bEdgeWindingIsReversedForPolygon;
-							ElementsToSelect.Emplace( Component, SubMeshAddress, EditableMesh->GetPolygonPerimeterEdge( PolygonRef, Index, bEdgeWindingIsReversedForPolygon ) );
+							ElementsToSelect.Emplace( Component, SubMeshAddress, EditableMesh->GetPolygonPerimeterEdge( PolygonID, Index, bEdgeWindingIsReversedForPolygon ) );
 						}
 					}
 				}
@@ -310,9 +314,9 @@ TUniquePtr<FChange> FMeshEditorMode::FSetElementSelectionModeChange::Execute( UO
 					{
 						// Select all polygons containing the selected vertex
 						// @todo mesheditor: is that reasonable? Should it only select a polygon which has all its vertices selected?
-						TArray<FPolygonRef> VertexConnectedPolygons;
+						TArray<FPolygonID> VertexConnectedPolygons;
 						EditableMesh->GetVertexConnectedPolygons( FVertexID( ElementAddress.ElementID ), VertexConnectedPolygons );
-						for( FPolygonRef VertexConnectedPolygon : VertexConnectedPolygons )
+						for( const FPolygonID VertexConnectedPolygon : VertexConnectedPolygons )
 						{
 							ElementsToSelect.Emplace( Component, SubMeshAddress, VertexConnectedPolygon );
 						}
@@ -857,9 +861,11 @@ UEditableMesh* FMeshEditorMode::FindOrCreateEditableMesh( UPrimitiveComponent& C
 
 			if( GetDefault<UMeshEditorSettings>()->bAutoQuadrangulate )
 			{
-				static TArray<FPolygonRef> NewPolygonsRefs;
 				EditableMesh->StartModification( EMeshModificationType::Final, EMeshTopologyChange::TopologyChange );
-				EditableMesh->QuadrangulateMesh( NewPolygonsRefs );
+
+				static TArray<FPolygonID> NewPolygonIDs;
+				EditableMesh->QuadrangulateMesh( NewPolygonIDs );
+
 				EditableMesh->EndModification();
 			}
 
@@ -889,15 +895,18 @@ void FMeshEditorMode::RollbackPreviewChanges()
 		// to skip certain parts of the update (such as subdivision geometry refresh).  This should get us better performance!
 
 		// @todo mesheditor debug
-		//GWarn->Logf( TEXT( "---------- Rolling Back Preview Change (Object:%s) ----------" ), *Object->GetName() );
-		//PreviewRevertChange->PrintToLog( *GWarn );
+//		GWarn->Logf( TEXT( "---------- Rolling Back Preview Change (Object:%s) ----------" ), *Object->GetName() );
+//		PreviewRevertChange->PrintToLog( *GWarn );
+//		GWarn->Logf( TEXT( "---------- End (Object:%s) ----------" ), *Object->GetName() );
 
+		UE_LOG( LogEditableMesh, Verbose, TEXT( "------- ROLLING BACK PREVIEW CHANGE -------" ) );
 		TUniquePtr<FChange> UnusedChangeToUndoRevert = MoveTemp( PreviewRevertChange->Execute( Object ) );
+		UE_LOG( LogEditableMesh, Verbose, TEXT( "------- END ROLL BACK PREVIEW CHANGE -------" ) );
 
 		// @todo mesheditor debug
-		//GWarn->Logf( TEXT( "-----(Here's what the Redo looks like)-----" ) );
-		//UnusedChangeToUndoRevert->PrintToLog( *GWarn );
-		//GWarn->Logf( TEXT( "-------------------------------------------" ) );
+//		GWarn->Logf( TEXT( "-----(Here's what the Redo looks like)-----" ) );
+//		UnusedChangeToUndoRevert->PrintToLog( *GWarn );
+//		GWarn->Logf( TEXT( "-------------------------------------------" ) );
 	}
 	PreviewRevertChanges.Reset();
 }
@@ -1230,7 +1239,7 @@ void FMeshEditorMode::GetSelectedMeshesAndPolygonsPerimeterEdges( TMap<UEditable
 			}
 
 			static TArray<FEdgeID> PerimeterEdgeIDs;
-			EditableMesh->GetPolygonPerimeterEdges( FPolygonRef( FSectionID( PolygonElement.ElementAddress.SectionID ), FPolygonID( PolygonElement.ElementAddress.ElementID ) ), /* Out */ PerimeterEdgeIDs );
+			EditableMesh->GetPolygonPerimeterEdges( FPolygonID( PolygonElement.ElementAddress.ElementID ), /* Out */ PerimeterEdgeIDs );
 
 			for( const FEdgeID PerimeterEdgeID : PerimeterEdgeIDs )
 			{
@@ -1335,6 +1344,7 @@ bool FMeshEditorMode::DeleteSelectedMeshElement()
 		{
 			const bool bDeleteOrphanedEdges = true;
 			const bool bDeleteOrphanedVertices = true;
+			const bool bDeleteOrphanedVertexInstances = true;
 			const bool bDeleteEmptySections = true;
 
 			// If we deleted the same polygon on multiple selected instances of the same mesh, the polygon could already have been deleted
@@ -1347,6 +1357,7 @@ bool FMeshEditorMode::DeleteSelectedMeshElement()
 						FVertexID( MeshElementToDelete.ElementAddress.ElementID ),
 						bDeleteOrphanedEdges,
 						bDeleteOrphanedVertices,
+						bDeleteOrphanedVertexInstances,
 						bDeleteEmptySections );
 
 				}
@@ -1356,14 +1367,20 @@ bool FMeshEditorMode::DeleteSelectedMeshElement()
 						FEdgeID( MeshElementToDelete.ElementAddress.ElementID ),
 						bDeleteOrphanedEdges,
 						bDeleteOrphanedVertices,
+						bDeleteOrphanedVertexInstances,
 						bDeleteEmptySections );
 				}
 				else if( MeshElementToDelete.ElementAddress.ElementType == EEditableMeshElementType::Polygon )
 				{
-					static TArray<FPolygonRef> PolygonRefsToDelete;
-					PolygonRefsToDelete.Reset();
-					PolygonRefsToDelete.Add( FPolygonRef( MeshElementToDelete.ElementAddress.SectionID, FPolygonID( MeshElementToDelete.ElementAddress.ElementID ) ) );
-					EditableMesh->DeletePolygons( PolygonRefsToDelete, bDeleteOrphanedEdges, bDeleteOrphanedVertices, bDeleteEmptySections );
+					static TArray<FPolygonID> PolygonIDsToDelete;
+					PolygonIDsToDelete.Reset();
+					PolygonIDsToDelete.Add( FPolygonID( MeshElementToDelete.ElementAddress.ElementID ) );
+					EditableMesh->DeletePolygons( 
+						PolygonIDsToDelete,
+						bDeleteOrphanedEdges,
+						bDeleteOrphanedVertices,
+						bDeleteOrphanedVertexInstances,
+						bDeleteEmptySections );
 				}
 			}
 		}
@@ -1489,12 +1506,12 @@ void FMeshEditorMode::FrameSelectedElements( FEditorViewportClient* ViewportClie
 					const UPrimitiveComponent* Component = PolygonElement.Component.Get();
 					if( Component )
 					{
-						const FPolygonRef PolygonRef( PolygonElement.ElementAddress.SectionID, FPolygonID( PolygonElement.ElementAddress.ElementID ) );
+						const FPolygonID PolygonID( PolygonElement.ElementAddress.ElementID );
 
-						const int32 PolygonVertexCount = EditableMesh->GetPolygonPerimeterVertexCount( PolygonRef );
+						const int32 PolygonVertexCount = EditableMesh->GetPolygonPerimeterVertexCount( PolygonID );
 						for( int32 PolygonVertexIndex = 0; PolygonVertexIndex < PolygonVertexCount; ++PolygonVertexIndex )
 						{
-							const FVector VertexPosition = EditableMesh->GetPolygonPerimeterVertexAttribute( PolygonRef, PolygonVertexIndex, UEditableMeshAttribute::VertexPosition(), 0 );
+							const FVector VertexPosition = EditableMesh->GetPolygonPerimeterVertexAttribute( PolygonID, PolygonVertexIndex, UEditableMeshAttribute::VertexPosition(), 0 );
 							BoundingBox += Component->GetComponentTransform().TransformPosition( VertexPosition );
 						}
 					}
@@ -1675,13 +1692,13 @@ bool FMeshEditorMode::FlipSelectedPolygons()
 
 		EditableMesh->StartModification( EMeshModificationType::Final, EMeshTopologyChange::TopologyChange );
 
-		static TArray<FPolygonRef> PolygonsToFlip;
+		static TArray<FPolygonID> PolygonsToFlip;
 		PolygonsToFlip.Reset();
 
 		for( const FMeshElement& PolygonElement : MeshAndPolygons.Value )
 		{
-			const FPolygonRef PolygonRef( PolygonElement.ElementAddress.SectionID, FPolygonID( PolygonElement.ElementAddress.ElementID ) );
-			PolygonsToFlip.Add( PolygonRef );
+			const FPolygonID PolygonID( PolygonElement.ElementAddress.ElementID );
+			PolygonsToFlip.Add( PolygonID );
 		}
 
 		EditableMesh->FlipPolygons( PolygonsToFlip );
@@ -1740,19 +1757,19 @@ bool FMeshEditorMode::TriangulateSelectedPolygons()
 
 		EditableMesh->StartModification( EMeshModificationType::Final, EMeshTopologyChange::TopologyChange );
 
-		static TArray<FPolygonRef> PolygonsToTriangulate;
+		static TArray<FPolygonID> PolygonsToTriangulate;
 		PolygonsToTriangulate.Reset( MeshAndPolygons.Value.Num() );
 
 		for( const FMeshElement& PolygonElement : MeshAndPolygons.Value )
 		{
-			const FPolygonRef PolygonRef( PolygonElement.ElementAddress.SectionID, FPolygonID( PolygonElement.ElementAddress.ElementID ) );
-			PolygonsToTriangulate.Add( PolygonRef );
+			const FPolygonID PolygonID( PolygonElement.ElementAddress.ElementID );
+			PolygonsToTriangulate.Add( PolygonID );
 		}
 
-		static TArray<FPolygonRef> NewTrianglePolygonRefs;
-		EditableMesh->TriangulatePolygons( PolygonsToTriangulate, /* Out */ NewTrianglePolygonRefs );
+		static TArray<FPolygonID> NewTrianglePolygonIDs;
+		EditableMesh->TriangulatePolygons( PolygonsToTriangulate, /* Out */ NewTrianglePolygonIDs );
 
-		for( const FPolygonRef& NewTrianglePolygonRef : NewTrianglePolygonRefs )
+		for( const FPolygonID NewTrianglePolygonID : NewTrianglePolygonIDs )
 		{
 			// Select the new polygon
 			FMeshElement NewPolygonMeshElement;
@@ -1760,8 +1777,7 @@ bool FMeshEditorMode::TriangulateSelectedPolygons()
 				NewPolygonMeshElement.Component = Component;
 				NewPolygonMeshElement.ElementAddress.SubMeshAddress = EditableMesh->GetSubMeshAddress();
 				NewPolygonMeshElement.ElementAddress.ElementType = EEditableMeshElementType::Polygon;
-				NewPolygonMeshElement.ElementAddress.SectionID = NewTrianglePolygonRef.SectionID;
-				NewPolygonMeshElement.ElementAddress.ElementID = NewTrianglePolygonRef.PolygonID;
+				NewPolygonMeshElement.ElementAddress.ElementID = NewTrianglePolygonID;
 			}
 
 			MeshElementsToSelect.Add( NewPolygonMeshElement );
@@ -1811,8 +1827,8 @@ bool FMeshEditorMode::AssignMaterialToSelectedPolygons( UMaterialInterface* Sele
 			return false;
 		}
 
-		static TArray<FPolygonRef> NewPolygonRefs;
-		NewPolygonRefs.Reset();
+		static TArray<FPolygonID> NewPolygonIDs;
+		NewPolygonIDs.Reset();
 
 		static TArray<FMeshElement> MeshElementsToSelect;
 		MeshElementsToSelect.Reset();
@@ -1842,18 +1858,18 @@ bool FMeshEditorMode::AssignMaterialToSelectedPolygons( UMaterialInterface* Sele
 
 			EditableMesh->StartModification( EMeshModificationType::Final, EMeshTopologyChange::TopologyChange );
 			{
-				static TArray<FPolygonRef> PolygonsToAssign;
+				static TArray<FPolygonID> PolygonsToAssign;
 				PolygonsToAssign.Reset();
 
 				for( const FMeshElement& PolygonElement : MeshAndPolygons.Value )
 				{
-					const FPolygonRef PolygonRef( PolygonElement.ElementAddress.SectionID, FPolygonID( PolygonElement.ElementAddress.ElementID ) );
-					PolygonsToAssign.Add( PolygonRef );
+					const FPolygonID PolygonID( PolygonElement.ElementAddress.ElementID );
+					PolygonsToAssign.Add( PolygonID );
 				}
 
-				EditableMesh->AssignMaterialToPolygons( PolygonsToAssign, SelectedMaterial, NewPolygonRefs );
+				EditableMesh->AssignMaterialToPolygons( PolygonsToAssign, SelectedMaterial, NewPolygonIDs );
 
-				for( const FPolygonRef& NewPolygonRef : NewPolygonRefs )
+				for( const FPolygonID NewPolygonID : NewPolygonIDs )
 				{
 					// Select the new polygon
 					FMeshElement NewPolygonMeshElement;
@@ -1861,8 +1877,7 @@ bool FMeshEditorMode::AssignMaterialToSelectedPolygons( UMaterialInterface* Sele
 						NewPolygonMeshElement.Component = Component;
 						NewPolygonMeshElement.ElementAddress.SubMeshAddress = EditableMesh->GetSubMeshAddress();
 						NewPolygonMeshElement.ElementAddress.ElementType = EEditableMeshElementType::Polygon;
-						NewPolygonMeshElement.ElementAddress.SectionID = NewPolygonRef.SectionID;
-						NewPolygonMeshElement.ElementAddress.ElementID = NewPolygonRef.PolygonID;
+						NewPolygonMeshElement.ElementAddress.ElementID = NewPolygonID;
 					}
 
 					MeshElementsToSelect.Add( NewPolygonMeshElement );
@@ -2020,7 +2035,7 @@ void FMeshEditorMode::AddEdgeToDynamicMesh( const UEditableMesh& EditableMesh, c
 	FVertexID MeshVertexIDs[ 2 ];
 	EditableMesh.GetEdgeVertices( EdgeID, /* Out */ MeshVertexIDs[0], /* Out */ MeshVertexIDs[1] );
 
-	static TArray<FPolygonRef> ConnectedPolygons;
+	static TArray<FPolygonID> ConnectedPolygons;
 	EditableMesh.GetEdgeConnectedPolygons( EdgeID, /* Out */ ConnectedPolygons );
 
 	FVector EdgeVertexPositions[ 2 ];
@@ -2034,11 +2049,11 @@ void FMeshEditorMode::AddEdgeToDynamicMesh( const UEditableMesh& EditableMesh, c
 }
 
 
-void FMeshEditorMode::AddPolygonToDynamicMesh( const UEditableMesh& EditableMesh, const FTransform& CameraToWorld, const bool bIsPerspectiveView, const FMatrix& ComponentToWorldMatrix, const FPolygonRef PolygonRef, const FColor ColorAndOpacity, const float SizeBias, const bool bFillFaces, FDynamicMeshBuilder& VertexAndEdgeMeshBuilder, FDynamicMeshBuilder* PolygonFaceMeshBuilder )
+void FMeshEditorMode::AddPolygonToDynamicMesh( const UEditableMesh& EditableMesh, const FTransform& CameraToWorld, const bool bIsPerspectiveView, const FMatrix& ComponentToWorldMatrix, const FPolygonID PolygonID, const FColor ColorAndOpacity, const FColor HardEdgeColorAndOpacity, const float SizeBias, const bool bFillFaces, FDynamicMeshBuilder& VertexAndEdgeMeshBuilder, FDynamicMeshBuilder* PolygonFaceMeshBuilder )
 {
 	static TArray<FVertexID> MeshVertexIDs;
 	MeshVertexIDs.Reset();
-	EditableMesh.GetPolygonPerimeterVertices( PolygonRef, /* Out */ MeshVertexIDs );
+	EditableMesh.GetPolygonPerimeterVertices( PolygonID, /* Out */ MeshVertexIDs );
 
 	static TArray<FVector> PolygonPerimeterVertexPositions;
 	PolygonPerimeterVertexPositions.SetNumUninitialized( MeshVertexIDs.Num(), false );
@@ -2050,7 +2065,7 @@ void FMeshEditorMode::AddPolygonToDynamicMesh( const UEditableMesh& EditableMesh
 	// @todo mesheditor: Support polygon hole contours!
 
 
-	const FVector PolygonNormal = ComponentToWorldMatrix.TransformVector( EditableMesh.ComputePolygonNormal( PolygonRef ) ).GetSafeNormal();
+	const FVector PolygonNormal = ComponentToWorldMatrix.TransformVector( EditableMesh.ComputePolygonNormal( PolygonID ) ).GetSafeNormal();
 	const float Determinant = ComponentToWorldMatrix.Determinant();
 
 	const FVector CameraForwardVectorUnnormalized = CameraToWorld.TransformVector( FVector::ForwardVector );
@@ -2068,7 +2083,7 @@ void FMeshEditorMode::AddPolygonToDynamicMesh( const UEditableMesh& EditableMesh
 		const float DistanceBias = bIsPerspectiveView ? MeshEd::OverlayPerspectiveDistanceBias->GetFloat() : MeshEd::OverlayOrthographicDistanceBias->GetFloat();
 
 		check( PolygonFaceMeshBuilder );
-		const uint32 PolygonTriangleCount = EditableMesh.GetPolygonTriangulatedTriangleCount( PolygonRef );
+		const uint32 PolygonTriangleCount = EditableMesh.GetPolygonTriangulatedTriangleCount( PolygonID );
 		for( uint32 PolygonTriangleNumber = 0; PolygonTriangleNumber < PolygonTriangleCount; ++PolygonTriangleNumber )
 		{
 			FVector TriangleVertexPositions[ 3 ];
@@ -2077,7 +2092,7 @@ void FMeshEditorMode::AddPolygonToDynamicMesh( const UEditableMesh& EditableMesh
 			{
 				TriangleVertexPositions[ TriangleVertexNumber ] =
 					ComponentToWorldMatrix.TransformPosition( 
-						EditableMesh.GetPolygonTriangulatedTriangleVertexPosition( PolygonRef, PolygonTriangleNumber, TriangleVertexNumber ) );
+						EditableMesh.GetPolygonTriangulatedTriangleVertexPosition( PolygonID, PolygonTriangleNumber, TriangleVertexNumber ) );
 
 				// We're offsetting the geometry from the actual face a bit, to avoid z-fighting for this particular effect
 				const FVector DirectionToCamera = bIsPerspectiveView ? ( CameraToWorld.GetLocation() - TriangleVertexPositions[ TriangleVertexNumber ] ).GetSafeNormal() : -CameraForwardVectorUnnormalized.GetSafeNormal();
@@ -2100,13 +2115,20 @@ void FMeshEditorMode::AddPolygonToDynamicMesh( const UEditableMesh& EditableMesh
 
 	{
 		static TArray<FEdgeID> PerimeterEdges;
-		EditableMesh.GetPolygonPerimeterEdges( PolygonRef, /* Out */ PerimeterEdges );
+		EditableMesh.GetPolygonPerimeterEdges( PolygonID, /* Out */ PerimeterEdges );
 
 		// Draw polygon edges
 		// @todo mesheditor: Assumes no holes, etc.
 		for( const FEdgeID EdgeID : PerimeterEdges )
 		{
-			AddEdgeToDynamicMesh( EditableMesh, CameraToWorld, bIsPerspectiveView, ComponentToWorldMatrix, EdgeID, ColorAndOpacity, SizeBias, VertexAndEdgeMeshBuilder );
+			if( EditableMesh.GetEdgeAttribute( EdgeID, UEditableMeshAttribute::EdgeIsHard(), 0 ).X > 0.0f )
+			{
+				AddEdgeToDynamicMesh( EditableMesh, CameraToWorld, bIsPerspectiveView, ComponentToWorldMatrix, EdgeID, HardEdgeColorAndOpacity, SizeBias, VertexAndEdgeMeshBuilder );
+			}
+			else
+			{
+				AddEdgeToDynamicMesh( EditableMesh, CameraToWorld, bIsPerspectiveView, ComponentToWorldMatrix, EdgeID, ColorAndOpacity, SizeBias, VertexAndEdgeMeshBuilder );
+			}
 		}
 	}
 }
@@ -2178,7 +2200,8 @@ void FMeshEditorMode::DrawMeshElements( const FTransform& CameraToWorld, const b
 								CameraToWorld,
 								bIsPerspectiveView,
 								ComponentToWorldMatrix,
-								FPolygonRef( MeshElement.ElementAddress.SectionID, FPolygonID( MeshElement.ElementAddress.ElementID ) ),
+								FPolygonID( MeshElement.ElementAddress.ElementID ),
+								ElementColor,
 								ElementColor,
 								ElementSizeBias,
 								bFillFaces,
@@ -2241,22 +2264,23 @@ void FMeshEditorMode::Render( const FSceneView* SceneView, FViewport* Viewport, 
 			GEngine->AddOnScreenDebugMessage( INDEX_NONE, 0.0f, FColor::White,
 				FString::Printf( TEXT( "Vertices: %i (array size: %i)" ), EditableMesh->GetVertexCount(), EditableMesh->GetVertexArraySize() ), false );
 			GEngine->AddOnScreenDebugMessage( INDEX_NONE, 0.0f, FColor::White,
-				FString::Printf( TEXT( "Rendering Vertices: %i (array size: %i)" ), EditableMesh->GetRenderingVertexCount(), EditableMesh->GetRenderingVertexArraySize() ), false );
+				FString::Printf( TEXT( "Vertex instances: %i (array size: %i)" ), EditableMesh->GetVertexInstanceCount(), EditableMesh->GetVertexInstanceArraySize() ), false );
 			GEngine->AddOnScreenDebugMessage( INDEX_NONE, 0.0f, FColor::White,
 				FString::Printf( TEXT( "Edges: %i (array size: %i)" ), EditableMesh->GetEdgeCount(), EditableMesh->GetEdgeArraySize() ), false );
 			GEngine->AddOnScreenDebugMessage( INDEX_NONE, 0.0f, FColor::White,
-				FString::Printf( TEXT( "Sections: %i (array size: %i)" ), EditableMesh->GetSectionCount(), EditableMesh->GetSectionArraySize() ), false );
-			for( int32 SectionIndex = 0; SectionIndex < EditableMesh->GetSectionArraySize(); ++SectionIndex )
-			{
-				const FSectionID SectionID( SectionIndex );
-				if( EditableMesh->IsValidSection( SectionID ) )
-				{
-					GEngine->AddOnScreenDebugMessage( INDEX_NONE, 0.0f, FColor::White,
-						FString::Printf( TEXT( "   [%i] Polygons: %i (array size: %i)" ), SectionID.GetValue(), EditableMesh->GetPolygonCount( SectionID ), EditableMesh->GetPolygonArraySize( SectionID ) ), false );
-					GEngine->AddOnScreenDebugMessage( INDEX_NONE, 0.0f, FColor::White,
-						FString::Printf( TEXT( "   [%i] Triangles: %i (array size: %i)" ), SectionID.GetValue(), EditableMesh->GetTriangleCount( SectionID ), EditableMesh->GetTriangleArraySize( SectionID ) ), false );
-				}
-			}
+				FString::Printf( TEXT( "Polygons: %i (array size: %i)" ), EditableMesh->GetPolygonCount(), EditableMesh->GetPolygonArraySize() ), false );
+			GEngine->AddOnScreenDebugMessage( INDEX_NONE, 0.0f, FColor::White,
+				FString::Printf( TEXT( "Sections: %i (array size: %i)" ), EditableMesh->GetPolygonGroupCount(), EditableMesh->GetPolygonGroupArraySize() ), false );
+			// @todo mesheditor: triangles array is now an implementation detail in the adapter. Discuss if it's worth preserving access to it somehow.
+			//for( int32 PolygonGroupIndex = 0; PolygonGroupIndex < EditableMesh->GetPolygonGroupArraySize(); ++PolygonGroupIndex )
+			//{
+			//	const FPolygonGroupID PolygonGroupID( PolygonGroupIndex );
+			//	if( EditableMesh->IsValidPolygonGroup( PolygonGroupID ) )
+			//	{
+			//		GEngine->AddOnScreenDebugMessage( INDEX_NONE, 0.0f, FColor::White,
+			//			FString::Printf( TEXT( "   [%i] Triangles: %i (array size: %i)" ), PolygonGroupID.GetValue(), EditableMesh->GetTriangleCount( PolygonGroupID ), EditableMesh->GetTriangleArraySize( PolygonGroupID ) ), false );
+			//	}
+			//}
 		}
 	}
 
@@ -2320,7 +2344,7 @@ void FMeshEditorMode::Render( const FSceneView* SceneView, FViewport* Viewport, 
 							// Find all of this polygons edges.  They'll all need to be highlighted.
 							static TArray<FEdgeID> SelectedPolygonPerimeterEdgeIDs;
 							EditableMesh->GetPolygonPerimeterEdges(
-								FPolygonRef( SelectedMeshElement.ElementAddress.SectionID, FPolygonID( SelectedMeshElement.ElementAddress.ElementID ) ),
+								FPolygonID( SelectedMeshElement.ElementAddress.ElementID ),
 								/* Out */ SelectedPolygonPerimeterEdgeIDs );
 
 							HighlightedEdgeIDs.Append( SelectedPolygonPerimeterEdgeIDs );
@@ -2377,62 +2401,71 @@ void FMeshEditorMode::Render( const FSceneView* SceneView, FViewport* Viewport, 
 				const float SizeBias = 0.05f;
 				const bool bFillFaces = false;
 				const FColor ColorAndOpacity = FLinearColor( 0.0f, 0.0f, 0.3f ).CopyWithNewOpacity( Opacity ).ToFColor( false );
+				const FColor HardEdgeColorAndOpacity = FLinearColor( 0.0f, 0.3f, 0.3f ).CopyWithNewOpacity( Opacity ).ToFColor( false );
 
-				for( int32 SectionIndex = 0; SectionIndex < EditableMesh->GetSectionArraySize(); ++SectionIndex )
+				const uint32 PolygonArraySize = EditableMesh->GetPolygonArraySize();
+
+				for( uint32 PolygonIndex = 0; PolygonIndex < PolygonArraySize; ++PolygonIndex )
 				{
-					const FSectionID SectionID( SectionIndex );
-					if( EditableMesh->IsValidSection( SectionID ) )
+					const FPolygonID PolygonID( PolygonIndex );
+					if( EditableMesh->IsValidPolygon( PolygonID ) )
 					{
-						const uint32 SectionPolygonArraySize = EditableMesh->GetPolygonArraySize( SectionID );
+						AddPolygonToDynamicMesh(
+							*EditableMesh,
+							CameraToWorld,
+							bIsPerspectiveView,
+							ComponentToWorldMatrix,
+							PolygonID,
+							ColorAndOpacity,
+							HardEdgeColorAndOpacity,
+							SizeBias,
+							bFillFaces,
+							VertexAndEdgeMeshBuilder,
+							nullptr );
 
-						for( uint32 PolygonIndex = 0; PolygonIndex < SectionPolygonArraySize; ++PolygonIndex )
+						if( bShowVertexNormals )
 						{
-							const FPolygonID PolygonID( PolygonIndex );
+							// @todo mesheditor: total debug feature for now. Need a way of making this look nice.
+							const int32 PerimeterVertexCount = EditableMesh->GetPolygonPerimeterVertexCount( PolygonID );
+							const float Length = 10.0f; // @todo mesheditor: determine length of debug line from distance from the mesh origin to the camera?
 
-							const FPolygonRef PolygonRef( SectionID, PolygonID );
-							if( EditableMesh->IsValidPolygon( PolygonRef ) )
+							for( int32 PerimeterVertexIndex = 0; PerimeterVertexIndex < PerimeterVertexCount; ++PerimeterVertexIndex )
 							{
-								AddPolygonToDynamicMesh(
-									*EditableMesh,
+								FVector Position( EditableMesh->GetPolygonPerimeterVertexAttribute( PolygonID, PerimeterVertexIndex, UEditableMeshAttribute::VertexPosition(), 0 ) );
+								FVector Normal( EditableMesh->GetPolygonPerimeterVertexAttribute( PolygonID, PerimeterVertexIndex, UEditableMeshAttribute::VertexNormal(), 0 ) );
+								FVector Tangent( EditableMesh->GetPolygonPerimeterVertexAttribute( PolygonID, PerimeterVertexIndex, UEditableMeshAttribute::VertexTangent(), 0 ) );
+
+								FVector VertexNormalRenderPositions[] =
+								{
+									ComponentToWorldMatrix.TransformPosition( Position ),
+									ComponentToWorldMatrix.TransformPosition( Position + Normal * Length )
+								};
+
+								FVector VertexTangentRenderPositions[] =
+								{
+									ComponentToWorldMatrix.TransformPosition( Position ),
+									ComponentToWorldMatrix.TransformPosition( Position + Tangent * Length * 0.5f )
+								};
+
+								// We don't need any depth bias when drawing lines for face normals
+								const bool bApplyDepthBias = false;
+								AddThickLineToDynamicMesh(
 									CameraToWorld,
 									bIsPerspectiveView,
-									ComponentToWorldMatrix,
-									PolygonRef,
-									ColorAndOpacity,
+									VertexNormalRenderPositions,
+									FColor::Magenta,
 									SizeBias,
-									bFillFaces,
-									VertexAndEdgeMeshBuilder,
-									nullptr );
+									bApplyDepthBias,
+									VertexAndEdgeMeshBuilder );
 
-								if( bShowVertexNormals )
-								{
-									// @todo mesheditor: total debug feature for now. Need a way of making this look nice.
-									const int32 PerimeterVertexCount = EditableMesh->GetPolygonPerimeterVertexCount( PolygonRef );
-									const float Length = 10.0f; // @todo mesheditor: determine length of debug line from distance from the mesh origin to the camera?
-
-									for( int32 PerimeterVertexIndex = 0; PerimeterVertexIndex < PerimeterVertexCount; ++PerimeterVertexIndex )
-									{
-										FVector Position( EditableMesh->GetPolygonPerimeterVertexAttribute( PolygonRef, PerimeterVertexIndex, UEditableMeshAttribute::VertexPosition(), 0 ) );
-										FVector Normal( EditableMesh->GetPolygonPerimeterVertexAttribute( PolygonRef, PerimeterVertexIndex, UEditableMeshAttribute::VertexNormal(), 0 ) );
-
-										FVector VertexNormalRenderPositions[] =
-										{
-											ComponentToWorldMatrix.TransformPosition( Position ),
-											ComponentToWorldMatrix.TransformPosition( Position + Normal * Length )
-										};
-
-										// We don't need any depth bias when drawing lines for face normals
-										const bool bApplyDepthBias = false;
-										AddThickLineToDynamicMesh(
-											CameraToWorld,
-											bIsPerspectiveView,
-											VertexNormalRenderPositions,
-											FColor::Magenta,
-											SizeBias,
-											bApplyDepthBias,
-											VertexAndEdgeMeshBuilder );
-									}
-								}
+								AddThickLineToDynamicMesh(
+									CameraToWorld,
+									bIsPerspectiveView,
+									VertexTangentRenderPositions,
+									FColor::Yellow,
+									SizeBias,
+									bApplyDepthBias,
+									VertexAndEdgeMeshBuilder );
 							}
 						}
 					}
@@ -3212,30 +3245,21 @@ void FMeshEditorMode::UpdateActiveAction( const bool bIsActionFinishing )
 				else if( DrawnPoints.Num() > 2 )
 				{
 					// If more than two points, create a polygon
-					static TArray<FPolygonRef> NewPolygonRefs;
+					static TArray<FPolygonID> NewPolygonIDs;
 					static TArray<FEdgeID> NewEdgeIDs;
 					static TArray<FPolygonToCreate> PolygonsToCreate;
-					NewPolygonRefs.Reset( 1 );
+					NewPolygonIDs.Reset( 1 );
 					NewEdgeIDs.Reset( 1 );
 					PolygonsToCreate.Reset( 1 );
 
-					// Find first valid section to add the polygon to
-					FSectionID SectionID = FSectionID::Invalid;
-					const int32 SectionArraySize = EditableMesh->GetSectionArraySize();
-					for( int32 SectionIndex = 0; SectionIndex < SectionArraySize; ++SectionIndex )
-					{
-						if( EditableMesh->IsValidSection( FSectionID( SectionIndex ) ) )
-						{
-							SectionID = FSectionID( SectionIndex );
-							break;
-						}
-					}
-					check( SectionID != FSectionID::Invalid );
+					// Find first valid polygon group to add the polygon to
+					FPolygonGroupID PolygonGroupID = EditableMesh->GetFirstValidPolygonGroup();
+					check( PolygonGroupID != FPolygonGroupID::Invalid );
 
 					// Create new polygon
 					PolygonsToCreate.Emplace();
 					FPolygonToCreate& PolygonToCreate = PolygonsToCreate.Last();
-					PolygonToCreate.SectionID = SectionID;
+					PolygonToCreate.PolygonGroupID = PolygonGroupID;
 
 					for( FVertexID NewVertexID : NewVertexIDs )
 					{
@@ -3244,17 +3268,17 @@ void FMeshEditorMode::UpdateActiveAction( const bool bIsActionFinishing )
 						VertexAndAttributes.VertexID = NewVertexID;
 					}
 
-					EditableMesh->CreatePolygons( PolygonsToCreate, NewPolygonRefs, NewEdgeIDs );
+					EditableMesh->CreatePolygons( PolygonsToCreate, NewPolygonIDs, NewEdgeIDs );
 
 					// Check if the polygon normal is pointing towards us. If not, we need to flip the polygon
-					FVector PolygonNormal = EditableMesh->ComputePolygonNormal( NewPolygonRefs[ 0 ] );
+					FVector PolygonNormal = EditableMesh->ComputePolygonNormal( NewPolygonIDs[ 0 ] );
 
 					// @todo mesheditor: Add support for backface checks in orthographic mode
 					if( CachedCameraToWorld.IsSet() && bCachedIsPerspectiveView.IsSet() && !bCachedIsPerspectiveView.GetValue() )
 					{
 						if( FVector::DotProduct( Component->GetComponentTransform().TransformVector( PolygonNormal ), DrawnPoints[ 0 ].Get<1>() - CachedCameraToWorld.GetValue().GetLocation() ) > 0.0f )
 						{
-							EditableMesh->FlipPolygons( NewPolygonRefs );
+							EditableMesh->FlipPolygons( NewPolygonIDs );
 							PolygonNormal = -PolygonNormal;
 						}
 					}
@@ -3265,7 +3289,7 @@ void FMeshEditorMode::UpdateActiveAction( const bool bIsActionFinishing )
 
 					VertexAttributesForPolygon.Emplace();
 					FVertexAttributesForPolygon& VertexAttrs = VertexAttributesForPolygon.Last();
-					VertexAttrs.PolygonRef = NewPolygonRefs[ 0 ];
+					VertexAttrs.PolygonID = NewPolygonIDs[ 0 ];
 
 					for( int32 PolygonVertexIndex = 0; PolygonVertexIndex < NewVertexIDs.Num(); ++PolygonVertexIndex )
 					{
@@ -3415,10 +3439,10 @@ void FMeshEditorMode::UpdateActiveAction( const bool bIsActionFinishing )
 				}
 				else if( ElementToMove.ElementAddress.ElementType == EEditableMeshElementType::Polygon )
 				{
-					const FPolygonRef PolygonRef( ElementToMove.ElementAddress.SectionID, FPolygonID( ElementToMove.ElementAddress.ElementID ) );
+					const FPolygonID PolygonID( ElementToMove.ElementAddress.ElementID );
 
 					static TArray<FVertexID> PolygonPerimeterVertexIDs;
-					EditableMesh->GetPolygonPerimeterVertices( PolygonRef, /* Out */ PolygonPerimeterVertexIDs );
+					EditableMesh->GetPolygonPerimeterVertices( PolygonID, /* Out */ PolygonPerimeterVertexIDs );
 
 					for( const FVertexID PolygonPerimeterVertexID : PolygonPerimeterVertexIDs )
 					{
@@ -3577,37 +3601,29 @@ FEditableMeshElementAddress FMeshEditorMode::QueryElement( const UEditableMesh& 
 	static TSet<FEdgeID> FrontFacingEdges;
 	FrontFacingEdges.Reset();
 
-	static TSet<FPolygonRef> FrontFacingPolygons;
+	static TSet<FPolygonID> FrontFacingPolygons;
 	FrontFacingPolygons.Reset();
 
 	// Look for all the front-facing elements
-	for( int32 SectionIndex = 0; SectionIndex < EditableMesh.GetSectionArraySize(); ++SectionIndex )
+	const uint32 PolygonArraySize = EditableMesh.GetPolygonArraySize();
+	for( uint32 PolygonIndex = 0; PolygonIndex < PolygonArraySize; ++PolygonIndex )
 	{
-		const FSectionID SectionID( SectionIndex );
-		if( EditableMesh.IsValidSection( SectionID ) )
+		const FPolygonID PolygonID( PolygonIndex );
+
+		if( EditableMesh.IsValidPolygon( PolygonID ) )
 		{
-			const uint32 SectionPolygonArraySize = EditableMesh.GetPolygonArraySize( SectionID );
-			for( uint32 SectionPolygonIndex = 0; SectionPolygonIndex < SectionPolygonArraySize; ++SectionPolygonIndex )
+			const FVector PolygonNormal = EditableMesh.ComputePolygonNormal( PolygonID );
+			const FVector PolygonCenter = EditableMesh.ComputePolygonCenter( PolygonID );
+			if( !bIsPerspectiveView || FVector::DotProduct( CameraLocation - PolygonCenter, PolygonNormal ) > 0.0f )	// @todo mesheditor: Add support for backface culling in orthographic views
 			{
-				const FPolygonID PolygonID( SectionPolygonIndex );
+				FrontFacingPolygons.Add( PolygonID );
 
-				const FPolygonRef PolygonRef( SectionID, PolygonID );
-				if( EditableMesh.IsValidPolygon( PolygonRef ) )
+				const int32 PolygonVertexCount = EditableMesh.GetPolygonPerimeterVertexCount( PolygonID );
+				for( int32 Index = 0; Index < PolygonVertexCount; ++Index )
 				{
-					const FVector PolygonNormal = EditableMesh.ComputePolygonNormal( PolygonRef );
-					const FVector PolygonCenter = EditableMesh.ComputePolygonCenter( PolygonRef );
-					if( !bIsPerspectiveView || FVector::DotProduct( CameraLocation - PolygonCenter, PolygonNormal ) > 0.0f )	// @todo mesheditor: Add support for backface culling in orthographic views
-					{
-						FrontFacingPolygons.Add( PolygonRef );
-
-						const int32 PolygonVertexCount = EditableMesh.GetPolygonPerimeterVertexCount( PolygonRef );
-						for( int32 Index = 0; Index < PolygonVertexCount; ++Index )
-						{
-							FrontFacingVertices.Add( EditableMesh.GetPolygonPerimeterVertex( PolygonRef, Index ) );
-							bool bOutEdgeWindingIsReversedForPolygons;
-							FrontFacingEdges.Add( EditableMesh.GetPolygonPerimeterEdge( PolygonRef, Index, bOutEdgeWindingIsReversedForPolygons ) );
-						}
-					}
+					FrontFacingVertices.Add( EditableMesh.GetPolygonPerimeterVertex( PolygonID, Index ) );
+					bool bOutEdgeWindingIsReversedForPolygons;
+					FrontFacingEdges.Add( EditableMesh.GetPolygonPerimeterEdge( PolygonID, Index, bOutEdgeWindingIsReversedForPolygons ) );
 				}
 			}
 		}
@@ -3620,20 +3636,20 @@ FEditableMeshElementAddress FMeshEditorMode::QueryElement( const UEditableMesh& 
 	FVector CurrentRayEnd = RayEnd;
 
 	// Check polygons first; this is so we always impose a closest hit location at the poly before checking other elements, so anything behind is occluded
-	for( const FPolygonRef PolygonRef : FrontFacingPolygons )
+	for( const FPolygonID PolygonID : FrontFacingPolygons )
 	{
 		static TArray<FVertexID> MeshVertexIDs;
 		MeshVertexIDs.Reset();
-		EditableMesh.GetPolygonPerimeterVertices( PolygonRef, /* Out */ MeshVertexIDs );
+		EditableMesh.GetPolygonPerimeterVertices( PolygonID, /* Out */ MeshVertexIDs );
 
-		const uint32 PolygonTriangleCount = EditableMesh.GetPolygonTriangulatedTriangleCount( PolygonRef );
+		const uint32 PolygonTriangleCount = EditableMesh.GetPolygonTriangulatedTriangleCount( PolygonID );
 		for( uint32 PolygonTriangleNumber = 0; PolygonTriangleNumber < PolygonTriangleCount; ++PolygonTriangleNumber )
 		{
 			FVector TriangleVertexPositions[ 3 ];
 			for( uint32 TriangleVertexNumber = 0; TriangleVertexNumber < 3; ++TriangleVertexNumber )
 			{
 				TriangleVertexPositions[ TriangleVertexNumber ] =
-					EditableMesh.GetPolygonTriangulatedTriangleVertexPosition( PolygonRef, PolygonTriangleNumber, TriangleVertexNumber );
+					EditableMesh.GetPolygonTriangulatedTriangleVertexPosition( PolygonID, PolygonTriangleNumber, TriangleVertexNumber );
 			}
 
 			const bool bAlreadyHitTriangle = ( HitElementAddress.ElementType == EEditableMeshElementType::Polygon );
@@ -3641,8 +3657,7 @@ FEditableMeshElementAddress FMeshEditorMode::QueryElement( const UEditableMesh& 
 			if( bHit )
 			{
 				HitElementAddress.ElementType = EEditableMeshElementType::Polygon;
-				HitElementAddress.SectionID = PolygonRef.SectionID;
-				HitElementAddress.ElementID = PolygonRef.PolygonID;
+				HitElementAddress.ElementID = PolygonID;
 			}
 		}
 	}
@@ -3664,7 +3679,6 @@ FEditableMeshElementAddress FMeshEditorMode::QueryElement( const UEditableMesh& 
 			if( bHit )
 			{
 				HitElementAddress.ElementType = EEditableMeshElementType::Edge;
-				HitElementAddress.SectionID = FSectionID::Invalid;
 				HitElementAddress.ElementID = EdgeID;
 			}
 		}
@@ -3685,7 +3699,6 @@ FEditableMeshElementAddress FMeshEditorMode::QueryElement( const UEditableMesh& 
 			if( bHit )
 			{
 				HitElementAddress.ElementType = EEditableMeshElementType::Vertex;
-				HitElementAddress.SectionID = FSectionID::Invalid;
 				HitElementAddress.ElementID = VertexID;
 			}
 		}
@@ -4423,8 +4436,8 @@ bool FMeshEditorMode::FrustumSelect( const FConvexVolume& InFrustum, FEditorView
 		static TArray<FEdgeID> SelectedEdgeIDs;
 		SelectedEdgeIDs.Empty();
 
-		static TSet<FPolygonRef> SelectedPolygonRefs;
-		SelectedPolygonRefs.Empty();
+		static TSet<FPolygonID> SelectedPolygonIDs;
+		SelectedPolygonIDs.Empty();
 
 		static TSet<FVertexID> SelectedVertexIDs;
 		SelectedVertexIDs.Empty();
@@ -4451,7 +4464,7 @@ bool FMeshEditorMode::FrustumSelect( const FConvexVolume& InFrustum, FEditorView
 					const int32 EdgeConnectedPolygonCount = EditableMesh->GetEdgeConnectedPolygonCount( EdgeID );
 					for( int32 EdgeConnectedPolygonIndex = 0; EdgeConnectedPolygonIndex < EdgeConnectedPolygonCount; ++EdgeConnectedPolygonIndex )
 					{
-						const FPolygonRef EdgeConnectedPolygonID( EditableMesh->GetEdgeConnectedPolygon( EdgeID, EdgeConnectedPolygonIndex ) );
+						const FPolygonID EdgeConnectedPolygonID( EditableMesh->GetEdgeConnectedPolygon( EdgeID, EdgeConnectedPolygonIndex ) );
 
 						// Determine whether polygon is back facing or not using dot product of its normal with the direction vector from the eye position to somewhere on the plane
 						// (one of the vertex positions is sufficient for this)
@@ -4464,7 +4477,7 @@ bool FMeshEditorMode::FrustumSelect( const FConvexVolume& InFrustum, FEditorView
 						if( !bOnlySelectVisibleElements || !bIsBackFacing )
 						{
 							// Add the polygon if it is front facing, or if we don't care about only selecting visible elements
-							SelectedPolygonRefs.Add( EdgeConnectedPolygonID );
+							SelectedPolygonIDs.Add( EdgeConnectedPolygonID );
 						}
 					}
 
@@ -4532,10 +4545,10 @@ bool FMeshEditorMode::FrustumSelect( const FConvexVolume& InFrustum, FEditorView
 
 		if( MeshElementSelectionMode == EEditableMeshElementType::Polygon || MeshElementSelectionMode == EEditableMeshElementType::Any )
 		{
-			MarqueeSelectPolygons.Reserve( MarqueeSelectPolygons.Num() + SelectedPolygonRefs.Num() );
-			for( FPolygonRef SelectedPolygonRef : SelectedPolygonRefs )
+			MarqueeSelectPolygons.Reserve( MarqueeSelectPolygons.Num() + SelectedPolygonIDs.Num() );
+			for( const FPolygonID SelectedPolygonID : SelectedPolygonIDs )
 			{
-				MarqueeSelectPolygons.Emplace( Component, EditableMesh->GetSubMeshAddress(), SelectedPolygonRef );
+				MarqueeSelectPolygons.Emplace( Component, EditableMesh->GetSubMeshAddress(), SelectedPolygonID );
 			}
 		}
 	}
@@ -4685,16 +4698,16 @@ void FMeshEditorMode::RefreshTransformables( const bool bNewObjectsSelected )
 
 						case EEditableMeshElementType::Polygon:
 						{
-							const FPolygonRef PolygonRef( MeshElement.ElementAddress.SectionID, FPolygonID( MeshElement.ElementAddress.ElementID ) );
+							const FPolygonID PolygonID( MeshElement.ElementAddress.ElementID );
 
-							const FVector ComponentSpacePolygonCenter = EditableMesh->ComputePolygonCenter( PolygonRef );
+							const FVector ComponentSpacePolygonCenter = EditableMesh->ComputePolygonCenter( PolygonID );
 							ElementTransform.SetLocation( ComponentToWorldMatrix.TransformPosition( ComponentSpacePolygonCenter ) );
 
 							const FVector WindingVector =
-								( ComponentToWorldMatrix.TransformPosition( EditableMesh->GetVertexAttribute( EditableMesh->GetPolygonPerimeterVertex( PolygonRef, 1 ), UEditableMeshAttribute::VertexPosition(), 0 ) ) -
-									ComponentToWorldMatrix.TransformPosition( EditableMesh->GetVertexAttribute( EditableMesh->GetPolygonPerimeterVertex( PolygonRef, 0 ), UEditableMeshAttribute::VertexPosition(), 0 ) ) ).GetSafeNormal();
+								( ComponentToWorldMatrix.TransformPosition( EditableMesh->GetVertexAttribute( EditableMesh->GetPolygonPerimeterVertex( PolygonID, 1 ), UEditableMeshAttribute::VertexPosition(), 0 ) ) -
+									ComponentToWorldMatrix.TransformPosition( EditableMesh->GetVertexAttribute( EditableMesh->GetPolygonPerimeterVertex( PolygonID, 0 ), UEditableMeshAttribute::VertexPosition(), 0 ) ) ).GetSafeNormal();
 
-							const FVector PolygonNormal = ComponentToWorld.TransformVectorNoScale( EditableMesh->ComputePolygonNormal( PolygonRef ) ).GetSafeNormal();
+							const FVector PolygonNormal = ComponentToWorld.TransformVectorNoScale( EditableMesh->ComputePolygonNormal( PolygonID ) ).GetSafeNormal();
 
 							const FVector PolygonBinormal = FVector::CrossProduct( PolygonNormal, WindingVector ).GetSafeNormal();
 							const FVector PolygonTangent = FVector::CrossProduct( PolygonBinormal, PolygonNormal );

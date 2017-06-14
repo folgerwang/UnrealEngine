@@ -39,9 +39,11 @@ void UQuadrangulateMeshCommand::Execute( IMeshEditorModeEditingContract& MeshEdi
 
 	for( UEditableMesh* EditableMesh : SelectedMeshes )
 	{
-		static TArray<FPolygonRef> NewPolygonRefs;
 		EditableMesh->StartModification( EMeshModificationType::Final, EMeshTopologyChange::TopologyChange );
-		EditableMesh->QuadrangulateMesh( NewPolygonRefs );
+		{
+			static TArray<FPolygonID> NewPolygonIDs;
+			EditableMesh->QuadrangulateMesh( NewPolygonIDs );
+		}
 		EditableMesh->EndModification();
 
 		MeshEditorMode.TrackUndo( EditableMesh, EditableMesh->MakeUndo() );

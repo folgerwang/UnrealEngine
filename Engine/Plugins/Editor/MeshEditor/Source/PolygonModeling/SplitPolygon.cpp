@@ -114,18 +114,18 @@ void USplitPolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Mesh
 		// We'll always be trying to split one of the polygons that share the starting vertex.  But we need to figure
 		// out which one of those polygons the user is hovering over (either the polygon itself, or one of it's edges
 		// or vertices.)
-		static TArray<FPolygonRef> CandidatePolygonRefs;
-		CandidatePolygonRefs.Reset();
+		static TArray<FPolygonID> CandidatePolygonIDs;
+		CandidatePolygonIDs.Reset();
 		if( StartingEdgeID != FEdgeID::Invalid )
 		{
-			EditableMesh->GetEdgeConnectedPolygons( StartingEdgeID, /* Out */ CandidatePolygonRefs );
+			EditableMesh->GetEdgeConnectedPolygons( StartingEdgeID, /* Out */ CandidatePolygonIDs );
 		}
 		else if( ensure( StartingVertexID != FVertexID::Invalid ) )
 		{
-			EditableMesh->GetVertexConnectedPolygons( StartingVertexID, /* Out */ CandidatePolygonRefs );
+			EditableMesh->GetVertexConnectedPolygons( StartingVertexID, /* Out */ CandidatePolygonIDs );
 		}
 
-		FPolygonRef PolygonToSplit = FPolygonRef::Invalid;
+		FPolygonID PolygonToSplit = FPolygonID::Invalid;
 		FVertexID ToVertexID = FVertexID::Invalid;
 
 
@@ -133,7 +133,7 @@ void USplitPolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Mesh
 			FVector LaserPointerStart, LaserPointerEnd;
 			if( ViewportInteractor->GetLaserPointer( /* Out */ LaserPointerStart, /* Out */ LaserPointerEnd ) )
 			{
-				for( const FPolygonRef CandidatePolygonRef : CandidatePolygonRefs )
+				for( const FPolygonID CandidatePolygonID : CandidatePolygonIDs )
 				{
 					const FTransform ComponentToWorld = Component->GetComponentToWorld();
 
@@ -154,14 +154,14 @@ void USplitPolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Mesh
 					}
 
 
-					const FPlane PolygonPlane = EditableMesh->ComputePolygonPlane( CandidatePolygonRef ).TransformBy( ComponentToWorld.ToMatrixWithScale() );
+					const FPlane PolygonPlane = EditableMesh->ComputePolygonPlane( CandidatePolygonID ).TransformBy( ComponentToWorld.ToMatrixWithScale() );
 					const FVector LaserImpactOnPolygonPlane = FMath::LinePlaneIntersection( LaserPointerStart, LaserPointerEnd, PolygonPlane );
 
 					// @todo mesheditor splitpolygon: Ideally this would be more "fuzzy", and allow the interactor to extend beyond the range of the polygon.  But it will make figuring out which polygon to split more tricky.
 					// @todo mesheditor urgent: Can crash with "Colinear points in FMath::ComputeBaryCentric2D()"  Needs repro.
-					static TArray<int32> PerimeterVertexIndices;
+					FMeshTriangle Triangle;
 					FVector TriangleVertexWeights;
-					if( EditableMesh->ComputeBarycentricWeightForPointOnPolygon( CandidatePolygonRef, ComponentToWorld.InverseTransformPosition( LaserImpactOnPolygonPlane ), /* Out */ PerimeterVertexIndices, /* Out */ TriangleVertexWeights ) )
+					if( EditableMesh->ComputeBarycentricWeightForPointOnPolygon( CandidatePolygonID, ComponentToWorld.InverseTransformPosition( LaserImpactOnPolygonPlane ), /* Out */ Triangle, /* Out */ TriangleVertexWeights ) )
 					{
 						const FVector SplitDirection = ( LaserImpactOnPolygonPlane - SplitStartLocation ).GetSafeNormal();
 
@@ -170,7 +170,7 @@ void USplitPolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Mesh
 						FEdgeID ClosestEdgeID = FEdgeID::Invalid;
 
 						static TArray<FEdgeID> PolygonPerimeterEdgeIDs;
-						EditableMesh->GetPolygonPerimeterEdges( CandidatePolygonRef, /* Out */ PolygonPerimeterEdgeIDs );
+						EditableMesh->GetPolygonPerimeterEdges( CandidatePolygonID, /* Out */ PolygonPerimeterEdgeIDs );
 
 						for( const FEdgeID TargetEdgeID : PolygonPerimeterEdgeIDs )
 						{
@@ -312,7 +312,7 @@ void USplitPolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Mesh
 									if( !bIsDisqualified )
 									{
 										// Connect to this vertex!
-										PolygonToSplit = CandidatePolygonRef;
+										PolygonToSplit = CandidatePolygonID;
 										ToVertexID = TargetVertexID;
 									}
 								}
@@ -322,7 +322,7 @@ void USplitPolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Mesh
 							if( ToVertexID == FVertexID::Invalid )
 							{
 								// Split the edge to create a new vertex that we'll connect to
-								PolygonToSplit = CandidatePolygonRef;
+								PolygonToSplit = CandidatePolygonID;
 
 								// Go ahead and split the target edge
 								static TArray<FVertexID> NewVertexIDs;
@@ -345,7 +345,7 @@ void USplitPolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Mesh
 		}
 
 
-		if( PolygonToSplit != FPolygonRef::Invalid )
+		if( PolygonToSplit != FPolygonID::Invalid )
 		{
 			check( ToVertexID != FVertexID::Invalid );
 
@@ -375,7 +375,7 @@ void USplitPolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Mesh
 			PolygonsToSplit.Reset();
 			PolygonsToSplit.SetNum( 1, false );
 
-			PolygonsToSplit[ 0 ].PolygonRef = PolygonToSplit;
+			PolygonsToSplit[ 0 ].PolygonID = PolygonToSplit;
 			FVertexPair& VertexPair = *new( PolygonsToSplit[ 0 ].VertexPairsToSplitAt ) FVertexPair();
 			VertexPair.VertexID0 = FromVertexID;
 			VertexPair.VertexID1 = ToVertexID;
