@@ -760,7 +760,7 @@ bool USkinnedMeshComponent::GetMaterialStreamingData(int32 MaterialIndex, FPrimi
 
 void USkinnedMeshComponent::GetStreamingTextureInfo(FStreamingTextureLevelContext& LevelContext, TArray<FStreamingTexturePrimitiveInfo>& OutStreamingTextures) const
 {
-	GetStreamingTextureInfoInner(LevelContext, nullptr, ComponentToWorld.GetMaximumAxisScale(), OutStreamingTextures);
+	GetStreamingTextureInfoInner(LevelContext, nullptr, GetComponentTransform().GetMaximumAxisScale() * StreamingDistanceMultiplier, OutStreamingTextures);
 }
 
 bool USkinnedMeshComponent::ShouldUpdateBoneVisibility() const
@@ -915,7 +915,7 @@ FMatrix USkinnedMeshComponent::GetBoneMatrix(int32 BoneIdx) const
 	if ( !IsRegistered() )
 	{
 		// if not registered, we don't have SpaceBases yet. 
-		// also ComponentToWorld isn't set yet (They're set from relativetranslation, relativerotation, relativescale)
+		// also GetComponentTransform() isn't set yet (They're set from relativetranslation, relativerotation, relativescale)
 		return FMatrix::Identity;
 	}
 
@@ -931,7 +931,7 @@ FMatrix USkinnedMeshComponent::GetBoneMatrix(int32 BoneIdx) const
 			if(	ParentBoneIndex != INDEX_NONE && 
 				ParentBoneIndex < MasterPoseComponentInst->GetNumComponentSpaceTransforms())
 			{
-				return MasterPoseComponentInst->GetComponentSpaceTransforms()[ParentBoneIndex].ToMatrixWithScale() * ComponentToWorld.ToMatrixWithScale();
+				return MasterPoseComponentInst->GetComponentSpaceTransforms()[ParentBoneIndex].ToMatrixWithScale() * GetComponentTransform().ToMatrixWithScale();
 			}
 			else
 			{
@@ -949,7 +949,7 @@ FMatrix USkinnedMeshComponent::GetBoneMatrix(int32 BoneIdx) const
 	{
 		if(GetNumComponentSpaceTransforms() && BoneIdx < GetNumComponentSpaceTransforms() )
 		{
-			return GetComponentSpaceTransforms()[BoneIdx].ToMatrixWithScale() * ComponentToWorld.ToMatrixWithScale();
+			return GetComponentSpaceTransforms()[BoneIdx].ToMatrixWithScale() * GetComponentTransform().ToMatrixWithScale();
 		}
 		else
 		{
@@ -964,11 +964,11 @@ FTransform USkinnedMeshComponent::GetBoneTransform(int32 BoneIdx) const
 	if (!IsRegistered())
 	{
 		// if not registered, we don't have SpaceBases yet. 
-		// also ComponentToWorld isn't set yet (They're set from relativelocation, relativerotation, relativescale)
+		// also GetComponentTransform() isn't set yet (They're set from relativelocation, relativerotation, relativescale)
 		return FTransform::Identity;
 	}
 
-	return GetBoneTransform(BoneIdx, ComponentToWorld);
+	return GetBoneTransform(BoneIdx, GetComponentTransform());
 }
 
 FTransform USkinnedMeshComponent::GetBoneTransform(int32 BoneIdx, const FTransform& LocalToWorld) const
@@ -1389,7 +1389,7 @@ void USkinnedMeshComponent::UpdateMasterBoneMap()
 
 FTransform USkinnedMeshComponent::GetSocketTransform(FName InSocketName, ERelativeTransformSpace TransformSpace) const
 {
-	FTransform OutSocketTransform = ComponentToWorld;
+	FTransform OutSocketTransform = GetComponentTransform();
 
 	if (InSocketName != NAME_None)
 	{
@@ -1427,7 +1427,7 @@ FTransform USkinnedMeshComponent::GetSocketTransform(FName InSocketName, ERelati
 					{
 						return OutSocketTransform.GetRelativeTransform(GetBoneTransform(ParentIndex));
 					}
-					return OutSocketTransform.GetRelativeTransform(ComponentToWorld);
+					return OutSocketTransform.GetRelativeTransform(GetComponentTransform());
 				}
 			}
 		}
@@ -1445,7 +1445,7 @@ FTransform USkinnedMeshComponent::GetSocketTransform(FName InSocketName, ERelati
 		}
 		case RTS_Component:
 		{
-			return OutSocketTransform.GetRelativeTransform( ComponentToWorld );
+			return OutSocketTransform.GetRelativeTransform( GetComponentTransform() );
 		}
 	}
 
@@ -1710,7 +1710,7 @@ FName USkinnedMeshComponent::FindClosestBone(FVector TestLocation, FVector* Bone
 		}
 
 		// transform the TestLocation into mesh local space so we don't have to transform the (mesh local) bone locations
-		TestLocation = ComponentToWorld.InverseTransformPosition(TestLocation);
+		TestLocation = GetComponentTransform().InverseTransformPosition(TestLocation);
 		
 		float IgnoreScaleSquared = FMath::Square(IgnoreScale);
 		float BestDistSquared = BIG_NUMBER;
@@ -1749,7 +1749,7 @@ FName USkinnedMeshComponent::FindClosestBone(FVector TestLocation, FVector* Bone
 			// transform the bone location into world space
 			if (BoneLocation != NULL)
 			{
-				*BoneLocation = (GetComponentSpaceTransforms()[BestIndex] * ComponentToWorld).GetLocation();
+				*BoneLocation = (GetComponentSpaceTransforms()[BestIndex] * GetComponentTransform()).GetLocation();
 			}
 			return SkeletalMesh->RefSkeleton.GetBoneName(BestIndex);
 		}
@@ -1869,24 +1869,27 @@ FORCEINLINE FVector GetTypedSkinnedVertexPosition(
 	for(int32 InfluenceIndex = 0;InfluenceIndex < Section.MaxBoneInfluences;InfluenceIndex++)
 #endif
 	{
-		int32 BoneIndex = Section.BoneMap[SrcSkinWeights->InfluenceBones[InfluenceIndex]];
+		const int32 MeshBoneIndex = Section.BoneMap[SrcSkinWeights->InfluenceBones[InfluenceIndex]];
+		int32 TransformBoneIndex = MeshBoneIndex;
+
 		if(MasterPoseComponentInst)
 		{		
 			const TArray<int32>& MasterBoneMap = SkinnedComp->GetMasterBoneMap();
 			check(MasterBoneMap.Num() == SkinnedComp->SkeletalMesh->RefSkeleton.GetNum());
-			BoneIndex = MasterBoneMap[BoneIndex];
+			TransformBoneIndex = MasterBoneMap[MeshBoneIndex];
 		}
 
 		const float	Weight = (float)SrcSkinWeights->InfluenceWeights[InfluenceIndex] / 255.0f;
 		{
 			if (bCachedMatrices)
 			{
-				const FMatrix& RefToLocal = RefToLocals[BoneIndex];
+				const FMatrix& RefToLocal = RefToLocals[MeshBoneIndex];
 				SkinnedPos += RefToLocal.TransformPosition(VertexBufferGPUSkin.GetVertexPositionFast(SrcSoftVertex)) * Weight;
 			}
 			else
 			{
-				const FMatrix RefToLocal = SkinnedComp->SkeletalMesh->RefBasesInvMatrix[BoneIndex] * BaseComponent->GetComponentSpaceTransforms()[BoneIndex].ToMatrixWithScale();
+				const FMatrix BoneTransformMatrix = (TransformBoneIndex != INDEX_NONE) ? BaseComponent->GetComponentSpaceTransforms()[TransformBoneIndex].ToMatrixWithScale() : FMatrix::Identity;
+				const FMatrix RefToLocal = SkinnedComp->SkeletalMesh->RefBasesInvMatrix[MeshBoneIndex] * BoneTransformMatrix;
 				SkinnedPos += RefToLocal.TransformPosition(VertexBufferGPUSkin.GetVertexPositionFast(SrcSoftVertex)) * Weight;
 			}
 		}

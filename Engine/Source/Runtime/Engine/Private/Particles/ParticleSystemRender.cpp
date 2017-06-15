@@ -1102,7 +1102,7 @@ void FDynamicSpriteEmitterData::GetDynamicMeshElementsEmitter(const FParticleSys
 									FParticleOrder* ParticleOrder = NULL;
 									if (bSort)
 									{
-										ParticleOrder = (FParticleOrder*)FMemStack::Get().Alloc(sizeof(FParticleOrder)* ParticleCount, ALIGNOF(FParticleOrder));
+										ParticleOrder = (FParticleOrder*)FMemStack::Get().Alloc(sizeof(FParticleOrder)* ParticleCount, alignof(FParticleOrder));
 										SortSpriteParticles(SourceData->SortMode, SourceData->bUseLocalSpace, SourceData->ActiveParticleCount, 
 											SourceData->DataContainer.ParticleData, SourceData->ParticleStride, SourceData->DataContainer.ParticleIndices,
 											View, Proxy->GetLocalToWorld(), ParticleOrder);
@@ -1573,6 +1573,21 @@ void FDynamicMeshEmitterData::GetDynamicMeshElementsEmitter(const FParticleSyste
 				FDynamicMeshEmitterCollectorResources& CollectorResources = Collector.AllocateOneFrameResource<FDynamicMeshEmitterCollectorResources>();
 				CollectorResources.VertexFactory = MeshVertexFactory;
 
+				const FDynamicSpriteEmitterReplayDataBase* SourceData = GetSourceData();
+				FMeshParticleUniformParameters UniformParameters;
+				UniformParameters.SubImageSize = FVector4(
+					1.0f / (SourceData ? SourceData->SubImages_Horizontal : 1),
+					1.0f / (SourceData ? SourceData->SubImages_Vertical : 1),
+					0, 0);
+
+				// A weight is used to determine whether the mesh texture coordinates or SubUVs are passed from the vertex shader to the pixel shader.
+				const uint32 TexCoordWeight = (SourceData && SourceData->SubUVDataOffset > 0) ? 1 : 0;
+				UniformParameters.TexCoordWeightA = TexCoordWeight;
+				UniformParameters.TexCoordWeightB = 1 - TexCoordWeight;
+				UniformParameters.PrevTransformAvailable = Source.MeshMotionBlurOffset ? 1 : 0;
+
+				CollectorResources.UniformBuffer = FMeshParticleUniformBufferRef::CreateUniformBufferImmediate(UniformParameters, UniformBuffer_SingleFrame);
+				MeshVertexFactory->SetUniformBuffer(CollectorResources.UniformBuffer);
 
 				// For OpenGL & Metal we can't assume that it is OK to leave the PrevTransformBuffer buffer unbound.
 				// Doing so can lead to undefined behaviour if the buffer is referenced in the shader even if protected by a branch that is not meant to be taken.
@@ -1636,23 +1651,6 @@ void FDynamicMeshEmitterData::GetDynamicMeshElementsEmitter(const FParticleSyste
 
 					if (Allocation.IsValid() && (!bUsesDynamicParameter || DynamicParameterAllocation.IsValid()))
 					{
-						const FDynamicSpriteEmitterReplayDataBase* SourceData = GetSourceData();
-						FMeshParticleUniformParameters UniformParameters;
-						UniformParameters.SubImageSize = FVector4(
-							1.0f / (SourceData ? SourceData->SubImages_Horizontal : 1),
-							1.0f / (SourceData ? SourceData->SubImages_Vertical : 1),
-							0, 0);
-
-						// A weight is used to determine whether the mesh texture coordinates or SubUVs are passed from the vertex shader to the pixel shader.
-						const uint32 TexCoordWeight = (SourceData && SourceData->SubUVDataOffset > 0) ? 1 : 0;
-						UniformParameters.TexCoordWeightA = TexCoordWeight;
-						UniformParameters.TexCoordWeightB = 1 - TexCoordWeight;
-						UniformParameters.PrevTransformAvailable = Source.MeshMotionBlurOffset ? 1 : 0;
-
-						CollectorResources.UniformBuffer = FMeshParticleUniformBufferRef::CreateUniformBufferImmediate(UniformParameters, UniformBuffer_SingleFrame);
-						MeshVertexFactory->SetUniformBuffer(CollectorResources.UniformBuffer);
-
-
 						// Fill instance buffer.
 						if (Collector.ShouldUseTasks())
 						{
@@ -1741,10 +1739,14 @@ void FDynamicMeshEmitterData::GetDynamicMeshElementsEmitter(const FParticleSyste
 			{
 				for (int32 SectionIndex = 0; SectionIndex < LODModel.Sections.Num(); SectionIndex++)
 				{
-					FMaterialRenderProxy* MaterialProxy = MeshMaterials[SectionIndex]->GetRenderProxy(bSelected);
+					FMaterialRenderProxy* MaterialProxy = nullptr;
+					if (SectionIndex < MeshMaterials.Num() && MeshMaterials[SectionIndex])
+					{
+						MaterialProxy = MeshMaterials[SectionIndex]->GetRenderProxy(bSelected);
+					}
 					const FStaticMeshSection& Section = LODModel.Sections[SectionIndex];
 
-					if ((Section.NumTriangles == 0) || (MaterialProxy == NULL))
+					if ((Section.NumTriangles == 0) || (MaterialProxy == nullptr))
 					{
 						//@todo. This should never occur, but it does occasionally.
 						continue;

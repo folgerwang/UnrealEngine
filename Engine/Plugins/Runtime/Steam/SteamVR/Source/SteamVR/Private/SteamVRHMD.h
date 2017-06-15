@@ -2,6 +2,9 @@
 
 #pragma once
 #include "ISteamVRPlugin.h"
+
+#if STEAMVR_SUPPORTED_PLATFORMS
+
 #include "HeadMountedDisplay.h"
 #include "HeadMountedDisplayBase.h"
 #include "SteamVRFunctionLibrary.h"
@@ -16,8 +19,6 @@
 #elif PLATFORM_LINUX
 #include "OpenGLDrv.h"
 #endif
-
-#if STEAMVR_SUPPORTED_PLATFORMS
 
 #include "SceneViewExtension.h"
 
@@ -82,7 +83,7 @@ public:
 
 	virtual bool OnStartGameFrame( FWorldContext& WorldContext ) override;
 
-	virtual bool IsHMDConnected() override { return true; }
+	virtual bool IsHMDConnected() override;
 	virtual bool IsHMDEnabled() const override;
 	virtual EHMDWornState::Type GetHMDWornState() override;
 	virtual void EnableHMD(bool allow = true) override;
@@ -472,7 +473,7 @@ private:
 	
 	virtual void UpdateLayer(struct FSteamVRLayer& Layer, uint32 LayerId, bool bIsValid) const override;
 
-	void UpdateLayerTextures();
+	void UpdateStereoLayers_RenderThread();
 
 	TSharedPtr<FSteamSplashTicker>	SplashTicker;
 	
@@ -520,6 +521,8 @@ private:
 	FString DisplayId;
 
 	FSteamVRHMDCompat CompatExec;
+	FQuat PlayerOrientation;
+	FVector PlayerLocation;
 
 #if PLATFORM_WINDOWS
 	TRefCountPtr<D3D11Bridge>	pBridge;
@@ -540,7 +543,5 @@ public:
 	friend class FSteamSplashTicker;
 };
 
-
-DEFINE_LOG_CATEGORY_STATIC(LogHMD, Log, All);
 
 #endif //STEAMVR_SUPPORTED_PLATFORMS

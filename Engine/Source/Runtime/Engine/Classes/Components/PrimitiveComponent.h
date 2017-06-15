@@ -736,7 +736,6 @@ public:
 	void GetOverlappingComponents(TArray<UPrimitiveComponent*>& InOverlappingComponents) const;
 
 	/** Returns list of components this component is overlapping. */
-	UFUNCTION(BlueprintCallable, Category="Collision", meta=(UnsafeDuringActorConstruction="true"))
 	const TArray<FOverlapInfo>& GetOverlapInfos() const;
 
 	/** 
@@ -1149,6 +1148,10 @@ public:
 	/** Changes the value of CastShadow. */
 	UFUNCTION(BlueprintCallable, Category="Rendering")
 	void SetCastShadow(bool NewCastShadow);
+
+	/** Changes the value of bSingleSampleShadowFromStationaryLights. */
+	UFUNCTION(BlueprintCallable, Category="Rendering")
+	void SetSingleSampleShadowFromStationaryLights(bool bNewSingleSampleShadowFromStationaryLights);
 
 	/** Changes the value of TranslucentSortPriority. */
 	UFUNCTION(BlueprintCallable, Category="Rendering")
@@ -1591,7 +1594,7 @@ protected:
 	 * accelerate simulation
 	 *
 	 * @param : UseBI - root body instsance
-	 * @return : New ComponentToWorld to use
+	 * @return : New GetComponentTransform() to use
 	 */
 	virtual FTransform GetComponentTransformFromBodyInstance(FBodyInstance* UseBI);
 public:

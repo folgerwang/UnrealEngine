@@ -217,6 +217,23 @@ FWorldContext* UEditorWorldExtensionCollection::GetWorldContext() const
 	return WorldContext;
 }
 
+UEditorWorldExtension* UEditorWorldExtensionCollection::AddExtension(TSubclassOf<UEditorWorldExtension> EditorExtensionClass)
+{
+	UEditorWorldExtension* Extension = nullptr;
+	UEditorWorldExtension* FoundExtension = FindExtension(EditorExtensionClass);
+	if (FoundExtension != nullptr)
+	{
+		Extension = FoundExtension;
+	}
+	else
+	{
+		Extension = NewObject<UEditorWorldExtension>(this, EditorExtensionClass);
+	}
+
+	AddExtension(Extension);
+	return Extension;
+}
+
 void UEditorWorldExtensionCollection::AddExtension( UEditorWorldExtension* EditorExtension )
 {
 	check( EditorExtension != nullptr );
@@ -335,6 +352,7 @@ void UEditorWorldExtensionCollection::ShowAllActors(const bool bShow)
 	}
 }
 
+
 void UEditorWorldExtensionCollection::PostPIEStarted( bool bIsSimulatingInEditor )
 {
 	if( bIsSimulatingInEditor && GEditor->EditorWorld != nullptr && GEditor->EditorWorld == WorldContext->World() )
@@ -370,6 +388,8 @@ void UEditorWorldExtensionCollection::OnEndPIE( bool bWasSimulatingInEditor )
 	{
 		if( !GIsRequestingExit )
 		{
+			UWorld* SimulateWorld = WorldContext->World();
+
 			// Revert back to the editor world before closing the play world, otherwise actors and objects will be destroyed.
 			SetWorldContext( EditorWorldOnSimulate );
 			EditorWorldOnSimulate = nullptr;
@@ -377,7 +397,7 @@ void UEditorWorldExtensionCollection::OnEndPIE( bool bWasSimulatingInEditor )
 			for( FEditorExtensionTuple& EditorExtensionTuple : EditorExtensions )
 			{
 				UEditorWorldExtension* EditorExtension = EditorExtensionTuple.Get<0>();
-				EditorExtension->LeftSimulateInEditor();
+				EditorExtension->LeftSimulateInEditor(SimulateWorld);
 			}
 		}
 	}

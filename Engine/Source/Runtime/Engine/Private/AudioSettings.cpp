@@ -14,6 +14,40 @@
 
 #define LOCTEXT_NAMESPACE "AudioSettings"
 
+FAudioPlatformSettings FAudioPlatformSettings::GetPlatformSettings(const TCHAR* PlatformSettingsConfigFile)
+{
+	FAudioPlatformSettings Settings;
+
+	FString TempString;
+
+	if (GConfig->GetString(PlatformSettingsConfigFile, TEXT("AudioSampleRate"), TempString, GEngineIni))
+	{
+		Settings.SampleRate = FMath::Max(FCString::Atoi(*TempString), 8000);
+	}
+
+	if (GConfig->GetString(PlatformSettingsConfigFile, TEXT("AudioCallbackBufferFrameSize"), TempString, GEngineIni))
+	{
+		Settings.CallbackBufferFrameSize = FMath::Max(FCString::Atoi(*TempString), 256);
+	}
+
+	if (GConfig->GetString(PlatformSettingsConfigFile, TEXT("AudioNumBuffersToEnqueue"), TempString, GEngineIni))
+	{
+		Settings.NumBuffers = FMath::Max(FCString::Atoi(*TempString), 1);
+	}
+
+	if (GConfig->GetString(PlatformSettingsConfigFile, TEXT("AudioMaxChannels"), TempString, GEngineIni))
+	{
+		Settings.MaxChannels = FMath::Max(FCString::Atoi(*TempString), 0);
+	}
+
+	if (GConfig->GetString(PlatformSettingsConfigFile, TEXT("AudioNumSourceWorkers"), TempString, GEngineIni))
+	{
+		Settings.NumSourceWorkers = FMath::Max(FCString::Atoi(*TempString), 0);
+	}
+
+	return Settings;
+}
+
 UAudioSettings::UAudioSettings(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
@@ -21,6 +55,7 @@ UAudioSettings::UAudioSettings(const FObjectInitializer& ObjectInitializer)
 	AddDefaultSettings();
 
 	bAllowVirtualizedSounds = true;
+	bIsAudioMixerEnabled = false;
 }
 
 void UAudioSettings::AddDefaultSettings()
@@ -100,6 +135,16 @@ void UAudioSettings::PostEditChangeChainProperty(FPropertyChangedChainEvent& Pro
 const FAudioQualitySettings& UAudioSettings::GetQualityLevelSettings(int32 QualityLevel) const
 {
 	return QualityLevels[FMath::Clamp(QualityLevel, 0, QualityLevels.Num() - 1)];
+}
+
+void UAudioSettings::SetAudioMixerEnabled(const bool bInAudioMixerEnabled)
+{
+	bIsAudioMixerEnabled = bInAudioMixerEnabled;
+}
+
+const bool UAudioSettings::IsAudioMixerEnabled() const
+{
+	return bIsAudioMixerEnabled;
 }
 
 #undef LOCTEXT_NAMESPACE

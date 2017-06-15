@@ -1147,20 +1147,24 @@ bool FConfigFile::Write( const FString& Filename, bool bDoRemoteWrite/* = true*/
 			{
 				// Check for an array of differing size. This will trigger a full writeout.
 				// This also catches the case where the property doesn't exist in the source in non-array cases
-				bool bDifferentNumberOfElements = false;
+				const bool bDifferentNumberOfElements = false;
+				/* // This code is a no-op
 				{
-					const FConfigSection* SourceSection = nullptr;
-					if( SourceSection )
+					if (SourceConfigFile)
 					{
-						TArray<FConfigValue> SourceMatchingProperties;
-						SourceSection->MultiFind( PropertyName, SourceMatchingProperties );
+						if (const FConfigSection* SourceSection = SourceConfigFile->Find(SectionName))
+						{
+							TArray<FConfigValue> SourceMatchingProperties;
+							SourceSection->MultiFind(PropertyName, SourceMatchingProperties);
 
-						TArray<FConfigValue> DestMatchingProperties;
-						Section.MultiFind( PropertyName, DestMatchingProperties );
+							TArray<FConfigValue> DestMatchingProperties;
+							Section.MultiFind(PropertyName, DestMatchingProperties);
 
-						bDifferentNumberOfElements = SourceMatchingProperties.Num() != DestMatchingProperties.Num();
+							bDifferentNumberOfElements = SourceMatchingProperties.Num() != DestMatchingProperties.Num();
+						}
 					}
 				}
+				*/
 
 				// check whether the option we are attempting to write out, came from the commandline as a temporary override.
 				const bool bOptionIsFromCommandline = PropertySetFromCommandlineOption(this, SectionName, PropertyName, PropertyValue);
@@ -3570,38 +3574,14 @@ bool FConfigFile::UpdateSinglePropertyInSection(const TCHAR* DiskFilename, const
 	// Result of whether the file has been updated on disk.
 	bool bSuccessfullyUpdatedFile = false;
 
-	
+	FString PropertyValue;
 	if (const FConfigSection* LocalSection = this->Find(SectionName))
 	{
-		TArray<FConfigValue> ConfigValues;		
-		LocalSection->MultiFind(PropertyName, ConfigValues);
-
-		if (ConfigValues.Num())
+		if (const FConfigValue* ConfigValue = LocalSection->Find(PropertyName))
 		{
-			FString PropertyValue;
-			if (ConfigValues.Num() > 1)
-			{
-				for (const FConfigValue& ConfigValue : ConfigValues)
-				{
-					if (!PropertyValue.IsEmpty())
-					{
-						PropertyValue += "\n";
-						PropertyValue += PropertyName;
-						PropertyValue += "=";
-					}
-
-					PropertyValue += ConfigValue.GetSavedValue();
-				}
-
-				PropertyValue += ")";
-			}
-			else
-			{
-				PropertyValue = ConfigValues.Top().GetSavedValue();
-			}
-
+			PropertyValue = ConfigValue->GetSavedValue();
 			FSinglePropertyConfigHelper SinglePropertyConfigHelper(DiskFilename, SectionName, PropertyName, PropertyValue);
-			bSuccessfullyUpdatedFile |= SinglePropertyConfigHelper.UpdateConfigFile();
+			bSuccessfullyUpdatedFile = SinglePropertyConfigHelper.UpdateConfigFile();
 		}
 	}
 

@@ -91,7 +91,8 @@ const FClearValueBinding FClearValueBinding::DepthZero(0.0f, 0);
 const FClearValueBinding FClearValueBinding::DepthNear((float)ERHIZBuffer::NearPlane, 0);
 const FClearValueBinding FClearValueBinding::DepthFar((float)ERHIZBuffer::FarPlane, 0);
 const FClearValueBinding FClearValueBinding::Green(FLinearColor(0.0f, 1.0f, 0.0f, 1.0f));
-const FClearValueBinding FClearValueBinding::MidGray(FLinearColor(0.5f, 0.5f, 0.5f, 1.0f));
+// Note: this is used as the default normal for DBuffer decals.  It must decode to a value of 0 in DecodeDBufferData.
+const FClearValueBinding FClearValueBinding::DefaultNormal8Bit(FLinearColor(128.0f / 255.0f, 128.0f / 255.0f, 128.0f / 255.0f, 1.0f));
 
 TLockFreePointerListUnordered<FRHIResource, PLATFORM_CACHE_LINE_SIZE> FRHIResource::PendingDeletes;
 FRHIResource* FRHIResource::CurrentlyDeleting = nullptr;
@@ -216,6 +217,13 @@ static TAutoConsoleVariable<float> GGPUHitchThresholdCVar(
 	TEXT("Threshold for detecting hitches on the GPU (in milliseconds).")
 	);
 
+static TAutoConsoleVariable<int32> CVarGPUCrashDebugging(
+	TEXT("r.GPUCrashDebugging"),
+	0,
+	TEXT("Enable vendor specific GPU crash analysis tools"),
+	ECVF_ReadOnly
+	);
+
 namespace RHIConfig
 {
 	bool ShouldSaveScreenshotAfterProfilingGPU()
@@ -265,6 +273,7 @@ bool GSupportsDepthRenderTargetWithoutColorRenderTarget = true;
 bool GRHINeedsUnatlasedCSMDepthsWorkaround = false;
 bool GSupportsTexture3D = true;
 bool GSupportsMobileMultiView = false;
+bool GSupportsImageExternal = false;
 bool GSupportsResourceView = true;
 bool GSupportsMultipleRenderTargets = true;
 bool GSupportsWideMRT = true;
@@ -290,10 +299,12 @@ bool GRHISupportsInstancing = true;
 bool GRHISupportsFirstInstance = false;
 bool GRHIRequiresEarlyBackBufferRenderTarget = true;
 bool GRHISupportsRHIThread = false;
+bool GRHISupportsRHIOnTaskThread = false;
 bool GRHISupportsParallelRHIExecute = false;
 bool GSupportsHDR32bppEncodeModeIntrinsic = false;
 bool GSupportsParallelOcclusionQueries = false;
 bool GSupportsRenderTargetWriteMask = false;
+bool GSupportsTransientResourceAliasing = false;
 
 bool GRHISupportsMSAADepthSampleAccess = false;
 bool GRHISupportsResolveCubemapFaces = false;
@@ -380,7 +391,8 @@ static FName NAME_PCD3D_ES2(TEXT("PCD3D_ES2"));
 static FName NAME_GLSL_150(TEXT("GLSL_150"));
 static FName NAME_GLSL_150_MAC(TEXT("GLSL_150_MAC"));
 static FName NAME_SF_PS4(TEXT("SF_PS4"));
-static FName NAME_SF_XBOXONE(TEXT("SF_XBOXONE"));
+static FName NAME_SF_XBOXONE_D3D11(TEXT("SF_XBOXONE_D3D11"));
+static FName NAME_SF_XBOXONE_D3D12(TEXT("SF_XBOXONE_D3D12"));
 static FName NAME_GLSL_430(TEXT("GLSL_430"));
 static FName NAME_GLSL_150_ES2(TEXT("GLSL_150_ES2"));
 static FName NAME_GLSL_150_ES2_NOUB(TEXT("GLSL_150_ES2_NOUB"));
@@ -423,8 +435,10 @@ FName LegacyShaderPlatformToShaderFormat(EShaderPlatform Platform)
 		return NAME_GLSL_150_MAC;
 	case SP_PS4:
 		return NAME_SF_PS4;
-	case SP_XBOXONE:
-		return NAME_SF_XBOXONE;
+	case SP_XBOXONE_D3D11:
+		return NAME_SF_XBOXONE_D3D11;
+	case SP_XBOXONE_D3D12:
+		return NAME_SF_XBOXONE_D3D12;
 	case SP_OPENGL_SM5:
 		return NAME_GLSL_430;
 	case SP_OPENGL_PCES2:
@@ -489,7 +503,8 @@ EShaderPlatform ShaderFormatToLegacyShaderPlatform(FName ShaderFormat)
 	if (ShaderFormat == NAME_GLSL_150)				return SP_OPENGL_SM4;
 	if (ShaderFormat == NAME_GLSL_150_MAC)			return SP_OPENGL_SM4_MAC;
 	if (ShaderFormat == NAME_SF_PS4)				return SP_PS4;
-	if (ShaderFormat == NAME_SF_XBOXONE)			return SP_XBOXONE;
+	if (ShaderFormat == NAME_SF_XBOXONE_D3D11)		return SP_XBOXONE_D3D11;
+	if (ShaderFormat == NAME_SF_XBOXONE_D3D12)		return SP_XBOXONE_D3D12;
 	if (ShaderFormat == NAME_GLSL_430)				return SP_OPENGL_SM5;
 	if (ShaderFormat == NAME_GLSL_150_ES2)			return SP_OPENGL_PCES2;
 	if (ShaderFormat == NAME_GLSL_150_ES2_NOUB)		return SP_OPENGL_PCES2;
@@ -581,7 +596,7 @@ RHI_API bool RHISupportsTessellation(const EShaderPlatform Platform)
 {
 	if (IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && !IsMetalPlatform(Platform))
 	{
-		return (Platform == SP_PCD3D_SM5) || (Platform == SP_XBOXONE) || (Platform == SP_OPENGL_SM5) || (Platform == SP_OPENGL_ES31_EXT) || (Platform == SP_VULKAN_SM5);
+		return (Platform == SP_PCD3D_SM5) || (Platform == SP_XBOXONE_D3D12) || (Platform == SP_XBOXONE_D3D11) || (Platform == SP_OPENGL_SM5) || (Platform == SP_OPENGL_ES31_EXT) || (Platform == SP_VULKAN_SM5);
 	}
     // For Metal we can only support tessellation if we are willing to sacrifice backward compatibility with OS versions.
     // As such it becomes an opt-in project setting.

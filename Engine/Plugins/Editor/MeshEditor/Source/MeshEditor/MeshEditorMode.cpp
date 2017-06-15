@@ -725,13 +725,8 @@ void FMeshEditorMode::Enter()
 	UEditorWorldExtensionCollection* ExtensionCollection = GEditor->GetEditorWorldExtensionsManager()->GetEditorWorldExtensions( GetWorld() );
 	check( ExtensionCollection != nullptr );
 
-	this->ViewportWorldInteraction = Cast<UViewportWorldInteraction>( ExtensionCollection->FindExtension( UViewportWorldInteraction::StaticClass() ) );
-	if( ViewportWorldInteraction == nullptr )
-	{
-		ViewportWorldInteraction = NewObject<UViewportWorldInteraction>();
-	}
+	this->ViewportWorldInteraction = Cast<UViewportWorldInteraction>( ExtensionCollection->AddExtension( UViewportWorldInteraction::StaticClass() ) );
 	check( ViewportWorldInteraction != nullptr );
-	ExtensionCollection->AddExtension( ViewportWorldInteraction );
 
 	// Register to find out about viewport interaction events
 	ViewportWorldInteraction->OnViewportInteractionHoverUpdate().AddRaw( this, &FMeshEditorMode::OnViewportInteractionHoverUpdate );

@@ -1300,7 +1300,7 @@ namespace ObjectTools
 								Notification->SetCompletionState( CollectionCreated ? SNotificationItem::CS_Success : SNotificationItem::CS_Fail );
 							}
 						}
-					}
+					} //-V773
 				}
 			}
 			else
@@ -1581,6 +1581,12 @@ namespace ObjectTools
 			GUnrealEd->GetPackageAutoSaver().OnPackagesDeleted(PackagesToDelete);
 		}
 
+		// Let the asset registry know that these packages are being removed
+		for (UPackage* PackageToDelete : PackagesToDelete)
+		{
+			FAssetRegistryModule::PackageDeleted(PackageToDelete);
+		}
+
 		// Unload the packages and collect garbage.
 		if ( PackagesToDelete.Num() > 0 || EmptyPackagesToUnload.Num() > 0 )
 		{
@@ -1790,7 +1796,7 @@ namespace ObjectTools
 			FNotificationInfo Info( NSLOCTEXT("UnrealEd", "Warning_CantDeleteRebuildingAssetRegistry", "Unable To Delete While Discovering Assets") );
 			Info.ExpireDuration = 3.0f;
 			FSlateNotificationManager::Get().AddNotification(Info);
-			return false;
+			return 0;
 		}
 
 		// let systems clean up any unnecessary references that they may have 
@@ -2312,8 +2318,12 @@ namespace ObjectTools
 
 				if( DeleteSingleObject( CurObject ) )
 				{
-					// Update return val
-					++NumDeletedObjects;
+					// Only count the objects we were given to delete, as this function may have added more (eg, BP instances)
+					if (InObjectsToDelete.Contains(CurObject))
+					{
+						// Update return val
+						++NumDeletedObjects;
+					}
 				}
 
 				GWarn->StatusUpdate(Count, ReplaceableObjectsNum, NSLOCTEXT("UnrealEd", "ConsolidateAssetsUpdate_DeletingObjects", "Deleting Assets..."));
@@ -2737,11 +2747,8 @@ namespace ObjectTools
 					FPackageName::DoesPackageExist( ExistingOutermostPackage->GetName(), NULL, &ExistingOutermostPackageFilename );
 				}
 
-				if( Object )
-				{
-					// Fully load the ref objects package
-					TopLevelPackages.Add( Object->GetOutermost() );
-				}
+				// Fully load the ref objects package
+				TopLevelPackages.Add( Object->GetOutermost() );
 
 				// Used in the IsValidObjectName checks below
 				FText Reason;
@@ -2919,7 +2926,7 @@ namespace ObjectTools
 		{
 			if(bMoveRedirectorFailed)
 			{
-				ErrorMessage += FText::Format( NSLOCTEXT("UnrealEd", "Error_CouldntRenameObjectRedirectorF", "Couldn't rename '{0}' object because there is an object redirector of the same name, please run FixupRedirects.\n"),
+				ErrorMessage += FText::Format( NSLOCTEXT("UnrealEd", "Error_CouldntRenameObjectRedirectorF", "Couldn't rename '{0}' object because there is an object redirector of the same name, please fixup redirect from editor by enabling Show Redirects in content browser.\n"),
 					FText::FromString(Object->GetFullName()) ).ToString();
 			}
 			else
@@ -2957,7 +2964,7 @@ namespace ObjectTools
 	bool RenameObjects( const TArray< UObject* >& SelectedObjects, bool bIncludeLocInstances, const FString& SourcePath, const FString& DestinationPath, bool bOpenDialog ) 
 	{
 		// @todo asset: Find a proper location for localized files
-		bIncludeLocInstances = false;
+		bIncludeLocInstances = false; //-V763
 		if( !bIncludeLocInstances )
 		{
 			return RenameObjectsInternal( SelectedObjects, bIncludeLocInstances, NULL, SourcePath, DestinationPath, bOpenDialog );
@@ -4113,10 +4120,13 @@ namespace ThumbnailTools
 	{
 		FObjectThumbnail* FoundThumbnail = NULL;
 
+		FString PackageName = InPackageFileName;
+		FPackageName::TryConvertFilenameToLongPackageName(PackageName, PackageName);
+
 		// First check to see if the package is already in memory.  If it is, some or all of the thumbnails
 		// may already be loaded and ready.
 		UObject* PackageOuter = NULL;
-		UPackage* Package = FindPackage( PackageOuter, *FPackageName::PackageFromPath( *InPackageFileName ) );
+		UPackage* Package = FindPackage( PackageOuter, *PackageName);
 		if( Package != NULL )
 		{
 			FoundThumbnail = FindCachedThumbnailInPackage( Package, InObjectFullName );

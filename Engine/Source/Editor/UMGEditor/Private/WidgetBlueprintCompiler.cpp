@@ -223,8 +223,7 @@ void FWidgetBlueprintCompiler::CreateClassVariablesFromBlueprint()
 	ValidateWidgetNames();
 
 	// Build the set of variables based on the variable widgets in the widget tree.
-	TArray<UWidget*> Widgets;
-	WidgetBP->WidgetTree->GetAllWidgets(Widgets);
+	TArray<UWidget*> Widgets = WidgetBP->GetAllSourceWidgets();
 
 	// Sort the widgets alphabetically
 	Widgets.Sort( []( const UWidget& Lhs, const UWidget& Rhs ) { return Rhs.GetFName() < Lhs.GetFName(); } );
@@ -267,7 +266,7 @@ void FWidgetBlueprintCompiler::CreateClassVariablesFromBlueprint()
 			continue;
 		}
 
-		FEdGraphPinType WidgetPinType(Schema->PC_Object, TEXT(""), WidgetClass, false, false, false, false, FEdGraphTerminalType());
+		FEdGraphPinType WidgetPinType(Schema->PC_Object, FString(), WidgetClass, EPinContainerType::None, false, FEdGraphTerminalType());
 		
 		// Always name the variable according to the underlying FName of the widget object
 		UProperty* WidgetProperty = CreateVariable(Widget->GetFName(), WidgetPinType);
@@ -275,12 +274,14 @@ void FWidgetBlueprintCompiler::CreateClassVariablesFromBlueprint()
 		{
 			const FString VariableName = Widget->IsGeneratedName() ? Widget->GetName() : Widget->GetLabelText().ToString();
 			WidgetProperty->SetMetaData(TEXT("DisplayName"), *VariableName);
-			WidgetProperty->SetMetaData(TEXT("Category"), *WidgetBP->GetName());
 			
 			// Only show variables if they're explicitly marked as variables.
 			if ( Widget->bIsVariable )
 			{
 				WidgetProperty->SetPropertyFlags(CPF_BlueprintVisible);
+
+				// Only include Category metadata for variables (i.e. a visible/editable property); otherwise, UHT will raise a warning if this Blueprint is nativized.
+				WidgetProperty->SetMetaData(TEXT("Category"), *WidgetBP->GetName());
 			}
 
 			WidgetProperty->SetPropertyFlags(CPF_Instanced);
@@ -293,7 +294,7 @@ void FWidgetBlueprintCompiler::CreateClassVariablesFromBlueprint()
 	// Add movie scenes variables here
 	for(UWidgetAnimation* Animation : WidgetBP->Animations)
 	{
-		FEdGraphPinType WidgetPinType(Schema->PC_Object, TEXT(""), Animation->GetClass(), false, true, false, false, FEdGraphTerminalType());
+		FEdGraphPinType WidgetPinType(Schema->PC_Object, FString(), Animation->GetClass(), EPinContainerType::None, true, FEdGraphTerminalType());
 		UProperty* AnimationProperty = CreateVariable(Animation->GetFName(), WidgetPinType);
 
 		if ( AnimationProperty != nullptr )
@@ -401,11 +402,11 @@ bool FWidgetBlueprintCompiler::CanTemplateWidget(FCompilerResultsLog& MessageLog
 void FWidgetBlueprintCompiler::FinishCompilingClass(UClass* Class)
 {
 	UWidgetBlueprint* WidgetBP = WidgetBlueprint();
+	UWidgetBlueprintGeneratedClass* BPGClass = CastChecked<UWidgetBlueprintGeneratedClass>(Class);
 
 	// Don't do a bunch of extra work on the skeleton generated class
 	if ( WidgetBP->SkeletonGeneratedClass != Class )
 	{
-		UWidgetBlueprintGeneratedClass* BPGClass = CastChecked<UWidgetBlueprintGeneratedClass>(Class);
 		if( !WidgetBP->bHasBeenRegenerated )
 		{
 			UBlueprint::ForceLoadMembers(WidgetBP->WidgetTree);
@@ -439,7 +440,7 @@ void FWidgetBlueprintCompiler::FinishCompilingClass(UClass* Class)
 
 		// Add all the names of the named slot widgets to the slot names structure.
 		BPGClass->NamedSlots.Reset();
-		BPGClass->WidgetTree->ForEachWidget([&] (UWidget* Widget) {
+		WidgetBP->ForEachSourceWidget([&] (UWidget* Widget) {
 			if ( Widget && Widget->IsA<UNamedSlot>() )
 			{
 				BPGClass->NamedSlots.Add(Widget->GetFName());
@@ -447,6 +448,22 @@ void FWidgetBlueprintCompiler::FinishCompilingClass(UClass* Class)
 		});
 	}
 
+	// Make sure that we don't have dueling widget hierarchies
+	if (UWidgetBlueprintGeneratedClass* SuperBPGClass = Cast<UWidgetBlueprintGeneratedClass>(BPGClass->GetSuperClass()))
+	{
+		if (SuperBPGClass->WidgetTree != nullptr)
+		{
+			if ((SuperBPGClass->WidgetTree->RootWidget != nullptr) && (BPGClass->WidgetTree->RootWidget != nullptr))
+			{
+				// We both have a widget tree, terrible things will ensue
+				// @todo: nickd - we need to switch this back to a warning in engine, but note for games
+				MessageLog.Note(*LOCTEXT("ParentAndChildBothHaveWidgetTrees", "This widget @@ and parent class widget @@ both have a widget hierarchy, which is not supported.  Only one of them should have a widget tree.").ToString(),
+					WidgetBP, SuperBPGClass->ClassGeneratedBy);
+			}
+		}
+	}
+	
+	//
 	UClass* ParentClass = WidgetBP->ParentClass;
 	for ( TUObjectPropertyBase<UWidget*>* WidgetProperty : TFieldRange<TUObjectPropertyBase<UWidget*>>( ParentClass ) )
 	{
@@ -566,7 +583,7 @@ void FWidgetBlueprintCompiler::VerifyEventReplysAreNotEmpty(FKismetFunctionConte
 	Context.SourceGraph->GetNodesOfClass<UK2Node_FunctionResult>(FunctionResults);
 
 	UScriptStruct* EventReplyStruct = FEventReply::StaticStruct();
-	FEdGraphPinType EventReplyPinType(Schema->PC_Struct, TEXT(""), EventReplyStruct, /*bIsArray =*/false, /*bIsReference =*/false, /*bIsSet =*/false, /*bIsMap =*/ false, /*InValueTerminalType =*/FEdGraphTerminalType());
+	FEdGraphPinType EventReplyPinType(Schema->PC_Struct, FString(), EventReplyStruct, EPinContainerType::None, /*bIsReference =*/false, /*InValueTerminalType =*/FEdGraphTerminalType());
 
 	for ( UK2Node_FunctionResult* FunctionResult : FunctionResults )
 	{

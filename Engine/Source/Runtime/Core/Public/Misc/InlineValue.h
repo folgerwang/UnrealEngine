@@ -83,9 +83,16 @@ public:
 	 */
 	void Reset(TInlineValue&& In)
 	{
-		if (In.bIsValid || bIsValid)
+		Reset();
+
+		if (In.bIsValid)
 		{
-			Swap(*this, In);
+			// Steal the object contained within 'In'
+			bIsValid = true;
+			In.bIsValid = false;
+
+			bInline = In.bInline;
+			Data = In.Data;
 		}
 	}
 
@@ -96,9 +103,11 @@ public:
 	{
 		if (bIsValid)
 		{
-			DestructItem(&GetValue());
-			ConditionallyDestroyAllocation();
+			BaseType& Value = GetValue();
+			// Set bIsValid immediately to avoid double-deletion on potential re-entry
 			bIsValid = false;
+			Value.~BaseType();
+			ConditionallyDestroyAllocation();
 		}
 	}
 
@@ -201,10 +210,10 @@ private:
 	template<typename T, typename... ArgsType>
 	void InitializeFrom(ArgsType&&... Args)
 	{
-		bInline = sizeof(T) <= MaxInlineSize && ALIGNOF(T) <= DefaultAlignment;
+		bInline = sizeof(T) <= MaxInlineSize && alignof(T) <= DefaultAlignment;
 
 		// Allocate the object
-		ConditionallyAllocateObject(sizeof(T), ALIGNOF(T));
+		ConditionallyAllocateObject(sizeof(T), alignof(T));
 		bIsValid = true;
 
 		// Placement new our value into the structure

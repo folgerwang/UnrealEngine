@@ -130,7 +130,7 @@ struct FSkelMeshSkinWeightInfo
 
 /** LOD specific setup for the skeletal mesh component. */
 USTRUCT()
-struct FSkelMeshComponentLODInfo
+struct ENGINE_API FSkelMeshComponentLODInfo
 {
 	GENERATED_USTRUCT_BODY()
 
@@ -770,6 +770,8 @@ public:
 
 	DEPRECATED(4.13, "SetSpaceBaseDoubleBuffering is now renamed SetComponentSpaceTransformsDoubleBuffering")
 	void SetSpaceBaseDoubleBuffering(bool bInDoubleBufferedBlendSpaces) { SetComponentSpaceTransformsDoubleBuffering(bInDoubleBufferedBlendSpaces);  }
+
+	const FBoxSphereBounds& GetCachedLocalBounds() { return CachedLocalBounds; } 
 
 protected:
 

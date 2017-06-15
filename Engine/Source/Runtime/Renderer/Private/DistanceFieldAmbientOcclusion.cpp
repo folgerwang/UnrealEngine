@@ -91,7 +91,15 @@ FAutoConsoleVariableRef CVarAOOverwriteSceneColor(
 	ECVF_RenderThreadSafe
 	);
 
-int32 GMaxDistanceFieldObjectsPerCullTile = 256;
+int32 GAOJitterConeDirections = 0;
+FAutoConsoleVariableRef CVarAOJitterConeDirections(
+	TEXT("r.AOJitterConeDirections"),
+	GAOJitterConeDirections,
+	TEXT(""),
+	ECVF_RenderThreadSafe
+	);
+
+int32 GMaxDistanceFieldObjectsPerCullTile = 512;
 FAutoConsoleVariableRef CVarMaxDistanceFieldObjectsPerCullTile(
 	TEXT("r.AOMaxObjectsPerCullTile"),
 	GMaxDistanceFieldObjectsPerCullTile,
@@ -160,7 +168,21 @@ const FVector RelaxedSpacedVectors9[] =
 	FVector(0.032967, -0.435625, 0.899524)
 };
 
-void GetSpacedVectors(TArray<FVector, TInlineAllocator<9> >& OutVectors)
+float TemporalHalton2( int32 Index, int32 Base )
+{
+	float Result = 0.0f;
+	float InvBase = 1.0f / Base;
+	float Fraction = InvBase;
+	while( Index > 0 )
+	{
+		Result += ( Index % Base ) * Fraction;
+		Index /= Base;
+		Fraction *= InvBase;
+	}
+	return Result;
+}
+
+void GetSpacedVectors(uint32 FrameNumber, TArray<FVector, TInlineAllocator<9> >& OutVectors)
 {
 	OutVectors.Empty(ARRAY_COUNT(SpacedVectors9));
 
@@ -176,6 +198,22 @@ void GetSpacedVectors(TArray<FVector, TInlineAllocator<9> >& OutVectors)
 		for (int32 i = 0; i < ARRAY_COUNT(RelaxedSpacedVectors9); i++)
 		{
 			OutVectors.Add(RelaxedSpacedVectors9[i]);
+		}
+	}
+
+	if (GAOJitterConeDirections)
+	{
+		float RandomAngle = TemporalHalton2(FrameNumber & 1023, 2) * 2 * PI;
+		float CosRandomAngle = FMath::Cos(RandomAngle);
+		float SinRandomAngle = FMath::Sin(RandomAngle);
+
+		for (int32 i = 0; i < OutVectors.Num(); i++)
+		{
+			FVector ConeDirection = OutVectors[i];
+			FVector2D ConeDirectionXY(ConeDirection.X, ConeDirection.Y);
+			ConeDirectionXY = FVector2D(FVector2D::DotProduct(ConeDirectionXY, FVector2D(CosRandomAngle, -SinRandomAngle)), FVector2D::DotProduct(ConeDirectionXY, FVector2D(SinRandomAngle, CosRandomAngle)));
+			OutVectors[i].X = ConeDirectionXY.X;
+			OutVectors[i].Y = ConeDirectionXY.Y;
 		}
 	}
 }
@@ -247,7 +285,7 @@ public:
 
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
 		AOParameters.Set(RHICmdList, ShaderRHI, Parameters);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View);
+		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
 	}
 	// FShader interface.
 	virtual bool Serialize(FArchive& Ar) override
@@ -305,7 +343,7 @@ public:
 		RHICmdList.TransitionResource(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EComputeToCompute, DistanceFieldNormalValue.UAV);
 		DistanceFieldNormal.SetTexture(RHICmdList, ShaderRHI, DistanceFieldNormalValue.ShaderResourceTexture, DistanceFieldNormalValue.UAV);
 		AOParameters.Set(RHICmdList, ShaderRHI, Parameters);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View);
+		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
 	}
 
 	void UnsetParameters(FRHICommandList& RHICmdList, FSceneRenderTargetItem& DistanceFieldNormalValue)
@@ -774,6 +812,7 @@ bool FDeferredShadingSceneRenderer::RenderDistanceFieldLighting(
 			{
 				const FIntPoint BufferSize = GetBufferSizeForAO();
 				FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(BufferSize, PF_FloatRGBA, FClearValueBinding::Transparent, TexCreate_None, TexCreate_RenderTargetable | TexCreate_UAV, false));
+				Desc.Flags |= GetTextureFastVRamFlag_DynamicLayout();
 				GRenderTargetPool.FindFreeElement(RHICmdList, Desc, DistanceFieldNormal, TEXT("DistanceFieldNormal"));
 			}
 
@@ -808,6 +847,14 @@ bool FDeferredShadingSceneRenderer::RenderDistanceFieldLighting(
 				BentNormalOutput, 
 				IrradianceOutput);
 
+			if ( IsTransientResourceBufferAliasingEnabled() )
+			{
+				GAOCulledObjectBuffers.Buffers.DiscardTransientResource();
+
+				FTileIntersectionResources* TileIntersectionResources = ((FSceneViewState*)View.State)->AOTileIntersectionResources;
+				TileIntersectionResources->DiscardTransientResource();
+			}
+
 			RenderCapsuleShadowsForMovableSkylight(RHICmdList, BentNormalOutput);
 
 			GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, BentNormalOutput);
@@ -819,8 +866,10 @@ bool FDeferredShadingSceneRenderer::RenderDistanceFieldLighting(
 			else
 			{
 				FPooledRenderTargetDesc Desc = SceneContext.GetSceneColor()->GetDesc();
-				// Make sure we get a signed format
-				Desc.Format = PF_FloatRGBA;
+				Desc.Flags &= ~(TexCreate_FastVRAM | TexCreate_Transient);
+				// Bent normals are signed so we will have to pack / unpack
+				Desc.Format = PF_FloatR11G11B10;
+				Desc.Flags |= GetTextureFastVRamFlag_DynamicLayout();
 				GRenderTargetPool.FindFreeElement(RHICmdList, Desc, OutDynamicBentNormalAO, TEXT("DynamicBentNormalAO"));
 
 				if (bUseDistanceFieldGI)
@@ -914,7 +963,7 @@ public:
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View);
+		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
 
 		SetTextureParameter(RHICmdList, ShaderRHI, DynamicBentNormalAOTexture, DynamicBentNormalAOSampler, TStaticSamplerState<SF_Point>::GetRHI(), DynamicBentNormalAO);
 

@@ -386,17 +386,10 @@ public:
 		}
 
 		TArray<int32>& SortedInstances = Result->SortedInstances;
-		SortedInstances.AddUninitialized(Num);
-		for (int32 Index = 0; Index < Num; Index++)
-		{
-			SortedInstances[Index] = SortIndex[Index];
-		}
+		SortedInstances.Append(SortIndex);
+		
 		NumRoots = Clusters.Num();
-		Result->Nodes.Reserve(Clusters.Num());
-		for (int32 Index = 0; Index < NumRoots; Index++)
-		{
-			Result->Nodes.Add(FClusterNode());
-		}
+		Result->Nodes.Init(FClusterNode(), Clusters.Num());
 
 		for (int32 Index = 0; Index < NumRoots; Index++)
 		{
@@ -858,7 +851,7 @@ public:
 			//int32 NumPerNode = (1 + ClusterTree[0].LastInstance - ClusterTree[0].FirstInstance) / NumNodes;
 			//UE_LOG(LogTemp, Display, TEXT("Occlusion level %d   %d inst / node"), NumNodes, NumPerNode);
 			OcclusionBounds.Reserve(NumNodes);
-			FMatrix XForm = InComponent->ComponentToWorld.ToMatrixWithScale();
+			FMatrix XForm = InComponent->GetComponentTransform().ToMatrixWithScale();
 			for (int32 Index = FirstOcclusionNode; Index <= LastOcclusionNode; Index++)
 			{
 				OcclusionBounds.Add(FBoxSphereBounds(FBox(ClusterTree[Index].BoundMin, ClusterTree[Index].BoundMax).TransformBy(XForm)));
@@ -1766,6 +1759,7 @@ UHierarchicalInstancedStaticMeshComponent::UHierarchicalInstancedStaticMeshCompo
 	, bIsAsyncBuilding(false)
 	, bDiscardAsyncBuildResults(false)
 	, bConcurrentRemoval(false)
+	, bAutoRebuildTreeOnInstanceChanges(true)
 	, AccumulatedNavigationDirtyArea(ForceInit)
 {
 	bCanEverAffectNavigation = true;
@@ -1918,14 +1912,17 @@ bool UHierarchicalInstancedStaticMeshComponent::RemoveInstances(const TArray<int
 		RemoveInstanceInternal(Index);
 	}
 
-	if (IsAsyncBuilding())
+	if (bAutoRebuildTreeOnInstanceChanges)
 	{
-		// invalidate the results of the current async build as it's too slow to fix up deletes
-		bConcurrentRemoval = true;
-	}
-	else
-	{
-		BuildTreeAsync();
+		if (IsAsyncBuilding())
+		{
+			// invalidate the results of the current async build as it's too slow to fix up deletes
+			bConcurrentRemoval = true;
+		}
+		else
+		{
+			BuildTreeAsync();
+		}
 	}
 
 	ReleasePerInstanceRenderData();
@@ -1943,14 +1940,17 @@ bool UHierarchicalInstancedStaticMeshComponent::RemoveInstance(int32 InstanceInd
 
 	RemoveInstanceInternal(InstanceIndex);
 
-	if (IsAsyncBuilding())
+	if (bAutoRebuildTreeOnInstanceChanges)
 	{
-		// invalidate the results of the current async build as it's too slow to fix up deletes
-		bConcurrentRemoval = true;
-	}
-	else
-	{
-		BuildTreeAsync();
+		if (IsAsyncBuilding())
+		{
+			// invalidate the results of the current async build as it's too slow to fix up deletes
+			bConcurrentRemoval = true;
+		}
+		else
+		{
+			BuildTreeAsync();
+		}
 	}
 
 	ReleasePerInstanceRenderData();
@@ -1974,7 +1974,7 @@ bool UHierarchicalInstancedStaticMeshComponent::UpdateInstanceTransform(int32 In
 
 	int32 RenderIndex = InstanceReorderTable[InstanceIndex];
 	const FMatrix OldTransform = PerInstanceSMData[InstanceIndex].Transform;
-	const FTransform NewLocalTransform = bWorldSpace ? NewInstanceTransform.GetRelativeTransform(ComponentToWorld) : NewInstanceTransform;
+	const FTransform NewLocalTransform = bWorldSpace ? NewInstanceTransform.GetRelativeTransform(GetComponentTransform()) : NewInstanceTransform;
 	const FVector NewLocalLocation = NewLocalTransform.GetTranslation();
 
 	// if we are only updating rotation/scale we update the instance directly in the cluster tree
@@ -1997,6 +1997,7 @@ bool UHierarchicalInstancedStaticMeshComponent::UpdateInstanceTransform(int32 In
 			{
 				BuiltInstanceBounds += NewInstanceBounds;
 				bDirtyRenderState = true;
+
 			}
 		}
 		else
@@ -2035,26 +2036,29 @@ int32 UHierarchicalInstancedStaticMeshComponent::AddInstance(const FTransform& I
 {
 	int32 InstanceIndex = UInstancedStaticMeshComponent::AddInstance(InstanceTransform);
 
-	if (PerInstanceSMData.Num() == 1)
+	if (bAutoRebuildTreeOnInstanceChanges)
 	{
-		BuildTree();
+		if (PerInstanceSMData.Num() == 1)
+		{
+			BuildTree();
+		}
+		else
+		{
+			if (!IsAsyncBuilding())
+			{
+				BuildTreeAsync();
+			}
+		}
 	}
-	else
+	
+	if (GetStaticMesh())
 	{
-		if (!IsAsyncBuilding())
-		{
-			BuildTreeAsync();
-		}
+		// Need to offset the newly added instance's RenderIndex by the amount that will be adjusted at the end of the frame
+		InstanceReorderTable.Add(GetNumRenderInstances());
 
-		if (GetStaticMesh())
-		{
-			// Need to offset the newly added instance's RenderIndex by the amount that will be adjusted at the end of the frame
-			InstanceReorderTable.Add(GetNumRenderInstances());
-
-			const FBox NewInstanceBounds = GetStaticMesh()->GetBounds().GetBox().TransformBy(InstanceTransform);
-			UnbuiltInstanceBounds += NewInstanceBounds;
-			UnbuiltInstanceBoundsList.Add(NewInstanceBounds);
-		}
+		const FBox NewInstanceBounds = GetStaticMesh()->GetBounds().GetBox().TransformBy(InstanceTransform);
+		UnbuiltInstanceBounds += NewInstanceBounds;
+		UnbuiltInstanceBoundsList.Add(NewInstanceBounds);
 	}
 
 	return InstanceIndex;
@@ -2196,6 +2200,7 @@ void UHierarchicalInstancedStaticMeshComponent::BuildTree()
 		ClusterTreePtr = MakeShareable(new TArray<FClusterNode>(MoveTemp(Builder.Result->Nodes)));
 		InstanceReorderTable = MoveTemp(Builder.Result->InstanceReorderTable);
 		SortedInstances = MoveTemp(Builder.Result->SortedInstances);
+		CacheMeshExtendedBounds = GetStaticMesh()->GetBounds();
 
 		FlushAccumulatedNavigationUpdates();
 
@@ -2212,6 +2217,7 @@ void UHierarchicalInstancedStaticMeshComponent::BuildTree()
 
 		UnbuiltInstanceBoundsList.Empty();
 		BuiltInstanceBounds.Init();
+		CacheMeshExtendedBounds = FBoxSphereBounds();
 	}
 
 	if (bIsAsyncBuilding)
@@ -2334,6 +2340,7 @@ void UHierarchicalInstancedStaticMeshComponent::ApplyBuildTreeAsync(ENamedThread
 			TArray<FClusterNode>& ClusterTree = *ClusterTreePtr;
 			InstanceReorderTable = MoveTemp(Builder->Result->InstanceReorderTable);
 			SortedInstances = MoveTemp(Builder->Result->SortedInstances);
+			CacheMeshExtendedBounds = GetStaticMesh()->GetBounds();
 			RemovedInstances.Empty();
 			OcclusionLayerNumNodes = Builder->Result->OutOcclusionLayerNum;
 			BuiltInstanceBounds = (ClusterTree.Num() > 0 ? FBox(ClusterTree[0].BoundMin, ClusterTree[0].BoundMax) : FBox(ForceInit));
@@ -2357,6 +2364,39 @@ void UHierarchicalInstancedStaticMeshComponent::ApplyBuildTreeAsync(ENamedThread
 			MarkRenderStateDirty();
 
 			PostBuildStats();
+		}
+	}
+}
+
+void UHierarchicalInstancedStaticMeshComponent::BuildTreeIfOutdated(bool Async, bool ForceUpdate)
+{
+	if (ForceUpdate 
+		|| InstanceReorderTable.Num() != PerInstanceSMData.Num()
+		|| NumBuiltInstances != PerInstanceSMData.Num() 
+		|| (GetStaticMesh() != nullptr && CacheMeshExtendedBounds != GetStaticMesh()->GetBounds())
+		|| UnbuiltInstanceBoundsList.Num() > 0
+		|| GetLinkerUE4Version() < VER_UE4_REBUILD_HIERARCHICAL_INSTANCE_TREES)
+	{
+		if (GetStaticMesh())
+		{
+			GetStaticMesh()->ConditionalPostLoad();
+		}
+
+		if (Async)
+		{
+			if (IsAsyncBuilding())
+			{
+				// invalidate the results of the current async build we need to modify the tree
+				bConcurrentRemoval = true;
+			}
+			else
+			{
+				BuildTreeAsync();
+			}
+		}
+		else
+		{
+			BuildTree();
 		}
 	}
 }
@@ -2425,6 +2465,7 @@ void UHierarchicalInstancedStaticMeshComponent::BuildTreeAsync()
 		InstanceReorderTable.Empty();
 		SortedInstances.Empty();
 		RemovedInstances.Empty();
+		CacheMeshExtendedBounds = FBoxSphereBounds();
 
 		UnbuiltInstanceBoundsList.Empty();
 		BuiltInstanceBounds.Init();
@@ -2617,19 +2658,7 @@ void UHierarchicalInstancedStaticMeshComponent::PostLoad()
 
 #if WITH_EDITOR
 	// If any of the data is out of sync, build the tree now!
-	if (InstanceReorderTable.Num() != PerInstanceSMData.Num() ||
-		NumBuiltInstances != PerInstanceSMData.Num() ||
-		UnbuiltInstanceBoundsList.Num() > 0 ||
-		GetLinkerUE4Version() < VER_UE4_REBUILD_HIERARCHICAL_INSTANCE_TREES)
-	{
-		UE_LOG(LogStaticMesh, Warning, TEXT("Rebuilding hierarchical instanced mesh component, please resave map %s."), *GetFullName());
-		check(!IsAsyncBuilding());
-		if (GetStaticMesh())
-		{
-			GetStaticMesh()->ConditionalPostLoad();
-		}
-		BuildTree();
-	}
+	BuildTreeIfOutdated(false, false);
 #endif
 
 	if (CVarASyncInstaneBufferConversion.GetValueOnGameThread() > 0)
@@ -2654,7 +2683,7 @@ static void GatherInstanceTransformsInArea(const UHierarchicalInstancedStaticMes
 	if (ClusterTree.Num())
 	{
 		const FClusterNode& ChildNode = ClusterTree[Child];
-		const FBox WorldNodeBox = FBox(ChildNode.BoundMin, ChildNode.BoundMax).TransformBy(Component.ComponentToWorld);
+		const FBox WorldNodeBox = FBox(ChildNode.BoundMin, ChildNode.BoundMax).TransformBy(Component.GetComponentTransform());
 	
 		if (AreaBox.Intersect(WorldNodeBox))
 		{
@@ -2684,7 +2713,7 @@ static void GatherInstanceTransformsInArea(const UHierarchicalInstancedStaticMes
 					
 					if (!InstanceToComponent.GetScale3D().IsZero())
 					{
-						InstanceData.Add(InstanceToComponent*Component.ComponentToWorld);
+						InstanceData.Add(InstanceToComponent*Component.GetComponentTransform());
 					}
 				}
 			}
@@ -2795,7 +2824,7 @@ void UHierarchicalInstancedStaticMeshComponent::PartialNavigationUpdate(int32 In
 		if (NavSys && NavSys->GetObjectsNavOctreeId(this))
 		{
 			FTransform InstanceTransform(PerInstanceSMData[InstanceIdx].Transform);
-			FBox InstanceBox = GetStaticMesh()->GetBounds().TransformBy(InstanceTransform*ComponentToWorld).GetBox(); // in world space
+			FBox InstanceBox = GetStaticMesh()->GetBounds().TransformBy(InstanceTransform*GetComponentTransform()).GetBox(); // in world space
 			AccumulatedNavigationDirtyArea+= InstanceBox;
 		}
 	}
@@ -2812,7 +2841,7 @@ void UHierarchicalInstancedStaticMeshComponent::FlushAccumulatedNavigationUpdate
 		// Check if this component is registered in navigation system
 		if (ClusterTree.Num() && NavSys && NavSys->GetObjectsNavOctreeId(this))
 		{
-			FBox NewBounds = FBox(ClusterTree[0].BoundMin, ClusterTree[0].BoundMax).TransformBy(ComponentToWorld);
+			FBox NewBounds = FBox(ClusterTree[0].BoundMin, ClusterTree[0].BoundMax).TransformBy(GetComponentTransform());
 			NavSys->UpdateNavOctreeElementBounds(this, NewBounds, AccumulatedNavigationDirtyArea);
 		}
 			
@@ -2825,7 +2854,7 @@ static void GatherInstancesOverlappingArea(const UHierarchicalInstancedStaticMes
 {
 	const TArray<FClusterNode>& ClusterTree = *Component.ClusterTreePtr;
 	const FClusterNode& ChildNode = ClusterTree[Child];
-	const FBox WorldNodeBox = FBox(ChildNode.BoundMin, ChildNode.BoundMax).TransformBy(Component.ComponentToWorld);
+	const FBox WorldNodeBox = FBox(ChildNode.BoundMin, ChildNode.BoundMax).TransformBy(Component.GetComponentTransform());
 
 	if (AreaBox.Intersect(WorldNodeBox))
 	{
@@ -2869,11 +2898,11 @@ TArray<int32> UHierarchicalInstancedStaticMeshComponent::GetInstancesOverlapping
 		FBox WorldSpaceAABB(Sphere.Center - FVector(Sphere.W), Sphere.Center + FVector(Sphere.W));
 		if (bSphereInWorldSpace)
 		{
-			Sphere = Sphere.TransformBy(ComponentToWorld.Inverse());
+			Sphere = Sphere.TransformBy(GetComponentTransform().Inverse());
 		}
 		else
 		{
-			WorldSpaceAABB = WorldSpaceAABB.TransformBy(ComponentToWorld);
+			WorldSpaceAABB = WorldSpaceAABB.TransformBy(GetComponentTransform());
 		}
 
 		const float StaticMeshBoundsRadius = GetStaticMesh()->GetBounds().SphereRadius;
@@ -2902,11 +2931,11 @@ TArray<int32> UHierarchicalInstancedStaticMeshComponent::GetInstancesOverlapping
 		FBox LocalSpaceSpaceBox(InBox);
 		if (bBoxInWorldSpace)
 		{
-			LocalSpaceSpaceBox = LocalSpaceSpaceBox.TransformBy(ComponentToWorld.Inverse());
+			LocalSpaceSpaceBox = LocalSpaceSpaceBox.TransformBy(GetComponentTransform().Inverse());
 		}
 		else
 		{
-			WorldSpaceBox = WorldSpaceBox.TransformBy(ComponentToWorld);
+			WorldSpaceBox = WorldSpaceBox.TransformBy(GetComponentTransform());
 		}
 
 		const FBox StaticMeshBox = GetStaticMesh()->GetBounds().GetBox();

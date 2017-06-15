@@ -424,7 +424,7 @@ void FMacPlatformMisc::PlatformInit()
 	UE_LOG(LogInit, Log, TEXT("Power Source: %s"), GMacAppInfo.RunningOnBattery ? TEXT(kIOPSBatteryPowerValue) : TEXT(kIOPSACPowerValue) );
 }
 
-void FMacPlatformMisc::PlatformPostInit(bool ShowSplashScreen)
+void FMacPlatformMisc::PlatformPostInit()
 {
 	// Setup the app menu in menu bar
 	const bool bIsBundledApp = [[[NSBundle mainBundle] bundlePath] hasSuffix:@".app"];
@@ -1629,6 +1629,11 @@ void FMacPlatformMisc::GetOSVersions( FString& out_OSVersionLabel, FString& out_
 {
 	out_OSVersionLabel = GMacAppInfo.OSVersion;
 	out_OSSubVersionLabel = GMacAppInfo.OSBuild;
+}
+
+FString FMacPlatformMisc::GetOSVersion()
+{
+	return GMacAppInfo.OSVersion;
 }
 
 bool FMacPlatformMisc::GetDiskTotalAndFreeSpace(const FString& InPath, uint64& TotalNumberOfBytes, uint64& NumberOfFreeBytes)

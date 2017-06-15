@@ -178,11 +178,14 @@ FString FSHA256Signature::ToString() const
 /* FGenericPlatformMisc interface
  *****************************************************************************/
 
+bool FGenericPlatformMisc::CachedPhysicalScreenData = false;
+EScreenPhysicalAccuracy FGenericPlatformMisc::CachedPhysicalScreenAccuracy = EScreenPhysicalAccuracy::Unknown;
+int32 FGenericPlatformMisc::CachedPhysicalScreenDensity = 0;
+
 #if !UE_BUILD_SHIPPING
 	bool FGenericPlatformMisc::bShouldPromptForRemoteDebugging = false;
 	bool FGenericPlatformMisc::bPromptForRemoteDebugOnEnsure = false;
 #endif	//#if !UE_BUILD_SHIPPING
-
 
 GenericApplication* FGenericPlatformMisc::CreateApplication()
 {
@@ -239,6 +242,12 @@ FString FGenericPlatformMisc::GetDeviceId()
 	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
+FString FGenericPlatformMisc::GetUniqueAdvertisingId()
+{
+	// this has no meaning generically, primarily used for attribution on mobile platforms
+	return FString();
+}
+
 void FGenericPlatformMisc::SubmitErrorReport( const TCHAR* InErrorHist, EErrorReportMode::Type InMode )
 {
 	if ((!FPlatformMisc::IsDebuggerPresent() || GAlwaysReportCrash) && !FParse::Param(FCommandLine::Get(), TEXT("CrashForUAT")))
@@ -284,6 +293,13 @@ FString FGenericPlatformMisc::GetPrimaryGPUBrand()
 	return FString( TEXT( "GenericGPUBrand" ) );
 }
 
+FString FGenericPlatformMisc::GetDeviceMakeAndModel()
+{
+	const FString CPUVendor = FPlatformMisc::GetCPUVendor().Trim().TrimTrailing();
+	const FString CPUBrand = FPlatformMisc::GetCPUBrand().Trim().TrimTrailing();
+	return FString::Printf(TEXT("%s|%s"), *CPUVendor, *CPUBrand);
+}
+
 FGPUDriverInfo FGenericPlatformMisc::GetGPUDriverInfo(const FString& DeviceDescription)
 {
 	return FGPUDriverInfo();
@@ -296,6 +312,11 @@ void FGenericPlatformMisc::GetOSVersions( FString& out_OSVersionLabel, FString& 
 	out_OSSubVersionLabel = FString( TEXT( "GenericOSSubVersionLabel" ) );
 }
 
+
+FString FGenericPlatformMisc::GetOSVersion()
+{
+	return FString();
+}
 
 bool FGenericPlatformMisc::GetDiskTotalAndFreeSpace( const FString& InPath, uint64& TotalNumberOfBytes, uint64& NumberOfFreeBytes )
 {
@@ -1099,6 +1120,63 @@ FString FGenericPlatformMisc::GetOperatingSystemId()
 void FGenericPlatformMisc::RegisterForRemoteNotifications()
 {
 	// not implemented by default
+}
+
+void FGenericPlatformMisc::UnregisterForRemoteNotifications()
+{
+	// not implemented by default
+}
+
+EScreenPhysicalAccuracy FGenericPlatformMisc::GetPhysicalScreenDensity(int32& ScreenDensity)
+{
+	if ( !CachedPhysicalScreenData )
+	{
+		CachedPhysicalScreenData = true;
+		CachedPhysicalScreenAccuracy = FPlatformMisc::ComputePhysicalScreenDensity(CachedPhysicalScreenDensity);
+	}
+
+	ScreenDensity = CachedPhysicalScreenDensity;
+	return CachedPhysicalScreenAccuracy;
+}
+
+EScreenPhysicalAccuracy FGenericPlatformMisc::ConvertInchesToPixels(float Inches, float& OutPixels)
+{
+	int32 ScreenDensity;
+	EScreenPhysicalAccuracy Accuracy = GetPhysicalScreenDensity(ScreenDensity);
+	
+	if ( Accuracy != EScreenPhysicalAccuracy::Unknown )
+	{
+		OutPixels = Inches * ScreenDensity;
+	}
+	else
+	{
+		OutPixels = 0;
+	}
+
+	return Accuracy;
+}
+
+EScreenPhysicalAccuracy FGenericPlatformMisc::ConvertPixelsToInches(float Pixels, float& OutInches)
+{
+	int32 ScreenDensity;
+	EScreenPhysicalAccuracy Accuracy = GetPhysicalScreenDensity(ScreenDensity);
+
+	if ( Accuracy != EScreenPhysicalAccuracy::Unknown )
+	{
+		OutInches = Pixels / (float)ScreenDensity;
+	}
+	else
+	{
+		OutInches = 0;
+	}
+
+	return Accuracy;
+}
+
+EScreenPhysicalAccuracy FGenericPlatformMisc::ComputePhysicalScreenDensity(int32& ScreenDensity)
+{
+	ScreenDensity = 0;
+	return EScreenPhysicalAccuracy::Unknown;
 }
 
 const TArray<FString>& FGenericPlatformMisc::GetConfidentialPlatforms()

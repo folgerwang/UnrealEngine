@@ -28,7 +28,7 @@ extern const uint32 UpdateObjectsGroupSize;
 
 inline bool DoesPlatformSupportDistanceFieldAO(EShaderPlatform Platform)
 {
-	return Platform == SP_PCD3D_SM5 || Platform == SP_PS4 || Platform == SP_XBOXONE || Platform == SP_METAL_SM5;
+	return Platform == SP_PCD3D_SM5 || Platform == SP_PS4 || Platform == SP_XBOXONE_D3D12 || Platform == SP_XBOXONE_D3D11 || Platform == SP_METAL_SM5;
 }
 
 extern FIntPoint GetBufferSizeForAO();
@@ -77,6 +77,8 @@ public:
 
 	virtual void InitDynamicRHI() override;
 
+	
+
 	virtual void ReleaseDynamicRHI() override
 	{
 		TileConeAxisAndCos.Release();
@@ -86,6 +88,24 @@ public:
 		CulledTilesStartOffsetArray.Release();
 		CulledTileDataArray.Release();
 		ObjectTilesIndirectArguments.Release();
+	}
+
+	void AcquireTransientResource()
+	{
+		TileConeAxisAndCos.AcquireTransientResource();
+		TileConeDepthRanges.AcquireTransientResource();
+		NumCulledTilesArray.AcquireTransientResource();
+		CulledTilesStartOffsetArray.AcquireTransientResource();
+		CulledTileDataArray.AcquireTransientResource();
+	}
+
+	void DiscardTransientResource()
+	{
+		TileConeAxisAndCos.DiscardTransientResource();
+		TileConeDepthRanges.DiscardTransientResource();
+		NumCulledTilesArray.DiscardTransientResource();
+		CulledTilesStartOffsetArray.DiscardTransientResource();
+		CulledTileDataArray.DiscardTransientResource();
 	}
 
 	size_t GetSizeBytes() const
@@ -213,6 +233,28 @@ public:
 		HeightfieldIrradiance.Release();
 	}
 
+	void AcquireTransientResource()
+	{
+		ScreenGridConeVisibility.AcquireTransientResource();
+		if (bAllocateResourceForGI)
+		{
+			StepBentNormal.AcquireTransientResource();
+			SurfelIrradiance.AcquireTransientResource();
+			HeightfieldIrradiance.AcquireTransientResource();
+		}
+	}
+
+	void DiscardTransientResource()
+	{
+		ScreenGridConeVisibility.DiscardTransientResource();
+		if (bAllocateResourceForGI)
+		{
+			StepBentNormal.DiscardTransientResource();
+			SurfelIrradiance.DiscardTransientResource();
+			HeightfieldIrradiance.DiscardTransientResource();
+		}
+	}
+
 	FIntPoint ScreenGridDimensions;
 
 	FRWBuffer ScreenGridConeVisibility;
@@ -234,7 +276,7 @@ public:
 	}
 };
 
-extern void GetSpacedVectors(TArray<FVector, TInlineAllocator<9> >& OutVectors);
+extern void GetSpacedVectors(uint32 FrameNumber, TArray<FVector, TInlineAllocator<9> >& OutVectors);
 
 BEGIN_UNIFORM_BUFFER_STRUCT(FAOSampleData2,)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,SampleDirections,[NumConeSampleDirections])

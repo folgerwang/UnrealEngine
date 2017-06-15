@@ -68,7 +68,7 @@ public:
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View, ESceneRenderTargetsMode::SetTextures);
+		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess, ESceneRenderTargetsMode::SetTextures);
 		PlanarReflectionParameters.SetParameters(RHICmdList, ShaderRHI, View, ReflectionSceneProxy);
 
 		int32 RenderTargetSizeY = ReflectionSceneProxy->RenderTarget->GetSizeXY().Y;
@@ -272,7 +272,7 @@ static void UpdatePlanarReflectionContents_RenderThread(
 				else
 				{
 					SetRenderTarget(RHICmdList, Target->GetRenderTargetTexture(), nullptr, true);
-					DrawClearQuad(RHICmdList, GMaxRHIFeatureLevel, FLinearColor::Black);
+					DrawClearQuad(RHICmdList, FLinearColor::Black);
 				}
 
 				// Reflection view late update
@@ -364,7 +364,7 @@ void FScene::UpdatePlanarReflectionContents(UPlanarReflectionComponent* CaptureC
 			});
 		}
 
-		const FMatrix ComponentTransform = CaptureComponent->ComponentToWorld.ToMatrixWithScale();
+		const FMatrix ComponentTransform = CaptureComponent->GetComponentTransform().ToMatrixWithScale();
 		const FPlane MirrorPlane = FPlane(ComponentTransform.TransformPosition(FVector::ZeroVector), ComponentTransform.TransformVector(FVector(0, 0, 1)));
 
 		TArray<FSceneCaptureViewInfo> SceneCaptureViewInfo;
@@ -499,7 +499,7 @@ void FScene::UpdatePlanarReflectionTransform(UPlanarReflectionComponent* Compone
 	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
 		FUpdatePlanarReflectionCommand,
 		FPlanarReflectionSceneProxy*,SceneProxy,Component->SceneProxy,
-		FMatrix,Transform,Component->ComponentToWorld.ToMatrixWithScale(),
+		FMatrix,Transform,Component->GetComponentTransform().ToMatrixWithScale(),
 		FScene*,Scene,this,
 	{
 		Scene->ReflectionSceneData.bRegisteredReflectionCapturesHasChanged = true;
@@ -537,7 +537,7 @@ public:
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View);
+		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
 		PlanarReflectionParameters.SetParameters(RHICmdList, ShaderRHI, View, ReflectionSceneProxy);
 	}
 
@@ -601,7 +601,7 @@ bool FDeferredShadingSceneRenderer::RenderDeferredPlanarReflections(FRHICommandL
 
 		if (!bSSRAsInput)
 		{
-			DrawClearQuad(RHICmdList, GMaxRHIFeatureLevel, FLinearColor(0, 0, 0, 0));
+			DrawClearQuad(RHICmdList, FLinearColor(0, 0, 0, 0));
 		}
 
 		{

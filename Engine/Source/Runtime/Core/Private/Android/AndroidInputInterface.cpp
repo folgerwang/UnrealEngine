@@ -8,6 +8,7 @@
 #include <android/input.h>
 #include "Misc/CallbackDevice.h"
 #include "HAL/PlatformTime.h"
+#include "IConsoleManager.h"
 
 
 TArray<TouchInput> FAndroidInputInterface::TouchInputStack = TArray<TouchInput>();
@@ -32,6 +33,12 @@ int32 FAndroidInputInterface::DeferredMessageQueueDroppedCount   = 0;
 TArray<FAndroidInputInterface::MotionData> FAndroidInputInterface::MotionDataStack
 	= TArray<FAndroidInputInterface::MotionData>();
 
+int32 GAndroidOldXBoxWirelessFirmware = 0;
+static FAutoConsoleVariableRef CVarAndroidOldXBoxWirelessFirmware(
+	TEXT("Android.OldXBoxWirelessFirmware"),
+	GAndroidOldXBoxWirelessFirmware,
+	TEXT("Determines how XBox Wireless controller mapping is handled. 0 assumes new firmware, 1 will use old firmware mapping (Default: 0)"),
+	ECVF_Default);
 
 TSharedRef< FAndroidInputInterface > FAndroidInputInterface::Create(  const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler )
 {
@@ -783,12 +790,17 @@ void FAndroidInputInterface::SendControllerEvents()
 					}
 					else if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("Xbox Wireless Controller")))
 					{
-						CurrentDevice.ButtonRemapping = ButtonRemapType::XBoxWireless;
 						CurrentDevice.bSupportsHat = true;
-						CurrentDevice.bMapL1R1ToTriggers = false;
-						CurrentDevice.bMapZRZToTriggers = true;
-						CurrentDevice.bRightStickZRZ = false;
-						CurrentDevice.bRightStickRXRY = true;
+
+						if (GAndroidOldXBoxWirelessFirmware == 1)
+						{
+							// Apply mappings for older firmware before 3.1.1221.0
+							CurrentDevice.ButtonRemapping = ButtonRemapType::XBoxWireless;
+							CurrentDevice.bMapL1R1ToTriggers = false;
+							CurrentDevice.bMapZRZToTriggers = true;
+							CurrentDevice.bRightStickZRZ = false;
+							CurrentDevice.bRightStickRXRY = true;
+						}
 					}
 					else if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("SteelSeries Stratus XL")))
 					{
@@ -848,17 +860,17 @@ void FAndroidInputInterface::SendControllerEvents()
 		ControllerId = (ControllerId == -1) ? 0 : ControllerId;
 
 		// send input to handler
-		if (Touch.Type == TouchBegan)
+		switch ( Touch.Type )
 		{
-			MessageHandler->OnTouchStarted(NULL, Touch.Position, Touch.Handle, ControllerId);
-		}
-		else if (Touch.Type == TouchEnded)
-		{
+		case TouchBegan:
+			MessageHandler->OnTouchStarted(nullptr, Touch.Position, Touch.Handle, ControllerId);
+			break;
+		case TouchEnded:
 			MessageHandler->OnTouchEnded(Touch.Position, Touch.Handle, ControllerId);
-		}
-		else
-		{
+			break;
+		case TouchMoved:
 			MessageHandler->OnTouchMoved(Touch.Position, Touch.Handle, ControllerId);
+			break;
 		}
 	}
 

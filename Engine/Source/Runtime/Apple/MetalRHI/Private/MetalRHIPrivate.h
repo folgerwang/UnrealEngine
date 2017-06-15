@@ -10,9 +10,6 @@
 #include "Misc/ScopeLock.h"
 #include "Misc/CommandLine.h"
 
-// UE4 has a Max of 8 RTs, but we can spend less time looping with 6
-const uint32 MaxMetalRenderTargets = 6;
-
 // Requirement for vertex buffer offset field
 const uint32 BufferOffsetAlignment = 256;
 
@@ -32,7 +29,7 @@ const uint32 MaxMetalStreams = 31;
 #define BUFFER_MANAGED_MEM 0
 #define BUFFER_STORAGE_MODE MTLStorageModeShared
 #define BUFFER_RESOURCE_STORAGE_MANAGED MTLResourceStorageModeShared
-#define BUFFER_DYNAMIC_REALLOC BUF_Volatile
+#define BUFFER_DYNAMIC_REALLOC BUF_AnyDynamic
 // How many possible vertex streams are allowed
 const uint32 MaxMetalStreams = 30;
 #endif

@@ -49,7 +49,6 @@ namespace UnrealBuildTool
 			Target.bCompileAPEX = false;
 			Target.bCompileNvCloth = false;
 			Target.bCompilePhysX = true;
-			Target.bRuntimePhysicsCooking = false;
 			Target.bCompileSimplygon = false;
             Target.bCompileSimplygonSSF = false;
 			Target.bCompileForSize = true;
@@ -288,7 +287,7 @@ namespace UnrealBuildTool
 		/// <returns>New toolchain instance.</returns>
 		public override UEToolChain CreateToolChain(CppPlatform CppPlatform, ReadOnlyTargetRules Target)
 		{
-			return new HTML5ToolChain();
+			return new HTML5ToolChain(Target.ProjectFile);
 		}
 
 		/// <summary>

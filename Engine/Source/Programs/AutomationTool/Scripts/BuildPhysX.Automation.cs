@@ -15,7 +15,7 @@ using UnrealBuildTool;
 [Help("TargetLibs", "Specify a list of target libraries to build, separated by '+' characters (eg. -TargetLibs=PhysX+APEX). Default is PhysX+APEX.")]
 [Help("TargetPlatforms", "Specify a list of target platforms to build, separated by '+' characters (eg. -TargetPlatforms=Win32+Win64). Architectures are specified with '-'. Default is Win32+Win64+PS4.")]
 [Help("TargetConfigs", "Specify a list of configurations to build, separated by '+' characters (eg. -TargetConfigs=profile+debug). Default is profile+release+checked.")]
-[Help("TargetWindowsCompilers", "Specify a list of target compilers to use when building for Windows, separated by '+' characters (eg. -TargetCompilers=VisualStudio2012+VisualStudio2015). Default is VisualStudio2013+VisualStudio2015.")]
+[Help("TargetWindowsCompilers", "Specify a list of target compilers to use when building for Windows, separated by '+' characters (eg. -TargetCompilers=VisualStudio2012+VisualStudio2015). Default is VisualStudio2015.")]
 [Help("SkipBuild", "Do not perform build step. If this argument is not supplied libraries will be built (in accordance with TargetLibs, TargetPlatforms and TargetWindowsCompilers).")]
 [Help("SkipDeployLibs", "Do not perform library deployment to the engine. If this argument is not supplied libraries will be copied into the engine.")]
 [Help("SkipDeploySource", "Do not perform source deployment to the engine. If this argument is not supplied source will be copied into the engine.")]
@@ -182,7 +182,7 @@ class BuildPhysX : BuildCommand
 				throw new AutomationException(String.Format("Non-CMake or unsupported platform '{0}' supplied to GetCMakeArguments", TargetData.ToString()));
 		}
 
-		string OutputFlags = " -DPX_OUTPUT_LIB_DIR=" + GetPlatformLibDirectory(TargetData, TargetWindowsCompiler);
+		string OutputFlags = " -DPX_OUTPUT_LIB_DIR=\"" + GetPlatformLibDirectory(TargetData, TargetWindowsCompiler) + "\"";
 		if(PlatformHasBinaries(TargetData))
 		{
 			OutputFlags += " -DPX_OUTPUT_DLL_DIR=" + GetPlatformBinaryDirectory(TargetData, TargetWindowsCompiler) + " -DPX_OUTPUT_EXE_DIR=" + GetPlatformBinaryDirectory(TargetData, TargetWindowsCompiler);
@@ -193,7 +193,8 @@ class BuildPhysX : BuildCommand
 		switch (TargetData.Platform)
 		{
 			case UnrealTargetPlatform.PS4:
-			case UnrealTargetPlatform.Linux:
+            case UnrealTargetPlatform.Switch:
+            case UnrealTargetPlatform.Linux:
 				OutputFlags += " -DUSE_RESPONSE_FILES=1";
 				break;
 		}
@@ -246,7 +247,7 @@ class BuildPhysX : BuildCommand
 						return DirectoryReference.Combine(PhysXCMakeFiles, "Switch").ToString() + " -G \"Unix Makefiles\" -DTARGET_BUILD_PLATFORM=Switch -DCMAKE_BUILD_TYPE=" + BuildConfig + " -DCMAKE_TOOLCHAIN_FILE=\"" + PhysXSourceRootDirectory + "\\Externals\\CMakeModules\\Switch\\SwitchToolchain.cmake\"" + OutputFlags;
 					case UnrealTargetPlatform.HTML5:
 						string CmakeToolchainFile = FileReference.Combine(PhysXSourceRootDirectory, "Externals", "CMakeModules", "HTML5", "Emscripten." + BuildConfig + ".cmake").ToString();
-						return DirectoryReference.Combine(PhysXCMakeFiles, "HTML5").ToString() +
+						return "\"" + DirectoryReference.Combine(PhysXCMakeFiles, "HTML5").ToString() + "\"" +
 							" -G \"Unix Makefiles\" -DTARGET_BUILD_PLATFORM=HTML5" +
 							" -DPXSHARED_ROOT_DIR=\"" + SharedSourceRootDirectory.ToString() + "\"" +
 							" -DNVSIMD_INCLUDE_DIR=\"" + SharedSourceRootDirectory.ToString() + "/src/NvSimd\"" +
@@ -288,6 +289,8 @@ class BuildPhysX : BuildCommand
                         return DirectoryReference.Combine(NvClothCMakeFiles, "Windows").ToString() + " -G \"" + VisualStudioName + "\" -Ax64 -DTARGET_BUILD_PLATFORM=Windows" + OutputFlags;
                     case UnrealTargetPlatform.PS4:
                         return DirectoryReference.Combine(NvClothCMakeFiles, "PS4").ToString() + " -G \"Unix Makefiles\" -DTARGET_BUILD_PLATFORM=PS4 -DCMAKE_BUILD_TYPE=" + BuildConfig + " -DCMAKE_TOOLCHAIN_FILE=\"" + PhysXSourceRootDirectory + "\\Externals\\CMakeModules\\PS4\\PS4Toolchain.txt\"" + OutputFlags;
+                    case UnrealTargetPlatform.Switch:
+                        return DirectoryReference.Combine(NvClothCMakeFiles, "Switch").ToString() + " -G \"Unix Makefiles\" -DTARGET_BUILD_PLATFORM=Switch -DCMAKE_BUILD_TYPE=" + BuildConfig + " -DCMAKE_TOOLCHAIN_FILE=\"" + PhysXSourceRootDirectory + "\\Externals\\CMakeModules\\Switch\\SwitchToolchain.cmake\"" + OutputFlags;
                     case UnrealTargetPlatform.XboxOne:
                         return DirectoryReference.Combine(NvClothCMakeFiles, "XboxOne").ToString() + " -G \"Visual Studio 14 2015\" -DTARGET_BUILD_PLATFORM=XboxOne -DCMAKE_TOOLCHAIN_FILE=\"" + PhysXSourceRootDirectory + "\\Externals\\CMakeModules\\XboxOne\\XboxOneToolchain.txt\" -DCMAKE_GENERATOR_PLATFORM=DURANGO" + OutputFlags;
                     case UnrealTargetPlatform.Linux:
@@ -413,7 +416,7 @@ class BuildPhysX : BuildCommand
 		List<TargetPlatformData> TargetPlatforms = new List<TargetPlatformData>();
 
 		// Remove any platforms that aren't enabled on the command line
-		string TargetPlatformFilter = ParseParamValue("TargetPlatforms", "Win32+Win64+PS4");
+		string TargetPlatformFilter = ParseParamValue("TargetPlatforms", "Win32+Win64+PS4+Switch");
 		if (TargetPlatformFilter != null)
 		{
 			foreach (string TargetPlatformName in TargetPlatformFilter.Split(new char[] { '+' }, StringSplitOptions.RemoveEmptyEntries))
@@ -682,9 +685,9 @@ class BuildPhysX : BuildCommand
 
 						// CMAKE
 						ProcessStartInfo StartInfo = new ProcessStartInfo();
-						StartInfo.FileName = "cmake";
+						StartInfo.FileName = "python";
 						StartInfo.WorkingDirectory = CMakeTargetDirectory.ToString();
-						StartInfo.Arguments = GetCMakeArguments(TargetLib, TargetData, BuildConfig);
+						StartInfo.Arguments = "\"" + HTML5SDKInfo.EMSCRIPTEN_ROOT + "\\emcmake\" cmake " + GetCMakeArguments(TargetLib, TargetData, BuildConfig);
 
 						Log("Working in: {0}", StartInfo.WorkingDirectory);
 						Log("{0} {1}", StartInfo.FileName, StartInfo.Arguments);
@@ -926,7 +929,7 @@ class BuildPhysX : BuildCommand
 				{
 					// Use emscripten toolchain
 					MakeCommand = "python";
-					MakeOptions = HTML5SDKInfo.EMSCRIPTEN_ROOT + "\\emmake make";
+					MakeOptions = "\"" + HTML5SDKInfo.EMSCRIPTEN_ROOT + "\\emmake\" make";
 					BuildMap = new Dictionary<string, string>()
 					{
 						{"debug", "Build-O0"},
@@ -1364,6 +1367,7 @@ class BuildPhysX : BuildCommand
                 case UnrealTargetPlatform.Win32:
                 case UnrealTargetPlatform.Win64:
                 case UnrealTargetPlatform.PS4:
+                case UnrealTargetPlatform.Switch:
                 case UnrealTargetPlatform.XboxOne:
                 case UnrealTargetPlatform.Mac:
                     return true;

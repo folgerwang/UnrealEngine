@@ -889,13 +889,14 @@ FMetalSurface::FMetalSurface(ERHIResourceType ResourceType, EPixelFormat Format,
 	#else
 			Desc.cpuCacheMode = MTLCPUCacheModeDefaultCache;
 			// No private storage for PVRTC as it messes up the blit-encoder usage.
-			if (MTLFormat >= MTLPixelFormatPVRTC_RGB_2BPP && MTLFormat <= MTLPixelFormatPVRTC_RGBA_4BPP_sRGB)
+			// note: this is set to always be on for 4.16 and will be re-addressed in 4.17
+			if (PLATFORM_IOS)
 			{
-			Desc.storageMode = MTLStorageModeShared;
-			Desc.resourceOptions = MTLResourceCPUCacheModeDefaultCache|MTLResourceStorageModeShared;
-		}
+				Desc.storageMode = MTLStorageModeShared;
+				Desc.resourceOptions = MTLResourceCPUCacheModeDefaultCache|MTLResourceStorageModeShared;
+			}
 			else
-		{
+			{
 				Desc.storageMode = MTLStorageModePrivate;
 				Desc.resourceOptions = MTLResourceCPUCacheModeDefaultCache|MTLResourceStorageModePrivate;
 	        }
@@ -1481,7 +1482,7 @@ void FMetalSurface::AsyncUnlock(class FRHICommandListImmediate& RHICmdList, uint
 	bool bDoDirectUnlock = Params.bDirectLock;
 	const bool bUnlockForCreate = Params.bCreateLock;
 			
-	if (RHICmdList.Bypass() || !GRHIThread || bDoDirectUnlock)
+	if (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread() || bDoDirectUnlock)
 	{
 		if (bDoDirectUnlock)
 			{
@@ -1755,53 +1756,54 @@ struct FMetalRHICommandAsyncReallocateTexture2D : public FRHICommand<FMetalRHICo
 	, NewSizeX(InNewSizeX)
 	, NewSizeY(InNewSizeY)
 	, RequestStatus(InRequestStatus)
-{
-}
+	{
+	}
 
 	void Execute(FRHICommandListBase& CmdList)
-{
+	{
 		CopyMips(Context, OldTexture, NewTexture, NewMipCount, NewSizeX, NewSizeY, RequestStatus);
-}
+	}
 
 	static void CopyMips(FMetalContext& Context, FMetalTexture2D* OldTexture, FMetalTexture2D* NewTexture, int32 NewMipCount, int32 NewSizeX, int32 NewSizeY, FThreadSafeCounter* RequestStatus)
-{
-	// figure out what mips to schedule
-	const uint32 NumSharedMips = FMath::Min(OldTexture->GetNumMips(), NewTexture->GetNumMips());
-	const uint32 SourceMipOffset = OldTexture->GetNumMips() - NumSharedMips;
-	const uint32 DestMipOffset = NewTexture->GetNumMips() - NumSharedMips;
-	
-	const uint32 BlockSizeX = GPixelFormats[OldTexture->GetFormat()].BlockSizeX;
-	const uint32 BlockSizeY = GPixelFormats[OldTexture->GetFormat()].BlockSizeY;
-
-	// only handling straight 2D textures here
-	uint32 SliceIndex = 0;
-	MTLOrigin Origin = MTLOriginMake(0,0,0);
-	
-	id<MTLTexture> Tex = OldTexture->Surface.Texture;
-	[Tex retain];
-
-	// DXT/BC formats on Mac actually do have mip-tails that are smaller than the block size, they end up being uncompressed.
-		bool const bPixelFormatASTC = IsPixelFormatASTCCompressed(OldTexture->GetFormat());
-	
-	for (uint32 MipIndex = 0; MipIndex < NumSharedMips; ++MipIndex)
 	{
+		// figure out what mips to schedule
+		const uint32 NumSharedMips = FMath::Min(OldTexture->GetNumMips(), NewTexture->GetNumMips());
+		const uint32 SourceMipOffset = OldTexture->GetNumMips() - NumSharedMips;
+		const uint32 DestMipOffset = NewTexture->GetNumMips() - NumSharedMips;
+
+		const uint32 BlockSizeX = GPixelFormats[OldTexture->GetFormat()].BlockSizeX;
+		const uint32 BlockSizeY = GPixelFormats[OldTexture->GetFormat()].BlockSizeY;
+
+		// only handling straight 2D textures here
+		uint32 SliceIndex = 0;
+		MTLOrigin Origin = MTLOriginMake(0,0,0);
+
+		id<MTLTexture> Tex = OldTexture->Surface.Texture;
+		[Tex retain];
+
+		// DXT/BC formats on Mac actually do have mip-tails that are smaller than the block size, they end up being uncompressed.
+		bool const bPixelFormatASTC = IsPixelFormatASTCCompressed(OldTexture->GetFormat());
+
+		for (uint32 MipIndex = 0; MipIndex < NumSharedMips; ++MipIndex)
+		{
 			const uint32 UnalignedMipSizeX = FMath::Max<uint32>(1, NewSizeX >> (MipIndex + DestMipOffset));
 			const uint32 UnalignedMipSizeY = FMath::Max<uint32>(1, NewSizeY >> (MipIndex + DestMipOffset));
 			const uint32 MipSizeX = (bPixelFormatASTC) ? AlignArbitrary(UnalignedMipSizeX, BlockSizeX) : UnalignedMipSizeX;
 			const uint32 MipSizeY = (bPixelFormatASTC) ? AlignArbitrary(UnalignedMipSizeY, BlockSizeY) : UnalignedMipSizeY;
 
 			Context.AsyncCopyFromTextureToTexture(OldTexture->Surface.Texture, SliceIndex, MipIndex + SourceMipOffset, Origin, MTLSizeMake(MipSizeX, MipSizeY, 1), NewTexture->Surface.Texture, SliceIndex, MipIndex + DestMipOffset, Origin);
-	}
+		}
 
-	// when done, decrement the counter to indicate it's safe
+		// when done, decrement the counter to indicate it's safe
 		MTLCommandBufferHandler CompletionHandler = ^(id <MTLCommandBuffer> Buffer)
-	{
-		[Tex release];
-		RequestStatus->Decrement();
+		{
+			[Tex release];
 		};
 
-    // kick it off!
+		// kick it off!
 		Context.SubmitAsyncCommands(nil, CompletionHandler, false);
+
+		RequestStatus->Decrement();
 	}
 };
 
@@ -1810,7 +1812,7 @@ FTexture2DRHIRef FMetalDynamicRHI::AsyncReallocateTexture2D_RenderThread(class F
 	@autoreleasepool {
 	FTexture2DRHIRef Result;
 	
-	if (RHICmdList.Bypass() || !GRHIThread)
+	if (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
 	{
 		Result = GDynamicRHI->RHIAsyncReallocateTexture2D(Texture2D, NewMipCount, NewSizeX, NewSizeY, RequestStatus);
 	}
@@ -1978,7 +1980,7 @@ struct FMetalRHICommandUpdateTexture2D : public FRHICommand<FMetalRHICommandUpda
 void FMetalDynamicRHI::UpdateTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture, uint32 MipIndex, const struct FUpdateTextureRegion2D& UpdateRegion, uint32 SourcePitch, const uint8* SourceData)
 {
 	@autoreleasepool {
-	if (RHICmdList.Bypass() || !GRHIThread)
+	if (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
 	{
 	this->RHIUpdateTexture2D(Texture, MipIndex, UpdateRegion, SourcePitch, SourceData);
 }
@@ -2363,7 +2365,7 @@ void FMetalDynamicRHI::RHISetResourceAliasability_RenderThread(class FRHICommand
 			}
 			case EResourceAliasability::EUnaliasable:
 			{
-				if (RHICmdList.Bypass() || !GRHIThread)
+				if (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
 				{
 					for (int32 i = 0; i < NumTextures; ++i)
 					{

@@ -211,6 +211,17 @@ private:
 	 */
 	TSharedRef<SWidget> OnGenerateCustomSectionWidgetsForSection(int32 LODIndex, int32 SectionIndex);
 
+	TSharedRef<SWidget> OnGenerateLodComboBoxForSectionList(int32 LodIndex);
+	/*
+	 * Generate the context menu to choose the LOD we will display the section list
+	*/
+	TSharedRef<SWidget> OnGenerateLodMenuForSectionList(int32 LodIndex);
+	void UpdateLODCategoryVisibility() const;
+	FText GetCurrentLodName() const;
+	FText GetCurrentLodTooltip() const;
+
+	void SetCurrentLOD(int32 NewLodIndex);
+
 	FText GetMaterialNameText(int32 MaterialIndex)const ;
 	void OnMaterialNameCommitted(const FText& InValue, ETextCommit::Type CommitType, int32 MaterialIndex);
 	void OnMaterialNameChanged(const FText& InValue, int32 MaterialIndex);
@@ -481,6 +492,8 @@ private:
 	/* This is to know if material are used by any LODs sections. */
 	TMap<int32, TArray<FSectionLocalizer>> MaterialUsedMap;
 
+	TArray<class IDetailCategoryBuilder*> LodCategories;
+
 #if WITH_APEX_CLOTHING
 private:
 
@@ -531,7 +544,7 @@ private:
 	bool IsClothingPanelEnabled() const;
 
 	// Callback after the clothing details are changed
-	void OnFinishedChangingClothingProperties(const FPropertyChangedEvent& Event);
+	void OnFinishedChangingClothingProperties(const FPropertyChangedEvent& Event, int32 InAssetIndex);
 
 	/* Generate slate UI for Clothing category */
 	void CustomizeClothingProperties(class IDetailLayoutBuilder& DetailLayout, class IDetailCategoryBuilder& ClothingFilesCategory);

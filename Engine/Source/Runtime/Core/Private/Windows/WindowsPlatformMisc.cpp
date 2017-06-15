@@ -411,6 +411,35 @@ int32 FWindowsOSVersionHelper::GetOSVersions( FString& out_OSVersionLabel, FStri
 
 	return ErrorCode;
 }
+
+FString FWindowsOSVersionHelper::GetOSVersion()
+{
+	int32 ErrorCode = (int32)SUCCEEDED;
+
+	// Get system info
+	SYSTEM_INFO SystemInfo;
+	if (FPlatformMisc::Is64bitOperatingSystem())
+	{
+		GetNativeSystemInfo(&SystemInfo);
+	}
+	else
+	{
+		GetSystemInfo(&SystemInfo);
+	}
+
+	OSVERSIONINFOEX OsVersionInfo = { 0 };
+	OsVersionInfo.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+#pragma warning(push)
+#pragma warning(disable : 4996) // 'function' was declared deprecated
+	CA_SUPPRESS(28159)
+	if (GetVersionEx((LPOSVERSIONINFO)&OsVersionInfo))
+#pragma warning(pop)
+	{
+		return FString::Printf(TEXT("%d.%d.%d.%d.%d"), OsVersionInfo.dwMajorVersion, OsVersionInfo.dwMinorVersion, OsVersionInfo.dwBuildNumber, OsVersionInfo.wProductType, OsVersionInfo.wSuiteMask);
+	}
+	return FString();
+}
+
 #include "Windows/HideWindowsPlatformTypes.h"
 
 /** 
@@ -1472,15 +1501,23 @@ int MessageBoxExtInternal( EAppMsgType::Type MsgType, HWND HandleWnd, const TCHA
 	GMessageBoxText = (TCHAR *) Text;
 	GMessageBoxCaption = (TCHAR *) Caption;
 
-	if( MsgType == EAppMsgType::YesNoYesAllNoAll )
+	switch (MsgType)
 	{
-		GCancelButtonEnabled = false;
-		return DialogBox( GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_YESNO2ALL), HandleWnd, MessageBoxDlgProc );
-	}
-	else if( MsgType == EAppMsgType::YesNoYesAllNoAllCancel )
-	{
-		GCancelButtonEnabled = true;
-		return DialogBox( GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_YESNO2ALLCANCEL), HandleWnd, MessageBoxDlgProc );
+		case EAppMsgType::YesNoYesAllNoAll:
+		{
+			GCancelButtonEnabled = false;
+			return DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_YESNO2ALL), HandleWnd, MessageBoxDlgProc);
+		}
+		case EAppMsgType::YesNoYesAllNoAllCancel:
+		{
+			GCancelButtonEnabled = true;
+			return DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_YESNO2ALLCANCEL), HandleWnd, MessageBoxDlgProc);
+		}
+		case EAppMsgType::YesNoYesAll:
+		{
+			GCancelButtonEnabled = false;
+			return DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_YESNOYESTOALL), HandleWnd, MessageBoxDlgProc);
+		}
 	}
 
 	return -1;
@@ -1496,6 +1533,11 @@ EAppReturnType::Type FWindowsPlatformMisc::MessageBoxExt( EAppMsgType::Type MsgT
 	HWND ParentWindow = (HWND)NULL;
 	switch( MsgType )
 	{
+	case EAppMsgType::Ok:
+		{
+			MessageBox(ParentWindow, Text, Caption, MB_OK|MB_SYSTEMMODAL);
+			return EAppReturnType::Ok;
+		}
 	case EAppMsgType::YesNo:
 		{
 			int32 Return = MessageBox( ParentWindow, Text, Caption, MB_YESNO|MB_SYSTEMMODAL );
@@ -1527,8 +1569,14 @@ EAppReturnType::Type FWindowsPlatformMisc::MessageBoxExt( EAppMsgType::Type MsgT
 		//These return codes just happen to match up with ours.
 		// return 0 for No, 1 for Yes, 2 for YesToAll, 3 for NoToAll, 4 for Cancel
 		break;
+
+	case EAppMsgType::YesNoYesAll:
+		return (EAppReturnType::Type)MessageBoxExtInternal(EAppMsgType::YesNoYesAll, ParentWindow, Text, Caption);
+		//These return codes just happen to match up with ours.
+		// return 0 for No, 1 for Yes, 2 for YesToAll
+		break;
+
 	default:
-		MessageBox( ParentWindow, Text, Caption, MB_OK|MB_SYSTEMMODAL );
 		break;
 	}
 	return EAppReturnType::Cancel;
@@ -2065,11 +2113,12 @@ bool FWindowsPlatformMisc::GetWindowTitleMatchingText(const TCHAR* TitleStartsWi
 	HWND hWnd = FindWindowW(NULL,NULL);
 	if (hWnd != NULL)
 	{
+		size_t TitleStartsWithLen = _tcslen(TitleStartsWith);
 		do
 		{
 			GetWindowText(hWnd,Buffer,8192);
 			// If this matches, then grab the full text
-			if (_tcsnccmp(TitleStartsWith, Buffer, _tcslen(TitleStartsWith)) == 0)
+			if (_tcsnccmp(TitleStartsWith, Buffer, TitleStartsWithLen) == 0)
 			{
 				OutTitle = Buffer;
 				hWnd = NULL;
@@ -2835,6 +2884,12 @@ void FWindowsPlatformMisc::GetOSVersions( FString& out_OSVersionLabel, FString& 
 }
 
 
+FString FWindowsPlatformMisc::GetOSVersion()
+{
+	static FString CachedOSVersion = FWindowsOSVersionHelper::GetOSVersion();
+	return CachedOSVersion;
+}
+
 bool FWindowsPlatformMisc::GetDiskTotalAndFreeSpace( const FString& InPath, uint64& TotalNumberOfBytes, uint64& NumberOfFreeBytes )
 {
 	bool bSuccess = false;
@@ -2972,25 +3027,28 @@ EConvertibleLaptopMode FWindowsPlatformMisc::GetConvertibleLaptopMode()
 IPlatformChunkInstall* FWindowsPlatformMisc::GetPlatformChunkInstall()
 {
 	static IPlatformChunkInstall* ChunkInstall = nullptr;
-	if (!ChunkInstall)
+	static bool bIniChecked = false;
+	if (!ChunkInstall || !bIniChecked)
 	{
-#if !(WITH_EDITORONLY_DATA || IS_PROGRAM)
-
 		IPlatformChunkInstallModule* PlatformChunkInstallModule = nullptr;
-
-		FModuleStatus Status;
-		if (FModuleManager::Get().QueryModule("HTTPChunkInstaller", Status))
+		if (!GEngineIni.IsEmpty())
 		{
-			PlatformChunkInstallModule = FModuleManager::LoadModulePtr<IPlatformChunkInstallModule>("HTTPChunkInstaller");
-			if (PlatformChunkInstallModule != nullptr)
-		{
-			// Attempt to grab the platform installer
-			ChunkInstall = PlatformChunkInstallModule->GetPlatformChunkInstall();
-		}
+			FString InstallModule;
+			GConfig->GetString(TEXT("StreamingInstall"), TEXT("DefaultProviderName"), InstallModule, GEngineIni);
+			FModuleStatus Status;
+			if (FModuleManager::Get().QueryModule(*InstallModule, Status))
+			{
+				PlatformChunkInstallModule = FModuleManager::LoadModulePtr<IPlatformChunkInstallModule>(*InstallModule);
+				if (PlatformChunkInstallModule != nullptr)
+				{
+					// Attempt to grab the platform installer
+					ChunkInstall = PlatformChunkInstallModule->GetPlatformChunkInstall();
+				}
+			}
+			bIniChecked = true;
 		}
 
 		if (PlatformChunkInstallModule == nullptr)
-#endif
 		{
 			// Placeholder instance
 			ChunkInstall = FGenericPlatformMisc::GetPlatformChunkInstall();

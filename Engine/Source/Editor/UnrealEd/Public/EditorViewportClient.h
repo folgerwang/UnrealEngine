@@ -126,6 +126,7 @@ struct FViewportCursorLocation
 {
 public:
 	UNREALED_API FViewportCursorLocation( const FSceneView* View, FEditorViewportClient* InViewportClient, int32 X, int32 Y );
+	UNREALED_API virtual ~FViewportCursorLocation();
 
 	const FVector&		GetOrigin()			const	{ return Origin; }
 	const FVector&		GetDirection()		const	{ return Direction; }
@@ -144,6 +145,7 @@ struct FViewportClick : public FViewportCursorLocation
 {
 public:
 	UNREALED_API FViewportClick( const FSceneView* View, FEditorViewportClient* ViewportClient, FKey InKey, EInputEvent InEvent, int32 X, int32 Y );
+	UNREALED_API virtual ~FViewportClick();
 
 	/** @return The 2D screenspace cursor position of the mouse when it was clicked. */
 	const FIntPoint&	GetClickPos()	const	{ return GetCursorPos(); }
@@ -282,9 +284,20 @@ public:
 	void SetRealtime(bool bInRealtime, bool bStoreCurrentValue = false);
 
 	/** @return		True if viewport is in realtime mode, false otherwise. */
-	bool IsRealtime() const				
+	bool IsRealtime() const
 	{ 
-		return bIsRealtime; 
+		return bIsRealtime || RealTimeFrameCount != 0;
+	}
+
+	/**
+	 * Get the number of real-time frames to draw (overrides bRealtime)
+	 * @note When non-zero, the viewport will render RealTimeFrameCount frames in real-time mode, then revert back to bIsRealtime
+	 * this can be used to ensure that not only the viewport renders a frame, but also that the world ticks
+	 * @param NumExtraFrames 		The number of extra real time frames to draw
+	 */
+	void RequestRealTimeFrames(uint32 NumRealTimeFrames = 1)
+	{
+		RealTimeFrameCount = FMath::Max(NumRealTimeFrames, RealTimeFrameCount);
 	}
 
 	/**
@@ -1041,6 +1054,9 @@ public:
 	/** Returns the map allowing to convert from the viewmode param to a name. */
 	TMap<int32, FName>& GetViewModeParamNameMap() { return ViewModeParamNameMap; }
 
+	/** Show or hide the widget. */
+	void ShowWidget(const bool bShow);
+
 protected:
 	/** Invalidates the viewport widget (if valid) to register its active timer */
 	void InvalidateViewportWidget();
@@ -1069,7 +1085,7 @@ protected:
 		/** Should the software cursor be visible */
 		bool	bSoftwareCursorVisible;
 
-		/** Should the hardware be visible */
+		/** Should the hardware cursor be visible */
 		bool	bHardwareCursorVisible;
 
 		/** Should the software cursor position be reset to pre-drag */
@@ -1357,6 +1373,9 @@ protected:
 
 	FWidget*				Widget;
 
+	/** Whether the widget should be drawn. */
+	bool bShowWidget;
+
 	FMouseDeltaTracker*		MouseDeltaTracker;
 		
 	/**InterpEd, should only be set if used for matinee recording*/
@@ -1417,6 +1436,9 @@ protected:
 
 	/** If true, force this viewport to use real time audio regardless of other settings */
 	bool bForceAudioRealtime;
+
+	/** Counter to force real-time mode for a number of frames. Overrides bIsRealtime when non-zero. */
+	uint32 RealTimeFrameCount;
 
 	/** if the viewport is currently realtime */
 	bool bIsRealtime;

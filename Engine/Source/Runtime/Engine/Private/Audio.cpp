@@ -196,15 +196,13 @@ void FSoundSource::Stop()
 	if (WaveInstance)
 	{
 		check(AudioDevice);
-		AudioDevice->FreeSources.AddUnique(this);
 		AudioDevice->WaveInstanceSourceMap.Remove(WaveInstance);
 		WaveInstance->NotifyFinished(true);
 		WaveInstance = nullptr;
 	}
-	else
-	{
-		check(AudioDevice->FreeSources.Find(this) != INDEX_NONE);
-	}
+
+	// Remove this source from free list regardless of if this had a wave instance created
+	AudioDevice->FreeSources.AddUnique(this);
 }
 
 void FSoundSource::SetPauseByGame(bool bInIsPauseByGame)
@@ -705,7 +703,6 @@ FWaveInstance::FWaveInstance( FActiveSound* InActiveSound )
 	, AmbientZoneFilterFrequency(MAX_FILTER_FREQUENCY)
 	, AttenuationFilterFrequency(MAX_FILTER_FREQUENCY)
 	, Pitch(0.0f)
-	, Velocity(FVector::ZeroVector)
 	, Location(FVector::ZeroVector)
 	, OmniRadius(0.0f)
 	, StereoSpread(0.0f)

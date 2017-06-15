@@ -940,7 +940,7 @@ public:
 	{
 		typedef TStructOpsTypeTraits<CPPSTRUCT> TTraits;
 		TCppStructOps()
-			: ICppStructOps(sizeof(CPPSTRUCT), ALIGNOF(CPPSTRUCT))
+			: ICppStructOps(sizeof(CPPSTRUCT), alignof(CPPSTRUCT))
 		{
 		}
 		virtual bool HasNoopConstructor() override
@@ -1294,7 +1294,7 @@ class COREUOBJECT_API UFunction : public UStruct
 	DECLARE_WITHIN(UClass)
 public:
 	// Persistent variables.
-	uint32 FunctionFlags;
+	EFunctionFlags FunctionFlags;
 	uint16 RepOffset;
 
 	// Variables in memory only.
@@ -1351,8 +1351,8 @@ public:
 	void Invoke(UObject* Obj, FFrame& Stack, RESULT_DECL);
 
 	// Constructors.
-	explicit UFunction(const FObjectInitializer& ObjectInitializer, UFunction* InSuperFunction, uint32 InFunctionFlags = 0, uint16 InRepOffset = 0, SIZE_T ParamsSize = 0 );
-	explicit UFunction(UFunction* InSuperFunction, uint32 InFunctionFlags = 0, uint16 InRepOffset = 0, SIZE_T ParamsSize = 0);
+	explicit UFunction(const FObjectInitializer& ObjectInitializer, UFunction* InSuperFunction, EFunctionFlags InFunctionFlags = FUNC_None, uint16 InRepOffset = 0, SIZE_T ParamsSize = 0 );
+	explicit UFunction(UFunction* InSuperFunction, EFunctionFlags InFunctionFlags = FUNC_None, uint16 InRepOffset = 0, SIZE_T ParamsSize = 0);
 
 	void InitializeDerivedMembers();
 
@@ -1379,7 +1379,7 @@ public:
 	 * @return	true if the passed in flag is set, false otherwise
 	 *			(including no flag passed in, unless the FlagsToCheck is CLASS_AllFlags)
 	 */
-	FORCEINLINE bool HasAnyFunctionFlags( uint32 FlagsToCheck ) const
+	FORCEINLINE bool HasAnyFunctionFlags( EFunctionFlags FlagsToCheck ) const
 	{
 		return (FunctionFlags&FlagsToCheck) != 0 || FlagsToCheck == FUNC_AllFlags;
 	}
@@ -1390,7 +1390,7 @@ public:
 	 * @param FlagsToCheck	Function flags to check for
 	 * @return true if all of the passed in flags are set (including no flags passed in), false otherwise
 	 */
-	FORCEINLINE bool HasAllFunctionFlags( uint32 FlagsToCheck ) const
+	FORCEINLINE bool HasAllFunctionFlags( EFunctionFlags FlagsToCheck ) const
 	{
 		return ((FunctionFlags & FlagsToCheck) == FlagsToCheck);
 	}
@@ -1436,8 +1436,8 @@ class COREUOBJECT_API UDelegateFunction : public UFunction
 	DECLARE_CASTED_CLASS_INTRINSIC(UDelegateFunction, UFunction, 0, TEXT("/Script/CoreUObject"), CASTCLASS_UDelegateFunction)
 	DECLARE_WITHIN(UObject)
 public:
-	explicit UDelegateFunction(const FObjectInitializer& ObjectInitializer, UFunction* InSuperFunction, uint32 InFunctionFlags = 0, uint16 InRepOffset = 0, SIZE_T ParamsSize = 0);
-	explicit UDelegateFunction(UFunction* InSuperFunction, uint32 InFunctionFlags = 0, uint16 InRepOffset = 0, SIZE_T ParamsSize = 0);
+	explicit UDelegateFunction(const FObjectInitializer& ObjectInitializer, UFunction* InSuperFunction, EFunctionFlags InFunctionFlags = FUNC_None, uint16 InRepOffset = 0, SIZE_T ParamsSize = 0);
+	explicit UDelegateFunction(UFunction* InSuperFunction, EFunctionFlags InFunctionFlags = FUNC_None, uint16 InRepOffset = 0, SIZE_T ParamsSize = 0);
 };
 
 /*-----------------------------------------------------------------------------
@@ -2011,7 +2011,7 @@ public:
 	int32 ClassUnique;
 
 	// Class flags; See EClassFlags for more information
-	uint32 ClassFlags;
+	EClassFlags ClassFlags;
 
 	// Cast flags used to accelerate dynamic_cast<T*> on objects of this type for common T
 	EClassCastFlags ClassCastFlags;
@@ -2027,7 +2027,8 @@ public:
 	 * Conditionally recompiles the class after loading, in case any dependencies were also newly loaded
 	 * @param ObjLoaded	If set this is the list of objects that are currently loading, usualy GObjLoaded
 	 */
-	virtual void ConditionalRecompileClass(TArray<UObject*>* ObjLoaded) {};
+	virtual void ConditionalRecompileClass(TArray<UObject*>* ObjLoaded) {}
+	virtual void FlushCompilationQueueForLevel() {}
 #endif //WITH_EDITOR
 
 	//
@@ -2124,7 +2125,7 @@ public:
 	// Constructors
 	UClass(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 	explicit UClass(const FObjectInitializer& ObjectInitializer, UClass* InSuperClass);
-	UClass( EStaticConstructor, FName InName, uint32 InSize, uint32 InClassFlags, EClassCastFlags InClassCastFlags,
+	UClass( EStaticConstructor, FName InName, uint32 InSize, EClassFlags InClassFlags, EClassCastFlags InClassCastFlags,
 		const TCHAR* InClassConfigName, EObjectFlags InFlags, ClassConstructorType InClassConstructor,
 		ClassVTableHelperCtorCallerType InClassVTableHelperCtorCaller,
 		ClassAddReferencedObjectsType InClassAddReferencedObjects);
@@ -2142,7 +2143,7 @@ public:
 	 **/
 	bool HotReloadPrivateStaticClass(
 		uint32			InSize,
-		uint32			InClassFlags,
+		EClassFlags		InClassFlags,
 		EClassCastFlags	InClassCastFlags,
 		const TCHAR*    InConfigName,
 		ClassConstructorType InClassConstructor,
@@ -2297,10 +2298,13 @@ public:
 	}
 
 	/**
-	 * Override to return a linked list of properties with default values that differ from the parent default object. If non-NULL, only these properties will 
-	 * be copied post-construction. Otherwise, all properties will be copied to the new instance, even if the default value matches the inherited default value.
-	 */
-	virtual const FCustomPropertyListNode* GetCustomPropertyListForPostConstruction() const { return nullptr; }
+	* Helper method to assist with initializing object properties from an explicit list.
+	*
+	* @param	InStruct			the current scope for which the given property list applies
+	* @param	DataPtr				destination address (where to start copying values to)
+	* @param	DefaultDataPtr		source address (where to start copying the defaults data from)
+	*/
+	virtual void InitPropertiesFromCustomList(uint8* DataPtr, const uint8* DefaultDataPtr) {}
 
 	/**
 	* Get the name of the CDO for the this class
@@ -2355,14 +2359,14 @@ public:
 	/**
 	 * Used to safely check whether the passed in flag is set.
 	 *
-	 * @param	FlagToCheck		Class flag to check for
+	 * @param	FlagsToCheck		Class flag(s) to check for
 	 *
 	 * @return	true if the passed in flag is set, false otherwise
 	 *			(including no flag passed in, unless the FlagsToCheck is CLASS_AllFlags)
 	 */
-	FORCEINLINE bool HasAnyClassFlags( uint32 FlagsToCheck ) const
+	FORCEINLINE bool HasAnyClassFlags( EClassFlags FlagsToCheck ) const
 	{
-		return (ClassFlags & FlagsToCheck) != 0;
+		return EnumHasAnyFlags(ClassFlags, FlagsToCheck) != 0;
 	}
 
 	/**
@@ -2371,9 +2375,9 @@ public:
 	 * @param FlagsToCheck	Class flags to check for
 	 * @return true if all of the passed in flags are set (including no flags passed in), false otherwise
 	 */
-	FORCEINLINE bool HasAllClassFlags( uint32 FlagsToCheck ) const
+	FORCEINLINE bool HasAllClassFlags( EClassFlags FlagsToCheck ) const
 	{
-		return ((ClassFlags & FlagsToCheck) == FlagsToCheck);
+		return EnumHasAllFlags(ClassFlags, FlagsToCheck);
 	}
 
 	/**
@@ -2381,7 +2385,7 @@ public:
 	 *
 	 * @return	The class flags.
 	 */
-	FORCEINLINE uint32 GetClassFlags() const
+	FORCEINLINE EClassFlags GetClassFlags() const
 	{
 		return ClassFlags;
 	}
@@ -2609,7 +2613,7 @@ public:
 
 	UDynamicClass(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 	explicit UDynamicClass(const FObjectInitializer& ObjectInitializer, UClass* InSuperClass);
-	UDynamicClass(EStaticConstructor, FName InName, uint32 InSize, uint32 InClassFlags, EClassCastFlags InClassCastFlags,
+	UDynamicClass(EStaticConstructor, FName InName, uint32 InSize, EClassFlags InClassFlags, EClassCastFlags InClassCastFlags,
 		const TCHAR* InClassConfigName, EObjectFlags InFlags, ClassConstructorType InClassConstructor,
 		ClassVTableHelperCtorCallerType InClassVTableHelperCtorCaller,
 		ClassAddReferencedObjectsType InClassAddReferencedObjects);
@@ -2693,7 +2697,7 @@ COREUOBJECT_API void GetPrivateStaticClassBody(
 	UClass*& ReturnClass,
 	void(*RegisterNativeFunc)(),
 	uint32 InSize,
-	uint32 InClassFlags,
+	EClassFlags InClassFlags,
 	EClassCastFlags InClassCastFlags,
 	const TCHAR* InConfigName,
 	UClass::ClassConstructorType InClassConstructor,

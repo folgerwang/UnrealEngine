@@ -1101,7 +1101,7 @@ void USceneComponent::UpdateBounds()
 	else
 	{
 		// Calculate new bounds
-		Bounds = CalcBounds(ComponentToWorld);
+		Bounds = CalcBounds(GetComponentTransform());
 	}
 
 
@@ -1216,26 +1216,26 @@ void USceneComponent::AddLocalTransform(const FTransform& DeltaTransform, bool b
 
 void USceneComponent::AddWorldOffset(FVector DeltaLocation, bool bSweep, FHitResult* OutSweepHitResult, ETeleportType Teleport)
 {
-	const FVector NewWorldLocation = DeltaLocation + ComponentToWorld.GetTranslation();
+	const FVector NewWorldLocation = DeltaLocation + GetComponentTransform().GetTranslation();
 	SetWorldLocation(NewWorldLocation, bSweep, OutSweepHitResult, Teleport);
 }
 
 void USceneComponent::AddWorldRotation(FRotator DeltaRotation, bool bSweep, FHitResult* OutSweepHitResult, ETeleportType Teleport)
 {
-	const FQuat NewWorldRotation = DeltaRotation.Quaternion() * ComponentToWorld.GetRotation();
+	const FQuat NewWorldRotation = DeltaRotation.Quaternion() * GetComponentTransform().GetRotation();
 	SetWorldRotation(NewWorldRotation, bSweep, OutSweepHitResult, Teleport);
 }
 
 void USceneComponent::AddWorldRotation(const FQuat& DeltaRotation, bool bSweep, FHitResult* OutSweepHitResult, ETeleportType Teleport)
 {
-	const FQuat NewWorldRotation = DeltaRotation * ComponentToWorld.GetRotation();
+	const FQuat NewWorldRotation = DeltaRotation * GetComponentTransform().GetRotation();
 	SetWorldRotation(NewWorldRotation, bSweep, OutSweepHitResult, Teleport);
 }
 
 void USceneComponent::AddWorldTransform(const FTransform& DeltaTransform, bool bSweep, FHitResult* OutSweepHitResult, ETeleportType Teleport)
 {
-	const FQuat NewWorldRotation = DeltaTransform.GetRotation() * ComponentToWorld.GetRotation();
-	const FVector NewWorldLocation = FTransform::AddTranslations(DeltaTransform, ComponentToWorld);
+	const FQuat NewWorldRotation = DeltaTransform.GetRotation() * GetComponentTransform().GetRotation();
+	const FVector NewWorldLocation = FTransform::AddTranslations(DeltaTransform, ComponentToWorld); // ComponentToWorld is sure to be accurate due to GetComponentTransform() on previous line
 	SetWorldTransform(FTransform(NewWorldRotation, NewWorldLocation, FVector(1,1,1)),bSweep, OutSweepHitResult, Teleport);
 }
 
@@ -1306,10 +1306,25 @@ void USceneComponent::SetWorldRotation(const FQuat& NewRotation, bool bSweep, FH
 	// If already attached to something, transform into local space
 	if (GetAttachParent() != nullptr && !bAbsoluteRotation)
 	{
-		const FQuat ParentToWorldQuat = GetAttachParent()->GetSocketQuaternion(GetAttachSocketName());
-		// Quat multiplication works reverse way, make sure you do Parent(-1) * World = Local, not World*Parent(-) = Local (the way matrix does)
-		const FQuat NewRelQuat = ParentToWorldQuat.Inverse() * NewRotation;
-		NewRelRotation = NewRelQuat;
+		const FTransform  ParentToWorld = GetAttachParent()->GetSocketTransform(GetAttachSocketName());
+		// in order to support mirroring, you'll have to use FTransform.GetRelativeTransform
+		// because negative SCALE should flip the rotation
+		if (FTransform::AnyHasNegativeScale(RelativeScale3D, ParentToWorld.GetScale3D()))
+		{	
+			FTransform NewTransform = GetComponentTransform();
+			// set new desired rotation
+			NewTransform.SetRotation(NewRotation);
+			// Get relative transform from ParentToWorld
+			const FQuat NewRelQuat = NewTransform.GetRelativeTransform(ParentToWorld).GetRotation();
+			NewRelRotation = NewRelQuat;
+		}
+		else
+		{
+			const FQuat ParentToWorldQuat = ParentToWorld.GetRotation();
+			// Quat multiplication works reverse way, make sure you do Parent(-1) * World = Local, not World*Parent(-) = Local (the way matrix does)
+			const FQuat NewRelQuat = ParentToWorldQuat.Inverse() * NewRotation;
+			NewRelRotation = NewRelQuat;		
+		}
 	}
 
 	SetRelativeRotation(NewRelRotation, bSweep, OutSweepHitResult, Teleport);
@@ -1464,17 +1479,17 @@ FTransform USceneComponent::K2_GetComponentToWorld() const
 
 FVector USceneComponent::GetForwardVector() const
 {
-	return ComponentToWorld.GetUnitAxis( EAxis::X );
+	return GetComponentTransform().GetUnitAxis( EAxis::X );
 }
 
 FVector USceneComponent::GetRightVector() const
 {
-	return ComponentToWorld.GetUnitAxis( EAxis::Y );
+	return GetComponentTransform().GetUnitAxis( EAxis::Y );
 }
 
 FVector USceneComponent::GetUpVector() const
 {
-	return ComponentToWorld.GetUnitAxis( EAxis::Z );
+	return GetComponentTransform().GetUnitAxis( EAxis::Z );
 }
 
 FVector USceneComponent::K2_GetComponentLocation() const
@@ -1559,10 +1574,16 @@ void USceneComponent::SetupAttachment(class USceneComponent* InParent, FName InS
 {
 	if (ensureMsgf(!bRegistered, TEXT("SetupAttachment should only be used to initialize AttachParent and AttachSocketName for a future AttachTo. Once a component is registered you must use AttachTo.")))
 	{
-		if (ensureMsgf(AttachParent == nullptr || !AttachParent->AttachChildren.Contains(this), TEXT("SetupAttachment cannot be used once a component has already had AttachTo used to connect it to a parent.")))
+		if (ensureMsgf(InParent != this, TEXT("Cannot attach a component to itself.")))
 		{
-			AttachParent = InParent;
-			AttachSocketName = InSocketName;
+			if (ensureMsgf(InParent == nullptr || !InParent->IsAttachedTo(this), TEXT("Setting up attachment would create a cycle.")))
+			{
+				if (ensureMsgf(AttachParent == nullptr || !AttachParent->AttachChildren.Contains(this), TEXT("SetupAttachment cannot be used once a component has already had AttachTo used to connect it to a parent.")))
+				{
+					AttachParent = InParent;
+					AttachSocketName = InSocketName;
+				}
+			}
 		}
 	}
 }
@@ -1758,7 +1779,7 @@ bool USceneComponent::AttachToComponent(USceneComponent* Parent, const FAttachme
 							UpdateComponentToWorldWithParent(Parent, SocketName, EUpdateTransformFlags::None, RelativeRotationCache.RotatorToQuat(RelativeRotation));
 							if (AttachmentRules.LocationRule == EAttachmentRule::KeepRelative)
 							{
-								RelativeLocation = ComponentToWorld.GetLocation(); // or GetComponentLocation(), but worried about custom location...
+								RelativeLocation = GetComponentLocation();
 							}
 							if (AttachmentRules.RotationRule == EAttachmentRule::KeepRelative)
 							{
@@ -1814,7 +1835,7 @@ bool USceneComponent::AttachToComponent(USceneComponent* Parent, const FAttachme
 			return false;
 		}
 #endif
-		FTransform RelativeTM = ComponentToWorld.GetRelativeTransform(SocketTransform);
+		FTransform RelativeTM = GetComponentTransform().GetRelativeTransform(SocketTransform);
 #if ENABLE_NAN_DIAGNOSTIC
 		if (RelativeTM.ContainsNaN())
 		{
@@ -1831,7 +1852,7 @@ bool USceneComponent::AttachToComponent(USceneComponent* Parent, const FAttachme
 		case EAttachmentRule::KeepWorld:
 			if (bAbsoluteLocation)
 			{
-				RelativeLocation = ComponentToWorld.GetTranslation();
+				RelativeLocation = GetComponentTransform().GetTranslation();
 			}
 			else
 			{
@@ -1871,7 +1892,7 @@ bool USceneComponent::AttachToComponent(USceneComponent* Parent, const FAttachme
 		case EAttachmentRule::KeepWorld:
 			if (bAbsoluteScale)
 			{
-				RelativeScale3D = ComponentToWorld.GetScale3D();
+				RelativeScale3D = GetComponentTransform().GetScale3D();
 			}
 			else
 			{
@@ -1991,7 +2012,7 @@ void USceneComponent::DetachFromComponent(const FDetachmentTransformRules& Detac
 		case EDetachmentRule::KeepRelative:
 			break;
 		case EDetachmentRule::KeepWorld:
-			RelativeLocation = ComponentToWorld.GetTranslation(); // or GetComponentLocation, but worried about custom location...
+			RelativeLocation = GetComponentTransform().GetTranslation(); // or GetComponentLocation, but worried about custom location...
 			break;
 		}
 
@@ -2139,7 +2160,7 @@ void USceneComponent::UpdateChildTransforms(EUpdateTransformFlags UpdateTransfor
 	SCOPE_CYCLE_COUNTER(STAT_UpdateChildTransforms);
 
 #if ENABLE_NAN_DIAGNOSTIC
-	if (!ComponentToWorld.IsValid())
+	if (!GetComponentTransform().IsValid())
 	{
 		logOrEnsureNanError(TEXT("USceneComponent::UpdateChildTransforms found NaN/INF in ComponentToWorld: %s"), *ComponentToWorld.ToString());
 	}
@@ -2207,7 +2228,7 @@ FTransform USceneComponent::GetSocketTransform(FName SocketName, ERelativeTransf
 	{
 		case RTS_Actor:
 		{
-			return ComponentToWorld.GetRelativeTransform( GetOwner()->GetTransform() );
+			return GetComponentTransform().GetRelativeTransform( GetOwner()->GetTransform() );
 			break;
 		}
 		case RTS_Component:
@@ -2217,7 +2238,7 @@ FTransform USceneComponent::GetSocketTransform(FName SocketName, ERelativeTransf
 		}
 		default:
 		{
-			return ComponentToWorld;
+			return GetComponentTransform();
 		}
 	}
 }
@@ -2417,7 +2438,7 @@ void USceneComponent::UpdatePhysicsVolume( bool bTriggerNotifiers )
 				{
 					// check for all volumes that overlap the component
 					TArray<FOverlapResult> Hits;
-					FComponentQueryParams Params(SceneComponentStatics::PhysicsVolumeTraceName, GetOwner());
+					FComponentQueryParams Params(SCENE_QUERY_STAT(UpdatePhysicsVolume),  GetOwner());
 
 					bool bOverlappedOrigin = false;
 					const UPrimitiveComponent* SelfAsPrimitive = Cast<UPrimitiveComponent>(this);
@@ -2618,7 +2639,7 @@ bool USceneComponent::CheckStaticMobilityAndWarn(const FText& ActionText) const
 				{
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 					FMessageLog("PIE").Warning(FText::Format(LOCTEXT("InvalidMustBeMovable", "Mobility of {0} : {1} has to be 'Movable' if you'd like to {2}. "),
-						FText::FromString(GetNameSafe(GetOwner())), FText::FromString(GetName()), ActionText));
+						FText::FromString(GetPathNameSafe(GetOwner())), FText::FromString(GetName()), ActionText));
 #endif
 					return true;
 				}
@@ -2678,7 +2699,7 @@ bool USceneComponent::MoveComponentImpl(const FVector& Delta, const FQuat& NewRo
 	if( Delta.IsZero() )
 	{
 		// Skip if no vector or rotation.
-		if (NewRotation.Equals(ComponentToWorld.GetRotation(), SCENECOMPONENT_QUAT_TOLERANCE))
+		if (NewRotation.Equals(GetComponentTransform().GetRotation(), SCENECOMPONENT_QUAT_TOLERANCE))
 		{
 			return true;
 		}
@@ -2829,16 +2850,23 @@ void USceneComponent::SetVisibility(const bool bNewVisibility, const USceneCompo
 	}
 }
 
-void USceneComponent::SetHiddenInGame(bool NewHiddenGame, bool bPropagateToChildren)
+void USceneComponent::OnHiddenInGameChanged()
 {
-	if( NewHiddenGame != bHiddenInGame )
+	MarkRenderStateDirty();
+}
+
+void USceneComponent::SetHiddenInGame(const bool bNewHiddenGame, const USceneComponent::EVisibilityPropagation PropagateToChildren)
+{
+	bool bRecurseChildren = (PropagateToChildren == EVisibilityPropagation::Propagate);
+	if ( bNewHiddenGame != bHiddenInGame )
 	{
-		bHiddenInGame = NewHiddenGame;
-		MarkRenderStateDirty();
+		bRecurseChildren = bRecurseChildren || (PropagateToChildren == EVisibilityPropagation::DirtyOnly);
+		bHiddenInGame = bNewHiddenGame;
+		OnHiddenInGameChanged();
 	}
 
 	const TArray<USceneComponent*>& AttachedChildren = GetAttachChildren();
-	if (bPropagateToChildren && AttachedChildren.Num() > 0)
+	if (bRecurseChildren && AttachedChildren.Num() > 0)
 	{
 		// fully traverse down the attachment tree
 		// we do it entirely inline here instead of recursing in case a primitivecomponent is a child of a non-primitivecomponent
@@ -2854,12 +2882,14 @@ void USceneComponent::SetHiddenInGame(bool NewHiddenGame, bool bPropagateToChild
 			{
 				ComponentStack.Append(CurrentComp->GetAttachChildren());
 
-				UPrimitiveComponent* const PrimComp = Cast<UPrimitiveComponent>(CurrentComp);
-				if (PrimComp)
+				if (PropagateToChildren == EVisibilityPropagation::Propagate)
 				{
-					// don't propagate, we are handling it already
-					PrimComp->SetHiddenInGame(NewHiddenGame, false);
+					CurrentComp->SetHiddenInGame(bNewHiddenGame, EVisibilityPropagation::NoPropagation);
 				}
+
+				// Render state must be dirtied if any parent component's visibility has changed. Since we can't easily track whether 
+				// any parent in the hierarchy was dirtied, we have to mark dirty always.
+				CurrentComp->MarkRenderStateDirty();
 			}
 		}
 	}
@@ -3100,7 +3130,7 @@ FScopedPreventAttachedComponentMove::~FScopedPreventAttachedComponentMove()
 		{
 			// Need to keep RelativeLocation/Rotation/Scale in sync. ComponentToWorld() will remain correct because child isn't moving.
 			const FTransform ParentToWorld = Owner->GetAttachParent()->GetSocketTransform(Owner->GetAttachSocketName());
-			const FTransform ChildRelativeTM = Owner->ComponentToWorld.GetRelativeTransform(ParentToWorld);
+			const FTransform ChildRelativeTM = Owner->GetComponentTransform().GetRelativeTransform(ParentToWorld);
 
 			if (!bSavedAbsoluteLocation)
 			{

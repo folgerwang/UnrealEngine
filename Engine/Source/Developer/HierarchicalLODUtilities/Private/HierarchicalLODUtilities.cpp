@@ -245,7 +245,7 @@ bool FHierarchicalLODUtilities::BuildStaticMeshForLODActor(ALODActor* LODActor, 
 				static const FMatrix ProjectionMatrix = FPerspectiveMatrix(FOVRad, 1920, 1080, 0.01f);
 				FBoxSphereBounds Bounds = LODActor->GetStaticMeshComponent()->CalcBounds(FTransform());
 				LODActor->LODDrawDistance = CalculateDrawDistanceFromScreenSize(Bounds.SphereRadius, LODSetup.TransitionScreenSize, ProjectionMatrix);
-				LODActor->StaticMeshComponent->MinDrawDistance = LODActor->LODDrawDistance;
+				LODActor->GetStaticMeshComponent()->MinDrawDistance = LODActor->LODDrawDistance;
 				LODActor->UpdateSubActorLODParents();
 
 				// Freshly build so mark not dirty
@@ -410,8 +410,7 @@ ALODActor* FHierarchicalLODUtilities::CreateNewClusterActor(UWorld* InWorld, con
 	}
 
 	// Spawn and setup actor
-	ALODActor* NewActor = nullptr;
-	NewActor = InWorld->SpawnActor<ALODActor>(ALODActor::StaticClass(), FTransform());
+	ALODActor* NewActor = InWorld->SpawnActor<ALODActor>(ALODActor::StaticClass(), FTransform());
 	NewActor->LODLevel = InLODLevel + 1;
 	NewActor->LODDrawDistance = 0.0f;
 	NewActor->SetStaticMesh(nullptr);
@@ -505,15 +504,7 @@ const bool FHierarchicalLODUtilities::AddActorToCluster(AActor* InActor, ALODAct
 	InParentActor->AddSubActor(InActor);
 
 #if WITH_EDITOR
-	if (bActorWasClustered)
-	{
-		GEditor->BroadcastHLODActorAdded(InActor, InParentActor);
-	}
-	else
-	{
-		GEditor->BroadcastHLODActorAdded(InActor, InParentActor);
-	}
-
+	GEditor->BroadcastHLODActorAdded(InActor, InParentActor);
 #endif // WITH_EDITOR
 
 	return true;

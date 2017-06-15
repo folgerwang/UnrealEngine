@@ -130,7 +130,7 @@ void FLightPrimitiveInteraction::Create(FLightSceneInfo* LightSceneInfo,FPrimiti
 		{
 			// Create the light interaction.
 			FLightPrimitiveInteraction* Interaction = new FLightPrimitiveInteraction(LightSceneInfo, PrimitiveSceneInfo, bDynamic, bIsLightMapped, bShadowMapped, bTranslucentObjectShadow, bInsetObjectShadow);
-		}
+		} //-V773
 	}
 }
 
@@ -381,7 +381,7 @@ void FStaticMesh::RemoveFromDrawLists()
 	// Remove the mesh from all draw lists.
 	while(DrawListLinks.Num())
 	{
-		FStaticMesh::FDrawListElementLink* Link = DrawListLinks[0];
+		TRefCountPtr<FStaticMesh::FDrawListElementLink> Link = DrawListLinks[0];
 		const int32 OriginalNumLinks = DrawListLinks.Num();
 		// This will call UnlinkDrawList.
 		Link->Remove(true);
@@ -444,6 +444,13 @@ FExponentialHeightFogSceneInfo::FExponentialHeightFogSceneInfo(const UExponentia
 	bEnableVolumetricFog = InComponent->bEnableVolumetricFog;
 	VolumetricFogScatteringDistribution = FMath::Clamp(InComponent->VolumetricFogScatteringDistribution, -.99f, .99f);
 	VolumetricFogAlbedo = FLinearColor(InComponent->VolumetricFogAlbedo);
+	VolumetricFogEmissive = InComponent->VolumetricFogEmissive;
+
+	// Apply a scale so artists don't have to work with tiny numbers.  
+	const float UnitScale = 1.0f / 10000.0f;
+	VolumetricFogEmissive.R = FMath::Max(VolumetricFogEmissive.R * UnitScale, 0.0f);
+	VolumetricFogEmissive.G = FMath::Max(VolumetricFogEmissive.G * UnitScale, 0.0f);
+	VolumetricFogEmissive.B = FMath::Max(VolumetricFogEmissive.B * UnitScale, 0.0f);
 	VolumetricFogExtinctionScale = FMath::Max(InComponent->VolumetricFogExtinctionScale, 0.0f);
 	VolumetricFogDistance = FMath::Max(InComponent->VolumetricFogDistance, 0.0f);
 	bOverrideLightColorsWithFogInscatteringColors = InComponent->bOverrideLightColorsWithFogInscatteringColors;

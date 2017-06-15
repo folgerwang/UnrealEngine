@@ -11,6 +11,7 @@
 #include "Widgets/Views/STableViewBase.h"
 #include "Widgets/Views/STableRow.h"
 #include "WidgetReference.h"
+#include "WidgetBlueprintEditor.h"
 
 class FWidgetBlueprintEditor;
 
@@ -18,6 +19,7 @@ class FHierarchyModel : public TSharedFromThis < FHierarchyModel >
 {
 public:
 	FHierarchyModel(TSharedPtr<FWidgetBlueprintEditor> InBlueprintEditor);
+	virtual ~FHierarchyModel() { }
 
 	/** Gets the unique name of the item used to restore item expansion. */
 	virtual FName GetUniqueName() const = 0;
@@ -61,6 +63,24 @@ public:
 	virtual bool IsVisible() const { return true; }
 	virtual bool CanControlVisibility() const { return false; }
 	virtual void SetIsVisible(bool IsVisible) { }
+	
+	virtual bool CanControlLockedInDesigner() const { return false; }
+	virtual bool IsLockedInDesigner() { return false; }
+	virtual void SetIsLockedInDesigner(bool NewIsLocked, bool bRecursive)
+	{
+		if ( bRecursive )
+		{
+			TArray< TSharedPtr<FHierarchyModel> > Children;
+			GetChildren(Children);
+			for ( TSharedPtr<FHierarchyModel>& child : Children )
+			{
+				if ( child.IsValid() )
+				{
+					child->SetIsLockedInDesigner(NewIsLocked, bRecursive);
+				}
+			}
+		}
+	}
 
 	virtual bool IsExpanded() const { return true; }
 	virtual void SetExpanded(bool bIsExpanded) { }
@@ -213,6 +233,33 @@ public:
 		}
 	}
 
+	virtual bool CanControlLockedInDesigner() const override
+	{
+		return true;
+	}
+
+	virtual bool IsLockedInDesigner() override
+	{
+		UWidget* TemplateWidget = Item.GetTemplate();
+		if (TemplateWidget)
+		{
+			return TemplateWidget->IsLockedInDesigner();
+		}
+
+		return false;
+	}
+
+	virtual void SetIsLockedInDesigner(bool NewIsLocked, bool bRecursive) override
+	{
+		FHierarchyModel::SetIsLockedInDesigner(NewIsLocked, bRecursive);
+
+		if(Item.GetTemplate() && Item.GetPreview())
+		{
+			Item.GetTemplate()->SetLockedInDesigner(NewIsLocked);
+			Item.GetPreview()->SetLockedInDesigner(NewIsLocked);
+		}
+	}
+
 	virtual bool IsExpanded() const override
 	{
 		return Item.GetTemplate()->bExpandedInDesigner;
@@ -284,6 +331,12 @@ private:
 
 	/** Handles clicking the visibility toggle */
 	FReply OnToggleVisibility();
+
+	/** Handles clicking the locked toggle */
+	FReply OnToggleLockedInDesigner();
+
+	/** Returns a brush representing the lock item of the widget's lock button */
+	FText GetLockBrushForWidget() const;
 
 	/** Returns a brush representing the visibility item of the widget's visibility button */
 	FText GetVisibilityBrushForWidget() const;

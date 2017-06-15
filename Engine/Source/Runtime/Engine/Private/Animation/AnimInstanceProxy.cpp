@@ -226,7 +226,7 @@ void FAnimInstanceProxy::PreUpdate(UAnimInstance* InAnimInstance, float DeltaSec
 		LODLevel = SkelMeshComp->PredictedLODLevel;
 
 		// Cache these transforms, so nodes don't have to pull it off the gamethread manually.
-		SkelMeshCompLocalToWorld = SkelMeshComp->ComponentToWorld;
+		SkelMeshCompLocalToWorld = SkelMeshComp->GetComponentTransform();
 		if (const AActor* Owner = SkelMeshComp->GetOwner())
 		{
 			SkelMeshCompOwnerTransform = Owner->GetTransform();
@@ -261,7 +261,7 @@ void FAnimInstanceProxy::PreUpdate(UAnimInstance* InAnimInstance, float DeltaSec
 	bIsBeingDebugged = false;
 	if (UAnimBlueprint* AnimBlueprint = GetAnimBlueprint())
 	{
-		bIsBeingDebugged = (InAnimInstance && (AnimBlueprint->GetObjectBeingDebugged() == InAnimInstance));
+		bIsBeingDebugged = (AnimBlueprint->GetObjectBeingDebugged() == InAnimInstance);
 		if(bIsBeingDebugged)
 		{
 			UAnimBlueprintGeneratedClass* AnimBlueprintGeneratedClass = Cast<UAnimBlueprintGeneratedClass>(InAnimInstance->GetClass());

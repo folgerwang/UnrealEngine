@@ -73,9 +73,6 @@ struct FAnimationEvaluationContext
 	// Are we evaluating this tick
 	bool bDoEvaluation;
 
-	// Are we updating the anim instance this tick
-	bool bDoUpdate;
-
 	// Are we storing data in cache bones this tick
 	bool bDuplicateToCacheBones;
 
@@ -99,7 +96,6 @@ struct FAnimationEvaluationContext
 		Curve.CopyFrom(Other.Curve);
 		bDoInterpolation = Other.bDoInterpolation;
 		bDoEvaluation = Other.bDoEvaluation;
-		bDoUpdate = Other.bDoUpdate;
 		bDuplicateToCacheBones = Other.bDuplicateToCacheBones;
 		bDuplicateToCacheCurve = Other.bDuplicateToCacheCurve;
 	}
@@ -288,7 +284,7 @@ public:
 	class TSubclassOf<UAnimInstance> AnimClass;
 
 	/** The active animation graph program instance. */
-	UPROPERTY(transient)
+	UPROPERTY(transient, NonTransactional)
 	UAnimInstance* AnimScriptInstance;
 
 	/** Any running sub anim instances that need to be updates on the game thread */
@@ -309,6 +305,9 @@ public:
 	
 	/** Temporary storage for curves */
 	FBlendedHeapCurve AnimCurves;
+
+	/** Temporary fix for local space kinematics. This only works for bodies that have no constraints and is needed by vehicles. Proper support will remove this flag */
+	bool bLocalSpaceKinematics;
 
 	// Update Rate
 
@@ -429,6 +428,10 @@ public:
 	 * Optimization
 	 */
 	
+	 /** Whether animation and world transform updates are deferred. If this is on, the kinematic bodies (scene query data) will not update until the next time the physics simulation is run */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = SkeletalMesh)
+	uint32 bDeferMovementFromSceneQueries : 1;
+
 	/** Skips Ticking and Bone Refresh. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=SkeletalMesh)
 	uint32 bNoSkeletonUpdate:1;
@@ -732,6 +735,17 @@ public:
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Components|SkeletalMesh", meta = (DevelopmentOnly, UnsafeDuringActorConstruction = "true"))
 	void SetUpdateAnimationInEditor(const bool NewUpdateState);
+
+#if WITH_EDITOR
+	/**
+	 * return true if currently updating in editor is true
+	 * this is non BP because this is only used for slave component to detect master component ticking state
+	 */
+	bool GetUpdateAnimationInEditor() const 
+	{		
+		return bUpdateAnimationInEditor;	
+	}
+#endif 
 
 	/** We detach the Component once we are done playing it.
 	 *
@@ -1713,4 +1727,16 @@ private:
 	 * Cooking does not guarantee skeleton containing all names
 	 */
 	bool AreRequiredCurvesUpToDate() const;
+
+public:
+	void ConditionallyDispatchQueuedAnimEvents();
+
+	// Are we currently within PostAnimEvaluation
+	bool IsPostEvaluatingAnimation() const { return bPostEvaluatingAnimation; }
+
+private: 
+	UPROPERTY(Transient)
+	bool bNeedsQueuedAnimEventsDispatched;
+
+	bool bPostEvaluatingAnimation;
 };

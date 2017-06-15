@@ -15,7 +15,9 @@ public class HTML5Platform : Platform
 {
 	// ini configurations
 	static bool Compressed = false;
-	static bool targetingWasm = true; // THIS WILL BE default WHEN wasm BECOME STANDARD !!!
+	static bool targetingWasm = true;
+	static bool targetWebGL2 = true;
+	static bool enableIndexedDB = false; // experimental for now...
 
 	public HTML5Platform()
 		: base(UnrealTargetPlatform.HTML5)
@@ -38,14 +40,32 @@ public class HTML5Platform : Platform
 
 		// ini configurations
 		var ConfigCache = UnrealBuildTool.ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, DirectoryReference.FromFile(Params.RawProjectPath), UnrealTargetPlatform.HTML5);
-		ConfigCache.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "TargetWasm", out targetingWasm);
+		bool targetingAsmjs = false; // inverted checked - this will be going away soon...
+		bool targetWebGL1 = false; // inverted checked - this will be going away soon...
+		if ( ConfigCache.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "TargetAsmjs", out targetingAsmjs) )
+		{
+			targetingWasm = !targetingAsmjs;
+		}
+		if ( ConfigCache.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "TargetWebGL1", out targetWebGL1) )
+		{
+			targetWebGL2  = !targetWebGL1;
+		}
 
-		// Debug and Development builds are not uncompressed to speed up iteration times.
-		// Shipping builds "can be" compressed,
+		// Debug and Development builds are not uncompressed to:
+		// - speed up iteration times
+		// - ensure (IndexedDB) data are not cached/used
+		// Shipping builds "can be":
+		// - compressed
+		// - (IndexedDB) cached
 		if (Params.ClientConfigsToBuild[0].ToString() == "Shipping")
 		{
 			ConfigCache.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "Compressed", out Compressed);
+			ConfigCache.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "EnableIndexedDB", out enableIndexedDB);
 		}
+		Log("HTML5Platform.Automation: TargetWasm = "       + targetingWasm   );
+		Log("HTML5Platform.Automation: TargetWebGL2 = "     + targetWebGL2    );
+		Log("HTML5Platform.Automation: Compressed = "       + Compressed      );
+		Log("HTML5Platform.Automation: EnableIndexedDB = "  + enableIndexedDB );
 
 		string FinalDataLocation = Path.Combine(PackagePath, Params.ShortProjectName) + ".data";
 
@@ -110,6 +130,8 @@ public class HTML5Platform : Platform
 		string GameExe = GameBasename + ".js";
 		string FullGameExePath = Path.Combine(GameBasepath, GameExe);
 		string FullPackageGameExePath = Path.Combine(PackagePath, GameExe);
+		// special case -- this will be removed when asm.js has been deprecated
+		string ASMJS_FullPackageGameExePath = Path.Combine(PackagePath, GameBasename + "_asm.js");
 
 
 		// ensure the ue4game binary exists, if applicable
@@ -119,29 +141,33 @@ public class HTML5Platform : Platform
 			throw new AutomationException(ExitCode.Error_MissingExecutable, "Stage Failed. Could not find application {0}. You may need to build the UE4 project with your target configuration and platform.", FullGameExePath);
 		}
 
-		if (FullGameExePath != FullPackageGameExePath)
+		if (FullGameExePath != FullPackageGameExePath) // TODO: remove this check
 		{
-			File.Copy(FullGameExePath, FullPackageGameExePath, true);
 			File.Copy(FullGameExePath + ".symbols", FullPackageGameExePath + ".symbols", true);
 			if (targetingWasm)
 			{
 				File.Copy(FullGameBasePath + ".wasm", FullPackageGameBasePath + ".wasm", true);
+				File.Copy(FullGameExePath, FullPackageGameExePath, true);
 			}
 			else
 			{
 				File.Copy(FullGameExePath + ".mem", FullPackageGameExePath + ".mem", true);
+				File.Copy(FullGameBasePath + ".asm.js", FullPackageGameBasePath + ".asm.js", true);
 			}
 		}
 
-		File.SetAttributes(FullPackageGameExePath, FileAttributes.Normal);
 		File.SetAttributes(FullPackageGameExePath + ".symbols", FileAttributes.Normal);
 		if (targetingWasm)
 		{
 			File.SetAttributes(FullPackageGameBasePath + ".wasm", FileAttributes.Normal);
+			File.SetAttributes(FullPackageGameExePath, FileAttributes.Normal);
 		}
 		else
 		{
 			File.SetAttributes(FullPackageGameExePath + ".mem", FileAttributes.Normal);
+			File.SetAttributes(FullPackageGameBasePath + ".asm.js", FileAttributes.Normal);
+			File.Copy(FullGameExePath, ASMJS_FullPackageGameExePath, true); // --separate-asm // UE-45058
+			File.SetAttributes(ASMJS_FullPackageGameExePath, FileAttributes.Normal);
 		}
 
 
@@ -206,17 +232,21 @@ public class HTML5Platform : Platform
 			// data file .js driver.
 			CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(FinalDataLocation + ".js" , FinalDataLocation + ".jsgz")));
 
-			// main js.
-			CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(FullPackageGameExePath, FullPackageGameExePath + "gz")));
 			if (targetingWasm)
 			{
 				// main game code
 				CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(FullPackageGameBasePath + ".wasm", FullPackageGameBasePath + ".wasmgz")));
+				// main js.
+				CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(FullPackageGameExePath, FullPackageGameExePath + "gz")));
 			}
 			else
 			{
 				// mem init file.
 				CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(FullPackageGameExePath + ".mem", FullPackageGameExePath + ".memgz")));
+				// main js.
+				CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(FullPackageGameBasePath + ".asm.js", FullPackageGameBasePath + ".asm.jsgz")));
+				// main game code
+				CompressionTasks.Add(Task.Factory.StartNew(() => CompressFile(ASMJS_FullPackageGameExePath, ASMJS_FullPackageGameExePath + "gz")));
 			}
 
 			// symbols file.
@@ -296,6 +326,12 @@ public class HTML5Platform : Platform
 			while (reader.Peek() != -1)
 			{
 				LineStr = reader.ReadLine();
+				if (LineStr.Contains("%TIMESTAMP%"))
+				{
+					string TimeStamp = DateTime.UtcNow.ToString("yyyyMMddHHmm");
+					LineStr = LineStr.Replace("%TIMESTAMP%", TimeStamp);
+				}
+
 				if (LineStr.Contains("%GAME%"))
 				{
 					LineStr = LineStr.Replace("%GAME%", InGameName);
@@ -304,6 +340,12 @@ public class HTML5Platform : Platform
 				if (LineStr.Contains("%SERVE_COMPRESSED%"))
 				{
 					LineStr = LineStr.Replace("%SERVE_COMPRESSED%", Compressed ? "true" : "false");
+				}
+
+				if (LineStr.Contains("%DISABLE_INDEXEDDB%"))
+				{
+					LineStr = LineStr.Replace("%DISABLE_INDEXEDDB%",
+							enableIndexedDB ? "" : "enableReadFromIndexedDB = false;\nenableWriteToIndexedDB = false;");
 				}
 
 				if (LineStr.Contains("%HEAPSIZE%"))
@@ -333,6 +375,16 @@ public class HTML5Platform : Platform
 						ArgumentString += "'" + Arguments[Arguments.Length - 1] + "'";
 					}
 					LineStr = LineStr.Replace("%UE4CMDLINE%", ArgumentString);
+				}
+
+				if (!targetingWasm && LineStr.Contains("const explicitlyLoadedAsmJs"))
+				{
+					LineStr = "const explicitlyLoadedAsmJs = true;";
+				}
+
+				if (!targetWebGL2 && LineStr.Contains("const explicitlyUseWebGL1"))
+				{
+					LineStr = "const explicitlyUseWebGL1 = true;";
 				}
 
 				outputContents.AppendLine(LineStr);
@@ -434,17 +486,21 @@ public class HTML5Platform : Platform
 		SC.ArchiveFiles(PackagePath, ProjectDataName);
 		// data file js driver
 		SC.ArchiveFiles(PackagePath, ProjectDataName + ".js");
-		// main js file
-		SC.ArchiveFiles(PackagePath, GameExe);
 		if (targetingWasm)
 		{
 			// main game code
 			SC.ArchiveFiles(PackagePath, GameBasename + ".wasm");
+			// main js file
+			SC.ArchiveFiles(PackagePath, GameExe);
 		}
 		else
 		{
 			// memory init file
 			SC.ArchiveFiles(PackagePath, GameExe + ".mem");
+			// maingame code
+			SC.ArchiveFiles(PackagePath, GameBasename + ".asm.js");
+			// main js file
+			SC.ArchiveFiles(PackagePath, GameBasename + "_asm.js");
 		}
 		// symbols file
 		SC.ArchiveFiles(PackagePath, GameExe + ".symbols");
@@ -471,6 +527,7 @@ public class HTML5Platform : Platform
 			else
 			{
 				SC.ArchiveFiles(PackagePath, GameExe + ".memgz");
+				SC.ArchiveFiles(PackagePath, GameExe + ".asm.jsgz");
 			}
 			SC.ArchiveFiles(PackagePath, GameExe + ".symbolsgz");
 			SC.ArchiveFiles(PackagePath, "Utility.jsgz");
@@ -536,11 +593,25 @@ public class HTML5Platform : Platform
 
 		if (LowerBrowserPath.Contains("chrome"))
 		{
-			BrowserCommandline  += "  " + String.Format("--user-data-dir=\\\"{0}\\\" --enable-logging --no-first-run", Path.Combine(ProfileDirectory, "chrome"));
+			ProfileDirectory = Path.Combine(ProfileDirectory, "chrome");
+			// removing [--enable-logging] otherwise, chrome breaks with a bunch of the following errors:
+			// > ERROR:process_info.cc(631)] range at 0x7848406c00000000, size 0x1a4 fully unreadable
+			// leaving this note here for future reference: UE-45078
+			BrowserCommandline  += "  " + String.Format("--user-data-dir=\\\"{0}\\\"   --no-first-run", ProfileDirectory);
 		}
 		else if (LowerBrowserPath.Contains("firefox"))
 		{
-			BrowserCommandline += "  " +  String.Format("-no-remote -profile \\\"{0}\\\"", Path.Combine(ProfileDirectory, "firefox"));
+			ProfileDirectory = Path.Combine(ProfileDirectory, "firefox");
+			BrowserCommandline += "  " +  String.Format("-no-remote -profile \\\"{0}\\\"", ProfileDirectory);
+		}
+
+		if (UnrealBuildTool.BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux)
+		{
+			// TODO: test on other platforms to remove this if() check
+			if (!Directory.Exists(ProfileDirectory))
+			{
+				Directory.CreateDirectory(ProfileDirectory);
+			}
 		}
 
 		string LauncherArguments = string.Format(" -Browser=\"{0}\" + -BrowserCommandLine=\"{1}\" -ServerPort=\"{2}\" -ServerRoot=\"{3}\" ",
@@ -560,11 +631,6 @@ public class HTML5Platform : Platform
 	public override string GetCookExtraCommandLine(ProjectParams Params)
 	{
 		return HTMLPakAutomation.CanCreateMapPaks(Params) ? " -GenerateDependenciesForMaps " : "";
-	}
-
-	public override bool DeployPakInternalLowerCaseFilenames()
-	{
-		return false;
 	}
 
 	public override PakType RequiresPak(ProjectParams Params)
@@ -599,10 +665,10 @@ public class HTML5Platform : Platform
 	{
 	}
 
-	public override List<string> GetExecutableNames(DeploymentContext SC, bool bIsRun = false)
+	public override List<FileReference> GetExecutableNames(DeploymentContext SC)
 	{
-		var ExecutableNames = new List<String>();
-		ExecutableNames.Add(Path.Combine(SC.ProjectRoot, "Binaries", "HTML5", SC.ShortProjectName));
+		List<FileReference> ExecutableNames = new List<FileReference>();
+		ExecutableNames.Add(FileReference.Combine(SC.ProjectRoot, "Binaries", "HTML5", SC.ShortProjectName));
 		return ExecutableNames;
 	}
 #endregion

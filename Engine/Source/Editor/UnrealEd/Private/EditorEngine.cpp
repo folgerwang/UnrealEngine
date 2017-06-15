@@ -148,8 +148,9 @@
 #include "Interfaces/IProjectManager.h"
 #include "Misc/RemoteConfigIni.h"
 
-#include "IDesktopPlatform.h"
-#include "DesktopPlatformModule.h"
+#include "AssetToolsModule.h"
+#include "ObjectTools.h"
+#include "MessageLogModule.h"
 
 #include "ActorEditorUtils.h"
 #include "SnappingUtils.h"
@@ -184,6 +185,12 @@
 
 #include "SourceCodeNavigation.h"
 #include "GameProjectUtils.h"
+#include "ActorGroupingUtils.h"
+
+#include "DesktopPlatformModule.h"
+
+#include "ILauncherPlatform.h"
+#include "LauncherPlatformModule.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditor, Log, All);
 
@@ -241,14 +248,17 @@ static void PrivateInitSelectedSets()
 {
 	PrivateGetSelectedActors() = NewObject<USelection>(GetTransientPackage(), TEXT("SelectedActors"), RF_Transactional);
 	PrivateGetSelectedActors()->AddToRoot();
+	PrivateGetSelectedActors()->Initialize(&GSelectedActorAnnotation);
 
 	PrivateGetSelectedActors()->SelectObjectEvent.AddStatic(&OnObjectSelected);
 
 	PrivateGetSelectedComponents() = NewObject<USelection>(GetTransientPackage(), TEXT("SelectedComponents"), RF_Transactional);
 	PrivateGetSelectedComponents()->AddToRoot();
+	PrivateGetSelectedComponents()->Initialize(&GSelectedComponentAnnotation);
 
 	PrivateGetSelectedObjects() = NewObject<USelection>(GetTransientPackage(), TEXT("SelectedObjects"), RF_Transactional);
 	PrivateGetSelectedObjects()->AddToRoot();
+	PrivateGetSelectedObjects()->Initialize(&GSelectedObjectAnnotation);
 }
 
 static void PrivateDestroySelectedSets()
@@ -318,6 +328,8 @@ UEditorEngine::UEditorEngine(const FObjectInitializer& ObjectInitializer)
 	DefaultWorldFeatureLevel = GMaxRHIFeatureLevel;
 
 	EditorWorldExtensionsManager = nullptr;
+
+	ActorGroupingUtilsClassName = UActorGroupingUtils::StaticClass();
 
 #if !UE_BUILD_SHIPPING
 	if (!AutomationCommon::OnEditorAutomationMapLoadDelegate().IsBound())
@@ -569,11 +581,11 @@ void UEditorEngine::InitEditor(IEngineLoop* InEngineLoop)
 		!FPlatformProcess::IsApplicationRunning(TEXT("EpicGamesLauncher-Mac-Shipping"))
 		))
 	{
-		IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
-		if ( DesktopPlatform != NULL )
+		ILauncherPlatform* LauncherPlatform = FLauncherPlatformModule::Get();
+		if (LauncherPlatform != NULL )
 		{
 			FOpenLauncherOptions SilentOpen;
-			DesktopPlatform->OpenLauncher(SilentOpen);
+			LauncherPlatform->OpenLauncher(SilentOpen);
 		}
 	}
 
@@ -943,7 +955,6 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 
 		if (!IsRunningCommandlet())
 		{
-			FModuleManager::Get().LoadModule(TEXT("EditorLiveStreaming"));
 			FModuleManager::Get().LoadModule(TEXT("IntroTutorials"));
 		}
 
@@ -1534,12 +1545,6 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 	// Skip updating reflection captures on the first update as the level will not be ready to display
 	if (!bFirstTick)
 	{
-		if (UReflectionCaptureComponent::MobileReflectionCapturesNeedForcedUpdate(EditorContext.World())
-			|| USkyLightComponent::MobileSkyCapturesNeedForcedUpdate(EditorContext.World()))
-		{
-			UpdateReflectionCaptures();
-		}
-
 		// Update sky light first because sky diffuse will be visible in reflection capture indirect specular
 		USkyLightComponent::UpdateSkyCaptureContents(EditorContext.World());
 		UReflectionCaptureComponent::UpdateReflectionCaptureContents(EditorContext.World());
@@ -1589,14 +1594,7 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 			{
 				// Decide whether to drop high detail because of frame rate
 				GameViewport->SetDropDetail(DeltaSeconds);
-			}
-
-			if (!bFirstTick)
-			{
-				// Update sky light first because sky diffuse will be visible in reflection capture indirect specular
-				USkyLightComponent::UpdateSkyCaptureContents(PlayWorld);
-				UReflectionCaptureComponent::UpdateReflectionCaptureContents(PlayWorld);
-			}
+			}			
 
 			// Update the level.
 			GameCycles=0;
@@ -1638,6 +1636,13 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 				PieContext.World()->Tick( LEVELTICK_All, DeltaSeconds );
 				bAWorldTicked = true;
 				TickType = LEVELTICK_All;
+
+				if (!bFirstTick)
+				{
+					// Update sky light first because sky diffuse will be visible in reflection capture indirect specular
+					USkyLightComponent::UpdateSkyCaptureContents(PlayWorld);
+					UReflectionCaptureComponent::UpdateReflectionCaptureContents(PlayWorld);
+				}
 
 				if( bIsRecordingActive )
 				{
@@ -1749,10 +1754,10 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 	bool bAllWindowsHidden = !bHasFocus && GEditor->AreAllWindowsHidden();
 	if( !bAllWindowsHidden )
 	{
-		FPixelInspectorModule* PixelInspectorModule = &FModuleManager::LoadModuleChecked<FPixelInspectorModule>(TEXT("PixelInspectorModule"));
-		if (PixelInspectorModule != nullptr && PixelInspectorModule->IsPixelInspectorEnable())
+		FPixelInspectorModule& PixelInspectorModule = FModuleManager::LoadModuleChecked<FPixelInspectorModule>(TEXT("PixelInspectorModule"));
+		if (PixelInspectorModule.IsPixelInspectorEnable())
 		{
-			PixelInspectorModule->ReadBackSync();
+			PixelInspectorModule.ReadBackSync();
 		}
 
 		// Render view parents, then view children.
@@ -3323,6 +3328,7 @@ struct FConvertStaticMeshActorInfo
 	UStaticMesh*						StaticMesh;
 	USkeletalMesh*						SkeletalMesh;
 	TArray<UMaterialInterface*>			OverrideMaterials;
+	TArray<FGuid>						IrrelevantLights;
 	float								CachedMaxDrawDistance;
 	bool								CastShadow;
 
@@ -3345,7 +3351,7 @@ struct FConvertStaticMeshActorInfo
 	 * We don't want to simply copy all properties, because classes with different defaults will have
 	 * their defaults hosed by other types.
 	 */
-	bool bComponentPropsDifferFromDefaults[6];
+	bool bComponentPropsDifferFromDefaults[7];
 
 	AGroupActor* ActorGroup;
 
@@ -4525,6 +4531,22 @@ FString UEditorEngine::GetFriendlyName( const UProperty* Property, UStruct* Owne
 	return FoundText.ToString();
 }
 
+UActorGroupingUtils* UEditorEngine::GetActorGroupingUtils()
+{
+	if (ActorGroupingUtils == nullptr)
+	{
+		UClass* ActorGroupingUtilsClass = ActorGroupingUtilsClassName.ResolveClass();
+		if (!ActorGroupingUtilsClass)
+		{
+			ActorGroupingUtilsClass = UActorGroupingUtils::StaticClass();
+		}
+
+		ActorGroupingUtils = NewObject<UActorGroupingUtils>(this, ActorGroupingUtilsClass);
+	}
+
+	return ActorGroupingUtils;
+}
+
 AActor* UEditorEngine::UseActorFactoryOnCurrentSelection( UActorFactory* Factory, const FTransform* InActorTransform, EObjectFlags InObjectFlags )
 {
 	// ensure that all selected assets are loaded
@@ -4684,12 +4706,12 @@ namespace ReattachActorsHelper
 
 				AActor* ChildActor = CurrentAttachmentInfo.AttachedActors[AttachedActorIdx].Actor;
 				ChildActor->Modify();
-				ChildActor->DetachRootComponentFromParent(true);
+				ChildActor->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 			}
 
 			// Modify the actor so undo will reattach it.
 			ActorToReattach->Modify();
-			ActorToReattach->DetachRootComponentFromParent(true);
+			ActorToReattach->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 		}
 	}
 
@@ -5643,9 +5665,10 @@ void UEditorEngine::DoConvertActors( const TArray<AActor*>& ActorsToConvert, UCl
 			if (bUseSpecialCases)
 			{
 				// Disable grouping temporarily as the following code assumes only one actor will be selected at any given time
-				const bool bGroupingActiveSaved = GEditor->bGroupingActive;
+				const bool bGroupingActiveSaved = UActorGroupingUtils::IsGroupingActive();
 
-				GEditor->bGroupingActive = false;
+				UActorGroupingUtils::SetGroupingActive(false);
+
 				GEditor->SelectNone(true, true);
 				GEditor->SelectActor(ActorToConvert, true, true);
 
@@ -5679,7 +5702,7 @@ void UEditorEngine::DoConvertActors( const TArray<AActor*>& ActorsToConvert, UCl
 				}
 
 				// Restore previous grouping setting
-				GEditor->bGroupingActive = bGroupingActiveSaved;
+				UActorGroupingUtils::SetGroupingActive(bGroupingActiveSaved);
 			}
 
 
@@ -6216,8 +6239,7 @@ void UEditorEngine::UpdatePreviewMesh()
 
 		// Perform a line check from the camera eye to the surface to place the preview mesh. 
 		FHitResult Hit(ForceInit);
-		static FName UpdatePreviewMeshTrace = FName(TEXT("UpdatePreviewMeshTrace"));
-		FCollisionQueryParams LineParams(UpdatePreviewMeshTrace, true);
+		FCollisionQueryParams LineParams(SCENE_QUERY_STAT(UpdatePreviewMeshTrace), true);
 		LineParams.bTraceComplex = false;
 		if ( GWorld->LineTraceSingleByObjectType(Hit, LineCheckStart, LineCheckEnd, FCollisionObjectQueryParams(ECC_WorldStatic), LineParams) ) 
 		{
@@ -6445,22 +6467,6 @@ void UEditorEngine::UpdateAutoLoadProject()
 			else
 			{
 				UE_LOG(LogEditor, Warning, TEXT("Please update to the latest version of macOS for best performance."));
-			}
-		}
-		
-		if(!FPlatformMisc::HasPlatformFeature(TEXT("Metal")))
-		{
-			if(FSlateApplication::IsInitialized())
-			{
-				FSuppressableWarningDialog::FSetupInfo Info(NSLOCTEXT("MessageDialog", "MessageMacOpenGLDeprecated","Support for running Unreal Engine 4 using OpenGL on macOS is deprecated and will be removed in a future release. Unreal Engine 4 may not render correctly and may run at substantially reduced performance."), NSLOCTEXT("MessageDialog", "TitleMacOpenGLDeprecated", "WARNING: OpenGL on macOS Deprecated"), TEXT("MacOpenGLDeprecated"), GEditorSettingsIni );
-				Info.ConfirmText = LOCTEXT( "OK", "OK");
-				Info.bDefaultToSuppressInTheFuture = true;
-				FSuppressableWarningDialog OSUpdateWarning( Info );
-				OSUpdateWarning.ShowModal();
-			}
-			else
-			{
-				UE_LOG(LogEditor, Warning, TEXT("Support for running Unreal Engine 4 using OpenGL on macOS is deprecated and will be removed in a future release. Unreal Engine 4 may not render correctly and may run at substantially reduced performance."));
 			}
 		}
 		
@@ -6975,16 +6981,18 @@ void UEditorEngine::AutomationLoadMap(const FString& MapName, FString* OutError)
 	{
 		if (Context.World())
 		{
+			FString WorldPackage = Context.World()->GetOutermost()->GetName();
+
 			if (Context.WorldType == EWorldType::PIE)
 			{
 				//don't quit!  This was triggered while pie was already running!
-				bNeedPieStart = !MapName.Contains(Context.World()->GetName());
+				bNeedPieStart = MapName != UWorld::StripPIEPrefixFromPackageName(WorldPackage, Context.World()->StreamingLevelsPrefix);
 				bPieRunning = true;
 				break;
 			}
 			else if (Context.WorldType == EWorldType::Editor)
 			{
-				bNeedLoadEditorMap = !MapName.Contains(Context.World()->GetName());
+				bNeedLoadEditorMap = MapName != WorldPackage;
 			}
 		}
 	}
@@ -7008,10 +7016,7 @@ void UEditorEngine::AutomationLoadMap(const FString& MapName, FString* OutError)
 		{
 			*OutError = TEXT("Error encountered.");
 		}
-	}
 
-	if (bNeedPieStart)
-	{
 		ADD_LATENT_AUTOMATION_COMMAND(FWaitForMapToLoadCommand);
 	}
 #endif

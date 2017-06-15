@@ -48,12 +48,16 @@ void UAnimSingleNodeInstance::SetAnimationAsset(class UAnimationAsset* NewAsset,
 		else if (CurrentAsset != nullptr)
 		{
 			// if we have an asset, make sure their skeleton matches, otherwise, null it
-			if (MeshComponent->SkeletalMesh == nullptr || MeshComponent->SkeletalMesh->Skeleton != CurrentAsset->GetSkeleton())
+			if (MeshComponent->SkeletalMesh->Skeleton != CurrentAsset->GetSkeleton())
 			{
 				// clear asset since we do not have matching skeleton
 				CurrentAsset = nullptr;
 			}
 		}
+		
+		// We've changed the animation asset, and the next frame could be wildly different from the frame we're
+		// on now. In this case of a single node instance, we reset the clothing on the next update.
+		MeshComponent->ClothTeleportMode = EClothingTeleportMode::TeleportAndReset;
 	}
 	
 	Proxy.SetAnimationAsset(NewAsset, GetSkelMeshComponent(), bInIsLooping, InPlayRate);

@@ -711,7 +711,7 @@ FTextRenderSceneProxy::FTextRenderSceneProxy( UTextRenderComponent* Component) :
 	TextMaterial = EffectiveMaterial;
 	MaterialRelevance |= TextMaterial->GetMaterial()->GetRelevance(GetScene().GetFeatureLevel());
 
-	if (TextMaterial && Font && Font->FontCacheType == EFontCacheType::Offline)
+	if (Font && Font->FontCacheType == EFontCacheType::Offline)
 	{
 		FontMIDs = FTextRenderComponentMIDCache::Get().GetMIDData(TextMaterial, Font);
 	}
@@ -1230,7 +1230,7 @@ FMatrix UTextRenderComponent::GetRenderMatrix() const
 		const float VerticalAlignmentOffset = -ComputeVerticalAlignmentOffset(SizeY, VerticalAlignment, FirstLineHeight);
 		VerticalTransform = VerticalTransform.ConcatTranslation(FVector(0.f, 0.f, VerticalAlignmentOffset));
 
-		return VerticalTransform *  ComponentToWorld.ToMatrixWithScale();
+		return VerticalTransform *  GetComponentTransform().ToMatrixWithScale();
 
 	}
 	return UPrimitiveComponent::GetRenderMatrix();
@@ -1329,7 +1329,7 @@ FVector UTextRenderComponent::GetTextLocalSize() const
 
 FVector UTextRenderComponent::GetTextWorldSize() const
 {
-	const FBoxSphereBounds TextBounds = CalcBounds(ComponentToWorld);
+	const FBoxSphereBounds TextBounds = CalcBounds(GetComponentTransform());
 	return TextBounds.GetBox().GetSize();
 }
 
@@ -1380,12 +1380,5 @@ void UTextRenderComponent::ShutdownMIDCache()
 {
 	FTextRenderComponentMIDCache::Shutdown();
 }
-
-/** Returns TextRender subobject **/
-UTextRenderComponent* ATextRenderActor::GetTextRender() const { return TextRender; }
-#if WITH_EDITORONLY_DATA
-/** Returns SpriteComponent subobject **/
-UBillboardComponent* ATextRenderActor::GetSpriteComponent() const { return SpriteComponent; }
-#endif
 
 #undef LOCTEXT_NAMESPACE

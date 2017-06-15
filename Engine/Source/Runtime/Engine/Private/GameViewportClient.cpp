@@ -39,7 +39,6 @@
 #include "AudioDevice.h"
 #include "Sound/SoundWave.h"
 #include "HighResScreenshot.h"
-#include "Runtime/GameLiveStreaming/Public/IGameLiveStreaming.h"
 #include "BufferVisualizationData.h"
 #include "GameFramework/InputSettings.h"
 #include "Components/LineBatchComponent.h"
@@ -138,7 +137,7 @@ UGameViewportClient::UGameViewportClient(const FObjectInitializer& ObjectInitial
 	, MouseLockMode(EMouseLockMode::LockOnCapture)
 	, AudioDeviceHandle(INDEX_NONE)
 	, bHasAudioFocus(false)
-	, bMouseEnter(false)
+	, bIsMouseOverClient(false)
 {
 
 	TitleSafeZone.MaxPercentX = 0.9f;
@@ -218,14 +217,13 @@ UGameViewportClient::~UGameViewportClient()
 		delete StatHitchesData;
 		StatHitchesData = NULL;
 	}
+
 	if (StatUnitData)
 	{
 		delete StatUnitData;
 		StatUnitData = NULL;
 	}
-
 }
-
 
 void UGameViewportClient::PostInitProperties()
 {
@@ -248,10 +246,10 @@ void UGameViewportClient::BeginDestroy()
 	Super::BeginDestroy();
 }
 
-
 void UGameViewportClient::DetachViewportClient()
 {
 	ViewportConsole = NULL;
+	ResetHardwareCursorStates();
 	RemoveAllViewportWidgets();
 	RemoveFromRoot();
 }
@@ -260,6 +258,12 @@ FSceneViewport* UGameViewportClient::GetGameViewport()
 {
 	return static_cast<FSceneViewport*>(Viewport);
 }
+
+const FSceneViewport* UGameViewportClient::GetGameViewport() const
+{
+	return static_cast<FSceneViewport*>(Viewport);
+}
+
 
 TSharedPtr<class SViewport> UGameViewportClient::GetGameViewportWidget()
 {
@@ -358,6 +362,22 @@ void UGameViewportClient::Init(struct FWorldContext& WorldContext, UGameInstance
 
 	// Set all the hardware cursors.
 	for ( auto& Entry : UISettings->HardwareCursors )
+	{
+		SetHardwareCursor(Entry.Key, Entry.Value.CursorPath, Entry.Value.HotSpot);
+	}
+}
+
+void UGameViewportClient::RebuildCursors()
+{
+	UUserInterfaceSettings* UISettings = GetMutableDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass());
+	// Set all the software cursors.
+	for (auto& Entry : UISettings->SoftwareCursors)
+	{
+		AddSoftwareCursor(Entry.Key, Entry.Value);
+	}
+
+	// Set all the hardware cursors.
+	for (auto& Entry : UISettings->HardwareCursors)
 	{
 		SetHardwareCursor(Entry.Key, Entry.Value.CursorPath, Entry.Value.HotSpot);
 	}
@@ -569,10 +589,12 @@ bool UGameViewportClient::InputMotion(FViewport* InViewport, int32 ControllerId,
 
 void UGameViewportClient::SetIsSimulateInEditorViewport(bool bInIsSimulateInEditorViewport)
 {
+#if PLATFORM_DESKTOP
 	if (GetDefault<UInputSettings>()->bUseMouseForTouch)
 	{
 		FSlateApplication::Get().SetGameIsFakingTouchEvents(!bInIsSimulateInEditorViewport);
 	}
+#endif
 
 	for (ULocalPlayer* LocalPlayer : GetOuterUEngine()->GetGamePlayers(this))
 	{
@@ -594,10 +616,12 @@ void UGameViewportClient::MouseEnter(FViewport* InViewport, int32 x, int32 y)
 {
 	Super::MouseEnter(InViewport, x, y);
 
+#if PLATFORM_DESKTOP
 	if (GetDefault<UInputSettings>()->bUseMouseForTouch && !GetGameViewport()->GetPlayInEditorIsSimulate())
 	{
 		FSlateApplication::Get().SetGameIsFakingTouchEvents(true);
 	}
+#endif
 
 	// Replace all the cursors.
 	TSharedPtr<ICursor> PlatformCursor = FSlateApplication::Get().GetPlatformCursor();
@@ -609,7 +633,7 @@ void UGameViewportClient::MouseEnter(FViewport* InViewport, int32 x, int32 y)
 		}
 	}
 
-	bMouseEnter = true;
+	bIsMouseOverClient = true;
 }
 
 void UGameViewportClient::MouseLeave(FViewport* InViewport)
@@ -623,32 +647,39 @@ void UGameViewportClient::MouseLeave(FViewport* InViewport)
 		{
 			FIntPoint LastViewportCursorPos;
 			InViewport->GetMousePos(LastViewportCursorPos, false);
+
+#if PLATFORM_DESKTOP
 			FVector2D CursorPos(LastViewportCursorPos.X, LastViewportCursorPos.Y);
 			FSlateApplication::Get().SetGameIsFakingTouchEvents(false, &CursorPos);
+#endif
 		}
 	}
 
 #if WITH_EDITOR
-
-	bMouseEnter = true;
 
 	// NOTE: Only do this in editor builds where the editor is running.
 	// We don't care about bothering to clear them otherwise, and it may negatively impact
 	// things like drag/drop, since those would 'leave' the viewport.
 	if ( !FSlateApplication::Get().IsDragDropping() )
 	{
-		// clear all the overridden hardware cursors
-		TSharedPtr<ICursor> PlatformCursor = FSlateApplication::Get().GetPlatformCursor();
-		if ( ICursor* Cursor = PlatformCursor.Get() )
-		{
-			for ( auto& Entry : HardwareCursors )
-			{
-				Cursor->SetTypeShape(Entry.Key, nullptr);
-			}
-		}
+		bIsMouseOverClient = false;
+		ResetHardwareCursorStates();
 	}
 
 #endif
+}
+
+void UGameViewportClient::ResetHardwareCursorStates()
+{
+	// clear all the overridden hardware cursors
+	TSharedPtr<ICursor> PlatformCursor = FSlateApplication::Get().GetPlatformCursor();
+	if (ICursor* Cursor = PlatformCursor.Get())
+	{
+		for (auto& Entry : HardwareCursors)
+		{
+			Cursor->SetTypeShape(Entry.Key, nullptr);
+		}
+	}
 }
 
 bool UGameViewportClient::GetMousePosition(FVector2D& MousePosition) const
@@ -717,20 +748,24 @@ EMouseCursor::Type UGameViewportClient::GetCursor(FViewport* InViewport, int32 X
 
 void UGameViewportClient::AddSoftwareCursor(EMouseCursor::Type Cursor, const FStringClassReference& CursorClass)
 {
-	if ( CursorClass.IsValid() )
+	if (ensureMsgf(CursorClass.IsValid(), TEXT("UGameViewportClient::AddCusor: Cursor class is not valid!")))
 	{
 		UClass* Class = CursorClass.TryLoadClass<UUserWidget>();
-		if ( Class )
+		if (Class)
 		{
 			UUserWidget* UserWidget = CreateWidget<UUserWidget>(GetGameInstance(), Class);
-			if ( ensure(UserWidget) )
+			if (UserWidget)
 			{
 				CursorWidgets.Add(Cursor, UserWidget->TakeWidget());
+			}
+			else
+			{
+				UE_LOG(LogPlayerManagement, Warning, TEXT("UGameViewportClient::AddCursor: Could not create cursor widget."));
 			}
 		}
 		else
 		{
-			FMessageLog("PIE").Error(FText::Format(LOCTEXT("CursorClassNotFoundFormat", "The cursor class '{0}' was not found, check your custom cursor settings."), FText::FromString(CursorClass.ToString())));
+			UE_LOG(LogPlayerManagement, Warning, TEXT("UGameViewportClient::AddCursor: Could not load cursor class %s."), *CursorClass.GetAssetName());
 		}
 	}
 }
@@ -739,13 +774,20 @@ TOptional<TSharedRef<SWidget>> UGameViewportClient::MapCursor(FViewport* InViewp
 {
 	if (bUseSoftwareCursorWidgets)
 	{
-		const TSharedRef<SWidget>* CursorWidgetPtr = CursorWidgets.Find(CursorReply.GetCursorType());
-		if (CursorWidgetPtr != nullptr)
+		if (CursorReply.GetCursorType() != EMouseCursor::None)
 		{
-			return *CursorWidgetPtr;
+			const TSharedRef<SWidget>* CursorWidgetPtr = CursorWidgets.Find(CursorReply.GetCursorType());
+
+			if (CursorWidgetPtr != nullptr)
+			{
+				return *CursorWidgetPtr;
+			}
+			else
+			{
+				UE_LOG(LogPlayerManagement, Warning, TEXT("UGameViewportClient::MapCursor: Could not find cursor to map to %d."),int32(CursorReply.GetCursorType()));
+			}
 		}
 	}
-
 	return TOptional<TSharedRef<SWidget>>();
 }
 
@@ -1195,7 +1237,7 @@ void UGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 	bool bBufferCleared = false;
 	if ( ViewFamily.Views.Num() == 0 || TotalArea != (MaxX-MinX)*(MaxY-MinY) || bDisableWorldRendering )
 	{
-		SceneCanvas->DrawTile(0,0,InViewport->GetSizeXY().X,InViewport->GetSizeXY().Y,0.0f,0.0f,1.0f,1.f,FLinearColor::Black,NULL,false);
+		SceneCanvas->Clear(FLinearColor::Black);
 		bBufferCleared = true;
 	}
 
@@ -1345,7 +1387,7 @@ void UGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 		PostRender(DebugCanvasObject);
 		
 		// Render the console.
-		if (ViewportConsole)
+		if (ViewportConsole && DebugCanvas)
 		{
 			// Reset the debug canvas to be full-screen before drawing the console
 			// (the debug draw service above has messed with the viewport size to fit it to a single player's subregion)
@@ -1525,10 +1567,12 @@ void UGameViewportClient::LostFocus(FViewport* InViewport)
 
 void UGameViewportClient::ReceivedFocus(FViewport* InViewport)
 {
+#if PLATFORM_DESKTOP
 	if (GetDefault<UInputSettings>()->bUseMouseForTouch && GetGameViewport() && !GetGameViewport()->GetPlayInEditorIsSimulate())
 	{
 		FSlateApplication::Get().SetGameIsFakingTouchEvents(true);
 	}
+#endif
 
 	if (GEngine && GEngine->GetAudioDeviceManager())
 	{ 
@@ -1561,7 +1605,9 @@ void UGameViewportClient::CloseRequested(FViewport* InViewport)
 {
 	check(InViewport == Viewport);
 
+#if PLATFORM_DESKTOP
 	FSlateApplication::Get().SetGameIsFakingTouchEvents(false);
+#endif
 	
 	// broadcast close request to anyone that registered an interest
 	CloseRequestedDelegate.Broadcast(InViewport);
@@ -1590,10 +1636,6 @@ void UGameViewportClient::PostRender(UCanvas* Canvas)
 
 	// Draw the transition screen.
 	DrawTransition(Canvas);
-
-	// Draw default web cam.  This only will draw something if a web camera is currently enabled in the live streaming settings
-	// and the user has activated it.  Also, the game may override this functionality entirely, and draw the web cam video itself.
-	IGameLiveStreaming::Get().DrawSimpleWebCamVideo( Canvas );
 }
 
 void UGameViewportClient::PeekTravelFailureMessages(UWorld* InWorld, ETravelFailure::Type FailureType, const FString& ErrorString)
@@ -3264,9 +3306,8 @@ bool UGameViewportClient::SetHardwareCursor(EMouseCursor::Type CursorShape, FNam
 
 	HardwareCursors.Add(CursorShape, HardwareCursor);
 
-	if ( bMouseEnter )
+	if ( bIsMouseOverClient )
 	{
-		// clear all the overridden hardware cursors
 		TSharedPtr<ICursor> PlatformCursor = FSlateApplication::Get().GetPlatformCursor();
 		if ( ICursor* Cursor = PlatformCursor.Get() )
 		{
@@ -3275,6 +3316,13 @@ bool UGameViewportClient::SetHardwareCursor(EMouseCursor::Type CursorShape, FNam
 	}
 	
 	return true;
+}
+
+bool UGameViewportClient::IsSimulateInEditorViewport() const
+{
+	const FSceneViewport* GameViewport = GetGameViewport();
+
+	return GameViewport ? GameViewport->GetPlayInEditorIsSimulate() : false;
 }
 
 #undef LOCTEXT_NAMESPACE

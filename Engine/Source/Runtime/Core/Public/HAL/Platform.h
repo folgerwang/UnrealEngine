@@ -75,7 +75,7 @@
 #elif PLATFORM_MAC
 	#include "Mac/MacPlatformCompilerPreSetup.h"
 #elif PLATFORM_IOS
-	#include "IOS/IOSPlatformCompilerPreSetup.h"
+	#include "iOS/IOSPlatformCompilerPreSetup.h"
 #elif PLATFORM_ANDROID
 	#include "Android/AndroidPlatformCompilerPreSetup.h"
 #elif PLATFORM_HTML5
@@ -122,6 +122,14 @@
 	#include "Switch/SwitchPlatform.h"
 #else
 	#error Unknown Compiler
+#endif
+
+//------------------------------------------------------------------
+// Setup macros for static code analysis
+//------------------------------------------------------------------
+
+#if PLATFORM_WINDOWS
+	#include "Windows/WindowsPlatformCodeAnalysis.h"
 #endif
 
 //------------------------------------------------------------------
@@ -341,7 +349,7 @@
 #endif
 
 #ifndef PLATFORM_USES_ANSI_STRING_FOR_EXTERNAL_PROFILING
-	#define PLATFORM_USES_ANSI_STRING_FOR_EXTERNAL_PROFILING 1
+	#define PLATFORM_USES_ANSI_STRING_FOR_EXTERNAL_PROFILING	1
 #endif
 
 #ifndef PLATFORM_RHITHREAD_DEFAULT_BYPASS
@@ -362,6 +370,26 @@
 
 #ifndef PLATFORM_SUPPORTS_EARLY_MOVIE_PLAYBACK
 	#define PLATFORM_SUPPORTS_EARLY_MOVIE_PLAYBACK			0
+#endif
+
+#ifndef PLATFORM_VECTOR_CUBIC_INTERP_SSE
+	#define PLATFORM_VECTOR_CUBIC_INTERP_SSE					0
+#endif
+
+#ifndef PLATFORM_UI_HAS_MOBILE_SCROLLBARS
+	#define PLATFORM_UI_HAS_MOBILE_SCROLLBARS					0
+#endif
+
+#ifndef PLATFORM_UI_NEEDS_TOOLTIPS
+	#define PLATFORM_UI_NEEDS_TOOLTIPS							1
+#endif
+
+#ifndef PLATFORM_UI_NEEDS_FOCUS_OUTLINES
+	#define PLATFORM_UI_NEEDS_FOCUS_OUTLINES					1
+#endif
+
+#ifndef PLATFORM_LIMIT_MOBILE_BONE_MATRICES
+	#define PLATFORM_LIMIT_MOBILE_BONE_MATRICES					0
 #endif
 
 // deprecated, do not use
@@ -478,18 +506,6 @@
 	#define TYPENAME_OUTSIDE_TEMPLATE	typename
 #endif
 
-// Legacy method modifier macros.  You shouldn't use these macros in modern code.  Use the built-in keyword directly.
-#ifndef OVERRIDE
-	#define OVERRIDE \
-		EMIT_DEPRECATED_WARNING_MESSAGE("OVERRIDE macro is deprecated. Please use override keyword instead.") \
-		override
-#endif
-#ifndef FINAL						
-	#define FINAL \
-		EMIT_DEPRECATED_WARNING_MESSAGE("FINAL macro is deprecated. Please use final keyword instead.") \
-		final
-#endif
-
 // Method modifiers
 #ifndef ABSTRACT						
 	#define ABSTRACT
@@ -589,7 +605,9 @@
 
 // This is a temporary macro, will be removed when TSubobjectPtr can be safely removed
 #ifndef private_subobject
-#define private_subobject public
+#define private_subobject \
+DEPRECATED_MACRO(4.17, "private_subobject macro is deprecated.  Please use the standard 'private' keyword instead.") \
+private
 #endif
 
 // Console ANSICHAR/TCHAR command line handling

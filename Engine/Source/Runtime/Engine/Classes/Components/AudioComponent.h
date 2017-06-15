@@ -37,7 +37,7 @@ DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnAudioPlaybackPercentNative, const clas
  *	Struct used for storing one per-instance named parameter for this AudioComponent.
  *	Certain nodes in the SoundCue may reference parameters by name so they can be adjusted per-instance.
  */
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FAudioComponentParam
 {
 	GENERATED_USTRUCT_BODY()
@@ -174,7 +174,7 @@ class ENGINE_API UAudioComponent : public USceneComponent
 
 	/** Configurable, serialized ID for audio plugins */
 	UPROPERTY()
-	uint64 AudioComponentUserID;
+	FName AudioComponentUserID;
 
 	/** The lower bound to use when randomly determining a pitch multiplier */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Modulation)
@@ -339,6 +339,14 @@ class ENGINE_API UAudioComponent : public USceneComponent
 	UFUNCTION(BlueprintCallable, Category = "Audio|Components|Audio")
 	void SetSubmixSend(USoundSubmix* Submix, float SendLevel);
 
+	/** Sets whether or not the low pass filter is enabled on the audio component. */
+	UFUNCTION(BlueprintCallable, Category = "Audio|Components|Audio")
+	void SetLowPassFilterEnabled(bool InLowPassFilterEnabled);
+
+	/** Sets lowpass filter frequency of the audio component. */
+	UFUNCTION(BlueprintCallable, Category = "Audio|Components|Audio")
+	void SetLowPassFilterFrequency(float InLowPassFilterFrequency);
+
 	static void PlaybackCompleted(uint64 AudioComponentID, bool bFailedToStart);
 
 private:
@@ -389,7 +397,7 @@ public:
 
 	uint64 GetAudioComponentID() const { return AudioComponentID; }
 
-	uint64 GetAudioComponentUserID() const { return AudioComponentUserID; }
+	FName GetAudioComponentUserID() const { return AudioComponentUserID; }
 
 	static UAudioComponent* GetAudioComponentFromID(uint64 AudioComponentID);
 

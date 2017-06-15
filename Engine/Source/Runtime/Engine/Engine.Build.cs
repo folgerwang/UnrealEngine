@@ -11,7 +11,7 @@ public class Engine : ModuleRules
 
 		SharedPCHHeaderFile = "Public/EngineSharedPCH.h";
 
-		PublicIncludePathModuleNames.AddRange(new string[] { "Renderer", "PacketHandler", "NetworkReplayStreaming" });
+		PublicIncludePathModuleNames.AddRange(new string[] { "Renderer", "PacketHandler", "NetworkReplayStreaming", "AudioMixer" });
 
 		PrivateIncludePaths.AddRange(
 			new string[] {
@@ -26,6 +26,7 @@ public class Engine : ModuleRules
 				"TargetPlatform",
 				"ImageWrapper",
 				"HeadMountedDisplay",
+				"MRMesh",
 				"Advertising",
 				"NetworkReplayStreaming",
 				"MovieSceneCapture",
@@ -80,17 +81,6 @@ public class Engine : ModuleRules
             }
         );
 
-		if (Target.Type == TargetType.Editor)
-		{
-			PrivateIncludePathModuleNames.AddRange(new string[] { "CrashTracker" });
-			DynamicallyLoadedModuleNames.AddRange(new string[] { "CrashTracker" });
-			PublicDependencyModuleNames.AddRange(
-				new string[] {
-			}
-			);
-		}
-
-
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
                 "AppFramework",
@@ -132,7 +122,11 @@ public class Engine : ModuleRules
 					bVariadicTemplatesSupported = false;
 				}
 			}
-		}
+
+            AddEngineThirdPartyPrivateStaticDependencies(Target,
+                "libOpus"
+                );
+        }
 
 		if (bVariadicTemplatesSupported)
         {
@@ -178,13 +172,12 @@ public class Engine : ModuleRules
 				"MovieSceneCapture",
 				"MovieSceneTracks",
 				"HeadMountedDisplay",
+                "MRMesh",
 				"MeshEditingRuntime",
-				"StreamingPauseRendering",
+                "StreamingPauseRendering",
                 "Niagara",
 			}
 		);
-
-        PrivateIncludePathModuleNames.Add("LightPropagationVolumeRuntime");
 
 		if (Target.Type != TargetType.Server)
 		{
@@ -244,6 +237,7 @@ public class Engine : ModuleRules
 						"WindowsServerTargetPlatform",
 						"WindowsClientTargetPlatform",
 						"AllDesktopTargetPlatform",
+						"WindowsPlatformEditor",
 					}
 				);
 			}
@@ -256,6 +250,7 @@ public class Engine : ModuleRules
 						"MacServerTargetPlatform",
 						"MacClientTargetPlatform",
 						"AllDesktopTargetPlatform",
+						"MacPlatformEditor",
 					}
 				);
 			}
@@ -268,6 +263,7 @@ public class Engine : ModuleRules
 						"LinuxServerTargetPlatform",
 						"LinuxClientTargetPlatform",
 						"AllDesktopTargetPlatform",
+						"LinuxPlatformEditor",
 					}
 				);
 			}
@@ -286,8 +282,7 @@ public class Engine : ModuleRules
         {
 		    DynamicallyLoadedModuleNames.AddRange(
 			    new string[] {
-				    "ImageWrapper",
-					"GameLiveStreaming"
+				    "ImageWrapper"
 			    }
 		    );
         }
@@ -329,13 +324,15 @@ public class Engine : ModuleRules
             DynamicallyLoadedModuleNames.Add("HierarchicalLODUtilities");
 
             DynamicallyLoadedModuleNames.Add("AnimationModifiers");
+
+            PrivateIncludePathModuleNames.Add("AssetTools");
+            DynamicallyLoadedModuleNames.Add("AssetTools");
         }
 
 		SetupModulePhysXAPEXSupport(Target);
-        if(UEBuildConfiguration.bCompilePhysX && (UEBuildConfiguration.bBuildEditor || UEBuildConfiguration.bRuntimePhysicsCooking))
+        if(UEBuildConfiguration.bCompilePhysX && (UEBuildConfiguration.bBuildEditor || UEBuildConfiguration.bCompileAPEX))
         {
-            DynamicallyLoadedModuleNames.Add("PhysXFormats");
-            PrivateIncludePathModuleNames.Add("PhysXFormats");
+            DynamicallyLoadedModuleNames.Add("PhysXCooking");
         }
             
         if(UEBuildConfiguration.bCompilePhysX)

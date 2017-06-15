@@ -3,6 +3,8 @@
 #include "LayoutUV.h"
 #include "DisjointSet.h"
 
+#include "Algo/IntroSort.h"
+
 DEFINE_LOG_CATEGORY_STATIC(LogLayoutUV, Warning, All);
 
 #define CHART_JOINING	1
@@ -147,7 +149,8 @@ void FLayoutUV::FindCharts( const TMultiMap<int32,int32>& OverlappingCorners )
 			return (*DisjointSet)[A] < (*DisjointSet)[B];
 		}
 	};
-	SortedTris.Sort( FCompareTris( &DisjointSet ) );
+
+	Algo::IntroSort( SortedTris, FCompareTris( &DisjointSet ) );
 
 	TMap< uint32, int32 > DisjointSetToChartMap;
 
@@ -205,16 +208,7 @@ void FLayoutUV::FindCharts( const TMultiMap<int32,int32>& OverlappingCorners )
 		Chart.LastTri = Tri;
 
 #if !CHART_JOINING
-		if( Chart.UVArea > 1e-4f )
-		{
-			Chart.WorldScale /= Chart.UVArea;
-		}
-		else
-		{
-			Chart.WorldScale = FVector2D::ZeroVector;
-		}
-
-		//Chart.WorldScale.Set(1,1);
+		Chart.WorldScale /= FMath::Max( Chart.UVArea, 1e-8f );
 
 		TotalUVArea += Chart.UVArea * Chart.WorldScale.X * Chart.WorldScale.Y;
 #endif
@@ -519,14 +513,7 @@ void FLayoutUV::FindCharts( const TMultiMap<int32,int32>& OverlappingCorners )
 	{
 		FMeshChart& Chart = Charts[i];
 
-		if( Chart.UVArea > 1e-4f )
-		{
-			Chart.WorldScale /= Chart.UVArea;
-		}
-		else
-		{
-			Chart.WorldScale = FVector2D::ZeroVector;
-		}
+		Chart.WorldScale /= FMath::Max( Chart.UVArea, 1e-8f );
 
 		TotalUVArea += Chart.UVArea * Chart.WorldScale.X * Chart.WorldScale.Y;
 	}
@@ -724,7 +711,7 @@ void FLayoutUV::ScaleCharts( float UVScale )
 			return ChartRectA.X * ChartRectA.Y > ChartRectB.X * ChartRectB.Y;
 		}
 	};
-	Charts.Sort( FCompareCharts() );
+	Algo::IntroSort( Charts, FCompareCharts() );
 }
 
 bool FLayoutUV::PackCharts()

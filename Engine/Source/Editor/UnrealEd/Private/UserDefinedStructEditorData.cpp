@@ -10,22 +10,28 @@
 
 #define LOCTEXT_NAMESPACE "UserDefinedStructEditorData"
 
+void FStructVariableDescription::PostSerialize(const FArchive& Ar)
+{
+	if (ContainerType == EPinContainerType::None)
+	{
+		ContainerType = FEdGraphPinType::ToPinContainerType(bIsArray_DEPRECATED, bIsSet_DEPRECATED, bIsMap_DEPRECATED);
+	}
+}
+
 bool FStructVariableDescription::SetPinType(const FEdGraphPinType& VarType)
 {
 	Category = VarType.PinCategory;
 	SubCategory = VarType.PinSubCategory;
 	SubCategoryObject = VarType.PinSubCategoryObject.Get();
 	PinValueType = VarType.PinValueType;
-	bIsArray = VarType.bIsArray;
-	bIsSet = VarType.bIsSet;
-	bIsMap = VarType.bIsMap;
+	ContainerType = VarType.ContainerType;
 
 	return !VarType.bIsReference && !VarType.bIsWeakPointer;
 }
 
 FEdGraphPinType FStructVariableDescription::ToPinType() const
 {
-	return FEdGraphPinType(Category, SubCategory, SubCategoryObject.Get(), bIsArray, false, bIsSet, bIsMap, PinValueType);
+	return FEdGraphPinType(Category, SubCategory, SubCategoryObject.LoadSynchronous(), ContainerType, false, PinValueType);
 }
 
 UUserDefinedStructEditorData::UUserDefinedStructEditorData(const FObjectInitializer& ObjectInitializer)
@@ -138,7 +144,7 @@ void UUserDefinedStructEditorData::RecreateDefaultInstance(FString* OutLog)
 					if (!FBlueprintEditorUtils::PropertyValueFromString(Property, VarDesc->CurrentDefaultValue, StructData))
 					{
 						const FString Message = FString::Printf(TEXT("Cannot parse value. Property: %s String: \"%s\" ")
-							, (Property ? *Property->GetDisplayNameText().ToString() : TEXT("None"))
+							, *Property->GetDisplayNameText().ToString()
 							, *VarDesc->CurrentDefaultValue);
 						UE_LOG(LogClass, Warning, TEXT("UUserDefinedStructEditorData::RecreateDefaultInstance %s Struct: %s "), *Message, *GetPathNameSafe(ScriptStruct));
 						if (OutLog)

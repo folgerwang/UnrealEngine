@@ -12,6 +12,7 @@
 #include "UObject/PropertyPortFlags.h"
 #include "ScopedTransaction.h"
 #include "FindInBlueprintManager.h"
+#include "Editor/GraphEditor/Public/DiffResults.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "EdGraph"
@@ -70,19 +71,74 @@ UEdGraphNode::UEdGraphNode(const FObjectInitializer& ObjectInitializer)
 	, AdvancedPinDisplay(ENodeAdvancedPins::NoPins)
 	, EnabledState(ENodeEnabledState::Enabled)
 	, bUserSetEnabledState(false)
-	, bIsNodeEnabled_DEPRECATED(true)
 	, bAllowSplitPins_DEPRECATED(false)
-{
-
+	, bIsNodeEnabled_DEPRECATED(true)
 #if WITH_EDITORONLY_DATA
-	bCommentBubblePinned = false;
-	bCommentBubbleVisible = false;
-	bCommentBubbleMakeVisible = false;
-	bCanResizeNode = false;
+	, bCanResizeNode(false)
 #endif // WITH_EDITORONLY_DATA
+	, bCommentBubblePinned(false)
+	, bCommentBubbleVisible(false)
+	, bCommentBubbleMakeVisible(false)
+{
 }
 
 #if WITH_EDITOR
+
+FString UEdGraphNode::GetPropertyNameAndValueForDiff(const UProperty* Prop, const uint8* PropertyAddr) const
+{
+	FString ExportedStringValue;
+	if (const UFloatProperty* FloatProp = Cast<const UFloatProperty>(Prop))
+	{
+		// special case for floats to remove unnecessary zeros
+		const float FloatValue = FloatProp->GetPropertyValue(PropertyAddr);
+		ExportedStringValue = FString::SanitizeFloat(FloatValue);
+	}
+	else
+	{
+		Prop->ExportTextItem(ExportedStringValue, PropertyAddr, NULL, NULL, PPF_PropertyWindow, NULL);
+	}
+
+	const bool bIsBool = Prop->IsA(UBoolProperty::StaticClass());
+	return FString::Printf(TEXT("%s: %s"), *FName::NameToDisplayString(Prop->GetName(), bIsBool), *ExportedStringValue);
+}
+
+void UEdGraphNode::DiffProperties(UClass* StructA, UClass* StructB, UObject* DataA, UObject* DataB, FDiffResults& Results, FDiffSingleResult& Diff) const
+{
+	// Find the common parent class in case the other node isn't of the same type
+	UClass* ClassToViewAs = StructA;
+	while (!DataB->IsA(ClassToViewAs))
+	{
+		ClassToViewAs = ClassToViewAs->GetSuperClass();
+	}
+
+	// Run through all the properties
+	for (TFieldIterator<UProperty> PropertyIt(ClassToViewAs, EFieldIteratorFlags::IncludeSuper); PropertyIt; ++PropertyIt)
+	{
+		UProperty* Prop = *PropertyIt;
+		// skip properties we cant see
+		if (!Prop->HasAnyPropertyFlags(CPF_Edit | CPF_BlueprintVisible) ||
+			Prop->HasAnyPropertyFlags(CPF_Transient) ||
+			Prop->HasAnyPropertyFlags(CPF_DisableEditOnInstance) ||
+			Prop->IsA(UDelegateProperty::StaticClass()) ||
+			Prop->IsA(UMulticastDelegateProperty::StaticClass()))
+		{
+			continue;
+		}
+
+		const FString ValueStringA = GetPropertyNameAndValueForDiff(Prop, Prop->ContainerPtrToValuePtr<uint8>(DataA));
+		const FString ValueStringB = GetPropertyNameAndValueForDiff(Prop, Prop->ContainerPtrToValuePtr<uint8>(DataB));
+
+		if (ValueStringA != ValueStringB)
+		{
+			// Only bother setting up the display data if we're storing the result
+			if (Results.CanStoreResults())
+			{
+				Diff.DisplayString = FText::Format(LOCTEXT("DIF_NodePropertyFmt", "Property Changed: {0} "), FText::FromString(Prop->GetName()));
+			}
+			Results.Add(Diff);
+		}
+	}
+}
 
 UEdGraphPin* UEdGraphNode::CreatePin(EEdGraphPinDirection Dir, const FEdGraphPinType& InPinType, const FString& PinName, int32 Index /*= INDEX_NONE*/)
 {
@@ -106,7 +162,12 @@ UEdGraphPin* UEdGraphNode::CreatePin(EEdGraphPinDirection Dir, const FEdGraphPin
 
 UEdGraphPin* UEdGraphNode::CreatePin(EEdGraphPinDirection Dir, const FString& PinCategory, const FString& PinSubCategory, UObject* PinSubCategoryObject, bool bIsArray, bool bIsReference, const FString& PinName, bool bIsConst /*= false*/, int32 Index /*= INDEX_NONE*/, bool bIsSet /*= false*/, bool bIsMap /*= false*/, const FEdGraphTerminalType& ValueTerminalType /*= FEdGraphTerminalType()*/)
 {
-	FEdGraphPinType PinType(PinCategory, PinSubCategory, PinSubCategoryObject, bIsArray, bIsReference, bIsSet, bIsMap, ValueTerminalType);
+	return CreatePin(Dir, PinCategory, PinSubCategory, PinSubCategoryObject, PinName, FEdGraphPinType::ToPinContainerType(bIsArray, bIsSet, bIsMap), bIsReference, bIsConst, Index, ValueTerminalType);
+}
+
+UEdGraphPin* UEdGraphNode::CreatePin(EEdGraphPinDirection Dir, const FString& PinCategory, const FString& PinSubCategory, UObject* PinSubCategoryObject, const FString& PinName, EPinContainerType PinContainerType /* EPinContainerType::None */, bool bIsReference /* = false */, bool bIsConst /*= false*/, int32 Index /*= INDEX_NONE*/, const FEdGraphTerminalType& ValueTerminalType /*= FEdGraphTerminalType()*/)
+{
+	FEdGraphPinType PinType(PinCategory, PinSubCategory, PinSubCategoryObject, PinContainerType, bIsReference, ValueTerminalType);
 	PinType.bIsConst = bIsConst;
 
 	return CreatePin(Dir, PinType, PinName, Index);
@@ -490,8 +551,20 @@ void UEdGraphNode::CreateNewGuid()
 	NodeGuid = FGuid::NewGuid();
 }
 
-void UEdGraphNode::FindDiffs( class UEdGraphNode* OtherNode, struct FDiffResults& Results ) 
+void UEdGraphNode::FindDiffs(UEdGraphNode* OtherNode, struct FDiffResults& Results)
 {
+	if (OtherNode != nullptr)
+	{
+		FDiffSingleResult Diff;
+		Diff.Diff = EDiffType::NODE_PROPERTY;
+		Diff.Node1 = this;
+		Diff.Node2 = OtherNode;
+		Diff.ToolTip = LOCTEXT("DIF_NodePropertyToolTip", "A Property of the node has changed");
+		Diff.DisplayColor = FLinearColor(0.25f, 0.71f, 0.85f);
+
+		// Diff the properties between the nodes
+		DiffProperties(GetClass(), OtherNode->GetClass(), this, OtherNode, Results, Diff);
+	}
 }
 
 void UEdGraphNode::DestroyPin(UEdGraphPin* Pin)

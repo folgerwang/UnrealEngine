@@ -886,6 +886,11 @@ void UPathFollowingComponent::UpdatePathSegment()
 
 	FMetaNavMeshPath* MetaNavPath = bIsUsingMetaPath ? Path->CastPath<FMetaNavMeshPath>() : nullptr;
 
+	/** it's possible that finishing this move request will result in another request
+	 *	which won't be easily detectable from this function. This simple local
+	 *	variable gives us this knowledge. */
+	const FAIRequestID MoveRequestId = GetCurrentRequestId();
+
 	// if agent has control over its movement, check finish conditions
 	const FVector CurrentLocation = MovementComp->GetActorFeetLocation();
 	const bool bCanUpdateState = HasMovementAuthority();
@@ -933,10 +938,13 @@ void UPathFollowingComponent::UpdatePathSegment()
 		}
 	}
 
-	if (bCanUpdateState && Status == EPathFollowingStatus::Moving)
+	if (bCanUpdateState 
+		&& Status == EPathFollowingStatus::Moving
+		// still the same move request
+		&& MoveRequestId == GetCurrentRequestId())
 	{
 		// check waypoint switch condition in meta paths
-		if (MetaNavPath && Status == EPathFollowingStatus::Moving)
+		if (MetaNavPath)
 		{
 			MetaNavPath->ConditionalMoveToNextSection(CurrentLocation, EMetaPathUpdateReason::MoveTick);
 		}

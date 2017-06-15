@@ -314,6 +314,11 @@ namespace UnrealBuildTool
 		public string SolutionDirectory = String.Empty;
 
 		/// <summary>
+		/// Whether the target should be included in the default solution build configuration
+		/// </summary>
+		public bool? bBuildInSolutionByDefault = null;
+
+		/// <summary>
 		/// Output the executable to the engine binaries folder.
 		/// </summary>
 		public bool bOutputToEngineBinaries = false;
@@ -348,12 +353,7 @@ namespace UnrealBuildTool
 		/// Whether to include NvCloth.
 		/// </summary>
 		public bool bCompileNvCloth = false;
-
-		/// <summary>
-		/// Whether to allow runtime cooking of physics.
-		/// </summary>
-		public bool bRuntimePhysicsCooking = true;
-
+        
 		/// <summary>
 		/// Whether to include Box2D support.
 		/// </summary>
@@ -423,10 +423,16 @@ namespace UnrealBuildTool
 		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bCompileLeanAndMeanUE")]
 		public bool bCompileLeanAndMeanUE = false;
 
-		/// <summary>
-		/// Enabled for all builds that include the engine project.  Disabled only when building standalone apps that only link with Core.
+        /// <summary>
+		/// Whether to utilize cache freed OS allocs with MallocBinned
 		/// </summary>
-		public bool bCompileAgainstEngine = true;
+		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bUseCacheFreedOSAllocs")]
+        public bool bUseCacheFreedOSAllocs = true;
+
+        /// <summary>
+        /// Enabled for all builds that include the engine project.  Disabled only when building standalone apps that only link with Core.
+        /// </summary>
+        public bool bCompileAgainstEngine = true;
 
 		/// <summary>
 		/// Enabled for all builds that include the CoreUObject project.  Disabled only when building standalone apps that only link with Core.
@@ -593,7 +599,7 @@ namespace UnrealBuildTool
 		/// Disable optimization for files that are in the adaptive non-unity working set.
 		/// </summary>
 		[XmlConfigFile(Category = "BuildConfiguration")]
-		public bool bAdaptiveUnityDisablesOptimizations = false;
+		public bool bAdaptiveUnityDisablesOptimizations = true;
 
 		/// <summary>
 		/// Disables force-included PCHs for files that are in the adaptive non-unity working set.
@@ -794,15 +800,6 @@ namespace UnrealBuildTool
 		[CommandLine("-MapFile")]
 		[XmlConfigFile(Category = "BuildConfiguration")]
 		public bool bCreateMapFile = false;
-
-		/// <summary>
-		/// Enables code analysis mode.  Currently, this has specific requirements.  It only works on Windows
-		/// platform with the MSVC compiler.  Also, it requires a version of the compiler that supports the
-		/// /analyze option, such as Visual Studio 2013.
-		/// </summary>
-		[CommandLine("-EnableCodeAnalysis")]
-		[XmlConfigFile(Category = "BuildConfiguration")]
-		public bool bEnableCodeAnalysis = false;
 
 		/// <summary>
 		/// Bundle version for Mac apps.
@@ -1463,6 +1460,11 @@ namespace UnrealBuildTool
 			get { return Inner.SolutionDirectory; }
 		}
 
+		public bool? bBuildInSolutionByDefault
+		{
+			get { return Inner.bBuildInSolutionByDefault; }
+		}
+
 		public bool bOutputToEngineBinaries
 		{
 			get { return Inner.bOutputToEngineBinaries; }
@@ -1491,11 +1493,6 @@ namespace UnrealBuildTool
 		public bool bCompileNvCloth
 		{
 			get { return Inner.bCompileNvCloth; }
-		}
-
-		public bool bRuntimePhysicsCooking
-		{
-			get { return Inner.bRuntimePhysicsCooking; }
 		}
 
 		public bool bCompileBox2D
@@ -1558,7 +1555,12 @@ namespace UnrealBuildTool
 			get { return Inner.bCompileLeanAndMeanUE; }
 		}
 
-		public bool bCompileAgainstEngine
+        public bool bUseCacheFreedOSAllocs
+        {
+            get { return Inner.bUseCacheFreedOSAllocs; }
+        }
+
+        public bool bCompileAgainstEngine
 		{
 			get { return Inner.bCompileAgainstEngine; }
 		}
@@ -1851,11 +1853,6 @@ namespace UnrealBuildTool
 		public bool bCreateMapFile
 		{
 			get { return Inner.bCreateMapFile; }
-		}
-
-		public bool bEnableCodeAnalysis
-		{
-			get { return Inner.bEnableCodeAnalysis; }
 		}
 
 		public string BundleVersion

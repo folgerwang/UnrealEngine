@@ -324,7 +324,7 @@ FPlatformRect FMacApplication::GetWorkArea(const FPlatformRect& CurrentWindow) c
 #if WITH_EDITOR
 void FMacApplication::SendAnalytics(IAnalyticsProvider* Provider)
 {
-	static_assert(EGestureEvent::Count == 5, "If the number of gestures changes you need to add more entries below!");
+	static_assert(EGestureEvent::Count == 6, "If the number of gestures changes you need to add more entries below!");
 
 	TArray<FAnalyticsEventAttribute> GestureAttributes;
 	GestureAttributes.Add(FAnalyticsEventAttribute(FString("Scroll"),	GestureUsage[EGestureEvent::Scroll]));
@@ -1237,17 +1237,19 @@ void FMacApplication::OnActiveSpaceDidChange()
 
 void FMacApplication::OnCursorLock()
 {
-	MainThreadCall(^{
+	if (Cursor.IsValid())
+	{
 		SCOPED_AUTORELEASE_POOL;
 		NSWindow* NativeWindow = [NSApp keyWindow];
-		// This block can be called after MacApplication is destroyed
-		if (MacApplication && NativeWindow && Cursor.IsValid())
+		if (NativeWindow)
 		{
-			const bool bIsCursorLocked = ((FMacCursor*)Cursor.Get())->IsLocked();
-			if (bIsCursorLocked)
+			if (((FMacCursor*)Cursor.Get())->IsLocked())
 			{
-				[NativeWindow setMinSize:NSMakeSize(NativeWindow.frame.size.width, NativeWindow.frame.size.height)];
-				[NativeWindow setMaxSize:NSMakeSize(NativeWindow.frame.size.width, NativeWindow.frame.size.height)];
+				MainThreadCall(^{
+					SCOPED_AUTORELEASE_POOL;
+					[NativeWindow setMinSize:NSMakeSize(NativeWindow.frame.size.width, NativeWindow.frame.size.height)];
+					[NativeWindow setMaxSize:NSMakeSize(NativeWindow.frame.size.width, NativeWindow.frame.size.height)];
+				}, NSDefaultRunLoopMode, false);
 			}
 			else
 			{
@@ -1255,12 +1257,17 @@ void FMacApplication::OnCursorLock()
 				if (Window.IsValid())
 				{
 					const FGenericWindowDefinition& Definition = Window->GetDefinition();
-					[NativeWindow setMinSize:NSMakeSize(Definition.SizeLimits.GetMinWidth().Get(10.0f), Definition.SizeLimits.GetMinHeight().Get(10.0f))];
-					[NativeWindow setMaxSize:NSMakeSize(Definition.SizeLimits.GetMaxWidth().Get(10000.0f), Definition.SizeLimits.GetMaxHeight().Get(10000.0f))];
+					const NSSize MinSize = NSMakeSize(Definition.SizeLimits.GetMinWidth().Get(10.0f), Definition.SizeLimits.GetMinHeight().Get(10.0f));
+					const NSSize MaxSize = NSMakeSize(Definition.SizeLimits.GetMaxWidth().Get(10000.0f), Definition.SizeLimits.GetMaxHeight().Get(10000.0f));
+					MainThreadCall(^{
+						SCOPED_AUTORELEASE_POOL;
+						[NativeWindow setMinSize:MinSize];
+						[NativeWindow setMaxSize:MaxSize];
+					}, NSDefaultRunLoopMode, false);
 				}
 			}
 		}
-	}, NSDefaultRunLoopMode, false);
+	}
 }
 
 void FMacApplication::ConditionallyUpdateModifierKeys(const FDeferredMacEvent& Event)

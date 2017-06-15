@@ -17,6 +17,8 @@
 #include "PhysicsEngine/SphereElem.h"
 #include "ComponentReregisterContext.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "SNotificationList.h"
+#include "NotificationManager.h"
 
 #define LOCTEXT_NAMESPACE "ClothingAssetFactory"
 DEFINE_LOG_CATEGORY(LogClothingAssetFactory)
@@ -255,6 +257,7 @@ UClothingAssetBase* UClothingAssetFactory::CreateFromSkeletalMesh(USkeletalMesh*
 	FString SanitizedName = ObjectTools::SanitizeObjectName(Params.AssetName);
 	FName ObjectName = MakeUniqueObjectName(TargetMesh, UClothingAsset::StaticClass(), FName(*SanitizedName));
 	UClothingAsset* NewAsset = NewObject<UClothingAsset>(TargetMesh, ObjectName);
+	NewAsset->SetFlags(RF_Transactional);
 
 	// Adding a new LOD from this skeletal mesh
 	NewAsset->LodData.AddDefaulted();
@@ -368,6 +371,12 @@ UClothingAssetBase* UClothingAssetFactory::CreateFromSkeletalMesh(USkeletalMesh*
 		}
 	}
 
+	// Add a max distance parameter mask to begin with
+	LodData.ParameterMasks.AddDefaulted();
+	FClothParameterMask_PhysMesh& Mask = LodData.ParameterMasks.Last();
+	Mask.CopyFromPhysMesh(PhysMesh, MaskTarget_PhysMesh::MaxDistance);
+	Mask.bEnabled = true;
+
 	PhysMesh.MaxBoneWeights = SourceSection.MaxBoneInfluences;
 
 	FMultiSizeIndexContainerData IndexData;
@@ -376,6 +385,31 @@ UClothingAssetBase* UClothingAssetFactory::CreateFromSkeletalMesh(USkeletalMesh*
 	{
 		PhysMesh.Indices[IndexIndex] = IndexData.Indices[BaseIndex + IndexIndex] - BaseVertexIndex;
 		PhysMesh.Indices[IndexIndex] = IndexRemap[PhysMesh.Indices[IndexIndex]];
+	}
+
+	// Validate the generated triangles. If the source mesh has colinear triangles then clothing simulation will fail
+	const int32 NumTriangles = PhysMesh.Indices.Num() / 3;
+	for(int32 TriIndex = 0; TriIndex < NumTriangles; ++TriIndex)
+	{
+		FVector A = PhysMesh.Vertices[PhysMesh.Indices[TriIndex * 3 + 0]];
+		FVector B = PhysMesh.Vertices[PhysMesh.Indices[TriIndex * 3 + 1]];
+		FVector C = PhysMesh.Vertices[PhysMesh.Indices[TriIndex * 3 + 2]];
+
+		FVector TriNormal = (B - A) ^ (C - A);
+		if(TriNormal.SizeSquared() <= SMALL_NUMBER)
+		{
+			// This triangle is colinear
+			FText ErrorText = FText::Format(LOCTEXT("Colinear_Error", "Failed to generate clothing sim mesh due to degenerate triangle, found conincident vertices in triangle A={0} B={1} C={2}"), FText::FromString(A.ToString()), FText::FromString(B.ToString()), FText::FromString(C.ToString()));
+
+			FNotificationInfo Info(ErrorText);
+			Info.bFireAndForget = true;
+			Info.ExpireDuration = 5.0f;
+
+			FSlateNotificationManager::Get().AddNotification(Info);
+			UE_LOG(LogClothingAssetFactory, Warning, TEXT("%s"), *ErrorText.ToString());
+
+			return nullptr;
+		}
 	}
 
 	// Set asset guid
@@ -387,12 +421,8 @@ UClothingAssetBase* UClothingAssetFactory::CreateFromSkeletalMesh(USkeletalMesh*
 		TargetMesh->RemoveMeshSection(Params.LodIndex, Params.SourceSection);
 	}
 
-	if(UPhysicsAsset* PhysAsset = Params.PhysicsAsset.LoadSynchronous())
-	{
-		FClothCollisionData& CollisionData = LodData.CollisionData;
-
-		ExtractPhysicsAssetBodies(PhysAsset, TargetMesh, NewAsset, CollisionData);
-	}
+	// Set physics asset, will be used when building actors for cloth collisions
+	NewAsset->PhysicsAsset = Params.PhysicsAsset.LoadSynchronous();
 
 	// Build the final bone map
 	NewAsset->RefreshBoneMapping(TargetMesh);
@@ -407,6 +437,7 @@ UClothingAssetBase* UClothingAssetFactory::CreateFromApexAsset(nvidia::apex::Clo
 {
 #if WITH_APEX_CLOTHING
 	UClothingAsset* NewClothingAsset = NewObject<UClothingAsset>(TargetMesh, InName);
+	NewClothingAsset->SetFlags(RF_Transactional);
 
 	const NvParameterized::Interface* AssetParams = InApexAsset->getAssetNvParameterized();
 	NvParameterized::Handle GraphicalLodArrayHandle(*AssetParams, "graphicalLods");
@@ -467,8 +498,41 @@ UClothingAssetBase* UClothingAssetFactory::CreateFromApexAsset(nvidia::apex::Clo
 
 	NewClothingAsset->AssetGuid = FGuid::NewGuid();
 	NewClothingAsset->InvalidateCachedData();
+
 	NewClothingAsset->BuildLodTransitionData();
-	NewClothingAsset->InvalidateCachedData();
+	NewClothingAsset->BuildSelfCollisionData();
+	NewClothingAsset->CalculateReferenceBoneIndex();
+
+	// Add masks for parameters
+	for(FClothLODData& Lod : NewClothingAsset->LodData)
+	{
+		FClothPhysicalMeshData& PhysMesh = Lod.PhysicalMeshData;
+
+		// Didn't do anything previously - clear out incase there's something in there
+		// so we can use it correctly now.
+		Lod.ParameterMasks.Reset(3);
+
+		// Max distances
+		Lod.ParameterMasks.AddDefaulted();
+		FClothParameterMask_PhysMesh& MaxDistanceMask = Lod.ParameterMasks.Last();
+		MaxDistanceMask.CopyFromPhysMesh(PhysMesh, MaskTarget_PhysMesh::MaxDistance);
+		MaxDistanceMask.bEnabled = true;
+
+		if(PhysMesh.BackstopRadiuses.FindByPredicate([](const float& A) {return A != 0.0f; }))
+		{
+			// Backstop radii
+			Lod.ParameterMasks.AddDefaulted();
+			FClothParameterMask_PhysMesh& BackstopRadiusMask = Lod.ParameterMasks.Last();
+			BackstopRadiusMask.CopyFromPhysMesh(PhysMesh, MaskTarget_PhysMesh::BackstopRadius);
+			BackstopRadiusMask.bEnabled = true;
+
+			// Backstop distances
+			Lod.ParameterMasks.AddDefaulted();
+			FClothParameterMask_PhysMesh& BackstopDistanceMask = Lod.ParameterMasks.Last();
+			BackstopDistanceMask.CopyFromPhysMesh(PhysMesh, MaskTarget_PhysMesh::BackstopDistance);
+			BackstopDistanceMask.bEnabled = true;
+		}
+	}
 
 	return NewClothingAsset;
 #endif
@@ -1085,67 +1149,6 @@ void UClothingAssetFactory::ExtractMaterialParameters(UClothingAsset* NewAsset, 
 		Config.ShearConstraintConfig.StretchLimit = Config.VerticalConstraintConfig.StretchLimit;
 		Config.ShearConstraintConfig.StiffnessMultiplier = Config.VerticalConstraintConfig.StiffnessMultiplier;
 
-	}
-}
-
-void UClothingAssetFactory::ExtractPhysicsAssetBodies(UPhysicsAsset* InPhysicsAsset, USkeletalMesh* TargetMesh, UClothingAsset* TargetClothingAsset, FClothCollisionData& OutCollisionData)
-{
-	if(InPhysicsAsset && TargetClothingAsset && TargetMesh)
-	{
-		USkeletalMesh* PhysAssetMesh = InPhysicsAsset->PreviewSkeletalMesh.LoadSynchronous();
-
-		// Validate compatibility. If we don't have a mesh for the physics asset
-		// We'll continue and just trust it.
-		if(PhysAssetMesh && PhysAssetMesh->Skeleton != TargetMesh->Skeleton)
-		{
-			UE_LOG(LogClothingAssetFactory, Warning, TEXT("Physics Asset %s is incompatible with target skeletal mesh %s, aborting physics data extraction."), *InPhysicsAsset->GetName(), *TargetMesh->GetName());
-			return;
-		}
-
-		// A physics asset was specified, extract compatible bodies
-		for(const USkeletalBodySetup* BodySetup : InPhysicsAsset->SkeletalBodySetups)
-		{
-			int32 MeshBoneIndex = TargetMesh->RefSkeleton.FindBoneIndex(BodySetup->BoneName);
-			int32 MappedBoneIndex = INDEX_NONE;
-
-			if(MeshBoneIndex != INDEX_NONE)
-			{
-				MappedBoneIndex = TargetClothingAsset->UsedBoneNames.AddUnique(BodySetup->BoneName);
-			}
-
-			for(const FKSphereElem& Sphere : BodySetup->AggGeom.SphereElems)
-			{
-				FClothCollisionPrim_Sphere NewSphere;
-				NewSphere.LocalPosition = Sphere.Center;
-				NewSphere.Radius = Sphere.Radius;
-				NewSphere.BoneIndex = MappedBoneIndex;
-
-				OutCollisionData.Spheres.Add(NewSphere);
-			}
-
-			for(const FKSphylElem& Sphyl : BodySetup->AggGeom.SphylElems)
-			{
-				FClothCollisionPrim_Sphere Sphere0;
-				FClothCollisionPrim_Sphere Sphere1;
-				FVector OrientedDirection = Sphyl.Rotation.RotateVector(FVector(0.0f, 0.0f, 1.0f));
-				FVector HalfDim = OrientedDirection * (Sphyl.Length / 2.0f);
-				Sphere0.LocalPosition = Sphyl.Center - HalfDim;
-				Sphere1.LocalPosition = Sphyl.Center + HalfDim;
-				Sphere0.Radius = Sphyl.Radius;
-				Sphere1.Radius = Sphyl.Radius;
-				Sphere0.BoneIndex = MappedBoneIndex;
-				Sphere1.BoneIndex = MappedBoneIndex;
-
-				OutCollisionData.Spheres.Add(Sphere0);
-				OutCollisionData.Spheres.Add(Sphere1);
-
-				FClothCollisionPrim_SphereConnection Connection;
-				Connection.SphereIndices[0] = OutCollisionData.Spheres.Num() - 2;
-				Connection.SphereIndices[1] = OutCollisionData.Spheres.Num() - 1;
-
-				OutCollisionData.SphereConnections.Add(Connection);
-			}
-		}
 	}
 }
 

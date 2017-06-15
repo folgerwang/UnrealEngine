@@ -39,11 +39,8 @@ void SMontageEditor::Construct(const FArguments& InArgs, const FMontageEditorReq
 	OnSectionsChanged = InArgs._OnSectionsChanged;
 	MontageObj->RegisterOnMontageChanged(UAnimMontage::FOnMontageChanged::CreateSP(this, &SMontageEditor::RebuildMontagePanel, false));
 		
-	if (MontageObj)
-	{
-		EnsureStartingSection();
-		EnsureSlotNode();
-	}
+	EnsureStartingSection();
+	EnsureSlotNode();
 
 	// set child montage if montage has parent
 	bChildAnimMontage = MontageObj->HasParentAsset();
@@ -428,6 +425,21 @@ void SMontageEditor::OnEditSectionTimeFinish( int32 SectionIndex )
 	}
 
 	OnSectionsChanged.ExecuteIfBound();
+}
+
+void SMontageEditor::SetSectionTime(int32 SectionIndex, float NewTime)
+{
+	if(MontageObj && MontageObj->CompositeSections.IsValidIndex(SectionIndex))
+	{
+		const FScopedTransaction Transaction(LOCTEXT("EditSection", "Edit Section Start Time"));
+		MontageObj->Modify();
+	
+		FCompositeSection& Section = MontageObj->CompositeSections[SectionIndex];
+		Section.SetTime(NewTime);
+		Section.LinkMontage(MontageObj, NewTime);
+
+		OnEditSectionTimeFinish(SectionIndex);
+	}
 }
 
 void SMontageEditor::PreAnimUpdate()

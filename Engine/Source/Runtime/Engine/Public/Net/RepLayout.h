@@ -18,6 +18,10 @@ class UActorChannel;
 class UNetConnection;
 class UPackageMapClient;
 
+// Properties will be copied in here so memory needs aligned to largest type
+typedef TArray< uint8, TAlignedHeapAllocator<16> > FRepStateStaticBuffer;
+
+
 class FRepChangedParent
 {
 public:
@@ -124,6 +128,8 @@ public:
 		CompareIndex( 0 )
 	{ }
 
+	~FRepChangelistState();
+
 	TSharedPtr< FRepLayout >						RepLayout;
 
 	static const int32 MAX_CHANGE_HISTORY = 64;
@@ -133,8 +139,7 @@ public:
 	int32											HistoryEnd;
 	int32											CompareIndex;
 
-	// Properties will be copied in here so memory needs aligned to largest type
-	TArray< uint8, TAlignedHeapAllocator<16> >		StaticBuffer;
+	FRepStateStaticBuffer							StaticBuffer;
 };
 
 /** FRepState
@@ -155,8 +160,7 @@ public:
 
 	~FRepState();
 
-	// Properties will be copied in here so memory needs aligned to largest type
-	TArray< uint8, TAlignedHeapAllocator<16> >	StaticBuffer;
+	FRepStateStaticBuffer			StaticBuffer;
 
 	FGuidReferencesMap				GuidReferencesMap;
 
@@ -359,6 +363,7 @@ public:
 class FRepLayout
 {
 	friend class FRepState;
+	friend class FRepChangelistState;
 	friend class UPackageMapClient;
 
 public:
@@ -459,6 +464,8 @@ public:
 		FRepChangelistState* RESTRICT	RepState,
 		const uint8* RESTRICT			Data,
 		const FReplicationFlags&		RepFlags ) const;
+
+	void AddReferencedObjects(FReferenceCollector& Collector);
 
 private:
 	void RebuildConditionalProperties( FRepState * RESTRICT	RepState, const FRepChangedPropertyTracker& ChangedTracker, const FReplicationFlags& RepFlags ) const;
@@ -602,7 +609,7 @@ private:
 
 	void ConstructProperties( TArray< uint8, TAlignedHeapAllocator<16> >& ShadowData ) const;
 	void InitProperties( TArray< uint8, TAlignedHeapAllocator<16> >& ShadowData, uint8* Src ) const;
-	void DestructProperties( FRepState * RepState ) const;
+	void DestructProperties( FRepStateStaticBuffer& RepStateStaticBuffer ) const;
 
 	TArray< FRepParentCmd >		Parents;
 	TArray< FRepLayoutCmd >		Cmds;

@@ -73,6 +73,9 @@ private:
 	/** Called when new actors are dropped in the viewport. */
 	void OnNewActorsDropped(const TArray<UObject*>& DroppedObjects, const TArray<AActor*>& DroppedActors);
 
+	/** Called when viewport tab content changes. */
+	void OnTabContentChanged();
+
 	/** Called before a PIE session begins. */
 	void OnPreBeginPIE(bool bIsSimulating);
 
@@ -87,6 +90,9 @@ private:
 
 	/** Called via UEditorEngine::GetActorRecordingStateEvent to check to see whether we need to record actor state */
 	void GetActorRecordingState( bool& bIsRecording ) const;
+
+	/** Called when sequencer has been evaluated */
+	void OnSequencerEvaluated();
 
 	void OnPropertyEditorOpened();
 
@@ -124,6 +130,7 @@ private:
 	{
 		TWeakPtr<FSequencer> Sequencer;
 		FLevelEditorSequencerIntegrationOptions Options;
+		FAcquiredResources AcquiredResources;
 	};
 	TArray<FSequencerAndOptions> BoundSequencers;
 

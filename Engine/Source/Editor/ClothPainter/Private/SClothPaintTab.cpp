@@ -117,9 +117,10 @@ void SClothPaintTab::UpdatePaintTools()
 		SkeletalMeshEditor->GetAssetEditorModeManager()->ActivateMode(PaintModeID, true);
 
 		FClothingPaintEditMode* PaintMode = (FClothingPaintEditMode*)SkeletalMeshEditor->GetAssetEditorModeManager()->FindMode(PaintModeID);
-		ModeWidget = PaintMode->GetMeshPainter()->GetWidget();
 		if (PaintMode)
 		{
+			PaintMode->GetMeshPainter()->Reset();
+			ModeWidget = PaintMode->GetMeshPainter()->GetWidget();
 			PaintMode->SetPersonaToolKit(SkeletalMeshEditor->GetPersonaToolkit());
 
 			ContentBox->AddSlot()

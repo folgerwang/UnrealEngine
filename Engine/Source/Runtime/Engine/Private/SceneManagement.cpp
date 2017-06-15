@@ -183,8 +183,8 @@ FMeshBatchAndRelevance::FMeshBatchAndRelevance(const FMeshBatch& InMesh, const F
 	PrimitiveSceneProxy(InPrimitiveSceneProxy)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FMeshBatchAndRelevance);
-	EBlendMode BlendMode = InMesh.MaterialRenderProxy->GetMaterial(FeatureLevel)->GetBlendMode();
-	bHasOpaqueOrMaskedMaterial = !IsTranslucentBlendMode(BlendMode);
+	const FMaterial* Material = InMesh.MaterialRenderProxy->GetMaterial(FeatureLevel);
+	bHasOpaqueOrMaskedMaterial = !IsTranslucentBlendMode(Material->GetBlendMode());
 	bRenderInMainPass = PrimitiveSceneProxy->ShouldRenderInMainPass();
 }
 
@@ -545,6 +545,8 @@ FViewUniformShaderParameters::FViewUniformShaderParameters()
 
 	PerlinNoise3DTexture = BlackVolume;
 	PerlinNoise3DTextureSampler = TStaticSamplerState<SF_Bilinear, AM_Wrap, AM_Wrap, AM_Wrap>::GetRHI();
+
+	SobolSamplingTexture = GWhiteTexture->TextureRHI;
 
 	GlobalDistanceFieldTexture0_UB = BlackVolume;
 	GlobalDistanceFieldSampler0_UB = TStaticSamplerState<SF_Bilinear, AM_Wrap, AM_Wrap, AM_Wrap>::GetRHI();

@@ -79,7 +79,7 @@ namespace Audio
 		USpatializationPluginSourceSettingsBase* SpatializationPluginSettings;
 		UOcclusionPluginSourceSettingsBase* OcclusionPluginSettings;
 		UReverbPluginSourceSettingsBase* ReverbPluginSettings;
-		uint32 AudioComponentUserID;
+		FName AudioComponentUserID;
 		bool bPlayEffectChainTails;
 		bool bUseHRTFSpatialization;
 		bool bIsDebugMode;
@@ -93,7 +93,6 @@ namespace Audio
 			, SpatializationPluginSettings(nullptr)
 			, OcclusionPluginSettings(nullptr)
 			, ReverbPluginSettings(nullptr)
-			, AudioComponentUserID(INDEX_NONE)
 			, bPlayEffectChainTails(true)
 			, bUseHRTFSpatialization(false)
 			, bIsDebugMode(false)
@@ -397,6 +396,8 @@ namespace Audio
 
 		int32 NumActiveSources;
 		int32 NumTotalSources;
+		int32 NumOutputFrames;
+		int32 NumOutputSamples;
 		int32 NumSourceWorkers;
 
 		uint8 bInitialized : 1;

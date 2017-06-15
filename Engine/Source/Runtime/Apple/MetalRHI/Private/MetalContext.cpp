@@ -225,7 +225,6 @@ static id<MTLDevice> GetMTLDevice(uint32& DeviceIndex)
 			UE_LOG(LogMetal, Warning,  TEXT("Couldn't find Metal device %s in GPU descriptors from IORegistry - capability reporting may be wrong."), *FString(SelectedDevice.name));
 		}
 	}
-	check(SelectedDevice);
 	return SelectedDevice;
 }
 
@@ -293,8 +292,13 @@ FMetalDeviceContext* FMetalDeviceContext::CreateDeviceContext()
 	uint32 DeviceIndex = 0;
 #if PLATFORM_IOS
 	id<MTLDevice> Device = [IOSAppDelegate GetDelegate].IOSView->MetalDevice;
-#else // @todo zebra
+#else
 	id<MTLDevice> Device = GetMTLDevice(DeviceIndex);
+	if (!Device)
+	{
+		FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, TEXT("The graphics card in this Mac appears to erroneously report support for Metal graphics technology, which is required to run this application, but failed to create a Metal device. The application will now exit."), TEXT("Failed to initialize Metal"));
+		exit(0);
+	}
 #endif
 	FMetalCommandQueue* Queue = new FMetalCommandQueue(Device, GMetalCommandQueueSize);
 	check(Queue);
@@ -858,7 +862,7 @@ FMetalRHICommandContext* FMetalDeviceContext::AcquireContext(int32 NewIndex, int
 	
 	if (NewIndex == 0)
 	{
-		if (FRHICommandListExecutor::GetImmediateCommandList().Bypass() || !GRHIThread)
+		if (FRHICommandListExecutor::GetImmediateCommandList().Bypass() || !IsRunningRHIInSeparateThread())
 		{
 			FMetalRHICommandUpdateFence UpdateCommand(this, StartFence, FMetalRHICommandUpdateFence::End);
 			UpdateCommand.Execute(FRHICommandListExecutor::GetImmediateCommandList());
@@ -869,7 +873,7 @@ FMetalRHICommandContext* FMetalDeviceContext::AcquireContext(int32 NewIndex, int
 		}
 	}
 	
-	if (FRHICommandListExecutor::GetImmediateCommandList().Bypass() || !GRHIThread)
+	if (FRHICommandListExecutor::GetImmediateCommandList().Bypass() || !IsRunningRHIInSeparateThread())
 	{
 		FMetalRHICommandUpdateFence UpdateCommand(this, EndFence, FMetalRHICommandUpdateFence::Start);
 		UpdateCommand.Execute(FRHICommandListExecutor::GetImmediateCommandList());
@@ -1233,7 +1237,7 @@ void FMetalContext::SetRenderTargetsInfo(const FRHISetRenderTargetsInfo& RenderT
 	{
 		bool bClearInParallelBuffer = false;
 		
-		for (uint32 RenderTargetIndex = 0; RenderTargetIndex < MaxMetalRenderTargets; RenderTargetIndex++)
+		for (uint32 RenderTargetIndex = 0; RenderTargetIndex < MaxSimultaneousRenderTargets; RenderTargetIndex++)
 		{
 			if (RenderTargetIndex < RenderTargetsInfo.NumColorRenderTargets && RenderTargetsInfo.ColorRenderTarget[RenderTargetIndex].Texture != nullptr)
 			{

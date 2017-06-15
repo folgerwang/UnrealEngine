@@ -37,6 +37,7 @@
 #include "UniquePtr.h"
 #include "Serialization/BufferReader.h"
 #include "TaskGraphInterfaces.h"
+#include "Blueprint/BlueprintSupport.h"
 
 #define FIND_MEMORY_STOMPS (1 && (PLATFORM_WINDOWS || PLATFORM_LINUX) && !WITH_EDITORONLY_DATA)
 
@@ -156,6 +157,13 @@ static FAutoConsoleVariableRef CVar_MaxReadyRequestsToStallMB(
 	GMaxReadyRequestsToStallMB,
 	TEXT("Controls the maximum amount memory for unhandled IO requests before we stall the pak precacher to let the CPU catch up (in megabytes).")
 );
+
+int32 GProcessPrestreamingRequests = 0;
+static FAutoConsoleVariableRef CVar_ProcessPrestreamingRequests(
+	TEXT("s.ProcessPrestreamingRequests"),
+	GProcessPrestreamingRequests,
+	TEXT("If non-zero, then we process prestreaming requests in cooked builds.")
+	);
 
 int32 GEditorLoadPrecacheSizeKB = 0;
 static FAutoConsoleVariableRef CVar_EditorLoadPrecacheSizeKB(
@@ -964,7 +972,7 @@ FString FEventLoadNodePtr::HumanReadableStringForDebugging() const
 	const TCHAR* NodeName = TEXT("Unknown");
 	FString Details;
 
-	FAsyncPackage* Pkg = &WaitingPackage.GetPackage();
+	FAsyncPackage& Pkg = WaitingPackage.GetPackage();
 	if (ImportOrExportIndex.IsNull())
 	{
 		switch (Phase)
@@ -1012,12 +1020,8 @@ FString FEventLoadNodePtr::HumanReadableStringForDebugging() const
 		default:
 			check(0);
 		}
-		Details = TEXT("Package or Linker Not Found");
 
-		if (Pkg)
-		{
-			Details = Pkg->GetDebuggingPath(ImportOrExportIndex);
-		}
+		Details = Pkg.GetDebuggingPath(ImportOrExportIndex);
 	}
 	return FString::Printf(TEXT("%s %d %s   %s"), *WaitingPackage.HumanReadableStringForDebugging().ToString(), ImportOrExportIndex.ForDebugging(), NodeName, *Details);
 }
@@ -1935,6 +1939,7 @@ static bool IsFullyLoadedObj(UObject* Obj)
 	return false;
 }
 
+static const FName PrestreamPackageClassNameLoad = FName("PrestreamPackage");
 
 EAsyncPackageState::Type FAsyncPackage::LoadImports_Event()
 {
@@ -1971,6 +1976,15 @@ EAsyncPackageState::Type FAsyncPackage::LoadImports_Event()
 			}
 		}
 
+		bool bIsPrestreamRequest = Import->ClassName == PrestreamPackageClassNameLoad;
+
+		if (!GProcessPrestreamingRequests && bIsPrestreamRequest)
+		{
+			UE_LOG(LogStreaming, Display, TEXT("%s is NOT prestreaming %s"), *Desc.NameToLoad.ToString(), *Import->ObjectName.ToString());
+			Import->bImportFailed = true;
+			continue;
+		}
+
 		bool bForcePackageLoad = false;
 		if (!Import->OuterIndex.IsNull() && !Import->bImportFailed)
 		{
@@ -1995,7 +2009,7 @@ EAsyncPackageState::Type FAsyncPackage::LoadImports_Event()
 		// else don't set handled because bForcePackageLoad is false, meaning we might not set the thing anyway
 
 		// @todoio: why do we need this? some UFunctions have null outer in the linker.
-		if (Import->ClassName != NAME_Package)
+		if (Import->ClassName != NAME_Package && !bIsPrestreamRequest)
 		{
 			check(0);
 			continue;
@@ -2029,8 +2043,8 @@ EAsyncPackageState::Type FAsyncPackage::LoadImports_Event()
 				// This can happen with editor only classes, not sure if this should be a warning or a silent continue
 				if (!GIsInitialLoad)
 				{
-				UE_LOG(LogStreaming, Warning, TEXT("FAsyncPackage::LoadImports for %s: Skipping import %s, depends on missing native class"), *Desc.NameToLoad.ToString(), *OriginalImport->ObjectName.ToString());
-			}
+					UE_LOG(LogStreaming, Warning, TEXT("FAsyncPackage::LoadImports for %s: Skipping import %s, depends on missing native class"), *Desc.NameToLoad.ToString(), *OriginalImport->ObjectName.ToString());
+				}
 			}
 			else if (!ExistingPackage || bForcePackageLoad)
 			{
@@ -2040,6 +2054,10 @@ EAsyncPackageState::Type FAsyncPackage::LoadImports_Event()
 				const FAsyncPackageDesc Info(INDEX_NONE, Import->ObjectName);
 				PendingPackage = new FAsyncPackage(Info);
 				PendingPackage->Desc.Priority = Desc.Priority;
+				if (bIsPrestreamRequest)
+				{
+					UE_LOG(LogStreaming, Display, TEXT("%s is prestreaming %s"), *Desc.NameToLoad.ToString(), *Import->ObjectName.ToString());
+				}
 				AsyncLoadingThread.InsertPackage(PendingPackage);
 				bDidSomething = true;
 			}
@@ -2156,28 +2174,35 @@ EAsyncPackageState::Type FAsyncPackage::SetupImports_Event()
 
 		if (Import.OuterIndex.IsNull())
 		{
-			UPackage* ImportPackage = Import.XObject ? CastChecked<UPackage>(Import.XObject) : nullptr;
-			if (!ImportPackage)
+			if (!Import.bImportFailed)
 			{
-				ImportPackage = FindObjectFast<UPackage>(NULL, Import.ObjectName, false, false);
-				check(ImportPackage || FLinkerLoad::IsKnownMissingPackage(Import.ObjectName)); // We should have packages created for all imports by now
-				Import.XObject = ImportPackage; // this is an optimization to avoid looking up import packages multiple times, also, later we assume these are already filled in
-				if (Import.XObject)
+				UPackage* ImportPackage = Import.XObject ? CastChecked<UPackage>(Import.XObject) : nullptr;
+				if (!ImportPackage)
 				{
-					AddObjectReference(Import.XObject);
+					ImportPackage = FindObjectFast<UPackage>(NULL, Import.ObjectName, false, false);
+					if (!ImportPackage)
+					{
+						Import.bImportFailed = true;
+						UE_CLOG(!FLinkerLoad::IsKnownMissingPackage(Import.ObjectName), LogStreaming, Error, TEXT("Missing native package (%s) for import of package %s"), *Import.ObjectName.ToString(), *Desc.NameToLoad.ToString());
+					}
+					else
+					{
+						Import.XObject = ImportPackage; 
+						AddObjectReference(Import.XObject);
+					}
 				}
 
-			}
-			if (ImportPackage)
-			{
-				FLinkerLoad* ImportLinker = ImportPackage->LinkerLoad;
-				if (ImportLinker && ImportLinker->AsyncRoot)
+				if (ImportPackage)
 				{
-					check(ImportLinker->AsyncRoot != this);
-					// make sure we wait for this package to serialize (and all of its dependents) before we start doing postloads
-					if (int32(ImportLinker->AsyncRoot->AsyncPackageLoadingState) <= int32(EAsyncPackageLoadingState::WaitingForPostLoad)) // no need to clutter dependencies with things that are already done
+					FLinkerLoad* ImportLinker = ImportPackage->LinkerLoad;
+					if (ImportLinker && ImportLinker->AsyncRoot)
 					{
-						PackagesIMayBeWaitingForBeforePostload.Add(FWeakAsyncPackagePtr(ImportLinker->AsyncRoot));
+						check(ImportLinker->AsyncRoot != this);
+						// make sure we wait for this package to serialize (and all of its dependents) before we start doing postloads
+						if (int32(ImportLinker->AsyncRoot->AsyncPackageLoadingState) <= int32(EAsyncPackageLoadingState::WaitingForPostLoad)) // no need to clutter dependencies with things that are already done
+						{
+							PackagesIMayBeWaitingForBeforePostload.Add(FWeakAsyncPackagePtr(ImportLinker->AsyncRoot));
+						}
 					}
 				}
 			}
@@ -2205,10 +2230,14 @@ EAsyncPackageState::Type FAsyncPackage::SetupImports_Event()
 			if (!ImportPackage)
 			{
 				ImportPackage = FindObjectFast<UPackage>(NULL, OuterMostImport.ObjectName, false, false);
-				check(ImportPackage || FLinkerLoad::IsKnownMissingPackage(OuterMostImport.ObjectName)); // We should have packages created for all imports by now
-				OuterMostImport.XObject = ImportPackage; // this is an optimization to avoid looking up import packages multiple times, also, later we assume these are already filled in
-				if (OuterMostImport.XObject)
+				if (!ImportPackage)
 				{
+					Import.bImportFailed = true;
+					UE_CLOG(!FLinkerLoad::IsKnownMissingPackage(OuterMostImport.ObjectName), LogStreaming, Error, TEXT("Missing native package (%s) for import of %s in %s."), *OuterMostImport.ObjectName.ToString(), *Import.ObjectName.ToString(), *Desc.NameToLoad.ToString());
+				}
+				else
+				{
+					OuterMostImport.XObject = ImportPackage; // this is an optimization to avoid looking up import packages multiple times, also, later we assume these are already filled in
 					AddObjectReference(OuterMostImport.XObject);
 				}
 			}
@@ -2222,7 +2251,6 @@ EAsyncPackageState::Type FAsyncPackage::SetupImports_Event()
 #if USE_EVENT_DRIVEN_ASYNC_LOAD_AT_BOOT_TIME
 				if (GIsInitialLoad && !ImportLinker && ImportPackage->HasAnyPackageFlags(PKG_CompiledIn) && !bDynamicImport)
 				{
-					check(ImportPackage->GetName().StartsWith(TEXT("/Script/"))); // sanity check though doesn't really matter; we just need to correctly identify compiled in things.
 					// OuterMostNonPackageIndex is used here because if it is a CDO or subobject, etc, we wait for the outermost thing that is not a package
 					bFireIfNoArcsAdded = !GetGEDLBootNotificationManager().AddWaitingPackage(this, OuterMostImport.ObjectName, Linker->Imp(OuterMostNonPackageIndex).ObjectName, FPackageIndex::FromImport(LocalImportIndex));
 				}
@@ -2248,8 +2276,20 @@ EAsyncPackageState::Type FAsyncPackage::SetupImports_Event()
 					check(ImportLinker->AsyncRoot != this);
 					check(!Import.OuterIndex.IsNull());
 					check(Import.OuterIndex.IsImport());
-					FName OuterName = Import.OuterIndex == OuterMostIndex ? NAME_None : // if the outer is the package, then that is just a null outer in the export table
-						Linker->Imp(Import.OuterIndex).ObjectName;
+
+					TArray<FName, TInlineAllocator<8> > OuterNames;
+
+					{
+						FPackageIndex WorkingOuter = Import.OuterIndex;
+						while (WorkingOuter != OuterMostIndex)
+						{
+							check(WorkingOuter.IsImport());
+							FObjectImport& WorkingImport = Linker->Imp(WorkingOuter);
+							OuterNames.Add(WorkingImport.ObjectName);
+							WorkingOuter = WorkingImport.OuterIndex;
+						}
+					}
+					FName OuterName = OuterNames.Num() ? OuterNames[0] : NAME_None;
 
 					FPackageIndex LocalExportIndex;
 					for (auto It = ImportLinker->AsyncRoot->ObjectNameToImportOrExport.CreateKeyIterator(Import.ObjectName); It; ++It)
@@ -2258,16 +2298,26 @@ EAsyncPackageState::Type FAsyncPackage::SetupImports_Event()
 						if (PotentialExport.IsExport())
 						{
 							FObjectExport& Export = ImportLinker->Exp(PotentialExport);
-							// this logic might not cover all cases
-							bool bMatch = false;
-							if (Export.OuterIndex.IsNull())
+							bool bMatch = true;
+							int32 Index = 0;
+
 							{
-								bMatch = OuterName == NAME_None;
-							}
-							else
-							{
-								check(Export.OuterIndex.IsExport());
-								bMatch = ImportLinker->Exp(Export.OuterIndex).ObjectName == OuterName;
+								FPackageIndex WorkingOuter = Export.OuterIndex;
+								while (WorkingOuter.IsExport() && Index < OuterNames.Num())
+								{
+									FObjectExport& WorkingExport = ImportLinker->Exp(WorkingOuter);
+									if (OuterNames[Index] != WorkingExport.ObjectName)
+									{
+										bMatch = false;
+										break;
+									}
+									Index++;
+									WorkingOuter = WorkingExport.OuterIndex;
+								}
+								if (Index < OuterNames.Num() || WorkingOuter.IsExport())
+								{
+									bMatch = false;
+								}
 							}
 							if (bMatch)
 							{
@@ -2371,10 +2421,7 @@ EAsyncPackageState::Type FAsyncPackage::SetupImports_Event()
 								{
 									check(!Import.XObject || Import.XObject == Export.Object);
 									Import.XObject = Export.Object;
-									if (Import.XObject)
-									{
-										AddObjectReference(Import.XObject);
-									}
+									AddObjectReference(Import.XObject);
 								}
 								if (!IsFullyLoadedObj(Export.Object))
 								{
@@ -2725,8 +2772,12 @@ void FAsyncPackage::LinkImport(int32 LocalImportIndex)
 			FObjectImport& OuterMostImport = Linker->Imp(OuterMostIndex);
 			UPackage* ImportPackage = (UPackage*)OuterMostImport.XObject; // these were filled in a previous step
 
-			check(ImportPackage || FLinkerLoad::IsKnownMissingPackage(OuterMostImport.ObjectName)); // We should have packages created for all imports by now
-			if (ImportPackage)
+			if (!ImportPackage)
+			{
+				Import.bImportFailed = true;
+				UE_CLOG(!FLinkerLoad::IsKnownMissingPackage(OuterMostImport.ObjectName), LogStreaming, Error, TEXT("Missing native package (%s) for import of %s in %s."), *OuterMostImport.ObjectName.ToString(), *Import.ObjectName.ToString(), *Desc.NameToLoad.ToString());
+			}
+			else
 			{
 				if (&OuterMostImport == &Import)
 				{
@@ -2941,7 +2992,7 @@ void FAsyncPackage::EventDrivenCreateExport(int32 LocalExportIndex)
 	check(!Export.Object); // we should not have this yet
 	if (!Export.Object && !Export.bExportLoadFailed)
 	{
-		if (!Export.Object && !Linker->FilterExport(Export)) // for some acceptable position, it was not "not for" 
+		if (!Linker->FilterExport(Export)) // for some acceptable position, it was not "not for" 
 		{
 			if (Linker->GetFArchiveAsync2Loader())
 			{
@@ -3070,10 +3121,20 @@ void FAsyncPackage::EventDrivenCreateExport(int32 LocalExportIndex)
 					// Do this for all subobjects created in the native constructor.
 					if (!Export.Object->HasAnyFlags(RF_LoadCompleted))
 					{
-							UE_LOG(LogStreaming, VeryVerbose, TEXT("Note2: %s was constructed during load and is an export and so needs loading."), *Export.Object->GetFullName());
-							UE_CLOG(!Export.Object->HasAllFlags(RF_WillBeLoaded), LogStreaming, Fatal, TEXT("%s was found in memory and is an export but does not have all load flags."), *Export.Object->GetFullName());
-						Export.Object->SetFlags(RF_NeedLoad | RF_NeedPostLoad | RF_NeedPostLoadSubobjects | RF_WasLoaded);
-							Export.Object->ClearFlags(RF_WillBeLoaded);
+						UE_LOG(LogStreaming, VeryVerbose, TEXT("Note2: %s was constructed during load and is an export and so needs loading."), *Export.Object->GetFullName());
+						UE_CLOG(!Export.Object->HasAllFlags(RF_WillBeLoaded), LogStreaming, Fatal, TEXT("%s was found in memory and is an export but does not have all load flags."), *Export.Object->GetFullName());
+						if(Export.Object->HasAnyFlags(RF_ClassDefaultObject))
+						{
+							// never call PostLoadSubobjects on class default objects, this matches the behavior of the old linker where
+							// StaticAllocateObject prevents setting of RF_NeedPostLoad and RF_NeedPostLoadSubobjects, but FLinkerLoad::Preload
+							// assigns RF_NeedPostLoad for blueprint CDOs:
+							Export.Object->SetFlags(RF_NeedLoad | RF_NeedPostLoad | RF_WasLoaded);
+						}
+						else
+						{
+							Export.Object->SetFlags(RF_NeedLoad | RF_NeedPostLoad | RF_NeedPostLoadSubobjects | RF_WasLoaded);
+						}
+						Export.Object->ClearFlags(RF_WillBeLoaded);
 					}
 				}
 			}
@@ -4140,7 +4201,7 @@ EAsyncPackageState::Type FAsyncLoadingThread::ProcessAsyncLoading(int32& OutPack
 	double TickStartTime = FPlatformTime::Seconds();
 
 #if !UE_BUILD_SHIPPING && !UE_BUILD_TEST
-	FScopedRecursionNotAllowed RecursionGuard;
+		FScopedRecursionNotAllowed RecursionGuard;
 #endif
 
 	if (GEventDrivenLoaderEnabled)
@@ -4513,6 +4574,11 @@ EAsyncPackageState::Type FAsyncLoadingThread::ProcessLoadedPackages(bool bUseTim
 
 	if (Result == EAsyncPackageState::Complete)
 	{
+#if WITH_EDITORONLY_DATA
+		// This needs to happen after loading new blueprints in the editor, and this is handled in EndLoad for synchronous loads
+		FBlueprintSupport::FlushReinstancingQueue();
+#endif
+
 		// We're not done until all packages have been deleted
 		Result = PackagesToDelete.Num() ? EAsyncPackageState::PendingImports : EAsyncPackageState::Complete;
 	}
@@ -5134,7 +5200,7 @@ void FAsyncPackage::DetachLinker()
 {	
 	if (Linker)
 	{
-		check(bLoadHasFinished || bLoadHasFailed);
+		checkf(bLoadHasFinished || bLoadHasFailed, TEXT("FAsyncPackage::DetachLinker called before load finished on package \"%s\""), *this->GetPackageName().ToString());
 		check(Linker->AsyncRoot == this || Linker->AsyncRoot == nullptr);
 		Linker->AsyncRoot = nullptr;
 		Linker = nullptr;
@@ -5384,6 +5450,12 @@ EAsyncPackageState::Type FAsyncPackage::CreateLinker()
 		{
 			FGCScopeGuard GCGuard;
 			Package = CreatePackage(nullptr, *Desc.Name.ToString());
+			if (!Package)
+			{
+				UE_LOG(LogStreaming, Error, TEXT("Failed to create package %s requested by async loading code. NameToLoad: %s"), *Desc.Name.ToString(), *Desc.NameToLoad.ToString());
+				bLoadHasFailed = true;
+				return EAsyncPackageState::TimeOut;
+			}
 			AddObjectReference(Package);
 			LinkerRoot = Package;
 		}

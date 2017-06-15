@@ -225,8 +225,7 @@ bool UGameplayStatics::IsGamePaused(const UObject* WorldContextObject)
 /** @RETURN True if weapon trace from Origin hits component VictimComp.  OutHitResult will contain properties of the hit. */
 static bool ComponentIsDamageableFrom(UPrimitiveComponent* VictimComp, FVector const& Origin, AActor const* IgnoredActor, const TArray<AActor*>& IgnoreActors, ECollisionChannel TraceChannel, FHitResult& OutHitResult)
 {
-	static FName NAME_ComponentIsVisibleFrom = FName(TEXT("ComponentIsVisibleFrom"));
-	FCollisionQueryParams LineParams(NAME_ComponentIsVisibleFrom, true, IgnoredActor);
+	FCollisionQueryParams LineParams(SCENE_QUERY_STAT(ComponentIsVisibleFrom), true, IgnoredActor);
 	LineParams.AddIgnoredActors( IgnoreActors );
 
 	// Do a trace from origin to middle of box
@@ -275,8 +274,7 @@ bool UGameplayStatics::ApplyRadialDamage(const UObject* WorldContextObject, floa
 
 bool UGameplayStatics::ApplyRadialDamageWithFalloff(const UObject* WorldContextObject, float BaseDamage, float MinimumDamage, const FVector& Origin, float DamageInnerRadius, float DamageOuterRadius, float DamageFalloff, TSubclassOf<class UDamageType> DamageTypeClass, const TArray<AActor*>& IgnoreActors, AActor* DamageCauser, AController* InstigatedByController, ECollisionChannel DamagePreventionChannel)
 {
-	static FName NAME_ApplyRadialDamage = FName(TEXT("ApplyRadialDamage"));
-	FCollisionQueryParams SphereParams(NAME_ApplyRadialDamage, false, DamageCauser);
+	FCollisionQueryParams SphereParams(SCENE_QUERY_STAT(ApplyRadialDamage),  false, DamageCauser);
 
 	SphereParams.AddIgnoredActors(IgnoreActors);
 
@@ -1590,6 +1588,56 @@ USaveGame* UGameplayStatics::CreateSaveGameObjectFromBlueprint(UBlueprint* SaveG
 	return nullptr;
 }
 
+bool UGameplayStatics::SaveGameToMemory(USaveGame* SaveGameObject, TArray<uint8>& OutSaveData )
+{
+	FMemoryWriter MemoryWriter(OutSaveData, true);
+
+	// write file type tag. identifies this file type and indicates it's using proper versioning
+	// since older UE4 versions did not version this data.
+	int32 FileTypeTag = UE4_SAVEGAME_FILE_TYPE_TAG;
+	MemoryWriter << FileTypeTag;
+
+	// Write version for this file format
+	int32 SavegameFileVersion = FSaveGameFileVersion::LatestVersion;
+	MemoryWriter << SavegameFileVersion;
+
+	// Write out engine and UE4 version information
+	int32 PackageFileUE4Version = GPackageFileUE4Version;
+	MemoryWriter << PackageFileUE4Version;
+	FEngineVersion SavedEngineVersion = FEngineVersion::Current();
+	MemoryWriter << SavedEngineVersion;
+
+	// Write out custom version data
+	ECustomVersionSerializationFormat::Type const CustomVersionFormat = ECustomVersionSerializationFormat::Latest;
+	int32 CustomVersionFormatInt = static_cast<int32>(CustomVersionFormat);
+	MemoryWriter << CustomVersionFormatInt;
+	FCustomVersionContainer CustomVersions = FCustomVersionContainer::GetRegistered();
+	CustomVersions.Serialize(MemoryWriter, CustomVersionFormat);
+
+	// Write the class name so we know what class to load to
+	FString SaveGameClassName = SaveGameObject->GetClass()->GetName();
+	MemoryWriter << SaveGameClassName;
+
+	// Then save the object state, replacing object refs and names with strings
+	FObjectAndNameAsStringProxyArchive Ar(MemoryWriter, false);
+	SaveGameObject->Serialize(Ar);
+
+	return true; // Not sure if there's a failure case here.
+}
+
+bool UGameplayStatics::SaveDataToSlot(const TArray<uint8>& InSaveData, const FString& SlotName, const int32 UserIndex)
+{
+	ISaveGameSystem* SaveSystem = IPlatformFeaturesModule::Get().GetSaveGameSystem();
+
+	if (SaveSystem && InSaveData.Num() > 0 && SlotName.Len() > 0)
+	{
+		// Stuff that data into the save system with the desired file name
+		return SaveSystem->SaveGame(false, *SlotName, UserIndex, InSaveData);
+	}
+
+	return false;
+}
+
 bool UGameplayStatics::SaveGameToSlot(USaveGame* SaveGameObject, const FString& SlotName, const int32 UserIndex)
 {
 	ISaveGameSystem* SaveSystem = IPlatformFeaturesModule::Get().GetSaveGameSystem();
@@ -1793,8 +1841,6 @@ bool UGameplayStatics::BlueprintSuggestProjectileVelocity(const UObject* WorldCo
 }
 
 // note: this will automatically fall back to line test if radius is small enough
-static const FName NAME_SuggestProjVelTrace = FName(TEXT("SuggestProjVelTrace"));
-
 // Based on analytic solution to ballistic angle of launch http://en.wikipedia.org/wiki/Trajectory_of_a_projectile#Angle_required_to_hit_coordinate_.28x.2Cy.29
 bool UGameplayStatics::SuggestProjectileVelocity(const UObject* WorldContextObject, FVector& OutTossVelocity, FVector Start, FVector End, float TossSpeed, bool bFavorHighArc, float CollisionRadius, float OverrideGravityZ, ESuggestProjVelocityTraceOption::Type TraceOption, const FCollisionResponseParams& ResponseParam, const TArray<AActor*>& ActorsToIgnore, bool bDrawDebug)
 {
@@ -1920,7 +1966,7 @@ bool UGameplayStatics::SuggestProjectileVelocity(const UObject* WorldContextObje
 				}
 				else
 				{
-					FCollisionQueryParams QueryParams(NAME_SuggestProjVelTrace, true);
+					FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(SuggestProjVelTrace), true);
 					QueryParams.AddIgnoredActors(ActorsToIgnore);
 					if (World->SweepTestByChannel(TraceStart, TraceEnd, FQuat::Identity, ECC_WorldDynamic, FCollisionShape::MakeSphere(CollisionRadius), QueryParams, ResponseParam))
 					{
@@ -1969,9 +2015,6 @@ bool UGameplayStatics::SuggestProjectileVelocity(const UObject* WorldContextObje
 	return bFoundAValidSolution;
 }
 
-
-static const FName NAME_PredictProjectilePath = FName(TEXT("PredictProjectilePath"));
-
 // note: this will automatically fall back to line test if radius is small enough
 bool UGameplayStatics::PredictProjectilePath(const UObject* WorldContextObject, const FPredictProjectilePathParams& PredictParams, FPredictProjectilePathResult& PredictResult)
 {
@@ -1985,7 +2028,7 @@ bool UGameplayStatics::PredictProjectilePath(const UObject* WorldContextObject, 
 		const float GravityZ = FMath::IsNearlyEqual(PredictParams.OverrideGravityZ, 0.0f) ? World->GetGravityZ() : PredictParams.OverrideGravityZ;
 		const float ProjectileRadius = PredictParams.ProjectileRadius;
 
-		FCollisionQueryParams QueryParams(NAME_PredictProjectilePath, PredictParams.bTraceComplex);
+		FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(PredictProjectilePath), PredictParams.bTraceComplex);
 		FCollisionObjectQueryParams ObjQueryParams;
 		const bool bTraceWithObjectType = (PredictParams.ObjectTypes.Num() > 0);
 		const bool bTracePath = PredictParams.bTraceWithCollision && (PredictParams.bTraceWithChannel || bTraceWithObjectType);

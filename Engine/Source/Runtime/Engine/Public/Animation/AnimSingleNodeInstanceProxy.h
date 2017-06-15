@@ -16,8 +16,8 @@ struct FAnimSingleNodeInstanceProxy;
  * Local anim node for extensible processing. 
  * Cant be used outside of this context as it has no graph node counterpart 
  */
-USTRUCT()
-struct FAnimNode_SingleNode : public FAnimNode_Base
+USTRUCT(BlueprintInternalUseOnly)
+struct ENGINE_API FAnimNode_SingleNode : public FAnimNode_Base
 {
 	friend struct FAnimSingleNodeInstanceProxy;
 

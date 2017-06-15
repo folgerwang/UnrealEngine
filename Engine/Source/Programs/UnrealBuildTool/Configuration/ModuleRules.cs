@@ -117,6 +117,58 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Information about a file which is required by the target at runtime, and must be moved around with it.
+		/// </summary>
+		[Serializable]
+		public class RuntimeDependency
+		{
+			/// <summary>
+			/// The file that should be staged. Should use $(EngineDir) and $(ProjectDir) variables as a root, so that the target can be relocated to different machines.
+			/// </summary>
+			public string Path;
+
+			/// <summary>
+			/// How to stage this file.
+			/// </summary>
+			public StagedFileType Type;
+
+			/// <summary>
+			/// Constructor
+			/// </summary>
+			/// <param name="InPath">Path to the runtime dependency</param>
+			/// <param name="InType">How to stage the given path</param>
+			public RuntimeDependency(string InPath, StagedFileType InType = StagedFileType.NonUFS)
+			{
+				Path = InPath;
+				Type = InType;
+			}
+		}
+
+		/// <summary>
+		/// List of runtime dependencies, with convenience methods for adding new items
+		/// </summary>
+		[Serializable]
+		public class RuntimeDependencyList : List<RuntimeDependency>
+		{
+			/// <summary>
+			/// Default constructor
+			/// </summary>
+			public RuntimeDependencyList()
+			{
+			}
+
+			/// <summary>
+			/// Add a runtime dependency to the list
+			/// </summary>
+			/// <param name="InPath">Path to the runtime dependency. May include wildcards.</param>
+			/// <param name="InType">How to stage this file</param>
+			public void Add(string InPath, StagedFileType InType)
+			{
+				Add(new RuntimeDependency(InPath, InType));
+			}
+		}
+
+		/// <summary>
 		/// Rules for the target that this module belongs to
 		/// </summary>
 		public readonly ReadOnlyTargetRules Target;
@@ -147,6 +199,11 @@ namespace UnrealBuildTool
 		/// This should only be set for header files that are included by a significant number of other C++ modules.
 		/// </summary>
 		public string SharedPCHHeaderFile;
+		
+		/// <summary>
+		/// Specifies an alternate name for intermediate directories and files for intermediates of this module. Useful when hitting path length limitations.
+		/// </summary>
+		public string ShortName = null;
 
 		/// <summary>
 		/// Precompiled header usage for this module
@@ -226,6 +283,11 @@ namespace UnrealBuildTool
 		/// are used, and checks that source files include their matching header first.
 		/// </summary>
 		public bool bEnforceIWYU = true;
+
+		/// <summary>
+		/// Whether to add all the default include paths to the module (eg. the Source/Classes folder, subfolders under Source/Public).
+		/// </summary>
+		public bool bAddDefaultIncludePaths = true;
 
 		/// <summary>
 		/// List of modules names (no path needed) with header files that our module's public headers needs access to, but we don't need to "import" or link against.
@@ -342,6 +404,11 @@ namespace UnrealBuildTool
 		public PrecompileTargetsType PrecompileForTargets = PrecompileTargetsType.Default;
 
 		/// <summary>
+		/// External files which invalidate the makefile if modified. Relative paths are resolved relative to the .build.cs file.
+		/// </summary>
+		public List<string> ExternalDependencies = new List<string>();
+
+		/// <summary>
 		/// Property for the directory containing this module. Useful for adding paths to third party dependencies.
 		/// </summary>
 		public string ModuleDirectory
@@ -453,7 +520,7 @@ namespace UnrealBuildTool
 				Definitions.Add("WITH_APEX=1");
 				Definitions.Add("WITH_APEX_CLOTHING=1");
 				Definitions.Add("WITH_CLOTH_COLLISION_DETECTION=1");
-				Definitions.Add("WITH_PHYSICS_COOKING=1");  // APEX currently relies on cooking even at runtime
+				Definitions.Add("WITH_PHYSX_COOKING=1");  // APEX currently relies on cooking even at runtime
 
 			}
 			else
@@ -461,7 +528,7 @@ namespace UnrealBuildTool
 				Definitions.Add("WITH_APEX=0");
 				Definitions.Add("WITH_APEX_CLOTHING=0");
 				Definitions.Add("WITH_CLOTH_COLLISION_DETECTION=0");
-				Definitions.Add(string.Format("WITH_PHYSICS_COOKING={0}", UEBuildConfiguration.bBuildEditor ? 1 : 0));  // without APEX, we only need cooking in editor builds
+				Definitions.Add(string.Format("WITH_PHYSX_COOKING={0}", UEBuildConfiguration.bBuildEditor ? 1 : 0));  // without APEX, we only need cooking in editor builds
 			}
 
 			if (Target.bCompileNvCloth == true)
@@ -478,15 +545,6 @@ namespace UnrealBuildTool
 			else
 			{
 				Definitions.Add("WITH_NVCLOTH=0");
-			}
-
-			if (Target.bRuntimePhysicsCooking == true)
-			{
-				Definitions.Add("WITH_RUNTIME_PHYSICS_COOKING=1");
-			}
-			else
-			{
-				Definitions.Add("WITH_RUNTIME_PHYSICS_COOKING=0");
 			}
 		}
 

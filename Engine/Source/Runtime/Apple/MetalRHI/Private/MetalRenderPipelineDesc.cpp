@@ -143,7 +143,7 @@ FMetalRenderPipelineDesc::FMetalRenderPipelineDesc()
 {
 	Hash.RasterBits = 0;
 	Hash.TargetBits = 0;
-	for (int Index = 0; Index < MaxMetalRenderTargets; Index++)
+	for (int Index = 0; Index < MaxSimultaneousRenderTargets; Index++)
 	{
 		[PipelineDescriptor.colorAttachments setObject:[[MTLRenderPipelineColorAttachmentDescriptor new] autorelease] atIndexedSubscript:Index];
 	}
@@ -168,7 +168,7 @@ FMetalShaderPipeline* FMetalRenderPipelineDesc::CreatePipelineStateForBoundShade
 	
 	// Disable blending and writing on unbound targets or Metal will assert/crash/abort depending on build.
 	// At least with this API all the state must match all of the time for it to work.
-	for (int Index = 0; Index < MaxMetalRenderTargets; Index++)
+	for (int Index = 0; Index < MaxSimultaneousRenderTargets; Index++)
 	{
 		MTLRenderPipelineColorAttachmentDescriptor* Desc = [PipelineDescriptor.colorAttachments objectAtIndexedSubscript:Index];
 		if(Desc.pixelFormat == MTLPixelFormatInvalid)
@@ -206,7 +206,7 @@ FMetalShaderPipeline* FMetalRenderPipelineDesc::CreatePipelineStateForBoundShade
 	
 	NSError* Error = nil;
 	
-	if(GUseRHIThread)
+	if (IsRunningRHIInSeparateThread())
 	{
 		SCOPE_CYCLE_COUNTER(STAT_MetalPipelineLockTime);
 		int Err = pthread_rwlock_rdlock(&MetalPipelineMutex.Mutex);
@@ -224,7 +224,7 @@ FMetalShaderPipeline* FMetalRenderPipelineDesc::CreatePipelineStateForBoundShade
 	FMetalShaderPipeline* statePack = MetalPipelineCache.FindRef(ComparableDesc);
 	if(statePack == nil)
 	{
-		if(GUseRHIThread)
+		if(IsRunningRHIInSeparateThread())
 		{
 			SCOPE_CYCLE_COUNTER(STAT_MetalPipelineLockTime);
 			int Err = pthread_rwlock_unlock(&MetalPipelineMutex.Mutex);
@@ -251,15 +251,17 @@ FMetalShaderPipeline* FMetalRenderPipelineDesc::CreatePipelineStateForBoundShade
 			tessellationDesc.TessellationControlPointIndexBufferIndex = UINT_MAX;
 			tessellationDesc.DomainVertexDescriptor = PipelineDescriptor.vertexDescriptor;
 			
+			// Disambiguated function name.
+			NSString* Name = [NSString stringWithFormat:@"Main_%0.8x_%0.8x", BSS->VertexShader->SourceLen, BSS->VertexShader->SourceCRC];
 			if (FunctionConstants.Num())
 			{
 				MTLFunctionConstantValues* constantValues = [[MTLFunctionConstantValues new] autorelease];
 				[constantValues setConstantValues:FunctionConstants.GetData() type:MTLDataTypeUInt withRange:NSMakeRange(0, FunctionConstants.Num())];
-				computeFunction = [[BSS->VertexShader->Library newFunctionWithName:@"Main" constantValues:constantValues error:&Error] autorelease];
+				computeFunction = [[BSS->VertexShader->Library newFunctionWithName:Name constantValues:constantValues error:&Error] autorelease];
 			}
 			else
 			{
-				computeFunction = [[BSS->VertexShader->Library newFunctionWithName:@"Main"] autorelease];
+				computeFunction = [[BSS->VertexShader->Library newFunctionWithName:Name] autorelease];
 			}
 			
 			if (computeFunction == nil)
@@ -538,7 +540,7 @@ FMetalShaderPipeline* FMetalRenderPipelineDesc::CreatePipelineStateForBoundShade
 			statePack.FragmentSource = BSS->PixelShader ? BSS->PixelShader->GlslCodeNSString : nil;
 #endif
 			
-			if(GUseRHIThread)
+			if(IsRunningRHIInSeparateThread())
 			{
 				SCOPE_CYCLE_COUNTER(STAT_MetalPipelineLockTime);
 				int Err = pthread_rwlock_wrlock(&MetalPipelineMutex.Mutex);
@@ -556,7 +558,7 @@ FMetalShaderPipeline* FMetalRenderPipelineDesc::CreatePipelineStateForBoundShade
 				statePack = ExistingPipeline;
 			}
 			
-			if(GUseRHIThread)
+			if(IsRunningRHIInSeparateThread())
 			{
 				SCOPE_CYCLE_COUNTER(STAT_MetalPipelineLockTime);
 				int Err = pthread_rwlock_unlock(&MetalPipelineMutex.Mutex);
@@ -583,7 +585,7 @@ FMetalShaderPipeline* FMetalRenderPipelineDesc::CreatePipelineStateForBoundShade
 			return nil;
 		}
 	}
-	else if(GUseRHIThread)
+	else if(IsRunningRHIInSeparateThread())
 	{
 		SCOPE_CYCLE_COUNTER(STAT_MetalPipelineLockTime);
 		int Err = pthread_rwlock_unlock(&MetalPipelineMutex.Mutex);

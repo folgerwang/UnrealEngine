@@ -180,6 +180,7 @@ public:
 		return FontFace == Other.FontFace 
 			&& FontSize == Other.FontSize
 			&& OutlineSize == Other.OutlineSize
+			&& OutlineSizeSeparateFillAlpha == Other.OutlineSizeSeparateFillAlpha
 			&& FontScale == Other.FontScale
 			&& GlyphIndex == Other.GlyphIndex;
 	}
@@ -201,6 +202,8 @@ private:
 	int32 FontSize;
 	/** The size in pixels of the outline to render for the font */
 	float OutlineSize;
+	/** If checked, the outline will be completely translucent where the filled area will be. @see FFontOutlineSettings */
+	bool OutlineSizeSeparateFillAlpha;
 	/** Provides the final scale used to render to the font */
 	float FontScale;
 	/** The index of this glyph in the FreeType face */
@@ -225,7 +228,7 @@ public:
 		int32 TextLen;
 	};
 
-	FShapedGlyphSequence(TArray<FShapedGlyphEntry> InGlyphsToRender, const int16 InTextBaseline, const uint16 InMaxTextHeight, const UObject* InFontMaterial, const struct FFontOutlineSettings& InOutlineSettings, const FSourceTextRange& InSourceTextRange);
+	FShapedGlyphSequence(TArray<FShapedGlyphEntry> InGlyphsToRender, const int16 InTextBaseline, const uint16 InMaxTextHeight, const UObject* InFontMaterial, const FFontOutlineSettings& InOutlineSettings, const FSourceTextRange& InSourceTextRange);
 	~FShapedGlyphSequence();
 
 	/** Get the amount of memory allocated to this sequence */

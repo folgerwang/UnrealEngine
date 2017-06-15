@@ -71,12 +71,16 @@ private:
 	/** Cached copy of the instance data when the ChildActor is destroyed to be available when needed */
 	mutable FChildActorComponentInstanceData* CachedInstanceData;
 
+	/** Flag indicating that when the component is registered that the child actor should be recreated */
+	uint8 bNeedsRecreate:1;
+
 public:
 
 	//~ Begin Object Interface.
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
+	virtual void PostEditImport() override;
 	virtual void PostEditUndo() override;
 	virtual void PostLoad() override;
 #endif

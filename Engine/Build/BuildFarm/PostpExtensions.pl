@@ -21,8 +21,15 @@
 	
 	# Temporary PS4 deprecation warnings
 	".*OnlineSubsystemPS4.*warning:.*\\[-Wdeprecated-declarations\\]",
-	".*PS4Application\\.cpp.*warning:.*\\[-Wdeprecated-declarations\\]"
+	".*PS4Application\\.cpp.*warning:.*\\[-Wdeprecated-declarations\\]",
 	
+	# Missing Steam DLLs/Dylibs when building samples
+	"STEAM: Steam API disabled!",
+	"LogMac:Warning: dlopen failed:.*libsteam_api.dylib.*: image not found",
+	"LogOnline:Warning: STEAM:.*libraries not present.*failed to load!",
+	
+	# Some doxygen output can confuse the post-processor, because it lists a symbol containing "Warning::"
+	"doxygen>.*(Warning|Error)::.*",
 	
 #	".*ERROR: The process.*not found",
 #	".*ERROR: This operation returned because the timeout period expired.*",
@@ -115,6 +122,11 @@ unshift @::gMatchers, (
         action =>           q{incValue("warnings"); diagnostic($1, "warning", backWhile(": In function"), 0)},
     },
     {
+        id =>               "genericDoctoolError",
+        pattern =>          q{Error:},
+        action =>           q{incValue("errors"); diagnostic("", "error")}
+    },
+    {
         id =>               "ubtFailedToProduceItem",
         pattern =>          q{(ERROR: )?UBT ERROR: Failed to produce item: },
 		action =>           q{incValue("errors"); diagnostic("UnrealBuildTool", "error")}
@@ -142,7 +154,12 @@ unshift @::gMatchers, (
 	{
 		id =>               "automationException",
 		pattern =>          q{AutomationTool\\.AutomationException: },
-		action =>           q{incValue("errors"); diagnostic("Exception", "error", 0, forwardWhile("^  at "));}
+		action =>           q{incValue("errors"); diagnostic("Exception", "error", 0, forwardWhile("^   at "));}
+	},
+	{
+		id =>               "generalException",
+		pattern =>          q{^ERROR: [a-zA-Z0-9_]+\\.[a-zA-Z0-9_]+Exception: },
+		action =>           q{incValue("errors"); diagnostic("Exception", "error", 0, forwardWhile("^   at "));}
 	},
 	{
 		id =>				"ubtFatal",

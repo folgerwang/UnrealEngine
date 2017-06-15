@@ -355,7 +355,7 @@ FAreaNavModifier::FAreaNavModifier(const UBrushComponent* BrushComponent, const 
 	}
 
 	Init(InAreaClass);
-	SetConvex(Verts.GetData(), 0, Verts.Num(), ENavigationCoordSystem::Unreal, BrushComponent->ComponentToWorld);
+	SetConvex(Verts.GetData(), 0, Verts.Num(), ENavigationCoordSystem::Unreal, BrushComponent->GetComponentTransform());
 }
 
 void FAreaNavModifier::GetCylinder(FCylinderNavAreaData& Data) const
@@ -789,17 +789,16 @@ void FCompositeNavModifier::CreateAreaModifiers(const UPrimitiveComponent* PrimC
 		const FKBoxElem& BoxElem = BodySetup->AggGeom.BoxElems[Idx];
 		const FBox BoxSize = BoxElem.CalcAABB(FTransform::Identity, 1.0f);
 
-		FAreaNavModifier AreaMod(BoxSize, PrimComp->ComponentToWorld, AreaClass);
+		FAreaNavModifier AreaMod(BoxSize, PrimComp->GetComponentTransform(), AreaClass);
 		Add(AreaMod);
 	}
 
 	for (int32 Idx = 0; Idx < BodySetup->AggGeom.SphylElems.Num(); Idx++)
 	{
 		const FKSphylElem& SphylElem = BodySetup->AggGeom.SphylElems[Idx];
-		const float CapsuleHeight = SphylElem.Length + SphylElem.Radius;
-		const FTransform AreaOffset(FVector(0, 0, -CapsuleHeight));
+		const FTransform AreaOffset(FVector(0, 0, -SphylElem.Length));
 
-		FAreaNavModifier AreaMod(SphylElem.Radius, CapsuleHeight, AreaOffset * PrimComp->ComponentToWorld, AreaClass);
+		FAreaNavModifier AreaMod(SphylElem.Radius, SphylElem.Length * 2.0f, AreaOffset * PrimComp->GetComponentTransform(), AreaClass);
 		Add(AreaMod);
 	}
 
@@ -807,15 +806,16 @@ void FCompositeNavModifier::CreateAreaModifiers(const UPrimitiveComponent* PrimC
 	{
 		const FKConvexElem& ConvexElem = BodySetup->AggGeom.ConvexElems[Idx];
 		
-		FAreaNavModifier AreaMod(ConvexElem.VertexData, 0, ConvexElem.VertexData.Num(), ENavigationCoordSystem::Unreal, PrimComp->ComponentToWorld, AreaClass);
+		FAreaNavModifier AreaMod(ConvexElem.VertexData, 0, ConvexElem.VertexData.Num(), ENavigationCoordSystem::Unreal, PrimComp->GetComponentTransform(), AreaClass);
 		Add(AreaMod);
 	}
 	
 	for (int32 Idx = 0; Idx < BodySetup->AggGeom.SphereElems.Num(); Idx++)
 	{
 		const FKSphereElem& SphereElem = BodySetup->AggGeom.SphereElems[Idx];
-		
-		FAreaNavModifier AreaMod(SphereElem.Radius, SphereElem.Radius, PrimComp->ComponentToWorld, AreaClass);
+		const FTransform AreaOffset(FVector(0, 0, -SphereElem.Radius));
+
+		FAreaNavModifier AreaMod(SphereElem.Radius, SphereElem.Radius * 2.0f, AreaOffset * PrimComp->GetComponentTransform(), AreaClass);
 		Add(AreaMod);
 	}
 }

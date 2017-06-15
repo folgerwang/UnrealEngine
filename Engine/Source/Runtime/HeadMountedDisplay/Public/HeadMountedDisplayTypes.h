@@ -48,3 +48,6 @@ public:
 	unsigned  NumIndices;
 	unsigned  NumTriangles;
 };
+
+HEADMOUNTEDDISPLAY_API DECLARE_LOG_CATEGORY_EXTERN(LogHMD, Log, All);
+HEADMOUNTEDDISPLAY_API DECLARE_LOG_CATEGORY_EXTERN(LogLoadingSplash, Log, All);

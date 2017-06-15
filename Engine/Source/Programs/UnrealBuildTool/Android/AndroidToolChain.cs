@@ -379,6 +379,7 @@ namespace UnrealBuildTool
 			Result += " -c";
 			Result += " -fdiagnostics-format=msvc";
 			Result += " -Wall";
+			Result += " -Wdelete-non-virtual-dtor";
 
 			Result += " -Wno-unused-variable";
 			// this will hide the warnings about static functions in headers that aren't used in every single .cpp file
@@ -1120,7 +1121,7 @@ namespace UnrealBuildTool
 						}
 
 						// Create the response file
-						FileReference ResponseFileName = CompileAction.ProducedItems[0].Reference + "_" + AllArguments.GetHashCode().ToString("X") + ".response";
+						FileReference ResponseFileName = CompileAction.ProducedItems[0].Reference + "_" + AllArguments.GetHashCode().ToString("X") + ".rsp";
 						string ResponseArgument = string.Format("@\"{0}\"", ResponseFile.Create(ResponseFileName, new List<string> { AllArguments }).FullName);
 
 						CompileAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
@@ -1376,7 +1377,7 @@ namespace UnrealBuildTool
 				foreach (FileReference BinaryPath in Binary.Config.OutputFilePaths)
 				{
 					FileReference ApkFile = BinaryPath.ChangeExtension(".apk");
-					BuildProducts.Add(ApkFile, BuildProductType.Executable);
+					BuildProducts.Add(ApkFile, BuildProductType.Package);
 				}
 			}
 		}

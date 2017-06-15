@@ -75,10 +75,6 @@ public:
 	UPROPERTY(EditAnywhere, config, Category=Audio)
 	bool bShowAudioStreamingOptions;
 
-	/** Whether to show AudioMixer-dependent editor data. Only enable if also running with the -audiomixer. */
-	UPROPERTY(EditAnywhere, config, Category = Audio)
-	bool bShowAudioMixerData;
-
 	/** Allows ChunkIDs to be assigned to assets to via the content browser context menu. */
 	UPROPERTY(EditAnywhere,config,Category=UserInterface,meta=(DisplayName="Allow ChunkID Assignments"))
 	bool bContextMenuChunkAssignments;
@@ -87,16 +83,15 @@ public:
 	UPROPERTY(EditAnywhere, config, Category = Cooking, meta = (DisplayName = "Disable Cook In The Editor feature (cooks from launch on will be run in a separate process if disabled)", ConfigRestartRequired=true))
 	bool bDisableCookInEditor;
 
+	UPROPERTY(EditAnywhere, config, Category = Cooking, meta = (DisplayName = "Use shared cooked builds in launch on", ConfigRestartRequired = true))
+	bool bSharedCookedBuilds;
+
 	UPROPERTY(EditAnywhere, config, Category = Cooking, meta = (DisplayName = "Use multiple processes when cooking (only affects File -> Package)"))
 	int32 MultiProcessCooking;
 
 	/** Enables Environment Queries editor */
 	UPROPERTY(EditAnywhere, config, Category = AI, meta = (DisplayName = "Environment Querying System"))
 	bool bEQSEditor;
-
-	/** This feature allows you to broadcast to a live streaming service directly from the editor.  This requires you to have a live streaming plugin installed. */
-	UPROPERTY(EditAnywhere, config, Category=Tools)
-	bool bLiveStreamingFromEditor;
 
 	/** Enable late joining in PIE */
 	UPROPERTY(EditAnywhere, config, Category = PIE, meta = (DisplayName = "Allow late joining"))
@@ -127,8 +122,12 @@ public:
 	bool bFacialAnimationImporter;
 
 	/** Enable experimental clothing tools (parameter painting and simulation configuration) found in the skeletal mesh editor */
-	UPROPERTY(EditAnywhere, config, Category = Tools)
+	UPROPERTY(EditAnywhere, config, Category = Tools, meta = (ConfigRestartRequired = true))
 	bool bClothingTools;
+
+	/** Allow animation blueprints to be recompiled while a PIE session is running */
+	UPROPERTY(EditAnywhere, config, Category = Tools)
+	bool bEnableLiveRecompilationOfAnimationBlueprints;
 
 	/**
 	 * Returns an event delegate that is executed when a setting has changed.

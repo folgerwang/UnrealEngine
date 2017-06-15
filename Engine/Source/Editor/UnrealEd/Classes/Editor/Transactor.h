@@ -242,13 +242,6 @@ protected:
 				}
 				return *this;
 			}
-			FArchive& operator<<(class FAssetPtr& AssetPtr) override
-			{
-				FStringAssetReference ID;
-				ID.Serialize(*this);
-				AssetPtr = ID;
-				return *this;
-			}
 			void Preload( UObject* InObject ) override
 			{
 				if( Owner )
@@ -338,12 +331,6 @@ protected:
 				}
 				return (FArchive&)*this << ObjectIndex;
 			}
-			FArchive& operator<<(class FAssetPtr& AssetPtr)
-			{
-				FStringAssetReference ID = AssetPtr.GetUniqueID();
-				ID.Serialize(*this);
-				return *this;
-			}
 			TArray<uint8>& Data;
 			ObjectMapType ObjectMap;
 			TArray<FPersistentObjectRef>& ReferencedObjects;
@@ -384,6 +371,10 @@ public:
 		,	bFlip(bInFlip)
 		,	Inc(-1)
 	{}
+
+	virtual ~FTransaction()
+	{
+	}
 
 private:
 	// Non-copyable

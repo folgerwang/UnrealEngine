@@ -108,7 +108,7 @@ void USoundWave::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 				CumulativeResourceSize.AddDedicatedSystemMemoryBytes(MONO_PCM_BUFFER_SIZE * NumChannels);
 			}
 			
-			if ((!FPlatformProperties::SupportsAudioStreaming() || !IsStreaming()))
+			if (!FPlatformProperties::SupportsAudioStreaming() || !IsStreaming())
 			{
 				CumulativeResourceSize.AddDedicatedSystemMemoryBytes(GetCompressedDataSize(LocalAudioDevice->GetRuntimeFormat(this)));
 			}
@@ -395,7 +395,7 @@ void USoundWave::PostLoad()
 	}
 
 	// Only add this streaming sound if we're not a dedicated server or if there is an audio device manager
-	if (IsStreaming() && !IsRunningDedicatedServer() && GEngine && GEngine->GetAudioDeviceManager())
+	if (IsStreaming() && FPlatformProperties::SupportsAudioStreaming()) 
 	{
 #if WITH_EDITORONLY_DATA
 		FinishCachePlatformData();

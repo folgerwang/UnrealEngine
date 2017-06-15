@@ -12,26 +12,40 @@
 
 class USkeletalMeshComponent;
 
+UENUM(BlueprintType)
+enum class EScaleChainInitialLength : uint8
+{
+	/** Use the 'DefaultChainLength' input value. */
+	FixedDefaultLengthValue,
+	/** Use distance between 'ChainStartBone' and 'ChainEndBone' (in Component Space) */
+	Distance,
+	/* Use animated chain length (length in local space of every bone from 'ChainStartBone' to 'ChainEndBone' */
+	ChainLength,
+};
+
 /**
- *	
+ *	Scale the length of a chain of bones.
  */
-USTRUCT()
+USTRUCT(BlueprintInternalUseOnly)
 struct ANIMGRAPHRUNTIME_API FAnimNode_ScaleChainLength : public FAnimNode_Base
 {
 	GENERATED_USTRUCT_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Links)
+	UPROPERTY(EditAnywhere, Category = Links)
 	FPoseLink InputPose;
 
 	/** Default chain length, as animated. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ScaleChainLength, meta = (PinHiddenByDefault))
 	float DefaultChainLength;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ScaleChainLength)
+	UPROPERTY(EditAnywhere, Category = ScaleChainLength)
 	FBoneReference ChainStartBone;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ScaleChainLength)
+	UPROPERTY(EditAnywhere, Category = ScaleChainLength)
 	FBoneReference ChainEndBone;
+
+	UPROPERTY(EditAnywhere, Category = ScaleChainLength)
+	EScaleChainInitialLength ChainInitialLength;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ScaleChainLength, meta = (PinShownByDefault))
 	FVector TargetLocation;
@@ -39,7 +53,10 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_ScaleChainLength : public FAnimNode_Base
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinShownByDefault))
 	mutable float Alpha;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
+	UPROPERTY(Transient)
+	float ActualAlpha;
+
+	UPROPERTY(EditAnywhere, Category = Settings)
 	FInputScaleBias AlphaScaleBias;
 
 	UPROPERTY(Transient)
@@ -57,4 +74,7 @@ public:
 	virtual void Evaluate(FPoseContext& Output) override;
 	virtual void GatherDebugData(FNodeDebugData& DebugData) override;
 	// End of FAnimNode_Base interface
+
+protected:
+	float GetInitialChainLength(FCompactPose& InLSPose, FCSPose<FCompactPose>& InCSPose) const;
 };

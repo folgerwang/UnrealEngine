@@ -901,7 +901,7 @@ class FPakPrecacher
 			{
 				CacheBlocks[IndexInner] = IntervalTreeInvalidIndex;
 			}
-			uint64 StartingLastByte = FMath::Max((uint64)TotalSize, (uint64)PAK_CACHE_GRANULARITY);
+			uint64 StartingLastByte = FMath::Max((uint64)TotalSize, uint64(PAK_CACHE_GRANULARITY + 1));
 			StartingLastByte--;
 
 			{
@@ -932,7 +932,7 @@ class FPakPrecacher
 				}
 				MaxNode = MAX_uint64 >> StartShift;
 				check(MaxNode >= StartingLastByte && (MaxNode >> 1) < StartingLastByte);
-				//UE_LOG(LogTemp, Warning, TEXT("Test %d %llX %llX "), MaxShift, (uint64(PAK_CACHE_GRANULARITY) << (MaxShift + 1)), (uint64(PAK_CACHE_GRANULARITY) << MaxShift));
+//				UE_LOG(LogTemp, Warning, TEXT("Test %d %llX %llX "), MaxShift, (uint64(PAK_CACHE_GRANULARITY) << (MaxShift + 1)), (uint64(PAK_CACHE_GRANULARITY) << MaxShift));
 				check(MaxShift && (uint64(PAK_CACHE_GRANULARITY) << (MaxShift + 1)) == 0 && (uint64(PAK_CACHE_GRANULARITY) << MaxShift) != 0);
 			}
 		}
@@ -1310,6 +1310,8 @@ private: // below here we assume CachedFilesScopeLock until we get to the next s
 
 	void ClearBlock(FCacheBlock &Block)
 	{
+		UE_LOG(LogPakFile, Verbose, TEXT("FPakReadRequest[%016llX, %016llX) ClearBlock"), Block.OffsetAndPakIndex, Block.OffsetAndPakIndex + Block.Size);
+
 		if (Block.Memory)
 		{
 			check(Block.Size);
@@ -1368,6 +1370,7 @@ private: // below here we assume CachedFilesScopeLock until we get to the next s
 					FCacheBlock &Block = CacheBlockAllocator.Get(BlockIndex);
 					if (!Block.InRequestRefCount)
 					{
+						UE_LOG(LogPakFile, Verbose, TEXT("FPakReadRequest[%016llX, %016llX) Discard Cached"), Block.OffsetAndPakIndex, Block.OffsetAndPakIndex + Block.Size);
 						ClearBlock(Block);
 						return true;
 					}
@@ -1412,6 +1415,7 @@ private: // below here we assume CachedFilesScopeLock until we get to the next s
 					{
 						if (GPakCache_NumUnreferencedBlocksToCache && GetRequestOffset(Block.OffsetAndPakIndex) + Block.Size > OffsetOfLastByte) // last block
 						{
+							OffsetAndPakIndexOfSavedBlocked.Remove(Block.OffsetAndPakIndex);
 							OffsetAndPakIndexOfSavedBlocked.Add(Block.OffsetAndPakIndex);
 							return false;
 						}
@@ -1904,6 +1908,7 @@ private: // below here we assume CachedFilesScopeLock until we get to the next s
 		if (Block.InRequestRefCount == 0 || bWasCanceled)
 		{
 			FMemory::Free(Memory);
+			UE_LOG(LogPakFile, Verbose, TEXT("FPakReadRequest[%016llX, %016llX) Cancelled"), Block.OffsetAndPakIndex, Block.OffsetAndPakIndex + Block.Size);
 			ClearBlock(Block);
 		}
 		else
@@ -2866,8 +2871,8 @@ void FPakPrecacher::DoSignatureCheck(bool bWasCanceled, IAsyncReadRequest* Reque
 			ensure(bChunkHashesMatch);
 			if (!ensure(bChunkHashesMatch))
 			{
-				UE_LOG(LogPakFile, Fatal, TEXT("Pak chunk signing mismatch! Pak file has been corrupted or tampered with!"));
-				FPlatformMisc::RequestExit(true);
+				UE_LOG(LogPakFile, Warning, TEXT("Pak chunk signing mismatch! Pak file has been corrupted or tampered with!"));
+				//FPlatformMisc::RequestExit(true);
 			}
 		}
 
@@ -4071,7 +4076,13 @@ bool FPakPlatformFile::Initialize(IPlatformFile* Inner, const TCHAR* CmdLine)
 	//if we are using a fileserver, then dont' mount paks automatically.  We only want to read files from the server.
 	FString FileHostIP;
 	const bool bCookOnTheFly = FParse::Value(FCommandLine::Get(), TEXT("filehostip"), FileHostIP);
-	bMountPaks = !bCookOnTheFly;
+	const bool bPreCookedNetwork = FParse::Param(FCommandLine::Get(), TEXT("precookednetwork") );
+	if (bPreCookedNetwork)
+	{
+		// precooked network builds are dependent on cook on the fly
+		check(bCookOnTheFly);
+	}
+	bMountPaks &= (!bCookOnTheFly || bPreCookedNetwork);
 #endif
 
 	if (bMountPaks)

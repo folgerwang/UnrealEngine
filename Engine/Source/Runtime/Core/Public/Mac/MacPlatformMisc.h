@@ -21,7 +21,7 @@ struct CORE_API FMacPlatformMisc : public FGenericPlatformMisc
 {
 	static void PlatformPreInit();
 	static void PlatformInit();
-	static void PlatformPostInit(bool ShowSplashScreen = false);
+	static void PlatformPostInit();
 	static void PlatformTearDown();
 	static class GenericApplication* CreateApplication();
 	static void GetEnvironmentVariable(const TCHAR* VariableName, TCHAR* Result, int32 ResultLength);
@@ -84,9 +84,7 @@ struct CORE_API FMacPlatformMisc : public FGenericPlatformMisc
 
 	FORCEINLINE static void MemoryBarrier()
 	{
-PRAGMA_DISABLE_DEPRECATION_WARNINGS
-		OSMemoryBarrier();
-PRAGMA_ENABLE_DEPRECATION_WARNINGS
+		__sync_synchronize();
 	}
 
 	static void PumpMessages(bool bFromMainLoop);
@@ -108,6 +106,7 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	static FString GetPrimaryGPUBrand();
 	static struct FGPUDriverInfo GetGPUDriverInfo(const FString& DeviceDescription);
 	static void GetOSVersions( FString& out_OSVersionLabel, FString& out_OSSubVersionLabel );
+	static FString GetOSVersion();
 	static bool HasPlatformFeature(const TCHAR* FeatureName);
 	static bool GetDiskTotalAndFreeSpace(const FString& InPath, uint64& TotalNumberOfBytes, uint64& NumberOfFreeBytes);
 	static bool HasSeparateChannelForDebugOutput();

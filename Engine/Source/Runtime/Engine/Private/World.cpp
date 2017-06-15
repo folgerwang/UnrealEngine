@@ -600,7 +600,7 @@ void UWorld::PostDuplicate(bool bDuplicateForPIE)
 		// We're duplicating the world, also duplicate UObjects which are map data but don't have the UWorld in their Outer chain.  There are two cases:
 		// 1) legacy lightmap textures and MapBuildData object will be in the same package as the UWorld
 		// 2) MapBuildData will be in a separate package with lightmap textures underneath it
-		if (PersistentLevel && PersistentLevel->MapBuildData)
+		if (PersistentLevel->MapBuildData)
 		{
 			UPackage* BuildDataPackage = MyPackage;
 			FName NewMapBuildDataName = PersistentLevel->MapBuildData->GetFName();
@@ -854,23 +854,8 @@ void UWorld::PostLoad()
 }
 
 
-bool UWorld::PreSaveRoot(const TCHAR* Filename, TArray<FString>& AdditionalPackagesToCook)
+bool UWorld::PreSaveRoot(const TCHAR* Filename)
 {
-	// add any streaming sublevels to the list of extra packages to cook
-	for (int32 LevelIndex = 0; LevelIndex < StreamingLevels.Num(); LevelIndex++)
-	{
-		ULevelStreaming* StreamingLevel = StreamingLevels[LevelIndex];
-		if (StreamingLevel)
-		{
-			// Load package if found.
-			const FString WorldAssetPackageName = StreamingLevel->GetWorldAssetPackageName();
-			FString PackageFilename;
-			if (FPackageName::DoesPackageExist(WorldAssetPackageName, NULL, &PackageFilename))
-			{
-				AdditionalPackagesToCook.Add(WorldAssetPackageName);
-			}
-		}
-	}
 #if WITH_EDITOR
 	// Rebuild all level blueprints now to ensure no stale data is stored on the actors
 	if( !IsRunningCommandlet() )
@@ -1219,6 +1204,9 @@ void UWorld::InitWorld(const InitializationValues IVS)
 			DefaultBrush->SetNotForClientOrServer();
 			DefaultBrush->Brush->SetFlags( RF_Transactional );
 			DefaultBrush->Brush->Polys->SetFlags( RF_Transactional );
+
+			// The default brush is legacy but has to exist for some old bsp operations.  However it should not be interacted with in the editor. 
+			DefaultBrush->SetIsTemporarilyHiddenInEditor(true);
 
 			// Find the index in the array the default brush has been spawned at. Not necessarily
 			// the last index as the code might spawn the default physics volume afterwards.
@@ -2107,7 +2095,7 @@ void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform )
 
 		// We don't need to rerun construction scripts if we have cooked data or we are playing in editor unless the PIE world was loaded
 		// from disk rather than duplicated
-		const bool bRerunConstructionScript = !(FPlatformProperties::RequiresCookedData() || (IsGameWorld() && (Level->bHasRerunConstructionScripts || Level->bWasDuplicatedForPIE || !bRerunConstructionDuringEditorStreaming)));
+		const bool bRerunConstructionScript = !(FPlatformProperties::RequiresCookedData() || (IsGameWorld() && (Level->bHasRerunConstructionScripts || !bRerunConstructionDuringEditorStreaming)));
 		
 		// Incrementally update components.
 		int32 NumComponentsToUpdate = GLevelStreamingComponentsRegistrationGranularity;
@@ -2670,6 +2658,8 @@ UWorld* UWorld::DuplicateWorldForPIE(const FString& PackageName, UWorld* OwningW
 		ULevel* EditorLevel = EditorLevelWorld->PersistentLevel;
 		ULevel* PIELevel = PIELevelWorld->PersistentLevel;
 
+		PIELevel->bHasRerunConstructionScripts = EditorLevel->bHasRerunConstructionScripts;
+
 		// Fixup model components. The index buffers have been created for the components in the EditorWorld and the order
 		// in which components were post-loaded matters. So don't try to guarantee a particular order here, just copy the
 		// elements over.
@@ -2965,7 +2955,7 @@ void UWorld::ConditionallyBuildStreamingData()
 
 bool UWorld::IsVisibilityRequestPending() const
 {
-	return (CurrentLevelPendingVisibility != nullptr && CurrentLevelPendingInvisibility != nullptr);
+	return (CurrentLevelPendingVisibility != nullptr || CurrentLevelPendingInvisibility != nullptr);
 }
 
 bool UWorld::AreAlwaysLoadedLevelsLoaded() const
@@ -3104,6 +3094,11 @@ bool UWorld::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 	if( FParse::Command( &Cmd, TEXT("TRACETAG") ) )
 	{
 		return HandleTraceTagCommand( Cmd, Ar );
+	}
+	else if( FParse::Command( &Cmd, TEXT("TRACETAGALL")))
+	{
+		bDebugDrawAllTraceTags = !bDebugDrawAllTraceTags;
+		return true;
 	}
 	else if( FParse::Command( &Cmd, TEXT("FLUSHPERSISTENTDEBUGLINES") ) )
 	{		
@@ -3315,14 +3310,17 @@ void UWorld::InitializeActorsForPlay(const FURL& InURL, bool bResetTime)
 			UE_LOG(LogWorld, Warning, TEXT("*** WARNING - PATHS MAY NOT BE VALID ***"));
 		}
 
-		// Lock the level.
-		if(IsPreviewWorld())
+		if (GEngine != NULL)
 		{
-			UE_LOG(LogWorld, Verbose,  TEXT("Bringing preview %s up for play (max tick rate %i) at %s"), *GetFullName(), FMath::RoundToInt(GEngine->GetMaxTickRate(0,false)), *FDateTime::Now().ToString() );
-		}
-		else
-		{
-			UE_LOG(LogWorld, Log,  TEXT("Bringing %s up for play (max tick rate %i) at %s"), *GetFullName(), FMath::RoundToInt(GEngine->GetMaxTickRate(0,false)), *FDateTime::Now().ToString() );
+			// Lock the level.
+			if (IsPreviewWorld())
+			{
+				UE_LOG(LogWorld, Verbose, TEXT("Bringing preview %s up for play (max tick rate %i) at %s"), *GetFullName(), FMath::RoundToInt(GEngine->GetMaxTickRate(0, false)), *FDateTime::Now().ToString());
+			}
+			else
+			{
+				UE_LOG(LogWorld, Log, TEXT("Bringing %s up for play (max tick rate %i) at %s"), *GetFullName(), FMath::RoundToInt(GEngine->GetMaxTickRate(0, false)), *FDateTime::Now().ToString());
+			}
 		}
 
 		// Initialize network actors and start execution.
@@ -3757,7 +3755,7 @@ bool UWorld::AreActorsInitialized() const
 float UWorld::GetMonoFarFieldCullingDistance() const
 {
 	float Result = 0.0f;
-	const AWorldSettings* const WorldSettings = GetWorldSettings();
+	const AWorldSettings* const WorldSettings = GetWorldSettings(false, false);
 	if (WorldSettings != nullptr)
 	{
 		Result = WorldSettings->MonoCullingDistance;
@@ -4759,7 +4757,16 @@ void FSeamlessTravelHandler::SeamlessTravelLoadCallback(const FName& PackageName
 		{
 			if (World->WorldType == EWorldType::PIE)
 			{
-				World->StreamingLevelsPrefix = UWorld::BuildPIEPackagePrefix(LevelPackage->PIEInstanceID);
+				if (LevelPackage->PIEInstanceID != -1)
+				{
+					World->StreamingLevelsPrefix = UWorld::BuildPIEPackagePrefix(LevelPackage->PIEInstanceID);
+				}
+				else
+				{
+					// If this is a PIE world but the PIEInstanceID is -1, that implies this world is a temporary save
+					// for multi-process PIE which should have been saved with the correct StreamingLevelsPrefix.
+					ensure(!World->StreamingLevelsPrefix.IsEmpty());
+				}
 			}
 
 			if (World->PersistentLevel)
@@ -5696,6 +5703,11 @@ bool UWorld::IsGameWorld() const
 	return WorldType == EWorldType::Game || WorldType == EWorldType::PIE || WorldType == EWorldType::GamePreview;
 }
 
+bool UWorld::IsEditorWorld() const
+{
+	return WorldType == EWorldType::Editor || WorldType == EWorldType::EditorPreview || WorldType == EWorldType::PIE;
+}
+
 bool UWorld::IsPreviewWorld() const
 {
 	return WorldType == EWorldType::EditorPreview || WorldType == EWorldType::GamePreview;
@@ -6076,17 +6088,23 @@ void UWorld::SetGameState(AGameStateBase* NewGameState)
 	GameState = NewGameState;
 
 	// Set the GameState on the LevelCollection it's associated with.
-	const ULevel* const CachedLevel = NewGameState->GetLevel();
-	FLevelCollection* const FoundCollection = NewGameState ? CachedLevel->GetCachedLevelCollection() : nullptr;
-	if (FoundCollection)
+	if (NewGameState != nullptr)
 	{
-		FoundCollection->SetGameState(NewGameState);
-
-		// For now the static levels use the same GameState as the source dynamic levels.
-		if (FoundCollection->GetType() == ELevelCollectionType::DynamicSourceLevels)
+	    const ULevel* const CachedLevel = NewGameState->GetLevel();
+		if(CachedLevel != nullptr)
 		{
-			FLevelCollection& StaticLevels = FindOrAddCollectionByType(ELevelCollectionType::StaticLevels);
-			StaticLevels.SetGameState(NewGameState);
+	        FLevelCollection* const FoundCollection = CachedLevel->GetCachedLevelCollection();
+	        if (FoundCollection)
+	        {
+		        FoundCollection->SetGameState(NewGameState);
+        
+		        // For now the static levels use the same GameState as the source dynamic levels.
+		        if (FoundCollection->GetType() == ELevelCollectionType::DynamicSourceLevels)
+		        {
+			        FLevelCollection& StaticLevels = FindOrAddCollectionByType(ELevelCollectionType::StaticLevels);
+			        StaticLevels.SetGameState(NewGameState);
+		        }
+	        }
 		}
 	}
 }
@@ -6444,8 +6462,8 @@ void UWorld::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 
 	// Save/Display the file size and modify date
 	FDateTime AssetDateModified = IFileManager::Get().GetTimeStamp(*FullFilePath);
-	OutTags.Add(FAssetRegistryTag("DateModified", FText::AsDate(AssetDateModified, EDateTimeStyle::Short).ToString(), FAssetRegistryTag::TT_Dimensional));
-	OutTags.Add(FAssetRegistryTag("MapFileSize", FText::AsMemory(IFileManager::Get().FileSize(*FullFilePath)).ToString(), FAssetRegistryTag::TT_Numerical));
+	OutTags.Add(FAssetRegistryTag("DateModified", AssetDateModified.ToString(), FAssetRegistryTag::TT_Chronological, FAssetRegistryTag::TD_Date));
+	OutTags.Add(FAssetRegistryTag("MapFileSize", Lex::ToString(IFileManager::Get().FileSize(*FullFilePath)), FAssetRegistryTag::TT_Numerical, FAssetRegistryTag::TD_Memory));
 
 	FWorldDelegates::GetAssetTags.Broadcast(this, OutTags);
 }

@@ -310,7 +310,7 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnPostMeshBuild, class UStaticMesh*);
 #endif
 
 //~ Begin Material Interface for UStaticMesh - contains a material and other stuff
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FStaticMaterial
 {
 	GENERATED_USTRUCT_BODY()
@@ -347,7 +347,7 @@ struct FStaticMaterial
 	ENGINE_API friend bool operator==(const FStaticMaterial& LHS, const UMaterialInterface& RHS);
 	ENGINE_API friend bool operator==(const UMaterialInterface& LHS, const FStaticMaterial& RHS);
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, transient, Category = StaticMesh)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = StaticMesh)
 	class UMaterialInterface* MaterialInterface;
 
 	/*This name should be use by the gameplay to avoid error if the skeletal mesh Materials array topology change*/
@@ -412,6 +412,11 @@ UCLASS(collapsecategories, hidecategories=Object, customconstructor, MinimalAPI,
 class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, public IInterface_AssetUserData
 {
 	GENERATED_UCLASS_BODY()
+
+#if WITH_EDITOR
+	/** Notification when bounds changed */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnExtendedBoundsChanged, const FBoxSphereBounds&);
+#endif
 
 	/** Pointer to the data used to render this static mesh. */
 	TUniquePtr<class FStaticMeshRenderData> RenderData;
@@ -514,9 +519,13 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Navigation)
 	uint32 bHasNavigationData:1;
 
-	/** If true, mesh will calculate data for fast uniform random sampling. This is approx 8 bytes per triangle so should not be enabled unless needed. */
+	/**	
+		Mesh supports uniformly distributed sampling in constant time.
+		Memory cost is 8 bytes per triangle.
+		Example usage is uniform spawning of particles.
+	*/
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = StaticMesh)
-	uint32 bRequiresAreaWeightedSampling : 1;
+	uint32 bSupportUniformlyDistributedSampling : 1;
 
 	/** Bias multiplier for Light Propagation Volume lighting */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=StaticMesh, meta=(UIMin = "0.0", UIMax = "3.0"))
@@ -591,6 +600,10 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 	UPROPERTY()
 	FBoxSphereBounds ExtendedBounds;
 
+#if WITH_EDITOR
+	FOnExtendedBoundsChanged OnExtendedBoundsChanged;
+#endif
+
 protected:
 	/**
 	 * Index of an element to ignore while gathering streaming texture factors.
@@ -625,7 +638,10 @@ public:
 	ENGINE_API virtual void GetAssetRegistryTagMetadata(TMap<FName, FAssetRegistryTagMetadata>& OutMetadata) const override;
 	ENGINE_API void SetLODGroup(FName NewGroup, bool bRebuildImmediately = true);
 	ENGINE_API void BroadcastNavCollisionChange();
+
+	FOnExtendedBoundsChanged& GetOnExtendedBoundsChanged() { return OnExtendedBoundsChanged; }
 #endif // WITH_EDITOR
+
 	ENGINE_API virtual void Serialize(FArchive& Ar) override;
 	ENGINE_API virtual void PostInitProperties() override;
 	ENGINE_API virtual void PostLoad() override;
@@ -716,6 +732,7 @@ public:
 	 *
 	 * @return Requested material
 	 */
+	UFUNCTION(BlueprintCallable, Category = "StaticMesh")
 	ENGINE_API UMaterialInterface* GetMaterial(int32 MaterialIndex) const;
 
 	/**
@@ -723,6 +740,7 @@ public:
 	*
 	* @return Requested material
 	*/
+	UFUNCTION(BlueprintCallable, Category = "StaticMesh")
 	ENGINE_API int32 GetMaterialIndex(FName MaterialSlotName) const;
 
 	/**

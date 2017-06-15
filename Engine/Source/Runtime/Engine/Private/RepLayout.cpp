@@ -1118,7 +1118,7 @@ void FRepLayout::MergeChangeList_r(
 
 			const uint8* NewData = ( uint8* )Array->GetData();
 
-			TArray< FHandleToCmdIndex >& ArrayHandleToCmdIndex = ActiveIterator1 ? *ActiveIterator1->HandleToCmdIndex[Cmd.RelativeHandle - 1].HandleToCmdIndex : *ActiveIterator2->HandleToCmdIndex[Cmd.RelativeHandle - 1].HandleToCmdIndex;
+			TArray< FHandleToCmdIndex >& ArrayHandleToCmdIndex = ActiveIterator1 ? *ActiveIterator1->HandleToCmdIndex[Cmd.RelativeHandle - 1].HandleToCmdIndex : *ActiveIterator2->HandleToCmdIndex[Cmd.RelativeHandle - 1].HandleToCmdIndex; //-V595
 
 			if ( !ActiveIterator1 )
 			{
@@ -3432,33 +3432,33 @@ void FRepLayout::RebuildConditionalProperties( FRepState * RESTRICT	RepState, co
 	RepState->ConditionMap[COND_None]						= true;
 	RepState->ConditionMap[COND_InitialOnly]				= bIsInitial;
 
-	RepState->ConditionMap[COND_OwnerOnly]					= bIsOwner;
-	RepState->ConditionMap[COND_SkipOwner]					= !bIsOwner;
+	RepState->ConditionMap[COND_OwnerOnly] = bIsOwner;
+	RepState->ConditionMap[COND_SkipOwner] = !bIsOwner;
 
-	RepState->ConditionMap[COND_SimulatedOnly]				= bIsSimulated;
-	RepState->ConditionMap[COND_SimulatedOnlyNoReplay]		= bIsSimulated && !bIsReplay;
-	RepState->ConditionMap[COND_AutonomousOnly]				= !bIsSimulated;
+	RepState->ConditionMap[COND_SimulatedOnly] = bIsSimulated;
+	RepState->ConditionMap[COND_SimulatedOnlyNoReplay] = bIsSimulated && !bIsReplay;
+	RepState->ConditionMap[COND_AutonomousOnly] = !bIsSimulated;
 
-	RepState->ConditionMap[COND_SimulatedOrPhysics]			= bIsSimulated || bIsPhysics;
-	RepState->ConditionMap[COND_SimulatedOrPhysicsNoReplay]	= ( bIsSimulated || bIsPhysics ) && !bIsReplay;
+	RepState->ConditionMap[COND_SimulatedOrPhysics] = bIsSimulated || bIsPhysics;
+	RepState->ConditionMap[COND_SimulatedOrPhysicsNoReplay] = (bIsSimulated || bIsPhysics) && !bIsReplay;
 
-	RepState->ConditionMap[COND_InitialOrOwner]				= bIsInitial || bIsOwner;
-	RepState->ConditionMap[COND_ReplayOrOwner]				= bIsReplay || bIsOwner;
-	RepState->ConditionMap[COND_ReplayOnly]					= bIsReplay;
-	RepState->ConditionMap[COND_SkipReplay]					= !bIsReplay;
+	RepState->ConditionMap[COND_InitialOrOwner] = bIsInitial || bIsOwner;
+	RepState->ConditionMap[COND_ReplayOrOwner] = bIsReplay || bIsOwner;
+	RepState->ConditionMap[COND_ReplayOnly] = bIsReplay;
+	RepState->ConditionMap[COND_SkipReplay] = !bIsReplay;
 
-	RepState->ConditionMap[COND_Custom]						= true;
+	RepState->ConditionMap[COND_Custom] = true;
 
 	RepState->RepFlags = RepFlags;
 }
 
-void FRepLayout::InitChangedTracker( FRepChangedPropertyTracker * ChangedTracker ) const
+void FRepLayout::InitChangedTracker(FRepChangedPropertyTracker * ChangedTracker) const
 {
-	ChangedTracker->Parents.SetNum( Parents.Num() );
+	ChangedTracker->Parents.SetNum(Parents.Num());
 
-	for ( int32 i = 0; i < Parents.Num(); i++ )
+	for (int32 i = 0; i < Parents.Num(); i++)
 	{
-		ChangedTracker->Parents[i].IsConditional = ( Parents[i].Flags & PARENT_IsConditional ) ? 1 : 0;
+		ChangedTracker->Parents[i].IsConditional = (Parents[i].Flags & PARENT_IsConditional) ? 1 : 0;
 	}
 }
 
@@ -3530,9 +3530,9 @@ void FRepLayout::InitProperties( TArray< uint8, TAlignedHeapAllocator<16> >& Sha
 	}
 }
 
-void FRepLayout::DestructProperties( FRepState * RepState ) const
+void FRepLayout::DestructProperties( FRepStateStaticBuffer& RepStateStaticBuffer ) const
 {
-	uint8* StoredData = RepState->StaticBuffer.GetData();
+	uint8* StoredData = RepStateStaticBuffer.GetData();
 
 	// Destruct all items
 	for ( int32 i = 0; i < Parents.Num(); i++ )
@@ -3541,13 +3541,13 @@ void FRepLayout::DestructProperties( FRepState * RepState ) const
 		if ( Parents[i].ArrayIndex == 0 )
 		{
 			PTRINT Offset = Parents[i].Property->ContainerPtrToValuePtr<uint8>( StoredData ) - StoredData;
-			check( Offset >= 0 && Offset < RepState->StaticBuffer.Num() );
+			check( Offset >= 0 && Offset < RepStateStaticBuffer.Num() );
 
 			Parents[i].Property->DestroyValue( StoredData + Offset );
 		}
 	}
 
-	RepState->StaticBuffer.Empty();
+	RepStateStaticBuffer.Empty();
 }
 
 void FRepLayout::GetLifetimeCustomDeltaProperties(TArray< int32 > & OutCustom, TArray< ELifetimeCondition >	& OutConditions)
@@ -3567,10 +3567,30 @@ void FRepLayout::GetLifetimeCustomDeltaProperties(TArray< int32 > & OutCustom, T
 	}
 }
 
+void FRepLayout::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	for (int32 i = 0; i < Parents.Num(); i++)
+	{
+		if (Parents[i].Property != nullptr)
+		{
+			Collector.AddReferencedObject(Parents[i].Property);
+		}
+	}
+}
+
+
 FRepState::~FRepState()
 {
 	if (RepLayout.IsValid() && StaticBuffer.Num() > 0)
 	{	
-		RepLayout->DestructProperties( this );
+		RepLayout->DestructProperties( StaticBuffer );
+	}
+}
+
+FRepChangelistState::~FRepChangelistState()
+{
+	if (RepLayout.IsValid() && StaticBuffer.Num() > 0)
+	{	
+		RepLayout->DestructProperties( StaticBuffer );
 	}
 }

@@ -29,6 +29,10 @@ DECLARE_MULTICAST_DELEGATE_TwoParams(FOnMeshClickMulticaster, HActor*, const FVi
 
 typedef FOnMeshClickMulticaster::FDelegate FOnMeshClick;
 
+//The selected LOD changed
+DECLARE_MULTICAST_DELEGATE(FOnSelectedLODChangedMulticaster);
+typedef FOnSelectedLODChangedMulticaster::FDelegate FOnSelectedLODChanged;
+
 /** Modes that the preview scene defaults to (usually depending on asset editor context) */
 enum class EPreviewSceneDefaultAnimationMode : int32
 {
@@ -60,7 +64,7 @@ public:
 	virtual UDebugSkelMeshComponent* GetPreviewMeshComponent() const = 0;
 
 	/** Set the additional meshes used by this preview scene (sets the additional meshes on the skeleton) */
-	virtual void SetAdditionalMeshes(class UPreviewMeshCollection* InAdditionalMeshes) = 0;
+	virtual void SetAdditionalMeshes(class UDataAsset* InAdditionalMeshes) = 0;
 
 	/** Refreshes the additional meshes displayed in this preview scene */
 	virtual void RefreshAdditionalMeshes() = 0;
@@ -190,4 +194,11 @@ public:
 
 	/** Set whether or not to ignore mesh hit proxies */
 	virtual void SetAllowMeshHitProxies(bool bState) = 0;
+
+	/** Register callback to be able to be notify when the select LOD is change */
+	virtual void RegisterOnSelectedLODChanged(const FOnSelectedLODChanged &Delegate) = 0;
+	/** Unregister callback to free up the ressources */
+	virtual void UnRegisterOnSelectedLODChanged(void* Thing) = 0;
+	/** Broadcast select LOD changed */
+	virtual void BroadcastOnSelectedLODChanged() = 0;
 };

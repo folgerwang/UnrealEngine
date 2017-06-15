@@ -12,14 +12,14 @@ namespace UnrealBuildTool
 	class HTML5ToolChain : VCToolChain
 	{
 		// ini configurations
-		static bool targetingWasm = true;
+		static bool targetingWasm = false;
 		static bool targetWebGL2 = true; // Currently if this is set to true, UE4 can still fall back to WebGL 1 at runtime if browser does not support WebGL 2.
 		static bool enableSIMD = false;
 		static bool enableMultithreading = false;
 		static bool bEnableTracing = false; // Debug option
 
-		public HTML5ToolChain()
-			: base(CppPlatform.HTML5, WindowsCompiler.VisualStudio2015)
+		public HTML5ToolChain(FileReference InProjectFile)
+			: base(CppPlatform.HTML5, WindowsCompiler.VisualStudio2015, false)
 		{
 			if (!HTML5SDKInfo.IsSDKInstalled())
 			{
@@ -32,13 +32,29 @@ namespace UnrealBuildTool
 			// - but, during packaging, if -remoteini is used -- need to use UnrealBuildTool.GetRemoteIniPath()
 			//   (note: ConfigCache can take null ProjectFile)
 			string EngineIniPath = UnrealBuildTool.GetRemoteIniPath();
-			DirectoryReference ProjectFile = !String.IsNullOrEmpty(EngineIniPath) ? new DirectoryReference(EngineIniPath) : null;
-			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, ProjectFile, UnrealTargetPlatform.HTML5);
-			Ini.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "TargetWasm", out targetingWasm);
-			Ini.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "TargetWebGL2", out targetWebGL2);
+			DirectoryReference ProjectDir = !String.IsNullOrEmpty(EngineIniPath) ? new DirectoryReference(EngineIniPath)
+												: DirectoryReference.FromFile(InProjectFile);
+			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, ProjectDir, UnrealTargetPlatform.HTML5);
+
+			// these will be going away...
+			bool targetingAsmjs = true; // inverted check
+			bool targetWebGL1 = false; // inverted check
+			if ( Ini.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "TargetAsmjs", out targetingAsmjs) )
+			{
+				targetingWasm = !targetingAsmjs;
+			}
+			if ( Ini.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "TargetWebGL1", out targetWebGL1) )
+			{
+				targetWebGL2  = !targetWebGL1;
+			}
 			Ini.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "EnableSIMD", out enableSIMD);
 			Ini.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "EnableMultithreading", out enableMultithreading);
 			Ini.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "EnableTracing", out bEnableTracing);
+			Log.TraceInformation("HTML5ToolChain: TargetWasm = "         + targetingWasm        );
+			Log.TraceInformation("HTML5ToolChain: TargetWebGL2 = "       + targetWebGL2         );
+			Log.TraceInformation("HTML5ToolChain: EnableSIMD = "         + enableSIMD           );
+			Log.TraceInformation("HTML5ToolChain: EnableMultithreading " + enableMultithreading );
+			Log.TraceInformation("HTML5ToolChain: EnableTracing = "      + bEnableTracing       );
 
 			// TODO: remove this "fix" when emscripten supports (SIMD & pthreads) + WASM
 			if ( targetingWasm )
@@ -75,6 +91,7 @@ namespace UnrealBuildTool
 
 			Result += " -fno-exceptions";
 
+			Result += " -Wdelete-non-virtual-dtor";
 			Result += " -Wno-unused-value"; // appErrorf triggers this
 			Result += " -Wno-switch"; // many unhandled cases
 			Result += " -Wno-tautological-constant-out-of-range-compare"; // disables some warnings about comparisons from TCHAR being a char
@@ -135,6 +152,24 @@ namespace UnrealBuildTool
 			}
 
 			// --------------------------------------------------------------------------------
+			// normally, these option are for linking -- but it using here to force recompile when
+			if (targetingWasm) // flipping between asmjs and wasm
+			{
+				Result += " -s BINARYEN=1";
+			}
+			else
+			{
+				Result += " -s BINARYEN=0";
+			}
+			if (targetWebGL2) // flipping between webgl1 and webgl2
+			{
+				Result += " -s USE_WEBGL2=1";
+			}
+			else
+			{
+				Result += " -s USE_WEBGL2=0";
+			}
+			// --------------------------------------------------------------------------------
 
 			// Expect that Emscripten SDK has been properly set up ahead in time (with emsdk and prebundled toolchains this is always the case)
 			// This speeds up builds a tiny bit.
@@ -145,6 +180,12 @@ namespace UnrealBuildTool
 //			Environment.SetEnvironmentVariable("EMCC_CORES", "8");
 //			Environment.SetEnvironmentVariable("EMCC_OPTIMIZE_NORMALLY", "1");
 
+			// Linux builds needs this - or else system clang will be attempted to be picked up instead of UE4's
+			// TODO: test on other platforms to remove this if() check
+			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux)
+			{
+				Environment.SetEnvironmentVariable(HTML5SDKInfo.PLATFORM_USER_HOME, HTML5SDKInfo.HTML5Intermediatory);
+			}
 			return Result;
 		}
 
@@ -254,6 +295,10 @@ namespace UnrealBuildTool
 					// Memory init file is an asm.js only needed construct, in wasm the global data section is embedded in the wasm module,
 					// so this flag is not needed there.
 					Result += " --memory-init-file 1";
+
+					// Separate the asm.js code to its own file so that browsers can optimize memory usage for the script files for debugging.
+					Result += " -Wno-separate-asm";
+					Result += " --separate-asm";
 				}
 
 				// we have to specify the full amount of memory with Asm.JS.
@@ -649,6 +694,8 @@ namespace UnrealBuildTool
 				else
 				{
 					BuildProducts.Add(Binary.Config.OutputFilePath + ".mem", BuildProductType.RequiredResource);
+					BuildProducts.Add(Binary.Config.OutputFilePath.ChangeExtension("asm.js"), BuildProductType.RequiredResource);
+					// TODO: add "_asm.js"
 				}
 				BuildProducts.Add(Binary.Config.OutputFilePath + ".symbols", BuildProductType.RequiredResource);
 			}

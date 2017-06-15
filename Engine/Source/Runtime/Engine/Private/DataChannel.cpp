@@ -603,7 +603,8 @@ bool UChannel::ReceivedNextBunch( FInBunch & Bunch, bool & bOutSkipAck )
 		{
 			if ( ChType != CHTYPE_Voice )	// Voice channels can open from both side simultaneously, so ignore this logic until we resolve this
 			{
-				check( !OpenedLocally );					// If we opened the channel, we shouldn't be receiving bOpen commands from the other side
+				// If we opened the channel, we shouldn't be receiving bOpen commands from the other side
+				checkf(!OpenedLocally, TEXT("Received channel open command for channel that was already opened locally. %s"), *Describe());
 				check( OpenPacketId.First == INDEX_NONE );	// This should be the first and only assignment of the packet range (we should only receive one bOpen bunch)
 				check( OpenPacketId.Last == INDEX_NONE );	// This should be the first and only assignment of the packet range (we should only receive one bOpen bunch)
 			}
@@ -1646,7 +1647,7 @@ void UActorChannel::DestroyActorAndComponents()
 				Connection->Driver->RepChangedPropertyTrackerMap.Remove( SubObject );
 			}
 
-			Actor->OnSubobjectDestroyFromReplication(SubObject);
+			Actor->OnSubobjectDestroyFromReplication(SubObject); //-V595
 			SubObject->PreDestroyFromReplication();
 			SubObject->MarkPendingKill();
 		}
@@ -2462,7 +2463,7 @@ bool UActorChannel::ReplicateActor()
 	RepFlags.bNetSimulated	= ( Actor->GetRemoteRole() == ROLE_SimulatedProxy );
 	RepFlags.bRepPhysics	= Actor->ReplicatedMovement.bRepPhysics;
 	RepFlags.bReplay		= ActorWorld && (ActorWorld->DemoNetDriver == Connection->GetDriver());
-	RepFlags.bNetInitial	= RepFlags.bNetInitial;
+	//RepFlags.bNetInitial	= RepFlags.bNetInitial;
 
 	UE_LOG(LogNetTraffic, Log, TEXT("Replicate %s, bNetInitial: %d, bNetOwner: %d"), *Actor->GetName(), RepFlags.bNetInitial, RepFlags.bNetOwner );
 

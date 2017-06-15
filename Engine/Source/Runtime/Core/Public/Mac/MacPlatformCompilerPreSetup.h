@@ -99,6 +99,17 @@
 		_Pragma("clang diagnostic pop")
 #endif // PRAGMA_ENABLE_UNDEFINED_IDENTIFIER_WARNINGS
 
+#ifndef PRAGMA_DISABLE_MISSING_VIRTUAL_DESTRUCTOR_WARNINGS
+	#define PRAGMA_DISABLE_MISSING_VIRTUAL_DESTRUCTOR_WARNINGS \
+		_Pragma("clang diagnostic push") \
+		_Pragma("clang diagnostic ignored \"-Wdelete-non-virtual-dtor\"")
+#endif // PRAGMA_DISABLE_MISSING_VIRTUAL_DESTRUCTOR_WARNINGS
+
+#ifndef PRAGMA_ENABLE_MISSING_VIRTUAL_DESTRUCTOR_WARNINGS
+	#define PRAGMA_ENABLE_MISSING_VIRTUAL_DESTRUCTOR_WARNINGS \
+		_Pragma("clang diagnostic pop")
+#endif // PRAGMA_ENABLE_MISSING_VIRTUAL_DESTRUCTOR_WARNINGS
+
 #ifndef PRAGMA_POP
 	#define PRAGMA_POP \
 		_Pragma("clang diagnostic pop")
@@ -108,11 +119,13 @@
 #ifndef THIRD_PARTY_INCLUDES_START
 	#define THIRD_PARTY_INCLUDES_START \
 		PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS \
-		PRAGMA_DISABLE_UNDEFINED_IDENTIFIER_WARNINGS
+		PRAGMA_DISABLE_UNDEFINED_IDENTIFIER_WARNINGS \
+		PRAGMA_DISABLE_MISSING_VIRTUAL_DESTRUCTOR_WARNINGS
 #endif
 
 #ifndef THIRD_PARTY_INCLUDES_END
 	#define THIRD_PARTY_INCLUDES_END \
+		PRAGMA_ENABLE_MISSING_VIRTUAL_DESTRUCTOR_WARNINGS \
 		PRAGMA_ENABLE_UNDEFINED_IDENTIFIER_WARNINGS \
 		PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
 #endif
@@ -130,7 +143,8 @@
 #pragma clang diagnostic ignored "-Winconsistent-missing-override"
 #pragma clang diagnostic ignored "-Wundefined-bool-conversion"
 #pragma clang diagnostic ignored "-Wunused-local-typedef"
-#pragma clang diagnostic ignored "-Wdelete-non-virtual-dtor"
+#pragma clang diagnostic ignored "-Wconstant-logical-operand"
+#pragma clang diagnostic ignored "-Wreserved-user-defined-literal"
 
 // Apple LLVM 8.1.0 (Xcode 8.3) introduced -Wundefined-var-template
 #if (__clang_major__ > 8) || (__clang_major__ == 8 && __clang_minor__ >= 1)
@@ -139,6 +153,7 @@
 #pragma clang diagnostic ignored "-Wobjc-protocol-property-synthesis"
 #pragma clang diagnostic ignored "-Wnullability-completeness-on-arrays"
 #pragma clang diagnostic ignored "-Wnull-dereference"
+#pragma clang diagnostic ignored "-Wnonportable-include-path" // Ideally this one would be set in MacToolChain, but we don't have a way to check the compiler version in there yet
 #endif
 
 // We can use pragma optimisation's on and off as of Apple LLVM 7.3.0 but not before.

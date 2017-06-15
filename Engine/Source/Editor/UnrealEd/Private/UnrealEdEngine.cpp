@@ -43,7 +43,6 @@
 #include "PropertyEditorModule.h"
 #include "LevelEditor.h"
 #include "Interfaces/IMainFrameModule.h"
-#include "Interfaces/ICrashTrackerModule.h"
 #include "Settings/EditorLoadingSavingSettingsCustomization.h"
 #include "Settings/GameMapsSettingsCustomization.h"
 #include "Settings/LevelEditorPlaySettingsCustomization.h"
@@ -53,7 +52,6 @@
 #include "PackageAutoSaver.h"
 #include "PerformanceMonitor.h"
 #include "BSPOps.h"
-#include "Editor/EditorLiveStreaming/Public/IEditorLiveStreaming.h"
 #include "SourceCodeNavigation.h"
 #include "AutoReimport/AutoReimportManager.h"
 #include "Framework/Notifications/NotificationManager.h"
@@ -162,8 +160,14 @@ void UUnrealEdEngine::Init(IEngineLoop* InEngineLoop)
 		BaseCookingFlags |= CookerSettings->bIterativeCookingForLaunchOn ? IterativeFlags : ECookInitializationFlags::None;
 		BaseCookingFlags |= CookerSettings->bEnableBuildDDCInBackground ? ECookInitializationFlags::BuildDDCInBackground : ECookInitializationFlags::None;
 
+
 		if (CookerSettings->bEnableCookOnTheSide)
 		{
+			if ( ExperimentalSettings->bSharedCookedBuilds )
+			{
+				BaseCookingFlags |= ECookInitializationFlags::IterateSharedBuild | ECookInitializationFlags::IgnoreIniSettingsOutOfDate;
+			}
+
 			CookServer = NewObject<UCookOnTheFlyServer>();
 			CookServer->Initialize(ECookMode::CookOnTheFlyFromTheEditor, BaseCookingFlags);
 			CookServer->StartNetworkFileServer(false);
@@ -213,32 +217,34 @@ bool CanCookForPlatformInThisProcess( const FString& PlatformName )
 
 bool UUnrealEdEngine::CanCookByTheBookInEditor(const FString& PlatformName) const 
 { 	
-	if ( CanCookForPlatformInThisProcess(PlatformName) == false )
+	if ( !CookServer )
+	{
+		return false;
+	}
+
+	if ( !CanCookForPlatformInThisProcess(PlatformName) )
 	{
 		CookServer->ClearAllCookedData();
 		return false;
 	}
 
-	if ( CookServer )
-	{
-		return CookServer->GetCookMode() == ECookMode::CookByTheBookFromTheEditor; 
-	}
-	return false;
+	return CookServer->GetCookMode() == ECookMode::CookByTheBookFromTheEditor; 
 }
 
 bool UUnrealEdEngine::CanCookOnTheFlyInEditor(const FString& PlatformName) const
 {
-	if ( CanCookForPlatformInThisProcess(PlatformName) == false )
+	if ( !CookServer )
+	{
+		return false;
+	}
+
+	if ( !CanCookForPlatformInThisProcess(PlatformName) )
 	{
 		CookServer->ClearAllCookedData();
 		return false;
 	}
 
-	if ( CookServer )
-	{
-		return CookServer->GetCookMode() == ECookMode::CookOnTheFlyFromTheEditor;
-	}
-	return false;
+	return CookServer->GetCookMode() == ECookMode::CookOnTheFlyFromTheEditor;
 }
 
 void UUnrealEdEngine::StartCookByTheBookInEditor( const TArray<ITargetPlatform*> &TargetPlatforms, const TArray<FString> &CookMaps, const TArray<FString> &CookDirectories, const TArray<FString> &CookCultures, const TArray<FString> &IniMapSections )
@@ -423,26 +429,6 @@ void UUnrealEdEngine::Tick(float DeltaSeconds, bool bIdleMode)
 
 	// Update lightmass
 	UpdateBuildLighting();
-	
-	
-	ICrashTrackerModule* CrashTracker = FModuleManager::LoadModulePtr<ICrashTrackerModule>( FName("CrashTracker") );
-	bool bCrashTrackerEnabled = false;
-	if (CrashTracker)
-	{
-		CrashTracker->Update(DeltaSeconds);
-		bCrashTrackerEnabled = CrashTracker->IsCurrentlyCapturing();
-	}
-
-	// Only allow live streaming if crash tracker is disabled. This is because the SlateRHIRenderer shares the same render targets
-	// for both crash tracker and live editor streaming, and we don't want them to be thrashed every frame.
-	if( !bCrashTrackerEnabled )
-	{
-		// If the editor is configured to broadcast frames, do that now
-		if( IEditorLiveStreaming::Get().IsBroadcastingEditor() )
-		{
-			IEditorLiveStreaming::Get().BroadcastEditorVideoFrame();
-		}
-	}
 }
 
 
@@ -1242,7 +1228,7 @@ void UUnrealEdEngine::FixAnyInvertedBrushes(UWorld* World)
 	for (TActorIterator<ABrush> It(World); It; ++It)
 	{
 		ABrush* Brush = *It;
-		if (Brush->BrushComponent && Brush->BrushComponent->HasInvertedPolys())
+		if (Brush->GetBrushComponent() && Brush->GetBrushComponent()->HasInvertedPolys())
 		{
 			Brushes.Add(Brush);
 		}
@@ -1255,7 +1241,7 @@ void UUnrealEdEngine::FixAnyInvertedBrushes(UWorld* World)
 			UE_LOG(LogUnrealEdEngine, Warning, TEXT("Brush '%s' appears to be inside out - fixing."), *Brush->GetName());
 
 			// Invert the polys of the brush
-			for (FPoly& Poly : Brush->BrushComponent->Brush->Polys->Element)
+			for (FPoly& Poly : Brush->GetBrushComponent()->Brush->Polys->Element)
 			{
 				Poly.Reverse();
 				Poly.CalcNormal();
@@ -1270,7 +1256,7 @@ void UUnrealEdEngine::FixAnyInvertedBrushes(UWorld* World)
 			{
 				// Dynamic brushes can be fixed up here
 				FBSPOps::csgPrepMovingBrush(Brush);
-				Brush->BrushComponent->BuildSimpleBrushCollision();
+				Brush->GetBrushComponent()->BuildSimpleBrushCollision();
 			}
 
 			Brush->MarkPackageDirty();

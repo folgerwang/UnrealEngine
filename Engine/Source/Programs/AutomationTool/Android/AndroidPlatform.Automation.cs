@@ -203,7 +203,7 @@ public class AndroidPlatform : Platform
 		// Create main OBB with entire contents of staging dir. This
 		// includes any PAK files, movie files, etc.
 
-		string LocalObbName = SC.StageDirectory.TrimEnd(new char[] {'/', '\\'})+".obb";
+		string LocalObbName = SC.StageDirectory.FullName+".obb";
 
 		// Always delete the target OBB file if it exists
 		if (File.Exists(LocalObbName))
@@ -806,7 +806,7 @@ public class AndroidPlatform : Platform
 		string SanitizedDeviceName = DeviceName.Replace(":", "_");
 
 		// Try retrieving the UFS files manifest files from the device
-		string UFSManifestFileName = CombinePaths(SC.StageDirectory, SC.UFSDeployedManifestFileName + "_" + SanitizedDeviceName);
+		string UFSManifestFileName = CombinePaths(SC.StageDirectory.FullName, SC.UFSDeployedManifestFileName + "_" + SanitizedDeviceName);
 		IProcessResult UFSResult = RunAdbCommand(Params, DeviceName, " pull " + RemoteDir + "/" + SC.UFSDeployedManifestFileName + " \"" + UFSManifestFileName + "\"", null, ERunOptions.AppMustExist);
 		if (!(UFSResult.Output.Contains("bytes") || UFSResult.Output.Contains("[100%]")))
 		{
@@ -814,7 +814,7 @@ public class AndroidPlatform : Platform
 		}
 
 		// Try retrieving the non UFS files manifest files from the device
-		string NonUFSManifestFileName = CombinePaths(SC.StageDirectory, SC.NonUFSDeployedManifestFileName + "_" + SanitizedDeviceName);
+		string NonUFSManifestFileName = CombinePaths(SC.StageDirectory.FullName, SC.NonUFSDeployedManifestFileName + "_" + SanitizedDeviceName);
 		IProcessResult NonUFSResult = RunAdbCommand(Params, DeviceName, " pull " + RemoteDir + "/" + SC.NonUFSDeployedManifestFileName + " \"" + NonUFSManifestFileName + "\"", null, ERunOptions.AppMustExist);
 		if (!(NonUFSResult.Output.Contains("bytes") || NonUFSResult.Output.Contains("[100%]")))
 		{
@@ -843,7 +843,9 @@ public class AndroidPlatform : Platform
 
     public override void Deploy(ProjectParams Params, DeploymentContext SC)
     {
-        foreach (var DeviceName in Params.DeviceNames)
+		var AppArchitectures = AndroidExports.CreateToolChain(Params.RawProjectPath).GetAllArchitectures();
+
+		foreach (var DeviceName in Params.DeviceNames)
         {
             string DeviceArchitecture = GetBestDeviceArchitecture(Params, DeviceName);
             string GPUArchitecture = GetBestGPUArchitecture(Params, DeviceName);
@@ -856,9 +858,7 @@ public class AndroidPlatform : Platform
             {
                 string CookFlavor = SC.FinalCookPlatform.IndexOf("_") > 0 ? SC.FinalCookPlatform.Substring(SC.FinalCookPlatform.IndexOf("_")) : "";
 				string SOName = GetSONameWithoutArchitecture(Params, SC.StageExecutables[0]);
-				List<string> Architectures = new List<string>();
-                Architectures.Add(DeviceArchitecture);
-                Deploy.SetAndroidPluginData(Architectures, CollectPluginDataPaths(SC));
+				Deploy.SetAndroidPluginData(AppArchitectures, CollectPluginDataPaths(SC));
                 Deploy.PrepForUATPackageOrDeploy(Params.RawProjectPath, Params.ShortProjectName, SC.ProjectRoot, SOName, SC.LocalRoot + "/Engine", Params.Distribution, CookFlavor, true);
             }
 
@@ -951,7 +951,7 @@ public class AndroidPlatform : Platform
             // update the ue4commandline.txt
             // update and deploy ue4commandline.txt
             // always delete the existing commandline text file, so it doesn't reuse an old one
-            string IntermediateCmdLineFile = CombinePaths(SC.StageDirectory, "UE4CommandLine.txt");
+            FileReference IntermediateCmdLineFile = FileReference.Combine(SC.StageDirectory, "UE4CommandLine.txt");
             Project.WriteStageCommandline(IntermediateCmdLineFile, Params, SC);
 
             // copy files to device if we were staging
@@ -965,7 +965,7 @@ public class AndroidPlatform : Platform
                 if (Params.IterativeDeploy)
                 {
                     // always send UE4CommandLine.txt (it was written above after delta checks applied)
-                    EntriesToDeploy.Add(IntermediateCmdLineFile);
+                    EntriesToDeploy.Add(IntermediateCmdLineFile.FullName);
 
                     // Add non UFS files if any to deploy
                     String NonUFSManifestPath = SC.GetNonUFSDeploymentDeltaPath(DeviceName);
@@ -976,7 +976,7 @@ public class AndroidPlatform : Platform
                         {
                             if (!string.IsNullOrEmpty(Filename) && !string.IsNullOrWhiteSpace(Filename))
                             {
-                                EntriesToDeploy.Add(CombinePaths(SC.StageDirectory, Filename.Trim()));
+                                EntriesToDeploy.Add(CombinePaths(SC.StageDirectory.FullName, Filename.Trim()));
                             }
                         }
                     }
@@ -990,7 +990,7 @@ public class AndroidPlatform : Platform
                         {
                             if (!string.IsNullOrEmpty(Filename) && !string.IsNullOrWhiteSpace(Filename))
                             {
-                                EntriesToDeploy.Add(CombinePaths(SC.StageDirectory, Filename.Trim()));
+                                EntriesToDeploy.Add(CombinePaths(SC.StageDirectory.FullName, Filename.Trim()));
                             }
                         }
                     }
@@ -1003,7 +1003,7 @@ public class AndroidPlatform : Platform
 
                         EntriesToDeploy.Clear();
                         EntriesToDeploy.TrimExcess();
-                        EntriesToDeploy.Add(SC.StageDirectory);
+                        EntriesToDeploy.Add(SC.StageDirectory.FullName);
                     }
                 }
                 else
@@ -1012,7 +1012,7 @@ public class AndroidPlatform : Platform
                     RunAdbCommand(Params, DeviceName, "shell rm -r " + RemoteDir);
 
                     // Copy UFS files..
-                    string[] Files = Directory.GetFiles(SC.StageDirectory, "*", SearchOption.AllDirectories);
+                    string[] Files = Directory.GetFiles(SC.StageDirectory.FullName, "*", SearchOption.AllDirectories);
                     System.Array.Sort(Files);
 
                     // Find all the files we exclude from copying. And include
@@ -1041,9 +1041,9 @@ public class AndroidPlatform : Platform
                                     IndividualCopyDirectories.Add(FileDirectory);
                                 }
                             }
-                            if (!IndividualCopyDirectories.Contains(SC.StageDirectory))
+                            if (!IndividualCopyDirectories.Contains(SC.StageDirectory.FullName))
                             {
-                                IndividualCopyDirectories.Add(SC.StageDirectory);
+                                IndividualCopyDirectories.Add(SC.StageDirectory.FullName);
                             }
                         }
                     }
@@ -1073,7 +1073,7 @@ public class AndroidPlatform : Platform
 
                     if (EntriesToDeploy.Count == 0)
                     {
-                        EntriesToDeploy.Add(SC.StageDirectory);
+                        EntriesToDeploy.Add(SC.StageDirectory.FullName);
                     }
                 }
 
@@ -1085,7 +1085,7 @@ public class AndroidPlatform : Platform
                 foreach (string Entry in EntriesToDeploy)
                 {
                     string FinalRemoteDir = RemoteDir;
-                    string RemotePath = Entry.Replace(SC.StageDirectory, FinalRemoteDir).Replace("\\", "/");
+                    string RemotePath = Entry.Replace(SC.StageDirectory.FullName, FinalRemoteDir).Replace("\\", "/");
                     string Commandline = string.Format("{0} \"{1}\" \"{2}\"", BaseCommandline, Entry, RemotePath);
                     // We run deploy commands in parallel to maximize the connection
                     // throughput.
@@ -1118,7 +1118,7 @@ public class AndroidPlatform : Platform
             else if (SC.Archive)
             {
                 // deploy the obb if there is one
-                string ObbPath = Path.Combine(SC.StageDirectory, GetFinalObbName(ApkName));
+                string ObbPath = Path.Combine(SC.StageDirectory.FullName, GetFinalObbName(ApkName));
                 if (File.Exists(ObbPath))
                 {
                     // cache some strings
@@ -1142,7 +1142,7 @@ public class AndroidPlatform : Platform
 			    }
 			    */
 
-                string RemoteFilename = IntermediateCmdLineFile.Replace(SC.StageDirectory, FinalRemoteDir).Replace("\\", "/");
+                string RemoteFilename = IntermediateCmdLineFile.FullName.Replace(SC.StageDirectory.FullName, FinalRemoteDir).Replace("\\", "/");
                 string Commandline = string.Format("{0} \"{1}\" \"{2}\"", BaseCommandline, IntermediateCmdLineFile, RemoteFilename);
                 RunAdbCommand(Params, DeviceName, Commandline);
             }
@@ -1423,6 +1423,18 @@ public class AndroidPlatform : Platform
 		//same with the package names
 		List<string> PackageNames = new List<string>();
 
+		//strip off the device, GPU architecture and extension (.so)
+		int DashIndex = ClientApp.LastIndexOf("-");
+		if (DashIndex >= 0)
+		{
+			ClientApp = ClientApp.Substring(0, DashIndex);
+			DashIndex = ClientApp.LastIndexOf("-");
+			if (DashIndex >= 0)
+			{
+				ClientApp = ClientApp.Substring(0, DashIndex);
+			}
+		}
+
 		foreach (string DeviceName in Params.DeviceNames)
 		{
 			//save the device name
@@ -1431,10 +1443,10 @@ public class AndroidPlatform : Platform
 			//get the package name and save that
 			string DeviceArchitecture = GetBestDeviceArchitecture(Params, DeviceName);
 			string GPUArchitecture = GetBestGPUArchitecture(Params, DeviceName);
-			string ApkName = ClientApp + DeviceArchitecture + ".apk";
+			string ApkName = GetFinalApkName(Params, Path.GetFileNameWithoutExtension(ClientApp), true, DeviceArchitecture, GPUArchitecture);
 			if (!File.Exists(ApkName))
 			{
-				ApkName = GetFinalApkName(Params, Path.GetFileNameWithoutExtension(ClientApp), true, DeviceArchitecture, GPUArchitecture);
+				throw new AutomationException(ExitCode.Error_AppNotFound, "Failed to find application " + ApkName);
 			}
 			Console.WriteLine("Apk='{0}', ClientApp='{1}', ExeName='{2}'", ApkName, ClientApp, Params.ProjectGameExeFilename);
 
@@ -1523,7 +1535,7 @@ public class AndroidPlatform : Platform
 	public override void GetFilesToDeployOrStage(ProjectParams Params, DeploymentContext SC)
 	{
         // Add any Android shader cache files
-        string ProjectShaderDir = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(Params.RawProjectPath.ToString())), "Build/ShaderCaches/Android");
+        DirectoryReference ProjectShaderDir = DirectoryReference.Combine(Params.RawProjectPath.Directory, "Build/ShaderCaches/Android");
         SC.StageFiles(StagedFileType.UFS, ProjectShaderDir, "*.*", true, null, null, true);
     }
 
@@ -1534,11 +1546,6 @@ public class AndroidPlatform : Platform
     public override string GetCookPlatform(bool bDedicatedServer, bool bIsClientOnly)
 	{
 		return "Android";
-	}
-
-	public override bool DeployPakInternalLowerCaseFilenames()
-	{
-		return false;
 	}
 
 	public override bool DeployLowerCaseFilenames(bool bUFSFile)
@@ -1552,11 +1559,6 @@ public class AndroidPlatform : Platform
 	}
 
 	public override bool IsSupported { get { return true; } }
-
-	public override string Remap(string Dest)
-	{
-		return Dest;
-	}
 
 	public override PakType RequiresPak(ProjectParams Params)
 	{

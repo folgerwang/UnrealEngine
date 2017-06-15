@@ -22,8 +22,6 @@
 
 class UGoogleVRWidgetInteractionComponent;
 
-DEFINE_LOG_CATEGORY_STATIC(LogGoogleVRPointerInput, Log, All);
-
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FGoogleVRInputDelegate, FHitResult, HitResult);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FGoogleVRInputExitActorDelegate, AActor*, PreviousActor, FHitResult, HitResult);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FGoogleVRInputExitComponentDelegate, UPrimitiveComponent*, PreviousComponent, FHitResult, HitResult);

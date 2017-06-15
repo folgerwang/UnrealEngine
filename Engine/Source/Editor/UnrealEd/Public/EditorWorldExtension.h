@@ -81,7 +81,7 @@ protected:
 	virtual void EnteredSimulateInEditor() {};
 	
 	/** Give child class a chance to act on leaving simulate mode */
-	virtual void LeftSimulateInEditor() {};
+	virtual void LeftSimulateInEditor(UWorld* SimulateWorld) {};
 
 	/** The collection of extensions that is owning this extension */
 	UEditorWorldExtensionCollection* OwningExtensionsCollection;
@@ -123,6 +123,12 @@ public:
 
 	/** Gets the world context */
 	FWorldContext* GetWorldContext() const;
+
+	/**
+	 * Checks if the passed extension already exists and creates one if it doesn't.
+	 * @param EditorExtensionClass the subclass of an extension to create if necessary and add.
+	 */
+	UEditorWorldExtension* AddExtension(TSubclassOf<UEditorWorldExtension> EditorExtensionClass);
 
 	/** 
 	 * Adds an extension to the collection

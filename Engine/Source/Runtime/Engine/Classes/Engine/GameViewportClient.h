@@ -135,6 +135,7 @@ public:
 
 	/* Returns the game viewport */
 	FSceneViewport* GetGameViewport();
+	const FSceneViewport* GetGameViewport() const;
 
 	/* Returns the widget for this viewport */
 	TSharedPtr<SViewport> GetGameViewportWidget();
@@ -250,6 +251,11 @@ public:
 	 * This function removes all widgets from the viewport overlay
 	 */
 	void RemoveAllViewportWidgets();
+
+	/**
+	 * Recreates cursor widgets from UISettings class.
+	 */
+	void RebuildCursors();
 
 	/**
 	 * Cleans up all rooted or referenced objects created or managed by the GameViewportClient.  This method is called
@@ -561,6 +567,10 @@ public:
 
 	bool SetHardwareCursor(EMouseCursor::Type CursorShape, FName GameContentPath, FVector2D HotSpot);
 
+	/** 
+	 * @return @true if this viewport is currently being used for simulate in editors
+	 */
+	bool IsSimulateInEditorViewport() const;
 public:
 	/** The show flags used by the viewport's players. */
 	FEngineShowFlags EngineShowFlags;
@@ -761,6 +771,9 @@ public:
 	}
 
 private:
+	/** Resets the platform type shape to nullptr, to restore it to the OS default. */
+	void ResetHardwareCursorStates();
+
 	/**
 	 * Set a specific stat to either enabled or disabled (returns the number of remaining enabled stats)
 	 */
@@ -918,8 +931,6 @@ private:
 	/** Whether or not this audio device is in audio-focus */
 	bool bHasAudioFocus;
 
-	bool bMouseEnter;
+	/** Is the mouse currently over the viewport client */
+	bool bIsMouseOverClient;
 };
-
-
-

@@ -28,6 +28,8 @@
 #include "Engine/World.h"
 #include "Engine/StaticMesh.h"
 
+DEFINE_LOG_CATEGORY_STATIC(LogGoogleVRMotionController, Log, All);
+
 const FVector UGoogleVRMotionControllerComponent::TOUCHPAD_POINT_DIMENSIONS = FVector(0.01f, 0.01f, 0.0004f);
 
 UGoogleVRMotionControllerComponent::UGoogleVRMotionControllerComponent()

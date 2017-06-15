@@ -77,6 +77,16 @@ namespace UnrealBuildTool
 		public static readonly DirectoryReference EngineSourceThirdPartyDirectory = DirectoryReference.Combine(EngineSourceDirectory, "ThirdParty");
 
 		/// <summary>
+		/// The full name of the Enterprise directory
+		/// </summary>
+		public static readonly DirectoryReference EnterpriseDirectory = DirectoryReference.Combine(RootDirectory, "Enterprise");
+
+		/// <summary>
+		/// The full name of the Enterprise/Source directory
+		/// </summary>
+		public static readonly DirectoryReference EnterpriseSourceDirectory = DirectoryReference.Combine(EnterpriseDirectory, "Source");
+
+		/// <summary>
 		/// The Remote Ini directory.  This should always be valid when compiling using a remote server.
 		/// </summary>
 		static string RemoteIniPath = null;
@@ -238,6 +248,18 @@ namespace UnrealBuildTool
 		static public bool IsValidPlatform(UnrealTargetPlatform InPlatform)
 		{
 			return InstalledPlatformInfo.Current.IsValidPlatform(InPlatform, EProjectType.Code);
+		}
+
+		/// <summary>
+		/// Determines whether a directory is part of the engine
+		/// </summary>
+		/// <param name="InDirectory"></param>
+		/// <returns>true if the directory is under of the engine directories, false if not</returns>
+		static public bool IsUnderAnEngineDirectory(DirectoryReference InDirectory)
+		{
+			// Enterprise modules are considered as engine modules
+			return InDirectory.IsUnderDirectory( UnrealBuildTool.EngineDirectory ) || InDirectory.IsUnderDirectory( UnrealBuildTool.EnterpriseSourceDirectory ) ||
+				InDirectory.IsUnderDirectory( DirectoryReference.Combine( UnrealBuildTool.EnterpriseDirectory, "Plugins" ) );
 		}
 
 		public static void RegisterAllUBTClasses(SDKOutputLevel OutputLevel, bool bValidatingPlatforms)
@@ -465,7 +487,7 @@ namespace UnrealBuildTool
 			if (!bIsEngineInstalled.HasValue)
 			{
 				bIsEngineInstalled = FileReference.Exists(FileReference.Combine(RootDirectory, "Engine", "Build", "InstalledBuild.txt"));
-		}
+			}
 
 			DateTime StartTime = DateTime.UtcNow;
 
@@ -478,10 +500,10 @@ namespace UnrealBuildTool
 				bLogSourcesToConsole: false,
 				bColorConsoleOutput: true,
 				TraceListeners: new[] 
-                {
-                    new ConsoleTraceListener(),
-                    !string.IsNullOrEmpty(BuildConfiguration.LogFilename) ? new TextWriterTraceListener(new StreamWriter(new FileStream(BuildConfiguration.LogFilename, FileMode.Create, FileAccess.ReadWrite, FileShare.Read)) { AutoFlush = true }) : null,
-                });
+				{
+					new ConsoleTraceListener(),
+					!string.IsNullOrEmpty(BuildConfiguration.LogFilename) ? new TextWriterTraceListener(new StreamWriter(new FileStream(BuildConfiguration.LogFilename, FileMode.Create, FileAccess.ReadWrite, FileShare.Read)) { AutoFlush = true }) : null,
+				});
 
 			// Parse rocket-specific arguments.
 			FileReference ProjectFile = null;
@@ -492,7 +514,7 @@ namespace UnrealBuildTool
 				{
 					// This is to allow relative paths for the project file
 					Log.TraceVerbose("UBT Running for Rocket: " + ProjectFile);
-                    break;
+					break;
 				}
 			}
 
@@ -1114,6 +1136,12 @@ namespace UnrealBuildTool
 				bool bIsHotReload = !bNoHotReload && (BuildConfiguration.bHotReloadFromIDE || (TargetDescs.Count == 1 && TargetDescs[0].OnlyModules.Count > 0 && TargetDescs[0].ForeignPlugins.Count == 0));
 				TargetDescriptor HotReloadTargetDesc = bIsHotReload ? TargetDescs[0] : null;
 
+				// Do a gather on hotreload - we don't want old module names from the makefile to be used
+				if (bIsHotReload)
+				{
+					UnrealBuildTool.bIsGatheringBuild_Unsafe = true;
+				}
+
 				if (ProjectFileGenerator.bGenerateProjectFiles)
 				{
 					// Create empty timestamp file to record when was the last time we regenerated projects.
@@ -1240,7 +1268,7 @@ namespace UnrealBuildTool
 										{
 											// Ini files are newer than UBTMakefile
 											UBTMakefile = null;
-											ReasonNotLoaded = "ini files are newer that UBTMakefile";
+											ReasonNotLoaded = "ini files are newer than UBTMakefile";
 											break;
 										}
 									}
@@ -1438,7 +1466,7 @@ namespace UnrealBuildTool
 						UBTMakefile.SourceFileWorkingSet = Unity.SourceFileWorkingSet;
 						UBTMakefile.CandidateSourceFilesForWorkingSet = Unity.CandidateSourceFilesForWorkingSet;
 
-						if (BuildConfiguration.bUseUBTMakefiles)
+						if (BuildConfiguration.bUseUBTMakefiles && !UBTMakefile.PrerequisiteActions.Any(x => x.ActionHandler != null))
 						{
 							// We've been told to prepare to build, so let's go ahead and save out our action graph so that we can use in a later invocation 
 							// to assemble the build.  Even if we are configured to assemble the build in this same invocation, we want to save out the
@@ -1577,11 +1605,11 @@ namespace UnrealBuildTool
 							// if the build succeeded, write the receipts and do any needed syncing
 							if (bSuccess)
 							{
-									foreach (UEBuildTarget Target in Targets)
-									{
-										Target.WriteReceipts();
+								foreach (UEBuildTarget Target in Targets)
+								{
+									Target.WriteReceipts();
 									UEBuildPlatform.GetBuildPlatform(Target.Platform).PostBuildSync(Target);
-									}
+								}
 								if (ActionsToExecute.Count == 0 && BuildConfiguration.bSkipLinkingWhenNothingToCompile)
 								{
 									BuildResult = ECompilationResult.UpToDate;
@@ -1647,19 +1675,19 @@ namespace UnrealBuildTool
 
 			// Save the include dependency cache.
 			foreach(CPPHeaders Headers in TargetToHeaders.Values)
+			{
+				// NOTE: It's very important that we save the include cache, even if a build exception was thrown (compile error, etc), because we need to make sure that
+				//    any C++ include dependencies that we computed for out of date source files are saved.  Remember, the build may fail *after* some build products
+				//    are successfully built.  If we didn't save our dependency cache after build failures, source files for those build products that were successsfully
+				//    built before the failure would not be considered out of date on the next run, so this is our only chance to cache C++ includes for those files!
+
+				if (Headers.IncludeDependencyCache != null)
 				{
-					// NOTE: It's very important that we save the include cache, even if a build exception was thrown (compile error, etc), because we need to make sure that
-					//    any C++ include dependencies that we computed for out of date source files are saved.  Remember, the build may fail *after* some build products
-					//    are successfully built.  If we didn't save our dependency cache after build failures, source files for those build products that were successsfully
-					//    built before the failure would not be considered out of date on the next run, so this is our only chance to cache C++ includes for those files!
-
-				if(Headers.IncludeDependencyCache != null)
-					{
 					Headers.IncludeDependencyCache.Save();
-					}
+				}
 
-				if(Headers.FlatCPPIncludeDependencyCache != null)
-					{
+				if (Headers.FlatCPPIncludeDependencyCache != null)
+				{
 					Headers.FlatCPPIncludeDependencyCache.Save();
 				}
 			}
@@ -1996,7 +2024,7 @@ namespace UnrealBuildTool
 			// Check if any of the target's Build.cs files are newer than the makefile
 			foreach (UEBuildTarget Target in LoadedUBTMakefile.Targets)
 			{
-				string TargetCsFilename = Target.TargetCsFilename.FullName;
+				string TargetCsFilename = Target.TargetRulesFile.FullName;
 				if (TargetCsFilename != null)
 				{
 					FileInfo TargetCsFile = new FileInfo(TargetCsFilename);
@@ -2021,6 +2049,25 @@ namespace UnrealBuildTool
 							Log.TraceVerbose("{0} has been {1} since makefile was built, ignoring it ({2})", BuildCsFilename, bBuildCsFileExists ? "changed" : "deleted", UBTMakefileInfo.FullName);
 							ReasonNotLoaded = string.Format("changes to module files");
 							return null;
+						}
+					}
+				}
+
+				foreach (FlatModuleCsDataType FlatCsModuleData in Target.FlatModuleCsData.Values)
+				{
+					if (FlatCsModuleData.BuildCsFilename != null && FlatCsModuleData.ExternalDependencies.Count > 0)
+					{
+						string BaseDir = Path.GetDirectoryName(FlatCsModuleData.BuildCsFilename);
+						foreach (string ExternalDependency in FlatCsModuleData.ExternalDependencies)
+						{
+							FileInfo DependencyFile = new FileInfo(Path.Combine(BaseDir, ExternalDependency));
+							bool bDependencyFileExists = DependencyFile.Exists;
+							if (!bDependencyFileExists || DependencyFile.LastWriteTime > UBTMakefileInfo.LastWriteTime)
+							{
+								Log.TraceVerbose("{0} has been {1} since makefile was built, ignoring it ({2})", DependencyFile.FullName, bDependencyFileExists ? "changed" : "deleted", UBTMakefileInfo.FullName);
+								ReasonNotLoaded = string.Format("changes to external dependency");
+								return null;
+							}
 						}
 					}
 				}
@@ -2442,6 +2489,12 @@ namespace UnrealBuildTool
 		/// <returns>True if file is part of the working set</returns>
 		public static bool ShouldSourceFileBePartOfWorkingSet(string SourceFileAbsolutePath)
 		{
+			// Generated .cpp files should never be treated as part of the working set
+			if (SourceFileAbsolutePath.EndsWith(".gen.cpp"))
+			{
+				return false;
+			}
+
 			bool bShouldBePartOfWorkingSourceFileSet = false;
 			try
 			{

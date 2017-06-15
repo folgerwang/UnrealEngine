@@ -8,7 +8,6 @@
 #include "CoreTypes.h"
 #include "Misc/AssertionMacros.h"
 #include "HAL/UnrealMemory.h"
-#include "Templates/AlignOf.h"
 #include "Templates/UnrealTemplate.h"
 #include "Math/Color.h"
 #include "Math/IntPoint.h"
@@ -57,6 +56,7 @@ class FGraphicsPipelineState;
 
 DECLARE_STATS_GROUP(TEXT("RHICmdList"), STATGROUP_RHICMDLIST, STATCAT_Advanced);
 
+
 // set this one to get a stat for each RHI command 
 #define RHI_STATS 0
 
@@ -66,7 +66,40 @@ DECLARE_STATS_GROUP(TEXT("RHICommands"),STATGROUP_RHI_COMMANDS, STATCAT_Advanced
 #else
 #define RHISTAT(Method)
 #endif
-/** Thread used for RHI */
+
+extern RHI_API bool GUseRHIThread_InternalUseOnly;
+extern RHI_API bool GUseRHITaskThreads_InternalUseOnly;
+extern RHI_API bool GIsRunningRHIInSeparateThread_InternalUseOnly;
+extern RHI_API bool GIsRunningRHIInDedicatedThread_InternalUseOnly;
+extern RHI_API bool GIsRunningRHIInTaskThread_InternalUseOnly;
+
+/**
+* Whether the RHI commands are being run in a thread other than the render thread
+*/
+bool FORCEINLINE IsRunningRHIInSeparateThread()
+{
+	return GIsRunningRHIInSeparateThread_InternalUseOnly;
+}
+
+/**
+* Whether the RHI commands are being run on a dedicated thread other than the render thread
+*/
+bool FORCEINLINE IsRunningRHIInDedicatedThread()
+{
+	return GIsRunningRHIInDedicatedThread_InternalUseOnly;
+}
+
+/**
+* Whether the RHI commands are being run on a dedicated thread other than the render thread
+*/
+bool FORCEINLINE IsRunningRHIInTaskThread()
+{
+	return GIsRunningRHIInTaskThread_InternalUseOnly;
+}
+
+
+
+
 extern RHI_API bool GEnableAsyncCompute;
 extern RHI_API TAutoConsoleVariable<int32> CVarRHICmdWidth;
 extern RHI_API TAutoConsoleVariable<int32> CVarRHICmdFlushRenderThreadTasks;
@@ -187,7 +220,7 @@ public:
 	template <typename T>
 	FORCEINLINE_DEBUGGABLE void* Alloc()
 	{
-		return Alloc(sizeof(T), ALIGNOF(T));
+		return Alloc(sizeof(T), alignof(T));
 	}
 
 	template <typename TCmd>
@@ -305,7 +338,6 @@ public:
 		Num
 	};
 	void *RenderThreadContexts[(int32)ERenderThreadContext::Num];
-	static int32 StateCacheEnabled;
 
 protected:
 	//the values of this struct must be copied when the commandlist is split 
@@ -315,9 +347,6 @@ protected:
 		TStaticArray<FRHIRenderTargetView, MaxSimultaneousRenderTargets> CachedRenderTargets;
 		FRHIDepthRenderTargetView CachedDepthStencilTarget;
 	} PSOContext;
-
-	struct FRHICommandSetRasterizerState* CachedRasterizerState;
-	struct FRHICommandSetDepthStencilState* CachedDepthStencilState;
 
 	void CacheActiveRenderTargets(
 		uint32 NewNumSimultaneousRenderTargets,
@@ -336,13 +365,6 @@ protected:
 	}
 
 public:
-	void FORCEINLINE FlushStateCache()
-	{
-		CachedRasterizerState = nullptr;
-		CachedDepthStencilState = nullptr;
-	}
-
-
 	void CopyRenderThreadContexts(const FRHICommandListBase& ParentCommandList)
 	{
 		for (int32 Index = 0; ERenderThreadContext(Index) < ERenderThreadContext::Num; Index++)
@@ -1006,18 +1028,14 @@ struct FRHICommandCopyToResolveTarget : public FRHICommand<FRHICommandCopyToReso
 
 struct FRHICommandTransitionTextures : public FRHICommand<FRHICommandTransitionTextures>
 {
-	static const int32 MaxTexturesToTransition = 16;
 	int32 NumTextures;
-	FTextureRHIParamRef Textures[MaxTexturesToTransition];
+	FTextureRHIParamRef* Textures; // Pointer to an array of textures, allocated inline with the command list
 	EResourceTransitionAccess TransitionType;
 	FORCEINLINE_DEBUGGABLE FRHICommandTransitionTextures(EResourceTransitionAccess InTransitionType, FTextureRHIParamRef* InTextures, int32 InNumTextures)
 		: NumTextures(InNumTextures)
+		, Textures(InTextures)
 		, TransitionType(InTransitionType)
 	{
-		for (int32 i = 0; i < NumTextures; ++i)
-		{
-			Textures[i] = InTextures[i];
-		}
 	}
 	RHI_API void Execute(FRHICommandListBase& CmdList);
 };
@@ -1857,11 +1875,7 @@ public:
 			CMD_CONTEXT(RHISetRasterizerState)(State);
 			return;
 		}
-		if (StateCacheEnabled && CachedRasterizerState && CachedRasterizerState->State == State)
-		{
-			return;
-		}
-		CachedRasterizerState = new(AllocCommand<FRHICommandSetRasterizerState>()) FRHICommandSetRasterizerState(State);
+		new (AllocCommand<FRHICommandSetRasterizerState>()) FRHICommandSetRasterizerState(State);
 	}
 
 	DEPRECATED(4.15, "Use GraphicsPipelineState Interface")
@@ -1923,11 +1937,7 @@ public:
 			CMD_CONTEXT(RHISetDepthStencilState)(NewStateRHI, StencilRef);
 			return;
 		}
-		if (StateCacheEnabled && CachedDepthStencilState && CachedDepthStencilState->State == NewStateRHI && CachedDepthStencilState->StencilRef == StencilRef)
-		{
-			return;
-		}
-		CachedDepthStencilState = new(AllocCommand<FRHICommandSetDepthStencilState>()) FRHICommandSetDepthStencilState(NewStateRHI, StencilRef);
+		new (AllocCommand<FRHICommandSetDepthStencilState>()) FRHICommandSetDepthStencilState(NewStateRHI, StencilRef);
 	}
 
 	FORCEINLINE_DEBUGGABLE void SetStencilRef(uint32 StencilRef)
@@ -1937,12 +1947,6 @@ public:
 			CMD_CONTEXT(RHISetStencilRef)(StencilRef);
 			return;
 		}
-
-		if (StateCacheEnabled && CachedDepthStencilState && CachedDepthStencilState->StencilRef == StencilRef)
-		{
-			return;
-		}
-
 		new(AllocCommand<FRHICommandSetStencilRef>()) FRHICommandSetStencilRef(StencilRef);
 	}
 
@@ -2341,12 +2345,17 @@ public:
 	FORCEINLINE_DEBUGGABLE void TransitionResource(EResourceTransitionAccess TransitionType, FTextureRHIParamRef InTexture)
 	{
 		FTextureRHIParamRef Texture = InTexture;
+		check(Texture == nullptr || Texture->IsCommitted());
 		if (Bypass())
 		{
 			CMD_CONTEXT(RHITransitionResources)(TransitionType, &Texture, 1);
 			return;
 		}
-		new (AllocCommand<FRHICommandTransitionTextures>()) FRHICommandTransitionTextures(TransitionType, &Texture, 1);
+
+		// Allocate space to hold the single texture pointer inline in the command list itself.
+		FTextureRHIParamRef* TextureArray = (FTextureRHIParamRef*)Alloc(sizeof(FTextureRHIParamRef), alignof(FTextureRHIParamRef));
+		TextureArray[0] = Texture;
+		new (AllocCommand<FRHICommandTransitionTextures>()) FRHICommandTransitionTextures(TransitionType, TextureArray, 1);
 	}
 
 	FORCEINLINE_DEBUGGABLE void TransitionResources(EResourceTransitionAccess TransitionType, FTextureRHIParamRef* InTextures, int32 NumTextures)
@@ -2356,7 +2365,15 @@ public:
 			CMD_CONTEXT(RHITransitionResources)(TransitionType, InTextures, NumTextures);
 			return;
 		}
-		new (AllocCommand<FRHICommandTransitionTextures>()) FRHICommandTransitionTextures(TransitionType, InTextures, NumTextures);
+
+		// Allocate space to hold the list of textures inline in the command list itself.
+		FTextureRHIParamRef* InlineTextureArray = (FTextureRHIParamRef*)Alloc(sizeof(FTextureRHIParamRef) * NumTextures, alignof(FTextureRHIParamRef));
+		for (int32 Index = 0; Index < NumTextures; ++Index)
+		{
+			InlineTextureArray[Index] = InTextures[Index];
+		}
+
+		new (AllocCommand<FRHICommandTransitionTextures>()) FRHICommandTransitionTextures(TransitionType, InlineTextureArray, NumTextures);
 	}
 
 	FORCEINLINE_DEBUGGABLE void TransitionResourceArrayNoCopy(EResourceTransitionAccess TransitionType, TArray<FTextureRHIParamRef>& InTextures)
@@ -2372,6 +2389,7 @@ public:
 	FORCEINLINE_DEBUGGABLE void TransitionResource(EResourceTransitionAccess TransitionType, EResourceTransitionPipeline TransitionPipeline, FUnorderedAccessViewRHIParamRef InUAV, FComputeFenceRHIParamRef WriteFence)
 	{
 		FUnorderedAccessViewRHIParamRef UAV = InUAV;
+		check(InUAV == nullptr || InUAV->IsCommitted());
 		if (Bypass())
 		{
 			CMD_CONTEXT(RHITransitionResources)(TransitionType, TransitionPipeline, &UAV, 1, WriteFence);
@@ -2382,6 +2400,7 @@ public:
 
 	FORCEINLINE_DEBUGGABLE void TransitionResource(EResourceTransitionAccess TransitionType, EResourceTransitionPipeline TransitionPipeline, FUnorderedAccessViewRHIParamRef InUAV)
 	{
+		check(InUAV == nullptr || InUAV->IsCommitted());
 		TransitionResource(TransitionType, TransitionPipeline, InUAV, nullptr);
 	}
 
@@ -2907,8 +2926,7 @@ public:
 	
 	FORCEINLINE FStructuredBufferRHIRef CreateStructuredBuffer(uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo)
 	{
-		FScopedRHIThreadStaller StallRHIThread(*this);
-		return GDynamicRHI->RHICreateStructuredBuffer(Stride, Size, InUsage, CreateInfo);
+		return GDynamicRHI->CreateStructuredBuffer_RenderThread(*this, Stride, Size, InUsage, CreateInfo);
 	}
 	
 	FORCEINLINE void* LockStructuredBuffer(FStructuredBufferRHIParamRef StructuredBuffer, uint32 Offset, uint32 SizeRHI, EResourceLockMode LockMode)
@@ -2993,6 +3011,11 @@ public:
 	FORCEINLINE FTexture2DRHIRef CreateTexture2D(uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 NumSamples, uint32 Flags, FRHIResourceCreateInfo& CreateInfo)
 	{
 		return GDynamicRHI->RHICreateTexture2D_RenderThread(*this, SizeX, SizeY, Format, NumMips, NumSamples, Flags, CreateInfo);
+	}
+
+	FORCEINLINE FTexture2DRHIRef CreateTextureExternal2D(uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 NumSamples, uint32 Flags, FRHIResourceCreateInfo& CreateInfo)
+	{
+		return GDynamicRHI->RHICreateTextureExternal2D_RenderThread(*this, SizeX, SizeY, Format, NumMips, NumSamples, Flags, CreateInfo);
 	}
 
 	FORCEINLINE FStructuredBufferRHIRef CreateRTWriteMaskBuffer(FTexture2DRHIRef RenderTarget)
@@ -3194,7 +3217,79 @@ public:
 		FScopedRHIThreadStaller StallRHIThread(*this);
 		return GDynamicRHI->RHICreateRenderQuery(QueryType);
 	}
-	
+
+	FORCEINLINE void AcquireTransientResource_RenderThread(FTextureRHIParamRef Texture)
+	{
+		if (!Texture->IsCommitted() )
+		{
+			if (GSupportsTransientResourceAliasing)
+			{
+				GDynamicRHI->RHIAcquireTransientResource_RenderThread(Texture);
+			}
+			Texture->SetCommitted(true);
+		}
+	}
+
+	FORCEINLINE void DiscardTransientResource_RenderThread(FTextureRHIParamRef Texture)
+	{
+		if (Texture->IsCommitted())
+		{
+			if (GSupportsTransientResourceAliasing)
+			{
+				GDynamicRHI->RHIDiscardTransientResource_RenderThread(Texture);
+			}
+			Texture->SetCommitted(false);
+		}
+	}
+
+	FORCEINLINE void AcquireTransientResource_RenderThread(FVertexBufferRHIParamRef Buffer)
+	{
+		if (!Buffer->IsCommitted())
+		{
+			if (GSupportsTransientResourceAliasing)
+			{
+				GDynamicRHI->RHIAcquireTransientResource_RenderThread(Buffer);
+			}
+			Buffer->SetCommitted(true);
+		}
+	}
+
+	FORCEINLINE void DiscardTransientResource_RenderThread(FVertexBufferRHIParamRef Buffer)
+	{
+		if (Buffer->IsCommitted())
+		{
+			if (GSupportsTransientResourceAliasing)
+			{
+				GDynamicRHI->RHIDiscardTransientResource_RenderThread(Buffer);
+			}
+			Buffer->SetCommitted(false);
+		}
+	}
+
+	FORCEINLINE void AcquireTransientResource_RenderThread(FStructuredBufferRHIParamRef Buffer)
+	{
+		if (!Buffer->IsCommitted())
+		{
+			if (GSupportsTransientResourceAliasing)
+			{
+				GDynamicRHI->RHIAcquireTransientResource_RenderThread(Buffer);
+			}
+			Buffer->SetCommitted(true);
+		}
+	}
+
+	FORCEINLINE void DiscardTransientResource_RenderThread(FStructuredBufferRHIParamRef Buffer)
+	{
+		if (Buffer->IsCommitted())
+		{
+			if (GSupportsTransientResourceAliasing)
+			{
+				GDynamicRHI->RHIDiscardTransientResource_RenderThread(Buffer);
+			}
+			Buffer->SetCommitted(false);
+		}
+	}
+
 	FORCEINLINE bool GetRenderQueryResult(FRenderQueryRHIParamRef RenderQuery, uint64& OutResult, bool bWait)
 	{
 		return RHIGetRenderQueryResult(RenderQuery, OutResult, bWait);
@@ -3797,6 +3892,36 @@ FORCEINLINE void RHIUnlockTextureCubeFace(FTextureCubeRHIParamRef Texture, uint3
 FORCEINLINE FRenderQueryRHIRef RHICreateRenderQuery(ERenderQueryType QueryType)
 {
 	return FRHICommandListExecutor::GetImmediateCommandList().CreateRenderQuery(QueryType);
+}
+
+FORCEINLINE void RHIAcquireTransientResource(FTextureRHIParamRef Resource)
+{
+	FRHICommandListExecutor::GetImmediateCommandList().AcquireTransientResource_RenderThread(Resource);
+}
+
+FORCEINLINE void RHIDiscardTransientResource(FTextureRHIParamRef Resource)
+{
+	FRHICommandListExecutor::GetImmediateCommandList().DiscardTransientResource_RenderThread(Resource);
+}
+
+FORCEINLINE void RHIAcquireTransientResource(FVertexBufferRHIParamRef Resource)
+{
+	FRHICommandListExecutor::GetImmediateCommandList().AcquireTransientResource_RenderThread(Resource);
+}
+
+FORCEINLINE void RHIDiscardTransientResource(FVertexBufferRHIParamRef Resource)
+{
+	FRHICommandListExecutor::GetImmediateCommandList().DiscardTransientResource_RenderThread(Resource);
+}
+
+FORCEINLINE void RHIAcquireTransientResource(FStructuredBufferRHIParamRef Resource)
+{
+	FRHICommandListExecutor::GetImmediateCommandList().AcquireTransientResource_RenderThread(Resource);
+}
+
+FORCEINLINE void RHIDiscardTransientResource(FStructuredBufferRHIParamRef Resource)
+{
+	FRHICommandListExecutor::GetImmediateCommandList().DiscardTransientResource_RenderThread(Resource);
 }
 
 FORCEINLINE void RHIAcquireThreadOwnership()

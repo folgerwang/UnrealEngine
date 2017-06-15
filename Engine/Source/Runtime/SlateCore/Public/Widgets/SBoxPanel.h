@@ -85,16 +85,15 @@ public:
 public:
 
 	// Begin SWidget overrides.
-
-	virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const;
-	
-	virtual FVector2D ComputeDesiredSize(float) const;
-
-	virtual FChildren* GetChildren();
-
+	virtual void OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const override;
+	virtual FChildren* GetChildren() override;
 	// End SWidget overrides.
 
 protected:
+	// Begin SWidget overrides.
+	virtual FVector2D ComputeDesiredSize(float) const override;
+	// End SWidget overrides.
+
 	/**
 	 * A Box Panel's orientation cannot be changed once it is constructed..
 	 *
@@ -136,12 +135,6 @@ public:
 		FSlot& FillWidth( const TAttribute< float >& StretchCoefficient )
 		{
 			SizeParam = FStretch( StretchCoefficient );
-			return *this;
-		}
-
-		DEPRECATED( 4.5, "AspectRatio() property is no longer supported; it did not behave correctly to begin with and was rarely used." )
-		FSlot& AspectRatio()
-		{
 			return *this;
 		}
 		

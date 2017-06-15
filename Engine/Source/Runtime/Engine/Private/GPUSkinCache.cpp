@@ -127,7 +127,6 @@ public:
 		, GPUSkin(InGPUSkin)
 		, MorphBuffer(0)
 		, LOD(InGPUSkin->GetLOD())
-		, IndexBuffer(nullptr)
 	{
 		
 		const TArray<FSkelMeshSection>& Sections = InGPUSkin->GetRenderSections(LOD);
@@ -159,6 +158,9 @@ public:
 		FGPUBaseSkinVertexFactory* SourceVertexFactory;
 		FGPUSkinPassthroughVertexFactory* TargetVertexFactory;
 
+		// triangle index buffer (input for the RecomputeSkinTangents, might need special index buffer unique to position and normal, not considering UV/vertex color)
+		FShaderResourceViewRHIParamRef IndexBuffer;
+
 		const FSkelMeshSection* Section;
 
 		// for debugging / draw events, -1 if not set
@@ -189,11 +191,14 @@ public:
 		uint32 IndexBufferOffsetValue;
 		uint32 NumTriangles;
 
+		FRWBuffer* BoneBuffer;
+		FRWBuffer* PreviousBoneBuffer;
 
 		FSectionDispatchData()
 			: Allocation(nullptr)
 			, SourceVertexFactory(nullptr)
 			, TargetVertexFactory(nullptr)
+			, IndexBuffer(nullptr)
 			, Section(nullptr)
 			, SectionIndex(-1)
 			, SkinType(0)
@@ -205,27 +210,26 @@ public:
 			, MorphBufferOffset(0)
 			, IndexBufferOffsetValue(0)
 			, NumTriangles(0)
+			, BoneBuffer(nullptr)
+			, PreviousBoneBuffer(nullptr)
 		{
 		}
 
-		inline FRWBuffer& GetPreviousRWBuffer()
+		inline FRWBuffer* GetPreviousRWBuffer()
 		{
-			return Allocation->RWBuffers[Allocation->PreviousIndex];
+			check(PreviousBoneBuffer);
+			return PreviousBoneBuffer;
 		}
 
-		inline FRWBuffer& GetRWBuffer()
+		inline FRWBuffer* GetRWBuffer()
 		{
-			return Allocation->RWBuffers[Allocation->CurrentIndex];
-		}
-
-		inline void Advance()
-		{
-			Allocation->Advance();
+			check(BoneBuffer);
+			return BoneBuffer;
 		}
 
 		void UpdateVertexFactoryDeclaration()
 		{
-			TargetVertexFactory->UpdateVertexDeclaration(SourceVertexFactory, &GetRWBuffer());
+			TargetVertexFactory->UpdateVertexDeclaration(SourceVertexFactory, GetRWBuffer());
 		}
 	};
 
@@ -236,7 +240,14 @@ public:
 
 	bool IsSectionValid(int32 Section)
 	{
-		return DispatchData[Section].SectionIndex == Section;
+		const FSectionDispatchData& SectionData = DispatchData[Section];
+		return SectionData.SectionIndex == Section;
+	}
+
+	bool IsSourceFactoryValid(int32 Section, FGPUBaseSkinVertexFactory* SourceVertexFactory)
+	{
+		const FSectionDispatchData& SectionData = DispatchData[Section];
+		return SectionData.SourceVertexFactory == SourceVertexFactory;
 	}
 
 	bool IsValid(FSkeletalMeshObjectGPUSkin* InSkin)
@@ -287,6 +298,21 @@ public:
 		Data.InputWeightStart = (InputWeightStride * Section->BaseVertexIndex) / sizeof(float);
 		Data.SourceVertexFactory = InSourceVertexFactory;
 		Data.TargetVertexFactory = InTargetVertexFactory;
+
+		int32 RecomputeTangentsMode = GForceRecomputeTangents > 0 ? 1 : GSkinCacheRecomputeTangents;
+		if (RecomputeTangentsMode > 0)
+		{
+			if (Section->bRecomputeTangent || RecomputeTangentsMode == 1)
+			{
+				FRawStaticIndexBuffer16or32Interface* IndexBuffer = LodModel.MultiSizeIndexContainer.GetIndexBuffer();
+				Data.IndexBuffer = IndexBuffer->GetSRV();
+				if (Data.IndexBuffer)
+				{
+					Data.NumTriangles = Section->NumTriangles;
+					Data.IndexBufferOffsetValue = Section->BaseIndex;
+				}
+			}
+		}
 	}
 
 protected:
@@ -298,9 +324,6 @@ protected:
 	FShaderResourceViewRHIRef InputWeightStreamSRV;
 	FShaderResourceViewRHIParamRef MorphBuffer;
 	int32 LOD;
-
-	// triangle index buffer (input for the RecomputeSkinTangents, might need special index buffer unique to position and normal, not considering UV/vertex color)
-	FShaderResourceViewRHIParamRef IndexBuffer;
 
 	friend class FGPUSkinCache;
 	friend class FBaseGPUSkinCacheCS;
@@ -341,7 +364,8 @@ public:
 	void SetParameters(FRHICommandListImmediate& RHICmdList, const FVertexBufferAndSRV& BoneBuffer, 
 		const FVector& MeshOrigin, const FVector& MeshExtension,
 		FGPUSkinCacheEntry* Entry,
-		FGPUSkinCacheEntry::FSectionDispatchData& DispatchData)
+		FGPUSkinCacheEntry::FSectionDispatchData& DispatchData,
+		FUnorderedAccessViewRHIParamRef UnorderedAccessViewRHI)
 	{
 		FComputeShaderRHIParamRef ShaderRHI = GetComputeShader();
 
@@ -363,7 +387,7 @@ public:
 		SetSRVParameter(RHICmdList, ShaderRHI, InputWeightStream, Entry->InputWeightStreamSRV);
 
 		// output UAV
-		SetUAVParameter(RHICmdList, ShaderRHI, SkinCacheBufferUAV, DispatchData.GetRWBuffer().UAV);
+		SetUAVParameter(RHICmdList, ShaderRHI, SkinCacheBufferUAV, UnorderedAccessViewRHI);
 		SetShaderValue(RHICmdList, ShaderRHI, SkinCacheStart, DispatchData.OutputStreamStart);
 	
 		const bool bMorph = DispatchData.SkinType == 1;
@@ -587,10 +611,10 @@ public:
 
 		SetShaderValue(RHICmdList, ShaderRHI, NumTriangles, DispatchData.NumTriangles);
 
-		SetSRVParameter(RHICmdList, ShaderRHI, GPUSkinCacheBuffer, DispatchData.GetRWBuffer().SRV);
+		SetSRVParameter(RHICmdList, ShaderRHI, GPUSkinCacheBuffer, DispatchData.GetRWBuffer()->SRV);
 		SetShaderValue(RHICmdList, ShaderRHI, SkinCacheStart, DispatchData.OutputStreamStart);
 
-		SetSRVParameter(RHICmdList, ShaderRHI, IndexBuffer, Entry->IndexBuffer);
+		SetSRVParameter(RHICmdList, ShaderRHI, IndexBuffer, DispatchData.IndexBuffer);
 		SetShaderValue(RHICmdList, ShaderRHI, IndexBufferOffset, DispatchData.IndexBufferOffsetValue);
 		
 		SetShaderValue(RHICmdList, ShaderRHI, InputStreamStart, DispatchData.InputStreamStart);
@@ -721,7 +745,7 @@ public:
 
 		// UAVs
 		SetUAVParameter(RHICmdList, ShaderRHI, IntermediateAccumBufferUAV, StagingBuffer.UAV);
-		SetUAVParameter(RHICmdList, ShaderRHI, SkinCacheBufferUAV, DispatchData.GetRWBuffer().UAV);
+		SetUAVParameter(RHICmdList, ShaderRHI, SkinCacheBufferUAV, DispatchData.GetRWBuffer()->UAV);
 	}
 
 	void UnsetParameters(FRHICommandList& RHICmdList)
@@ -846,8 +870,8 @@ void FGPUSkinCache::DispatchUpdateSkinTangents(FRHICommandListImmediate& RHICmdL
 
 FGPUSkinCache::FAllocation* FGPUSkinCache::TryAllocBuffer(uint32 NumFloatsRequired)
 {
-	uint64 MaxSizeInBytes = (uint64)(GSkinCacheSceneMemoryLimitInMB * 1024.0f * 1024.0f);
-	uint64 RequiredMemInBytes = sizeof(float) * NumFloatsRequired * FAllocation::NUM_BUFFERS;
+	uint64 MaxSizeInBytes =  (uint64)(GSkinCacheSceneMemoryLimitInMB * 1024.0f * 1024.0f);
+	uint64 RequiredMemInBytes = FAllocation::CalulateRequiredMemory(NumFloatsRequired);
 	if (bRequiresMemoryLimit && UsedMemoryInBytes + RequiredMemInBytes >= MaxSizeInBytes)
 	{
 		ExtraRequiredMemory += RequiredMemInBytes;
@@ -856,18 +880,7 @@ FGPUSkinCache::FAllocation* FGPUSkinCache::TryAllocBuffer(uint32 NumFloatsRequir
 		return nullptr;
 	}
 
-	FAllocation* NewAllocation = new FAllocation;
-	for (int32 Index = 0; Index < FAllocation::NUM_BUFFERS; ++Index)
-	{
-		NewAllocation->RWBuffers[Index].Initialize(sizeof(float), NumFloatsRequired, PF_R32_FLOAT, BUF_Static);
-
-#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
-		//FString Name = FString::Printf(TEXT("SkinCacheRWBuffer%d"), Index);
-		//RHICmdList.BindDebugLabelName(SkinCacheBuffer[Index].UAV, *Name);
-#endif
-	}
-	NewAllocation->NumFloatsRequired = NumFloatsRequired;
-
+	FAllocation* NewAllocation = new FAllocation(NumFloatsRequired);
 	Allocations.Add(NewAllocation);
 
 	UsedMemoryInBytes += RequiredMemInBytes;
@@ -885,7 +898,7 @@ void FGPUSkinCache::DoDispatch(FRHICommandListImmediate& RHICmdList, FGPUSkinCac
 	//RHICmdList.TransitionResource(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EGfxToCompute, DispatchData.GetRWBuffer());
 	SkinCacheEntry->UpdateVertexFactoryDeclaration(Section);
 
-	if (SkinCacheEntry->IndexBuffer)
+	if (SkinCacheEntry->DispatchData[Section].IndexBuffer)
 	{
 		DispatchUpdateSkinTangents(RHICmdList, SkinCacheEntry, Section);
 	}
@@ -923,7 +936,7 @@ void FGPUSkinCache::ProcessEntry(FRHICommandListImmediate& RHICmdList, FGPUBaseS
 		}
 		else
 		{
-			if (!InOutEntry->IsSectionValid(Section))
+			if (!InOutEntry->IsSectionValid(Section) || !InOutEntry->IsSourceFactoryValid(Section, VertexFactory))
 			{
 				// This section might not be valid yet, so set it up
 				int32 TotalNumVertices = VertexFactory->GetSkinVertexBuffer()->GetNumVertices();
@@ -941,7 +954,6 @@ void FGPUSkinCache::ProcessEntry(FRHICommandListImmediate& RHICmdList, FGPUBaseS
 		}
 	}
 
-	int32 RecomputeTangentsMode = GForceRecomputeTangents > 0 ? 1 : GSkinCacheRecomputeTangents;
 	// Try to allocate a new entry
 	if (!InOutEntry)
 	{
@@ -957,15 +969,6 @@ void FGPUSkinCache::ProcessEntry(FRHICommandListImmediate& RHICmdList, FGPUBaseS
 
 		InOutEntry = new FGPUSkinCacheEntry(this, Skin);
 		InOutEntry->GPUSkin = Skin;
-
-		if (RecomputeTangentsMode > 0)
-		{
-			if (BatchElement.bRecomputeTangent || RecomputeTangentsMode == 1)
-			{
-				FRawStaticIndexBuffer16or32Interface* IndexBuffer = LodModel.MultiSizeIndexContainer.GetIndexBuffer();
-				InOutEntry->IndexBuffer = IndexBuffer->GetSRV();
-			}
-		}
 
 		InOutEntry->SetupSection(Section, NewAllocation, &LodModel.Sections[Section], MorphVertexBuffer, NumVertices, InputStreamStart, StreamStrides[0], VertexFactory, TargetVertexFactory);
 		Entries.Add(InOutEntry);
@@ -992,12 +995,6 @@ void FGPUSkinCache::ProcessEntry(FRHICommandListImmediate& RHICmdList, FGPUBaseS
 	}
 	InOutEntry->DispatchData[Section].SkinType = MorphVertexBuffer ? 1 : 0;
 
-	if (InOutEntry->IndexBuffer)
-	{
-		InOutEntry->DispatchData[Section].NumTriangles = BatchElement.NumTriangles;
-		InOutEntry->DispatchData[Section].IndexBufferOffsetValue = BatchElement.BaseIndex;
-	}
-
 	DoDispatch(RHICmdList, InOutEntry, Section, FrameNumber);
 	InOutEntry->UpdateVertexFactoryDeclaration(Section);
 }
@@ -1013,13 +1010,13 @@ void FGPUSkinCache::SetVertexStreams(FGPUSkinCacheEntry* Entry, int32 Section, F
 	FGPUSkinCacheEntry::FSectionDispatchData& DispatchData = Entry->DispatchData[Section];
 
 	//UE_LOG(LogSkinCache, Warning, TEXT("*** SetVertexStreams E %p All %p Sec %d(%p) LOD %d"), Entry, Entry->DispatchData[Section].Allocation, Section, Entry->DispatchData[Section].Section, Entry->LOD);
-	RHICmdList.SetStreamSource(VertexFactory->GetStreamIndex(), DispatchData.GetRWBuffer().Buffer, RWStrideInFloats * sizeof(float), 0);
+	RHICmdList.SetStreamSource(VertexFactory->GetStreamIndex(), DispatchData.GetRWBuffer()->Buffer, RWStrideInFloats * sizeof(float), 0);
 
 	FVertexShaderRHIParamRef ShaderRHI = Shader->GetVertexShader();
 	if (ShaderRHI && PreviousStreamBuffer.IsBound())
 	{
 		SetShaderValue(RHICmdList, ShaderRHI, PreviousStreamFloatOffset, 0);
-		RHICmdList.SetShaderResourceViewParameter(ShaderRHI, PreviousStreamBuffer.GetBaseIndex(), DispatchData.GetPreviousRWBuffer().SRV);
+		RHICmdList.SetShaderResourceViewParameter(ShaderRHI, PreviousStreamBuffer.GetBaseIndex(), DispatchData.GetPreviousRWBuffer()->SRV);
 	}
 }
 
@@ -1050,21 +1047,54 @@ void FGPUSkinCache::DispatchUpdateSkinning(FRHICommandListImmediate& RHICmdList,
 	default:
 		check(0);
 	}
-
-	DispatchData.Allocation->Advance();
-	const FVertexBufferAndSRV& BoneBuffer = ShaderData.GetBoneBufferForReading(false, FrameNumber);
 	check(Shader);
-	RHICmdList.SetComputeShader(Shader->GetComputeShader());
-	Shader->SetParameters(RHICmdList, BoneBuffer, ShaderData.MeshOrigin, ShaderData.MeshExtension, Entry, DispatchData);
 
-	RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, EResourceTransitionPipeline::EGfxToCompute, DispatchData.GetRWBuffer().UAV.GetReference());
+	const FVertexBufferAndSRV& BoneBuffer = ShaderData.GetBoneBufferForReading(false, FrameNumber);
+	const FVertexBufferAndSRV& PrevBoneBuffer = ShaderData.GetBoneBufferForReading(true, FrameNumber);
 
-	uint32 VertexCountAlign64 = FMath::DivideAndRoundUp(DispatchData.NumVertices, (uint32)64);
-	INC_DWORD_STAT_BY(STAT_GPUSkinCache_TotalNumVertices, VertexCountAlign64 * 64);
-	RHICmdList.DispatchComputeShader(VertexCountAlign64, 1, 1);
-	Shader->UnsetParameters(RHICmdList);
+	uint32 CurrentRevision = FrameNumber;
+	uint32 PreviousRevision = FrameNumber - 1;
+	DispatchData.PreviousBoneBuffer = DispatchData.Allocation->Find(PrevBoneBuffer, PreviousRevision);
+	if (!DispatchData.PreviousBoneBuffer)
+	{
+		DispatchData.Allocation->Advance(PrevBoneBuffer, PreviousRevision, BoneBuffer, CurrentRevision);
+		DispatchData.PreviousBoneBuffer = DispatchData.Allocation->Find(PrevBoneBuffer, PreviousRevision);
+		check(DispatchData.PreviousBoneBuffer)
 
-	BuffersToTransition.Add(DispatchData.GetRWBuffer().UAV);
+		RHICmdList.SetComputeShader(Shader->GetComputeShader());
+		Shader->SetParameters(RHICmdList, PrevBoneBuffer, ShaderData.MeshOrigin, ShaderData.MeshExtension, Entry, DispatchData, DispatchData.GetPreviousRWBuffer()->UAV);
+
+		RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, EResourceTransitionPipeline::EGfxToCompute, DispatchData.GetPreviousRWBuffer()->UAV.GetReference());
+
+		uint32 VertexCountAlign64 = FMath::DivideAndRoundUp(DispatchData.NumVertices, (uint32)64);
+		INC_DWORD_STAT_BY(STAT_GPUSkinCache_TotalNumVertices, VertexCountAlign64 * 64);
+		RHICmdList.DispatchComputeShader(VertexCountAlign64, 1, 1);
+		Shader->UnsetParameters(RHICmdList);
+
+		BuffersToTransition.Add(DispatchData.GetPreviousRWBuffer()->UAV);
+	}
+
+	DispatchData.BoneBuffer = DispatchData.Allocation->Find(BoneBuffer, CurrentRevision);
+	if (!DispatchData.BoneBuffer)
+	{
+		DispatchData.Allocation->Advance(BoneBuffer, CurrentRevision, PrevBoneBuffer, PreviousRevision);
+		DispatchData.BoneBuffer = DispatchData.Allocation->Find(BoneBuffer, CurrentRevision);
+		check(DispatchData.BoneBuffer);
+		
+		RHICmdList.SetComputeShader(Shader->GetComputeShader());
+		Shader->SetParameters(RHICmdList, BoneBuffer, ShaderData.MeshOrigin, ShaderData.MeshExtension, Entry, DispatchData, DispatchData.GetRWBuffer()->UAV.GetReference());
+
+		RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, EResourceTransitionPipeline::EGfxToCompute, DispatchData.GetRWBuffer()->UAV.GetReference());
+
+		uint32 VertexCountAlign64 = FMath::DivideAndRoundUp(DispatchData.NumVertices, (uint32)64);
+		INC_DWORD_STAT_BY(STAT_GPUSkinCache_TotalNumVertices, VertexCountAlign64 * 64);
+		RHICmdList.DispatchComputeShader(VertexCountAlign64, 1, 1);
+		Shader->UnsetParameters(RHICmdList);
+
+		BuffersToTransition.Add(DispatchData.GetRWBuffer()->UAV);
+	}
+
+	check(DispatchData.PreviousBoneBuffer != DispatchData.BoneBuffer);
 }
 
 void FGPUSkinCache::InternalRelease(FGPUSkinCacheEntry* SkinCacheEntry)
@@ -1076,12 +1106,12 @@ void FGPUSkinCache::InternalRelease(FGPUSkinCacheEntry* SkinCacheEntry)
 		FAllocation* Allocation = DispatchData.Allocation;
 		if (Allocation)
 		{
-			uint64 RequiredMemInBytes = sizeof(float) * Allocation->NumFloatsRequired * FAllocation::NUM_BUFFERS;
+			uint64 RequiredMemInBytes = Allocation->GetNumBytes();
 			SkinCache->UsedMemoryInBytes -= RequiredMemInBytes;
 			DEC_MEMORY_STAT_BY(STAT_GPUSkinCache_TotalMemUsed, RequiredMemInBytes);
 
 			SkinCache->Allocations.Remove(Allocation);
-			SkinCache->BuffersToTransition.Remove(DispatchData.GetRWBuffer().UAV);
+			Allocation->Release(SkinCache->BuffersToTransition);
 
 			delete Allocation;
 			DispatchData.Allocation = nullptr;

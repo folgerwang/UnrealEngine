@@ -698,7 +698,6 @@ void FAnimNode_AnimDynamics::PreUpdate(const UAnimInstance* InAnimInstance)
 	const UWorld* World = SkelComp->GetWorld();
 
 	check(World->GetWorldSettings());
-	check(World->Scene);
 
 	CurrentTimeDilation = World->GetWorldSettings()->GetEffectiveTimeDilation();
 	if(CVarEnableWind.GetValueOnAnyThread() == 1 && bEnableWind)
@@ -709,7 +708,7 @@ void FAnimNode_AnimDynamics::PreUpdate(const UAnimInstance* InAnimInstance)
 		{
 			Body->bWindEnabled = bEnableWind;
 
-			if(Body->bWindEnabled)
+			if(Body->bWindEnabled && World->Scene)
 			{
 				FSceneInterface* Scene = World->Scene;
 
@@ -719,9 +718,9 @@ void FAnimNode_AnimDynamics::PreUpdate(const UAnimInstance* InAnimInstance)
 
 				// Setup wind data
 				Body->bWindEnabled = true;
-				Scene->GetWindParameters_GameThread(SkelComp->ComponentToWorld.TransformPosition(Body->Pose.Position), Body->WindData.WindDirection, Body->WindData.WindSpeed, WindMinGust, WindMaxGust);
+				Scene->GetWindParameters_GameThread(SkelComp->GetComponentTransform().TransformPosition(Body->Pose.Position), Body->WindData.WindDirection, Body->WindData.WindSpeed, WindMinGust, WindMaxGust);
 
-				Body->WindData.WindDirection = SkelComp->ComponentToWorld.Inverse().TransformVector(Body->WindData.WindDirection);
+				Body->WindData.WindDirection = SkelComp->GetComponentTransform().Inverse().TransformVector(Body->WindData.WindDirection);
 				Body->WindData.WindAdaption = FMath::FRandRange(0.0f, 2.0f);
 				Body->WindData.BodyWindScale = WindScale;
 			}

@@ -5,7 +5,6 @@
 #include "Stats/Stats.h"
 #include "HAL/IConsoleManager.h"
 #include "IVREditorModule.h"
-#include "TickableEditorObject.h"
 #include "VREditorModeManager.h"
 #include "VREditorStyle.h"
 #include "VREditorMode.h"
@@ -13,7 +12,7 @@
 #include "MultiBoxExtender.h"
 #include "Kismet/HeadMountedDisplayFunctionLibrary.h"	// For EHMDWornState::Type
 
-class FVREditorModule : public IVREditorModule, public FTickableEditorObject
+class FVREditorModule : public IVREditorModule
 {
 public:
 	FVREditorModule()
@@ -35,17 +34,8 @@ public:
 	virtual void EnableVREditor( const bool bEnable, const bool bForceWithoutHMD ) override;
 	virtual bool IsVREditorModeActive() override;
 	virtual UVREditorMode* GetVRMode() override;
+	virtual void UpdateActorPreview(TSharedRef<SWidget> InWidget) override;
 
-	// FTickableEditorObject overrides
-	virtual void Tick( float DeltaTime ) override;
-	virtual bool IsTickable() const override
-	{
-		return true;
-	}
-	virtual TStatId GetStatId() const override
-	{
-		return TStatId();
-	}
 	virtual const TSharedRef<FExtender>& GetRadialMenuExtender() override
 	{
 		static TSharedRef<class FExtender> RadialMenuExtender( new FExtender() );
@@ -114,17 +104,16 @@ UVREditorMode* FVREditorModule::GetVRMode()
 	return ModeManager.GetCurrentVREditorMode();
 }
 
+void FVREditorModule::UpdateActorPreview(TSharedRef<SWidget> InWidget)
+{
+	GetVRMode()->RefreshActorPreviewWidget(InWidget);
+}
+
 void FVREditorModule::ToggleForceVRMode()
 {
 	const bool bForceWithoutHMD = true;
 	FVREditorModule& Self = FModuleManager::GetModuleChecked< FVREditorModule >( TEXT( "VREditor" ) );
 	Self.EnableVREditor( !Self.IsVREditorEnabled(), bForceWithoutHMD );
 }
-
-void FVREditorModule::Tick( float DeltaTime )
-{
-	ModeManager.Tick( DeltaTime );
-}
-
 
 IMPLEMENT_MODULE( FVREditorModule, VREditor )

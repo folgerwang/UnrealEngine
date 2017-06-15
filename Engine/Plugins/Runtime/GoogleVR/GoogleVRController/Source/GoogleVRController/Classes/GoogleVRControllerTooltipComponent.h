@@ -22,8 +22,6 @@
 
 class UMotionControllerComponent;
 
-DEFINE_LOG_CATEGORY_STATIC(LogGoogleVRControllerTooltip, Log, All);
-
 UENUM(BlueprintType)
 enum class EGoogleVRControllerTooltipLocation : uint8
 {

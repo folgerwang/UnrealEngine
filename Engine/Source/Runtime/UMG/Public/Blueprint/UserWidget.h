@@ -631,6 +631,12 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic, Category="Touch Input")
 	FEventReply OnMotionDetected(FGeometry MyGeometry, FMotionEvent InMotionEvent);
 
+	/**
+	 * Called when mouse capture is lost if it was owned by this widget.
+	 */
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic, Category="Touch Input")
+	void OnMouseCaptureLost();
+
 public:
 
 	/**
@@ -971,6 +977,7 @@ protected:
 	virtual FReply NativeOnTouchEnded( const FGeometry& InGeometry, const FPointerEvent& InGestureEvent );
 	virtual FReply NativeOnMotionDetected( const FGeometry& InGeometry, const FMotionEvent& InMotionEvent );
 	virtual FCursorReply NativeOnCursorQuery( const FGeometry& InGeometry, const FPointerEvent& InCursorEvent );
+	virtual void NativeOnMouseCaptureLost();
 
 protected:
 	bool ShouldSerializeWidgetTree(const class ITargetPlatform* TargetPlatform) const;
@@ -1053,6 +1060,11 @@ private:
 
 	static bool bTemplateInitializing;
 	static uint32 bInitializingFromWidgetTree;
+
+protected:
+
+	PROPERTY_BINDING_IMPLEMENTATION(FLinearColor, ColorAndOpacity);
+	PROPERTY_BINDING_IMPLEMENTATION(FSlateColor, ForegroundColor);
 };
 
 #define LOCTEXT_NAMESPACE "UMG"

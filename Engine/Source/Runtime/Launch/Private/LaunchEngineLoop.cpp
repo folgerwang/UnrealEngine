@@ -126,6 +126,7 @@
 #if !UE_SERVER
 	#include "IHeadMountedDisplayModule.h"
 	#include "HeadMountedDisplay.h"
+	#include "MRMeshModule.h"
 	#include "Interfaces/ISlateRHIRendererModule.h"
 	#include "Interfaces/ISlateNullRendererModule.h"
 	#include "EngineFontServices.h"
@@ -176,6 +177,7 @@ class FFeedbackContext;
 	#if ENABLE_VISUAL_LOG
 		#include "VisualLogger/VisualLogger.h"
 	#endif
+	#include "CsvProfiler.h"
 #endif
 
 #if defined(WITH_LAUNCHERCHECK) && WITH_LAUNCHERCHECK
@@ -329,7 +331,7 @@ static void RHIExitAndStopRHIThread()
 	RHIExit();
 
 	// Stop the RHI Thread
-	if (GUseRHIThread)
+	if (GRHIThread_InternalUseOnly)
 	{
 		DECLARE_CYCLE_STAT(TEXT("Wait For RHIThread Finish"), STAT_WaitForRHIThreadFinish, STATGROUP_TaskGraphTasks);
 		FGraphEventRef QuitTask = TGraphTask<FReturnGraphTask>::CreateTask(nullptr, ENamedThreads::GameThread).ConstructAndDispatchWhenReady(ENamedThreads::RHIThread);
@@ -337,6 +339,8 @@ static void RHIExitAndStopRHIThread()
 	}
 }
 #endif
+
+extern void DeferredPhysResourceCleanup();
 
 
 /**
@@ -619,9 +623,20 @@ bool LaunchCheckForFileOverride(const TCHAR* CmdLine, bool& OutFileOverrideFound
 			FPlatformFileManager::Get().SetPlatformFile(*CurrentPlatformFile);
 		}
 
+		bool bShouldUseCookedIterativeFile = false;
+		if ( !bShouldUseStreamingFile && !NetworkPlatformFile )
+		{
+			NetworkPlatformFile = ConditionallyCreateFileWrapper(TEXT("CookedIterativeFile"), CurrentPlatformFile, CmdLine, &bNetworkFailedToInitialize, &bShouldUseCookedIterativeFile);
+			if (NetworkPlatformFile)
+			{
+				CurrentPlatformFile = NetworkPlatformFile;
+				FPlatformFileManager::Get().SetPlatformFile(*CurrentPlatformFile);
+			}
+		}
+
 		// if streaming network platform file was tried this loop don't try this one
 		// Network file wrapper (only create if the streaming wrapper hasn't been created)
-		if ( !bShouldUseStreamingFile && !NetworkPlatformFile)
+		if ( !bShouldUseStreamingFile && !bShouldUseCookedIterativeFile && !NetworkPlatformFile)
 		{
 			NetworkPlatformFile = ConditionallyCreateFileWrapper(TEXT("NetworkFile"), CurrentPlatformFile, CmdLine, &bNetworkFailedToInitialize);
 			if (NetworkPlatformFile)
@@ -885,6 +900,10 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 		return -1;
 	}
 
+#if WITH_ENGINE
+	FCoreUObjectDelegates::PostGarbageCollectConditionalBeginDestroy.AddStatic(DeferredPhysResourceCleanup);
+#endif
+
 #if defined(WITH_LAUNCHERCHECK) && WITH_LAUNCHERCHECK
 	if (ILauncherCheckModule::Get().WasRanFromLauncher() == false)
 	{
@@ -1022,6 +1041,9 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 	TCHAR* CommandLineCopy			= new TCHAR[ CommandLineSize ];
 	FCString::Strcpy( CommandLineCopy, CommandLineSize, CmdLine );
 	const TCHAR* ParsedCmdLine	= CommandLineCopy;
+
+	// Add the default engine shader dir
+	FGenericPlatformProcess::AddShaderDir(FGenericPlatformProcess::ShaderDir());
 
 	FString Token				= FParse::Token( ParsedCmdLine, 0);
 
@@ -1296,6 +1318,12 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 			UE_LOG(LogInit, Warning, TEXT("Could not find a valid project file, the engine will exit now."));
 			return 1;
 		}
+
+		if (IProjectManager::Get().GetCurrentProject() && IProjectManager::Get().GetCurrentProject()->bIsEnterpriseProject && FPaths::DirectoryExists(FPaths::EnterpriseDir()))
+		{
+			// Add the enterprise binaries directory if we're an enterprise project
+			FModuleManager::Get().AddBinariesDirectory( *FPaths::Combine( FPaths::EnterpriseDir(), TEXT("Binaries"), FPlatformProcess::GetBinariesSubdirectory() ), false );
+		}
 	}
 
 #if !IS_PROGRAM
@@ -1303,6 +1331,7 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 	{
 		// Tell the module manager what the game binaries folder is
 		const FString GameBinariesDirectory = FPaths::Combine( FPlatformMisc::GameDir(), TEXT( "Binaries" ), FPlatformProcess::GetBinariesSubdirectory() );
+		FPlatformProcess::AddDllDirectory(*GameBinariesDirectory);
 		FModuleManager::Get().SetGameBinariesDirectory(*GameBinariesDirectory);
 
 		LaunchFixGameNameCase();
@@ -1380,6 +1409,10 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 	GLogConsole = GScopedLogConsole.Get();
 
 	LoadPreInitModules();
+
+#if WITH_ENGINE && CSV_PROFILER 
+	FCsvProfiler::Get()->Init();
+#endif
 
 	// Start the application
 	if(!AppInit())
@@ -1712,14 +1745,14 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 			if(GRHISupportsRHIThread)
 			{
 				const bool DefaultUseRHIThread = true;
-				GUseRHIThread = DefaultUseRHIThread;
+				GUseRHIThread_InternalUseOnly = DefaultUseRHIThread;
 				if(FParse::Param(FCommandLine::Get(), TEXT("rhithread")))
 				{
-					GUseRHIThread = true;
+					GUseRHIThread_InternalUseOnly = true;
 				}
 				else if(FParse::Param(FCommandLine::Get(), TEXT("norhithread")))
 				{
-					GUseRHIThread = false;
+					GUseRHIThread_InternalUseOnly = false;
 				}
 			}
 
@@ -1750,7 +1783,7 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 				GetMoviePlayer()->Initialize(SlateRenderer);
 
 				// hide splash screen now
-				FPlatformMisc::PlatformPostInit(false);
+				FPlatformMisc::PlatformHandleSplashScreen(false);
 
 				// only allowed to play any movies marked as early startup.  These movies or widgets can have no interaction whatsoever with uobjects or engine features
 				GetMoviePlayer()->PlayEarlyStartupMovies();
@@ -1834,18 +1867,8 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 	}
 #endif
 
-#if !UE_SERVER
-	if ( !IsRunningDedicatedServer() )
-	{
-		// do any post appInit processing, before the render thread is started.
-		FPlatformMisc::PlatformPostInit(!GetMoviePlayer()->IsMovieCurrentlyPlaying());
-	}
-	else
-#endif
-	{
-		// do any post appInit processing, before the render thread is started.
-		FPlatformMisc::PlatformPostInit(true);
-	}
+	// do any post appInit processing, before the render thread is started.
+	FPlatformMisc::PlatformPostInit();
 	SlowTask.EnterProgressFrame(5);
 
 #if !PLATFORM_SUPPORTS_EARLY_MOVIE_PLAYBACK
@@ -1856,14 +1879,14 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 		if (GRHISupportsRHIThread)
 		{
 			const bool DefaultUseRHIThread = true;
-			GUseRHIThread = DefaultUseRHIThread;
+			GUseRHIThread_InternalUseOnly = DefaultUseRHIThread;
 			if (FParse::Param(FCommandLine::Get(),TEXT("rhithread")))
 			{
-				GUseRHIThread = true;
+				GUseRHIThread_InternalUseOnly = true;
 			}
 			else if (FParse::Param(FCommandLine::Get(),TEXT("norhithread")))
 			{
-				GUseRHIThread = false;
+				GUseRHIThread_InternalUseOnly = false;
 			}
 		}
 		StartRenderingThread();
@@ -1877,9 +1900,21 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 	{
 		// Play any non-early startup loading movies.
 		GetMoviePlayer()->PlayMovie();
-
 	}
 #endif
+
+#if !UE_SERVER
+	if (!IsRunningDedicatedServer())
+	{
+		// show or hide splash screen based on movie
+		FPlatformMisc::PlatformHandleSplashScreen(!GetMoviePlayer()->IsMovieCurrentlyPlaying());
+	}
+	else
+#endif
+	{
+		// show splash screen
+		FPlatformMisc::PlatformHandleSplashScreen(true);
+	}
 
 	{
 		FCoreUObjectDelegates::PreGarbageCollectConditionalBeginDestroy.AddStatic(StartRenderCommandFenceBundler);
@@ -2041,6 +2076,9 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 				}
 			}
 
+			// Call init callbacks
+			FCoreDelegates::OnPostEngineInit.Broadcast();
+
 			// Load all the post-engine init modules
 			ensure(IProjectManager::Get().LoadModulesForProject(ELoadingPhase::PostEngineInit));
 			ensure(IPluginManager::Get().LoadModulesForEnabledPlugins(ELoadingPhase::PostEngineInit));
@@ -2086,7 +2124,7 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 					UE_LOG(LogInit, Display, TEXT("-----------------------------------"));
 
 					const int32 MaxMessagesToShow = (GIsBuildMachine || FParse::Param(FCommandLine::Get(), TEXT("DUMPALLWARNINGS"))) ? 
-						FMath::Max(AllErrors.Num(), AllWarnings.Num()) : 50;
+						(AllErrors.Num() + AllWarnings.Num()) : 50;
 					
 					TSet<FString> ShownMessages;					
 					ShownMessages.Empty(MaxMessagesToShow);
@@ -2306,6 +2344,7 @@ void FEngineLoop::LoadPreInitModules()
 	// compress asynchronously and that can lead to a race condition.
 	FModuleManager::Get().LoadModule(TEXT("TextureCompressor"));
 #endif
+
 #endif // WITH_ENGINE
 
 #if (WITH_EDITOR && !(UE_BUILD_SHIPPING || UE_BUILD_TEST))
@@ -2343,6 +2382,14 @@ bool FEngineLoop::LoadStartupCoreModules()
 	{
 		FModuleManager::LoadModuleChecked<IMessagingModule>("Messaging");
 	}
+
+	// Init Scene Reconstruction support
+#if !UE_SERVER
+	if (!IsRunningDedicatedServer())
+	{
+		FModuleManager::LoadModuleChecked<IMRMeshModule>("MRMesh");
+	}
+#endif
 
 	SlowTask.EnterProgressFrame(10);
 #if WITH_EDITOR
@@ -2437,7 +2484,6 @@ bool FEngineLoop::LoadStartupCoreModules()
 	// Load runtime client modules (which are also needed at cook-time)
 	if( !IsRunningDedicatedServer() )
 	{
-		FModuleManager::Get().LoadModule(TEXT("GameLiveStreaming"));
 		FModuleManager::Get().LoadModule(TEXT("MediaAssets"));
 	}
 #endif
@@ -2583,7 +2629,11 @@ int32 FEngineLoop::Init()
 
 	GEngine->Init(this);
 
+	// Call init callbacks
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	UEngine::OnPostEngineInit.Broadcast();
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
+	FCoreDelegates::OnPostEngineInit.Broadcast();
 
 	SlowTask.EnterProgressFrame(30);
 
@@ -2713,6 +2763,13 @@ void FEngineLoop::Exit()
 	}
 #endif
 
+#if WITH_EDITOR
+	// This module must be shut down first because other modules may try to access it during shutdown.
+	// Accessing this module at shutdown causes instability since the object system will have been shut down and this module uses uobjects internally.
+	FModuleManager::Get().UnloadModule("AssetTools", true);
+#endif // WITH_EDITOR
+
+
 #if !PLATFORM_ANDROID 	// AppPreExit doesn't work on Android
 	AppPreExit();
 
@@ -2834,7 +2891,7 @@ bool FEngineLoop::ShouldUseIdleMode() const
 	return bIdleMode;
 }
 
-#if !UE_BUILD_SHIPPING && !UE_BUILD_TEST
+#if !UE_BUILD_SHIPPING && !UE_BUILD_TEST && MALLOC_GT_HOOKS
 
 #include "Containers/StackTracker.h"
 static TAutoConsoleVariable<int32> CVarLogGameThreadMallocChurn(
@@ -2958,7 +3015,7 @@ uint64 FScopedSampleMallocChurn::DumpFrame = 0;
 
 void FEngineLoop::Tick()
 {
-#if !UE_BUILD_SHIPPING && !UE_BUILD_TEST
+#if !UE_BUILD_SHIPPING && !UE_BUILD_TEST && MALLOC_GT_HOOKS
 	FScopedSampleMallocChurn ChurnTracker;
 #endif
 
@@ -3000,6 +3057,8 @@ void FEngineLoop::Tick()
 			GPU_STATS_BEGINFRAME(RHICmdList);
 			RHICmdList.BeginFrame();
 		});
+
+		FCoreDelegates::OnBeginFrame.Broadcast();
 
 		{
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_FEngineLoop_FlushThreadedLogs);
@@ -3096,6 +3155,9 @@ void FEngineLoop::Tick()
 			GNewWorldToMetersScale = 0.0f;
 		}
 #endif	// WITH_ENGINE
+
+		// tick the currently active platform files
+		FPlatformFileManager::Get().TickActivePlatformFile();
 
 		if (FSlateApplication::IsInitialized() && !bIdleMode)
 		{
@@ -3261,6 +3323,8 @@ void FEngineLoop::Tick()
 
 			GEngine->TickDeferredCommands();		
 		}
+
+		FCoreDelegates::OnEndFrame.Broadcast();
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND(
 			EndFrame,
@@ -3580,11 +3644,13 @@ bool FEngineLoop::AppInit( )
 	}
 #endif
 
+	// Put the command line and config info into the suppression system (before plugins start loading)
+	FLogSuppressionInterface::Get().ProcessConfigAndCommandLine();
+
 	// NOTE: This is the earliest place to init the online subsystems (via plugins)
 	// Code needs GConfigFile to be valid
 	// Must be after FThreadStats::StartThread();
-	// Must be before Render/RHI subsystem D3DCreate()
-	// For platform services that need D3D hooks like Steam
+	// Must be before Render/RHI subsystem D3DCreate() for platform services that need D3D hooks like Steam
 
 	// Load "pre-init" plugin modules
 	if (!IProjectManager::Get().LoadModulesForProject(ELoadingPhase::PostConfigInit) || !IPluginManager::Get().LoadModulesForEnabledPlugins(ELoadingPhase::PostConfigInit))
@@ -3599,9 +3665,6 @@ bool FEngineLoop::AppInit( )
 	});
 
 	PreInitHMDDevice();
-
-	// Put the command line and config info into the suppression system
-	FLogSuppressionInterface::Get().ProcessConfigAndCommandLine();
 
 	// after the above has run we now have the REQUIRED set of engine .INIs  (all of the other .INIs)
 	// that are gotten from .h files' config() are not requires and are dynamically loaded when the .u files are loaded
@@ -3787,6 +3850,11 @@ void FEngineLoop::AppPreExit( )
 
 void FEngineLoop::AppExit( )
 {
+#if !WITH_ENGINE
+	// when compiled WITH_ENGINE, this will happen in FEngineLoop::Exit()
+	FTaskGraphInterface::Shutdown();
+#endif // WITH_ENGINE
+
 	UE_LOG(LogExit, Log, TEXT("Exiting."));
 
 	FPlatformMisc::PlatformTearDown();

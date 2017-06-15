@@ -480,6 +480,7 @@ FVector FSkeletonSelectionEditMode::GetWidgetLocation() const
 bool FSkeletonSelectionEditMode::HandleClick(FEditorViewportClient* InViewportClient, HHitProxy *HitProxy, const FViewportClick &Click)
 {
 	bool bHandled = false;
+	const bool bSelectingSections = GetAnimPreviewScene().AllowMeshHitProxies();
 
 	if ( HitProxy )
 	{
@@ -495,19 +496,20 @@ bool FSkeletonSelectionEditMode::HandleClick(FEditorViewportClient* InViewportCl
 			static_cast<FAnimationViewportClient*>(InViewportClient)->GetSkeletonTree()->SetSelectedBone(static_cast<HPersonaBoneProxy*>(HitProxy)->BoneName);
 			bHandled = true;
 		}
-		else if ( HitProxy->IsA( HActor::StaticGetType() ) && GetAnimPreviewScene().AllowMeshHitProxies())
+		else if ( HitProxy->IsA( HActor::StaticGetType() ) && bSelectingSections)
 		{
 			HActor* ActorHitProxy = static_cast<HActor*>(HitProxy);
 			GetAnimPreviewScene().BroadcastMeshClick(ActorHitProxy, Click);
 			bHandled = true;
 		}
 	}
-	else 
+	
+	if ( !bHandled && !bSelectingSections )
 	{
 		// Cast for phys bodies if we didn't get any hit proxies
 		FHitResult Result(1.0f);
 		UDebugSkelMeshComponent* PreviewMeshComponent = GetAnimPreviewScene().GetPreviewMeshComponent();
-		bool bHit = PreviewMeshComponent->LineTraceComponent(Result, Click.GetOrigin(), Click.GetOrigin() + Click.GetDirection() * SkeletonSelectionModeConstants::BodyTraceDistance, FCollisionQueryParams(NAME_None,true));
+		bool bHit = PreviewMeshComponent->LineTraceComponent(Result, Click.GetOrigin(), Click.GetOrigin() + Click.GetDirection() * SkeletonSelectionModeConstants::BodyTraceDistance, FCollisionQueryParams(NAME_None, FCollisionQueryParams::GetUnknownStatId(),true));
 		
 		if(bHit)
 		{

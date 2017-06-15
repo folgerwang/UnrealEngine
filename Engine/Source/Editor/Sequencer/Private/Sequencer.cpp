@@ -102,6 +102,7 @@
 #include "UnrealExporter.h"
 #include "ISequencerEditorObjectBinding.h"
 #include "LevelSequence.h"
+#include "IVREditorModule.h"
 
 #define LOCTEXT_NAMESPACE "Sequencer"
 
@@ -1689,13 +1690,6 @@ void FSequencer::EvaluateInternal(FMovieSceneEvaluationRange InRange)
 
 	if (!IsInSilentMode())
 	{
-		// Redraw if not in PIE/simulate
-		const bool bIsInPIEOrSimulate = GEditor->PlayWorld != NULL || GEditor->bIsSimulatingInEditor;
-		if (!bIsInPIEOrSimulate)
-		{
-			FEditorSupportDelegates::RedrawAllViewports.Broadcast();
-		}
-		
 		OnGlobalTimeChangedDelegate.Broadcast();
 	}
 }
@@ -2059,6 +2053,11 @@ void FSequencer::PossessPIEViewports(UObject* CameraObject, UObject* UnlockIfCam
 			PC->PlayerCameraManager->bGameCameraCutThisFrame = true;
 		}
 	}
+}
+
+TSharedPtr<class ITimeSlider> FSequencer::GetTopTimeSliderWidget() const
+{
+	return SequencerWidget->GetTopTimeSliderWidget();
 }
 
 void FSequencer::UpdateCameraCut(UObject* CameraObject, UObject* UnlockIfCameraObject, bool bJumpCut)
@@ -3230,6 +3229,8 @@ FGuid FSequencer::AddSpawnable(UObject& Object)
 
 	FGuid NewGuid = OwnerMovieScene->AddSpawnable(NewSpawnable.Name, *NewSpawnable.ObjectTemplate);
 
+	ForceEvaluate();
+
 	UpdateRuntimeInstances();
 	
 	return NewGuid;
@@ -3522,7 +3523,7 @@ void FSequencer::OnNewActorsDropped(const TArray<UObject*>& DroppedObjects, cons
 			{
 				FMovieSceneSpawnable* Spawnable = ConvertToSpawnableInternal(PossessableGuid);
 
-				UpdateRuntimeInstances();
+				ForceEvaluate();
 
 				for (TWeakObjectPtr<> WeakObject : FindBoundObjects(Spawnable->GetGuid(), ActiveTemplateIDs.Top()))
 				{
@@ -3561,7 +3562,7 @@ void FSequencer::OnNewActorsDropped(const TArray<UObject*>& DroppedObjects, cons
 				{
 					FMovieSceneSpawnable* Spawnable = ConvertToSpawnableInternal(NewCameraGuid);
 
-					UpdateRuntimeInstances();
+					ForceEvaluate();
 
 					for (TWeakObjectPtr<> WeakObject : FindBoundObjects(Spawnable->GetGuid(), ActiveTemplateIDs.Top()))
 					{
@@ -4039,34 +4040,43 @@ void FSequencer::SynchronizeSequencerSelectionWithExternalSelection()
 		for ( TWeakObjectPtr<UObject> RuntimeObjectPtr : FindBoundObjects(ObjectBindingNode->GetObjectBinding(), ActiveTemplateIDs.Top()) )
 		{
 			UObject* RuntimeObject = RuntimeObjectPtr.Get();
-			if ( RuntimeObject != nullptr &&
-				(GEditor->GetSelectedActors()->IsSelected( RuntimeObject ) || GEditor->GetSelectedComponents()->IsSelected( RuntimeObject) ))
+			if ( RuntimeObject != nullptr)
 			{
-				NodesToSelect.Add( ObjectBindingNode );
+				bool bActorSelected = GEditor->GetSelectedActors()->IsSelected( RuntimeObject );
+				bool bComponentSelected = GEditor->GetSelectedComponents()->IsSelected( RuntimeObject);
 
-				if (bAllAlreadySelected)
+				if (bActorSelected || bComponentSelected)
 				{
-					bool bAlreadySelected = Selection.IsSelected(ObjectBindingNode);
+					NodesToSelect.Add( ObjectBindingNode );
 
-					if (!bAlreadySelected)
+					if (bAllAlreadySelected)
 					{
-						TSet<TSharedRef<FSequencerDisplayNode> > DescendantNodes;
-						SequencerHelpers::GetDescendantNodes(ObjectBindingNode, DescendantNodes);
+						bool bAlreadySelected = Selection.IsSelected(ObjectBindingNode);
 
-						for (auto DescendantNode : DescendantNodes)
+						if (!bAlreadySelected)
 						{
-							if (Selection.IsSelected(DescendantNode) || Selection.NodeHasSelectedKeysOrSections(DescendantNode))
+							TSet<TSharedRef<FSequencerDisplayNode> > DescendantNodes;
+							SequencerHelpers::GetDescendantNodes(ObjectBindingNode, DescendantNodes);
+
+							for (auto DescendantNode : DescendantNodes)
 							{
-								bAlreadySelected = true;
-								break;
+								if (Selection.IsSelected(DescendantNode) || Selection.NodeHasSelectedKeysOrSections(DescendantNode))
+								{
+									bAlreadySelected = true;
+									break;
+								}
 							}
 						}
-					}
 
-					if (!bAlreadySelected)
-					{
-						bAllAlreadySelected = false;
+						if (!bAlreadySelected)
+						{
+							bAllAlreadySelected = false;
+						}
 					}
+				}
+				else if (Selection.IsSelected(ObjectBindingNode))
+				{
+					bAllAlreadySelected = false;
 				}
 			}
 		}
@@ -4824,7 +4834,7 @@ void FSequencer::ConvertSelectedNodesToSpawnables()
 
 			if (Spawnable)
 			{
-				UpdateRuntimeInstances();
+				ForceEvaluate();
 
 				for (TWeakObjectPtr<> WeakObject : FindBoundObjects(Spawnable->GetGuid(), ActiveTemplateIDs.Top()))
 				{
@@ -4979,7 +4989,7 @@ void FSequencer::ConvertSelectedNodesToPossessables()
 			{
 				FMovieScenePossessable* Possessable = ConvertToPossessableInternal(Spawnable->GetGuid());
 
-				UpdateRuntimeInstances();
+				ForceEvaluate();
 
 				for (TWeakObjectPtr<> WeakObject : FindBoundObjects(Possessable->GetGuid(), ActiveTemplateIDs.Top()))
 				{
@@ -5943,6 +5953,40 @@ void FSequencer::FixActorReferences()
 	}
 }
 
+void FSequencer::RebindPossessableReferences()
+{
+	FScopedTransaction Transaction(LOCTEXT("RebindAllPossessables", "Rebind Possessable References"));
+
+	UMovieSceneSequence* FocusedSequence = GetFocusedMovieSceneSequence();
+	FocusedSequence->Modify();
+
+	UMovieScene* FocusedMovieScene = FocusedSequence->GetMovieScene();
+
+	TMap<FGuid, TArray<UObject*, TInlineAllocator<1>>> AllObjects;
+
+	UObject* PlaybackContext = PlaybackContextAttribute.Get(nullptr);
+
+	for (int32 Index = 0; Index < FocusedMovieScene->GetPossessableCount(); Index++)
+	{
+		const FMovieScenePossessable& Possessable = FocusedMovieScene->GetPossessable(Index);
+
+		TArray<UObject*, TInlineAllocator<1>>& References = AllObjects.FindOrAdd(Possessable.GetGuid());
+		FocusedSequence->LocateBoundObjects(Possessable.GetGuid(), PlaybackContext, References);
+	}
+
+	for (auto& Pair : AllObjects)
+	{
+		// Only rebind things if they exist
+		if (Pair.Value.Num() > 0)
+		{
+			FocusedSequence->UnbindPossessableObjects(Pair.Key);
+			for (UObject* Object : Pair.Value)
+			{
+				FocusedSequence->BindPossessableObject(Pair.Key, *Object, PlaybackContext);
+			}
+		}
+	}
+}
 
 float SnapTime( float TimeValue, float TimeInterval )
 {
@@ -6707,7 +6751,7 @@ void FSequencer::BindCommands()
 		FExecuteAction::CreateSP(this, &FSequencer::CreateCamera),
 		FCanExecuteAction(),
 		FIsActionChecked(),
-		FIsActionButtonVisible::CreateLambda([this] { return ExactCast<ULevelSequence>(GetFocusedMovieSceneSequence()) != nullptr; })
+		FIsActionButtonVisible::CreateLambda([this] { return ExactCast<ULevelSequence>(GetFocusedMovieSceneSequence()) != nullptr && IVREditorModule::Get().IsVREditorModeActive() == false; }) //@todo VREditor: Creating a camera while in VR mode disrupts the hmd. This is a temporary fix by hiding the button when in VR mode.
 	);
 
 	SequencerCommandBindings->MapAction(
@@ -6722,13 +6766,18 @@ void FSequencer::BindCommands()
 
 			UPackage* EditedPackage = EditedSequence->GetOutermost();
 
-			return ((EditedSequence != nullptr) && (EditedPackage->FileSize != 0) && EditedPackage->IsDirty());
+			return ((EditedPackage->FileSize != 0) && EditedPackage->IsDirty());
 		})
 	);
 
 	SequencerCommandBindings->MapAction(
 		Commands.FixActorReferences,
 		FExecuteAction::CreateSP( this, &FSequencer::FixActorReferences ),
+		FCanExecuteAction::CreateLambda( []{ return true; } ) );
+
+	SequencerCommandBindings->MapAction(
+		Commands.RebindPossessableReferences,
+		FExecuteAction::CreateSP( this, &FSequencer::RebindPossessableReferences ),
 		FCanExecuteAction::CreateLambda( []{ return true; } ) );
 
 	SequencerCommandBindings->MapAction(

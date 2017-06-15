@@ -94,12 +94,13 @@ public:
 	/**
 	 * Get the level sequence being played by this actor.
 	 *
-	 * @param Whether to load the sequence object if it is not already in memory.
+	 * @param bLoad Whether to load the sequence object if it is not already in memory.
+	 * @param bInitializePlayer Whether to initialize the player when the sequence has been loaded.
 	 * @return Level sequence, or nullptr if not assigned or if it cannot be loaded.
 	 * @see SetSequence
 	 */
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
-	ULevelSequence* GetSequence(bool Load = false) const;
+	ULevelSequence* GetSequence(bool bLoad = false, bool bInitializePlayer = false) const;
 
 	/**
 	 * Set the level sequence being played by this actor.
@@ -130,7 +131,7 @@ public:
 		BindingOverrides->SetBinding(Binding, TArray<UObject*>(Actors), bAllowBindingsFromAsset);
 		if (SequencePlayer)
 		{
-			SequencePlayer->State.Invalidate(Binding.GetObjectBindingID(), Binding.GetSequenceID());
+			SequencePlayer->State.Invalidate(Binding.GetGuid(), Binding.GetSequenceID());
 		}
 	}
 
@@ -141,7 +142,7 @@ public:
 		BindingOverrides->AddBinding(Binding, Actor);
 		if (SequencePlayer)
 		{
-			SequencePlayer->State.Invalidate(Binding.GetObjectBindingID(), Binding.GetSequenceID());
+			SequencePlayer->State.Invalidate(Binding.GetGuid(), Binding.GetSequenceID());
 		}
 	}
 
@@ -152,7 +153,7 @@ public:
 		BindingOverrides->RemoveBinding(Binding, Actor);
 		if (SequencePlayer)
 		{
-			SequencePlayer->State.Invalidate(Binding.GetObjectBindingID(), Binding.GetSequenceID());
+			SequencePlayer->State.Invalidate(Binding.GetGuid(), Binding.GetSequenceID());
 		}
 	}
 
@@ -163,7 +164,7 @@ public:
 		BindingOverrides->ResetBinding(Binding);
 		if (SequencePlayer)
 		{
-			SequencePlayer->State.Invalidate(Binding.GetObjectBindingID(), Binding.GetSequenceID());
+			SequencePlayer->State.Invalidate(Binding.GetGuid(), Binding.GetSequenceID());
 		}
 	}
 
@@ -194,6 +195,8 @@ public:
 #endif //WITH_EDITOR
 
 	void InitializePlayer();
+
+	void OnSequenceLoaded(const FName& PackageName, UPackage* Package, EAsyncLoadingResult::Type Result, bool bInitializePlayer);
 
 #if WITH_EDITOR
 	virtual TSharedPtr<FStructOnScope> GetObjectPickerProxy(TSharedPtr<IPropertyHandle> PropertyHandle) override;

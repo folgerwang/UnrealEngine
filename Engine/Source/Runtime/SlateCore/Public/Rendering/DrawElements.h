@@ -500,6 +500,7 @@ public:
 	{
 		return Inverse(FSlateLayoutTransform(Scale, Position));
 	}
+	
 
 	/**
 	 * Update element cached position with an arbitrary offset
@@ -1333,7 +1334,7 @@ public:
 	template <typename T>
 	FORCEINLINE_DEBUGGABLE void* Alloc()
 	{
-		return MemManager.Alloc(sizeof(T), ALIGNOF(T));
+		return MemManager.Alloc(sizeof(T), alignof(T));
 	}
 
 	FSlateBatchData& GetBatchData() { return BatchData; }

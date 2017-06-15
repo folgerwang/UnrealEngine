@@ -16,6 +16,9 @@
 #include "Animation/AnimNotifies/AnimNotify.h"
 #include "AnimInstance.generated.h"
 
+// Post Compile Validation requires WITH_EDITOR
+#define ANIMINST_PostCompileValidation WITH_EDITOR
+
 class FDebugDisplayInfo;
 class IAnimClassInterface;
 class UAnimInstance;
@@ -707,14 +710,6 @@ private:
 	/** Used to guard against recursive calls to UpdateAnimation */
 	bool bPostUpdatingAnimation;
 
-#if WITH_EDITOR
-	/** Delegate for custom animation curve addition */
-	TArray<FOnAddCustomAnimationCurves> OnAddAnimationCurves;
-public:
-	/** Add custom curve delegates */
-	void AddDelegate_AddCustomAnimationCurve(FOnAddCustomAnimationCurves& InOnAddCustomAnimationCurves);
-	void RemoveDelegate_AddCustomAnimationCurve(FOnAddCustomAnimationCurves& InOnAddCustomAnimationCurves);
-#endif // editor only for now
 public:
 
 	/** Is this animation currently running post update */
@@ -820,7 +815,6 @@ public:
 
 	/** Returns the baked sync group index from the compile step */
 	int32 GetSyncGroupIndexFromName(FName SyncGroupName) const;
-protected:
 
 	/** Gets the index of the state machine matching MachineName */
 	int32 GetStateMachineIndex(FName MachineName);
@@ -930,6 +924,16 @@ public:
 	virtual void PostInitProperties() override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 	//~ End UObject Interface
+
+#if WITH_EDITORONLY_DATA // ANIMINST_PostCompileValidation
+	/** Name of Class to do Post Compile Validation.
+	* See Class UAnimBlueprintPostCompileValidation. */
+	UPROPERTY()
+	FStringClassReference PostCompileValidationClassName;
+
+	/** Warn if AnimNodes are not using fast path during AnimBP compilation. */
+	virtual bool PCV_ShouldWarnAboutNodesNotUsingFastPath() const { return false; }
+#endif // WITH_EDITORONLY_DATA
 
 	virtual void OnUROSkipTickAnimation() {}
 	virtual void OnUROPreInterpolation() {}
@@ -1250,4 +1254,8 @@ public:
 
 	/** Called when a montage hits a 'PlayMontageNotify' or 'PlayMontageNotifyWindow' end */
 	FPlayMontageAnimNotifyDelegate OnPlayMontageNotifyEnd;
+
+public:
+	/** Dispatch AnimEvents (AnimNotifies, Montage Events) queued during UpdateAnimation() */
+	void DispatchQueuedAnimEvents();
 };

@@ -150,6 +150,12 @@ void UWheeledVehicleMovementComponent::SetUpdatedComponent(USceneComponent* NewU
 	//Skip PawnMovementComponent and simply set PawnOwner to null if we don't have a PawnActor as owner
 	UNavMovementComponent::SetUpdatedComponent(NewUpdatedComponent);
 	PawnOwner = NewUpdatedComponent ? Cast<APawn>(NewUpdatedComponent->GetOwner()) : nullptr;
+
+	if(USkeletalMeshComponent* SKC = Cast<USkeletalMeshComponent>(NewUpdatedComponent))
+	{
+		//TODO: this is a hack until we get proper local space kinematic support
+		SKC->bLocalSpaceKinematics = true;
+	}
 }
 
 bool UWheeledVehicleMovementComponent::CanCreateVehicle() const
@@ -1018,6 +1024,8 @@ void UWheeledVehicleMovementComponent::UpdateState( float DeltaTime )
 	}
 }
 
+/// @cond DOXYGEN_WARNINGS
+
 bool UWheeledVehicleMovementComponent::ServerUpdateState_Validate(float InSteeringInput, float InThrottleInput, float InBrakeInput, float InHandbrakeInput, int32 InCurrentGear)
 {
 	return true;
@@ -1042,6 +1050,8 @@ void UWheeledVehicleMovementComponent::ServerUpdateState_Implementation(float In
 	ReplicatedState.HandbrakeInput = InHandbrakeInput;
 	ReplicatedState.CurrentGear = InCurrentGear;
 }
+
+/// @endcond
 
 float UWheeledVehicleMovementComponent::CalcSteeringInput()
 {
@@ -1712,6 +1722,7 @@ void UWheeledVehicleMovementComponent::PostEditChangeProperty( FPropertyChangedE
 
 #endif // WITH_EDITOR
 
+/// @cond DOXYGEN_WARNINGS
 
 void UWheeledVehicleMovementComponent::GetLifetimeReplicatedProps( TArray< FLifetimeProperty > & OutLifetimeProps ) const
 {
@@ -1719,6 +1730,8 @@ void UWheeledVehicleMovementComponent::GetLifetimeReplicatedProps( TArray< FLife
 
 	DOREPLIFETIME( UWheeledVehicleMovementComponent, ReplicatedState );
 }
+
+/// @endcond
 
 void UWheeledVehicleMovementComponent::ComputeConstants()
 {

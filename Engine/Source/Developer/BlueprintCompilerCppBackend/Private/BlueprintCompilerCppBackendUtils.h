@@ -296,11 +296,11 @@ struct FEmitHelper
 
 	static bool ShouldHandleAsImplementableEvent(UFunction* Function);
 
-	static bool GenerateAutomaticCast(FEmitterLocalContext& EmitterContext, const FEdGraphPinType& LType, const FEdGraphPinType& RType, FString& OutCastBegin, FString& OutCastEnd, bool bForceReference = false);
+	static bool GenerateAutomaticCast(FEmitterLocalContext& EmitterContext, const FEdGraphPinType& LType, const FEdGraphPinType& RType, const UProperty* LProp, const UProperty* RProp, FString& OutCastBegin, FString& OutCastEnd, bool bForceReference = false);
 
 	static FString GenerateReplaceConvertedMD(UObject* Obj);
 
-	static FString GetBaseFilename(const UObject* AssetObj);
+	static FString GetBaseFilename(const UObject* AssetObj, const FCompilerNativizationOptions& NativizationOptions);
 
 	static FString ReplaceConvertedMetaData(UObject* Obj);
 

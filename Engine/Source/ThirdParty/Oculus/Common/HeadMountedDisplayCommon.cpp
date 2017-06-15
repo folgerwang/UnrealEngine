@@ -883,9 +883,15 @@ void FHeadMountedDisplay::UpdateSplashScreen()
 
 	FTexture2DRHIRef Texture2D = (bSplashShowMovie && SplashMovie.IsValid()) ? SplashMovie : SplashTexture;
 	FTextureRHIRef Texture;
+	float InvAspectRatio = 1.0;
 	if (Texture2D.IsValid())
 	{
 		Texture = (FRHITexture*)Texture2D.GetReference();
+		const FIntPoint TextureSize = Texture2D->GetSizeXY();
+		if (TextureSize.X > 0)
+		{
+			InvAspectRatio = float(TextureSize.Y) / float(TextureSize.X);
+		}
 	}
 
 	// Disable features incompatible with the generalized VR splash screen
@@ -908,7 +914,8 @@ void FHeadMountedDisplay::UpdateSplashScreen()
 
 			FAsyncLoadingSplash::FSplashDesc NewDesc;
 			NewDesc.LoadedTexture = Texture;
-			NewDesc.QuadSizeInMeters = FVector2D(8.0f, 4.5f);
+			// Set texture size to 8m wide, keeping the aspect ratio.
+			NewDesc.QuadSizeInMeters = FVector2D(8.0f, 8.0f * InvAspectRatio);
 
 			FTransform Translation(FVector(5.0f, 0.0f, 0.0f));
 
@@ -1444,25 +1451,45 @@ void FHMDLayerManager::PreSubmitUpdate_RenderThread(FRHICommandListImmediate& RH
 			}
 		}
 
-		struct Comparator
+		static const auto CVarMixLayerPriorities = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.StereoLayers.bMixLayerPriorities"));
+		const bool bRenderHeadLockedFront = (CVarMixLayerPriorities->GetValueOnRenderThread() == 0) ;
+
+		auto Comparator = [=](const TSharedPtr<FHMDRenderLayer>& l1, const TSharedPtr<FHMDRenderLayer>& l2)
 		{
-			bool operator()(const TSharedPtr<FHMDRenderLayer>& l1,
-							const TSharedPtr<FHMDRenderLayer>& l2) const
+			if (!l1.IsValid())
 			{
-				if (!l1.IsValid())
+				return false;
+			}
+			if (!l2.IsValid())
+			{
+				return true;
+			}
+			auto LayerDesc1 = l1->GetLayerDesc();
+			auto LayerDesc2 = l2->GetLayerDesc();
+			if (LayerDesc1.IsPokeAHole() == LayerDesc2.IsPokeAHole())
+			{
+				if (LayerDesc1.GetType() == LayerDesc2.GetType())
 				{
-					return false;
+					if (bRenderHeadLockedFront || LayerDesc1.IsHeadLocked() == LayerDesc2.IsHeadLocked())
+					{
+						return LayerDesc1.GetPriority() < LayerDesc2.GetPriority();
+					}
+					else
+					{
+						return LayerDesc2.IsHeadLocked();
+					}
 				}
-				if (!l2.IsValid())
+				else
 				{
-					return true;
+					return bool(LayerDesc1.IsPokeAHole() ^ (LayerDesc1.GetType() < LayerDesc2.GetType()));
 				}
-				auto LayerDesc1 = l1->GetLayerDesc();
-				auto LayerDesc2 = l2->GetLayerDesc();
-				return LayerDesc1.IsPokeAHole() == LayerDesc2.IsPokeAHole() ? (LayerDesc1.GetType() == LayerDesc2.GetType() ? (LayerDesc1.GetPriority() < LayerDesc2.GetPriority()) : LayerDesc1.IsPokeAHole() ^ (LayerDesc1.GetType() < LayerDesc2.GetType())) : LayerDesc1.IsPokeAHole();
+			}
+			else
+			{
+				return LayerDesc1.IsPokeAHole();
 			}
 		};
-		LayersToRender.Sort(Comparator());
+		LayersToRender.Sort(Comparator);
 		// all empty (nullptr) entries should be at the end of the array. 
 		// The total number of render layers should be equal to sum of all layers.
 		LayersToRender.SetNum(EyeLayers.Num() + QuadLayers.Num() + DebugLayers.Num());

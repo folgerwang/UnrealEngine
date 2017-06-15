@@ -342,6 +342,7 @@
 				<CsCompile Project="Engine/Source/Programs/UnrealSwarm/Agent/Agent.csproj" Configuration="Development" Platform="AnyCPU" Tag="#Build Tools CS" TagReferences="#Build Tools CS"/>
 				<CsCompile Project="Engine/Source/Editor/SwarmInterface/DotNET/SwarmInterface.csproj" Configuration="Development" Platform="AnyCPU" Tag="#Build Tools CS" TagReferences="#Build Tools CS"/>
 				<CsCompile Project="Engine/Source/Programs/PS4/PS4DevKitUtil/PS4DevKitUtil.csproj" Configuration="Development" Platform="AnyCPU" Tag="#Build Tools CS" TagReferences="#Build Tools CS" If="'$(WithPS4)' == true"/>
+				<CsCompile Project="Engine/Source/Programs/PS4/PS4SymbolTool/PS4SymbolTool.csproj" Configuration="Release" Platform="AnyCPU" Tag="#Build Tools CS" TagReferences="#Build Tools CS" If="'$(WithPS4)' == true"/>
 				<!-- TODO: Change these projects so that they can be compiled on non-windows platforms (currently use WinForms) -->
 				<CsCompile Project="Engine/Source/Programs/UnrealControls/UnrealControls.csproj" Configuration="Development" Platform="AnyCPU" Tag="#Build Tools CS" TagReferences="#Build Tools CS"/>
 				<CsCompile Project="Engine/Source/Programs/IOS/iPhonePackager/iPhonePackager.csproj" Configuration="Development" Platform="AnyCPU" Arguments="/verbosity:minimal /target:Rebuild" Tag="#Build Tools CS" TagReferences="#Build Tools CS"/>
@@ -382,7 +383,7 @@
 
 			<!-- Strip and Sign the rebuilt binaries -->
 			<Tag Files="#StrippedUAT" Filter="$(Win64StripFilter)" Except="$(Win64StripExceptions)" With="#UnstrippedUAT"/>
-			<Strip Files="#UnstrippedUAT" Platform="Win64"/>
+			<Strip Files="#UnstrippedUAT" Platform="Win64" If="'$(HostPlatform)' == 'Win64'"/>
 			<Do If="'$(SignExecutables)' == true">
 				<Tag Files="#StrippedUAT" Filter="$(WindowsSignFilter)" Except="$(SignExceptions)" With="#UnsignedUAT"/>
 				<Sign Files="#UnsignedUAT"/>

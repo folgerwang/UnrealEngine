@@ -131,13 +131,14 @@ protected:
 
 	//~ UMovieSceneSequencePlayer interface
 	virtual bool CanPlay() const override;
-	virtual void OnStartedPlaying() override;
 	virtual void OnStopped() override;
 
 public:
 
 	/** Populate the specified array with any given event contexts for the specified world */
 	static void GetEventContexts(UWorld& InWorld, TArray<UObject*>& OutContexts);
+
+	virtual void BeginPlay() override;
 
 	/**
 	 * Set an array of additional actors that will receive events triggerd from this sequence player
@@ -149,12 +150,17 @@ public:
 	/** Take a snapshot of the current state of this player */
 	void TakeFrameSnapshot(FLevelSequencePlayerSnapshot& OutSnapshot) const;
 
+	/** Set the offset time for the snapshot */
+	void SetSnapshotOffsetTime(float InTime) {SnapshotOffsetTime = TOptional<float>(InTime); }
+
 private:
 
 	/** Add tick prerequisites so that the level sequence actor ticks before all the actors it controls */
 	void SetTickPrerequisites(bool bAddTickPrerequisites);
 
 	void SetTickPrerequisites(FMovieSceneSequenceID SequenceID, UMovieSceneSequence* Sequence, bool bAddTickPrerequisites);
+
+	void EnableCinematicMode(bool bEnable);
 
 private:
 
@@ -171,6 +177,8 @@ protected:
 
 	/** How to take snapshots */
 	FLevelSequenceSnapshotSettings SnapshotSettings;
+
+	TOptional<float> SnapshotOffsetTime;
 
 	TWeakObjectPtr<UCameraComponent> CachedCameraComponent;
 

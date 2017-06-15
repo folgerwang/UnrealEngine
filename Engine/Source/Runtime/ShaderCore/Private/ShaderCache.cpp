@@ -15,6 +15,7 @@
 #include "Shader.h"
 #include "Misc/EngineVersion.h"
 #include "PipelineStateCache.h"
+#include "ScopeRWLock.h"
 
 DECLARE_STATS_GROUP(TEXT("Shader Cache"),STATGROUP_ShaderCache, STATCAT_Advanced);
 DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num Shaders Cached"),STATGROUP_NumShadersCached,STATGROUP_ShaderCache);
@@ -56,6 +57,14 @@ FAutoConsoleVariableRef FShaderCache::CVarUseShaderCaching(
 	bUseShaderCaching,
 	TEXT("If true, log all shaders & bound-shader-states, so that they may be instantiated in the RHI on deserialisation rather than waiting for first use."),
 	ECVF_ReadOnly|ECVF_RenderThreadSafe
+	);
+
+int32 FShaderCache::bUseUserShaderCache = 1;
+FAutoConsoleVariableRef FShaderCache::CVarUseUserShaderCache(
+	TEXT("r.UseUserShaderCache"),
+	bUseUserShaderCache,
+	TEXT("If true, shader caching will use (and store) draw-log from a user directory, otherwise only draw-log stored in game content directory"),
+	ECVF_RenderThreadSafe
 	);
 
 // Predrawing takes an existing shader cache with draw log & renders each shader + draw-state combination before use to avoid in-driver recompilation
@@ -625,7 +634,8 @@ static bool ShaderPlatformCanPrebindBoundShaderState(EShaderPlatform Platform)
 	{
 		case SP_PCD3D_SM5:
 		case SP_PS4:
-		case SP_XBOXONE:
+		case SP_XBOXONE_D3D11:
+		case SP_XBOXONE_D3D12:
 		case SP_PCD3D_SM4:
 		case SP_PCD3D_ES2:
 		case SP_METAL:
@@ -635,19 +645,19 @@ static bool ShaderPlatformCanPrebindBoundShaderState(EShaderPlatform Platform)
 		case SP_METAL_SM5:
 		case SP_METAL_MACES3_1:
 		case SP_METAL_MACES2:
+		case SP_OPENGL_PCES2:
+		case SP_OPENGL_ES2_ANDROID:
+		case SP_OPENGL_ES3_1_ANDROID:
+		case SP_OPENGL_ES31_EXT:
+		case SP_OPENGL_ES2_IOS:
 		case SP_SWITCH:
 		case SP_SWITCH_FORWARD:
 		{
 			return true;
 		}
 		case SP_OPENGL_SM4:
-		case SP_OPENGL_PCES2:
 		case SP_OPENGL_SM5:
-		case SP_OPENGL_ES2_ANDROID:
 		case SP_OPENGL_ES2_WEBGL:
-		case SP_OPENGL_ES2_IOS:
-		case SP_OPENGL_ES31_EXT:
-		case SP_OPENGL_ES3_1_ANDROID:
 		default:
 		{
 			return false;
@@ -704,7 +714,7 @@ void FShaderCache::InitShaderCache(uint32 Options)
 	if(bUseShaderCaching)
 	{
 		Cache = new FShaderCache(Options);
-	}
+		}
 }
 
 void FShaderCache::LoadBinaryCache()
@@ -736,13 +746,13 @@ void FShaderCache::LoadBinaryCache()
 	bool bLoadedUserCache = LoadShaderCache(UserBinaryShaderFile, &Cache->Caches);
 
 	// Fallback to game-content version.
-	if ( !bLoadedUserCache )
+	if (!bLoadedUserCache)
 	{
 		LoadShaderCache(GameBinaryShaderFile, &Cache->Caches);
 	}
 
 	// Make sure relevant platform caches are already setup
-	for(size_t FeatureLevel = 0;FeatureLevel < ERHIFeatureLevel::Num;++FeatureLevel)
+	for (size_t FeatureLevel = 0; FeatureLevel < ERHIFeatureLevel::Num; ++FeatureLevel)
 	{
 		Cache->Caches.PlatformCaches.FindOrAdd(GShaderPlatformForFeatureLevel[FeatureLevel]);
 	}
@@ -841,11 +851,11 @@ void FShaderCache::LoadBinaryCache()
 				// Regardless of the presence of the platform specific file we want an modifiable FShaderCacheLibrary to catch any outliers.
 				FShaderCacheLibrary* ShaderCacheLib = new FShaderCacheLibrary(ShaderPlat,GShaderCodeCacheFileName);
 				ShaderCacheLib->AddRef();
-				
+					
 				// Try to load user cache, making sure that if we fail version test we still try game-content version.
 				bool bLoadedCache = ShaderCacheLib->Load(FPaths::GameSavedDir());
 				Cache->CodeCache.Add(ShaderPlat,ShaderCacheLib);
-				
+					
 				Cache->CachedShaderLibraries.Add( ShaderPlat, ShaderCacheLib );
 
 				if (bLoadedCache)
@@ -933,7 +943,7 @@ void FShaderCache::ShutdownShaderCache()
 	{
 		delete Cache;
 		Cache = nullptr;
-	}
+		}
 }
 
 FShaderCache::FShaderCache(uint32 InOptions)
@@ -943,12 +953,9 @@ FShaderCache::FShaderCache(uint32 InOptions)
 , OverridePrecompileTime(0)
 , OverridePredrawBatchTime(0)
 , bBatchingPaused(false)
-, ShaderCacheGlobalStateMutex(0)
-, PipelineStateMutex(1)
-, DrawLogMutex(2)
-, ContextCacheStatesMutex(3)
 , DefaultCacheState(nullptr)
 {
+
 	MaxTextureSamplers = FMath::Min<uint32>(GetMaxTextureSamplers(), FShaderDrawKey::MaxNumSamplers);
 	FShaderDrawKey::bTrackDrawResources = ShaderPlatformPrebindRequiresResource(GMaxRHIShaderPlatform);
 }
@@ -2577,6 +2584,7 @@ FTextureRHIRef FShaderCache::InternalCreateTexture(FShaderTextureKey const& Text
 			case SCTT_Buffer:
 			case SCTT_Texture1D:
 			case SCTT_Texture1DArray:
+			case SCTT_TextureExternal2D:
 			default:
 			{
 				check(false);
@@ -3201,6 +3209,8 @@ bool FShaderCache::LoadShaderCache(FString Path, FShaderCaches* InCache)
 
 bool FShaderCache::SaveShaderCache(FString Path, FShaderCaches* InCache)
 {
+	UE_LOG(LogRHI, Log, TEXT("Saving shader cache: %s"), *Path);
+
 	FArchive* BinaryShaderAr = IFileManager::Get().CreateFileWriter(*Path);
 	if( BinaryShaderAr != NULL )
 	{

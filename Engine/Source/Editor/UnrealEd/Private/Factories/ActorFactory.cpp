@@ -128,7 +128,7 @@ ActorFactory.cpp:
 #include "LevelSequenceActor.h"
 #include "Factories/ActorFactoryMovieScene.h"
 
-DEFINE_LOG_CATEGORY_STATIC(LogActorFactory, Log, All);
+DEFINE_LOG_CATEGORY(LogActorFactory);
 
 #define LOCTEXT_NAMESPACE "ActorFactory"
 
@@ -262,13 +262,12 @@ AActor* UActorFactory::CreateActor( UObject* Asset, ULevel* InLevel, FTransform 
 		if ( NewActor )
 		{
 			PostSpawnActor(Asset, NewActor);
-		}
 
-
-		// Only do this if the actor wasn't already given a name
-		if (Name == NAME_None && Asset)
-		{
-			FActorLabelUtilities::SetActorLabelUnique(NewActor, Asset->GetName());
+			// Only do this if the actor wasn't already given a name
+			if (Name == NAME_None && Asset)
+			{
+				FActorLabelUtilities::SetActorLabelUnique(NewActor, Asset->GetName());
+			}
 		}
 	}
 

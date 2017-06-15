@@ -178,6 +178,7 @@ namespace ETreeDiffType
 	{
 		NODE_ADDED,
 		NODE_REMOVED,
+		NODE_TYPE_CHANGED,
 		NODE_PROPERTY_CHANGED,
 		NODE_MOVED,
 		/** We could potentially try to identify hierarchy reorders separately from add/remove */
@@ -267,7 +268,7 @@ namespace DiffViewUtils
 
 	KISMET_API FText PropertyDiffMessage(FSingleObjectDiffEntry Difference, FText ObjectName);
 	KISMET_API FText SCSDiffMessage(const FSCSDiffEntry& Difference, FText ObjectName);
-	KISMET_API FText GetPanelLabel(const UBlueprint* Blueprint, FRevisionInfo const& Revision, FText Label);
+	KISMET_API FText GetPanelLabel(const UBlueprint* Blueprint, const FRevisionInfo& Revision, FText Label);
 
 	KISMET_API SHorizontalBox::FSlot& Box(bool bIsPresent, FLinearColor Color);
 }

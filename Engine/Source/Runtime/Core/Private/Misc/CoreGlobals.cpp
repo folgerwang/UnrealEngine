@@ -96,9 +96,6 @@ bool GCompilingBlueprint = false;
 /** True if we're reconstructing blueprint instances. Should never be true on cooked builds */
 bool GIsReconstructingBlueprintInstances = false;
 
-/** Force blueprints to not compile on load */
-bool GForceDisableBlueprintCompileOnLoad = false;
-
 /** True if actors and objects are being re-instanced. */
 bool GIsReinstancing = false;
 
@@ -279,16 +276,6 @@ bool					GPumpingMessagesOutsideOfMainLoop = false;
 
 /** Enables various editor and HMD hacks that allow the experimental VR editor feature to work, perhaps at the expense of other systems */
 bool					GEnableVREditorHacks = false;
-
-// Constrain bandwidth if wanted. Value is in MByte/ sec.
-float GAsyncIOBandwidthLimit = 0.0f;
-static FAutoConsoleVariableRef CVarAsyncIOBandwidthLimit(
-	TEXT("s.AsyncIOBandwidthLimit"),
-	GAsyncIOBandwidthLimit,
-	TEXT("Constrain bandwidth if wanted. Value is in MByte/ sec."),
-	ECVF_Default
-	);
-
 
 DEFINE_STAT(STAT_AudioMemory);
 DEFINE_STAT(STAT_TextureMemory);

@@ -28,8 +28,7 @@
 
 // So outside callers can override this
 #ifndef USE_STATIC_ROOT_SIGNATURE
-	// Make sure this is in sync with the overrides!
-	#define USE_STATIC_ROOT_SIGNATURE	PLATFORM_XBOXONE
+	#define USE_STATIC_ROOT_SIGNATURE 0
 #endif
 
 // How many residency packets can be in flight before the rendering thread
@@ -53,7 +52,7 @@
 	// Xbox doesn't have DXGI but common code needs this defined for headers
 	#define DXGI_QUERY_VIDEO_MEMORY_INFO			int
 #elif PLATFORM_WINDOWS
-	#define ENABLE_RESIDENCY_MANAGEMENT				1
+	#define ENABLE_RESIDENCY_MANAGEMENT				0
 	#define ASYNC_DEFERRED_DELETION					1
 	#define PLATFORM_SUPPORTS_MGPU					1
 	#define PIPELINE_STATE_FILE_LOCATION			FPaths::GameSavedDir()

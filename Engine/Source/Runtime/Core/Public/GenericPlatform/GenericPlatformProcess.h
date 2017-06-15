@@ -210,6 +210,9 @@ struct CORE_API FGenericPlatformProcess
 	/** Allow the platform to do anything it needs for audio thread */
 	static void SetupAudioThread() { }
 
+	/** Content saved to the game or engine directories should be rerouted to user directories instead **/
+	static bool ShouldSaveToUserDir();
+
 	/** Get startup directory.  NOTE: Only one return value is valid at a time! **/
 	static const TCHAR* BaseDir();
 
@@ -574,6 +577,19 @@ struct CORE_API FGenericPlatformProcess
 	 * Checks if we're the first instance. An instance can become first if the previous first instance quits before it.
 	 */
 	static bool IsFirstInstance();
+
+	/**
+	 * Returns the list of all shader dirs that were added with AddShaderDir
+	 */
+	static const TArray<FString>& AllShaderDirs();
+
+	/**
+	 * Add a shader to the list of shader dirs
+	 */
+	static void AddShaderDir(const FString& InShaderDir);
+
+	private:
+	static TArray<FString> ShaderDirs;
 };
 
 

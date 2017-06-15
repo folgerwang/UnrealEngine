@@ -16,12 +16,13 @@
 #include "ViewportWorldInteraction.h"
 #include "VRModeSettings.h"
 #include "Dialogs.h"
+#include "ProjectDescriptor.h"
+#include "Interfaces/IProjectManager.h"
 
 #define LOCTEXT_NAMESPACE "VREditor"
 
 FVREditorModeManager::FVREditorModeManager() :
 	CurrentVREditorMode( nullptr ),
-	PreviousVREditorMode( nullptr ),
 	bEnableVRRequest( false ),
 	HMDWornState( EHMDWornState::Unknown ),
 	TimeSinceHMDChecked( 0.0f )
@@ -31,7 +32,6 @@ FVREditorModeManager::FVREditorModeManager() :
 FVREditorModeManager::~FVREditorModeManager()
 {
 	CurrentVREditorMode = nullptr;
-	PreviousVREditorMode = nullptr;
 }
 
 void FVREditorModeManager::Tick( const float DeltaTime )
@@ -43,7 +43,6 @@ void FVREditorModeManager::Tick( const float DeltaTime )
 	bool bCanAutoEnterVR = GetDefault<UVRModeSettings>()->bEnableAutoVREditMode && 
 		(GEditor->PlayWorld == nullptr || (CurrentVREditorMode != nullptr && CurrentVREditorMode->GetStartedPlayFromVREditor())) && 
 		FPlatformProcess::IsThisApplicationForeground();
-
 	if( GEngine != nullptr && GEngine->HMDDevice.IsValid() )
 	{
 		// Only check whether you are wearing the HMD every second, if you are allowed to auto-enter VR, and if your HMD state has changed since the last check. 
@@ -59,7 +58,7 @@ void FVREditorModeManager::Tick( const float DeltaTime )
 			{
 				if (GEditor->PlayWorld && !GEditor->bIsSimulatingInEditor)
 				{
-					CurrentVREditorMode->TogglePIEAndVREditor();
+					CurrentVREditorMode->TogglePIEAndVREditor(); //-V595
 				}
 
 				EnableVREditor( false, false );
@@ -107,6 +106,12 @@ void FVREditorModeManager::Tick( const float DeltaTime )
 			bEnableVRRequest = false;
 		}
 	}
+}
+
+bool FVREditorModeManager::IsTickable() const
+{
+	const FProjectDescriptor* CurrentProject = IProjectManager::Get().GetCurrentProject();
+	return CurrentProject != nullptr;
 }
 
 void FVREditorModeManager::EnableVREditor( const bool bEnable, const bool bForceWithoutHMD )
@@ -169,14 +174,7 @@ void FVREditorModeManager::StartVREditorMode( const bool bForceWithoutHMD )
 		UEditorWorldExtensionCollection* ExtensionCollection = GEditor->GetEditorWorldExtensionsManager()->GetEditorWorldExtensions(World);
 		check(ExtensionCollection != nullptr);
 		
-		// Create viewport world interaction.
-		UViewportWorldInteraction* ViewportWorldInteraction = Cast<UViewportWorldInteraction>( ExtensionCollection->FindExtension( UViewportWorldInteraction::StaticClass() ) );
-		if( ViewportWorldInteraction == nullptr )
-		{
-			ViewportWorldInteraction = NewObject<UViewportWorldInteraction>();
-		}
-		check( ViewportWorldInteraction != nullptr );
-		ExtensionCollection->AddExtension( ViewportWorldInteraction );
+		UViewportWorldInteraction* ViewportWorldInteraction = Cast<UViewportWorldInteraction>(ExtensionCollection->AddExtension(UViewportWorldInteraction::StaticClass()));
 
 		// Create vr editor mode.
 		VRMode = NewObject<UVREditorMode>();
@@ -206,13 +204,13 @@ void FVREditorModeManager::CloseVREditor( const bool bShouldDisableStereo )
 
 	if( CurrentVREditorMode != nullptr )
 	{
+		UViewportWorldInteraction* WorldInteraction = &CurrentVREditorMode->GetWorldInteraction();
 		CurrentVREditorMode->Exit( bShouldDisableStereo );
-		PreviousVREditorMode = CurrentVREditorMode;
 
 		UEditorWorldExtensionCollection* Collection = CurrentVREditorMode->GetOwningCollection();
 		check(Collection != nullptr);
-		Collection->RemoveExtension(Collection->FindExtension(UVREditorMode::StaticClass()));
-		Collection->RemoveExtension(Collection->FindExtension(UViewportWorldInteraction::StaticClass()));
+		Collection->RemoveExtension(CurrentVREditorMode);
+		Collection->RemoveExtension(WorldInteraction);
 
 		CurrentVREditorMode = nullptr;
 	}

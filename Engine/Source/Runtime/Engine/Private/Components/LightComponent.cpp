@@ -358,9 +358,6 @@ ULightComponent::ULightComponent(const FObjectInitializer& ObjectInitializer)
 	MaxDrawDistance = 0.0f;
 	MaxDistanceFadeRange = 0.0f;
 	bAddedToSceneVisible = false;
-
-	MaxDrawDistance = 0.0f;
-	MaxDistanceFadeRange = 0.0f;
 }
 
 bool ULightComponent::AffectsPrimitive(const UPrimitiveComponent* Primitive) const
@@ -575,6 +572,7 @@ void ULightComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, bVisible) &&
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, LightingChannels) &&
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, VolumetricScatteringIntensity) &&
+		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, bCastVolumetricShadow) &&
 		// Point light properties that shouldn't unbuild lighting
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(UPointLightComponent, SourceRadius) &&
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(UPointLightComponent, SourceLength) &&
@@ -906,7 +904,7 @@ void ULightComponent::SetIESTexture(UTextureLightProfile* NewValue)
 // GetDirection
 FVector ULightComponent::GetDirection() const 
 { 
-	return ComponentToWorld.GetUnitAxis( EAxis::X );
+	return GetComponentTransform().GetUnitAxis( EAxis::X );
 }
 
 void ULightComponent::UpdateColorAndBrightness()
@@ -979,7 +977,7 @@ class FPrecomputedLightInstanceData : public FSceneComponentInstanceData
 public:
 	FPrecomputedLightInstanceData(const ULightComponent* SourceComponent)
 		: FSceneComponentInstanceData(SourceComponent)
-		, Transform(SourceComponent->ComponentToWorld)
+		, Transform(SourceComponent->GetComponentTransform())
 		, LightGuid(SourceComponent->LightGuid)
 		, PreviewShadowMapChannel(SourceComponent->PreviewShadowMapChannel)
 	{}
@@ -1005,7 +1003,7 @@ void ULightComponent::ApplyComponentInstanceData(FPrecomputedLightInstanceData* 
 {
 	check(LightMapData);
 
-	if (!LightMapData->Transform.Equals(ComponentToWorld))
+	if (!LightMapData->Transform.Equals(GetComponentTransform()))
 	{
 		return;
 	}

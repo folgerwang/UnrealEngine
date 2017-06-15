@@ -2,6 +2,9 @@
 //
 #include "CoreMinimal.h"
 #include "SteamVRPrivate.h"
+
+#if STEAMVR_SUPPORTED_PLATFORMS
+
 #include "SteamVRHMD.h"
 
 #include "RendererPrivate.h"
@@ -17,8 +20,6 @@
 #include "VulkanContext.h"
 #endif
 
-#if STEAMVR_SUPPORTED_PLATFORMS
-
 static TAutoConsoleVariable<int32> CUsePostPresentHandoff(TEXT("vr.SteamVR.UsePostPresentHandoff"), 0, TEXT("Whether or not to use PostPresentHandoff.  If true, more GPU time will be available, but this relies on no SceneCaptureComponent2D or WidgetComponents being active in the scene.  Otherwise, it will break async reprojection."));
 
 void FSteamVRHMD::DrawDistortionMesh_RenderThread(struct FRenderingCompositePassContext& Context, const FIntPoint& TextureSize)
@@ -29,16 +30,16 @@ void FSteamVRHMD::DrawDistortionMesh_RenderThread(struct FRenderingCompositePass
 void FSteamVRHMD::RenderTexture_RenderThread(FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef BackBuffer, FTexture2DRHIParamRef SrcTexture) const
 {
 	check(IsInRenderingThread());
-	const_cast<FSteamVRHMD*>(this)->UpdateLayerTextures();
+	const_cast<FSteamVRHMD*>(this)->UpdateStereoLayers_RenderThread();
 
 	if (bSplashIsShown)
 	{
 		SetRenderTarget(RHICmdList, SrcTexture, FTextureRHIRef());
-		DrawClearQuad(RHICmdList, GMaxRHIFeatureLevel, FLinearColor(0, 0, 0, 0));
+		DrawClearQuad(RHICmdList, FLinearColor(0, 0, 0, 0));
 	}
 
 	static const auto CVarMirrorMode = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MirrorMode"));
-	int WindowMirrorMode = FMath::Clamp(CVarMirrorMode->GetValueOnRenderThread(), 0 ,2);
+	const int WindowMirrorMode = CVarMirrorMode->GetValueOnRenderThread();
 
 	if (WindowMirrorMode != 0)
 	{
@@ -51,7 +52,7 @@ void FSteamVRHMD::RenderTexture_RenderThread(FRHICommandListImmediate& RHICmdLis
 		if (WindowMirrorMode == 1)
 		{
 			// need to clear when rendering only one eye since the borders won't be touched by the DrawRect below
-			DrawClearQuad(RHICmdList, GMaxRHIFeatureLevel, FLinearColor::Black);
+			DrawClearQuad(RHICmdList, FLinearColor::Black);
 		}
 
 		FGraphicsPipelineStateInitializer GraphicsPSOInit;
@@ -101,6 +102,56 @@ void FSteamVRHMD::RenderTexture_RenderThread(FRHICommandListImmediate& RHICmdLis
 				*VertexShader,
 				EDRF_Default);
 		}
+		else
+		{
+			// Defaulting all unknown modes to 'single eye cropped'.
+			// aka WindowMirrorMode == 5
+
+			// These numbers define rectangle of the whole eye texture we slice out.
+			// They are pretty much what looked good to whoever came up with them.
+			const float SrcUSize = 0.3f;
+			const float SrcVSize = 0.6f;
+
+			check(ViewportWidth > 0);
+			check(ViewportHeight > 0);
+			const float SrcAspect = (float)SrcUSize / (float)SrcVSize;
+			const float DstAspect = (float)ViewportWidth / (float)ViewportHeight;
+
+			float USize = SrcUSize;
+			float VSize = SrcVSize;
+			if (DstAspect > SrcAspect)
+			{
+				// src is narrower, crop top and bottom
+				// U is for just one eye, so the full U src range is 0-0.5, while V ranges 0-1.
+				VSize = (USize * 2.0f) / DstAspect;
+			}
+			else if (SrcAspect > DstAspect)
+			{
+				// src is wider, crop left and right
+				// U is for just one eye, so the full U src range is 0-0.5, while V ranges 0-1.
+				USize = (VSize* 0.5f) * DstAspect;
+			}
+			else
+			{
+				check(SrcAspect == DstAspect);
+			}
+
+			// U is for just one eye, so the full U src range is 0-0.5, while V ranges 0-1.
+			const float UStart = (0.5f - USize) * 0.5f;
+			const float VStart = (1.0f - VSize) * 0.5f;
+
+			RendererModule->DrawRectangle(
+				RHICmdList,
+				0, 0,
+				ViewportWidth, ViewportHeight,
+				UStart, VStart,
+				USize, VSize,
+				FIntPoint(ViewportWidth, ViewportHeight),
+				FIntPoint(1, 1),
+				*VertexShader,
+				EDRF_Default);
+		}
+
 	}
 }
 
@@ -265,7 +316,6 @@ void FSteamVRHMD::VulkanBridge::FinishRendering()
 		LeftBounds.vMin = 0.0f;
 		LeftBounds.vMax = 1.0f;
 
-
 		vr::VRTextureBounds_t RightBounds;
 		RightBounds.uMin = 0.5f;
 		RightBounds.uMax = 1.0f;
@@ -289,6 +339,7 @@ void FSteamVRHMD::VulkanBridge::FinishRendering()
 		Plugin->VRCompositor->Submit(vr::Eye_Left, &texture, &LeftBounds);
 		Plugin->VRCompositor->Submit(vr::Eye_Right, &texture, &RightBounds);
 
+		ImmediateContext.GetCommandBufferManager()->SubmitUploadCmdBuffer(false);
 	}
 }
 

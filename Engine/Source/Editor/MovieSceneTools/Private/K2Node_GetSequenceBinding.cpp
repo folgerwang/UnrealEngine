@@ -29,31 +29,42 @@ static const FString SequencePinName(TEXT("Sequence"));
 
 void EnsureFullyLoaded(UObject* Object)
 {
-	if (!Object || Object->HasAnyFlags(RF_LoadCompleted))
+	if (!Object)
 	{
 		return;
 	}
 
-	check(!GEventDrivenLoaderEnabled || !EVENT_DRIVEN_ASYNC_LOAD_ACTIVE_AT_RUNTIME);
-	Object->SetFlags(RF_NeedLoad);
-	if (FLinkerLoad* Linker = Object->GetLinker())
+	bool bLoadInternalReferences = false;
+
+	if (Object->HasAnyFlags(RF_NeedLoad))
 	{
-		Linker->Preload(Object);
+		FLinkerLoad* Linker = Object->GetLinker();
+		if (ensure(Linker))
+		{
+			Linker->Preload(Object);
+			bLoadInternalReferences = true;
+			check(!Object->HasAnyFlags(RF_NeedLoad));
+		}
 	}
+
+	bLoadInternalReferences = bLoadInternalReferences || Object->HasAnyFlags(RF_NeedPostLoad | RF_NeedPostLoadSubobjects);
 
 	Object->ConditionalPostLoad();
 	Object->ConditionalPostLoadSubobjects();
-
-	// Collect a list of all things this element owns
-	TArray<UObject*> ObjectReferences;
-	FReferenceFinder(ObjectReferences, nullptr, false, true, false, true).FindReferences(Object);
-
-	// Iterate over the list, and preload everything so it is valid for refreshing
-	for (UObject* Reference : ObjectReferences)
+	
+	if (bLoadInternalReferences)
 	{
-		if (Reference->IsA<UMovieSceneSequence>() || Reference->IsA<UMovieScene>() || Reference->IsA<UMovieSceneTrack>() || Reference->IsA<UMovieSceneSection>())
+		// Collect a list of all things this element owns
+		TArray<UObject*> ObjectReferences;
+		FReferenceFinder(ObjectReferences, nullptr, false, true, false, true).FindReferences(Object);
+
+		// Iterate over the list, and preload everything so it is valid for refreshing
+		for (UObject* Reference : ObjectReferences)
 		{
-			EnsureFullyLoaded(Reference);
+			if (Reference->IsA<UMovieSceneSequence>() || Reference->IsA<UMovieScene>() || Reference->IsA<UMovieSceneTrack>() || Reference->IsA<UMovieSceneSection>())
+			{
+				EnsureFullyLoaded(Reference);
+			}
 		}
 	}
 }
@@ -88,13 +99,15 @@ UMovieSceneSequence* UK2Node_GetSequenceBinding::GetSequence() const
 
 void UK2Node_GetSequenceBinding::ValidateNodeDuringCompilation(FCompilerResultsLog& MessageLog) const
 {
+	Super::ValidateNodeDuringCompilation(MessageLog);
+
 	UMovieScene* MovieScene = GetObjectMovieScene();
 	if (!MovieScene)
 	{
 		const FText MessageText = LOCTEXT("InvalidSequenceBinding_NoSequence", "Invalid sequence binding specified on node @@ (could not find sequence).");
 		MessageLog.Warning(*MessageText.ToString(), this);
 	}
-	else if (!MovieScene->FindPossessable(Binding.GetObjectBindingID()) && !MovieScene->FindSpawnable(Binding.GetObjectBindingID()))
+	else if (!MovieScene->FindPossessable(Binding.GetGuid()) && !MovieScene->FindSpawnable(Binding.GetGuid()))
 	{
 		const FText MessageText = LOCTEXT("InvalidSequenceBinding_Unresolved", "Invalid sequence binding specified on node @@.");
 		MessageLog.Warning(*MessageText.ToString(), this);
@@ -105,10 +118,10 @@ void UK2Node_GetSequenceBinding::AllocateDefaultPins()
 {
 	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
 
-	CreatePin(EGPD_Input, K2Schema->PC_Object, TEXT(""), UMovieSceneSequence::StaticClass(), false, false, SequencePinName);
+	CreatePin(EGPD_Input, K2Schema->PC_Object, FString(), UMovieSceneSequence::StaticClass(), SequencePinName);
 
 	// Result pin
-	UEdGraphPin* ResultPin = CreatePin(EGPD_Output, K2Schema->PC_Struct, TEXT(""), FMovieSceneObjectBindingID::StaticStruct(), false, false, K2Schema->PN_ReturnValue);
+	UEdGraphPin* ResultPin = CreatePin(EGPD_Output, K2Schema->PC_Struct, FString(), FMovieSceneObjectBindingID::StaticStruct(), K2Schema->PN_ReturnValue);
 	ResultPin->PinFriendlyName = LOCTEXT("SequenceBindingOutput", "Binding");
 
 	Super::AllocateDefaultPins();
@@ -117,7 +130,7 @@ void UK2Node_GetSequenceBinding::AllocateDefaultPins()
 UMovieScene* UK2Node_GetSequenceBinding::GetObjectMovieScene() const
 {
 	UMovieSceneSequence* Sequence = GetSequence();
-	if (Sequence && Binding.GetObjectBindingID().IsValid())
+	if (Sequence && Binding.IsValid())
 	{
 		// Ensure that the sequence data is as loaded as it can be - we many only be able to partially load the structural information as part of a blueprint compile as that may happen at Preload time
 		EnsureFullyLoaded(Sequence);
@@ -163,7 +176,7 @@ FText UK2Node_GetSequenceBinding::GetSequenceName() const
 FText UK2Node_GetSequenceBinding::GetBindingName() const
 {
 	UMovieScene* MovieScene = GetObjectMovieScene();
-	return MovieScene ? MovieScene->GetObjectDisplayName(Binding.GetObjectBindingID()) : FText();
+	return MovieScene ? MovieScene->GetObjectDisplayName(Binding.GetGuid()) : FText();
 }
 
 FText UK2Node_GetSequenceBinding::GetNodeTitle(ENodeTitleType::Type TitleType) const
@@ -437,11 +450,12 @@ TSharedPtr<SGraphNode> UK2Node_GetSequenceBinding::CreateVisualWidget()
 					.MenuPlacement(MenuPlacement_BelowAnchor)
 					.ButtonContent()
 					[
-						SNew(STextBlock)
-						.TextStyle( FEditorStyle::Get(), "PropertyEditor.AssetClass" )
-						.Font( FEditorStyle::GetFontStyle( "PropertyWindow.NormalFont" ) )
-						.ColorAndOpacity(this, &SGraphNodeGetSequenceBinding::OnGetComboForeground)
-						.Text( this, &SGraphNodeGetSequenceBinding::GetCurrentText )
+						GetCurrentItemWidget(
+							SNew(STextBlock)
+							.TextStyle( FEditorStyle::Get(), "PropertyEditor.AssetClass" )
+							.Font( FEditorStyle::GetFontStyle( "PropertyWindow.NormalFont" ) )
+							.ColorAndOpacity(this, &SGraphNodeGetSequenceBinding::OnGetComboForeground)
+						)
 					]
 					.OnGetMenuContent(this, &SGraphNodeGetSequenceBinding::GetPickerMenu)
 				]

@@ -36,7 +36,6 @@ void FADPCMAudioInfo::SeekToTime(const float SeekTime)
 	{
 		CurrentUncompressedBlockSampleIndex = UncompressedBlockSize / sizeof(uint16);
 		CurrentCompressedBlockIndex = 0;
-		TotalSamplesStreamed = 0;
 	
 		CurrentUncompressedBlockSampleIndex = 0;
 		CurrentChunkIndex = 0;
@@ -212,6 +211,7 @@ bool FADPCMAudioInfo::ReadCompressedData(uint8* Destination, bool bLooping, uint
 
 		memcpy(OutData, WaveInfo.SampleDataStart + TotalSamplesStreamed * sizeof(uint16) * NumChannels, decompressedSamplesToCopy * sizeof(uint16) * NumChannels);
 		TotalSamplesStreamed += decompressedSamplesToCopy;
+		BufferSize -= decompressedSamplesToCopy * sizeof(uint16) * NumChannels;
 		
 		// Check for the end of the audio samples and loop if needed
 		if(TotalSamplesStreamed >= TotalSamplesPerChannel)

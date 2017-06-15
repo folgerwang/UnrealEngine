@@ -75,7 +75,8 @@ FMainFrameCommands::FMainFrameCommands()
 
 void FMainFrameCommands::RegisterCommands()
 {
-	if ( !IsRunningCommandlet() )
+	// Some commands cannot be processed in a commandlet or if the editor is started without a project
+	if ( !IsRunningCommandlet() && FApp::HasGameName() )
 	{
 		// The global action list was created at static initialization time. Create a handler for otherwise unhandled keyboard input to route key commands through this list.
 		FSlateApplication::Get().SetUnhandledKeyDownEventHandler( FOnKeyEvent::CreateStatic( &FMainFrameActionCallbacks::OnUnhandledKeyDownEvent ) );
@@ -331,7 +332,7 @@ const TCHAR* GetUATCompilationFlags()
 {
 	// We never want to compile editor targets when invoking UAT in this context.
 	// If we are installed or don't have a compiler, we must assume we have a precompiled UAT.
-	return (FApp::GetEngineIsPromotedBuild() || FApp::IsEngineInstalled())
+	return (FApp::GetEngineIsPromotedBuild() || FApp::IsEngineInstalled() || FPlatformMisc::IsDebuggerPresent())
 		? TEXT("-nocompile -nocompileeditor")
 		: TEXT("-nocompileeditor");
 }
@@ -612,6 +613,10 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 	if (!PackagingSettings->ApplocalPrerequisitesDirectory.Path.IsEmpty())
 	{
 		OptionalParams += FString::Printf(TEXT(" -applocaldirectory=\"%s\""), *(PackagingSettings->ApplocalPrerequisitesDirectory.Path));
+	}
+	else if (PackagingSettings->IncludeAppLocalPrerequisites)
+	{
+		OptionalParams += TEXT(" -applocaldirectory=\"$(EngineDir)/Binaries/ThirdParty/AppLocalDependencies\"");
 	}
 
 	if (PackagingSettings->ForDistribution)

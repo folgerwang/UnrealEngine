@@ -1518,6 +1518,9 @@ public:
 	/** Perform rotation over deltaTime */
 	virtual void PhysicsRotation(float DeltaTime);
 
+	/** if true, DesiredRotation will be restricted to only Yaw component in PhysicsRotation() */
+	virtual bool ShouldRemainVertical() const;
+
 	/** Delegate when PhysicsVolume of UpdatedComponent has been changed **/
 	virtual void PhysicsVolumeChanged(class APhysicsVolume* NewVolume) override;
 
@@ -1968,9 +1971,9 @@ public:
 	 */
 	virtual void SmoothCorrection(const FVector& OldLocation, const FQuat& OldRotation, const FVector& NewLocation, const FQuat& NewRotation) override;
 
-	/** Get prediction data for a client game. Should not be used if not running as a client. Allocates the data on demand and can be overridden to allocate a custom override if desired. */
+	/** Get prediction data for a client game. Should not be used if not running as a client. Allocates the data on demand and can be overridden to allocate a custom override if desired. Result must be a FNetworkPredictionData_Client_Character. */
 	virtual class FNetworkPredictionData_Client* GetPredictionData_Client() const override;
-	/** Get prediction data for a server game. Should not be used if not running as a server. Allocates the data on demand and can be overridden to allocate a custom override if desired. */
+	/** Get prediction data for a server game. Should not be used if not running as a server. Allocates the data on demand and can be overridden to allocate a custom override if desired. Result must be a FNetworkPredictionData_Server_Character. */
 	virtual class FNetworkPredictionData_Server* GetPredictionData_Server() const override;
 
 	class FNetworkPredictionData_Client_Character* GetPredictionData_Client_Character() const;
@@ -2177,6 +2180,11 @@ public:
 	void ClientAdjustRootMotionSourcePosition(float TimeStamp, FRootMotionSourceGroup ServerRootMotion, bool bHasAnimRootMotion, float ServerMontageTrackPosition, FVector ServerLoc, FVector_NetQuantizeNormal ServerRotation, float ServerVelZ, UPrimitiveComponent* ServerBase, FName ServerBoneName, bool bHasBase, bool bBaseRelativePosition, uint8 ServerMovementMode);
 	void ClientAdjustRootMotionSourcePosition_Implementation(float TimeStamp, FRootMotionSourceGroup ServerRootMotion, bool bHasAnimRootMotion, float ServerMontageTrackPosition, FVector ServerLoc, FVector_NetQuantizeNormal ServerRotation, float ServerVelZ, UPrimitiveComponent* ServerBase, FName ServerBoneName, bool bHasBase, bool bBaseRelativePosition, uint8 ServerMovementMode);
 
+protected:
+
+	/** Event notification when client receives a correction from the server. Base implementation logs relevant data and draws debug info if "p.NetShowCorrections" is not equal to 0. */
+	virtual void OnClientCorrectionReceived(class FNetworkPredictionData_Client_Character& ClientData, float TimeStamp, FVector NewLocation, FVector NewVelocity, UPrimitiveComponent* NewBase, FName NewBaseBoneName, bool bHasBase, bool bBaseRelativePosition, uint8 ServerMovementMode);
+
 	// Root Motion
 public:
 	/** Root Motion Group containing active root motion sources being applied to movement */
@@ -2275,6 +2283,8 @@ public:
 
 	/** allows modifing avoidance velocity, called when bUseRVOPostProcess is set */
 	virtual void PostProcessAvoidanceVelocity(FVector& NewVelocity);
+
+	virtual void FlushServerMoves();
 
 protected:
 

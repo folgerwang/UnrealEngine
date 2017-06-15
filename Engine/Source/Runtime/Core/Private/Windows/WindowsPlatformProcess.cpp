@@ -53,7 +53,7 @@ TArray<FString> FWindowsPlatformProcess::DllDirectories;
 
 void FWindowsPlatformProcess::AddDllDirectory(const TCHAR* Directory)
 {
-	FString NormalizedDirectory = Directory;
+	FString NormalizedDirectory = FPaths::ConvertRelativePathToFull(Directory);
 	FPaths::NormalizeDirectoryName(NormalizedDirectory);
 	FPaths::MakePlatformFilename(NormalizedDirectory);
 	DllDirectories.AddUnique(NormalizedDirectory);
@@ -75,13 +75,33 @@ void* FWindowsPlatformProcess::GetDllHandle( const TCHAR* FileName )
 		SearchPaths.Add(DllDirectories[Idx]);
 	}
 
+	static bool SuppressErrors =  !FParse::Param(::GetCommandLineW(), TEXT("dllerrors"));
+
 	// Load the DLL, avoiding windows dialog boxes if missing
-	int32 PrevErrorMode = ::SetErrorMode(SEM_NOOPENFILEERRORBOX);
+	int32 PrevErrorMode = ::SetErrorMode(SuppressErrors ? SEM_NOOPENFILEERRORBOX : 0);
 
 	void* Handle = LoadLibraryWithSearchPaths(FileName, SearchPaths);
 
-	::SetErrorMode(PrevErrorMode);
+	if (!Handle)
+	{
+		DWORD LastError = ::GetLastError();
 
+		UE_LOG(LogWindows, Log, TEXT("LoadLibraryWithSearchPaths failed for file %s. GetLastError=%d"), FileName, LastError);
+
+		// if errors == 126 (module not found) then write out more info
+		if (LastError == ERROR_MOD_NOT_FOUND)
+		{
+			BOOL Missing = IFileManager::Get().FileExists(FileName);
+			UE_LOG(LogWindows, Log, TEXT("FileExists returned %d for Module %s"), Missing, FileName);
+
+			for (const auto& Path : SearchPaths)
+			{
+				UE_LOG(LogWindows, Log, TEXT("\t%s"), *Path);
+			}
+		}
+	}
+	
+	::SetErrorMode(PrevErrorMode);
 	return Handle;
 }
 
@@ -718,14 +738,17 @@ void FWindowsPlatformProcess::CleanFileCache()
 	if (bShouldCleanShaderWorkingDirectory && !FParse::Param( FCommandLine::Get(), TEXT("Multiprocess")))
 	{
 		// get shader path, and convert it to the userdirectory
-		FString ShaderDir = FString(FPlatformProcess::BaseDir()) / FPlatformProcess::ShaderDir();
-		FString UserShaderDir = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*ShaderDir);
-		FPaths::CollapseRelativeDirectories(ShaderDir);
-
-		// make sure we don't delete from the source directory
-		if (ShaderDir != UserShaderDir)
+		for (FString Dir : FPlatformProcess::AllShaderDirs())
 		{
-			IFileManager::Get().DeleteDirectory(*UserShaderDir, false, true);
+			FString ShaderDir = FString(FPlatformProcess::BaseDir()) / Dir;
+			FString UserShaderDir = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*ShaderDir);
+			FPaths::CollapseRelativeDirectories(ShaderDir);
+
+			// make sure we don't delete from the source directory
+			if (ShaderDir != UserShaderDir)
+			{
+				IFileManager::Get().DeleteDirectory(*UserShaderDir, false, true);
+			}
 		}
 
 		FPlatformProcess::CleanShaderWorkingDir();
@@ -856,7 +879,7 @@ const TCHAR* FWindowsPlatformProcess::ApplicationSettingsDir()
 
 		// make the base user dir path
 		// @todo rocket this folder should be based on your company name, not just be hard coded to /Epic/
-		WindowsApplicationSettingsDir = FString(ApplictionSettingsPath) + TEXT("/Epic/");
+		WindowsApplicationSettingsDir = FString(ApplictionSettingsPath).Replace(TEXT("\\"), TEXT("/")) + TEXT("/Epic/");
 	}
 	return *WindowsApplicationSettingsDir;
 }

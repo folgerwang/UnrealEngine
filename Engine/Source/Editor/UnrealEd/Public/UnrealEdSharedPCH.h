@@ -34,7 +34,6 @@
 #include "Templates/EnableIf.h"
 #include "Templates/RemoveReference.h"
 #include "Templates/TypeCompatibleBytes.h"
-#include "Templates/AlignOf.h"
 #include "Templates/ChooseClass.h"
 #include "Templates/IntegralConstant.h"
 #include "Templates/IsClass.h"
@@ -402,7 +401,6 @@
 #include "Framework/Docking/LayoutService.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Framework/Application/MenuStack.h"
-#include "Runtime/Slate/Private/Framework/Application/Menu.h"
 #include "Widgets/Views/SHeaderRow.h"
 #include "Framework/Layout/InertialScrollManager.h"
 #include "Widgets/Layout/SScrollBar.h"
@@ -434,9 +432,6 @@
 #include "Widgets/Notifications/SErrorText.h"
 #include "Framework/MarqueeRect.h"
 #include "Widgets/Docking/SDockTab.h"
-#include "Runtime/Slate/Private/Framework/Docking/SDockingArea.h"
-#include "Runtime/Slate/Private/Framework/Docking/SDockingNode.h"
-#include "Runtime/Slate/Private/Framework/Docking/SDockingSplitter.h"
 
 // From RHI:
 #include "RHIDefinitions.h"
@@ -463,7 +458,6 @@
 
 // From AssetRegistry:
 #include "AssetData.h"
-#include "SharedMapView.h"
 #include "ARFilter.h"
 
 // From Engine:

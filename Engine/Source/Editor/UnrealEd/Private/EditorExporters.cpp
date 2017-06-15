@@ -491,14 +491,14 @@ bool ULevelExporterT3D::ExportText( const FExportObjectInnerContext* Context, UO
 
 				AActor* ParentActor = Actor->GetAttachParentActor();
 				FName SocketName = Actor->GetAttachParentSocketName();
-				Actor->DetachRootComponentFromParent(true);
+				Actor->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 
 				FString ParentActorString = ( ParentActor ? FString::Printf(TEXT(" ParentActor=%s"), *ParentActor->GetName() ) : TEXT(""));
 				FString SocketNameString = ( (ParentActor && SocketName != NAME_None) ? FString::Printf(TEXT(" SocketName=%s"), *SocketName.ToString() ) : TEXT(""));
 				FString GroupActor = (Actor->GroupActor? FString::Printf(TEXT(" GroupActor=%s"), *Actor->GroupActor->GetName() ) : TEXT(""));
 				Ar.Logf( TEXT("%sBegin Actor Class=%s Name=%s Archetype=%s'%s'%s%s%s") LINE_TERMINATOR, 
-					FCString::Spc(TextIndent), *Actor->GetClass()->GetName(), *Actor->GetName(),
-					*Actor->GetArchetype()->GetClass()->GetName(), *Actor->GetArchetype()->GetPathName(), *ParentActorString, *SocketNameString, *GroupActor );
+					FCString::Spc(TextIndent), *Actor->GetClass()->GetPathName(), *Actor->GetName(),
+					*Actor->GetArchetype()->GetClass()->GetPathName(), *Actor->GetArchetype()->GetPathName(), *ParentActorString, *SocketNameString, *GroupActor );
 
 				ExportRootScope = Actor;
 				ExportObjectInner( Context, Actor, Ar, PortFlags | PPF_ExportsNotFullyQualified );
@@ -912,7 +912,7 @@ static void AddActorToOBJs(AActor* Actor, TArray<FOBJGeom*>& Objects, TSet<UMate
 		if( StaticMeshComponent->IsRegistered() && StaticMeshComponent->GetStaticMesh()
 			&& StaticMeshComponent->GetStaticMesh()->HasValidRenderData() )
 		{
-			LocalToWorld = StaticMeshComponent->ComponentToWorld.ToMatrixWithScale();
+			LocalToWorld = StaticMeshComponent->GetComponentTransform().ToMatrixWithScale();
 			StaticMesh = StaticMeshComponent->GetStaticMesh();
 			if (StaticMesh)
 			{

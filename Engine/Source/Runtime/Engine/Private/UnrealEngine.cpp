@@ -126,12 +126,16 @@
 #include "Particles/ParticleModuleRequired.h"
 
 #include "Components/TextRenderComponent.h"
-
+#include "Classes/Sound/AudioSettings.h"
 
 // @todo this is here only due to circular dependency to AIModule. To be removed
 
 #if WITH_EDITORONLY_DATA
 #include "ObjectEditorUtils.h"
+#endif
+
+#if WITH_EDITOR
+#include "AudioEditorModule.h"
 #endif
 
 #include "HardwareInfo.h"
@@ -187,6 +191,8 @@
 
 #include "GeneralProjectSettings.h"
 #include "ProfilingDebugging/LoadTimeTracker.h"
+#include "ObjectKey.h"
+#include "AssetRegistryModule.h"
 
 DEFINE_LOG_CATEGORY(LogEngine);
 IMPLEMENT_MODULE( FEngineModule, Engine );
@@ -267,6 +273,15 @@ static TAutoConsoleVariable<float> CVarSetOverrideFPS(
 	ECVF_Cheat);
 #endif // !UE_BUILD_SHIPPING
 
+// Should we show errors and warnings (when DurationOfErrorsAndWarningsOnHUD is greater than zero), or only errors?
+int32 GSupressWarningsInOnScreenDisplay = 0;
+static FAutoConsoleVariableRef GSupressWarningsInOnScreenDisplayCVar(
+	TEXT("Engine.SupressWarningsInOnScreenDisplay"),
+	GSupressWarningsInOnScreenDisplay,
+	TEXT("0: Show both errors and warnings on screen, 1: Show only errors on screen (in either case only when DurationOfErrorsAndWarningsOnHUD is greater than zero)"),
+	ECVF_Default
+);
+
 /** Whether texture memory has been corrupted because we ran out of memory in the pool. */
 bool GIsTextureMemoryCorrupted = false;
 
@@ -275,7 +290,9 @@ bool GIsTextureMemoryCorrupted = false;
 	bool GIsPrepareMapChangeBroken = false;
 #endif
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 FSimpleMulticastDelegate UEngine::OnPostEngineInit;
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 // We expose these variables to everyone as we need to access them in other files via an extern
 ENGINE_API float GAverageFPS = 0.0f;
@@ -1366,6 +1383,9 @@ void UEngine::UpdateTimeAndHandleMaxTickRate()
 		double ActualWaitTime = 0.f;
 		if( WaitTime > 0 )
 		{
+			// track all this waiting so that Game Thread is correct
+			FThreadIdleStats::FScopeIdle Scope;
+			
 			FSimpleScopeSecondsCounter ActualWaitTimeCounter(ActualWaitTime);
 			double WaitEndTime = FApp::GetCurrentTime() + WaitTime;
 
@@ -1652,6 +1672,11 @@ void UEngine::InitializeObjectReferences()
 	if( DefaultBokehTexture == NULL )
 	{
 		DefaultBokehTexture = LoadObject<UTexture2D>(NULL, *DefaultBokehTextureName.ToString(), NULL, LOAD_None, NULL);
+	}
+
+	if (DefaultBloomKernelTexture == NULL)
+	{
+		DefaultBloomKernelTexture = LoadObject<UTexture2D>(NULL, *DefaultBloomKernelTextureName.ToString(), NULL, LOAD_None, NULL);
 	}
 
 	if( PreIntegratedSkinBRDFTexture == NULL )
@@ -2026,6 +2051,18 @@ bool UEngine::InitializeAudioDeviceManager()
 				// did the module exist?
 				if (AudioDeviceModule)
 				{
+					const bool bIsAudioMixerEnabled = AudioDeviceModule->IsAudioMixerModule();
+					GetMutableDefault<UAudioSettings>()->SetAudioMixerEnabled(bIsAudioMixerEnabled);
+
+#if WITH_EDITOR
+					if (bIsAudioMixerEnabled)
+					{
+						IAudioEditorModule* AudioEditorModule = &FModuleManager::LoadModuleChecked<IAudioEditorModule>("AudioEditor");
+						AudioEditorModule->RegisterAudioMixerAssetActions();
+						AudioEditorModule->RegisterEffectPresetAssetActions();
+					}
+#endif
+
 					// Create the audio device manager and register the platform module to the device manager
 					AudioDeviceManager = new FAudioDeviceManager();
 					AudioDeviceManager->RegisterAudioDeviceModule(AudioDeviceModule);
@@ -2275,7 +2312,7 @@ bool UEngine::InitializeHMDDevice()
 
 void UEngine::RecordHMDAnalytics()
 {
-	if(HMDDevice.IsValid() && !FParse::Param(FCommandLine::Get(),TEXT("nohmd")))
+	if(HMDDevice.IsValid() && !FParse::Param(FCommandLine::Get(),TEXT("nohmd")) && HMDDevice->IsHMDConnected())
 	{
 		HMDDevice->RecordAnalytics();
 	}
@@ -3784,6 +3821,7 @@ bool UEngine::HandleListTexturesCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 	const bool bShouldOnlyListNonStreaming = FParse::Command(&Cmd, TEXT("NONSTREAMING")) && !bShouldOnlyListStreaming;
 	const bool bShouldOnlyListForced = FParse::Command(&Cmd, TEXT("FORCED")) && !bShouldOnlyListStreaming && !bShouldOnlyListNonStreaming;
 	const bool bAlphaSort = FParse::Param( Cmd, TEXT("ALPHASORT") );
+	const bool bCSV = FParse::Param( Cmd, TEXT("CSV") );
 
 	Ar.Logf( TEXT("Listing %s textures."), bShouldOnlyListForced ? TEXT("forced") : bShouldOnlyListNonStreaming ? TEXT("non streaming") : bShouldOnlyListStreaming ? TEXT("streaming") : TEXT("all")  );
 
@@ -3877,13 +3915,17 @@ bool UEngine::HandleListTexturesCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 	int32 TotalMaxAllowedSize = 0;
 	int32 TotalCurrentSize	= 0;
 
-	if (!FPlatformProperties::RequiresCookedData())
+	if (bCSV)
 	{
-		Ar.Logf(TEXT("MaxAllowedSize: Width x Height (Size in KB, Bias from Authored), Current/InMem: Width x Height (Size in KB), Format, LODGroup, Name, Streaming, Usage Count"));
+		Ar.Logf(TEXT(",Max Width,Max Height,Max Size (KB),Bias Authored,Current Width,Current Height,Current Size (KB),Format,LODGroup,Name,Streaming,Usage Count"));
+	}
+	else if (!FPlatformProperties::RequiresCookedData())
+	{
+		Ar.Logf(TEXT("MaxAllowedSize: Width x Height (Size in KB, Authored Bias), Current/InMem: Width x Height (Size in KB), Format, LODGroup, Name, Streaming, Usage Count"));
 	}
 	else
 	{
-		Ar.Logf(TEXT("Cooked/OnDisk: Width x Height (Size in KB), Current/InMem: Width x Height (Size in KB), Format, LODGroup, Name, Streaming, Usage Count"));
+		Ar.Logf(TEXT("Cooked/OnDisk: Width x Height (Size in KB, Authored Bias), Current/InMem: Width x Height (Size in KB), Format, LODGroup, Name, Streaming, Usage Count"));
 	}
 
 	for( int32 TextureIndex=0; TextureIndex<SortedTextures.Num(); TextureIndex++ )
@@ -3891,28 +3933,22 @@ bool UEngine::HandleListTexturesCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 		const FSortedTexture& SortedTexture = SortedTextures[TextureIndex];
 		const bool bValidTextureGroup = TextureGroupNames.IsValidIndex(SortedTexture.LODGroup);
 
+		FString AuthoredBiasString(TEXT("?"));
 		if (!FPlatformProperties::RequiresCookedData())
 		{
-			Ar.Logf(TEXT("%ix%i (%i KB, %i), %ix%i (%i KB), %s, %s, %s, %s, %i"),
-				SortedTexture.MaxAllowedSizeX, SortedTexture.MaxAllowedSizeY, SortedTexture.MaxAllowedSize / 1024, SortedTexture.LODBias,
-				SortedTexture.CurSizeX, SortedTexture.CurSizeY, SortedTexture.CurrentSize / 1024,
-				GetPixelFormatString(SortedTexture.Format),
-				bValidTextureGroup ? *TextureGroupNames[SortedTexture.LODGroup] : TEXT("INVALID"),
-				*SortedTexture.Name,
-				SortedTexture.bIsStreaming ? TEXT("YES") : TEXT("NO"),
-				SortedTexture.UsageCount);
+			AuthoredBiasString.Empty();
+			AuthoredBiasString.AppendInt(SortedTexture.LODBias);
 		}
-		else
-		{
-			Ar.Logf(TEXT("%ix%i (%i KB), %ix%i (%i KB), %s, %s, %s, %s, %i"),
-				SortedTexture.MaxAllowedSizeX, SortedTexture.MaxAllowedSizeY, SortedTexture.MaxAllowedSize / 1024,
-				SortedTexture.CurSizeX, SortedTexture.CurSizeY, SortedTexture.CurrentSize / 1024,
-				GetPixelFormatString(SortedTexture.Format),
-				bValidTextureGroup ? *TextureGroupNames[SortedTexture.LODGroup] : TEXT("INVALID"),
-				*SortedTexture.Name,
-				SortedTexture.bIsStreaming ? TEXT("YES") : TEXT("NO"),
-				SortedTexture.UsageCount);
-		}
+
+		Ar.Logf(bCSV ? TEXT(",%i, %i, %i, %s, %i, %i, %i, %s, %s, %s, %s, %i") : TEXT("%ix%i (%i KB, %s), %ix%i (%i KB), %s, %s, %s, %s, %i"),
+			SortedTexture.MaxAllowedSizeX, SortedTexture.MaxAllowedSizeY, SortedTexture.MaxAllowedSize / 1024, 
+			*AuthoredBiasString,
+			SortedTexture.CurSizeX, SortedTexture.CurSizeY, SortedTexture.CurrentSize / 1024,
+			GetPixelFormatString(SortedTexture.Format),
+			bValidTextureGroup ? *TextureGroupNames[SortedTexture.LODGroup] : TEXT("INVALID"),
+			*SortedTexture.Name,
+			SortedTexture.bIsStreaming ? TEXT("YES") : TEXT("NO"),
+			SortedTexture.UsageCount);
 
 		if (bValidTextureGroup)
 		{
@@ -4294,7 +4330,8 @@ bool UEngine::HandleMemReportDeferredCommand( const TCHAR* Cmd, FOutputDevice& A
 		UE_LOG(LogEngine, Log, TEXT("MemReportDeferred: saving to %s"), *FilenameFull);		
 	}
 
-	ReportAr->Logf( TEXT( "CommandLine Options: %s" ) LINE_TERMINATOR, FCommandLine::Get() );
+	ReportAr->Logf(TEXT( "CommandLine Options: %s" ),  FCommandLine::Get() );
+	ReportAr->Logf(TEXT("Time Since Boot: %.02f Seconds") LINE_TERMINATOR, FPlatformTime::Seconds() - GStartTime);
 
 	// Run commands from the ini
 	FConfigSection* CommandsToRun = GConfig->GetSectionPrivate(TEXT("MemReportCommands"), 0, 1, GEngineIni);
@@ -4716,10 +4753,16 @@ bool UEngine::HandleMemCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 
 	if( bDetailed || bReport)
 	{
-		Ar.CategorizedLogf( CategoryName, ELogVerbosity::Log, TEXT("Memory Stats:") );
-		Ar.CategorizedLogf( CategoryName, ELogVerbosity::Log, TEXT("FMemStack (gamethread) current size = %.2f MB"), FMemStack::Get().GetByteCount() / (1024.0f * 1024.0f));
+		Ar.CategorizedLogf(CategoryName, ELogVerbosity::Log, TEXT("Memory Stats:") );
+		Ar.CategorizedLogf(CategoryName, ELogVerbosity::Log, TEXT("FMemStack (gamethread) current size = %.2f MB"), FMemStack::Get().GetByteCount() / (1024.0f * 1024.0f));
 		Ar.CategorizedLogf(CategoryName, ELogVerbosity::Log, TEXT("FPageAllocator (all threads) allocation size [used/ unused] = [%.2f / %.2f] MB"), (FPageAllocator::BytesUsed()) / (1024.0f * 1024.0f), (FPageAllocator::BytesFree()) / (1024.0f * 1024.0f));
 		Ar.CategorizedLogf(CategoryName, ELogVerbosity::Log, TEXT("Nametable memory usage = %.2f MB"), FName::GetNameTableMemorySize() / (1024.0f * 1024.0f));
+
+		FAssetRegistryModule* AssetRegistryModule = FModuleManager::LoadModulePtr<FAssetRegistryModule>(AssetRegistryConstants::ModuleName);
+		if (AssetRegistryModule)
+		{
+			Ar.CategorizedLogf(CategoryName, ELogVerbosity::Log, TEXT("AssetRegistry memory usage = %.2f MB"), AssetRegistryModule->Get().GetAllocatedSize() / (1024.0f * 1024.0f));
+		}
 
 #if STATS
 		TArray<FStatMessage> Stats;
@@ -5384,6 +5427,24 @@ bool UEngine::HandleObjCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 	}
 	else if( FParse::Command(&Cmd,TEXT("LIST")) )
 	{
+		static TSet<FObjectKey> ForgottenObjects;
+
+		// "obj list forget" will prevent all current objects from being reported in future "obj list" commands.
+		// "obj list remember" clears that list
+		if (FParse::Command(&Cmd, TEXT("FORGET")))
+		{
+			for (FObjectIterator It; It; ++It)
+			{
+				ForgottenObjects.Add(FObjectKey(*It));
+			}
+			return true;
+		}
+		else if (FParse::Command(&Cmd, TEXT("REMEMBER")))
+		{
+			ForgottenObjects.Empty();
+			return true;
+		}
+
 		FString CmdLineOut = FString::Printf(TEXT("Obj List: %s"), Cmd);
 		Ar.Log( *CmdLineOut );
 		Ar.Log( TEXT("Objects:") );
@@ -5441,6 +5502,10 @@ bool UEngine::HandleObjCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 
 			for( FObjectIterator It; It; ++It )
 			{
+				if (ForgottenObjects.Contains(FObjectKey(*It)))
+				{
+					continue;
+				}
 				if (It->IsTemplate(RF_ClassDefaultObject))
 				{
 					if( !bShouldIncludeDefaultObjects )
@@ -7017,7 +7082,11 @@ float UEngine::GetMaxFPS() const
 void UEngine::SetMaxFPS(const float MaxFPS)
 {
 	IConsoleVariable* ConsoleVariable = CVarMaxFPS.AsVariable();
-	ConsoleVariable->Set(MaxFPS);
+
+	const EConsoleVariableFlags LastSetReason = (EConsoleVariableFlags)(ConsoleVariable->GetFlags() & ECVF_SetByMask);
+	const EConsoleVariableFlags ThisSetReason = (LastSetReason == ECVF_SetByConstructor) ? ECVF_SetByScalability : LastSetReason;
+
+	ConsoleVariable->Set(MaxFPS, ThisSetReason);
 }
 
 /**
@@ -7213,12 +7282,12 @@ UEngine::FErrorsAndWarningsCollector::FErrorsAndWarningsCollector()
 
 void UEngine::FErrorsAndWarningsCollector::Initialize()
 {
-	DisplayTime = 0;
+	DisplayTime = 0.0f;
 	GConfig->GetFloat(TEXT("/Script/Engine.Engine"), TEXT("DurationOfErrorsAndWarningsOnHUD"), DisplayTime, GEngineIni);
 
-	if (DisplayTime > 0)
+	if (DisplayTime > 0.0f)
 	{
-		SetVerbosity(ELogVerbosity::Warning);
+		SetVerbosity((GSupressWarningsInOnScreenDisplay != 0) ? ELogVerbosity::Error : ELogVerbosity::Warning);
 		TickerHandle = FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &UEngine::FErrorsAndWarningsCollector::Tick), DisplayTime);
 		FOutputDeviceRedirector::Get()->AddOutputDevice(this);
 	}
@@ -7235,6 +7304,9 @@ UEngine::FErrorsAndWarningsCollector::~FErrorsAndWarningsCollector()
 
 bool UEngine::FErrorsAndWarningsCollector::Tick(float Seconds)
 {
+	// Set this each tick, in case the cvar is changed at runtime
+	SetVerbosity((GSupressWarningsInOnScreenDisplay != 0) ? ELogVerbosity::Error : ELogVerbosity::Warning);
+
 	if (BufferedLines.Num())
 	{
 		int DupeCount = 0;
@@ -7275,9 +7347,8 @@ bool UEngine::FErrorsAndWarningsCollector::Tick(float Seconds)
 		{
 			Msg = FString::Printf(TEXT("%s (x%d)"), *Msg, DupeCount);
 		}
-	
-		FColor LineColor = Verbosity <= ELogVerbosity::Error ? FColor::Red : FColor::Yellow;
 
+		const FColor LineColor = Verbosity <= ELogVerbosity::Error ? FColor::Red : FColor::Yellow;
 		GEngine->AddOnScreenDebugMessage(-1, DisplayTime, LineColor, Msg);
 	}
 
@@ -7414,7 +7485,7 @@ static void DrawVolumeOnCanvas(const AVolume* Volume, FCanvas* Canvas, const FVe
 {
 	if(Volume && Volume->GetBrushComponent() && Volume->GetBrushComponent()->BrushBodySetup)
 	{
-		FTransform BrushTM = Volume->GetBrushComponent()->ComponentToWorld;
+		FTransform BrushTM = Volume->GetBrushComponent()->GetComponentTransform();
 
 		// Iterate over each piece
 		for(int32 ConIdx=0; ConIdx<Volume->GetBrushComponent()->BrushBodySetup->AggGeom.ConvexElems.Num(); ConIdx++)
@@ -7915,11 +7986,18 @@ float DrawMapWarnings(UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanv
 		MessageY += FontSizeY;
 	}
 
-	// Warn about invalid reflection captures, this can appear only in game with FeatureLevel < SM4
+	// Warn about invalid reflection captures, this can appear only with FeatureLevel < SM4
 	if (World->NumInvalidReflectionCaptureComponents > 0)
 	{
 		SmallTextItem.SetColor(FLinearColor::Red);
-		SmallTextItem.Text = FText::FromString(FString::Printf(TEXT("INVALID REFLECTION CAPTURES (%u Components, resave map in the editor)"), World->NumInvalidReflectionCaptureComponents));
+		if( World->IsGameWorld())
+		{
+			SmallTextItem.Text = FText::FromString(FString::Printf(TEXT("INVALID REFLECTION CAPTURES (%u Components, resave map in the editor)"), World->NumInvalidReflectionCaptureComponents));
+		}
+		else
+		{
+			SmallTextItem.Text = FText::FromString(FString::Printf(TEXT("REFLECTION CAPTURE UPDATE REQUIRED (%u out-of-date reflection capture(s))"), World->NumInvalidReflectionCaptureComponents));
+		}
 		Canvas->DrawItem(SmallTextItem, FVector2D(MessageX, MessageY));
 		MessageY += FontSizeY;
 	}
@@ -9953,20 +10031,8 @@ bool UEngine::LoadMap( FWorldContext& WorldContext, FURL URL, class UPendingNetG
 		WorldContext.SetCurrentWorld(nullptr);
 	}
 
-	// Clean up the previous level out of memory.
-	CollectGarbage( GARBAGE_COLLECTION_KEEPFLAGS, true );
-	
-	// For platforms which manage GPU memory directly we must Enqueue a flush, and wait for it to be processed
-	// so that any pending frees that depend on the GPU will be processed.  Otherwise a whole map's worth of GPU memory
-	// may be unavailable to load the next one.
-	ENQUEUE_UNIQUE_RENDER_COMMAND(FlushCommand, 
-		{
-			GRHICommandList.GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::FlushRHIThreadFlushResources);
-			RHIFlushResources();
-			GRHICommandList.GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::FlushRHIThreadFlushResources);
-		}
-	);
-	FlushRenderingCommands();	  
+	// trim memory to clear up allocations from the previous level (also flushes rendering)
+	TrimMemory();
 
 	// Cancels the Forced StreamType for textures using a timer.
 	if (!IStreamingManager::HasShutdown())
@@ -10303,9 +10369,31 @@ bool UEngine::LoadMap( FWorldContext& WorldContext, FURL URL, class UPendingNetG
 
 	UE_LOG(LogLoad, Log, TEXT("Took %f seconds to LoadMap(%s)"), StopTime - StartTime, *URL.Map);
 	FLoadTimeTracker::Get().DumpRawLoadTimes();
+	WorldContext.OwningGameInstance->LoadComplete(StopTime - StartTime, *URL.Map);
 
 	// Successfully started local level.
 	return true;
+}
+
+void UEngine::TrimMemory()
+{
+	// Clean up the previous level out of memory.
+	CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS, true);
+
+	// For platforms which manage GPU memory directly we must Enqueue a flush, and wait for it to be processed
+	// so that any pending frees that depend on the GPU will be processed.  Otherwise a whole map's worth of GPU memory
+	// may be unavailable to load the next one.
+	ENQUEUE_UNIQUE_RENDER_COMMAND(FlushCommand,
+	{
+		GRHICommandList.GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::FlushRHIThreadFlushResources);
+		RHIFlushResources();
+		GRHICommandList.GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::FlushRHIThreadFlushResources);
+	}
+	);
+	FlushRenderingCommands();
+
+	// Ask systems to trim memory where possible
+	FCoreDelegates::GetMemoryTrimDelegate().Broadcast();
 }
 
 void UEngine::BlockTillLevelStreamingCompleted(UWorld* InWorld)
@@ -11466,7 +11554,7 @@ public:
 		ArPortFlags |= Params.bCopyDeprecatedProperties ? PPF_UseDeprecatedProperties : PPF_None;
 
 #if USE_STABLE_LOCALIZATION_KEYS
-		if (GIsEditor && !(ArPortFlags & PPF_DuplicateForPIE))
+		if (GIsEditor && !(ArPortFlags & (PPF_DuplicateVerbatim | PPF_DuplicateForPIE)))
 		{
 			SetLocalizationNamespace(TextNamespaceUtil::EnsurePackageNamespace(DstObject));
 		}
@@ -11525,7 +11613,7 @@ public:
 		ArIgnoreClassRef = true;
 
 #if USE_STABLE_LOCALIZATION_KEYS
-		if (GIsEditor && !(ArPortFlags & PPF_DuplicateForPIE))
+		if (GIsEditor && !(ArPortFlags & (PPF_DuplicateVerbatim | PPF_DuplicateForPIE)))
 		{
 			SetLocalizationNamespace(TextNamespaceUtil::EnsurePackageNamespace(DstObject));
 		}
@@ -11588,14 +11676,13 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 		TArray<UObject*> Components;
 		OldObject->CollectDefaultSubobjects(Components, true);
 
-		for (int32 Index = 0; Index < Components.Num(); Index++)
+		for (UObject* OldInstance : Components)
 		{
 			FInstancedObjectRecord* pRecord = new(SavedInstances) FInstancedObjectRecord();
-			UObject* OldInstance = Components[Index];
 			pRecord->OldInstance = OldInstance;
 			OldInstanceMap.Add(OldInstance->GetPathName(OldObject), SavedInstances.Num() - 1);
 			const uint32 AdditionalPortFlags = Params.bCopyDeprecatedProperties ? PPF_UseDeprecatedProperties : PPF_None;
-			FObjectWriter SubObjWriter(OldInstance, pRecord->SavedProperties, true, true, true, AdditionalPortFlags);
+			FObjectWriter SubObjWriter(OldInstance, pRecord->SavedProperties, true, true, Params.bDoDelta, AdditionalPortFlags);
 		}
 	}
 
@@ -12592,7 +12679,7 @@ static void SetupThreadAffinity(const TArray<FString>& Args)
 	FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(
 		FSimpleDelegateGraphTask::FDelegate::CreateStatic(&SetAffinityOnThread),
 		TStatId(), NULL, ENamedThreads::RenderThread);
-	if (GRHIThread)
+	if (GRHIThread_InternalUseOnly)
 	{
 		FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(
 			FSimpleDelegateGraphTask::FDelegate::CreateStatic(&SetAffinityOnThread),

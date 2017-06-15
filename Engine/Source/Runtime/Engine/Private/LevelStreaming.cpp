@@ -227,7 +227,7 @@ void ULevelStreaming::PostLoad()
 			// Convert the FName reference to a TAssetPtr, then broadcast that we loaded a reference
 			// so this reference is gathered by the cooker without having to resave the package.
 			SetWorldAssetByPackageName(PackageName_DEPRECATED);
-			FCoreUObjectDelegates::StringAssetReferenceLoaded.ExecuteIfBound(WorldAsset.ToStringReference().ToString());
+			WorldAsset.GetUniqueID().PostLoadPath();
 		}
 		else
 		{
@@ -899,7 +899,7 @@ FBox ULevelStreaming::GetStreamingVolumeBounds()
 		ALevelStreamingVolume* StreamingVol = EditorStreamingVolumes[VolIdx];
 		if(StreamingVol && StreamingVol->GetBrushComponent())
 		{
-			Bounds += StreamingVol->GetBrushComponent()->BrushBodySetup->AggGeom.CalcAABB(StreamingVol->GetBrushComponent()->ComponentToWorld);
+			Bounds += StreamingVol->GetBrushComponent()->BrushBodySetup->AggGeom.CalcAABB(StreamingVol->GetBrushComponent()->GetComponentTransform());
 		}
 	}
 
@@ -991,6 +991,25 @@ void ULevelStreaming::PostEditUndo()
 #endif // WITH_EDITOR
 
 
+#if WITH_EDITOR
+const FName& ULevelStreaming::GetFolderPath() const
+{
+	return FolderPath;
+}
+
+void ULevelStreaming::SetFolderPath(const FName& InFolderPath)
+{
+	if (FolderPath != InFolderPath)
+	{
+		Modify();
+
+		FolderPath = InFolderPath;
+
+		// @TODO: Should this be broadcasted through the editor, similar to BroadcastLevelActorFolderChanged?
+	}
+}
+#endif	// WITH_EDITOR
+
 /*-----------------------------------------------------------------------------
 	ULevelStreamingPersistent implementation.
 -----------------------------------------------------------------------------*/
@@ -1080,11 +1099,18 @@ ULevelStreamingKismet* ULevelStreamingKismet::LoadLevelInstance(UObject* WorldCo
 /*-----------------------------------------------------------------------------
 	ULevelStreamingAlwaysLoaded implementation.
 -----------------------------------------------------------------------------*/
+
 ULevelStreamingAlwaysLoaded::ULevelStreamingAlwaysLoaded(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	bShouldBeVisible = true;
 }
+
+void ULevelStreamingAlwaysLoaded::GetPrestreamPackages(TArray<UObject*>& OutPrestream)
+{
+	OutPrestream.Add(GetLoadedLevel()); // Nulls will be ignored later
+}
+
 
 bool ULevelStreamingAlwaysLoaded::ShouldBeLoaded() const
 {

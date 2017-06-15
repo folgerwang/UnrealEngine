@@ -48,12 +48,17 @@ public class Launch : ModuleRules
             PrivateDependencyModuleNames.Add("LauncherCheck");
             Definitions.Add("WITH_LAUNCHERCHECK=1");
 		}
+        else
+        {
+            Definitions.Add("WITH_LAUNCHERCHECK=0");
+        }
 
 		if (Target.Type != TargetType.Server)
 		{
 			PrivateDependencyModuleNames.AddRange(
 				new string[] {
 					"HeadMountedDisplay",
+					"MRMesh",
 				}
 			);
 
@@ -98,6 +103,7 @@ public class Launch : ModuleRules
 				new string[] {
 					"NetworkFile",
 					"StreamingFile",
+					"CookedIterativeFile",
     				"AutomationWorker",
 				}
 			);
@@ -181,6 +187,7 @@ public class Launch : ModuleRules
 		{
 			PrivateDependencyModuleNames.Add("OpenGLDrv");
 			PrivateDependencyModuleNames.Add("IOSAudio");
+			PrivateDependencyModuleNames.Add("AudioMixerAudioUnit");
 			DynamicallyLoadedModuleNames.Add("IOSRuntimeSettings");
 			DynamicallyLoadedModuleNames.Add("IOSLocalNotification");
 			PublicFrameworks.Add("OpenGLES");
@@ -194,6 +201,7 @@ public class Launch : ModuleRules
 		{
 			PrivateDependencyModuleNames.Add("OpenGLDrv"); 
 			PrivateDependencyModuleNames.Add("AndroidAudio");
+            PrivateDependencyModuleNames.Add("AudioMixerAndroid");
 			DynamicallyLoadedModuleNames.Add("AndroidRuntimeSettings");
 			DynamicallyLoadedModuleNames.Add("AndroidLocalNotification");
 		}

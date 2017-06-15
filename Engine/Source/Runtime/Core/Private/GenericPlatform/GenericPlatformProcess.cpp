@@ -25,6 +25,7 @@
 DEFINE_STAT(STAT_Sleep);
 DEFINE_STAT(STAT_EventWait);
 
+TArray<FString> FGenericPlatformProcess::ShaderDirs;
 
 void* FGenericPlatformProcess::GetDllHandle( const TCHAR* Filename )
 {
@@ -58,6 +59,12 @@ uint32 FGenericPlatformProcess::GetCurrentProcessId()
 void FGenericPlatformProcess::SetThreadAffinityMask( uint64 AffinityMask )
 {
 	// Not implemented cross-platform. Each platform may or may not choose to implement this.
+}
+
+bool FGenericPlatformProcess::ShouldSaveToUserDir()
+{
+	// default to use the engine/game directories
+	return false;
 }
 
 const TCHAR* FGenericPlatformProcess::UserDir()
@@ -127,6 +134,25 @@ void FGenericPlatformProcess::SetShaderDir(const TCHAR*Where)
 	{
 		Generic_ShaderDir = TEXT("");
 	}
+}
+
+
+const TArray<FString>& FGenericPlatformProcess::AllShaderDirs()
+{
+	return ShaderDirs;
+}
+
+void FGenericPlatformProcess::AddShaderDir(const FString& InShaderDir)
+{
+	check(IsInGameThread());
+
+	FString ShaderDir = InShaderDir;
+	// make sure we store only relative paths
+	if (!FPaths::IsRelative(ShaderDir))
+	{
+		FPaths::MakePathRelativeTo(ShaderDir, FPlatformProcess::BaseDir());
+	}
+	ShaderDirs.Add(ShaderDir);
 }
 
 /**

@@ -524,7 +524,13 @@ void MainPS(
 	out float4 OutColor : SV_Target0
 	)
 {
+#if EYEADAPTATION_EXPOSURE_FIX == 1
+	float3 vEyeAdapationVS = InExposureScaleVignette;
+	vEyeAdapationVS.x = EyeAdaptation.Load(int3(0, 0, 0)).r;
+	OutColor = TonemapCommonPS(UV, vEyeAdapationVS, GrainUV, FringeUV, FullViewUV, SvPosition);
+#else
 	OutColor = TonemapCommonPS(UV, InExposureScaleVignette, GrainUV, FringeUV, FullViewUV, SvPosition);
+#endif
 }
 
 #if COMPUTESHADER
@@ -759,15 +765,15 @@ void MainPS_ES2(
 		#if (USE_BLOOM || USE_LIGHT_SHAFTS || USE_VIGNETTE)
 		{
 			half4 CombinedBloomSunVignette = Texture2DSample(PostprocessInput1, PostprocessInput1Sampler, FullViewUV.xy);
-			if (GetHDR32bppEncodeMode() != HDR_ENCODE_MOSAIC)
-			{
-				#if USE_32BPP_HDR
+			#if USE_32BPP_HDR
+				if (GetHDR32bppEncodeMode() == HDR_ENCODE_RGBE)
+				{
 					CombinedBloomSunVignette.rgb = Decode32BPPHDR(CombinedBloomSunVignette).rgb;
 					LinearColor.rgb = LinearColor.rgb + CombinedBloomSunVignette.rgb;
-				#else
-					LinearColor.rgb = LinearColor.rgb * CombinedBloomSunVignette.a + CombinedBloomSunVignette.rgb;
-				#endif
-			}
+				}
+			#else
+				LinearColor.rgb = LinearColor.rgb * CombinedBloomSunVignette.a + CombinedBloomSunVignette.rgb;
+			#endif
 		}
 		#endif
 

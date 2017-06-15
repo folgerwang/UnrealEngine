@@ -23,6 +23,11 @@ namespace UnrealBuildTool
 		public static HashSet<FileItem> CandidateSourceFilesForWorkingSet = new HashSet<FileItem>();
 
 		/// <summary>
+		/// Set of target names we've printed out adaptive non-unity messages for.
+		/// </summary>
+		public static HashSet<string> PrintedSettingsForTargets  = new HashSet<string>();
+
+		/// <summary>
 		/// Prefix used for all dynamically created Unity modules
 		/// </summary>
 		public static string ModulePrefix = "Module.";
@@ -207,20 +212,17 @@ namespace UnrealBuildTool
 					int WorkingSetSourceFileCount = 0;
 					foreach (FileItem CPPFile in SortedCPPFiles)
 					{
+						++CandidateWorkingSetSourceFileCount;
+
 						// Don't include writable source files into unity blobs
-						if (!CPPFile.Reference.HasExtension(".generated.cpp"))
+						if (UnrealBuildTool.ShouldSourceFileBePartOfWorkingSet(CPPFile.AbsolutePath))
 						{
-							++CandidateWorkingSetSourceFileCount;
+							++WorkingSetSourceFileCount;
 
-							if (UnrealBuildTool.ShouldSourceFileBePartOfWorkingSet(CPPFile.AbsolutePath))
-							{
-								++WorkingSetSourceFileCount;
-
-								// Mark this file as part of the working set.  This will be saved into the UBT Makefile so that
-								// the assembler can automatically invalidate the Makefile when the working set changes (allowing this
-								// code to run again, to build up new unity blobs.)
-								SourceFileWorkingSet.Add(CPPFile);
-							}
+							// Mark this file as part of the working set.  This will be saved into the UBT Makefile so that
+							// the assembler can automatically invalidate the Makefile when the working set changes (allowing this
+							// code to run again, to build up new unity blobs.)
+							SourceFileWorkingSet.Add(CPPFile);
 						}
 					}
 
@@ -285,6 +287,17 @@ namespace UnrealBuildTool
 
 				if (AdaptiveUnityBuildInfoString.Length > 0)
 				{
+					if (PrintedSettingsForTargets.Add(Target.Name))
+					{
+						if (Target.bAdaptiveUnityDisablesPCH)
+						{
+							Log.TraceInformation("[Adaptive unity build] Disabling PCH for excluded files. Set bAdaptiveUnityDisablesPCH to false in BuildConfiguration.xml to change this behavior.");
+						}
+						if (Target.bAdaptiveUnityDisablesOptimizations)
+						{
+							Log.TraceInformation("[Adaptive unity build] Disabling optimizations for excluded files. Set bAdaptiveUnityDisablesOptimizations to false in BuildConfiguration.xml to change this behavior.");
+						}
+					}
 					Log.TraceInformation(AdaptiveUnityBuildInfoString.ToString());
 				}
 

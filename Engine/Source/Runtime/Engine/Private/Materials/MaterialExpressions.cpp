@@ -149,6 +149,7 @@
 #include "Materials/MaterialExpressionSceneTexture.h"
 #include "Materials/MaterialExpressionScreenPosition.h"
 #include "Materials/MaterialExpressionSine.h"
+#include "Materials/MaterialExpressionSobol.h"
 #include "Materials/MaterialExpressionSpeedTree.h"
 #include "Materials/MaterialExpressionSphereMask.h"
 #include "Materials/MaterialExpressionSphericalParticleOpacity.h"
@@ -158,6 +159,7 @@
 #include "Materials/MaterialExpressionSubtract.h"
 #include "Materials/MaterialExpressionTangent.h"
 #include "Materials/MaterialExpressionTangentOutput.h"
+#include "Materials/MaterialExpressionTemporalSobol.h"
 #include "Materials/MaterialExpressionTextureBase.h"
 #include "Materials/MaterialExpressionTextureObject.h"
 #include "Materials/MaterialExpressionTextureProperty.h"
@@ -1686,6 +1688,7 @@ UMaterialExpressionTextureSampleParameter::UMaterialExpressionTextureSampleParam
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Empty();
 	MenuCategories.Add( ConstructorStatics.NAME_Obsolete);
+	SortPriority = 0;
 #endif
 }
 
@@ -1697,17 +1700,14 @@ int32 UMaterialExpressionTextureSampleParameter::Compile(class FMaterialCompiler
 		return CompilerError(Compiler, GetRequirements());
 	}
 
-	if (Texture)
+	if (!TextureIsValid(Texture))
 	{
-		if (!TextureIsValid(Texture))
-		{
-			return CompilerError(Compiler, GetRequirements());
-		}
+		return CompilerError(Compiler, GetRequirements());
+	}
 
-		if (!VerifySamplerType(Compiler, (Desc.Len() > 0 ? *Desc : TEXT("TextureSampleParameter")), Texture, SamplerType))
-		{
-			return INDEX_NONE;
-		}
+	if (!VerifySamplerType(Compiler, (Desc.Len() > 0 ? *Desc : TEXT("TextureSampleParameter")), Texture, SamplerType))
+	{
+		return INDEX_NONE;
 	}
 
 	if (!ParameterName.IsValid() || ParameterName.IsNone())
@@ -5182,6 +5182,7 @@ UMaterialExpressionParameter::UMaterialExpressionParameter(const FObjectInitiali
 
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Parameters);
+	SortPriority = 0;
 #endif
 
 	bCollapsed = false;
@@ -6917,6 +6918,11 @@ void UMaterialExpressionPower::GetCaption(TArray<FString>& OutCaptions) const
 
 	OutCaptions.Add(ret);
 }
+
+void UMaterialExpressionPower::GetExpressionToolTip(TArray<FString>& OutToolTip) 
+{
+	ConvertToMultilineToolTip(TEXT("Returns the Base value raised to the power of Exponent. Base value must be positive, values less than 0 will be clamped."), 40, OutToolTip);
+}
 #endif // WITH_EDITOR
 
 UMaterialExpressionLogarithm2::UMaterialExpressionLogarithm2(const FObjectInitializer& ObjectInitializer)
@@ -7410,7 +7416,10 @@ int32 UMaterialExpressionFresnel::Compile(class FMaterialCompiler* Compiler, int
 	int32 MaxArg = Compiler->Max(Compiler->Constant(0.f),DotArg);
 	int32 MinusArg = Compiler->Sub(Compiler->Constant(1.f),MaxArg);
 	int32 ExponentArg = ExponentIn.GetTracedInput().Expression ? ExponentIn.Compile(Compiler) : Compiler->Constant(Exponent);
-	int32 PowArg = Compiler->Power(MinusArg,ExponentArg);
+	// Compiler->Power got changed to call PositiveClampedPow instead of ClampedPow
+	// Manually implement ClampedPow to maintain backwards compatibility in the case where the input normal is not normalized (length > 1)
+	int32 AbsBaseArg = Compiler->Abs(MinusArg);
+	int32 PowArg = Compiler->Power(AbsBaseArg,ExponentArg);
 	int32 BaseReflectFractionArg = BaseReflectFractionIn.GetTracedInput().Expression ? BaseReflectFractionIn.Compile(Compiler) : Compiler->Constant(BaseReflectFraction);
 	int32 ScaleArg = Compiler->Mul(PowArg, Compiler->Sub(Compiler->Constant(1.f), BaseReflectFractionArg));
 	
@@ -7488,7 +7497,7 @@ int32 UMaterialExpressionFontSample::Compile(class FMaterialCompiler* Compiler, 
 		if( !Texture )
 		{
 			UE_LOG(LogMaterial, Log, TEXT("Invalid font texture. Using default texture"));
-			Texture = Texture = GEngine->DefaultTexture;
+			Texture = GEngine->DefaultTexture;
 		}
 		check(Texture);
 
@@ -7595,7 +7604,7 @@ int32 UMaterialExpressionFontSampleParameter::Compile(class FMaterialCompiler* C
 		if( !Texture )
 		{
 			UE_LOG(LogMaterial, Log, TEXT("Invalid font texture. Using default texture"));
-			Texture = Texture = GEngine->DefaultTexture;
+			Texture = GEngine->DefaultTexture;
 		}
 		check(Texture);
 
@@ -10587,6 +10596,91 @@ void UMaterialExpressionSphereMask::GetCaption(TArray<FString>& OutCaptions) con
 #endif // WITH_EDITOR
 
 ///////////////////////////////////////////////////////////////////////////////
+// UMaterialExpressionSobol
+///////////////////////////////////////////////////////////////////////////////
+UMaterialExpressionSobol::UMaterialExpressionSobol(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	// Structure to hold one-time initialization
+	struct FConstructorStatics
+	{
+		FText NAME_Utility;
+		FConstructorStatics()
+			: NAME_Utility(LOCTEXT("Utility", "Utility"))
+		{
+		}
+	};
+	static FConstructorStatics ConstructorStatics;
+
+	ConstIndex = 0;
+	ConstSeed = FVector2D(0.f, 0.f);
+}
+
+#if WITH_EDITOR
+int32 UMaterialExpressionSobol::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex)
+{
+	int32 CellInput = Cell.GetTracedInput().Expression ? Cell.Compile(Compiler) : Compiler->Constant2(0.f, 0.f);
+	int32 IndexInput = Index.GetTracedInput().Expression ? Index.Compile(Compiler) : Compiler->Constant(ConstIndex);
+	int32 SeedInput = Seed.GetTracedInput().Expression ? Seed.Compile(Compiler) : Compiler->Constant2(ConstSeed.X, ConstSeed.Y);
+	return Compiler->Sobol(CellInput, IndexInput, SeedInput);
+}
+
+void UMaterialExpressionSobol::GetCaption(TArray<FString>& OutCaptions) const
+{
+	FString Caption = TEXT("Sobol");
+
+	if (!Index.GetTracedInput().Expression)
+	{
+		Caption += FString::Printf(TEXT(" (%d)"), ConstIndex);;
+	}
+
+	OutCaptions.Add(Caption);
+}
+#endif // WITH_EDITOR
+
+///////////////////////////////////////////////////////////////////////////////
+// UMaterialExpressionTemporalSobol
+///////////////////////////////////////////////////////////////////////////////
+UMaterialExpressionTemporalSobol::UMaterialExpressionTemporalSobol(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	// Structure to hold one-time initialization
+	struct FConstructorStatics
+	{
+		FText NAME_Utility;
+		FConstructorStatics()
+			: NAME_Utility(LOCTEXT("Utility", "Utility"))
+		{
+		}
+	};
+	static FConstructorStatics ConstructorStatics;
+
+	ConstIndex = 0;
+	ConstSeed = FVector2D(0.f, 0.f);
+}
+
+#if WITH_EDITOR
+int32 UMaterialExpressionTemporalSobol::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex)
+{
+	int32 IndexInput = Index.GetTracedInput().Expression ? Index.Compile(Compiler) : Compiler->Constant(ConstIndex);
+	int32 SeedInput = Seed.GetTracedInput().Expression ? Seed.Compile(Compiler) : Compiler->Constant2(ConstSeed.X, ConstSeed.Y);
+	return Compiler->TemporalSobol(IndexInput, SeedInput);
+}
+
+void UMaterialExpressionTemporalSobol::GetCaption(TArray<FString>& OutCaptions) const
+{
+	FString Caption = TEXT("Temporal Sobol");
+
+	if (!Index.GetTracedInput().Expression)
+	{
+		Caption += FString::Printf(TEXT(" (%d)"), ConstIndex);;
+	}
+
+	OutCaptions.Add(Caption);
+}
+#endif // WITH_EDITOR
+
+///////////////////////////////////////////////////////////////////////////////
 // UMaterialExpressionNoise
 ///////////////////////////////////////////////////////////////////////////////
 UMaterialExpressionNoise::UMaterialExpressionNoise(const FObjectInitializer& ObjectInitializer)
@@ -10680,6 +10774,9 @@ int32 UMaterialExpressionNoise::Compile(class FMaterialCompiler* Compiler, int32
 
 void UMaterialExpressionNoise::GetCaption(TArray<FString>& OutCaptions) const
 {
+	const UEnum* NFEnum = FindObject<UEnum>(nullptr, TEXT("Engine.ENoiseFunction"));
+	check(NFEnum);
+	OutCaptions.Add(NFEnum->GetDisplayNameTextByValue(NoiseFunction).ToString());
 	OutCaptions.Add(TEXT("Noise"));
 }
 #endif // WITH_EDITOR
@@ -10753,6 +10850,9 @@ int32 UMaterialExpressionVectorNoise::Compile(class FMaterialCompiler* Compiler,
 
 void UMaterialExpressionVectorNoise::GetCaption(TArray<FString>& OutCaptions) const
 {
+	const UEnum* VNFEnum = FindObject<UEnum>(nullptr, TEXT("Engine.EVectorNoiseFunction"));
+	check(VNFEnum);
+	OutCaptions.Add(VNFEnum->GetDisplayNameTextByValue(NoiseFunction).ToString());
 	OutCaptions.Add(TEXT("Vector Noise"));
 }
 #endif // WITH_EDITOR

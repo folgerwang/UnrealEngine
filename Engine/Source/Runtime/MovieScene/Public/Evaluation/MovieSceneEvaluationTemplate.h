@@ -139,6 +139,14 @@ public:
 	}
 
 	/**
+	 * Test whether the specified track identifier relates to a stale track
+	 */
+	bool IsTrackStale(FMovieSceneTrackIdentifier Identifier) const
+	{
+		return bKeepStaleTracks ? StaleTracks.Contains(Identifier.Value) : false;
+	}
+
+	/**
 	 * Add a new track for the specified identifier
 	 */
 	MOVIESCENE_API FMovieSceneTrackIdentifier AddTrack(const FGuid& InSignature, FMovieSceneEvaluationTrack&& InTrack);
@@ -185,7 +193,7 @@ public:
 	 */
 	const FMovieSceneTemplateGenerationLedger& GetLedger() const
 	{
-		return Ledger;
+		return TemplateLedger;
 	}
 
 private:
@@ -210,7 +218,7 @@ public:
 private:
 
 	UPROPERTY()
-	FMovieSceneTemplateGenerationLedger Ledger;
+	FMovieSceneTemplateGenerationLedger TemplateLedger;
 
 public:
 

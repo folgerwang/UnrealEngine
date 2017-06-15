@@ -31,7 +31,6 @@
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Text/STextBlock.h"
 
-
 #define LOCTEXT_NAMESPACE "LevelEditorSequencerIntegration"
 
 class FDetailKeyframeHandlerWrapper : public IDetailKeyframeHandler
@@ -166,7 +165,6 @@ void FLevelEditorSequencerIntegration::Initialize()
 		FDelegateHandle Handle = FEditorDelegates::OnNewActorsDropped.AddRaw(this, &FLevelEditorSequencerIntegration::OnNewActorsDropped);
 		AcquiredResources.Add([=]{ FEditorDelegates::OnNewActorsDropped.Remove(Handle); });
 	}
-
 	{
 		FDelegateHandle Handle = USelection::SelectionChangedEvent.AddRaw( this, &FLevelEditorSequencerIntegration::OnActorSelectionChanged );
 		AcquiredResources.Add([=]{ USelection::SelectionChangedEvent.Remove(Handle); });
@@ -194,6 +192,21 @@ void FLevelEditorSequencerIntegration::Initialize()
 				if (EditModulePtr)
 				{
 					EditModulePtr->OnPropertyEditorOpened().Remove(Handle);
+				}
+			}
+		);
+	}
+
+	{
+		FLevelEditorModule& LevelEditorModule = FModuleManager::Get().GetModuleChecked<FLevelEditorModule>("LevelEditor");
+
+		FDelegateHandle Handle = LevelEditorModule.OnTabContentChanged().AddRaw(this, &FLevelEditorSequencerIntegration::OnTabContentChanged);
+		AcquiredResources.Add(
+			[=]{
+				FLevelEditorModule* LevelEditorModulePtr = FModuleManager::Get().GetModulePtr<FLevelEditorModule>("LevelEditor");
+				if (LevelEditorModulePtr)
+				{
+					LevelEditorModulePtr->OnTabContentChanged().Remove(Handle);
 				}
 			}
 		);
@@ -301,6 +314,25 @@ void FLevelEditorSequencerIntegration::OnNewActorsDropped(const TArray<UObject*>
 			}
 		}
 	);
+}
+
+void FLevelEditorSequencerIntegration::OnSequencerEvaluated()
+{
+	// Redraw if not in PIE/simulate
+	const bool bIsInPIEOrSimulate = GEditor->PlayWorld != NULL || GEditor->bIsSimulatingInEditor;
+	if (bIsInPIEOrSimulate)
+	{
+		return;
+	}
+
+	// Request a single real-time frame to be rendered to ensure that we tick the world and update the viewport
+	for (FEditorViewportClient* LevelVC : GEditor->AllViewportClients)
+	{
+		if (LevelVC && !LevelVC->IsRealtime())
+		{
+			LevelVC->RequestRealTimeFrames(1);
+		}
+	}
 }
 
 void FLevelEditorSequencerIntegration::ActivateSequencerEditorMode()
@@ -814,9 +846,12 @@ void FLevelEditorSequencerIntegration::AttachTransportControlsToViewports()
 
 	for (TSharedPtr<ILevelViewport> LevelViewport : LevelEditor->GetViewports())
 	{
-		TSharedRef<SViewportTransportControls> TransportControl = SNew(SViewportTransportControls, LevelViewport);
-		LevelViewport->AddOverlayWidget(TransportControl);
-		TransportControls.Add(FTransportControl{ LevelViewport, TransportControl });
+		if (LevelViewport->GetLevelViewportClient().CanAttachTransportControls())
+		{
+			TSharedRef<SViewportTransportControls> TransportControl = SNew(SViewportTransportControls, LevelViewport);
+			LevelViewport->AddOverlayWidget(TransportControl);
+			TransportControls.Add(FTransportControl{ LevelViewport, TransportControl });
+		}
 	}
 
 	AcquiredResources.Add([=]{ this->DetachTransportControlsFromViewports(); });
@@ -889,6 +924,48 @@ void FLevelEditorSequencerIntegration::CreateTransportToggleMenuEntry(FMenuBuild
 		EUserInterfaceActionType::ToggleButton);
 }
 
+void FLevelEditorSequencerIntegration::OnTabContentChanged()
+{	
+	for (const FTransportControl& Control : TransportControls)
+	{
+		TSharedPtr<ILevelViewport> Viewport = Control.Viewport.Pin();
+		if (Viewport.IsValid())
+		{
+			Viewport->RemoveOverlayWidget(Control.Widget.ToSharedRef());
+		}
+	}
+	TransportControls.Reset();
+
+	FLevelEditorModule* Module = FModuleManager::Get().LoadModulePtr<FLevelEditorModule>("LevelEditor");
+	
+	if (Module == nullptr)
+	{
+		return;
+	}
+
+	TSharedPtr<ILevelEditor> LevelEditor = Module->GetFirstLevelEditor();
+
+	for (TSharedPtr<ILevelViewport> LevelViewport : LevelEditor->GetViewports())
+	{
+		if (LevelViewport->GetLevelViewportClient().CanAttachTransportControls())
+		{
+			TSharedRef<SViewportTransportControls> TransportControl = SNew(SViewportTransportControls, LevelViewport);
+			LevelViewport->AddOverlayWidget(TransportControl);
+
+			auto IsValidSequencer = [](const FSequencerAndOptions& In){ return In.Sequencer.IsValid(); };
+			if (FSequencerAndOptions* FirstValidSequencer = BoundSequencers.FindByPredicate(IsValidSequencer))
+			{
+				TSharedPtr<FSequencer> SequencerPtr = FirstValidSequencer->Sequencer.Pin();
+				check(SequencerPtr.IsValid());
+				
+				TransportControl->AssignSequencer(SequencerPtr.ToSharedRef());
+			}
+
+			TransportControls.Add(FTransportControl{ LevelViewport, TransportControl });
+		}
+	}
+}
+
 void FLevelEditorSequencerIntegration::AddSequencer(TSharedRef<ISequencer> InSequencer, const FLevelEditorSequencerIntegrationOptions& Options)
 {
 	if (!BoundSequencers.Num())
@@ -897,9 +974,25 @@ void FLevelEditorSequencerIntegration::AddSequencer(TSharedRef<ISequencer> InSeq
 	}
 
 	KeyFrameHandler->Add(InSequencer);
-	
+
 	auto DerivedSequencerPtr = StaticCastSharedRef<FSequencer>(InSequencer);
 	BoundSequencers.Add(FSequencerAndOptions{ DerivedSequencerPtr, Options });
+
+	{
+		// Set up a callback for when this sequencer changes its time to redraw any non-realtime viewports
+		TWeakPtr<ISequencer> WeakSequencer = InSequencer;
+		FDelegateHandle Handle = InSequencer->OnGlobalTimeChanged().AddRaw(this, &FLevelEditorSequencerIntegration::OnSequencerEvaluated);
+		BoundSequencers.Last().AcquiredResources.Add(
+			[=]
+			{
+				TSharedPtr<ISequencer> Pinned = WeakSequencer.Pin();
+				if (Pinned.IsValid())
+				{
+					Pinned->OnGlobalTimeChanged().Remove(Handle);
+				}
+			}
+		);
+	}
 
 	FSequencerEdMode* SequencerEdMode = (FSequencerEdMode*)(GLevelEditorModeTools().GetActiveMode(FSequencerEdMode::EM_SequencerMode));
 	if (SequencerEdMode)
@@ -924,11 +1017,11 @@ void FLevelEditorSequencerIntegration::OnSequencerReceivedFocus(TSharedRef<ISequ
 	{
 		SequencerEdMode->OnSequencerReceivedFocus(StaticCastSharedRef<FSequencer>(InSequencer));
 	}
-
 }
 
 void FLevelEditorSequencerIntegration::RemoveSequencer(TSharedRef<ISequencer> InSequencer)
 {
+	// Remove any instances of this sequencer in the array of bound sequencers, along with its resources
 	BoundSequencers.RemoveAll(
 		[=](const FSequencerAndOptions& In)
 		{
@@ -958,7 +1051,6 @@ void FLevelEditorSequencerIntegration::RemoveSequencer(TSharedRef<ISequencer> In
 				Control.Widget->AssignSequencer(SequencerPtr.ToSharedRef());
 			}
 		}
-
 	}
 	else
 	{

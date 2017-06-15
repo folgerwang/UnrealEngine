@@ -22,6 +22,7 @@
 #include "UObject/EditorObjectVersion.h"
 #include "UMGPrivate.h"
 #include "UObject/UObjectHash.h"
+#include "PropertyPortFlags.h"
 
 DECLARE_CYCLE_STAT(TEXT("UserWidget Create"), STAT_CreateWidget, STATGROUP_Slate);
 
@@ -124,6 +125,7 @@ void UUserWidget::TemplateInitInner()
 
 	FObjectDuplicationParameters Parameters(WidgetClass->WidgetTree, this);
 	Parameters.FlagMask = RF_Transactional;
+	Parameters.PortFlags = PPF_DuplicateVerbatim;
 
 	WidgetTree = (UWidgetTree*)StaticDuplicateObjectEx(Parameters);
 	bCookedWidgetTree = true;
@@ -452,8 +454,8 @@ void UUserWidget::SynchronizeProperties()
 	TSharedPtr<SObjectWidget> SafeGCWidget = MyGCWidget.Pin();
 	if ( SafeGCWidget.IsValid() )
 	{
-		TAttribute<FLinearColor> ColorBinding = OPTIONAL_BINDING(FLinearColor, ColorAndOpacity);
-		TAttribute<FSlateColor> ForegroundColorBinding = OPTIONAL_BINDING(FSlateColor, ForegroundColor);
+		TAttribute<FLinearColor> ColorBinding = PROPERTY_BINDING(FLinearColor, ColorAndOpacity);
+		TAttribute<FSlateColor> ForegroundColorBinding = PROPERTY_BINDING(FSlateColor, ForegroundColor);
 
 		SafeGCWidget->SetColorAndOpacity(ColorBinding);
 		SafeGCWidget->SetForegroundColor(ForegroundColorBinding);
@@ -1589,6 +1591,11 @@ FReply UUserWidget::NativeOnMotionDetected( const FGeometry& InGeometry, const F
 FCursorReply UUserWidget::NativeOnCursorQuery( const FGeometry& InGeometry, const FPointerEvent& InCursorEvent )
 {
 	return FCursorReply::Unhandled();
+}
+
+void UUserWidget::NativeOnMouseCaptureLost()
+{
+	OnMouseCaptureLost();
 }
 
 bool UUserWidget::ShouldSerializeWidgetTree(const ITargetPlatform* TargetPlatform) const

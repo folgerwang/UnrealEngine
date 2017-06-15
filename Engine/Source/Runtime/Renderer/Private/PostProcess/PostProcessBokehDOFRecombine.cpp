@@ -14,13 +14,7 @@
 #include "PostProcess/PostProcessBokehDOF.h"
 #include "ClearQuad.h"
 #include "PipelineStateCache.h"
-
-static TAutoConsoleVariable<int32> CVarSeparateTranslucencyUpsampleMode(
-	TEXT("r.SeparateTranslucencyUpsampleMode"),
-	1,
-	TEXT("Upsample method to use on separate translucency.  These are only used when r.SeparateTranslucencyScreenPercentage is less than 100.\n")
-	TEXT("0: bilinear 1: Nearest-Depth Neighbor (only when r.SeparateTranslucencyScreenPercentage is 50)"),
-	ECVF_Scalability | ECVF_Default);
+#include "TranslucentRendering.h"
 
 const int32 GBokehDOFRecombineComputeTileSizeX = 8;
 const int32 GBokehDOFRecombineComputeTileSizeY = 8;
@@ -101,7 +95,7 @@ public:
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(Context.RHICmdList, ShaderRHI, Context.View.ViewUniformBuffer);
-		DeferredParameters.Set(Context.RHICmdList, ShaderRHI, Context.View);
+		DeferredParameters.Set(Context.RHICmdList, ShaderRHI, Context.View, MD_PostProcess);
 		PostprocessParameter.SetPS(ShaderRHI, Context, TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI());
 
 		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(Context.RHICmdList);
@@ -121,20 +115,20 @@ public:
 
 		if (UseNearestDepthNeighborUpsample())
 		{
-			check(SceneContext.IsSeparateTranslucencyDepthValid());
-			FTextureRHIParamRef LowResDepth = SceneContext.GetSeparateTranslucencyDepthSurface();
+			check(SceneContext.IsDownsampledTranslucencyDepthValid());
+			FTextureRHIParamRef LowResDepth = SceneContext.GetDownsampledTranslucencyDepthSurface();
 			SetTextureParameter(Context.RHICmdList, ShaderRHI, LowResDepthTexture, LowResDepth);
 
 			const auto& BuiltinSamplersUBParameter = GetUniformBufferParameter<FBuiltinSamplersParameters>();
 			SetUniformBufferParameter(Context.RHICmdList, ShaderRHI, BuiltinSamplersUBParameter, GBuiltinSamplersUniformBuffer.GetUniformBufferRHI());
-
-			SetSamplerParameter(Context.RHICmdList, ShaderRHI, BilinearClampedSampler, TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI());
-			SetSamplerParameter(Context.RHICmdList, ShaderRHI, PointClampedSampler, TStaticSamplerState<SF_Point,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI());
 		}
 		else
 		{
 			checkSlow(!LowResDepthTexture.IsBound());
 		}
+
+		SetSamplerParameter(Context.RHICmdList, ShaderRHI, BilinearClampedSampler, TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI());
+		SetSamplerParameter(Context.RHICmdList, ShaderRHI, PointClampedSampler, TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI());
 	}
 
 	static const TCHAR* GetSourceFilename()
@@ -248,7 +242,7 @@ public:
 
 		// PS params
 		PostprocessParameter.SetCS(ShaderRHI, Context, RHICmdList, TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI());
-		DeferredParameters.Set(RHICmdList, ShaderRHI, Context.View);
+		DeferredParameters.Set(RHICmdList, ShaderRHI, Context.View, MD_PostProcess);
 
 		FIntPoint OutScaledSize;
 		float OutScale;
@@ -264,8 +258,8 @@ public:
 
 		if (UseNearestDepthNeighborUpsample())
 		{
-			check(SceneContext.IsSeparateTranslucencyDepthValid());
-			FTextureRHIParamRef LowResDepth = SceneContext.GetSeparateTranslucencyDepthSurface();
+			check(SceneContext.IsDownsampledTranslucencyDepthValid());
+			FTextureRHIParamRef LowResDepth = SceneContext.GetDownsampledTranslucencyDepthSurface();
 			SetTextureParameter(RHICmdList, ShaderRHI, LowResDepthTexture, LowResDepth);
 
 			const auto& BuiltinSamplersUBParameter = GetUniformBufferParameter<FBuiltinSamplersParameters>();
@@ -365,14 +359,7 @@ void FRCPassPostProcessBokehDOFRecombine::Process(FRenderingCompositePassContext
 		check(GetInput(ePId_Input2)->GetPass());
 	}
 
-	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(Context.RHICmdList);
-	FIntPoint OutScaledSize;
-	float OutScale;
-	SceneContext.GetSeparateTranslucencyDimensions(OutScaledSize, OutScale);
-
-	const bool bUseNearestDepthNeighborUpsample = 
-		CVarSeparateTranslucencyUpsampleMode.GetValueOnRenderThread() != 0
-		&& FMath::Abs(OutScale - .5f) < .001f;
+	const bool bUseNearestDepthNeighborUpsample = UseNearestDepthNeighborUpsampleForSeparateTranslucency(FSceneRenderTargets::Get(Context.RHICmdList));
 
 	if (Method != 1 && bUseNearestDepthNeighborUpsample)
 	{
@@ -441,7 +428,7 @@ void FRCPassPostProcessBokehDOFRecombine::Process(FRenderingCompositePassContext
 		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
 
 		// is optimized away if possible (RT size=view size, )
-		DrawClearQuad(Context.RHICmdList, Context.GetFeatureLevel(), true, FLinearColor::Black, false, 1.0f, false, 0, PassOutputs[0].RenderTargetDesc.Extent, View.ViewRect);
+		DrawClearQuad(Context.RHICmdList, true, FLinearColor::Black, false, 1.0f, false, 0, PassOutputs[0].RenderTargetDesc.Extent, View.ViewRect);
 
 		Context.SetViewportAndCallRHI(View.ViewRect);
 
@@ -468,7 +455,7 @@ void FRCPassPostProcessBokehDOFRecombine::Process(FRenderingCompositePassContext
 			TexSize,
 			*VertexShader,
 			View.StereoPass,
-			Context.HasHmdMesh(),
+			false, // Disabled for correctness
 			EDRF_UseTriangleOptimization);
 
 		Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
@@ -519,6 +506,7 @@ FPooledRenderTargetDesc FRCPassPostProcessBokehDOFRecombine::ComputeOutputDesc(E
 
 	Ret.AutoWritable = false;
 	Ret.DebugName = TEXT("BokehDOFRecombine");
+	Ret.Flags |= GetTextureFastVRamFlag_DynamicLayout();
 
 	return Ret;
 }

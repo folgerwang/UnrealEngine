@@ -1027,12 +1027,11 @@ void FHotReloadModule::ReplaceReferencesToReconstructedCDOs()
 					{
 						UObject* Obj = ObjRef;
 
-						if (Obj && Obj != PotentialReferencer && ReconstructedCDOsMap.Contains(Obj))
+						if (Obj && Obj != PotentialReferencer)
 						{
-							UProperty* SerializedProp = GetSerializedProperty();
-							if (SerializedProp && SerializedProp->IsA<UObjectProperty>())
+							if (UObject* const* FoundObj = ReconstructedCDOsMap.Find(Obj))
 							{
-								ObjRef = ReconstructedCDOsMap[Obj];
+								ObjRef = *FoundObj;
 							}
 						}
 					
@@ -1673,21 +1672,25 @@ bool FHotReloadModule::StartCompilingModuleDLLs(const FString& GameName, const T
 
 	// Pass a module file suffix to UBT if we have one
 	FString ModuleArg;
-	for( const FModuleToRecompile& Module : ModuleNames )
+	if (ModuleNames.Num())
 	{
-		if( !Module.ModuleFileSuffix.IsEmpty() )
+		Ar.Logf(TEXT("Candidate modules for hot reload:"));
+		for( const FModuleToRecompile& Module : ModuleNames )
 		{
-			ModuleArg += FString::Printf( TEXT( " -ModuleWithSuffix %s %s" ), *Module.ModuleName, *Module.ModuleFileSuffix );
-		}
-		else
-		{
-			ModuleArg += FString::Printf( TEXT( " -Module %s" ), *Module.ModuleName );
-		}
-		Ar.Logf( TEXT( "Recompiling %s..." ), *Module.ModuleName );
+			if( !Module.ModuleFileSuffix.IsEmpty() )
+			{
+				ModuleArg += FString::Printf( TEXT( " -ModuleWithSuffix %s %s" ), *Module.ModuleName, *Module.ModuleFileSuffix );
+			}
+			else
+			{
+				ModuleArg += FString::Printf( TEXT( " -Module %s" ), *Module.ModuleName );
+			}
+			Ar.Logf( TEXT( "  %s" ), *Module.ModuleName );
 
-		// prepare the compile info in the FModuleInfo so that it can be compared after compiling
-		FName ModuleFName(*Module.ModuleName);
-		UpdateModuleCompileData(ModuleFName);
+			// prepare the compile info in the FModuleInfo so that it can be compared after compiling
+			FName ModuleFName(*Module.ModuleName);
+			UpdateModuleCompileData(ModuleFName);
+		}
 	}
 
 	FString ExtraArg;

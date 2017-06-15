@@ -40,16 +40,25 @@ public:
 	// ------------------------------------------------------------
 
 	/**
-	 * Target Web Assembly builds
+	 * Target ASMJS builds
+	 * NOTE 1: to ensure this fits in memory space, build this for "Shipping"
+	 * NOTE 2: ASMJS will be going away in future UE4 releases.
 	 */
-	UPROPERTY(GlobalConfig, EditAnywhere, Category=Emscripten, Meta = (DisplayName = "WebAssembly Build (or else ASM.js)"))
-	bool TargetWasm;
+	UPROPERTY(GlobalConfig, EditAnywhere, Category=Emscripten, Meta = (DisplayName = "asmjs Build (else build WASM [EXPERIMENTAL])"))
+	bool TargetAsmjs;
 
 	/**
-	 * Target WebGL2 builds
+	 * Target WebGL1 builds
+	 * NOTE: WebGL1 target will be going away soon...
 	 */
-	UPROPERTY(GlobalConfig, EditAnywhere, Category=Emscripten, Meta = (DisplayName = "WebGL2 Build (or else WebGL1)"))
-	bool TargetWebGL2;
+	UPROPERTY(GlobalConfig, EditAnywhere, Category=Emscripten, Meta = (DisplayName = "WebGL1 Build (else build WebGL2)"))
+	bool TargetWebGL1;
+
+	/**
+	 * Use IndexedDB storage
+	 */
+	UPROPERTY(GlobalConfig, EditAnywhere, Category=Emscripten, Meta = (DisplayName = "IndexedDB storage (WASM only - during shipping packaging [EXPERIMENTAL])"))
+	bool EnableIndexedDB;
 
 	/**
 	 * Use Fixed TimeStep
@@ -58,14 +67,17 @@ public:
 	bool UseFixedTimeStep; // need to make a note of: answerhub 409629
 
 	/**
-	 * Enable SIMD - NOTE: this does not currently work with WASM - it will be forced false in this case.
-	 * SIMD will be supported during WASM builds in a future emscripten release.
+	 * Enable SIMD
+	 * NOTE 1: this does not currently work with WASM - it will be forced false in this case.
+	 * NOTE 2: SIMD will be supported during WASM builds in a future emscripten release.
 	 */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category=Emscripten, Meta = (DisplayName = "SIMD support (asm.js only)"))
 	bool EnableSIMD;
 
 	/**
 	 * Enable Multithreading
+	 * NOTE 1: this is not supported currently in WASM - it will be forced false in this case.
+	 * NOTE 2: Multithreading will be supported during WASM builds in a future emscripten release.
 	 */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category=Emscripten, Meta = (DisplayName = "Multithreading support (asm.js only - experimental)"))
 	bool EnableMultithreading;
@@ -80,6 +92,8 @@ public:
 
 	/**
 	 * Compress Files
+	 * NOTE 1: it is also recommended to NOT enable PAK file packaging - this is currently redundant
+	 * NOTE 2: future emscripten version will allow separate (asset) files in a new FileSystem feature - which will make use of this (as well as PAK file) option again
 	 */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category=Packaging, Meta = (DisplayName = "Compress files during shipping packaging"))
 	bool Compressed;

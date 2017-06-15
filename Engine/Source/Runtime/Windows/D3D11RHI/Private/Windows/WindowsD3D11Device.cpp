@@ -18,17 +18,31 @@
 #include "GenericPlatformDriver.h"			// FGPUDriverInfo
 
 #if NV_AFTERMATH
-int32 GDX11NVAfterMathEnabled = 1;
-static FAutoConsoleVariableRef CVarDX11NVAfterMathBufferSize(
-	TEXT("r.DX11NVAfterMathEnabled"),
-	GDX11NVAfterMathEnabled,
-	TEXT("Use NV Aftermath for GPU crash analysis"),
-	ECVF_ReadOnly
-);
+int32 GDX11NVAfterMathEnabled = 0;
 #endif
 
 extern bool D3D11RHI_ShouldCreateWithD3DDebug();
 extern bool D3D11RHI_ShouldAllowAsyncResourceCreation();
+
+int D3D11RHI_PreferAdaperVendor()
+{
+	if (FParse::Param(FCommandLine::Get(), TEXT("preferAMD")))
+	{
+		return 0x1002;
+	}
+
+	if (FParse::Param(FCommandLine::Get(), TEXT("preferIntel")))
+	{
+		return 0x8086;
+	}
+
+	if (FParse::Param(FCommandLine::Get(), TEXT("preferNvidia")))
+	{
+		return 0x10DE;
+	}
+
+	return -1;
+}
 
 // Filled in during InitD3DDevice if IsRHIDeviceAMD
 struct AmdAgsInfo
@@ -547,13 +561,21 @@ static bool SupportsHDROutput(FD3D11DynamicRHI* D3DRHI)
 void FD3D11DynamicRHIModule::StartupModule()
 {	
 #if NV_AFTERMATH
-	FString AftermathBinariesRoot = FPaths::EngineDir() / TEXT("Binaries/ThirdParty/NVIDIA/NVaftermath/Win64/");
-	if (LoadLibraryW(*(AftermathBinariesRoot + "GFSDK_Aftermath_Lib.dll")) == nullptr)
-	{
-		UE_LOG(LogD3D11RHI, Log, TEXT("Failed to load GFSDK_Aftermath_Lib.dll"));
-		GDX11NVAfterMathEnabled = 0;
-		return;
-	}
+	// Note - can't check device type here, we'll check for that before actually initializing Aftermath
+
+		FString AftermathBinariesRoot = FPaths::EngineDir() / TEXT("Binaries/ThirdParty/NVIDIA/NVaftermath/Win64/");
+		if (LoadLibraryW(*(AftermathBinariesRoot + "GFSDK_Aftermath_Lib.dll")) == nullptr)
+		{
+			UE_LOG(LogD3D11RHI, Warning, TEXT("Failed to load GFSDK_Aftermath_Lib.dll"));
+			GDX11NVAfterMathEnabled = 0;
+			return;
+		}
+		else
+		{
+			UE_LOG(LogD3D11RHI, Log, TEXT("Aftermath initialized"));
+			GDX11NVAfterMathEnabled = 1;
+		}
+	
 #endif
 }
 
@@ -644,6 +666,7 @@ void FD3D11DynamicRHIModule::FindAdapter()
 
 	UE_LOG(LogD3D11RHI, Log, TEXT("D3D11 adapters:"));
 
+	int PreferredVendor = D3D11RHI_PreferAdaperVendor();
 	// Enumerate the DXGIFactory's adapters.
 	for(uint32 AdapterIndex = 0; DXGIFactory1->EnumAdapters(AdapterIndex,TempAdapter.GetInitReference()) != DXGI_ERROR_NOT_FOUND; ++AdapterIndex)
 	{
@@ -711,8 +734,16 @@ void FD3D11DynamicRHIModule::FindAdapter()
 					{
 						FirstWithoutIntegratedAdapter = CurrentAdapter;
 					}
+					else if (PreferredVendor == AdapterDesc.VendorId && FirstWithoutIntegratedAdapter.IsValid())
+					{
+						FirstWithoutIntegratedAdapter = CurrentAdapter;
+					}
 
 					if (!FirstAdapter.IsValid())
+					{
+						FirstAdapter = CurrentAdapter;
+					}
+					else if (PreferredVendor == AdapterDesc.VendorId && FirstAdapter.IsValid())
 					{
 						FirstAdapter = CurrentAdapter;
 					}
@@ -1057,16 +1088,9 @@ void FD3D11DynamicRHI::InitD3DDevice()
 				GSupportsTimestampRenderQueries = false;
 			}
 		}
-
-#if NV_AFTERMATH
-		if (!IsRHIDeviceNVIDIA())
-		{
-			GDX11NVAfterMathEnabled = 0;
-		}
-#endif
 		
 #if PLATFORM_DESKTOP
-		if( IsRHIDeviceNVIDIA() )
+		if (IsRHIDeviceNVIDIA())
 		{
 			GSupportsDepthBoundsTest = true;
 			NV_GET_CURRENT_SLI_STATE SLICaps;
@@ -1085,23 +1109,6 @@ void FD3D11DynamicRHI::InitD3DDevice()
 			{
 				UE_LOG(LogD3D11RHI, Log, TEXT("NvAPI_D3D_GetCurrentSLIState failed: 0x%x"), (int32)SLIStatus);
 			}
-
-#if NV_AFTERMATH
-			if (GDX11NVAfterMathEnabled)
-			{
-				auto Result = GFSDK_Aftermath_DX11_Initialize(GFSDK_Aftermath_Version_API, Direct3DDevice);
-				if (Result == GFSDK_Aftermath_Result_Success)
-				{
-					UE_LOG(LogD3D11RHI, Log, TEXT("[Aftermath] Aftermath enabled and primed"));
-					GEmitDrawEvents = true;
-				}
-				else
-				{
-					UE_LOG(LogD3D11RHI, Log, TEXT("[Aftermath] Aftermath enabled but failed to initialize"));
-					GDX11NVAfterMathEnabled = 0;
-				}
-			}
-#endif
 		}
 		else if( IsRHIDeviceAMD() )
 		{
@@ -1118,12 +1125,56 @@ void FD3D11DynamicRHI::InitD3DDevice()
 			}
 		}
 
+#if NV_AFTERMATH
+		// Two ways to enable aftermath, command line or the r.GPUCrashDebugging variable
+		// Note: If intending to change this please alert game teams who use this for user support.
+		if (FParse::Param(FCommandLine::Get(), TEXT("gpucrashdebugging")))
+		{
+			GDX11NVAfterMathEnabled = true;
+		}
+		else
+		{
+			static IConsoleVariable* GPUCrashDebugging = IConsoleManager::Get().FindConsoleVariable(TEXT("r.GPUCrashDebugging"));
+			if (GPUCrashDebugging)
+			{
+				GDX11NVAfterMathEnabled = GPUCrashDebugging->GetInt();
+			}
+		}
+			
+		if (GDX11NVAfterMathEnabled)
+		{
+			if (IsRHIDeviceNVIDIA())
+			{
+				auto Result = GFSDK_Aftermath_DX11_Initialize(GFSDK_Aftermath_Version_API, Direct3DDevice);
+				if (Result == GFSDK_Aftermath_Result_Success)
+				{
+					UE_LOG(LogD3D11RHI, Log, TEXT("[Aftermath] Aftermath enabled and primed"));
+					GEmitDrawEvents = true;
+				}
+				else
+				{
+					unsigned Index = (unsigned)Result & (~((unsigned)GFSDK_Aftermath_Result_Fail));
+					const TCHAR* Reason[13] = { TEXT("Fail"), TEXT("VersionMismatch"), TEXT("NotInitialized"), TEXT("InvalidAdapter"), TEXT("InvalidParameter"), TEXT("Unknown"), TEXT("ApiError"), TEXT("NvApiIncompatible"), TEXT("GettingContextDataWithNewCommandList"), TEXT("AlreadyInitialized"), TEXT("D3DDebugLayerNotCompatible"),TEXT("NotEnabledInDriver"), TEXT("DriverVersionNotSupported") };
+					Index = Index > 12 ? 0 : Index;
+
+					UE_LOG(LogD3D11RHI, Log, TEXT("[Aftermath] Aftermath enabled but failed to initialize due to reason: %s"), Reason[Index]);
+					GDX11NVAfterMathEnabled = 0;
+				}
+			}
+			else
+			{
+				GDX11NVAfterMathEnabled = 0;
+				UE_LOG(LogD3D11RHI, Warning, TEXT("[Aftermath] Skipping aftermath initialization on non-Nvidia device"));
+			}
+		}
+#endif // NV_AFTERMATH
+
 		if (GDX11ForcedGPUs > 0)
 		{
 			GNumActiveGPUsForRendering = GDX11ForcedGPUs;
 			UE_LOG(LogD3D11RHI, Log, TEXT("r.DX11NumForcedGPUs forcing GNumActiveGPUsForRendering to: %i "), GDX11ForcedGPUs);
 		}
-#endif
+#endif // PLATFORM_DESKTOP
 
 		SetupAfterDeviceCreation();
 

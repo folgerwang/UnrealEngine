@@ -153,6 +153,9 @@ extern RHI_API bool GSupportsTexture3D;
 /** true if the RHI supports mobile multi-view */
 extern RHI_API bool GSupportsMobileMultiView;
 
+/** true if the RHI supports image external */
+extern RHI_API bool GSupportsImageExternal;
+
 /** true if the RHI supports SRVs */
 extern RHI_API bool GSupportsResourceView;
 
@@ -176,6 +179,9 @@ extern RHI_API bool GSupportsHDR32bppEncodeModeIntrinsic;
 
 /** True if the RHI supports getting the result of occlusion queries when on a thread other than the renderthread */
 extern RHI_API bool GSupportsParallelOcclusionQueries;
+
+/** true if the RHI supports aliasing of transient resources */
+extern RHI_API bool GSupportsTransientResourceAliasing;
 
 /** The minimum Z value in clip space for the RHI. */
 extern RHI_API float GMinClipZ;
@@ -293,6 +299,8 @@ Requirements for RHI thread
 * BeginDrawingViewport, and 5 or so other frame advance methods are queued with an RHIThread. Without an RHIThread, these just flush internally.
 ***/
 extern RHI_API bool GRHISupportsRHIThread;
+/* as above, but we run the commands on arbitrary task threads */
+extern RHI_API bool GRHISupportsRHIOnTaskThread;
 
 /** Whether or not the RHI supports parallel RHIThread executes / translates
 Requirements:
@@ -818,7 +826,7 @@ struct FVRamAllocation
 	{
 	}
 
-	bool IsValid() { return AllocationSize > 0; }
+	bool IsValid() const { return AllocationSize > 0; }
 
 	// in bytes
 	uint32 AllocationStart;
@@ -932,7 +940,7 @@ struct FClearValueBinding
 	static RHI_API const FClearValueBinding DepthNear;
 	static RHI_API const FClearValueBinding DepthFar;	
 	static RHI_API const FClearValueBinding Green;
-	static RHI_API const FClearValueBinding MidGray;
+	static RHI_API const FClearValueBinding DefaultNormal8Bit;
 };
 
 struct FRHIResourceCreateInfo
@@ -941,6 +949,7 @@ struct FRHIResourceCreateInfo
 		: BulkData(nullptr)
 		, ResourceArray(nullptr)
 		, ClearValueBinding(FLinearColor::Transparent)
+		, DebugName(NULL)
 	{}
 
 	// for CreateTexture calls
@@ -948,6 +957,7 @@ struct FRHIResourceCreateInfo
 		: BulkData(InBulkData)
 		, ResourceArray(nullptr)
 		, ClearValueBinding(FLinearColor::Transparent)
+		, DebugName(NULL)
 	{}
 
 	// for CreateVertexBuffer/CreateStructuredBuffer calls
@@ -955,12 +965,14 @@ struct FRHIResourceCreateInfo
 		: BulkData(nullptr)
 		, ResourceArray(InResourceArray)
 		, ClearValueBinding(FLinearColor::Transparent)
+		, DebugName(NULL)
 	{}
 
 	FRHIResourceCreateInfo(const FClearValueBinding& InClearValueBinding)
 		: BulkData(nullptr)
 		, ResourceArray(nullptr)
 		, ClearValueBinding(InClearValueBinding)
+		, DebugName(NULL)
 	{
 	}
 
@@ -971,6 +983,7 @@ struct FRHIResourceCreateInfo
 
 	// for binding clear colors to rendertargets.
 	FClearValueBinding ClearValueBinding;
+	const TCHAR* DebugName;
 };
 
 // Forward-declaration.

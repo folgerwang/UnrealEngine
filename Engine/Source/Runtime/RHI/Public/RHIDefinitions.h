@@ -34,7 +34,7 @@ enum EShaderPlatform
 	SP_PS4				= 2,
 	/** Used when running in Feature Level ES2 in OpenGL. */
 	SP_OPENGL_PCES2		= 3,
-	SP_XBOXONE			= 4,
+	SP_XBOXONE_D3D12    = 4,
 	SP_PCD3D_SM4		= 5,
 	SP_OPENGL_SM5		= 6,
 	/** Used when running in Feature Level ES2 in D3D11. */
@@ -62,8 +62,9 @@ enum EShaderPlatform
 	SP_SWITCH				= 26,
 	SP_SWITCH_FORWARD		= 27,
 	SP_METAL_MRT_MAC	= 28,
+	SP_XBOXONE_D3D11    = 29,
 
-	SP_NumPlatforms		= 29,
+	SP_NumPlatforms		= 30,
 	SP_NumBits			= 5,
 };
 static_assert(SP_NumPlatforms <= (1 << SP_NumBits), "SP_NumPlatforms will not fit on SP_NumBits");
@@ -491,6 +492,8 @@ static_assert(PT_Num <= (1 << PT_NumBits), "PT_NumBits is too small");
  */
 enum EBufferUsageFlags
 {
+	BUF_None			  = 0x0000,
+
 	// Mutually exclusive write-frequency flags
 	BUF_Static            = 0x0001, // The buffer will be written to once.
 	BUF_Dynamic           = 0x0002, // The buffer will be written to occasionally, GPU read only, CPU write only.  The data lifetime is until the next update, or the buffer is destroyed.
@@ -525,8 +528,11 @@ enum EBufferUsageFlags
 	 */
 	BUF_ZeroStride        = 0x0800,
 
-	/** Buffer should go in fast vram (hint only) */
+	/** Buffer should go in fast vram (hint only). Requires BUF_Transient */
 	BUF_FastVRAM          = 0x1000,
+
+	/** Buffer should be allocated from transient memory. */
+	BUF_Transient		  = 0x2000,
 
 	// Helper bit-masks
 	BUF_AnyDynamic = (BUF_Dynamic | BUF_Volatile),
@@ -629,7 +635,9 @@ enum ETextureCreateFlags
 	// Hint to the driver that this resource is managed properly by the engine for Alternate-Frame-Rendering in mGPU usage.
 	TexCreate_AFRManual = 1 << 29,
 	// Workaround for 128^3 volume textures getting bloated 4x due to tiling mode on PS4
-	TexCreate_ReduceMemoryWithTilingMode = 1 << 30
+	TexCreate_ReduceMemoryWithTilingMode = 1 << 30,
+	/** Texture should be allocated from transient memory. */
+	TexCreate_Transient = 1 << 31
 };
 
 enum EAsyncComputePriority
@@ -750,7 +758,12 @@ inline bool IsMetalPlatform(const EShaderPlatform Platform)
 
 inline bool IsConsolePlatform(const EShaderPlatform Platform)
 {
-	return Platform == SP_PS4 || Platform == SP_XBOXONE;
+	return Platform == SP_PS4 || Platform == SP_XBOXONE_D3D12 || Platform == SP_XBOXONE_D3D11;
+}
+
+inline bool IsSwitchPlatform(const EShaderPlatform Platform)
+{
+	return Platform == SP_SWITCH || Platform == SP_SWITCH_FORWARD;
 }
 
 inline bool IsVulkanPlatform(const EShaderPlatform Platform)
@@ -777,13 +790,19 @@ inline bool IsD3DPlatform(const EShaderPlatform Platform, bool bIncludeXboxOne)
 	case SP_PCD3D_ES3_1:
 	case SP_PCD3D_ES2:
 		return true;
-	case SP_XBOXONE:
+	case SP_XBOXONE_D3D12:
+	case SP_XBOXONE_D3D11:
 		return bIncludeXboxOne;
 	default:
 		break;
 	}
 
 	return false;
+}
+
+inline bool IsHlslccShaderPlatform(const EShaderPlatform Platform)
+{
+	return IsMetalPlatform(Platform) || IsVulkanPlatform(Platform) || IsSwitchPlatform(Platform) || IsOpenGLPlatform(Platform);
 }
 
 inline ERHIFeatureLevel::Type GetMaxSupportedFeatureLevel(EShaderPlatform InShaderPlatform)
@@ -793,7 +812,8 @@ inline ERHIFeatureLevel::Type GetMaxSupportedFeatureLevel(EShaderPlatform InShad
 	case SP_PCD3D_SM5:
 	case SP_OPENGL_SM5:
 	case SP_PS4:
-	case SP_XBOXONE:
+	case SP_XBOXONE_D3D12:
+	case SP_XBOXONE_D3D11:
 	case SP_OPENGL_ES31_EXT:
 	case SP_METAL_SM5:
 	case SP_VULKAN_SM5:
@@ -803,8 +823,8 @@ inline ERHIFeatureLevel::Type GetMaxSupportedFeatureLevel(EShaderPlatform InShad
 	case SP_PCD3D_SM4:
 	case SP_OPENGL_SM4:
 	case SP_OPENGL_SM4_MAC:
-    case SP_METAL_MRT:
-    case SP_METAL_MRT_MAC:
+	case SP_METAL_MRT:
+	case SP_METAL_MRT_MAC:
 	case SP_METAL_SM4:
 		return ERHIFeatureLevel::SM4;
 	case SP_PCD3D_ES2:
@@ -847,7 +867,7 @@ inline bool RHINeedsToSwitchVerticalAxis(EShaderPlatform Platform)
 
 	// ES2 & ES3.1 need to flip when rendering to an RT that will be post processed
 	return IsOpenGLPlatform(Platform) && IsMobilePlatform(Platform) && !IsPCPlatform(Platform) && Platform != SP_METAL && !IsVulkanPlatform(Platform)
-	       && Platform != SP_SWITCH && Platform != SP_SWITCH_FORWARD;
+		   && Platform != SP_SWITCH && Platform != SP_SWITCH_FORWARD;
 }
 
 inline bool RHISupportsSeparateMSAAAndResolveTextures(const EShaderPlatform Platform)
@@ -876,7 +896,7 @@ inline bool RHISupportsGeometryShaders(const EShaderPlatform Platform)
 
 inline bool RHISupportsShaderCompression(const EShaderPlatform Platform)
 {
-	return Platform != SP_XBOXONE; // Handled automatically with hardware decompress
+	return ( Platform != SP_XBOXONE_D3D12) && ( Platform != SP_XBOXONE_D3D11 ); // Handled automatically with hardware decompress
 }
 
 inline bool RHIHasTiledGPU(const EShaderPlatform Platform)

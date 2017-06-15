@@ -49,8 +49,26 @@ DECLARE_CYCLE_STAT(TEXT("Component DestroyRenderState"), STAT_ComponentDestroyRe
 DECLARE_CYCLE_STAT(TEXT("Component CreatePhysicsState"), STAT_ComponentCreatePhysicsState, STATGROUP_Component);
 DECLARE_CYCLE_STAT(TEXT("Component DestroyPhysicsState"), STAT_ComponentDestroyPhysicsState, STATGROUP_Component);
 
+// Should we tick latent actions fired for a component at the same time as the component?
+// - Non-zero values behave the same way as actors do, ticking pending latent action when the component ticks, instead of later on in the frame
+// - Prior to 4.16, components behaved as if the value were 0, which meant their latent actions behaved differently to actors
+//DEPRECATED(4.16, "This CVar will be removed, with the behavior permanently changing in the future to always tick component latent actions along with the component")
+int32 GTickComponentLatentActionsWithTheComponent = 1;
+
+// Should we tick latent actions fired for a component at the same time as the component?
+FAutoConsoleVariableRef GTickComponentLatentActionsWithTheComponentCVar(
+	TEXT("t.TickComponentLatentActionsWithTheComponent"),
+	GTickComponentLatentActionsWithTheComponent,
+	TEXT("Should we tick latent actions fired for a component at the same time as the component?\n")
+	TEXT(" 0: Tick component latent actions later on in the frame (behavior prior to 4.16, provided for games relying on the old behavior but will be removed in the future)\n")
+	TEXT(" 1: Tick component latent actions at the same time as the component (default)"));
+
 /** Enable to log out all render state create, destroy and updatetransform events */
 #define LOG_RENDER_STATE 0
+
+#if WITH_EDITOR
+FUObjectAnnotationSparseBool GSelectedComponentAnnotation;
+#endif
 
 /** Static var indicating activity of reregister context */
 int32 FGlobalComponentReregisterContext::ActiveGlobalReregisterContextCount = 0;
@@ -614,6 +632,11 @@ void UActorComponent::PostEditUndo()
 	Super::PostEditUndo();
 }
 
+bool UActorComponent::IsSelectedInEditor() const
+{
+	return !IsPendingKill() && GSelectedComponentAnnotation.Get(this);
+}
+
 void UActorComponent::ConsolidatedPostEditChange(const FPropertyChangedEvent& PropertyChangedEvent)
 {
 	static const FName NAME_CanEverAffectNavigation = GET_MEMBER_NAME_CHECKED(UActorComponent, bCanEverAffectNavigation);
@@ -866,15 +889,17 @@ void UActorComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, F
 
 	ReceiveTick(DeltaTime);
 
-	// Update any latent actions we have for this component, this will update even if paused if bUpdateWhilePaused is enabled
-	// If this tick is skipped on a frame because we've got a TickInterval, our latent actions will be ticked
-	// anyway by UWorld::Tick(). Given that, our latent actions don't need to be passed a larger
-	// DeltaSeconds to make up the frames that they missed (because they wouldn't have missed any).
-	// So pass in the world's DeltaSeconds value rather than our specific DeltaSeconds value.
-	UWorld* ComponentWorld = GetWorld();
-	if (ComponentWorld)
+	if (GTickComponentLatentActionsWithTheComponent)
 	{
-		ComponentWorld->GetLatentActionManager().ProcessLatentActions(this, ComponentWorld->GetDeltaSeconds());
+		// Update any latent actions we have for this component, this will update even if paused if bUpdateWhilePaused is enabled
+		// If this tick is skipped on a frame because we've got a TickInterval, our latent actions will be ticked
+		// anyway by UWorld::Tick(). Given that, our latent actions don't need to be passed a larger
+		// DeltaSeconds to make up the frames that they missed (because they wouldn't have missed any).
+		// So pass in the world's DeltaSeconds value rather than our specific DeltaSeconds value.
+		if (UWorld* ComponentWorld = GetWorld())
+		{
+			ComponentWorld->GetLatentActionManager().ProcessLatentActions(this, ComponentWorld->GetDeltaSeconds());
+		}
 	}
 }
 
@@ -1668,7 +1693,7 @@ void UActorComponent::DetermineUCSModifiedProperties()
 
 			virtual bool ShouldSkipProperty(const UProperty* InProperty) const override
 			{
-				return (    InProperty->HasAnyPropertyFlags(CPF_Transient | CPF_ContainsInstancedReference | CPF_InstancedReference)
+				return (    InProperty->HasAnyPropertyFlags(CPF_Transient)
 						|| !InProperty->HasAnyPropertyFlags(CPF_Edit | CPF_Interp));
 			}
 		} PropertySkipper;

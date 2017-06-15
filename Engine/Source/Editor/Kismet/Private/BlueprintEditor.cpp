@@ -586,7 +586,8 @@ bool FBlueprintEditor::OnRequestClose()
 
 bool FBlueprintEditor::InEditingMode() const
 {
-	return !InDebuggingMode();
+	UBlueprint* Blueprint = GetBlueprintObj();
+	return !FSlateApplication::Get().InKismetDebuggingMode() && (!InDebuggingMode() || (Blueprint && Blueprint->CanRecompileWhilePlayingInEditor()));
 }
 
 bool FBlueprintEditor::IsCompilingEnabled() const
@@ -995,6 +996,11 @@ TSharedRef<SGraphEditor> FBlueprintEditor::CreateGraphEditorWidget(TSharedRef<FT
 				FExecuteAction::CreateSP(this, &FBlueprintEditor::OnRestoreAllStructVarPins),
 				FCanExecuteAction::CreateSP(this, &FBlueprintEditor::CanRestoreAllStructVarPins)
 				);
+
+			GraphEditorCommands->MapAction(FGraphEditorCommands::Get().ResetPinToDefaultValue,
+				FExecuteAction::CreateSP(this, &FBlueprintEditor::OnResetPinToDefaultValue),
+				FCanExecuteAction::CreateSP(this, &FBlueprintEditor::CanResetPinToDefaultValue)
+			);
 
 			GraphEditorCommands->MapAction( FGraphEditorCommands::Get().AddOptionPin,
 				FExecuteAction::CreateSP( this, &FBlueprintEditor::OnAddOptionPin ),
@@ -1612,6 +1618,7 @@ void FBlueprintEditor::CommonInitialization(const TArray<UBlueprint*>& InitBluep
 		// When the blueprint that we are observing changes, it will notify this wrapper widget.
 		InitBlueprint->OnChanged().AddSP(this, &FBlueprintEditor::OnBlueprintChanged);
 		InitBlueprint->OnCompiled().AddSP(this, &FBlueprintEditor::OnBlueprintCompiled);
+		InitBlueprint->OnSetObjectBeingDebugged().AddSP(this, &FBlueprintEditor::HandleSetObjectBeingDebugged);
 	}
 
 	CreateDefaultCommands();
@@ -2180,6 +2187,8 @@ FBlueprintEditor::~FBlueprintEditor()
 	if (GetBlueprintObj())
 	{
 		GetBlueprintObj()->OnChanged().RemoveAll( this );
+		GetBlueprintObj()->OnCompiled().RemoveAll( this );
+		GetBlueprintObj()->OnSetObjectBeingDebugged().RemoveAll( this );
 	}
 
 	FGlobalTabmanager::Get()->OnActiveTabChanged_Unsubscribe( OnActiveTabChangedDelegateHandle );
@@ -2921,7 +2930,7 @@ void FBlueprintEditor::NavigateToChildGraph_Clicked()
 	{
 		UEdGraph* CurrentGraph = FocusedGraphEdPtr.Pin()->GetCurrentGraph();
 
-		if (CurrentGraph->SubGraphs.Num() > 0)
+		if (CurrentGraph->SubGraphs.Num() > 1)
 		{
 			// Display a child jump list
 			FSlateApplication::Get().PushMenu( 
@@ -3556,9 +3565,13 @@ void FBlueprintEditor::JumpToHyperlink(const UObject* ObjectReference, bool bReq
 			OpenDocument(const_cast<UEdGraph*>(FunctionGraph), FDocumentTracker::OpenNewDocument);
 		}
 	}
+	else if ((ObjectReference != nullptr) && ObjectReference->IsAsset())
+	{
+		FAssetEditorManager::Get().OpenEditorForAsset(const_cast<UObject*>(ObjectReference));
+	}
 	else
 	{
-		UE_LOG(LogBlueprint, Warning, TEXT("Unknown type of hyperlinked object"));
+		UE_LOG(LogBlueprint, Warning, TEXT("Unknown type of hyperlinked object (%s)"), *GetNameSafe(ObjectReference));
 	}
 
 	//@TODO: Hacky way to ensure a message is seen when hitting an exception and doing intraframe debugging
@@ -3983,25 +3996,24 @@ void  FBlueprintEditor::OnRemoveExecutionPin()
 
 bool FBlueprintEditor::CanRemoveExecutionPin() const
 {
-	bool bReturnValue = true;
-
-	const FGraphPanelSelectionSet& SelectedNodes = GetSelectedNodes();
-
-	// Iterate over all nodes, and make sure all execution sequence nodes will always have at least 2 outs
-	for (FGraphPanelSelectionSet::TConstIterator It(SelectedNodes); It; ++It)
+	TSharedPtr<SGraphEditor> FocusedGraphEd = FocusedGraphEdPtr.Pin();
+	if (FocusedGraphEd.IsValid())
 	{
-		UK2Node_ExecutionSequence* SeqNode = Cast<UK2Node_ExecutionSequence>(*It);
-		if (SeqNode != NULL)
+		const FScopedTransaction Transaction(LOCTEXT("RemoveExecutionPin", "Remove Execution Pin"));
+
+		UEdGraphPin* SelectedPin = FocusedGraphEd->GetGraphPinForMenu();
+		UEdGraphNode* OwningNode = SelectedPin->GetOwningNode();
+
+		if (UK2Node_ExecutionSequence* SeqNode = Cast<UK2Node_ExecutionSequence>(OwningNode))
 		{
-			bReturnValue = SeqNode->CanRemoveExecutionPin();
-			if (!bReturnValue)
-			{
-				break;
-			}
+			return SeqNode->CanRemoveExecutionPin();
+		}
+		else if (UK2Node_Switch* SwitchNode = Cast<UK2Node_Switch>(OwningNode))
+		{
+			return SwitchNode->CanRemoveExecutionPin(SelectedPin);
 		}
 	}
-
-	return bReturnValue;
+	return false;
 }
 
 void  FBlueprintEditor::OnRemoveThisStructVarPin()
@@ -4092,6 +4104,39 @@ bool FBlueprintEditor::CanRestoreAllStructVarPins() const
 	FGraphPanelSelectionSet::TConstIterator It(SelectedNodes);
 	UK2Node_SetFieldsInStruct* Node = (!!It) ? Cast<UK2Node_SetFieldsInStruct>(*It) : NULL;
 	return Node && !Node->AllPinsAreShown();
+}
+
+void FBlueprintEditor::OnResetPinToDefaultValue()
+{
+	TSharedPtr<SGraphEditor> FocusedGraphEd = FocusedGraphEdPtr.Pin();
+	if (FocusedGraphEd.IsValid())
+	{
+		UEdGraphPin* TargetPin = FocusedGraphEd->GetGraphPinForMenu();
+
+		check(TargetPin);
+
+		const FScopedTransaction Transaction(LOCTEXT("ResetPinToDefaultValue", "Reset Pin To Default Value"));
+
+		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
+		K2Schema->ResetPinToAutogeneratedDefaultValue(TargetPin);
+	}
+}
+
+bool FBlueprintEditor::CanResetPinToDefaultValue() const
+{
+	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
+
+	bool bCanRecombine = false;
+	TSharedPtr<SGraphEditor> FocusedGraphEd = FocusedGraphEdPtr.Pin();
+	if (FocusedGraphEd.IsValid())
+	{
+		if (UEdGraphPin* Pin = FocusedGraphEd->GetGraphPinForMenu())
+		{
+			return !Pin->DoesDefaultValueMatchAutogenerated();
+		}
+	}
+
+	return false;
 }
 
 void FBlueprintEditor::OnAddOptionPin()
@@ -5006,58 +5051,43 @@ bool FBlueprintEditor::CanPromoteSelectionToMacro() const
 
 void FBlueprintEditor::OnExpandNodes()
 {
-	const FScopedTransaction Transaction( FGraphEditorCommands::Get().ExpandNodes->GetDescription() );
+	const FScopedTransaction Transaction( FGraphEditorCommands::Get().ExpandNodes->GetLabel() );
 	GetBlueprintObj()->Modify();
 
-	// Expand all composite nodes back in place
 	TSet<UEdGraphNode*> ExpandedNodes;
-
 	TSharedPtr<SGraphEditor> FocusedGraphEd = FocusedGraphEdPtr.Pin();
 
+	// Expand selected nodes into the focused graph context.
 	const FGraphPanelSelectionSet SelectedNodes = GetSelectedNodes();
 	for (FGraphPanelSelectionSet::TConstIterator NodeIt(SelectedNodes); NodeIt; ++NodeIt)
 	{
+		ExpandedNodes.Empty();
+		bool bExpandedNodesNeedUniqueGuid = true;
+
+		DocumentManager->CleanInvalidTabs();
+
 		if (UK2Node_MacroInstance* SelectedMacroInstanceNode = Cast<UK2Node_MacroInstance>(*NodeIt))
 		{
 			UEdGraph* MacroGraph = SelectedMacroInstanceNode->GetMacroGraph();
 			if(MacroGraph)
 			{
-				DocumentManager->CleanInvalidTabs();
-
 				// Clone the graph so that we do not delete the original
 				UEdGraph* ClonedGraph = FEdGraphUtilities::CloneGraph(MacroGraph, NULL);
 				ExpandNode(SelectedMacroInstanceNode, ClonedGraph, /*inout*/ ExpandedNodes);
 
-				//Remove this node from selection
-				FocusedGraphEd->SetNodeSelection(SelectedMacroInstanceNode, false);
-
 				ClonedGraph->MarkPendingKill();
-
-				//Add expanded nodes to selection
-				for (UEdGraphNode* ExpandedNode : ExpandedNodes)
-				{
-					FocusedGraphEd->SetNodeSelection(ExpandedNode, true);
-				}
 			}
 		}
 		else if (UK2Node_Composite* SelectedCompositeNode = Cast<UK2Node_Composite>(*NodeIt))
 		{
-			DocumentManager->CleanInvalidTabs();
+			// No need to assign unique GUIDs since the source graph will be removed.
+			bExpandedNodesNeedUniqueGuid = false;
 
 			// Expand the composite node back into the world
 			UEdGraph* SourceGraph = SelectedCompositeNode->BoundGraph;
-
 			ExpandNode(SelectedCompositeNode, SourceGraph, /*inout*/ ExpandedNodes);
+
 			FBlueprintEditorUtils::RemoveGraph(GetBlueprintObj(), SourceGraph, EGraphRemoveFlags::Recompile);
-
-			//Remove this node from selection
-			FocusedGraphEd->SetNodeSelection(SelectedCompositeNode, false);
-
-			//Add expanded nodes to selection
-			for (UEdGraphNode* ExpandedNode : ExpandedNodes)
-			{
-				FocusedGraphEd->SetNodeSelection(ExpandedNode, true);
-			}
 		}
 		else if (UK2Node_CallFunction* SelectedCallFunctionNode = Cast<UK2Node_CallFunction>(*NodeIt))
 		{
@@ -5069,22 +5099,47 @@ void FBlueprintEditor::OnExpandNodes()
 
 			if(FunctionGraph)
 			{
-				DocumentManager->CleanInvalidTabs();
-
 				// Clone the graph so that we do not delete the original
 				UEdGraph* ClonedGraph = FEdGraphUtilities::CloneGraph(FunctionGraph, NULL);
 				ExpandNode(SelectedCallFunctionNode, ClonedGraph, ExpandedNodes);
 
-				//Remove this node from selection
-				FocusedGraphEd->SetNodeSelection(SelectedCallFunctionNode, false);
-
 				ClonedGraph->MarkPendingKill();
+			}
+		}
 
-				//Add expanded nodes to selection
-				for (UEdGraphNode* ExpandedNode : ExpandedNodes)
+		if (ExpandedNodes.Num() > 0)
+		{
+			FVector2D AvgNodePosition(0.0f, 0.0f);
+
+			for (TSet<UEdGraphNode*>::TIterator It(ExpandedNodes); It; ++It)
+			{
+				UEdGraphNode* Node = *It;
+				AvgNodePosition.X += Node->NodePosX;
+				AvgNodePosition.Y += Node->NodePosY;
+			}
+
+			float InvNumNodes = 1.0f / float(ExpandedNodes.Num());
+			AvgNodePosition.X *= InvNumNodes;
+			AvgNodePosition.Y *= InvNumNodes;
+
+			//Remove source node from selection
+			UEdGraphNode* SourceNode = CastChecked<UEdGraphNode>(*NodeIt);
+			FocusedGraphEd->SetNodeSelection(SourceNode, false);
+
+			for (UEdGraphNode* ExpandedNode : ExpandedNodes)
+			{
+				ExpandedNode->NodePosX = (ExpandedNode->NodePosX - AvgNodePosition.X) + SourceNode->NodePosX;
+				ExpandedNode->NodePosY = (ExpandedNode->NodePosY - AvgNodePosition.Y) + SourceNode->NodePosY;
+
+				ExpandedNode->SnapToGrid(SNodePanel::GetSnapGridSize());
+
+				if (bExpandedNodesNeedUniqueGuid)
 				{
-					FocusedGraphEd->SetNodeSelection(ExpandedNode, true);
+					ExpandedNode->CreateNewGuid();
 				}
+
+				//Add expanded node to selection
+				FocusedGraphEd->SetNodeSelection(ExpandedNode, true);
 			}
 		}
 	}
@@ -6197,11 +6252,11 @@ void FBlueprintEditor::OnDisallowedPinConnection(const UEdGraphPin* PinA, const 
 {
 	FDisallowedPinConnection NewRecord;
 	NewRecord.PinTypeCategoryA = PinA->PinType.PinCategory;
-	NewRecord.bPinIsArrayA = PinA->PinType.bIsArray;
+	NewRecord.bPinIsArrayA = PinA->PinType.IsArray();
 	NewRecord.bPinIsReferenceA = PinA->PinType.bIsReference;
 	NewRecord.bPinIsWeakPointerA = PinA->PinType.bIsWeakPointer;
 	NewRecord.PinTypeCategoryB = PinB->PinType.PinCategory;
-	NewRecord.bPinIsArrayB = PinB->PinType.bIsArray;
+	NewRecord.bPinIsArrayB = PinB->PinType.IsArray();
 	NewRecord.bPinIsReferenceB = PinB->PinType.bIsReference;
 	NewRecord.bPinIsWeakPointerB = PinB->PinType.bIsWeakPointer;
 	AnalyticsStats.GraphDisallowedPinConnections.Add(NewRecord);

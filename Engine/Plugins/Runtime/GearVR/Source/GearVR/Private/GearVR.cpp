@@ -271,6 +271,8 @@ bool FGearVR::OnStartGameFrame( FWorldContext& WorldContext )
 
 	rv = GetEyePoses(*CurrentFrame, CurrentFrame->CurEyeRenderPose, CurrentFrame->CurSensorState);
 
+	UpdateHMDWornState();
+
 #if !UE_BUILD_SHIPPING
 	{ // used for debugging, do not remove
 		FQuat CurHmdOrientation;
@@ -286,6 +288,30 @@ bool FGearVR::OnStartGameFrame( FWorldContext& WorldContext )
 FGameFrame* FGearVR::GetFrame() const
 {
 	return static_cast<FGameFrame*>(GetCurrentFrame());
+}
+
+EHMDWornState::Type FGearVR::GetHMDWornState()
+{
+	return HMDWornState;
+}
+
+void FGearVR::UpdateHMDWornState()
+{
+	bool isHMTMounted = (vrapi_GetSystemStatusInt(&JavaGT, VRAPI_SYS_STATUS_MOUNTED) != VRAPI_FALSE);
+	EHMDWornState::Type NewHMDWornState = isHMTMounted ? EHMDWornState::Worn : EHMDWornState::NotWorn;
+
+	if (NewHMDWornState != HMDWornState)
+	{
+		HMDWornState = NewHMDWornState;
+		if (HMDWornState == EHMDWornState::Worn)
+		{
+			FCoreDelegates::VRHeadsetPutOnHead.Broadcast();
+		}
+		else if (HMDWornState == EHMDWornState::NotWorn)
+		{
+			FCoreDelegates::VRHeadsetRemovedFromHead.Broadcast();
+		}
+	}
 }
 
 EHMDDeviceType::Type FGearVR::GetHMDDeviceType() const
@@ -439,7 +465,7 @@ void FGearVR::FOVCommandHandler(const TArray<FString>& Args, UWorld* World, FOut
 	const bool bEnableDevOverrides = (DevOverridesTCVar && DevOverridesTCVar->GetValueOnAnyThread() != 0);
 	const TCHAR* FieldName = bIsVertical ? TEXT("VFOV") : TEXT("HFOV");
 	FSettings* CurrentSettings = GetSettings();
-	float& Field = bIsVertical ? CurrentSettings->VFOVInRadians : CurrentSettings->VFOVInRadians;
+	float& Field = bIsVertical ? CurrentSettings->VFOVInRadians : CurrentSettings->HFOVInRadians;
 
 	if (Args.Num() > 0)
 	{
@@ -1078,7 +1104,7 @@ void FGearVR::UpdateStereoRenderingParams()
 {
 	FSettings* CurrentSettings = GetSettings();
 
-	if ((!CurrentSettings->IsStereoEnabled() && !CurrentSettings->Flags.bHeadTrackingEnforced))
+	if (!CurrentSettings->IsStereoEnabled() && !CurrentSettings->Flags.bHeadTrackingEnforced)
 	{
 		return;
 	}

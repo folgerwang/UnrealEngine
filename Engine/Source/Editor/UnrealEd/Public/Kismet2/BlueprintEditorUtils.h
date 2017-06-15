@@ -70,6 +70,8 @@ public:
 			&& (NULL != Cast<UEdGraph>(Node->GetOuter()));
 	}
 
+	virtual ~FBasePinChangeHelper() { }
+
 	virtual void EditCompositeTunnelNode(class UK2Node_Tunnel* TunnelNode) {}
 
 	virtual void EditMacroInstance(class UK2Node_MacroInstance* MacroInstance, UBlueprint* Blueprint) {}
@@ -254,6 +256,9 @@ public:
 	 * Whether or not the blueprint should regenerate its class on load or not.  This prevents macros and other BP types not marked for reconstruction from being recompiled all the time
 	 */
 	static bool ShouldRegenerateBlueprint(UBlueprint* Blueprint);
+
+	/** Returns true if compilation for the given blueprint has been disabled */
+	static bool IsCompileOnLoadDisabled(UBlueprint* Blueprint);
 
 	/**
 	 * Blueprint has structurally changed (added/removed functions, graphs, etc...). Performs the following actions:
@@ -907,7 +912,7 @@ public:
 	static void ReplaceVariableReferences(UBlueprint* Blueprint, const UProperty* OldVariable, const UProperty* NewVariable);
 
 	/** Check blueprint variable metadata keys/values for validity and make adjustments if needed */
-	static void ValidateBlueprintVariableMetadata(FBPVariableDescription& VarDesc);
+	static void FixupVariableDescription(UBlueprint* Blueprint, FBPVariableDescription& VarDesc);
 
 	/** Validate child blueprint component member variables, member variables, and timelines, and function graphs against the given variable name */
 	static void ValidateBlueprintChildVariables(UBlueprint* InBlueprint, const FName InVariableName);
@@ -1078,14 +1083,16 @@ public:
 	/** Indicates if the variable is used on any graphs in this Blueprint*/
 	static bool IsVariableUsed(const UBlueprint* Blueprint, const FName& Name, UEdGraph* LocalGraphScope = nullptr);
 
-	static void ImportKismetDefaultValueToProperty(UEdGraphPin* SourcePin, UProperty* DestinationProperty, uint8* DestinationAddress, UObject* OwnerObject);
-	
-	static void ExportPropertyToKismetDefaultValue(UEdGraphPin* TargetPin, UProperty* SourceProperty, uint8* SourceAddress, UObject* OwnerObject);
+	/** Copies the value from the passed in string into a property. ContainerMem points to the Struct or Class containing Property */
+	static bool PropertyValueFromString(const UProperty* Property, const FString& StrValue, uint8* Container);
 
-	static bool PropertyValueFromString(const UProperty* Property, const FString& StrValue, uint8* ContainerMem);
+	/** Copies the value from the passed in string into a property. DirectValue is the raw memory address of the property value */
+	static bool PropertyValueFromString_Direct(const UProperty* Property, const FString& StrValue, uint8* DirectValue);
 
+	/** Copies the value from a property into the string OutForm. ContainerMem points to the Struct or Class containing Property */
 	static bool PropertyValueToString(const UProperty* Property, const uint8* Container, FString& OutForm);
 
+	/** Copies the value from a property into the string OutForm. DirectValue is the raw memory address of the property value */
 	static bool PropertyValueToString_Direct(const UProperty* Property, const uint8* DirectValue, FString& OutForm);
 
 	/** Call PostEditChange() on all Actors based on the given Blueprint */

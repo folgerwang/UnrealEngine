@@ -492,7 +492,7 @@ void ExportPxHeightField(PxHeightField const * const HeightField, const FTransfo
 	{
 		for (int32 X = 0; X < NumCols - 1; X++)
 		{
-			const int32 SampleIdx = (bMirrored ? X : (NumCols - X - 1))*NumCols + Y;
+			const int32 SampleIdx = (bMirrored ? X : (NumCols - X - 1 - 1))*NumCols + Y;
 			const PxHeightFieldSample& Sample = HFSamples[SampleIdx];
 			const bool bIsHole = (Sample.materialIndex0 == PxHeightFieldMaterial::eHOLE);
 			if (bIsHole)
@@ -962,7 +962,7 @@ FORCEINLINE_DEBUGGABLE void ExportComponent(UActorComponent* Component, FRecastG
 	UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(Component);
 	if (PrimComp && PrimComp->IsNavigationRelevant() && (PrimComp->HasCustomNavigableGeometry() != EHasCustomNavigableGeometry::DontExport))
 	{
-		if (PrimComp->HasCustomNavigableGeometry() && !PrimComp->DoCustomNavigableGeometryExport(GeomExport)) 
+		if ((PrimComp->HasCustomNavigableGeometry() != EHasCustomNavigableGeometry::Type::No) && !PrimComp->DoCustomNavigableGeometryExport(GeomExport))
 		{
 			bHasData = true;
 		}
@@ -972,7 +972,7 @@ FORCEINLINE_DEBUGGABLE void ExportComponent(UActorComponent* Component, FRecastG
 		{
 			if (!bHasData)
 			{
-				ExportRigidBodySetup(*BodySetup, GeomExport.VertexBuffer, GeomExport.IndexBuffer, GeomExport.Data->Bounds, PrimComp->ComponentToWorld);
+				ExportRigidBodySetup(*BodySetup, GeomExport.VertexBuffer, GeomExport.IndexBuffer, GeomExport.Data->Bounds, PrimComp->GetComponentTransform());
 				bHasData = true;
 			}
 
@@ -3646,7 +3646,7 @@ TArray<uint32> FRecastNavMeshGenerator::RemoveTileLayers(const int32 TileX, cons
 	
 	if (DetourMesh != nullptr && DetourMesh->isEmpty() == false)
 	{
-		const int32 NumLayers = DetourMesh != nullptr ? DetourMesh->getTileCountAt(TileX, TileY) : 0;
+		const int32 NumLayers = DetourMesh->getTileCountAt(TileX, TileY);
 
 		if (NumLayers > 0)
 		{

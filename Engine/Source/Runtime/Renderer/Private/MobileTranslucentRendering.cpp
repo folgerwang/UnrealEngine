@@ -276,9 +276,7 @@ template <class TDrawingPolicyFactory>
 void FTranslucentPrimSet::DrawPrimitivesForMobile(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState,
 	typename TDrawingPolicyFactory::ContextType& DrawingContext) const
 {
-	ETranslucencyPass::Type TranslucencyPass = DrawingContext.ShouldRenderSeparateTranslucency() ? ETranslucencyPass::TPT_SeparateTranslucency : ETranslucencyPass::TPT_StandardTranslucency;
-
-	FInt32Range PassRange = SortedPrimsNum.GetPassRange(TranslucencyPass);
+	FInt32Range PassRange = SortedPrimsNum.GetPassRange(ETranslucencyPass::TPT_AllTranslucency);
 
 	// Draw sorted scene prims
 	for (int32 PrimIdx = PassRange.GetLowerBoundValue(); PrimIdx < PassRange.GetUpperBoundValue(); PrimIdx++)
@@ -327,7 +325,7 @@ void FTranslucentPrimSet::DrawPrimitivesForMobile(FRHICommandListImmediate& RHIC
 
 void FMobileSceneRenderer::RenderTranslucency(FRHICommandListImmediate& RHICmdList, const TArrayView<const FViewInfo*> PassViews)
 {
-	if (ShouldRenderTranslucency())
+	if (ShouldRenderTranslucency(ETranslucencyPass::TPT_AllTranslucency))
 	{
 		const bool bGammaSpace = !IsMobileHDR();
 		const bool bLinearHDR64 = !bGammaSpace && !IsMobileHDR32bpp();
@@ -352,7 +350,7 @@ void FMobileSceneRenderer::RenderTranslucency(FRHICommandListImmediate& RHICmdLi
 
 			if (!bGammaSpace)
 			{
-				FSceneRenderTargets::Get(RHICmdList).BeginRenderingTranslucency(RHICmdList, View);
+				FSceneRenderTargets::Get(RHICmdList).BeginRenderingTranslucency(RHICmdList, View, false);
 			}
 			else
 			{
@@ -670,7 +668,7 @@ bool FMobileSceneRenderer::RenderInverseOpacity(FRHICommandListImmediate& RHICmd
 {
 	bool bDirty = false;
 
-	if (ShouldRenderTranslucency())
+	if (ShouldRenderTranslucency(ETranslucencyPass::TPT_AllTranslucency))
 	{
 		const bool bGammaSpace = !IsMobileHDR();
 		const bool bLinearHDR64 = !bGammaSpace && !IsMobileHDR32bpp();

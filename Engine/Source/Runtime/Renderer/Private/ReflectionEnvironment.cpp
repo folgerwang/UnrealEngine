@@ -25,7 +25,7 @@
 #include "PostProcess/PostProcessing.h"
 #include "PostProcess/ScreenSpaceReflections.h"
 #include "LightRendering.h"
-#include "LightPropagationVolumeBlendable.h"
+#include "LightPropagationVolumeSettings.h"
 #include "PipelineStateCache.h"
 
 DECLARE_FLOAT_COUNTER_STAT(TEXT("Reflection Environment"), Stat_GPU_ReflectionEnvironment, STATGROUP_GPU);
@@ -209,7 +209,8 @@ void FReflectionEnvironmentSceneData::ResizeCubemapArrayGPU(uint32 InMaxCubemaps
 	int32 Count = 0;
 	for (int i = 0; i < CubemapArray.GetMaxCubemaps(); i++)
 	{
-		if (CubemapArraySlotsUsed[i] )
+		bool bUsed = i < CubemapArraySlotsUsed.Num() ? CubemapArraySlotsUsed[i] : false;
+		if (bUsed)
 		{
 			IndexRemapping.Add(Count);
 			Count++;
@@ -436,8 +437,9 @@ public:
 	{
 	}
 
+	template<typename TRHICommandList>
 	void SetParameters(
-		FRHIAsyncComputeCommandListImmediate& RHICmdList, 
+		TRHICommandList& RHICmdList,
 		const FViewInfo& View,
 		FTextureRHIParamRef SSRTexture,
 		FUnorderedAccessViewRHIParamRef OutSceneColorUAV, 
@@ -447,7 +449,7 @@ public:
 		const FComputeShaderRHIParamRef ShaderRHI = GetComputeShader();
 
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View);
+		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
 
 		FScene* Scene = (FScene*)View.Family->Scene;
 
@@ -487,7 +489,8 @@ public:
 		ForwardLightingParameters.Set(RHICmdList, ShaderRHI, View);
 	}
 
-	void UnsetParameters(FRHIAsyncComputeCommandListImmediate& RHICmdList, FUnorderedAccessViewRHIParamRef OutSceneColorUAV)
+	template<typename TRHICommandList>
+	void UnsetParameters(TRHICommandList& RHICmdList, FUnorderedAccessViewRHIParamRef OutSceneColorUAV)
 	{
 		const FComputeShaderRHIParamRef ShaderRHI = GetComputeShader();		
 		OutSceneColor.UnsetUAV(RHICmdList, ShaderRHI);
@@ -640,7 +643,7 @@ public:
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View);
+		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
 		SkyLightParameters.SetParameters(RHICmdList, ShaderRHI, (FScene*)View.Family->Scene, true);
 		
 		SetTextureParameter(RHICmdList, ShaderRHI, ReflectionEnvTexture, ReflectionEnvSampler, TStaticSamplerState<SF_Point>::GetRHI(), ReflectionEnv );
@@ -738,7 +741,7 @@ public:
 
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
 
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View);
+		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
 	}
 
 	// FShader interface.
@@ -811,7 +814,7 @@ public:
 			SetTextureParameter(RHICmdList, ShaderRHI, ReflectionEnvironmentColorTexture, ReflectionEnvironmentColorSampler, TStaticSamplerState<SF_Trilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(), SortData.SM4FullHDRCubemap->TextureRHI);
 		}
 
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View);
+		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
 		SetShaderValue(RHICmdList, ShaderRHI, CapturePositionAndRadius, SortData.PositionAndRadius);
 		SetShaderValue(RHICmdList, ShaderRHI, CaptureProperties, SortData.CaptureProperties);
 		SetShaderValue(RHICmdList, ShaderRHI, CaptureBoxTransform, SortData.BoxTransform);
@@ -1153,24 +1156,26 @@ void FDeferredShadingSceneRenderer::RenderTiledDeferredImageBasedReflections(FRH
 
 			static const FName TiledReflBeginComputeName(TEXT("ReflectionEnvBeginComputeFence"));
 			static const FName TiledReflEndComputeName(TEXT("ReflectionEnvEndComputeFence"));
-			FComputeFenceRHIRef ReflectionBeginFence = RHICmdList.CreateComputeFence(TiledReflBeginComputeName);
-			FComputeFenceRHIRef ReflectionEndFence = RHICmdList.CreateComputeFence(TiledReflEndComputeName);
+			//FComputeFenceRHIRef ReflectionBeginFence = RHICmdList.CreateComputeFence(TiledReflBeginComputeName);
+			//FComputeFenceRHIRef ReflectionEndFence = RHICmdList.CreateComputeFence(TiledReflEndComputeName);
 
 			//Grab the async compute commandlist.
-			FRHIAsyncComputeCommandListImmediate& RHICmdListComputeImmediate = FRHICommandListExecutor::GetImmediateAsyncComputeCommandList();
+			//FRHIAsyncComputeCommandListImmediate& RHICmdListComputeImmediate = FRHICommandListExecutor::GetImmediateAsyncComputeCommandList();
+			auto& RHICmdListComputeImmediate = RHICmdList;
 			{
-				SCOPED_COMPUTE_EVENTF(RHICmdListComputeImmediate, ReflectionEnvironment, TEXT("ReflectionEnvironment ComputeShader %dx%d Tile:%dx%d Box:%d Sphere:%d SkyLight:%d"),
+				/*SCOPED_COMPUTE_EVENTF(RHICmdListComputeImmediate, ReflectionEnvironment, TEXT("ReflectionEnvironment ComputeShader %dx%d Tile:%dx%d Box:%d Sphere:%d SkyLight:%d"),
 					View.ViewRect.Width(), View.ViewRect.Height(), GReflectionEnvironmentTileSizeX, GReflectionEnvironmentTileSizeY,
 					View.NumBoxReflectionCaptures, View.NumSphereReflectionCaptures, bHasSkyLight);
+					*/
 
 				ComputeShader = SelectReflectionEnvironmentTiledDeferredCS(View.ShaderMap, bUseLightmaps, bHasSkyLight, bHasBoxCaptures, bHasSphereCaptures, DynamicBentNormalAO != NULL);
 
 				//Really we should write this fence where we transition the final depedency for the reflections.  We may add an RHI command just for writing fences if this
 				//can't be done in the general case.  In the meantime, hack this command a bit to write the fence.
-				RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EGfxToCompute, nullptr, 0, ReflectionBeginFence);
+				//RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EGfxToCompute, nullptr, 0, ReflectionBeginFence);
 					
 				//we must wait on the fence written from the Gfx pipe to let us know all our dependencies are ready.
-				RHICmdListComputeImmediate.WaitComputeFence(ReflectionBeginFence);
+				//RHICmdListComputeImmediate.WaitComputeFence(ReflectionBeginFence);
 
 				//standard compute setup, but on the async commandlist.
 				RHICmdListComputeImmediate.SetComputeShader(ComputeShader->GetComputeShader());
@@ -1185,15 +1190,15 @@ void FDeferredShadingSceneRenderer::RenderTiledDeferredImageBasedReflections(FRH
 				ComputeShader->UnsetParameters(RHICmdListComputeImmediate, OutUAV);
 			
 				//transition the output to readable and write the fence to allow the Gfx pipe to carry on.
-				RHICmdListComputeImmediate.TransitionResources(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToGfx, &OutUAV, 1, ReflectionEndFence);
+				RHICmdListComputeImmediate.TransitionResources(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToGfx, &OutUAV, 1);// , ReflectionEndFence);
 			}
 
 			//immediately dispatch our async compute commands to the RHI thread to be submitted to the GPU as soon as possible.
 			//dispatch after the scope so the drawevent pop is inside the dispatch
-			FRHIAsyncComputeCommandListImmediate::ImmediateDispatch(RHICmdListComputeImmediate);			
+			//FRHIAsyncComputeCommandListImmediate::ImmediateDispatch(RHICmdListComputeImmediate);			
 			
 			//Gfx pipe must wait for the async compute reflection job to complete.
-			RHICmdList.WaitComputeFence(ReflectionEndFence);
+			//RHICmdList.WaitComputeFence(ReflectionEndFence);
 		}
 	}
 
