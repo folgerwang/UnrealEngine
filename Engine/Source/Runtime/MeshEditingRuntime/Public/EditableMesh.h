@@ -271,21 +271,43 @@ struct FMeshPolygonContour
 };
 
 
-USTRUCT()
+USTRUCT( BlueprintType )
 struct FMeshTriangle
 {
 	GENERATED_BODY()
 
-	/** The three vertex instances that make up this triangle, ordered counter-clockwise. */
-	UPROPERTY()
-	FVertexInstanceID VertexInstanceIDs[ 3 ];
+	/** First vertex instance that makes up this triangle.  Indices must be ordered counter-clockwise. */
+	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
+	FVertexInstanceID VertexInstanceID0;
+
+	/** Second vertex instance that makes up this triangle.  Indices must be ordered counter-clockwise. */
+	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
+	FVertexInstanceID VertexInstanceID1;
+
+	/** Third vertex instance that makes up this triangle.  Indices must be ordered counter-clockwise. */
+	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
+	FVertexInstanceID VertexInstanceID2;
+
+	/** Gets the specified triangle vertex instance ID.  Pass an index between 0 and 2 inclusive. */
+	inline FVertexInstanceID GetVertexInstanceID( const int32 Index ) const
+	{
+		checkSlow( Index >= 0 && Index <= 2 );
+		return reinterpret_cast<const FVertexInstanceID*>( this )[ Index ];
+	}
+
+	/** Sets the specified triangle vertex instance ID.  Pass an index between 0 and 2 inclusive, and the new vertex instance ID to store. */
+	inline void SetVertexInstanceID( const int32 Index, const FVertexInstanceID NewVertexInstanceID )
+	{
+		checkSlow( Index >= 0 && Index <= 2 );
+		( reinterpret_cast<FVertexInstanceID*>( this )[ Index ] ) = NewVertexInstanceID;
+	}
 
 	/** Serializer */
 	friend FArchive& operator<<( FArchive& Ar, FMeshTriangle& Tri )
 	{
-		Ar << Tri.VertexInstanceIDs[ 0 ];
-		Ar << Tri.VertexInstanceIDs[ 1 ];
-		Ar << Tri.VertexInstanceIDs[ 2 ];
+		Ar << Tri.VertexInstanceID0;
+		Ar << Tri.VertexInstanceID1;
+		Ar << Tri.VertexInstanceID2;
 		return Ar;
 	}
 };

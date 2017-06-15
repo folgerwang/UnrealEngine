@@ -242,9 +242,11 @@ void UEditableMesh::FixUpElementIDs( const FElementIDRemappings& Remappings )
 
 		for( FMeshTriangle& Triangle : Polygon.Triangles )
 		{
-			for( FVertexInstanceID& VertexInstanceID : Triangle.VertexInstanceIDs )
+			for( int32 TriangleVertexNumber = 0; TriangleVertexNumber < 3; ++TriangleVertexNumber )
 			{
-				VertexInstanceID = Remappings.GetRemappedVertexInstanceID( VertexInstanceID );
+				const FVertexInstanceID OriginalVertexInstanceID = Triangle.GetVertexInstanceID( TriangleVertexNumber );
+				const FVertexInstanceID NewVertexInstanceID = Remappings.GetRemappedVertexInstanceID( OriginalVertexInstanceID );
+				Triangle.SetVertexInstanceID( TriangleVertexNumber, NewVertexInstanceID );
 			}
 		}
 
@@ -1796,7 +1798,7 @@ FVector UEditableMesh::GetPolygonTriangulatedTriangleVertexPosition( const FPoly
 	checkSlow( Polygons.IsAllocated( PolygonID.GetValue() ) );
 	const FMeshPolygon& Polygon = Polygons[ PolygonID.GetValue() ];
 
-	const FVertexInstanceID VertexInstanceID = Polygon.Triangles[ PolygonTriangleNumber ].VertexInstanceIDs[ TriangleVertexNumber ];
+	const FVertexInstanceID VertexInstanceID = Polygon.Triangles[ PolygonTriangleNumber ].GetVertexInstanceID( TriangleVertexNumber );
 	checkSlow( VertexInstances.IsAllocated( VertexInstanceID.GetValue() ) );
 	const FVertexID VertexID = VertexInstances[ VertexInstanceID.GetValue() ].VertexID;
 
@@ -2716,9 +2718,9 @@ void UEditableMesh::ComputePolygonTriangulation( const FPolygonID PolygonID, TAr
 				OutTriangles.Emplace();
 				FMeshTriangle& Triangle = OutTriangles.Last();
 
-				Triangle.VertexInstanceIDs[ 0 ] = PolygonVertexInstanceIDs[ PrevVertexNumbers[ EarVertexNumber ] ];
-				Triangle.VertexInstanceIDs[ 1 ] = PolygonVertexInstanceIDs[ EarVertexNumber ];
-				Triangle.VertexInstanceIDs[ 2 ] = PolygonVertexInstanceIDs[ NextVertexNumbers[ EarVertexNumber ] ];
+				Triangle.SetVertexInstanceID( 0, PolygonVertexInstanceIDs[ PrevVertexNumbers[ EarVertexNumber ] ] );
+				Triangle.SetVertexInstanceID( 1, PolygonVertexInstanceIDs[ EarVertexNumber ] );
+				Triangle.SetVertexInstanceID( 2, PolygonVertexInstanceIDs[ NextVertexNumbers[ EarVertexNumber ] ] );
 			}
 
 			// Update our linked list.  We're effectively cutting off the ear by pointing the ear vertex's neighbors to
@@ -2760,9 +2762,9 @@ bool UEditableMesh::ComputeBarycentricWeightForPointOnPolygon( const FPolygonID 
 	// Figure out which triangle the incoming point is within
 	for( const FMeshTriangle& Triangle : Polygon.Triangles )
 	{
-		const FVector TriangleVertex0Position = GetVertexInstanceAttribute( Triangle.VertexInstanceIDs[ 0 ], UEditableMeshAttribute::VertexPosition(), 0 );
-		const FVector TriangleVertex1Position = GetVertexInstanceAttribute( Triangle.VertexInstanceIDs[ 1 ], UEditableMeshAttribute::VertexPosition(), 0 );
-		const FVector TriangleVertex2Position = GetVertexInstanceAttribute( Triangle.VertexInstanceIDs[ 2 ], UEditableMeshAttribute::VertexPosition(), 0 );
+		const FVector TriangleVertex0Position = GetVertexInstanceAttribute( Triangle.VertexInstanceID0, UEditableMeshAttribute::VertexPosition(), 0 );
+		const FVector TriangleVertex1Position = GetVertexInstanceAttribute( Triangle.VertexInstanceID1, UEditableMeshAttribute::VertexPosition(), 0 );
+		const FVector TriangleVertex2Position = GetVertexInstanceAttribute( Triangle.VertexInstanceID2, UEditableMeshAttribute::VertexPosition(), 0 );
 
 		// Calculate the barycentric weights for the triangle's verts and determine if the point lies within its bounds.
 		OutTriangleVertexWeights = FMath::ComputeBaryCentric2D( PointOnPolygon, TriangleVertex0Position, TriangleVertex1Position, TriangleVertex2Position );
@@ -2793,9 +2795,9 @@ void UEditableMesh::ComputeTextureCoordinatesForPointOnPolygon( const FPolygonID
 		for( int32 TextureCoordinateIndex = 0; TextureCoordinateIndex < TextureCoordinateCount; ++TextureCoordinateIndex )
 		{
 			OutInterpolatedTextureCoordinates[ TextureCoordinateIndex ] =
-				TriangleVertexWeights.X * GetVertexInstanceAttribute( Triangle.VertexInstanceIDs[ 0 ], UEditableMeshAttribute::VertexTextureCoordinate(), TextureCoordinateIndex ) +
-				TriangleVertexWeights.Y * GetVertexInstanceAttribute( Triangle.VertexInstanceIDs[ 1 ], UEditableMeshAttribute::VertexTextureCoordinate(), TextureCoordinateIndex ) +
-				TriangleVertexWeights.Z * GetVertexInstanceAttribute( Triangle.VertexInstanceIDs[ 2 ], UEditableMeshAttribute::VertexTextureCoordinate(), TextureCoordinateIndex );
+				TriangleVertexWeights.X * GetVertexInstanceAttribute( Triangle.VertexInstanceID0, UEditableMeshAttribute::VertexTextureCoordinate(), TextureCoordinateIndex ) +
+				TriangleVertexWeights.Y * GetVertexInstanceAttribute( Triangle.VertexInstanceID1, UEditableMeshAttribute::VertexTextureCoordinate(), TextureCoordinateIndex ) +
+				TriangleVertexWeights.Z * GetVertexInstanceAttribute( Triangle.VertexInstanceID2, UEditableMeshAttribute::VertexTextureCoordinate(), TextureCoordinateIndex );
 		}
 
 		bOutWereTextureCoordinatesFound = true;
@@ -5059,9 +5061,9 @@ void UEditableMesh::ChangePolygonsVertexInstances( const TArray<FChangeVertexIns
 				{
 					for( int32 VertexIndex = 0; VertexIndex < 3; ++VertexIndex )
 					{
-						if( Triangle.VertexInstanceIDs[ VertexIndex ] == OldVertexInstanceID )
+						if( Triangle.GetVertexInstanceID( VertexIndex ) == OldVertexInstanceID )
 						{
-							Triangle.VertexInstanceIDs[ VertexIndex ] = IndexAndInstance.VertexInstanceID;
+							Triangle.SetVertexInstanceID( VertexIndex, IndexAndInstance.VertexInstanceID );
 						}
 					}
 				}
@@ -5088,9 +5090,9 @@ void UEditableMesh::ChangePolygonsVertexInstances( const TArray<FChangeVertexIns
 					{
 						for( int32 VertexIndex = 0; VertexIndex < 3; ++VertexIndex )
 						{
-							if( Triangle.VertexInstanceIDs[ VertexIndex ] == OldVertexInstanceID )
+							if( Triangle.GetVertexInstanceID( VertexIndex ) == OldVertexInstanceID )
 							{
-								Triangle.VertexInstanceIDs[ VertexIndex ] = IndexAndInstance.VertexInstanceID;
+								Triangle.SetVertexInstanceID( VertexIndex, IndexAndInstance.VertexInstanceID );
 							}
 						}
 					}
@@ -6677,15 +6679,15 @@ void UEditableMesh::BevelOrInsetPolygons( const TArray<FPolygonID>& PolygonIDs, 
 				for( int32 TextureCoordinateIndex = 0; TextureCoordinateIndex < TextureCoordinateCount; ++TextureCoordinateIndex )
 				{
 					TextureCoordinatesForNewVertex[ TextureCoordinateIndex ] =
-						TriangleVertexWeights.X * GetVertexInstanceAttribute( Triangle.VertexInstanceIDs[ 0 ], UEditableMeshAttribute::VertexTextureCoordinate(), TextureCoordinateIndex ) +
-						TriangleVertexWeights.Y * GetVertexInstanceAttribute( Triangle.VertexInstanceIDs[ 1 ], UEditableMeshAttribute::VertexTextureCoordinate(), TextureCoordinateIndex ) +
-						TriangleVertexWeights.Z * GetVertexInstanceAttribute( Triangle.VertexInstanceIDs[ 2 ], UEditableMeshAttribute::VertexTextureCoordinate(), TextureCoordinateIndex );
+						TriangleVertexWeights.X * GetVertexInstanceAttribute( Triangle.VertexInstanceID0, UEditableMeshAttribute::VertexTextureCoordinate(), TextureCoordinateIndex ) +
+						TriangleVertexWeights.Y * GetVertexInstanceAttribute( Triangle.VertexInstanceID1, UEditableMeshAttribute::VertexTextureCoordinate(), TextureCoordinateIndex ) +
+						TriangleVertexWeights.Z * GetVertexInstanceAttribute( Triangle.VertexInstanceID2, UEditableMeshAttribute::VertexTextureCoordinate(), TextureCoordinateIndex );
 				}
 
 				VertexColorsForNewVertices.Add(
-					TriangleVertexWeights.X * GetVertexInstanceAttribute( Triangle.VertexInstanceIDs[ 0 ], UEditableMeshAttribute::VertexColor(), 0 ) +
-					TriangleVertexWeights.Y * GetVertexInstanceAttribute( Triangle.VertexInstanceIDs[ 1 ], UEditableMeshAttribute::VertexColor(), 0 ) +
-					TriangleVertexWeights.Z * GetVertexInstanceAttribute( Triangle.VertexInstanceIDs[ 2 ], UEditableMeshAttribute::VertexColor(), 0 )
+					TriangleVertexWeights.X * GetVertexInstanceAttribute( Triangle.VertexInstanceID0, UEditableMeshAttribute::VertexColor(), 0 ) +
+					TriangleVertexWeights.Y * GetVertexInstanceAttribute( Triangle.VertexInstanceID1, UEditableMeshAttribute::VertexColor(), 0 ) +
+					TriangleVertexWeights.Z * GetVertexInstanceAttribute( Triangle.VertexInstanceID2, UEditableMeshAttribute::VertexColor(), 0 )
 				);
 			}
 			else
@@ -6970,9 +6972,9 @@ void UEditableMesh::GeneratePolygonTangentsAndNormals( const TArray<FPolygonID>&
 
 		for( const FMeshTriangle& Triangle : Polygon.Triangles )
 		{
-			const FMeshVertexInstance& VertexInstance0 = VertexInstances[ Triangle.VertexInstanceIDs[ 0 ].GetValue() ];
-			const FMeshVertexInstance& VertexInstance1 = VertexInstances[ Triangle.VertexInstanceIDs[ 1 ].GetValue() ];
-			const FMeshVertexInstance& VertexInstance2 = VertexInstances[ Triangle.VertexInstanceIDs[ 2 ].GetValue() ];
+			const FMeshVertexInstance& VertexInstance0 = VertexInstances[ Triangle.VertexInstanceID0.GetValue() ];
+			const FMeshVertexInstance& VertexInstance1 = VertexInstances[ Triangle.VertexInstanceID1.GetValue() ];
+			const FMeshVertexInstance& VertexInstance2 = VertexInstances[ Triangle.VertexInstanceID2.GetValue() ];
 
 			const FMeshVertex& Vertex0 = Vertices[ VertexInstance0.VertexID.GetValue() ];
 			const FMeshVertex& Vertex1 = Vertices[ VertexInstance1.VertexID.GetValue() ];
@@ -7676,7 +7678,7 @@ void UEditableMesh::TriangulatePolygons( const TArray<FPolygonID>& PolygonIDs, T
 						PolygonToCreate.PerimeterVertices.Emplace();
 						FVertexAndAttributes& PerimeterVertex = PolygonToCreate.PerimeterVertices.Last();
 
-						PerimeterVertex.VertexInstanceID = Triangle.VertexInstanceIDs[ TriangleVertexNumber ];
+						PerimeterVertex.VertexInstanceID = Triangle.GetVertexInstanceID( TriangleVertexNumber );
 						PerimeterVertex.VertexID = FVertexID::Invalid;
 					}
 				}
@@ -8247,17 +8249,17 @@ void UEditableMesh::TessellatePolygons( const TArray<FPolygonID>& PolygonIDs, co
 									VertexAndAttributes.PolygonVertexAttributes.Attributes.Add( FMeshElementAttributeData(
 										UEditableMeshAttribute::VertexTextureCoordinate(),
 										TextureCoordinateIndex,
-										TriangleVertexWeights.X * GetVertexInstanceAttribute( Triangle.VertexInstanceIDs[ 0 ], UEditableMeshAttribute::VertexTextureCoordinate(), TextureCoordinateIndex ) +
-										TriangleVertexWeights.Y * GetVertexInstanceAttribute( Triangle.VertexInstanceIDs[ 1 ], UEditableMeshAttribute::VertexTextureCoordinate(), TextureCoordinateIndex ) +
-										TriangleVertexWeights.Z * GetVertexInstanceAttribute( Triangle.VertexInstanceIDs[ 2 ], UEditableMeshAttribute::VertexTextureCoordinate(), TextureCoordinateIndex ) ) );
+										TriangleVertexWeights.X * GetVertexInstanceAttribute( Triangle.VertexInstanceID0, UEditableMeshAttribute::VertexTextureCoordinate(), TextureCoordinateIndex ) +
+										TriangleVertexWeights.Y * GetVertexInstanceAttribute( Triangle.VertexInstanceID1, UEditableMeshAttribute::VertexTextureCoordinate(), TextureCoordinateIndex ) +
+										TriangleVertexWeights.Z * GetVertexInstanceAttribute( Triangle.VertexInstanceID2, UEditableMeshAttribute::VertexTextureCoordinate(), TextureCoordinateIndex ) ) );
 								}
 
 								VertexAndAttributes.PolygonVertexAttributes.Attributes.Add( FMeshElementAttributeData(
 									UEditableMeshAttribute::VertexColor(),
 									0,
-									TriangleVertexWeights.X * GetVertexInstanceAttribute( Triangle.VertexInstanceIDs[ 0 ], UEditableMeshAttribute::VertexColor(), 0 ) +
-									TriangleVertexWeights.Y * GetVertexInstanceAttribute( Triangle.VertexInstanceIDs[ 1 ], UEditableMeshAttribute::VertexColor(), 0 ) +
-									TriangleVertexWeights.Z * GetVertexInstanceAttribute( Triangle.VertexInstanceIDs[ 2 ], UEditableMeshAttribute::VertexColor(), 0 ) ) );
+									TriangleVertexWeights.X * GetVertexInstanceAttribute( Triangle.VertexInstanceID0, UEditableMeshAttribute::VertexColor(), 0 ) +
+									TriangleVertexWeights.Y * GetVertexInstanceAttribute( Triangle.VertexInstanceID1, UEditableMeshAttribute::VertexColor(), 0 ) +
+									TriangleVertexWeights.Z * GetVertexInstanceAttribute( Triangle.VertexInstanceID2, UEditableMeshAttribute::VertexColor(), 0 ) ) );
 							}
 						}
 					}
@@ -8336,17 +8338,17 @@ void UEditableMesh::TessellatePolygons( const TArray<FPolygonID>& PolygonIDs, co
 										VertexAndAttributes.PolygonVertexAttributes.Attributes.Add( FMeshElementAttributeData(
 											UEditableMeshAttribute::VertexTextureCoordinate(),
 											TextureCoordinateIndex,
-											TriangleVertexWeights.X * GetVertexInstanceAttribute( Triangle.VertexInstanceIDs[ 0 ], UEditableMeshAttribute::VertexTextureCoordinate(), TextureCoordinateIndex ) +
-											TriangleVertexWeights.Y * GetVertexInstanceAttribute( Triangle.VertexInstanceIDs[ 1 ], UEditableMeshAttribute::VertexTextureCoordinate(), TextureCoordinateIndex ) +
-											TriangleVertexWeights.Z * GetVertexInstanceAttribute( Triangle.VertexInstanceIDs[ 2 ], UEditableMeshAttribute::VertexTextureCoordinate(), TextureCoordinateIndex ) ) );
+											TriangleVertexWeights.X * GetVertexInstanceAttribute( Triangle.VertexInstanceID0, UEditableMeshAttribute::VertexTextureCoordinate(), TextureCoordinateIndex ) +
+											TriangleVertexWeights.Y * GetVertexInstanceAttribute( Triangle.VertexInstanceID1, UEditableMeshAttribute::VertexTextureCoordinate(), TextureCoordinateIndex ) +
+											TriangleVertexWeights.Z * GetVertexInstanceAttribute( Triangle.VertexInstanceID2, UEditableMeshAttribute::VertexTextureCoordinate(), TextureCoordinateIndex ) ) );
 									}
 
 									VertexAndAttributes.PolygonVertexAttributes.Attributes.Add( FMeshElementAttributeData(
 										UEditableMeshAttribute::VertexColor(),
 										0,
-										TriangleVertexWeights.X * GetVertexInstanceAttribute( Triangle.VertexInstanceIDs[ 0 ], UEditableMeshAttribute::VertexColor(), 0 ) +
-										TriangleVertexWeights.Y * GetVertexInstanceAttribute( Triangle.VertexInstanceIDs[ 1 ], UEditableMeshAttribute::VertexColor(), 0 ) +
-										TriangleVertexWeights.Z * GetVertexInstanceAttribute( Triangle.VertexInstanceIDs[ 2 ], UEditableMeshAttribute::VertexColor(), 0 ) ) );
+										TriangleVertexWeights.X * GetVertexInstanceAttribute( Triangle.VertexInstanceID0, UEditableMeshAttribute::VertexColor(), 0 ) +
+										TriangleVertexWeights.Y * GetVertexInstanceAttribute( Triangle.VertexInstanceID1, UEditableMeshAttribute::VertexColor(), 0 ) +
+										TriangleVertexWeights.Z * GetVertexInstanceAttribute( Triangle.VertexInstanceID2, UEditableMeshAttribute::VertexColor(), 0 ) ) );
 								}
 							}
 						}

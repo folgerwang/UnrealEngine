@@ -42,8 +42,9 @@ inline void UEditableStaticMeshAdapter::UpdateIndexBufferFormatIfNeeded( const T
 	{
 		for( const FMeshTriangle& Triangle : Triangles )
 		{
-			for( const FVertexInstanceID VertexInstanceID : Triangle.VertexInstanceIDs )
+			for( int32 TriangleVertexNumber = 0; TriangleVertexNumber < 3; ++TriangleVertexNumber )
 			{
+				const FVertexInstanceID VertexInstanceID = Triangle.GetVertexInstanceID( TriangleVertexNumber );
 				if( VertexInstanceID.GetValue() > TNumericLimits<uint16>::Max() )
 				{
 					EnsureIndexBufferIs32Bit();
@@ -342,7 +343,7 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 								VertexInstance.ConnectedPolygons.Add( NewPolygonID );
 
 								// The triangle points to each of its three vertices
-								NewTriangle.VertexInstanceIDs[ TriangleVertexIndex ] = VertexInstanceID;
+								NewTriangle.SetVertexInstanceID( TriangleVertexIndex, VertexInstanceID );
 							}
 
 							// Add triangle to polygon triangulation array
@@ -679,7 +680,7 @@ void UEditableStaticMeshAdapter::OnRebuildRenderMesh( const UEditableMesh* Edita
 
 				// Find the first valid vertex instance index, so that we have a value we can use for our degenerates
 				check( RenderingPolygonGroup.Triangles.Num() > 0 );
-				const FVertexInstanceID FirstValidRenderingID = RenderingPolygonGroup.Triangles.CreateConstIterator()->VertexInstanceIDs[ 0 ];
+				const FVertexInstanceID FirstValidRenderingID = RenderingPolygonGroup.Triangles.CreateConstIterator()->GetVertexInstanceID( 0 );
 
 				for( int32 TriangleIndex = 0; TriangleIndex < RenderingPolygonGroup.Triangles.GetMaxIndex(); ++TriangleIndex )
 				{
@@ -688,7 +689,7 @@ void UEditableStaticMeshAdapter::OnRebuildRenderMesh( const UEditableMesh* Edita
 						const FMeshTriangle& Triangle = RenderingPolygonGroup.Triangles[ TriangleIndex ];
 						for( int32 TriVert = 0; TriVert < 3; ++TriVert )
 						{
-							const uint32 RenderingVertexIndex = Triangle.VertexInstanceIDs[ TriVert ].GetValue();
+							const uint32 RenderingVertexIndex = Triangle.GetVertexInstanceID( TriVert ).GetValue();
 							IndexBuffer.Add( RenderingVertexIndex );
 							MinIndex = FMath::Min( MinIndex, RenderingVertexIndex );
 							MaxIndex = FMath::Max( MaxIndex, RenderingVertexIndex );
@@ -844,9 +845,11 @@ void UEditableStaticMeshAdapter::OnReindexElements( const UEditableMesh* Editabl
 
 		for( FMeshTriangle& Triangle : RenderingPolygonGroup.Triangles )
 		{
-			for( FVertexInstanceID& VertexInstanceID : Triangle.VertexInstanceIDs )
+			for( int32 TriangleVertexNumber = 0; TriangleVertexNumber < 3; ++TriangleVertexNumber )
 			{
-				VertexInstanceID = Remappings.NewVertexInstanceIndexLookup[ VertexInstanceID.GetValue() ];
+				const FVertexInstanceID OriginalVertexInstanceID = Triangle.GetVertexInstanceID( TriangleVertexNumber );
+				const FVertexInstanceID NewVertexInstanceID = Remappings.NewVertexInstanceIndexLookup[ OriginalVertexInstanceID.GetValue() ];
+				Triangle.SetVertexInstanceID( TriangleVertexNumber, NewVertexInstanceID );
 			}
 		}
 
@@ -1305,9 +1308,9 @@ void UEditableStaticMeshAdapter::OnRetriangulatePolygons( const UEditableMesh* E
 					const FMeshTriangle& OldTriangle = RenderingPolygonGroup.Triangles[ RenderingPolygon.TriangulatedPolygonTriangleIndices[ Index ].GetValue() ];
 					const FMeshTriangle& NewTriangle = Triangles[ Index ];
 
-					if( OldTriangle.VertexInstanceIDs[ 0 ] != NewTriangle.VertexInstanceIDs[ 0 ] ||
-						OldTriangle.VertexInstanceIDs[ 1 ] != NewTriangle.VertexInstanceIDs[ 1 ] ||
-						OldTriangle.VertexInstanceIDs[ 2 ] != NewTriangle.VertexInstanceIDs[ 2 ] )
+					if( OldTriangle.VertexInstanceID0 != NewTriangle.VertexInstanceID0 ||
+						OldTriangle.VertexInstanceID1 != NewTriangle.VertexInstanceID1 ||
+						OldTriangle.VertexInstanceID2 != NewTriangle.VertexInstanceID2 )
 					{
 						bNeedsUpdatedTriangles = true;
 						break;
@@ -1363,8 +1366,8 @@ void UEditableStaticMeshAdapter::OnRetriangulatePolygons( const UEditableMesh* E
 						FMeshTriangle& NewTriangle = RenderingPolygonGroup.Triangles[ NewTriangleIndex ];
 						for( int32 TriangleVertexNumber = 0; TriangleVertexNumber < 3; ++TriangleVertexNumber )
 						{
-							const FVertexInstanceID VertexInstanceID = Triangles[ TriangleToAddNumber ].VertexInstanceIDs[ TriangleVertexNumber ];
-							NewTriangle.VertexInstanceIDs[ TriangleVertexNumber ] = VertexInstanceID;
+							const FVertexInstanceID VertexInstanceID = Triangles[ TriangleToAddNumber ].GetVertexInstanceID( TriangleVertexNumber );
+							NewTriangle.SetVertexInstanceID( TriangleVertexNumber, VertexInstanceID );
 							MinVertexIndex = FMath::Min( MinVertexIndex, VertexInstanceID.GetValue() );
 							MaxVertexIndex = FMath::Max( MaxVertexIndex, VertexInstanceID.GetValue() );
 						}
@@ -1417,7 +1420,7 @@ void UEditableStaticMeshAdapter::OnRetriangulatePolygons( const UEditableMesh* E
 						{
 							StaticMeshLOD.IndexBuffer.SetIndex(
 								FRenderingPolygonGroup::TriangleIndexToRenderingTriangleFirstIndex( RenderingSection, FTriangleID( NewTriangleIndex ) ) + TriangleVertexNumber,
-								RenderingPolygonGroup.Triangles[ NewTriangleIndex ].VertexInstanceIDs[ TriangleVertexNumber ].GetValue() );
+								RenderingPolygonGroup.Triangles[ NewTriangleIndex ].GetVertexInstanceID( TriangleVertexNumber ).GetValue() );
 						}
 					}
 
@@ -1495,8 +1498,9 @@ void UEditableStaticMeshAdapter::DeletePolygonTriangles( const UEditableMesh* Ed
 			{
 				const FMeshTriangle& Triangle = RenderingPolygonGroup.Triangles[ TriangleIndexToRemove.GetValue() ];
 
-				for( const FVertexInstanceID VertexInstanceID : Triangle.VertexInstanceIDs )
+				for( int32 TriangleVertexNumber = 0; TriangleVertexNumber < 3; ++TriangleVertexNumber )
 				{
+					const FVertexInstanceID VertexInstanceID = Triangle.GetVertexInstanceID( TriangleVertexNumber );
 					if( VertexInstanceID.GetValue() == MinVertexIndex || VertexInstanceID.GetValue() == MaxVertexIndex )
 					{
 						bUpdateMinMax = true;
@@ -1529,8 +1533,9 @@ void UEditableStaticMeshAdapter::DeletePolygonTriangles( const UEditableMesh* Ed
 
 				for( const FMeshTriangle& Triangle : RenderingPolygonGroup.Triangles )
 				{
-					for( const FVertexInstanceID VertexInstanceID : Triangle.VertexInstanceIDs )
+					for( int32 TriangleVertexNumber = 0; TriangleVertexNumber < 3; ++TriangleVertexNumber )
 					{
+						const FVertexInstanceID VertexInstanceID = Triangle.GetVertexInstanceID( TriangleVertexNumber );
 						if( VertexInstanceID.GetValue() < MinVertexIndex )
 						{
 							MinVertexIndex = VertexInstanceID.GetValue();
