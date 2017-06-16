@@ -342,6 +342,9 @@ protected:
 	/** Callback from the level editor when the map changes */
 	void OnMapChanged( UWorld* World, EMapChangeType MapChangeType );
 
+	/** Callback from an editable mesh when its elements are remapped */
+	void OnEditableMeshElementIDsRemapped( UEditableMesh* EditableMesh, const FElementIDRemappings& Remappings );
+
 	/** Callback from the level editor when new actors become selected or deselected */
 	void OnActorSelectionChanged( const TArray<UObject*>& NewSelection, bool bForceRefresh );
 

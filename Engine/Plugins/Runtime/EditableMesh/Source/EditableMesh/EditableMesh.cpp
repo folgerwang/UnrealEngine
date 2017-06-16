@@ -68,7 +68,9 @@ const FName UEditableMeshAttribute::PolygonCenterName( "PolygonCenter" );
 
 
 UEditableMesh::UEditableMesh()
-	: PendingCompactCounter( 0 )
+	: bAllowUndo( false ),
+	  bAllowCompact( false ),
+	  PendingCompactCounter( 0 )
 {
 }
 
@@ -280,7 +282,8 @@ void UEditableMesh::Compact()
 		Adapter->OnReindexElements( this, Remappings );
 	}
 
-	// @todo mesheditor: broadcast event with remappings so that any cached element IDs can be fixed up.
+	// Broadcast event with remappings so that any cached element IDs can be fixed up.
+	ElementIDsRemappedEvent.Broadcast( this, Remappings );
 
 	RebuildRenderMesh();
 
@@ -311,7 +314,8 @@ void UEditableMesh::Uncompact( const FElementIDRemappings& Remappings )
 		Adapter->OnReindexElements( this, Remappings );
 	}
 
-	// @todo mesheditor: broadcast event with remappings so that any cached element IDs can be fixed up.
+	// Broadcast event with remappings so that any cached element IDs can be fixed up.
+	ElementIDsRemappedEvent.Broadcast( this, Remappings );
 
 	RebuildRenderMesh();
 
@@ -430,7 +434,8 @@ void UEditableMesh::EndModification( const bool bFromUndo )
 
 		if( CurrentModificationType == EMeshModificationType::Final &&
 			CurrentToplogyChange == EMeshTopologyChange::TopologyChange &&
-			!bFromUndo )
+			!bFromUndo &&
+			bAllowCompact )
 		{
 			if( ++PendingCompactCounter == CompactFrequency )
 			{

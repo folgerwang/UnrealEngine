@@ -610,6 +610,33 @@ public:
 
 
 	/**
+	 * @return	Returns true if compaction is enabled on this mesh
+	 */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	bool IsCompactAllowed() const
+	{
+		return bAllowCompact;
+	}
+
+	/**
+	 * Sets whether the mesh can be sporadically compacted as modifications are performed
+	 *
+	 * @param	bInAllowCompact		True if compaction is enabled on this mesh.
+	 */
+	UFUNCTION( BlueprintCallable, Category="Editable Mesh" )
+	void SetAllowCompact( const bool bInAllowCompact )
+	{
+		bAllowCompact = bInAllowCompact;
+	}
+
+
+	DECLARE_EVENT_TwoParams( UEditableMesh, FElementIDsRemapped, UEditableMesh*, const FElementIDRemappings& );
+	FElementIDsRemapped& OnElementIDsRemapped()
+	{
+		return ElementIDsRemappedEvent;
+	}
+
+	/**
 	 * Gets the sub-mesh address for this mesh which uniquely identifies the mesh among other sub-meshes in the same component
 	 *
 	 * @return	The sub-mesh address for the mesh
@@ -814,6 +841,9 @@ public:
 	/** True if undo features are enabled on this mesh.  You're only allowed to call MakeUndo() if this is set to true. */
 	bool bAllowUndo;
 
+	/** True if compact is enabled on this mesh. If true, the mesh description will be sporadically compacted and tidied up. */
+	bool bAllowCompact;
+
 	/** When bAllowUndo is enabled, this will store the changes that can be applied to revert anything that happened to this
 	    mesh since the last time that MakeUndo() was called. */
 	TUniquePtr<FCompoundChangeInput> Undo;
@@ -850,7 +880,7 @@ public:
 	int32 PendingCompactCounter;
 
 	/** Data will be compacted after this many topology modifying actions. */
-	static const int32 CompactFrequency = 10;
+	static const int32 CompactFrequency = 1;
 
 	/** OpenSubdiv topology refiner object.  This is generated for meshes that have subdivision levels, and reused to generate new limit surfaces 
 	    when geometry is moved.  When the mesh's topology changes, this object is regenerated from scratch. */
@@ -874,4 +904,7 @@ public:
 
 	/** The resulting limit surface geometry after GenerateOpenSubdivLimitSurfaceData() is called */
 	FSubdivisionLimitData SubdivisionLimitData;
+
+	/** Broadcast event when element IDs are remapped (for example, following Compact / Uncompact) */
+	FElementIDsRemapped ElementIDsRemappedEvent;
 };

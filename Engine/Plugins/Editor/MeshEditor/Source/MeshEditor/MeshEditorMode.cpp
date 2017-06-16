@@ -461,6 +461,12 @@ FMeshEditorMode::~FMeshEditorMode()
 	FMeshEditorAnyElementCommands::Unregister();
 	FMeshEditorCommonCommands::Unregister();
 
+	// Remove the event registered on all cached editable meshes
+	for( auto& CachedEditableMesh : CachedEditableMeshes )
+	{
+		CachedEditableMesh.Value->OnElementIDsRemapped().RemoveAll( this );
+	}
+
 	MeshEditorModeProxyObject = nullptr;
 	AssetContainer = nullptr;
 }
@@ -480,6 +486,73 @@ void FMeshEditorMode::OnEndPIE( bool bIsSimulating )
 	if( bIsSimulating )
 	{
 		RemoveEditableMeshReferences();
+	}
+}
+
+
+void FMeshEditorMode::OnEditableMeshElementIDsRemapped( UEditableMesh* EditableMesh, const FElementIDRemappings& Remappings )
+{
+	// Helper function which performs the remapping of a given FMeshElement
+	auto RemapMeshElement = [ this, EditableMesh, &Remappings ]( FMeshElement& MeshElement )
+	{
+		UEditableMesh* MeshElementEditableMesh = this->FindOrCreateEditableMesh( *MeshElement.Component, MeshElement.ElementAddress.SubMeshAddress );
+		if( MeshElementEditableMesh == EditableMesh )
+		{
+			switch( MeshElement.ElementAddress.ElementType )
+			{
+			case EEditableMeshElementType::Vertex:
+				MeshElement.ElementAddress.ElementID = Remappings.GetRemappedVertexID( FVertexID( MeshElement.ElementAddress.ElementID ) );
+				break;
+
+			case EEditableMeshElementType::Edge:
+				MeshElement.ElementAddress.ElementID = Remappings.GetRemappedEdgeID( FEdgeID( MeshElement.ElementAddress.ElementID ) );
+				break;
+
+			case EEditableMeshElementType::Polygon:
+				MeshElement.ElementAddress.ElementID = Remappings.GetRemappedPolygonID( FPolygonID( MeshElement.ElementAddress.ElementID ) );
+				break;
+			}
+		}
+	};
+
+	// Change selected elements through the undo system so that they are restored correctly on an undo
+	FSelectOrDeselectMeshElementsChangeInput ChangeInput;
+	for( const FMeshElement& MeshElement : SelectedMeshElements )
+	{
+		ChangeInput.MeshElementsToDeselect.Add( MeshElement );
+		FMeshElement NewMeshElement = MeshElement;
+		RemapMeshElement( NewMeshElement );
+		ChangeInput.MeshElementsToSelect.Add( NewMeshElement );
+	}
+	TrackUndo( MeshEditorModeProxyObject, FSelectOrDeselectMeshElementsChange( MoveTemp( ChangeInput ) ).Execute( MeshEditorModeProxyObject ) );
+
+	for( FMeshElement& SelectedVertex : SelectedVertices )
+	{
+		check( SelectedVertex.ElementAddress.ElementType == EEditableMeshElementType::Vertex );
+		RemapMeshElement( SelectedVertex );
+	}
+
+	for( FMeshElement& SelectedEdge : SelectedEdges )
+	{
+		check( SelectedEdge.ElementAddress.ElementType == EEditableMeshElementType::Edge );
+		RemapMeshElement( SelectedEdge );
+	}
+
+	for( FMeshElement& SelectedPolygon : SelectedPolygons )
+	{
+		check( SelectedPolygon.ElementAddress.ElementType == EEditableMeshElementType::Polygon );
+		RemapMeshElement( SelectedPolygon );
+	}
+
+	for( FMeshElement& FadingOutHoveredMeshElement : FadingOutHoveredMeshElements )
+	{
+		RemapMeshElement( FadingOutHoveredMeshElement );
+	}
+
+	for( FMeshEditorInteractorData& MeshEditorInteractorData : MeshEditorInteractorDatas )
+	{
+		RemapMeshElement( MeshEditorInteractorData.HoveredMeshElement );
+		RemapMeshElement( MeshEditorInteractorData.PreviouslyHoveredMeshElement );
 	}
 }
 
@@ -866,6 +939,10 @@ UEditableMesh* FMeshEditorMode::FindOrCreateEditableMesh( UPrimitiveComponent& C
 
 			// Enable undo tracking on this mesh
 			EditableMesh->SetAllowUndo( true );
+
+			// Enable compaction on this mesh and set a callback so any cached ElementIDs can be remapped
+			EditableMesh->SetAllowCompact( true );
+			EditableMesh->OnElementIDsRemapped().AddRaw( this, &FMeshEditorMode::OnEditableMeshElementIDsRemapped );
 		}
 	}
 
