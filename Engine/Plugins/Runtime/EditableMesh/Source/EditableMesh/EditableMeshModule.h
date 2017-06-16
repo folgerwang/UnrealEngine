@@ -3,7 +3,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "IMeshEditingRuntimeModule.h"
+#include "IEditableMeshModule.h"
 
 
-DECLARE_LOG_CATEGORY_EXTERN( LogMeshEditingRuntime, Log, All );

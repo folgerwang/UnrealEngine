@@ -14,7 +14,7 @@ namespace UnrealBuildTool.Rules
 					"Engine",
 					"InputCore",
 					"UnrealEd",
-					"MeshEditingRuntime",
+					"EditableMesh",
 					"MeshEditor",
 					"SlateCore",
 					"ViewportInteraction"

@@ -13,8 +13,8 @@
 
 class UEditableMeshAdapter;
 
-MESHEDITINGRUNTIME_API DECLARE_LOG_CATEGORY_EXTERN( LogEditableMesh, Log, All );
-//MESHEDITINGRUNTIME_API DECLARE_LOG_CATEGORY_EXTERN( LogEditableMesh, All, All );
+EDITABLEMESH_API DECLARE_LOG_CATEGORY_EXTERN( LogEditableMesh, Log, All );
+
 
 // @todo mesheditor: Comment these classes and enums!
 
@@ -458,7 +458,7 @@ struct FElementIDRemappings
 
 
 UCLASS( BlueprintType )
-class MESHEDITINGRUNTIME_API UEditableMesh : public UObject
+class EDITABLEMESH_API UEditableMesh : public UObject
 {
 	GENERATED_BODY()
 

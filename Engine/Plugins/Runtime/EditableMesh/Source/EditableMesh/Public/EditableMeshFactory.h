@@ -11,7 +11,7 @@
 
 
 UCLASS()
-class MESHEDITINGRUNTIME_API UEditableMeshFactory : public UObject
+class EDITABLEMESH_API UEditableMeshFactory : public UObject
 {
 	GENERATED_BODY()
 

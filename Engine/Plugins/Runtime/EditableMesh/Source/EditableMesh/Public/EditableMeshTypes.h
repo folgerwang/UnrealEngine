@@ -152,7 +152,7 @@ struct FElementID	// @todo mesheditor script: BP doesn't have name spaces, so we
 	}
 
 	/** Invalid element ID */
-	MESHEDITINGRUNTIME_API static const FElementID Invalid;
+	EDITABLEMESH_API static const FElementID Invalid;
 
 protected:
 
@@ -187,7 +187,7 @@ struct FVertexID : public FElementID
 	}
 
 	/** Invalid vertex ID */
-	MESHEDITINGRUNTIME_API static const FVertexID Invalid;
+	EDITABLEMESH_API static const FVertexID Invalid;
 };
 
 
@@ -216,7 +216,7 @@ struct FVertexInstanceID : public FElementID
 	}
 
 	/** Invalid rendering vertex ID */
-	MESHEDITINGRUNTIME_API static const FVertexInstanceID Invalid;
+	EDITABLEMESH_API static const FVertexInstanceID Invalid;
 };
 
 
@@ -245,7 +245,7 @@ struct FEdgeID : public FElementID
 	}
 
 	/** Invalid edge ID */
-	MESHEDITINGRUNTIME_API static const FEdgeID Invalid;
+	EDITABLEMESH_API static const FEdgeID Invalid;
 };
 
 
@@ -274,7 +274,7 @@ struct FPolygonGroupID : public FElementID
 	}
 
 	/** Invalid section ID */
-	MESHEDITINGRUNTIME_API static const FPolygonGroupID Invalid;
+	EDITABLEMESH_API static const FPolygonGroupID Invalid;
 };
 
 
@@ -303,7 +303,7 @@ struct FPolygonID : public FElementID
 	}
 
 	/** Invalid polygon ID */
-	MESHEDITINGRUNTIME_API static const FPolygonID Invalid;	// @todo mesheditor script: Can we expose these to BP nicely?	Do we even need to?
+	EDITABLEMESH_API static const FPolygonID Invalid;	// @todo mesheditor script: Can we expose these to BP nicely?	Do we even need to?
 };
 
 
@@ -366,7 +366,7 @@ struct FEditableMeshSubMeshAddress
 
 
 UCLASS( abstract )
-class MESHEDITINGRUNTIME_API UEditableMeshAttribute : public UObject
+class EDITABLEMESH_API UEditableMeshAttribute : public UObject
 {
 	GENERATED_BODY()
 

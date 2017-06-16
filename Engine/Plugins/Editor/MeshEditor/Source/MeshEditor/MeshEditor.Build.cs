@@ -17,7 +17,7 @@ namespace UnrealBuildTool.Rules
                     "EditorStyle",
 				    "UnrealEd",
 					"RenderCore",
-					"MeshEditingRuntime",
+					"EditableMesh",
 					"ViewportInteraction",
                     "VREditor",
 					"Projects"

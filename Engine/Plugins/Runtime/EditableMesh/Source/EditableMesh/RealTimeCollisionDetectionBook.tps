@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>Code snippets from Real Time Collision Detection book</Name>
-  <Location>/Engine/Source/Runtime/MeshEditingRuntime/</Location>
+  <Location>/Engine/Plugins/Runtime/EditableMesh/Source/EditableMesh/</Location>
   <Date>2016-08-01T12:47:58.6148753-04:00</Date>
   <Function>Implementation of various polygon mesh algorithms, such as polygon triangulation and normal computaiton</Function>
   <Justification>Efficient real-time editing of polygon meshes</Justification>

@@ -2,9 +2,9 @@
 
 namespace UnrealBuildTool.Rules
 {
-	public class MeshEditingRuntime : ModuleRules
+	public class EditableMesh : ModuleRules
 	{
-        public MeshEditingRuntime(ReadOnlyTargetRules Target) : base(Target)
+        public EditableMesh(ReadOnlyTargetRules Target) : base(Target)
 		{
 			PrivateDependencyModuleNames.AddRange(
                 new string[] {

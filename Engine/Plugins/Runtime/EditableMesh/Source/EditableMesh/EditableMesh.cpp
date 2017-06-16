@@ -366,7 +366,7 @@ void UEditableMesh::StartModification( const EMeshModificationType MeshModificat
 		this->CurrentToplogyChange = MeshTopologyChange;
 
 		// @todo mesheditor debug: Disable noisy mesh editor spew by default (here and elsewhere)
-		// UE_LOG( LogMeshEditingRuntime, Log, TEXT( "UEditableStaticMesh::StartModification START: %s" ), *SubMeshAddress.ToString() );
+		// UE_LOG( LogEditableMesh, Log, TEXT( "UEditableStaticMesh::StartModification START: %s" ), *SubMeshAddress.ToString() );
 		FAutoScopedDurationTimer FunctionTimer;
 
 		const bool bRefreshBounds = MeshModificationType == EMeshModificationType::Final;	 // @todo mesheditor perf: Only do this if we may have changed the bounds
@@ -385,7 +385,7 @@ void UEditableMesh::StartModification( const EMeshModificationType MeshModificat
 		PolygonsPendingTriangulation.Reset();
 
 		// @todo mesheditor debug
-		// UE_LOG( LogMeshEditingRuntime, Log, TEXT( "UEditableStaticMesh::StartModification COMPLETE in %0.4fs" ), FunctionTimer.GetTime() );
+		// UE_LOG( LogEditableMesh, Log, TEXT( "UEditableStaticMesh::StartModification COMPLETE in %0.4fs" ), FunctionTimer.GetTime() );
 	}
 }
 
@@ -395,7 +395,7 @@ void UEditableMesh::EndModification( const bool bFromUndo )
 	if( ensure( IsBeingModified() ) )
 	{
 		// @todo mesheditor debug
-		// UE_LOG( LogMeshEditingRuntime, Log, TEXT( "UEditableStaticMesh::EndModification START (ModType=%i): %s" ), (int32)MeshModificationType, *SubMeshAddress.ToString() );
+		// UE_LOG( LogEditableMesh, Log, TEXT( "UEditableStaticMesh::EndModification START (ModType=%i): %s" ), (int32)MeshModificationType, *SubMeshAddress.ToString() );
 		// FAutoScopedDurationTimer FunctionTimer;
 
 		// Retriangulate first, as the triangulation of n-gons determines how the tangent basis is calculated
@@ -470,7 +470,7 @@ void UEditableMesh::EndModification( const bool bFromUndo )
 		// 		}
 
 		// @todo mesheditor debug
-		// UE_LOG( LogMeshEditingRuntime, Log, TEXT( "UEditableStaticMesh::EndModification COMPLETE in %0.4fs" ), FunctionTimer.GetTime() );	  // @todo mesheditor: Shows bogus time values
+		// UE_LOG( LogEditableMesh, Log, TEXT( "UEditableStaticMesh::EndModification COMPLETE in %0.4fs" ), FunctionTimer.GetTime() );	  // @todo mesheditor: Shows bogus time values
 
 		FStartOrEndModificationChangeInput RevertInput;
 		RevertInput.bStartModification = true;

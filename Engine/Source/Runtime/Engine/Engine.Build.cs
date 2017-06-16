@@ -173,7 +173,6 @@ public class Engine : ModuleRules
 				"MovieSceneTracks",
 				"HeadMountedDisplay",
                 "MRMesh",
-				"MeshEditingRuntime",
                 "StreamingPauseRendering",
                 "Niagara",
 			}

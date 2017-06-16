@@ -9,7 +9,7 @@
 /**
  * The public interface to this module
  */
-class IMeshEditingRuntimeModule : public IModuleInterface
+class IEditableMeshModule : public IModuleInterface
 {
 
 public:
@@ -20,9 +20,9 @@ public:
 	 *
 	 * @return Returns singleton instance, loading the module on demand if needed
 	 */
-	static inline IMeshEditingRuntimeModule& Get()
+	static inline IEditableMeshModule& Get()
 	{
-		return FModuleManager::LoadModuleChecked< IMeshEditingRuntimeModule >( "MeshEditingRuntime" );
+		return FModuleManager::LoadModuleChecked< IEditableMeshModule >( "EditableMesh" );
 	}
 
 	/**
@@ -32,7 +32,7 @@ public:
 	 */
 	static inline bool IsAvailable()
 	{
-		return FModuleManager::Get().IsModuleLoaded( "MeshEditingRuntime" );
+		return FModuleManager::Get().IsModuleLoaded( "EditableMesh" );
 	}
 
 };
