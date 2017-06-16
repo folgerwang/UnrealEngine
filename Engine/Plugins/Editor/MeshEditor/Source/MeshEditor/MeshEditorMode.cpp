@@ -515,16 +515,10 @@ void FMeshEditorMode::OnEditableMeshElementIDsRemapped( UEditableMesh* EditableM
 		}
 	};
 
-	// Change selected elements through the undo system so that they are restored correctly on an undo
-	FSelectOrDeselectMeshElementsChangeInput ChangeInput;
-	for( const FMeshElement& MeshElement : SelectedMeshElements )
+	for( FMeshElement& MeshElement : SelectedMeshElements )
 	{
-		ChangeInput.MeshElementsToDeselect.Add( MeshElement );
-		FMeshElement NewMeshElement = MeshElement;
-		RemapMeshElement( NewMeshElement );
-		ChangeInput.MeshElementsToSelect.Add( NewMeshElement );
+		RemapMeshElement( MeshElement );
 	}
-	TrackUndo( MeshEditorModeProxyObject, FSelectOrDeselectMeshElementsChange( MoveTemp( ChangeInput ) ).Execute( MeshEditorModeProxyObject ) );
 
 	for( FMeshElement& SelectedVertex : SelectedVertices )
 	{
