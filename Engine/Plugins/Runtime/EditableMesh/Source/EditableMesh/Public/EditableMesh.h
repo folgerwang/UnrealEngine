@@ -834,7 +834,7 @@ private:
 
 	/** Tries to incrementally update the octree based off geometry that has changed since last time.  If that's not
 	    reasonable to do, then this will rebuild the entire octree from scratch */
-	void UpdateOctreeIncrementallyIfPossibleOtherwiseRebuildIt();
+	void UpdateOrRebuildOctree();
 
 public:
 	// @todo mesheditor: temporarily changed access to public so the adapter can call it when building the editable mesh from the source static mesh. Think about this some more.

@@ -516,7 +516,7 @@ void UEditableMesh::EndModification( const bool bFromUndo )
 		// Rebuild our octree
 		if( CurrentModificationType == EMeshModificationType::Final )
 		{
-			UpdateOctreeIncrementallyIfPossibleOtherwiseRebuildIt();
+			UpdateOrRebuildOctree();
 		}
 
 		FStartOrEndModificationChangeInput RevertInput;
@@ -7496,6 +7496,13 @@ void UEditableMesh::InsertPolygonPerimeterVertices( const FPolygonID PolygonID, 
 	PolygonsPendingTriangulation.Add( PolygonID );
 	PolygonsPendingNewTangentBasis.Add( PolygonID );	// @todo mesheditor: and other vertex connected polygons too?
 
+	// Update spatial database
+	if( Octree.IsValid() )
+	{
+		DeletedOctreePolygonIDs.Add( PolygonID );
+		NewOctreePolygonIDs.Add( PolygonID );
+	}
+
 	UE_LOG( LogEditableMesh, Verbose, TEXT( "* InsertPolygonPerimeterVertices finished" ) );
 }
 
@@ -7554,6 +7561,13 @@ void UEditableMesh::RemovePolygonPerimeterVertices( const FPolygonID PolygonID, 
 
 	PolygonsPendingTriangulation.Add( PolygonID );
 	PolygonsPendingNewTangentBasis.Add( PolygonID );	// @todo mesheditor: and other vertex connected polygons too?
+
+	// Update spatial database
+	if( Octree.IsValid() )
+	{
+		DeletedOctreePolygonIDs.Add( PolygonID );
+		NewOctreePolygonIDs.Add( PolygonID );
+	}
 
 	UE_LOG( LogEditableMesh, Verbose, TEXT( "* RemovePolygonPerimeterVertices finished" ) );
 }
@@ -9116,7 +9130,7 @@ void UEditableMesh::QuadrangulatePolygonGroup( const FPolygonGroupID PolygonGrou
 }
 
 
-void UEditableMesh::UpdateOctreeIncrementallyIfPossibleOtherwiseRebuildIt()
+void UEditableMesh::UpdateOrRebuildOctree()
 {
 	bool bAnythingChanged = true;
 	bool bDoIncrementalUpdate = false;
