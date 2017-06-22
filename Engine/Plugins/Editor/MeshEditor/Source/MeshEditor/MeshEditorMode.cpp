@@ -70,6 +70,7 @@ namespace MeshEd
 	static FAutoConsoleVariable MinDeltaForInertialMovement( TEXT( "MeshEd.MinDeltaForInertialMovement" ), 0.01f, TEXT( "Minimum velocity in cm/frame for inertial movement to kick in when releasing a drag" ) );
 	static FAutoConsoleVariable ShowDebugStats( TEXT( "MeshEd.ShowDebugStats" ), 0, TEXT( "Enables debug overlay text for the currently selected mesh" ) );
 	static FAutoConsoleVariable EnableSelectByPainting( TEXT( "MeshEd.EnableSelectByPainting" ), 0, TEXT( "Enables selection by clicking and dragging over elements" ) );
+	static FAutoConsoleVariable ShowWiresForSelectedMeshes( TEXT( "MeshEd.ShowWiresForSelectedMeshes" ), 1, TEXT( "Enables rendering of a polygonal wireframe overlay on selected meshes" ) );
 
 	static FAutoConsoleVariable OverlayDepthOffset( TEXT( "MeshEd.OverlayDepthOffset" ), 2.0f, TEXT( "How far to offset overlay wires/polygons on top of meshes when hovered or selected" ) );
 	static FAutoConsoleVariable OverlayVertexSize( TEXT( "MeshEd.OverlayVertexSize" ), 4.0f, TEXT( "How large a vertex is on a mesh overlay" ) );
@@ -934,6 +935,9 @@ UEditableMesh* FMeshEditorMode::FindOrCreateEditableMesh( UPrimitiveComponent& C
 			// Enable undo tracking on this mesh
 			EditableMesh->SetAllowUndo( true );
 
+			// Enable spatial database, so that we can quickly query which polygons are under the mouse cursor
+			EditableMesh->SetAllowSpatialDatabase( true );
+
 			// Enable compaction on this mesh and set a callback so any cached ElementIDs can be remapped
 			EditableMesh->SetAllowCompact( true );
 			EditableMesh->OnElementIDsRemapped().AddRaw( this, &FMeshEditorMode::OnEditableMeshElementIDsRemapped );
@@ -1169,6 +1173,8 @@ void FMeshEditorMode::CommitEditableMeshIfNecessary( UEditableMesh* EditableMesh
 	{
 		UEditableMesh* NewEditableMesh = EditableMesh->CommitInstance( Component );
 		NewEditableMesh->SetAllowUndo(true);
+		NewEditableMesh->SetAllowSpatialDatabase(true);
+		NewEditableMesh->SetAllowCompact(true);
 
 		// Commit the editable mesh as a new instance in the static mesh component
 		const FEditableMeshSubMeshAddress& OldSubMeshAddress = EditableMesh->GetSubMeshAddress();
@@ -2351,29 +2357,9 @@ void FMeshEditorMode::Render( const FSceneView* SceneView, FViewport* Viewport, 
 	}
 
 	// Draw all polygon edges for selected/hovered meshes (@todo mesheditor: This only draws polygons right now.  We should also draw "floating" edges and vertices too!)
+	if( MeshEd::ShowWiresForSelectedMeshes->GetInt() != 0 )
 	{
-		static TArray<FComponentAndEditableMesh> HoveredOrSelectedMeshes;
-		HoveredOrSelectedMeshes.Reset();
-
-		HoveredOrSelectedMeshes = SelectedComponentsAndEditableMeshes;
-
-		// Only draw hover if we're not in the middle of an interactive edit
-		if( ActiveAction == NAME_None )
-		{
-			for( FMeshEditorInteractorData& MeshEditorInteractorData : MeshEditorInteractorDatas )
-			{
-				if( MeshEditorInteractorData.HoveredMeshElement.IsValidMeshElement() )
-				{
-					UEditableMesh* EditableMesh = FindOrCreateEditableMesh( *MeshEditorInteractorData.HoveredMeshElement.Component, MeshEditorInteractorData.HoveredMeshElement.ElementAddress.SubMeshAddress );
-					if( EditableMesh != nullptr )
-					{
-						HoveredOrSelectedMeshes.AddUnique( FComponentAndEditableMesh( MeshEditorInteractorData.HoveredMeshElement.Component.Get(), EditableMesh ) );
-					}
-				}
-			}
-		}
-
-		for( const FComponentAndEditableMesh& ComponentAndEditableMesh : HoveredOrSelectedMeshes )
+		for( const FComponentAndEditableMesh& ComponentAndEditableMesh : SelectedComponentsAndEditableMeshes )
 		{
 			const UPrimitiveComponent* Component = ComponentAndEditableMesh.Component;
 			check( Component != nullptr );
@@ -2747,11 +2733,10 @@ void FMeshEditorMode::OnViewportInteractionHoverUpdate( UViewportInteractor* Vie
 				const int32 FirstInteractorPassNumber = GetDefault<UMeshEditorSettings>()->bAllowGrabberSphere ? 0 : 1;
 				for( int32 InteractorPassNumber = FirstInteractorPassNumber; InteractorPassNumber < 2; ++InteractorPassNumber )
 				{
-					const bool bIsGrabberSphereTest = ( InteractorPassNumber == 0 );
-					const bool bIsLaserTest = !bIsGrabberSphereTest;
+					const EInteractorShape InteractorShape = ( InteractorPassNumber == 0 ) ? EInteractorShape::GrabberSphere : EInteractorShape::Laser;
 
-					if( ( bIsGrabberSphereTest && MeshEditorInteractorData.bGrabberSphereIsValid ) ||
-						( bIsLaserTest && MeshEditorInteractorData.bLaserIsValid ) )
+					if( ( InteractorShape == EInteractorShape::GrabberSphere && MeshEditorInteractorData.bGrabberSphereIsValid ) ||
+						( InteractorShape == EInteractorShape::Laser && MeshEditorInteractorData.bLaserIsValid ) )
 					{
 						static TArray< UPrimitiveComponent* > HitComponents;
 						HitComponents.Reset();
@@ -2767,7 +2752,7 @@ void FMeshEditorMode::OnViewportInteractionHoverUpdate( UViewportInteractor* Vie
 							static TArray<UPrimitiveComponent*> ComponentsFoundThisPass;
 							ComponentsFoundThisPass.Reset();
 
-							if( bIsGrabberSphereTest )
+							if( InteractorShape == EInteractorShape::GrabberSphere )
 							{
 								// Grabber sphere testing
 								FCollisionShape CollisionShape;
@@ -2795,8 +2780,8 @@ void FMeshEditorMode::OnViewportInteractionHoverUpdate( UViewportInteractor* Vie
 								FCollisionShape CollisionShape;
 								CollisionShape.SetSphere( WorldSpaceRayFuzzyDistance * ExtraFuzzyScalingForCollisionQuery );
 
-								// @todo mesheditor perf: This could be fairly slow, tracing so many objects.  We could do SweepSingleByChannel, but the nearest mesh might not
-								// actually have the best element to select
+								// @todo mesheditor perf: This could be fairly slow, tracing so many objects.  We could do SweepSingleByChannel, but the nearest mesh might not actually have the best element to select
+								// @todo mesheditor perf: Do we really need to even do a complex PhysX trace now that we have spatial databases for editable meshes?
 								static TArray< FHitResult > HitResults;
 								HitResults.Reset();
 								if( GetWorld()->SweepMultiByChannel( HitResults, MeshEditorInteractorData.LaserStart, MeshEditorInteractorData.LaserEnd, FQuat::Identity, ECC_Visibility, CollisionShape, TraceParams ) )
@@ -2891,10 +2876,9 @@ void FMeshEditorMode::OnViewportInteractionHoverUpdate( UViewportInteractor* Vie
 									FVector ComponentSpaceHitLocation = FVector::ZeroVector;
 									FEditableMeshElementAddress MeshElementAddress = QueryElement( 
 										*EditableMesh, 
-										bIsGrabberSphereTest, 
+										InteractorShape,
 										ComponentSpaceGrabberSphere, 
 										ComponentSpaceGrabberSphereFuzzyDistance, 
-										bIsLaserTest, 
 										ComponentSpaceLaserStart, 
 										ComponentSpaceLaserEnd, 
 										ComponentSpaceRayFuzzyDistance, 
@@ -2944,7 +2928,7 @@ void FMeshEditorMode::OnViewportInteractionHoverUpdate( UViewportInteractor* Vie
 
 							// If we hit something with our grabber sphere, then don't bother checking with the laser.  We always
 							// prefer grabber sphere hits.
-							if( bIsGrabberSphereTest )
+							if( InteractorShape == EInteractorShape::GrabberSphere )
 							{
 								//	DrawDebugSphere( GetWorld(), MeshEditorInteractorData.HoverLocation, 1.5f * ViewportWorldInteraction->GetWorldScaleFactor(), 16, FColor( 255, 40, 40, 255 ), false, 0.0f );
 								bIsGrabberSphereOverMeshElement = true;
@@ -3654,12 +3638,45 @@ bool FMeshEditorMode::FindEdgeSplitUnderInteractor(	UViewportInteractor* Viewpor
 }
 
 
-FEditableMeshElementAddress FMeshEditorMode::QueryElement( const UEditableMesh& EditableMesh, const bool bUseSphere, const FSphere& Sphere, const float SphereFuzzyDistance, bool bUseRay, const FVector& RayStart, const FVector& RayEnd, const float RayFuzzyDistance, const EEditableMeshElementType OnlyElementType, const FVector& CameraLocation, const bool bIsPerspectiveView, const float FuzzyDistanceScaleFactor, EInteractorShape& OutInteractorShape, FVector& OutHitLocation ) const
+FEditableMeshElementAddress FMeshEditorMode::QueryElement( const UEditableMesh& EditableMesh, const EInteractorShape InteractorShape, const FSphere& Sphere, const float SphereFuzzyDistance, const FVector& RayStart, const FVector& RayEnd, const float RayFuzzyDistance, const EEditableMeshElementType OnlyElementType, const FVector& CameraLocation, const bool bIsPerspectiveView, const float FuzzyDistanceScaleFactor, EInteractorShape& OutInteractorShape, FVector& OutHitLocation ) const
 {
 	OutHitLocation = FVector::ZeroVector;
 
 	FEditableMeshElementAddress HitElementAddress;
 	HitElementAddress.SubMeshAddress = EditableMesh.GetSubMeshAddress();
+
+
+	// Figure out our candidate set of polygons by performing a spatial query on the mesh
+	static TArray<FPolygonID> CandidatePolygons;
+	CandidatePolygons.Reset();
+
+	if( InteractorShape == EInteractorShape::Laser )
+	{
+		// @todo mesheditor spatial: Do we need to use a "fat ray" to account for fuzzy testing (or expanded octree boxes)?  We don't currently have a 'segment distance to AABB' function.
+
+		check( EditableMesh.IsSpatialDatabaseAllowed() );	// We need a spatial database to do this query fast!
+		EditableMesh.SearchSpatialDatabaseForPolygonsPotentiallyIntersectingLineSegment( RayStart, RayEnd, /* Out */ CandidatePolygons );
+
+		// @todo mesheditor debug
+		// 	if( EditableMesh.GetPolygonCount() > 0 )
+		// 	{
+		// 		UE_LOG( LogEditableMesh, Display, TEXT( "%i  (%0.1f%%)" ), CandidatePolygons.Num(), ( (float)CandidatePolygons.Num() / (float)EditableMesh.GetPolygonCount() ) * 100.0f );
+		// 	}
+	}
+	else
+	{
+		// @todo mesheditor spatial: Need GrabberSphere support for spatial queries.  Currently we're just testing all polygons (slow!)
+		const uint32 PolygonArraySize = EditableMesh.GetPolygonArraySize();
+		for( uint32 PolygonIndex = 0; PolygonIndex < PolygonArraySize; ++PolygonIndex )
+		{
+			const FPolygonID PolygonID( PolygonIndex );
+
+			if( EditableMesh.IsValidPolygon( PolygonID ) )
+			{
+				CandidatePolygons.Add( PolygonID );
+			}
+		}
+	}
 
 	static TSet<FVertexID> FrontFacingVertices;
 	FrontFacingVertices.Reset();
@@ -3671,26 +3688,22 @@ FEditableMeshElementAddress FMeshEditorMode::QueryElement( const UEditableMesh& 
 	FrontFacingPolygons.Reset();
 
 	// Look for all the front-facing elements
-	const uint32 PolygonArraySize = EditableMesh.GetPolygonArraySize();
-	for( uint32 PolygonIndex = 0; PolygonIndex < PolygonArraySize; ++PolygonIndex )
+	for( const FPolygonID PolygonID : CandidatePolygons )
 	{
-		const FPolygonID PolygonID( PolygonIndex );
-
-		if( EditableMesh.IsValidPolygon( PolygonID ) )
+		const FVector PolygonNormal = EditableMesh.ComputePolygonNormal( PolygonID );
+		const FVector PolygonCenter = EditableMesh.ComputePolygonCenter( PolygonID );
+		if( ( InteractorShape == EInteractorShape::GrabberSphere ) ||	// Sphere tests never eliminate back-facing geometry
+			!bIsPerspectiveView ||			// @todo mesheditor: Add support for backface culling in orthographic views
+			FVector::DotProduct( CameraLocation - PolygonCenter, PolygonNormal ) > 0.0f )
 		{
-			const FVector PolygonNormal = EditableMesh.ComputePolygonNormal( PolygonID );
-			const FVector PolygonCenter = EditableMesh.ComputePolygonCenter( PolygonID );
-			if( !bIsPerspectiveView || FVector::DotProduct( CameraLocation - PolygonCenter, PolygonNormal ) > 0.0f )	// @todo mesheditor: Add support for backface culling in orthographic views
-			{
-				FrontFacingPolygons.Add( PolygonID );
+			FrontFacingPolygons.Add( PolygonID );
 
-				const int32 PolygonVertexCount = EditableMesh.GetPolygonPerimeterVertexCount( PolygonID );
-				for( int32 Index = 0; Index < PolygonVertexCount; ++Index )
-				{
-					FrontFacingVertices.Add( EditableMesh.GetPolygonPerimeterVertex( PolygonID, Index ) );
-					bool bOutEdgeWindingIsReversedForPolygons;
-					FrontFacingEdges.Add( EditableMesh.GetPolygonPerimeterEdge( PolygonID, Index, bOutEdgeWindingIsReversedForPolygons ) );
-				}
+			const int32 PolygonVertexCount = EditableMesh.GetPolygonPerimeterVertexCount( PolygonID );
+			for( int32 Index = 0; Index < PolygonVertexCount; ++Index )
+			{
+				FrontFacingVertices.Add( EditableMesh.GetPolygonPerimeterVertex( PolygonID, Index ) );
+				bool bOutEdgeWindingIsReversedForPolygons;
+				FrontFacingEdges.Add( EditableMesh.GetPolygonPerimeterEdge( PolygonID, Index, bOutEdgeWindingIsReversedForPolygons ) );
 			}
 		}
 	}
@@ -3719,7 +3732,7 @@ FEditableMeshElementAddress FMeshEditorMode::QueryElement( const UEditableMesh& 
 			}
 
 			const bool bAlreadyHitTriangle = ( HitElementAddress.ElementType == EEditableMeshElementType::Polygon );
-			const bool bHit = CheckTriangle( bUseSphere, Sphere, SphereFuzzyDistance, bUseRay, RayStart, CurrentRayEnd, RayFuzzyDistance, TriangleVertexPositions, CameraLocation, bIsPerspectiveView, FuzzyDistanceScaleFactor, ClosestInteractorShape, ClosestDistanceToRay, ClosestDistanceOnRay, ClosestHitLocation, bAlreadyHitTriangle );
+			const bool bHit = CheckTriangle( InteractorShape, Sphere, SphereFuzzyDistance, RayStart, CurrentRayEnd, RayFuzzyDistance, TriangleVertexPositions, CameraLocation, bIsPerspectiveView, FuzzyDistanceScaleFactor, ClosestInteractorShape, ClosestDistanceToRay, ClosestDistanceOnRay, ClosestHitLocation, bAlreadyHitTriangle );
 			if( bHit )
 			{
 				HitElementAddress.ElementType = EEditableMeshElementType::Polygon;
@@ -3741,7 +3754,7 @@ FEditableMeshElementAddress FMeshEditorMode::QueryElement( const UEditableMesh& 
 			EdgeVertexPositions[ 1 ] = EditableMesh.GetVertexAttribute( EditableMesh.GetEdgeVertex( EdgeID, 1 ), UEditableMeshAttribute::VertexPosition(), 0 );
 
 			const bool bAlreadyHitEdge = ( HitElementAddress.ElementType == EEditableMeshElementType::Edge );
-			const bool bHit = CheckEdge( bUseSphere, Sphere, SphereFuzzyDistance, bUseRay, RayStart, CurrentRayEnd, RayFuzzyDistance, EdgeVertexPositions, CameraLocation, bIsPerspectiveView, FuzzyDistanceScaleFactor, ClosestInteractorShape, ClosestDistanceToRay, ClosestDistanceOnRay, ClosestHitLocation, bAlreadyHitEdge );
+			const bool bHit = CheckEdge( InteractorShape, Sphere, SphereFuzzyDistance, RayStart, CurrentRayEnd, RayFuzzyDistance, EdgeVertexPositions, CameraLocation, bIsPerspectiveView, FuzzyDistanceScaleFactor, ClosestInteractorShape, ClosestDistanceToRay, ClosestDistanceOnRay, ClosestHitLocation, bAlreadyHitEdge );
 			if( bHit )
 			{
 				HitElementAddress.ElementType = EEditableMeshElementType::Edge;
@@ -3749,8 +3762,6 @@ FEditableMeshElementAddress FMeshEditorMode::QueryElement( const UEditableMesh& 
 			}
 		}
 	}
-
-	// @todo mesheditor perf:  OMG too slow.  Needs acceleration structure + MT.  Horribly slow to iterate over all elements like this.  We need a proper spatial query!
 
 	ClosestDistanceToRay = TNumericLimits<float>::Max();
 
@@ -3761,7 +3772,7 @@ FEditableMeshElementAddress FMeshEditorMode::QueryElement( const UEditableMesh& 
 		{
 			const FVector VertexPosition = EditableMesh.GetVertexAttribute( VertexID, UEditableMeshAttribute::VertexPosition(), 0 );
 			const bool bAlreadyHitVertex = ( HitElementAddress.ElementType == EEditableMeshElementType::Vertex );
-			const bool bHit = CheckVertex( bUseSphere, Sphere, SphereFuzzyDistance, bUseRay, RayStart, CurrentRayEnd, RayFuzzyDistance, VertexPosition, CameraLocation, bIsPerspectiveView, FuzzyDistanceScaleFactor, ClosestInteractorShape, ClosestDistanceToRay, ClosestDistanceOnRay, ClosestHitLocation, bAlreadyHitVertex );
+			const bool bHit = CheckVertex( InteractorShape, Sphere, SphereFuzzyDistance, RayStart, CurrentRayEnd, RayFuzzyDistance, VertexPosition, CameraLocation, bIsPerspectiveView, FuzzyDistanceScaleFactor, ClosestInteractorShape, ClosestDistanceToRay, ClosestDistanceOnRay, ClosestHitLocation, bAlreadyHitVertex );
 			if( bHit )
 			{
 				HitElementAddress.ElementType = EEditableMeshElementType::Vertex;
@@ -3780,7 +3791,7 @@ FEditableMeshElementAddress FMeshEditorMode::QueryElement( const UEditableMesh& 
 }
 
 
-bool FMeshEditorMode::CheckVertex( const bool bUseSphere, const FSphere& Sphere, const float SphereFuzzyDistance, bool bUseRay, const FVector& RayStart, const FVector& RayEnd, const float RayFuzzyDistance, const FVector& VertexPosition, const FVector& CameraLocation, const bool bIsPerspectiveView, const float FuzzyDistanceScaleFactor, EInteractorShape& ClosestInteractorShape, float& ClosestDistanceToRay, float& ClosestDistanceOnRay, FVector& ClosestHitLocation, const bool bAlreadyHitVertex )
+bool FMeshEditorMode::CheckVertex( const EInteractorShape InteractorShape, const FSphere& Sphere, const float SphereFuzzyDistance, const FVector& RayStart, const FVector& RayEnd, const float RayFuzzyDistance, const FVector& VertexPosition, const FVector& CameraLocation, const bool bIsPerspectiveView, const float FuzzyDistanceScaleFactor, EInteractorShape& ClosestInteractorShape, float& ClosestDistanceToRay, float& ClosestDistanceOnRay, FVector& ClosestHitLocation, const bool bAlreadyHitVertex )
 {
 	bool bHit = false;
 
@@ -3789,7 +3800,7 @@ bool FMeshEditorMode::CheckVertex( const bool bUseSphere, const FSphere& Sphere,
 	const float DistanceBasedScaling = DistanceBias + DistanceToCamera * FuzzyDistanceScaleFactor;
 	check( DistanceBasedScaling > 0.0f );
 
-	if( bUseSphere )
+	if( InteractorShape == EInteractorShape::GrabberSphere )
 	{
 		const float DistanceToSphere = ( VertexPosition - Sphere.Center ).Size();
 		if( DistanceToSphere <= Sphere.W )
@@ -3808,7 +3819,7 @@ bool FMeshEditorMode::CheckVertex( const bool bUseSphere, const FSphere& Sphere,
 		}
 	}
 
-	if( bUseRay )
+	if( InteractorShape == EInteractorShape::Laser )
 	{
 		const FVector ClosestPointOnRay = FMath::ClosestPointOnSegment( VertexPosition, RayStart, RayEnd );
 		const float DistanceToRay = ( ClosestPointOnRay - VertexPosition ).Size();
@@ -3844,11 +3855,11 @@ bool FMeshEditorMode::CheckVertex( const bool bUseSphere, const FSphere& Sphere,
 }
 
 
-bool FMeshEditorMode::CheckEdge( const bool bUseSphere, const FSphere& Sphere, const float SphereFuzzyDistance, bool bUseRay, const FVector& RayStart, const FVector& RayEnd, const float RayFuzzyDistance, const FVector EdgeVertexPositions[ 2 ], const FVector& CameraLocation, const bool bIsPerspectiveView, const float FuzzyDistanceScaleFactor, EInteractorShape& ClosestInteractorShape, float& ClosestDistanceToRay, float& ClosestDistanceOnRay, FVector& ClosestHitLocation, const bool bAlreadyHitEdge )
+bool FMeshEditorMode::CheckEdge( const EInteractorShape InteractorShape, const FSphere& Sphere, const float SphereFuzzyDistance, const FVector& RayStart, const FVector& RayEnd, const float RayFuzzyDistance, const FVector EdgeVertexPositions[ 2 ], const FVector& CameraLocation, const bool bIsPerspectiveView, const float FuzzyDistanceScaleFactor, EInteractorShape& ClosestInteractorShape, float& ClosestDistanceToRay, float& ClosestDistanceOnRay, FVector& ClosestHitLocation, const bool bAlreadyHitEdge )
 {
 	bool bHit = false;
 
-	if( bUseSphere )
+	if( InteractorShape == EInteractorShape::GrabberSphere )
 	{
 		const float DistanceToSphere = FMath::PointDistToSegment( Sphere.Center, EdgeVertexPositions[ 0 ], EdgeVertexPositions[ 1 ] );
 		if( DistanceToSphere <= Sphere.W )
@@ -3873,7 +3884,7 @@ bool FMeshEditorMode::CheckEdge( const bool bUseSphere, const FSphere& Sphere, c
 	}
 
 
-	if( bUseRay )
+	if( InteractorShape == EInteractorShape::Laser )
 	{
 		FVector ClosestPointOnEdge, ClosestPointOnRay;
 		FMath::SegmentDistToSegmentSafe(
@@ -3919,11 +3930,11 @@ bool FMeshEditorMode::CheckEdge( const bool bUseSphere, const FSphere& Sphere, c
 }
 
 
-bool FMeshEditorMode::CheckTriangle( const bool bUseSphere, const FSphere& Sphere, const float SphereFuzzyDistance, bool bUseRay, const FVector& RayStart, const FVector& RayEnd, const float RayFuzzyDistance, const FVector TriangleVertexPositions[ 3 ], const FVector& CameraLocation, const bool bIsPerspectiveView, const float FuzzyDistanceScaleFactor, EInteractorShape& ClosestInteractorShape, float& ClosestDistanceToRay, float& ClosestDistanceOnRay, FVector& ClosestHitLocation, const bool bAlreadyHitTriangle )
+bool FMeshEditorMode::CheckTriangle( const EInteractorShape InteractorShape, const FSphere& Sphere, const float SphereFuzzyDistance, const FVector& RayStart, const FVector& RayEnd, const float RayFuzzyDistance, const FVector TriangleVertexPositions[ 3 ], const FVector& CameraLocation, const bool bIsPerspectiveView, const float FuzzyDistanceScaleFactor, EInteractorShape& ClosestInteractorShape, float& ClosestDistanceToRay, float& ClosestDistanceOnRay, FVector& ClosestHitLocation, const bool bAlreadyHitTriangle )
 {
 	bool bHit = false;
 
-	if( bUseSphere )
+	if( InteractorShape == EInteractorShape::GrabberSphere )
 	{
 		// @todo grabber: FMath::ClosestPointOnTriangleToPoint doesn't work with degenerates (always returns ray start point?)
 		const FVector ClosestPointOnTriangleToSphere = FMath::ClosestPointOnTriangleToPoint( Sphere.Center, TriangleVertexPositions[ 0 ], TriangleVertexPositions[ 1 ], TriangleVertexPositions[ 2 ] );
@@ -3949,7 +3960,7 @@ bool FMeshEditorMode::CheckTriangle( const bool bUseSphere, const FSphere& Spher
 	}
 
 
-	if( bUseRay )
+	if( InteractorShape == EInteractorShape::Laser )
 	{
 		// @todo mesheditor: We have like 5 different versions of this in the engine, but nothing generic in a nice place
 		struct Local
@@ -4376,6 +4387,8 @@ void FMeshEditorMode::PostUndo()
 
 bool FMeshEditorMode::FrustumSelect( const FConvexVolume& InFrustum, FEditorViewportClient* InViewportClient, bool InSelect )
 {
+	// @todo mesheditor spatial: Need to update marquee select to use spatial queries
+
 	// @todo mesheditor urgent: settings class for bundling together all these kind of things
 	const bool bShouldDeselectAllFirst = true;	// @todo mesheditor: needs to be passed to this method
 	const bool bOnlySelectVisibleMeshes = GetDefault<UMeshEditorSettings>()->bOnlySelectVisibleMeshes;

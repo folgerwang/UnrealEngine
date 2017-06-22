@@ -9,6 +9,7 @@
 #include "Change.h"		// For TUniquePtr<FChange>
 #include "Logging/LogMacros.h"
 #include "Materials/MaterialInterface.h"
+#include "GenericOctreePublic.h"	// For FOctreeElementId
 #include "EditableMesh.generated.h"
 
 class UEditableMeshAdapter;
@@ -601,6 +602,24 @@ public:
 		bAllowUndo = bInAllowUndo;
 	}
 
+	/**
+	 * @return	Returns true if our octree spatial database is enabled for this mesh
+	 */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	bool IsSpatialDatabaseAllowed() const
+	{
+		return bAllowSpatialDatabase;
+	}
+
+	/**
+	 * Sets whether this mesh should automatically generate and maintain an octree spatial database.  Certain queries may only be
+	 * supported when the mesh has an octree generated.  The octree is never saved or loaded, and always generated on demand.  This
+	 * feature adds significant overhead to editable mesh initialization and modification, so only use it if you really need to.
+	 *
+	 * @param	bInAllowSpatialDatabase		True if an octree should be generated and maintained for this mesh.
+	 */
+	UFUNCTION( BlueprintCallable, Category="Editable Mesh" )
+	void SetAllowSpatialDatabase( const bool bInAllowSpatialDatabase );
 
 	/**
 	 * @return	Returns true if there are any existing tracked changes that can be undo right now
@@ -731,10 +750,9 @@ public:
 	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) void ComputeTextureCoordinatesForPointOnPolygon( const FPolygonID PolygonID, const FVector PointOnPolygon, bool& bOutWereTextureCoordinatesFound, TArray<FVector4>& OutInterpolatedTextureCoordinates );
 	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) void ComputePolygonsSharedEdges( const TArray<FPolygonID>& PolygonIDs, TArray<FEdgeID>& OutSharedEdgeIDs ) const;
 	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) void FindPolygonLoop( const FEdgeID EdgeID, TArray<FEdgeID>& OutEdgeLoopEdgeIDs, TArray<FEdgeID>& OutFlippedEdgeIDs, TArray<FEdgeID>& OutReversedEdgeIDPathToTake, TArray<FPolygonID>& OutPolygonIDsToSplit ) const;
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) void SearchSpatialDatabaseForPolygonsPotentiallyIntersectingLineSegment( const FVector LineSegmentStart, const FVector LineSegmentEnd, TArray<FPolygonID>& OutPolygons ) const;
 
 
-	// Low poly editing features
-	// @todo mesheditor: Move elsewhere
 	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void SetSubdivisionCount( const int32 NewSubdivisionCount );
 	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void MoveVertices( const TArray<FVertexToMove>& VerticesToMove );
 	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void CreateMissingPolygonPerimeterEdges( const FPolygonID PolygonID, TArray<FEdgeID>& OutNewEdgeIDs );
@@ -813,6 +831,16 @@ private:
 
 	/** Called during end modification to retriangulate polygons in the pending polygon list */
 	void RetriangulatePolygons();
+
+	/** Tries to incrementally update the octree based off geometry that has changed since last time.  If that's not
+	    reasonable to do, then this will rebuild the entire octree from scratch */
+	void UpdateOctreeIncrementallyIfPossibleOtherwiseRebuildIt();
+
+public:
+	// @todo mesheditor: temporarily changed access to public so the adapter can call it when building the editable mesh from the source static mesh. Think about this some more.
+	/** Rebuilds the octree */
+	void RebuildOctree();
+
 
 public:
 
@@ -907,4 +935,27 @@ public:
 
 	/** Broadcast event when element IDs are remapped (for example, following Compact / Uncompact) */
 	FElementIDsRemapped ElementIDsRemappedEvent;
+
+
+	//
+	// Spatial database
+	//
+
+	/** True if we should generate and maintain an octree spatial database for this mesh. */
+	bool bAllowSpatialDatabase;
+
+	/** Octree to accelerate spatial queries against the mesh.  This is never serialized, and only created and maintained if bAllowSpatialDatabase is enabled. */
+	TSharedPtr<class FEditableMeshOctree> Octree;
+
+	/** Maps our polygon IDs to octree element IDs */
+	TMap<FPolygonID, FOctreeElementId> PolygonIDToOctreeElementIDMap;
+
+	/** Polygons that were deleted since the last time our octree was refreshed */
+	TSet<FPolygonID> DeletedOctreePolygonIDs;
+
+	/** Newly-created polygons since the last time our octree was refreshed */
+	TSet<FPolygonID> NewOctreePolygonIDs;
+
+	friend struct FEditableMeshOctreeSemantics;	// NOTE: Allows inline access to PolygonIDToOctreeElementIDMap
+
 };

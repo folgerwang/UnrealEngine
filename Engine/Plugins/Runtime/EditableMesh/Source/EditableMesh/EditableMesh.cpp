@@ -4,6 +4,8 @@
 #include "EditableMeshChanges.h"
 #include "EditableMeshCustomVersion.h"
 #include "EditableMeshAdapter.h"
+#include "EditableMeshOctree.h"
+#include "EngineDefines.h"	// For HALF_WORLD_MAX
 #include "HAL/IConsoleManager.h"
 #include "ProfilingDebugging/ScopedTimers.h"	// For FAutoScopedDurationTimer
 #include "GeomTools.h"
@@ -40,6 +42,9 @@ namespace EditableMesh
 {
 	static FAutoConsoleVariable InterpolatePositionsToLimit( TEXT( "EditableMesh.InterpolatePositionsToLimit" ), 1, TEXT( "Whether to interpolate vertex positions for subdivision meshes all the way to their limit surface position.  Otherwise, we stop at the most refined mesh position." ) );
 	static FAutoConsoleVariable InterpolateFVarsToLimit( TEXT( "EditableMesh.InterpolateFVarsToLimit" ), 1, TEXT( "Whether to interpolate face-varying vertex data for subdivision meshes all the way to their limit surface position.  Otherwise, we stop at the most refined mesh." ) );
+
+	static FAutoConsoleVariable OctreeIncrementalUpdateLimit( TEXT( "EditableMesh.OctreeIncrementalUpdateLimit" ), 0.4f, TEXT( "If more than this scalar percentage of polygons have changed, we'll rebuild the octree from scratch instead of incrementally updating it." ) );
+	static FAutoConsoleVariable UseBoundlessOctree( TEXT( "EditableMesh.UseBoundlessOctree" ), 1, TEXT( "If enabled, the octree for editable meshes will have a huge bounding box.  Otherwise, we'll compute a tightly wrapped bounds.  However, the bounds will not be able to grow beyond it's original size." ) );
 }
 
 
@@ -70,7 +75,8 @@ const FName UEditableMeshAttribute::PolygonCenterName( "PolygonCenter" );
 UEditableMesh::UEditableMesh()
 	: bAllowUndo( false ),
 	  bAllowCompact( false ),
-	  PendingCompactCounter( 0 )
+	  PendingCompactCounter( 0 ),
+	  bAllowSpatialDatabase( false )
 {
 }
 
@@ -92,11 +98,8 @@ void UEditableMesh::PostLoad()
 {
 	Super::PostLoad();
 
-	if( IsPreviewingSubdivisions() )
-	{
-		RefreshOpenSubdiv();
-	}
-
+	RefreshOpenSubdiv();
+	RebuildOctree();
 	RebuildRenderMesh();
 }
 
@@ -260,6 +263,39 @@ void UEditableMesh::FixUpElementIDs( const FElementIDRemappings& Remappings )
 		for( FPolygonID& Polygon : PolygonGroup.Polygons )
 		{
 			Polygon = Remappings.GetRemappedPolygonID( Polygon );
+		}
+	}
+
+	// Fix up spatial database
+	{
+		if( Octree.IsValid() )
+		{
+			for( FPolygonID& PolygonID : DeletedOctreePolygonIDs )
+			{
+				PolygonID = Remappings.GetRemappedPolygonID( PolygonID );
+			}
+
+			for( FPolygonID& PolygonID : NewOctreePolygonIDs )
+			{
+				PolygonID = Remappings.GetRemappedPolygonID( PolygonID );
+			}
+		}
+
+		{
+			// Make a temporary copy of the original map, and clear the stored version
+			static TMap<FPolygonID, FOctreeElementId> OldPolygonIDToOctreeElementIDMap;
+			OldPolygonIDToOctreeElementIDMap = PolygonIDToOctreeElementIDMap;
+			PolygonIDToOctreeElementIDMap.Reset();
+
+			// Rebuild the map with the remapped polygon IDs
+			for( const auto& OldPolygonIDAndOctreeElementID : OldPolygonIDToOctreeElementIDMap )
+			{
+				const FPolygonID OldPolygonID = OldPolygonIDAndOctreeElementID.Key;
+				const FOctreeElementId OctreeElementID = OldPolygonIDAndOctreeElementID.Value;
+
+				const FPolygonID NewPolygonID = Remappings.GetRemappedPolygonID( OldPolygonID );
+				PolygonIDToOctreeElementIDMap.Add( NewPolygonID, OctreeElementID );
+			}
 		}
 	}
 }
@@ -477,6 +513,12 @@ void UEditableMesh::EndModification( const bool bFromUndo )
 		// @todo mesheditor debug
 		// UE_LOG( LogEditableMesh, Log, TEXT( "UEditableStaticMesh::EndModification COMPLETE in %0.4fs" ), FunctionTimer.GetTime() );	  // @todo mesheditor: Shows bogus time values
 
+		// Rebuild our octree
+		if( CurrentModificationType == EMeshModificationType::Final )
+		{
+			UpdateOctreeIncrementallyIfPossibleOtherwiseRebuildIt();
+		}
+
 		FStartOrEndModificationChangeInput RevertInput;
 		RevertInput.bStartModification = true;
 		RevertInput.MeshModificationType = CurrentModificationType;
@@ -605,6 +647,15 @@ void UEditableMesh::SetVertexAttribute( const FVertexID VertexID, const FName At
 	{
 		check( AttributeIndex == 0 );	// Only one position is supported
 		Vertex.VertexPosition = AttributeValue;
+
+		// Update spatial database
+		if( Octree.IsValid() )
+		{
+			static TArray<FPolygonID> ConnectedPolygons;
+			GetVertexConnectedPolygons( VertexID, /* Out */ ConnectedPolygons );
+			DeletedOctreePolygonIDs.Append( ConnectedPolygons );
+			NewOctreePolygonIDs.Append( ConnectedPolygons );
+		}
 	}
 	else if( AttributeName == UEditableMeshAttribute::VertexCornerSharpness() )
 	{
@@ -4560,6 +4611,12 @@ void UEditableMesh::CreatePolygons( const TArray<FPolygonToCreate>& PolygonsToCr
 		Adapter->OnCreatePolygons( this, OutNewPolygonIDs );
 	}
 
+	// Update spatial database
+	if( Octree.IsValid() )
+	{
+		NewOctreePolygonIDs.Append( OutNewPolygonIDs );
+	}
+
 	// Generate tangent basis for the polygon
 	PolygonsPendingNewTangentBasis.Append( OutNewPolygonIDs );
 
@@ -4709,6 +4766,16 @@ void UEditableMesh::DeletePolygons( const TArray<FPolygonID>& PolygonIDsToDelete
 
 			// Delete the polygon
 			Polygons.RemoveAt( PolygonID.GetValue() );
+		}
+
+		// Update spatial database
+		if( Octree.IsValid() )
+		{
+			DeletedOctreePolygonIDs.Append( PolygonIDsToDelete );
+			for( const FPolygonID PolygonID : PolygonIDsToDelete )
+			{
+				NewOctreePolygonIDs.Remove( PolygonID );
+			}
 		}
 
 		// Remove vertex instances which are exclusively used by this polygon.
@@ -9046,6 +9113,233 @@ void UEditableMesh::QuadrangulatePolygonGroup( const FPolygonGroupID PolygonGrou
 	const bool bDeleteOrphanedVertexInstances = false;
 	const bool bDeleteEmptyPolygonGroups = false;
 	DeletePolygons( PolygonIDsToDelete, bDeleteOrphanedEdges, bDeleteOrphanedVertices, bDeleteOrphanedVertexInstances, bDeleteEmptyPolygonGroups );
+}
+
+
+void UEditableMesh::UpdateOctreeIncrementallyIfPossibleOtherwiseRebuildIt()
+{
+	bool bAnythingChanged = true;
+	bool bDoIncrementalUpdate = false;
+
+	if( Octree.IsValid() )
+	{
+		if( IsSpatialDatabaseAllowed() )
+		{
+			if( NewOctreePolygonIDs.Num() == 0 &&
+				DeletedOctreePolygonIDs.Num() == 0 )
+			{
+				// Nothing has changed!
+				bAnythingChanged = false;
+			}
+			else
+			{
+				// Make sure we haven't changed or deleted so many polygons that it's not even worth doing an incremental
+				// update to the mesh.  It's generally more expensive to remove things from the octree than to add to it,
+				// because it will need to consider how to collapse nodes.  If we're only adding new things, then we'll
+				// never rebuild it from scratch.
+				const float ScalarPercentOfPolygonsChangedOrDeleted = (float)DeletedOctreePolygonIDs.Num() / (float)GetPolygonCount();
+				if( ScalarPercentOfPolygonsChangedOrDeleted < EditableMesh::OctreeIncrementalUpdateLimit->GetFloat() )
+				{
+					// We have a reasonable number of incremental changes, so let's go ahead and make those!
+					bDoIncrementalUpdate = true;
+				}
+			}
+		}
+	}
+
+	if( bAnythingChanged )
+	{
+		if( bDoIncrementalUpdate )
+		{
+			check( Octree.IsValid() );
+
+			// Clear out deleted polygons from our octree
+			{
+				for( const FPolygonID PolygonID : DeletedOctreePolygonIDs )
+				{
+					const FOctreeElementId OctreeElementID = PolygonIDToOctreeElementIDMap.FindAndRemoveChecked( PolygonID );
+					Octree->RemoveElement( OctreeElementID );
+				}
+				DeletedOctreePolygonIDs.Reset();
+			}
+
+			// Now, add new polygons to the octree
+			{
+				for( const FPolygonID PolygonID : NewOctreePolygonIDs )
+				{
+					checkSlow( IsValidPolygon( PolygonID ) );
+
+					FBox BoundingBox;
+					{
+						BoundingBox.Init();
+
+						static TArray<FVertexID> PerimeterVertices;
+						GetPolygonPerimeterVertices( PolygonID, /* Out */ PerimeterVertices );
+						for( const FVertexID VertexID : PerimeterVertices )
+						{
+							const FVector VertexPosition = GetVertexAttribute( VertexID, UEditableMeshAttribute::VertexPosition(), 0 );
+							BoundingBox += VertexPosition;
+						}
+					}
+
+					const FEditableMeshOctreePolygon OctreePolygon( *this, PolygonID, FBoxCenterAndExtent( BoundingBox ) );
+					Octree->AddElement( OctreePolygon );
+				}
+				NewOctreePolygonIDs.Reset();
+			}
+		}
+		else
+		{
+			RebuildOctree();
+		}
+	}
+}
+
+
+void UEditableMesh::RebuildOctree()
+{
+	Octree.Reset();
+	PolygonIDToOctreeElementIDMap.Reset();
+	NewOctreePolygonIDs.Reset();
+	DeletedOctreePolygonIDs.Reset();
+
+	if( IsSpatialDatabaseAllowed() )
+	{
+		FVector OctreeOrigin;
+		float OctreeExtent;
+		{
+			if( EditableMesh::UseBoundlessOctree->GetInt() != 0 )
+			{
+				// We use a 'boundless' octree for our mesh.  This is because we don't want to have to update the root node bounds
+				// of the tree as we change the mesh, and also to avoid having to compute a bounding box here.
+				OctreeOrigin = FVector::ZeroVector;
+				OctreeExtent = HALF_WORLD_MAX;
+			}
+			else
+			{
+				// Compute a bounding box to use that tightly wraps the mesh.
+
+				// NOTE: This will have problems.  The root bounding box cannot change without rebuilding the octree, so if the
+				// mesh is modified and grown, elements outside the original bounds will not be selectable!  Additionally, we
+				// incur the additional performance cost of computing a fresh bounding box here.
+
+				const FBox MeshBoundingBox = this->ComputeBoundingBox();
+				OctreeOrigin = MeshBoundingBox.GetCenter();
+				OctreeExtent = MeshBoundingBox.GetExtent().GetAbsMax();
+			}
+		}
+
+		Octree = MakeShareable( new FEditableMeshOctree( OctreeOrigin, OctreeExtent ) );
+
+		// @todo mesheditor spatial: We'll currently only ever find vertices and edges that are connected to polygons.  Our spatial
+		// database only tracks polygons.  Do we need to support hover/selection of "loose" vertices and edges also?
+
+		const uint32 PolygonArraySize = GetPolygonArraySize();
+		for( uint32 PolygonIndex = 0; PolygonIndex < PolygonArraySize; ++PolygonIndex )
+		{
+			const FPolygonID PolygonID( PolygonIndex );
+			if( IsValidPolygon( PolygonID ) )
+			{
+				FBox BoundingBox;
+				{
+					BoundingBox.Init();
+
+					static TArray<FVertexID> PerimeterVertices;
+					GetPolygonPerimeterVertices( PolygonID, /* Out */ PerimeterVertices );
+					for( const FVertexID VertexID : PerimeterVertices )
+					{
+						const FVector VertexPosition = GetVertexAttribute( VertexID, UEditableMeshAttribute::VertexPosition(), 0 );
+						BoundingBox += VertexPosition;
+					}
+				}
+
+				const FEditableMeshOctreePolygon OctreePolygon( *this, PolygonID, FBoxCenterAndExtent( BoundingBox ) );
+				Octree->AddElement( OctreePolygon );
+			}
+		}
+
+		// @todo mesheditor debug
+		// Octree->DumpStats();
+	}
+}
+
+
+void UEditableMesh::SearchSpatialDatabaseForPolygonsPotentiallyIntersectingLineSegment( const FVector LineSegmentStart, const FVector LineSegmentEnd, TArray<FPolygonID>& OutPolygons ) const
+{
+	OutPolygons.Reset();
+
+	// @todo mesheditor perf: Ideally we "early out" of octree traversal, by walking through the octree along the ray, reporting back to QueryElement to find out when we should stop
+	// @todo mesheditor scripting: Should spit a warning for Blueprint users if Octree is not allowed when calling this function
+
+	if( IsSpatialDatabaseAllowed() && ensure( Octree.IsValid() ) )
+	{
+		const FVector LineSegmentVector = LineSegmentEnd - LineSegmentStart;
+		const FVector LineSegmentVectorReciprocal = LineSegmentVector.Reciprocal();
+
+		// @todo mesheditor perf: Do we need to use a custom stack allocator for iterating?  The default should probably be okay.
+		for( FEditableMeshOctree::TConstIterator<> OctreeIt( *Octree );
+			 OctreeIt.HasPendingNodes();
+			 OctreeIt.Advance() )
+		{
+			const FEditableMeshOctree::FNode& OctreeNode = OctreeIt.GetCurrentNode();
+			const FOctreeNodeContext& OctreeNodeContext = OctreeIt.GetCurrentContext();
+
+			// Leaf nodes have no children, so don't bother iterating
+			if( !OctreeNode.IsLeaf() )
+			{
+				// Find children of this octree node that overlap our line segment
+				FOREACH_OCTREE_CHILD_NODE( ChildRef )
+				{
+					if( OctreeNode.HasChild( ChildRef ) )
+					{
+						const FOctreeNodeContext ChildContext = OctreeNodeContext.GetChildContext( ChildRef );
+
+						// @todo mesheditor: LineBoxIntersection() has a magic number in its implementation we might want to look at (search for BOX_SIDE_THRESHOLD)
+						const bool bIsOverlappingLineSegment =
+							FMath::LineBoxIntersection(
+								ChildContext.Bounds.GetBox(),
+								LineSegmentStart,
+								LineSegmentEnd,
+								LineSegmentVector,
+								LineSegmentVectorReciprocal );
+
+						if( bIsOverlappingLineSegment )
+						{
+							// DrawDebugBox( GWorld, ChildContext.Bounds.Center, ChildContext.Bounds.Extent * 0.8f, FQuat::Identity, FColor::Green, false, 0.0f );		// @todo mesheditor debug: (also, wrong coordinate system!)
+
+							// Push it on the iterator's pending node stack.
+							OctreeIt.PushChild( ChildRef );
+						}
+						else
+						{
+							// DrawDebugBox( GWorld, ChildContext.Bounds.Center, ChildContext.Bounds.Extent, FQuat::Identity, FColor( 128, 128, 128 ), false, 0.0f );	// @todo mesheditor debug: (also, wrong coordinate system!)
+						}
+					}
+				}
+			}
+
+			// All of the elements in this octree node are candidates.  Note this node may not be a leaf node, and that's OK.
+			for( FEditableMeshOctree::ElementConstIt OctreeElementIt( OctreeNode.GetElementIt() ); OctreeElementIt; ++OctreeElementIt )
+			{
+				const FEditableMeshOctreePolygon& OctreePolygon = *OctreeElementIt;
+				OutPolygons.Add( OctreePolygon.PolygonID );
+			}
+		}
+	}
+}
+
+
+void UEditableMesh::SetAllowSpatialDatabase( const bool bInAllowSpatialDatabase )
+{
+	if( bAllowSpatialDatabase != bInAllowSpatialDatabase )
+	{
+		bAllowSpatialDatabase = bInAllowSpatialDatabase;
+
+		if( !IsBeingModified() )
+		{
+			RebuildOctree();
+		}
+	}
 }
 
 
