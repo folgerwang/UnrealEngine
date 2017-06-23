@@ -2200,6 +2200,7 @@ void UViewportWorldInteraction::StopDragging( UViewportInteractor* Interactor )
 					InteractorData.DragOperationComponent->ClearDragOperation();
 				}
 				InteractorData.DragOperationComponent.Reset();
+				InteractorData.DraggingMode = EViewportInteractionDraggingMode::Nothing;
 
 				// If we're not dragging anything around, check to see if transformables have come to a rest.
 				const bool bTransformablesStillMoving =
