@@ -463,6 +463,8 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 		}
 	}
 
+	this->CachedBoundingBoxAndSphere = StaticMesh->GetBounds();
+
 	// Cache polygon tangent bases
 	static TArray<FPolygonID> PolygonIDs;
 	PolygonIDs.Reset();
