@@ -363,11 +363,10 @@ void UEditableMesh::RebuildRenderMesh()
 {
 	if( !IsBeingModified() )
 	{
-		const bool bRefreshBounds = true;
 		const bool bInvalidateLighting = true;
 		for( UEditableMeshAdapter* Adapter : Adapters )
 		{
-			Adapter->OnRebuildRenderMeshStart( this, bRefreshBounds, bInvalidateLighting );
+			Adapter->OnRebuildRenderMeshStart( this, bInvalidateLighting );
 		}
 	}
 
@@ -378,10 +377,11 @@ void UEditableMesh::RebuildRenderMesh()
 
 	if( !IsBeingModified() )
 	{
-		const bool bUpdateCollision = true;
+		const bool bRebuildBoundsAndCollision = true;
 		for( UEditableMeshAdapter* Adapter : Adapters )
 		{
-			Adapter->OnRebuildRenderMeshFinish( this, bUpdateCollision );
+			const bool bIsPreviewRollback = false;
+			Adapter->OnRebuildRenderMeshFinish( this, bRebuildBoundsAndCollision, bIsPreviewRollback );
 		}
 	}
 }
@@ -413,7 +413,7 @@ void UEditableMesh::StartModification( const EMeshModificationType MeshModificat
 		const bool bInvalidateLighting = ( MeshModificationType == EMeshModificationType::FirstInterim || MeshModificationType == EMeshModificationType::Final );	// @todo mesheditor perf: We can avoid invalidating lighting on 'Final' if we know that a 'FirstInterim' happened since the last 'Final'
 		for( UEditableMeshAdapter* Adapter : Adapters )
 		{
-			Adapter->OnRebuildRenderMeshStart( this, bRefreshBounds, bInvalidateLighting );
+			Adapter->OnRebuildRenderMeshStart( this, bInvalidateLighting );
 		}
 
 		for( UEditableMeshAdapter* Adapter : Adapters )
@@ -496,7 +496,9 @@ void UEditableMesh::EndModification( const bool bFromUndo )
 
 		for( UEditableMeshAdapter* Adapter : Adapters )
 		{
-			Adapter->OnRebuildRenderMeshFinish( this, CurrentModificationType == EMeshModificationType::Final );
+			const bool bRebuildBoundsAndCollision = ( CurrentModificationType == EMeshModificationType::Final );
+			const bool bIsPreviewRollback = !( CurrentModificationType == EMeshModificationType::Final || !bFromUndo );
+			Adapter->OnRebuildRenderMeshFinish( this, bRebuildBoundsAndCollision, bIsPreviewRollback );
 		}
 
 		for( UEditableMeshAdapter* Adapter : Adapters )

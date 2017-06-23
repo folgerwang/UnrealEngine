@@ -799,18 +799,25 @@ void UEditableStaticMeshAdapter::OnStartModification( const UEditableMesh* Edita
 }
 
 
-void UEditableStaticMeshAdapter::OnRebuildRenderMeshStart( const UEditableMesh* EditableMesh, const bool bRefreshBounds, const bool bInvalidateLighting )
+void UEditableStaticMeshAdapter::OnRebuildRenderMeshStart( const UEditableMesh* EditableMesh, const bool bInvalidateLighting )
 {
-	// We're changing the mesh itself, so ALL static mesh components in the scene will need
-	// to be unregistered for this (and reregistered afterwards.)
-	RecreateRenderStateContext = MakeShareable( new FStaticMeshComponentRecreateRenderStateContext( StaticMesh, bInvalidateLighting, bRefreshBounds ) );
+	// We may already have a lock on the rendering resources, if it wasn't released the last time we called EndModification()
+	// on the mesh.  This is only the case when rolling back preview changes for a mesh, because we're guaranteed to apply another
+	// modification to the same mesh in the very same frame.  So we can avoid having to update the GPU resources twice in one frame.
+	if( !RecreateRenderStateContext.IsValid() )
+	{
+		// We're changing the mesh itself, so ALL static mesh components in the scene will need
+		// to be unregistered for this (and reregistered afterwards.)
+		const bool bRefreshBounds = true;
+		RecreateRenderStateContext = MakeShareable( new FStaticMeshComponentRecreateRenderStateContext( StaticMesh, bInvalidateLighting, bRefreshBounds ) );
 
-	// Release the static mesh's resources.
-	StaticMesh->ReleaseResources();
+		// Release the static mesh's resources.
+		StaticMesh->ReleaseResources();
 
-	// Flush the resource release commands to the rendering thread to ensure that the build doesn't occur while a resource is still
-	// allocated, and potentially accessing the UStaticMesh.
-	StaticMesh->ReleaseResourcesFence.Wait();
+		// Flush the resource release commands to the rendering thread to ensure that the build doesn't occur while a resource is still
+		// allocated, and potentially accessing the UStaticMesh.
+		StaticMesh->ReleaseResourcesFence.Wait();
+	}
 }
 
 
@@ -820,22 +827,26 @@ void UEditableStaticMeshAdapter::OnEndModification( const UEditableMesh* Editabl
 }
 
 
-void UEditableStaticMeshAdapter::OnRebuildRenderMeshFinish( const UEditableMesh* EditableMesh, const bool bUpdateCollision )
+void UEditableStaticMeshAdapter::OnRebuildRenderMeshFinish( const UEditableMesh* EditableMesh, const bool bRebuildBoundsAndCollision, const bool bIsPreviewRollback )
 {
-	const bool bShouldRecomputeBounds = bUpdateCollision;	// Only rebuild the bounds from scratch if we've finished a drag (bUpdateCollision will be true)
-	UpdateBounds( EditableMesh, bShouldRecomputeBounds );
+	UpdateBounds( EditableMesh, bRebuildBoundsAndCollision );
 	
-	if( bUpdateCollision )
+	if( bRebuildBoundsAndCollision )
 	{
 		UpdateCollision();
 	}
 
-	StaticMesh->InitResources();
+	// When rolling back preview changes, we'll skip updating GPU resources.  This is because we're guaranteed to get either 'interim' or
+	// 'final' changes to the same mesh later this frame, and we want to avoid updating the GPU resources twice in one frame.
+	if( !bIsPreviewRollback )
+	{
+		StaticMesh->InitResources();
 
-	// NOTE: This can call InvalidateLightingCache() on all components using this mesh, causing Modify() to be 
-	// called on those components!  Just something to be aware of when EndModification() is called within
-	// an undo transaction.
-	RecreateRenderStateContext.Reset();
+		// NOTE: This can call InvalidateLightingCache() on all components using this mesh, causing Modify() to be 
+		// called on those components!  Just something to be aware of when EndModification() is called within
+		// an undo transaction.
+		RecreateRenderStateContext.Reset();
+	}
 }
 
 
