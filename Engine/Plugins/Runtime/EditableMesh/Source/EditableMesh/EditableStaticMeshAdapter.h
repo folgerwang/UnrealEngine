@@ -169,7 +169,10 @@ private:
 	void UpdateIndexBufferFormatIfNeeded( const TArray<FMeshTriangle>& Triangles );
 
 	/** Rebuilds bounds */
-	void UpdateBoundsAndCollision( const UEditableMesh* EditableMesh, const bool bUpdateCollision );
+	void UpdateBounds( const UEditableMesh* EditableMesh, const bool bShouldRecompute );
+
+	/** Rebuilds collision.  Bounds should always be updated first. */
+	void UpdateCollision();
 
 	/** Gets the editable mesh section index which corresponds to the given rendering section index */
 	FPolygonGroupID GetSectionForRenderingSectionIndex( const int32 RenderingSectionIndex ) const;
@@ -196,7 +199,10 @@ private:
 	/** All of the polygon groups in this mesh */
 	TSparseArray< FRenderingPolygonGroup > RenderingPolygonGroups;
 
-
 	/** Used to refresh all components in the scene that may be using a mesh we're editing */
 	TSharedPtr< class FStaticMeshComponentRecreateRenderStateContext > RecreateRenderStateContext;
+
+	/** Cached bounding box for the static mesh.  This bounds can be (temporarily) larger than the actual mesh itself as
+	    an optimization. */
+	FBoxSphereBounds CachedBoundingBoxAndSphere;
 };
