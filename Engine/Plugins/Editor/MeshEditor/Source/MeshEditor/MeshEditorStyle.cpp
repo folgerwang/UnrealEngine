@@ -3,7 +3,7 @@
 #include "MeshEditorStyle.h"
 #include "Styling/SlateStyleRegistry.h"
 #include "IPluginManager.h"
-
+#include "SlateTypes.h"
 
 #define IMAGE_BRUSH( RelativePath, ... ) FSlateImageBrush( StyleSet->RootToContentDir( RelativePath, TEXT( ".png" ) ), __VA_ARGS__ )
 #define IMAGE_PLUGIN_BRUSH( RelativePath, ... ) FSlateImageBrush( FMeshEditorStyle::InContent( RelativePath, ".png" ), __VA_ARGS__ )
@@ -43,6 +43,12 @@ void FMeshEditorStyle::Initialize()
 	StyleSet->Set( "LevelEditor.MeshEditorMode.Small", new IMAGE_PLUGIN_BRUSH( "Icons/MeshEditorMode_40px", Icon40x40 ) );
 	StyleSet->Set( "LevelEditor.MeshEditorMode.Selected", new IMAGE_PLUGIN_BRUSH( "Icons/MeshEditorMode_40px", Icon40x40 ) );
 	StyleSet->Set( "LevelEditor.MeshEditorMode.Selected.Small", new IMAGE_PLUGIN_BRUSH( "Icons/MeshEditorMode_40px", Icon40x40 ) );
+
+	StyleSet->Set( "EditingMode.GroupName.Text", FTextBlockStyle()
+		.SetFont( TTF_CORE_FONT( "Fonts/Roboto-Bold", 12 ) )
+		.SetColorAndOpacity( FLinearColor::White )
+		.SetHighlightColor( FLinearColor( 0.02f, 0.3f, 0.0f ) )
+		.SetHighlightShape( BOX_BRUSH( "Common/TextBlockHighlightShape", FMargin(3.f/8.f) ) ) );
 
 	StyleSet->Set( "EditingMode.Entry", FCheckBoxStyle()
 		.SetCheckBoxType( ESlateCheckBoxType::ToggleButton )

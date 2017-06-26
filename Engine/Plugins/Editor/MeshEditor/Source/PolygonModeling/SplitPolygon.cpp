@@ -15,19 +15,19 @@
 
 void USplitPolygonFromVertexCommand::RegisterUICommand( FBindingContext* BindingContext )
 {
-	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "SplitPolygonFromVertex", "Split Polygon Mode", "Set the primary action to split a polygon.", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "SplitPolygonFromVertex", "Split Polygon", "Splits a polygon by clicking on a selected vertex and dragging to create an edge along the surface of a neighboring polygon.", EUserInterfaceActionType::RadioButton, FInputChord() );
 }
 
 
 void USplitPolygonFromEdgeCommand::RegisterUICommand( FBindingContext* BindingContext )
 {
-	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "SplitPolygonFromEdge", "Split Polygon Mode", "Set the primary action to split a polygon.", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "SplitPolygonFromEdge", "Split Polygon", "Splits a polygon by clicking on a selected edge and dragging to create an edge along the surface of a neigboring polygon.", EUserInterfaceActionType::RadioButton, FInputChord() );
 }
 
 
 void USplitPolygonFromPolygonCommand::RegisterUICommand( FBindingContext* BindingContext )
 {
-	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "SplitPolygonFromPolygon", "Split Polygon Mode", "Set the primary action to split a polygon.", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "SplitPolygonFromPolygon", "Split", "Splits a polygon by clicking on a selected polygon and dragging to create an edge along the surface of the polygon or it's neighbor.", EUserInterfaceActionType::RadioButton, FInputChord() );
 }
 
 

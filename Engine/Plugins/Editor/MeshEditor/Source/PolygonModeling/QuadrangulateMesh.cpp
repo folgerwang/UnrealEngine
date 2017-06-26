@@ -13,7 +13,7 @@
 
 void UQuadrangulateMeshCommand::RegisterUICommand( FBindingContext* BindingContext )
 {
-	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "QuadrangulateMesh", "Quadrangulate Mesh", "Quadrangulates the selected mesh.", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "QuadrangulateMesh", "Quadrangulate", "Quadrangulates the selected mesh.", EUserInterfaceActionType::Button, FInputChord() );
 }
 
 

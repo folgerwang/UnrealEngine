@@ -6,6 +6,9 @@
 #include "UICommandInfo.h"
 #include "EditableMesh.h"
 #include "MeshElement.h"
+#include "ScopedTransaction.h"
+#include "MultiBoxBuilder.h"
+#include "UICommandList.h"
 
 
 #define LOCTEXT_NAMESPACE "MeshEditorMode"
@@ -13,7 +16,7 @@
 
 void URemoveVertexCommand::RegisterUICommand( FBindingContext* BindingContext )
 {
-	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "RemoveVertex", "Remove Vertex", "Attempts to remove the selected vertex, keeping the polygon intact.", EUserInterfaceActionType::Button, FInputChord( EKeys::BackSpace ) );
+	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "RemoveVertex", "Remove", "Attempts to remove the selected vertex, keeping the polygon intact.", EUserInterfaceActionType::Button, FInputChord( EKeys::BackSpace ) );
 }
 
 

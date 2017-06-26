@@ -256,7 +256,7 @@ namespace BevelOrInsetPolygonHelpers
 
 void UBevelPolygonCommand::RegisterUICommand( FBindingContext* BindingContext )
 {
-	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "BevelPolygon", "Bevel Polygon Mode", "Set the primary action to bevel polygons.", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "BevelPolygon", "Bevel", "Bevels selected polygons as you click and drag.", EUserInterfaceActionType::RadioButton, FInputChord() );
 }
 
 
@@ -291,7 +291,7 @@ void UBevelPolygonCommand::AddToVRRadialMenuActionsMenu( IMeshEditorModeUIContra
 
 void UInsetPolygonCommand::RegisterUICommand( FBindingContext* BindingContext )
 {
-	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "InsetPolygon", "Inset Polygon Mode", "Set the primary action to inset polygons.", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "InsetPolygon", "Inset", "Insets selected polygons as you click and drag on the interior of a polygon.", EUserInterfaceActionType::RadioButton, FInputChord() );
 }
 
 

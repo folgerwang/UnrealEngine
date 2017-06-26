@@ -140,9 +140,9 @@ FMeshEditorVertexCommands::FMeshEditorVertexCommands()
 
 void FMeshEditorVertexCommands::RegisterCommands()
 {
-	UI_COMMAND(MoveVertex, "Move Vertex Mode", "Set the primary action to move vertices.", EUserInterfaceActionType::RadioButton, FInputChord());
+	UI_COMMAND(MoveVertex, "Move", "Move selected vertices using a transform gizmo, or click and drag to move vertices directly.", EUserInterfaceActionType::RadioButton, FInputChord());
 
-	UI_COMMAND(WeldVertices, "Weld Vertices", "Weld the selected vertices, keeping the first selected vertex.", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(WeldVertices, "Weld", "Weld the selected vertices, keeping the first selected vertex.", EUserInterfaceActionType::Button, FInputChord());
 
 	for( UMeshEditorCommand* Command : MeshEditorCommands::Get() )
 	{
@@ -165,7 +165,7 @@ FMeshEditorEdgeCommands::FMeshEditorEdgeCommands()
 
 void FMeshEditorEdgeCommands::RegisterCommands()
 {
-	UI_COMMAND(MoveEdge, "Move Edge Mode", "Set the primary action to move edges.", EUserInterfaceActionType::RadioButton, FInputChord());
+	UI_COMMAND(MoveEdge, "Move", "Move selected edges using a transform gizmo, or click and drag to move edges directly.", EUserInterfaceActionType::RadioButton, FInputChord());
 
 	UI_COMMAND(SelectEdgeLoop, "Select Edge Loop", "Select the edge loops which contain the selected edges.", EUserInterfaceActionType::Button, FInputChord(EKeys::Two, EModifierKey::Shift));
 
@@ -190,9 +190,9 @@ FMeshEditorPolygonCommands::FMeshEditorPolygonCommands()
 
 void FMeshEditorPolygonCommands::RegisterCommands()
 {
-	UI_COMMAND(MovePolygon, "Move Polygon Mode", "Set the primary action to move polygons.", EUserInterfaceActionType::RadioButton, FInputChord());
-	UI_COMMAND(FlipPolygon, "Flip Polygon", "Flip the currently selected polygons.", EUserInterfaceActionType::Button, FInputChord(EKeys::F, EModifierKey::Shift));
-	UI_COMMAND(TriangulatePolygon, "Triangulate Polygon", "Triangulate the currently selected polygons.", EUserInterfaceActionType::Button, FInputChord(EKeys::T));
+	UI_COMMAND(MovePolygon, "Move", "Move selected polygons using a transform gizmo, or click and drag to move polygons directly.", EUserInterfaceActionType::RadioButton, FInputChord());
+	UI_COMMAND(FlipPolygon, "Flip", "Flip the currently selected polygons.", EUserInterfaceActionType::Button, FInputChord(EKeys::F, EModifierKey::Shift));
+	UI_COMMAND(TriangulatePolygon, "Triangulate", "Triangulate the currently selected polygons.", EUserInterfaceActionType::Button, FInputChord(EKeys::T));
 	UI_COMMAND(AssignMaterial, "Assign Material", "Assigns the highlighted material in the Content Browser to the currently selected polygons.", EUserInterfaceActionType::Button, FInputChord(EKeys::M));
 
 	for( UMeshEditorCommand* Command : MeshEditorCommands::Get() )

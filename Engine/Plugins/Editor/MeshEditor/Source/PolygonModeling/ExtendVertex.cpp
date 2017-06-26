@@ -15,7 +15,7 @@
 
 void UExtendVertexCommand::RegisterUICommand( FBindingContext* BindingContext )
 {
-	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "ExtendVertex", "Extend Vertex Mode", "Set the primary action to extend vertices.", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "ExtendVertex", "Extend", "Creates a new triangle from the selected vertex by clicking and dragging outward from the vertex.  The new triangle will connect to the next closest neighbor vertex.", EUserInterfaceActionType::RadioButton, FInputChord() );
 }
 
 

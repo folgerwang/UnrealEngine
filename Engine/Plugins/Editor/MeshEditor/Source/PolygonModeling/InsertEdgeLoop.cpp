@@ -15,7 +15,7 @@
 
 void UInsertEdgeLoopCommand::RegisterUICommand( FBindingContext* BindingContext )
 {
-	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "InsertEdgeLoop", "Insert Edge Loop Mode", "Set the primary action to insert edge loops.", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "InsertEdgeLoop", "Insert Edge Loop", "Inserts a loop of edges at a specific location along the selected edge as you click and drag.  If a valid loop cannot be determined, no edges will be inserted.", EUserInterfaceActionType::RadioButton, FInputChord() );
 }
 
 

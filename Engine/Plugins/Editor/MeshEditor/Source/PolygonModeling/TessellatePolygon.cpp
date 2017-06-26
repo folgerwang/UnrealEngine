@@ -13,7 +13,7 @@
 
 void UTessellatePolygonCommand::RegisterUICommand( FBindingContext* BindingContext )
 {
-	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "TessellatePolygon", "Tessellate Polygon", "Tessellate selected polygons into smaller polygons.", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "TessellatePolygon", "Tessellate", "Tessellate selected polygons into smaller polygons.", EUserInterfaceActionType::Button, FInputChord() );
 }
 
 

@@ -622,7 +622,24 @@ void FMeshEditorMode::BindCommands()
 
 	// Register commands which work even without a selected element, as long as at least one mesh is selected
 	RegisterCommonCommand( MeshEditorCommonCommands.AddSubdivisionLevel, FExecuteAction::CreateLambda( [this] { AddOrRemoveSubdivisionLevel( true ); } ) );
-	RegisterCommonCommand( MeshEditorCommonCommands.RemoveSubdivisionLevel, FExecuteAction::CreateLambda( [this] { AddOrRemoveSubdivisionLevel( false ); } ) );
+	RegisterCommonCommand( MeshEditorCommonCommands.RemoveSubdivisionLevel, 
+		FExecuteAction::CreateLambda( [this] { AddOrRemoveSubdivisionLevel( false ); } ),
+		FCanExecuteAction::CreateLambda( [this] 
+			{ 
+				// Only allow 'Remove' if any selected meshes are already subdivided
+				bool bAnySubdividedMeshes = false;
+				for( const UEditableMesh* EditableMesh : GetSelectedEditableMeshes() )
+				{
+					if( EditableMesh->GetSubdivisionCount() > 0 )
+					{
+						bAnySubdividedMeshes = true;
+						break;
+					}
+				}
+				return bAnySubdividedMeshes;
+			}
+		) 
+	);
 
 	// @todo mesheditor: support EUserInterfaceActionType::ToggleButton actions in the UI, and extend RegisterCommand to allow
 	// a delegate returning check state.
@@ -656,9 +673,6 @@ void FMeshEditorMode::BindCommands()
 					// Common action
 					FUIAction UIAction = Command->MakeUIAction( *this );
 					CommonActions.Emplace( Command->GetUICommandInfo(), UIAction );
-					VertexActions.Emplace( Command->GetUICommandInfo(), UIAction );
-					EdgeActions.Emplace( Command->GetUICommandInfo(), UIAction );
-					PolygonActions.Emplace( Command->GetUICommandInfo(), UIAction );
 				}
 				break;
 
@@ -748,13 +762,10 @@ void FMeshEditorMode::RegisterPolygonEditingMode( const TSharedPtr<FUICommandInf
 }
 
 
-void FMeshEditorMode::RegisterCommonCommand( const TSharedPtr<FUICommandInfo>& Command, const FExecuteAction& ExecuteAction )
+void FMeshEditorMode::RegisterCommonCommand( const TSharedPtr<FUICommandInfo>& Command, const FExecuteAction& ExecuteAction, const FCanExecuteAction CanExecuteAction )
 {
-	FCanExecuteAction CanExecute = FCanExecuteAction::CreateLambda( [this] { return GetSelectedEditableMeshes().Num() > 0; } );
-	CommonActions.Emplace( Command, FUIAction( ExecuteAction, CanExecute ) );
-	VertexActions.Emplace( Command, FUIAction( ExecuteAction, CanExecute ) );
-	EdgeActions.Emplace( Command, FUIAction( ExecuteAction, CanExecute ) );
-	PolygonActions.Emplace( Command, FUIAction( ExecuteAction, CanExecute ) );
+	FCanExecuteAction CompositeCanExecuteAction = FCanExecuteAction::CreateLambda( [this, CanExecuteAction] { return GetSelectedEditableMeshes().Num() > 0 && ( !CanExecuteAction.IsBound() || CanExecuteAction.Execute() ); } );
+	CommonActions.Emplace( Command, FUIAction( ExecuteAction, CompositeCanExecuteAction ) );
 }
 
 

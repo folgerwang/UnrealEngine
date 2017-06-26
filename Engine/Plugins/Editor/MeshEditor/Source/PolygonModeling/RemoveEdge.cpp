@@ -14,7 +14,7 @@
 
 void URemoveEdgeCommand::RegisterUICommand( FBindingContext* BindingContext )
 {
-	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "RemoveEdge", "Remove Edge", "Attempts to remove the selected edge and merge adjacent polygons.", EUserInterfaceActionType::Button, FInputChord( EKeys::BackSpace ) );
+	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "RemoveEdge", "Remove", "Attempts to remove the selected edge and merge adjacent polygons.", EUserInterfaceActionType::Button, FInputChord( EKeys::BackSpace ) );
 }
 
 

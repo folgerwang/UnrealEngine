@@ -15,7 +15,7 @@
 
 void USplitEdgeCommand::RegisterUICommand( FBindingContext* BindingContext )
 {
-	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "SplitEdge", "Split Edge Mode", "Set the primary action to split edges.", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "InsertVertex", "Insert Vertex", "Inserts a vertex at a specific position along an edge as you click and drag, splitting the edge into two.", EUserInterfaceActionType::RadioButton, FInputChord() );
 }
 
 

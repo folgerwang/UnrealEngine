@@ -71,7 +71,7 @@ void UExtrudePolygonCommand::FindExtrudeDistanceUsingInteractor(
 
 void UExtrudePolygonCommand::RegisterUICommand( FBindingContext* BindingContext )
 {
-	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "ExtrudePolygon", "Extrude Polygon Mode", "Set the primary action to extrude polygons.", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "ExtrudePolygon", "Extrude", "Pull the selected polygons along their surface normal, creating new quads along along the side of each edge.", EUserInterfaceActionType::RadioButton, FInputChord() );
 }
 
 

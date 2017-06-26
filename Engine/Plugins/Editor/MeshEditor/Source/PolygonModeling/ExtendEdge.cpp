@@ -15,7 +15,7 @@
 
 void UExtendEdgeCommand::RegisterUICommand( FBindingContext* BindingContext )
 {
-	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "ExtendEdge", "Extend Edge Mode", "Set the primary action to extend edges.", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "ExtendEdge", "Extend", "Creates a new polygon from the selected edge by clicking and dragging outward from an edge.", EUserInterfaceActionType::RadioButton, FInputChord() );
 }
 
 

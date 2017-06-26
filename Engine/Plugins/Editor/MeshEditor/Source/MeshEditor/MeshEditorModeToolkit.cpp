@@ -5,8 +5,15 @@
 #include "MeshEditorCommands.h"
 #include "MeshEditorStyle.h"
 #include "SWidgetSwitcher.h"
-#include "SSeparator.h"
+#include "SButton.h"
 #include "SScrollBox.h"
+#include "SToolTip.h"
+#include "SCheckBox.h"
+#include "SSpacer.h"
+#include "STextBlock.h"
+#include "SSeparator.h"
+#include "SBox.h"
+#include "EditorStyleSet.h"
 
 #define LOCTEXT_NAMESPACE "MeshEditorModeToolkit"
 
@@ -20,7 +27,7 @@ public:
 public:
 
 	/** SCompoundWidget functions */
-	void Construct( const FArguments& InArgs, const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& Actions )
+	void Construct( const FArguments& InArgs, const FText& GroupName, const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& Actions )
 	{
 		TSharedRef<SVerticalBox> Buttons = SNew( SVerticalBox );
 		TSharedRef<SVerticalBox> RadioButtons = SNew( SVerticalBox );
@@ -32,9 +39,10 @@ public:
 
 			if( CommandInfo.GetUserInterfaceType() == EUserInterfaceActionType::Button )
 			{
+				const bool bIsFirstItem = Buttons->NumSlots() == 0;
 				Buttons->AddSlot()
 				.AutoHeight()
-				.Padding( 3.0f )
+				.Padding( 3.0f, bIsFirstItem ? 9.0f : 3.0f, 3.0f, 3.0f )
 				[
 					SNew( SButton )
 					.HAlign( HAlign_Center )
@@ -48,9 +56,10 @@ public:
 			}
 			else if( CommandInfo.GetUserInterfaceType() == EUserInterfaceActionType::RadioButton )
 			{
+				const bool bIsFirstItem = RadioButtons->NumSlots() == 0;
 				RadioButtons->AddSlot()
 				.AutoHeight()
-				.Padding( 1.0f )
+				.Padding( 3.0f, bIsFirstItem ? 7.0f : 1.0f, 3.0f, 1.0f )
 				[
 					SNew( SCheckBox )
 					.Style( FMeshEditorStyle::Get(), "EditingMode.Entry" )
@@ -88,24 +97,24 @@ public:
 			SNew( SVerticalBox )
 			+SVerticalBox::Slot()
 			.AutoHeight()
-			.Padding( 6.0f )
+			.Padding( 6.0f, 6.0f, 6.0f, 2.0f )
 			.HAlign( HAlign_Center )
 			[
-				Buttons
+				SNew( STextBlock )
+				.TextStyle( FMeshEditorStyle::Get(), "EditingMode.GroupName.Text" )
+				.Text( GroupName )
 			]
 			+SVerticalBox::Slot()
 			.AutoHeight()
-			.Padding( 6.0f )
-			[
-				SNew( SSeparator )
-				.Orientation( Orient_Horizontal )
-			]
-			+SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding( 6.0f )
 			.HAlign( HAlign_Center )
 			[
 				RadioButtons
+			]
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.HAlign( HAlign_Center )
+			[
+				Buttons
 			]
 		];
 	}
@@ -168,40 +177,27 @@ void SMeshEditorModeControls::Construct( const FArguments& InArgs, IMeshEditorMo
 
 	WidgetSwitcher->AddSlot( static_cast<int32>( EEditableMeshElementType::Vertex ) )
 	[
-		SNew( SMeshEditorModeControlWidget, MeshEditorMode.GetVertexActions() )
+		SNew( SMeshEditorModeControlWidget, LOCTEXT( "VertexGroupName", "Vertex" ), MeshEditorMode.GetVertexActions() )
 	];
 
 	WidgetSwitcher->AddSlot( static_cast<int32>( EEditableMeshElementType::Edge ) )
 	[
-		SNew( SMeshEditorModeControlWidget, MeshEditorMode.GetEdgeActions() )
+		SNew( SMeshEditorModeControlWidget, LOCTEXT( "EdgeGroupName", "Edge" ), MeshEditorMode.GetEdgeActions() )
 	];
 
 	WidgetSwitcher->AddSlot( static_cast<int32>( EEditableMeshElementType::Polygon ) )
 	[
-		SNew( SMeshEditorModeControlWidget, MeshEditorMode.GetPolygonActions() )
+		SNew( SMeshEditorModeControlWidget, LOCTEXT( "PolygonGroupName", "Polygon" ), MeshEditorMode.GetPolygonActions() )
 	];
 
 	WidgetSwitcher->AddSlot( static_cast<int32>( EEditableMeshElementType::Invalid ) )
 	[
-		SNew( SVerticalBox )
-		+ SVerticalBox::Slot()
+		SNew( SBox )
+		.Padding( 20.0f )
+		.HAlign( HAlign_Center )
 		[
-			SNew( SBox )
-			.Visibility_Lambda( [&MeshEditorMode]() { return MeshEditorMode.GetSelectedEditableMeshes().Num() > 0 ? EVisibility::Visible : EVisibility::Collapsed; } )
-			[
-				SNew( SMeshEditorModeControlWidget, MeshEditorMode.GetCommonActions() )
-			]
-		]
-		+SVerticalBox::Slot()
-		[
-			SNew( SBox )
-			.Padding( 20.0f )
-			.HAlign( HAlign_Center )
-			.Visibility_Lambda( [&MeshEditorMode]() { return MeshEditorMode.GetSelectedEditableMeshes().Num() == 0 ? EVisibility::Visible : EVisibility::Collapsed; } )
-			[
-				SNew( STextBlock )
-				.Text( LOCTEXT( "NothingSelected", "Nothing is selected" ) )
-			]
+			SNew( STextBlock )
+			.Text( LOCTEXT( "NothingSelected", "Please select a mesh to edit." ) )
 		]
 	];
 
@@ -217,36 +213,28 @@ void SMeshEditorModeControls::Construct( const FArguments& InArgs, IMeshEditorMo
 			[
 				SNew( SHorizontalBox )
 				+SHorizontalBox::Slot()
-				.VAlign( VAlign_Center )
-				.AutoWidth()
-				.Padding( 2, 2, 8, 2 )
+				.FillWidth( 1 )
+				.Padding( 2 )
 				[
-					SNew( STextBlock )
-					.Text( LOCTEXT( "SelectLabel", "Select" ) )
+					SNew( SMeshEditorSelectionModeWidget, MeshEditorMode, EEditableMeshElementType::Any, LOCTEXT( "AnyElementType", "Mesh" ) )
 				]
 				+SHorizontalBox::Slot()
 				.FillWidth( 1 )
 				.Padding( 2 )
 				[
-					SNew( SMeshEditorSelectionModeWidget, MeshEditorMode, EEditableMeshElementType::Vertex, LOCTEXT( "Vertices", "Vertices" ) )
+					SNew( SMeshEditorSelectionModeWidget, MeshEditorMode, EEditableMeshElementType::Polygon, LOCTEXT( "Polygon", "Polygon" ) )
 				]
 				+SHorizontalBox::Slot()
 				.FillWidth( 1 )
 				.Padding( 2 )
 				[
-					SNew( SMeshEditorSelectionModeWidget, MeshEditorMode, EEditableMeshElementType::Edge, LOCTEXT( "Edges", "Edges" ) )
+					SNew( SMeshEditorSelectionModeWidget, MeshEditorMode, EEditableMeshElementType::Edge, LOCTEXT( "Edge", "Edge" ) )
 				]
 				+SHorizontalBox::Slot()
 				.FillWidth( 1 )
 				.Padding( 2 )
 				[
-					SNew( SMeshEditorSelectionModeWidget, MeshEditorMode, EEditableMeshElementType::Polygon, LOCTEXT( "Polygons", "Polygons" ) )
-				]
-				+SHorizontalBox::Slot()
-				.FillWidth( 1 )
-				.Padding( 2 )
-				[
-					SNew( SMeshEditorSelectionModeWidget, MeshEditorMode, EEditableMeshElementType::Any, LOCTEXT( "Any", "Any" ) )
+					SNew( SMeshEditorSelectionModeWidget, MeshEditorMode, EEditableMeshElementType::Vertex, LOCTEXT( "Vertex", "Vertex" ) )
 				]
 			]
 			+SVerticalBox::Slot()
@@ -255,6 +243,7 @@ void SMeshEditorModeControls::Construct( const FArguments& InArgs, IMeshEditorMo
 			.HAlign( HAlign_Right )
 			[
 				SNew( SHorizontalBox )
+				.Visibility( EVisibility::Collapsed )	// @todo mesheditor instancing: UI for instancing features is disabled until this feature is working properly
 				+SHorizontalBox::Slot()
 				.AutoWidth()
 				.Padding( 2 )
@@ -296,11 +285,51 @@ void SMeshEditorModeControls::Construct( const FArguments& InArgs, IMeshEditorMo
 				]
 			]
 			+SVerticalBox::Slot()
+			.AutoHeight()
 			[
 				SNew( SBorder )
 				.BorderImage( FEditorStyle::GetBrush( "ToolPanel.GroupBorder" ) )
 				[
-					WidgetSwitcher
+					SNew( SVerticalBox )
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew( SBox )
+						.Padding( 0.0f )
+						.Visibility_Lambda( [&MeshEditorMode, WidgetSwitcher]() 
+							// Only show the widget switcher if either nothing is selected, or we have at least one mesh element selected
+							{ 
+								return ( MeshEditorMode.GetSelectedEditableMeshes().Num() == 0 || 
+										 WidgetSwitcher->GetActiveWidgetIndex() > static_cast<int32>( EEditableMeshElementType::Invalid ) ) ? 
+											EVisibility::Visible : EVisibility::Collapsed; 
+							} )
+						[
+							WidgetSwitcher
+						]
+					]
+					+SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding( 6.0f )
+					[
+						SNew( SSeparator )
+						.Visibility_Lambda( [&MeshEditorMode, WidgetSwitcher]() 
+							// Only show the separator if we have a polygon, vertex or edge selected
+							{ 
+								return ( MeshEditorMode.GetSelectedEditableMeshes().Num() > 0 && 
+										 WidgetSwitcher->GetActiveWidgetIndex() > static_cast<int32>( EEditableMeshElementType::Invalid ) ) ? 
+											EVisibility::Visible : EVisibility::Collapsed; 
+							} )
+						.Orientation( Orient_Horizontal )
+					]
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew( SBox )
+						.Visibility_Lambda( [&MeshEditorMode]() { return MeshEditorMode.GetSelectedEditableMeshes().Num() > 0 ? EVisibility::Visible : EVisibility::Collapsed; } )
+						[
+							SNew( SMeshEditorModeControlWidget, LOCTEXT( "MeshGroupName", "Mesh" ), MeshEditorMode.GetCommonActions() )
+						]
+					]
 				]
 			]
 		]

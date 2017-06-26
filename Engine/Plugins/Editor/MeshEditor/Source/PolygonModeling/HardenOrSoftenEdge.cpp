@@ -5,7 +5,7 @@
 #include "UICommandInfo.h"
 #include "EditableMesh.h"
 #include "MeshElement.h"
-
+#include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "MeshEditorMode"
 
@@ -69,7 +69,7 @@ namespace HardenOrSoftenEdgeHelpers
 
 void UHardenEdgeCommand::RegisterUICommand( FBindingContext* BindingContext )
 {
-	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "HardenEdge", "Harden Edge", "Sets the edge to be hard.", EUserInterfaceActionType::Button, FInputChord( EKeys::H ) );
+	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "HardenEdge", "Harden", "Sets the edge to be hard.", EUserInterfaceActionType::Button, FInputChord( EKeys::H ) );
 }
 
 
@@ -82,7 +82,7 @@ void UHardenEdgeCommand::Execute( IMeshEditorModeEditingContract& MeshEditorMode
 
 void USoftenEdgeCommand::RegisterUICommand( FBindingContext* BindingContext )
 {
-	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "SoftenEdge", "Soften Edge", "Sets the edge to be soft.", EUserInterfaceActionType::Button, FInputChord( EKeys::H, EModifierKey::Shift ) );
+	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "SoftenEdge", "Soften", "Sets the edge to be soft.", EUserInterfaceActionType::Button, FInputChord( EKeys::H, EModifierKey::Shift ) );
 }
 
 

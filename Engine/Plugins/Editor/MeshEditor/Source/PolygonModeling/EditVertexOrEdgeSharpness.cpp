@@ -81,7 +81,7 @@ namespace VertexOrEdgeSharpnessHelpers
 
 void UEditVertexCornerSharpnessCommand::RegisterUICommand( FBindingContext* BindingContext )
 {
-	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "EditVertexCornerSharpness", "Edit Vertex Corner Sharpness Mode", "Set the primary action to edit vertex corner sharpness.", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "EditVertexCornerSharpness", "Edit Corner Sharpness", "Change the subdivision vertex corner sharpness of a vertex by clicking and dragging up and down.", EUserInterfaceActionType::RadioButton, FInputChord() );
 }
 
 
@@ -136,7 +136,7 @@ void UEditVertexCornerSharpnessCommand::ApplyDuringDrag( IMeshEditorModeEditingC
 
 void UEditEdgeCreaseSharpnessCommand::RegisterUICommand( FBindingContext* BindingContext )
 {
-	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "EditEdgeCreaseSharpness", "Edit Edge Crease Sharpness Mode", "Set the primary action to edit edge crease sharpness.", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND_EXT( BindingContext, /* Out */ UICommandInfo, "EditEdgeCreaseSharpness", "Edit Crease Sharpness", "Change the subdivision edge crase sharpness of an edge by clicking and dragging up and down.", EUserInterfaceActionType::RadioButton, FInputChord() );
 }
 
 
