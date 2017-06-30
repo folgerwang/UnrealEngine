@@ -11,7 +11,7 @@
 
 UUserInterfaceSettings::UUserInterfaceSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, RenderFocusRule(ERenderFocusRule::NavigationOnly)
+	, RenderFocusRule(ERenderFocusRule::Never)
 	, ApplicationScale(1)
 	, bLoadWidgetsOnDedicatedServer(true)
 {
@@ -128,7 +128,18 @@ float UUserInterfaceSettings::GetDPIScaleBasedOnSize(FIntPoint Size) const
 
 void UUserInterfaceSettings::ForceLoadResources()
 {
-	if (bLoadWidgetsOnDedicatedServer || !IsRunningDedicatedServer())
+	bool bShouldLoadCurors = true;
+
+	if (IsRunningCommandlet())
+	{
+		bShouldLoadCurors = false;
+	}
+	else if (IsRunningDedicatedServer())
+	{
+		bShouldLoadCurors = bLoadWidgetsOnDedicatedServer;
+	}
+
+	if (bShouldLoadCurors)
 	{
 		TArray<UObject*> LoadedClasses;
 		for ( auto& Entry : SoftwareCursors )

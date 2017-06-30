@@ -83,6 +83,8 @@
 #include "MaterialShaderQualitySettings.h"
 #include "IVREditorModule.h"
 #include "ComponentRecreateRenderStateContext.h"
+#include "ILauncherPlatform.h"
+#include "LauncherPlatformModule.h"
 #include "Engine/LevelStreaming.h"
 #include "Engine/LevelStreamingKismet.h"
 #include "EditorLevelUtils.h"
@@ -2374,10 +2376,10 @@ void FLevelEditorActionCallbacks::OnToggleFreezeParticleSimulation()
 bool FLevelEditorActionCallbacks::OnIsParticleSimulationFrozen()
 {
 	IConsoleManager& ConsoleManager = IConsoleManager::Get();
-	static const auto* CVar = ConsoleManager.FindTConsoleVariableDataInt(TEXT("FX.FreezeParticleSimulation"));
+	static const auto* CVar = ConsoleManager.FindConsoleVariable(TEXT("FX.FreezeParticleSimulation"));
 	if (CVar)
 	{
-		return CVar->GetValueOnGameThread() != 0;
+		return CVar->GetInt() != 0;
 	}
 	return false;
 }
@@ -3142,7 +3144,7 @@ void FLevelEditorCommands::RegisterCommands()
 	UI_COMMAND( AddMatinee, "Add Matinee [Legacy]", "Creates a new matinee actor to edit", EUserInterfaceActionType::Button, FInputChord() );
 	UI_COMMAND( EditMatinee, "Edit Matinee", "Selects a Matinee to edit", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND( ToggleVR, "Toggle VR", "Toggles VR (Virtual Reality) mode", EUserInterfaceActionType::ToggleButton, FInputChord( EModifierKey::Alt, EKeys::Tilde ) );
+	UI_COMMAND( ToggleVR, "Toggle VR", "Toggles VR (Virtual Reality) mode", EUserInterfaceActionType::ToggleButton, FInputChord( EModifierKey::Alt, EKeys::V ) );
 
 	UI_COMMAND( OpenLevelBlueprint, "Open Level Blueprint", "Edit the Level Blueprint for the current level", EUserInterfaceActionType::Button, FInputChord() );
 	UI_COMMAND( CheckOutProjectSettingsConfig, "Check Out", "Checks out the project settings config file so the game mode can be set.", EUserInterfaceActionType::Button, FInputChord() );

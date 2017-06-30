@@ -17,6 +17,7 @@
 #include "Interfaces/IProjectManager.h"
 #include "Modules/ModuleManager.h"
 #include "ProjectManager.h"
+#include "PlatformTime.h"
 
 DEFINE_LOG_CATEGORY_STATIC( LogPluginManager, Log, All );
 
@@ -155,7 +156,10 @@ FPluginManager::FPluginManager()
 	: bHaveConfiguredEnabledPlugins(false)
 	, bHaveAllRequiredPlugins(false)
 {
+	double Before = FPlatformTime::Seconds();
 	DiscoverAllPlugins();
+	double After= FPlatformTime::Seconds();
+	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("\nPlugin discovery took %f seconds!\n\n"), After - Before);
 }
 
 FPluginManager::~FPluginManager()
@@ -431,13 +435,21 @@ bool FPluginManager::ConfigureEnabledPlugins()
 			if (Plugin.bEnabled)
 			{
 				// Plugins can have their own shaders
-				// Add potential plugin shader directory only if the plugin is loaded in PostConfigInit. Not supported otherwise
-				for (const FModuleDescriptor& Module : Plugin.GetDescriptor().Modules)
+				// Add potential plugin shader directory only if at least one plugin's module is loaded in PostConfigInit. Not supported otherwise
 				{
-					if (Module.LoadingPhase == ELoadingPhase::PostConfigInit)
+					FString RealShaderSourceDir = FPaths::Combine(*Plugin.GetBaseDir(), TEXT("Shaders"));
+
+					if (FPaths::DirectoryExists(RealShaderSourceDir))
 					{
-						FGenericPlatformProcess::AddShaderDir(FPaths::Combine(*Plugin.GetBaseDir(), TEXT("Shaders")));
-						break;
+						for (const FModuleDescriptor& Module : Plugin.GetDescriptor().Modules)
+						{
+							if (Module.LoadingPhase == ELoadingPhase::PostConfigInit)
+							{
+								FString VirtualShaderSourceDir = FString(TEXT("/Plugin")) / Plugin.GetName();
+								FGenericPlatformProcess::AddShaderSourceDirectoryMapping(VirtualShaderSourceDir, RealShaderSourceDir);
+								break;
+							}
+						}
 					}
 				}
 

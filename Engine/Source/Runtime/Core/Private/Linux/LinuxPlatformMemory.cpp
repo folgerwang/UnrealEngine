@@ -15,6 +15,7 @@
 #include "HAL/MallocJemalloc.h"
 #include "HAL/MallocBinned.h"
 #include "HAL/MallocBinned2.h"
+#include "HAL/MallocReplayProxy.h"
 #if PLATFORM_FREEBSD
 	#include <kvm.h>
 #else
@@ -24,6 +25,7 @@
 #include <sys/mman.h>
 
 #include "OSAllocationPool.h"
+#include "ScopeLock.h"
 
 // do not do a root privilege check on non-x86-64 platforms (assume an embedded device)
 #if defined(_M_X64) || defined(__x86_64__) || defined (__amd64__) 
@@ -60,6 +62,10 @@ class FMalloc* FLinuxPlatformMemory::BaseAllocator()
 		return nullptr;
 	}
 #endif // UE4_DO_ROOT_PRIVILEGE_CHECK
+
+#if UE_USE_MALLOC_REPLAY_PROXY
+	bool bAddReplayProxy = false;
+#endif // UE_USE_MALLOC_REPLAY_PROXY
 
 	if (USE_MALLOC_BINNED2)
 	{
@@ -108,6 +114,14 @@ class FMalloc* FLinuxPlatformMemory::BaseAllocator()
 					AllocatorToUse = EMemoryAllocatorToUse::Binned2;
 					break;
 				}
+
+#if UE_USE_MALLOC_REPLAY_PROXY
+				if (FCStringAnsi::Stricmp(Arg, "-mallocsavereplay") == 0)
+				{
+					bAddReplayProxy = true;
+				}
+#endif // UE_USE_MALLOC_REPLAY_PROXY
+
 			}
 			free(Arg);
 			fclose(CmdLineFile);
@@ -139,6 +153,13 @@ class FMalloc* FLinuxPlatformMemory::BaseAllocator()
 	}
 
 	printf("Using %ls.\n", Allocator ? Allocator->GetDescriptiveName() : TEXT("NULL allocator! We will probably crash right away"));
+
+#if UE_USE_MALLOC_REPLAY_PROXY
+	if (bAddReplayProxy)
+	{
+		Allocator = new FMallocReplayProxy(Allocator);
+	}
+#endif // UE_USE_MALLOC_REPLAY_PROXY
 
 	return Allocator;
 }
@@ -304,11 +325,20 @@ namespace LinuxMemoryPool
 		return PoolArray;
 	}
 }
+
+FCriticalSection* GetGlobalLinuxMemPoolLock()
+{
+	static FCriticalSection MemPoolLock;
+	return &MemPoolLock;
+};
+
 #endif // UE4_POOL_BAFO_ALLOCATIONS
 
 void* FLinuxPlatformMemory::BinnedAllocFromOS(SIZE_T Size)
 {
 #if UE4_POOL_BAFO_ALLOCATIONS
+	FScopeLock Lock(GetGlobalLinuxMemPoolLock());
+
 	LinuxMemoryPool::TLinuxMemoryPoolArray& PoolArray = LinuxMemoryPool::GetPoolArray();
 	void* RetVal = PoolArray.Allocate(Size);
 	if (LIKELY(RetVal))
@@ -346,6 +376,8 @@ void* FLinuxPlatformMemory::BinnedAllocFromOS(SIZE_T Size)
 void FLinuxPlatformMemory::BinnedFreeToOS(void* Ptr, SIZE_T Size)
 {
 #if UE4_POOL_BAFO_ALLOCATIONS
+	FScopeLock Lock(GetGlobalLinuxMemPoolLock());
+
 	LinuxMemoryPool::TLinuxMemoryPoolArray& PoolArray = LinuxMemoryPool::GetPoolArray();
 	if (LIKELY(PoolArray.Free(Ptr, Size)))
 	{
@@ -445,7 +477,7 @@ FPlatformMemoryStats FLinuxPlatformMemory::GetStats()
 	if (FILE* FileGlobalMemStats = fopen("/proc/meminfo", "r"))
 	{
 		int FieldsSetSuccessfully = 0;
-		SIZE_T MemFree = 0, Cached = 0;
+		uint64 MemFree = 0, Cached = 0;
 		do
 		{
 			char LineBuffer[256] = {0};
@@ -532,6 +564,50 @@ FPlatformMemoryStats FLinuxPlatformMemory::GetStats()
 	// sanitize stats as sometimes peak < used for some reason
 	MemoryStats.PeakUsedVirtual = FMath::Max(MemoryStats.PeakUsedVirtual, MemoryStats.UsedVirtual);
 	MemoryStats.PeakUsedPhysical = FMath::Max(MemoryStats.PeakUsedPhysical, MemoryStats.UsedPhysical);
+
+	return MemoryStats;
+}
+
+FExtendedPlatformMemoryStats FLinuxPlatformMemory::GetExtendedStats()
+{
+	FExtendedPlatformMemoryStats MemoryStats;
+
+	// More /proc "API" :/
+	MemoryStats.Shared_Clean = 0;
+	MemoryStats.Shared_Dirty = 0;
+	MemoryStats.Private_Clean = 0;
+	MemoryStats.Private_Dirty = 0;
+	if (FILE* ProcSMaps = fopen("/proc/self/smaps", "r"))
+	{
+		do
+		{
+			char LineBuffer[256] = { 0 };
+			char *Line = fgets(LineBuffer, ARRAY_COUNT(LineBuffer), ProcSMaps);
+			if (Line == nullptr)
+			{
+				break;	// eof or an error
+			}
+
+			if (strstr(Line, "Shared_Clean:") == Line)
+			{
+				MemoryStats.Shared_Clean += LinuxPlatformMemory::GetBytesFromStatusLine(Line);
+			}
+			else if (strstr(Line, "Shared_Dirty:") == Line)
+			{
+				MemoryStats.Shared_Dirty += LinuxPlatformMemory::GetBytesFromStatusLine(Line);
+			}
+			if (strstr(Line, "Private_Clean:") == Line)
+			{
+				MemoryStats.Private_Clean += LinuxPlatformMemory::GetBytesFromStatusLine(Line);
+			}
+			else if (strstr(Line, "Private_Dirty:") == Line)
+			{
+				MemoryStats.Private_Dirty += LinuxPlatformMemory::GetBytesFromStatusLine(Line);
+			}
+		} while (!feof(ProcSMaps));
+
+		fclose(ProcSMaps);
+	}
 
 	return MemoryStats;
 }

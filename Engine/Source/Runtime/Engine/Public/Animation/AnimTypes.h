@@ -258,13 +258,12 @@ struct FAnimNotifyEvent : public FAnimLinkableElement
 	int32 TrackIndex;
 
 	FAnimNotifyEvent()
-		: DisplayTime_DEPRECATED(0)
+		: FAnimLinkableElement()
+		, DisplayTime_DEPRECATED(0)
 		, TriggerTimeOffset(0)
 		, EndTriggerTimeOffset(0)
 		, TriggerWeightThreshold(ZERO_ANIMWEIGHT_THRESH)
-#if WITH_EDITORONLY_DATA
 		, Notify(NULL)
-#endif // WITH_EDITORONLY_DATA
 		, NotifyStateClass(NULL)
 		, Duration(0)
 		, bConvertedFromBranchingPoint(false)
@@ -274,8 +273,9 @@ struct FAnimNotifyEvent : public FAnimLinkableElement
 		, NotifyFilterLOD(0)
 		, bTriggerOnDedicatedServer(true)
 #if WITH_EDITORONLY_DATA
-		, TrackIndex(0)
+		, NotifyColor(FColor::Black)
 #endif // WITH_EDITORONLY_DATA
+		, TrackIndex(0)
 	{
 	}
 
@@ -571,44 +571,3 @@ namespace EAxisOption
 		Custom
 	};
 }
-
-/** Axis to represent direction */
-USTRUCT()
-struct FAxis
-{
-	GENERATED_USTRUCT_BODY()
-
-	UPROPERTY(EditAnywhere, Category = "FAxis")
-	FVector Axis;
-
-	UPROPERTY(EditAnywhere, Category = "FAxis")
-	bool bInLocalSpace;
-
-	FAxis(const FVector& InAxis = FVector::ForwardVector)
-		: Axis(InAxis)
-		, bInLocalSpace(true) {};
-
-	/** return transformed axis based on ComponentSpaceTransform */
-	FVector GetTransformedAxis(const FTransform& ComponentSpaceTransform) const
-	{
-		if (bInLocalSpace)
-		{
-			return ComponentSpaceTransform.TransformVectorNoScale(Axis);
-		}
-
-		// if world transform, we don't have to transform
-		return Axis;
-	}
-
-	/** Initialize the set up */
-	void Initialize()
-	{
-		Axis = Axis.GetSafeNormal();
-	}
-
-	/** return true if Valid data */
-	bool IsValid() const
-	{
-		return Axis.IsNormalized();
-	}
-};

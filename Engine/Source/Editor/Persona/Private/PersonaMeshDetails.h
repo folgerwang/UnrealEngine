@@ -14,7 +14,7 @@
 #include "IDetailCustomization.h"
 #include "SComboBox.h"
 
-class FAssetData;
+struct FAssetData;
 class FDetailWidgetRow;
 class FPersonaMeshDetails;
 class IDetailChildrenBuilder;
@@ -81,7 +81,7 @@ struct FSectionLocalizer
 class FSkelMeshReductionSettingsLayout : public IDetailCustomNodeBuilder, public TSharedFromThis<FSkelMeshReductionSettingsLayout>
 {
 public:
-	FSkelMeshReductionSettingsLayout(int32 InLODIndex, TSharedRef<class FPersonaMeshDetails> InParentLODSettings, TSharedPtr<IPropertyHandle> InBoneToRemoveProperty, const USkeleton* InSkeleton);
+	FSkelMeshReductionSettingsLayout(int32 InLODIndex, TSharedRef<class FPersonaMeshDetails> InParentLODSettings, const USkeleton* InSkeleton);
 	virtual ~FSkelMeshReductionSettingsLayout();
 
 	const FSkeletalMeshOptimizationSettings& GetSettings() const;
@@ -114,10 +114,6 @@ private:
 	void OnMaxBonesPerVertexChanged(int32 NewValue);
 	void OnBaseLODChanged(int32 NewBasedLOD);
 
-	FString GetBakePosePath() const;
-	bool FilterOutBakePose(const FAssetData& AssetData) const;
-	void SetBakePose(const FAssetData& AssetData);
-
 	void OnSilhouetteImportanceChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
 	void OnTextureImportanceChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
 	void OnShadingImportanceChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
@@ -129,7 +125,6 @@ private:
 private:
 	int32 LODIndex;
 	TWeakPtr<class FPersonaMeshDetails> ParentLODSettings;
-	TSharedPtr<IPropertyHandle>	BoneToRemoveProperty;
 	FSkeletalMeshOptimizationSettings ReductionSettings;
 
 	const USkeleton* Skeleton;
@@ -224,7 +219,6 @@ private:
 
 	FText GetMaterialNameText(int32 MaterialIndex)const ;
 	void OnMaterialNameCommitted(const FText& InValue, ETextCommit::Type CommitType, int32 MaterialIndex);
-	void OnMaterialNameChanged(const FText& InValue, int32 MaterialIndex);
 
 	FText GetOriginalImportMaterialNameText(int32 MaterialIndex)const;
 
@@ -463,6 +457,8 @@ private:
 	void OnPasteMaterialItem(int32 CurrentSlot);
 
 	void OnPreviewMeshChanged(USkeletalMesh* OldSkeletalMesh, USkeletalMesh* NewMesh);
+	
+	bool FilterOutBakePose(const struct FAssetData& AssetData, USkeleton* Skeleton) const;
 
 public:
 
@@ -530,6 +526,9 @@ private:
 
 	// Refreshes clothing combo boxes that are currently active
 	void RefreshClothingComboBoxes();
+
+	// Called as clothing combo boxes open to validate option entries
+	void OnClothingComboBoxOpening();
 
 	// Generate a widget for the clothing details panel
 	TSharedRef<SWidget> OnGenerateWidgetForClothingEntry(TSharedPtr<FClothingEntry> InEntry);

@@ -142,6 +142,7 @@ FStaticMeshSceneProxy::FStaticMeshSceneProxy(UStaticMeshComponent* InComponent, 
 	bSupportsDistanceFieldRepresentation = true;
 	bCastsDynamicIndirectShadow = InComponent->bCastDynamicShadow && InComponent->CastShadow && InComponent->bCastDistanceFieldIndirectShadow && InComponent->Mobility != EComponentMobility::Static;
 	DynamicIndirectShadowMinVisibility = FMath::Clamp(InComponent->DistanceFieldIndirectShadowMinVisibility, 0.0f, 1.0f);
+	DistanceFieldSelfShadowBias = FMath::Max(InComponent->bOverrideDistanceFieldSelfShadowBias ? InComponent->DistanceFieldSelfShadowBias : StaticMesh->DistanceFieldSelfShadowBias, 0.0f);
 
 	const auto FeatureLevel = GetScene().GetFeatureLevel();
 
@@ -977,7 +978,7 @@ void FStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView
 									if (GetMeshElement(LODIndex, BatchIndex, SectionIndex, SDPG_World, bSectionIsSelected, IsHovered(), true, MeshElement))
 									{
 	#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-										if (EngineShowFlags.VertexColors && AllowDebugViewmodes())
+										if (bProxyIsSelected && EngineShowFlags.VertexColors && AllowDebugViewmodes())
 										{
 											// Override the mesh's material with our material that draws the vertex colors
 											UMaterial* VertexColorVisualizationMaterial = NULL;
@@ -1343,7 +1344,7 @@ void FStaticMeshSceneProxy::GetDistancefieldAtlasData(FBox& LocalVolumeBounds, F
 		bOutBuiltAsIfTwoSided = DistanceFieldData->bBuiltAsIfTwoSided;
 		bMeshWasPlane = DistanceFieldData->bMeshWasPlane;
 		ObjectLocalToWorldTransforms.Add(GetLocalToWorld());
-		SelfShadowBias = StaticMesh->DistanceFieldSelfShadowBias;
+		SelfShadowBias = DistanceFieldSelfShadowBias;
 	}
 	else
 	{

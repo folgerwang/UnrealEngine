@@ -186,8 +186,8 @@ void USkeletalMeshComponent::SetSimulatePhysics(bool bSimulate)
 		SetRootBodyIndex(RootBodyData.BodyIndex);	//Update the root body data cache in case animation has moved root body relative to root joint
 	}
 
-	UpdateEndPhysicsTickRegisteredState();
-	UpdateClothTickRegisteredState();
+ 	UpdateEndPhysicsTickRegisteredState();
+ 	UpdateClothTickRegisteredState();
 }
 
 void USkeletalMeshComponent::OnComponentCollisionSettingsChanged()
@@ -542,7 +542,7 @@ void USkeletalMeshComponent::InitArticulated(FPhysScene* PhysScene)
 
 	if(RootBodyIndex == INDEX_NONE)
 	{
-		UE_LOG(LogSkeletalMesh, Log, TEXT("USkeletalMeshComponent::InitArticulated : Could not find root physics body: %s"), *GetName() );
+		UE_LOG(LogSkeletalMesh, Log, TEXT("USkeletalMeshComponent::InitArticulated : Could not find root physics body: '%s'"), *GetPathName() );
 		return;
 	}
 
@@ -571,9 +571,10 @@ void USkeletalMeshComponent::InitArticulated(FPhysScene* PhysScene)
 	// Update Flag
 #if WITH_APEX_CLOTHING
 	PrevRootBoneMatrix = GetBoneMatrix(0); // save the root bone transform
+
 	// pre-compute cloth teleport thresholds for performance
-	ClothTeleportCosineThresholdInRad = FMath::Cos(FMath::DegreesToRadians(TeleportRotationThreshold));
-	ClothTeleportDistThresholdSquared = TeleportDistanceThreshold * TeleportDistanceThreshold;	
+	ComputeTeleportDistanceThresholdInRadians();
+	ComputeTeleportRotationThresholdInRadians();
 #endif // #if WITH_APEX_CLOTHING
 }
 
@@ -2750,7 +2751,7 @@ void USkeletalMeshComponent::UpdateClothStateAndSimulate(float DeltaTime, FTickF
 	}
 #endif // WITH_CLOTH_COLLISION_DETECTION
 
-	UpdateClothSimulationContext();
+	UpdateClothSimulationContext(DeltaTime);
 
 	if(ClothingSimulation)
 	{

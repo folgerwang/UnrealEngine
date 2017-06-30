@@ -50,6 +50,7 @@
 #include "Misc/ExclusiveLoadPackageTimeTracker.h"
 #include "Serialization/DeferredMessageLog.h"
 #include "UObject/CoreRedirects.h"
+#include "HAL/LowLevelMemTracker.h"
 
 DEFINE_LOG_CATEGORY(LogObj);
 
@@ -761,22 +762,38 @@ FString UObject::GetDetailedInfo() const
 }
 
 #if WITH_ENGINE
+
+#if DO_CHECK
+// Used to check to see if a derived class actually implemented GetWorld() or not, but only on the game thread
 bool bGetWorldOverridden = false;
+#endif
 
 class UWorld* UObject::GetWorld() const
 {
-	bGetWorldOverridden = false;
-	return NULL;
+#if DO_CHECK
+	if (IsInGameThread())
+	{
+		bGetWorldOverridden = false;
+	}
+#endif
+	return nullptr;
 }
 
 class UWorld* UObject::GetWorldChecked(bool& bSupported) const
 {
-	bGetWorldOverridden = true;
+#if DO_CHECK
+	const bool bGameThread = IsInGameThread();
+	if (bGameThread)
+	{
+		bGetWorldOverridden = true;
+	}
+#endif
+
 	UWorld* World = GetWorld();
 
-	if (!bGetWorldOverridden)
-	{
 #if DO_CHECK
+	if (bGameThread && !bGetWorldOverridden)
+	{
 		static TSet<UClass*> ReportedClasses;
 
 		UClass* UnsupportedClass = GetClass();
@@ -790,23 +807,33 @@ class UWorld* UObject::GetWorldChecked(bool& bSupported) const
 				ParentHierarchy += FString::Printf(TEXT(", %s"), *SuperClass->GetName());
 			}
 
-			ensureMsgf(false, TEXT("Unsupported context object of class %s (SuperClass(es) - %s). You must add a way to retrieve a UWorld context for this class."), *UnsupportedClass->GetName(), *ParentHierarchy);
+			ensureAlwaysMsgf(false, TEXT("Unsupported context object of class %s (SuperClass(es) - %s). You must add a way to retrieve a UWorld context for this class."), *UnsupportedClass->GetName(), *ParentHierarchy);
 
 			ReportedClasses.Add(UnsupportedClass);
 		}
-#endif
 	}
 
-	bSupported = bGetWorldOverridden;
+	bSupported = bGameThread ? bGetWorldOverridden : (World != nullptr);
+	check(World && bSupported);
+#else
+	bSupported = World != nullptr;
+#endif
+
 	return World;
 }
 
 bool UObject::ImplementsGetWorld() const
 {
+#if DO_CHECK
+	check(IsInGameThread());
 	bGetWorldOverridden = true;
 	GetWorld();
 	return bGetWorldOverridden;
+#else
+	return true;
+#endif	
 }
+
 #endif
 
 #define PROFILE_ConditionalBeginDestroy (0)
@@ -955,7 +982,13 @@ void UObject::ConditionalPostLoad()
 			}
 			else
 			{
+				LLM_SCOPED_SINGLE_MALLOC_STAT_TAG(PostLoadMemory);
+				LLM_SCOPED_TAG_WITH_OBJECT_IN_SET(GetOutermost(), ELLMTagSet::Assets);
+				LLM_SCOPED_TAG_WITH_OBJECT_IN_SET(GetClass()->IsChildOf(UDynamicClass::StaticClass()) ? UDynamicClass::StaticClass() : GetClass(), ELLMTagSet::AssetClasses);
+
 				PostLoad();
+
+				LLM_PUSH_STATS_FOR_ASSET_TAGS();
 			}
 		}
 
@@ -1568,9 +1601,10 @@ void UObject::FAssetRegistryTag::GetAssetRegistryTagsFromSearchableProperties(co
 				// enums are alphabetical
 				TagType = FAssetRegistryTag::TT_Alphabetical;
 			}
-			else if ( Class->IsChildOf(UArrayProperty::StaticClass()) || Class->IsChildOf(UMapProperty::StaticClass()) || Class->IsChildOf(USetProperty::StaticClass()) )
+			else if (Class->IsChildOf(UArrayProperty::StaticClass()) || Class->IsChildOf(UMapProperty::StaticClass()) || Class->IsChildOf(USetProperty::StaticClass())
+				|| Class->IsChildOf(UStructProperty::StaticClass()) || Class->IsChildOf(UObjectPropertyBase::StaticClass()))
 			{
-				// arrays/maps/sets are hidden, it is often too much information to display and sort
+				// Arrays/maps/sets/structs/objects are hidden, it is often too much information to display and sort
 				TagType = FAssetRegistryTag::TT_Hidden;
 			}
 			else
@@ -1649,7 +1683,7 @@ void UObject::GetAssetRegistryTagMetadata(TMap<FName, FAssetRegistryTagMetadata>
 bool UObject::IsAsset() const
 {
 	// Assets are not transient or CDOs. They must be public.
-	const bool bHasValidObjectFlags = !HasAnyFlags(RF_Transient | RF_ClassDefaultObject) && HasAnyFlags(RF_Public);
+	const bool bHasValidObjectFlags = !HasAnyFlags(RF_Transient | RF_ClassDefaultObject) && HasAnyFlags(RF_Public) && !IsPendingKill();
 
 	if ( bHasValidObjectFlags )
 	{

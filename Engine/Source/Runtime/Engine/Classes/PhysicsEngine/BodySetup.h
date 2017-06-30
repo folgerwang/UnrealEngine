@@ -12,7 +12,9 @@
 #include "PhysicsEngine/BodySetupEnums.h"
 #include "PhysicsEngine/AggregateGeom.h"
 #include "Interfaces/Interface_CollisionDataProvider.h"
+#include "Async/TaskGraphInterfaces.h"
 #include "BodySetup.generated.h"
+
 
 class ITargetPlatform;
 class UPhysicalMaterial;
@@ -37,6 +39,9 @@ namespace physx
 }
 
 enum class EPhysXMeshCookFlags : uint8;
+
+DECLARE_CYCLE_STAT_EXTERN(TEXT("PhysX Cooking"), STAT_PhysXCooking, STATGROUP_Physics, );
+
 
 /** UV information for BodySetup, only created if UPhysicsSettings::bSupportUVFromHitResults */
 struct FBodySetupUVInfo
@@ -106,7 +111,7 @@ struct ENGINE_API FCookBodySetupInfo
 	bool bTriMeshError;
 };
 
-struct FAsyncPhysicsCookHelper;
+struct FPhysXCookHelper;
 
 /**
  * BodySetup contains all collision information that is associated with a single asset.
@@ -117,7 +122,7 @@ struct FAsyncPhysicsCookHelper;
  * @see FBodyInstance
  */
 
-UCLASS(hidecategories=Object, MinimalAPI)
+UCLASS(collapseCategories, MinimalAPI)
 class UBodySetup : public UObject
 {
 	GENERATED_UCLASS_BODY()
@@ -281,12 +286,21 @@ public:
 
 private:
 	/** Finalize game thread data before calling back user's delegate */
-	void FinishCreatePhysicsMeshesAsync(FAsyncPhysicsCookHelper* AsyncPhysicsCookHelper, FOnAsyncPhysicsCookFinished OnAsyncPhysicsCookFinished);
-
-	/** Finish creating the physics meshes and update the body setup data with cooked data */
-	void FinishCreatingPhysicsMeshes(const TArray<physx::PxConvexMesh*>& ConvexMeshes, const TArray<physx::PxConvexMesh*>& ConvexMeshesNegX, const TArray<physx::PxTriangleMesh*>& TriMeshes);
+	void FinishCreatePhysicsMeshesAsync(FPhysXCookHelper* AsyncPhysicsCookHelper, FOnAsyncPhysicsCookFinished OnAsyncPhysicsCookFinished);
+	
+	/**
+	* Given a format name returns its cooked data.
+	*
+	* @param Format Physics format name.
+	* @param bRuntimeOnlyOptimizedVersion whether we want the data that has runtime only optimizations. At runtime this flag is ignored and we use the runtime only optimized data regardless.
+	* @return Cooked data or NULL of the data was not found.
+	*/
+	FByteBulkData* GetCookedData(FName Format, bool bRuntimeOnlyOptimizedVersion = false);
 
 public:
+
+	/** Finish creating the physics meshes and update the body setup data with cooked data */
+	ENGINE_API void FinishCreatingPhysicsMeshes(const TArray<physx::PxConvexMesh*>& ConvexMeshes, const TArray<physx::PxConvexMesh*>& ConvexMeshesNegX, const TArray<physx::PxTriangleMesh*>& TriMeshes);
 
 	/** Returns the volume of this element */
 	ENGINE_API virtual float GetVolume(const FVector& Scale) const;
@@ -352,15 +366,6 @@ public:
 	 * NOTE: This function ignores convex and trimesh data
 	 */
 	ENGINE_API float GetClosestPointAndNormal(const FVector& WorldPosition, const FTransform& BodyToWorldTM, FVector& ClosestWorldPosition, FVector& FeatureNormal) const;
-
-	/**
-	 * Given a format name returns its cooked data.
-	 *
-	 * @param Format Physics format name.
-	 * @param bRuntimeOnlyOptimizedVersion whether we want the data that has runtime only optimizations. At runtime this flag is ignored and we use the runtime only optimized data regardless.
-	 * @return Cooked data or NULL of the data was not found.
-	 */
-	FByteBulkData* GetCookedData(FName Format, bool bRuntimeOnlyOptimizedVersion = false);
 
 	/**
 	* Generates the information needed for cooking geometry.
@@ -448,3 +453,24 @@ extern template ENGINE_API void FBodySetupShapeIterator::ForEachShape(const TArr
 extern template ENGINE_API void FBodySetupShapeIterator::ForEachShape(const TArray<physx::PxTriangleMesh*>&,TFunctionRef<void (physx::PxTriangleMesh* const &, const physx::PxTriangleMeshGeometry&, const physx::PxTransform&,float)>) const;
 
 /// @endcond
+
+
+struct ENGINE_API FAsyncPhysicsCookHelper
+{
+	FAsyncPhysicsCookHelper(class IPhysXCookingModule* InPhysXCookingModule, const FCookBodySetupInfo& InCookInfo);
+
+	void CreatePhysicsMeshesAsync_Concurrent(FSimpleDelegateGraphTask::FDelegate FinishDelegate);
+
+	void CreatePhysicsMeshes_Concurrent();
+
+	void CreateConvexElements(const TArray<TArray<FVector>>& Elements, TArray<physx::PxConvexMesh*>& OutConvexMeshes, bool bFlipped);
+
+	FCookBodySetupInfo CookInfo;
+	IPhysXCookingModule* PhysXCookingModule;
+
+	//output
+	TArray<physx::PxConvexMesh*> OutNonMirroredConvexMeshes;
+	TArray<physx::PxConvexMesh*> OutMirroredConvexMeshes;
+	TArray<physx::PxTriangleMesh*> OutTriangleMeshes;
+	FBodySetupUVInfo OutUVInfo;
+};

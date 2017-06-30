@@ -143,7 +143,7 @@ private:
 	class FOnlineSubsystemOculus& OculusSubsystem;
 
 	FDelegateHandle VoipConnectionRequestDelegateHandle;
-	void OnVoipConnectionRequest(ovrMessageHandle Message, bool bIsError);
+	void OnVoipConnectionRequest(ovrMessageHandle Message, bool bIsError) const;
 
 	FDelegateHandle VoipStateChangeDelegateHandle;
 	void OnVoipStateChange(ovrMessageHandle Message, bool bIsError);

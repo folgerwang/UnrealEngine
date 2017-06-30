@@ -746,6 +746,22 @@ EMouseCursor::Type UGameViewportClient::GetCursor(FViewport* InViewport, int32 X
 	return FViewportClient::GetCursor(InViewport, X, Y);
 }
 
+void UGameViewportClient::SetVirtualCursorWidget(EMouseCursor::Type Cursor, UUserWidget* UserWidget)
+{
+	if (ensure(UserWidget))
+	{
+		if (CursorWidgets.Contains(Cursor))
+		{
+			TSharedRef<SWidget>* Widget = CursorWidgets.Find(Cursor);
+			(*Widget) = UserWidget->TakeWidget();
+		}
+		else
+		{
+			CursorWidgets.Add(Cursor, UserWidget->TakeWidget());
+		}
+	}
+}
+
 void UGameViewportClient::AddSoftwareCursor(EMouseCursor::Type Cursor, const FStringClassReference& CursorClass)
 {
 	if (ensureMsgf(CursorClass.IsValid(), TEXT("UGameViewportClient::AddCusor: Cursor class is not valid!")))
@@ -754,19 +770,20 @@ void UGameViewportClient::AddSoftwareCursor(EMouseCursor::Type Cursor, const FSt
 		if (Class)
 		{
 			UUserWidget* UserWidget = CreateWidget<UUserWidget>(GetGameInstance(), Class);
-			if (UserWidget)
-			{
-				CursorWidgets.Add(Cursor, UserWidget->TakeWidget());
-			}
-			else
-			{
-				UE_LOG(LogPlayerManagement, Warning, TEXT("UGameViewportClient::AddCursor: Could not create cursor widget."));
-			}
+			AddCursorWidget(Cursor, UserWidget);
 		}
 		else
 		{
 			UE_LOG(LogPlayerManagement, Warning, TEXT("UGameViewportClient::AddCursor: Could not load cursor class %s."), *CursorClass.GetAssetName());
 		}
+	}
+}
+
+void UGameViewportClient::AddCursorWidget(EMouseCursor::Type Cursor, class UUserWidget* CursorWidget)
+{
+	if (ensure(CursorWidget))
+	{
+		CursorWidgets.Add(Cursor, CursorWidget->TakeWidget());
 	}
 }
 
@@ -2360,15 +2377,9 @@ bool UGameViewportClient::HandleShowCommand( const TCHAR* Cmd, FOutputDevice& Ar
 	// First, look for skeletal mesh show commands
 
 	bool bUpdateSkelMeshCompDebugFlags = false;
-	static bool bShowSkelBones = false;
 	static bool bShowPrePhysSkelBones = false;
 
-	if(FParse::Command(&Cmd,TEXT("BONES")))
-	{
-		bShowSkelBones = !bShowSkelBones;
-		bUpdateSkelMeshCompDebugFlags = true;
-	}
-	else if(FParse::Command(&Cmd,TEXT("PREPHYSBONES")))
+	if(FParse::Command(&Cmd,TEXT("PREPHYSBONES")))
 	{
 		bShowPrePhysSkelBones = !bShowPrePhysSkelBones;
 		bUpdateSkelMeshCompDebugFlags = true;
@@ -2382,7 +2393,6 @@ bool UGameViewportClient::HandleShowCommand( const TCHAR* Cmd, FOutputDevice& Ar
 			USkeletalMeshComponent* SkelComp = *It;
 			if( SkelComp->GetScene() == InWorld->Scene )
 			{
-				SkelComp->bDisplayBones = bShowSkelBones;
 				SkelComp->bShowPrePhysBones = bShowPrePhysSkelBones;
 				SkelComp->MarkRenderStateDirty();
 			}

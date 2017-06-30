@@ -30,6 +30,7 @@ public class UnrealEd : ModuleRules
 				"ContentBrowser",
 				"DerivedDataCache",
 				"DesktopPlatform",
+				"LauncherPlatform",
 				"EnvironmentQueryEditor",
 				"GameProjectGeneration",
 				"ProjectTargetPlatformEditor",
@@ -44,7 +45,6 @@ public class UnrealEd : ModuleRules
 				"PlacementMode",
 				"Settings",
 				"SettingsEditor",
-				"SuperSearch",
 				"AudioEditor",
 				"ViewportSnapping",
 				"SourceCodeAccess",
@@ -64,7 +64,7 @@ public class UnrealEd : ModuleRules
 				"VREditor",
 				"Persona",
 				"ClothingSystemEditorInterface",
-			}
+            }
 		);
 
 		PublicDependencyModuleNames.AddRange(
@@ -94,6 +94,7 @@ public class UnrealEd : ModuleRules
 				"Localization",
 				"AudioEditor",
 				"NetworkFileSystem",
+                "UMG",
 			}
 		);
 
@@ -107,6 +108,7 @@ public class UnrealEd : ModuleRules
 				"BlueprintGraph",
 				"CinematicCamera",
 				"DesktopPlatform",
+				"LauncherPlatform",
 				"EditorStyle",
 				"EngineSettings",
 				"InputCore",
@@ -156,6 +158,7 @@ public class UnrealEd : ModuleRules
 				"ClothingSystemEditor",
 				"ClothingSystemRuntime",
 				"ClothingSystemRuntimeInterface",
+				"PIEPreviewDeviceProfileSelector",
 			}
 		);
 
@@ -191,11 +194,9 @@ public class UnrealEd : ModuleRules
 				"SessionFrontend",
 				"Sequencer",
 				"StringTableEditor",
-				"SuperSearch",
 				"GeometryMode",
 				"TextureAlignMode",
 				"FoliageEdit",
-				"PackageDependencyInfo",
 				"ImageWrapper",
 				"Blutility",
 				"IntroTutorials",
@@ -210,7 +211,6 @@ public class UnrealEd : ModuleRules
 				"BehaviorTreeEditor",
 				"EnvironmentQueryEditor",
 				"ViewportSnapping",
-				"UserFeedback",
 				"GameplayTasksEditor",
 				"UndoHistory",
 				"SourceCodeAccess",
@@ -223,9 +223,10 @@ public class UnrealEd : ModuleRules
 				"PortalServices",
 				"GeometryCacheEd",
 				"BlueprintNativeCodeGen",
+				"OverlayEditor",
 				"AnimationModifiers",
 				"ClothPainter",
-			}
+            }
 		);
 
 		if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Mac || Target.Platform == UnrealTargetPlatform.Linux)
@@ -250,7 +251,6 @@ public class UnrealEd : ModuleRules
 
 		PublicIncludePathModuleNames.AddRange(
 			new string[] {
-				"UserFeedback",
 				"CollectionManager",
 				"BlueprintGraph",
 				"AddContentDialog",                

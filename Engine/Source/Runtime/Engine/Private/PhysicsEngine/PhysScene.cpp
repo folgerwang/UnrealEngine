@@ -30,10 +30,6 @@
 #include "PhysicsEngine/BodySetup.h"
 #include "PhysicsEngine/ConstraintInstance.h"
 
-#ifndef PHYSX_ENABLE_ENHANCED_DETERMINISM
-	#define PHYSX_ENABLE_ENHANCED_DETERMINISM (0)
-#endif
-
 /** Physics stats **/
 
 DEFINE_STAT(STAT_TotalPhysicsTime);
@@ -384,6 +380,7 @@ template<> FCriticalSection FPhysXTask<true>::CS = {};
 template<> FCriticalSection FPhysXTask<false>::CS = {};
 template<> FPhysXTask<true>::FStatLookup FPhysXTask<true>::Stats[100] = {};
 template<> FPhysXTask<false>::FStatLookup FPhysXTask<false>::Stats[100] = {};
+
 
 DECLARE_CYCLE_STAT(TEXT("PhysX Single Thread Task"), STAT_PhysXSingleThread, STATGROUP_Physics);
 
@@ -1205,6 +1202,7 @@ void FPhysScene::SceneCompletionTask(ENamedThreads::Type CurrentThread, const FG
 
 void FPhysScene::ProcessPhysScene(uint32 SceneType)
 {
+	SCOPED_NAMED_EVENT(FPhysScene_ProcessPhysScene, FColor::Orange);
 	checkSlow(SceneType < PST_MAX);
 
 	SCOPE_CYCLE_COUNTER(STAT_TotalPhysicsTime);
@@ -1603,7 +1601,7 @@ void FPhysScene::EndFrame(ULineBatchComponent* InLineBatcher)
 
 	/**
 	* At this point physics simulation has finished. We obtain both scene locks so that the various read/write operations needed can be done quickly.
-	* This means that anyone attempting to write on other threads will be blocked. This is OK because acessing any of these game objects from another thread is probably a bad idea!
+	* This means that anyone attempting to write on other threads will be blocked. This is OK because accessing any of these game objects from another thread is probably a bad idea!
 	*/
 
 	SCOPED_SCENE_WRITE_LOCK(GetPhysXScene(PST_Sync));
@@ -2029,9 +2027,9 @@ void FPhysScene::InitPhysScene(uint32 SceneType)
 	// Default to rebuilding tree slowly
 	PSceneDesc.dynamicTreeRebuildRateHint = PhysXTreeRebuildRate;
 
-#if PHYSX_ENABLE_ENHANCED_DETERMINISM
-	PSceneDesc.flags |= PxSceneFlag::eENABLE_ENHANCED_DETERMINISM;
-#endif //PHYSX_ENABLE_ENHANCED_DETERMINISM
+	if (UPhysicsSettings::Get()->bEnableEnhancedDeterminism) {
+		PSceneDesc.flags |= PxSceneFlag::eENABLE_ENHANCED_DETERMINISM;
+	}
 
 	bool bIsValid = PSceneDesc.isValid();
 	if (!bIsValid)
@@ -2084,6 +2082,11 @@ void FPhysScene::InitPhysScene(uint32 SceneType)
 #else
 	PhysSubSteppers[SceneType] = SceneType == PST_Cloth ? NULL : new FPhysSubstepTask(PScene, this, SceneType);
 #endif
+
+	if (PxPvdSceneClient* PVDSceneClient = PScene->getScenePvdClient())
+	{
+		PVDSceneClient->setScenePvdFlags(PxPvdSceneFlag::eTRANSMIT_CONTACTS | PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES | PxPvdSceneFlag::eTRANSMIT_CONSTRAINTS);
+	}
 #endif
 
 	FPhysicsDelegates::OnPhysSceneInit.Broadcast(this, (EPhysicsSceneType)SceneType);

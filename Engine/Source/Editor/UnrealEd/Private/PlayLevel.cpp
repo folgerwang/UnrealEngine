@@ -866,12 +866,13 @@ void UEditorEngine::RequestPlaySession( bool bAtPlayerStart, TSharedPtr<class IL
 
 
 // @todo gmp: temp hack for Rocket demo
-void UEditorEngine::RequestPlaySession( const FVector* StartLocation, const FRotator* StartRotation, bool MobilePreview, bool VulkanPreview )
+void UEditorEngine::RequestPlaySession( const FVector* StartLocation, const FRotator* StartRotation, bool MobilePreview, bool VulkanPreview , const FString& MobilePreviewTargetDevice)
 {
 	bPlayOnLocalPcSession = true;
 	bPlayUsingLauncher = false;
 	bPlayUsingMobilePreview = MobilePreview;
 	bPlayUsingVulkanPreview = VulkanPreview;
+	PlayUsingMobilePreviewTargetDevice = MobilePreviewTargetDevice;
 
 	if (StartLocation != NULL)
 	{
@@ -909,6 +910,7 @@ void UEditorEngine::CancelRequestPlaySession()
 	bPlayUsingLauncher = false;
 	bPlayUsingMobilePreview = false;
 	bPlayUsingVulkanPreview = false;
+	PlayUsingMobilePreviewTargetDevice.Reset();
 }
 
 void UEditorEngine::PlaySessionPaused()
@@ -1424,16 +1426,26 @@ void UEditorEngine::PlayStandaloneLocalPc(FString MapNameOverride, FIntPoint* Wi
 	// apply additional settings
 	if (bPlayUsingMobilePreview)
 	{
+		if (PlayUsingMobilePreviewTargetDevice.IsEmpty() == false)
+		{
+			AdditionalParameters += TEXT(" -MobileTargetDevice=") + PlayUsingMobilePreviewTargetDevice;
+		}
+		else
+		{
+			AdditionalParameters += TEXT(" -featureleveles2");
+		}
+
 		if (IsOpenGLPlatform(GShaderPlatformForFeatureLevel[GMaxRHIFeatureLevel]))
 		{
 			AdditionalParameters += TEXT(" -opengl");
 		}
-		AdditionalParameters += TEXT(" -featureleveles2 -faketouches");
+		AdditionalParameters += TEXT(" -faketouches");
 	}
 
 	if (bPlayUsingVulkanPreview)
 	{
-		AdditionalParameters += TEXT(" -vulkan -faketouches");
+		ensure(!bPlayUsingMobilePreview);
+		AdditionalParameters += TEXT(" -vulkan -faketouches -featureleveles31");
 	}
 
 	// Disable the HMD device in the new process if present. The editor process owns the HMD resource.
@@ -3317,7 +3329,7 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bI
 
 				ViewportClient->SetViewportOverlayWidget( PieWindow, ViewportOverlayWidgetRef );
 				ViewportClient->SetGameLayerManager(GameLayerManagerRef);
-				bool bShouldMinimizeRootWindow = bUseVRPreview && GEngine->HMDDevice.IsValid();
+				bool bShouldMinimizeRootWindow = bUseVRPreview && GEngine->HMDDevice.IsValid() && GetDefault<ULevelEditorPlaySettings>()->ShouldMinimizeEditorOnVRPIE;
 				// Set up a notification when the window is closed so we can clean up PIE
 				{
 					struct FLocal

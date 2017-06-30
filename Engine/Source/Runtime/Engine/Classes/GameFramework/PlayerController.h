@@ -261,6 +261,9 @@ class ENGINE_API APlayerController : public AController
 	UPROPERTY()
 	TArray< TWeakObjectPtr<UPrimitiveComponent> > HiddenPrimitiveComponents;
 
+	/** Whether to render primitives component. */
+	bool bRenderPrimitiveComponents;
+
 	/** Used to make sure the client is kept synchronized when in a spectator state */
 	UPROPERTY()
 	float LastSpectatorStateSynchTime;
@@ -387,6 +390,10 @@ class ENGINE_API APlayerController : public AController
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Game|Feedback")
 	uint32 bForceFeedbackEnabled:1;
+
+	/** Scale applied to force feedback values */
+	UPROPERTY(config)
+	float ForceFeedbackScale;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=MouseInterface, meta=(EditCondition="bEnableClickEvents"))
 	TArray<FKey> ClickEventKeys;
@@ -864,6 +871,14 @@ public:
 	/** Gets the HUD currently being used by this player controller */
 	UFUNCTION(BlueprintCallable, Category="HUD")
 	class AHUD* GetHUD() const;
+
+	/**
+	 * Sets the Widget for the Mouse Cursor to display 
+	 * @param Cursor - the cursor to set the widget for
+	 * @param CursorWidget - the widget to set the cursor to
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UI")
+	void SetMouseCursorWidget(EMouseCursor::Type Cursor, class UUserWidget* CursorWidget);
 
 	/** Set the view target
 	 * @param A - new actor to set as view target
@@ -1411,6 +1426,8 @@ protected:
 	virtual void BuildInputStack(TArray<UInputComponent*>& InputStack);
 	void ProcessForceFeedbackAndHaptics(const float DeltaTime, const bool bGamePaused);
 	virtual bool IsInViewportClient(UGameViewportClient* ViewportClient) const;
+
+	virtual int32 GetInputIndex() const;
 
 	/** Allows the PlayerController to set up custom input bindings. */
 	virtual void SetupInputComponent();

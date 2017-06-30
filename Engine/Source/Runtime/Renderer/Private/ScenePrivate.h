@@ -970,7 +970,7 @@ public:
 				LUTPixelFormat = PF_R8G8B8A8;
 			}
 
-			FPooledRenderTargetDesc Desc = FPooledRenderTargetDesc::Create2DDesc(FIntPoint(LUTSize * LUTSize, LUTSize), LUTPixelFormat, FClearValueBinding::None, TexCreate_None, TexCreate_ShaderResource, false);
+			FPooledRenderTargetDesc Desc = FPooledRenderTargetDesc::Create2DDesc(FIntPoint(LUTSize * LUTSize, LUTSize), LUTPixelFormat, FClearValueBinding::Transparent, TexCreate_None, TexCreate_ShaderResource, false);
 			Desc.TargetableFlags |= bNeedUAV ? TexCreate_UAV : TexCreate_RenderTargetable;
 
 			if (bUseVolumeLUT)
@@ -2142,7 +2142,7 @@ public:
 	virtual void RemoveSpeedTreeWind_RenderThread(FVertexFactory* VertexFactory, const UStaticMesh* StaticMesh) override;
 	virtual void UpdateSpeedTreeWind(double CurrentTime) override;
 	virtual FUniformBufferRHIParamRef GetSpeedTreeUniformBuffer(const FVertexFactory* VertexFactory) override;
-	virtual void DumpUnbuiltLightIteractions( FOutputDevice& Ar ) const override;
+	virtual void DumpUnbuiltLightInteractions( FOutputDevice& Ar ) const override;
 	virtual void DumpStaticMeshDrawListStats() const override;
 	virtual void SetClearMotionBlurInfoGameThread() override;
 	virtual void UpdateParameterCollections(const TArray<FMaterialParameterCollectionInstanceResource*>& InParameterCollections) override;

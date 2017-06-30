@@ -2335,16 +2335,6 @@ void AActor::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay
 				}
 			}
 		}
-
-		static FName NAME_3DBones = FName(TEXT("3DBones"));
-		if (DebugDisplay.IsDisplayOn(NAME_Bones))
-		{
-			bool bSimpleBones = !DebugDisplay.IsCategoryToggledOn(NAME_3DBones, false);
-			for (USkeletalMeshComponent* Comp : Components)
-			{
-				Comp->DebugDrawBones(Canvas, bSimpleBones);
-			}
-		}
 	}
 }
 
@@ -2603,13 +2593,17 @@ void AActor::ClearInstanceComponents(const bool bDestroyComponents)
 
 UActorComponent* AActor::FindComponentByClass(const TSubclassOf<UActorComponent> ComponentClass) const
 {
-	UActorComponent* FoundComponent = NULL;
-	for (UActorComponent* Component : OwnedComponents)
+	UActorComponent* FoundComponent = nullptr;
+
+	if (UClass* TargetClass = ComponentClass.Get())
 	{
-		if (Component && Component->IsA(ComponentClass))
+		for (UActorComponent* Component : OwnedComponents)
 		{
-			FoundComponent = Component;
-			break;
+			if (Component && Component->IsA(TargetClass))
+			{
+				FoundComponent = Component;
+				break;
+			}
 		}
 	}
 
@@ -2625,7 +2619,7 @@ TArray<UActorComponent*> AActor::GetComponentsByClass(TSubclassOf<UActorComponen
 {
 	TArray<UActorComponent*> ValidComponents;
 
-        // In the UActorComponent case we can skip the IsA checks for a slight performance benefit
+	// In the UActorComponent case we can skip the IsA checks for a slight performance benefit
 	if (ComponentClass == UActorComponent::StaticClass())
 	{
 		for (UActorComponent* Component : OwnedComponents)
@@ -2901,7 +2895,7 @@ void AActor::FinishSpawning(const FTransform& UserTransform, bool bIsDefaultTran
 		FinalRootComponentTransform.GetLocation().DiagnosticCheckNaN(TEXT("AActor::FinishSpawning: FinalRootComponentTransform.GetLocation()"));
 		FinalRootComponentTransform.GetRotation().DiagnosticCheckNaN(TEXT("AActor::FinishSpawning: FinalRootComponentTransform.GetRotation()"));
 
-		ExecuteConstruction(FinalRootComponentTransform, InstanceDataCache, bIsDefaultTransform);
+		ExecuteConstruction(FinalRootComponentTransform, nullptr, InstanceDataCache, bIsDefaultTransform);
 
 		{
 			SCOPE_CYCLE_COUNTER(STAT_PostActorConstruction);

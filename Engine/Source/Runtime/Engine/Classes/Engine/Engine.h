@@ -45,6 +45,19 @@ class UNetDriver;
 class FFineGrainedPerformanceTracker;
 #endif
 
+// The kind of failure handling that GetWorldFromContextObject uses 
+enum class EGetWorldErrorMode
+{
+	// Silently returns nullptr, the calling code is expected to handle this gracefully
+	ReturnNull,
+
+	// Raises a runtime error but still returns nullptr, the calling code is expected to handle this gracefully
+	LogAndReturnNull,
+
+	// Asserts, the calling code is not expecting to handle a failure gracefully
+	Assert
+};
+
 /**
  * Enumerates types of fully loaded packages.
  */
@@ -922,14 +935,32 @@ public:
 	UPROPERTY(globalconfig)
 	FStringAssetReference BoneWeightMaterialName;
 
-	/** Material used to render cloth properties on skeletal meshes */
+	/** Materials used to render cloth properties on skeletal meshes */
 	UPROPERTY()
 	class UMaterial* ClothPaintMaterial;
+	UPROPERTY()
+	class UMaterial* ClothPaintMaterialWireframe;
+	UPROPERTY()
+	class UMaterialInstanceDynamic* ClothPaintMaterialInstance;
+	UPROPERTY()
+	class UMaterialInstanceDynamic* ClothPaintMaterialWireframeInstance;
 
-	/** @todo document */
+	/** Name of the material used to render cloth in the clothing tools */
 	UPROPERTY(globalconfig)
 	FStringAssetReference ClothPaintMaterialName;
+
+	/** Name of the material used to render cloth wireframe in the clothing tools */
+	UPROPERTY(globalconfig)
+	FStringAssetReference ClothPaintMaterialWireframeName;
+
+	/** A material used to render debug meshes. */
+	UPROPERTY()
+	class UMaterial* DebugEditorMaterial;
 #endif
+
+	/** A material used to render debug opaque material. Used in various animation editor viewport features. */
+	UPROPERTY(globalconfig)
+	FStringAssetReference DebugEditorMaterialName;
 
 	/** Material used to render constraint limits */
 	UPROPERTY()
@@ -2157,12 +2188,31 @@ public:
 	 * Obtain a world object pointer from an object with has a world context.
 	 *
 	 * @param Object		Object whose owning world we require.
-	 * @param bChecked      Allows calling function to specify not to do ensure check and that a nullptr return value is acceptable
-	 *						This flag is only used when called by main game thread. 
-	 * returns				The world to which the object belongs.
+	 * @param ErrorMode		Controls what happens if the Object cannot be found
+	 * @return				The world to which the object belongs or nullptr if it cannot be found.
 	 */
-	UWorld* GetWorldFromContextObject(const UObject* Object, bool bChecked = true) const;
+	UWorld* GetWorldFromContextObject(const UObject* Object, EGetWorldErrorMode ErrorMode) const;
 
+	/** 
+	 * Obtain a world object pointer from an object with has a world context.
+	 *
+	 * @param Object		Object whose owning world we require.
+	 * @return				The world to which the object belongs; asserts if the world cannot be found!
+	 */
+	UWorld* GetWorldFromContextObjectChecked(const UObject* Object) const
+	{
+		return GetWorldFromContextObject(Object, EGetWorldErrorMode::Assert);
+	}
+
+	/** 
+	 * This function is deprecated
+	 */
+	DEPRECATED(4.17, "GetWorldFromContextObject(Object) and GetWorldFromContextObject(Object, boolean) are replaced by GetWorldFromContextObject(Object, Enum) or GetWorldFromContextObjectChecked(Object)")
+	UWorld* GetWorldFromContextObject(const UObject* Object, bool bChecked = true) const
+	{
+		// Note: The behavior in 4.16 and before was similar to Assert if bChecked was true, but almost no callers actually wanted to pass in bChecked=true
+		return GetWorldFromContextObject(Object, bChecked ? EGetWorldErrorMode::LogAndReturnNull : EGetWorldErrorMode::ReturnNull);
+	}
 
 	/** 
 	 * mostly done to check if PIE is being set up, go GWorld is going to change, and it's not really _the_G_World_
@@ -2299,6 +2349,7 @@ public:
 		/** Skips copying properties with BlueprintCompilerGeneratedDefaults metadata */
 		bool bSkipCompilerGeneratedDefaults;
 		bool bNotifyObjectReplacement;
+		bool bClearReferences;
 
 		FCopyPropertiesForUnrelatedObjectsParams()
 			: bAggressiveDefaultSubobjectReplacement(false)
@@ -2308,6 +2359,7 @@ public:
 			, bPreserveRootComponent(true)
 			, bSkipCompilerGeneratedDefaults(false)
 			, bNotifyObjectReplacement(true)
+			, bClearReferences(true)
 		{}
 	};
 	static void CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* NewObject, FCopyPropertiesForUnrelatedObjectsParams Params = FCopyPropertiesForUnrelatedObjectsParams());//bool bAggressiveDefaultSubobjectReplacement = false, bool bDoDelta = true);

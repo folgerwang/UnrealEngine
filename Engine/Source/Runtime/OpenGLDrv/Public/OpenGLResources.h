@@ -865,7 +865,7 @@ public:
 		return bIsPowerOfTwo != 0;
 	}
 
-#if PLATFORM_MAC || PLATFORM_ANDROIDESDEFERRED // Flithy hack to workaround radr://16011763
+#if PLATFORM_ANDROIDESDEFERRED // Flithy hack to workaround radr://16011763
 	GLuint GetOpenGLFramebuffer(uint32 ArrayIndices, uint32 MipmapLevels);
 #endif
 
@@ -996,6 +996,9 @@ public:
 					case GL_TEXTURE_CUBE_MAP:
 					case GL_TEXTURE_2D_ARRAY:
 					case GL_TEXTURE_CUBE_MAP_ARRAY:
+#if PLATFORM_ANDROID
+					case GL_TEXTURE_EXTERNAL_OES:
+#endif
 					{
 						InvalidateTextureResourceInCache();
 						FOpenGL::DeleteTextures(1, &Resource);

@@ -13,6 +13,8 @@
 #include "IPropertyUtilities.h"
 #include "Preferences/PersonaOptions.h"
 #include "SButton.h"
+#include "STextBlock.h"
+#include "SCheckBox.h"
 #include "SImage.h"
 #include "AssetToolsModule.h"
 #include "IAssetTools.h"
@@ -111,7 +113,36 @@ void FPreviewSceneDescriptionCustomization::CustomizeDetails(IDetailLayoutBuilde
 		.CustomWidget()
 		.NameContent()
 		[
-			SkeletalMeshProperty->CreatePropertyNameWidget(PreviewMeshName)
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SkeletalMeshProperty->CreatePropertyNameWidget(PreviewMeshName)
+			]
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.HAlign(HAlign_Center)
+			[
+				SNew(SButton)
+				.Text(LOCTEXT("ApplyToAsset", "Apply To Asset"))
+				.ToolTipText(LOCTEXT("ApplyToAssetToolTip", "The preview mesh has changed, but it will not be able to be saved until it is applied to the asset. Click here to make the change to the preview mesh persistent."))
+				.Visibility_Lambda([this]()
+				{
+					TSharedPtr<IPersonaToolkit> PinnedPersonaToolkit = PersonaToolkit.Pin();
+					USkeletalMesh* SkeletalMesh = PinnedPersonaToolkit->GetPreviewMesh();
+					if(SkeletalMesh == nullptr)
+					{
+						SkeletalMesh = EditableSkeleton.Pin()->GetSkeleton().GetPreviewMesh();
+					}
+					return (SkeletalMesh != PinnedPersonaToolkit->GetPreviewScene()->GetPreviewMesh()) ? EVisibility::Visible : EVisibility::Collapsed;
+				})
+				.OnClicked_Lambda([this]() 
+				{
+					TSharedPtr<IPersonaToolkit> PinnedPersonaToolkit = PersonaToolkit.Pin();
+					PinnedPersonaToolkit->SetPreviewMesh(PinnedPersonaToolkit->GetPreviewScene()->GetPreviewMesh(), true);
+					return FReply::Handled();
+				})
+			]
 		]
 		.ValueContent()
 		.MaxDesiredWidth(250.0f)
@@ -202,7 +233,7 @@ void FPreviewSceneDescriptionCustomization::CustomizeDetails(IDetailLayoutBuilde
 		Objects.Add(AdditionalMeshesAsset.GetAsset());
 
 		IDetailPropertyRow* PropertyRow = DetailBuilder.EditCategory("Additional Meshes")
-		.AddExternalProperty(Objects, "SkeletalMeshes");
+		.AddExternalObjectProperty(Objects, "SkeletalMeshes");
 
 		if (PropertyRow)
 		{
@@ -314,7 +345,7 @@ void FPreviewSceneDescriptionCustomization::HandleAnimationChanged(const FAssetD
 void FPreviewSceneDescriptionCustomization::HandleMeshChanged(const FAssetData& InAssetData)   
 {
 	USkeletalMesh* NewPreviewMesh = Cast<USkeletalMesh>(InAssetData.GetAsset());
-	PersonaToolkit.Pin()->SetPreviewMesh(NewPreviewMesh);
+	PersonaToolkit.Pin()->SetPreviewMesh(NewPreviewMesh, false);
 }
 
 void FPreviewSceneDescriptionCustomization::HandleAdditionalMeshesChanged(const FAssetData& InAssetData, IDetailLayoutBuilder* DetailLayoutBuilder)

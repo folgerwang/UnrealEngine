@@ -13,7 +13,7 @@
 
 namespace AssetDataGathererConstants
 {
-	static const int32 CacheSerializationVersion = 10;
+	static const int32 CacheSerializationVersion = 11;
 	static const int32 MaxFilesToDiscoverBeforeFlush = 2500;
 	static const int32 MaxFilesToGatherBeforeFlush = 250;
 	static const int32 MaxFilesToProcessBeforeCacheWrite = 50000;
@@ -560,7 +560,7 @@ uint32 FAssetDataGatherer::Run()
 
 					if (DiskCachedAssetData)
 					{
-						if (DiskCachedAssetData->DependencyData.PackageName != PackageName)
+						if (DiskCachedAssetData->DependencyData.PackageName != PackageName && DiskCachedAssetData->DependencyData.PackageName != NAME_None)
 						{
 							UE_LOG(LogAssetRegistry, Display, TEXT("Cached dependency data for package '%s' is invalid. Discarding cached data."), *PackageName.ToString());
 							DiskCachedAssetData = nullptr;

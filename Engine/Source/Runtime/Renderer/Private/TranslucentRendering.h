@@ -40,7 +40,7 @@ public:
 		{}
 
 		/** Whether this material should be processed now */
-		bool ShouldDraw(const FViewInfo& View, const FMaterial* Material, bool bIsSeparateTranslucency) const;
+		bool ShouldDraw(const FMaterial* Material, bool bIsSeparateTranslucency) const;
 	};
 
 	/**
@@ -111,14 +111,12 @@ public:
 	struct ContextType 
 	{
 		ESceneRenderTargetsMode::Type TextureMode;
-		bool bRenderingSeparateTranslucency;
+		ETranslucencyPass::Type TranslucencyPass;
 
-		ContextType(ESceneRenderTargetsMode::Type InTextureMode, bool InbRenderingSeparateTranslucency)
+		ContextType(ESceneRenderTargetsMode::Type InTextureMode, ETranslucencyPass::Type InTranslucencyPass)
 		: TextureMode(InTextureMode)
-		, bRenderingSeparateTranslucency(InbRenderingSeparateTranslucency)
+		, TranslucencyPass(InTranslucencyPass)
 		{}
-
-		bool ShouldRenderSeparateTranslucency() const { return bRenderingSeparateTranslucency; }
 	};
 
 	/**

@@ -30,6 +30,7 @@ FCoreDelegates::FOnMountPak FCoreDelegates::OnMountPak;
 FCoreDelegates::FOnUnmountPak FCoreDelegates::OnUnmountPak;
 FCoreDelegates::FOnUserLoginChangedEvent FCoreDelegates::OnUserLoginChangedEvent; 
 FCoreDelegates::FOnUserControllerConnectionChange FCoreDelegates::OnControllerConnectionChange;
+FCoreDelegates::FOnUserControllerPairingChange FCoreDelegates::OnControllerPairingChange;
 FCoreDelegates::FOnSafeFrameChangedEvent FCoreDelegates::OnSafeFrameChangedEvent;
 FCoreDelegates::FOnHandleSystemEnsure FCoreDelegates::OnHandleSystemEnsure;
 FCoreDelegates::FOnHandleSystemError FCoreDelegates::OnHandleSystemError;
@@ -110,6 +111,7 @@ FCoreDelegates::FOnCrashOverrideParamsChanged FCoreDelegates::CrashOverrideParam
 FCoreDelegates::FOnIsVanillaProductChanged FCoreDelegates::IsVanillaProductChanged;
 
 FCoreDelegates::FOnAsyncLoadingFlush FCoreDelegates::OnAsyncLoadingFlush;
+FCoreDelegates::FOnAsyncLoadingFlushUpdate FCoreDelegates::OnAsyncLoadingFlushUpdate;
 FCoreDelegates::FOnAsyncLoadPackage FCoreDelegates::OnAsyncLoadPackage;
 FCoreDelegates::FRenderingThreadChanged FCoreDelegates::PostRenderingThreadCreated;
 FCoreDelegates::FRenderingThreadChanged FCoreDelegates::PreRenderingThreadDestroyed;
@@ -118,6 +120,8 @@ FCoreDelegates::FImageIntegrityChanged  FCoreDelegates::OnImageIntegrityChanged;
 FCoreDelegates::FApplicationReceivedOnScreenOrientationChangedNotificationDelegate FCoreDelegates::ApplicationReceivedScreenOrientationChangedNotificationDelegate;
 
 FCoreDelegates::FConfigReadyForUse FCoreDelegates::ConfigReadyForUse;
+
+FCoreDelegates::FIsLoadingMovieCurrentlyPlaying FCoreDelegates::IsLoadingMovieCurrentlyPlaying;
 
 /**	 Implemented as a function to address global ctor issues */
 FSimpleMulticastDelegate& FCoreDelegates::GetMemoryTrimDelegate()

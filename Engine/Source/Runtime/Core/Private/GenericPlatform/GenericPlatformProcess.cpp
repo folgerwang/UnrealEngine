@@ -2,6 +2,7 @@
 
 #include "GenericPlatform/GenericPlatformProcess.h"
 #include "Misc/Timespan.h"
+#include "HAL/PlatformProperties.h"
 #include "HAL/PlatformProcess.h"
 #include "GenericPlatform/GenericPlatformCriticalSection.h"
 #include "Logging/LogMacros.h"
@@ -16,6 +17,9 @@
 #include "Misc/EventPool.h"
 #include "Misc/EngineVersion.h"
 
+#ifndef DEFAULT_NO_THREADING
+	#define DEFAULT_NO_THREADING 0
+#endif
 
 #if PLATFORM_HAS_BSD_TIME 
 	#include <unistd.h>
@@ -25,7 +29,7 @@
 DEFINE_STAT(STAT_Sleep);
 DEFINE_STAT(STAT_EventWait);
 
-TArray<FString> FGenericPlatformProcess::ShaderDirs;
+static TMap<FString, FString> GShaderSourceDirectoryMappings;
 
 void* FGenericPlatformProcess::GetDllHandle( const TCHAR* Filename )
 {
@@ -137,22 +141,49 @@ void FGenericPlatformProcess::SetShaderDir(const TCHAR*Where)
 }
 
 
-const TArray<FString>& FGenericPlatformProcess::AllShaderDirs()
+const TMap<FString, FString>& FGenericPlatformProcess::AllShaderSourceDirectoryMappings()
 {
-	return ShaderDirs;
+	return GShaderSourceDirectoryMappings;
 }
 
-void FGenericPlatformProcess::AddShaderDir(const FString& InShaderDir)
+void FGenericPlatformProcess::ResetAllShaderSourceDirectoryMappings()
+{
+	GShaderSourceDirectoryMappings.Reset();
+}
+
+void FGenericPlatformProcess::AddShaderSourceDirectoryMapping(const FString& VirtualShaderDirectory, const FString& RealShaderDirectory)
 {
 	check(IsInGameThread());
 
-	FString ShaderDir = InShaderDir;
-	// make sure we store only relative paths
-	if (!FPaths::IsRelative(ShaderDir))
+	if (FPlatformProperties::RequiresCookedData())
 	{
-		FPaths::MakePathRelativeTo(ShaderDir, FPlatformProcess::BaseDir());
+		return;
 	}
-	ShaderDirs.Add(ShaderDir);
+
+	// Do sanity checks of the virtual shader directory to map.
+	check(VirtualShaderDirectory.StartsWith(TEXT("/")));
+	check(!VirtualShaderDirectory.EndsWith(TEXT("/")));
+	check(!VirtualShaderDirectory.Contains(FString(TEXT("."))));
+
+	// Do sanity checks of the real shader directory to map.
+	check(FPaths::IsRelative(RealShaderDirectory));
+
+	// Detect collisions with any other mappings.
+	check(!GShaderSourceDirectoryMappings.Contains(VirtualShaderDirectory));
+
+	// Make sur the real directory to map exists.
+	check(FPaths::DirectoryExists(RealShaderDirectory));
+
+	// Make sure there is at least a Public or Private directory in the Shaders directory.
+	check(
+		FPaths::DirectoryExists(RealShaderDirectory / TEXT("Public")) ||
+		FPaths::DirectoryExists(RealShaderDirectory / TEXT("Private")));
+
+	// Make sure the Generated directory does not exist, because is reserved for C++ generated shader source
+	// by the FShaderCompilerEnvironment::IncludeVirtualPathToContentsMap member.
+	check(!FPaths::DirectoryExists(RealShaderDirectory / TEXT("Generated")));
+
+	GShaderSourceDirectoryMappings.Add(VirtualShaderDirectory, RealShaderDirectory);
 }
 
 /**
@@ -259,6 +290,11 @@ void FGenericPlatformProcess::TerminateProc( FProcHandle & ProcessHandle, bool K
 	UE_LOG(LogHAL, Fatal, TEXT("FGenericPlatformProcess::TerminateProc not implemented on this platform"));
 }
 
+FGenericPlatformProcess::EWaitAndForkResult FGenericPlatformProcess::WaitAndFork()
+{
+	UE_LOG(LogHAL, Fatal, TEXT("FGenericPlatformProcess::WaitAndFork not implemented on this platform"));
+	return EWaitAndForkResult::Error;
+}
 
 bool FGenericPlatformProcess::GetProcReturnCode( FProcHandle & ProcHandle, int32* ReturnCode )
 {
@@ -544,7 +580,11 @@ bool FGenericPlatformProcess::WritePipe(void* WritePipe, const FString& Message,
 
 bool FGenericPlatformProcess::SupportsMultithreading()
 {
+#if DEFAULT_NO_THREADING
+	static bool bSupportsMultithreading = FParse::Param(FCommandLine::Get(), TEXT("threading"));
+#else
 	static bool bSupportsMultithreading = !FParse::Param(FCommandLine::Get(), TEXT("nothreading"));
+#endif
 	return bSupportsMultithreading;
 }
 

@@ -44,6 +44,8 @@
 #include <notify.h>
 #include <uuid/uuid.h>
 
+extern CORE_API bool GIsGPUCrashed;
+
 /*------------------------------------------------------------------------------
  Console variables.
  ------------------------------------------------------------------------------*/
@@ -1651,7 +1653,7 @@ bool FMacPlatformMisc::GetDiskTotalAndFreeSpace(const FString& InPath, uint64& T
 
 bool FMacPlatformMisc::HasSeparateChannelForDebugOutput()
 {
-	return true;
+	return false;
 }
 
 #include "ModuleManager.h"
@@ -1659,7 +1661,7 @@ bool FMacPlatformMisc::HasSeparateChannelForDebugOutput()
 void FMacPlatformMisc::LoadPreInitModules()
 {
 	FModuleManager::Get().LoadModule(TEXT("CoreAudio"));
-	FModuleManager::Get().LoadModule(TEXT("AudioMixerCoreAudio"));
+	FModuleManager::Get().LoadModule(TEXT("AudioMixerAudioUnit"));
 }
 
 void* FMacPlatformMisc::CreateAutoreleasePool()
@@ -2128,7 +2130,7 @@ void FMacCrashContext::GenerateWindowsErrorReport(char const* WERPath, bool bIsE
 		WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<DeploymentName>%s</DeploymentName>"), FApp::GetDeploymentName()));
 		WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<IsEnsure>%s</IsEnsure>"), bIsEnsure ? TEXT("1") : TEXT("0")));
 		WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<IsAssert>%s</IsAssert>"), FDebug::bHasAsserted ? TEXT("1") : TEXT("0")));
-		WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<CrashType>%s</CrashType>"), FGenericCrashContext::GetCrashTypeString(bIsEnsure, FDebug::bHasAsserted)));
+		WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<CrashType>%s</CrashType>"), FGenericCrashContext::GetCrashTypeString(bIsEnsure, FDebug::bHasAsserted, GIsGPUCrashed)));
 		WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<BuildVersion>%s</BuildVersion>"), FApp::GetBuildVersion()));
 		WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<EngineModeEx>%s</EngineModeEx>"), FGenericCrashContext::EngineModeExString()));
 

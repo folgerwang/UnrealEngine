@@ -365,7 +365,7 @@ class ENGINE_API UKismetMathLibrary : public UBlueprintFunctionLibrary
 
 		if (B == 0.f)
 		{
-			FFrame::KismetExecutionMessage(*FString::Printf(TEXT("Divide by zero\n%s"), *Stack.GetStackTrace()), ELogVerbosity::Warning);
+			FFrame::KismetExecutionMessage(*FString::Printf(TEXT("Divide by zero detected: %f / 0\n%s"), A, *Stack.GetStackTrace()), ELogVerbosity::Warning);
 			*(float*)RESULT_PARAM = 0;
 			return;
 		}
@@ -389,7 +389,7 @@ class ENGINE_API UKismetMathLibrary : public UBlueprintFunctionLibrary
 
 		if (B == 0.f)
 		{
-			FFrame::KismetExecutionMessage(*FString::Printf(TEXT("Modulo by zero\n%s"), *Stack.GetStackTrace()), ELogVerbosity::Warning);
+			FFrame::KismetExecutionMessage(*FString::Printf(TEXT("Modulo by zero detected: %f %% 0\n%s"), A, *Stack.GetStackTrace()), ELogVerbosity::Warning);
 			*(float*)RESULT_PARAM = 0;
 			return;
 		}
@@ -533,11 +533,11 @@ class ENGINE_API UKismetMathLibrary : public UBlueprintFunctionLibrary
 	static float RadiansToDegrees(float A);
 
 	/* Returns the sin of A (expects Degrees)*/
-	UFUNCTION(BlueprintPure, meta=(DisplayName = "Sin (Degrees)", CompactNodeTitle = "SINd"), Category="Math|Trig")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Sin (Degrees)", CompactNodeTitle = "SINd", Keywords = "sine"), Category="Math|Trig")
 	static float DegSin(float A);
 
 	/* Returns the inverse sin (arcsin) of A (result is in Degrees) */
-	UFUNCTION(BlueprintPure, meta=(DisplayName = "Asin (Degrees)", CompactNodeTitle = "ASINd"), Category="Math|Trig")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Asin (Degrees)", CompactNodeTitle = "ASINd", Keywords = "sine"), Category="Math|Trig")
 	static float DegAsin(float A);
 
 	/* Returns the cos of A (expects Degrees)*/
@@ -1805,6 +1805,10 @@ class ENGINE_API UKismetMathLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, meta=(DisplayName = "vector2d / float", CompactNodeTitle = "/", Keywords = "/ divide division"), Category="Math|Vector2D")
 	static FVector2D Divide_Vector2DFloat(FVector2D A, float B = 1.f);
 
+	/* Element-wise Vector divide (Result = {A.x/B.x, A.y/B.y}) */
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "vector2d / vector2d", CompactNodeTitle = "/", Keywords = "/ divide division"), Category = "Math|Vector2D")
+	static FVector2D Divide_Vector2DVector2D(FVector2D A, FVector2D B);
+
 	/** Returns Vector A added by B */
 	UFUNCTION(BlueprintPure, meta=(DisplayName = "vector2d + float", CompactNodeTitle = "+", Keywords = "+ add plus"), Category="Math|Vector2D")
 	static FVector2D Add_Vector2DFloat(FVector2D A, float B);
@@ -2092,6 +2096,7 @@ private:
 	static void ReportError_Divide_VectorVector();
 	static void ReportError_ProjectVectorOnToVector();
 	static void ReportError_Divide_Vector2DFloat();
+	static void ReportError_Divide_Vector2DVector2D();
 	static void ReportError_DaysInMonth();
 };
 

@@ -250,7 +250,6 @@ class BuildPhysX : BuildCommand
 						return "\"" + DirectoryReference.Combine(PhysXCMakeFiles, "HTML5").ToString() + "\"" +
 							" -G \"Unix Makefiles\" -DTARGET_BUILD_PLATFORM=HTML5" +
 							" -DPXSHARED_ROOT_DIR=\"" + SharedSourceRootDirectory.ToString() + "\"" +
-							" -DNVSIMD_INCLUDE_DIR=\"" + SharedSourceRootDirectory.ToString() + "/src/NvSimd\"" +
 							" -DNVTOOLSEXT_INCLUDE_DIRS=\"" + PhysX34SourceRootDirectory + "/externals/nvToolsExt/include\"" +
 							" -DEMSCRIPTEN_GENERATE_BITCODE_STATIC_LIBRARIES=ON " +
 							" -DCMAKE_BUILD_TYPE=\"Release\" -DCMAKE_TOOLCHAIN_FILE=\"" + CmakeToolchainFile + "\"" +
@@ -677,7 +676,7 @@ class BuildPhysX : BuildCommand
 						Environment.SetEnvironmentVariable("LIB_SUFFIX", GetConfigurationSuffix(BuildConfig, TargetData)); // only used in HTML5's CMakefiles
 
 						string orig = File.ReadAllText(HTML5SDKInfo.EmscriptenCMakeToolChainFile);
-						string txt = Regex.Replace(orig, "(EPIC_BUILD_FLAGS}) .*-O2" , "$1 " + BuildMap[BuildConfig] );
+						string txt = Regex.Replace(orig, "-O2" , BuildMap[BuildConfig] );
 						string CmakeToolchainFile = FileReference.Combine(HTML5CMakeModules, "Emscripten." + BuildConfig + ".cmake").ToString();
 						File.WriteAllText(CmakeToolchainFile, txt);
 

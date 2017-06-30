@@ -17,7 +17,7 @@
 
 //TODO: Move these to OpenGLDrvPrivate.h
 #if PLATFORM_WINDOWS
-#include "Windows/OpenGLWindows.h"
+#include "Runtime/OpenGLDrv/Private/Windows/OpenGLWindows.h"
 #elif PLATFORM_LINUX
 #include "Runtime/OpenGLDrv/Private/Linux/OpenGLLinux.h"
 #elif PLATFORM_IOS
@@ -293,7 +293,7 @@ class OPENGLDRV_API FOpenGLDynamicRHI : public FDynamicRHI, public IRHICommandCo
 public:
 
 	friend class FOpenGLViewport;
-#if PLATFORM_MAC || PLATFORM_ANDROIDESDEFERRED // Flithy hack to workaround radr://16011763
+#if PLATFORM_ANDROIDESDEFERRED // Flithy hack to workaround radr://16011763
 	friend class FOpenGLTextureBase;
 #endif
 
@@ -664,10 +664,6 @@ public:
 	void InternalSetShaderTexture(FOpenGLTextureBase* Texture, FOpenGLShaderResourceView* SRV, GLint TextureIndex, GLenum Target, GLuint Resource, int NumMips, int LimitMip);
 	void InternalSetShaderUAV(GLint UAVIndex, GLenum Format, GLuint Resource);
 	void InternalSetSamplerStates(GLint TextureIndex, FOpenGLSamplerState* SamplerState);
-#if PLATFORM_MAC
-	/** On OS X force a rebind of the texture buffer to the texture name to workaround radr://18379338 */
-	void InternalUpdateTextureBuffer( FOpenGLContextState& ContextState, FOpenGLShaderResourceView* SRV, GLint TextureIndex );
-#endif
 
 private:
 	void ApplyTextureStage(FOpenGLContextState& ContextState, GLint TextureIndex, const FTextureStage& TextureStage, FOpenGLSamplerState* SamplerState);

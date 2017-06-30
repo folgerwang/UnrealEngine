@@ -3,6 +3,7 @@
 #include "LaunchEngineLoop.h"
 #include "HAL/PlatformStackWalk.h"
 #include "HAL/PlatformOutputDevices.h"
+#include "HAL/LowLevelMemTracker.h"
 #include "Misc/MessageDialog.h"
 #include "Misc/ScopedSlowTask.h"
 #include "Misc/QueuedThreadPool.h"
@@ -71,6 +72,7 @@
 	#include "Editor/UnrealEdEngine.h"
 	#include "Settings/EditorExperimentalSettings.h"
 	#include "Interfaces/IEditorStyleModule.h"
+	#include "PIEPreviewDeviceProfileSelectorModule.h"
 
 	#if PLATFORM_WINDOWS
 		#include "AllowWindowsPlatformTypes.h"
@@ -145,7 +147,6 @@
 #if WITH_AUTOMATION_WORKER
 	#include "Interfaces/IAutomationWorkerModule.h"
 #endif
-
 #endif  //WITH_ENGINE
 
 class FSlateRenderer;
@@ -191,6 +192,14 @@ class FFeedbackContext;
 #else
 	#define USE_LOCALIZED_PACKAGE_CACHE 0
 #endif
+
+int32 GUseDisregardForGCOnDedicatedServers = 1;
+static FAutoConsoleVariableRef CVarUseDisregardForGCOnDedicatedServers(
+	TEXT("gc.UseDisregardForGCOnDedicatedServers"),
+	GUseDisregardForGCOnDedicatedServers,
+	TEXT("If false, DisregardForGC will be disabled for dedicated servers."),
+	ECVF_Default
+);
 
 static TAutoConsoleVariable<int32> CVarDoAsyncEndOfFrameTasksRandomize(
 	TEXT("tick.DoAsyncEndOfFrameTasks.Randomize"),
@@ -882,6 +891,10 @@ DECLARE_CYCLE_STAT( TEXT( "FEngineLoop::PreInit.AfterStats" ), STAT_FEngineLoop_
 
 int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 {
+	// disable/enable LLM based on commandline
+	LLM(FLowLevelMemTracker::Get().ProcessCommandLine(CmdLine));
+	LLM_SCOPED_SINGLE_MALLOC_STAT_TAG(EnginePreInitMemory);
+
 	FPlatformMisc::InitTaggedStorage(1024);
 
 	if (FParse::Param(CmdLine, TEXT("UTF8Output")))
@@ -1043,7 +1056,7 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 	const TCHAR* ParsedCmdLine	= CommandLineCopy;
 
 	// Add the default engine shader dir
-	FGenericPlatformProcess::AddShaderDir(FGenericPlatformProcess::ShaderDir());
+	FGenericPlatformProcess::AddShaderSourceDirectoryMapping(TEXT("/Engine"), FGenericPlatformProcess::ShaderDir());
 
 	FString Token				= FParse::Token( ParsedCmdLine, 0);
 
@@ -1468,7 +1481,12 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 	// Set all CVars which have been setup in the device profiles.
 	UDeviceProfileManager::InitializeCVarsForActiveDeviceProfile();
 
-	if (FApp::ShouldUseThreadingForPerformance() && FPlatformMisc::AllowRenderThread())
+	if (FApp::ShouldUseThreadingForPerformance() && FPlatformMisc::AllowRenderThread()
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+		// disable rendering thread when LLM is on so that memory is attributer better
+		&& !FLowLevelMemTracker::Get().ShouldReduceThreads()
+#endif
+		)
 	{
 		GUseThreadedRendering = true;
 	}
@@ -1505,7 +1523,6 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 		FPlatformMisc::RequestExit(false);
 	}
 	
-	bool bIsSeekFreeDedicatedServer = false;	
 	bool bIsRegularClient = false;
 
 	if (!bHasEditorToken)
@@ -1567,6 +1584,7 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 		}
 	}
 
+	bool bDisableDisregardForGC = bHasEditorToken;
 	if (IsRunningDedicatedServer())
 	{
 		GIsClient = false;
@@ -1575,7 +1593,7 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 #if WITH_EDITOR
 		GIsEditor = false;
 #endif
-		bIsSeekFreeDedicatedServer = FPlatformProperties::RequiresCookedData();
+		bDisableDisregardForGC |= FPlatformProperties::RequiresCookedData() && (GUseDisregardForGCOnDedicatedServers == 0);
 	}
 
 	// If std out device hasn't been initialized yet (there was no -stdout param in the command line) and
@@ -1685,10 +1703,10 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 	{
 		FShaderCache::InitShaderCache(SCO_Default);
 	}
-	
+
 	// Initialize the RHI.
 	RHIInit(bHasEditorToken);
-	
+
 	if (FPlatformProperties::RequiresCookedData())
 	{
 		// Will open material shader code storage if project was packaged with it
@@ -1778,9 +1796,9 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 			// it wouldn't have anything in it's .ini file)
 			GetMoviePlayer()->SetupLoadingScreenFromIni();
 
-			if(GetMoviePlayer()->HasEarlyStartupMovie())
+			if (GetMoviePlayer()->HasEarlyStartupMovie())
 			{
-				GetMoviePlayer()->Initialize(SlateRenderer);
+				GetMoviePlayer()->Initialize(SlateRenderer.Get());
 
 				// hide splash screen now
 				FPlatformMisc::PlatformHandleSplashScreen(false);
@@ -1788,7 +1806,6 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 				// only allowed to play any movies marked as early startup.  These movies or widgets can have no interaction whatsoever with uobjects or engine features
 				GetMoviePlayer()->PlayEarlyStartupMovies();
 			}
-
 		}
 		else if ( IsRunningCommandlet() )
 		{
@@ -1814,7 +1831,16 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 
 		// Make sure all UObject classes are registered and default properties have been initialized
 		ProcessNewlyLoadedUObjects();
-
+#if WITH_EDITOR
+		if(FPIEPreviewDeviceProfileSelectorModule::IsRequestingPreviewDevice())
+		{
+			FPIEPreviewDeviceProfileSelectorModule* PIEPreviewDeviceProfileSelectorModule = FModuleManager::LoadModulePtr<FPIEPreviewDeviceProfileSelectorModule>("PIEPreviewDeviceProfileSelector");
+			if (PIEPreviewDeviceProfileSelectorModule)
+			{
+				PIEPreviewDeviceProfileSelectorModule->ApplyPreviewDeviceState();
+			}
+		}
+#endif
 #if USE_LOCALIZED_PACKAGE_CACHE
 		// CoreUObject is definitely available now, so make sure the package localization cache is available
 		// This may have already been initialized from the CDO creation from ProcessNewlyLoadedUObjects
@@ -1837,7 +1863,7 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 	FModuleManager::Get().StartProcessingNewlyLoadedObjects();
 
 	// Setup GC optimizations
-	if (bIsSeekFreeDedicatedServer || bHasEditorToken)
+	if (bDisableDisregardForGC)
 	{
 		GUObjectArray.DisableDisregardForGC();
 	}
@@ -1859,11 +1885,13 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 		return 1;
 	}
 
-
-#if !UE_SERVER// && !UE_EDITOR
+#if !UE_SERVER
 	if (!IsRunningDedicatedServer() && !IsRunningCommandlet() && !GetMoviePlayer()->IsMovieCurrentlyPlaying())
 	{
-		GetMoviePlayer()->Initialize(FSlateApplication::Get().GetRenderer());
+		if (FSlateRenderer* Renderer = FSlateApplication::Get().GetRenderer())
+		{
+			GetMoviePlayer()->Initialize(*Renderer);
+		}
 	}
 #endif
 
@@ -2300,8 +2328,7 @@ bool FEngineLoop::LoadCoreModules()
 {
 	// Always attempt to load CoreUObject. It requires additional pre-init which is called from its module's StartupModule method.
 #if WITH_COREUOBJECT
-	bool bResult = FModuleManager::Get().LoadModule(TEXT("CoreUObject")).IsValid();
-	return bResult;
+	return FModuleManager::Get().LoadModule(TEXT("CoreUObject")) != nullptr;
 #else
 	return true;
 #endif
@@ -2352,7 +2379,6 @@ void FEngineLoop::LoadPreInitModules()
 	FModuleManager::Get().LoadModule(TEXT("AudioEditor"));
 	FModuleManager::Get().LoadModule(TEXT("AnimationModifiers"));
 #endif
-
 }
 
 
@@ -2485,6 +2511,7 @@ bool FEngineLoop::LoadStartupCoreModules()
 	if( !IsRunningDedicatedServer() )
 	{
 		FModuleManager::Get().LoadModule(TEXT("MediaAssets"));
+		FModuleManager::Get().LoadModule(TEXT("Overlay"));
 	}
 #endif
 
@@ -2492,6 +2519,8 @@ bool FEngineLoop::LoadStartupCoreModules()
 #if WITH_EDITOR
 	FModuleManager::Get().LoadModule(TEXT("ClothingSystemEditor"));
 #endif
+
+	FModuleManager::Get().LoadModule(TEXT("PacketHandler"));
 
 
 	return bSuccess;
@@ -2579,6 +2608,8 @@ void GameLoopIsStarved()
 
 int32 FEngineLoop::Init()
 {
+	LLM_SCOPED_SINGLE_MALLOC_STAT_TAG(EngineInitMemory);
+
 	CheckImageIntegrity();
 
 	DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "FEngineLoop::Init" ), STAT_FEngineLoop_Init, STATGROUP_LoadTime );
@@ -2764,11 +2795,12 @@ void FEngineLoop::Exit()
 #endif
 
 #if WITH_EDITOR
-	// This module must be shut down first because other modules may try to access it during shutdown.
-	// Accessing this module at shutdown causes instability since the object system will have been shut down and this module uses uobjects internally.
+	// These module must be shut down first because other modules may try to access them during shutdown.
+	// Accessing these modules at shutdown causes instability since the object system will have been shut down and these modules uses uobjects internally.
 	FModuleManager::Get().UnloadModule("AssetTools", true);
+	
 #endif // WITH_EDITOR
-
+	FModuleManager::Get().UnloadModule("AssetRegistry", true);
 
 #if !PLATFORM_ANDROID 	// AppPreExit doesn't work on Android
 	AppPreExit();
@@ -3018,6 +3050,10 @@ void FEngineLoop::Tick()
 #if !UE_BUILD_SHIPPING && !UE_BUILD_TEST && MALLOC_GT_HOOKS
 	FScopedSampleMallocChurn ChurnTracker;
 #endif
+	// let the low level mem tracker pump once a frame to update states
+	LLM(FLowLevelMemTracker::Get().UpdateStatsPerFrame());
+
+	LLM_SCOPED_SINGLE_MALLOC_STAT_TAG(EngineTickMemory);
 
 	// Send a heartbeat for the diagnostics thread
 	FThreadHeartBeat::Get().HeartBeat();

@@ -235,7 +235,8 @@ enum class EFunctionalTestResult : uint8
 {
 	/**
 	 * When finishing a test if you use Default, you're not explicitly stating if the test passed or failed.
-	 * Instead you're a
+	 * Instead you're instead allowing any tested assertions to have decided that for you.  Even if you do
+	 * explicitly log success, it can be overturned by errors that occurred during the test.
 	 */
 	Default,
 	Invalid,
@@ -330,6 +331,10 @@ public:
 	//FQualityLevels
 
 public:
+
+	/** Called when the test is ready to prepare */
+	UPROPERTY(BlueprintAssignable)
+	FFunctionalTestEventSignature OnTestPrepare;
 
 	/** Called when the test is started */
 	UPROPERTY(BlueprintAssignable)
@@ -617,6 +622,8 @@ protected:
 
 	virtual bool IsReady_Implementation();
 
+	virtual void OnTimeout();
+
 	/**
 	 * Goto an observation location.
 	 */
@@ -634,6 +641,7 @@ public:
 	float TotalTime;
 
 	uint32 RunFrame;
+	float RunTime;
 
 	uint32 StartFrame;
 	float StartTime;

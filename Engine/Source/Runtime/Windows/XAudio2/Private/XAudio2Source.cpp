@@ -17,6 +17,7 @@
 #include "IAudioExtensionPlugin.h"
 #include "ActiveSound.h"
 #include "Sound/AudioSettings.h"
+#include "ContentStreaming.h"
 
 /*------------------------------------------------------------------------------------
 	For muting user soundtracks during cinematics
@@ -556,6 +557,7 @@ bool FXAudio2SoundSource::Init(FWaveInstance* InWaveInstance)
 		if (CreateSource())
 		{
 			check(WaveInstance);
+
 			if (WaveInstance->StartTime > 0.0f)
 			{
 				if (WaveInstance->WaveData->bStreaming)
@@ -640,7 +642,10 @@ bool FXAudio2SoundSource::Init(FWaveInstance* InWaveInstance)
  */
 void FXAudio2SoundSource::GetChannelVolumes(float ChannelVolumes[CHANNEL_MATRIX_COUNT], float AttenuatedVolume)
 {
-	check(!bIsVirtual);
+	if (bIsVirtual)
+	{
+		return;
+	}
 
 	if (AudioDevice->IsAudioDeviceMuted())
 	{
@@ -1462,7 +1467,8 @@ void FXAudio2SoundSource::Play()
 void FXAudio2SoundSource::Stop()
 {
 	bInitialized = false;
-	
+	IStreamingManager::Get().GetAudioStreamingManager().RemoveStreamingSoundSource(this);
+
 	if( WaveInstance )
 	{	
 		Paused = false;

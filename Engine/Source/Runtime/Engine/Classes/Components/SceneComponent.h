@@ -155,7 +155,7 @@ public:
 	uint32 bVisible:1;
 
 	/** Whether to hide the primitive in game, if the primitive is Visible. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Rendering)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Rendering, meta=(SequencerTrackClass = "MovieSceneVisibilityTrack"))
 	uint32 bHiddenInGame:1;
 
 	/**
@@ -217,6 +217,11 @@ public:
 	/** Rotation of the component relative to its parent */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_Transform, Category=Transform)
 	FRotator RelativeRotation;
+
+	/** Sets the RelativeRotationCache. Used to ensure component ends up with the same RelativeRotation after calling SetWorldTransform(). */
+	void SetRelativeRotationCache(const FRotationConversionCache& InCache);
+	/** Get the RelativeRotationCache.  */
+	FORCEINLINE const FRotationConversionCache& GetRelativeRotationCache() const { return RelativeRotationCache; }
 
 private:
 	/** Cache that avoids Quat<->Rotator conversions if possible. Only to be used with RelativeRotation. */

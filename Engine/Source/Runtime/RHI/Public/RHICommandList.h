@@ -24,6 +24,7 @@
 #include "Stats/Stats.h"
 #include "HAL/IConsoleManager.h"
 #include "Async/TaskGraphInterfaces.h"
+#include "HAL/LowLevelMemTracker.h"
 
 class FApp;
 class FBlendStateInitializerRHI;
@@ -104,6 +105,15 @@ extern RHI_API bool GEnableAsyncCompute;
 extern RHI_API TAutoConsoleVariable<int32> CVarRHICmdWidth;
 extern RHI_API TAutoConsoleVariable<int32> CVarRHICmdFlushRenderThreadTasks;
 class FRHICommandListBase;
+
+
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Vertex Buffer Memory"), STAT_VertexBufferMemoryLLM, STATGROUP_LLMRHI, RHI_API);
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Index Buffer Memory"), STAT_IndexBufferMemoryLLM, STATGROUP_LLMRHI, RHI_API);
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Uniform Buffer Memory"), STAT_UniformBufferMemoryLLM, STATGROUP_LLMRHI, RHI_API);
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Buffer Memory"), STAT_BufferMemoryLLM, STATGROUP_LLMRHI, RHI_API);
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Shader Memory"), STAT_ShaderMemoryLLM, STATGROUP_LLMRHI, RHI_API);
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Texture Memory"), STAT_TextureMemoryLLM, STATGROUP_LLMRHI, RHI_API);
+DECLARE_MEMORY_STAT_EXTERN(TEXT("State Memory"), STAT_StateMemoryLLM, STATGROUP_LLMRHI, RHI_API);
 
 enum class ECmdList
 {
@@ -1161,91 +1171,6 @@ struct FRHICommandClearColorTextures : public FRHICommand<FRHICommandClearColorT
 	RHI_API void Execute(FRHICommandListBase& CmdList);
 };
 
-struct FComputedBSS
-{
-	FBoundShaderStateRHIRef BSS;
-	int32 UseCount;
-	FComputedBSS()
-		: UseCount(0)
-	{
-	}
-};
-
-struct FLocalBoundShaderStateWorkArea
-{
-	FBoundShaderStateInput Args;
-	FComputedBSS* ComputedBSS;
-#if DO_CHECK // the below variables are used in check(), which can be enabled in Shipping builds (see Build.h)
-	FRHICommandListBase* CheckCmdList;
-	int32 UID;
-#endif
-
-	FORCEINLINE_DEBUGGABLE FLocalBoundShaderStateWorkArea(
-		FRHICommandListBase* InCheckCmdList,
-		FVertexDeclarationRHIParamRef VertexDeclarationRHI,
-		FVertexShaderRHIParamRef VertexShaderRHI,
-		FHullShaderRHIParamRef HullShaderRHI,
-		FDomainShaderRHIParamRef DomainShaderRHI,
-		FPixelShaderRHIParamRef PixelShaderRHI,
-		FGeometryShaderRHIParamRef GeometryShaderRHI
-		)
-		: Args(VertexDeclarationRHI, VertexShaderRHI, HullShaderRHI, DomainShaderRHI, PixelShaderRHI, GeometryShaderRHI)
-#if DO_CHECK
-		, CheckCmdList(InCheckCmdList)
-		, UID(InCheckCmdList->GetUID())
-#endif
-	{
-		ComputedBSS = new (InCheckCmdList->Alloc<FComputedBSS>()) FComputedBSS;
-	}
-};
-
-struct FLocalBoundShaderState
-{
-	FLocalBoundShaderStateWorkArea* WorkArea;
-	FBoundShaderStateRHIRef BypassBSS; // this is only used in the case of Bypass, should eventually be deleted
-	FLocalBoundShaderState()
-		: WorkArea(nullptr)
-	{
-	}
-	FLocalBoundShaderState(const FLocalBoundShaderState& Other)
-		: WorkArea(Other.WorkArea)
-		, BypassBSS(Other.BypassBSS)
-	{
-	}
-};
-
-struct FRHICommandBuildLocalBoundShaderState : public FRHICommand<FRHICommandBuildLocalBoundShaderState>
-{
-	FLocalBoundShaderStateWorkArea WorkArea;
-
-	FORCEINLINE_DEBUGGABLE FRHICommandBuildLocalBoundShaderState(
-		FRHICommandListBase* CheckCmdList,
-		FVertexDeclarationRHIParamRef VertexDeclarationRHI,
-		FVertexShaderRHIParamRef VertexShaderRHI,
-		FHullShaderRHIParamRef HullShaderRHI,
-		FDomainShaderRHIParamRef DomainShaderRHI,
-		FPixelShaderRHIParamRef PixelShaderRHI,
-		FGeometryShaderRHIParamRef GeometryShaderRHI
-		)
-		: WorkArea(CheckCmdList, VertexDeclarationRHI, VertexShaderRHI, HullShaderRHI, DomainShaderRHI, PixelShaderRHI, GeometryShaderRHI)
-
-	{
-	}
-	RHI_API void Execute(FRHICommandListBase& CmdList);
-};
-
-struct FRHICommandSetLocalBoundShaderState : public FRHICommand<FRHICommandSetLocalBoundShaderState>
-{
-	FLocalBoundShaderState LocalBoundShaderState;
-	FORCEINLINE_DEBUGGABLE FRHICommandSetLocalBoundShaderState(FRHICommandListBase* CheckCmdList, FLocalBoundShaderState& InLocalBoundShaderState)
-		: LocalBoundShaderState(InLocalBoundShaderState)
-	{
-		check(CheckCmdList == LocalBoundShaderState.WorkArea->CheckCmdList && CheckCmdList->GetUID() == LocalBoundShaderState.WorkArea->UID); // this BSS was not built for this particular commandlist
-		LocalBoundShaderState.WorkArea->ComputedBSS->UseCount++;
-	}
-	RHI_API void Execute(FRHICommandListBase& CmdList);
-};
-
 struct FComputedGraphicsPipelineState
 {
 	FGraphicsPipelineStateRHIRef GraphicsPipelineState;
@@ -1579,57 +1504,6 @@ public:
 	void* operator new(size_t Size);
 	void operator delete(void *RawMemory);
 
-	PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	DEPRECATED(4.15, "Use functionality in PipelineStateCache.h")
-	FORCEINLINE_DEBUGGABLE FLocalBoundShaderState BuildLocalBoundShaderState(const FBoundShaderStateInput& BoundShaderStateInput)
-	{
-		return BuildLocalBoundShaderState(
-			BoundShaderStateInput.VertexDeclarationRHI,
-			BoundShaderStateInput.VertexShaderRHI,
-			BoundShaderStateInput.HullShaderRHI,
-			BoundShaderStateInput.DomainShaderRHI,
-			BoundShaderStateInput.PixelShaderRHI,
-			BoundShaderStateInput.GeometryShaderRHI
-			);
-	}
-
-	DEPRECATED(4.15, "Use functionality in PipelineStateCache.h")
-	FORCEINLINE_DEBUGGABLE void BuildAndSetLocalBoundShaderState(const FBoundShaderStateInput& BoundShaderStateInput)
-	{
-		SetLocalBoundShaderState(BuildLocalBoundShaderState(
-			BoundShaderStateInput.VertexDeclarationRHI,
-			BoundShaderStateInput.VertexShaderRHI,
-			BoundShaderStateInput.HullShaderRHI,
-			BoundShaderStateInput.DomainShaderRHI,
-			BoundShaderStateInput.PixelShaderRHI,
-			BoundShaderStateInput.GeometryShaderRHI
-			));
-	}
-
-	DEPRECATED(4.15, "Use functionality in PipelineStateCache.h")
-	FORCEINLINE_DEBUGGABLE FLocalBoundShaderState BuildLocalBoundShaderState(
-		FVertexDeclarationRHIParamRef VertexDeclarationRHI,
-		FVertexShaderRHIParamRef VertexShaderRHI,
-		FHullShaderRHIParamRef HullShaderRHI,
-		FDomainShaderRHIParamRef DomainShaderRHI,
-		FPixelShaderRHIParamRef PixelShaderRHI,
-		FGeometryShaderRHIParamRef GeometryShaderRHI
-		)
-	{
-		FLocalBoundShaderState Result;
-		if (Bypass())
-		{
-			Result.BypassBSS = RHICreateBoundShaderState(VertexDeclarationRHI, VertexShaderRHI, HullShaderRHI, DomainShaderRHI, PixelShaderRHI, GeometryShaderRHI);
-		}
-		else
-		{
-			auto* Cmd = new (AllocCommand<FRHICommandBuildLocalBoundShaderState>()) FRHICommandBuildLocalBoundShaderState(this, VertexDeclarationRHI, VertexShaderRHI, HullShaderRHI, DomainShaderRHI, PixelShaderRHI, GeometryShaderRHI);
-			Result.WorkArea = &Cmd->WorkArea;
-		}
-		return Result;
-	}
-	PRAGMA_ENABLE_DEPRECATION_WARNINGS
-
 	FORCEINLINE_DEBUGGABLE void BeginUpdateMultiFrameResource( FTextureRHIParamRef Texture)
 	{
 		if (Bypass())
@@ -1668,17 +1542,6 @@ public:
 			return;
 		}
 		new (AllocCommand<FRHICommandEndUpdateMultiFrameUAV>()) FRHICommandEndUpdateMultiFrameUAV(UAV);
-	}
-
-	DEPRECATED(4.15, "Use SetLocalGraphicsPipelineState")
-	FORCEINLINE_DEBUGGABLE void SetLocalBoundShaderState(FLocalBoundShaderState LocalBoundShaderState)
-	{
-		if (Bypass())
-		{
-			CMD_CONTEXT(RHISetBoundShaderState)(LocalBoundShaderState.BypassBSS);
-			return;
-		}
-		new (AllocCommand<FRHICommandSetLocalBoundShaderState>()) FRHICommandSetLocalBoundShaderState(this, LocalBoundShaderState);
 	}
 
 	FORCEINLINE_DEBUGGABLE FLocalGraphicsPipelineState BuildLocalGraphicsPipelineState(
@@ -1856,39 +1719,6 @@ public:
 		SetUAVParameter(Shader.GetReference(), UAVIndex, UAV, InitialCount);
 	}
 
-	DEPRECATED(4.15, "Use SetGraphicsPipelineState")
-	FORCEINLINE_DEBUGGABLE void SetBoundShaderState(FBoundShaderStateRHIParamRef BoundShaderState)
-	{
-		if (Bypass())
-		{
-			CMD_CONTEXT(RHISetBoundShaderState)(BoundShaderState);
-			return;
-		}
-		new (AllocCommand<FRHICommandSetBoundShaderState>()) FRHICommandSetBoundShaderState(BoundShaderState);
-	}
-
-	DEPRECATED(4.15, "Use GraphicsPipelineState Interface")
-	FORCEINLINE_DEBUGGABLE void SetRasterizerState(FRasterizerStateRHIParamRef State)
-	{
-		if (Bypass())
-		{
-			CMD_CONTEXT(RHISetRasterizerState)(State);
-			return;
-		}
-		new (AllocCommand<FRHICommandSetRasterizerState>()) FRHICommandSetRasterizerState(State);
-	}
-
-	DEPRECATED(4.15, "Use GraphicsPipelineState Interface")
-	FORCEINLINE_DEBUGGABLE void SetBlendState(FBlendStateRHIParamRef State, const FLinearColor& BlendFactor = FLinearColor::White)
-	{
-		if (Bypass())
-		{
-			CMD_CONTEXT(RHISetBlendState)(State, BlendFactor);
-			return;
-		}
-		new (AllocCommand<FRHICommandSetBlendState>()) FRHICommandSetBlendState(State, BlendFactor);
-	}
-
 	FORCEINLINE_DEBUGGABLE void SetBlendFactor(const FLinearColor& BlendFactor = FLinearColor::White)
 	{
 		if (Bypass())
@@ -1927,17 +1757,6 @@ public:
 			return;
 		}
 		new (AllocCommand<FRHICommandSetStreamSource>()) FRHICommandSetStreamSource(StreamIndex, VertexBuffer, Stride, Offset);
-	}
-
-	DEPRECATED(4.15, "Use GraphicsPipelineState Interface")
-	void SetDepthStencilState(FDepthStencilStateRHIParamRef NewStateRHI, uint32 StencilRef = 0)
-	{
-		if (Bypass())
-		{
-			CMD_CONTEXT(RHISetDepthStencilState)(NewStateRHI, StencilRef);
-			return;
-		}
-		new (AllocCommand<FRHICommandSetDepthStencilState>()) FRHICommandSetDepthStencilState(NewStateRHI, StencilRef);
 	}
 
 	FORCEINLINE_DEBUGGABLE void SetStencilRef(uint32 StencilRef)
@@ -2759,96 +2578,115 @@ public:
 	
 	FORCEINLINE FSamplerStateRHIRef CreateSamplerState(const FSamplerStateInitializerRHI& Initializer)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_StateMemoryLLM);
 		return RHICreateSamplerState(Initializer);
 	}
 	
 	FORCEINLINE FRasterizerStateRHIRef CreateRasterizerState(const FRasterizerStateInitializerRHI& Initializer)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_StateMemoryLLM);
 		return RHICreateRasterizerState(Initializer);
 	}
 	
 	FORCEINLINE FDepthStencilStateRHIRef CreateDepthStencilState(const FDepthStencilStateInitializerRHI& Initializer)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_StateMemoryLLM);
 		return RHICreateDepthStencilState(Initializer);
 	}
 	
 	FORCEINLINE FBlendStateRHIRef CreateBlendState(const FBlendStateInitializerRHI& Initializer)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_StateMemoryLLM);
 		return RHICreateBlendState(Initializer);
 	}
 	
 	FORCEINLINE FVertexDeclarationRHIRef CreateVertexDeclaration(const FVertexDeclarationElementList& Elements)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_ShaderMemoryLLM);
 		return GDynamicRHI->CreateVertexDeclaration_RenderThread(*this, Elements);
 	}
 	
 	FORCEINLINE FPixelShaderRHIRef CreatePixelShader(const TArray<uint8>& Code)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_ShaderMemoryLLM);
 		return GDynamicRHI->CreatePixelShader_RenderThread(*this, Code);
 	}
 	
 	FORCEINLINE FPixelShaderRHIRef CreatePixelShader(FRHIShaderLibraryParamRef Library, FSHAHash Hash)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_ShaderMemoryLLM);
 		return GDynamicRHI->CreatePixelShader_RenderThread(*this, Library, Hash);
 	}
 	
 	FORCEINLINE FVertexShaderRHIRef CreateVertexShader(const TArray<uint8>& Code)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_ShaderMemoryLLM);
 		return GDynamicRHI->CreateVertexShader_RenderThread(*this, Code);
 	}
 	
 	FORCEINLINE FVertexShaderRHIRef CreateVertexShader(FRHIShaderLibraryParamRef Library, FSHAHash Hash)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_ShaderMemoryLLM);
 		return GDynamicRHI->CreateVertexShader_RenderThread(*this, Library, Hash);
 	}
 	
 	FORCEINLINE FHullShaderRHIRef CreateHullShader(const TArray<uint8>& Code)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_ShaderMemoryLLM);
 		return GDynamicRHI->CreateHullShader_RenderThread(*this, Code);
 	}
 	
 	FORCEINLINE FHullShaderRHIRef CreateHullShader(FRHIShaderLibraryParamRef Library, FSHAHash Hash)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_ShaderMemoryLLM);
 		return GDynamicRHI->CreateHullShader_RenderThread(*this, Library, Hash);
 	}
 	
 	FORCEINLINE FDomainShaderRHIRef CreateDomainShader(const TArray<uint8>& Code)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_ShaderMemoryLLM);
 		return GDynamicRHI->CreateDomainShader_RenderThread(*this, Code);
 	}
 	
 	FORCEINLINE FDomainShaderRHIRef CreateDomainShader(FRHIShaderLibraryParamRef Library, FSHAHash Hash)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_ShaderMemoryLLM);
 		return GDynamicRHI->CreateDomainShader_RenderThread(*this, Library, Hash);
 	}
 	
 	FORCEINLINE FGeometryShaderRHIRef CreateGeometryShader(const TArray<uint8>& Code)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_ShaderMemoryLLM);
 		return GDynamicRHI->CreateGeometryShader_RenderThread(*this, Code);
 	}
 	
 	FORCEINLINE FGeometryShaderRHIRef CreateGeometryShader(FRHIShaderLibraryParamRef Library, FSHAHash Hash)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_ShaderMemoryLLM);
 		return GDynamicRHI->CreateGeometryShader_RenderThread(*this, Library, Hash);
 	}
 	
 	FORCEINLINE FGeometryShaderRHIRef CreateGeometryShaderWithStreamOutput(const TArray<uint8>& Code, const FStreamOutElementList& ElementList, uint32 NumStrides, const uint32* Strides, int32 RasterizedStream)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_ShaderMemoryLLM);
 		return GDynamicRHI->CreateGeometryShaderWithStreamOutput_RenderThread(*this, Code, ElementList, NumStrides, Strides, RasterizedStream);
 	}
 	
 	FORCEINLINE FGeometryShaderRHIRef CreateGeometryShaderWithStreamOutput(const FStreamOutElementList& ElementList, uint32 NumStrides, const uint32* Strides, int32 RasterizedStream, FRHIShaderLibraryParamRef Library, FSHAHash Hash)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_ShaderMemoryLLM);
 		return GDynamicRHI->CreateGeometryShaderWithStreamOutput_RenderThread(*this, ElementList, NumStrides, Strides, RasterizedStream, Library, Hash);
 	}
 	
 	FORCEINLINE FComputeShaderRHIRef CreateComputeShader(const TArray<uint8>& Code)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_ShaderMemoryLLM);
 		return GDynamicRHI->CreateComputeShader_RenderThread(*this, Code);
 	}
 	
 	FORCEINLINE FComputeShaderRHIRef CreateComputeShader(FRHIShaderLibraryParamRef Library, FSHAHash Hash)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_ShaderMemoryLLM);
 		return GDynamicRHI->CreateComputeShader_RenderThread(*this, Library, Hash);
 	}
 	
@@ -2859,36 +2697,43 @@ public:
 	
 	FORCEINLINE FBoundShaderStateRHIRef CreateBoundShaderState(FVertexDeclarationRHIParamRef VertexDeclaration, FVertexShaderRHIParamRef VertexShader, FHullShaderRHIParamRef HullShader, FDomainShaderRHIParamRef DomainShader, FPixelShaderRHIParamRef PixelShader, FGeometryShaderRHIParamRef GeometryShader)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_ShaderMemoryLLM);
 		return RHICreateBoundShaderState(VertexDeclaration, VertexShader, HullShader, DomainShader, PixelShader, GeometryShader);
 	}
 
 	FORCEINLINE FGraphicsPipelineStateRHIRef CreateGraphicsPipelineState(const FGraphicsPipelineStateInitializer& Initializer)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_ShaderMemoryLLM);
 		return RHICreateGraphicsPipelineState(Initializer);
 	}
 
 	FORCEINLINE TRefCountPtr<FRHIComputePipelineState> CreateComputePipelineState(FRHIComputeShader* ComputeShader)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_ShaderMemoryLLM);
 		return RHICreateComputePipelineState(ComputeShader);
 	}
 
 	FORCEINLINE FUniformBufferRHIRef CreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_UniformBufferMemoryLLM);
 		return RHICreateUniformBuffer(Contents, Layout, Usage);
 	}
 	
 	FORCEINLINE FIndexBufferRHIRef CreateAndLockIndexBuffer(uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo, void*& OutDataBuffer)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_IndexBufferMemoryLLM);
 		return GDynamicRHI->CreateAndLockIndexBuffer_RenderThread(*this, Stride, Size, InUsage, CreateInfo, OutDataBuffer);
 	}
 	
 	FORCEINLINE FIndexBufferRHIRef CreateIndexBuffer(uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_IndexBufferMemoryLLM);
 		return GDynamicRHI->CreateIndexBuffer_RenderThread(*this, Stride, Size, InUsage, CreateInfo);
 	}
 	
 	FORCEINLINE void* LockIndexBuffer(FIndexBufferRHIParamRef IndexBuffer, uint32 Offset, uint32 SizeRHI, EResourceLockMode LockMode)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_IndexBufferMemoryLLM);
 		return GDynamicRHI->LockIndexBuffer_RenderThread(*this, IndexBuffer, Offset, SizeRHI, LockMode);
 	}
 	
@@ -2899,16 +2744,19 @@ public:
 	
 	FORCEINLINE FVertexBufferRHIRef CreateAndLockVertexBuffer(uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo, void*& OutDataBuffer)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_VertexBufferMemoryLLM);
 		return GDynamicRHI->CreateAndLockVertexBuffer_RenderThread(*this, Size, InUsage, CreateInfo, OutDataBuffer);
 	}
 
 	FORCEINLINE FVertexBufferRHIRef CreateVertexBuffer(uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_VertexBufferMemoryLLM);
 		return GDynamicRHI->CreateVertexBuffer_RenderThread(*this, Size, InUsage, CreateInfo);
 	}
 	
 	FORCEINLINE void* LockVertexBuffer(FVertexBufferRHIParamRef VertexBuffer, uint32 Offset, uint32 SizeRHI, EResourceLockMode LockMode)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_VertexBufferMemoryLLM);
 		return GDynamicRHI->LockVertexBuffer_RenderThread(*this, VertexBuffer, Offset, SizeRHI, LockMode);
 	}
 	
@@ -2926,11 +2774,13 @@ public:
 	
 	FORCEINLINE FStructuredBufferRHIRef CreateStructuredBuffer(uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_BufferMemoryLLM);
 		return GDynamicRHI->CreateStructuredBuffer_RenderThread(*this, Stride, Size, InUsage, CreateInfo);
 	}
 	
 	FORCEINLINE void* LockStructuredBuffer(FStructuredBufferRHIParamRef StructuredBuffer, uint32 Offset, uint32 SizeRHI, EResourceLockMode LockMode)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_BufferMemoryLLM);
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_LockStructuredBuffer_Flush);
 		ImmediateFlush(EImmediateFlushType::FlushRHIThread); 
 		 
@@ -2947,31 +2797,37 @@ public:
 	
 	FORCEINLINE FUnorderedAccessViewRHIRef CreateUnorderedAccessView(FStructuredBufferRHIParamRef StructuredBuffer, bool bUseUAVCounter, bool bAppendBuffer)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_BufferMemoryLLM);
 		return GDynamicRHI->RHICreateUnorderedAccessView_RenderThread(*this, StructuredBuffer, bUseUAVCounter, bAppendBuffer);
 	}
 	
 	FORCEINLINE FUnorderedAccessViewRHIRef CreateUnorderedAccessView(FTextureRHIParamRef Texture, uint32 MipLevel)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_BufferMemoryLLM);
 		return GDynamicRHI->RHICreateUnorderedAccessView_RenderThread(*this, Texture, MipLevel);
 	}
 	
 	FORCEINLINE FUnorderedAccessViewRHIRef CreateUnorderedAccessView(FVertexBufferRHIParamRef VertexBuffer, uint8 Format)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_BufferMemoryLLM);
 		return GDynamicRHI->RHICreateUnorderedAccessView_RenderThread(*this, VertexBuffer, Format);
 	}
 	
 	FORCEINLINE FShaderResourceViewRHIRef CreateShaderResourceView(FStructuredBufferRHIParamRef StructuredBuffer)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_BufferMemoryLLM);
 		return GDynamicRHI->RHICreateShaderResourceView_RenderThread(*this, StructuredBuffer);
 	}
 	
 	FORCEINLINE FShaderResourceViewRHIRef CreateShaderResourceView(FVertexBufferRHIParamRef VertexBuffer, uint32 Stride, uint8 Format)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_BufferMemoryLLM);
 		return GDynamicRHI->CreateShaderResourceView_RenderThread(*this, VertexBuffer, Stride, Format);
 	}
 	
 	FORCEINLINE FShaderResourceViewRHIRef CreateShaderResourceView(FIndexBufferRHIParamRef Buffer)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_BufferMemoryLLM);
 		return GDynamicRHI->CreateShaderResourceView_RenderThread(*this, Buffer);
 	}
 	
@@ -3004,12 +2860,14 @@ public:
 	
 	FORCEINLINE FTextureReferenceRHIRef CreateTextureReference(FLastRenderTimeContainer* LastRenderTime)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_TextureMemoryLLM);
 		FScopedRHIThreadStaller StallRHIThread(*this);
 		return GDynamicRHI->RHICreateTextureReference(LastRenderTime);
 	}
 	
 	FORCEINLINE FTexture2DRHIRef CreateTexture2D(uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 NumSamples, uint32 Flags, FRHIResourceCreateInfo& CreateInfo)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_TextureMemoryLLM);
 		return GDynamicRHI->RHICreateTexture2D_RenderThread(*this, SizeX, SizeY, Format, NumMips, NumSamples, Flags, CreateInfo);
 	}
 
@@ -3020,16 +2878,19 @@ public:
 
 	FORCEINLINE FStructuredBufferRHIRef CreateRTWriteMaskBuffer(FTexture2DRHIRef RenderTarget)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_TextureMemoryLLM);
 		return GDynamicRHI->RHICreateRTWriteMaskBuffer(RenderTarget);
 	}
 
 	FORCEINLINE FTexture2DRHIRef AsyncCreateTexture2D(uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 Flags, void** InitialMipData, uint32 NumInitialMips)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_TextureMemoryLLM);
 		return GDynamicRHI->RHIAsyncCreateTexture2D(SizeX, SizeY, Format, NumMips, Flags, InitialMipData, NumInitialMips);
 	}
 	
 	FORCEINLINE void CopySharedMips(FTexture2DRHIParamRef DestTexture2D, FTexture2DRHIParamRef SrcTexture2D)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_TextureMemoryLLM);
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_CopySharedMips_Flush);
 		ImmediateFlush(EImmediateFlushType::FlushRHIThread); 
 		 
@@ -3038,11 +2899,13 @@ public:
 	
 	FORCEINLINE FTexture2DArrayRHIRef CreateTexture2DArray(uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint8 Format, uint32 NumMips, uint32 Flags, FRHIResourceCreateInfo& CreateInfo)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_TextureMemoryLLM);
 		return GDynamicRHI->RHICreateTexture2DArray_RenderThread(*this, SizeX, SizeY, SizeZ, Format, NumMips, Flags, CreateInfo);
 	}
 	
 	FORCEINLINE FTexture3DRHIRef CreateTexture3D(uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint8 Format, uint32 NumMips, uint32 Flags, FRHIResourceCreateInfo& CreateInfo)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_TextureMemoryLLM);
 		return GDynamicRHI->RHICreateTexture3D_RenderThread(*this, SizeX, SizeY, SizeZ, Format, NumMips, Flags, CreateInfo);
 	}
 	
@@ -3053,26 +2916,31 @@ public:
 	
 	FORCEINLINE FShaderResourceViewRHIRef CreateShaderResourceView(FTexture2DRHIParamRef Texture2DRHI, uint8 MipLevel)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_BufferMemoryLLM);
 		return GDynamicRHI->RHICreateShaderResourceView_RenderThread(*this, Texture2DRHI, MipLevel);
 	}
 	
 	FORCEINLINE FShaderResourceViewRHIRef CreateShaderResourceView(FTexture2DRHIParamRef Texture2DRHI, uint8 MipLevel, uint8 NumMipLevels, uint8 Format)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_BufferMemoryLLM);
 		return GDynamicRHI->RHICreateShaderResourceView_RenderThread(*this, Texture2DRHI, MipLevel, NumMipLevels, Format);
 	}
 	
 	FORCEINLINE FShaderResourceViewRHIRef CreateShaderResourceView(FTexture3DRHIParamRef Texture3DRHI, uint8 MipLevel)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_BufferMemoryLLM);
 		return GDynamicRHI->RHICreateShaderResourceView_RenderThread(*this, Texture3DRHI, MipLevel);
 	}
 
 	FORCEINLINE FShaderResourceViewRHIRef CreateShaderResourceView(FTexture2DArrayRHIParamRef Texture2DArrayRHI, uint8 MipLevel)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_BufferMemoryLLM);
 		return GDynamicRHI->RHICreateShaderResourceView_RenderThread(*this, Texture2DArrayRHI, MipLevel);
 	}
 
 	FORCEINLINE FShaderResourceViewRHIRef CreateShaderResourceView(FTextureCubeRHIParamRef TextureCubeRHI, uint8 MipLevel)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_BufferMemoryLLM);
 		return GDynamicRHI->RHICreateShaderResourceView_RenderThread(*this, TextureCubeRHI, MipLevel);
 	}
 
@@ -3089,11 +2957,13 @@ public:
 	
 	FORCEINLINE FTexture2DRHIRef AsyncReallocateTexture2D(FTexture2DRHIParamRef Texture2D, int32 NewMipCount, int32 NewSizeX, int32 NewSizeY, FThreadSafeCounter* RequestStatus)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_TextureMemoryLLM);
 		return GDynamicRHI->AsyncReallocateTexture2D_RenderThread(*this, Texture2D, NewMipCount, NewSizeX, NewSizeY, RequestStatus);
 	}
 	
 	FORCEINLINE ETextureReallocationStatus FinalizeAsyncReallocateTexture2D(FTexture2DRHIParamRef Texture2D, bool bBlockUntilCompleted)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_TextureMemoryLLM);
 		return GDynamicRHI->FinalizeAsyncReallocateTexture2D_RenderThread(*this, Texture2D, bBlockUntilCompleted);
 	}
 	
@@ -3104,6 +2974,7 @@ public:
 	
 	FORCEINLINE void* LockTexture2D(FTexture2DRHIParamRef Texture, uint32 MipIndex, EResourceLockMode LockMode, uint32& DestStride, bool bLockWithinMiptail, bool bFlushRHIThread = true)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_TextureMemoryLLM);
 		return GDynamicRHI->LockTexture2D_RenderThread(*this, Texture, MipIndex, LockMode, DestStride, bLockWithinMiptail, bFlushRHIThread);
 	}
 	
@@ -3114,6 +2985,7 @@ public:
 	
 	FORCEINLINE void* LockTexture2DArray(FTexture2DArrayRHIParamRef Texture, uint32 TextureIndex, uint32 MipIndex, EResourceLockMode LockMode, uint32& DestStride, bool bLockWithinMiptail)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_TextureMemoryLLM);
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_LockTexture2DArray_Flush);
 		ImmediateFlush(EImmediateFlushType::FlushRHIThread);  
 		return GDynamicRHI->RHILockTexture2DArray(Texture, TextureIndex, MipIndex, LockMode, DestStride, bLockWithinMiptail);
@@ -3121,28 +2993,38 @@ public:
 	
 	FORCEINLINE void UnlockTexture2DArray(FTexture2DArrayRHIParamRef Texture, uint32 TextureIndex, uint32 MipIndex, bool bLockWithinMiptail)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_TextureMemoryLLM);
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_UnlockTexture2DArray_Flush);
 		ImmediateFlush(EImmediateFlushType::FlushRHIThread);   
 		GDynamicRHI->RHIUnlockTexture2DArray(Texture, TextureIndex, MipIndex, bLockWithinMiptail);
 	}
 	
 	FORCEINLINE void UpdateTexture2D(FTexture2DRHIParamRef Texture, uint32 MipIndex, const struct FUpdateTextureRegion2D& UpdateRegion, uint32 SourcePitch, const uint8* SourceData)
-	{		
+	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_TextureMemoryLLM);
+		checkf(UpdateRegion.DestX + UpdateRegion.Width <= Texture->GetSizeX(), TEXT("UpdateTexture2D out of bounds on X. Texture: %s, %i, %i, %i"), *Texture->GetName().ToString(), UpdateRegion.DestX, UpdateRegion.Width, Texture->GetSizeX());
+		checkf(UpdateRegion.DestY + UpdateRegion.Height <= Texture->GetSizeY(), TEXT("UpdateTexture2D out of bounds on Y. Texture: %s, %i, %i, %i"), *Texture->GetName().ToString(), UpdateRegion.DestY, UpdateRegion.Height, Texture->GetSizeY());
 		GDynamicRHI->UpdateTexture2D_RenderThread(*this, Texture, MipIndex, UpdateRegion, SourcePitch, SourceData);
 	}
 	
 	FORCEINLINE void UpdateTexture3D(FTexture3DRHIParamRef Texture, uint32 MipIndex, const struct FUpdateTextureRegion3D& UpdateRegion, uint32 SourceRowPitch, uint32 SourceDepthPitch, const uint8* SourceData)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_TextureMemoryLLM);
+		checkf(UpdateRegion.DestX + UpdateRegion.Width <= Texture->GetSizeX(), TEXT("UpdateTexture3D out of bounds on X. Texture: %s, %i, %i, %i"), *Texture->GetName().ToString(), UpdateRegion.DestX, UpdateRegion.Width, Texture->GetSizeX());
+		checkf(UpdateRegion.DestY + UpdateRegion.Height <= Texture->GetSizeY(), TEXT("UpdateTexture3D out of bounds on Y. Texture: %s, %i, %i, %i"), *Texture->GetName().ToString(), UpdateRegion.DestY, UpdateRegion.Height, Texture->GetSizeY());
+		checkf(UpdateRegion.DestZ + UpdateRegion.Depth <= Texture->GetSizeZ(), TEXT("UpdateTexture3D out of bounds on Z. Texture: %s, %i, %i, %i"), *Texture->GetName().ToString(), UpdateRegion.DestZ, UpdateRegion.Depth, Texture->GetSizeZ());
 		GDynamicRHI->UpdateTexture3D_RenderThread(*this, Texture, MipIndex, UpdateRegion, SourceRowPitch, SourceDepthPitch, SourceData);
 	}
 	
 	FORCEINLINE FTextureCubeRHIRef CreateTextureCube(uint32 Size, uint8 Format, uint32 NumMips, uint32 Flags, FRHIResourceCreateInfo& CreateInfo)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_TextureMemoryLLM);
 		return GDynamicRHI->RHICreateTextureCube_RenderThread(*this, Size, Format, NumMips, Flags, CreateInfo);
 	}
 	
 	FORCEINLINE FTextureCubeRHIRef CreateTextureCubeArray(uint32 Size, uint32 ArraySize, uint8 Format, uint32 NumMips, uint32 Flags, FRHIResourceCreateInfo& CreateInfo)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_TextureMemoryLLM);
 		return GDynamicRHI->RHICreateTextureCubeArray_RenderThread(*this, Size, ArraySize, Format, NumMips, Flags, CreateInfo);
 	}
 	
@@ -3336,11 +3218,13 @@ public:
 	
 	FORCEINLINE FViewportRHIRef CreateViewport(void* WindowHandle, uint32 SizeX, uint32 SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_TextureMemoryLLM);
 		return RHICreateViewport(WindowHandle, SizeX, SizeY, bIsFullscreen, PreferredPixelFormat);
 	}
 	
 	FORCEINLINE void ResizeViewport(FViewportRHIParamRef Viewport, uint32 SizeX, uint32 SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat)
 	{
+		LLM_SCOPED_TAG_WITH_STAT(STAT_TextureMemoryLLM);
 		RHIResizeViewport(Viewport, SizeX, SizeY, bIsFullscreen, PreferredPixelFormat);
 	}
 	

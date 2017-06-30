@@ -36,7 +36,7 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 	VERIFYVULKANRESULT(vkCreateAndroidSurfaceKHR(Instance, &SurfaceCreateInfo, nullptr, &Surface));
 #elif PLATFORM_LINUX
 	if(SDL_VK_CreateSurface((SDL_Window*)WindowHandle, (SDL_VkInstance)Instance, (SDL_VkSurface*)&Surface) == SDL_FALSE)
-    {
+	{
 		UE_LOG(LogInit, Error, TEXT("Error initializing SDL Vulkan Surface: %s"), SDL_GetError());
 		check(0);
 	}
@@ -238,8 +238,8 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 	}
 
 
-	ensure(SwapChainInfo.imageExtent.width >= SurfProperties.minImageExtent.width && SwapChainInfo.imageExtent.width <= SurfProperties.maxImageExtent.width);
-	ensure(SwapChainInfo.imageExtent.height >= SurfProperties.minImageExtent.height && SwapChainInfo.imageExtent.height <= SurfProperties.maxImageExtent.height);
+	//ensure(SwapChainInfo.imageExtent.width >= SurfProperties.minImageExtent.width && SwapChainInfo.imageExtent.width <= SurfProperties.maxImageExtent.width);
+	//ensure(SwapChainInfo.imageExtent.height >= SurfProperties.minImageExtent.height && SwapChainInfo.imageExtent.height <= SurfProperties.maxImageExtent.height);
 
 	VERIFYVULKANRESULT_EXPANDED(VulkanRHI::vkCreateSwapchainKHR(Device.GetInstanceHandle(), &SwapChainInfo, nullptr, &SwapChain));
 
@@ -293,16 +293,6 @@ int32 FVulkanSwapChain::AcquireImageIndex(FVulkanSemaphore** OutSemaphore)
 	SemaphoreIndex = (SemaphoreIndex + 1) % ImageAcquiredSemaphore.Num();
 
 	VulkanRHI::FFenceManager& FenceMgr = Device.GetFenceManager();
-	//#todo-rco: Is this the right place?
-	// Make sure the CPU doesn't get too ahead of the GPU
-	{
-		SCOPE_CYCLE_COUNTER(STAT_VulkanWaitSwapchain);
-		if (!ImageAcquiredFences[SemaphoreIndex]->IsSignaled())
-		{
-			bool bResult = FenceMgr.WaitForFence(ImageAcquiredFences[SemaphoreIndex], UINT32_MAX);
-			ensure(bResult);
-		}
-	}
 	FenceMgr.ResetFence(ImageAcquiredFences[SemaphoreIndex]);
 
 	VkResult Result = VulkanRHI::vkAcquireNextImageKHR(
@@ -318,6 +308,12 @@ int32 FVulkanSwapChain::AcquireImageIndex(FVulkanSemaphore** OutSemaphore)
 	checkf(Result == VK_SUCCESS || Result == VK_SUBOPTIMAL_KHR, TEXT("AcquireNextImageKHR failed Result = %d"), int32(Result));
 	CurrentImageIndex = (int32)ImageIndex;
 	check(CurrentImageIndex == ImageIndex);
+	
+	{
+		SCOPE_CYCLE_COUNTER(STAT_VulkanWaitSwapchain);
+		bool bResult = FenceMgr.WaitForFence(ImageAcquiredFences[SemaphoreIndex], UINT64_MAX);
+		ensure(bResult);
+	}
 	return CurrentImageIndex;
 }
 

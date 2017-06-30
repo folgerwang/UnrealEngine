@@ -9,6 +9,7 @@
 #include "K2Node_VariableGet.h"
 #include "Blueprint/WidgetTree.h"
 #include "Animation/WidgetAnimation.h"
+#include "MovieScene.h"
 
 #include "Kismet2/Kismet2NameValidators.h"
 #include "Kismet2/KismetReinstanceUtilities.h"
@@ -17,10 +18,14 @@
 #include "WidgetBlueprintEditorUtils.h"
 #include "WidgetGraphSchema.h"
 #include "IUMGModule.h"
+#include "IWidgetEditorExtension.h"
+#include "UMGEditorProjectSettings.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
 #define CPF_Instanced (CPF_PersistentInstance | CPF_ExportObject | CPF_InstancedReference)
+
+const FName IWidgetEditorExtension::ServiceFeatureName(TEXT("WidgetEditorExtension"));
 
 extern COREUOBJECT_API bool GMinimalCompileOnLoad;
 
@@ -150,7 +155,7 @@ void FWidgetBlueprintCompiler::CleanAndSanitizeClass(UBlueprintGeneratedClass* C
 	if ( !Blueprint->bIsRegeneratingOnLoad && bIsFullCompile )
 	{
 		UPackage* WidgetTemplatePackage = WidgetBP->GetWidgetTemplatePackage();
-		UUserWidget* OldArchetype = LoadObject<UUserWidget>(WidgetTemplatePackage, TEXT("WidgetArchetype"), nullptr, LOAD_NoWarn);
+		UUserWidget* OldArchetype = FindObjectFast<UUserWidget>(WidgetTemplatePackage, TEXT("WidgetArchetype"));
 		if ( OldArchetype )
 		{
 			const bool bRecompilingOnLoad = Blueprint->bIsRegeneratingOnLoad;
@@ -180,8 +185,7 @@ void FWidgetBlueprintCompiler::CleanAndSanitizeClass(UBlueprintGeneratedClass* C
 	Super::CleanAndSanitizeClass(ClassToClean, InOutOldCDO);
 
 	// Make sure our typed pointer is set
-	check(ClassToClean == NewClass);
-	NewWidgetBlueprintClass = CastChecked<UWidgetBlueprintGeneratedClass>((UObject*)NewClass);
+	check(ClassToClean == NewClass && NewWidgetBlueprintClass == NewClass);
 
 	for ( UWidgetAnimation* Animation : NewWidgetBlueprintClass->Animations )
 	{
@@ -363,9 +367,15 @@ bool FWidgetBlueprintCompiler::CanAllowTemplate(FCompilerResultsLog& MessageLog,
 	// If this widget forces the slow construction path, we can't template it.
 	if ( WidgetBP->bForceSlowConstructionPath )
 	{
-		MessageLog.Note(*LOCTEXT("ForceSlowConstruction", "Fast Templating Disabled By User.").ToString());
-
-		return false;
+		if (GetDefault<UUMGEditorProjectSettings>()->bCookSlowConstructionWidgetTree)
+		{
+			MessageLog.Note(*LOCTEXT("ForceSlowConstruction", "Fast Templating Disabled By User.").ToString());
+			return false;
+		}
+		else
+		{
+			MessageLog.Error(*LOCTEXT("UnableToForceSlowConstruction", "This project has [Cook Slow Construction Widget Tree] disabled, so [Force Slow Construction Path] is no longer allowed.").ToString());
+		}
 	}
 
 	// For now we don't support nativization, it's going to require some extra work moving the template support
@@ -412,11 +422,18 @@ void FWidgetBlueprintCompiler::FinishCompilingClass(UClass* Class)
 			UBlueprint::ForceLoadMembers(WidgetBP->WidgetTree);
 		}
 
+		BPGClass->bCookSlowConstructionWidgetTree = GetDefault<UUMGEditorProjectSettings>()->bCookSlowConstructionWidgetTree;
+
 		BPGClass->WidgetTree = Cast<UWidgetTree>(StaticDuplicateObject(WidgetBP->WidgetTree, BPGClass, NAME_None, RF_AllFlags & ~RF_DefaultSubObject));
 
 		for ( const UWidgetAnimation* Animation : WidgetBP->Animations )
 		{
 			UWidgetAnimation* ClonedAnimation = DuplicateObject<UWidgetAnimation>(Animation, BPGClass, *( Animation->GetName() + TEXT("_INST") ));
+			//ClonedAnimation->SetFlags(RF_Public); // Needs to be marked public so that it can be referenced from widget instances.
+			//if (ClonedAnimation->MovieScene)
+			//{
+			//	ClonedAnimation->MovieScene->SetFlags(RF_Public); // Needs to be marked public so that it can be referenced from widget instances.
+			//}
 
 			BPGClass->Animations.Add(ClonedAnimation);
 		}
@@ -451,9 +468,10 @@ void FWidgetBlueprintCompiler::FinishCompilingClass(UClass* Class)
 	// Make sure that we don't have dueling widget hierarchies
 	if (UWidgetBlueprintGeneratedClass* SuperBPGClass = Cast<UWidgetBlueprintGeneratedClass>(BPGClass->GetSuperClass()))
 	{
-		if (SuperBPGClass->WidgetTree != nullptr)
+		UWidgetBlueprint* SuperBlueprint = Cast<UWidgetBlueprint>(SuperBPGClass->ClassGeneratedBy);
+		if (SuperBlueprint->WidgetTree != nullptr)
 		{
-			if ((SuperBPGClass->WidgetTree->RootWidget != nullptr) && (BPGClass->WidgetTree->RootWidget != nullptr))
+			if ((SuperBlueprint->WidgetTree->RootWidget != nullptr) && (WidgetBlueprint()->WidgetTree->RootWidget != nullptr))
 			{
 				// We both have a widget tree, terrible things will ensue
 				// @todo: nickd - we need to switch this back to a warning in engine, but note for games
@@ -543,6 +561,11 @@ void FWidgetBlueprintCompiler::PostCompile()
 			}
 		}
 	}
+
+	TArray<IWidgetEditorExtension*> Extensions = IModularFeatures::Get().GetModularFeatureImplementations<IWidgetEditorExtension>(IWidgetEditorExtension::ServiceFeatureName);
+	for (IWidgetEditorExtension* Extension : Extensions)
+	{
+	}
 }
 
 void FWidgetBlueprintCompiler::EnsureProperGeneratedClass(UClass*& TargetUClass)
@@ -568,6 +591,11 @@ void FWidgetBlueprintCompiler::SpawnNewClass(const FString& NewClassName)
 		FBlueprintCompileReinstancer::Create(NewWidgetBlueprintClass);
 	}
 	NewClass = NewWidgetBlueprintClass;
+}
+
+void FWidgetBlueprintCompiler::OnNewClassSet(UBlueprintGeneratedClass* ClassToUse)
+{
+	NewWidgetBlueprintClass = CastChecked<UWidgetBlueprintGeneratedClass>(ClassToUse);
 }
 
 void FWidgetBlueprintCompiler::PrecompileFunction(FKismetFunctionContext& Context, EInternalCompilerFlags InternalFlags)

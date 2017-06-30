@@ -335,7 +335,7 @@ public:
 
 	/** Draw the skeleton hierarchy for this skel mesh. */
 	UPROPERTY()
-	uint32 bDisplayBones:1;
+	uint32 bDisplayBones_DEPRECATED:1;
 
 	/** Disable Morphtarget for this component. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = SkeletalMesh)
@@ -844,6 +844,14 @@ public:
 	 * @todo: turn this into a console command. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Optimization)
 	bool bDisplayDebugUpdateRateOptimizations;
+
+protected:
+
+	/** Removes update rate params and internal tracker data */
+	void ReleaseUpdateRateParams();
+
+	/** Recreates update rate params and internal tracker data */
+	void RefreshUpdateRateParams();
 
 private:
 	/** Update Rate Optimization ticking. */

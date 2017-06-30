@@ -18,6 +18,7 @@ enum class EControllerHand : uint8
 {
 	Left,
 	Right,
+	AnyHand,
 	Pad,
 	ExternalCamera,
 	Gun,
@@ -174,7 +175,13 @@ namespace ETouchIndex
 		Touch7,
 		Touch8,
 		Touch9,
-		Touch10
+		Touch10,
+		/**
+		 * This entry is special.  NUM_TOUCH_KEYS - 1, is used for the cursor so that it's represented 
+		 * as another finger index, but doesn't overlap with touch input indexes.
+		 */
+		CursorPointerIndex UMETA(Hidden),
+		MAX_TOUCHES UMETA(Hidden)
 	};
 }
 

@@ -249,7 +249,7 @@ namespace FAnimUpdateRateManager
 			MaxDistanceFactor = FMath::Max(MaxDistanceFactor, Component->MaxDistanceFactor);
 			bPlayingNetworkedRootMotionMontage |= Component->IsPlayingNetworkedRootMotionMontage();
 			bUsingRootMotionFromEverything &= Component->IsPlayingRootMotionFromEverything();
-			MinLod = FMath::Min(MinLod, Component->PredictedLODLevel);
+			MinLod = FMath::Min(MinLod, Tracker->UpdateRateParameters.bShouldUseMinLod ? Component->MinLodModel : Component->PredictedLODLevel);
 		}
 
 		bNeedsValidRootMotion &= bPlayingNetworkedRootMotionMontage;
@@ -411,14 +411,21 @@ void USkinnedMeshComponent::OnUnregister()
 {
 	DeallocateTransformData();
 	Super::OnUnregister();
-	FAnimUpdateRateManager::CleanupUpdateRateParametersRef(this);
-	AnimUpdateRateParams = NULL;
+
+	if (AnimUpdateRateParams)
+	{
+		FAnimUpdateRateManager::CleanupUpdateRateParametersRef(this);
+		AnimUpdateRateParams = nullptr;
+	}
 }
 
 void USkinnedMeshComponent::CreateRenderState_Concurrent()
 {
 	if( SkeletalMesh )
 	{
+		// Attempting to track down UE-45505, where it looks as if somehow a skeletal mesh component's mesh has only been partially loaded, causing a mismatch in the LOD arrays
+		checkf(!SkeletalMesh->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad | RF_NeedPostLoadSubobjects | RF_WillBeLoaded), TEXT("Attempting to create render state for a skeletal mesh that is is not fully loaded. Mesh: %s"), *SkeletalMesh->GetName());
+
 		// Initialize the alternate weight tracks if present BEFORE creating the new mesh object
 		InitLODInfos();
 
@@ -633,6 +640,7 @@ void USkinnedMeshComponent::TickUpdateRate(float DeltaTime, bool bNeedsValidRoot
 
 void USkinnedMeshComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
+	SCOPED_NAMED_EVENT(USkinnedMeshComponent_TickComponent, FColor::Yellow);
 	SCOPE_CYCLE_COUNTER(STAT_SkinnedMeshCompTick);
 
 	// Tick ActorComponent first.
@@ -871,7 +879,7 @@ FBoxSphereBounds USkinnedMeshComponent::CalcMeshBound(const FVector& RootOffset,
 	}
 #if WITH_EDITOR
 	// For AnimSet Viewer, use 'bounds preview' physics asset if present.
-	else if(SkeletalMesh && bHasPhysBodies && bCanUsePhysicsAsset)
+	else if(SkeletalMesh && bHasPhysBodies && bCanUsePhysicsAsset && PhysicsAsset->CanCalculateValidAABB(this, LocalToWorld))
 	{
 		NewBounds = FBoxSphereBounds(PhysicsAsset->CalcAABB(this, LocalToWorld));
 	}
@@ -2820,6 +2828,22 @@ void USkinnedMeshComponent::ClearSkinWeightOverride(int32 LODIndex)
 			MarkRenderStateDirty();
 		}
 	}
+}
+
+void USkinnedMeshComponent::ReleaseUpdateRateParams()
+{
+	FAnimUpdateRateManager::CleanupUpdateRateParametersRef(this);
+	AnimUpdateRateParams = nullptr;
+}
+
+void USkinnedMeshComponent::RefreshUpdateRateParams()
+{
+	if (AnimUpdateRateParams)
+	{
+		ReleaseUpdateRateParams();
+	}
+
+	AnimUpdateRateParams = FAnimUpdateRateManager::GetUpdateRateParameters(this);
 }
 
 void FAnimUpdateRateParameters::SetTrailMode(float DeltaTime, uint8 UpdateRateShift, int32 NewUpdateRate, int32 NewEvaluationRate, bool bNewInterpSkippedFrames)

@@ -40,15 +40,15 @@ public abstract class StagedFileSystemReference
 				{
 					if (Idx == LastIdx + 1)
 					{
-						throw new ArgumentException("Empty path fragment in staged filesystem reference");
+						throw new ArgumentException(String.Format("Empty path fragment in staged filesystem reference ({0})", Name));
 					}
 					if (Idx == LastIdx + 2 && Name[Idx - 1] == '.')
 					{
-						throw new ArgumentException("Pseudo-directories are not permitted in filesystem references");
+						throw new ArgumentException(String.Format("Pseudo-directories are not permitted in filesystem references ({0})", Name));
 					}
 					if (Idx == LastIdx + 3 && Name[Idx - 1] == '.' && Name[Idx - 2] == '.')
 					{
-						throw new ArgumentException("Pseudo-directories are not permitted in filesystem references");
+						throw new ArgumentException(String.Format("Pseudo-directories are not permitted in filesystem references ({0})", Name));
 					}
 					LastIdx = Idx;
 				}
@@ -76,7 +76,7 @@ public abstract class StagedFileSystemReference
 		StringBuilder NewName = new StringBuilder(BaseDirectory);
 		foreach (string Fragment in Fragments)
 		{
-			if (NewName.Length > 0)
+			if (NewName.Length > 0 && (NewName[NewName.Length - 1] != '/' && NewName[NewName.Length - 1] != '\\'))
 			{
 				NewName.Append('/');
 			}

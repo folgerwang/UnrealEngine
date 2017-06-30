@@ -1509,7 +1509,7 @@ FVector USceneComponent::K2_GetComponentScale() const
 
 void USceneComponent::GetParentComponents(TArray<class USceneComponent*>& Parents) const
 {
-	Parents.Empty();
+	Parents.Reset();
 
 	USceneComponent* ParentIterator = GetAttachParent();
 	while (ParentIterator != nullptr)
@@ -1567,6 +1567,25 @@ void USceneComponent::AppendDescendants(TArray<USceneComponent*>& Children) cons
 		{
 			Child->AppendDescendants(Children);
 		}
+	}
+}
+
+void USceneComponent::SetRelativeRotationCache(const FRotationConversionCache& InCache)
+{
+	if (RelativeRotationCache.GetCachedRotator() != InCache.GetCachedRotator())
+	{
+		// Before overwriting the rotator cache, ensure there is no pending update on the transform.
+		// Otherwise future calls to SetWorldTransform() will first update the cache and invalidate this change.
+		ConditionalUpdateComponentToWorld();
+
+		// The use case for setting the RelativeRotationCache is to control which Rotator ends up
+		// being assigned to the component when updating its transform from a Quaternion (see InternalSetWorldLocationAndRotation()).
+		// Most of the time, ToQuaternion(ToRotator(Quaternion)) == Quaternion but this is not always the case
+		// because of floating point precision. When not equal, rerunning a blueprint script generates another
+		// rotator, which ends up generating another transform at map load (since it's the rotator that gets serialized).
+		// The transform at map load being different than the one after blueprint rescript, the engine invalidates the
+		// precomputed lighting (as it is position dependent) when calling ApplyComponentInstanceData()
+		RelativeRotationCache = InCache;
 	}
 }
 

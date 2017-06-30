@@ -316,7 +316,9 @@ namespace LevelEditorActionHelpers
 
 		FText RootClassName = FText::FromString(InRootClass->GetName());
 		TSharedRef<SWidget> ClassViewer = FModuleManager::LoadModuleChecked<FClassViewerModule>("ClassViewer").CreateClassViewer(Options, InOnClassPicked);
-		InMenuBuilder.BeginSection(NAME_None, FText::Format( NSLOCTEXT("LevelToolBarViewMenu", "SelectGameModeLabel", "Select {RootClass} class"), RootClassName ));
+		FFormatNamedArguments FormatArgs;
+		FormatArgs.Add(TEXT("RootClass"), RootClassName);
+		InMenuBuilder.BeginSection(NAME_None, FText::Format(NSLOCTEXT("LevelToolBarViewMenu", "SelectGameModeLabel", "Select {RootClass} class"), FormatArgs));
 		InMenuBuilder.AddWidget(ClassViewer, FText::GetEmpty(), true);
 		InMenuBuilder.EndSection();
 	}
@@ -347,7 +349,9 @@ namespace LevelEditorActionHelpers
 
 		FText RootClassName = FText::FromString(InRootClass->GetName());
 		TSharedRef<SWidget> ClassViewer = FModuleManager::LoadModuleChecked<FClassViewerModule>("ClassViewer").CreateClassViewer(Options, InOnClassPicked);
-		InMenuBuilder.BeginSection(NAME_None, FText::Format( NSLOCTEXT("LevelToolBarViewMenu", "CreateGameModeLabel", "Select {RootClass} parent class"), RootClassName ));
+		FFormatNamedArguments FormatArgs;
+		FormatArgs.Add(TEXT("RootClass"), RootClassName);
+		InMenuBuilder.BeginSection(NAME_None, FText::Format(NSLOCTEXT("LevelToolBarViewMenu", "CreateGameModeLabel", "Select {RootClass} parent class"), FormatArgs));
 		InMenuBuilder.AddWidget(ClassViewer, FText::GetEmpty(), true);
 		InMenuBuilder.EndSection();
 	}
@@ -708,7 +712,9 @@ void LevelEditorActionHelpers::GetBlueprintSettingsSubMenu(FMenuBuilder& InMenuB
 	);
 
 	// Select a game mode, this is always available so the user can switch his selection
-	InMenuBuilder.AddSubMenu( FText::Format( LOCTEXT("SelectGameModeClass", "Select {RootClass} Class"), RootClassName ),
+	FFormatNamedArguments Args;
+	Args.Add(TEXT("RootClass"), RootClassName);
+	InMenuBuilder.AddSubMenu(FText::Format(LOCTEXT("SelectGameModeClass", "Select {RootClass} Class"), Args),
 		GetSelectMenuTooltip(GetGameModeClass(InSettingsData.LevelEditor, InSettingsData.bIsProjectSettings), InSettingsData.RootClass, InSettingsData.bIsProjectSettings),
 		FNewMenuDelegate::CreateStatic( &LevelEditorActionHelpers::GetSelectSettingsClassSubMenu, InSettingsData.RootClass, InSettingsData.OnSelectClassPicked ),
 		FUIAction(
@@ -860,12 +866,15 @@ FText LevelEditorActionHelpers::GetOpenGameStateBlueprintLabel(TWeakPtr< SLevelE
 #define LOCTEXT_NAMESPACE "LevelToolBarViewMenu"
 	if(UClass* GameStateClass = GetGameStateClass(InLevelEditor, bInIsProjectSettings))
 	{
+		FFormatNamedArguments FormatArgs;
 		if(GameStateClass->ClassGeneratedBy)
 		{
-			return FText::Format( LOCTEXT("GameStateEditBlueprint", "GameState: Edit {GameStateName}"), FText::FromString(GameStateClass->ClassGeneratedBy->GetName()));
+			FormatArgs.Add(TEXT("GameStateName"), FText::FromString(GameStateClass->ClassGeneratedBy->GetName()));
+			return FText::Format(LOCTEXT("GameStateEditBlueprint", "GameState: Edit {GameStateName}"), FormatArgs);
 		}
 
-		return FText::Format( LOCTEXT("GameStateBlueprint", "GameState: {GameStateName}"), FText::FromString(GameStateClass->GetName()));
+		FormatArgs.Add(TEXT("GameStateName"), FText::FromString(GameStateClass->GetName()));
+		return FText::Format(LOCTEXT("GameStateBlueprint", "GameState: {GameStateName}"), FormatArgs);
 	}
 
 	return LOCTEXT("GameStateCreateBlueprint", "GameState: New...");
@@ -931,12 +940,15 @@ FText LevelEditorActionHelpers::GetOpenPawnBlueprintLabel(TWeakPtr< SLevelEditor
 #define LOCTEXT_NAMESPACE "LevelToolBarViewMenu"
 	if(UClass* PawnClass = GetPawnClass(InLevelEditor, bInIsProjectSettings))
 	{
+		FFormatNamedArguments FormatArgs;
 		if(PawnClass->ClassGeneratedBy)
 		{
-			return FText::Format( LOCTEXT("PawnEditBlueprint", "Pawn: Edit {PawnName}"), FText::FromString(PawnClass->ClassGeneratedBy->GetName()));
+			FormatArgs.Add(TEXT("PawnName"), FText::FromString(PawnClass->ClassGeneratedBy->GetName()));
+			return FText::Format(LOCTEXT("PawnEditBlueprint", "Pawn: Edit {PawnName}"), FormatArgs);
 		}
 
-		return FText::Format( LOCTEXT("PawnBlueprint", "Pawn: {PawnName}"), FText::FromString(PawnClass->GetName()));
+		FormatArgs.Add(TEXT("PawnName"), FText::FromString(PawnClass->GetName()));
+		return FText::Format(LOCTEXT("PawnBlueprint", "Pawn: {PawnName}"), FormatArgs);
 	}
 
 	return LOCTEXT("PawnCreateBlueprint", "Pawn: New...");
@@ -1002,12 +1014,15 @@ FText LevelEditorActionHelpers::GetOpenHUDBlueprintLabel(TWeakPtr< SLevelEditor 
 #define LOCTEXT_NAMESPACE "LevelToolBarViewMenu"
 	if(UClass* HUDClass = GetHUDClass(InLevelEditor, bInIsProjectSettings))
 	{
-		if(HUDClass->ClassGeneratedBy)
+		FFormatNamedArguments FormatArgs;
+		if (HUDClass->ClassGeneratedBy)
 		{
-			return FText::Format( LOCTEXT("HUDEditBlueprint", "HUD: Edit {HUDName}"), FText::FromString(HUDClass->ClassGeneratedBy->GetName()));
+			FormatArgs.Add(TEXT("HUDName"), FText::FromString(HUDClass->ClassGeneratedBy->GetName()));
+			return FText::Format(LOCTEXT("HUDEditBlueprint", "HUD: Edit {HUDName}"), FormatArgs);
 		}
 
-		return FText::Format( LOCTEXT("HUDBlueprint", "HUD: {HUDName}"), FText::FromString(HUDClass->GetName()));
+		FormatArgs.Add(TEXT("HUDName"), FText::FromString(HUDClass->GetName()));
+		return FText::Format(LOCTEXT("HUDBlueprint", "HUD: {HUDName}"), FormatArgs);
 	}
 
 	return LOCTEXT("HUDCreateBlueprint", "HUD: New...");
@@ -1073,12 +1088,15 @@ FText LevelEditorActionHelpers::GetOpenPlayerControllerBlueprintLabel(TWeakPtr< 
 #define LOCTEXT_NAMESPACE "LevelToolBarViewMenu"
 	if(UClass* PlayerControllerClass = GetPlayerControllerClass(InLevelEditor, bInIsProjectSettings))
 	{
-		if(PlayerControllerClass->ClassGeneratedBy)
+		FFormatNamedArguments FormatArgs;
+		if (PlayerControllerClass->ClassGeneratedBy)
 		{
-			return FText::Format( LOCTEXT("PlayerControllerEditBlueprint", "PlayerController: Edit {PlayerControllerName}"), FText::FromString(PlayerControllerClass->ClassGeneratedBy->GetName()));
+			FormatArgs.Add(TEXT("PlayerControllerName"), FText::FromString(PlayerControllerClass->ClassGeneratedBy->GetName()));
+			return FText::Format(LOCTEXT("PlayerControllerEditBlueprint", "PlayerController: Edit {PlayerControllerName}"), FormatArgs);
 		}
 
-		return FText::Format( LOCTEXT("PlayerControllerBlueprint", "PlayerController: {PlayerControllerName}"), FText::FromString(PlayerControllerClass->GetName()));
+		FormatArgs.Add(TEXT("PlayerControllerName"), FText::FromString(PlayerControllerClass->GetName()));
+		return FText::Format(LOCTEXT("PlayerControllerBlueprint", "PlayerController: {PlayerControllerName}"), FormatArgs);
 	}
 
 	return LOCTEXT("PlayerControllerCreateBlueprint", "PlayerController: New...");
@@ -1980,7 +1998,7 @@ TSharedRef< SWidget > FLevelEditorToolBar::GenerateOpenBlueprintMenuContent( TSh
 		}
 
 		/** Handle BP being selected from popup picker */
-		static void OnBPSelected(const class FAssetData& AssetData)
+		static void OnBPSelected(const struct FAssetData& AssetData)
 		{
 			UBlueprint* SelectedBP = Cast<UBlueprint>(AssetData.GetAsset());
 			if(SelectedBP)
@@ -2112,8 +2130,10 @@ TSharedRef< SWidget > FLevelEditorToolBar::GenerateCinematicsMenuContent( TShare
 	const bool bShouldCloseWindowAfterMenuSelection = true;
 	FMenuBuilder MenuBuilder( bShouldCloseWindowAfterMenuSelection, InCommandList, Extender );
 
+	using namespace SceneOutliner;
+
 	// We can't build a list of Matinees and LevelSequenceActors while the current World is a PIE world.
-	SceneOutliner::FInitializationOptions InitOptions;
+	FInitializationOptions InitOptions;
 	{
 		InitOptions.Mode = ESceneOutlinerMode::ActorPicker;
 
@@ -2123,11 +2143,14 @@ TSharedRef< SWidget > FLevelEditorToolBar::GenerateCinematicsMenuContent( TShare
 		InitOptions.bShowSearchBox = false;
 		InitOptions.bShowCreateNewFolder = false;
 
+		InitOptions.ColumnMap.Add(FBuiltInColumnTypes::Label(), FColumnInfo(EColumnVisibility::Visible, 0));
+		InitOptions.ColumnMap.Add(FBuiltInColumnTypes::ActorInfo(), FColumnInfo(EColumnVisibility::Visible, 10));
+
 		// Only display Matinee and MovieScene actors
 		auto ActorFilter = [](const AActor* Actor){
 			return Actor->IsA( AMatineeActor::StaticClass() ) || Actor->IsA( ALevelSequenceActor::StaticClass() );
 		};
-		InitOptions.Filters->AddFilterPredicate( SceneOutliner::FActorFilterPredicate::CreateLambda( ActorFilter ) );
+		InitOptions.Filters->AddFilterPredicate( FActorFilterPredicate::CreateLambda( ActorFilter ) );
 	}
 
 	// actor selector to allow the user to choose an actor

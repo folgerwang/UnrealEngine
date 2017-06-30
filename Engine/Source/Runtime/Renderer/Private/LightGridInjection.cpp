@@ -232,8 +232,8 @@ private:
 	FForwardCullingParameters ForwardCullingParameters;
 };
 
-IMPLEMENT_SHADER_TYPE(template<>,TLightGridInjectionCS<true>,TEXT("LightGridInjection"),TEXT("LightGridInjectionCS"),SF_Compute);
-IMPLEMENT_SHADER_TYPE(template<>,TLightGridInjectionCS<false>,TEXT("LightGridInjection"),TEXT("LightGridInjectionCS"),SF_Compute);
+IMPLEMENT_SHADER_TYPE(template<>,TLightGridInjectionCS<true>,TEXT("/Engine/Private/LightGridInjection.usf"),TEXT("LightGridInjectionCS"),SF_Compute);
+IMPLEMENT_SHADER_TYPE(template<>,TLightGridInjectionCS<false>,TEXT("/Engine/Private/LightGridInjection.usf"),TEXT("LightGridInjectionCS"),SF_Compute);
 
 class FLightGridCompactCS : public FGlobalShader
 {
@@ -293,7 +293,7 @@ private:
 	FForwardCullingParameters ForwardCullingParameters;
 };
 
-IMPLEMENT_SHADER_TYPE(,FLightGridCompactCS,TEXT("LightGridInjection"),TEXT("LightGridCompactCS"),SF_Compute);
+IMPLEMENT_SHADER_TYPE(,FLightGridCompactCS,TEXT("/Engine/Private/LightGridInjection.usf"),TEXT("LightGridCompactCS"),SF_Compute);
 
 FVector GetLightGridZParams(float NearPlane, float FarPlane)
 {
@@ -331,7 +331,7 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 		{
 			const FViewInfo& View = Views[ViewIndex];
-			bAnyViewUsesForwardLighting |= View.bTranslucentSurfaceLighting || ShouldRenderVolumetricFog(Scene, ViewFamily);
+			bAnyViewUsesForwardLighting |= View.bTranslucentSurfaceLighting || ShouldRenderVolumetricFog();
 		}
 
 		const bool bCullLightsToGrid = (IsForwardShadingEnabled(FeatureLevel) || bAnyViewUsesForwardLighting) && ViewFamily.EngineShowFlags.DirectLighting;
@@ -617,15 +617,16 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 			{
 				View.ForwardLightingResources->CulledLightDataGrid.Initialize(sizeof(FLightIndexType), NumCells * GMaxCulledLightsPerCell, sizeof(FLightIndexType) == sizeof(uint16) ? PF_R16_UINT : PF_R32_UINT);
 			}
-
+			 
 			const bool bShouldCacheTemporaryBuffers = View.ViewState != nullptr;
 			FForwardLightingCullingResources LocalCullingResources;
 			FForwardLightingCullingResources& ForwardLightingCullingResources = bShouldCacheTemporaryBuffers ? View.ViewState->ForwardLightingCullingResources : LocalCullingResources;
 
-			if (ForwardLightingCullingResources.CulledLightLinks.NumBytes != NumCells * GMaxCulledLightsPerCell * LightLinkStride)
+			const uint32 CulledLightLinksElements = NumCells * GMaxCulledLightsPerCell * LightLinkStride;
+			if (ForwardLightingCullingResources.CulledLightLinks.NumBytes != (CulledLightLinksElements * sizeof(uint32)))
 			{
 				const uint32 FastVRamFlag = IsTransientResourceBufferAliasingEnabled() ? (BUF_FastVRAM | BUF_Transient) : BUF_None;
-				ForwardLightingCullingResources.CulledLightLinks.Initialize(sizeof(uint32), NumCells * GMaxCulledLightsPerCell * LightLinkStride, PF_R32_UINT, FastVRamFlag, TEXT("CulledLightLinks"));
+				ForwardLightingCullingResources.CulledLightLinks.Initialize(sizeof(uint32), CulledLightLinksElements, PF_R32_UINT, FastVRamFlag, TEXT("CulledLightLinks"));
 				ForwardLightingCullingResources.NextCulledLightLink.Initialize(sizeof(uint32), 1, PF_R32_UINT, FastVRamFlag, TEXT("NextCulledLightLink"));
 				ForwardLightingCullingResources.StartOffsetGrid.Initialize(sizeof(uint32), NumCells, PF_R32_UINT, FastVRamFlag, TEXT("StartOffsetGrid"));
 				ForwardLightingCullingResources.NextCulledLightData.Initialize(sizeof(uint32), 1, PF_R32_UINT, FastVRamFlag, TEXT("NextCulledLightData"));

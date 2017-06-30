@@ -295,6 +295,11 @@ static void LaunchDefaultHandlerForURL( const TCHAR* URL, FString* Error )
 	}
 }
 
+bool FWindowsPlatformProcess::CanLaunchURL(const TCHAR* URL)
+{
+	return URL != nullptr;
+}
+
 void FWindowsPlatformProcess::LaunchURL( const TCHAR* URL, const TCHAR* Parms, FString* Error )
 {
 	check(URL);
@@ -738,9 +743,9 @@ void FWindowsPlatformProcess::CleanFileCache()
 	if (bShouldCleanShaderWorkingDirectory && !FParse::Param( FCommandLine::Get(), TEXT("Multiprocess")))
 	{
 		// get shader path, and convert it to the userdirectory
-		for (FString Dir : FPlatformProcess::AllShaderDirs())
+		for (const auto& SHaderSourceDirectoryEntry : FPlatformProcess::AllShaderSourceDirectoryMappings())
 		{
-			FString ShaderDir = FString(FPlatformProcess::BaseDir()) / Dir;
+			FString ShaderDir = FString(FPlatformProcess::BaseDir()) / SHaderSourceDirectoryEntry.Value;
 			FString UserShaderDir = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*ShaderDir);
 			FPaths::CollapseRelativeDirectories(ShaderDir);
 

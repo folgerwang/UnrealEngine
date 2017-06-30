@@ -73,6 +73,21 @@ namespace UnrealBuildTool
 	 *	<setBoolFromProperty result="" ini="" section="" property="" default=""/>
 	 *	<setIntFromProperty result="" ini="" section="" property="" default=""/>
 	 *	<setStringFromProperty result="" ini="" section="" property="" default=""/>
+     *	
+     * Strings may also be set from an environment variable using the <setStringFromEnvVar> node.
+	 * The environment variable must be specified as the 'value' attribute and wrapped in a pair
+	 * of '%' characters.
+     *	
+     *	<setStringFromEnvVar result="" value=""/>
+	 *	
+	 * You can also check if a specific environment variable is defined (again, wrapped in '%' characters):
+	 * 
+	 *  <setBoolEnvVarDefined result="" value=""/>
+	 *  
+	 * A general example for using environment variable nodes:
+	 * 
+	 *  <setBoolEnvVarDefined result="bHasNDK" value="%NDKROOT%"/>
+	 *  <setStringFromEnvVar result="NDKPath" value="%NDKROOT%"/>
 	 * 
 	 * Boolean variables may also be set to the result of applying operators:
 	 * 
@@ -312,6 +327,12 @@ namespace UnrealBuildTool
 	 * 	<!-- optional additions to proguard -->
 	 * 	<proguardAdditions>	</proguardAdditions>
 	 * 	
+	 * 	<!-- optional AAR imports additions -->
+	 * 	<AARImports> </AARImports>
+	 * 	
+	 * 	<!-- optional build.gradle additions -->
+	 * 	<buildGradleAdditions>  </buildGradleAdditions>
+	 * 	
 	 * 	<!-- optional additions to generated build.xml before ${sdk.dir}/tools/ant/build.xml import -->
 	 * 	<buildXmlPropertyAdditions> </buildXmlPropertyAdditions>
 	 *
@@ -378,6 +399,7 @@ namespace UnrealBuildTool
 	 * <copyDir src="" dst=""/>
 	 * <loadLibrary name="" failmsg=""/>
 	 * <setBool result="" value=""/>
+	 * <setBoolEnvVarDefined result="" value=""/>
 	 * <setBoolFrom result="" value=""/>
 	 * <setBoolFromProperty result="" ini="" section="" property="" default=""/>
 	 * <setBoolNot result="" source=""/>
@@ -399,6 +421,7 @@ namespace UnrealBuildTool
 	 * <setIntFindString result="" source="" find=""/>
 	 * <setString result="" value=""/>
 	 * <setStringFrom result="" value=""/>
+     * <setStringFromEnvVar result="" value=""/>
 	 * <setStringFromProperty result="" ini="" section="" property="" default=""/>
 	 * <setStringAdd result="" arg1="" arg2=""/>
 	 * <setStringSubstring result="" source="" index="" length=""/>
@@ -1609,6 +1632,17 @@ namespace UnrealBuildTool
 						}
 						break;
 
+					case "setBoolEnvVarDefined":
+						{
+							string Result = GetAttribute(CurrentContext, Node, "result");
+							string Value = GetAttribute(CurrentContext, Node, "value");
+							if (Result != null)
+							{
+								CurrentContext.BoolVariables[Result] = (Value != null && Environment.ExpandEnvironmentVariables(Value).Length > 0);
+							}
+						}
+						break;
+
 					case "setBoolFrom":
 						{
 							string Result = GetAttribute(CurrentContext, Node, "result");
@@ -1929,6 +1963,17 @@ namespace UnrealBuildTool
 						}
 						break;
 
+					case "setStringFromEnvVar":
+						{
+							string Result = GetAttribute(CurrentContext, Node, "result");
+							string Value = GetAttribute(CurrentContext, Node, "value");
+							if (Result != null && Value != null)
+							{
+								CurrentContext.StringVariables[Result] = Environment.ExpandEnvironmentVariables(Value);
+							}
+						}
+						break;
+
 					case "setStringFromTag":
 						{
 							string Result = GetAttribute(CurrentContext, Node, "result");
@@ -2152,6 +2197,30 @@ namespace UnrealBuildTool
 			if (bGlobalTrace)
 			{
 				Log.TraceInformation("\nVariables:\n{0}", DumpVariables());
+			}
+		}
+
+		public void SetGlobalContextVariable(string VariableName, bool Value)
+		{
+			if (VariableName != null)
+			{
+				GlobalContext.BoolVariables[VariableName] = Value;
+			}
+		}
+
+		public void SetGlobalContextVariable(string VariableName, int Value)
+		{
+			if (VariableName != null)
+			{
+				GlobalContext.IntVariables[VariableName] = Value;
+			}
+		}
+
+		public void SetGlobalContextVariable(string VariableName, string Value)
+		{
+			if (VariableName != null && Value != null)
+			{
+				GlobalContext.StringVariables[VariableName] = Value;
 			}
 		}
 	}

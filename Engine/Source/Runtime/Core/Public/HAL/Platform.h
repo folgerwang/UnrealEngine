@@ -75,7 +75,7 @@
 #elif PLATFORM_MAC
 	#include "Mac/MacPlatformCompilerPreSetup.h"
 #elif PLATFORM_IOS
-	#include "iOS/IOSPlatformCompilerPreSetup.h"
+	#include "IOS/IOSPlatformCompilerPreSetup.h"
 #elif PLATFORM_ANDROID
 	#include "Android/AndroidPlatformCompilerPreSetup.h"
 #elif PLATFORM_HTML5
@@ -272,6 +272,9 @@
 #endif
 #ifndef PLATFORM_HAS_BSD_SOCKET_FEATURE_CLOSE_ON_EXEC
 	#define PLATFORM_HAS_BSD_SOCKET_FEATURE_CLOSE_ON_EXEC	0
+#endif
+#ifndef PLATFORM_HAS_BSD_SOCKET_FEATURE_MSG_DONTWAIT
+	#define PLATFORM_HAS_BSD_SOCKET_FEATURE_MSG_DONTWAIT	0
 #endif
 #ifndef PLATFORM_HAS_NO_EPROCLIM
 	#define PLATFORM_HAS_NO_EPROCLIM			0

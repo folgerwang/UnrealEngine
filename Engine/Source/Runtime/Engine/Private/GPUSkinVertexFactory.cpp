@@ -19,6 +19,14 @@ static FAutoConsoleVariableRef CVarMaxGPUSkinBones(
 	TEXT("Max number of bones that can be skinned on the GPU in a single draw call. Cannot be changed at runtime."),
 	ECVF_ReadOnly);
 
+// Whether to use 2 bones influence instead of default 4 for GPU skinning
+// Changing this causes a full shader recompile
+static TAutoConsoleVariable<int32> CVarGPUSkinLimit2BoneInfluences(
+	TEXT("r.GPUSkin.Limit2BoneInfluences"),
+	0,	
+	TEXT("Whether to use 2 bones influence instead of default 4 for GPU skinning. Cannot be changed at runtime."),
+	ECVF_ReadOnly);
+
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FAPEXClothUniformShaderParameters,TEXT("APEXClothParam"));
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FBoneMatricesUniformShaderParameters,TEXT("Bones"));
@@ -312,8 +320,10 @@ TGlobalResource<FBoneBufferPool> FGPUBaseSkinVertexFactory::BoneBufferPool;
 template <bool bExtraBoneInfluencesT>
 bool TGPUSkinVertexFactory<bExtraBoneInfluencesT>::ShouldCache(EShaderPlatform Platform, const class FMaterial* Material, const FShaderType* ShaderType)
 {
-	// Skip trying to use extra bone influences on < SM4
-	if (bExtraBoneInfluencesT && GetMaxSupportedFeatureLevel(Platform) < ERHIFeatureLevel::ES3_1)
+	bool bLimit2BoneInfluences = (CVarGPUSkinLimit2BoneInfluences.GetValueOnAnyThread() != 0);
+	
+	// Skip trying to use extra bone influences on < SM4 or when project uses 2 bones influence
+	if (bExtraBoneInfluencesT && (GetMaxSupportedFeatureLevel(Platform) < ERHIFeatureLevel::ES3_1 || bLimit2BoneInfluences))
 	{
 		return false;
 	}
@@ -330,6 +340,10 @@ void TGPUSkinVertexFactory<bExtraBoneInfluencesT>::ModifyCompilationEnvironment(
 	OutEnvironment.SetDefine(TEXT("MAX_SHADER_BONES"), MaxGPUSkinBones);
 	const uint32 UseExtraBoneInfluences = bExtraBoneInfluencesT;
 	OutEnvironment.SetDefine(TEXT("GPUSKIN_USE_EXTRA_INFLUENCES"), UseExtraBoneInfluences);
+	{
+		bool bLimit2BoneInfluences = (CVarGPUSkinLimit2BoneInfluences.GetValueOnAnyThread() != 0);
+		OutEnvironment.SetDefine(TEXT("GPUSKIN_LIMIT_2BONE_INFLUENCES"), (bLimit2BoneInfluences ? 1 : 0));
+	}
 }
 
 
@@ -544,7 +558,7 @@ FVertexFactoryShaderParameters* TGPUSkinVertexFactory<bExtraBoneInfluencesT>::Co
 }
 
 /** bind gpu skin vertex factory to its shader file and its shader parameters */
-IMPLEMENT_GPUSKINNING_VERTEX_FACTORY_TYPE(TGPUSkinVertexFactory, "GpuSkinVertexFactory", true, false, true, false, false);
+IMPLEMENT_GPUSKINNING_VERTEX_FACTORY_TYPE(TGPUSkinVertexFactory, "/Engine/Private/GpuSkinVertexFactory.ush", true, false, true, false, false);
 
 /*-----------------------------------------------------------------------------
 TGPUSkinVertexFactoryShaderParameters
@@ -650,7 +664,7 @@ FVertexFactoryShaderParameters* FGPUSkinPassthroughVertexFactory::ConstructShade
 	return (ShaderFrequency == SF_Vertex) ? new FGPUSkinVertexPassthroughFactoryShaderParameters() : nullptr;
 }
 
-IMPLEMENT_VERTEX_FACTORY_TYPE(FGPUSkinPassthroughVertexFactory, "LocalVertexFactory", true, false, true, false, false);
+IMPLEMENT_VERTEX_FACTORY_TYPE(FGPUSkinPassthroughVertexFactory, "/Engine/Private/LocalVertexFactory.ush", true, false, true, false, false);
 
 /*-----------------------------------------------------------------------------
 TGPUSkinMorphVertexFactory
@@ -711,7 +725,7 @@ FVertexFactoryShaderParameters* TGPUSkinMorphVertexFactory<bExtraBoneInfluencesT
 }
 
 /** bind morph target gpu skin vertex factory to its shader file and its shader parameters */
-IMPLEMENT_GPUSKINNING_VERTEX_FACTORY_TYPE(TGPUSkinMorphVertexFactory, "GpuSkinVertexFactory", true, false, true, false, false);
+IMPLEMENT_GPUSKINNING_VERTEX_FACTORY_TYPE(TGPUSkinMorphVertexFactory, "/Engine/Private/GpuSkinVertexFactory.ush", true, false, true, false, false);
 
 
 /*-----------------------------------------------------------------------------
@@ -983,7 +997,7 @@ FVertexFactoryShaderParameters* TGPUSkinAPEXClothVertexFactory<bExtraBoneInfluen
 }
 
 /** bind cloth gpu skin vertex factory to its shader file and its shader parameters */
-IMPLEMENT_GPUSKINNING_VERTEX_FACTORY_TYPE(TGPUSkinAPEXClothVertexFactory, "GpuSkinVertexFactory", true, false, true, false, false);
+IMPLEMENT_GPUSKINNING_VERTEX_FACTORY_TYPE(TGPUSkinAPEXClothVertexFactory, "/Engine/Private/GpuSkinVertexFactory.ush", true, false, true, false, false);
 
 
 #undef IMPLEMENT_GPUSKINNING_VERTEX_FACTORY_TYPE

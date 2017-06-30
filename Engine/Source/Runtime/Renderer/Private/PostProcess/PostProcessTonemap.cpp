@@ -1231,7 +1231,7 @@ public:
 	
 	static const TCHAR* GetSourceFilename()
 	{
-		return TEXT("PostProcessTonemap");
+		return TEXT("/Engine/Private/PostProcessTonemap.usf");
 	}
 
 	static const TCHAR* GetFunctionName()
@@ -1253,8 +1253,8 @@ public:
 
 
 // Vertex Shader permutations based on bool AutoExposure.
-IMPLEMENT_SHADER_TYPE(template<>, TPostProcessTonemapVS<true>, TEXT("PostProcessTonemap"), TEXT("MainVS"), SF_Vertex);
-IMPLEMENT_SHADER_TYPE(template<>, TPostProcessTonemapVS<false>, TEXT("PostProcessTonemap"), TEXT("MainVS"), SF_Vertex);
+IMPLEMENT_SHADER_TYPE(template<>, TPostProcessTonemapVS<true>, TEXT("/Engine/Private/PostProcessTonemap.usf"), TEXT("MainVS"), SF_Vertex);
+IMPLEMENT_SHADER_TYPE(template<>, TPostProcessTonemapVS<false>, TEXT("/Engine/Private/PostProcessTonemap.usf"), TEXT("MainVS"), SF_Vertex);
 
 /** Encapsulates the post processing tonemap compute shader. */
 template<uint32 ConfigIndex, bool bDoEyeAdaptation>
@@ -1426,7 +1426,7 @@ public:
 
 	static const TCHAR* GetSourceFilename()
 	{
-		return TEXT("PostProcessTonemap");
+		return TEXT("/Engine/Private/PostProcessTonemap.usf");
 	}
 
 	static const TCHAR* GetFunctionName()
@@ -1603,13 +1603,20 @@ void FRCPassPostProcessTonemap::Process(FRenderingCompositePassContext& Context)
 
 		const EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[Context.GetFeatureLevel()];
 
-		if (IsVulkanPlatform(ShaderPlatform))
+		if (IsMobilePlatform(ShaderPlatform))
 		{
-			//@HACK: needs to set the framebuffer to clear/ignore in vulkan (doesn't support RHIClear)
-			// Clearing for letterbox mode. We could ENoAction if View.ViewRect == RT dims.
-			FRHIRenderTargetView ColorView(DestRenderTarget.TargetableTexture, 0, -1, ERenderTargetLoadAction::EClear, ERenderTargetStoreAction::EStore);
-			FRHISetRenderTargetsInfo Info(1, &ColorView, FRHIDepthRenderTargetView());
-			Context.RHICmdList.SetRenderTargetsAndClear(Info);
+			// clear target when processing first view in case of splitscreen
+			const bool bFirstView = (&View == View.Family->Views[0]);
+		
+			// Full clear to avoid restore
+			if ((View.StereoPass == eSSP_FULL && bFirstView) || View.StereoPass == eSSP_LEFT_EYE)
+			{
+				SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIParamRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
+			}
+			else
+			{
+				SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIParamRef());
+			}
 		}
 		else
 		{
@@ -1947,7 +1954,7 @@ public:
 	
 	static const TCHAR* GetSourceFilename()
 	{
-		return TEXT("PostProcessTonemap");
+		return TEXT("/Engine/Private/PostProcessTonemap.usf");
 	}
 
 	static const TCHAR* GetFunctionName()
@@ -2028,7 +2035,7 @@ public:
 	}
 };
 
-IMPLEMENT_SHADER_TYPE(,FPostProcessTonemapVS_ES2,TEXT("PostProcessTonemap"),TEXT("MainVS_ES2"),SF_Vertex);
+IMPLEMENT_SHADER_TYPE(,FPostProcessTonemapVS_ES2,TEXT("/Engine/Private/PostProcessTonemap.usf"),TEXT("MainVS_ES2"),SF_Vertex);
 
 namespace PostProcessTonemap_ES2Util
 {
@@ -2092,26 +2099,18 @@ void FRCPassPostProcessTonemapES2::Process(FRenderingCompositePassContext& Conte
 	FIntPoint DstSize = OutputDesc.Extent;
 
 	// Set the view family's render target/viewport.
-	//@todo Ronin find a way to use the same codepath for all platforms.
-	const EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[Context.GetFeatureLevel()];
-	if (IsVulkanMobilePlatform(ShaderPlatform))
 	{
-		//@HACK: gets around an uneccessary load in Vulkan. NOT FOR MAIN as it'll probably kill GearVR
-		//@HACK: needs to set the framebuffer to clear/ignore in vulkan (doesn't support RHIClear)
-		FRHIRenderTargetView ColorView(DestRenderTarget.TargetableTexture, 0, -1, ERenderTargetLoadAction::EClear, ERenderTargetStoreAction::EStore);
-		FRHISetRenderTargetsInfo Info(1, &ColorView, FRHIDepthRenderTargetView());
-		Context.RHICmdList.SetRenderTargetsAndClear(Info);
-	}
-	else
-	{
-		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIParamRef());
 		// clear target when processing first view in case of splitscreen
 		const bool bFirstView = (&View == View.Family->Views[0]);
 		
 		// Full clear to avoid restore
 		if ((View.StereoPass == eSSP_FULL && bFirstView) || View.StereoPass == eSSP_LEFT_EYE)
 		{
-			DrawClearQuad(Context.RHICmdList, FLinearColor::Black);
+			SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIParamRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
+		}
+		else
+		{
+			SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIParamRef());
 		}
 	}
 

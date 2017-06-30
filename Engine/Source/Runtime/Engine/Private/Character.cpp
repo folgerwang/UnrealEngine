@@ -226,7 +226,7 @@ float ACharacter::GetDefaultHalfHeight() const
 UActorComponent* ACharacter::FindComponentByClass(const TSubclassOf<UActorComponent> ComponentClass) const
 {
 	// If the character has a Mesh, treat it as the first 'hit' when finding components
-	if (Mesh && Mesh->IsA(ComponentClass))
+	if (Mesh && ComponentClass && Mesh->IsA(ComponentClass))
 	{
 		return Mesh;
 	}
@@ -811,7 +811,7 @@ void ACharacter::PossessedBy(AController* NewController)
 	Super::PossessedBy(NewController);
 
 	// If we are controlled remotely, set animation timing to be driven by client's network updates. So timing and events remain in sync.
-	if (Mesh && (GetRemoteRole() == ROLE_AutonomousProxy && GetNetConnection() != nullptr))
+	if (Mesh && bReplicateMovement && (GetRemoteRole() == ROLE_AutonomousProxy && GetNetConnection() != nullptr))
 	{
 		Mesh->bOnlyAllowAutonomousTickPose = true;
 	}

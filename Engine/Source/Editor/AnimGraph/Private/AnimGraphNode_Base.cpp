@@ -21,12 +21,23 @@ UAnimGraphNode_Base::UAnimGraphNode_Base(const FObjectInitializer& ObjectInitial
 {
 }
 
+void UAnimGraphNode_Base::PreEditChange(UProperty* PropertyThatWillChange)
+{
+	Super::PreEditChange(PropertyThatWillChange);
+
+	if (PropertyThatWillChange && PropertyThatWillChange->GetFName() == GET_MEMBER_NAME_CHECKED(FOptionalPinFromProperty, bShowPin))
+	{
+		FOptionalPinManager::CacheShownPins(ShowPinForProperties, OldShownPins);
+	}
+}
+
 void UAnimGraphNode_Base::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	FName PropertyName = (PropertyChangedEvent.Property != NULL) ? PropertyChangedEvent.Property->GetFName() : NAME_None;
 
 	if ((PropertyName == GET_MEMBER_NAME_CHECKED(FOptionalPinFromProperty, bShowPin)))
 	{
+		FOptionalPinManager::EvaluateOldShownPins(ShowPinForProperties, OldShownPins, this);
 		GetSchema()->ReconstructNode(*this);
 	}
 
@@ -346,5 +357,14 @@ void UAnimGraphNode_Base::PinDefaultValueChanged(UEdGraphPin* Pin)
 
 	CopyPinDefaultsToNodeData(Pin);
 
-	CastChecked<UAnimationGraph>(GetGraph())->OnPinDefaultValueChanged.Broadcast(Pin);
+	if(UAnimationGraph* AnimationGraph = Cast<UAnimationGraph>(GetGraph()))
+	{
+		AnimationGraph->OnPinDefaultValueChanged.Broadcast(Pin);
+	}
+}
+
+bool UAnimGraphNode_Base::IsPinExposedAndLinked(const FString& InPinName, const EEdGraphPinDirection InDirection) const
+{
+	UEdGraphPin* Pin = FindPin(InPinName, InDirection);
+	return Pin != nullptr && Pin->LinkedTo.Num() > 0 && Pin->LinkedTo[0] != nullptr;
 }

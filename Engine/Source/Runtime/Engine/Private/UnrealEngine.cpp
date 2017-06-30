@@ -119,6 +119,7 @@
 #include "Engine/WorldComposition.h"
 #include "Engine/LevelScriptActor.h"
 #include "IHardwareSurveyModule.h"
+#include "HAL/LowLevelMemTracker.h"
 
 #include "Particles/Spawn/ParticleModuleSpawn.h"
 #include "Particles/TypeData/ParticleModuleTypeDataMesh.h"
@@ -196,8 +197,6 @@
 
 DEFINE_LOG_CATEGORY(LogEngine);
 IMPLEMENT_MODULE( FEngineModule, Engine );
-
-#define DEBUGGING_VIEWPORT_SIZES 0
 
 #define LOCTEXT_NAMESPACE "UnrealEngine"
 
@@ -738,7 +737,7 @@ public:
 	FWorldContext
 -----------------------------------------------------------------------------*/
 
-void FWorldContext::SetCurrentWorld(UWorld *World)
+void FWorldContext::SetCurrentWorld(UWorld* World)
 {
 	if (World != nullptr)
 	{
@@ -1411,7 +1410,18 @@ void UEngine::UpdateTimeAndHandleMaxTickRate()
 					FPlatformProcess::SleepNoStats( 0 );
 				}
 			}
-			FApp::SetCurrentTime(FPlatformTime::Seconds());
+
+			if(bUseFixedFrameRate)
+			{
+				const float FrameRate = 1.f / FixedFrameRate;
+				FApp::SetDeltaTime(FrameRate);
+				FApp::SetCurrentTime(LastTime + FApp::GetDeltaTime());
+				bTimeWasManipulated = true;
+			}
+			else
+			{
+				FApp::SetCurrentTime(FPlatformTime::Seconds());
+			}
 		}
 		else if(bUseFixedFrameRate && MaxTickRate == FixedFrameRate)
 		{
@@ -1642,6 +1652,11 @@ void UEngine::InitializeObjectReferences()
 		LoadSpecialMaterial(EditorBrushMaterialName.ToString(), EditorBrushMaterial, false);
 		LoadSpecialMaterial(BoneWeightMaterialName.ToString(), BoneWeightMaterial, false);
 		LoadSpecialMaterial(ClothPaintMaterialName.ToString(), ClothPaintMaterial, false);
+		LoadSpecialMaterial(ClothPaintMaterialWireframeName.ToString(), ClothPaintMaterialWireframe, false);
+		LoadSpecialMaterial(DebugEditorMaterialName.ToString(), DebugEditorMaterial, false);
+
+		ClothPaintMaterialInstance = UMaterialInstanceDynamic::Create(ClothPaintMaterial, nullptr);
+		ClothPaintMaterialWireframeInstance = UMaterialInstanceDynamic::Create(ClothPaintMaterialWireframe, nullptr);
 #endif
 
 		LoadSpecialMaterial(PreviewShadowsIndicatorMaterialName.ToString(), PreviewShadowsIndicatorMaterial, false);
@@ -1788,19 +1803,19 @@ void UEngine::InitializeObjectReferences()
 
 void UEngine::InitializePortalServices()
 {
-	TSharedPtr<IMessagingRpcModule> MessagingRpcModule;
-	TSharedPtr<IPortalRpcModule> PortalRpcModule;
-	TSharedPtr<IPortalServicesModule> PortalServicesModule;
+	IMessagingRpcModule* MessagingRpcModule = nullptr;
+	IPortalRpcModule* PortalRpcModule = nullptr;
+	IPortalServicesModule* PortalServicesModule = nullptr;
 
 #if WITH_PORTAL_SERVICES && UE_EDITOR
-	MessagingRpcModule = StaticCastSharedPtr<IMessagingRpcModule>(FModuleManager::Get().LoadModule("MessagingRpc"));
-	PortalRpcModule = StaticCastSharedPtr<IPortalRpcModule>(FModuleManager::Get().LoadModule("PortalRpc"));
-	PortalServicesModule = StaticCastSharedPtr<IPortalServicesModule>(FModuleManager::Get().LoadModule("PortalServices"));
+	MessagingRpcModule = static_cast<IMessagingRpcModule*>(FModuleManager::Get().LoadModule("MessagingRpc"));
+	PortalRpcModule = static_cast<IPortalRpcModule*>(FModuleManager::Get().LoadModule("PortalRpc"));
+	PortalServicesModule = static_cast<IPortalServicesModule*>(FModuleManager::Get().LoadModule("PortalServices"));
 #endif
 
-	if (MessagingRpcModule.IsValid() &&
-		PortalRpcModule.IsValid() &&
-		PortalServicesModule.IsValid())
+	if (MessagingRpcModule &&
+		PortalRpcModule &&
+		PortalServicesModule)
 	{
 		// Initialize Portal services
 		PortalRpcClient = MessagingRpcModule->CreateRpcClient();
@@ -2736,7 +2751,13 @@ bool UEngine::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 		return true;
 	}
 
-#if ENABLE_LOC_TESTING
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+	if (FLowLevelMemTracker::Get().Exec(Cmd, Ar))
+	{
+		return true;
+	}
+#endif
+
 	{
 		FString CultureName;
 		if (FParse::Value(Cmd, TEXT("CULTURE="), CultureName))
@@ -2761,6 +2782,7 @@ bool UEngine::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 		}
 	}
 
+#if ENABLE_LOC_TESTING
 	{
 		FString ConfigFilePath;
 		if (FParse::Value(Cmd, TEXT("REGENLOC="), ConfigFilePath))
@@ -3199,7 +3221,7 @@ bool UEngine::HandleDeferCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 
 bool UEngine::HandleCeCommand( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 {
-	const TCHAR* ErrorMessage = TEXT( "No level found for CE processing" );
+	FString ErrorMessage = TEXT("No level found for CE processing");
 	bool bResult = false;
 
 	// Try to execute the command on all level script actors
@@ -3211,7 +3233,7 @@ bool UEngine::HandleCeCommand( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice&
 
 			if (CurrentLevel->GetLevelScriptActor())
 			{
-				ErrorMessage = 0;
+				ErrorMessage.Empty();
 
 				// return true if at least one level handles the command
 				bResult |= CurrentLevel->GetLevelScriptActor()->CallFunctionByNameWithArguments( Cmd, Ar, NULL, true );
@@ -3221,12 +3243,12 @@ bool UEngine::HandleCeCommand( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice&
 
 	if (!bResult)
 	{
-		ErrorMessage = TEXT( "CE command wasn't processed" );
+		ErrorMessage = FString::Printf(TEXT("CE command '%s' wasn't processed for levels from world '%s'."), Cmd, *InWorld->GetPathName());
 	}
 
-	if (ErrorMessage)
+	if (!ErrorMessage.IsEmpty())
 	{
-		UE_LOG( LogEngine, Error, TEXT( "%s" ), ErrorMessage );
+		UE_LOG( LogEngine, Error, TEXT( "%s" ), *ErrorMessage );
 	}
 
 	// the command was processed (resulted in executing the command or an error message) - no other spot handles "CE"
@@ -7175,12 +7197,17 @@ FGuid UEngine::GetPackageGuid(FName PackageName, bool bForPIE)
 	{
 		LoadFlags |= LOAD_PackageForPIE;
 	}
+	UPackage* PackageToReset = nullptr;
 	FLinkerLoad* Linker = GetPackageLinker(NULL, *PackageName.ToString(), LoadFlags, NULL, NULL);
 	if (Linker != NULL && Linker->LinkerRoot != NULL)
 	{
 		Result = Linker->LinkerRoot->GetGuid();
+		PackageToReset = Linker->LinkerRoot;
 	}
 	EndLoad();
+	
+	ResetLoaders(PackageToReset);
+	Linker = nullptr;
 
 	return Result;
 }
@@ -7443,7 +7470,6 @@ void UEngine::LogPerformanceCapture(UWorld* World, const FString& MapName, const
 	if ((World != nullptr) && (World->GetGameViewport() != nullptr))
 	{
 		const FStatUnitData* StatUnitData = World->GetGameViewport()->GetStatUnitData();
-		//	const FStatHitchesData* StatHitchesData = World->GetGameViewport->GetStatHitchesData();
 
 		FAutomationPerformanceSnapshot PerfSnapshot;
 		PerfSnapshot.Changelist = FString::FromInt(ChangeList);
@@ -8334,26 +8360,8 @@ void DrawStatsHUD( UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas*
 		int32 X = (CanvasObject) ? CanvasObject->SizeX - FPSXOffset : Viewport->GetSizeXY().X - FPSXOffset; //??
 		int32 Y = (GEngine->IsStereoscopic3D(Viewport)) ? FMath::TruncToInt(Viewport->GetSizeXY().Y * 0.40f) : FMath::TruncToInt(Viewport->GetSizeXY().Y * 0.20f);
 
-		//give the viewport first shot at drawing stats
+		// give the viewport first shot at drawing stats
 		Y = Viewport->DrawStatsHUD(Canvas, X, Y);
-
-#if DEBUGGING_VIEWPORT_SIZES
-		// Useful for debugging viewport sizing/resizing, especially on external displays
-
-		FCanvasTextItem ViewportTextItem( FVector2D( 0,0 ), FText::GetEmpty(), GEngine->GetSmallFont(), FLinearColor::Blue );
-		ViewportTextItem.EnableShadow( FLinearColor::Black );
-		FString CurrentRes = FString::Printf(TEXT("W = %d, H = %d"), Viewport->GetSizeXY().X,Viewport->GetSizeXY().Y);
-		ViewportTextItem.Text = FText::FromString( CurrentRes );
-		Canvas->DrawItem( ViewportTextItem, 5, Y );
-		ViewportTextItem.Text =  LOCTEXT("00", "00" );
-		Canvas->DrawItem( ViewportTextItem, 5, 5 );
-		ViewportTextItem.Text =  LOCTEXT("0M", "0M" );
-		Canvas->DrawItem( ViewportTextItem, 5,  Viewport->GetSizeXY().Y - 2 );
-		ViewportTextItem.Text =  LOCTEXT("M0", "M0" );
-		Canvas->DrawItem( ViewportTextItem, Viewport->GetSizeXY().X - 25, 5 );
-		ViewportTextItem.Text =  LOCTEXT("MM", "MM" );
-		Canvas->DrawItem( ViewportTextItem, Viewport->GetSizeXY().X - 25, Viewport->GetSizeXY().Y - 25 );
-#endif
 
 		// Render all the simple stats
 		GEngine->RenderEngineStats(World, Viewport, Canvas, StatsXOffset, MessageY, X, Y, &ViewLocation, &ViewRotation);
@@ -8661,22 +8669,31 @@ void UEngine::WorldDestroyed( UWorld* InWorld )
 	WorldDestroyedEvent.Broadcast( InWorld );
 }
 
-UWorld* UEngine::GetWorldFromContextObject(const UObject* Object, const bool bChecked) const
+UWorld* UEngine::GetWorldFromContextObject(const UObject* Object, EGetWorldErrorMode ErrorMode) const
 {
-	if (!bChecked && Object == NULL)
+	if (Object == nullptr)
 	{
-		return NULL;
+		switch (ErrorMode)
+		{
+		case EGetWorldErrorMode::Assert:
+			check(Object);
+			break;
+		case EGetWorldErrorMode::LogAndReturnNull:
+			FFrame::KismetExecutionMessage(TEXT("A null object was passed as a world context object to UEngine::GetWorldFromContextObject()."), ELogVerbosity::Error);
+			//UE_LOG(LogEngine, Warning, TEXT("UEngine::GetWorldFromContextObject() passed a nullptr"));
+			break;
+		case EGetWorldErrorMode::ReturnNull:
+			break;
+		}
+		return nullptr;
 	}
 
-	check(Object);
-
-	// @note : GetWorldChecked is not thread safe, so we can't call if called by another thread
 	bool bSupported = true;
-	UWorld* World = ((bChecked && IsInGameThread() )? Object->GetWorldChecked(bSupported) : Object->GetWorld());
+	UWorld* World = (ErrorMode == EGetWorldErrorMode::Assert) ? Object->GetWorldChecked(/*out*/ bSupported) : Object->GetWorld();
 	return (bSupported ? World : GWorld);
 }
 
-TArray<class ULocalPlayer*>::TConstIterator	UEngine::GetLocalPlayerIterator(UWorld *World)
+TArray<class ULocalPlayer*>::TConstIterator	UEngine::GetLocalPlayerIterator(UWorld* World)
 {
 	return GetGamePlayers(World).CreateConstIterator();
 }
@@ -9859,6 +9876,9 @@ bool UEngine::LoadMap( FWorldContext& WorldContext, FURL URL, class UPendingNetG
 
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("UEngine::LoadMap"), STAT_LoadMap, STATGROUP_LoadTime);
 
+	// example of a high level scoped tag
+	LLM_SCOPED_SINGLE_MALLOC_STAT_TAG(LoadMapMemory);
+
 	NETWORK_PROFILER(GNetworkProfiler.TrackSessionChange(true,URL));
 	MALLOC_PROFILER( FMallocProfiler::SnapshotMemoryLoadMapStart( URL.Map ) );
 	Error = TEXT("");
@@ -9930,8 +9950,7 @@ bool UEngine::LoadMap( FWorldContext& WorldContext, FURL URL, class UPendingNetG
 	// Unload the current world
 	if( WorldContext.World() )
 	{
-		// Display loading screen.
-		if( !URL.HasOption(TEXT("quiet")) )
+		if(!URL.HasOption(TEXT("quiet")) )
 		{
 			TransitionType = TT_Loading;
 			TransitionDescription = URL.Map;
@@ -9942,8 +9961,16 @@ bool UEngine::LoadMap( FWorldContext& WorldContext, FURL URL, class UPendingNetG
 			else
 			{
 				TransitionGameMode = TEXT("");
-			}			
-			LoadMapRedrawViewports();			
+			}
+			
+			// Display loading screen.		
+			// Check if a loading movie is playing.  If so it is not safe to redraw the viewport due to potential race conditions with font rendering
+			bool bIsLoadingMovieCurrentlyPlaying = FCoreDelegates::IsLoadingMovieCurrentlyPlaying.IsBound() ? FCoreDelegates::IsLoadingMovieCurrentlyPlaying.Execute() : false;
+			if(!bIsLoadingMovieCurrentlyPlaying)
+			{
+				LoadMapRedrawViewports();
+			}
+			
 			TransitionType = TT_None;
 		}
 
@@ -11783,15 +11810,18 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 		}
 	});
 
-	// Replace references to old classes and instances on this object with the corresponding new ones
-	UPackage* NewPackage = NewObject->GetOutermost();
-	FArchiveReplaceOrClearExternalReferences<UObject> ReplaceInCDOAr(NewObject, ReferenceReplacementMap, NewPackage);
-
-	// Replace references inside each individual component. This is always required because if something is in ReferenceReplacementMap, the above replace code will skip fixing child properties
-	for (int32 ComponentIndex = 0; ComponentIndex < ComponentsOnNewObject.Num(); ++ComponentIndex)
+	if(Params.bClearReferences)
 	{
-		UObject* NewComponent = ComponentsOnNewObject[ComponentIndex];
-		FArchiveReplaceOrClearExternalReferences<UObject> ReplaceInComponentAr(NewComponent, ReferenceReplacementMap, NewPackage);
+		UPackage* NewPackage = NewObject->GetOutermost();
+		// Replace references to old classes and instances on this object with the corresponding new ones
+		FArchiveReplaceOrClearExternalReferences<UObject> ReplaceInCDOAr(NewObject, ReferenceReplacementMap, NewPackage);
+
+		// Replace references inside each individual component. This is always required because if something is in ReferenceReplacementMap, the above replace code will skip fixing child properties
+		for (int32 ComponentIndex = 0; ComponentIndex < ComponentsOnNewObject.Num(); ++ComponentIndex)
+		{
+			UObject* NewComponent = ComponentsOnNewObject[ComponentIndex];
+			FArchiveReplaceOrClearExternalReferences<UObject> ReplaceInComponentAr(NewComponent, ReferenceReplacementMap, NewPackage);
+		}
 	}
 
 	// Restore the root component reference
@@ -11953,7 +11983,7 @@ FColor GetColorForLevelStatus(int32 Status)
 	switch (Status)
 	{
 	case LEVEL_Visible:
-		Color = FColor::Red;		// red  loaded and visible
+		Color = FColor::Green;		// green  loaded and visible
 		break;
 	case LEVEL_MakingVisible:
 		Color = FColorList::Orange;	// orange, in process of being made visible
@@ -11968,7 +11998,7 @@ FColor GetColorForLevelStatus(int32 Status)
 		Color = FColor::Blue;		// blue  (GC needs to occur to remove this)
 		break;
 	case LEVEL_Unloaded:
-		Color = FColor::Green;		// green
+		Color = FColor::Red;		// Red   unloaded
 		break;
 	case LEVEL_Preloading:
 		Color = FColor::Magenta;	// purple (preloading)

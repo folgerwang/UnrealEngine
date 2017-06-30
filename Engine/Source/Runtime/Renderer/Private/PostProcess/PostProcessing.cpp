@@ -7,6 +7,7 @@
 #include "PostProcess/PostProcessing.h"
 #include "EngineGlobals.h"
 #include "ScenePrivate.h"
+#include "RendererModule.h"
 #include "PostProcess/PostProcessInput.h"
 #include "PostProcess/PostProcessAA.h"
 #if WITH_EDITOR
@@ -50,6 +51,7 @@
 #include "PostProcess/PostProcessStreamingAccuracyLegend.h"
 #include "DeferredShadingRenderer.h"
 #include "PostProcess/PostProcessFFTBloom.h"
+#include "MobileSeparateTranslucencyPass.h"
 
 /** The global center for all post processing activities. */
 FPostProcessing GPostProcessing;
@@ -187,7 +189,7 @@ TAutoConsoleVariable<int32> CVarHalfResFFTBloom(
 	TEXT(" 1: Half-resolution convoltuion that excludes the center of the kernel.\n"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
-IMPLEMENT_SHADER_TYPE(,FPostProcessVS,TEXT("PostProcessBloom"),TEXT("MainPostprocessCommonVS"),SF_Vertex);
+IMPLEMENT_SHADER_TYPE(,FPostProcessVS,TEXT("/Engine/Private/PostProcessBloom.usf"),TEXT("MainPostprocessCommonVS"),SF_Vertex);
 
 static bool HasPostProcessMaterial(FPostprocessContext& Context, EBlendableLocation InLocation);
 
@@ -1377,7 +1379,10 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, const FViewI
 				bool bCircleDOF = View.FinalPostProcessSettings.DepthOfFieldMethod == DOFM_CircleDOF;
 				if(!bCircleDOF)
 				{
-					check(!FPostProcessing::HasAlphaChannelSupport());
+					if (FPostProcessing::HasAlphaChannelSupport())
+					{
+						UE_LOG(LogRenderer, Log, TEXT("Gaussian depth of field does not have alpha channel support. Only Circle DOF has."));
+					}
 					if(VelocityInput.IsValid())
 					{
 						bSepTransWasApplied = AddPostProcessDepthOfFieldGaussian(Context, DepthOfFieldStat, VelocityInput, SeparateTranslucency);
@@ -1417,7 +1422,10 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, const FViewI
 
 			if(bBokehDOF)
 			{
-				check(!FPostProcessing::HasAlphaChannelSupport());
+				if (FPostProcessing::HasAlphaChannelSupport())
+				{
+					UE_LOG(LogRenderer, Log, TEXT("Boked depth of field does not have alpha channel support. Only Circle DOF has."));
+				}
 				if(VelocityInput.IsValid())
 				{
 					AddPostProcessDepthOfFieldBokeh(Context, SeparateTranslucency, VelocityInput);
@@ -1436,7 +1444,7 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, const FViewI
 
 			if(SeparateTranslucency.IsValid() && !bSepTransWasApplied)
 			{
-				check(!FPostProcessing::HasAlphaChannelSupport());
+				checkf(!FPostProcessing::HasAlphaChannelSupport(), TEXT("Separate translucency was supposed to be disabled automatically."));
 				const bool bIsComputePass = CVarPostProcessingPreferCompute.GetValueOnRenderThread() && Context.View.FeatureLevel >= ERHIFeatureLevel::SM5;
 				// separate translucency is done here or in AddPostProcessDepthOfFieldBokeh()
 				FRenderingCompositePass* NodeRecombined = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessBokehDOFRecombine(bIsComputePass));
@@ -1936,7 +1944,7 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, const FViewI
 			{
 				Node = Context.Graph.RegisterPass(new FRCPassPostProcessHMD());
 			}
-			else if(DeviceType == EHMDDeviceType::DT_Morpheus)
+			else if(DeviceType == EHMDDeviceType::DT_Morpheus && GEngine->HMDDevice->IsStereoEnabled())
 			{
 				
 #if defined(MORPHEUS_ENGINE_DISTORTION) && MORPHEUS_ENGINE_DISTORTION
@@ -2428,6 +2436,14 @@ void FPostProcessing::ProcessES2(FRHICommandListImmediate& RHICmdList, const FVi
 						BloomOutput = PostProcessSunAvg;
 					}
 				}
+			} // bUsePost
+
+			// mobile separate translucency 
+			if (IsMobileSeparateTranslucencyActive(Context.View))
+			{
+				FRCSeparateTranslucensyPassES2* Pass = (FRCSeparateTranslucensyPassES2*)Context.Graph.RegisterPass(new(FMemStack::Get()) FRCSeparateTranslucensyPassES2());
+				Pass->SetInput(ePId_Input0, Context.FinalOutput);
+				Context.FinalOutput = FRenderingCompositeOutputRef(Pass);
 			}
 		}
 		
@@ -2496,6 +2512,12 @@ void FPostProcessing::ProcessES2(FRHICommandListImmediate& RHICmdList, const FVi
 			}
 		}
 
+		// Screenshot mask
+		{
+			FRenderingCompositeOutputRef EmptySeparateTranslucency;
+			AddHighResScreenshotMask(Context, EmptySeparateTranslucency);
+		}
+		
 		// Apply ScreenPercentage
 		if (View.UnscaledViewRect != View.ViewRect)
 		{

@@ -142,6 +142,7 @@ FAudioDevice::FAudioDevice()
 	, bAllowCenterChannel3DPanning(false)
 	, bHasActivatedReverb(false)
 	, bAllowVirtualizedSounds(true)
+	, bUseAttenuationForNonGameWorlds(false)
 #if !UE_BUILD_SHIPPING
 	, RequestedAudioStats(0)
 #endif
@@ -315,7 +316,7 @@ void FAudioDevice::PrecacheStartupSounds()
 
 void FAudioDevice::SetMaxChannels(int32 InMaxChannels)
 {
-	if (InMaxChannels >= Sources.Num())
+	if (InMaxChannels > Sources.Num())
 	{
 		UE_LOG(LogAudio, Warning, TEXT("Can't increase channels past starting number!"));
 		return;
@@ -2880,16 +2881,32 @@ int32 FAudioDevice::GetSortedActiveWaveInstances(TArray<FWaveInstance*>& WaveIns
 	return(FirstActiveIndex);
 }
 
-void FAudioDevice::UpdateActiveSoundPlaybackTime()
+void FAudioDevice::UpdateActiveSoundPlaybackTime(bool bIsGameTicking)
 {
-	for (int32 i = 0; i < ActiveSounds.Num(); ++i)
+	if (bIsGameTicking)
 	{
-		ActiveSounds[i]->PlaybackTime += DeviceDeltaTime;
+		for (FActiveSound* ActiveSound : ActiveSounds)
+		{
+			ActiveSound->PlaybackTime += DeviceDeltaTime;
+		}
 	}
+	else if (GIsEditor)
+	{
+		for (FActiveSound* ActiveSound : ActiveSounds)
+		{
+			if (ActiveSound->bIsPreviewSound)
+			{
+				ActiveSound->PlaybackTime += DeviceDeltaTime;
+			}
+		}
+	}
+
 }
 
 void FAudioDevice::StopSources(TArray<FWaveInstance*>& WaveInstances, int32 FirstActiveIndex)
 {
+	SCOPED_NAMED_EVENT(FAudioDevice_StopSources, FColor::Blue);
+
 	// Touch sources that are high enough priority to play
 	for (int32 InstanceIndex = FirstActiveIndex; InstanceIndex < WaveInstances.Num(); InstanceIndex++)
 	{
@@ -3075,6 +3092,7 @@ void FAudioDevice::StartSources(TArray<FWaveInstance*>& WaveInstances, int32 Fir
 
 void FAudioDevice::Update(bool bGameTicking)
 {
+	SCOPED_NAMED_EVENT(FAudioDevice_Update, FColor::Blue);
 	if (!IsInAudioThread())
 	{
 
@@ -3185,16 +3203,12 @@ void FAudioDevice::Update(bool bGameTicking)
 		StartSources(ActiveWaveInstances, FirstActiveIndex, bGameTicking);
 
 		// Check which sounds are active from these wave instances and update passive SoundMixes
-
 		UpdatePassiveSoundMixModifiers(ActiveWaveInstances, FirstActiveIndex);
 
 		// If not paused, update the playback time of the active sounds after we've processed passive mix modifiers 
 		// Note that for sounds which play while paused, this will result in longer active sound playback times, which will be ok. If we update the 
 		// active sound is updated while paused (for a long time), most sounds will be stopped when unpaused.
-		if (bGameTicking)
-		{
-			UpdateActiveSoundPlaybackTime();
-		}
+		UpdateActiveSoundPlaybackTime(bGameTicking);
 
 		const int32 Channels = GetMaxChannels();
 		INC_DWORD_STAT_BY(STAT_WaveInstances, ActiveWaveInstances.Num());
@@ -3618,8 +3632,7 @@ void FAudioDevice::GetMaxDistanceAndFocusFactor(USoundBase* Sound, const UWorld*
 	check(IsInGameThread());
 	check(Sound);
 
-	bool bIsInGameWorld = World ? World->IsGameWorld() : true;
-	bool bHasAttenuationSettings = (bIsInGameWorld && AttenuationSettingsToApply);
+	const bool bHasAttenuationSettings = ShouldUseAttenuation(World) && AttenuationSettingsToApply;
 
 	if (bHasAttenuationSettings)
 	{
@@ -3657,8 +3670,7 @@ bool FAudioDevice::SoundIsAudible(USoundBase* Sound, const UWorld* World, const 
 {
 	check(IsInGameThread());
 
-	const bool bIsInGameWorld = World ? World->IsGameWorld() : true;
-	const bool bHasAttenuationSettings = (bIsInGameWorld && AttenuationSettingsToApply);
+	const bool bHasAttenuationSettings = ShouldUseAttenuation(World) && AttenuationSettingsToApply;
 	float DistanceScale = 1.0f;
 	if (bHasAttenuationSettings)
 	{
@@ -4028,7 +4040,7 @@ void FAudioDevice::PlaySoundAtLocation(USoundBase* Sound, UWorld* World, float V
 		NewActiveSound.bIsUISound = !bIsInGameWorld;
 		NewActiveSound.SubtitlePriority = Sound->GetSubtitlePriority();
 
-		NewActiveSound.bHasAttenuationSettings = (bIsInGameWorld && AttenuationSettingsToApply);
+		NewActiveSound.bHasAttenuationSettings = (ShouldUseAttenuation(World) && AttenuationSettingsToApply);
 		if (NewActiveSound.bHasAttenuationSettings)
 		{
 			const FGlobalFocusSettings& FocusSettings = GetGlobalFocusSettings();
@@ -4275,6 +4287,8 @@ void FAudioDevice::Precache(USoundWave* SoundWave, bool bSynchronous, bool bTrac
 
 void FAudioDevice::StopSourcesUsingBuffer(FSoundBuffer* SoundBuffer)
 {
+	SCOPED_NAMED_EVENT(FAudioDevice_StopSourcesUsingBuffer, FColor::Blue);
+
 	check(IsInAudioThread());
 
 	if (SoundBuffer)
@@ -4643,3 +4657,13 @@ void FAudioDevice::DumpActiveSounds() const
 
 }
 #endif
+
+bool FAudioDevice::ShouldUseAttenuation(const UWorld* World) const
+{
+	// We use attenuation settings:
+	// - if we don't have a world, or
+	// - we have a game world, or
+	// - we are forcing the use of attenuation (e.g. for some editors)
+	const bool bIsInGameWorld = World ? World->IsGameWorld() : true;
+	return (bIsInGameWorld || bUseAttenuationForNonGameWorlds);
+}

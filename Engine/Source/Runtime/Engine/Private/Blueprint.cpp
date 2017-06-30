@@ -208,9 +208,65 @@ namespace
 #if WITH_EDITOR
 		if (const UBlueprint* const Blueprint = Cast<UBlueprint>(Object))
 		{
-			if (!FBlueprintEditorUtils::IsDataOnlyBlueprint(Blueprint))
+			// Force non-data-only blueprints to set the HasScript flag, as they may not currently have bytecode due to a compilation error
+			bool bForceHasScript = !FBlueprintEditorUtils::IsDataOnlyBlueprint(Blueprint);
+			if (!bForceHasScript)
 			{
-				// Force non-data-only blueprints to set the HasScript flag, as they may not currently have bytecode due to a compilation error
+				// Also do this for blueprints that derive from something containing text properties, as these may propagate default values from their parent class on load
+				if (UClass* BlueprintParentClass = Blueprint->ParentClass.Get())
+				{
+					TArray<UStruct*> TypesToCheck;
+					TypesToCheck.Add(BlueprintParentClass);
+
+					TSet<UStruct*> TypesChecked;
+					while (!bForceHasScript && TypesToCheck.Num() > 0)
+					{
+						UStruct* TypeToCheck = TypesToCheck.Pop(/*bAllowShrinking*/false);
+						TypesChecked.Add(TypeToCheck);
+
+						for (TFieldIterator<const UProperty> PropIt(TypeToCheck, EFieldIteratorFlags::IncludeSuper, EFieldIteratorFlags::ExcludeDeprecated, EFieldIteratorFlags::IncludeInterfaces); !bForceHasScript && PropIt; ++PropIt)
+						{
+							auto ProcessInnerProperty = [&bForceHasScript, &TypesToCheck, &TypesChecked](const UProperty* InProp) -> bool
+							{
+								if (const UTextProperty* TextProp = Cast<const UTextProperty>(InProp))
+								{
+									bForceHasScript = true;
+									return true;
+								}
+								if (const UStructProperty* StructProp = Cast<const UStructProperty>(InProp))
+								{
+									if (!TypesChecked.Contains(StructProp->Struct))
+									{
+										TypesToCheck.Add(StructProp->Struct);
+									}
+									return true;
+								}
+								return false;
+							};
+
+							if (!ProcessInnerProperty(*PropIt))
+							{
+								if (const UArrayProperty* ArrayProp = Cast<const UArrayProperty>(*PropIt))
+								{
+									ProcessInnerProperty(ArrayProp->Inner);
+								}
+								if (const UMapProperty* MapProp = Cast<const UMapProperty>(*PropIt))
+								{
+									ProcessInnerProperty(MapProp->KeyProp);
+									ProcessInnerProperty(MapProp->ValueProp);
+								}
+								if (const USetProperty* SetProp = Cast<const USetProperty>(*PropIt))
+								{
+									ProcessInnerProperty(SetProp->ElementProp);
+								}
+							}
+						}
+					}
+				}
+			}
+
+			if (bForceHasScript)
+			{
 				BlueprintGatherFlags |= EPropertyLocalizationGathererTextFlags::ForceHasScript;
 			}
 		}
@@ -573,6 +629,12 @@ UClass* UBlueprint::RegenerateClass(UClass* ClassToRegenerate, UObject* Previous
 		UPackage* Package = Cast<UPackage>(GetOutermost());
 		bool bIsPackageDirty = Package ? Package->IsDirty() : false;
 
+		if( Package )
+		{
+			// Tell the linker to try to find exports in memory first, so that it gets the new, regenerated versions
+			Package->FindExportsInMemoryFirst(true);
+		}
+
 		UClass* GeneratedClassResolved = GeneratedClass;
 
 		UBlueprint::ForceLoadMetaData(this);
@@ -597,6 +659,8 @@ UClass* UBlueprint::RegenerateClass(UClass* ClassToRegenerate, UObject* Previous
 
 		FBlueprintCompilationManager::NotifyBlueprintLoaded( this ); 
 		
+		FBlueprintEditorUtils::PreloadBlueprintSpecificData( this );
+
 		// clear this now that we're not in a re-entrrant context - bHasBeenRegenerated will guard against 'real' 
 		// double regeneration calls:
 		bIsRegeneratingOnLoad = false;

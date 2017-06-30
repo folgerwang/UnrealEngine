@@ -47,21 +47,6 @@ static TAutoConsoleVariable<int32> CVarAutomationScreenshotResolutionHeight(
 	ECVF_Default);
 
 
-void FinishLoadingBeforeScreenshot()
-{
-	// Finish compiling the shaders if the platform doesn't require cooked data.
-	if (!FPlatformProperties::RequiresCookedData())
-	{
-		GShaderCompilingManager->FinishAllCompilation();
-	}
-
-	// Force all mip maps to load before taking the screenshot.
-	UTexture::ForceUpdateTextureStreaming();
-
-	IStreamingManager::Get().StreamAllResources(0.0f);
-}
-
-
 #if (WITH_DEV_AUTOMATION_TESTS || WITH_PERF_AUTOMATION_TESTS)
 
 class FConsoleVariableSwapper
@@ -277,9 +262,23 @@ UAutomationBlueprintFunctionLibrary::UAutomationBlueprintFunctionLibrary(const c
 {
 }
 
+void UAutomationBlueprintFunctionLibrary::FinishLoadingBeforeScreenshot()
+{
+	// Finish compiling the shaders if the platform doesn't require cooked data.
+	if (!FPlatformProperties::RequiresCookedData())
+	{
+		GShaderCompilingManager->FinishAllCompilation();
+	}
+
+	// Force all mip maps to load before taking the screenshot.
+	UTexture::ForceUpdateTextureStreaming();
+
+	IStreamingManager::Get().StreamAllResources(0.0f);
+}
+
 bool UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshotInternal(UObject* WorldContextObject, const FString& Name, FAutomationScreenshotOptions Options)
 {
-	FinishLoadingBeforeScreenshot();
+	UAutomationBlueprintFunctionLibrary::FinishLoadingBeforeScreenshot();
 
 	// Fallback resolution if all else fails for screenshots.
 	uint32 ResolutionX = 1280;
@@ -356,7 +355,7 @@ void UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshot(UObject* Worl
 {
 	if ( GIsAutomationTesting )
 	{
-		if ( UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject) )
+		if ( UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull) )
 		{
 			FLatentActionManager& LatentActionManager = World->GetLatentActionManager();
 			if ( LatentActionManager.FindExistingAction<FTakeScreenshotAfterTimeLatentAction>(LatentInfo.CallbackTarget, LatentInfo.UUID) == nullptr )
@@ -397,7 +396,7 @@ void UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshotAtCamera(UObje
 		ScreenshotName = NameOverride;
 	}
 
-	if ( UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject) )
+	if ( UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull) )
 	{
 		ScreenshotName = FString::Printf(TEXT("%s_%s"), *World->GetName(), *ScreenshotName);
 
@@ -409,25 +408,26 @@ void UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshotAtCamera(UObje
 	}
 }
 
-void UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshotOfUI(UObject* WorldContextObject, FLatentActionInfo LatentInfo, const FString& Name, const FAutomationScreenshotOptions& Options)
+bool UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshotOfUI_Immediate(UObject* WorldContextObject, const FString& Name, const FAutomationScreenshotOptions& Options)
 {
-	FinishLoadingBeforeScreenshot();
+	UAutomationBlueprintFunctionLibrary::FinishLoadingBeforeScreenshot();
 
-	if ( UWorld* World = WorldContextObject->GetWorld() )
+	if (UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull))
 	{
-		if ( UGameViewportClient* GameViewport = WorldContextObject->GetWorld()->GetGameViewport() )
+		if (UGameViewportClient* GameViewport = WorldContextObject->GetWorld()->GetGameViewport())
 		{
 			TSharedPtr<SViewport> Viewport = GameViewport->GetGameViewportWidget();
-			if ( Viewport.IsValid() )
+			if (Viewport.IsValid())
 			{
 				TArray<FColor> OutColorData;
 				FIntVector OutSize;
-				if ( FSlateApplication::Get().TakeScreenshot(Viewport.ToSharedRef(), OutColorData, OutSize) )
+				if (FSlateApplication::Get().TakeScreenshot(Viewport.ToSharedRef(), OutColorData, OutSize))
 				{
 #if (WITH_DEV_AUTOMATION_TESTS || WITH_PERF_AUTOMATION_TESTS)
-					FAutomationScreenshotTaker* TempObject = new FAutomationScreenshotTaker(GEngine->GetWorldFromContextObject(WorldContextObject), Name, Options);
+					// The screenshot taker deletes itself later.
+					FAutomationScreenshotTaker* TempObject = new FAutomationScreenshotTaker(World, Name, Options);
 
-					FAutomationScreenshotData Data = AutomationCommon::BuildScreenshotData(GWorld->GetName(), Name, OutSize.X, OutSize.Y);
+					FAutomationScreenshotData Data = AutomationCommon::BuildScreenshotData(World->GetName(), Name, OutSize.X, OutSize.Y);
 
 					// Copy the relevant data into the metadata for the screenshot.
 					Data.bHasComparisonRules = true;
@@ -444,14 +444,24 @@ void UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshotOfUI(UObject* 
 
 					GEngine->GameViewport->OnScreenshotCaptured().Broadcast(OutSize.X, OutSize.Y, OutColorData);
 #endif
-				} //-V773
 
-				FLatentActionManager& LatentActionManager = World->GetLatentActionManager();
-				if ( LatentActionManager.FindExistingAction<FTakeScreenshotAfterTimeLatentAction>(LatentInfo.CallbackTarget, LatentInfo.UUID) == nullptr )
-				{
-					LatentActionManager.AddNewAction(LatentInfo.CallbackTarget, LatentInfo.UUID, new FWaitForScreenshotComparisonLatentAction(LatentInfo));
+					return true; //-V773
 				}
 			}
+		}
+	}
+
+	return false;
+}
+
+void UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshotOfUI(UObject* WorldContextObject, FLatentActionInfo LatentInfo, const FString& Name, const FAutomationScreenshotOptions& Options)
+{
+	if (TakeAutomationScreenshotOfUI_Immediate(WorldContextObject, Name, Options))
+	{
+		FLatentActionManager& LatentActionManager = WorldContextObject->GetWorld()->GetLatentActionManager();
+		if ( LatentActionManager.FindExistingAction<FTakeScreenshotAfterTimeLatentAction>(LatentInfo.CallbackTarget, LatentInfo.UUID) == nullptr )
+		{
+			LatentActionManager.AddNewAction(LatentInfo.CallbackTarget, LatentInfo.UUID, new FWaitForScreenshotComparisonLatentAction(LatentInfo));
 		}
 	}
 }

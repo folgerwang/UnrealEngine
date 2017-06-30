@@ -522,6 +522,8 @@ static TAutoConsoleVariable<float> CVarStallInitViews(
 
 void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 {
+	SCOPED_NAMED_EVENT(FDeferredShadingSceneRenderer_Render, FColor::Emerald);
+
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 	
 	//make sure all the targets we're going to use will be safely writable.
@@ -630,6 +632,16 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		&& FeatureLevel >= ERHIFeatureLevel::SM4
 		&& ViewFamily.EngineShowFlags.DeferredLighting
 		&& bUseGBuffer;
+
+	bool bComputeLightGrid = false;
+	if (bUseGBuffer)
+	{
+		bComputeLightGrid = bRenderDeferredLighting || ShouldRenderVolumetricFog();
+	}
+	else
+	{
+		bComputeLightGrid = ViewFamily.EngineShowFlags.Lighting || ShouldRenderVolumetricFog();
+	}
 
 	if (ClearMethodCVar)
 	{
@@ -807,7 +819,10 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		RenderCustomDepthPassAtLocation(RHICmdList, 0);
 	}
 
-	ComputeLightGrid(RHICmdList);
+	if (bComputeLightGrid)
+	{
+		ComputeLightGrid(RHICmdList);
+	}
 
 	if (bOcclusionBeforeBasePass)
 	{
@@ -1362,7 +1377,7 @@ public:
 	FShaderParameter UseMaxDepth;
 };
 
-IMPLEMENT_SHADER_TYPE(,FDownsampleSceneDepthPS,TEXT("DownsampleDepthPixelShader"),TEXT("Main"),SF_Pixel);
+IMPLEMENT_SHADER_TYPE(,FDownsampleSceneDepthPS,TEXT("/Engine/Private/DownsampleDepthPixelShader.usf"),TEXT("Main"),SF_Pixel);
 
 /** Updates the downsized depth buffer with the current full resolution depth buffer. */
 void FDeferredShadingSceneRenderer::UpdateDownsampledDepthSurface(FRHICommandList& RHICmdList)
@@ -1473,7 +1488,7 @@ public:
 	FShaderResourceParameter SceneStencilTexture;
 };
 
-IMPLEMENT_SHADER_TYPE(,FCopyStencilToLightingChannelsPS,TEXT("DownsampleDepthPixelShader"),TEXT("CopyStencilToLightingChannelsPS"),SF_Pixel);
+IMPLEMENT_SHADER_TYPE(,FCopyStencilToLightingChannelsPS,TEXT("/Engine/Private/DownsampleDepthPixelShader.usf"),TEXT("CopyStencilToLightingChannelsPS"),SF_Pixel);
 
 void FDeferredShadingSceneRenderer::CopyStencilToLightingChannelTexture(FRHICommandList& RHICmdList)
 {

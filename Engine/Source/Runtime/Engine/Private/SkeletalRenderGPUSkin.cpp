@@ -35,15 +35,23 @@ static TAutoConsoleVariable<int32> CVarMotionBlurDebug(
 	TEXT(" 1: on"),
 	ECVF_Cheat | ECVF_RenderThreadSafe);
 
-static int32 GUseGPUMorphTargets = 0;
+static int32 GUseGPUMorphTargets = 1;
 static FAutoConsoleVariableRef CVarUseGPUMorphTargets(
 	TEXT("r.MorphTarget.Mode"),
 	GUseGPUMorphTargets,
 	TEXT("Use GPU for computing morph targets.\n")
-	TEXT(" 0: Use original CPU method (loop per morph then by vertex) (default)\n")
-	TEXT(" 1: Enable GPU method\n"),
+	TEXT(" 0: Use original CPU method (loop per morph then by vertex)\n")
+	TEXT(" 1: Enable GPU method (default)\n"),
 	ECVF_Default
 	);
+
+static float GMorphTargetWeightThreshold = SMALL_NUMBER;
+static FAutoConsoleVariableRef CVarMorphTargetWeightThreshold(
+	TEXT("r.MorphTarget.WeightThreshold"),
+	GMorphTargetWeightThreshold,
+	*FString::Printf(TEXT("Set MorphTarget Weight Threshold (Default : %f).\n"), SMALL_NUMBER), 
+	ECVF_Default
+);
 
 /*-----------------------------------------------------------------------------
 FMorphVertexBuffer
@@ -516,7 +524,7 @@ void FGPUMorphUpdateCS::EndAllDispatches(FRHICommandList& RHICmdList)
 	SetUAVParameter(RHICmdList, CS, MorphVertexBufferParameter, nullptr);
 }
 
-IMPLEMENT_SHADER_TYPE(, FGPUMorphUpdateCS, TEXT("MorphTargets"), TEXT("GPUMorphUpdateCS"), SF_Compute);
+IMPLEMENT_SHADER_TYPE(, FGPUMorphUpdateCS, TEXT("/Engine/Private/MorphTargets.usf"), TEXT("GPUMorphUpdateCS"), SF_Compute);
 
 void FGPUMorphNormalizeCS::SetParameters(FRHICommandList& RHICmdList, uint32 NumVerticies, const FVector4& InvLocalScale, const float AccumulatedWeight, FMorphVertexBuffer& MorphVertexBuffer)
 {
@@ -538,7 +546,7 @@ void FGPUMorphNormalizeCS::Dispatch(FRHICommandList& RHICmdList, uint32 NumVerti
 	SetUAVParameter(RHICmdList, CS, MorphVertexBufferParameter, nullptr);
 }
 
-IMPLEMENT_SHADER_TYPE(, FGPUMorphNormalizeCS, TEXT("MorphTargets"), TEXT("GPUMorphNormalizeCS"), SF_Compute);
+IMPLEMENT_SHADER_TYPE(, FGPUMorphNormalizeCS, TEXT("/Engine/Private/MorphTargets.usf"), TEXT("GPUMorphNormalizeCS"), SF_Compute);
 
 static const float MorphTargetWeightCutoffThreshold = 0.00000001f;
 
@@ -587,7 +595,18 @@ static void CalculateMorphDeltaBounds(const TArray<float>& MorphTargetWeights, c
 		(double)((uint64)(MaxScale[3] + 1.0)) / ScaleToInt24
 	);
 
-	InvTotalAccumulatedWeight = (float)(1.0 / TotalAccumulatedWeight);
+	// if accumulated weight is >1.f
+	// previous code was applying the weight again in GPU if less than 1, but it doesn't make sense to do so
+	// so instead, we just divide by AccumulatedWeight if it's more than 1.
+	// now DeltaTangentZ isn't FPackedNormal, so you can apply any value to it. 
+	if (TotalAccumulatedWeight > 1.0f)
+	{
+		InvTotalAccumulatedWeight = (float)(1.0f / TotalAccumulatedWeight);
+	}
+	else
+	{
+		InvTotalAccumulatedWeight = 1.0f;
+	}
 }
 
 void FSkeletalMeshObjectGPUSkin::FSkeletalMeshObjectLOD::UpdateMorphVertexBufferGPU(FRHICommandListImmediate& RHICmdList, const TArray<float>& MorphTargetWeights, const FMorphTargetVertexInfoBuffers& MorphTargetVertexInfoBuffers)
@@ -1330,6 +1349,7 @@ void FDynamicSkelMeshObjectDataGPUSkin::Clear()
 #endif
 	LODIndex = 0;
 	ActiveMorphTargets.Reset();
+	MorphTargetWeights.Reset();
 	NumWeightedActiveMorphTargets = 0;
 	ClothingSimData.Reset();
 	ClothBlendWeight = 0.0f;
@@ -1405,15 +1425,13 @@ bool FDynamicSkelMeshObjectDataGPUSkin::ActiveMorphTargetsEqual( const TArray<FA
 	bool Result=true;
 	if( CompareActiveMorphTargets.Num() == ActiveMorphTargets.Num() )
 	{
-		const float WeightThreshold = 0.001f;
-		const float TimeThreshold = 0.001f;
 		for( int32 MorphIdx=0; MorphIdx < ActiveMorphTargets.Num(); MorphIdx++ )
 		{
 			const FActiveMorphTarget& Morph = ActiveMorphTargets[MorphIdx];
 			const FActiveMorphTarget& CompMorph = CompareActiveMorphTargets[MorphIdx];
 
 			if( Morph.MorphTarget != CompMorph.MorphTarget ||
-				FMath::Abs(MorphTargetWeights[Morph.WeightIndex] - CompareMorphTargetWeights[CompMorph.WeightIndex]) >= WeightThreshold)
+				FMath::Abs(MorphTargetWeights[Morph.WeightIndex] - CompareMorphTargetWeights[CompMorph.WeightIndex]) >= GMorphTargetWeightThreshold)
 			{
 				Result=false;
 				break;
