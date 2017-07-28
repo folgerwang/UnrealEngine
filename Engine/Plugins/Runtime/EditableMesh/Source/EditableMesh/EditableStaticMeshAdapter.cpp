@@ -1496,6 +1496,12 @@ void UEditableStaticMeshAdapter::OnDeleteEdges( const UEditableMesh* EditableMes
 }
 
 
+void UEditableStaticMeshAdapter::OnSetEdgesVertices( const UEditableMesh* EditableMesh, const TArray<FEdgeID>& EdgeIDs )
+{
+	// Nothing to do here
+}
+
+
 void UEditableStaticMeshAdapter::OnDeletePolygons( const UEditableMesh* EditableMesh, const TArray<FPolygonID>& PolygonIDs )
 {
 	for( const FPolygonID PolygonID : PolygonIDs )

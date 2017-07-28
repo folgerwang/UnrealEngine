@@ -14,10 +14,22 @@ class MESHEDITOR_API UMeshEditorAssetContainer : public UDataAsset
  
 public:
 	UPROPERTY(EditAnywhere, Category = Material)
-	class UMaterial* HoveredGeometryMaterial;
+	class UMaterialInterface* HoveredGeometryMaterial;
 
 	UPROPERTY(EditAnywhere, Category = Material)
-	class UMaterial* HoveredFaceMaterial;
+	class UMaterialInterface* HoveredFaceMaterial;
+
+	UPROPERTY(EditAnywhere, Category = Material)
+	class UMaterialInterface* WireMaterial;
+
+	UPROPERTY(EditAnywhere, Category = Material)
+	class UMaterialInterface* SubdividedMeshWireMaterial;
+
+	UPROPERTY(EditAnywhere, Category = Material)
+	class UMaterialInterface* OverlayLineMaterial;
+
+	UPROPERTY(EditAnywhere, Category = Material)
+	class UMaterialInterface* OverlayPointMaterial;
 
 	UPROPERTY(EditAnywhere, Category = Sound)
 	class USoundBase* DefaultSound;

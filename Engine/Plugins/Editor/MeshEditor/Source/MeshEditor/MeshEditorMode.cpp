@@ -37,7 +37,9 @@
 #include "SlateApplication.h"	// For GetCurrentTime()
 #include "Materials/Material.h"
 #include "Materials/MaterialInterface.h"
-
+#include "MeshEditorStaticMeshAdapter.h"
+#include "MeshEditorSubdividedStaticMeshAdapter.h"
+#include "WireframeMeshComponent.h"
 #include "Misc/FeedbackContext.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Materials/Material.h"
@@ -393,6 +395,7 @@ FMeshEditorMode::FMeshEditorInteractorData::FMeshEditorInteractorData()
 FMeshEditorMode::FMeshEditorMode()
 	: HoveredGeometryMaterial( nullptr ),
 	  HoveredFaceMaterial( nullptr ),
+	  WireMaterial( nullptr ),
 	  HoverFeedbackTimeValue( 0.0 ),
 	  MeshElementSelectionMode( EEditableMeshElementType::Any ),
 	  EquippedVertexAction( EMeshEditAction::Move ),
@@ -410,10 +413,11 @@ FMeshEditorMode::FMeshEditorMode()
 	  bShowVertexNormals( false ),
 	  bMarqueeSelectTransactionActive( false ),
 	  bShouldFocusToSelection( false ),
+	  bShouldUpdateSelectedElementsOverlay( false ),
 	  bPerInstanceEdits( false ),
 	  AssetContainer( nullptr )
 {
-	AssetContainer = LoadObject<UMeshEditorAssetContainer>(nullptr, TEXT("/MeshEditor/MeshEditorAssetContainer"));
+	AssetContainer = LoadObject<UMeshEditorAssetContainer>( nullptr, TEXT( "/MeshEditor/MeshEditorAssetContainer" ) );
 	check(AssetContainer != nullptr);
 
 	HoveredGeometryMaterial = AssetContainer->HoveredGeometryMaterial;
@@ -421,6 +425,18 @@ FMeshEditorMode::FMeshEditorMode()
 
 	HoveredFaceMaterial = AssetContainer->HoveredFaceMaterial;
 	check( HoveredFaceMaterial != nullptr );
+
+	WireMaterial = AssetContainer->WireMaterial;
+	check( WireMaterial != nullptr );
+
+	OverlayLineMaterial = AssetContainer->OverlayLineMaterial;
+	check( OverlayLineMaterial != nullptr );
+
+	OverlayPointMaterial = AssetContainer->OverlayPointMaterial;
+	check( OverlayPointMaterial != nullptr );
+
+	SubdividedMeshWireMaterial = AssetContainer->SubdividedMeshWireMaterial;
+	check( SubdividedMeshWireMaterial != nullptr );
 
 	MeshEditorModeProxyObject = NewObject<UMeshEditorModeProxyObject>();
 	MeshEditorModeProxyObject->OwningMeshEditorMode = this;
@@ -441,6 +457,14 @@ FMeshEditorMode::FMeshEditorMode()
 	LevelEditor.OnActorSelectionChanged().AddRaw( this, &FMeshEditorMode::OnActorSelectionChanged );
 
 	FEditorDelegates::EndPIE.AddRaw( this, &FMeshEditorMode::OnEndPIE );
+}
+
+
+void FMeshEditorMode::Initialize()
+{
+	FActorSpawnParameters ActorSpawnParameters;
+	ActorSpawnParameters.ObjectFlags |= RF_Transient;
+	WireframeComponentContainer = GetWorld()->SpawnActor<AActor>( ActorSpawnParameters );
 }
 
 
@@ -465,8 +489,11 @@ FMeshEditorMode::~FMeshEditorMode()
 	// Remove the event registered on all cached editable meshes
 	for( auto& CachedEditableMesh : CachedEditableMeshes )
 	{
-		CachedEditableMesh.Value->OnElementIDsRemapped().RemoveAll( this );
+		CachedEditableMesh.Value.EditableMesh->OnElementIDsRemapped().RemoveAll( this );
 	}
+
+	WireframeComponentContainer->Destroy();
+	WireframeComponentContainer = nullptr;
 
 	MeshEditorModeProxyObject = nullptr;
 	AssetContainer = nullptr;
@@ -496,22 +523,25 @@ void FMeshEditorMode::OnEditableMeshElementIDsRemapped( UEditableMesh* EditableM
 	// Helper function which performs the remapping of a given FMeshElement
 	auto RemapMeshElement = [ this, EditableMesh, &Remappings ]( FMeshElement& MeshElement )
 	{
-		UEditableMesh* MeshElementEditableMesh = this->FindOrCreateEditableMesh( *MeshElement.Component, MeshElement.ElementAddress.SubMeshAddress );
-		if( MeshElementEditableMesh == EditableMesh )
+		if( MeshElement.Component.IsValid() )
 		{
-			switch( MeshElement.ElementAddress.ElementType )
+			UEditableMesh* MeshElementEditableMesh = this->FindOrCreateEditableMesh( *MeshElement.Component, MeshElement.ElementAddress.SubMeshAddress );
+			if( MeshElementEditableMesh == EditableMesh )
 			{
-			case EEditableMeshElementType::Vertex:
-				MeshElement.ElementAddress.ElementID = Remappings.GetRemappedVertexID( FVertexID( MeshElement.ElementAddress.ElementID ) );
-				break;
+				switch( MeshElement.ElementAddress.ElementType )
+				{
+				case EEditableMeshElementType::Vertex:
+					MeshElement.ElementAddress.ElementID = Remappings.GetRemappedVertexID( FVertexID( MeshElement.ElementAddress.ElementID ) );
+					break;
 
-			case EEditableMeshElementType::Edge:
-				MeshElement.ElementAddress.ElementID = Remappings.GetRemappedEdgeID( FEdgeID( MeshElement.ElementAddress.ElementID ) );
-				break;
+				case EEditableMeshElementType::Edge:
+					MeshElement.ElementAddress.ElementID = Remappings.GetRemappedEdgeID( FEdgeID( MeshElement.ElementAddress.ElementID ) );
+					break;
 
-			case EEditableMeshElementType::Polygon:
-				MeshElement.ElementAddress.ElementID = Remappings.GetRemappedPolygonID( FPolygonID( MeshElement.ElementAddress.ElementID ) );
-				break;
+				case EEditableMeshElementType::Polygon:
+					MeshElement.ElementAddress.ElementID = Remappings.GetRemappedPolygonID( FPolygonID( MeshElement.ElementAddress.ElementID ) );
+					break;
+				}
 			}
 		}
 	};
@@ -801,6 +831,34 @@ void FMeshEditorMode::Enter()
 	// Call parent implementation
 	FEdMode::Enter();
 
+	// Add overlay component for rendering hovered elements
+	HoveredElementsComponent= NewObject<UOverlayComponent>( WireframeComponentContainer );
+	HoveredElementsComponent->SetLineMaterial( OverlayLineMaterial );
+	HoveredElementsComponent->SetPointMaterial( OverlayPointMaterial );
+	HoveredElementsComponent->TranslucencySortPriority = 400;
+	HoveredElementsComponent->RegisterComponent();
+
+	// Add overlay component for rendering selected elements
+	SelectedElementsComponent = NewObject<UOverlayComponent>( WireframeComponentContainer );
+	SelectedElementsComponent->SetLineMaterial( OverlayLineMaterial );
+	SelectedElementsComponent->SetPointMaterial( OverlayPointMaterial );
+	SelectedElementsComponent->TranslucencySortPriority = 500;
+	SelectedElementsComponent->RegisterComponent();
+
+	// Add overlay component for rendering selected wires on the SubD mesh
+	SelectedSubDElementsComponent = NewObject<UOverlayComponent>( WireframeComponentContainer );
+	SelectedSubDElementsComponent->SetLineMaterial( OverlayLineMaterial );
+	SelectedSubDElementsComponent->SetPointMaterial( OverlayPointMaterial );
+	SelectedSubDElementsComponent->TranslucencySortPriority = 200;
+	SelectedSubDElementsComponent->RegisterComponent();
+
+	// Add overlay component for rendering debug normals/tangents on the base cage
+	DebugNormalsComponent = NewObject<UOverlayComponent>( WireframeComponentContainer );
+	DebugNormalsComponent->SetLineMaterial( OverlayLineMaterial );
+	DebugNormalsComponent->SetPointMaterial( OverlayPointMaterial );
+	DebugNormalsComponent->TranslucencySortPriority = 600;
+	DebugNormalsComponent->RegisterComponent();
+
 	UEditorWorldExtensionCollection* ExtensionCollection = GEditor->GetEditorWorldExtensionsManager()->GetEditorWorldExtensions( GetWorld() );
 	check( ExtensionCollection != nullptr );
 
@@ -895,6 +953,11 @@ void FMeshEditorMode::Exit()
 		GEditor->NoteSelectionChange();
 	}
 
+	// Remove overlay components
+	SelectedSubDElementsComponent->DestroyComponent();
+	SelectedElementsComponent->DestroyComponent();
+	HoveredElementsComponent->DestroyComponent();
+
 	// Call parent implementation
 	FEdMode::Exit();
 }
@@ -904,11 +967,11 @@ const UEditableMesh* FMeshEditorMode::FindEditableMesh( UPrimitiveComponent& Com
 {
 	const UEditableMesh* EditableMesh = nullptr;
 
-	// Grab the existing editable mesh from our cache if we have one, otherwise create one now
-	UEditableMesh* const* EditableMeshPtr = CachedEditableMeshes.Find( SubMeshAddress );
-	if( EditableMeshPtr != nullptr )
+	// Grab the existing editable mesh from our cache if we have one
+	const FEditableAndWireframeMeshes* EditableAndWireframeMeshes = CachedEditableMeshes.Find( SubMeshAddress );
+	if( EditableAndWireframeMeshes )
 	{
-		EditableMesh = *EditableMeshPtr;
+		EditableMesh = EditableAndWireframeMeshes->EditableMesh;
 	}
 
 	return EditableMesh;
@@ -920,10 +983,10 @@ UEditableMesh* FMeshEditorMode::FindOrCreateEditableMesh( UPrimitiveComponent& C
 	UEditableMesh* EditableMesh = nullptr;
 
 	// Grab the existing editable mesh from our cache if we have one, otherwise create one now
-	UEditableMesh** EditableMeshPtr = CachedEditableMeshes.Find( SubMeshAddress );
-	if( EditableMeshPtr != nullptr )
+	const FEditableAndWireframeMeshes* EditableAndWireframeMeshesPtr = CachedEditableMeshes.Find( SubMeshAddress );
+	if( EditableAndWireframeMeshesPtr )
 	{
-		EditableMesh = *EditableMeshPtr;
+		EditableMesh = EditableAndWireframeMeshesPtr->EditableMesh;
 	}
 	else
 	{
@@ -931,7 +994,6 @@ UEditableMesh* FMeshEditorMode::FindOrCreateEditableMesh( UPrimitiveComponent& C
 		{
 			// @todo mesheditor perf: This is going to HITCH as you hover over meshes.  Ideally we do this on a thread, or worst case give the user a progress dialog.  Maybe save out the editable mesh in editor builds?
 			EditableMesh = UEditableMeshFactory::MakeEditableMesh( &Component, SubMeshAddress );
-			CachedEditableMeshes.Add( SubMeshAddress, EditableMesh );
 
 			if( GetDefault<UMeshEditorSettings>()->bAutoQuadrangulate )
 			{
@@ -952,8 +1014,39 @@ UEditableMesh* FMeshEditorMode::FindOrCreateEditableMesh( UPrimitiveComponent& C
 			// Enable compaction on this mesh and set a callback so any cached ElementIDs can be remapped
 			EditableMesh->SetAllowCompact( true );
 			EditableMesh->OnElementIDsRemapped().AddRaw( this, &FMeshEditorMode::OnEditableMeshElementIDsRemapped );
+
+			// Create a wireframe mesh for the base cage
+			UWireframeMesh* WireframeBaseCage = NewObject<UWireframeMesh>();
+
+			UMeshEditorStaticMeshAdapter* WireframeAdapter = NewObject<UMeshEditorStaticMeshAdapter>();
+			EditableMesh->Adapters.Add( WireframeAdapter );
+			WireframeAdapter->Initialize( EditableMesh, WireframeBaseCage );
+
+			// Create a wireframe mesh for the subdivided mesh
+			UWireframeMesh* WireframeSubdividedMesh = NewObject<UWireframeMesh>();
+
+			UMeshEditorSubdividedStaticMeshAdapter* WireframeSubdividedAdapter = NewObject<UMeshEditorSubdividedStaticMeshAdapter>();
+			EditableMesh->Adapters.Add( WireframeSubdividedAdapter );
+			WireframeSubdividedAdapter->Initialize( EditableMesh, WireframeSubdividedMesh );
+
+			// Rebuild mesh so that the wireframe meshes get their render data built through the adapters
+			EditableMesh->RebuildRenderMesh();
+
+			// Cache the editable mesh and the associated wireframe meshes
+			FEditableAndWireframeMeshes EditableAndWireframeMeshes;
+			EditableAndWireframeMeshes.EditableMesh = EditableMesh;
+			EditableAndWireframeMeshes.WireframeBaseCage = WireframeBaseCage;
+			EditableAndWireframeMeshes.WireframeSubdividedMesh = WireframeSubdividedMesh;
+
+			CachedEditableMeshes.Add( SubMeshAddress, EditableAndWireframeMeshes );
 		}
 	}
+
+	// Create a wireframe component if necessary
+	const FWireframeMeshComponents& WireframeMeshComponents = CreateWireframeMeshComponents( &Component );
+	const FTransform Transform = Component.GetComponentTransform();
+	WireframeMeshComponents.WireframeMeshComponent->SetWorldTransform( Transform );
+	WireframeMeshComponents.WireframeSubdividedMeshComponent->SetWorldTransform( Transform );
 
 	return EditableMesh;
 }
@@ -1074,6 +1167,7 @@ void FMeshEditorMode::Tick( FEditorViewportClient* ViewportClient, float DeltaTi
 	{
 		const bool bIsActionFinishing = false;
 		UpdateActiveAction( bIsActionFinishing );
+
 	}
 
 
@@ -1097,6 +1191,225 @@ void FMeshEditorMode::Tick( FEditorViewportClient* ViewportClient, float DeltaTi
 				  ( EquippedVertexAction == EMeshEditAction::Move && SelectedMeshElementType == EEditableMeshElementType::Vertex ) ||
 				  ( EquippedEdgeAction == EMeshEditAction::Move && SelectedMeshElementType == EEditableMeshElementType::Edge ) ) ) 
 			);
+	}
+
+	// Update hovered/selected elements.
+	// @todo mesheditor: Ideally selected elements would be persistent and just updated when selection changes, or when geometry changes.
+	// There's currently not a simple way of doing the latter as there's no common path in the mesh editor for when mesh edits are performed.
+	// Potentially this could be done with another adapter, although it's a per-component thing rather than a per-editable mesh thing.
+
+	HoveredElementsComponent->Clear();
+//	SelectedElementsComponent->Clear();
+
+	const double CurrentRealTime = FSlateApplication::Get().GetCurrentTime();
+
+	// Only draw hover if we're not in the middle of an interactive edit
+	if( ActiveAction == NAME_None )
+	{
+		const float HoveredSizeBias = MeshEd::HoveredSizeBias->GetFloat() + MeshEd::HoveredAnimationExtraSizeBias->GetFloat() * FMath::MakePulsatingValue( HoverFeedbackTimeValue, 0.5f );
+
+		// Update hovered meshes
+		for( FMeshEditorInteractorData& MeshEditorInteractorData : MeshEditorInteractorDatas )
+		{
+			if( MeshElementSelectionMode == EEditableMeshElementType::Any ||
+				MeshEditorInteractorData.HoveredMeshElement.ElementAddress.ElementType == MeshElementSelectionMode )
+			{
+				FMeshElement HoveredMeshElement = GetHoveredMeshElement( MeshEditorInteractorData.ViewportInteractor.Get() );
+
+				const FColor Color = FLinearColor::Green.ToFColor( false );
+				AddMeshElementToOverlay( HoveredElementsComponent, HoveredMeshElement, Color, HoveredSizeBias );
+			}
+		}
+
+		// Update meshes that were previously hovered
+		const float HoverFadeTime = MeshEd::HoverFadeDuration->GetFloat();
+
+		for( FMeshElement& FadingOutHoveredMeshElement : FadingOutHoveredMeshElements )
+		{
+			const UEditableMesh* EditableMesh = FindEditableMesh( *FadingOutHoveredMeshElement.Component.Get(), FadingOutHoveredMeshElement.ElementAddress.SubMeshAddress );
+			if( IsElementIDValid( FadingOutHoveredMeshElement, EditableMesh ) )
+			{
+				const float TimeSinceLastHovered = CurrentRealTime - FadingOutHoveredMeshElement.LastHoverTime;
+				float Opacity = 1.0f - ( TimeSinceLastHovered / HoverFadeTime );
+				Opacity = Opacity * Opacity * Opacity * Opacity;		// Exponential falloff
+				Opacity = FMath::Clamp( Opacity, 0.0f, 1.0f );
+
+				const FColor Color = FLinearColor::Green.CopyWithNewOpacity( Opacity ).ToFColor( false );
+				AddMeshElementToOverlay( HoveredElementsComponent, FadingOutHoveredMeshElement, Color, HoveredSizeBias );
+			}
+		}
+	}
+
+	// Update selected mesh elements
+
+	const float SelectionAnimationDuration = MeshEd::SelectionAnimationDuration->GetFloat();
+	for( FMeshElement& SelectedMeshElement : SelectedMeshElements )
+	{
+		const float TimeSinceSelected = CurrentRealTime - SelectedMeshElement.LastSelectTime;
+		if( TimeSinceSelected < SelectionAnimationDuration )
+		{
+			bShouldUpdateSelectedElementsOverlay = true;
+			break;
+		}
+	}
+
+	if( bShouldUpdateSelectedElementsOverlay )
+	{
+		bShouldUpdateSelectedElementsOverlay = false;
+		UpdateSelectedElementsOverlay();
+	}
+
+	// Update debug normals/tangents
+	if( bShowVertexNormals )
+	{
+		UpdateDebugNormals();
+	}
+	else
+	{
+		DebugNormalsComponent->Clear();
+	}
+}
+
+
+void FMeshEditorMode::UpdateDebugNormals()
+{
+	// @todo mesheditor: There's nothing clever about this method.
+	// It just clears the old overlay lines and adds a bunch of new ones each tick.
+	// This should be a UWireframeMeshComponent with an adapter so that it can be updated incrementally as the mesh changes.
+	DebugNormalsComponent->Clear();
+
+	for( const FComponentAndEditableMesh& ComponentAndEditableMesh : SelectedComponentsAndEditableMeshes )
+	{
+		const UPrimitiveComponent* Component = ComponentAndEditableMesh.Component;
+		const UEditableMesh* EditableMesh = ComponentAndEditableMesh.EditableMesh;
+
+		const FMatrix ComponentToWorldMatrix = Component->GetRenderMatrix();
+
+		const uint32 PolygonArraySize = EditableMesh->GetPolygonArraySize();
+		for( uint32 PolygonIndex = 0; PolygonIndex < PolygonArraySize; ++PolygonIndex )
+		{
+			const FPolygonID PolygonID( PolygonIndex );
+			if( EditableMesh->IsValidPolygon( PolygonID ) )
+			{
+				// @todo mesheditor: total debug feature for now. Need a way of making this look nice.
+				const int32 PerimeterVertexCount = EditableMesh->GetPolygonPerimeterVertexCount( PolygonID );
+				const float Length = 10.0f; // @todo mesheditor: determine length of debug line from distance from the mesh origin to the camera?
+
+				for( int32 PerimeterVertexIndex = 0; PerimeterVertexIndex < PerimeterVertexCount; ++PerimeterVertexIndex )
+				{
+					const FVector Position( EditableMesh->GetPolygonPerimeterVertexAttribute( PolygonID, PerimeterVertexIndex, UEditableMeshAttribute::VertexPosition(), 0 ) );
+					const FVector Normal( EditableMesh->GetPolygonPerimeterVertexAttribute( PolygonID, PerimeterVertexIndex, UEditableMeshAttribute::VertexNormal(), 0 ) );
+					const FVector Tangent( EditableMesh->GetPolygonPerimeterVertexAttribute( PolygonID, PerimeterVertexIndex, UEditableMeshAttribute::VertexTangent(), 0 ) );
+
+					const FVector Start( ComponentToWorldMatrix.TransformPosition( Position ) );
+					const FVector NormalEnd( ComponentToWorldMatrix.TransformPosition( Position + Normal * Length ) );
+					const FVector TangentEnd( ComponentToWorldMatrix.TransformPosition( Position + Tangent * Length * 0.5f ) );
+
+					DebugNormalsComponent->AddLine( FOverlayLine( Start, NormalEnd, FColor::Magenta, 0.0f ) );
+					DebugNormalsComponent->AddLine( FOverlayLine( Start, TangentEnd, FColor::Yellow, 0.0f ) );
+				}
+			}
+		}
+	}
+}
+
+
+void FMeshEditorMode::RequestSelectedElementsOverlayUpdate()
+{
+	bShouldUpdateSelectedElementsOverlay = true;
+}
+
+
+void FMeshEditorMode::UpdateSelectedElementsOverlay()
+{
+	SelectedElementsComponent->Clear();
+	SelectedSubDElementsComponent->Clear();
+
+	const double CurrentRealTime = FSlateApplication::Get().GetCurrentTime();
+	const float SelectionAnimationDuration = MeshEd::SelectionAnimationDuration->GetFloat();
+
+	static TMap<TTuple<UPrimitiveComponent*, FEditableMeshSubMeshAddress>, TSet<FEdgeID>> SelectedEdgesByComponentsAndSubMeshes;
+	SelectedEdgesByComponentsAndSubMeshes.Reset();
+
+	for( const FMeshElement& SelectedMeshElement : SelectedMeshElements )
+	{
+		// Add selected elements to base cage overlay
+
+		const float TimeSinceSelected = CurrentRealTime - SelectedMeshElement.LastSelectTime;
+		const float SizeBias = MeshEd::SelectedSizeBias->GetFloat() + MeshEd::SelectedAnimationExtraSizeBias->GetFloat() * FMath::Clamp( 1.0f - ( TimeSinceSelected / SelectionAnimationDuration ), 0.0f, 1.0f );
+		const FColor Color = FLinearColor::White.ToFColor( false );
+
+		AddMeshElementToOverlay( SelectedElementsComponent, SelectedMeshElement, Color, SizeBias );
+
+		// If the editable mesh is previewing subdivisions, cache all selected edges (including sides of selected polygons)
+
+		if( SelectedMeshElement.Component.IsValid() )
+		{
+			UPrimitiveComponent* Component = SelectedMeshElement.Component.Get();
+			const FEditableMeshSubMeshAddress& SubMeshAddress = SelectedMeshElement.ElementAddress.SubMeshAddress;
+
+			const UEditableMesh* EditableMesh = FindEditableMesh( *Component, SubMeshAddress );
+			check( EditableMesh );
+			if( EditableMesh->IsPreviewingSubdivisions() )
+			{
+				TSet<FEdgeID>& EdgesToHighlight = SelectedEdgesByComponentsAndSubMeshes.FindOrAdd( MakeTuple( Component, SubMeshAddress ) );
+
+				if( SelectedMeshElement.ElementAddress.ElementType == EEditableMeshElementType::Edge )
+				{
+					const FEdgeID EdgeID( SelectedMeshElement.ElementAddress.ElementID );
+					EdgesToHighlight.Add( EdgeID );
+				}
+				else if( SelectedMeshElement.ElementAddress.ElementType == EEditableMeshElementType::Polygon )
+				{
+					const FPolygonID PolygonID( SelectedMeshElement.ElementAddress.ElementID );
+					const int32 PolygonEdgeCount = EditableMesh->GetPolygonPerimeterEdgeCount( PolygonID );
+					for( int32 EdgeIndex = 0; EdgeIndex < PolygonEdgeCount; ++EdgeIndex )
+					{
+						bool OutEdgeWindingReversed;
+						EdgesToHighlight.Add( EditableMesh->GetPolygonPerimeterEdge( PolygonID, EdgeIndex, OutEdgeWindingReversed ) );
+					}
+				}
+			}
+		}
+	}
+
+	// Add selected wires to subdivided mesh overlay
+
+	for( const auto& SelectedEdgesByComponentAndSubMesh : SelectedEdgesByComponentsAndSubMeshes )
+	{
+		const TTuple<UPrimitiveComponent*, FEditableMeshSubMeshAddress>& ComponentAndSubMesh = SelectedEdgesByComponentAndSubMesh.Key;
+		const TSet<FEdgeID>& EdgesToHighlight = SelectedEdgesByComponentAndSubMesh.Value;
+
+		if( EdgesToHighlight.Num() > 0 )
+		{
+			UPrimitiveComponent* Component = ComponentAndSubMesh.Get<0>();
+			const FEditableMeshSubMeshAddress& SubMeshAddress = ComponentAndSubMesh.Get<1>();
+
+			const UEditableMesh* EditableMesh = FindEditableMesh( *Component, SubMeshAddress );
+			check( EditableMesh != nullptr );
+
+			const FMatrix ComponentToWorldMatrix = Component->GetRenderMatrix();
+
+			const FSubdivisionLimitData& SubdivisionLimitData = EditableMesh->GetSubdivisionLimitData();
+
+			for( int32 WireEdgeNumber = 0; WireEdgeNumber < SubdivisionLimitData.SubdividedWireEdges.Num(); ++WireEdgeNumber )
+			{
+				const FSubdividedWireEdge& SubdividedWireEdge = SubdivisionLimitData.SubdividedWireEdges[ WireEdgeNumber ];
+
+				if( SubdividedWireEdge.CounterpartEdgeID != FEdgeID::Invalid && EdgesToHighlight.Contains( SubdividedWireEdge.CounterpartEdgeID ) )
+				{
+					const int32 EdgeVertexIndex0 = SubdividedWireEdge.EdgeVertex0PositionIndex;
+					const int32 EdgeVertexIndex1 = SubdividedWireEdge.EdgeVertex1PositionIndex;
+
+					const FVector Position0 = ComponentToWorldMatrix.TransformPosition( SubdivisionLimitData.VertexPositions[ EdgeVertexIndex0 ] );
+					const FVector Position1 = ComponentToWorldMatrix.TransformPosition( SubdivisionLimitData.VertexPositions[ EdgeVertexIndex1 ] );
+
+					const FColor Color = FLinearColor::White.CopyWithNewOpacity( 0.8f ).ToFColor( false );
+
+					SelectedSubDElementsComponent->AddLine( FOverlayLine( Position0, Position1, Color, 0.0f ) );
+				}
+			}
+		}
 	}
 }
 
@@ -1187,11 +1500,34 @@ void FMeshEditorMode::CommitEditableMeshIfNecessary( UEditableMesh* EditableMesh
 		NewEditableMesh->SetAllowSpatialDatabase(true);
 		NewEditableMesh->SetAllowCompact(true);
 
+		// Create a wireframe mesh for the base cage
+		UWireframeMesh* WireframeBaseCage = NewObject<UWireframeMesh>();
+
+		UMeshEditorStaticMeshAdapter* WireframeAdapter = NewObject<UMeshEditorStaticMeshAdapter>();
+		NewEditableMesh->Adapters.Add( WireframeAdapter );
+		WireframeAdapter->Initialize( NewEditableMesh, WireframeBaseCage );
+
+		// Create a wireframe mesh for the subdivided mesh
+		UWireframeMesh* WireframeSubdividedMesh = NewObject<UWireframeMesh>();
+
+		UMeshEditorSubdividedStaticMeshAdapter* WireframeSubdividedAdapter = NewObject<UMeshEditorSubdividedStaticMeshAdapter>();
+		NewEditableMesh->Adapters.Add( WireframeSubdividedAdapter );
+		WireframeSubdividedAdapter->Initialize( NewEditableMesh, WireframeSubdividedMesh );
+
+		// Rebuild mesh so that the wireframe meshes get their render data built through the adapters
+		NewEditableMesh->RebuildRenderMesh();
+
+		// Cache the editable mesh and the associated wireframe meshes
+		FEditableAndWireframeMeshes EditableAndWireframeMeshes;
+		EditableAndWireframeMeshes.EditableMesh = NewEditableMesh;
+		EditableAndWireframeMeshes.WireframeBaseCage = WireframeBaseCage;
+		EditableAndWireframeMeshes.WireframeSubdividedMesh = WireframeSubdividedMesh;
+
 		// Commit the editable mesh as a new instance in the static mesh component
 		const FEditableMeshSubMeshAddress& OldSubMeshAddress = EditableMesh->GetSubMeshAddress();
 		const FEditableMeshSubMeshAddress& NewSubMeshAddress = NewEditableMesh->GetSubMeshAddress();
 
-		CachedEditableMeshes.Add( NewSubMeshAddress, NewEditableMesh );
+		CachedEditableMeshes.Add( NewSubMeshAddress, EditableAndWireframeMeshes );
 
 		auto FixUpMeshElement = [ &OldSubMeshAddress, &NewSubMeshAddress, Component ]( FMeshElement& MeshElement )
 		{
@@ -2020,7 +2356,9 @@ void FMeshEditorMode::AddReferencedObjects( FReferenceCollector& Collector )
 
 	for( auto Pair : CachedEditableMeshes )
 	{
-		Collector.AddReferencedObject( Pair.Value );
+		Collector.AddReferencedObject( Pair.Value.EditableMesh );
+		Collector.AddReferencedObject( Pair.Value.WireframeBaseCage );
+		Collector.AddReferencedObject( Pair.Value.WireframeSubdividedMesh );
 	}
 
 	for( TTuple<UObject*, TUniquePtr<FChange>>& ObjectAndPreviewRevertChange : PreviewRevertChanges )
@@ -2036,285 +2374,67 @@ void FMeshEditorMode::AddReferencedObjects( FReferenceCollector& Collector )
 }
 
 
-void FMeshEditorMode::AddVertexToDynamicMesh( const UEditableMesh& EditableMesh, const FTransform& CameraToWorld, const bool bIsPerspectiveView, const FMatrix& ComponentToWorldMatrix, const FVertexID VertexID, const FColor ColorAndOpacity, const float SizeBias, const bool bApplyDepthBias, FDynamicMeshBuilder& MeshBuilder )
+void FMeshEditorMode::AddMeshElementToOverlay( UOverlayComponent* OverlayComponent, const FMeshElement& MeshElement, const FColor Color, const float Size )
 {
-	const FVector VertexPosition = ComponentToWorldMatrix.TransformPosition( EditableMesh.GetVertexAttribute( VertexID, UEditableMeshAttribute::VertexPosition(), 0 ) );
-
-	const FVector CameraUpVector = CameraToWorld.TransformVector( FVector::UpVector ).GetSafeNormal();
-	const FVector CameraRightVector = CameraToWorld.TransformVector( FVector::RightVector ).GetSafeNormal();
-	const FVector CameraForwardVector = CameraToWorld.TransformVector( FVector::ForwardVector ).GetSafeNormal();
-
-	const FVector DirectionToCamera = bIsPerspectiveView ? ( CameraToWorld.GetLocation() - VertexPosition ).GetSafeNormal() : -CameraForwardVector;
-	const float DistanceToCamera = bIsPerspectiveView ? ( CameraToWorld.GetLocation() - VertexPosition ).Size() : 0.0f;
-	const float DistanceBias = bIsPerspectiveView ? MeshEd::OverlayPerspectiveDistanceBias->GetFloat() : MeshEd::OverlayOrthographicDistanceBias->GetFloat();
-	const float DistanceBasedScaling = DistanceBias + DistanceToCamera * MeshEd::OverlayDistanceScaleFactor->GetFloat();
-
-	const float SpriteSize = ( MeshEd::OverlayVertexSize->GetFloat() + SizeBias ) * DistanceBasedScaling;
-	const float HalfSpriteSize = SpriteSize * 0.5f;
-
-	// We're offsetting the geometry from the actual face a bit, to avoid z-fighting for this particular effect
-	const FVector VertexOffset = bApplyDepthBias ? ( DirectionToCamera * MeshEd::OverlayDepthOffset->GetFloat() * DistanceBasedScaling ) : FVector::ZeroVector;
-
-	FVector QuadPositions[ 4 ];
-	QuadPositions[ 0 ] = ( VertexPosition - CameraRightVector * HalfSpriteSize - CameraUpVector * HalfSpriteSize ) + VertexOffset;
-	QuadPositions[ 1 ] = ( VertexPosition - CameraRightVector * HalfSpriteSize + CameraUpVector * HalfSpriteSize ) + VertexOffset;
-	QuadPositions[ 2 ] = ( VertexPosition + CameraRightVector * HalfSpriteSize + CameraUpVector * HalfSpriteSize ) + VertexOffset;
-	QuadPositions[ 3 ] = ( VertexPosition + CameraRightVector * HalfSpriteSize - CameraUpVector * HalfSpriteSize ) + VertexOffset;
-
-	const int32 FirstVertexIndex = 
-		MeshBuilder.AddVertex( VertexOffset + QuadPositions[ 0 ], FVector2D( 0, 0 ), FVector( 1, 0, 0 ), FVector( 0, 1, 0 ), FVector( 0, 0, 1 ), ColorAndOpacity );
-	MeshBuilder.AddVertex( VertexOffset + QuadPositions[ 1 ], FVector2D( 0, 1 ), FVector( 1, 0, 0 ), FVector( 0, 1, 0 ), FVector( 0, 0, 1 ), ColorAndOpacity );
-	MeshBuilder.AddVertex( VertexOffset + QuadPositions[ 2 ], FVector2D( 1, 1 ), FVector( 1, 0, 0 ), FVector( 0, 1, 0 ), FVector( 0, 0, 1 ), ColorAndOpacity );
-	MeshBuilder.AddVertex( VertexOffset + QuadPositions[ 3 ], FVector2D( 1, 0 ), FVector( 1, 0, 0 ), FVector( 0, 1, 0 ), FVector( 0, 0, 1 ), ColorAndOpacity );
-
-	MeshBuilder.AddTriangle( FirstVertexIndex + 0, FirstVertexIndex + 1, FirstVertexIndex + 2 );
-	MeshBuilder.AddTriangle( FirstVertexIndex + 0, FirstVertexIndex + 2, FirstVertexIndex + 3 );
-}
-
-
-void FMeshEditorMode::AddThickLineToDynamicMesh( const FTransform& CameraToWorld, const bool bIsPerspectiveView, const FVector EdgeVertexPositions[2], const FColor ColorAndOpacity, const float SizeBias, const bool bApplyDepthBias, FDynamicMeshBuilder& MeshBuilder )
-{
-	const float DistanceBias = bIsPerspectiveView ? MeshEd::OverlayPerspectiveDistanceBias->GetFloat() : MeshEd::OverlayOrthographicDistanceBias->GetFloat();
-	const float Vertex0DistanceToCamera = bIsPerspectiveView ? ( CameraToWorld.GetLocation() - EdgeVertexPositions[ 0 ] ).Size() : 0.0f;
-	const float Vertex0DistanceBasedScaling = DistanceBias + Vertex0DistanceToCamera * MeshEd::OverlayDistanceScaleFactor->GetFloat();
-	const float Vertex1DistanceToCamera = bIsPerspectiveView ? ( CameraToWorld.GetLocation() - EdgeVertexPositions[ 1 ] ).Size() : 0.0f;
-	const float Vertex1DistanceBasedScaling = DistanceBias + Vertex1DistanceToCamera * MeshEd::OverlayDistanceScaleFactor->GetFloat();
-
-	const float Thickness = ( MeshEd::OverlayLineThickness->GetFloat() + SizeBias );
-	const float HalfThickness = Thickness * 0.5f;
-
-	const FVector CameraForwardVector = CameraToWorld.TransformVector( FVector::ForwardVector ).GetSafeNormal();
-
-	const FVector DirectionToCamera0 = bIsPerspectiveView ? ( CameraToWorld.GetLocation() - EdgeVertexPositions[ 0 ] ).GetSafeNormal() : -CameraForwardVector;
-	const FVector DirectionToCamera1 = bIsPerspectiveView ? ( CameraToWorld.GetLocation() - EdgeVertexPositions[ 1 ] ).GetSafeNormal() : -CameraForwardVector;
-	const FVector EdgeForward = ( EdgeVertexPositions[ 1 ] - EdgeVertexPositions[ 0 ] ).GetSafeNormal();
-	const FVector EdgeRight0 = FVector::CrossProduct( EdgeForward, DirectionToCamera0 ).GetSafeNormal();
-	const FVector EdgeRight1 = FVector::CrossProduct( EdgeForward, DirectionToCamera1 ).GetSafeNormal();
-
-	// We're offsetting the geometry from the actual face a bit, to avoid z-fighting for this particular effect
-	// @todo mesheditor urgent: Can we use a hardware depth bias instead?
-	const FVector Vertex0Offset = bApplyDepthBias ? ( DirectionToCamera0 * MeshEd::OverlayDepthOffset->GetFloat() * Vertex0DistanceBasedScaling ) : FVector::ZeroVector;
-	const FVector Vertex1Offset = bApplyDepthBias ? ( DirectionToCamera1 * MeshEd::OverlayDepthOffset->GetFloat() * Vertex1DistanceBasedScaling ) : FVector::ZeroVector;
-
-	FVector QuadPositions[ 4 ];
-	QuadPositions[ 0 ] = ( EdgeVertexPositions[ 0 ] - EdgeRight0 * HalfThickness * Vertex0DistanceBasedScaling ) + Vertex0Offset;
-	QuadPositions[ 1 ] = ( EdgeVertexPositions[ 0 ] + EdgeRight0 * HalfThickness * Vertex0DistanceBasedScaling ) + Vertex0Offset;
-	QuadPositions[ 2 ] = ( EdgeVertexPositions[ 1 ] + EdgeRight1 * HalfThickness * Vertex1DistanceBasedScaling ) + Vertex1Offset;
-	QuadPositions[ 3 ] = ( EdgeVertexPositions[ 1 ] - EdgeRight1 * HalfThickness * Vertex1DistanceBasedScaling ) + Vertex1Offset;
-
-	const int32 FirstVertexIndex = 
-		MeshBuilder.AddVertex( QuadPositions[ 0 ], FVector2D( 0, 0 ), FVector( 1, 0, 0 ), FVector( 0, 1, 0 ), FVector( 0, 0, 1 ), ColorAndOpacity );
-	MeshBuilder.AddVertex( QuadPositions[ 1 ], FVector2D( 0, 1 ), FVector( 1, 0, 0 ), FVector( 0, 1, 0 ), FVector( 0, 0, 1 ), ColorAndOpacity );
-	MeshBuilder.AddVertex( QuadPositions[ 2 ], FVector2D( 1, 1 ), FVector( 1, 0, 0 ), FVector( 0, 1, 0 ), FVector( 0, 0, 1 ), ColorAndOpacity );
-	MeshBuilder.AddVertex( QuadPositions[ 3 ], FVector2D( 1, 0 ), FVector( 1, 0, 0 ), FVector( 0, 1, 0 ), FVector( 0, 0, 1 ), ColorAndOpacity );
-
-	MeshBuilder.AddTriangle( FirstVertexIndex + 0, FirstVertexIndex + 1, FirstVertexIndex + 2 );
-	MeshBuilder.AddTriangle( FirstVertexIndex + 0, FirstVertexIndex + 2, FirstVertexIndex + 3 );
-}
-
-
-void FMeshEditorMode::AddEdgeToDynamicMesh( const UEditableMesh& EditableMesh, const FTransform& CameraToWorld, const bool bIsPerspectiveView, const FMatrix& ComponentToWorldMatrix, const FEdgeID EdgeID, const FColor ColorAndOpacity, const float SizeBias, FDynamicMeshBuilder& MeshBuilder )
-{
-	FVertexID MeshVertexIDs[ 2 ];
-	EditableMesh.GetEdgeVertices( EdgeID, /* Out */ MeshVertexIDs[0], /* Out */ MeshVertexIDs[1] );
-
-	static TArray<FPolygonID> ConnectedPolygons;
-	EditableMesh.GetEdgeConnectedPolygons( EdgeID, /* Out */ ConnectedPolygons );
-
-	FVector EdgeVertexPositions[ 2 ];
-	for( uint32 EdgeVertexNumber = 0; EdgeVertexNumber < ARRAY_COUNT( MeshVertexIDs ); ++EdgeVertexNumber )
+	if( MeshElement.IsValidMeshElement() )
 	{
-		EdgeVertexPositions[ EdgeVertexNumber ] = ComponentToWorldMatrix.TransformPosition( EditableMesh.GetVertexAttribute( MeshVertexIDs[ EdgeVertexNumber ], UEditableMeshAttribute::VertexPosition(), 0 ) );
-	}
-
-	const bool bApplyDepthBias = true;
-	AddThickLineToDynamicMesh( CameraToWorld, bIsPerspectiveView, EdgeVertexPositions, ColorAndOpacity, SizeBias, bApplyDepthBias, MeshBuilder );
-}
-
-
-void FMeshEditorMode::AddPolygonToDynamicMesh( const UEditableMesh& EditableMesh, const FTransform& CameraToWorld, const bool bIsPerspectiveView, const FMatrix& ComponentToWorldMatrix, const FPolygonID PolygonID, const FColor ColorAndOpacity, const FColor HardEdgeColorAndOpacity, const float SizeBias, const bool bFillFaces, FDynamicMeshBuilder& VertexAndEdgeMeshBuilder, FDynamicMeshBuilder* PolygonFaceMeshBuilder )
-{
-	static TArray<FVertexID> MeshVertexIDs;
-	MeshVertexIDs.Reset();
-	EditableMesh.GetPolygonPerimeterVertices( PolygonID, /* Out */ MeshVertexIDs );
-
-	static TArray<FVector> PolygonPerimeterVertexPositions;
-	PolygonPerimeterVertexPositions.SetNumUninitialized( MeshVertexIDs.Num(), false );
-	for( uint32 PolygonVertexIndex = 0; PolygonVertexIndex < (uint32)MeshVertexIDs.Num(); ++PolygonVertexIndex )
-	{
-		PolygonPerimeterVertexPositions[ PolygonVertexIndex ] = ComponentToWorldMatrix.TransformPosition( EditableMesh.GetVertexAttribute( MeshVertexIDs[ PolygonVertexIndex ], UEditableMeshAttribute::VertexPosition(), 0 ) );
-	}
-
-	// @todo mesheditor: Support polygon hole contours!
-
-
-	const FVector PolygonNormal = ComponentToWorldMatrix.TransformVector( EditableMesh.ComputePolygonNormal( PolygonID ) ).GetSafeNormal();
-	const float Determinant = ComponentToWorldMatrix.Determinant();
-
-	const FVector CameraForwardVectorUnnormalized = CameraToWorld.TransformVector( FVector::ForwardVector );
-	const FVector FirstVertexDirectionToCameraUnnormalized = bIsPerspectiveView ? ( CameraToWorld.GetLocation() - PolygonPerimeterVertexPositions[0] ) : -CameraForwardVectorUnnormalized;
-
-	// @todo mesheditor: Backface culling in orthographic views may not always be desirable.  Make optional?
-	if( FVector::DotProduct( PolygonNormal, FirstVertexDirectionToCameraUnnormalized ) * Determinant < 0.0f )
-	{
-		// Ignore backfaced polys
-		return;
-	}
-
-	if( bFillFaces )
-	{
-		const float DistanceBias = bIsPerspectiveView ? MeshEd::OverlayPerspectiveDistanceBias->GetFloat() : MeshEd::OverlayOrthographicDistanceBias->GetFloat();
-
-		check( PolygonFaceMeshBuilder );
-		const uint32 PolygonTriangleCount = EditableMesh.GetPolygonTriangulatedTriangleCount( PolygonID );
-		for( uint32 PolygonTriangleNumber = 0; PolygonTriangleNumber < PolygonTriangleCount; ++PolygonTriangleNumber )
+		UEditableMesh* EditableMesh = FindOrCreateEditableMesh( *MeshElement.Component, MeshElement.ElementAddress.SubMeshAddress );
+		if( EditableMesh != nullptr )
 		{
-			FVector TriangleVertexPositions[ 3 ];
-			FVector VertexOffsets[ 3 ];
-			for( uint32 TriangleVertexNumber = 0; TriangleVertexNumber < 3; ++TriangleVertexNumber )
+			if( IsElementIDValid( MeshElement, EditableMesh ) )
 			{
-				TriangleVertexPositions[ TriangleVertexNumber ] =
-					ComponentToWorldMatrix.TransformPosition( 
-						EditableMesh.GetPolygonTriangulatedTriangleVertexPosition( PolygonID, PolygonTriangleNumber, TriangleVertexNumber ) );
+				UPrimitiveComponent* Component = MeshElement.Component.Get();
+				check( Component != nullptr );
 
-				// We're offsetting the geometry from the actual face a bit, to avoid z-fighting for this particular effect
-				const FVector DirectionToCamera = bIsPerspectiveView ? ( CameraToWorld.GetLocation() - TriangleVertexPositions[ TriangleVertexNumber ] ).GetSafeNormal() : -CameraForwardVectorUnnormalized.GetSafeNormal();
-				const float DistanceToCamera = bIsPerspectiveView ? ( CameraToWorld.GetLocation() - TriangleVertexPositions[ TriangleVertexNumber ] ).Size() : 0.0f;
-				const float DistanceBasedScaling = DistanceBias + DistanceToCamera * MeshEd::OverlayDistanceScaleFactor->GetFloat();
-				VertexOffsets[ TriangleVertexNumber ] = DirectionToCamera * MeshEd::OverlayDepthOffset->GetFloat() * DistanceBasedScaling;
-			}
+				const FMatrix ComponentToWorldMatrix = Component->GetRenderMatrix();
 
-			// @todo mesheditor perf: Horribly inefficient way to draw a single triangle!  Also we should have a global utility function for this rather than using FDynamicMeshBuilder
-			// @todo mesheditor: Assumes vertices are in-order and form a single closed polygon.  Not accounting for holes.
-
-			const int32 FirstVertexIndex = 
-				PolygonFaceMeshBuilder->AddVertex( VertexOffsets[ 0 ] + TriangleVertexPositions[ 0 ], FVector2D( 0, 0 ), FVector( 1, 0, 0 ), FVector( 0, 1, 0 ), FVector( 0, 0, 1 ), ColorAndOpacity );
-			PolygonFaceMeshBuilder->AddVertex( VertexOffsets[ 1 ] + TriangleVertexPositions[ 1 ], FVector2D( 0, 1 ), FVector( 1, 0, 0 ), FVector( 0, 1, 0 ), FVector( 0, 0, 1 ), ColorAndOpacity );
-			PolygonFaceMeshBuilder->AddVertex( VertexOffsets[ 2 ] + TriangleVertexPositions[ 2 ], FVector2D( 1, 1 ), FVector( 1, 0, 0 ), FVector( 0, 1, 0 ), FVector( 0, 0, 1 ), ColorAndOpacity );
-
-			PolygonFaceMeshBuilder->AddTriangle( FirstVertexIndex + 0, FirstVertexIndex + 1, FirstVertexIndex + 2 );
-		}
-	}
-
-	{
-		static TArray<FEdgeID> PerimeterEdges;
-		EditableMesh.GetPolygonPerimeterEdges( PolygonID, /* Out */ PerimeterEdges );
-
-		// Draw polygon edges
-		// @todo mesheditor: Assumes no holes, etc.
-		for( const FEdgeID EdgeID : PerimeterEdges )
-		{
-			if( EditableMesh.GetEdgeAttribute( EdgeID, UEditableMeshAttribute::EdgeIsHard(), 0 ).X > 0.0f )
-			{
-				AddEdgeToDynamicMesh( EditableMesh, CameraToWorld, bIsPerspectiveView, ComponentToWorldMatrix, EdgeID, HardEdgeColorAndOpacity, SizeBias, VertexAndEdgeMeshBuilder );
-			}
-			else
-			{
-				AddEdgeToDynamicMesh( EditableMesh, CameraToWorld, bIsPerspectiveView, ComponentToWorldMatrix, EdgeID, ColorAndOpacity, SizeBias, VertexAndEdgeMeshBuilder );
-			}
-		}
-	}
-}
-
-
-void FMeshEditorMode::DrawMeshElements( const FTransform& CameraToWorld, const bool bIsPerspectiveView, FViewport* Viewport, FPrimitiveDrawInterface* PDI, const TArrayView<FMeshElement>& MeshElements, const FColor Color, const bool bFillFaces, const float SizeBias, const TArray<FColor>* OptionalPerElementColors, const TArray<float>* OptionalPerElementSizeBiases )
-{
-	if( MeshElements.Num() > 0 )
-	{
-		// Must specify the same number of element colors and size biases as elements to draw
-		check( OptionalPerElementColors == nullptr || OptionalPerElementColors->Num() == MeshElements.Num() );
-		check( OptionalPerElementSizeBiases == nullptr || OptionalPerElementSizeBiases->Num() == MeshElements.Num() );
-
-		FDynamicMeshBuilder VertexAndEdgeMeshBuilder;
-		FDynamicMeshBuilder PolygonFaceMeshBuilder;
-
-		uint32 NumPolygonsToDraw = 0;
-		
-		for( int32 MeshElementIndex = 0; MeshElementIndex < MeshElements.Num(); ++MeshElementIndex )
-		{
-			const FMeshElement& MeshElement = MeshElements[ MeshElementIndex ];
-			if( MeshElement.IsValidMeshElement() )
-			{
-				const FColor ElementColor = OptionalPerElementColors != nullptr ? ( *OptionalPerElementColors )[ MeshElementIndex ] : Color;
-				const float ElementSizeBias = OptionalPerElementSizeBiases != nullptr ? ( *OptionalPerElementSizeBiases )[ MeshElementIndex ] : SizeBias;
-
-				UEditableMesh* EditableMesh = FindOrCreateEditableMesh( *MeshElement.Component, MeshElement.ElementAddress.SubMeshAddress );
-				if( EditableMesh != nullptr )
+				switch( MeshElement.ElementAddress.ElementType )
 				{
-					if( IsElementIDValid( MeshElement, EditableMesh ) )
+					case EEditableMeshElementType::Vertex:
 					{
-						UPrimitiveComponent* Component = MeshElement.Component.Get();
-						check( Component != nullptr )
+						const FVertexID VertexID( MeshElement.ElementAddress.ElementID );
+						const FVector Position( ComponentToWorldMatrix.TransformPosition( EditableMesh->GetVertexAttribute( VertexID, UEditableMeshAttribute::VertexPosition(), 0 ) ) );
 
-						const FMatrix ComponentToWorldMatrix = Component->GetRenderMatrix();
+						OverlayComponent->AddPoint( FOverlayPoint( Position, Color, Size ) );
+						break;
+					}
 
-						if( MeshElement.ElementAddress.ElementType == EEditableMeshElementType::Vertex )
-						{
-							const bool bApplyDepthBias = true;
-							AddVertexToDynamicMesh(
-								*EditableMesh,
-								CameraToWorld,
-								bIsPerspectiveView,
-								ComponentToWorldMatrix,
-								FVertexID( MeshElement.ElementAddress.ElementID ),
-								ElementColor,
-								ElementSizeBias,
-								bApplyDepthBias,
-								VertexAndEdgeMeshBuilder );
-						}
-						else if( MeshElement.ElementAddress.ElementType == EEditableMeshElementType::Edge )
-						{
-							AddEdgeToDynamicMesh(
-								*EditableMesh,
-								CameraToWorld,
-								bIsPerspectiveView,
-								ComponentToWorldMatrix,
-								FEdgeID( MeshElement.ElementAddress.ElementID ),
-								ElementColor,
-								ElementSizeBias,
-								VertexAndEdgeMeshBuilder );
-						}
-						else if( MeshElement.ElementAddress.ElementType == EEditableMeshElementType::Polygon )
-						{
-							++NumPolygonsToDraw;
+					case EEditableMeshElementType::Edge:
+					{
+						const FEdgeID EdgeID( MeshElement.ElementAddress.ElementID );
+						const FVertexID StartVertexID( EditableMesh->GetEdgeVertex( EdgeID, 0 ) );
+						const FVertexID EndVertexID( EditableMesh->GetEdgeVertex( EdgeID, 1 ) );
+						const FVector StartPosition( ComponentToWorldMatrix.TransformPosition( EditableMesh->GetVertexAttribute( StartVertexID, UEditableMeshAttribute::VertexPosition(), 0 ) ) );
+						const FVector EndPosition( ComponentToWorldMatrix.TransformPosition( EditableMesh->GetVertexAttribute( EndVertexID, UEditableMeshAttribute::VertexPosition(), 0 ) ) );
 
-							AddPolygonToDynamicMesh(
-								*EditableMesh,
-								CameraToWorld,
-								bIsPerspectiveView,
-								ComponentToWorldMatrix,
-								FPolygonID( MeshElement.ElementAddress.ElementID ),
-								ElementColor,
-								ElementColor,
-								ElementSizeBias,
-								bFillFaces,
-								VertexAndEdgeMeshBuilder,
-								&PolygonFaceMeshBuilder );
+						OverlayComponent->AddLine( FOverlayLine( StartPosition, EndPosition, Color, Size ) );
+						break;
+					}
+
+					case EEditableMeshElementType::Polygon:
+					{
+						const FPolygonID PolygonID( MeshElement.ElementAddress.ElementID );
+						const int32 PolygonTriangleCount = EditableMesh->GetPolygonTriangulatedTriangleCount( PolygonID );
+
+						for( int32 PolygonTriangle = 0; PolygonTriangle < PolygonTriangleCount; PolygonTriangle++ )
+						{
+							FVector VertexPositions[ 3 ];
+							for( int32 TriangleVertex = 0; TriangleVertex < 3; TriangleVertex++ )
+							{
+								VertexPositions[ TriangleVertex ] = ComponentToWorldMatrix.TransformPosition( EditableMesh->GetPolygonTriangulatedTriangleVertexPosition( PolygonID, PolygonTriangle, TriangleVertex ) );
+							}
+
+							OverlayComponent->AddTriangle( FOverlayTriangle( 
+								HoveredFaceMaterial,
+								FOverlayTriangleVertex( VertexPositions[ 0 ], FVector2D( 0, 0 ), FVector::UpVector, Color ),
+								FOverlayTriangleVertex( VertexPositions[ 1 ], FVector2D( 0, 1 ), FVector::UpVector, Color ),
+								FOverlayTriangleVertex( VertexPositions[ 2 ], FVector2D( 1, 1 ), FVector::UpVector, Color )
+							) );
 						}
+						break;
 					}
 				}
 			}
-		}
-
-		if( NumPolygonsToDraw && bFillFaces )
-		{
-			const bool bIsSelected = false;
-			FMaterialRenderProxy* MaterialRenderProxy = HoveredFaceMaterial->GetRenderProxy( bIsSelected );
-
-			const bool bDisableBackfaceCulling = true;	// @todo mesheditor: Disabling backface so we can see what's hovered even if its backfacing
-			const bool bReceivesDecals = false;
-			const FHitProxyId HitProxyId = FHitProxyId::InvisibleHitProxyId;	// Don't obscure selection!
-			PolygonFaceMeshBuilder.Draw( PDI, FMatrix::Identity, MaterialRenderProxy, SDPG_World, bDisableBackfaceCulling, bReceivesDecals, HitProxyId );
-		}
-
-		{
-			const bool bIsSelected = false;
-			FMaterialRenderProxy* MaterialRenderProxy = HoveredGeometryMaterial->GetRenderProxy( bIsSelected );
-
-			const bool bDisableBackfaceCulling = true;	// @todo mesheditor: Disabling backface so we can see what's hovered even if its backfacing
-			const bool bReceivesDecals = false;
-			const FHitProxyId HitProxyId = FHitProxyId::InvisibleHitProxyId;	// Don't obscure selection!
-			VertexAndEdgeMeshBuilder.Draw( PDI, FMatrix::Identity, MaterialRenderProxy, SDPG_World, bDisableBackfaceCulling, bReceivesDecals, HitProxyId );
 		}
 	}
 }
@@ -2323,17 +2443,6 @@ void FMeshEditorMode::DrawMeshElements( const FTransform& CameraToWorld, const b
 void FMeshEditorMode::Render( const FSceneView* SceneView, FViewport* Viewport, FPrimitiveDrawInterface* PDI )
 {
 	FEdMode::Render( SceneView, Viewport, PDI );
-
-	FTransform CameraToWorld;
-	{
-	    // The SceneView's view matrices are rotated 90 degrees in pitch, so we'll have to undo that to get
-		// back to Unreal standard coordinates
-	    const FMatrix& WorldToCameraMatrix = SceneView->ViewMatrices.GetViewMatrix();
-	    const FMatrix Rotate90( FPlane( 0, 0, 1, 0 ), FPlane( 1, 0, 0, 0 ), FPlane( 0, 1, 0, 0 ), FPlane( 0, 0, 0, 1 ) );
-		CameraToWorld.SetFromMatrix( ( WorldToCameraMatrix * Rotate90.Inverse() ).Inverse() );
-	}
-
-	const bool bIsPerspectiveView = SceneView->IsPerspectiveProjection();
 
 	// @todo mesheditor debug
 	if( MeshEd::ShowDebugStats->GetInt() > 0 && SelectedMeshElements.Num() > 0 )
@@ -2364,297 +2473,6 @@ void FMeshEditorMode::Render( const FSceneView* SceneView, FViewport* Viewport, 
 			//			FString::Printf( TEXT( "   [%i] Triangles: %i (array size: %i)" ), PolygonGroupID.GetValue(), EditableMesh->GetTriangleCount( PolygonGroupID ), EditableMesh->GetTriangleArraySize( PolygonGroupID ) ), false );
 			//	}
 			//}
-		}
-	}
-
-	// Draw all polygon edges for selected/hovered meshes (@todo mesheditor: This only draws polygons right now.  We should also draw "floating" edges and vertices too!)
-	if( MeshEd::ShowWiresForSelectedMeshes->GetInt() != 0 )
-	{
-		for( const FComponentAndEditableMesh& ComponentAndEditableMesh : SelectedComponentsAndEditableMeshes )
-		{
-			const UPrimitiveComponent* Component = ComponentAndEditableMesh.Component;
-			check( Component != nullptr );
-
-			const UEditableMesh* EditableMesh = ComponentAndEditableMesh.EditableMesh;
-			check( EditableMesh != nullptr );
-
-			const FMatrix ComponentToWorldMatrix = Component->GetRenderMatrix();
-
-			FDynamicMeshBuilder VertexAndEdgeMeshBuilder;
-
-			// Draw subdivision limit surface if subdivision preview is enabled
-			if( EditableMesh->IsPreviewingSubdivisions() )
-			{
-				// Figure out all of the edges that should appear 'selected' on the subdivision preview, taking into
-				// account all currently selected edges and polygons that share those edges
-				static TSet<FEdgeID> HighlightedEdgeIDs;
-				HighlightedEdgeIDs.Reset();
-
-				// @todo mesheditor perf: O(N) process to setup list of highlighted edges.  We could instead maintain this as selection changes.
-				for( FMeshElement& SelectedMeshElement : SelectedMeshElements )
-				{
-					if( SelectedMeshElement.IsValidMeshElement() &&
-						SelectedMeshElement.Component == Component &&
-						SelectedMeshElement.ElementAddress.SubMeshAddress == EditableMesh->GetSubMeshAddress() )
-					{
-						if( SelectedMeshElement.ElementAddress.ElementType == EEditableMeshElementType::Edge )
-						{
-							// OK, this edge is selected so it's definitely going to be highlighted
-							HighlightedEdgeIDs.Add( FEdgeID( SelectedMeshElement.ElementAddress.ElementID ) );
-						}
-						else if( SelectedMeshElement.ElementAddress.ElementType == EEditableMeshElementType::Polygon )
-						{
-							// Find all of this polygons edges.  They'll all need to be highlighted.
-							static TArray<FEdgeID> SelectedPolygonPerimeterEdgeIDs;
-							EditableMesh->GetPolygonPerimeterEdges(
-								FPolygonID( SelectedMeshElement.ElementAddress.ElementID ),
-								/* Out */ SelectedPolygonPerimeterEdgeIDs );
-
-							HighlightedEdgeIDs.Append( SelectedPolygonPerimeterEdgeIDs );
-						}
-					}
-				}
-
-
-				const float SizeBias = 0.0f;
-				const FColor SubdivisionEdgeColorAndOpacity = FLinearColor( 0.05f, 0.05f, 0.05f, 0.6f ).ToFColor( false );
-				const FColor BaseCageCounterpartEdgeColorAndOpacity = FLinearColor( 0.0f, 0.0f, 0.2f, 0.8f ).ToFColor( false );
-				const FColor SelectedBaseCageCounterpartEdgeColorAndOpacity = FLinearColor::White.CopyWithNewOpacity( 0.8f ).ToFColor( false );
-
-				const FSubdivisionLimitData& SubdivisionLimitData = EditableMesh->GetSubdivisionLimitData();
-
-				for( int32 WireEdgeNumber = 0; WireEdgeNumber < SubdivisionLimitData.SubdividedWireEdges.Num(); ++WireEdgeNumber )
-				{
-					const FSubdividedWireEdge& SubdividedWireEdge = SubdivisionLimitData.SubdividedWireEdges[ WireEdgeNumber ];
-
-					const int32 EdgeVertexIndexA = SubdividedWireEdge.EdgeVertex0PositionIndex;
-					const int32 EdgeVertexIndexB = SubdividedWireEdge.EdgeVertex1PositionIndex;
-
-					FVector EdgeVertexPositions[ 2 ];
-					EdgeVertexPositions[ 0 ] = SubdivisionLimitData.VertexPositions[ EdgeVertexIndexA ];
-					EdgeVertexPositions[ 1 ] = SubdivisionLimitData.VertexPositions[ EdgeVertexIndexB ];
-
-					FVector WorldSpaceEdgeVertexPositions[ 2 ];
-					for( uint32 EdgeVertexNumber = 0; EdgeVertexNumber < ARRAY_COUNT( EdgeVertexPositions ); ++EdgeVertexNumber )
-					{
-						WorldSpaceEdgeVertexPositions[ EdgeVertexNumber ] = ComponentToWorldMatrix.TransformPosition( EdgeVertexPositions[ EdgeVertexNumber ] );
-					}
-
-					FColor ColorAndOpacity = SubdivisionEdgeColorAndOpacity;
-					if( SubdividedWireEdge.CounterpartEdgeID != FEdgeID::Invalid )
-					{
-						if( HighlightedEdgeIDs.Contains( SubdividedWireEdge.CounterpartEdgeID ) )
-						{
-							ColorAndOpacity = SelectedBaseCageCounterpartEdgeColorAndOpacity;
-						}
-						else
-						{
-							ColorAndOpacity = BaseCageCounterpartEdgeColorAndOpacity;
-						}
-					}					
-
-					const bool bApplyDepthBias = true;
-					AddThickLineToDynamicMesh( CameraToWorld, bIsPerspectiveView, WorldSpaceEdgeVertexPositions, ColorAndOpacity, SizeBias, bApplyDepthBias, VertexAndEdgeMeshBuilder );
-				}
-			}
-
-			// Draw polygon mesh wires (or subdivision base cage, if previewing subdivisions)
-			{
-				const float Opacity = 0.85f;
-				const float SizeBias = 0.05f;
-				const bool bFillFaces = false;
-				const FColor ColorAndOpacity = FLinearColor( 0.0f, 0.0f, 0.3f ).CopyWithNewOpacity( Opacity ).ToFColor( false );
-				const FColor HardEdgeColorAndOpacity = FLinearColor( 0.0f, 0.3f, 0.3f ).CopyWithNewOpacity( Opacity ).ToFColor( false );
-
-				const uint32 PolygonArraySize = EditableMesh->GetPolygonArraySize();
-
-				for( uint32 PolygonIndex = 0; PolygonIndex < PolygonArraySize; ++PolygonIndex )
-				{
-					const FPolygonID PolygonID( PolygonIndex );
-					if( EditableMesh->IsValidPolygon( PolygonID ) )
-					{
-						AddPolygonToDynamicMesh(
-							*EditableMesh,
-							CameraToWorld,
-							bIsPerspectiveView,
-							ComponentToWorldMatrix,
-							PolygonID,
-							ColorAndOpacity,
-							HardEdgeColorAndOpacity,
-							SizeBias,
-							bFillFaces,
-							VertexAndEdgeMeshBuilder,
-							nullptr );
-
-						if( bShowVertexNormals )
-						{
-							// @todo mesheditor: total debug feature for now. Need a way of making this look nice.
-							const int32 PerimeterVertexCount = EditableMesh->GetPolygonPerimeterVertexCount( PolygonID );
-							const float Length = 10.0f; // @todo mesheditor: determine length of debug line from distance from the mesh origin to the camera?
-
-							for( int32 PerimeterVertexIndex = 0; PerimeterVertexIndex < PerimeterVertexCount; ++PerimeterVertexIndex )
-							{
-								FVector Position( EditableMesh->GetPolygonPerimeterVertexAttribute( PolygonID, PerimeterVertexIndex, UEditableMeshAttribute::VertexPosition(), 0 ) );
-								FVector Normal( EditableMesh->GetPolygonPerimeterVertexAttribute( PolygonID, PerimeterVertexIndex, UEditableMeshAttribute::VertexNormal(), 0 ) );
-								FVector Tangent( EditableMesh->GetPolygonPerimeterVertexAttribute( PolygonID, PerimeterVertexIndex, UEditableMeshAttribute::VertexTangent(), 0 ) );
-
-								FVector VertexNormalRenderPositions[] =
-								{
-									ComponentToWorldMatrix.TransformPosition( Position ),
-									ComponentToWorldMatrix.TransformPosition( Position + Normal * Length )
-								};
-
-								FVector VertexTangentRenderPositions[] =
-								{
-									ComponentToWorldMatrix.TransformPosition( Position ),
-									ComponentToWorldMatrix.TransformPosition( Position + Tangent * Length * 0.5f )
-								};
-
-								// We don't need any depth bias when drawing lines for face normals
-								const bool bApplyDepthBias = false;
-								AddThickLineToDynamicMesh(
-									CameraToWorld,
-									bIsPerspectiveView,
-									VertexNormalRenderPositions,
-									FColor::Magenta,
-									SizeBias,
-									bApplyDepthBias,
-									VertexAndEdgeMeshBuilder );
-
-								AddThickLineToDynamicMesh(
-									CameraToWorld,
-									bIsPerspectiveView,
-									VertexTangentRenderPositions,
-									FColor::Yellow,
-									SizeBias,
-									bApplyDepthBias,
-									VertexAndEdgeMeshBuilder );
-							}
-						}
-					}
-				}
-			}
-
-			const bool bIsSelected = false;
-			FMaterialRenderProxy* MaterialRenderProxy = HoveredGeometryMaterial->GetRenderProxy( bIsSelected );
-
-			const bool bDisableBackfaceCulling = true;	// @todo mesheditor: Disabling backface so we can see what's hovered even if its backfacing
-			const bool bReceivesDecals = false;
-			const FHitProxyId HitProxyId = FHitProxyId::InvisibleHitProxyId;	// Don't obscure selection!
-			VertexAndEdgeMeshBuilder.Draw( PDI, FMatrix::Identity, MaterialRenderProxy, SDPG_World, bDisableBackfaceCulling, bReceivesDecals, HitProxyId );
-		}
-	}
-
-
-	// Draw hovered elements
-	{
-		// Only draw hover if we're not in the middle of an interactive edit
-		if( ActiveAction == NAME_None )
-		{
-			const float HoveredSizeBias = MeshEd::HoveredSizeBias->GetFloat() + MeshEd::HoveredAnimationExtraSizeBias->GetFloat() * FMath::MakePulsatingValue( HoverFeedbackTimeValue, 0.5f );
-			{
-				static TArray<FMeshElement> HoveredMeshElementsToDraw;
-				HoveredMeshElementsToDraw.Reset();
-
-				// Draw hovered meshes
-				for( FMeshEditorInteractorData& MeshEditorInteractorData : MeshEditorInteractorDatas )
-				{
-					if( MeshElementSelectionMode == EEditableMeshElementType::Any ||
-					    MeshEditorInteractorData.HoveredMeshElement.ElementAddress.ElementType == MeshElementSelectionMode )
-					{
-						FMeshElement HoveredMeshElement = GetHoveredMeshElement( MeshEditorInteractorData.ViewportInteractor.Get() );
-						if( HoveredMeshElement.IsValidMeshElement() )
-						{
-							HoveredMeshElementsToDraw.Add( HoveredMeshElement );
-						}
-					}
-				}
-
-				const float Opacity = 1.0f;
-				const bool bFillFaces = true;
-				DrawMeshElements(
-					CameraToWorld,
-					bIsPerspectiveView,
-					Viewport,
-					PDI,
-					HoveredMeshElementsToDraw,
-					FLinearColor::Green.CopyWithNewOpacity( Opacity ).ToFColor( false ),
-					bFillFaces,
-					HoveredSizeBias );
-			}
-
-			// Draw meshes that were previously hovered
-			{
-				const double CurrentRealTime = FSlateApplication::Get().GetCurrentTime();
-
-				static TArray<FMeshElement> FadingOutHoveredMeshElementsToDraw;
-				FadingOutHoveredMeshElementsToDraw.Reset();
-				static TArray<FColor> PerElementColors;
-				PerElementColors.Reset();
-
-
-				const float HoverFadeTime = MeshEd::HoverFadeDuration->GetFloat();;
-				for( FMeshElement& FadingOutHoveredMeshElement : FadingOutHoveredMeshElements )
-				{
-					if( FadingOutHoveredMeshElement.IsValidMeshElement() )
-					{
-						const UEditableMesh* EditableMesh = FindEditableMesh( *FadingOutHoveredMeshElement.Component.Get(), FadingOutHoveredMeshElement.ElementAddress.SubMeshAddress );
-						if( IsElementIDValid( FadingOutHoveredMeshElement, EditableMesh ) )
-						{
-							const float TimeSinceLastHovered = CurrentRealTime - FadingOutHoveredMeshElement.LastHoverTime;
-							float Opacity = 1.0f - ( TimeSinceLastHovered / HoverFadeTime );
-							Opacity = Opacity * Opacity * Opacity * Opacity;		// Exponential falloff
-							Opacity = FMath::Clamp( Opacity, 0.0f, 1.0f );
-
-							FadingOutHoveredMeshElementsToDraw.Add( FadingOutHoveredMeshElement );
-							PerElementColors.Add( FLinearColor::Green.CopyWithNewOpacity( Opacity ).ToFColor( false ) );
-						}
-					}
-				}
-
-				const bool bFillFaces = true;
-				DrawMeshElements(
-					CameraToWorld,
-					bIsPerspectiveView,
-					Viewport,
-					PDI,
-					FadingOutHoveredMeshElementsToDraw,
-					FColor::White,	// Ignored, as we'll pass in per-element colors also
-					bFillFaces,
-					HoveredSizeBias,
-					&PerElementColors );
-			}
-		}
-
-		// Draw selected mesh elements
-		{
-			const double CurrentRealTime = FSlateApplication::Get().GetCurrentTime();
-
-			static TArray<float> PerElementSizeBiases;
-			PerElementSizeBiases.Reset();
-
-			const float SelectionAnimationDuration = MeshEd::SelectionAnimationDuration->GetFloat();
-			for( FMeshElement& SelectedMeshElement : SelectedMeshElements )
-			{
-				const float TimeSinceSelected = CurrentRealTime - SelectedMeshElement.LastSelectTime;
-
-				const float SizeBias = MeshEd::SelectedSizeBias->GetFloat() + MeshEd::SelectedAnimationExtraSizeBias->GetFloat() * FMath::Clamp( 1.0f - ( TimeSinceSelected / SelectionAnimationDuration ), 0.0f, 1.0f );
-				PerElementSizeBiases.Add( SizeBias );
-			}
-
-			const float Opacity = 1.0f;
-			const bool bFillFaces = true;
-			DrawMeshElements(
-				CameraToWorld,
-				bIsPerspectiveView,
-				Viewport,
-				PDI,
-				SelectedMeshElements,
-				FLinearColor::White.CopyWithNewOpacity( Opacity ).ToFColor( false ),
-				bFillFaces,
-				MeshEd::SelectedSizeBias->GetFloat(),
-				nullptr,
-				&PerElementSizeBiases );
 		}
 	}
 }
@@ -2951,8 +2769,9 @@ void FMeshEditorMode::OnViewportInteractionHoverUpdate( UViewportInteractor* Vie
 			}
 		}
 
-		// Are we hovering over something new? (or nothing?)  If so, then we'll fade out the old hovered mesh element
 		const FMeshElement& PreviouslyHoveredMeshElement = MeshEditorInteractorData.PreviouslyHoveredMeshElement;
+
+		// Are we hovering over something new? (or nothing?)  If so, then we'll fade out the old hovered mesh element
 		if( PreviouslyHoveredMeshElement.IsValidMeshElement() &&
 			!PreviouslyHoveredMeshElement.IsSameMeshElement( MeshEditorInteractorData.HoveredMeshElement ) )
 		{
@@ -3526,8 +3345,8 @@ void FMeshEditorMode::UpdateActiveAction( const bool bIsActionFinishing )
 			{
 				verify( !EditableMesh->AnyChangesToUndo() );
 
-				// @todo mesheditor perf: Polygons will actually be triangulated twice in the same frame when performing an operation that implicitly retriangulates at the end of the op (once before move, once after move.)  Not super ideal.
 				EditableMesh->MoveVertices( VerticesToMove );
+				RequestSelectedElementsOverlayUpdate();
 
 				TrackUndo( EditableMesh, EditableMesh->MakeUndo() );
 			}
@@ -4827,8 +4646,62 @@ void FMeshEditorMode::RefreshTransformables( const bool bNewObjectsSelected )
 }
 
 
+const FMeshEditorMode::FWireframeMeshComponents& FMeshEditorMode::CreateWireframeMeshComponents( UPrimitiveComponent* Component )
+{
+	FWireframeMeshComponents* WireframeMeshComponentsPtr = ComponentToWireframeComponentMap.Find( Component );
+	if( !WireframeMeshComponentsPtr )
+	{
+		WireframeMeshComponentsPtr = &ComponentToWireframeComponentMap.Add( Component );
+
+		const int32 LODIndex = 0;		// @todo mesheditor: We'll want to select an LOD to edit in various different wants (LOD that's visible, or manual user select, etc.)
+		const FEditableMeshSubMeshAddress SubMeshAddress = UEditableMeshFactory::MakeSubmeshAddress( Component, LODIndex );
+
+		const FEditableAndWireframeMeshes& EditableAndWireframeMeshes = CachedEditableMeshes.FindChecked( SubMeshAddress );
+
+		// Create the subdivided wireframe mesh component
+		UWireframeMeshComponent* WireframeSubdividedMeshComponent = NewObject<UWireframeMeshComponent>( WireframeComponentContainer );
+		WireframeSubdividedMeshComponent->SetMaterial( 0, SubdividedMeshWireMaterial );
+		WireframeSubdividedMeshComponent->TranslucencySortPriority = 100;
+		WireframeSubdividedMeshComponent->SetWireframeMesh( EditableAndWireframeMeshes.WireframeSubdividedMesh );
+		WireframeSubdividedMeshComponent->RegisterComponent();
+
+		// Create the base cage wireframe mesh component
+		UWireframeMeshComponent* WireframeMeshComponent = NewObject<UWireframeMeshComponent>( WireframeComponentContainer );
+		WireframeMeshComponent->SetMaterial( 0, WireMaterial );
+		WireframeMeshComponent->TranslucencySortPriority = 300;
+		WireframeMeshComponent->SetWireframeMesh( EditableAndWireframeMeshes.WireframeBaseCage );
+		WireframeMeshComponent->RegisterComponent();
+
+		WireframeMeshComponentsPtr->WireframeMeshComponent = WireframeMeshComponent;
+		WireframeMeshComponentsPtr->WireframeSubdividedMeshComponent = WireframeSubdividedMeshComponent;
+	}
+
+	return *WireframeMeshComponentsPtr;
+}
+
+
+void FMeshEditorMode::DestroyWireframeMeshComponents( UPrimitiveComponent* Component )
+{
+	FWireframeMeshComponents& WireframeMeshComponents = ComponentToWireframeComponentMap.FindChecked( Component );
+	WireframeMeshComponents.WireframeMeshComponent->DestroyComponent();
+	WireframeMeshComponents.WireframeSubdividedMeshComponent->DestroyComponent();
+	ComponentToWireframeComponentMap.Remove( Component );
+}
+
+
 void FMeshEditorMode::UpdateSelectedEditableMeshes()
 {
+	static TSet<UPrimitiveComponent*> DeselectedComponents;
+	DeselectedComponents.Reset();
+
+	// Make a list of components which have just been deselected.
+	// First add all the components which appear in the out-of-date list.
+	// Later, any components which are still selected will be removed from this list.
+	for( const FComponentAndEditableMesh& ComponentAndEditableMesh : SelectedComponentsAndEditableMeshes )
+	{
+		DeselectedComponents.Add( ComponentAndEditableMesh.Component );
+	}
+
 	SelectedEditableMeshes.Reset();
 	SelectedComponentsAndEditableMeshes.Reset();
 
@@ -4874,6 +4747,26 @@ void FMeshEditorMode::UpdateSelectedEditableMeshes()
 			}
 		}
 	}
+
+	for( const FComponentAndEditableMesh& ComponentAndEditableMesh : SelectedComponentsAndEditableMeshes )
+	{
+		if( DeselectedComponents.Contains( ComponentAndEditableMesh.Component ) )
+		{
+			DeselectedComponents.Remove( ComponentAndEditableMesh.Component );
+		}
+
+		const FWireframeMeshComponents& OverlayComponents = CreateWireframeMeshComponents( ComponentAndEditableMesh.Component );
+		const FTransform Transform = ComponentAndEditableMesh.Component->GetComponentTransform();
+		OverlayComponents.WireframeMeshComponent->SetWorldTransform( Transform );
+		OverlayComponents.WireframeSubdividedMeshComponent->SetWorldTransform( Transform );
+	}
+
+	for( UPrimitiveComponent* DeselectedComponent : DeselectedComponents )
+	{
+		DestroyWireframeMeshComponents( DeselectedComponent );
+	}
+
+	RequestSelectedElementsOverlayUpdate();
 }
 
 

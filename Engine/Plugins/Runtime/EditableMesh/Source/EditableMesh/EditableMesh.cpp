@@ -322,6 +322,7 @@ void UEditableMesh::Compact()
 	ElementIDsRemappedEvent.Broadcast( this, Remappings );
 
 	RebuildRenderMesh();
+	RebuildOctree();
 
 	// Prepare the inverse transaction to reverse the compaction
 	FUncompactChangeInput UncompactChangeInput;
@@ -354,6 +355,7 @@ void UEditableMesh::Uncompact( const FElementIDRemappings& Remappings )
 	ElementIDsRemappedEvent.Broadcast( this, Remappings );
 
 	RebuildRenderMesh();
+	RebuildOctree();
 
 	AddUndo( MakeUnique<FCompactChange>() );
 }
@@ -7429,19 +7431,23 @@ void UEditableMesh::SetEdgesVertices( const TArray<FVerticesForEdge>& VerticesFo
 	UE_LOG( LogEditableMesh, Verbose, TEXT( "SetEdgesVertices: %s" ), *LogHelpers::ArrayToString( VerticesForEdges ) );
 
 	FSetEdgesVerticesChangeInput RevertInput;
-
 	RevertInput.VerticesForEdges.AddUninitialized( VerticesForEdges.Num() );
-	for( int32 VertexNumber = 0; VertexNumber < VerticesForEdges.Num(); ++VertexNumber )
+
+	static TArray<FEdgeID> EdgeIDs;
+	EdgeIDs.SetNumUninitialized( VerticesForEdges.Num() );
+
+	for( int32 EdgeNumber = 0; EdgeNumber < VerticesForEdges.Num(); ++EdgeNumber )
 	{
-		const FVerticesForEdge& VerticesForEdge = VerticesForEdges[ VertexNumber ];
+		const FVerticesForEdge& VerticesForEdge = VerticesForEdges[ EdgeNumber ];
 
 		// Save the backup
-		FVerticesForEdge& RevertVerticesForEdge = RevertInput.VerticesForEdges[ VertexNumber ];
+		FVerticesForEdge& RevertVerticesForEdge = RevertInput.VerticesForEdges[ EdgeNumber ];
 		RevertVerticesForEdge.EdgeID = VerticesForEdge.EdgeID;
 		GetEdgeVertices( VerticesForEdge.EdgeID, /* Out */ RevertVerticesForEdge.NewVertexID0, /* Out */ RevertVerticesForEdge.NewVertexID1 );
 
 		// Edit the edge
 		FMeshEdge& Edge = Edges[ VerticesForEdge.EdgeID.GetValue() ];
+		EdgeIDs[ EdgeNumber ] = VerticesForEdge.EdgeID;
 
 		for( uint32 EdgeVertexNumber = 0; EdgeVertexNumber < 2; ++EdgeVertexNumber )
 		{
@@ -7463,6 +7469,12 @@ void UEditableMesh::SetEdgesVertices( const TArray<FVerticesForEdge>& VerticesFo
 			check( !Vertex.ConnectedEdgeIDs.Contains( VerticesForEdge.EdgeID ) );	// Should not have already been connected
 			Vertex.ConnectedEdgeIDs.Add( VerticesForEdge.EdgeID );
 		}
+	}
+
+	// Give the adapter a chance to handle this
+	for( UEditableMeshAdapter* Adapter : Adapters )
+	{
+		Adapter->OnSetEdgesVertices( this, EdgeIDs );
 	}
 
 	AddUndo( MakeUnique<FSetEdgesVerticesChange>( MoveTemp( RevertInput ) ) );

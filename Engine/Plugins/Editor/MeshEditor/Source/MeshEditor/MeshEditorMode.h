@@ -16,6 +16,8 @@
 #include "Framework/Commands/UIAction.h"
 #include "Framework/Commands/UICommandInfo.h"
 #include "Framework/Commands/UICommandList.h"
+#include "WireframeMeshComponent.h"
+#include "OverlayComponent.h"
 #include "MeshEditorMode.generated.h"
 
 
@@ -139,6 +141,7 @@ public:
 protected:
 
 	// FEdMode interface
+	virtual void Initialize() override;
 	virtual void Enter() override;
 	virtual void Exit() override;
 	virtual void Tick( FEditorViewportClient* ViewportClient, float DeltaTime ) override;
@@ -211,21 +214,6 @@ protected:
 
 	/** Gets the container of all the assets used in the mesh editor */
 	const class UMeshEditorAssetContainer& GetAssetContainer() const;
-
-	/** Fills the specified dynamic mesh builder with primitives to render a mesh vertex */
-	void AddVertexToDynamicMesh( const UEditableMesh& EditableMesh, const FTransform& CameraToWorld, const bool bIsPerspectiveView, const FMatrix& ComponentToWorldMatrix, const FVertexID VertexID, const FColor ColorAndOpacity, const float SizeBias, const bool bApplyDepthBias, class FDynamicMeshBuilder& MeshBuilder );
-		
-	/** Fills the specified dynamic mesh builder with primitives to a thick line.  Incoming positions are in world space. */
-	void AddThickLineToDynamicMesh( const FTransform& CameraToWorld, const bool bIsPerspectiveView, const FVector EdgeVertexPositions[2], const FColor ColorAndOpacity, const float SizeBias, const bool bApplyDepthBias, FDynamicMeshBuilder& MeshBuilder );
-
-	/** Fills the specified dynamic mesh builder with primitives to render a mesh edge */
-	void AddEdgeToDynamicMesh( const UEditableMesh& EditableMesh, const FTransform& CameraToWorld, const bool bIsPerspectiveView, const FMatrix& ComponentToWorldMatrix, const FEdgeID EdgeID, const FColor ColorAndOpacity, const float SizeBias, class FDynamicMeshBuilder& MeshBuilder );
-
-	/** Fills the specified dynamic mesh builders with primitives to render a polygon and it's edges */
-	void AddPolygonToDynamicMesh( const UEditableMesh& EditableMesh, const FTransform& CameraToWorld, const bool bIsPerspectiveView, const FMatrix& ComponentToWorldMatrix, const FPolygonID PolygonID, const FColor ColorAndOpacity, const FColor HardEdgeColorAndOpacity, const float SizeBias, const bool bFillFaces, class FDynamicMeshBuilder& VertexAndEdgeMeshBuilder, class FDynamicMeshBuilder* PolygonFaceMeshBuilder );
-
-	/** Renders the spceified mesh element */
-	void DrawMeshElements( const FTransform& CameraToWorld, const bool bIsPerspectiveView, FViewport* Viewport, FPrimitiveDrawInterface* PDI, const TArrayView<FMeshElement>& MeshElements, const FColor Color, const bool bFillFaces, const float HoverAnimation, const TArray<FColor>* OptionalPerElementColors = nullptr, const TArray<float>* OptionalPerElementSizeBiases = nullptr );
 
 	/** Called every frame for each viewport interactor to update what's under the cursor */
 	void OnViewportInteractionHoverUpdate( class UViewportInteractor* ViewportInteractor, FVector& OutHoverImpactPoint, bool& bWasHandled );
@@ -363,6 +351,30 @@ protected:
 	/** Plays sound when mesh edit action was finished */
 	void PlayFinishActionSound( FName NewAction, UViewportInteractor* ActionInteractor = nullptr);
 
+	struct FWireframeMeshComponents
+	{
+		UWireframeMeshComponent* WireframeMeshComponent;
+		UWireframeMeshComponent* WireframeSubdividedMeshComponent;
+	};
+
+	/** Creates wireframe mesh components for an editable mesh */
+	const FWireframeMeshComponents& CreateWireframeMeshComponents( UPrimitiveComponent* Component );
+
+	/** Destroys overlay components for an editable mesh */
+	void DestroyWireframeMeshComponents( UPrimitiveComponent* Component );
+
+	/** Adds a mesh element to the given overlay component */
+	void AddMeshElementToOverlay( UOverlayComponent* OverlayComponent, const FMeshElement& MeshElement, const FColor Color, const float Size );
+
+	/** Request an update to the selected elements overlay */
+	void RequestSelectedElementsOverlayUpdate();
+
+	/** Updates the selected elements overlay */
+	void UpdateSelectedElementsOverlay();
+
+	/** Updates debug normals/tangents */
+	void UpdateDebugNormals();
+
 
 protected:
 
@@ -496,6 +508,18 @@ protected:
 	/** Material to use to render hovered triangles or faces */
 	UMaterialInterface* HoveredFaceMaterial;
 
+	/** Material to use for wireframe base cage render */
+	UMaterialInterface* WireMaterial;
+
+	/** Material to use for wireframe subdivided mesh render */
+	UMaterialInterface* SubdividedMeshWireMaterial;
+
+	/** Material to use for the overlay lines */
+	UMaterialInterface* OverlayLineMaterial;
+
+	/** Material to use for the overlay points */
+	UMaterialInterface* OverlayPointMaterial;
+
 	/** Hover feedback animation time value, ever-incrementing until selection changes */
 	double HoverFeedbackTimeValue;
 
@@ -543,11 +567,22 @@ protected:
 	TArray<FMeshElement> FadingOutHoveredMeshElements;
 
 
-
+	/** Data pertaining to an editable mesh:
+	    The editable mesh itself, plus two wireframe visualizations (base cage and subD), which
+		are updated as the editable mesh is updated. */
+	struct FEditableAndWireframeMeshes
+	{
+		UEditableMesh* EditableMesh;
+		UWireframeMesh* WireframeBaseCage;
+		UWireframeMesh* WireframeSubdividedMesh;
+	};
 
 	/** Cached editable meshes */
 	// @todo mesheditor: Need to expire these at some point, otherwise we just grow and grow */
-	TMap< FEditableMeshSubMeshAddress, class UEditableMesh* > CachedEditableMeshes;
+	TMap<FEditableMeshSubMeshAddress, FEditableAndWireframeMeshes> CachedEditableMeshes;
+
+	/** Map mesh components to their wireframe overlays */
+	TMap<UPrimitiveComponent*, FWireframeMeshComponents> ComponentToWireframeComponentMap;
 
 	/** Manages saving undo for selected mesh elements while we're dragging them around */
 	FTrackingTransaction TrackingTransaction;
@@ -581,6 +616,21 @@ protected:
 	/** Proxy UObject to pass to the undo system when performing interactions that affect state of the mode itself,
 	    such as the selection set.  We need this because the UE4 undo system requires a UObject, but we're an FEdMode. */
 	UMeshEditorModeProxyObject* MeshEditorModeProxyObject;
+
+	/** Actor which holds wireframe mesh components */
+	AActor* WireframeComponentContainer;
+
+	/** Component containing hovered elements */
+	UOverlayComponent* HoveredElementsComponent;
+
+	/** Component containing selected elements */
+	UOverlayComponent* SelectedElementsComponent;
+
+	/** Component containing subD mesh selected wires */
+	UOverlayComponent* SelectedSubDElementsComponent;
+
+	/** Component containing debug normals/tangents */
+	UOverlayComponent* DebugNormalsComponent;
 
 	/** When performing an interactive action that was initiated using an interactor, this is the interactor that was used. */
 	class UViewportInteractor* ActiveActionInteractor;
@@ -650,6 +700,9 @@ protected:
 
 	/** Requested focus to selection */
 	bool bShouldFocusToSelection;
+
+	/** Requested selected elements overlay update */
+	bool bShouldUpdateSelectedElementsOverlay;
 
 	/** Whether edits are made per-instance or not */
 	bool bPerInstanceEdits;
