@@ -361,6 +361,17 @@ void UEditableMesh::Uncompact( const FElementIDRemappings& Remappings )
 }
 
 
+void UEditableMesh::InitializeAdapters()
+{
+	for( UEditableMeshAdapter* Adapter : Adapters )
+	{
+		Adapter->InitializeFromEditableMesh( this );
+	}
+
+	RebuildRenderMesh();
+}
+
+
 void UEditableMesh::RebuildRenderMesh()
 {
 	if( !IsBeingModified() )

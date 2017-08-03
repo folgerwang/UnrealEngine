@@ -502,6 +502,58 @@ void UEditableStaticMeshAdapter::InitFromBlankStaticMesh( UEditableMesh* Editabl
 	StaticMesh = &InStaticMesh;
 }
 
+
+void UEditableStaticMeshAdapter::InitializeFromEditableMesh( const UEditableMesh* EditableMesh )
+{
+	// Get the static mesh from the editable mesh submesh address
+	const FEditableMeshSubMeshAddress& SubMeshAddress = EditableMesh->GetSubMeshAddress();
+	StaticMesh = static_cast<UStaticMesh*>( SubMeshAddress.MeshObjectPtr );
+
+	// @todo mesheditor instancing: sort this out
+	OriginalStaticMesh = nullptr;
+
+	// Always targets LOD0 at the moment
+	StaticMeshLODIndex = 0;
+
+	RenderingPolygons.Reset();
+	RenderingPolygonGroups.Reset();
+
+	// Create all the required rendering polygon groups (initialized to 'empty', each with a unique rendering section index)
+	int32 RenderingSectionIndex = 0;
+	for( TSparseArray<FMeshPolygonGroup>::TConstIterator It( EditableMesh->PolygonGroups ); It; ++It )
+	{
+		const int32 Index = It.GetIndex();
+		RenderingPolygonGroups.Insert( Index, FRenderingPolygonGroup() );
+		FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[ Index ];
+		RenderingPolygonGroup.RenderingSectionIndex = RenderingSectionIndex;
+		RenderingPolygonGroup.MaxTriangles = 0;
+
+		RenderingSectionIndex++;
+	}
+
+	// Go through all the polygons, adding their triangles to the rendering polygon group
+	for( TSparseArray<FMeshPolygon>::TConstIterator It( EditableMesh->Polygons ); It; ++It )
+	{
+		const int32 Index = It.GetIndex();
+		RenderingPolygons.Insert( Index, FRenderingPolygon() );
+		FRenderingPolygon& RenderingPolygon = RenderingPolygons[ Index ];
+
+		const FPolygonGroupID PolygonGroupID( It->PolygonGroupID );
+		const FMeshPolygonGroup& PolygonGroup = EditableMesh->PolygonGroups[ PolygonGroupID.GetValue() ];
+		FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[ PolygonGroupID.GetValue() ];
+
+		for( const FMeshTriangle& Triangle : It->Triangles )
+		{
+			const int32 TriangleIndex = RenderingPolygonGroup.Triangles.Add( Triangle );
+			RenderingPolygon.TriangulatedPolygonTriangleIndices.Add( FTriangleID( TriangleIndex ) );
+		}
+
+		RenderingPolygonGroup.MaxTriangles += It->Triangles.Num();
+	}
+
+}
+
+
 int32 GetStaticMeshMaterialIndex( const UStaticMesh* StaticMesh, const UMaterialInterface* MaterialInterface )
 {
 	return StaticMesh->StaticMaterials.IndexOfByPredicate(

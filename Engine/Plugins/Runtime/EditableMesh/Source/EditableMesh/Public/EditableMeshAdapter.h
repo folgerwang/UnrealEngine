@@ -16,6 +16,7 @@ class EDITABLEMESH_API UEditableMeshAdapter : public UObject
 
 public:
 
+	virtual void InitializeFromEditableMesh( const UEditableMesh* EditableMesh ) PURE_VIRTUAL(,);
 	virtual void OnRebuildRenderMeshStart( const UEditableMesh* EditableMesh, const bool bInvalidateLighting ) PURE_VIRTUAL(,);
 	virtual void OnRebuildRenderMesh( const UEditableMesh* EditableMesh ) PURE_VIRTUAL(,);
 	virtual void OnRebuildRenderMeshFinish( const UEditableMesh* EditableMesh, const bool bRebuildBoundsAndCollision, const bool bIsPreviewRollback ) PURE_VIRTUAL(,);

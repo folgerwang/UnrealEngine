@@ -43,12 +43,8 @@ struct FRenderingPolygon
 {
 	GENERATED_BODY()
 
-	/** Static meshes currently only support triangles.  We'll always triangulate polygons and keep track
-	    of all of the triangles here */
-	// @todo mesheditor: For other mesh formats, we may not need to assume triangles.  For example, modern
-	//		GPUs can render quads.  We still need to consider collision geometry though.
-	// @todo mesheditor: This should probably always be a transient thing, right?  We can re-triangulate on 
-	//		load?  Not sure.  We might want some edit-time control over triangulation, which should be saved/loaded.
+	/** This is a list of indices of triangles in the FRenderingPolygonGroup::Triangles array.
+	    We use this to maintain a record of which triangles in the section belong to this polygon. */
 	UPROPERTY()
 	TArray<FTriangleID> TriangulatedPolygonTriangleIndices;
 
@@ -120,6 +116,7 @@ public:
 	void InitEditableStaticMesh( UEditableMesh* EditableMesh, class UPrimitiveComponent& Component, const FEditableMeshSubMeshAddress& InitSubMeshAddress );
 	EDITABLEMESH_API void InitFromBlankStaticMesh( UEditableMesh* EditableMesh, UStaticMesh& InStaticMesh );
 
+	virtual void InitializeFromEditableMesh( const UEditableMesh* EditableMesh ) override;
 	virtual void OnRebuildRenderMeshStart( const UEditableMesh* EditableMesh, const bool bInvalidateLighting ) override;
 	virtual void OnRebuildRenderMesh( const UEditableMesh* EditableMesh ) override;
 	virtual void OnRebuildRenderMeshFinish( const UEditableMesh* EditableMesh, const bool bRebuildBoundsAndCollision, const bool bIsPreviewRollback ) override;
