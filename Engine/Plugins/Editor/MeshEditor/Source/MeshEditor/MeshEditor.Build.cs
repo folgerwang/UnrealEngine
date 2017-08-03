@@ -20,9 +20,11 @@ namespace UnrealBuildTool.Rules
 					"EditableMesh",
 					"ViewportInteraction",
                     "VREditor",
-					"Projects"
-				}
-			);
+					"Projects",
+                    "ShaderCore",
+                    "RHI"
+                }
+            );
 
 			PrivateIncludePathModuleNames.AddRange(
 				new string[] {
@@ -37,6 +39,6 @@ namespace UnrealBuildTool.Rules
 					"LevelEditor",
 				}
 			);
-		}
-	}
+        }
+    }
 }
