@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
 #include "UObject/ScriptMacros.h"
+#include "MeshTypes.h"
 #include "EditableMeshTypes.generated.h"
 
 // @todo mesheditor: Move elsewhere
@@ -109,204 +110,6 @@ enum class EEditableMeshElementType
 };
 
 
-// @todo mesheditor: Need comments
-
-USTRUCT( BlueprintType )
-struct FElementID	// @todo mesheditor script: BP doesn't have name spaces, so we might need a more specific display name, or just rename our various types
-{
-	GENERATED_BODY()
-
-	FElementID()
-	{
-	}
-
-	explicit FElementID( const int32 InitIDValue )
-		: IDValue( InitIDValue )
-	{
-	}
-
-	FORCEINLINE int32 GetValue() const
-	{
-		return IDValue;
-	}
-
-	FORCEINLINE bool operator==( const FElementID& Other ) const
-	{
-		return IDValue == Other.IDValue;
-	}
-
-	FORCEINLINE bool operator!=( const FElementID& Other ) const
-	{
-		return IDValue != Other.IDValue;
-	}
-
-	FString ToString() const
-	{
-		return ( IDValue == Invalid.GetValue() ) ? TEXT( "Invalid" ) : FString::Printf( TEXT( "%d" ), IDValue );
-	}
-
-	friend FArchive& operator<<( FArchive& Ar, FElementID& Element )
-	{
-		Ar << Element.IDValue;
-		return Ar;
-	}
-
-	/** Invalid element ID */
-	EDITABLEMESH_API static const FElementID Invalid;
-
-protected:
-
-	/** The actual mesh element index this ID represents.  Read-only. */
-	UPROPERTY( BlueprintReadOnly, Category="Editable Mesh" )
-	int32 IDValue;
-};
-
-
-USTRUCT( BlueprintType )
-struct FVertexID : public FElementID
-{
-	GENERATED_BODY()
-
-	FVertexID()
-	{
-	}
-
-	explicit FVertexID( const FElementID InitElementID )
-		: FElementID( InitElementID.GetValue() )
-	{
-	}
-
-	explicit FVertexID( const int32 InitIDValue )
-		: FElementID( InitIDValue )
-	{
-	}
-
-	FORCEINLINE friend uint32 GetTypeHash( const FVertexID& Other )
-	{
-		return GetTypeHash( Other.IDValue );
-	}
-
-	/** Invalid vertex ID */
-	EDITABLEMESH_API static const FVertexID Invalid;
-};
-
-
-USTRUCT( BlueprintType )
-struct FVertexInstanceID : public FElementID
-{
-	GENERATED_BODY()
-
-	FVertexInstanceID()
-	{
-	}
-
-	explicit FVertexInstanceID( const FElementID InitElementID )
-		: FElementID( InitElementID.GetValue() )
-	{
-	}
-
-	explicit FVertexInstanceID( const uint32 InitIDValue )
-		: FElementID( InitIDValue )
-	{
-	}
-
-	FORCEINLINE friend uint32 GetTypeHash( const FVertexInstanceID& Other )
-	{
-		return GetTypeHash( Other.IDValue );
-	}
-
-	/** Invalid rendering vertex ID */
-	EDITABLEMESH_API static const FVertexInstanceID Invalid;
-};
-
-
-USTRUCT( BlueprintType )
-struct FEdgeID : public FElementID
-{
-	GENERATED_BODY()
-
-	FEdgeID()
-	{
-	}
-
-	explicit FEdgeID( const FElementID InitElementID )
-		: FElementID( InitElementID.GetValue() )
-	{
-	}
-
-	explicit FEdgeID( const int32 InitIDValue )
-		: FElementID( InitIDValue )
-	{
-	}
-
-	FORCEINLINE friend uint32 GetTypeHash( const FEdgeID& Other )
-	{
-		return GetTypeHash( Other.IDValue );
-	}
-
-	/** Invalid edge ID */
-	EDITABLEMESH_API static const FEdgeID Invalid;
-};
-
-
-USTRUCT( BlueprintType )
-struct FPolygonGroupID : public FElementID
-{
-	GENERATED_BODY()
-
-	FPolygonGroupID()
-	{
-	}
-
-	explicit FPolygonGroupID( const FElementID InitElementID )
-		: FElementID( InitElementID.GetValue() )
-	{
-	}
-
-	explicit FPolygonGroupID( const int32 InitIDValue )
-		: FElementID( InitIDValue )
-	{
-	}
-
-	FORCEINLINE friend uint32 GetTypeHash( const FPolygonGroupID& Other )
-	{
-		return GetTypeHash( Other.IDValue );
-	}
-
-	/** Invalid section ID */
-	EDITABLEMESH_API static const FPolygonGroupID Invalid;
-};
-
-
-USTRUCT( BlueprintType )
-struct FPolygonID : public FElementID
-{
-	GENERATED_BODY()
-
-	FPolygonID()
-	{
-	}
-
-	explicit FPolygonID( const FElementID InitElementID )
-		: FElementID( InitElementID.GetValue() )
-	{
-	}
-
-	explicit FPolygonID( const int32 InitIDValue )
-		: FElementID( InitIDValue )
-	{
-	}
-
-	FORCEINLINE friend uint32 GetTypeHash( const FPolygonID& Other )
-	{
-		return GetTypeHash( Other.IDValue );
-	}
-
-	/** Invalid polygon ID */
-	EDITABLEMESH_API static const FPolygonID Invalid;	// @todo mesheditor script: Can we expose these to BP nicely?	Do we even need to?
-};
-
-
 /**
  * Unique identifies a specific sub-mesh within a component
  */
@@ -362,111 +165,6 @@ struct FEditableMeshSubMeshAddress
 			MeshIndex,
 			LODIndex );
 	}
-};
-
-
-UCLASS( abstract )
-class EDITABLEMESH_API UEditableMeshAttribute : public UObject
-{
-	GENERATED_BODY()
-
-public:
-
-	//
-	// Vertex data for any vertex
-	//
-
-	/** Static: The attribute name for vertex position */
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) static inline FName VertexPosition()
-	{
-		return VertexPositionName;
-	}
-
-	/** Static: The attribute name for vertex corner sharpness (only applies to subdivision meshes) */
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) static inline FName VertexCornerSharpness()
-	{
-		return VertexCornerSharpnessName;
-	}
-
-	//
-	// Vertex instance data
-	//
-
-	/** Static: The attribute name for vertex normal (tangent Z) */
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) static inline FName VertexNormal()
-	{
-		return VertexNormalName;
-	}
-
-	/** Static: The attribute name for vertex tangent vector (tangent X) */
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) static inline FName VertexTangent()
-	{
-		return VertexTangentName;
-	}
-
-	/** Static: The attribute name for the vertex basis determinant sign (used to calculate the direction of tangent Y) */
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) static inline FName VertexBinormalSign()
-	{
-		return VertexBinormalSignName;
-	}
-
-	/** Static: The attribute name for vertex texture coordinate.  The attribute index defines which texture coordinate set. */
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) static inline FName VertexTextureCoordinate()
-	{
-		return VertexTextureCoordinateName;
-	}
-
-	/** Static: The attribute name for the vertex color. */
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) static inline FName VertexColor()
-	{
-		return VertexColorName;
-	}
-
-	//
-	// Edges
-	//
-
-	/** Static: The attribute name for edge hardedness */
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) static inline FName EdgeIsHard()
-	{
-		return EdgeIsHardName;
-	}
-
-	/** Static: The attribute name for edge crease sharpness (only applies to subdivision meshes) */
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) static inline FName EdgeCreaseSharpness()
-	{
-		return EdgeCreaseSharpnessName;
-	}
-
-	//
-	// Polygons
-	//
-
-	/** Static: The attribute name for polygon normal */
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) static inline FName PolygonNormal()
-	{
-		return PolygonNormalName;
-	}
-
-	/** Static: The attribute name for polygon center */
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) static inline FName PolygonCenter()
-	{
-		return PolygonCenterName;
-	}
-
-private:
-
-	static const FName VertexPositionName;
-	static const FName VertexCornerSharpnessName;
-	static const FName VertexNormalName;
-	static const FName VertexTangentName;
-	static const FName VertexBinormalSignName;
-	static const FName VertexTextureCoordinateName;
-	static const FName VertexColorName;
-	static const FName EdgeIsHardName;
-	static const FName EdgeCreaseSharpnessName;
-	static const FName PolygonNormalName;
-	static const FName PolygonCenterName;
 };
 
 
@@ -1293,9 +991,15 @@ struct FPolygonGroupToCreate
 	// @todo mesheditor: Material, bEnableCollision and bCastShadow should all be implemented as PolygonGroup attributes.
 	// This would require making Material an asset name, rather than a UObject*, which is also safer.
 
-	/** Material to assign to the new polygon group */
+	/** Material asset path to assign to the new polygon group */
 	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
-	class UMaterialInterface* Material;
+	FString MaterialAsset;
+
+	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
+	FName MaterialSlotName;
+
+	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
+	FName ImportedMaterialSlotName;
 
 	/** Whether the new polygon group should have collision enabled */
 	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
@@ -1311,8 +1015,7 @@ struct FPolygonGroupToCreate
 
 	/** Default constructor */
 	FPolygonGroupToCreate()
-		: Material( nullptr )
-		, bEnableCollision( false )
+		: bEnableCollision( false )
 		, bCastShadow( false )
 		, OriginalPolygonGroupID( FPolygonGroupID::Invalid )
 	{
@@ -1321,10 +1024,42 @@ struct FPolygonGroupToCreate
 	FString ToString() const
 	{
 		return FString::Printf(
-			TEXT( "Material:%s, bEnableCollision:%s, bCastShadow:%s, OriginalPolygonGroupID:%s" ),
-			Material ? *((UObject*)Material )->GetName() : TEXT( "<none>" ),
+			TEXT( "Material:%s, MaterialSlotName:%s, ImportedMaterialSlotName:%s, bEnableCollision:%s, bCastShadow:%s, OriginalPolygonGroupID:%s" ),
+			*MaterialAsset,
+			*MaterialSlotName.ToString(),
+			*ImportedMaterialSlotName.ToString(),
 			*LexicalConversion::ToString( bEnableCollision ),
 			*LexicalConversion::ToString( bCastShadow ),
 			*OriginalPolygonGroupID.ToString() );
+	}
+};
+
+
+USTRUCT( BlueprintType )
+struct FPolygonGroupForPolygon
+{
+	GENERATED_BODY()
+
+	/** Polygon to assign to a new group */
+	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
+	FPolygonID PolygonID;
+
+	/** Polygon group to assign polygon to */
+	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
+	FPolygonGroupID PolygonGroupID;
+
+	/** Default constructor */
+	FPolygonGroupForPolygon()
+		: PolygonID( FPolygonID::Invalid )
+		, PolygonGroupID( FPolygonGroupID::Invalid )
+	{
+	}
+
+	FString ToString() const
+	{
+		return FString::Printf(
+			TEXT( "PolygonID:%s, PolygonGroupID:%s" ),
+			*PolygonID.ToString(),
+			*PolygonGroupID.ToString() );
 	}
 };

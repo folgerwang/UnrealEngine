@@ -45,6 +45,8 @@ UEditableMesh* FStaticMeshEditableMeshFormat::MakeEditableMesh( UPrimitiveCompon
 	}
 
 	UEditableMesh* EditableMesh = NewObject<UEditableMesh>();
+	EditableMesh->MeshDescription = NewObject<UMeshDescription>( EditableMesh );
+
 	UEditableStaticMeshAdapter* EditableStaticMesh = NewObject<UEditableStaticMeshAdapter>( EditableMesh );
 	EditableMesh->Adapters.Add( EditableStaticMesh );
 

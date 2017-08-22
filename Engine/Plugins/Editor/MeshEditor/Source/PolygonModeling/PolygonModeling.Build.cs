@@ -16,6 +16,7 @@ namespace UnrealBuildTool.Rules
 					"UnrealEd",
 					"EditableMesh",
 					"MeshEditor",
+                    "MeshDescription",
 					"SlateCore",
 					"ViewportInteraction"
 				}

@@ -100,6 +100,9 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 				const bool bHasColor = StaticMeshLOD.ColorVertexBuffer.GetNumVertices() > 0;
 				check( !bHasColor || StaticMeshLOD.ColorVertexBuffer.GetNumVertices() == StaticMeshLOD.VertexBuffer.GetNumVertices() );
 
+				FVertexArray& Vertices = EditableMesh->GetMeshDescription()->Vertices();
+				FVertexInstanceArray& VertexInstances = EditableMesh->GetMeshDescription()->VertexInstances();
+
 				// @todo mesheditor cleanup: This code is very similar to the static mesh build code; try to share helper structs
 				static TMultiMap<int32, int32> OverlappingRenderingVertexIndices;
 				{
@@ -177,6 +180,7 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 				for( int32 RenderingVertexIndex = 0; RenderingVertexIndex < NumRenderingVertices; ++RenderingVertexIndex )
 				{
 					const FVector VertexPosition = StaticMeshLOD.PositionVertexBuffer.VertexPosition( RenderingVertexIndex );
+					const FVertexInstanceID VertexInstanceID( RenderingVertexIndex );
 
 					// Check to see if we already have this vertex
 					bool bAlreadyHaveVertexForPosition = false;
@@ -188,20 +192,20 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 						for( int32 OverlappingRenderingVertexIter = 0; OverlappingRenderingVertexIter < ThisRenderingVertexOverlaps.Num(); ++OverlappingRenderingVertexIter )
 						{
 							const int32 OverlappingRenderingVertexIndex = ThisRenderingVertexOverlaps[ OverlappingRenderingVertexIter ];
+							const FVertexInstanceID OverlappingVertexInstanceID( OverlappingRenderingVertexIndex );
 
 							// If the overlapping vertex instance index is smaller than our current index, we can safely assume that
 							// we've already processed this vertex position and created an editable mesh vertex for it.
 							if( OverlappingRenderingVertexIndex < RenderingVertexIndex )
 							{
-								check( EditableMesh->VertexInstances.IsAllocated( OverlappingRenderingVertexIndex ) );
-								const FVertexID ExistingVertexID = EditableMesh->VertexInstances[ OverlappingRenderingVertexIndex ].VertexID;
-								FMeshVertex& ExistingVertex = EditableMesh->Vertices[ ExistingVertexID.GetValue() ];
+								check( VertexInstances.IsValid( OverlappingVertexInstanceID ) );
+								const FVertexID ExistingVertexID = VertexInstances[ OverlappingVertexInstanceID ].VertexID;
+								FMeshVertex& ExistingVertex = Vertices[ ExistingVertexID ];
 
 								// We already have a unique editable vertex for this vertex instance position, so link them!
-								EditableMesh->VertexInstances.Insert( RenderingVertexIndex, FMeshVertexInstance() );
-								EditableMesh->VertexInstances[ RenderingVertexIndex ].VertexID = ExistingVertexID;
+								VertexInstances.Insert( VertexInstanceID );
+								VertexInstances[ VertexInstanceID ].VertexID = ExistingVertexID;
 
-								const FVertexInstanceID VertexInstanceID( RenderingVertexIndex );
 								checkSlow( !ExistingVertex.VertexInstanceIDs.Contains( VertexInstanceID ) );
 								ExistingVertex.VertexInstanceIDs.Add( VertexInstanceID );
 								bAlreadyHaveVertexForPosition = true;
@@ -213,20 +217,19 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 
 					if( !bAlreadyHaveVertexForPosition )
 					{
-						const FVertexID NewVertexID( EditableMesh->Vertices.Add( FMeshVertex() ) );
-						FMeshVertex& NewVertex = EditableMesh->Vertices[ NewVertexID.GetValue() ];
+						const FVertexID NewVertexID = Vertices.Add();
+						FMeshVertex& NewVertex = Vertices[ NewVertexID ];
 						NewVertex.VertexPosition = VertexPosition;
 						NewVertex.CornerSharpness = 0.0f;
 
-						EditableMesh->VertexInstances.Insert( RenderingVertexIndex, FMeshVertexInstance() );
-						EditableMesh->VertexInstances[ RenderingVertexIndex ].VertexID = NewVertexID;
+						VertexInstances.Insert( VertexInstanceID );
+						VertexInstances[ VertexInstanceID ].VertexID = NewVertexID;
 						
 						// @todo mesheditor: If a mesh somehow contained vertex instances that no triangle was referencing, this would cause
 						// the vertex instance to be ignored by the editable mesh code.  It would just sit in the vertex buffer (and in the
 						// editable mesh vertex's RenderingVertexIndices list), but would never be touched.  The editable mesh code only
 						// creates vertex instances for vertices that are attached to polygons, so this should never happen with meshes
 						// that we create and save.  Only if the incoming data had orphan vertices in it.  Should hopefully not be a problem.
-						const FVertexInstanceID VertexInstanceID( RenderingVertexIndex );
 						NewVertex.VertexInstanceIDs.Add( VertexInstanceID );
 
 						// NOTE: The new vertex's connected polygons will be filled in down below, as we're processing mesh triangles
@@ -234,7 +237,7 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 
 					// Populate the vertex instance attributes
 					{
-						FMeshVertexInstance& VertexInstance = EditableMesh->VertexInstances[ RenderingVertexIndex ];
+						FMeshVertexInstance& VertexInstance = VertexInstances[ VertexInstanceID ];
 						VertexInstance.VertexUVs.Reserve( NumUVs );
 						for( int32 UVIndex = 0; UVIndex < NumUVs; ++UVIndex )
 						{
@@ -263,6 +266,10 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 				static TMultiMap<FEdgeID, TTuple<FVertexInstanceID, FVertexInstanceID>> EdgeToVertexInstancePair;
 				EdgeToVertexInstancePair.Reset();
 
+				FPolygonGroupArray& PolygonGroups = EditableMesh->GetMeshDescription()->PolygonGroups();
+				FPolygonArray& Polygons = EditableMesh->GetMeshDescription()->Polygons();
+				FEdgeArray& Edges = EditableMesh->GetMeshDescription()->Edges();
+
 				// Add all polygon groups from the static mesh sections
 				const uint32 NumSections = StaticMeshLOD.Sections.Num();
 				for( uint32 RenderingSectionIndex = 0; RenderingSectionIndex < NumSections; ++RenderingSectionIndex )
@@ -270,17 +277,20 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 					const FStaticMeshSection& RenderingSection = StaticMeshLOD.Sections[ RenderingSectionIndex ];
 
 					// Create a new polygon group
-					const FPolygonGroupID NewPolygonGroupID( EditableMesh->PolygonGroups.Add( FMeshPolygonGroup() ) );
-					FMeshPolygonGroup& NewPolygonGroup = EditableMesh->PolygonGroups[ NewPolygonGroupID.GetValue() ];
+					const FPolygonGroupID NewPolygonGroupID = PolygonGroups.Add();
+					FMeshPolygonGroup& NewPolygonGroup = PolygonGroups[ NewPolygonGroupID ];
 
-					NewPolygonGroup.Material = StaticMesh->GetMaterial( RenderingSection.MaterialIndex );
+					const FStaticMaterial& StaticMaterial = StaticMesh->StaticMaterials[ RenderingSection.MaterialIndex ];
+					NewPolygonGroup.MaterialAsset = StaticMaterial.MaterialInterface->GetPathName();
+					NewPolygonGroup.MaterialSlotName = StaticMaterial.MaterialSlotName;
+					NewPolygonGroup.ImportedMaterialSlotName = StaticMaterial.ImportedMaterialSlotName;
 					NewPolygonGroup.bEnableCollision = RenderingSection.bEnableCollision;
 					NewPolygonGroup.bCastShadow = RenderingSection.bCastShadow;
 
 					// Create a rendering polygon group for holding the triangulated data and references to the static mesh rendering section.
 					// This is indexed by the same FPolygonGroupID as the PolygonGroups.
-					RenderingPolygonGroups.Insert( NewPolygonGroupID.GetValue(), FRenderingPolygonGroup() );
-					FRenderingPolygonGroup& NewRenderingPolygonGroup = RenderingPolygonGroups[ NewPolygonGroupID.GetValue() ];
+					RenderingPolygonGroups.Insert( NewPolygonGroupID );
+					FRenderingPolygonGroup& NewRenderingPolygonGroup = RenderingPolygonGroups[ NewPolygonGroupID ];
 
 					const uint32 NumSectionTriangles = RenderingSection.NumTriangles;
 					NewRenderingPolygonGroup.Triangles.Reserve( NumSectionTriangles );
@@ -291,12 +301,12 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 					{
 						const uint32 RenderingTriangleFirstVertexIndex = FRenderingPolygonGroup::TriangleIndexToRenderingTriangleFirstIndex( RenderingSection, FTriangleID( SectionTriangleIndex ) );
 
-						uint32 TriangleRenderingVertexIndices[ 3 ];
+						FVertexInstanceID TriangleVertexInstanceIDs[ 3 ];
 						FVertexID TriangleVertexIDs[ 3 ];
 						for( uint32 TriangleVertexIndex = 0; TriangleVertexIndex < 3; ++TriangleVertexIndex )
 						{
-							TriangleRenderingVertexIndices[ TriangleVertexIndex ] = RenderingIndices[ RenderingTriangleFirstVertexIndex + TriangleVertexIndex ];
-							TriangleVertexIDs[ TriangleVertexIndex ] = EditableMesh->VertexInstances[ TriangleRenderingVertexIndices[ TriangleVertexIndex ] ].VertexID;
+							TriangleVertexInstanceIDs[ TriangleVertexIndex ] = FVertexInstanceID( RenderingIndices[ RenderingTriangleFirstVertexIndex + TriangleVertexIndex ] );
+							TriangleVertexIDs[ TriangleVertexIndex ] = VertexInstances[ TriangleVertexInstanceIDs[ TriangleVertexIndex ] ].VertexID;
 						}
 
 						// Make sure we have a valid triangle.  The triangle can be invalid because at least two if it's vertex indices 
@@ -310,21 +320,22 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 						{
 							// Static meshes only support triangles, so there's no need to triangulate anything yet.  We'll make both
 							// a triangle and a polygon here.
-							const int32 NewTriangleIndex = SectionTriangleIndex;
+							const FTriangleID NewTriangleID = FTriangleID( SectionTriangleIndex );
 
-							NewRenderingPolygonGroup.Triangles.InsertUninitialized( NewTriangleIndex );
-							FMeshTriangle& NewTriangle = NewRenderingPolygonGroup.Triangles[ NewTriangleIndex ];
+							NewRenderingPolygonGroup.Triangles.Insert( NewTriangleID );
+							FMeshTriangle& NewTriangle = NewRenderingPolygonGroup.Triangles[ NewTriangleID ];
 
 							// Insert a polygon into the mesh
-							const FPolygonID NewPolygonID( EditableMesh->Polygons.Add( FMeshPolygon() ) );
-							FMeshPolygon& NewPolygon = EditableMesh->Polygons[ NewPolygonID.GetValue() ];
+							const FPolygonID NewPolygonID = Polygons.Add();
+							FMeshPolygon& NewPolygon = Polygons[ NewPolygonID ];
 							NewPolygon.PolygonGroupID = NewPolygonGroupID;
 							NewPolygonGroup.Polygons.Add( NewPolygonID );
 
 							// Create a rendering polygon mirror, indexed by the same ID
-							RenderingPolygons.Insert( NewPolygonID.GetValue(), FRenderingPolygon() );
-							FRenderingPolygon& NewRenderingPolygon = RenderingPolygons[ NewPolygonID.GetValue() ];
-							NewRenderingPolygon.TriangulatedPolygonTriangleIndices.Add( FTriangleID( NewTriangleIndex ) );
+							RenderingPolygons.Insert( NewPolygonID );
+							FRenderingPolygon& NewRenderingPolygon = RenderingPolygons[ NewPolygonID ];
+							NewRenderingPolygon.PolygonGroupID = NewPolygonGroupID;
+							NewRenderingPolygon.TriangulatedPolygonTriangleIndices.Add( NewTriangleID );
 
 
 							// Static meshes don't support polygons with holes, so we always start out with only a perimeter contour per polygon
@@ -334,13 +345,12 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 							// Connect vertices
 							for( uint32 TriangleVertexIndex = 0; TriangleVertexIndex < 3; ++TriangleVertexIndex )
 							{
-								const uint32 RenderingVertexIndex = TriangleRenderingVertexIndices[ TriangleVertexIndex ];
 								const FVertexID VertexID = TriangleVertexIDs[ TriangleVertexIndex ];
-								const FVertexInstanceID VertexInstanceID = FVertexInstanceID( RenderingVertexIndex );
+								const FVertexInstanceID VertexInstanceID = TriangleVertexInstanceIDs[ TriangleVertexIndex ];
 
 								NewPolygon.PerimeterContour.VertexInstanceIDs.Add( VertexInstanceID );
 
-								FMeshVertexInstance& VertexInstance = EditableMesh->VertexInstances[ VertexInstanceID.GetValue() ];
+								FMeshVertexInstance& VertexInstance = VertexInstances[ VertexInstanceID ];
 								VertexInstance.ConnectedPolygons.Add( NewPolygonID );
 
 								// The triangle points to each of its three vertices
@@ -364,15 +374,13 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 								// Add the edges of this triangle
 								for( uint32 TriangleEdgeNumber = 0; TriangleEdgeNumber < 3; ++TriangleEdgeNumber )
 								{
-									uint32 EdgeRenderingVertexIndices[ 2 ];
-									EdgeRenderingVertexIndices[ 0 ] = RenderingIndices[ RenderingTriangleFirstVertexIndex + ( TriangleEdgeNumber + 0 ) % 3 ];
-									EdgeRenderingVertexIndices[ 1 ] = RenderingIndices[ RenderingTriangleFirstVertexIndex + ( TriangleEdgeNumber + 1 ) % 3 ];
+									FVertexInstanceID EdgeVertexInstanceIDs[ 2 ];
+									EdgeVertexInstanceIDs[ 0 ] = TriangleVertexInstanceIDs[ TriangleEdgeNumber ];
+									EdgeVertexInstanceIDs[ 1 ] = TriangleVertexInstanceIDs[ ( TriangleEdgeNumber + 1 ) % 3 ];
 
 									FVertexID EdgeVertexIDs[ 2 ];
-									EdgeVertexIDs[ 0 ] = EditableMesh->VertexInstances[ EdgeRenderingVertexIndices[ 0 ] ].VertexID;
-									EdgeVertexIDs[ 1 ] = EditableMesh->VertexInstances[ EdgeRenderingVertexIndices[ 1 ] ].VertexID;
-
-									FVertexInstanceID EdgeVertexInstanceIDs[ 2 ];
+									EdgeVertexIDs[ 0 ] = TriangleVertexIDs[ TriangleEdgeNumber ];
+									EdgeVertexIDs[ 1 ] = TriangleVertexIDs[ ( TriangleEdgeNumber + 1 ) % 3 ];
 
 									// Check to see if this edge already exists
 									bool bAlreadyHaveEdge = false;
@@ -381,8 +389,6 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 										FEdgeID* FoundEdgeIDPtr = UniqueEdgeToEdgeID.Find( Local::Make64BitValueForEdge( EdgeVertexIDs[ 0 ], EdgeVertexIDs[ 1 ] ) );
 										if( FoundEdgeIDPtr != nullptr )
 										{
-											EdgeVertexInstanceIDs[ 0 ] = FVertexInstanceID( EdgeRenderingVertexIndices[ 0 ] );
-											EdgeVertexInstanceIDs[ 1 ] = FVertexInstanceID( EdgeRenderingVertexIndices[ 1 ] );
 											bAlreadyHaveEdge = true;
 											EdgeID = *FoundEdgeIDPtr;
 										}
@@ -393,8 +399,7 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 
 											if( FoundEdgeIDPtr != nullptr )
 											{
-												EdgeVertexInstanceIDs[ 0 ] = FVertexInstanceID( EdgeRenderingVertexIndices[ 1 ] );
-												EdgeVertexInstanceIDs[ 1 ] = FVertexInstanceID( EdgeRenderingVertexIndices[ 0 ] );
+												Swap( EdgeVertexIDs[ 0 ], EdgeVertexIDs[ 1 ] );
 												bAlreadyHaveEdge = true;
 												EdgeID = *FoundEdgeIDPtr;
 											}
@@ -404,8 +409,8 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 									if( !bAlreadyHaveEdge )
 									{
 										// Create the new edge.  We'll connect it to its polygons later on.
-										EdgeID = FEdgeID( EditableMesh->Edges.Add( FMeshEdge() ) );
-										FMeshEdge& NewEdge = EditableMesh->Edges[ EdgeID.GetValue() ];
+										EdgeID = Edges.Add();
+										FMeshEdge& NewEdge = Edges[ EdgeID ];
 
 										NewEdge.VertexIDs[ 0 ] = EdgeVertexIDs[ 0 ];
 										NewEdge.VertexIDs[ 1 ] = EdgeVertexIDs[ 1 ];
@@ -413,20 +418,17 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 										NewEdge.CreaseSharpness = 0.0f;
 
 										UniqueEdgeToEdgeID.Add( Local::Make64BitValueForEdge( EdgeVertexIDs[ 0 ], EdgeVertexIDs[ 1 ] ), EdgeID );
-
-										EdgeVertexInstanceIDs[ 0 ] = FVertexInstanceID( EdgeRenderingVertexIndices[ 0 ] );
-										EdgeVertexInstanceIDs[ 1 ] = FVertexInstanceID( EdgeRenderingVertexIndices[ 1 ] );
 									}
 
 									// Each edge will point back to the polygon that its connected to.  Remember, an edge can be shared by multiple
 									// polygons, but usually its best if only shared by up to two.
-									FMeshEdge& Edge = EditableMesh->Edges[ EdgeID.GetValue() ];
+									FMeshEdge& Edge = Edges[ EdgeID ];
 
 									Edge.ConnectedPolygons.AddUnique( NewPolygonID );
 
 									// Connect the end vertices to the edge
-									EditableMesh->Vertices[ EdgeVertexIDs[ 0 ].GetValue() ].ConnectedEdgeIDs.AddUnique( EdgeID );
-									EditableMesh->Vertices[ EdgeVertexIDs[ 1 ].GetValue() ].ConnectedEdgeIDs.AddUnique( EdgeID );
+									Vertices[ EdgeVertexIDs[ 0 ] ].ConnectedEdgeIDs.AddUnique( EdgeID );
+									Vertices[ EdgeVertexIDs[ 1 ] ].ConnectedEdgeIDs.AddUnique( EdgeID );
 
 									// Determine whether the edge is hard by checking whether
 									if( !Edge.bIsHardEdge )
@@ -437,8 +439,8 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 										for( const TTuple<FVertexInstanceID, FVertexInstanceID>& VertexInstancePair : VertexInstancePairs )
 										{
 											// If either of the ends of the edge just added have different normals to any overlapping edge, mark it as a hard edge
-											if( EditableMesh->VertexInstances[ VertexInstancePair.Get<0>().GetValue() ].Normal != EditableMesh->VertexInstances[ EdgeVertexInstanceIDs[ 0 ].GetValue() ].Normal ||
-												EditableMesh->VertexInstances[ VertexInstancePair.Get<1>().GetValue() ].Normal != EditableMesh->VertexInstances[ EdgeVertexInstanceIDs[ 1 ].GetValue() ].Normal )
+											if( VertexInstances[ VertexInstancePair.Get<0>() ].Normal != VertexInstances[ EdgeVertexInstanceIDs[ 0 ] ].Normal ||
+												VertexInstances[ VertexInstancePair.Get<1>() ].Normal != VertexInstances[ EdgeVertexInstanceIDs[ 1 ] ].Normal )
 											{
 												Edge.bIsHardEdge = true;
 												break;
@@ -468,13 +470,11 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 	// Cache polygon tangent bases
 	static TArray<FPolygonID> PolygonIDs;
 	PolygonIDs.Reset();
-	for( int32 PolygonIndex = 0; PolygonIndex < EditableMesh->Polygons.GetMaxIndex(); ++PolygonIndex )
+	for( const FPolygonID PolygonID : EditableMesh->GetMeshDescription()->Polygons().GetElementIDs() )
 	{
-		if( EditableMesh->Polygons.IsAllocated( PolygonIndex ) )
-		{
-			PolygonIDs.Add( FPolygonID( PolygonIndex ) );
-		}
+		PolygonIDs.Add( PolygonID );
 	}
+
 	EditableMesh->GeneratePolygonTangentsAndNormals( PolygonIDs );
 
 #if 0
@@ -518,13 +518,15 @@ void UEditableStaticMeshAdapter::InitializeFromEditableMesh( const UEditableMesh
 	RenderingPolygons.Reset();
 	RenderingPolygonGroups.Reset();
 
+	FPolygonGroupArray& PolygonGroups = EditableMesh->GetMeshDescription()->PolygonGroups();
+	FPolygonArray& Polygons = EditableMesh->GetMeshDescription()->Polygons();
+
 	// Create all the required rendering polygon groups (initialized to 'empty', each with a unique rendering section index)
 	int32 RenderingSectionIndex = 0;
-	for( TSparseArray<FMeshPolygonGroup>::TConstIterator It( EditableMesh->PolygonGroups ); It; ++It )
+	for( const FPolygonGroupID PolygonGroupID : PolygonGroups.GetElementIDs() )
 	{
-		const int32 Index = It.GetIndex();
-		RenderingPolygonGroups.Insert( Index, FRenderingPolygonGroup() );
-		FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[ Index ];
+		RenderingPolygonGroups.Insert( PolygonGroupID );
+		FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[ PolygonGroupID ];
 		RenderingPolygonGroup.RenderingSectionIndex = RenderingSectionIndex;
 		RenderingPolygonGroup.MaxTriangles = 0;
 
@@ -532,33 +534,27 @@ void UEditableStaticMeshAdapter::InitializeFromEditableMesh( const UEditableMesh
 	}
 
 	// Go through all the polygons, adding their triangles to the rendering polygon group
-	for( TSparseArray<FMeshPolygon>::TConstIterator It( EditableMesh->Polygons ); It; ++It )
+	for( const FPolygonID PolygonID : Polygons.GetElementIDs() )
 	{
-		const int32 Index = It.GetIndex();
-		RenderingPolygons.Insert( Index, FRenderingPolygon() );
-		FRenderingPolygon& RenderingPolygon = RenderingPolygons[ Index ];
+		const FMeshPolygon& Polygon = Polygons[ PolygonID ];
 
-		const FPolygonGroupID PolygonGroupID( It->PolygonGroupID );
-		const FMeshPolygonGroup& PolygonGroup = EditableMesh->PolygonGroups[ PolygonGroupID.GetValue() ];
-		FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[ PolygonGroupID.GetValue() ];
+		const FPolygonGroupID PolygonGroupID = Polygon.PolygonGroupID;
+		const FMeshPolygonGroup& PolygonGroup = PolygonGroups[ PolygonGroupID ];
+		FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[ PolygonGroupID ];
 
-		for( const FMeshTriangle& Triangle : It->Triangles )
+		RenderingPolygons.Insert( PolygonID );
+		FRenderingPolygon& RenderingPolygon = RenderingPolygons[ PolygonID ];
+		RenderingPolygon.PolygonGroupID = PolygonGroupID;
+
+		for( const FMeshTriangle& Triangle : Polygon.Triangles )
 		{
-			const int32 TriangleIndex = RenderingPolygonGroup.Triangles.Add( Triangle );
-			RenderingPolygon.TriangulatedPolygonTriangleIndices.Add( FTriangleID( TriangleIndex ) );
+			const FTriangleID TriangleID = RenderingPolygonGroup.Triangles.Add( Triangle );
+			RenderingPolygon.TriangulatedPolygonTriangleIndices.Add( TriangleID );
 		}
 
-		RenderingPolygonGroup.MaxTriangles += It->Triangles.Num();
+		RenderingPolygonGroup.MaxTriangles += Polygon.Triangles.Num();
 	}
 
-}
-
-
-int32 GetStaticMeshMaterialIndex( const UStaticMesh* StaticMesh, const UMaterialInterface* MaterialInterface )
-{
-	return StaticMesh->StaticMaterials.IndexOfByPredicate(
-		[ MaterialInterface ]( const FStaticMaterial& StaticMaterial ) { return StaticMaterial.MaterialInterface == MaterialInterface; }
-	);
 }
 
 
@@ -577,7 +573,9 @@ void UEditableStaticMeshAdapter::OnRebuildRenderMesh( const UEditableMesh* Edita
 	static TArray< uint32 > IndexBuffer;
 	IndexBuffer.Reset();
 
-	StaticMeshLOD.Sections.Empty( EditableMesh->PolygonGroups.Num() );
+	const FPolygonGroupArray& PolygonGroups = EditableMesh->GetMeshDescription()->PolygonGroups();
+
+	StaticMeshLOD.Sections.Empty( PolygonGroups.Num() );
 
 	bool bHasColor = false;
 
@@ -585,19 +583,17 @@ void UEditableStaticMeshAdapter::OnRebuildRenderMesh( const UEditableMesh* Edita
 	{
 		check( EditableMesh->GetSubdivisionCount() > 0 );
 
-		const int32 SectionCount = EditableMesh->SubdivisionLimitData.Sections.Num();
-
 		// @todo mesheditor subdiv: Only 2 UVs supported for now, just to avoid having to use a dynamic array per vertex; needs a new data layout, probably (SoA)
 		const int32 SubdivMeshTextureCoordinateCount = FMath::Min( EditableMesh->GetTextureCoordinateCount(), 2 );
 
 		// The Sections sparse array mirrors the SubdivisionLimitData sections array;
 		// iterate through it in parallel in order to get the material index and other section properties
-		TSparseArray< FMeshPolygonGroup >::TConstIterator PolygonGroupIt( EditableMesh->PolygonGroups );
-		check( EditableMesh->PolygonGroups.Num() == SectionCount );
+		check( PolygonGroups.Num() == EditableMesh->SubdivisionLimitData.Sections.Num() );
 
-		for( int32 SectionNumber = 0; SectionNumber < SectionCount; ++SectionNumber )
+		int32 SectionNumber = 0;
+		for( const FPolygonGroupID PolygonGroupID : PolygonGroups.GetElementIDs() )
 		{
-			const FMeshPolygonGroup& PolygonGroup = *PolygonGroupIt;
+			const FMeshPolygonGroup& PolygonGroup = PolygonGroups[ PolygonGroupID ];
 			const FSubdivisionLimitSection& SubdivisionSection = EditableMesh->SubdivisionLimitData.Sections[ SectionNumber ];
 
 			const int32 SectionTriangleCount = SubdivisionSection.SubdividedQuads.Num() * 2;
@@ -618,8 +614,10 @@ void UEditableStaticMeshAdapter::OnRebuildRenderMesh( const UEditableMesh* Edita
 			StaticMeshSection.MinVertexIndex = FirstSectionVertexIndex;
 			StaticMeshSection.MaxVertexIndex = FirstSectionVertexIndex + SectionTriangleCount * 3;
 
-			const int32 MaterialIndex = GetStaticMeshMaterialIndex( StaticMesh, PolygonGroup.Material );
+			const int32 MaterialIndex = StaticMesh->GetMaterialIndex( PolygonGroup.MaterialSlotName );
 			check( MaterialIndex != INDEX_NONE );
+			check( StaticMesh->StaticMaterials[ MaterialIndex ].MaterialInterface->GetPathName() == PolygonGroup.MaterialAsset.ToString() );
+
 			StaticMeshSection.MaterialIndex = MaterialIndex;
 			StaticMeshSection.bEnableCollision = PolygonGroup.bEnableCollision;
 			StaticMeshSection.bCastShadow = PolygonGroup.bCastShadow;
@@ -676,25 +674,29 @@ void UEditableStaticMeshAdapter::OnRebuildRenderMesh( const UEditableMesh* Edita
 				}
 			}
 
-			++PolygonGroupIt;
+			++SectionNumber;
 		}
 	}
 	else
 	{
-		// set up vertex buffer elements
-		StaticMeshBuildVertices.SetNum( EditableMesh->VertexInstances.GetMaxIndex() );
+		const FVertexArray& Vertices = EditableMesh->GetMeshDescription()->Vertices();
+		const FVertexInstanceArray& VertexInstances = EditableMesh->GetMeshDescription()->VertexInstances();
 
-		for( TSparseArray<FMeshVertexInstance>::TConstIterator It( EditableMesh->VertexInstances ); It; ++It )
+		// set up vertex buffer elements
+		StaticMeshBuildVertices.SetNum( VertexInstances.GetArraySize() );
+
+		for( const FVertexInstanceID VertexInstanceID : VertexInstances.GetElementIDs() )
 		{
-			if( It->Color != FColor::White )
+			const FMeshVertexInstance& VertexInstance = VertexInstances[ VertexInstanceID ];
+
+			if( VertexInstance.Color != FColor::White )
 			{
 				bHasColor = true;
 			}
 
-			FStaticMeshBuildVertex& StaticMeshVertex = StaticMeshBuildVertices[ It.GetIndex() ];
-			const FMeshVertexInstance& VertexInstance = *It;
+			FStaticMeshBuildVertex& StaticMeshVertex = StaticMeshBuildVertices[ VertexInstanceID.GetValue() ];
 
-			StaticMeshVertex.Position = EditableMesh->Vertices[ VertexInstance.VertexID.GetValue() ].VertexPosition;
+			StaticMeshVertex.Position = Vertices[ VertexInstance.VertexID ].VertexPosition;
 			StaticMeshVertex.TangentX = VertexInstance.Tangent;
 			StaticMeshVertex.TangentY = FVector::CrossProduct( VertexInstance.Normal, VertexInstance.Tangent ).GetSafeNormal() * VertexInstance.BinormalSign;
 			StaticMeshVertex.TangentZ = VertexInstance.Normal;
@@ -706,10 +708,11 @@ void UEditableStaticMeshAdapter::OnRebuildRenderMesh( const UEditableMesh* Edita
 		}
 
 		// Set up index buffer
-		for( TSparseArray< FMeshPolygonGroup >::TConstIterator It( EditableMesh->PolygonGroups ); It; ++It )
+
+		for( const FPolygonGroupID PolygonGroupID : PolygonGroups.GetElementIDs() )
 		{
-			const FMeshPolygonGroup& PolygonGroup = EditableMesh->PolygonGroups[ It.GetIndex() ];
-			FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[ It.GetIndex() ];
+			const FMeshPolygonGroup& PolygonGroup = PolygonGroups[ PolygonGroupID ];
+			FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[ PolygonGroupID ];
 
 			RenderingPolygonGroup.RenderingSectionIndex = StaticMeshLOD.Sections.Num();
 
@@ -718,11 +721,12 @@ void UEditableStaticMeshAdapter::OnRebuildRenderMesh( const UEditableMesh* Edita
 			FStaticMeshSection& StaticMeshSection = StaticMeshLOD.Sections.Last();
 
 			StaticMeshSection.FirstIndex = IndexBuffer.Num();
-			StaticMeshSection.NumTriangles = RenderingPolygonGroup.Triangles.GetMaxIndex();
-			check( RenderingPolygonGroup.Triangles.GetMaxIndex() <= RenderingPolygonGroup.MaxTriangles );
+			StaticMeshSection.NumTriangles = RenderingPolygonGroup.Triangles.GetArraySize();
+			check( RenderingPolygonGroup.Triangles.GetArraySize() <= RenderingPolygonGroup.MaxTriangles );
 
-			const int32 MaterialIndex = GetStaticMeshMaterialIndex( StaticMesh, PolygonGroup.Material );
+			const int32 MaterialIndex = StaticMesh->GetMaterialIndex( PolygonGroup.MaterialSlotName );
 			check( MaterialIndex != INDEX_NONE );
+			check( StaticMesh->StaticMaterials[ MaterialIndex ].MaterialInterface->GetPathName() == PolygonGroup.MaterialAsset.ToString() );
 			StaticMeshSection.MaterialIndex = MaterialIndex;
 			StaticMeshSection.bEnableCollision = PolygonGroup.bEnableCollision;
 			StaticMeshSection.bCastShadow = PolygonGroup.bCastShadow;
@@ -730,19 +734,20 @@ void UEditableStaticMeshAdapter::OnRebuildRenderMesh( const UEditableMesh* Edita
 
 			if( RenderingPolygonGroup.Triangles.Num() > 0 )
 			{
-				IndexBuffer.Reserve( IndexBuffer.Num() + RenderingPolygonGroup.Triangles.GetMaxIndex() * 3 );
+				IndexBuffer.Reserve( IndexBuffer.Num() + RenderingPolygonGroup.Triangles.GetArraySize() * 3 );
 				uint32 MinIndex = TNumericLimits< uint32 >::Max();
 				uint32 MaxIndex = TNumericLimits< uint32 >::Min();
 
 				// Find the first valid vertex instance index, so that we have a value we can use for our degenerates
 				check( RenderingPolygonGroup.Triangles.Num() > 0 );
-				const FVertexInstanceID FirstValidRenderingID = RenderingPolygonGroup.Triangles.CreateConstIterator()->GetVertexInstanceID( 0 );
+				const FVertexInstanceID FirstValidRenderingID = RenderingPolygonGroup.Triangles[ RenderingPolygonGroup.Triangles.GetFirstValidID() ].GetVertexInstanceID( 0 );
 
-				for( int32 TriangleIndex = 0; TriangleIndex < RenderingPolygonGroup.Triangles.GetMaxIndex(); ++TriangleIndex )
+				for( int32 TriangleIndex = 0; TriangleIndex < RenderingPolygonGroup.Triangles.GetArraySize(); ++TriangleIndex )
 				{
-					if( RenderingPolygonGroup.Triangles.IsAllocated( TriangleIndex ) )
+					const FTriangleID TriangleID( TriangleIndex );
+					if( RenderingPolygonGroup.Triangles.IsValid( TriangleID ) )
 					{
-						const FMeshTriangle& Triangle = RenderingPolygonGroup.Triangles[ TriangleIndex ];
+						const FMeshTriangle& Triangle = RenderingPolygonGroup.Triangles[ TriangleID ];
 						for( int32 TriVert = 0; TriVert < 3; ++TriVert )
 						{
 							const uint32 RenderingVertexIndex = Triangle.GetVertexInstanceID( TriVert ).GetValue();
@@ -765,7 +770,7 @@ void UEditableStaticMeshAdapter::OnRebuildRenderMesh( const UEditableMesh* Edita
 				// Add any index buffer padding.
 				// This can be necessary if we have just loaded an editable mesh which had a MaxTriangles count in the editable mesh section
 				// greater than the sparse array max size (i.e. an extra gap had been reserved for tris).
-				const int32 IndexBufferPadding = RenderingPolygonGroup.MaxTriangles - RenderingPolygonGroup.Triangles.GetMaxIndex();
+				const int32 IndexBufferPadding = RenderingPolygonGroup.MaxTriangles - RenderingPolygonGroup.Triangles.GetArraySize();
 				if( IndexBufferPadding > 0 )
 				{
 					IndexBuffer.AddZeroed( IndexBufferPadding * 3 );
@@ -827,8 +832,8 @@ void UEditableStaticMeshAdapter::Serialize( FArchive& Ar )
 
 	Ar.UsingCustomVersion( FEditableMeshCustomVersion::GUID );
 
-	SerializeSparseArray( Ar, RenderingPolygons );
-	SerializeSparseArray( Ar, RenderingPolygonGroups );
+	Ar << RenderingPolygons;
+	Ar << RenderingPolygonGroups;
 }
 
 
@@ -904,20 +909,21 @@ void UEditableStaticMeshAdapter::OnRebuildRenderMeshFinish( const UEditableMesh*
 
 void UEditableStaticMeshAdapter::OnReindexElements( const UEditableMesh* EditableMesh, const FElementIDRemappings& Remappings )
 {
-	RemapSparseArrayElements( RenderingPolygons, Remappings.NewPolygonIndexLookup );
-	RemapSparseArrayElements( RenderingPolygonGroups, Remappings.NewPolygonGroupIndexLookup );
+	RenderingPolygons.Remap( Remappings.NewPolygonIndexLookup );
+	RenderingPolygonGroups.Remap( Remappings.NewPolygonGroupIndexLookup );
 
 	// Always compact the rendering triangles
-	for( TSparseArray<FRenderingPolygonGroup>::TIterator It( RenderingPolygonGroups ); It; ++It )
+	for( const FPolygonGroupID PolygonGroupID : RenderingPolygonGroups.GetElementIDs() )
 	{
-		FRenderingPolygonGroup& RenderingPolygonGroup = *It;
-		const FMeshPolygonGroup& PolygonGroup = EditableMesh->PolygonGroups[ It.GetIndex() ];
+		FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[ PolygonGroupID ];
+		const FMeshPolygonGroup& PolygonGroup = EditableMesh->GetMeshDescription()->GetPolygonGroup( PolygonGroupID );
 
 		TSparseArray<FTriangleID> TriangleRemappings;
-		CompactSparseArrayElements( RenderingPolygonGroup.Triangles, TriangleRemappings );
+		RenderingPolygonGroup.Triangles.Compact( TriangleRemappings );
 
-		for( FMeshTriangle& Triangle : RenderingPolygonGroup.Triangles )
+		for( const FTriangleID TriangleID : RenderingPolygonGroup.Triangles.GetElementIDs() )
 		{
+			FMeshTriangle& Triangle = RenderingPolygonGroup.Triangles[ TriangleID ];
 			for( int32 TriangleVertexNumber = 0; TriangleVertexNumber < 3; ++TriangleVertexNumber )
 			{
 				const FVertexInstanceID OriginalVertexInstanceID = Triangle.GetVertexInstanceID( TriangleVertexNumber );
@@ -926,12 +932,14 @@ void UEditableStaticMeshAdapter::OnReindexElements( const UEditableMesh* Editabl
 			}
 		}
 
-		RenderingPolygonGroup.MaxTriangles = RenderingPolygonGroup.Triangles.GetMaxIndex();
+		RenderingPolygonGroup.MaxTriangles = RenderingPolygonGroup.Triangles.GetArraySize();
 
 		// Fix up references in referencing polygons
 		for( const FPolygonID PolygonID : PolygonGroup.Polygons )
 		{
-			FRenderingPolygon& RenderingPolygon = RenderingPolygons[ PolygonID.GetValue() ];
+			FRenderingPolygon& RenderingPolygon = RenderingPolygons[ PolygonID ];
+			RenderingPolygon.PolygonGroupID = PolygonGroupID;
+
 			for( FTriangleID& TriangleID : RenderingPolygon.TriangulatedPolygonTriangleIndices )
 			{
 				TriangleID = TriangleRemappings[ TriangleID.GetValue() ];
@@ -1062,12 +1070,14 @@ void UEditableStaticMeshAdapter::UpdateBounds( const UEditableMesh* EditableMesh
 			// 2) cache bounding box per polygon
 			// There are other cases where having polygon adjacency information (1) might be useful, so it's maybe worth considering.
 
-			for( const FMeshPolygon& Polygon : EditableMesh->Polygons )
+			const FVertexArray& Vertices = EditableMesh->GetMeshDescription()->Vertices();
+			const FVertexInstanceArray& VertexInstances = EditableMesh->GetMeshDescription()->VertexInstances();
+
+			for( const FVertexID VertexID : Vertices.GetElementIDs() )
 			{
-				for( const FVertexInstanceID VertexInstanceID : Polygon.PerimeterContour.VertexInstanceIDs )
+				if( !EditableMesh->IsOrphanedVertex( VertexID ) )
 				{
-					const FMeshVertexInstance& VertexInstance = EditableMesh->VertexInstances[ VertexInstanceID.GetValue() ];
-					BoundingBox += EditableMesh->Vertices[ VertexInstance.VertexID.GetValue() ].VertexPosition;
+					BoundingBox += Vertices[ VertexID ].VertexPosition;
 				}
 			}
 
@@ -1076,13 +1086,11 @@ void UEditableStaticMeshAdapter::UpdateBounds( const UEditableMesh* EditableMesh
 			// Calculate the bounding sphere, using the center of the bounding box as the origin.
 			BoundingBoxAndSphere.SphereRadius = 0.0f;
 
-			for( const FMeshPolygon& Polygon : EditableMesh->Polygons )
+			for( const FVertexID VertexID : Vertices.GetElementIDs() )
 			{
-				for( const FVertexInstanceID VertexInstanceID : Polygon.PerimeterContour.VertexInstanceIDs )
+				if( !EditableMesh->IsOrphanedVertex( VertexID ) )
 				{
-					const FMeshVertexInstance& VertexInstance = EditableMesh->VertexInstances[ VertexInstanceID.GetValue() ];
-					const FVector VertexPosition = EditableMesh->Vertices[ VertexInstance.VertexID.GetValue() ].VertexPosition;
-
+					const FVector VertexPosition = Vertices[ VertexID ].VertexPosition;
 					BoundingBoxAndSphere.SphereRadius = FMath::Max( ( VertexPosition - BoundingBoxAndSphere.Origin ).Size(), BoundingBoxAndSphere.SphereRadius );
 				}
 			}
@@ -1158,7 +1166,7 @@ void UEditableStaticMeshAdapter::UpdateCollision()
 
 void UEditableStaticMeshAdapter::OnSetVertexAttribute( const UEditableMesh* EditableMesh, const FVertexID VertexID, const FName AttributeName, const int32 AttributeIndex, const FVector4 AttributeValue )
 {
-	const FMeshVertex& Vertex = EditableMesh->Vertices[ VertexID.GetValue() ];
+	const FMeshVertex& Vertex = EditableMesh->GetMeshDescription()->GetVertex( VertexID );
 	FStaticMeshLODResources& StaticMeshLOD = GetStaticMeshLOD();
 
 	if( AttributeName == UEditableMeshAttribute::VertexPosition() )
@@ -1169,10 +1177,12 @@ void UEditableStaticMeshAdapter::OnSetVertexAttribute( const UEditableMesh* Edit
 		// (may also want different component eventually)
 		if( !EditableMesh->IsPreviewingSubdivisions() )
 		{
+			const FVertexInstanceArray& VertexInstances = EditableMesh->GetMeshDescription()->VertexInstances();
+
 			// Set the vertex buffer position of all of the vertex instances for this editable vertex
 			for( const FVertexInstanceID VertexInstanceID : Vertex.VertexInstanceIDs )
 			{
-				check( EditableMesh->VertexInstances.IsAllocated( VertexInstanceID.GetValue() ) );
+				check( VertexInstances.IsValid( VertexInstanceID ) );
 				StaticMeshLOD.PositionVertexBuffer.VertexPosition( VertexInstanceID.GetValue() ) = NewVertexPosition;
 			}
 		}
@@ -1209,7 +1219,7 @@ void UEditableStaticMeshAdapter::OnSetEdgeAttribute( const UEditableMesh* Editab
 
 void UEditableStaticMeshAdapter::OnSetVertexInstanceAttribute( const UEditableMesh* EditableMesh, const FVertexInstanceID VertexInstanceID, const FName AttributeName, const int32 AttributeIndex, const FVector4 AttributeValue )
 {
-	const FMeshVertexInstance& VertexInstance = EditableMesh->VertexInstances[ VertexInstanceID.GetValue() ];
+	const FMeshVertexInstance& VertexInstance = EditableMesh->GetMeshDescription()->GetVertexInstance( VertexInstanceID );
 	FStaticMeshLODResources& StaticMeshLOD = GetStaticMeshLOD();
 
 	if( AttributeName == UEditableMeshAttribute::VertexNormal() ||
@@ -1242,7 +1252,7 @@ void UEditableStaticMeshAdapter::OnSetVertexInstanceAttribute( const UEditableMe
 		{
 			const FColor NewColor = VertexInstance.Color.ToFColor( true );
 
-			if( StaticMeshLOD.ColorVertexBuffer.GetNumVertices() != EditableMesh->VertexInstances.GetMaxIndex() )
+			if( StaticMeshLOD.ColorVertexBuffer.GetNumVertices() != EditableMesh->GetMeshDescription()->VertexInstances().GetArraySize() )
 			{
 				if( VertexInstance.Color != FLinearColor::White )
 				{
@@ -1278,17 +1288,20 @@ void UEditableStaticMeshAdapter::OnCreateVertexInstances( const UEditableMesh* E
 		const int32 NumUVs = EditableMesh->GetTextureCoordinateCount();
 		const bool bHasColors = StaticMeshLOD.ColorVertexBuffer.GetNumVertices() > 0;
 
+		const FVertexArray& Vertices = EditableMesh->GetMeshDescription()->Vertices();
+		const FVertexInstanceArray& VertexInstances = EditableMesh->GetMeshDescription()->VertexInstances();
+
 		// Determine if we need to grow the render buffers
 		const int32 OldVertexBufferRenderingVertexCount = StaticMeshLOD.PositionVertexBuffer.GetNumVertices();
-		const int32 NumNewVertexBufferRenderingVertices = FMath::Max( 0, EditableMesh->VertexInstances.GetMaxIndex() - OldVertexBufferRenderingVertexCount );
+		const int32 NumNewVertexBufferRenderingVertices = FMath::Max( 0, VertexInstances.GetArraySize() - OldVertexBufferRenderingVertexCount );
 
 		static TArray<FStaticMeshBuildVertex> RenderingVerticesToAppend;
 		RenderingVerticesToAppend.SetNumUninitialized( NumNewVertexBufferRenderingVertices, false );
 
 		for( const FVertexInstanceID VertexInstanceID : VertexInstanceIDs )
 		{
-			const FMeshVertexInstance& VertexInstance = EditableMesh->VertexInstances[ VertexInstanceID.GetValue() ];
-			const FMeshVertex& ReferencedVertex = EditableMesh->Vertices[ VertexInstance.VertexID.GetValue() ];
+			const FMeshVertexInstance& VertexInstance = VertexInstances[ VertexInstanceID ];
+			const FMeshVertex& ReferencedVertex = Vertices[ VertexInstance.VertexID ];
 
 			const int32 NewRenderingVertexIndex = VertexInstanceID.GetValue();	// Rendering vertex indices are the same as vertex instance IDs
 
@@ -1359,7 +1372,8 @@ void UEditableStaticMeshAdapter::OnCreatePolygons( const UEditableMesh* Editable
 	// Add mirror polygons for static mesh adapter
 	for( const FPolygonID PolygonID : PolygonIDs )
 	{
-		RenderingPolygons.Insert( PolygonID.GetValue(), FRenderingPolygon() );
+		RenderingPolygons.Insert( PolygonID );
+		RenderingPolygons[ PolygonID ].PolygonGroupID = EditableMesh->GetGroupForPolygon( PolygonID );
 	}
 }
 
@@ -1372,15 +1386,18 @@ void UEditableStaticMeshAdapter::OnChangePolygonVertexInstances( const UEditable
 
 void UEditableStaticMeshAdapter::OnRetriangulatePolygons( const UEditableMesh* EditableMesh, const TArray<FPolygonID>& PolygonIDs )
 {
+	const FPolygonArray& Polygons = EditableMesh->GetMeshDescription()->Polygons();
+	const FPolygonGroupArray& PolygonGroups = EditableMesh->GetMeshDescription()->PolygonGroups();
+
 	for( const FPolygonID PolygonID : PolygonIDs )
 	{
-		const FPolygonGroupID PolygonGroupID = EditableMesh->GetGroupForPolygon( PolygonID );
+		const FMeshPolygon& Polygon = Polygons[ PolygonID ];
+		FRenderingPolygon& RenderingPolygon = RenderingPolygons[ PolygonID ];
 
-		const FMeshPolygonGroup& PolygonGroup = EditableMesh->PolygonGroups[ PolygonGroupID.GetValue() ];
-		const FMeshPolygon& Polygon = EditableMesh->Polygons[ PolygonID.GetValue() ];
+		const FPolygonGroupID PolygonGroupID = RenderingPolygon.PolygonGroupID;
 
-		FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[ PolygonGroupID.GetValue() ];
-		FRenderingPolygon& RenderingPolygon = RenderingPolygons[ PolygonID.GetValue() ];
+//		const FMeshPolygonGroup& PolygonGroup = EditableMesh->PolygonGroups[ PolygonGroupID.GetValue() ];
+		FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[ PolygonGroupID ];
 
 		const TArray<FMeshTriangle>& Triangles = Polygon.Triangles;
 
@@ -1397,7 +1414,7 @@ void UEditableStaticMeshAdapter::OnRetriangulatePolygons( const UEditableMesh* E
 				// See if the triangulation has changed even if the number of triangles is the same
 				for( int32 Index = 0; Index < Triangles.Num(); ++Index )
 				{
-					const FMeshTriangle& OldTriangle = RenderingPolygonGroup.Triangles[ RenderingPolygon.TriangulatedPolygonTriangleIndices[ Index ].GetValue() ];
+					const FMeshTriangle& OldTriangle = RenderingPolygonGroup.Triangles[ RenderingPolygon.TriangulatedPolygonTriangleIndices[ Index ] ];
 					const FMeshTriangle& NewTriangle = Triangles[ Index ];
 
 					if( OldTriangle.VertexInstanceID0 != NewTriangle.VertexInstanceID0 ||
@@ -1427,13 +1444,13 @@ void UEditableStaticMeshAdapter::OnRetriangulatePolygons( const UEditableMesh* E
 				const int32 NumNewTriangles = Triangles.Num();
 
 				// This is the number of entries currently unused in the Triangles sparse array
-				const int32 NumFreeTriangles = RenderingPolygonGroup.Triangles.GetMaxIndex() - RenderingPolygonGroup.Triangles.Num();
+				const int32 NumFreeTriangles = RenderingPolygonGroup.Triangles.GetArraySize() - RenderingPolygonGroup.Triangles.Num();
 
 				// This is the number of triangles we need to make extra space for (in both the sparse array and the index buffer)
 				const int32 NumTrianglesToReserve = FMath::Max( 0, NumNewTriangles - NumFreeTriangles );
 
 				// This is the number of triangles we will need to have allocated in the index buffer after adding the new triangles
-				const int32 NewTotalTriangles = RenderingPolygonGroup.Triangles.GetMaxIndex() + NumTrianglesToReserve;
+				const int32 NewTotalTriangles = RenderingPolygonGroup.Triangles.GetArraySize() + NumTrianglesToReserve;
 
 				// Reserve extra triangles if necessary.
 				if( NumTrianglesToReserve > 0 )
@@ -1446,16 +1463,16 @@ void UEditableStaticMeshAdapter::OnRetriangulatePolygons( const UEditableMesh* E
 				int32 MaxVertexIndex = RenderingSection.MaxVertexIndex;
 
 				// Create empty triangles for all of the new triangles we need, and keep track of their triangle indices
-				static TArray<int32> NewTriangleIndices;
+				static TArray<FTriangleID> NewTriangleIDs;
 				{
-					NewTriangleIndices.SetNumUninitialized( NumNewTriangles, false );
+					NewTriangleIDs.SetNumUninitialized( NumNewTriangles, false );
 
 					for( int32 TriangleToAddNumber = 0; TriangleToAddNumber < NumNewTriangles; ++TriangleToAddNumber )
 					{
-						const int32 NewTriangleIndex = RenderingPolygonGroup.Triangles.Add( FMeshTriangle() );
-						NewTriangleIndices[ TriangleToAddNumber ] = NewTriangleIndex;
+						const FTriangleID NewTriangleID = RenderingPolygonGroup.Triangles.Add();
+						NewTriangleIDs[ TriangleToAddNumber ] = NewTriangleID;
 
-						FMeshTriangle& NewTriangle = RenderingPolygonGroup.Triangles[ NewTriangleIndex ];
+						FMeshTriangle& NewTriangle = RenderingPolygonGroup.Triangles[ NewTriangleID ];
 						for( int32 TriangleVertexNumber = 0; TriangleVertexNumber < 3; ++TriangleVertexNumber )
 						{
 							const FVertexInstanceID VertexInstanceID = Triangles[ TriangleToAddNumber ].GetVertexInstanceID( TriangleVertexNumber );
@@ -1464,7 +1481,7 @@ void UEditableStaticMeshAdapter::OnRetriangulatePolygons( const UEditableMesh* E
 							MaxVertexIndex = FMath::Max( MaxVertexIndex, VertexInstanceID.GetValue() );
 						}
 
-						RenderingPolygon.TriangulatedPolygonTriangleIndices.Add( FTriangleID( NewTriangleIndex ) );
+						RenderingPolygon.TriangulatedPolygonTriangleIndices.Add( NewTriangleID );
 					}
 				}
 
@@ -1506,13 +1523,13 @@ void UEditableStaticMeshAdapter::OnRetriangulatePolygons( const UEditableMesh* E
 				{
 					for( int32 TriangleToAddNumber = 0; TriangleToAddNumber < NumNewTriangles; ++TriangleToAddNumber )
 					{
-						const int32 NewTriangleIndex = NewTriangleIndices[ TriangleToAddNumber ];
+						const FTriangleID NewTriangleID = NewTriangleIDs[ TriangleToAddNumber ];
 
 						for( int32 TriangleVertexNumber = 0; TriangleVertexNumber < 3; ++TriangleVertexNumber )
 						{
 							StaticMeshLOD.IndexBuffer.SetIndex(
-								FRenderingPolygonGroup::TriangleIndexToRenderingTriangleFirstIndex( RenderingSection, FTriangleID( NewTriangleIndex ) ) + TriangleVertexNumber,
-								RenderingPolygonGroup.Triangles[ NewTriangleIndex ].GetVertexInstanceID( TriangleVertexNumber ).GetValue() );
+								FRenderingPolygonGroup::TriangleIndexToRenderingTriangleFirstIndex( RenderingSection, NewTriangleID ) + TriangleVertexNumber,
+								RenderingPolygonGroup.Triangles[ NewTriangleID ].GetVertexInstanceID( TriangleVertexNumber ).GetValue() );
 						}
 					}
 
@@ -1562,17 +1579,17 @@ void UEditableStaticMeshAdapter::OnDeletePolygons( const UEditableMesh* Editable
 		DeletePolygonTriangles( EditableMesh, PolygonID );
 
 		// Delete the polygon from the static mesh adapter mirror
-		RenderingPolygons.RemoveAt( PolygonID.GetValue() );
+		RenderingPolygons.Remove( PolygonID );
 	}
 }
 
 
 void UEditableStaticMeshAdapter::DeletePolygonTriangles( const UEditableMesh* EditableMesh, const FPolygonID PolygonID )
 {
-	const FPolygonGroupID PolygonGroupID = EditableMesh->GetGroupForPolygon( PolygonID );
+	FRenderingPolygon& Polygon = RenderingPolygons[ PolygonID ];
+	const FPolygonGroupID PolygonGroupID = Polygon.PolygonGroupID;
 
-	FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[ PolygonGroupID.GetValue() ];
-	FRenderingPolygon& Polygon = RenderingPolygons[ PolygonID.GetValue() ];
+	FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[ PolygonGroupID ];
 
 	const int32 NumTrianglesToRemove = Polygon.TriangulatedPolygonTriangleIndices.Num();
 	if( NumTrianglesToRemove > 0 )
@@ -1592,9 +1609,9 @@ void UEditableStaticMeshAdapter::DeletePolygonTriangles( const UEditableMesh* Ed
 			const int32 MinVertexIndex = RenderingSection.MinVertexIndex;
 			const int32 MaxVertexIndex = RenderingSection.MaxVertexIndex;
 
-			for( const FTriangleID TriangleIndexToRemove : Polygon.TriangulatedPolygonTriangleIndices )
+			for( const FTriangleID TriangleIDToRemove : Polygon.TriangulatedPolygonTriangleIndices )
 			{
-				const FMeshTriangle& Triangle = RenderingPolygonGroup.Triangles[ TriangleIndexToRemove.GetValue() ];
+				const FMeshTriangle& Triangle = RenderingPolygonGroup.Triangles[ TriangleIDToRemove ];
 
 				for( int32 TriangleVertexNumber = 0; TriangleVertexNumber < 3; ++TriangleVertexNumber )
 				{
@@ -1619,7 +1636,7 @@ void UEditableStaticMeshAdapter::DeletePolygonTriangles( const UEditableMesh* Ed
 		for( const FTriangleID TriangleIndexToRemove : Polygon.TriangulatedPolygonTriangleIndices )
 		{
 			// Remove this triangle from our editable mesh
-			RenderingPolygonGroup.Triangles.RemoveAt( TriangleIndexToRemove.GetValue() );
+			RenderingPolygonGroup.Triangles.Remove( TriangleIndexToRemove );
 		}
 
 		if( !EditableMesh->IsPreviewingSubdivisions() )
@@ -1629,8 +1646,10 @@ void UEditableStaticMeshAdapter::DeletePolygonTriangles( const UEditableMesh* Ed
 				int32 MinVertexIndex = TNumericLimits<int32>::Max();
 				int32 MaxVertexIndex = TNumericLimits<int32>::Min();
 
-				for( const FMeshTriangle& Triangle : RenderingPolygonGroup.Triangles )
+				for( const FTriangleID TriangleID : RenderingPolygonGroup.Triangles.GetElementIDs() )
 				{
+					const FMeshTriangle& Triangle = RenderingPolygonGroup.Triangles[ TriangleID ];
+
 					for( int32 TriangleVertexNumber = 0; TriangleVertexNumber < 3; ++TriangleVertexNumber )
 					{
 						const FVertexInstanceID VertexInstanceID = Triangle.GetVertexInstanceID( TriangleVertexNumber );
@@ -1688,9 +1707,11 @@ FStaticMeshLODResources& UEditableStaticMeshAdapter::GetStaticMeshLOD()
 
 void UEditableStaticMeshAdapter::OnCreatePolygonGroups( const UEditableMesh* EditableMesh, const TArray<FPolygonGroupID>& PolygonGroupIDs )
 {
+	const FPolygonGroupArray& PolygonGroups = EditableMesh->GetMeshDescription()->PolygonGroups();
+
 	for( const FPolygonGroupID PolygonGroupID : PolygonGroupIDs )
 	{
-		const FMeshPolygonGroup& PolygonGroup = EditableMesh->PolygonGroups[ PolygonGroupID.GetValue() ];
+		const FMeshPolygonGroup& PolygonGroup = PolygonGroups[ PolygonGroupID ];
 
 		uint32 LODSectionIndex = 0;
 		if( !EditableMesh->IsPreviewingSubdivisions() )
@@ -1714,7 +1735,7 @@ void UEditableStaticMeshAdapter::OnCreatePolygonGroups( const UEditableMesh* Edi
 				FStaticMeshSection& PreviousStaticMeshSection = StaticMeshLOD.Sections[ LODSectionIndex - 1 ];
 				const FPolygonGroupID PreviousPolygonGroupID = GetSectionForRenderingSectionIndex( LODSectionIndex - 1 );
 				check( PreviousPolygonGroupID != FPolygonGroupID::Invalid );
-				StaticMeshSection.FirstIndex = PreviousStaticMeshSection.FirstIndex + RenderingPolygonGroups[ PreviousPolygonGroupID.GetValue() ].MaxTriangles * 3;
+				StaticMeshSection.FirstIndex = PreviousStaticMeshSection.FirstIndex + RenderingPolygonGroups[ PreviousPolygonGroupID ].MaxTriangles * 3;
 
 				// @todo mesheditor: if this check is valid, we can dispense with the above and just set StaticMeshSection.FirstIndex according to the current length of the idnex buffer.
 				check( StaticMeshLOD.IndexBuffer.GetNumIndices() == StaticMeshSection.FirstIndex );
@@ -1727,14 +1748,13 @@ void UEditableStaticMeshAdapter::OnCreatePolygonGroups( const UEditableMesh* Edi
 			StaticMeshSection.bEnableCollision = PolygonGroup.bEnableCollision;
 			StaticMeshSection.bCastShadow = PolygonGroup.bCastShadow;
 
-			check( GetStaticMeshMaterialIndex( StaticMesh, PolygonGroup.Material ) == INDEX_NONE );
-			const int32 MaterialIndex = StaticMesh->StaticMaterials.Add( FStaticMaterial( PolygonGroup.Material ) );
-			StaticMeshSection.MaterialIndex = MaterialIndex;
+			UMaterialInterface* Material = Cast<UMaterialInterface>( PolygonGroup.MaterialAsset.ResolveObject() );
+			StaticMeshSection.MaterialIndex = StaticMesh->StaticMaterials.Emplace( Material, PolygonGroup.MaterialSlotName, PolygonGroup.ImportedMaterialSlotName );
 		}
 
 		// Insert the rendering polygon group for keeping track of these index buffer properties
-		RenderingPolygonGroups.Insert( PolygonGroupID.GetValue(), FRenderingPolygonGroup() );
-		FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[ PolygonGroupID.GetValue() ];
+		RenderingPolygonGroups.Insert( PolygonGroupID );
+		FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[ PolygonGroupID ];
 
 		RenderingPolygonGroup.RenderingSectionIndex = LODSectionIndex;
 		RenderingPolygonGroup.MaxTriangles = 0;
@@ -1744,21 +1764,26 @@ void UEditableStaticMeshAdapter::OnCreatePolygonGroups( const UEditableMesh* Edi
 
 void UEditableStaticMeshAdapter::OnDeletePolygonGroups( const UEditableMesh* EditableMesh, const TArray<FPolygonGroupID>& PolygonGroupIDs )
 {
+	const FPolygonGroupArray& PolygonGroups = EditableMesh->GetMeshDescription()->PolygonGroups();
+
 	for( const FPolygonGroupID PolygonGroupID : PolygonGroupIDs )
 	{
-		const FMeshPolygonGroup& PolygonGroup = EditableMesh->PolygonGroups[ PolygonGroupID.GetValue() ];
-		FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[ PolygonGroupID.GetValue() ];
+		const FMeshPolygonGroup& PolygonGroup = PolygonGroups[ PolygonGroupID ];
+		FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[ PolygonGroupID ];
 
 		// Remove material slot associated with section
-		// @todo mesheditor: can more than one section share a material? Mesh editor currently assumes not, but this will break anything which does
-		const int32 MaterialIndex = GetStaticMeshMaterialIndex( StaticMesh, PolygonGroup.Material );
+		const int32 MaterialIndex = StaticMesh->StaticMaterials.IndexOfByPredicate(
+			[ &PolygonGroup ]( const FStaticMaterial& StaticMaterial ) { return StaticMaterial.MaterialSlotName == PolygonGroup.MaterialSlotName; }
+		);
 		StaticMesh->StaticMaterials.RemoveAt( MaterialIndex );
 
 		// Adjust rendering indices held by sections: any index above the one we just deleted now needs to be decremented.
 		const uint32 RenderingSectionIndex = RenderingPolygonGroup.RenderingSectionIndex;
 
-		for( FRenderingPolygonGroup& PolygonGroupToAdjust : RenderingPolygonGroups )
+		for( const FPolygonGroupID PolygonGroupIDToAdjust : RenderingPolygonGroups.GetElementIDs() )
 		{
+			FRenderingPolygonGroup& PolygonGroupToAdjust = RenderingPolygonGroups[ PolygonGroupIDToAdjust ];
+
 			if( PolygonGroupToAdjust.RenderingSectionIndex > RenderingSectionIndex )
 			{
 				PolygonGroupToAdjust.RenderingSectionIndex--;
@@ -1799,18 +1824,41 @@ void UEditableStaticMeshAdapter::OnDeletePolygonGroups( const UEditableMesh* Edi
 		}
 
 		// Remove the rendering polygon group from the sparse array
-		RenderingPolygonGroups.RemoveAt( PolygonGroupID.GetValue() );
+		RenderingPolygonGroups.Remove( PolygonGroupID );
 	}
+}
+
+
+void UEditableStaticMeshAdapter::OnAssignPolygonsToPolygonGroups( const UEditableMesh* EditableMesh, const TArray<FPolygonGroupForPolygon>& PolygonGroupForPolygons )
+{
+	static TArray<FPolygonID> PolygonIDsToRebuild;
+	PolygonIDsToRebuild.Reset( PolygonGroupForPolygons.Num() );
+
+	for( const FPolygonGroupForPolygon& PolygonGroupForPolygon : PolygonGroupForPolygons )
+	{
+		const FPolygonID PolygonID = PolygonGroupForPolygon.PolygonID;
+		const FPolygonGroupID NewPolygonGroupID = PolygonGroupForPolygon.PolygonGroupID;
+
+		DeletePolygonTriangles( EditableMesh, PolygonID );
+
+		FRenderingPolygon& RenderingPolygon = RenderingPolygons[ PolygonID ];
+		RenderingPolygon.PolygonGroupID = NewPolygonGroupID;
+
+		PolygonIDsToRebuild.Add( PolygonID );
+	}
+
+	OnRetriangulatePolygons( EditableMesh, PolygonIDsToRebuild );
 }
 
 
 FPolygonGroupID UEditableStaticMeshAdapter::GetSectionForRenderingSectionIndex( const int32 RenderingSectionIndex ) const
 {
-	for( auto It = RenderingPolygonGroups.CreateConstIterator(); It; ++It )
+	for( const FPolygonGroupID PolygonGroupID : RenderingPolygonGroups.GetElementIDs() )
 	{
-		if( It->RenderingSectionIndex == RenderingSectionIndex )
+		const FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[ PolygonGroupID ];
+		if( RenderingPolygonGroup.RenderingSectionIndex == RenderingSectionIndex )
 		{
-			return FPolygonGroupID( It.GetIndex() );
+			return PolygonGroupID;
 		}
 	}
 

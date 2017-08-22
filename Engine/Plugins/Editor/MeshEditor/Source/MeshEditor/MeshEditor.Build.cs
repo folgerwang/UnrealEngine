@@ -18,6 +18,7 @@ namespace UnrealBuildTool.Rules
 				    "UnrealEd",
 					"RenderCore",
 					"EditableMesh",
+                    "MeshDescription",
 					"ViewportInteraction",
                     "VREditor",
 					"Projects",
@@ -30,6 +31,7 @@ namespace UnrealBuildTool.Rules
 				new string[] {
                     "ContentBrowser",
 					"LevelEditor",
+                    "MeshDescription"
 				}
 			);
 

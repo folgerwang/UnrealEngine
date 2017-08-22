@@ -48,28 +48,24 @@ void UMeshEditorStaticMeshAdapter::OnRebuildRenderMesh( const UEditableMesh* Edi
 	WireframeMesh->Reset();
 
 	// Add all vertices
-	for( TSparseArray<FMeshVertex>::TConstIterator It( EditableMesh->Vertices ); It; ++It )
+	for( const FVertexID VertexID : EditableMesh->GetMeshDescription()->Vertices().GetElementIDs() )
 	{
-		const FVertexID VertexID( It.GetIndex() );
 		WireframeMesh->AddVertex( VertexID );
 		WireframeMesh->SetVertexPosition( VertexID, EditableMesh->GetVertexAttribute( VertexID, UEditableMeshAttribute::VertexPosition(), 0 ) );
 	}
 
 	// Add all edges
-	for( TSparseArray<FMeshEdge>::TConstIterator It( EditableMesh->Edges ); It; ++It )
+	for( const FEdgeID EdgeID : EditableMesh->GetMeshDescription()->Edges().GetElementIDs() )
 	{
-		const FEdgeID EdgeID( It.GetIndex() );
 		WireframeMesh->AddEdge( EdgeID );
-		WireframeMesh->SetEdgeVertices( EdgeID, It->VertexIDs[ 0 ], It->VertexIDs[ 1 ] );
+		WireframeMesh->SetEdgeVertices( EdgeID, EditableMesh->GetEdgeVertex( EdgeID, 0 ), EditableMesh->GetEdgeVertex( EdgeID, 1 ) );
 		WireframeMesh->SetEdgeColor( EdgeID, GetEdgeColor( EditableMesh->GetEdgeAttribute( EdgeID, UEditableMeshAttribute::EdgeIsHard(), 0 ).X > 0.0f ) );
 	}
 
 	// Add all polygons and edge instances
 	// @todo mesheditor wireframe: holes not yet handled
-	for( TSparseArray<FMeshPolygon>::TConstIterator It( EditableMesh->Polygons ); It; ++It )
+	for( const FPolygonID PolygonID : EditableMesh->GetMeshDescription()->Polygons().GetElementIDs() )
 	{
-		const FPolygonID PolygonID( It.GetIndex() );
-
 		WireframeMesh->AddPolygon( PolygonID );
 		WireframeMesh->SetPolygonNormal( PolygonID, EditableMesh->ComputePolygonNormal( PolygonID ) );
 
@@ -87,7 +83,7 @@ void UMeshEditorStaticMeshAdapter::OnRebuildRenderMeshFinish( const UEditableMes
 {
 	for( const FPolygonID PolygonID : EditableMesh->PolygonsPendingNewTangentBasis )
 	{
-		const FMeshPolygon& Polygon = EditableMesh->Polygons[ PolygonID.GetValue() ];
+		const FMeshPolygon& Polygon = EditableMesh->GetMeshDescription()->GetPolygon( PolygonID );
 		WireframeMesh->SetPolygonNormal( PolygonID, Polygon.PolygonNormal );
 	}
 
@@ -214,12 +210,14 @@ void UMeshEditorStaticMeshAdapter::OnSetVertexInstanceAttribute( const UEditable
 
 void UMeshEditorStaticMeshAdapter::OnCreateEdges( const UEditableMesh* EditableMesh, const TArray<FEdgeID>& EdgeIDs )
 {
+	const FEdgeArray& Edges = EditableMesh->GetMeshDescription()->Edges();
+
 	for( const FEdgeID EdgeID : EdgeIDs )
 	{
-		const FMeshEdge& Edge = EditableMesh->Edges[ EdgeID.GetValue() ];
+		const FMeshEdge& Edge = Edges[ EdgeID ];
 
 		WireframeMesh->AddEdge( EdgeID );
-		WireframeMesh->SetEdgeVertices( EdgeID, Edge.VertexIDs[ 0 ], Edge.VertexIDs[ 1 ] );
+		WireframeMesh->SetEdgeVertices( EdgeID, EditableMesh->GetEdgeVertex( EdgeID, 0 ), EditableMesh->GetEdgeVertex( EdgeID, 1 ) );
 		WireframeMesh->SetEdgeColor( EdgeID, GetEdgeColor( EditableMesh->GetEdgeAttribute( EdgeID, UEditableMeshAttribute::EdgeIsHard(), 0 ).X > 0.0f ) );
 
 		for( const FPolygonID PolygonID : Edge.ConnectedPolygons )
@@ -232,9 +230,11 @@ void UMeshEditorStaticMeshAdapter::OnCreateEdges( const UEditableMesh* EditableM
 
 void UMeshEditorStaticMeshAdapter::OnDeleteEdges( const UEditableMesh* EditableMesh, const TArray<FEdgeID>& EdgeIDs )
 {
+	const FEdgeArray& Edges = EditableMesh->GetMeshDescription()->Edges();
+
 	for( const FEdgeID EdgeID : EdgeIDs )
 	{
-		const FMeshEdge& Edge = EditableMesh->Edges[ EdgeID.GetValue() ];
+		const FMeshEdge& Edge = Edges[ EdgeID ];
 
 		for( const FPolygonID PolygonID : Edge.ConnectedPolygons )
 		{

@@ -43,6 +43,10 @@ struct FRenderingPolygon
 {
 	GENERATED_BODY()
 
+	/** Which rendering polygon group the polygon is in */
+	UPROPERTY()
+	FPolygonGroupID PolygonGroupID;
+
 	/** This is a list of indices of triangles in the FRenderingPolygonGroup::Triangles array.
 	    We use this to maintain a record of which triangles in the section belong to this polygon. */
 	UPROPERTY()
@@ -51,6 +55,7 @@ struct FRenderingPolygon
 	/** Serializer */
 	friend FArchive& operator<<( FArchive& Ar, FRenderingPolygon& Polygon )
 	{
+		Ar << Polygon.PolygonGroupID;
 		Ar << Polygon.TriangulatedPolygonTriangleIndices;
 		return Ar;
 	}
@@ -72,7 +77,7 @@ struct FRenderingPolygonGroup
 
 	/** Sparse array of triangles, that matches the triangles in the mesh index buffers.  Elements that
 	    aren't allocated will be stored as degenerates in the mesh index buffer. */
-	TSparseArray<FMeshTriangle> Triangles;
+	TMeshElementArray<FMeshTriangle, FTriangleID> Triangles;
 
 
 	/** Converts from an index in our Triangles array to an index of a rendering triangle's first vertex in the rendering mesh's index buffer */
@@ -92,7 +97,7 @@ struct FRenderingPolygonGroup
 	{
 		Ar << Section.RenderingSectionIndex;
 		Ar << Section.MaxTriangles;	// @todo mesheditor serialization: Should not need to be serialized if we triangulate after load
-		SerializeSparseArray( Ar, Section.Triangles );	// @todo mesheditor serialization: Should not need to be serialized if we triangulate after load
+		Ar << Section.Triangles;
 		return Ar;
 	}
 };
@@ -147,6 +152,7 @@ public:
 	virtual void OnChangePolygonVertexInstances( const UEditableMesh* EditableMesh, const TArray<FPolygonID>& PolygonIDs ) override;
 	virtual void OnCreatePolygonGroups( const UEditableMesh* EditableMesh, const TArray<FPolygonGroupID>& PolygonGroupIDs ) override;
 	virtual void OnDeletePolygonGroups( const UEditableMesh* EditableMesh, const TArray<FPolygonGroupID>& PolygonGroupIDs ) override;
+	virtual void OnAssignPolygonsToPolygonGroups( const UEditableMesh* EditableMesh, const TArray<FPolygonGroupForPolygon>& PolygonGroupForPolygons ) override;
 	virtual void OnRetriangulatePolygons( const UEditableMesh* EditableMesh, const TArray<FPolygonID>& PolygonIDs ) override;
 
 
@@ -192,13 +198,13 @@ private:
 	static const uint32 IndexBufferInterSectionGap = 32;
 
 	/** All of the polygons in this mesh */
-	TSparseArray< FRenderingPolygon > RenderingPolygons;
+	TMeshElementArray<FRenderingPolygon, FPolygonID> RenderingPolygons;
 
 	/** All of the polygon groups in this mesh */
-	TSparseArray< FRenderingPolygonGroup > RenderingPolygonGroups;
+	TMeshElementArray<FRenderingPolygonGroup, FPolygonGroupID> RenderingPolygonGroups;
 
 	/** Used to refresh all components in the scene that may be using a mesh we're editing */
-	TSharedPtr< class FStaticMeshComponentRecreateRenderStateContext > RecreateRenderStateContext;
+	TSharedPtr<class FStaticMeshComponentRecreateRenderStateContext> RecreateRenderStateContext;
 
 	/** Cached bounding box for the static mesh.  This bounds can be (temporarily) larger than the actual mesh itself as
 	    an optimization. */

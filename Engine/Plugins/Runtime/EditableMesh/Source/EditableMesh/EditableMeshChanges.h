@@ -812,6 +812,11 @@ public:
 	{
 	}
 
+	FCreatePolygonGroupsChange( FCreatePolygonGroupsChangeInput&& InitInput )
+		: Input( MoveTemp( InitInput ) )
+	{
+	}
+
 	// Parent class overrides
 	virtual TUniquePtr<FChange> Execute( UObject* Object ) override;
 	virtual FString ToString() const override;
@@ -848,6 +853,11 @@ public:
 	{
 	}
 
+	FDeletePolygonGroupsChange( FDeletePolygonGroupsChangeInput&& InitInput )
+		: Input( MoveTemp( InitInput ) )
+	{
+	}
+
 	// Parent class overrides
 	virtual TUniquePtr<FChange> Execute( UObject* Object ) override;
 	virtual FString ToString() const override;
@@ -857,4 +867,49 @@ private:
 
 	/** The data we need to make this change */
 	FDeletePolygonGroupsChangeInput Input;
+};
+
+
+struct FAssignPolygonsToPolygonGroupChangeInput
+{
+	/** The polygon group IDs to delete */
+	TArray<FPolygonGroupForPolygon> PolygonGroupForPolygons;
+
+	/** Whether we should delete a polygon group if it becomes orphaned */
+	bool bDeleteOrphanedPolygonGroups;
+
+	/** Default constructor */
+	FAssignPolygonsToPolygonGroupChangeInput()
+		: PolygonGroupForPolygons()
+		, bDeleteOrphanedPolygonGroups( false )
+	{
+	}
+};
+
+
+class FAssignPolygonsToPolygonGroupChange : public FChange
+{
+
+public:
+
+	/** Constructor */
+	FAssignPolygonsToPolygonGroupChange( const FAssignPolygonsToPolygonGroupChangeInput& InitInput )
+		: Input( InitInput )
+	{
+	}
+
+	FAssignPolygonsToPolygonGroupChange( FAssignPolygonsToPolygonGroupChangeInput&& InitInput )
+		: Input( MoveTemp( InitInput ) )
+	{
+	}
+
+	// Parent class overrides
+	virtual TUniquePtr<FChange> Execute( UObject* Object ) override;
+	virtual FString ToString() const override;
+
+
+private:
+
+	/** The data we need to make this change */
+	FAssignPolygonsToPolygonGroupChangeInput Input;
 };

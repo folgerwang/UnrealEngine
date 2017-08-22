@@ -374,7 +374,7 @@ TUniquePtr<FChange> FCreatePolygonGroupsChange::Execute( UObject* Object )
 FString FCreatePolygonGroupsChange::ToString() const
 {
 	return FString::Printf(
-		TEXT( "Create Section [PolygonGroupsToCreate:%s]" ),
+		TEXT( "Create PolygonGroups [PolygonGroupsToCreate:%s]" ),
 		*LogHelpers::ArrayToString( Input.PolygonGroupsToCreate ) );
 }
 
@@ -392,8 +392,25 @@ TUniquePtr<FChange> FDeletePolygonGroupsChange::Execute( UObject* Object )
 FString FDeletePolygonGroupsChange::ToString() const
 {
 	return FString::Printf(
-		TEXT( "Delete Section [PolygonGroupIDs:%s]" ),
+		TEXT( "Delete PolygonGroups [PolygonGroupIDs:%s]" ),
 		*LogHelpers::ArrayToString( Input.PolygonGroupIDs ) );
 }
 
+
+TUniquePtr<FChange> FAssignPolygonsToPolygonGroupChange::Execute( UObject* Object )
+{
+	UEditableMesh* EditableMesh = CastChecked<UEditableMesh>( Object );
+	verify( !EditableMesh->AnyChangesToUndo() );
+
+	EditableMesh->AssignPolygonsToPolygonGroups( Input.PolygonGroupForPolygons, Input.bDeleteOrphanedPolygonGroups );
+	return EditableMesh->MakeUndo();
+}
+
+
+FString FAssignPolygonsToPolygonGroupChange::ToString() const
+{
+	return FString::Printf(
+		TEXT( "Assign Polygons To PolygonGroups [PolygonGroupForPolygons:%s]" ),
+		*LogHelpers::ArrayToString( Input.PolygonGroupForPolygons ) );
+}
 

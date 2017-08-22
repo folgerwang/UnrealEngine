@@ -11,11 +11,12 @@ namespace UnrealBuildTool.Rules
 				    "Core",
 				    "CoreUObject",
 				    "Engine",
-					"RenderCore",	// @todo mesheditor: For FlushRenderingCommands()
+                    "MeshDescription",
+					"RenderCore"	// @todo mesheditor: For FlushRenderingCommands()
 				}
 			);
 
 			AddEngineThirdPartyPrivateStaticDependencies(Target, new string[] { "MikkTSpace", "OpenSubdiv" });
-		}
-	}
+        }
+    }
 }

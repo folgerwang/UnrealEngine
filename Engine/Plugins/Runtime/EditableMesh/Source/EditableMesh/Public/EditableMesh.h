@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
+#include "MeshDescription.h"
 #include "EditableMeshTypes.h"
 #include "EditableMeshCustomVersion.h"
 #include "Change.h"		// For TUniquePtr<FChange>
@@ -138,266 +139,6 @@ void RemapSparseArrayElements( TSparseArray<T>& Array, const TSparseArray<Elemen
 }
 
 
-USTRUCT()
-struct FMeshVertex
-{
-	GENERATED_BODY()
-
-	/** Position of the vertex. */
-	UPROPERTY()
-	FVector VertexPosition;
-
-	/** All of vertex instances which reference this vertex (for split vertex support) */
-	UPROPERTY()
-	TArray<FVertexInstanceID> VertexInstanceIDs;
-
-	/** The edges connected to this vertex */
-	UPROPERTY()
-	TArray<FEdgeID> ConnectedEdgeIDs;
-
-	/** When subdivisions are enabled, this controls how sharp the vertex is, between 0.0 and 1.0. */
-	UPROPERTY()
-	float CornerSharpness;	// @todo mesheditor subdiv: Not really used by static meshes at all.  Only for UEditableMeshes that use subdivision features.  Move elsewhere.?
-
-	/** Serializer */
-	friend FArchive& operator<<( FArchive& Ar, FMeshVertex& Vertex )
-	{
-		Ar << Vertex.VertexPosition;
-		Ar << Vertex.VertexInstanceIDs;
-		Ar << Vertex.ConnectedEdgeIDs;
-		Ar << Vertex.CornerSharpness;
-		return Ar;
-	}
-};
-
-
-USTRUCT()
-struct FMeshVertexInstance
-{
-	GENERATED_BODY()
-
-	/** The vertex this is instancing */
-	UPROPERTY()
-	FVertexID VertexID;
-
-	/** List of connected polygons */
-	UPROPERTY()
-	TArray<FPolygonID> ConnectedPolygons;
-
-	/** UVs for the vertex instance */
-	UPROPERTY()
-	TArray<FVector2D> VertexUVs;
-
-	/** Normal vector */
-	UPROPERTY()
-	FVector Normal;
-	
-	/** Tangent vector */
-	UPROPERTY()
-	FVector Tangent;
-
-	/** Basis determinant sign used to calculate the sense of the binormal */
-	UPROPERTY()
-	float BinormalSign;
-
-	/** Vertex color */
-	UPROPERTY()
-	FLinearColor Color;
-
-	/** Serializer */
-	friend FArchive& operator<<( FArchive& Ar, FMeshVertexInstance& VertexInstance )
-	{
-		Ar << VertexInstance.VertexID;
-		Ar << VertexInstance.ConnectedPolygons;
-		Ar << VertexInstance.VertexUVs;
-		Ar << VertexInstance.Normal;
-		Ar << VertexInstance.Tangent;
-		Ar << VertexInstance.BinormalSign;
-		Ar << VertexInstance.Color;
-		return Ar;
-	}
-};
-
-
-USTRUCT()
-struct FMeshEdge
-{
-	GENERATED_BODY()
-
-	/** IDs of the two editable mesh vertices that make up this edge.  The winding direction is not defined. */
-	UPROPERTY()
-	FVertexID VertexIDs[ 2 ];
-
-	/** The polygons that share this edge.  It's best if there are always only two polygons that share
-	    the edge, and those polygons are facing the same direction */
-	UPROPERTY()
-	TArray<FPolygonID> ConnectedPolygons;
-
-	/** Whether this edge is 'hard' or not, for the purpose of vertex normal and tangent generation */
-	UPROPERTY()
-	bool bIsHardEdge;
-
-	/** When subdivisions are enabled, this controls how sharp the creasing of this edge will be, between 0.0 and 1.0. */
-	UPROPERTY()
-	float CreaseSharpness;
-
-	/** Serializer */
-	friend FArchive& operator<<( FArchive& Ar, FMeshEdge& Edge )
-	{
-		Ar << Edge.VertexIDs[ 0 ];
-		Ar << Edge.VertexIDs[ 1 ];
-		Ar << Edge.ConnectedPolygons;
-		Ar << Edge.bIsHardEdge;
-		Ar << Edge.CreaseSharpness;
-		return Ar;
-	}
-};
-
-
-USTRUCT()
-struct FMeshPolygonContour
-{
-	GENERATED_BODY()
-
-	/** The ordered list of vertex instances which make up the polygon contour. The winding direction is counter-clockwise. */
-	UPROPERTY()
-	TArray<FVertexInstanceID> VertexInstanceIDs;
-
-	/** Serializer */
-	friend FArchive& operator<<( FArchive& Ar, FMeshPolygonContour& Contour )
-	{
-		Ar << Contour.VertexInstanceIDs;
-		return Ar;
-	}
-};
-
-
-USTRUCT( BlueprintType )
-struct FMeshTriangle
-{
-	GENERATED_BODY()
-
-	/** First vertex instance that makes up this triangle.  Indices must be ordered counter-clockwise. */
-	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
-	FVertexInstanceID VertexInstanceID0;
-
-	/** Second vertex instance that makes up this triangle.  Indices must be ordered counter-clockwise. */
-	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
-	FVertexInstanceID VertexInstanceID1;
-
-	/** Third vertex instance that makes up this triangle.  Indices must be ordered counter-clockwise. */
-	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
-	FVertexInstanceID VertexInstanceID2;
-
-	/** Gets the specified triangle vertex instance ID.  Pass an index between 0 and 2 inclusive. */
-	inline FVertexInstanceID GetVertexInstanceID( const int32 Index ) const
-	{
-		checkSlow( Index >= 0 && Index <= 2 );
-		return reinterpret_cast<const FVertexInstanceID*>( this )[ Index ];
-	}
-
-	/** Sets the specified triangle vertex instance ID.  Pass an index between 0 and 2 inclusive, and the new vertex instance ID to store. */
-	inline void SetVertexInstanceID( const int32 Index, const FVertexInstanceID NewVertexInstanceID )
-	{
-		checkSlow( Index >= 0 && Index <= 2 );
-		( reinterpret_cast<FVertexInstanceID*>( this )[ Index ] ) = NewVertexInstanceID;
-	}
-
-	/** Serializer */
-	friend FArchive& operator<<( FArchive& Ar, FMeshTriangle& Tri )
-	{
-		Ar << Tri.VertexInstanceID0;
-		Ar << Tri.VertexInstanceID1;
-		Ar << Tri.VertexInstanceID2;
-		return Ar;
-	}
-};
-
-
-USTRUCT()
-struct FMeshPolygon
-{
-	GENERATED_BODY()
-
-	/** The outer boundary edges of this polygon */
-	UPROPERTY()
-	FMeshPolygonContour PerimeterContour;
-
-	/** Optional inner contours of this polygon that define holes inside of the polygon.  For the geometry to
-	    be considered valid, the hole contours should reside within the boundary of the polygon perimeter contour, 
-		and must not overlap each other.  No "nesting" of polygons inside the holes is supported -- those are 
-		simply separate polygons */
-	UPROPERTY()
-	TArray<FMeshPolygonContour> HoleContours;
-
-	/** List of triangles which make up this polygon */
-	UPROPERTY()
-	TArray<FMeshTriangle> Triangles;
-
-	/** The polygon group which contains this polygon */
-	UPROPERTY()
-	FPolygonGroupID PolygonGroupID;
-
-	/** Cached normal */
-	UPROPERTY()
-	FVector PolygonNormal;
-
-	/** Cached tangent */
-	UPROPERTY()
-	FVector PolygonTangent;
-
-	/** Cached binormal */
-	UPROPERTY()
-	FVector PolygonBinormal;
-
-	/** Cached center */
-	UPROPERTY()
-	FVector PolygonCenter;
-
-	/** Serializer */
-	friend FArchive& operator<<( FArchive& Ar, FMeshPolygon& Polygon )
-	{
-		Ar << Polygon.PerimeterContour;
-		Ar << Polygon.HoleContours;
-		Ar << Polygon.Triangles;
-		Ar << Polygon.PolygonGroupID;
-		return Ar;
-	}
-};
-
-
-USTRUCT()
-struct FMeshPolygonGroup
-{
-	GENERATED_BODY()
-
-	/** The material for this mesh section */
-	UPROPERTY()
-	UMaterialInterface* Material;
-
-	/** If true, collision is enabled for this section. */
-	UPROPERTY()
-	bool bEnableCollision;
-
-	/** If true, this section will cast a shadow */
-	UPROPERTY()
-	bool bCastShadow;
-
-	/** All polygons in this group */
-	TArray<FPolygonID> Polygons;
-
-	/** Serializer */
-	friend FArchive& operator<<( FArchive& Ar, FMeshPolygonGroup& PolygonGroup )
-	{
-		Ar << PolygonGroup.Material;
-		Ar << PolygonGroup.bEnableCollision;
-		Ar << PolygonGroup.bCastShadow;
-		Ar << PolygonGroup.Polygons;
-		return Ar;
-	}
-};
-
-
 UENUM( BlueprintType )
 enum class EInsetPolygonsMode : uint8
 {
@@ -415,46 +156,6 @@ enum class ETriangleTessellationMode : uint8
 
 	/** Split each edge and create a center polygon that connects those new vertices, then three additional polygons for each original corner */
 	FourTriangles,
-};
-
-
-struct FElementIDRemappings
-{
-	TSparseArray<FVertexID> NewVertexIndexLookup;
-	TSparseArray<FVertexInstanceID> NewVertexInstanceIndexLookup;
-	TSparseArray<FEdgeID> NewEdgeIndexLookup;
-	TSparseArray<FPolygonID> NewPolygonIndexLookup;
-	TSparseArray<FPolygonGroupID> NewPolygonGroupIndexLookup;
-
-	FVertexID GetRemappedVertexID( FVertexID VertexID ) const
-	{
-		checkSlow( NewVertexIndexLookup.IsAllocated( VertexID.GetValue() ) );
-		return NewVertexIndexLookup[ VertexID.GetValue() ];
-	}
-
-	FVertexInstanceID GetRemappedVertexInstanceID( FVertexInstanceID VertexInstanceID ) const
-	{
-		checkSlow( NewVertexInstanceIndexLookup.IsAllocated( VertexInstanceID.GetValue() ) );
-		return NewVertexInstanceIndexLookup[ VertexInstanceID.GetValue() ];
-	}
-
-	FEdgeID GetRemappedEdgeID( FEdgeID EdgeID ) const
-	{
-		checkSlow( NewEdgeIndexLookup.IsAllocated( EdgeID.GetValue() ) );
-		return NewEdgeIndexLookup[ EdgeID.GetValue() ];
-	}
-
-	FPolygonID GetRemappedPolygonID( FPolygonID PolygonID ) const
-	{
-		checkSlow( NewPolygonIndexLookup.IsAllocated( PolygonID.GetValue() ) );
-		return NewPolygonIndexLookup[ PolygonID.GetValue() ];
-	}
-
-	FPolygonGroupID GetRemappedPolygonGroupID( FPolygonGroupID PolygonGroupID ) const
-	{
-		check( NewPolygonGroupIndexLookup.IsAllocated( PolygonGroupID.GetValue() ) );
-		return NewPolygonGroupIndexLookup[ PolygonGroupID.GetValue() ];
-	}
 };
 
 
@@ -478,6 +179,8 @@ public:
 	/** Remaps mesh element arrays according to the provided remappings, in order to undo a compact operation */
 	void Uncompact( const FElementIDRemappings& Remappings );
 
+	UMeshDescription* GetMeshDescription() const { return MeshDescription; }
+
 	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void InitializeAdapters();
 	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void RebuildRenderMesh();
 	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void StartModification( const EMeshModificationType MeshModificationType, const EMeshTopologyChange MeshTopologyChange );
@@ -490,57 +193,150 @@ public:
 	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) UEditableMesh* RevertInstance();
 	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void PropagateInstanceChanges();
 
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) int32 GetVertexCount() const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) int32 GetVertexArraySize() const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) bool IsValidVertex( const FVertexID VertexID ) const;
 	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) FVector4 GetVertexAttribute( const FVertexID VertexID, const FName AttributeName, const int32 AttributeIndex ) const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) int32 GetVertexConnectedEdgeCount( const FVertexID VertexID ) const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) FEdgeID GetVertexConnectedEdge( const FVertexID VertexID, const int32 ConnectedEdgeNumber ) const;
-
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) int32 GetVertexInstanceCount() const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) int32 GetVertexInstanceArraySize() const;
 	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) FVector4 GetVertexInstanceAttribute( const FVertexInstanceID VertexInstanceID, const FName AttributeName, const int32 AttributeIndex ) const;
-
 	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) FVector4 GetEdgeAttribute( const FEdgeID EdgeID, const FName AttributeName, const int32 AttributeIndex ) const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) int32 GetEdgeCount() const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) int32 GetEdgeArraySize() const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) bool IsValidEdge( const FEdgeID EdgeID ) const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) FVertexID GetEdgeVertex( const FEdgeID EdgeID, const int32 EdgeVertexNumber ) const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) int32 GetEdgeConnectedPolygonCount( const FEdgeID EdgeID ) const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) FPolygonID GetEdgeConnectedPolygon( const FEdgeID EdgeID, const int32 ConnectedPolygonNumber ) const;
 
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) int32 GetPolygonGroupCount() const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) int32 GetPolygonGroupArraySize() const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) bool IsValidPolygonGroup( const FPolygonGroupID PolygonGroupID ) const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) int32 GetPolygonCountInGroup( const FPolygonGroupID PolygonGroupID ) const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) FPolygonID GetPolygonInGroup( const FPolygonGroupID PolygonGroupID, const int32 PolygonNumber ) const;
+	/** Returns the number of vertices in this mesh */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	int32 GetVertexCount() const;
 
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) int32 GetPolygonCount() const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) int32 GetPolygonArraySize() const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) bool IsValidPolygon( const FPolygonID PolygonID ) const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) FPolygonGroupID GetGroupForPolygon( const FPolygonID PolygonID ) const;
+	/** Returns whether the given vertex ID is valid */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	bool IsValidVertex( const FVertexID VertexID ) const;
 
-//	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) virtual int32 GetTriangleCount( const FPolygonGroupID PolygonGroupID ) const PURE_VIRTUAL(,return 0;);
-//	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) virtual int32 GetTriangleArraySize( const FPolygonGroupID PolygonGroupID ) const PURE_VIRTUAL(,return 0;);
+	/** Returns whether the given vertex ID is orphaned */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	bool IsOrphanedVertex( const FVertexID VertexID ) const;
 
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) int32 GetPolygonPerimeterVertexCount( const FPolygonID PolygonID ) const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) FVertexID GetPolygonPerimeterVertex( const FPolygonID PolygonID, const int32 PolygonVertexNumber ) const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) FVertexInstanceID GetPolygonPerimeterVertexInstance( const FPolygonID PolygonID, const int32 PolygonVertexNumber ) const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) FVector4 GetPolygonPerimeterVertexAttribute( const FPolygonID PolygonID, const int32 PolygonVertexNumber, const FName AttributeName, const int32 AttributeIndex ) const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) int32 GetPolygonHoleCount( const FPolygonID PolygonID ) const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) int32 GetPolygonHoleVertexCount( const FPolygonID PolygonID, const int32 HoleNumber ) const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) FVertexID GetPolygonHoleVertex( const FPolygonID PolygonID, const int32 HoleNumber, const int32 PolygonVertexNumber ) const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) FVertexInstanceID GetPolygonHoleVertexInstance( const FPolygonID PolygonID, const int32 HoleNumber, const int32 PolygonVertexNumber ) const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) FVector4 GetPolygonHoleVertexAttribute( const FPolygonID PolygonID, const int32 HoleNumber, const int32 PolygonVertexNumber, const FName AttributeName, const int32 AttributeIndex ) const;
+	/** Returns the number of edges connected to this vertex */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	int32 GetVertexConnectedEdgeCount( const FVertexID VertexID ) const;
 
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) int32 GetPolygonTriangulatedTriangleCount( const FPolygonID PolygonID ) const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) FMeshTriangle GetPolygonTriangulatedTriangle( const FPolygonID PolygonID, int32 PolygonTriangleNumber ) const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) FVector GetPolygonTriangulatedTriangleVertexPosition( const FPolygonID PolygonID, const int32 PolygonTriangleNumber, const int32 TriangleVertexNumber ) const;
+	/** Returns the requested edge connected to this vertex */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	FEdgeID GetVertexConnectedEdge( const FVertexID VertexID, const int32 ConnectedEdgeNumber ) const;
+
+	/** Returns the number of vertex instances in this mesh */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	int32 GetVertexInstanceCount() const;
+
+	/** Returns the vertex ID which the given vertex instance is instancing */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	FVertexID GetVertexInstanceVertex( const FVertexInstanceID VertexInstanceID ) const;
+
+	/** Returns the number of polygons connected to this vertex instance */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	int32 GetVertexInstanceConnectedPolygonCount( const FVertexInstanceID VertexInstanceID ) const;
+
+	/** Returns the indexed polygon connected to this vertex instance */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	FPolygonID GetVertexInstanceConnectedPolygon( const FVertexInstanceID VertexInstanceID, const int32 ConnectedPolygonNumber ) const;
+
+	/** Returns the number of edges in this mesh */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	int32 GetEdgeCount() const;
+
+	/** Returns whether the given edge ID is valid */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	bool IsValidEdge( const FEdgeID EdgeID ) const;
+
+	/** Returns the given indexed vertex for this edge. EdgeVertexNumber must be 0 or 1. */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	FVertexID GetEdgeVertex( const FEdgeID EdgeID, const int32 EdgeVertexNumber ) const;
+
+	/** Returns the number of polygons connected to this edge */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	int32 GetEdgeConnectedPolygonCount( const FEdgeID EdgeID ) const;
+
+	/** Returns the indexed polygon connected to this edge */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	FPolygonID GetEdgeConnectedPolygon( const FEdgeID EdgeID, const int32 ConnectedPolygonNumber ) const;
+
+	/** Returns the number of polygon groups in this mesh */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	int32 GetPolygonGroupCount() const;
+
+	/** Returns whether the given polygon group ID is valid */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	bool IsValidPolygonGroup( const FPolygonGroupID PolygonGroupID ) const;
+
+	/** Returns the number of polygons in this polygon group */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	int32 GetPolygonCountInGroup( const FPolygonGroupID PolygonGroupID ) const;
+
+	/** Returns the given indexed polygon in this polygon group */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	FPolygonID GetPolygonInGroup( const FPolygonGroupID PolygonGroupID, const int32 PolygonNumber ) const;
+
+	/** Returns the material assigned to this polygon group */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	UMaterialInterface* GetPolygonGroupMaterial( const FPolygonGroupID PolygonGroupID ) const;
+
+	/** Returns the material slot name assigned to this polygon group */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	FName GetPolygonGroupMaterialSlotName( const FPolygonGroupID PolygonGroupID ) const;
+
+	/** Returns the number of polygons in this mesh */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	int32 GetPolygonCount() const;
+
+	/** Returns whether the given polygon ID is valid */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	bool IsValidPolygon( const FPolygonID PolygonID ) const;
+
+	/** Returns the polygon group this polygon is assigned to */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	FPolygonGroupID GetGroupForPolygon( const FPolygonID PolygonID ) const;
+
+	/** Returns the number of vertices on this polygon's perimeter */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	int32 GetPolygonPerimeterVertexCount( const FPolygonID PolygonID ) const;
+
+	/** Returns the indexed vertex on this polygon's perimeter */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	FVertexID GetPolygonPerimeterVertex( const FPolygonID PolygonID, const int32 PolygonVertexNumber ) const;
+
+	/** Returns the indexed vertex instance on this polygon's perimeter */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	FVertexInstanceID GetPolygonPerimeterVertexInstance( const FPolygonID PolygonID, const int32 PolygonVertexNumber ) const;
+
+	/** Returns the vertex instance attribute corresponding to the indexed vertex on the polygon's perimeter */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	FVector4 GetPolygonPerimeterVertexAttribute( const FPolygonID PolygonID, const int32 PolygonVertexNumber, const FName AttributeName, const int32 AttributeIndex ) const;
+
+	/** Returns the number of hole contours this polygon has */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	int32 GetPolygonHoleCount( const FPolygonID PolygonID ) const;
+
+	/** Returns the number of vertices on the indexed hole contour for this polygon */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	int32 GetPolygonHoleVertexCount( const FPolygonID PolygonID, const int32 HoleNumber ) const;
+
+	/** Returns the indexed vertex on the given hole contour of the polygon */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	FVertexID GetPolygonHoleVertex( const FPolygonID PolygonID, const int32 HoleNumber, const int32 PolygonVertexNumber ) const;
+
+	/** Returns the indexed vertex instance on the given hole contour of the polygon */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	FVertexInstanceID GetPolygonHoleVertexInstance( const FPolygonID PolygonID, const int32 HoleNumber, const int32 PolygonVertexNumber ) const;
+
+	/** Returns the vertex instance attribute corresponding to the indexed vertex on the given hole contour of the polygon */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	FVector4 GetPolygonHoleVertexAttribute( const FPolygonID PolygonID, const int32 HoleNumber, const int32 PolygonVertexNumber, const FName AttributeName, const int32 AttributeIndex ) const;
+
+	/** Returns the number of triangles which make up this polygon */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	int32 GetPolygonTriangulatedTriangleCount( const FPolygonID PolygonID ) const;
+
+	/** Returns the indexed triangle of the triangulated polygon */
+	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
+	FMeshTriangle GetPolygonTriangulatedTriangle( const FPolygonID PolygonID, int32 PolygonTriangleNumber ) const;
 
 protected:
 
-	/** Given a set of index remappings, fixes up references to element IDs */
-	void FixUpElementIDs( const FElementIDRemappings& Remappings );
+	/** Given a set of index remappings, fixes up references in the octree */
+	void RemapOctreeIDs( const FElementIDRemappings& Remappings );
 
 	FEdgeID GetPolygonContourEdge( const FMeshPolygonContour& Contour, const int32 ContourEdgeNumber, bool& bOutEdgeWindingIsReversedForPolygon ) const;
 	void GetPolygonContourEdges( const FMeshPolygonContour& Contour, TArray<FEdgeID>& OutPolygonContourEdgeIDs ) const;
@@ -564,7 +360,6 @@ protected:
 	void SplitVertexInstanceInPolygons( const FVertexInstanceID VertexInstanceID, const TArray<FPolygonID>& PolygonIDs );
 	void ReplaceVertexInstanceInPolygons( const FVertexInstanceID OldVertexInstanceID, const FVertexInstanceID NewVertexInstanceID, const TArray<FPolygonID>& PolygonIDs );
 	float GetPolygonCornerAngleForVertex( const FPolygonID PolygonID, const FVertexID VertexID ) const;
-	FPolygonGroupID GetPolygonGroupIDFromMaterial( UMaterialInterface* Material, bool bCreateNewSectionIfNotFound );
 
 public:
 
@@ -718,7 +513,6 @@ public:
 	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) void GetVertexConnectedEdges( const FVertexID VertexID, TArray<FEdgeID>& OutConnectedEdgeIDs ) const;
 	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) void GetVertexConnectedPolygons( const FVertexID VertexID, TArray<FPolygonID>& OutConnectedPolygonIDs ) const;
 	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) void GetVertexInstanceConnectedPolygons( const FVertexInstanceID VertexInstanceID, TArray<FPolygonID>& OutConnectedPolygonIDs ) const;
-	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) int32 GetVertexInstanceConnectedPolygonCount( const FVertexInstanceID VertexInstanceID ) const;
 	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) void GetVertexAdjacentVertices( const FVertexID VertexID, TArray< FVertexID >& OutAdjacentVertexIDs ) const;
 	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) FEdgeID GetVertexPairEdge( const FVertexID VertexID, const FVertexID NextVertexID, bool& bOutEdgeWindingIsReversed ) const;
 	UFUNCTION( BlueprintPure, Category="Editable Mesh" ) void GetEdgeVertices( const FEdgeID EdgeID, FVertexID& OutEdgeVertexID0, FVertexID& OutEdgeVertexID1 ) const;
@@ -795,7 +589,7 @@ public:
 	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void TriangulatePolygons( const TArray<FPolygonID>& PolygonIDs, TArray<FPolygonID>& OutNewTrianglePolygons );
 	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void CreatePolygonGroups( const TArray<FPolygonGroupToCreate>& PolygonGroupsToCreate, TArray<FPolygonGroupID>& OutNewPolygonGroupIDs );
 	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void DeletePolygonGroups( const TArray<FPolygonGroupID>& PolygonGroupIDs );
-	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void AssignMaterialToPolygons( const TArray<FPolygonID>& PolygonIDs, UMaterialInterface* Material, TArray<FPolygonID>& OutNewPolygonIDs );
+	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void AssignPolygonsToPolygonGroups( const TArray<FPolygonGroupForPolygon>& PolygonGroupForPolygons, const bool bDeleteOrphanedPolygonGroups );
 	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void WeldVertices( const TArray<FVertexID>& VertexIDs, FVertexID& OutNewVertexID );
 	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void TessellatePolygons( const TArray<FPolygonID>& PolygonIDs, const ETriangleTessellationMode TriangleTessellationMode, TArray<FPolygonID>& OutNewPolygonIDs );
 	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void SetTextureCoordinateCount( const int32 NumTexCoords );
@@ -845,21 +639,24 @@ public:
 
 public:
 
+	UPROPERTY()
+	UMeshDescription* MeshDescription;
+
 	/** Each editable vertex in this mesh. */
-	TSparseArray<FMeshVertex> Vertices;
+//	TSparseArray<FMeshVertex> Vertices;
 
 	/** Sparse array of rendering vertices, that matches the vertices in the mesh vertex buffers */
-	TSparseArray<FMeshVertexInstance> VertexInstances;
+//	TSparseArray<FMeshVertexInstance> VertexInstances;
 
 	/** All editable mesh edges.  Note that some of these edges will be internal polygon edges, synthesized while
 	triangulating polygons into triangles.  Static meshes currently only support triangles. */
-	TSparseArray<FMeshEdge> Edges;
+//	TSparseArray<FMeshEdge> Edges;
 
 	/** All of the polygons in this mesh */
-	TSparseArray<FMeshPolygon> Polygons;
+//	TSparseArray<FMeshPolygon> Polygons;
 
 	/** All of the polygon groups in this mesh */
-	TSparseArray<FMeshPolygonGroup> PolygonGroups;
+//	TSparseArray<FMeshPolygonGroup> PolygonGroups;
 
 // @todo mesheditor: sort out member access. Currently StaticMesh adapter relies on accessing this stuff directly
 //protected:
