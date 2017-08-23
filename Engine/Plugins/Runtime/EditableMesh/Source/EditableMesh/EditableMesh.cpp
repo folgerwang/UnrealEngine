@@ -85,7 +85,7 @@ static void InvertRemapTable( TSparseArray<ElementIDType>& InvertedRemapTable, c
 
 	InvertedRemapTable.Empty( RemapTable.Num() );
 
-	for( TSparseArray<ElementIDType>::TConstIterator It( RemapTable ); It; ++It )
+	for( typename TSparseArray<ElementIDType>::TConstIterator It( RemapTable ); It; ++It )
 	{
 		InvertedRemapTable.Insert( It->GetValue(), ElementIDType( It.GetIndex() ) );
 	}
@@ -6069,7 +6069,7 @@ void UEditableMesh::ExtrudePolygons( const TArray<FPolygonID>& PolygonIDs, const
 					bool bEdgeWindingIsReversedForPolygon;
 					const FEdgeID EdgeID = this->GetPolygonPerimeterEdge( ExtrudedFrontPolygonID, PerimeterEdgeNumber, /* Out */ bEdgeWindingIsReversedForPolygon );
 
-					const FVector4 NewEdgeHardnessAttribute = bIsSharedEdge ? GetEdgeAttribute( OriginalEdgeID, UEditableMeshAttribute::EdgeIsHard(), 0 ) : FVector( 1.0f );
+					const FVector4 NewEdgeHardnessAttribute = bIsSharedEdge ? GetEdgeAttribute( OriginalEdgeID, UEditableMeshAttribute::EdgeIsHard(), 0 ) : FVector4( 1.0f, 0.0f, 0.0f, 0.0f );
 
 					FAttributesForEdge& AttributesForEdge = *new( AttributesForEdges ) FAttributesForEdge();
 					AttributesForEdge.EdgeID = EdgeID;
