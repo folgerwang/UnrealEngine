@@ -95,7 +95,8 @@ public class UnrealEd : ModuleRules
 				"AudioEditor",
 				"NetworkFileSystem",
                 "UMG",
-			}
+                "MeshDescription",
+            }
 		);
 
 		PrivateDependencyModuleNames.AddRange(
@@ -159,7 +160,7 @@ public class UnrealEd : ModuleRules
 				"ClothingSystemRuntime",
 				"ClothingSystemRuntimeInterface",
 				"PIEPreviewDeviceProfileSelector",
-			}
+            }
 		);
 
 		DynamicallyLoadedModuleNames.AddRange(

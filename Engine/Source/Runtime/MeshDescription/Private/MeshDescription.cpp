@@ -6,25 +6,25 @@
 UMeshDescription::UMeshDescription()
 {
 	// Add basic vertex attributes
-	VertexAttributes().RegisterAttribute<FVector>( "Position" );
-	VertexAttributes().RegisterAttribute<float>( "CornerSharpness" );
+	VertexAttributes().RegisterAttribute<FVector>(UEditableMeshAttribute::VertexPosition());
+	VertexAttributes().RegisterAttribute<float>(UEditableMeshAttribute::VertexCornerSharpness());
 
 	// Add basic vertex instance attributes
-	VertexInstanceAttributes().RegisterAttribute<FVector2D>( "TextureCoordinate", 2 );
-	VertexInstanceAttributes().RegisterAttribute<FVector>( "Normal" );
-	VertexInstanceAttributes().RegisterAttribute<FVector>( "Tangent" );
-	VertexInstanceAttributes().RegisterAttribute<float>( "BinormalSign" );
-	VertexInstanceAttributes().RegisterAttribute<FVector4>( "Color" );
+	VertexInstanceAttributes().RegisterAttribute<FVector2D>(UEditableMeshAttribute::VertexTextureCoordinate(), 2 );
+	VertexInstanceAttributes().RegisterAttribute<FVector>(UEditableMeshAttribute::VertexNormal());
+	VertexInstanceAttributes().RegisterAttribute<FVector>(UEditableMeshAttribute::VertexTangent());
+	VertexInstanceAttributes().RegisterAttribute<float>(UEditableMeshAttribute::VertexBinormalSign());
+	VertexInstanceAttributes().RegisterAttribute<FVector4>(UEditableMeshAttribute::VertexColor());
 
 	// Add basic edge attributes
-	EdgeAttributes().RegisterAttribute<bool>( "EdgeIsHard" );
-	EdgeAttributes().RegisterAttribute<float>( "CreaseSharpness" );
+	EdgeAttributes().RegisterAttribute<bool>(UEditableMeshAttribute::EdgeIsHard());
+	EdgeAttributes().RegisterAttribute<float>(UEditableMeshAttribute::EdgeCreaseSharpness());
 
 	// Add basic polygon attributes
-	PolygonAttributes().RegisterAttribute<FVector>( "PolygonNormal" );
+	PolygonAttributes().RegisterAttribute<FVector>(UEditableMeshAttribute::PolygonNormal());
 	PolygonAttributes().RegisterAttribute<FVector>( "PolygonTangent" );
 	PolygonAttributes().RegisterAttribute<FVector>( "PolygonBinormal" );
-	PolygonAttributes().RegisterAttribute<FVector>( "PolygonCenter" );
+	PolygonAttributes().RegisterAttribute<FVector>(UEditableMeshAttribute::PolygonCenter());
 
 	// Add basic polygon group attributes
 	PolygonGroupAttributes().RegisterAttribute<FStringAssetReference>( "MaterialAsset" );

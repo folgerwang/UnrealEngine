@@ -622,6 +622,10 @@ public:
 	UPROPERTY(Instanced, VisibleAnywhere, Category = EditableMesh)
 	class UObject* EditableMesh;
 
+	/** The MeshDescription use to build the render data. */
+	UPROPERTY(VisibleAnywhere, Category = MeshDescription)
+	class UMeshDescription* MeshDescription;
+
 	/** Pre-build navigation collision */
 	UPROPERTY(VisibleAnywhere, transient, duplicatetransient, Instanced, Category = Navigation)
 	class UNavCollision* NavCollision;
@@ -881,11 +885,13 @@ private:
 	 */
 	void FixupZeroTriangleSections();
 
+public:
 	/**
 	 * Caches derived renderable data.
 	 */
-	void CacheDerivedData();
+	ENGINE_API void CacheDerivedData();
 
+private:
 
 	FOnPreMeshBuild PreMeshBuild;
 	FOnPostMeshBuild PostMeshBuild;

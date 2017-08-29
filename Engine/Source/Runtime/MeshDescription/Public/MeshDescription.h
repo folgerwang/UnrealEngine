@@ -1,6 +1,7 @@
 // Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+#pragma warning(disable:4503)
 
 #include "CoreMinimal.h"
 #include "MeshTypes.h"
@@ -493,9 +494,17 @@ struct TAttributesSet : public TMakeAttributesSet<ElementIDType, AttributeTypes>
 	}
 
 	template <typename AttributeType>
-	AttributeType SetAttribute( const ElementIDType ElementID, const FName AttributeName, const int32 AttributeIndex, const AttributeType& AttributeValue )
+	void SetAttribute( const ElementIDType ElementID, const FName AttributeName, const int32 AttributeIndex, const AttributeType& AttributeValue )
 	{
-		this->Get<TTupleIndex<AttributeType, AttributeTypes>::Value>().FindChecked( AttributeName )[ AttributeIndex ][ ElementID ] = AttributeValue;
+		TMeshElementArray<AttributeType, ElementIDType>& MeshElementArray = this->Get<TTupleIndex<AttributeType, AttributeTypes>::Value>().FindChecked(AttributeName)[AttributeIndex];
+		if(!MeshElementArray.IsValid(ElementID))
+		{
+			MeshElementArray.Insert(ElementID, AttributeValue);
+		}
+		else
+		{
+			MeshElementArray[ElementID] = AttributeValue;
+		}
 	}
 
 	friend FArchive& operator<<( FArchive& Ar, TAttributesSet& AttributesSet )

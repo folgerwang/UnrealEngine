@@ -271,7 +271,7 @@ struct FStaticMeshLODResources
 	struct FSplineMeshVertexFactory* SplineVertexFactoryOverrideColorVertexBuffer;
 
 	/** Default constructor. */
-	FStaticMeshLODResources();
+	ENGINE_API FStaticMeshLODResources();
 
 	ENGINE_API ~FStaticMeshLODResources();
 
