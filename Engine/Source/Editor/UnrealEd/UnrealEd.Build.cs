@@ -96,6 +96,7 @@ public class UnrealEd : ModuleRules
 				"NetworkFileSystem",
                 "UMG",
                 "MeshDescription",
+                "MeshBuilder",
             }
 		);
 
