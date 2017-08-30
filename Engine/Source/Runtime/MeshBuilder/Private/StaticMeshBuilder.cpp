@@ -6,11 +6,27 @@
 #include "PhysicsEngine/BodySetup.h"
 #include "MeshDescription.h"
 
-const FTriangleID FTriangleID::Invalid(TNumericLimits<uint32>::Max());
-
 FStaticMeshBuilder::FStaticMeshBuilder()
 {
 
+}
+
+int32 FStaticMeshBuilder::GetPolygonGroupTriangles(UStaticMesh* StaticMesh, TArray<FMeshTriangle>& OutTriangles, const FPolygonGroupID& PolygonGroupID)
+{
+	int32 TriangleCount = 0;
+	for (const FPolygonID& PolygonID : StaticMesh->MeshDescription->Polygons().GetElementIDs())
+	{
+		FMeshPolygon MeshPolygon = StaticMesh->MeshDescription->GetPolygon(PolygonID);
+		if (MeshPolygon.PolygonGroupID == PolygonGroupID)
+		{
+			for (const FMeshTriangle& MeshTriangle : MeshPolygon.Triangles)
+			{
+				OutTriangles.Add(MeshTriangle);
+				TriangleCount++;
+			}
+		}
+	}
+	return TriangleCount;
 }
 
 bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh)
@@ -62,52 +78,20 @@ bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh)
 		}
 	}
 
-	
-	/** All of the polygon groups in this mesh */
-	TMeshElementArray<FRenderingPolygonGroup, FPolygonGroupID> RenderingPolygonGroups;
-
-	for (const FPolygonID& PolygonID : StaticMesh->MeshDescription->Polygons().GetElementIDs())
-	{
-		FMeshPolygon MeshPolygon = StaticMesh->MeshDescription->GetPolygon(PolygonID);
-		FPolygonGroupID PolygonGroupID = MeshPolygon.PolygonGroupID;
-
-		if (!RenderingPolygonGroups.IsValid(PolygonGroupID))
-		{
-			// Create a rendering polygon group for holding the triangulated data and references to the static mesh rendering section.
-			// This is indexed by the same FPolygonGroupID as the PolygonGroups.
-			RenderingPolygonGroups.Insert(PolygonGroupID);
-		}
-		FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[PolygonGroupID];
-		for (const FMeshTriangle& MeshTriangle : MeshPolygon.Triangles)
-		{
-			RenderingPolygonGroup.Triangles.Add(MeshTriangle);
-		}
-		RenderingPolygonGroup.MaxTriangles = RenderingPolygonGroup.Triangles.Num();
-	}
-
-
 	// Set up index buffer
-	for (const FPolygonGroupID PolygonGroupID : PolygonGroups.GetElementIDs())
+	for (const FPolygonGroupID& PolygonGroupID : PolygonGroups.GetElementIDs())
 	{
+		TArray<FMeshTriangle> Triangles;
+		int32 SectionTriangleCount = GetPolygonGroupTriangles(StaticMesh, Triangles, PolygonGroupID);
+
 		const FMeshPolygonGroup& PolygonGroup = PolygonGroups[PolygonGroupID];
-		
-		if (!RenderingPolygonGroups.IsValid(PolygonGroupID))
-		{
-			//There is no polygon using this polygon group
-			continue;
-		}
-		FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[PolygonGroupID];
-		RenderingPolygonGroup.RenderingSectionIndex = StaticMeshLOD.Sections.Num();
 
 		// Create new rendering section
 		StaticMeshLOD.Sections.Add(FStaticMeshSection());
 		FStaticMeshSection& StaticMeshSection = StaticMeshLOD.Sections.Last();
 
 		StaticMeshSection.FirstIndex = IndexBuffer.Num();
-
-		//TODO: Get the number of triangles
-		StaticMeshSection.NumTriangles = RenderingPolygonGroup.Triangles.GetArraySize();
-		check(RenderingPolygonGroup.Triangles.GetArraySize() <= RenderingPolygonGroup.MaxTriangles);
+		StaticMeshSection.NumTriangles = SectionTriangleCount;
 
 		const int32 MaterialIndex = StaticMesh->GetMaterialIndex(PolygonGroup.MaterialSlotName);
 		check(MaterialIndex != INDEX_NONE);
@@ -116,50 +100,24 @@ bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh)
 		StaticMeshSection.bEnableCollision = PolygonGroup.bEnableCollision;
 		StaticMeshSection.bCastShadow = PolygonGroup.bCastShadow;
 
-
-		if (RenderingPolygonGroup.Triangles.Num() > 0)
+		if (Triangles.Num() > 0)
 		{
-			IndexBuffer.Reserve(IndexBuffer.Num() + RenderingPolygonGroup.Triangles.GetArraySize() * 3);
+			IndexBuffer.Reserve(IndexBuffer.Num() + Triangles.Num() * 3);
 			uint32 MinIndex = TNumericLimits< uint32 >::Max();
 			uint32 MaxIndex = TNumericLimits< uint32 >::Min();
-
-			// Find the first valid vertex instance index, so that we have a value we can use for our degenerates
-			check(RenderingPolygonGroup.Triangles.Num() > 0);
-			const FVertexInstanceID FirstValidRenderingID = RenderingPolygonGroup.Triangles[RenderingPolygonGroup.Triangles.GetFirstValidID()].GetVertexInstanceID(0);
-
-			for (int32 TriangleIndex = 0; TriangleIndex < RenderingPolygonGroup.Triangles.GetArraySize(); ++TriangleIndex)
+			for (int32 TriangleIndex = 0; TriangleIndex < Triangles.Num(); ++TriangleIndex)
 			{
-				const FTriangleID TriangleID(TriangleIndex);
-				if (RenderingPolygonGroup.Triangles.IsValid(TriangleID))
+				const FMeshTriangle& Triangle = Triangles[TriangleIndex];
+				for (int32 TriVert = 0; TriVert < 3; ++TriVert)
 				{
-					const FMeshTriangle& Triangle = RenderingPolygonGroup.Triangles[TriangleID];
-					for (int32 TriVert = 0; TriVert < 3; ++TriVert)
-					{
-						const uint32 RenderingVertexIndex = Triangle.GetVertexInstanceID(TriVert).GetValue();
-						IndexBuffer.Add(RenderingVertexIndex);
-						MinIndex = FMath::Min(MinIndex, RenderingVertexIndex);
-						MaxIndex = FMath::Max(MaxIndex, RenderingVertexIndex);
-					}
-				}
-				else
-				{
-					IndexBuffer.Add(FirstValidRenderingID.GetValue());
-					IndexBuffer.Add(FirstValidRenderingID.GetValue());
-					IndexBuffer.Add(FirstValidRenderingID.GetValue());
+					const uint32 RenderingVertexIndex = Triangle.GetVertexInstanceID(TriVert).GetValue();
+					IndexBuffer.Add(RenderingVertexIndex);
+					MinIndex = FMath::Min(MinIndex, RenderingVertexIndex);
+					MaxIndex = FMath::Max(MaxIndex, RenderingVertexIndex);
 				}
 			}
-
 			StaticMeshSection.MinVertexIndex = MinIndex;
 			StaticMeshSection.MaxVertexIndex = MaxIndex;
-
-			// Add any index buffer padding.
-			// This can be necessary if we have just loaded an editable mesh which had a MaxTriangles count in the editable mesh section
-			// greater than the sparse array max size (i.e. an extra gap had been reserved for tris).
-			const int32 IndexBufferPadding = RenderingPolygonGroup.MaxTriangles - RenderingPolygonGroup.Triangles.GetArraySize();
-			if (IndexBufferPadding > 0)
-			{
-				IndexBuffer.AddZeroed(IndexBufferPadding * 3);
-			}
 		}
 		else
 		{
