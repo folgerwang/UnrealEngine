@@ -25,9 +25,9 @@ private:
 	void OnBuildRenderMeshStart(class UStaticMesh* StaticMesh, const bool bInvalidateLighting);
 	void OnBuildRenderMeshFinish(class UStaticMesh* StaticMesh, const bool bRebuildBoundsAndCollision);
 	
-	int32 GetPolygonGroupTriangles(class UStaticMesh* StaticMesh, TArray<FMeshTriangle>& OutTriangles, const FPolygonGroupID& PolygonGroupID);
+	int32 GetPolygonGroupTriangles(const class UMeshDescription *MeshDescription, TArray<FMeshTriangle>& OutTriangles, const FPolygonGroupID& PolygonGroupID);
 
-	bool IsOrphanedVertex(class UStaticMesh* StaticMesh, const FVertexID VertexID) const;
+	bool IsOrphanedVertex(const class UMeshDescription *MeshDescription, const FVertexID VertexID) const;
 	void UpdateBounds(class UStaticMesh* StaticMesh);
 	void UpdateCollision(UStaticMesh *StaticMesh);
 

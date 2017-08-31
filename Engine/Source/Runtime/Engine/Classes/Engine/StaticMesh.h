@@ -624,7 +624,10 @@ public:
 
 	/** The MeshDescription use to build the render data. */
 	UPROPERTY(VisibleAnywhere, Category = MeshDescription)
-	class UMeshDescription* MeshDescription;
+	TArray<class UMeshDescription*> MeshDescriptions;
+
+	ENGINE_API class UMeshDescription* GetMeshDescription(int32 LodIndex=0) const;
+	ENGINE_API int32 GetMeshDescriptionCount() const;
 
 	/** Pre-build navigation collision */
 	UPROPERTY(VisibleAnywhere, transient, duplicatetransient, Instanced, Category = Navigation)
@@ -746,6 +749,8 @@ public:
 	*/
 	UFUNCTION(BlueprintCallable, Category = "StaticMesh")
 	ENGINE_API int32 GetMaterialIndex(FName MaterialSlotName) const;
+
+	ENGINE_API int32 GetMaterialIndexFromImportedMaterialSlotName(FName ImportedMaterialSlotName) const;
 
 	/**
 	 * Returns the render data to use for exporting the specified LOD. This method should always

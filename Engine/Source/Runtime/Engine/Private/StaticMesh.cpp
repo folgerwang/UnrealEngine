@@ -38,6 +38,7 @@
 
 #if WITH_EDITOR
 #include "RawMesh.h"
+#include "MeshDescription.h"
 #include "MeshUtilities.h"
 #include "DerivedDataCacheInterface.h"
 #endif // #if WITH_EDITOR
@@ -2168,6 +2169,21 @@ static FStaticMeshRenderData& GetPlatformStaticMeshRenderData(UStaticMesh* Mesh,
 	return *PlatformRenderData;
 }
 
+
+UMeshDescription* UStaticMesh::GetMeshDescription(int32 LodIndex) const
+{
+	if (!MeshDescriptions.IsValidIndex(LodIndex))
+	{
+		return nullptr;
+	}
+	return MeshDescriptions[LodIndex];
+}
+
+ENGINE_API int32 UStaticMesh::GetMeshDescriptionCount() const
+{
+	return MeshDescriptions.Num();
+}
+
 void UStaticMesh::CacheDerivedData()
 {
 	// Cache derived data for the running platform.
@@ -3375,6 +3391,19 @@ int32 UStaticMesh::GetMaterialIndex(FName MaterialSlotName) const
 	{
 		const FStaticMaterial &StaticMaterial = StaticMaterials[MaterialIndex];
 		if (StaticMaterial.MaterialSlotName == MaterialSlotName)
+		{
+			return MaterialIndex;
+		}
+	}
+	return -1;
+}
+
+int32 UStaticMesh::GetMaterialIndexFromImportedMaterialSlotName(FName ImportedMaterialSlotName) const
+{
+	for (int32 MaterialIndex = 0; MaterialIndex < StaticMaterials.Num(); ++MaterialIndex)
+	{
+		const FStaticMaterial &StaticMaterial = StaticMaterials[MaterialIndex];
+		if (StaticMaterial.ImportedMaterialSlotName == ImportedMaterialSlotName)
 		{
 			return MaterialIndex;
 		}

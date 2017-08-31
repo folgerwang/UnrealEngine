@@ -265,11 +265,11 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 	FbxMesh* Mesh = Node->GetMesh();
 	FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[LODIndex];
 	
-	UMeshDescription *MeshDescription = StaticMesh->MeshDescription;
-	if (ImportOptions->bImportEditableMesh && MeshDescription == nullptr)
+	UMeshDescription *MeshDescription = StaticMesh->GetMeshDescription(LODIndex);
+	if (ImportOptions->bImportEditableMesh)
 	{
-		StaticMesh->MeshDescription = NewObject<UMeshDescription>(StaticMesh, NAME_None, RF_NoFlags);
-		MeshDescription = StaticMesh->MeshDescription;
+		//The mesh description should have been created before calling BuildStaticMeshFromGeometry
+		check(MeshDescription);
 	}
 	//remove the bad polygons before getting any data from mesh
 	Mesh->RemoveBadPolygons();
@@ -528,8 +528,8 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 		{
 			StaticMesh->CacheDerivedData();
 		}
-		
-		if (StaticMesh->RenderData->LODResources.Num() == 0)
+		//Add missing LODs render data resources
+		while (StaticMesh->RenderData->LODResources.Num() <= LODIndex)
 		{
 			FStaticMeshLODResources *DummyStaticMeshLodResources = new FStaticMeshLODResources();
 			StaticMesh->RenderData->LODResources.Add(DummyStaticMeshLodResources);
@@ -559,6 +559,9 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 				return false;
 			}
 		}
+
+		//Call this before all GetMeshEdgeIndexForPolygon call this is for optimization purpose.
+		Mesh->BeginGetMeshEdgeIndexForPolygon();
 		//Polygons
 		for (int32 TriangleIndex = 0; TriangleIndex < TriangleCount; TriangleIndex++)
 		{
@@ -772,7 +775,11 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 			TmpPolygon.PolygonGroupID = PolygonGroupID;
 			const FPolygonID NewPolygonID = MeshDescription->Polygons().Add(TmpPolygon);
 			FMeshPolygonGroup& MeshPolygonGroup = MeshDescription->GetPolygonGroup(PolygonGroupID);
-			MeshPolygonGroup.Polygons.AddUnique(NewPolygonID);
+			
+			//We cannot do a add unique here since this is too slow, since we just create the polygons it should not be part
+			//of the polygonGroup already
+			MeshPolygonGroup.Polygons.Add(NewPolygonID);
+			
 			FMeshPolygon& NewPolygon = MeshDescription->GetPolygon(NewPolygonID);
 			FMeshTriangle NewTriangle;
 			for (int32 TriangleVertexIndex = 0; TriangleVertexIndex < 3; ++TriangleVertexIndex)
@@ -852,6 +859,8 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 				}
 			}
 		}
+		//Call this after all GetMeshEdgeIndexForPolygon call this is for optimization purpose.
+		Mesh->EndGetMeshEdgeIndexForPolygon();
 		// needed?
 		FBXUVs.Cleanup();
 	}
@@ -1557,13 +1566,13 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 
 	if (ImportOptions->bImportEditableMesh)
 	{
-		MeshDescription = StaticMesh->MeshDescription;
+		MeshDescription = StaticMesh->GetMeshDescription(LODIndex);
 		if (MeshDescription == nullptr)
 		{
 			//Create private asset in the same package as the StaticMesh, and make sure reference are set to avoid GC
-			FString MeshDescriptionName = MeshName + TEXT("_MeshData");
-			StaticMesh->MeshDescription = NewObject<UMeshDescription>(StaticMesh, FName(*MeshDescriptionName), RF_NoFlags);
-			MeshDescription = StaticMesh->MeshDescription;
+			MeshDescription = NewObject<UMeshDescription>(StaticMesh, NAME_None, RF_NoFlags);
+			check(MeshDescription != nullptr);
+			StaticMesh->MeshDescriptions.Add(MeshDescription);
 		}
 	}
 
@@ -1895,13 +1904,47 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 					MeshPolygon.PolygonGroupID = FPolygonGroupID(MaterialMap[MeshPolygon.PolygonGroupID.GetValue()]);
 				}
 			}
-
+			TArray<FStaticMaterial> MaterialToAdd;
 			for (const FPolygonGroupID& PolygonGroupID : MeshDescription->PolygonGroups().GetElementIDs())
 			{
 				int32 MaterialIndex = PolygonGroupID.GetValue();
 				const FMeshPolygonGroup& MeshPolygonGroup = MeshDescription->GetPolygonGroup(PolygonGroupID);
-				int32 AddedIndex = StaticMesh->StaticMaterials.Add(FStaticMaterial(Cast<UMaterialInterface>(MeshPolygonGroup.MaterialAsset.TryLoad()), MeshPolygonGroup.MaterialSlotName, MeshPolygonGroup.ImportedMaterialSlotName));
+				FStaticMaterial StaticMaterial(Cast<UMaterialInterface>(MeshPolygonGroup.MaterialAsset.TryLoad()), MeshPolygonGroup.MaterialSlotName, MeshPolygonGroup.ImportedMaterialSlotName);
+				int32 AddedIndex = (LODIndex > 0) ? MaterialToAdd.Add(StaticMaterial) : StaticMesh->StaticMaterials.Add(StaticMaterial);
 				check(MaterialIndex == AddedIndex);
+			}
+			if (LODIndex > 0)
+			{
+				//Insert the new materials in the static mesh
+				//The build function will search for imported slot name to find the appropriate slot
+				int32 StaticMeshMaterialCount = StaticMesh->StaticMaterials.Num();
+				if (StaticMeshMaterialCount > 0)
+				{
+					for (int32 MaterialToAddIndex = 0; MaterialToAddIndex < MaterialToAdd.Num(); ++MaterialToAddIndex)
+					{
+						const FStaticMaterial& CandidateMaterial = MaterialToAdd[MaterialToAddIndex];
+						bool FoundExistingMaterial = false;
+						//Found matching existing material
+						for (int32 StaticMeshMaterialIndex = 0; StaticMeshMaterialIndex < StaticMeshMaterialCount; ++StaticMeshMaterialIndex)
+						{
+							const FStaticMaterial& StaticMeshMaterial = StaticMesh->StaticMaterials[StaticMeshMaterialIndex];
+							if (StaticMeshMaterial.MaterialInterface == CandidateMaterial.MaterialInterface)
+							{
+								FPolygonGroupID PolygonGroupID(MaterialToAddIndex);
+								FMeshPolygonGroup& MeshPolygonGroup = MeshDescription->GetPolygonGroup(PolygonGroupID);
+								//The LOD 0 existing material is driving the polygon groups slot detail, so all LOD mesh description use the same data.
+								MeshPolygonGroup.ImportedMaterialSlotName = StaticMeshMaterial.ImportedMaterialSlotName;
+								MeshPolygonGroup.MaterialSlotName = StaticMeshMaterial.MaterialSlotName;
+								FoundExistingMaterial = true;
+								break;
+							}
+						}
+						if (!FoundExistingMaterial)
+						{
+							StaticMesh->StaticMaterials.Add(CandidateMaterial);
+						}
+					}
+				}
 			}
 		}
 
