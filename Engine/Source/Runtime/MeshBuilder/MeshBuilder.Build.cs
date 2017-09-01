@@ -19,6 +19,9 @@ namespace UnrealBuildTool.Rules
                     "MeshDescription",
                 }
 			);
-		}
+
+            AddEngineThirdPartyPrivateStaticDependencies(Target, "nvTriStrip");
+            AddEngineThirdPartyPrivateStaticDependencies(Target, "nvTessLib");
+        }
 	}
 }

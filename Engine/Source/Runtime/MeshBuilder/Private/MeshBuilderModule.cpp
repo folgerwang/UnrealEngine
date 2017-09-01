@@ -38,7 +38,7 @@ bool FMeshBuilderModule::BuildMesh(class UObject* Mesh)
 	if (StaticMesh != nullptr)
 	{
 		//Call the static mesh builder
-		return FStaticMeshBuilder::Get().Build(StaticMesh);
+		return FStaticMeshBuilder().Build(StaticMesh);
 	}
 	return false;
 }
