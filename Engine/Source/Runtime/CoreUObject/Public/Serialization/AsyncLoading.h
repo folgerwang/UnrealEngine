@@ -384,6 +384,11 @@ struct FAsyncPackage : FGCObject
 	void DetachLinker();
 
 	/**
+	* Flushes linker cache for all objects loaded with this package
+	*/
+	void FlushObjectLinkerCache();
+
+	/**
 	 * Returns the name of the package to load.
 	 */
 	FORCEINLINE const FName& GetPackageName() const
@@ -399,7 +404,7 @@ struct FAsyncPackage : FGCObject
 		return Desc.NameToLoad;
 	}
 
-	void AddCompletionCallback(const FLoadPackageAsyncDelegate& Callback, bool bInternal);
+	void AddCompletionCallback(TUniquePtr<FLoadPackageAsyncDelegate>&& Callback, bool bInternal);
 
 	/** Gets the number of references to this package from other packages in the dependency tree. */
 	FORCEINLINE int32 GetDependencyRefCount() const
@@ -485,17 +490,17 @@ private:
 	{
 		bool bIsInternal;
 		bool bCalled;
-		FLoadPackageAsyncDelegate Callback;
+		TUniquePtr<FLoadPackageAsyncDelegate> Callback;
 
 		FCompletionCallback()
 			: bIsInternal(false)
 			, bCalled(false)
 		{
 		}
-		FCompletionCallback(bool bInInternal, FLoadPackageAsyncDelegate InCallback)
+		FCompletionCallback(bool bInInternal, TUniquePtr<FLoadPackageAsyncDelegate>&& InCallback)
 			: bIsInternal(bInInternal)
 			, bCalled(false)
-			, Callback(InCallback)
+			, Callback(MoveTemp(InCallback))
 		{
 		}
 	};
@@ -847,7 +852,14 @@ private:
 	 *
 	 * @return true
 	 */
-	EAsyncPackageState::Type FinishObjects();	
+	EAsyncPackageState::Type FinishObjects();
+
+	/**
+	 * Finalizes external dependencies till time limit is exceeded
+	 *
+	 * @return Complete if all dependencies are finished, TimeOut otherwise
+	 */
+	EAsyncPackageState::Type FinishExternalReadDependencies();
 
 	/**
 	 * Function called when pending import package has been loaded.

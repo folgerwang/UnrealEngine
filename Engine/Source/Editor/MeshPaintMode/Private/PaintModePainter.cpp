@@ -100,15 +100,13 @@ void FPaintModePainter::RegisterTexturePaintCommands()
 
 void FPaintModePainter::RegisterVertexPaintCommands()
 {
-	auto AreMeshComponentsSelected = [this]() -> bool { return GetSelectedComponents<UMeshComponent>().Num() > 0; };
-
 	UICommandList->MapAction(FPaintModeCommands::Get().Fill, FUIAction(FExecuteAction::CreateRaw(this, &FPaintModePainter::FillWithVertexColor),
-		FCanExecuteAction::CreateLambda(AreMeshComponentsSelected)));
+		FCanExecuteAction::CreateRaw(this, &FPaintModePainter::SelectionContainsValidAdapters)));
 
 	UICommandList->MapAction(FPaintModeCommands::Get().Propagate, FUIAction(FExecuteAction::CreateRaw(this, &FPaintModePainter::PropagateVertexColorsToAsset), FCanExecuteAction::CreateRaw(this, &FPaintModePainter::CanPropagateVertexColors)));
 
-	auto IsAMeshComponentSelected = [this]() -> bool { return (GetSelectedComponents<UMeshComponent>().Num() == 1); };
-	UICommandList->MapAction(FPaintModeCommands::Get().Import, FUIAction(FExecuteAction::CreateRaw(this, &FPaintModePainter::ImportVertexColors), FCanExecuteAction::CreateLambda(IsAMeshComponentSelected)));
+	auto IsAValidMeshComponentSelected = [this]() -> bool { return (GetSelectedComponents<UMeshComponent>().Num() == 1) && SelectionContainsValidAdapters(); };
+	UICommandList->MapAction(FPaintModeCommands::Get().Import, FUIAction(FExecuteAction::CreateRaw(this, &FPaintModePainter::ImportVertexColors), FCanExecuteAction::CreateLambda(IsAValidMeshComponentSelected)));
 
 	UICommandList->MapAction(FPaintModeCommands::Get().Save, FUIAction(FExecuteAction::CreateRaw(this, &FPaintModePainter::SavePaintedAssets), FCanExecuteAction::CreateRaw(this, &FPaintModePainter::CanSaveMeshPackages)));
 
@@ -415,11 +413,11 @@ bool FPaintModePainter::CanSaveMeshPackages() const
 		UObject* Object = nullptr;
 		if (UStaticMeshComponent* StaticMeshComponent = Cast<UStaticMeshComponent>(Component))
 		{
-			Object = Cast<UObject>(StaticMeshComponent->GetStaticMesh());
+			Object = StaticMeshComponent->GetStaticMesh();
 		}
 		else if (USkeletalMeshComponent* SkeletalMeshComponent = Cast<USkeletalMeshComponent>(Component))
 		{
-			Object = Cast<UObject>(SkeletalMeshComponent->SkeletalMesh);
+			Object = SkeletalMeshComponent->SkeletalMesh;
 		}
 
 		if (Object != nullptr && Object->GetOutermost()->IsDirty())
@@ -430,6 +428,19 @@ bool FPaintModePainter::CanSaveMeshPackages() const
 	}
 
 	return bValid;
+}
+
+bool FPaintModePainter::SelectionContainsValidAdapters() const
+{
+	for (auto& MeshAdapterPair : ComponentToAdapterMap)
+	{
+		if (MeshAdapterPair.Value->IsValid())
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
 bool FPaintModePainter::CanPropagateVertexColors() const
@@ -956,11 +967,11 @@ bool FPaintModePainter::ContainsDuplicateMeshes(TArray<UMeshComponent*>& Compone
 		UObject* Object = nullptr;
 		if (UStaticMeshComponent* StaticMeshComponent = Cast<UStaticMeshComponent>(Component))
 		{
-			Object = Cast<UObject>(StaticMeshComponent->GetStaticMesh());
+			Object = StaticMeshComponent->GetStaticMesh();
 		}
 		else if (USkeletalMeshComponent* SkeletalMeshComponent = Cast<USkeletalMeshComponent>(Component))
 		{
-			Object = Cast<UObject>(SkeletalMeshComponent->SkeletalMesh);			
+			Object = SkeletalMeshComponent->SkeletalMesh;
 		}
 
 		if (Object)
@@ -2140,7 +2151,7 @@ void FPaintModePainter::CacheTexturePaintData()
 		UTexture2D* NewTexture = nullptr;
 		if (PaintableTextures.Num() > 0)
 		{
-			NewTexture = CastChecked<UTexture2D>(PaintableTextures[0].Texture);
+			NewTexture = Cast<UTexture2D>(PaintableTextures[0].Texture);
 		}
 		PaintSettings->TexturePaintSettings.PaintTexture = NewTexture;
 	}

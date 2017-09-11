@@ -1,28 +1,13 @@
-/* Copyright 2017 Google Inc.
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*   http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+// Copyright 2017 Google Inc.
 
 #pragma once
 
 #include "Components/ActorComponent.h"
-#include <set>
 #include "TangoPrimitives.h"
 #if PLATFORM_ANDROID
-#include "tango_client_api.h"
+#include <set>
+struct TangoPointCloud;
 #endif
-
-
 #include "TangoPointCloudComponent.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnFloorPlaneFound, float, PlaneZ);
@@ -79,7 +64,9 @@ private:
 	// based on the below state
 	bool bFindFloorPlaneRequested = false;
 	TMap<int32, int32> NumUpPoints;
+#if PLATFORM_ANDROID
 	std::set<int32> NonNoiseBuckets; // UE4 doesn't have a sorted set
+#endif
 	int32 NumFramesToFindFloorPlane;
 	double LastPointCloudTimestamp;
 };

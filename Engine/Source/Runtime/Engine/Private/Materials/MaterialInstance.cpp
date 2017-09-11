@@ -26,6 +26,7 @@
 #include "Interfaces/ITargetPlatform.h"
 #include "Interfaces/ITargetPlatformManagerModule.h"
 #include "Components.h"
+#include "HAL/LowLevelMemTracker.h"
 
 /**
  * Cache uniform expressions for the given material.
@@ -1741,9 +1742,8 @@ void UMaterialInstance::CacheShadersForResources(EShaderPlatform ShaderPlatform,
 
 		if (!bSuccess)
 		{
-			UE_LOG(LogMaterial, Warning,
-				TEXT("Failed to compile Material Instance %s with Base %s for platform %s, Default Material will be used in game."), 
-				*GetPathName(), 
+			UE_ASSET_LOG(LogMaterial, Warning, this,
+				TEXT("Failed to compile Material Instance with Base %s for platform %s, Default Material will be used in game."), 
 				BaseMaterial ? *BaseMaterial->GetName() : TEXT("Null"), 
 				*LegacyShaderPlatformToShaderFormat(ShaderPlatform).ToString()
 				);
@@ -1751,7 +1751,7 @@ void UMaterialInstance::CacheShadersForResources(EShaderPlatform ShaderPlatform,
 			const TArray<FString>& CompileErrors = CurrentResource->GetCompileErrors();
 			for (int32 ErrorIndex = 0; ErrorIndex < CompileErrors.Num(); ErrorIndex++)
 			{
-				UE_LOG(LogMaterial, Warning, TEXT("	%s"), *CompileErrors[ErrorIndex]);
+				UE_LOG(LogMaterial, Log, TEXT("	%s"), *CompileErrors[ErrorIndex]);
 			}
 		}
 	}
@@ -1936,6 +1936,7 @@ void UMaterialInstance::ClearAllCachedCookedPlatformData()
 
 void UMaterialInstance::Serialize(FArchive& Ar)
 {
+	LLM_SCOPE(ELLMTag::Materials);
 	SCOPED_LOADTIMER(MaterialInstanceSerializeTime);
 	Super::Serialize(Ar);
 
@@ -2021,8 +2022,19 @@ void UMaterialInstance::PostLoad()
 	SCOPED_LOADTIMER(MaterialInstancePostLoad);
 	Super::PostLoad();
 
-	// Resources can be processed / registered now that we're back on the main thread
-	ProcessSerializedInlineShaderMaps(this, LoadedMaterialResources, StaticPermutationMaterialResources);
+	if (FApp::CanEverRender())
+	{
+		// Resources can be processed / registered now that we're back on the main thread
+		ProcessSerializedInlineShaderMaps(this, LoadedMaterialResources, StaticPermutationMaterialResources);
+	}
+	else
+	{
+		// Discard all loaded material resources
+		for (FMaterialResource& Resource : LoadedMaterialResources)
+		{
+			Resource.DiscardShaderMap();
+		}
+	}
 	// Empty the lsit of loaded resources, we don't need it anymore
 	LoadedMaterialResources.Empty();
 
@@ -2341,12 +2353,14 @@ void UMaterialInstance::SetTextureParameterValueInternal(FName ParameterName, UT
 	// Don't enqueue an update if it isn't needed
 	if (ParameterValue->ParameterValue != Value)
 	{
-		checkf(!Value || Value->IsA(UTexture::StaticClass()), TEXT("Expecting a UTexture! Value='%s' class='%s'"), *Value->GetName(), *Value->GetClass()->GetName());
-
-		ParameterValue->ParameterValue = Value;
-		// Update the material instance data in the rendering thread.
-		GameThread_UpdateMIParameter(this, *ParameterValue);
-		CacheMaterialInstanceUniformExpressions(this);
+		// set as an ensure, because it is somehow possible to accidentally pass non-textures into here via blueprints...
+		if (Value && ensureMsgf(Value->IsA(UTexture::StaticClass()), TEXT("Expecting a UTexture! Value='%s' class='%s'"), *Value->GetName(), *Value->GetClass()->GetName()))
+		{
+			ParameterValue->ParameterValue = Value;
+			// Update the material instance data in the rendering thread.
+			GameThread_UpdateMIParameter(this, *ParameterValue);
+			CacheMaterialInstanceUniformExpressions(this);
+		}		
 	}
 }
 

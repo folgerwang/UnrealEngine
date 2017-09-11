@@ -81,6 +81,7 @@ DEFINE_LOG_CATEGORY(LogEditorViewport);
 static const float MIN_ACTOR_BOUNDS_EXTENT	= 1.0f;
 
 TArray< TWeakObjectPtr< AActor > > FLevelEditorViewportClient::DropPreviewActors;
+bool FLevelEditorViewportClient::bIsDroppingPreviewActor;
 
 /** Static: List of objects we're hovering over */
 TSet<FViewportHoverTarget> FLevelEditorViewportClient::HoveredObjects;
@@ -372,7 +373,7 @@ static bool TryAndCreateMaterialInput( UMaterial* UnrealMaterial, EMaterialKind:
 	UnrealMaterial->Expressions.Add( UnrealTextureExpression );
 	MaterialInput.Expression = UnrealTextureExpression;
 	UnrealTextureExpression->Texture = UnrealTexture;
-	UnrealTextureExpression->SamplerType = bSetupAsNormalMap ? SAMPLERTYPE_Normal : SAMPLERTYPE_Color;
+	UnrealTextureExpression->AutoSetSampleType();
 	UnrealTextureExpression->MaterialExpressionEditorX += X;
 	UnrealTextureExpression->MaterialExpressionEditorY += Y;
 
@@ -1224,6 +1225,7 @@ bool FLevelEditorViewportClient::DropObjectsAtCoordinates(int32 MouseX, int32 Mo
 
 	if(DroppedObjects.Num() > 0)
 	{
+		bIsDroppingPreviewActor = bCreateDropPreview;
 		Viewport->InvalidateHitProxy();
 
 		FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(
@@ -1417,6 +1419,9 @@ bool FLevelEditorViewportClient::DropObjectsAtCoordinates(int32 MouseX, int32 Mo
 			FEditorDelegates::OnNewActorsDropped.Broadcast(DroppedObjects, OutNewActors);
 		}
 	}
+
+	// Reset if creating a preview actor.
+	bIsDroppingPreviewActor = false;
 
 	return bResult;
 }
@@ -1626,6 +1631,8 @@ FSceneView* FLevelEditorViewportClient::CalcSceneView(FSceneViewFamily* ViewFami
 {
 	bWasControlledByOtherViewport = false;
 
+	UpdateViewForLockedActor();
+
 	// set all other matching viewports to my location, if the LOD locking is enabled,
 	// unless another viewport already set me this frame (otherwise they fight)
 	if (GEditor->bEnableLODLocking)
@@ -1672,6 +1679,7 @@ FSceneView* FLevelEditorViewportClient::CalcSceneView(FSceneViewFamily* ViewFami
 
 	FSceneView* View = FEditorViewportClient::CalcSceneView(ViewFamily, StereoPass);
 
+	View->ViewActor = ActorLockedByMatinee.IsValid() ? ActorLockedByMatinee.Get() : ActorLockedToCamera.Get();
 	View->SpriteCategoryVisibility = SpriteCategoryVisibility;
 	View->bCameraCut = bEditorCameraCut;
 	View->bHasSelectedComponents = GEditor->GetSelectedComponentCount() > 0;
@@ -2424,13 +2432,20 @@ TSharedPtr<FDragTool> FLevelEditorViewportClient::MakeDragTool( EDragTool::Type 
 
 static bool CommandAcceptsInput( FLevelEditorViewportClient& ViewportClient, FKey Key, const TSharedPtr<FUICommandInfo> Command )
 {
-	const FInputChord& Chord = *Command->GetActiveChord();
+	bool bAccepted = false;
+	for (uint32 i = 0; i < static_cast<uint8>(EMultipleKeyBindingIndex::NumChords); ++i)
+	{
+		// check each bound chord
+		EMultipleKeyBindingIndex ChordIndex = static_cast<EMultipleKeyBindingIndex> (i);
+		const FInputChord& Chord = *Command->GetActiveChord(ChordIndex);
 
-	return (!Chord.NeedsControl()	|| ViewportClient.IsCtrlPressed() ) 
-		&& (!Chord.NeedsAlt()		|| ViewportClient.IsAltPressed() ) 
-		&& (!Chord.NeedsShift()	|| ViewportClient.IsShiftPressed() ) 
-		&& (!Chord.NeedsCommand()		|| ViewportClient.IsCmdPressed() )
-		&& Chord.Key == Key;
+		bAccepted |= (!Chord.NeedsControl() || ViewportClient.IsCtrlPressed())
+			&& (!Chord.NeedsAlt() || ViewportClient.IsAltPressed())
+			&& (!Chord.NeedsShift() || ViewportClient.IsShiftPressed())
+			&& (!Chord.NeedsCommand() || ViewportClient.IsCmdPressed())
+			&& Chord.Key == Key;
+	}
+	return bAccepted;
 }
 
 static const FLevelViewportCommands& GetLevelViewportCommands()
@@ -3117,9 +3132,9 @@ void FLevelEditorViewportClient::MoveLockedActorToCamera()
 	{
 		if ( !ActiveActorLock->bLockLocation )
 		{
-			ActiveActorLock->SetActorLocation( GCurrentLevelEditingViewportClient->GetViewLocation(), false );
+			ActiveActorLock->SetActorLocation(GCurrentLevelEditingViewportClient->GetViewLocation(), false);
+			ActiveActorLock->SetActorRotation(GCurrentLevelEditingViewportClient->GetViewRotation());
 		}
-		ActiveActorLock->SetActorRotation( GCurrentLevelEditingViewportClient->GetViewRotation() );
 
 		ABrush* Brush = Cast< ABrush >( ActiveActorLock.Get() );
 		if( Brush )

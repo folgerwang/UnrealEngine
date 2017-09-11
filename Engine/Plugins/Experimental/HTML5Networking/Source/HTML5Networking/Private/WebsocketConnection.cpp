@@ -93,7 +93,13 @@ void UWebSocketConnection::LowLevelSend(void* Data, int32 CountBytes, int32 Coun
 		UE_LOG( LogNet, Warning, TEXT( "UWebSocketConnection::LowLevelSend: CountBytes > MaxPacketSize! Count: %i, MaxPacket: %i %s" ), CountBytes, MaxPacket, *Describe() );
 	}
 
-	if (CountBytes > 0)
+	bool bBlockSend = false;
+
+#if !UE_BUILD_SHIPPING
+	LowLevelSendDel.ExecuteIfBound((void*)DataToSend, CountBytes, bBlockSend);
+#endif
+
+	if (!bBlockSend && CountBytes > 0)
 	{
 		WebSocket->Send((uint8*)DataToSend, CountBytes);
 	}
@@ -161,9 +167,18 @@ void UWebSocketConnection::ReceivedRawPacket(void* Data,int32 Count)
 	
 			TSharedPtr<StatelessConnectHandlerComponent> StatelessConnect = Driver->StatelessConnectComponent.Pin();
 
-			// @todo #JohnB: This is not connectionless. Defeats the purpose of the connectionless handshake? (review this code)
 			if (!UnProcessedPacket.bError && StatelessConnect->HasPassedChallenge(LowLevelGetRemoteAddress(true)))
 			{
+				UE_LOG(LogNet, Log, TEXT("Server accepting post-challenge connection from: %s"), *LowLevelGetRemoteAddress(true));
+				// Set the initial packet sequence from the handshake data
+				if (StatelessConnectComponent.IsValid())
+				{
+					int32 ServerSequence = 0;
+					int32 ClientSequence = 0;
+					StatelessConnect->GetChallengeSequence(ServerSequence, ClientSequence);
+					InitSequence(ClientSequence, ServerSequence);
+				}
+
 				if (Handler.IsValid())
 				{
 					Handler->BeginHandshaking();

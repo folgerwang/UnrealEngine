@@ -12,11 +12,12 @@ class FVulkanDevice;
 class FVulkanCommandBufferManager;
 class FVulkanPendingGfxState;
 class FVulkanPendingComputeState;
+class FVulkanQueue;
 
 class FVulkanCommandListContext : public IRHICommandContext
 {
 public:
-	FVulkanCommandListContext(FVulkanDynamicRHI* InRHI, FVulkanDevice* InDevice, bool bInIsImmediate);
+	FVulkanCommandListContext(FVulkanDynamicRHI* InRHI, FVulkanDevice* InDevice, FVulkanQueue* InQueue, bool bInIsImmediate);
 	virtual ~FVulkanCommandListContext();
 
 	inline bool IsImmediate() const
@@ -25,9 +26,9 @@ public:
 	}
 
 	virtual void RHISetStreamSource(uint32 StreamIndex, FVertexBufferRHIParamRef VertexBuffer, uint32 Stride, uint32 Offset) final override;
+	virtual void RHISetStreamSource(uint32 StreamIndex, FVertexBufferRHIParamRef VertexBuffer, uint32 Offset) final override;
 	virtual void RHISetRasterizerState(FRasterizerStateRHIParamRef NewState) final override;
 	virtual void RHISetViewport(uint32 MinX, uint32 MinY, float MinZ, uint32 MaxX, uint32 MaxY, float MaxZ) final override;
-	virtual void RHISetStereoViewport(uint32 LeftMinX, uint32 RightMinX, uint32 MinY, float MinZ, uint32 LeftMaxX, uint32 RightMaxX, uint32 MaxY, float MaxZ) final override;
 	virtual void RHISetScissorRect(bool bEnable, uint32 MinX, uint32 MinY, uint32 MaxX, uint32 MaxY) final override;
 	virtual void RHISetBoundShaderState(FBoundShaderStateRHIParamRef BoundShaderState) final override;
 	virtual void RHISetGraphicsPipelineState(FGraphicsPipelineStateRHIParamRef GraphicsState) final override;
@@ -144,6 +145,11 @@ public:
 		TransitionState.NotifyDeletedRenderTarget(*Device, Image);
 	}
 
+	inline void NotifyDeletedImage(VkImage Image)
+	{
+		TransitionState.NotifyDeletedImage(Image);
+	}
+
 	inline FVulkanRenderPass* GetCurrentRenderPass()
 	{
 		return TransitionState.CurrentRenderPass;
@@ -164,6 +170,11 @@ public:
 		return UniformBufferUploader;
 	}
 
+	inline FVulkanQueue* GetQueue()
+	{
+		return Queue;
+	}
+
 	void WriteBeginTimestamp(FVulkanCmdBuffer* CmdBuffer);
 	void WriteEndTimestamp(FVulkanCmdBuffer* CmdBuffer);
 
@@ -172,6 +183,7 @@ public:
 protected:
 	FVulkanDynamicRHI* RHI;
 	FVulkanDevice* Device;
+	FVulkanQueue* Queue;
 	const bool bIsImmediate;
 	bool bSubmitAtNextSafePoint;
 	bool bAutomaticFlushAfterComputeShader;
@@ -205,6 +217,7 @@ protected:
 			: CurrentRenderPass(nullptr)
 			, PreviousRenderPass(nullptr)
 			, CurrentFramebuffer(nullptr)
+            , TexturesHash(0)
 		{
 		}
 
@@ -216,7 +229,7 @@ protected:
 			FVulkanRenderPass** FoundRenderPass = nullptr;
 			{
 				FScopeLock Lock(&RenderPassesCS);
-				FoundRenderPass = RenderPasses.Find(RTLayoutHash);
+				FoundRenderPass = RenderPasses.Find(RTLayout.RenderPassHash);
 			}
 			if (FoundRenderPass)
 			{
@@ -226,7 +239,7 @@ protected:
 			FVulkanRenderPass* RenderPass = new FVulkanRenderPass(InDevice, RTLayout);
 			{
 				FScopeLock Lock(&RenderPassesCS); 
-				RenderPasses.Add(RTLayoutHash, RenderPass);
+				RenderPasses.Add(RTLayout.RenderPassHash, RenderPass);
 			}
 			return RenderPass;
 		}
@@ -237,6 +250,7 @@ protected:
 		FVulkanRenderPass* CurrentRenderPass;
 		FVulkanRenderPass* PreviousRenderPass;
 		FVulkanFramebuffer* CurrentFramebuffer;
+        uint32 TexturesHash;
 
 		struct FFlushMipsInfo
 		{
@@ -248,14 +262,15 @@ protected:
 
 		TMap<uint32, FVulkanRenderPass*> RenderPasses;
 		FCriticalSection RenderPassesCS;
-
-		struct FFramebufferList
-		{
-			TArray<FVulkanFramebuffer*> Framebuffer;
-		};
-		TMap<uint32, FFramebufferList*> Framebuffers;
+		
+		TMap<uint32, FVulkanFramebuffer*> Framebuffers;
 
 		void NotifyDeletedRenderTarget(FVulkanDevice& InDevice, VkImage Image);
+
+		inline void NotifyDeletedImage(VkImage Image)
+		{
+			CurrentLayout.Remove(Image);
+		}
 
 		VkImageLayout FindOrAddLayout(VkImage Image, VkImageLayout LayoutIfNotFound)
 		{
@@ -308,6 +323,15 @@ protected:
 		TMap<FVulkanQueryPool*, TArray<uint64>> ResetList;
 	};
 	FOcclusionQueryData CurrentOcclusionQueryData;
+	void AdvanceQuery(FVulkanRenderQuery* Query);
+
+	// List of UAVs which need setting for pixel shaders. D3D treats UAVs like rendertargets so the RHI doesn't make SetUAV calls at the right time
+	struct FPendingPixelUAV
+	{
+		FVulkanUnorderedAccessView* UAV;
+		uint32 BindIndex;
+	};
+	TArray<FPendingPixelUAV> PendingPixelUAVs;
 
 	FVulkanPendingGfxState* PendingGfxState;
 	FVulkanPendingComputeState* PendingComputeState;
@@ -350,7 +374,28 @@ private:
 	// Number of times EndFrame() has been called on this context
 	uint64 FrameCounter;
 
+	friend struct FVulkanCommandContextContainer;
+};
 
-	//TEMP
-	friend class FVulkanPendingGfxState;
+
+struct FVulkanCommandContextContainer : public IRHICommandContextContainer, public VulkanRHI::FDeviceChild
+{
+	FVulkanCommandListContext* CmdContext;
+
+	FVulkanCommandContextContainer(FVulkanDevice* InDevice)
+		: VulkanRHI::FDeviceChild(InDevice)
+		, CmdContext(nullptr)
+	{
+	}
+
+	virtual IRHICommandContext* GetContext() override final;
+	virtual void FinishContext() override final;
+	virtual void SubmitAndFreeContextContainer(int32 Index, int32 Num) override final;
+
+	/** Custom new/delete with recycling */
+	void* operator new(size_t Size);
+	void operator delete(void* RawMemory);
+
+private:
+	friend class FVulkanDevice;
 };

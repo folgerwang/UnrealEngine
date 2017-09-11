@@ -74,9 +74,6 @@ namespace PropertyCustomizationHelpers
 	/** Returns a list of factories which can be used to create new assets, based on the supplied class */
 	PROPERTYEDITOR_API TArray<UFactory*> GetNewAssetFactoriesForClasses(const TArray<const UClass*>& Classes);
 
-	/** Build a combo button allowing access to text property localization utilities */
-	PROPERTYEDITOR_API TSharedRef<SWidget> MakeTextLocalizationButton(const TSharedRef<IPropertyHandle>& InPropertyHandle);
-
 	/** 
 	 * Build a combo button that you bind to a Name or String property or use general delegates
 	 * 
@@ -109,6 +106,8 @@ public:
 		, _DisplayUseSelected( true )
 		, _DisplayBrowse( true )
 		, _EnableContentPicker(true)
+		, _DisplayCompactSize(false)
+		, _DisplayThumbnail(true)
 	{}
 		/** The path to the object */
 		SLATE_ATTRIBUTE( FString, ObjectPath )
@@ -136,6 +135,12 @@ public:
 		SLATE_ARGUMENT(bool, EnableContentPicker)
 		/** A custom reset to default override */
 		SLATE_ARGUMENT(TOptional<FResetToDefaultOverride>, CustomResetToDefault)
+		/** Whether or not to display a smaller, compact size for the asset thumbnail */ 
+		SLATE_ARGUMENT(bool, DisplayCompactSize)
+		/** Whether or not to display the asset thumbnail */ 
+		SLATE_ARGUMENT(bool, DisplayThumbnail)
+		/** A custom content slot for widgets */ 
+		SLATE_NAMED_SLOT(FArguments, CustomContentSlot)
 	SLATE_END_ARGS()
 
 	PROPERTYEDITOR_API void Construct( const FArguments& InArgs );

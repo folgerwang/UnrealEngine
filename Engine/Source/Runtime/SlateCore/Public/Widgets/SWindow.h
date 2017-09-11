@@ -125,6 +125,7 @@ public:
 		, _AutoCenter( EAutoCenter::PreferredWorkArea )
 		, _ScreenPosition( FVector2D::ZeroVector )
 		, _ClientSize( FVector2D::ZeroVector )
+		, _AdjustInitialSizeAndPositionForDPIScale(true)
 		, _SupportsTransparency( EWindowTransparency::None )
 		, _InitialOpacity( 1.0f )
 		, _IsInitiallyMaximized( false )
@@ -143,6 +144,7 @@ public:
 		, _SaneWindowPlacement( true )
 		, _LayoutBorder(FMargin(5, 5, 5, 5))
 		, _UserResizeBorder(FMargin(5, 5, 5, 5))
+
 	{
 	}
 
@@ -167,6 +169,9 @@ public:
 
 		/** What the initial size of the window should be. */
 		SLATE_ARGUMENT( FVector2D, ClientSize )
+
+		/** If the initial ClientSize and ScreenPosition arguments should be automatically adjusted to account for DPI scale */
+		SLATE_ARGUMENT( bool, AdjustInitialSizeAndPositionForDPIScale )
 
 		/** Should this window support transparency */
 		SLATE_ARGUMENT( FWindowTransparency, SupportsTransparency )
@@ -429,6 +434,9 @@ public:
 	TSharedPtr<FGenericWindow> GetNativeWindow();
 	TSharedPtr<const FGenericWindow> GetNativeWindow() const ;
 
+	/** Returns the DPI scale factor of the native window */
+	float GetDPIScaleFactor() const;
+
 	/** 
 	 * Returns whether or not this window is a descendant of the specfied parent window
 	 *
@@ -526,16 +534,8 @@ public:
 	/** @return should this window show up in the taskbar */
 	bool AppearsInTaskbar() const;
 
-	/** Sets the delegate to execute when the window is activated */
-	DEPRECATED(4.9, "SetOnWindowActivated() is deprecated. Use GetOnWindowActivatedEvent() and subscribe to the multicast event.")
-	void SetOnWindowActivated( const FOnWindowActivated& InDelegate );
-
 	/** Gets the multicast delegate executed when the window is deactivated */
 	FOnWindowActivatedEvent& GetOnWindowActivatedEvent() { return WindowActivatedEvent; }
-
-	/** Sets the delegate to execute when the window is deactivated */
-	DEPRECATED(4.9, "SetOnWindowDeactivated() is deprecated. Use GetOnWindowDeactivatedEvent() and subscribe to the multicast event.")
-	void SetOnWindowDeactivated( const FOnWindowDeactivated& InDelegate );
 
 	/** Gets the multicast delegate executed when the window is deactivated */
 	FOnWindowDeactivatedEvent& GetOnWindowDeactivatedEvent() { return WindowDeactivatedEvent; }

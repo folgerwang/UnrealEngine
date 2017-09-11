@@ -145,7 +145,7 @@ bool FNetworkFileServerHttp::Init()
 	Port = Info.port;
 
 	if (Context == NULL) {
-		UE_LOG(LogFileServer, Fatal, TEXT(" Could not create a libwebsocket content for port : %d"), Port);
+		UE_LOG(LogFileServer, Error, TEXT(" Could not create a libwebsocket content.\n Port : %d is already in use.\n Exiting...\n"), Port);
 		return false;
 	}
 
@@ -325,7 +325,7 @@ int FNetworkFileServerHttp::CallBack_HTTP(
 				// client has asked for a file. ( only html/js files are served.)
 
 				// what type is being served.
-				FString FilePath = FPaths::GameDir() / TEXT("Binaries/HTML5") + FString((ANSICHAR*)In);
+				FString FilePath = FPaths::ProjectDir() / TEXT("Binaries/HTML5") + FString((ANSICHAR*)In);
 				TCHAR Mime[512];
 
 

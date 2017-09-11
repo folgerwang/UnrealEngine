@@ -33,7 +33,7 @@
 #include "Particles/FXSystemPrivate.h"
 #include "Particles/ParticleSortingGPU.h"
 #include "Particles/ParticleCurveTexture.h"
-#include "Particles/ParticleResources.h"
+#include "ParticleResources.h"
 #include "ShaderParameterUtils.h"
 #include "GlobalShader.h"
 #include "VectorFieldVisualization.h"
@@ -1345,7 +1345,6 @@ static void DrawAlignedParticleTiles(FRHICommandList& RHICmdList, int32 TileCoun
 	RHICmdList.SetStreamSource(
 		0,
 		GParticleTexCoordVertexBuffer.VertexBufferRHI,
-		/*Stride=*/ sizeof(FVector2D),
 		/*Offset=*/ 0
 		);
 
@@ -1790,7 +1789,6 @@ void InjectNewParticles(FRHICommandList& RHICmdList, FGraphicsPipelineStateIniti
 		RHICmdList.SetStreamSource(
 			0,
 			ScratchVertexBufferRHI,
-			/*Stride=*/ sizeof(FNewParticle),
 			/*Offset=*/ 0
 			);
 
@@ -1798,7 +1796,6 @@ void InjectNewParticles(FRHICommandList& RHICmdList, FGraphicsPipelineStateIniti
 		RHICmdList.SetStreamSource(
 			1,
 			GParticleTexCoordVertexBuffer.VertexBufferRHI,
-			/*Stride=*/ sizeof(FVector2D),
 			/*Offset=*/ 0
 			);
 
@@ -2020,7 +2017,6 @@ static void VisualizeGPUSimulation(
 	RHICmdList.SetStreamSource(
 		0,
 		GParticleTexCoordVertexBuffer.VertexBufferRHI,
-		VertexStride,
 		/*VertexOffset=*/ 0
 		);
 
@@ -2457,6 +2453,8 @@ public:
 
 	/** The vertex buffer used to access tiles in the simulation. */
 	FParticleTileVertexBuffer TileVertexBuffer;
+	/** Reference to the GPU sprite resources. */
+	TRefCountPtr<FGPUSpriteResources> GPUSpriteResources;
 	/** The per-emitter simulation resources. */
 	const FParticleEmitterSimulationResources* EmitterSimulationResources;
 	/** The per-frame simulation uniform buffer. */
@@ -2525,40 +2523,7 @@ public:
 	 * @param Tiles							The list of tiles to include in the simulation.
 	 * @param InEmitterSimulationResources	The emitter resources used by this simulation.
 	 */
-	void InitResources(const TArray<uint32>& Tiles, const FParticleEmitterSimulationResources* InEmitterSimulationResources)
-	{
-		ensure(InEmitterSimulationResources);
-
-		if (InEmitterSimulationResources)
-		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-				FInitParticleSimulationGPUCommand,
-				FParticleSimulationGPU*, Simulation, this,
-				TArray<uint32>, Tiles, Tiles,
-				const FParticleEmitterSimulationResources*, InEmitterSimulationResources, InEmitterSimulationResources,
-				{
-					// Release vertex buffers.
-					Simulation->VertexBuffer.ReleaseResource();
-					Simulation->TileVertexBuffer.ReleaseResource();
-
-					// Initialize new buffers with list of tiles.
-					Simulation->VertexBuffer.Init(Tiles);
-					Simulation->TileVertexBuffer.Init(Tiles);
-
-					// Store simulation resources for this emitter.
-					Simulation->EmitterSimulationResources = InEmitterSimulationResources;
-
-					// If a visualization vertex factory has been created, initialize it.
-					if (Simulation->VectorFieldVisualizationVertexFactory)
-					{
-						Simulation->VectorFieldVisualizationVertexFactory->InitResource();
-					}
-				});
-		}
-
-		bDirty_GameThread = false;
-		bReleased_GameThread = false;
-	}
+	void InitResources(const TArray<uint32>& Tiles, FGPUSpriteResources* InGPUSpriteResources);
 
 	/**
 	 * Create and initializes a visualization vertex factory if needed.
@@ -2673,7 +2638,71 @@ public:
 		UniformBuffer.SafeRelease();
 		EmitterSimulationResources.SimulationUniformBuffer.SafeRelease();
 	}
+
+	inline uint32 AddRef()
+	{
+		return NumRefs.Increment();
+	}
+
+	inline uint32 Release()
+	{
+		int32 Refs = NumRefs.Decrement();
+		check(Refs >= 0);
+
+		if (Refs == 0)
+		{
+			// When all references are released, we need the render thread
+			// to release RHI resources and delete this instance.
+			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+				ReleaseCommand,
+				FRenderResource*, Resource, this,
+				{
+					Resource->ReleaseResource();
+					delete Resource;
+				});
+		}
+		return Refs;
+	}
+
+private:
+	FThreadSafeCounter NumRefs;
 };
+
+void FParticleSimulationGPU::InitResources(const TArray<uint32>& Tiles, FGPUSpriteResources* InGPUSpriteResources)
+{
+	ensure(InGPUSpriteResources);
+
+	if (InGPUSpriteResources)
+	{
+		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
+			FInitParticleSimulationGPUCommand,
+			FParticleSimulationGPU*, Simulation, this,
+			TArray<uint32>, Tiles, Tiles,
+			TRefCountPtr<FGPUSpriteResources>, InGPUSpriteResources, InGPUSpriteResources, // TRefCountPtr to take reference for lifetime of this render command
+			{
+				// Release vertex buffers.
+				Simulation->VertexBuffer.ReleaseResource();
+				Simulation->TileVertexBuffer.ReleaseResource();
+
+				// Initialize new buffers with list of tiles.
+				Simulation->VertexBuffer.Init(Tiles);
+				Simulation->TileVertexBuffer.Init(Tiles);
+
+				// Store simulation resources for this emitter.
+				Simulation->GPUSpriteResources = InGPUSpriteResources;
+				Simulation->EmitterSimulationResources = &InGPUSpriteResources->EmitterSimulationResources;
+
+				// If a visualization vertex factory has been created, initialize it.
+				if (Simulation->VectorFieldVisualizationVertexFactory)
+				{
+					Simulation->VectorFieldVisualizationVertexFactory->InitResource();
+				}
+		});
+	}
+
+	bDirty_GameThread = false;
+	bReleased_GameThread = false;
+}
 
 class FGPUSpriteCollectorResources : public FOneFrameResource
 {
@@ -3337,7 +3366,7 @@ public:
 
 		if (Simulation->bDirty_GameThread)
 		{
-			Simulation->InitResources(AllocatedTiles, &EmitterInfo.Resources->EmitterSimulationResources);
+			Simulation->InitResources(AllocatedTiles, EmitterInfo.Resources);
 		}
 		check(!Simulation->bReleased_GameThread);
 		check(!Simulation->bDestroyed_GameThread);
@@ -3597,7 +3626,7 @@ public:
 			// Queue an update to the GPU simulation if needed.
 			if (Simulation->bDirty_GameThread)
 			{
-				Simulation->InitResources(AllocatedTiles, &EmitterInfo.Resources->EmitterSimulationResources);
+				Simulation->InitResources(AllocatedTiles, EmitterInfo.Resources);
 			}
 
 			CheckEmitterFinished();
@@ -4513,55 +4542,41 @@ void FFXSystem::SimulateGPUParticles(
 	// Setup render states.
 	FTextureRHIParamRef CurrentStateRenderTargets[2] = { CurrentStateTextures.PositionTextureTargetRHI, CurrentStateTextures.VelocityTextureTargetRHI };
 	FTextureRHIParamRef PreviousStateRenderTargets[2] = { PrevStateTextures.PositionTextureTargetRHI, PrevStateTextures.VelocityTextureTargetRHI };
-
-	{	
-
+	{
+		
 		// On some platforms, the textures are filled with garbage after creation, so we need to clear them to black the first time we use them
 		if ( !CurrentStateTextures.bTexturesCleared )
 		{
-
+			
 			RHICmdList.BeginUpdateMultiFrameResource(CurrentStateRenderTargets[0]);
 			RHICmdList.BeginUpdateMultiFrameResource(CurrentStateRenderTargets[1]);
-
+			
 			SetRenderTarget(RHICmdList, CurrentStateTextures.PositionTextureTargetRHI, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
 			SetRenderTarget(RHICmdList, CurrentStateTextures.VelocityTextureTargetRHI, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
-
+			
 			CurrentStateTextures.bTexturesCleared = true;
-
+			
 			RHICmdList.EndUpdateMultiFrameResource(CurrentStateRenderTargets[0]);
 			RHICmdList.EndUpdateMultiFrameResource(CurrentStateRenderTargets[1]);
 		}
-
+		
 		if ( !PrevStateTextures.bTexturesCleared )
 		{
 			RHICmdList.BeginUpdateMultiFrameResource(PreviousStateRenderTargets[0]);
 			RHICmdList.BeginUpdateMultiFrameResource(PreviousStateRenderTargets[1]);
-
+			
 			SetRenderTarget(RHICmdList, PrevStateTextures.PositionTextureTargetRHI, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
 			RHICmdList.CopyToResolveTarget(PrevStateTextures.PositionTextureTargetRHI, PrevStateTextures.PositionTextureTargetRHI, true, FResolveParams());
 			SetRenderTarget(RHICmdList, PrevStateTextures.VelocityTextureTargetRHI, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
 			RHICmdList.CopyToResolveTarget(PrevStateTextures.VelocityTextureTargetRHI, PrevStateTextures.VelocityTextureTargetRHI, true, FResolveParams());
-		
+			
 			PrevStateTextures.bTexturesCleared = true;
-
+			
 			RHICmdList.EndUpdateMultiFrameResource(PreviousStateRenderTargets[0]);
 			RHICmdList.EndUpdateMultiFrameResource(PreviousStateRenderTargets[1]);
 		}
-	}	
+	}
 	
-
-	RHICmdList.BeginUpdateMultiFrameResource(CurrentStateRenderTargets[0]);
-	RHICmdList.BeginUpdateMultiFrameResource(CurrentStateRenderTargets[1]);
-
-	SetRenderTargets(RHICmdList, 2, CurrentStateRenderTargets, FTextureRHIParamRef(), 0, NULL);
-	FGraphicsPipelineStateInitializer GraphicsPSOInit;
-	RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-
-	RHICmdList.SetViewport(0, 0, 0.0f, GParticleSimulationTextureSizeX, GParticleSimulationTextureSizeY, 1.0f);
-	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
-	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-
 	// Simulations that don't use vector fields can share some state.
 	FVectorFieldUniformBufferRef EmptyVectorFieldUniformBuffer;
 	{
@@ -4675,11 +4690,25 @@ void FFXSystem::SimulateGPUParticles(
 		}
 	}
 	
+	RHICmdList.BeginUpdateMultiFrameResource(CurrentStateRenderTargets[0]);
+	RHICmdList.BeginUpdateMultiFrameResource(CurrentStateRenderTargets[1]);
+	
 	if ( SimulationCommands.Num() || TilesToClear.Num())
 	{
+		SetRenderTargets(RHICmdList, 2, CurrentStateRenderTargets, FTextureRHIParamRef(), 0, NULL);
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
+		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		
+		RHICmdList.SetViewport(0, 0, 0.0f, GParticleSimulationTextureSizeX, GParticleSimulationTextureSizeY, 1.0f);
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+		
 		// Simulate particles in all active tiles.
 		if ( SimulationCommands.Num() )
 		{
+			SCOPED_DRAW_EVENT(RHICmdList, ParticleSimulationCommands);
+			
 			ExecuteSimulationCommands(
 						RHICmdList,
 						GraphicsPSOInit,
@@ -4698,6 +4727,8 @@ void FFXSystem::SimulateGPUParticles(
 		// Clear any newly allocated tiles.
 		if (TilesToClear.Num())
 		{
+			SCOPED_DRAW_EVENT(RHICmdList, ParticleTilesClear);
+			
 			ClearTiles(RHICmdList, GraphicsPSOInit, FeatureLevel, TilesToClear);
 		}
 	}
@@ -4720,6 +4751,7 @@ void FFXSystem::SimulateGPUParticles(
 		RHICmdList.BeginUpdateMultiFrameResource(ParticleSimulationResources->SimulationAttributesTexture.TextureTargetRHI);
 
 		SetRenderTargets(RHICmdList, 4, InjectRenderTargets, FTextureRHIParamRef(), 0, NULL, true);
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
 		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 		
 		RHICmdList.SetViewport(0, 0, 0.0f, GParticleSimulationTextureSizeX, GParticleSimulationTextureSizeY, 1.0f);
@@ -4754,12 +4786,11 @@ void FFXSystem::SimulateGPUParticles(
 		RHICmdList.EndUpdateMultiFrameResource(ParticleSimulationResources->RenderAttributesTexture.TextureTargetRHI);
 		RHICmdList.EndUpdateMultiFrameResource(ParticleSimulationResources->SimulationAttributesTexture.TextureTargetRHI);
 	}
-
+	
 	// finish current state render
 	RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, CurrentStateRenderTargets, 2);
 	RHICmdList.EndUpdateMultiFrameResource(CurrentStateRenderTargets[0]);
 	RHICmdList.EndUpdateMultiFrameResource(CurrentStateRenderTargets[1]);
-
 
 	if (SimulationCommands.Num() && FixDeltaSeconds > 0)
 	{
@@ -4770,7 +4801,13 @@ void FFXSystem::SimulateGPUParticles(
 		RHICmdList.TransitionResources(EResourceTransitionAccess::EWritable, VisualizeStateRHIs, 2);
 		
 		SetRenderTargets(RHICmdList, 2, VisualizeStateRHIs, FTextureRHIParamRef(), 0, NULL);
+		FGraphicsPipelineStateInitializer GraphicsPSOInit;
 		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+		
+		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
+		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+		
 		ExecuteSimulationCommands(
 					RHICmdList,
 					GraphicsPSOInit,
@@ -5013,6 +5050,9 @@ FGPUSpriteResources* BeginCreateGPUSpriteResources( const FGPUSpriteResourceData
 	if (RHISupportsGPUParticles())
 	{
 		Resources = new FGPUSpriteResources;
+		//@TODO Ideally FGPUSpriteEmitterInfo::Resources would be a TRefCountPtr<FGPUSpriteResources>, but
+		//since that class is defined in this file, we can't do that, so we just addref here instead
+		Resources->AddRef();
 		SetGPUSpriteResourceData( Resources, InResourceData );
 		BeginInitResource( Resources );
 	}
@@ -5032,12 +5072,8 @@ void BeginReleaseGPUSpriteResources( FGPUSpriteResources* Resources )
 	if ( Resources )
 	{
 		ClearGPUSpriteResourceData( Resources );
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FReleaseGPUSpriteResourcesCommand,
-			FGPUSpriteResources*, Resources, Resources,
-		{
-			Resources->ReleaseResource();
-			delete Resources;
-		});
+		// Deletion of this resource is deferred until all particle
+		// systems on the render thread have finished with it.
+		Resources->Release();
 	}
 }

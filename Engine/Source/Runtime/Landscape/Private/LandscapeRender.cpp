@@ -453,7 +453,6 @@ FLandscapeDebugOptions GLandscapeDebugOptions;
 LANDSCAPE_API bool GLandscapeEditModeActive = false;
 LANDSCAPE_API ELandscapeViewMode::Type GLandscapeViewMode = ELandscapeViewMode::Normal;
 LANDSCAPE_API int32 GLandscapeEditRenderMode = ELandscapeEditRenderMode::None;
-LANDSCAPE_API int32 GLandscapePreviewMeshRenderMode = 0;
 UMaterialInterface* GLayerDebugColorMaterial = nullptr;
 UMaterialInterface* GSelectionColorMaterial = nullptr;
 UMaterialInterface* GSelectionRegionMaterial = nullptr;
@@ -664,7 +663,7 @@ FLandscapeComponentSceneProxy::FLandscapeComponentSceneProxy(ULandscapeComponent
 #if WITH_EDITOR
 	for (auto& Allocation : InComponent->WeightmapLayerAllocations)
 	{
-		if (ensure(Allocation.LayerInfo) && Allocation.LayerInfo != ALandscapeProxy::VisibilityLayer)
+		if (Allocation.LayerInfo != nullptr && Allocation.LayerInfo != ALandscapeProxy::VisibilityLayer)
 		{
 			// Use black for hole layer
 			LayerColors.Add(Allocation.LayerInfo->LayerUsageDebugColor);
@@ -2699,10 +2698,25 @@ public:
 			FName(TEXT("FConvertToUniformMeshGS")),
 			FName(TEXT("FVelocityVS")),
 			FName(TEXT("FVelocityPS")),
+
+			// No lightmap on thumbnails
 			FName(TEXT("TLightMapDensityVSFNoLightMapPolicy")),
 			FName(TEXT("TLightMapDensityPSFNoLightMapPolicy")),
 			FName(TEXT("TLightMapDensityVSFDummyLightMapPolicy")),
 			FName(TEXT("TLightMapDensityPSFDummyLightMapPolicy")),
+			FName(TEXT("TLightMapDensityPSTLightMapPolicyHQ")),
+			FName(TEXT("TLightMapDensityVSTLightMapPolicyHQ")),
+			FName(TEXT("TLightMapDensityPSTLightMapPolicyLQ")),
+			FName(TEXT("TLightMapDensityVSTLightMapPolicyLQ")),
+			FName(TEXT("TBasePassPSTDistanceFieldShadowsAndLightMapPolicyHQ")),
+			FName(TEXT("TBasePassPSTDistanceFieldShadowsAndLightMapPolicyHQSkylight")),
+			FName(TEXT("TBasePassVSTDistanceFieldShadowsAndLightMapPolicyHQ")),
+			FName(TEXT("TBasePassPSTLightMapPolicyHQ")),
+			FName(TEXT("TBasePassPSTLightMapPolicyHQSkylight")),
+			FName(TEXT("TBasePassVSTLightMapPolicyHQ")),
+			FName(TEXT("TBasePassPSTLightMapPolicyLQ")),
+			FName(TEXT("TBasePassPSTLightMapPolicyLQSkylight")),
+			FName(TEXT("TBasePassVSTLightMapPolicyLQ")),
 
 			FName(TEXT("TBasePassPSFNoLightMapPolicySkylight")),
 			FName(TEXT("TBasePassPSFCachedPointIndirectLightingPolicySkylight")),
@@ -2740,6 +2754,11 @@ public:
 			FName(TEXT("TTranslucencyShadowDepthPS<TranslucencyShadowDepth_Standard>")),
 			FName(TEXT("TTranslucencyShadowDepthVS<TranslucencyShadowDepth_PerspectiveCorrect>")),
 			FName(TEXT("TTranslucencyShadowDepthPS<TranslucencyShadowDepth_PerspectiveCorrect>")),
+
+			FName(TEXT("TShadowDepthVSForGSVertexShadowDepth_OnePassPointLightPositionOnly")),
+			FName(TEXT("TShadowDepthVSVertexShadowDepth_OnePassPointLightPositionOnly")),
+			FName(TEXT("TShadowDepthVSVertexShadowDepth_OutputDepthPositionOnly")),
+			FName(TEXT("TShadowDepthVSVertexShadowDepth_PerspectiveCorrectPositionOnly")),
 		};
 		return ExcludedShaderTypes;
 	}
@@ -2783,15 +2802,17 @@ void ULandscapeComponent::GetStreamingTextureInfo(FStreamingTextureLevelContext&
 		TexelFactor = 0.75f * LocalStreamingDistanceMultiplier * ComponentSizeQuads * FMath::Abs(Proxy->GetRootComponent()->RelativeScale3D.X);
 	}
 
+	ERHIFeatureLevel::Type FeatureLevel = LevelContext.GetFeatureLevel();
+
 	// TODO - LOD Materials - Currently all LOD materials are instances of [0] so have the same textures
-    UMaterialInterface* MaterialInterface = GetWorld()->FeatureLevel >= ERHIFeatureLevel::SM4 ? MaterialInstances[0] : MobileMaterialInterface;
+    UMaterialInterface* MaterialInterface = FeatureLevel >= ERHIFeatureLevel::SM4 ? MaterialInstances[0] : MobileMaterialInterface;
 
 	// Normal usage...
 	// Enumerate the textures used by the material.
 	if (MaterialInterface)
 	{
 		TArray<UTexture*> Textures;
-		MaterialInterface->GetUsedTextures(Textures, EMaterialQualityLevel::Num, false, GetWorld()->FeatureLevel, false);
+		MaterialInterface->GetUsedTextures(Textures, EMaterialQualityLevel::Num, false, FeatureLevel, false);
 		// Add each texture to the output with the appropriate parameters.
 		// TODO: Take into account which UVIndex is being used.
 		for (int32 TextureIndex = 0; TextureIndex < Textures.Num(); TextureIndex++)
@@ -2857,8 +2878,6 @@ void ULandscapeComponent::GetStreamingTextureInfo(FStreamingTextureLevelContext&
 		}
 
 		// Lightmap
-		const auto FeatureLevel = GetWorld() ? GetWorld()->FeatureLevel : GMaxRHIFeatureLevel;
-
 		const FMeshMapBuildData* MapBuildData = GetMeshMapBuildData();
 
 		FLightMap2D* Lightmap = MapBuildData && MapBuildData->LightMap ? MapBuildData->LightMap->GetLightMap2D() : nullptr;
@@ -2868,12 +2887,10 @@ void ULandscapeComponent::GetStreamingTextureInfo(FStreamingTextureLevelContext&
 			const FVector2D& Scale = Lightmap->GetCoordinateScale();
 			if (Scale.X > SMALL_NUMBER && Scale.Y > SMALL_NUMBER)
 			{
-				float LightmapFactorX = TexelFactor / Scale.X;
-				float LightmapFactorY = TexelFactor / Scale.Y;
-				FStreamingTexturePrimitiveInfo& StreamingTexture = *new(OutStreamingTextures)FStreamingTexturePrimitiveInfo;
-				StreamingTexture.Bounds = BoundingSphere;
-				StreamingTexture.TexelFactor = FMath::Max(LightmapFactorX, LightmapFactorY);
-				StreamingTexture.Texture = Lightmap->GetTexture(LightmapIndex);
+				const float LightmapTexelFactor = TexelFactor / FMath::Min(Scale.X, Scale.Y);
+				new (OutStreamingTextures) FStreamingTexturePrimitiveInfo(Lightmap->GetTexture(LightmapIndex), Bounds, LightmapTexelFactor);
+				new (OutStreamingTextures) FStreamingTexturePrimitiveInfo(Lightmap->GetAOMaterialMaskTexture(), Bounds, LightmapTexelFactor);
+				new (OutStreamingTextures) FStreamingTexturePrimitiveInfo(Lightmap->GetSkyOcclusionTexture(), Bounds, LightmapTexelFactor);
 			}
 		}
 
@@ -2884,12 +2901,8 @@ void ULandscapeComponent::GetStreamingTextureInfo(FStreamingTextureLevelContext&
 			const FVector2D& Scale = Shadowmap->GetCoordinateScale();
 			if (Scale.X > SMALL_NUMBER && Scale.Y > SMALL_NUMBER)
 			{
-				float ShadowmapFactorX = TexelFactor / Scale.X;
-				float ShadowmapFactorY = TexelFactor / Scale.Y;
-				FStreamingTexturePrimitiveInfo& StreamingTexture = *new(OutStreamingTextures)FStreamingTexturePrimitiveInfo;
-				StreamingTexture.Bounds = BoundingSphere;
-				StreamingTexture.TexelFactor = FMath::Max(ShadowmapFactorX, ShadowmapFactorY);
-				StreamingTexture.Texture = Shadowmap->GetTexture();
+				const float ShadowmapTexelFactor = TexelFactor / FMath::Min(Scale.X, Scale.Y);
+				new (OutStreamingTextures) FStreamingTexturePrimitiveInfo(Shadowmap->GetTexture(), Bounds, ShadowmapTexelFactor);
 			}
 		}
 	}

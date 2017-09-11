@@ -10,7 +10,7 @@
 // FOculusHMDModule
 //-------------------------------------------------------------------------------------------------
 
-class FOculusHMDModule : public IOculusHMDModule
+class FOculusHMDModule : public IOculusHMDModule 
 {
 public:
 	FOculusHMDModule();
@@ -26,6 +26,7 @@ public:
 
 	// IHeadMountedDisplayModule
 	virtual FString GetModuleKeyName() const override;
+	virtual void GetModuleAliases(TArray<FString>& AliasesOut) const override;
 	virtual bool PreInit() override;
 	virtual bool IsHMDConnected() override;
 	virtual int GetGraphicsAdapter() override;
@@ -41,7 +42,7 @@ public:
 
 	virtual void GetRawSensorData(FVector& AngularAcceleration, FVector& LinearAcceleration, FVector& AngularVelocity, FVector& LinearVelocity, float& TimeInSeconds) override
 	{
-		UOculusFunctionLibrary::GetRawSensorData(ETrackedDeviceType::HMD, AngularAcceleration, LinearAcceleration, AngularVelocity, LinearVelocity, TimeInSeconds);
+		UOculusFunctionLibrary::GetRawSensorData(AngularAcceleration, LinearAcceleration, AngularVelocity, LinearVelocity, TimeInSeconds, ETrackedDeviceType::HMD);
 	}
 
 	virtual bool GetUserProfile(struct FHmdUserProfile& Profile) override
@@ -72,6 +73,19 @@ public:
 	virtual class IStereoLayers* GetStereoLayers() override
 	{
 		return UOculusFunctionLibrary::GetStereoLayers();
+	}
+
+	bool IsOVRPluginAvailable() const
+	{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	#if PLATFORM_WINDOWS
+		return OVRPluginHandle != nullptr;
+	#else
+		return true;
+	#endif
+#else
+		return false;
+#endif
 	}
 
 #if OCULUS_HMD_SUPPORTED_PLATFORMS

@@ -130,9 +130,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
 	void Stop();
 
-	/** Stop playback and go to the end. */
-	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
-	void StopAndGoToEnd();
+	/** Go to end and stop. */
+	UFUNCTION(BlueprintCallable, Category="Game|Cinematic", meta = (ToolTip = "Go to end of the sequence and stop. Adheres to 'When Finished' section rules."))
+	void GoToEndAndStop();
 
 	/** Get the current playback position */
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
@@ -157,6 +157,10 @@ public:
 	/** Check whether the sequence is actively playing. */
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
 	bool IsPlaying() const;
+
+	/** Check whether the sequence is paused. */
+	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
+	bool IsPaused() const;
 
 	/** Get the playback length of the sequence */
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
@@ -197,6 +201,10 @@ public:
 	/** Event triggered when the level sequence player is played */
 	UPROPERTY(BlueprintAssignable, Category="Game|Cinematic")
 	FOnMovieSceneSequencePlayerEvent OnPlay;
+
+	/** Event triggered when the level sequence player is played in reverse */
+	UPROPERTY(BlueprintAssignable, Category="Game|Cinematic")
+	FOnMovieSceneSequencePlayerEvent OnPlayReverse;
 
 	/** Event triggered when the level sequence player is stopped */
 	UPROPERTY(BlueprintAssignable, Category="Game|Cinematic")
@@ -261,6 +269,9 @@ protected:
 	virtual void UpdateCameraCut(UObject* CameraObject, UObject* UnlockIfCameraObject, bool bJumpCut) override {}
 	virtual void ResolveBoundObjects(const FGuid& InBindingId, FMovieSceneSequenceID SequenceID, UMovieSceneSequence& Sequence, UObject* ResolutionContext, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const override;
 	virtual const IMovieSceneBindingOverridesInterface* GetBindingOverrides() const override { return PlaybackSettings.BindingOverrides ? &*PlaybackSettings.BindingOverrides : nullptr; }
+
+	//~ UObject interface
+	virtual void BeginDestroy() override;
 
 protected:
 

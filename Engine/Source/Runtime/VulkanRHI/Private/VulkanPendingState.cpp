@@ -9,8 +9,6 @@
 #include "VulkanPipeline.h"
 #include "VulkanContext.h"
 
-static FCriticalSection GCS;
-
 FVulkanDescriptorPool::FVulkanDescriptorPool(FVulkanDevice* InDevice)
 	: Device(InDevice)
 	, MaxDescriptorSets(0)
@@ -155,20 +153,6 @@ void FVulkanPendingComputeState::PrepareForDispatch(FVulkanCommandListContext* C
 	}
 }
 
-FVulkanComputePipeline* FVulkanPendingComputeState::GetOrCreateComputePipeline(FVulkanComputeShader* ComputeShader)
-{
-	FScopeLock ScopeLock(&GCS);
-	FVulkanComputePipeline** Found = ComputePipelineCache.Find(ComputeShader);
-	if (Found)
-	{
-		return *Found;
-	}
-
-	FVulkanComputePipeline* NewPipeline = new FVulkanComputePipeline(Device, ComputeShader);
-	ComputePipelineCache.Add(ComputeShader, NewPipeline);
-	return NewPipeline;
-}
-
 FVulkanPendingGfxState::~FVulkanPendingGfxState()
 {
 	for (auto Pair : PipelineStates)
@@ -270,32 +254,31 @@ void FVulkanPendingGfxState::InternalUpdateDynamicStates(FVulkanCmdBuffer* Cmd)
 {
 	bool bInCmdNeedsDynamicState = Cmd->bNeedsDynamicStateSet;
 
+	bool bNeedsUpdateViewport = !Cmd->bHasViewport || (Cmd->bHasViewport && FMemory::Memcmp((const void*)&Cmd->CurrentViewport, (const void*)&Viewport, sizeof(VkViewport)) != 0);
 	// Validate and update Viewport
-	if ((NeedsUpdateMask & ENeedsViewport) == ENeedsViewport || bInCmdNeedsDynamicState)
+	if (bNeedsUpdateViewport)
 	{
 		ensure(Viewport.width > 0 || Viewport.height > 0);
 		VulkanRHI::vkCmdSetViewport(Cmd->GetHandle(), 0, 1, &Viewport);
+		FMemory::Memcpy(Cmd->CurrentViewport, Viewport);
+		Cmd->bHasViewport = true;
 	}
 
-	// Validate and update scissor rect
-	if ((NeedsUpdateMask & ENeedsScissor) == ENeedsScissor || bInCmdNeedsDynamicState)
+	bool bNeedsUpdateScissor = !Cmd->bHasScissor || (Cmd->bHasScissor && FMemory::Memcmp((const void*)&Cmd->CurrentScissor, (const void*)&Scissor, sizeof(VkRect2D)) != 0);
+	if (bNeedsUpdateScissor)
 	{
-		// Make a copy to not overwrite what the RHI has set internally
-		VkRect2D InnerScissor = Scissor;
-		if (InnerScissor.extent.width == 0 || InnerScissor.extent.height == 0)
-		{
-			InnerScissor.extent.width = Viewport.width;
-			InnerScissor.extent.height = Viewport.height;
-		}
-
-		VulkanRHI::vkCmdSetScissor(Cmd->GetHandle(), 0, 1, &InnerScissor);
+		VulkanRHI::vkCmdSetScissor(Cmd->GetHandle(), 0, 1, &Scissor);
+		FMemory::Memcpy(Cmd->CurrentScissor, Scissor);
+		Cmd->bHasScissor = true;
 	}
 
-	if ((NeedsUpdateMask & ENeedsStencilRef) == ENeedsStencilRef || bInCmdNeedsDynamicState)
+	bool bNeedsUpdateStencil = !Cmd->bHasStencilRef || (Cmd->bHasStencilRef && Cmd->CurrentStencilRef != StencilRef);
+	if (bNeedsUpdateStencil)
 	{
 		VulkanRHI::vkCmdSetStencilReference(Cmd->GetHandle(), VK_STENCIL_FRONT_AND_BACK, StencilRef);
+		Cmd->CurrentStencilRef = StencilRef;
+		Cmd->bHasStencilRef = true;
 	}
 
-	NeedsUpdateMask = 0;
 	Cmd->bNeedsDynamicStateSet = false;
 }

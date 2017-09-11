@@ -24,46 +24,68 @@ FLevelSequenceBindingReference::FLevelSequenceBindingReference(UObject* InObject
 			return;
 		}
 
-		PackageName = ObjectPackage->GetName();
-	#if WITH_EDITORONLY_DATA
+		FString PackageName = ObjectPackage->GetName();
+#if WITH_EDITORONLY_DATA
+		// If this is being set from PIE we need to remove the pie prefix and point to the editor object
 		if (ObjectPackage->PIEInstanceID != INDEX_NONE)
 		{
 			FString PIEPrefix = FString::Printf(PLAYWORLD_PACKAGE_PREFIX TEXT("_%d_"), ObjectPackage->PIEInstanceID);
 			PackageName.ReplaceInline(*PIEPrefix, TEXT(""));
 		}
-	#endif
-
-		ObjectPath = InObject->GetPathName(ObjectPackage);
+#endif
+		
+		FString FullPath = PackageName + TEXT(".") + InObject->GetPathName(ObjectPackage);
+		ExternalObjectPath = FSoftObjectPath(FullPath);
 	}
 }
 
 UObject* FLevelSequenceBindingReference::Resolve(UObject* InContext) const
 {
-	if (PackageName.Len() == 0)
+	if (ExternalObjectPath.IsNull())
 	{
 		return FindObject<UObject>(InContext, *ObjectPath, false);
 	}
 	else
 	{
-		const TCHAR* SearchWithinPackage = *PackageName;
-		FString FixupPIEPackageName;
+		FSoftObjectPath TempPath = ExternalObjectPath;
 
-	#if WITH_EDITORONLY_DATA
-		int32 PIEInstanceID = InContext ? InContext->GetOutermost()->PIEInstanceID : INDEX_NONE;
-		if (PIEInstanceID != INDEX_NONE)
-		{
-			const FString ShortPackageOuterAndName = FPackageName::GetLongPackageAssetName(PackageName);
-			if (ensureMsgf(!ShortPackageOuterAndName.StartsWith(PLAYWORLD_PACKAGE_PREFIX), TEXT("Detected PIE world prefix in level sequence binding - this should not happen")))
-			{
-				FixupPIEPackageName = FPackageName::GetLongPackagePath(PackageName) / FString::Printf(PLAYWORLD_PACKAGE_PREFIX TEXT("_%d_"), PIEInstanceID) + ShortPackageOuterAndName;
-				SearchWithinPackage = *FixupPIEPackageName;
-			}
-		}
-	#endif
+#if WITH_EDITORONLY_DATA
+		TempPath.FixupForPIE();
+#endif
 
-		UPackage* Package = FindPackage(nullptr, SearchWithinPackage);
-		return Package ? FindObject<UObject>(Package, *ObjectPath, false) : nullptr;
+		return TempPath.ResolveObject();
 	}
+}
+
+void FLevelSequenceBindingReference::PostSerialize(const FArchive& Ar)
+{
+	if (Ar.IsLoading() && !PackageName_DEPRECATED.IsEmpty())
+	{
+		// This was saved as two strings, combine into one soft object path so it handles PIE and redirectors properly
+		FString FullPath = PackageName_DEPRECATED + TEXT(".") + ObjectPath;
+
+		ExternalObjectPath.SetPath(FullPath);
+		ObjectPath.Reset();
+		PackageName_DEPRECATED.Reset();
+	}
+}
+
+UObject* ResolveByPath(UObject* InContext, const FString& InObjectPath)
+{
+	if (!InObjectPath.IsEmpty())
+	{
+		if (UObject* FoundObject = FindObject<UObject>(InContext, *InObjectPath, false))
+		{
+			return FoundObject;
+		}
+
+		if (UObject* FoundObject = FindObject<UObject>(ANY_PACKAGE, *InObjectPath, false))
+		{
+			return FoundObject;
+		}
+	}
+
+	return nullptr;
 }
 
 UObject* FLevelSequenceLegacyObjectReference::Resolve(UObject* InContext) const
@@ -73,6 +95,17 @@ UObject* FLevelSequenceLegacyObjectReference::Resolve(UObject* InContext) const
 		int32 PIEInstanceID = InContext->GetOutermost()->PIEInstanceID;
 		FUniqueObjectGuid FixedUpId = PIEInstanceID == -1 ? ObjectId : ObjectId.FixupForPIE(PIEInstanceID);
 
+		if (PIEInstanceID != -1 && FixedUpId == ObjectId)
+		{
+			UObject* FoundObject = ResolveByPath(InContext, ObjectPath);
+			if (FoundObject)
+			{
+				return FoundObject;
+			}
+
+			UE_LOG(LogMovieScene, Warning, TEXT("Attempted to resolve object with a PIE instance that has not been fixed up yet. This is probably due to a streamed level not being available yet."));
+			return nullptr;
+		}
 		FLazyObjectPtr LazyPtr;
 		LazyPtr = FixedUpId;
 
@@ -82,20 +115,7 @@ UObject* FLevelSequenceLegacyObjectReference::Resolve(UObject* InContext) const
 		}
 	}
 
-	if (!ObjectPath.IsEmpty())
-	{
-		if (UObject* FoundObject = FindObject<UObject>(InContext, *ObjectPath, false))
-		{
-			return FoundObject;
-		}
-
-		if (UObject* FoundObject = FindObject<UObject>(ANY_PACKAGE, *ObjectPath, false))
-		{
-			return FoundObject;
-		}
-	}
-
-	return nullptr;
+	return ResolveByPath(InContext, ObjectPath);
 }
 
 bool FLevelSequenceObjectReferenceMap::Serialize(FArchive& Ar)

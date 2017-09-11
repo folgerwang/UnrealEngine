@@ -1838,6 +1838,18 @@ EVisibility FBlueprintVarActionDetails::ExposeToCinematicsVisibility() const
 			{
 				return EVisibility::Visible;
 			}
+			else if (UObjectProperty* ObjectProperty = Cast<UObjectProperty>(VariableProperty))
+			{
+				UClass* ClassType = ObjectProperty->PropertyClass ? ObjectProperty->PropertyClass->GetSuperClass() : nullptr;
+				while (ClassType)
+				{
+					if (SequencerModule->CanAnimateProperty(FAnimatedPropertyKey::FromObjectType(ClassType)))
+					{
+						return EVisibility::Visible;
+					}
+					ClassType = ClassType->GetSuperClass();
+				}
+			}
 		}
 	}
 	return EVisibility::Collapsed;
@@ -1990,7 +2002,7 @@ bool FBlueprintVarActionDetails::IsConfigCheckBoxEnabled() const
 		if (UProperty* VariableProperty = CachedVariableProperty.Get())
 		{
 			// meant to match up with UHT's FPropertyBase::IsObject(), which it uses to block object properties from being marked with CPF_Config
-			bEnabled = VariableProperty->IsA<UClassProperty>() || VariableProperty->IsA<UAssetClassProperty>() || VariableProperty->IsA<UAssetObjectProperty>() ||
+			bEnabled = VariableProperty->IsA<UClassProperty>() || VariableProperty->IsA<USoftClassProperty>() || VariableProperty->IsA<USoftObjectProperty>() ||
 				(!VariableProperty->IsA<UObjectPropertyBase>() && !VariableProperty->IsA<UInterfaceProperty>());
 		}
 	}
@@ -2910,6 +2922,11 @@ void FBlueprintGraphArgumentLayout::OnArgNameChange(const FText& InNewText)
 
 	FText ErrorMessage;
 
+	if (!ParamItemPtr.IsValid())
+	{
+		return;
+	}
+
 	if (InNewText.IsEmpty())
 	{
 		ErrorMessage = LOCTEXT("EmptyArgument", "Name cannot be empty!");
@@ -3039,7 +3056,7 @@ BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void FBlueprintGraphActionDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 {
 	DetailsLayoutPtr = &DetailLayout;
-	ObjectsBeingEdited = DetailsLayoutPtr->GetDetailsView().GetSelectedObjects();
+	ObjectsBeingEdited = DetailsLayoutPtr->GetSelectedObjects();
 
 	SetEntryAndResultNodes();
 
@@ -3526,9 +3543,13 @@ void FBlueprintGraphActionDetails::CustomizeDetails( IDetailLayoutBuilder& Detai
 		}
 	}
 
-	if (bHasAGraph)
+	if (MyBlueprint.IsValid())
 	{
-		MyRegisteredGraphChangedDelegateHandle = GetGraph()->AddOnGraphChangedHandler(FOnGraphChanged::FDelegate::CreateSP(this, &FBaseBlueprintGraphActionDetails::OnGraphChanged));
+		TWeakPtr<FBlueprintEditor> BlueprintEditor = MyBlueprint.Pin()->GetBlueprintEditor();
+		if (BlueprintEditor.IsValid())
+		{
+			BlueprintEditorRefreshDelegateHandle = BlueprintEditor.Pin()->OnRefresh().AddSP(this, &FBlueprintGraphActionDetails::OnPostEditorRefresh);
+		}
 	}
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
@@ -3616,17 +3637,22 @@ bool FBaseBlueprintGraphActionDetails::AttemptToCreateResultNode()
 
 FBaseBlueprintGraphActionDetails::~FBaseBlueprintGraphActionDetails()
 {
-	UEdGraph* MyGraph = GetGraph();
-	if (MyRegisteredGraphChangedDelegateHandle.IsValid() && MyGraph)
+	if (BlueprintEditorRefreshDelegateHandle.IsValid() && MyBlueprint.IsValid())
 	{
-		MyGraph->RemoveOnGraphChangedHandler(MyRegisteredGraphChangedDelegateHandle);
+		// Remove the callback delegate we registered for
+		TWeakPtr<FBlueprintEditor> BlueprintEditor = MyBlueprint.Pin()->GetBlueprintEditor();
+		if (BlueprintEditor.IsValid())
+		{
+			BlueprintEditor.Pin()->OnRefresh().Remove(BlueprintEditorRefreshDelegateHandle);
+		}
 	}
 }
 
-void FBaseBlueprintGraphActionDetails::OnGraphChanged(const FEdGraphEditAction& Action)
+void FBaseBlueprintGraphActionDetails::OnPostEditorRefresh()
 {
-	/** Graph changed, need to refresh inputs in case pin UI changed */
+	/** Blueprint changed, need to refresh inputs in case pin UI changed */
 	RegenerateInputsChildrenDelegate.ExecuteIfBound();
+	RegenerateOutputsChildrenDelegate.ExecuteIfBound();
 }
 
 void FBaseBlueprintGraphActionDetails::SetRefreshDelegate(FSimpleDelegate RefreshDelegate, bool bForInputs)
@@ -3816,7 +3842,7 @@ void FBlueprintDelegateActionDetails::OnCategorySelectionChanged( TSharedPtr<FTe
 void FBlueprintDelegateActionDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 {
 	DetailsLayoutPtr = &DetailLayout;
-	ObjectsBeingEdited = DetailsLayoutPtr->GetDetailsView().GetSelectedObjects();
+	ObjectsBeingEdited = DetailsLayoutPtr->GetSelectedObjects();
 
 	SetEntryNode();
 
@@ -3962,6 +3988,8 @@ void FBlueprintDelegateActionDetails::OnFunctionSelected(TSharedPtr<FString> Fun
 		const FName Name( *(*FunctionName) );
 		if (UFunction* NewSignature = ScopeClass->FindFunctionByName(Name))
 		{
+			const FScopedTransaction Transaction(LOCTEXT("CopySignature", "Copy Signature"));
+
 			while (FunctionEntryNode->UserDefinedPins.Num())
 			{
 				TSharedPtr<FUserPinInfo> Pin = FunctionEntryNode->UserDefinedPins[0];
@@ -4213,7 +4241,7 @@ UFunction* FBlueprintGraphActionDetails::FindFunction() const
 
 FKismetUserDeclaredFunctionMetadata* FBlueprintGraphActionDetails::GetMetadataBlock() const
 {
-	UK2Node_EditablePinBase * FunctionEntryNode = FunctionEntryNodePtr.Get();
+	UK2Node_EditablePinBase* FunctionEntryNode = FunctionEntryNodePtr.Get();
 	if (UK2Node_FunctionEntry* TypedEntryNode = Cast<UK2Node_FunctionEntry>(FunctionEntryNode))
 	{
 		return &(TypedEntryNode->MetaData);
@@ -4274,29 +4302,11 @@ void FBlueprintGraphActionDetails::OnCategoryTextCommitted(const FText& NewText,
 {
 	if (InTextCommit == ETextCommit::OnEnter || InTextCommit == ETextCommit::OnUserMovedFocus)
 	{
-		if (FKismetUserDeclaredFunctionMetadata* Metadata = GetMetadataBlock())
-		{
-			// Remove excess whitespace and prevent categories with just spaces
-			FText CategoryName = FText::TrimPrecedingAndTrailing(NewText);
+		// Remove excess whitespace and prevent categories with just spaces
+		FText CategoryName = FText::TrimPrecedingAndTrailing(NewText);
 
-			if(CategoryName.IsEmpty())
-			{
-				const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
-				Metadata->Category = K2Schema->VR_DefaultCategory;
-			}
-			else
-			{
-				Metadata->Category = CategoryName;
-			}
-
-			if (UFunction* Function = FindFunction())
-			{
-				Function->Modify();
-				Function->SetMetaData(FBlueprintMetadata::MD_FunctionCategory, *CategoryName.ToString());
-			}
-			MyBlueprint.Pin()->Refresh();
-			FBlueprintEditorUtils::MarkBlueprintAsModified(GetBlueprintObj());
-		}
+		FBlueprintEditorUtils::SetBlueprintFunctionOrMacroCategory(GetGraph(), CategoryName);
+		MyBlueprint.Pin()->Refresh();
 	}
 }
 
@@ -4306,14 +4316,8 @@ void FBlueprintGraphActionDetails::OnCategorySelectionChanged( TSharedPtr<FText>
 	{
 		if (FKismetUserDeclaredFunctionMetadata* Metadata = GetMetadataBlock())
 		{
-			Metadata->Category = *ProposedSelection.Get();
-			if (UFunction* Function = FindFunction())
-			{
-				Function->Modify();
-				Function->SetMetaData(FBlueprintMetadata::MD_FunctionCategory, *ProposedSelection.Get()->ToString());
-			}
+			FBlueprintEditorUtils::SetBlueprintFunctionOrMacroCategory(GetGraph(), *ProposedSelection.Get());
 			MyBlueprint.Pin()->Refresh();
-			FBlueprintEditorUtils::MarkBlueprintAsModified(GetBlueprintObj());
 
 			CategoryListView.Pin()->ClearSelection();
 			CategoryComboButton.Pin()->SetIsOpen(false);
@@ -5138,13 +5142,18 @@ void FBlueprintGlobalOptionsDetails::OnClassPicked(UClass* PickedClass)
 
 bool FBlueprintGlobalOptionsDetails::CanDeprecateBlueprint() const
 {
-	// If the parent is deprecated, we cannot modify deprecation on this Blueprint
-	if(GetBlueprintObj()->ParentClass->HasAnyClassFlags(CLASS_Deprecated))
+	if (UBlueprint* Blueprint = GetBlueprintObj())
 	{
-		return false;
+		// If the parent is deprecated, we cannot modify deprecation on this Blueprint
+		if (Blueprint->ParentClass && Blueprint->ParentClass->HasAnyClassFlags(CLASS_Deprecated))
+		{
+			return false;
+		}
+
+		return true;
 	}
 
-	return true;
+	return false;
 }
 
 void FBlueprintGlobalOptionsDetails::OnDeprecateBlueprint(ECheckBoxState InCheckState)
@@ -5155,7 +5164,11 @@ void FBlueprintGlobalOptionsDetails::OnDeprecateBlueprint(ECheckBoxState InCheck
 
 ECheckBoxState FBlueprintGlobalOptionsDetails::IsDeprecatedBlueprint() const
 {
-	return GetBlueprintObj()->bDeprecate? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+	if (UBlueprint* Blueprint = GetBlueprintObj())
+	{
+		return Blueprint->bDeprecate ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+	}
+	return ECheckBoxState::Unchecked;
 }
 
 FText FBlueprintGlobalOptionsDetails::GetDeprecatedTooltip() const
@@ -5183,7 +5196,7 @@ void FBlueprintGlobalOptionsDetails::CustomizeDetails(IDetailLayoutBuilder& Deta
 		for (TFieldIterator<UProperty> PropertyIt(Blueprint->GetClass(), EFieldIteratorFlags::IncludeSuper); PropertyIt; ++PropertyIt)
 		{
 			UProperty* Property = *PropertyIt;
-			FString Category = Property->GetMetaData(TEXT("Category"));
+			const FString& Category = Property->GetMetaData(TEXT("Category"));
 
 			if (Category != TEXT("BlueprintOptions") && Category != TEXT("ClassOptions"))
 			{
@@ -5729,7 +5742,7 @@ void FBlueprintComponentDetails::PopulateVariableCategories()
 	check(BlueprintObj);
 	check(BlueprintObj->SkeletonGeneratedClass);
 
-	TArray<FName> VisibleVariables;
+	TSet<FName> VisibleVariables;
 	for (TFieldIterator<UProperty> PropertyIt(BlueprintObj->SkeletonGeneratedClass, EFieldIteratorFlags::IncludeSuper); PropertyIt; ++PropertyIt)
 	{
 		UProperty* Property = *PropertyIt;
@@ -5744,9 +5757,9 @@ void FBlueprintComponentDetails::PopulateVariableCategories()
 
 	VariableCategorySource.Empty();
 	VariableCategorySource.Add(MakeShareable(new FText(LOCTEXT("Default", "Default"))));
-	for (int32 i = 0; i < VisibleVariables.Num(); ++i)
+	for (const FName& VariableName : VisibleVariables)
 	{
-		FText Category = FBlueprintEditorUtils::GetBlueprintVariableCategory(BlueprintObj, VisibleVariables[i], nullptr);
+		FText Category = FBlueprintEditorUtils::GetBlueprintVariableCategory(BlueprintObj, VariableName, nullptr);
 		if (!Category.IsEmpty() && !Category.EqualTo(FText::FromString(BlueprintObj->GetName())))
 		{
 			bool bNewCategory = true;
@@ -5844,7 +5857,7 @@ void FBlueprintComponentDetails::OnSocketSelection( FName SocketName )
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void FBlueprintGraphNodeDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 {
-	const TArray<TWeakObjectPtr<UObject>> SelectedObjects = DetailLayout.GetDetailsView().GetSelectedObjects();
+	const TArray<TWeakObjectPtr<UObject>>& SelectedObjects = DetailLayout.GetSelectedObjects();
 	if( SelectedObjects.Num() == 1 )
 	{
 		if (SelectedObjects[0].IsValid() && SelectedObjects[0]->IsA<UEdGraphNode>())

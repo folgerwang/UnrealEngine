@@ -165,23 +165,16 @@ void FGenericPlatformProcess::AddShaderSourceDirectoryMapping(const FString& Vir
 	check(!VirtualShaderDirectory.EndsWith(TEXT("/")));
 	check(!VirtualShaderDirectory.Contains(FString(TEXT("."))));
 
-	// Do sanity checks of the real shader directory to map.
-	check(FPaths::IsRelative(RealShaderDirectory));
-
 	// Detect collisions with any other mappings.
 	check(!GShaderSourceDirectoryMappings.Contains(VirtualShaderDirectory));
 
-	// Make sur the real directory to map exists.
+	// Make sure the real directory to map exists.
 	check(FPaths::DirectoryExists(RealShaderDirectory));
-
-	// Make sure there is at least a Public or Private directory in the Shaders directory.
-	check(
-		FPaths::DirectoryExists(RealShaderDirectory / TEXT("Public")) ||
-		FPaths::DirectoryExists(RealShaderDirectory / TEXT("Private")));
 
 	// Make sure the Generated directory does not exist, because is reserved for C++ generated shader source
 	// by the FShaderCompilerEnvironment::IncludeVirtualPathToContentsMap member.
-	check(!FPaths::DirectoryExists(RealShaderDirectory / TEXT("Generated")));
+	checkf(!FPaths::DirectoryExists(RealShaderDirectory / TEXT("Generated")),
+		TEXT("\"%s/Generated\" is not permitted to exist since C++ generated shader file would be mapped to this directory."), *RealShaderDirectory);
 
 	GShaderSourceDirectoryMappings.Add(VirtualShaderDirectory, RealShaderDirectory);
 }
@@ -191,7 +184,7 @@ void FGenericPlatformProcess::AddShaderSourceDirectoryMapping(const FString& Vir
  */
 const FString FGenericPlatformProcess::ShaderWorkingDir()
 {
-	return (FPaths::GameIntermediateDir() / TEXT("Shaders/tmp/"));
+	return (FPaths::ProjectIntermediateDir() / TEXT("Shaders/tmp/"));
 }
 
 /**
@@ -203,7 +196,7 @@ void FGenericPlatformProcess::CleanShaderWorkingDir()
 	FString ShaderWorkingDirectory =  FPlatformProcess::ShaderWorkingDir();
 	IFileManager::Get().DeleteDirectory(*ShaderWorkingDirectory, false, true);
 
-	FString LegacyShaderWorkingDirectory = FPaths::GameIntermediateDir() / TEXT("Shaders/WorkingDirectory/");
+	FString LegacyShaderWorkingDirectory = FPaths::ProjectIntermediateDir() / TEXT("Shaders/WorkingDirectory/");
 	IFileManager::Get().DeleteDirectory(*LegacyShaderWorkingDirectory, false, true);
 }
 
@@ -324,12 +317,6 @@ FString FGenericPlatformProcess::GetApplicationName( uint32 ProcessId )
 {
 	UE_LOG(LogHAL, Fatal, TEXT("FGenericPlatformProcess::GetApplicationName not implemented on this platform"));
 	return FString(TEXT(""));
-}
-
-bool FGenericPlatformProcess::IsThisApplicationForeground()
-{
-	UE_LOG(LogHAL, Fatal, TEXT("FGenericPlatformProcess::IsThisApplicationForeground not implemented on this platform"));
-	return false;
 }
 
 bool FGenericPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, int32* OutReturnCode, FString* OutStdOut, FString* OutStdErr )

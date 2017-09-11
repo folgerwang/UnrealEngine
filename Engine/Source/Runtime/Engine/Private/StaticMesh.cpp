@@ -35,6 +35,7 @@
 #include "Interfaces/ITargetPlatformManagerModule.h"
 #include "Engine/Engine.h"
 #include "EngineGlobals.h"
+#include "HAL/LowLevelMemTracker.h"
 
 #if WITH_EDITOR
 #include "RawMesh.h"
@@ -134,10 +135,10 @@ void FStaticMeshLODResources::Serialize(FArchive& Ar, UObject* Owner, int32 Inde
 	bHasReversedDepthOnlyIndices = false;
 	DepthOnlyNumTriangles = 0;
 
-    // Defined class flags for possible stripping
+	// Defined class flags for possible stripping
 	const uint8 AdjacencyDataStripFlag = 1;
 
-    // Actual flags used during serialization
+	// Actual flags used during serialization
 	uint8 ClassDataStripFlags = 0;
 	ClassDataStripFlags |= (Ar.IsCooking() && !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::Tessellation)) ? AdjacencyDataStripFlag : 0;
 
@@ -224,7 +225,7 @@ void FStaticMeshLODResources::InitVertexFactory(
 	Params.Parent = InParentMesh;
 
 	uint32 TangentXOffset = 0;
-	uint32 TangetnZOffset = 0;
+	uint32 TangentZOffset = 0;
 	uint32 UVsBaseOffset = 0;
 
 	SELECT_STATIC_MESH_VERTEX_TYPE(
@@ -233,17 +234,13 @@ void FStaticMeshLODResources::InitVertexFactory(
 		Params.LODResources->VertexBuffer.GetNumTexCoords(),
 		{
 			TangentXOffset = STRUCT_OFFSET(VertexType, TangentX);
-			TangetnZOffset = STRUCT_OFFSET(VertexType, TangentZ);
+			TangentZOffset = STRUCT_OFFSET(VertexType, TangentZ);
 			UVsBaseOffset = STRUCT_OFFSET(VertexType, UVs);
 		});
 
 	// Initialize the static mesh's vertex factory.
-	ENQUEUE_UNIQUE_RENDER_COMMAND_FOURPARAMETER(
-		InitStaticMeshVertexFactory,
-		InitStaticMeshVertexFactoryParams, Params, Params,
-		uint32, TangentXOffset, TangentXOffset,
-		uint32, TangetnZOffset, TangetnZOffset,
-		uint32, UVsBaseOffset, UVsBaseOffset,
+	ENQUEUE_RENDER_COMMAND(InitStaticMeshVertexFactory)(
+		[Params, TangentXOffset, TangentZOffset, UVsBaseOffset](FRHICommandListImmediate& RHICmdList)
 		{
 			FLocalVertexFactory::FDataType Data;
 			Data.PositionComponent = FVertexStreamComponent(
@@ -264,7 +261,7 @@ void FStaticMeshLODResources::InitVertexFactory(
 
 			Data.TangentBasisComponents[1] = FVertexStreamComponent(
 				&Params.LODResources->VertexBuffer,
-				TangetnZOffset,
+				TangentZOffset,
 				Params.LODResources->VertexBuffer.GetStride(),
 				Params.LODResources->VertexBuffer.GetUseHighPrecisionTangentBasis() ?
 					TStaticMeshVertexTangentTypeSelector<EStaticMeshVertexTangentBasisType::HighPrecision>::VertexElementType : 
@@ -420,6 +417,9 @@ FStaticMeshLODResources::FStaticMeshLODResources()
 	, DepthOnlyNumTriangles(0)
 	, SplineVertexFactory(nullptr)
 	, SplineVertexFactoryOverrideColorVertexBuffer(nullptr)
+#if STATS
+	, StaticMeshIndexMemory(0)
+#endif
 {
 }
 
@@ -447,6 +447,18 @@ void FStaticMeshLODResources::InitResources(UStaticMesh* Parent)
 			UE_LOG(LogStaticMesh, Warning, TEXT("[%s] Mesh has more that 65535 vertices, incompatible with mobile; forcing 16-bit (will probably cause rendering issues)." ), *Parent->GetName());
 		}
 	}
+
+#if STATS
+	uint32 iMem = IndexBuffer.GetAllocatedSize();
+	uint32 wiMem = WireframeIndexBuffer.GetAllocatedSize();
+	uint32 riMem = ReversedIndexBuffer.GetAllocatedSize();
+	uint32 doiMem = DepthOnlyIndexBuffer.GetAllocatedSize();
+	uint32 rdoiMem = ReversedDepthOnlyIndexBuffer.GetAllocatedSize();
+	uint32 aiMem = AdjacencyIndexBuffer.GetAllocatedSize();
+	StaticMeshIndexMemory = iMem + wiMem + riMem + doiMem + rdoiMem + aiMem;
+	INC_DWORD_STAT_BY(STAT_StaticMeshIndexMemory, StaticMeshIndexMemory);
+#endif
+
 	BeginInitResource(&IndexBuffer);
 	if( WireframeIndexBuffer.GetNumIndices() > 0 )
 	{
@@ -498,14 +510,10 @@ void FStaticMeshLODResources::InitResources(UStaticMesh* Parent)
 			const uint32 StaticMeshVertexMemory =
 			This->VertexBuffer.GetStride() * This->VertexBuffer.GetNumVertices() +
 			This->PositionVertexBuffer.GetStride() * This->PositionVertexBuffer.GetNumVertices();
-			const uint32 StaticMeshIndexMemory = This->IndexBuffer.GetAllocatedSize()
-				+ This->WireframeIndexBuffer.GetAllocatedSize()
-				+ (RHISupportsTessellation( GShaderPlatformForFeatureLevel[GMaxRHIFeatureLevel] ) ? This->AdjacencyIndexBuffer.GetAllocatedSize() : 0);
 			const uint32 ResourceVertexColorMemory = This->ColorVertexBuffer.GetStride() * This->ColorVertexBuffer.GetNumVertices();
 
 			INC_DWORD_STAT_BY( STAT_StaticMeshVertexMemory, StaticMeshVertexMemory );
 			INC_DWORD_STAT_BY( STAT_ResourceVertexColorMemory, ResourceVertexColorMemory );
-			INC_DWORD_STAT_BY( STAT_StaticMeshIndexMemory, StaticMeshIndexMemory );
 		});
 }
 
@@ -514,9 +522,6 @@ void FStaticMeshLODResources::ReleaseResources()
 	const uint32 StaticMeshVertexMemory = 
 		VertexBuffer.GetStride() * VertexBuffer.GetNumVertices() + 
 		PositionVertexBuffer.GetStride() * PositionVertexBuffer.GetNumVertices();
-	const uint32 StaticMeshIndexMemory = IndexBuffer.GetAllocatedSize()
-		+ WireframeIndexBuffer.GetAllocatedSize()
-		+ (RHISupportsTessellation( GShaderPlatformForFeatureLevel[GMaxRHIFeatureLevel] ) ? AdjacencyIndexBuffer.GetAllocatedSize() : 0);
 	const uint32 ResourceVertexColorMemory = ColorVertexBuffer.GetStride() * ColorVertexBuffer.GetNumVertices();
 
 	DEC_DWORD_STAT_BY( STAT_StaticMeshVertexMemory, StaticMeshVertexMemory );
@@ -842,7 +847,7 @@ void FStaticMeshLODSettings::ReadEntry(FStaticMeshLODGroup& Group, FString Entry
 	int32 Importance = EMeshFeatureImportance::Normal;
 
 	// Trim whitespace at the beginning.
-	Entry = Entry.Trim();
+	Entry.TrimStartInline();
 
 	FParse::Value(*Entry, TEXT("Name="), Group.DisplayName, TEXT("StaticMeshLODSettings"));
 
@@ -1425,9 +1430,9 @@ void UStaticMesh::InitResources()
 		UpdateMemoryStats,
 		UStaticMesh*, This, this,
 		{
- 			const uint32 StaticMeshResourceSize = This->GetResourceSizeBytes( EResourceSizeMode::Exclusive );
- 			INC_DWORD_STAT_BY( STAT_StaticMeshTotalMemory, StaticMeshResourceSize );
- 			INC_DWORD_STAT_BY( STAT_StaticMeshTotalMemory2, StaticMeshResourceSize );
+			const uint32 StaticMeshResourceSize = This->GetResourceSizeBytes( EResourceSizeMode::Exclusive );
+			INC_DWORD_STAT_BY( STAT_StaticMeshTotalMemory, StaticMeshResourceSize );
+			INC_DWORD_STAT_BY( STAT_StaticMeshTotalMemory2, StaticMeshResourceSize );
 		} );
 #endif // STATS
 }
@@ -1954,6 +1959,13 @@ void UStaticMesh::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 		DefaultCollisionName = BodySetup->DefaultInstance.GetCollisionProfileName();
 	}
 
+	static const UEnum *ComplexityEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ECollisionTraceFlag"), true);
+	FString ComplexityString;
+	if (BodySetup && ComplexityEnum)
+	{
+		ComplexityString = ComplexityEnum->GetNameStringByValue((int64)BodySetup->GetCollisionTraceFlag());
+	}
+
 	OutTags.Add( FAssetRegistryTag("Triangles", FString::FromInt(NumTriangles), FAssetRegistryTag::TT_Numerical) );
 	OutTags.Add( FAssetRegistryTag("Vertices", FString::FromInt(NumVertices), FAssetRegistryTag::TT_Numerical) );
 	OutTags.Add( FAssetRegistryTag("UVChannels", FString::FromInt(NumUVChannels), FAssetRegistryTag::TT_Numerical) );
@@ -1963,6 +1975,7 @@ void UStaticMesh::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 	OutTags.Add( FAssetRegistryTag("LODs", FString::FromInt(NumLODs), FAssetRegistryTag::TT_Numerical));
 	OutTags.Add( FAssetRegistryTag("SectionsWithCollision", FString::FromInt(NumSectionsWithCollision), FAssetRegistryTag::TT_Numerical));
 	OutTags.Add( FAssetRegistryTag("DefaultCollision", DefaultCollisionName.ToString(), FAssetRegistryTag::TT_Alphabetical));
+	OutTags.Add( FAssetRegistryTag("CollisionComplexity", ComplexityString, FAssetRegistryTag::TT_Alphabetical));
 
 #if WITH_EDITORONLY_DATA
 	if (AssetImportData)
@@ -2272,6 +2285,8 @@ COREUOBJECT_API extern bool GOutputCookingWarnings;
  */
 void UStaticMesh::Serialize(FArchive& Ar)
 {
+	LLM_SCOPE(ELLMTag::StaticMesh);
+
 	DECLARE_SCOPE_CYCLE_COUNTER( TEXT("UStaticMesh::Serialize"), STAT_StaticMesh_Serialize, STATGROUP_LoadTime );
 
 	Super::Serialize(Ar);
@@ -2647,19 +2662,6 @@ void UStaticMesh::PostLoad()
 			CleanUpRedondantMaterialPostLoad = false;
 		}
 
-		// Only required in an editor build as other builds process this in a different place
-		if (bRequiresLODDistanceConversion)
-		{
-			// Convert distances to Display Factors
-			ConvertLegacyLODDistance();
-		}
-
-		if (bRequiresLODScreenSizeConversion)
-		{
-			// Convert screen area to screen size
-			ConvertLegacyLODScreenArea();
-		}
-
 		if (RenderData && GStaticMeshesThatNeedMaterialFixup.Get(this))
 		{
 			FixupZeroTriangleSections();
@@ -2707,16 +2709,24 @@ void UStaticMesh::PostLoad()
 	}
 
 #if WITH_EDITOR
-	if (GetLinkerUE4Version() < VER_UE4_STATIC_MESH_EXTENDED_BOUNDS)
+	// Fix extended bounds if needed
+	const int32 CustomVersion = GetLinkerCustomVersion(FReleaseObjectVersion::GUID);
+	if (GetLinkerUE4Version() < VER_UE4_STATIC_MESH_EXTENDED_BOUNDS || CustomVersion < FReleaseObjectVersion::StaticMeshExtendedBoundsFix)
 	{
 		CalculateExtendedBounds();
 	}
-
-	// New fix for incorrect extended bounds
-	const int32 CustomVersion = GetLinkerCustomVersion(FReleaseObjectVersion::GUID);
-	if (CustomVersion < FReleaseObjectVersion::StaticMeshExtendedBoundsFix)
+	//Conversion of LOD distance need valid bounds it must be call after the extended Bounds fixup
+	// Only required in an editor build as other builds process this in a different place
+	if (bRequiresLODDistanceConversion)
 	{
-		CalculateExtendedBounds();
+		// Convert distances to Display Factors
+		ConvertLegacyLODDistance();
+	}
+
+	if (bRequiresLODScreenSizeConversion)
+	{
+		// Convert screen area to screen size
+		ConvertLegacyLODScreenArea();
 	}
 
 	//Always redo the whole SectionInfoMap to be sure it contain only valid data
@@ -2985,12 +2995,12 @@ void UStaticMesh::CreateNavCollision(const bool bIsUpdate)
 	{
 		UNavCollision* PrevNavCollision = NavCollision;
 
-		if (NavCollision == nullptr)
+		if (NavCollision == nullptr || bIsUpdate)
 		{
 			NavCollision = NewObject<UNavCollision>(this);
 		}
 
-		if (PrevNavCollision && PrevNavCollision != NavCollision)
+		if (PrevNavCollision)
 		{
 			NavCollision->CopyUserSettings(*PrevNavCollision);
 		}
@@ -3094,6 +3104,37 @@ void UStaticMesh::SetVertexColorData(const TMap<FVector, FColor>& VertexColorDat
 	}
 	// TODO_STATICMESH: Build?
 #endif // #if WITH_EDITOR
+}
+
+ENGINE_API void UStaticMesh::RemoveVertexColors()
+{
+#if WITH_EDITOR
+	bool bRemovedVertexColors = false;
+
+	for (FStaticMeshSourceModel& SourceModel : SourceModels)
+	{
+		if (SourceModel.RawMeshBulkData && !SourceModel.RawMeshBulkData->IsEmpty())
+		{
+			FRawMesh RawMesh;
+			SourceModel.RawMeshBulkData->LoadRawMesh(RawMesh);
+
+			if (RawMesh.WedgeColors.Num() > 0)
+			{
+				RawMesh.WedgeColors.Empty();
+
+				SourceModel.RawMeshBulkData->SaveRawMesh(RawMesh);
+
+				bRemovedVertexColors = true;
+			}
+		}
+	}
+
+	if (bRemovedVertexColors)
+	{
+		Build();
+		MarkPackageDirty();
+	}
+#endif
 }
 
 void UStaticMesh::EnforceLightmapRestrictions()

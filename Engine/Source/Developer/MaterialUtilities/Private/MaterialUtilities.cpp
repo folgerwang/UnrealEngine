@@ -2,7 +2,6 @@
 #include "MaterialUtilities.h"
 #include "EngineDefines.h"
 #include "ShowFlags.h"
-#include "Misc/StringAssetReference.h"
 #include "Materials/MaterialInterface.h"
 #include "Materials/Material.h"
 #include "Engine/Texture2D.h"
@@ -55,12 +54,12 @@ TArray<UTextureRenderTarget2D*> FMaterialUtilities::RenderTargetPool;
 
 void FMaterialUtilities::StartupModule()
 {
-	FCoreUObjectDelegates::PreGarbageCollect.AddRaw(this, &FMaterialUtilities::OnPreGarbageCollect);
+	FCoreUObjectDelegates::GetPreGarbageCollectDelegate().AddRaw(this, &FMaterialUtilities::OnPreGarbageCollect);
 }
 
 void FMaterialUtilities::ShutdownModule()
 {
-	FCoreUObjectDelegates::PreGarbageCollect.RemoveAll(this);
+	FCoreUObjectDelegates::GetPreGarbageCollectDelegate().RemoveAll(this);
 	ClearRenderTargetPool();
 }
 
@@ -2161,6 +2160,25 @@ bool FMaterialUtilities::ExportMaterialUVDensities(UMaterialInterface* InMateria
 			return false;
 		}
 
+		// If for some reason the shadermap of the proxy is not available, it will return the default material.
+		bool bHasValidMaterial = false;
+		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
+			CheckForDefaultMaterialCommand,
+			FMaterialRenderProxy*, TestProxy, MaterialProxy,
+			ERHIFeatureLevel::Type, TestFeatureLevel, FeatureLevel,
+			bool*, HasValidMaterial, &bHasValidMaterial,
+		{
+			check(TestProxy && HasValidMaterial);
+			*HasValidMaterial = TestProxy->GetMaterial(TestFeatureLevel) && !TestProxy->GetMaterial(TestFeatureLevel)->IsDefaultMaterial();
+		});
+		FlushRenderingCommands();
+
+		if (!bHasValidMaterial)
+		{
+			return false;
+		}
+
+
 		FBox2D DummyBounds(FVector2D(0, 0), FVector2D(1, 1));
 		TArray<FVector2D> EmptyTexCoords;
 		FMaterialMergeData MaterialData(InMaterial, nullptr, nullptr, 0, DummyBounds, EmptyTexCoords);
@@ -2220,7 +2238,7 @@ bool FMaterialUtilities::ExportMaterialUVDensities(UMaterialInterface* InMateria
 				FMaterialTextureInfo TextureInfo;
 				TextureInfo.SamplingScale = SamplingScale;
 				TextureInfo.UVChannelIndex = CoordIndex;
-				TextureInfo.TextureReference = FStringAssetReference(Texture2D);
+				TextureInfo.TextureReference = FSoftObjectPath(Texture2D);
 				TextureInfo.TextureIndex = RegisterIndex;
 				TextureStreamingData.Add(TextureInfo);
 				bSuccess = true;

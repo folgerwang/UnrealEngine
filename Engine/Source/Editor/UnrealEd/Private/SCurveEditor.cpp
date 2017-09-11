@@ -97,6 +97,8 @@ void SCurveEditor::Construct(const FArguments& InArgs)
 	bShowCurveSelector = InArgs._ShowCurveSelector;
 	bDrawInputGridNumbers = InArgs._ShowInputGridNumbers;
 	bDrawOutputGridNumbers = InArgs._ShowOutputGridNumbers;
+	bAreCurvesVisible = InArgs._AreCurvesVisible;
+	SetAreCurvesVisibleHandler = InArgs._OnSetAreCurvesVisible;
 
 	OnCreateAsset = InArgs._OnCreateAsset;
 
@@ -278,6 +280,8 @@ void SCurveEditor::Construct(const FArguments& InArgs)
 		} } ),
 		FCanExecuteAction::CreateLambda( []{ return true; } ),
 		FIsActionChecked::CreateLambda( [this]{ return Settings->GetShowCurveEditorCurveToolTips(); } ) );
+
+	FCoreUObjectDelegates::OnPackageReloaded.AddSP(this, &SCurveEditor::HandlePackageReloaded);
 
 	SAssignNew(WarningMessageText, SErrorText);
 
@@ -1253,8 +1257,11 @@ void SCurveEditor::SetCurveOwner(FCurveOwnerInterface* InCurveOwner, bool bCanEd
 	CurveOwner = InCurveOwner;
 	bCanEditTrack = bCanEdit;
 
+	if (bAreCurvesVisible.IsBound() == false || SetAreCurvesVisibleHandler.IsBound() == false)
+	{
+		bAreCurvesVisible = !IsLinearColorCurve();
+	}
 
-	bAreCurvesVisible = !IsLinearColorCurve();
 	bIsGradientEditorVisible = IsLinearColorCurve();
 
 	CurveViewModels.Empty();
@@ -1978,7 +1985,7 @@ void SCurveEditor::ProcessClick(const FGeometry& InMyGeometry, const FPointerEve
 					//If the user is holding shift-ctrl we snap all curve to the mouse position. (false value)
 					//If the user is holding shift we snap to mouse only if there is only one editable curve. (false value)
 					//In all other case we add key directly on the curve. (true value)
-					bAddKeysInline = (IsLinearColorCurve() && !bAreCurvesVisible) || ((!bControlDown) && (CurvesToAddKeysTo->Num() != 1));
+					bAddKeysInline = (IsLinearColorCurve() && !bAreCurvesVisible.Get()) || ((!bControlDown) && (CurvesToAddKeysTo->Num() != 1));
 				}
 				AddNewKey(InMyGeometry, InMouseEvent.GetScreenSpacePosition(), CurvesToAddKeysTo, bAddKeysInline);
 			}
@@ -2772,7 +2779,7 @@ void SCurveEditor::CreateContextMenu(const FGeometry& InMyGeometry, const FPoint
 				MenuBuilder.AddMenuEntry(MenuItemLabel, MenuItemToolTip, FSlateIcon(), Action);
 				
 				//This menu is not required when there is no curve display (color track can hide and show curves)
-				if (bAreCurvesVisible)
+				if (bAreCurvesVisible.Get())
 				{
 					//add key and value to all curve menu entry
 					MenuItemLabel = LOCTEXT("AddKeyValueToAllCurves", "Add key & value to all curves");
@@ -2839,6 +2846,17 @@ void SCurveEditor::OnCreateExternalCurveClicked()
 	OnCreateAsset.ExecuteIfBound();
 }
 
+void SCurveEditor::OnShowCurveToggled()
+{
+	if (bAreCurvesVisible.IsBound() && SetAreCurvesVisibleHandler.IsBound())
+	{
+		SetAreCurvesVisibleHandler.Execute(!bAreCurvesVisible.Get());
+	}
+	else
+	{
+		bAreCurvesVisible = !bAreCurvesVisible.Get();
+	}
+}
 
 UObject* SCurveEditor::CreateCurveObject( TSubclassOf<UCurveBase> CurveType, UObject* PackagePtr, FName& AssetName )
 {
@@ -3706,6 +3724,20 @@ void SCurveEditor::OnObjectPropertyChanged(UObject* Object, FPropertyChangedEven
 	if ( CurveOwner && CurveOwner->GetOwners().Contains(Object) )
 	{
 		ValidateSelection();
+	}
+}
+
+void SCurveEditor::HandlePackageReloaded(const EPackageReloadPhase InPackageReloadPhase, FPackageReloadedEvent* InPackageReloadedEvent)
+{
+	if (InPackageReloadPhase == EPackageReloadPhase::OnPackageFixup && CurveOwner)
+	{
+		// Our curve owner may be an object that has been reloaded, so we need to check that and update the curve editor appropriately
+		// We have to do this via the interface as the object addresses stored in the remap table will be offset from the interface pointer due to multiple inheritance
+		FCurveOwnerInterface* NewCurveOwner = nullptr;
+		if (CurveOwner->RepointCurveOwner(*InPackageReloadedEvent, NewCurveOwner))
+		{
+			SetCurveOwner(NewCurveOwner, bCanEditTrack);
+		}
 	}
 }
 

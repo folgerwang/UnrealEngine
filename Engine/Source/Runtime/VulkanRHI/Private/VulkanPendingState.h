@@ -67,9 +67,13 @@ public:
 		{
 			// make sure any dynamically backed UAV points to current memory
 			UAV->UpdateView();
-			if (UAV->BufferView)
+			if (UAV->SourceStructuredBuffer)
 			{
-				CurrentState->SetUAVBufferViewState(UAVIndex, UAV->BufferView);
+				CurrentState->SetStorageBuffer(UAVIndex, UAV->SourceStructuredBuffer->GetHandle(), UAV->SourceStructuredBuffer->GetOffset(), UAV->SourceStructuredBuffer->GetSize(), UAV->SourceStructuredBuffer->GetBufferUsageFlags());
+			}
+			else if (UAV->BufferView)
+			{
+				CurrentState->SetUAVTexelBufferViewState(UAVIndex, UAV->BufferView);
 			}
 			else if (UAV->SourceTexture)
 			{
@@ -93,10 +97,15 @@ public:
 		{
 			// make sure any dynamically backed SRV points to current memory
 			SRV->UpdateView();
-			if (SRV->BufferView)
+            FVulkanBufferView* BufferView = SRV->GetBufferView();
+			if (BufferView != nullptr)
 			{
-				checkf(SRV->BufferView != VK_NULL_HANDLE, TEXT("Empty SRV"));
-				CurrentState->SetSRVBufferViewState(BindIndex, SRV->BufferView);
+				checkf(BufferView != VK_NULL_HANDLE, TEXT("Empty SRV"));
+				CurrentState->SetSRVBufferViewState(BindIndex, BufferView);
+			}
+			else if (SRV->SourceStructuredBuffer)
+			{
+				CurrentState->SetStorageBuffer(BindIndex, SRV->SourceStructuredBuffer->GetHandle(), SRV->SourceStructuredBuffer->GetOffset(), SRV->SourceStructuredBuffer->GetSize(), SRV->SourceStructuredBuffer->GetBufferUsageFlags());
 			}
 			else
 			{
@@ -125,9 +134,6 @@ public:
 		CurrentState->SetSamplerState(BindPoint, Sampler);
 	}
 
-	//#todo-rco: Move to pipeline cache
-	FVulkanComputePipeline* GetOrCreateComputePipeline(FVulkanComputeShader* ComputeShader);
-
 	void NotifyDeletedPipeline(FVulkanComputePipeline* Pipeline)
 	{
 		PipelineStates.Remove(Pipeline);
@@ -141,9 +147,6 @@ protected:
 	FVulkanComputePipelineState* CurrentState;
 
 	TMap<FVulkanComputePipeline*, FVulkanComputePipelineState*> PipelineStates;
-
-	//#todo-rco: Move to pipeline cache
-	TMap<FVulkanComputeShader*, FVulkanComputePipeline*> ComputePipelineCache;
 
 	friend class FVulkanCommandListContext;
 };
@@ -171,7 +174,7 @@ public:
 		FMemory::Memzero(Viewport);
 		StencilRef = 0;
 		bScissorEnable = false;
-		NeedsUpdateMask = ENeedsAll;
+
 		CurrentPipeline = nullptr;
 		CurrentState = nullptr;
 		CurrentBSS = nullptr;
@@ -189,33 +192,24 @@ public:
 		Viewport.y = MinY;
 		Viewport.width = MaxX - MinX;
 		Viewport.height = MaxY - MinY;
-
-		// Engine parses in some cases MaxZ as 0.0, which is rubbish.
+		Viewport.minDepth = MinZ;
 		if (MinZ == MaxZ)
 		{
-			Viewport.minDepth = MinZ;
+			// Engine pases in some cases MaxZ as 0.0
 			Viewport.maxDepth = MinZ + 1.0f;
 		}
 		else
 		{
-			Viewport.minDepth = MinZ;
 			Viewport.maxDepth = MaxZ;
 		}
-
-		NeedsUpdateMask |= ENeedsViewport;
-
-		// Set scissor to match the viewport when disabled
-		if (!bScissorEnable)
-		{
-			SetScissorRect(Viewport.x, Viewport.y, Viewport.width, Viewport.height);
-		}
+		
+		SetScissorRect(MinX, MinY, MaxX - MinX, MaxY - MinY);
+		bScissorEnable = false;
 	}
 
-	inline void SetScissor(bool bEnable, uint32 MinX, uint32 MinY, uint32 MaxX, uint32 MaxY)
+	inline void SetScissor(bool bInEnable, uint32 MinX, uint32 MinY, uint32 MaxX, uint32 MaxY)
 	{
-		bScissorEnable = bEnable;
-
-		if (bScissorEnable)
+		if (bInEnable)
 		{
 			SetScissorRect(MinX, MinY, MaxX - MinX, MaxY - MinY);
 		}
@@ -223,6 +217,8 @@ public:
 		{
 			SetScissorRect(Viewport.x, Viewport.y, Viewport.width, Viewport.height);
 		}
+
+		bScissorEnable = bInEnable;
 	}
 
 	inline void SetScissorRect(uint32 MinX, uint32 MinY, uint32 Width, uint32 Height)
@@ -233,12 +229,9 @@ public:
 		Scissor.offset.y = MinY;
 		Scissor.extent.width = Width;
 		Scissor.extent.height = Height;
-
-		// todo vulkan: compare against previous (and viewport above)
-		NeedsUpdateMask |= ENeedsScissor;
 	}
 
-	inline void SetStreamSource(uint32 StreamIndex, FVulkanResourceMultiBuffer* VertexBuffer, uint32 Stride, uint32 Offset)
+	inline void SetStreamSource(uint32 StreamIndex, FVulkanResourceMultiBuffer* VertexBuffer, uint32 Offset)
 	{
 		//PendingStreams[StreamIndex].Stream = VertexBuffer;
 		PendingStreams[StreamIndex].Stream2  = VertexBuffer;
@@ -247,7 +240,7 @@ public:
 		bDirtyVertexStreams = true;
 	}
 
-	inline void SetStreamSource(uint32 StreamIndex, VkBuffer VertexBuffer, uint32 Stride, uint32 Offset)
+	inline void SetStreamSource(uint32 StreamIndex, VkBuffer VertexBuffer, uint32 Offset)
 	{
 		PendingStreams[StreamIndex].Stream2  = nullptr;
 		PendingStreams[StreamIndex].Stream3 = VertexBuffer;
@@ -267,8 +260,32 @@ public:
 
 	inline void SetUniformBuffer(EShaderFrequency Stage, uint32 BindPoint, const FVulkanUniformBuffer* UniformBuffer)
 	{
-		//#todo-rco
-		ensure(0);
+		CurrentState->SetUniformBuffer(Stage, BindPoint, UniformBuffer);
+	}
+
+	inline void SetUAV(EShaderFrequency Stage, uint32 UAVIndex, FVulkanUnorderedAccessView* UAV)
+	{
+		if (UAV)
+		{
+			// make sure any dynamically backed UAV points to current memory
+			UAV->UpdateView();
+			if (UAV->SourceStructuredBuffer)
+			{
+				CurrentState->SetStorageBuffer(Stage, UAVIndex, UAV->SourceStructuredBuffer->GetHandle(), UAV->SourceStructuredBuffer->GetOffset(), UAV->SourceStructuredBuffer->GetSize(), UAV->SourceStructuredBuffer->GetBufferUsageFlags());
+			}
+			else if (UAV->BufferView)
+			{
+				CurrentState->SetUAVTexelBufferViewState(Stage, UAVIndex, UAV->BufferView);
+			}
+			else if (UAV->SourceTexture)
+			{
+				CurrentState->SetUAVTextureView(Stage, UAVIndex, UAV->TextureView);
+			}
+			else
+			{
+				ensure(0);
+			}
+		}
 	}
 
 	inline void SetSRV(EShaderFrequency Stage, uint32 BindIndex, FVulkanShaderResourceView* SRV)
@@ -277,10 +294,15 @@ public:
 		{
 			// make sure any dynamically backed SRV points to current memory
 			SRV->UpdateView();
-			if (SRV->BufferView)
+			FVulkanBufferView* BufferView = SRV->GetBufferView();
+			if (BufferView)
 			{
-				checkf(SRV->BufferView != VK_NULL_HANDLE, TEXT("Empty SRV"));
-				CurrentState->SetSRVBufferViewState(Stage, BindIndex, SRV->BufferView);
+				checkf(BufferView != VK_NULL_HANDLE, TEXT("Empty SRV"));
+				CurrentState->SetSRVBufferViewState(Stage, BindIndex, BufferView);
+			}
+			else if (SRV->SourceStructuredBuffer)
+			{
+				CurrentState->SetStorageBuffer(Stage, BindIndex, SRV->SourceStructuredBuffer->GetHandle(), SRV->SourceStructuredBuffer->GetOffset(), SRV->SourceStructuredBuffer->GetSize(), SRV->SourceStructuredBuffer->GetBufferUsageFlags());
 			}
 			else
 			{
@@ -344,10 +366,7 @@ public:
 
 	inline void UpdateDynamicStates(FVulkanCmdBuffer* Cmd)
 	{
-		if (NeedsUpdateMask != 0 || Cmd->bNeedsDynamicStateSet)
-		{
-			InternalUpdateDynamicStates(Cmd);
-		}
+		InternalUpdateDynamicStates(Cmd);
 	}
 
 	inline void SetStencilRef(uint32 InStencilRef)
@@ -355,7 +374,6 @@ public:
 		if (InStencilRef != StencilRef)
 		{
 			StencilRef = InStencilRef;
-			NeedsUpdateMask |= ENeedsStencilRef;
 		}
 	}
 
@@ -365,27 +383,18 @@ public:
 	}
 
 	inline void MarkNeedsDynamicStates()
-	{
-		NeedsUpdateMask = ENeedsAll;
+	{	
 	}
 
 protected:
 	FVulkanGlobalUniformPool GlobalUniformPool;
 
-	enum
-	{
-		ENeedsScissor =		1 << 0,
-		ENeedsViewport =	1 << 1,
-		ENeedsStencilRef =	1 << 2,
-
-		ENeedsAll = ENeedsScissor | ENeedsViewport | ENeedsStencilRef,
-	};
-
 	VkViewport Viewport;
 	uint32 StencilRef;
 	bool bScissorEnable;
 	VkRect2D Scissor;
-	uint8 NeedsUpdateMask;
+
+	bool bNeedToClear;
 
 	FVulkanGraphicsPipelineState* CurrentPipeline;
 	FVulkanGfxPipelineState* CurrentState;

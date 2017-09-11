@@ -25,8 +25,9 @@ public:
 		SLATE_ARGUMENT(TOptional<FResetToDefaultOverride>, CustomResetToDefault)
 	SLATE_END_ARGS()
 
-	void Construct( const FArguments& InArgs, const TSharedPtr< class IPropertyHandle>& InPropertyHandle );
+	~SResetToDefaultPropertyEditor();
 
+	void Construct( const FArguments& InArgs, const TSharedPtr< class IPropertyHandle>& InPropertyHandle );
 private:
 	FText GetResetToolTip() const;
 
@@ -34,8 +35,7 @@ private:
 
 	void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
 
-	FReply OnDefaultResetClicked();
-	FReply OnCustomResetClicked();
+	FReply OnResetClicked();
 
 	void UpdateDiffersFromDefaultState();
 private:

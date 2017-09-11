@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
 #include "GameFramework/PlayerController.h"
 #include "Misc/PackageName.h"
@@ -209,17 +209,20 @@ void APlayerController::FailedToSpawnPawn()
 	ClientGotoState(NAME_Inactive);
 }
 
+FName APlayerController::NetworkRemapPath(FName InPackageName, bool bReading)
+{
+	// For PIE Networking: remap the packagename to our local PIE packagename
+	FString PackageNameStr = InPackageName.ToString();
+	GEngine->NetworkRemapPath(GetNetDriver(), PackageNameStr, bReading);
+	return FName(*PackageNameStr);
+}
+
 /// @cond DOXYGEN_WARNINGS
 
 void APlayerController::ClientUpdateLevelStreamingStatus_Implementation(FName PackageName, bool bNewShouldBeLoaded, bool bNewShouldBeVisible, bool bNewShouldBlockOnLoad, int32 LODIndex )
 {
-	// For PIE Networking: remap the packagename to our local PIE packagename
-	FString PackageNameStr = PackageName.ToString();
-	if (GEngine->NetworkRemapPath(GetNetDriver(), PackageNameStr, true))
-	{
-		PackageName = FName(*PackageNameStr);
-	}
-
+	PackageName = NetworkRemapPath(PackageName, true);
+	
 	// Distance dependent streaming levels should be controlled by client only
 	if (GetWorld() && GetWorld()->WorldComposition)
 	{
@@ -251,7 +254,7 @@ void APlayerController::ClientUpdateLevelStreamingStatus_Implementation(FName Pa
 						// If we're unloading any levels, we need to request a one frame delay of garbage collection to make sure it happens after the level is actually unloaded
 						if (LevelStreamingObject->bShouldBeLoaded && !bNewShouldBeLoaded)
 						{
-							GetWorld()->DelayGarbageCollection();
+							GEngine->DelayGarbageCollection();
 						}
 
 						LevelStreamingObject->bShouldBeLoaded		= bNewShouldBeLoaded;
@@ -286,7 +289,7 @@ void APlayerController::ClientFlushLevelStreaming_Implementation()
 		GetWorld()->UpdateLevelStreaming();
 		GetWorld()->bRequestedBlockOnAsyncLoading = true;
 		// request GC as soon as possible to remove any unloaded levels from memory
-		GetWorld()->ForceGarbageCollection();
+		GEngine->ForceGarbageCollection();
 	}
 }
 
@@ -296,6 +299,8 @@ void APlayerController::ServerUpdateLevelVisibility_Implementation(FName Package
 	UNetConnection* Connection = Cast<UNetConnection>(Player);
 	if (Connection != NULL)
 	{
+		PackageName = NetworkRemapPath(PackageName, true);
+
 		// add or remove the level package name from the list, as requested
 		if (bIsVisible)
 		{
@@ -1093,7 +1098,7 @@ void APlayerController::CreateTouchInterface()
 		if (CurrentTouchInterface == nullptr)
 		{
 			// load what the game wants to show at startup
-			FStringAssetReference DefaultTouchInterfaceName = GetDefault<UInputSettings>()->DefaultTouchInterface;
+			FSoftObjectPath DefaultTouchInterfaceName = GetDefault<UInputSettings>()->DefaultTouchInterface;
 
 			if (DefaultTouchInterfaceName.IsValid())
 			{
@@ -1755,6 +1760,10 @@ bool APlayerController::SetPause( bool bPause, FCanUnpause CanUnpauseDelegate)
 			{
 				// Pause gamepad rumbling too if needed
 				bResult = GameMode->SetPause(this, CanUnpauseDelegate);
+
+				// Force an update, otherwise since the game time is not updating, the net driver
+				// might not see that it is time for the world settings actor to replicate
+				ForceSingleNetUpdateFor(GetWorldSettings());
 			}
 			else if (!bPause && bCurrentPauseState)
 			{
@@ -1765,7 +1774,7 @@ bool APlayerController::SetPause( bool bPause, FCanUnpause CanUnpauseDelegate)
 	return bResult;
 }
 
-bool APlayerController::IsPaused()
+bool APlayerController::IsPaused() const
 {
 	return GetWorldSettings()->Pauser != NULL;
 }
@@ -1918,7 +1927,7 @@ bool APlayerController::GetHitResultUnderCursorForObjects(const TArray<TEnumAsBy
 		}
 	}
 
-	if(!bHit)	//If there was no hit we reset the results. This is redundent but helps Blueprint users
+	if(!bHit)	//If there was no hit we reset the results. This is redundant but helps Blueprint users
 	{
 		HitResult = FHitResult();
 	}
@@ -1940,7 +1949,7 @@ bool APlayerController::GetHitResultUnderFinger(ETouchIndex::Type FingerIndex, E
 		}
 	}
 
-	if(!bHit)	//If there was no hit we reset the results. This is redundent but helps Blueprint users
+	if(!bHit)	//If there was no hit we reset the results. This is redundant but helps Blueprint users
 	{
 		HitResult = FHitResult();
 	}
@@ -1962,7 +1971,7 @@ bool APlayerController::GetHitResultUnderFingerByChannel(ETouchIndex::Type Finge
 		}
 	}
 
-	if(!bHit)	//If there was no hit we reset the results. This is redundent but helps Blueprint users
+	if(!bHit)	//If there was no hit we reset the results. This is redundant but helps Blueprint users
 	{
 		HitResult = FHitResult();
 	}
@@ -1984,7 +1993,7 @@ bool APlayerController::GetHitResultUnderFingerForObjects(ETouchIndex::Type Fing
 		}
 	}
 
-	if(!bHit)	//If there was no hit we reset the results. This is redundent but helps Blueprint users
+	if(!bHit)	//If there was no hit we reset the results. This is redundant but helps Blueprint users
 	{
 		HitResult = FHitResult();
 	}
@@ -3093,14 +3102,14 @@ void APlayerController::ClientSetCinematicMode_Implementation(bool bInCinematicM
 
 void APlayerController::ClientForceGarbageCollection_Implementation()
 {
-	GetWorld()->ForceGarbageCollection();
+	GEngine->ForceGarbageCollection();
 }
 
 /// @endcond
 
 void APlayerController::LevelStreamingStatusChanged(ULevelStreaming* LevelObject, bool bNewShouldBeLoaded, bool bNewShouldBeVisible, bool bNewShouldBlockOnLoad, int32 LODIndex )
 {
-	ClientUpdateLevelStreamingStatus(LevelObject->GetWorldAssetPackageFName(),bNewShouldBeLoaded,bNewShouldBeVisible,bNewShouldBlockOnLoad,LODIndex);
+	ClientUpdateLevelStreamingStatus(NetworkRemapPath(LevelObject->GetWorldAssetPackageFName(), false), bNewShouldBeLoaded, bNewShouldBeVisible, bNewShouldBlockOnLoad, LODIndex);
 }
 
 /// @cond DOXYGEN_WARNINGS
@@ -3609,7 +3618,7 @@ void APlayerController::ClientPrestreamTextures_Implementation( AActor* ForcedAc
 	}
 }
 
-void APlayerController::ClientPlayForceFeedback_Implementation( UForceFeedbackEffect* ForceFeedbackEffect, bool bLooping, FName Tag)
+void APlayerController::ClientPlayForceFeedback_Implementation( UForceFeedbackEffect* ForceFeedbackEffect, bool bLooping, bool bIgnoreTimeDilation, FName Tag)
 {
 	if (ForceFeedbackEffect)
 	{
@@ -3624,7 +3633,7 @@ void APlayerController::ClientPlayForceFeedback_Implementation( UForceFeedbackEf
 			}
 		}
 
-		ActiveForceFeedbackEffects.Emplace(ForceFeedbackEffect, bLooping, Tag);
+		ActiveForceFeedbackEffects.Emplace(ForceFeedbackEffect, bLooping, bIgnoreTimeDilation, Tag);
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		ForceFeedbackEffectHistoryEntries.Emplace(ActiveForceFeedbackEffects.Last(), GetWorld()->GetTimeSeconds());
@@ -3887,6 +3896,8 @@ void APlayerController::ProcessForceFeedbackAndHaptics(const float DeltaTime, co
 
 	if (bProcessFeedback)
 	{
+		UWorld* World = GetWorld();
+
 		// --- Force Feedback --------------------------
 		for (int32 Index = ActiveForceFeedbackEffects.Num() - 1; Index >= 0; --Index)
 		{
@@ -3901,7 +3912,7 @@ void APlayerController::ProcessForceFeedbackAndHaptics(const float DeltaTime, co
 			DynamicEntry.Value.Update(ForceFeedbackValues);
 		}
 
-		if (FForceFeedbackManager* ForceFeedbackManager = FForceFeedbackManager::Get(GetWorld()))
+		if (FForceFeedbackManager* ForceFeedbackManager = FForceFeedbackManager::Get(World))
 		{
 			ForceFeedbackManager->Update(GetFocalLocation(), ForceFeedbackValues);
 		}
@@ -3957,24 +3968,22 @@ void APlayerController::ProcessForceFeedbackAndHaptics(const float DeltaTime, co
 		{
 			InputInterface->SetForceFeedbackChannelValues(ControllerId, (bForceFeedbackEnabled ? ForceFeedbackValues : FForceFeedbackValues()));
 
-			bool bDisableHaptics = (CVarDisableHaptics.GetValueOnGameThread() > 0);
+			const bool bDisableHaptics = (CVarDisableHaptics.GetValueOnGameThread() > 0);
 			if (!bDisableHaptics)
 			{
-
 				// Haptic Updates
 				if (bLeftHapticsNeedUpdate)
 				{
 					InputInterface->SetHapticFeedbackValues(ControllerId, (int32)EControllerHand::Left, LeftHaptics);
 				}
-
 				if (bRightHapticsNeedUpdate)
 				{
 					InputInterface->SetHapticFeedbackValues(ControllerId, (int32)EControllerHand::Right, RightHaptics);
 				}
-			}
-			if (bGunHapticsNeedUpdate)
-			{
-				InputInterface->SetHapticFeedbackValues(ControllerId, (int32)EControllerHand::Gun, GunHaptics);
+				if (bGunHapticsNeedUpdate)
+				{
+					InputInterface->SetHapticFeedbackValues(ControllerId, (int32)EControllerHand::Gun, GunHaptics);
+				}
 			}
 		}
 	}
@@ -4263,8 +4272,12 @@ void APlayerController::TickActor( float DeltaSeconds, ELevelTick TickType, FAct
 							const USkeletalMeshComponent* PawnMesh = GetPawn()->FindComponentByClass<USkeletalMeshComponent>();
 							if (!PawnMesh || !PawnMesh->IsSimulatingPhysics())
 							{
-								NetworkPredictionInterface->ForcePositionUpdate(PawnTimeSinceUpdate);
+								// We are setting the ServerData timestamp BEFORE updating position below since that may cause ServerData to become deleted (like if the pawn was unpossessed as a result of the move)
+								// Also null the pointer to make sure no one accidentally starts using it below the call to ForcePositionUpdate
 								ServerData->ServerTimeStamp = GetWorld()->GetTimeSeconds();
+								ServerData = nullptr;
+
+								NetworkPredictionInterface->ForcePositionUpdate(PawnTimeSinceUpdate);
 							}
 						}
 					}

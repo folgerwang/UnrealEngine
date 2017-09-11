@@ -17,10 +17,15 @@ namespace VulkanRHI
 
 	enum
 	{
+#if PLATFORM_ANDROID
+		NUM_FRAMES_TO_WAIT_BEFORE_RELEASING_TO_OS = 3,
+		GPU_ONLY_HEAP_PAGE_SIZE = 64 * 1024 * 1024,
+		STAGING_HEAP_PAGE_SIZE = 16 * 1024 * 1024,
+#else
 		NUM_FRAMES_TO_WAIT_BEFORE_RELEASING_TO_OS = 20,
-
 		GPU_ONLY_HEAP_PAGE_SIZE = 256 * 1024 * 1024,
 		STAGING_HEAP_PAGE_SIZE = 64 * 1024 * 1024,
+#endif
 	};
 
 	// Custom ref counting
@@ -133,7 +138,7 @@ namespace VulkanRHI
 			return bIsCoherent != 0;
 		}
 
-		void FlushMappedMemory();
+		void FlushMappedMemory(VkDeviceSize InOffset, VkDeviceSize InSize);
 		void InvalidateMappedMemory();
 
 		inline VkDeviceMemory GetHandle() const
@@ -259,6 +264,8 @@ namespace VulkanRHI
 		void DumpMemory();
 #endif
 
+		uint64 GetTotalMemory(bool bGPU) const;
+
 	protected:
 		VkPhysicalDeviceMemoryProperties MemoryProperties;
 		VkDevice DeviceHandle;
@@ -330,6 +337,11 @@ namespace VulkanRHI
 		inline uint32 GetMemoryTypeIndex() const
 		{
 			return DeviceMemoryAllocation->GetMemoryTypeIndex();
+		}
+
+		inline void FlushMappedMemory()
+		{
+			DeviceMemoryAllocation->FlushMappedMemory(AllocationOffset, AllocationSize);
 		}
 
 		void BindBuffer(FVulkanDevice* Device, VkBuffer Buffer);
@@ -447,6 +459,11 @@ namespace VulkanRHI
 		uint32 AlignedOffset;
 		uint32 AllocationSize;
 		uint32 AllocationOffset;
+#if VULKAN_TRACK_MEMORY_USAGE
+		const char* File;
+		uint32 Line;
+		friend class FSubresourceAllocator;
+#endif
 	};
 
 	// Suballocation of a VkBuffer
@@ -856,6 +873,11 @@ namespace VulkanRHI
 			return ResourceAllocation->GetHandle();
 		}
 
+		inline void FlushMappedMemory()
+		{
+			ResourceAllocation->FlushMappedMemory();
+		}
+
 	protected:
 		TRefCountPtr<FOldResourceAllocation> ResourceAllocation;
 		VkBuffer Buffer;
@@ -874,13 +896,18 @@ namespace VulkanRHI
 	{
 	public:
 		FStagingManager() :
-			Device(nullptr),
-			Queue(nullptr)
+			PeakUsedMemory(0),
+			UsedMemory(0),
+			Device(nullptr)
 		{
 		}
 		~FStagingManager();
 
-		void Init(FVulkanDevice* InDevice, FVulkanQueue* InQueue);
+		void Init(FVulkanDevice* InDevice)
+		{
+			Device = InDevice;
+		}
+
 		void Deinit();
 
 		FStagingBuffer* AcquireBuffer(uint32 Size, VkBufferUsageFlags InUsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT, bool bCPURead = false);
@@ -888,26 +915,45 @@ namespace VulkanRHI
 		// Sets pointer to nullptr
 		void ReleaseBuffer(FVulkanCmdBuffer* CmdBuffer, FStagingBuffer*& StagingBuffer);
 
-		void ProcessPendingFree(bool bImmediately = false);
+		void ProcessPendingFree(bool bImmediately, bool bFreeToOS);
 
 #if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
 		void DumpMemory();
 #endif
 
 	protected:
-		struct FPendingItem
+		struct FPendingItemsPerCmdBuffer
 		{
 			FVulkanCmdBuffer* CmdBuffer;
-			uint64 FenceCounter;
-			FStagingBuffer* Resource;
+			struct FPendingItems
+			{
+				uint64 FenceCounter;
+				TArray<FStagingBuffer*> Resources;
+			};
+
+
+			inline FPendingItems* FindOrAddItemsForFence(uint64 Fence);
+
+			TArray<FPendingItems> PendingItems;
 		};
 
 		TArray<FStagingBuffer*> UsedStagingBuffers;
-		TArray<FPendingItem> PendingFreeStagingBuffers;
-		TArray<FPendingItem> FreeStagingBuffers;
+		TArray<FPendingItemsPerCmdBuffer> PendingFreeStagingBuffers;
+		struct FFreeEntry
+		{
+			FStagingBuffer* Buffer;
+			uint32 FrameNumber;
+		};
+		TArray<FFreeEntry> FreeStagingBuffers;
+
+		uint64 PeakUsedMemory;
+		uint64 UsedMemory;
+
+		FPendingItemsPerCmdBuffer* FindOrAdd(FVulkanCmdBuffer* CmdBuffer);
+
+		void ProcessPendingFreeNoLock(bool bImmediately, bool bFreeToOS);
 
 		FVulkanDevice* Device;
-		FVulkanQueue* Queue;
 	};
 
 	class FFence
@@ -1152,6 +1198,6 @@ namespace VulkanRHI
 
 	inline void* FBufferSuballocation::GetMappedPointer()
 	{
-		return Owner->GetMappedPointer();
+		return (uint8*)Owner->GetMappedPointer() + AlignedOffset;
 	}
 }

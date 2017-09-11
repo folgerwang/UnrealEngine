@@ -12,8 +12,8 @@
 /**
  * 
  */
-UCLASS(Blueprintable, MinimalAPI)
-class AScreenshotFunctionalTest : public AFunctionalTest
+UCLASS(Blueprintable)
+class FUNCTIONALTESTING_API AScreenshotFunctionalTest : public AFunctionalTest
 {
 	GENERATED_BODY()
 
@@ -24,6 +24,10 @@ public:
 	virtual bool CanEditChange(const UProperty* InProperty) const override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
+
+	// Tests relying on temporal effects can force a camera cut to flush stale data
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera", SimpleDisplay)
+	bool bCameraCutOnScreenshotPrep;
 
 protected:
 	virtual void PrepareTest() override;

@@ -77,12 +77,12 @@ private:
 	/** True if streaming is temporarily disabled so we can update subregions of this texture's resource 
 	without streaming clobbering it. Automatically cleared before saving. */
 	UPROPERTY(transient)
-	uint32 bTemporarilyDisableStreaming:1;
+	bool bTemporarilyDisableStreaming;
 
 public:
 	/** Whether the texture is currently streamable or not.						*/
 	UPROPERTY(transient, NonTransactional)
-	uint32 bIsStreamable:1;
+	bool bIsStreamable;
 
 	/** Whether some mips might be streamed soon. If false, the texture is not planned resolution will be stable. */
 	UPROPERTY(transient, NonTransactional)
@@ -161,7 +161,6 @@ public:
 #if WITH_EDITOR
 	virtual void PostLinkerChange() override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
-	virtual void WillNeverCacheCookedPlatformDataAgain() override;
 #endif // WITH_EDITOR
 	virtual void BeginDestroy() override;
 	virtual void PostLoad() override;
@@ -174,7 +173,7 @@ public:
 	virtual float GetSurfaceWidth() const override { return GetSizeX(); }
 	virtual float GetSurfaceHeight() const override { return GetSizeY(); }
 	virtual FTextureResource* CreateResource() override;
-	virtual EMaterialValueType GetMaterialType() override { return MCT_Texture2D; }
+	virtual EMaterialValueType GetMaterialType() const override { return MCT_Texture2D; }
 	virtual void UpdateResource() override;
 	virtual float GetAverageBrightness(bool bIgnoreTrueBlack, bool bUseGrayscale) override;
 	virtual FTexturePlatformData** GetRunningPlatformData() override { return &PlatformData; }

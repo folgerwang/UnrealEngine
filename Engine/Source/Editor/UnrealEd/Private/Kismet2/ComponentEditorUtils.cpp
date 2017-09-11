@@ -26,6 +26,7 @@
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Editor.h"
 #include "Toolkits/AssetEditorManager.h"
+#include "HAL/PlatformApplicationMisc.h"
 
 #define LOCTEXT_NAMESPACE "ComponentEditorUtils"
 
@@ -281,29 +282,18 @@ FString FComponentEditorUtils::GenerateValidVariableNameFromAsset(UObject* Asset
 
 USceneComponent* FComponentEditorUtils::FindClosestParentInList(UActorComponent* ChildComponent, const TArray<UActorComponent*>& ComponentList)
 {
-	USceneComponent* ClosestParentComponent = nullptr;
-	for (UActorComponent* Component : ComponentList)
+	// Find the most recent parent that is part of the ComponentList
+	if (USceneComponent* ChildAsScene = Cast<USceneComponent>(ChildComponent))
 	{
-		USceneComponent* ChildAsScene = Cast<USceneComponent>(ChildComponent);
-		USceneComponent* SceneComponent = Cast<USceneComponent>(Component);
-		if (ChildAsScene && SceneComponent)
+		for (USceneComponent* Parent = ChildAsScene->GetAttachParent(); Parent != nullptr; Parent = Parent->GetAttachParent())
 		{
-			// Check to see if any parent is also in the list
-			USceneComponent* Parent = ChildAsScene->GetAttachParent();
-			while (Parent != nullptr)
+			if (ComponentList.Contains(Parent))
 			{
-				if (ComponentList.Contains(Parent))
-				{
-					ClosestParentComponent = SceneComponent;
-					break;
-				}
-
-				Parent = Parent->GetAttachParent();
+				return Parent;
 			}
 		}
 	}
-
-	return ClosestParentComponent;
+	return nullptr;
 }
 
 bool FComponentEditorUtils::CanCopyComponents(const TArray<UActorComponent*>& ComponentsToCopy)
@@ -398,13 +388,13 @@ void FComponentEditorUtils::CopyComponents(const TArray<UActorComponent*>& Compo
 
 	// Copy text to clipboard
 	FString ExportedText = Archive;
-	FPlatformMisc::ClipboardCopy(*ExportedText);
+	FPlatformApplicationMisc::ClipboardCopy(*ExportedText);
 }
 
 bool FComponentEditorUtils::CanPasteComponents(USceneComponent* RootComponent, bool bOverrideCanAttach, bool bPasteAsArchetypes)
 {
 	FString ClipboardContent;
-	FPlatformMisc::ClipboardPaste(ClipboardContent);
+	FPlatformApplicationMisc::ClipboardPaste(ClipboardContent);
 
 	// Obtain the component object text factory for the clipboard content and return whether or not we can use it
 	TSharedRef<FComponentObjectTextFactory> Factory = FComponentObjectTextFactory::Get(ClipboardContent, bPasteAsArchetypes);
@@ -417,7 +407,7 @@ void FComponentEditorUtils::PasteComponents(TArray<UActorComponent*>& OutPastedC
 
 	// Get the text from the clipboard
 	FString TextToImport;
-	FPlatformMisc::ClipboardPaste(TextToImport);
+	FPlatformApplicationMisc::ClipboardPaste(TextToImport);
 
 	// Get a new component object factory for the clipboard content
 	TSharedRef<FComponentObjectTextFactory> Factory = FComponentObjectTextFactory::Get(TextToImport);
@@ -480,7 +470,7 @@ void FComponentEditorUtils::GetComponentsFromClipboard(TMap<FName, FName>& OutPa
 {
 	// Get the text from the clipboard
 	FString TextToImport;
-	FPlatformMisc::ClipboardPaste(TextToImport);
+	FPlatformApplicationMisc::ClipboardPaste(TextToImport);
 
 	// Get a new component object factory for the clipboard content
 	TSharedRef<FComponentObjectTextFactory> Factory = FComponentObjectTextFactory::Get(TextToImport, bGetComponentsAsArchetypes);

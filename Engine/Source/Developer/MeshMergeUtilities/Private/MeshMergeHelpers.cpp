@@ -45,7 +45,9 @@
 
 void FMeshMergeHelpers::ExtractSections(const UStaticMeshComponent* Component, int32 LODIndex, TArray<FSectionInfo>& OutSections)
 {
-	static UMaterialInterface* DefaultMaterial = Cast<UMaterialInterface>(UMaterial::GetDefaultMaterial(MD_Surface));
+	static UMaterialInterface* DefaultMaterial = UMaterial::GetDefaultMaterial(MD_Surface);
+
+	TArray<FName> MaterialSlotNames = Component->GetMaterialSlotNames();
 
 	const UStaticMesh* StaticMesh = Component->GetStaticMesh();
 	for (const FStaticMeshSection& MeshSection : StaticMesh->RenderData->LODResources[LODIndex].Sections)
@@ -60,7 +62,7 @@ void FMeshMergeHelpers::ExtractSections(const UStaticMeshComponent* Component, i
 		FSectionInfo SectionInfo;
 		SectionInfo.Material = StoredMaterial;
 		SectionInfo.MaterialIndex = MeshSection.MaterialIndex;
-
+		SectionInfo.MaterialSlotName = MaterialSlotNames.IsValidIndex(MeshSection.MaterialIndex) ? MaterialSlotNames[MeshSection.MaterialIndex] : NAME_None;
 		SectionInfo.StartIndex = MeshSection.FirstIndex / 3;
 		SectionInfo.EndIndex = SectionInfo.StartIndex + MeshSection.NumTriangles;
 
@@ -80,10 +82,12 @@ void FMeshMergeHelpers::ExtractSections(const UStaticMeshComponent* Component, i
 
 void FMeshMergeHelpers::ExtractSections(const USkeletalMeshComponent* Component, int32 LODIndex, TArray<FSectionInfo>& OutSections)
 {
-	static UMaterialInterface* DefaultMaterial = Cast<UMaterialInterface>(UMaterial::GetDefaultMaterial(MD_Surface));
+	static UMaterialInterface* DefaultMaterial = UMaterial::GetDefaultMaterial(MD_Surface);
 	FSkeletalMeshResource* Resource = Component->GetSkeletalMeshResource();
 
 	checkf(Resource->LODModels.IsValidIndex(LODIndex), TEXT("Invalid LOD Index"));
+
+	TArray<FName> MaterialSlotNames = Component->GetMaterialSlotNames();
 
 	const FStaticLODModel& Model = Resource->LODModels[LODIndex];
 	for (const FSkelMeshSection& MeshSection : Model.Sections)
@@ -95,6 +99,7 @@ void FMeshMergeHelpers::ExtractSections(const USkeletalMeshComponent* Component,
 
 		FSectionInfo SectionInfo;
 		SectionInfo.Material = StoredMaterial;
+		SectionInfo.MaterialSlotName = MaterialSlotNames.IsValidIndex(MeshSection.MaterialIndex) ? MaterialSlotNames[MeshSection.MaterialIndex] : NAME_None;
 
 		if (MeshSection.bCastShadow && Component->CastShadow)
 		{
@@ -117,7 +122,7 @@ void FMeshMergeHelpers::ExtractSections(const USkeletalMeshComponent* Component,
 
 void FMeshMergeHelpers::ExtractSections(const UStaticMesh* StaticMesh, int32 LODIndex, TArray<FSectionInfo>& OutSections)
 {
-	static UMaterialInterface* DefaultMaterial = Cast<UMaterialInterface>(UMaterial::GetDefaultMaterial(MD_Surface));
+	static UMaterialInterface* DefaultMaterial = UMaterial::GetDefaultMaterial(MD_Surface);
 
 	for (const FStaticMeshSection& MeshSection : StaticMesh->RenderData->LODResources[LODIndex].Sections)
 	{
@@ -131,6 +136,7 @@ void FMeshMergeHelpers::ExtractSections(const UStaticMesh* StaticMesh, int32 LOD
 		FSectionInfo SectionInfo;
 		SectionInfo.Material = StoredMaterial;
 		SectionInfo.MaterialIndex = MeshSection.MaterialIndex;
+		SectionInfo.MaterialSlotName = StaticMesh->StaticMaterials.IsValidIndex(MeshSection.MaterialIndex) ? StaticMesh->StaticMaterials[MeshSection.MaterialIndex].MaterialSlotName : NAME_None;
 
 		if (MeshSection.bEnableCollision)
 		{
@@ -155,17 +161,8 @@ void FMeshMergeHelpers::RetrieveMesh(const UStaticMeshComponent* StaticMeshCompo
 
 	// Imported meshes will have a filled RawMeshBulkData set
 	const bool bImportedMesh = !StaticMeshModel.RawMeshBulkData->IsEmpty();
-	// Check whether or not this mesh has been reduced in-engine
-	const bool bReducedMesh = (StaticMeshModel.ReductionSettings.PercentTriangles < 1.0f);
-	// Trying to retrieve rawmesh from SourceStaticMeshModel was giving issues, which causes a mismatch			
-	const bool bRenderDataMismatch = (LODIndex > 0) || StaticMeshModel.BuildSettings.bGenerateLightmapUVs;
-
-	// Legacy way of retrieving raw mesh data 
-	/*if (bImportedMesh && !bIsSplineMeshComponent && !bReducedMesh && !bRenderDataMismatch)
-	{
-		StaticMeshModel.RawMeshBulkData->LoadRawMesh(RawMesh);
-	}*/
-	
+		
+	// Export the raw mesh data using static mesh render data
 	ExportStaticMeshLOD(StaticMesh->RenderData->LODResources[LODIndex], RawMesh);	
 
 	// Make sure the raw mesh is not irreparably malformed.
@@ -178,13 +175,7 @@ void FMeshMergeHelpers::RetrieveMesh(const UStaticMeshComponent* StaticMeshCompo
 	const FMeshBuildSettings& BuildSettings = bImportedMesh ? StaticMeshModel.BuildSettings : StaticMesh->SourceModels[0].BuildSettings;
 
 	// Transform raw mesh to world space
-	FTransform ComponentToWorldTransform = StaticMeshComponent->ComponentToWorld;
-	// Take into account build scale settings only for meshes imported from raw data
-	// meshes reconstructed from render data already have build scale applied
-	if (bImportedMesh)
-	{
-		ComponentToWorldTransform.SetScale3D(ComponentToWorldTransform.GetScale3D()*BuildSettings.BuildScale3D);
-	}
+	FTransform ComponentToWorldTransform = StaticMeshComponent->GetComponentTransform();
 
 	// Handle spline mesh deformation
 	if (bIsSplineMeshComponent)
@@ -208,12 +199,9 @@ void FMeshMergeHelpers::RetrieveMesh(const UStaticMeshComponent* StaticMeshCompo
 		return;
 	}
 
-	// If mirrored should recalculate normals
-	const bool bIsMirrored = ComponentToWorldTransform.GetDeterminant() < 0.f;
-
 	// Figure out if we should recompute normals and tangents. By default generated LODs should not recompute normals	
-	bool bRecomputeNormals = (bImportedMesh && BuildSettings.bRecomputeNormals) || RawMesh.WedgeTangentZ.Num() == 0 || bIsMirrored;
-	bool bRecomputeTangents = (bImportedMesh && BuildSettings.bRecomputeTangents) || RawMesh.WedgeTangentX.Num() == 0 || RawMesh.WedgeTangentY.Num() == 0 || bIsMirrored;
+	const bool bRecomputeNormals = RawMesh.WedgeTangentZ.Num() == 0;
+	const bool bRecomputeTangents = RawMesh.WedgeTangentX.Num() == 0 || RawMesh.WedgeTangentY.Num() == 0;
 
 	if (bRecomputeNormals || bRecomputeTangents)
 	{
@@ -694,43 +682,33 @@ void FMeshMergeHelpers::TransformRawMeshVertexData(const FTransform& InTransform
 
 	for (FVector& TangentX : OutRawMesh.WedgeTangentX)
 	{
-		TangentX = InTransform.TransformVectorNoScale(TangentX);
+		TangentX = InTransform.TransformVector(TangentX).GetSafeNormal();
 	}
 
 	for (FVector& TangentY : OutRawMesh.WedgeTangentY)
 	{
-		TangentY = InTransform.TransformVectorNoScale(TangentY);
+		TangentY = InTransform.TransformVector(TangentY).GetSafeNormal();
 	}
 
 	for (FVector& TangentZ : OutRawMesh.WedgeTangentZ)
 	{
-		TangentZ = InTransform.TransformVectorNoScale(TangentZ);
+		TangentZ = InTransform.TransformVector(TangentZ).GetSafeNormal();
 	}
 
 	const bool bIsMirrored = InTransform.GetDeterminant() < 0.f;
 	if (bIsMirrored)
 	{
-		// Flip faces
-		for (int32 FaceIdx = 0; FaceIdx < OutRawMesh.WedgeIndices.Num() / 3; FaceIdx++)
+		Algo::Reverse(OutRawMesh.WedgeIndices);
+		Algo::Reverse(OutRawMesh.WedgeTangentX);
+		Algo::Reverse(OutRawMesh.WedgeTangentY);
+		Algo::Reverse(OutRawMesh.WedgeTangentZ);
+		for (uint32 UVIndex = 0; UVIndex < MAX_MESH_TEXTURE_COORDS; ++UVIndex)
 		{
-			int32 I0 = FaceIdx * 3 + 0;
-			int32 I2 = FaceIdx * 3 + 2;
-			Swap(OutRawMesh.WedgeIndices[I0], OutRawMesh.WedgeIndices[I2]);
-
-			// seems like vertex colors and UVs are not indexed, so swap values instead
-			if (OutRawMesh.WedgeColors.Num())
-			{
-				Swap(OutRawMesh.WedgeColors[I0], OutRawMesh.WedgeColors[I2]);
-			}
-
-			for (int32 i = 0; i < MAX_MESH_TEXTURE_COORDS; ++i)
-			{
-				if (OutRawMesh.WedgeTexCoords[i].Num())
-				{
-					Swap(OutRawMesh.WedgeTexCoords[i][I0], OutRawMesh.WedgeTexCoords[i][I2]);
-				}
-			}
+			Algo::Reverse(OutRawMesh.WedgeTexCoords[UVIndex]);
 		}
+		Algo::Reverse(OutRawMesh.FaceMaterialIndices);
+		Algo::Reverse(OutRawMesh.FaceSmoothingMasks);
+		Algo::Reverse(OutRawMesh.WedgeColors);
 	}
 }
 

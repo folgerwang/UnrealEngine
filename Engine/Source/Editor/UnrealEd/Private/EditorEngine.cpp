@@ -55,7 +55,6 @@
 #include "Misc/ConfigCacheIni.h"
 #include "UObject/UObjectIterator.h"
 #include "Serialization/ArchiveReplaceObjectRef.h"
-#include "Misc/RedirectCollector.h"
 #include "GameFramework/WorldSettings.h"
 #include "Engine/Light.h"
 #include "Engine/StaticMeshActor.h"
@@ -88,6 +87,7 @@
 #include "Net/NetworkProfiler.h"
 #include "Interfaces/IPluginManager.h"
 #include "PackageReload.h"
+#include "HAL/PlatformApplicationMisc.h"
 
 // needed for the RemotePropagator
 #include "AudioDevice.h"
@@ -848,6 +848,16 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
 	AssetRegistryModule.Get().OnInMemoryAssetCreated().AddUObject(this, &UEditorEngine::OnAssetCreated);
 	
+	FEditorDelegates::BeginPIE.AddLambda([](bool)
+	{
+		FTextLocalizationManager::Get().EnableGameLocalizationPreview();
+	});
+
+	FEditorDelegates::EndPIE.AddLambda([](bool)
+	{
+		FTextLocalizationManager::Get().DisableGameLocalizationPreview();
+	});
+
 	// Initialize vanilla status before other systems that consume its status are started inside InitEditor()
 	UpdateIsVanillaProduct();
 	FSourceCodeNavigation::AccessOnNewModuleAdded().AddLambda([this](FName InModuleName)
@@ -919,7 +929,6 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 			TEXT("TreeMap"),
 			TEXT("SizeMap"),
 			TEXT("MergeActors"),
-			TEXT("NiagaraEditor"),
 			TEXT("InputBindingEditor"),
 			TEXT("AudioEditor")
 		};
@@ -1201,6 +1210,13 @@ void UEditorEngine::FinishDestroy()
 
 		// Remove editor array from root.
 		UE_LOG(LogExit, Log, TEXT("Editor shut down") );
+
+		// Any access of GEditor after finish destroy is invalid
+		// Null out GEditor so that potential module shutdown that happens after can check for nullptr
+		if (GEditor == this)
+		{
+			GEditor = nullptr;
+		}
 	}
 
 	Super::FinishDestroy();
@@ -1394,7 +1410,7 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 	}
 
 	// Find out if the editor has focus. Audio should only play if the editor has focus.
-	const bool bHasFocus = FPlatformProcess::IsThisApplicationForeground();
+	const bool bHasFocus = FPlatformApplicationMisc::IsThisApplicationForeground();
 
 	if (bHasFocus || GetDefault<ULevelEditorMiscSettings>()->bAllowBackgroundAudio)
 	{
@@ -1422,7 +1438,7 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 
 	// tick the directory watcher
 	// @todo: Put me into an FTicker that is created when the DW module is loaded
-	if( !FApp::IsGameNameEmpty() )
+	if( !FApp::IsProjectNameEmpty() )
 	{
 		static FName DirectoryWatcherName("DirectoryWatcher");
 		FDirectoryWatcherModule& DirectoryWatcherModule = FModuleManager::Get().LoadModuleChecked<FDirectoryWatcherModule>(DirectoryWatcherName);
@@ -1600,7 +1616,7 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 			{
 				// Decide whether to drop high detail because of frame rate
 				GameViewport->SetDropDetail(DeltaSeconds);
-			}			
+			}
 
 			// Update the level.
 			GameCycles=0;
@@ -2145,7 +2161,7 @@ void UEditorEngine::Cleanse( bool ClearSelection, bool Redraw, const FText& Tran
 		// the fact that the loading routing will check that already
 		// existed, but the object was missing in cache.
 		const EObjectFlags FlagsToClear = RF_Standalone | RF_Transactional;
-		TArray<UPackage*> PackagesToUnload;
+		TSet<UPackage*> PackagesToUnload;
 		for (TObjectIterator<UObjectRedirector> RedirIt; RedirIt; ++RedirIt)
 		{
 			UPackage* RedirectorPackage = RedirIt->GetOutermost();
@@ -2161,7 +2177,8 @@ void UEditorEngine::Cleanse( bool ClearSelection, bool Redraw, const FText& Tran
 			if (!PackageObjects.ContainsByPredicate(
 					[](UObject* Object)
 					{
-						return !Object->IsA<UMetaData>() && !Object->IsA<UObjectRedirector>();
+						// Look for any standalone objects that are not a redirector or metadata, if found this is not a redirector-only package
+						return !Object->IsA<UMetaData>() && !Object->IsA<UObjectRedirector>() && Object->HasAnyFlags(RF_Standalone);
 					})
 				)
 			{
@@ -2175,11 +2192,11 @@ void UEditorEngine::Cleanse( bool ClearSelection, bool Redraw, const FText& Tran
 			}
 		}
 
-		for (auto* PackageToUnload : PackagesToUnload)
+		for (UPackage* PackageToUnload : PackagesToUnload)
 		{
 			TArray<UObject*> PackageObjects;
 			GetObjectsWithOuter(PackageToUnload, PackageObjects);
-			for (auto* Object : PackageObjects)
+			for (UObject* Object : PackageObjects)
 			{
 				Object->ClearFlags(FlagsToClear);
 				Object->RemoveFromRoot();
@@ -4034,11 +4051,10 @@ bool UEditorEngine::IsPackageValidForAutoAdding(UPackage* InPackage, const FStri
 		// and that the editor is not auto-saving.
 		if ( bPackageIsValid )
 		{
-			const bool bIsPlayOnConsolePackage = CleanFilename.StartsWith( PLAYWORLD_CONSOLE_BASE_PACKAGE_PREFIX );
 			const bool bIsPIEOrScriptPackage = InPackage->RootPackageHasAnyFlags( PKG_ContainsScript | PKG_PlayInEditor );
 			const bool bIsAutosave = GUnrealEd->GetPackageAutoSaver().IsAutoSaving();
 
-			if ( bIsPlayOnConsolePackage || bIsPIEOrScriptPackage || bIsAutosave || GIsAutomationTesting )
+			if ( bIsPIEOrScriptPackage || bIsAutosave || GIsAutomationTesting )
 			{
 				bPackageIsValid = false;
 			}
@@ -4113,15 +4129,6 @@ FSavePackageResultStruct UEditorEngine::Save( UPackage* InOuter, UObject* InBase
 				 uint32 SaveFlags, const class ITargetPlatform* TargetPlatform, const FDateTime& FinalTimeStamp, bool bSlowTask )
 {
 	FScopedSlowTask SlowTask(100, FText(), bSlowTask);
-
-	// If we we need to fixup string asset references, load any referenced by this package before it is saved
-	static bool bForceLoadStringAssetReferences = FParse::Param(FCommandLine::Get(), TEXT("FixupStringAssetReferences"));
-
-	if (bForceLoadStringAssetReferences)
-	{
-		const FString PackageName = FPackageName::FilenameToLongPackageName(Filename);
-		GRedirectCollector.ResolveStringAssetReference(FName(*PackageName));
-	}
 
 	UObject* Base = InBase;
 	if ( !Base && InOuter && InOuter->HasAnyPackageFlags(PKG_ContainsMap) )
@@ -4244,6 +4251,9 @@ FSavePackageResultStruct UEditorEngine::Save( UPackage* InOuter, UObject* InBase
 			
 			// Update components again in case it was a world without a physics scene but did have rendered components.
 			World->UpdateWorldComponents(true, true);
+
+			// Rerunning construction scripts may have made it dirty again
+			InOuter->SetDirtyFlag(false);
 		}
 	}
 
@@ -4491,16 +4501,6 @@ TSharedPtr<SViewport> UEditorEngine::GetGameViewportWidget() const
 	return NULL;
 }
 
-bool UEditorEngine::SplitActorLabel( FString& InOutLabel, int32& OutIdx ) const
-{
-	return FActorLabelUtilities::SplitActorLabel(InOutLabel, OutIdx);
-}
-
-void UEditorEngine::SetActorLabelUnique(AActor* Actor, const FString& NewActorLabel, const FCachedActorLabels* InExistingActorLabels) const
-{
-	FActorLabelUtilities::SetActorLabelUnique(Actor, NewActorLabel, InExistingActorLabels);
-}
-
 FString UEditorEngine::GetFriendlyName( const UProperty* Property, UStruct* OwnerStruct/* = NULL*/ )
 {
 	// first, try to pull the friendly name from the loc file
@@ -4525,7 +4525,7 @@ FString UEditorEngine::GetFriendlyName( const UProperty* Property, UStruct* Owne
 
 	if ( !DidFindText )
 	{
-		FString DefaultFriendlyName = Property->GetMetaData(TEXT("DisplayName"));
+		const FString& DefaultFriendlyName = Property->GetMetaData(TEXT("DisplayName"));
 		if ( DefaultFriendlyName.IsEmpty() )
 		{
 			const bool bIsBool = Cast<const UBoolProperty>(Property) != NULL;
@@ -4570,9 +4570,12 @@ AActor* UEditorEngine::UseActorFactory( UActorFactory* Factory, const FAssetData
 	if( !Factory->CanCreateActorFrom( AssetData, ActorErrorMsg ) )
 	{
 		bIsAllowedToCreateActor = false;
-		FMessageLog EditorErrors("EditorErrors");
-		EditorErrors.Warning(ActorErrorMsg);
-		EditorErrors.Notify();
+		if(!ActorErrorMsg.IsEmpty())
+		{
+			FMessageLog EditorErrors("EditorErrors");
+			EditorErrors.Warning(ActorErrorMsg);
+			EditorErrors.Notify();
+		}
 	}
 
 	//Load Asset
@@ -4888,7 +4891,7 @@ void UEditorEngine::ReplaceSelectedActors(UActorFactory* Factory, const FAssetDa
 	ReplaceActors(Factory, AssetData, ActorsToReplace);
 }
 
-void UEditorEngine::ReplaceActors(UActorFactory* Factory, const FAssetData& AssetData, const TArray<AActor*> ActorsToReplace)
+void UEditorEngine::ReplaceActors(UActorFactory* Factory, const FAssetData& AssetData, const TArray<AActor*>& ActorsToReplace)
 {
 	// Cache for attachment info of all actors being converted.
 	TArray<ReattachActorsHelper::FActorAttachmentCache> AttachmentInfo;
@@ -5268,7 +5271,7 @@ void UEditorEngine::ConvertLightActors( UClass* ConvertToClass )
 
 			// Select the new actor
 			GEditor->SelectActor( ActorToConvert, false, true );
-			GEditor->SelectActor( NewActor, true, true );
+	
 
 			NewActor->InvalidateLightingCache();
 			NewActor->PostEditChange();
@@ -5279,11 +5282,17 @@ void UEditorEngine::ConvertLightActors( UClass* ConvertToClass )
 			// We have converted another light.
 			++NumLightsConverted;
 
-			UE_LOG(LogEditor, Log, TEXT("Converted: %s to %s"), *ActorToConvert->GetActorLabel(), *NewActor->GetActorLabel() );
+			UE_LOG(LogEditor, Log, TEXT("Converted: %s to %s"), *ActorToConvert->GetName(), *NewActor->GetName() );
 
 			// Destroy the old actor.
 			GEditor->Layers->DisassociateActorFromLayers( ActorToConvert );
 			World->EditorDestroyActor( ActorToConvert, true );
+
+			if (NewActor->IsPendingKillOrUnreachable())
+			{
+				UE_LOG(LogEditor, Log, TEXT("Newly converted actor ('%s') is pending kill"), *NewActor->GetName());
+			}
+			GEditor->SelectActor(NewActor, true, true);
 		}
 
 		GEditor->GetSelectedActors()->EndBatchSelectOperation();
@@ -5622,7 +5631,7 @@ void UEditorEngine::DoConvertActors( const TArray<AActor*>& ActorsToConvert, UCl
 		for( int32 ActorIdx = 0; ActorIdx < ActorsToConvert.Num(); ++ActorIdx )
 		{
 			AActor* ActorToConvert = ActorsToConvert[ActorIdx];
-			if (ActorToConvert->GetClass()->IsChildOf(ABrush::StaticClass()) && ConvertToClass == AStaticMeshActor::StaticClass())
+			if (!ActorToConvert->IsPendingKill() && ActorToConvert->GetClass()->IsChildOf(ABrush::StaticClass()) && ConvertToClass == AStaticMeshActor::StaticClass())
 			{
 				GEditor->SelectActor(ActorToConvert, true, true);
 				BrushList.Add(Cast<ABrush>(ActorToConvert));
@@ -5650,6 +5659,14 @@ void UEditorEngine::DoConvertActors( const TArray<AActor*>& ActorsToConvert, UCl
 		for( int32 ActorIdx = 0; ActorIdx < ActorsToConvert.Num(); ++ActorIdx )
 		{
 			AActor* ActorToConvert = ActorsToConvert[ ActorIdx ];
+
+
+			if (ActorToConvert->IsPendingKill())
+			{
+				UE_LOG(LogEditor, Error, TEXT("Actor '%s' is marked pending kill and cannot be converted"), *ActorToConvert->GetFullName());
+				continue;
+			}
+
 			// Source actor display label
 			FString ActorLabel = ActorToConvert->GetActorLabel();
 			// Low level source actor object name
@@ -5692,6 +5709,7 @@ void UEditorEngine::DoConvertActors( const TArray<AActor*>& ActorsToConvert, UCl
 				{
 					ConvertActorsFromClass(ClassToReplace, ConvertToClass);
 				}
+
 				if (ActorToConvert->IsPendingKill())
 				{
 					// Converted by one of the above
@@ -5916,7 +5934,7 @@ bool UEditorEngine::ShouldThrottleCPUUsage() const
 {
 	bool bShouldThrottle = false;
 
-	bool bIsForeground = FPlatformProcess::IsThisApplicationForeground();
+	bool bIsForeground = FPlatformApplicationMisc::IsThisApplicationForeground();
 
 	if( !bIsForeground )
 	{
@@ -6310,7 +6328,7 @@ bool UEditorEngine::LoadPreviewMesh( int32 Index )
 	const ULevelEditorViewportSettings& ViewportSettings = *GetDefault<ULevelEditorViewportSettings>();
 	if( ViewportSettings.PreviewMeshes.IsValidIndex(Index) )
 	{
-		const FStringAssetReference& MeshName = ViewportSettings.PreviewMeshes[Index];
+		const FSoftObjectPath& MeshName = ViewportSettings.PreviewMeshes[Index];
 
 		// If we don't have a preview mesh component in the world yet, create one. 
 		if( !PreviewMeshComp )
@@ -6430,6 +6448,10 @@ void UEditorEngine::UpdateRecentlyLoadedProjectFiles()
 	}
 }
 
+#if PLATFORM_MAC
+static TWeakPtr<SNotificationItem> GXcodeWarningNotificationPtr;
+#endif
+
 void UEditorEngine::UpdateAutoLoadProject()
 {
 	// If the recent project file exists and is non-empty, update the contents with the currently loaded .uproject
@@ -6460,11 +6482,11 @@ void UEditorEngine::UpdateAutoLoadProject()
 #if PLATFORM_MAC
 	if ( !GIsBuildMachine )
 	{
-		if(FPlatformMisc::MacOSXVersionCompare(10,12,2) < 0)
+		if(FPlatformMisc::MacOSXVersionCompare(10,12,5) < 0)
 		{
 			if(FSlateApplication::IsInitialized())
 			{
-				FSuppressableWarningDialog::FSetupInfo Info( LOCTEXT("UpdateMacOSX_Body","Please update to the latest version of macOS for best performance."), LOCTEXT("UpdateMacOSX_Title","Update macOS"), TEXT("UpdateMacOSX"), GEditorSettingsIni );
+				FSuppressableWarningDialog::FSetupInfo Info( LOCTEXT("UpdateMacOSX_Body","Please update to the latest version of macOS for best performance and stability."), LOCTEXT("UpdateMacOSX_Title","Update macOS"), TEXT("UpdateMacOSX"), GEditorSettingsIni );
 				Info.ConfirmText = LOCTEXT( "OK", "OK");
 				Info.bDefaultToSuppressInTheFuture = true;
 				FSuppressableWarningDialog OSUpdateWarning( Info );
@@ -6472,7 +6494,7 @@ void UEditorEngine::UpdateAutoLoadProject()
 			}
 			else
 			{
-				UE_LOG(LogEditor, Warning, TEXT("Please update to the latest version of macOS for best performance."));
+				UE_LOG(LogEditor, Warning, TEXT("Please update to the latest version of macOS for best performance and stability."));
 			}
 		}
 		
@@ -6510,8 +6532,66 @@ void UEditorEngine::UpdateAutoLoadProject()
 			}
 		}
 	}
+
+	if (FSlateApplication::IsInitialized() && !FPlatformMisc::IsSupportedXcodeVersionInstalled())
+	{
+		/** Utility functions for the notification */
+		struct Local
+		{
+			static ECheckBoxState GetDontAskAgainCheckBoxState()
+			{
+				bool bSuppressNotification = false;
+				GConfig->GetBool(TEXT("MacEditor"), TEXT("SuppressXcodeVersionWarningNotification"), bSuppressNotification, GEditorPerProjectIni);
+				return bSuppressNotification ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+			}
+
+			static void OnDontAskAgainCheckBoxStateChanged(ECheckBoxState NewState)
+			{
+				const bool bSuppressNotification = (NewState == ECheckBoxState::Checked);
+				GConfig->SetBool(TEXT("MacEditor"), TEXT("SuppressXcodeVersionWarningNotification"), bSuppressNotification, GEditorPerProjectIni);
+			}
+
+			static void OnXcodeWarningNotificationDismissed()
+			{
+				TSharedPtr<SNotificationItem> NotificationItem = GXcodeWarningNotificationPtr.Pin();
+
+				if (NotificationItem.IsValid())
+				{
+					NotificationItem->SetCompletionState(SNotificationItem::CS_Success);
+					NotificationItem->Fadeout();
+
+					GXcodeWarningNotificationPtr.Reset();
+				}
+			}
+		};
+
+		const bool bIsXcodeInstalled = FPlatformMisc::GetXcodePath().Len() > 0;
+
+		const ECheckBoxState DontAskAgainCheckBoxState = Local::GetDontAskAgainCheckBoxState();
+		if (DontAskAgainCheckBoxState == ECheckBoxState::Unchecked)
+		{
+			const FText NoXcodeMessageText = LOCTEXT("XcodeNotInstalledWarningNotification", "Xcode is not installed on this Mac.\nMetal shader compilation will fall back to runtime compiled text shaders, which are slower.\nPlease install latest version of Xcode for best performance.");
+			const FText OldXcodeMessageText = LOCTEXT("OldXcodeVersionWarningNotification", "Xcode installed on this Mac is too old to be used for Metal shader compilation.\nFalling back to runtime compiled text shaders, which are slower.\nPlease update to latest version of Xcode for best performance.");
+
+			FNotificationInfo Info(bIsXcodeInstalled ? OldXcodeMessageText : NoXcodeMessageText);
+			Info.bFireAndForget = false;
+			Info.FadeOutDuration = 3.0f;
+			Info.ExpireDuration = 0.0f;
+			Info.bUseLargeFont = false;
+			Info.bUseThrobber = false;
+
+			Info.ButtonDetails.Add(FNotificationButtonInfo(LOCTEXT("OK", "OK"), FText::GetEmpty(), FSimpleDelegate::CreateStatic(&Local::OnXcodeWarningNotificationDismissed)));
+
+			Info.CheckBoxState = TAttribute<ECheckBoxState>::Create(&Local::GetDontAskAgainCheckBoxState);
+			Info.CheckBoxStateChanged = FOnCheckStateChanged::CreateStatic(&Local::OnDontAskAgainCheckBoxStateChanged);
+			Info.CheckBoxText = NSLOCTEXT("ModalDialogs", "DefaultCheckBoxMessage", "Don't show this again");
+
+			GXcodeWarningNotificationPtr = FSlateNotificationManager::Get().AddNotification(Info);
+			GXcodeWarningNotificationPtr.Pin()->SetCompletionState(SNotificationItem::CS_Pending);
+		}
+	}
 #endif
-	
+
 	// Clean up the auto-load-in-progress file, if it exists. This file prevents auto-loading of projects and must be deleted here to indicate the load was successful
 	const FString AutoLoadInProgressFilename = AutoLoadProjectFileName + TEXT(".InProgress");
 	const bool bRequireExists = false;
@@ -6520,45 +6600,55 @@ void UEditorEngine::UpdateAutoLoadProject()
 	IFileManager::Get().Delete(*AutoLoadInProgressFilename, bRequireExists, bEvenIfReadOnly, bQuiet);
 }
 
-FORCEINLINE bool NetworkRemapPath_local(FWorldContext &Context, FString &Str, bool reading)
+FORCEINLINE bool NetworkRemapPath_local(FWorldContext& Context, FString& Str, bool bReading)
 {
-	if (reading)
+	if (bReading)
 	{
-		return (Str.ReplaceInline( *Context.PIERemapPrefix, *Context.PIEPrefix, ESearchCase::IgnoreCase) > 0);
+		if (FPackageName::IsShortPackageName(Str))
+		{
+			return false;
+		}
+
+		// First strip any source prefix, then add the appropriate prefix for this context
+		FSoftObjectPath Path = UWorld::RemovePIEPrefix(Str);
+			
+		Path.FixupForPIE();
+		FString Remapped = Path.ToString();
+		if (!Remapped.Equals(Str, ESearchCase::CaseSensitive))
+		{
+			Str = Remapped;
+			return true;
+		}
 	}
 	else
 	{
-		return (Str.ReplaceInline( *Context.PIEPrefix, *Context.PIERemapPrefix, ESearchCase::IgnoreCase) > 0);
+		// When sending, strip prefix
+		FString Remapped = UWorld::RemovePIEPrefix(Str);
+		if (!Remapped.Equals(Str, ESearchCase::CaseSensitive))
+		{
+			Str = Remapped;
+			return true;
+		}
 	}
+	return false;
 }
 
-bool UEditorEngine::NetworkRemapPath(UNetDriver* Driver, FString &Str, bool reading)
+bool UEditorEngine::NetworkRemapPath(UNetDriver* Driver, FString& Str, bool bReading)
 {
 	if (Driver == nullptr)
 	{
 		return false;
 	}
 
-	FWorldContext &Context = GetWorldContextFromWorldChecked(Driver->GetWorld());
-	if (Context.PIEPrefix.IsEmpty() || Context.PIERemapPrefix.IsEmpty())
-	{
-		return false;
-	}
-
-	return NetworkRemapPath_local(Context, Str, reading);
+	FWorldContext& Context = GetWorldContextFromWorldChecked(Driver->GetWorld());
+	return NetworkRemapPath_local(Context, Str, bReading);
 }
 
-bool UEditorEngine::NetworkRemapPath( UPendingNetGame *PendingNetGame, FString &Str, bool reading)
+bool UEditorEngine::NetworkRemapPath( UPendingNetGame *PendingNetGame, FString& Str, bool bReading)
 {
-	FWorldContext &Context = GetWorldContextFromPendingNetGameChecked(PendingNetGame);
-	if (Context.PIEPrefix.IsEmpty() || Context.PIERemapPrefix.IsEmpty())
-	{
-		return false;
-	}
-
-	return NetworkRemapPath_local(Context, Str, reading);
+	FWorldContext& Context = GetWorldContextFromPendingNetGameChecked(PendingNetGame);
+	return NetworkRemapPath_local(Context, Str, bReading);
 }
-
 
 void UEditorEngine::VerifyLoadMapWorldCleanup()
 {
@@ -6824,6 +6914,29 @@ void FActorLabelUtilities::SetActorLabelUnique(AActor* Actor, const FString& New
 	}
 
 	Actor->SetActorLabel(ModifiedActorLabel);
+}
+
+void FActorLabelUtilities::RenameExistingActor(AActor* Actor, const FString& NewActorLabel, bool bMakeUnique)
+{
+	FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>(TEXT("AssetTools"));
+
+	FSoftObjectPath OldPath = FSoftObjectPath(Actor);
+	if (bMakeUnique)
+	{
+		SetActorLabelUnique(Actor, NewActorLabel, nullptr);
+	}
+	else
+	{
+		Actor->SetActorLabel(NewActorLabel);
+	}
+	FSoftObjectPath NewPath = FSoftObjectPath(Actor);
+
+	if (OldPath != NewPath)
+	{
+		TArray<FAssetRenameData> RenameData;
+		RenameData.Add(FAssetRenameData(OldPath, NewPath, true));
+		AssetToolsModule.Get().RenameAssets(RenameData);
+	}
 }
 
 void UEditorEngine::HandleTravelFailure(UWorld* InWorld, ETravelFailure::Type FailureType, const FString& ErrorString)

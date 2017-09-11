@@ -269,7 +269,7 @@ bool FSLESSoundSource::Init( FWaveInstance* InWaveInstance )
 	FSoundSource::InitCommon();
 
 	// don't do anything if no volume! THIS APPEARS TO HAVE THE VOLUME IN TIME, CHECK HERE THOUGH IF ISSUES
-	if( InWaveInstance && ( InWaveInstance->Volume * InWaveInstance->VolumeMultiplier ) <= 0 )
+	if( InWaveInstance && ( InWaveInstance->GetActualVolume()) <= 0 )
 	{
 		return false;
 	}
@@ -424,7 +424,7 @@ void FSLESSoundSource::Update( void )
 
 	FSoundSource::UpdateCommon();
 	
-	float Volume = WaveInstance->Volume * WaveInstance->VolumeMultiplier;
+	float Volume = WaveInstance->GetActualVolume();
 	if (SetStereoBleed())
 	{
 		// Emulate the bleed to rear speakers followed by stereo fold down
@@ -492,27 +492,37 @@ void FSLESSoundSource::Stop( void )
 {
 	IStreamingManager::Get().GetAudioStreamingManager().RemoveStreamingSoundSource(this);
 
-	if( WaveInstance )
+	if (SL_PlayerPlayInterface)
 	{
 		// set the player's state to stopped
 		SLresult result = (*SL_PlayerPlayInterface)->SetPlayState(SL_PlayerPlayInterface, SL_PLAYSTATE_STOPPED);
 		check(SL_RESULT_SUCCESS == result);
-		
-		// Unregister looping callback
-		if( WaveInstance->LoopingMode != LOOP_Never ) 
-		{
-			result = (*SL_PlayerBufferQueue)->RegisterCallback(SL_PlayerBufferQueue, NULL, NULL);
-		}
-		
-		DestroyPlayer();
-		ReleaseResources();
-		
-		Paused = false;
-		Playing = false;
-		SLESBuffer = nullptr;
-		Buffer = nullptr;
 	}
-	
+
+	if (WaveInstance)
+	{
+		// Unregister looping callback
+		if (WaveInstance->LoopingMode != LOOP_Never)
+		{
+			SLresult result = (*SL_PlayerBufferQueue)->RegisterCallback(SL_PlayerBufferQueue, NULL, NULL);
+			check(SL_RESULT_SUCCESS == result);
+		}
+	}
+	DestroyPlayer();
+	ReleaseResources();
+	Paused = false;
+	Playing = false;
+	SLESBuffer = nullptr;
+	Buffer = nullptr;
+
+	DestroyPlayer();
+	ReleaseResources();
+
+	Paused = false;
+	Playing = false;
+	SLESBuffer = nullptr;
+	Buffer = nullptr;
+
 	FSoundSource::Stop();
 }
 

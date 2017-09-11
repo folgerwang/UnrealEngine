@@ -62,6 +62,7 @@
 #include "ISequencerModule.h"
 #include "IVREditorModule.h"
 #include "EditorFontGlyphs.h"
+#include "HAL/PlatformApplicationMisc.h"
 
 #define LOCTEXT_NAMESPACE "Sequencer"
 
@@ -497,6 +498,7 @@ void SSequencer::Construct(const FArguments& InArgs, TSharedRef<FSequencer> InSe
 
 					// debug vis
 					+ SGridPanel::Slot( Column1, Row3, SGridPanel::Layer(10) )
+					.Padding(ResizeBarPadding)
 					[
 						SNew(SSequencerDebugVisualizer, InSequencer)
 						.ViewRange(FAnimatedRange::WrapAttribute(InArgs._ViewRange))
@@ -760,13 +762,14 @@ TSharedRef<SWidget> SSequencer::MakeToolBar()
 				FSlateIcon(FEditorStyle::GetStyleSetName(), "Sequencer.SaveAs")
 			);
 
-			ToolBarBuilder.AddToolBarButton( FSequencerCommands::Get().RestoreAnimatedState );
 			//ToolBarBuilder.AddToolBarButton( FSequencerCommands::Get().DiscardChanges );
 			ToolBarBuilder.AddToolBarButton( FSequencerCommands::Get().FindInContentBrowser );
 			ToolBarBuilder.AddToolBarButton( FSequencerCommands::Get().CreateCamera );
 			ToolBarBuilder.AddToolBarButton( FSequencerCommands::Get().RenderMovie );
 			ToolBarBuilder.AddSeparator("Level Sequence Separator");
 		}
+
+		ToolBarBuilder.AddToolBarButton( FSequencerCommands::Get().RestoreAnimatedState );
 
 		ToolBarBuilder.AddComboButton(
 			FUIAction(),
@@ -1034,15 +1037,14 @@ TSharedRef<SWidget> SSequencer::MakeGeneralMenu()
 TSharedRef<SWidget> SSequencer::MakePlaybackMenu()
 {
 	FMenuBuilder MenuBuilder( true, SequencerPtr.Pin()->GetCommandBindings() );
-	TSharedPtr<FSequencer> Sequencer = SequencerPtr.Pin();
 
 	// playback range options
 	MenuBuilder.BeginSection("PlaybackThisSequence", LOCTEXT("PlaybackThisSequenceHeader", "Playback - This Sequence"));
 	{
 		// Menu entry for the start position
 		auto OnStartChanged = [=](float NewValue){
-			float Upper = Sequencer->GetPlaybackRange().GetUpperBoundValue();
-			Sequencer->SetPlaybackRange(TRange<float>(FMath::Min(NewValue, Upper), Upper));
+			float Upper = SequencerPtr.Pin()->GetPlaybackRange().GetUpperBoundValue();
+			SequencerPtr.Pin()->SetPlaybackRange(TRange<float>(FMath::Min(NewValue, Upper), Upper));
 		};
 
 		MenuBuilder.AddWidget(
@@ -1057,7 +1059,7 @@ TSharedRef<SWidget> SSequencer::MakePlaybackMenu()
 					SNew(SSpinBox<float>)
 						.TypeInterface(NumericTypeInterface)
 						.IsEnabled_Lambda([=]() {
-							return !Sequencer->IsPlaybackRangeLocked();
+							return !SequencerPtr.Pin()->IsPlaybackRangeLocked();
 						})
 						.Style(&FEditorStyle::GetWidgetStyle<FSpinBoxStyle>("Sequencer.HyperlinkSpinBox"))
 						.OnValueCommitted_Lambda([=](float Value, ETextCommit::Type){ OnStartChanged(Value); })
@@ -1065,21 +1067,21 @@ TSharedRef<SWidget> SSequencer::MakePlaybackMenu()
 						.OnBeginSliderMovement(OnPlaybackRangeBeginDrag)
 						.OnEndSliderMovement_Lambda([=](float Value){ OnStartChanged(Value); OnPlaybackRangeEndDrag.ExecuteIfBound(); })
 						.MinValue_Lambda([=]() -> float {
-							return Sequencer->GetClampRange().GetLowerBoundValue(); 
+							return SequencerPtr.Pin()->GetClampRange().GetLowerBoundValue(); 
 						})
 						.MaxValue_Lambda([=]() -> float {
-							return Sequencer->GetPlaybackRange().GetUpperBoundValue(); 
+							return SequencerPtr.Pin()->GetPlaybackRange().GetUpperBoundValue(); 
 						})
 						.Value_Lambda([=]() -> float {
-							return Sequencer->GetPlaybackRange().GetLowerBoundValue();
+							return SequencerPtr.Pin()->GetPlaybackRange().GetLowerBoundValue();
 						})
 				],
 			LOCTEXT("PlaybackStartLabel", "Start"));
 
 		// Menu entry for the end position
 		auto OnEndChanged = [=](float NewValue){
-			float Lower = Sequencer->GetPlaybackRange().GetLowerBoundValue();
-			Sequencer->SetPlaybackRange(TRange<float>(Lower, FMath::Max(NewValue, Lower)));
+			float Lower = SequencerPtr.Pin()->GetPlaybackRange().GetLowerBoundValue();
+			SequencerPtr.Pin()->SetPlaybackRange(TRange<float>(Lower, FMath::Max(NewValue, Lower)));
 		};
 
 		MenuBuilder.AddWidget(
@@ -1094,7 +1096,7 @@ TSharedRef<SWidget> SSequencer::MakePlaybackMenu()
 					SNew(SSpinBox<float>)
 						.TypeInterface(NumericTypeInterface)
 						.IsEnabled_Lambda([=]() {
-							return !Sequencer->IsPlaybackRangeLocked();
+							return !SequencerPtr.Pin()->IsPlaybackRangeLocked();
 						})
 						.Style(&FEditorStyle::GetWidgetStyle<FSpinBoxStyle>("Sequencer.HyperlinkSpinBox"))
 						.OnValueCommitted_Lambda([=](float Value, ETextCommit::Type){ OnEndChanged(Value); })
@@ -1102,19 +1104,24 @@ TSharedRef<SWidget> SSequencer::MakePlaybackMenu()
 						.OnBeginSliderMovement(OnPlaybackRangeBeginDrag)
 						.OnEndSliderMovement_Lambda([=](float Value){ OnEndChanged(Value); OnPlaybackRangeEndDrag.ExecuteIfBound(); })
 						.MinValue_Lambda([=]() -> float {
-							return Sequencer->GetPlaybackRange().GetLowerBoundValue(); 
+							return SequencerPtr.Pin()->GetPlaybackRange().GetLowerBoundValue(); 
 						})
 						.MaxValue_Lambda([=]() -> float {
-							return Sequencer->GetClampRange().GetUpperBoundValue(); 
+							return SequencerPtr.Pin()->GetClampRange().GetUpperBoundValue(); 
 						})
 						.Value_Lambda([=]() -> float {
-							return Sequencer->GetPlaybackRange().GetUpperBoundValue();
+							return SequencerPtr.Pin()->GetPlaybackRange().GetUpperBoundValue();
 						})
 				],
 			LOCTEXT("PlaybackStartEnd", "End"));
 
 		MenuBuilder.AddMenuEntry( FSequencerCommands::Get().TogglePlaybackRangeLocked );
 		MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ToggleForceFixedFrameIntervalPlayback );
+
+		if (SequencerPtr.Pin()->IsLevelEditorSequencer())
+		{
+			MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ToggleRerunConstructionScripts );
+		}
 	}
 	MenuBuilder.EndSection();
 
@@ -2186,7 +2193,7 @@ bool SSequencer::CanPaste()
 	if (SelectedNodes.Num() != 0)
 	{
 		FString TexttoImport;
-		FPlatformMisc::ClipboardPaste(TexttoImport);
+		FPlatformApplicationMisc::ClipboardPaste(TexttoImport);
 
 		if (Sequencer->CanPaste(TexttoImport))
 		{
@@ -2296,7 +2303,12 @@ void SSequencer::OnSequenceInstanceActivated( FMovieSceneSequenceIDRef ActiveIns
 		UMovieScene* MovieScene = Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene();
 		if ( MovieScene->GetFixedFrameInterval() == 0 )
 		{
-			OnTimeSnapIntervalChanged(Settings->GetTimeSnapInterval());
+			MovieScene->Modify();
+			MovieScene->SetFixedFrameInterval(Settings->GetTimeSnapInterval());
+
+			// Update the current time to the new interval
+			float NewTime = SequencerHelpers::SnapTimeToInterval(Sequencer->GetLocalTime(), Settings->GetTimeSnapInterval());
+			Sequencer->SetLocalTime(NewTime);
 		}
 	}
 }

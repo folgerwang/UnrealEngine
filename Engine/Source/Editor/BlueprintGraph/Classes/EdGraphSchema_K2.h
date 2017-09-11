@@ -6,7 +6,7 @@
 #include "Misc/EnumClassFlags.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Class.h"
-#include "Misc/StringAssetReference.h"
+#include "UObject/SoftObjectPath.h"
 #include "EdGraph/EdGraphNode.h"
 #include "EdGraph/EdGraphPin.h"
 #include "AssetData.h"
@@ -19,6 +19,9 @@ class FMenuBuilder;
 class UBlueprint;
 class UK2Node;
 struct FTypesDatabase;
+class UEnum;
+class UClass;
+class UScriptStruct;
 
 /** Reference to an structure (only used in 'docked' palette) */
 USTRUCT()
@@ -246,8 +249,8 @@ enum class EObjectReferenceType : uint8
 	NotAnObject		= 0x00,
 	ObjectReference = 0x01,
 	ClassReference	= 0x02,
-	AssetID			= 0x04,
-	ClassAssetID	= 0x08,
+	SoftObject		= 0x04,
+	SoftClass		= 0x08,
 	AllTypes		= 0x0f,
 };
 
@@ -277,7 +280,7 @@ class BLUEPRINTGRAPH_API UEdGraphSchema_K2 : public UEdGraphSchema
 	static const FString PC_Boolean;
 	static const FString PC_Byte;
 	static const FString PC_Class;    // SubCategoryObject is the MetaClass of the Class passed thru this pin, or SubCategory can be 'self'. The DefaultValue string should always be empty, use DefaultObject.
-	static const FString PC_AssetClass;
+	static const FString PC_SoftClass;
 	static const FString PC_Int;
 	static const FString PC_Float;
 	static const FString PC_Name;
@@ -285,7 +288,7 @@ class BLUEPRINTGRAPH_API UEdGraphSchema_K2 : public UEdGraphSchema
 	static const FString PC_MCDelegate;  // SubCategoryObject is the UFunction of the delegate signature
 	static const FString PC_Object;    // SubCategoryObject is the Class of the object passed thru this pin, or SubCategory can be 'self'. The DefaultValue string should always be empty, use DefaultObject.
 	static const FString PC_Interface;	// SubCategoryObject is the Class of the object passed thru this pin.
-	static const FString PC_Asset;		// SubCategoryObject is the Class of the AssetPtr passed thru this pin.
+	static const FString PC_SoftObject;		// SubCategoryObject is the Class of the SoftObjectPtr passed thru this pin.
 	static const FString PC_String;
 	static const FString PC_Text;
 	static const FString PC_Struct;    // SubCategoryObject is the ScriptStruct of the struct passed thru this pin, 'self' is not a valid SubCategory. DefaultObject should always be empty, the DefaultValue string may be used for supported structs.
@@ -364,7 +367,7 @@ public:
 		uint8 PossibleObjectReferenceTypes;
 
 		/** Asset Reference, used when PinType.PinSubCategoryObject is not loaded yet */
-		FStringAssetReference SubCategoryObjectAssetReference;
+		FSoftObjectPath SubCategoryObjectAssetReference;
 
 		FText CachedDescription;
 
@@ -390,7 +393,7 @@ public:
 
 		FPinTypeTreeInfo(const FText& InFriendlyName, const FString& CategoryName, const UEdGraphSchema_K2* Schema, const FText& InTooltip, bool bInReadOnly = false, FTypesDatabase* TypesDatabase = nullptr);
 		FPinTypeTreeInfo(const FString& CategoryName, UObject* SubCategoryObject, const FText& InTooltip, bool bInReadOnly = false, uint8 InPossibleObjectReferenceTypes = 0);
-		FPinTypeTreeInfo(const FText& InFriendlyName, const FString& CategoryName, const FStringAssetReference& SubCategoryObject, const FText& InTooltip, bool bInReadOnly = false, uint8 InPossibleObjectReferenceTypes = 0);
+		FPinTypeTreeInfo(const FText& InFriendlyName, const FString& CategoryName, const FSoftObjectPath& SubCategoryObject, const FText& InTooltip, bool bInReadOnly = false, uint8 InPossibleObjectReferenceTypes = 0);
 
 		FPinTypeTreeInfo(TSharedPtr<FPinTypeTreeInfo> InInfo)
 		{
@@ -475,15 +478,16 @@ public:
 	virtual void DroppedAssetsOnPin(const TArray<FAssetData>& Assets, const FVector2D& GraphPosition, UEdGraphPin* Pin) const override;
 	virtual void GetAssetsNodeHoverMessage(const TArray<FAssetData>& Assets, const UEdGraphNode* HoverNode, FString& OutTooltipText, bool& OutOkIcon) const override;
 	virtual void GetAssetsPinHoverMessage(const TArray<FAssetData>& Assets, const UEdGraphPin* HoverPin, FString& OutTooltipText, bool& OutOkIcon) const override;
+	virtual void GetAssetsGraphHoverMessage(const TArray<FAssetData>& Assets, const UEdGraph* HoverGraph, FString& OutTooltipText, bool& OutOkIcon) const override;
 	virtual bool CanDuplicateGraph(UEdGraph* InSourceGraph) const override;
 	virtual UEdGraph* DuplicateGraph(UEdGraph* GraphToDuplicate) const override;
-	virtual UEdGraphNode* CreateSubstituteNode(UEdGraphNode* Node, const UEdGraph* Graph, FObjectInstancingGraph* InstanceGraph, TArray<FName>& InOutExtraNames) const override;
+	virtual UEdGraphNode* CreateSubstituteNode(UEdGraphNode* Node, const UEdGraph* Graph, FObjectInstancingGraph* InstanceGraph, TSet<FName>& InOutExtraNames) const override;
 	virtual int32 GetNodeSelectionCount(const UEdGraph* Graph) const override;
 	virtual TSharedPtr<FEdGraphSchemaAction> GetCreateCommentAction() const override;
 	virtual bool FadeNodeWhenDraggingOffPin(const UEdGraphNode* Node, const UEdGraphPin* Pin) const override;
 	virtual void BackwardCompatibilityNodeConversion(UEdGraph* Graph, bool bOnlySafeChanges) const override;
 	virtual bool ShouldAlwaysPurgeOnModification() const override { return false; }
-	virtual void SplitPin(UEdGraphPin* Pin) const override;
+	virtual void SplitPin(UEdGraphPin* Pin, bool bNotify = true) const override;
 	virtual void RecombinePin(UEdGraphPin* Pin) const override;
 	virtual void OnPinConnectionDoubleCicked(UEdGraphPin* PinA, UEdGraphPin* PinB, const FVector2D& GraphPosition) const override;
 	virtual UEdGraphPin* DropPinOnNode(UEdGraphNode* InTargetNode, const FString& InSourcePinName, const FEdGraphPinType& InSourcePinType, EEdGraphPinDirection InSourcePinDirection) const override;
@@ -773,9 +777,9 @@ public:
 	/** returns friendly signature name if possible or Removes any mangling to get the unmangled signature name of the function */
 	static FText GetFriendlySignatureName(const UFunction* Function);
 
-	static bool IsAllowableBlueprintVariableType(const class UEnum* InEnum);
-	static bool IsAllowableBlueprintVariableType(const class UClass* InClass);
-	static bool IsAllowableBlueprintVariableType(const class UScriptStruct *InStruct, bool bForInternalUse = false);
+	static bool IsAllowableBlueprintVariableType(const UEnum* InEnum);
+	static bool IsAllowableBlueprintVariableType(const UClass* InClass);
+	static bool IsAllowableBlueprintVariableType(const UScriptStruct *InStruct, bool bForInternalUse = false);
 
 	static bool IsPropertyExposedOnSpawn(const UProperty* Property);
 
@@ -838,26 +842,6 @@ public:
 	 * @param	FunctionSignature	The function signature to mimic when creating the inputs and outputs for the function.
 	 */
 	virtual void CreateFunctionGraphTerminators(UEdGraph& Graph, UFunction* FunctionSignature) const;
-
-	/**
-	 * Converts a pin type into a fully qualified string (e.g., object'ObjectName').
-	 *
-	 * @param	Type	The type to convert into a string.
-	 *
-	 * @return	The converted type string.
-	 */
-	DEPRECATED(4.5, "UEdGraphSchema_K2::TypeToString is deprecated.  Use TypeToText instead.")
-	static FString TypeToString(const FEdGraphPinType& Type);
-
-	/**
-	 * Converts the type of a property into a fully qualified string (e.g., object'ObjectName').
-	 *
-	 * @param	Property	The property to convert into a string.
-	 *
-	 * @return	The converted type string.
-	 */
-	DEPRECATED(4.5, "UEdGraphSchema_K2::TypeToString is deprecated.  Use TypeToText instead.")
-	static FString TypeToString(UProperty* const Property);
 
 	/**
 	 * Converts the type of a property into a fully qualified string (e.g., object'ObjectName').
@@ -1053,7 +1037,7 @@ public:
 	 *
 	 * @return						Returns TRUE if successful
 	 */
-	bool CollapseGatewayNode(UK2Node* InNode, UEdGraphNode* InEntryNode, UEdGraphNode* InResultNode, class FKismetCompilerContext* CompilerContext = NULL) const;
+	bool CollapseGatewayNode(UK2Node* InNode, UEdGraphNode* InEntryNode, UEdGraphNode* InResultNode, class FKismetCompilerContext* CompilerContext = nullptr, TSet<UEdGraphNode*>* OutExpandedNodes = nullptr) const;
 
 	/** 
 	 * Connects all of the linked pins from PinA to all of the linked pins from PinB, removing

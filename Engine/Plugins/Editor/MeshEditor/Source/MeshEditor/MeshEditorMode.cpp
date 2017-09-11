@@ -139,7 +139,7 @@ TUniquePtr<FChange> FMeshEditorMode::FSelectOrDeselectMeshElementsChange::Execut
 				MeshEditorMode.GetSelectedMeshElementType() != ElementTypeToSelect )
 			{
 				// We're selecting elements of a different type than we already had selected, so we need to clear our selection first
-				CompoundRevertInput.Subchanges.Add( MoveTemp( FDeselectAllMeshElementsChange( FDeselectAllMeshElementsChangeInput() ).Execute( Object ) ) );
+				CompoundRevertInput.Subchanges.Add( FDeselectAllMeshElementsChange( FDeselectAllMeshElementsChangeInput() ).Execute( Object ) );
 			}
 
 			for( FMeshElement& MeshElementToSelect : Input.MeshElementsToSelect )
@@ -1074,7 +1074,7 @@ void FMeshEditorMode::RollbackPreviewChanges()
 //		GWarn->Logf( TEXT( "---------- End (Object:%s) ----------" ), *Object->GetName() );
 
 		UE_LOG( LogEditableMesh, Verbose, TEXT( "------- ROLLING BACK PREVIEW CHANGE -------" ) );
-		TUniquePtr<FChange> UnusedChangeToUndoRevert = MoveTemp( PreviewRevertChange->Execute( Object ) );
+		TUniquePtr<FChange> UnusedChangeToUndoRevert = PreviewRevertChange->Execute( Object );
 		UE_LOG( LogEditableMesh, Verbose, TEXT( "------- END ROLL BACK PREVIEW CHANGE -------" ) );
 
 		// @todo mesheditor debug
@@ -4104,6 +4104,7 @@ void FMeshEditorMode::OnViewportInteractionInputAction( FEditorViewportClient& V
 				const bool bIsPlacingNewObjects = false;
 				const bool bAllowInterpolationWhenPlacing = true;
 				const bool bStartTransaction = false;
+				const bool bShouldUseLaserImpactDrag = true;
 				const bool bWithGrabberSphere = ( MeshEditorInteractorData.HoverInteractorShape == EInteractorShape::GrabberSphere );
 				ViewportWorldInteraction->StartDragging(
 					ActiveActionInteractor,
@@ -4111,6 +4112,7 @@ void FMeshEditorMode::OnViewportInteractionInputAction( FEditorViewportClient& V
 					MeshEditorInteractorData.HoverLocation,
 					bIsPlacingNewObjects,
 					bAllowInterpolationWhenPlacing,
+					bShouldUseLaserImpactDrag,
 					bStartTransaction,
 					bWithGrabberSphere );
 

@@ -9,7 +9,7 @@
 #include "OpenGLDrv.h"
 #include "OpenGLDrvPrivate.h"
 
-#if PLATFORM_HTML5_BROWSER
+#if PLATFORM_HTML5
 #include "HTML5JavaScriptFx.h"
 #endif
 
@@ -250,7 +250,7 @@ void FOpenGLESDeferred::ProcessQueryGLInt()
 			MaxDomainTextureImageUnits = 0;
 		}
 	}
-	
+
 	// No timestamps
 	//LOG_AND_GET_GL_QUERY_INT(GL_TIMESTAMP, 0, TimestampQueryBits);
 }
@@ -306,7 +306,8 @@ void FOpenGLESDeferred::ProcessExtensions( const FString& ExtensionsString )
 	bSupportsColorBufferFloat = ExtensionsString.Contains(TEXT("GL_EXT_color_buffer_float"));
 	bSupportsColorBufferHalfFloat = ExtensionsString.Contains(TEXT("GL_EXT_color_buffer_half_float"));
 	bSupportsNvImageFormats = ExtensionsString.Contains(TEXT("GL_NV_image_formats"));
-	bSupportsShaderFramebufferFetch = ExtensionsString.Contains(TEXT("GL_EXT_shader_framebuffer_fetch")) || ExtensionsString.Contains(TEXT("GL_NV_shader_framebuffer_fetch")) || ExtensionsString.Contains(TEXT("GL_ARM_shader_framebuffer_fetch"));
+	bSupportsShaderFramebufferFetch = ExtensionsString.Contains(TEXT("GL_EXT_shader_framebuffer_fetch")) || ExtensionsString.Contains(TEXT("GL_NV_shader_framebuffer_fetch")) 
+		|| ExtensionsString.Contains(TEXT("GL_ARM_shader_framebuffer_fetch ")); // has space at the end to exclude GL_ARM_shader_framebuffer_fetch_depth_stencil match
 	bRequiresUEShaderFramebufferFetchDef = ExtensionsString.Contains(TEXT("GL_EXT_shader_framebuffer_fetch"));
 	bSupportsShaderDepthStencilFetch = ExtensionsString.Contains(TEXT("GL_ARM_shader_framebuffer_fetch_depth_stencil"));
 	bSupportsMultisampledRenderToTexture = ExtensionsString.Contains(TEXT("GL_EXT_multisampled_render_to_texture"));
@@ -322,7 +323,7 @@ void FOpenGLESDeferred::ProcessExtensions( const FString& ExtensionsString )
 	bSupportsNVFrameBufferBlit = ExtensionsString.Contains(TEXT("GL_NV_framebuffer_blit"));
 	bSupportsPackedDepthStencil = ExtensionsString.Contains(TEXT("GL_OES_packed_depth_stencil"));
 	bSupportsShaderTextureLod = ExtensionsString.Contains(TEXT("GL_EXT_shader_texture_lod"));
-#if PLATFORM_HTML5_BROWSER
+#if PLATFORM_HTML5
 	// WebGL 1 extensions that were adopted to core WebGL 2 spec:
 	if (UE_BrowserWebGLVersion() == 2)
 	{
@@ -343,7 +344,7 @@ void FOpenGLESDeferred::ProcessExtensions( const FString& ExtensionsString )
 	UE_LOG(LogRHI, Log, TEXT("Fragment shader lowp precision: %d"), ShaderLowPrecision);
 	UE_LOG(LogRHI, Log, TEXT("Fragment shader mediump precision: %d"), ShaderMediumPrecision);
 	UE_LOG(LogRHI, Log, TEXT("Fragment shader highp precision: %d"), ShaderHighPrecision);
-	
+
 	// Test whether the GPU can support volume-texture rendering.
 	// There is no API to query this - you just have to test whether a 3D texture is framebuffer-complete.
 	if (!bES2Fallback)
@@ -380,7 +381,7 @@ void FOpenGLESDeferred::ProcessExtensions( const FString& ExtensionsString )
 		glDeleteTextures(1, &BGRA8888Texture);
 		glDeleteFramebuffers(1, &FrameBuffer);
 	}
-	
+
 	bSupportsCopyImage = ExtensionsString.Contains(TEXT("GL_EXT_copy_image"));
 }
 

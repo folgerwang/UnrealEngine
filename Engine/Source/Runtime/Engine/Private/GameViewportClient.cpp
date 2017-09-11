@@ -182,6 +182,14 @@ UGameViewportClient::UGameViewportClient(const FObjectInitializer& ObjectInitial
 		FCoreDelegates::StatEnabled.AddUObject(this, &UGameViewportClient::HandleViewportStatEnabled);
 		FCoreDelegates::StatDisabled.AddUObject(this, &UGameViewportClient::HandleViewportStatDisabled);
 		FCoreDelegates::StatDisableAll.AddUObject(this, &UGameViewportClient::HandleViewportStatDisableAll);
+
+#if WITH_EDITOR
+		if (GIsEditor)
+		{
+			FSlateApplication::Get().OnWindowDPIScaleChanged().AddUObject(this, &UGameViewportClient::HandleWindowDPIScaleChanged);
+		}
+#endif
+
 	}
 }
 
@@ -212,6 +220,14 @@ UGameViewportClient::~UGameViewportClient()
 	FCoreDelegates::StatEnabled.RemoveAll(this);
 	FCoreDelegates::StatDisabled.RemoveAll(this);
 	FCoreDelegates::StatDisableAll.RemoveAll(this);
+
+#if WITH_EDITOR
+	if (GIsEditor && FSlateApplication::IsInitialized())
+	{
+		FSlateApplication::Get().OnWindowDPIScaleChanged().RemoveAll(this);
+	}
+#endif
+
 	if (StatHitchesData)
 	{
 		delete StatHitchesData;
@@ -292,7 +308,14 @@ FString UGameViewportClient::ConsoleCommand( const FString& Command)
 
 void UGameViewportClient::SetEnabledStats(const TArray<FString>& InEnabledStats)
 {
-	EnabledStats = InEnabledStats;
+	if (FPlatformProcess::SupportsMultithreading())
+	{
+		EnabledStats = InEnabledStats;
+	}
+	else
+	{
+		UE_LOG(LogPlayerManagement, Warning, TEXT("WARNING: Stats disabled for non multi-threading platforms"));
+	}
 
 #if !UE_BUILD_SHIPPING
 	if (UWorld* MyWorld = GetWorld())
@@ -589,7 +612,7 @@ bool UGameViewportClient::InputMotion(FViewport* InViewport, int32 ControllerId,
 
 void UGameViewportClient::SetIsSimulateInEditorViewport(bool bInIsSimulateInEditorViewport)
 {
-#if PLATFORM_DESKTOP
+#if PLATFORM_DESKTOP || PLATFORM_HTML5
 	if (GetDefault<UInputSettings>()->bUseMouseForTouch)
 	{
 		FSlateApplication::Get().SetGameIsFakingTouchEvents(!bInIsSimulateInEditorViewport);
@@ -612,11 +635,25 @@ void UGameViewportClient::SetIsSimulateInEditorViewport(bool bInIsSimulateInEdit
 	}
 }
 
+float UGameViewportClient::GetViewportClientWindowDPIScale() const
+{
+	TSharedPtr<SWindow> PinnedWindow = Window.Pin();
+
+	float DPIScale = 1.0f;
+
+	if(PinnedWindow.IsValid() && PinnedWindow->GetNativeWindow().IsValid())
+	{
+		DPIScale = PinnedWindow->GetNativeWindow()->GetDPIScaleFactor();
+	}
+
+	return DPIScale;
+}
+
 void UGameViewportClient::MouseEnter(FViewport* InViewport, int32 x, int32 y)
 {
 	Super::MouseEnter(InViewport, x, y);
 
-#if PLATFORM_DESKTOP
+#if PLATFORM_DESKTOP || PLATFORM_HTML5
 	if (GetDefault<UInputSettings>()->bUseMouseForTouch && !GetGameViewport()->GetPlayInEditorIsSimulate())
 	{
 		FSlateApplication::Get().SetGameIsFakingTouchEvents(true);
@@ -648,7 +685,7 @@ void UGameViewportClient::MouseLeave(FViewport* InViewport)
 			FIntPoint LastViewportCursorPos;
 			InViewport->GetMousePos(LastViewportCursorPos, false);
 
-#if PLATFORM_DESKTOP
+#if PLATFORM_DESKTOP || PLATFORM_HTML5
 			FVector2D CursorPos(LastViewportCursorPos.X, LastViewportCursorPos.Y);
 			FSlateApplication::Get().SetGameIsFakingTouchEvents(false, &CursorPos);
 #endif
@@ -700,18 +737,6 @@ bool UGameViewportClient::GetMousePosition(FVector2D& MousePosition) const
 	return bGotMousePosition;
 }
 
-FVector2D UGameViewportClient::GetMousePosition() const
-{
-	FVector2D MousePosition;
-	if (!GetMousePosition(MousePosition))
-	{
-		MousePosition = FVector2D::ZeroVector;
-	}
-
-	return MousePosition;
-}
-
-
 bool UGameViewportClient::RequiresUncapturedAxisInput() const
 {
 	bool bRequired = false;
@@ -762,7 +787,7 @@ void UGameViewportClient::SetVirtualCursorWidget(EMouseCursor::Type Cursor, UUse
 	}
 }
 
-void UGameViewportClient::AddSoftwareCursor(EMouseCursor::Type Cursor, const FStringClassReference& CursorClass)
+void UGameViewportClient::AddSoftwareCursor(EMouseCursor::Type Cursor, const FSoftClassPath& CursorClass)
 {
 	if (ensureMsgf(CursorClass.IsValid(), TEXT("UGameViewportClient::AddCusor: Cursor class is not valid!")))
 	{
@@ -1030,7 +1055,8 @@ void UGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 	}
 
 	ESplitScreenType::Type SplitScreenConfig = GetCurrentSplitscreenConfiguration();
-	EngineShowFlagOverride(ESFIM_Game, (EViewModeIndex)ViewModeIndex, ViewFamily.EngineShowFlags, NAME_None, SplitScreenConfig != ESplitScreenType::None);
+	ViewFamily.ViewMode = EViewModeIndex(ViewModeIndex);
+	EngineShowFlagOverride(ESFIM_Game, ViewFamily.ViewMode, ViewFamily.EngineShowFlags, NAME_None, SplitScreenConfig != ESplitScreenType::None);
 
 	if (ViewFamily.EngineShowFlags.VisualizeBuffer && AllowDebugViewmodes())
 	{
@@ -1252,9 +1278,14 @@ void UGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 	
 	// If the views don't cover the entire bounding rectangle, clear the entire buffer.
 	bool bBufferCleared = false;
-	if ( ViewFamily.Views.Num() == 0 || TotalArea != (MaxX-MinX)*(MaxY-MinY) || bDisableWorldRendering )
+	if (ViewFamily.Views.Num() == 0 || TotalArea != (MaxX-MinX)*(MaxY-MinY) || bDisableWorldRendering)
 	{
-		SceneCanvas->Clear(FLinearColor::Black);
+		bool bStereoscopicPass = (ViewFamily.Views.Num() != 0 && ViewFamily.Views[0]->StereoPass != eSSP_FULL);
+		if (bDisableWorldRendering || !bStereoscopicPass) // TotalArea computation does not work correctly for stereoscopic views
+		{
+			SceneCanvas->Clear(FLinearColor::Transparent);
+		}
+		
 		bBufferCleared = true;
 	}
 
@@ -1393,10 +1424,6 @@ void UGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 
 		//ensure canvas has been flushed before rendering UI
 		SceneCanvas->Flush_GameThread();
-		if (DebugCanvas != NULL)
-		{
-			DebugCanvas->Flush_GameThread();
-		}
 
 		DrawnDelegate.Broadcast();
 
@@ -1584,7 +1611,7 @@ void UGameViewportClient::LostFocus(FViewport* InViewport)
 
 void UGameViewportClient::ReceivedFocus(FViewport* InViewport)
 {
-#if PLATFORM_DESKTOP
+#if PLATFORM_DESKTOP || PLATFORM_HTML5
 	if (GetDefault<UInputSettings>()->bUseMouseForTouch && GetGameViewport() && !GetGameViewport()->GetPlayInEditorIsSimulate())
 	{
 		FSlateApplication::Get().SetGameIsFakingTouchEvents(true);
@@ -1622,7 +1649,7 @@ void UGameViewportClient::CloseRequested(FViewport* InViewport)
 {
 	check(InViewport == Viewport);
 
-#if PLATFORM_DESKTOP
+#if PLATFORM_DESKTOP || PLATFORM_HTML5
 	FSlateApplication::Get().SetGameIsFakingTouchEvents(false);
 #endif
 	
@@ -1736,18 +1763,6 @@ ULocalPlayer* UGameViewportClient::SetupInitialLocalPlayer(FString& OutError)
 
 	// Create the initial player - this is necessary or we can't render anything in-game.
 	return ViewportGameInstance->CreateInitialPlayer(OutError);
-}
-
-ULocalPlayer* UGameViewportClient::CreatePlayer(int32 ControllerId, FString& OutError, bool bSpawnActor)
-{
-	UGameInstance * ViewportGameInstance = GEngine->GetWorldContextFromGameViewportChecked(this).OwningGameInstance;
-	return ( ViewportGameInstance != NULL ) ? ViewportGameInstance->CreateLocalPlayer(ControllerId, OutError, bSpawnActor) : NULL;
-}
-
-bool UGameViewportClient::RemovePlayer(class ULocalPlayer* ExPlayer)
-{
-	UGameInstance * ViewportGameInstance = GEngine->GetWorldContextFromGameViewportChecked(this).OwningGameInstance;
-	return (ViewportGameInstance != NULL) ? ViewportGameInstance->RemoveLocalPlayer(ExPlayer) : false;
 }
 
 void UGameViewportClient::UpdateActiveSplitscreenType()
@@ -3300,12 +3315,22 @@ void UGameViewportClient::HandleViewportStatDisableAll(const bool bInAnyViewport
 	}
 }
 
+void UGameViewportClient::HandleWindowDPIScaleChanged(TSharedRef<SWindow> InWindow)
+{
+#if WITH_EDITOR
+	if (InWindow == Window)
+	{
+		RequestUpdateEditorScreenPercentage();
+	}
+#endif
+}
+
 bool UGameViewportClient::SetHardwareCursor(EMouseCursor::Type CursorShape, FName GameContentPath, FVector2D HotSpot)
 {
 	TSharedPtr<FHardwareCursor> HardwareCursor = HardwareCursorCache.FindRef(GameContentPath);
 	if ( HardwareCursor.IsValid() == false )
 	{
-		HardwareCursor = MakeShared<FHardwareCursor>(FPaths::GameContentDir() / GameContentPath.ToString(), HotSpot);
+		HardwareCursor = MakeShared<FHardwareCursor>(FPaths::ProjectContentDir() / GameContentPath.ToString(), HotSpot);
 		if ( HardwareCursor->GetHandle() == nullptr )
 		{
 			return false;

@@ -19,6 +19,9 @@
 
 #if WITH_EDITOR
 #include "Editor.h"
+
+#include "HierarchicalLODUtilitiesModule.h"
+#include "ObjectTools.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "LODActor"
@@ -188,6 +191,7 @@ FString ALODActor::GetDetailedInfoInternal() const
 void ALODActor::PostLoad()
 {
 	Super::PostLoad();
+	StaticMeshComponent->MinDrawDistance = LODDrawDistance;
 	UpdateRegistrationToMatchMaximumLODLevel();
 
 #if WITH_EDITOR
@@ -413,9 +417,10 @@ void ALODActor::AddSubActor(AActor* InActor)
 		InActor->GetComponents<UStaticMeshComponent>(StaticMeshComponents);
 		for (UStaticMeshComponent* Component : StaticMeshComponents)
 		{
-			if (Component && Component->GetStaticMesh() && Component->GetStaticMesh()->RenderData)
+			const UStaticMesh* StaticMesh = (Component) ? Component->GetStaticMesh() : nullptr;
+			if (StaticMesh && StaticMesh->RenderData && StaticMesh->RenderData->LODResources.Num() > 0)
 			{
-				NumTrianglesInSubActors += Component->GetStaticMesh()->RenderData->LODResources[0].GetNumTriangles();
+				NumTrianglesInSubActors += StaticMesh->RenderData->LODResources[0].GetNumTriangles();
 			}
 			Component->MarkRenderStateDirty();
 		}
@@ -446,9 +451,10 @@ const bool ALODActor::RemoveSubActor(AActor* InActor)
 			InActor->GetComponents<UStaticMeshComponent>(StaticMeshComponents);
 			for (UStaticMeshComponent* Component : StaticMeshComponents)
 			{
-				if (Component && Component->GetStaticMesh() && Component->GetStaticMesh()->RenderData)
+				const UStaticMesh* StaticMesh = (Component) ? Component->GetStaticMesh() : nullptr;
+				if (StaticMesh && StaticMesh->RenderData && StaticMesh->RenderData->LODResources.Num() > 0)
 				{
-					NumTrianglesInSubActors -= Component->GetStaticMesh()->RenderData->LODResources[0].GetNumTriangles();
+					NumTrianglesInSubActors -= StaticMesh->RenderData->LODResources[0].GetNumTriangles();
 				}
 
 				Component->MarkRenderStateDirty();
@@ -531,6 +537,8 @@ void ALODActor::SetIsDirty(const bool bNewState)
 		{
 			GEditor->BroadcastHLODActorMarkedDirty(this);
 		}
+		PreviousSubObjects.Append(SubObjects);
+		SubObjects.Empty();
 #endif // WITH_EDITOR
 	}	
 	else
@@ -548,7 +556,21 @@ const bool ALODActor::HasValidSubActors() const
 	{
 		TInlineComponentArray<UStaticMeshComponent*> Components;
 		SubActor->GetComponents(/*out*/ Components);
+
+#if WITH_EDITOR
+		FHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<FHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
+		IHierarchicalLODUtilities* Utilities = Module.GetUtilities();
+
+		for (UStaticMeshComponent* Component : Components)
+		{
+			if (!Component->bHiddenInGame && Component->ShouldGenerateAutoLOD())
+			{
+				++NumMeshes;
+			}
+		}
+#else
 		NumMeshes += Components.Num();
+#endif
 
 		if (NumMeshes > 1)
 		{
@@ -618,9 +640,10 @@ void ALODActor::SetStaticMesh(class UStaticMesh* InStaticMesh)
 		StaticMeshComponent->SetStaticMesh(InStaticMesh);
 		SetIsDirty(false);
 
-		if (StaticMeshComponent && StaticMeshComponent->GetStaticMesh() && StaticMeshComponent->GetStaticMesh()->RenderData)
+		ensure(StaticMeshComponent->GetStaticMesh() == InStaticMesh);
+		if (InStaticMesh && InStaticMesh->RenderData && InStaticMesh->RenderData->LODResources.Num() > 0)
 		{
-			NumTrianglesInMergedMesh = StaticMeshComponent->GetStaticMesh()->RenderData->LODResources[0].GetNumTriangles();
+			NumTrianglesInMergedMesh = InStaticMesh->RenderData->LODResources[0].GetNumTriangles();
 		}
 	}
 }
@@ -748,10 +771,33 @@ void ALODActor::Serialize(FArchive& Ar)
 
 	bRequiresLODScreenSizeConversion = Ar.CustomVer(FFrameworkObjectVersion::GUID) < FFrameworkObjectVersion::LODsUseResolutionIndependentScreenSize;
 }
+
+void ALODActor::PreSave(const class ITargetPlatform* TargetPlatform)
+{
+	AActor::PreSave(TargetPlatform);
+	if (PreviousSubObjects.Num())
+	{
+		PreviousSubObjects.RemoveAll([](const UObject* Object) -> bool { return Object == nullptr; });
+		ObjectTools::DeleteObjectsUnchecked(PreviousSubObjects);
+		PreviousSubObjects.Empty();
+	}
+}
+
+void ALODActor::BeginDestroy()
+{
+	AActor::BeginDestroy();
+	if (PreviousSubObjects.Num())
+	{
+		for (UObject* Object : PreviousSubObjects)
+		{
+			if (Object)
+			{
+				Object->MarkPendingKill();
+			}
+		}
+		PreviousSubObjects.Empty();
+	}
+}
+
 #endif
-
-//////////////////////////////////////////////////////////////////////////
-// AHLODMeshCullingVolume
-
-
 #undef LOCTEXT_NAMESPACE

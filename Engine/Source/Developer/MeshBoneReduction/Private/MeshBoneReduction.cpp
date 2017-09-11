@@ -91,15 +91,19 @@ public:
 			// first gather indices. we don't want to add bones to replace if that "to-be-replace" will be removed as well
 			for (int32 Index = 0; Index < BonesToRemoveSetting.Num(); ++Index)
 			{
-				int32 BoneIndex = SkeletalMesh->RefSkeleton.FindBoneIndex(BonesToRemoveSetting[Index]);
-
-				// we don't allow root to be removed
-				if ( BoneIndex > 0 )
+				if (BonesToRemoveSetting[Index] != NAME_None)
 				{
-					BoneIndicesToRemove.AddUnique(BoneIndex);
-					// make sure all children for this joint is included
-					EnsureChildrenPresents(BoneIndex, RefBoneInfo, BoneIndicesToRemove);
+					int32 BoneIndex = SkeletalMesh->RefSkeleton.FindBoneIndex(BonesToRemoveSetting[Index]);
+
+					// we don't allow root to be removed
+					if (BoneIndex > 0)
+					{
+						BoneIndicesToRemove.AddUnique(BoneIndex);
+						// make sure all children for this joint is included
+						EnsureChildrenPresents(BoneIndex, RefBoneInfo, BoneIndicesToRemove);
+					}
 				}
+			
 			}
 		}
 
@@ -278,19 +282,30 @@ public:
 			TArray<FTransform> MultipliedRefBonePoses;
 			MultipliedRefBonePoses.AddDefaulted(RefBonePoses.Num());
 
+			const bool bDebugBonePoses = false;
+
 			TArray<int32> Processed;
 			Processed.SetNumZeroed(RefBonePoses.Num());
 			// Multiply out parent to child transforms for ref-pose
-			for (int32 BonePoseIndex = 1; BonePoseIndex < RefBonePoses.Num(); BonePoseIndex++)
+			for (int32 BonePoseIndex = 0; BonePoseIndex < RefBonePoses.Num(); BonePoseIndex++)
 			{
 				const int32 BoneIndex = SkeletalMesh->RefSkeleton.FindRawBoneIndex(BoneNames[BonePoseIndex]);
 				const int32 ParentIndex = SkeletalMesh->RefSkeleton.GetParentIndex(BoneIndex);
-				check(ParentIndex == 0 || Processed[ParentIndex] == 1);
-				MultipliedRefBonePoses[BoneIndex] = RefBonePoses[BoneIndex] * MultipliedRefBonePoses[ParentIndex];
-				MultipliedRefBonePoses[BoneIndex].NormalizeRotation();
+				MultipliedRefBonePoses[BoneIndex] = RefBonePoses[BoneIndex];
 
-				checkSlow(MultipliedRefBonePoses[BoneIndex].IsRotationNormalized());
-				checkSlow(!MultipliedRefBonePoses[BoneIndex].ContainsNaN());
+				if (ParentIndex != INDEX_NONE)
+				{
+					checkf(ParentIndex == 0 || Processed[ParentIndex] == 1, TEXT("Parent bone was not yet processed"));
+					UE_CLOG(bDebugBonePoses, LogMeshBoneReduction, Log, TEXT("Original: [%i]\n%s"), BonePoseIndex, *RefBonePoses[BoneIndex].ToHumanReadableString());
+
+					MultipliedRefBonePoses[BoneIndex] = MultipliedRefBonePoses[BoneIndex] * MultipliedRefBonePoses[ParentIndex];
+					MultipliedRefBonePoses[BoneIndex].NormalizeRotation();
+
+					UE_CLOG(bDebugBonePoses, LogMeshBoneReduction, Log, TEXT("Relative: [%i]\n%s"), BonePoseIndex, *MultipliedRefBonePoses[BoneIndex].ToHumanReadableString());
+					checkSlow(MultipliedRefBonePoses[BoneIndex].IsRotationNormalized());
+					checkSlow(!MultipliedRefBonePoses[BoneIndex].ContainsNaN());
+				}
+				
 
 				Processed[BoneIndex] = 1;
 			}
@@ -298,17 +313,24 @@ public:
 			Processed.Empty();
 			Processed.SetNumZeroed(BonePoses.Num());
 			// Multiply out parent to child transforms for bake-pose
-			for (int32 BonePoseIndex = 1; BonePoseIndex < BonePoses.Num(); BonePoseIndex++)
+			for (int32 BonePoseIndex = 0; BonePoseIndex < BonePoses.Num(); BonePoseIndex++)
 			{
 				const int32 BoneIndex = SkeletalMesh->RefSkeleton.FindRawBoneIndex(BoneNames[BonePoseIndex]);
 				const int32 ParentIndex = SkeletalMesh->RefSkeleton.GetParentIndex(BoneIndex);
-				check(ParentIndex == 0 || Processed[ParentIndex] == 1);
-				MultipliedBonePoses[BoneIndex] = BonePoses[BoneIndex] * MultipliedBonePoses[ParentIndex];
+				MultipliedBonePoses[BoneIndex] = BonePoses[BoneIndex];
+				if (ParentIndex != INDEX_NONE)
+				{
+					checkf(ParentIndex == 0 || Processed[ParentIndex] == 1, TEXT("Parent bone was not yet processed"));
+					UE_CLOG(bDebugBonePoses, LogMeshBoneReduction, Log, TEXT("Original: [%i]\n%s"), BonePoseIndex, *BonePoses[BoneIndex].ToHumanReadableString());
 
-				MultipliedBonePoses[BoneIndex].NormalizeRotation();
+					MultipliedBonePoses[BoneIndex] = MultipliedBonePoses[BoneIndex] * MultipliedBonePoses[ParentIndex];
+					MultipliedBonePoses[BoneIndex].NormalizeRotation();
 
-				checkSlow(MultipliedBonePoses[BoneIndex].IsRotationNormalized());
-				checkSlow(!MultipliedBonePoses[BoneIndex].ContainsNaN());
+					UE_CLOG(bDebugBonePoses, LogMeshBoneReduction, Log, TEXT("Relative: [%i]\n%s"), BonePoseIndex, *MultipliedBonePoses[BoneIndex].ToHumanReadableString());
+					checkSlow(MultipliedBonePoses[BoneIndex].IsRotationNormalized());
+					checkSlow(!MultipliedBonePoses[BoneIndex].ContainsNaN());
+				}
+
 				Processed[BoneIndex] = 1;
 			}
 
@@ -316,6 +338,7 @@ public:
 			for (int32 BoneIndex = 0; BoneIndex < NumBones; ++BoneIndex)
 			{
 				MultipliedBonePoses[BoneIndex] = MultipliedRefBonePoses[BoneIndex].Inverse() * MultipliedBonePoses[BoneIndex];
+				UE_CLOG(bDebugBonePoses, LogMeshBoneReduction, Log, TEXT("Final: [%i]\n%s"), BoneIndex, *MultipliedBonePoses[BoneIndex].ToHumanReadableString());
 			}
 		}
 		else
@@ -380,12 +403,19 @@ public:
 			{
 				for (const FBoneReference& BoneReference : SkeletalMesh->LODInfo[DesiredLOD].BonesToRemove)
 				{
-					BoneIndices.AddUnique(SkeletalMesh->RefSkeleton.FindRawBoneIndex(BoneReference.BoneName));
+					int32 BoneIndex = SkeletalMesh->RefSkeleton.FindRawBoneIndex(BoneReference.BoneName);
+					if (BoneIndex != INDEX_NONE)
+					{
+						BoneIndices.AddUnique(BoneIndex);
+					}
 				}
 
 				for (const TPair<FBoneIndexType, FBoneIndexType>& BonePair : BonesToRemove)
 				{
-					BoneIndices.AddUnique(BonePair.Key);
+					if (BonePair.Key != INDEX_NONE)
+					{
+						BoneIndices.AddUnique(BonePair.Key);
+					}
 				}
 
 				RetrieveBoneTransforms(SkeletalMesh, DesiredLOD, BoneIndices, RemovedBoneTransforms);

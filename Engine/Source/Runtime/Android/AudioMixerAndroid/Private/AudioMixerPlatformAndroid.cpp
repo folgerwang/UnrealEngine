@@ -41,6 +41,8 @@ DEFINE_LOG_CATEGORY(LogAudioMixerAndroid);
 		AUDIO_PLATFORM_ERROR(ErrorString);					\
 	}
 
+extern int32 AndroidThunkCpp_GetMetaDataInt(const FString& Key);
+
 namespace Audio
 {	
 	FMixerPlatformAndroid::FMixerPlatformAndroid()
@@ -162,7 +164,7 @@ namespace Audio
 		OutInfo.Name = TEXT("Android Audio Device");
 		OutInfo.DeviceId = 0;
 		OutInfo.bIsSystemDefault = true;
-		OutInfo.SampleRate = 44100; // We don't really know of a way to get sample rate from an android device
+		OutInfo.SampleRate = AndroidThunkCpp_GetMetaDataInt(TEXT("audiomanager.optimalSampleRate"));
 		OutInfo.NumChannels = 2; // Android doesn't support surround sound
 		OutInfo.Format = EAudioMixerStreamDataFormat::Int16;
 		OutInfo.OutputChannelArray.SetNum(2);
@@ -207,7 +209,7 @@ namespace Audio
 		SLDataFormat_PCM PCM_Format = {
 			SL_DATAFORMAT_PCM, 
 			(SLuint32)AudioStreamInfo.DeviceInfo.NumChannels,
-			(SLuint32)(Params.SampleRate * 1000), // NOTE: OpenSLES has sample rates specified in millihertz. 
+			(SLuint32)(AudioStreamInfo.DeviceInfo.SampleRate * 1000), // NOTE: OpenSLES has sample rates specified in millihertz. 
 			SL_PCMSAMPLEFORMAT_FIXED_16, 
 			SL_PCMSAMPLEFORMAT_FIXED_16, 
 			SL_SPEAKER_FRONT_LEFT | SL_SPEAKER_FRONT_RIGHT, 
@@ -309,8 +311,45 @@ namespace Audio
 
  	FAudioPlatformSettings FMixerPlatformAndroid::GetPlatformSettings() const
  	{
-		return FAudioPlatformSettings::GetPlatformSettings(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"));
- 	}
+		FAudioPlatformSettings PlatformSettings = FAudioPlatformSettings::GetPlatformSettings(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"));
+
+		// Override with platform-specific frames per buffer size
+		int32 MinFramesPerBuffer = AndroidThunkCpp_GetMetaDataInt(TEXT("audiomanager.framesPerBuffer"));
+
+		int32 BufferSizeToUse = MinFramesPerBuffer;
+		while (BufferSizeToUse < PlatformSettings.CallbackBufferFrameSize)
+		{
+			BufferSizeToUse += MinFramesPerBuffer;
+		}
+
+		PlatformSettings.CallbackBufferFrameSize = BufferSizeToUse;
+
+		return PlatformSettings;
+	}
+
+	static bool bSuspended = false;
+
+	void FMixerPlatformAndroid::SuspendContext()
+	{
+		if (!bSuspended)
+		{
+			bSuspended = true;
+			// set the player's state to paused
+			SLresult result = (*SL_PlayerPlayInterface)->SetPlayState(SL_PlayerPlayInterface, SL_PLAYSTATE_PAUSED);
+			check(SL_RESULT_SUCCESS == result);
+		}
+	}
+
+	void FMixerPlatformAndroid::ResumeContext()
+	{
+		// set the player's state to paused
+		if (bSuspended)
+		{
+			bSuspended = false;
+			SLresult result = (*SL_PlayerPlayInterface)->SetPlayState(SL_PlayerPlayInterface, SL_PLAYSTATE_PLAYING);
+			check(SL_RESULT_SUCCESS == result);
+		}
+	}
 
 	void FMixerPlatformAndroid::SubmitBuffer(const uint8* Buffer)
 	{
@@ -356,24 +395,6 @@ namespace Audio
 	FString FMixerPlatformAndroid::GetDefaultDeviceName()
 	{
 		return FString();
-	}
-
-	void FMixerPlatformAndroid::ResumeContext()
-	{
-		if (bSuspended)
-		{
-			UE_LOG(LogAudioMixerAndroid, Display, TEXT("Resuming Audio"));
-			bSuspended = false;
-		}
-	}
-	
-	void FMixerPlatformAndroid::SuspendContext()
-	{
-		if (!bSuspended)
-		{
-			UE_LOG(LogAudioMixerAndroid, Display, TEXT("Suspending Audio"));
-			bSuspended = true;
-		}
 	}
 
 	void FMixerPlatformAndroid::OpenSLBufferQueueCallback(SLAndroidSimpleBufferQueueItf InQueueInterface, void* pContext)

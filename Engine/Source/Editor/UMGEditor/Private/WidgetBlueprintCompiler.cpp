@@ -276,8 +276,8 @@ void FWidgetBlueprintCompiler::CreateClassVariablesFromBlueprint()
 		UProperty* WidgetProperty = CreateVariable(Widget->GetFName(), WidgetPinType);
 		if ( WidgetProperty != nullptr )
 		{
-			const FString VariableName = Widget->IsGeneratedName() ? Widget->GetName() : Widget->GetLabelText().ToString();
-			WidgetProperty->SetMetaData(TEXT("DisplayName"), *VariableName);
+			const FString DisplayName = Widget->IsGeneratedName() ? Widget->GetName() : Widget->GetLabelText().ToString();
+			WidgetProperty->SetMetaData(TEXT("DisplayName"), *DisplayName);
 			
 			// Only show variables if they're explicitly marked as variables.
 			if ( Widget->bIsVariable )
@@ -384,6 +384,11 @@ bool FWidgetBlueprintCompiler::CanAllowTemplate(FCompilerResultsLog& MessageLog,
 	{
 		MessageLog.Warning(*LOCTEXT("TemplatingAndNativization", "Nativization and Fast Widget Creation is not supported at this time.").ToString());
 
+		return false;
+	}
+
+	if (WidgetBP->bGenerateAbstractClass)
+	{
 		return false;
 	}
 

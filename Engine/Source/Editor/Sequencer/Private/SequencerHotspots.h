@@ -68,6 +68,7 @@ struct FSectionHotspot
 	virtual ESequencerHotspot GetType() const override { return ESequencerHotspot::Section; }
 	virtual void UpdateOnHover(SSequencerTrackArea& InTrackArea, ISequencer& InSequencer) const override;
 	virtual TOptional<float> GetTime() const override;
+	virtual TOptional<float> GetOffsetTime() const override;
 	virtual TSharedPtr<ISequencerEditToolDragOperation> InitiateDrag(ISequencer&) override { return nullptr; }
 	virtual bool PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer& Sequencer, float MouseDownTime) override;
 
@@ -133,19 +134,15 @@ struct FEasingAreaHandle
 
 /** A hotspot representing an easing area for multiple sections */
 struct FSectionEasingAreaHotspot
-	: ISequencerHotspot
+	: FSectionHotspot
 {
-	FSectionEasingAreaHotspot(const TArray<FEasingAreaHandle>& InEasings, FSectionHandle InVisibleSection) : Easings(InEasings), VisibleSection(InVisibleSection) {}
+	FSectionEasingAreaHotspot(const TArray<FEasingAreaHandle>& InEasings, FSectionHandle InVisibleSection) : FSectionHotspot(InVisibleSection), Easings(InEasings) {}
 
 	virtual ESequencerHotspot GetType() const override { return ESequencerHotspot::EasingArea; }
 	virtual bool PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer& Sequencer, float MouseDownTime) override;
-	virtual void UpdateOnHover(SSequencerTrackArea& InTrackArea, ISequencer& InSequencer) const override;
 
 	bool Contains(FSectionHandle InSection) const { return Easings.ContainsByPredicate([=](const FEasingAreaHandle& InHandle){ return InHandle.Section == InSection; }); }
 
 	/** Handles to the easings that exist on this hotspot */
 	TArray<FEasingAreaHandle> Easings;
-
-	/** Handle to the section that is visible at this time */
-	FSectionHandle VisibleSection;
 };

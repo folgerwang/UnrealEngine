@@ -22,9 +22,6 @@
 #include "UnrealEngine.h"
 #include "PhysicsPublic.h"
 #include "PhysicsEngine/BodySetup.h"
-#if WITH_BOX2D
-#include "PhysicsEngine/BodySetup2D.h"
-#endif
 #include "Logging/TokenizedMessage.h"
 #include "Logging/MessageLog.h"
 #include "Misc/UObjectToken.h"
@@ -205,6 +202,10 @@ UPrimitiveComponent::UPrimitiveComponent(const FObjectInitializer& ObjectInitial
 	LastCheckedAllCollideableDescendantsTime = 0.f;
 	
 	bApplyImpulseOnDamage = true;
+
+#if WITH_EDITORONLY_DATA
+	bEnableAutoLODGeneration = true;
+#endif // WITH_EDITORONLY_DATA
 }
 
 bool UPrimitiveComponent::UsesOnlyUnlitMaterials() const
@@ -483,13 +484,9 @@ void UPrimitiveComponent::OnUnregister()
 	if (!HasAnyFlags(RF_BeginDestroyed) && !IsUnreachable())
 	{
 		UWorld* World = GetWorld();
-		if (World)
+		if (World && World->Scene)
 		{
-			if (World->Scene)
-			{
-				World->Scene->ReleasePrimitive(this);
-			}
-			World->ClearActorComponentEndOfFrameUpdate(this);
+			World->Scene->ReleasePrimitive(this);
 		}
 	}
 
@@ -3203,9 +3200,14 @@ void UPrimitiveComponent::SetRenderInMono(bool bValue)
 
 void UPrimitiveComponent::SetLODParentPrimitive(UPrimitiveComponent * InLODParentPrimitive)
 {
-	// @todo, what do we do with old parent. We can't just reset undo parent because the parent migh be used by other primitive
-	LODParentPrimitive = InLODParentPrimitive;
-	MarkRenderStateDirty();
+#if WITH_EDITOR
+	if (ShouldGenerateAutoLOD())
+#endif
+	{
+		// @todo, what do we do with old parent. We can't just reset undo parent because the parent migh be used by other primitive
+		LODParentPrimitive = InLODParentPrimitive;
+		MarkRenderStateDirty();
+	}
 }
 
 UPrimitiveComponent* UPrimitiveComponent::GetLODParentPrimitive() const
@@ -3255,7 +3257,7 @@ void UPrimitiveComponent::SetCustomNavigableGeometry(const EHasCustomNavigableGe
 #if WITH_EDITOR
 const bool UPrimitiveComponent::ShouldGenerateAutoLOD() const
 {
-	return (Mobility != EComponentMobility::Movable);
+	return (Mobility != EComponentMobility::Movable) && bEnableAutoLODGeneration;
 }
 #endif 
 

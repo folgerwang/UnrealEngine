@@ -151,6 +151,8 @@ public:
 	virtual TSharedPtr<SWidget> BuildOutlinerEditWidget(const FGuid& ObjectBinding, UMovieSceneTrack* Track, const FBuildEditWidgetParams& Params) override;
 	virtual void BuildTrackContextMenu( FMenuBuilder& MenuBuilder, UMovieSceneTrack* Track ) override;
 	virtual bool HandleAssetAdded(UObject* Asset, const FGuid& TargetObjectGuid) override;
+	virtual bool OnAllowDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track) override;
+	virtual FReply OnDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track) override;
 
 	virtual void OnInitialize() override;
 	virtual void OnRelease() override;
@@ -160,7 +162,6 @@ public:
 	virtual bool SupportsType( TSubclassOf<class UMovieSceneTrack> TrackClass ) const = 0;
 	virtual bool SupportsSequence(UMovieSceneSequence* InSequence) const { return true; }
 	virtual void Tick(float DeltaTime) override;
-	virtual EMultipleRowMode GetMultipleRowMode() const { return EMultipleRowMode::SingleTrack; }
 
 protected:
 

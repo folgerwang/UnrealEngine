@@ -6,6 +6,8 @@
 
 #pragma once
 
+#define USE_IMAGE_ACQUIRE_FENCES	!PLATFORM_ANDROID
+
 namespace VulkanRHI
 {
 	class FFence;
@@ -21,7 +23,7 @@ public:
 
 	void Destroy();
 
-	bool Present(FVulkanQueue* Queue, FVulkanSemaphore* BackBufferRenderingDoneSemaphore);
+	bool Present(FVulkanQueue* GfxQueue, FVulkanQueue* PresentQueue, FVulkanSemaphore* BackBufferRenderingDoneSemaphore);
 
 protected:
 	VkSwapchainKHR SwapChain;
@@ -31,9 +33,13 @@ protected:
 
 	int32 CurrentImageIndex;
 	int32 SemaphoreIndex;
+	uint32 NumPresentCalls;
+	uint32 NumAcquireCalls;
 	VkInstance Instance;
 	TArray<FVulkanSemaphore*> ImageAcquiredSemaphore;
+#if USE_IMAGE_ACQUIRE_FENCES
 	TArray<VulkanRHI::FFence*> ImageAcquiredFences;
+#endif
 
 	int32 AcquireImageIndex(FVulkanSemaphore** OutSemaphore);
 

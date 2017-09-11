@@ -15,6 +15,8 @@
 #include "Editor/SceneOutliner/Public/SceneOutlinerModule.h"
 #include "AssetRegistryModule.h"
 #include "UserInterface/PropertyEditor/PropertyEditorAssetConstants.h"
+#include "HAL/PlatformApplicationMisc.h"
+#include "SceneOutlinerPublicTypes.h"
 
 #define LOCTEXT_NAMESPACE "PropertyEditor"
 
@@ -84,6 +86,9 @@ void SPropertyMenuActorPicker::Construct( const FArguments& InArgs )
 		InitOptions.Mode = ESceneOutlinerMode::ActorPicker;
 		InitOptions.Filters->AddFilterPredicate(ActorFilter);
 		InitOptions.bFocusSearchBoxWhenOpened = true;
+
+		InitOptions.ColumnMap.Add(SceneOutliner::FBuiltInColumnTypes::Label(), SceneOutliner::FColumnInfo(SceneOutliner::EColumnVisibility::Visible, 0) );
+		InitOptions.ColumnMap.Add(SceneOutliner::FBuiltInColumnTypes::ActorInfo(), SceneOutliner::FColumnInfo(SceneOutliner::EColumnVisibility::Visible, 10) );
 		
 		MenuContent =
 			SNew(SBox)
@@ -127,7 +132,7 @@ void SPropertyMenuActorPicker::OnCopy()
 
 	if( CurrentAssetData.IsValid() )
 	{
-		FPlatformMisc::ClipboardCopy(*CurrentAssetData.GetExportTextName());
+		FPlatformApplicationMisc::ClipboardCopy(*CurrentAssetData.GetExportTextName());
 	}
 	OnClose.ExecuteIfBound();
 }
@@ -135,7 +140,7 @@ void SPropertyMenuActorPicker::OnCopy()
 void SPropertyMenuActorPicker::OnPaste()
 {
 	FString DestPath;
-	FPlatformMisc::ClipboardPaste(DestPath);
+	FPlatformApplicationMisc::ClipboardPaste(DestPath);
 
 	if(DestPath == TEXT("None"))
 	{
@@ -155,7 +160,7 @@ void SPropertyMenuActorPicker::OnPaste()
 bool SPropertyMenuActorPicker::CanPaste()
 {
 	FString ClipboardText;
-	FPlatformMisc::ClipboardPaste(ClipboardText);
+	FPlatformApplicationMisc::ClipboardPaste(ClipboardText);
 
 	FString Class;
 	FString PossibleObjectPath = ClipboardText;

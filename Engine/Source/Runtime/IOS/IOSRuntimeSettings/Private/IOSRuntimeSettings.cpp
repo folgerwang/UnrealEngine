@@ -3,6 +3,7 @@
 #include "IOSRuntimeSettings.h"
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
+#include "Misc/EngineBuildSettings.h"
 
 
 UIOSRuntimeSettings::UIOSRuntimeSettings(const FObjectInitializer& ObjectInitializer)
@@ -56,22 +57,47 @@ void UIOSRuntimeSettings::PostEditChangeProperty(struct FPropertyChangedEvent& P
 	}
 
 	// Ensure that at least one API is supported
-	if (!bSupportsMetal && !bSupportsOpenGLES2 /*&& !bSupportsMetalMRT*/)
+	if (!bSupportsMetal)
 	{
-		bSupportsOpenGLES2 = true;
+		bSupportsMetal = true;
+		UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bSupportsMetal)), GetDefaultConfigFilename());
+	}
+	if (bSupportsOpenGLES2)
+	{
+		bSupportsOpenGLES2 = false;
 		UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bSupportsOpenGLES2)), GetDefaultConfigFilename());
 	}
 
 	// Ensure that at least arm64 is selected for shipping and dev
-	if (!bDevForArmV7 && !bDevForArm64 && !bDevForArmV7S)
+	if (!bDevForArm64)
 	{
 		bDevForArm64 = true;
 		UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bDevForArm64)), GetDefaultConfigFilename());
 	}
-	if (!bShipForArmV7 && !bShipForArm64 && !bShipForArmV7S)
+	if (bDevForArmV7)
+	{
+		bDevForArmV7 = false;
+		UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bDevForArmV7)), GetDefaultConfigFilename());
+	}
+	if (bDevForArmV7S)
+	{
+		bDevForArmV7S = false;
+		UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bDevForArmV7S)), GetDefaultConfigFilename());
+	}
+	if (!bShipForArm64)
 	{
 		bShipForArm64 = true;
 		UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bShipForArm64)), GetDefaultConfigFilename());
+	}
+	if (bShipForArmV7)
+	{
+		bShipForArmV7 = false;
+		UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bShipForArmV7)), GetDefaultConfigFilename());
+	}
+	if (bShipForArmV7S)
+	{
+		bShipForArmV7S = false;
+		UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bShipForArmV7S)), GetDefaultConfigFilename());
 	}
 }
 
@@ -91,9 +117,9 @@ void UIOSRuntimeSettings::PostInitProperties()
 		FPlatformMisc::GetEnvironmentVariable(TEXT("APPDATA"), Path, ARRAY_COUNT(Path));
 
 		TArray<FString> PossibleKeyLocations;
-		PossibleKeyLocations.Add(FPaths::Combine(*FPaths::GameDir(), TEXT("Build"), TEXT("NotForLicensees"), *RelativeFilePathLocation));
-		PossibleKeyLocations.Add(FPaths::Combine(*FPaths::GameDir(), TEXT("Build"), TEXT("NoRedist"), *RelativeFilePathLocation));
-		PossibleKeyLocations.Add(FPaths::Combine(*FPaths::GameDir(), TEXT("Build"), *RelativeFilePathLocation));
+		PossibleKeyLocations.Add(FPaths::Combine(*FPaths::ProjectDir(), TEXT("Build"), TEXT("NotForLicensees"), *RelativeFilePathLocation));
+		PossibleKeyLocations.Add(FPaths::Combine(*FPaths::ProjectDir(), TEXT("Build"), TEXT("NoRedist"), *RelativeFilePathLocation));
+		PossibleKeyLocations.Add(FPaths::Combine(*FPaths::ProjectDir(), TEXT("Build"), *RelativeFilePathLocation));
 		PossibleKeyLocations.Add(FPaths::Combine(*FPaths::EngineDir(), TEXT("Build"), TEXT("NotForLicensees"), *RelativeFilePathLocation));
 		PossibleKeyLocations.Add(FPaths::Combine(*FPaths::EngineDir(), TEXT("Build"), TEXT("NoRedist"), *RelativeFilePathLocation));
 		PossibleKeyLocations.Add(FPaths::Combine(*FPaths::EngineDir(), TEXT("Build"), *RelativeFilePathLocation));
@@ -111,10 +137,42 @@ void UIOSRuntimeSettings::PostInitProperties()
 		}
 	}
 
-	// switch IOS_6.1 and IOS_7 to IOS_8
-	if (MinimumiOSVersion < EIOSVersion::IOS_8)
+	// switch IOS_6.1, IOS_7, and IOS_8 to IOS_9
+	if (MinimumiOSVersion < EIOSVersion::IOS_9)
 	{
-		MinimumiOSVersion = EIOSVersion::IOS_8;
+		MinimumiOSVersion = EIOSVersion::IOS_9;
+	}
+	if (bSupportsOpenGLES2)
+	{
+		bSupportsOpenGLES2 = false;
+	}
+	if (bDevForArmV7)
+	{
+		bDevForArmV7 = false;
+	}
+	if (bDevForArmV7S)
+	{
+		bDevForArmV7S = false;
+	}
+	if (bShipForArmV7)
+	{
+		bShipForArmV7 = false;
+	}
+	if (bShipForArmV7S)
+	{
+		bShipForArmV7S = false;
+	}
+	if (!bSupportsMetal)
+	{
+		bSupportsMetal = true;
+	}
+	if (!bDevForArm64)
+	{
+		bDevForArm64 = true;
+	}
+	if (!bShipForArm64)
+	{
+		bShipForArm64 = true;
 	}
 }
 #endif

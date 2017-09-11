@@ -74,6 +74,8 @@ struct FBodySetupUVInfo
 /** Helper struct to indicate which geometry needs to be cooked */
 struct ENGINE_API FCookBodySetupInfo
 {
+	FCookBodySetupInfo();
+
 	/** Trimesh data for cooking */
 	FTriMeshCollisionData TriangleMeshDesc;
 
@@ -136,7 +138,7 @@ class UBodySetup : public UObject
 	FName BoneName;
 
 	/** 
-	 *	If Unfixed it will use physics. If fixed, it will use kinematic. Default will inherit from OwnerComponent's behavior.
+	 *	If simulated it will use physics, if kinematic it will not be affected by physics, but can interact with physically simulated bodies. Default will inherit from OwnerComponent's behavior.
 	 */
 	UPROPERTY(EditAnywhere, Category=Physics)
 	TEnumAsByte<EPhysicsType> PhysicsType;
@@ -397,15 +399,6 @@ public:
 	/** 
 	 *   Add the shapes defined by this body setup to the supplied PxRigidBody. 
 	 */
-	DEPRECATED(4.8, "Please call AddShapesToRigidActor_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
-	ENGINE_API void AddShapesToRigidActor(FBodyInstance* OwningInstance, physx::PxRigidActor* PDestActor, EPhysicsSceneType SceneType, FVector& Scale3D, physx::PxMaterial* SimpleMaterial, TArray<UPhysicalMaterial*>& ComplexMaterials, FShapeData& ShapeData, const FTransform& RelativeTM = FTransform::Identity, TArray<physx::PxShape*>* NewShapes = NULL)
-	{
-		AddShapesToRigidActor_AssumesLocked(OwningInstance, PDestActor, SceneType, Scale3D, SimpleMaterial, ComplexMaterials, ShapeData, RelativeTM, NewShapes);
-	}
-
-	/** 
-	 *   Add the shapes defined by this body setup to the supplied PxRigidBody. 
-	 */
 	ENGINE_API void AddShapesToRigidActor_AssumesLocked(FBodyInstance* OwningInstance, physx::PxRigidActor* PDestActor, EPhysicsSceneType SceneType, FVector& Scale3D, physx::PxMaterial* SimpleMaterial, TArray<UPhysicalMaterial*>& ComplexMaterials, FShapeData& ShapeData, const FTransform& RelativeTM = FTransform::Identity, TArray<physx::PxShape*>* NewShapes = NULL, bool bShapeSharing = false);
 #endif // WITH_PHYSX
 
@@ -421,6 +414,9 @@ struct ENGINE_API FBodySetupShapeIterator
 	/** Iterates over the elements array and creates the needed geometry and local pose. Note that this memory is on the stack so it's illegal to use it by reference outside the lambda */
 	template <typename ElemType, typename GeomType>
 	void ForEachShape(const TArray<ElemType>& Elements, TFunctionRef<void(const ElemType& Elem, const GeomType& Geom, const physx::PxTransform& LocalPose, float ContactOffset)> VisitorFunc) const;
+
+	/** Helper function to determine contact offset params */
+	static void GetContactOffsetParams(float& InOutContactOffsetFactor, float& InOutMinContactOffset, float& InOutMaxContactOffset);
 
 private:
 

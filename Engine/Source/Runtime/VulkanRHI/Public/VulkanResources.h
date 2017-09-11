@@ -30,6 +30,7 @@ namespace VulkanRHI
 {
 	class FDeviceMemoryAllocation;
 	class FOldResourceAllocation;
+	struct FPendingBufferLock;
 }
 
 enum
@@ -193,16 +194,17 @@ public:
 		uint32 NumMips,
 		uint32 NumSamples,
 		uint32 UEFlags,
+		VkMemoryRequirements& OutMemoryRequirements,
 		VkFormat* OutStorageFormat = nullptr,
 		VkFormat* OutViewFormat = nullptr,
 		VkImageCreateInfo* OutInfo = nullptr,
-		VkMemoryRequirements* OutMemoryRequirements = nullptr,
 		bool bForceLinearTexture = false);
 
 	FVulkanSurface(FVulkanDevice& Device, VkImageViewType ResourceType, EPixelFormat Format,
 					uint32 SizeX, uint32 SizeY, uint32 SizeZ, bool bArray, uint32 ArraySize,
 					uint32 NumMips, uint32 NumSamples, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo);
 
+	// Constructor for externally owned Image
 	FVulkanSurface(FVulkanDevice& Device, VkImageViewType ResourceType, EPixelFormat Format,
 					uint32 SizeX, uint32 SizeY, uint32 SizeZ, VkImage InImage,
 					uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo);
@@ -228,7 +230,10 @@ public:
 	/**
 	 * Returns how much memory is used by the surface
 	 */
-	uint32 GetMemorySize();
+	uint32 GetMemorySize() const
+	{
+		return MemoryRequirements.size;
+	}
 
 	/**
 	 * Returns one of the texture's mip-maps stride.
@@ -281,11 +286,15 @@ public:
 	EPixelFormat PixelFormat;
 	uint32 UEFlags;
 	VkMemoryPropertyFlags MemProps;
+	VkMemoryRequirements MemoryRequirements;
+
+	static void InternalLockWrite(FVulkanCommandListContext& Context, FVulkanSurface* Surface, const VkImageSubresourceRange& SubresourceRange, const VkBufferImageCopy& Region, VulkanRHI::FStagingBuffer* StagingBuffer);
 
 private:
 
 	// Used to clear render-target objects on creation
-	void InitialClear(const FClearValueBinding& ClearValueBinding, bool bTransitionToPresentable);
+	void InitialClear(FVulkanCommandListContext& Context, const FClearValueBinding& ClearValueBinding, bool bTransitionToPresentable);
+	friend struct FRHICommandInitialClearTexture;
 
 private:
 	VkImageTiling Tiling;
@@ -464,8 +473,6 @@ public:
 	{
 		return (FVulkanTextureBase*)this;
 	}
-
-	FVulkanTexture2DArray* Texture2DArray;
 };
 
 class FVulkanTextureCube : public FRHITextureCube, public FVulkanTextureBase
@@ -622,16 +629,24 @@ public:
 	FInfo Infos[NUM_RENDER_BUFFERS];
 };
 
-class FVulkanOcclusionQueryPool : public FVulkanQueryPool
+class FVulkanBufferedQueryPool : public FVulkanQueryPool
 {
 public:
-	FVulkanOcclusionQueryPool(FVulkanDevice* InDevice, uint32 InNumQueries)
-		: FVulkanQueryPool(InDevice, InNumQueries, VK_QUERY_TYPE_OCCLUSION)
+	FVulkanBufferedQueryPool(FVulkanDevice* InDevice, uint32 InNumQueries, VkQueryType InQueryType)
+		: FVulkanQueryPool(InDevice, InNumQueries, InQueryType)
 		, LastBeginIndex(0)
 	{
 		QueryOutput.SetNum(InNumQueries);
 		UsedQueryBits.AddZeroed((InNumQueries + 63) / 64);
+		StartedQueryBits.AddZeroed((InNumQueries + 63) / 64);
 		ReadResultsBits.AddZeroed((InNumQueries + 63) / 64);
+	}
+
+	void MarkQueryAsStarted(uint32 QueryIndex)
+	{
+		uint32 Word = QueryIndex / 64;
+		uint64 Bit = (uint64)1 << (QueryIndex % 64);
+		StartedQueryBits[Word] = StartedQueryBits[Word] | Bit;
 	}
 
 	bool AcquireQuery(uint32& OutIndex)
@@ -671,7 +686,9 @@ public:
 		{
 			// Use the lowest word available
 			const uint64 AllUsedMask = (uint64)-1;
-			if (UsedQueryBits[LastBeginIndex / 64] == AllUsedMask)
+			const uint64 LastQueryWord = LastBeginIndex / 64;
+			if (LastQueryWord >= UsedQueryBits.Num()
+				|| UsedQueryBits[LastQueryWord] == AllUsedMask)
 			{
 				LastBeginIndex = QueryIndex;
 			}
@@ -697,6 +714,7 @@ public:
 			const uint32 Word = CurrentQueryIndex / 64;
 			const uint64 Bit = (uint64)1 << (CurrentQueryIndex % 64);
 			ReadResultsBits[Word] = ReadResultsBits[Word] & ~Bit;
+			StartedQueryBits[Word] = StartedQueryBits[Word] & ~Bit;
 		}
 	}
 
@@ -718,6 +736,7 @@ public:
 
 protected:
 	TArray<uint64> UsedQueryBits;
+	TArray<uint64> StartedQueryBits;
 	TArray<uint64> ReadResultsBits;
 
 	// Last potentially free index in the pool
@@ -733,16 +752,30 @@ public:
 	virtual ~FVulkanRenderQuery();
 
 private:
+
+	enum
+	{
+		NumQueries = NUM_RENDER_BUFFERS
+	};
+	
+	int32 CurrentQueryIdx;
+
 	// Actual index and pool filled in after RHIBeginOcclusionQueryBatch
-	FVulkanQueryPool* QueryPool;
-	int32 QueryIndex;
+	FVulkanQueryPool* QueryPools[NumQueries];
+	FVulkanQueryPool* GetActiveQueryPool() const { return QueryPools[CurrentQueryIdx]; }
+	void SetActiveQueryPool(FVulkanQueryPool* Pool) { QueryPools[CurrentQueryIdx] = Pool; }
+	
+	int32 QueryIndices[NumQueries];
+	int32 GetActiveQueryIndex() const { return QueryIndices[CurrentQueryIdx]; }
+	void SetActiveQueryIndex(int32 QueryIndex) { QueryIndices[CurrentQueryIdx] = QueryIndex; }
+	void AdvanceQueryIndex() { CurrentQueryIdx = (CurrentQueryIdx + 1) % NumQueries; }
 
 	ERenderQueryType QueryType;
 	FVulkanCmdBuffer* CurrentCmdBuffer;
 
 	friend class FVulkanDynamicRHI;
 	friend class FVulkanCommandListContext;
-	friend class FVulkanOcclusionQueryPool;
+	friend class FVulkanBufferedQueryPool;
 
 	void Begin(FVulkanCmdBuffer* CmdBuffer);
 	void End(FVulkanCmdBuffer* CmdBuffer);
@@ -754,6 +787,8 @@ struct FVulkanBufferView : public FRHIResource, public VulkanRHI::FDeviceChild
 		: VulkanRHI::FDeviceChild(InDevice)
 		, View(VK_NULL_HANDLE)
 		, Flags(0)
+        , Offset(0)
+        , Size(0)
 	{
 	}
 
@@ -764,10 +799,15 @@ struct FVulkanBufferView : public FRHIResource, public VulkanRHI::FDeviceChild
 
 	void Create(FVulkanBuffer& Buffer, EPixelFormat Format, uint32 Offset, uint32 Size);
 	void Create(FVulkanResourceMultiBuffer* Buffer, EPixelFormat Format, uint32 Offset, uint32 Size);
+	void Create(VkFormat Format, FVulkanResourceMultiBuffer* Buffer, uint32 Offset, uint32 Size);
 	void Destroy();
 
 	VkBufferView View;
 	VkFlags Flags;
+
+    // For Caching
+    uint32 Offset;
+    uint32 Size;
 };
 
 class FVulkanBuffer : public FRHIResource
@@ -904,13 +944,23 @@ public:
 		return Buffers[DynamicBufferIndex]->GetOffset();
 	}
 
-	VkBufferUsageFlags GetBufferUsageFlags() const
+	inline VkBufferUsageFlags GetBufferUsageFlags() const
 	{
 		return BufferUsageFlags;
 	}
 
-	void* Lock(EResourceLockMode LockMode, uint32 Size, uint32 Offset);
-	void Unlock();
+	void* Lock(bool bFromRenderingThread, EResourceLockMode LockMode, uint32 Size, uint32 Offset);
+	void Unlock(bool bFromRenderingThread);
+
+    inline int32 GetNumberBuffers() const
+    {
+        return NumBuffers;
+    }
+
+    inline uint32 GetBufferIndex() const
+    {
+        return DynamicBufferIndex;
+    }
 
 protected:
 	uint32 UEUsage;
@@ -919,7 +969,11 @@ protected:
 	uint32 DynamicBufferIndex;
 	TArray<TRefCountPtr<VulkanRHI::FBufferSuballocation>> Buffers;
 	VulkanRHI::FTempFrameAllocationBuffer::FTempAllocInfo VolatileLockInfo;
+
+	static void InternalUnlock(FVulkanCommandListContext& Context, VulkanRHI::FPendingBufferLock& PendingLock, FVulkanResourceMultiBuffer* MultiBuffer, int32 InDynamicBufferIndex);
+
 	friend class FVulkanCommandListContext;
+	friend struct FRHICommandMultiBufferUnlock;
 };
 
 class FVulkanIndexBuffer : public FRHIIndexBuffer, public FVulkanResourceMultiBuffer
@@ -958,10 +1012,10 @@ private:
 };
 
 
-class FVulkanStructuredBuffer : public FRHIStructuredBuffer
+class FVulkanStructuredBuffer : public FRHIStructuredBuffer, public FVulkanResourceMultiBuffer
 {
 public:
-	FVulkanStructuredBuffer(uint32 Stride, uint32 Size, FResourceArrayInterface* ResourceArray, uint32 InUsage);
+	FVulkanStructuredBuffer(FVulkanDevice* InDevice, uint32 Stride, uint32 Size, FRHIResourceCreateInfo& CreateInfo, uint32 InUsage);
 
 	~FVulkanStructuredBuffer();
 
@@ -983,6 +1037,8 @@ public:
 	{
 	}
 
+	~FVulkanUnorderedAccessView();
+
 	void UpdateView();
 
 	// The texture that this UAV come from
@@ -992,6 +1048,7 @@ public:
 
 	// The vertex buffer this UAV comes from (can be null)
 	TRefCountPtr<FVulkanVertexBuffer> SourceVertexBuffer;
+	TRefCountPtr<FVulkanIndexBuffer> SourceIndexBuffer;
 	TRefCountPtr<FVulkanBufferView> BufferView;
 	EPixelFormat BufferViewFormat;
 
@@ -1009,26 +1066,37 @@ public:
 		, BufferViewFormat(PF_Unknown)
 		, MipLevel(0)
 		, NumMips(-1)
+		, BufferViewIndex(0)
 		, VolatileLockCounter(MAX_uint32)
 	{
 	}
 
 	void UpdateView();
 
-	// The vertex buffer this SRV comes from (can be null)
-	TRefCountPtr<FVulkanBufferView> BufferView;
-	TRefCountPtr<FVulkanVertexBuffer> SourceVertexBuffer;
+    inline FVulkanBufferView* GetBufferView()
+    {
+        check(BufferViews.Num() > BufferViewIndex);
+        return BufferViews[BufferViewIndex];
+    }
+
+   	TRefCountPtr<FVulkanVertexBuffer> SourceVertexBuffer;
+	TRefCountPtr<FVulkanIndexBuffer> SourceIndexBuffer;
 	EPixelFormat BufferViewFormat;
 
 	// The texture that this SRV come from
 	TRefCountPtr<FRHITexture> SourceTexture;
 	FVulkanTextureView TextureView;
+	FVulkanStructuredBuffer* SourceStructuredBuffer = nullptr;
 	uint32 MipLevel;
 	uint32 NumMips;
 
 	~FVulkanShaderResourceView();
 
 protected:
+	// The vertex buffer this SRV comes from (can be null)
+	TArray<TRefCountPtr<FVulkanBufferView>> BufferViews;
+    int32 BufferViewIndex;
+
 	// Used to check on volatile buffers if a new BufferView is required
 	uint32 VolatileLockCounter;
 };
@@ -1092,7 +1160,7 @@ public:
 	{
 	}
 
-	void Init(const FVulkanCodeHeader* InCodeHeader, uint64& OutPackedUniformBufferStagingMask)
+	void Init(const FVulkanCodeHeader* InCodeHeader, uint64& OutPackedUniformBufferStagingMask, uint64& OutUniformBuffersWithDataMask)
 	{
 		CodeHeader = InCodeHeader;
 		PackedUniformBuffers.AddDefaulted(CodeHeader->NEWPackedGlobalUBSizes.Num());
@@ -1102,6 +1170,7 @@ public:
 		}
 
 		OutPackedUniformBufferStagingMask = ((uint64)1 << (uint64)CodeHeader->NEWPackedGlobalUBSizes.Num()) - 1;
+		OutUniformBuffersWithDataMask = InCodeHeader->UniformBuffersWithDescriptorMask;
 	}
 
 	inline void SetPackedGlobalParameter(uint32 BufferIndex, uint32 ByteOffset, uint32 NumBytes, const void* NewValue, uint64& InOutPackedUniformBufferStagingDirty)

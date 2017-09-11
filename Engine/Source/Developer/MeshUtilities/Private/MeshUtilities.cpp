@@ -125,6 +125,18 @@ static TAutoConsoleVariable<int32> CVarTriangleOrderOptimization(
 	TEXT("2: No triangle order optimization. (least efficient, debugging purposes only)"),
 	ECVF_Default);
 
+static TAutoConsoleVariable<int32> CVarSupportDepthOnlyIndexBuffers(
+	TEXT("r.SupportDepthOnlyIndexBuffers"),
+	1,
+	TEXT("Enables depth-only index buffers. Saves a little time at the expense of doubling the size of index buffers."),
+	ECVF_ReadOnly | ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<int32> CVarSupportReversedIndexBuffers(
+	TEXT("r.SupportReversedIndexBuffers"),
+	1,
+	TEXT("Enables reversed index buffers. Saves a little time at the expense of doubling the size of index buffers."),
+	ECVF_ReadOnly | ECVF_RenderThreadSafe);
+
 IMPLEMENT_MODULE(FMeshUtilities, MeshUtilities);
 
 /*------------------------------------------------------------------------------
@@ -3106,9 +3118,9 @@ public:
 				}
 			}
 			LODModel.IndexBuffer.SetIndices(CombinedIndices, bNeeds32BitIndices ? EIndexBufferStride::Force32Bit : EIndexBufferStride::Force16Bit);
-
+			
 			// Build the reversed index buffer.
-			if (InOutModels[0].BuildSettings.bBuildReversedIndexBuffer)
+			if (InOutModels[0].BuildSettings.bBuildReversedIndexBuffer && MeshUtilities.bEnableReversedIndexBuffer)
 			{
 				TArray<uint32> InversedIndices;
 				const int32 IndexCount = CombinedIndices.Num();
@@ -3129,13 +3141,14 @@ public:
 
 			// Build the depth-only index buffer.
 			TArray<uint32> DepthOnlyIndices;
+			if (MeshUtilities.bEnableDepthOnlyIndexBuffer)
 			{
 				BuildDepthOnlyIndexBuffer(
 					DepthOnlyIndices,
 					Vertices,
 					CombinedIndices,
 					LODModel.Sections
-					);
+				);
 
 				if (DepthOnlyIndices.Num() < 50000 * 3)
 				{
@@ -3146,7 +3159,7 @@ public:
 			}
 
 			// Build the inversed depth only index buffer.
-			if (InOutModels[0].BuildSettings.bBuildReversedIndexBuffer)
+			if (InOutModels[0].BuildSettings.bBuildReversedIndexBuffer && MeshUtilities.bEnableDepthOnlyIndexBuffer && MeshUtilities.bEnableReversedIndexBuffer)
 			{
 				TArray<uint32> ReversedDepthOnlyIndices;
 				const int32 IndexCount = DepthOnlyIndices.Num();
@@ -5325,16 +5338,21 @@ void FMeshUtilities::StartupModule()
 
 	bUsingNvTriStrip = !bDisableTriangleOrderOptimization && (CVarTriangleOrderOptimization.GetValueOnGameThread() == 0);
 
+	bEnableDepthOnlyIndexBuffer = (CVarSupportDepthOnlyIndexBuffers.GetValueOnGameThread() == 1);
+	bEnableReversedIndexBuffer = (CVarSupportReversedIndexBuffers.GetValueOnGameThread() == 1);
+
 	IMeshReductionManagerModule& Module = FModuleManager::Get().LoadModuleChecked<IMeshReductionManagerModule>("MeshReductionInterface");
 	IMeshReduction* StaticMeshReduction = Module.GetStaticMeshReductionInterface();
 	
 
 	// Construct and cache the version string for the mesh utilities module.
 	VersionString = FString::Printf(
-		TEXT("%s%s%s"),
+		TEXT("%s%s%s%s%s"),
 		MESH_UTILITIES_VER,
 		StaticMeshReduction ? *StaticMeshReduction->GetVersionString() : TEXT(""),
-		bUsingNvTriStrip ? TEXT("_NvTriStrip") : TEXT("")
+		bUsingNvTriStrip ? TEXT("_NvTriStrip") : TEXT(""),
+		bEnableDepthOnlyIndexBuffer ? TEXT("_DepthOnlyIB") : TEXT("_NoDepthOnlyIB"),
+		bEnableReversedIndexBuffer ? TEXT("_ReversedIB") : TEXT("_NoReversedIB")
 		);
 
 	// hook up level editor extension for skeletal mesh conversion
@@ -5501,7 +5519,7 @@ TSharedRef<FExtender> FMeshUtilities::GetAnimationBlueprintEditorToolbarExtender
 {
 	TSharedRef<FExtender> Extender = MakeShareable(new FExtender);
 
-	UMeshComponent* MeshComponent = Cast<UMeshComponent>(InAnimationBlueprintEditor->GetPersonaToolkit()->GetPreviewMeshComponent());
+	UMeshComponent* MeshComponent = InAnimationBlueprintEditor->GetPersonaToolkit()->GetPreviewMeshComponent();
 
 	Extender->AddToolBarExtension(
 		"Asset",
@@ -5536,7 +5554,7 @@ TSharedRef<FExtender> FMeshUtilities::GetAnimationEditorToolbarExtender(const TS
 {
 	TSharedRef<FExtender> Extender = MakeShareable(new FExtender);
 
-	UMeshComponent* MeshComponent = Cast<UMeshComponent>(InAnimationEditor->GetPersonaToolkit()->GetPreviewMeshComponent());
+	UMeshComponent* MeshComponent = InAnimationEditor->GetPersonaToolkit()->GetPreviewMeshComponent();
 
 	Extender->AddToolBarExtension(
 		"Asset",
@@ -5571,7 +5589,7 @@ TSharedRef<FExtender> FMeshUtilities::GetSkeletalMeshEditorToolbarExtender(const
 {
 	TSharedRef<FExtender> Extender = MakeShareable(new FExtender);
 
-	UMeshComponent* MeshComponent = Cast<UMeshComponent>(InSkeletalMeshEditor->GetPersonaToolkit()->GetPreviewMeshComponent());
+	UMeshComponent* MeshComponent = InSkeletalMeshEditor->GetPersonaToolkit()->GetPreviewMeshComponent();
 
 	Extender->AddToolBarExtension(
 		"Asset",
@@ -5606,7 +5624,7 @@ TSharedRef<FExtender> FMeshUtilities::GetSkeletonEditorToolbarExtender(const TSh
 {
 	TSharedRef<FExtender> Extender = MakeShareable(new FExtender);
 
-	UMeshComponent* MeshComponent = Cast<UMeshComponent>(InSkeletonEditor->GetPersonaToolkit()->GetPreviewMeshComponent());
+	UMeshComponent* MeshComponent = InSkeletonEditor->GetPersonaToolkit()->GetPreviewMeshComponent();
 
 	Extender->AddToolBarExtension(
 		"Asset",

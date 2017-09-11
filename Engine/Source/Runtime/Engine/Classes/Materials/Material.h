@@ -634,7 +634,7 @@ public:
 	 * Indicates that the material and its instances can be use with distortion
 	 * This will result in the shaders required to support distortion being compiled which will increase shader compile time and memory usage.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Usage)
+	UPROPERTY()
 	uint32 bUsesDistortion:1;
 
 	/** 
@@ -1493,7 +1493,7 @@ private:
 	template<typename ExpressionType>
 	ExpressionType* FindExpressionByGUIDRecursive(const FGuid &InGUID, const TArray<UMaterialExpression*>& InMaterialExpression)
 	{
-		for (int32 ExpressionIndex = 0; ExpressionIndex < InMaterialExpression.Num(); ++ExpressionIndex)
+		for (int32 ExpressionIndex = 0; ExpressionIndex < InMaterialExpression.Num(); ExpressionIndex++)
 		{
 			UMaterialExpression* ExpressionPtr = InMaterialExpression[ExpressionIndex];
 			UMaterialExpressionMaterialFunctionCall* MaterialFunctionCall = Cast<UMaterialExpressionMaterialFunctionCall>(ExpressionPtr);

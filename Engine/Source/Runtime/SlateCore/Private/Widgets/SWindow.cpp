@@ -5,6 +5,7 @@
 #include "Application/SlateApplicationBase.h"
 #include "Layout/WidgetPath.h"
 #include "Input/HittestGrid.h"
+#include "HAL/PlatformApplicationMisc.h"
 
 namespace SWindowDefs
 {
@@ -260,9 +261,6 @@ void SWindow::Construct(const FArguments& InArgs)
 	// If the window has no OS border, simulate it ourselves, enlarging window by the size that OS border would have.
 	FVector2D WindowSize = GetWindowSizeFromClientSize(InArgs._ClientSize);
 
-	// Get change in size resulting from the above call
-	const FVector2D DeltaSize = WindowSize - InArgs._ClientSize;
-
 	// calculate initial window position
 	FVector2D WindowPosition = InArgs._ScreenPosition;
 
@@ -334,6 +332,12 @@ void SWindow::Construct(const FArguments& InArgs)
 			break;
 		}
 
+		float RectDPIScale = 1.0f;
+		if (InArgs._AdjustInitialSizeAndPositionForDPIScale)
+		{
+			RectDPIScale = FPlatformApplicationMisc::GetDPIScaleFactorAtPoint(PrimaryDisplayRect.Left, PrimaryDisplayRect.Top);
+		}
+
 		if (InArgs._SaneWindowPlacement)
 		{
 			// Clamp window size to be no greater than the work area size
@@ -344,11 +348,32 @@ void SWindow::Construct(const FArguments& InArgs)
 		// Setup a position and size for the main frame window that's centered in the desktop work area
 		const FVector2D DisplayTopLeft( AutoCenterRect.Left, AutoCenterRect.Top );
 		const FVector2D DisplaySize( AutoCenterRect.Right - AutoCenterRect.Left, AutoCenterRect.Bottom - AutoCenterRect.Top );
-		WindowPosition = DisplayTopLeft + ( DisplaySize - WindowSize ) * 0.5f;
+		WindowPosition = DisplayTopLeft + ( DisplaySize - (WindowSize * RectDPIScale)) * 0.5f;
 
 		// Don't allow the window to center to outside of the work area
 		WindowPosition.X = FMath::Max(WindowPosition.X, AutoCenterRect.Left);
 		WindowPosition.Y = FMath::Max(WindowPosition.Y, AutoCenterRect.Top);
+	}
+
+	FVector2D DeltaSize;
+	if(InArgs._AdjustInitialSizeAndPositionForDPIScale)
+	{
+		const float DPIScale = FPlatformApplicationMisc::GetDPIScaleFactorAtPoint(WindowPosition.X, WindowPosition.Y);
+
+		// Auto centering code will have taken care of the adjustment earlier
+		if (AutoCenterRule == EAutoCenter::None)
+		{
+			WindowPosition *= DPIScale;
+		}
+
+		WindowSize *= DPIScale;
+
+		// Get change in size resulting from the above call
+		DeltaSize = WindowSize - InArgs._ClientSize*DPIScale;
+	}
+	else
+	{
+		DeltaSize = WindowSize - InArgs._ClientSize;
 	}
 
 #if PLATFORM_HTML5 
@@ -400,6 +425,7 @@ TSharedRef<SWindow> SWindow::MakeToolTipWindow()
 		.Type( EWindowType::ToolTip )
 		.IsPopupWindow( true )
 		.IsTopmostWindow(true)
+		.AdjustInitialSizeAndPositionForDPIScale(false)
 		.SizingRule(ESizingRule::Autosized)
 		.SupportsTransparency( EWindowTransparency::PerWindow )
 		.FocusWhenFirstShown( false )
@@ -883,7 +909,7 @@ void SWindow::Resize( FVector2D NewSize )
 		
 		if (NativeWindow.IsValid())
 		{
-			NativeWindow->ReshapeWindow( FMath::TruncToInt(ScreenPosition.X), FMath::TruncToInt(ScreenPosition.Y), FMath::RoundToInt(NewSize.X), FMath::RoundToInt(NewSize.Y) );
+			NativeWindow->ReshapeWindow( FMath::TruncToInt(ScreenPosition.X), FMath::TruncToInt(ScreenPosition.Y), FMath::CeilToInt(NewSize.X), FMath::CeilToInt(NewSize.Y) );
 		}
 		else
 		{
@@ -1052,6 +1078,16 @@ TSharedPtr<const FGenericWindow> SWindow::GetNativeWindow() const
 	return NativeWindow;
 } 
 
+float SWindow::GetDPIScaleFactor() const
+{
+	if (NativeWindow.IsValid())
+	{
+		return NativeWindow->GetDPIScaleFactor();
+	}
+
+	return 1.0f;
+}
+
 bool SWindow::IsDescendantOf( const TSharedPtr<SWindow>& ParentWindow ) const
 {
 	TSharedPtr<SWindow> CandidateToCheck = this->GetParentWindow();
@@ -1153,18 +1189,6 @@ void SWindow::RemovePopupLayerSlot( const TSharedRef<SWidget>& WidgetToRemove )
 bool SWindow::AppearsInTaskbar() const
 {
 	return !bIsPopupWindow && Type != EWindowType::ToolTip && Type != EWindowType::CursorDecorator;
-}
-
-void SWindow::SetOnWindowActivated( const FOnWindowActivated& InDelegate )
-{
-	// deprecated
-	OnWindowActivated = InDelegate;
-}
-
-void SWindow::SetOnWindowDeactivated( const FOnWindowDeactivated& InDelegate )
-{
-	// deprecated
-	OnWindowDeactivated = InDelegate;
 }
 
 /** Sets the delegate to execute right before the window is closed */
@@ -1773,9 +1797,19 @@ EWindowZone::Type SWindow::GetCurrentWindowZone(FVector2D LocalMousePosition)
 					}
 				}
 			}
-		}
 
-		WindowZone = InZone;
+			WindowZone = InZone;
+		}
+		else if (FSlateApplicationBase::Get().AnyMenusVisible())
+		{
+			// Prevent resizing when a menu is open.  This is consistent with OS behavior and prevents a number of crashes when menus 
+			// stay open while resizing windows causing their parents to often be clipped (SClippingHorizontalBox)
+			WindowZone = EWindowZone::ClientArea;
+		}
+		else
+		{
+			WindowZone = InZone;
+		}
 	}
 	else
 	{

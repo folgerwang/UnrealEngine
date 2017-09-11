@@ -15,7 +15,7 @@ public class Steamworks : ModuleRules
 		Definitions.Add("STEAM_SDK_VER=TEXT(\"1.39\")");
 		Definitions.Add("STEAM_SDK_VER_PATH=TEXT(\"Steam" + SteamVersion + "\")");
 
-		string SdkBase = UEBuildConfiguration.UEThirdPartySourceDirectory + "Steamworks/Steam" + SteamVersion + "/sdk";
+		string SdkBase = Target.UEThirdPartySourceDirectory + "Steamworks/Steam" + SteamVersion + "/sdk";
 		if (!Directory.Exists(SdkBase))
 		{
 			string Err = string.Format("steamworks SDK not found in {0}", SdkBase);
@@ -75,14 +75,7 @@ public class Steamworks : ModuleRules
 			LibraryPath += "osx32/libsteam_api.dylib";
 			PublicDelayLoadDLLs.Add(LibraryPath);
 			PublicAdditionalShadowFiles.Add(LibraryPath);
-			if(Target.LinkType == TargetLinkType.Monolithic)
-			{
-				AdditionalBundleResources.Add(new UEBuildBundleResource(LibraryPath, "MacOS"));
-			}
-			else
-			{
-				RuntimeDependencies.Add(new RuntimeDependency(LibraryPath));
-			}
+			AdditionalBundleResources.Add(new UEBuildBundleResource(LibraryPath, "MacOS"));
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Linux)
 		{

@@ -81,7 +81,8 @@ UWidgetBlueprintGeneratedClass* UUserWidget::GetWidgetTreeOwningClass()
 		// Force post load on the generated class so all subobjects are done (specifically the widget tree).
 		BGClass->ConditionalPostLoad();
 
-		const bool bNoRootWidget = ( nullptr == BGClass->WidgetTree ) || ( nullptr == BGClass->WidgetTree->RootWidget );
+		const bool bNoRootWidget = !BGClass->HasTemplate() && ( ( nullptr == BGClass->WidgetTree ) || ( nullptr == BGClass->WidgetTree->RootWidget ) );
+
 		if ( bNoRootWidget )
 		{
 			UWidgetBlueprintGeneratedClass* SuperBGClass = Cast<UWidgetBlueprintGeneratedClass>(BGClass->GetSuperClass());
@@ -349,6 +350,8 @@ bool UUserWidget::Initialize()
 
 		if ( bCookedWidgetTree == false )
 		{
+			WidgetTree->SetFlags(RF_Transient);
+
 			const bool bReparentToWidgetTree = false;
 			InitializeNamedSlots(bReparentToWidgetTree);
 		}
@@ -1489,7 +1492,7 @@ void UUserWidget::NativeOnFocusChanging(const FWeakWidgetPath& PreviousFocusPath
 		if ( bDecendantNewlyFocused )
 		{
 			const bool bDecendantPreviouslyFocused = PreviousFocusPath.ContainsWidget(SafeGCWidget.ToSharedRef());
-			if ( bDecendantPreviouslyFocused )
+			if ( !bDecendantPreviouslyFocused )
 			{
 				NativeOnAddedToFocusPath( InFocusEvent );
 			}
@@ -1643,6 +1646,11 @@ FCursorReply UUserWidget::NativeOnCursorQuery( const FGeometry& InGeometry, cons
 	return FCursorReply::Unhandled();
 }
 
+FNavigationReply UUserWidget::NativeOnNavigation(const FGeometry& InGeometry, const FNavigationEvent& InNavigationEvent)
+{
+	return FNavigationReply::Escape();
+}
+	
 void UUserWidget::NativeOnMouseCaptureLost()
 {
 	OnMouseCaptureLost();
@@ -1820,6 +1828,7 @@ UUserWidget* UUserWidget::CreateWidgetOfClass(UClass* UserWidgetClass, UGameInst
 
 	UObject* Outer = nullptr;
 	ULocalPlayer* PlayerContext = nullptr;
+	UWorld* World = InWorld;
 
 	if ( InOwningPlayer )
 	{
@@ -1842,7 +1851,7 @@ UUserWidget* UUserWidget::CreateWidgetOfClass(UClass* UserWidgetClass, UGameInst
 		}
 
 		// Assign the outer to the game instance if it exists, otherwise use the player controller's world
-		UWorld* World = InOwningPlayer->GetWorld();
+		World = InOwningPlayer->GetWorld();
 
 		Outer = World->GetGameInstance() ? StaticCast<UObject*>(World->GetGameInstance()) : StaticCast<UObject*>(World);
 		PlayerContext = CastChecked<ULocalPlayer>(InOwningPlayer->Player);
@@ -1869,7 +1878,7 @@ UUserWidget* UUserWidget::CreateWidgetOfClass(UClass* UserWidgetClass, UGameInst
 
 	if ( PlayerContext )
 	{
-		NewWidget->SetPlayerContext(FLocalPlayerContext(PlayerContext));
+		NewWidget->SetPlayerContext(FLocalPlayerContext(PlayerContext, World));
 	}
 
 	NewWidget->Initialize();

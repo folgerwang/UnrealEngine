@@ -20,6 +20,7 @@ protected:
 protected:
 	/** Property restriction instance used for limiting EMaterialProperty selection */
 	TSharedPtr<FPropertyRestriction> PropertyRestriction;
+	class UMaterialOptions* CurrentOptions;
 };
 
 /** Detail customization for UMaterialOptions */
@@ -33,3 +34,5 @@ public:
 protected:
 	int32 NumLODs;
 };
+
+static void AddTextureSizeClamping(TSharedPtr<IPropertyHandle> TextureSizeProperty);

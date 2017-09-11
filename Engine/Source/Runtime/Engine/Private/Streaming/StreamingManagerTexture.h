@@ -136,6 +136,9 @@ struct FStreamingManagerTexture : public ITextureStreamingManager
 	/** Removes a ULevel from the streaming manager. */
 	virtual void RemoveLevel( class ULevel* Level ) override;
 
+	/* Notifies manager that level primitives were shifted */
+	virtual void NotifyLevelOffset(ULevel* Level, const FVector& Offset) override;
+	
 	/** Called when an actor is spawned. */
 	virtual void NotifyActorSpawned( AActor* Actor ) override;
 
@@ -179,6 +182,9 @@ struct FStreamingManagerTexture : public ITextureStreamingManager
 
 	/** Return all bounds related to the ref object */
 	virtual void GetObjectReferenceBounds(const UObject* RefObject, TArray<FBox>& AssetBoxes) override;
+
+	/** Propagates a change to the active lighting scenario. */
+	void PropagateLightingScenarioChange() override;
 
 protected:
 //BEGIN: Thread-safe functions and data
@@ -313,13 +319,6 @@ protected:
 	int64 MemoryOverBudget;
 	int64 MaxEverRequired;
 
-	/** Unmodified texture pool size, in bytes, as specified in the .ini file. */
-	int64 OriginalTexturePoolSize;
-	/** Timestamp when we last shrunk the pool size because of memory usage. */
-	double PreviousPoolSizeTimestamp;
-	/** PoolSize CVar setting the last time we adjusted the pool size. */
-	int32 PreviousPoolSizeSetting;
-
 	/** Whether texture streaming is paused or not. When paused, it won't stream any textures in or out. */
 	bool bPauseTextureStreaming;
 
@@ -336,7 +335,6 @@ protected:
 	uint64 MaxOptimalTextureSize;
 	int64 MaxStreamingOverBudget;
 	uint64 MaxTexturePoolAllocatedSize;
-	uint64 MinLargestHoleSize;
 	uint32 MaxNumWantingTextures;
 #endif
 	

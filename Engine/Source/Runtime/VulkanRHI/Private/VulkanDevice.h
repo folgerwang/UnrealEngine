@@ -35,9 +35,19 @@ public:
 		return GfxQueue;
 	}
 
+	inline FVulkanQueue* GetComputeQueue()
+	{
+		return ComputeQueue;
+	}
+
 	inline FVulkanQueue* GetTransferQueue()
 	{
 		return TransferQueue;
+	}
+
+	inline FVulkanQueue* GetPresentQueue()
+	{
+		return PresentQueue;
 	}
 
 	inline VkPhysicalDevice GetPhysicalHandle() const
@@ -80,6 +90,11 @@ public:
 		return DefaultSampler->Sampler;
 	}
 
+	inline VkImageView GetDefaultImageView() const
+	{
+		return DefaultImageView;
+	}
+
 	inline const VkFormatProperties* GetFormatProperties() const
 	{
 		return FormatProperties;
@@ -115,7 +130,13 @@ public:
 		return *ImmediateContext;
 	}
 
+	inline FVulkanCommandListContext& GetImmediateComputeContext()
+	{
+		return *ComputeContext;
+	}
+
 	void NotifyDeletedRenderTarget(VkImage Image);
+	void NotifyDeletedImage(VkImage Image);
 
 #if VULKAN_ENABLE_DRAW_MARKERS
 	PFN_vkCmdDebugMarkerBeginEXT GetCmdDbgMarkerBegin() const
@@ -138,12 +159,12 @@ public:
 
 	void SubmitCommandsAndFlushGPU();
 
-	inline FVulkanOcclusionQueryPool& FindAvailableOcclusionQueryPool(FVulkanCmdBuffer* CmdBuffer)
+	inline FVulkanBufferedQueryPool& FindAvailableQueryPool(TArray<FVulkanBufferedQueryPool*>& Pools, VkQueryType QueryType)
 	{
 		// First try to find An available one
-		for (int32 Index = 0; Index < OcclusionQueryPools.Num(); ++Index)
+		for (int32 Index = 0; Index < Pools.Num(); ++Index)
 		{
-			FVulkanOcclusionQueryPool* Pool = OcclusionQueryPools[Index];
+			FVulkanBufferedQueryPool* Pool = Pools[Index];
 			if (Pool->HasRoom())
 			{
 				return *Pool;
@@ -151,10 +172,19 @@ public:
 		}
 
 		// None found, so allocate new Pool
-		FVulkanOcclusionQueryPool* Pool = new FVulkanOcclusionQueryPool(this, NUM_OCCLUSION_QUERIES_PER_POOL);
-		OcclusionQueryPools.Add(Pool);
+		FVulkanBufferedQueryPool* Pool = new FVulkanBufferedQueryPool(this, QueryType == VK_QUERY_TYPE_OCCLUSION ? NUM_OCCLUSION_QUERIES_PER_POOL : NUM_TIMESTAMP_QUERIES_PER_POOL, QueryType);
+		Pools.Add(Pool);
 		return *Pool;
 	}
+	inline FVulkanBufferedQueryPool& FindAvailableOcclusionQueryPool()
+	{
+		return FindAvailableQueryPool(OcclusionQueryPools, VK_QUERY_TYPE_OCCLUSION);
+	}
+
+	inline FVulkanBufferedQueryPool& FindAvailableTimestampQueryPool()
+	{
+		return FindAvailableQueryPool(TimestampQueryPools, VK_QUERY_TYPE_TIMESTAMP);
+ 	}
 
 	inline FVulkanTimestampPool* GetTimestampQueryPool()
 	{
@@ -168,17 +198,25 @@ public:
 
 	void NotifyDeletedGfxPipeline(class FVulkanGraphicsPipelineState* Pipeline);
 	void NotifyDeletedComputePipeline(class FVulkanComputePipeline* Pipeline);
-	
+
+	FVulkanCommandListContext* AcquireDeferredContext();
+	void ReleaseDeferredContext(FVulkanCommandListContext* InContext);
+
 	struct FOptionalVulkanDeviceExtensions
 	{
 		uint32 HasKHRMaintenance1 : 1;
+		uint32 HasMirrorClampToEdge : 1;
 	};
-	const FOptionalVulkanDeviceExtensions& GetOptionalExtensions() const { return OptionalDeviceExtensions;  }
+	inline const FOptionalVulkanDeviceExtensions& GetOptionalExtensions() const { return OptionalDeviceExtensions;  }
+
+	void SetupPresentQueue(const VkSurfaceKHR& Surface);
 
 private:
 	void MapFormatSupport(EPixelFormat UEFormat, VkFormat VulkanFormat);
 	void MapFormatSupport(EPixelFormat UEFormat, VkFormat VulkanFormat, int32 BlockBytes);
 	void SetComponentMapping(EPixelFormat UEFormat, VkComponentSwizzle r, VkComponentSwizzle g, VkComponentSwizzle b, VkComponentSwizzle a);
+
+	void SubmitCommands(FVulkanCommandListContext* Context);
 
 	VkPhysicalDevice Gpu;
 	VkPhysicalDeviceProperties GpuProps;
@@ -197,21 +235,28 @@ private:
 	VulkanRHI::FFenceManager FenceManager;
 
 	FVulkanSamplerState* DefaultSampler;
+	FVulkanSurface* DefaultImage;
+	VkImageView DefaultImageView;
 
 	TArray<VkQueueFamilyProperties> QueueFamilyProps;
 	VkFormatProperties FormatProperties[VK_FORMAT_RANGE_SIZE];
 	// Info for formats that are not in the core Vulkan spec (i.e. extensions)
 	mutable TMap<VkFormat, VkFormatProperties> ExtensionFormatProperties;
 
-	TArray<FVulkanOcclusionQueryPool*> OcclusionQueryPools;
+	TArray<FVulkanBufferedQueryPool*> OcclusionQueryPools;
+	TArray<FVulkanBufferedQueryPool*> TimestampQueryPools;
 	FVulkanTimestampPool* TimestampQueryPool;
 
 	FVulkanQueue* GfxQueue;
+	FVulkanQueue* ComputeQueue;
 	FVulkanQueue* TransferQueue;
+	FVulkanQueue* PresentQueue;
 
 	VkComponentMapping PixelFormatComponentMapping[PF_MAX];
 
 	FVulkanCommandListContext* ImmediateContext;
+	FVulkanCommandListContext* ComputeContext;
+	TArray<FVulkanCommandListContext*> CommandContexts;
 
 	void GetDeviceExtensions(TArray<const ANSICHAR*>& OutDeviceExtensions, TArray<const ANSICHAR*>& OutDeviceLayers, bool& bOutDebugMarkers);
 

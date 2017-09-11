@@ -1802,8 +1802,7 @@ void FPropertyNode::ResetToDefault( FNotifyHook* InNotifyHook )
 
 		for( int32 ObjIndex = 0; ObjIndex < ObjectNode->GetNumObjects(); ++ObjIndex )
 		{
-			TWeakObjectPtr<UObject> ObjectWeakPtr = ObjectNode->GetUObject( ObjIndex );
-			UObject* Object = ObjectWeakPtr.Get();
+			UObject* Object = ObjectNode->GetUObject( ObjIndex );
 
 			// special case for UObject class - it has no defaults
 			if( Object && Object != UObject::StaticClass() && Object != UObject::StaticClass()->GetDefaultObject() )
@@ -1882,12 +1881,11 @@ void FPropertyNode::ResetToDefault( FNotifyHook* InNotifyHook )
 
 					// Cache the value of the property before modifying it.
 					FString PreviousValue;
-					TheProperty->ExportText_Direct(PreviousValue, ValueTracker.GetPropertyValueAddress(), ValueTracker.GetPropertyValueAddress(), NULL, 0);
-
-			
+					TheProperty->ExportText_Direct(PreviousValue, ValueTracker.GetPropertyValueAddress(), ValueTracker.GetPropertyValueAddress(), nullptr, 0);
+								
 					FString PreviousArrayValue;
 
-					if( ValueTracker.GetPropertyDefaultAddress() != NULL )
+					if (ValueTracker.GetPropertyDefaultAddress())
 					{
 						UObject* RootObject = ValueTracker.GetTopLevelObject();
 
@@ -1896,19 +1894,17 @@ void FPropertyNode::ResetToDefault( FNotifyHook* InNotifyHook )
 						// dynamic arrays are the only property type that do not support CopySingleValue correctly due to the fact that they cannot
 						// be used in a static array
 
-						if(Cast<UArrayProperty>(ParentProperty) != nullptr)
+						if (UArrayProperty* ParentArrayProp = Cast<UArrayProperty>(ParentProperty))
 						{
-							UArrayProperty* ArrayProp = Cast<UArrayProperty>(ParentProperty);
-							if(ArrayProp->Inner == TheProperty)
+							if (ParentArrayProp->Inner == TheProperty)
 							{
 								uint8* Addr = ParentPropertyNode->GetValueBaseAddress((uint8*)Object);
 
-								ArrayProp->ExportText_Direct(PreviousArrayValue, Addr, Addr, NULL, 0);
+								ParentArrayProp->ExportText_Direct(PreviousArrayValue, Addr, Addr, nullptr, 0);
 							}
 						}
 
-						UArrayProperty* ArrayProp = Cast<UArrayProperty>(TheProperty);
-						if( ArrayProp != NULL )
+						if (UArrayProperty* ArrayProp = Cast<UArrayProperty>(TheProperty))
 						{
 							TheProperty->CopyCompleteValue(ValueTracker.GetPropertyValueAddress(), ValueTracker.GetPropertyDefaultAddress());
 						}
@@ -1930,8 +1926,7 @@ void FPropertyNode::ResetToDefault( FNotifyHook* InNotifyHook )
 							FPropertyItemComponentCollector DefaultComponentCollector(ValueTracker);
 							for ( int32 CompIndex = 0; CompIndex < ComponentCollector.Components.Num(); CompIndex++ )
 							{
-								UObject* Component = ComponentCollector.Components[CompIndex];
-								if (Component != NULL)
+								if (UObject* Component = ComponentCollector.Components[CompIndex])
 								{
 									if ( DefaultComponentCollector.Components.Contains(Component->GetArchetype()) )
 									{
@@ -1944,7 +1939,14 @@ void FPropertyNode::ResetToDefault( FNotifyHook* InNotifyHook )
 								}
 							}
 
-							FArchiveReplaceObjectRef<UObject> ReplaceAr(RootObject, ReplaceMap, false, true, true);
+							{ FArchiveReplaceObjectRef<UObject> ReplaceAr(RootObject, ReplaceMap, false, true, true); }
+
+							// The old objects need to be renamed out of the way otherwise the subobject instancing will just find the
+							// same object again and not get a new one
+							for (const TPair<UObject*,UObject*> ReplacedObjPair : ReplaceMap)
+							{
+								ReplacedObjPair.Key->Rename(nullptr, GetTransientPackage(), REN_DontCreateRedirectors);
+							}
 
 							FObjectInstancingGraph InstanceGraph(RootObject);
 
@@ -1965,6 +1967,9 @@ void FPropertyNode::ResetToDefault( FNotifyHook* InNotifyHook )
 							}
 
 							RootObject->InstanceSubobjectTemplates(&InstanceGraph);
+
+							{ FArchiveReplaceObjectRef<UObject> ReplaceAr(RootObject, InstanceGraph.GetReplaceMap(), false, true, true); }
+
 						}
 
 						bEditInlineNewWasReset = ComponentCollector.bContainsEditInlineNew;
@@ -1977,7 +1982,7 @@ void FPropertyNode::ResetToDefault( FNotifyHook* InNotifyHook )
 
 					// Cache the value of the property after having modified it.
 					FString ValueAfterImport;
-					TheProperty->ExportText_Direct(ValueAfterImport, ValueTracker.GetPropertyValueAddress(), ValueTracker.GetPropertyValueAddress(), NULL, 0);
+					TheProperty->ExportText_Direct(ValueAfterImport, ValueTracker.GetPropertyValueAddress(), ValueTracker.GetPropertyValueAddress(), nullptr, 0);
 
 					// If this is an instanced component property we must move the old component to the 
 					// transient package so resetting owned components on the parent doesn't find it
@@ -2030,6 +2035,24 @@ void FPropertyNode::ResetToDefault( FNotifyHook* InNotifyHook )
 			RequestRebuildChildren();
 		}
 	}
+}
+
+bool FPropertyNode::IsReorderable()
+{
+	UProperty* NodeProperty = GetProperty();
+	if (NodeProperty == nullptr)
+	{
+		return false;
+	}
+	// It is reorderable if the parent is an array and metadata doesn't prohibit it
+	const UArrayProperty* OuterArrayProp = Cast<UArrayProperty>(NodeProperty->GetOuter());
+
+	static const FName Name_DisableReordering("EditFixedOrder");
+	static const FName NAME_ArraySizeEnum("ArraySizeEnum");
+	return OuterArrayProp != nullptr 
+		&& !NodeProperty->HasMetaData(Name_DisableReordering)
+		&& !IsEditConst()
+		&& !NodeProperty->HasMetaData(NAME_ArraySizeEnum);
 }
 
 /**
@@ -2295,6 +2318,9 @@ void FPropertyNode::NotifyPreChange( UProperty* PropertyAboutToChange, FNotifyHo
 			}
 		}
 	}
+
+	// Broadcast the change to any listeners
+	BroadcastPropertyPreChangeDelegates();
 }
 
 void FPropertyNode::NotifyPostChange( FPropertyChangedEvent& InPropertyChangedEvent, class FNotifyHook* InNotifyHook )
@@ -2415,7 +2441,7 @@ void FPropertyNode::NotifyPostChange( FPropertyChangedEvent& InPropertyChangedEv
 	if( OriginalActiveProperty )
 	{
 		//if i have metadata forcing other property windows to rebuild
-		FString MetaData = OriginalActiveProperty->GetMetaData(TEXT("ForceRebuildProperty"));
+		const FString& MetaData = OriginalActiveProperty->GetMetaData(TEXT("ForceRebuildProperty"));
 
 		if( MetaData.Len() > 0 )
 		{
@@ -2452,6 +2478,24 @@ void FPropertyNode::BroadcastPropertyChangedDelegates()
 		if( LocalParentNode->OnChildPropertyValueChanged().IsBound() )
 		{
 			LocalParentNode->OnChildPropertyValueChanged().Broadcast();
+		}
+
+		LocalParentNode = LocalParentNode->GetParentNode();
+	}
+
+}
+
+void FPropertyNode::BroadcastPropertyPreChangeDelegates()
+{
+	PropertyValuePreChangeEvent.Broadcast();
+
+	// Walk through the parents and broadcast
+	FPropertyNode* LocalParentNode = GetParentNode();
+	while (LocalParentNode)
+	{
+		if (LocalParentNode->OnChildPropertyValuePreChange().IsBound())
+		{
+			LocalParentNode->OnChildPropertyValuePreChange().Broadcast();
 		}
 
 		LocalParentNode = LocalParentNode->GetParentNode();
@@ -2706,121 +2750,124 @@ void FPropertyNode::PropagateContainerPropertyChange( UObject* ModifiedObject, c
 				Addr = ParentPropertyNode->GetValueBaseAddress((uint8*)ActualObjToChange);
 			}
 
-			FString OriginalContent;
-			ConvertedProperty->ExportText_Direct(OriginalContent, Addr, Addr, NULL, PPF_None);
-
-			bool bIsDefaultContainerContent = OriginalContent == OriginalContainerContent;
-
-			if (Addr != NULL && ArrayProperty)
+			if (Addr != nullptr)
 			{
-				FScriptArrayHelper ArrayHelper(ArrayProperty, Addr);
+				FString OriginalContent;
+				ConvertedProperty->ExportText_Direct(OriginalContent, Addr, Addr, nullptr, PPF_None);
 
-				// Check if the original value was the default value and change it only then
-				if (bIsDefaultContainerContent)
+				bool bIsDefaultContainerContent = OriginalContent == OriginalContainerContent;
+
+				if (ArrayProperty)
 				{
-					int32 ElementToInitialize = -1;
-					switch (ChangeType)
-					{
-					case EPropertyArrayChangeType::Add:
-						ElementToInitialize = ArrayHelper.AddValue();
-						break;
-					case EPropertyArrayChangeType::Clear:
-						ArrayHelper.EmptyValues();
-						break;
-					case EPropertyArrayChangeType::Insert:
-						ArrayHelper.InsertValues(ArrayIndex, 1);
-						ElementToInitialize = ArrayIndex;
-						break;
-					case EPropertyArrayChangeType::Delete:
-						ArrayHelper.RemoveValues(ArrayIndex, 1);
-						break;
-					case EPropertyArrayChangeType::Duplicate:
-						ArrayHelper.InsertValues(ArrayIndex, 1);
-						// Copy the selected item's value to the new item.
-						NodeProperty->CopyCompleteValue(ArrayHelper.GetRawPtr(ArrayIndex), ArrayHelper.GetRawPtr(ArrayIndex + 1));
-						Object->InstanceSubobjectTemplates();
-						break;
-					}
-					if (ElementToInitialize >= 0)
-					{
-						AdditionalInitializationUDS(ArrayProperty->Inner, ArrayHelper.GetRawPtr(ElementToInitialize));
-					}
-				}
-			}	// End Array
+					FScriptArrayHelper ArrayHelper(ArrayProperty, Addr);
 
-			else if ( Addr != NULL && SetProperty )
-			{
-				FScriptSetHelper SetHelper(SetProperty, Addr);
+					// Check if the original value was the default value and change it only then
+					if (bIsDefaultContainerContent)
+					{
+						int32 ElementToInitialize = -1;
+						switch (ChangeType)
+						{
+						case EPropertyArrayChangeType::Add:
+							ElementToInitialize = ArrayHelper.AddValue();
+							break;
+						case EPropertyArrayChangeType::Clear:
+							ArrayHelper.EmptyValues();
+							break;
+						case EPropertyArrayChangeType::Insert:
+							ArrayHelper.InsertValues(ArrayIndex, 1);
+							ElementToInitialize = ArrayIndex;
+							break;
+						case EPropertyArrayChangeType::Delete:
+							ArrayHelper.RemoveValues(ArrayIndex, 1);
+							break;
+						case EPropertyArrayChangeType::Duplicate:
+							ArrayHelper.InsertValues(ArrayIndex, 1);
+							// Copy the selected item's value to the new item.
+							NodeProperty->CopyCompleteValue(ArrayHelper.GetRawPtr(ArrayIndex), ArrayHelper.GetRawPtr(ArrayIndex + 1));
+							Object->InstanceSubobjectTemplates();
+							break;
+						}
+						if (ElementToInitialize >= 0)
+						{
+							AdditionalInitializationUDS(ArrayProperty->Inner, ArrayHelper.GetRawPtr(ElementToInitialize));
+						}
+					}
+				}	// End Array
 
-				// Check if the original value was the default value and change it only then
-				if (bIsDefaultContainerContent)
+				else if (SetProperty)
 				{
-					int32 ElementToInitialize = -1;
-					switch (ChangeType)
+					FScriptSetHelper SetHelper(SetProperty, Addr);
+
+					// Check if the original value was the default value and change it only then
+					if (bIsDefaultContainerContent)
 					{
-					case EPropertyArrayChangeType::Add:
-						ElementToInitialize = SetHelper.AddDefaultValue_Invalid_NeedsRehash();
-						SetHelper.Rehash();
-						break;
-					case EPropertyArrayChangeType::Clear:
-						SetHelper.EmptyElements();
-						break;
-					case EPropertyArrayChangeType::Insert:
-						check(false);	// Insert is not supported for sets
-						break;
-					case EPropertyArrayChangeType::Delete:
-						SetHelper.RemoveAt(ArrayIndex);
-						SetHelper.Rehash();
-						break;
-					case EPropertyArrayChangeType::Duplicate:
-						check(false);	// Duplicate not supported on sets
-						break;
+						int32 ElementToInitialize = -1;
+						switch (ChangeType)
+						{
+						case EPropertyArrayChangeType::Add:
+							ElementToInitialize = SetHelper.AddDefaultValue_Invalid_NeedsRehash();
+							SetHelper.Rehash();
+							break;
+						case EPropertyArrayChangeType::Clear:
+							SetHelper.EmptyElements();
+							break;
+						case EPropertyArrayChangeType::Insert:
+							check(false);	// Insert is not supported for sets
+							break;
+						case EPropertyArrayChangeType::Delete:
+							SetHelper.RemoveAt(ArrayIndex);
+							SetHelper.Rehash();
+							break;
+						case EPropertyArrayChangeType::Duplicate:
+							check(false);	// Duplicate not supported on sets
+							break;
+						}
+
+						if (ElementToInitialize >= 0)
+						{
+							AdditionalInitializationUDS(SetProperty->ElementProp, SetHelper.GetElementPtr(ElementToInitialize));
+						}
+					}
+				}	// End Set
+				else if (MapProperty)
+				{
+					FScriptMapHelper MapHelper(MapProperty, Addr);
+
+					// Check if the original value was the default value and change it only then
+					if (bIsDefaultContainerContent)
+					{
+						int32 ElementToInitialize = -1;
+						switch (ChangeType)
+						{
+						case EPropertyArrayChangeType::Add:
+							ElementToInitialize = MapHelper.AddDefaultValue_Invalid_NeedsRehash();
+							MapHelper.Rehash();
+							break;
+						case EPropertyArrayChangeType::Clear:
+							MapHelper.EmptyValues();
+							break;
+						case EPropertyArrayChangeType::Insert:
+							check(false);	// Insert is not supported for maps
+							break;
+						case EPropertyArrayChangeType::Delete:
+							MapHelper.RemoveAt(ArrayIndex);
+							MapHelper.Rehash();
+							break;
+						case EPropertyArrayChangeType::Duplicate:
+							check(false);	// Duplicate is not supported for maps
+							break;
+						}
+
+						if (ElementToInitialize >= 0)
+						{
+							uint8* PairPtr = MapHelper.GetPairPtr(ElementToInitialize);
+
+							AdditionalInitializationUDS(MapProperty->KeyProp, MapProperty->KeyProp->ContainerPtrToValuePtr<uint8>(PairPtr));
+							AdditionalInitializationUDS(MapProperty->ValueProp, MapProperty->ValueProp->ContainerPtrToValuePtr<uint8>(PairPtr));
+						}
+					}
+				}	// End Map
 			}
-
-					if (ElementToInitialize >= 0)
-					{
-						AdditionalInitializationUDS(SetProperty->ElementProp, SetHelper.GetElementPtr(ElementToInitialize));
-					}
-				}
-			}	// End Set
-			else if (Addr != NULL && MapProperty)
-			{
-				FScriptMapHelper MapHelper(MapProperty, Addr);
-
-				// Check if the original value was the default value and change it only then
-				if (bIsDefaultContainerContent)
-				{
-					int32 ElementToInitialize = -1;
-					switch (ChangeType)
-					{
-					case EPropertyArrayChangeType::Add:
-						ElementToInitialize = MapHelper.AddDefaultValue_Invalid_NeedsRehash();
-						MapHelper.Rehash();
-						break;
-					case EPropertyArrayChangeType::Clear:
-						MapHelper.EmptyValues();
-						break;
-					case EPropertyArrayChangeType::Insert:
-						check(false);	// Insert is not supported for maps
-						break;
-					case EPropertyArrayChangeType::Delete:
-						MapHelper.RemoveAt(ArrayIndex);
-						MapHelper.Rehash();
-						break;
-					case EPropertyArrayChangeType::Duplicate:
-						check(false);	// Duplicate is not supported for maps
-						break;
-					}
-
-					if (ElementToInitialize >= 0)
-					{
-						uint8* PairPtr = MapHelper.GetPairPtr(ElementToInitialize);
-
-						AdditionalInitializationUDS(MapProperty->KeyProp, MapProperty->KeyProp->ContainerPtrToValuePtr<uint8>(PairPtr));
-						AdditionalInitializationUDS(MapProperty->ValueProp, MapProperty->ValueProp->ContainerPtrToValuePtr<uint8>(PairPtr));
-					}
-				}
-			}	// End Map
 		}
 
 		for (int32 i=0; i < ArchetypeInstances.Num(); ++i)
@@ -2928,19 +2975,7 @@ void FPropertyNode::PropagatePropertyChange( UObject* ModifiedObject, const TCHA
 				bool bShouldImport = false;
 				{
 					uint8* TempComplexPropAddr = (uint8*)FMemory::Malloc(ComplexProperty->GetSize(), ComplexProperty->GetMinAlignment());
-					
-					if (ComplexProperty->ArrayDim > 1)
-					{
-						for (int32 i = 0; i < ComplexProperty->ArrayDim; ++i)
-						{
-							ComplexProperty->InitializeValue((uint8*)TempComplexPropAddr + i * ComplexProperty->ElementSize);
-						}
-					}
-					else
-					{
-						ComplexProperty->InitializeValue(TempComplexPropAddr);
-					}
-					
+					ComplexProperty->InitializeValue(TempComplexPropAddr);
 					ON_SCOPE_EXIT
 					{
 						ComplexProperty->DestroyValue(TempComplexPropAddr);

@@ -28,7 +28,6 @@
 #include "EngineModule.h"
 #include "Engine/Texture.h"
 #include "SceneView.h"
-
 #include "ShaderPlatformQualitySettings.h"
 #include "MaterialShaderQualitySettings.h"
 #include "DecalRenderingCommon.h"
@@ -736,7 +735,7 @@ void FMaterial::SerializeInlineShaderMap(FArchive& Ar)
 				}
 				else
 				{
-					LoadedShaderMap->DiscardSerializedShaders();
+					GameThreadShaderMap = LoadedShaderMap;
 				}
 			}
 		}
@@ -795,6 +794,16 @@ void FMaterial::ReleaseShaderMap()
 		{
 			Material->SetRenderingThreadShaderMap(nullptr);
 		});
+	}
+}
+
+void FMaterial::DiscardShaderMap()
+{
+	check(RenderingThreadShaderMap == nullptr);
+	if (GameThreadShaderMap)
+	{
+		GameThreadShaderMap->DiscardSerializedShaders();
+		GameThreadShaderMap = nullptr;
 	}
 }
 
@@ -886,11 +895,6 @@ bool FMaterialResource::IsUsedWithInstancedStaticMeshes() const
 bool FMaterialResource::IsUsedWithAPEXCloth() const
 {
 	return Material->bUsedWithClothing;
-}
-
-bool FMaterialResource::IsUsedWithUI() const
-{
-	return IsUIMaterial();
 }
 
 EMaterialTessellationMode FMaterialResource::GetTessellationMode() const 
@@ -2923,7 +2927,7 @@ FMaterialCustomOutputAttributeDefintion::FMaterialCustomOutputAttributeDefintion
 		const FGuid& InAttributeID, const FString& InDisplayName, const FString& InFunctionName, EMaterialProperty InProperty,
 		EMaterialValueType InValueType, const FVector4& InDefaultValue, EShaderFrequency InShaderFrequency, MaterialAttributeBlendFunction InBlendFunction /*= nullptr*/)
 	: FMaterialAttributeDefintion(InAttributeID, InDisplayName, InProperty, InValueType, InDefaultValue, InShaderFrequency, INDEX_NONE, false, InBlendFunction)
-	, FunctionName(InDisplayName)
+	, FunctionName(InFunctionName)
 {
 }
 

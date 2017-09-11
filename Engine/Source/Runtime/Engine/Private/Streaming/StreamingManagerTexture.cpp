@@ -52,9 +52,6 @@ FStreamingManagerTexture::FStreamingManagerTexture()
 ,	EffectiveStreamingPoolSize(0)
 ,	MemoryOverBudget(0)
 ,	MaxEverRequired(0)
-,	OriginalTexturePoolSize(0)
-,	PreviousPoolSizeTimestamp(0.0)
-,	PreviousPoolSizeSetting(-1)
 ,	bPauseTextureStreaming(false)
 ,	LastWorldUpdateTime(GIsEditor ? -FLT_MAX : 0) // In editor, visibility is not taken into consideration.
 ,	ConcurrentLockState(0)
@@ -75,27 +72,6 @@ FStreamingManagerTexture::FStreamingManagerTexture()
 	GConfig->GetFloat( TEXT("TextureStreaming"), TEXT("BoostPlayerTextures"), BoostPlayerTextures, GEngineIni );
 	GConfig->GetBool(TEXT("TextureStreaming"), TEXT("NeverStreamOutTextures"), GNeverStreamOutTextures, GEngineIni);
 
-	// Read pool size from the CVar
-	static const auto CVarStreamingTexturePoolSize = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Streaming.PoolSize"));
-	int32 PoolSizeCVar = CVarStreamingTexturePoolSize ? CVarStreamingTexturePoolSize->GetValueOnGameThread() : -1;
-
-	if( PoolSizeCVar != -1 )
-	{
-		OriginalTexturePoolSize =  int64(PoolSizeCVar) * 1024ll * 1024ll;
-		GTexturePoolSize = OriginalTexturePoolSize;
-	}	
-	else if ( GPoolSizeVRAMPercentage )
-	{
-		// If GPoolSizeVRAMPercentage is set, the pool size has already been calculated and we're not reading it from the .ini
-		OriginalTexturePoolSize = GTexturePoolSize;
-	}
-	else
-	{
-		// Don't use a texture pool if it's not read from .ini or calculated at startup
-		OriginalTexturePoolSize = 0;
-		GTexturePoolSize = 0;
-	}
-
 	// -NeverStreamOutTextures
 	if (FParse::Param(FCommandLine::Get(), TEXT("NeverStreamOutTextures")))
 	{
@@ -105,16 +81,11 @@ FStreamingManagerTexture::FStreamingManagerTexture()
 	{
 		// this would not be good or useful in the editor
 		GNeverStreamOutTextures = false;
-
-		// Use unlimited texture streaming in the editor. Quality is more important than stutter.
-		GTexturePoolSize = 0;
 	}
 	if (GNeverStreamOutTextures)
 	{
 		UE_LOG(LogContentStreaming, Log, TEXT("Textures will NEVER stream out!"));
 	}
-
-	UE_LOG(LogContentStreaming,Log,TEXT("Texture pool size is %.2f MB"),GTexturePoolSize/1024.f/1024.f);
 
 	// Convert from MByte to byte.
 	MinEvictSize *= 1024 * 1024;
@@ -125,7 +96,6 @@ FStreamingManagerTexture::FStreamingManagerTexture()
 	MaxOptimalTextureSize = 0;
 	MaxStreamingOverBudget = MIN_int64;
 	MaxTexturePoolAllocatedSize = 0;
-	MinLargestHoleSize = OriginalTexturePoolSize;
 	MaxNumWantingTextures = 0;
 #endif
 
@@ -144,7 +114,7 @@ FStreamingManagerTexture::FStreamingManagerTexture()
 	TextureInstanceAsyncWork = new TextureInstanceTask::FDoWorkAsyncTask();
 	DynamicComponentManager.RegisterTasks(TextureInstanceAsyncWork->GetTask());
 
-	FCoreUObjectDelegates::PreGarbageCollect.AddRaw(this, &FStreamingManagerTexture::OnPreGarbageCollect);
+	FCoreUObjectDelegates::GetPreGarbageCollectDelegate().AddRaw(this, &FStreamingManagerTexture::OnPreGarbageCollect);
 }
 
 FStreamingManagerTexture::~FStreamingManagerTexture()
@@ -154,7 +124,7 @@ FStreamingManagerTexture::~FStreamingManagerTexture()
 
 	TextureInstanceAsyncWork->EnsureCompletion();
 	
-	FCoreUObjectDelegates::PreGarbageCollect.RemoveAll(this);
+	FCoreUObjectDelegates::GetPreGarbageCollectDelegate().RemoveAll(this);
 
 	// Clear the stats
 	DisplayedStats.Reset();
@@ -170,7 +140,7 @@ void FStreamingManagerTexture::OnPreGarbageCollect()
 		if (LevelManager.GetLevel()->IsPendingKill())
 		{
 			FRemovedTextureArray RemovedTextures;
-			LevelManager.Remove(RemovedTextures);
+			LevelManager.Remove(&RemovedTextures);
 			SetTexturesRemovedTimestamp(RemovedTextures);
 
 			// Remove the level entry. The async task view will still be valid as it uses a shared ptr.
@@ -424,14 +394,13 @@ void FStreamingManagerTexture::ConditionalUpdateStaticData()
 			PreviousSettings.bUseNewMetrics != Settings.bUseNewMetrics ||
 			PreviousSettings.bUsePerTextureBias != Settings.bUsePerTextureBias)
 		{
-			TArray<ULevel*> Levels;
-			FRemovedTextureArray RemovedTextures;
+			TArray<ULevel*, TInlineAllocator<32> > Levels;
 
 			// RemoveLevel data
 			for (FLevelTextureManager& LevelManager : LevelTextureManagers)
 			{
 				Levels.Push(LevelManager.GetLevel());
-				LevelManager.Remove(RemovedTextures);
+				LevelManager.Remove(nullptr);
 			}
 			LevelTextureManagers.Empty();
 
@@ -579,13 +548,25 @@ void FStreamingManagerTexture::RemoveLevel( ULevel* Level )
 			if (LevelManager.GetLevel() == Level)
 			{
 				FRemovedTextureArray RemovedTextures;
-				LevelManager.Remove(RemovedTextures);
+				LevelManager.Remove(&RemovedTextures);
 				SetTexturesRemovedTimestamp(RemovedTextures);
 
 				// Remove the level entry. The async task view will still be valid as it uses a shared ptr.
 				LevelTextureManagers.RemoveAtSwap(Index);
 				break;
 			}
+		}
+	}
+}
+
+void FStreamingManagerTexture::NotifyLevelOffset(ULevel* Level, const FVector& Offset)
+{
+	for (FLevelTextureManager& LevelManager : LevelTextureManagers)
+	{
+		if (LevelManager.GetLevel() == Level)
+		{
+			LevelManager.NotifyLevelOffset(Offset);
+			break;
 		}
 	}
 }
@@ -856,7 +837,7 @@ void FStreamingManagerTexture::SyncStates(bool bCompleteFullUpdateCycle)
 	TextureInstanceAsyncWork->EnsureCompletion();
 
 	// Update any pending states, including added/removed textures.
-	UpdatePendingStates(bCompleteFullUpdateCycle);
+	UpdatePendingStates(false);
 }
 
 /**
@@ -992,50 +973,28 @@ void FStreamingManagerTexture::StreamTextures( bool bProcessEverything )
 
 void FStreamingManagerTexture::CheckUserSettings()
 {	
-	int32 PoolSizeSetting = CVarStreamingPoolSize.GetValueOnGameThread();
-	int32 FixedPoolSizeSetting = CVarStreamingUseFixedPoolSize.GetValueOnGameThread();
-
-	if (FixedPoolSizeSetting == 0)
+	if (CVarStreamingUseFixedPoolSize.GetValueOnGameThread() == 0)
 	{
-		int64 TexturePoolSize = 0;
+		const int32 PoolSizeSetting = CVarStreamingPoolSize.GetValueOnGameThread();
+
+		int64 TexturePoolSize = GTexturePoolSize;
 		if (PoolSizeSetting == -1)
 		{
 			FTextureMemoryStats Stats;
 			RHIGetTextureMemoryStats(Stats);
-			if ( GPoolSizeVRAMPercentage > 0 && Stats.TotalGraphicsMemory > 0 )
+			if (GPoolSizeVRAMPercentage > 0 && Stats.TotalGraphicsMemory > 0)
 			{
-				int64 TotalGraphicsMemory = Stats.TotalGraphicsMemory;
-				if ( GCurrentRendertargetMemorySize > 0 )
-				{
-					TotalGraphicsMemory -= int64(GCurrentRendertargetMemorySize) * 1024;
-				}
-				float PoolSize = float(GPoolSizeVRAMPercentage) * 0.01f * float(TotalGraphicsMemory);
-
-				// Truncate the pool size to MB (but still count in bytes)
-				TexturePoolSize = int64(FGenericPlatformMath::TruncToFloat(PoolSize / 1024.0f / 1024.0f)) * 1024 * 1024;
-			}
-			else
-			{
-				TexturePoolSize = OriginalTexturePoolSize;
+				TexturePoolSize = Stats.TotalGraphicsMemory * GPoolSizeVRAMPercentage / 100;
 			}
 		}
 		else
 		{
-			int64 PoolSize = int64(PoolSizeSetting) * 1024ll * 1024ll;
-			TexturePoolSize = PoolSize;
+			TexturePoolSize = int64(PoolSizeSetting) * 1024ll * 1024ll;
 		}
 
-		// Only adjust the pool size once every 10 seconds, but immediately in some other cases.
-		if ( PoolSizeSetting != PreviousPoolSizeSetting ||
-			 TexturePoolSize > GTexturePoolSize ||
-			 (FApp::GetCurrentTime() - PreviousPoolSizeTimestamp) > 10.0 )
+		if (TexturePoolSize != GTexturePoolSize)
 		{
-			if ( TexturePoolSize != GTexturePoolSize )
-			{
-				UE_LOG(LogContentStreaming,Log,TEXT("Texture pool size now %d MB"), int(TexturePoolSize/1024/1024));
-			}
-			PreviousPoolSizeSetting = PoolSizeSetting;
-			PreviousPoolSizeTimestamp = FApp::GetCurrentTime();
+			UE_LOG(LogContentStreaming,Log,TEXT("Texture pool size now %d MB"), int32(TexturePoolSize/1024/1024));
 			GTexturePoolSize = TexturePoolSize;
 		}
 	}
@@ -1285,6 +1244,24 @@ void FStreamingManagerTexture::GetObjectReferenceBounds(const UObject* RefObject
 	}
 }
 
+void FStreamingManagerTexture::PropagateLightingScenarioChange()
+{
+	// Note that dynamic components don't need to be handled because their renderstates are updated, which triggers and update.
+	
+	TArray<ULevel*, TInlineAllocator<32> > Levels;
+	for (FLevelTextureManager& LevelManager : LevelTextureManagers)
+	{
+		Levels.Push(LevelManager.GetLevel());
+		LevelManager.Remove(nullptr);
+	}
+
+	LevelTextureManagers.Empty();
+
+	for (ULevel* Level : Levels)
+	{
+		AddLevel(Level);
+	}
+}
 
 #if STATS_FAST
 bool FStreamingManagerTexture::HandleDumpTextureStreamingStatsCommand( const TCHAR* Cmd, FOutputDevice& Ar )
@@ -1294,13 +1271,11 @@ bool FStreamingManagerTexture::HandleDumpTextureStreamingStatsCommand( const TCH
 	Ar.Logf( TEXT("  Textures In Memory, Target (KB) =  %f"), MaxOptimalTextureSize / 1024.0f );
 	Ar.Logf( TEXT("  Over Budget (KB) =                 %f"), MaxStreamingOverBudget / 1024.0f );
 	Ar.Logf( TEXT("  Pool Memory Used (KB) =            %f"), MaxTexturePoolAllocatedSize / 1024.0f );
-	Ar.Logf( TEXT("  Largest free memory hole (KB) =    %f"), MinLargestHoleSize / 1024.0f );
 	Ar.Logf( TEXT("  Num Wanting Textures =             %d"), MaxNumWantingTextures );
 	MaxStreamingTexturesSize = 0;
 	MaxOptimalTextureSize = 0;
 	MaxStreamingOverBudget = MIN_int64;
 	MaxTexturePoolAllocatedSize = 0;
-	MinLargestHoleSize = OriginalTexturePoolSize;
 	MaxNumWantingTextures = 0;
 	return true;
 }
@@ -1322,11 +1297,15 @@ bool FStreamingManagerTexture::HandleListStreamingTexturesCommand( const TCHAR* 
 		SortedTextures.Add(StreamingTexture.Texture->GetFullName(), TextureIndex);
 	}
 
+	const bool bShouldOnlyListUnkownRef = FParse::Command(&Cmd, TEXT("UNKOWNREF"));
+
 	SortedTextures.KeySort(TLess<FString>());
 
 	for (TMap<FString, int32>::TConstIterator It(SortedTextures); It; ++It)
 	{
 		const FStreamingTexture& StreamingTexture = StreamingTextures[It.Value()];
+		if (bShouldOnlyListUnkownRef && !StreamingTexture.bUseUnkownRefHeuristic) continue;
+
 		const UTexture2D* Texture2D = StreamingTexture.Texture;
 		UE_LOG(LogContentStreaming, Log,  TEXT("Texture [%d] : %s"), It.Value(), *Texture2D->GetFullName() );
 

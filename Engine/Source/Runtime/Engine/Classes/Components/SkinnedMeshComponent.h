@@ -64,6 +64,12 @@ namespace EMeshComponentUpdateFlag
 		AlwaysTickPoseAndRefreshBones,
 		/** Always Tick, but Refresh BoneTransforms only when rendered. */
 		AlwaysTickPose,
+		/**
+			When rendered Tick Pose and Refresh Bone Transforms,
+			otherwise, just update montages and skip everything else.
+			(AnimBP graph will not be updated).
+		*/
+		OnlyTickMontagesWhenNotRendered,
 		/** Tick only when rendered, and it will only RefreshBoneTransforms when rendered. */
 		OnlyTickPoseWhenRendered,
 	};
@@ -424,7 +430,7 @@ public:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Lighting, meta=(UIMin = "0", UIMax = "1", EditCondition="bCastCapsuleIndirectShadow", DisplayName = "Capsule Indirect Shadow Min Visibility"))
 	float CapsuleIndirectShadowMinVisibility;
 
-	/** CPU skinning rendering - only for previewing in Persona and conversion tools */
+	/** Whether or not to CPU skin this component, requires render data refresh after changing */
 	UPROPERTY(transient)
 	uint32 bCPUSkinning : 1;
 
@@ -1134,24 +1140,38 @@ public:
 
 class FRenderStateRecreator
 {
-	bool bWasRenderStateCreated;
 	USkinnedMeshComponent* Component;
+	const bool bWasInitiallyRegistered;
+	const bool bWasRenderStateCreated;
 
 public:
 
-	FRenderStateRecreator(USkinnedMeshComponent* InActorComponent)
+	FRenderStateRecreator(USkinnedMeshComponent* InActorComponent) :
+		Component(InActorComponent),
+		bWasInitiallyRegistered(Component->IsRegistered()),
+		bWasRenderStateCreated(Component->IsRenderStateCreated())
 	{
-		Component = InActorComponent;
-		bWasRenderStateCreated = Component->IsRenderStateCreated();
 		if (bWasRenderStateCreated)
 		{
+			if (!bWasInitiallyRegistered)
+			{
+				UE_LOG(LogSkeletalMesh, Warning, TEXT("Created a FRenderStateRecreator with an unregistered component: %s"), *Component->GetPathName());
+			}
+
 			Component->DestroyRenderState_Concurrent();
 		}
 	}
 
 	~FRenderStateRecreator()
 	{
-		if (bWasRenderStateCreated)
+		const bool bIsRegistered = Component->IsRegistered();
+
+		ensureMsgf(bWasInitiallyRegistered == bIsRegistered,
+			TEXT("Component Registered state changed from %s to %s within FRenderStateRecreator scope."),
+			*((bWasInitiallyRegistered ? GTrue : GFalse).ToString()),
+			*((bIsRegistered ? GTrue : GFalse).ToString()));
+
+		if (bWasRenderStateCreated && bIsRegistered)
 		{
 			Component->CreateRenderState_Concurrent();
 		}

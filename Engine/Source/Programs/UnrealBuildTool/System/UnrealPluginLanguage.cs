@@ -8,6 +8,7 @@ using System.Xml;
 using System.Xml.Linq;
 using System.Diagnostics;
 using System.IO;
+using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
 {
@@ -71,6 +72,7 @@ namespace UnrealBuildTool
 	 * Variables may also be set from a property in an ini file:
 	 * 
 	 *	<setBoolFromProperty result="" ini="" section="" property="" default=""/>
+	 *	<setBoolFromPropertyContains result="" ini="" section="" property="" default="" contains=""/>
 	 *	<setIntFromProperty result="" ini="" section="" property="" default=""/>
 	 *	<setStringFromProperty result="" ini="" section="" property="" default=""/>
      *	
@@ -280,6 +282,9 @@ namespace UnrealBuildTool
 	 * The current element is referenced with tag="$".  Element variables are referenced with $varname
 	 * since using $E(varname) will be expanded to the string equivalent of the XML.
 	 * 
+	 * addElement, addElements, and removeElement by default are applied to all matching tags.  An
+	 * optional once="true" attribute may be added to only apply to first matching tag.
+	 *
 	 * <uses-permission>, <uses-feature>, and <uses-library> are updated with:
 	 * 
 	 *	<addPermission android:name="" .. />
@@ -330,7 +335,10 @@ namespace UnrealBuildTool
 	 * 	<!-- optional AAR imports additions -->
 	 * 	<AARImports> </AARImports>
 	 * 	
-	 * 	<!-- optional build.gradle additions -->
+	 * 	<!-- optional base build.gradle additions -->
+	 * 	<baseBuildGradleAdditions>  </baseBuildGradleAdditions>
+	 *
+	 * 	<!-- optional app build.gradle additions -->
 	 * 	<buildGradleAdditions>  </buildGradleAdditions>
 	 * 	
 	 * 	<!-- optional additions to generated build.xml before ${sdk.dir}/tools/ant/build.xml import -->
@@ -1243,7 +1251,15 @@ namespace UnrealBuildTool
 								// add it if not found
 								if (!bFound)
 								{
-									XMLWork.Element("manifest").Add(new XElement("uses-permission", Node.Attributes()));
+									// Get the attributes and apply any variable expansion needed
+									var AttributeList = Node.Attributes().ToList();
+									foreach (var Attribute in AttributeList)
+									{
+										string NewValue = ExpandVariables(CurrentContext, Attribute.Value);
+										Attribute.SetValue(NewValue);
+									}
+
+									XMLWork.Element("manifest").Add(new XElement("uses-permission", AttributeList));
 								}
 							}
 						}
@@ -1293,7 +1309,15 @@ namespace UnrealBuildTool
 								// add it if not found
 								if (!bFound)
 								{
-									XMLWork.Element("manifest").Add(new XElement("uses-feature", Node.Attributes()));
+									// Get the attributes and apply any variable expansion needed
+									var AttributeList = Node.Attributes().ToList();
+									foreach (var Attribute in AttributeList)
+									{
+										string NewValue = ExpandVariables(CurrentContext, Attribute.Value);
+										Attribute.SetValue(NewValue);
+									}
+
+									XMLWork.Element("manifest").Add(new XElement("uses-feature", AttributeList));
 								}
 							}
 						}
@@ -1343,7 +1367,15 @@ namespace UnrealBuildTool
 								// add it if not found
 								if (!bFound)
 								{
-									XMLWork.Element("manifest").Element("application").Add(new XElement("uses-library", Node.Attributes()));
+									// Get the attributes and apply any variable expansion needed
+									var AttributeList = Node.Attributes().ToList();
+									foreach (var Attribute in AttributeList)
+									{
+										string NewValue = ExpandVariables(CurrentContext, Attribute.Value);
+										Attribute.SetValue(NewValue);
+									}
+
+									XMLWork.Element("manifest").Element("application").Add(new XElement("uses-library", AttributeList));
 								}
 							}
 						}
@@ -1373,6 +1405,7 @@ namespace UnrealBuildTool
 					case "removeElement":
 						{
 							string Tag = GetAttribute(CurrentContext, Node, "tag");
+							bool bOnce = StringToBool(GetAttribute(CurrentContext, Node, "once", true, false));
 							if (Tag != null)
 							{
 								if (Tag == "$")
@@ -1387,6 +1420,10 @@ namespace UnrealBuildTool
 									foreach (var Element in XMLWork.Descendants(Tag).ToList())
 									{
 										Element.Remove();
+										if (bOnce)
+										{
+											break;
+										}
 									}
 								}
 							}
@@ -1397,6 +1434,7 @@ namespace UnrealBuildTool
 						{
 							string Tag = GetAttribute(CurrentContext, Node, "tag");
 							string Name = GetAttribute(CurrentContext, Node, "name");
+							bool bOnce = StringToBool(GetAttribute(CurrentContext, Node, "once", true, false));
 							if (Tag != null && Name != null)
 							{
 								XElement Element;
@@ -1430,7 +1468,18 @@ namespace UnrealBuildTool
 									{
 										CurrentElement.Add(new XElement(Element));
 									}
+
+									// make sure we don't recurse forever if Tag is in Element
+									List<XElement> AddSet = new List<XElement>();
 									foreach (var WorkNode in CurrentElement.Descendants(Tag))
+									{
+										AddSet.Add(WorkNode);
+										if (bOnce)
+										{
+											break;
+										}
+									}
+									foreach (var WorkNode in AddSet)
 									{
 										WorkNode.Add(new XElement(Element));
 									}
@@ -1442,6 +1491,7 @@ namespace UnrealBuildTool
 					case "addElements":
 						{
 							string Tag = GetAttribute(CurrentContext, Node, "tag");
+							bool bOnce = StringToBool(GetAttribute(CurrentContext, Node, "once", true, false));
 							if (Tag != null)
 							{
 								if (Tag.StartsWith("$"))
@@ -1466,7 +1516,18 @@ namespace UnrealBuildTool
 									{
 										AddElements(CurrentElement, Node);
 									}
+
+									// make sure we don't recurse forever if Tag is in Node
+									List<XElement> AddSet = new List<XElement>();
 									foreach (var WorkNode in CurrentElement.Descendants(Tag))
+									{
+										AddSet.Add(WorkNode);
+										if (bOnce)
+										{
+											break;
+										}
+									}
+									foreach (var WorkNode in AddSet)
 									{
 										AddElements(WorkNode, Node);
 									}
@@ -1614,6 +1675,7 @@ namespace UnrealBuildTool
 											"\t\t{\n";
 								if (FailMsg != null)
 								{
+									Work += "\t\t\tLog.debug(e.toString());\n";
 									Work += "\t\t\tLog.debug(\"" + FailMsg + "\");\n";
 								}
 								GlobalContext.StringVariables["Output"] += Work + "\t\t}\n";
@@ -1672,6 +1734,40 @@ namespace UnrealBuildTool
 									if (!ConfigIni.GetBool(Section, Property, out Value))
 									{
 										Value = StringToBool(DefaultVal);
+									}
+								}
+								CurrentContext.BoolVariables[Result] = Value;
+							}
+						}
+						break;
+
+					case "setBoolFromPropertyContains":
+						{
+							string Result = GetAttribute(CurrentContext, Node, "result");
+							string Ini = GetAttribute(CurrentContext, Node, "ini");
+							string Section = GetAttribute(CurrentContext, Node, "section");
+							string Property = GetAttribute(CurrentContext, Node, "property");
+							string DefaultVal = GetAttribute(CurrentContext, Node, "default", true, false, "false");
+							string Contains = GetAttribute(CurrentContext, Node, "contains", true, true, "");
+							if (Result != null && Ini != null && Section != null && Property != null)
+							{
+								bool Value = StringToBool(DefaultVal);
+
+								ConfigCacheIni_UPL ConfigIni = GetConfigCacheIni_UPL(Ini);
+								if (ConfigIni != null)
+								{
+									List<string> StringList;
+									if (ConfigIni.GetArray(Section, Property, out StringList))
+									{
+										Value = false;
+										foreach (string Entry in StringList)
+										{
+											if (Entry.Equals(Contains))
+											{
+												Value = true;
+												break;
+											}
+										}
 									}
 								}
 								CurrentContext.BoolVariables[Result] = Value;

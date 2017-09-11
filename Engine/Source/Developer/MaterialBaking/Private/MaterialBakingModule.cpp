@@ -143,7 +143,6 @@ void FMaterialBakingModule::BakeMaterials(const TArray<FMaterialData*>& Material
 
 			FMeshMaterialRenderItem RenderItem(CurrentMaterialSettings, CurrentMeshSettings, MaterialPropertiesToBakeOut[0]);
 			FCanvas::FCanvasSortElement& SortElement = Canvas.GetSortElement(Canvas.TopDepthSortKey());
-			SortElement.RenderBatchArray.Add(&RenderItem);
 
 			for (int32 PropertyIndex = 0; PropertyIndex < NumPropertiesToRender; ++PropertyIndex)
 			{
@@ -170,16 +169,21 @@ void FMaterialBakingModule::BakeMaterials(const TArray<FMaterialData*>& Material
 							RenderItem.GenerateRenderData();
 						}
 
+						Canvas.SetRenderTargetRect(FIntRect(0, 0, RenderTarget->GetSurfaceWidth(), RenderTarget->GetSurfaceHeight()));
+						Canvas.SetBaseTransform(Canvas.CalcBaseTransform2D(RenderTarget->GetSurfaceWidth(), RenderTarget->GetSurfaceHeight()));
 						PreviousRenderTarget = RenderTarget;
 					}
 
 					// Clear canvas before rendering
 					Canvas.Clear(RenderTarget->ClearColor);
 
+					SortElement.RenderBatchArray.Add(&RenderItem);
+
 					// Do rendering
 					Canvas.Flush_GameThread();
 					FlushRenderingCommands();
 
+					SortElement.RenderBatchArray.Empty();
 					ReadTextureOutput(RenderTargetResource, Property, CurrentOutput);
 					FMaterialBakingHelpers::PerformUVBorderSmear(CurrentOutput.PropertyData[Property], RenderTarget->GetSurfaceWidth(), RenderTarget->GetSurfaceHeight(), Property == MP_Normal);
 #if WITH_EDITOR
@@ -191,7 +195,7 @@ void FMaterialBakingModule::BakeMaterials(const TArray<FMaterialData*>& Material
 						FString TrimmedPropertyName = PropertyName.ToString();
 						TrimmedPropertyName.RemoveFromStart(TEXT("MP_"));
 
-						const FString DirectoryPath = FPaths::ConvertRelativePathToFull(FPaths::GameIntermediateDir() + TEXT("MaterialBaking/"));
+						const FString DirectoryPath = FPaths::ConvertRelativePathToFull(FPaths::ProjectIntermediateDir() + TEXT("MaterialBaking/"));
 						FString FilenameString = FString::Printf(*(DirectoryPath + TEXT("%s-%d-%s.bmp")),
 							*CurrentMaterialSettings->Material->GetName(), MaterialIndex, *TrimmedPropertyName);
 						FFileHelper::CreateBitmap(*FilenameString, CurrentOutput.PropertySizes[Property].X, CurrentOutput.PropertySizes[Property].Y, CurrentOutput.PropertyData[Property].GetData());
@@ -199,8 +203,6 @@ void FMaterialBakingModule::BakeMaterials(const TArray<FMaterialData*>& Material
 				}
 #endif // WITH_EDITOR
 			}
-
-			SortElement.RenderBatchArray.Empty();
 		}
 	}
 
@@ -250,9 +252,10 @@ void FMaterialBakingModule::CleanupMaterialProxies()
 UTextureRenderTarget2D* FMaterialBakingModule::CreateRenderTarget(bool bInForceLinearGamma, EPixelFormat InPixelFormat, const FIntPoint& InTargetSize)
 {
 	UTextureRenderTarget2D* RenderTarget = nullptr;
-	auto RenderTargetComparison = [bInForceLinearGamma, InPixelFormat, InTargetSize](const UTextureRenderTarget2D* CompareRenderTarget) -> bool
+	const FIntPoint ClampedTargetSize(FMath::Clamp(InTargetSize.X, 1, (int32)GetMax2DTextureDimension()), FMath::Clamp(InTargetSize.Y, 1, (int32)GetMax2DTextureDimension()));
+	auto RenderTargetComparison = [bInForceLinearGamma, InPixelFormat, ClampedTargetSize](const UTextureRenderTarget2D* CompareRenderTarget) -> bool
 	{
-		return (CompareRenderTarget->SizeX == InTargetSize.X && CompareRenderTarget->SizeY == InTargetSize.Y && CompareRenderTarget->OverrideFormat == InPixelFormat && CompareRenderTarget->bForceLinearGamma == bInForceLinearGamma);
+		return (CompareRenderTarget->SizeX == ClampedTargetSize.X && CompareRenderTarget->SizeY == ClampedTargetSize.Y && CompareRenderTarget->OverrideFormat == InPixelFormat && CompareRenderTarget->bForceLinearGamma == bInForceLinearGamma);
 	};
 
 	// Find any pooled render target with suitable properties.
@@ -271,7 +274,7 @@ UTextureRenderTarget2D* FMaterialBakingModule::CreateRenderTarget(bool bInForceL
 		RenderTarget->ClearColor = FLinearColor(1.0f, 0.0f, 1.0f);
 		RenderTarget->ClearColor.A = 1.0f;
 		RenderTarget->TargetGamma = 0.0f;
-		RenderTarget->InitCustomFormat(InTargetSize.X, InTargetSize.Y, InPixelFormat, bInForceLinearGamma);
+		RenderTarget->InitCustomFormat(ClampedTargetSize.X, ClampedTargetSize.Y, InPixelFormat, bInForceLinearGamma);
 
 		RenderTargetPool.Add(RenderTarget);
 	}

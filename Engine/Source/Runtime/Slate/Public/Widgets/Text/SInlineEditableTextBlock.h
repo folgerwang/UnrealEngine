@@ -93,6 +93,12 @@ class SLATE_API SInlineEditableTextBlock: public SCompoundWidget
 		/** Callback when the text is committed. */
 		SLATE_EVENT( FOnTextCommitted, OnTextCommitted )
 
+		/** Callback when the text editing begins. */
+		SLATE_EVENT(FSimpleDelegate, OnEnterEditingMode)
+
+		/** Callback when the text editing ends. */
+		SLATE_EVENT(FSimpleDelegate, OnExitEditingMode)
+
 		/** Callback to check if the widget is selected, should only be hooked up if parent widget is handling selection or focus. */
 		SLATE_EVENT( FIsSelected, IsSelected )
 
@@ -166,6 +172,9 @@ protected:
 	TSharedPtr< SMultiLineEditableTextBox > MultiLineTextBox;
 #endif //WITH_FANCY_TEXT
 
+	FSimpleDelegate OnEnterEditingMode;
+	FSimpleDelegate OnExitEditingMode;
+
 	/** Delegate to execute when the text starts to be edited */
 	FOnBeginTextEdit OnBeginTextEditDelegate;
 
@@ -176,10 +185,6 @@ protected:
 		Only needs to be hooked up if an external widget is managing selection, such
 		as a SListView or STreeView. */
 	FIsSelected IsSelected;
-
-	/** When selection of widget is managed by another widget, this delays the "double select" from 
-		occurring immediately, offering a chance for double clicking to take action. */
-	float DoubleSelectDelay;
 
 	/** Main horizontal box, used to dynamically add and remove the editable slot. */
 	TSharedPtr< SHorizontalBox > HorizontalBox;
@@ -192,9 +197,6 @@ protected:
 
 	/** Attribute to look up if the widget is read-only */
 	TAttribute< bool > bIsReadOnly;
-
-	/** Attribute to look up if the widget is multiline */
-	bool bIsMultiLine;
 
 	/** Widget to focus when we finish editing */
 	TWeakPtr<SWidget> WidgetToFocus;
@@ -215,4 +217,13 @@ private:
 
 	/** The handle to the active timer */
 	TWeakPtr<FActiveTimerHandle> ActiveTimerHandle;
+
+protected:
+	/** When selection of widget is managed by another widget, this delays the "double select" from 
+	occurring immediately, offering a chance for double clicking to take action. */
+	float DoubleSelectDelay;
+
+	/** Attribute to look up if the widget is multiline */
+	uint8 bIsMultiLine:1;
+
 };

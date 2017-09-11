@@ -51,6 +51,7 @@ namespace Audio
 		//~ Begin FAudioDevice
 		virtual void GetAudioDeviceList(TArray<FString>& OutAudioDeviceNames) const override;
 		virtual bool InitializeHardware() override;
+		virtual void FadeIn() override;
 		virtual void FadeOut() override;
 		virtual void TeardownHardware() override;
 		virtual void UpdateHardware() override;
@@ -82,7 +83,7 @@ namespace Audio
 		//~ End FAudioDevice
 
 		//~ Begin IAudioMixer
-		bool OnProcessAudioStream(TArray<float>& OutputBuffer) override;
+		virtual bool OnProcessAudioStream(AlignedFloatBuffer& OutputBuffer) override;
 		//~ End IAudioMixer
 
 		FMixerSubmixPtr GetSubmixInstance(USoundSubmix* SoundSubmix);
@@ -93,7 +94,8 @@ namespace Audio
 		bool IsAudioRenderingThread();
 
 		// Public Functions
-		FMixerSourceVoice* GetMixerSourceVoice(const FWaveInstance* InWaveInstance, ISourceBufferQueueListener* InBufferQueueListener, bool bUseHRTFSpatialization);
+		FMixerSourceVoice* GetMixerSourceVoice();
+		void ReleaseMixerSourceVoice(FMixerSourceVoice* InSourceVoice);
 		int32 GetNumSources() const;
 
 		const FAudioPlatformDeviceInfo& GetPlatformDeviceInfo() const { return PlatformInfo; };
@@ -143,8 +145,8 @@ namespace Audio
 
 		int32 GetAzimuthForChannelType(EAudioMixerChannel::Type ChannelType);
 
-		void WhiteNoiseTest(TArray<float>& Output);
-		void SineOscTest(TArray<float>& Output);
+		void WhiteNoiseTest(AlignedFloatBuffer& Output);
+		void SineOscTest(AlignedFloatBuffer& Output);
 
 		bool IsMainAudioDevice() const;
 
@@ -194,8 +196,8 @@ namespace Audio
 		/** Map of USoundSubmix static data objects to the dynamic audio mixer submix. */
 		TMap<USoundSubmix*, FMixerSubmixPtr> Submixes;
 
-		/** List of mixer source voices. */
-		TArray<FMixerSourceVoice*> SourceVoices;
+		/** Queue of mixer source voices. */
+		TQueue<FMixerSourceVoice*> SourceVoices;
 
 		TMap<uint32, TArray<FSourceEffectChainEntry>> SourceEffectChainOverrides;
 

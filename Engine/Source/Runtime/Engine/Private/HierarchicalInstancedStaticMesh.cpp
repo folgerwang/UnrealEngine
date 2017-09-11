@@ -28,6 +28,7 @@
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
 #include "InstancedStaticMesh.h"
 #include "SceneManagement.h"
+#include "HAL/LowLevelMemTracker.h"
 
 static TAutoConsoleVariable<int32> CVarFoliageSplitFactor(
 	TEXT("foliage.SplitFactor"),
@@ -1795,6 +1796,8 @@ void UHierarchicalInstancedStaticMeshComponent::PostEditChangeChainProperty(FPro
 
 void UHierarchicalInstancedStaticMeshComponent::Serialize(FArchive& Ar)
 {
+	LLM_SCOPE(ELLMTag::StaticMesh);	
+
 	// On save, if we have a pending async build we should wait for it to complete rather than saving an incomplete tree
 	if (Ar.IsSaving())
 	{
@@ -1822,7 +1825,10 @@ void UHierarchicalInstancedStaticMeshComponent::PostDuplicate(bool bDuplicateFor
 {
 	Super::PostDuplicate(bDuplicateForPIE);
 
-	BuildTreeIfOutdated(false, false);
+	if (!HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject) && bDuplicateForPIE)
+	{
+		BuildTreeIfOutdated(false, false);
+	}
 }
 
 void UHierarchicalInstancedStaticMeshComponent::RemoveInstanceInternal(int32 InstanceIndex)
@@ -1890,6 +1896,8 @@ void UHierarchicalInstancedStaticMeshComponent::RemoveInstanceInternal(int32 Ins
 
 bool UHierarchicalInstancedStaticMeshComponent::RemoveInstances(const TArray<int32>& InstancesToRemove)
 {
+	LLM_SCOPE(ELLMTag::StaticMesh);
+
 	if (InstancesToRemove.Num() == 0)
 	{
 		return true;
@@ -1989,6 +1997,13 @@ bool UHierarchicalInstancedStaticMeshComponent::UpdateInstanceTransform(int32 In
 	}
 
 	return Result;
+}
+
+void UHierarchicalInstancedStaticMeshComponent::ApplyComponentInstanceData(FInstancedStaticMeshComponentInstanceData* InstancedMeshData)
+{
+	UInstancedStaticMeshComponent::ApplyComponentInstanceData(InstancedMeshData);
+
+	BuildTreeIfOutdated(false, false);
 }
 
 int32 UHierarchicalInstancedStaticMeshComponent::AddInstance(const FTransform& InstanceTransform)
@@ -2162,7 +2177,7 @@ void UHierarchicalInstancedStaticMeshComponent::BuildTree()
 
 		if (!PerInstanceRenderData.IsValid())
 		{
-			InitPerInstanceRenderData();
+			InitPerInstanceRenderData(false);
 		}
 
 		// Resync RenderData with newly built cluster tree so we take into account the newly generated InstanceReorderTable generated from the cluster tree
@@ -2350,29 +2365,29 @@ bool UHierarchicalInstancedStaticMeshComponent::BuildTreeIfOutdated(bool Async, 
 		|| UnbuiltInstanceBoundsList.Num() > 0
 		|| GetLinkerUE4Version() < VER_UE4_REBUILD_HIERARCHICAL_INSTANCE_TREES)
 	{
-		if (GetStaticMesh())
+		if (GetStaticMesh() != nullptr && !GetStaticMesh()->HasAnyFlags(RF_NeedLoad)) // we can build the tree if the static mesh is not even loaded, and we can't call PostLoad as the load is not even done
 		{
 			GetStaticMesh()->ConditionalPostLoad();
-		}
 
-		if (Async)
-		{
-			if (IsAsyncBuilding())
+			if (Async)
 			{
-				// invalidate the results of the current async build we need to modify the tree
-				bConcurrentRemoval = true;
+				if (IsAsyncBuilding())
+				{
+					// invalidate the results of the current async build we need to modify the tree
+					bConcurrentRemoval = true;
+				}
+				else
+				{
+					BuildTreeAsync();
+				}
 			}
 			else
 			{
-				BuildTreeAsync();
+				BuildTree();
 			}
-		}
-		else
-		{
-			BuildTree();
-		}
 
-		return true;
+			return true;
+		}
 	}
 
 	return false;
@@ -2507,31 +2522,34 @@ void UHierarchicalInstancedStaticMeshComponent::PostLoad()
 
 	Super::PostLoad();
 
-	NumBuiltRenderInstances = ClusterTreePtr.IsValid() && ClusterTreePtr->Num() > 0 ? (*ClusterTreePtr.Get())[0].LastInstance - (*ClusterTreePtr.Get())[0].FirstInstance + 1 : 0;
-
-	if (bEnableDensityScaling && GetWorld() && GetWorld()->IsGameWorld())
+	if (!HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))
 	{
-		const float ScalabilityDensity = FMath::Clamp(CVarFoliageDensityScale.GetValueOnGameThread(), 0.0f, 1.0f);
-		if (ScalabilityDensity == 0)
-		{
-			// exclude all instances
-			ExcludedDueToDensityScaling.Init(true, PerInstanceSMData.Num());
-			NumBuiltRenderInstances = 0;
-		}
-		else if (ScalabilityDensity > 0.0f && ScalabilityDensity < 1.0f)
-		{
-			FRandomStream Rand(InstancingRandomSeed);
-			ExcludedDueToDensityScaling.Init(false, PerInstanceSMData.Num());
+		NumBuiltRenderInstances = ClusterTreePtr.IsValid() && ClusterTreePtr->Num() > 0 ? (*ClusterTreePtr.Get())[0].LastInstance - (*ClusterTreePtr.Get())[0].FirstInstance + 1 : 0;
 
-			for (int32 i = 0; i < ExcludedDueToDensityScaling.Num(); ++i)
+		if (bEnableDensityScaling && GetWorld() && GetWorld()->IsGameWorld())
+		{
+			const float ScalabilityDensity = FMath::Clamp(CVarFoliageDensityScale.GetValueOnGameThread(), 0.0f, 1.0f);
+			if (ScalabilityDensity == 0)
 			{
-				ExcludedDueToDensityScaling[i] = (Rand.FRand() > ScalabilityDensity);
-			}			
-		}
-	}
+				// exclude all instances
+				ExcludedDueToDensityScaling.Init(true, PerInstanceSMData.Num());
+				NumBuiltRenderInstances = 0;
+			}
+			else if (ScalabilityDensity > 0.0f && ScalabilityDensity < 1.0f)
+			{
+				FRandomStream Rand(InstancingRandomSeed);
+				ExcludedDueToDensityScaling.Init(false, PerInstanceSMData.Num());
 
-	// If any of the data is out of sync, build the tree now!
-	BuildTreeIfOutdated(true, false);	
+				for (int32 i = 0; i < ExcludedDueToDensityScaling.Num(); ++i)
+				{
+					ExcludedDueToDensityScaling[i] = (Rand.FRand() > ScalabilityDensity);
+				}
+			}
+		}
+
+		// If any of the data is out of sync, build the tree now!
+		BuildTreeIfOutdated(true, false);
+	}
 }
 
 static void GatherInstanceTransformsInArea(const UHierarchicalInstancedStaticMeshComponent& Component, const FBox& AreaBox, int32 Child, TArray<FTransform>& InstanceData)

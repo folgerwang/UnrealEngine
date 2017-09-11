@@ -142,7 +142,6 @@ void FMeshMergeUtilities::BakeMaterialsForComponent(TArray<TWeakObjectPtr<UObjec
 	TArray<UMaterialInterface*> UniqueMaterials;
 	TMap<UMaterialInterface*, int32> MaterialIndices;
 	TMultiMap<uint32, uint32> SectionToMaterialMap;
-
 	// Populate list of unique materials and store section mappings
 	for (int32 SectionIndex = 0; SectionIndex < UniqueSections.Num(); ++SectionIndex)
 	{
@@ -151,12 +150,16 @@ void FMeshMergeUtilities::BakeMaterialsForComponent(TArray<TWeakObjectPtr<UObjec
 		SectionToMaterialMap.Add(UniqueIndex, SectionIndex);
 	}
 
+	TArray<bool> bMaterialUsesVertexData;
+	DetermineMaterialVertexDataUsage(bMaterialUsesVertexData, UniqueMaterials, MaterialOptions);
+
 	TArray<FMeshData> GlobalMeshSettings;
 	TArray<FMaterialData> GlobalMaterialSettings;
 	TMultiMap< uint32, TPair<uint32, uint32>> OutputMaterialsMap;
 	for (int32 MaterialIndex = 0; MaterialIndex < UniqueMaterials.Num(); ++MaterialIndex)
 	{
 		UMaterialInterface* Material = UniqueMaterials[MaterialIndex];
+		const bool bDoesMaterialUseVertexData = bMaterialUsesVertexData[MaterialIndex];
 		// Retrieve all sections using this material 
 		TArray<uint32> SectionIndices;
 		SectionToMaterialMap.MultiFind(MaterialIndex, SectionIndices);
@@ -185,7 +188,21 @@ void FMeshMergeUtilities::BakeMaterialsForComponent(TArray<TWeakObjectPtr<UObjec
 					MeshSettings.RawMesh = RawMeshLODs.Find(LODIndex);
 
 					MeshSettings.TextureCoordinateBox = FBox2D(FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f));
-					MeshSettings.TextureCoordinateIndex = MaterialOptions->bUseSpecificUVIndex ? MaterialOptions->TextureCoordinateIndex : 0;
+					const bool bUseVertexColor = (MeshSettings.RawMesh->WedgeColors.Num() > 0);
+					if (MaterialOptions->bUseSpecificUVIndex)
+					{
+						MeshSettings.TextureCoordinateIndex = MaterialOptions->TextureCoordinateIndex;
+					}
+					// if you use vertex color, we can't rely on overlapping UV channel, so use light map UV to unwrap UVs
+					else if (bUseVertexColor)
+					{
+						MeshSettings.TextureCoordinateIndex = Adapter->LightmapUVIndex();
+					}
+					else
+					{
+						MeshSettings.TextureCoordinateIndex = 0;
+					}
+					
 					Adapter->ApplySettings(LODIndex, MeshSettings);
 					
 					// In case part of the UVs is not within the 0-1 range try to use the lightmap UVs
@@ -206,7 +223,7 @@ void FMeshMergeUtilities::BakeMaterialsForComponent(TArray<TWeakObjectPtr<UObjec
 						bool bUsesVertexData;
 						Material->AnalyzeMaterialProperty(Entry.Property, NumTextureCoordinates, bUsesVertexData);
 
-						if (!Entry.bUseConstantValue)
+						if (!Entry.bUseConstantValue && Entry.Property != MP_MAX)
 						{
 							MaterialSettings.PropertySizes.Add(Entry.Property, Entry.bUseCustomSize ? Entry.CustomSize : MaterialOptions->TextureSize);
 						}
@@ -252,10 +269,7 @@ void FMeshMergeUtilities::BakeMaterialsForComponent(TArray<TWeakObjectPtr<UObjec
 				// Add all user defined properties for baking out
 				for (const FPropertyEntry& Entry : MaterialOptions->Properties)
 				{
-					int32 NumTextureCoordinates;
-					bool bUsesVertexData;
-					Material->AnalyzeMaterialProperty(Entry.Property, NumTextureCoordinates, bUsesVertexData);
-					if (!Entry.bUseConstantValue && Material->IsPropertyActive(Entry.Property))
+					if (!Entry.bUseConstantValue && Material->IsPropertyActive(Entry.Property) && Entry.Property != MP_MAX)
 					{
 						MaterialSettings.PropertySizes.Add(Entry.Property, Entry.bUseCustomSize ? Entry.CustomSize : MaterialOptions->TextureSize);
 					}
@@ -302,7 +316,7 @@ void FMeshMergeUtilities::BakeMaterialsForComponent(TArray<TWeakObjectPtr<UObjec
 	FIntPoint ConstantSize(1, 1);
 	for (const FPropertyEntry& Entry : MaterialOptions->Properties)
 	{
-		if (Entry.bUseConstantValue)
+		if (Entry.bUseConstantValue && Entry.Property != MP_MAX)
 		{
 			ConstantData.SetNum(1, false);
 			ConstantData[0] = FColor(Entry.ConstantValue * 255.0f, Entry.ConstantValue * 255.0f, Entry.ConstantValue * 255.0f);
@@ -403,6 +417,8 @@ void FMeshMergeUtilities::BakeMaterialsForComponent(TArray<TWeakObjectPtr<UObjec
 			}
 		}
 	}
+
+	Adapter->UpdateUVChannelData();
 }
 
 void FMeshMergeUtilities::BakeMaterialsForComponent(USkeletalMeshComponent* SkeletalMeshComponent) const
@@ -469,14 +485,14 @@ void FMeshMergeUtilities::BakeMaterialsForMesh(UStaticMesh* StaticMesh) const
 
 void FMeshMergeUtilities::DetermineMaterialVertexDataUsage(TArray<bool>& InOutMaterialUsesVertexData, const TArray<UMaterialInterface*>& UniqueMaterials, const UMaterialOptions* MaterialOptions) const
 {
-	InOutMaterialUsesVertexData.AddDefaulted(UniqueMaterials.Num());
+	InOutMaterialUsesVertexData.SetNum(UniqueMaterials.Num());
 	for (int32 MaterialIndex = 0; MaterialIndex < UniqueMaterials.Num(); ++MaterialIndex)
 	{
 		UMaterialInterface* Material = UniqueMaterials[MaterialIndex];
 		for (const FPropertyEntry& Entry : MaterialOptions->Properties)
 		{
 			// Don't have to check a property if the result is going to be constant anyway
-			if (!Entry.bUseConstantValue)
+			if (!Entry.bUseConstantValue && Entry.Property != MP_MAX)
 			{
 				int32 NumTextureCoordinates;
 				bool bUsesVertexData;
@@ -552,60 +568,158 @@ UMaterialOptions* FMeshMergeUtilities::PopulateMaterialOptions(const FMaterialPr
 	const bool bCustomSizes = MaterialSettings.TextureSizingType == TextureSizingType_UseManualOverrideTextureSize;
 
 	FPropertyEntry Property;
-	Property.Property = MP_BaseColor;
-	Property.bUseConstantValue = false;
-	Property.bUseCustomSize = bCustomSizes;
-	Property.CustomSize = bCustomSizes ? MaterialSettings.DiffuseTextureSize : MaterialSettings.TextureSize;
+	PopulatePropertyEntry(MaterialSettings, MP_BaseColor, Property);
 	MaterialOptions->Properties.Add(Property);
 
-	Property.Property = MP_Specular;
-	Property.bUseCustomSize = bCustomSizes;
-	Property.CustomSize = bCustomSizes ? MaterialSettings.SpecularTextureSize : MaterialSettings.TextureSize;
+	PopulatePropertyEntry(MaterialSettings, MP_Specular, Property);
 	if (MaterialSettings.bSpecularMap)
 		MaterialOptions->Properties.Add(Property);
 
-	Property.Property = MP_Roughness;
-	Property.bUseCustomSize = bCustomSizes;
-	Property.CustomSize = bCustomSizes ? MaterialSettings.RoughnessTextureSize : MaterialSettings.TextureSize;
+	PopulatePropertyEntry(MaterialSettings, MP_Roughness, Property);
 	if (MaterialSettings.bRoughnessMap)
 		MaterialOptions->Properties.Add(Property);
 
-	Property.Property = MP_Metallic;
-	Property.bUseCustomSize = bCustomSizes;
-	Property.CustomSize = bCustomSizes ? MaterialSettings.MetallicTextureSize : MaterialSettings.TextureSize;
+	PopulatePropertyEntry(MaterialSettings, MP_Metallic, Property);
 	if (MaterialSettings.bMetallicMap)
 		MaterialOptions->Properties.Add(Property);
 
-	Property.Property = MP_Normal;
-	Property.bUseCustomSize = bCustomSizes;
-	Property.CustomSize = bCustomSizes ? MaterialSettings.NormalTextureSize : MaterialSettings.TextureSize;
+	PopulatePropertyEntry(MaterialSettings, MP_Normal, Property);
 	if (MaterialSettings.bNormalMap)
 		MaterialOptions->Properties.Add(Property);
 
-	Property.Property = MP_Opacity;
-	Property.bUseCustomSize = bCustomSizes;
-	Property.CustomSize = bCustomSizes ? MaterialSettings.OpacityTextureSize : MaterialSettings.TextureSize;
+	PopulatePropertyEntry(MaterialSettings, MP_Opacity, Property);
 	if (MaterialSettings.bOpacityMap)
 		MaterialOptions->Properties.Add(Property);
 
-	Property.Property = MP_OpacityMask;
-	Property.bUseCustomSize = bCustomSizes;
-	Property.CustomSize = bCustomSizes ? MaterialSettings.OpacityMaskTextureSize : MaterialSettings.TextureSize;
+	PopulatePropertyEntry(MaterialSettings, MP_OpacityMask, Property);
 	if (MaterialSettings.bOpacityMaskMap)
 		MaterialOptions->Properties.Add(Property);
 
-	Property.Property = MP_EmissiveColor;
-	Property.bUseCustomSize = bCustomSizes;
-	Property.CustomSize = bCustomSizes ? MaterialSettings.EmissiveTextureSize : MaterialSettings.TextureSize;
+	PopulatePropertyEntry(MaterialSettings, MP_EmissiveColor, Property);
 	if (MaterialSettings.bEmissiveMap)
 		MaterialOptions->Properties.Add(Property);
 
-	Property.Property = MP_AmbientOcclusion;
-	Property.bUseCustomSize = bCustomSizes;
-	Property.CustomSize = bCustomSizes ? MaterialSettings.AmbientOcclusionTextureSize : MaterialSettings.TextureSize;
+	PopulatePropertyEntry(MaterialSettings, MP_AmbientOcclusion, Property);
 	if (MaterialSettings.bAmbientOcclusionMap)
 		MaterialOptions->Properties.Add(Property);
+
 	return MaterialOptions;
+}
+
+void FMeshMergeUtilities::PopulatePropertyEntry(const FMaterialProxySettings& MaterialSettings, EMaterialProperty MaterialProperty, FPropertyEntry& InOutPropertyEntry) const
+{
+	InOutPropertyEntry.Property = MaterialProperty;
+	switch (MaterialSettings.TextureSizingType)
+	{	
+		/** Set property output size to unique per-property user set sizes */
+		case TextureSizingType_UseManualOverrideTextureSize:
+		{
+			InOutPropertyEntry.bUseCustomSize = true;
+			InOutPropertyEntry.CustomSize = [MaterialSettings, MaterialProperty]() -> FIntPoint
+			{
+				switch (MaterialProperty)
+				{
+					case MP_BaseColor: return MaterialSettings.DiffuseTextureSize;
+					case MP_Specular: return MaterialSettings.SpecularTextureSize;
+					case MP_Roughness: return MaterialSettings.RoughnessTextureSize;
+					case MP_Metallic: return MaterialSettings.MetallicTextureSize;
+					case MP_Normal: return MaterialSettings.NormalTextureSize;
+					case MP_Opacity: return MaterialSettings.OpacityTextureSize;
+					case MP_OpacityMask: return MaterialSettings.OpacityMaskTextureSize;
+					case MP_EmissiveColor: return MaterialSettings.EmissiveTextureSize;
+					case MP_AmbientOcclusion: return MaterialSettings.AmbientOcclusionTextureSize;
+					default:
+					{
+						checkf(false, TEXT("Invalid Material Property"));
+						return FIntPoint();
+					}	
+				}
+			}();
+
+			break;
+		}
+		/** Set property output size to biased values off the TextureSize value (Normal at fullres, Diffuse at halfres, and anything else at quarter res */
+		case TextureSizingType_UseAutomaticBiasedSizes:
+		{
+			const FIntPoint FullRes = MaterialSettings.TextureSize;
+			const FIntPoint HalfRes = FIntPoint(FMath::Max(8, FullRes.X >> 1), FMath::Max(8, FullRes.Y >> 1));
+			const FIntPoint QuarterRes = FIntPoint(FMath::Max(4, FullRes.X >> 2), FMath::Max(4, FullRes.Y >> 2));
+
+			InOutPropertyEntry.bUseCustomSize = true;
+			InOutPropertyEntry.CustomSize = [FullRes, HalfRes, QuarterRes, MaterialSettings, MaterialProperty]() -> FIntPoint
+			{
+				switch (MaterialProperty)
+				{
+				case MP_Normal: return FullRes;
+				case MP_BaseColor: return HalfRes;
+				case MP_Specular: return QuarterRes;
+				case MP_Roughness: return QuarterRes;
+				case MP_Metallic: return QuarterRes;				
+				case MP_Opacity: return QuarterRes;
+				case MP_OpacityMask: return QuarterRes;
+				case MP_EmissiveColor: return QuarterRes;
+				case MP_AmbientOcclusion: return QuarterRes;
+				default:
+				{
+					checkf(false, TEXT("Invalid Material Property"));
+					return FIntPoint();
+				}
+				}
+			}();
+
+			break;
+		}
+ 		/** Set all sizes to TextureSize */
+		case TextureSizingType_UseSingleTextureSize:
+		case TextureSizingType_UseSimplygonAutomaticSizing:
+		{
+			InOutPropertyEntry.bUseCustomSize = false;
+			InOutPropertyEntry.CustomSize = MaterialSettings.TextureSize;
+			break;
+		}
+	}
+	/** Check whether or not a constant value should be used for this property */
+	InOutPropertyEntry.bUseConstantValue = [MaterialSettings, MaterialProperty]() -> bool
+	{
+		switch (MaterialProperty)
+		{
+			case MP_BaseColor: return false;
+			case MP_Normal: return !MaterialSettings.bNormalMap;
+			case MP_Specular: return !MaterialSettings.bSpecularMap;
+			case MP_Roughness: return !MaterialSettings.bRoughnessMap;
+			case MP_Metallic: return !MaterialSettings.bMetallicMap;
+			case MP_Opacity: return !MaterialSettings.bOpacityMap;
+			case MP_OpacityMask: return !MaterialSettings.bOpacityMaskMap;
+			case MP_EmissiveColor: return !MaterialSettings.bEmissiveMap;
+			case MP_AmbientOcclusion: return !MaterialSettings.bAmbientOcclusionMap;
+			default:
+			{
+				checkf(false, TEXT("Invalid Material Property"));
+				return false;
+			}
+		}
+	}();
+	/** Set the value if a constant value should be used for this property */
+	InOutPropertyEntry.ConstantValue = [MaterialSettings, MaterialProperty]() -> float
+	{
+		switch (MaterialProperty)
+		{
+			case MP_BaseColor: return 1.0f;
+			case MP_Normal: return 1.0f;
+			case MP_Specular: return MaterialSettings.SpecularConstant;
+			case MP_Roughness: return MaterialSettings.RoughnessConstant;
+			case MP_Metallic: return MaterialSettings.MetallicConstant;
+			case MP_Opacity: return MaterialSettings.OpacityConstant;
+			case MP_OpacityMask: return MaterialSettings.OpacityMaskConstant;
+			case MP_EmissiveColor: return 0.0f;
+			case MP_AmbientOcclusion: return MaterialSettings.AmbientOcclusionConstant;
+			default:
+			{
+				checkf(false, TEXT("Invalid Material Property"));
+				return 1.0f;
+			}
+		}
+	}();
 }
 
 void FMeshMergeUtilities::CopyTextureRect(const FColor* Src, const FIntPoint& SrcSize, FColor* Dst, const FIntPoint& DstSize, const FIntPoint& DstPos) const
@@ -927,7 +1041,6 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<AActor*>& InActors, const
 		return;
 	}
 
-	typedef FIntPoint FMeshIdAndLOD;
 	TArray<FRawMeshExt> SourceMeshes;
 	//TArray<FSectionInfo> UniqueSections;
 	TMap<FMeshIdAndLOD, TArray<int32>> GlobalMaterialMap;
@@ -958,9 +1071,9 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<AActor*>& InActors, const
 	// Unique set of sections in mesh
 	TArray<FSectionInfo> UniqueSections;
 	TArray<FSectionInfo> Sections;
-
-
 	TMultiMap<uint32, uint32> SectionToMesh;
+
+	int32 SummedLightmapPixels = 0;
 
 	for (const UStaticMeshComponent* StaticMeshComponent : ComponentsToMerge)
 	{
@@ -982,10 +1095,15 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<AActor*>& InActors, const
 		{
 			FSectionInfo& Section = Sections[SectionIndex];
 			const int32 UniqueIndex = UniqueSections.AddUnique(Section);
-			UniqueSectionIndexPerLOD.Add(MeshIndex, TPair<uint32, uint32>(UniqueIndex, SectionIndex));
+			UniqueSectionIndexPerLOD.Add(MeshIndex, TPair<uint32, uint32>(UniqueIndex, Section.MaterialIndex));
 
 			SectionToMesh.Add(UniqueIndex, MeshIndex);
 		}
+
+		int32 LightMapWidth, LightMapHeight;
+		StaticMeshComponent->GetLightMapResolution(LightMapWidth, LightMapHeight);
+		// Make sure we at least have some lightmap space allocated in case the static mesh is set up with invalid input
+		SummedLightmapPixels += FMath::Max(16, LightMapHeight * LightMapWidth);
 	}
 
 	TArray<UMaterialInterface*> UniqueMaterials;
@@ -1002,9 +1120,12 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<AActor*>& InActors, const
 
 	UMaterialOptions* Options = PopulateMaterialOptions(InMeshProxySettings.MaterialSettings);
 	TArray<EMaterialProperty> MaterialProperties;
-	for (const FPropertyEntry& Entry : Options->Properties)
+	for (const FPropertyEntry& Entry : Options->Properties )
 	{
-		MaterialProperties.Add(Entry.Property);
+		if (Entry.Property != MP_MAX)
+		{
+			MaterialProperties.Add(Entry.Property);
+		}
 	}
 
 	// Mesh index / ( Mesh relative section index / output index )	
@@ -1026,7 +1147,7 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<AActor*>& InActors, const
 
 		for (const FPropertyEntry& Entry : Options->Properties)
 		{
-			if (!Entry.bUseConstantValue && Material->IsPropertyActive(Entry.Property))
+			if (!Entry.bUseConstantValue && Material->IsPropertyActive(Entry.Property) && Entry.Property != MP_MAX)
 			{
 				MaterialSettings.PropertySizes.Add(Entry.Property, Entry.bUseCustomSize ? Entry.CustomSize : Options->TextureSize);
 			}
@@ -1150,7 +1271,7 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<AActor*>& InActors, const
 	FIntPoint ConstantSize(1, 1);
 	for (const FPropertyEntry& Entry : Options->Properties)
 	{
-		if (Entry.bUseConstantValue)
+		if (Entry.bUseConstantValue && Entry.Property != MP_MAX)
 		{
 			ConstantData.SetNum(1, false);
 			ConstantData[0] = FColor(Entry.ConstantValue * 255.0f, Entry.ConstantValue * 255.0f, Entry.ConstantValue * 255.0f);
@@ -1207,6 +1328,12 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<AActor*>& InActors, const
 	Data->InProxySettings = InMeshProxySettings;
 	Data->ProxyBasePackageName = InProxyBasePackageName;
 	Data->CallbackDelegate = InProxyCreatedDelegate;
+
+	// Lightmap resolution
+	if (InMeshProxySettings.bComputeLightMapResolution)
+	{
+		Data->InProxySettings.LightMapResolution = FMath::CeilToInt(FMath::Sqrt(SummedLightmapPixels));
+	}
 
 	// Add this proxy job to map	
 	Processor->AddProxyJob(InGuid, Data);
@@ -1290,10 +1417,10 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 			StaticMeshComponentsToMerge.Add(MeshComponent);
 
 		// Save the pivot and asset package name of the first mesh, will later be used for creating merged mesh asset 
-			if (bFirstMesh)
+		if (bFirstMesh)
 		{
 			// Mesh component pivot point
-			MergedAssetPivot = InSettings.bPivotPointAtZero ? FVector::ZeroVector : MeshComponent->ComponentToWorld.GetLocation();
+			MergedAssetPivot = InSettings.bPivotPointAtZero ? FVector::ZeroVector : MeshComponent->GetComponentTransform().GetLocation();
 			// Source mesh asset package name
 			MergedAssetPackageName = MeshComponent->GetStaticMesh()->GetOutermost()->GetName();
 
@@ -1324,6 +1451,15 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 			UStaticMeshComponent* Component = StaticMeshComponentsToMerge[ComponentIndex];
 			Adapters.Add(FStaticMeshComponentAdapter(Component));
 			FStaticMeshComponentAdapter& Adapter = Adapters.Last();
+			
+			if (InSettings.bComputedLightMapResolution)
+			{
+				int32 LightMapHeight, LightMapWidth;
+				if (Component->GetLightMapResolution(LightMapWidth, LightMapHeight))
+				{
+					DataTracker.AddLightMapPixels(LightMapWidth * LightMapHeight);
+				}
+			}			
 
 			const int32 NumLODs = Adapter.GetNumberOfLODs();
 			for (int32 LODIndex = 0; LODIndex < NumLODs; ++LODIndex)
@@ -1342,7 +1478,7 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 					const FSectionInfo& Section = Sections[SectionIndex];
 					const int32 UniqueIndex = DataTracker.AddSection(Section);
 					DataTracker.AddSectionRemapping(ComponentIndex, LODIndex, Section.MaterialIndex, UniqueIndex);
-
+					DataTracker.AddMaterialSlotName(Section.Material, Section.MaterialSlotName);
 					for (int32 StartIndex = Section.StartIndex; StartIndex < Section.EndIndex; ++StartIndex)
 					{
 						RawMesh.FaceMaterialIndices[StartIndex] = UniqueIndex;
@@ -1360,6 +1496,11 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 				{
 					DataTracker.RemoveRawMesh(ComponentIndex, LODIndex);
 					break;
+				}
+				else if(Component->GetStaticMesh() != nullptr)
+				{
+					// If the mesh is valid at this point, record the lightmap UV so we have a record for use later
+					DataTracker.AddLightmapChannelRecord(ComponentIndex, LODIndex, Component->GetStaticMesh()->LightMapCoordinateIndex);
 				}
 
 				DataTracker.AddLODIndex(LODIndex);
@@ -1414,6 +1555,7 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 
 				// Store of original to unique section index entry for this component + LOD index
 				DataTracker.AddSectionRemapping(ComponentIndex, LODIndex, Section.MaterialIndex, UniqueIndex);
+				DataTracker.AddMaterialSlotName(Section.Material, Section.MaterialSlotName);
 
 				if (!bMergeMaterialData)
 				{
@@ -1434,6 +1576,11 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 			if (!bValidMesh)
 			{
 				DataTracker.RemoveRawMesh(ComponentIndex, LODIndex);
+			}
+			else if(Component->GetStaticMesh() != nullptr)
+			{
+				// If the mesh is valid at this point, record the lightmap UV so we have a record for use later
+				DataTracker.AddLightmapChannelRecord(ComponentIndex, LODIndex, Component->GetStaticMesh()->LightMapCoordinateIndex);
 			}
 		}
 	}
@@ -1483,7 +1630,7 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 		TMap<EMaterialProperty, FIntPoint> PropertySizes;
 		for (const FPropertyEntry& Entry : MaterialOptions->Properties)
 		{
-			if (!Entry.bUseConstantValue)
+			if (!Entry.bUseConstantValue && Entry.Property != MP_MAX)
 			{
 				PropertySizes.Add(Entry.Property, Entry.bUseCustomSize ? Entry.CustomSize : MaterialOptions->TextureSize);
 			}
@@ -1532,7 +1679,9 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 				if (InSettings.bUseVertexDataForBakingMaterial && (bDoesMaterialUseVertexData || bRequiresUniqueUVs))
 				{
 					MeshData.RawMesh = DataTracker.GetRawMeshPtr(Key);
-					if (bRequiresUniqueUVs)
+					// if it has vertex color/*WedgetColors.Num()*/, it should also use light map UV index
+					// we can't do this for all meshes, but only for the mesh that has vertex color.
+					if (bRequiresUniqueUVs || MeshData.RawMesh->WedgeColors.Num() > 0)
 					{
 						// Check if there are lightmap uvs available?
 						const int32 LightMapUVIndex = StaticMeshComponentsToMerge[Key.GetMeshIndex()]->GetStaticMesh()->LightMapCoordinateIndex;
@@ -1611,7 +1760,7 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 		FIntPoint ConstantSize(1, 1);
 		for (const FPropertyEntry& Entry : MaterialOptions->Properties)
 		{
-			if (Entry.bUseConstantValue)
+			if (Entry.bUseConstantValue && Entry.Property != MP_MAX)
 			{
 				ConstantData.SetNum(1, false);
 				ConstantData[0] = FLinearColor(Entry.ConstantValue, Entry.ConstantValue, Entry.ConstantValue).ToFColor(true);
@@ -1635,8 +1784,11 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 		FFlattenMaterial OutMaterial;
 		for (const FPropertyEntry& Entry : MaterialOptions->Properties)
 		{
-			EFlattenMaterialProperties OldProperty = NewToOldProperty(Entry.Property);
-			OutMaterial.SetPropertySize(OldProperty, Entry.bUseCustomSize ? Entry.CustomSize : MaterialOptions->TextureSize);
+			if (Entry.Property != MP_MAX)
+			{
+				EFlattenMaterialProperties OldProperty = NewToOldProperty(Entry.Property);
+				OutMaterial.SetPropertySize(OldProperty, Entry.bUseCustomSize ? Entry.CustomSize : MaterialOptions->TextureSize);
+			}
 		}
 
 		/** Reweighting */
@@ -1666,12 +1818,27 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 			MergeFlattenedMaterials(FlattenedMaterials, OutMaterial, UVTransforms);
 		}
 		
+		// If materials were baked out using either a different UV channel than 0 or with fully custom uvs we should replace them
+		for (FMeshData& MeshData : GlobalMeshSettings)
+		{
+			FRawMesh* RawMesh = MeshData.RawMesh;
+			if (MeshData.CustomTextureCoordinates.Num())
+			{
+				RawMesh->WedgeTexCoords[0] = MeshData.CustomTextureCoordinates;
+			}
+			else if (MeshData.TextureCoordinateIndex != 0)
+			{
+				RawMesh->WedgeTexCoords[0] = RawMesh->WedgeTexCoords[MeshData.TextureCoordinateIndex];
+			}
+		}
+
 		// Adjust UVs
 		for (int32 ComponentIndex = 0; ComponentIndex < ComponentsToMerge.Num(); ++ComponentIndex)
 		{
+			TArray<uint32> ProcessedMaterials;
 			for (TPair<FMeshLODKey, MaterialRemapPair>& MappingPair : OutputMaterialsMap)
 			{
-				if (MappingPair.Key.GetMeshIndex() == ComponentIndex)
+				if (MappingPair.Key.GetMeshIndex() == ComponentIndex && !ProcessedMaterials.Contains(MappingPair.Value.Key))
 				{
 					const int32 LODIndex = MappingPair.Key.GetLODIndex();
 					// Found component entry
@@ -1683,19 +1850,9 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 					const FUVOffsetScalePair& UVTransform = UVTransforms[MappingPair.Value.Value];
 
 					const uint32 MaterialIndex = MappingPair.Value.Key;
-
+					ProcessedMaterials.Add(MaterialIndex);
 					if (RawMesh->VertexPositions.Num())
 					{
-						// If materials were baked out using either a different UV channel than 0 or with fully custom uvs we should replace them
-						if (MeshData.CustomTextureCoordinates.Num())
-						{
-							RawMesh->WedgeTexCoords[0] = MeshData.CustomTextureCoordinates;
-						}
-						else if (MeshData.TextureCoordinateIndex != 0)
-						{
-							RawMesh->WedgeTexCoords[0] = RawMesh->WedgeTexCoords[MeshData.TextureCoordinateIndex];
-						}
-
 						for (int32 UVChannelIdx = 0; UVChannelIdx < MAX_MESH_TEXTURE_COORDS; ++UVChannelIdx)
 						{
 							TArray<FVector2D>& UVs = RawMesh->WedgeTexCoords[UVChannelIdx];
@@ -2034,7 +2191,7 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 				SrcModel->BuildSettings.bUseHighPrecisionTangentBasis = false;
 				SrcModel->BuildSettings.bUseFullPrecisionUVs = false;
 				SrcModel->BuildSettings.bGenerateLightmapUVs = InSettings.bGenerateLightMapUV;
-				SrcModel->BuildSettings.MinLightmapResolution = InSettings.TargetLightMapResolution;
+				SrcModel->BuildSettings.MinLightmapResolution = InSettings.bComputedLightMapResolution ? DataTracker.GetLightMapDimension() : InSettings.TargetLightMapResolution;
 				SrcModel->BuildSettings.SrcLightmapIndex = 0;
 				SrcModel->BuildSettings.DstLightmapIndex = LightMapUVChannel;
 
@@ -2048,7 +2205,7 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 			{
 				Material = nullptr; // do not save non-asset materials
 			}
-			StaticMesh->StaticMaterials.Add(FStaticMaterial(Material));
+			StaticMesh->StaticMaterials.Add(FStaticMaterial(Material, DataTracker.GetMaterialSlotName(Material)));
 		}
 
 		if (InSettings.bMergePhysicsData)
@@ -2077,6 +2234,7 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 
 		//Set the Imported version before calling the build
 		StaticMesh->ImportVersion = EImportStaticMeshVersion::LastVersion;
+		StaticMesh->LightMapResolution = InSettings.bComputedLightMapResolution ? DataTracker.GetLightMapDimension() : InSettings.TargetLightMapResolution;
 
 		StaticMesh->Build(bSilent);
 		StaticMesh->PostEditChange();

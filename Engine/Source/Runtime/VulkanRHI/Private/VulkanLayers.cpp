@@ -11,12 +11,6 @@
 #include <SDL.h>
 #endif
 
-#if VULKAN_HAS_DEBUGGING_ENABLED
-
-	#if VULKAN_ENABLE_DRAW_MARKERS
-		#define RENDERDOC_LAYER_NAME	"VK_LAYER_RENDERDOC_Capture"
-	#endif
-
 TAutoConsoleVariable<int32> GValidationCvar(
 	TEXT("r.Vulkan.EnableValidation"),
 	0,
@@ -27,7 +21,13 @@ TAutoConsoleVariable<int32> GValidationCvar(
 	TEXT("4 to enable errors, warnings, performance & information messages\n")
 	TEXT("5 to enable all messages"),
 	ECVF_ReadOnly | ECVF_RenderThreadSafe
-	);
+);
+
+#if VULKAN_HAS_DEBUGGING_ENABLED
+
+	#if VULKAN_ENABLE_DRAW_MARKERS
+		#define RENDERDOC_LAYER_NAME	"VK_LAYER_RENDERDOC_Capture"
+	#endif
 
 // List of validation layers which we want to activate for the instance
 static const ANSICHAR* GRequiredLayersInstance[] =
@@ -51,9 +51,13 @@ static const ANSICHAR* GValidationLayersInstance[] =
 	"VK_LAYER_GOOGLE_threading",
 	"VK_LAYER_LUNARG_parameter_validation",
 	"VK_LAYER_LUNARG_object_tracker",
+#if defined(VK_HEADER_VERSION) && (VK_HEADER_VERSION < 42)
 	"VK_LAYER_LUNARG_image",
+#endif
 	"VK_LAYER_LUNARG_core_validation",
+#if defined(VK_HEADER_VERSION) && (VK_HEADER_VERSION < 51)
 	"VK_LAYER_LUNARG_swapchain",
+#endif
 	"VK_LAYER_GOOGLE_unique_objects",
 #endif
 
@@ -107,10 +111,12 @@ static const ANSICHAR* GInstanceExtensions[] =
 #endif
 #if PLATFORM_ANDROID
 	VK_KHR_ANDROID_SURFACE_EXTENSION_NAME,
+#elif PLATFORM_LINUX
+//	VK_KHR_XLIB_SURFACE_EXTENSION_NAME,
 #elif PLATFORM_WINDOWS
 	VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
 #endif
-#if !VULKAN_DISABLE_DEBUG_CALLBACK
+#if VULKAN_HAS_DEBUGGING_ENABLED
 	VK_EXT_DEBUG_REPORT_EXTENSION_NAME,
 #endif
 	nullptr
@@ -127,10 +133,12 @@ static const ANSICHAR* GDeviceExtensions[] =
 	//	VK_KHR_WIN32_SURFACE_EXTENSION_NAME,	// Not supported, even if it's reported as a valid extension... (SDK/driver bug?)
 #endif
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+
 	//"VK_KHX_device_group",
-#if PLATFORM_WINDOWS && defined(VK_KHR_maintenance1) && (VK_KHR_maintenance1 == 1)
+#if SUPPORTS_MAINTENANCE_LAYER
 	VK_KHR_MAINTENANCE1_EXTENSION_NAME,
 #endif
+	VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME,
 	nullptr
 };
 
@@ -186,6 +194,7 @@ static inline void GetDeviceLayerExtensions(VkPhysicalDevice Device, const ANSIC
 	}
 	while (Result == VK_INCOMPLETE);
 }
+
 
 void FVulkanDynamicRHI::GetInstanceLayersAndExtensions(TArray<const ANSICHAR*>& OutInstanceExtensions, TArray<const ANSICHAR*>& OutInstanceLayers)
 {
@@ -439,7 +448,7 @@ void FVulkanDevice::GetDeviceExtensions(TArray<const ANSICHAR*>& OutDeviceExtens
 		}
 	}
 
-	for (uint32 Index = 0; Index < ARRAY_COUNT(GDeviceExtensions); ++Index)
+	for (uint32 Index = 0; Index < ARRAY_COUNT(GDeviceExtensions) && GDeviceExtensions[Index] != nullptr; ++Index)
 	{
 		for (int32 i = 0; i < Extensions.ExtensionProps.Num(); i++)
 		{
@@ -451,23 +460,21 @@ void FVulkanDevice::GetDeviceExtensions(TArray<const ANSICHAR*>& OutDeviceExtens
 		}
 	}
 
+#if VULKAN_HAS_DEBUGGING_ENABLED
 	#if VULKAN_ENABLE_DRAW_MARKERS
 	{
-		if (bRenderDocFound)
+		for (int32 i = 0; i < Extensions.ExtensionProps.Num(); i++)
 		{
-			for (int32 i = 0; i < Extensions.ExtensionProps.Num(); i++)
+			if (!FCStringAnsi::Strcmp(Extensions.ExtensionProps[i].extensionName, VK_EXT_DEBUG_MARKER_EXTENSION_NAME))
 			{
-				if (!FCStringAnsi::Strcmp(Extensions.ExtensionProps[i].extensionName, VK_EXT_DEBUG_MARKER_EXTENSION_NAME))
-				{
-					OutDeviceExtensions.Add(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
-					bOutDebugMarkers = true;
-					break;
-				}
+				OutDeviceExtensions.Add(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
+				bOutDebugMarkers = true;
+				break;
 			}
 		}
 	}
 	#endif
-
+#endif
 	if (OutDeviceExtensions.Num() > 0)
 	{
 		UE_LOG(LogVulkanRHI, Display, TEXT("Using device extensions"));
@@ -501,7 +508,12 @@ void FVulkanDevice::ParseOptionalDeviceExtensions(const TArray<const ANSICHAR *>
 			}
 		);
 	};
-#if PLATFORM_WINDOWS && defined(VK_KHR_maintenance1) && (VK_KHR_maintenance1 == 1)
+#if SUPPORTS_MAINTENANCE_LAYER
 	OptionalDeviceExtensions.HasKHRMaintenance1 = HasExtension(VK_KHR_MAINTENANCE1_EXTENSION_NAME);
+#endif
+	OptionalDeviceExtensions.HasMirrorClampToEdge = HasExtension(VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME);
+#if !PLATFORM_ANDROID
+	// Verify the assumption on FVulkanSamplerState::FVulkanSamplerState()!
+	ensure(OptionalDeviceExtensions.HasMirrorClampToEdge != 0);
 #endif
 }

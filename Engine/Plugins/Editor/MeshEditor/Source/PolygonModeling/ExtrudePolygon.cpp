@@ -164,7 +164,7 @@ void UExtrudePolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Me
 				UPrimitiveComponent* Component = PolygonsToExtrude[ 0 ].Component.Get();	// NOTE: All polygons in this array belong to the same mesh/component, so we just need the first element
 				check( Component != nullptr );
 				// @todo mesheditor: We're working with a float here, so we'll treat the component scale as a scalar (X)
-				const float ComponentSpaceExtrudeDistance = ExtrudeDistance / Component->ComponentToWorld.GetScale3D().X;
+				const float ComponentSpaceExtrudeDistance = ExtrudeDistance / Component->GetComponentToWorld().GetScale3D().X;
 
 				// Create a copy of the polygon with new extruded polygons for each edge
 				static TArray<FPolygonID> NewExtrudedFrontPolygons;

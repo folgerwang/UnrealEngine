@@ -51,6 +51,7 @@ public class PropertyEditor : ModuleRules
                 "AppFramework",
 				"Core",
 				"CoreUObject",
+				"ApplicationCore",
 				"EditorStyle",
 				"Engine",
 				"InputCore",
@@ -60,8 +61,9 @@ public class PropertyEditor : ModuleRules
 				"Documentation",
                 "RHI",
 				"ConfigEditor",
-			}
-		);
+                "SceneOutliner",
+            }
+        );
 
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[] {

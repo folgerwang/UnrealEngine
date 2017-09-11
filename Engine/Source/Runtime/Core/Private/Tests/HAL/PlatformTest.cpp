@@ -40,7 +40,6 @@ struct TestC : public TestA, TestB
 	int i;
 };
 
-
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPlatformVerificationTest, "System.Core.HAL.Platform Verification", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::SmokeFilter)
 
 bool FPlatformVerificationTest::RunTest (const FString& Parameters)

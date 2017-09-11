@@ -22,7 +22,7 @@ TSharedRef<IDetailCustomization> FLevelSequenceActorDetails::MakeInstance()
 
 void FLevelSequenceActorDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 {
-	const TArray< TWeakObjectPtr<UObject> >& SelectedObjects = DetailLayout.GetDetailsView().GetSelectedObjects();
+	const TArray< TWeakObjectPtr<UObject> >& SelectedObjects = DetailLayout.GetSelectedObjects();
 
 	for( int32 ObjectIndex = 0; ObjectIndex < SelectedObjects.Num(); ++ObjectIndex )
 	{
@@ -72,7 +72,11 @@ FReply FLevelSequenceActorDetails::OnOpenLevelSequenceForActor()
 {
 	if( LevelSequenceActor.IsValid() )
 	{
-		FAssetEditorManager::Get().OpenEditorForAsset(LevelSequenceActor.Get()->LevelSequence.TryLoad());
+		UObject* LoadedObject = LevelSequenceActor.Get()->LevelSequence.TryLoad();
+		if (LoadedObject != nullptr)
+		{
+			FAssetEditorManager::Get().OpenEditorForAsset(LoadedObject);
+		}
 	}
 
 	return FReply::Handled();

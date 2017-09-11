@@ -119,7 +119,6 @@ public:
 	FVulkanRenderTargetLayout(const FGraphicsPipelineStateInitializer& Initializer);
 	FVulkanRenderTargetLayout(const FRHISetRenderTargetsInfo& RTInfo);
 
-	inline uint32 GetHash() const { return Hash; }
 	inline const VkExtent2D& GetExtent2D() const { return Extent.Extent2D; }
 	inline const VkExtent3D& GetExtent3D() const { return Extent.Extent3D; }
 	inline const VkAttachmentDescription* GetAttachmentDescriptions() const { return Desc; }
@@ -138,6 +137,9 @@ public:
 	inline const VkAttachmentReference* GetDepthStencilAttachmentReference() const { return bHasDepthStencil ? &DepthStencilReference : nullptr; }
 
 protected:
+    FVulkanTextureBase* ColorTextures[MaxSimultaneousRenderTargets];
+    FVulkanTextureBase* DepthStencilTexture;
+    
 	VkAttachmentReference ColorReferences[MaxSimultaneousRenderTargets];
 	VkAttachmentReference ResolveReferences[MaxSimultaneousRenderTargets];
 	VkAttachmentReference DepthStencilReference;
@@ -151,7 +153,9 @@ protected:
 	uint8 NumSamples;
 	uint8 NumUsedClearValues;
 
-	uint32 Hash;
+    uint32 RenderPassHash;
+    uint32 FramebufferHash;
+    uint32 TexturesHash;
 
 	union
 	{
@@ -161,6 +165,8 @@ protected:
 
 	FVulkanRenderTargetLayout()
 	{
+        FMemory::Memzero(ColorTextures);
+        DepthStencilTexture = nullptr;
 		FMemory::Memzero(ColorReferences);
 		FMemory::Memzero(ResolveReferences);
 		FMemory::Memzero(DepthStencilReference);
@@ -169,12 +175,68 @@ protected:
 		NumColorAttachments = 0;
 		bHasDepthStencil = 0;
 		bHasResolveAttachments = 0;
-		Hash = 0;
+        RenderPassHash = 0;
+        FramebufferHash = 0;
+        TexturesHash = 0;
 		Extent.Extent3D.width = 0;
 		Extent.Extent3D.height = 0;
 		Extent.Extent3D.depth = 0;
 	}
 	friend class FVulkanPipelineStateCache;
+    friend class FVulkanPendingGfxState;
+    friend class FVulkanCommandListContext;
+
+private:
+	
+	struct FRenderPassHashable
+	{
+		FRenderPassHashable(const FVulkanRenderTargetLayout& InRenderTargetLayout)
+		{
+			FMemory::Memcpy(Descriptions, InRenderTargetLayout.Desc);
+		}
+
+		VkAttachmentDescription Descriptions[MaxSimultaneousRenderTargets * 2 + 1];
+	};
+
+	struct FFramebufferHashable
+	{
+		FFramebufferHashable(uint32_t InRenderPassHash, const FVulkanRenderTargetLayout& InRenderTargetLayout, const FRHISetRenderTargetsInfo* RTInfo)
+			: RenderPassHash(InRenderPassHash)
+			, Padding(0)
+			, DepthStencilTexture(InRenderTargetLayout.DepthStencilTexture)
+		{
+			for (uint32 i = 0; i < InRenderTargetLayout.NumColorAttachments; i++)
+			{
+				ColorTextureHashState[i].ColorTexture = InRenderTargetLayout.ColorTextures[i];
+				ColorTextureHashState[i].MipIndex = RTInfo ? RTInfo->ColorRenderTarget[i].MipIndex : 0;
+				ColorTextureHashState[i].ArraySliceIndex = RTInfo ? RTInfo->ColorRenderTarget[i].ArraySliceIndex : 0xFFFFFFFF;
+			}
+			FMemory::Memzero(&ColorTextureHashState[InRenderTargetLayout.NumColorAttachments], sizeof(ColorTextureHashState[0]) * (MaxSimultaneousRenderTargets - InRenderTargetLayout.NumColorAttachments));
+		}
+
+		uint32_t RenderPassHash;
+		uint32_t Padding;
+		struct FColorTextureHashable
+		{
+			FVulkanTextureBase* ColorTexture;
+			uint32 MipIndex;
+			uint32 ArraySliceIndex;
+		};
+		FColorTextureHashable ColorTextureHashState[MaxSimultaneousRenderTargets];
+		FVulkanTextureBase* DepthStencilTexture;
+	};
+
+	struct FTexturesHashable
+	{
+		FTexturesHashable(const FVulkanRenderTargetLayout& InRenderTargetLayout)
+			: DepthStencilTexture(InRenderTargetLayout.DepthStencilTexture)
+		{
+			FMemory::Memcpy(ColorTextures, InRenderTargetLayout.ColorTextures);
+		}
+
+		FVulkanTextureBase* ColorTextures[MaxSimultaneousRenderTargets];
+		FVulkanTextureBase* DepthStencilTexture;
+	};
 };
 
 struct FVulkanSemaphore
@@ -214,6 +276,7 @@ class FVulkanFramebuffer
 {
 public:
 	FVulkanFramebuffer(FVulkanDevice& Device, const FRHISetRenderTargetsInfo& InRTInfo, const FVulkanRenderTargetLayout& RTLayout, const FVulkanRenderPass& RenderPass);
+	~FVulkanFramebuffer();
 
 	bool Matches(const FRHISetRenderTargetsInfo& RTInfo) const;
 
@@ -407,6 +470,7 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("Get DescriptorSet"), STAT_VulkanGetDescriptorSet
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Pipeline Bind"), STAT_VulkanPipelineBind, STATGROUP_VulkanRHI, );
 DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Bound Shader States"), STAT_VulkanNumBoundShaderState, STATGROUP_VulkanRHI, );
 DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Render Passes"), STAT_VulkanNumRenderPasses, STATGROUP_VulkanRHI, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Physical Mem Allocations"), STAT_VulkanNumPhysicalMemAllocations, STATGROUP_VulkanRHI, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Dynamic VB Size"), STAT_VulkanDynamicVBSize, STATGROUP_VulkanRHI, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Dynamic IB Size"), STAT_VulkanDynamicIBSize, STATGROUP_VulkanRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Dynamic VB Lock/Unlock time"), STAT_VulkanDynamicVBLockTime, STATGROUP_VulkanRHI, );
@@ -422,6 +486,7 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("Wait For Query"), STAT_VulkanWaitQuery, STATGROU
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Reset Queries"), STAT_VulkanResetQuery, STATGROUP_VulkanRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Wait For Swapchain"), STAT_VulkanWaitSwapchain, STATGROUP_VulkanRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Acquire Backbuffer"), STAT_VulkanAcquireBackBuffer, STATGROUP_VulkanRHI, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Staging Buffer Mgmt"), STAT_VulkanStagingBuffer, STATGROUP_VulkanRHI, );
 #if VULKAN_ENABLE_AGGRESSIVE_STATS
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Apply DS Shader Resources"), STAT_VulkanApplyDSResources, STATGROUP_VulkanRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Update DescriptorSets"), STAT_VulkanUpdateDescriptorSets, STATGROUP_VulkanRHI, );
@@ -546,7 +611,7 @@ inline VkFormat UEToVkFormat(EPixelFormat UEFormat, const bool bIsSRGB)
 		{
 		case VK_FORMAT_B8G8R8A8_UNORM:				Format = VK_FORMAT_B8G8R8A8_SRGB; break;
 		case VK_FORMAT_A8B8G8R8_UNORM_PACK32:		Format = VK_FORMAT_A8B8G8R8_SRGB_PACK32; break;
-		case VK_FORMAT_R8_UNORM:					Format = VK_FORMAT_R8_SRGB; break;
+		case VK_FORMAT_R8_UNORM:					Format = ((GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1) ? VK_FORMAT_R8_UNORM : VK_FORMAT_R8_SRGB); break;
 		case VK_FORMAT_R8G8_UNORM:					Format = VK_FORMAT_R8G8_SRGB; break;
 		case VK_FORMAT_R8G8B8_UNORM:				Format = VK_FORMAT_R8G8B8_SRGB; break;
 		case VK_FORMAT_R8G8B8A8_UNORM:				Format = VK_FORMAT_R8G8B8A8_SRGB; break;
@@ -655,3 +720,10 @@ namespace FRCLog
 	void Printf(const FString& S);
 }
 #endif
+
+
+#ifndef VK_KHR_maintenance1
+#define VK_KHR_maintenance1	0
+#endif
+
+#define SUPPORTS_MAINTENANCE_LAYER							VK_KHR_maintenance1

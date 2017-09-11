@@ -613,6 +613,8 @@ FAudioSection::FAudioSection( UMovieSceneSection& InSection, TWeakPtr<ISequencer
 	, StoredDrawRange(TRange<float>::Empty())
 	, StoredSectionHeight(0.f)
 	, Sequencer(InSequencer)
+	, InitialStartOffsetDuringResize(0.f)
+	, InitialStartTimeDuringResize(0.f)
 {
 }
 
@@ -734,6 +736,27 @@ void FAudioSection::Tick( const FGeometry& AllottedGeometry, const FGeometry& Pa
 	}
 }
 
+void FAudioSection::BeginSlipSection()
+{
+	UMovieSceneAudioSection* AudioSection = Cast<UMovieSceneAudioSection>(&Section);
+	InitialStartOffsetDuringResize = AudioSection->GetStartOffset();
+	InitialStartTimeDuringResize = AudioSection->GetStartTime();
+}
+
+void FAudioSection::SlipSection(float SlipTime)
+{
+	UMovieSceneAudioSection* AudioSection = Cast<UMovieSceneAudioSection>(&Section);
+
+	float StartOffset = (SlipTime - InitialStartTimeDuringResize);
+	StartOffset += InitialStartOffsetDuringResize;
+
+	// Ensure start offset is not less than 0
+	StartOffset = FMath::Max(StartOffset, 0.f);
+
+	AudioSection->SetStartOffset(StartOffset);
+
+	ISequencerSection::SlipSection(SlipTime);
+}
 
 void FAudioSection::RegenerateWaveforms(TRange<float> DrawRange, int32 XOffset, int32 XSize, const FColor& ColorTint, float DisplayScale)
 {
@@ -792,6 +815,16 @@ bool FAudioTrackEditor::SupportsType( TSubclassOf<UMovieSceneTrack> Type ) const
 }
 
 
+bool FAudioTrackEditor::SupportsSequence(UMovieSceneSequence* InSequence) const
+{
+	static UClass* LevelSequenceClass = FindObject<UClass>(ANY_PACKAGE, TEXT("LevelSequence"), true);
+	static UClass* WidgetAnimationClass = FindObject<UClass>(ANY_PACKAGE, TEXT("WidgetAnimation"), true);
+	return InSequence != nullptr &&
+		((LevelSequenceClass != nullptr && InSequence->GetClass()->IsChildOf(LevelSequenceClass)) ||
+		(WidgetAnimationClass != nullptr && InSequence->GetClass()->IsChildOf(WidgetAnimationClass)));
+}
+
+
 void CopyInterpSoundTrack(TSharedRef<ISequencer> Sequencer, UInterpTrackSound* MatineeSoundTrack, UMovieSceneAudioTrack* AudioTrack)
 {
 	if (FMatineeImportTools::CopyInterpSoundTrack(MatineeSoundTrack, AudioTrack))
@@ -847,11 +880,6 @@ void FAudioTrackEditor::Resize(float NewSize, UMovieSceneTrack* InTrack)
 
 		AudioTrack->SetRowHeight(FMath::RoundToInt(NewSize) / MaxNumRows);
 	}
-}
-
-EMultipleRowMode FAudioTrackEditor::GetMultipleRowMode() const
-{
-	return EMultipleRowMode::MultipleTrack;
 }
 
 TSharedRef<ISequencerSection> FAudioTrackEditor::MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding )

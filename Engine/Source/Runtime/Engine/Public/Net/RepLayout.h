@@ -10,6 +10,7 @@
 #include "Misc/NetworkGuid.h"
 #include "UObject/CoreNet.h"
 #include "Engine/EngineTypes.h"
+#include "GCObject.h"
 
 class FGuidReferences;
 class FNetFieldExportGroup;
@@ -59,8 +60,10 @@ public:
 	virtual void SetExternalData( const uint8* Src, const int32 NumBits ) override
 	{
 		ExternalDataNumBits = NumBits;
-		ExternalData.AddUninitialized( ( NumBits + 7 ) >> 3 );
-		FMemory::Memcpy( ExternalData.GetData(), Src, ( NumBits + 7 ) >> 3 );
+		const int32 NumBytes = ( NumBits + 7 ) >> 3;
+		ExternalData.Reset( NumBytes );
+		ExternalData.AddUninitialized( NumBytes );
+		FMemory::Memcpy( ExternalData.GetData(), Src, NumBytes );
 	}
 
 	virtual bool IsReplay() const override
@@ -360,7 +363,7 @@ public:
  *  This class holds all replicated properties for a parent property, and all its children
  *	Helpers functions exist to read/write and compare property state.
 */
-class FRepLayout
+class FRepLayout : public FGCObject
 {
 	friend class FRepState;
 	friend class FRepChangelistState;
@@ -465,7 +468,7 @@ public:
 		const uint8* RESTRICT			Data,
 		const FReplicationFlags&		RepFlags ) const;
 
-	void AddReferencedObjects(FReferenceCollector& Collector);
+	ENGINE_API virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 
 private:
 	void RebuildConditionalProperties( FRepState * RESTRICT	RepState, const FRepChangedPropertyTracker& ChangedTracker, const FReplicationFlags& RepFlags ) const;

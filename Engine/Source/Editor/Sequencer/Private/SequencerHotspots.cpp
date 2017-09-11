@@ -47,6 +47,12 @@ TOptional<float> FSectionHotspot::GetTime() const
 	return ThisSection ? ThisSection->GetStartTime() : TOptional<float>();
 }
 
+TOptional<float> FSectionHotspot::GetOffsetTime() const
+{
+	UMovieSceneSection* ThisSection = Section.GetSectionObject();
+	return ThisSection ? ThisSection->GetOffsetTime() : TOptional<float>();
+}
+
 void FSectionHotspot::UpdateOnHover(SSequencerTrackArea& InTrackArea, ISequencer& InSequencer) const
 {
 	UMovieSceneSection* ThisSection = Section.GetSectionObject();
@@ -125,7 +131,8 @@ TSharedPtr<ISequencerEditToolDragOperation> FSectionResizeHotspot::InitiateDrag(
 		SectionHandles.Empty();
 		SectionHandles.Add(Section);
 	}
-	return MakeShareable( new FResizeSection(static_cast<FSequencer&>(Sequencer), SectionHandles, HandleType == Right) );
+	const bool bIsSlipping = false;
+	return MakeShareable( new FResizeSection(static_cast<FSequencer&>(Sequencer), SectionHandles, HandleType == Right, bIsSlipping) );
 }
 
 TOptional<float> FSectionEasingHandleHotspot::GetTime() const
@@ -164,12 +171,22 @@ TSharedPtr<ISequencerEditToolDragOperation> FSectionEasingHandleHotspot::Initiat
 bool FSectionEasingAreaHotspot::PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer& Sequencer, float MouseDownTime)
 {
 	FEasingContextMenu::BuildMenu(MenuBuilder, Easings, static_cast<FSequencer&>(Sequencer), MouseDownTime);
-	return true;
-}
 
-void FSectionEasingAreaHotspot::UpdateOnHover(SSequencerTrackArea& InTrackArea, ISequencer& InSequencer) const
-{
-	InTrackArea.AttemptToActivateTool(FSequencerEditTool_Movement::Identifier);
+	TSharedPtr<ISequencerSection> SectionInterface = Section.TrackNode->GetSections()[Section.SectionIndex];
+
+	FGuid ObjectBinding;
+	if (Section.TrackNode.IsValid())
+	{
+		TSharedPtr<FSequencerObjectBindingNode> ObjectBindingNode = Section.TrackNode->FindParentObjectBindingNode();
+		if (ObjectBindingNode.IsValid())
+		{
+			ObjectBinding = ObjectBindingNode->GetObjectBinding();
+		}
+	}
+
+	SectionInterface->BuildSectionContextMenu(MenuBuilder, ObjectBinding);
+
+	return true;
 }
 
 #undef LOCTEXT_NAMESPACE

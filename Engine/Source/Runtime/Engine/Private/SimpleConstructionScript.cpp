@@ -1137,7 +1137,7 @@ void USimpleConstructionScript::ValidateSceneRootNodes()
 }
 
 #if WITH_EDITOR
-void USimpleConstructionScript::GenerateListOfExistingNames(TArray<FName>& CurrentNames) const
+void USimpleConstructionScript::GenerateListOfExistingNames(TSet<FName>& CurrentNames) const
 {
 	TArray<const USCS_Node*> ChildrenNodes = GetAllNodesConst();
 	const UBlueprintGeneratedClass* OwnerClass = Cast<const UBlueprintGeneratedClass>(GetOuter());
@@ -1181,13 +1181,13 @@ void USimpleConstructionScript::GenerateListOfExistingNames(TArray<FName>& Curre
 
 	if (GetDefaultSceneRootNode())
 	{
-		CurrentNames.AddUnique(GetDefaultSceneRootNode()->GetVariableName());
+		CurrentNames.Add(GetDefaultSceneRootNode()->GetVariableName());
 	}
 }
 
 FName USimpleConstructionScript::GenerateNewComponentName(const UClass* ComponentClass, FName DesiredName ) const
 {
-	TArray<FName> CurrentNames;
+	TSet<FName> CurrentNames;
 	GenerateListOfExistingNames(CurrentNames);
 
 	FName NewName;
@@ -1275,7 +1275,7 @@ USCS_Node* USimpleConstructionScript::CreateNodeAndRenameComponent(UActorCompone
 	check(NewComponentTemplate);
 
 	// note that naming logic is duplicated in CreateNode:
-	FName NewComponentVariableName = GenerateNewComponentName(NewComponentTemplate->GetClass(), NewComponentTemplate->GetFName());
+	FName NewComponentVariableName = GenerateNewComponentName(NewComponentTemplate->GetClass());
 
 	// At this point we should have a unique, explicit name to use for the template object.
 	check(NewComponentVariableName != NAME_None);

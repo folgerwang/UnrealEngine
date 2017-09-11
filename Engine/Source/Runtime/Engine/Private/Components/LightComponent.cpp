@@ -247,12 +247,7 @@ FLightSceneProxy::FLightSceneProxy(const ULightComponent* InLightComponent)
 
 	if(LightComponent->IESTexture)
 	{
-		UTextureLightProfile* IESTextureObject = Cast<UTextureLightProfile>(LightComponent->IESTexture);
-
-		if(IESTextureObject)
-		{
-			IESTexture = IESTextureObject;
-		}
+		IESTexture = LightComponent->IESTexture;
 	}
 
 	Color = FLinearColor(InLightComponent->LightColor) * LightBrightness;
@@ -389,17 +384,12 @@ float ULightComponent::ComputeLightBrightness() const
 
 	if(IESTexture)
 	{
-		UTextureLightProfile* IESTextureObject = Cast<UTextureLightProfile>(IESTexture);
-
-		if(IESTextureObject)
+		if(bUseIESBrightness)
 		{
-			if(bUseIESBrightness)
-			{
-				LightBrightness = IESTextureObject->Brightness * IESBrightnessScale;
-			}
-
-			LightBrightness *= IESTextureObject->TextureMultiplier;
+			LightBrightness = IESTexture->Brightness * IESBrightnessScale;
 		}
+
+		LightBrightness *= IESTexture->TextureMultiplier;
 	}
 
 	return LightBrightness;
@@ -447,14 +437,9 @@ void ULightComponent::PostLoad()
 	{
 		if(IESTexture)
 		{
-			UTextureLightProfile* IESTextureObject = Cast<UTextureLightProfile>(IESTexture);
-
-			if(IESTextureObject)
-			{
-				Intensity /= IESTextureObject->TextureMultiplier; // Previous version didn't apply IES texture multiplier, so cancel out
-				IESBrightnessScale = FMath::Pow(IESBrightnessScale, 2.2f); // Previous version applied 2.2 gamma to brightness scale
-				IESBrightnessScale /= IESTextureObject->TextureMultiplier; // Previous version didn't apply IES texture multiplier, so cancel out
-			}
+			Intensity /= IESTexture->TextureMultiplier; // Previous version didn't apply IES texture multiplier, so cancel out
+			IESBrightnessScale = FMath::Pow(IESBrightnessScale, 2.2f); // Previous version applied 2.2 gamma to brightness scale
+			IESBrightnessScale /= IESTexture->TextureMultiplier; // Previous version didn't apply IES texture multiplier, so cancel out
 		}
 	}
 }
@@ -575,6 +560,7 @@ void ULightComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, bCastVolumetricShadow) &&
 		// Point light properties that shouldn't unbuild lighting
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(UPointLightComponent, SourceRadius) &&
+		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(UPointLightComponent, SoftSourceRadius) &&
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(UPointLightComponent, SourceLength) &&
 		// Directional light properties that shouldn't unbuild lighting
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(UDirectionalLightComponent, DynamicShadowDistanceMovableLight) &&
@@ -959,25 +945,24 @@ void ULightComponent::InvalidateLightingCacheDetailed(bool bInvalidateBuildEnque
 /** Invalidates the light's cached lighting with the option to recreate the light Guids. */
 void ULightComponent::InvalidateLightingCacheInner(bool bRecreateLightGuids)
 {
-	// Save the light state for transactions.
-	Modify();
-
-	// Detach the component from the scene for the duration of this function.
-	FComponentReregisterContext ReregisterContext(this);
-
-	// Block until the RT processes the unregister before modifying variables that it may need to access
-	FlushRenderingCommands();
-
-	BeginReleaseResource(&StaticShadowDepthMap);
-
-	if (bRecreateLightGuids)
+	if (HasStaticLighting() || HasStaticShadowing())
 	{
-		// Create new guids for light.
-		UpdateLightGUIDs();
-	}
-	else
-	{
-		ValidateLightGUIDs();
+		// Save the light state for transactions.
+		Modify();
+
+		BeginReleaseResource(&StaticShadowDepthMap);
+
+		if (bRecreateLightGuids)
+		{
+			// Create new guids for light.
+			UpdateLightGUIDs();
+		}
+		else
+		{
+			ValidateLightGUIDs();
+		}
+
+		MarkRenderStateDirty();
 	}
 }
 

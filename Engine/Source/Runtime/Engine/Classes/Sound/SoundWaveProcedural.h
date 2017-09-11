@@ -17,12 +17,6 @@
 
 DECLARE_DELEGATE_TwoParams( FOnSoundWaveProceduralUnderflow, class USoundWaveProcedural*, int32 );
 
-DEPRECATED(4.9, "FOnSoundWaveStreamingUnderflow has been renamed FOnSoundWaveProceduralUnderflow")
-typedef FOnSoundWaveProceduralUnderflow FOnSoundWaveStreamingUnderflow;
-
-DEPRECATED(4.9, "USoundWaveStreaming has been renamed USoundWaveProcedural.")
-typedef class USoundWaveProcedural USoundWaveStreaming;
-
 UCLASS()
 class ENGINE_API USoundWaveProcedural : public USoundWave
 {
@@ -82,4 +76,7 @@ public:
 
 	/** Called when GeneratePCMData is called but not enough data is available. Allows more data to be added, and will try again */
 	FOnSoundWaveProceduralUnderflow OnSoundWaveProceduralUnderflow;
+
+	/** Size in bytes of a single sample of audio in the procedural audio buffer. */
+	int32 SampleByteSize;
 };

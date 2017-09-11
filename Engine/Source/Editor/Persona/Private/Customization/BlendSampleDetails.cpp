@@ -6,7 +6,6 @@
 #include "UObject/Class.h"
 #include "IDetailsView.h"
 #include "EditorStyleSet.h"
-#include "Misc/StringAssetReference.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "PropertyHandle.h"
 #include "DetailLayoutBuilder.h"
@@ -23,6 +22,7 @@
 
 #include "PackageTools.h"
 #include "IDetailGroup.h"
+#include "Editor.h"
 
 #define LOCTEXT_NAMESPACE "BlendSampleDetails"
 
@@ -95,9 +95,9 @@ void FBlendSampleDetails::GenerateBlendSampleWidget(TFunction<FDetailWidgetRow& 
 	const int32 NumParameters = BlendSpace->IsA<UBlendSpace1D>() ? 1 : 2;
 	for (int32 ParameterIndex = 0; ParameterIndex < NumParameters; ++ParameterIndex)
 	{
-		const FBlendParameter& BlendParameter = BlendSpace->GetBlendParameter(ParameterIndex);
-		auto ValueChangedLambda = [BlendSpace, SampleIndex, ParameterIndex, BlendParameter, OnSampleMoved](const float NewValue)
+		auto ValueChangedLambda = [BlendSpace, SampleIndex, ParameterIndex, OnSampleMoved](const float NewValue, bool bIsInteractive)
 		{
+			const FBlendParameter& BlendParameter = BlendSpace->GetBlendParameter(ParameterIndex);
 			const FBlendSample& Sample = BlendSpace->GetBlendSample(SampleIndex);
 			FVector SampleValue = Sample.SampleValue;
 
@@ -111,7 +111,9 @@ void FBlendSampleDetails::GenerateBlendSampleWidget(TFunction<FDetailWidgetRow& 
 
 			// Temporary snap this value to closest point on grid (since the spin box delta does not provide the desired functionality)
 			SampleValue[ParameterIndex] = BlendParameter.Min + (FlooredSteps * DeltaStep);
-			OnSampleMoved.ExecuteIfBound(SampleIndex, SampleValue);
+
+			OnSampleMoved.ExecuteIfBound(SampleIndex, SampleValue, bIsInteractive);
+		
 		};
 		
 		FDetailWidgetRow& ParameterRow = InFunctor();
@@ -120,7 +122,7 @@ void FBlendSampleDetails::GenerateBlendSampleWidget(TFunction<FDetailWidgetRow& 
 		[
 			SNew(STextBlock)
 			.Font(FEditorStyle::GetFontStyle(TEXT("PropertyWindow.NormalFont")))
-			.Text(FText::FromString(BlendParameter.DisplayName))
+			.Text_Lambda([BlendSpace, ParameterIndex]() { return FText::FromString(BlendSpace->GetBlendParameter(ParameterIndex).DisplayName); })
 		];
 
 		ParameterRow.ValueContent()
@@ -138,26 +140,34 @@ void FBlendSampleDetails::GenerateBlendSampleWidget(TFunction<FDetailWidgetRow& 
 				return 0.0f;
 			})
 			.UndeterminedString(LOCTEXT("MultipleValues", "Multiple Values"))
+			.OnBeginSliderMovement_Lambda([]()
+			{
+				GEditor->BeginTransaction(LOCTEXT("MoveSample", "Moving Blend Grid Sample"));
+			})
+			.OnEndSliderMovement_Lambda([](const float NewValue)
+			{
+				GEditor->EndTransaction();
+			})
 			.OnValueCommitted_Lambda([ValueChangedLambda](const float NewValue, ETextCommit::Type CommitType)
 			{
-				ValueChangedLambda(NewValue);
+				ValueChangedLambda(NewValue, false);
 			})
 			.OnValueChanged_Lambda([ValueChangedLambda](const float NewValue)
 			{
-				ValueChangedLambda(NewValue);
+				ValueChangedLambda(NewValue, true);
 			})
 			.LabelVAlign(VAlign_Center)
 			.AllowSpin(true)
-			.MinValue_Lambda([BlendParameter]() -> float { return BlendParameter.Min; })
-			.MaxValue_Lambda([BlendParameter]() -> float { return BlendParameter.Max; })
-			.MinSliderValue_Lambda([BlendParameter]() -> float { return BlendParameter.Min; })
-			.MaxSliderValue_Lambda([BlendParameter]() -> float { return BlendParameter.Max; })
+			.MinValue_Lambda([BlendSpace, ParameterIndex]() -> float { return BlendSpace->GetBlendParameter(ParameterIndex).Min; })
+			.MaxValue_Lambda([BlendSpace, ParameterIndex]() -> float { return BlendSpace->GetBlendParameter(ParameterIndex).Max; })
+			.MinSliderValue_Lambda([BlendSpace, ParameterIndex]() -> float { return BlendSpace->GetBlendParameter(ParameterIndex).Min; })
+			.MaxSliderValue_Lambda([BlendSpace, ParameterIndex]() -> float { return BlendSpace->GetBlendParameter(ParameterIndex).Max; })
 			.MinDesiredValueWidth(60.0f)
 			.Label()
 			[
 				SNew(STextBlock)
 				.Visibility(bShowLabel ? EVisibility::Visible : EVisibility::Collapsed)
-				.Text_Lambda([=]() { return FText::FromString(BlendParameter.DisplayName); })
+				.Text_Lambda([BlendSpace, ParameterIndex]() { return FText::FromString(BlendSpace->GetBlendParameter(ParameterIndex).DisplayName); })
 			]
 		];
 	}
@@ -204,9 +214,8 @@ bool FBlendSampleDetails::ShouldFilterAssetStatic(const FAssetData& AssetData, c
 	FString SkeletonName;
 	if (AssetData.GetTagValue(SkeletonTagName, SkeletonName))
 	{
-		FStringAssetReference StringAssetReference(SkeletonName);
 		// Check whether or not the skeletons match
-		if (StringAssetReference.ToString() == BlendSpaceBase->GetSkeleton()->GetPathName())
+		if (SkeletonName.Contains(BlendSpaceBase->GetSkeleton()->GetPathName()))
 		{
 			// If so check if the additive animation tpye is compatible with the blend space
 			const FName AdditiveTypeTagName = GET_MEMBER_NAME_CHECKED(UAnimSequence, AdditiveAnimType);
@@ -239,9 +248,8 @@ bool FBlendSampleDetails::ShouldFilterAsset(const FAssetData& AssetData) const
 	FString SkeletonName;
 	if (AssetData.GetTagValue(SkeletonTagName, SkeletonName))
 	{
-		FStringAssetReference StringAssetReference(SkeletonName);
 		// Check whether or not the skeletons match
-		if (StringAssetReference.ToString() == BlendSpace->GetSkeleton()->GetPathName())
+		if (SkeletonName == BlendSpace->GetSkeleton()->GetPathName())
 		{
 			// If so check if the additive animation tpye is compatible with the blend space
 			const FName AdditiveTypeTagName = GET_MEMBER_NAME_CHECKED(UAnimSequence, AdditiveAnimType);

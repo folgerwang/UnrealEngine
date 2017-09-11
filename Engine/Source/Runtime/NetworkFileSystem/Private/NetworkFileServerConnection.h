@@ -3,11 +3,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Interfaces/INetworkFileSystemModule.h"
 #include "CoreMisc.h"
+#include "INetworkFileSystemModule.h"
 
 class FSandboxPlatformFile;
 class ITargetPlatform;
+
 
 /**
  * This class processes all incoming messages from the client.
@@ -194,13 +195,13 @@ private:
 	FString ConnectedEngineDir;
 
 	// Hold the game directory from the connected platform.
-	FString ConnectedGameDir;
+	FString ConnectedProjectDir;
 
 	// Hold the sandbox engine directory for the connected platform
 	FString SandboxEngine;
 
 	// hold the sandbox game directory for the connected platform
-	FString SandboxGame;
+	FString SandboxProject;
 
 	// Should we send the filenames in lowercase
 	bool bSendLowerCase;
@@ -225,6 +226,12 @@ private:
 
 	// Holds the list of directories being watched.
 	TArray<FString> WatchedDirectories;
+
+	// Local path to the engine directory
+	FString LocalEngineDir;
+
+	// Local path to the project directory
+	FString LocalProjectDir;
 
 	const FNetworkFileDelegateContainer* NetworkFileDelegates;
 

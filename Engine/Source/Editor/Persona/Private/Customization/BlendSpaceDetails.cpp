@@ -15,6 +15,7 @@
 
 #include "Widgets/Input/SNumericEntryBox.h"
 #include "PropertyCustomizationHelpers.h"
+#include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "BlendSpaceDetails"
 
@@ -22,18 +23,10 @@ FBlendSpaceDetails::FBlendSpaceDetails()
 {
 	Builder = nullptr;
 	BlendSpaceBase = nullptr;
-	Handle = FCoreUObjectDelegates::OnObjectPropertyChanged.AddLambda([this](UObject* Object, struct FPropertyChangedEvent& Event)
-	{
-		if (Builder && Object == BlendSpaceBase && (Event.Property == nullptr || (Event.MemberProperty && Event.MemberProperty->GetFName() == GET_MEMBER_NAME_CHECKED(UBlendSpaceBase, BlendParameters) && Event.Property && Event.Property->GetFName() == GET_MEMBER_NAME_CHECKED(FBlendParameter, DisplayName))))
-		{
-			Builder->ForceRefreshDetails(); 
-		} 
-	});
 }
 
 FBlendSpaceDetails::~FBlendSpaceDetails()
 {
-	FCoreUObjectDelegates::OnObjectPropertyChanged.Remove(Handle);
 }
 
 void FBlendSpaceDetails::CustomizeDetails(class IDetailLayoutBuilder& DetailBuilder)
@@ -88,14 +81,18 @@ void FBlendSpaceDetails::CustomizeDetails(class IDetailLayoutBuilder& DetailBuil
 			DefaultProperty->MarkHiddenByCustomization();
 		}
 
+		FSimpleDelegate RefreshDelegate = FSimpleDelegate::CreateLambda([this]() { Builder->ForceRefreshDetails(); });
+
 		// Retrieve blend samples array
 		TSharedPtr<IPropertyHandleArray> BlendSamplesArrayProperty = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UBlendSpaceBase, SampleData), UBlendSpaceBase::StaticClass())->AsArray();
-
+		BlendSamplesArrayProperty->SetOnNumElementsChanged(RefreshDelegate);
+		
 		uint32 NumBlendSampleEntries = 0;
 		BlendSamplesArrayProperty->GetNumElements(NumBlendSampleEntries);
 		for (uint32 SampleIndex = 0; SampleIndex < NumBlendSampleEntries; ++SampleIndex)
 		{
 			TSharedPtr<IPropertyHandle> BlendSampleProperty = BlendSamplesArrayProperty->GetElement(SampleIndex);
+			BlendSampleProperty->SetOnChildPropertyValueChanged(RefreshDelegate);
 			TSharedPtr<IPropertyHandle> AnimationProperty = BlendSampleProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBlendSample, Animation));
 			TSharedPtr<IPropertyHandle> SampleValueProperty = BlendSampleProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBlendSample, SampleValue));
 			TSharedPtr<IPropertyHandle> RateScaleProperty = BlendSampleProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBlendSample, RateScale));
@@ -109,16 +106,30 @@ void FBlendSpaceDetails::CustomizeDetails(class IDetailLayoutBuilder& DetailBuil
 				[
 					SNew(STextBlock)
 					.Font(DetailBuilder.GetDetailFont())
-					.Text_Lambda([AnimationProperty]() -> FText
+					.Text_Lambda([AnimationProperty, SampleIndex]() -> FText
 					{
 						FAssetData AssetData;
 						AnimationProperty->GetValue(AssetData);
-						return AssetData.IsValid() ? FText::FromString(AssetData.GetAsset()->GetName()) : FText::FromString("No Animation");
+						return AssetData.IsValid() ? FText::Format(LOCTEXT("BlendSpaceAnimationNameLabel", "{0} ({1})"), FText::FromString(AssetData.GetAsset()->GetName()), FText::FromString(FString::FromInt(SampleIndex))) : FText::FromString("No Animation");
 					})
 				]
 			];
 
-			FBlendSampleDetails::GenerateBlendSampleWidget([&Group]() -> FDetailWidgetRow& { return Group.AddWidgetRow(); }, FOnSampleMoved::CreateLambda([this](const uint32 Index, const FVector& SampleValue) { BlendSpaceBase->EditSampleValue(Index, SampleValue); }), BlendSpaceBase, SampleIndex, false);
+			FBlendSampleDetails::GenerateBlendSampleWidget([&Group]() -> FDetailWidgetRow& { return Group.AddWidgetRow(); }, FOnSampleMoved::CreateLambda([this](const uint32 Index, const FVector& SampleValue, bool bIsInteractive) 
+			{
+				if (BlendSpaceBase->IsValidBlendSampleIndex(Index) && BlendSpaceBase->GetBlendSample(Index).SampleValue != SampleValue && !BlendSpaceBase->IsTooCloseToExistingSamplePoint(SampleValue, Index))
+				{
+					BlendSpaceBase->Modify();
+
+					bool bMoveSuccesful = BlendSpaceBase->EditSampleValue(Index, SampleValue);
+					if (bMoveSuccesful)
+					{
+						BlendSpaceBase->ValidateSampleData();
+						FPropertyChangedEvent ChangedEvent(nullptr, bIsInteractive ? EPropertyChangeType::Interactive : EPropertyChangeType::ValueSet);
+						BlendSpaceBase->PostEditChangeProperty(ChangedEvent);
+					}
+				}
+			}), BlendSpaceBase, SampleIndex, false);
 			FDetailWidgetRow& AnimationRow = Group.AddWidgetRow();
 			FBlendSampleDetails::GenerateAnimationWidget(AnimationRow, BlendSpaceBase, AnimationProperty);
 			Group.AddPropertyRow(RateScaleProperty.ToSharedRef());

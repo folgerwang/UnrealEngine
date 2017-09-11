@@ -37,6 +37,7 @@
 #include "EngineGlobals.h"
 #include "ComponentRecreateRenderStateContext.h"
 #include "Engine/StaticMesh.h"
+#include "HAL/LowLevelMemTracker.h"
 
 #define LOCTEXT_NAMESPACE "StaticMeshComponent"
 
@@ -290,6 +291,8 @@ void UStaticMeshComponent::AddReferencedObjects(UObject* InThis, FReferenceColle
 
 void UStaticMeshComponent::Serialize(FArchive& Ar)
 {
+	LLM_SCOPE(ELLMTag::StaticMesh);
+
 	Super::Serialize(Ar);
 
 	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
@@ -304,6 +307,7 @@ void UStaticMeshComponent::Serialize(FArchive& Ar)
 		}
 	}
 
+#if WITH_EDITORONLY_DATA
 	if (Ar.UE4Ver() < VER_UE4_COMBINED_LIGHTMAP_TEXTURES)
 	{
 		check(AttachmentCounter.GetValue() == 0);
@@ -332,6 +336,7 @@ void UStaticMeshComponent::Serialize(FArchive& Ar)
 	{
 		GetBodyInstance()->bAutoWeld = false;	//existing content may rely on no auto welding
 	}
+#endif
 }
 
 void UStaticMeshComponent::PostInitProperties()
@@ -851,25 +856,21 @@ void UStaticMeshComponent::GetStreamingTextureInfo(FStreamingTextureLevelContext
 			const FVector2D& Scale = Lightmap->GetCoordinateScale();
 			if (Scale.X > SMALL_NUMBER && Scale.Y > SMALL_NUMBER)
 			{
-				FStreamingTexturePrimitiveInfo& StreamingTexture = *new(OutStreamingTextures) FStreamingTexturePrimitiveInfo;
-				StreamingTexture.Bounds		 = Bounds;
-				StreamingTexture.PackedRelativeBox = PackedRelativeBox_Identity; // Set the PackedRelativeBox to incremental level insertion.
-				StreamingTexture.TexelFactor = GetStaticMesh()->LightmapUVDensity * TransformScale / FMath::Min(Scale.X, Scale.Y);
-				StreamingTexture.Texture	 = Lightmap->GetTexture(LightmapIndex);
+				const float TexelFactor = GetStaticMesh()->LightmapUVDensity * TransformScale / FMath::Min(Scale.X, Scale.Y);
+				new (OutStreamingTextures) FStreamingTexturePrimitiveInfo(Lightmap->GetTexture(LightmapIndex), Bounds, TexelFactor, PackedRelativeBox_Identity);
+				new (OutStreamingTextures) FStreamingTexturePrimitiveInfo(Lightmap->GetAOMaterialMaskTexture(), Bounds, TexelFactor, PackedRelativeBox_Identity);
+				new (OutStreamingTextures) FStreamingTexturePrimitiveInfo(Lightmap->GetSkyOcclusionTexture(), Bounds, TexelFactor, PackedRelativeBox_Identity);
 			}
 		}
 
 		FShadowMap2D* Shadowmap = MeshMapBuildData && MeshMapBuildData->ShadowMap ? MeshMapBuildData->ShadowMap->GetShadowMap2D() : NULL;
-		if (Shadowmap != NULL && Shadowmap->IsValid())
+		if (Shadowmap && Shadowmap->IsValid())
 		{
 			const FVector2D& Scale = Shadowmap->GetCoordinateScale();
 			if (Scale.X > SMALL_NUMBER && Scale.Y > SMALL_NUMBER)
 			{
-				FStreamingTexturePrimitiveInfo& StreamingTexture = *new(OutStreamingTextures) FStreamingTexturePrimitiveInfo;
-				StreamingTexture.Bounds		 = Bounds;
-				StreamingTexture.PackedRelativeBox = PackedRelativeBox_Identity;
-				StreamingTexture.TexelFactor = GetStaticMesh()->LightmapUVDensity * TransformScale / FMath::Min(Scale.X, Scale.Y);
-				StreamingTexture.Texture	 = Shadowmap->GetTexture();
+				const float TexelFactor = GetStaticMesh()->LightmapUVDensity * TransformScale / FMath::Min(Scale.X, Scale.Y);
+				new (OutStreamingTextures) FStreamingTexturePrimitiveInfo(Shadowmap->GetTexture(), Bounds, TexelFactor, PackedRelativeBox_Identity);
 			}
 		}
 	}
@@ -2091,10 +2092,13 @@ int32 UStaticMeshComponent::GetMaterialIndex(FName MaterialSlotName) const
 TArray<FName> UStaticMeshComponent::GetMaterialSlotNames() const
 {
 	TArray<FName> MaterialNames;
-	for (int32 MaterialIndex = 0; MaterialIndex < GetStaticMesh()->StaticMaterials.Num(); ++MaterialIndex)
+	if (UStaticMesh* Mesh = GetStaticMesh())
 	{
-		const FStaticMaterial &StaticMaterial = GetStaticMesh()->StaticMaterials[MaterialIndex];
-		MaterialNames.Add(StaticMaterial.MaterialSlotName);
+		for (int32 MaterialIndex = 0; MaterialIndex < Mesh->StaticMaterials.Num(); ++MaterialIndex)
+		{
+			const FStaticMaterial &StaticMaterial = Mesh->StaticMaterials[MaterialIndex];
+			MaterialNames.Add(StaticMaterial.MaterialSlotName);
+		}
 	}
 	return MaterialNames;
 }
@@ -2218,7 +2222,8 @@ void UStaticMeshComponent::ApplyComponentInstanceData(FStaticMeshComponentInstan
 		}
 		else
 		{
-			UE_LOG(LogStaticMesh, Warning, TEXT("Cached component instance data transform did not match!  Discarding cached lighting data which will cause lighting to be unbuilt.\n%s\nCurrent: %s Cached: %s"), 
+			UE_ASSET_LOG(LogStaticMesh, Warning, this,
+				TEXT("Cached component instance data transform did not match!  Discarding cached lighting data which will cause lighting to be unbuilt.\n%s\nCurrent: %s Cached: %s"), 
 				*GetPathName(),
 				*GetComponentTransform().ToString(),
 				*StaticMeshInstanceData->CachedStaticLighting.Transform.ToString());
@@ -2277,7 +2282,7 @@ UMaterialInterface* UStaticMeshComponent::GetMaterialFromCollisionFaceIndex(int3
 	SectionIndex = 0;
 
 	UStaticMesh* Mesh = GetStaticMesh();
-	if (Mesh && Mesh->RenderData.IsValid())
+	if (Mesh && Mesh->RenderData.IsValid() && FaceIndex >= 0)
 	{
 		// Get the info for the LOD that is used for collision
 		int32 LODIndex = Mesh->LODForCollision;

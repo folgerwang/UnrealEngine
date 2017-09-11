@@ -293,6 +293,8 @@ void AWorldSettings::PostLoad()
 		Entry.ProxySetting.PostLoadDeprecated();
 		Entry.MergeSetting.LODSelectionType = EMeshLODSelectionType::CalculateLOD;
 	}
+
+	SetIsTemporarilyHiddenInEditor(true);
 #endif// WITH_EDITOR
 }
 
@@ -351,6 +353,17 @@ bool AWorldSettings::CanEditChange(const UProperty* InProperty) const
 				|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FLightmassWorldInfoSettings, bVisualizeAmbientOcclusion))
 			{
 				return LightmassSettings.bUseAmbientOcclusion;
+			}
+
+			if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FLightmassWorldInfoSettings, VolumetricLightmapDetailCellSize)
+				|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FLightmassWorldInfoSettings, VolumetricLightmapMaximumBrickMemoryMb))
+			{
+				return LightmassSettings.VolumeLightingMethod == VLM_VolumetricLightmap;
+			}
+
+			if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FLightmassWorldInfoSettings, VolumeLightSamplePlacementScale))
+			{
+				return LightmassSettings.VolumeLightingMethod == VLM_SparseVolumeLightingSamples;
 			}
 
 			if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FLightmassWorldInfoSettings, EnvironmentColor))

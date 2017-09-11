@@ -20,17 +20,6 @@ public:
 		ProcessingExports,
 	};
 
-	enum
-	{
-		// this is used for the initial precache and should be large enough to find the actual Sum.TotalHeaderSize
-		// the editor packages may not have the AdditionalPackagesToCook array stripped so we need to allocate more memory
-#if WITH_EDITORONLY_DATA
-		MAX_SUMMARY_SIZE = 16384
-#else
-		MAX_SUMMARY_SIZE = 8192
-#endif
-	};
-
 	FArchiveAsync2(const TCHAR* InFileName
 		, TFunction<void()>&& InSummaryReadyCallback
 		);
@@ -50,6 +39,10 @@ public:
 	virtual int64 TotalSize() override;
 	virtual void Seek(int64 InPos) override;
 	virtual void FlushCache() override;
+	virtual FString GetArchiveName() const override 
+	{
+		return FileName;
+	}
 
 	bool Precache(int64 PrecacheOffset, int64 PrecacheSize, bool bUseTimeLimit, bool bUseFullTimeLimit, double TickStartTime, float TimeLimit);
 	bool PrecacheForEvent(int64 PrecacheOffset, int64 PrecacheSize);
@@ -62,6 +55,11 @@ public:
 	IAsyncReadRequest* MakeEventDrivenPrecacheRequest(int64 Offset, int64 BytesToRead, FAsyncFileCallBack* CompleteCallback);
 
 	void LogItem(const TCHAR* Item, int64 Offset = 0, int64 Size = 0, double StartTime = 0.0);
+
+	bool IsCookedForEDLInEditor() const
+	{
+		return bCookedForEDLInEditor;
+	}
 
 private:
 #if DEVIRTUALIZE_FLinkerLoad_Serialize
@@ -116,7 +114,10 @@ private:
 	int64 HeaderSizeWhenReadingExportsFromSplitFile;
 
 	ELoadPhase LoadPhase;
-	bool bKeepRestOfFilePrecached;
+
+	/** If true, this package is a cooked EDL package loaded in uncooked builds */
+	bool bCookedForEDLInEditor;
+
 	FAsyncFileCallBack ReadCallbackFunction;
 	/** Cached filename for debugging.												*/
 	FString	FileName;

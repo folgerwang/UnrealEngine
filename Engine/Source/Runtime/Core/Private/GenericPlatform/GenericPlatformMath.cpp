@@ -85,6 +85,7 @@ void FGenericPlatformMath::FmodReportError(float X, float Y)
 #if WITH_DEV_AUTOMATION_TESTS
 extern float TheCompilerDoesntKnowThisIsAlwaysZero;
 
+
 void FGenericPlatformMath::AutoTest() 
 {
 	check(IsNaN(sqrtf(-1.0f)));

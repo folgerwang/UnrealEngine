@@ -154,6 +154,7 @@
 #include "ActorGroupingUtils.h"
 #include "ILauncherPlatform.h"
 #include "LauncherPlatformModule.h"
+#include "HAL/PlatformApplicationMisc.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditorServer, Log, All);
 
@@ -2872,7 +2873,7 @@ public:
 	* @param	OutNewActors			[out] Newly created actors are appended to this list.
 	* @param	DestLevel				The level to duplicate the actors in this job to.
 	*/
-	void MoveActorsToLevel(TArray<AActor*>& OutNewActors, ULevel* DestLevel, ULevel* BufferLevel, bool bCopyOnly, FString* OutClipboardContents )
+	void MoveActorsToLevel(TArray<AActor*>& OutNewActors, ULevel* DestLevel, ULevel* BufferLevel, bool bCopyOnly, bool bIsMove, FString* OutClipboardContents )
 	{
 		UWorld* World = SrcLevel->OwningWorld;
 		ULevel* OldCurrentLevel = World->GetCurrentLevel();
@@ -2902,7 +2903,7 @@ public:
 
 		if( !bCopyOnly )
 		{
-			const bool bSuccess = GEditor->edactDeleteSelected( World, false );
+			const bool bSuccess = GEditor->edactDeleteSelected( World, false, true, !bIsMove);
 			if ( !bSuccess )
 			{
 				// The deletion was aborted.
@@ -2951,7 +2952,7 @@ public:
 				*OutClipboardContents = *ScratchData;
 			}
 
-			GEditor->edactDeleteSelected( World, false );
+			GEditor->edactDeleteSelected( World, false, false, false );
 		}
 
 		if( DestLevel )
@@ -3139,7 +3140,7 @@ bool UEditorEngine::CanCopySelectedActorsToClipboard( UWorld* InWorld, FCopySele
 	return false;
 }
 
-void UEditorEngine::CopySelectedActorsToClipboard( UWorld* InWorld, bool bShouldCut )
+void UEditorEngine::CopySelectedActorsToClipboard( UWorld* InWorld, bool bShouldCut, const bool bIsMove )
 {
 	FCopySelectedInfo CopySelected;
 	if ( !CanCopySelectedActorsToClipboard( InWorld, &CopySelected ) )
@@ -3176,7 +3177,7 @@ void UEditorEngine::CopySelectedActorsToClipboard( UWorld* InWorld, bool bShould
 			// Cut!
 			const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "Cut", "Cut") );
 			edactCopySelected( World );
-			edactDeleteSelected( World );
+			edactDeleteSelected( World, true, true, !bIsMove );
 		}
 		else
 		{
@@ -3284,7 +3285,7 @@ void UEditorEngine::CopySelectedActorsToClipboard( UWorld* InWorld, bool bShould
 
 					FString CopiedActorsString;
 					const bool bCopyOnly = !bShouldCut;
-					Job->MoveActorsToLevel( NewActors, NULL, BufferLevel, bCopyOnly, &CopiedActorsString );
+					Job->MoveActorsToLevel( NewActors, NULL, BufferLevel, bCopyOnly, bIsMove, &CopiedActorsString );
 
 					// Append our copied actors to our final clipboard string
 					ClipboardString += CopiedActorsString;
@@ -3296,7 +3297,7 @@ void UEditorEngine::CopySelectedActorsToClipboard( UWorld* InWorld, bool bShould
 				}
 
 				// Update the clipboard with the final string
-				FPlatformMisc::ClipboardCopy( *ClipboardString );
+				FPlatformApplicationMisc::ClipboardCopy( *ClipboardString );
 
 				// Cleanup.
 				for ( CopyJobMap::TIterator It( CopyJobs ) ; It ; ++It )
@@ -3333,7 +3334,7 @@ bool UEditorEngine::CanPasteSelectedActorsFromClipboard( UWorld* InWorld )
 	// Intentionally not checking if the level is locked/hidden here, as it's better feedback for the user if they attempt to paste
 	// and get the message explaining why it's failed, than just not having the option available to them.
 	FString PasteString;
-	FPlatformMisc::ClipboardPaste(PasteString);
+	FPlatformApplicationMisc::ClipboardPaste(PasteString);
 	return PasteString.StartsWith( "BEGIN MAP" );
 }
 
@@ -3654,7 +3655,6 @@ bool UEditorEngine::Map_Check( UWorld* InWorld, const TCHAR* Str, FOutputDevice&
 		MapCheckLog.NewPage(MapCheckPageName);
 	}
 
-	TMap<FGridBounds,AActor*>	GridBoundsToActorMap;
 	TMap<FGuid,AActor*>			LightGuidToActorMap;
 	const int32 ProgressDenominator = InWorld->GetProgressDenominator();
 
@@ -3797,31 +3797,6 @@ bool UEditorEngine::Map_Check( UWorld* InWorld, const TCHAR* Str, FOutputDevice&
 				{
 					LightGuidToActorMap.Add( LightComponent->LightGuid, LightActor );
 				}
-			}
-			
-
-			// Use center of bounding box for location.
-			if( MeshComponent )
-			{
-				Center = MeshComponent->Bounds.GetBox().GetCenter();
-				Extent = MeshComponent->Bounds.GetBox().GetExtent();
-			}
-
-			// Check for two actors being in the same location.
-			FGridBounds	GridBounds( Center, Extent );
-			AActor*		ExistingActorInSameLocation = GridBoundsToActorMap.FindRef( GridBounds );		
-			if( ExistingActorInSameLocation )
-			{
-				// We emit two warnings to allow easy double click selection.
-//superville
-// Disable same location warnings for now
-//				GWarn->MapCheck_Add( MCTYPE_WARNING, Actor, *FString::Printf( LocalizeSecure( NSLOCTEXT("UnrealEd", "MapCheck_Message_ActorInSameLocation", "'`~' in same location as '`~'" ).ToString(), *Actor->GetName(), *ExistingActorInSameLocation->GetName() ) ), TEXT( "ActorInSameLocation" ) );
-//				GWarn->MapCheck_Add( MCTYPE_WARNING, ExistingActorInSameLocation, *FString::Printf( LocalizeSecure( NSLOCTEXT("UnrealEd", "MapCheck_Message_ActorInSameLocation", "'`~' in same location as '`~'" ).ToString(), *ExistingActorInSameLocation->GetName(), *Actor->GetName() ) ), TEXT( "ActorInSameLocation" ) );
-			}
-			// We only care about placeable classes.
-			else if( !Actor->GetClass()->HasAnyClassFlags( CLASS_NotPlaceable | CLASS_Abstract ) )
-			{
-				GridBoundsToActorMap.Add( GridBounds, Actor );
 			}
 		}
 

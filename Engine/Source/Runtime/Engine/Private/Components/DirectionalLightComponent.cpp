@@ -161,23 +161,26 @@ public:
 	}
 
 	/** Accesses parameters needed for rendering the light. */
-	virtual void GetParameters(FVector4& LightPositionAndInvRadius, FVector4& LightColorAndFalloffExponent, FVector& NormalizedLightDirection, FVector2D& SpotAngles, float& LightSourceRadius, float& LightSourceLength, float& LightMinRoughness) const override
+	virtual void GetParameters(FLightParameters& LightParameters) const override
 	{
-		LightPositionAndInvRadius = FVector4(0, 0, 0, 0);
+		LightParameters.LightPositionAndInvRadius = FVector4(0, 0, 0, 0);
 
-		LightColorAndFalloffExponent = FVector4(
+		LightParameters.LightColorAndFalloffExponent = FVector4(
 			GetColor().R,
 			GetColor().G,
 			GetColor().B,
 			0);
 
-		NormalizedLightDirection = -GetDirection();
+		LightParameters.NormalizedLightDirection = -GetDirection();
 
-		SpotAngles = FVector2D(0, 0);
-		LightSourceRadius = 0.0f;
-		LightSourceLength = 0.0f;
+		LightParameters.NormalizedLightTangent = -GetDirection();
+
+		LightParameters.SpotAngles = FVector2D(0, 0);
+		LightParameters.LightSourceRadius = 0.0f;
+		LightParameters.LightSoftSourceRadius = 0.0f;
+		LightParameters.LightSourceLength = 0.0f;
 		// Prevent 0 Roughness which causes NaNs in Vis_SmithJointApprox
-		LightMinRoughness = FMath::Max(MinRoughness, .02f);
+		LightParameters.LightMinRoughness = FMath::Max(MinRoughness, .02f);
 	}
 
 	virtual float GetLightSourceAngle() const override
@@ -300,16 +303,16 @@ public:
 			FPlane Far;
 			FPlane Near;
 			const FVector LightDirection = -GetDirection();
-			ComputeShadowCullingVolume( View.bReverseCulling, CascadeFrustumVerts, LightDirection, OutInitializer.CascadeSettings.ShadowBoundsAccurate, Near, Far );
+			ComputeShadowCullingVolume(View.bReverseCulling, CascadeFrustumVerts, LightDirection, OutInitializer.CascadeSettings.ShadowBoundsAccurate, Near, Far);
 		}
 		return true;
 	}
 
-	virtual FVector2D GetDirectionalLightDistanceFadeParameters(ERHIFeatureLevel::Type InFeatureLevel, bool bPrecomputedLightingIsValid) const override
+	virtual FVector2D GetDirectionalLightDistanceFadeParameters(ERHIFeatureLevel::Type InFeatureLevel, bool bPrecomputedLightingIsValid, int32 MaxNearCascades) const override
 	{
-		float FarDistance = GetCSMMaxDistance(bPrecomputedLightingIsValid);
+		float FarDistance = GetCSMMaxDistance(bPrecomputedLightingIsValid, MaxNearCascades);
 		{
-			if (ShouldCreateRayTracedCascade(InFeatureLevel, bPrecomputedLightingIsValid))
+			if (ShouldCreateRayTracedCascade(InFeatureLevel, bPrecomputedLightingIsValid, MaxNearCascades))
 			{
 				FarDistance = GetDistanceFieldShadowDistance();
 			}
@@ -337,12 +340,11 @@ public:
 		return true;
 	}
 
-	virtual bool ShouldCreateRayTracedCascade(ERHIFeatureLevel::Type InFeatureLevel, bool bPrecomputedLightingIsValid) const override
+	virtual bool ShouldCreateRayTracedCascade(ERHIFeatureLevel::Type InFeatureLevel, bool bPrecomputedLightingIsValid, int32 MaxNearCascades) const override
 	{
-		//@todo - handle View.MaxShadowCascades properly
-		const uint32 NumCascades = GetNumShadowMappedCascades(10, bPrecomputedLightingIsValid);
+		const uint32 NumCascades = GetNumShadowMappedCascades(MaxNearCascades, bPrecomputedLightingIsValid);
 		const float RaytracedShadowDistance = GetDistanceFieldShadowDistance();
-		const bool bCreateWithCSM = NumCascades > 0 && RaytracedShadowDistance > GetCSMMaxDistance(bPrecomputedLightingIsValid);
+		const bool bCreateWithCSM = NumCascades > 0 && RaytracedShadowDistance > GetCSMMaxDistance(bPrecomputedLightingIsValid, MaxNearCascades);
 		const bool bCreateWithoutCSM = NumCascades == 0 && RaytracedShadowDistance > 0;
 		return DoesPlatformSupportDistanceFieldShadowing(GShaderPlatformForFeatureLevel[InFeatureLevel]) && (bCreateWithCSM || bCreateWithoutCSM);
 	}
@@ -357,14 +359,19 @@ private:
 	uint32 GetNumShadowMappedCascades(uint32 MaxShadowCascades, bool bPrecomputedLightingIsValid) const
 	{
 		const int32 EffectiveNumDynamicShadowCascades = bPrecomputedLightingIsValid ? DynamicShadowCascades : FMath::Max(0, CVarUnbuiltNumWholeSceneDynamicShadowCascades.GetValueOnAnyThread());
-		const int32 NumCascades = GetCSMMaxDistance(bPrecomputedLightingIsValid) > 0.0f ? EffectiveNumDynamicShadowCascades : 0;
+		const int32 NumCascades = GetCSMMaxDistance(bPrecomputedLightingIsValid, MaxShadowCascades) > 0.0f ? EffectiveNumDynamicShadowCascades : 0;
 		return FMath::Min<int32>(NumCascades, MaxShadowCascades);
 	}
 
-	float GetCSMMaxDistance(bool bPrecomputedLightingIsValid) const
+	float GetCSMMaxDistance(bool bPrecomputedLightingIsValid, int32 MaxShadowCascades) const
 	{
 		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.Shadow.DistanceScale"));
-		 
+		
+		if (MaxShadowCascades <= 0)
+		{
+			return 0.0f;
+		}
+
 		float Scale = FMath::Clamp(CVar->GetValueOnRenderThread(), 0.0f, 2.0f);
 		float Distance = GetEffectiveWholeSceneDynamicShadowRadius(bPrecomputedLightingIsValid) * Scale;
 		return Distance;
@@ -396,8 +403,11 @@ private:
 	}
 
 	// Computes a shadow culling volume (convex hull) based on a set of 8 vertices and a light direction
-	void ComputeShadowCullingVolume(const bool bReverseCulling, const FVector* CascadeFrustumVerts, const FVector& LightDirection, FConvexVolume& ConvexVolumeOut, FPlane& NearPlaneOut, FPlane& FarPlaneOut) const
+	void ComputeShadowCullingVolume(bool bReverseCulling, const FVector* CascadeFrustumVerts, const FVector& LightDirection, FConvexVolume& ConvexVolumeOut, FPlane& NearPlaneOut, FPlane& FarPlaneOut) const
 	{
+		// For mobile platforms that switch vertical axis and MobileHDR == false the sense of bReverseCulling is inverted.
+		bReverseCulling = XOR(bReverseCulling, (RHINeedsToSwitchVerticalAxis(GShaderPlatformForFeatureLevel[GMaxRHIFeatureLevel]) && !IsMobileHDR()));
+
 		// Pairs of plane indices from SubFrustumPlanes whose intersections
 		// form the edges of the frustum.
 		static const int32 AdjacentPlanePairs[12][2] =
@@ -526,7 +536,7 @@ private:
 		// near cascade means non far and non distance field cascade
 		uint32 NumNearCascades = GetNumShadowMappedCascades(View.MaxShadowCascades, bPrecomputedLightingIsValid);
 
-		float CascadeDistanceWithoutFar = GetCSMMaxDistance(bPrecomputedLightingIsValid);
+		float CascadeDistanceWithoutFar = GetCSMMaxDistance(bPrecomputedLightingIsValid, View.MaxShadowCascades);
 		float ShadowNear = View.NearClippingDistance;
 		const float EffectiveCascadeDistributionExponent = GetEffectiveCascadeDistributionExponent(bPrecomputedLightingIsValid);
 
@@ -628,7 +638,7 @@ private:
 	{
 		uint32 NumNearCascades = GetNumShadowMappedCascades(View.MaxShadowCascades, bPrecomputedLightingIsValid);
 
-		const bool bHasRayTracedCascade = ShouldCreateRayTracedCascade(View.GetFeatureLevel(), bPrecomputedLightingIsValid);
+		const bool bHasRayTracedCascade = ShouldCreateRayTracedCascade(View.GetFeatureLevel(), bPrecomputedLightingIsValid, View.MaxShadowCascades);
 
 		// this checks for WholeSceneDynamicShadowRadius and DynamicShadowCascades
 		uint32 NumNearAndFarCascades = GetNumViewDependentWholeSceneShadows(View, bPrecomputedLightingIsValid);

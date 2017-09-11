@@ -50,14 +50,39 @@ public:
 	float*			GetAttributes()				{ return (float*)&Normal; }
 	const float*	GetAttributes() const		{ return (const float*)&Normal; }
 
-	void			Correct()
+	void		Correct()
 	{
 		Normal.Normalize();
-		Tangents[0] = Tangents[0] - ( Tangents[0] * Normal ) * Normal;
-		Tangents[1] = Tangents[1] - ( Tangents[1] * Normal ) * Normal;
+		Tangents[0] -= ( Tangents[0] * Normal ) * Normal;
 		Tangents[0].Normalize();
+		Tangents[1] -= ( Tangents[1] * Normal ) * Normal;
+		Tangents[1] -= ( Tangents[1] * Tangents[0] ) * Tangents[0];
 		Tangents[1].Normalize();
 		Color = Color.GetClamped();
+	}
+
+	bool		Equals(	const VertType& a ) const
+	{
+		if( MaterialIndex != a.MaterialIndex ||
+			!PointsEqual(  Position,	a.Position ) ||
+			!NormalsEqual( Tangents[0],	a.Tangents[0] ) ||
+			!NormalsEqual( Tangents[1],	a.Tangents[1] ) ||
+			!NormalsEqual( Normal,		a.Normal ) ||
+			!Color.Equals( a.Color ) )
+		{
+			return false;
+		}
+
+		// UVs
+		for( int32 UVIndex = 0; UVIndex < NumTexCoords; UVIndex++ )
+		{
+			if( !UVsEqual( TexCoords[ UVIndex ], a.TexCoords[ UVIndex ] ) )
+			{
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	bool		operator==(	const VertType& a ) const
@@ -225,6 +250,8 @@ public:
 					}
 				}
 
+				// Make sure this vertex is valid from the start
+				NewVert.Correct();
 
 				DupVerts.Reset();
 				InOverlappingCorners.MultiFind( WedgeIndex, DupVerts );
@@ -244,27 +271,7 @@ public:
 					{
 						TVertSimp< NumTexCoords >& FoundVert = Verts[ *Location ];
 
-						if( NewVert.MaterialIndex != FoundVert.MaterialIndex ||
-							!PointsEqual(  NewVert.Position,	FoundVert.Position ) ||
-							!NormalsEqual( NewVert.Tangents[0],	FoundVert.Tangents[0] ) ||
-							!NormalsEqual( NewVert.Tangents[1],	FoundVert.Tangents[1] ) ||
-							!NormalsEqual( NewVert.Normal,		FoundVert.Normal ) ||
-							NewVert.Color != FoundVert.Color )
-						{
-							continue;
-						}
-
-						// UVs
-						bool bMatch = true;
-						for( int32 UVIndex = 0; UVIndex < NumTexCoords; UVIndex++ )
-						{
-							if( !UVsEqual( NewVert.TexCoords[ UVIndex ], FoundVert.TexCoords[ UVIndex ] ) )
-							{
-								bMatch = false;
-							}
-						}
-
-						if( bMatch )
+						if( NewVert.Equals( FoundVert ) )
 						{
 							Index = *Location;
 							break;

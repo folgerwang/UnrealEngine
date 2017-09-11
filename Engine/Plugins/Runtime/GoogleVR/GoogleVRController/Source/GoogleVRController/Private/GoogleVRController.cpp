@@ -1,17 +1,4 @@
-/* Copyright 2016 Google Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2017 Google Inc.
 
 #include "GoogleVRController.h"
 #include "GoogleVRControllerPrivate.h"
@@ -146,6 +133,9 @@ FGoogleVRController::FGoogleVRController(const TSharedRef< FGenericApplicationMe
 	, CurrentControllerState(EGoogleVRControllerState::Disconnected)
 #if GOOGLEVRCONTROLLER_SUPPORTED_EMULATOR_PLATFORMS
 	, BaseEmulatorOrientation(FRotator::ZeroRotator)
+#endif
+#if GOOGLEVRCONTROLLER_SUPPORTED_INSTANT_PREVIEW_PLATFORMS
+	, InstantPreviewControllerState()
 #endif
 {
 	UE_LOG(LogGoogleVRController, Log, TEXT("GoogleVR Controller Created"));
@@ -456,6 +446,12 @@ void FGoogleVRController::ProcessControllerButtons()
 
 			// The controller's touch positions are in [0,1]^2 coordinate space, we want to be in [-1,1]^2, so translate the touch positions.
 			TranslatedLocation = FVector2D((CachedControllerState.GetTouchPos().x * 2) - 1, (CachedControllerState.GetTouchPos().y * 2) - 1);
+			// Clamp the translated location inside the circle with radius = 1 to match the controller touch pad.
+			float VectorLength = TranslatedLocation.Size();
+			if (VectorLength > 1.0f)
+			{
+				TranslatedLocation = TranslatedLocation / VectorLength;
+			}
 
 			// OnHold
 			if( CachedControllerState.IsTouching() || CachedControllerState.GetTouchUp() )
@@ -732,7 +728,11 @@ bool FGoogleVRController::GetControllerOrientationAndPosition(const int32 Contro
 			FQuat Orientation = ConvertGvrQuaternionToUnreal(ControllerRotation.w(), ControllerRotation.x(), ControllerRotation.y(), ControllerRotation.z());
 
 			FQuat BaseOrientation;
-			if (GEngine->HMDDevice.IsValid())
+			const bool bUsingGoogleVRHMD =
+				GEngine->HMDDevice.IsValid() &&
+				(GEngine->HMDDevice->GetDeviceName() == FName(TEXT("FGoogleVRHMD")));
+
+			if (bUsingGoogleVRHMD)
 			{
 				BaseOrientation = GEngine->HMDDevice->GetBaseOrientation();
 			}

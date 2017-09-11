@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SSCSEditor.h"
@@ -69,6 +69,7 @@
 #include "EditorFontGlyphs.h"
 
 #include "Algo/Find.h"
+#include "ActorEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "SSCSEditor"
 
@@ -317,12 +318,24 @@ void FSCSRowDragDropOp::HoverTargetChanged()
 		}
 	}
 
-	UProperty* VariableProperty = GetVariableProperty();
-	if (!bHoverHandled && (VariableProperty == nullptr))
+	if (!bHoverHandled)
 	{
-		FText Message = LOCTEXT("CannotFindProperty", "Cannot find corresponding variable (make sure component has been assigned to one)");
-		SetSimpleFeedbackMessage(ErrorSymbol, IconTint, Message);
+		if (UProperty* VariableProperty = GetVariableProperty())
+		{
+			const FSlateBrush* PrimarySymbol;
+			const FSlateBrush* SecondarySymbol;
+			FSlateColor PrimaryColor;
+			FSlateColor SecondaryColor;
+			GetDefaultStatusSymbol(/*out*/ PrimarySymbol, /*out*/ PrimaryColor, /*out*/ SecondarySymbol, /*out*/ SecondaryColor);
 
+			//Create feedback message with the function name.
+			SetSimpleFeedbackMessage(PrimarySymbol, PrimaryColor, VariableProperty->GetDisplayNameText(), SecondarySymbol, SecondaryColor);
+		}
+		else
+		{
+			FText Message = LOCTEXT("CannotFindProperty", "Cannot find corresponding variable (make sure component has been assigned to one)");
+			SetSimpleFeedbackMessage(ErrorSymbol, IconTint, Message);
+		}
 		bHoverHandled = true;
 	}
 
@@ -1402,7 +1415,7 @@ void FSCSEditorTreeNodeRootActor::OnCompleteRename(const FText& InNewName)
 	if (Actor && Actor->IsActorLabelEditable() && !InNewName.ToString().Equals(Actor->GetActorLabel(), ESearchCase::CaseSensitive))
 	{
 		const FScopedTransaction Transaction(LOCTEXT("SCSEditorRenameActorTransaction", "Rename Actor"));
-		Actor->SetActorLabel(InNewName.ToString());
+		FActorLabelUtilities::RenameExistingActor(Actor, InNewName.ToString());
 	}
 }
 
@@ -3240,23 +3253,7 @@ TSharedRef<SToolTip> SSCS_RowWidget_ActorRoot::CreateToolTipWidget() const
 
 bool SSCS_RowWidget_ActorRoot::OnVerifyActorLabelChanged(const FText& InLabel, FText& OutErrorMessage)
 {
-	FText TrimmedLabel = FText::TrimPrecedingAndTrailing(InLabel);
-
-	if (TrimmedLabel.IsEmpty())
-	{
-		OutErrorMessage = LOCTEXT("RenameFailed_LeftBlank", "Names cannot be left blank!");
-		return false;
-	}
-
-	if (TrimmedLabel.ToString().Len() >= NAME_SIZE)
-	{
-		FFormatNamedArguments Arguments;
-		Arguments.Add(TEXT("CharCount"), NAME_SIZE);
-		OutErrorMessage = FText::Format(LOCTEXT("RenameFailed_TooLong", "Names must be less than {CharCount} characters long."), Arguments);
-		return false;
-	}
-
-	return true;
+	return FActorEditorUtils::ValidateActorName(InLabel, OutErrorMessage);
 }
 
 const FSlateBrush* SSCS_RowWidget_ActorRoot::GetActorIcon() const
@@ -3284,7 +3281,7 @@ FText SSCS_RowWidget_ActorRoot::GetActorDisplayText() const
 			{
 				FString Name;
 				UBlueprint* Blueprint = UBlueprint::GetBlueprintFromClass(DefaultActor->GetClass());
-				if(Blueprint != nullptr)
+				if(Blueprint != nullptr && SCSEditorPtr->GetEditorMode() != EComponentEditorMode::ActorInstance)
 				{
 					Blueprint->GetName(Name);
 				}
@@ -4050,7 +4047,11 @@ void SSCSEditor::OnFindReferences()
 		if (FoundAssetEditor.IsValid())
 		{
 			const FString VariableName = SelectedNodes[0]->GetVariableName().ToString();
-			const FString SearchTerm = FString::Printf(TEXT("Nodes(VariableReference(MemberName=+\"%s\"))"), *VariableName);
+
+			// Search for both an explicit variable reference (finds get/sets of exactly that var, without including related-sounding variables)
+			// and a softer search for (VariableName) to capture bound component/widget event nodes which wouldn't otherwise show up
+			//@TODO: This logic is duplicated in SMyBlueprint::OnFindReference(), keep in sync
+			const FString SearchTerm = FString::Printf(TEXT("Nodes(VariableReference(MemberName=+\"%s\") || Name=\"(%s)\")"), *VariableName, *VariableName);
 
 			TSharedRef<IBlueprintEditor> BlueprintEditor = StaticCastSharedRef<IBlueprintEditor>(FoundAssetEditor.ToSharedRef());
 			BlueprintEditor->SummonSearchUI(true, SearchTerm);
@@ -6177,7 +6178,7 @@ void SSCSEditor::OnOpenBlueprintEditor(bool bForceCodeEditing) const
 		{
 			if (bForceCodeEditing && (Blueprint->UbergraphPages.Num() > 0))
 			{
-				FKismetEditorUtilities::BringKismetToFocusAttentionOnObject(Blueprint->UbergraphPages[0]);
+				FKismetEditorUtilities::BringKismetToFocusAttentionOnObject(Blueprint->GetLastEditedUberGraph());
 			}
 			else
 			{

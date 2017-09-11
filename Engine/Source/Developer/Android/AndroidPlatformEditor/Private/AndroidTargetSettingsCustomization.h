@@ -6,6 +6,8 @@
 #include "Misc/Attribute.h"
 #include "Input/Reply.h"
 #include "IDetailCustomization.h"
+#include "PropertyHandle.h"
+#include "TargetPlatformAudioCustomization.h"
 
 class IDetailLayoutBuilder;
 
@@ -43,7 +45,21 @@ private:
 	// Called when the app id is modified
 	void OnAppIDModified();
 
+	// Called when EnableGradle is modified
+	void OnEnableGradleChange();
+
+	// Called when License accepted
+	void OnLicenseAccepted();
+
+	// returns whether Android SDK license valid
+	bool IsLicenseInvalid() const;
+
+	// Show license agreement for user to accept
+	FReply OnAcceptSDKLicenseClicked();
+
 private:
+	double LastLicenseChecktime;
+
 	const FString AndroidRelativePath;
 
 	const FString EngineAndroidPath;
@@ -68,5 +84,6 @@ private:
 	// Is the App ID string writable?
 	TAttribute<bool> SetupForGooglePlayAttribute;
 
+	FAudioPluginWidgetManager AudioPluginWidgetManager;
  	IDetailLayoutBuilder* SavedLayoutBuilder;
 };

@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
 {
@@ -26,6 +27,11 @@ namespace UnrealBuildTool
 		/// The architecture that is being compiled/linked (empty string by default)
 		/// </summary>
 		public readonly string Architecture;
+
+		/// <summary>
+		/// On Mac, indicates the path to the target's application bundle
+		/// </summary>
+		public DirectoryReference BundleDirectory;
 
 		/// <summary>
 		/// The directory to put the non-executable files in (PDBs, import library, etc)
@@ -289,6 +295,7 @@ namespace UnrealBuildTool
 			Platform = Other.Platform;
 			Configuration = Other.Configuration;
 			Architecture = Other.Architecture;
+			BundleDirectory = Other.BundleDirectory;
 			OutputDirectory = Other.OutputDirectory;
 			IntermediateDirectory = Other.IntermediateDirectory;
 			LocalShadowDirectory = Other.LocalShadowDirectory;
@@ -313,6 +320,8 @@ namespace UnrealBuildTool
 			bIsCrossReferenced = Other.bIsCrossReferenced;
 			bHasExports = Other.bHasExports;
 			bIsBuildingDotNetAssembly = Other.bIsBuildingDotNetAssembly;
+			DefaultStackSize = Other.DefaultStackSize;
+			DefaultStackSizeCommit = Other.DefaultStackSizeCommit;
 			bOptimizeForSize = Other.bOptimizeForSize;
 			bOmitFramePointers = Other.bOmitFramePointers;
 			bSupportEditAndContinue = Other.bSupportEditAndContinue;

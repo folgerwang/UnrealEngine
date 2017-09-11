@@ -60,7 +60,10 @@ namespace UnrealGameSync
 			OtherStreamNames = new List<string>();
 
 			LogWriter = new BoundedLogWriter(InLogPath);
+		}
 
+		public void Start()
+		{
 			WorkerThread = new Thread(() => PollForUpdates());
 			WorkerThread.Start();
 		}
@@ -302,7 +305,7 @@ namespace UnrealGameSync
 			// Update them in batches
 			foreach(int QueryChangeNumber in QueryChangeNumbers)
 			{
-				string[] CodeExtensions = { ".cs", ".h", ".cpp", ".usf" };
+				string[] CodeExtensions = { ".cs", ".h", ".cpp", ".usf", ".ush" };
 
 				// If there's something to check for, find all the content changes after this changelist
 				PerforceDescribeRecord DescribeRecord;

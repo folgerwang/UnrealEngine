@@ -9,7 +9,7 @@
 #include "VulkanPendingState.h"
 #include "VulkanContext.h"
 
-static FAutoConsoleVariable CVarDelayAcquireBackBuffer(
+FAutoConsoleVariable GCVarDelayAcquireBackBuffer(
 	TEXT("r.Vulkan.DelayAcquireBackBuffer"),
 	1,
 	TEXT("Delay acquiring the back buffer until preset"),
@@ -18,7 +18,7 @@ static FAutoConsoleVariable CVarDelayAcquireBackBuffer(
 
 inline static bool DelayAcquireBackBuffer()
 {
-	return CVarDelayAcquireBackBuffer->GetInt() != 0;
+	return GCVarDelayAcquireBackBuffer->GetInt() != 0;
 }
 
 struct FRHICommandAcquireBackBuffer : public FRHICommand<FRHICommandAcquireBackBuffer>
@@ -91,6 +91,8 @@ FVulkanViewport::~FVulkanViewport()
 		delete RenderingDoneSemaphores[Index];
 
 		TextureViews[Index].Destroy(*Device);
+
+		Device->NotifyDeletedImage(BackBufferImages[Index]);
 	}
 
 	SwapChain->Destroy();
@@ -259,6 +261,11 @@ FVulkanFramebuffer::FVulkanFramebuffer(FVulkanDevice& Device, const FRHISetRende
 	Extents.height = CreateInfo.height;
 }
 
+FVulkanFramebuffer::~FVulkanFramebuffer()
+{
+	ensure(Framebuffer == VK_NULL_HANDLE);
+}
+
 void FVulkanFramebuffer::Destroy(FVulkanDevice& Device)
 {
 	VulkanRHI::FDeferredDeletionQueue& Queue = Device.GetDeferredDeletionQueue();
@@ -418,9 +425,9 @@ void FVulkanViewport::CreateSwapchain()
 
 			VkClearColorValue Color;
 			FMemory::Memzero(Color);
-			VulkanSetImageLayoutSimple(CmdBuffer->GetHandle(), Images[Index], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-			VulkanRHI::vkCmdClearColorImage(CmdBuffer->GetHandle(), Images[Index], VK_IMAGE_LAYOUT_GENERAL, &Color, 1, &Range);
-			VulkanSetImageLayoutSimple(CmdBuffer->GetHandle(), Images[Index], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+			VulkanSetImageLayoutSimple(CmdBuffer->GetHandle(), Images[Index], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+			VulkanRHI::vkCmdClearColorImage(CmdBuffer->GetHandle(), Images[Index], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &Color, 1, &Range);
+			VulkanSetImageLayoutSimple(CmdBuffer->GetHandle(), Images[Index], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		}
 	}
 
@@ -433,7 +440,7 @@ void FVulkanViewport::CreateSwapchain()
 inline static void CopyImageToBackBuffer(const VkCommandBuffer& CmdBuffer, const VkImage& SrcSurface, const VkImage& DstSurface, int32 SizeX, int32 SizeY)
 {
 	VkImageLayout SrcLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	VkImageLayout DstLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	VkImageLayout DstLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
 	VkImageSubresourceRange ResourceRange;
 	ResourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -467,7 +474,7 @@ inline static void CopyImageToBackBuffer(const VkCommandBuffer& CmdBuffer, const
 	VulkanSetImageLayout(CmdBuffer, DstSurface, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, ResourceRange);
 }
 
-bool FVulkanViewport::Present(FVulkanCmdBuffer* CmdBuffer, FVulkanQueue* Queue, bool bLockToVsync)
+bool FVulkanViewport::Present(FVulkanCmdBuffer* CmdBuffer, FVulkanQueue* Queue, FVulkanQueue* PresentQueue, bool bLockToVsync)
 {
 	//Transition back buffer to presentable and submit that command
 	check(CmdBuffer->IsOutsideRenderPass());
@@ -529,10 +536,10 @@ bool FVulkanViewport::Present(FVulkanCmdBuffer* CmdBuffer, FVulkanQueue* Queue, 
 	}
 
 	bool bResult = false;
-	if (bNeedNativePresent && RHIBackBuffer != nullptr)
+	if (bNeedNativePresent && (GCVarDelayAcquireBackBuffer->GetInt() != 0 || RHIBackBuffer != nullptr))
 	{
 		// Present the back buffer to the viewport window.
-		bResult = SwapChain->Present(Queue, RenderingDoneSemaphores[AcquiredImageIndex]);//, SyncInterval, 0);
+		bResult = SwapChain->Present(Queue, PresentQueue, RenderingDoneSemaphores[AcquiredImageIndex]);//, SyncInterval, 0);
 
 		if (bHasCustomPresent)
 		{
@@ -575,7 +582,7 @@ bool FVulkanViewport::Present(FVulkanCmdBuffer* CmdBuffer, FVulkanQueue* Queue, 
 	FVulkanCommandBufferManager* ImmediateCmdBufMgr = Device->GetImmediateContext().GetCommandBufferManager();
 	ImmediateCmdBufMgr->PrepareForNewActiveCommandBuffer();
 
-	//#todo-rco: Consolidate 'end of frame'
+	//#todo-rco: This needs to happen on the render thread? Acquire happens on render thread
 	Device->GetImmediateContext().GetTempFrameAllocationBuffer().Reset();
 #if 0
 	CurrentBackBuffer = -1;
@@ -798,6 +805,7 @@ void FVulkanDynamicRHI::RHIAdvanceFrameForGetViewportBackBuffer()
 		}
 		else
 		{
+			check(IsInRenderingThread());
 			new (RHICmdList.AllocCommand<FRHICommandProcessDeferredDeletionQueue>()) FRHICommandProcessDeferredDeletionQueue(Device);
 		}
 	}
@@ -806,11 +814,6 @@ void FVulkanDynamicRHI::RHIAdvanceFrameForGetViewportBackBuffer()
 void FVulkanCommandListContext::RHISetViewport(uint32 MinX, uint32 MinY, float MinZ, uint32 MaxX, uint32 MaxY, float MaxZ)
 {
 	PendingGfxState->SetViewport(MinX, MinY, MinZ, MaxX, MaxY, MaxZ);
-}
-
-void FVulkanCommandListContext::RHISetStereoViewport(uint32 LeftMinX, uint32 RightMinX, uint32 MinY, float MinZ, uint32 LeftMaxX, uint32 RightMaxX, uint32 MaxY, float MaxZ)
-{
-	VULKAN_SIGNAL_UNIMPLEMENTED();
 }
 
 void FVulkanCommandListContext::RHISetMultipleViewports(uint32 Count, const FViewportBounds* Data)

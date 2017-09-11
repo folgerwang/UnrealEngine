@@ -421,6 +421,12 @@ public:
 		// This will force the cheaper single sample interpolated GI path
 		return false;
 	}
+	
+	bool UseVolumetricLightmap() const
+	{
+		const FScene* Scene = (const FScene*)View.Family->Scene;
+		return View.Family->EngineShowFlags.VolumetricLightmap && Scene && Scene->VolumetricLightmapSceneData.HasData();
+	}
 
 	/** Draws the translucent mesh with a specific light-map type, and fog volume type */
 	template<typename LightMapPolicyType>
@@ -705,6 +711,17 @@ public:
 
 	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 	{
+		// Never needs clear here as it is already done in RenderTranslucency.
+		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+		if (SceneContext.IsSeparateTranslucencyPass())
+		{
+			SceneContext.BeginRenderingSeparateTranslucency(RHICmdList, View, false);
+		}
+		else
+		{
+			SceneContext.BeginRenderingTranslucency(RHICmdList, View, false);
+		}
+
 		PrimSet.DrawAPrimitive(RHICmdList, View, DrawRenderState, Renderer, TranslucencyPass, Index);
 		RHICmdList.HandleRTThreadTaskCompletion(MyCompletionGraphEvent);
 	}
@@ -1241,9 +1258,11 @@ void FDeferredShadingSceneRenderer::RenderTranslucency(FRHICommandListImmediate&
 			if (DownsamplingScale < 1.f)
 			{
 				SetupDownsampledTranslucencyViewUniformBuffer(RHICmdList, View);
-					}
-
-			BeginTimingSeparateTranslucencyPass(RHICmdList, View);
+			}
+			if (TranslucencyPass == ETranslucencyPass::TPT_TranslucencyAfterDOF)
+			{
+				BeginTimingSeparateTranslucencyPass(RHICmdList, View);
+			}
 			SceneContext.BeginRenderingSeparateTranslucency(RHICmdList, View, ViewIndex == 0);
 
 			// Draw only translucent prims that are in the SeparateTranslucency pass
@@ -1252,20 +1271,22 @@ void FDeferredShadingSceneRenderer::RenderTranslucency(FRHICommandListImmediate&
 			if (bUseParallel)
 			{
 				RenderViewTranslucencyParallel(RHICmdList, View, DrawRenderState, TranslucencyPass);
-				}
+			}
 			else
 			{
 				RenderViewTranslucency(RHICmdList, View, DrawRenderState, TranslucencyPass);
 			}
 
 			SceneContext.FinishRenderingSeparateTranslucency(RHICmdList, View);
-			EndTimingSeparateTranslucencyPass(RHICmdList, View);
-
+			if (TranslucencyPass == ETranslucencyPass::TPT_TranslucencyAfterDOF)
+			{
+				EndTimingSeparateTranslucencyPass(RHICmdList, View);
+			}
 			if (TranslucencyPass != ETranslucencyPass::TPT_TranslucencyAfterDOF)
 			{
 				FTranslucencyDrawingPolicyFactory::UpsampleTranslucency(RHICmdList, View, false);
+			}
 		}
-	}
 		else
 		{
 			SceneContext.BeginRenderingTranslucency(RHICmdList, View, ViewIndex == 0);

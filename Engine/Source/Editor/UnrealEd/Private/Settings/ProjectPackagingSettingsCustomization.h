@@ -143,7 +143,7 @@ protected:
 	 */
 	void CustomizeProjectCategory( IDetailLayoutBuilder& LayoutBuilder )
 	{
-		// hide the DebugGame configuration for content-only games
+		// Hide the DebugGame configurations for content-only games
 		TArray<FString> TargetFileNames;
 		IFileManager::Get().FindFiles(TargetFileNames, *(FPaths::GameSourceDir() / TEXT("*.target.cs")), true, false);
 
@@ -151,9 +151,27 @@ protected:
 		{
 			IDetailCategoryBuilder& ProjectCategory = LayoutBuilder.EditCategory("Project");
 			{
-				TSharedRef<FPropertyRestriction> BuildConfigurationRestriction = MakeShareable(new FPropertyRestriction(LOCTEXT("DebugGameRestrictionReason", "The DebugGame build configuration is not available in content-only projects.")));
+				TSharedRef<FPropertyRestriction> BuildConfigurationRestriction = MakeShareable(new FPropertyRestriction(LOCTEXT("ContentOnlyRestrictionReason", "The DebugGame and Client build configurations are not available in content-only projects.")));
 				const UEnum* const ProjectPackagingBuildConfigurationsEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EProjectPackagingBuildConfigurations"));		
 				BuildConfigurationRestriction->AddDisabledValue(ProjectPackagingBuildConfigurationsEnum->GetNameStringByValue((uint8)EProjectPackagingBuildConfigurations::PPBC_DebugGame));
+				BuildConfigurationRestriction->AddDisabledValue(ProjectPackagingBuildConfigurationsEnum->GetNameStringByValue((uint8)EProjectPackagingBuildConfigurations::PPBC_DebugGameClient));
+
+				TSharedRef<IPropertyHandle> BuildConfigurationHandle = LayoutBuilder.GetProperty("BuildConfiguration");
+				BuildConfigurationHandle->AddRestriction(BuildConfigurationRestriction);
+			}
+		}
+		else
+		{
+			// Hide the Client configurations if there is no {ProjectName}Client.Target.cs
+			TArray<FString> ClientTargetFileNames;
+			IFileManager::Get().FindFiles(ClientTargetFileNames, *(FPaths::GameSourceDir() / TEXT("*client.target.cs")), true, false);
+			if (ClientTargetFileNames.Num() == 0)
+			{
+				TSharedRef<FPropertyRestriction> BuildConfigurationRestriction = MakeShareable(new FPropertyRestriction(LOCTEXT("ClientRestrictionReason", "The Client build configurations require a {ProjectName}Client.Target.cs file in your Project/Source folder.")));
+				const UEnum* const ProjectPackagingBuildConfigurationsEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EProjectPackagingBuildConfigurations"));
+				BuildConfigurationRestriction->AddDisabledValue(ProjectPackagingBuildConfigurationsEnum->GetNameStringByValue((uint8)EProjectPackagingBuildConfigurations::PPBC_DebugGameClient));
+				BuildConfigurationRestriction->AddDisabledValue(ProjectPackagingBuildConfigurationsEnum->GetNameStringByValue((uint8)EProjectPackagingBuildConfigurations::PPBC_DevelopmentClient));
+				BuildConfigurationRestriction->AddDisabledValue(ProjectPackagingBuildConfigurationsEnum->GetNameStringByValue((uint8)EProjectPackagingBuildConfigurations::PPBC_ShippingClient));
 
 				TSharedRef<IPropertyHandle> BuildConfigurationHandle = LayoutBuilder.GetProperty("BuildConfiguration");
 				BuildConfigurationHandle->AddRestriction(BuildConfigurationRestriction);
@@ -221,7 +239,7 @@ protected:
 							.Style(FEditorStyle::Get(), "RadioButton")
 							[
 								SNew(STextBlock)
-								.Text(LOCTEXT("AllCulturesCheckBoxText", "Show all"))
+								.Text(LOCTEXT("AllCulturesCheckBoxText", "Show All"))
 							]
 						]
 
@@ -236,7 +254,7 @@ protected:
 							.Style(FEditorStyle::Get(), "RadioButton")
 							[
 								SNew(STextBlock)
-								.Text(LOCTEXT("CookedCulturesCheckBoxText", "Show localized"))
+								.Text(LOCTEXT("CookedCulturesCheckBoxText", "Show Localized"))
 							]
 						]
 					]
@@ -262,26 +280,30 @@ protected:
 		{
 		case EFilterCulturesChoices::AllAvailableCultures:
 			{
-				CultureList.Empty();
 				TArray<FString> CultureNames;
 				FInternationalization::Get().GetCultureNames(CultureNames);
+				
+				CultureList.Reset();
 				for(const FString& CultureName : CultureNames)
 				{
 					CultureList.Add(FInternationalization::Get().GetCulture(CultureName));
 				}
 			}
 			break;
+
 		case EFilterCulturesChoices::OnlyLocalizedCultures:
 			{
 				TArray<FCultureRef> LocalizedCultureList;
 				TArray<FString> LocalizationPaths = FPaths::GetGameLocalizationPaths();
 				FInternationalization::Get().GetCulturesWithAvailableLocalization(LocalizationPaths, LocalizedCultureList, true);
-				CultureList.Empty();
-				for(const auto& Culture : LocalizedCultureList)
-				{
-					CultureList.Add(Culture);
-				}
+
+				CultureList.Reset();
+				CultureList.Append(LocalizedCultureList);
 			}
+			break;
+
+		default:
+			checkf(false, TEXT("Unknown EFilterCulturesChoices"));
 			break;
 		}
 	}

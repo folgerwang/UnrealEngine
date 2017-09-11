@@ -72,6 +72,7 @@
 #include "ClothingSystemEditorInterfaceModule.h"
 #endif
 #include "SkeletalDebugRendering.h"
+#include "Misc/RuntimeErrors.h"
 
 #define LOCTEXT_NAMESPACE "SkeltalMesh"
 
@@ -307,7 +308,7 @@ void FSkeletalMeshVertexBuffer::InitRHI()
 		
 		// BUF_ShaderResource is needed for support of the SkinCache (we could make is dependent on GEnableGPUSkinCacheShaders or are there other users?)
 		VertexBufferRHI = RHICreateVertexBuffer( ResourceArray->GetResourceDataSize(), BUF_Static | BUF_ShaderResource, CreateInfo);
-		SRVValue = RHICreateShaderResourceView(VertexBufferRHI, 4, PF_R32_FLOAT);
+		SRVValue = RHICreateShaderResourceView(VertexBufferRHI, 4, PF_R32_UINT);
 	}
 }
 
@@ -755,6 +756,23 @@ bool FSoftSkinVertex::GetRigidWeightBone(uint8& OutBoneIndex) const
 	}
 
 	return bIsRigid;
+}
+
+uint8 FSoftSkinVertex::GetMaximumWeight() const
+{
+	uint8 MaxInfluenceWeight = 0;
+
+	for ( int32 Index = 0; Index < MAX_TOTAL_INFLUENCES; Index++ )
+	{
+		const uint8 Weight = InfluenceWeights[Index];
+
+		if ( Weight > MaxInfluenceWeight )
+		{
+			MaxInfluenceWeight = Weight;
+		}
+	}
+
+	return MaxInfluenceWeight;
 }
 
 /*-----------------------------------------------------------------------------
@@ -2323,14 +2341,14 @@ void FSkeletalMeshResource::SyncUVChannelData(const TArray<FSkeletalMaterial>& O
 #endif
 
 FSkeletalMeshClothBuildParams::FSkeletalMeshClothBuildParams()
-	: AssetName("Clothing")
+	: TargetAsset(nullptr)
+	, TargetLod(INDEX_NONE)
+	, bRemapParameters(false)
+	, AssetName("Clothing")
 	, LodIndex(0)
 	, SourceSection(0)
 	, bRemoveFromMesh(false)
 	, PhysicsAsset(nullptr)
-	, bTryAutoFix(0)
-	, AutoFixThreshold(0.0f)
-	, SimulatedParticleMaxDistance(1.0f)
 {
 
 }
@@ -2420,6 +2438,20 @@ void USkeletalMesh::ValidateBoundsExtension()
 	NegativeBoundsExtension.Z = FMath::Clamp(NegativeBoundsExtension.Z, -HalfExtent.Z, MAX_flt);
 }
 
+void USkeletalMesh::AddClothingAsset(UClothingAssetBase* InNewAsset)
+{
+	// Check the outer is us
+	if(InNewAsset && InNewAsset->GetOuter() == this)
+	{
+		// Ok this should be a correctly created asset, we can add it
+		MeshClothingAssets.AddUnique(InNewAsset);
+
+#if WITH_EDITOR
+		OnClothingChange.Broadcast();
+#endif
+	}
+}
+
 void USkeletalMesh::RemoveClothingAsset(int32 InLodIndex, int32 InSectionIndex)
 {
 	UClothingAssetBase* Asset = GetSectionClothingAsset(InLodIndex, InSectionIndex);
@@ -2428,6 +2460,10 @@ void USkeletalMesh::RemoveClothingAsset(int32 InLodIndex, int32 InSectionIndex)
 	{
 		Asset->UnbindFromSkeletalMesh(this, InLodIndex);
 		MeshClothingAssets.Remove(Asset);
+
+#if WITH_EDITOR
+		OnClothingChange.Broadcast();
+#endif
 	}
 }
 
@@ -2526,6 +2562,28 @@ int32 USkeletalMesh::GetClothingAssetIndex(const FGuid& InAssetGuid) const
 	}
 
 	return INDEX_NONE;
+}
+
+bool USkeletalMesh::HasActiveClothingAssets() const
+{
+	if(FSkeletalMeshResource* Resource = GetImportedResource())
+	{
+		for(FStaticLODModel& LodModel : Resource->LODModels)
+		{
+			int32 NumNonClothingSections = LodModel.NumNonClothingSections();
+			for(int32 SectionIdx = 0; SectionIdx < NumNonClothingSections; ++SectionIdx)
+			{
+				FSkelMeshSection& Section = LodModel.Sections[SectionIdx];
+
+				if(Section.ClothingData.AssetGuid.IsValid())
+				{
+					return true;
+				}
+			}
+		}
+	}
+
+	return false;
 }
 
 void USkeletalMesh::GetClothingAssetsInUse(TArray<UClothingAssetBase*>& OutClothingAssets) const
@@ -3526,7 +3584,7 @@ void USkeletalMesh::PostLoad()
 				// Pull the path across so reimports work as expected
 				NewAsset->ImportedFilePath = OldAssetData.ApexFileName;
 
-				MeshClothingAssets.Add(NewAsset);
+				AddClothingAsset(NewAsset);
 			}
 		}
 
@@ -4029,6 +4087,18 @@ void USkeletalMesh::MoveMaterialFlagsToSections()
 		}
 	}
 }
+
+#if WITH_EDITOR
+FDelegateHandle USkeletalMesh::RegisterOnClothingChange(const FSimpleMulticastDelegate::FDelegate& InDelegate)
+{
+	return OnClothingChange.Add(InDelegate);
+}
+
+void USkeletalMesh::UnregisterOnClothingChange(const FDelegateHandle& InHandle)
+{
+	OnClothingChange.Remove(InHandle);
+}
+#endif
 
 bool USkeletalMesh::AreAllFlagsIdentical( const TArray<bool>& BoolArray ) const
 {
@@ -4771,19 +4841,22 @@ USkeletalMeshSocket::USkeletalMeshSocket(const FObjectInitializer& ObjectInitial
 
 void USkeletalMeshSocket::InitializeSocketFromLocation(const class USkeletalMeshComponent* SkelComp, FVector WorldLocation, FVector WorldNormal)
 {
-	BoneName = SkelComp->FindClosestBone(WorldLocation);
-	if( BoneName != NAME_None )
+	if (ensureAsRuntimeWarning(SkelComp))
 	{
-		SkelComp->TransformToBoneSpace(BoneName, WorldLocation, WorldNormal.Rotation(), RelativeLocation, RelativeRotation);
+		BoneName = SkelComp->FindClosestBone(WorldLocation);
+		if (BoneName != NAME_None)
+		{
+			SkelComp->TransformToBoneSpace(BoneName, WorldLocation, WorldNormal.Rotation(), RelativeLocation, RelativeRotation);
+		}
 	}
 }
 
 FVector USkeletalMeshSocket::GetSocketLocation(const class USkeletalMeshComponent* SkelComp) const
 {
-	if( SkelComp )
+	if (ensureAsRuntimeWarning(SkelComp))
 	{
 		FMatrix SocketMatrix;
-		if( GetSocketMatrix(SocketMatrix, SkelComp) )
+		if (GetSocketMatrix(SocketMatrix, SkelComp))
 		{
 			return SocketMatrix.GetOrigin();
 		}
@@ -4796,7 +4869,7 @@ FVector USkeletalMeshSocket::GetSocketLocation(const class USkeletalMeshComponen
 
 bool USkeletalMeshSocket::GetSocketMatrix(FMatrix& OutMatrix, const class USkeletalMeshComponent* SkelComp) const
 {
-	int32 BoneIndex = SkelComp->GetBoneIndex(BoneName);
+	const int32 BoneIndex = SkelComp ? SkelComp->GetBoneIndex(BoneName) : INDEX_NONE;
 	if(BoneIndex != INDEX_NONE)
 	{
 		FMatrix BoneMatrix = SkelComp->GetBoneMatrix(BoneIndex);
@@ -4817,7 +4890,7 @@ FTransform USkeletalMeshSocket::GetSocketTransform(const class USkeletalMeshComp
 {
 	FTransform OutTM;
 
-	int32 BoneIndex = SkelComp->GetBoneIndex(BoneName);
+	const int32 BoneIndex = SkelComp ? SkelComp->GetBoneIndex(BoneName) : INDEX_NONE;
 	if(BoneIndex != INDEX_NONE)
 	{
 		FTransform BoneTM = SkelComp->GetBoneTransform(BoneIndex);
@@ -4830,7 +4903,7 @@ FTransform USkeletalMeshSocket::GetSocketTransform(const class USkeletalMeshComp
 
 bool USkeletalMeshSocket::GetSocketMatrixWithOffset(FMatrix& OutMatrix, class USkeletalMeshComponent* SkelComp, const FVector& InOffset, const FRotator& InRotation) const
 {
-	int32 BoneIndex = SkelComp->GetBoneIndex(BoneName);
+	const int32 BoneIndex = SkelComp ? SkelComp->GetBoneIndex(BoneName) : INDEX_NONE;
 	if(BoneIndex != INDEX_NONE)
 	{
 		FMatrix BoneMatrix = SkelComp->GetBoneMatrix(BoneIndex);
@@ -4846,7 +4919,7 @@ bool USkeletalMeshSocket::GetSocketMatrixWithOffset(FMatrix& OutMatrix, class US
 
 bool USkeletalMeshSocket::GetSocketPositionWithOffset(FVector& OutPosition, class USkeletalMeshComponent* SkelComp, const FVector& InOffset, const FRotator& InRotation) const
 {
-	int32 BoneIndex = SkelComp->GetBoneIndex(BoneName);
+	const int32 BoneIndex = SkelComp ? SkelComp->GetBoneIndex(BoneName) : INDEX_NONE;
 	if(BoneIndex != INDEX_NONE)
 	{
 		FMatrix BoneMatrix = SkelComp->GetBoneMatrix(BoneIndex);
@@ -4871,28 +4944,30 @@ bool USkeletalMeshSocket::GetSocketPositionWithOffset(FVector& OutPosition, clas
 bool USkeletalMeshSocket::AttachActor(AActor* Actor, class USkeletalMeshComponent* SkelComp) const
 {
 	bool bAttached = false;
-
-	// Don't support attaching to own socket
-	if (Actor != SkelComp->GetOwner() && Actor->GetRootComponent())
+	if (ensureAlways(SkelComp))
 	{
-		FMatrix SocketTM;
-		if( GetSocketMatrix( SocketTM, SkelComp ) )
+		// Don't support attaching to own socket
+		if ((Actor != SkelComp->GetOwner()) && Actor->GetRootComponent())
 		{
-			Actor->Modify();
-
-			Actor->SetActorLocation(SocketTM.GetOrigin(), false);
-			Actor->SetActorRotation(SocketTM.Rotator());
-			Actor->GetRootComponent()->AttachToComponent(SkelComp, FAttachmentTransformRules::SnapToTargetNotIncludingScale, SocketName);
-
-#if WITH_EDITOR
-			if (GIsEditor)
+			FMatrix SocketTM;
+			if (GetSocketMatrix(SocketTM, SkelComp))
 			{
-				Actor->PreEditChange(NULL);
-				Actor->PostEditChange();
-			}
-#endif // WITH_EDITOR
+				Actor->Modify();
 
-			bAttached = true;
+				Actor->SetActorLocation(SocketTM.GetOrigin(), false);
+				Actor->SetActorRotation(SocketTM.Rotator());
+				Actor->GetRootComponent()->AttachToComponent(SkelComp, FAttachmentTransformRules::SnapToTargetNotIncludingScale, SocketName);
+
+	#if WITH_EDITOR
+				if (GIsEditor)
+				{
+					Actor->PreEditChange(NULL);
+					Actor->PostEditChange();
+				}
+	#endif // WITH_EDITOR
+
+				bAttached = true;
+			}
 		}
 	}
 	return bAttached;
@@ -5483,27 +5558,18 @@ void FSkeletalMeshSceneProxy::GetDynamicElementsSection(const TArray<const FScen
 				BatchElement.FirstIndex *= 4;
 			}
 
+			Mesh.MaterialRenderProxy = SectionElementInfo.Material->GetRenderProxy(false, IsHovered());
 		#if WITH_EDITOR
-
 			Mesh.BatchHitProxyId = SectionElementInfo.HitProxy ? SectionElementInfo.HitProxy->Id : FHitProxyId();
 
 			if (bSectionSelected && bCanHighlightSelectedSections)
 			{
-				auto SelectionOverrideProxy = new FOverrideSelectionColorMaterialRenderProxy(
-					SectionElementInfo.Material->GetRenderProxy(true, IsHovered()),
-					GetSelectionColor(GEngine->GetSelectedMaterialColor(), true, IsHovered())
-					);
-
-				Collector.RegisterOneFrameMaterialProxy(SelectionOverrideProxy);
-
-				Mesh.MaterialRenderProxy = SelectionOverrideProxy;
+				Mesh.bUseSelectionOutline = true;
 			}
 			else
 			{
-				Mesh.MaterialRenderProxy = SectionElementInfo.Material->GetRenderProxy(false, IsHovered());
+				Mesh.bUseSelectionOutline = !bCanHighlightSelectedSections && bIsSelected;
 			}
-		#else
-			Mesh.MaterialRenderProxy = SectionElementInfo.Material->GetRenderProxy(false, IsHovered());
 		#endif
 
 			BatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();

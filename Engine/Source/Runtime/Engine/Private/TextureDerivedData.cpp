@@ -143,7 +143,7 @@ static void SerializeForKey(FArchive& Ar, const FTextureBuildSettings& Settings)
 		TextureFormat = TPM->FindTextureFormat(BuildSettings.TextureFormatName);
 		if (TextureFormat)
 		{
-			Version = TextureFormat->GetVersion(BuildSettings.TextureFormatName);
+			Version = TextureFormat->GetVersion(BuildSettings.TextureFormatName, &BuildSettings);
 		}
 	}
 	
@@ -329,6 +329,7 @@ static void GetTextureBuildSettings(
 	OutBuildSettings.ChromaKeyColor = Texture.ChromaKeyColor;
 	OutBuildSettings.bChromaKeyTexture = Texture.bChromaKeyTexture;
 	OutBuildSettings.ChromaKeyThreshold = Texture.ChromaKeyThreshold;
+	OutBuildSettings.CompressionQuality = Texture.CompressionQuality - 1; // translate from enum's 0 .. 5 to desired compression (-1 .. 4, where -1 is default while 0 .. 4 are actual quality setting override)
 }
 
 /**
@@ -1371,32 +1372,6 @@ bool UTexture::IsCachedCookedPlatformDataLoaded( const ITargetPlatform* TargetPl
 	}
 	// if we get here all our stuff is cached :)
 	return true;
-}
-
-void UTexture2D::WillNeverCacheCookedPlatformDataAgain()
-{
-	Super::WillNeverCacheCookedPlatformDataAgain();
-#if WITH_EDITORONLY_DATA 
-	// "Source" is only in WITH_EDITORONLY_DATA
-	// UE_LOG(LogTemp, Display, TEXT("Cleared source texture data for texture %s"), *GetName());
-	// clear source mips if we are in the editor then we don't have this luxury 
-	check( IsAsyncCacheComplete());
-
-	const TMap<FString, FTexturePlatformData*> *CookedPlatformDataPtr = GetCookedPlatformData();
-	if ( CookedPlatformDataPtr != NULL )
-	{
-		for ( const auto& TexturePlatformData : *CookedPlatformDataPtr )
-		{
-			check( TexturePlatformData.Value->AsyncTask == NULL);
-		}
-	}
-
-	// Daniel: I think we should call the release source memory function all the time because this will prevent it being force loaded when the linker is destroyed
-	//if ( Source.IsBulkDataLoaded() ) 
-	{
-		Source.ReleaseSourceMemory();
-	}
-#endif
 }
 
 bool UTexture::IsAsyncCacheComplete()

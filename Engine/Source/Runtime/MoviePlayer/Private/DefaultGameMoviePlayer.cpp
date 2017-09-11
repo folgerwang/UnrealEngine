@@ -19,6 +19,9 @@
 #include "FileManager.h"
 #include "SVirtualWindow.h"
 #include "SlateDrawBuffer.h"
+#include "HAL/PlatformApplicationMisc.h"
+#include "Widgets/Layout/SDPIScaler.h"
+#include "Engine/UserInterfaceSettings.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogMoviePlayer, Log, All);
 
@@ -162,10 +165,10 @@ void FDefaultGameMoviePlayer::Initialize(FSlateRenderer& InSlateRenderer)
 	}
 
 	// Add a delegate to start playing movies when we start loading a map
-	FCoreUObjectDelegates::PreLoadMap.AddSP( this, &FDefaultGameMoviePlayer::OnPreLoadMap );
+	FCoreUObjectDelegates::PreLoadMap.AddRaw( this, &FDefaultGameMoviePlayer::OnPreLoadMap );
 	
 	// Shutdown the movie player if the app is exiting
-	FCoreDelegates::OnPreExit.AddSP( this, &FDefaultGameMoviePlayer::Shutdown );
+	FCoreDelegates::OnPreExit.AddRaw( this, &FDefaultGameMoviePlayer::Shutdown );
 
 	FPlatformSplash::Hide();
 
@@ -199,9 +202,12 @@ void FDefaultGameMoviePlayer::Initialize(FSlateRenderer& InSlateRenderer)
 			]
 			+SOverlay::Slot()
 			[
-				SAssignNew(UserWidgetHolder, SBorder)
-				.BorderImage(FCoreStyle::Get().GetBrush(TEXT("NoBorder")))
-				.Padding(0)
+				SAssignNew(UserWidgetDPIScaler, SDPIScaler)
+				[
+					SAssignNew(UserWidgetHolder, SBorder)
+					.BorderImage(FCoreStyle::Get().GetBrush(TEXT("NoBorder")))
+					.Padding(0)
+				]
 			]
 		];
 
@@ -235,8 +241,9 @@ void FDefaultGameMoviePlayer::Shutdown()
 
 	bInitialized = false;
 
+	FCoreDelegates::OnPreExit.RemoveAll(this);
 	FCoreUObjectDelegates::PreLoadMap.RemoveAll( this );
-	FCoreDelegates::OnPreExit.RemoveAll( this );
+	FCoreUObjectDelegates::PostLoadMapWithWorld.RemoveAll(this);
 
 	LoadingScreenContents.Reset();
 	UserWidgetHolder.Reset();
@@ -270,7 +277,15 @@ void FDefaultGameMoviePlayer::PassLoadingScreenWindowBackToGame() const
 
 void FDefaultGameMoviePlayer::SetupLoadingScreen(const FLoadingScreenAttributes& InLoadingScreenAttributes)
 {
-	LoadingScreenAttributes = InLoadingScreenAttributes;
+	if (!CanPlayMovie())
+	{
+		LoadingScreenAttributes = FLoadingScreenAttributes();
+		UE_LOG(LogMoviePlayer, Warning, TEXT("Initial loading screen disabled from BaseDeviceProfiles.ini: r.AndroidDisableThreadedRenderingFirstLoad=1"));
+	}
+	else
+	{
+		LoadingScreenAttributes = InLoadingScreenAttributes;
+}
 }
 
 bool FDefaultGameMoviePlayer::HasEarlyStartupMovie() const
@@ -320,6 +335,8 @@ bool FDefaultGameMoviePlayer::PlayMovie()
 		{
 			MovieStreamingIsDone.Set(MovieStreamingIsPrepared() ? 0 : 1);
 			LoadingIsDone.Set(0);
+
+			UserWidgetDPIScaler->SetDPIScale(GetViewportDPIScale());
 			
 			UserWidgetHolder->SetContent(LoadingScreenAttributes.WidgetLoadingScreen.IsValid() ? LoadingScreenAttributes.WidgetLoadingScreen.ToSharedRef() : SNullWidget::NullWidget);
 			VirtualRenderWindow->Resize(MainWindow.Pin()->GetClientSizeInScreen());
@@ -336,6 +353,17 @@ bool FDefaultGameMoviePlayer::PlayMovie()
 	}
 
 	return bBeganPlaying;
+}
+
+/** Check if the device can render on a parallel thread on the initial loading*/
+bool FDefaultGameMoviePlayer::CanPlayMovie() const
+{
+	const IConsoleVariable *const CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.AndroidDisableThreadedRenderingFirstLoad"));
+	if (CVar && CVar->GetInt() != 0)
+	{
+		return (GEngine && GEngine->IsInitialized());
+	}
+	return true;
 }
 
 void FDefaultGameMoviePlayer::StopMovie()
@@ -405,7 +433,7 @@ void FDefaultGameMoviePlayer::WaitForMovieToFinish()
 					break;
 				}
 
-				FPlatformMisc::PumpMessages(true);
+				FPlatformApplicationMisc::PumpMessages(true);
 
 				SlateApp.PollGameDeviceState();
 				// Gives widgets a chance to process any accumulated input
@@ -585,7 +613,7 @@ void FDefaultGameMoviePlayer::SetupLoadingScreenFromIni()
 		// We dont know the extension so compare against any file in the directory with the same name for now
 		// @todo New Movie Player: movies should have the extension on them when set via the project settings
 		TArray<FString> ExistingMovieFiles;
-		IFileManager::Get().FindFiles(ExistingMovieFiles, *(FPaths::GameContentDir() + TEXT("Movies")));
+		IFileManager::Get().FindFiles(ExistingMovieFiles, *(FPaths::ProjectContentDir() + TEXT("Movies")));
 
 		bool bHasValidMovie = false;
 		for(const FString& Movie : StartupMovies)
@@ -698,7 +726,7 @@ void FDefaultGameMoviePlayer::OnPreLoadMap(const FString& LevelName)
 
 	if( PlayMovie() )
 	{
-		FCoreUObjectDelegates::PostLoadMapWithWorld.AddSP(this, &FDefaultGameMoviePlayer::OnPostLoadMap );
+		FCoreUObjectDelegates::PostLoadMapWithWorld.AddRaw(this, &FDefaultGameMoviePlayer::OnPostLoadMap );
 	}
 }
 
@@ -719,7 +747,6 @@ bool FDefaultGameMoviePlayer::WillAutoCompleteWhenLoadFinishes()
 {
 	return LoadingScreenAttributes.bAutoCompleteWhenLoadingCompletes || (LoadingScreenAttributes.PlaybackType == MT_LoadingLoop && (MovieStreamer.IsValid() && MovieStreamer->IsLastMovieInPlaylist()));
 }
-
 
 FString FDefaultGameMoviePlayer::GetMovieName()
 {
@@ -762,7 +789,7 @@ void FMoviePlayerWidgetRenderer::DrawWindow(float DeltaTime)
 
 	int32 MaxLayerId = 0;
 	{
-		FPaintArgs PaintArgs(*VirtualRenderWindow, *HittestGrid, FVector2D::ZeroVector, FApp::GetCurrentTime(), DeltaTime);
+		FPaintArgs PaintArgs(*VirtualRenderWindow, *HittestGrid, FVector2D::ZeroVector, FSlateApplication::Get().GetCurrentTime(), FSlateApplication::Get().GetDeltaTime());
 
 		// Paint the window
 		MaxLayerId = VirtualRenderWindow->Paint(
@@ -777,4 +804,9 @@ void FMoviePlayerWidgetRenderer::DrawWindow(float DeltaTime)
 	SlateRenderer->DrawWindows(DrawBuffer);
 
 	DrawBuffer.ViewOffset = FVector2D::ZeroVector;
+}
+
+float FDefaultGameMoviePlayer::GetViewportDPIScale() const
+{
+	return 1.f;
 }

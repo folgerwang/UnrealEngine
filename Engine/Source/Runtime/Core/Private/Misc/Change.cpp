@@ -1,7 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "Change.h"
-
+#include "UnrealString.h"
+#include "FeedbackContext.h"
 
 void FChange::PrintToLog( FFeedbackContext& FeedbackContext, const int32 IndentLevel )
 {
@@ -30,7 +31,7 @@ TUniquePtr<FChange> FCompoundChange::Execute( UObject* Object )
 		// a compound change with a lot of subchanges that might only be no-ops.
 		if( Subchange != nullptr )
 		{
-			RevertInput.Subchanges.Add( MoveTemp( Subchange->Execute( Object ) ) );
+			RevertInput.Subchanges.Add( Subchange->Execute( Object ) );
 		}
 	}
 

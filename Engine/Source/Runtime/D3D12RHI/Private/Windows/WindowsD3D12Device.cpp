@@ -195,6 +195,50 @@ static bool SafeTestD3D12CreateDevice(IDXGIAdapter* Adapter, D3D_FEATURE_LEVEL M
 	return false;
 }
 
+static bool SupportsHDROutput(FD3D12DynamicRHI* D3DRHI)
+{
+	// Determines if any displays support HDR
+	check(D3DRHI && D3DRHI->GetNumAdapters() >= 1);
+
+	bool bSupportsHDROutput = false;
+	const int32 NumAdapters = D3DRHI->GetNumAdapters();
+	for (int32 AdapterIndex = 0; AdapterIndex < NumAdapters; ++AdapterIndex)
+	{
+		FD3D12Adapter& Adapter = D3DRHI->GetAdapter(AdapterIndex);
+		IDXGIAdapter* DXGIAdapter = Adapter.GetAdapter();
+
+		for (uint32 DisplayIndex = 0; true; ++DisplayIndex)
+		{
+			TRefCountPtr<IDXGIOutput> DXGIOutput;
+			if (S_OK != DXGIAdapter->EnumOutputs(DisplayIndex, DXGIOutput.GetInitReference()))
+			{
+				break;
+			}
+
+			TRefCountPtr<IDXGIOutput6> Output6;
+			if (SUCCEEDED(DXGIOutput->QueryInterface(IID_PPV_ARGS(Output6.GetInitReference()))))
+			{
+				DXGI_OUTPUT_DESC1 OutputDesc;
+				VERIFYD3D12RESULT(Output6->GetDesc1(&OutputDesc));
+
+				// Check for HDR support on the display.
+				const bool bDisplaySupportsHDROutput = (OutputDesc.ColorSpace == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020);
+				if (bDisplaySupportsHDROutput)
+				{
+					UE_LOG(LogD3D12RHI, Log, TEXT("HDR output is supported on adapter %i, display %u:"), AdapterIndex, DisplayIndex);
+					UE_LOG(LogD3D12RHI, Log, TEXT("\t\tMinLuminance = %f"), OutputDesc.MinLuminance);
+					UE_LOG(LogD3D12RHI, Log, TEXT("\t\tMaxLuminance = %f"), OutputDesc.MaxLuminance);
+					UE_LOG(LogD3D12RHI, Log, TEXT("\t\tMaxFullFrameLuminance = %f"), OutputDesc.MaxFullFrameLuminance);
+
+					bSupportsHDROutput = true;
+				}
+			}
+		}
+	}
+
+	return bSupportsHDROutput;
+}
+
 bool FD3D12DynamicRHIModule::IsSupported()
 {
 	// If not computed yet
@@ -407,7 +451,7 @@ FDynamicRHI* FD3D12DynamicRHIModule::CreateRHI(ERHIFeatureLevel::Type RequestedF
 void FD3D12DynamicRHIModule::StartupModule()
 {
 #if USE_PIX
-	static FString WindowsPixDllRelativePath("../../Binaries/ThirdParty/Windows/DirectX/x64");
+	static FString WindowsPixDllRelativePath("../../../Engine/Binaries/ThirdParty/Windows/DirectX/x64");
 	static FString WindowsPixDll("WinPixEventRuntime.dll");
 	UE_LOG(LogD3D12RHI, Log, TEXT("Loading %s for PIX profiling (from %s)."), WindowsPixDll.GetCharArray().GetData(), WindowsPixDllRelativePath.GetCharArray().GetData());
 	WindowsPixDllHandle = FPlatformProcess::GetDllHandle(*FPaths::Combine(*WindowsPixDllRelativePath, *WindowsPixDll));
@@ -503,11 +547,6 @@ void FD3D12DynamicRHI::Init()
 		// Clamp to 1 GB if we're less than 64-bit
 		FD3D12GlobalStats::GTotalGraphicsMemory = FMath::Min(FD3D12GlobalStats::GTotalGraphicsMemory, 1024ll * 1024ll * 1024ll);
 	}
-	else
-	{
-		// Clamp to 1.9 GB if we're 64-bit
-		FD3D12GlobalStats::GTotalGraphicsMemory = FMath::Min(FD3D12GlobalStats::GTotalGraphicsMemory, 1945ll * 1024ll * 1024ll);
-	}
 
 	if (GPoolSizeVRAMPercentage > 0)
 	{
@@ -560,6 +599,21 @@ void FD3D12DynamicRHI::Init()
 	for (TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList()); ResourceIt; ResourceIt.Next())
 	{
 		ResourceIt->InitDynamicRHI();
+	}
+
+	{
+		GRHISupportsHDROutput = SupportsHDROutput(this);
+
+		// Specify the desired HDR pixel format.
+		// Possible values are:
+		//	1) PF_FloatRGBA - FP16 format that allows for linear gamma. This is the current engine default.
+		//					r.HDR.Display.ColorGamut = 2 (Rec2020 / BT2020)
+		//					r.HDR.Display.OutputDevice = 5 or 6 (ScRGB)
+		//	2) PF_A2B10G10R10 - Save memory vs FP16 as well as allow for possible performance improvements 
+		//						in fullscreen by avoiding format conversions.
+		//					r.HDR.Display.ColorGamut = 2 (Rec2020 / BT2020)
+		//					r.HDR.Display.OutputDevice = 3 or 4 (ST-2084)
+		GRHIHDRDisplayOutputFormat = PF_A2B10G10R10;
 	}
 
 	FHardwareInfo::RegisterHardwareInfo(NAME_RHI, TEXT("D3D12"));

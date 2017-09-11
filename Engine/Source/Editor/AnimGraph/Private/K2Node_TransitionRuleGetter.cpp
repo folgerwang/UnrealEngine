@@ -37,6 +37,13 @@ void UK2Node_TransitionRuleGetter::AllocateDefaultPins()
 	Super::AllocateDefaultPins();
 }
 
+void UK2Node_TransitionRuleGetter::PreloadRequiredAssets()
+{
+	PreloadObject(AssociatedAnimAssetPlayerNode);
+	PreloadObject(AssociatedStateNode);
+	Super::PreloadRequiredAssets();
+}
+
 FText UK2Node_TransitionRuleGetter::GetFriendlyName(ETransitionGetter::Type TypeID)
 {
 	FText FriendlyName;
@@ -99,7 +106,7 @@ FText UK2Node_TransitionRuleGetter::GetNodeTitle(ENodeTitleType::Type TitleType)
 	}
 	else if (AssociatedStateNode != NULL)
 	{
-		if (UAnimStateNode* State = Cast<UAnimStateNode>(AssociatedStateNode))
+		if (UAnimStateNode* State = AssociatedStateNode)
 		{
 			const FString OwnerName = State->GetOuter()->GetName();
 

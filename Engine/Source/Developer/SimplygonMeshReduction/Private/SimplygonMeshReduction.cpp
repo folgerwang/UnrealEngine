@@ -133,7 +133,8 @@ public:
 			{
 				if ( Task != nullptr)
 				{
-					Task->EnterProgressFrame(ProgressPercent - PreviousProgress);
+					// @todo: jurre this is temporary fix for UE-48222
+					//Task->EnterProgressFrame(ProgressPercent - PreviousProgress);
 					PreviousProgress = ProgressPercent;
 				}
 			}
@@ -1093,6 +1094,11 @@ public:
 		for (uint32& SmoothingMask : OutProxyMesh.FaceSmoothingMasks)
 		{
 			SmoothingMask = 1;
+		}
+
+		if (!OutProxyMesh.IsValid())
+		{
+			FailedDelegate.ExecuteIfBound(InJobGUID, TEXT("Simplygon failed to generate a valid proxy mesh"));
 		}
 				
 		CompleteDelegate.ExecuteIfBound(OutProxyMesh, OutMaterial, InJobGUID);

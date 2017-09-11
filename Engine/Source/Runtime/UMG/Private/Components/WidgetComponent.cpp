@@ -1031,17 +1031,21 @@ void UWidgetComponent::DrawWidgetToRenderTarget(float DeltaTime)
 
 	UpdateRenderTarget(CurrentDrawSize);
 
-	bRedrawRequested = false;
+	// The render target could be null if the current draw size is zero
+	if(RenderTarget)
+	{
+		bRedrawRequested = false;
 
-	WidgetRenderer->DrawWindow(
-		RenderTarget,
-		SlateWindow->GetHittestGrid(),
-		SlateWindow.ToSharedRef(),
-		DrawScale,
-		CurrentDrawSize,
-		DeltaTime);
+		WidgetRenderer->DrawWindow(
+			RenderTarget,
+			SlateWindow->GetHittestGrid(),
+			SlateWindow.ToSharedRef(),
+			DrawScale,
+			CurrentDrawSize,
+			DeltaTime);
 
-	LastWidgetRenderTime = GetCurrentTime();
+		LastWidgetRenderTime = GetCurrentTime();
+	}
 }
 
 float UWidgetComponent::ComputeComponentWidth() const
@@ -1285,12 +1289,12 @@ ULocalPlayer* UWidgetComponent::GetOwnerPlayer() const
 
 void UWidgetComponent::SetWidget(UUserWidget* InWidget)
 {
-	if( InWidget != nullptr )
+	if (InWidget != nullptr)
 	{
-		SetSlateWidget( nullptr );
+		SetSlateWidget(nullptr);
 	}
 
-	if ( Widget )
+	if (Widget)
 	{
 		RemoveWidgetFromScreen();
 	}
@@ -1300,14 +1304,14 @@ void UWidgetComponent::SetWidget(UUserWidget* InWidget)
 	UpdateWidget();
 }
 
-void UWidgetComponent::SetSlateWidget( const TSharedPtr<SWidget>& InSlateWidget )
+void UWidgetComponent::SetSlateWidget(const TSharedPtr<SWidget>& InSlateWidget)
 {
-	if( Widget != nullptr )
+	if (Widget != nullptr)
 	{
-		SetWidget( nullptr );
+		SetWidget(nullptr);
 	}
 
-	if( SlateWidget.IsValid() )
+	if (SlateWidget.IsValid())
 	{
 		RemoveWidgetFromScreen();
 		SlateWidget.Reset();
@@ -1422,7 +1426,6 @@ void UWidgetComponent::UpdateRenderTarget(FIntPoint DesiredRenderTargetSize)
 			if ( RenderTarget->SizeX != DesiredRenderTargetSize.X || RenderTarget->SizeY != DesiredRenderTargetSize.Y )
 			{
 				RenderTarget->InitCustomFormat(DesiredRenderTargetSize.X, DesiredRenderTargetSize.Y, PF_B8G8R8A8, false);
-				RenderTarget->UpdateResourceImmediate(false);
 				bWidgetRenderStateDirty = true;
 			}
 
@@ -1435,7 +1438,7 @@ void UWidgetComponent::UpdateRenderTarget(FIntPoint DesiredRenderTargetSize)
 
 			if ( bWidgetRenderStateDirty )
 			{
-				RenderTarget->UpdateResource();
+				RenderTarget->UpdateResourceImmediate();
 			}
 		}
 	}
@@ -1806,5 +1809,21 @@ void UWidgetComponent::UpdateMaterialInstanceParameters()
 
 void UWidgetComponent::SetWidgetClass(TSubclassOf<UUserWidget> InWidgetClass)
 {
-	WidgetClass = InWidgetClass;
+	if (WidgetClass != InWidgetClass)
+	{
+		WidgetClass = InWidgetClass;
+
+		if(HasBegunPlay())
+		{
+			if (WidgetClass)
+			{
+				UUserWidget* NewWidget = CreateWidget<UUserWidget>(GetWorld(), WidgetClass);
+				SetWidget(NewWidget);
+			}
+			else
+			{
+				SetWidget(nullptr);
+			}
+		}
+	}
 }

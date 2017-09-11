@@ -20,16 +20,22 @@ struct FCameraFilmbackSettings
 	GENERATED_USTRUCT_BODY()
 
 	/** Horizontal size of filmback or digital sensor, in mm. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Filmback", meta = (ClampMin = "0.001", ForceUnits = mm))
+	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category = "Filmback", meta = (ClampMin = "0.001", ForceUnits = mm))
 	float SensorWidth;
 
 	/** Vertical size of filmback or digital sensor, in mm. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Filmback", meta = (ClampMin = "0.001", ForceUnits = mm))
+	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category = "Filmback", meta = (ClampMin = "0.001", ForceUnits = mm))
 	float SensorHeight;
 
 	/** Read-only. Computed from Sensor dimensions. */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Filmback")
+	UPROPERTY(Interp, VisibleAnywhere, BlueprintReadOnly, Category = "Filmback")
 	float SensorAspectRatio;
+
+	bool operator==(const FCameraFilmbackSettings& Other) const
+	{
+		return (SensorWidth == Other.SensorWidth)
+			&& (SensorHeight == Other.SensorHeight);
+	}
 };
 
 /** A named bundle of filmback settings used to implement filmback presets */
@@ -205,7 +211,7 @@ public:
 	virtual void GetCameraView(float DeltaTime, FMinimalViewInfo& DesiredView) override;
 
 	/** Controls the filmback of the camera. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Current Camera Settings")
+	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category = "Current Camera Settings")
 	FCameraFilmbackSettings FilmbackSettings;
 
 	/** Controls the camera's lens. */
@@ -241,6 +247,22 @@ public:
 	/** Returns the vertical FOV of the camera with current settings. */
 	UFUNCTION(BlueprintCallable, Category = "Cine Camera")
 	float GetVerticalFieldOfView() const;
+
+	/** Returns the filmback name of the camera with the current settings. */
+	UFUNCTION(BlueprintCallable, Category = "Cine Camera")
+	FString GetFilmbackPresetName() const;
+
+	/** Set the current preset settings by preset name. */
+	UFUNCTION(BlueprintCallable, Category = "Cine Camera")
+	void SetFilmbackPresetByName(const FString& InPresetName);
+
+	/** Returns the lens name of the camera with the current settings. */
+	UFUNCTION(BlueprintCallable, Category = "Cine Camera")
+	FString GetLensPresetName() const;
+
+	/** Set the current lens settings by preset name. */
+	UFUNCTION(BlueprintCallable, Category = "Cine Camera")
+	void SetLensPresetByName(const FString& InPresetName);
 
 	/** Returns a list of available filmback presets. */
 	static TArray<FNamedFilmbackPreset> const& GetFilmbackPresets();

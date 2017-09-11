@@ -8,9 +8,10 @@
 #include "ApplePlatformRunnableThread.h"
 #include "Misc/App.h"
 #include "Misc/Paths.h"
-#include "MacApplication.h"
 #include "HAL/FileManager.h"
 #include <mach-o/dyld.h>
+#include <mach/thread_act.h>
+#include <mach/thread_policy.h>
 #include <libproc.h>
 
 void* FMacPlatformProcess::GetDllHandle( const TCHAR* Filename )
@@ -715,12 +716,6 @@ FString FMacPlatformProcess::GetApplicationName( uint32 ProcessId )
 	return Output;
 }
 
-bool FMacPlatformProcess::IsThisApplicationForeground()
-{
-	SCOPED_AUTORELEASE_POOL;
-	return [NSApp isActive] && MacApplication && MacApplication->IsWorkspaceSessionActive();
-}
-
 bool FMacPlatformProcess::IsSandboxedApplication()
 {
 	// Temporarily disabled as it can take 15 seconds or more to execute this function in Fortnite on a low spec Macs.
@@ -797,9 +792,9 @@ const TCHAR* FMacPlatformProcess::BaseDir()
 		if ([[BasePath pathExtension] isEqual: @"app"])
 		{
 			NSString* BundledBinariesPath = NULL;
-			if (!FApp::IsGameNameEmpty())
+			if (!FApp::IsProjectNameEmpty())
 			{
-				BundledBinariesPath = [BasePath stringByAppendingPathComponent : [NSString stringWithFormat : @"Contents/UE4/%s/Binaries/Mac", TCHAR_TO_UTF8(FApp::GetGameName())]];
+				BundledBinariesPath = [BasePath stringByAppendingPathComponent : [NSString stringWithFormat : @"Contents/UE4/%s/Binaries/Mac", TCHAR_TO_UTF8(FApp::GetProjectName())]];
 			}
 			if (!BundledBinariesPath || ![FileManager fileExistsAtPath:BundledBinariesPath])
 			{
@@ -853,7 +848,7 @@ static TCHAR* UserLibrarySubDirectory()
 	static TCHAR Result[MAX_PATH] = TEXT("");
 	if (!Result[0])
 	{
-		FString SubDirectory = IsRunningGame() ? FString(FApp::GetGameName()) : FString(TEXT("Unreal Engine")) / FApp::GetGameName();
+		FString SubDirectory = IsRunningGame() ? FString(FApp::GetProjectName()) : FString(TEXT("Unreal Engine")) / FApp::GetProjectName();
 		if (IsRunningDedicatedServer())
 		{
 			SubDirectory += TEXT("Server");
@@ -1247,9 +1242,17 @@ FString FMacPlatformProcess::FProcEnumInfo::GetName() const
 	return FPaths::GetCleanFilename(GetFullPath());
 }
 
-#include "MacPlatformRunnableThread.h"
-
 FRunnableThread* FMacPlatformProcess::CreateRunnableThread()
 {
-	return new FRunnableThreadMac();
+	return new FRunnableThreadApple();
+}
+
+void FMacPlatformProcess::SetThreadAffinityMask(uint64 AffinityMask)
+{
+	if( AffinityMask != FPlatformAffinity::GetNoAffinityMask() )
+	{
+		thread_affinity_policy AP;
+		AP.affinity_tag = AffinityMask;
+		thread_policy_set(pthread_mach_thread_np(pthread_self()), THREAD_AFFINITY_POLICY, (integer_t*)&AP, THREAD_AFFINITY_POLICY_COUNT);
+	}
 }

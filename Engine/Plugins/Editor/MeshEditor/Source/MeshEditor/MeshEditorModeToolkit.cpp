@@ -48,8 +48,8 @@ public:
 					.HAlign( HAlign_Center )
 					.VAlign( VAlign_Center )
 					.ContentPadding( FMargin( 8.0f, 4.0f ) )
-					.Text( CommandInfo.GetDefaultChord().IsValidChord() ?
-						FText::Format( LOCTEXT( "ButtonLabelAndShortcutFormat", "{0}  ({1})" ), CommandInfo.GetLabel(), CommandInfo.GetDefaultChord().GetInputText() ) :
+					.Text( CommandInfo.GetDefaultChord(EMultipleKeyBindingIndex::Primary).IsValidChord() ?
+						FText::Format( LOCTEXT( "ButtonLabelAndShortcutFormat", "{0}  ({1})" ), CommandInfo.GetLabel(), CommandInfo.GetDefaultChord(EMultipleKeyBindingIndex::Primary).GetInputText() ) :
 						CommandInfo.GetLabel() )
 					.ToolTip( SNew( SToolTip ).Text( CommandInfo.GetDescription() ) )
 					.OnClicked_Lambda( [UIAction] { UIAction.Execute(); return FReply::Handled(); } )
@@ -83,8 +83,8 @@ public:
 						[
 							SNew( STextBlock )
 							.TextStyle( FMeshEditorStyle::Get(), "EditingMode.Entry.Text" )
-							.Text( CommandInfo.GetDefaultChord().IsValidChord() ? 
-								FText::Format( LOCTEXT( "RadioButtonLabelAndShortcutFormat", "{0}  ({1})" ), CommandInfo.GetLabel(), CommandInfo.GetDefaultChord().GetInputText() ) :
+							.Text( CommandInfo.GetDefaultChord(EMultipleKeyBindingIndex::Primary).IsValidChord() ?
+								FText::Format( LOCTEXT( "RadioButtonLabelAndShortcutFormat", "{0}  ({1})" ), CommandInfo.GetLabel(), CommandInfo.GetDefaultChord(EMultipleKeyBindingIndex::Primary).GetInputText() ) :
 								CommandInfo.GetLabel() )
 						]
 					]

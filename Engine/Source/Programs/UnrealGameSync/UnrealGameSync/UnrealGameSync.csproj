@@ -98,6 +98,7 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Web.Extensions" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -112,6 +113,12 @@
     <Compile Include="ArchiveManifest.cs" />
     <Compile Include="BuildStep.cs" />
     <Compile Include="ChildProcess.cs" />
+    <Compile Include="Controls\SyncFilterControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Controls\SyncFilterControl.Designer.cs">
+      <DependentUpon>SyncFilterControl.cs</DependentUpon>
+    </Compile>
     <Compile Include="Controls\WorkspaceControl.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -166,6 +173,12 @@
     </Compile>
     <Compile Include="Forms\PerforceSettingsWindow.Designer.cs">
       <DependentUpon>PerforceSettingsWindow.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\SyncFilterSyntax.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\SyncFilterSyntax.Designer.cs">
+      <DependentUpon>SyncFilterSyntax.cs</DependentUpon>
     </Compile>
     <Compile Include="Forms\VariablesWindow.cs">
       <SubType>Form</SubType>
@@ -251,6 +264,9 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Utility.cs" />
+    <EmbeddedResource Include="Controls\SyncFilterControl.resx">
+      <DependentUpon>SyncFilterControl.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Controls\WorkspaceControl.resx">
       <DependentUpon>WorkspaceControl.cs</DependentUpon>
     </EmbeddedResource>
@@ -268,6 +284,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\PerforceSettingsWindow.resx">
       <DependentUpon>PerforceSettingsWindow.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\SyncFilterSyntax.resx">
+      <DependentUpon>SyncFilterSyntax.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\VariablesWindow.resx">
       <DependentUpon>VariablesWindow.cs</DependentUpon>

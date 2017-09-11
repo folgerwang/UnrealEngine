@@ -79,7 +79,11 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugParallelRenderCommandEncoder)
     [Inner popDebugGroup];
 }
 
+#if METAL_NEW_NONNULL_DECL
+- (nullable id <MTLRenderCommandEncoder>)renderCommandEncoder
+#else
 - (id <MTLRenderCommandEncoder>)renderCommandEncoder
+#endif
 {
     return [[[FMetalDebugRenderCommandEncoder alloc] initWithEncoder:[Inner renderCommandEncoder] andCommandBuffer:Buffer] autorelease];
 }
@@ -98,6 +102,32 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugParallelRenderCommandEncoder)
 {
     [Inner setStencilStoreAction:storeAction];
 }
+
+#if (METAL_NEW_NONNULL_DECL)
+- (void)setColorStoreActionOptions:(MTLStoreActionOptions)storeActionOptions atIndex:(NSUInteger)colorAttachmentIndex
+{
+	if(@available(iOS 11.0, macOS 10.13, *))
+	{
+		[Inner setColorStoreActionOptions:storeActionOptions atIndex:colorAttachmentIndex];
+	}
+}
+
+- (void)setDepthStoreActionOptions:(MTLStoreActionOptions)storeActionOptions
+{
+	if(@available(iOS 11.0, macOS 10.13, *))
+	{
+		[Inner setDepthStoreActionOptions:storeActionOptions];
+	}
+}
+
+- (void)setStencilStoreActionOptions:(MTLStoreActionOptions)storeActionOptions
+{
+	if(@available(iOS 11.0, macOS 10.13, *))
+	{
+		[Inner setStencilStoreActionOptions:storeActionOptions];
+	}
+}
+#endif //(METAL_NEW_NONNULL_DECL)
 
 @end
 

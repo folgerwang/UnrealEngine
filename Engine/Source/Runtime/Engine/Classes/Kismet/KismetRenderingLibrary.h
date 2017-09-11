@@ -7,12 +7,12 @@
 #include "RHI.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "Components/SkinnedMeshComponent.h"
+#include "Engine/TextureRenderTarget2D.h"
 #include "KismetRenderingLibrary.generated.h"
 
 class UCanvas;
 class UMaterialInterface;
 class UTexture2D;
-class UTextureRenderTarget2D;
 template<typename TRHICmdList> struct TDrawEvent;
 
 USTRUCT(BlueprintType)
@@ -47,7 +47,14 @@ class UKismetRenderingLibrary : public UBlueprintFunctionLibrary
 	 * Creates a new render target and initializes it to the specified dimensions
 	 */
 	UFUNCTION(BlueprintCallable, Category="Rendering", meta=(WorldContext="WorldContextObject"))
-	static ENGINE_API UTextureRenderTarget2D* CreateRenderTarget2D(UObject* WorldContextObject, int32 Width = 256, int32 Height = 256);
+	static ENGINE_API UTextureRenderTarget2D* CreateRenderTarget2D(UObject* WorldContextObject, int32 Width = 256, int32 Height = 256, ETextureRenderTargetFormat Format = RTF_RGBA16f);
+	
+	/**
+	 * Manually releases GPU resources of a render target. This is useful for blueprint creating a lot of render target that would
+	 * normally be released too late by the garbage collector that can be problematic on platforms that have tight GPU memory constrains.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Rendering")
+	static ENGINE_API void ReleaseRenderTarget2D(UTextureRenderTarget2D* TextureRenderTarget);
 
 	/** 
 	 * Renders a quad with the material applied to the specified render target.   
@@ -65,14 +72,14 @@ class UKismetRenderingLibrary : public UBlueprintFunctionLibrary
 	static ENGINE_API void ConvertRenderTargetToTexture2DEditorOnly(UObject* WorldContextObject, UTextureRenderTarget2D* RenderTarget, UTexture2D* Texture);
 
 	/**
-	* Exports a render target as a HDR image onto the disk.
-	*/
+	 * Exports a render target as a HDR or PNG image onto the disk (depending on the format of the render target)
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Rendering", meta = (Keywords = "ExportRenderTarget", WorldContext = "WorldContextObject"))
 	static ENGINE_API void ExportRenderTarget(UObject* WorldContextObject, UTextureRenderTarget2D* TextureRenderTarget, const FString& FilePath, const FString& FileName);
 
 	/**
-	* Exports a Texture2D as a HDR image onto the disk.
-	*/
+	 * Exports a Texture2D as a HDR image onto the disk.
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Rendering", meta = (Keywords = "ExportTexture2D", WorldContext = "WorldContextObject"))
 	static ENGINE_API void ExportTexture2D(UObject* WorldContextObject, UTexture2D* Texture, const FString& FilePath, const FString& FileName);
 

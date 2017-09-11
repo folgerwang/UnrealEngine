@@ -34,6 +34,10 @@
 #include "Animation/BlendSpaceBase.h"
 #include "TabSpawners.h"
 #include "SInlineEditableTextBlock.h"
+#include "HAL/PlatformApplicationMisc.h"
+#include "Modules/ModuleManager.h"
+#include "IEditableSkeleton.h"
+#include "ISkeletonEditorModule.h"
 
 // Track Panel drawing
 const float NotificationTrackHeight = 20.0f;
@@ -80,7 +84,7 @@ bool ReadNotifyPasteHeader(FString& OutPropertyString, const TCHAR*& OutBuffer, 
 	OutBuffer = NULL;
 	OutOriginalTime = -1.f;
 
-	FPlatformMisc::ClipboardPaste(OutPropertyString);
+	FPlatformApplicationMisc::ClipboardPaste(OutPropertyString);
 
 	if (!OutPropertyString.IsEmpty())
 	{
@@ -564,6 +568,7 @@ void SAnimNotifyPair::Construct(const FArguments& InArgs)
 
 	float ScaleMult = 1.0f;
 	FVector2D NodeSize = NodePtr->ComputeDesiredSize(ScaleMult);
+	Visibility = EVisibility::SelfHitTestInvisible;
 
 	this->ChildSlot
 		[
@@ -2082,6 +2087,7 @@ void SAnimNotifyTrack::Construct(const FArguments& InArgs)
 {
 	FAnimSequenceEditorCommands::Register();
 	CreateCommands();
+	SetClipping(EWidgetClipping::ClipToBounds);
 
 	Sequence = InArgs._Sequence;
 	ViewInputMin = InArgs._ViewInputMin;
@@ -2666,7 +2672,7 @@ TSubclassOf<UObject> SAnimNotifyTrack::GetBlueprintClassFromPath(FString Bluepri
 	if (!BlueprintPath.IsEmpty())
 	{
 		UBlueprint* BlueprintLibPtr = LoadObject<UBlueprint>(NULL, *BlueprintPath, NULL, 0, NULL);
-		BlueprintClass = Cast<UClass>(BlueprintLibPtr->GeneratedClass);
+		BlueprintClass = BlueprintLibPtr->GeneratedClass;
 	}
 	return BlueprintClass;
 }
@@ -3204,7 +3210,11 @@ void SAnimNotifyTrack::AddNewNotify(const FText& NewNotifyName, ETextCommit::Typ
 	{
 		const FScopedTransaction Transaction( LOCTEXT("AddNewNotifyEvent", "Add New Anim Notify") );
 		FName NewName = FName( *NewNotifyName.ToString() );
-		SeqSkeleton->AddNewAnimationNotify(NewName);
+
+		ISkeletonEditorModule& SkeletonEditorModule = FModuleManager::LoadModuleChecked<ISkeletonEditorModule>("SkeletonEditor");
+		TSharedRef<IEditableSkeleton> EditableSkeleton = SkeletonEditorModule.CreateEditableSkeleton(SeqSkeleton);
+
+		EditableSkeleton->AddNotify(NewName);
 
 		FBlueprintActionDatabase::Get().RefreshAssetActions(SeqSkeleton);
 
@@ -4468,7 +4478,7 @@ void SAnimNotifyPanel::CopySelectedNodesToClipboard() const
 
 			NodeObject->ExportForCopy(Sequence, StrValue);
 		}
-		FPlatformMisc::ClipboardCopy(*StrValue);
+		FPlatformApplicationMisc::ClipboardCopy(*StrValue);
 	}
 }
 
@@ -4874,6 +4884,11 @@ void SAnimNotifyPanel::OnGetNotifyBlueprintData(TArray<FAssetData>& OutNotifyDat
 			if(InOutAllowedClassNames->Contains(TagValue))
 			{
 				FString GenClass = AssetData.GetTagValueRef<FString>(BPGenClassName);
+				const uint32 ClassFlags = AssetData.GetTagValueRef<uint32>("ClassFlags");
+				if (ClassFlags & CLASS_Abstract)
+				{
+					continue;
+				}
 
 				if(!OutNotifyData.Contains(AssetData))
 				{

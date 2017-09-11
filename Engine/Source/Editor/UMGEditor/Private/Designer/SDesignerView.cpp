@@ -269,8 +269,10 @@ TSharedRef<FSelectedWidgetDragDropOp> FSelectedWidgetDragDropOp::New(TSharedPtr<
 	// Set the display text based on whether we're dragging a single or multiple widgets
 	if (InWidgets.Num() == 1)
 	{
-		Operation->DefaultHoverText = InWidgets[0].Widget.GetTemplate()->GetLabelText();
-		Operation->CurrentHoverText = InWidgets[0].Widget.GetTemplate()->GetLabelText();
+		FText DisplayText = InWidgets[0].Widget.GetTemplate()->GetLabelText();
+
+		Operation->DefaultHoverText = DisplayText;
+		Operation->CurrentHoverText = DisplayText;
 	}
 	else
 	{
@@ -400,16 +402,30 @@ void SDesignerView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetBluepr
 					.ZoomAmount(this, &SDesignerView::GetZoomAmount)
 					.ViewOffset(this, &SDesignerView::GetViewOffset)
 					[
-						SNew(SBorder)
-						.Padding(FMargin(0))
-						.BorderImage(this, &SDesignerView::GetPreviewBackground)
+						SNew(SOverlay)
+
+						+ SOverlay::Slot()
 						[
-							SAssignNew(PreviewAreaConstraint, SBox)
-							.WidthOverride(this, &SDesignerView::GetPreviewAreaWidth)
-							.HeightOverride(this, &SDesignerView::GetPreviewAreaHeight)
+							SNew(SBorder)
 							[
-								SAssignNew(PreviewSurface, SDPIScaler)
-								.DPIScale(this, &SDesignerView::GetPreviewDPIScale)
+								SNew(SSpacer)
+								.Size(FVector2D(1, 1))
+							]
+						]
+						
+						+ SOverlay::Slot()
+						[
+							SNew(SBorder)
+							.Padding(FMargin(0))
+							.BorderImage(this, &SDesignerView::GetPreviewBackground)
+							[
+								SAssignNew(PreviewAreaConstraint, SBox)
+								.WidthOverride(this, &SDesignerView::GetPreviewAreaWidth)
+								.HeightOverride(this, &SDesignerView::GetPreviewAreaHeight)
+								[
+									SAssignNew(PreviewSurface, SDPIScaler)
+									.DPIScale(this, &SDesignerView::GetPreviewDPIScale)
+								]
 							]
 						]
 					]
@@ -470,6 +486,13 @@ void SDesignerView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetBluepr
 	DesignerHittestGrid = MakeShared<FHittestGrid>();
 
 	ZoomToFit(/*bInstantZoom*/ true);
+
+	//RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SDesignerView::EnsureTick));
+}
+
+EActiveTimerReturnType SDesignerView::EnsureTick(double InCurrentTime, float InDeltaTime)
+{
+	return EActiveTimerReturnType::Continue;
 }
 
 TSharedRef<SWidget> SDesignerView::CreateOverlayUI()
@@ -551,7 +574,7 @@ TSharedRef<SWidget> SDesignerView::CreateOverlayUI()
 			.ButtonStyle(FEditorStyle::Get(), "ViewportMenu.Button")
 			.ToolTipText(LOCTEXT("ZoomToFit_ToolTip", "Zoom To Fit"))
 			.OnClicked(this, &SDesignerView::HandleZoomToFitClicked)
-			.ContentPadding(1.0f)
+			.ContentPadding(FEditorStyle::Get().GetMargin("ViewportMenu.SToolBarButtonBlock.Button.Padding"))
 			[
 				SNew(SImage)
 				.Image(FEditorStyle::GetBrush("UMGEditor.ZoomToFit"))
@@ -567,7 +590,7 @@ TSharedRef<SWidget> SDesignerView::CreateOverlayUI()
 			.ButtonStyle(FEditorStyle::Get(), "ViewportMenu.Button")
 			.ForegroundColor(FLinearColor::Black)
 			.OnGetMenuContent(this, &SDesignerView::GetResolutionsMenu)
-			.ContentPadding(1.0f)
+			.ContentPadding(FEditorStyle::Get().GetMargin("ViewportMenu.SToolBarButtonBlock.Button.Padding"))
 			.ButtonContent()
 			[
 				SNew(STextBlock)
@@ -585,7 +608,7 @@ TSharedRef<SWidget> SDesignerView::CreateOverlayUI()
 			.ButtonStyle(FEditorStyle::Get(), "ViewportMenu.Button")
 			.ForegroundColor(FLinearColor::Black)
 			.OnGetMenuContent(this, &SDesignerView::GetScreenSizingFillMenu)
-			.ContentPadding(1.0f)
+			.ContentPadding(FEditorStyle::Get().GetMargin("ViewportMenu.SToolBarButtonBlock.Button.Padding"))
 			.ButtonContent()
 			[
 				SNew(STextBlock)
@@ -1854,8 +1877,10 @@ void SDesignerView::PopulateWidgetGeometryCache_Loop(FArrangedWidget& CurrentWid
 		{
 			bIncludeInHitTestGrid = false;
 		}
-
-		bIncludeInHitTestGrid = true;
+		else
+		{
+			bIncludeInHitTestGrid = true;
+		}
 	}
 
 	int32 NewParentHitTestIndex = ParentHitTestIndex;

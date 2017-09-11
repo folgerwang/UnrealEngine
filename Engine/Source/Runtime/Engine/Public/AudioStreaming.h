@@ -130,7 +130,7 @@ struct FStreamingWaveData final
 	 *
 	 * @param SoundWave	The SoundWave we are managing
 	 */
-	void Initialize(USoundWave* SoundWave, FAudioStreamingManager* InStreamingManager);
+	bool Initialize(USoundWave* SoundWave, FAudioStreamingManager* InStreamingManager);
 
 	/**
 	 * Updates the streaming status of the sound wave and performs finalization when appropriate. The function returns
@@ -253,6 +253,7 @@ struct FAudioStreamingManager : public IAudioStreamingManager
 	virtual void SetDisregardWorldResourcesForFrames( int32 NumFrames ) override;
 	virtual void AddLevel( class ULevel* Level ) override;
 	virtual void RemoveLevel( class ULevel* Level ) override;
+	virtual void NotifyLevelOffset( class ULevel* Level, const FVector& Offset ) override;
 	// End IStreamingManager interface
 
 	// IAudioStreamingManager interface

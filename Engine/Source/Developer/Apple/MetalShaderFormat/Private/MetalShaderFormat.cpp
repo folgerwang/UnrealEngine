@@ -12,7 +12,7 @@
 #include "HAL/FileManager.h"
 #include "Serialization/Archive.h"
 
-extern void StripShader_Metal(TArray<uint8>& Code, class FString const& DebugPath, bool const bNative);
+extern bool StripShader_Metal(TArray<uint8>& Code, class FString const& DebugPath, bool const bNative);
 extern uint64 AppendShader_Metal(class FName const& Format, class FString const& ArchivePath, const FSHAHash& Hash, TArray<uint8>& Code);
 extern bool FinalizeLibrary_Metal(class FName const& Format, class FString const& ArchivePath, class FString const& LibraryPath, TSet<uint64> const& Shaders, class FString const& DebugOutputDir);
 
@@ -101,37 +101,22 @@ private:
 
 class FMetalShaderFormat : public IShaderFormat
 {
+public:
 	enum
 	{
-		HEADER_VERSION = 37,
+		HEADER_VERSION = 40,
 	};
 	
 	struct FVersion
 	{
-		uint16 HLSLCCMinor		: 8;
-		uint16 Format			: 7;
+		uint16 HLSLCCMinor		: 16;
+		uint16 Format			: 15;
 		uint16 OfflineCompiled	: 1;
 	};
-public:
-	virtual uint16 GetVersion(FName Format) const override final
+	
+	virtual uint32 GetVersion(FName Format) const override final
 	{
-		static_assert(sizeof(FVersion) == sizeof(uint16), "Out of bits!");
-		union
-		{
-			FVersion Version;
-			uint16 Raw;
-		} Version;
-
-		Version.Version.Format = HEADER_VERSION;
-		Version.Version.HLSLCCMinor = HLSLCC_VersionMinor;
-		Version.Version.OfflineCompiled = METAL_OFFLINE_COMPILE;
-		
-		// Check that we didn't overwrite any bits
-		check(Version.Version.Format == HEADER_VERSION);
-		check(Version.Version.HLSLCCMinor == HLSLCC_VersionMinor);
-		check(Version.Version.OfflineCompiled == METAL_OFFLINE_COMPILE);
-
-		return Version.Raw;
+		return GetMetalFormatVersion(Format);
 	}
 	virtual void GetSupportedFormats(TArray<FName>& OutFormats) const override final
 	{
@@ -148,19 +133,44 @@ public:
 		check(Format == NAME_SF_METAL || Format == NAME_SF_METAL_MRT || Format == NAME_SF_METAL_SM4 || Format == NAME_SF_METAL_SM5 || Format == NAME_SF_METAL_MACES3_1 || Format == NAME_SF_METAL_MACES2 || Format == NAME_SF_METAL_MRT_MAC);
 		CompileShader_Metal(Input, Output, WorkingDirectory);
 	}
-	virtual bool CanStripShaderCode(void) const override final
+	virtual bool CanStripShaderCode(bool const bNativeFormat) const override final
 	{
+		return bNativeFormat;
+	}
+	virtual bool StripShaderCode( TArray<uint8>& Code, FString const& DebugOutputDir, bool const bNative ) const override final
+	{
+		return StripShader_Metal(Code, DebugOutputDir, bNative);
+    }
+	virtual bool SupportsShaderArchives() const override 
+	{ 
 		return true;
 	}
-	virtual void StripShaderCode( TArray<uint8>& Code, FString const& DebugOutputDir, bool const bNative ) const override final
-	{
-		StripShader_Metal(Code, DebugOutputDir, bNative);
-    }
-    virtual class IShaderFormatArchive* CreateShaderArchive( FName Format, const FString& WorkingDirectory ) const
+	virtual class IShaderFormatArchive* CreateShaderArchive( FName Format, const FString& WorkingDirectory ) const override
     {
         return new FMetalShaderFormatArchive(Format, WorkingDirectory);
     }
 };
+
+uint32 GetMetalFormatVersion(FName Format)
+{
+	static_assert(sizeof(FMetalShaderFormat::FVersion) == sizeof(uint32), "Out of bits!");
+	union
+	{
+		FMetalShaderFormat::FVersion Version;
+		uint32 Raw;
+	} Version;
+	
+	Version.Version.Format = FMetalShaderFormat::HEADER_VERSION;
+	Version.Version.HLSLCCMinor = HLSLCC_VersionMinor;
+	Version.Version.OfflineCompiled = METAL_OFFLINE_COMPILE;
+	
+	// Check that we didn't overwrite any bits
+	check(Version.Version.Format == FMetalShaderFormat::HEADER_VERSION);
+	check(Version.Version.HLSLCCMinor == HLSLCC_VersionMinor);
+	check(Version.Version.OfflineCompiled == METAL_OFFLINE_COMPILE);
+	
+	return Version.Raw;
+}
 
 /**
  * Module for OpenGL shaders

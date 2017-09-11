@@ -18,6 +18,7 @@
 #include "DerivedDataCacheInterface.h"
 #include "EditorFramework/AssetImportData.h"
 #include "ProfilingDebugging/CookStats.h"
+#include "HAL/LowLevelMemTracker.h"
 
 #if ENABLE_COOK_STATS
 namespace SoundWaveCookStats
@@ -171,6 +172,8 @@ void USoundWave::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 
 void USoundWave::Serialize( FArchive& Ar )
 {
+	LLM_SCOPE(ELLMTag::Audio);
+
 	DECLARE_SCOPE_CYCLE_COUNTER( TEXT("USoundWave::Serialize"), STAT_SoundWave_Serialize, STATGROUP_LoadTime );
 
 	Super::Serialize( Ar );
@@ -357,6 +360,8 @@ void USoundWave::InvalidateCompressedData()
 
 void USoundWave::PostLoad()
 {
+	LLM_SCOPE(ELLMTag::Audio);
+
 	Super::PostLoad();
 
 	if (GetOutermost()->HasAnyPackageFlags(PKG_ReloadingForCooker))
@@ -646,15 +651,17 @@ void USoundWave::Parse( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanc
 	if( !WaveInstance->bIsFinished )
 	{
 		// Propagate properties and add WaveInstance to outgoing array of FWaveInstances.
-		WaveInstance->Volume = ParseParams.Volume * Volume;
-		WaveInstance->VolumeMultiplier = ParseParams.VolumeMultiplier;
-		WaveInstance->VolumeApp = ParseParams.VolumeApp;
+		WaveInstance->SetVolume(ParseParams.Volume * Volume);
+		WaveInstance->SetVolumeMultiplier(ParseParams.VolumeMultiplier);
+		WaveInstance->SetDistanceAttenuation(ParseParams.DistanceAttenuation);
+		WaveInstance->SetVolumeApp(ParseParams.VolumeApp);
 		WaveInstance->Pitch = ParseParams.Pitch * Pitch;
 		WaveInstance->bEnableLowPassFilter = ParseParams.bEnableLowPassFilter;
 		WaveInstance->bIsOccluded = ParseParams.bIsOccluded;
 		WaveInstance->LowPassFilterFrequency = ParseParams.LowPassFilterFrequency;
 		WaveInstance->OcclusionFilterFrequency = ParseParams.OcclusionFilterFrequency;
-		WaveInstance->AttenuationFilterFrequency = ParseParams.AttenuationFilterFrequency;
+		WaveInstance->AttenuationLowpassFilterFrequency = ParseParams.AttenuationLowpassFilterFrequency;
+		WaveInstance->AttenuationHighpassFilterFrequency = ParseParams.AttenuationHighpassFilterFrequency;
 		WaveInstance->AmbientZoneFilterFrequency = ParseParams.AmbientZoneFilterFrequency;
 		WaveInstance->bApplyRadioFilter = ActiveSound.bApplyRadioFilter;
 		WaveInstance->StartTime = ParseParams.StartTime;
@@ -678,7 +685,8 @@ void USoundWave::Parse( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanc
 		{
 			FSoundClassProperties* SoundClassProperties = AudioDevice->GetSoundClassCurrentProperties(ParseParams.SoundClass);
 			// Use values from "parsed/ propagated" sound class properties
-			WaveInstance->VolumeMultiplier *= SoundClassProperties->Volume;
+			float VolumeMultiplier = WaveInstance->GetVolumeMultiplier();
+			WaveInstance->SetVolumeMultiplier(VolumeMultiplier* SoundClassProperties->Volume);
 			WaveInstance->Pitch *= SoundClassProperties->Pitch;
 			//TODO: Add in HighFrequencyGainMultiplier property to sound classes
 
@@ -697,7 +705,8 @@ void USoundWave::Parse( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanc
 
 			if (SoundClassProperties->bApplyAmbientVolumes)
 			{
-				WaveInstance->VolumeMultiplier *= ParseParams.InteriorVolumeMultiplier;
+				VolumeMultiplier = WaveInstance->GetVolumeMultiplier();
+				WaveInstance->SetVolumeMultiplier(VolumeMultiplier * ParseParams.InteriorVolumeMultiplier);
 				WaveInstance->RadioFilterVolume *= ParseParams.InteriorVolumeMultiplier;
 				WaveInstance->RadioFilterVolumeThreshold *= ParseParams.InteriorVolumeMultiplier;
 			}
@@ -734,37 +743,45 @@ void USoundWave::Parse( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanc
 		WaveInstance->bIsStarted = true;
 		WaveInstance->bAlreadyNotifiedHook = false;
 		WaveInstance->bUseSpatialization = ParseParams.bUseSpatialization;
-		WaveInstance->SpatializationAlgorithm = ParseParams.SpatializationAlgorithm;
+		WaveInstance->SpatializationMethod = ParseParams.SpatializationMethod;
 		WaveInstance->WaveData = this;
 		WaveInstance->NotifyBufferFinishedHooks = ParseParams.NotifyBufferFinishedHooks;
 		WaveInstance->LoopingMode = ((bLooping || ParseParams.bLooping) ? LOOP_Forever : LOOP_Never);
 		WaveInstance->bIsPaused = ParseParams.bIsPaused;
 
-		// If we're using spatialization, then use the dry-wet mapping function defined in attenuation settings
-		if (WaveInstance->bUseSpatialization)
+		// If we're normalizing 3d stereo spatialized sounds, we need to scale by -6 dB
+		if (WaveInstance->bUseSpatialization && ParseParams.bApplyNormalizationToStereoSounds && NumChannels == 2)
 		{
-			WaveInstance->ReverbWetLevelMin = ParseParams.ReverbWetLevelMin;
-			WaveInstance->ReverbWetLevelMax = ParseParams.ReverbWetLevelMax;
-			WaveInstance->ReverbDistanceMin = ParseParams.ReverbDistanceMin;
-			WaveInstance->ReverbDistanceMax = ParseParams.ReverbDistanceMax;
+			float WaveInstanceVolume = WaveInstance->GetVolume();
+			WaveInstance->SetVolume(WaveInstanceVolume * 0.5f);
 		}
-		else
-		{
-			// Otherwise, we're just going to use the DefaultMasterReverbSendAmount defined the sound base
-			WaveInstance->ReverbWetLevelMin = ParseParams.DefaultMasterReverbSendAmount;
-		}
+
+		// Copy reverb send settings
+		WaveInstance->ReverbSendMethod = ParseParams.ReverbSendMethod;
+		WaveInstance->ManualReverbSendLevel = ParseParams.ManualReverbSendLevel;
+		WaveInstance->CustomRevebSendCurve = ParseParams.CustomReverbSendCurve;
+		WaveInstance->ReverbSendLevelRange = ParseParams.ReverbSendLevelRange;
+		WaveInstance->ReverbSendLevelDistanceRange = ParseParams.ReverbSendLevelDistanceRange;
 
 		// Copy over the submix sends.
 		WaveInstance->SoundSubmix = ParseParams.SoundSubmix;
 		WaveInstance->SoundSubmixSends = ParseParams.SoundSubmixSends;
 
-		if (AudioDevice->IsHRTFEnabledForAll() && ParseParams.SpatializationAlgorithm == SPATIALIZATION_Default)
+		// Copy over the source bus send and data
+		if (!WaveInstance->ActiveSound->bIsPreviewSound)
 		{
-			WaveInstance->SpatializationAlgorithm = SPATIALIZATION_HRTF;
+			WaveInstance->bOutputToBusOnly = ParseParams.bOutputToBusOnly;
+		}
+
+		WaveInstance->SoundSourceBusSends = ParseParams.SoundSourceBusSends;
+
+		if (AudioDevice->IsHRTFEnabledForAll() && ParseParams.SpatializationMethod == ESoundSpatializationAlgorithm::SPATIALIZATION_Default)
+		{
+			WaveInstance->SpatializationMethod = ESoundSpatializationAlgorithm::SPATIALIZATION_HRTF;
 		}
 		else
 		{
-			WaveInstance->SpatializationAlgorithm = ParseParams.SpatializationAlgorithm;
+			WaveInstance->SpatializationMethod = ParseParams.SpatializationMethod;
 		}
 
 		// Pass along plugin settings to the wave instance
@@ -777,7 +794,7 @@ void USoundWave::Parse( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanc
 		// That needs to change in the future, because there are still reasons a sound (and thus its subtitle) may not play.
 		// But for now at least that makes it possible handle virtualizing properly.
 		bool bHasSubtitles = ActiveSound.bHandleSubtitles && (ActiveSound.bHasExternalSubtitles || (Subtitles.Num() > 0));
-		if (WaveInstance->GetVolume() > KINDA_SMALL_NUMBER || ((bVirtualizeWhenSilent || bHasSubtitles) && AudioDevice->VirtualSoundsEnabled()))
+		if (WaveInstance->GetVolumeWithDistanceAttenuation() > KINDA_SMALL_NUMBER || ((bVirtualizeWhenSilent || bHasSubtitles) && AudioDevice->VirtualSoundsEnabled()))
 		{
 			bAddedWaveInstance = true;
 			WaveInstances.Add(WaveInstance);
@@ -878,7 +895,7 @@ void USoundWave::UpdatePlatformData()
 	}
 }
 
-void USoundWave::GetChunkData(int32 ChunkIndex, uint8** OutChunkData)
+bool USoundWave::GetChunkData(int32 ChunkIndex, uint8** OutChunkData)
 {
 	if (RunningPlatformData->TryLoadChunk(ChunkIndex, OutChunkData) == false)
 	{
@@ -890,6 +907,13 @@ void USoundWave::GetChunkData(int32 ChunkIndex, uint8** OutChunkData)
 		{
 			UE_LOG(LogAudio, Error, TEXT("Failed to build sound %s."), *GetPathName());
 		}
+		else
+		{
+			// Succeeded after rebuilding platform data
+			return true;
+		}
 #endif // #if WITH_EDITORONLY_DATA
+		return false;
 	}
+	return true;
 }

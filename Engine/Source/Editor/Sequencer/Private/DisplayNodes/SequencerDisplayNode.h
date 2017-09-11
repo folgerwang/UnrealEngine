@@ -107,14 +107,6 @@ public:
 	TSharedRef<class FSequencerSectionCategoryNode> AddCategoryNode( FName CategoryName, const FText& DisplayLabel );
 
 	/**
-	 * Adds a new track for this node.
-	 * 
-	 * @param AssociatedTrack	The track associated with sections in this node
-	 * @param AssociatedEditor	The track editor for the associated track
-	 */
-	TSharedRef<class FSequencerTrackNode> AddTrackNode(UMovieSceneTrack& AssociatedTrack, ISequencerTrackEditor& AssociatedEditor );
-
-	/**
 	 * Adds a key area to this node
 	 *
 	 * @param KeyAreaName	Name of the key area
@@ -399,13 +391,10 @@ public:
 	}
 
 	/** Get the key grouping for the specified section index, ensuring it is fully up to date */
-	TSharedRef<FGroupedKeyArea> UpdateKeyGrouping(UMovieSceneSection* InSection);
-
-	/** Get the key grouping for the specified section index */
 	TSharedRef<FGroupedKeyArea> GetKeyGrouping(UMovieSceneSection* InSection);
 
 	/** Get key groupings array */
-	const TArray<TSharedRef<FGroupedKeyArea>> GetKeyGroupings() const { return KeyGroupings; }
+	const TArray<TSharedRef<FGroupedKeyArea>>& GetKeyGroupings() const { return KeyGroupings; }
 
 	DECLARE_EVENT(FSequencerDisplayNode, FRequestRenameEvent);
 	FRequestRenameEvent& OnRenameRequested() { return RenameRequestedEvent; }

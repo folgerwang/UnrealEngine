@@ -169,7 +169,7 @@ private:
 			FAndroidDeviceInfo NewDeviceInfo;
 
 			NewDeviceInfo.SerialNumber = DeviceString.Left(TabIndex);
-			const FString DeviceState = DeviceString.Mid(TabIndex + 1).Trim();
+			const FString DeviceState = DeviceString.Mid(TabIndex + 1).TrimStart();
 
 			NewDeviceInfo.bAuthorizedDevice = DeviceState != TEXT("unauthorized");
 
@@ -198,7 +198,7 @@ private:
 					continue;
 				}
 				NewDeviceInfo.HumanAndroidVersion = NewDeviceInfo.HumanAndroidVersion.Replace(TEXT("\r"), TEXT("")).Replace(TEXT("\n"), TEXT(""));
-				NewDeviceInfo.HumanAndroidVersion.Trim().TrimTrailing();
+				NewDeviceInfo.HumanAndroidVersion.TrimStartAndEndInline();
 
 				// grab the Android SDK version
 				const FString SDKVersionCommand = FString::Printf(TEXT("-s %s shell getprop ro.build.version.sdk"), *NewDeviceInfo.SerialNumber);
@@ -397,13 +397,19 @@ public:
 		return &DeviceMapLock;
 	}
 
+	virtual FString GetADBPath() override
+	{
+		FScopeLock PathUpdateLock(&ADBPathCheckLock);
+		return ADBPath;
+	}
+
 	virtual void UpdateADBPath() override
 	{
 		FScopeLock PathUpdateLock(&ADBPathCheckLock);
 		TCHAR AndroidDirectory[32768] = { 0 };
 		FPlatformMisc::GetEnvironmentVariable(TEXT("ANDROID_HOME"), AndroidDirectory, 32768);
 
-		FString ADBPath;
+		ADBPath.Empty();
 		
 #if PLATFORM_MAC || PLATFORM_LINUX
 		if (AndroidDirectory[0] == 0)
@@ -462,6 +468,8 @@ public:
 
 private:
 
+	// path to the adb command (local)
+	FString ADBPath;
 
 	FRunnableThread* DetectionThread;
 	FAndroidDeviceDetectionRunnable* DetectionThreadRunnable;

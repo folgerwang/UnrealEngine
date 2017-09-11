@@ -2,6 +2,8 @@
 
 #include "MovieSceneTemplateInterrogation.h"
 
+MOVIESCENE_API FMovieSceneAnimTypeID GetInitialValueTypeID();
+
 /** Definition needs to exist after the definition of FMovieSceneBlendingAccumulator */
 template<typename DataType>
 void TBlendableTokenStack<DataType>::ComputeAndActuate(UObject* InObject, FMovieSceneBlendingAccumulator& Accumulator, FMovieSceneBlendingActuatorID InActuatorType, const FMovieSceneContext& Context, FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player)
@@ -22,6 +24,19 @@ void TBlendableTokenStack<DataType>::ComputeAndActuate(UObject* InObject, FMovie
 
 	DataType FinalResult = WorkingTotal.Resolve(InitialValues);
 	Actuator->Actuate(InObject, FinalResult, *this, Context, PersistentData, Player);
+
+	if (Actuator->HasInitialValue(InObject))
+	{
+		FMovieSceneAnimTypeID TypeID = FMovieSceneAnimTypeID::Combine(Actuator->GetActuatorID(), GetInitialValueTypeID());
+		if (InObject)
+		{
+			SavePreAnimatedStateForAllEntities(Player, *InObject, TypeID, FMovieSceneRemoveInitialValueTokenProducer(Actuator->AsShared()));
+		}
+		else
+		{
+			SavePreAnimatedStateForAllEntities(Player, TypeID, FMovieSceneRemoveInitialGlobalValueTokenProducer(Actuator->AsShared()));
+		}
+	}
 }
 
 

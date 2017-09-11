@@ -44,11 +44,13 @@ static FAutoConsoleVariableRef CVarShowRelevantPrecomputedVisibilityCells(
 	ECVF_RenderThreadSafe
 	);
 
-static TAutoConsoleVariable<int32> CVarFastVRamHzb(
-	TEXT("r.FastVramHzb"),
-	0,
-	TEXT("Whether to store HZB in fast VRAM"),
-	ECVF_Scalability | ECVF_RenderThreadSafe);
+int32 GOcclusionCullCascadedShadowMaps = 0;
+FAutoConsoleVariableRef CVarOcclusionCullCascadedShadowMaps(
+	TEXT("r.Shadow.OcclusionCullCascadedShadowMaps"),
+	GOcclusionCullCascadedShadowMaps,
+	TEXT("Whether to use occlusion culling on cascaded shadow maps.  Disabled by default because rapid view changes reveal new regions too quickly for latent occlusion queries to work with."),
+	ECVF_Scalability | ECVF_RenderThreadSafe
+	);
 
 #define NUM_CUBE_VERTICES 36
 
@@ -209,17 +211,13 @@ void FSceneViewState::TrimOcclusionHistory(FRHICommandListImmediate& RHICmdList,
 	}
 }
 
-bool FSceneViewState::IsShadowOccluded(FRHICommandListImmediate& RHICmdList, FPrimitiveComponentId PrimitiveId, const ULightComponent* Light, int32 InShadowSplitIndex, bool bTranslucentShadow, int32 NumBufferedFrames) const
+bool FSceneViewState::IsShadowOccluded(FRHICommandListImmediate& RHICmdList, FSceneViewState::FProjectedShadowKey ShadowKey, int32 NumBufferedFrames) const
 {
 	// Find the shadow's occlusion query from the previous frame.
-	const FSceneViewState::FProjectedShadowKey Key(PrimitiveId, Light, InShadowSplitIndex, bTranslucentShadow);
-
 	// Get the oldest occlusion query	
 	const uint32 QueryIndex = FOcclusionQueryHelpers::GetQueryLookupIndex(PendingPrevFrameNumber, NumBufferedFrames);
 	const FSceneViewState::ShadowKeyOcclusionQueryMap& ShadowOcclusionQueryMap = ShadowOcclusionQueryMaps[QueryIndex];	
-
-
-	const FRenderQueryRHIRef* Query = ShadowOcclusionQueryMap.Find(Key);
+	const FRenderQueryRHIRef* Query = ShadowOcclusionQueryMap.Find(ShadowKey);
 
 	// Read the occlusion query results.
 	uint64 NumSamples = 0;
@@ -329,7 +327,7 @@ void FOcclusionQueryBatcher::Flush(FRHICommandListImmediate& RHICmdList)
 			const int32 NumPrimitivesThisBatch = (BatchIndex != (NumBatches-1)) ? MaxBatchedPrimitives : NumBatchedPrimitives;
 				
 			RHICmdList.BeginRenderQuery(BatchOcclusionQuery);
-			RHICmdList.SetStreamSource(0, VertexBufferRHI, sizeof(FVector), VertexBufferOffset);
+			RHICmdList.SetStreamSource(0, VertexBufferRHI, VertexBufferOffset);
 			RHICmdList.DrawIndexedPrimitive(
 				IndexBufferRHI,
 				PT_TriangleList,
@@ -384,29 +382,66 @@ FRenderQueryRHIParamRef FOcclusionQueryBatcher::BatchPrimitive(const FVector& Bo
 	return CurrentBatchOcclusionQuery->Query;
 }
 
-static bool AllocatePointLightShadowOcclusionQuery(FViewInfo& View, const FProjectedShadowInfo& ProjectedShadowInfo, int32 NumBufferedFrames, FRenderQueryRHIRef& ShadowOcclusionQuery)
+enum EShadowOcclusionQueryIntersectionMode
 {
+	SOQ_None,
+	SOQ_LightInfluenceSphere,
+	SOQ_NearPlaneVsShadowFrustum
+};
+
+static bool AllocateProjectedShadowOcclusionQuery(
+	FViewInfo& View, 
+	const FProjectedShadowInfo& ProjectedShadowInfo, 
+	int32 NumBufferedFrames, 
+	EShadowOcclusionQueryIntersectionMode IntersectionMode,
+	FRenderQueryRHIRef& ShadowOcclusionQuery)
+{
+	bool bIssueQuery = true;
+
+	if (IntersectionMode == SOQ_LightInfluenceSphere)
+	{
 	FLightSceneProxy& LightProxy = *(ProjectedShadowInfo.GetLightSceneInfo().Proxy);
 	
 	// Query one pass point light shadows separately because they don't have a shadow frustum, they have a bounding sphere instead.
 	FSphere LightBounds = LightProxy.GetBoundingSphere();
 	
 	const bool bCameraInsideLightGeometry = ((FVector)View.ViewMatrices.GetViewOrigin() - LightBounds.Center).SizeSquared() < FMath::Square(LightBounds.W * 1.05f + View.NearClippingDistance * 2.0f);
-	if (!bCameraInsideLightGeometry)
+		bIssueQuery = !bCameraInsideLightGeometry;
+	}
+	else if (IntersectionMode == SOQ_NearPlaneVsShadowFrustum)
+	{
+		// The shadow transforms and view transforms are relative to different origins, so the world coordinates need to
+		// be translated.
+		const FVector4 PreShadowToPreViewTranslation(View.ViewMatrices.GetPreViewTranslation() - ProjectedShadowInfo.PreShadowTranslation,0);
+	
+		// If the shadow frustum is farther from the view origin than the near clipping plane,
+		// it can't intersect the near clipping plane.
+		const bool bIntersectsNearClippingPlane = ProjectedShadowInfo.ReceiverFrustum.IntersectSphere(
+			View.ViewMatrices.GetViewOrigin() + ProjectedShadowInfo.PreShadowTranslation,
+			View.NearClippingDistance * FMath::Sqrt(3.0f)
+			);
+
+		bIssueQuery = !bIntersectsNearClippingPlane;
+	}
+
+	if (bIssueQuery)
 	{
 		FSceneViewState* ViewState = (FSceneViewState*)View.State;
+
+		// Allocate an occlusion query for the primitive from the occlusion query pool.
 		ShadowOcclusionQuery = ViewState->OcclusionQueryPool.AllocateQuery();
 
 		FSceneViewState::FProjectedShadowKey Key(ProjectedShadowInfo);
-		
 		const uint32 QueryIndex = FOcclusionQueryHelpers::GetQueryIssueIndex(ViewState->PendingPrevFrameNumber, NumBufferedFrames);
 		FSceneViewState::ShadowKeyOcclusionQueryMap& ShadowOcclusionQueryMap = ViewState->ShadowOcclusionQueryMaps[QueryIndex];
+
 		checkSlow(ShadowOcclusionQueryMap.Find(Key) == NULL);
 		ShadowOcclusionQueryMap.Add(Key, ShadowOcclusionQuery);
 	}
 	
-	return (!bCameraInsideLightGeometry);
+	return bIssueQuery;
 }
+
 
 static void ExecutePointLightShadowOcclusionQuery(FRHICommandListImmediate& RHICmdList, FViewInfo& View, const FProjectedShadowInfo& ProjectedShadowInfo, FOcclusionQueryVS* VertexShader, FRenderQueryRHIRef ShadowOcclusionQuery)
 {
@@ -424,35 +459,48 @@ static void ExecutePointLightShadowOcclusionQuery(FRHICommandListImmediate& RHIC
 	RHICmdList.EndRenderQuery(ShadowOcclusionQuery);
 }
 
-static bool AllocateProjectedShadowOcclusionQuery(FViewInfo& View, const FProjectedShadowInfo& ProjectedShadowInfo, int32 NumBufferedFrames, FRenderQueryRHIRef& ShadowOcclusionQuery)
+static void ExecuteDirectionalLightShadowOcclusionQuery(FRHICommandListImmediate& RHICmdList, FViewInfo& View, const FProjectedShadowInfo& ProjectedShadowInfo, FOcclusionQueryVS* VertexShader, FRenderQueryRHIRef ShadowOcclusionQuery)
 {
-	FSceneViewState* ViewState = (FSceneViewState*)View.State;
+	RHICmdList.BeginRenderQuery(ShadowOcclusionQuery);
 	
-	const uint32 QueryIndex = FOcclusionQueryHelpers::GetQueryIssueIndex(ViewState->PendingPrevFrameNumber, NumBufferedFrames);
-	FSceneViewState::ShadowKeyOcclusionQueryMap& ShadowOcclusionQueryMap = ViewState->ShadowOcclusionQueryMaps[QueryIndex];
+	// Draw bounding sphere
+	VertexShader->SetParameters(RHICmdList, View);
 	
-	// The shadow transforms and view transforms are relative to different origins, so the world coordinates need to
-	// be translated.
-	const FVector4 PreShadowToPreViewTranslation(View.ViewMatrices.GetPreViewTranslation() - ProjectedShadowInfo.PreShadowTranslation,0);
-	
-	// If the shadow frustum is farther from the view origin than the near clipping plane,
-	// it can't intersect the near clipping plane.
-	const bool bIntersectsNearClippingPlane = ProjectedShadowInfo.ReceiverFrustum.IntersectSphere(
-																								  View.ViewMatrices.GetViewOrigin() + ProjectedShadowInfo.PreShadowTranslation,
-																								  View.NearClippingDistance * FMath::Sqrt(3.0f)
-																								  );
-	
-	if( !bIntersectsNearClippingPlane )
+	const FMatrix& ViewMatrix = View.ShadowViewMatrices.GetViewMatrix();
+	const FMatrix& ProjectionMatrix = View.ShadowViewMatrices.GetProjectionMatrix();
+	const FVector CameraDirection = ViewMatrix.GetColumn(2);
+	const float SplitNear = ProjectedShadowInfo.CascadeSettings.SplitNear;
+
+	float AspectRatio = ProjectionMatrix.M[1][1] / ProjectionMatrix.M[0][0];
+	float HalfFOV = View.ShadowViewMatrices.IsPerspectiveProjection() ? FMath::Atan(1.0f / ProjectionMatrix.M[0][0]) : PI / 4.0f;
+
+	// Build the camera frustum for this cascade
+	const float StartHorizontalLength = SplitNear * FMath::Tan(HalfFOV);
+	const FVector StartCameraRightOffset = ViewMatrix.GetColumn(0) * StartHorizontalLength;
+	const float StartVerticalLength = StartHorizontalLength / AspectRatio;
+	const FVector StartCameraUpOffset = ViewMatrix.GetColumn(1) * StartVerticalLength;
+
+	FVector Verts[4] =
 	{
-		// Allocate an occlusion query for the primitive from the occlusion query pool.
-		ShadowOcclusionQuery = ViewState->OcclusionQueryPool.AllocateQuery();
-		FSceneViewState::FProjectedShadowKey Key(ProjectedShadowInfo);
-		
-		checkSlow(ShadowOcclusionQueryMap.Find(Key) == NULL);
-		ShadowOcclusionQueryMap.Add(Key, ShadowOcclusionQuery);
-	}
-	
-	return ( !bIntersectsNearClippingPlane );
+		CameraDirection * SplitNear + StartCameraRightOffset + StartCameraUpOffset,
+		CameraDirection * SplitNear + StartCameraRightOffset - StartCameraUpOffset,
+		CameraDirection * SplitNear - StartCameraRightOffset - StartCameraUpOffset,
+		CameraDirection * SplitNear - StartCameraRightOffset + StartCameraUpOffset
+	};
+
+	FVector TriangleVerts[6] = 
+	{
+		Verts[0],
+		Verts[3],
+		Verts[2],
+		Verts[0],
+		Verts[2],
+		Verts[1],
+	};
+
+	DrawPrimitiveUP(RHICmdList, PT_TriangleList, 2, TriangleVerts, sizeof(FVector));
+
+	RHICmdList.EndRenderQuery(ShadowOcclusionQuery);
 }
 
 static void ExecuteProjectedShadowOcclusionQuery(FRHICommandListImmediate& RHICmdList, FViewInfo& View, const FProjectedShadowInfo& ProjectedShadowInfo, FOcclusionQueryVS* VertexShader, FRenderQueryRHIRef ShadowOcclusionQuery)
@@ -616,7 +664,7 @@ void FHZBOcclusionTester::InitDynamicRHI()
 	{
 		FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
 		FPooledRenderTargetDesc Desc( FPooledRenderTargetDesc::Create2DDesc( FIntPoint( SizeX, SizeY ), PF_B8G8R8A8, FClearValueBinding::None, TexCreate_CPUReadback | TexCreate_HideInVisualizeTexture, TexCreate_None, false ) );
-		GRenderTargetPool.FindFreeElement(RHICmdList, Desc, ResultsTextureCPU, TEXT("HZBResultsCPU") );
+		GRenderTargetPool.FindFreeElement(RHICmdList, Desc, ResultsTextureCPU, TEXT("HZBResultsCPU"), true, ERenderTargetTransience::NonTransient );
 	}
 }
 
@@ -1088,10 +1136,7 @@ void BuildHZB( FRHICommandListImmediate& RHICmdList, FViewInfo& View )
 	View.HZBMipmap0Size = HZBSize;
 
 	FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(HZBSize, PF_R16F, FClearValueBinding::None, TexCreate_None, TexCreate_RenderTargetable | TexCreate_ShaderResource | TexCreate_NoFastClear, false, NumMips));
-	if (CVarFastVRamHzb.GetValueOnRenderThread() >= 1)
-	{
-		Desc.Flags |= TexCreate_FastVRAM;
-	}
+	Desc.Flags |= GFastVRamConfig.HZB;
 	GRenderTargetPool.FindFreeElement(RHICmdList, Desc, View.HZB, TEXT("HZB") );
 	
 	FSceneRenderTargetItem& HZBRenderTarget = View.HZB->GetRenderTargetItem();
@@ -1213,6 +1258,7 @@ void FDeferredShadingSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate
 		struct FViewOcclusionQueries
 		{
 			TArray<TPair<FProjectedShadowInfo const*, FRenderQueryRHIRef>> PointLightQueries;
+			TArray<TPair<FProjectedShadowInfo const*, FRenderQueryRHIRef>> CSMQueries;
 			TArray<TPair<FProjectedShadowInfo const*, FRenderQueryRHIRef>> ShadowQueries;
 			TArray<TPair<FPlanarReflectionSceneProxy const*, FRenderQueryRHIRef>> ReflectionQueries;
 		};
@@ -1261,21 +1307,42 @@ void FDeferredShadingSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate
 								continue;
 							}
 
+							if (!IsShadowCacheModeOcclusionQueryable(ProjectedShadowInfo.CacheMode))
+							{
+								// Only query one of the cache modes for each shadow
+								continue;
+							}
+
 							if (ProjectedShadowInfo.bOnePassPointLightShadow)
 							{
 								FRenderQueryRHIRef ShadowOcclusionQuery;
-								if (AllocatePointLightShadowOcclusionQuery(View, ProjectedShadowInfo, NumBufferedFrames, ShadowOcclusionQuery))
+								if (AllocateProjectedShadowOcclusionQuery(View, ProjectedShadowInfo, NumBufferedFrames, SOQ_LightInfluenceSphere, ShadowOcclusionQuery))
 								{
 									ViewQuery.PointLightQueries.Add(TPairInitializer<FProjectedShadowInfo const*, FRenderQueryRHIRef>(&ProjectedShadowInfo, ShadowOcclusionQuery));
 									bBatchedQueries = true;
 								}
 							}
+							else if (ProjectedShadowInfo.IsWholeSceneDirectionalShadow())
+							{
+								// Don't query the first cascade, it is always visible
+								if (GOcclusionCullCascadedShadowMaps && ProjectedShadowInfo.CascadeSettings.ShadowSplitIndex > 0)
+								{
+									FRenderQueryRHIRef ShadowOcclusionQuery;
+									if (AllocateProjectedShadowOcclusionQuery(View, ProjectedShadowInfo, NumBufferedFrames, SOQ_None, ShadowOcclusionQuery))
+									{
+										ViewQuery.CSMQueries.Add(TPairInitializer<FProjectedShadowInfo const*, FRenderQueryRHIRef>(&ProjectedShadowInfo, ShadowOcclusionQuery));
+										bBatchedQueries = true;
+									}
+								}
+							}
+							else if (
 							// Don't query preshadows, since they are culled if their subject is occluded.
+								!ProjectedShadowInfo.bPreShadow
 							// Don't query if any subjects are visible because the shadow frustum will be definitely unoccluded
-							else if (!ProjectedShadowInfo.IsWholeSceneDirectionalShadow() && !ProjectedShadowInfo.bPreShadow && !ProjectedShadowInfo.SubjectsVisible(View))
+								&& !ProjectedShadowInfo.SubjectsVisible(View))
 							{
 								FRenderQueryRHIRef ShadowOcclusionQuery;
-								if (AllocateProjectedShadowOcclusionQuery(View, ProjectedShadowInfo, NumBufferedFrames, ShadowOcclusionQuery))
+								if (AllocateProjectedShadowOcclusionQuery(View, ProjectedShadowInfo, NumBufferedFrames, SOQ_NearPlaneVsShadowFrustum, ShadowOcclusionQuery))
 								{
 									ViewQuery.ShadowQueries.Add(TPairInitializer<FProjectedShadowInfo const*, FRenderQueryRHIRef>(&ProjectedShadowInfo, ShadowOcclusionQuery));
 									bBatchedQueries = true;
@@ -1288,7 +1355,7 @@ void FDeferredShadingSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate
 						{
 							const FProjectedShadowInfo& ProjectedShadowInfo = *VisibleLightInfo.OccludedPerObjectShadows[ShadowIndex];
 							FRenderQueryRHIRef ShadowOcclusionQuery;
-							if (AllocateProjectedShadowOcclusionQuery(View, ProjectedShadowInfo, NumBufferedFrames, ShadowOcclusionQuery))
+							if (AllocateProjectedShadowOcclusionQuery(View, ProjectedShadowInfo, NumBufferedFrames, SOQ_NearPlaneVsShadowFrustum, ShadowOcclusionQuery))
 							{
 								ViewQuery.ShadowQueries.Add(TPairInitializer<FProjectedShadowInfo const*, FRenderQueryRHIRef>(&ProjectedShadowInfo, ShadowOcclusionQuery));
 								bBatchedQueries = true;
@@ -1343,7 +1410,7 @@ void FDeferredShadingSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate
 			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 			GraphicsPSOInit.BlendState = TStaticBlendState<CW_NONE>::GetRHI();
-			// Depth tests, no depth writes, no color writes, opaque, solid rasterization wo/ backface culling.
+			// Depth tests, no depth writes, no color writes, opaque
 			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI();
 			
 			RHICmdList.BeginOcclusionQueryBatch();
@@ -1389,6 +1456,11 @@ void FDeferredShadingSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate
 					for (TPair<FProjectedShadowInfo const*, FRenderQueryRHIRef> const& Query : ViewQuery.PointLightQueries)
 					{
 						ExecutePointLightShadowOcclusionQuery(RHICmdList, View, *Query.Key, *VertexShader, Query.Value);
+					}
+
+					for (TPair<FProjectedShadowInfo const*, FRenderQueryRHIRef> const& Query : ViewQuery.CSMQueries)
+					{
+						ExecuteDirectionalLightShadowOcclusionQuery(RHICmdList, View, *Query.Key, *VertexShader, Query.Value);
 					}
 					
 					for (TPair<FProjectedShadowInfo const*, FRenderQueryRHIRef> const& Query : ViewQuery.ShadowQueries)

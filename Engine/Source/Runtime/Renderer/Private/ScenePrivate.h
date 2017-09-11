@@ -477,14 +477,13 @@ public:
 
 		FORCEINLINE bool operator == (const FProjectedShadowKey &Other) const
 		{
-			return (PrimitiveId == Other.PrimitiveId && Light == Other.Light && ShadowSplitIndex == Other.ShadowSplitIndex && CacheMode == Other.CacheMode && bTranslucentShadow == Other.bTranslucentShadow);
+			return (PrimitiveId == Other.PrimitiveId && Light == Other.Light && ShadowSplitIndex == Other.ShadowSplitIndex && bTranslucentShadow == Other.bTranslucentShadow);
 		}
 
 		FProjectedShadowKey(const FProjectedShadowInfo& ProjectedShadowInfo)
 			: PrimitiveId(ProjectedShadowInfo.GetParentSceneInfo() ? ProjectedShadowInfo.GetParentSceneInfo()->PrimitiveComponentId : FPrimitiveComponentId())
 			, Light(ProjectedShadowInfo.GetLightSceneInfo().Proxy->GetLightComponent())
 			, ShadowSplitIndex(ProjectedShadowInfo.CascadeSettings.ShadowSplitIndex)
-			, CacheMode(ProjectedShadowInfo.CacheMode)
 			, bTranslucentShadow(ProjectedShadowInfo.bTranslucentShadow)
 		{
 		}
@@ -493,7 +492,6 @@ public:
 			: PrimitiveId(InPrimitiveId)
 			, Light(InLight)
 			, ShadowSplitIndex(InSplitIndex)
-			, CacheMode(SDCM_Uncached)
 			, bTranslucentShadow(bInTranslucentShadow)
 		{
 		}
@@ -507,7 +505,6 @@ public:
 		FPrimitiveComponentId PrimitiveId;
 		const ULightComponent* Light;
 		int32 ShadowSplitIndex;
-		EShadowDepthCacheMode CacheMode;
 		bool bTranslucentShadow;
 	};
 
@@ -623,12 +620,12 @@ private:
 			if (!PooledRenderTarget[BufferNumber].IsValid())
 			{
 				// Create the texture needed for EyeAdaptation
-				FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(FIntPoint(1, 1), PF_G32R32F, FClearValueBinding::None, TexCreate_None, TexCreate_RenderTargetable, false));
+				FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(FIntPoint(1, 1), PF_G32R32F /*PF_R32_FLOAT*/, FClearValueBinding::None, TexCreate_None, TexCreate_RenderTargetable, false));
 				if (GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM5)
 				{
 					Desc.TargetableFlags |= TexCreate_UAV;
 				}
-				GRenderTargetPool.FindFreeElement(RHICmdList, Desc, PooledRenderTarget[BufferNumber], TEXT("EyeAdaptation"));
+				GRenderTargetPool.FindFreeElement(RHICmdList, Desc, PooledRenderTarget[BufferNumber], TEXT("EyeAdaptation"), true, ERenderTargetTransience::NonTransient);
 			}
 
 			return PooledRenderTarget[BufferNumber];
@@ -748,6 +745,7 @@ public:
 	FShaderResourceViewRHIRef IndirectShadowMeshDistanceFieldCasterIndicesSRV;
 	FVertexBufferRHIRef IndirectShadowLightDirectionVertexBuffer;
 	FShaderResourceViewRHIRef IndirectShadowLightDirectionSRV;
+	FRWBuffer IndirectShadowVolumetricLightmapDerivedLightDirection;
 	FRWBuffer CapsuleTileIntersectionCountsBuffer;
 
 	/** Timestamp queries around separate translucency, used for auto-downsampling. */
@@ -906,7 +904,7 @@ public:
 	 * @param Primitive - The shadow subject.
 	 * @param Light - The shadow source.
 	 */
-	bool IsShadowOccluded(FRHICommandListImmediate& RHICmdList, FPrimitiveComponentId PrimitiveId, const ULightComponent* Light, int32 SplitIndex, bool bTranslucentShadow, int32 NumBufferedFrames) const;
+	bool IsShadowOccluded(FRHICommandListImmediate& RHICmdList, FSceneViewState::FProjectedShadowKey ShadowKey, int32 NumBufferedFrames) const;
 
 	/**
 	* Retrieve a single-pixel render targets with intra-frame state for use in eye adaptation post processing.
@@ -981,7 +979,7 @@ public:
 
 			Desc.DebugName = TEXT("CombineLUTs");
 			
-			GRenderTargetPool.FindFreeElement(RHICmdList, Desc, CombinedLUTRenderTarget, Desc.DebugName);
+			GRenderTargetPool.FindFreeElement(RHICmdList, Desc, CombinedLUTRenderTarget, Desc.DebugName, true, ERenderTargetTransience::NonTransient);
 		}
 
 		FSceneRenderTargetItem& RenderTarget = CombinedLUTRenderTarget.GetReference()->GetRenderTargetItem();
@@ -1323,6 +1321,55 @@ public:
 
 
 	void ResizeCubemapArrayGPU(uint32 InMaxCubemaps, int32 InCubemapSize);
+};
+
+class FVolumetricLightmapSceneData
+{
+public:
+
+	FVolumetricLightmapSceneData() :
+		IndirectionTextureSize(FVector::ZeroVector),
+		BrickSize(0),
+		BrickDataTexelSize(FVector::ZeroVector),
+		VolumeWorldToUVScale(FVector::ZeroVector),
+		VolumeWorldToUVAdd(FVector::ZeroVector)
+	{}
+
+	void Release()
+	{
+		IndirectionTexture.SafeRelease();
+		AmbientVectorTextureRHI.SafeRelease();
+
+		for (int32 i = 0; i < ARRAY_COUNT(SHCoefficientsTextureRHI); i++)
+		{
+			SHCoefficientsTextureRHI[i].SafeRelease();
+		}
+
+		SkyBentNormalTextureRHI.SafeRelease();
+		DirectionalLightShadowingTextureRHI.SafeRelease();
+	}
+
+	bool HasData() const { return LevelVolumetricLightmaps.Num() > 0; }
+	void AddLevelVolume(const class FPrecomputedVolumetricLightmap* InVolume, ERHIFeatureLevel::Type FeatureLevel);
+	void RemoveLevelVolume(const class FPrecomputedVolumetricLightmap* InVolume);
+
+	FVector IndirectionTextureSize;
+
+	/** Size of the unique data in a brick, in one dimension, in texels. */
+	float BrickSize;
+	/** Size of a texel in the brick data textures. */
+	FVector BrickDataTexelSize;
+	FVector VolumeWorldToUVScale;
+	FVector VolumeWorldToUVAdd;
+
+	FTexture3DRHIRef IndirectionTexture;
+	FTexture3DRHIRef AmbientVectorTextureRHI;
+	FTexture3DRHIRef SHCoefficientsTextureRHI[6];
+	FTexture3DRHIRef SkyBentNormalTextureRHI;
+	FTexture3DRHIRef DirectionalLightShadowingTextureRHI;
+
+private:
+	TArray<const FPrecomputedVolumetricLightmap*> LevelVolumetricLightmaps;
 };
 
 class FPrimitiveAndInstance
@@ -1883,6 +1930,7 @@ public:
 	/** Base pass draw list - self shadowed translucency*/
 	TStaticMeshDrawList<TBasePassDrawingPolicy<FSelfShadowedTranslucencyPolicy> > BasePassSelfShadowedTranslucencyDrawList[EBasePass_MAX];
 	TStaticMeshDrawList<TBasePassDrawingPolicy<FSelfShadowedCachedPointIndirectLightingPolicy> > BasePassSelfShadowedCachedPointIndirectTranslucencyDrawList[EBasePass_MAX];
+	TStaticMeshDrawList<TBasePassDrawingPolicy<FSelfShadowedVolumetricLightmapPolicy> > BasePassSelfShadowedVolumetricLightmapTranslucencyDrawList[EBasePass_MAX];
 
 	/** hit proxy draw list (includes both opaque and translucent objects) */
 	TStaticMeshDrawList<FHitProxyDrawingPolicy> HitProxyDrawList;
@@ -2002,6 +2050,8 @@ public:
 
 	/** Interpolates and caches indirect lighting for dynamic objects. */
 	FIndirectLightingCache IndirectLightingCache;
+
+	FVolumetricLightmapSceneData VolumetricLightmapSceneData;
 
 	/** Distance field object scene data. */
 	FDistanceFieldSceneData DistanceFieldSceneData;
@@ -2123,6 +2173,9 @@ public:
 	virtual void UpdateSkyCaptureContents(const USkyLightComponent* CaptureComponent, bool bCaptureEmissiveOnly, UTextureCube* SourceCubemap, FTexture* OutProcessedTexture, float& OutAverageBrightness, FSHVectorRGB3& OutIrradianceEnvironmentMap) override; 
 	virtual void AddPrecomputedLightVolume(const class FPrecomputedLightVolume* Volume) override;
 	virtual void RemovePrecomputedLightVolume(const class FPrecomputedLightVolume* Volume) override;
+	virtual bool HasPrecomputedVolumetricLightmap_RenderThread() const override;
+	virtual void AddPrecomputedVolumetricLightmap(const class FPrecomputedVolumetricLightmap* Volume) override;
+	virtual void RemovePrecomputedVolumetricLightmap(const class FPrecomputedVolumetricLightmap* Volume) override;
 	virtual void UpdateLightTransform(ULightComponent* Light) override;
 	virtual void UpdateLightColorAndBrightness(ULightComponent* Light) override;
 	virtual void AddExponentialHeightFog(UExponentialHeightFogComponent* FogComponent) override;
@@ -2260,9 +2313,8 @@ public:
 	virtual ERHIFeatureLevel::Type GetFeatureLevel() const override { return FeatureLevel; }
 
 	bool ShouldRenderSkylightInBasePass(EBlendMode BlendMode) const
-	{		
-		const bool bStationarySkylight = SkyLight && SkyLight->bWantsStaticShadowing;
-		return ShouldRenderSkylightInBasePass_Internal(BlendMode) && (ReadOnlyCVARCache.bEnableStationarySkylight || !bStationarySkylight);
+	{
+		return ShouldRenderSkylightInBasePass_Internal(BlendMode) && (ReadOnlyCVARCache.bEnableStationarySkylight || IsSimpleForwardShadingEnabled(GetShaderPlatform()));
 	}
 
 	bool ShouldRenderSkylightInBasePass_Internal(EBlendMode BlendMode) const
@@ -2273,15 +2325,15 @@ public:
 			return SkyLight && !SkyLight->bHasStaticLighting;
 		}
 		else
-		{
-			const bool bRenderSkylight = SkyLight
-				&& !SkyLight->bHasStaticLighting
-				// The deferred shading renderer does movable skylight diffuse in a later deferred pass, not in the base pass
+	{
+		const bool bRenderSkylight = SkyLight
+			&& !SkyLight->bHasStaticLighting
+			// The deferred shading renderer does movable skylight diffuse in a later deferred pass, not in the base pass
 				// bWantsStaticShadowing means 'stationary skylight'
-				&& (SkyLight->bWantsStaticShadowing || IsAnyForwardShadingEnabled(GetShaderPlatform()));
+			&& (SkyLight->bWantsStaticShadowing || IsAnyForwardShadingEnabled(GetShaderPlatform()));
 
-			return bRenderSkylight;
-		}
+		return bRenderSkylight;
+	}
 	}
 
 	virtual TArray<FPrimitiveComponentId> GetScenePrimitiveComponentIds() const override
@@ -2303,6 +2355,13 @@ public:
 	virtual void IncrementFrameNumber() override
 	{
 		++SceneFrameNumber;
+	}
+
+	void EnsureMotionBlurCacheIsUpToDate(bool bWorldIsPaused);
+
+	void ResetMotionBlurCacheTracking()
+	{
+		CurrentFrameUpdatedMotionBlurCache = false;
 	}
 
 private:
@@ -2409,6 +2468,9 @@ private:
 
 	/** Frame number incremented per-family viewing this scene. */
 	uint32 SceneFrameNumber;
+
+	/** Whether the motion blur cache has been updated already for this frame. */
+	bool CurrentFrameUpdatedMotionBlurCache;
 };
 
 inline bool ShouldIncludeDomainInMeshPass(EMaterialDomain Domain)

@@ -1,24 +1,12 @@
-/* Copyright 2017 Google Inc.
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*   http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+// Copyright 2017 Google Inc.
 
 #pragma once
 #include "TangoPrimitives.h"
 #if PLATFORM_ANDROID
 #include "tango_support_api.h"
-#endif
 #include <set>
+#endif
+
 
 class FTangoDevice;
 
@@ -28,12 +16,14 @@ class FTangoPointCloud
 public:
 	FTangoPointCloud();
 	bool FitPlane(UWorld* World, const FVector2D& ScreenPoint, FTransform& Pose);
+#if PLATFORM_ANDROID
 	bool FindFloorPlane(
 		UWorld* World,
 		TMap<int32, int32> & NumUpPoints,
 		std::set<int32>& NonNoiseBuckets,
 		double& LastPointCloudTimestamp,
 		float& PlaneZ);
+#endif
 	bool GetRawDepthToWorldTransform(double Timestamp, FTransform& RawDepthToWorldTransform, bool bIgnoreDisplayRotation = false) const;
 	bool GetRawDepthToWorldMatrix(double Timestamp, FMatrix& RawDepthToWorldMatrix, bool bIgnoreDisplayRotation = false) const
 	{
@@ -94,6 +84,7 @@ private:
 	TangoPointCloud* LatestPointCloud;
 	FTangoPose LatestPointCloudPose;
 	TangoSupportPointCloudManager* PointCloudManager;
+	int32 MaxPointCloudElements = 0;
 #endif
 	FMatrix TangoToUnrealCameraMatrix;
 	FTransform TangoToUnrealCameraTransform;

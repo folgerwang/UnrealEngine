@@ -24,7 +24,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogHeadMountedDisplayCommand, Display, All);
 */
 static TAutoConsoleVariable<int32> CVarHiddenAreaMask(
 	TEXT("vr.HiddenAreaMask"),
-	1,
+	0,
 	*LOCTEXT("CVarText_HiddenAreaMask", "Enable or disable hidden area mask\n0: disabled\n1: enabled").ToString(),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
@@ -245,7 +245,7 @@ static void SpectatorScreenMode(const TArray<FString>& Args, UWorld* , FOutputDe
 		{
 			ModeVal = ScreenModeEnum->GetIndexByName(*Args[0]);
 		}
-		if (ModeVal >= ESpectatorScreenModeFirst && ModeVal <= ESpectatorScreenModeLast)
+		if (ModeVal < ESpectatorScreenModeFirst || ModeVal > ESpectatorScreenModeLast)
 		{
 			Ar.Logf(ELogVerbosity::Error, TEXT("Invalid spectator screen mode: %s"), *Args[0]);
 		}

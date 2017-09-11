@@ -212,17 +212,17 @@ void FVulkanLayout::Compile()
 	const TArray<VkDescriptorSetLayout>& LayoutHandles = DescriptorSetLayout.GetHandles();
 
 #if !VULKAN_KEEP_CREATE_INFO
-	VkPipelineLayoutCreateInfo CreateInfo;
+	VkPipelineLayoutCreateInfo PipelineLayoutCreateInfo;
 #endif
-	FMemory::Memzero(CreateInfo);
-	CreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	CreateInfo.pNext = nullptr;
-	CreateInfo.setLayoutCount = LayoutHandles.Num();
-	CreateInfo.pSetLayouts = LayoutHandles.GetData();
-	CreateInfo.pushConstantRangeCount = 0;
-	CreateInfo.pPushConstantRanges = nullptr;
+	FMemory::Memzero(PipelineLayoutCreateInfo);
+	PipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	//PipelineLayoutCreateInfo.pNext = nullptr;
+	PipelineLayoutCreateInfo.setLayoutCount = LayoutHandles.Num();
+	PipelineLayoutCreateInfo.pSetLayouts = LayoutHandles.GetData();
+	//PipelineLayoutCreateInfo.pushConstantRangeCount = 0;
+	//PipelineLayoutCreateInfo.pPushConstantRanges = nullptr;
 
-	VERIFYVULKANRESULT(VulkanRHI::vkCreatePipelineLayout(Device->GetInstanceHandle(), &CreateInfo, nullptr, &PipelineLayout));
+	VERIFYVULKANRESULT(VulkanRHI::vkCreatePipelineLayout(Device->GetInstanceHandle(), &PipelineLayoutCreateInfo, nullptr, &PipelineLayout));
 }
 
 
@@ -260,6 +260,7 @@ void FVulkanDescriptorSetWriter::SetupDescriptorWrites(const FNEWVulkanShaderDes
 		{
 		case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
 		case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
+		case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
 			InWriteDescriptors->pBufferInfo = InBufferInfo++;
 			break;
 		case VK_DESCRIPTOR_TYPE_SAMPLER:
@@ -272,7 +273,7 @@ void FVulkanDescriptorSetWriter::SetupDescriptorWrites(const FNEWVulkanShaderDes
 		case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
 			break;
 		default:
-			checkf(0, TEXT("Unsupported descriptor type %d"), Info.DescriptorTypes[Index]);
+			checkf(0, TEXT("Unsupported descriptor type %d"), (int32)Info.DescriptorTypes[Index]);
 			break;
 		}
 		++InWriteDescriptors;
@@ -433,13 +434,7 @@ FVulkanDescriptorPool* FVulkanCommandListContext::AllocateDescriptorSets(const V
 	VkDescriptorSetAllocateInfo DescriptorSetAllocateInfo = InDescriptorSetAllocateInfo;
 	VkResult Result = VK_ERROR_OUT_OF_DEVICE_MEMORY;
 
-	int32 ValidationLayerEnabled = 0;
-#if VULKAN_HAS_DEBUGGING_ENABLED
-	extern TAutoConsoleVariable<int32> GValidationCvar;
-	ValidationLayerEnabled = GValidationCvar->GetInt();
-#endif
-	// Only try to find if it will fit in the pool if we're in validation mode
-	if (ValidationLayerEnabled == 0 || Pool->CanAllocate(Layout))
+	if (Pool->CanAllocate(Layout))
 	{
 		DescriptorSetAllocateInfo.descriptorPool = Pool->GetHandle();
 		Result = VulkanRHI::vkAllocateDescriptorSets(Device->GetInstanceHandle(), &DescriptorSetAllocateInfo, OutSets);

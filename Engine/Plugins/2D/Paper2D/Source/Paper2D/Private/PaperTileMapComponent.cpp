@@ -611,7 +611,7 @@ void UPaperTileMapComponent::SetTileMapColor(FLinearColor NewColor)
 
 FLinearColor UPaperTileMapComponent::GetLayerColor(int32 Layer) const
 {
-	if (TileMap->TileLayers.IsValidIndex(Layer))
+	if ((TileMap != nullptr) && TileMap->TileLayers.IsValidIndex(Layer))
 	{
 		return TileMap->TileLayers[Layer]->GetLayerColor();
 	}
@@ -665,7 +665,7 @@ FVector UPaperTileMapComponent::GetTileCornerPosition(int32 TileX, int32 TileY, 
 
 	if (bWorldSpace)
 	{
-		Result = ComponentToWorld.TransformPosition(Result);
+		Result = GetComponentTransform().TransformPosition(Result);
 	}
 	return Result;
 }
@@ -681,7 +681,7 @@ FVector UPaperTileMapComponent::GetTileCenterPosition(int32 TileX, int32 TileY, 
 
 	if (bWorldSpace)
 	{
-		Result = ComponentToWorld.TransformPosition(Result);
+		Result = GetComponentTransform().TransformPosition(Result);
 	}
 	return Result;
 }
@@ -697,9 +697,10 @@ void UPaperTileMapComponent::GetTilePolygon(int32 TileX, int32 TileY, TArray<FVe
 
 	if (bWorldSpace)
 	{
+		const FTransform& ComponentTransform = GetComponentTransform();
 		for (FVector& Point : Points)
 		{
-			Point = ComponentToWorld.TransformPosition(Point);
+			Point = ComponentTransform.TransformPosition(Point);
 		}
 	}
 }
@@ -736,7 +737,7 @@ void UPaperTileMapComponent::SetLayerCollision(int32 Layer, bool bHasCollision, 
 		}
 		else
 		{
-			UE_LOG(LogPaper2D, Warning, TEXT("Invalid layer index %d for %s"), Layer, *TileMap->GetPathName());
+			UE_LOG(LogPaper2D, Warning, TEXT("Invalid layer index %d for %s"), Layer, *GetPathNameSafe(TileMap));
 		}
 	}
 }

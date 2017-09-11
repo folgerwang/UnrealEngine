@@ -15,6 +15,7 @@ AudioStreaming.cpp: Implementation of audio streaming classes.
 #include "AsyncFileHandle.h"
 #include "Misc/ScopeLock.h"
 #include "HAL/IConsoleManager.h"
+#include "HAL/LowLevelMemTracker.h"
 
 static int32 SpoofFailedStreamChunkLoad = 0;
 FAutoConsoleVariableRef CVarSpoofFailedStreamChunkLoad(
@@ -109,9 +110,15 @@ FStreamingWaveData::~FStreamingWaveData()
 	}
 }
 
-void FStreamingWaveData::Initialize(USoundWave* InSoundWave, FAudioStreamingManager* InAudioStreamingManager)
+bool FStreamingWaveData::Initialize(USoundWave* InSoundWave, FAudioStreamingManager* InAudioStreamingManager)
 {
 	check(!IORequestHandle);
+
+	if (!InSoundWave || !InSoundWave->RunningPlatformData->Chunks.Num())
+	{
+		UE_LOG(LogAudio, Error, TEXT("Failed to initialize streaming wave data due to lack of serialized stream chunks. Error during stream cooking."));
+		return false;
+	}
 
 	SoundWave = InSoundWave;
 	AudioStreamingManager = InAudioStreamingManager;
@@ -126,17 +133,29 @@ void FStreamingWaveData::Initialize(USoundWave* InSoundWave, FAudioStreamingMana
 	const int32 FirstLoadedChunkIndex = AddNewLoadedChunk(SoundWave->RunningPlatformData->Chunks[0].DataSize);
 
 	FLoadedAudioChunk* FirstChunk = &LoadedChunks[FirstLoadedChunkIndex];
-
 	FirstChunk->Index = 0;
-	SoundWave->GetChunkData(0, &FirstChunk->Data);
+
+	// If we fail here, we'll just fail the streaming wave data altogether.
+	if (!SoundWave->GetChunkData(0, &FirstChunk->Data))
+	{
+		// Error/warning logging will have already been performed in the GetChunkData function
+		return false;
+	}
 
 	// Set up the loaded/requested indices to be identical
 	LoadedChunkIndices.Add(0);
 	CurrentRequest.RequiredIndices.Add(0);
+
+	return true;
 }
 
 bool FStreamingWaveData::UpdateStreamingStatus()
 {
+	if (!SoundWave)
+	{
+		return false;
+	}
+
 	bool	bHasPendingRequestInFlight = true;
 	int32	RequestStatus = PendingChunkChangeRequestStatus.GetValue();
 	TArray<uint32> IndicesToLoad;
@@ -282,7 +301,7 @@ void FStreamingWaveData::BeginPendingRequests(const TArray<uint32>& IndicesToLoa
 			// returns.
 			PendingChunkChangeRequestStatus.Increment();
 
-			EAsyncIOPriority AsyncIOPriority = CurrentRequest.bPrioritiseRequest ? AIOP_BelowNormal : AIOP_Low;
+			EAsyncIOPriority AsyncIOPriority = AIOP_High;
 
 			// Load and decompress async.
 #if WITH_EDITORONLY_DATA
@@ -501,6 +520,8 @@ void FAudioStreamingManager::ProcessPendingAsyncFileResults()
 
 void FAudioStreamingManager::UpdateResourceStreaming(float DeltaTime, bool bProcessEverything /*= false*/)
 {
+	LLM_SCOPE(ELLMTag::Audio);
+
 	FScopeLock Lock(&CriticalSection);
 
 	for (auto& WavePair : StreamingSoundWaves)
@@ -625,15 +646,27 @@ void FAudioStreamingManager::RemoveLevel(class ULevel* Level)
 {
 }
 
+void FAudioStreamingManager::NotifyLevelOffset(class ULevel* Level, const FVector& Offset)
+{
+}
+
 void FAudioStreamingManager::AddStreamingSoundWave(USoundWave* SoundWave)
 {
 	if (FPlatformProperties::SupportsAudioStreaming() && SoundWave->IsStreaming())
 	{
 		FScopeLock Lock(&CriticalSection);
-		if (StreamingSoundWaves.FindRef(SoundWave) == NULL)
+		if (StreamingSoundWaves.FindRef(SoundWave) == nullptr)
 		{
-			FStreamingWaveData& WaveData = *StreamingSoundWaves.Add(SoundWave, new FStreamingWaveData);
-			WaveData.Initialize(SoundWave, this);
+			FStreamingWaveData* NewStreamingWaveData = new FStreamingWaveData;
+			if (NewStreamingWaveData->Initialize(SoundWave, this))
+			{
+				StreamingSoundWaves.Add(SoundWave, NewStreamingWaveData);
+			}
+			else
+			{
+				// Failed to initialize, don't add to list of streaming sound waves
+				delete NewStreamingWaveData;
+			}
 		}
 	}
 }
@@ -669,33 +702,36 @@ bool FAudioStreamingManager::IsStreamingInProgress(const USoundWave* SoundWave)
 
 bool FAudioStreamingManager::CanCreateSoundSource(const FWaveInstance* WaveInstance) const
 {
-	if (WaveInstance && WaveInstance->IsStreaming())
+	check(WaveInstance);
+	check(WaveInstance->IsStreaming());
+
+	int32 MaxStreams = GetDefault<UAudioSettings>()->MaximumConcurrentStreams;
+
+	FScopeLock Lock(&CriticalSection);
+
+	// If the sound wave hasn't been added, or failed when trying to add during sound wave post load, we can't create a streaming sound source with this sound wave
+	if (!WaveInstance->WaveData || !StreamingSoundWaves.Contains(WaveInstance->WaveData))
 	{
-		int32 MaxStreams = GetDefault<UAudioSettings>()->MaximumConcurrentStreams;
+		return false;
+	}
 
-		FScopeLock Lock(&CriticalSection);
+	if ( StreamingSoundSources.Num() < MaxStreams )
+	{
+		return true;
+	}
 
-		if ( StreamingSoundSources.Num() < MaxStreams )
+	for (int32 Index = 0; Index < StreamingSoundSources.Num(); ++Index)
+	{
+		const FSoundSource* ExistingSource = StreamingSoundSources[Index];
+		const FWaveInstance* ExistingWaveInst = ExistingSource->GetWaveInstance();
+		if (!ExistingWaveInst || !ExistingWaveInst->WaveData
+			|| ExistingWaveInst->WaveData->StreamingPriority < WaveInstance->WaveData->StreamingPriority)
 		{
-			return true;
-		}
-		else
-		{
-			for (int32 Index = 0; Index < StreamingSoundSources.Num(); ++Index)
-			{
-				const FSoundSource* ExistingSource = StreamingSoundSources[Index];
-				const FWaveInstance* ExistingWaveInst = ExistingSource->GetWaveInstance();
-				if (!ExistingWaveInst || !ExistingWaveInst->WaveData
-					|| ExistingWaveInst->WaveData->StreamingPriority < WaveInstance->WaveData->StreamingPriority)
-				{
-					return Index < MaxStreams;
-				}
-			}
-
-			return false;
+			return Index < MaxStreams;
 		}
 	}
-	return true;
+
+	return false;
 }
 
 void FAudioStreamingManager::AddStreamingSoundSource(FSoundSource* SoundSource)

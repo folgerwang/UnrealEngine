@@ -636,6 +636,8 @@ void IStreamingManager::RemoveStreamingViews( ERemoveStreamingViews RemovalType 
  */
 void IStreamingManager::Tick( float DeltaTime, bool bProcessEverything/*=false*/ )
 {
+	LLM_SCOPE(ELLMTag::StreamingManager);
+
 	UpdateResourceStreaming( DeltaTime, bProcessEverything );
 
 	// Trigger a call to RemoveStreamingViews( RemoveStreamingViews_Normal ) next time a view is added.
@@ -686,6 +688,8 @@ void FStreamingManagerCollection::SetNumIterationsForNextFrame( int32 InNumItera
  */
 void FStreamingManagerCollection::Tick( float DeltaTime, bool bProcessEverything )
 {
+	LLM_SCOPE(ELLMTag::StreamingManager);
+
 	AddOrRemoveTextureStreamingManagerIfNeeded();
 
 	IStreamingManager::Tick(DeltaTime, bProcessEverything);
@@ -964,6 +968,16 @@ void FStreamingManagerCollection::RemoveLevel( ULevel* Level )
 	}
 }
 
+void FStreamingManagerCollection::NotifyLevelOffset(ULevel* Level, const FVector& Offset)
+{
+	// Route to streaming managers.
+	for( int32 ManagerIndex=0; ManagerIndex<StreamingManagers.Num(); ManagerIndex++ )
+	{
+		IStreamingManager* StreamingManager = StreamingManagers[ManagerIndex];
+		StreamingManager->NotifyLevelOffset( Level, Offset );
+	}
+}
+
 /** Called when an actor is spawned. */
 void FStreamingManagerCollection::NotifyActorSpawned( AActor* Actor )
 {
@@ -1019,12 +1033,22 @@ void FStreamingManagerCollection::NotifyPrimitiveDetached( const UPrimitiveCompo
  * Replaces previous info.
  */
 void FStreamingManagerCollection::NotifyPrimitiveUpdated_Concurrent( const UPrimitiveComponent* Primitive )
+{
+	// Route to streaming managers.
+	for( int32 ManagerIndex=0; ManagerIndex<StreamingManagers.Num(); ManagerIndex++ )
 	{
-		// Route to streaming managers.
-		for( int32 ManagerIndex=0; ManagerIndex<StreamingManagers.Num(); ManagerIndex++ )
-		{
-			IStreamingManager* StreamingManager = StreamingManagers[ManagerIndex];
+		IStreamingManager* StreamingManager = StreamingManagers[ManagerIndex];
 		StreamingManager->NotifyPrimitiveUpdated_Concurrent( Primitive );
+	}
+}
+
+void FStreamingManagerCollection::PropagateLightingScenarioChange()
+{
+	// Route to streaming managers.
+	for( int32 ManagerIndex=0; ManagerIndex<StreamingManagers.Num(); ManagerIndex++ )
+	{
+		IStreamingManager* StreamingManager = StreamingManagers[ManagerIndex];
+		StreamingManager->PropagateLightingScenarioChange();
 	}
 }
 

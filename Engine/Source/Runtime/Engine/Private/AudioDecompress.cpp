@@ -5,6 +5,7 @@
 #include "AudioDevice.h"
 #include "Interfaces/IAudioFormat.h"
 #include "ContentStreaming.h"
+#include "HAL/LowLevelMemTracker.h"
 
 IStreamedCompressedInfo::IStreamedCompressedInfo()
 	: SrcBufferData(nullptr)
@@ -617,6 +618,8 @@ FAsyncAudioDecompressWorker::FAsyncAudioDecompressWorker(USoundWave* InWave)
 
 void FAsyncAudioDecompressWorker::DoWork()
 {
+	LLM_SCOPE(ELLMTag::Audio);
+
 	if (AudioInfo)
 	{
 		FSoundQualityInfo QualityInfo = { 0 };

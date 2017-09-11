@@ -220,6 +220,7 @@ int32 FCanvasWordWrapper::FindEndOfLastWholeGraphemeCluster(const int32 InStartI
 
 FCanvas::FCanvas(FRenderTarget* InRenderTarget, FHitProxyConsumer* InHitProxyConsumer, UWorld* InWorld, ERHIFeatureLevel::Type InFeatureLevel, ECanvasDrawMode InDrawMode)
 :	ViewRect(0,0,0,0)
+,	ScissorRect(0,0,0,0)
 ,	RenderTarget(InRenderTarget)
 ,	HitProxyConsumer(InHitProxyConsumer)
 ,	Scene(InWorld ? InWorld->Scene : NULL)
@@ -244,6 +245,7 @@ FCanvas::FCanvas(FRenderTarget* InRenderTarget, FHitProxyConsumer* InHitProxyCon
 
 FCanvas::FCanvas(FRenderTarget* InRenderTarget,FHitProxyConsumer* InHitProxyConsumer, float InRealTime, float InWorldTime, float InWorldDeltaTime, ERHIFeatureLevel::Type InFeatureLevel)
 :	ViewRect(0,0,0,0)
+,	ScissorRect(0,0,0,0)
 ,	RenderTarget(InRenderTarget)
 ,	HitProxyConsumer(InHitProxyConsumer)
 ,	Scene(NULL)
@@ -689,6 +691,12 @@ void FCanvas::Flush_RenderThread(FRHICommandListImmediate& RHICmdList, bool bFor
 	// set viewport to RT size
 	RHICmdList.SetViewport(ViewRect.Min.X, ViewRect.Min.Y, 0.0f, ViewRect.Max.X, ViewRect.Max.Y, 1.0f);
 
+	// Set scissor rect if valid applied
+	if (ScissorRect.Area() > 0)
+	{
+		RHICmdList.SetScissorRect(true, ScissorRect.Min.X, ScissorRect.Min.Y, ScissorRect.Max.X, ScissorRect.Max.Y);
+	}
+
 	// iterate over the FCanvasSortElements in sorted order and render all the batched items for each entry
 	for (int32 Idx = 0; Idx < SortedElements.Num(); Idx++)
 	{
@@ -764,12 +772,14 @@ void FCanvas::Flush_GameThread(bool bForce)
 	struct FCanvasFlushParameters
 	{
 		FIntRect ViewRect;
+		FIntRect ScissorRect;
 		const FRenderTarget* CanvasRenderTarget;
 		bool bIsScaledToRenderTarget;
 	};
 	FCanvasFlushParameters FlushParameters =
 	{
 		ViewRect,
+		ScissorRect,
 		RenderTarget,
 		IsScaledToRenderTarget()
 	};
@@ -782,10 +792,15 @@ void FCanvas::Flush_GameThread(bool bForce)
 			::SetRenderTarget(RHICmdList, FlushParameters.CanvasRenderTarget->GetRenderTargetTexture(), FTextureRHIRef(), true);
 
 			FIntRect ViewportRect = FlushParameters.ViewRect;
+			FIntRect ScissorRectParam = FlushParameters.ScissorRect;
 			if (FlushParameters.bIsScaledToRenderTarget)
 			{
 				FIntPoint CanvasSize = FlushParameters.CanvasRenderTarget->GetSizeXY();
 				ViewportRect = FIntRect(0, 0, CanvasSize.X, CanvasSize.Y);
+			}
+			else if (ScissorRectParam.Area() > 0)
+			{
+				RHICmdList.SetScissorRect(true, ScissorRectParam.Min.X, ScissorRectParam.Min.Y, ScissorRectParam.Max.X, ScissorRectParam.Max.Y);
 			}
 
 			// set viewport to RT size
@@ -912,6 +927,11 @@ void FCanvas::SetRenderTargetRect( const FIntRect& InViewRect )
 	ViewRect = InViewRect;
 }
 
+void FCanvas::SetRenderTargetScissorRect( const FIntRect& InScissorRect )
+{
+	ScissorRect = InScissorRect;
+}
+
 void FCanvas::Clear(const FLinearColor& ClearColor)
 {
 	FRenderTarget* CanvasRenderTarget = GetRenderTarget();
@@ -919,11 +939,20 @@ void FCanvas::Clear(const FLinearColor& ClearColor)
 		[ClearColor, CanvasRenderTarget](FRHICommandList& RHICmdList)
 		{
 			SCOPED_DRAW_EVENT(RHICmdList, CanvasClear);
-			if( CanvasRenderTarget )
+			if (CanvasRenderTarget)
 			{
-				::SetRenderTarget(RHICmdList, CanvasRenderTarget->GetRenderTargetTexture(), FTextureRHIRef(), true);
-				RHICmdList.SetViewport(0, 0, 0.0f, CanvasRenderTarget->GetSizeXY().X, CanvasRenderTarget->GetSizeXY().Y, 1.0f);
-				DrawClearQuad(RHICmdList, ClearColor);
+				// possibility for the RTT to be null for nullrhi
+				if (CanvasRenderTarget->GetRenderTargetTexture() && CanvasRenderTarget->GetRenderTargetTexture()->GetClearBinding() == FClearValueBinding(ClearColor))
+				{
+					// do fast clear
+					SetRenderTarget(RHICmdList, CanvasRenderTarget->GetRenderTargetTexture(), FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
+				}
+				else
+				{
+					::SetRenderTarget(RHICmdList, CanvasRenderTarget->GetRenderTargetTexture(), FTextureRHIRef(), true);
+					RHICmdList.SetViewport(0, 0, 0.0f, CanvasRenderTarget->GetSizeXY().X, CanvasRenderTarget->GetSizeXY().Y, 1.0f);
+					DrawClearQuad(RHICmdList, ClearColor);
+				}
 			}
 			else
 			{
@@ -942,10 +971,11 @@ void FCanvas::DrawTile( float X, float Y, float SizeX,	float SizeY, float U, flo
 	DrawItem(TileItem);
 }
 
-int32 FCanvas::DrawShadowedString( float StartX,float StartY,const TCHAR* Text,const UFont* Font,const FLinearColor& Color, const FLinearColor& ShadowColor )
+int32 FCanvas::DrawShadowedString( float StartX,float StartY,const TCHAR* Text,const UFont* Font,const FLinearColor& Color, const float TextScale, const FLinearColor& ShadowColor )
 {
 	const float Z = 1.0f;
 	FCanvasTextItem TextItem( FVector2D( StartX, StartY ), FText::FromString( Text ), Font, Color );
+	TextItem.Scale = FVector2D(TextScale, TextScale);
 	// just render text in single pass for distance field drop shadow
 	if (Font && Font->ImportOptions.bUseDistanceFieldAlpha)
 	{	

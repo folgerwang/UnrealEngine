@@ -267,6 +267,12 @@ void FEnumEditorUtils::PrepareForChange(UUserDefinedEnum* Enum)
 	Enum->Modify();
 }
 
+void FEnumEditorUtils::PostEditUndo(UUserDefinedEnum* Enum)
+{
+	UpdateAfterPathChanged(Enum);
+	BroadcastChanges(Enum, TArray<TPair<FName, int64>>(), false);
+}
+
 void FEnumEditorUtils::BroadcastChanges(const UUserDefinedEnum* Enum, const TArray<TPair<FName, int64>>& OldNames, bool bResolveData)
 {
 	check(NULL != Enum);
@@ -575,7 +581,7 @@ void FEnumEditorUtils::UpgradeDisplayNamesFromMetaData(UUserDefinedEnum* Enum)
 		bool bDidUpgradeDisplayNames = false;
 		for (int32 Index = 0; Index < EnumeratorsToEnsure; ++Index)
 		{
-			const FString MetaDataEntryDisplayName = Enum->GetMetaData(FEnumEditorUtilsHelper::DisplayName(), Index);
+			const FString& MetaDataEntryDisplayName = Enum->GetMetaData(FEnumEditorUtilsHelper::DisplayName(), Index);
 			if (!MetaDataEntryDisplayName.IsEmpty())
 			{
 				bDidUpgradeDisplayNames = true;

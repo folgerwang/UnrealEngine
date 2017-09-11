@@ -930,6 +930,14 @@ struct ExistingStaticMeshData
 	//The last import material data (fbx original data before user changes)
 	TArray<FName> LastImportMaterialOriginalNameData;
 	TArray<TArray<FName>> LastImportMeshLodSectionMaterialData;
+
+	bool						ExistingGenerateMeshDistanceField;
+	int32						ExistingLODForCollision;
+	float						ExistingDistanceFieldSelfShadowBias;
+	bool						ExistingSupportUniformlyDistributedSampling;
+	bool						ExistingAllowCpuAccess;
+	FVector						ExistingPositiveBoundsExtension;
+	FVector						ExistingNegativeBoundsExtension;
 };
 
 bool IsUsingMaterialSlotNameWorkflow(UAssetImportData* AssetImportData)
@@ -1061,6 +1069,14 @@ ExistingStaticMeshData* SaveExistingStaticMeshData(UStaticMesh* ExistingMesh, Un
 		ExistingMeshDataPtr->bHasNavigationData = ExistingMesh->bHasNavigationData;
 		ExistingMeshDataPtr->LODGroup = ExistingMesh->LODGroup;
 
+		ExistingMeshDataPtr->ExistingGenerateMeshDistanceField = ExistingMesh->bGenerateMeshDistanceField;
+		ExistingMeshDataPtr->ExistingLODForCollision = ExistingMesh->LODForCollision;
+		ExistingMeshDataPtr->ExistingDistanceFieldSelfShadowBias = ExistingMesh->DistanceFieldSelfShadowBias;
+		ExistingMeshDataPtr->ExistingSupportUniformlyDistributedSampling = ExistingMesh->bSupportUniformlyDistributedSampling;
+		ExistingMeshDataPtr->ExistingAllowCpuAccess = ExistingMesh->bAllowCPUAccess;
+		ExistingMeshDataPtr->ExistingPositiveBoundsExtension = ExistingMesh->PositiveBoundsExtension;
+		ExistingMeshDataPtr->ExistingNegativeBoundsExtension = ExistingMesh->NegativeBoundsExtension;
+
 		UFbxStaticMeshImportData* ImportData = Cast<UFbxStaticMeshImportData>(ExistingMesh->AssetImportData);
 		if (ImportData && ExistingMeshDataPtr->UseMaterialNameSlotWorkflow)
 		{
@@ -1186,6 +1202,10 @@ void RestoreExistingMeshSettings(ExistingStaticMeshData* ExistingMesh, UStaticMe
 
 void UpdateSomeLodsImportMeshData(UStaticMesh* NewMesh, TArray<int32> *ReimportLodList)
 {
+	if (NewMesh == nullptr)
+	{
+		return;
+	}
 	UFbxStaticMeshImportData* ImportData = Cast<UFbxStaticMeshImportData>(NewMesh->AssetImportData);
 	//Update the LOD import data before restoring the data
 	if (ReimportLodList != nullptr && ImportData != nullptr)
@@ -1588,6 +1608,14 @@ void RestoreExistingMeshData(ExistingStaticMeshData* ExistingMeshDataPtr, UStati
 	NewMesh->LpvBiasMultiplier = ExistingMeshDataPtr->LpvBiasMultiplier;
 	NewMesh->bHasNavigationData = ExistingMeshDataPtr->bHasNavigationData;
 	NewMesh->LODGroup = ExistingMeshDataPtr->LODGroup;
+
+	NewMesh->bGenerateMeshDistanceField = ExistingMeshDataPtr->ExistingGenerateMeshDistanceField;
+	NewMesh->LODForCollision = ExistingMeshDataPtr->ExistingLODForCollision;
+	NewMesh->DistanceFieldSelfShadowBias = ExistingMeshDataPtr->ExistingDistanceFieldSelfShadowBias;
+	NewMesh->bSupportUniformlyDistributedSampling = ExistingMeshDataPtr->ExistingSupportUniformlyDistributedSampling;
+	NewMesh->bAllowCPUAccess = ExistingMeshDataPtr->ExistingAllowCpuAccess;
+	NewMesh->PositiveBoundsExtension = ExistingMeshDataPtr->ExistingPositiveBoundsExtension;
+	NewMesh->NegativeBoundsExtension = ExistingMeshDataPtr->ExistingNegativeBoundsExtension;
 
 	delete ExistingMeshDataPtr;
 }

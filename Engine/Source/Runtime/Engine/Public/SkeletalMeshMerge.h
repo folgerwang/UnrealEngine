@@ -45,22 +45,6 @@ struct FRefPoseOverride
 	/**
 	 * Adds a bone to the list of poses to override.
 	 */
-	DEPRECATED(4.8, "Use AddOverride(FName, EBoneOverrideMode) instead.")
-	void AddOverride(FName BoneName, bool bOverrideChildren)
-	{
-		EBoneOverrideMode OverrideMode = BoneAndChildren;
-
-		if (!bOverrideChildren)
-		{
-			OverrideMode = BoneOnly;
-		}
-
-		AddOverride(BoneName, OverrideMode);
-	}
-
-	/**
-	 * Adds a bone to the list of poses to override.
-	 */
 	void AddOverride(FName BoneName, EBoneOverrideMode OverrideMode = BoneOnly)
 	{
 		FBoneOverrideInfo OverrideInfo;
@@ -217,15 +201,20 @@ private:
 		TArray<FBoneIndexType> MergedBoneMap;
 		/** material for use by this section */
 		UMaterialInterface* Material;
+
 		/** 
 		* if -1 then we use the Material* to match new section entries
 		* otherwise the MaterialId is used to find new section entries
 		*/
 		int32 MaterialId;
 
-		FNewSectionInfo( UMaterialInterface* InMaterial, int32 InMaterialId )
+		/** Default UVChannelData for new sections. Will be recomputed if necessary */
+		FMeshUVChannelInfo UVChannelData;
+
+		FNewSectionInfo( UMaterialInterface* InMaterial, int32 InMaterialId, const FMeshUVChannelInfo& InUVChannelData )
 			:	Material(InMaterial)
 			,	MaterialId(InMaterialId)
+			,	UVChannelData(InUVChannelData)
 		{}
 	};
 

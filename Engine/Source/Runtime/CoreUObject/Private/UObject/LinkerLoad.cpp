@@ -30,6 +30,7 @@
 #include "Serialization/AsyncLoading.h"
 #include "ProfilingDebugging/LoadTimeTracker.h"
 #include "HAL/ThreadHeartBeat.h"
+#include "Internationalization/TextPackageNamespaceUtil.h"
 #include "Serialization/BulkData.h"
 #include "Serialization/AsyncLoadingPrivate.h"
 #include "UObject/CoreRedirects.h"
@@ -1126,7 +1127,9 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::SerializePackageFileSummary()
 		}
 
 #if PLATFORM_WINDOWS
-		if (!FPlatformProperties::RequiresCookedData())
+		if (!FPlatformProperties::RequiresCookedData() && 
+			// We can't check the post tag if the file is an EDL cooked package
+			!((Summary.PackageFlags & PKG_FilterEditorOnly) && Summary.PreloadDependencyCount > 0 && Summary.PreloadDependencyOffset > 0))
 		{
 			// check if this package version stored the 4-byte magic post tag
 			// get the offset of the post tag
@@ -1398,6 +1401,8 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::FixupImportMap()
 		{
 			static const FName NAME_BlueprintGeneratedClass(TEXT("BlueprintGeneratedClass"));
 
+			TArray<int32> PackageIndexesToClear;
+
 			bool bDone = false;
 			while (!bDone)
 			{
@@ -1450,36 +1455,45 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::FixupImportMap()
 
 					if (NewObjectName != OldObjectName)
 					{
-						// If right below package and package has changed, need to swap outer
-						if (NewObjectName.OuterName == NAME_None && NewObjectName.PackageName != OldObjectName.PackageName)
+						if (Import.OuterIndex.IsNull())
 						{
-							FPackageIndex NewPackageIndex;
-
-							if (FindImportPackage(NewObjectName.PackageName, NewPackageIndex))
+							// If this has no outer it's a package and we don't want to rename it, the subobject renames will handle creating the new package import
+							// We do need to clear these at the end so it doesn't try to load nonexistent packages
+							PackageIndexesToClear.Add(i);
+						}
+						else
+						{
+							// If right below package and package has changed, need to swap outer
+							if (NewObjectName.OuterName == NAME_None && NewObjectName.PackageName != OldObjectName.PackageName)
 							{
-								// Already in import table, set it
-								Import.OuterIndex = NewPackageIndex;
+								FPackageIndex NewPackageIndex;
+
+								if (FindImportPackage(NewObjectName.PackageName, NewPackageIndex))
+								{
+									// Already in import table, set it
+									Import.OuterIndex = NewPackageIndex;
+								}
+								else
+								{
+									// Need to add package import and try again
+									NewPackageImports.AddUnique(NewObjectName.PackageName);
+									bDone = false;
+									break;
+								}
 							}
-							else
-							{
-								// Need to add package import and try again
-								NewPackageImports.AddUnique(NewObjectName.PackageName);
-								bDone = false;
-								break;
-							}							
-						}
 #if WITH_EDITOR
-						// If this is a class, set old name here 
-						if (ObjectRedirectFlags == ECoreRedirectFlags::Type_Class)
-						{
-							Import.OldClassName = Import.ObjectName;
-						}
-						
-#endif
-						// Change object name
-						Import.ObjectName = NewObjectName.ObjectName;
+							// If this is a class, set old name here 
+							if (ObjectRedirectFlags == ECoreRedirectFlags::Type_Class)
+							{
+								Import.OldClassName = Import.ObjectName;
+							}
 
-						UE_LOG(LogLinker, Verbose, TEXT("FLinkerLoad::FixupImportMap() - Renamed Object %s -> %s"), *LinkerRoot->GetName(), *OldObjectName.ToString(), *NewObjectName.ToString());
+#endif
+							// Change object name
+							Import.ObjectName = NewObjectName.ObjectName;
+
+							UE_LOG(LogLinker, Verbose, TEXT("FLinkerLoad::FixupImportMap() - Renamed Object %s -> %s"), *LinkerRoot->GetName(), *OldObjectName.ToString(), *NewObjectName.ToString());
+						}
 					}
 
 					if (NewClassName != OldClassName)
@@ -1532,6 +1546,14 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::FixupImportMap()
 					NewImport->SourceLinker = 0;
 					NewImport->SourceIndex = -1;
 				}
+			}
+
+			// Clear any packages that got renamed, once all children have been fixed up
+			for (int32 PackageIndex : PackageIndexesToClear)
+			{
+				FObjectImport& Import = ImportMap[PackageIndex];
+				check(Import.OuterIndex.IsNull());
+				Import.ObjectName = NAME_None;
 			}
 		}
 		// Avoid duplicate work in async case.
@@ -1601,7 +1623,7 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::SerializeDependsMap()
 		*this << Depends;
 		DependsMapIndex++;
 	}
-	
+
 	// Return whether we finished this step and it's safe to start with the next.
 	return ((DependsMapIndex == Summary.ExportCount) && !IsTimeLimitExceeded( TEXT("serializing depends map") )) ? LINKER_Loaded : LINKER_TimedOut;
 }
@@ -1809,10 +1831,10 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::FinalizeCreation()
 		// Add this linker to the object manager's linker array.
 		FLinkerManager::Get().AddLoader(this);
 
-		// check if the package source matches the package filename's CRC (if it doens't match, a user saved this package)
+		// check if the package source matches the package filename's CRC (if it doesn't match, a user saved this package)
 		if (Summary.PackageSource != FCrc::StrCrc_DEPRECATED(*FPaths::GetBaseFilename(Filename).ToUpper()))
 		{
-//			UE_LOG(LogLinker, Log, TEXT("Found a user created pacakge (%s)"), *(FPaths::GetBaseFilename(Filename)));
+//			UE_LOG(LogLinker, Log, TEXT("Found a user created package (%s)"), *(FPaths::GetBaseFilename(Filename)));
 		}
 
 		if (GEventDrivenLoaderEnabled && AsyncRoot)
@@ -2750,7 +2772,7 @@ UClass* FLinkerLoad::GetExportLoadClass(int32 Index)
 	UClass* ExportClass = (UClass*)IndexToObject(Export.ClassIndex);
 #if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
 	check(!Export.ClassIndex.IsImport() || !(LoadFlags & LOAD_DeferDependencyLoads) || 
-		(ExportClass && ExportClass->HasAnyClassFlags(CLASS_Intrinsic)) || (Cast<ULinkerPlaceholderClass>(ExportClass) != nullptr));
+		(ExportClass && ExportClass->HasAnyClassFlags(CLASS_Native)) || (Cast<ULinkerPlaceholderClass>(ExportClass) != nullptr));
 #endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
 
 	return ExportClass;
@@ -2835,6 +2857,17 @@ void FLinkerLoad::LoadAllObjects(bool bForcePreload)
 		MetaDataIndex = LoadMetaDataFromExportMap(bForcePreload);
 	}
 	
+#if USE_STABLE_LOCALIZATION_KEYS
+	if (GIsEditor && (LoadFlags & LOAD_ForDiff))
+	{
+		// If this package is being loaded for diffing, then we need to force it to have a unique package localization ID to avoid in-memory identity conflicts
+		// Note: We set this on the archive first as finding/loading the meta-data (which ForcePackageNamespace does) may trigger the load of some objects within this package
+		const FString PackageLocalizationId = FGuid::NewGuid().ToString();
+		SetLocalizationNamespace(PackageLocalizationId);
+		TextNamespaceUtil::ForcePackageNamespace(LinkerRoot, PackageLocalizationId);
+	}
+#endif // USE_STABLE_LOCALIZATION_KEYS
+
 	// Tick the heartbeat if we're loading on the game thread
 	const bool bShouldTickHeartBeat = IsInGameThread();
 
@@ -3318,15 +3351,17 @@ void FLinkerLoad::Preload( UObject* Object )
 				}
 
 				// Make sure we serialized the right amount of stuff.
-				if( Tell()-Export.SerialOffset != Export.SerialSize )
+				int64 Pos = Tell();
+				int64 SizeSerialized = Pos - Export.SerialOffset;
+				if( SizeSerialized != Export.SerialSize )
 				{
 					if (Object->GetClass()->HasAnyClassFlags(CLASS_Deprecated))
 					{
-						UE_LOG(LogLinker, Warning, TEXT("%s"), *FString::Printf( TEXT("%s: Serial size mismatch: Got %d, Expected %d"), *Object->GetFullName(), (int32)(Tell()-Export.SerialOffset), Export.SerialSize ) );
+						UE_LOG(LogLinker, Warning, TEXT("%s"), *FString::Printf( TEXT("%s: Serial size mismatch: Got %d, Expected %d"), *Object->GetFullName(), (int32)SizeSerialized, Export.SerialSize ) );
 					}
 					else
 					{
-						UE_LOG(LogLinker, Fatal, TEXT("%s"), *FString::Printf( TEXT("%s: Serial size mismatch: Got %d, Expected %d"), *Object->GetFullName(), (int32)(Tell()-Export.SerialOffset), Export.SerialSize ) );
+						UE_LOG(LogLinker, Fatal, TEXT("%s"), *FString::Printf( TEXT("%s: Serial size mismatch: Got %d, Expected %d"), *Object->GetFullName(), (int32)SizeSerialized, Export.SerialSize ) );
 					}
 				}
 
@@ -3741,48 +3776,40 @@ UObject* FLinkerLoad::CreateExport( int32 Index )
 		// Try to find existing object first in case we're a forced export to be able to reconcile. Also do it for the
 		// case of async loading as we cannot in-place replace objects.
 
-		UObject* ActualObjectWithTheName = StaticFindObjectFastInternal(NULL, ThisParent, Export.ObjectName, true);
+		UObject* ActualObjectWithTheName = StaticFindObjectFastInternal(nullptr, ThisParent, Export.ObjectName, true);
 		
-		// if we require cooked data, attempt to find exports in memory first
-		if(	FPlatformProperties::RequiresCookedData() 
-			|| IsAsyncLoading()
-			|| Export.bForcedExport
-			|| LinkerRoot->ShouldFindExportsInMemoryFirst()
-			)
+		// Find object after making sure it isn't already set. This would be bad as the code below NULLs it in a certain
+		// case, which if it had been set would cause a linker detach mismatch.
+		check(Export.Object == nullptr);
+		if (ActualObjectWithTheName && (ActualObjectWithTheName->GetClass() == LoadClass))
 		{
-			// Find object after making sure it isn't already set. This would be bad as the code below NULLs it in a certain
-			// case, which if it had been set would cause a linker detach mismatch.
-			check( Export.Object == NULL );
-			if (ActualObjectWithTheName && (ActualObjectWithTheName->GetClass() == LoadClass))
-			{
-				Export.Object = ActualObjectWithTheName;
-			}
+			Export.Object = ActualObjectWithTheName;
+		}
 
-			// Object is found in memory.
-			if( Export.Object )
+		// Object is found in memory.
+		if (Export.Object)
+		{
+			// Mark that we need to dissociate forced exports later on if we are a forced export.
+			if (Export.bForcedExport)
 			{
-				// Mark that we need to dissociate forced exports later on if we are a forced export.
-				if( Export.bForcedExport )
-				{
-					FUObjectThreadContext::Get().ForcedExportCount++;
-				}
-				// Associate linker with object to avoid detachment mismatches.
-				else
-				{
-					Export.Object->SetLinker( this, Index );
-
-					// If this object was allocated but never loaded (components created by a constructor) make sure it gets loaded
-					// Do this for all subobjects created in the native constructor.
-					FUObjectThreadContext::Get().ObjLoaded.AddUnique(Export.Object);
-					if (!Export.Object->HasAnyFlags(RF_LoadCompleted) &&
-						(Export.Object->HasAnyFlags(RF_DefaultSubObject) || (ThisParent && ThisParent->IsTemplate(RF_ClassDefaultObject))))
-					{
-						check(!GEventDrivenLoaderEnabled || !EVENT_DRIVEN_ASYNC_LOAD_ACTIVE_AT_RUNTIME);
-						Export.Object->SetFlags(RF_NeedLoad | RF_NeedPostLoad | RF_NeedPostLoadSubobjects | RF_WasLoaded);
-					}
-				}
-				return Export.Object;
+				FUObjectThreadContext::Get().ForcedExportCount++;
 			}
+			// Associate linker with object to avoid detachment mismatches.
+			else
+			{
+				Export.Object->SetLinker(this, Index);
+
+				// If this object was allocated but never loaded (components created by a constructor) make sure it gets loaded
+				// Do this for all subobjects created in the native constructor, and anything loaded in an editor build
+				FUObjectThreadContext::Get().ObjLoaded.AddUnique(Export.Object);
+				if (!Export.Object->HasAnyFlags(RF_LoadCompleted) &&
+					(!FPlatformProperties::RequiresCookedData() || Export.Object->HasAnyFlags(RF_DefaultSubObject) || (ThisParent && ThisParent->IsTemplate(RF_ClassDefaultObject))))
+				{
+					check(!GEventDrivenLoaderEnabled || !EVENT_DRIVEN_ASYNC_LOAD_ACTIVE_AT_RUNTIME);
+					Export.Object->SetFlags(RF_NeedLoad | RF_NeedPostLoad | RF_NeedPostLoadSubobjects | RF_WasLoaded);
+				}
+			}
+			return Export.Object;
 		}
 
 		// In cases when an object has been consolidated but its package hasn't been saved, look for UObjectRedirector before
@@ -4035,7 +4062,8 @@ UObject* FLinkerLoad::CreateImport( int32 Index )
 	DeferPotentialCircularImport(Index); 
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 
-	if( Import.XObject == NULL )
+	// Imports can have no name if they were filtered out due to package redirects, skip in that case
+	if (Import.XObject == nullptr && Import.ObjectName != NAME_None)
 	{
 		if (!GIsEditor && !IsRunningCommandlet())
 		{
@@ -4455,10 +4483,14 @@ void FLinkerLoad::BadNameIndexError(NAME_INDEX NameIndex)
  */
 void FLinkerLoad::MarkScriptSerializationStart( const UObject* Obj )
 {
-	if ( Obj != NULL && Obj->GetLinker() == this && ExportMap.IsValidIndex(Obj->GetLinkerIndex()) )
+	if (Obj && Obj->GetLinker() == this)
 	{
-		FObjectExport& Export = ExportMap[Obj->GetLinkerIndex()];
-		Export.ScriptSerializationStartOffset = Tell();
+		int32 Index = Obj->GetLinkerIndex();
+		if (ExportMap.IsValidIndex(Index))
+		{
+			FObjectExport& Export = ExportMap[Index];
+			Export.ScriptSerializationStartOffset = Tell();
+		}
 	}
 }
 
@@ -4467,10 +4499,14 @@ void FLinkerLoad::MarkScriptSerializationStart( const UObject* Obj )
  */
 void FLinkerLoad::MarkScriptSerializationEnd( const UObject* Obj )
 {
-	if (Obj != NULL && Obj->GetLinker() == this && ExportMap.IsValidIndex(Obj->GetLinkerIndex()))
+	if (Obj && Obj->GetLinker() == this)
 	{
-		FObjectExport& Export = ExportMap[Obj->GetLinkerIndex()];
-		Export.ScriptSerializationEndOffset = Tell();
+		int32 Index = Obj->GetLinkerIndex();
+		if (ExportMap.IsValidIndex(Index))
+		{
+			FObjectExport& Export = ExportMap[Index];
+			Export.ScriptSerializationEndOffset = Tell();
+		}
 	}
 }
 
@@ -4926,6 +4962,43 @@ bool FLinkerLoad::HasAnyObjectsPendingLoad() const
 		}
 	}
 	return false;
+}
+
+bool FLinkerLoad::AttachExternalReadDependency(FExternalReadCallback& ReadCallback)
+{
+	ExternalReadDependencies.Add(ReadCallback);
+	return true;
+}
+
+bool FLinkerLoad::FinishExternalReadDependencies(double InTimeLimit)
+{
+	double LocalStartTime = FPlatformTime::Seconds();
+	double RemainingTime = InTimeLimit;
+	
+	while (ExternalReadDependencies.Num())
+	{
+		FExternalReadCallback& ReadCallback = ExternalReadDependencies.Last();
+		
+		bool bFinished = ReadCallback(RemainingTime);
+		
+		checkf(RemainingTime > 0.0 || bFinished, TEXT("FExternalReadCallback must be finished when RemainingTime is zero"));
+
+		if (bFinished)
+		{
+			ExternalReadDependencies.RemoveAt(ExternalReadDependencies.Num() - 1);
+		}
+
+		// Update remaining time
+		if (RemainingTime > 0.0)
+		{
+			RemainingTime-= (FPlatformTime::Seconds() - LocalStartTime);
+			if (RemainingTime <= 0.0)
+			{
+				return false;
+			}
+		}
+	}
+	return true;
 }
 
 #if WITH_EDITORONLY_DATA

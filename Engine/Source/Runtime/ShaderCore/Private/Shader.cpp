@@ -520,6 +520,11 @@ void FShaderResource::SerializeShaderCode(FArchive& Ar)
 	if (Ar.IsLoading())
 	{
 		bCodeInSharedLocation = bCodeShared;
+
+		if (bCodeInSharedLocation)
+		{
+			FShaderCodeLibrary::RequestShaderCode(OutputHash, &Ar);
+		}
 	}
 
 	if (!bCodeShared)
@@ -549,6 +554,11 @@ void FShaderResource::Release()
 
 		Canary = FShader::ShaderMagic_CleaningUp;
 		BeginCleanup(this);
+
+		if (bCodeInSharedLocation)
+		{
+			FShaderCodeLibrary::ReleaseShaderCode(OutputHash);
+		}
 	}
 }
 
@@ -606,13 +616,19 @@ bool FShaderResource::ArePlatformsCompatible(EShaderPlatform CurrentPlatform, ES
 		TargetPlatform == SP_PCD3D_ES3_1 ||
 		CurrentPlatform == SP_PCD3D_ES2;
 		
+		// For Metal in Editor we can switch feature-levels, but not in cooked projects when using Metal shader librariss.
 		bool const bIsCurrentMetal = IsMetalPlatform(CurrentPlatform);
 		bool const bIsTargetMetal = IsMetalPlatform(TargetPlatform);
+		bool const bIsMetalCompatible = (bIsCurrentMetal == bIsTargetMetal) 
+#if !WITH_EDITOR	// Static analysis doesn't like (|| WITH_EDITOR)
+			&& (!IsMetalPlatform(CurrentPlatform) || (CurrentPlatform == TargetPlatform))
+#endif
+			;
 		
 		bool const bIsCurrentOpenGL = IsOpenGLPlatform(CurrentPlatform);
 		bool const bIsTargetOpenGL = IsOpenGLPlatform(TargetPlatform);
 		
-		bFeatureLevelCompatible = bFeatureLevelCompatible && (bIsCurrentPlatformD3D == bIsTargetD3D && bIsCurrentMetal == bIsTargetMetal && bIsCurrentOpenGL == bIsTargetOpenGL);
+		bFeatureLevelCompatible = bFeatureLevelCompatible && (bIsCurrentPlatformD3D == bIsTargetD3D && bIsMetalCompatible && bIsCurrentOpenGL == bIsTargetOpenGL);
 	}
 
 	return bFeatureLevelCompatible;
@@ -632,14 +648,14 @@ void FShaderResource::InitRHI()
 
 	// we can't have this called on the wrong platform's shaders
 	if (!ArePlatformsCompatible(GMaxRHIShaderPlatform, (EShaderPlatform)Target.Platform))
- 	{
- 		if (FPlatformProperties::RequiresCookedData())
- 		{
- 			UE_LOG(LogShaders, Fatal, TEXT("FShaderResource::InitRHI got platform %s but it is not compatible with %s"), 
+	{
+		if (FPlatformProperties::RequiresCookedData())
+		{
+			UE_LOG(LogShaders, Fatal, TEXT("FShaderResource::InitRHI got platform %s but it is not compatible with %s"), 
 				*LegacyShaderPlatformToShaderFormat((EShaderPlatform)Target.Platform).ToString(), *LegacyShaderPlatformToShaderFormat(GMaxRHIShaderPlatform).ToString());
- 		}
- 		return;
- 	}
+		}
+		return;
+	}
 
 	TArray<uint8> UncompressedCode;
 	if (!bCodeInSharedLocation)
@@ -705,6 +721,12 @@ void FShaderResource::InitRHI()
 		DEC_DWORD_STAT_BY_FName(GetMemoryStatType((EShaderFrequency)Target.Frequency).GetName(), Code.Num());
 		DEC_DWORD_STAT_BY(STAT_Shaders_ShaderResourceMemory, Code.GetAllocatedSize());
 		Code.Empty();
+		
+		if (bCodeInSharedLocation)
+		{
+			FShaderCodeLibrary::ReleaseShaderCode(OutputHash);
+			bCodeInSharedLocation = false;
+		}
 	}
 }
 
@@ -1348,7 +1370,7 @@ FShaderPipeline::FShaderPipeline(const FShaderPipelineType* InPipelineType, cons
 				GeometryShader = Shader;
 				break;
 			default:
-				checkf(0, TEXT("Invalid stage %u found!"), Shader->GetType()->GetFrequency());
+				checkf(0, TEXT("Invalid stage %u found!"), (uint32)Shader->GetType()->GetFrequency());
 				break;
 			}
 		}
@@ -1393,7 +1415,7 @@ FShaderPipeline::FShaderPipeline(const FShaderPipelineType* InPipelineType, cons
 				GeometryShader = Shader;
 				break;
 			default:
-				checkf(0, TEXT("Invalid stage %u found!"), Shader->GetType()->GetFrequency());
+				checkf(0, TEXT("Invalid stage %u found!"), (uint32)Shader->GetType()->GetFrequency());
 				break;
 			}
 		}
@@ -1727,10 +1749,10 @@ void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 		static const auto CVarMobileMultiView = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MobileMultiView"));
 		static const auto CVarMonoscopicFarField = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MonoscopicFarField"));
 
-		const bool bIsInstancedStereo = ((Platform == EShaderPlatform::SP_PCD3D_SM5 || Platform == EShaderPlatform::SP_PS4) && (CVarInstancedStereo && CVarInstancedStereo->GetValueOnGameThread() != 0));
-		const bool bIsMultiView = (Platform == EShaderPlatform::SP_PS4 && (CVarMultiView && CVarMultiView->GetValueOnGameThread() != 0));
+		const bool bIsInstancedStereo = (RHISupportsInstancedStereo(Platform) && (CVarInstancedStereo && CVarInstancedStereo->GetValueOnGameThread() != 0));
+		const bool bIsMultiView = (RHISupportsMultiView(Platform) && (CVarMultiView && CVarMultiView->GetValueOnGameThread() != 0));
 
-		const bool bIsAndroidGLES = (Platform == EShaderPlatform::SP_OPENGL_ES3_1_ANDROID || Platform == EShaderPlatform::SP_OPENGL_ES2_ANDROID);
+		const bool bIsAndroidGLES = RHISupportsMobileMultiView(Platform);
 		const bool bIsMobileMultiView = (bIsAndroidGLES && (CVarMobileMultiView && CVarMobileMultiView->GetValueOnGameThread() != 0));
 
 		const bool bIsMonoscopicFarField = CVarMonoscopicFarField && (CVarMonoscopicFarField->GetValueOnGameThread() != 0);
@@ -1790,16 +1812,23 @@ void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 		KeyString += (CVar && CVar->GetInt() == 0) ? TEXT("_NoFastMath") : TEXT("");
 	}
 	
-	if (IsMetalPlatform(Platform))
 	{
-		static const auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Shaders.ZeroInitialise"));
-		KeyString += (CVar && CVar->GetInt() != 0) ? TEXT("_ZeroInit") : TEXT("");
-	}
-	
-	if (IsMetalPlatform(Platform))
-	{
-		static const auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Shaders.BoundsChecking"));
-		KeyString += (CVar && CVar->GetInt() != 0) ? TEXT("_BoundsChecking") : TEXT("");
+		static const auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Shaders.FlowControlMode"));
+		if (CVar)
+		{
+			switch(CVar->GetInt())
+			{
+				case 2:
+					KeyString += TEXT("_AvoidFlow");
+					break;
+				case 1:
+					KeyString += TEXT("_PreferFlow");
+					break;
+				case 0:
+				default:
+					break;
+			}
+		}
 	}
 
 	if (IsD3DPlatform(Platform, false))
@@ -1843,13 +1872,46 @@ void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 			}
 		}
 	}
-    
-    // Encode the Metal standard into the shader compile options so that they recompile if the settings change.
-    if (IsMetalPlatform(Platform))
-    {
-        uint32 ShaderVersion = RHIGetShaderLanguageVersion(Platform);
-        KeyString += FString::Printf(TEXT("_MTLSTD%u_"), ShaderVersion);
-    }
+	
+	// Encode the Metal standard into the shader compile options so that they recompile if the settings change.
+	if (IsMetalPlatform(Platform))
+	{
+		{
+			static const auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Shaders.ZeroInitialise"));
+			KeyString += (CVar && CVar->GetInt() != 0) ? TEXT("_ZeroInit") : TEXT("");
+		}
+		{
+			static const auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Shaders.BoundsChecking"));
+			KeyString += (CVar && CVar->GetInt() != 0) ? TEXT("_BoundsChecking") : TEXT("");
+		}
+		
+		uint32 ShaderVersion = RHIGetShaderLanguageVersion(Platform);
+		KeyString += FString::Printf(TEXT("_MTLSTD%u_"), ShaderVersion);
+		
+		bool bAllowFastIntrinsics = false;
+		bool bEnableMathOptimisations = true;
+		if (IsPCPlatform(Platform))
+		{
+			GConfig->GetBool(TEXT("/Script/MacTargetPlatform.MacTargetSettings"), TEXT("UseFastIntrinsics"), bAllowFastIntrinsics, GEngineIni);
+			GConfig->GetBool(TEXT("/Script/MacTargetPlatform.MacTargetSettings"), TEXT("EnableMathOptimisations"), bEnableMathOptimisations, GEngineIni);
+		}
+		else
+		{
+			GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("UseFastIntrinsics"), bAllowFastIntrinsics, GEngineIni);
+			GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("EnableMathOptimisations"), bEnableMathOptimisations, GEngineIni);
+		}
+		
+		if (bAllowFastIntrinsics)
+		{
+			KeyString += TEXT("_MTLSL_FastIntrin");
+		}
+		
+		// Same as console-variable above, but that's global and this is per-platform, per-project
+		if (!bEnableMathOptimisations)
+		{
+			KeyString += TEXT("_NoFastMath");
+		}
+	}
 
 	{
 		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.StencilForLODDither"));
@@ -1897,24 +1959,24 @@ void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 		{
 			KeyString += TEXT("_8u");
 		}
-    }
-    
+	}
+	
 	{
 		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.GPUSkin.Limit2BoneInfluences"));
 		if (CVar && CVar->GetValueOnAnyThread() != 0)
 		{
 			KeyString += TEXT("_2bi");
 		}
-    }
-    
-    if (IsMetalPlatform(Platform))
-    {
-        // Shaders built for archiving - for Metal that requires compiling the code in a different way so that we can strip it later
-        bool bArchive = false;
-        GConfig->GetBool(TEXT("/Script/UnrealEd.ProjectPackagingSettings"), TEXT("bShareMaterialShaderCode"), bArchive, GGameIni);
-        if (bArchive)
-        {
-            KeyString += TEXT("_ARCHIVE");
-        }
-    }
+	}
+	
+	if (IsMetalPlatform(Platform))
+	{
+		// Shaders built for archiving - for Metal that requires compiling the code in a different way so that we can strip it later
+		bool bArchive = false;
+		GConfig->GetBool(TEXT("/Script/UnrealEd.ProjectPackagingSettings"), TEXT("bSharedMaterialNativeLibraries"), bArchive, GGameIni);
+		if (bArchive)
+		{
+			KeyString += TEXT("_ARCHIVE");
+		}
+	}
 }

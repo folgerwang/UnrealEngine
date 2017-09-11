@@ -11,6 +11,7 @@
 #include "Misc/CoreStats.h"
 #include "UObject/UObjectGlobals.h"
 #include "Audio.h"
+#include "HAL/LowLevelMemTracker.h"
 
 //
 // Globals
@@ -18,6 +19,9 @@
 
 int32 GCVarSuspendAudioThread = 0;
 TAutoConsoleVariable<int32> CVarSuspendAudioThread(TEXT("AudioThread.SuspendAudioThread"), GCVarSuspendAudioThread, TEXT("0=Resume, 1=Suspend"), ECVF_Cheat);
+
+int32 GCVarAboveNormalAudioThreadPri = 0;
+TAutoConsoleVariable<int32> CVarAboveNormalAudioThreadPri(TEXT("AudioThread.AboveNormalPriority"), GCVarAboveNormalAudioThreadPri, TEXT("0=Normal, 1=AboveNormal"), ECVF_Default);
 
 struct FAudioThreadInteractor
 {
@@ -81,14 +85,14 @@ FAudioThread::FAudioThread()
 {
 	TaskGraphBoundSyncEvent	= FPlatformProcess::GetSynchEventFromPool(true);
 
-	FCoreUObjectDelegates::PreGarbageCollect.AddRaw(this, &FAudioThread::OnPreGarbageCollect);
-	FCoreUObjectDelegates::PostGarbageCollect.AddRaw(this, &FAudioThread::OnPostGarbageCollect);
+	FCoreUObjectDelegates::GetPreGarbageCollectDelegate().AddRaw(this, &FAudioThread::OnPreGarbageCollect);
+	FCoreUObjectDelegates::GetPostGarbageCollect().AddRaw(this, &FAudioThread::OnPostGarbageCollect);
 }
 
 FAudioThread::~FAudioThread()
 {
-	FCoreUObjectDelegates::PreGarbageCollect.RemoveAll(this);
-	FCoreUObjectDelegates::PostGarbageCollect.RemoveAll(this);
+	FCoreUObjectDelegates::GetPreGarbageCollectDelegate().RemoveAll(this);
+	FCoreUObjectDelegates::GetPostGarbageCollect().RemoveAll(this);
 
 	FPlatformProcess::ReturnSynchEventToPool(TaskGraphBoundSyncEvent);
 	TaskGraphBoundSyncEvent = nullptr;
@@ -150,6 +154,8 @@ void FAudioThread::Exit()
 
 uint32 FAudioThread::Run()
 {
+	LLM_SCOPE(ELLMTag::Audio);
+
 	FPlatformProcess::SetupAudioThread();
 	AudioThreadMain( TaskGraphBoundSyncEvent );
 	return 0;
@@ -214,7 +220,7 @@ void FAudioThread::StartAudioThread()
 		// Create the audio thread.
 		AudioThreadRunnable = new FAudioThread();
 
-		GAudioThread = FRunnableThread::Create(AudioThreadRunnable, *FName(NAME_AudioThread).GetPlainNameString(), 0, TPri_BelowNormal, FPlatformAffinity::GetAudioThreadMask());
+		GAudioThread = FRunnableThread::Create(AudioThreadRunnable, *FName(NAME_AudioThread).GetPlainNameString(), 0, (CVarAboveNormalAudioThreadPri.GetValueOnGameThread() == 0) ? TPri_BelowNormal : TPri_AboveNormal, FPlatformAffinity::GetAudioThreadMask());
 
 		// Wait for audio thread to have taskgraph bound before we dispatch any tasks for it.
 		((FAudioThread*)AudioThreadRunnable)->TaskGraphBoundSyncEvent->Wait();

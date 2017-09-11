@@ -245,12 +245,19 @@ bool AreKeysSelectedInNode(FSequencer& Sequencer, TSharedRef<FSequencerDisplayNo
 
 void SequencerHelpers::ValidateNodesWithSelectedKeysOrSections(FSequencer& Sequencer)
 {
+	TArray<TSharedRef<FSequencerDisplayNode>> NodesToRemove;
+
 	for (auto Node : Sequencer.GetSelection().GetNodesWithSelectedKeysOrSections())
 	{
 		if (!IsSectionSelectedInNode(Sequencer, Node) && !AreKeysSelectedInNode(Sequencer, Node))
 		{
-			Sequencer.GetSelection().RemoveFromNodesWithSelectedKeysOrSections(Node);
+			NodesToRemove.Add(Node);
 		}
+	}
+
+	for (auto Node : NodesToRemove)
+	{
+		Sequencer.GetSelection().RemoveFromNodesWithSelectedKeysOrSections(Node);
 	}
 }
 
@@ -331,7 +338,7 @@ void SequencerHelpers::PerformDefaultSelection(FSequencer& Sequencer, const FPoi
 				Selection.AddToSelection(Key);
 			}
 		}
-		else if (Hotspot->GetType() == ESequencerHotspot::Section)
+		else if (Hotspot->GetType() == ESequencerHotspot::Section || Hotspot->GetType() == ESequencerHotspot::EasingArea)
 		{
 			UMovieSceneSection* Section = static_cast<FSectionHotspot*>(Hotspot.Get())->Section.GetSectionObject();
 			if (!Selection.IsSelected(Section))
@@ -343,15 +350,6 @@ void SequencerHelpers::PerformDefaultSelection(FSequencer& Sequencer, const FPoi
 		else if (Hotspot->GetType() == ESequencerHotspot::SectionResize_L || Hotspot->GetType() == ESequencerHotspot::SectionResize_R)
 		{
 			UMovieSceneSection* Section = static_cast<FSectionResizeHotspot*>(Hotspot.Get())->Section.GetSectionObject();
-			if (!Selection.IsSelected(Section))
-			{
-				ConditionallyClearSelection();
-				Selection.AddToSelection(Section);
-			}
-		}
-		else if (Hotspot->GetType() == ESequencerHotspot::EasingArea)
-		{
-			UMovieSceneSection* Section = static_cast<FSectionEasingAreaHotspot*>(Hotspot.Get())->VisibleSection.GetSectionObject();
 			if (!Selection.IsSelected(Section))
 			{
 				ConditionallyClearSelection();
@@ -388,7 +386,7 @@ void SequencerHelpers::PerformDefaultSelection(FSequencer& Sequencer, const FPoi
 			Selection.RemoveFromSelection(Key);
 		}
 	}
-	else if (Hotspot->GetType() == ESequencerHotspot::Section)
+	else if (Hotspot->GetType() == ESequencerHotspot::Section || Hotspot->GetType() == ESequencerHotspot::EasingArea)
 	{
 		UMovieSceneSection* Section = static_cast<FSectionHotspot*>(Hotspot.Get())->Section.GetSectionObject();
 
@@ -404,7 +402,7 @@ void SequencerHelpers::PerformDefaultSelection(FSequencer& Sequencer, const FPoi
 				Selection.RemoveFromSelection(Section);
 			}
 		}
-	}	
+	}
 
 	if (Hotspot->GetType() == ESequencerHotspot::Key)
 	{

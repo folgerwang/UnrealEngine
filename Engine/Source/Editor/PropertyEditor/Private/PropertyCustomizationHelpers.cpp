@@ -370,7 +370,7 @@ void SObjectPropertyEntryBox::Construct( const FArguments& InArgs )
 	OnObjectChanged = InArgs._OnObjectChanged;
 	OnShouldSetAsset = InArgs._OnShouldSetAsset;
 
-	bool bDisplayThumbnail = false;
+	bool bDisplayThumbnail = InArgs._DisplayThumbnail;
 	FIntPoint ThumbnailSize(64, 64);
 
 	if( InArgs._PropertyHandle.IsValid() && InArgs._PropertyHandle->IsValidHandle() )
@@ -378,14 +378,14 @@ void SObjectPropertyEntryBox::Construct( const FArguments& InArgs )
 		PropertyHandle = InArgs._PropertyHandle;
 
 		// check if the property metadata wants us to display a thumbnail
-		FString DisplayThumbnailString = PropertyHandle->GetProperty()->GetMetaData(TEXT("DisplayThumbnail"));
+		const FString& DisplayThumbnailString = PropertyHandle->GetProperty()->GetMetaData(TEXT("DisplayThumbnail"));
 		if(DisplayThumbnailString.Len() > 0)
 		{
 			bDisplayThumbnail = DisplayThumbnailString == TEXT("true");
 		}
 
 		// check if the property metadata has an override to the thumbnail size
-		FString ThumbnailSizeString = PropertyHandle->GetProperty()->GetMetaData(TEXT("ThumbnailSize"));
+		const FString& ThumbnailSizeString = PropertyHandle->GetProperty()->GetMetaData(TEXT("ThumbnailSize"));
 		if ( ThumbnailSizeString.Len() > 0 )
 		{
 			FVector2D ParsedVector;
@@ -406,7 +406,7 @@ void SObjectPropertyEntryBox::Construct( const FArguments& InArgs )
 
 	TSharedPtr<SResetToDefaultPropertyEditor> ResetButton = nullptr;
 
-	if (PropertyHandle.IsValid() && !PropertyHandle->HasMetaData(TEXT("NoResetToDefault")) && !PropertyHandle->IsResetToDefaultCustomized())
+	if (InArgs._CustomResetToDefault.IsSet() || (PropertyHandle.IsValid() && !PropertyHandle->HasMetaData(TEXT("NoResetToDefault")) && !PropertyHandle->IsResetToDefaultCustomized()))
 	{
 		SAssignNew(ResetButton, SResetToDefaultPropertyEditor, PropertyHandle)
 			.IsEnabled(true)
@@ -436,6 +436,11 @@ void SObjectPropertyEntryBox::Construct( const FArguments& InArgs )
 				.EnableContentPicker(InArgs._EnableContentPicker)
 				.PropertyHandle(PropertyHandle)
 				.ThumbnailSize(ThumbnailSize)
+				.DisplayCompactSize(InArgs._DisplayCompactSize)
+				.CustomContentSlot()
+				[
+					InArgs._CustomContentSlot.Widget
+				]
 				.ResetToDefaultSlot()
 				[
 					ResetWidget
@@ -737,6 +742,13 @@ public:
 
 	TSharedRef<SWidget> CreateValueContent( const TSharedPtr<FAssetThumbnailPool>& ThumbnailPool )
 	{
+		FIntPoint ThumbnailSize(64, 64);
+
+		FResetToDefaultOverride ResetToDefaultOverride = FResetToDefaultOverride::Create(
+			FIsResetToDefaultVisible::CreateSP(this, &FMaterialItemView::GetReplaceVisibility),
+			FResetToDefaultHandler::CreateSP(this, &FMaterialItemView::OnResetToBaseClicked)
+		);
+
 		return
 			SNew(SHorizontalBox)
 			+ SHorizontalBox::Slot()
@@ -752,14 +764,13 @@ public:
 					+SHorizontalBox::Slot()
 					.FillWidth(1.0f)
 					[
-						SNew( SPropertyEditorAsset )
+						SNew( SObjectPropertyEntryBox )
 						.ObjectPath(MaterialItem.Material->GetPathName())
-						.Class(UMaterialInterface::StaticClass())
-						.OnSetObject(this, &FMaterialItemView::OnSetObject)
-						.DisplayThumbnail(true)
+						.AllowedClass(UMaterialInterface::StaticClass())
+						.OnObjectChanged(this, &FMaterialItemView::OnSetObject)
 						.ThumbnailPool(ThumbnailPool)
-						.ThumbnailSize(bDisplayCompactSize ? FIntPoint(48, 48) : FIntPoint(64, 64) )
 						.DisplayCompactSize(bDisplayCompactSize)
+						.CustomResetToDefault(ResetToDefaultOverride)
 						.CustomContentSlot()
 						[
 							SNew( SBox )
@@ -796,23 +807,6 @@ public:
 							]
 						]
 					]
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Top)
-					.Padding(4.0f, 9.0f)
-					[
-						// Add a button to reset the material to the base material
-						SNew(SButton)
-						.ToolTipText(LOCTEXT("ResetToBaseMaterial", "Reset to base material"))
-						.ButtonStyle(FEditorStyle::Get(), "NoBorder")
-						.ContentPadding(0)
-						.Visibility(this, &FMaterialItemView::GetReplaceVisibility)
-						.OnClicked(this, &FMaterialItemView::OnResetToBaseClicked)
-						[
-							SNew(SImage)
-							.Image(FEditorStyle::GetBrush("PropertyWindow.DiffersFromDefault"))
-						]
-					]
 				]
 				+SVerticalBox::Slot()
 				.AutoHeight()
@@ -822,7 +816,6 @@ public:
 					OnGenerateCustomMaterialWidgets.IsBound() && !bDisplayCompactSize ? OnGenerateCustomMaterialWidgets.Execute( MaterialItem.Material.Get(), MaterialItem.SlotIndex ) : StaticCastSharedRef<SWidget>( SNullWidget::NullWidget )
 				]
 			];
-
 	}
 
 private:
@@ -921,21 +914,21 @@ private:
 	/**
 	 * Called to get the visibility of the replace button
 	 */
-	EVisibility GetReplaceVisibility() const
+	bool GetReplaceVisibility(TSharedPtr<IPropertyHandle> PropertyHandle) const
 	{
 		// Only show the replace button if the current material can be replaced
-		if( OnMaterialChanged.IsBound() && MaterialItem.bCanBeReplaced )
+		if (OnMaterialChanged.IsBound() && MaterialItem.bCanBeReplaced)
 		{
-			return EVisibility::Visible;
+			return true;
 		}
 
-		return EVisibility::Collapsed;
+		return false;
 	}
 
 	/**
 	 * Called when reset to base is clicked
 	 */
-	FReply OnResetToBaseClicked()
+	void OnResetToBaseClicked(TSharedPtr<IPropertyHandle> PropertyHandle)
 	{
 		// Only allow reset to base if the current material can be replaced
 		if( MaterialItem.Material.IsValid() && MaterialItem.bCanBeReplaced )
@@ -944,7 +937,6 @@ private:
 			ReplaceMaterial( NULL, bReplaceAll );
 			OnResetToDefaultClicked.ExecuteIfBound( MaterialItem.Material.Get(), MaterialItem.SlotIndex );
 		}
-		return FReply::Handled();
 	}
 
 private:
@@ -1240,194 +1232,6 @@ void FMaterialList::AddMaterialItem( FDetailWidgetRow& Row, int32 CurrentSlot, c
 	[
 		RightSideContent.ToSharedRef()
 	];
-}
-
-
-TSharedRef<SWidget> PropertyCustomizationHelpers::MakeTextLocalizationButton(const TSharedRef<IPropertyHandle>& InPropertyHandle)
-{
-	class STextPropertyLocalizationMenuContent : public SCompoundWidget
-	{
-		SLATE_BEGIN_ARGS(STextPropertyLocalizationMenuContent) {}
-		SLATE_END_ARGS()
-
-	public:
-		STextPropertyLocalizationMenuContent()
-			: HasNamespaceAndKey(false)
-		{
-		}
-
-		void Construct(const FArguments& InArgs, const TSharedRef<IPropertyHandle>& InPropHandle)
-		{
-			PropertyHandle = InPropHandle;
-
-			FText DisplayText;
-			if (PropertyHandle->GetValueAsDisplayText(DisplayText) == FPropertyAccess::Success)
-			{
-				const FTextDisplayStringRef DisplayString = FTextInspector::GetSharedDisplayString(DisplayText);
-				CacheNamespaceAndKey(DisplayString);
-			}
-
-			FMenuBuilder MenuContentBuilder(true, NULL);
-			{
-				MenuContentBuilder.BeginSection(TEXT("Localization"), LOCTEXT("LocalizationSectionHeading", "Localization"));
-				{
-					TSharedPtr<SGridPanel> GridPanel;
-					TSharedRef<SWidgetSwitcher> WidgetSwitcher = SNew(SWidgetSwitcher)
-						.WidgetIndex_Lambda( [this](){return HasNamespaceAndKey ? 0 : 1;} )
-						+SWidgetSwitcher::Slot()
-						[
-							SAssignNew(GridPanel, SGridPanel)
-						]
-						+SWidgetSwitcher::Slot()
-						[
-							SNew(STextBlock)
-							.Text(LOCTEXT("NoLocWarning", "No localization information available."))
-						];
-
-					GridPanel->AddSlot(0, 0)
-						.VAlign(VAlign_Center)
-						.Padding(1.0f)
-						[
-							SNew(STextBlock)
-							.Text(LOCTEXT("KeyLabel", "Key"))
-							.ToolTipText(LOCTEXT("KeyTooltip", "The localization key of the text property."))
-						];
-
-					const auto& GetKeyAsText = [this](){ return KeyAsText; };
-
-					GridPanel->AddSlot(1, 0)
-						.VAlign(VAlign_Center)
-						.Padding(1.0f)
-						[
-							SNew(SHorizontalBox)
-							+SHorizontalBox::Slot()
-							.FillWidth(1.0f)
-							[
-								SNew(SEditableTextBox)
-								.Text_Lambda(GetKeyAsText)
-								.OnTextCommitted(FOnTextCommitted::CreateSP(this, &STextPropertyLocalizationMenuContent::HandleKeyTextCommitted))
-							]
-							+ SHorizontalBox::Slot()
-							.AutoWidth()
-							.HAlign(HAlign_Center)
-							.Padding(2.0f, 0.0f, 0.0f, 0.0f)
-							[
-								SNew(SButton)
-								.ToolTipText(LOCTEXT("RefreshKeyTooltip", "Generate a new random key."))
-								.ButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
-								.OnClicked(FOnClicked::CreateSP(this, &STextPropertyLocalizationMenuContent::HandleGenerateKeyClicked))
-								.Content()
-								[
-									SNew(SImage)
-									.Image(FEditorStyle::GetBrush("PropertyWindow.Button_Refresh"))
-								]
-							]
-						];
-
-					GridPanel->AddSlot(0, 1)
-						.VAlign(VAlign_Center)
-						.Padding(1.0f, 1.0f, 5.0f, 1.0f)
-						[
-							SNew(STextBlock)
-							.Text(LOCTEXT("NamespaceLabel", "Namespace"))
-							.ToolTipText(LOCTEXT("NamespaceTooltip", "The localization namespace of the text property."))
-						];
-
-					const auto& GetNamespaceAsText = [this](){ return NamespaceAsText; };
-
-					GridPanel->AddSlot(1, 1)
-						.VAlign(VAlign_Center)
-						.Padding(1.0f)
-						[
-							SNew(SEditableTextBox)
-							.Text_Lambda(GetNamespaceAsText)
-							.OnTextCommitted(FOnTextCommitted::CreateSP(this, &STextPropertyLocalizationMenuContent::HandleNamespaceTextCommitted))
-						];
-
-					MenuContentBuilder.AddWidget(WidgetSwitcher, FText::GetEmpty());
-				}
-				MenuContentBuilder.EndSection();
-			}
-
-			ChildSlot
-				[
-					MenuContentBuilder.MakeWidget()
-				];
-		}
-
-	private:
-		FReply HandleGenerateKeyClicked() 
-		{
-			FText DisplayText;
-			if (PropertyHandle->GetValueAsDisplayText(DisplayText) == FPropertyAccess::Success)
-			{
-				const FTextDisplayStringRef DisplayString = FTextInspector::GetSharedDisplayString(DisplayText);
-				CacheNamespaceAndKey(DisplayString);
-				PropertyHandle->NotifyPreChange();
-				FTextLocalizationManager::Get().UpdateDisplayString(DisplayString, *DisplayString, CachedNamespace, FGuid::NewGuid().ToString());
-				PropertyHandle->NotifyPostChange();
-				CacheNamespaceAndKey(DisplayString);
-			}
-
-			return FReply::Handled();
-		}
-
-		void HandleKeyTextCommitted(const FText& NewKeyAsText, ETextCommit::Type InCommitType)
-		{
-			FText DisplayText;
-			if (PropertyHandle->GetValueAsDisplayText(DisplayText) == FPropertyAccess::Success)
-			{
-				const FTextDisplayStringRef DisplayString = FTextInspector::GetSharedDisplayString(DisplayText);
-				CacheNamespaceAndKey(DisplayString);
-				PropertyHandle->NotifyPreChange();
-				FTextLocalizationManager::Get().UpdateDisplayString(DisplayString, *DisplayString, CachedNamespace, NewKeyAsText.ToString());
-				PropertyHandle->NotifyPostChange();
-				CacheNamespaceAndKey(DisplayString);
-			}
-		}
-
-		void HandleNamespaceTextCommitted(const FText& NewNamespaceAsText, ETextCommit::Type InCommitType)
-		{
-			FText DisplayText;
-			if (PropertyHandle->GetValueAsDisplayText(DisplayText) == FPropertyAccess::Success)
-			{
-				const FTextDisplayStringRef DisplayString = FTextInspector::GetSharedDisplayString(DisplayText);
-				CacheNamespaceAndKey(DisplayString);
-				PropertyHandle->NotifyPreChange();
-				FTextLocalizationManager::Get().UpdateDisplayString(DisplayString, *DisplayString, NewNamespaceAsText.ToString(), CachedKey);
-				PropertyHandle->NotifyPostChange();
-				CacheNamespaceAndKey(DisplayString);
-			}
-		}
-
-		void CacheNamespaceAndKey(const FTextDisplayStringRef& DisplayString)
-		{
-			HasNamespaceAndKey = FTextLocalizationManager::Get().FindNamespaceAndKeyFromDisplayString(DisplayString, CachedNamespace, CachedKey);
-			NamespaceAsText = FText::FromString(CachedNamespace);
-			KeyAsText = FText::FromString(CachedKey);
-		}
-
-	private:
-		TSharedPtr<IPropertyHandle> PropertyHandle;
-		bool HasNamespaceAndKey;
-		FText NamespaceAsText;
-		FText KeyAsText;
-		FString CachedNamespace;
-		FString CachedKey;
-	};
-
-	const auto& GetLocalizationMenuContent = [=]() -> TSharedRef<SWidget>
-	{
-		return SNew(STextPropertyLocalizationMenuContent, InPropertyHandle);
-	};
-
-	return SNew(SComboButton)
-		.ToolTipText(LOCTEXT("LocalizationUtilitiesTooltip", "Localization Utilities"))
-		.ButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
-		.ContentPadding(2)
-		.ForegroundColor(FSlateColor::UseForeground())
-		.HasDownArrow(true)
-		.OnGetMenuContent(FOnGetContent::CreateLambda(GetLocalizationMenuContent));
 }
 
 TSharedRef<SWidget> PropertyCustomizationHelpers::MakePropertyComboBox(const TSharedPtr<IPropertyHandle>& InPropertyHandle, FOnGetPropertyComboBoxStrings OnGetStrings, FOnGetPropertyComboBoxValue OnGetValue, FOnPropertyComboBoxValueSelected OnValueSelected)
@@ -1733,10 +1537,9 @@ private:
 	/**
 	* Called when reset to base is clicked
 	*/
-	FReply OnResetToBaseClicked()
+	void OnResetToBaseClicked(TSharedRef<IPropertyHandle> PropertyHandle)
 	{
 		OnResetToDefaultClicked.ExecuteIfBound(SectionItem.LodIndex, SectionItem.SectionIndex);
-		return FReply::Handled();
 	}
 
 private:

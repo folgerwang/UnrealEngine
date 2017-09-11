@@ -21,6 +21,10 @@ static FAutoConsoleVariableRef CVarVulkanUseSingleQueue(
 FVulkanCmdBuffer::FVulkanCmdBuffer(FVulkanDevice* InDevice, FVulkanCommandBufferPool* InCommandBufferPool)
 	: bNeedsDynamicStateSet(true)
 	, bHasPipeline(false)
+	, bHasViewport(false)
+	, bHasScissor(false)
+	, bHasStencilRef(false)
+	, CurrentStencilRef(0)
 	, Device(InDevice)
 	, CommandBufferHandle(VK_NULL_HANDLE)
 	, State(EState::ReadyForBegin)
@@ -28,6 +32,9 @@ FVulkanCmdBuffer::FVulkanCmdBuffer(FVulkanDevice* InDevice, FVulkanCommandBuffer
 	, FenceSignaledCounter(0)
 	, CommandBufferPool(InCommandBufferPool)
 {
+	FMemory::Memzero(CurrentViewport);
+	FMemory::Memzero(CurrentScissor);
+	
 	VkCommandBufferAllocateInfo CreateCmdBufInfo;
 	FMemory::Memzero(CreateCmdBufInfo);
 	CreateCmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -63,7 +70,7 @@ void FVulkanCmdBuffer::BeginRenderPass(const FVulkanRenderTargetLayout& Layout, 
 {
 	check(IsOutsideRenderPass());
 
-	VkRenderPassBeginInfo Info;
+    VkRenderPassBeginInfo Info;
 	FMemory::Memzero(Info);
 	Info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	Info.renderPass = RenderPass->GetHandle();
@@ -104,6 +111,14 @@ void FVulkanCmdBuffer::RefreshFenceStatus()
 		{
 			State = EState::ReadyForBegin;
 			bHasPipeline = false;
+			bHasViewport = false;
+			bHasScissor = false;
+			bHasStencilRef = false;
+
+			FMemory::Memzero(CurrentViewport);
+			FMemory::Memzero(CurrentScissor);
+			CurrentStencilRef = 0;
+
 			VulkanRHI::vkResetCommandBuffer(CommandBufferHandle, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
 #if VULKAN_REUSE_FENCES
 			Fence->GetOwner()->ResetFence(Fence);
@@ -153,23 +168,27 @@ void FVulkanCommandBufferPool::Create(uint32 QueueFamilyIndex)
 FVulkanCommandBufferManager::FVulkanCommandBufferManager(FVulkanDevice* InDevice, FVulkanCommandListContext* InContext)
 	: Device(InDevice)
 	, Pool(InDevice)
+	, Queue(InContext->GetQueue())
 	, ActiveCmdBuffer(nullptr)
 	, UploadCmdBuffer(nullptr)
 {
 	check(Device);
 
-	Pool.Create(Device->GetGraphicsQueue()->GetFamilyIndex());
+	Pool.Create(Queue->GetFamilyIndex());
 
 	ActiveCmdBuffer = Pool.Create();
 	ActiveCmdBuffer->Begin();
 
-	// Insert the Begin frame timestamp query. On EndDrawingViewport() we'll insert the End and immediately after a new Begin()
-	InContext->WriteBeginTimestamp(ActiveCmdBuffer);
+	if (InContext->IsImmediate())
+	{
+		// Insert the Begin frame timestamp query. On EndDrawingViewport() we'll insert the End and immediately after a new Begin()
+		InContext->WriteBeginTimestamp(ActiveCmdBuffer);
 
-	// Flush the cmd buffer immediately to ensure a valid
-	// 'Last submitted' cmd buffer exists at frame 0.
-	SubmitActiveCmdBuffer(false);
-	PrepareForNewActiveCommandBuffer();
+		// Flush the cmd buffer immediately to ensure a valid
+		// 'Last submitted' cmd buffer exists at frame 0.
+		SubmitActiveCmdBuffer(false);
+		PrepareForNewActiveCommandBuffer();
+	}
 }
 
 FVulkanCommandBufferManager::~FVulkanCommandBufferManager()
@@ -190,7 +209,7 @@ void FVulkanCommandBufferManager::SubmitUploadCmdBuffer(bool bWaitForFence)
 	check(UploadCmdBuffer);
 	check(UploadCmdBuffer->IsOutsideRenderPass());
 	UploadCmdBuffer->End();
-	Device->GetGraphicsQueue()->Submit(UploadCmdBuffer, nullptr, 0, nullptr);
+	Queue->Submit(UploadCmdBuffer, nullptr, 0, nullptr);
 	if (bWaitForFence)
 	{
 		if (UploadCmdBuffer->IsSubmitted())
@@ -212,7 +231,7 @@ void FVulkanCommandBufferManager::SubmitActiveCmdBuffer(bool bWaitForFence)
 		ActiveCmdBuffer->EndRenderPass();
 	}
 	ActiveCmdBuffer->End();
-	Device->GetGraphicsQueue()->Submit(ActiveCmdBuffer, nullptr, 0, nullptr);
+	Queue->Submit(ActiveCmdBuffer, nullptr, 0, nullptr);
 	if (bWaitForFence)
 	{
 		if (ActiveCmdBuffer->IsSubmitted())

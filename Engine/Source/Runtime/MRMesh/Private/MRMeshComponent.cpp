@@ -16,6 +16,7 @@
 #include "PhysicsPublic.h"
 #include "IPhysXCooking.h"
 #include "PhysXCookHelper.h"
+#include "Misc/RuntimeErrors.h"
 
 /**
  * A vertex buffer with some dummy data to send down for MRMesh vertex components that we aren't feeding at the moment.
@@ -384,10 +385,13 @@ UMRMeshComponent::UMRMeshComponent(const FObjectInitializer& ObjectInitializer)
 
 void UMRMeshComponent::ConnectReconstructor(UMeshReconstructorBase* Reconstructor)
 {
-	if (ensure(MeshReconstructor == nullptr))
+	if (ensureAsRuntimeWarning(Reconstructor != nullptr))
 	{
-		MeshReconstructor = Reconstructor;
-		MeshReconstructor->ConnectMRMesh(this);
+		if (ensure(MeshReconstructor == nullptr))
+		{
+			MeshReconstructor = Reconstructor;
+			MeshReconstructor->ConnectMRMesh(this);
+		}
 	}
 }
 
@@ -476,8 +480,11 @@ void UMRMeshComponent::SendBrickData_Internal(IMRMesh::FSendBrickDataArgs Args, 
 				MyBS->CollisionTraceFlag = CTF_UseComplexAsSimple;
 
 				FCookBodySetupInfo CookInfo;
-				MyBS->GetCookInfo(CookInfo, EPhysXMeshCookFlags::FastCook);
+				// Disable mesh cleaning by passing in EPhysXMeshCookFlags::DeformableMesh
+				static const EPhysXMeshCookFlags CookFlags = EPhysXMeshCookFlags::FastCook | EPhysXMeshCookFlags::DeformableMesh;
+				MyBS->GetCookInfo(CookInfo, CookFlags);
 				CookInfo.bCookTriMesh = true;
+				CookInfo.TriMeshCookFlags = CookInfo.ConvexCookFlags = CookFlags;
 				CookInfo.TriangleMeshDesc.bFlipNormals = true;
 				CookInfo.TriangleMeshDesc.Vertices = Args.PositionData;
 				const int NumFaces = Args.Indices.Num() / 3;

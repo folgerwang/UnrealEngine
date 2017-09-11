@@ -24,6 +24,7 @@
 #include "MaterialShared.h"
 #include "SceneManagement.h"
 #include "PrecomputedLightVolume.h"
+#include "PrecomputedVolumetricLightmap.h"
 #include "Components/LightComponent.h"
 #include "GameFramework/WorldSettings.h"
 #include "Components/DecalComponent.h"
@@ -57,6 +58,8 @@
 // while GWorld is the editor world, for example.
 #define CHECK_FOR_PIE_PRIMITIVE_ATTACH_SCENE_MISMATCH	0
 
+
+DECLARE_CYCLE_STAT(TEXT("DeferredShadingSceneRenderer MotionBlurStartFrame"), STAT_FDeferredShadingSceneRenderer_MotionBlurStartFrame, STATGROUP_SceneRendering);
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FDistanceCullFadeUniformShaderParameters,TEXT("PrimitiveFade"));
 
@@ -618,6 +621,7 @@ FScene::FScene(UWorld* InWorld, bool bInRequiresHitProxies, bool bInIsEditorScen
 ,	NumVisibleLights_GameThread(0)
 ,	NumEnabledSkylights_GameThread(0)
 ,	SceneFrameNumber(0)
+,	CurrentFrameUpdatedMotionBlurCache(false)
 {
 	FMemory::Memzero(MobileDirectionalLights);
 
@@ -677,6 +681,7 @@ FScene::~FScene()
 	ReflectionSceneData.CubemapArray.ReleaseResource();
 	IndirectLightingCache.ReleaseResource();
 	DistanceFieldSceneData.Release();
+	VolumetricLightmapSceneData.Release();
 
 	if (AtmosphericFog)
 	{
@@ -1661,6 +1666,101 @@ void FScene::RemovePrecomputedLightVolume(const FPrecomputedLightVolume* Volume)
 		});
 }
 
+void CreateVolumetricLightmapTexture(FIntVector Dimensions, FVolumetricLightmapDataLayer* DataLayer, FTexture3DRHIRef& OutTexture)
+{
+	FRHIResourceCreateInfo CreateInfo;
+	CreateInfo.BulkData = DataLayer;
+
+	OutTexture = RHICreateTexture3D(
+		Dimensions.X, 
+		Dimensions.Y, 
+		Dimensions.Z, 
+		DataLayer->Format,
+		1,
+		TexCreate_ShaderResource,
+		CreateInfo);
+}
+
+void FVolumetricLightmapSceneData::AddLevelVolume(const FPrecomputedVolumetricLightmap* InVolume, ERHIFeatureLevel::Type FeatureLevel)
+{
+	LevelVolumetricLightmaps.Add(InVolume);
+
+	if (PlatformSupportsGPUInterpolatedVolumetricLightmaps(FeatureLevel))
+	{
+		FRHIResourceCreateInfo CreateInfo;
+		CreateInfo.BulkData = &InVolume->Data->IndirectionTexture;
+
+		IndirectionTexture = RHICreateTexture3D(
+			InVolume->Data->IndirectionTextureDimensions.X,
+			InVolume->Data->IndirectionTextureDimensions.Y,
+			InVolume->Data->IndirectionTextureDimensions.Z,
+			InVolume->Data->IndirectionTexture.Format,
+			1,
+			TexCreate_ShaderResource,
+			CreateInfo);
+
+		CreateVolumetricLightmapTexture(InVolume->Data->BrickDataDimensions, &InVolume->Data->BrickData.AmbientVector, AmbientVectorTextureRHI);
+
+		static_assert(ARRAY_COUNT(InVolume->Data->BrickData.SHCoefficients) == ARRAY_COUNT(SHCoefficientsTextureRHI), "Mismatched coefficient count");
+
+		for (int32 i = 0; i < ARRAY_COUNT(SHCoefficientsTextureRHI); i++)
+		{
+			CreateVolumetricLightmapTexture(InVolume->Data->BrickDataDimensions, &InVolume->Data->BrickData.SHCoefficients[i], SHCoefficientsTextureRHI[i]);
+		}
+
+		if (InVolume->Data->BrickData.SkyBentNormal.Data.Num() > 0)
+		{
+			CreateVolumetricLightmapTexture(InVolume->Data->BrickDataDimensions, &InVolume->Data->BrickData.SkyBentNormal, SkyBentNormalTextureRHI);
+		}
+
+		CreateVolumetricLightmapTexture(InVolume->Data->BrickDataDimensions, &InVolume->Data->BrickData.DirectionalLightShadowing, DirectionalLightShadowingTextureRHI);
+	}
+
+	const FBox& VolumeBounds = InVolume->Data->GetBounds();
+	const FVector InvVolumeSize = FVector(1.0f) / VolumeBounds.GetSize();
+	VolumeWorldToUVScale = InvVolumeSize;
+	VolumeWorldToUVAdd = -VolumeBounds.Min * InvVolumeSize;
+
+	IndirectionTextureSize = FVector(InVolume->Data->IndirectionTextureDimensions);
+	BrickSize = InVolume->Data->BrickSize;
+	BrickDataTexelSize = FVector(1.0f, 1.0f, 1.0f) / FVector(InVolume->Data->BrickDataDimensions);
+}
+
+void FVolumetricLightmapSceneData::RemoveLevelVolume(const FPrecomputedVolumetricLightmap* InVolume)
+{
+	if (LevelVolumetricLightmaps.Remove(InVolume) > 0)
+	{
+		Release();
+	}
+}
+
+bool FScene::HasPrecomputedVolumetricLightmap_RenderThread() const
+{
+	return VolumetricLightmapSceneData.HasData();
+}
+
+void FScene::AddPrecomputedVolumetricLightmap(const FPrecomputedVolumetricLightmap* Volume)
+{
+	FScene* Scene = this;
+
+	ENQUEUE_RENDER_COMMAND(AddVolumeCommand)
+		([Scene, Volume](FRHICommandListImmediate& RHICmdList) 
+		{
+			Scene->VolumetricLightmapSceneData.AddLevelVolume(Volume, Scene->GetFeatureLevel());
+		});
+}
+
+void FScene::RemovePrecomputedVolumetricLightmap(const FPrecomputedVolumetricLightmap* Volume)
+{
+	FScene* Scene = this; 
+
+	ENQUEUE_RENDER_COMMAND(RemoveVolumeCommand)
+		([Scene, Volume](FRHICommandListImmediate& RHICmdList) 
+		{
+			Scene->VolumetricLightmapSceneData.RemoveLevelVolume(Volume);
+		});
+}
+
 struct FUpdateLightTransformParameters
 {
 	FMatrix LightToWorld;
@@ -1809,7 +1909,21 @@ void FScene::RemoveLightSceneInfo_RenderThread(FLightSceneInfo* LightSceneInfo)
 		    {
 			    if (LightSceneInfo == MobileDirectionalLights[LightChannelIdx])
 			    {
-				    MobileDirectionalLights[LightChannelIdx] = nullptr;
+					MobileDirectionalLights[LightChannelIdx] = nullptr;
+
+					// find another light that could be the new MobileDirectionalLight for this channel
+					for (const FLightSceneInfoCompact& OtherLight : Lights)
+					{
+						if (OtherLight.LightSceneInfo != LightSceneInfo &&
+							OtherLight.LightType == LightType_Directional &&
+							!OtherLight.bStaticLighting &&
+							GetFirstLightingChannelFromMask(OtherLight.LightSceneInfo->Proxy->GetLightingChannelMask()) == LightChannelIdx)
+						{
+							MobileDirectionalLights[LightChannelIdx] = OtherLight.LightSceneInfo;
+							break;
+						}
+					}
+
 					// if this light is a dynamic shadowcast then we need to update the static draw lists to pick a new lightingpolicy
 					if (!LightSceneInfo->Proxy->HasStaticShadowing() || bUseCSMForDynamicObjects)
 					{
@@ -2843,6 +2957,23 @@ bool FScene::AddPixelInspectorRequest(FPixelInspectorRequest *PixelInspectorRequ
 }
 #endif //WITH_EDITOR
 
+void FScene::EnsureMotionBlurCacheIsUpToDate(bool bWorldIsPaused)
+{
+	if (!CurrentFrameUpdatedMotionBlurCache)
+	{
+		FScene* Scene = this;
+
+		ENQUEUE_RENDER_COMMAND(MotionBlurStartFrame)(
+			[Scene, bWorldIsPaused](FRHICommandList& RHICmdList)
+		{
+			SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_MotionBlurStartFrame);
+			Scene->MotionBlurInfoData.StartFrame(bWorldIsPaused);
+		});
+
+		CurrentFrameUpdatedMotionBlurCache = true;
+	}
+}
+
 /**
  * Dummy NULL scene interface used by dedicated servers.
  */
@@ -3014,6 +3145,12 @@ template<>
 TStaticMeshDrawList<TBasePassDrawingPolicy<FSelfShadowedCachedPointIndirectLightingPolicy> >& FScene::GetBasePassDrawList<FSelfShadowedCachedPointIndirectLightingPolicy>(EBasePassDrawListType DrawType)
 {
 	return BasePassSelfShadowedCachedPointIndirectTranslucencyDrawList[DrawType];
+}
+
+template<>
+TStaticMeshDrawList<TBasePassDrawingPolicy<FSelfShadowedVolumetricLightmapPolicy> >& FScene::GetBasePassDrawList<FSelfShadowedVolumetricLightmapPolicy>(EBasePassDrawListType DrawType)
+{
+	return BasePassSelfShadowedVolumetricLightmapTranslucencyDrawList[DrawType];
 }
 
 /**  */

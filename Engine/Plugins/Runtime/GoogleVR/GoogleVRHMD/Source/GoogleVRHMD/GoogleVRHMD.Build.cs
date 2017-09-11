@@ -1,17 +1,4 @@
-/* Copyright 2016 Google Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2017 Google Inc.
 
 using System.IO;
 
@@ -25,7 +12,8 @@ namespace UnrealBuildTool.Rules
 				new string[] {
 					"GoogleVRHMD/Private",
 					"../../../../../Source/Runtime/Renderer/Private",
-					"../../../../../Source/Runtime/Core/Private"
+					"../../../../../Source/Runtime/Core/Private",
+					"../../../../../Source/Runtime/ApplicationCore/Private"
 				}
 				);
 
@@ -49,7 +37,7 @@ namespace UnrealBuildTool.Rules
 				PrivateDependencyModuleNames.Add("Launch");
 			}
 
-			if (UEBuildConfiguration.bBuildEditor == true)
+			if (Target.bBuildEditor == true)
 			{
 				PrivateDependencyModuleNames.AddRange(
 					new string[]
@@ -58,7 +46,7 @@ namespace UnrealBuildTool.Rules
 						"GoogleInstantPreview"
 					});
 			}
-			else
+			else if (Target.Platform != UnrealTargetPlatform.Mac)
 			{
 				PrivateDependencyModuleNames.AddRange(new string[] { "OpenGLDrv" });
 				AddEngineThirdPartyPrivateStaticDependencies(Target, "OpenGL");
@@ -74,14 +62,14 @@ namespace UnrealBuildTool.Rules
 			{
 				PrivateDependencyModuleNames.AddRange(new string[] { "GoogleVR" });
 
-				string PluginPath = Utils.MakePathRelativeTo(ModuleDirectory, BuildConfiguration.RelativeEnginePath);
+				string PluginPath = Utils.MakePathRelativeTo(ModuleDirectory, Target.RelativeEnginePath);
 				AdditionalPropertiesForReceipt.Add(new ReceiptProperty("AndroidPlugin", Path.Combine(PluginPath, "GoogleVRHMD_APL.xml")));
 			}
 			else if (Target.Platform == UnrealTargetPlatform.IOS)
 			{
-				PrivateDependencyModuleNames.AddRange(new string[] { "GoogleVR" });
+				PrivateDependencyModuleNames.AddRange(new string[] { "GoogleVR", "ApplicationCore" });
 
-				string PluginPath = Utils.MakePathRelativeTo(ModuleDirectory, BuildConfiguration.RelativeEnginePath);
+				string PluginPath = Utils.MakePathRelativeTo(ModuleDirectory, Target.RelativeEnginePath);
 				AdditionalPropertiesForReceipt.Add(new ReceiptProperty("IOSPlugin", Path.Combine(PluginPath, "GoogleVRHMD_APL.xml")));
 			}
 		}

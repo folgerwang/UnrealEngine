@@ -4,6 +4,7 @@
 #include "MeshMergeHelpers.h"
 
 FMeshMergeDataTracker::FMeshMergeDataTracker()
+	: AvailableLightMapUVChannel(INDEX_NONE), SummedLightMapPixels(0)
 {
 	FMemory::Memzero(bWithVertexColors);
 	FMemory::Memzero(bOcuppiedUVChannels);
@@ -29,6 +30,11 @@ TConstRawMeshIterator FMeshMergeDataTracker::GetConstRawMeshIterator() const
 TRawMeshIterator FMeshMergeDataTracker::GetRawMeshIterator()
 {
 	return RawMeshLODs.CreateIterator();
+}
+
+void FMeshMergeDataTracker::AddLightmapChannelRecord(int32 MeshIndex, int32 LODIndex, int32 LightmapChannelIndex)
+{
+	LightmapChannelLODs.Add(FMeshLODKey(MeshIndex, LODIndex), LightmapChannelIndex);
 }
 
 int32 FMeshMergeDataTracker::AddSection(const FSectionInfo& SectionInfo)
@@ -59,6 +65,22 @@ void FMeshMergeDataTracker::AddBakedMaterialSection(const FSectionInfo& SectionI
 	UniqueSections.AddUnique(SectionInfo);
 }
 
+void FMeshMergeDataTracker::AddMaterialSlotName(UMaterialInterface *MaterialInterface, FName MaterialSlotName)
+{
+	FName *FindMaterialSlotName = MaterialInterfaceToMaterialSlotName.Find(MaterialInterface);
+	//If there is a material use by more then one slot, only the first slot name occurrence will be use. (selection order)
+	if (FindMaterialSlotName == nullptr)
+	{
+		MaterialInterfaceToMaterialSlotName.Add(MaterialInterface, MaterialSlotName);
+	}
+}
+
+FName FMeshMergeDataTracker::GetMaterialSlotName(UMaterialInterface *MaterialInterface) const
+{
+	const FName *MaterialSlotName = MaterialInterfaceToMaterialSlotName.Find(MaterialInterface);
+	return MaterialSlotName == nullptr ? NAME_None : *MaterialSlotName;
+}
+
 void FMeshMergeDataTracker::AddLODIndex(int32 LODIndex)
 {
 	LODIndices.AddUnique(LODIndex);
@@ -72,6 +94,16 @@ int32 FMeshMergeDataTracker::GetNumLODsForMergedMesh() const
 TConstLODIndexIterator FMeshMergeDataTracker::GetLODIndexIterator() const
 {
 	return LODIndices.CreateConstIterator();
+}
+
+void FMeshMergeDataTracker::AddLightMapPixels(int32 Dimension)
+{
+	SummedLightMapPixels += FMath::Max(Dimension, 0);
+}
+
+int32 FMeshMergeDataTracker::GetLightMapDimension() const
+{
+	return FMath::CeilToInt(FMath::Sqrt(SummedLightMapPixels));
 }
 
 bool FMeshMergeDataTracker::DoesLODContainVertexColors(int32 LODIndex) const
@@ -89,6 +121,7 @@ bool FMeshMergeDataTracker::DoesUVChannelContainData(int32 UVChannel, int32 LODI
 
 bool FMeshMergeDataTracker::DoesMeshLODRequireUniqueUVs(FMeshLODKey Key)
 {
+	// if we have vertex color, we require unique UVs
 	return RequiresUniqueUVs.Contains(Key);
 }
 
@@ -164,6 +197,11 @@ void FMeshMergeDataTracker::GetMappingsForMeshLOD(FMeshLODKey Key, TArray<Sectio
 
 void FMeshMergeDataTracker::ProcessRawMeshes()
 {
+	bool bPotentialLightmapUVChannels[MAX_MESH_TEXTURE_COORDS];
+	FMemory::Memset(bPotentialLightmapUVChannels, 1);
+	bool bPotentialLODLightmapUVChannels[MAX_STATIC_MESH_LODS][MAX_MESH_TEXTURE_COORDS];
+	FMemory::Memset(bPotentialLODLightmapUVChannels, 1);
+
 	// Retrieve information in regards to occupied UV channels whether or not a mesh contains vertex colors, and if 
 	for (const TPair<FMeshLODKey, FRawMesh>& MeshPair : RawMeshLODs)
 	{
@@ -171,6 +209,7 @@ void FMeshMergeDataTracker::ProcessRawMeshes()
 		const int32 LODIndex = Key.GetLODIndex();
 		const FRawMesh& RawMesh = MeshPair.Value;
 
+		const int32 LightmapChannelIdx = LightmapChannelLODs.FindRef(Key);
 		bool bNeedsVertexData = false;
 		
 		for (int32 ChannelIndex = 0; ChannelIndex < MAX_MESH_TEXTURE_COORDS; ++ChannelIndex)
@@ -178,6 +217,7 @@ void FMeshMergeDataTracker::ProcessRawMeshes()
 			if (RawMesh.WedgeTexCoords[ChannelIndex].Num())
 			{
 				bOcuppiedUVChannels[LODIndex][ChannelIndex] = true;
+				bPotentialLODLightmapUVChannels[LODIndex][ChannelIndex] = (ChannelIndex == LightmapChannelIdx);
 
 				const bool bWrappingUVs = FMeshMergeHelpers::CheckWrappingUVs(RawMesh.WedgeTexCoords[ChannelIndex]);
 				if (bWrappingUVs)
@@ -185,6 +225,12 @@ void FMeshMergeDataTracker::ProcessRawMeshes()
 					bNeedsVertexData = true;
 				}
 			}
+		}
+
+		// Merge available lightmap slots from LODs into one set, so we can assess later what slots are available
+		for (int32 ChannelIdx = 1; ChannelIdx < MAX_MESH_TEXTURE_COORDS; ++ChannelIdx)
+		{
+			bPotentialLightmapUVChannels[ChannelIdx] &= bPotentialLODLightmapUVChannels[LODIndex][ChannelIdx];
 		}
 
 		if (bNeedsVertexData)
@@ -195,14 +241,12 @@ void FMeshMergeDataTracker::ProcessRawMeshes()
 		bWithVertexColors[LODIndex] |= RawMesh.WedgeColors.Num() != 0;
 	}
 
+	// Look for an available lightmap slot we can use in the merged set
+	// We start at channel 1 as merged meshes always use texcoord 0 for their expected mapping channel, so we cant use it;
 	AvailableLightMapUVChannel = INDEX_NONE;
-	for (int32 ChannelIdx = 0; ChannelIdx < MAX_MESH_TEXTURE_COORDS; ++ChannelIdx)
+	for (int32 ChannelIdx = 1; ChannelIdx < MAX_MESH_TEXTURE_COORDS; ++ChannelIdx)
 	{
-		if (bOcuppiedUVChannels[0][ChannelIdx])
-		{
-			continue;
-		}
-		else
+		if(bPotentialLightmapUVChannels[ChannelIdx])
 		{
 			AvailableLightMapUVChannel = ChannelIdx;
 			break;
