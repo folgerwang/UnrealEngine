@@ -21,6 +21,7 @@ namespace UnrealBuildTool.Rules
 			);
 
             AddEngineThirdPartyPrivateStaticDependencies(Target, "nvTriStrip");
+            AddEngineThirdPartyPrivateStaticDependencies(Target, "ForsythTriOptimizer");
             AddEngineThirdPartyPrivateStaticDependencies(Target, "nvTessLib");
         }
 	}

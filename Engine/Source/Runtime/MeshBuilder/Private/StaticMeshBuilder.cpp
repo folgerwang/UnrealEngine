@@ -15,7 +15,7 @@ bool IsOrphanedVertex(const class UMeshDescription *MeshDescription, const FVert
 void UpdateBounds(class UStaticMesh* StaticMesh);
 void UpdateCollision(UStaticMesh *StaticMesh);
 void BuildVertexBuffer(const class UMeshDescription* MeshDescription, struct FStaticMeshLODResources& StaticMeshLOD, const struct FMeshBuildSettings& LODBuildSettings, TArray< FStaticMeshBuildVertex >& StaticMeshBuildVertices);
-void BuildIndexBuffer(class UStaticMesh *StaticMesh, const class UMeshDescription* MeshDescription, TArray< uint32 >& IndexBuffer, struct FStaticMeshLODResources& StaticMeshLOD, TArray<int32>& OutWedgeMap);
+void BuildIndexBuffer(class UStaticMesh *StaticMesh, const class UMeshDescription* MeshDescription, TArray< uint32 >& IndexBuffer, struct FStaticMeshLODResources& StaticMeshLOD, TArray<int32>& OutWedgeMap, TArray<TArray<uint32> >& OutPerSectionIndices);
 void BuildAllBufferOptimizations(struct FStaticMeshLODResources& StaticMeshLOD, const struct FMeshBuildSettings& LODBuildSettings, TArray< uint32 >& IndexBuffer, bool bNeeds32BitIndices, TArray< FStaticMeshBuildVertex >& StaticMeshBuildVertices);
 //////////////////////////////////////////////////////////////////////////
 
@@ -32,6 +32,7 @@ bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh)
 		//TODO: Warn the user that there is no mesh description data
 		return false;
 	}
+	StaticMesh->RenderData->AllocateLODResources(MeshDescriptionCount);
 
 	OnBuildRenderMeshStart(StaticMesh, false);
 
@@ -63,7 +64,20 @@ bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh)
 		//Render data Wedge map is only set for LOD 0???
 		TArray<int32> TempWedgeMap;
 		TArray<int32> &WedgeMap = (LodIndex == 0) ? StaticMeshRenderData.WedgeMap : TempWedgeMap;
-		BuildIndexBuffer(StaticMesh, MeshDescription, IndexBuffer, StaticMeshLOD, WedgeMap);
+
+		//Prepare the PerSectionIndices array so we can optimize the index buffer for the GPU
+		int32 MaxMaterialIndex = 1;
+		for (const FPolygonGroupID& PolygonGroupID : MeshDescription->PolygonGroups().GetElementIDs())
+		{
+			MaxMaterialIndex = FMath::Max<int32>(PolygonGroupID.GetValue(), MaxMaterialIndex);
+		}
+		TArray<TArray<uint32> > PerSectionIndices;
+		for (int32 i = 0; i <= MaxMaterialIndex; ++i)
+		{
+			PerSectionIndices.Push(TArray<uint32>());
+		}
+
+		BuildIndexBuffer(StaticMesh, MeshDescription, IndexBuffer, StaticMeshLOD, WedgeMap, PerSectionIndices);
 
 		// Figure out which index buffer stride we need
 		bool bNeeds32BitIndices = false;
@@ -76,6 +90,11 @@ bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh)
 		}
 		const EIndexBufferStride::Type IndexBufferStride = bNeeds32BitIndices ? EIndexBufferStride::Force32Bit : EIndexBufferStride::Force16Bit;
 		StaticMeshLOD.IndexBuffer.SetIndices(IndexBuffer, IndexBufferStride);
+		if (MeshDescription->VertexInstances().Num() < 100000 * 3)
+		{
+			BuildOptimizationHelper::CacheOptimizeVertexAndIndexBuffer(StaticMeshBuildVertices, PerSectionIndices, WedgeMap);
+			check(WedgeMap.Num() == MeshDescription->VertexInstances().Num());
+		}
 
 		BuildAllBufferOptimizations(StaticMeshLOD, LODBuildSettings, IndexBuffer, bNeeds32BitIndices, StaticMeshBuildVertices);
 	} //End of LOD for loop
@@ -305,7 +324,7 @@ void BuildVertexBuffer(const UMeshDescription* MeshDescription, FStaticMeshLODRe
 	}
 }
 
-void BuildIndexBuffer(UStaticMesh *StaticMesh, const UMeshDescription* MeshDescription, TArray< uint32 >& IndexBuffer, FStaticMeshLODResources& StaticMeshLOD, TArray<int32>& OutWedgeMap)
+void BuildIndexBuffer(UStaticMesh *StaticMesh, const UMeshDescription* MeshDescription, TArray< uint32 >& IndexBuffer, FStaticMeshLODResources& StaticMeshLOD, TArray<int32>& OutWedgeMap, TArray<TArray<uint32> >& OutPerSectionIndices)
 {
 	OutWedgeMap.Reset();
 
@@ -313,6 +332,7 @@ void BuildIndexBuffer(UStaticMesh *StaticMesh, const UMeshDescription* MeshDescr
 	// Set up index buffer
 	for (const FPolygonGroupID& PolygonGroupID : PolygonGroups.GetElementIDs())
 	{
+		TArray<uint32>& SectionIndices = OutPerSectionIndices[PolygonGroupID.GetValue()];
 		TArray<FMeshTriangle> Triangles;
 		int32 SectionTriangleCount = GetPolygonGroupTriangles(MeshDescription, Triangles, PolygonGroupID);
 
@@ -347,6 +367,7 @@ void BuildIndexBuffer(UStaticMesh *StaticMesh, const UMeshDescription* MeshDescr
 					const uint32 RenderingVertexIndex = Triangle.GetVertexInstanceID(TriVert).GetValue();
 					IndexBuffer.Add(RenderingVertexIndex);
 					OutWedgeMap.Add(RenderingVertexIndex);
+					SectionIndices.Add(RenderingVertexIndex);
 					MinIndex = FMath::Min(MinIndex, RenderingVertexIndex);
 					MaxIndex = FMath::Max(MaxIndex, RenderingVertexIndex);
 				}
@@ -396,6 +417,12 @@ void BuildAllBufferOptimizations(FStaticMeshLODResources& StaticMeshLOD, const F
 			IndexBuffer,
 			StaticMeshLOD.Sections
 		);
+
+		if (DepthOnlyIndices.Num() < 50000 * 3)
+		{
+			BuildOptimizationHelper::CacheOptimizeIndexBuffer(DepthOnlyIndices);
+		}
+
 		StaticMeshLOD.DepthOnlyIndexBuffer.SetIndices(DepthOnlyIndices, IndexBufferStride);
 	}
 

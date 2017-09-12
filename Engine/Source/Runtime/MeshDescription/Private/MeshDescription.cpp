@@ -1,7 +1,8 @@
 // Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
 #include "MeshDescription.h"
-
+#include "Misc/SecureHash.h"
+#include "Serialization/MemoryWriter.h"
 
 UMeshDescription::UMeshDescription()
 {
@@ -52,11 +53,29 @@ void UMeshDescription::Serialize( FArchive& Ar )
 	Ar << PolygonGroupAttributesSet;
 }
 
-
-void UMeshDescription::PostLoad()
+#if WITH_EDITORONLY_DATA
+FString UMeshDescription::GetIdString()
 {
+	TArray<uint8> TempBytes;
+	FMemoryWriter Ar(TempBytes, /*bIsPersistent=*/ true);
+	Serialize(Ar);
+	FSHA1 Sha;
+	TArray<TCHAR> OwnerName = GetPathName().GetCharArray();
+	Sha.Update((uint8*)OwnerName.GetData(), OwnerName.Num() * OwnerName.GetTypeSize());
+	if (TempBytes.Num() > 0)
+	{
+		uint8* Buffer = TempBytes.GetData();
+		Sha.Update(Buffer, TempBytes.Num());
+	}
+	Sha.Final();
+	TempBytes.Empty();
+	// Retrieve the hash and use it to construct a pseudo-GUID.
+	uint32 Hash[5];
+	Sha.GetHash((uint8*)Hash);
+	FGuid Guid = FGuid(Hash[0] ^ Hash[4], Hash[1], Hash[2], Hash[3]);
+	return Guid.ToString(EGuidFormats::Digits);
 }
-
+#endif
 
 void UMeshDescription::Compact( FElementIDRemappings& OutRemappings )
 {

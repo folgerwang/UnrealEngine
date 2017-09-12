@@ -76,7 +76,7 @@ void UStaticMesh::Build(bool bSilent, TArray<FText>* OutErrors)
 		return;
 
 	// If we're controlled by an editable mesh do not build. The editable mesh will build us
-	if (EditableMesh || MeshDescriptions.Num() > 0)
+	if (EditableMesh)
 	{
 		return;
 	}

@@ -52,7 +52,7 @@ public:
 
 	/** Use the string in "Name" field as full name of mesh. The option only works when the scene contains one mesh. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category = Miscellaneous, meta = (OBJRestrict = "true"))
-	uint32 bImportEditableMesh:1;
+	uint32 bImportMeshDescription:1;
 
 	/** Whether to import the incoming FBX as a skeletal object */
 	UPROPERTY(EditAnywhere, Category = Mesh, meta = (ImportType = "StaticMesh|SkeletalMesh", DisplayName="Skeletal Mesh"))

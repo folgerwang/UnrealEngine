@@ -42,6 +42,7 @@
 #include "MeshDescription.h"
 #include "MeshUtilities.h"
 #include "DerivedDataCacheInterface.h"
+#include "IMeshBuilderModule.h"
 #endif // #if WITH_EDITOR
 
 #include "Engine/StaticMeshSocket.h"
@@ -1141,7 +1142,14 @@ static FString BuildStaticMeshDerivedDataKey(UStaticMesh* Mesh, const FStaticMes
 	for (int32 LODIndex = 0; LODIndex < NumLODs; ++LODIndex)
 	{
 		FStaticMeshSourceModel& SrcModel = Mesh->SourceModels[LODIndex];
-		KeySuffix += SrcModel.RawMeshBulkData->GetIdString();
+		if (Mesh->GetOriginalMeshDescriptionCount() > 0)
+		{
+			KeySuffix += (Mesh->GetOriginalMeshDescriptionCount() > LODIndex && Mesh->GetOriginalMeshDescription(LODIndex) != nullptr) ? Mesh->GetOriginalMeshDescription(LODIndex)->GetIdString() : TEXT("NoOriginalMeshDescriptionForLod") + FString::FromInt(LODIndex);
+		}
+		else
+		{
+			KeySuffix += SrcModel.RawMeshBulkData->GetIdString();
+		}
 
 		// Serialize the build and reduction settings into a temporary array. The archive
 		// is flagged as persistent so that machines of different endianness produce
@@ -1285,11 +1293,19 @@ void FStaticMeshRenderData::Cache(UStaticMesh* Owner, const FStaticMeshLODSettin
 			Args.Add(TEXT("StaticMeshName"), FText::FromString( Owner->GetName() ) );
 			FStaticMeshStatusMessageContext StatusContext( FText::Format( NSLOCTEXT("Engine", "BuildingStaticMeshStatus", "Building static mesh {StaticMeshName}..."), Args ) );
 
-			IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>(TEXT("MeshUtilities"));
-			if (!MeshUtilities.BuildStaticMesh(*this, Owner->SourceModels, LODGroup, Owner->LightmapUVVersion, Owner->ImportVersion))
+			if (Owner->GetMeshDescriptionCount() > 0)
 			{
-				UE_LOG(LogStaticMesh, Error, TEXT("Failed to build static mesh. See previous line(s) for details."));
-				return;
+				IMeshBuilderModule& MeshBuilderModule = FModuleManager::Get().LoadModuleChecked<IMeshBuilderModule>(TEXT("MeshBuilder"));
+				MeshBuilderModule.BuildMesh(Owner);
+			}
+			else
+			{
+				IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>(TEXT("MeshUtilities"));
+				if (!MeshUtilities.BuildStaticMesh(*this, Owner->SourceModels, LODGroup, Owner->LightmapUVVersion, Owner->ImportVersion))
+				{
+					UE_LOG(LogStaticMesh, Error, TEXT("Failed to build static mesh. See previous line(s) for details."));
+					return;
+				}
 			}
 
 			ComputeUVDensities();
@@ -2197,10 +2213,48 @@ UMeshDescription* UStaticMesh::GetMeshDescription(int32 LodIndex) const
 	return MeshDescriptions[LodIndex];
 }
 
-ENGINE_API int32 UStaticMesh::GetMeshDescriptionCount() const
+int32 UStaticMesh::GetMeshDescriptionCount() const
 {
 	return MeshDescriptions.Num();
 }
+
+#if WITH_EDITORONLY_DATA
+
+UMeshDescription* UStaticMesh::GetOriginalMeshDescription(int32 LodIndex) const
+{
+	if (!OriginalMeshDescriptions.IsValidIndex(LodIndex))
+	{
+		return nullptr;
+	}
+	return OriginalMeshDescriptions[LodIndex];
+}
+
+void UStaticMesh::SetOriginalMeshDescription(int32 LodIndex, class UMeshDescription* MeshDescription)
+{
+	if (!OriginalMeshDescriptions.IsValidIndex(LodIndex))
+	{
+		//Add nullptr missing entries
+		OriginalMeshDescriptions.AddZeroed(LodIndex - OriginalMeshDescriptions.Num() + 1);
+	}
+	//Set the original mesh description
+	OriginalMeshDescriptions[LodIndex] = MeshDescription;
+}
+
+int32 UStaticMesh::GetOriginalMeshDescriptionCount() const
+{
+	return OriginalMeshDescriptions.Num();
+}
+
+void UStaticMesh::ClearOriginalMeshDescription(int32 LodIndex)
+{
+	if (!OriginalMeshDescriptions.IsValidIndex(LodIndex))
+	{
+		return;
+	}
+	OriginalMeshDescriptions[LodIndex] = nullptr;
+}
+
+#endif
 
 void UStaticMesh::CacheDerivedData()
 {

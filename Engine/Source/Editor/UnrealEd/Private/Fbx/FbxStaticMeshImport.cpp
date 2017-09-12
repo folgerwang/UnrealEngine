@@ -266,7 +266,7 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 	FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[LODIndex];
 	
 	UMeshDescription *MeshDescription = StaticMesh->GetMeshDescription(LODIndex);
-	if (ImportOptions->bImportEditableMesh)
+	if (ImportOptions->bImportMeshDescription)
 	{
 		//The mesh description should have been created before calling BuildStaticMeshFromGeometry
 		check(MeshDescription);
@@ -523,17 +523,6 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 		int32 VertexOffset = MeshDescription->Vertices().Num();
 		int32 VertexInstanceOffset = MeshDescription->VertexInstances().Num();
 		int32 TriangleOffset = MeshDescription->Polygons().Num();
-
-		if (StaticMesh->RenderData == nullptr)
-		{
-			StaticMesh->CacheDerivedData();
-		}
-		//Add missing LODs render data resources
-		while (StaticMesh->RenderData->LODResources.Num() <= LODIndex)
-		{
-			FStaticMeshLODResources *DummyStaticMeshLodResources = new FStaticMeshLODResources();
-			StaticMesh->RenderData->LODResources.Add(DummyStaticMeshLodResources);
-		}
 
 		int32 MaxMaterialIndex = 0;
 		TMap<int32, FPolygonGroupID> PolygonGroupMapping;
@@ -1563,7 +1552,7 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 		StaticMesh = NewObject<UStaticMesh>(Package, FName(*MeshName), Flags | RF_Public);
 	}
 
-	if (ImportOptions->bImportEditableMesh)
+	if (ImportOptions->bImportMeshDescription)
 	{
 		MeshDescription = StaticMesh->GetMeshDescription(LODIndex);
 		if (MeshDescription == nullptr)
@@ -1593,6 +1582,8 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 		FRawMesh EmptyRawMesh;
 		SrcModel.RawMeshBulkData->SaveRawMesh( EmptyRawMesh );
 	}
+
+	StaticMesh->ClearOriginalMeshDescription(LODIndex);
 	
 	// make sure it has a new lighting guid
 	StaticMesh->LightingGuid = FGuid::NewGuid();
@@ -1945,6 +1936,8 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 					}
 				}
 			}
+			//Set the original mesh description to be able to do non destructive reduce
+			StaticMesh->SetOriginalMeshDescription(LODIndex, MeshDescription);
 		}
 
 		// Setup default LOD settings based on the selected LOD group.
@@ -2094,19 +2087,11 @@ void UnFbx::FFbxImporter::PostImportStaticMesh(UStaticMesh* StaticMesh, TArray<F
 				}
 				bool bOriginalGenerateMeshDistanceField = StaticMesh->bGenerateMeshDistanceField;
 				StaticMesh->bGenerateMeshDistanceField = false;
-				
-				if (ImportOptions->bImportEditableMesh)
+
+				StaticMesh->Build(false, &BuildErrors);
+				for (FText& Error : BuildErrors)
 				{
-					IMeshBuilderModule& MeshBuilder = FModuleManager::Get().LoadModuleChecked<IMeshBuilderModule>(TEXT("MeshBuilder"));
-					MeshBuilder.BuildMesh(StaticMesh);
-				}
-				else
-				{
-					StaticMesh->Build(false, &BuildErrors);
-					for (FText& Error : BuildErrors)
-					{
-						AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, Error), FFbxErrors::StaticMesh_BuildError);
-					}
+					AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, Error), FFbxErrors::StaticMesh_BuildError);
 				}
 
 				StaticMesh->bGenerateMeshDistanceField = bOriginalGenerateMeshDistanceField;
@@ -2140,18 +2125,10 @@ void UnFbx::FFbxImporter::PostImportStaticMesh(UStaticMesh* StaticMesh, TArray<F
 			}
 		}
 	}
-	if (ImportOptions->bImportEditableMesh)
+	StaticMesh->Build(false, &BuildErrors);
+	for (FText& Error : BuildErrors)
 	{
-		IMeshBuilderModule& MeshBuilder = FModuleManager::Get().LoadModuleChecked<IMeshBuilderModule>(TEXT("MeshBuilder"));
-		MeshBuilder.BuildMesh(StaticMesh);
-	}
-	else
-	{
-		StaticMesh->Build(false, &BuildErrors);
-		for (FText& Error : BuildErrors)
-		{
-			AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, Error), FFbxErrors::StaticMesh_BuildError);
-		}
+		AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, Error), FFbxErrors::StaticMesh_BuildError);
 	}
 
 	//Set the specified LOD distances for every LODs we have to do this after the build in case there is a specified Lod Group

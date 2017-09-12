@@ -4,9 +4,9 @@
 #pragma warning(disable:4503)
 
 #include "CoreMinimal.h"
+#include "CoreTypes.h"
 #include "MeshTypes.h"
 #include "MeshElementArray.h"
-#include "Materials/MaterialInterface.h"
 #include "MeshDescription.generated.h"
 
 
@@ -306,7 +306,9 @@ struct FMeshPolygonGroup
 	/** Serializer */
 	friend FArchive& operator<<( FArchive& Ar, FMeshPolygonGroup& PolygonGroup )
 	{
-		Ar << PolygonGroup.MaterialAsset;
+		//TODO FStringAssetReference cannot be archive with FArchive it can be archive only with FArchiveUObject
+		//Ar << PolygonGroup.MaterialAsset;
+		PolygonGroup.MaterialAsset.SerializePath(Ar);
 		Ar << PolygonGroup.MaterialSlotName;
 		Ar << PolygonGroup.ImportedMaterialSlotName;
 		Ar << PolygonGroup.bEnableCollision;
@@ -569,7 +571,6 @@ public:
 
 	// UObject interface
 	virtual void Serialize( FArchive& Ar ) override;
-	virtual void PostLoad() override;
 
 	FVertexArray& Vertices() { return VertexArray; }
 	const FVertexArray& Vertices() const { return VertexArray; }
@@ -635,6 +636,10 @@ public:
 		check( VertexArray[ VertexID ].VertexInstanceIDs.Num() == 0 );
 		VertexArray.Remove( VertexID );
 	}
+
+#if WITH_EDITORONLY_DATA
+	FString GetIdString();
+#endif
 
 private:
 	inline void CreateVertexInstance_Internal( const FVertexInstanceID VertexInstanceID, const FVertexID VertexID )

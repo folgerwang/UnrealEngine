@@ -629,6 +629,19 @@ public:
 	ENGINE_API class UMeshDescription* GetMeshDescription(int32 LodIndex=0) const;
 	ENGINE_API int32 GetMeshDescriptionCount() const;
 
+#if WITH_EDITORONLY_DATA
+	/**
+	* The original mesh description we use to do non destructive reduce of the mesh, we set the original value when we create the mesh (procedurally or at import/re-import...).
+	*/
+	UPROPERTY()
+	TArray<class UMeshDescription*> OriginalMeshDescriptions;
+
+	ENGINE_API class UMeshDescription* GetOriginalMeshDescription(int32 LodIndex = 0) const;
+	ENGINE_API void SetOriginalMeshDescription(int32 LodIndex, class UMeshDescription* MeshDescription);
+	ENGINE_API int32 GetOriginalMeshDescriptionCount() const;
+	ENGINE_API void ClearOriginalMeshDescription(int32 LodIndex);
+#endif
+
 	/** Pre-build navigation collision */
 	UPROPERTY(VisibleAnywhere, transient, duplicatetransient, Instanced, Category = Navigation)
 	class UNavCollision* NavCollision;
