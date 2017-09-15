@@ -265,7 +265,7 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 	FbxMesh* Mesh = Node->GetMesh();
 	FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[LODIndex];
 	
-	UMeshDescription *MeshDescription = StaticMesh->GetMeshDescription(LODIndex);
+	UMeshDescription *MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
 	if (ImportOptions->bImportMeshDescription)
 	{
 		//The mesh description should have been created before calling BuildStaticMeshFromGeometry
@@ -1554,13 +1554,14 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 
 	if (ImportOptions->bImportMeshDescription)
 	{
-		MeshDescription = StaticMesh->GetMeshDescription(LODIndex);
+		MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
 		if (MeshDescription == nullptr)
 		{
+			StaticMesh->ClearOriginalMeshDescription(LODIndex);
 			//Create private asset in the same package as the StaticMesh, and make sure reference are set to avoid GC
 			MeshDescription = NewObject<UMeshDescription>(StaticMesh, NAME_None, RF_NoFlags);
 			check(MeshDescription != nullptr);
-			StaticMesh->MeshDescriptions.Add(MeshDescription);
+			StaticMesh->SetOriginalMeshDescription(LODIndex, MeshDescription);
 		}
 	}
 
@@ -1583,7 +1584,7 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 		SrcModel.RawMeshBulkData->SaveRawMesh( EmptyRawMesh );
 	}
 
-	StaticMesh->ClearOriginalMeshDescription(LODIndex);
+	
 	
 	// make sure it has a new lighting guid
 	StaticMesh->LightingGuid = FGuid::NewGuid();

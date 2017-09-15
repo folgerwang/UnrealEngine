@@ -627,6 +627,7 @@ public:
 	TArray<class UMeshDescription*> MeshDescriptions;
 
 	ENGINE_API class UMeshDescription* GetMeshDescription(int32 LodIndex=0) const;
+	ENGINE_API void SetMeshDescription(int32 LodIndex, class UMeshDescription* InMeshDescription);
 	ENGINE_API int32 GetMeshDescriptionCount() const;
 
 #if WITH_EDITORONLY_DATA

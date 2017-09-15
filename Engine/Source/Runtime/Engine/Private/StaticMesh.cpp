@@ -1293,7 +1293,7 @@ void FStaticMeshRenderData::Cache(UStaticMesh* Owner, const FStaticMeshLODSettin
 			Args.Add(TEXT("StaticMeshName"), FText::FromString( Owner->GetName() ) );
 			FStaticMeshStatusMessageContext StatusContext( FText::Format( NSLOCTEXT("Engine", "BuildingStaticMeshStatus", "Building static mesh {StaticMeshName}..."), Args ) );
 
-			if (Owner->GetMeshDescriptionCount() > 0)
+			if (Owner->GetOriginalMeshDescriptionCount() > 0)
 			{
 				IMeshBuilderModule& MeshBuilderModule = FModuleManager::Get().LoadModuleChecked<IMeshBuilderModule>(TEXT("MeshBuilder"));
 				MeshBuilderModule.BuildMesh(Owner);
@@ -2211,6 +2211,17 @@ UMeshDescription* UStaticMesh::GetMeshDescription(int32 LodIndex) const
 		return nullptr;
 	}
 	return MeshDescriptions[LodIndex];
+}
+
+void UStaticMesh::SetMeshDescription(int32 LodIndex, class UMeshDescription* InMeshDescription)
+{
+	if (!MeshDescriptions.IsValidIndex(LodIndex))
+	{
+		//Add nullptr missing entries
+		MeshDescriptions.AddZeroed(LodIndex - MeshDescriptions.Num() + 1);
+	}
+	//Set the original mesh description
+	MeshDescriptions[LodIndex] = InMeshDescription;
 }
 
 int32 UStaticMesh::GetMeshDescriptionCount() const

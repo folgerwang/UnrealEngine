@@ -5,7 +5,6 @@
 #include "CoreMinimal.h"
 #include "MeshBuilder.h"
 
-
 class MESHBUILDER_API FStaticMeshBuilder : public FMeshBuilder
 {
 public:
