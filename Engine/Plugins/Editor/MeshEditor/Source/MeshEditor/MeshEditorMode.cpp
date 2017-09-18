@@ -44,6 +44,8 @@
 #include "Framework/Application/SlateApplication.h"
 #include "Materials/Material.h"
 #include "Components/PrimitiveComponent.h"
+#include "ILevelViewport.h"
+#include "SLevelViewport.h"
 
 #define LOCTEXT_NAMESPACE "MeshEditorMode"
 
@@ -893,6 +895,23 @@ void FMeshEditorMode::Enter()
 		IMeshEditorModeUIContract* UIContract = this;
 		Toolkit = MakeShared< FMeshEditorModeToolkit >( *UIContract );
 		Toolkit->Init( Owner->GetToolkitHost() );
+	}
+
+	// Set the current viewport.
+	{
+		const TSharedRef< ILevelEditor >& LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>("LevelEditor").GetFirstLevelEditor().ToSharedRef();
+
+		// Do we have an active perspective viewport that is valid for VR?  If so, go ahead and use that.
+		TSharedPtr<FEditorViewportClient> ViewportClient;
+		{
+			TSharedPtr<ILevelViewport> ActiveLevelViewport = LevelEditor->GetActiveViewportInterface();
+			if (ActiveLevelViewport.IsValid())
+			{
+				ViewportClient = StaticCastSharedRef<SLevelViewport>(ActiveLevelViewport->AsWidget())->GetViewportClient();
+			}
+		}
+
+		ViewportWorldInteraction->SetDefaultOptionalViewportClient(ViewportClient);
 	}
 
 	UpdateSelectedEditableMeshes();
