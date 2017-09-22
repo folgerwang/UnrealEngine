@@ -593,7 +593,6 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 						FinalUVVector.X = static_cast<float>(UVVector[0]);
 						FinalUVVector.Y = 1.f - static_cast<float>(UVVector[1]);   //flip the Y of UVs for DirectX
 					}
-					MeshDescription->VertexInstanceAttributes().SetAttribute<FVector2D>(AddedVertexInstanceId, UEditableMeshAttribute::VertexTextureCoordinate(), UVLayerIndex, FinalUVVector);
 					NewVertexInstance.VertexUVs.Add(FinalUVVector);
 				}
 
@@ -616,7 +615,6 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 							uint8(255.f*VertexColor.mBlue),
 							uint8(255.f*VertexColor.mAlpha)
 						);
-						MeshDescription->VertexInstanceAttributes().SetAttribute<FVector4>(AddedVertexInstanceId, UEditableMeshAttribute::VertexColor(), 0, FVector4(FLinearColor(VertexInstanceColor)));
 						NewVertexInstance.Color = FLinearColor(VertexInstanceColor);
 					}
 				}
@@ -628,7 +626,6 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 					if (PaintedColor)
 					{
 						// A matching color for this vertex was found
-						MeshDescription->VertexInstanceAttributes().SetAttribute<FVector4>(AddedVertexInstanceId, UEditableMeshAttribute::VertexColor(), 0, FVector4(FLinearColor(*PaintedColor)));
 						NewVertexInstance.Color = FLinearColor(*PaintedColor);
 					}
 				}
@@ -636,7 +633,6 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 				{
 					// set the triangle's vertex color to a constant override
 					check(VertexColorImportOption == EVertexColorImportOption::Override);
-					MeshDescription->VertexInstanceAttributes().SetAttribute<FVector4>(AddedVertexInstanceId, UEditableMeshAttribute::VertexColor(), 0, FVector4(FLinearColor(VertexOverrideColor)));
 					NewVertexInstance.Color = FLinearColor(VertexOverrideColor);
 				}
 
@@ -652,7 +648,6 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 					FbxVector4 TempValue = LayerElementNormal->GetDirectArray().GetAt(NormalValueIndex);
 					TempValue = TotalMatrixForNormal.MultT(TempValue);
 					FVector TangentZ = Converter.ConvertDir(TempValue);
-					MeshDescription->VertexInstanceAttributes().SetAttribute<FVector>(AddedVertexInstanceId, UEditableMeshAttribute::VertexNormal(), 0, TangentZ.GetSafeNormal());
 					NewVertexInstance.Normal = TangentZ.GetSafeNormal();
 					//tangents and binormals share the same reference, mapping mode and index array
 					if (bHasNTBInformation)
@@ -665,7 +660,6 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 						TempValue = LayerElementTangent->GetDirectArray().GetAt(TangentValueIndex);
 						TempValue = TotalMatrixForNormal.MultT(TempValue);
 						FVector TangentX = Converter.ConvertDir(TempValue);
-						MeshDescription->VertexInstanceAttributes().SetAttribute<FVector>(AddedVertexInstanceId, UEditableMeshAttribute::VertexTangent(), 0, TangentX.GetSafeNormal());
 						NewVertexInstance.Tangent = TangentX.GetSafeNormal();
 
 						int BinormalMapIndex = (BinormalMappingMode == FbxLayerElement::eByControlPoint) ?
@@ -676,9 +670,7 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 						TempValue = LayerElementBinormal->GetDirectArray().GetAt(BinormalValueIndex);
 						TempValue = TotalMatrixForNormal.MultT(TempValue);
 						FVector TangentY = -Converter.ConvertDir(TempValue);
-						FVector BiNormal = TangentY.GetSafeNormal();
-						MeshDescription->VertexInstanceAttributes().SetAttribute<float>(AddedVertexInstanceId, UEditableMeshAttribute::VertexBinormalSign(), 0, GetBasisDeterminantSign(TangentX.GetSafeNormal(), BiNormal, TangentZ.GetSafeNormal()) );
-						NewVertexInstance.BinormalSign = GetBasisDeterminantSign(TangentX.GetSafeNormal(), BiNormal, TangentZ.GetSafeNormal());
+						NewVertexInstance.BinormalSign = GetBasisDeterminantSign(TangentX.GetSafeNormal(), TangentY.GetSafeNormal(), TangentZ.GetSafeNormal());
 					}
 				}
 			}
@@ -760,12 +752,11 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 			// Create polygon edges
 			TArray<UMeshDescription::FContourPoint> Contours;
 			{
-				TArray<FEdgeID> EdgeIDs;
-				TArray<bool> EdgesIsHard;
 				// Add the edges of this triangle
 				for (uint32 TriangleEdgeNumber = 0; TriangleEdgeNumber < 3; ++TriangleEdgeNumber)
 				{
-					UMeshDescription::FContourPoint ContourPoint;
+					int32 ContourPointIndex = Contours.AddDefaulted();
+					UMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
 					//Find the matching edge ID
 					uint32 CornerIndices[2];
 					CornerIndices[0] = (TriangleEdgeNumber + 0) % 3;
@@ -774,29 +765,25 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 					FVertexID EdgeVertexIDs[2];
 					EdgeVertexIDs[0] = CornerVerticesIDs[CornerIndices[0]];
 					EdgeVertexIDs[1] = CornerVerticesIDs[CornerIndices[1]];
-					
 
 					FEdgeID MatchEdgeId = FEdgeID::Invalid;
 					const FMeshVertex& EdgeMeshVertex = MeshDescription->GetVertex(EdgeVertexIDs[0]);
 					for (const FEdgeID& EdgeID : EdgeMeshVertex.ConnectedEdgeIDs)
 					{
-						FVertexID OutEdgeVertexID0 = MeshDescription->Edges()[EdgeID].VertexIDs[0];
-						FVertexID OutEdgeVertexID1 = MeshDescription->Edges()[EdgeID].VertexIDs[1];
-						if (EdgeVertexIDs[0] == OutEdgeVertexID0 && EdgeVertexIDs[1] == OutEdgeVertexID1 ||
-							EdgeVertexIDs[1] == OutEdgeVertexID0 && EdgeVertexIDs[0] == OutEdgeVertexID1)
+						FMeshEdge& Edge = MeshDescription->GetEdge(EdgeID);
+						if (EdgeVertexIDs[0] == Edge.VertexIDs[0] && EdgeVertexIDs[1] == Edge.VertexIDs[1] ||
+							EdgeVertexIDs[1] == Edge.VertexIDs[0] && EdgeVertexIDs[0] == Edge.VertexIDs[1])
 						{
 							MatchEdgeId = EdgeID;
 							break;
 						}
 					}
-					int32 SmoothMaskValue = 0;
 					if (MatchEdgeId == FEdgeID::Invalid)
 					{
 						MatchEdgeId = MeshDescription->CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
 					}
 					ContourPoint.EdgeID = MatchEdgeId;
 					ContourPoint.VertexInstanceID = CornerInstanceIDs[CornerIndices[0]];
-					Contours.Add(ContourPoint);
 					FMeshEdge& ExistingEdge = MeshDescription->GetEdge(MatchEdgeId);
 
 					int32 EdgeIndex = Mesh->GetMeshEdgeIndexForPolygon(TriangleIndex, TriangleEdgeNumber);
@@ -806,25 +793,14 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 						if (SmoothingMappingMode == FbxLayerElement::eByEdge)
 						{
 							int32 lSmoothingIndex = (SmoothingReferenceMode == FbxLayerElement::eDirect) ? EdgeIndex : SmoothingInfo->GetIndexArray().GetAt(EdgeIndex);
-							SmoothMaskValue = SmoothingInfo->GetDirectArray().GetAt(lSmoothingIndex);
-							if (SmoothMaskValue > 0)
-							{
-								//TODO: not sure I'm doing the right thing here? Maybe I should use eByPolygon smoothing to detect if I have a hard edge by comparing the connected polygons smooth group
-								//Set the hard edges
-								EdgeIDs.Add(MatchEdgeId);
-								EdgesIsHard.Add(true);
-							}
+							//Set the hard edges
+							ExistingEdge.bIsHardEdge = (SmoothingInfo->GetDirectArray().GetAt(lSmoothingIndex) == 0);
 						}
 						else
 						{
 							AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(LOCTEXT("Error_UnsupportedSmoothingGroup", "Unsupported Smoothing group mapping mode on mesh  '{0}'"), FText::FromString(Mesh->GetName()))), FFbxErrors::Generic_Mesh_UnsupportingSmoothingGroup);
 						}
 					}
-				}
-				for (int32 EdgeIndex = 0; EdgeIndex < EdgeIDs.Num(); ++EdgeIndex)
-				{
-					FEdgeID EdgeID = EdgeIDs[EdgeIndex];
-					MeshDescription->GetEdge(EdgeID).bIsHardEdge = EdgesIsHard[EdgeIndex];
 				}
 			}
 
@@ -835,15 +811,13 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 			FMeshPolygon& NewPolygon = MeshDescription->GetPolygon(NewPolygonID);
 			NewPolygon.PolygonGroupID = PolygonGroupID;
 			MeshPolygonGroup.Polygons.Add(NewPolygonID);
-			FMeshTriangle NewTriangle;
+			int32 NewTriangleIndex = NewPolygon.Triangles.AddDefaulted();
+			FMeshTriangle& NewTriangle = NewPolygon.Triangles[NewTriangleIndex];
 			for (int32 TriangleVertexIndex = 0; TriangleVertexIndex < 3; ++TriangleVertexIndex)
 			{
 				const FVertexInstanceID &VertexInstanceID = CornerInstanceIDs[TriangleVertexIndex];
 				NewTriangle.SetVertexInstanceID(TriangleVertexIndex, VertexInstanceID);
 			}
-			NewPolygon.Triangles.Add(NewTriangle);
-
-			
 		}
 		//Call this after all GetMeshEdgeIndexForPolygon call this is for optimization purpose.
 		Mesh->EndGetMeshEdgeIndexForPolygon();

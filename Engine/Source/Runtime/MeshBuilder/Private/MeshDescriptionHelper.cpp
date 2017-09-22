@@ -12,6 +12,11 @@
 #include "Serialization/MemoryReader.h"
 #include "RenderUtils.h"
 
+DEFINE_LOG_CATEGORY(LogMeshBuilder);
+
+//Enable all check
+//#define ENABLE_NTB_CHECK
+
 namespace MeshDescriptionMikktSpaceInterface
 {
 	//Mikk t spce static function
@@ -34,88 +39,87 @@ UMeshDescription* FMeshDescriptionHelper::GetRenderMeshDescription(UObject* Owne
 	//Use the build settings to create the RenderMeshDescription
 	UMeshDescription *RenderMeshDescription = NewObject<UMeshDescription>(Owner, NAME_None, RF_NoFlags);
 
-	if(OriginalMeshDescription != nullptr)
+	if (OriginalMeshDescription == nullptr)
 	{
-		//Copy The Original Mesh Description in the render mesh description
-		CopyMeshDescription(const_cast<UMeshDescription*>(OriginalMeshDescription), RenderMeshDescription);
-		float ComparisonThreshold = BuildSettings->bRemoveDegenerates ? THRESH_POINTS_ARE_SAME : 0.0f;
-		int32 NumWedges = RenderMeshDescription->VertexInstances().Num();
+		//oups, we do not have a valid original mesh to create the render from
+		return RenderMeshDescription;
+	}
+	//Copy The Original Mesh Description in the render mesh description
+	CopyMeshDescription(const_cast<UMeshDescription*>(OriginalMeshDescription), RenderMeshDescription);
+	float ComparisonThreshold = BuildSettings->bRemoveDegenerates ? THRESH_POINTS_ARE_SAME : 0.0f;
+
+	if (BuildSettings->bRecomputeTangents || BuildSettings->bRecomputeNormals)
+	{
+		for (const FVertexInstanceID& VertexInstanceID : RenderMeshDescription->VertexInstances().GetElementIDs())
+		{
+			FMeshVertexInstance& VertexInstance = RenderMeshDescription->GetVertexInstance(VertexInstanceID);
+			// Dump normals and tangents if we are recomputing them.
+			if (BuildSettings->bRecomputeTangents)
+			{
+				//Dump the tangents
+				VertexInstance.BinormalSign = 0.0f;
+				VertexInstance.Tangent = FVector(0.0f);
+			}
+			if (BuildSettings->bRecomputeNormals)
+			{
+				//Dump the normals
+				VertexInstance.Normal = FVector(0.0f);
+			}
+		}
+	}
+
+	// Compute any missing normals or tangents.
+	{
+		// Static meshes always blend normals of overlapping corners.
+		uint32 TangentOptions = FMeshDescriptionHelper::ETangentOptions::BlendOverlappingNormals;
+		if (BuildSettings->bRemoveDegenerates)
+		{
+			// If removing degenerate triangles, ignore them when computing tangents.
+			TangentOptions |= FMeshDescriptionHelper::ETangentOptions::IgnoreDegenerateTriangles;
+		}
+
+		//This function make sure the Polygon NTB are compute and also remove degenerated triangle from the render mesh description.
+		CreatePolygonNTB(RenderMeshDescription, BuildSettings->bRemoveDegenerates ? SMALL_NUMBER : 0.0f);
+		
 		// Find overlapping corners to accelerate adjacency.
 		FindOverlappingCorners(ComparisonThreshold);
-
-		// Figure out if we should recompute normals and tangents.
-		int32 OriginalNormalCount = RenderMeshDescription->VertexInstances().Num();
-		int32 OriginalTangentCount = OriginalNormalCount;
-		int32 OriginalBiNormalCount = OriginalNormalCount;
-		bool bRecomputeNormals = BuildSettings->bRecomputeNormals || OriginalNormalCount != NumWedges;
-		bool bRecomputeTangents = BuildSettings->bRecomputeTangents || OriginalTangentCount != NumWedges || OriginalBiNormalCount != NumWedges;
-
-		if (bRecomputeTangents || bRecomputeNormals)
+			
+		//Keep the original mesh description NTBs if we do not rebuild the normals or tangents.
+		bool bComputeTangentLegacy = !BuildSettings->bUseMikkTSpace && (BuildSettings->bRecomputeNormals || BuildSettings->bRecomputeTangents);
+			
+		//MikkTSpace should be use only when the user want to recompute the normals or tangents otherwise should always fallback on builtin
+		//We cannot use mikkt space with degenerated normals fallback on buitin.
+		if (BuildSettings->bUseMikkTSpace && (BuildSettings->bRecomputeNormals || BuildSettings->bRecomputeTangents))
 		{
-			for (const FVertexInstanceID& VertexInstanceID : RenderMeshDescription->VertexInstances().GetElementIDs())
-			{
-				FMeshVertexInstance& VertexInstance = RenderMeshDescription->GetVertexInstance(VertexInstanceID);
-				// Dump normals and tangents if we are recomputing them.
-				if (bRecomputeTangents)
-				{
-					//Dump the tangents
-					VertexInstance.BinormalSign = 0.0f;
-					VertexInstance.Tangent = FVector(0.0f);
-				}
-				if (bRecomputeNormals)
-				{
-					//Dump the normals
-					VertexInstance.Normal = FVector(0.0f);
-				}
-			}
+			CreateNormals(RenderMeshDescription, (FMeshDescriptionHelper::ETangentOptions)TangentOptions, false);
+			CreateMikktTangents(RenderMeshDescription, (FMeshDescriptionHelper::ETangentOptions)TangentOptions);
 		}
-
-		// Compute any missing tangents.
+		else
 		{
-			// Static meshes always blend normals of overlapping corners.
-			uint32 TangentOptions = FMeshDescriptionHelper::ETangentOptions::BlendOverlappingNormals;
-			if (BuildSettings->bRemoveDegenerates)
-			{
-				// If removing degenerate triangles, ignore them when computing tangents.
-				TangentOptions |= FMeshDescriptionHelper::ETangentOptions::IgnoreDegenerateTriangles;
-			}
-
-			//Keep the original mesh description NTBs if we do not rebuild the normals or tangents.
-			//MikkTSpace should be use only when the user want to recompute the normals or tangents otherwise should always fallback on builtin
-			if (BuildSettings->bUseMikkTSpace && (BuildSettings->bRecomputeNormals || BuildSettings->bRecomputeTangents))
-			{
-				ComputeNTB_MikkTSpace(RenderMeshDescription, (FMeshDescriptionHelper::ETangentOptions)TangentOptions);
-			}
-			//TODO: builtin Compute of the tangents
-			//else if(BuildSettings->bRecomputeNormals || BuildSettings->bRecomputeTangents)
-			//{
-				//ComputeTangents(RenderMeshDescription, OverlappingCorners, TangentOptions);
-			//}
+			//Set the compute tangent to true when we do not build using mikkt space
+			CreateNormals(RenderMeshDescription, (FMeshDescriptionHelper::ETangentOptions)TangentOptions, true);
 		}
-
-		// TODO: Generate lightmap UVs
-		/*if (BuildSettings->bGenerateLightmapUVs)
-		{
-			if (RawMesh.WedgeTexCoords[BuildSettings->SrcLightmapIndex].Num() == 0)
-			{
-				BuildSettings->SrcLightmapIndex = 0;
-			}
-
-			FLayoutUV Packer(&RawMesh, BuildSettings->SrcLightmapIndex, BuildSettings->DstLightmapIndex, BuildSettings->MinLightmapResolution);
-			Packer.SetVersion(LightmapUVVersion);
-
-			Packer.FindCharts(OverlappingCorners);
-			bool bPackSuccess = Packer.FindBestPacking();
-			if (bPackSuccess)
-			{
-				Packer.CommitPackedUVs();
-			}
-		}
-		HasRawMesh[LODIndex] = true;*/
 	}
-	else
+
+	// TODO: Generate lightmap UVs
+	/*if (BuildSettings->bGenerateLightmapUVs)
 	{
+		if (RawMesh.WedgeTexCoords[BuildSettings->SrcLightmapIndex].Num() == 0)
+		{
+			BuildSettings->SrcLightmapIndex = 0;
+		}
+
+		FLayoutUV Packer(&RawMesh, BuildSettings->SrcLightmapIndex, BuildSettings->DstLightmapIndex, BuildSettings->MinLightmapResolution);
+		Packer.SetVersion(LightmapUVVersion);
+
+		Packer.FindCharts(OverlappingCorners);
+		bool bPackSuccess = Packer.FindBestPacking();
+		if (bPackSuccess)
+		{
+			Packer.CommitPackedUVs();
+		}
 	}
+	HasRawMesh[LODIndex] = true;*/
 
 	return RenderMeshDescription;
 }
@@ -140,13 +144,12 @@ bool FMeshDescriptionHelper::IsValidOriginalMeshDescription()
 void FMeshDescriptionHelper::FindOverlappingCorners(float ComparisonThreshold)
 {
 	//Empty the old data
-	OverlappingCorners.Empty();
+	OverlappingCorners.Reset();
 	const int32 NumWedges = OriginalMeshDescription->VertexInstances().Num();
 
 	// Create a list of vertex Z/index pairs
 	TArray<FIndexAndZ> VertIndexAndZ;
 	VertIndexAndZ.Reserve(NumWedges);
-	const FVertexArray& Vertices = OriginalMeshDescription->Vertices();
 	const FVertexInstanceArray& VertexInstances = OriginalMeshDescription->VertexInstances();
 
 	for (const FPolygonID& PolygonID : OriginalMeshDescription->Polygons().GetElementIDs())
@@ -157,9 +160,9 @@ void FMeshDescriptionHelper::FindOverlappingCorners(float ComparisonThreshold)
 			for (int32 CornerIndex = 0; CornerIndex < 3; ++CornerIndex)
 			{
 				const FVertexInstanceID& VertexInstanceID = MeshTriangle.GetVertexInstanceID(CornerIndex);
-				const FMeshVertexInstance& VertexInstance = VertexInstances[VertexInstanceID];
+				const FMeshVertexInstance& VertexInstance = OriginalMeshDescription->GetVertexInstance(VertexInstanceID);
 
-				new(VertIndexAndZ)FIndexAndZ(VertexInstanceID.GetValue(), Vertices[VertexInstance.VertexID].VertexPosition);
+				new(VertIndexAndZ)FIndexAndZ(VertexInstanceID.GetValue(), OriginalMeshDescription->GetVertex(VertexInstance.VertexID).VertexPosition);
 			}
 		}
 	}
@@ -188,66 +191,46 @@ void FMeshDescriptionHelper::FindOverlappingCorners(float ComparisonThreshold)
 	}
 }
 
-const FVector& FMeshDescriptionHelper::GetVertexPositionFromVertexInstance(UMeshDescription* MeshDescription, int32 VertexInstanceIndex) const
+const FVector& FMeshDescriptionHelper::GetVertexPositionFromVertexInstance(UMeshDescription* MeshDescription, const FVertexInstanceID& VertexInstanceID) const
 {
-	return MeshDescription->GetVertex(MeshDescription->GetVertexInstance(FVertexInstanceID(VertexInstanceIndex)).VertexID).VertexPosition;
+	return MeshDescription->GetVertex(MeshDescription->GetVertexInstance(VertexInstanceID).VertexID).VertexPosition;
 }
 
-FVector2D FMeshDescriptionHelper::GetVertexInstanceUV(UMeshDescription* MeshDescription, int32 VertexInstanceIndex, int32 UVLayer) const
+FVector2D &FMeshDescriptionHelper::GetVertexInstanceUV(UMeshDescription* MeshDescription, const FVertexInstanceID& VertexInstanceID, int32 UVLayer) const
 {
-	return MeshDescription->VertexInstanceAttributes().GetAttribute<FVector2D>(FVertexInstanceID(VertexInstanceIndex), UEditableMeshAttribute::VertexTextureCoordinate(), UVLayer);
+	return MeshDescription->GetVertexInstance(VertexInstanceID).VertexUVs[UVLayer];
 }
 
-void FMeshDescriptionHelper::GetVertexInstanceNTB(UMeshDescription* MeshDescription, const FVertexInstanceID& VertexInstanceID, FVector &OutNormal, FVector &OutTangent, FVector &OutBiNormal) const
+void FMeshDescriptionHelper::CreatePolygonNTB(UMeshDescription* MeshDescription, float ComparisonThreshold)
 {
-	const FMeshVertexInstance& VertexInstance = MeshDescription->GetVertexInstance(VertexInstanceID);
-	OutNormal = VertexInstance.Normal;
-	OutTangent = VertexInstance.Tangent;
-	if (!OutNormal.IsNearlyZero() && !OutTangent.IsNearlyZero())
-	{
-		OutBiNormal = FVector::CrossProduct(VertexInstance.Normal, VertexInstance.Tangent).GetSafeNormal() * VertexInstance.BinormalSign;
-	}
-	else
-	{
-		OutBiNormal = FVector(0.0f);
-	}
-}
-
-void FMeshDescriptionHelper::SetVertexInstanceNTB(UMeshDescription* MeshDescription, const FVertexInstanceID& VertexInstanceID, FVector &OutNormal, FVector &OutTangent, FVector &OutBiNormal)
-{
-	FMeshVertexInstance& VertexInstance = MeshDescription->GetVertexInstance(VertexInstanceID);
-	VertexInstance.Normal = OutNormal;
-	VertexInstance.Tangent = OutTangent;
-	VertexInstance.BinormalSign = GetBasisDeterminantSign(OutTangent, OutBiNormal, OutNormal);
-}
-
-void FMeshDescriptionHelper::ComputeTriangleTangents(
-	UMeshDescription* MeshDescription,
-	TArray<FVector>& OutTangentX,
-	TArray<FVector>& OutTangentY,
-	TArray<FVector>& OutTangentZ,
-	float ComparisonThreshold
-)
-{
-	const int32 NumTriangles = MeshDescription->Polygons().Num();
-	OutTangentX.Empty(NumTriangles);
-	OutTangentY.Empty(NumTriangles);
-	OutTangentZ.Empty(NumTriangles);
-
+	TArray<FPolygonID> DegeneratePolygons;
 	for (const FPolygonID& PolygonID : MeshDescription->Polygons().GetElementIDs())
 	{
-		const TArray<FMeshTriangle>& MeshTriangles = MeshDescription->GetPolygon(PolygonID).Triangles;
-		for (const FMeshTriangle& MeshTriangle : MeshTriangles)
+		FVector TangentX(0.0f);
+		FVector TangentY(0.0f);
+		FVector TangentZ(0.0f);
+
+		FMeshPolygon& Polygon = MeshDescription->GetPolygon(PolygonID);
+		const TArray<FMeshTriangle>& MeshTriangles = Polygon.Triangles;
+#ifdef ENABLE_NTB_CHECK
+		//Assume triangle are build
+		check(MeshTriangles.Num() > 0);
+#endif
+
+		//We need only the first triangle since all triangle of a polygon must have the same normals (planar polygon)
+		const FMeshTriangle& MeshTriangle = MeshTriangles[0];
+		int32 UVIndex = 0;
+
+		FVector P[3];
+		for (int32 i = 0; i < 3; ++i)
 		{
-			int32 UVIndex = 0;
+			P[i] = GetVertexPositionFromVertexInstance(MeshDescription, MeshTriangle.GetVertexInstanceID(i));
+		}
 
-			FVector P[3];
-			for (int32 i = 0; i < 3; ++i)
-			{
-				P[i] = GetVertexPositionFromVertexInstance(MeshDescription, MeshTriangle.GetVertexInstanceID(i).GetValue());
-			}
-
-			const FVector Normal = ((P[1] - P[2]) ^ (P[0] - P[2])).GetSafeNormal(ComparisonThreshold);
+		const FVector Normal = ((P[1] - P[2]) ^ (P[0] - P[2])).GetSafeNormal(ComparisonThreshold);
+		//Check for degenerated polygons, avoid NAN
+		if (!Normal.IsNearlyZero(ComparisonThreshold))
+		{
 			FMatrix	ParameterToLocal(
 				FPlane(P[1].X - P[0].X, P[1].Y - P[0].Y, P[1].Z - P[0].Z, 0),
 				FPlane(P[2].X - P[0].X, P[2].Y - P[0].Y, P[2].Z - P[0].Z, 0),
@@ -255,9 +238,9 @@ void FMeshDescriptionHelper::ComputeTriangleTangents(
 				FPlane(0, 0, 0, 1)
 			);
 
-			const FVector2D T1 = GetVertexInstanceUV(MeshDescription, MeshTriangle.GetVertexInstanceID(0).GetValue(), 0);
-			const FVector2D T2 = GetVertexInstanceUV(MeshDescription, MeshTriangle.GetVertexInstanceID(1).GetValue(), 0);
-			const FVector2D T3 = GetVertexInstanceUV(MeshDescription, MeshTriangle.GetVertexInstanceID(2).GetValue(), 0);
+			const FVector2D T1 = GetVertexInstanceUV(MeshDescription, MeshTriangle.GetVertexInstanceID(0), 0);
+			const FVector2D T2 = GetVertexInstanceUV(MeshDescription, MeshTriangle.GetVertexInstanceID(1), 0);
+			const FVector2D T3 = GetVertexInstanceUV(MeshDescription, MeshTriangle.GetVertexInstanceID(2), 0);
 
 			FMatrix ParameterToTexture(
 				FPlane(T2.X - T1.X, T2.Y - T1.Y, 0, 0),
@@ -269,317 +252,311 @@ void FMeshDescriptionHelper::ComputeTriangleTangents(
 			// Use InverseSlow to catch singular matrices.  Inverse can miss this sometimes.
 			const FMatrix TextureToLocal = ParameterToTexture.Inverse() * ParameterToLocal;
 
-			OutTangentX.Add(TextureToLocal.TransformVector(FVector(1, 0, 0)).GetSafeNormal());
-			OutTangentY.Add(TextureToLocal.TransformVector(FVector(0, 1, 0)).GetSafeNormal());
-			OutTangentZ.Add(Normal);
-
-			FVector::CreateOrthonormalBasis(
-				OutTangentX[PolygonID.GetValue()],
-				OutTangentY[PolygonID.GetValue()],
-				OutTangentZ[PolygonID.GetValue()]
-			);
+			TangentX = TextureToLocal.TransformVector(FVector(1, 0, 0)).GetSafeNormal();
+			TangentY = TextureToLocal.TransformVector(FVector(0, 1, 0)).GetSafeNormal();
+			TangentZ = Normal;
+			FVector::CreateOrthonormalBasis(TangentX, TangentY, TangentZ);
+		}
+		else
+		{
+			DegeneratePolygons.Add(PolygonID);
+		}
+		//Set the polygon Normal value only once if it is not set.
+		if (Polygon.PolygonNormal.IsNearlyZero())
+		{
+			Polygon.PolygonTangent = TangentX;
+			Polygon.PolygonBinormal = TangentY;
+			Polygon.PolygonNormal = TangentZ;
 		}
 	}
 
-	check(OutTangentX.Num() == NumTriangles);
-	check(OutTangentY.Num() == NumTriangles);
-	check(OutTangentZ.Num() == NumTriangles);
+	//Delete the degenerated polygons. The array is fill only if the remove degenerated option is turn on.
+	if (DegeneratePolygons.Num() > 0)
+	{
+		TSet<FEdgeID> OrphanedEdges;
+		TSet<FVertexInstanceID> OrphanedVertexInstances;
+		TSet<FPolygonGroupID> OrphanedPolygonGroups;
+		TSet<FVertexID> OrphanedVertices;
+		for (FPolygonID& PolygonID : DegeneratePolygons)
+		{
+			MeshDescription->DeletePolygon(PolygonID, &OrphanedEdges, &OrphanedVertexInstances, &OrphanedPolygonGroups);
+		}
+		for (FPolygonGroupID& PolygonGroupID : OrphanedPolygonGroups)
+		{
+			MeshDescription->DeletePolygonGroup(PolygonGroupID);
+		}
+		for (FVertexInstanceID& VertexInstanceID : OrphanedVertexInstances)
+		{
+			MeshDescription->DeleteVertexInstance(VertexInstanceID, &OrphanedVertices);
+		}
+		for (FEdgeID& EdgeID : OrphanedEdges)
+		{
+			MeshDescription->DeleteEdge(EdgeID, &OrphanedVertices);
+		}
+		for (FVertexID& VertexID : OrphanedVertices)
+		{
+			MeshDescription->DeleteVertex(VertexID);
+		}
+		//Compact and Remap IDs so we have clean ID from 0 to n since we just erase some polygons
+		//The render build need to have compact ID
+		FElementIDRemappings RemappingInfos;
+		MeshDescription->Compact(RemappingInfos);
+	}
 }
 
-void FMeshDescriptionHelper::ComputeNTB_MikkTSpace(UMeshDescription* MeshDescription, FMeshDescriptionHelper::ETangentOptions TangentOptions)
+struct FVertexInfo
 {
-	bool bBlendOverlappingNormals = (TangentOptions & FMeshDescriptionHelper::ETangentOptions::BlendOverlappingNormals) != 0;
+	FVertexInfo()
+	{
+		PolygonID = FPolygonID::Invalid;
+		VertexInstanceID = FVertexInstanceID::Invalid;
+		UVs = FVector2D(0.0f, 0.0f);
+		EdgeIDs.Reserve(2);//Most of the time a edge has two triangles
+	}
+
+	FPolygonID PolygonID;
+	FVertexInstanceID VertexInstanceID;
+	FVector2D UVs;
+	TArray<FEdgeID> EdgeIDs;
+};
+
+void RecursiveFillPolygonGroup(
+	  UMeshDescription* MeshDescription
+	, TMap<FPolygonID, FVertexInfo>& VertexInfoMap
+	, TSet<FPolygonID>& CurrentGroup
+	, FVertexInfo& CurrentVertexInfo
+	, TSet<FPolygonID>& ConsumedPolygon)
+{
+	CurrentGroup.Add(CurrentVertexInfo.PolygonID);
+	ConsumedPolygon.Add(CurrentVertexInfo.PolygonID);
+	for (FEdgeID &EdgeID : CurrentVertexInfo.EdgeIDs)
+	{
+		FMeshEdge& Edge = MeshDescription->GetEdge(EdgeID);
+		if (Edge.bIsHardEdge)
+		{
+			//End of the group
+			continue;
+		}
+		for (const FPolygonID& PolygonID : Edge.ConnectedPolygons)
+		{
+			if (PolygonID == CurrentVertexInfo.PolygonID)
+			{
+				continue;
+			}
+			//Add this polygon to the group
+			FVertexInfo& OtherVertexInfo = VertexInfoMap.FindOrAdd(PolygonID);
+			//Do not repeat polygons
+			if (!ConsumedPolygon.Contains(OtherVertexInfo.PolygonID))
+			{
+				RecursiveFillPolygonGroup(MeshDescription, VertexInfoMap, CurrentGroup, OtherVertexInfo, ConsumedPolygon);
+			}
+		}
+	}
+}
+
+void FMeshDescriptionHelper::CreateNormals(UMeshDescription* MeshDescription, FMeshDescriptionHelper::ETangentOptions TangentOptions, bool bComputeTangent)
+{
+	//For each vertex compute the normals for every connected edges that are smooth betwween hard edges
+	//         H   A    B
+	//          \  ||  /
+	//       G  -- ** -- C
+	//          // |  \
+	//         F   E    D
+	//
+	// The double ** are the vertex, the double line are hard edges, the single line are soft edge.
+	// A and F are hard, all other edges are soft. The goal is to compute two average normals one from
+	// A to F and a second from F to A. Then we can set the vertex instance normals accordingly.
+	// First normal(A to F) = Normalize(A+B+C+D+E+F)
+	// Second normal(F to A) = Normalize(F+G+H+A)
+	// We found the connected edge using the triangle that share edges
+	
+	TMap<FPolygonID, FVertexInfo> VertexInfoMap;
+	VertexInfoMap.Reserve(20);
+	//Iterate all vertex to compute normals for all vertex instance
+	for (const FVertexID& VertexID : MeshDescription->Vertices().GetElementIDs())
+	{
+		FMeshVertex& Vertex = MeshDescription->GetVertex(VertexID);
+
+		VertexInfoMap.Reset();
+		
+		//Fill the VertexInfoMap
+		for (const FEdgeID& EdgeID : Vertex.ConnectedEdgeIDs)
+		{
+			FMeshEdge& Edge = MeshDescription->GetEdge(EdgeID);
+			for (const FPolygonID& PolygonID : Edge.ConnectedPolygons)
+			{
+				FVertexInfo& VertexInfo = VertexInfoMap.FindOrAdd(PolygonID);
+				int32 EdgeIndex = VertexInfo.EdgeIDs.AddUnique(EdgeID);
+
+				FMeshPolygon& Polygon = MeshDescription->GetPolygon(PolygonID);
+
+				if (VertexInfo.PolygonID == FPolygonID::Invalid)
+				{
+					VertexInfo.PolygonID = PolygonID;
+					for (FVertexInstanceID& VertexInstanceID : Polygon.PerimeterContour.VertexInstanceIDs)
+					{
+						FMeshVertexInstance& VertexInstance = MeshDescription->GetVertexInstance(VertexInstanceID);
+						if (VertexInstance.VertexID == VertexID)
+						{
+							VertexInfo.VertexInstanceID = VertexInstanceID;
+							VertexInfo.UVs = VertexInstance.VertexUVs[0];
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		//Make sure we consume all our vertex instance
+		check(VertexInfoMap.Num() == Vertex.VertexInstanceIDs.Num());
+
+		//Build all group by recursively traverse all polygon connected to the vertex
+		TArray<TSet<FPolygonID>> Groups;
+		TSet<FPolygonID> ConsumedPolygon;
+		for (auto Kvp : VertexInfoMap)
+		{
+			if (ConsumedPolygon.Contains(Kvp.Key))
+			{
+				continue;
+			}
+
+			int32 CurrentGroupIndex = Groups.AddZeroed();
+			FVertexInfo& VertexInfo = VertexInfoMap.FindOrAdd(Kvp.Key);
+			RecursiveFillPolygonGroup(MeshDescription, VertexInfoMap, Groups[CurrentGroupIndex], VertexInfo, ConsumedPolygon);
+		}
+
+		//Smooth every connected group
+		ConsumedPolygon.Reset();
+		for(TSet<FPolygonID> Group : Groups)
+		{
+			//Compute tangents data
+			TMap<FVector2D, FVector> GroupTangent;
+			TMap<FVector2D, FVector> GroupBiNormal;
+
+			TArray<FVertexInstanceID> VertexInstanceInGroup;
+			FVector GroupNormal(0.0f);
+			for(FPolygonID& PolygonID : Group)
+			{
+#ifdef ENABLE_NTB_CHECK
+				check(!ConsumedPolygon.Contains(PolygonID));
+#endif
+				ConsumedPolygon.Add(PolygonID);
+				VertexInstanceInGroup.Add(VertexInfoMap[PolygonID].VertexInstanceID);
+				FMeshPolygon& Polygon = MeshDescription->GetPolygon(PolygonID);
+				GroupNormal += Polygon.PolygonNormal;
+				if (bComputeTangent)
+				{
+					FVector2D& UVs = VertexInfoMap[PolygonID].UVs;
+					bool CreateGroup = (!GroupTangent.Contains(UVs));
+					FVector& GroupTangentValue = GroupTangent.FindOrAdd(UVs);
+					FVector& GroupBiNormalValue = GroupBiNormal.FindOrAdd(UVs);
+					GroupTangentValue = CreateGroup ? Polygon.PolygonTangent : GroupTangentValue + Polygon.PolygonTangent;
+					GroupBiNormalValue = CreateGroup ? Polygon.PolygonBinormal : GroupBiNormalValue + Polygon.PolygonBinormal;
+				}
+			}
+
+			//////////////////////////////////////////////////////////////////////////
+			//Apply the group to the Mesh
+			GroupNormal.Normalize();
+			if (bComputeTangent)
+			{
+				for (auto Kvp : GroupTangent)
+				{
+					FVector& GroupTangentValue = GroupTangent.FindOrAdd(Kvp.Key);
+					GroupTangentValue.Normalize();
+				}
+				for (auto Kvp : GroupBiNormal)
+				{
+					FVector& GroupBiNormalValue = GroupBiNormal.FindOrAdd(Kvp.Key);
+					GroupBiNormalValue.Normalize();
+				}
+			}
+			//Apply the average NTB on all Vertex instance
+			for (FVertexInstanceID& VertexInstanceID : VertexInstanceInGroup)
+			{
+				FMeshVertexInstance& VertexInstance = MeshDescription->GetVertexInstance(VertexInstanceID);
+				FVector2D& VertexUV = VertexInstance.VertexUVs[0];
+				
+				//Avoid changing the original group value
+				FVector GroupTangentValue = GroupTangent[VertexUV];
+				FVector GroupBiNormalValue = GroupBiNormal[VertexUV];
+
+				if (VertexInstance.Normal.IsNearlyZero(SMALL_NUMBER))
+				{
+					VertexInstance.Normal = GroupNormal;
+				}
+#ifdef ENABLE_NTB_CHECK
+				check(!VertexInstance.Normal.IsNearlyZero(SMALL_NUMBER));
+#endif
+				if (bComputeTangent)
+				{
+					if (!VertexInstance.Tangent.IsNearlyZero(SMALL_NUMBER))
+					{
+						GroupTangentValue = VertexInstance.Tangent;
+					}
+#ifdef ENABLE_NTB_CHECK
+					check(!GroupTangentValue.IsNearlyZero(SMALL_NUMBER))
+#endif
+					FVector BiNormal(0.0f);
+					if (!VertexInstance.Normal.IsNearlyZero(SMALL_NUMBER) && !VertexInstance.Tangent.IsNearlyZero(SMALL_NUMBER))
+					{
+						BiNormal = FVector::CrossProduct(VertexInstance.Normal, VertexInstance.Tangent).GetSafeNormal() * VertexInstance.BinormalSign;
+					}
+					if (!BiNormal.IsNearlyZero(SMALL_NUMBER))
+					{
+						GroupBiNormalValue = BiNormal;
+					}
+#ifdef ENABLE_NTB_CHECK
+					check(!GroupBiNormalValue.IsNearlyZero(SMALL_NUMBER));
+#endif
+					// Gram-Schmidt orthogonalization
+					GroupBiNormalValue -= GroupTangentValue * (GroupTangentValue | GroupBiNormalValue);
+					GroupBiNormalValue.Normalize();
+					
+					GroupTangentValue -= VertexInstance.Normal * (VertexInstance.Normal | GroupTangentValue);
+					GroupTangentValue.Normalize();
+					
+					GroupBiNormalValue -= VertexInstance.Normal * (VertexInstance.Normal | GroupBiNormalValue);
+					GroupBiNormalValue.Normalize();
+#ifdef ENABLE_NTB_CHECK
+					check(!GroupTangentValue.IsNearlyZero(SMALL_NUMBER));
+					check(!GroupBiNormalValue.IsNearlyZero(SMALL_NUMBER));
+#endif
+					//Set the value
+					VertexInstance.Tangent = GroupTangentValue;
+					//If the BiNormal is zero set the sign to 1.0f
+					VertexInstance.BinormalSign = GetBasisDeterminantSign(GroupTangentValue, GroupBiNormalValue, VertexInstance.Normal);
+
+				}
+			}
+		}
+	}
+}
+
+void FMeshDescriptionHelper::CreateMikktTangents(UMeshDescription* MeshDescription, FMeshDescriptionHelper::ETangentOptions TangentOptions)
+{
 	bool bIgnoreDegenerateTriangles = (TangentOptions & FMeshDescriptionHelper::ETangentOptions::IgnoreDegenerateTriangles) != 0;
 	float ComparisonThreshold = bIgnoreDegenerateTriangles ? THRESH_POINTS_ARE_SAME : 0.0f;
 
-	// Compute per-triangle tangents.
-	TArray<FVector> TriangleTangentX;
-	TArray<FVector> TriangleTangentY;
-	TArray<FVector> TriangleTangentZ;
+	bool bWedgeTSpace = true;
 
-	ComputeTriangleTangents(
-		MeshDescription,
-		TriangleTangentX,
-		TriangleTangentY,
-		TriangleTangentZ,
-		bIgnoreDegenerateTriangles ? SMALL_NUMBER : 0.0f
-	);
-	TArray<uint32> SmoothingGroupIndices;
-	SmoothingGroupIndices.Reserve(MeshDescription->Polygons().Num());
-	
-	//TODO: support smooth group per edges, we currently do not import smooth group
-	for (const FPolygonID& PolygonID : OriginalMeshDescription->Polygons().GetElementIDs())
-	{
-		SmoothingGroupIndices.Add(1);
-	}
-
-	TArray<FVector> OutTangentX;
-	OutTangentX.AddZeroed(MeshDescription->VertexInstances().Num());
-	TArray<FVector> OutTangentY;
-	OutTangentY.AddZeroed(MeshDescription->VertexInstances().Num());
-	TArray<FVector> OutTangentZ;
-	OutTangentZ.AddZeroed(MeshDescription->VertexInstances().Num());
-
-	for (const FPolygonID& PolygonID : MeshDescription->Polygons().GetElementIDs())
-	{
-		const TArray<FMeshTriangle>& MeshTriangles = MeshDescription->GetPolygon(PolygonID).Triangles;
-		for (const FMeshTriangle& MeshTriangle : MeshTriangles)
-		{
-			for (int32 CornerIndex = 0; CornerIndex < 3; ++CornerIndex)
-			{
-				const FVertexInstanceID& VertexInstanceID = MeshTriangle.GetVertexInstanceID(CornerIndex);
-				GetVertexInstanceNTB(MeshDescription, VertexInstanceID, OutTangentZ[VertexInstanceID.GetValue()], OutTangentX[VertexInstanceID.GetValue()], OutTangentY[VertexInstanceID.GetValue()]);
-			}
-		}
-	}
-	// Declare these out here to avoid reallocations.
-	TArray<FFanFace> RelevantFacesForCorner[3];
-	TArray<int32> AdjacentFaces;
-	TArray<int32> DupVerts;
-
-	int32 NumWedges = MeshDescription->VertexInstances().Num();
-	int32 NumFaces = NumWedges / 3;
-	check(MeshDescription->Polygons().Num() == NumFaces);
-
-	bool bWedgeTSpace = false;
-
-	if (OutTangentX.Num() > 0 && OutTangentY.Num() > 0)
-	{
-		bWedgeTSpace = true;
-		for (int32 WedgeIdx = 0; bWedgeTSpace && WedgeIdx < OutTangentX.Num() && WedgeIdx < OutTangentY.Num(); ++WedgeIdx)
-		{
-			bWedgeTSpace &= (!OutTangentX[WedgeIdx].IsNearlyZero()) && (!OutTangentY[WedgeIdx].IsNearlyZero());
-		}
-	}
-
-	// Allocate storage for tangents if none were provided, and calculate normals for MikkTSpace.
-	if (OutTangentZ.Num() != NumWedges)
-	{
-		// normals are not included, so we should calculate them
-		OutTangentZ.Empty(NumWedges);
-		OutTangentZ.AddZeroed(NumWedges);
-	}
-
-	// we need to calculate normals for MikkTSpace
-	for (const FPolygonID& PolygonID : MeshDescription->Polygons().GetElementIDs())
-	{
-		const TArray<FMeshTriangle>& MeshTriangles = MeshDescription->GetPolygon(PolygonID).Triangles;
-		for (const FMeshTriangle& MeshTriangle : MeshTriangles)
-		{
-			FVector CornerPositions[3];
-			FVector CornerNormal[3];
-
-			for (int32 CornerIndex = 0; CornerIndex < 3; CornerIndex++)
-			{
-				const FVertexInstanceID& VertexInstanceID = MeshTriangle.GetVertexInstanceID(CornerIndex);
-				CornerNormal[CornerIndex] = FVector::ZeroVector;
-				CornerPositions[CornerIndex] = GetVertexPositionFromVertexInstance(MeshDescription, VertexInstanceID.GetValue());
-				RelevantFacesForCorner[CornerIndex].Reset();
-			}
-
-			// Don't process degenerate triangles.
-			if (CornerPositions[0].Equals(CornerPositions[1], ComparisonThreshold)
-				|| CornerPositions[0].Equals(CornerPositions[2], ComparisonThreshold)
-				|| CornerPositions[1].Equals(CornerPositions[2], ComparisonThreshold))
-			{
-				continue;
-			}
-
-			// No need to process triangles if tangents already exist.
-			bool bCornerHasNormal[3] = { 0 };
-			for (int32 CornerIndex = 0; CornerIndex < 3; CornerIndex++)
-			{
-				const FVertexInstanceID& VertexInstanceID = MeshTriangle.GetVertexInstanceID(CornerIndex);
-				bCornerHasNormal[CornerIndex] = !OutTangentZ[VertexInstanceID.GetValue()].IsNearlyZero();
-			}
-			if (bCornerHasNormal[0] && bCornerHasNormal[1] && bCornerHasNormal[2])
-			{
-				continue;
-			}
-
-			// Start building a list of faces adjacent to this face.
-			AdjacentFaces.Reset();
-			for (int32 CornerIndex = 0; CornerIndex < 3; CornerIndex++)
-			{
-				const FVertexInstanceID& VertexInstanceID = MeshTriangle.GetVertexInstanceID(CornerIndex);
-				int32 ThisCornerIndex = VertexInstanceID.GetValue();
-				DupVerts.Reset();
-				OverlappingCorners.MultiFind(ThisCornerIndex, DupVerts);
-				DupVerts.Add(ThisCornerIndex); // I am a "dup" of myself
-				for (int32 k = 0; k < DupVerts.Num(); k++)
-				{
-					AdjacentFaces.AddUnique(DupVerts[k] / 3);
-				}
-			}
-
-			// We need to sort these here because the criteria for point equality is
-			// exact, so we must ensure the exact same order for all dups.
-			AdjacentFaces.Sort();
-
-			// Process adjacent faces
-			for (int32 AdjacentFaceIndex = 0; AdjacentFaceIndex < AdjacentFaces.Num(); AdjacentFaceIndex++)
-			{
-				int32 OtherFaceIndex = AdjacentFaces[AdjacentFaceIndex];
-				for (int32 OurCornerIndex = 0; OurCornerIndex < 3; OurCornerIndex++)
-				{
-					if (bCornerHasNormal[OurCornerIndex])
-						continue;
-
-					FFanFace NewFanFace;
-					int32 CommonIndexCount = 0;
-
-					// Check for vertices in common.
-					if (PolygonID.GetValue() == OtherFaceIndex)
-					{
-						CommonIndexCount = 3;
-						NewFanFace.LinkedVertexIndex = OurCornerIndex;
-					}
-					else
-					{
-						// Check matching vertices against main vertex .
-						for (int32 OtherCornerIndex = 0; OtherCornerIndex < 3; OtherCornerIndex++)
-						{
-							if (CornerPositions[OurCornerIndex].Equals(GetVertexPositionFromVertexInstance(MeshDescription, OtherFaceIndex * 3 + OtherCornerIndex), ComparisonThreshold))
-							{
-								CommonIndexCount++;
-								NewFanFace.LinkedVertexIndex = OtherCornerIndex;
-							}
-						}
-					}
-
-					// Add if connected by at least one point. Smoothing matches are considered later.
-					if (CommonIndexCount > 0)
-					{
-						NewFanFace.FaceIndex = OtherFaceIndex;
-						NewFanFace.bFilled = (OtherFaceIndex == PolygonID.GetValue()); // Starter face for smoothing floodfill.
-						NewFanFace.bBlendTangents = NewFanFace.bFilled;
-						NewFanFace.bBlendNormals = NewFanFace.bFilled;
-						RelevantFacesForCorner[OurCornerIndex].Add(NewFanFace);
-					}
-				}
-			}
-
-			// Find true relevance of faces for a vertex normal by traversing
-			// smoothing-group-compatible connected triangle fans around common vertices.
-			for (int32 CornerIndex = 0; CornerIndex < 3; CornerIndex++)
-			{
-				if (bCornerHasNormal[CornerIndex])
-					continue;
-
-				int32 NewConnections;
-				do
-				{
-					NewConnections = 0;
-					for (int32 OtherFaceIdx = 0; OtherFaceIdx < RelevantFacesForCorner[CornerIndex].Num(); OtherFaceIdx++)
-					{
-						FFanFace& OtherFace = RelevantFacesForCorner[CornerIndex][OtherFaceIdx];
-						// The vertex' own face is initially the only face with bFilled == true.
-						if (OtherFace.bFilled)
-						{
-							for (int32 NextFaceIndex = 0; NextFaceIndex < RelevantFacesForCorner[CornerIndex].Num(); NextFaceIndex++)
-							{
-								FFanFace& NextFace = RelevantFacesForCorner[CornerIndex][NextFaceIndex];
-								if (!NextFace.bFilled) // && !NextFace.bBlendTangents)
-								{
-									if ((NextFaceIndex != OtherFaceIdx)
-										&& (SmoothingGroupIndices[NextFace.FaceIndex] & SmoothingGroupIndices[OtherFace.FaceIndex]))
-									{
-										int32 CommonVertices = 0;
-										int32 CommonNormalVertices = 0;
-										for (int32 OtherCornerIndex = 0; OtherCornerIndex < 3; OtherCornerIndex++)
-										{
-											for (int32 NextCornerIndex = 0; NextCornerIndex < 3; NextCornerIndex++)
-											{
-												int32 NextVertexIndex = MeshDescription->GetPolygon(FPolygonID(NextFace.FaceIndex)).Triangles[0].GetVertexInstanceID(NextCornerIndex).GetValue();
-												int32 OtherVertexIndex = MeshDescription->GetPolygon(FPolygonID(OtherFace.FaceIndex)).Triangles[0].GetVertexInstanceID(OtherCornerIndex).GetValue();
-												if (GetVertexPositionFromVertexInstance(MeshDescription, NextVertexIndex).Equals(GetVertexPositionFromVertexInstance(MeshDescription, OtherVertexIndex), ComparisonThreshold))
-												{
-													CommonVertices++;
-													if (bBlendOverlappingNormals
-														|| NextVertexIndex == OtherVertexIndex)
-													{
-														CommonNormalVertices++;
-													}
-												}
-											}
-										}
-										// Flood fill faces with more than one common vertices which must be touching edges.
-										if (CommonVertices > 1)
-										{
-											NextFace.bFilled = true;
-											NextFace.bBlendNormals = (CommonNormalVertices > 1);
-											NewConnections++;
-										}
-									}
-								}
-							}
-						}
-					}
-				} while (NewConnections > 0);
-			}
-
-			// Vertex normal construction.
-			for (int32 CornerIndex = 0; CornerIndex < 3; CornerIndex++)
-			{
-				const FVertexInstanceID& VertexInstanceID = MeshTriangle.GetVertexInstanceID(CornerIndex);
-				if (bCornerHasNormal[CornerIndex])
-				{
-					CornerNormal[CornerIndex] = OutTangentZ[VertexInstanceID.GetValue()];
-				}
-				else
-				{
-					for (int32 RelevantFaceIdx = 0; RelevantFaceIdx < RelevantFacesForCorner[CornerIndex].Num(); RelevantFaceIdx++)
-					{
-						FFanFace const& RelevantFace = RelevantFacesForCorner[CornerIndex][RelevantFaceIdx];
-						if (RelevantFace.bFilled)
-						{
-							int32 OtherFaceIndex = RelevantFace.FaceIndex;
-							if (RelevantFace.bBlendNormals)
-							{
-								CornerNormal[CornerIndex] += TriangleTangentZ[OtherFaceIndex];
-							}
-						}
-					}
-					if (!OutTangentZ[VertexInstanceID.GetValue()].IsZero())
-					{
-						CornerNormal[CornerIndex] = OutTangentZ[VertexInstanceID.GetValue()];
-					}
-				}
-			}
-
-			// Normalization.
-			for (int32 CornerIndex = 0; CornerIndex < 3; CornerIndex++)
-			{
-				CornerNormal[CornerIndex].Normalize();
-			}
-
-			// Copy back to the outTangentZ (Normal).
-			for (int32 CornerIndex = 0; CornerIndex < 3; CornerIndex++)
-			{
-				const FVertexInstanceID& VertexInstanceID = MeshTriangle.GetVertexInstanceID(CornerIndex);
-				OutTangentZ[VertexInstanceID.GetValue()] = CornerNormal[CornerIndex];
-			}
-		}
-	}
-
-	if (OutTangentX.Num() != NumWedges)
-	{
-		OutTangentX.Empty(NumWedges);
-		OutTangentX.AddZeroed(NumWedges);
-	}
-	if (OutTangentY.Num() != NumWedges)
-	{
-		OutTangentY.Empty(NumWedges);
-		OutTangentY.AddZeroed(NumWedges);
-	}
-
-	//Copy Back the OutTangent to the mesh description
 	for (const FVertexInstanceID& VertexInstanceID : MeshDescription->VertexInstances().GetElementIDs())
 	{
-		int32 VertexInstanceIDValue = VertexInstanceID.GetValue();
-		SetVertexInstanceNTB(MeshDescription, VertexInstanceID, OutTangentZ[VertexInstanceIDValue], OutTangentX[VertexInstanceIDValue], OutTangentY[VertexInstanceIDValue]);
+		FMeshVertexInstance& VertexInstance = MeshDescription->GetVertexInstance(VertexInstanceID);
+		FVector BiNormal(0.0f);
+		if (!VertexInstance.Normal.IsNearlyZero() && !VertexInstance.Tangent.IsNearlyZero())
+		{
+			BiNormal = (FVector::CrossProduct(VertexInstance.Normal, VertexInstance.Tangent).GetSafeNormal() * VertexInstance.BinormalSign).GetSafeNormal();
+		}
+
+		if (VertexInstance.Tangent.IsNearlyZero() || BiNormal.IsNearlyZero())
+		{
+			bWedgeTSpace = false;
+			break;
+		}
 	}
 
+	//Set the tangent space
 	if (!bWedgeTSpace)
 	{
 		// we can use mikktspace to calculate the tangents
@@ -598,10 +575,6 @@ void FMeshDescriptionHelper::ComputeNTB_MikkTSpace(UMeshDescription* MeshDescrip
 		MikkTContext.m_bIgnoreDegenerates = bIgnoreDegenerateTriangles;
 		genTangSpaceDefault(&MikkTContext);
 	}
-
-	check(OutTangentX.Num() == NumWedges);
-	check(OutTangentY.Num() == NumWedges);
-	check(OutTangentZ.Num() == NumWedges);
 }
 
 namespace MeshDescriptionMikktSpaceInterface
@@ -650,7 +623,7 @@ namespace MeshDescriptionMikktSpaceInterface
 			VertexInstance.Tangent[i] = Tangent[i];
 		}
 		//Copy the bi normal sign
-		VertexInstance.BinormalSign = BitangentSign;
+		VertexInstance.BinormalSign = -BitangentSign;
 	}
 
 	void MikkGetTexCoord(const SMikkTSpaceContext* Context, float UV[2], const int FaceIdx, const int VertIdx)

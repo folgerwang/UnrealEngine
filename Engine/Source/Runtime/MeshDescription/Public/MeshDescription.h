@@ -666,7 +666,7 @@ public:
 	}
 
 	/** Deletes a vertex instance from a mesh */
-	void DeleteVertexInstance( const FVertexInstanceID VertexInstanceID, TArray<FVertexID>* InOutOrphanedVerticesPtr = nullptr )
+	void DeleteVertexInstance( const FVertexInstanceID VertexInstanceID, TSet<FVertexID>* InOutOrphanedVerticesPtr = nullptr )
 	{
 		const FVertexID VertexID = VertexInstanceArray[ VertexInstanceID ].VertexID;
 		verify( VertexArray[ VertexID ].VertexInstanceIDs.Remove( VertexInstanceID ) == 1 );
@@ -705,7 +705,7 @@ public:
 	}
 
 	/** Deletes an edge from a mesh */
-	void DeleteEdge( const FEdgeID EdgeID, TArray<FVertexID>* InOutOrphanedVerticesPtr = nullptr )
+	void DeleteEdge( const FEdgeID EdgeID, TSet<FVertexID>* InOutOrphanedVerticesPtr = nullptr )
 	{
 		FMeshEdge& Edge = EdgeArray[ EdgeID ];
 		for( const FVertexID EdgeVertexID : Edge.VertexIDs )
@@ -774,7 +774,7 @@ public:
 	}
 
 private:
-	void DeletePolygonContour_Internal( const FPolygonID PolygonID, const TArray<FVertexInstanceID>& VertexInstanceIDs, TArray<FEdgeID>* InOutOrphanedEdgesPtr, TArray<FVertexInstanceID>* InOutOrphanedVertexInstancesPtr )
+	void DeletePolygonContour_Internal( const FPolygonID PolygonID, const TArray<FVertexInstanceID>& VertexInstanceIDs, TSet<FEdgeID>* InOutOrphanedEdgesPtr, TSet<FVertexInstanceID>* InOutOrphanedVertexInstancesPtr )
 	{
 		FVertexInstanceID LastVertexInstanceID = VertexInstanceIDs.Last();
 		for( const FVertexInstanceID VertexInstanceID : VertexInstanceIDs )
@@ -804,7 +804,7 @@ private:
 
 public:
 	/** Deletes a polygon from the mesh */
-	void DeletePolygon( const FPolygonID PolygonID, TArray<FEdgeID>* InOutOrphanedEdgesPtr = nullptr, TArray<FVertexInstanceID>* InOutOrphanedVertexInstancesPtr = nullptr, TArray<FPolygonGroupID>* InOutOrphanedPolygonGroupsPtr = nullptr )
+	void DeletePolygon( const FPolygonID PolygonID, TSet<FEdgeID>* InOutOrphanedEdgesPtr = nullptr, TSet<FVertexInstanceID>* InOutOrphanedVertexInstancesPtr = nullptr, TSet<FPolygonGroupID>* InOutOrphanedPolygonGroupsPtr = nullptr )
 	{
 		FMeshPolygon& Polygon = PolygonArray[ PolygonID ];
 		DeletePolygonContour_Internal( PolygonID, Polygon.PerimeterContour.VertexInstanceIDs, InOutOrphanedEdgesPtr, InOutOrphanedVertexInstancesPtr );

@@ -11,15 +11,24 @@
 #include "IMeshReductionManagerModule.h"
 #include "MeshBuild.h"
 
-
 //////////////////////////////////////////////////////////////////////////
 //Local functions definition
-int32 GetPolygonGroupTriangles(const class UMeshDescription *MeshDescription, TArray<FMeshTriangle>& OutTriangles, const FPolygonGroupID& PolygonGroupID);
+void GetPolygonGroupTriangles(const class UMeshDescription *MeshDescription, TArray<FPolygonID>& OutPolygons, const FPolygonGroupID& PolygonGroupID);
 bool IsOrphanedVertex(const class UMeshDescription *MeshDescription, const FVertexID VertexID);
 void UpdateBounds(class UStaticMesh* StaticMesh);
 void UpdateCollision(UStaticMesh *StaticMesh);
-void BuildVertexBuffer(const class UMeshDescription* MeshDescription, struct FStaticMeshLODResources& StaticMeshLOD, const struct FMeshBuildSettings& LODBuildSettings, TArray< FStaticMeshBuildVertex >& StaticMeshBuildVertices, const TMultiMap<int32, int32>& OverlappingCorners, float VertexComparisonThreshold, TArray<int32>& RemapVerts);
-void BuildIndexBuffer(class UStaticMesh *StaticMesh, const class UMeshDescription* MeshDescription, TArray< uint32 >& IndexBuffer, struct FStaticMeshLODResources& StaticMeshLOD, TArray<int32>& OutWedgeMap, TArray<TArray<uint32> >& OutPerSectionIndices, TArray<int32>& RemapVerts);
+void BuildVertexBuffer(
+	  class UStaticMesh *StaticMesh
+	, const class UMeshDescription* MeshDescription
+	, struct FStaticMeshLODResources& StaticMeshLOD
+	, const struct FMeshBuildSettings& LODBuildSettings
+	, TArray< uint32 >& IndexBuffer
+	, TArray<int32>& OutWedgeMap
+	, TArray<TArray<uint32> >& OutPerSectionIndices
+	, TArray< FStaticMeshBuildVertex >& StaticMeshBuildVertices
+	, const TMultiMap<int32, int32>& OverlappingCorners
+	, float VertexComparisonThreshold
+	, TArray<int32>& RemapVerts);
 void BuildAllBufferOptimizations(struct FStaticMeshLODResources& StaticMeshLOD, const struct FMeshBuildSettings& LODBuildSettings, TArray< uint32 >& IndexBuffer, bool bNeeds32BitIndices, TArray< FStaticMeshBuildVertex >& StaticMeshBuildVertices);
 //////////////////////////////////////////////////////////////////////////
 
@@ -47,6 +56,7 @@ bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh)
 		const UMeshDescription* OriginalMeshDescription = StaticMesh->GetOriginalMeshDescription(LodIndex);
 		FMeshDescriptionHelper MeshDescriptionHelper(&LODBuildSettings, OriginalMeshDescription);
 		UMeshDescription* MeshDescription = MeshDescriptionHelper.GetRenderMeshDescription(StaticMesh);
+
 		check(MeshDescription != nullptr);
 		StaticMesh->SetMeshDescription(LodIndex, MeshDescription);
 		
@@ -66,9 +76,7 @@ bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh)
 
 		StaticMeshLOD.Sections.Empty(PolygonGroups.Num());
 		TArray<int32> RemapVerts; //Because we will remove MeshVertex that are redundant, we need a remap
-		BuildVertexBuffer(MeshDescription, StaticMeshLOD, LODBuildSettings, StaticMeshBuildVertices, MeshDescriptionHelper.GetOverlappingCorners(), VertexComparisonThreshold, RemapVerts);
-
-		//Render data Wedge map is only set for LOD 0???
+								  //Render data Wedge map is only set for LOD 0???
 		TArray<int32> TempWedgeMap;
 		TArray<int32> &WedgeMap = (LodIndex == 0) ? StaticMeshRenderData.WedgeMap : TempWedgeMap;
 
@@ -84,7 +92,8 @@ bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh)
 			PerSectionIndices.Push(TArray<uint32>());
 		}
 
-		BuildIndexBuffer(StaticMesh, MeshDescription, IndexBuffer, StaticMeshLOD, WedgeMap, PerSectionIndices, RemapVerts);
+		//Build the vertex and index buffer
+		BuildVertexBuffer(StaticMesh, MeshDescription, StaticMeshLOD, LODBuildSettings, IndexBuffer, WedgeMap, PerSectionIndices, StaticMeshBuildVertices, MeshDescriptionHelper.GetOverlappingCorners(), VertexComparisonThreshold, RemapVerts);
 
 		// Figure out which index buffer stride we need
 		bool bNeeds32BitIndices = false;
@@ -93,6 +102,7 @@ bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh)
 			if (StaticMeshSection.MaxVertexIndex > TNumericLimits<uint16>::Max())
 			{
 				bNeeds32BitIndices = true;
+				break;
 			}
 		}
 		const EIndexBufferStride::Type IndexBufferStride = bNeeds32BitIndices ? EIndexBufferStride::Force32Bit : EIndexBufferStride::Force16Bit;
@@ -107,6 +117,7 @@ bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh)
 	} //End of LOD for loop
 
 	OnBuildRenderMeshFinish(StaticMesh, true);
+
 	return true;
 }
 
@@ -147,7 +158,7 @@ void FStaticMeshBuilder::OnBuildRenderMeshFinish(UStaticMesh* StaticMesh, const 
 	RecreateRenderStateContext.Reset();
 }
 
-int32 GetPolygonGroupTriangles(const UMeshDescription *MeshDescription, TArray<FMeshTriangle>& OutTriangles, const FPolygonGroupID& PolygonGroupID)
+void GetPolygonGroupTriangles(const UMeshDescription *MeshDescription, TArray<FPolygonID>& OutPolygons, const FPolygonGroupID& PolygonGroupID)
 {
 	int32 TriangleCount = 0;
 	for (const FPolygonID& PolygonID : MeshDescription->Polygons().GetElementIDs())
@@ -155,14 +166,9 @@ int32 GetPolygonGroupTriangles(const UMeshDescription *MeshDescription, TArray<F
 		FMeshPolygon MeshPolygon = MeshDescription->GetPolygon(PolygonID);
 		if (MeshPolygon.PolygonGroupID == PolygonGroupID)
 		{
-			for (const FMeshTriangle& MeshTriangle : MeshPolygon.Triangles)
-			{
-				OutTriangles.Add(MeshTriangle);
-				TriangleCount++;
-			}
+			OutPolygons.Add(PolygonID);
 		}
 	}
-	return TriangleCount;
 }
 
 bool IsOrphanedVertex(const UMeshDescription *MeshDescription, const FVertexID VertexID)
@@ -308,10 +314,23 @@ bool AreVerticesEqual(FStaticMeshBuildVertex const& A, FStaticMeshBuildVertex co
 	return true;
 }
 
-void BuildVertexBuffer(const UMeshDescription* MeshDescription, FStaticMeshLODResources& StaticMeshLOD, const FMeshBuildSettings& LODBuildSettings, TArray< FStaticMeshBuildVertex >& StaticMeshBuildVertices, const TMultiMap<int32, int32>& OverlappingCorners, float VertexComparisonThreshold, TArray<int32>& RemapVerts)
+void BuildVertexBuffer(
+	  UStaticMesh *StaticMesh
+	, const UMeshDescription* MeshDescription
+	, FStaticMeshLODResources& StaticMeshLOD
+	, const FMeshBuildSettings& LODBuildSettings
+	, TArray< uint32 >& IndexBuffer
+	, TArray<int32>& OutWedgeMap
+	, TArray<TArray<uint32> >& OutPerSectionIndices
+	, TArray< FStaticMeshBuildVertex >& StaticMeshBuildVertices
+	, const TMultiMap<int32, int32>& OverlappingCorners
+	, float VertexComparisonThreshold
+	, TArray<int32>& RemapVerts)
 {
 	const FVertexArray& Vertices = MeshDescription->Vertices();
 	const FVertexInstanceArray& VertexInstances = MeshDescription->VertexInstances();
+	
+	OutWedgeMap.Reset();
 
 	TArray<int32> RemapVertexInstanceID;
 	// set up vertex buffer elements
@@ -329,19 +348,41 @@ void BuildVertexBuffer(const UMeshDescription* MeshDescription, FStaticMeshLODRe
 	// Set up index buffer
 	for (const FPolygonGroupID& PolygonGroupID : PolygonGroups.GetElementIDs())
 	{
-		TArray<FMeshTriangle> Triangles;
-		int32 SectionTriangleCount = GetPolygonGroupTriangles(MeshDescription, Triangles, PolygonGroupID);
+		TArray<FPolygonID> Polygons;
+		GetPolygonGroupTriangles(MeshDescription, Polygons, PolygonGroupID);
 
 		const FMeshPolygonGroup& PolygonGroup = PolygonGroups[PolygonGroupID];
-		if (Triangles.Num() > 0)
+		
+		TArray<uint32>& SectionIndices = OutPerSectionIndices[PolygonGroupID.GetValue()];
+
+		// Create new rendering section
+		StaticMeshLOD.Sections.Add(FStaticMeshSection());
+		FStaticMeshSection& StaticMeshSection = StaticMeshLOD.Sections.Last();
+
+		StaticMeshSection.FirstIndex = IndexBuffer.Num();
+		StaticMeshSection.NumTriangles = Polygons.Num();
+
+		const int32 MaterialIndex = StaticMesh->GetMaterialIndex(PolygonGroup.ImportedMaterialSlotName);
+		check(MaterialIndex != INDEX_NONE);
+		check(StaticMesh->StaticMaterials[MaterialIndex].MaterialInterface->GetPathName() == PolygonGroup.MaterialAsset.ToString());
+		StaticMeshSection.MaterialIndex = MaterialIndex;
+		StaticMeshSection.bEnableCollision = PolygonGroup.bEnableCollision;
+		StaticMeshSection.bCastShadow = PolygonGroup.bCastShadow;
+
+		for (FPolygonID& PolygonID : Polygons)
 		{
-			for (int32 TriangleIndex = 0; TriangleIndex < Triangles.Num(); ++TriangleIndex)
+			const FMeshPolygon& Polygon = MeshDescription->GetPolygon(PolygonID);
+			int32 ReseveSize = IndexBuffer.Num() + Polygon.Triangles.Num() * 3;
+			IndexBuffer.Reserve(ReseveSize);
+			OutWedgeMap.Reserve(ReseveSize);
+			uint32 MinIndex = TNumericLimits< uint32 >::Max();
+			uint32 MaxIndex = TNumericLimits< uint32 >::Min();
+			for (int32 TriangleIndex = 0; TriangleIndex < Polygon.Triangles.Num(); ++TriangleIndex)
 			{
-				const FMeshTriangle& Triangle = Triangles[TriangleIndex];
+				const FMeshTriangle& Triangle = Polygon.Triangles[TriangleIndex];
 				for (int32 TriVert = 0; TriVert < 3; ++TriVert)
 				{
 					int32 VertexInstanceValue = Triangle.GetVertexInstanceID(TriVert).GetValue();
-					check((TriangleIndex * 3) + TriVert == VertexInstanceValue);
 					const FMeshVertexInstance& VertexInstance = MeshDescription->GetVertexInstance(Triangle.GetVertexInstanceID(TriVert));
 					if (VertexInstance.Color != FColor::White)
 					{
@@ -351,9 +392,10 @@ void BuildVertexBuffer(const UMeshDescription* MeshDescription, FStaticMeshLODRe
 					FStaticMeshBuildVertex StaticMeshVertex;
 
 					StaticMeshVertex.Position = Vertices[VertexInstance.VertexID].VertexPosition * LODBuildSettings.BuildScale3D;
-					StaticMeshVertex.TangentX = VertexInstance.Tangent;
-					StaticMeshVertex.TangentY = FVector::CrossProduct(VertexInstance.Normal, VertexInstance.Tangent).GetSafeNormal() * VertexInstance.BinormalSign;
-					StaticMeshVertex.TangentZ = VertexInstance.Normal;
+					const FMatrix ScaleMatrix = FScaleMatrix(LODBuildSettings.BuildScale3D).Inverse().GetTransposed();
+					StaticMeshVertex.TangentX = ScaleMatrix.TransformVector(VertexInstance.Tangent).GetSafeNormal();
+					StaticMeshVertex.TangentY = ScaleMatrix.TransformVector(FVector::CrossProduct(VertexInstance.Normal, VertexInstance.Tangent).GetSafeNormal() * VertexInstance.BinormalSign).GetSafeNormal();
+					StaticMeshVertex.TangentZ = ScaleMatrix.TransformVector(VertexInstance.Normal).GetSafeNormal();
 					StaticMeshVertex.Color = VertexInstance.Color.ToFColor(true);
 					for (int32 UVIndex = 0; UVIndex < VertexInstance.VertexUVs.Num(); ++UVIndex)
 					{
@@ -385,8 +427,23 @@ void BuildVertexBuffer(const UMeshDescription* MeshDescription, FStaticMeshLODRe
 						Index = StaticMeshBuildVertices.Add(StaticMeshVertex);
 					}
 					RemapVerts[VertexInstanceValue] = Index;
+					const uint32 RenderingVertexIndex = RemapVerts[VertexInstanceValue];
+					IndexBuffer.Add(RenderingVertexIndex);
+					OutWedgeMap.Add(RenderingVertexIndex);
+					SectionIndices.Add(RenderingVertexIndex);
+					MinIndex = FMath::Min(MinIndex, RenderingVertexIndex);
+					MaxIndex = FMath::Max(MaxIndex, RenderingVertexIndex);
 				}
 			}
+			StaticMeshSection.MinVertexIndex = MinIndex;
+			StaticMeshSection.MaxVertexIndex = MaxIndex;
+		}
+
+		if (Polygons.Num() == 0)
+		{
+			// No triangles in this section
+			StaticMeshSection.MinVertexIndex = 0;
+			StaticMeshSection.MaxVertexIndex = 0;
 		}
 	}
 
@@ -401,66 +458,6 @@ void BuildVertexBuffer(const UMeshDescription* MeshDescription, FStaticMeshLODRe
 	else
 	{
 		StaticMeshLOD.ColorVertexBuffer.InitFromSingleColor(FColor::White, StaticMeshBuildVertices.Num());
-	}
-}
-
-void BuildIndexBuffer(UStaticMesh *StaticMesh, const UMeshDescription* MeshDescription, TArray< uint32 >& IndexBuffer, FStaticMeshLODResources& StaticMeshLOD, TArray<int32>& OutWedgeMap, TArray<TArray<uint32> >& OutPerSectionIndices, TArray<int32>& RemapVerts)
-{
-	OutWedgeMap.Reset();
-
-	const FPolygonGroupArray& PolygonGroups = MeshDescription->PolygonGroups();
-	// Set up index buffer
-	for (const FPolygonGroupID& PolygonGroupID : PolygonGroups.GetElementIDs())
-	{
-		TArray<uint32>& SectionIndices = OutPerSectionIndices[PolygonGroupID.GetValue()];
-		TArray<FMeshTriangle> Triangles;
-		int32 SectionTriangleCount = GetPolygonGroupTriangles(MeshDescription, Triangles, PolygonGroupID);
-
-		const FMeshPolygonGroup& PolygonGroup = PolygonGroups[PolygonGroupID];
-
-		// Create new rendering section
-		StaticMeshLOD.Sections.Add(FStaticMeshSection());
-		FStaticMeshSection& StaticMeshSection = StaticMeshLOD.Sections.Last();
-
-		StaticMeshSection.FirstIndex = IndexBuffer.Num();
-		StaticMeshSection.NumTriangles = SectionTriangleCount;
-
-		const int32 MaterialIndex = StaticMesh->GetMaterialIndex(PolygonGroup.ImportedMaterialSlotName);
-		check(MaterialIndex != INDEX_NONE);
-		check(StaticMesh->StaticMaterials[MaterialIndex].MaterialInterface->GetPathName() == PolygonGroup.MaterialAsset.ToString());
-		StaticMeshSection.MaterialIndex = MaterialIndex;
-		StaticMeshSection.bEnableCollision = PolygonGroup.bEnableCollision;
-		StaticMeshSection.bCastShadow = PolygonGroup.bCastShadow;
-
-		if (Triangles.Num() > 0)
-		{
-			int32 ReseveSize = IndexBuffer.Num() + Triangles.Num() * 3;
-			IndexBuffer.Reserve(ReseveSize);
-			OutWedgeMap.Reserve(ReseveSize);
-			uint32 MinIndex = TNumericLimits< uint32 >::Max();
-			uint32 MaxIndex = TNumericLimits< uint32 >::Min();
-			for (int32 TriangleIndex = 0; TriangleIndex < Triangles.Num(); ++TriangleIndex)
-			{
-				const FMeshTriangle& Triangle = Triangles[TriangleIndex];
-				for (int32 TriVert = 0; TriVert < 3; ++TriVert)
-				{
-					const uint32 RenderingVertexIndex = RemapVerts[Triangle.GetVertexInstanceID(TriVert).GetValue()];
-					IndexBuffer.Add(RenderingVertexIndex);
-					OutWedgeMap.Add(RenderingVertexIndex);
-					SectionIndices.Add(RenderingVertexIndex);
-					MinIndex = FMath::Min(MinIndex, RenderingVertexIndex);
-					MaxIndex = FMath::Max(MaxIndex, RenderingVertexIndex);
-				}
-			}
-			StaticMeshSection.MinVertexIndex = MinIndex;
-			StaticMeshSection.MaxVertexIndex = MaxIndex;
-		}
-		else
-		{
-			// No triangles in this section
-			StaticMeshSection.MinVertexIndex = 0;
-			StaticMeshSection.MaxVertexIndex = 0;
-		}
 	}
 }
 

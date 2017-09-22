@@ -3,6 +3,9 @@
 
 #include "CoreMinimal.h"
 #include "CoreTypes.h"
+#include "Logging/LogMacros.h"
+
+DECLARE_LOG_CATEGORY_EXTERN(LogMeshBuilder, Log, All);
 
 class UObject;
 class UMeshDescription;
@@ -45,12 +48,11 @@ private:
 	//////////////////////////////////////////////////////////////////////////
 	//PRIVATE function declarations
 
-	const FVector& GetVertexPositionFromVertexInstance(UMeshDescription* MeshDescription, int32 VertexInstanceIndex) const;
-	FVector2D GetVertexInstanceUV(UMeshDescription* MeshDescription, int32 VertexInstanceIndex, int32 UVLayer) const;
-	void GetVertexInstanceNTB(UMeshDescription* MeshDescription, const FVertexInstanceID& VertexInstanceID, FVector &OutNormal, FVector &OutTangent, FVector &OutBiNormal) const;
-	void SetVertexInstanceNTB(UMeshDescription* MeshDescription, const FVertexInstanceID& VertexInstanceID, FVector &OutNormal, FVector &OutTangent, FVector &OutBiNormal);
-	void ComputeNTB_MikkTSpace(UMeshDescription* MeshDescription, ETangentOptions TangentOptions);
-	void ComputeTriangleTangents(UMeshDescription* MeshDescription, TArray<FVector>& OutTangentX, TArray<FVector>& OutTangentY, TArray<FVector>& OutTangentZ, float ComparisonThreshold);
+	FORCEINLINE const FVector& GetVertexPositionFromVertexInstance(UMeshDescription* MeshDescription, const FVertexInstanceID& VertexInstanceID) const;
+	FORCEINLINE FVector2D& GetVertexInstanceUV(UMeshDescription* MeshDescription, const FVertexInstanceID& VertexInstanceID, int32 UVLayer) const;
+	void CreateNormals(UMeshDescription* MeshDescription, ETangentOptions TangentOptions, bool bComputeTangent);
+	void CreateMikktTangents(UMeshDescription* MeshDescription, ETangentOptions TangentOptions);
+	void CreatePolygonNTB(UMeshDescription* MeshDescription, float ComparisonThreshold);
 	void FindOverlappingCorners(float ComparisonThreshold);
 
 	//////////////////////////////////////////////////////////////////////////
