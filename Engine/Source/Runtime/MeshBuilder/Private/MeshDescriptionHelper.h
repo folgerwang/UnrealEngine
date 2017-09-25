@@ -12,6 +12,11 @@ class UMeshDescription;
 struct FMeshBuildSettings;
 struct FVertexInstanceID;
 
+enum
+{
+	MAX_MESH_TEXTURE_COORDS = 8,
+};
+
 class FMeshDescriptionHelper
 {
 public:

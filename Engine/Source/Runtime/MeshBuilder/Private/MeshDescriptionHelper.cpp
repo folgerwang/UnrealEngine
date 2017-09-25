@@ -6,11 +6,13 @@
 #include "CoreMinimal.h"
 #include "CoreTypes.h"
 #include "Engine/EngineTypes.h"
+#include "Engine/StaticMesh.h"
 #include "MeshDescription.h"
 #include "mikktspace.h"
 #include "Serialization/MemoryWriter.h"
 #include "Serialization/MemoryReader.h"
 #include "RenderUtils.h"
+#include "LayoutUV.h"
 
 DEFINE_LOG_CATEGORY(LogMeshBuilder);
 
@@ -36,6 +38,8 @@ FMeshDescriptionHelper::FMeshDescriptionHelper(FMeshBuildSettings* InBuildSettin
 
 UMeshDescription* FMeshDescriptionHelper::GetRenderMeshDescription(UObject* Owner)
 {
+	UStaticMesh* StaticMesh = Cast<UStaticMesh>(Owner);
+	check(StaticMesh);
 	//Use the build settings to create the RenderMeshDescription
 	UMeshDescription *RenderMeshDescription = NewObject<UMeshDescription>(Owner, NAME_None, RF_NoFlags);
 
@@ -101,16 +105,15 @@ UMeshDescription* FMeshDescriptionHelper::GetRenderMeshDescription(UObject* Owne
 		}
 	}
 
-	// TODO: Generate lightmap UVs
-	/*if (BuildSettings->bGenerateLightmapUVs)
+	if (BuildSettings->bGenerateLightmapUVs && RenderMeshDescription->VertexInstances().Num() > 0)
 	{
-		if (RawMesh.WedgeTexCoords[BuildSettings->SrcLightmapIndex].Num() == 0)
+		if (!RenderMeshDescription->GetVertexInstance(FVertexInstanceID(0)).VertexUVs.IsValidIndex(BuildSettings->SrcLightmapIndex))
 		{
 			BuildSettings->SrcLightmapIndex = 0;
 		}
 
-		FLayoutUV Packer(&RawMesh, BuildSettings->SrcLightmapIndex, BuildSettings->DstLightmapIndex, BuildSettings->MinLightmapResolution);
-		Packer.SetVersion(LightmapUVVersion);
+		FLayoutUV Packer(RenderMeshDescription, BuildSettings->SrcLightmapIndex, BuildSettings->DstLightmapIndex, BuildSettings->MinLightmapResolution);
+		Packer.SetVersion((FMeshDescriptionHelper::ELightmapUVVersion)(StaticMesh->LightmapUVVersion));
 
 		Packer.FindCharts(OverlappingCorners);
 		bool bPackSuccess = Packer.FindBestPacking();
@@ -119,7 +122,6 @@ UMeshDescription* FMeshDescriptionHelper::GetRenderMeshDescription(UObject* Owne
 			Packer.CommitPackedUVs();
 		}
 	}
-	HasRawMesh[LODIndex] = true;*/
 
 	return RenderMeshDescription;
 }
@@ -476,11 +478,7 @@ void FMeshDescriptionHelper::CreateNormals(UMeshDescription* MeshDescription, FM
 			{
 				FMeshVertexInstance& VertexInstance = MeshDescription->GetVertexInstance(VertexInstanceID);
 				FVector2D& VertexUV = VertexInstance.VertexUVs[0];
-				
-				//Avoid changing the original group value
-				FVector GroupTangentValue = GroupTangent[VertexUV];
-				FVector GroupBiNormalValue = GroupBiNormal[VertexUV];
-
+			
 				if (VertexInstance.Normal.IsNearlyZero(SMALL_NUMBER))
 				{
 					VertexInstance.Normal = GroupNormal;
@@ -490,6 +488,10 @@ void FMeshDescriptionHelper::CreateNormals(UMeshDescription* MeshDescription, FM
 #endif
 				if (bComputeTangent)
 				{
+					//Avoid changing the original group value
+					FVector GroupTangentValue = GroupTangent[VertexUV];
+					FVector GroupBiNormalValue = GroupBiNormal[VertexUV];
+
 					if (!VertexInstance.Tangent.IsNearlyZero(SMALL_NUMBER))
 					{
 						GroupTangentValue = VertexInstance.Tangent;
@@ -629,7 +631,7 @@ namespace MeshDescriptionMikktSpaceInterface
 	void MikkGetTexCoord(const SMikkTSpaceContext* Context, float UV[2], const int FaceIdx, const int VertIdx)
 	{
 		UMeshDescription *MeshDescription = (UMeshDescription*)(Context->m_pUserData);
-		const FVector2D &TexCoord = MeshDescription->VertexInstanceAttributes().GetAttribute<FVector2D>(FVertexInstanceID(FaceIdx * 3 + VertIdx), UEditableMeshAttribute::VertexTextureCoordinate(), 0);
+		const FVector2D &TexCoord = MeshDescription->GetVertexInstance(FVertexInstanceID(FaceIdx * 3 + VertIdx)).VertexUVs[0];
 		UV[0] = TexCoord.X;
 		UV[1] = TexCoord.Y;
 	}

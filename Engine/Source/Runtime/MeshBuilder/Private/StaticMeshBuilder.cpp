@@ -344,6 +344,8 @@ void BuildVertexBuffer(
 	}
 	TArray<int32> DupVerts;
 
+	uint32 NumTextureCoord = (uint32)(MeshDescription->VertexInstances().Num() > 0 ? MeshDescription->GetVertexInstance(FVertexInstanceID(0)).VertexUVs.Num() : 1);
+
 	const FPolygonGroupArray& PolygonGroups = MeshDescription->PolygonGroups();
 	// Set up index buffer
 	for (const FPolygonGroupID& PolygonGroupID : PolygonGroups.GetElementIDs())
@@ -368,7 +370,6 @@ void BuildVertexBuffer(
 		StaticMeshSection.MaterialIndex = MaterialIndex;
 		StaticMeshSection.bEnableCollision = PolygonGroup.bEnableCollision;
 		StaticMeshSection.bCastShadow = PolygonGroup.bCastShadow;
-
 		for (FPolygonID& PolygonID : Polygons)
 		{
 			const FMeshPolygon& Polygon = MeshDescription->GetPolygon(PolygonID);
@@ -397,10 +398,19 @@ void BuildVertexBuffer(
 					StaticMeshVertex.TangentY = ScaleMatrix.TransformVector(FVector::CrossProduct(VertexInstance.Normal, VertexInstance.Tangent).GetSafeNormal() * VertexInstance.BinormalSign).GetSafeNormal();
 					StaticMeshVertex.TangentZ = ScaleMatrix.TransformVector(VertexInstance.Normal).GetSafeNormal();
 					StaticMeshVertex.Color = VertexInstance.Color.ToFColor(true);
-					for (int32 UVIndex = 0; UVIndex < VertexInstance.VertexUVs.Num(); ++UVIndex)
+					int32 NumTexCoords = FMath::Min<int32>(MAX_MESH_TEXTURE_COORDS, MAX_STATIC_TEXCOORDS);
+					for (int32 UVIndex = 0; UVIndex < NumTexCoords; ++UVIndex)
 					{
-						StaticMeshVertex.UVs[UVIndex] = VertexInstance.VertexUVs[UVIndex];
+						if(VertexInstance.VertexUVs.IsValidIndex(UVIndex))
+						{
+							StaticMeshVertex.UVs[UVIndex] = VertexInstance.VertexUVs[UVIndex];
+						}
+						else
+						{
+							StaticMeshVertex.UVs[UVIndex] = FVector2D(0.0f, 0.0f);
+						}
 					}
+					
 
 					//Never add duplicated vertex instance
 					DupVerts.Reset();
@@ -450,7 +460,7 @@ void BuildVertexBuffer(
 	StaticMeshLOD.PositionVertexBuffer.Init(StaticMeshBuildVertices);
 	StaticMeshLOD.VertexBuffer.SetUseHighPrecisionTangentBasis(LODBuildSettings.bUseHighPrecisionTangentBasis);
 	StaticMeshLOD.VertexBuffer.SetUseFullPrecisionUVs(LODBuildSettings.bUseFullPrecisionUVs);
-	StaticMeshLOD.VertexBuffer.Init(StaticMeshBuildVertices, 1); //TODO: use the real texture coordinnate count there is only one currently in the meshdescription
+	StaticMeshLOD.VertexBuffer.Init(StaticMeshBuildVertices, NumTextureCoord);
 	if (bHasColor)
 	{
 		StaticMeshLOD.ColorVertexBuffer.Init(StaticMeshBuildVertices);
