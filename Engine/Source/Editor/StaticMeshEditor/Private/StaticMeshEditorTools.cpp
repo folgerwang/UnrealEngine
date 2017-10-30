@@ -3033,7 +3033,7 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 					ReductionSettingsWidgets[LODIndex]->UpdateSettings(SrcModel.ReductionSettings);
 				}
 
-				if (SrcModel.RawMeshBulkData->IsEmpty() == false)
+				if (SrcModel.RawMeshBulkData->IsEmpty() == false || SrcModel.OriginalMeshDescription != nullptr)
 				{
 					BuildSettingsWidgets[LODIndex] = MakeShareable( new FMeshBuildSettingsLayout( AsShared() ) );
 					BuildSettingsWidgets[LODIndex]->UpdateSettings(SrcModel.BuildSettings);
