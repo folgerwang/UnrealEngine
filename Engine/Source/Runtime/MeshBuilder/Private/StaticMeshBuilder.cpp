@@ -19,6 +19,7 @@ void UpdateBounds(class UStaticMesh* StaticMesh);
 void UpdateCollision(UStaticMesh *StaticMesh);
 void BuildVertexBuffer(
 	  class UStaticMesh *StaticMesh
+	, int32 LodIndex
 	, const class UMeshDescription* MeshDescription
 	, struct FStaticMeshLODResources& StaticMeshLOD
 	, const struct FMeshBuildSettings& LODBuildSettings
@@ -39,18 +40,17 @@ FStaticMeshBuilder::FStaticMeshBuilder()
 
 bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh)
 {
-	int32 MeshDescriptionCount = StaticMesh->GetOriginalMeshDescriptionCount();
-	if (MeshDescriptionCount <= 0)
+	if (StaticMesh->GetOriginalMeshDescription(0) == nullptr)
 	{
 		//TODO: Warn the user that there is no mesh description data
 		return false;
 	}
-	StaticMesh->RenderData->AllocateLODResources(MeshDescriptionCount);
+	StaticMesh->RenderData->AllocateLODResources(StaticMesh->SourceModels.Num());
 
 	OnBuildRenderMeshStart(StaticMesh, false);
 
 	FStaticMeshRenderData& StaticMeshRenderData = *StaticMesh->RenderData;
-	for (int32 LodIndex = 0; LodIndex < MeshDescriptionCount; ++LodIndex)
+	for (int32 LodIndex = 0; LodIndex < StaticMesh->SourceModels.Num(); ++LodIndex)
 	{
 		FMeshBuildSettings& LODBuildSettings = StaticMesh->SourceModels[LodIndex].BuildSettings;
 		const UMeshDescription* OriginalMeshDescription = StaticMesh->GetOriginalMeshDescription(LodIndex);
@@ -93,7 +93,7 @@ bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh)
 		}
 
 		//Build the vertex and index buffer
-		BuildVertexBuffer(StaticMesh, MeshDescription, StaticMeshLOD, LODBuildSettings, IndexBuffer, WedgeMap, PerSectionIndices, StaticMeshBuildVertices, MeshDescriptionHelper.GetOverlappingCorners(), VertexComparisonThreshold, RemapVerts);
+		BuildVertexBuffer(StaticMesh, LodIndex, MeshDescription, StaticMeshLOD, LODBuildSettings, IndexBuffer, WedgeMap, PerSectionIndices, StaticMeshBuildVertices, MeshDescriptionHelper.GetOverlappingCorners(), VertexComparisonThreshold, RemapVerts);
 
 		// Figure out which index buffer stride we need
 		bool bNeeds32BitIndices = false;
@@ -316,6 +316,7 @@ bool AreVerticesEqual(FStaticMeshBuildVertex const& A, FStaticMeshBuildVertex co
 
 void BuildVertexBuffer(
 	  UStaticMesh *StaticMesh
+	, int32 LodIndex
 	, const UMeshDescription* MeshDescription
 	, FStaticMeshLODResources& StaticMeshLOD
 	, const FMeshBuildSettings& LODBuildSettings
@@ -358,7 +359,7 @@ void BuildVertexBuffer(
 		TArray<uint32>& SectionIndices = OutPerSectionIndices[PolygonGroupID.GetValue()];
 
 		// Create new rendering section
-		StaticMeshLOD.Sections.Add(FStaticMeshSection());
+		int32 SectionIndex = StaticMeshLOD.Sections.Add(FStaticMeshSection());
 		FStaticMeshSection& StaticMeshSection = StaticMeshLOD.Sections.Last();
 
 		StaticMeshSection.FirstIndex = IndexBuffer.Num();
@@ -370,6 +371,17 @@ void BuildVertexBuffer(
 		StaticMeshSection.MaterialIndex = MaterialIndex;
 		StaticMeshSection.bEnableCollision = PolygonGroup.bEnableCollision;
 		StaticMeshSection.bCastShadow = PolygonGroup.bCastShadow;
+		
+		if (LodIndex > 0)
+		{
+			//Set the overwrite section info map
+			FMeshSectionInfo SectionInfo = StaticMesh->SectionInfoMap.Get(LodIndex, SectionIndex);
+			SectionInfo.bCastShadow = StaticMeshSection.bCastShadow;
+			SectionInfo.bEnableCollision = StaticMeshSection.bEnableCollision;
+			SectionInfo.MaterialIndex = StaticMeshSection.MaterialIndex;
+			StaticMesh->SectionInfoMap.Set(LodIndex, SectionIndex, SectionInfo);
+		}
+
 		for (FPolygonID& PolygonID : Polygons)
 		{
 			const FMeshPolygon& Polygon = MeshDescription->GetPolygon(PolygonID);

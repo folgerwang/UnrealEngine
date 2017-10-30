@@ -13,7 +13,7 @@ namespace BuildOptimizationPrivate
 {
 	// CVars
 	static TAutoConsoleVariable<int32> CVarTriangleOrderOptimization(
-		TEXT("r.TriangleOrderOptimization"),
+		TEXT("r.TriangleOrderOptimization_MD"),
 		1,
 		TEXT("Controls the algorithm to use when optimizing the triangle order for the post-transform cache.\n")
 		TEXT("0: Use NVTriStrip (slower)\n")
@@ -22,13 +22,13 @@ namespace BuildOptimizationPrivate
 		ECVF_Default);
 
 	static TAutoConsoleVariable<int32> CVarSupportDepthOnlyIndexBuffers(
-		TEXT("r.SupportDepthOnlyIndexBuffers"),
+		TEXT("r.SupportDepthOnlyIndexBuffers_MD"),
 		1,
 		TEXT("Enables depth-only index buffers. Saves a little time at the expense of doubling the size of index buffers."),
 		ECVF_ReadOnly | ECVF_RenderThreadSafe);
 
 	static TAutoConsoleVariable<int32> CVarSupportReversedIndexBuffers(
-		TEXT("r.SupportReversedIndexBuffers"),
+		TEXT("r.SupportReversedIndexBuffers_MD"),
 		1,
 		TEXT("Enables reversed index buffers. Saves a little time at the expense of doubling the size of index buffers."),
 		ECVF_ReadOnly | ECVF_RenderThreadSafe);

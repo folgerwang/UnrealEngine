@@ -540,43 +540,21 @@ void FMeshDescriptionHelper::CreateMikktTangents(UMeshDescription* MeshDescripti
 	bool bIgnoreDegenerateTriangles = (TangentOptions & FMeshDescriptionHelper::ETangentOptions::IgnoreDegenerateTriangles) != 0;
 	float ComparisonThreshold = bIgnoreDegenerateTriangles ? THRESH_POINTS_ARE_SAME : 0.0f;
 
-	bool bWedgeTSpace = true;
+	// we can use mikktspace to calculate the tangents
+	SMikkTSpaceInterface MikkTInterface;
+	MikkTInterface.m_getNormal = MeshDescriptionMikktSpaceInterface::MikkGetNormal;
+	MikkTInterface.m_getNumFaces = MeshDescriptionMikktSpaceInterface::MikkGetNumFaces;
+	MikkTInterface.m_getNumVerticesOfFace = MeshDescriptionMikktSpaceInterface::MikkGetNumVertsOfFace;
+	MikkTInterface.m_getPosition = MeshDescriptionMikktSpaceInterface::MikkGetPosition;
+	MikkTInterface.m_getTexCoord = MeshDescriptionMikktSpaceInterface::MikkGetTexCoord;
+	MikkTInterface.m_setTSpaceBasic = MeshDescriptionMikktSpaceInterface::MikkSetTSpaceBasic;
+	MikkTInterface.m_setTSpace = nullptr;
 
-	for (const FVertexInstanceID& VertexInstanceID : MeshDescription->VertexInstances().GetElementIDs())
-	{
-		FMeshVertexInstance& VertexInstance = MeshDescription->GetVertexInstance(VertexInstanceID);
-		FVector BiNormal(0.0f);
-		if (!VertexInstance.Normal.IsNearlyZero() && !VertexInstance.Tangent.IsNearlyZero())
-		{
-			BiNormal = (FVector::CrossProduct(VertexInstance.Normal, VertexInstance.Tangent).GetSafeNormal() * VertexInstance.BinormalSign).GetSafeNormal();
-		}
-
-		if (VertexInstance.Tangent.IsNearlyZero() || BiNormal.IsNearlyZero())
-		{
-			bWedgeTSpace = false;
-			break;
-		}
-	}
-
-	//Set the tangent space
-	if (!bWedgeTSpace)
-	{
-		// we can use mikktspace to calculate the tangents
-		SMikkTSpaceInterface MikkTInterface;
-		MikkTInterface.m_getNormal = MeshDescriptionMikktSpaceInterface::MikkGetNormal;
-		MikkTInterface.m_getNumFaces = MeshDescriptionMikktSpaceInterface::MikkGetNumFaces;
-		MikkTInterface.m_getNumVerticesOfFace = MeshDescriptionMikktSpaceInterface::MikkGetNumVertsOfFace;
-		MikkTInterface.m_getPosition = MeshDescriptionMikktSpaceInterface::MikkGetPosition;
-		MikkTInterface.m_getTexCoord = MeshDescriptionMikktSpaceInterface::MikkGetTexCoord;
-		MikkTInterface.m_setTSpaceBasic = MeshDescriptionMikktSpaceInterface::MikkSetTSpaceBasic;
-		MikkTInterface.m_setTSpace = nullptr;
-
-		SMikkTSpaceContext MikkTContext;
-		MikkTContext.m_pInterface = &MikkTInterface;
-		MikkTContext.m_pUserData = (void*)(MeshDescription);
-		MikkTContext.m_bIgnoreDegenerates = bIgnoreDegenerateTriangles;
-		genTangSpaceDefault(&MikkTContext);
-	}
+	SMikkTSpaceContext MikkTContext;
+	MikkTContext.m_pInterface = &MikkTInterface;
+	MikkTContext.m_pUserData = (void*)(MeshDescription);
+	MikkTContext.m_bIgnoreDegenerates = bIgnoreDegenerateTriangles;
+	genTangSpaceDefault(&MikkTContext);
 }
 
 namespace MeshDescriptionMikktSpaceInterface

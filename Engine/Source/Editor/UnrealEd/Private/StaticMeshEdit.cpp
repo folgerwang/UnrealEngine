@@ -892,6 +892,7 @@ struct ExistingLODMeshData
 	FMeshBuildSettings			ExistingBuildSettings;
 	FMeshReductionSettings		ExistingReductionSettings;
 	FRawMesh					ExistingRawMesh;
+	UMeshDescription*			ExistingMeshDescription;
 	TArray<FStaticMaterial>		ExistingMaterials;
 	float						ExistingScreenSize;
 };
@@ -1049,6 +1050,7 @@ ExistingStaticMeshData* SaveExistingStaticMeshData(UStaticMesh* ExistingMesh, Un
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings = ExistingMesh->SourceModels[i].BuildSettings;
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings = ExistingMesh->SourceModels[i].ReductionSettings;
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize = ExistingMesh->SourceModels[i].ScreenSize;
+			ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription = ExistingMesh->SourceModels[i].OriginalMeshDescription;
 			ExistingMesh->SourceModels[i].RawMeshBulkData->LoadRawMesh(ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh);
 		}
 
@@ -1455,7 +1457,10 @@ void RestoreExistingMeshData(ExistingStaticMeshData* ExistingMeshDataPtr, UStati
 	for(int32 i=NumCommonLODs; i < ExistingMeshDataPtr->ExistingLODData.Num(); ++i)
 	{
 		FStaticMeshSourceModel* SrcModel = new(NewMesh->SourceModels) FStaticMeshSourceModel();
-
+		if (ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription != nullptr)
+		{
+			SrcModel->OriginalMeshDescription = ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription;
+		}
 		if (ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh.IsValidOrFixable())
 		{
 			SrcModel->RawMeshBulkData->SaveRawMesh(ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh);

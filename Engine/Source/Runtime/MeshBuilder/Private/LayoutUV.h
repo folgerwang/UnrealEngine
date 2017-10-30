@@ -169,7 +169,7 @@ inline float FLayoutUV::TriangleUVArea( uint32 Tri ) const
 	FVector2D UVs[3];
 	for( int k = 0; k < 3; k++ )
 	{
-		FVertexInstanceID VertexInstanceID(Tri + k);
+		FVertexInstanceID VertexInstanceID((3*Tri) + k);
 		check(MeshDescription->VertexInstances().IsValid(VertexInstanceID));
 		const FMeshVertexInstance& VertexInstance = MeshDescription->GetVertexInstance(VertexInstanceID);
 		check(VertexInstance.VertexUVs.IsValidIndex(SrcChannel));

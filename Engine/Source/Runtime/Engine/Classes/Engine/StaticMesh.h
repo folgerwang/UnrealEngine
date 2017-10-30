@@ -153,6 +153,10 @@ struct FStaticMeshSourceModel
 #if WITH_EDITOR
 	/** Imported raw mesh data. Optional for all but the first LOD. */
 	class FRawMeshBulkData* RawMeshBulkData;
+
+	/* Original Imported meshdescription data. Optional for all but the first LOD. */
+	UPROPERTY()
+	class UMeshDescription* OriginalMeshDescription;
 #endif // #if WITH_EDITOR
 
 	/** Settings applied when building the mesh. */
@@ -631,15 +635,8 @@ public:
 	ENGINE_API int32 GetMeshDescriptionCount() const;
 
 #if WITH_EDITORONLY_DATA
-	/**
-	* The original mesh description we use to do non destructive reduce of the mesh, we set the original value when we create the mesh (procedurally or at import/re-import...).
-	*/
-	UPROPERTY()
-	TArray<class UMeshDescription*> OriginalMeshDescriptions;
-
 	ENGINE_API class UMeshDescription* GetOriginalMeshDescription(int32 LodIndex = 0) const;
 	ENGINE_API void SetOriginalMeshDescription(int32 LodIndex, class UMeshDescription* MeshDescription);
-	ENGINE_API int32 GetOriginalMeshDescriptionCount() const;
 	ENGINE_API void ClearOriginalMeshDescription(int32 LodIndex);
 #endif
 

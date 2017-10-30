@@ -1142,9 +1142,9 @@ static FString BuildStaticMeshDerivedDataKey(UStaticMesh* Mesh, const FStaticMes
 	for (int32 LODIndex = 0; LODIndex < NumLODs; ++LODIndex)
 	{
 		FStaticMeshSourceModel& SrcModel = Mesh->SourceModels[LODIndex];
-		if (Mesh->GetOriginalMeshDescriptionCount() > 0)
+		if (Mesh->GetOriginalMeshDescription(0) != nullptr)
 		{
-			KeySuffix += (Mesh->GetOriginalMeshDescriptionCount() > LODIndex && Mesh->GetOriginalMeshDescription(LODIndex) != nullptr) ? Mesh->GetOriginalMeshDescription(LODIndex)->GetIdString() : TEXT("NoOriginalMeshDescriptionForLod") + FString::FromInt(LODIndex);
+			KeySuffix += (Mesh->GetOriginalMeshDescription(LODIndex) != nullptr) ? Mesh->GetOriginalMeshDescription(LODIndex)->GetIdString() : TEXT("NoOriginalMeshDescriptionForLod") + FString::FromInt(LODIndex);
 		}
 		else
 		{
@@ -1293,7 +1293,7 @@ void FStaticMeshRenderData::Cache(UStaticMesh* Owner, const FStaticMeshLODSettin
 			Args.Add(TEXT("StaticMeshName"), FText::FromString( Owner->GetName() ) );
 			FStaticMeshStatusMessageContext StatusContext( FText::Format( NSLOCTEXT("Engine", "BuildingStaticMeshStatus", "Building static mesh {StaticMeshName}..."), Args ) );
 
-			if (Owner->GetOriginalMeshDescriptionCount() > 0)
+			if (Owner->GetOriginalMeshDescription(0) != nullptr)
 			{
 				IMeshBuilderModule& MeshBuilderModule = FModuleManager::Get().LoadModuleChecked<IMeshBuilderModule>(TEXT("MeshBuilder"));
 				MeshBuilderModule.BuildMesh(Owner);
@@ -2031,6 +2031,7 @@ FStaticMeshSourceModel::FStaticMeshSourceModel()
 #if WITH_EDITOR
 	RawMeshBulkData = new FRawMeshBulkData();
 	ScreenSize = 0.0f;
+	OriginalMeshDescription = nullptr;
 #endif // #if WITH_EDITOR
 }
 
@@ -2042,8 +2043,9 @@ FStaticMeshSourceModel::~FStaticMeshSourceModel()
 		delete RawMeshBulkData;
 		RawMeshBulkData = NULL;
 	}
+	OriginalMeshDescription = nullptr;
 #endif // #if WITH_EDITOR
-	}
+}
 
 #if WITH_EDITOR
 void FStaticMeshSourceModel::SerializeBulkData(FArchive& Ar, UObject* Owner)
@@ -2233,36 +2235,27 @@ int32 UStaticMesh::GetMeshDescriptionCount() const
 
 UMeshDescription* UStaticMesh::GetOriginalMeshDescription(int32 LodIndex) const
 {
-	if (!OriginalMeshDescriptions.IsValidIndex(LodIndex))
+	if (SourceModels.IsValidIndex(LodIndex))
 	{
-		return nullptr;
+		return SourceModels[LodIndex].OriginalMeshDescription;
 	}
-	return OriginalMeshDescriptions[LodIndex];
+	return nullptr;
 }
 
 void UStaticMesh::SetOriginalMeshDescription(int32 LodIndex, class UMeshDescription* MeshDescription)
 {
-	if (!OriginalMeshDescriptions.IsValidIndex(LodIndex))
+	if (SourceModels.IsValidIndex(LodIndex))
 	{
-		//Add nullptr missing entries
-		OriginalMeshDescriptions.AddZeroed(LodIndex - OriginalMeshDescriptions.Num() + 1);
+		SourceModels[LodIndex].OriginalMeshDescription = MeshDescription;
 	}
-	//Set the original mesh description
-	OriginalMeshDescriptions[LodIndex] = MeshDescription;
-}
-
-int32 UStaticMesh::GetOriginalMeshDescriptionCount() const
-{
-	return OriginalMeshDescriptions.Num();
 }
 
 void UStaticMesh::ClearOriginalMeshDescription(int32 LodIndex)
 {
-	if (!OriginalMeshDescriptions.IsValidIndex(LodIndex))
+	if (SourceModels.IsValidIndex(LodIndex))
 	{
-		return;
+		SourceModels[LodIndex].OriginalMeshDescription = nullptr;
 	}
-	OriginalMeshDescriptions[LodIndex] = nullptr;
 }
 
 #endif

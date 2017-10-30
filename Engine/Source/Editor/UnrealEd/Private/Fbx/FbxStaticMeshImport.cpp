@@ -580,19 +580,27 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 				}
 
 				//UVs attributes
-				for (int32 UVLayerIndex = 0; UVLayerIndex < FBXUVs.UniqueUVCount; UVLayerIndex++)
+				if (FBXUVs.UniqueUVCount > 0)
+				{
+					for (int32 UVLayerIndex = 0; UVLayerIndex < FBXUVs.UniqueUVCount; UVLayerIndex++)
+					{
+						FVector2D FinalUVVector(0.0f, 0.0f);
+						if (FBXUVs.LayerElementUV[UVLayerIndex] != NULL)
+						{
+							int UVMapIndex = (FBXUVs.UVMappingMode[UVLayerIndex] == FbxLayerElement::eByControlPoint) ? ControlPointIndex : TriangleIndex * 3 + CornerIndex;
+							int32 UVIndex = (FBXUVs.UVReferenceMode[UVLayerIndex] == FbxLayerElement::eDirect) ?
+								UVMapIndex : FBXUVs.LayerElementUV[UVLayerIndex]->GetIndexArray().GetAt(UVMapIndex);
+
+							FbxVector2	UVVector = FBXUVs.LayerElementUV[UVLayerIndex]->GetDirectArray().GetAt(UVIndex);
+							FinalUVVector.X = static_cast<float>(UVVector[0]);
+							FinalUVVector.Y = 1.f - static_cast<float>(UVVector[1]);   //flip the Y of UVs for DirectX
+						}
+						NewVertexInstance.VertexUVs.Add(FinalUVVector);
+					}
+				}
+				else
 				{
 					FVector2D FinalUVVector(0.0f, 0.0f);
-					if (FBXUVs.LayerElementUV[UVLayerIndex] != NULL)
-					{
-						int UVMapIndex = (FBXUVs.UVMappingMode[UVLayerIndex] == FbxLayerElement::eByControlPoint) ? ControlPointIndex : TriangleIndex * 3 + CornerIndex;
-						int32 UVIndex = (FBXUVs.UVReferenceMode[UVLayerIndex] == FbxLayerElement::eDirect) ?
-							UVMapIndex : FBXUVs.LayerElementUV[UVLayerIndex]->GetIndexArray().GetAt(UVMapIndex);
-
-						FbxVector2	UVVector = FBXUVs.LayerElementUV[UVLayerIndex]->GetDirectArray().GetAt(UVIndex);
-						FinalUVVector.X = static_cast<float>(UVVector[0]);
-						FinalUVVector.Y = 1.f - static_cast<float>(UVVector[1]);   //flip the Y of UVs for DirectX
-					}
 					NewVertexInstance.VertexUVs.Add(FinalUVVector);
 				}
 
@@ -788,17 +796,25 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 
 					int32 EdgeIndex = Mesh->GetMeshEdgeIndexForPolygon(TriangleIndex, TriangleEdgeNumber);
 					ExistingEdge.CreaseSharpness = (float)Mesh->GetEdgeCreaseInfo(EdgeIndex);
-					if (!ExistingEdge.bIsHardEdge && bSmoothingAvailable && SmoothingInfo)
+					if (!ExistingEdge.bIsHardEdge)
 					{
-						if (SmoothingMappingMode == FbxLayerElement::eByEdge)
+						if (bSmoothingAvailable && SmoothingInfo)
 						{
-							int32 lSmoothingIndex = (SmoothingReferenceMode == FbxLayerElement::eDirect) ? EdgeIndex : SmoothingInfo->GetIndexArray().GetAt(EdgeIndex);
-							//Set the hard edges
-							ExistingEdge.bIsHardEdge = (SmoothingInfo->GetDirectArray().GetAt(lSmoothingIndex) == 0);
+							if (SmoothingMappingMode == FbxLayerElement::eByEdge)
+							{
+								int32 lSmoothingIndex = (SmoothingReferenceMode == FbxLayerElement::eDirect) ? EdgeIndex : SmoothingInfo->GetIndexArray().GetAt(EdgeIndex);
+								//Set the hard edges
+								ExistingEdge.bIsHardEdge = (SmoothingInfo->GetDirectArray().GetAt(lSmoothingIndex) == 0);
+							}
+							else
+							{
+								AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(LOCTEXT("Error_UnsupportedSmoothingGroup", "Unsupported Smoothing group mapping mode on mesh  '{0}'"), FText::FromString(Mesh->GetName()))), FFbxErrors::Generic_Mesh_UnsupportingSmoothingGroup);
+							}
 						}
 						else
 						{
-							AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(LOCTEXT("Error_UnsupportedSmoothingGroup", "Unsupported Smoothing group mapping mode on mesh  '{0}'"), FText::FromString(Mesh->GetName()))), FFbxErrors::Generic_Mesh_UnsupportingSmoothingGroup);
+							//When there is no smoothing group we set all edge to hard (faceted mesh)
+							ExistingEdge.bIsHardEdge = true;
 						}
 					}
 				}
@@ -1526,6 +1542,17 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 		StaticMesh = NewObject<UStaticMesh>(Package, FName(*MeshName), Flags | RF_Public);
 	}
 
+	if (StaticMesh->SourceModels.Num() < LODIndex+1)
+	{
+		// Add one LOD 
+		new(StaticMesh->SourceModels) FStaticMeshSourceModel();
+		
+		if (StaticMesh->SourceModels.Num() < LODIndex+1)
+		{
+			LODIndex = StaticMesh->SourceModels.Num() - 1;
+		}
+	}
+
 	if (ImportOptions->bImportMeshDescription)
 	{
 		MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
@@ -1536,17 +1563,6 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 			MeshDescription = NewObject<UMeshDescription>(StaticMesh, NAME_None, RF_NoFlags);
 			check(MeshDescription != nullptr);
 			StaticMesh->SetOriginalMeshDescription(LODIndex, MeshDescription);
-		}
-	}
-
-	if (StaticMesh->SourceModels.Num() < LODIndex+1)
-	{
-		// Add one LOD 
-		new(StaticMesh->SourceModels) FStaticMeshSourceModel();
-		
-		if (StaticMesh->SourceModels.Num() < LODIndex+1)
-		{
-			LODIndex = StaticMesh->SourceModels.Num() - 1;
 		}
 	}
 	
@@ -1866,7 +1882,17 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 				for (const FPolygonID& PolygonID : MeshDescription->Polygons().GetElementIDs())
 				{
 					FMeshPolygon MeshPolygon = MeshDescription->GetPolygon(PolygonID);
-					MeshPolygon.PolygonGroupID = FPolygonGroupID(MaterialMap[MeshPolygon.PolygonGroupID.GetValue()]);
+					if (MaterialMap[MeshPolygon.PolygonGroupID.GetValue()] != MeshPolygon.PolygonGroupID.GetValue())
+					{
+						//Remove from the old polygon group
+						FMeshPolygonGroup& SourcePolygonGroup = MeshDescription->GetPolygonGroup(MeshPolygon.PolygonGroupID);
+						SourcePolygonGroup.Polygons.Remove(PolygonID);
+						//Set the new ID
+						MeshPolygon.PolygonGroupID = FPolygonGroupID(MaterialMap[MeshPolygon.PolygonGroupID.GetValue()]);
+						//Add to the new polygon group
+						FMeshPolygonGroup& DestinationPolygonGroup = MeshDescription->GetPolygonGroup(MeshPolygon.PolygonGroupID);
+						DestinationPolygonGroup.Polygons.Add(PolygonID);
+					}
 				}
 			}
 			TArray<FStaticMaterial> MaterialToAdd;
@@ -1895,11 +1921,6 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 							const FStaticMaterial& StaticMeshMaterial = StaticMesh->StaticMaterials[StaticMeshMaterialIndex];
 							if (StaticMeshMaterial.MaterialInterface == CandidateMaterial.MaterialInterface)
 							{
-								FPolygonGroupID PolygonGroupID(MaterialToAddIndex);
-								FMeshPolygonGroup& MeshPolygonGroup = MeshDescription->GetPolygonGroup(PolygonGroupID);
-								//The LOD 0 existing material is driving the polygon groups slot detail, so all LOD mesh description use the same data.
-								MeshPolygonGroup.ImportedMaterialSlotName = StaticMeshMaterial.ImportedMaterialSlotName;
-								MeshPolygonGroup.MaterialSlotName = StaticMeshMaterial.MaterialSlotName;
 								FoundExistingMaterial = true;
 								break;
 							}

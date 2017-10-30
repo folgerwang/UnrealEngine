@@ -20,6 +20,7 @@
 #include "PhysicsEngine/SphylElem.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "Engine/StaticMesh.h"
+#include "MeshDescription.h"
 
 #define LOCAL_EPS (0.01f)
 static void AddVertexIfNotPresent(TArray<FVector> &vertices, FVector &newVertex)
@@ -199,15 +200,35 @@ static void CalcBoundingBox(const FRawMesh& RawMesh, FVector& Center, FVector& E
 	Box.GetCenterAndExtents(Center, Extents);
 }
 
+static void CalcBoundingBox(const UMeshDescription* MeshDescription, FVector& Center, FVector& Extents, FVector& LimitVec)
+{
+	FBox Box(ForceInit);
+	for (const FVertexID& VertexID : MeshDescription->Vertices().GetElementIDs())
+	{
+		const FMeshVertex& Vertex = MeshDescription->GetVertex(VertexID);
+		Box += Vertex.VertexPosition * LimitVec;
+	}
+	Box.GetCenterAndExtents(Center, Extents);
+}
+
 void ComputeBoundingBox(UStaticMesh* StaticMesh, FVector& Center, FVector& Extents)
 {
 	// Calculate bounding Box.
-	FRawMesh RawMesh;
+	
 	FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[0];
-	SrcModel.RawMeshBulkData->LoadRawMesh(RawMesh);
-
-	FVector unitVec = FVector(1.f);
-	CalcBoundingBox(RawMesh, Center, Extents, unitVec);
+	if (StaticMesh->GetOriginalMeshDescription(0) != nullptr)
+	{
+		UMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(0);
+		FVector unitVec = FVector(1.f);
+		CalcBoundingBox(MeshDescription, Center, Extents, unitVec);
+	}
+	else
+	{
+		FRawMesh RawMesh;
+		SrcModel.RawMeshBulkData->LoadRawMesh(RawMesh);
+		FVector unitVec = FVector(1.f);
+		CalcBoundingBox(RawMesh, Center, Extents, unitVec);
+	}
 }
 
 int32 GenerateBoxAsSimpleCollision(UStaticMesh* StaticMesh)
@@ -221,12 +242,21 @@ int32 GenerateBoxAsSimpleCollision(UStaticMesh* StaticMesh)
 
 	// Calculate bounding Box.
 	FRawMesh RawMesh;
+	UMeshDescription* MeshDescription = nullptr;
 	FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[0];
-	SrcModel.RawMeshBulkData->LoadRawMesh(RawMesh);
-
+	
 	FVector unitVec = bs->BuildScale3D;
 	FVector Center, Extents;
-	CalcBoundingBox(RawMesh, Center, Extents, unitVec);
+	if (StaticMesh->GetOriginalMeshDescription(0) != nullptr)
+	{
+		MeshDescription = StaticMesh->GetMeshDescription(0);
+		CalcBoundingBox(MeshDescription, Center, Extents, unitVec);
+	}
+	else
+	{
+		SrcModel.RawMeshBulkData->LoadRawMesh(RawMesh);
+		CalcBoundingBox(RawMesh, Center, Extents, unitVec);
+	}
 
 	bs->Modify();
 
