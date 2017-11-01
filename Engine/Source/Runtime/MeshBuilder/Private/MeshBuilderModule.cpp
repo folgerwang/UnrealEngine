@@ -24,7 +24,7 @@ public:
 		// Unregister any modular features here
 	}
 
-	virtual bool BuildMesh(class UObject* Mesh) override;
+	virtual bool BuildMesh(UObject* Mesh, const FStaticMeshLODGroup& LODGroup) override;
 
 private:
 
@@ -32,13 +32,13 @@ private:
 
 IMPLEMENT_MODULE(FMeshBuilderModule, MeshBuilder );
 
-bool FMeshBuilderModule::BuildMesh(class UObject* Mesh)
+bool FMeshBuilderModule::BuildMesh(class UObject* Mesh, const FStaticMeshLODGroup& LODGroup)
 {
 	UStaticMesh* StaticMesh = Cast<UStaticMesh>(Mesh);
 	if (StaticMesh != nullptr)
 	{
 		//Call the static mesh builder
-		return FStaticMeshBuilder().Build(StaticMesh);
+		return FStaticMeshBuilder().Build(StaticMesh, LODGroup);
 	}
 	return false;
 }

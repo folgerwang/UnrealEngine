@@ -31,5 +31,5 @@ public:
 		return FModuleManager::Get().IsModuleLoaded( "MeshBuilder" );
 	}
 
-	virtual bool BuildMesh(class UObject* Mesh) { return false; }
+	virtual bool BuildMesh(class UObject* Mesh, const class FStaticMeshLODGroup& LODGroup) { return false; }
 };

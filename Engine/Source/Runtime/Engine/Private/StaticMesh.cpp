@@ -1296,7 +1296,7 @@ void FStaticMeshRenderData::Cache(UStaticMesh* Owner, const FStaticMeshLODSettin
 			if (Owner->GetOriginalMeshDescription(0) != nullptr)
 			{
 				IMeshBuilderModule& MeshBuilderModule = FModuleManager::Get().LoadModuleChecked<IMeshBuilderModule>(TEXT("MeshBuilder"));
-				MeshBuilderModule.BuildMesh(Owner);
+				MeshBuilderModule.BuildMesh(Owner, LODGroup);
 			}
 			else
 			{

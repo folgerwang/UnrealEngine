@@ -17,7 +17,7 @@ public:
 	/**
 	 * Build function should be override and is the starting point for all mesh builders
 	 */
-	virtual bool Build(class UStaticMesh* StaticMesh) =0;
+	virtual bool Build(class UStaticMesh* StaticMesh, const class FStaticMeshLODGroup& LODGroup) =0;
 
 private:
 

@@ -13,6 +13,9 @@
 #include "Serialization/MemoryReader.h"
 #include "RenderUtils.h"
 #include "LayoutUV.h"
+#include "IMeshReductionInterfaces.h"
+
+#include "IMeshReductionManagerModule.h"
 
 DEFINE_LOG_CATEGORY(LogMeshBuilder);
 
@@ -86,7 +89,7 @@ UMeshDescription* FMeshDescriptionHelper::GetRenderMeshDescription(UObject* Owne
 		CreatePolygonNTB(RenderMeshDescription, BuildSettings->bRemoveDegenerates ? SMALL_NUMBER : 0.0f);
 		
 		// Find overlapping corners to accelerate adjacency.
-		FindOverlappingCorners(ComparisonThreshold);
+		FindOverlappingCorners(OverlappingCorners, RenderMeshDescription, ComparisonThreshold);
 			
 		//Keep the original mesh description NTBs if we do not rebuild the normals or tangents.
 		bool bComputeTangentLegacy = !BuildSettings->bUseMikkTSpace && (BuildSettings->bRecomputeNormals || BuildSettings->bRecomputeTangents);
@@ -126,6 +129,26 @@ UMeshDescription* FMeshDescriptionHelper::GetRenderMeshDescription(UObject* Owne
 	return RenderMeshDescription;
 }
 
+void FMeshDescriptionHelper::ReduceLOD(const UMeshDescription* BaseMesh, UMeshDescription* DestMesh, const FMeshReductionSettings& ReductionSettings, const TMultiMap<int32, int32>& InOverlappingCorners)
+{
+	if (BaseMesh == nullptr || DestMesh == nullptr)
+	{
+		//UE_LOG(LogMeshUtilities, Error, TEXT("Mesh contains zero source models."));
+		return;
+	}
+
+	IMeshReductionManagerModule& MeshReductionModule = FModuleManager::Get().LoadModuleChecked<IMeshReductionManagerModule>("MeshReductionInterface");
+	IMeshReduction* MeshReduction = MeshReductionModule.GetStaticMeshReductionInterface();
+	// Reduce this LOD mesh according to its reduction settings.
+
+	if (!MeshReduction || (ReductionSettings.PercentTriangles >= 1.0f && ReductionSettings.MaxDeviation <= 0.0f))
+	{
+		return;
+	}
+	float MaxDeviation = ReductionSettings.MaxDeviation;
+	MeshReduction->ReduceMeshDescription(DestMesh, MaxDeviation, BaseMesh, InOverlappingCorners, ReductionSettings);
+}
+
 void FMeshDescriptionHelper::CopyMeshDescription(UMeshDescription* SourceMeshDescription, UMeshDescription* DestinationMeshDescription) const
 {
 	//Copy the Source into the destination
@@ -143,28 +166,28 @@ bool FMeshDescriptionHelper::IsValidOriginalMeshDescription()
 	return OriginalMeshDescription != nullptr;
 }
 
-void FMeshDescriptionHelper::FindOverlappingCorners(float ComparisonThreshold)
+void FMeshDescriptionHelper::FindOverlappingCorners(TMultiMap<int32, int32>& OverlappingCorners, const UMeshDescription* MeshDescription, float ComparisonThreshold)
 {
 	//Empty the old data
 	OverlappingCorners.Reset();
-	const int32 NumWedges = OriginalMeshDescription->VertexInstances().Num();
+	const int32 NumWedges = MeshDescription->VertexInstances().Num();
 
 	// Create a list of vertex Z/index pairs
 	TArray<FIndexAndZ> VertIndexAndZ;
 	VertIndexAndZ.Reserve(NumWedges);
-	const FVertexInstanceArray& VertexInstances = OriginalMeshDescription->VertexInstances();
+	const FVertexInstanceArray& VertexInstances = MeshDescription->VertexInstances();
 
-	for (const FPolygonID& PolygonID : OriginalMeshDescription->Polygons().GetElementIDs())
+	for (const FPolygonID& PolygonID : MeshDescription->Polygons().GetElementIDs())
 	{
-		const TArray<FMeshTriangle>& MeshTriangles = OriginalMeshDescription->GetPolygon(PolygonID).Triangles;
+		const TArray<FMeshTriangle>& MeshTriangles = MeshDescription->GetPolygon(PolygonID).Triangles;
 		for (const FMeshTriangle& MeshTriangle : MeshTriangles)
 		{
 			for (int32 CornerIndex = 0; CornerIndex < 3; ++CornerIndex)
 			{
 				const FVertexInstanceID& VertexInstanceID = MeshTriangle.GetVertexInstanceID(CornerIndex);
-				const FMeshVertexInstance& VertexInstance = OriginalMeshDescription->GetVertexInstance(VertexInstanceID);
+				const FMeshVertexInstance& VertexInstance = MeshDescription->GetVertexInstance(VertexInstanceID);
 
-				new(VertIndexAndZ)FIndexAndZ(VertexInstanceID.GetValue(), OriginalMeshDescription->GetVertex(VertexInstance.VertexID).VertexPosition);
+				new(VertIndexAndZ)FIndexAndZ(VertexInstanceID.GetValue(), MeshDescription->GetVertex(VertexInstance.VertexID).VertexPosition);
 			}
 		}
 	}
@@ -181,8 +204,8 @@ void FMeshDescriptionHelper::FindOverlappingCorners(float ComparisonThreshold)
 			if (FMath::Abs(VertIndexAndZ[j].Z - VertIndexAndZ[i].Z) > ComparisonThreshold)
 				break; // can't be any more dups
 
-			const FVector& PositionA = OriginalMeshDescription->GetVertex(OriginalMeshDescription->GetVertexInstance(FVertexInstanceID(VertIndexAndZ[i].Index)).VertexID).VertexPosition;
-			const FVector& PositionB = OriginalMeshDescription->GetVertex(OriginalMeshDescription->GetVertexInstance(FVertexInstanceID(VertIndexAndZ[j].Index)).VertexID).VertexPosition;
+			const FVector& PositionA = MeshDescription->GetVertex(MeshDescription->GetVertexInstance(FVertexInstanceID(VertIndexAndZ[i].Index)).VertexID).VertexPosition;
+			const FVector& PositionB = MeshDescription->GetVertex(MeshDescription->GetVertexInstance(FVertexInstanceID(VertIndexAndZ[j].Index)).VertexID).VertexPosition;
 
 			if (PositionA.Equals(PositionB, ComparisonThreshold))
 			{
@@ -191,6 +214,11 @@ void FMeshDescriptionHelper::FindOverlappingCorners(float ComparisonThreshold)
 			}
 		}
 	}
+}
+
+void FMeshDescriptionHelper::FindOverlappingCorners(const UMeshDescription* MeshDescription, float ComparisonThreshold)
+{
+	FindOverlappingCorners(OverlappingCorners, MeshDescription, ComparisonThreshold);
 }
 
 const FVector& FMeshDescriptionHelper::GetVertexPositionFromVertexInstance(UMeshDescription* MeshDescription, const FVertexInstanceID& VertexInstanceID) const

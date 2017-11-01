@@ -38,7 +38,7 @@ FStaticMeshBuilder::FStaticMeshBuilder()
 
 }
 
-bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh)
+bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh, const FStaticMeshLODGroup& LODGroup)
 {
 	if (StaticMesh->GetOriginalMeshDescription(0) == nullptr)
 	{
@@ -47,7 +47,7 @@ bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh)
 	}
 	StaticMesh->RenderData->AllocateLODResources(StaticMesh->SourceModels.Num());
 
-	OnBuildRenderMeshStart(StaticMesh, false);
+	//OnBuildRenderMeshStart(StaticMesh, false);
 
 	FStaticMeshRenderData& StaticMeshRenderData = *StaticMesh->RenderData;
 	for (int32 LodIndex = 0; LodIndex < StaticMesh->SourceModels.Num(); ++LodIndex)
@@ -60,6 +60,19 @@ bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh)
 		check(MeshDescription != nullptr);
 		StaticMesh->SetMeshDescription(LodIndex, MeshDescription);
 		
+		//Reduce LODs
+		const FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[LodIndex];
+		FMeshReductionSettings ReductionSettings = LODGroup.GetSettings(SrcModel.ReductionSettings, LodIndex);
+		if (ReductionSettings.PercentTriangles < 1.0f || ReductionSettings.MaxDeviation > 0.0f)
+		{
+			float OverlappingThreshold = LODBuildSettings.bRemoveDegenerates ? THRESH_POINTS_ARE_SAME : 0.0f;
+			TMultiMap<int32, int32> OverlappingCorners;
+			MeshDescriptionHelper.FindOverlappingCorners(OverlappingCorners, StaticMesh->GetMeshDescription(LodIndex), OverlappingThreshold);
+			MeshDescriptionHelper.ReduceLOD(StaticMesh->GetMeshDescription(0), StaticMesh->GetMeshDescription(LodIndex), ReductionSettings, OverlappingCorners);
+			// Recompute adjacency information. Since we change the vertices when we reduce
+			MeshDescriptionHelper.FindOverlappingCorners(StaticMesh->GetMeshDescription(0), OverlappingThreshold);
+		}
+
 		const FPolygonGroupArray& PolygonGroups = MeshDescription->PolygonGroups();
 
 		FStaticMeshLODResources& StaticMeshLOD = StaticMeshRenderData.LODResources[LodIndex];
@@ -107,16 +120,29 @@ bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh)
 		}
 		const EIndexBufferStride::Type IndexBufferStride = bNeeds32BitIndices ? EIndexBufferStride::Force32Bit : EIndexBufferStride::Force16Bit;
 		StaticMeshLOD.IndexBuffer.SetIndices(IndexBuffer, IndexBufferStride);
-		if (MeshDescription->VertexInstances().Num() < 100000 * 3)
-		{
-			BuildOptimizationHelper::CacheOptimizeVertexAndIndexBuffer(StaticMeshBuildVertices, PerSectionIndices, WedgeMap);
-			check(WedgeMap.Num() == MeshDescription->VertexInstances().Num());
-		}
 
 		BuildAllBufferOptimizations(StaticMeshLOD, LODBuildSettings, IndexBuffer, bNeeds32BitIndices, StaticMeshBuildVertices);
 	} //End of LOD for loop
 
-	OnBuildRenderMeshFinish(StaticMesh, true);
+	// Calculate the bounding box.
+	FBox BoundingBox(ForceInit);
+	FPositionVertexBuffer& BasePositionVertexBuffer = StaticMeshRenderData.LODResources[0].PositionVertexBuffer;
+	for (uint32 VertexIndex = 0; VertexIndex < BasePositionVertexBuffer.GetNumVertices(); VertexIndex++)
+	{
+		BoundingBox += BasePositionVertexBuffer.VertexPosition(VertexIndex);
+	}
+	BoundingBox.GetCenterAndExtents(StaticMeshRenderData.Bounds.Origin, StaticMeshRenderData.Bounds.BoxExtent);
+
+	// Calculate the bounding sphere, using the center of the bounding box as the origin.
+	StaticMeshRenderData.Bounds.SphereRadius = 0.0f;
+	for (uint32 VertexIndex = 0; VertexIndex < BasePositionVertexBuffer.GetNumVertices(); VertexIndex++)
+	{
+		StaticMeshRenderData.Bounds.SphereRadius = FMath::Max(
+			(BasePositionVertexBuffer.VertexPosition(VertexIndex) - StaticMeshRenderData.Bounds.Origin).Size(),
+			StaticMeshRenderData.Bounds.SphereRadius
+		);
+	}
+	//OnBuildRenderMeshFinish(StaticMesh, true);
 
 	return true;
 }
@@ -397,7 +423,7 @@ void BuildVertexBuffer(
 				{
 					int32 VertexInstanceValue = Triangle.GetVertexInstanceID(TriVert).GetValue();
 					const FMeshVertexInstance& VertexInstance = MeshDescription->GetVertexInstance(Triangle.GetVertexInstanceID(TriVert));
-					if (VertexInstance.Color != FColor::White)
+					if (VertexInstance.Color != FLinearColor::White)
 					{
 						bHasColor = true;
 					}
@@ -431,12 +457,6 @@ void BuildVertexBuffer(
 					int32 Index = INDEX_NONE;
 					for (int32 k = 0; k < DupVerts.Num(); k++)
 					{
-						if (DupVerts[k] >= VertexInstanceValue)
-						{
-							// the verts beyond me haven't been placed yet, so these duplicates are not relevant
-							break;
-						}
-
 						int32 Location = RemapVerts.IsValidIndex(DupVerts[k]) ? RemapVerts[DupVerts[k]] : INDEX_NONE;
 						if (Location != INDEX_NONE && AreVerticesEqual(StaticMeshVertex, StaticMeshBuildVertices[Location], VertexComparisonThreshold))
 						{
@@ -467,6 +487,13 @@ void BuildVertexBuffer(
 			StaticMeshSection.MinVertexIndex = 0;
 			StaticMeshSection.MaxVertexIndex = 0;
 		}
+	}
+
+	//Optimize before setting the buffer
+	if (MeshDescription->VertexInstances().Num() < 100000 * 3)
+	{
+		BuildOptimizationHelper::CacheOptimizeVertexAndIndexBuffer(StaticMeshBuildVertices, OutPerSectionIndices, OutWedgeMap);
+		check(OutWedgeMap.Num() == MeshDescription->VertexInstances().Num());
 	}
 
 	StaticMeshLOD.PositionVertexBuffer.Init(StaticMeshBuildVertices);

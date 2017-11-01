@@ -526,9 +526,27 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 
 		int32 MaxMaterialIndex = 0;
 		TMap<int32, FPolygonGroupID> PolygonGroupMapping;
-		int32 NumUVs = FBXUVs.UniqueUVCount;
+
+		// When importing multiple mesh pieces to the same static mesh.  Ensure each mesh piece has the same number of Uv's
+		int32 ExistingUVCount = 0;
+		for (const FVertexInstanceID& VertexInstanceID : MeshDescription->VertexInstances().GetElementIDs())
+		{
+			ExistingUVCount = FMath::Max(ExistingUVCount, MeshDescription->GetVertexInstance(VertexInstanceID).VertexUVs.Num());
+		}
+		
+		int32 NumUVs = FMath::Max(FBXUVs.UniqueUVCount, ExistingUVCount);
 		// At least one UV set must exist.  
 		NumUVs = FMath::Max(1, NumUVs);
+
+		//Make sure all Vertex instance have the correct number of UVs
+		for (const FVertexInstanceID& VertexInstanceID : MeshDescription->VertexInstances().GetElementIDs())
+		{
+			FMeshVertexInstance& VertexInstance = MeshDescription->GetVertexInstance(VertexInstanceID);
+			while (VertexInstance.VertexUVs.Num() < NumUVs)
+			{
+				VertexInstance.VertexUVs.Add(FVector2D(0.0f, 0.0f));
+			}
+		}
 
 		//Fill the vertex array
 		for (int32 VertexIndex = 0; VertexIndex < VertexCount; ++VertexIndex)
@@ -1834,67 +1852,6 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 		}
 		else
 		{
-			// Compress the materials array by removing any duplicates.
-			bool bDoRemap = false;
-			TArray<int32> MaterialMap;
-			TArray<FFbxMaterial> UniqueMaterials;
-			for (int32 MaterialIndex = 0; MaterialIndex < MeshMaterials.Num(); ++MaterialIndex)
-			{
-				bool bUnique = true;
-				for (int32 OtherMaterialIndex = MaterialIndex - 1; OtherMaterialIndex >= 0; --OtherMaterialIndex)
-				{
-					if (MeshMaterials[MaterialIndex].FbxMaterial == MeshMaterials[OtherMaterialIndex].FbxMaterial &&
-						MeshMaterials[MaterialIndex].Material == MeshMaterials[OtherMaterialIndex].Material)
-					{
-						int32 UniqueIndex = MaterialMap[OtherMaterialIndex];
-						MaterialMap.Add(UniqueIndex);
-						bDoRemap = true;
-						bUnique = false;
-						break;
-					}
-				}
-				if (bUnique)
-				{
-					int32 UniqueIndex = UniqueMaterials.Add(MeshMaterials[MaterialIndex]);
-					MaterialMap.Add(UniqueIndex);
-				}
-				else
-				{
-					UE_LOG(LogFbx, Verbose, TEXT("  remap %d -> %d"), MaterialIndex, MaterialMap[MaterialIndex]);
-				}
-			}
-
-			if (UniqueMaterials.Num() > LARGE_MESH_MATERIAL_INDEX_THRESHOLD)
-			{
-				AddTokenizedErrorMessage(
-					FTokenizedMessage::Create(
-						EMessageSeverity::Warning,
-						FText::Format(LOCTEXT("Error_TooManyMaterials", "StaticMesh has a large number({0}) of materials and may render inefficently.  Consider breaking up the mesh into multiple Static Mesh Assets"),
-							FText::AsNumber(UniqueMaterials.Num())
-						)),
-					FFbxErrors::StaticMesh_TooManyMaterials);
-			}
-
-			if (bDoRemap)
-			{
-				int32 GroupNumber = MeshDescription->PolygonGroups().Num();
-
-				for (const FPolygonID& PolygonID : MeshDescription->Polygons().GetElementIDs())
-				{
-					FMeshPolygon MeshPolygon = MeshDescription->GetPolygon(PolygonID);
-					if (MaterialMap[MeshPolygon.PolygonGroupID.GetValue()] != MeshPolygon.PolygonGroupID.GetValue())
-					{
-						//Remove from the old polygon group
-						FMeshPolygonGroup& SourcePolygonGroup = MeshDescription->GetPolygonGroup(MeshPolygon.PolygonGroupID);
-						SourcePolygonGroup.Polygons.Remove(PolygonID);
-						//Set the new ID
-						MeshPolygon.PolygonGroupID = FPolygonGroupID(MaterialMap[MeshPolygon.PolygonGroupID.GetValue()]);
-						//Add to the new polygon group
-						FMeshPolygonGroup& DestinationPolygonGroup = MeshDescription->GetPolygonGroup(MeshPolygon.PolygonGroupID);
-						DestinationPolygonGroup.Polygons.Add(PolygonID);
-					}
-				}
-			}
 			TArray<FStaticMaterial> MaterialToAdd;
 			for (const FPolygonGroupID& PolygonGroupID : MeshDescription->PolygonGroups().GetElementIDs())
 			{

@@ -312,6 +312,21 @@ public:
 		}
 	}
 
+	static void CacheOptimizeIndexBuffer(TArray<uint16>& Indices)
+	{
+		bool bDisableTriangleOrderOptimization = (BuildOptimizationPrivate::CVarTriangleOrderOptimization.GetValueOnGameThread() == 2);
+		bool bUsingNvTriStrip = !bDisableTriangleOrderOptimization && (BuildOptimizationPrivate::CVarTriangleOrderOptimization.GetValueOnGameThread() == 0);
+
+		if (bUsingNvTriStrip)
+		{
+			BuildOptimizationPrivate::NvTriStripHelper::CacheOptimizeIndexBuffer(Indices);
+		}
+		else if (!bDisableTriangleOrderOptimization)
+		{
+			BuildOptimizationPrivate::ForsythHelper::CacheOptimizeIndexBuffer(Indices);
+		}
+	}
+
 	static void CacheOptimizeIndexBuffer(TArray<uint32>& Indices)
 	{
 		bool bDisableTriangleOrderOptimization = (BuildOptimizationPrivate::CVarTriangleOrderOptimization.GetValueOnGameThread() == 2);
@@ -333,14 +348,25 @@ public:
 		TArray<int32>& WedgeMap
 	)
 	{
+		//////////////////////////////////////////////////////////////////////////
+
+		// TODO
+		// this code is commented because it make the indexes incoherent
+		// Is it something we must do? Not sure!
+		// We should investigate why.
+		// Currently we at least optimize the section indexes, but we do not reorder the vertex array
+
+		//////////////////////////////////////////////////////////////////////////
+
+
 		// Copy the vertices since we will be reordering them
-		TArray<FStaticMeshBuildVertex> OriginalVertices = Vertices;
+		//TArray<FStaticMeshBuildVertex> OriginalVertices = Vertices;
 
 		// Initialize a cache that stores which indices have been assigned
-		TArray<int32> IndexCache;
-		IndexCache.AddUninitialized(Vertices.Num());
-		FMemory::Memset(IndexCache.GetData(), INDEX_NONE, IndexCache.Num() * IndexCache.GetTypeSize());
-		int32 NextAvailableIndex = 0;
+		//TArray<int32> IndexCache;
+		//IndexCache.AddUninitialized(Vertices.Num());
+		//FMemory::Memset(IndexCache.GetData(), INDEX_NONE, IndexCache.Num() * IndexCache.GetTypeSize());
+		//int32 NextAvailableIndex = 0;
 
 		// Iterate through the section index buffers, 
 		// Optimizing index order for the post transform cache (minimizes the number of vertices transformed), 
@@ -353,7 +379,7 @@ public:
 			{
 				// Optimize the index buffer for the post transform cache with.
 				CacheOptimizeIndexBuffer(Indices);
-
+/*
 				// Copy the index buffer since we will be reordering it
 				TArray<uint32> OriginalIndices = Indices;
 
@@ -377,10 +403,12 @@ public:
 					}
 					// Reorder the vertices based on the new index assignment
 					Vertices[Indices[Index]] = OriginalVertices[OriginalIndices[Index]];
+
 				}
+*/
 			}
 		}
-
+/*
 		for (int32 i = 0; i < WedgeMap.Num(); i++)
 		{
 			int32 MappedIndex = WedgeMap[i];
@@ -389,5 +417,6 @@ public:
 				WedgeMap[i] = IndexCache[MappedIndex];
 			}
 		}
+*/
 	}
 };

@@ -41,10 +41,15 @@ public:
 	//Build a render mesh description with the BuildSettings. This will update the InRenderMeshDescription ptr content
 	UMeshDescription* GetRenderMeshDescription(UObject* Owner);
 
+	void ReduceLOD(const UMeshDescription* BaseMesh, UMeshDescription* DestMesh, const struct FMeshReductionSettings& ReductionSettings, const TMultiMap<int32, int32>& InOverlappingCorners);
+
 	void CopyMeshDescription(UMeshDescription* SourceMeshDescription, UMeshDescription* DestinationMeshDescription) const;
 
 	//Return true if there is a valid original mesh description, false otherwise(Auto generate LOD).
 	bool IsValidOriginalMeshDescription();
+
+	static void FindOverlappingCorners(TMultiMap<int32, int32>& OverlappingCorners, const UMeshDescription* MeshDescription, float ComparisonThreshold);
+	void FindOverlappingCorners(const UMeshDescription* MeshDescription, float ComparisonThreshold);
 
 	const TMultiMap<int32, int32>& GetOverlappingCorners() const { return OverlappingCorners; }
 
@@ -58,7 +63,6 @@ private:
 	void CreateNormals(UMeshDescription* MeshDescription, ETangentOptions TangentOptions, bool bComputeTangent);
 	void CreateMikktTangents(UMeshDescription* MeshDescription, ETangentOptions TangentOptions);
 	void CreatePolygonNTB(UMeshDescription* MeshDescription, float ComparisonThreshold);
-	void FindOverlappingCorners(float ComparisonThreshold);
 
 	//////////////////////////////////////////////////////////////////////////
 	//PRIVATE class members

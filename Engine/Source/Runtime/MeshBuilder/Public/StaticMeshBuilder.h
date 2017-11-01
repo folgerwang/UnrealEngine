@@ -10,7 +10,7 @@ class MESHBUILDER_API FStaticMeshBuilder : public FMeshBuilder
 public:
 	FStaticMeshBuilder();
 
-	virtual bool Build(class UStaticMesh* StaticMesh) override;
+	virtual bool Build(class UStaticMesh* StaticMesh, const class FStaticMeshLODGroup& LODGroup) override;
 	virtual ~FStaticMeshBuilder() {}
 
 private:
