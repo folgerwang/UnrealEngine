@@ -80,15 +80,17 @@ private:
 	{
 		float Z;
 		int32 Index;
+		const FVector *OriginalVector;
 
 		/** Default constructor. */
 		FIndexAndZ() {}
 
 		/** Initialization constructor. */
-		FIndexAndZ(int32 InIndex, FVector V)
+		FIndexAndZ(int32 InIndex, const FVector& V)
 		{
 			Z = 0.30f * V.X + 0.33f * V.Y + 0.37f * V.Z;
 			Index = InIndex;
+			OriginalVector = &V;
 		}
 	};
 
