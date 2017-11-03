@@ -84,11 +84,9 @@ bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh, const FStaticMeshLODGrou
 		float VertexComparisonThreshold = LODBuildSettings.bRemoveDegenerates ? THRESH_POINTS_ARE_SAME : 0.0f;
 
 		//Build new vertex buffers
-		static TArray< FStaticMeshBuildVertex > StaticMeshBuildVertices;
-		StaticMeshBuildVertices.Reset();
+		TArray< FStaticMeshBuildVertex > StaticMeshBuildVertices;
 
-		static TArray< uint32 > IndexBuffer;
-		IndexBuffer.Reset();
+		TArray< uint32 > IndexBuffer;
 
 		StaticMeshLOD.Sections.Empty(PolygonGroups.Num());
 		TArray<int32> RemapVerts; //Because we will remove MeshVertex that are redundant, we need a remap
@@ -437,7 +435,6 @@ void BuildVertexBuffer(
 					//Never add duplicated vertex instance
 					DupVerts.Reset();
 					OverlappingCorners.MultiFind(VertexInstanceValue, DupVerts);
-					DupVerts.Sort();
 					int32 Index = INDEX_NONE;
 					for (int32 k = 0; k < DupVerts.Num(); k++)
 					{
@@ -480,10 +477,10 @@ void BuildVertexBuffer(
 		check(OutWedgeMap.Num() == VertexInstances.Num());
 	}
 
-	StaticMeshLOD.PositionVertexBuffer.Init(StaticMeshBuildVertices);
 	StaticMeshLOD.VertexBuffer.SetUseHighPrecisionTangentBasis(LODBuildSettings.bUseHighPrecisionTangentBasis);
 	StaticMeshLOD.VertexBuffer.SetUseFullPrecisionUVs(LODBuildSettings.bUseFullPrecisionUVs);
 	StaticMeshLOD.VertexBuffer.Init(StaticMeshBuildVertices, NumTextureCoord);
+	StaticMeshLOD.PositionVertexBuffer.Init(StaticMeshBuildVertices);
 	if (bHasColor)
 	{
 		StaticMeshLOD.ColorVertexBuffer.Init(StaticMeshBuildVertices);
