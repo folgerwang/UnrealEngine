@@ -36,8 +36,7 @@ namespace UnrealBuildTool.Rules
                     "InputCore",
 				    "RawMesh",
                     "UnrealEd",
-                    "MainFrame",
-                    "MeshDescription"
+                    "MainFrame"
 				}
 				);
 
