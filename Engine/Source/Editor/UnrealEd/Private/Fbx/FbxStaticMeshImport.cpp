@@ -35,6 +35,7 @@
 #include "PhysicsEngine/BodySetup.h"
 #include "MeshDescription.h"
 #include "IMeshBuilderModule.h"
+#include "Settings/EditorExperimentalSettings.h"
 
 #define LOCTEXT_NAMESPACE "FbxStaticMeshImport"
 
@@ -266,7 +267,7 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 	FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[LODIndex];
 	
 	UMeshDescription *MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
-	if (ImportOptions->bImportMeshDescription)
+	if (GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription)
 	{
 		//The mesh description should have been created before calling BuildStaticMeshFromGeometry
 		check(MeshDescription);
@@ -1572,7 +1573,7 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 		}
 	}
 
-	if (ImportOptions->bImportMeshDescription)
+	if (GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription)
 	{
 		MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
 		if (MeshDescription == nullptr)

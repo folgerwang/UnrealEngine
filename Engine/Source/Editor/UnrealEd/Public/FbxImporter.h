@@ -107,7 +107,6 @@ namespace UnFbx
 struct FBXImportOptions
 {
 	// General options
-	bool bImportMeshDescription;
 	bool bImportScene;
 	bool bImportMaterials;
 	bool bResetMaterialSlots;

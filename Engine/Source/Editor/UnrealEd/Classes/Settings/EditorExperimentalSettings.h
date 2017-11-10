@@ -124,6 +124,10 @@ public:
 	/** Enables the ability to bake materials inside of the Static Mesh and Skeletal Mesh Editor, and for static mesh instances. */
 	UPROPERTY(EditAnywhere, config, Category = Tools, meta = (ConfigRestartRequired = true))
 	bool bAssetMaterialBaking;
+
+	/** Allows usage of the mesh description instead of the raw mesh */
+	UPROPERTY(EditAnywhere, config, Category = Tools, meta = (DisplayName = "Use Mesh Description"))
+	bool bUseMeshDescription;
 	
 	/**
 	 * Returns an event delegate that is executed when a setting has changed.

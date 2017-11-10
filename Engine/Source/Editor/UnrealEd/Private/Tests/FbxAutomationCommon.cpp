@@ -11,7 +11,7 @@
 #include "Factories/FbxStaticMeshImportData.h"
 #include "Factories/FbxTextureImportData.h"
 #include "Factories/FbxImportUI.h"
-
+#include "Settings/EditorExperimentalSettings.h"
 #include "JsonObjectConverter.h"
 
 
@@ -78,8 +78,6 @@ namespace FbxAutomationTestsAPI
 			FbxTestPlan->ImportUI->AnimSequenceImportData = SavedAnimSequenceData;
 			FbxTestPlan->ImportUI->TextureImportData = SavedTextureData;
 
-			//Force usage of mesh descriptions
-			FbxTestPlan->ImportUI->bImportMeshDescription = true;
 			TestPlanArray.Add(FbxTestPlan);
 		}
 	}
