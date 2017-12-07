@@ -86,73 +86,73 @@ class TMeshElementArray : public TMeshElementArrayBase<ElementType>
 public:
 
 	/** Resets the container, optionally reserving space for elements to be added */
-	void Reset( const int32 Elements = 0 )
+	FORCEINLINE void Reset( const int32 Elements = 0 )
 	{
 		Container.Reset();
 		Container.Reserve( Elements );
 	}
 
 	/** Reserves space for the specified total number of elements */
-	void Reserve( const int32 Elements ) { Container.Reserve( Elements ); }
+	FORCEINLINE void Reserve( const int32 Elements ) { Container.Reserve( Elements ); }
 
 	/** Add a new element at the next available index, and return the new ID */
-	ElementIDType Add() { return ElementIDType( Container.Add( ElementType() ) ); }
+	FORCEINLINE ElementIDType Add() { return ElementIDType( Container.Add( ElementType() ) ); }
 
 	/** Add the provided element at the next available index, and return the new ID */
-	ElementIDType Add( typename TTypeTraits<ElementType>::ConstInitType Element ) { return ElementIDType( Container.Add( Element ) ); }
+	FORCEINLINE ElementIDType Add( typename TTypeTraits<ElementType>::ConstInitType Element ) { return ElementIDType( Container.Add( Element ) ); }
 
 	/** Add the provided element at the next available index, and return the ID */
-	ElementIDType Add( ElementType&& Element ) { return ElementIDType( Container.Add( Forward<ElementType>( Element ) ) ); }
+	FORCEINLINE ElementIDType Add( ElementType&& Element ) { return ElementIDType( Container.Add( Forward<ElementType>( Element ) ) ); }
 
 	/** Inserts a new element with the given ID */
-	ElementType& Insert( const ElementIDType ID )
+	FORCEINLINE ElementType& Insert( const ElementIDType ID )
 	{
 		Container.Insert( ID.GetValue(), ElementType() );
 		return Container[ ID.GetValue() ];
 	}
 
 	/** Inserts the provided element with the given ID */
-	ElementType& Insert( const ElementIDType ID, typename TTypeTraits<ElementType>::ConstInitType Element )
+	FORCEINLINE ElementType& Insert( const ElementIDType ID, typename TTypeTraits<ElementType>::ConstInitType Element )
 	{
 		Container.Insert( ID.GetValue(), Element );
 		return Container[ ID.GetValue() ];
 	}
 
 	/** Inserts the provided element with the given ID */
-	ElementType& Insert( const ElementIDType ID, ElementType&& Element )
+	FORCEINLINE ElementType& Insert( const ElementIDType ID, ElementType&& Element )
 	{
 		Container.Insert( ID.GetValue(), Forward<ElementType>( Element ) );
 		return Container[ ID.GetValue() ];
 	}
 
 	/** Removes the element with the given ID */
-	void Remove( const ElementIDType ID )
+	FORCEINLINE void Remove( const ElementIDType ID )
 	{
 		checkSlow( Container.IsAllocated( ID.GetValue() ) );
 		Container.RemoveAt( ID.GetValue() );
 	}
 
 	/** Returns the element with the given ID */
-	ElementType& operator[]( const ElementIDType ID )
+	FORCEINLINE ElementType& operator[]( const ElementIDType ID )
 	{
 		checkSlow( Container.IsAllocated( ID.GetValue() ) );
 		return Container[ ID.GetValue() ];
 	}
 
-	const ElementType& operator[]( const ElementIDType ID ) const
+	FORCEINLINE const ElementType& operator[]( const ElementIDType ID ) const
 	{
 		checkSlow( Container.IsAllocated( ID.GetValue() ) );
 		return Container[ ID.GetValue() ];
 	}
 
 	/** Returns the number of elements in the container */
-	int32 Num() const { return Container.Num(); }
+	FORCEINLINE int32 Num() const { return Container.Num(); }
 
 	/** Returns the index after the last valid element */
-	int32 GetArraySize() const { return Container.GetMaxIndex(); }
+	FORCEINLINE int32 GetArraySize() const { return Container.GetMaxIndex(); }
 
 	/** Returns the first valid ID */
-	ElementIDType GetFirstValidID() const
+	FORCEINLINE ElementIDType GetFirstValidID() const
 	{
 		return Container.Num() > 0 ?
 			ElementIDType( typename TSparseArray<ElementType>::TConstIterator( Container ).GetIndex() ) :
@@ -160,13 +160,13 @@ public:
 	}
 
 	/** Returns whether the given ID is valid or not */
-	bool IsValid( const ElementIDType ID ) const
+	FORCEINLINE bool IsValid( const ElementIDType ID ) const
 	{
 		return ID.GetValue() >= 0 && ID.GetValue() < Container.GetMaxIndex() && Container.IsAllocated( ID.GetValue() );
 	}
 
 	/** Serializer */
-	friend FArchive& operator<<( FArchive& Ar, TMeshElementArray& Array )
+	FORCEINLINE friend FArchive& operator<<( FArchive& Ar, TMeshElementArray& Array )
 	{
 		Ar << static_cast<TMeshElementArrayBase<ElementType>&>( Array );
 		return Ar;
@@ -192,7 +192,7 @@ public:
 	{
 	public:
 
-		explicit TElementIDs( const TSparseArray<ElementType>& InArray )
+		explicit FORCEINLINE TElementIDs( const TSparseArray<ElementType>& InArray )
 			: Array( InArray )
 		{}
 
@@ -200,27 +200,27 @@ public:
 		{
 		public:
 
-			explicit TConstIterator( typename TSparseArray<ElementType>::TConstIterator&& It )
+			explicit FORCEINLINE TConstIterator( typename TSparseArray<ElementType>::TConstIterator&& It )
 				: Iterator( MoveTemp( It ) )
 			{}
 
-			TConstIterator& operator++()
+			FORCEINLINE TConstIterator& operator++()
 			{
 				++Iterator;
 				return *this;
 			}
 
-			ElementIDType operator*() const
+			FORCEINLINE ElementIDType operator*() const
 			{
 				return Iterator ? ElementIDType( Iterator.GetIndex() ) : ElementIDType::Invalid;
 			}
 
-			friend bool operator==( const TConstIterator& Lhs, const TConstIterator& Rhs )
+			friend FORCEINLINE bool operator==( const TConstIterator& Lhs, const TConstIterator& Rhs )
 			{
 				return Lhs.Iterator == Rhs.Iterator;
 			}
 
-			friend bool operator!=( const TConstIterator& Lhs, const TConstIterator& Rhs )
+			friend FORCEINLINE bool operator!=( const TConstIterator& Lhs, const TConstIterator& Rhs )
 			{
 				return Lhs.Iterator != Rhs.Iterator;
 			}
@@ -230,19 +230,19 @@ public:
 			typename TSparseArray<ElementType>::TConstIterator Iterator;
 		};
 
-		TConstIterator CreateConstIterator() const
+		FORCEINLINE TConstIterator CreateConstIterator() const
 		{
 			return TConstIterator( typename TSparseArray<ElementType>::TConstIterator( Array ) );
 		}
 
 	private:
 
-		friend TConstIterator begin( const TElementIDs& ArrayIDs )
+		friend FORCEINLINE TConstIterator begin( const TElementIDs& ArrayIDs )
 		{
 			return TConstIterator( begin( ArrayIDs.Array ) );
 		}
 
-		friend TConstIterator end( const TElementIDs& ArrayIDs )
+		friend FORCEINLINE TConstIterator end( const TElementIDs& ArrayIDs )
 		{
 			return TConstIterator( end( ArrayIDs.Array ) );
 		}
@@ -251,7 +251,7 @@ public:
 	};
 
 	/** Return iterable proxy object from container */
-	TElementIDs GetElementIDs() const { return TElementIDs( Container ); }
+	TElementIDs FORCEINLINE GetElementIDs() const { return TElementIDs( Container ); }
 };
 
 

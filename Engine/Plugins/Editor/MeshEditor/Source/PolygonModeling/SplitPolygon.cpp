@@ -5,6 +5,7 @@
 #include "IMeshEditorModeUIContract.h"
 #include "UICommandInfo.h"
 #include "EditableMesh.h"
+#include "MeshAttributes.h"
 #include "MeshElement.h"
 #include "MultiBoxBuilder.h"
 #include "UICommandList.h"
@@ -133,6 +134,8 @@ void USplitPolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Mesh
 			FVector LaserPointerStart, LaserPointerEnd;
 			if( ViewportInteractor->GetLaserPointer( /* Out */ LaserPointerStart, /* Out */ LaserPointerEnd ) )
 			{
+				const TVertexAttributeArray<FVector>& VertexPositions = EditableMesh->GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+
 				for( const FPolygonID CandidatePolygonID : CandidatePolygonIDs )
 				{
 					const FTransform ComponentToWorld = Component->GetComponentToWorld();
@@ -140,15 +143,15 @@ void USplitPolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Mesh
 					FVector SplitStartLocation;
 					if( StartingVertexID != FVertexID::Invalid )
 					{
-						SplitStartLocation = ComponentToWorld.TransformPosition( EditableMesh->GetVertexAttribute( StartingVertexID, UEditableMeshAttribute::VertexPosition(), 0 ) );
+						SplitStartLocation = ComponentToWorld.TransformPosition( VertexPositions[ StartingVertexID ] );
 					}
 					else if( ensure( StartingEdgeID != FEdgeID::Invalid ) )
 					{
 						FVertexID EdgeVertex0, EdgeVertex1;
 						EditableMesh->GetEdgeVertices( StartingEdgeID, /* Out */ EdgeVertex0, /* Out */ EdgeVertex1 );
 
-						const FVector EdgeVertex0Location = ComponentToWorld.TransformPosition( EditableMesh->GetVertexAttribute( EdgeVertex0, UEditableMeshAttribute::VertexPosition(), 0 ) );
-						const FVector EdgeVertex1Location = ComponentToWorld.TransformPosition( EditableMesh->GetVertexAttribute( EdgeVertex1, UEditableMeshAttribute::VertexPosition(), 0 ) ) ;
+						const FVector EdgeVertex0Location = ComponentToWorld.TransformPosition( VertexPositions[ EdgeVertex0 ] );
+						const FVector EdgeVertex1Location = ComponentToWorld.TransformPosition( VertexPositions[ EdgeVertex1 ] ) ;
 
 						SplitStartLocation = FMath::Lerp( EdgeVertex0Location, EdgeVertex1Location, EdgeSplit );
 					}
@@ -197,8 +200,8 @@ void USplitPolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Mesh
 
 							FVertexID EdgeVertex0, EdgeVertex1;
 							EditableMesh->GetEdgeVertices( TargetEdgeID, /* Out */ EdgeVertex0, /* Out */ EdgeVertex1 );
-							const FVector EdgeVertex0Location = ComponentToWorld.TransformPosition( EditableMesh->GetVertexAttribute( EdgeVertex0, UEditableMeshAttribute::VertexPosition(), 0 ) );
-							const FVector EdgeVertex1Location = ComponentToWorld.TransformPosition( EditableMesh->GetVertexAttribute( EdgeVertex1, UEditableMeshAttribute::VertexPosition(), 0 ) );
+							const FVector EdgeVertex0Location = ComponentToWorld.TransformPosition( VertexPositions[ EdgeVertex0 ] );
+							const FVector EdgeVertex1Location = ComponentToWorld.TransformPosition( VertexPositions[ EdgeVertex1 ] );
 
 							if( !bIsDisqualified )
 							{
@@ -248,8 +251,8 @@ void USplitPolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Mesh
 							FVertexID EdgeVertex0, EdgeVertex1;
 							EditableMesh->GetEdgeVertices( ClosestEdgeID, /* Out */ EdgeVertex0, /* Out */ EdgeVertex1 );
 
-							const FVector EdgeVertex0Location = ComponentToWorld.TransformPosition( EditableMesh->GetVertexAttribute( EdgeVertex0, UEditableMeshAttribute::VertexPosition(), 0 ) );
-							const FVector EdgeVertex1Location = ComponentToWorld.TransformPosition( EditableMesh->GetVertexAttribute( EdgeVertex1, UEditableMeshAttribute::VertexPosition(), 0 ) );
+							const FVector EdgeVertex0Location = ComponentToWorld.TransformPosition( VertexPositions[ EdgeVertex0 ] );
+							const FVector EdgeVertex1Location = ComponentToWorld.TransformPosition( VertexPositions[ EdgeVertex1 ] );
 
 							const FVector ImpactOnEdge = SplitStartLocation + SplitDirection * ClosestEdgeDistance;
 
@@ -302,7 +305,7 @@ void USplitPolygonCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& Mesh
 								if( !bIsDisqualified )
 								{
 									// Don't allow connecting to vertices that are colinear to the split direction
-									const FVector VertexLocation = ComponentToWorld.TransformPosition( EditableMesh->GetVertexAttribute( TargetVertexID, UEditableMeshAttribute::VertexPosition(), 0 ) );
+									const FVector VertexLocation = ComponentToWorld.TransformPosition( VertexPositions[ TargetVertexID ] );
 									const FVector VertexDirection = ( VertexLocation - SplitStartLocation ).GetSafeNormal();
 									if( FMath::IsNearlyZero( VertexDirection.SizeSquared() ) || FMath::IsNearlyEqual( FMath::Abs( FVector::DotProduct( SplitDirection, VertexDirection ) ), 1.0f ) )
 									{

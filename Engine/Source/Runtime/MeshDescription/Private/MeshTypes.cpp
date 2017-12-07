@@ -9,6 +9,7 @@ const FEdgeID FEdgeID::Invalid( TNumericLimits<uint32>::Max() );
 const FPolygonGroupID FPolygonGroupID::Invalid( TNumericLimits<uint32>::Max() );
 const FPolygonID FPolygonID::Invalid( TNumericLimits<uint32>::Max() );
 
+#if 0
 const FName UEditableMeshAttribute::VertexPositionName( "VertexPosition" );
 const FName UEditableMeshAttribute::VertexCornerSharpnessName( "VertexCornerSharpness" );
 const FName UEditableMeshAttribute::VertexNormalName( "VertexNormal" );
@@ -20,4 +21,4 @@ const FName UEditableMeshAttribute::EdgeIsHardName( "EdgeIsHard" );
 const FName UEditableMeshAttribute::EdgeCreaseSharpnessName( "EdgeCreaseSharpness" );
 const FName UEditableMeshAttribute::PolygonNormalName( "PolygonNormal" );
 const FName UEditableMeshAttribute::PolygonCenterName( "PolygonCenter" );
-
+#endif

@@ -204,6 +204,7 @@ struct FPolygonID : public FElementID
 };
 
 
+#if 0
 UCLASS( abstract )
 class MESHDESCRIPTION_API UEditableMeshAttribute : public UObject
 {
@@ -307,3 +308,4 @@ private:
 	static const FName PolygonNormalName;
 	static const FName PolygonCenterName;
 };
+#endif

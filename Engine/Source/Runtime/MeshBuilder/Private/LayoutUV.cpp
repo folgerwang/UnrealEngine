@@ -34,11 +34,13 @@ void FLayoutUV::FindCharts( const TMultiMap<int32,int32>& OverlappingCorners )
 	TranslatedMatches.SetNumUninitialized( NumIndexes );
 	TexCoords.SetNumUninitialized( NumIndexes );
 	int32 VertexInstanceIndex = 0;
-	for (const FVertexInstanceID& VertexInstanceID : MeshDescription->VertexInstances().GetElementIDs())
+
+	const TVertexInstanceAttributeArray<FVector2D>& VertexUVs = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, SrcChannel);
+	for (const FVertexInstanceID VertexInstanceID : MeshDescription->VertexInstances().GetElementIDs())
 	{
 		check(VertexInstanceIndex == VertexInstanceID.GetValue());
 		TranslatedMatches[VertexInstanceIndex] = -1;
-		TexCoords[VertexInstanceIndex] = MeshDescription->GetVertexInstance(VertexInstanceID).VertexUVs[SrcChannel];
+		TexCoords[VertexInstanceIndex] = VertexUVs[VertexInstanceID];
 		VertexInstanceIndex++;
 	}
 
@@ -158,6 +160,8 @@ void FLayoutUV::FindCharts( const TMultiMap<int32,int32>& OverlappingCorners )
 
 	TMap< uint32, int32 > DisjointSetToChartMap;
 
+	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+
 	// Build Charts
 	for( uint32 Tri = 0; Tri < NumTris; )
 	{
@@ -185,7 +189,7 @@ void FLayoutUV::FindCharts( const TMultiMap<int32,int32>& OverlappingCorners )
 				uint32 Index = 3 * SortedTris[ Tri ] + k;
 
 				FVertexInstanceID VertexInstanceID(Index);
-				Positions[k] = MeshDescription->GetVertex(MeshDescription->GetVertexInstance(VertexInstanceID).VertexID).VertexPosition;
+				Positions[k] = VertexPositions[MeshDescription->GetVertexInstanceVertex(VertexInstanceID)];
 				UVs[k] = TexCoords[ Index ];
 
 				Chart.MinUV.X = FMath::Min( Chart.MinUV.X, UVs[k].X );
@@ -1047,6 +1051,16 @@ void FLayoutUV::RasterizeChart( const FMeshChart& Chart, uint32 RectW, uint32 Re
 
 void FLayoutUV::CommitPackedUVs()
 {
+	// If current DstChannel is out of range of the number of UVs defined by the mesh description, change the index count accordingly
+	const uint32 NumUVs = MeshDescription->VertexInstanceAttributes().GetAttributeIndexCount<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+	if (DstChannel >= NumUVs)
+	{
+		MeshDescription->VertexInstanceAttributes().SetAttributeIndexCount<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, DstChannel + 1);
+		ensure(false);	// not expecting it to get here
+	}
+
+	TVertexInstanceAttributeArray<FVector2D>& VertexUVs = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, DstChannel);
+
 	// Commit chart UVs
 	for( int32 i = 0; i < Charts.Num(); i++ )
 	{
@@ -1062,13 +1076,8 @@ void FLayoutUV::CommitPackedUVs()
 			{
 				uint32 Index = 3 * SortedTris[ Tri ] + k;
 				const FVector2D& UV = TexCoords[ Index ];
-				FVertexInstanceID VertexInstanceID(Index);
-				FMeshVertexInstance& VertexInstance = MeshDescription->GetVertexInstance(VertexInstanceID);
-				if (VertexInstance.VertexUVs.Num() <= (int32)DstChannel)
-				{
-					VertexInstance.VertexUVs.AddZeroed((1 + DstChannel) - VertexInstance.VertexUVs.Num());
-				}
-				VertexInstance.VertexUVs[ DstChannel ] = UV.X * Chart.PackingScaleU + UV.Y * Chart.PackingScaleV + Chart.PackingBias;
+				const FVertexInstanceID VertexInstanceID(Index);
+				VertexUVs[VertexInstanceID] = UV.X * Chart.PackingScaleU + UV.Y * Chart.PackingScaleV + Chart.PackingBias;
 			}
 		}
 	}

@@ -176,16 +176,6 @@ void UMeshEditorSubdividedStaticMeshAdapter::OnCreateVertexInstances( const UEdi
 }
 
 
-void UMeshEditorSubdividedStaticMeshAdapter::OnSetVertexAttribute( const UEditableMesh* EditableMesh, const FVertexID VertexID, const FName AttributeName, const int32 AttributeIndex, const FVector4 AttributeValue )
-{
-}
-
-
-void UMeshEditorSubdividedStaticMeshAdapter::OnSetVertexInstanceAttribute( const UEditableMesh* EditableMesh, const FVertexInstanceID VertexInstanceID, const FName AttributeName, const int32 AttributeIndex, const FVector4 AttributeValue )
-{
-}
-
-
 void UMeshEditorSubdividedStaticMeshAdapter::OnCreateEdges( const UEditableMesh* EditableMesh, const TArray<FEdgeID>& EdgeIDs )
 {
 }
@@ -197,11 +187,6 @@ void UMeshEditorSubdividedStaticMeshAdapter::OnDeleteEdges( const UEditableMesh*
 
 
 void UMeshEditorSubdividedStaticMeshAdapter::OnSetEdgesVertices( const UEditableMesh* EditableMesh, const TArray<FEdgeID>& EdgeIDs )
-{
-}
-
-
-void UMeshEditorSubdividedStaticMeshAdapter::OnSetEdgeAttribute( const UEditableMesh* EditableMesh, const FEdgeID EdgeID, const FName AttributeName, const int32 AttributeIndex, const FVector4 AttributeValue )
 {
 }
 

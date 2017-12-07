@@ -5,6 +5,7 @@
 #include "IMeshEditorModeUIContract.h"
 #include "UICommandInfo.h"
 #include "EditableMesh.h"
+#include "MeshAttributes.h"
 #include "MeshElement.h"
 #include "MultiBoxBuilder.h"
 #include "UICommandList.h"
@@ -112,11 +113,13 @@ void UEditVertexCornerSharpnessCommand::ApplyDuringDrag( IMeshEditorModeEditingC
 			static TArray<float> NewSharpnessValues;
 			NewSharpnessValues.Reset();
 
+			const TVertexAttributeArray<float>& VertexSharpnesses = EditableMesh->GetMeshDescription()->VertexAttributes().GetAttributes<float>( MeshAttribute::Vertex::CornerSharpness );
+
 			for( const FMeshElement& VertexElement : VertexElements )
 			{
 				const FVertexID VertexID( VertexElement.ElementAddress.ElementID );
 
-				const float CurrentSharpnessValue = EditableMesh->GetVertexAttribute( VertexID, UEditableMeshAttribute::VertexCornerSharpness(), 0 ).X;
+				const float CurrentSharpnessValue = VertexSharpnesses[ VertexID ];
 				const float NewSharpnessValue = FMath::Clamp( CurrentSharpnessValue + ScaledDragDelta, 0.0f, 1.0f );
 
 				VertexIDs.Add( VertexID );
@@ -161,6 +164,8 @@ void UEditEdgeCreaseSharpnessCommand::ApplyDuringDrag( IMeshEditorModeEditingCon
 			UEditableMesh* EditableMesh = MeshAndSelectedEdges.Key;
 			const TArray<FMeshElement>& EdgeElements = MeshAndSelectedEdges.Value;
 
+			const TEdgeAttributeArray<float>& EdgeSharpnesses = EditableMesh->GetMeshDescription()->EdgeAttributes().GetAttributes<float>( MeshAttribute::Edge::CreaseSharpness );
+
 			static TArray<FEdgeID> EdgeIDs;
 			EdgeIDs.Reset();
 
@@ -171,7 +176,7 @@ void UEditEdgeCreaseSharpnessCommand::ApplyDuringDrag( IMeshEditorModeEditingCon
 			{
 				const FEdgeID EdgeID( EdgeElement.ElementAddress.ElementID );
 
-				const float CurrentSharpnessValue = EditableMesh->GetEdgeAttribute( EdgeID, UEditableMeshAttribute::EdgeCreaseSharpness(), 0 ).X;
+				const float CurrentSharpnessValue = EdgeSharpnesses[ EdgeID ];
 				const float NewSharpnessValue = FMath::Clamp( CurrentSharpnessValue + ScaledDragDelta, 0.0f, 1.0f );
 
 				EdgeIDs.Add( EdgeID );

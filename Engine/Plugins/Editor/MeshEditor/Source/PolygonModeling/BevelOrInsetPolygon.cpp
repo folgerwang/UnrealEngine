@@ -5,6 +5,7 @@
 #include "IMeshEditorModeUIContract.h"
 #include "UICommandInfo.h"
 #include "EditableMesh.h"
+#include "MeshAttributes.h"
 #include "MeshElement.h"
 #include "MultiBoxBuilder.h"
 #include "UICommandList.h"
@@ -66,6 +67,8 @@ namespace BevelOrInsetPolygonHelpers
 				float CenterWeight = 0.0f;
 				FVector BestEdgeVertex0Position, BestEdgeVertex1Position;
 				{
+					const TVertexAttributeArray<FVector>& VertexPositions = EditableMesh->GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+
 					static TArray<FVertexID> PerimeterVertexIDs;
 					EditableMesh->GetPolygonPerimeterVertices( PolygonID, /* Out */ PerimeterVertexIDs );
 
@@ -77,8 +80,8 @@ namespace BevelOrInsetPolygonHelpers
 						const FVertexID EdgeVertex0 = PerimeterVertexIDs[ VertexNumber ];
 						const FVertexID EdgeVertex1 = PerimeterVertexIDs[ NextVertexNumber ];
 
-						const FVector EdgeVertex0Position = EditableMesh->GetVertexAttribute( EdgeVertex0, UEditableMeshAttribute::VertexPosition(), 0 );
-						const FVector EdgeVertex1Position = EditableMesh->GetVertexAttribute( EdgeVertex1, UEditableMeshAttribute::VertexPosition(), 0 );
+						const FVector EdgeVertex0Position = VertexPositions[ EdgeVertex0 ];
+						const FVector EdgeVertex1Position = VertexPositions[ EdgeVertex1 ];
 
 						BestEdgeVertex0Position = EdgeVertex0Position;
 						BestEdgeVertex1Position = EdgeVertex1Position;

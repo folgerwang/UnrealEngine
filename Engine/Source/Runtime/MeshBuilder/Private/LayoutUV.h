@@ -6,6 +6,7 @@
 #include "Allocator2D.h"
 #include "MeshDescription.h"
 #include "MeshDescriptionHelper.h"
+#include "MeshAttributes.h"
 
 #define NEW_UVS_ARE_SAME THRESH_POINTS_ARE_SAME
 #define LEGACY_UVS_ARE_SAME (1.0f / 1024.0f)
@@ -96,84 +97,62 @@ inline bool FLayoutUV::PositionsMatch( uint32 a, uint32 b ) const
 {
 	const FVertexInstanceID VertexInstanceIDA(a);
 	const FVertexInstanceID VertexInstanceIDB(b);
-	check(MeshDescription->VertexInstances().IsValid(VertexInstanceIDA));
-	check(MeshDescription->VertexInstances().IsValid(VertexInstanceIDB));
-	const FMeshVertexInstance& VertexInstanceA = MeshDescription->GetVertexInstance(VertexInstanceIDA);
-	const FMeshVertexInstance& VertexInstanceB = MeshDescription->GetVertexInstance(VertexInstanceIDB);
-	const FMeshVertex& VertexA = MeshDescription->GetVertex(VertexInstanceA.VertexID);
-	const FMeshVertex& VertexB = MeshDescription->GetVertex(VertexInstanceB.VertexID);
-	return VertexA.VertexPosition.Equals(VertexB.VertexPosition, THRESH_POINTS_ARE_SAME);
+	const FVertexID VertexIDA = MeshDescription->GetVertexInstanceVertex(VertexInstanceIDA);
+	const FVertexID VertexIDB = MeshDescription->GetVertexInstanceVertex(VertexInstanceIDB);
+
+	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+	return VertexPositions[VertexIDA].Equals(VertexPositions[VertexIDB], THRESH_POINTS_ARE_SAME);
 }
 
 inline bool FLayoutUV::NormalsMatch( uint32 a, uint32 b ) const
 {
-	const FVertexInstanceID VertexInstanceIDA(a);
-	const FVertexInstanceID VertexInstanceIDB(b);
-	check(MeshDescription->VertexInstances().IsValid(VertexInstanceIDA));
-	check(MeshDescription->VertexInstances().IsValid(VertexInstanceIDB));
-	const FMeshVertexInstance& VertexInstanceA = MeshDescription->GetVertexInstance(VertexInstanceIDA);
-	const FMeshVertexInstance& VertexInstanceB = MeshDescription->GetVertexInstance(VertexInstanceIDB);
-
-	if (!VertexInstanceA.VertexUVs.IsValidIndex(SrcChannel))
+	// If current SrcChannel is out of range of the number of UVs defined by the mesh description, just return true
+	// @todo: hopefully remove this check entirely and just ensure that the mesh description matches the inputs
+	const uint32 NumUVs = MeshDescription->VertexInstanceAttributes().GetAttributeIndexCount<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+	if (SrcChannel >= NumUVs)
 	{
+		ensure(false);	// not expecting it to get here
 		return true;
 	}
-	return VertexInstanceA.Normal.Equals(VertexInstanceB.Normal, THRESH_NORMALS_ARE_SAME);
+
+	const FVertexInstanceID VertexInstanceIDA(a);
+	const FVertexInstanceID VertexInstanceIDB(b);
+
+	const TVertexInstanceAttributeArray<FVector>& VertexNormals = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
+	return VertexNormals[VertexInstanceIDA].Equals(VertexNormals[VertexInstanceIDB], THRESH_NORMALS_ARE_SAME);
 }
 
 inline bool FLayoutUV::UVsMatch( uint32 a, uint32 b ) const
 {
-	const FVertexInstanceID VertexInstanceIDA(a);
-	const FVertexInstanceID VertexInstanceIDB(b);
-	check(MeshDescription->VertexInstances().IsValid(VertexInstanceIDA));
-	check(MeshDescription->VertexInstances().IsValid(VertexInstanceIDB));
-	const FMeshVertexInstance& VertexInstanceA = MeshDescription->GetVertexInstance(VertexInstanceIDA);
-	const FMeshVertexInstance& VertexInstanceB = MeshDescription->GetVertexInstance(VertexInstanceIDB);
-
-	if (!VertexInstanceA.VertexUVs.IsValidIndex(SrcChannel))
+	// If current SrcChannel is out of range of the number of UVs defined by the mesh description, just return true
+	const uint32 NumUVs = MeshDescription->VertexInstanceAttributes().GetAttributeIndexCount<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+	if (SrcChannel >= NumUVs)
 	{
+		ensure(false);	// not expecting it to get here
 		return true;
 	}
-	return VertexInstanceA.VertexUVs[SrcChannel].Equals(VertexInstanceB.VertexUVs[SrcChannel], THRESH_UVS_ARE_SAME);
+
+	const FVertexInstanceID VertexInstanceIDA(a);
+	const FVertexInstanceID VertexInstanceIDB(b);
+
+	const TVertexInstanceAttributeArray<FVector2D>& VertexUVs = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, SrcChannel);
+	return VertexUVs[VertexInstanceIDA].Equals(VertexUVs[VertexInstanceIDB], THRESH_UVS_ARE_SAME);
 }
 
 inline bool FLayoutUV::VertsMatch( uint32 a, uint32 b ) const
 {
-	const FVertexInstanceID VertexInstanceIDA(a);
-	const FVertexInstanceID VertexInstanceIDB(b);
-	check(MeshDescription->VertexInstances().IsValid(VertexInstanceIDA));
-	check(MeshDescription->VertexInstances().IsValid(VertexInstanceIDB));
-	const FMeshVertexInstance& VertexInstanceA = MeshDescription->GetVertexInstance(VertexInstanceIDA);
-	const FMeshVertexInstance& VertexInstanceB = MeshDescription->GetVertexInstance(VertexInstanceIDB);
-	bool IsUVsMatch = false;
-	if (!VertexInstanceA.VertexUVs.IsValidIndex(SrcChannel))
-	{
-		IsUVsMatch = true;
-	}
-	else
-	{
-		IsUVsMatch = VertexInstanceA.VertexUVs[SrcChannel].Equals(VertexInstanceB.VertexUVs[SrcChannel], THRESH_UVS_ARE_SAME);
-	}
-	if (!IsUVsMatch)
-	{
-		return false;
-	}
-	const FMeshVertex& VertexA = MeshDescription->GetVertex(VertexInstanceA.VertexID);
-	const FMeshVertex& VertexB = MeshDescription->GetVertex(VertexInstanceB.VertexID);
-	return VertexA.VertexPosition.Equals(VertexB.VertexPosition, THRESH_POINTS_ARE_SAME);
+	return PositionsMatch(a, b) && UVsMatch(a, b);
 }
 
 // Signed UV area
 inline float FLayoutUV::TriangleUVArea( uint32 Tri ) const
 {
+	const TVertexInstanceAttributeArray<FVector2D>& VertexUVs = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, SrcChannel);
+
 	FVector2D UVs[3];
 	for( int k = 0; k < 3; k++ )
 	{
-		FVertexInstanceID VertexInstanceID((3*Tri) + k);
-		check(MeshDescription->VertexInstances().IsValid(VertexInstanceID));
-		const FMeshVertexInstance& VertexInstance = MeshDescription->GetVertexInstance(VertexInstanceID);
-		check(VertexInstance.VertexUVs.IsValidIndex(SrcChannel));
-		UVs[k] = VertexInstance.VertexUVs[ SrcChannel ];
+		UVs[k] = VertexUVs[FVertexInstanceID((3*Tri) + k)];
 	}
 
 	FVector2D EdgeUV1 = UVs[1] - UVs[0];

@@ -11,6 +11,7 @@
 #include "Features/IModularFeatures.h"
 #include "IMeshReductionInterfaces.h"
 #include "MeshDescription.h"
+#include "MeshAttributes.h"
 
 class FQuadricSimplifierMeshReductionModule : public IMeshReductionModule
 {
@@ -458,17 +459,25 @@ public:
 		int32 NumFaces = NumWedges / 3;
 		check(InMesh->Polygons().Num() == NumFaces);
 
+		const TVertexAttributeArray<FVector>& InVertexPositions = InMesh->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+		const TVertexInstanceAttributeArray<FVector>& InVertexNormals = InMesh->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
+		const TVertexInstanceAttributeArray<FVector>& InVertexTangents = InMesh->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Tangent);
+		const TVertexInstanceAttributeArray<float>& InVertexBinormalSigns = InMesh->VertexInstanceAttributes().GetAttributes<float>(MeshAttribute::VertexInstance::BinormalSign);
+		const TVertexInstanceAttributeArray<FVector4>& InVertexColors = InMesh->VertexInstanceAttributes().GetAttributes<FVector4>(MeshAttribute::VertexInstance::Color);
+		const TVertexInstanceAttributeIndicesArray<FVector2D>& InVertexUVs = InMesh->VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+
 		// Process each face, build vertex buffer and index buffer
 		for (int32 FaceIndex = 0; FaceIndex < NumFaces; FaceIndex++)
 		{
-			const FMeshVertexInstance* VertexInstances[3];
-			const FMeshVertex* Vertices[3];
+			FVertexInstanceID VertexInstanceIDs[3];
+			FVertexID VertexIDs[3];
+
 			FVector Positions[3];
 			for (int32 CornerIndex = 0; CornerIndex < 3; CornerIndex++)
 			{
-				VertexInstances[CornerIndex] = &(InMesh->GetVertexInstance(FVertexInstanceID((FaceIndex * 3) + CornerIndex)));
-				Vertices[CornerIndex] = &(InMesh->GetVertex(VertexInstances[CornerIndex]->VertexID));
-				Positions[CornerIndex] = Vertices[CornerIndex]->VertexPosition;
+				VertexInstanceIDs[CornerIndex] = FVertexInstanceID((FaceIndex * 3) + CornerIndex);
+				VertexIDs[CornerIndex] = InMesh->GetVertexInstanceVertex(VertexInstanceIDs[CornerIndex]);
+				Positions[CornerIndex] = InVertexPositions[VertexIDs[CornerIndex]];
 			}
 
 			// Don't process degenerate triangles.
@@ -486,32 +495,34 @@ public:
 
 				TVertSimp< NumTexCoords > NewVert;
 
-				if (VertexInstances[CornerIndex]->ConnectedPolygons.Num() > 0)
+				const TArray<FPolygonID>& VertexInstanceConnectedPolygons = InMesh->GetVertexInstanceConnectedPolygons(VertexInstanceIDs[CornerIndex]);
+				if (VertexInstanceConnectedPolygons.Num() > 0)
 				{
-					const FMeshPolygon& MeshPolygon = InMesh->GetPolygon(VertexInstances[CornerIndex]->ConnectedPolygons[0]);
-					NewVert.MaterialIndex = MeshPolygon.PolygonGroupID.GetValue();
+					const FPolygonID PolygonID = VertexInstanceConnectedPolygons[0];
+					NewVert.MaterialIndex = InMesh->GetPolygonPolygonGroup(PolygonID).GetValue();
+					// @todo: check with Alexis: OK to conflate material index with polygon group ID? (what if there are gaps in the polygon group array?)
 				}
 
 				NewVert.Position = Positions[CornerIndex];
-				NewVert.Tangents[0] = VertexInstances[CornerIndex]->Tangent;
-				NewVert.Normal = VertexInstances[CornerIndex]->Normal;
+				NewVert.Tangents[0] = InVertexTangents[VertexInstanceIDs[CornerIndex]];
+				NewVert.Normal = InVertexNormals[VertexInstanceIDs[CornerIndex]];
 				NewVert.Tangents[1] = FVector(0.0f);
 				if (!NewVert.Normal.IsNearlyZero(SMALL_NUMBER) && !NewVert.Tangents[0].IsNearlyZero(SMALL_NUMBER))
 				{
-					NewVert.Tangents[1] = FVector::CrossProduct(NewVert.Normal, NewVert.Tangents[0]).GetSafeNormal() * VertexInstances[CornerIndex]->BinormalSign;
+					NewVert.Tangents[1] = FVector::CrossProduct(NewVert.Normal, NewVert.Tangents[0]).GetSafeNormal() * InVertexBinormalSigns[VertexInstanceIDs[CornerIndex]];
 				}
 
 				// Fix bad tangents
 				NewVert.Tangents[0] = NewVert.Tangents[0].ContainsNaN() ? FVector::ZeroVector : NewVert.Tangents[0];
 				NewVert.Tangents[1] = NewVert.Tangents[1].ContainsNaN() ? FVector::ZeroVector : NewVert.Tangents[1];
 				NewVert.Normal = NewVert.Normal.ContainsNaN() ? FVector::ZeroVector : NewVert.Normal;
-				NewVert.Color = VertexInstances[CornerIndex]->Color;
+				NewVert.Color = FLinearColor(InVertexColors[VertexInstanceIDs[CornerIndex]]);
 
 				for (int32 UVIndex = 0; UVIndex < NumTexCoords; UVIndex++)
 				{
-					if (VertexInstances[CornerIndex]->VertexUVs.IsValidIndex(UVIndex))
+					if (UVIndex < InVertexUVs.GetNumIndices())
 					{
-						NewVert.TexCoords[UVIndex] = VertexInstances[CornerIndex]->VertexUVs[UVIndex];
+						NewVert.TexCoords[UVIndex] = InVertexUVs.GetArrayForIndex(UVIndex)[VertexInstanceIDs[CornerIndex]];
 						InMeshNumTexCoords = FMath::Max(UVIndex, InMeshNumTexCoords);
 					}
 					else
@@ -599,7 +610,7 @@ public:
 
 			for (int32 TexCoordIndex = 0; TexCoordIndex < NumTexCoords; TexCoordIndex++)
 			{
-				if (InMesh->GetVertexInstance(FVertexInstanceID(0)).VertexUVs.Num() <= TexCoordIndex)
+				if (TexCoordIndex >= InVertexUVs.GetNumIndices())
 				{
 					TexCoordWeights[2 * TexCoordIndex + 0] = 0.0f;
 					TexCoordWeights[2 * TexCoordIndex + 1] = 0.0f;
@@ -627,6 +638,8 @@ public:
 		{
 			//Empty the destination mesh
 			//We want to keep the polygon group information, the reduce do not impact the material list
+			// @todo refactor this: PolygonGroup.Polygons shouldn't be mutated like this (it is likely to be made private soon).
+			// Prefer creating an empty mesh description, and copying the polygon group attributes over.
 			for (const FPolygonGroupID& PolygonGroupID : OutReducedMesh->PolygonGroups().GetElementIDs())
 			{
 				FMeshPolygonGroup& PolygonGroup = OutReducedMesh->GetPolygonGroup(PolygonGroupID);
@@ -637,17 +650,26 @@ public:
 			OutReducedMesh->VertexInstances().Reset();
 			OutReducedMesh->Vertices().Reset();
 
+			TVertexAttributeArray<FVector>& OutVertexPositions = OutReducedMesh->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+
 			//Fill the vertex array
 			for (int32 VertexIndex = 0; VertexIndex < (int32)NumVerts; ++VertexIndex)
 			{
 				FVertexID AddedVertexId = OutReducedMesh->CreateVertex();
-				FMeshVertex& NewVertex = OutReducedMesh->GetVertex(AddedVertexId);
-				NewVertex.VertexPosition = Verts[VertexIndex].Position;
-				NewVertex.CornerSharpness = 0.0f;
+				OutVertexPositions[AddedVertexId] = Verts[VertexIndex].Position;
 				check(AddedVertexId.GetValue() == VertexIndex);
 			}
 
 			TMap<int32, FPolygonGroupID> PolygonGroupMapping;
+
+			TVertexInstanceAttributeArray<FVector>& OutVertexNormals = OutReducedMesh->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
+			TVertexInstanceAttributeArray<FVector>& OutVertexTangents = OutReducedMesh->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Tangent);
+			TVertexInstanceAttributeArray<float>& OutVertexBinormalSigns = OutReducedMesh->VertexInstanceAttributes().GetAttributes<float>(MeshAttribute::VertexInstance::BinormalSign);
+			TVertexInstanceAttributeArray<FVector4>& OutVertexColors = OutReducedMesh->VertexInstanceAttributes().GetAttributes<FVector4>(MeshAttribute::VertexInstance::Color);
+			TVertexInstanceAttributeIndicesArray<FVector2D>& OutVertexUVs = OutReducedMesh->VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+
+			//Specify the number of texture coords in this mesh description
+			OutVertexUVs.SetNumIndices(InMeshNumTexCoords);
 
 			//Vertex instances and Polygons
 			for (int32 TriangleIndex = 0; TriangleIndex < (int32)NumTris; TriangleIndex++)
@@ -666,25 +688,20 @@ public:
 					FVertexInstanceID AddedVertexInstanceId = OutReducedMesh->CreateVertexInstance(VertexID);
 					//Make sure the Added vertex instance ID is matching the expected vertex instance ID
 					check(AddedVertexInstanceId == VertexInstanceID);
-					FMeshVertexInstance& NewVertexInstance = OutReducedMesh->GetVertexInstance(AddedVertexInstanceId);
 					check(AddedVertexInstanceId.GetValue() == VertexInstanceIndex);
 
 					//NTBs information
-					NewVertexInstance.Tangent = Verts[Indexes[VertexInstanceIndex]].Tangents[0];
-					NewVertexInstance.BinormalSign = GetBasisDeterminantSign(Verts[Indexes[VertexInstanceIndex]].Tangents[0].GetSafeNormal(), Verts[Indexes[VertexInstanceIndex]].Tangents[1].GetSafeNormal(), Verts[Indexes[VertexInstanceIndex]].Normal.GetSafeNormal());
-					NewVertexInstance.Normal = Verts[Indexes[VertexInstanceIndex]].Normal;
+					OutVertexTangents[AddedVertexInstanceId] = Verts[Indexes[VertexInstanceIndex]].Tangents[0];
+					OutVertexBinormalSigns[AddedVertexInstanceId] = GetBasisDeterminantSign(Verts[Indexes[VertexInstanceIndex]].Tangents[0].GetSafeNormal(), Verts[Indexes[VertexInstanceIndex]].Tangents[1].GetSafeNormal(), Verts[Indexes[VertexInstanceIndex]].Normal.GetSafeNormal());
+					OutVertexNormals[AddedVertexInstanceId] = Verts[Indexes[VertexInstanceIndex]].Normal;
 
 					//Vertex Color
-					NewVertexInstance.Color = Verts[Indexes[VertexInstanceIndex]].Color;
+					OutVertexColors[AddedVertexInstanceId] = Verts[Indexes[VertexInstanceIndex]].Color;
 
 					//Texture coord
 					for (int32 TexCoordIndex = 0; TexCoordIndex < InMeshNumTexCoords; TexCoordIndex++)
 					{
-						while (NewVertexInstance.VertexUVs.Num() <= TexCoordIndex)
-						{
-							NewVertexInstance.VertexUVs.AddZeroed();
-						}
-						NewVertexInstance.VertexUVs[TexCoordIndex] = Verts[Indexes[VertexInstanceIndex]].TexCoords[TexCoordIndex];
+						OutVertexUVs.GetArrayForIndex(TexCoordIndex)[AddedVertexInstanceId] = Verts[Indexes[VertexInstanceIndex]].TexCoords[TexCoordIndex];
 					}
 				}
 				
@@ -695,14 +712,18 @@ public:
 				{
 					FPolygonGroupID PolygonGroupID(MaterialIndex);
 					check(InMesh->PolygonGroups().IsValid(PolygonGroupID));
-					const FMeshPolygonGroup& BasePolygonGroup = InMesh->GetPolygonGroup(PolygonGroupID);
 					MaterialPolygonGroupID = OutReducedMesh->PolygonGroups().Num() > MaterialIndex ? PolygonGroupID : OutReducedMesh->CreatePolygonGroup();
-					FMeshPolygonGroup& NewPolygonGroup = OutReducedMesh->GetPolygonGroup(MaterialPolygonGroupID);
-					NewPolygonGroup.bCastShadow = BasePolygonGroup.bCastShadow;
-					NewPolygonGroup.bEnableCollision = BasePolygonGroup.bEnableCollision;
-					NewPolygonGroup.ImportedMaterialSlotName = BasePolygonGroup.ImportedMaterialSlotName;
-					NewPolygonGroup.MaterialSlotName = BasePolygonGroup.MaterialSlotName;
-					NewPolygonGroup.MaterialAsset = BasePolygonGroup.MaterialAsset;
+
+					// Copy all attributes from the base polygon group to the new polygon group
+					InMesh->PolygonGroupAttributes().ForEachAttributeIndicesArray(
+						[OutReducedMesh, PolygonGroupID, MaterialPolygonGroupID](const FName Name, const auto& AttributeIndicesArray)
+						{
+							for (int32 Index = 0; Index < AttributeIndicesArray.GetNumIndices(); ++Index)
+							{
+								OutReducedMesh->PolygonGroupAttributes().SetAttribute(MaterialPolygonGroupID, Name, Index, AttributeIndicesArray.GetArrayForIndex(Index)[PolygonGroupID]);
+							}
+						}
+					);
 					PolygonGroupMapping.Add(MaterialIndex, MaterialPolygonGroupID);
 				}
 				else
@@ -727,21 +748,11 @@ public:
 						EdgeVertexIDs[0] = CornerVerticesIDs[CornerIndices[0]];
 						EdgeVertexIDs[1] = CornerVerticesIDs[CornerIndices[1]];
 
-						FEdgeID MatchEdgeId = FEdgeID::Invalid;
-						const FMeshVertex& EdgeMeshVertex = OutReducedMesh->GetVertex(EdgeVertexIDs[0]);
-						for (const FEdgeID& EdgeID : EdgeMeshVertex.ConnectedEdgeIDs)
-						{
-							FMeshEdge& Edge = OutReducedMesh->GetEdge(EdgeID);
-							if (EdgeVertexIDs[0] == Edge.VertexIDs[0] && EdgeVertexIDs[1] == Edge.VertexIDs[1] ||
-								EdgeVertexIDs[1] == Edge.VertexIDs[0] && EdgeVertexIDs[0] == Edge.VertexIDs[1])
-							{
-								MatchEdgeId = EdgeID;
-								break;
-							}
-						}
+						FEdgeID MatchEdgeId = OutReducedMesh->GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
 						if (MatchEdgeId == FEdgeID::Invalid)
 						{
 							MatchEdgeId = OutReducedMesh->CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
+							// @todo: set edge hardness?
 						}
 						ContourPoint.EdgeID = MatchEdgeId;
 						ContourPoint.VertexInstanceID = CornerInstanceIDs[CornerIndices[0]];
@@ -749,16 +760,12 @@ public:
 				}
 
 				// Insert a polygon into the mesh
-				const FPolygonID NewPolygonID = OutReducedMesh->CreatePolygon(Contours);
-				FMeshPolygonGroup& MeshPolygonGroup = OutReducedMesh->GetPolygonGroup(MaterialPolygonGroupID);
-				FMeshPolygon& NewPolygon = OutReducedMesh->GetPolygon(NewPolygonID);
-				NewPolygon.PolygonGroupID = MaterialPolygonGroupID;
-				MeshPolygonGroup.Polygons.Add(NewPolygonID);
-				int32 NewTriangleIndex = NewPolygon.Triangles.AddDefaulted();
-				FMeshTriangle& NewTriangle = NewPolygon.Triangles[NewTriangleIndex];
+				const FPolygonID NewPolygonID = OutReducedMesh->CreatePolygon(MaterialPolygonGroupID, Contours);
+				const int32 NewTriangleIndex = OutReducedMesh->GetPolygonTriangles(NewPolygonID).AddDefaulted();
+				FMeshTriangle& NewTriangle = OutReducedMesh->GetPolygonTriangles(NewPolygonID)[NewTriangleIndex];
 				for (int32 TriangleVertexIndex = 0; TriangleVertexIndex < 3; ++TriangleVertexIndex)
 				{
-					const FVertexInstanceID &VertexInstanceID = CornerInstanceIDs[TriangleVertexIndex];
+					const FVertexInstanceID VertexInstanceID = CornerInstanceIDs[TriangleVertexIndex];
 					NewTriangle.SetVertexInstanceID(TriangleVertexIndex, VertexInstanceID);
 				}
 			}

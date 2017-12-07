@@ -3,6 +3,7 @@
 #include "MeshElementViewportTransformable.h"
 #include "MeshEditorMode.h"
 #include "EditableMesh.h"
+#include "MeshAttributes.h"
 
 
 const FTransform FMeshElementViewportTransformable::GetTransform() const
@@ -39,13 +40,14 @@ FBox FMeshElementViewportTransformable::BuildBoundingBox( const FTransform& Boun
 		{
 			if( FMeshEditorMode::IsElementIDValid( MeshElement, EditableMesh ) )
 			{
+				const TVertexAttributeArray<FVector>& VertexPositions = EditableMesh->GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 				BoundingBox.Init();
 
 				FTransform ElementTransform = FTransform::Identity;
 				switch( MeshElement.ElementAddress.ElementType )
 				{
 					case EEditableMeshElementType::Vertex:
-						BoundingBox += ComponentToBoundingBox.TransformPosition( EditableMesh->GetVertexAttribute( FVertexID( MeshElement.ElementAddress.ElementID ), UEditableMeshAttribute::VertexPosition(), 0 ) );
+						BoundingBox += ComponentToBoundingBox.TransformPosition( VertexPositions[ FVertexID( MeshElement.ElementAddress.ElementID ) ] );
 						break;
 
 					case EEditableMeshElementType::Edge:
@@ -53,8 +55,8 @@ FBox FMeshElementViewportTransformable::BuildBoundingBox( const FTransform& Boun
 						FVertexID EdgeVertexID0, EdgeVertexID1;
 						EditableMesh->GetEdgeVertices( FEdgeID( MeshElement.ElementAddress.ElementID ), /* Out */ EdgeVertexID0, /* Out */ EdgeVertexID1 );
 
-						BoundingBox += ComponentToBoundingBox.TransformPosition( EditableMesh->GetVertexAttribute( EdgeVertexID0, UEditableMeshAttribute::VertexPosition(), 0 ) );
-						BoundingBox += ComponentToBoundingBox.TransformPosition( EditableMesh->GetVertexAttribute( EdgeVertexID1, UEditableMeshAttribute::VertexPosition(), 0 ) );
+						BoundingBox += ComponentToBoundingBox.TransformPosition( VertexPositions[ EdgeVertexID0 ] );
+						BoundingBox += ComponentToBoundingBox.TransformPosition( VertexPositions[ EdgeVertexID1 ] );
 					}
 					break;
 
@@ -67,7 +69,7 @@ FBox FMeshElementViewportTransformable::BuildBoundingBox( const FTransform& Boun
 
 						for( const FVertexID VertexID : PerimeterVertexIDs )
 						{
-							BoundingBox += ComponentToBoundingBox.TransformPosition( EditableMesh->GetVertexAttribute( VertexID, UEditableMeshAttribute::VertexPosition(), 0 ) );
+							BoundingBox += ComponentToBoundingBox.TransformPosition( VertexPositions[ VertexID ] );
 						}
 					}
 					break;

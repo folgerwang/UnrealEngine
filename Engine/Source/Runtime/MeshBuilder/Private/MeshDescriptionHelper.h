@@ -58,8 +58,6 @@ private:
 	//////////////////////////////////////////////////////////////////////////
 	//PRIVATE function declarations
 
-	FORCEINLINE const FVector& GetVertexPositionFromVertexInstance(UMeshDescription* MeshDescription, const FVertexInstanceID& VertexInstanceID) const;
-	FORCEINLINE FVector2D& GetVertexInstanceUV(UMeshDescription* MeshDescription, const FVertexInstanceID& VertexInstanceID, int32 UVLayer) const;
 	void CreateNormals(UMeshDescription* MeshDescription, ETangentOptions TangentOptions, bool bComputeTangent);
 	void CreateMikktTangents(UMeshDescription* MeshDescription, ETangentOptions TangentOptions);
 	void CreatePolygonNTB(UMeshDescription* MeshDescription, float ComparisonThreshold);

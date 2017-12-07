@@ -21,6 +21,7 @@
 #include "PhysicsEngine/BodySetup.h"
 #include "Engine/StaticMesh.h"
 #include "MeshDescription.h"
+#include "MeshAttributes.h"
 
 #define LOCAL_EPS (0.01f)
 static void AddVertexIfNotPresent(TArray<FVector> &vertices, FVector &newVertex)
@@ -202,11 +203,12 @@ static void CalcBoundingBox(const FRawMesh& RawMesh, FVector& Center, FVector& E
 
 static void CalcBoundingBox(const UMeshDescription* MeshDescription, FVector& Center, FVector& Extents, FVector& LimitVec)
 {
+	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+
 	FBox Box(ForceInit);
-	for (const FVertexID& VertexID : MeshDescription->Vertices().GetElementIDs())
+	for (const FVertexID VertexID : MeshDescription->Vertices().GetElementIDs())
 	{
-		const FMeshVertex& Vertex = MeshDescription->GetVertex(VertexID);
-		Box += Vertex.VertexPosition * LimitVec;
+		Box += VertexPositions[VertexID] * LimitVec;
 	}
 	Box.GetCenterAndExtents(Center, Extents);
 }
@@ -418,24 +420,25 @@ static void CalcBoundingSphere(const UMeshDescription* MeshDescription, FSphere&
 	FVector MinIx[3];
 	FVector MaxIx[3];
 
+	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+
 	bool bFirstVertex = true;
-	for (const FVertexID& VertexID : MeshDescription->Vertices().GetElementIDs())
+	for (const FVertexID VertexID : MeshDescription->Vertices().GetElementIDs())
 	{
-		const FMeshVertex& Vertex = MeshDescription->GetVertex(VertexID);
-		FVector p = Vertex.VertexPosition * LimitVec;
+		FVector p = VertexPositions[VertexID] * LimitVec;
 		if (bFirstVertex)
 		{
 			// First, find AABB, remembering furthest points in each dir.
 			Box.Min = p;
 			Box.Max = Box.Min;
 
-			MinIx[0] = Vertex.VertexPosition;
-			MinIx[1] = Vertex.VertexPosition;
-			MinIx[2] = Vertex.VertexPosition;
+			MinIx[0] = VertexPositions[VertexID];
+			MinIx[1] = VertexPositions[VertexID];
+			MinIx[2] = VertexPositions[VertexID];
 
-			MaxIx[0] = Vertex.VertexPosition;
-			MaxIx[1] = Vertex.VertexPosition;
-			MaxIx[2] = Vertex.VertexPosition;
+			MaxIx[0] = VertexPositions[VertexID];
+			MaxIx[1] = VertexPositions[VertexID];
+			MaxIx[2] = VertexPositions[VertexID];
 			bFirstVertex = false;
 			continue;
 		}
@@ -444,36 +447,36 @@ static void CalcBoundingSphere(const UMeshDescription* MeshDescription, FSphere&
 		if (p.X < Box.Min.X)
 		{
 			Box.Min.X = p.X;
-			MinIx[0] = Vertex.VertexPosition;
+			MinIx[0] = VertexPositions[VertexID];
 		}
 		else if (p.X > Box.Max.X)
 		{
 			Box.Max.X = p.X;
-			MaxIx[0] = Vertex.VertexPosition;
+			MaxIx[0] = VertexPositions[VertexID];
 		}
 
 		// Y //
 		if (p.Y < Box.Min.Y)
 		{
 			Box.Min.Y = p.Y;
-			MinIx[1] = Vertex.VertexPosition;
+			MinIx[1] = VertexPositions[VertexID];
 		}
 		else if (p.Y > Box.Max.Y)
 		{
 			Box.Max.Y = p.Y;
-			MaxIx[1] = Vertex.VertexPosition;
+			MaxIx[1] = VertexPositions[VertexID];
 		}
 
 		// Z //
 		if (p.Z < Box.Min.Z)
 		{
 			Box.Min.Z = p.Z;
-			MinIx[2] = Vertex.VertexPosition;
+			MinIx[2] = VertexPositions[VertexID];
 		}
 		else if (p.Z > Box.Max.Z)
 		{
 			Box.Max.Z = p.Z;
-			MaxIx[2] = Vertex.VertexPosition;
+			MaxIx[2] = VertexPositions[VertexID];
 		}
 	}
 
@@ -501,11 +504,9 @@ static void CalcBoundingSphere(const UMeshDescription* MeshDescription, FSphere&
 	float r2 = FMath::Square(r);
 
 	// Now check each point lies within this sphere. If not - expand it a bit.
-	for (const FVertexID& VertexID : MeshDescription->Vertices().GetElementIDs())
+	for (const FVertexID VertexID : MeshDescription->Vertices().GetElementIDs())
 	{
-		const FMeshVertex& Vertex = MeshDescription->GetVertex(VertexID);
-
-		const FVector cToP = (Vertex.VertexPosition * LimitVec) - sphere.Center;
+		const FVector cToP = (VertexPositions[VertexID] * LimitVec) - sphere.Center;
 
 		const float pr2 = cToP.SizeSquared();
 
@@ -534,11 +535,11 @@ static void CalcBoundingSphere2(const UMeshDescription* MeshDescription, FSphere
 	sphere.Center = Center;
 	sphere.W = 0.0f;
 
-	for (const FVertexID& VertexID : MeshDescription->Vertices().GetElementIDs())
-	{
-		const FMeshVertex& Vertex = MeshDescription->GetVertex(VertexID);
+	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
 
-		float Dist = FVector::DistSquared(Vertex.VertexPosition * LimitVec, sphere.Center);
+	for (const FVertexID VertexID : MeshDescription->Vertices().GetElementIDs())
+	{
+		float Dist = FVector::DistSquared(VertexPositions[VertexID] * LimitVec, sphere.Center);
 		if (Dist > sphere.W)
 			sphere.W = Dist;
 	}
@@ -641,11 +642,12 @@ static void CalcBoundingSphyl(const UMeshDescription* MeshDescription, FSphere& 
 	float r = Extents.GetMax();
 	float r2 = FMath::Square(r);
 	
+	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+
 	// Now check each point lies within this the radius. If not - expand it a bit.
-	for (const FVertexID& VertexID : MeshDescription->Vertices().GetElementIDs())
+	for (const FVertexID VertexID : MeshDescription->Vertices().GetElementIDs())
 	{
-		const FMeshVertex& Vertex = MeshDescription->GetVertex(VertexID);
-		FVector cToP = (Vertex.VertexPosition * LimitVec) - sphere.Center;
+		FVector cToP = (VertexPositions[VertexID] * LimitVec) - sphere.Center;
 		cToP = rotation.UnrotateVector(cToP);
 
 		const float pr2 = cToP.SizeSquared2D();	// Ignore Z here...
@@ -664,10 +666,9 @@ static void CalcBoundingSphyl(const UMeshDescription* MeshDescription, FSphere& 
 	float hl = FMath::Max(0.0f, Extent - r);
 
 	// Now check each point lies within the length. If not - expand it a bit.
-	for (const FVertexID& VertexID : MeshDescription->Vertices().GetElementIDs())
+	for (const FVertexID VertexID : MeshDescription->Vertices().GetElementIDs())
 	{
-		const FMeshVertex& Vertex = MeshDescription->GetVertex(VertexID);
-		FVector cToP = (Vertex.VertexPosition * LimitVec) - sphere.Center;
+		FVector cToP = (VertexPositions[VertexID] * LimitVec) - sphere.Center;
 		cToP = rotation.UnrotateVector(cToP);
 
 		// If this point is outside our current bounding sphyl's length

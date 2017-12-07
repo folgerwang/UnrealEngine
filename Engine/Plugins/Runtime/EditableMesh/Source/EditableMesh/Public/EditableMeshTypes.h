@@ -6,7 +6,10 @@
 #include "UObject/Object.h"
 #include "UObject/ScriptMacros.h"
 #include "MeshTypes.h"
+#include "MeshAttributeArray.h"
+#include "Materials/MaterialInterface.h"
 #include "EditableMeshTypes.generated.h"
+
 
 // @todo mesheditor: Move elsewhere
 namespace LogHelpers
@@ -321,6 +324,161 @@ struct FSubdivisionLimitData
 };
 
 
+UENUM()
+enum class EMeshElementAttributeType : uint8
+{
+	None,
+	FVector4,
+	FVector,
+	FVector2D,
+	Float,
+	Int,
+	Bool,
+	FName,
+	UObject
+};
+
+
+USTRUCT( BlueprintType )
+struct FMeshElementAttributeValue
+{
+	// @note: This should be replaced by TVariant as soon as it becomes available.
+	// This is a very verbose and hardcoded variant type class.
+
+	GENERATED_BODY()
+
+	/** Define constructors */
+	FMeshElementAttributeValue() : Type( EMeshElementAttributeType::None ) {}
+	explicit FMeshElementAttributeValue( const FVector4 Value ) : Type( EMeshElementAttributeType::FVector4 ), Value_FVector4( Value ) {}
+	explicit FMeshElementAttributeValue( const FVector Value ) : Type( EMeshElementAttributeType::FVector ), Value_FVector( Value ) {}
+	explicit FMeshElementAttributeValue( const FVector2D Value ) : Type( EMeshElementAttributeType::FVector2D ), Value_FVector2D( Value ) {}
+	explicit FMeshElementAttributeValue( const float Value ) : Type( EMeshElementAttributeType::Float ), Value_Float( Value ) {}
+	explicit FMeshElementAttributeValue( const int Value ) : Type( EMeshElementAttributeType::Int ), Value_Int( Value ) {}
+	explicit FMeshElementAttributeValue( const bool Value ) : Type( EMeshElementAttributeType::Bool ), Value_Bool( Value ) {}
+	explicit FMeshElementAttributeValue( const FName Value ) : Type( EMeshElementAttributeType::FName ), Value_FName( Value ) {}
+	explicit FMeshElementAttributeValue( UObject* const Value ) : Type( EMeshElementAttributeType::UObject ), Value_UObject( Value ) {}
+
+	/** Returns the type of this attribute value */
+	EMeshElementAttributeType GetType() const
+	{
+		return Type;
+	}
+
+	/** Accessors for known types. There will be a runtime error if the attribute value is not of the specified type. */
+	template <typename T> T GetValue() const;
+	template <> FVector4 GetValue<FVector4>() const { check( Type == EMeshElementAttributeType::FVector4 ); return Value_FVector4; }
+	template <> FVector GetValue<FVector>() const { check( Type == EMeshElementAttributeType::FVector ); return Value_FVector; }
+	template <> FVector2D GetValue<FVector2D>() const { check( Type == EMeshElementAttributeType::FVector2D ); return Value_FVector2D; }
+	template <> float GetValue<float>() const { check( Type == EMeshElementAttributeType::Float ); return Value_Float; }
+	template <> int GetValue<int>() const { check( Type == EMeshElementAttributeType::Int ); return Value_Int; }
+	template <> bool GetValue<bool>() const { check( Type == EMeshElementAttributeType::Bool ); return Value_Bool; }
+	template <> FName GetValue<FName>() const { check( Type == EMeshElementAttributeType::FName ); return Value_FName; }
+	template <> UObject* GetValue<UObject*>() const { check( Type == EMeshElementAttributeType::UObject ); return Value_UObject; }
+
+	/**
+	 * Calls the specified polymorphic lambda, with this attribute value as its passed-in parameter.
+	 *
+	 * For example:
+	 *  AttributeValue.Visit( []( const auto& Value ) { DoSomethingWith( Value ); } );
+	 */
+	template <typename FuncType>
+	void Visit( const FuncType& Func ) const
+	{
+		switch( Type )
+		{
+			case EMeshElementAttributeType::FVector4: Func( Value_FVector4 ); break;
+			case EMeshElementAttributeType::FVector: Func( Value_FVector ); break;
+			case EMeshElementAttributeType::FVector2D: Func( Value_FVector2D ); break;
+			case EMeshElementAttributeType::Float: Func( Value_Float ); break;
+			case EMeshElementAttributeType::Int: Func( Value_Int ); break;
+			case EMeshElementAttributeType::Bool: Func( Value_Bool ); break;
+			case EMeshElementAttributeType::FName: Func( Value_FName ); break;
+			case EMeshElementAttributeType::UObject: Func( Value_UObject ); break;
+		}
+	}
+
+	/** Returns the attribute value as a string */
+	FString ToString() const
+	{
+		switch( Type )
+		{
+			case EMeshElementAttributeType::None: return FString( "<none>" );
+			case EMeshElementAttributeType::FVector4: return Value_FVector4.ToString();
+			case EMeshElementAttributeType::FVector: return Value_FVector.ToString();
+			case EMeshElementAttributeType::FVector2D: return Value_FVector2D.ToString();
+			case EMeshElementAttributeType::Float: return Lex::ToString( Value_Float );
+			case EMeshElementAttributeType::Int: return Lex::ToString( Value_Int );
+			case EMeshElementAttributeType::Bool: return Lex::ToString( Value_Bool );
+			case EMeshElementAttributeType::FName: return Value_FName.ToString();
+			case EMeshElementAttributeType::UObject: return GetNameSafe( Value_UObject );
+		}
+
+		return FString();
+	}
+
+	/** Serializer */
+	friend FArchive& operator<<( FArchive& Ar, FMeshElementAttributeValue& AttributeValue )
+	{
+		Ar << AttributeValue.Type;
+
+		switch( AttributeValue.Type )
+		{
+			case EMeshElementAttributeType::FVector4: Ar << AttributeValue.Value_FVector4; break;
+			case EMeshElementAttributeType::FVector: Ar << AttributeValue.Value_FVector; break;
+			case EMeshElementAttributeType::FVector2D: Ar << AttributeValue.Value_FVector2D; break;
+			case EMeshElementAttributeType::Float: Ar << AttributeValue.Value_Float; break;
+			case EMeshElementAttributeType::Int: Ar << AttributeValue.Value_Int; break;
+			case EMeshElementAttributeType::Bool: Ar << AttributeValue.Value_Bool; break;
+			case EMeshElementAttributeType::FName: Ar << AttributeValue.Value_FName; break;
+			case EMeshElementAttributeType::UObject: Ar << AttributeValue.Value_UObject; break;
+		}
+
+		return Ar;
+	}
+
+	/** Test equality of two attribute values */
+	friend bool operator==( const FMeshElementAttributeValue& Value1, const FMeshElementAttributeValue& Value2 )
+	{
+		if( Value1.Type != Value2.Type )
+		{
+			return false;
+		}
+
+		switch( Value1.Type )
+		{
+			case EMeshElementAttributeType::None: return true;
+			case EMeshElementAttributeType::FVector4: return Value1.Value_FVector4 == Value2.Value_FVector4;
+			case EMeshElementAttributeType::FVector: return Value1.Value_FVector == Value2.Value_FVector;
+			case EMeshElementAttributeType::FVector2D: return Value1.Value_FVector2D == Value2.Value_FVector2D;
+			case EMeshElementAttributeType::Float: return Value1.Value_Float == Value2.Value_Float;
+			case EMeshElementAttributeType::Int: return Value1.Value_Int == Value2.Value_Int;
+			case EMeshElementAttributeType::Bool: return Value1.Value_Bool == Value2.Value_Bool;
+			case EMeshElementAttributeType::FName: return Value1.Value_FName == Value2.Value_FName;
+			case EMeshElementAttributeType::UObject: return Value1.Value_UObject == Value2.Value_UObject;
+		}
+
+		return false;
+	}
+
+	friend bool operator!=( const FMeshElementAttributeValue& Value1, const FMeshElementAttributeValue& Value2 )
+	{
+		return !( Value1 == Value2 );
+	}
+
+
+private:
+	EMeshElementAttributeType Type;
+	FVector4 Value_FVector4;
+	FVector Value_FVector;
+	FVector2D Value_FVector2D;
+	float Value_Float;
+	int Value_Int;
+	bool Value_Bool;
+	FName Value_FName;
+	UObject* Value_UObject;
+};
+
+
 USTRUCT( BlueprintType )
 struct FMeshElementAttributeData
 {
@@ -336,23 +494,21 @@ struct FMeshElementAttributeData
 
 	/** The value of this attribute */
 	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
-	FVector4 AttributeValue;
+	FMeshElementAttributeValue AttributeValue;
 
 	/** Default constructor */
 	FMeshElementAttributeData()
 		: AttributeName( NAME_None ),
 		  AttributeIndex( 0 ),
-		  AttributeValue( 0.0f )
-	{
-	}
+		  AttributeValue()
+	{}
 
 	/** Constructor that fills in all fields */
-	FMeshElementAttributeData( const FName InitAttributeName, const int32 InitAttributeIndex, const FVector4 InitAttributeValue )
+	FMeshElementAttributeData( const FName InitAttributeName, const int32 InitAttributeIndex, const FMeshElementAttributeValue& InitAttributeValue )
 		: AttributeName( InitAttributeName ),
 		  AttributeIndex( InitAttributeIndex ),
 		  AttributeValue( InitAttributeValue )
-	{
-	}
+	{}
 
 	FString ToString() const
 	{
@@ -988,26 +1144,9 @@ struct FPolygonGroupToCreate
 {
 	GENERATED_BODY()
 
-	// @todo mesheditor: Material, bEnableCollision and bCastShadow should all be implemented as PolygonGroup attributes.
-	// This would require making Material an asset name, rather than a UObject*, which is also safer.
-
-	/** Material asset path to assign to the new polygon group */
+	/** Attributes of this polygon group */
 	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
-	FString MaterialAsset;
-
-	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
-	FName MaterialSlotName;
-
-	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
-	FName ImportedMaterialSlotName;
-
-	/** Whether the new polygon group should have collision enabled */
-	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
-	bool bEnableCollision;
-
-	/** Whether the new polygon group casts a shadow */
-	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
-	bool bCastShadow;
+	FMeshElementAttributeList PolygonGroupAttributes;
 
 	/** The original ID of the polygon group.  Should only be used by the undo system. */
 	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
@@ -1015,21 +1154,15 @@ struct FPolygonGroupToCreate
 
 	/** Default constructor */
 	FPolygonGroupToCreate()
-		: bEnableCollision( false )
-		, bCastShadow( false )
-		, OriginalPolygonGroupID( FPolygonGroupID::Invalid )
+		: OriginalPolygonGroupID( FPolygonGroupID::Invalid )
 	{
 	}
 
 	FString ToString() const
 	{
 		return FString::Printf(
-			TEXT( "Material:%s, MaterialSlotName:%s, ImportedMaterialSlotName:%s, bEnableCollision:%s, bCastShadow:%s, OriginalPolygonGroupID:%s" ),
-			*MaterialAsset,
-			*MaterialSlotName.ToString(),
-			*ImportedMaterialSlotName.ToString(),
-			*LexicalConversion::ToString( bEnableCollision ),
-			*LexicalConversion::ToString( bCastShadow ),
+			TEXT( "PolygonGroupAttributes:%s, OriginalPolygonGroupID:%s" ),
+			*PolygonGroupAttributes.ToString(),
 			*OriginalPolygonGroupID.ToString() );
 	}
 };
