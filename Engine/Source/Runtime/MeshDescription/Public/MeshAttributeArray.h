@@ -20,7 +20,7 @@ using AttributeTypes = TTuple
 	int,
 	bool,
 	FName,
-	UObject*
+	FSoftObjectPath
 >;
 
 

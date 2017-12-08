@@ -1137,6 +1137,15 @@ static FString BuildStaticMeshDerivedDataKey(UStaticMesh* Mesh, const FStaticMes
 	{
 		KeySuffix += Lex::ToString(Mesh->LightmapUVVersion);
 	}
+#if WITH_EDITOR
+#if UE_BUILD_DEBUG
+	if (GIsAutomationTesting && Mesh->BuildCacheAutomationTestGuid.IsValid())
+	{
+		//If we are in automation testing and the BuildCacheAutomationTestGuid was set
+		KeySuffix += Mesh->BuildCacheAutomationTestGuid.ToString(EGuidFormats::Digits);
+	}
+#endif
+#endif
 
 	int32 NumLODs = Mesh->SourceModels.Num();
 	for (int32 LODIndex = 0; LODIndex < NumLODs; ++LODIndex)
@@ -1421,6 +1430,9 @@ UStaticMesh::UStaticMesh(const FObjectInitializer& ObjectInitializer)
 	MinLOD = 0;
 
 	bSupportUniformlyDistributedSampling = false;
+#if WITH_EDITOR
+	BuildCacheAutomationTestGuid.Invalidate();
+#endif
 }
 
 void UStaticMesh::PostInitProperties()

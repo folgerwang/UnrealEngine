@@ -606,6 +606,9 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 
 #if WITH_EDITOR
 	FOnExtendedBoundsChanged OnExtendedBoundsChanged;
+
+	/** This transient guid is use by the automation framework to modify the DDC key to force a build. */
+	FGuid BuildCacheAutomationTestGuid;
 #endif
 
 protected:

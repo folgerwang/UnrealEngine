@@ -5,6 +5,8 @@
 
 #include "CoreMinimal.h"
 #include "CoreTypes.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/Package.h"
 #include "Engine/EngineTypes.h"
 #include "Engine/StaticMesh.h"
 #include "MeshDescription.h"
@@ -44,7 +46,7 @@ UMeshDescription* FMeshDescriptionHelper::GetRenderMeshDescription(UObject* Owne
 	UStaticMesh* StaticMesh = Cast<UStaticMesh>(Owner);
 	check(StaticMesh);
 	//Use the build settings to create the RenderMeshDescription
-	UMeshDescription *RenderMeshDescription = NewObject<UMeshDescription>(Owner, NAME_None, RF_NoFlags);
+	UMeshDescription *RenderMeshDescription = nullptr;
 
 	if (OriginalMeshDescription == nullptr)
 	{
@@ -52,7 +54,7 @@ UMeshDescription* FMeshDescriptionHelper::GetRenderMeshDescription(UObject* Owne
 		return RenderMeshDescription;
 	}
 	//Copy The Original Mesh Description in the render mesh description
-	CopyMeshDescription(const_cast<UMeshDescription*>(OriginalMeshDescription), RenderMeshDescription);
+	RenderMeshDescription = Cast<UMeshDescription>(StaticDuplicateObject(OriginalMeshDescription, Owner, NAME_None, RF_NoFlags));
 	float ComparisonThreshold = BuildSettings->bRemoveDegenerates ? THRESH_POINTS_ARE_SAME : 0.0f;
 
 	FVertexInstanceArray& VertexInstanceArray = RenderMeshDescription->VertexInstances();
@@ -155,19 +157,6 @@ void FMeshDescriptionHelper::ReduceLOD(const UMeshDescription* BaseMesh, UMeshDe
 	}
 	float MaxDeviation = ReductionSettings.MaxDeviation;
 	MeshReduction->ReduceMeshDescription(DestMesh, MaxDeviation, BaseMesh, InOverlappingCorners, ReductionSettings);
-}
-
-void FMeshDescriptionHelper::CopyMeshDescription(UMeshDescription* SourceMeshDescription, UMeshDescription* DestinationMeshDescription) const
-{
-	BuildStatisticManager::FBuildStatisticScope StatScope(TEXT("CopyMeshDescription took"));
-	//Copy the Source into the destination
-	//Save the Source
-	TArray<uint8> TempBytes;
-	FMemoryWriter SaveAr(TempBytes, /*bIsPersistent=*/ true);
-	SourceMeshDescription->Serialize(SaveAr);
-	//Load the save array in the destination
-	FMemoryReader LoadAr(TempBytes, /*bIsPersistent=*/ true);
-	DestinationMeshDescription->Serialize(LoadAr);
 }
 
 bool FMeshDescriptionHelper::IsValidOriginalMeshDescription()

@@ -366,7 +366,7 @@ void BuildVertexBuffer(
 	const uint32 NumTextureCoord = MeshDescription->VertexInstanceAttributes().GetAttributeIndexCount<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 
 	const TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
-	const TPolygonGroupAttributeArray<UObject*>& PolygonGroupMaterialAssets = MeshDescription->PolygonGroupAttributes().GetAttributes<UObject*>(MeshAttribute::PolygonGroup::MaterialAsset);
+	const TPolygonGroupAttributeArray<FSoftObjectPath>& PolygonGroupMaterialAssets = MeshDescription->PolygonGroupAttributes().GetAttributes<FSoftObjectPath>(MeshAttribute::PolygonGroup::MaterialAsset);
 	const TPolygonGroupAttributeArray<bool>& PolygonGroupCollision = MeshDescription->PolygonGroupAttributes().GetAttributes<bool>(MeshAttribute::PolygonGroup::EnableCollision);
 	const TPolygonGroupAttributeArray<bool>& PolygonGroupCastShadow = MeshDescription->PolygonGroupAttributes().GetAttributes<bool>(MeshAttribute::PolygonGroup::CastShadow);
 
@@ -396,7 +396,7 @@ void BuildVertexBuffer(
 
 		const int32 MaterialIndex = StaticMesh->GetMaterialIndex(PolygonGroupImportedMaterialSlotNames[PolygonGroupID]);
 		check(MaterialIndex != INDEX_NONE);
-		check(StaticMesh->StaticMaterials[MaterialIndex].MaterialInterface == Cast<UMaterialInterface>(PolygonGroupMaterialAssets[PolygonGroupID]));
+		check(StaticMesh->StaticMaterials[MaterialIndex].MaterialInterface == Cast<UMaterialInterface>(PolygonGroupMaterialAssets[PolygonGroupID].TryLoad()));
 		StaticMeshSection.MaterialIndex = MaterialIndex;
 		StaticMeshSection.bEnableCollision = PolygonGroupCollision[PolygonGroupID];
 		StaticMeshSection.bCastShadow = PolygonGroupCastShadow[PolygonGroupID];
