@@ -324,9 +324,11 @@ public:
 		VertexAttributesSet.Remove( VertexID );
 	}
 
-#if WITH_EDITORONLY_DATA
-	FString GetIdString();
-#endif
+	/** Returns whether the passed vertex ID is valid */
+	bool IsVertexValid( const FVertexID VertexID ) const
+	{
+		return VertexArray.IsValid( VertexID );
+	}
 
 	/** Reserves space for this number of new vertex instances */
 	void ReserveNewVertexInstances( const int32 NumVertexInstances )
@@ -371,6 +373,12 @@ public:
 		}
 		VertexInstanceArray.Remove( VertexInstanceID );
 		VertexInstanceAttributesSet.Remove( VertexInstanceID );
+	}
+
+	/** Returns whether the passed vertex instance ID is valid */
+	bool IsVertexInstanceValid( const FVertexInstanceID VertexInstanceID ) const
+	{
+		return VertexInstanceArray.IsValid( VertexInstanceID );
 	}
 
 	/** Reserves space for this number of new edges */
@@ -423,6 +431,12 @@ public:
 		}
 		EdgeArray.Remove( EdgeID );
 		EdgeAttributesSet.Remove( EdgeID );
+	}
+
+	/** Returns whether the passed edge ID is valid */
+	bool IsEdgeValid( const FEdgeID EdgeID ) const
+	{
+		return EdgeArray.IsValid( EdgeID );
 	}
 
 	/** Reserves space for this number of new polygons */
@@ -542,6 +556,12 @@ public:
 		PolygonAttributesSet.Remove( PolygonID );
 	}
 
+	/** Returns whether the passed polygon ID is valid */
+	bool IsPolygonValid( const FPolygonID PolygonID ) const
+	{
+		return PolygonArray.IsValid( PolygonID );
+	}
+
 	/** Reserves space for this number of new polygon groups */
 	void ReserveNewPolygonGroups( const int32 NumPolygonGroups )
 	{
@@ -576,6 +596,12 @@ public:
 		check( PolygonGroupArray[ PolygonGroupID ].Polygons.Num() == 0 );
 		PolygonGroupArray.Remove( PolygonGroupID );
 		PolygonGroupAttributesSet.Remove( PolygonGroupID );
+	}
+
+	/** Returns whether the passed polygon group ID is valid */
+	bool IsPolygonGroupValid( const FPolygonGroupID PolygonGroupID ) const
+	{
+		return PolygonGroupArray.IsValid( PolygonGroupID );
 	}
 
 
@@ -689,6 +715,9 @@ public:
 	/** Remaps the element IDs in the mesh description according to the passed in object */
 	void Remap( const FElementIDRemappings& Remappings );
 
+#if WITH_EDITORONLY_DATA
+	FString GetIdString();
+#endif
 
 private:
 
