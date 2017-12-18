@@ -1029,7 +1029,7 @@ void UEditableMesh::SetPolygonAttribute( const FPolygonID PolygonID, const FMesh
 	for( UEditableMeshAdapter* Adapter : Adapters )
 	{
 		// @todo: implement me!
-//		Adapter->OnSetPolygonAttribute( this, PolygonID, Attribute );
+		Adapter->OnSetPolygonAttribute( this, PolygonID, Attribute );
 	}
 }
 
@@ -1041,7 +1041,7 @@ void UEditableMesh::SetPolygonGroupAttribute( const FPolygonGroupID PolygonGroup
 	for( UEditableMeshAdapter* Adapter : Adapters )
 	{
 		// @todo: implement me!
-//		Adapter->OnSetPolygonGroupAttribute( this, PolygonGroupID, Attribute );
+		Adapter->OnSetPolygonGroupAttribute( this, PolygonGroupID, Attribute );
 	}
 }
 

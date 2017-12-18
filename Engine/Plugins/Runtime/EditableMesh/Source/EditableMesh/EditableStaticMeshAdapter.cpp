@@ -1713,6 +1713,36 @@ void UEditableStaticMeshAdapter::OnCreatePolygonGroups( const UEditableMesh* Edi
 }
 
 
+void UEditableStaticMeshAdapter::OnSetPolygonGroupAttribute( const UEditableMesh* EditableMesh, const FPolygonGroupID PolygonGroupID, const FMeshElementAttributeData& Attribute )
+{
+	const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+
+	FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[ PolygonGroupID ];
+	FStaticMeshLODResources& StaticMeshLOD = GetStaticMeshLOD();
+	FStaticMeshSection& StaticMeshSection = StaticMeshLOD.Sections[ RenderingPolygonGroup.RenderingSectionIndex ];
+
+	const TPolygonGroupAttributeArray<FSoftObjectPath>& PolygonGroupMaterialAssets = MeshDescription->PolygonGroupAttributes().GetAttributes<FSoftObjectPath>( MeshAttribute::PolygonGroup::MaterialAsset );
+	const TPolygonGroupAttributeArray<FName>& PolygonGroupMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>( MeshAttribute::PolygonGroup::MaterialSlotName );
+	const TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>( MeshAttribute::PolygonGroup::ImportedMaterialSlotName );
+
+	if( Attribute.AttributeName == MeshAttribute::PolygonGroup::MaterialAsset ||
+		Attribute.AttributeName == MeshAttribute::PolygonGroup::MaterialSlotName ||
+		Attribute.AttributeName == MeshAttribute::PolygonGroup::ImportedMaterialSlotName )
+	{
+		UMaterialInterface* Material = Cast<UMaterialInterface>( PolygonGroupMaterialAssets[ PolygonGroupID ].TryLoad() );
+		StaticMesh->StaticMaterials[ StaticMeshSection.MaterialIndex ] = FStaticMaterial( Material, PolygonGroupMaterialSlotNames[ PolygonGroupID ], PolygonGroupImportedMaterialSlotNames[ PolygonGroupID ] );
+	}
+	else if( Attribute.AttributeName == MeshAttribute::PolygonGroup::CastShadow )
+	{
+		StaticMeshSection.bCastShadow = Attribute.AttributeValue.GetValue<bool>();
+	}
+	else if( Attribute.AttributeName == MeshAttribute::PolygonGroup::EnableCollision )
+	{
+		StaticMeshSection.bEnableCollision = Attribute.AttributeValue.GetValue<bool>();
+	}
+}
+
+
 void UEditableStaticMeshAdapter::OnDeletePolygonGroups( const UEditableMesh* EditableMesh, const TArray<FPolygonGroupID>& PolygonGroupIDs )
 {
 	const TPolygonGroupAttributeArray<FName>& PolygonGroupMaterialSlotNames = EditableMesh->GetMeshDescription()->PolygonGroupAttributes().GetAttributes<FName>( MeshAttribute::PolygonGroup::MaterialSlotName );
