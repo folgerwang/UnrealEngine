@@ -207,6 +207,14 @@ static void InterpAttributesByPredicate( FMeshElementAttributeList& AttributeLis
 }
 
 
+template <typename T>
+static bool AreAttributeValuesNearlyEqual( const T& A, const T& B ) { return A == B; }
+
+static bool AreAttributeValuesNearlyEqual( const FVector& A, const FVector& B ) { return A.Equals( B ); }
+static bool AreAttributeValuesNearlyEqual( const FVector4& A, const FVector4& B ) { return A.Equals( B ); }
+static bool AreAttributeValuesNearlyEqual( const FVector2D& A, const FVector2D& B ) { return A.Equals( B ); }
+static bool AreAttributeValuesNearlyEqual( const float& A, const float& B ) { return FMath::IsNearlyEqual( A, B ); }
+
 /** Compares two elements of all attribute arrays which match the given predicate, and returns whether they are all equal or not */
 template <typename ElementIDType, typename Predicate>
 static bool CompareAttributesByPredicate( const TAttributesSet<ElementIDType>& AttributesSet, const ElementIDType ID0, const ElementIDType ID1, const Predicate& Pred )
@@ -215,12 +223,12 @@ static bool CompareAttributesByPredicate( const TAttributesSet<ElementIDType>& A
 	AttributesSet.ForEachAttributeIndicesArray(
 		[ ID0, ID1, &Pred, &bResult ]( const FName AttributeName, const auto& AttributeIndicesArray )
 		{
-			if( Pred( AttributeName, AttributeIndicesArray) )
+			if( Pred( AttributeName, AttributeIndicesArray ) )
 			{
 				for( int32 Index = 0; Index < AttributeIndicesArray.GetNumIndices(); ++Index )
 				{
 					auto& Array = AttributeIndicesArray.GetArrayForIndex( Index );
-					if( Array[ ID0 ] != Array[ ID1 ] )
+					if( !AreAttributeValuesNearlyEqual( Array[ ID0 ], Array[ ID1 ] ) )
 					{
 						bResult = false;
 						return;
@@ -1004,15 +1012,25 @@ void UEditableMesh::SetVertexInstanceAttribute( const FVertexInstanceID VertexIn
 }
 
 
-void UEditableMesh::SetEdgeAttribute( const FEdgeID EdgeID, const FMeshElementAttributeData& Attribute, bool bIsUndo )
+void UEditableMesh::SetEdgeAttribute( const FEdgeID EdgeID, const FMeshElementAttributeData& Attribute )
 {
 	ApplyAttribute( GetMeshDescription()->EdgeAttributes(), Attribute, EdgeID );
 
 	if( Attribute.AttributeName == MeshAttribute::Edge::IsHard )
 	{
-//		SetEdgeHardness( EdgeID, Attribute.AttributeValue.GetValue<bool>(), bIsUndo );
-
-		// @todo mesheditor: this needs to potentially merge/split vertex instances and rebuild normals
+		if( Attribute.AttributeValue.GetValue<bool>() )
+		{
+			// If edge is being made hard, we may need to split vertex instances.
+			static TArray<FVertexID> EdgeVertices;
+			EdgeVertices.Reset( 2 );
+			EdgeVertices.Add( GetMeshDescription()->GetEdgeVertex( EdgeID, 0 ) );
+			EdgeVertices.Add( GetMeshDescription()->GetEdgeVertex( EdgeID, 1 ) );
+			SplitVerticesIfNecessary( EdgeVertices );
+		}
+		else
+		{
+			// If edge is being made soft, mark its vertices as candidates for vertex merging at the end of the transaction.
+		}
 	}
 
 	for( UEditableMeshAdapter* Adapter : Adapters )
@@ -1040,18 +1058,61 @@ void UEditableMesh::SetPolygonGroupAttribute( const FPolygonGroupID PolygonGroup
 
 	for( UEditableMeshAdapter* Adapter : Adapters )
 	{
-		// @todo: implement me!
 		Adapter->OnSetPolygonGroupAttribute( this, PolygonGroupID, Attribute );
 	}
 }
 
 
-void UEditableMesh::GetPolygonsInSameSoftEdgedGroup( const FVertexID VertexID, const FPolygonID PolygonID, TArray<FPolygonID>& OutPolygonIDs ) const
+void UEditableMesh::GetPolygonsInSameSoftEdgedGroupAsPolygon( const FPolygonID PolygonID, const TArray<FPolygonID>& CandidatePolygonIDs, const TArray<FEdgeID>& SoftEdgeIDs, TArray<FPolygonID>& OutPolygonIDs ) const
 {
-	// The aim here is to determine which polygons form part of the same soft edged group as the polygons attached to this vertex instance.
-	// They should all contribute to the final vertex instance normal.
+	// The aim of this method is:
+	// - given a polygon ID,
+	// - given a set of candidate polygons connected to the same vertex (which should include the polygon ID),
+	// - given a set of soft edges connected to the same vertex,
+	// return the polygon IDs which form an adjacent run without crossing a hard edge.
 
 	OutPolygonIDs.Reset();
+
+	// Maintain a list of polygon IDs to be examined. Adjacents are added to the list if suitable.
+	// Add the start poly here.
+	static TArray<FPolygonID> PolygonsToCheck;
+	PolygonsToCheck.Reset( CandidatePolygonIDs.Num() );
+	PolygonsToCheck.Add( PolygonID );
+
+	int32 Index = 0;
+	while( Index < PolygonsToCheck.Num() )
+	{
+		const FPolygonID PolygonToCheck = PolygonsToCheck[ Index ];
+		Index++;
+
+		if( CandidatePolygonIDs.Contains( PolygonToCheck ) )
+		{
+			OutPolygonIDs.Add( PolygonToCheck );
+
+			// Now look at its adjacent polygons. If they are joined by a soft edge which includes the vertex we're interested in, we want to consider them.
+			// We take a shortcut by doing this process in reverse: we already know all the soft edges we are interested in, so check if any of them
+			// have the current polygon as an adjacent.
+			for( const FEdgeID SoftEdgeID : SoftEdgeIDs )
+			{
+				const TArray<FPolygonID>& EdgeConnectedPolygons = GetMeshDescription()->GetEdgeConnectedPolygons( SoftEdgeID );
+				if( EdgeConnectedPolygons.Contains( PolygonToCheck ) )
+				{
+					for( const FPolygonID AdjacentPolygon : EdgeConnectedPolygons )
+					{
+						// Only add new polygons which haven't yet been added to the list. This prevents circular runs of polygons triggering infinite loops.
+						PolygonsToCheck.AddUnique( AdjacentPolygon );
+					}
+				}
+			}
+		}
+	}
+}
+
+
+void UEditableMesh::GetVertexConnectedPolygonsInSameSoftEdgedGroup( const FVertexID VertexID, const FPolygonID PolygonID, TArray<FPolygonID>& OutPolygonIDs ) const
+{
+	// The aim here is to determine which polygons form part of the same soft edged group as the polygons attached to this vertex.
+	// They should all contribute to the final vertex instance normal.
 
 	// Get all polygons connected to this vertex.
 	static TArray<FPolygonID> ConnectedPolygons;
@@ -1062,41 +1123,7 @@ void UEditableMesh::GetPolygonsInSameSoftEdgedGroup( const FVertexID VertexID, c
 	static TArray<FEdgeID> ConnectedSoftEdges;
 	GetConnectedSoftEdges( VertexID, ConnectedSoftEdges );
 
-	// Iterate through adjacent polygons which contain the given vertex, but don't cross a hard edge.
-	// Maintain a list of polygon IDs to be examined. Adjacents are added to the list if suitable.
-	// Add the start poly here.
-	static TArray<FPolygonID> PolygonsToCheck;
-	PolygonsToCheck.Reset();
-	PolygonsToCheck.Add( PolygonID );
-
-	const FEdgeArray& Edges = GetMeshDescription()->Edges();
-	int32 Index = 0;
-	while( Index < PolygonsToCheck.Num() )
-	{
-		const FPolygonID PolygonToCheck = PolygonsToCheck[ Index ];
-		Index++;
-
-		if( ConnectedPolygons.Contains( PolygonToCheck ) )
-		{
-			OutPolygonIDs.Add( PolygonToCheck );
-
-			// Now look at its adjacent polygons. If they are joined by a soft edge which includes the vertex we're interested in, we want to consider them.
-			// We take a shortcut by doing this process in reverse: we already know all the soft edges we are interested in, so check if any of them
-			// have the current polygon as an adjacent.
-			for( const FEdgeID ConnectedSoftEdge : ConnectedSoftEdges )
-			{
-				const FMeshEdge& Edge = Edges[ ConnectedSoftEdge ];
-				if( Edge.ConnectedPolygons.Contains( PolygonToCheck ) )
-				{
-					for( const FPolygonID AdjacentPolygon : Edge.ConnectedPolygons )
-					{
-						// Only add new polygons which haven't yet been added to the list. This prevents circular runs of polygons triggering infinite loops.
-						PolygonsToCheck.AddUnique( AdjacentPolygon );
-					}
-				}
-			}
-		}
-	}
+	GetPolygonsInSameSoftEdgedGroupAsPolygon( PolygonID, ConnectedPolygons, ConnectedSoftEdges, OutPolygonIDs );
 }
 
 
@@ -1180,51 +1207,58 @@ void UEditableMesh::ReplaceVertexInstanceInPolygons( const FVertexInstanceID Old
 }
 
 
-void UEditableMesh::GetVertexInstanceConnectedPolygonsInSameGroup( const FVertexInstanceID VertexInstanceID, const FPolygonID PolygonID, TArray<FPolygonID>& OutPolygonIDs ) const
+void UEditableMesh::SplitVerticesIfNecessary( const TArray<FVertexID>& VerticesToSplit )
 {
-	// The aim here is to determine which polygons connected to this vertex instance form part of the same soft edged group as the specified polygon.
+	static TArray<FVertexInstanceToCreate> VertexInstancesToCreate;
+	VertexInstancesToCreate.Reset();
 
-	OutPolygonIDs.Reset();
-
-	const FMeshVertexInstance& VertexInstance = GetMeshDescription()->GetVertexInstance( VertexInstanceID );
-	const FVertexID VertexID = VertexInstance.VertexID;
-
-	// Cache a list of all soft edges which share this vertex.
-	// We're only interested in finding adjacent polygons which are not the other side of a hard edge.
-	static TArray<FEdgeID> ConnectedSoftEdges;
-	GetConnectedSoftEdges( VertexID, ConnectedSoftEdges );
-
-	// Iterate through adjacent polygons which contain the given vertex, but don't cross a hard edge.
-	// Maintain a list of polygon IDs to be examined. Adjacents are added to the list if suitable.
-	// Add the start poly here.
-	static TArray<FPolygonID> PolygonsToCheck;
-	PolygonsToCheck.Reset();
-	PolygonsToCheck.Add( PolygonID );
-
-	const FEdgeArray& Edges = GetMeshDescription()->Edges();
-	int32 Index = 0;
-	while( Index < PolygonsToCheck.Num() )
+	// Loop for each vertex to split
+	for( const FVertexID VertexToSplit : VerticesToSplit )
 	{
-		const FPolygonID PolygonToCheck = PolygonsToCheck[ Index ];
-		Index++;
+		// Cache a list of all soft edges which share this vertex.
+		static TArray<FEdgeID> ConnectedSoftEdges;
+		GetConnectedSoftEdges( VertexToSplit, ConnectedSoftEdges );
 
-		if( VertexInstance.ConnectedPolygons.Contains( PolygonToCheck ) )
+		// Look at each vertex instance in turn.
+		// Take a copy because splitting them will mutate the list we are iterating.
+		static TArray<FVertexInstanceID> VertexInstanceIDs;
+		VertexInstanceIDs = GetMeshDescription()->GetVertexVertexInstances( VertexToSplit );
+
+		for( const FVertexInstanceID VertexInstanceID : VertexInstanceIDs )
 		{
-			OutPolygonIDs.Add( PolygonToCheck );
-
-			// Now look at its adjacent polygons. If they are joined by a soft edge which includes the vertex we're interested in, we want to consider them.
-			// We take a shortcut by doing this process in reverse: we already know all the soft edges we are interested in, so check if any of them
-			// have the current polygon as an adjacent.
-			for( const FEdgeID ConnectedSoftEdge : ConnectedSoftEdges )
+			// Get the list of polygons connected to this vertex instance.
+			// We only need to potentially do something if there is more than one polygon connected.
+			const TArray<FPolygonID>& PolygonIDs = GetMeshDescription()->GetVertexInstanceConnectedPolygons( VertexInstanceID );
+			if( PolygonIDs.Num() > 1 )
 			{
-				const FMeshEdge& Edge = Edges[ ConnectedSoftEdge ];
-				if( Edge.ConnectedPolygons.Contains( PolygonToCheck ) )
+				// Take a copy of all the connected polygons.
+				// This is a list we will consume as we identify groups of polygons not separated by a hard edge.
+				static TArray<FPolygonID> PolygonIDsToCheck;
+				PolygonIDsToCheck = PolygonIDs;
+
+				bool bFirstTime = true;
+				while( PolygonIDsToCheck.Num() > 0 )
 				{
-					for( const FPolygonID AdjacentPolygon : Edge.ConnectedPolygons )
+					// For the next polygon in the array, determine all other polygons in the same soft edged group
+					static TArray<FPolygonID> PolygonsInSameSoftEdgedGroup;
+					GetPolygonsInSameSoftEdgedGroupAsPolygon( PolygonIDsToCheck[ 0 ], PolygonIDsToCheck, ConnectedSoftEdges, PolygonsInSameSoftEdgedGroup );
+
+					// Check that all polygons in the smoothing group are attached to this vertex instance, and remove them from the master list of polygons
+					// connected to this instance. If a polygon in the smoothing group is not attached to this vertex instance, it's because it's the other
+					// side of a UV seam and hence has a distinct vertex instance.
+					for( const FPolygonID PolygonInSameSoftEdgedGroup : PolygonsInSameSoftEdgedGroup )
 					{
-						// Only add new polygons which haven't yet been added to the list. This prevents circular runs of polygons triggering infinite loops.
-						PolygonsToCheck.AddUnique( AdjacentPolygon );
+						verify( PolygonIDsToCheck.Remove( PolygonInSameSoftEdgedGroup ) == 1 );
 					}
+
+					// First group which we extract: do nothing - they can keep their existing instance ID.
+					// Subsequent times round the loop, we create a new vertex instance copied from the original one, and replace connected polygon vertices with it.
+					if( !bFirstTime )
+					{
+						SplitVertexInstanceInPolygons( VertexInstanceID, PolygonsInSameSoftEdgedGroup );
+					}
+
+					bFirstTime = false;
 				}
 			}
 		}
@@ -4101,8 +4135,7 @@ void UEditableMesh::CreateEdges( const TArray<FEdgeToCreate>& EdgesToCreate, TAr
 	{
 		for( const FMeshElementAttributeData& EdgeAttribute : EdgesToCreate[ Index ].EdgeAttributes.Attributes )
 		{
-			const bool bIsUndo = false;
-			SetEdgeAttribute( OutNewEdgeIDs[ Index ], EdgeAttribute, bIsUndo );
+			SetEdgeAttribute( OutNewEdgeIDs[ Index ], EdgeAttribute );
 		}
 	}
 
@@ -4701,7 +4734,6 @@ void UEditableMesh::SetEdgesAttributes( const TArray<FAttributesForEdge>& Attrib
 		RevertInput.AttributesForEdges.Emplace();
 		FAttributesForEdge& RevertEdge = RevertInput.AttributesForEdges.Last();
 		RevertEdge.EdgeID = EdgeID;
-		RevertEdge.bIsUndo = true;
 
 		// Back up the attributes
 		BackupAttributesInList( RevertEdge.EdgeAttributes, AttributesForEdge.EdgeAttributes, GetMeshDescription()->EdgeAttributes(), EdgeID );
@@ -4709,8 +4741,7 @@ void UEditableMesh::SetEdgesAttributes( const TArray<FAttributesForEdge>& Attrib
 		for( const FMeshElementAttributeData& EdgeAttribute : AttributesForEdge.EdgeAttributes.Attributes )
 		{
 			// Set the new attribute
-			// @todo mesheditor: having to pass bIsUndo here is horrible. Find a better way.
-			SetEdgeAttribute( AttributesForEdge.EdgeID, EdgeAttribute, AttributesForEdge.bIsUndo );
+			SetEdgeAttribute( AttributesForEdge.EdgeID, EdgeAttribute );
 		}
 	}
 
@@ -6476,7 +6507,7 @@ void UEditableMesh::GenerateTangentsAndNormals()
 		static TArray<FPolygonID> AllConnectedPolygons;
 		const TArray<FPolygonID>& VertexInstanceConnectedPolygons = GetMeshDescription()->GetVertexInstanceConnectedPolygons( VertexInstanceID );
 		check( VertexInstanceConnectedPolygons.Num() > 0 );
-		GetPolygonsInSameSoftEdgedGroup( VertexID, VertexInstanceConnectedPolygons[ 0 ], AllConnectedPolygons );
+		GetVertexConnectedPolygonsInSameSoftEdgedGroup( VertexID, VertexInstanceConnectedPolygons[ 0 ], AllConnectedPolygons );
 
 		// The vertex instance normal is computed as a sum of all connected polygons' normals, weighted by the angle they make with the vertex
 		for( const FPolygonID ConnectedPolygonID : AllConnectedPolygons )

@@ -905,25 +905,19 @@ struct FAttributesForEdge
 	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
 	FMeshElementAttributeList EdgeAttributes;
 
-	/** Whether this is being done as part of undo/redo */
-	UPROPERTY( BlueprintReadWrite, Category="Editable Mesh" )
-	bool bIsUndo;
-
 	/** Default constructor */
 	FAttributesForEdge()
 		: EdgeID( 0 ),
-		  EdgeAttributes(),
-		  bIsUndo( false )
+		  EdgeAttributes()
 	{
 	}
 
 	FString ToString() const
 	{
 		return FString::Printf(
-			TEXT( "EdgeID:%s, EdgeAttributes:%s, bIsUndo:%s" ),
+			TEXT( "EdgeID:%s, EdgeAttributes:%s" ),
 			*EdgeID.ToString(),
-			*EdgeAttributes.ToString(),
-			*LogHelpers::BoolToString( bIsUndo ) );
+			*EdgeAttributes.ToString() );
 	}
 };
 

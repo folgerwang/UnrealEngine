@@ -639,6 +639,13 @@ public:
 		return EdgeArray[ EdgeID ].ConnectedPolygons;
 	}
 
+	/** Returns the vertex ID corresponding to one of the edge endpoints */
+	FVertexID GetEdgeVertex( const FEdgeID EdgeID, int32 VertexNumber ) const
+	{
+		check( VertexNumber == 0 || VertexNumber == 1 );
+		return EdgeArray[ EdgeID ].VertexIDs[ VertexNumber ];
+	}
+
 	/** Returns a pair of vertex IDs defining the edge */
 	TTuple<FVertexID, FVertexID> GetEdgeVertices( const FEdgeID EdgeID ) const
 	{
