@@ -2195,7 +2195,7 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 				SrcModel->BuildSettings.SrcLightmapIndex = 0;
 				SrcModel->BuildSettings.DstLightmapIndex = LightMapUVChannel;
 
-				SrcModel->RawMeshBulkData->SaveRawMesh(MergedMeshLOD);
+				SrcModel->SaveRawMesh(MergedMeshLOD);
 			}
 		}
 		

@@ -120,5 +120,8 @@ public:
 
 	/** Returns true if no bulk data is available for this mesh. */
 	FORCEINLINE bool IsEmpty() const { return BulkData.GetBulkDataSize() == 0; }
+
+	/** Returns true if no bulk data is available for this mesh. */
+	RAWMESH_API void Empty();
 #endif // #if WITH_EDITORONLY_DATA
 };

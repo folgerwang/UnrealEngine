@@ -302,7 +302,7 @@ void FMeshMergeHelpers::RetrieveMesh(const UStaticMesh* StaticMesh, int32 LODInd
 	const FStaticMeshSourceModel& StaticMeshModel = StaticMesh->SourceModels[LODIndex];
 
 	// Imported meshes will have a filled RawMeshBulkData set
-	const bool bImportedMesh = !StaticMeshModel.RawMeshBulkData->IsEmpty();
+	const bool bImportedMesh = !StaticMeshModel.IsRawMeshEmpty();
 	// Check whether or not this mesh has been reduced in-engine
 	const bool bReducedMesh = (StaticMeshModel.ReductionSettings.PercentTriangles < 1.0f);
 	// Trying to retrieve rawmesh from SourceStaticMeshModel was giving issues, which causes a mismatch			
@@ -310,7 +310,7 @@ void FMeshMergeHelpers::RetrieveMesh(const UStaticMesh* StaticMesh, int32 LODInd
 
 	if (bImportedMesh && !bReducedMesh && !bRenderDataMismatch)
 	{
-		StaticMeshModel.RawMeshBulkData->LoadRawMesh(RawMesh);
+		StaticMeshModel.LoadRawMesh(RawMesh);
 	}
 	else
 	{

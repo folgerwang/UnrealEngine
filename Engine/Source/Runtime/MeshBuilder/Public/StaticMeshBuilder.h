@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "MeshBuilder.h"
 
+DECLARE_LOG_CATEGORY_EXTERN(LogStaticMeshBuilder, Log, All);
+
 class MESHBUILDER_API FStaticMeshBuilder : public FMeshBuilder
 {
 public:

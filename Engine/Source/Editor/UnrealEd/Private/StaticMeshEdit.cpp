@@ -583,7 +583,7 @@ UStaticMesh* CreateStaticMesh(struct FRawMesh& RawMesh,TArray<FStaticMaterial>& 
 
 	// Add one LOD for the base mesh
 	FStaticMeshSourceModel* SrcModel = new(StaticMesh->SourceModels) FStaticMeshSourceModel();
-	SrcModel->RawMeshBulkData->SaveRawMesh(RawMesh);
+	SrcModel->SaveRawMesh(RawMesh);
 	StaticMesh->StaticMaterials = Materials;
 
 	int32 NumSections = StaticMesh->StaticMaterials.Num();

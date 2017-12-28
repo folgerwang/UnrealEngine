@@ -1700,7 +1700,12 @@ void UEditableStaticMeshAdapter::OnCreatePolygonGroups( const UEditableMesh* Edi
 			StaticMeshSection.bCastShadow = PolygonGroupCastShadow[ PolygonGroupID ];
 
 			UMaterialInterface* Material = Cast<UMaterialInterface>( PolygonGroupMaterialAssets[ PolygonGroupID ].TryLoad() );
-			StaticMeshSection.MaterialIndex = StaticMesh->StaticMaterials.Emplace( Material, PolygonGroupMaterialSlotNames[ PolygonGroupID ], PolygonGroupImportedMaterialSlotNames[ PolygonGroupID ] );
+#if WITH_EDITORONLY_DATA
+			StaticMeshSection.MaterialIndex = StaticMesh->StaticMaterials.Emplace(Material, PolygonGroupMaterialSlotNames[PolygonGroupID], PolygonGroupImportedMaterialSlotNames[PolygonGroupID]);
+#else
+			StaticMeshSection.MaterialIndex = StaticMesh->StaticMaterials.Emplace(Material, PolygonGroupMaterialSlotNames[PolygonGroupID]);
+#endif
+			
 		}
 
 		// Insert the rendering polygon group for keeping track of these index buffer properties
@@ -1730,7 +1735,11 @@ void UEditableStaticMeshAdapter::OnSetPolygonGroupAttribute( const UEditableMesh
 		Attribute.AttributeName == MeshAttribute::PolygonGroup::ImportedMaterialSlotName )
 	{
 		UMaterialInterface* Material = Cast<UMaterialInterface>( PolygonGroupMaterialAssets[ PolygonGroupID ].TryLoad() );
+#if WITH_EDITORONLY_DATA
 		StaticMesh->StaticMaterials[ StaticMeshSection.MaterialIndex ] = FStaticMaterial( Material, PolygonGroupMaterialSlotNames[ PolygonGroupID ], PolygonGroupImportedMaterialSlotNames[ PolygonGroupID ] );
+#else
+		StaticMesh->StaticMaterials[StaticMeshSection.MaterialIndex] = FStaticMaterial(Material, PolygonGroupMaterialSlotNames[PolygonGroupID]);
+#endif
 	}
 	else if( Attribute.AttributeName == MeshAttribute::PolygonGroup::CastShadow )
 	{

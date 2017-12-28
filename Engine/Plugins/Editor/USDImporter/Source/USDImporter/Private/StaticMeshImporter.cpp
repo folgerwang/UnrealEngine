@@ -185,7 +185,7 @@ UStaticMesh* FUSDStaticMeshImporter::ImportStaticMesh(FUsdImportContext& ImportC
 
 			RawTriangles.CompactMaterialIndices();
 
-			SrcModel.RawMeshBulkData->SaveRawMesh(RawTriangles);
+			SrcModel.SaveRawMesh(RawTriangles);
 
 			// Recompute normals if we didnt import any
 			SrcModel.BuildSettings.bRecomputeNormals = RawTriangles.WedgeTangentZ.Num() == 0;

@@ -242,6 +242,9 @@ public:
 	// UObject interface
 	virtual void Serialize( FArchive& Ar ) override;
 
+	//Empty the meshdescription
+	void Empty();
+
 	FVertexArray& Vertices() { return VertexArray; }
 	const FVertexArray& Vertices() const { return VertexArray; }
 
@@ -481,7 +484,7 @@ private:
 		}
 
 		Polygon.PolygonGroupID = PolygonGroupID;
-		check( !PolygonGroupArray[ PolygonGroupID ].Polygons.Contains( PolygonID ) );
+		checkSlow( !PolygonGroupArray[ PolygonGroupID ].Polygons.Contains( PolygonID ) );
 		PolygonGroupArray[ PolygonGroupID ].Polygons.Add( PolygonID );
 
 		PolygonAttributesSet.Insert( PolygonID );
@@ -670,6 +673,17 @@ public:
 		return PolygonArray[ PolygonID ].PerimeterContour.VertexInstanceIDs;
 	}
 
+	void GetPolygonEdges(const FPolygonID PolygonID, TArray<FEdgeID>& OutPolygonEdges) const
+	{
+		const FMeshPolygonContour& PerimeterContour = PolygonArray[PolygonID].PerimeterContour;
+		const int32 ContourCount = PerimeterContour.VertexInstanceIDs.Num();
+		for (int32 ContourIndex = 0; ContourIndex < ContourCount; ++ContourIndex)
+		{
+			int32 ContourPlusOne = (ContourIndex + 1) % ContourCount;
+			OutPolygonEdges.Add(GetVertexPairEdge(GetVertexInstanceVertex(PerimeterContour.VertexInstanceIDs[ContourIndex]), GetVertexInstanceVertex(PerimeterContour.VertexInstanceIDs[ContourPlusOne])));
+		}
+	}
+
 	/** Return the polygon group associated with a polygon */
 	FPolygonGroupID GetPolygonPolygonGroup( const FPolygonID PolygonID ) const
 	{
@@ -726,6 +740,17 @@ public:
 	FString GetIdString();
 #endif
 
+public:
+	void ComputePolygonTriangulation(const FPolygonID PolygonID, TArray<FMeshTriangle>& OutTriangles);
+	void TriangulateMesh();
+
+private:
+	bool VectorsOnSameSide(const FVector& Vec, const FVector& A, const FVector& B, const float SameSideDotProductEpsilon);
+	bool PointInTriangle(const FVector& A, const FVector& B, const FVector& C, const FVector& P, const float InsideTriangleDotProductEpsilon);
+	void GetPolygonPerimeterVertices(const FPolygonID PolygonID, TArray<FVertexID>& OutPolygonPerimeterVertexIDs) const;
+	FPlane ComputePolygonPlane(const FPolygonID PolygonID) const;
+	FVector ComputePolygonNormal(const FPolygonID PolygonID) const;
+
 private:
 
 	/** Given a set of index remappings, fixes up references to element IDs */
@@ -733,6 +758,9 @@ private:
 
 	/** Given a set of index remappings, remaps all attributes accordingly */
 	void RemapAttributes( const FElementIDRemappings& Remappings );
+
+	void RegisterBaseAttributes();
+	void UnRegisterBaseAttributes();
 
 	FVertexArray VertexArray;
 	FVertexInstanceArray VertexInstanceArray;

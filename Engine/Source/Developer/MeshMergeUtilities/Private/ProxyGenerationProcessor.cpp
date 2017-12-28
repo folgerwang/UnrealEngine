@@ -180,7 +180,7 @@ void FProxyGenerationProcessor::ProcessJob(const FGuid& JobGuid, FProxyGeneratio
 	SrcModel->BuildSettings.bRemoveDegenerates = true;
 	SrcModel->BuildSettings.bUseHighPrecisionTangentBasis = false;
 	SrcModel->BuildSettings.bUseFullPrecisionUVs = false;
-	SrcModel->RawMeshBulkData->SaveRawMesh(Data->RawMesh);
+	SrcModel->SaveRawMesh(Data->RawMesh);
 
 	//Assign the proxy material to the static mesh
 	StaticMesh->StaticMaterials.Add(FStaticMaterial(ProxyMaterial));

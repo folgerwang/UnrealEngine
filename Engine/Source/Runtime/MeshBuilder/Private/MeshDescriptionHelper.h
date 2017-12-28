@@ -14,7 +14,8 @@ struct FVertexInstanceID;
 
 enum
 {
-	MAX_MESH_TEXTURE_COORDS = 8,
+	//Remove the _MD when FRawMesh will be remove
+	MAX_MESH_TEXTURE_COORDS_MD = 8,
 };
 
 class FMeshDescriptionHelper
@@ -51,14 +52,22 @@ public:
 
 	const TMultiMap<int32, int32>& GetOverlappingCorners() const { return OverlappingCorners; }
 
+	/** Convert this mesh description into the old FRawMesh format*/
+	static void ConverToRawMesh(const UMeshDescription* SourceMeshDescription, struct FRawMesh &DestinationRawMesh);
+	/** Convert old FRawMesh format to MeshDescription*/
+	static void ConverFromRawMesh(const struct FRawMesh &SourceRawMesh, UMeshDescription* DestinationMeshDescription);
+
 private:
 
 	//////////////////////////////////////////////////////////////////////////
 	//PRIVATE function declarations
 
-	void CreateNormals(UMeshDescription* MeshDescription, ETangentOptions TangentOptions, bool bComputeTangent);
-	void CreateMikktTangents(UMeshDescription* MeshDescription, ETangentOptions TangentOptions);
-	void CreatePolygonNTB(UMeshDescription* MeshDescription, float ComparisonThreshold);
+	static void ConvertHardEdgesToSmoothGroup(const UMeshDescription* SourceMeshDescription, struct FRawMesh &DestinationRawMesh);
+	static void ConvertSmoothGroupToHardEdges(const struct FRawMesh &SourceRawMesh, UMeshDescription* DestinationMeshDescription);
+
+	static void CreateNormals(UMeshDescription* MeshDescription, ETangentOptions TangentOptions, bool bComputeTangent);
+	static void CreateMikktTangents(UMeshDescription* MeshDescription, ETangentOptions TangentOptions);
+	static void CreatePolygonNTB(UMeshDescription* MeshDescription, float ComparisonThreshold);
 
 	//////////////////////////////////////////////////////////////////////////
 	//PRIVATE class members

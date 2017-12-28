@@ -23,3 +23,12 @@ private:
 
 };
 
+class MESHBUILDER_API FMeshDescriptionOperations
+{
+public:
+	/** Convert this mesh description into the old FRawMesh format*/
+	static void ConverToRawMesh(const class UMeshDescription* SourceMeshDescription, struct FRawMesh &DestinationRawMesh);
+	/** Convert old FRawMesh format to MeshDescription*/
+	static void ConverFromRawMesh(const struct FRawMesh &SourceRawMesh, class UMeshDescription* DestinationMeshDescription);
+};
+

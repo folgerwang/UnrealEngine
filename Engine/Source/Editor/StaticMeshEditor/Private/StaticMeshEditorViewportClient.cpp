@@ -999,7 +999,7 @@ void FStaticMeshEditorViewportClient::ProcessClick(class FSceneView& InView, cla
 
 				const uint32 LODLevel = FMath::Clamp( StaticMeshComponent->ForcedLodModel - 1, 0, StaticMeshComponent->GetStaticMesh()->GetNumLODs() - 1 );
 				FRawMesh RawMesh;
-				StaticMeshComponent->GetStaticMesh()->SourceModels[LODLevel].RawMeshBulkData->LoadRawMesh(RawMesh);
+				StaticMeshComponent->GetStaticMesh()->SourceModels[LODLevel].LoadRawMesh(RawMesh);
 
 				const int32 RawEdgeCount = RawMesh.WedgeIndices.Num() - 1; 
 				const int32 NumFaces = RawMesh.WedgeIndices.Num() / 3;

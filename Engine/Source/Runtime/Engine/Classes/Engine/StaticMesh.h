@@ -154,10 +154,22 @@ struct FStaticMeshSourceModel
 	/** Imported raw mesh data. Optional for all but the first LOD. */
 	class FRawMeshBulkData* RawMeshBulkData;
 
-	/* Original Imported meshdescription data. Optional for all but the first LOD. */
+	/*
+	 * Accessor to Load and save the raw mesh or the mesh description depending on the editor settings.
+	 * Temporary until we deprecate the RawMesh. It use UEditorExperimentalSettings::bUseMeshDescription to know which structure we use to save/load the data.
+	 * The SaveRawMesh make sure there is only one valid structure data (OriginalMeshDescription or RawMesh) not both. 
+	 */
+	ENGINE_API bool IsRawMeshEmpty() const;
+	ENGINE_API void LoadRawMesh(struct FRawMesh& OutRawMesh) const;
+	ENGINE_API void SaveRawMesh(struct FRawMesh& InRawMesh);
+
+#endif // #if WITH_EDITOR
+
+#if WITH_EDITORONLY_DATA
+	/* Original Imported mesh description data. Optional for all but the first LOD. Autogenerate LOD do not have original mesh description*/
 	UPROPERTY()
 	class UMeshDescription* OriginalMeshDescription;
-#endif // #if WITH_EDITOR
+#endif
 
 	/** Settings applied when building the mesh. */
 	UPROPERTY(EditAnywhere, Category=BuildSettings)
@@ -358,11 +370,9 @@ struct FStaticMaterial
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = StaticMesh)
 	FName MaterialSlotName;
 
-#if WITH_EDITORONLY_DATA
 	/*This name should be use when we re-import a skeletal mesh so we can order the Materials array like it should be*/
 	UPROPERTY(VisibleAnywhere, Category = StaticMesh)
 	FName ImportedMaterialSlotName;
-#endif //WITH_EDITORONLY_DATA
 
 	/** Data used for texture streaming relative to each UV channels. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = StaticMesh)
@@ -629,16 +639,26 @@ public:
 	UPROPERTY(Instanced, VisibleAnywhere, Category = EditableMesh)
 	class UObject* EditableMesh;
 
-	/** The MeshDescription use to build the render data. */
+#if WITH_EDITORONLY_DATA
+	/**
+	 * The MeshDescription use to build the render data.
+	 * When building the render data we copy the original mesh description and modify it to
+	 * respect the build options (tangent, UVs, reduce, ...) we then keep the copy in this array in case we need it
+	 */
 	UPROPERTY(VisibleAnywhere, Category = MeshDescription)
 	TArray<class UMeshDescription*> MeshDescriptions;
-
+	/**
+	 * Accessors for the mesh description use to build the render data
+	 */
 	ENGINE_API class UMeshDescription* GetMeshDescription(int32 LodIndex=0) const;
 	ENGINE_API void SetMeshDescription(int32 LodIndex, class UMeshDescription* InMeshDescription);
 	ENGINE_API int32 GetMeshDescriptionCount() const;
 
-#if WITH_EDITORONLY_DATA
-	ENGINE_API class UMeshDescription* GetOriginalMeshDescription(int32 LodIndex = 0) const;
+	/**
+	 * Accessors for the original mesh description imported data
+	 * The original import data is necessary to start from the full data when applying build options.
+	 */
+	ENGINE_API class UMeshDescription* GetOriginalMeshDescription(int32 LodIndex = 0);
 	ENGINE_API void SetOriginalMeshDescription(int32 LodIndex, class UMeshDescription* MeshDescription);
 	ENGINE_API void ClearOriginalMeshDescription(int32 LodIndex);
 #endif

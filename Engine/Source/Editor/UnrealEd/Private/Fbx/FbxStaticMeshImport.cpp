@@ -415,7 +415,7 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 	FbxLayerElement::EMappingMode SmoothingMappingMode(FbxLayerElement::eByEdge);
 	if (SmoothingInfo)
 	{
-		if(MeshDescription != nullptr)
+		if(GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription)
 		{
 			if (SmoothingInfo->GetMappingMode() == FbxLayerElement::eByPolygon)
 			{
@@ -520,7 +520,7 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 	int32 VertexCount = Mesh->GetControlPointsCount();
 	bool OddNegativeScale = IsOddNegativeScale(TotalMatrix);
 	bool bHasNonDegenerateTriangles = false;
-	if(MeshDescription != nullptr)
+	if(GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription)
 	{
 		TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
 
@@ -547,8 +547,19 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 		TMap<int32, FPolygonGroupID> PolygonGroupMapping;
 
 		// When importing multiple mesh pieces to the same static mesh.  Ensure each mesh piece has the same number of Uv's
-		int32 ExistingUVCount = VertexInstanceUVs.GetNumIndices();
-		
+		int32 ExistingUVCount = 0;
+		for (int32 UVChannelIndex = 0; UVChannelIndex < VertexInstanceUVs.GetNumIndices(); ++UVChannelIndex)
+		{
+			if (VertexInstanceUVs.GetArrayForIndex(UVChannelIndex).Num() > 0)
+			{
+				ExistingUVCount++;
+			}
+			else
+			{
+				break;
+			}
+		}
+
 		int32 NumUVs = FMath::Max(FBXUVs.UniqueUVCount, ExistingUVCount);
 		// At least one UV set must exist.  
 		NumUVs = FMath::Max(1, NumUVs);
@@ -572,18 +583,61 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 				return false;
 			}
 		}
+		
+		Mesh->BeginGetMeshEdgeVertices();
+		TMap<uint32, int32> RemapEdgeID;
+		//Fill the edge array
+		int32 FbxEdgeCount = Mesh->GetMeshEdgeCount();
+		RemapEdgeID.Reserve(FbxEdgeCount*2);
+		for (int32 FbxEdgeIndex = 0; FbxEdgeIndex < FbxEdgeCount; ++FbxEdgeIndex)
+		{
+			int32 EdgeStartVertexIndex = -1;
+			int32 EdgeEndVertexIndex = -1;
+			Mesh->GetMeshEdgeVertices(FbxEdgeIndex, EdgeStartVertexIndex, EdgeEndVertexIndex);
+			FVertexID EdgeVertexStart(EdgeStartVertexIndex + VertexOffset);
+			check(MeshDescription->Vertices().IsValid(EdgeVertexStart));
+			FVertexID EdgeVertexEnd(EdgeEndVertexIndex + VertexOffset);
+			check(MeshDescription->Vertices().IsValid(EdgeVertexEnd));
+			uint32 CompactedKey = ((uint32)EdgeVertexStart.GetValue() << 16) | ((uint32)EdgeVertexEnd.GetValue() & 0xffff);
+			RemapEdgeID.Add(CompactedKey, FbxEdgeIndex);
+			//Add the other edge side
+			CompactedKey = ((uint32)EdgeVertexEnd.GetValue() << 16) | ((uint32)EdgeVertexStart.GetValue() & 0xffff);
+			RemapEdgeID.Add(CompactedKey, FbxEdgeIndex);
+		}
+		//Call this after all GetMeshEdgeIndexForPolygon call this is for optimization purpose.
+		Mesh->EndGetMeshEdgeVertices();
 
 		//Call this before all GetMeshEdgeIndexForPolygon call this is for optimization purpose.
 		Mesh->BeginGetMeshEdgeIndexForPolygon();
+		int32 VertexInstanceCut = 0;
 		//Polygons
 		for (int32 TriangleIndex = 0; TriangleIndex < TriangleCount; TriangleIndex++)
 		{
+			//Verify if the polygon is degenerate, in this case do not add them
+			{
+				float ComparisonThreshold = ImportOptions->bRemoveDegenerates ? SMALL_NUMBER : 0.0f;
+				FVector P[3];
+				for (int32 CornerIndex = 0; CornerIndex < 3; CornerIndex++)
+				{
+					const int32 ControlPointIndex = Mesh->GetPolygonVertex(TriangleIndex, CornerIndex);
+					const FVertexID VertexID(VertexOffset + ControlPointIndex);
+					P[CornerIndex] = VertexPositions[VertexID];
+				}
+				const FVector Normal = ((P[1] - P[2]) ^ (P[0] - P[2])).GetSafeNormal(ComparisonThreshold);
+				//Check for degenerated polygons, avoid NAN
+				if (Normal.IsNearlyZero(ComparisonThreshold))
+				{
+					VertexInstanceCut += 3;
+					continue;
+				}
+			}
+
 			int32 RealTriangleIndex = TriangleOffset + TriangleIndex;
 			FVertexInstanceID CornerInstanceIDs[3];
 			FVertexID CornerVerticesIDs[3];
 			for (int32 CornerIndex = 0; CornerIndex < 3; CornerIndex++)
 			{
-				int32 VertexInstanceIndex = RealTriangleIndex * 3 + CornerIndex;
+				int32 VertexInstanceIndex = RealTriangleIndex * 3 + CornerIndex - VertexInstanceCut;
 				const FVertexInstanceID VertexInstanceID(VertexInstanceIndex);
 				CornerInstanceIDs[CornerIndex] = VertexInstanceID;
 				const int32 ControlPointIndex = Mesh->GetPolygonVertex(TriangleIndex, CornerIndex);
@@ -796,8 +850,19 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 					}
 					ContourPoint.EdgeID = MatchEdgeId;
 					ContourPoint.VertexInstanceID = CornerInstanceIDs[CornerIndices[0]];
-
-					int32 EdgeIndex = Mesh->GetMeshEdgeIndexForPolygon(TriangleIndex, TriangleEdgeNumber);
+					//RawMesh do not have edges, so by ordering the edge with the triangle construction we can ensure back and forth conversion with RawMesh
+					//When raw mesh will be completly remove we can create the edges right after the vertex creation.
+					int32 EdgeIndex = INDEX_NONE;
+					uint32 CompactedKey = ((uint32)EdgeVertexIDs[0].GetValue() << 16) | ((uint32)EdgeVertexIDs[1].GetValue() & 0xffff);
+					if (RemapEdgeID.Contains(CompactedKey))
+					{
+						EdgeIndex = RemapEdgeID[CompactedKey];
+					}
+					else
+					{
+						EdgeIndex = Mesh->GetMeshEdgeIndexForPolygon(TriangleIndex, TriangleEdgeNumber);
+					}
+					
 					EdgeCreaseSharpnesses[MatchEdgeId] = (float)Mesh->GetEdgeCreaseInfo(EdgeIndex);
 					if (!EdgeHardnesses[MatchEdgeId])
 					{
@@ -1602,7 +1667,7 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 		}
 	}
 
-	if (MeshDescription == nullptr)
+	if (!GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription)
 	{
 		// Store the new raw mesh.
 		SrcModel.RawMeshBulkData->SaveRawMesh(NewRawMesh);
@@ -1613,7 +1678,7 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 	{
 		int32 MaxMaterialIndex = 0;
 		int32 FirstOpenUVChannel = 1;
-		if (MeshDescription == nullptr)
+		if (!GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription)
 		{
 			UE_LOG(LogFbx, Verbose, TEXT("== Initial material list:"));
 			for (int32 MaterialIndex = 0; MaterialIndex < MeshMaterials.Num(); ++MaterialIndex)
@@ -2008,6 +2073,18 @@ void UnFbx::FFbxImporter::PostImportStaticMesh(UStaticMesh* StaticMesh, TArray<F
 	}
 #endif
 
+	if (GIsAutomationTesting)
+	{
+		//Avoid distance field calculation in automation test setting this to false is not suffisant since the condition OR with the CVar
+		//But fbx automation test turn off the CVAR
+		StaticMesh->bGenerateMeshDistanceField = false;
+	}
+
+	static const auto CVarDistanceField = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.GenerateMeshDistanceFields"));
+	int32 OriginalCVarDistanceFieldValue = CVarDistanceField->GetValueOnGameThread();
+	IConsoleVariable* CVarDistanceFieldInterface = IConsoleManager::Get().FindConsoleVariable(TEXT("r.GenerateMeshDistanceFields"));
+	bool bOriginalGenerateMeshDistanceField = StaticMesh->bGenerateMeshDistanceField;
+
 	//Prebuild the static mesh when we use LodGroup and we want to modify the LodNumber
 	if (!ImportOptions->bImportScene)
 	{
@@ -2026,15 +2103,11 @@ void UnFbx::FFbxImporter::PostImportStaticMesh(UStaticMesh* StaticMesh, TArray<F
 			if (bSpecifiedLodGroup)
 			{
 				//Avoid building the distance field when we prebuild
-				static const auto CVarDistanceField = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.GenerateMeshDistanceFields"));
-				int32 OriginalCVarDistanceFieldValue = CVarDistanceField->GetValueOnGameThread();
-				IConsoleVariable* CVarDistanceFieldInterface = IConsoleManager::Get().FindConsoleVariable(TEXT("r.GenerateMeshDistanceFields"));
 				if (OriginalCVarDistanceFieldValue != 0 && CVarDistanceFieldInterface)
 				{
 					//Hack we change the distance field user console variable to control the build, but we put back the value after the first build
 					CVarDistanceFieldInterface->SetWithCurrentPriority(0);
 				}
-				bool bOriginalGenerateMeshDistanceField = StaticMesh->bGenerateMeshDistanceField;
 				StaticMesh->bGenerateMeshDistanceField = false;
 
 				StaticMesh->Build(false, &BuildErrors);

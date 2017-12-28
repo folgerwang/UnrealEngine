@@ -79,7 +79,7 @@ public class Engine : ModuleRules
 				"DatabaseSupport",
 				"PacketHandler",
 				"HardwareSurvey",
-				"MeshDescription"
+				"MeshDescription",
 			}
 		);
 
@@ -116,6 +116,7 @@ public class Engine : ModuleRules
 		{
 			// for now we depend on this
 			PrivateDependencyModuleNames.Add("RawMesh");
+			PrivateDependencyModuleNames.Add("MeshBuilder");
 		}
 
 		bool bVariadicTemplatesSupported = true;

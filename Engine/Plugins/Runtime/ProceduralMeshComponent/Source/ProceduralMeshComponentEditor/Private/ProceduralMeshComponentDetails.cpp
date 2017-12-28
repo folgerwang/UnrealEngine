@@ -192,7 +192,7 @@ FReply FProceduralMeshComponentDetails::ClickedOnConvertToStaticMesh()
 				SrcModel->BuildSettings.bGenerateLightmapUVs = true;
 				SrcModel->BuildSettings.SrcLightmapIndex = 0;
 				SrcModel->BuildSettings.DstLightmapIndex = 1;
-				SrcModel->RawMeshBulkData->SaveRawMesh(RawMesh);
+				SrcModel->SaveRawMesh(RawMesh);
 
 				// Copy materials to new mesh
 				for (UMaterialInterface* Material : MeshMaterials)

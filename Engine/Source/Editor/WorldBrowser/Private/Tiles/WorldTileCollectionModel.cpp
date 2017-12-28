@@ -2149,7 +2149,7 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 				SrcModel->BuildSettings.bRemoveDegenerates = false;
 				SrcModel->BuildSettings.bUseHighPrecisionTangentBasis = false;
 				SrcModel->BuildSettings.bUseFullPrecisionUVs = false;
-				SrcModel->RawMeshBulkData->SaveRawMesh(LandscapeRawMesh);
+				SrcModel->SaveRawMesh(LandscapeRawMesh);
 
 				//Assign the proxy material to the static mesh
 				StaticMesh->StaticMaterials.Add(FStaticMaterial(StaticLandscapeMaterial));

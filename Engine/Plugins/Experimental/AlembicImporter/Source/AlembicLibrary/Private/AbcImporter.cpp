@@ -841,7 +841,7 @@ UStaticMesh* FAbcImporter::CreateStaticMeshFromRawMesh(UObject* InParent, const 
 		SrcModel.BuildSettings.DstLightmapIndex = 1;
 
 		// Store the raw mesh within the RawMeshBulkData
-		SrcModel.RawMeshBulkData->SaveRawMesh(RawMesh);
+		SrcModel.SaveRawMesh(RawMesh);
 		
 		//Set the Imported version before calling the build
 		StaticMesh->ImportVersion = EImportStaticMeshVersion::LastVersion;

@@ -39,7 +39,10 @@
 
 #if WITH_EDITOR
 #include "RawMesh.h"
+#include "Settings/EditorExperimentalSettings.h"
 #include "MeshDescription.h"
+#include "MeshAttributes.h"
+#include "MeshBuilder.h"
 #include "MeshUtilities.h"
 #include "DerivedDataCacheInterface.h"
 #include "IMeshBuilderModule.h"
@@ -1151,9 +1154,10 @@ static FString BuildStaticMeshDerivedDataKey(UStaticMesh* Mesh, const FStaticMes
 	for (int32 LODIndex = 0; LODIndex < NumLODs; ++LODIndex)
 	{
 		FStaticMeshSourceModel& SrcModel = Mesh->SourceModels[LODIndex];
-		if (Mesh->GetOriginalMeshDescription(0) != nullptr)
+		if (GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription)
 		{
-			KeySuffix += (Mesh->GetOriginalMeshDescription(LODIndex) != nullptr) ? Mesh->GetOriginalMeshDescription(LODIndex)->GetIdString() : TEXT("NoOriginalMeshDescriptionForLod") + FString::FromInt(LODIndex);
+			UMeshDescription* MeshDescription = Mesh->GetOriginalMeshDescription(LODIndex);
+			KeySuffix += (MeshDescription != nullptr) ? MeshDescription->GetIdString() : TEXT("NoOriginalMeshDescriptionForLod") + FString::FromInt(LODIndex);
 		}
 		else
 		{
@@ -1302,10 +1306,23 @@ void FStaticMeshRenderData::Cache(UStaticMesh* Owner, const FStaticMeshLODSettin
 			Args.Add(TEXT("StaticMeshName"), FText::FromString( Owner->GetName() ) );
 			FStaticMeshStatusMessageContext StatusContext( FText::Format( NSLOCTEXT("Engine", "BuildingStaticMeshStatus", "Building static mesh {StaticMeshName}..."), Args ) );
 
-			if (Owner->GetOriginalMeshDescription(0) != nullptr)
+			bool bUseMeshDescription = false;
+			if (GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription)
+			{
+				if (Owner->GetOriginalMeshDescription(0) != nullptr)
+				{
+					bUseMeshDescription = true;
+				}
+			}
+
+			if (bUseMeshDescription)
 			{
 				IMeshBuilderModule& MeshBuilderModule = FModuleManager::Get().LoadModuleChecked<IMeshBuilderModule>(TEXT("MeshBuilder"));
-				MeshBuilderModule.BuildMesh(Owner, LODGroup);
+				if (!MeshBuilderModule.BuildMesh(Owner, LODGroup))
+				{
+					UE_LOG(LogStaticMesh, Error, TEXT("Failed to build static mesh. See previous line(s) for details."));
+					return;
+				}
 			}
 			else
 			{
@@ -2060,6 +2077,51 @@ FStaticMeshSourceModel::~FStaticMeshSourceModel()
 }
 
 #if WITH_EDITOR
+bool FStaticMeshSourceModel::IsRawMeshEmpty() const
+{
+	return (RawMeshBulkData == nullptr || RawMeshBulkData->IsEmpty() && OriginalMeshDescription == nullptr);
+}
+
+void FStaticMeshSourceModel::LoadRawMesh(FRawMesh& OutRawMesh) const
+{
+	bool bUseMeshDescription = GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription;
+	if (bUseMeshDescription && OriginalMeshDescription != nullptr)
+	{
+		FMeshDescriptionOperations::ConverToRawMesh(OriginalMeshDescription, OutRawMesh);
+	}
+	else
+	{
+		if (RawMeshBulkData->IsEmpty() && OriginalMeshDescription != nullptr)
+		{
+			FMeshDescriptionOperations::ConverToRawMesh(OriginalMeshDescription, OutRawMesh);
+		}
+		else
+		{
+			RawMeshBulkData->LoadRawMesh(OutRawMesh);
+		}
+	}
+	
+}
+
+void FStaticMeshSourceModel::SaveRawMesh(FRawMesh& InRawMesh)
+{
+	if (!InRawMesh.IsValid())
+	{
+		return;
+	}
+	bool bUseMeshDescription = GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription;
+	if (bUseMeshDescription && OriginalMeshDescription != nullptr)
+	{
+		FMeshDescriptionOperations::ConverFromRawMesh(InRawMesh, OriginalMeshDescription);
+		RawMeshBulkData->Empty();
+	}
+	else
+	{
+		RawMeshBulkData->SaveRawMesh(InRawMesh);
+		OriginalMeshDescription = nullptr;
+	}
+}
+
 void FStaticMeshSourceModel::SerializeBulkData(FArchive& Ar, UObject* Owner)
 {
 	check(RawMeshBulkData != NULL);
@@ -2217,6 +2279,7 @@ static FStaticMeshRenderData& GetPlatformStaticMeshRenderData(UStaticMesh* Mesh,
 	return *PlatformRenderData;
 }
 
+#if WITH_EDITORONLY_DATA
 
 UMeshDescription* UStaticMesh::GetMeshDescription(int32 LodIndex) const
 {
@@ -2243,13 +2306,39 @@ int32 UStaticMesh::GetMeshDescriptionCount() const
 	return MeshDescriptions.Num();
 }
 
-#if WITH_EDITORONLY_DATA
-
-UMeshDescription* UStaticMesh::GetOriginalMeshDescription(int32 LodIndex) const
+UMeshDescription* UStaticMesh::GetOriginalMeshDescription(int32 LodIndex)
 {
 	if (SourceModels.IsValidIndex(LodIndex))
 	{
-		return SourceModels[LodIndex].OriginalMeshDescription;
+		if (GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription)
+		{
+			if (SourceModels[LodIndex].OriginalMeshDescription == nullptr && !SourceModels[LodIndex].RawMeshBulkData->IsEmpty())
+			{
+				FRawMesh TempRawMesh;
+				SourceModels[LodIndex].RawMeshBulkData->LoadRawMesh(TempRawMesh);
+				//The original mesh description is null we must create one
+				SourceModels[LodIndex].OriginalMeshDescription = NewObject<UMeshDescription>(this, NAME_None);
+				//Convert RawMesh to meshdescription
+				FMeshDescriptionOperations::ConverFromRawMesh(TempRawMesh, SourceModels[LodIndex].OriginalMeshDescription);
+			}
+			return SourceModels[LodIndex].OriginalMeshDescription;
+		}
+		else
+		{
+			if (!SourceModels[LodIndex].RawMeshBulkData->IsEmpty())
+			{
+				FRawMesh TempRawMesh;
+				SourceModels[LodIndex].RawMeshBulkData->LoadRawMesh(TempRawMesh);
+				if (SourceModels[LodIndex].OriginalMeshDescription == nullptr)
+				{
+					//The original mesh description is null we must create one
+					SourceModels[LodIndex].OriginalMeshDescription = NewObject<UMeshDescription>(this, NAME_None);
+				}
+				//Convert RawMesh to meshdescription
+				FMeshDescriptionOperations::ConverFromRawMesh(TempRawMesh, SourceModels[LodIndex].OriginalMeshDescription);
+			}
+			return SourceModels[LodIndex].OriginalMeshDescription;
+		}
 	}
 	return nullptr;
 }
@@ -2258,7 +2347,27 @@ void UStaticMesh::SetOriginalMeshDescription(int32 LodIndex, class UMeshDescript
 {
 	if (SourceModels.IsValidIndex(LodIndex))
 	{
-		SourceModels[LodIndex].OriginalMeshDescription = MeshDescription;
+		if (!GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription)
+		{
+			if (MeshDescription != nullptr)
+			{
+				FRawMesh TempRawMesh;
+				//Convert RawMesh to meshdescription
+				FMeshDescriptionOperations::ConverToRawMesh(MeshDescription, TempRawMesh);
+				SourceModels[LodIndex].RawMeshBulkData->SaveRawMesh(TempRawMesh);
+			}
+			else
+			{
+				//We have a null mesh description so empty the raw mesh
+				SourceModels[LodIndex].RawMeshBulkData->Empty();
+			}
+			SourceModels[LodIndex].OriginalMeshDescription = nullptr;
+		}
+		else
+		{
+			SourceModels[LodIndex].OriginalMeshDescription = MeshDescription;
+			SourceModels[LodIndex].RawMeshBulkData->Empty();
+		}
 	}
 }
 
@@ -2580,7 +2689,7 @@ void UStaticMesh::Serialize(FArchive& Ar)
 			FStaticMeshSourceModel& SourceModel = SourceModels[LODIndex];
 
 			FRawMesh RawMesh;
-			SourceModel.RawMeshBulkData->LoadRawMesh(RawMesh);
+			SourceModel.LoadRawMesh(RawMesh);
 
 			// Billboard LOD is made up out of quads so check for this
 			bool bQuadVertices = ((RawMesh.VertexPositions.Num() % 4) == 0);
@@ -2644,10 +2753,9 @@ void UStaticMesh::PostLoad()
 
 			for (int32 i = 0; i < SourceModels.Num(); ++i)
 			{
-				FRawMeshBulkData* RawMeshBulkData = SourceModels[i].RawMeshBulkData;
-				if (RawMeshBulkData)
+				if (!SourceModels[i].IsRawMeshEmpty())
 				{
-					RawMeshBulkData->LoadRawMesh(TempRawMesh);
+					SourceModels[i].LoadRawMesh(TempRawMesh);
 					TotalIndexCount += TempRawMesh.WedgeIndices.Num();
 				}
 			}
@@ -3107,27 +3215,50 @@ void UStaticMesh::GetVertexColorData(TMap<FVector, FColor>& VertexColorData)
 	// What LOD to get vertex colors from.  
 	// Currently mesh painting only allows for painting on the first lod.
 	const uint32 PaintingMeshLODIndex = 0;
-	if (SourceModels.IsValidIndex(PaintingMeshLODIndex)
-		&& SourceModels[PaintingMeshLODIndex].RawMeshBulkData->IsEmpty() == false)
+	if (SourceModels.IsValidIndex(PaintingMeshLODIndex))
 	{
-		// Extract the raw mesh.
-		FRawMesh Mesh;
-		SourceModels[PaintingMeshLODIndex].RawMeshBulkData->LoadRawMesh(Mesh);
-
-		// Nothing to copy if there are no colors stored.
-		if (Mesh.WedgeColors.Num() != 0 && Mesh.WedgeColors.Num() == Mesh.WedgeIndices.Num())
+		if (GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription)
 		{
-			// Build a mapping of vertex positions to vertex colors.
-			for (int32 WedgeIndex = 0; WedgeIndex < Mesh.WedgeIndices.Num(); ++WedgeIndex)
+			UMeshDescription* PaintLODMeshDescription = GetOriginalMeshDescription(PaintingMeshLODIndex);
+			if (PaintLODMeshDescription != nullptr)
 			{
-				FVector Position = Mesh.VertexPositions[Mesh.WedgeIndices[WedgeIndex]];
-				FColor Color = Mesh.WedgeColors[WedgeIndex];
-				if (!VertexColorData.Contains(Position))
+				const TVertexAttributeArray<FVector>& VertexPositions = PaintLODMeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+				const TVertexInstanceAttributeArray<FVector4>& VertexInstanceColors = PaintLODMeshDescription->VertexInstanceAttributes().GetAttributes<FVector4>(MeshAttribute::VertexInstance::Color);
+				if (VertexInstanceColors.Num() > 0)
 				{
-					VertexColorData.Add(Position, Color);
+					// Build a mapping of vertex positions to vertex colors.
+					for (const FVertexInstanceID& VertexInstanceID : PaintLODMeshDescription->VertexInstances().GetElementIDs())
+					{
+						FVector Position = VertexPositions[PaintLODMeshDescription->GetVertexInstanceVertex(VertexInstanceID)];
+						FColor Color = FLinearColor(VertexInstanceColors[VertexInstanceID]).ToFColor(true);
+						if (!VertexColorData.Contains(Position))
+						{
+							VertexColorData.Add(Position, Color);
+						}
+					}
 				}
 			}
-		}	
+		}
+		else if (SourceModels[PaintingMeshLODIndex].IsRawMeshEmpty() == false)
+		{
+			// Extract the raw mesh.
+			FRawMesh Mesh;
+			SourceModels[PaintingMeshLODIndex].LoadRawMesh(Mesh);
+			// Nothing to copy if there are no colors stored.
+			if (Mesh.WedgeColors.Num() != 0 && Mesh.WedgeColors.Num() == Mesh.WedgeIndices.Num())
+			{
+				// Build a mapping of vertex positions to vertex colors.
+				for (int32 WedgeIndex = 0; WedgeIndex < Mesh.WedgeIndices.Num(); ++WedgeIndex)
+				{
+					FVector Position = Mesh.VertexPositions[Mesh.WedgeIndices[WedgeIndex]];
+					FColor Color = Mesh.WedgeColors[WedgeIndex];
+					if (!VertexColorData.Contains(Position))
+					{
+						VertexColorData.Add(Position, Color);
+					}
+				}
+			}
+		}
 	}
 #endif // #if WITH_EDITORONLY_DATA
 }
@@ -3145,37 +3276,68 @@ void UStaticMesh::SetVertexColorData(const TMap<FVector, FColor>& VertexColorDat
 	// What LOD to get vertex colors from.  
 	// Currently mesh painting only allows for painting on the first lod.
 	const uint32 PaintingMeshLODIndex = 0;
-	if (SourceModels.IsValidIndex(PaintingMeshLODIndex)
-		&& SourceModels[PaintingMeshLODIndex].RawMeshBulkData->IsEmpty() == false)
+	if (SourceModels.IsValidIndex(PaintingMeshLODIndex))
 	{
-		// Extract the raw mesh.
-		FRawMesh Mesh;
-		SourceModels[PaintingMeshLODIndex].RawMeshBulkData->LoadRawMesh(Mesh);
-
-		// Reserve space for the new vertex colors.
-		if (Mesh.WedgeColors.Num() == 0 || Mesh.WedgeColors.Num() != Mesh.WedgeIndices.Num())
+		if (GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription)
 		{
-			Mesh.WedgeColors.Empty(Mesh.WedgeIndices.Num());
-			Mesh.WedgeColors.AddUninitialized(Mesh.WedgeIndices.Num());
+			UMeshDescription* PaintLODMeshDescription = GetOriginalMeshDescription(PaintingMeshLODIndex);
+			if (PaintLODMeshDescription != nullptr)
+			{
+				const TVertexAttributeArray<FVector>& VertexPositions = PaintLODMeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+				//Empty vertex color attributes
+				PaintLODMeshDescription->VertexInstanceAttributes().GetAttributesSet<FVector4>(MeshAttribute::VertexInstance::Color).SetNumIndices(0);
+				PaintLODMeshDescription->VertexInstanceAttributes().GetAttributesSet<FVector4>(MeshAttribute::VertexInstance::Color).SetNumIndices(1);
+				TVertexInstanceAttributeArray<FVector4>& VertexInstanceColors = PaintLODMeshDescription->VertexInstanceAttributes().GetAttributes<FVector4>(MeshAttribute::VertexInstance::Color);
+				if (PaintLODMeshDescription->VertexInstances().Num() > 0)
+				{
+					// Build a mapping of vertex positions to vertex colors.
+					for (const FVertexInstanceID& VertexInstanceID : PaintLODMeshDescription->VertexInstances().GetElementIDs())
+					{
+						FVector Position = VertexPositions[PaintLODMeshDescription->GetVertexInstanceVertex(VertexInstanceID)];
+						const FColor* Color = VertexColorData.Find(Position);
+						if (Color)
+						{
+							VertexInstanceColors[VertexInstanceID] = FLinearColor(*Color);
+						}
+						else
+						{
+							VertexInstanceColors[VertexInstanceID] = FLinearColor::White;
+						}
+					}
+				}
+			}
 		}
-
-		// Build a mapping of vertex positions to vertex colors.
-		for (int32 WedgeIndex = 0; WedgeIndex < Mesh.WedgeIndices.Num(); ++WedgeIndex)
+		else if (SourceModels[PaintingMeshLODIndex].IsRawMeshEmpty() == false)
 		{
-			FVector Position = Mesh.VertexPositions[Mesh.WedgeIndices[WedgeIndex]];
-			const FColor* Color = VertexColorData.Find(Position);
-			if (Color)
-			{
-				Mesh.WedgeColors[WedgeIndex] = *Color;
-			}
-			else
-			{
-				Mesh.WedgeColors[WedgeIndex] = FColor(255,255,255,255);
-			}
-		}
+			// Extract the raw mesh.
+			FRawMesh Mesh;
+			SourceModels[PaintingMeshLODIndex].LoadRawMesh(Mesh);
 
-		// Save the new raw mesh.
-		SourceModels[PaintingMeshLODIndex].RawMeshBulkData->SaveRawMesh(Mesh);
+			// Reserve space for the new vertex colors.
+			if (Mesh.WedgeColors.Num() == 0 || Mesh.WedgeColors.Num() != Mesh.WedgeIndices.Num())
+			{
+				Mesh.WedgeColors.Empty(Mesh.WedgeIndices.Num());
+				Mesh.WedgeColors.AddUninitialized(Mesh.WedgeIndices.Num());
+			}
+
+			// Build a mapping of vertex positions to vertex colors.
+			for (int32 WedgeIndex = 0; WedgeIndex < Mesh.WedgeIndices.Num(); ++WedgeIndex)
+			{
+				FVector Position = Mesh.VertexPositions[Mesh.WedgeIndices[WedgeIndex]];
+				const FColor* Color = VertexColorData.Find(Position);
+				if (Color)
+				{
+					Mesh.WedgeColors[WedgeIndex] = *Color;
+				}
+				else
+				{
+					Mesh.WedgeColors[WedgeIndex] = FColor(255, 255, 255, 255);
+				}
+			}
+
+			// Save the new raw mesh.
+			SourceModels[PaintingMeshLODIndex].SaveRawMesh(Mesh);
+		}
 	}
 	// TODO_STATICMESH: Build?
 #endif // #if WITH_EDITOR
@@ -3188,16 +3350,27 @@ ENGINE_API void UStaticMesh::RemoveVertexColors()
 
 	for (FStaticMeshSourceModel& SourceModel : SourceModels)
 	{
-		if (SourceModel.RawMeshBulkData && !SourceModel.RawMeshBulkData->IsEmpty())
+		if (GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription)
+		{
+			//Empty the attribute indices
+			if (SourceModel.OriginalMeshDescription != nullptr)
+			{
+				//Remove attributes content
+				SourceModel.OriginalMeshDescription->VertexInstanceAttributes().GetAttributesSet<FVector4>(MeshAttribute::VertexInstance::Color).SetNumIndices(0);
+				//Add back one indice so we are ready to add again some paint color attribute
+				SourceModel.OriginalMeshDescription->VertexInstanceAttributes().GetAttributesSet<FVector4>(MeshAttribute::VertexInstance::Color).SetNumIndices(1);
+			}
+		}
+		else if (!SourceModel.IsRawMeshEmpty())
 		{
 			FRawMesh RawMesh;
-			SourceModel.RawMeshBulkData->LoadRawMesh(RawMesh);
+			SourceModel.LoadRawMesh(RawMesh);
 
 			if (RawMesh.WedgeColors.Num() > 0)
 			{
 				RawMesh.WedgeColors.Empty();
 
-				SourceModel.RawMeshBulkData->SaveRawMesh(RawMesh);
+				SourceModel.SaveRawMesh(RawMesh);
 
 				bRemovedVertexColors = true;
 			}

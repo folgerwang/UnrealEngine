@@ -285,4 +285,11 @@ void FRawMeshBulkData::UseHashAsGuid(UObject* Owner)
 	bGuidIsHash = true;
 }
 
+void FRawMeshBulkData::Empty()
+{
+	BulkData.RemoveBulkData();
+	Guid.Invalidate();
+	bGuidIsHash = false;
+}
+
 #endif // #if WITH_EDITORONLY_DATA
