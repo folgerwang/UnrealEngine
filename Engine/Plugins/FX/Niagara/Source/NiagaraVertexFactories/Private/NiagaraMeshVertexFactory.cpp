@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ParticleVertexFactory.cpp: Particle vertex factory implementation.
@@ -10,8 +10,6 @@
 #include "ShaderParameterUtils.h"
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FNiagaraMeshUniformParameters,TEXT("NiagaraMeshVF"));
-
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
 class FNiagaraMeshVertexFactoryShaderParameters : public FVertexFactoryShaderParameters
 {
