@@ -1,3 +1,5 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 // UnrealUSDWrapper.cpp : Defines the exported functions for the DLL application.
 //
 
