@@ -57,6 +57,9 @@ public:
 	/** Convert old FRawMesh format to MeshDescription*/
 	static void ConverFromRawMesh(const struct FRawMesh &SourceRawMesh, UMeshDescription* DestinationMeshDescription);
 
+	static void CreatePolygonNTB(UMeshDescription* MeshDescription, float ComparisonThreshold);
+	static void CreateNormals(UMeshDescription* MeshDescription, ETangentOptions TangentOptions, bool bComputeTangent);
+	static void CreateMikktTangents(UMeshDescription* MeshDescription, ETangentOptions TangentOptions);
 private:
 
 	//////////////////////////////////////////////////////////////////////////
@@ -64,10 +67,6 @@ private:
 
 	static void ConvertHardEdgesToSmoothGroup(const UMeshDescription* SourceMeshDescription, struct FRawMesh &DestinationRawMesh);
 	static void ConvertSmoothGroupToHardEdges(const struct FRawMesh &SourceRawMesh, UMeshDescription* DestinationMeshDescription);
-
-	static void CreateNormals(UMeshDescription* MeshDescription, ETangentOptions TangentOptions, bool bComputeTangent);
-	static void CreateMikktTangents(UMeshDescription* MeshDescription, ETangentOptions TangentOptions);
-	static void CreatePolygonNTB(UMeshDescription* MeshDescription, float ComparisonThreshold);
 
 	//////////////////////////////////////////////////////////////////////////
 	//PRIVATE class members
