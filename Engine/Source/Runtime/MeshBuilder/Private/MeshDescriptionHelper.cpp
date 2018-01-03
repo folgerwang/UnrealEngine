@@ -929,7 +929,6 @@ void FMeshDescriptionHelper::ConverToRawMesh(const UMeshDescription* SourceMeshD
 
 	//Gather all array data
 	const TVertexAttributeArray<FVector>& VertexPositions = SourceMeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
-	//const TVertexAttributeArray<float>& VertexCornerSharpness = SourceMeshDescription->VertexAttributes().GetAttributes<float>(MeshAttribute::Vertex::CornerSharpness);
 
 	const TVertexInstanceAttributeArray<FVector>& VertexInstanceNormals = SourceMeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
 	const TVertexInstanceAttributeArray<FVector>& VertexInstanceTangents = SourceMeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Tangent);
@@ -937,19 +936,7 @@ void FMeshDescriptionHelper::ConverToRawMesh(const UMeshDescription* SourceMeshD
 	const TVertexInstanceAttributeArray<FVector4>& VertexInstanceColors = SourceMeshDescription->VertexInstanceAttributes().GetAttributes<FVector4>(MeshAttribute::VertexInstance::Color);
 	const TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs = SourceMeshDescription->VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 
-	//const TEdgeAttributeArray<bool>& EdgeHardnesses = SourceMeshDescription->EdgeAttributes().GetAttributes<bool>(MeshAttribute::Edge::IsHard);
-	//const TEdgeAttributeArray<float>& EdgeCreaseSharpnesses = SourceMeshDescription->EdgeAttributes().GetAttributes<float>(MeshAttribute::Edge::CreaseSharpness);
-
-	//const TPolygonAttributeArray<FVector>& PolygonNormals = SourceMeshDescription->PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Normal);
-	//const TPolygonAttributeArray<FVector>& PolygonTangents = SourceMeshDescription->PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Tangent);
-	//const TPolygonAttributeArray<FVector>& PolygonBiNormals = SourceMeshDescription->PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Binormal);
-	//const TPolygonAttributeArray<FVector>& PolygonCenters = SourceMeshDescription->PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Center);
-
-	//const TPolygonGroupAttributeArray<FSoftObjectPath>& PolygonGroupMaterialAssets = SourceMeshDescription->PolygonGroupAttributes().GetAttributes<FSoftObjectPath>(MeshAttribute::PolygonGroup::MaterialAsset);
-	//const TPolygonGroupAttributeArray<FName>& PolygonGroupMaterialSlotNames = SourceMeshDescription->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::MaterialSlotName);
-	//const TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = SourceMeshDescription->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
-	//const TPolygonGroupAttributeArray<bool>& PolygonGroupCollision = SourceMeshDescription->PolygonGroupAttributes().GetAttributes<bool>(MeshAttribute::PolygonGroup::EnableCollision);
-	//const TPolygonGroupAttributeArray<bool>& PolygonGroupCastShadow = SourceMeshDescription->PolygonGroupAttributes().GetAttributes<bool>(MeshAttribute::PolygonGroup::CastShadow);
+	const TPolygonGroupAttributeArray<int>& PolygonGroupMaterialIndex = SourceMeshDescription->PolygonGroupAttributes().GetAttributes<int>(MeshAttribute::PolygonGroup::MaterialIndex);
 
 	DestinationRawMesh.VertexPositions.AddZeroed(SourceMeshDescription->Vertices().Num());
 	for (const FVertexID& VertexID : SourceMeshDescription->Vertices().GetElementIDs())
@@ -984,7 +971,7 @@ void FMeshDescriptionHelper::ConverToRawMesh(const UMeshDescription* SourceMeshD
 		const TArray<FMeshTriangle>& Triangles = SourceMeshDescription->GetPolygonTriangles(PolygonID);
 		for (const FMeshTriangle& MeshTriangle : Triangles)
 		{
-			DestinationRawMesh.FaceMaterialIndices[PolygonIDValue] = PolygonGroupID.GetValue();
+			DestinationRawMesh.FaceMaterialIndices[PolygonIDValue] = PolygonGroupMaterialIndex[PolygonGroupID];
 			DestinationRawMesh.FaceSmoothingMasks[PolygonIDValue] = 0; //Conversion of soft/hard to smooth mask is done after the geometry is converted
 			for (int32 Corner = 0; Corner < 3; ++Corner)
 			{
@@ -1011,7 +998,6 @@ void FMeshDescriptionHelper::ConverFromRawMesh(const struct FRawMesh &SourceRawM
 	DestinationMeshDescription->Empty();
 	//Gather all array data
 	TVertexAttributeArray<FVector>& VertexPositions = DestinationMeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
-	//TVertexAttributeArray<float>& VertexCornerSharpness = DestinationMeshDescription->VertexAttributes().GetAttributes<float>(MeshAttribute::Vertex::CornerSharpness);
 
 	TVertexInstanceAttributeArray<FVector>& VertexInstanceNormals = DestinationMeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
 	TVertexInstanceAttributeArray<FVector>& VertexInstanceTangents = DestinationMeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Tangent);
@@ -1019,19 +1005,8 @@ void FMeshDescriptionHelper::ConverFromRawMesh(const struct FRawMesh &SourceRawM
 	TVertexInstanceAttributeArray<FVector4>& VertexInstanceColors = DestinationMeshDescription->VertexInstanceAttributes().GetAttributes<FVector4>(MeshAttribute::VertexInstance::Color);
 	TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs = DestinationMeshDescription->VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 
-	//TEdgeAttributeArray<bool>& EdgeHardnesses = DestinationMeshDescription->EdgeAttributes().GetAttributes<bool>(MeshAttribute::Edge::IsHard);
-	//TEdgeAttributeArray<float>& EdgeCreaseSharpnesses = DestinationMeshDescription->EdgeAttributes().GetAttributes<float>(MeshAttribute::Edge::CreaseSharpness);
-
-	//TPolygonAttributeArray<FVector>& PolygonNormals = DestinationMeshDescription->PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Normal);
-	//TPolygonAttributeArray<FVector>& PolygonTangents = DestinationMeshDescription->PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Tangent);
-	//TPolygonAttributeArray<FVector>& PolygonBiNormals = DestinationMeshDescription->PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Binormal);
-	//TPolygonAttributeArray<FVector>& PolygonCenters = DestinationMeshDescription->PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Center);
-
-	TPolygonGroupAttributeArray<FSoftObjectPath>& PolygonGroupMaterialAssets = DestinationMeshDescription->PolygonGroupAttributes().GetAttributes<FSoftObjectPath>(MeshAttribute::PolygonGroup::MaterialAsset);
-	TPolygonGroupAttributeArray<FName>& PolygonGroupMaterialSlotNames = DestinationMeshDescription->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::MaterialSlotName);
 	TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = DestinationMeshDescription->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
-	TPolygonGroupAttributeArray<bool>& PolygonGroupCollision = DestinationMeshDescription->PolygonGroupAttributes().GetAttributes<bool>(MeshAttribute::PolygonGroup::EnableCollision);
-	TPolygonGroupAttributeArray<bool>& PolygonGroupCastShadow = DestinationMeshDescription->PolygonGroupAttributes().GetAttributes<bool>(MeshAttribute::PolygonGroup::CastShadow);
+	TPolygonGroupAttributeArray<int>& PolygonGroupMaterialIndex = DestinationMeshDescription->PolygonGroupAttributes().GetAttributes<int>(MeshAttribute::PolygonGroup::MaterialIndex);
 
 	int32 NumTexCoords = 0;
 	int32 MaxTexCoords = FMath::Min<int32>(MAX_MESH_TEXTURE_COORDS, MAX_STATIC_TEXCOORDS);
@@ -1066,20 +1041,21 @@ void FMeshDescriptionHelper::ConverFromRawMesh(const struct FRawMesh &SourceRawM
 		int32 VerticeIndexBase = TriangleIndex * 3;
 
 		//PolygonGroup
-		FPolygonGroupID PolygonGroupID(SourceRawMesh.FaceMaterialIndices[TriangleIndex]);
-		if (PolygonGroupID.GetValue() >= PolygonGroups.Num())
+		FPolygonGroupID PolygonGroupID = FPolygonGroupID::Invalid;
+		int32 MaterialIndex = SourceRawMesh.FaceMaterialIndices[TriangleIndex];
+		for (const FPolygonGroupID& SearchPolygonGroupID : DestinationMeshDescription->PolygonGroups().GetElementIDs())
 		{
-			for (int32 AddMaterialIndex = PolygonGroups.Num(); AddMaterialIndex <= PolygonGroupID.GetValue(); ++AddMaterialIndex)
+			if (PolygonGroupMaterialIndex[SearchPolygonGroupID] == MaterialIndex)
 			{
-				FPolygonGroupID AddedPolygonGroupID = DestinationMeshDescription->CreatePolygonGroup();
-				check(AddMaterialIndex == AddedPolygonGroupID.GetValue());
-				PolygonGroupCastShadow[AddedPolygonGroupID] = true;
-				PolygonGroupCollision[AddedPolygonGroupID] = true;
-				PolygonGroupImportedMaterialSlotNames[AddedPolygonGroupID] = NAME_None;
-				PolygonGroupMaterialSlotNames[AddedPolygonGroupID] = NAME_None;
-				PolygonGroupMaterialAssets[AddedPolygonGroupID] = FSoftObjectPath(UMaterial::GetDefaultMaterial(MD_Surface));
-				PolygonGroups.Add(AddedPolygonGroupID);
+				PolygonGroupID = SearchPolygonGroupID;
 			}
+		}
+		if (PolygonGroupID == FPolygonGroupID::Invalid)
+		{
+			PolygonGroupID = DestinationMeshDescription->CreatePolygonGroup();
+			PolygonGroupMaterialIndex[PolygonGroupID] = MaterialIndex;
+			PolygonGroupImportedMaterialSlotNames[PolygonGroupID] = FName(*FString::Printf(TEXT("MaterialSlot_%d"), MaterialIndex));
+			PolygonGroups.Add(PolygonGroupID);
 		}
 
 		for (int32 Corner = 0; Corner < 3; ++Corner)

@@ -26,5 +26,6 @@ namespace MeshAttribute
 	const FName PolygonGroup::ImportedMaterialSlotName( "ImportedMaterialSlotName" );
 	const FName PolygonGroup::EnableCollision( "EnableCollision" );
 	const FName PolygonGroup::CastShadow( "CastShadow" );
+	const FName PolygonGroup::MaterialIndex( "MaterialIndex" );
 }
 

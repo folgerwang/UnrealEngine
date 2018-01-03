@@ -132,7 +132,6 @@ bool FMeshDescriptionTest::CompareMeshDescription(const FString& AssetName, FAut
 	//////////////////////////////////////////////////////////////////////////
 	//Gather the reference data
 	const TVertexAttributeArray<FVector>& ReferenceVertexPositions = ReferenceMeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
-	//const TVertexAttributeArray<float>& ReferenceVertexCornerSharpness = ReferenceMeshDescription->VertexAttributes().GetAttributes<float>(MeshAttribute::Vertex::CornerSharpness);
 
 	const TVertexInstanceAttributeArray<FVector>& ReferenceVertexInstanceNormals = ReferenceMeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
 	const TVertexInstanceAttributeArray<FVector>& ReferenceVertexInstanceTangents = ReferenceMeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Tangent);
@@ -141,24 +140,13 @@ bool FMeshDescriptionTest::CompareMeshDescription(const FString& AssetName, FAut
 	const TVertexInstanceAttributeIndicesArray<FVector2D>& ReferenceVertexInstanceUVs = ReferenceMeshDescription->VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 
 	const TEdgeAttributeArray<bool>& ReferenceEdgeHardnesses = ReferenceMeshDescription->EdgeAttributes().GetAttributes<bool>(MeshAttribute::Edge::IsHard);
-	//const TEdgeAttributeArray<float>& ReferenceEdgeCreaseSharpnesses = ReferenceMeshDescription->EdgeAttributes().GetAttributes<float>(MeshAttribute::Edge::CreaseSharpness);
 
-	//const TPolygonAttributeArray<FVector>& ReferencePolygonNormals = ReferenceMeshDescription->PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Normal);
-	//const TPolygonAttributeArray<FVector>& ReferencePolygonTangents = ReferenceMeshDescription->PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Tangent);
-	//const TPolygonAttributeArray<FVector>& ReferencePolygonBiNormals = ReferenceMeshDescription->PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Binormal);
-	//const TPolygonAttributeArray<FVector>& ReferencePolygonCenters = ReferenceMeshDescription->PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Center);
-
-	const TPolygonGroupAttributeArray<FSoftObjectPath>& ReferencePolygonGroupMaterialAssets = ReferenceMeshDescription->PolygonGroupAttributes().GetAttributes<FSoftObjectPath>(MeshAttribute::PolygonGroup::MaterialAsset);
-	const TPolygonGroupAttributeArray<FName>& ReferencePolygonGroupMaterialSlotNames = ReferenceMeshDescription->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::MaterialSlotName);
-	const TPolygonGroupAttributeArray<FName>& ReferencePolygonGroupImportedMaterialSlotNames = ReferenceMeshDescription->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
-	const TPolygonGroupAttributeArray<bool>& ReferencePolygonGroupCollision = ReferenceMeshDescription->PolygonGroupAttributes().GetAttributes<bool>(MeshAttribute::PolygonGroup::EnableCollision);
-	const TPolygonGroupAttributeArray<bool>& ReferencePolygonGroupCastShadow = ReferenceMeshDescription->PolygonGroupAttributes().GetAttributes<bool>(MeshAttribute::PolygonGroup::CastShadow);
+	const TPolygonGroupAttributeArray<int>& ReferencePolygonGroupMaterialIndex = ReferenceMeshDescription->PolygonGroupAttributes().GetAttributes<int>(MeshAttribute::PolygonGroup::MaterialIndex);
 
 
 	//////////////////////////////////////////////////////////////////////////
 	//Gather the result data
 	const TVertexAttributeArray<FVector>& ResultVertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
-	//const TVertexAttributeArray<float>& ResultVertexCornerSharpness = MeshDescription->VertexAttributes().GetAttributes<float>(MeshAttribute::Vertex::CornerSharpness);
 
 	const TVertexInstanceAttributeArray<FVector>& ResultVertexInstanceNormals = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
 	const TVertexInstanceAttributeArray<FVector>& ResultVertexInstanceTangents = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Tangent);
@@ -167,18 +155,8 @@ bool FMeshDescriptionTest::CompareMeshDescription(const FString& AssetName, FAut
 	const TVertexInstanceAttributeIndicesArray<FVector2D>& ResultVertexInstanceUVs = MeshDescription->VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 
 	const TEdgeAttributeArray<bool>& ResultEdgeHardnesses = MeshDescription->EdgeAttributes().GetAttributes<bool>(MeshAttribute::Edge::IsHard);
-	//const TEdgeAttributeArray<float>& ResultEdgeCreaseSharpnesses = MeshDescription->EdgeAttributes().GetAttributes<float>(MeshAttribute::Edge::CreaseSharpness);
 
-	//const TPolygonAttributeArray<FVector>& ResultPolygonNormals = MeshDescription->PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Normal);
-	//const TPolygonAttributeArray<FVector>& ResultPolygonTangents = MeshDescription->PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Tangent);
-	//const TPolygonAttributeArray<FVector>& ResultPolygonBiNormals = MeshDescription->PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Binormal);
-	//const TPolygonAttributeArray<FVector>& ResultPolygonCenters = MeshDescription->PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Center);
-
-	const TPolygonGroupAttributeArray<FSoftObjectPath>& ResultPolygonGroupMaterialAssets = MeshDescription->PolygonGroupAttributes().GetAttributes<FSoftObjectPath>(MeshAttribute::PolygonGroup::MaterialAsset);
-	const TPolygonGroupAttributeArray<FName>& ResultPolygonGroupMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::MaterialSlotName);
-	const TPolygonGroupAttributeArray<FName>& ResultPolygonGroupImportedMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
-	const TPolygonGroupAttributeArray<bool>& ResultPolygonGroupCollision = MeshDescription->PolygonGroupAttributes().GetAttributes<bool>(MeshAttribute::PolygonGroup::EnableCollision);
-	const TPolygonGroupAttributeArray<bool>& ResultPolygonGroupCastShadow = MeshDescription->PolygonGroupAttributes().GetAttributes<bool>(MeshAttribute::PolygonGroup::CastShadow);
+	const TPolygonGroupAttributeArray<int>& ResultPolygonGroupMaterialIndex = MeshDescription->PolygonGroupAttributes().GetAttributes<int>(MeshAttribute::PolygonGroup::MaterialIndex);
 
 	
 	//////////////////////////////////////////////////////////////////////////
@@ -352,16 +330,6 @@ bool FMeshDescriptionTest::CompareMeshDescription(const FString& AssetName, FAut
 			}
 		}
 	}
-	//Polygon group ID
-	//We currently rely only on the PolygonGroupID. The duplicate material slot information (the info is store in the staticmesh material array) is not necessary and cannot be put in FRawMesh structure.
-	if (ReferenceMeshDescription->PolygonGroups().Num() != MeshDescription->PolygonGroups().Num())
-	{
-		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion to RawMesh is not lossless, Polygon group count is different. Polygon group count expected [%d] result [%d]"),
-			*AssetName,
-			ReferenceMeshDescription->PolygonGroups().Num(),
-			MeshDescription->PolygonGroups().Num())));
-		bAllSame = false;
-	}
 	//Edges
 	//We check if hard edges are kept correctly
 	if (ReferenceEdgeHardnesses.Num() != ResultEdgeHardnesses.Num())
@@ -394,7 +362,32 @@ bool FMeshDescriptionTest::CompareMeshDescription(const FString& AssetName, FAut
 			}
 		}
 	}
-
+	//Polygon group ID
+	//We currently rely only on the PolygonGroupID. The duplicate material slot information (the info is store in the staticmesh material array) is not necessary and cannot be put in FRawMesh structure.
+	if (ReferenceMeshDescription->PolygonGroups().Num() != MeshDescription->PolygonGroups().Num())
+	{
+		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion to RawMesh is not lossless, Polygon group count is different. Polygon group count expected [%d] result [%d]"),
+			*AssetName,
+			ReferenceMeshDescription->PolygonGroups().Num(),
+			MeshDescription->PolygonGroups().Num())));
+		bAllSame = false;
+	}
+	else
+	{
+		for (const FPolygonGroupID& PolygonGroupID : ReferenceMeshDescription->PolygonGroups().GetElementIDs())
+		{
+			if (ReferencePolygonGroupMaterialIndex[PolygonGroupID] != ResultPolygonGroupMaterialIndex[PolygonGroupID])
+			{
+				ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion to RawMesh is not lossless, polygon group material index array is different. PolygonGroupID [%d] expected Material index [%d] result [%d]"),
+					*AssetName,
+					PolygonGroupID.GetValue(),
+					ReferencePolygonGroupMaterialIndex[PolygonGroupID],
+					ResultPolygonGroupMaterialIndex[PolygonGroupID])));
+				bAllSame = false;
+				break;
+			}
+		}
+	}
 	return bAllSame;
 }
 

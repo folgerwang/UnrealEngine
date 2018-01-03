@@ -2379,6 +2379,46 @@ void UStaticMesh::ClearOriginalMeshDescription(int32 LodIndex)
 	}
 }
 
+void UStaticMesh::FixupMaterialSlotName()
+{
+	TArray<FName> UniqueMaterialSlotName;
+	//Make sure we have non empty imported material slot names
+	for (FStaticMaterial& Material : StaticMaterials)
+	{
+		if (Material.ImportedMaterialSlotName != NAME_None)
+		{
+			continue;
+		}
+		
+		if (Material.MaterialSlotName != NAME_None)
+		{
+			Material.ImportedMaterialSlotName = Material.MaterialSlotName;
+		}
+		else if (Material.MaterialInterface != nullptr)
+		{
+			Material.ImportedMaterialSlotName = Material.MaterialInterface->GetFName();
+		}
+		else
+		{
+			Material.ImportedMaterialSlotName = FName(TEXT("MaterialSlot"));
+		}
+
+		FString UniqueName = Material.ImportedMaterialSlotName.ToString();
+		int32 UniqueIndex = 1;
+		while (UniqueMaterialSlotName.Contains(FName(*UniqueName)))
+		{
+			UniqueName = FString::Printf(TEXT("%s_%d"), *UniqueName, UniqueIndex);
+			UniqueIndex++;
+		}
+		Material.ImportedMaterialSlotName = FName(*UniqueName);
+		UniqueMaterialSlotName.Add(Material.ImportedMaterialSlotName);
+		if (Material.MaterialSlotName == NAME_None)
+		{
+			Material.MaterialSlotName = Material.ImportedMaterialSlotName;
+		}
+	}
+}
+
 #endif
 
 void UStaticMesh::CacheDerivedData()
@@ -2771,6 +2811,8 @@ void UStaticMesh::PostLoad()
 		{
 			SetLODGroup(LODGroup);
 		}
+
+		FixupMaterialSlotName();
 
 		CacheDerivedData();
 

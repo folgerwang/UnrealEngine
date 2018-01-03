@@ -661,6 +661,12 @@ public:
 	ENGINE_API class UMeshDescription* GetOriginalMeshDescription(int32 LodIndex = 0);
 	ENGINE_API void SetOriginalMeshDescription(int32 LodIndex, class UMeshDescription* MeshDescription);
 	ENGINE_API void ClearOriginalMeshDescription(int32 LodIndex);
+
+	/**
+	 * Internal function use to make sure all imported material slot name are unique and non empty.
+	 */
+	void FixupMaterialSlotName();
+
 #endif
 
 	/** Pre-build navigation collision */

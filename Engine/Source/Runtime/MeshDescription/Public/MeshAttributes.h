@@ -45,5 +45,6 @@ namespace MeshAttribute
 		extern MESHDESCRIPTION_API const FName ImportedMaterialSlotName;
 		extern MESHDESCRIPTION_API const FName EnableCollision;
 		extern MESHDESCRIPTION_API const FName CastShadow;
+		extern MESHDESCRIPTION_API const FName MaterialIndex;
 	}
 }
