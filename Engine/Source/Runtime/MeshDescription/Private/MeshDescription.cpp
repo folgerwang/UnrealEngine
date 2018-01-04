@@ -507,3 +507,35 @@ void UMeshDescription::TriangulateMesh()
 		ComputePolygonTriangulation(PolygonID, Polygon.Triangles);
 	}
 }
+
+void UMeshDescription::ReversePolygonFacing(const FPolygonID PolygonID)
+{
+	FMeshPolygon& Polygon = GetPolygon(PolygonID);
+
+	//Build a reverse perimeter
+	TArray<FVertexInstanceID> ReverseVertexInstanceIDs;
+	int32 PerimeterReverseIndex = Polygon.PerimeterContour.VertexInstanceIDs.Num() - 1;
+	for(const FVertexInstanceID& VertexInstanceID : Polygon.PerimeterContour.VertexInstanceIDs)
+	{
+		ReverseVertexInstanceIDs[PerimeterReverseIndex] = VertexInstanceID;
+		PerimeterReverseIndex--;
+	}
+	//Assign the reverse perimeter
+	for (int32 VertexInstanceIndex = 0; VertexInstanceIndex < ReverseVertexInstanceIDs.Num(); ++VertexInstanceIndex)
+	{
+		Polygon.PerimeterContour.VertexInstanceIDs[VertexInstanceIndex] = ReverseVertexInstanceIDs[VertexInstanceIndex];
+	}
+	
+	//Triangulate the polygon since we reverse the indices
+	ComputePolygonTriangulation(PolygonID, Polygon.Triangles);
+}
+
+void UMeshDescription::ReverseAllPolygonFacing()
+{
+	// Perform triangulation directly into mesh polygons
+	for (const FPolygonID PolygonID : Polygons().GetElementIDs())
+	{
+		FMeshPolygon& Polygon = PolygonArray[PolygonID];
+		ReversePolygonFacing(PolygonID);
+	}
+}

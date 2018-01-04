@@ -607,7 +607,9 @@ public:
 		return PolygonGroupArray.IsValid( PolygonGroupID );
 	}
 
-
+//////////////////////////////////////////////////////////////////////////
+// Meshdescription general functions
+public:
 	/** Returns the edge ID defined by the two given vertex IDs, if there is one; otherwise FEdgeID::Invalid */
 	FEdgeID GetVertexPairEdge( const FVertexID VertexID0, const FVertexID VertexID1 ) const
 	{
@@ -740,9 +742,11 @@ public:
 	FString GetIdString();
 #endif
 
-public:
 	void ComputePolygonTriangulation(const FPolygonID PolygonID, TArray<FMeshTriangle>& OutTriangles);
 	void TriangulateMesh();
+
+	void ReversePolygonFacing(const FPolygonID PolygonID);
+	void ReverseAllPolygonFacing();
 
 private:
 	bool VectorsOnSameSide(const FVector& Vec, const FVector& A, const FVector& B, const float SameSideDotProductEpsilon);
