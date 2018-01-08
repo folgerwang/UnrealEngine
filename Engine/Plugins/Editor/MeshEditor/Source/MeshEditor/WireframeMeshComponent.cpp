@@ -15,6 +15,17 @@
 #include "Engine/Engine.h"
 
 
+void UWireframeMesh::BeginDestroy()
+{
+	Super::BeginDestroy();
+
+	if( !HasAnyFlags( RF_ClassDefaultObject ) )
+	{
+		ReleaseResources();
+	}
+}
+
+
 void UWireframeMesh::Reset()
 {
 	Vertices.Reset();

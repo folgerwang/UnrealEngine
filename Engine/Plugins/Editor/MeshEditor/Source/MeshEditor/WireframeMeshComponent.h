@@ -117,6 +117,8 @@ public:
 		: bBoundsDirty( true )
 	{}
 
+	virtual void BeginDestroy();
+
 	void Reset();
 	void AddVertex( const FVertexID VertexID );
 	void SetVertexPosition( const FVertexID VertexID, const FVector& Position );
