@@ -4,25 +4,40 @@
 #include "CoreMinimal.h"
 #include "CoreTypes.h"
 
-DECLARE_LOG_CATEGORY_EXTERN(LogBuildStatistic, Log, All);
+DECLARE_LOG_CATEGORY_EXTERN(LogMeshDescriptionBuildStatistic, Log, All);
 
 namespace BuildStatisticManager
 {
+	struct FStatisticData
+	{
+	public:
+		FStatisticData()
+			: TotalTime(0.0)
+			, Counter(0)
+		{ }
+		double TotalTime;
+		uint32 Counter;
+	};
+
 	class FBuildStatisticScope
 	{
 	public:
-		FBuildStatisticScope(const FString& InTimerDescription)
+		FBuildStatisticScope(const FString& InTimerDescription, FStatisticData& InStatisticData)
+			: StatisticData(InStatisticData)
+			, TimerDescription(InTimerDescription)
 		{
-			TimerDescription = InTimerDescription;
 			StartTime = FPlatformTime::Cycles();
 		}
 		~FBuildStatisticScope()
 		{
-			float ScopeTime = FPlatformTime::ToSeconds(FPlatformTime::Cycles() - StartTime);
-			UE_LOG(LogBuildStatistic, Log, TEXT("%s: %f seconds"), *TimerDescription, ScopeTime);
+			double ScopeTime = FPlatformTime::ToSeconds64(FPlatformTime::Cycles() - StartTime);
+			StatisticData.TotalTime += ScopeTime;
+			StatisticData.Counter += 1;
+			UE_LOG(LogMeshDescriptionBuildStatistic, Log, TEXT("%s: %f seconds - Counter: %d - Total Time: %f"), *TimerDescription, ScopeTime, StatisticData.Counter, StatisticData.TotalTime);
 		}
 	private:
 		int32 StartTime;
 		FString TimerDescription;
+		FStatisticData& StatisticData;
 	};
 }

@@ -16,6 +16,8 @@ class EDITABLEMESH_API UEditableMeshAdapter : public UObject
 
 public:
 
+	virtual bool FindOrAddMaterial(class UMaterialInterface* Material, int32& MaterialIndex, FName& ImportedMaterialName) PURE_VIRTUAL(, return false;);
+
 	virtual void InitializeFromEditableMesh( const UEditableMesh* EditableMesh ) PURE_VIRTUAL(,);
 	virtual void OnRebuildRenderMeshStart( const UEditableMesh* EditableMesh, const bool bInvalidateLighting ) PURE_VIRTUAL(,);
 	virtual void OnRebuildRenderMesh( const UEditableMesh* EditableMesh ) PURE_VIRTUAL(,);

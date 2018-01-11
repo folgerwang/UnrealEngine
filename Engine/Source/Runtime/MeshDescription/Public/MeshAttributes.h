@@ -40,7 +40,6 @@ namespace MeshAttribute
 
 	namespace PolygonGroup
 	{
-		extern MESHDESCRIPTION_API const FName MaterialAsset;
 		extern MESHDESCRIPTION_API const FName MaterialSlotName;
 		extern MESHDESCRIPTION_API const FName ImportedMaterialSlotName;
 		extern MESHDESCRIPTION_API const FName EnableCollision;

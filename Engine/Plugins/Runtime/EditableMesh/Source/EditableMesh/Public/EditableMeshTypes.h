@@ -334,8 +334,7 @@ enum class EMeshElementAttributeType : uint8
 	Float,
 	Int,
 	Bool,
-	FName,
-	FSoftObjectPath
+	FName
 };
 
 
@@ -356,7 +355,6 @@ struct FMeshElementAttributeValue
 	explicit FMeshElementAttributeValue( const int Value ) : Type( EMeshElementAttributeType::Int ), Value_Int( Value ) {}
 	explicit FMeshElementAttributeValue( const bool Value ) : Type( EMeshElementAttributeType::Bool ), Value_Bool( Value ) {}
 	explicit FMeshElementAttributeValue( const FName Value ) : Type( EMeshElementAttributeType::FName ), Value_FName( Value ) {}
-	explicit FMeshElementAttributeValue(FSoftObjectPath const Value ) : Type( EMeshElementAttributeType::FSoftObjectPath), Value_FSoftObjectPath( Value ) {}
 
 	/** Returns the type of this attribute value */
 	EMeshElementAttributeType GetType() const
@@ -373,7 +371,6 @@ struct FMeshElementAttributeValue
 	template <> int GetValue<int>() const { check( Type == EMeshElementAttributeType::Int ); return Value_Int; }
 	template <> bool GetValue<bool>() const { check( Type == EMeshElementAttributeType::Bool ); return Value_Bool; }
 	template <> FName GetValue<FName>() const { check( Type == EMeshElementAttributeType::FName ); return Value_FName; }
-	template <> FSoftObjectPath GetValue<FSoftObjectPath>() const { check( Type == EMeshElementAttributeType::FSoftObjectPath); return Value_FSoftObjectPath; }
 
 	/**
 	 * Calls the specified polymorphic lambda, with this attribute value as its passed-in parameter.
@@ -393,7 +390,6 @@ struct FMeshElementAttributeValue
 			case EMeshElementAttributeType::Int: Func( Value_Int ); break;
 			case EMeshElementAttributeType::Bool: Func( Value_Bool ); break;
 			case EMeshElementAttributeType::FName: Func( Value_FName ); break;
-			case EMeshElementAttributeType::FSoftObjectPath: Func(Value_FSoftObjectPath); break;
 		}
 	}
 
@@ -410,7 +406,6 @@ struct FMeshElementAttributeValue
 			case EMeshElementAttributeType::Int: return Lex::ToString( Value_Int );
 			case EMeshElementAttributeType::Bool: return Lex::ToString( Value_Bool );
 			case EMeshElementAttributeType::FName: return Value_FName.ToString();
-			case EMeshElementAttributeType::FSoftObjectPath: return GetNameSafe(Value_FSoftObjectPath.TryLoad());
 		}
 
 		return FString();
@@ -430,7 +425,6 @@ struct FMeshElementAttributeValue
 			case EMeshElementAttributeType::Int: Ar << AttributeValue.Value_Int; break;
 			case EMeshElementAttributeType::Bool: Ar << AttributeValue.Value_Bool; break;
 			case EMeshElementAttributeType::FName: Ar << AttributeValue.Value_FName; break;
-			case EMeshElementAttributeType::FSoftObjectPath: Ar << AttributeValue.Value_FSoftObjectPath; break;
 		}
 
 		return Ar;
@@ -454,7 +448,6 @@ struct FMeshElementAttributeValue
 			case EMeshElementAttributeType::Int: return Value1.Value_Int == Value2.Value_Int;
 			case EMeshElementAttributeType::Bool: return Value1.Value_Bool == Value2.Value_Bool;
 			case EMeshElementAttributeType::FName: return Value1.Value_FName == Value2.Value_FName;
-			case EMeshElementAttributeType::FSoftObjectPath: return Value1.Value_FSoftObjectPath == Value2.Value_FSoftObjectPath;
 		}
 
 		return false;
@@ -475,7 +468,6 @@ private:
 	int Value_Int;
 	bool Value_Bool;
 	FName Value_FName;
-	FSoftObjectPath Value_FSoftObjectPath;
 };
 
 

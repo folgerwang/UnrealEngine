@@ -121,6 +121,8 @@ public:
 	void InitEditableStaticMesh( UEditableMesh* EditableMesh, class UPrimitiveComponent& Component, const FEditableMeshSubMeshAddress& InitSubMeshAddress );
 	EDITABLEMESH_API void InitFromBlankStaticMesh( UEditableMesh* EditableMesh, UStaticMesh& InStaticMesh );
 
+	virtual bool FindOrAddMaterial(class UMaterialInterface* Material, int32& MaterialIndex, FName& ImportedMaterialName) override;
+
 	virtual void InitializeFromEditableMesh( const UEditableMesh* EditableMesh ) override;
 	virtual void OnRebuildRenderMeshStart( const UEditableMesh* EditableMesh, const bool bInvalidateLighting ) override;
 	virtual void OnRebuildRenderMesh( const UEditableMesh* EditableMesh ) override;

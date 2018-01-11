@@ -22,6 +22,8 @@ public:
 	/** Creates a editable static mesh from the specified component and sub-mesh address */
 	void Initialize( UEditableMesh* EditableMesh, class UWireframeMesh* WireframeMesh );
 
+	virtual bool FindOrAddMaterial(class UMaterialInterface* Material, int32& MaterialIndex, FName& ImportedMaterialName) override { return false; }
+
 	virtual void InitializeFromEditableMesh( const UEditableMesh* EditableMesh ) override {}
 	virtual void OnRebuildRenderMeshStart( const UEditableMesh* EditableMesh, const bool bInvalidateLighting ) override;
 	virtual void OnRebuildRenderMesh( const UEditableMesh* EditableMesh ) override;

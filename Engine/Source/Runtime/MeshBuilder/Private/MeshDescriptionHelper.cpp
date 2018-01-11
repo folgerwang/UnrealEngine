@@ -20,9 +20,12 @@
 #include "IMeshReductionManagerModule.h"
 #include "Materials/Material.h"
 #include "RawMesh.h"
+#include "BuildStatisticManager.h"
 
 //Enable all check
 //#define ENABLE_NTB_CHECK
+
+DEFINE_LOG_CATEGORY(LogMeshDescriptionBuildStatistic);
 
 namespace MeshDescriptionMikktSpaceInterface
 {
@@ -54,7 +57,7 @@ UMeshDescription* FMeshDescriptionHelper::GetRenderMeshDescription(UObject* Owne
 		return RenderMeshDescription;
 	}
 	//Copy The Original Mesh Description in the render mesh description
-	RenderMeshDescription = Cast<UMeshDescription>(StaticDuplicateObject(OriginalMeshDescription, Owner, NAME_None, RF_NoFlags));
+	RenderMeshDescription = Cast<UMeshDescription>(StaticDuplicateObject(OriginalMeshDescription, Owner, NAME_None));
 	float ComparisonThreshold = BuildSettings->bRemoveDegenerates ? THRESH_POINTS_ARE_SAME : 0.0f;
 
 	FVertexInstanceArray& VertexInstanceArray = RenderMeshDescription->VertexInstances();
@@ -925,6 +928,8 @@ void FMeshDescriptionHelper::ConvertSmoothGroupToHardEdges(const struct FRawMesh
 
 void FMeshDescriptionHelper::ConverToRawMesh(const UMeshDescription* SourceMeshDescription, struct FRawMesh &DestinationRawMesh)
 {
+	static BuildStatisticManager::FStatisticData StatisticData;
+	BuildStatisticManager::FBuildStatisticScope(TEXT("ConvertToRawMesh"), StatisticData);
 	DestinationRawMesh.Empty();
 
 	//Gather all array data
@@ -995,6 +1000,8 @@ void FMeshDescriptionHelper::ConverToRawMesh(const UMeshDescription* SourceMeshD
 
 void FMeshDescriptionHelper::ConverFromRawMesh(const struct FRawMesh &SourceRawMesh, UMeshDescription* DestinationMeshDescription)
 {
+	static BuildStatisticManager::FStatisticData StatisticData;
+	BuildStatisticManager::FBuildStatisticScope(TEXT("ConverFromRawMesh"), StatisticData);
 	DestinationMeshDescription->Empty();
 	//Gather all array data
 	TVertexAttributeArray<FVector>& VertexPositions = DestinationMeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);

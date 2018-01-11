@@ -1661,12 +1661,16 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 		}
 	}
 
-	if (!GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription)
+	if (GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription)
+	{
+		// SetOriginalMeshDescription will generate the rawmesh data
+		StaticMesh->SetOriginalMeshDescription(LODIndex, MeshDescription);
+	}
+	else
 	{
 		// Store the new raw mesh.
-		SrcModel.RawMeshBulkData->SaveRawMesh(NewRawMesh);
+		SrcModel.SaveRawMesh(NewRawMesh);
 	}
-
 
 	if (bBuildStatus)
 	{
@@ -1834,7 +1838,7 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 					}
 				}
 
-				SrcModel.RawMeshBulkData->SaveRawMesh(LocalRawMesh);
+				SrcModel.SaveRawMesh(LocalRawMesh);
 			}
 
 			// Setup per-section info and the materials array.

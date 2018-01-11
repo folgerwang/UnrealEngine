@@ -84,7 +84,15 @@ struct FRawMesh
 	 * Also updates the material index map.
 	 */
 	RAWMESH_API void CompactMaterialIndices();
+
 };
+
+/**
+* Add the raw mesh data to an archive
+*
+*/
+RAWMESH_API FArchive& operator<<(FArchive& Ar, FRawMesh& RawMesh);
+
 
 /**
  * Bulk data storage for raw meshes.

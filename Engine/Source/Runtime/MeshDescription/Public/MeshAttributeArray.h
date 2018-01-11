@@ -19,8 +19,7 @@ using AttributeTypes = TTuple
 	float,
 	int,
 	bool,
-	FName,
-	FSoftObjectPath
+	FName
 >;
 
 

@@ -2279,10 +2279,15 @@ bool FMeshEditorMode::AssignMaterialToSelectedPolygons( UMaterialInterface* Sele
 
 		// Refresh selection (committing may have created a new mesh instance)
 		GetSelectedMeshesAndPolygons( /* Out */ MeshesAndPolygons );
-
 		for( const auto& MeshAndPolygons : MeshesAndPolygons )
 		{
 			UEditableMesh* EditableMesh = MeshAndPolygons.Key;
+
+			int32 MaterialIndex = INDEX_NONE;
+			FName ImportedMaterialName = NAME_None;
+			//We should be able to add a material at least one adapter must succeed
+			check(EditableMesh->FindOrAddMaterial(SelectedMaterial, MaterialIndex, ImportedMaterialName));
+
 			const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 
 			UPrimitiveComponent* Component = nullptr;
@@ -2301,17 +2306,17 @@ bool FMeshEditorMode::AssignMaterialToSelectedPolygons( UMaterialInterface* Sele
 				// further details if there is more than one polygon group which matches the material.
 				FPolygonGroupID PolygonGroupToAssign = FPolygonGroupID::Invalid;
 
-				const TPolygonGroupAttributeArray<FSoftObjectPath>& PolygonGroupMaterialAssets = MeshDescription->PolygonGroupAttributes().GetAttributes<FSoftObjectPath>( MeshAttribute::PolygonGroup::MaterialAsset );
+				const TPolygonGroupAttributeArray<int>& PolygonGroupMaterialIndexes = MeshDescription->PolygonGroupAttributes().GetAttributes<int>(MeshAttribute::PolygonGroup::MaterialIndex);
+				const TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotName = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
 
 				for( const FPolygonGroupID PolygonGroupID : MeshDescription->PolygonGroups().GetElementIDs() )
 				{
-					UMaterialInterface* Material = Cast<UMaterialInterface>( PolygonGroupMaterialAssets[ PolygonGroupID ].TryLoad() );
-					if( Material == SelectedMaterial )
+					int32 PolygonGroupMaterialIndex = PolygonGroupMaterialIndexes[PolygonGroupID];
+					if(MaterialIndex == PolygonGroupMaterialIndex)
 					{
 						// We only expect to find one polygon group containing this material at the moment.
 						// We need to provide a way of distinguishing different polygon groups with the same material.
 						ensure( PolygonGroupToAssign == FPolygonGroupID::Invalid );
-
 						PolygonGroupToAssign = PolygonGroupID;
 					}
 				}
@@ -2319,36 +2324,16 @@ bool FMeshEditorMode::AssignMaterialToSelectedPolygons( UMaterialInterface* Sele
 				// If we didn't find the material being used anywhere, create a new polygon group
 				if( PolygonGroupToAssign == FPolygonGroupID::Invalid )
 				{
-					// Helper function which returns a unique FName for the material slot name, based on the material's asset name,
-					// and adding a unique suffix if there are other polygon groups with the same material slot name.
-					auto MakeUniqueSlotName = []( const UMeshDescription* MeshDescription, FName Name ) -> FName
-					{
-						const TPolygonGroupAttributeArray<FName>& MaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>( MeshAttribute::PolygonGroup::MaterialSlotName );
-						for( const FPolygonGroupID PolygonGroupID : MeshDescription->PolygonGroups().GetElementIDs() )
-						{
-							const FName ExistingName = MaterialSlotNames[ PolygonGroupID ];
-							if( ExistingName.GetComparisonIndex() == Name.GetComparisonIndex() )
-							{
-								Name = FName( Name, FMath::Max( Name.GetNumber(), ExistingName.GetNumber() + 1 ) );
-							}
-						}
-						return Name;
-					};
-
-					const FName UniqueSlotName = MakeUniqueSlotName( MeshDescription, SelectedMaterial->GetFName() );
 
 					static TArray<FPolygonGroupToCreate> PolygonGroupsToCreate;
 					PolygonGroupsToCreate.Reset( 1 );
 					PolygonGroupsToCreate.Emplace();
 					
 					FPolygonGroupToCreate& PolygonGroupToCreate = PolygonGroupsToCreate.Last();
-					PolygonGroupToCreate.PolygonGroupAttributes.Attributes.Emplace( MeshAttribute::PolygonGroup::MaterialAsset, 0, FMeshElementAttributeValue( FSoftObjectPath(SelectedMaterial) ) );
-					PolygonGroupToCreate.PolygonGroupAttributes.Attributes.Emplace( MeshAttribute::PolygonGroup::MaterialSlotName, 0, FMeshElementAttributeValue( UniqueSlotName ) );
-					PolygonGroupToCreate.PolygonGroupAttributes.Attributes.Emplace( MeshAttribute::PolygonGroup::CastShadow, 0, FMeshElementAttributeValue( true ) );
-					PolygonGroupToCreate.PolygonGroupAttributes.Attributes.Emplace( MeshAttribute::PolygonGroup::EnableCollision, 0, FMeshElementAttributeValue( true ) );
-
+					PolygonGroupToCreate.PolygonGroupAttributes.Attributes.Emplace(MeshAttribute::PolygonGroup::ImportedMaterialSlotName, 0, FMeshElementAttributeValue(ImportedMaterialName));
+					PolygonGroupToCreate.PolygonGroupAttributes.Attributes.Emplace(MeshAttribute::PolygonGroup::MaterialIndex, 0, FMeshElementAttributeValue(MaterialIndex));
 					static TArray<FPolygonGroupID> NewPolygonGroupIDs;
-					EditableMesh->CreatePolygonGroups( PolygonGroupsToCreate, NewPolygonGroupIDs );
+					EditableMesh->CreatePolygonGroups( PolygonGroupsToCreate, NewPolygonGroupIDs);
 					PolygonGroupToAssign = NewPolygonGroupIDs[ 0 ];
 				}
 

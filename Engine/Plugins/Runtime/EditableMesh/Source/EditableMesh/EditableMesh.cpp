@@ -567,6 +567,22 @@ void UEditableMesh::RebuildRenderMesh()
 	}
 }
 
+bool UEditableMesh::FindOrAddMaterial(class UMaterialInterface* Material, int32& MaterialIndex, FName& ImportedMaterialName)
+{
+	//Only one adapter should add a material
+	//TODO: Do we want to support editing a SM and a SK sharing a MeshDescription?
+	for (UEditableMeshAdapter* Adapter : Adapters)
+	{
+		if (Adapter->FindOrAddMaterial(Material, MaterialIndex, ImportedMaterialName))
+		{
+			if (MaterialIndex != INDEX_NONE)
+			{
+				return true;
+			}
+		}
+	}
+	return false;
+}
 
 void UEditableMesh::StartModification( const EMeshModificationType MeshModificationType, const EMeshTopologyChange MeshTopologyChange )
 {
@@ -4545,22 +4561,28 @@ void UEditableMesh::CreatePolygonGroups( const TArray<FPolygonGroupToCreate>& Po
 			{
 				PolygonGroupID = GetMeshDescription()->CreatePolygonGroup();
 			}
-
+			//Apply the PolygonGroup attribute here
+			for (const FMeshElementAttributeData& EdgeAttribute : PolygonGroupToCreate.PolygonGroupAttributes.Attributes)
+			{
+				ApplyAttribute(GetMeshDescription()->PolygonGroupAttributes(), EdgeAttribute, PolygonGroupID);
+			}
 			OutNewPolygonGroupIDs.Add( PolygonGroupID );
 		}
 	}
 
-	for( UEditableMeshAdapter* Adapter : Adapters )
+	//Notify adapters that we just create some PolygonGroup
+	//This must be call before sending the modified attributes to the adapter
+	for (UEditableMeshAdapter* Adapter : Adapters)
 	{
-		Adapter->OnCreatePolygonGroups( this, OutNewPolygonGroupIDs );
+		Adapter->OnCreatePolygonGroups(this, OutNewPolygonGroupIDs);
 	}
 
-	// Apply attributes
-	for( int32 Index = 0; Index < OutNewPolygonGroupIDs.Num(); ++Index )
+	// Apply attributes and notify the adapter for each modified attributes
+	for (int32 Index = 0; Index < OutNewPolygonGroupIDs.Num(); ++Index)
 	{
-		for( const FMeshElementAttributeData& EdgeAttribute : PolygonGroupsToCreate[ Index ].PolygonGroupAttributes.Attributes )
+		for (const FMeshElementAttributeData& EdgeAttribute : PolygonGroupsToCreate[Index].PolygonGroupAttributes.Attributes)
 		{
-			SetPolygonGroupAttribute( OutNewPolygonGroupIDs[ Index ], EdgeAttribute );
+			SetPolygonGroupAttribute(OutNewPolygonGroupIDs[Index], EdgeAttribute);
 		}
 	}
 

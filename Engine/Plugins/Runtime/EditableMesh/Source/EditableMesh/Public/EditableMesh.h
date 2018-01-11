@@ -210,6 +210,8 @@ public:
 	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
 	FMeshTriangle GetPolygonTriangulatedTriangle( const FPolygonID PolygonID, int32 PolygonTriangleNumber ) const;
 
+	bool FindOrAddMaterial(class UMaterialInterface* Material, int32& MaterialIndex, FName& ImportedMaterialName);
+
 protected:
 
 	/** Given a set of index remappings, fixes up references in the octree */
