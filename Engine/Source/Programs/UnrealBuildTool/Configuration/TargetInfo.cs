@@ -13,8 +13,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Information about a target, passed along when creating a module descriptor
 	/// </summary>
-	[Serializable]
-	public class TargetInfo : ISerializable
+	public class TargetInfo
 	{
 		/// <summary>
 		/// Name of the target
@@ -42,6 +41,11 @@ namespace UnrealBuildTool
 		public readonly FileReference ProjectFile;
 
 		/// <summary>
+		/// The current build version
+		/// </summary>
+		public readonly ReadOnlyBuildVersion Version;
+
+		/// <summary>
 		/// The type of the target (if known)
 		/// </summary>
 		public readonly TargetType? Type;
@@ -59,13 +63,15 @@ namespace UnrealBuildTool
 		/// <param name="Configuration">The configuration being built</param>
 		/// <param name="Architecture">The architecture being built for</param>
 		/// <param name="ProjectFile">Path to the project file containing the target</param>
-		public TargetInfo(string Name, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string Architecture, FileReference ProjectFile)
+		/// <param name="Version">The current build version</param>
+		public TargetInfo(string Name, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, string Architecture, FileReference ProjectFile, ReadOnlyBuildVersion Version)
 		{
 			this.Name = Name;
 			this.Platform = Platform;
 			this.Configuration = Configuration;
 			this.Architecture = Architecture;
 			this.ProjectFile = ProjectFile;
+			this.Version = Version;
 		}
 
 		/// <summary>
@@ -79,54 +85,9 @@ namespace UnrealBuildTool
 			this.Configuration = Rules.Configuration;
 			this.Architecture = Rules.Architecture;
 			this.ProjectFile = Rules.ProjectFile;
+			this.Version = Rules.Version;
 			this.Type = Rules.Type;
 			this.bIsMonolithic = (Rules.LinkType == TargetLinkType.Monolithic);
-		}
-
-		/// <summary>
-		/// Reads a TargetInfo object from a binary archve
-		/// </summary>
-		/// <param name="Info">Serialization info</param>
-		/// <param name="Context">Streaming context</param>
-		public TargetInfo(SerializationInfo Info, StreamingContext Context)
-		{
-			Name = Info.GetString("nm");
-			Platform = (UnrealTargetPlatform)Info.GetInt32("pl");
-			Architecture = Info.GetString("ar");
-			Configuration = (UnrealTargetConfiguration)Info.GetInt32("co");
-			ProjectFile = (FileReference)Info.GetValue("pf", typeof(FileReference));
-			if (Info.GetBoolean("t?"))
-			{
-				Type = (TargetType)Info.GetInt32("tt");
-			}
-			if (Info.GetBoolean("m?"))
-			{
-				bIsMonolithic = Info.GetBoolean("mo");
-			}
-		}
-
-		/// <summary>
-		/// Serialize the object
-		/// </summary>
-		/// <param name="Info">Serialization info</param>
-		/// <param name="Context">Streaming context</param>
-		public void GetObjectData(SerializationInfo Info, StreamingContext Context)
-		{
-			Info.AddValue("nm", Name);
-			Info.AddValue("pl", (int)Platform);
-			Info.AddValue("ar", Architecture);
-			Info.AddValue("co", (int)Configuration);
-			Info.AddValue("pf", ProjectFile);
-			Info.AddValue("t?", Type.HasValue);
-			if (Type.HasValue)
-			{
-				Info.AddValue("tt", (int)Type.Value);
-			}
-			Info.AddValue("m?", bIsMonolithic.HasValue);
-			if (bIsMonolithic.HasValue)
-			{
-				Info.AddValue("mo", bIsMonolithic);
-			}
 		}
 
 		/// <summary>

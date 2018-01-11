@@ -575,7 +575,8 @@ void FMaterialEditor::InitMaterialEditor( const EToolkitMode::Type Mode, const T
 				}
 				else if (MaterialFunction->GetMaterialFunctionUsage() == EMaterialFunctionUsage::MaterialLayerBlend)
 				{
-					UMaterialExpression* InputTop = CreateNewMaterialExpression(UMaterialExpressionFunctionInput::StaticClass(), FVector2D(-200, 200), false, true);
+					// "Top layer" should be below "bottom layer" on the graph, to align with B on blend nodes
+					UMaterialExpression* InputTop = CreateNewMaterialExpression(UMaterialExpressionFunctionInput::StaticClass(), FVector2D(-200, 400), false, true);
 					if (InputTop)
 					{
 						UMaterialExpressionFunctionInput* BaseAttributesInput = Cast<UMaterialExpressionFunctionInput>(InputTop);
@@ -584,7 +585,7 @@ void FMaterialEditor::InitMaterialEditor( const EToolkitMode::Type Mode, const T
 						BaseAttributesInput->bUsePreviewValueAsDefault = true;
 					}
 
-					UMaterialExpression* InputBottom = CreateNewMaterialExpression(UMaterialExpressionFunctionInput::StaticClass(), FVector2D(-200, 400), false, true);
+					UMaterialExpression* InputBottom = CreateNewMaterialExpression(UMaterialExpressionFunctionInput::StaticClass(), FVector2D(-200, 200), false, true);
 					if (InputBottom)
 					{
 						UMaterialExpressionFunctionInput* BaseAttributesInput = Cast<UMaterialExpressionFunctionInput>(InputBottom);
@@ -709,6 +710,7 @@ FMaterialEditor::~FMaterialEditor()
 
 void FMaterialEditor::GetAllMaterialExpressionGroups(TArray<FString>* OutGroups)
 {
+	TArray<FParameterGroupData> UpdatedGroups;
 	for (int32 MaterialExpressionIndex = 0; MaterialExpressionIndex < Material->Expressions.Num(); ++MaterialExpressionIndex)
 	{
 		UMaterialExpression* MaterialExpression = Material->Expressions[ MaterialExpressionIndex ];
@@ -717,20 +719,57 @@ void FMaterialEditor::GetAllMaterialExpressionGroups(TArray<FString>* OutGroups)
 		UMaterialExpressionFontSampleParameter* FontS = Cast<UMaterialExpressionFontSampleParameter>(MaterialExpression);
 		if (Param)
 		{
-			OutGroups->AddUnique(Param->Group.ToString());
-			Material->AttemptInsertNewGroupName(Param->Group.ToString());
+			const FString& GroupName = Param->Group.ToString();
+			OutGroups->AddUnique(GroupName);
+			if (Material->AttemptInsertNewGroupName(GroupName))
+			{
+				UpdatedGroups.Add(FParameterGroupData(GroupName, 0));
+			}
+			else
+			{
+				FParameterGroupData* ParameterGroupDataElement = Material->ParameterGroupData.FindByPredicate([&GroupName](const FParameterGroupData& DataElement)
+				{
+					return GroupName == DataElement.GroupName;
+				});
+				UpdatedGroups.Add(FParameterGroupData(GroupName, ParameterGroupDataElement->GroupSortPriority));
+			}
 		}
 		else if (TextureS)
 		{
-			OutGroups->AddUnique(TextureS->Group.ToString());
-			Material->AttemptInsertNewGroupName(TextureS->Group.ToString());
+			const FString& GroupName = TextureS->Group.ToString();
+			OutGroups->AddUnique(GroupName);
+			if (Material->AttemptInsertNewGroupName(GroupName))
+			{
+				UpdatedGroups.Add(FParameterGroupData(GroupName, 0));
+			}
+			else
+			{
+				FParameterGroupData* ParameterGroupDataElement = Material->ParameterGroupData.FindByPredicate([&GroupName](const FParameterGroupData& DataElement)
+				{
+					return GroupName == DataElement.GroupName;
+				});
+				UpdatedGroups.Add(FParameterGroupData(GroupName, ParameterGroupDataElement->GroupSortPriority));
+			}
 		}
 		else if (FontS)
 		{
-			OutGroups->AddUnique(FontS->Group.ToString());
-			Material->AttemptInsertNewGroupName(FontS->Group.ToString());
+			const FString& GroupName = FontS->Group.ToString();
+			OutGroups->AddUnique(GroupName);
+			if (Material->AttemptInsertNewGroupName(GroupName))
+			{
+				UpdatedGroups.Add(FParameterGroupData(GroupName, 0));
+			}
+			else
+			{
+				FParameterGroupData* ParameterGroupDataElement = Material->ParameterGroupData.FindByPredicate([&GroupName](const FParameterGroupData& DataElement)
+				{
+					return GroupName == DataElement.GroupName;
+				});
+				UpdatedGroups.Add(FParameterGroupData(GroupName, ParameterGroupDataElement->GroupSortPriority));
+			}
 		}
 	}
+	Material->ParameterGroupData = UpdatedGroups;
 }
 
 void FMaterialEditor::UpdatePreviewViewportsVisibility()
@@ -4136,27 +4175,6 @@ TSharedRef<SGraphEditor> FMaterialEditor::CreateGraphEditorWidget()
 
 	}
 
-	FGraphAppearanceInfo AppearanceInfo;
-	
-	if (MaterialFunction)
-	{
-		switch(MaterialFunction->GetMaterialFunctionUsage())
-		{
-		case EMaterialFunctionUsage::MaterialLayer:
-			AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText_MaterialFunction", "MATERIAL LAYER");
-			break;
-		case EMaterialFunctionUsage::MaterialLayerBlend:
-			AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText_MaterialFunction", "MATERIAL LAYER BLEND");
-			break;
-		default:
-			AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText_MaterialFunction", "MATERIAL FUNCTION");
-		}
-	}
-	else
-	{
-		AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText_Material", "MATERIAL");
-	}
-
 	SGraphEditor::FGraphEditorEvents InEvents;
 	InEvents.OnSelectionChanged = SGraphEditor::FOnSelectionChanged::CreateSP(this, &FMaterialEditor::OnSelectedNodesChanged);
 	InEvents.OnNodeDoubleClicked = FSingleNodeEvent::CreateSP(this, &FMaterialEditor::OnNodeDoubleClicked);
@@ -4173,10 +4191,36 @@ TSharedRef<SGraphEditor> FMaterialEditor::CreateGraphEditorWidget()
 		.AdditionalCommands(GraphEditorCommands)
 		.IsEditable(true)
 		.TitleBar(TitleBarWidget)
-		.Appearance(AppearanceInfo)
+		.Appearance(this, &FMaterialEditor::GetGraphAppearance)
 		.GraphToEdit(Material->MaterialGraph)
 		.GraphEvents(InEvents)
 		.ShowGraphStateOverlay(false);
+}
+
+FGraphAppearanceInfo FMaterialEditor::GetGraphAppearance() const
+{
+	FGraphAppearanceInfo AppearanceInfo;
+
+	if (MaterialFunction)
+	{
+		switch (MaterialFunction->GetMaterialFunctionUsage())
+		{
+		case EMaterialFunctionUsage::MaterialLayer:
+			AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText_MaterialFunction", "MATERIAL LAYER");
+			break;
+		case EMaterialFunctionUsage::MaterialLayerBlend:
+			AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText_MaterialFunction", "MATERIAL LAYER BLEND");
+			break;
+		default:
+			AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText_MaterialFunction", "MATERIAL FUNCTION");
+		}
+	}
+	else
+	{
+		AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText_Material", "MATERIAL");
+	}
+
+	return AppearanceInfo;
 }
 
 void FMaterialEditor::CleanUnusedExpressions()

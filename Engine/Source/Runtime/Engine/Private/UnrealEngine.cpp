@@ -1168,8 +1168,17 @@ void UEngine::Init(IEngineLoop* InEngineLoop)
 		{
 			const FPluginDescriptor& Desc = Plugin->GetDescriptor();
 
+			// encode a minimal plugin description for the crash reporter
 			FString DescStr;
-			Desc.Write(DescStr);
+			TSharedRef< TJsonWriter<> > WriterRef = TJsonWriterFactory<>::Create(&DescStr);
+			TJsonWriter<>& Writer = WriterRef.Get();			
+			Writer.WriteObjectStart();
+			Writer.WriteValue(TEXT("Version"), Desc.Version);
+			Writer.WriteValue(TEXT("VersionName"), Desc.VersionName);
+			Writer.WriteValue(TEXT("FriendlyName"), Desc.FriendlyName);
+			Writer.WriteObjectEnd();
+			Writer.Close();
+
 			FGenericCrashContext::AddPlugin(DescStr);
 		}
 	}
@@ -1922,6 +1931,9 @@ void UEngine::InitializeObjectReferences()
 {
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("UEngine::InitializeObjectReferences"), STAT_InitializeObjectReferences, STATGROUP_LoadTime);
 
+	// This initializes the tag data if it hasn't been already, we need to do this before loading any game data
+	UGameplayTagsManager::Get();
+
 	// initialize the special engine/editor materials
 	if (AllowDebugViewmodes())
 	{
@@ -2131,9 +2143,6 @@ void UEngine::InitializeObjectReferences()
 
 	UUserInterfaceSettings* UISettings = GetMutableDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass());
 	UISettings->ForceLoadResources();
-
-	// This initializes the tag data if it hasn't been already
-	UGameplayTagsManager::Get();
 }
 
 void UEngine::InitializePortalServices()

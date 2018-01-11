@@ -117,7 +117,7 @@ namespace UnrealBuildTool.Rules
 				// OVRPlugin
 				{
 					PublicDelayLoadDLLs.Add("OVRPlugin.dll");
-					RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/ThirdParty/Oculus/OVRPlugin/OVRPlugin/" + Target.Platform.ToString() + "/OVRPlugin.dll"));
+					RuntimeDependencies.Add("$(EngineDir)/Binaries/ThirdParty/Oculus/OVRPlugin/OVRPlugin/" + Target.Platform.ToString() + "/OVRPlugin.dll");
 				}
 			}
 			else if (Target.Platform == UnrealTargetPlatform.Android)
@@ -153,7 +153,7 @@ namespace UnrealBuildTool.Rules
 				// AndroidPlugin
 				{
 					string PluginPath = Utils.MakePathRelativeTo(ModuleDirectory, Target.RelativeEnginePath);
-					AdditionalPropertiesForReceipt.Add(new ReceiptProperty("AndroidPlugin", Path.Combine(PluginPath, "GearVR_APL.xml")));
+					AdditionalPropertiesForReceipt.Add("AndroidPlugin", Path.Combine(PluginPath, "GearVR_APL.xml"));
 				}
 			}
 		}

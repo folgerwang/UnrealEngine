@@ -149,6 +149,7 @@ void FBlueprintCompilationManagerImpl::AddReferencedObjects(FReferenceCollector&
 	}
 
 	Collector.AddReferencedObjects(ClassesToReinstance);
+	Collector.AddReferencedObjects(OldCDOs);
 }
 
 void FBlueprintCompilationManagerImpl::QueueForCompilation(const FBPCompileRequest& CompileJob)
@@ -250,6 +251,9 @@ void FBlueprintCompilationManagerImpl::CompileSynchronouslyImpl(const FBPCompile
 		}
 		CompiledBlueprintsToSave.Empty();
 	}
+
+	// We've done our GC, so release old CDO references
+	OldCDOs.Empty();
 }
 
 static double GTimeCompiling = 0.f;
@@ -931,7 +935,7 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*
 			FScopedDurationTimer ReinstTimer(GTimeReinstancing);
 			ReinstanceBatch(Reinstancers, ClassesToReinstance, ObjLoaded);
 
-			OldCDOs.Empty();
+			// We purposefully do not remove the OldCDOs yet, need to keep them in memory past first GC
 		}
 		
 		// STAGE XV: CLEAR TEMPORARY FLAGS
@@ -2110,8 +2114,9 @@ void FBlueprintCompilationManager::FlushCompilationQueue(TArray<UObject*>* ObjLo
 	{
 		BPCMImpl->FlushCompilationQueueImpl(ObjLoaded, false, nullptr);
 
-		// we can't support save on compile when reinstancing is deferred:
+		// We can't support save on compile or keeping old CDOs from GCing when reinstancing is deferred:
 		BPCMImpl->CompiledBlueprintsToSave.Empty();
+		BPCMImpl->OldCDOs.Empty();
 	}
 }
 
@@ -2121,6 +2126,8 @@ void FBlueprintCompilationManager::FlushCompilationQueueAndReinstance()
 	{
 		BPCMImpl->FlushCompilationQueueImpl(nullptr, false, nullptr);
 		BPCMImpl->FlushReinstancingQueueImpl();
+
+		BPCMImpl->OldCDOs.Empty();
 	}
 }
 
