@@ -150,8 +150,13 @@ namespace UnrealBuildTool
 		/// List of runtime dependencies, with convenience methods for adding new items
 		/// </summary>
 		[Serializable]
-		public class RuntimeDependencyList : List<RuntimeDependency>
+		public class RuntimeDependencyList
 		{
+			/// <summary>
+			/// Inner list of runtime dependencies
+			/// </summary>
+			internal List<RuntimeDependency> Inner = new List<RuntimeDependency>();
+
 			/// <summary>
 			/// Default constructor
 			/// </summary>
@@ -163,10 +168,68 @@ namespace UnrealBuildTool
 			/// Add a runtime dependency to the list
 			/// </summary>
 			/// <param name="InPath">Path to the runtime dependency. May include wildcards.</param>
+			public void Add(string InPath)
+			{
+				Inner.Add(new RuntimeDependency(InPath));
+			}
+
+			/// <summary>
+			/// Add a runtime dependency to the list
+			/// </summary>
+			/// <param name="InPath">Path to the runtime dependency. May include wildcards.</param>
 			/// <param name="InType">How to stage this file</param>
 			public void Add(string InPath, StagedFileType InType)
 			{
-				Add(new RuntimeDependency(InPath, InType));
+				Inner.Add(new RuntimeDependency(InPath, InType));
+			}
+
+			/// <summary>
+			/// Add a runtime dependency to the list
+			/// </summary>
+			/// <param name="InRuntimeDependency">RuntimeDependency instance</param>
+			[Obsolete("Constructing a RuntimeDependency object is deprecated. Call RuntimeDependencies.Add() with the path to the file to stage.")]
+			public void Add(RuntimeDependency InRuntimeDependency)
+			{
+				Inner.Add(InRuntimeDependency);
+			}
+		}
+
+		/// <summary>
+		/// List of runtime dependencies, with convenience methods for adding new items
+		/// </summary>
+		[Serializable]
+		public class ReceiptPropertyList
+		{
+			/// <summary>
+			/// Inner list of runtime dependencies
+			/// </summary>
+			internal List<ReceiptProperty> Inner = new List<ReceiptProperty>();
+
+			/// <summary>
+			/// Default constructor
+			/// </summary>
+			public ReceiptPropertyList()
+			{
+			}
+
+			/// <summary>
+			/// Add a receipt property to the list
+			/// </summary>
+			/// <param name="Name">Name of the property</param>
+			/// <param name="Value">Value for the property</param>
+			public void Add(string Name, string Value)
+			{
+				Inner.Add(new ReceiptProperty(Name, Value));
+			}
+
+			/// <summary>
+			/// Add a receipt property to the list
+			/// </summary>
+			/// <param name="InReceiptProperty">ReceiptProperty instance</param>
+			[Obsolete("Constructing a ReceiptProperty object is deprecated. Call RuntimeDependencies.Add() with the path to the file to stage.")]
+			public void Add(ReceiptProperty InReceiptProperty)
+			{
+				Inner.Add(InReceiptProperty);
 			}
 		}
 
@@ -417,7 +480,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// List of additional properties to be added to the build receipt
 		/// </summary>
-		public List<ReceiptProperty> AdditionalPropertiesForReceipt = new List<ReceiptProperty>();
+		public ReceiptPropertyList AdditionalPropertiesForReceipt = new ReceiptPropertyList();
 
 		/// <summary>
 		/// Which targets this module should be precompiled for
@@ -441,31 +504,12 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Default constructor. Deprecated in 4.15.
-		/// </summary>
-		[Obsolete("Please change your module constructor to take a ReadOnlyTargetRules parameter, and pass it to the base class constructor (eg. \"MyModuleRules(ReadOnlyTargetRules Target) : base(Target)\").")]
-		public ModuleRules()
-		{
-		}
-
-		/// <summary>
 		/// Constructor. For backwards compatibility while the parameterless constructor is being phased out, initialization which would happen here is done by 
 		/// RulesAssembly.CreateModulRules instead.
 		/// </summary>
 		/// <param name="Target">Rules for building this target</param>
 		public ModuleRules(ReadOnlyTargetRules Target)
 		{
-		}
-
-		/// <summary>
-		/// Made Obsolete so that we can more clearly show that this should be used for third party modules within the Engine directory
-		/// </summary>
-		/// <param name="Target">The target this module belongs to</param>
-		/// <param name="ModuleNames">The names of the modules to add</param>
-		[Obsolete("Use AddEngineThirdPartyPrivateStaticDependencies to add dependencies on ThirdParty modules within the Engine Directory")]
-		public void AddThirdPartyPrivateStaticDependencies(ReadOnlyTargetRules Target, params string[] ModuleNames)
-		{
-			AddEngineThirdPartyPrivateStaticDependencies(Target, ModuleNames);
 		}
 
 		/// <summary>
@@ -482,17 +526,6 @@ namespace UnrealBuildTool
 			{
 				PrivateDependencyModuleNames.AddRange(ModuleNames);
 			}
-		}
-
-		/// <summary>
-		/// Made Obsolete so that we can more clearly show that this should be used for third party modules within the Engine directory
-		/// </summary>
-		/// <param name="Target">Rules for the target being built</param>
-		/// <param name="ModuleNames">The names of the modules to add</param>
-		[Obsolete("Use AddEngineThirdPartyPrivateDynamicDependencies to add dependencies on ThirdParty modules within the Engine Directory")]
-		public void AddThirdPartyPrivateDynamicDependencies(ReadOnlyTargetRules Target, params string[] ModuleNames)
-		{
-			AddEngineThirdPartyPrivateDynamicDependencies(Target, ModuleNames);
 		}
 
 		/// <summary>
@@ -567,33 +600,6 @@ namespace UnrealBuildTool
 			{
 				PublicDefinitions.Add("WITH_NVCLOTH=0");
 			}
-		}
-
-		/// <summary>
-		/// Hack to allow deprecating existing code which references the static BuildConfiguration object; redirect it to use properties on this object.
-		/// </summary>
-		[Obsolete("The BuildConfiguration alias is deprecated in 4.18. Set the same properties on the ReadOnlyTargetRules instance passed into the ModuleRules constructor instead.")]
-		public ReadOnlyTargetRules BuildConfiguration
-		{
-			get { return Target; }
-		}
-
-		/// <summary>
-		/// Hack to allow deprecating existing code which references the static UEBuildConfiguration object; redirect it to use properties on this object.
-		/// </summary>
-		[Obsolete("The UEBuildConfiguration alias is deprecated in 4.18. Set the same properties on the ReadOnlyTargetRules instance passed into the ModuleRules constructor instead.")]
-		public ReadOnlyTargetRules UEBuildConfiguration
-		{
-			get { return Target; }
-		}
-
-		/// <summary>
-		/// Hack to allow deprecating existing code which references the static WindowsPlatform object; redirect it to use properties on the target rules.
-		/// </summary>
-		[Obsolete("The WindowsPlatform alias is deprecated in 4.18. Set the same properties on the WindowsPlatform member of the ReadOnlyTargetRules instance passed into the ModuleRules constructor instead.")]
-		public ReadOnlyWindowsTargetRules WindowsPlatform
-		{
-			get { return Target.WindowsPlatform; }
 		}
 	}
 }

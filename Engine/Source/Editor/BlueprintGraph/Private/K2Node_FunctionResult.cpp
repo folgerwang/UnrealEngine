@@ -135,7 +135,7 @@ void UK2Node_FunctionResult::AllocateDefaultPins()
 {
 	CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Exec, UEdGraphSchema_K2::PN_Execute);
 
-	if (UFunction* Function = FindField<UFunction>(SignatureClass, SignatureName))
+	if (UFunction* const Function = FunctionReference.ResolveMember<UFunction>(GetBlueprintClassFromNode()))
 	{
 		CreatePinsForFunctionEntryExit(Function, /*bIsFunctionEntry=*/ false);
 	}
@@ -265,13 +265,11 @@ void UK2Node_FunctionResult::SyncWithEntryNode()
 		{
 			if (UK2Node_FunctionEntry* EntryNode = Cast<UK2Node_FunctionEntry>(Node))
 			{
-				bWasSignatureMismatched = (EntryNode->SignatureClass != SignatureClass) || 
-					(EntryNode->SignatureName != SignatureName) || (!EntryNode->bIsEditable && UserDefinedPins.Num() > 0);
+				bWasSignatureMismatched = !EntryNode->FunctionReference.IsSameReference(FunctionReference) || (!EntryNode->bIsEditable && UserDefinedPins.Num() > 0);
 
 				// If the entry is editable, so is the result
-				bIsEditable    = EntryNode->bIsEditable;
-				SignatureClass = EntryNode->SignatureClass;
-				SignatureName  = EntryNode->SignatureName;
+				bIsEditable = EntryNode->bIsEditable;
+				FunctionReference = EntryNode->FunctionReference;
 				break;
 			}
 		}
@@ -310,8 +308,7 @@ void UK2Node_FunctionResult::SyncWithPrimaryResultNode()
 
 	if (PrimaryNode)
 	{
-		SignatureClass = PrimaryNode->SignatureClass;
-		SignatureName = PrimaryNode->SignatureName;
+		FunctionReference = PrimaryNode->FunctionReference;
 		bIsEditable = PrimaryNode->bIsEditable;
 
 		// Temporary array that will contain our list of Old Pins that are no longer part of the return signature
@@ -400,7 +397,7 @@ void UK2Node_FunctionResult::PromoteFromInterfaceOverride(bool bIsPrimaryTermina
 	}
 	else
 	{
-		SignatureClass = nullptr;
+		FunctionReference.SetSelfMember(FunctionReference.GetMemberName());
 		SyncWithPrimaryResultNode();
 		const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
 		Schema->ReconstructNode(*this, true);

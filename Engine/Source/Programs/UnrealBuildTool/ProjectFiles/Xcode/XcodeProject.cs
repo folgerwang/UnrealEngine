@@ -1067,7 +1067,7 @@ namespace UnrealBuildTool
 									{
 										// Figure out if this is a monolithic build
 										bool bShouldCompileMonolithic = BuildPlatform.ShouldCompileMonolithicBinary(Platform);
-										bShouldCompileMonolithic |= (ProjectTarget.CreateRulesDelegate(Platform, Configuration).GetLegacyLinkType(Platform, Configuration) == TargetLinkType.Monolithic);
+										bShouldCompileMonolithic |= (ProjectTarget.CreateRulesDelegate(Platform, Configuration).LinkType == TargetLinkType.Monolithic);
 
 										var ConfigName = Configuration.ToString();
 										if (ProjectTarget.TargetRules.Type != TargetType.Game && ProjectTarget.TargetRules.Type != TargetType.Program)
@@ -1081,7 +1081,7 @@ namespace UnrealBuildTool
 
 											// Get the output directory
 											DirectoryReference RootDirectory = UnrealBuildTool.EngineDirectory;
-											if ((ProjectTarget.TargetRules.Type == TargetType.Game || ProjectTarget.TargetRules.Type == TargetType.Client || ProjectTarget.TargetRules.Type == TargetType.Server) && bShouldCompileMonolithic && !ProjectTarget.TargetRules.bOutputToEngineBinaries)
+											if ((ProjectTarget.TargetRules.Type == TargetType.Game || ProjectTarget.TargetRules.Type == TargetType.Client || ProjectTarget.TargetRules.Type == TargetType.Server) && bShouldCompileMonolithic)
 											{
 												if(ProjectTarget.UnrealProjectFilePath != null)
 												{
@@ -1089,7 +1089,7 @@ namespace UnrealBuildTool
 												}
 											}
 
-											if(ProjectTarget.TargetRules.Type == TargetType.Program && !ProjectTarget.TargetRules.bOutputToEngineBinaries && ProjectTarget.UnrealProjectFilePath != null)
+											if(ProjectTarget.TargetRules.Type == TargetType.Program && ProjectTarget.UnrealProjectFilePath != null)
 											{
 												RootDirectory = ProjectTarget.UnrealProjectFilePath.Directory;
 											}
