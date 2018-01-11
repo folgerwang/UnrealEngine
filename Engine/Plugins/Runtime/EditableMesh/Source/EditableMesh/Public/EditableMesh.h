@@ -15,7 +15,11 @@
 
 class UEditableMeshAdapter;
 
+#ifdef EDITABLE_MESH_DEBUG_LOG
 EDITABLEMESH_API DECLARE_LOG_CATEGORY_EXTERN( LogEditableMesh, All, All );
+#else
+EDITABLEMESH_API DECLARE_LOG_CATEGORY_EXTERN( LogEditableMesh, Log, All );
+#endif
 
 
 // @todo mesheditor: Comment these classes and enums!
@@ -218,13 +222,11 @@ protected:
 	void SetEdgeAttribute( const FEdgeID EdgeID, const FMeshElementAttributeData& Attribute );
 	void SetPolygonAttribute( const FPolygonID PolygonID, const FMeshElementAttributeData& Attribute );
 	void SetPolygonGroupAttribute( const FPolygonGroupID PolygonGroupID, const FMeshElementAttributeData& Attribute );
-	void SetEdgeHardness( const FEdgeID EdgeID, const bool bIsHard, const bool bIsUndo );
 	FVertexInstanceID CreateVertexInstanceForContourVertex( const FVertexAndAttributes& ContourVertex, const FPolygonID PolygonID );
 	void CreatePolygonContour( const TArray<FVertexAndAttributes>& Contour, TArray<FEdgeID>& OutExistingEdgeIDs, TArray<FEdgeID>& OutEdgeIDs, TArray<UMeshDescription::FContourPoint>& OutContourPoints );
 	void BackupPolygonContour( const FMeshPolygonContour& Contour, TArray<FVertexAndAttributes>& OutVerticesAndAttributes );
 	void GetConnectedSoftEdges( const FVertexID VertexID, TArray<FEdgeID>& OutConnectedSoftEdges ) const;
 	void GetVertexConnectedPolygonsInSameSoftEdgedGroup( const FVertexID VertexInstanceID, const FPolygonID PolygonID, TArray<FPolygonID>& OutPolygonIDs ) const;
-	void GetVertexInstancesInSameSoftEdgedGroup( const FVertexID VertexID, const FPolygonID PolygonID, const bool bPolygonNotYetInitialized, TArray<FVertexInstanceID>& OutVertexInstanceIDs ) const;
 	FVertexInstanceID GetVertexInstanceInPolygonForVertex( const FPolygonID PolygonID, const FVertexID VertexID ) const;
 	void SetPolygonContourVertexAttributes( FMeshPolygonContour& Contour, const FPolygonID PolygonID, const int32 HoleIndex, const TArray<FMeshElementAttributeList>& AttributeLists );
 	void SplitVertexInstanceInPolygons( const FVertexInstanceID VertexInstanceID, const TArray<FPolygonID>& PolygonIDs );
@@ -493,6 +495,9 @@ private:
 	/** Called during end modification to retriangulate polygons in the pending polygon list */
 	void RetriangulatePolygons();
 
+	/** Called during end modification to merge vertex instances whose mergeable attributes are all equal */
+	void MergeVertexInstances();
+
 	/** Tries to incrementally update the octree based off geometry that has changed since last time.  If that's not
 	    reasonable to do, then this will rebuild the entire octree from scratch */
 	void UpdateOrRebuildOctree();
@@ -541,6 +546,9 @@ public:
 
 	/** List of polygons requiring retriangulation */
 	TSet<FPolygonID> PolygonsPendingTriangulation;
+
+	/** List of candidate vertices for merging instances */
+	TSet<FVertexID> VerticesPendingMerging;
 
 	/** True if StartModification() has been called.  Call EndModification() when you've finished changing the mesh. */
 	bool bIsBeingModified;
