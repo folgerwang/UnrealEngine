@@ -81,6 +81,7 @@
 !*.config
 !*.version
 !.git*
+!.editorconfig
 
 # Projects and makefiles
 !*.cmake
