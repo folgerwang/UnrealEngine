@@ -125,7 +125,7 @@ public:
 	UPROPERTY(EditAnywhere, config, Category = Tools, meta = (ConfigRestartRequired = true))
 	bool bAssetMaterialBaking;
 
-	/** Allows usage of the mesh description instead of the raw mesh */
+	/** Allows usage of the mesh description instead of the raw mesh when we build static mesh */
 	UPROPERTY(EditAnywhere, config, Category = Tools, meta = (DisplayName = "Use Mesh Description"))
 	bool bUseMeshDescription;
 	

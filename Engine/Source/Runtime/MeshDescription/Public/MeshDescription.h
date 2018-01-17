@@ -228,14 +228,16 @@ using FEdgeArray = TMeshElementArray<FMeshEdge, FEdgeID>;
 using FPolygonArray = TMeshElementArray<FMeshPolygon, FPolygonID>;
 using FPolygonGroupArray = TMeshElementArray<FMeshPolygonGroup, FPolygonGroupID>;
 
-
+#define MESHDESCRIPTION_VER TEXT("C173EAB944C94C608318FAB504BD0F81")
 
 UCLASS()
 class MESHDESCRIPTION_API UMeshDescription : public UObject
 {
 public:
-
 	GENERATED_BODY()
+
+	//Get the current meshdescription version
+	static FString GetMeshDescriptionVersion() { return MESHDESCRIPTION_VER; }
 
 	UMeshDescription();
 

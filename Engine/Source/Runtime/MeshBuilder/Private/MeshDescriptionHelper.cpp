@@ -929,7 +929,7 @@ void FMeshDescriptionHelper::ConvertSmoothGroupToHardEdges(const struct FRawMesh
 void FMeshDescriptionHelper::ConverToRawMesh(const UMeshDescription* SourceMeshDescription, struct FRawMesh &DestinationRawMesh)
 {
 	static BuildStatisticManager::FStatisticData StatisticData;
-	BuildStatisticManager::FBuildStatisticScope(TEXT("ConvertToRawMesh"), StatisticData);
+	BuildStatisticManager::FBuildStatisticScope StatScope(TEXT("ConvertToRawMesh"), StatisticData);
 	DestinationRawMesh.Empty();
 
 	//Gather all array data
@@ -1001,8 +1001,13 @@ void FMeshDescriptionHelper::ConverToRawMesh(const UMeshDescription* SourceMeshD
 void FMeshDescriptionHelper::ConverFromRawMesh(const struct FRawMesh &SourceRawMesh, UMeshDescription* DestinationMeshDescription)
 {
 	static BuildStatisticManager::FStatisticData StatisticData;
-	BuildStatisticManager::FBuildStatisticScope(TEXT("ConverFromRawMesh"), StatisticData);
+	BuildStatisticManager::FBuildStatisticScope StatScope(TEXT("ConverFromRawMesh"), StatisticData);
 	DestinationMeshDescription->Empty();
+
+	DestinationMeshDescription->ReserveNewVertices(SourceRawMesh.VertexPositions.Num());
+	DestinationMeshDescription->ReserveNewVertexInstances(SourceRawMesh.WedgeIndices.Num());
+	DestinationMeshDescription->ReserveNewPolygons(SourceRawMesh.WedgeIndices.Num() / 3);
+	DestinationMeshDescription->ReserveNewEdges(SourceRawMesh.WedgeIndices.Num() * 2 / 3); //Approximately 2 edges per polygons
 	//Gather all array data
 	TVertexAttributeArray<FVector>& VertexPositions = DestinationMeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
 
@@ -1109,8 +1114,6 @@ void FMeshDescriptionHelper::ConverFromRawMesh(const struct FRawMesh &SourceRawM
 			}
 			ContourPoint.EdgeID = MatchEdgeId;
 			ContourPoint.VertexInstanceID = FVertexInstanceID(VerticeIndexBase + CornerIndices[0]);
-
-			//TODO Edges smoothing
 		}
 
 		const FPolygonID NewPolygonID = DestinationMeshDescription->CreatePolygon(PolygonGroupID, Contours);

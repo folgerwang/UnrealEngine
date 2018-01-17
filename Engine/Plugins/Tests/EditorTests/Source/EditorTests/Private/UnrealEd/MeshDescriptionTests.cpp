@@ -38,7 +38,8 @@ public:
 	bool Execute(FAutomationTestExecutionInfo& ExecutionInfo);
 	bool ConversionTest(FAutomationTestExecutionInfo& ExecutionInfo);
 private:
-	bool CompareMeshDescription(const FString& AssetName, FAutomationTestExecutionInfo& ExecutionInfo, const UMeshDescription* ReferenceMeshDescription, const UMeshDescription* MeshDescription);
+	bool CompareRawMesh(const FString& AssetName, FAutomationTestExecutionInfo& ExecutionInfo, const FRawMesh& ReferenceRawMesh, const FRawMesh& ResultRawMesh) const;
+	bool CompareMeshDescription(const FString& AssetName, FAutomationTestExecutionInfo& ExecutionInfo, const UMeshDescription* ReferenceMeshDescription, const UMeshDescription* MeshDescription) const;
 };
 
 class FMeshDescriptionTests
@@ -127,7 +128,189 @@ bool FMeshDescriptionTest::Execute(FAutomationTestExecutionInfo& ExecutionInfo)
 	return bSuccess;
 }
 
-bool FMeshDescriptionTest::CompareMeshDescription(const FString& AssetName, FAutomationTestExecutionInfo& ExecutionInfo, const UMeshDescription* ReferenceMeshDescription, const UMeshDescription* MeshDescription)
+template<typename T>
+void StructureArrayCompare(const FString& ConversionName, const FString& AssetName, FAutomationTestExecutionInfo& ExecutionInfo, bool& bIsSame, const FString& VectorArrayName, const TArray<T>& ReferenceArray, const TArray<T>& ResultArray)
+{
+	if (ReferenceArray.Num() != ResultArray.Num())
+	{
+		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion %s is not lossless, %s count is different. %s count expected [%d] result [%d]"),
+			*AssetName,
+			*ConversionName,
+			*VectorArrayName,
+			*VectorArrayName,
+			ReferenceArray.Num(),
+			ResultArray.Num())));
+		bIsSame = false;
+	}
+	else
+	{
+		for (int32 VertexIndex = 0; VertexIndex < ReferenceArray.Num(); ++VertexIndex)
+		{
+			if (ReferenceArray[VertexIndex] != ResultArray[VertexIndex])
+			{
+				ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion %s is not lossless, %s array is different. Array index [%d] expected %s [%s] result [%s]"),
+					*AssetName,
+					*ConversionName,
+					*VectorArrayName,
+					VertexIndex,
+					*VectorArrayName,
+					*ReferenceArray[VertexIndex].ToString(),
+					*ResultArray[VertexIndex].ToString())));
+				bIsSame = false;
+				break;
+			}
+		}
+	}
+}
+
+template<typename T>
+void NumberArrayCompare(const FString& ConversionName, const FString& AssetName, FAutomationTestExecutionInfo& ExecutionInfo, bool& bIsSame, const FString& VectorArrayName, const TArray<T>& ReferenceArray, const TArray<T>& ResultArray)
+{
+	if (ReferenceArray.Num() != ResultArray.Num())
+	{
+		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion %s is not lossless, %s count is different. %s count expected [%d] result [%d]"),
+			*AssetName,
+			*ConversionName,
+			*VectorArrayName,
+			*VectorArrayName,
+			ReferenceArray.Num(),
+			ResultArray.Num())));
+		bIsSame = false;
+	}
+	else
+	{
+		for (int32 VertexIndex = 0; VertexIndex < ReferenceArray.Num(); ++VertexIndex)
+		{
+			if (ReferenceArray[VertexIndex] != ResultArray[VertexIndex])
+			{
+				ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion %s is not lossless, %s array is different. Array index [%d] expected %s [%d] result [%d]"),
+					*AssetName,
+					*ConversionName,
+					*VectorArrayName,
+					VertexIndex,
+					*VectorArrayName,
+					ReferenceArray[VertexIndex],
+					ResultArray[VertexIndex])));
+				bIsSame = false;
+				break;
+			}
+		}
+	}
+}
+
+bool FMeshDescriptionTest::CompareRawMesh(const FString& AssetName, FAutomationTestExecutionInfo& ExecutionInfo, const FRawMesh& ReferenceRawMesh, const FRawMesh& ResultRawMesh) const
+{
+	//////////////////////////////////////////////////////////////////////////
+	// Do the comparison
+	bool bAllSame = true;
+
+	FString ConversionName = TEXT("RawMesh to MeshDescription to RawMesh");
+
+	//Positions
+	StructureArrayCompare<FVector>(ConversionName, AssetName, ExecutionInfo, bAllSame, TEXT("vertex positions"), ReferenceRawMesh.VertexPositions, ResultRawMesh.VertexPositions);
+
+	//Normals
+	StructureArrayCompare<FVector>(ConversionName, AssetName, ExecutionInfo, bAllSame, TEXT("vertex instance normals"), ReferenceRawMesh.WedgeTangentZ, ResultRawMesh.WedgeTangentZ);
+
+	//Tangents
+	StructureArrayCompare<FVector>(ConversionName, AssetName, ExecutionInfo, bAllSame, TEXT("vertex instance tangents"), ReferenceRawMesh.WedgeTangentX, ResultRawMesh.WedgeTangentX);
+
+	//BiNormal
+	StructureArrayCompare<FVector>(ConversionName, AssetName, ExecutionInfo, bAllSame, TEXT("vertex instance binormals"), ReferenceRawMesh.WedgeTangentY, ResultRawMesh.WedgeTangentY);
+
+	//Colors
+	StructureArrayCompare<FColor>(ConversionName, AssetName, ExecutionInfo, bAllSame, TEXT("vertex instance colors"), ReferenceRawMesh.WedgeColors, ResultRawMesh.WedgeColors);
+
+	//Uvs
+	for (int32 UVIndex = 0; UVIndex < MAX_MESH_TEXTURE_COORDS; ++UVIndex)
+	{
+		FString UVIndexName = FString::Printf(TEXT("vertex instance UVs(%d)"), UVIndex);
+		StructureArrayCompare<FVector2D>(ConversionName, AssetName, ExecutionInfo, bAllSame, UVIndexName, ReferenceRawMesh.WedgeTexCoords[UVIndex], ResultRawMesh.WedgeTexCoords[UVIndex]);
+	}
+	
+	//Indices
+	NumberArrayCompare<uint32>(ConversionName, AssetName, ExecutionInfo, bAllSame, TEXT("vertex positions"), ReferenceRawMesh.WedgeIndices, ResultRawMesh.WedgeIndices);
+
+	//Face
+	NumberArrayCompare<int32>(ConversionName, AssetName, ExecutionInfo, bAllSame, TEXT("face material"), ReferenceRawMesh.FaceMaterialIndices, ResultRawMesh.FaceMaterialIndices);
+
+	//Smoothing Mask
+	NumberArrayCompare<uint32>(ConversionName, AssetName, ExecutionInfo, bAllSame, TEXT("smoothing mask"), ReferenceRawMesh.FaceSmoothingMasks, ResultRawMesh.FaceSmoothingMasks);
+
+	return bAllSame;
+}
+
+template<typename T, typename U, typename V>
+void MeshDescriptionStructureArrayCompare(const FString& ConversionName, const FString& AssetName, FAutomationTestExecutionInfo& ExecutionInfo, bool& bIsSame, const U& ElementIterator, const FString& VectorArrayName, const T& ReferenceArray, const T& ResultArray)
+{
+	if (ReferenceArray.Num() != ResultArray.Num())
+	{
+		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion %s is not lossless, %s count is different. %s count expected [%d] result [%d]"),
+			*AssetName,
+			*ConversionName,
+			*VectorArrayName,
+			*VectorArrayName,
+			ReferenceArray.Num(),
+			ResultArray.Num())));
+		bIsSame = false;
+	}
+	else
+	{
+		for (V ElementID : ElementIterator.GetElementIDs())
+		{
+			if (ReferenceArray[ElementID] != ResultArray[ElementID])
+			{
+				ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion %s is not lossless, %s array is different. Array index [%d] expected %s [%s] result [%s]"),
+					*AssetName,
+					*ConversionName,
+					*VectorArrayName,
+					ElementID.GetValue(),
+					*VectorArrayName,
+					*ReferenceArray[ElementID].ToString(),
+					*ResultArray[ElementID].ToString())));
+				bIsSame = false;
+				break;
+			}
+		}
+	}
+}
+
+template<typename T, typename U, typename V>
+void MeshDescriptionNumberArrayCompare(const FString& ConversionName, const FString& AssetName, FAutomationTestExecutionInfo& ExecutionInfo, bool& bIsSame, const U& ElementIterator, const FString& VectorArrayName, const T& ReferenceArray, const T& ResultArray)
+{
+	if (ReferenceArray.Num() != ResultArray.Num())
+	{
+		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion %s is not lossless, %s count is different. %s count expected [%d] result [%d]"),
+			*AssetName,
+			*ConversionName,
+			*VectorArrayName,
+			*VectorArrayName,
+			ReferenceArray.Num(),
+			ResultArray.Num())));
+		bIsSame = false;
+	}
+	else
+	{
+		for (V ElementID : ElementIterator.GetElementIDs())
+		{
+			if (ReferenceArray[ElementID] != ResultArray[ElementID])
+			{
+				ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion %s is not lossless, %s array is different. Array index [%d] expected %s [%d] result [%d]"),
+					*AssetName,
+					*ConversionName,
+					*VectorArrayName,
+					ElementID.GetValue(),
+					*VectorArrayName,
+					ReferenceArray[ElementID],
+					ResultArray[ElementID])));
+				bIsSame = false;
+				break;
+			}
+		}
+	}
+}
+
+bool FMeshDescriptionTest::CompareMeshDescription(const FString& AssetName, FAutomationTestExecutionInfo& ExecutionInfo, const UMeshDescription* ReferenceMeshDescription, const UMeshDescription* MeshDescription) const
 {
 	//////////////////////////////////////////////////////////////////////////
 	//Gather the reference data
@@ -162,135 +345,28 @@ bool FMeshDescriptionTest::CompareMeshDescription(const FString& AssetName, FAut
 	//////////////////////////////////////////////////////////////////////////
 	// Do the comparison
 	bool bAllSame = true;
+
+	FString ConversionName = TEXT("MeshDescription to RawMesh to MeshDescription");
+
 	//Positions
-	if (ReferenceVertexPositions.Num() != ResultVertexPositions.Num())
-	{
-		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion to RawMesh is not lossless, vertex positions count is different. Vertex count expected [%d] result [%d]"),
-			*AssetName,
-			ReferenceVertexPositions.Num(),
-			ResultVertexPositions.Num())));
-		bAllSame = false;
-	}
-	else
-	{
-		for (FVertexID VertexID : ReferenceMeshDescription->Vertices().GetElementIDs())
-		{
-			if (ReferenceVertexPositions[VertexID] != ResultVertexPositions[VertexID])
-			{
-				ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion to RawMesh is not lossless, vertex position array is different. VertexID [%d] expected position [%s] result [%s]"),
-					*AssetName,
-					VertexID.GetValue(),
-					*ReferenceVertexPositions[VertexID].ToString(),
-					*ResultVertexPositions[VertexID].ToString())));
-				bAllSame = false;
-				break;
-			}
-		}
-	}
+	MeshDescriptionStructureArrayCompare<TVertexAttributeArray<FVector>, FVertexArray, FVertexID>(ConversionName, AssetName, ExecutionInfo, bAllSame, ReferenceMeshDescription->Vertices(), TEXT("vertex positions"), ReferenceVertexPositions, ResultVertexPositions);
+
 	//Normals
-	if (ReferenceVertexInstanceNormals.Num() != ResultVertexInstanceNormals.Num())
-	{
-		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion to RawMesh is not lossless, vertex instance normals count is different. Normals count expected [%d] result [%d]"),
-			*AssetName,
-			ReferenceVertexInstanceNormals.Num(),
-			ResultVertexInstanceNormals.Num())));
-		bAllSame = false;
-	}
-	else
-	{
-		for (FVertexInstanceID VertexInstanceID : ReferenceMeshDescription->VertexInstances().GetElementIDs())
-		{
-			if (ReferenceVertexInstanceNormals[VertexInstanceID] != ResultVertexInstanceNormals[VertexInstanceID])
-			{
-				ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion to RawMesh is not lossless, vertex instance normals array is different. VertexInstanceID [%d] expected normal [%s] result [%s]"),
-					*AssetName,
-					VertexInstanceID.GetValue(),
-					*ReferenceVertexInstanceNormals[VertexInstanceID].ToString(),
-					*ResultVertexInstanceNormals[VertexInstanceID].ToString())));
-				bAllSame = false;
-				break;
-			}
-		}
-	}
+	MeshDescriptionStructureArrayCompare<TVertexInstanceAttributeArray<FVector>, FVertexInstanceArray, FVertexInstanceID>(ConversionName, AssetName, ExecutionInfo, bAllSame, ReferenceMeshDescription->VertexInstances(), TEXT("vertex instance normals"), ReferenceVertexInstanceNormals, ResultVertexInstanceNormals);
+
 	//Tangents
-	if (ReferenceVertexInstanceTangents.Num() != ResultVertexInstanceTangents.Num())
-	{
-		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion to RawMesh is not lossless, vertex instance Tangents count is different. Tangents count expected [%d] result [%d]"),
-			*AssetName,
-			ReferenceVertexInstanceTangents.Num(),
-			ResultVertexInstanceTangents.Num())));
-		bAllSame = false;
-	}
-	else
-	{
-		for (FVertexInstanceID VertexInstanceID : ReferenceMeshDescription->VertexInstances().GetElementIDs())
-		{
-			if (ReferenceVertexInstanceTangents[VertexInstanceID] != ResultVertexInstanceTangents[VertexInstanceID])
-			{
-				ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion to RawMesh is not lossless, vertex instance Tangents array is different. VertexInstanceID [%d] expected Tangent [%s] result [%s]"),
-					*AssetName,
-					VertexInstanceID.GetValue(),
-					*ReferenceVertexInstanceTangents[VertexInstanceID].ToString(),
-					*ResultVertexInstanceTangents[VertexInstanceID].ToString())));
-				bAllSame = false;
-				break;
-			}
-		}
-	}
+	MeshDescriptionStructureArrayCompare<TVertexInstanceAttributeArray<FVector>, FVertexInstanceArray, FVertexInstanceID>(ConversionName, AssetName, ExecutionInfo, bAllSame, ReferenceMeshDescription->VertexInstances(), TEXT("vertex instance tangents"), ReferenceVertexInstanceTangents, ResultVertexInstanceTangents);
+
 	//BiNormal signs
-	if (ReferenceVertexInstanceBinormalSigns.Num() != ResultVertexInstanceBinormalSigns.Num())
-	{
-		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion to RawMesh is not lossless, vertex instance BinormalSigns count is different. BinormalSigns count expected [%d] result [%d]"),
-			*AssetName,
-			ReferenceVertexInstanceBinormalSigns.Num(),
-			ResultVertexInstanceBinormalSigns.Num())));
-		bAllSame = false;
-	}
-	else
-	{
-		for (FVertexInstanceID VertexInstanceID : ReferenceMeshDescription->VertexInstances().GetElementIDs())
-		{
-			if (ReferenceVertexInstanceBinormalSigns[VertexInstanceID] != ResultVertexInstanceBinormalSigns[VertexInstanceID])
-			{
-				ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion to RawMesh is not lossless, vertex instance BinormalSigns array is different. VertexInstanceID [%d] expected binormal sign [%f] result [%f]"),
-					*AssetName,
-					VertexInstanceID.GetValue(),
-					ReferenceVertexInstanceBinormalSigns[VertexInstanceID],
-					ResultVertexInstanceBinormalSigns[VertexInstanceID])));
-				bAllSame = false;
-				break;
-			}
-		}
-	}
+	MeshDescriptionNumberArrayCompare<TVertexInstanceAttributeArray<float>, FVertexInstanceArray, FVertexInstanceID>(ConversionName, AssetName, ExecutionInfo, bAllSame, ReferenceMeshDescription->VertexInstances(), TEXT("vertex instance binormals"), ReferenceVertexInstanceBinormalSigns, ResultVertexInstanceBinormalSigns);
+
 	//Colors
-	if (ReferenceVertexInstanceColors.Num() != ResultVertexInstanceColors.Num())
-	{
-		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion to RawMesh is not lossless, vertex instance Colors count is different. Colors count expected [%d] result [%d]"),
-			*AssetName,
-			ReferenceVertexInstanceColors.Num(),
-			ResultVertexInstanceColors.Num())));
-		bAllSame = false;
-	}
-	else
-	{
-		for (FVertexInstanceID VertexInstanceID : ReferenceMeshDescription->VertexInstances().GetElementIDs())
-		{
-			if (ReferenceVertexInstanceColors[VertexInstanceID] != ResultVertexInstanceColors[VertexInstanceID])
-			{
-				ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion to RawMesh is not lossless, vertex instance Colors array is different. VertexInstanceID [%d] expected Color [%s] result [%s]"),
-					*AssetName, 
-					VertexInstanceID.GetValue(),
-					*ReferenceVertexInstanceColors[VertexInstanceID].ToString(),
-					*ResultVertexInstanceColors[VertexInstanceID].ToString())));
-				bAllSame = false;
-				break;
-			}
-		}
-	}
+	MeshDescriptionStructureArrayCompare<TVertexInstanceAttributeArray<FVector4>, FVertexInstanceArray, FVertexInstanceID>(ConversionName, AssetName, ExecutionInfo, bAllSame, ReferenceMeshDescription->VertexInstances(), TEXT("vertex instance colors"), ReferenceVertexInstanceColors, ResultVertexInstanceColors);
+
 	//Uvs
 	if (ReferenceVertexInstanceUVs.GetNumIndices() != ResultVertexInstanceUVs.GetNumIndices())
 	{
-		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion to RawMesh is not lossless, vertex instance UVs channel count is different. UVs channel count expected [%d] result [%d]"),
+		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion MeshDescription to RawMesh to MeshDescription is not lossless, vertex instance UVs channel count is different. UVs channel count expected [%d] result [%d]"),
 			*AssetName,
 			ReferenceVertexInstanceUVs.GetNumIndices(),
 			ResultVertexInstanceUVs.GetNumIndices())));
@@ -300,41 +376,18 @@ bool FMeshDescriptionTest::CompareMeshDescription(const FString& AssetName, FAut
 	{
 		for (int32 UVChannelIndex = 0; UVChannelIndex < ReferenceVertexInstanceUVs.GetNumIndices(); ++UVChannelIndex)
 		{
+			FString UVIndexName = FString::Printf(TEXT("vertex instance UVs(%d)"), UVChannelIndex);
 			const TMeshAttributeArray<FVector2D, FVertexInstanceID>& ReferenceUVs = ReferenceVertexInstanceUVs.GetArrayForIndex(UVChannelIndex);
 			const TMeshAttributeArray<FVector2D, FVertexInstanceID>& ResultUVs = ResultVertexInstanceUVs.GetArrayForIndex(UVChannelIndex);
-			if (ReferenceUVs.Num() != ResultUVs.Num())
-			{
-				ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion to RawMesh is not lossless, vertex instance UV channel[%d] UVs count is different. Uvs count expected [%d] result [%d]"),
-					*AssetName,
-					UVChannelIndex,
-					ReferenceUVs.Num(),
-					ResultUVs.Num())));
-				bAllSame = false;
-			}
-			else
-			{
-				for (FVertexInstanceID VertexInstanceID : ReferenceMeshDescription->VertexInstances().GetElementIDs())
-				{
-					if (ReferenceUVs[VertexInstanceID] != ResultUVs[VertexInstanceID])
-					{
-						ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion to RawMesh is not lossless, vertex instance UV Channel[%d] UVs array is different. VertexInstanceID [%d] expected UV [%s] result [%s]"),
-							*AssetName,
-							UVChannelIndex,
-							VertexInstanceID.GetValue(),
-							*ReferenceUVs[VertexInstanceID].ToString(),
-							*ResultUVs[VertexInstanceID].ToString())));
-						bAllSame = false;
-						break;
-					}
-				}
-			}
+			MeshDescriptionStructureArrayCompare<TMeshAttributeArray<FVector2D, FVertexInstanceID>, FVertexInstanceArray, FVertexInstanceID>(ConversionName, AssetName, ExecutionInfo, bAllSame, ReferenceMeshDescription->VertexInstances(), UVIndexName, ReferenceUVs, ResultUVs);
 		}
 	}
+
 	//Edges
-	//We check if hard edges are kept correctly
+	//We do not use a template since we need to check the connected polygon count to validate a false comparison
 	if (ReferenceEdgeHardnesses.Num() != ResultEdgeHardnesses.Num())
 	{
-		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion to RawMesh is not lossless, Edge count is different. Edges count expected [%d] result [%d]"),
+		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion MeshDescription to RawMesh to MeshDescription is not lossless, Edge count is different. Edges count expected [%d] result [%d]"),
 			*AssetName,
 			ReferenceEdgeHardnesses.Num(),
 			ResultEdgeHardnesses.Num())));
@@ -358,36 +411,14 @@ bool FMeshDescriptionTest::CompareMeshDescription(const FString& AssetName, FAut
 						(ResultEdgeHardnesses[EdgeID] ? TEXT("true") : TEXT("false")))));
 					bAllSame = false;
 				}
-				//break;
-			}
-		}
-	}
-	//Polygon group ID
-	//We currently rely only on the PolygonGroupID. The duplicate material slot information (the info is store in the staticmesh material array) is not necessary and cannot be put in FRawMesh structure.
-	if (ReferenceMeshDescription->PolygonGroups().Num() != MeshDescription->PolygonGroups().Num())
-	{
-		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion to RawMesh is not lossless, Polygon group count is different. Polygon group count expected [%d] result [%d]"),
-			*AssetName,
-			ReferenceMeshDescription->PolygonGroups().Num(),
-			MeshDescription->PolygonGroups().Num())));
-		bAllSame = false;
-	}
-	else
-	{
-		for (const FPolygonGroupID& PolygonGroupID : ReferenceMeshDescription->PolygonGroups().GetElementIDs())
-		{
-			if (ReferencePolygonGroupMaterialIndex[PolygonGroupID] != ResultPolygonGroupMaterialIndex[PolygonGroupID])
-			{
-				ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion to RawMesh is not lossless, polygon group material index array is different. PolygonGroupID [%d] expected Material index [%d] result [%d]"),
-					*AssetName,
-					PolygonGroupID.GetValue(),
-					ReferencePolygonGroupMaterialIndex[PolygonGroupID],
-					ResultPolygonGroupMaterialIndex[PolygonGroupID])));
-				bAllSame = false;
 				break;
 			}
 		}
 	}
+
+	//Polygon group ID
+	MeshDescriptionNumberArrayCompare<TPolygonGroupAttributeArray<int>, FPolygonGroupArray, FPolygonGroupID>(ConversionName, AssetName, ExecutionInfo, bAllSame, ReferenceMeshDescription->PolygonGroups(), TEXT("vertex instance binormals"), ReferencePolygonGroupMaterialIndex, ResultPolygonGroupMaterialIndex);
+
 	return bAllSame;
 }
 
@@ -421,21 +452,56 @@ bool FMeshDescriptionTest::ConversionTest(FAutomationTestExecutionInfo& Executio
 
 		if (AssetMesh != nullptr)
 		{
-			const UMeshDescription* ReferenceAssetMesh = AssetMesh->GetOriginalMeshDescription(0);
-			check(ReferenceAssetMesh != nullptr);
-			//Create a temporary Mesh Description
-			UMeshDescription* ResultAssetMesh = DuplicateObject<UMeshDescription>(ReferenceAssetMesh, GetTransientPackage(), NAME_None);
-			//Convert MeshDescription to FRawMesh
-			FRawMesh RawMesh;
-			FMeshDescriptionOperations::ConverToRawMesh(ResultAssetMesh, RawMesh);
-			//Convert back the FRawmesh
-			FMeshDescriptionOperations::ConverFromRawMesh(RawMesh, ResultAssetMesh);
-			if (!CompareMeshDescription(AssetName, ExecutionInfo, ReferenceAssetMesh, ResultAssetMesh))
+			//MeshDescription to RawMesh to MeshDescription
+			for(int32 LodIndex = 0; LodIndex < AssetMesh->SourceModels.Num(); ++LodIndex)
 			{
-				bAllSame = false;
+				const UMeshDescription* ReferenceAssetMesh = AssetMesh->GetOriginalMeshDescription(LodIndex);
+				if (ReferenceAssetMesh == nullptr)
+				{
+					check(LodIndex != 0);
+					continue;
+				}
+				//Create a temporary Mesh Description
+				UMeshDescription* ResultAssetMesh = DuplicateObject<UMeshDescription>(ReferenceAssetMesh, GetTransientPackage(), NAME_None);
+				//Convert MeshDescription to FRawMesh
+				FRawMesh RawMesh;
+				FMeshDescriptionOperations::ConverToRawMesh(ResultAssetMesh, RawMesh);
+				//Convert back the FRawmesh
+				FMeshDescriptionOperations::ConverFromRawMesh(RawMesh, ResultAssetMesh);
+				if (!CompareMeshDescription(AssetName, ExecutionInfo, ReferenceAssetMesh, ResultAssetMesh))
+				{
+					bAllSame = false;
+				}
+				//Destroy temporary object
+				ResultAssetMesh->ClearFlags(RF_Standalone);
+				ResultAssetMesh->MarkPendingKill();
+				
 			}
-			//Destroy temporary object
-			ResultAssetMesh->MarkPendingKill();
+			//RawMesh to MeshDescription to RawMesh
+			for (int32 LodIndex = 0; LodIndex < AssetMesh->SourceModels.Num(); ++LodIndex)
+			{
+				if (AssetMesh->SourceModels[LodIndex].RawMeshBulkData->IsEmpty())
+				{
+					check(LodIndex != 0);
+					continue;
+				}
+				FRawMesh ReferenceRawMesh;
+				AssetMesh->SourceModels[LodIndex].LoadRawMesh(ReferenceRawMesh);
+				FRawMesh ResultRawMesh;
+				AssetMesh->SourceModels[LodIndex].LoadRawMesh(ResultRawMesh);
+				//Create a temporary Mesh Description
+				UMeshDescription* MeshDescription = NewObject<UMeshDescription>(GetTransientPackage(), NAME_None, RF_Standalone);
+				FMeshDescriptionOperations::ConverFromRawMesh(ResultRawMesh, MeshDescription);
+				//Convert back the FRawmesh
+				FMeshDescriptionOperations::ConverToRawMesh(MeshDescription, ResultRawMesh);
+				if (!CompareRawMesh(AssetName, ExecutionInfo, ReferenceRawMesh, ResultRawMesh))
+				{
+					bAllSame = false;
+				}
+				//Destroy temporary object
+				MeshDescription->ClearFlags(RF_Standalone);
+				MeshDescription->MarkPendingKill();
+			}
 		}
 	}
 	//Collect garbage pass to remove everything from memory

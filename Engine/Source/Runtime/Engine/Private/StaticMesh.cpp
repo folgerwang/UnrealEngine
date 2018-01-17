@@ -2366,50 +2366,60 @@ void UStaticMesh::FixupMaterialSlotName()
 	}
 }
 
+// If static mesh derived data needs to be rebuilt (new format, serialization
+// differences, etc.) replace the version GUID below with a new one.
+// In case of merge conflicts with DDC versions, you MUST generate a new GUID
+// and set this new GUID as the version.                                       
+#define MESHDATAKEY_STATICMESH_DERIVEDDATA_VER TEXT("81EFE7970F3140CABD7B24620A2BE2BE")
+
+static const FString& GetMeshDataKeyStaticMeshDerivedDataVersion()
+{
+	static FString CachedVersionString;
+	if (CachedVersionString.IsEmpty())
+	{
+		// Static mesh versioning is controlled by the version reported by the mesh utilities module.
+		CachedVersionString = FString::Printf(TEXT("%s%s"),
+			*UMeshDescription::GetMeshDescriptionVersion(),
+			MESHDATAKEY_STATICMESH_DERIVEDDATA_VER);
+	}
+	return CachedVersionString;
+}
+
 bool UStaticMesh::GetMeshDataKey(FString& OutKey)
 {
+	OutKey.Empty();
 	if (SourceModels.Num() < 1)
 	{
 		return false;
 	}
-	OutKey += TEXT("MESHDATAKEY_STATICMESH___Path_");
-	OutKey += this->GetFullGroupName(false);
-	OutKey += TEXT("___Version_");
-	OutKey += FString::FromInt(VER_MDK_AUTOMATIC_VERSION+1);
-	OutKey += TEXT("___LOD_COUNT_");
-	OutKey += FString::FromInt(SourceModels.Num());
 	FSHA1 Sha;
 	for (int32 LodIndex = 0; LodIndex < SourceModels.Num(); ++LodIndex)
 	{
 		FString LodIndexString = FString::Printf(TEXT("%d_"), LodIndex);
 		FStaticMeshSourceModel& SourceModel = SourceModels[LodIndex];
-		bool bEmptyRawData = true;
-		if (SourceModel.OriginalMeshDescription != nullptr)
-		{
-			LodIndexString += SourceModel.OriginalMeshDescription->GetIdString();
-			bEmptyRawData = false;
-		}
-		
 		if(!SourceModel.RawMeshBulkData->IsEmpty())
 		{
 			LodIndexString += SourceModel.RawMeshBulkData->GetIdString();
-			bEmptyRawData = false;
 		}
-		
-		if(bEmptyRawData)
+		else
 		{
 			LodIndexString += TEXT("REDUCELOD");
 		}
 		TArray<TCHAR> LodIndexArray = LodIndexString.GetCharArray();
 		Sha.Update((uint8*)LodIndexArray.GetData(), LodIndexArray.Num() * LodIndexArray.GetTypeSize());
 	}
-	OutKey += TEXT("___DATAHASH_");
 	Sha.Final();
 	// Retrieve the hash and use it to construct a pseudo-GUID.
 	uint32 Hash[5];
 	Sha.GetHash((uint8*)Hash);
 	FGuid Guid = FGuid(Hash[0] ^ Hash[4], Hash[1], Hash[2], Hash[3]);
-	OutKey += Guid.ToString(EGuidFormats::Digits);
+	FString MeshLodData = Guid.ToString(EGuidFormats::Digits);
+
+	OutKey = FDerivedDataCacheInterface::BuildCacheKey(
+		TEXT("MESHDATAKEY_STATICMESH"),
+		*GetMeshDataKeyStaticMeshDerivedDataVersion(),
+		*MeshLodData
+	);
 	return true;
 }
 
@@ -2417,8 +2427,6 @@ struct FMeshDataSerialize
 {
 private:
 	int32 LodNumber;
-	TArray<bool> RawMeshTable;
-	TArray<FRawMesh> RawMeshContent;
 	TArray<bool> MeshDescriptionTable;
 	TArray<UMeshDescription*> MeshDescriptionContent;
 
@@ -2439,8 +2447,6 @@ public:
 			}
 		}
 		LodNumber = 0;
-		RawMeshTable.Empty();
-		RawMeshContent.Empty();
 		MeshDescriptionTable.Empty();
 		MeshDescriptionContent.Empty();
 	}
@@ -2449,19 +2455,12 @@ public:
 	void ReadDataFromStaticMesh(UStaticMesh* StaticMesh)
 	{
 		LodNumber = StaticMesh->SourceModels.Num();
-		RawMeshTable.AddZeroed(LodNumber);
-		RawMeshContent.AddDefaulted(LodNumber);
 		MeshDescriptionTable.AddZeroed(LodNumber);
 		MeshDescriptionContent.AddZeroed(LodNumber);
 		for (int32 LodIndex = 0; LodIndex < LodNumber; ++LodIndex)
 		{
 			StaticMesh->SourceModels[LodIndex];
 			FStaticMeshSourceModel& SourceModel = StaticMesh->SourceModels[LodIndex];
-			RawMeshTable[LodIndex] = !SourceModel.RawMeshBulkData->IsEmpty();
-			if (RawMeshTable[LodIndex])
-			{
-				SourceModel.RawMeshBulkData->LoadRawMesh(RawMeshContent[LodIndex]);
-			}
 			MeshDescriptionTable[LodIndex] = SourceModel.OriginalMeshDescription != nullptr;
 			if (MeshDescriptionTable[LodIndex])
 			{
@@ -2472,20 +2471,15 @@ public:
 	}
 
 	//Apply the structure data to a static mesh
-	bool ApplyDataToStaticMesh(UStaticMesh* StaticMesh, int32 LodIndex, bool bRawMesh)
+	//Return true if we have valid data to set in the static mesh
+	bool WriteDataToStaticMesh(UStaticMesh* StaticMesh, int32 LodIndex)
 	{
 		if (LodIndex >= LodNumber || LodIndex < 0 || !StaticMesh->SourceModels.IsValidIndex(LodIndex))
 		{
 			return false;
 		}
 
-		if (bRawMesh && RawMeshTable.IsValidIndex(LodIndex) && RawMeshTable[LodIndex] && RawMeshContent[LodIndex].IsValid())
-		{
-			StaticMesh->SourceModels[LodIndex].RawMeshBulkData->SaveRawMesh(RawMeshContent[LodIndex]);
-			return true;
-		}
-
-		if (!bRawMesh && MeshDescriptionTable.IsValidIndex(LodIndex) && MeshDescriptionTable[LodIndex] && MeshDescriptionContent[LodIndex] != nullptr)
+		if (MeshDescriptionTable.IsValidIndex(LodIndex) && MeshDescriptionTable[LodIndex] && MeshDescriptionContent[LodIndex] != nullptr)
 		{
 			StaticMesh->SourceModels[LodIndex].OriginalMeshDescription = Cast<UMeshDescription>(StaticDuplicateObject(MeshDescriptionContent[LodIndex], StaticMesh, NAME_None, RF_AllFlags & ~RF_Standalone));
 			return true;
@@ -2498,22 +2492,10 @@ public:
 	{
 		FMemoryReader Ar(DerivedData, /*bIsPersistent=*/ true);
 		Ar.Serialize((void*)(&LodNumber), sizeof(int32));
-		RawMeshTable.AddZeroed(LodNumber);
-		RawMeshContent.AddDefaulted(LodNumber);
 		MeshDescriptionTable.AddZeroed(LodNumber);
 		MeshDescriptionContent.AddZeroed(LodNumber);
 		for (int32 LodIndex = 0; LodIndex < LodNumber; ++LodIndex)
 		{
-			int32 HasRawMesh;
-			Ar.Serialize((void*)(&HasRawMesh), sizeof(int32));
-			RawMeshTable[LodIndex] = HasRawMesh == 0 ? false : true;
-			
-			if (RawMeshTable[LodIndex])
-			{
-				//Read the FRawMesh
-				Ar << RawMeshContent[LodIndex];
-			}
-
 			int32 HasMeshDescription;
 			Ar.Serialize((void*)(&HasMeshDescription), sizeof(int32));
 			MeshDescriptionTable[LodIndex] = HasMeshDescription == 0 ? false : true;
@@ -2532,14 +2514,6 @@ public:
 		Ar.Serialize((void*)(&LodNumber), sizeof(int32));
 		for (int32 LodIndex = 0; LodIndex < LodNumber; ++LodIndex)
 		{
-			int32 HasRawMesh = RawMeshTable[LodIndex] ? 1 : 0;
-			Ar.Serialize((void*)(&HasRawMesh), sizeof(int32));
-			if (HasRawMesh != 0)
-			{
-				//Write the FRawMeshBulkData
-				Ar << RawMeshContent[LodIndex];
-			}
-
 			int32 HasMeshDescription = MeshDescriptionTable[LodIndex] ? 1 : 0;
 			Ar.Serialize((void*)(&HasMeshDescription), sizeof(int32));
 			if (HasMeshDescription)
@@ -2553,10 +2527,9 @@ public:
 
 void UStaticMesh::CacheMeshData()
 {
-	bool bMeshDescriptionMode = GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription;
-	//TODO DDC
 	//Look if a ddc exist for this mesh data
 	bool IsValidCache = false;
+	//Since we can have more then 1 LOD we need a structure to store the RawData per LOD to read/write the mesh description ddc
 	FMeshDataSerialize MeshDataSerialize;
 	FString MeshDataKey;
 	if (GetMeshDataKey(MeshDataKey))
@@ -2570,86 +2543,29 @@ void UStaticMesh::CacheMeshData()
 		}
 	}
 
-	//We have two lambda, one to create a raw mesh if the mesh description exist and another lambda to create a mesh description if the raw mesh exist
-	//We use lambda because we want to look for them in a order decide by the mesh description mode
-
-	//Create a raw mesh from a valid mesh description
-	auto MeshDescriptionLambda = [this, &IsValidCache, &MeshDataSerialize](int32 LodIndex)
-	{
-		FStaticMeshSourceModel& SourceModel = SourceModels[LodIndex];
-		if (SourceModel.OriginalMeshDescription != nullptr)
-		{
-			if (SourceModel.RawMeshBulkData->IsEmpty())
-			{
-				//Convert the mesh description to raw mesh and mark the ddc for save
-				FRawMesh TempRawMesh;
-				//Use the ddc if it exist
-				if (!MeshDataSerialize.ApplyDataToStaticMesh(this, LodIndex, true))
-				{
-					IsValidCache = false;
-					//Convert RawMesh to meshdescription
-					FMeshDescriptionOperations::ConverToRawMesh(SourceModel.OriginalMeshDescription, TempRawMesh);
-				}
-				SourceModel.RawMeshBulkData->SaveRawMesh(TempRawMesh);
-			}
-			return true;
-		}
-		return false;
-	};
-
-	//Create a mesh description from a valid raw mesh
-	auto RawMeshLambda = [this, &IsValidCache, &MeshDataSerialize](int32 LodIndex)
-	{
-		FStaticMeshSourceModel& SourceModel = SourceModels[LodIndex];
-		if (!SourceModel.RawMeshBulkData->IsEmpty())
-		{
-			if (SourceModel.OriginalMeshDescription == nullptr)
-			{
-				//Use the ddc if it exist
-				if (!MeshDataSerialize.ApplyDataToStaticMesh(this, LodIndex, false))
-				{
-					IsValidCache = false;
-					FRawMesh TempRawMesh;
-					//Convert the rawmesh to mesh description mark the ddc for save
-					SourceModel.RawMeshBulkData->LoadRawMesh(TempRawMesh);
-					//The original mesh description is null we must create one
-					SourceModel.OriginalMeshDescription = NewObject<UMeshDescription>(this, NAME_None);
-					//Convert the raw mesh to mesh description and save the mesh description in the ddc
-					FMeshDescriptionOperations::ConverFromRawMesh(TempRawMesh, SourceModel.OriginalMeshDescription);
-				}
-			}
-			return true;
-		}
-		return false;
-	};
-
 	for (int32 LodIndex = 0; LodIndex < SourceModels.Num(); ++LodIndex)
 	{
-		if (bMeshDescriptionMode)
+		//For phase 1 the mesh description is transient to avoid loosing data
+		FStaticMeshSourceModel& SourceModel = SourceModels[LodIndex];
+		if (!SourceModel.RawMeshBulkData->IsEmpty() && SourceModel.OriginalMeshDescription == nullptr)
 		{
-			if (!MeshDescriptionLambda(LodIndex))
+			//Use the ddc if it exist, otherwise convert the data
+			if (!MeshDataSerialize.WriteDataToStaticMesh(this, LodIndex))
 			{
-				RawMeshLambda(LodIndex);
+				//ddc does not contain a mesh description, create one
+				IsValidCache = false;
+				FRawMesh TempRawMesh;
+				//Convert the rawmesh to mesh description mark the ddc for save
+				SourceModel.RawMeshBulkData->LoadRawMesh(TempRawMesh);
+				//The original mesh description is null we must create one
+				SourceModel.OriginalMeshDescription = NewObject<UMeshDescription>(this, NAME_None);
+				//Convert the raw mesh to mesh description and save the mesh description in the ddc
+				FMeshDescriptionOperations::ConverFromRawMesh(TempRawMesh, SourceModel.OriginalMeshDescription);
 			}
 		}
-		else
-		{
-			if (!RawMeshLambda(LodIndex))
-			{
-				MeshDescriptionLambda(LodIndex);
-			}
-		}
-
-		//We cannot check because there is some case where the MeshMerge as generate some mesh LOD with no rawmesh and no reduction
-		//if (LodIndex == 0 || (SourceModels[LodIndex].ReductionSettings.PercentTriangles == 1.0f && SourceModels[LodIndex].ReductionSettings.MaxDeviation == 0.0f))
-		//{
-			//Check if we have all the data, we need both data until we deprecate FRawMesh
-			//check(SourceModels[LodIndex].OriginalMeshDescription != nullptr);
-			//check(!SourceModels[LodIndex].RawMeshBulkData->IsEmpty());
-		//}
 	}
 
-	//Write a cache that will be useful next time we load the asset (if not saved)
+	//Write the mesh description ddc cache if necessary
 	if (!IsValidCache && !MeshDataKey.IsEmpty())
 	{
 		//We need to write the cache

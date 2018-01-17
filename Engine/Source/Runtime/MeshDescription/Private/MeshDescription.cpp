@@ -76,7 +76,6 @@ void UMeshDescription::UnRegisterBaseAttributes()
 void UMeshDescription::Serialize( FArchive& Ar )
 {
 	Super::Serialize( Ar );
-
 	Ar << VertexArray;
 	Ar << VertexInstanceArray;
 	Ar << EdgeArray;
@@ -106,15 +105,150 @@ void UMeshDescription::Empty()
 #if WITH_EDITORONLY_DATA
 FString UMeshDescription::GetIdString()
 {
-	TArray<uint8> TempBytes;
-	FObjectWriter Ar(this, TempBytes);
-	Serialize(Ar);
+	//The serialisation of the sparse array can be different with the same data, so to get a unique identifier we need to take the data with no IDs(FVertexID...)
 	FSHA1 Sha;
-	if (TempBytes.Num() > 0)
+	TArray<uint8> TempBytes;
+
+	TVertexAttributeArray<FVector>& VertexPositions = VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+	TVertexAttributeArray<float>& VertexCornerSharpness = VertexAttributes().GetAttributes<float>(MeshAttribute::Vertex::CornerSharpness);
+
+	TVertexInstanceAttributeIndicesArray<FVector2D>& TextureCoordinates = VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+	TVertexInstanceAttributeArray<FVector>& VertexInstanceNormals = VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
+	TVertexInstanceAttributeArray<FVector>& VertexInstanceTangents = VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Tangent);
+	TVertexInstanceAttributeArray<float>& VertexInstanceBiNormals = VertexInstanceAttributes().GetAttributes<float>(MeshAttribute::VertexInstance::BinormalSign);
+	TVertexInstanceAttributeArray<FVector4>& VertexInstanceColors = VertexInstanceAttributes().GetAttributes<FVector4>(MeshAttribute::VertexInstance::Color);
+
+	TEdgeAttributeArray<bool>& EdgeHards = EdgeAttributes().GetAttributes<bool>(MeshAttribute::Edge::IsHard);
+	TEdgeAttributeArray<float>& EdgeCreaseSharpness = EdgeAttributes().GetAttributes<float>(MeshAttribute::Edge::CreaseSharpness);
+
+	TPolygonAttributeArray<FVector>& PolygonNormals = PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Normal);
+	TPolygonAttributeArray<FVector>& PolygonTangents = PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Tangent);
+	TPolygonAttributeArray<FVector>& PolygonBinormals = PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Binormal);
+	TPolygonAttributeArray<FVector>& PolygonCenters = PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Center);
+
+	TPolygonGroupAttributeArray<int>& PolygonGroupMaterialIndexes = PolygonGroupAttributes().GetAttributes<int>(MeshAttribute::PolygonGroup::MaterialIndex);
+	TPolygonGroupAttributeArray<FName>& PolygonGroupMaterialSlotNames = PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::MaterialSlotName);
+	TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+	TPolygonGroupAttributeArray<bool>& PolygonGroupEnableCollisions = PolygonGroupAttributes().GetAttributes<bool>(MeshAttribute::PolygonGroup::EnableCollision);
+	TPolygonGroupAttributeArray<bool>& PolygonGroupCastShadows = PolygonGroupAttributes().GetAttributes<bool>(MeshAttribute::PolygonGroup::CastShadow);
+	
+	auto AddItemToSha = [&](auto ItemSerialization)
 	{
-		uint8* Buffer = TempBytes.GetData();
-		Sha.Update(Buffer, TempBytes.Num());
-	}
+		FMemoryWriter Ar(TempBytes);
+		ItemSerialization(Ar);
+		if (TempBytes.Num() > 0)
+		{
+			uint8* Buffer = TempBytes.GetData();
+			Sha.Update(Buffer, TempBytes.Num());
+		}
+		TempBytes.Reset();
+	};
+
+	//Vertex Identifier
+	auto VertexSerializer = [&](FMemoryWriter &Ar)
+	{
+		for (const FVertexID& ArrayID : Vertices().GetElementIDs())
+		{
+			const FMeshVertex& MeshItem = GetVertex(ArrayID);
+			uint32 ItemCount = MeshItem.ConnectedEdgeIDs.Num();
+			Ar.SerializeInt(ItemCount, 0);
+			ItemCount = MeshItem.VertexInstanceIDs.Num();
+			Ar.SerializeInt(ItemCount, 0);
+			Ar << VertexPositions[ArrayID];
+			Ar << VertexCornerSharpness[ArrayID];
+		}
+	};
+	AddItemToSha(VertexSerializer);
+	
+	//Vertex Instance Identifier
+	auto VertexInstanceSerializer = [&](FMemoryWriter &Ar)
+	{
+		for (const FVertexInstanceID& ArrayID : VertexInstances().GetElementIDs())
+		{
+			const FMeshVertexInstance& MeshItem = GetVertexInstance(ArrayID);
+			uint32 ItemCount = MeshItem.ConnectedPolygons.Num();
+			Ar.SerializeInt(ItemCount, 0);
+			Ar << VertexPositions[MeshItem.VertexID];
+			for (int32 UVIndex = 0; UVIndex < TextureCoordinates.GetNumIndices(); ++UVIndex)
+			{
+				Ar << TextureCoordinates.GetArrayForIndex(UVIndex)[ArrayID];
+			}
+			Ar << VertexInstanceNormals[ArrayID];
+			Ar << VertexInstanceTangents[ArrayID];
+			Ar << VertexInstanceBiNormals[ArrayID];
+			Ar << VertexInstanceColors[ArrayID];
+		}
+	};
+	AddItemToSha(VertexInstanceSerializer);
+
+	//Edge Identifier
+	auto EdgeSerializer = [&](FMemoryWriter &Ar)
+	{
+		for (const FEdgeID& ArrayID : Edges().GetElementIDs())
+		{
+			const FMeshEdge& MeshItem = GetEdge(ArrayID);
+			uint32 ItemCount = MeshItem.ConnectedPolygons.Num();
+			Ar.SerializeInt(ItemCount, 0);
+			Ar << VertexPositions[MeshItem.VertexIDs[0]];
+			Ar << VertexPositions[MeshItem.VertexIDs[1]];
+			Ar << EdgeHards[ArrayID];
+			Ar << EdgeCreaseSharpness[ArrayID];
+		}
+	};
+	AddItemToSha(EdgeSerializer);
+
+	//Polygon Identifier
+	auto PolygonSerializer = [&](FMemoryWriter &Ar)
+	{
+		for (const FPolygonID& ArrayID : Polygons().GetElementIDs())
+		{
+			const FMeshPolygon& MeshItem = GetPolygon(ArrayID);
+			uint32 ItemCount = MeshItem.HoleContours.Num();
+			Ar.SerializeInt(ItemCount, 0);
+			for(const FMeshPolygonContour& MeshPolygonContour : MeshItem.HoleContours)
+			{
+				ItemCount = MeshPolygonContour.VertexInstanceIDs.Num();
+				Ar.SerializeInt(ItemCount, 0);
+				for (const FVertexInstanceID& VertexInstanceID : MeshPolygonContour.VertexInstanceIDs)
+				{
+					Ar << VertexPositions[GetVertexInstance(VertexInstanceID).VertexID];
+				}
+			}
+			ItemCount = MeshItem.PerimeterContour.VertexInstanceIDs.Num();
+			Ar.SerializeInt(ItemCount, 0);
+			for (const FVertexInstanceID& VertexInstanceID : MeshItem.PerimeterContour.VertexInstanceIDs)
+			{
+				Ar << VertexPositions[GetVertexInstance(VertexInstanceID).VertexID];
+			}
+			ItemCount = PolygonGroupMaterialIndexes[MeshItem.PolygonGroupID];
+			Ar.SerializeInt(ItemCount, 0);
+
+			Ar << GetPolygon(ArrayID);
+			Ar << PolygonNormals[ArrayID];
+			Ar << PolygonTangents[ArrayID];
+			Ar << PolygonBinormals[ArrayID];
+			Ar << PolygonCenters[ArrayID];
+		}
+	};
+	AddItemToSha(PolygonSerializer);
+
+	//PolygonGroup Identifier
+	auto PolygonGroupSerializer = [&](FMemoryWriter &Ar)
+	{
+		for (const FPolygonGroupID& ArrayID : PolygonGroups().GetElementIDs())
+		{
+			const FMeshPolygonGroup& MeshItem = GetPolygonGroup(ArrayID);
+			uint32 ItemCount = MeshItem.Polygons.Num();
+			Ar.SerializeInt(ItemCount, 0);
+			Ar << PolygonGroupMaterialIndexes[ArrayID];
+			Ar << PolygonGroupMaterialSlotNames[ArrayID];
+			Ar << PolygonGroupImportedMaterialSlotNames[ArrayID];
+			Ar << PolygonGroupEnableCollisions[ArrayID];
+			Ar << PolygonGroupCastShadows[ArrayID];
+		}
+	};
+	AddItemToSha(PolygonGroupSerializer);
+	
 	Sha.Final();
 	TempBytes.Empty();
 	// Retrieve the hash and use it to construct a pseudo-GUID.
@@ -123,8 +257,7 @@ FString UMeshDescription::GetIdString()
 	FGuid Guid = FGuid(Hash[0] ^ Hash[4], Hash[1], Hash[2], Hash[3]);
 	return Guid.ToString(EGuidFormats::Digits);
 }
-#endif
-
+#endif //WITH_EDITORONLY_DATA
 
 void UMeshDescription::Compact( FElementIDRemappings& OutRemappings )
 {

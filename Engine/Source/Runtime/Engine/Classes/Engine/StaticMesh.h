@@ -167,7 +167,7 @@ struct FStaticMeshSourceModel
 
 #if WITH_EDITORONLY_DATA
 	/* Original Imported mesh description data. Optional for all but the first LOD. Autogenerate LOD do not have original mesh description*/
-	UPROPERTY()
+	UPROPERTY(Transient)
 	class UMeshDescription* OriginalMeshDescription;
 #endif
 
@@ -958,19 +958,5 @@ private:
 	 * Fixes up the material when it was converted to the new staticmesh build process
 	 */
 	bool CleanUpRedondantMaterialPostLoad;
-
-	/*
-	 * Mesh data key DDC version enum
-	 */
-	enum EMeshDataKeyVersion
-	{
-		VER_MDK_INITIAL = 0,
-
-		// -----<new versions can be added before this line>-------------------------------------------------
-		// - this needs to be the last line (see note below)
-		VER_MDK_AUTOMATIC_VERSION_PLUS_ONE,
-		VER_MDK_AUTOMATIC_VERSION = VER_MDK_AUTOMATIC_VERSION_PLUS_ONE - 1
-	};
-
 #endif // #if WITH_EDITOR
 };
