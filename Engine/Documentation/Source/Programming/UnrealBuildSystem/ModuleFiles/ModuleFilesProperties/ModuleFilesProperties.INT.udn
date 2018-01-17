@@ -93,7 +93,7 @@ $ PlatformSpecificDynamicallyLoadedModuleNames (List&lt;String&gt;): Extra modul
 
 $ RuntimeDependencies (RuntimeDependencyList): List of files which this module depends on at runtime. These files will be staged along with the target.
 
-$ AdditionalPropertiesForReceipt (List&lt;ReceiptProperty&gt;): List of additional properties to be added to the build receipt
+$ AdditionalPropertiesForReceipt (ReceiptPropertyList): List of additional properties to be added to the build receipt
 
 $ PrecompileForTargets (PrecompileTargetsType): Which targets this module should be precompiled for
 

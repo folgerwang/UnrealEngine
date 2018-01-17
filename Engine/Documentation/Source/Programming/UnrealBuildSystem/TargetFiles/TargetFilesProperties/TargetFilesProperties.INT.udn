@@ -16,6 +16,8 @@ $ Architecture (String): Architecture that the target is being built for (or an 
 
 $ ProjectFile (FileReference): Path to the project file for the project containing this target.
 
+$ Version (ReadOnlyBuildVersion): The current build version
+
 
 ### Read/Write Properties
 $ Type (TargetType): The type of target.
