@@ -5,7 +5,7 @@
 =============================================================================*/
 #pragma once
 
-#include "AndroidApplication.h"
+#include "Android/AndroidApplication.h"
 
 bool GAndroidGPUInfoReady = false;
 

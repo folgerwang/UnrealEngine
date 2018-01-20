@@ -67,7 +67,7 @@
 
 //Materials
 #include "Toolkits/AssetEditorManager.h"
-#include "Private/MaterialEditor.h"
+#include "Editor/MaterialEditor/Private/MaterialEditor.h"
 #include "Materials/MaterialExpressionConstant3Vector.h"
 
 //Particle system

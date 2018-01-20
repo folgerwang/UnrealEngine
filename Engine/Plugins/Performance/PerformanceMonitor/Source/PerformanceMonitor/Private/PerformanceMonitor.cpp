@@ -10,8 +10,8 @@
 #include "Engine/Engine.h"
 #include "EngineGlobals.h"
 #include "Engine/GameViewportClient.h"
-#include "ConfigCacheIni.h"
-#include "AutomationTest.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/AutomationTest.h"
 
 #define SUPER_DETAILED_AUTOMATION_STATS 1
 PERFORMANCEMONITOR_API int ExportedInt;

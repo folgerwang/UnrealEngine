@@ -9,7 +9,7 @@
 #include "ProfilerRawStatsForThreadView.h"
 #include "Widgets/SProfilerMiniView.h"
 #include "Widgets/SProfilerWindow.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 #define LOCTEXT_NAMESPACE "FProfilerCommands"
 

@@ -5,7 +5,7 @@
 #include "ISlateReflectorModule.h"
 #include "Interfaces/IPluginManager.h"
 #include "StandaloneRenderer.h"
-#include "TaskGraphInterfaces.h"
+#include "Async/TaskGraphInterfaces.h"
 #include "ISourceCodeAccessModule.h"
 #include "Containers/Ticker.h"
 #include "Misc/CommandLine.h"

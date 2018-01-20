@@ -9,7 +9,7 @@
 #include "PostProcess/PostProcessing.h"
 #include "ClearQuad.h"
 #include "PipelineStateCache.h"
-#include "UnrealMathUtility.h"
+#include "Math/UnrealMathUtility.h"
 #include "ScenePrivate.h"
 
 SHADERCORE_API bool UsePreExposure(EShaderPlatform Platform);

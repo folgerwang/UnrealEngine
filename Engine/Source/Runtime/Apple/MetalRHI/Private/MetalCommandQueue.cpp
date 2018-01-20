@@ -12,7 +12,7 @@
 #include "MetalProfiler.h"
 #if METAL_STATISTICS
 #include "MetalStatistics.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #endif
 #include "Misc/ConfigCacheIni.h"
 

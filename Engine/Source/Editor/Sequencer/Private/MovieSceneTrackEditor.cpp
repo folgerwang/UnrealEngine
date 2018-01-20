@@ -12,7 +12,7 @@
 #include "MovieScene.h"
 #include "MovieSceneSequence.h"
 #include "Sequencer.h"
-#include "MultiBoxBuilder.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "SequencerUtilities.h"
 
 FMovieSceneTrackEditor::FMovieSceneTrackEditor(TSharedRef<ISequencer> InSequencer)

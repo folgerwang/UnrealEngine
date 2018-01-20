@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "SWindow.h"
+#include "Widgets/SWindow.h"
 
 #if WITH_EDITOR
 

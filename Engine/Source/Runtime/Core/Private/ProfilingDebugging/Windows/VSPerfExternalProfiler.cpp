@@ -6,7 +6,7 @@
 #include "ProfilingDebugging/ExternalProfiler.h"
 #include "Features/IModularFeatures.h"
 #include "Templates/ScopedPointer.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 // Not all versions of Visual Studio include the profiler SDK headers
 #if WITH_VS_PERF_PROFILER

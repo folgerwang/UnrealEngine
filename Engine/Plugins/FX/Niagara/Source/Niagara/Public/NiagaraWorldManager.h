@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "Engine/World.h"
 #include "NiagaraParameterCollection.h"
-#include "GCObject.h"
+#include "UObject/GCObject.h"
 #include "NiagaraDataSet.h"
 #include "NiagaraScriptExecutionContext.h"
 #include "NiagaraSystemSimulation.h"

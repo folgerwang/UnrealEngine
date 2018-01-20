@@ -6,7 +6,7 @@
 #include "BuildPatchSettings.h"
 #include "BuildPatchState.h"
 #include "CoreMinimal.h"
-#include "IBuildInstaller.h"
+#include "Interfaces/IBuildInstaller.h"
 #include "Common/FileSystem.h"
 #include "Core/Platform.h"
 #include "Installer/InstallerAnalytics.h"

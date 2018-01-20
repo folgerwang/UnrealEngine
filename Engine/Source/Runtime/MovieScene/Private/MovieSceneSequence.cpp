@@ -4,7 +4,7 @@
 #include "Evaluation/MovieSceneEvaluationCustomVersion.h"
 #include "Evaluation/MovieSceneSequenceTemplateStore.h"
 #include "MovieScene.h"
-#include "EditorObjectVersion.h"
+#include "UObject/EditorObjectVersion.h"
 #include "Tracks/MovieSceneSubTrack.h"
 #include "Sections/MovieSceneSubSection.h"
 #include "Compilation/MovieSceneCompiler.h"

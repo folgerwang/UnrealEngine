@@ -18,13 +18,13 @@
 #include "Binding/PropertyBinding.h"
 #include "Blueprint/WidgetTree.h"
 #include "Blueprint/WidgetBlueprintGeneratedClass.h"
-#include "PropertyTag.h"
+#include "UObject/PropertyTag.h"
 #include "WidgetBlueprint.h"
 #include "WidgetBlueprintCompiler.h"
-#include "PropertyBinding.h"
+#include "Binding/PropertyBinding.h"
 #include "Engine/UserDefinedStruct.h"
 #include "UObject/EditorObjectVersion.h"
-#include "Classes/WidgetGraphSchema.h"
+#include "WidgetGraphSchema.h"
 #include "WidgetBlueprintCompiler.h"
 
 #if WITH_EDITOR

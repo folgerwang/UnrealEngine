@@ -5,8 +5,8 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "MovieSceneSequenceID.h"
-#include "MovieSceneEvaluationKey.h"
-#include "MovieSceneSegment.h"
+#include "Evaluation/MovieSceneEvaluationKey.h"
+#include "Evaluation/MovieSceneSegment.h"
 #include "Evaluation/MovieSceneTrackIdentifier.h"
 #include "MovieSceneEvaluationField.generated.h"
 

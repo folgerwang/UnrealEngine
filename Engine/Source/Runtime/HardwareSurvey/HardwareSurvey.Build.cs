@@ -40,6 +40,6 @@ public class HardwareSurvey : ModuleRules
 			}
 		);
 
-		PrecompileForTargets = PrecompileTargetsType.None;
+		PrecompileForTargets = PrecompileTargetsType.Any;
 	}
 }

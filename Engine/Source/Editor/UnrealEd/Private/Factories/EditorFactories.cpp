@@ -198,7 +198,7 @@
 #include "IImageWrapperModule.h"
 
 #include "FbxImporter.h"
-#include "FbxErrors.h"
+#include "Misc/FbxErrors.h"
 
 #include "AssetRegistryModule.h"
 #include "IContentBrowserSingleton.h"
@@ -214,10 +214,10 @@
 
 #if PLATFORM_WINDOWS
 	// Needed for DDS support.
-	#include "WindowsHWrapper.h"
-	#include "AllowWindowsPlatformTypes.h"
+	#include "Windows/WindowsHWrapper.h"
+	#include "Windows/AllowWindowsPlatformTypes.h"
 		#include <ddraw.h>
-	#include "HideWindowsPlatformTypes.h"
+	#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 #if WITH_EDITOR
@@ -248,7 +248,7 @@
 #include "Engine/PreviewMeshCollection.h"
 #include "Factories/PreviewMeshCollectionFactory.h"
 #include "Factories/ForceFeedbackAttenuationFactory.h"
-#include "FileHelper.h"
+#include "Misc/FileHelper.h"
 #include "ActorGroupingUtils.h"
 
 #include "Editor/EditorPerProjectUserSettings.h"
@@ -4063,7 +4063,7 @@ bool UTextureFactory::IsImportResolutionValid(int32 Width, int32 Height, bool bA
 	// Check if the texture dimensions are powers of two
 	if ( !bAllowNonPowerOfTwo && !bIsPowerOfTwo )
 	{
-		Warn->Logf(ELogVerbosity::Error, *NSLOCTEXT("UnrealEd", "Warning_TextureNotAPowerOfTwo", "Cannot import texture with non-power of two dimensions").ToString() );
+		Warn->Log(ELogVerbosity::Error, *NSLOCTEXT("UnrealEd", "Warning_TextureNotAPowerOfTwo", "Cannot import texture with non-power of two dimensions").ToString() );
 		bValid = false;
 	}
 	

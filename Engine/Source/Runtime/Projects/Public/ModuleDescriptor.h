@@ -149,6 +149,8 @@ struct PROJECTS_API FModuleDescriptor
 	/** Loads all the modules for a given loading phase. Returns a map of module names to load errors */
 	static void LoadModulesForPhase(ELoadingPhase::Type LoadingPhase, const TArray<FModuleDescriptor>& Modules, TMap<FName, EModuleLoadResult>& ModuleLoadErrors);
 
+#if !IS_MONOLITHIC
 	/** Checks that all modules are compatible with the current engine version. Returns false and appends a list of names to OutIncompatibleFiles if not. */
 	static bool CheckModuleCompatibility(const TArray<FModuleDescriptor>& Modules, bool bGameModules, TArray<FString>& OutIncompatibleFiles);
+#endif
 };

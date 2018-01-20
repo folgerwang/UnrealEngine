@@ -10,7 +10,7 @@
 #include "Evaluation/MovieSceneEvaluationTrack.h"
 #include "Evaluation/MovieSceneEvaluationTemplate.h"
 
-#include "MovieSceneEvaluationCustomVersion.h"
+#include "Evaluation/MovieSceneEvaluationCustomVersion.h"
 
 UMovieSceneTrack::UMovieSceneTrack(const FObjectInitializer& InInitializer)
 	: Super(InInitializer)

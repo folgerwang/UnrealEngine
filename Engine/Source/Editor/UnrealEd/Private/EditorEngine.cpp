@@ -17,7 +17,7 @@
 #include "Framework/MultiBox/MultiBoxDefs.h"
 #include "Framework/Docking/TabManager.h"
 #include "EditorStyleSet.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "PhysicsEngine/BodyInstance.h"
 #include "Components/PrimitiveComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -86,7 +86,7 @@
 #include "Engine/NetDriver.h"
 #include "Net/NetworkProfiler.h"
 #include "Interfaces/IPluginManager.h"
-#include "PackageReload.h"
+#include "UObject/PackageReload.h"
 #include "HAL/PlatformApplicationMisc.h"
 
 // needed for the RemotePropagator
@@ -137,11 +137,11 @@
 #include "EditorWorldExtension.h"
 
 #if PLATFORM_WINDOWS
-	#include "WindowsHWrapper.h"
+	#include "Windows/WindowsHWrapper.h"
 // For WAVEFORMATEXTENSIBLE
-	#include "AllowWindowsPlatformTypes.h"
+	#include "Windows/AllowWindowsPlatformTypes.h"
 #include <mmreg.h>
-	#include "HideWindowsPlatformTypes.h"
+	#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 #include "ProjectDescriptor.h"

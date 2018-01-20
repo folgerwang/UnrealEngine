@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraStackViewModel.h"
-#include "NiagaraStackRoot.h"
+#include "ViewModels/Stack/NiagaraStackViewModel.h"
+#include "ViewModels/Stack/NiagaraStackRoot.h"
 #include "NiagaraSystemViewModel.h"
 #include "NiagaraEmitterViewModel.h"
 #include "NiagaraScriptGraphViewModel.h"

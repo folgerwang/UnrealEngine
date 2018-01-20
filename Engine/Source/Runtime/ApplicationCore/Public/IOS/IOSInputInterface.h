@@ -3,8 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "IInputInterface.h"
-#include "IForceFeedbackSystem.h"
+#include "GenericPlatform/IInputInterface.h"
+#include "GenericPlatform/IForceFeedbackSystem.h"
 #if !PLATFORM_TVOS
 #import <CoreMotion/CoreMotion.h>
 #endif

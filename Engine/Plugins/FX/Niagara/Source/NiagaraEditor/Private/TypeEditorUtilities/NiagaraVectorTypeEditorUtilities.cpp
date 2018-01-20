@@ -5,7 +5,7 @@
 #include "NiagaraEditorStyle.h"
 #include "NiagaraTypes.h"
 
-#include "SNumericEntryBox.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 #include "Misc/DefaultValueHelper.h"
 
 class SNiagaraVectorParameterEditorBase : public SNiagaraParameterEditor

@@ -5,8 +5,8 @@
 #include "Misc/OutputDeviceError.h"
 #include "Misc/FeedbackContext.h"
 #include "LaunchEngineLoop.h"
-#include "ExceptionHandling.h"
-#include "MacPlatformCrashContext.h"
+#include "HAL/ExceptionHandling.h"
+#include "Mac/MacPlatformCrashContext.h"
 
 #if WITH_ENGINE
 	#include "Engine/Engine.h"
@@ -19,7 +19,7 @@
 #endif
 
 #include <signal.h>
-#include "CocoaThread.h"
+#include "Mac/CocoaThread.h"
 
 
 static FString GSavedCommandLine;

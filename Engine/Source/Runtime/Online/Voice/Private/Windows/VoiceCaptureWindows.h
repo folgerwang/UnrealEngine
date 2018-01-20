@@ -3,12 +3,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "VoiceCapture.h"
+#include "Interfaces/VoiceCapture.h"
 #include "VoicePackage.h"
 #include "VoiceDelayBuffer.h"
 #include "DSP/EnvelopeFollower.h"
 #include "Containers/Ticker.h"
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 
 typedef struct IDirectSound8 *LPDIRECTSOUND8;
 

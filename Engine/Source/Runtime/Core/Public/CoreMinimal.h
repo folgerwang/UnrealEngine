@@ -88,7 +88,7 @@
 #include "Containers/BitArray.h"
 #include "Containers/SparseArray.h"
 #include "Containers/Set.h"
-#include "Containers/Algo/Reverse.h"
+#include "Algo/Reverse.h"
 #include "Containers/Map.h"
 #include "Math/ColorList.h"
 #include "Math/IntPoint.h"

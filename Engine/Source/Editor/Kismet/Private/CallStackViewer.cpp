@@ -2,14 +2,14 @@
 
 #include "CallStackViewer.h"
 
-#include "WidgetBlueprintGeneratedClass.h"
+#include "Blueprint/WidgetBlueprintGeneratedClass.h"
 #include "EditorStyleSet.h"
 #include "Framework/Commands/GenericCommands.h"
 #include "Framework/Docking/TabManager.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "HAL/PlatformApplicationMisc.h"
 #include "K2Node_Event.h"
-#include "KismetEditorUtilities.h"
+#include "Kismet2/KismetEditorUtilities.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Kismet2/KismetDebugUtilities.h"
 

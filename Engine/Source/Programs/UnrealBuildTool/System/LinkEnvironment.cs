@@ -69,14 +69,9 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// The project file for this target
-		/// </summary>
-		public FileReference ProjectFile = null;
-
-		/// <summary>
 		/// A list of the paths used to find libraries.
 		/// </summary>
-		public List<string> LibraryPaths = new List<string>();
+		public List<DirectoryReference> LibraryPaths = new List<DirectoryReference>();
 
 		/// <summary>
 		/// A list of libraries to exclude from linking.
@@ -164,11 +159,6 @@ namespace UnrealBuildTool
 		/// we're directly dependent on.
 		/// </summary>
 		public bool bIsCrossReferenced = false;
-
-		/// <summary>
-		/// True if we should include dependent libraries when building a static library
-		/// </summary>
-		public bool bIncludeDependentLibrariesInLibrary = false;
 
 		/// <summary>
 		/// True if the application we're linking has any exports, and we should be expecting the linker to
@@ -320,7 +310,6 @@ namespace UnrealBuildTool
 			IntermediateDirectory = Other.IntermediateDirectory;
 			LocalShadowDirectory = Other.LocalShadowDirectory;
 			OutputFilePaths = Other.OutputFilePaths.ToList();
-			ProjectFile = Other.ProjectFile;
 			LibraryPaths.AddRange(Other.LibraryPaths);
 			ExcludedLibraries.AddRange(Other.ExcludedLibraries);
 			AdditionalLibraries.AddRange(Other.AdditionalLibraries);

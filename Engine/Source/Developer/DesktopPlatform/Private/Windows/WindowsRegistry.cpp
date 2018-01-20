@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "WindowsRegistry.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 #if WINVER == 0x0502
 	// Some registry functions are not available on windows XP, so we need the XP compat alternative
@@ -394,4 +394,4 @@ bool EnumerateRegistryValues(HKEY hKey, TArray<FString> &OutNames)
 	return true;
 }
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"

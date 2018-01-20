@@ -899,8 +899,7 @@ FDependsNode* FAssetRegistryState::ResolveRedirector(FDependsNode* InDependency,
 	FDependsNode* CurrentDependency = InDependency;
 	FDependsNode* Result = nullptr;
 
-	static TSet<FName> EncounteredDependencies;
-	EncounteredDependencies.Empty();
+	TSet<FName> EncounteredDependencies;
 
 	while (Result == nullptr)
 	{

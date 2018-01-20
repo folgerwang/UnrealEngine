@@ -21,7 +21,7 @@
 #include "Widgets/Colors/SColorPicker.h"
 #include "DetailPropertyRow.h"
 #include "Widgets/Input/SSearchBox.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "DetailLayoutHelpers.h"
 
 SDetailsViewBase::~SDetailsViewBase()

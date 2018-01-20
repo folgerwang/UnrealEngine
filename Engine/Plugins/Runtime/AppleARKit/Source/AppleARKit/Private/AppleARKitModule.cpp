@@ -2,7 +2,7 @@
 
 #include "AppleARKitModule.h"
 #include "AppleARKitSystem.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "Features/IModularFeature.h"
 #include "Features/IModularFeatures.h"
 

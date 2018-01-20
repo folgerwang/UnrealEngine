@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #include "OculusAudioDllManager.h"
-#include "Paths.h"
+#include "Misc/Paths.h"
 
 void* FOculusAudioLibraryManager::OculusAudioDllHandle = nullptr;
 uint32 FOculusAudioLibraryManager::NumInstances = 0;

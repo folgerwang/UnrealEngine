@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "IOSAppDelegate.h"
+#include "IOS/IOSAppDelegate.h"
 
 @interface IOSAppDelegate (ConsoleHandling)
 

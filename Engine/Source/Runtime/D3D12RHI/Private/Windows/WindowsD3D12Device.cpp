@@ -6,14 +6,14 @@
 
 #include "D3D12RHIPrivate.h"
 #include "Modules/ModuleManager.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <delayimp.h>
 	#include "amd_ags.h"
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #include "HardwareInfo.h"
 #include "Runtime/HeadMountedDisplay/Public/IHeadMountedDisplayModule.h"
-#include "GenericPlatformDriver.h"			// FGPUDriverInfo
+#include "GenericPlatform/GenericPlatformDriver.h"			// FGPUDriverInfo
 
 #pragma comment(lib, "d3d12.lib")
 

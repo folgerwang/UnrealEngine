@@ -2,7 +2,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "AutomationCommon.h"
+#include "Tests/AutomationCommon.h"
 
 /* Wait for all running functional tests to finish */
 DEFINE_EXPORTED_LATENT_AUTOMATION_COMMAND(FUNCTIONALTESTING_API, FWaitForFTestsToFinish);

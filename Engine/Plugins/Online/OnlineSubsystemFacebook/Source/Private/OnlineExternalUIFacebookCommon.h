@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "OnlineExternalUIInterface.h"
+#include "Interfaces/OnlineExternalUIInterface.h"
 #include "OnlineSubsystemFacebookPackage.h"
 
 class FOnlineSubsystemFacebookCommon;

@@ -6,7 +6,7 @@
 #include "IWebBrowserWindow.h"
 #include "IWebBrowserPopupFeatures.h"
 #include "IWebBrowserDialog.h"
-#include "SWindowTitleBar.h"
+#include "Framework/Application/SWindowTitleBar.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Misc/ScopeLock.h"
 

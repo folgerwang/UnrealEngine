@@ -11,7 +11,7 @@
 #include "UObject/CoreNet.h"
 #include "Engine/EngineTypes.h"
 #include "UObject/UnrealType.h"
-#include "GCObject.h"
+#include "UObject/GCObject.h"
 
 class FNetFieldExportGroup;
 class FOutBunch;

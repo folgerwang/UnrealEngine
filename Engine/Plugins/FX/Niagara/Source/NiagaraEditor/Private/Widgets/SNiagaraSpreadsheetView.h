@@ -3,18 +3,18 @@
 #pragma once
 
 #include "EditorUndoClient.h"
-#include "SCompoundWidget.h"
-#include "DeclarativeSyntaxSupport.h"
-#include "STableRow.h"
-#include "STableViewBase.h"
-#include "STreeView.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STreeView.h"
 #include "NiagaraSystemViewModel.h"
 #include "TickableEditorObject.h"
-#include "WeakObjectPtrTemplates.h"
+#include "UObject/WeakObjectPtrTemplates.h"
 #include "NiagaraDataSet.h"
-#include "SharedPointer.h"
-#include "Map.h"
-#include "SCheckBox.h"
+#include "Templates/SharedPointer.h"
+#include "Containers/Map.h"
+#include "Widgets/Input/SCheckBox.h"
 #include "NiagaraParameterStore.h"
 
 class SNiagaraSpreadsheetView : public SCompoundWidget, public FTickableEditorObject

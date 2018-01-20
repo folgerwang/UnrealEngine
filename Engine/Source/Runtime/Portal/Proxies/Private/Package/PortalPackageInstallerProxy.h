@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "IPortalPackageInstaller.h"
+#include "Package/IPortalPackageInstaller.h"
 #include "IMessageRpcClient.h"
 #include "PortalPackageInstallerMessages.h"
 

@@ -2,10 +2,10 @@
 
 #pragma once
 
-#include "SharedPointer.h"
-#include "Delegate.h"
-#include "SlateEnums.h"
-#include "SlateTypes.h"
+#include "Templates/SharedPointer.h"
+#include "Delegates/Delegate.h"
+#include "Types/SlateEnums.h"
+#include "Styling/SlateTypes.h"
 #include "Layout/Visibility.h"
 
 class UNiagaraSystem;

@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "HumanRig.h"
+#include "Rigs/HumanRig.h"
 #include "TwoBoneIK.h"
 #include "SplineIK.h"
 #include "AnimationRuntime.h"

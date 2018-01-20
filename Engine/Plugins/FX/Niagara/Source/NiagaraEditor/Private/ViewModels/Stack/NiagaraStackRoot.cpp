@@ -1,11 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraStackRoot.h"
-#include "NiagaraStackScriptItemGroup.h"
-#include "NiagaraStackEmitterSpawnScriptItemGroup.h"
-#include "NiagaraStackRenderItemGroup.h"
-#include "NiagaraStackEventHandlerGroup.h"
-#include "NiagaraStackEventScriptItemGroup.h"
+#include "ViewModels/Stack/NiagaraStackRoot.h"
+#include "ViewModels/Stack/NiagaraStackScriptItemGroup.h"
+#include "ViewModels/Stack/NiagaraStackEmitterSpawnScriptItemGroup.h"
+#include "ViewModels/Stack/NiagaraStackRenderItemGroup.h"
+#include "ViewModels/Stack/NiagaraStackEventHandlerGroup.h"
+#include "ViewModels/Stack/NiagaraStackEventScriptItemGroup.h"
 #include "NiagaraSystemViewModel.h"
 #include "NiagaraEmitterViewModel.h"
 #include "NiagaraSystemScriptViewModel.h"
@@ -13,7 +13,7 @@
 #include "NiagaraSystem.h"
 #include "NiagaraSystemEditorData.h"
 #include "NiagaraEmitterEditorData.h"
-#include "NiagaraStackParameterStoreGroup.h"
+#include "ViewModels/Stack/NiagaraStackParameterStoreGroup.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraStackViewModel"
 

@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "PrimaryAssetId.h"
+#include "UObject/PrimaryAssetId.h"
 #include "AssetData.h"
 #include "AssetBundleData.h"
 #include "EngineTypes.h"

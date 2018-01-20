@@ -29,7 +29,7 @@
 #include "ProfilingDebugging/ExternalProfiler.h"
 
 #include "Misc/UProjectInfo.h"
-#include "Culture.h"
+#include "Internationalization/Culture.h"
 
 #if UE_ENABLE_ICU
 	THIRD_PARTY_INCLUDES_START

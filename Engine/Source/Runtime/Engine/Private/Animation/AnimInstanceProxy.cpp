@@ -16,11 +16,11 @@
 #include "DrawDebugHelpers.h"
 
 #define DO_ANIMSTAT_PROCESSING(StatName) DEFINE_STAT(STAT_ ## StatName)
-#include "AnimMTStats.h"
+#include "Animation/AnimMTStats.h"
 #undef DO_ANIMSTAT_PROCESSING
 
 #define DO_ANIMSTAT_PROCESSING(StatName) DEFINE_STAT(STAT_ ## StatName ## _WorkerThread)
-#include "AnimMTStats.h"
+#include "Animation/AnimMTStats.h"
 #undef DO_ANIMSTAT_PROCESSING
 
 #define LOCTEXT_NAMESPACE "AnimInstance"

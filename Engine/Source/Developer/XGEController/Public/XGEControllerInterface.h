@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
-#include "ModuleManager.h"
-#include "Async.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "Async/Async.h"
 
 #if WITH_XGE_CONTROLLER
 

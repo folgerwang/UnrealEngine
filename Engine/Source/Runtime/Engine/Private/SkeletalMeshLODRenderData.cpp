@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "SkeletalMeshLODRenderData.h"
-#include "SkeletalMeshRenderData.h"
+#include "Rendering/SkeletalMeshLODRenderData.h"
+#include "Rendering/SkeletalMeshRenderData.h"
 #include "Engine/SkeletalMesh.h"
 #include "Animation/MorphTarget.h"
 #include "Misc/ConfigCacheIni.h"
@@ -10,7 +10,7 @@
 #include "Interfaces/ITargetPlatform.h"
 
 #if WITH_EDITOR
-#include "SkeletalMeshModel.h"
+#include "Rendering/SkeletalMeshModel.h"
 #include "MeshUtilities.h"
 #endif // WITH_EDITOR
 

@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "AndroidJSScripting.h"
-#include "JsonStructSerializerBackend.h"
+#include "Backends/JsonStructSerializerBackend.h"
 
 class UObject;
 

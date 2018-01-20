@@ -6,7 +6,7 @@
 
 #if WMFMEDIA_SUPPORTED_PLATFORM
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 
 /**
@@ -76,6 +76,6 @@ private:
 };
 
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #endif //WMFMEDIA_SUPPORTED_PLATFORM

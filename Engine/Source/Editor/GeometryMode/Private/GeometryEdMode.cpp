@@ -5,7 +5,7 @@
 #include "Misc/FeedbackContext.h"
 #include "Modules/ModuleManager.h"
 #include "EditorStyleSet.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "Materials/Material.h"
 #include "Engine/Selection.h"
 #include "EditorModeManager.h"

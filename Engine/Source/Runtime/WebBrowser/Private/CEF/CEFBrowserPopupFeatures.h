@@ -9,9 +9,9 @@
 #include "IWebBrowserPopupFeatures.h"
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
-#include "AllowWindowsPlatformAtomics.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformAtomics.h"
 #endif
 
 #pragma push_macro("OVERRIDE")
@@ -22,8 +22,8 @@ THIRD_PARTY_INCLUDES_END
 #pragma pop_macro("OVERRIDE")
 
 #if PLATFORM_WINDOWS
-#include "HideWindowsPlatformAtomics.h"
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformAtomics.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 #endif

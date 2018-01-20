@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraEventScriptPropertiesCustomization.h"
+#include "Customizations/NiagaraEventScriptPropertiesCustomization.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Styling/SlateTypes.h"

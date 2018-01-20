@@ -8,7 +8,7 @@
 
 #if WITH_EDITOR
 
-#include "MovieSceneEventSection.h"
+#include "Sections/MovieSceneEventSection.h"
 #include "MovieSceneClipboard.h"
 
 namespace MovieSceneClipboard

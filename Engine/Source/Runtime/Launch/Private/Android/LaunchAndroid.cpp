@@ -7,17 +7,17 @@
 #include <string.h>
 #include <jni.h>
 #include <pthread.h>
-#include "AndroidJNI.h"
-#include "AndroidEventManager.h"
-#include "AndroidInputInterface.h"
+#include "Android/AndroidJNI.h"
+#include "Android/AndroidEventManager.h"
+#include "Android/AndroidInputInterface.h"
 #include <android/log.h>
 #include <android_native_app_glue.h>
 #include <cstdio>
 #include <sys/resource.h>
 #include <dlfcn.h>
-#include "AndroidWindow.h"
-#include "AndroidApplication.h"
-#include "PlatformApplicationMisc.h"
+#include "Android/AndroidWindow.h"
+#include "Android/AndroidApplication.h"
+#include "HAL/PlatformApplicationMisc.h"
 #include "IHeadMountedDisplayModule.h"
 #include "ISessionServicesModule.h"
 #include "ISessionService.h"
@@ -27,7 +27,7 @@
 #include "HAL/PlatformInput.h"
 #include "Modules/ModuleManager.h"
 #include "IMessagingModule.h"
-#include "AndroidStats.h"
+#include "Android/AndroidStats.h"
 
 // Function pointer for retrieving joystick events
 // Function has been part of the OS since Honeycomb, but only appeared in the

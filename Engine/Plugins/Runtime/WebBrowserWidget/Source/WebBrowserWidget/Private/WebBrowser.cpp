@@ -4,7 +4,7 @@
 #include "SWebBrowser.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Text/STextBlock.h"
-#include "TaskGraphInterfaces.h"
+#include "Async/TaskGraphInterfaces.h"
 #include "UObject/ConstructorHelpers.h"
 
 #if WITH_EDITOR

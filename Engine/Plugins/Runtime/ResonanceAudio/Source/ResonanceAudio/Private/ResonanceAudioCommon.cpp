@@ -5,8 +5,8 @@
 #include "ResonanceAudioCommon.h"
 #include "Misc/Paths.h"
 #include "EngineUtils.h"
-#include "FileManager.h"
-#include "IPluginManager.h"
+#include "HAL/FileManager.h"
+#include "Interfaces/IPluginManager.h"
 #include "HAL/PlatformProcess.h"
 #include "Misc/Paths.h"
 

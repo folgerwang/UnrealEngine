@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	RenderingThread.cpp: Rendering thread implementation.
@@ -21,7 +21,7 @@
 #include "Stats/StatsData.h"
 #include "HAL/ThreadHeartBeat.h"
 #include "RenderResource.h"
-#include "ScopeLock.h"
+#include "Misc/ScopeLock.h"
 #include "HAL/LowLevelMemTracker.h"
 
 //

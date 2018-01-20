@@ -2,9 +2,9 @@
 
 #include "CoreMinimal.h"
 #include "Framework/Application/SlateApplication.h"
-#include "EditorStyleSettings.h"
-#include "ConfigCacheIni.h"
-#include "ModuleManager.h"
+#include "Classes/EditorStyleSettings.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleManager.h"
 
 #if WITH_EDITOR
 	#include "UObject/UnrealType.h"

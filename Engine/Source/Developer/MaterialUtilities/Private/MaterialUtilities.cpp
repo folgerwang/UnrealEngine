@@ -33,7 +33,7 @@
 #include "MeshUtilities.h"
 #include "MeshRendering.h"
 #include "MeshMergeData.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 
 #include "IMaterialBakingModule.h"

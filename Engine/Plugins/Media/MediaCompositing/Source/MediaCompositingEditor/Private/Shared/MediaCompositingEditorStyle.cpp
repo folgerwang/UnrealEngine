@@ -3,7 +3,7 @@
 #include "MediaCompositingEditorStyle.h"
 
 #include "Math/Vector2D.h"
-#include "SlateStyleRegistry.h"
+#include "Styling/SlateStyleRegistry.h"
 
 
 /* Static initialization

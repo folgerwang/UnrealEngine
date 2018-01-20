@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "CompactifyMode.h"
+#include "ToolModes/CompactifyMode.h"
 #include "Interfaces/IBuildPatchServicesModule.h"
 #include "BuildPatchTool.h"
 #include "Misc/CommandLine.h"

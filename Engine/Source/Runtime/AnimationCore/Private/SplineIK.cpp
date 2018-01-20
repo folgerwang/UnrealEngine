@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SplineIK.h"
-#include "ThreadSingleton.h"
+#include "HAL/ThreadSingleton.h"
 
 namespace AnimationCore
 {

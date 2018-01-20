@@ -3,7 +3,7 @@
 #include "Commandlets/GenerateTextLocalizationReportCommandlet.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
-#include "LocKeyFuncs.h"
+#include "Internationalization/LocKeyFuncs.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGenerateTextLocalizationReportCommandlet, Log, All);
 

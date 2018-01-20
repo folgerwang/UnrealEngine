@@ -17,7 +17,7 @@
 #include "Misc/ScopeExit.h"
 #include "FindInBlueprintManager.h"
 #include "Kismet2/BlueprintEditorUtils.h"
-#include "TextPackageNamespaceUtil.h"
+#include "Internationalization/TextPackageNamespaceUtil.h"
 #include "PlatformInfo.h"
 #include "Interfaces/IPluginManager.h"
 

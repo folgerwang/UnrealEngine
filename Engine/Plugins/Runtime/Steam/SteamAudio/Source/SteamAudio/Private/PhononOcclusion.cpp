@@ -6,7 +6,7 @@
 #include "PhononOcclusionSourceSettings.h"
 #include "PhononCommon.h"
 #include "SteamAudioModule.h"
-#include "ScopeLock.h"
+#include "Misc/ScopeLock.h"
 
 //==================================================================================================================================================
 // FPhononOcclusion

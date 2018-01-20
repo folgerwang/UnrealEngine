@@ -7,7 +7,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ITargetDevice.h"
+#include "Interfaces/ITargetDevice.h"
 #include "HAL/FileManager.h"
 #include "HAL/PlatformProcess.h"
 

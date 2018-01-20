@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
-#include "IAdvertisingProvider.h"
-#include "IOSAppDelegate.h"
+#include "Interfaces/IAdvertisingProvider.h"
+#include "IOS/IOSAppDelegate.h"
 #include "Modules/ModuleInterface.h"
 #include "Modules/ModuleManager.h"
 #include "Misc/ConfigCacheIni.h"

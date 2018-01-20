@@ -13,7 +13,7 @@
 #include "WebBrowserLog.h"
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 #endif
 
 #if WITH_CEF3
@@ -23,7 +23,7 @@
 #include "CEF/CEFWebBrowserWindow.h"
 #include "CEF/CEFSchemeHandler.h"
 #	if PLATFORM_WINDOWS
-#		include "AllowWindowsPlatformTypes.h"
+#		include "Windows/AllowWindowsPlatformTypes.h"
 #	endif
 #	pragma push_macro("OVERRIDE")
 #		undef OVERRIDE // cef headers provide their own OVERRIDE macro
@@ -32,7 +32,7 @@ THIRD_PARTY_INCLUDES_START
 THIRD_PARTY_INCLUDES_END
 #	pragma pop_macro("OVERRIDE")
 #	if PLATFORM_WINDOWS
-#		include "HideWindowsPlatformTypes.h"
+#		include "Windows/HideWindowsPlatformTypes.h"
 #	endif
 #endif
 

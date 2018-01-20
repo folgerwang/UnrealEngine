@@ -10,7 +10,7 @@
 #include "Materials/Material.h"
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionTextureBase.h"
-#include "Package.h"
+#include "UObject/Package.h"
 #include "UObject/GCObject.h"
 
 #include "MovieSceneMediaSection.h"

@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Containers/ArrayView.h"
-#include "TextFilterExpressionEvaluator.h"
+#include "Misc/TextFilterExpressionEvaluator.h"
 
 class ISkeletonTreeItem;
 enum class ESkeletonTreeFilterResult : int32;

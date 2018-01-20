@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneTemplateInterrogation.h"
-#include "MovieSceneBlendingAccumulator.h"
+#include "Compilation/MovieSceneTemplateInterrogation.h"
+#include "Evaluation/Blending/MovieSceneBlendingAccumulator.h"
 
 void FMovieSceneInterrogationData::Finalize(const FMovieSceneContext& Context, UObject* BindingOverride)
 {

@@ -7,7 +7,7 @@
 #include "PropertyHandle.h"
 #include "DetailWidgetRow.h"
 #include "GameplayTagsEditorModule.h"
-#include "SHyperlink.h"
+#include "Widgets/Input/SHyperlink.h"
 
 #define LOCTEXT_NAMESPACE "GameplayTagCustomization"
 

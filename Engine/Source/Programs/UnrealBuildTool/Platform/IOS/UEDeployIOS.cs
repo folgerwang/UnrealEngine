@@ -1062,14 +1062,14 @@ namespace UnrealBuildTool
 			List<string> PluginExtras = new List<string>();
 			if (Receipt == null)
 			{
-				Console.WriteLine("Receipt is NULL");
+				Log.TraceInformation("Receipt is NULL");
 				//Log.TraceInformation("Receipt is NULL");
 				return PluginExtras;
 			}
 
 			// collect plugin extra data paths from target receipt
-			var Results = Receipt.AdditionalProperties.Where(x => x.Name == "IOSPlugin");
-			foreach (var Property in Results)
+			IEnumerable<ReceiptProperty> Results = Receipt.AdditionalProperties.Where(x => x.Name == "IOSPlugin");
+			foreach (ReceiptProperty Property in Results)
 			{
 				// Keep only unique paths
 				string PluginPath = Property.Value;
@@ -1154,6 +1154,7 @@ namespace UnrealBuildTool
 				DI.Delete();
 			}
 
+			Directory.CreateDirectory(Path.GetDirectoryName(DestinationPath));
 			SourceFile.CopyTo(DestinationPath, bOverwrite);
 
 			FileInfo DI2 = new FileInfo(DestinationPath);
@@ -1166,11 +1167,14 @@ namespace UnrealBuildTool
 		protected void CopyFiles(string SourceDirectory, string DestinationDirectory, string TargetFiles, bool bOverwrite = false)
 		{
 			DirectoryInfo SourceFolderInfo = new DirectoryInfo(SourceDirectory);
-			FileInfo[] SourceFiles = SourceFolderInfo.GetFiles(TargetFiles);
-			foreach (FileInfo SourceFile in SourceFiles)
+			if(SourceFolderInfo.Exists)
 			{
-				string DestinationPath = Path.Combine(DestinationDirectory, SourceFile.Name);
-				SafeFileCopy(SourceFile, DestinationPath, bOverwrite);
+				FileInfo[] SourceFiles = SourceFolderInfo.GetFiles(TargetFiles);
+				foreach (FileInfo SourceFile in SourceFiles)
+				{
+					string DestinationPath = Path.Combine(DestinationDirectory, SourceFile.Name);
+					SafeFileCopy(SourceFile, DestinationPath, bOverwrite);
+				}
 			}
 		}
 

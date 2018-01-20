@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "IHttpResponse.h"
+#include "Interfaces/IHttpResponse.h"
 #include "Tests/TestHelpers.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
@@ -16,55 +16,55 @@ namespace BuildPatchServices
 		typedef TTuple<FString> FRxSetURL;
 
 	public:
-		virtual int32 GetResponseCode() override
+		virtual int32 GetResponseCode() const override
 		{
 			MOCK_FUNC_NOT_IMPLEMENTED("FMockHttpRequest::GetResponseCode");
 			return static_cast<int32>(EHttpResponseCodes::Ok);
 		}
 
-		virtual FString GetContentAsString() override
+		virtual FString GetContentAsString() const override
 		{
 			MOCK_FUNC_NOT_IMPLEMENTED("FMockHttpRequest::GetContentAsString");
 			return FString();
 		}
 
-		virtual FString GetURL() override
+		virtual FString GetURL() const override
 		{
 			MOCK_FUNC_NOT_IMPLEMENTED("FMockHttpRequest::GetURL");
 			return FString();
 		}
 
-		virtual FString GetURLParameter(const FString& ParameterName) override
+		virtual FString GetURLParameter(const FString& ParameterName) const override
 		{
 			MOCK_FUNC_NOT_IMPLEMENTED("FMockHttpRequest::GetURLParameter");
 			return FString();
 		}
 
-		virtual FString GetHeader(const FString& HeaderName) override
+		virtual FString GetHeader(const FString& HeaderName) const override
 		{
 			MOCK_FUNC_NOT_IMPLEMENTED("FMockHttpRequest::GetHeader");
 			return FString();
 		}
 
-		virtual TArray<FString> GetAllHeaders() override
+		virtual TArray<FString> GetAllHeaders() const override
 		{
 			MOCK_FUNC_NOT_IMPLEMENTED("FMockHttpRequest::GetAllHeaders");
 			return TArray<FString>();
 		}
 
-		virtual FString GetContentType() override
+		virtual FString GetContentType() const override
 		{
 			MOCK_FUNC_NOT_IMPLEMENTED("FMockHttpRequest::GetContentType");
 			return FString();
 		}
 
-		virtual int32 GetContentLength() override
+		virtual int32 GetContentLength() const override
 		{
 			MOCK_FUNC_NOT_IMPLEMENTED("FMockHttpRequest::GetContentLength");
 			return int32();
 		}
 
-		virtual const TArray<uint8>& GetContent() override
+		virtual const TArray<uint8>& GetContent() const override
 		{
 			MOCK_FUNC_NOT_IMPLEMENTED("FMockHttpRequest::GetContent");
 			static TArray<uint8> None;

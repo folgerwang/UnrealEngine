@@ -7,7 +7,7 @@
 #include "UObject/SoftObjectPath.h"
 #include "Misc/Guid.h"
 #include "Engine/Engine.h"
-#include "Paths.h"
+#include "Misc/Paths.h"
 #include "LevelSequenceBindingReference.generated.h"
 
 /**

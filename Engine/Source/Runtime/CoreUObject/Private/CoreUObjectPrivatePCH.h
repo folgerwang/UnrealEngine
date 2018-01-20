@@ -81,7 +81,7 @@
 #include "Containers/SparseArray.h"
 #include "Containers/ScriptArray.h"
 #include "Containers/BitArray.h"
-#include "Containers/Algo/Reverse.h"
+#include "Algo/Reverse.h"
 #include "Math/Color.h"
 #include "Misc/Parse.h"
 #include "Math/IntRect.h"

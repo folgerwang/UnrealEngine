@@ -1,13 +1,13 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MacPlatformSplash.h"
+#include "Mac/MacPlatformSplash.h"
 #include "Misc/App.h"
 #include "Misc/ScopeLock.h"
-#include "EngineVersion.h"
-#include "EngineBuildSettings.h"
-#include "CocoaThread.h"
+#include "Misc/EngineVersion.h"
+#include "Misc/EngineBuildSettings.h"
+#include "Mac/CocoaThread.h"
 #include "HAL/PlatformApplicationMisc.h"
-#include "ScopeLock.h"
+#include "Misc/ScopeLock.h"
 
 /**
  * Simple window class that overrides a couple of functions, so the splash window can be moved to front even if it's borderless

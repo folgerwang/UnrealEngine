@@ -1,10 +1,10 @@
 // Copyright 2017 Google Inc.
 
 
-#include "Classes/GoogleVRGazeReticleComponent.h"
+#include "GoogleVRGazeReticleComponent.h"
 #include "GoogleVRController.h"
-#include "Classes/GoogleVRPointerInputComponent.h"
-#include "Classes/GoogleVRControllerFunctionLibrary.h"
+#include "GoogleVRPointerInputComponent.h"
+#include "GoogleVRControllerFunctionLibrary.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/WorldSettings.h"
 #include "Components/StaticMeshComponent.h"

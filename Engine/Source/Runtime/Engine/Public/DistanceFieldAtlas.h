@@ -15,7 +15,7 @@
 #include "RenderResource.h"
 #include "RenderingThread.h"
 #include "TextureLayout3d.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 class FDistanceFieldVolumeData;
 class UStaticMesh;

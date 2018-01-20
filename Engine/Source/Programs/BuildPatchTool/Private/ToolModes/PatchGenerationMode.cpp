@@ -1,9 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "PatchGenerationMode.h"
+#include "ToolModes/PatchGenerationMode.h"
 #include "Interfaces/IBuildPatchServicesModule.h"
 #include "BuildPatchTool.h"
-#include "DefaultValueHelper.h"
+#include "Misc/DefaultValueHelper.h"
 #include "Misc/Paths.h"
 #include "Misc/CommandLine.h"
 

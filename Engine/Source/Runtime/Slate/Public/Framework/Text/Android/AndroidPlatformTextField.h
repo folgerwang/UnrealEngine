@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "IPlatformTextField.h"
+#include "Framework/Application/IPlatformTextField.h"
 
 class IVirtualKeyboardEntry;
 

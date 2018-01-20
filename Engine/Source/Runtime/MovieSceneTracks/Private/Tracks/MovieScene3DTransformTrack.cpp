@@ -5,7 +5,7 @@
 #include "Sections/MovieScene3DTransformSection.h"
 #include "Compilation/MovieSceneTemplateInterrogation.h"
 #include "Compilation/MovieSceneSegmentCompiler.h"
-#include "MovieSceneEvaluationTrack.h"
+#include "Evaluation/MovieSceneEvaluationTrack.h"
 #include "Algo/BinarySearch.h"
 
 UMovieScene3DTransformTrack::UMovieScene3DTransformTrack( const FObjectInitializer& ObjectInitializer )

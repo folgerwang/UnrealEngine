@@ -5,14 +5,14 @@
 #include "AssetEditorModeManager.h"
 #include "EngineUtils.h"
 
-#include "Classes/Animation/DebugSkelMeshComponent.h"
+#include "Animation/DebugSkelMeshComponent.h"
 
 #include "ClothPainter.h"
 #include "ComponentReregisterContext.h"
 #include "ClothingAssetInterface.h"
 #include "ComponentRecreateRenderStateContext.h"
 #include "IPersonaToolkit.h"
-#include "ClothingAsset.h"
+#include "Assets/ClothingAsset.h"
 #include "EditorViewportClient.h"
 #include "AssetViewerSettings.h"
 #include "Editor/EditorPerProjectUserSettings.h"

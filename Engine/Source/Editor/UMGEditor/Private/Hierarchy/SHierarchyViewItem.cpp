@@ -10,7 +10,7 @@
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Views/SListView.h"
 #include "EditorFontGlyphs.h"
-#include "Application/SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 
 #include "Styling/CoreStyle.h"
 #if WITH_EDITOR

@@ -48,8 +48,8 @@
 #include "ViewportWorldInteraction.h"
 #include "VREditorInteractor.h"
 #include "LevelUtils.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
 
 #include "FoliageEditUtility.h"
 

@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "StringTableCore.h"
+#include "Internationalization/StringTableCore.h"
 #include "Misc/ScopeLock.h"
 #include "Misc/FileHelper.h"
 #include "Misc/ConfigCacheIni.h"

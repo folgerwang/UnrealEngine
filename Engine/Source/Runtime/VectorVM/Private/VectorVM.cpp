@@ -5,7 +5,7 @@
 #include "UObject/Class.h"
 #include "UObject/Package.h"
 #include "VectorVMPrivate.h"
-#include "Stats.h"
+#include "Stats/Stats.h"
 
 IMPLEMENT_MODULE(FDefaultModuleImpl, VectorVM);
 

@@ -11,8 +11,8 @@
 #include "AudioMixerDevice.h"
 
 #if PLATFORM_WINDOWS
-#include "AllowWindowsPlatformTypes.h"
-#include "AllowWindowsPlatformAtomics.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformAtomics.h"
 
 #define INITGUID
 #include <mmdeviceapi.h>
@@ -240,8 +240,8 @@ namespace Audio
 	}
 }
 
-#include "HideWindowsPlatformAtomics.h"
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformAtomics.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #else 
 // Nothing for XBOXOne

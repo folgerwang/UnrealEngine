@@ -307,9 +307,9 @@ FRemoteDataBaseRecordSet::~FRemoteDataBaseRecordSet()
 #endif
 
 #if USE_ADO_INTEGRATION
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
-#include "AllowWindowsPlatformAtomics.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformAtomics.h"
 
 /*-----------------------------------------------------------------------------
 	ADO integration for database connectivity
@@ -671,8 +671,8 @@ public:
 	}
 };
 
-#include "HideWindowsPlatformAtomics.h"
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformAtomics.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif // USE_ADO_INTEGRATION
 
 /*-----------------------------------------------------------------------------

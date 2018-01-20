@@ -6,7 +6,7 @@
 
 #include "WorkflowOrientedApp/ApplicationMode.h"
 #include "WorkflowOrientedApp/WorkflowCentricApplication.h"
-#include "WorkflowTabFactory.h"
+#include "WorkflowOrientedApp/WorkflowTabFactory.h"
 
 /** Animation modifiers module, handles injecting of the AnimationModifiersTab into animation and skeleton editor modes */
 class FAnimationModifiersModule : public IAnimationModifiersModule

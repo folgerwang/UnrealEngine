@@ -3,7 +3,7 @@
 #include "VisualStudioCodeSourceCodeAccessor.h"
 #include "VisualStudioCodeSourceCodeAccessModule.h"
 #include "ISourceCodeAccessModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "DesktopPlatformModule.h"
 #include "Misc/Paths.h"
 #include "Misc/ScopeLock.h"
@@ -11,7 +11,7 @@
 #include "Misc/App.h"
 
 #if PLATFORM_WINDOWS
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #endif
 #include "Internationalization/Regex.h"
 

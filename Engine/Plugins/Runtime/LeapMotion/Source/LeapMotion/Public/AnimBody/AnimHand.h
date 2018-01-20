@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "AnimFinger.h"
+#include "AnimBody/AnimFinger.h"
 #include "LeapHand.h"
 #include "AnimHand.generated.h"
 

@@ -1,14 +1,14 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MacErrorOutputDevice.h"
+#include "Mac/MacErrorOutputDevice.h"
 #include "Misc/App.h"
 #include "Misc/CoreDelegates.h"
 #include "Misc/ConfigCacheIni.h"
-#include "FeedbackContextAnsi.h"
-#include "MacApplication.h"
-#include "MacConsoleOutputDevice.h"
-#include "MacPlatformApplicationMisc.h"
-#include "CocoaThread.h"
+#include "HAL/FeedbackContextAnsi.h"
+#include "Mac/MacApplication.h"
+#include "Mac/MacConsoleOutputDevice.h"
+#include "Mac/MacPlatformApplicationMisc.h"
+#include "Mac/CocoaThread.h"
 
 #include "HAL/PlatformApplicationMisc.h"
 

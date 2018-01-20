@@ -2,7 +2,7 @@
 
 #include "Compilation/MovieSceneSegmentCompiler.h"
 #include "Compilation/MovieSceneCompilerRules.h"
-#include "MovieSceneEvaluationTree.h"
+#include "Evaluation/MovieSceneEvaluationTree.h"
 
 PRAGMA_DISABLE_DEPRECATION_WARNINGS
 void FMovieSceneSegmentCompilerRules::Blend(FSegmentBlendData& BlendData) const

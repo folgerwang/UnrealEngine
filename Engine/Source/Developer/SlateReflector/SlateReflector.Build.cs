@@ -87,5 +87,10 @@ public class SlateReflector : ModuleRules
 		{
 			PublicDefinitions.Add("SLATE_REFLECTOR_HAS_DESKTOP_PLATFORM=0");
 		}
+
+		if (Target.Configuration != UnrealTargetConfiguration.Shipping)
+		{
+			PrecompileForTargets = PrecompileTargetsType.Any;
+		}
 	}
 }

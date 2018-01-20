@@ -4,7 +4,7 @@
 
 #if PLATFORM_WINDOWS
 
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 
 // To avoid compile problems with C++/CLI in VS11
 #pragma warning(disable:4538)
@@ -12,7 +12,7 @@
 
 #pragma warning(disable:4100) // unreferenced formal parameter
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 // Define WIN32_LEAN_AND_MEAN to exclude rarely-used services from windows headers.
 #define WIN32_LEAN_AND_MEAN
@@ -31,7 +31,7 @@
 
 EXTERN_C IMAGE_DOS_HEADER __ImageBase;
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #endif // PLATFORM_WINDOWS
 

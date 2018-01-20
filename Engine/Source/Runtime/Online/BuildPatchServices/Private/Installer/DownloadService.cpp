@@ -8,7 +8,7 @@
 #include "Installer/InstallerAnalytics.h"
 #include "Common/HttpManager.h"
 #include "Common/FileSystem.h"
-#include "ThreadSafeBool.h"
+#include "HAL/ThreadSafeBool.h"
 #include "Misc/ScopeLock.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogDownloadService, Warning, All);

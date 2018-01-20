@@ -3,7 +3,7 @@
 #include "SlateWidgetLocatorByPath.h"
 #include "SlateWidgetElement.h"
 #include "IElementLocator.h"
-#include "DriverIdMetaData.h"
+#include "Framework/MetaData/DriverIdMetaData.h"
 #include "AutomationDriverLogging.h"
 #include "Widgets/SWidget.h"
 #include "Framework/Application/SlateApplication.h"

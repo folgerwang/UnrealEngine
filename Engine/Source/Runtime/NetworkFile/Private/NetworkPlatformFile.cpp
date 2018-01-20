@@ -21,9 +21,9 @@
 #include "TCPTransport.h"
 
 #include "HAL/IPlatformFileModule.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
-#include "Object.h"
+#include "UObject/Object.h"
 
 DEFINE_LOG_CATEGORY(LogNetworkPlatformFile);
 

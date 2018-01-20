@@ -20,7 +20,7 @@
 #include "K2Node_IfThenElse.h"
 #include "K2Node_TemporaryVariable.h"
 #include "Kismet2/BlueprintEditorUtils.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "Editor.h"
 #include "EdGraphUtilities.h"
 

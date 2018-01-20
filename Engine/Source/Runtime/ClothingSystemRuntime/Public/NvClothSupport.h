@@ -6,10 +6,10 @@
 
 #include "NvClothIncludes.h"
 
-#include "LogVerbosity.h"
+#include "Logging/LogVerbosity.h"
 
-#include "UnrealString.h"
-#include "Array.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Array.h"
 
 namespace NvClothSupport
 {

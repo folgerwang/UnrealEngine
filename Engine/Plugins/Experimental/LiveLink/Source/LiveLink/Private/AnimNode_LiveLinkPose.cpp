@@ -5,7 +5,7 @@
 
 #include "Features/IModularFeatures.h"
 
-#include "AnimInstanceProxy.h"
+#include "Animation/AnimInstanceProxy.h"
 
 #include "LiveLinkRemapAsset.h"
 

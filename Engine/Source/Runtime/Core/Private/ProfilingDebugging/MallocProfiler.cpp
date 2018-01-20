@@ -17,8 +17,8 @@
 
 #if USE_MALLOC_PROFILER
 
-#include "ModuleManager.h"
-#include "MemoryMisc.h"
+#include "Modules/ModuleManager.h"
+#include "HAL/MemoryMisc.h"
 #include "HAL/PlatformStackWalk.h"
 #include "HAL/PlatformTime.h"
 #include "Misc/ConfigCacheIni.h"

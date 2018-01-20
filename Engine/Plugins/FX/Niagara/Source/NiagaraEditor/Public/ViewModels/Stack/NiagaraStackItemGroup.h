@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "NiagaraStackEntry.h"
+#include "ViewModels/Stack/NiagaraStackEntry.h"
 #include "NiagaraStackItemGroup.generated.h"
 
 class UNiagaraStackEditorData;

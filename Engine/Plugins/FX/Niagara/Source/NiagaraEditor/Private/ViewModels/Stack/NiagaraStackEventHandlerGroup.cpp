@@ -1,11 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraStackEventHandlerGroup.h"
-#include "NiagaraStackRendererItem.h"
-#include "NiagaraStackEventScriptItemGroup.h"
+#include "ViewModels/Stack/NiagaraStackEventHandlerGroup.h"
+#include "ViewModels/Stack/NiagaraStackRendererItem.h"
+#include "ViewModels/Stack/NiagaraStackEventScriptItemGroup.h"
 #include "NiagaraEmitterViewModel.h"
 #include "NiagaraEmitter.h"
-#include "NiagaraStackAddEventScriptItem.h"
+#include "ViewModels/Stack/NiagaraStackAddEventScriptItem.h"
 #include "NiagaraGraph.h"
 #include "NiagaraScriptSource.h"
 

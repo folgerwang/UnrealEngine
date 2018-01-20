@@ -3,8 +3,8 @@
 #pragma once
 
 #include "Containers/Map.h"
-#include "Containers/Algo/BinarySearch.h"
-#include "Containers/Algo/Sort.h"
+#include "Algo/BinarySearch.h"
+#include "Algo/Sort.h"
 #include "UObject/NameTypes.h"
 
 /** 

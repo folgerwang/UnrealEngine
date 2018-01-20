@@ -2,7 +2,7 @@
 
 #include "PIEPreviewDeviceEnumeration.h"
 #include "HAL/FileManager.h"
-#include "Paths.h"
+#include "Misc/Paths.h"
 
 #include "Modules/ModuleManager.h"
 #include "PIEPreviewDeviceProfileSelectorModule.h"

@@ -3,8 +3,8 @@
 #include "Engine/SkeletalMeshSampling.h"
 #include "Engine/SkeletalMesh.h"
 #include "RawIndexBuffer.h"
-#include "SkeletalMeshLODRenderData.h"
-#include "SkeletalMeshRenderData.h"
+#include "Rendering/SkeletalMeshLODRenderData.h"
+#include "Rendering/SkeletalMeshRenderData.h"
 
 //////////////////////////////////////////////////////////////////////////
 //FSkeletalMeshAreaWeightedTriangleSampler

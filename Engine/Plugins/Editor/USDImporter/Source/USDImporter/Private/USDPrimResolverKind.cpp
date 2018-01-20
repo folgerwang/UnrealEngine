@@ -4,7 +4,7 @@
 #include "USDImporter.h"
 #include "USDConversionUtils.h"
 #include "AssetData.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "AssetRegistryModule.h"
 #include "USDSceneImportFactory.h"
 #include "Engine/StaticMesh.h"

@@ -8,8 +8,8 @@
 #include "LMCore.h"
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #endif // PLATFORM_WINDOWS
 
 #if PLATFORM_MAC || PLATFORM_LINUX
@@ -212,5 +212,5 @@ bool FSemaphore::Wait(uint32 WaitTime /*= (uint32)-1*/)
 }
 
 #if PLATFORM_WINDOWS
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif // PLATFORM_WINDOWS

@@ -20,8 +20,8 @@ IMPLEMENT_MODULE(FAVIWriterModule, AVIWriter);
 
 #if PLATFORM_WINDOWS && !UE_BUILD_MINIMAL
 
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 typedef TCHAR* PTCHAR;
 #pragma warning(push)
 #pragma warning(disable : 4263) // 'function' : member function does not override any base class virtual member function
@@ -37,7 +37,7 @@ typedef TCHAR* PTCHAR;
 #include <initguid.h>
 #pragma warning(pop)
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #include "CapturePin.h"
 #include "CaptureSource.h"

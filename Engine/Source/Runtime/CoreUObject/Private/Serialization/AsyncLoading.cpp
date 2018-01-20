@@ -34,9 +34,9 @@
 #include "HAL/ExceptionHandling.h"
 #include "Serialization/AsyncLoadingPrivate.h"
 #include "UObject/UObjectHash.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "Serialization/BufferReader.h"
-#include "TaskGraphInterfaces.h"
+#include "Async/TaskGraphInterfaces.h"
 #include "Blueprint/BlueprintSupport.h"
 #include "HAL/LowLevelMemTracker.h"
 
@@ -4639,22 +4639,29 @@ EAsyncPackageState::Type FAsyncLoadingThread::ProcessLoadedPackages(bool bUseTim
 	bDidSomething = bDidSomething || PackagesToDelete.Num() > 0;
 
 	// Delete packages we're done processing and are no longer dependencies of anything else
-	for (int32 PackageIndex = 0; PackageIndex < PackagesToDelete.Num(); ++PackageIndex)
+	if (Result != EAsyncPackageState::TimeOut)
 	{
-		FAsyncPackage* Package = PackagesToDelete[PackageIndex];
-		if (Package->GetDependencyRefCount() == 0 && !Package->IsBeingProcessedRecursively())
+		for (int32 PackageIndex = 0; PackageIndex < PackagesToDelete.Num(); ++PackageIndex)
 		{
-			PackagesToDelete.RemoveAtSwap(PackageIndex--);
-			delete Package;
-			if (IsTimeLimitExceeded(TickStartTime, bUseTimeLimit, TimeLimit, TEXT("ProcessLoadedPackages PackagesToDelete")))
+			FAsyncPackage* Package = PackagesToDelete[PackageIndex];
+			if (Package->GetDependencyRefCount() == 0 && !Package->IsBeingProcessedRecursively())
 			{
-				Result = EAsyncPackageState::TimeOut;
-				break;
+				// This is a good time to safely create GC clusters since all the dependencies have been loaded
+				if (Package->CreateClusters(TickStartTime, bUseTimeLimit, TimeLimit) == EAsyncPackageState::Complete)
+				{
+					PackagesToDelete.RemoveAtSwap(PackageIndex--);
+					delete Package;
+				}
+				else
+				{
+					Result = EAsyncPackageState::TimeOut;
+					break;
+				}
 			}
-		}
 
-		// push stats so that we don't overflow number of tags per thread during blocking loading
-		LLM_PUSH_STATS_FOR_ASSET_TAGS();
+			// push stats so that we don't overflow number of tags per thread during blocking loading
+			LLM_PUSH_STATS_FOR_ASSET_TAGS();
+		}
 	}
 
 	if (Result == EAsyncPackageState::Complete)
@@ -5156,6 +5163,7 @@ FAsyncPackage::FAsyncPackage(const FAsyncPackageDesc& InDesc)
 , PostLoadIndex(0)
 , DeferredPostLoadIndex(0)
 , DeferredFinalizeIndex(0)
+, DeferredClusterIndex(0)
 , TimeLimit(FLT_MAX)
 , bUseTimeLimit(false)
 , bUseFullTimeLimit(false)
@@ -5220,6 +5228,7 @@ FAsyncPackage::~FAsyncPackage()
 			}
 		}
 	}
+	check(bLoadHasFailed || DeferredClusterObjects.Num() == 0);
 #endif
 
 	MarkRequestIDsAsComplete();
@@ -6302,7 +6311,7 @@ EAsyncPackageState::Type FAsyncPackage::PostLoadObjects()
 	return Result;
 }
 
-void CreateClustersFromPackage(FLinkerLoad* PackageLinker);
+void CreateClustersFromPackage(FLinkerLoad* PackageLinker, TArray<UObject*>& OutClusterObjects);
 
 EAsyncPackageState::Type FAsyncPackage::PostLoadDeferredObjects(double InTickStartTime, bool bInUseTimeLimit, float& InOutTimeLimit)
 {
@@ -6448,7 +6457,7 @@ EAsyncPackageState::Type FAsyncPackage::PostLoadDeferredObjects(double InTickSta
 
 			if (Linker)
 			{
-				CreateClustersFromPackage(Linker);
+				CreateClustersFromPackage(Linker, DeferredClusterObjects);
 			}
 			::IsTimeLimitExceeded(InTickStartTime, bInUseTimeLimit, InOutTimeLimit, LastTypeOfWorkPerformed, LastObjectWorkWasPerformedOn);
 		}
@@ -6456,6 +6465,36 @@ EAsyncPackageState::Type FAsyncPackage::PostLoadDeferredObjects(double InTickSta
 		FSoftObjectPath::InvalidateTag();
 		FUniqueObjectGuid::InvalidateTag();
 	}
+
+	return Result;
+}
+
+EAsyncPackageState::Type FAsyncPackage::CreateClusters(double InTickStartTime, bool bInUseTimeLimit, float& InOutTimeLimit)
+{
+	LastObjectWorkWasPerformedOn = nullptr;
+	LastTypeOfWorkPerformed = TEXT("CreateClusters");
+
+	while (DeferredClusterIndex < DeferredClusterObjects.Num() &&
+		(!AsyncLoadingThread.IsAsyncLoadingSuspended() && !::IsTimeLimitExceeded(InTickStartTime, bInUseTimeLimit, InOutTimeLimit, LastTypeOfWorkPerformed, LastObjectWorkWasPerformedOn)))
+	{
+		UObject* ClusterRootObject = DeferredClusterObjects[DeferredClusterIndex++];
+		LastObjectWorkWasPerformedOn = ClusterRootObject;
+		ClusterRootObject->CreateCluster();
+	}
+
+	EAsyncPackageState::Type Result;
+	if (DeferredFinalizeIndex == DeferredFinalizeObjects.Num())
+	{
+		DeferredFinalizeIndex = 0;
+		DeferredClusterObjects.Reset();
+		Result = EAsyncPackageState::Complete;
+	}
+	else
+	{
+		Result = EAsyncPackageState::TimeOut;
+	}
+
+	LastObjectWorkWasPerformedOn = nullptr;
 
 	return Result;
 }
@@ -7871,7 +7910,7 @@ void FArchiveAsync2::DiscardInlineBufferAndUpdateCurrentPos()
 
 #if TRACK_SERIALIZE
 
-#include "StackTracker.h"
+#include "Containers/StackTracker.h"
 static TAutoConsoleVariable<int32> CVarLogAsyncArchiveSerializeChurn(
 	TEXT("LogAsyncArchiveSerializeChurn.Enable"),
 	0,

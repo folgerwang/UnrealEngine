@@ -30,7 +30,7 @@
 #include "LandscapeSplineSegment.h"
 #include "LandscapeSplineControlPoint.h"
 #include "ControlPointMeshComponent.h"
-#include "Containers/Algo/Copy.h"
+#include "Algo/Copy.h"
 #include "HAL/PlatformApplicationMisc.h"
 #include "UnrealExporter.h"
 

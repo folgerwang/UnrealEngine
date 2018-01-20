@@ -6,7 +6,7 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/Class.h"
 #include "Containers/ArrayView.h"
-#include "SequencerObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
 
 #include "MovieSceneSegment.generated.h"
 

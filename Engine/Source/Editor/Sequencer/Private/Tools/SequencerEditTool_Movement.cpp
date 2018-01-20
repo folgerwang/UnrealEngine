@@ -13,8 +13,8 @@
 #include "SequencerSettings.h"
 #include "Tools/EditToolDragOperations.h"
 #include "IKeyArea.h"
-#include "SBox.h"
-#include "SlateApplication.h"
+#include "Widgets/Layout/SBox.h"
+#include "Framework/Application/SlateApplication.h"
 
 const FName FSequencerEditTool_Movement::Identifier = "Movement";
 

@@ -39,7 +39,7 @@
 #include "Materials/MaterialFunctionInstance.h"
 #include "Materials/MaterialFunction.h"
 #include "Materials/MaterialFunctionInterface.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "AssetToolsModule.h"
 #include "Factories/MaterialInstanceConstantFactoryNew.h"
 #include "StaticParameterSet.h"

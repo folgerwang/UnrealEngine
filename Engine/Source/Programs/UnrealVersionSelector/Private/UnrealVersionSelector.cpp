@@ -274,7 +274,7 @@ int Main(const TArray<FString>& Arguments)
 
 #if PLATFORM_WINDOWS
 
-	#include "AllowWindowsPlatformTypes.h"
+	#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <Shellapi.h>
 
 	int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int ShowCmd)
@@ -298,7 +298,7 @@ int Main(const TArray<FString>& Arguments)
 		return Main(Arguments);
 	}
 
-	#include "HideWindowsPlatformTypes.h"
+	#include "Windows/HideWindowsPlatformTypes.h"
 
 #else
 

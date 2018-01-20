@@ -5,7 +5,7 @@
 #include "MovieSceneCommonHelpers.h"
 #include "GameFramework/Actor.h"
 #include "Components/SplineComponent.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 #include "IMovieScenePlayer.h"
 
 

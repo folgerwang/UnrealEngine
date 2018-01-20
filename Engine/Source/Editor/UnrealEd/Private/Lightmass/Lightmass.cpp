@@ -51,7 +51,7 @@
 #include "UnrealEngine.h"
 #include "ComponentRecreateRenderStateContext.h"
 #include "EditorLevelUtils.h"
-#include "MessageDialog.h"
+#include "Misc/MessageDialog.h"
 
 extern FSwarmDebugOptions GSwarmDebugOptions;
 

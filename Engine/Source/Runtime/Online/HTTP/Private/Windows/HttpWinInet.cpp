@@ -4,8 +4,8 @@
 #include "Misc/ScopeLock.h"
 #include "Misc/App.h"
 #include "HAL/PlatformTime.h"
-#include "EngineVersion.h"
-#include "NetworkVersion.h"
+#include "Misc/EngineVersion.h"
+#include "Misc/NetworkVersion.h"
 #include "HttpManager.h"
 #include "Http.h"
 
@@ -370,24 +370,24 @@ FHttpRequestWinInet::~FHttpRequestWinInet()
 	CleanupRequest();
 }
 
-FString FHttpRequestWinInet::GetURL()
+FString FHttpRequestWinInet::GetURL() const
 {
 	return RequestURL.GetURL();
 }
 
-FString FHttpRequestWinInet::GetURLParameter(const FString& ParameterName)
+FString FHttpRequestWinInet::GetURLParameter(const FString& ParameterName) const
 {
 	const FString* Result = RequestURL.GetParameter(ParameterName);
 	return Result != NULL ? *Result : FString();
 }
 
-FString FHttpRequestWinInet::GetHeader(const FString& HeaderName)
+FString FHttpRequestWinInet::GetHeader(const FString& HeaderName) const
 {
-	FString* Header = RequestHeaders.Find(HeaderName);
+	const FString* Header = RequestHeaders.Find(HeaderName);
 	return Header != NULL ? *Header : TEXT("");
 }
 
-TArray<FString> FHttpRequestWinInet::GetAllHeaders()
+TArray<FString> FHttpRequestWinInet::GetAllHeaders() const
 {
 	TArray<FString> Result;
 	for (TMap<FString, FString>::TConstIterator It(RequestHeaders); It; ++It)
@@ -397,22 +397,22 @@ TArray<FString> FHttpRequestWinInet::GetAllHeaders()
 	return Result;
 }
 
-FString FHttpRequestWinInet::GetContentType()
+FString FHttpRequestWinInet::GetContentType() const
 {
 	return GetHeader(TEXT("Content-Type"));
 }
 
-int32 FHttpRequestWinInet::GetContentLength()
+int32 FHttpRequestWinInet::GetContentLength() const
 {
 	return RequestPayload.Num();
 }
 
-const TArray<BYTE>& FHttpRequestWinInet::GetContent()
+const TArray<BYTE>& FHttpRequestWinInet::GetContent() const
 {
 	return RequestPayload;
 }
 
-FString FHttpRequestWinInet::GetVerb()
+FString FHttpRequestWinInet::GetVerb() const
 {
 	return RequestVerb;
 }
@@ -764,7 +764,7 @@ void FHttpRequestWinInet::CancelRequest()
 	FinishedRequest();
 }
 
-EHttpRequestStatus::Type FHttpRequestWinInet::GetStatus()
+EHttpRequestStatus::Type FHttpRequestWinInet::GetStatus() const
 {
 	return CompletionStatus;
 }
@@ -827,7 +827,7 @@ void FHttpRequestWinInet::Tick(float DeltaSeconds)
 	}
 }
 
-float FHttpRequestWinInet::GetElapsedTime()
+float FHttpRequestWinInet::GetElapsedTime() const
 {
 	return ElapsedTime;
 }
@@ -854,18 +854,18 @@ FHttpResponseWinInet::~FHttpResponseWinInet()
 
 }
 
-FString FHttpResponseWinInet::GetURL()
+FString FHttpResponseWinInet::GetURL() const
 {
 	return RequestURL.GetURL();
 }
 
-FString FHttpResponseWinInet::GetURLParameter(const FString& ParameterName)
+FString FHttpResponseWinInet::GetURLParameter(const FString& ParameterName) const
 {
 	const FString* Result = RequestURL.GetParameter(ParameterName);
 	return Result != NULL ? *Result : FString();
 }
 
-FString FHttpResponseWinInet::GetHeader(const FString& HeaderName)
+FString FHttpResponseWinInet::GetHeader(const FString& HeaderName) const
 {
 	FString Result(TEXT(""));
 	if (!bIsReady)
@@ -875,7 +875,7 @@ FString FHttpResponseWinInet::GetHeader(const FString& HeaderName)
 	}
 	else
 	{
-		FString* Header = ResponseHeaders.Find(HeaderName);
+		const FString* Header = ResponseHeaders.Find(HeaderName);
 		if (Header != NULL)
 		{
 			return *Header;
@@ -884,7 +884,7 @@ FString FHttpResponseWinInet::GetHeader(const FString& HeaderName)
 	return Result;
 }
 
-TArray<FString> FHttpResponseWinInet::GetAllHeaders()	
+TArray<FString> FHttpResponseWinInet::GetAllHeaders() const
 {
 	TArray<FString> Result;
 	if (!bIsReady)
@@ -901,17 +901,17 @@ TArray<FString> FHttpResponseWinInet::GetAllHeaders()
 	return Result;
 }
 
-FString FHttpResponseWinInet::GetContentType()
+FString FHttpResponseWinInet::GetContentType() const
 {
 	return GetHeader(TEXT("Content-Type"));
 }
 
-int32 FHttpResponseWinInet::GetContentLength()
+int32 FHttpResponseWinInet::GetContentLength() const
 {
 	return ContentLength;
 }
 
-const TArray<BYTE>& FHttpResponseWinInet::GetContent()
+const TArray<BYTE>& FHttpResponseWinInet::GetContent() const
 {
 	if (!bIsReady)
 	{
@@ -920,12 +920,12 @@ const TArray<BYTE>& FHttpResponseWinInet::GetContent()
 	return ResponsePayload;
 }
 
-int32 FHttpResponseWinInet::GetResponseCode()
+int32 FHttpResponseWinInet::GetResponseCode() const
 {
 	return ResponseCode;
 }
 
-FString FHttpResponseWinInet::GetContentAsString()
+FString FHttpResponseWinInet::GetContentAsString() const
 {
 	TArray<uint8> ZeroTerminatedPayload(GetContent());
 	ZeroTerminatedPayload.Add(0);

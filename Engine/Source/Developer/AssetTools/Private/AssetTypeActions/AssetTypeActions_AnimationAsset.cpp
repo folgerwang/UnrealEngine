@@ -14,7 +14,7 @@
 #include "Preferences/PersonaOptions.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Framework/Application/SlateApplication.h"
-#include "Containers/Algo/Transform.h"
+#include "Algo/Transform.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 

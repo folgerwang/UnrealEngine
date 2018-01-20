@@ -2,7 +2,7 @@
 
 #include "NiagaraEditorCommands.h"
 
-#include "Commands.h"
+#include "Framework/Commands/Commands.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraEditorCommands"
 

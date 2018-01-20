@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "HTML5PlatformOutputDevices.h"
+#include "HTML5/HTML5PlatformOutputDevices.h"
 #include "HAL/OutputDevices.h"
-#include "StringConv.h"
+#include "Containers/StringConv.h"
 #include <emscripten/trace.h>
 
 class FTraceOutputDevice : public FOutputDevice

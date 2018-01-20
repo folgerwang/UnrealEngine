@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "AndroidJava.h"
+#include "Android/AndroidJava.h"
 #include "RHI.h"
 #include "RHIResources.h"
 

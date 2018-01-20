@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MacNativeFeedbackContext.h"
-#include "MacApplication.h"
-#include "CocoaThread.h"
+#include "Mac/MacApplication.h"
+#include "Mac/CocoaThread.h"
 #include "Misc/OutputDeviceHelper.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/OutputDeviceRedirector.h"

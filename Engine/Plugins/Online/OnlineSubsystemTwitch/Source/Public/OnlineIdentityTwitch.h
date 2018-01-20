@@ -2,10 +2,10 @@
 
 #pragma once
  
-#include "OnlineIdentityInterface.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 #include "OnlineSubsystemTwitchPackage.h"
 #include "Http.h"
-#include "Guid.h"
+#include "Misc/Guid.h"
 
 typedef TSharedPtr<class IHttpRequest> FHttpRequestPtr;
 typedef TSharedPtr<class IHttpResponse, ESPMode::ThreadSafe> FHttpResponsePtr;

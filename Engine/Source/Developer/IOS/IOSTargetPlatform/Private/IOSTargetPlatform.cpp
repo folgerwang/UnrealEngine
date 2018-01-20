@@ -5,7 +5,7 @@
 =============================================================================*/
 
 #include "IOSTargetPlatform.h"
-#include "IProjectManager.h"
+#include "Interfaces/IProjectManager.h"
 #include "InstalledPlatformInfo.h"
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
@@ -13,7 +13,7 @@
 #include "Misc/MonitoredProcess.h"
 #include "Logging/MessageLog.h"
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 #endif
 #if WITH_ENGINE
 #include "TextureResource.h"

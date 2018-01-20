@@ -8,7 +8,7 @@
 #include "UObject/GCObject.h"
 #include "Toolkits/IToolkitHost.h"
 
-#include "AssetEditorToolkit.h"
+#include "Toolkits/AssetEditorToolkit.h"
 
 class SNiagaraParameterCollection;
 class FNiagaraParameterCollectionAssetViewModel;

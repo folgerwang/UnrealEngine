@@ -14,9 +14,9 @@
 #include "XRRenderTargetManager.h"
 
 #if PLATFORM_WINDOWS
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <d3d11.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #elif PLATFORM_MAC
 #include <IOSurface/IOSurface.h>
 #endif

@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "OnlineSubsystemOculus.h"
-#include "OnlineSessionInterface.h"
+#include "Interfaces/OnlineSessionInterface.h"
 #include "OnlineSubsystemOculusTypes.h"
 #include "OnlineSubsystemOculusPackage.h"
 

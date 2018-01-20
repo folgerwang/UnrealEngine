@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraStackErrorItem.h"
+#include "ViewModels/Stack/NiagaraStackErrorItem.h"
 
 UNiagaraStackErrorItem::UNiagaraStackErrorItem() : ErrorSource(nullptr), ErrorIdx(INDEX_NONE)
 {

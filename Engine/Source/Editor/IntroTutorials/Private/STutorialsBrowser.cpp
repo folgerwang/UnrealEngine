@@ -25,7 +25,7 @@
 #include "Interfaces/IAnalyticsProvider.h"
 #include "Widgets/Input/SSearchBox.h"
 #include "Widgets/Navigation/SBreadcrumbTrail.h"
-#include "GCObject.h"
+#include "UObject/GCObject.h"
 
 #define LOCTEXT_NAMESPACE "TutorialsBrowser"
 

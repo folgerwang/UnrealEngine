@@ -12,10 +12,10 @@
 #include "PhysicsPublic.h"
 #include "PhysXPublic.h"
 
-#include "ClothingAsset.h"
+#include "Assets/ClothingAsset.h"
 
 #include "DrawDebugHelpers.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 #include "Components/SkeletalMeshComponent.h"
 

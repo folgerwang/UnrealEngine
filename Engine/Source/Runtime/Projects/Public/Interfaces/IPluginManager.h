@@ -210,6 +210,7 @@ public:
 	 */
 	virtual bool AreRequiredPluginsAvailable() = 0;
 
+#if !IS_MONOLITHIC
 	/** 
 	 * Checks whether modules for the enabled plug-ins are up to date.
 	 *
@@ -217,6 +218,7 @@ public:
 	 * @returns true if the enabled plug-in modules are up to date.
 	 */
 	virtual bool CheckModuleCompatibility( TArray<FString>& OutIncompatibleModules ) = 0;
+#endif
 
 	/**
 	 * Finds information for an enabled plugin.

@@ -1,11 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "VREditorStyle.h"
-#include "SlateTypes.h"
+#include "Styling/SlateTypes.h"
 #include "EditorStyleSet.h"
 #include "Styling/SlateStyleRegistry.h"
 #include "Styling/CoreStyle.h"
-#include "SUniformGridPanel.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
 #include "Brushes/SlateImageBrush.h"
 #include "Brushes/SlateBoxBrush.h"
 #include "Brushes/SlateBorderBrush.h"

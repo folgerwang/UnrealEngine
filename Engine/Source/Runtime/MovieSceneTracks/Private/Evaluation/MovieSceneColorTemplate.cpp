@@ -8,7 +8,7 @@
 #include "Components/LightComponent.h"
 #include "Components/SkyLightComponent.h"
 #include "Styling/SlateColor.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 #include "IMovieScenePlayer.h"
 #include "Evaluation/MovieScenePropertyTemplate.h"
 #include "Evaluation/Blending/MovieSceneBlendingActuator.h"

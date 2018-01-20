@@ -3,8 +3,8 @@
 #include "Sections/MovieSceneEventSection.h"
 #include "EngineGlobals.h"
 #include "IMovieScenePlayer.h"
-#include "ReleaseObjectVersion.h"
-#include "LinkerLoad.h"
+#include "UObject/ReleaseObjectVersion.h"
+#include "UObject/LinkerLoad.h"
 #include "Serialization/MemoryArchive.h"
 #include "Engine/UserDefinedStruct.h"
 

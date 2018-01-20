@@ -4,7 +4,7 @@
 	AndroidFile.cpp: Android platform implementations of File functions
 =============================================================================*/
 
-#include "AndroidFile.h"
+#include "Android/AndroidFile.h"
 #include "Misc/App.h"
 #include "Misc/Paths.h"
 
@@ -14,8 +14,8 @@
 #include <android/asset_manager.h>
 #include <android/asset_manager_jni.h>
 #include <android/storage_manager.h>
-#include "AndroidJava.h"
-#include "Map.h"
+#include "Android/AndroidJava.h"
+#include "Containers/Map.h"
 #include <limits>
 
 DEFINE_LOG_CATEGORY_STATIC(LogAndroidFile, Log, All);

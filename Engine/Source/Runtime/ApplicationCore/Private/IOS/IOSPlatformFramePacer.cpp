@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "IOSPlatformFramePacer.h"
+#include "IOS/IOSPlatformFramePacer.h"
 #include "Containers/Array.h"
-#include "ThreadingBase.h"
+#include "HAL/ThreadingBase.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/Parse.h"
 

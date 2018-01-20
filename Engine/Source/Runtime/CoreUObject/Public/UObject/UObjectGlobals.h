@@ -10,7 +10,7 @@
 #include "Stats/Stats.h"
 #include "UObject/ObjectMacros.h"
 #include "Misc/OutputDeviceRedirector.h"
-#include "PrimaryAssetId.h"
+#include "UObject/PrimaryAssetId.h"
 #include "Templates/IsArrayOrRefOfType.h"
 
 struct FCustomPropertyListNode;
@@ -1944,12 +1944,12 @@ struct FAssetMsg
 		{ \
 			UE_LOG_EXPAND_IS_FATAL(Verbosity, PREPROCESSOR_NOTHING, if (!CategoryName.IsSuppressed(ELogVerbosity::Verbosity))) \
 			{ \
-				FString NewFormat = FString::Printf(TEXT("%s: %s"), *FAssetMsg::FormatPathForAssetLog(Asset), Format);\
-				FMsg::Logf_Internal(__FILE__, __LINE__, CategoryName.GetCategoryName(), ELogVerbosity::Verbosity, *NewFormat, ##__VA_ARGS__); \
+				FString FormatPath = FAssetMsg::FormatPathForAssetLog(Asset);\
+				FMsg::Logf_Internal(__FILE__, __LINE__, CategoryName.GetCategoryName(), ELogVerbosity::Verbosity, TEXT("%s: ") Format, *FormatPath, ##__VA_ARGS__); \
 				UE_LOG_EXPAND_IS_FATAL(Verbosity, \
 					{ \
 						_DebugBreakAndPromptForRemote(); \
-						FDebug::AssertFailed("", __FILE__, __LINE__, *NewFormat, ##__VA_ARGS__); \
+						FDebug::AssertFailed("", __FILE__, __LINE__, TEXT("%s: ") Format, *FormatPath, ##__VA_ARGS__); \
 						CA_ASSUME(false); \
 					}, \
 					PREPROCESSOR_NOTHING \

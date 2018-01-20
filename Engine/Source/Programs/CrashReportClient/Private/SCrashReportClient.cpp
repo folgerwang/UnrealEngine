@@ -5,9 +5,9 @@
 #if !CRASH_REPORT_UNATTENDED_ONLY
 
 #include "CrashReportClientStyle.h"
-#include "SlateStyle.h"
+#include "Styling/SlateStyle.h"
 #include "Styling/CoreStyle.h"
-#include "SThrobber.h"
+#include "Widgets/Images/SThrobber.h"
 #include "CrashDescription.h"
 #include "Framework/Text/SlateHyperlinkRun.h"
 #include "Widgets/SBoxPanel.h"

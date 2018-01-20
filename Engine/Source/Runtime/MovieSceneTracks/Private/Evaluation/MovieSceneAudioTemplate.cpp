@@ -13,7 +13,7 @@
 #include "Sections/MovieSceneAudioSection.h"
 #include "Tracks/MovieSceneAudioTrack.h"
 #include "MovieScene.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 #include "IMovieScenePlayer.h"
 
 

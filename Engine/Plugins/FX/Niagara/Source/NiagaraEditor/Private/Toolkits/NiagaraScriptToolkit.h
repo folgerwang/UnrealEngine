@@ -7,7 +7,7 @@
 #include "Toolkits/IToolkitHost.h"
 #include "Misc/NotifyHook.h"
 #include "EditorUndoClient.h"
-#include "AssetEditorToolkit.h"
+#include "Toolkits/AssetEditorToolkit.h"
 #include "UObject/GCObject.h"
 
 class IDetailsView;

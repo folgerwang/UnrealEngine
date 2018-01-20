@@ -14,7 +14,7 @@
 #include "IXRSystemAssets.h"
 #include "Components/StaticMeshComponent.h"
 #include "MotionDelayBuffer.h"
-#include "VRObjectVersion.h"
+#include "UObject/VRObjectVersion.h"
 #include "UObject/UObjectGlobals.h" // for FindObject<>
 #include "XRMotionControllerBase.h"
 

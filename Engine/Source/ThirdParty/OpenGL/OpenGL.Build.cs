@@ -7,6 +7,7 @@ public class OpenGL : ModuleRules
 	{
 		Type = ModuleType.External;
 
+		PublicIncludePaths.Add(ModuleDirectory);
 
 		if ((Target.Platform == UnrealTargetPlatform.Win64) ||
 			(Target.Platform == UnrealTargetPlatform.Win32))

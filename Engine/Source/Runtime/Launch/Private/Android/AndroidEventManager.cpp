@@ -1,9 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidEventManager.h"
-#include "AndroidApplication.h"
+#include "Android/AndroidEventManager.h"
+#include "Android/AndroidApplication.h"
 #include "AudioDevice.h"
-#include "CallbackDevice.h"
+#include "Misc/CallbackDevice.h"
 #include <android/native_window.h> 
 #include <android/native_window_jni.h> 
 #include "IHeadMountedDisplay.h"

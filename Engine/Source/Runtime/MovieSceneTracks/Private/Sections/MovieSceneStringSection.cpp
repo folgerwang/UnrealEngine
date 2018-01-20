@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Sections/MovieSceneStringSection.h"
-#include "SequencerObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
 
 UMovieSceneStringSection::UMovieSceneStringSection( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )

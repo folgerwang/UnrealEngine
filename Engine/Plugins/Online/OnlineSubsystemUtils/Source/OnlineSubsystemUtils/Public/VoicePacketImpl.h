@@ -6,7 +6,7 @@
 #include "UObject/CoreOnline.h"
 #include "Net/VoiceDataCommon.h"
 #include "OnlineSubsystemUtilsPackage.h"
-#include "VoiceConfig.h"
+#include "Net/VoiceConfig.h"
 
 #define DEBUG_VOICE_PACKET_ENCODING 0
 

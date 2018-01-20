@@ -48,7 +48,7 @@
 
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "ObjectEditorUtils.h"
-#include "Private/GraphActionNode.h"
+#include "GraphEditor/Private/GraphActionNode.h"
 #include "SourceCodeNavigation.h"
 #include "EditorCategoryUtils.h"
 #include "Widgets/Input/SSearchBox.h"

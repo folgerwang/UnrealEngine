@@ -4143,6 +4143,7 @@ void StaticUObjectInit()
 // Internal cleanup functions
 void CleanupGCArrayPools();
 void CleanupLinkerAnnotations();
+void CleanupCachedArchetypes();
 
 //
 // Shut down the object manager.
@@ -4243,6 +4244,7 @@ void StaticExit()
 	FDeferredMessageLog::Cleanup();
 	CleanupGCArrayPools();
 	CleanupLinkerAnnotations();
+	CleanupCachedArchetypes();
 
 	UE_LOG(LogExit, Log, TEXT("Object subsystem successfully closed.") );
 }

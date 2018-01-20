@@ -4,7 +4,7 @@
 
 #define STEAMVR_SUPPORTED_PLATFORMS (PLATFORM_MAC || (PLATFORM_LINUX && PLATFORM_CPU_X86_FAMILY && PLATFORM_64BITS) || (PLATFORM_WINDOWS && WINVER > 0x0502))
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "IHeadMountedDisplayModule.h"
 #include "IHeadMountedDisplay.h"
 #if STEAMVR_SUPPORTED_PLATFORMS

@@ -1,9 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "ControlRigBindingTrack.h"
+#include "Sequencer/ControlRigBindingTrack.h"
 #include "Sections/MovieSceneSpawnSection.h"
-#include "Casts.h"
-#include "ControlRigBindingTemplate.h"
+#include "Templates/Casts.h"
+#include "Sequencer/ControlRigBindingTemplate.h"
 
 #define LOCTEXT_NAMESPACE "ControlRigBindingTrack"
 

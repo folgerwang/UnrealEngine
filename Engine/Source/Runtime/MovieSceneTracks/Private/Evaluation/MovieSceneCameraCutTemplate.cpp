@@ -2,7 +2,7 @@
 
 #include "Evaluation/MovieSceneCameraCutTemplate.h"
 #include "Sections/MovieSceneCameraCutSection.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 #include "IMovieScenePlayer.h"
 #include "GameFramework/Actor.h"
 #include "ContentStreaming.h"

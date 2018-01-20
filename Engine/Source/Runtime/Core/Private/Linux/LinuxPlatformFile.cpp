@@ -8,7 +8,7 @@
 #include "Misc/Paths.h"
 #include <sys/file.h>
 
-#include "PlatformFileCommon.h"
+#include "HAL/PlatformFileCommon.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogLinuxPlatformFile, Log, All);
 

@@ -54,7 +54,7 @@ THIRD_PARTY_INCLUDES_START
 #include "ModuleClothing.h"
 
 // Assets
-#include "ClothingAsset.h"
+#include "Assets/ClothingAsset.h"
 
 // Actors
 #include "ClothingActor.h"

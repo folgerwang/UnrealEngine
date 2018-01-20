@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "OnlinePurchaseInterface.h"
+#include "Interfaces/OnlinePurchaseInterface.h"
 #include "Serialization/JsonSerializerMacros.h"
 
 enum class EGooglePlayBillingResponseCode : uint8;

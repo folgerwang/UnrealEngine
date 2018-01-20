@@ -68,9 +68,9 @@
 #include "GameDelegates.h"
 #include "IPAddress.h"
 
-#include "IPluginManager.h"
+#include "Interfaces/IPluginManager.h"
 #include "ProjectDescriptor.h"
-#include "IProjectManager.h"
+#include "Interfaces/IProjectManager.h"
 
 // cook by the book requirements
 #include "Commandlets/AssetRegistryGenerator.h"
@@ -89,7 +89,7 @@
 
 #include "Misc/NetworkVersion.h"
 
-#include "ParallelFor.h"
+#include "Async/ParallelFor.h"
 
 #define LOCTEXT_NAMESPACE "Cooker"
 
@@ -3265,6 +3265,7 @@ void UCookOnTheFlyServer::SaveCookedPackage(UPackage* Package, uint32 SaveFlags,
 						// If package was actually saved check with asset manager to make sure it wasn't excluded for being a development or never cook package. We do this after Editor Only filtering
 						if (Result == ESavePackageResult::Success && UAssetManager::IsValid())
 						{
+							SCOPE_TIMER(VerifyCanCookPackage);
 							if (!UAssetManager::Get().VerifyCanCookPackage(Package->GetFName()))
 							{
 								Result = ESavePackageResult::Error;

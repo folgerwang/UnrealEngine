@@ -12,7 +12,7 @@
 #include "Components/PrimitiveComponent.h"
 #include "Engine/Texture2D.h"
 #include "UObject/UObjectHash.h"
-#include "RefCounting.h"
+#include "Templates/RefCounting.h"
 
 int32 FTextureInstanceState::AddBounds(const UPrimitiveComponent* Component)
 {

@@ -80,7 +80,7 @@ namespace UnrealBuildTool
 				}
 				catch (Exception Ex)
 				{
-					Console.Error.WriteLine("Failed to write dependency cache: {0}", Ex.Message);
+					throw new BuildException(Ex, "Failed to write dependency cache.");
 				}
 			}
 		}

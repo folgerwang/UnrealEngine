@@ -17,7 +17,7 @@
 	#include "UnrealEdGlobals.h"
 #endif
 #if PLATFORM_WINDOWS
-	#include "WindowsHWrapper.h"
+	#include "Windows/WindowsHWrapper.h"
 #endif
 
 

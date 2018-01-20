@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "VirtualTextureShared.h"
-#include "HashTable.h"
+#include "Containers/HashTable.h"
 
 class IVirtualTexture;
 

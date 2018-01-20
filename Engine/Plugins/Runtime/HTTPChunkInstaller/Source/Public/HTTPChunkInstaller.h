@@ -2,12 +2,12 @@
 
 #pragma once
 
-#include "GenericPlatformChunkInstall.h"
-#include "UniquePtr.h"
+#include "GenericPlatform/GenericPlatformChunkInstall.h"
+#include "Templates/UniquePtr.h"
 #include "CloudTitleFileInterface.h"
 #include "ChunkInstall.h"
 #include "ChunkSetup.h"
-#include "Ticker.h"
+#include "Containers/Ticker.h"
 
 /**
 * HTTP based implementation of chunk based install

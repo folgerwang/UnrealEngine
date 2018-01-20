@@ -4,7 +4,7 @@
 #include "Serialization/MemoryWriter.h"
 #include "Modules/ModuleManager.h"
 #include "Interfaces/Interface_CollisionDataProvider.h"
-#include "IPhysXCookingModule.h"
+#include "Physics/IPhysXCookingModule.h"
 #include "PhysicsPublic.h"
 #include "PhysicsEngine/PhysXSupport.h"
 

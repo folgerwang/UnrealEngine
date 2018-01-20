@@ -15,7 +15,7 @@
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "PhysicsEngine/PhysicsConstraintTemplate.h"
 #include "PreviewScene.h"
-#include "ScopedSlowTask.h"
+#include "Misc/ScopedSlowTask.h"
 #include "SkinnedBoneTriangleCache.h"
 
 namespace FPhysicsAssetUtils

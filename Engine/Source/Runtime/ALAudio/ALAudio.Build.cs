@@ -23,6 +23,9 @@ public class ALAudio : ModuleRules
             "VorbisFile"
         );
 
-		PrecompileForTargets = PrecompileTargetsType.None;
+		if(Target.Platform != UnrealTargetPlatform.HTML5)
+		{
+			PrecompileForTargets = PrecompileTargetsType.None;
+		}
     }
 }

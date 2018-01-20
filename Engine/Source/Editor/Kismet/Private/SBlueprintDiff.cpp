@@ -12,7 +12,7 @@
 #include "EditorStyleSet.h"
 #include "Animation/AnimBlueprint.h"
 #include "K2Node_MathExpression.h"
-#include "BlueprintEditorUtils.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "BlueprintEditorModes.h"
 #include "DetailsDiff.h"
 #include "EdGraphUtilities.h"

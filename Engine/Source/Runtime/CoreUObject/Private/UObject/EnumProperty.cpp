@@ -3,7 +3,7 @@
 #include "UObject/EnumProperty.h"
 #include "UObject/PropertyPortFlags.h"
 #include "UObject/UObjectThreadContext.h"
-#include "PropertyTag.h"
+#include "UObject/PropertyTag.h"
 #include "Templates/ChooseClass.h"
 #include "Templates/IsSigned.h"
 #include "Algo/Find.h"

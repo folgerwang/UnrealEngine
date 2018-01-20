@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AutomationMode.h"
+#include "ToolModes/AutomationMode.h"
 
 #if !UE_BUILD_SHIPPING
 

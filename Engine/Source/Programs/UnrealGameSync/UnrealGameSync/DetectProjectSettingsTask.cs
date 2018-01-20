@@ -121,7 +121,7 @@ namespace UnrealGameSync
 						}
 
 						Records.RemoveAll(x => !x.IsMapped);
-						if(Records.Count != 1)
+						if(Records.Count == 0)
 						{
 							Log.WriteLine("Rejecting {0} due to {1} matching records", Client.Name, Records.Count);
 							continue;

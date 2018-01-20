@@ -12,7 +12,7 @@
 #include "Misc/PackageName.h"
 #include "UObject/LinkerLoad.h"
 #include "AssetDataTagMap.h"
-#include "PrimaryAssetId.h"
+#include "UObject/PrimaryAssetId.h"
 
 #include "AssetData.generated.h"
 

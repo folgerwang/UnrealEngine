@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimBody.h"
+#include "AnimBody/AnimBody.h"
 
 UAnimBody::UAnimBody(const class FObjectInitializer& Init)
 	: Super(Init)

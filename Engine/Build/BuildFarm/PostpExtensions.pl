@@ -125,7 +125,7 @@ unshift @::gMatchers, (
     },
     {
         id =>               "clWarningMultiline",
-        pattern =>          q{([^(]+)\([\d,]+\) ?: warning[ :]},
+        pattern =>          q{([^(]+)(\([\d,]+\))? ?: warning[ :]},
         action =>           q{incValue("warnings"); my ($file_only) = ($1 =~ /([^\\\\]+)$/); diagnostic($file_only || $1, "warning", backIf("[^ ]+\.cpp\$"), forwardWhile("^(    |^([^(]+)\\\\([\\\\d,]+\\\\) ?: note)")) },
     },
     {

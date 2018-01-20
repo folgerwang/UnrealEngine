@@ -14,9 +14,9 @@
 #include "MetalHeap.h"
 #include "MetalCaptureManager.h"
 #if PLATFORM_IOS
-#include "IOSView.h"
+#include "IOS/IOSView.h"
 #endif
-#include "LockFreeList.h"
+#include "Containers/LockFreeList.h"
 
 #define NUM_SAFE_FRAMES 4
 

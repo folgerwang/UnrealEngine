@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "UnrealMemory.h"
+#include "HAL/UnrealMemory.h"
 
 /*=============================================================================
  *	Helpers:
@@ -92,7 +92,7 @@ FORCEINLINE VectorRegisterInt MakeVectorRegisterInt(int32 X, int32 Y, int32 Z, i
  *	Constants:
  *============================================================================*/
 
-#include "UnrealMathVectorConstants.h"
+#include "Math/UnrealMathVectorConstants.h"
 
 
 /*=============================================================================

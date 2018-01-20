@@ -4,7 +4,7 @@
 #include "IMovieScenePlayer.h"
 #include "MovieSceneSequence.h"
 #include "MovieSceneSequence.h"
-#include "MovieSceneCompiler.h"
+#include "Compilation/MovieSceneCompiler.h"
 #include "Sections/MovieSceneSubSection.h"
 #include "Compilation/MovieSceneEvaluationTemplateGenerator.h"
 

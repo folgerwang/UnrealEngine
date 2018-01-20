@@ -6,7 +6,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "ClothingSimulationInterface.h"
 #include "ClothingSystemRuntimeModule.h"
-#include "ClothingAsset.h"
+#include "Assets/ClothingAsset.h"
 
 
 DECLARE_CYCLE_STAT(TEXT("Skin Physics Mesh"), STAT_ClothSkinPhysMesh, STATGROUP_Physics);

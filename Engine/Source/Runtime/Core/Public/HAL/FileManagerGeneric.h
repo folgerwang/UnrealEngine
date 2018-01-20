@@ -10,7 +10,7 @@
 #include "HAL/PlatformFilemanager.h"
 #include "HAL/FileManager.h"
 #include "Templates/ScopedPointer.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 /**
  * Base class for file managers.

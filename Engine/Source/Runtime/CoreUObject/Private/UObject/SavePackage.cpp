@@ -49,9 +49,9 @@
 #include "UObject/GCScopeLock.h"
 #include "ProfilingDebugging/CookStats.h"
 #include "UObject/DebugSerializationFlags.h"
-#include "EnumProperty.h"
-#include "BlueprintSupport.h"
-#include "IConsoleManager.h"
+#include "UObject/EnumProperty.h"
+#include "Blueprint/BlueprintSupport.h"
+#include "HAL/IConsoleManager.h"
 #include "Serialization/ArchiveStackTrace.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSavePackage, Log, All);

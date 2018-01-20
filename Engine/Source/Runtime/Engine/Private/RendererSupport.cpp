@@ -30,7 +30,7 @@
 #include "EngineModule.h"
 #include "Misc/HotReloadInterface.h"
 #include "ComponentReregisterContext.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "ShaderCompiler.h"
 #include "SceneInterface.h"
 

@@ -4,7 +4,7 @@
 #include "NiagaraEmitterInstance.h"
 #include "NiagaraComponent.h"
 #include "NiagaraSystemInstance.h"
-#include "Internationalization.h"
+#include "Internationalization/Internationalization.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraDataInterfaceSpline"
 

@@ -22,7 +22,7 @@
 #include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
 
 #if PLATFORM_MAC
-#include "MacApplication.h"
+#include "Mac/MacApplication.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "SGlobalTabSwitchingDialog"

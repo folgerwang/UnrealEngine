@@ -692,11 +692,11 @@ namespace AutomationTool
 		/// </summary>
 		/// <param name="Main"></param>
 		/// <param name="Param"></param>
-		public static ExitCode RunSingleInstance(Func<object, ExitCode> Main, object Param)
+		public static ExitCode RunSingleInstance(Func<ExitCode> Main)
 		{
 			if (Environment.GetEnvironmentVariable("uebp_UATMutexNoWait") == "1")
 			{
-				return Main(Param);
+				return Main();
 			}
 			var bCreatedMutex = false;
             var EntryAssemblyLocation = Assembly.GetEntryAssembly().GetOriginalLocation();
@@ -709,7 +709,7 @@ namespace AutomationTool
                     throw new AutomationException("A conflicting instance of AutomationTool is already running. Curent location: {0}. A process manager may be used to determine the conflicting process and what tool may have launched it", EntryAssemblyLocation);
 				}
 
-				ExitCode Result = Main(Param);
+				ExitCode Result = Main();
 
 				SingleInstanceMutex.ReleaseMutex();
 

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "Modules/ModuleInterface.h"
 #include "SimulationEditorExtenderNv.h"
 #include "ClothingAssetFactoryInterface.h"
 

@@ -6,8 +6,8 @@
 #include "DebugViewModeHelpers.h"
 #include "DebugViewModeMaterialProxy.h"
 #include "ShaderCompiler.h"
-#include "ScopedSlowTask.h"
-#include "FeedbackContext.h"
+#include "Misc/ScopedSlowTask.h"
+#include "Misc/FeedbackContext.h"
 #include "Engine/World.h"
 #include "Components/PrimitiveComponent.h"
 

@@ -88,7 +88,7 @@ namespace
 		TEXT("===========================================================================*/\r\n")
 		LINE_TERMINATOR;
 
-	const TCHAR RequiredCPPIncludes[] = TEXT("#include \"GeneratedCppIncludes.h\"") LINE_TERMINATOR;
+	const TCHAR RequiredCPPIncludes[] = TEXT("#include \"UObject/GeneratedCppIncludes.h\"") LINE_TERMINATOR;
 
 	// A struct which emits #if and #endif blocks as appropriate when invoked.
 	struct FMacroBlockEmitter
@@ -2951,8 +2951,8 @@ bool FNativeClassHeaderGenerator::WriteHeader(const TCHAR* Path, const FString& 
 {
 	FUHTStringBuilder GeneratedHeaderTextWithCopyright;
 	GeneratedHeaderTextWithCopyright.Logf(TEXT("%s"), HeaderCopyright);
-	GeneratedHeaderTextWithCopyright.Log(TEXT("#include \"ObjectMacros.h\"\r\n"));
-	GeneratedHeaderTextWithCopyright.Log(TEXT("#include \"ScriptMacros.h\"\r\n"));
+	GeneratedHeaderTextWithCopyright.Log(TEXT("#include \"UObject/ObjectMacros.h\"\r\n"));
+	GeneratedHeaderTextWithCopyright.Log(TEXT("#include \"UObject/ScriptMacros.h\"\r\n"));
 	GeneratedHeaderTextWithCopyright.Log(LINE_TERMINATOR);
 	GeneratedHeaderTextWithCopyright.Log(TEXT("PRAGMA_DISABLE_DEPRECATION_WARNINGS") LINE_TERMINATOR);
 

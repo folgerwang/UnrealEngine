@@ -5,8 +5,8 @@
 #include "DetailLayoutBuilder.h"
 #include "DetailCategoryBuilder.h"
 #include "DetailWidgetRow.h"
-#include "STextComboBox.h"
-#include "SCheckBox.h"
+#include "Widgets/Input/STextComboBox.h"
+#include "Widgets/Input/SCheckBox.h"
 #include "GuidStructCustomization.h"
 #include "ScopedTransaction.h"
 

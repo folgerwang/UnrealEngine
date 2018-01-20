@@ -8,7 +8,7 @@
 #include "NiagaraNodeInput.h"
 #include "NiagaraNodeOutput.h"
 #include "EdGraphSchema_Niagara.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "AssetRegistryModule.h"
 #include "NiagaraComponent.h"
 #include "NiagaraHlslTranslator.h"

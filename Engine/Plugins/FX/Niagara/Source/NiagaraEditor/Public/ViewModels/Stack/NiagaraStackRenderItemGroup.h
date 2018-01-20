@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "NiagaraStackItemGroup.h"
+#include "ViewModels/Stack/NiagaraStackItemGroup.h"
 #include "NiagaraStackRenderItemGroup.generated.h"
 
 UCLASS()

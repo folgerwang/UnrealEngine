@@ -3,7 +3,7 @@
 #include "OnlineSubsystemTwitchPrivate.h"
 #include "OnlineIdentityTwitch.h"
 #include "OnlineAccountTwitch.h"
-#include "OnlineExternalUIInterface.h"
+#include "Interfaces/OnlineExternalUIInterface.h"
 #include "TwitchTokenValidationResponse.h"
 
 #include "Http.h"

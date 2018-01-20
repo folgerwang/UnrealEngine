@@ -15,11 +15,11 @@
 #include "SequencerTrackNode.h"
 #include "MovieSceneTrack.h"
 #include "MovieSceneSection.h"
-#include "MultiBoxBuilder.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "ISequencerTrackEditor.h"
 #include "ISequencer.h"
 #include "ScopedTransaction.h"
-#include "Package.h"
+#include "UObject/Package.h"
 
 #define LOCTEXT_NAMESPACE "FSequencerUtilities"
 

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "OnlineLeaderboardInterface.h"
+#include "Interfaces/OnlineLeaderboardInterface.h"
 #include "OnlineIdentityOculus.h"
 #include "OnlineSubsystemOculusPackage.h"
 

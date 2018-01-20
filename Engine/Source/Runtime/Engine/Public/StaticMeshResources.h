@@ -32,7 +32,7 @@
 #include "Rendering/StaticMeshVertexBuffer.h"
 #include "Rendering/PositionVertexBuffer.h"
 #include "Rendering/StaticMeshVertexDataInterface.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "WeightedRandomSampler.h"
 
 class FDistanceFieldVolumeData;

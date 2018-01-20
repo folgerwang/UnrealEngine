@@ -4,7 +4,7 @@
 
 #include "MovieScene.h"
 #include "Tracks/MovieScene3DTransformTrack.h"
-#include "MovieSceneTransformTrack.h"
+#include "Tracks/MovieSceneTransformTrack.h"
 #include "MovieScene.h"
 #include "Evaluation/MovieSceneEvaluationTrack.h"
 #include "Evaluation/MovieSceneCameraCutTemplate.h"

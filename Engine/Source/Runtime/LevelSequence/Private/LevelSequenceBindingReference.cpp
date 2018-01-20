@@ -5,7 +5,7 @@
 #include "UObject/Package.h"
 #include "UObject/ObjectMacros.h"
 #include "MovieSceneFwd.h"
-#include "PackageName.h"
+#include "Misc/PackageName.h"
 #include "Engine/World.h"
 
 FLevelSequenceBindingReference::FLevelSequenceBindingReference(UObject* InObject, UObject* InContext)

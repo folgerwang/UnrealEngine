@@ -12,7 +12,7 @@
 #include "OnlineFriendsInterfaceGameCircle.h"
 #include "OnlineAGSCallbackManager.h"
 #include "OnlineStoreInterfaceGameCircle.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 #include <string>
 

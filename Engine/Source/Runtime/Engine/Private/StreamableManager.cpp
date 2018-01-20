@@ -4,7 +4,7 @@
 #include "UObject/WeakObjectPtr.h"
 #include "UObject/ObjectRedirector.h"
 #include "Misc/PackageName.h"
-#include "UObjectThreadContext.h"
+#include "UObject/UObjectThreadContext.h"
 #include "HAL/IConsoleManager.h"
 #include "Tickable.h"
 

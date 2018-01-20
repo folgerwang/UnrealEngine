@@ -6,7 +6,7 @@
 
 #include "phonon.h"
 
-#include "Async.h"
+#include "Async/Async.h"
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 

@@ -2,15 +2,15 @@
 
 #include "AndroidMovieStreamer.h"
 
-#include "AndroidApplication.h"
-#include "AndroidJava.h"
-#include "AndroidFile.h"
+#include "Android/AndroidApplication.h"
+#include "Android/AndroidJava.h"
+#include "Android/AndroidFile.h"
 
-#include "RenderingCommon.h"
+#include "Rendering/RenderingCommon.h"
 #include "RenderUtils.h"
 #include "Slate/SlateTextures.h"
 #include "MoviePlayer.h"
-#include "StringConv.h"
+#include "Containers/StringConv.h"
 
 #include "Misc/ScopeLock.h"
 #include "Misc/Paths.h"

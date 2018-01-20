@@ -373,7 +373,7 @@ public:
 	 * @param Angle The word angle.
 	 * @return The decompressed angle.
 	 */
-	static float DecompressAxisFromByte( uint16 Angle );
+	static float DecompressAxisFromByte( uint8 Angle );
 
 	/**
 	 * Compress a floating point angle into a word.
@@ -614,7 +614,7 @@ FORCEINLINE uint8 FRotator::CompressAxisToByte( float Angle )
 }
 
 
-FORCEINLINE float FRotator::DecompressAxisFromByte( uint16 Angle )
+FORCEINLINE float FRotator::DecompressAxisFromByte( uint8 Angle )
 {
 	// map [0->256) to [0->360)
 	return (Angle * 360.f / 256.f);

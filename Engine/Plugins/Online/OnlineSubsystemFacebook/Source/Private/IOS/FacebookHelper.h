@@ -3,7 +3,7 @@
 #include "CoreMinimal.h"
 
 // Other UE4 includes
-#include "IOSAppDelegate.h"
+#include "IOS/IOSAppDelegate.h"
 #include "IOS/IOSAsyncTask.h"
 
 THIRD_PARTY_INCLUDES_START

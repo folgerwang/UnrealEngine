@@ -1,12 +1,12 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraStackAddScriptModuleItem.h"
+#include "ViewModels/Stack/NiagaraStackAddScriptModuleItem.h"
 #include "NiagaraNodeOutput.h"
 #include "NiagaraScript.h"
 #include "NiagaraNodeFunctionCall.h"
 #include "NiagaraNodeParameterMapBase.h"
 #include "NiagaraConstants.h"
-#include "Stack/NiagaraParameterHandle.h"
+#include "ViewModels/Stack/NiagaraParameterHandle.h"
 
 #include "ScopedTransaction.h"
 

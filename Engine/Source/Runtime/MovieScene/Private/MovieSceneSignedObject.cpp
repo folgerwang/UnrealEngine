@@ -3,7 +3,7 @@
 #include "MovieSceneSignedObject.h"
 #include "Templates/Casts.h"
 #include "MovieSceneSequence.h"
-#include "Package.h"
+#include "UObject/Package.h"
 
 UMovieSceneSignedObject::UMovieSceneSignedObject(const FObjectInitializer& Init)
 	: Super(Init)

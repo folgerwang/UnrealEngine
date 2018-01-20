@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "AndroidJSScripting.h"
-#include "JsonStructDeserializerBackend.h"
+#include "Backends/JsonStructDeserializerBackend.h"
 #include "Serialization/MemoryReader.h"
 
 class FAndroidJSStructDeserializerBackend

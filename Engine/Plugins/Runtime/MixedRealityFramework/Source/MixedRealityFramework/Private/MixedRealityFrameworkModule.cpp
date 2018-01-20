@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "IMixedRealityFrameworkModule.h"
-#include "ModuleManager.h" // for IMPLEMENT_MODULE()
+#include "Modules/ModuleManager.h" // for IMPLEMENT_MODULE()
 #include "Engine/Engine.h"
 #include "MixedRealityConfigurationSaveGame.h" // for SaveSlotName/UserIndex
 #include "Kismet/GameplayStatics.h" // for DoesSaveGameExist()

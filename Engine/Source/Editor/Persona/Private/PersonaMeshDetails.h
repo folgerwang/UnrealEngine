@@ -12,7 +12,7 @@
 #include "PropertyHandle.h"
 #include "IDetailCustomNodeBuilder.h"
 #include "IDetailCustomization.h"
-#include "SComboBox.h"
+#include "Widgets/Input/SComboBox.h"
 
 struct FAssetData;
 class FDetailWidgetRow;

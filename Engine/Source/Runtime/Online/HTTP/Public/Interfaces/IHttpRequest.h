@@ -91,7 +91,7 @@ public:
 	 * 
 	 * @return the verb string
 	 */
-	virtual FString GetVerb() = 0;
+	virtual FString GetVerb() const = 0;
 
 	/**
 	 * Sets the verb used by the request.
@@ -182,7 +182,7 @@ public:
 	 *
 	 * @return the current status
 	 */
-	virtual EHttpRequestStatus::Type GetStatus() = 0;
+	virtual EHttpRequestStatus::Type GetStatus() const = 0;
 
 	/**
 	 * Get the associated Response
@@ -203,11 +203,11 @@ public:
 	 * 
 	 * @return elapsed time in seconds.
 	 */
-	virtual float GetElapsedTime() = 0;
+	virtual float GetElapsedTime() const = 0;
 
 	/** 
 	 * Destructor for overrides 
 	 */
-	virtual ~IHttpRequest() {};
+	virtual ~IHttpRequest() = default;
 };
 

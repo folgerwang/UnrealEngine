@@ -11,8 +11,8 @@
 #include "Containers/Map.h"
 #include "Templates/SharedPointer.h"
 #include "Delegates/Delegate.h"
-#include "LocTesting.h"
-#include "LocKeyFuncs.h"
+#include "Internationalization/LocTesting.h"
+#include "Internationalization/LocKeyFuncs.h"
 
 class FTextLocalizationResource;
 

@@ -7,7 +7,7 @@
 #include "Components/SceneComponent.h"
 #include "GameFramework/Actor.h"
 #include "MovieSceneCommonHelpers.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 #include "IMovieScenePlayer.h"
 
 

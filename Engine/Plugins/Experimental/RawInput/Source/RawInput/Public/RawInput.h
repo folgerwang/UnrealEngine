@@ -3,10 +3,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "IInputDeviceModule.h"
 #include "IInputDevice.h"
-#include "GenericApplicationMessageHandler.h"
+#include "GenericPlatform/GenericApplicationMessageHandler.h"
 
 DECLARE_DELEGATE_RetVal_TwoParams( bool, FRawInputDataDelegate, int32 /*DataSize*/, const struct tagRAWINPUT* /*Data */);
 

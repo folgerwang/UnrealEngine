@@ -1,12 +1,12 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidAdjust.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "AndroidAdjustPrivatePCH.h"
 #include "Android/AndroidJNI.h"
 #include "Android/AndroidApplication.h"
-#include "Paths.h"
-#include "ConfigCacheIni.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogAnalytics, Display, All);
 

@@ -25,7 +25,7 @@
 #include "EditorStyleSet.h"
 #include "Layout/LayoutUtils.h"
 #include "MarqueeOperation.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 class FActiveTimerHandle;
 class FScopedTransaction;

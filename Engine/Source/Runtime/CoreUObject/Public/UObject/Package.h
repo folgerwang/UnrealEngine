@@ -12,7 +12,7 @@
 #include "Misc/OutputDeviceError.h"
 #include "Misc/ObjectThumbnail.h"
 #include "Serialization/CustomVersion.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 class Error;
 

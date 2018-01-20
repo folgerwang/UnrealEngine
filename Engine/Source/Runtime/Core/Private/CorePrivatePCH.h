@@ -84,7 +84,7 @@
 #include "Containers/ScriptArray.h"
 #include "Containers/BitArray.h"
 #include "Containers/Map.h"
-#include "Containers/Algo/Reverse.h"
+#include "Algo/Reverse.h"
 #include "Templates/SharedPointer.h"
 #include "Delegates/IDelegateInstance.h"
 #include "Delegates/DelegateSettings.h"

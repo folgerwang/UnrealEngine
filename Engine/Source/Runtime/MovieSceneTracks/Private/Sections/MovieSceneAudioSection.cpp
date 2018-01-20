@@ -3,7 +3,7 @@
 #include "Sections/MovieSceneAudioSection.h"
 #include "Sound/SoundBase.h"
 #include "Evaluation/MovieSceneAudioTemplate.h"
-#include "SequencerObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
 
 UMovieSceneAudioSection::UMovieSceneAudioSection( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )

@@ -2,7 +2,7 @@
 
 #include "BoneProxy.h"
 #include "IPersonaPreviewScene.h"
-#include "AnimNode_ModifyBone.h"
+#include "BoneControllers/AnimNode_ModifyBone.h"
 #include "AnimPreviewInstance.h"
 #include "ScopedTransaction.h"
 #include "Animation/DebugSkelMeshComponent.h"

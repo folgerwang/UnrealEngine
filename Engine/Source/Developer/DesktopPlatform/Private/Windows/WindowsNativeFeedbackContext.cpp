@@ -10,7 +10,7 @@
 #include "Internationalization/Internationalization.h"
 #include "Windows/WindowsPlatformApplicationMisc.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 FWindowsNativeFeedbackContext::FWindowsNativeFeedbackContext()
 	: FFeedbackContext()
@@ -380,4 +380,4 @@ void FWindowsNativeFeedbackContext::LayoutControls(HWND hWnd, const FWindowParam
 	MoveWindow(hWndLogOutput, MarginW, SplitY, ClientRect.right - MarginW * 2, ClientRect.bottom - SplitY - MarginH, TRUE);
 }
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"

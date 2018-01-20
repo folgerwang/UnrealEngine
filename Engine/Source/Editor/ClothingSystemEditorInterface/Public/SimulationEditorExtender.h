@@ -3,7 +3,7 @@
 #pragma once
 
 #include "Features/IModularFeature.h"
-#include "SharedPointer.h"
+#include "Templates/SharedPointer.h"
 
 class UClass;
 class FMenuBuilder;

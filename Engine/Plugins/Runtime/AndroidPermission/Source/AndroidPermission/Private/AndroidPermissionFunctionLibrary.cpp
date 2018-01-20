@@ -6,7 +6,7 @@
 
 #if PLATFORM_ANDROID
 #include "Android/AndroidJNI.h"
-#include "AndroidApplication.h"
+#include "Android/AndroidApplication.h"
 static jclass _PermissionHelperClass;
 static jmethodID _CheckPermissionMethodId;
 static jmethodID _AcquirePermissionMethodId;

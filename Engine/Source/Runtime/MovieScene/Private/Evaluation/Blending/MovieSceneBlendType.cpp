@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneBlendType.h"
-#include "EnumClassFlags.h"
+#include "Evaluation/Blending/MovieSceneBlendType.h"
+#include "Misc/EnumClassFlags.h"
 
 namespace MovieScene
 {

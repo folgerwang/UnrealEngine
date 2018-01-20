@@ -54,7 +54,7 @@
 #include "NativeClassHierarchy.h"
 #include "AddToProjectConfig.h"
 #include "GameProjectGenerationModule.h"
-#include "GlobalEditorCommonCommands.h"
+#include "Toolkits/GlobalEditorCommonCommands.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 

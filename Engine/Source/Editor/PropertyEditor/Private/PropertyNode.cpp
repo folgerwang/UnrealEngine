@@ -18,7 +18,7 @@
 #include "ObjectPropertyNode.h"
 #include "PropertyHandleImpl.h"
 #include "EditorSupportDelegates.h"
-#include "ConstructorHelpers.h"
+#include "UObject/ConstructorHelpers.h"
 
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"

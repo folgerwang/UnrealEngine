@@ -14,7 +14,7 @@
 
 #include "ScopedTransaction.h"
 #include "IDetailPropertyRow.h"
-#include "SNumericEntryBox.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 #include "SFlattenHeightEyeDropperButton.h"
 #include "LandscapeEdModeTools.h"
 

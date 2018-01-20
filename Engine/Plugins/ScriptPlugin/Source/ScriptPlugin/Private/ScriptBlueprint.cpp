@@ -6,7 +6,7 @@
 #include "Misc/FileHelper.h"
 #if WITH_EDITOR
 #include "EditorFramework/AssetImportData.h"
-#include "BlueprintEditorUtils.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #endif
 
 /////////////////////////////////////////////////////

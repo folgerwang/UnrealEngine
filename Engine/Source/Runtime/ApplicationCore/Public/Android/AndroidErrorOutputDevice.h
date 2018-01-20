@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "OutputDevice.h"
-#include "OutputDeviceError.h"
+#include "Misc/OutputDevice.h"
+#include "Misc/OutputDeviceError.h"
 
 class FAndroidErrorOutputDevice : public FOutputDeviceError
 {

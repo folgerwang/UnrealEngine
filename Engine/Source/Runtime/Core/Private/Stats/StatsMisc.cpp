@@ -8,7 +8,7 @@
 
 #if !ENABLE_STATNAMEDEVENTS && defined(USE_LIGHTWEIGHT_STATS_FOR_HITCH_DETECTION) && USE_LIGHTWEIGHT_STATS_FOR_HITCH_DETECTION && USE_HITCH_DETECTION
 
-#include "ThreadHeartBeat.h"
+#include "HAL/ThreadHeartBeat.h"
 
 void FLightweightStatScope::ReportHitch()
 {

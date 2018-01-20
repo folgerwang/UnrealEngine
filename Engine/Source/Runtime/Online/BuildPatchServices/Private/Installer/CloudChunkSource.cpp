@@ -10,7 +10,7 @@
 #include "Installer/DownloadService.h"
 #include "Installer/InstallerError.h"
 #include "Common/StatsCollector.h"
-#include "IBuildInstaller.h"
+#include "Interfaces/IBuildInstaller.h"
 #include "BuildPatchUtil.h"
 #include "HAL/ThreadSafeBool.h"
 #include "Containers/Queue.h"

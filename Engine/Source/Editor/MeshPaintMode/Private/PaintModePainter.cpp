@@ -33,7 +33,7 @@
 #include "VREditorInteractor.h"
 #include "EditorWorldExtension.h"
 
-#include "Commands/UICommandList.h"
+#include "Framework/Commands/UICommandList.h"
 #include "PaintModeCommands.h"
 #include "PaintModeSettings.h"
 #include "MeshPaintAdapterFactory.h"

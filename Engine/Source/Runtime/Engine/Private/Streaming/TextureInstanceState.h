@@ -9,7 +9,7 @@ TextureInstanceState.h: Definitions of classes used for texture streaming.
 #include "CoreMinimal.h"
 #include "TextureInstanceView.h"
 #include "Streaming/TextureStreamingHelpers.h"
-#include "ArrayView.h"
+#include "Containers/ArrayView.h"
 
 class FStreamingTextureLevelContext;
 class ULevel;

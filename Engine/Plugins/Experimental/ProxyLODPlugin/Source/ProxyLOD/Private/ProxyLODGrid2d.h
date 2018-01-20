@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "Array.h"
-#include "SharedPointer.h"
-#include "AssertionMacros.h"
+#include "Containers/Array.h"
+#include "Templates/SharedPointer.h"
+#include "Misc/AssertionMacros.h"
 
 namespace ProxyLOD
 {

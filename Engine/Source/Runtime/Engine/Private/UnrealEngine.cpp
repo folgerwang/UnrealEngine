@@ -130,7 +130,7 @@
 #include "Particles/ParticleModuleRequired.h"
 
 #include "Components/TextRenderComponent.h"
-#include "Classes/Sound/AudioSettings.h"
+#include "Sound/AudioSettings.h"
 #include "Streaming/Texture2DUpdate.h"
 
 
@@ -201,17 +201,17 @@
 
 #include "GeneralProjectSettings.h"
 #include "ProfilingDebugging/LoadTimeTracker.h"
-#include "ObjectKey.h"
+#include "UObject/ObjectKey.h"
 #include "AssetRegistryModule.h"
 #include "CsvProfiler.h"
 
 #if !UE_BUILD_SHIPPING
-	#include "IPluginManager.h"
-	#include "GenericPlatformCrashContext.h"
-	#include "EngineBuildSettings.h"
+	#include "Interfaces/IPluginManager.h"
+	#include "GenericPlatform/GenericPlatformCrashContext.h"
+	#include "Misc/EngineBuildSettings.h"
 #endif
 
-#include "FileManagerGeneric.h"
+#include "HAL/FileManagerGeneric.h"
 
 DEFINE_LOG_CATEGORY(LogEngine);
 IMPLEMENT_MODULE( FEngineModule, Engine );
@@ -4305,15 +4305,30 @@ bool UEngine::HandleListTexturesCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 			AuthoredBiasString.AppendInt(SortedTexture.LODBias);
 		}
 
-		Ar.Logf(bCSV ? TEXT(",%i, %i, %i, %s, %i, %i, %i, %s, %s, %s, %s, %i") : TEXT("%ix%i (%i KB, %s), %ix%i (%i KB), %s, %s, %s, %s, %i"),
-			SortedTexture.MaxAllowedSizeX, SortedTexture.MaxAllowedSizeY, (SortedTexture.MaxAllowedSize + 512) / 1024, 
-			*AuthoredBiasString,
-			SortedTexture.CurSizeX, SortedTexture.CurSizeY, (SortedTexture.CurrentSize + 512) / 1024,
-				GetPixelFormatString(SortedTexture.Format),
-				bValidTextureGroup ? *TextureGroupNames[SortedTexture.LODGroup] : TEXT("INVALID"),
-				*SortedTexture.Name,
-				SortedTexture.bIsStreaming ? TEXT("YES") : TEXT("NO"),
-				SortedTexture.UsageCount);
+		if (bCSV)
+		{
+			Ar.Logf(TEXT(",%i, %i, %i, %s, %i, %i, %i, %s, %s, %s, %s, %i"),
+				SortedTexture.MaxAllowedSizeX, SortedTexture.MaxAllowedSizeY, (SortedTexture.MaxAllowedSize + 512) / 1024, 
+				*AuthoredBiasString,
+				SortedTexture.CurSizeX, SortedTexture.CurSizeY, (SortedTexture.CurrentSize + 512) / 1024,
+					GetPixelFormatString(SortedTexture.Format),
+					bValidTextureGroup ? *TextureGroupNames[SortedTexture.LODGroup] : TEXT("INVALID"),
+					*SortedTexture.Name,
+					SortedTexture.bIsStreaming ? TEXT("YES") : TEXT("NO"),
+					SortedTexture.UsageCount);
+		}
+		else
+		{
+			Ar.Logf(TEXT("%ix%i (%i KB, %s), %ix%i (%i KB), %s, %s, %s, %s, %i"),
+				SortedTexture.MaxAllowedSizeX, SortedTexture.MaxAllowedSizeY, (SortedTexture.MaxAllowedSize + 512) / 1024, 
+				*AuthoredBiasString,
+				SortedTexture.CurSizeX, SortedTexture.CurSizeY, (SortedTexture.CurrentSize + 512) / 1024,
+					GetPixelFormatString(SortedTexture.Format),
+					bValidTextureGroup ? *TextureGroupNames[SortedTexture.LODGroup] : TEXT("INVALID"),
+					*SortedTexture.Name,
+					SortedTexture.bIsStreaming ? TEXT("YES") : TEXT("NO"),
+					SortedTexture.UsageCount);
+		}
 
 		if (bValidTextureGroup)
 		{

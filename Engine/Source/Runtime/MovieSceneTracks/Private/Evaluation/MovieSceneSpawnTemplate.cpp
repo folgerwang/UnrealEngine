@@ -3,7 +3,7 @@
 #include "Evaluation/MovieSceneSpawnTemplate.h"
 #include "MovieSceneSequence.h"
 #include "Sections/MovieSceneSpawnSection.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 #include "IMovieScenePlayer.h"
 #include "MovieSceneBindingOverridesInterface.h"
 

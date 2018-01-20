@@ -3,7 +3,7 @@
 #include "TrackEditors/PropertyTrackEditors/TransformPropertyTrackEditor.h"
 #include "MatineeImportTools.h"
 #include "UnrealEdGlobals.h"
-#include "Classes/Editor/UnrealEdEngine.h"
+#include "Editor/UnrealEdEngine.h"
 #include "Sections/TransformPropertySection.h"
 #include "SequencerUtilities.h"
 

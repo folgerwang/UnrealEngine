@@ -3,7 +3,7 @@
 #pragma once
 
 #include "NiagaraNode.h"
-#include "SlateTypes.h"
+#include "Styling/SlateTypes.h"
 #include "EdGraph/EdGraph.h"
 
 #include "NiagaraNodeWithDynamicPins.generated.h"

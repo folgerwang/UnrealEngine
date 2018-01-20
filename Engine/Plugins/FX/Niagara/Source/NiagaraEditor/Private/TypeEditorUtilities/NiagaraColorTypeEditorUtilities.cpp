@@ -4,12 +4,12 @@
 #include "SNiagaraParameterEditor.h"
 #include "NiagaraTypes.h"
 #include "NiagaraEditorStyle.h"
-#include "Classes/Engine/Engine.h"
+#include "Engine/Engine.h"
 
-#include "SColorPicker.h"
-#include "SNumericEntryBox.h"
-#include "SColorBlock.h"
-#include "SGridPanel.h"
+#include "Widgets/Colors/SColorPicker.h"
+#include "Widgets/Input/SNumericEntryBox.h"
+#include "Widgets/Colors/SColorBlock.h"
+#include "Widgets/Layout/SGridPanel.h"
 
 class SNiagaraColorParameterEditor : public SNiagaraParameterEditor
 {

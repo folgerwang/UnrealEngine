@@ -4,7 +4,7 @@
 #include "AndroidDeviceProfileMatchingRules.h"
 #include "AndroidJavaSurfaceViewDevices.h"
 #include "Templates/Casts.h"
-#include "Regex.h"
+#include "Internationalization/Regex.h"
 
 UAndroidDeviceProfileMatchingRules::UAndroidDeviceProfileMatchingRules(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

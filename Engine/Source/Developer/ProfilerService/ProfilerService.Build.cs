@@ -27,6 +27,11 @@ namespace UnrealBuildTool.Rules
 					"MessagingCommon",
 				}
 			);
+
+			if (Target.Configuration != UnrealTargetConfiguration.Shipping)
+			{
+				PrecompileForTargets = PrecompileTargetsType.Any;
+			}
 		}
 	}
 }

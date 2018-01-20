@@ -2,7 +2,7 @@
 
 #include "WindowsMovieStreamer.h"
 
-#include "RenderingCommon.h"
+#include "Rendering/RenderingCommon.h"
 #include "Slate/SlateTextures.h"
 #include "MoviePlayer.h"
 #include "RenderUtils.h"
@@ -14,7 +14,7 @@
 #pragma comment(lib, "mfplay")
 #pragma comment(lib, "mfuuid")
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 #include <windows.h>
 #include <shlwapi.h>
@@ -572,5 +572,5 @@ void FSampleGrabberCallback::SetNeedNewSample()
 }
 
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 

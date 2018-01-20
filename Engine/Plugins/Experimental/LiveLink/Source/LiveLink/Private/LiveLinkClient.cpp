@@ -1,11 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LiveLinkClient.h"
-#include "ScopeLock.h"
-#include "UObjectHash.h"
+#include "Misc/ScopeLock.h"
+#include "UObject/UObjectHash.h"
 #include "LiveLinkSourceFactory.h"
-#include "Guid.h"
-#include "Package.h"
+#include "Misc/Guid.h"
+#include "UObject/Package.h"
 
 DEFINE_LOG_CATEGORY(LogLiveLink);
 

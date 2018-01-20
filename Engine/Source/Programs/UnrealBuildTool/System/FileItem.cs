@@ -30,7 +30,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// The file reference
 		/// </summary>
-		public FileReference Reference;
+		public FileReference Location;
 
 		/// <summary>
 		/// True if any DLLs produced by this
@@ -47,7 +47,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		public string AbsolutePath
 		{
-			get { return Reference.FullName; }
+			get { return Location.FullName; }
 		}
 
 		/// <summary>
@@ -307,11 +307,19 @@ namespace UnrealBuildTool
 			Directory.CreateDirectory(Path.GetDirectoryName(AbsolutePath.FullName));
 
 			// Only write the file if its contents have changed.
-			if (!FileReference.Exists(AbsolutePath) || !String.Equals(Utils.ReadAllText(AbsolutePath.FullName), Contents, StringComparison.InvariantCultureIgnoreCase))
+			if (!FileReference.Exists(AbsolutePath))
 			{
 				File.WriteAllText(AbsolutePath.FullName, Contents, GetEncodingForString(Contents));
 			}
-
+			else
+			{
+				string CurrentContents = Utils.ReadAllText(AbsolutePath.FullName);
+				if(!String.Equals(CurrentContents, Contents, StringComparison.InvariantCultureIgnoreCase))
+				{
+					Log.TraceLog("Updating {0} - contents have changed. Previous:\n  {1}\nNew:\n  {2}", AbsolutePath.FullName, CurrentContents.Replace("\n", "\n  "), Contents.Replace("\n", "\n  "));
+					File.WriteAllText(AbsolutePath.FullName, Contents, GetEncodingForString(Contents));
+				}
+			}
 			return GetItemByFileReference(AbsolutePath);
 		}
 
@@ -368,7 +376,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		protected FileItem(FileReference InFile)
 		{
-			Reference = InFile;
+			Location = InFile;
 
 			ResetFileInfo();
 
@@ -379,7 +387,7 @@ namespace UnrealBuildTool
 				// Log.TraceInformation( "Missing: " + FileAbsolutePath );
 			}
 
-			UniqueSourceFileMap[Reference] = this;
+			UniqueSourceFileMap[Location] = this;
 		}
 
 
@@ -389,7 +397,7 @@ namespace UnrealBuildTool
 		protected FileItem(SerializationInfo SerializationInfo, StreamingContext StreamingContext)
 		{
 			ProducingAction = (Action)SerializationInfo.GetValue("pa", typeof(Action));
-			Reference = (FileReference)SerializationInfo.GetValue("fi", typeof(FileReference));
+			Location = (FileReference)SerializationInfo.GetValue("fi", typeof(FileReference));
 			bIsRemoteFile = SerializationInfo.GetBoolean("rf");
 			bNeedsHotReloadNumbersDLLCleanUp = SerializationInfo.GetBoolean("hr");
 			CachedIncludePaths = (CppIncludePaths)SerializationInfo.GetValue("ci", typeof(CppIncludePaths));
@@ -414,7 +422,7 @@ namespace UnrealBuildTool
 				}
 				else
 				{
-					UniqueSourceFileMap[Reference] = this;
+					UniqueSourceFileMap[Location] = this;
 				}
 			}
 		}
@@ -426,7 +434,7 @@ namespace UnrealBuildTool
 		public void GetObjectData(SerializationInfo SerializationInfo, StreamingContext StreamingContext)
 		{
 			SerializationInfo.AddValue("pa", ProducingAction);
-			SerializationInfo.AddValue("fi", Reference);
+			SerializationInfo.AddValue("fi", Location);
 			SerializationInfo.AddValue("rf", bIsRemoteFile);
 			SerializationInfo.AddValue("hr", bNeedsHotReloadNumbersDLLCleanUp);
 			SerializationInfo.AddValue("ci", CachedIncludePaths);
@@ -477,7 +485,7 @@ namespace UnrealBuildTool
 		protected FileItem(FileReference InReference, bool InIsRemoteFile, UnrealTargetPlatform Platform)
 		{
 			bIsRemoteFile = InIsRemoteFile;
-			Reference = InReference;
+			Location = InReference;
 
 			// @todo iosmerge: This doesn't handle remote directories (may be needed for compiling Mac from Windows)
 			if (bIsRemoteFile)
@@ -519,7 +527,7 @@ namespace UnrealBuildTool
 
 		public override string ToString()
 		{
-			return Path.GetFileName(AbsolutePath);
+			return AbsolutePath;
 		}
 	}
 

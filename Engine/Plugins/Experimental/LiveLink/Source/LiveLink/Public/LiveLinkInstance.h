@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "AnimInstanceProxy.h"
+#include "Animation/AnimInstanceProxy.h"
 #include "Animation/AnimInstance.h"
 #include "AnimNode_LiveLinkPose.h"
 

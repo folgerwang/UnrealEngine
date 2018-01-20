@@ -24,7 +24,7 @@
 #include "PropertyCustomizationHelpers.h"
 
 #include "ObjectEditorUtils.h"
-#include "FrameworkObjectVersion.h"
+#include "UObject/FrameworkObjectVersion.h"
 
 #define LOCTEXT_NAMESPACE "K2Node"
 

@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MacMallocZone.h"
-#include "MacPlatformMisc.h"
-#include "MacPlatformCrashContext.h"
+#include "Mac/MacMallocZone.h"
+#include "Mac/MacPlatformMisc.h"
+#include "Mac/MacPlatformCrashContext.h"
 #include "HAL/PlatformTLS.h"
 #include "HAL/PlatformProcess.h"
 #include <malloc/malloc.h>

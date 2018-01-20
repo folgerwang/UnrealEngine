@@ -3,9 +3,9 @@
 #include "ClothingSystemRuntimeModule.h"
 #include "ClothingSimulationFactory.h"
 #include "Features/IModularFeatures.h"
-#include "Paths.h"
+#include "Misc/Paths.h"
 #include "HAL/PlatformProcess.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 #include "NvClothIncludes.h"
 #include "NvClothSupport.h"

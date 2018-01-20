@@ -8,11 +8,11 @@
 #include "Sections/ParameterSection.h"
 #include "SequencerUtilities.h"
 #include "Algo/Sort.h"
-#include "SlateIconFinder.h"
+#include "Styling/SlateIconFinder.h"
 #include "ContentBrowserModule.h"
 #include "IContentBrowserSingleton.h"
-#include "SBox.h"
-#include "SlateApplication.h"
+#include "Widgets/Layout/SBox.h"
+#include "Framework/Application/SlateApplication.h"
 
 #define LOCTEXT_NAMESPACE "MaterialParameterCollectionTrackEditor"
 

@@ -2,8 +2,8 @@
 
 #include "Debug/HTNDebug.h"
 #include "HTNBuilder.h"
-#include "Class.h"
-#include "Package.h"
+#include "UObject/Class.h"
+#include "UObject/Package.h"
 
 namespace FHTNDebug
 {

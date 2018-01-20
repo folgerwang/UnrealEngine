@@ -3,7 +3,7 @@
 #include "EditorModeManager.h"
 #include "Engine/Selection.h"
 #include "Misc/MessageDialog.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "Editor/EditorPerProjectUserSettings.h"
 #include "Misc/ConfigCacheIni.h"
 #include "GameFramework/WorldSettings.h"

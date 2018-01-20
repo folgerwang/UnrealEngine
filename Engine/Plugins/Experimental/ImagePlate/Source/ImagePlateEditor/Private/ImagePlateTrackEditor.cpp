@@ -13,7 +13,7 @@
 #include "TrackEditorThumbnail/TrackEditorThumbnailPool.h"
 #include "EditorStyleSet.h"
 #include "Sections/ThumbnailSection.h"
-#include "GCObject.h"
+#include "UObject/GCObject.h"
 #include "ImagePlate.h"
 #include "ImagePlateComponent.h"
 #include "ContentBrowserModule.h"

@@ -6,7 +6,7 @@
 #include "AnalyticsET.h"
 #include "AnalyticsEventAttribute.h"
 #include "AutomationWorkerMessages.h"
-#include "IAnalyticsProvider.h"
+#include "Interfaces/IAnalyticsProvider.h"
 #include "IAnalyticsProviderET.h"
 #include "Misc/App.h"
 #include "Misc/CommandLine.h"

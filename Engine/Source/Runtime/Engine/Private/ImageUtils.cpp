@@ -12,7 +12,7 @@ ImageUtils.cpp: Image utility functions.
 #include "Logging/MessageLog.h"
 #include "IImageWrapper.h"
 #include "IImageWrapperModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogImageUtils, Log, All);
 

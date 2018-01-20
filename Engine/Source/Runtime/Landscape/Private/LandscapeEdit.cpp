@@ -47,7 +47,7 @@ LandscapeEdit.cpp: Landscape editing
 #include "LandscapeFileFormatInterface.h"
 #include "ComponentRecreateRenderStateContext.h"
 #endif
-#include "Containers/Algo/Count.h"
+#include "Algo/Count.h"
 
 DEFINE_LOG_CATEGORY(LogLandscape);
 
@@ -4800,7 +4800,7 @@ void ULandscapeComponent::ImportCustomProperties(const TCHAR* SourceText, FFeedb
 
 		if (i != NumVertices)
 		{
-			Warn->Logf(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
+			Warn->Log(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
 		}
 
 		int32 ComponentSizeVerts = NumSubsections * (SubsectionSizeQuads + 1);
@@ -4866,7 +4866,7 @@ void ULandscapeComponent::ImportCustomProperties(const TCHAR* SourceText, FFeedb
 
 				if (i != NumVertices)
 				{
-					Warn->Logf(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
+					Warn->Log(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
 				}
 				LayerIdx++;
 			}

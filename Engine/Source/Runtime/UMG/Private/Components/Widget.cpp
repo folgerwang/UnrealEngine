@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Components/Widget.h"
-#include "ConfigCacheIni.h"
+#include "Misc/ConfigCacheIni.h"
 #include "CoreGlobals.h"
 #include "Widgets/SNullWidget.h"
 #include "Types/NavigationMetaData.h"
@@ -23,7 +23,7 @@
 #include "Blueprint/WidgetTree.h"
 #include "UMGStyle.h"
 #include "Types/ReflectionMetadata.h"
-#include "PropertyLocalizationDataGathering.h"
+#include "Serialization/PropertyLocalizationDataGathering.h"
 #include "HAL/LowLevelMemTracker.h"
 
 #define LOCTEXT_NAMESPACE "UMG"

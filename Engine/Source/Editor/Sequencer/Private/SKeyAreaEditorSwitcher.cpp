@@ -1,9 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SKeyAreaEditorSwitcher.h"
-#include "SOverlay.h"
-#include "SBox.h"
-#include "SBoxPanel.h"
+#include "Widgets/SOverlay.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/SBoxPanel.h"
 #include "Sequencer.h"
 #include "SKeyNavigationButtons.h"
 #include "IKeyArea.h"

@@ -9,7 +9,7 @@
 #include "EditorUndoClient.h"
 #include "Toolkits/IToolkitHost.h"
 #include "ISkeletalMeshEditor.h"
-#include "ArrayView.h"
+#include "Containers/ArrayView.h"
 
 class IDetailsView;
 class IPersonaToolkit;

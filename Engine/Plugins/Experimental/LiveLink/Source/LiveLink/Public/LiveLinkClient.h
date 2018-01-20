@@ -2,10 +2,10 @@
 
 #pragma once
 
-#include "Transform.h"
-#include "CriticalSection.h"
+#include "Algo/Transform.h"
+#include "HAL/CriticalSection.h"
 #include "Tickable.h"
-#include "GCObject.h"
+#include "UObject/GCObject.h"
 
 #include "ILiveLinkClient.h"
 #include "ILiveLinkSource.h"

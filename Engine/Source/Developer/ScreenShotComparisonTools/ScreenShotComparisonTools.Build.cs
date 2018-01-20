@@ -36,5 +36,10 @@ public class ScreenShotComparisonTools : ModuleRules
 				"Developer/ScreenShotComparisonTools/Private"
 			}
 		);
+
+		if (Target.bCompileAgainstEngine && Target.Configuration != UnrealTargetConfiguration.Shipping)
+		{
+			PrecompileForTargets = PrecompileTargetsType.Any;
+		}
 	}
 }

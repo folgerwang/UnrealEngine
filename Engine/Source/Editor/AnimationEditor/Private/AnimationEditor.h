@@ -10,7 +10,7 @@
 #include "IAnimationEditor.h"
 #include "TickableEditorObject.h"
 #include "EditorUndoClient.h"
-#include "ArrayView.h"
+#include "Containers/ArrayView.h"
 
 struct FAssetData;
 class FMenuBuilder;

@@ -1621,7 +1621,7 @@ bool UUnitTestManager::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar
 
 				for (auto CurResult : FlagResults)
 				{
-					Ar.Logf(*CurResult);
+					Ar.Log(*CurResult);
 				}
 			}
 			else if (FParse::Command(&Cmd, TEXT("ForceReady")))

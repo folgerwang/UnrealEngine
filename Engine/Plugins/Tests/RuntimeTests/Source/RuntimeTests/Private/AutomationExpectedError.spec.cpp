@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AutomationTest.h"
+#include "Misc/AutomationTest.h"
 
 BEGIN_DEFINE_SPEC(FAutomationExpectedErrorTest, "System.Automation.ExpectedError", EAutomationTestFlags::EngineFilter | EAutomationTestFlags::ApplicationContextMask)
 END_DEFINE_SPEC(FAutomationExpectedErrorTest)

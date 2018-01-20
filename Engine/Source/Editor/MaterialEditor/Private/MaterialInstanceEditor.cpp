@@ -37,8 +37,8 @@
 #include "UnrealEdGlobals.h"
 #include "Editor/UnrealEdEngine.h"
 #include "AdvancedPreviewSceneModule.h"
-#include "MessageDialog.h"
-#include "UICommandInfo.h"
+#include "Misc/MessageDialog.h"
+#include "Framework/Commands/UICommandInfo.h"
 #include "EditorStyleSet.h"
 
 #define LOCTEXT_NAMESPACE "MaterialInstanceEditor"

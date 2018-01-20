@@ -2,8 +2,8 @@
 
 #include "MacMenu.h"
 #include "Framework/Application/SlateApplication.h"
-#include "CocoaThread.h"
-#include "MacApplication.h"
+#include "Mac/CocoaThread.h"
+#include "Mac/MacApplication.h"
 #include "Misc/ScopeLock.h"
 #include "HAL/PlatformApplicationMisc.h"
 

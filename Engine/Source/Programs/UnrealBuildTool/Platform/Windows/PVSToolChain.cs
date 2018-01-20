@@ -24,7 +24,7 @@ namespace UnrealBuildTool
 			return Path.GetFullPath(ActionThread.ExpandEnvironmentVariables(IncludePath));
 		}
 
-		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> SourceFiles, string ModuleName, ActionGraph ActionGraph)
+		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, ActionGraph ActionGraph)
 		{
 			VCEnvironment EnvVars = VCEnvironment.SetEnvironment(CppPlatform, Compiler);
 
@@ -35,13 +35,13 @@ namespace UnrealBuildTool
 			SharedArguments.Add("/C"); // Preserve comments when preprocessing
 			SharedArguments.Add("/D PVS_STUDIO");
 			SharedArguments.Add("/wd4005");
-			foreach (string IncludePath in CompileEnvironment.IncludePaths.UserIncludePaths)
+			foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.UserIncludePaths)
 			{
-				SharedArguments.Add(String.Format("/I \"{0}\"", GetFullIncludePath(IncludePath)));
+				SharedArguments.Add(String.Format("/I \"{0}\"", IncludePath));
 			}
-			foreach (string IncludePath in CompileEnvironment.IncludePaths.SystemIncludePaths)
+			foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.SystemIncludePaths)
 			{
-				SharedArguments.Add(String.Format("/I \"{0}\"", GetFullIncludePath(IncludePath)));
+				SharedArguments.Add(String.Format("/I \"{0}\"", IncludePath));
 			}
 			foreach (string Definition in CompileEnvironment.Definitions)
 			{
@@ -56,19 +56,19 @@ namespace UnrealBuildTool
 			}
 
 			CPPOutput Result = new CPPOutput();
-			foreach (FileItem SourceFile in SourceFiles)
+			foreach (FileItem SourceFile in InputFiles)
 			{
 				// Get the file names for everything we need
-				string BaseFileName = SourceFile.Reference.GetFileName();
+				string BaseFileName = SourceFile.Location.GetFileName();
 
 				// Write the response file
-				FileReference PreprocessedFileLocation = FileReference.Combine(CompileEnvironment.OutputDirectory, BaseFileName + ".i");
+				FileReference PreprocessedFileLocation = FileReference.Combine(OutputDir, BaseFileName + ".i");
 
 				List<string> Arguments = new List<string>(SharedArguments);
 				Arguments.Add(String.Format("/Fi\"{0}\"", PreprocessedFileLocation)); // Preprocess to a file
 				Arguments.Add(String.Format("\"{0}\"", SourceFile.AbsolutePath));
 
-				FileReference ResponseFileLocation = FileReference.Combine(CompileEnvironment.OutputDirectory, BaseFileName + ".i.response");
+				FileReference ResponseFileLocation = FileReference.Combine(OutputDir, BaseFileName + ".i.response");
 				FileItem ResponseFileItem = FileItem.CreateIntermediateTextFile(ResponseFileLocation, String.Join("\n", Arguments));
 
 				// Preprocess the source file
@@ -101,13 +101,13 @@ namespace UnrealBuildTool
 				ConfigFileContents.Append("preprocessor=visualcpp\n");
 				ConfigFileContents.Append("language=C++\n");
 				ConfigFileContents.Append("skip-cl-exe=yes\n");
-				ConfigFileContents.AppendFormat("i-file={0}\n", PreprocessedFileItem.Reference.FullName);
+				ConfigFileContents.AppendFormat("i-file={0}\n", PreprocessedFileItem.Location.FullName);
 
-				FileReference ConfigFileLocation = FileReference.Combine(CompileEnvironment.OutputDirectory, BaseFileName + ".cfg");
+				FileReference ConfigFileLocation = FileReference.Combine(OutputDir, BaseFileName + ".cfg");
 				FileItem ConfigFileItem = FileItem.CreateIntermediateTextFile(ConfigFileLocation, ConfigFileContents.ToString());
 
 				// Run the analzyer on the preprocessed source file
-				FileReference OutputFileLocation = FileReference.Combine(CompileEnvironment.OutputDirectory, BaseFileName + ".pvslog");
+				FileReference OutputFileLocation = FileReference.Combine(OutputDir, BaseFileName + ".pvslog");
 				FileItem OutputFileItem = FileItem.GetItemByFileReference(OutputFileLocation);
 
 				Action AnalyzeAction = ActionGraph.Add(ActionType.Compile);
@@ -143,7 +143,7 @@ namespace UnrealBuildTool
 				OutputFile = FileReference.Combine(Target.ProjectFile.Directory, "Saved", "PVS-Studio", String.Format("{0}.pvslog", Target.Name));
 			}
 
-			List<FileReference> InputFiles = OutputItems.Select(x => x.Reference).ToList();
+			List<FileReference> InputFiles = OutputItems.Select(x => x.Location).ToList();
 
 			Action AnalyzeAction = ActionGraph.Add(ActionType.Compile);
 			AnalyzeAction.CommandPath = "Dummy.exe";

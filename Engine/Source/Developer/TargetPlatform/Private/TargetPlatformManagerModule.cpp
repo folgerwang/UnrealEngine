@@ -23,8 +23,8 @@
 #include "DesktopPlatformModule.h"
 
 #if WITH_PHYSX
-#include "IPhysXCooking.h"
-#include "IPhysXCookingModule.h"
+#include "Physics/IPhysXCooking.h"
+#include "Physics/IPhysXCookingModule.h"
 #endif // WITH_PHYSX
 
 DEFINE_LOG_CATEGORY_STATIC(LogTargetPlatformManager, Log, All);

@@ -20,7 +20,7 @@
 #include "Scalability.h"
 #include "Matinee/MatineeActor.h"
 #include "StereoRendering.h"
-#include "PackageName.h"
+#include "Misc/PackageName.h"
 
 #if (WITH_DEV_AUTOMATION_TESTS || WITH_PERF_AUTOMATION_TESTS)
 

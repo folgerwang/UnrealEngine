@@ -4,7 +4,7 @@
 
 #if WITH_EDITOR
 
-#include "ISlateStyle.h"
+#include "Styling/ISlateStyle.h"
 
 class FRenderDocPluginStyle
 {

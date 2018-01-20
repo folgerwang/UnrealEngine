@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "Misc/Guid.h"
-#include "MovieScenePropertyTrack.h"
+#include "Tracks/MovieScenePropertyTrack.h"
 #include "MovieSceneImagePlateTrack.generated.h"
 
 /**

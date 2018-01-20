@@ -23,7 +23,7 @@
 #include "UObject/UObjectThreadContext.h"
 
 #if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-#include "UObjectIterator.h"
+#include "UObject/UObjectIterator.h"
 #endif
 
 DEFINE_LOG_CATEGORY_STATIC(LogBlueprintSupport, Log, All);

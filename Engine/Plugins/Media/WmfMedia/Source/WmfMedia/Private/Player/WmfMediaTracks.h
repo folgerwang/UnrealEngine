@@ -16,7 +16,7 @@
 #include "MediaSampleQueue.h"
 #include "Templates/SharedPointer.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 class FWmfMediaAudioSamplePool;
 class FWmfMediaSampler;
@@ -340,6 +340,6 @@ private:
 };
 
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #endif //WMFMEDIA_SUPPORTED_PLATFORM

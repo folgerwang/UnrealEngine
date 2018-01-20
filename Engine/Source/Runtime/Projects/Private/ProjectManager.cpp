@@ -112,10 +112,12 @@ bool FProjectManager::LoadModulesForProject( const ELoadingPhase::Type LoadingPh
 	return bSuccess;
 }
 
+#if !IS_MONOLITHIC
 bool FProjectManager::CheckModuleCompatibility(TArray<FString>& OutIncompatibleModules)
 {
 	return !CurrentProject.IsValid() || FModuleDescriptor::CheckModuleCompatibility(CurrentProject->Modules, true, OutIncompatibleModules);
 }
+#endif
 
 const FString& FProjectManager::GetAutoLoadProjectFileName()
 {

@@ -46,7 +46,7 @@
 #define __RTAUDIO_H
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 
 #ifndef __WINDOWS_DS__
 #define __WINDOWS_DS__

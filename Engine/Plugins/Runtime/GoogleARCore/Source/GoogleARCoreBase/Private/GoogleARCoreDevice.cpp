@@ -13,7 +13,7 @@
 #include "GoogleARCoreBaseLogCategory.h"
 
 #if PLATFORM_ANDROID
-#include "AndroidApplication.h"
+#include "Android/AndroidApplication.h"
 
 #include "tango_client_api2.h"
 #include "tango_support_api.h"

@@ -12,11 +12,11 @@
 #include "NiagaraGraph.h"
 #include "NiagaraNodeInput.h"
 #include "NiagaraScriptOutputCollectionViewModel.h"
-#include "NotificationManager.h"
-#include "SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 #include "ScopedTransaction.h"
-#include "AssetEditorManager.h"
+#include "Toolkits/AssetEditorManager.h"
 
 #define LOCTEXT_NAMESPACE "EmitterHandleViewModel"
 

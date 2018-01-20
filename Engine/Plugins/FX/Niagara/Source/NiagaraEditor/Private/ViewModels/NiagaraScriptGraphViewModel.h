@@ -7,7 +7,7 @@
 #include "NiagaraObjectSelection.h"
 #include "EditorUndoClient.h"
 #include "Styling/SlateColor.h"
-#include "UICommandList.h"
+#include "Framework/Commands/UICommandList.h"
 
 class UNiagaraScriptSource;
 class UNiagaraGraph;

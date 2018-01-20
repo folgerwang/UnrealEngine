@@ -3,7 +3,7 @@
 #pragma once
 
 #include "Delegates/IDelegateInstance.h"
-#include "ModuleInterface.h"
+#include "Modules/ModuleInterface.h"
 #include "Materials/Material.h"
 
 class FControlRigModule : public IModuleInterface

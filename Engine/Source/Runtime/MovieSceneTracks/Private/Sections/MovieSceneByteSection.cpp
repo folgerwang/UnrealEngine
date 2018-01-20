@@ -2,7 +2,7 @@
 
 #include "Sections/MovieSceneByteSection.h"
 #include "Evaluation/MovieScenePropertyTemplates.h"
-#include "SequencerObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
 
 UMovieSceneByteSection::UMovieSceneByteSection( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )

@@ -7,7 +7,7 @@
 #include "Templates/SharedPointer.h"
 #include "Delegates/Delegate.h"
 #include "Internationalization/Text.h"
-#include "LocTesting.h"
+#include "Internationalization/LocTesting.h"
 
 #include "Templates/UniqueObj.h"
 

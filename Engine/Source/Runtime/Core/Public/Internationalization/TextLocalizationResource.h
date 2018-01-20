@@ -3,7 +3,7 @@
 #pragma once 
 
 #include "CoreMinimal.h"
-#include "LocKeyFuncs.h"
+#include "Internationalization/LocKeyFuncs.h"
 
 /** Utility class for working with Localization MetaData Resource (LocMeta) files. */
 class CORE_API FTextLocalizationMetaDataResource

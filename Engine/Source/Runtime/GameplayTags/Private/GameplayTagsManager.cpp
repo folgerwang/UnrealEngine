@@ -26,7 +26,7 @@
 #include "PropertyHandle.h"
 FSimpleMulticastDelegate UGameplayTagsManager::OnEditorRefreshGameplayTagTree;
 #endif
-#include "IConsoleManager.h"
+#include "HAL/IConsoleManager.h"
 
 
 #define LOCTEXT_NAMESPACE "GameplayTagManager"

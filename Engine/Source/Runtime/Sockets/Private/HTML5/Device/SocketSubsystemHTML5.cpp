@@ -2,7 +2,7 @@
 
 #include "SocketSubsystemHTML5.h"
 #include "SocketSubsystemModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 
 FSocketSubsystemHTML5* FSocketSubsystemHTML5::SocketSingleton = NULL;

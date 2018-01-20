@@ -2,11 +2,11 @@
 
 #include "TrackEditors/PropertyTrackEditors/VectorPropertyTrackEditor.h"
 #include "Sections/VectorPropertySection.h"
-#include "MovieSceneVectorTrack.h"
+#include "Tracks/MovieSceneVectorTrack.h"
 #include "MatineeImportTools.h"
 #include "Matinee/InterpTrackVectorProp.h"
 #include "UnrealEdGlobals.h"
-#include "Classes/Editor/UnrealEdEngine.h"
+#include "Editor/UnrealEdEngine.h"
 
 
 FName FVectorPropertyTrackEditor::XName( "X" );

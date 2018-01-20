@@ -4,8 +4,8 @@
 #include "SimulationEditorExtender.h"
 #include "ClothingAssetFactoryInterface.h"
 #include "Features/IModularFeatures.h"
-#include "ModuleManager.h"
-#include "Class.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/Class.h"
 
 IMPLEMENT_MODULE(FClothingSystemEditorInterfaceModule, ClothingSystemEditorInterface);
 

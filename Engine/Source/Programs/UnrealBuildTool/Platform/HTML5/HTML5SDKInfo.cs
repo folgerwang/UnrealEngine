@@ -334,12 +334,12 @@ namespace UnrealBuildTool
 //				processInfo.RedirectStandardError = true;
 //				processInfo.RedirectStandardOutput = true;
 				Process process = Process.Start(processInfo);
-//				process.OutputDataReceived += (object sender, DataReceivedEventArgs e) => Console.WriteLine("output>>" + e.Data);
+//				process.OutputDataReceived += (object sender, DataReceivedEventArgs e) => Log.TraceInformation("output>>" + e.Data);
 //				process.BeginOutputReadLine();
-//				process.ErrorDataReceived += (object sender, DataReceivedEventArgs e) => Console.WriteLine("error>>" + e.Data);
+//				process.ErrorDataReceived += (object sender, DataReceivedEventArgs e) => Log.TraceInformation("error>>" + e.Data);
 //				process.BeginErrorReadLine();
 				process.WaitForExit();
-				Console.WriteLine("emcc ExitCode: {0}", process.ExitCode);
+				Log.TraceInformation("emcc ExitCode: {0}", process.ExitCode);
 				process.Close();
 				// uncomment OPTIMIZER (GUBP on build machines needs this)
 				// and PYTHON (reduce warnings on EMCC_DEBUG=1)
@@ -451,7 +451,7 @@ namespace UnrealBuildTool
 			int ConfigHeapSize = BuildType == "Development" ? 1024 : 512;
 
 			// values set by editor
-			var bGotHeapSize = ConfigCache.GetInt32("/Script/HTML5PlatformEditor.HTML5TargetSettings", "HeapSize" + BuildType, out ConfigHeapSize);
+			bool bGotHeapSize = ConfigCache.GetInt32("/Script/HTML5PlatformEditor.HTML5TargetSettings", "HeapSize" + BuildType, out ConfigHeapSize);
 
 			Log.TraceInformation("Setting Heap size to {0} Mb ", ConfigHeapSize);
 			return ConfigHeapSize;

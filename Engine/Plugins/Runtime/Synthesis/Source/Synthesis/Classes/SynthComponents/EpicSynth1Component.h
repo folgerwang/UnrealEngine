@@ -9,7 +9,7 @@
 #include "UObject/Class.h"
 #include "Engine/EngineTypes.h"
 #include "Sound/SoundWaveProcedural.h"
-#include "Classes/Engine/DataTable.h"
+#include "Engine/DataTable.h"
 #include "Components/SynthComponent.h"
 #include "EpicSynth1.h"
 #include "EpicSynth1Types.h"

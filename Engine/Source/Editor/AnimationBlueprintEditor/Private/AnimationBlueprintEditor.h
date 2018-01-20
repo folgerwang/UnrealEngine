@@ -9,7 +9,7 @@
 #include "GraphEditor.h"
 #include "BlueprintEditor.h"
 #include "IAnimationBlueprintEditor.h"
-#include "ArrayView.h"
+#include "Containers/ArrayView.h"
 
 class IPersonaToolkit;
 class IPersonaViewport;

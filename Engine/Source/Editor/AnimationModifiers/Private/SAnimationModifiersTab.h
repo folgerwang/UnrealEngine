@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "AssetEditorToolkit.h"
+#include "Toolkits/AssetEditorToolkit.h"
 #include "SModifierListview.h"
 #include "EditorUndoClient.h"
 

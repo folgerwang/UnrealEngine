@@ -1,11 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MacTextInputMethodSystem.h"
-#include "MacApplication.h"
-#include "MacWindow.h"
-#include "CocoaTextView.h"
-#include "CocoaThread.h"
-#include "MacApplication.h"
+#include "Mac/MacTextInputMethodSystem.h"
+#include "Mac/MacApplication.h"
+#include "Mac/MacWindow.h"
+#include "Mac/CocoaTextView.h"
+#include "Mac/CocoaThread.h"
+#include "Mac/MacApplication.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogMacTextInputMethodSystem, Log, All);
 

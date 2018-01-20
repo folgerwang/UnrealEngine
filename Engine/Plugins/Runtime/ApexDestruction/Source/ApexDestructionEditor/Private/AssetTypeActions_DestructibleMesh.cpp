@@ -4,8 +4,8 @@
 #include "DestructibleMesh.h"
 #include "ApexDestructionEditorModule.h"
 #include "Engine/StaticMesh.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 

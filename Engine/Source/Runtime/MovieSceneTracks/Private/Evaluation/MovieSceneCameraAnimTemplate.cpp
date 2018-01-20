@@ -8,7 +8,7 @@
 #include "Camera/CameraAnimInst.h"
 #include "Engine/World.h"
 #include "MovieSceneCommonHelpers.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 #include "UObject/Package.h"
 #include "IMovieScenePlayer.h"
 

@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "Components/PrimitiveComponent.h"
-#include "InterpCurve.h"
+#include "Math/InterpCurve.h"
 #include "SplineComponent.generated.h"
 
 class FPrimitiveSceneProxy;

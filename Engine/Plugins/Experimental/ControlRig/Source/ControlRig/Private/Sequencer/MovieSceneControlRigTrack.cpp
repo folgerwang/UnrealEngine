@@ -1,12 +1,12 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneControlRigTrack.h"
-#include "MovieSceneControlRigSection.h"
+#include "Sequencer/MovieSceneControlRigTrack.h"
+#include "Sequencer/MovieSceneControlRigSection.h"
 #include "Compilation/MovieSceneCompilerRules.h"
 #include "Evaluation/MovieSceneEvaluationTrack.h"
-#include "ControlRigSequence.h"
+#include "Sequencer/ControlRigSequence.h"
 #include "MovieScene.h"
-#include "ControlRigBindingTrack.h"
+#include "Sequencer/ControlRigBindingTrack.h"
 
 #define LOCTEXT_NAMESPACE "MovieSceneControlRigTrack"
 

@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "MultiBox.h"
+#include "Framework/MultiBox/MultiBox.h"
 #include "SMenuEntryBlock.h"
-#include "CocoaMenu.h"
+#include "Mac/CocoaMenu.h"
 
 @interface FMacMenu : FCocoaMenu <NSMenuDelegate>
 @property (assign) TWeakPtr<const FMenuEntryBlock> MenuEntryBlock;

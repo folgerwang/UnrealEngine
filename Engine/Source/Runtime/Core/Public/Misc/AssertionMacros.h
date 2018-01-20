@@ -7,7 +7,7 @@
 #include "Templates/AndOrNot.h"
 #include "Templates/IsArrayOrRefOfType.h"
 #include "Templates/IsValidVariadicFunctionArg.h"
-#include "VarArgs.h"
+#include "Misc/VarArgs.h"
 
 namespace ELogVerbosity
 {

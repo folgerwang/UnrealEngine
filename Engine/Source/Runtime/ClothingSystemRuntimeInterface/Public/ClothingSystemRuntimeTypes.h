@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "Array.h"
-#include "ObjectMacros.h"
+#include "Containers/Array.h"
+#include "UObject/ObjectMacros.h"
 #include "ClothingSystemRuntimeTypes.generated.h"
 
 // Data produced by a clothing simulation

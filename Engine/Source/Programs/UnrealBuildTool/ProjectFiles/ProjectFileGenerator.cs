@@ -348,20 +348,26 @@ namespace UnrealBuildTool
 		/// </summary>
 		void DiscoverCSharpProgramProjects(MasterProjectFolder ProgramsFolder)
 		{
+			FileSystemName[] UnsupportedPlatformNames = Utils.MakeListOfUnsupportedPlatforms(SupportedPlatforms).Select(x => new FileSystemName(x)).ToArray();
+
 			List<FileReference> FoundProjects = new List<FileReference>();
 			DirectoryReference EngineProgramsSource = DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Source", "Programs");
 			DiscoverCSharpProgramProjectsRecursively(EngineProgramsSource, FoundProjects);
+
 			foreach (FileReference FoundProject in FoundProjects)
 			{
-				VCSharpProjectFile Project = new VCSharpProjectFile(FoundProject);
-
-				if (AllowDotNetCoreProjects || !Project.IsDotNETCoreProject())
+				if(!FoundProject.ContainsAnyNames(UnsupportedPlatformNames, EngineProgramsSource))
 				{
-					Project.ShouldBuildForAllSolutionTargets = true;
-					Project.ShouldBuildByDefaultForSolutionTargets = true;
+					VCSharpProjectFile Project = new VCSharpProjectFile(FoundProject);
 
-					AddExistingProjectFile(Project, bForceDevelopmentConfiguration: false);
-					ProgramsFolder.ChildProjects.Add(Project);
+					if (AllowDotNetCoreProjects || !Project.IsDotNETCoreProject())
+					{
+						Project.ShouldBuildForAllSolutionTargets = true;
+						Project.ShouldBuildByDefaultForSolutionTargets = true;
+
+						AddExistingProjectFile(Project, bForceDevelopmentConfiguration: false);
+						ProgramsFolder.ChildProjects.Add(Project);
+					}
 				}
 			}
 		}
@@ -1015,14 +1021,14 @@ namespace UnrealBuildTool
 				// Game build files
 				if( bIncludeBuildSystemFiles )
 				{
-					var GameBuildDirectory = DirectoryReference.Combine(GameProjectDirectory, "Build");
+					DirectoryReference GameBuildDirectory = DirectoryReference.Combine(GameProjectDirectory, "Build");
 					if( DirectoryReference.Exists(GameBuildDirectory) )
 					{
-						var SubdirectoryNamesToExclude = new List<string>();
+						List<string> SubdirectoryNamesToExclude = new List<string>();
 						SubdirectoryNamesToExclude.Add("Receipts");
 						SubdirectoryNamesToExclude.Add("Scripts");
 
-						var GameProjectFile = GameFolderAndProjectFile.Value;
+						ProjectFile GameProjectFile = GameFolderAndProjectFile.Value;
 						GameProjectFile.AddFilesToProject( SourceFileSearch.FindFiles( GameBuildDirectory, SubdirectoryNamesToExclude ), GameProjectDirectory );
 					}
 				}
@@ -1543,12 +1549,15 @@ namespace UnrealBuildTool
 
 						Log.TraceVerbose( "Found target: " + CurTarget.TargetFilePath.GetFileNameWithoutAnyExtensions() );
 
-						string[] NewArguments = new string[ Arguments.Length + 4 ];
-						NewArguments[ 0 ] = CurTarget.TargetFilePath.GetFileNameWithoutAnyExtensions();
-						NewArguments[ 1 ] = BuildHostPlatform.Current.Platform.ToString();
-						NewArguments[ 2 ] = UnrealTargetConfiguration.Development.ToString();
-						NewArguments[ 3 ] = "-precompile";
-						Array.Copy(Arguments, 0, NewArguments, 4, Arguments.Length);
+						List<string> NewArguments = new List<string>(Arguments.Length + 4);
+						NewArguments.Add(CurTarget.TargetFilePath.GetFileNameWithoutAnyExtensions());
+						NewArguments.Add(BuildHostPlatform.Current.Platform.ToString());
+						NewArguments.Add(UnrealTargetConfiguration.Development.ToString());
+						if(CurTarget.TargetRules.Type != TargetType.Program)
+						{
+							NewArguments.Add("-precompile");
+						}
+						NewArguments.AddRange(Arguments);
 
 						// We only want to update definitions and include paths for modules that are part of this target's project file.
 						ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject = TargetProjectFile;
@@ -1561,7 +1570,7 @@ namespace UnrealBuildTool
 						{
 							// Run UnrealBuildTool, pretending to build this target but instead only gathering data for IntelliSense (include paths and definitions).
 							// No actual compiling or linking will happen because we early out using the ProjectFileGenerator.bGenerateProjectFiles global
-							bSuccess = UnrealBuildTool.RunUBT( BuildConfiguration, NewArguments, CurTarget.UnrealProjectFilePath, false ) == ECompilationResult.Succeeded;
+							bSuccess = UnrealBuildTool.RunUBT( BuildConfiguration, NewArguments.ToArray(), CurTarget.UnrealProjectFilePath, false ) == ECompilationResult.Succeeded;
 						}
 						catch(Exception Ex)
 						{
@@ -2383,7 +2392,7 @@ namespace UnrealBuildTool
 				{
 					// Unable to write to the project file.
 					string Message = string.Format("Error while trying to write file {0}.  The file is probably read-only.", FileName);
-					Console.WriteLine();
+					Log.TraceInformation("");
 					Log.TraceError(Message);
 					throw new BuildException(ex, Message);
 				}
@@ -2480,7 +2489,7 @@ namespace UnrealBuildTool
                 {
 
                     // Parse the project and ensure both Development and Debug configurations are present
-                    foreach (var Config in XElement.Load(InProject.ProjectFilePath.FullName).Elements("{http://schemas.microsoft.com/developer/msbuild/2003}PropertyGroup")
+                    foreach (string Config in XElement.Load(InProject.ProjectFilePath.FullName).Elements("{http://schemas.microsoft.com/developer/msbuild/2003}PropertyGroup")
                                            .Where(node => node.Attribute("Condition") != null)
                                            .Select(node => node.Attribute("Condition").ToString())
                                            .ToList())

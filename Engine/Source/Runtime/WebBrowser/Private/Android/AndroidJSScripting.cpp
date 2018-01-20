@@ -1,11 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidJSScripting.h"
-#include "AndroidApplication.h"
+#include "Android/AndroidApplication.h"
 #include "AndroidWebBrowserWindow.h"
 #include "AndroidWebBrowserDialog.h"
 #include "AndroidWebBrowserWidget.h"
-#include "AndroidJava.h"
+#include "Android/AndroidJava.h"
 #include "AndroidJSStructSerializerBackend.h"
 #include "AndroidJSStructDeserializerBackend.h"
 #include "StructSerializer.h"

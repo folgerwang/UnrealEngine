@@ -4,13 +4,13 @@
 #include "NiagaraNodeWithDynamicPins.h"
 
 #include "ScopedTransaction.h"
-#include "SComboButton.h"
-#include "SBoxPanel.h"
-#include "SImage.h"
-#include "MultiBoxBuilder.h"
-#include "SEditableTextBox.h"
-#include "SInlineEditableTextBlock.h"
-#include "SBox.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Images/SImage.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
+#include "Widgets/Layout/SBox.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraGraphPinAdd"
 

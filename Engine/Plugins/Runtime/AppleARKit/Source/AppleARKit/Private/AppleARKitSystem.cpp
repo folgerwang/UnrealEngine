@@ -3,13 +3,13 @@
 #include "AppleARKitSystem.h"
 #include "DefaultXRCamera.h"
 #include "AppleARKitSessionDelegate.h"
-#include "ScopeLock.h"
+#include "Misc/ScopeLock.h"
 #include "AppleARKitModule.h"
 #include "AppleARKitTransform.h"
 #include "AppleARKitVideoOverlay.h"
 #include "AppleARKitFrame.h"
 #if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-#include "IOSAppDelegate.h"
+#include "IOS/IOSAppDelegate.h"
 #endif
 #include "AppleARKitAnchor.h"
 #include "AppleARKitPlaneAnchor.h"

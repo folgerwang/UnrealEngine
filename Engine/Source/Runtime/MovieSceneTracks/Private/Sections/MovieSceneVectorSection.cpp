@@ -2,7 +2,7 @@
 
 #include "Sections/MovieSceneVectorSection.h"
 #include "UObject/StructOnScope.h"
-#include "SequencerObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
 
 /* FMovieSceneVectorKeyStruct interface
  *****************************************************************************/

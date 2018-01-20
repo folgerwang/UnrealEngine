@@ -6,13 +6,13 @@
 
 #include "MetalRHIPrivate.h"
 #if PLATFORM_MAC
-#include "CocoaWindow.h"
-#include "CocoaThread.h"
+#include "Mac/CocoaWindow.h"
+#include "Mac/CocoaThread.h"
 #else
-#include "IOSAppDelegate.h"
+#include "IOS/IOSAppDelegate.h"
 #endif
 #include "RenderCommandFence.h"
-#include "Set.h"
+#include "Containers/Set.h"
 #include "MetalProfiler.h"
 
 extern int32 GMetalSupportsIntermediateBackBuffer;

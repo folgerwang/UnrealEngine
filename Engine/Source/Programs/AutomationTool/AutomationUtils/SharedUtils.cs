@@ -1,4 +1,5 @@
 ﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,18 +12,16 @@ using System.Reflection;
 
 namespace AutomationTool
 {
-	internal class SharedUtils
+	public class SharedUtils
 	{
 		/// <summary>
-		/// Parses the command line string and returns an array of passed arguments.
-		/// Unlike the default parsing algorithm, this will treat \r\n characters
-		/// just like spaces.
+		/// Parses the command line string and returns an array of passed arguments. Unlike the default parsing algorithm, this will treat \r\n characters just like spaces.
 		/// </summary>
+		/// <param name="CmdLine">The command line to parse</param>
 		/// <returns>List of command line arguments.</returns>
-		public static string[] ParseCommandLine()
+		public static string[] ParseCommandLine(string CmdLine)
 		{
-			var CmdLine = Environment.CommandLine;
-			var Args = new List<string>();
+			List<string> Args = new List<string>();
 			StringBuilder Arg = new StringBuilder(CmdLine.Length);
 			bool bQuote = false;
 			int bEscape = 0;
@@ -79,9 +78,17 @@ namespace AutomationTool
 			{
 				Args.Add(Arg.ToString());
 			}
-			// This code assumes that the first argument is the exe filename. Remove it.
-			Args.RemoveAt(0);
 			return Args.ToArray();
+		}
+
+		/// <summary>
+		/// Implements the same functionality as ParseCommandLine(), but removes the executable as the first argument.
+		/// </summary>
+		/// <param name="CmdLine">The command line to parse</param>
+		/// <returns>Array of command line arguments.</returns>
+		public static string[] ParseCommandLineAndRemoveExe(string CmdLine)
+		{
+			return ParseCommandLine(CmdLine).Skip(1).ToArray();
 		}
 	}
 }

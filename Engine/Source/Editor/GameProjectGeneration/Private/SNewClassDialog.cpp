@@ -24,7 +24,7 @@
 #include "ClassViewerFilter.h"
 #include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
-#include "Private/SClassViewer.h"
+#include "Editor/ClassViewer/Private/SClassViewer.h"
 #include "DesktopPlatformModule.h"
 #include "IDocumentation.h"
 #include "EditorClassUtils.h"

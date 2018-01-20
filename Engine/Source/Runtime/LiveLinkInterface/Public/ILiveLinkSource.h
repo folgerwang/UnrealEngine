@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Guid.h"
+#include "Misc/Guid.h"
 
 class ILiveLinkClient;
 class ULiveLinkSourceSettings;

@@ -3,7 +3,7 @@
 #include "VisualStudioSourceCodeAccessorWrapper.h"
 #include "VisualStudioSourceCodeAccessModule.h"
 #include "ISourceCodeAccessModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "DesktopPlatformModule.h"
 
 FVisualStudioSourceCodeAccessorWrapper::FVisualStudioSourceCodeAccessorWrapper(const FName& InName, const FText& InNameText, const FText& InDescriptionText, const TSharedRef<FVisualStudioSourceCodeAccessor>& InInner)

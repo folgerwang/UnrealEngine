@@ -9,7 +9,7 @@
 #include "Sound/SoundEffectSubmix.h"
 #include "Sound/SoundSubmix.h"
 #include "DSP/Dsp.h"
-#include "ScopeLock.h"
+#include "Misc/ScopeLock.h"
 #include "PhononPluginManager.h"
 
 #include "AudioDevice.h"

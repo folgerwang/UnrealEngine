@@ -11,7 +11,7 @@
 #include "ObjectEditorUtils.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "PhysicsEngine/PhysicsAsset.h"
-#include "SCheckBox.h"
+#include "Widgets/Input/SCheckBox.h"
 
 #define LOCTEXT_NAMESPACE "BodySetupDetails"
 

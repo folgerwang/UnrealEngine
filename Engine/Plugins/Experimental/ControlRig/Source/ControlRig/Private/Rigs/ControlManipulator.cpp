@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "ControlManipulator.h"
+#include "Rigs/ControlManipulator.h"
 #include "SceneManagement.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "ControlRigModule.h"

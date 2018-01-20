@@ -2,14 +2,14 @@
 
 #pragma once
 
-#include "Range.h"
-#include "Optional.h"
-#include "Array.h"
+#include "Math/Range.h"
+#include "Misc/Optional.h"
+#include "Containers/Array.h"
 
 #include "MovieSceneSequenceID.h"
-#include "MovieSceneSequenceTransform.h"
-#include "MovieSceneEvaluationField.h"
-#include "MovieSceneEvaluationTree.h"
+#include "Evaluation/MovieSceneSequenceTransform.h"
+#include "Evaluation/MovieSceneEvaluationField.h"
+#include "Evaluation/MovieSceneEvaluationTree.h"
 #include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
 
 struct FGatherParameters;

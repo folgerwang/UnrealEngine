@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "Engine/EngineTypes.h"
-#include "ArrayView.h"
+#include "Containers/ArrayView.h"
 #include "OnlineBeacon.h"
 #include "OnlineBeaconClient.generated.h"
 

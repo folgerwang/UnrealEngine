@@ -4,7 +4,7 @@
 
 #include "SClothPaintTab.h"
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "PropertyEditorModule.h" 
 #include "WorkflowOrientedApp/WorkflowTabFactory.h"
 #include "WorkflowOrientedApp/ApplicationMode.h"
@@ -17,9 +17,9 @@
 #include "Settings/EditorExperimentalSettings.h"
 #include "ClothPaintToolCommands.h"
 #include "ISkeletalMeshEditorModule.h"
-#include "MultiBoxBuilder.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "ClothPainterCommands.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 
 #define LOCTEXT_NAMESPACE "ClothPaintingModule"
 

@@ -8,7 +8,7 @@
 #include "RawIndexBuffer.h"
 #include "DestructibleFractureSettings.h"
 #include "GPUSkinVertexFactory.h"
-#include "FrameworkObjectVersion.h"
+#include "UObject/FrameworkObjectVersion.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "StaticMeshResources.h"
 #include "PhysXPublic.h"

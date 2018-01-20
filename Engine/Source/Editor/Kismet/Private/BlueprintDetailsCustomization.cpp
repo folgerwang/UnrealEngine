@@ -40,8 +40,8 @@
 #include "K2Node_FunctionResult.h"
 #include "K2Node_MacroInstance.h"
 #include "K2Node_MathExpression.h"
-#include "Notifications/NotificationManager.h"
-#include "Notifications/SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #include "ScopedTransaction.h"
 #include "PropertyRestriction.h"
 #include "BlueprintEditorModes.h"
@@ -58,7 +58,7 @@
 #include "Kismet2/Kismet2NameValidators.h"
 #include "Widgets/Layout/SWidgetSwitcher.h"
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "ISequencerModule.h"
 #include "AnimatedPropertyKey.h"
 

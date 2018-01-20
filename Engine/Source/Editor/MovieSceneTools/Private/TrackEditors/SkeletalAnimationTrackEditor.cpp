@@ -27,8 +27,8 @@
 #include "SequencerUtilities.h"
 #include "FloatCurveKeyArea.h"
 #include "ISectionLayoutBuilder.h"
-#include "Classes/Animation/AnimMontage.h"
-#include "Classes/Animation/AnimSequence.h"
+#include "Animation/AnimMontage.h"
+#include "Animation/AnimSequence.h"
 #include "EditorStyleSet.h"
 
 

@@ -9,13 +9,13 @@
 
 #if WITH_EDITOR
 #include "Editor/LevelEditor/Public/LevelEditor.h"
-#include "MultiBoxExtender.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
 #include "RenderDocPluginStyle.h"
 #include "RenderDocPluginCommands.h"
 #include "SRenderDocPluginEditorExtension.h"
 #endif
 
-#include "SharedPointer.h"
+#include "Templates/SharedPointer.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(RenderDocPlugin, Log, All);
 

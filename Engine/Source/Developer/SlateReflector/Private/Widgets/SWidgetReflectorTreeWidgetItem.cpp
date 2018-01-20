@@ -5,7 +5,7 @@
 #include "Widgets/Colors/SColorBlock.h"
 #include "Widgets/Input/SHyperlink.h"
 #include "HAL/PlatformApplicationMisc.h"
-#include "SCheckBox.h"
+#include "Widgets/Input/SCheckBox.h"
 
 
 /* SMultiColumnTableRow overrides

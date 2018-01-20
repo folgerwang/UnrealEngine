@@ -6,7 +6,7 @@
 #include "KismetCompiler.h"
 #include "ScriptBlueprint.h"
 #include "Templates/Casts.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 /**
 * Script Blueprint Compiler

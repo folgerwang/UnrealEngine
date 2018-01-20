@@ -101,7 +101,7 @@ namespace UnrealBuildTool
 
 		private bool WriteWorkspaceSettingsFile(string Path)
 		{
-			var WorkspaceSettingsContent = new StringBuilder();
+			StringBuilder WorkspaceSettingsContent = new StringBuilder();
 			WorkspaceSettingsContent.Append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>" + ProjectFileGenerator.NewLine);
 			WorkspaceSettingsContent.Append("<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">" + ProjectFileGenerator.NewLine);
 			WorkspaceSettingsContent.Append("<plist version=\"1.0\">" + ProjectFileGenerator.NewLine);
@@ -129,7 +129,7 @@ namespace UnrealBuildTool
 		{
 			bool bSuccess = true;
 
-			var WorkspaceDataContent = new StringBuilder();
+			StringBuilder WorkspaceDataContent = new StringBuilder();
 
 			WorkspaceDataContent.Append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>" + ProjectFileGenerator.NewLine);
 			WorkspaceDataContent.Append("<Workspace" + ProjectFileGenerator.NewLine);
@@ -182,11 +182,11 @@ namespace UnrealBuildTool
 			{
 				ProjectName += ProjectFilePlatform == XcodeProjectFilePlatform.Mac ? "_Mac" : (ProjectFilePlatform == XcodeProjectFilePlatform.iOS ? "_IOS" : "_TVOS");
 			}
-			var WorkspaceDataFilePath = MasterProjectPath + "/" + ProjectName + ".xcworkspace/contents.xcworkspacedata";
+			string WorkspaceDataFilePath = MasterProjectPath + "/" + ProjectName + ".xcworkspace/contents.xcworkspacedata";
 			bSuccess = WriteFileIfChanged(WorkspaceDataFilePath, WorkspaceDataContent.ToString(), new UTF8Encoding());
 			if (bSuccess)
 			{
-				var WorkspaceSettingsFilePath = MasterProjectPath + "/" + ProjectName + ".xcworkspace/xcuserdata/" + Environment.UserName + ".xcuserdatad/WorkspaceSettings.xcsettings";
+				string WorkspaceSettingsFilePath = MasterProjectPath + "/" + ProjectName + ".xcworkspace/xcuserdata/" + Environment.UserName + ".xcuserdatad/WorkspaceSettings.xcsettings";
 				bSuccess = WriteWorkspaceSettingsFile(WorkspaceSettingsFilePath);
 			}
 
@@ -227,7 +227,7 @@ namespace UnrealBuildTool
 			base.ConfigureProjectFileGeneration(Arguments, ref IncludeAllPlatforms);
 			ProjectFilePlatform = IncludeAllPlatforms ? XcodeProjectFilePlatform.All : XcodeProjectFilePlatform.Mac;
 
-			foreach (var CurArgument in Arguments)
+			foreach (string CurArgument in Arguments)
 			{
 				if (CurArgument.StartsWith("-iOSDeployOnly", StringComparison.InvariantCultureIgnoreCase))
 				{

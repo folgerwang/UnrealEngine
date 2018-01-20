@@ -15,11 +15,11 @@
 #include "Misc/CommandLine.h"
 #include "Misc/ScopeLock.h"
 #include "RenderingThread.h"
-#include "CoreDelegates.h"
+#include "Misc/CoreDelegates.h"
 #include "RenderCore.h"
 #include "Modules/ModuleManager.h"
 #include "EngineGlobals.h"
-#include "Classes/Engine/Engine.h"
+#include "Engine/Engine.h"
 #include "DynamicResolutionState.h"
 
 #if CSV_PROFILER

@@ -1,13 +1,13 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "IOSErrorReport.h"
+#include "IOS/IOSErrorReport.h"
 #include "../CrashReportUtil.h"
-#include "../CrashReportConfig.h"
-#include "ModuleManager.h"
+#include "CrashReportConfig.h"
+#include "Modules/ModuleManager.h"
 #include "CrashDebugHelperModule.h"
 #include "CrashDebugHelper.h"
-#include "FileHelper.h"
-#include "PlatformFilemanager.h"
+#include "Misc/FileHelper.h"
+#include "HAL/PlatformFilemanager.h"
 
 #define LOCTEXT_NAMESPACE "CrashReport"
 

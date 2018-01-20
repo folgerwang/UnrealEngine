@@ -7,7 +7,7 @@
 #include "UObject/Class.h"
 #include "Templates/Casts.h"
 #include "UObject/SoftObjectPtr.h"
-#include "GCObject.h"
+#include "UObject/GCObject.h"
 
 /** Defines FStreamableDelegate delegate interface */
 DECLARE_DELEGATE(FStreamableDelegate);

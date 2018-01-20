@@ -9,7 +9,7 @@
 #include "Widgets/Notifications/SNotificationList.h"
 #include "Widgets/Input/SHyperlink.h"
 #include "EngineAnalytics.h"
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 #include "Interfaces/IAnalyticsProvider.h"
 
 #define LOCTEXT_NAMESPACE "GameProjectGeneration"

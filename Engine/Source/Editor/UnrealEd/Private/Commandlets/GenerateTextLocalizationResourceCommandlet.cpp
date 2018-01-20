@@ -4,9 +4,9 @@
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
 #include "Templates/ScopedPointer.h"
-#include "TextLocalizationResource.h"
+#include "Internationalization/TextLocalizationResource.h"
 #include "TextLocalizationResourceGenerator.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGenerateTextLocalizationResourceCommandlet, Log, All);
 

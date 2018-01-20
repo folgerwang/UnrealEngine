@@ -3,7 +3,7 @@
 #pragma once
 
 #include "NiagaraScript.h"
-#include "InputChord.h"
+#include "Framework/Commands/InputChord.h"
 #include "NiagaraSpawnShortcut.generated.h"
 
 USTRUCT()

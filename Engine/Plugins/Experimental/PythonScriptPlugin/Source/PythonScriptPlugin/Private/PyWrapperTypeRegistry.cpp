@@ -13,7 +13,7 @@
 #include "PyWrapperSet.h"
 #include "PyWrapperMap.h"
 #include "PyConversion.h"
-#include "ScopedTimers.h"
+#include "ProfilingDebugging/ScopedTimers.h"
 #include "UObject/UnrealType.h"
 #include "UObject/UObjectHash.h"
 #include "UObject/Class.h"

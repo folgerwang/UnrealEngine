@@ -9,7 +9,7 @@
 #include "AudioMixerTypes.h"
 #include "HAL/Runnable.h"
 #include "Stats/Stats.h"
-#include "Classes/Sound/AudioSettings.h"
+#include "Sound/AudioSettings.h"
 #include "Misc/SingleThreadRunnable.h"
 #include "DSP/ParamInterpolator.h"
 

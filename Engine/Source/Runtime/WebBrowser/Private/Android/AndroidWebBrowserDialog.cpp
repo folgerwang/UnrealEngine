@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidWebBrowserDialog.h"
-#include "AndroidApplication.h"
-#include "AndroidJava.h"
+#include "Android/AndroidApplication.h"
+#include "Android/AndroidJava.h"
 
 #include <jni.h>
 

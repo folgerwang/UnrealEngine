@@ -5,8 +5,8 @@
 #include "ProfilingDebugging/ExternalProfiler.h"
 #include "Templates/ScopedPointer.h"
 #include "Features/IModularFeatures.h"
-#include "WindowsPlatformProcess.h"
-#include "UniquePtr.h"
+#include "Windows/WindowsPlatformProcess.h"
+#include "Templates/UniquePtr.h"
 
 
 /**

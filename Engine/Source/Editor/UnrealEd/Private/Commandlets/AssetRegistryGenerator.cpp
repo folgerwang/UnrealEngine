@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AssetRegistryGenerator.h"
+#include "Commandlets/AssetRegistryGenerator.h"
 #include "HAL/FileManager.h"
 #include "Misc/FileHelper.h"
 #include "Serialization/ArrayReader.h"
@@ -23,12 +23,12 @@
 #include "IPlatformFileSandboxWrapper.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Stats/StatsMisc.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "Engine/AssetManager.h"
 
-#include "JsonWriter.h"
-#include "JsonReader.h"
-#include "JsonSerializer.h"
+#include "Serialization/JsonWriter.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogAssetRegistryGenerator, Log, All);
 

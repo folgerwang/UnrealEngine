@@ -7,11 +7,11 @@
 #include "HAL/ThreadSafeCounter.h"
 #include "Stats/Stats.h"
 #include "Async/AsyncWork.h"
-#include "UniquePtr.h"
-#include "ScopeLock.h"
+#include "Templates/UniquePtr.h"
+#include "Misc/ScopeLock.h"
 #include "HAL/LowLevelMemTracker.h"
 
-#include "AsyncFileHandle.h"
+#include "Async/AsyncFileHandle.h"
 
 class FGenericBaseRequest;
 class FGenericAsyncReadFileHandle;

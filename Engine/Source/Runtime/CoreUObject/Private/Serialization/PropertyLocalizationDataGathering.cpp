@@ -398,7 +398,7 @@ private:
 
 	#define SERIALIZEEXPR_INC
 	#define SERIALIZEEXPR_AUTO_UNDEF_XFER_MACROS
-	#include "ScriptSerialization.h"
+	#include "UObject/ScriptSerialization.h"
 		return Expr;
 	#undef SERIALIZEEXPR_INC
 	#undef SERIALIZEEXPR_AUTO_UNDEF_XFER_MACROS

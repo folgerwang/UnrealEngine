@@ -23,6 +23,11 @@ namespace UnrealBuildTool.Rules
 				{
 					"Editor/ProfilerMessages/Private",
 				});
+
+			if (Target.Configuration != UnrealTargetConfiguration.Shipping)
+			{
+				PrecompileForTargets = PrecompileTargetsType.Any;
+			}
 		}
 	}
 }

@@ -8,7 +8,7 @@
 #include "VREditorWidgetComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "VREditorActions.h"
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "VREditorAssetContainer.h"
 #include "VRModeSettings.h"

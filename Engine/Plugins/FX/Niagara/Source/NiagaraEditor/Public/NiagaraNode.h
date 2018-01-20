@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Private/NiagaraHlslTranslator.h"
+#include "../Private/NiagaraHlslTranslator.h"
 #include "UObject/ObjectMacros.h"
 #include "EdGraph/EdGraphNode.h"
 #include "NiagaraEditorCommon.h"

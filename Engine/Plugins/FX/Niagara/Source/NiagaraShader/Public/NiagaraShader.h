@@ -101,7 +101,7 @@ inline FArchive& operator<<(FArchive& Ar, FDebugUniformExpressionSet& DebugExpre
 */
 
 /** Base class of all shaders that need material parameters. */
-class RENDERER_API FNiagaraShader : public FShader
+class NIAGARASHADER_API FNiagaraShader : public FShader
 {
 public:
 	DECLARE_SHADER_TYPE(FNiagaraShader, Niagara);

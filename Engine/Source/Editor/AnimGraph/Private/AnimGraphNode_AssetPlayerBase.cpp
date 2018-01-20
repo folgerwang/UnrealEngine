@@ -15,7 +15,7 @@
 #include "AnimGraphNode_PoseBlendNode.h"
 #include "AnimGraphNode_PoseByName.h"
 #include "AnimGraphNode_PoseDriver.h"
-#include "UObjectIterator.h"
+#include "UObject/UObjectIterator.h"
 
 void UAnimGraphNode_AssetPlayerBase::PinConnectionListChanged(UEdGraphPin* Pin)
 {

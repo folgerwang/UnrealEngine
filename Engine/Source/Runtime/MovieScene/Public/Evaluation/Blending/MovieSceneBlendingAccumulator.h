@@ -2,11 +2,11 @@
 
 #pragma once
 
-#include "BlendableToken.h"
-#include "MovieSceneEvaluationScope.h"
-#include "MovieSceneBlendingActuatorID.h"
-#include "MovieSceneBlendingActuator.h"
-#include "MovieSceneAccumulatedBlendState.h"
+#include "Evaluation/Blending/BlendableToken.h"
+#include "Evaluation/MovieSceneEvaluationScope.h"
+#include "Evaluation/Blending/MovieSceneBlendingActuatorID.h"
+#include "Evaluation/Blending/MovieSceneBlendingActuator.h"
+#include "Evaluation/Blending/MovieSceneAccumulatedBlendState.h"
 
 struct FMovieSceneInterrogationData;
 

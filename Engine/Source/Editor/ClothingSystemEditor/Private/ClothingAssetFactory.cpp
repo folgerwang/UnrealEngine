@@ -5,7 +5,7 @@
 #include "Factories.h"
 #include "PhysXPublic.h"
 #include "PhysicsPublic.h"
-#include "ClothingAsset.h"
+#include "Assets/ClothingAsset.h"
 #if WITH_APEX_CLOTHING
 #include "ClothingAssetAuthoring.h"
 #endif // WITH_APEX_CLOTHING
@@ -13,14 +13,14 @@
 #include "ContentBrowserModule.h"
 #include "Misc/FileHelper.h"
 #include "Engine/SkeletalMesh.h"
-#include "MessageDialog.h"
+#include "Misc/MessageDialog.h"
 #include "ObjectTools.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "PhysicsEngine/SphereElem.h"
 #include "ComponentReregisterContext.h"
 #include "Components/SkeletalMeshComponent.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
 #include "Utils/ClothingMeshUtils.h"
 #include "Rendering/SkeletalMeshModel.h"
 

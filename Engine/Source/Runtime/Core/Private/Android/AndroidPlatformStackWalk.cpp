@@ -4,7 +4,7 @@
 	AndroidPlatformStackWalk.cpp: Android implementations of stack walk functions
 =============================================================================*/
 
-#include "AndroidPlatformStackWalk.h"
+#include "Android/AndroidPlatformStackWalk.h"
 #include "HAL/PlatformMemory.h"
 #include "Misc/CString.h"
 #include <unwind.h>

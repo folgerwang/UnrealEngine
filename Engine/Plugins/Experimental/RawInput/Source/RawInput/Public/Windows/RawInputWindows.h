@@ -2,11 +2,11 @@
 
 #pragma once
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "IInputDeviceModule.h"
 #include "IInputDevice.h"
 #include "RawInput.h"
-#include "WindowsApplication.h"
+#include "Windows/WindowsApplication.h"
 #include "RawInputFunctionLibrary.h"
 
 #include "hidsdi.h"

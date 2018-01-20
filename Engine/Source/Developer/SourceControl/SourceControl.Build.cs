@@ -59,5 +59,10 @@ public class SourceControl : ModuleRules
 				}
 			);
 		}
+
+		if (Target.Configuration != UnrealTargetConfiguration.Shipping)
+		{
+			PrecompileForTargets = PrecompileTargetsType.Any;
+		}
 	}
 }

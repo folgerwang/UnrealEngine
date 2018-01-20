@@ -27,5 +27,10 @@ public class TaskGraph : ModuleRules
 				}
 			);
 		}
+
+		if (Target.Configuration != UnrealTargetConfiguration.Shipping)
+		{
+			PrecompileForTargets = PrecompileTargetsType.Any;
+		}
 	}
 }

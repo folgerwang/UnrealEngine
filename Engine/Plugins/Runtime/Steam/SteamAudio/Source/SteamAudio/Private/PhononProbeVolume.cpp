@@ -9,9 +9,9 @@
 #include "PhononCommon.h"
 
 #include "Components/PrimitiveComponent.h"
-#include "PlatformFileManager.h"
-#include "GenericPlatformFile.h"
-#include "Paths.h"
+#include "HAL/PlatformFilemanager.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "Misc/Paths.h"
 #include "Engine/World.h"
 
 #if WITH_EDITOR

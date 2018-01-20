@@ -3,7 +3,7 @@
 #include "MediaAudioResampler.h"
 #include "MediaUtilsPrivate.h"
 
-#include "Containers/Algo/Reverse.h"
+#include "Algo/Reverse.h"
 #include "IMediaAudioSample.h"
 
 

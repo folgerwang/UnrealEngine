@@ -8,7 +8,7 @@
 #include "HAL/FileManager.h"
 #include "Framework/Application/SlateApplication.h"
 
-#include "IMainFrameModule.h"
+#include "Interfaces/IMainFrameModule.h"
 
 #include "AlembicImportOptions.h"
 

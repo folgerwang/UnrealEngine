@@ -53,11 +53,6 @@ namespace UnrealBuildTool
 		public UEBuildBinary Binary = null;
 
 		/// <summary>
-		/// Include path for this module's base directory, relative to the Engine/Source directory
-		/// </summary>
-		protected string NormalizedModuleIncludePath;
-
-		/// <summary>
 		/// The name of the _API define for this module
 		/// </summary>
 		protected readonly string ModuleApiDefine;
@@ -70,22 +65,27 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Set of all public include paths
 		/// </summary>
-		protected readonly HashSet<string> PublicIncludePaths;
+		protected readonly HashSet<DirectoryReference> PublicIncludePaths;
+
+		/// <summary>
+		/// Nested public include paths which used to be added automatically, but are now only added for modules with bNestedPublicIncludePaths set.
+		/// </summary>
+		protected readonly HashSet<DirectoryReference> LegacyPublicIncludePaths = new HashSet<DirectoryReference>();
 
 		/// <summary>
 		/// Set of all private include paths
 		/// </summary>
-		protected readonly HashSet<string> PrivateIncludePaths;
+		protected readonly HashSet<DirectoryReference> PrivateIncludePaths;
 
 		/// <summary>
 		/// Set of all system include paths
 		/// </summary>
-		protected readonly HashSet<string> PublicSystemIncludePaths;
+		protected readonly HashSet<DirectoryReference> PublicSystemIncludePaths;
 
 		/// <summary>
 		/// Set of all public library paths
 		/// </summary>
-		protected readonly HashSet<string> PublicLibraryPaths;
+		protected readonly HashSet<DirectoryReference> PublicLibraryPaths;
 
 		/// <summary>
 		/// Set of all additional libraries
@@ -148,11 +148,6 @@ namespace UnrealBuildTool
 		protected List<UEBuildModule> DynamicallyLoadedModules;
 
 		/// <summary>
-		/// Extra modules this module may require at run time, that are on behalf of another platform (i.e. shader formats and the like)
-		/// </summary>
-		protected List<UEBuildModule> PlatformSpecificDynamicallyLoadedModules;
-
-		/// <summary>
 		/// Files which this module depends on at runtime.
 		/// </summary>
 		public List<RuntimeDependency> RuntimeDependencies;
@@ -179,13 +174,12 @@ namespace UnrealBuildTool
 			Rules = InRules;
 			RulesFile = InRulesFile;
 
-			NormalizedModuleIncludePath = Utils.CleanDirectorySeparators(ModuleDirectory.MakeRelativeTo(UnrealBuildTool.EngineSourceDirectory), '/');
 			ModuleApiDefine = Name.ToUpperInvariant() + "_API";
 
 			PublicDefinitions = HashSetFromOptionalEnumerableStringParameter(InRules.PublicDefinitions);
-			PublicIncludePaths = HashSetFromOptionalEnumerableStringParameter(InRules.PublicIncludePaths);
-			PublicSystemIncludePaths = HashSetFromOptionalEnumerableStringParameter(InRules.PublicSystemIncludePaths);
-			PublicLibraryPaths = HashSetFromOptionalEnumerableStringParameter(InRules.PublicLibraryPaths);
+			PublicIncludePaths = CreateDirectoryHashSet(InRules.PublicIncludePaths);
+			PublicSystemIncludePaths = CreateDirectoryHashSet(InRules.PublicSystemIncludePaths);
+			PublicLibraryPaths = CreateDirectoryHashSet(InRules.PublicLibraryPaths);
 			PublicAdditionalLibraries = HashSetFromOptionalEnumerableStringParameter(InRules.PublicAdditionalLibraries);
 			PublicFrameworks = HashSetFromOptionalEnumerableStringParameter(InRules.PublicFrameworks);
 			PublicWeakFrameworks = HashSetFromOptionalEnumerableStringParameter(InRules.PublicWeakFrameworks);
@@ -193,7 +187,7 @@ namespace UnrealBuildTool
 			PublicAdditionalShadowFiles = HashSetFromOptionalEnumerableStringParameter(InRules.PublicAdditionalShadowFiles);
 			PublicAdditionalBundleResources = InRules.AdditionalBundleResources == null ? new HashSet<UEBuildBundleResource>() : new HashSet<UEBuildBundleResource>(InRules.AdditionalBundleResources);
 			PublicDelayLoadDLLs = HashSetFromOptionalEnumerableStringParameter(InRules.PublicDelayLoadDLLs);
-			PrivateIncludePaths = HashSetFromOptionalEnumerableStringParameter(InRules.PrivateIncludePaths);
+			PrivateIncludePaths = CreateDirectoryHashSet(InRules.PrivateIncludePaths);
 			RuntimeDependencies = InRuntimeDependencies;
 			IsRedistributableOverride = InRules.IsRedistributableOverride;
 
@@ -217,7 +211,6 @@ namespace UnrealBuildTool
 			if(bWithDynamicallyLoadedModules)
 			{
 				Modules.UnionWith(DynamicallyLoadedModules);
-				Modules.UnionWith(PlatformSpecificDynamicallyLoadedModules);
 			}
 			return Modules;
 		}
@@ -228,7 +221,28 @@ namespace UnrealBuildTool
 		/// <returns>An enumerable containing the dependencies of the module.</returns>
 		public IEnumerable<UEBuildModule> GetDirectDependencyModules()
 		{
-			return PublicDependencyModules.Concat(PrivateDependencyModules).Concat(DynamicallyLoadedModules).Concat(PlatformSpecificDynamicallyLoadedModules);
+			return PublicDependencyModules.Concat(PrivateDependencyModules).Concat(DynamicallyLoadedModules);
+		}
+
+		/// <summary>
+		/// Converts an optional string list parameter to a well-defined hash set.
+		/// </summary>
+		protected static HashSet<DirectoryReference> CreateDirectoryHashSet(IEnumerable<string> InEnumerableStrings)
+		{
+			HashSet<DirectoryReference> Directories = new HashSet<DirectoryReference>();
+			if(InEnumerableStrings != null)
+			{
+				foreach(string InputString in InEnumerableStrings)
+				{
+					string ExpandedString = Utils.ExpandVariables(InputString);
+					if(ExpandedString.Contains("$("))
+					{
+						throw new BuildException("Unable to expand variable in '{0}'", InputString);
+					}
+					Directories.Add(new DirectoryReference(ExpandedString));
+				}
+			}
+			return Directories;
 		}
 
 		/// <summary>
@@ -318,38 +332,53 @@ namespace UnrealBuildTool
 		{
 			Directories.Add(ModuleDirectory);
 
-			foreach(string PublicIncludePath in PublicIncludePaths)
+			foreach(DirectoryReference PublicIncludePath in PublicIncludePaths)
 			{
-				Directories.Add(new DirectoryReference(PublicIncludePath));
+				Directories.Add(PublicIncludePath);
 			}
-			foreach(string PrivateIncludePath in PrivateIncludePaths)
+			foreach(DirectoryReference PrivateIncludePath in PrivateIncludePaths)
 			{
-				Directories.Add(new DirectoryReference(PrivateIncludePath));
+				Directories.Add(PrivateIncludePath);
 			}
-			foreach(string PublicSystemIncludePath in PublicSystemIncludePaths)
+			foreach(DirectoryReference PublicSystemIncludePath in PublicSystemIncludePaths)
 			{
-				Directories.Add(new DirectoryReference(PublicSystemIncludePath));
+				Directories.Add(PublicSystemIncludePath);
 			}
-			foreach(string PublicLibraryPath in PublicLibraryPaths)
+			foreach(DirectoryReference PublicLibraryPath in PublicLibraryPaths)
 			{
-				Directories.Add(new DirectoryReference(PublicLibraryPath));
+				Directories.Add(PublicLibraryPath);
 			}
 		}
 
 		/// <summary>
-		/// Find all the modules which affect the public compile environment. Searches through 
+		/// Find all the modules which affect the private compile environment.
 		/// </summary>
-		/// <param name="Modules"></param>
 		/// <param name="ModuleToIncludePathsOnlyFlag"></param>
-		protected void FindModulesInPublicCompileEnvironment(List<UEBuildModule> Modules, Dictionary<UEBuildModule, bool> ModuleToIncludePathsOnlyFlag)
+		protected void FindModulesInPrivateCompileEnvironment(Dictionary<UEBuildModule, bool> ModuleToIncludePathsOnlyFlag)
+		{
+			// Add in all the modules that are only in the private compile environment
+			foreach (UEBuildModule PrivateDependencyModule in PrivateDependencyModules)
+			{
+				PrivateDependencyModule.FindModulesInPublicCompileEnvironment(ModuleToIncludePathsOnlyFlag);
+			}
+			foreach (UEBuildModule PrivateIncludePathModule in PrivateIncludePathModules)
+			{
+				PrivateIncludePathModule.FindIncludePathModulesInPublicCompileEnvironment(ModuleToIncludePathsOnlyFlag);
+			}
+
+			// Add the modules in the public compile environment
+			FindModulesInPublicCompileEnvironment(ModuleToIncludePathsOnlyFlag);
+		}
+
+		/// <summary>
+		/// Find all the modules which affect the public compile environment. 
+		/// </summary>
+		/// <param name="ModuleToIncludePathsOnlyFlag"></param>
+		protected void FindModulesInPublicCompileEnvironment(Dictionary<UEBuildModule, bool> ModuleToIncludePathsOnlyFlag)
 		{
 			//
 			bool bModuleIncludePathsOnly;
-			if (!ModuleToIncludePathsOnlyFlag.TryGetValue(this, out bModuleIncludePathsOnly))
-			{
-				Modules.Add(this);
-			}
-			else if (!bModuleIncludePathsOnly)
+			if (ModuleToIncludePathsOnlyFlag.TryGetValue(this, out bModuleIncludePathsOnly) && !bModuleIncludePathsOnly)
 			{
 				return;
 			}
@@ -358,33 +387,31 @@ namespace UnrealBuildTool
 
 			foreach (UEBuildModule DependencyModule in PublicDependencyModules)
 			{
-				DependencyModule.FindModulesInPublicCompileEnvironment(Modules, ModuleToIncludePathsOnlyFlag);
+				DependencyModule.FindModulesInPublicCompileEnvironment(ModuleToIncludePathsOnlyFlag);
 			}
 
 			// Now add an include paths from modules with header files that we need access to, but won't necessarily be importing
 			foreach (UEBuildModule IncludePathModule in PublicIncludePathModules)
 			{
-				IncludePathModule.FindIncludePathModulesInPublicCompileEnvironment(Modules, ModuleToIncludePathsOnlyFlag);
+				IncludePathModule.FindIncludePathModulesInPublicCompileEnvironment(ModuleToIncludePathsOnlyFlag);
 			}
 		}
 
 		/// <summary>
 		/// Find all the modules which affect the public compile environment. Searches through 
 		/// </summary>
-		/// <param name="Modules"></param>
 		/// <param name="ModuleToIncludePathsOnlyFlag"></param>
-		protected void FindIncludePathModulesInPublicCompileEnvironment(List<UEBuildModule> Modules, Dictionary<UEBuildModule, bool> ModuleToIncludePathsOnlyFlag)
+		protected void FindIncludePathModulesInPublicCompileEnvironment(Dictionary<UEBuildModule, bool> ModuleToIncludePathsOnlyFlag)
 		{
 			if (!ModuleToIncludePathsOnlyFlag.ContainsKey(this))
 			{
 				// Add this module to the list
-				Modules.Add(this);
 				ModuleToIncludePathsOnlyFlag.Add(this, true);
 
 				// Include any of its public include path modules in the compile environment too
 				foreach (UEBuildModule IncludePathModule in PublicIncludePathModules)
 				{
-					IncludePathModule.FindIncludePathModulesInPublicCompileEnvironment(Modules, ModuleToIncludePathsOnlyFlag);
+					IncludePathModule.FindIncludePathModulesInPublicCompileEnvironment(ModuleToIncludePathsOnlyFlag);
 				}
 			}
 		}
@@ -394,94 +421,45 @@ namespace UnrealBuildTool
 		/// </summary>
 		public void AddModuleToCompileEnvironment(
 			UEBuildBinary SourceBinary,
-			bool bIncludePathsOnly,
-			HashSet<string> IncludePaths,
-			HashSet<string> SystemIncludePaths,
+			HashSet<DirectoryReference> IncludePaths,
+			HashSet<DirectoryReference> SystemIncludePaths,
 			List<string> Definitions,
-			List<UEBuildFramework> AdditionalFrameworks
+			List<UEBuildFramework> AdditionalFrameworks,
+			bool bLegacyPublicIncludePaths
 			)
 		{
+			// Add the module's parent directory to the include path, so we can root #includes from generated source files to it
+			IncludePaths.Add(ModuleDirectory.ParentDirectory);
+
 			// Add this module's public include paths and definitions.
-			AddIncludePathsWithChecks(IncludePaths, PublicIncludePaths);
-			AddIncludePathsWithChecks(SystemIncludePaths, PublicSystemIncludePaths);
+			IncludePaths.UnionWith(PublicIncludePaths);
+			if(bLegacyPublicIncludePaths)
+			{
+				IncludePaths.UnionWith(LegacyPublicIncludePaths);
+			}
+			SystemIncludePaths.UnionWith(PublicSystemIncludePaths);
 			Definitions.AddRange(PublicDefinitions);
 
-			// If this module is being built into a DLL or EXE, set up an IMPORTS or EXPORTS definition for it.
-			if(SourceBinary == null)
+			// Add the import of export declaration for the module
+			if(Rules.Type == ModuleRules.ModuleType.CPlusPlus)
 			{
-				// No source binary means a shared PCH, so always import all symbols. It's possible that an include path module now may be a imported module for the shared PCH consumer.
-				if(!bIncludePathsOnly)
+				if(Rules.Target.LinkType == TargetLinkType.Monolithic)
 				{
-					if(Binary == null || !Binary.Config.bAllowExports)
-					{
-						Definitions.Add(ModuleApiDefine + "=");
-					}
-					else
-					{
-						Definitions.Add(ModuleApiDefine + "=DLLIMPORT");
-					}
-				}
-			}
-			else if (Binary == null)
-			{
-				// If we're referencing include paths for a module that's not being built, we don't actually need to import anything from it, but we need to avoid barfing when
-				// the compiler encounters an _API define. We also want to avoid changing the compile environment in cases where the module happens to be compiled because it's a dependency
-				// of something else, which cause a fall-through to the code below and set up an empty _API define.
-				if (bIncludePathsOnly)
-				{
-					Log.TraceVerbose("{0}: Include paths only for {1} (no binary)", SourceBinary.Config.OutputFilePaths[0].GetFileNameWithoutExtension(), Name);
 					Definitions.Add(ModuleApiDefine + "=");
 				}
-			}
-			else
-			{
-				FileReference BinaryPath = Binary.Config.OutputFilePaths[0];
-				FileReference SourceBinaryPath = SourceBinary.Config.OutputFilePaths[0];
-
-				if (ProjectFileGenerator.bGenerateProjectFiles || (Binary.Config.Type == UEBuildBinaryType.StaticLibrary))
+				else if(Binary == null || SourceBinary != Binary)
 				{
-					// When generating IntelliSense files, never add dllimport/dllexport specifiers as it
-					// simply confuses the compiler
-					Definitions.Add(ModuleApiDefine + "=");
+					Definitions.Add(ModuleApiDefine + "=DLLIMPORT");
 				}
-				else if (Binary == SourceBinary)
+				else if(!Binary.bAllowExports)
 				{
-					if (Binary.Config.bAllowExports)
-					{
-						Log.TraceVerbose("{0}: Exporting {1} from {2}", SourceBinaryPath.GetFileNameWithoutExtension(), Name, BinaryPath.GetFileNameWithoutExtension());
-						Definitions.Add(ModuleApiDefine + "=DLLEXPORT");
-					}
-					else
-					{
-						Log.TraceVerbose("{0}: Not importing/exporting {1} (binary: {2})", SourceBinaryPath.GetFileNameWithoutExtension(), Name, BinaryPath.GetFileNameWithoutExtension());
-						Definitions.Add(ModuleApiDefine + "=");
-					}
+					Definitions.Add(ModuleApiDefine + "=");
 				}
 				else
 				{
-					// @todo SharedPCH: Public headers included from modules that are not importing the module of that public header, seems invalid.  
-					//		Those public headers have no business having APIs in them.  OnlineSubsystem has some public headers like this.  Without changing
-					//		this, we need to suppress warnings at compile time.
-					if (bIncludePathsOnly)
-					{
-						Log.TraceVerbose("{0}: Include paths only for {1} (binary: {2})", SourceBinaryPath.GetFileNameWithoutExtension(), Name, BinaryPath.GetFileNameWithoutExtension());
-						Definitions.Add(ModuleApiDefine + "=");
-					}
-					else if (Binary.Config.bAllowExports)
-					{
-						Log.TraceVerbose("{0}: Importing {1} from {2}", SourceBinaryPath.GetFileNameWithoutExtension(), Name, BinaryPath.GetFileNameWithoutExtension());
-						Definitions.Add(ModuleApiDefine + "=DLLIMPORT");
-					}
-					else
-					{
-						Log.TraceVerbose("{0}: Not importing/exporting {1} (binary: {2})", SourceBinaryPath.GetFileNameWithoutExtension(), Name, BinaryPath.GetFileNameWithoutExtension());
-						Definitions.Add(ModuleApiDefine + "=");
-					}
+					Definitions.Add(ModuleApiDefine + "=DLLEXPORT");
 				}
 			}
-
-			// Add the module's directory to the include path, so we can root #includes to it
-			IncludePaths.Add(NormalizedModuleIncludePath);
 
 			// Add the additional frameworks so that the compiler can know about their #include paths
 			AdditionalFrameworks.AddRange(PublicAdditionalFrameworks);
@@ -504,71 +482,32 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Adds PathsToAdd to IncludePaths, performing path normalization and ignoring duplicates.
-		/// </summary>
-		protected void AddIncludePathsWithChecks(HashSet<string> IncludePaths, HashSet<string> PathsToAdd)
-		{
-			if (ProjectFileGenerator.bGenerateProjectFiles)
-			{
-				// Extra checks are switched off for IntelliSense generation as they provide
-				// no additional value and cause performance impact.
-				IncludePaths.UnionWith(PathsToAdd);
-			}
-			else
-			{
-				foreach (string Path in PathsToAdd)
-				{
-					string NormalizedPath = Path.TrimEnd('/');
-					// If path doesn't exist, it may contain VC macro (which is passed directly to and expanded by compiler).
-					if (Directory.Exists(NormalizedPath) || DoesPathContainVCMacro(NormalizedPath))
-					{
-						IncludePaths.Add(NormalizedPath);
-					}
-				}
-			}
-		}
-
-		/// <summary>
 		/// Sets up the environment for compiling this module.
 		/// </summary>
 		protected virtual void SetupPrivateCompileEnvironment(
-			HashSet<string> IncludePaths,
-			HashSet<string> SystemIncludePaths,
+			HashSet<DirectoryReference> IncludePaths,
+			HashSet<DirectoryReference> SystemIncludePaths,
 			List<string> Definitions,
-			List<UEBuildFramework> AdditionalFrameworks
+			List<UEBuildFramework> AdditionalFrameworks,
+			bool bWithLegacyPublicIncludePaths
 			)
 		{
-			HashSet<UEBuildModule> VisitedModules = new HashSet<UEBuildModule>();
-
 			if (this.Type.IsGameModule())
 			{
 				Definitions.Add("DEPRECATED_FORGAME=DEPRECATED");
 			}
 
 			// Add this module's private include paths and definitions.
-			AddIncludePathsWithChecks(IncludePaths, PrivateIncludePaths);
+			IncludePaths.UnionWith(PrivateIncludePaths);
 
 			// Find all the modules that are part of the public compile environment for this module.
-			List<UEBuildModule> Modules = new List<UEBuildModule>();
 			Dictionary<UEBuildModule, bool> ModuleToIncludePathsOnlyFlag = new Dictionary<UEBuildModule, bool>();
-			FindModulesInPublicCompileEnvironment(Modules, ModuleToIncludePathsOnlyFlag);
-
-			// Add in all the modules that are private dependencies
-			foreach (UEBuildModule DependencyModule in PrivateDependencyModules)
-			{
-				DependencyModule.FindModulesInPublicCompileEnvironment(Modules, ModuleToIncludePathsOnlyFlag);
-			}
-
-			// And finally add in all the modules that are include path only dependencies
-			foreach (UEBuildModule IncludePathModule in PrivateIncludePathModules)
-			{
-				IncludePathModule.FindIncludePathModulesInPublicCompileEnvironment(Modules, ModuleToIncludePathsOnlyFlag);
-			}
+			FindModulesInPrivateCompileEnvironment(ModuleToIncludePathsOnlyFlag);
 
 			// Now set up the compile environment for the modules in the original order that we encountered them
-			foreach (UEBuildModule Module in Modules)
+			foreach (UEBuildModule Module in ModuleToIncludePathsOnlyFlag.Keys)
 			{
-				Module.AddModuleToCompileEnvironment(Binary, ModuleToIncludePathsOnlyFlag[Module], IncludePaths, SystemIncludePaths, Definitions, AdditionalFrameworks);
+				Module.AddModuleToCompileEnvironment(Binary, IncludePaths, SystemIncludePaths, Definitions, AdditionalFrameworks, bWithLegacyPublicIncludePaths);
 			}
 		}
 
@@ -577,7 +516,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		protected virtual void SetupPublicLinkEnvironment(
 			UEBuildBinary SourceBinary,
-			List<string> LibraryPaths,
+			List<DirectoryReference> LibraryPaths,
 			List<string> AdditionalLibraries,
 			List<string> Frameworks,
 			List<string> WeakFrameworks,
@@ -603,8 +542,8 @@ namespace UnrealBuildTool
 				// If this module belongs to a static library that we are not currently building, recursively add the link environment settings for all of its dependencies too.
 				// Keep doing this until we reach a module that is not part of a static library (or external module, since they have no associated binary).
 				// Static libraries do not contain the symbols for their dependencies, so we need to recursively gather them to be linked into other binary types.
-				bool bIsBuildingAStaticLibrary = (SourceBinary != null && SourceBinary.Config.Type == UEBuildBinaryType.StaticLibrary);
-				bool bIsModuleBinaryAStaticLibrary = (Binary != null && Binary.Config.Type == UEBuildBinaryType.StaticLibrary);
+				bool bIsBuildingAStaticLibrary = (SourceBinary != null && SourceBinary.Type == UEBuildBinaryType.StaticLibrary);
+				bool bIsModuleBinaryAStaticLibrary = (Binary != null && Binary.Type == UEBuildBinaryType.StaticLibrary);
 				if (!bIsBuildingAStaticLibrary && bIsModuleBinaryAStaticLibrary)
 				{
 					// Gather all dependencies and recursively call SetupPublicLinkEnvironmnet
@@ -615,7 +554,7 @@ namespace UnrealBuildTool
 					foreach (UEBuildModule DependencyModule in AllDependencyModules)
 					{
 						bool bIsExternalModule = (DependencyModule as UEBuildModuleExternal != null);
-						bool bIsInStaticLibrary = (DependencyModule.Binary != null && DependencyModule.Binary.Config.Type == UEBuildBinaryType.StaticLibrary);
+						bool bIsInStaticLibrary = (DependencyModule.Binary != null && DependencyModule.Binary.Type == UEBuildBinaryType.StaticLibrary);
 						if (bIsExternalModule || bIsInStaticLibrary)
 						{
 							DependencyModule.SetupPublicLinkEnvironment(SourceBinary, LibraryPaths, AdditionalLibraries, Frameworks, WeakFrameworks,
@@ -737,7 +676,6 @@ namespace UnrealBuildTool
 				RecursivelyCreateModulesByName(Rules.PublicDependencyModuleNames, ref PublicDependencyModules, CreateModule, NextReferenceChain);
 				RecursivelyCreateModulesByName(Rules.PrivateDependencyModuleNames, ref PrivateDependencyModules, CreateModule, NextReferenceChain);
 				RecursivelyCreateModulesByName(Rules.DynamicallyLoadedModuleNames, ref DynamicallyLoadedModules, CreateModule, NextReferenceChain);
-				RecursivelyCreateModulesByName(Rules.PlatformSpecificDynamicallyLoadedModuleNames, ref PlatformSpecificDynamicallyLoadedModules, CreateModule, NextReferenceChain);
 			}
 		}
 
@@ -802,10 +740,10 @@ namespace UnrealBuildTool
 			ExportJsonModuleArray(Writer, "PrivateIncludePathModules", PrivateIncludePathModules);
 			ExportJsonModuleArray(Writer, "DynamicallyLoadedModules", DynamicallyLoadedModules);
 
-			ExportJsonStringArray(Writer, "PublicSystemIncludePaths", PublicSystemIncludePaths);
-			ExportJsonStringArray(Writer, "PublicIncludePaths", PublicIncludePaths);
-			ExportJsonStringArray(Writer, "PrivateIncludePaths", PrivateIncludePaths);
-			ExportJsonStringArray(Writer, "PublicLibraryPaths", PublicLibraryPaths);
+			ExportJsonStringArray(Writer, "PublicSystemIncludePaths", PublicSystemIncludePaths.Select(x => x.FullName));
+			ExportJsonStringArray(Writer, "PublicIncludePaths", PublicIncludePaths.Select(x => x.FullName));
+			ExportJsonStringArray(Writer, "PrivateIncludePaths", PrivateIncludePaths.Select(x => x.FullName));
+			ExportJsonStringArray(Writer, "PublicLibraryPaths", PublicLibraryPaths.Select(x => x.FullName));
 			ExportJsonStringArray(Writer, "PublicAdditionalLibraries", PublicAdditionalLibraries);
 			ExportJsonStringArray(Writer, "PublicFrameworks", PublicFrameworks);
 			ExportJsonStringArray(Writer, "PublicWeakFrameworks", PublicWeakFrameworks);

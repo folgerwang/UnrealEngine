@@ -3,8 +3,8 @@
 #include "ControlRigEditModeSettings.h"
 #include "EditorModeManager.h"
 #include "ControlRigEditMode.h"
-#include "ControlRigSequence.h"
-#include "AssetEditorManager.h"
+#include "Sequencer/ControlRigSequence.h"
+#include "Toolkits/AssetEditorManager.h"
 #include "Components/SkeletalMeshComponent.h"
 
 void UControlRigEditModeSettings::PreEditChange(UProperty* PropertyAboutToChange)

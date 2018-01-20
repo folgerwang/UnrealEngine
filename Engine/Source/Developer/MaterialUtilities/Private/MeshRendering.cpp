@@ -25,12 +25,12 @@
 #include "CanvasTypes.h"
 #include "LocalVertexFactory.h"
 #include "DrawingPolicy.h"
-#include "SkeletalMeshLODRenderData.h"
+#include "Rendering/SkeletalMeshLODRenderData.h"
 
 #include "RendererInterface.h"
 #include "EngineModule.h"
 #include "LightMapHelpers.h"
-#include "ParallelFor.h"
+#include "Async/ParallelFor.h"
 #include "DynamicMeshBuilder.h"
 
 #define SHOW_WIREFRAME_MESH 0

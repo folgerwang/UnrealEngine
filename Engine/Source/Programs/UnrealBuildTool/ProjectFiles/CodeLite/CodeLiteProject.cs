@@ -22,7 +22,7 @@ namespace UnrealBuildTool
 		// Check if the XElement is empty.
 		bool IsEmpty(IEnumerable<XElement> en)
 		{
-			foreach(var c in en) { return false; }
+			foreach(XElement c in en) { return false; }
 			return true;
 		}
 
@@ -82,7 +82,7 @@ namespace UnrealBuildTool
 				string[] tmp = target.ToString ().Split ('.');
 				string ProjectTargetFileName = Path.GetDirectoryName (ProjectFilePath.FullName) + "/" + tmp [0] +  ProjectExtension;
 				String TargetName = tmp [0];
-				var ProjectTargetType = target.TargetRules.Type;
+				TargetType ProjectTargetType = target.TargetRules.Type;
 
 				//
 				// Create the CodeLites root element.
@@ -110,7 +110,7 @@ namespace UnrealBuildTool
 				//
 				// Find/Create the correct virtual folder and place the file into it.
 				//
-				foreach(var CurrentFile in FilterSourceFile)
+				foreach(SourceFile CurrentFile in FilterSourceFile)
 				{
 					//
 					// Try to get the correct relative folder representation for the project.
@@ -156,7 +156,7 @@ namespace UnrealBuildTool
 					// Iterate through all XElement virtual folders until we find the right place to put the file.
 					// TODO this looks more like a hack to me.
 					//
-					foreach (var FolderName in SplitFolders)
+					foreach (string FolderName in SplitFolders)
 					{
 						if (FolderName.Equals(""))
 						{
@@ -188,7 +188,7 @@ namespace UnrealBuildTool
 							//
 							// We have some virtual directories let's find the correct one.
 							//
-							foreach (var element in tests)
+							foreach (XElement element in tests)
 							{
 								//
 								// Look the the following folder
@@ -230,7 +230,7 @@ namespace UnrealBuildTool
 				XElement CodeLiteGlobalSettings = new XElement("GlobalSettings");
 				CodeLiteProject.Add(CodeLiteGlobalSettings);
 
-				foreach (var CurConf in InConfigurations)
+				foreach (UnrealTargetConfiguration CurConf in InConfigurations)
 				{
 					XElement CodeLiteConfiguration = new XElement("Configuration");
 					XAttribute CodeLiteConfigurationName = new XAttribute("Name", CurConf.ToString());

@@ -212,7 +212,6 @@
 #include "Widgets/Notifications/SNotificationList.h"
 #endif //WITH_EDITOR
 #include "Materials/MaterialInstanceConstant.h"
-#include "Archive.h"
 
 #define LOCTEXT_NAMESPACE "MaterialExpression"
 

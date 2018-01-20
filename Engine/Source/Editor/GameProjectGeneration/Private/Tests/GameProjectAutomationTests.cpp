@@ -13,7 +13,7 @@
 #include "LevelEditorViewport.h"
 #include "FileHelpers.h"
 #include "ProjectDescriptor.h"
-#include "Private/IContentSource.h"
+#include "Editor/AddContentDialog/Private/IContentSource.h"
 #include "GameProjectUtils.h"
 #include "Editor/GameProjectGeneration/Private/SNewProjectWizard.h"
 

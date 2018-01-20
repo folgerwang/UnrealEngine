@@ -25,7 +25,7 @@
 #endif
 
 #if PLATFORM_WINDOWS
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 // recreating parts of winhttp.h in here because winhttp.h and wininet.h do not play well with each other.
 #if defined(_WIN64)
@@ -73,7 +73,7 @@ WINHTTPAPI BOOL WINAPI WinHttpGetIEProxyConfigForCurrentUser(WINHTTP_CURRENT_USE
 }
 #endif
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 CURLM* FCurlHttpManager::GMultiHandle = NULL;

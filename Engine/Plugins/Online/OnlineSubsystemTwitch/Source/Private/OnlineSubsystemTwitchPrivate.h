@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 #include "OnlineSubsystemTwitch.h"
 #include "OnlineSubsystemTwitchModule.h"

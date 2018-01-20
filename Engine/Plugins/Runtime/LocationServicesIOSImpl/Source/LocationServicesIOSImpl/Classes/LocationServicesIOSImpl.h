@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "Classes/LocationServicesImpl.h"
+#include "LocationServicesImpl.h"
 
 #include "LocationServicesIOSImpl.generated.h"
 

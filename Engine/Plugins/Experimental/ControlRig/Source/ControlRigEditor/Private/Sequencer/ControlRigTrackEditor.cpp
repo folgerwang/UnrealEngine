@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ControlRigTrackEditor.h"
-#include "MovieSceneControlRigSection.h"
-#include "MovieSceneControlRigTrack.h"
+#include "Sequencer/MovieSceneControlRigSection.h"
+#include "Sequencer/MovieSceneControlRigTrack.h"
 #include "ClassViewerModule.h"
 #include "ClassViewerFilter.h"
 #include "FloatCurveKeyArea.h"
@@ -10,16 +10,16 @@
 #include "SequencerSectionPainter.h"
 #include "ControlRig.h"
 #include "SequencerUtilities.h"
-#include "ControlRigSequence.h"
+#include "Sequencer/ControlRigSequence.h"
 #include "ContentBrowserModule.h"
 #include "IContentBrowserSingleton.h"
 #include "LevelEditor.h"
 #include "EditorStyleSet.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/Actor.h"
-#include "MultiBoxBuilder.h"
-#include "SlateApplication.h"
-#include "SBox.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBox.h"
 
 namespace ControlRigEditorConstants
 {

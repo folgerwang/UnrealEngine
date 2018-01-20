@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
-#include "NameTypes.h"
+#include "Modules/ModuleInterface.h"
+#include "UObject/NameTypes.h"
 
 class ISimulationEditorExtender;
 class UClothingAssetFactoryBase;

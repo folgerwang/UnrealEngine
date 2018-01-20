@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MacCursor.h"
-#include "MacWindow.h"
-#include "MacApplication.h"
+#include "Mac/MacCursor.h"
+#include "Mac/MacWindow.h"
+#include "Mac/MacApplication.h"
 #include "Math/IntRect.h"
 #include "HAL/IConsoleManager.h"
 #include "HAL/PlatformProcess.h"

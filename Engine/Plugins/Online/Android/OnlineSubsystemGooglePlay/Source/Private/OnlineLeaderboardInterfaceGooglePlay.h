@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "OnlineLeaderboardInterface.h"
+#include "Interfaces/OnlineLeaderboardInterface.h"
 #include "AndroidRuntimeSettings.h"
 
 struct FOnlinePendingLeaderboardWrite

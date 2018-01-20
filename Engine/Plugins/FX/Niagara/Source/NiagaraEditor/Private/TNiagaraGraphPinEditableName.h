@@ -4,7 +4,7 @@
 
 #include "SGraphPin.h"
 #include "NiagaraNode.h"
-#include "SInlineEditableTextBlock.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 
 /** A graph pin widget for allowing a pin to have an editable name for a pin. */
 template< class BaseClass >

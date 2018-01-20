@@ -4,7 +4,7 @@
 #include "OnlineSubsystemGooglePlay.h"
 #include "OnlineStoreGooglePlay.h"
 #include "OnlineError.h"
-#include "Base64.h"
+#include "Misc/Base64.h"
 
 #define LOCTEXT_NAMESPACE "OnlineSubsystemGooglePlay"
 #define GOOGLEPLAYUSER TEXT("GooglePlayUser")

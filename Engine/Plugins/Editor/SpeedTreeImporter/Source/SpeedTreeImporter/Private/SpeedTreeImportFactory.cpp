@@ -55,7 +55,7 @@
 #include "ObjectTools.h"
 #include "PackageTools.h"
 #include "AssetRegistryModule.h"
-#include "Private/GeomFitUtils.h"
+#include "UnrealEd/Private/GeomFitUtils.h"
 #include "SpeedTreeWind.h"
 #include "RawMesh.h"
 #include "ComponentReregisterContext.h"

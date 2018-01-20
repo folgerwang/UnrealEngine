@@ -269,6 +269,11 @@ public:
 		return (TModuleInterface&)(*ModuleManager.GetModule(ModuleName));
 	}
 
+private:
+	static IModuleInterface* GetModulePtr_Internal(FName ModuleName);
+
+public:
+
 	/**
 	  * Gets a module by name.
 	  *
@@ -277,16 +282,9 @@ public:
 	  * @see GetModuleChecked, LoadModulePtr, LoadModuleChecked
 	  */
 	template<typename TModuleInterface>
-	static TModuleInterface* GetModulePtr( const FName ModuleName )
+	static FORCEINLINE TModuleInterface* GetModulePtr( const FName ModuleName )
 	{
-		FModuleManager& ModuleManager = FModuleManager::Get();
-
-		if (!ModuleManager.IsModuleLoaded(ModuleName))
-		{
-			return nullptr;
-		}
-
-		return static_cast<TModuleInterface*>(ModuleManager.GetModule(ModuleName));
+		return static_cast<TModuleInterface*>(GetModulePtr_Internal(ModuleName));
 	}
 
 	/**
@@ -320,7 +318,6 @@ public:
 	}
 
 public:
-
 	/**
 	 * Finds module files on the disk for loadable modules matching the specified wildcard.
 	 *
@@ -391,6 +388,7 @@ public:
 	*/
 	FString GetGameBinariesDirectory() const;
 
+#if !IS_MONOLITHIC
 	/**
 	 * Checks to see if the specified module exists and is compatible with the current engine version. 
 	 *
@@ -398,6 +396,7 @@ public:
 	 * @return true if module exists and is up to date, false otherwise.
 	 */
 	bool IsModuleUpToDate( const FName InModuleName ) const;
+#endif
 
 	/**
 	 * Determines whether the specified module contains UObjects.  The module must already be loaded into
@@ -413,8 +412,9 @@ public:
 	 *
 	 * @return	Configuration name for UBT.
 	 */
-	static const TCHAR *GetUBTConfiguration( );
+	static const TCHAR* GetUBTConfiguration( );
 
+#if !IS_MONOLITHIC
 	/** Gets the filename for a module. The return value is a full path of a module known to the module manager. */
 	FString GetModuleFilename(FName ModuleName) const;
 
@@ -422,7 +422,8 @@ public:
 	void SetModuleFilename(FName ModuleName, const FString& Filename);
 
 	/** Gets the clean filename for a module, without having added it to the module manager. */
-	static FString GetCleanModuleFilename(FName ModuleName, bool bIsGameModule);
+	FString GetCleanModuleFilename(FName ModuleName, bool bIsGameModule);
+#endif
 
 public:
 
@@ -476,17 +477,11 @@ protected:
 	 *
 	 * Use the static Get function to return the singleton instance.
 	 */
-	FModuleManager( )
-		: bCanProcessNewlyLoadedObjects(false)
-	{ }
+	FModuleManager();
 
 private:
-
-	/**
-	 * Prevent copy constructor from being triggered.
-	 */
-	FModuleManager(const FModuleManager&)
-	{ }
+	FModuleManager(const FModuleManager&) = delete;
+	FModuleManager& operator=(const FModuleManager&) = delete;
 
 protected:
 
@@ -566,6 +561,7 @@ private:
 		return const_cast<FModuleManager*>(this)->FindModuleChecked(InModuleName);
 	}
 
+#if !IS_MONOLITHIC
 	/** Compares file versions between the current executing engine version and the specified dll */
 	static bool CheckModuleCompatibility(const TCHAR *Filename, ECheckModuleCompatibilityFlags Flags = ECheckModuleCompatibilityFlags::None );
 
@@ -577,6 +573,7 @@ private:
 
 	/** Finds modules matching a given name wildcard within a given directory. */
 	void FindModulePathsInDirectory(const FString &DirectoryName, bool bIsGameDirectory, const TCHAR *NamePattern, TMap<FName, FString> &OutModulePaths) const;
+#endif
 
 private:
 	/** Gets module with given name from Modules or creates a new one. Doesn't modify Modules. */
@@ -763,6 +760,58 @@ class FDefaultGameModuleImpl
 #endif
 
 /**
+ * Macro for registering signing keys for a project.
+ */
+#ifdef UE_SIGNING_KEY_EXPONENT
+	#define IMPLEMENT_SIGNING_KEY_REGISTRATION() \
+		struct FSigningKeyRegistration \
+		{ \
+			FSigningKeyRegistration() \
+			{ \
+				extern void RegisterSigningKeyCallback(void (*)(unsigned char OutExponent[64], unsigned char OutModulus[64])); \
+				RegisterSigningKeyCallback(&Callback); \
+			} \
+			static void Callback(unsigned char OutExponent[64], unsigned char OutModulus[64]) \
+			{ \
+				const unsigned char Exponent[64] = { UE_SIGNING_KEY_EXPONENT }; \
+				const unsigned char Modulus[64] = { UE_SIGNING_KEY_MODULUS }; \
+				for(int ByteIdx = 0; ByteIdx < 64; ByteIdx++) \
+				{ \
+					OutExponent[ByteIdx] = Exponent[ByteIdx]; \
+					OutModulus[ByteIdx] = Modulus[ByteIdx]; \
+				} \
+			} \
+		} GSigningKeyRegistration;
+#else
+	#define IMPLEMENT_SIGNING_KEY_REGISTRATION()
+#endif
+
+/**
+ * Macro for registering encryption key for a project.
+ */
+#ifdef UE_ENCRYPTION_KEY
+	#define IMPLEMENT_ENCRYPTION_KEY_REGISTRATION() \
+		struct FEncryptionKeyRegistration \
+		{ \
+			FEncryptionKeyRegistration() \
+			{ \
+				extern void RegisterEncryptionKeyCallback(void (*)(unsigned char OutKey[32])); \
+				RegisterEncryptionKeyCallback(&Callback); \
+			} \
+			static void Callback(unsigned char OutKey[32]) \
+			{ \
+				const unsigned char Key[32] = { UE_ENCRYPTION_KEY }; \
+				for(int ByteIdx = 0; ByteIdx < 32; ByteIdx++) \
+				{ \
+					OutKey[ByteIdx] = Key[ByteIdx]; \
+				} \
+			} \
+		} GEncryptionKeyRegistration;
+#else
+	#define IMPLEMENT_ENCRYPTION_KEY_REGISTRATION()
+#endif
+
+/**
  * Macro for declaring the GIsDebugGame variable for monolithic development builds. NB: This define, and the UE_BUILD_DEVELOPMENT_WITH_DEBUGGAME defines like it, should NEVER be 
  * directly used or defined for engine code, because it prevents sharing the same build products with the development build (important for Launcher build sizes). In modular builds, 
  * DebugGame modules will be loaded by specifying the -debug parameter on the command-line.
@@ -781,6 +830,8 @@ class FDefaultGameModuleImpl
 			TCHAR GInternalProjectName[64] = TEXT( GameName ); \
 			IMPLEMENT_DEBUGGAME() \
 			IMPLEMENT_FOREIGN_ENGINE_DIR() \
+			IMPLEMENT_SIGNING_KEY_REGISTRATION() \
+			IMPLEMENT_ENCRYPTION_KEY_REGISTRATION() \
 			IMPLEMENT_GAME_MODULE(FDefaultGameModuleImpl, ModuleName) \
 			PER_MODULE_BOILERPLATE \
 			FEngineLoop GEngineLoop;
@@ -816,13 +867,10 @@ class FDefaultGameModuleImpl
 			bool GIsGameAgnosticExe = false; \
 			IMPLEMENT_DEBUGGAME() \
 			IMPLEMENT_FOREIGN_ENGINE_DIR() \
+			IMPLEMENT_SIGNING_KEY_REGISTRATION() \
+			IMPLEMENT_ENCRYPTION_KEY_REGISTRATION() \
 			IMPLEMENT_GAME_MODULE( ModuleImplClass, ModuleName ) \
-			PER_MODULE_BOILERPLATE \
-			void UELinkerFixupCheat() \
-			{ \
-				extern void UELinkerFixups(); \
-				UELinkerFixups(); \
-			}
+			PER_MODULE_BOILERPLATE
 
 	#else	//PLATFORM_DESKTOP
 
@@ -832,6 +880,8 @@ class FDefaultGameModuleImpl
 			IMPLEMENT_DEBUGGAME() \
 			PER_MODULE_BOILERPLATE \
 			IMPLEMENT_FOREIGN_ENGINE_DIR() \
+			IMPLEMENT_SIGNING_KEY_REGISTRATION() \
+			IMPLEMENT_ENCRYPTION_KEY_REGISTRATION() \
 			IMPLEMENT_GAME_MODULE( ModuleImplClass, ModuleName ) \
 			/* Implement the GIsGameAgnosticExe variable (See Core.h). */ \
 			bool GIsGameAgnosticExe = false;

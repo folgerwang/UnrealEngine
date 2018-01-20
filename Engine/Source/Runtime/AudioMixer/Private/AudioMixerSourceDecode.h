@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Containers/Queue.h"
-#include "Classes/Sound/SoundWaveProcedural.h"
+#include "Sound/SoundWaveProcedural.h"
 
 namespace Audio
 {

@@ -2,10 +2,10 @@
 
 #include "BlueprintCompilationManager.h"
 
-#include "BlueprintEditorUtils.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "BlueprintEditorSettings.h"
 #include "Blueprint/BlueprintSupport.h"
-#include "CompilerResultsLog.h"
+#include "Kismet2/CompilerResultsLog.h"
 #include "Components/TimelineComponent.h"
 #include "Editor.h"
 #include "Engine/Engine.h"

@@ -8,7 +8,7 @@
 #include "HAL/PlatformProcess.h"
 #include "Interfaces/ITargetDeviceOutput.h"
 #include "Misc/ConfigCacheIni.h"
-#include "ThreadSafeCounter.h"
+#include "HAL/ThreadSafeCounter.h"
 
 class FAndroidTargetDevice;
 

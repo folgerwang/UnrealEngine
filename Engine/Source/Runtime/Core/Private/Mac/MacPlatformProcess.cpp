@@ -4,8 +4,8 @@
 	MacPlatformProcess.mm: Mac implementations of Process functions
 =============================================================================*/
 
-#include "MacPlatformProcess.h"
-#include "ApplePlatformRunnableThread.h"
+#include "Mac/MacPlatformProcess.h"
+#include "Apple/ApplePlatformRunnableThread.h"
 #include "Misc/App.h"
 #include "Misc/Paths.h"
 #include "HAL/FileManager.h"

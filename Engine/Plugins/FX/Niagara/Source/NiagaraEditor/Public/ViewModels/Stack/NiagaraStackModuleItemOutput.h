@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "NiagaraStackEntry.h"
-#include "NiagaraParameterHandle.h"
+#include "ViewModels/Stack/NiagaraStackEntry.h"
+#include "ViewModels/Stack/NiagaraParameterHandle.h"
 #include "NiagaraTypes.h"
 #include "NiagaraStackModuleItemOutput.generated.h"
 

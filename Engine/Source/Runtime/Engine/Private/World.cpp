@@ -2635,7 +2635,7 @@ public:
 
 	virtual FArchive& operator<<(UObject*& Object) override
 	{
-		if (Object && !VisitedObjects.Contains(Object))
+		if (Object && (Object->IsA(UWorld::StaticClass()) || Object->IsInA(UWorld::StaticClass())) && !VisitedObjects.Contains(Object))
 		{
 			VisitedObjects.Add(Object);
 			Object->Serialize(*this);

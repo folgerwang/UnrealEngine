@@ -19,7 +19,7 @@
 #include "ActorPickerMode.h"
 #include "SceneOutlinerPublicTypes.h"
 #include "SceneOutlinerModule.h"
-#include "Private/SSocketChooser.h"
+#include "Editor/SceneOutliner/Private/SSocketChooser.h"
 #include "LevelEditor.h"
 #include "MovieSceneObjectBindingIDPicker.h"
 #include "MovieSceneToolHelpers.h"

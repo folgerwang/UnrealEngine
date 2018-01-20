@@ -1,10 +1,10 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "Private/Lws/LwsWebSocket.h"
+#include "LwsWebSocket.h"
 
 #if WITH_WEBSOCKETS && WITH_LIBWEBSOCKETS
 
-#include "Private/Lws/LwsWebSocketsManager.h"
+#include "LwsWebSocketsManager.h"
 #include "WebSocketsModule.h"
 #include "WebSocketsLog.h"
 #include "Ssl.h"

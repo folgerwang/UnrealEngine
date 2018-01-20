@@ -13,7 +13,7 @@
 
 #include "ImportVertexColorOptionsCustomization.h"
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "PropertyEditorModule.h"
 #include "MeshPaintSettings.h"
 #include "ISettingsModule.h"

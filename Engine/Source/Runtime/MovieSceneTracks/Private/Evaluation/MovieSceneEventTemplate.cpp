@@ -6,7 +6,7 @@
 #include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
 #include "EngineGlobals.h"
 #include "MovieScene.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 #include "IMovieScenePlayer.h"
 
 

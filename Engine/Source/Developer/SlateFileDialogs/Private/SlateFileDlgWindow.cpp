@@ -20,7 +20,7 @@
 #include "DirectoryWatcherModule.h"
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "SlateFileDialogsNamespace"

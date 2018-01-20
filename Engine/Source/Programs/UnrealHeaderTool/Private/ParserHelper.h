@@ -11,7 +11,7 @@
 #include "UnrealHeaderToolGlobals.h"
 #include "ClassMaps.h"
 #include "Templates/UniqueObj.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 class UEnum;
 class UScriptStruct;

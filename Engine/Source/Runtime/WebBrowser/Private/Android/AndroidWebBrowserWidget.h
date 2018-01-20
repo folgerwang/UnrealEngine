@@ -7,7 +7,7 @@
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "AndroidWebBrowserWindow.h"
 #include "AndroidWebBrowserDialog.h"
-#include "AndroidJava.h"
+#include "Android/AndroidJava.h"
 #include "RHI.h"
 #include "RHIResources.h"
 #include "UObject/Class.h"

@@ -17,7 +17,7 @@
 #include "Interfaces/ITargetPlatform.h"
 #include "Interfaces/ITargetPlatformModule.h"
 #include "SExternalImageReference.h"
-#include "SNumericDropDown.h"
+#include "Widgets/Input/SNumericDropDown.h"
 #include "Dialogs/Dialogs.h"
 #include "Widgets/Notifications/SErrorText.h"
 #include "IDetailPropertyRow.h"

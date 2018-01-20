@@ -705,8 +705,8 @@ namespace UnrealBuildTool
 					{
 						if (Target.bBuildDeveloperTools)
 						{
-							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("IOSTargetPlatform");
-							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("TVOSTargetPlatform");
+							Rules.DynamicallyLoadedModuleNames.Add("IOSTargetPlatform");
+							Rules.DynamicallyLoadedModuleNames.Add("TVOSTargetPlatform");
 						}
 					}
 					else if (ModuleName == "TargetPlatform")
@@ -716,7 +716,7 @@ namespace UnrealBuildTool
 						Rules.DynamicallyLoadedModuleNames.Add("TextureFormatASTC");
 						if (Target.bBuildDeveloperTools && Target.bCompileAgainstEngine)
 						{
-							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("AudioFormatADPCM");
+							Rules.DynamicallyLoadedModuleNames.Add("AudioFormatADPCM");
 						}
 					}
 				}
@@ -726,13 +726,13 @@ namespace UnrealBuildTool
 				{
 					if (Target.bForceBuildTargetPlatforms)
 					{
-						Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("IOSTargetPlatform");
-						Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("TVOSTargetPlatform");
+						Rules.DynamicallyLoadedModuleNames.Add("IOSTargetPlatform");
+						Rules.DynamicallyLoadedModuleNames.Add("TVOSTargetPlatform");
 					}
 
 					if (bBuildShaderFormats)
 					{
-						Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("MetalShaderFormat");
+						Rules.DynamicallyLoadedModuleNames.Add("MetalShaderFormat");
 					}
 				}
 			}

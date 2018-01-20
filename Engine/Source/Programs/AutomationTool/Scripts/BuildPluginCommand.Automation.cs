@@ -148,14 +148,25 @@ class BuildPlugin : BuildCommand
 		}
 
 		// Package the plugin to the output folder
-		List<BuildProduct> BuildProducts = GetBuildProductsFromReceipts(CommandUtils.EngineDirectory, HostProjectFile.Directory, ReceiptFileNames);
-		return BuildProducts.Select(x => x.Path).ToArray();
+		HashSet<FileReference> BuildProducts = new HashSet<FileReference>();
+		foreach(FileReference ReceiptFileName in ReceiptFileNames)
+		{
+			TargetReceipt Receipt;
+			if(!TargetReceipt.TryRead(ReceiptFileName, CommandUtils.EngineDirectory, HostProjectFile.Directory, out Receipt))
+			{
+				throw new AutomationException("Missing or invalid target receipt ({0})", ReceiptFileName);
+			}
+			BuildProducts.UnionWith(Receipt.BuildProducts.Select(x => x.Path).Where(x => x.IsUnderDirectory(HostProjectPluginFile.Directory)));
+			BuildProducts.UnionWith(Receipt.PrecompiledBuildDependencies.Where(x => x.IsUnderDirectory(HostProjectPluginFile.Directory)));
+			BuildProducts.UnionWith(Receipt.PrecompiledRuntimeDependencies.Where(x => x.IsUnderDirectory(HostProjectPluginFile.Directory)));
+		}
+		return BuildProducts.ToArray();
 	}
 
 	void CompilePluginWithUBT(FileReference HostProjectFile, FileReference HostProjectPluginFile, PluginDescriptor Plugin, string TargetName, TargetType TargetType, UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration, List<FileReference> ReceiptFileNames, string InAdditionalArgs)
 	{
 		// Find a list of modules that need to be built for this plugin
-		List<string> ModuleNames = new List<string>();
+		bool bCompilePlatform = false;
 		if (Plugin.Modules != null)
 		{
 			foreach (ModuleDescriptor Module in Plugin.Modules)
@@ -165,48 +176,27 @@ class BuildPlugin : BuildCommand
 				bool bBuildRequiresCookedData = (TargetType != TargetType.Editor && TargetType != TargetType.Program);
 				if (Module.IsCompiledInConfiguration(Platform, TargetType, bBuildDeveloperTools, bBuildEditor, bBuildRequiresCookedData))
 				{
-					ModuleNames.Add(Module.Name);
+					bCompilePlatform = true;
 				}
 			}
 		}
 
 		// Add these modules to the build agenda
-		if(ModuleNames.Count > 0)
+		if(bCompilePlatform)
 		{
-			string Arguments = "-iwyu";// String.Format("-plugin {0}", CommandUtils.MakePathSafeToUseWithCommandLine(PluginFile.FullName));
-			foreach(string ModuleName in ModuleNames)
-			{
-				Arguments += String.Format(" -module {0}", ModuleName);
-			}
-
 			string Architecture = PlatformExports.GetDefaultArchitecture(Platform, HostProjectFile);
 
 			FileReference ReceiptFileName = TargetReceipt.GetDefaultPath(HostProjectPluginFile.Directory, TargetName, Platform, Configuration, Architecture);
-			Arguments += String.Format(" -receipt {0}", CommandUtils.MakePathSafeToUseWithCommandLine(ReceiptFileName.FullName));
 			ReceiptFileNames.Add(ReceiptFileName);
-			
+
+			string Arguments = String.Format("-plugin {0} -iwyu -precompile -nosharedpch -noubtmakefiles -receipt {1}", CommandUtils.MakePathSafeToUseWithCommandLine(HostProjectPluginFile.FullName), CommandUtils.MakePathSafeToUseWithCommandLine(ReceiptFileName.FullName));
 			if(!String.IsNullOrEmpty(InAdditionalArgs))
 			{
 				Arguments += InAdditionalArgs;
 			}
 
-			CommandUtils.RunUBT(CmdEnv, UE4Build.GetUBTExecutable(), String.Format("{0} {1} {2}{3} {4}", TargetName, Platform, Configuration, (HostProjectFile == null)? "" : String.Format(" -project=\"{0}\"", HostProjectFile.FullName), Arguments));
+			CommandUtils.RunUBT(CmdEnv, UE4Build.GetUBTExecutable(), String.Format("{0} {1} {2} {3}", TargetName, Platform, Configuration, Arguments));
 		}
-	}
-
-	static List<BuildProduct> GetBuildProductsFromReceipts(DirectoryReference EngineDir, DirectoryReference ProjectDir, List<FileReference> ReceiptFileNames)
-	{
-		List<BuildProduct> BuildProducts = new List<BuildProduct>();
-		foreach(FileReference ReceiptFileName in ReceiptFileNames)
-		{
-			TargetReceipt Receipt;
-			if(!TargetReceipt.TryRead(ReceiptFileName, EngineDir, ProjectDir, out Receipt))
-			{
-				throw new AutomationException("Missing or invalid target receipt ({0})", ReceiptFileName);
-			}
-			BuildProducts.AddRange(Receipt.BuildProducts);
-		}
-		return BuildProducts;
 	}
 
 	static void PackagePlugin(FileReference SourcePluginFile, IEnumerable<FileReference> BuildProducts, DirectoryReference TargetDir, bool bUnversioned)

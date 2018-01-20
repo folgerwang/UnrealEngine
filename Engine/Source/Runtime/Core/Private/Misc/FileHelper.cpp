@@ -39,7 +39,7 @@ bool FFileHelper::LoadFileToArray( TArray<uint8>& Result, const TCHAR* Filename,
 		{
 			UE_LOG(LogStreaming,Warning,TEXT("Failed to read file '%s' error."),Filename);
 		}
-		return 0;
+		return false;
 	}
 	int64 TotalSize = Reader->TotalSize();
 	Result.Reset( TotalSize );
@@ -118,7 +118,7 @@ bool FFileHelper::LoadFileToString( FString& Result, const TCHAR* Filename, EHas
 	TUniquePtr<FArchive> Reader( IFileManager::Get().CreateFileReader( Filename ) );
 	if( !Reader )
 	{
-		return 0;
+		return false;
 	}
 	
 	int32 Size = Reader->TotalSize();
@@ -190,7 +190,7 @@ bool FFileHelper::SaveArrayToFile(TArrayView<const uint8> Array, const TCHAR* Fi
 	FArchive* Ar = FileManager->CreateFileWriter( Filename, WriteFlags );
 	if( !Ar )
 	{
-		return 0;
+		return false;
 	}
 	Ar->Serialize(const_cast<uint8*>(Array.GetData()), Array.Num());
 	delete Ar;
@@ -484,11 +484,11 @@ bool FFileHelper::CreateBitmap( const TCHAR* Pattern, int32 SourceWidth, int32 S
 	}
 	else 
 	{
-		return 0;
+		return false;
 	}
 #endif
 	// Success.
-	return 1;
+	return true;
 }
 
 /**

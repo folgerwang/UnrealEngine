@@ -105,12 +105,14 @@ public:
 	 */
 	virtual bool LoadModulesForProject( const ELoadingPhase::Type LoadingPhase ) = 0;
 
+#if !IS_MONOLITHIC
 	/**
 	 * Checks if the modules for a project are up to date
 	 *
 	 * @return	false if UBT needs to be run to recompile modules for a project.
 	 */
 	virtual bool CheckModuleCompatibility(TArray<FString>& OutIncompatibleModules) = 0;
+#endif
 
 	/**
 	 * Gets the name of the text file that contains the most recently loaded filename.

@@ -6,9 +6,9 @@
 
 #pragma once
 
-#include "StandardPlatformString.h"
-#include "AssertionMacros.h"
-#include "OutputDevice.h"
+#include "GenericPlatform/StandardPlatformString.h"
+#include "Misc/AssertionMacros.h"
+#include "Misc/OutputDevice.h"
 #include "CoreTypes.h"
 
 #if PLATFORM_MAC

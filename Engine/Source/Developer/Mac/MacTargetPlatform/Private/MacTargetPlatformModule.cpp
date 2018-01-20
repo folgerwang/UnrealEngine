@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GenericMacTargetPlatform.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "ISettingsModule.h"
 #include "Interfaces/ITargetPlatformModule.h"
 #include "Modules/ModuleManager.h"

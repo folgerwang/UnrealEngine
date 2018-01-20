@@ -8,7 +8,7 @@
 #include "NiagaraGraph.h"
 #include "NiagaraEditorSettings.h"
 #include "AssetData.h"
-#include "NiagaraStackGraphUtilities.h"
+#include "ViewModels/Stack/NiagaraStackGraphUtilities.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraSystemFactory"
 

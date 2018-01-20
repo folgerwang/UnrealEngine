@@ -129,18 +129,52 @@ namespace UnrealBuildTool
 				return Settings;
 			}
 
+			{
+			    // Start by parsing the legacy encryption.ini settings
+			    Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Encryption, InProjectDirectory, InTargetPlatform);
+			    Ini.GetBool("Core.Encryption", "SignPak", out Settings.bEnablePakSigning);
+    
+			    string[] SigningKeyStrings = new string[3];
+			    Ini.GetString("Core.Encryption", "rsa.privateexp", out SigningKeyStrings[0]);
+			    Ini.GetString("Core.Encryption", "rsa.modulus", out SigningKeyStrings[1]);
+			    Ini.GetString("Core.Encryption", "rsa.publicexp", out SigningKeyStrings[2]);
+    
+			    if (String.IsNullOrEmpty(SigningKeyStrings[0]) || String.IsNullOrEmpty(SigningKeyStrings[1]) || String.IsNullOrEmpty(SigningKeyStrings[2]))
+			    {
+				    SigningKeyStrings = null;
+			    }
+			    else
+			    {
+				    Settings.SigningKey = new SigningKeyPair();
+				    Settings.SigningKey.PrivateKey.Exponent = ParseHexStringToByteArray(SigningKeyStrings[0]);
+				    Settings.SigningKey.PrivateKey.Modulus = ParseHexStringToByteArray(SigningKeyStrings[1]);
+				    Settings.SigningKey.PublicKey.Exponent = ParseHexStringToByteArray(SigningKeyStrings[2]);
+				    Settings.SigningKey.PublicKey.Modulus = Settings.SigningKey.PrivateKey.Modulus;
+			    }
+    
+			    Ini.GetBool("Core.Encryption", "EncryptPak", out Settings.bEnablePakIndexEncryption);
+			    Settings.bEnablePakFullAssetEncryption = false;
+			    Settings.bEnablePakUAssetEncryption = false;
+			    Settings.bEnablePakIniEncryption = Settings.bEnablePakIndexEncryption;
+    
+			    string EncryptionKeyString;
+			    Ini.GetString("Core.Encryption", "aes.key", out EncryptionKeyString);
+			    Settings.EncryptionKey = new EncryptionKey();
+			    Settings.EncryptionKey.Key = ParseAnsiStringToByteArray(EncryptionKeyString);
+			}
+
 			Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Crypto, InProjectDirectory, InTargetPlatform);
 			string SectionName = "/Script/CryptoKeys.CryptoKeysSettings";
 			ConfigHierarchySection CryptoSection = Ini.FindSection(SectionName);
 
-			// If we have new format crypto keys, use them
+			// If we have new format crypto keys, read them in over the top of the legacy settings
 			if (CryptoSection != null && CryptoSection.KeyNames.Count() > 0)
 			{
 				Ini.GetBool(SectionName, "bEnablePakSigning", out Settings.bEnablePakSigning);
 				Ini.GetBool(SectionName, "bEncryptPakIniFiles", out Settings.bEnablePakIniEncryption);
 				Ini.GetBool(SectionName, "bEncryptPakIndex", out Settings.bEnablePakIndexEncryption);
-				Ini.GetBool(SectionName, "bEncryptUAssets", out Settings.bEnablePakUAssetEncryption);
-				Ini.GetBool(SectionName, "bEncryptFullAsset", out Settings.bEnablePakFullAssetEncryption);
+				Ini.GetBool(SectionName, "bEncryptUAssetFiles", out Settings.bEnablePakUAssetEncryption);
+				Ini.GetBool(SectionName, "bEncryptAllAssetFiles", out Settings.bEnablePakFullAssetEncryption);
 
 				// Parse encryption key
 				string EncryptionKeyString;
@@ -170,40 +204,6 @@ namespace UnrealBuildTool
 					Settings.SigningKey.PrivateKey.Exponent = System.Convert.FromBase64String(PrivateExponent);
 					Settings.SigningKey.PrivateKey.Modulus = Settings.SigningKey.PublicKey.Modulus;
 				}
-			}
-			else
-			{
-				// We don't have new format crypto keys in a crypto.ini file, so try and find the old format settings
-				Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Encryption, InProjectDirectory, InTargetPlatform);
-				Ini.GetBool("Core.Encryption", "SignPak", out Settings.bEnablePakSigning);
-
-				string[] SigningKeyStrings = new string[3];
-				Ini.GetString("Core.Encryption", "rsa.privateexp", out SigningKeyStrings[0]);
-				Ini.GetString("Core.Encryption", "rsa.modulus", out SigningKeyStrings[1]);
-				Ini.GetString("Core.Encryption", "rsa.publicexp", out SigningKeyStrings[2]);
-
-				if (String.IsNullOrEmpty(SigningKeyStrings[0]) || String.IsNullOrEmpty(SigningKeyStrings[1]) || String.IsNullOrEmpty(SigningKeyStrings[2]))
-				{
-					SigningKeyStrings = null;
-				}
-				else
-				{
-					Settings.SigningKey = new SigningKeyPair();
-					Settings.SigningKey.PrivateKey.Exponent = ParseHexStringToByteArray(SigningKeyStrings[0]);
-					Settings.SigningKey.PrivateKey.Modulus = ParseHexStringToByteArray(SigningKeyStrings[1]);
-					Settings.SigningKey.PublicKey.Exponent = ParseHexStringToByteArray(SigningKeyStrings[2]);
-					Settings.SigningKey.PublicKey.Modulus = Settings.SigningKey.PrivateKey.Modulus;
-				}
-
-				Ini.GetBool("Core.Encryption", "EncryptPak", out Settings.bEnablePakIndexEncryption);
-				Settings.bEnablePakFullAssetEncryption = false;
-				Settings.bEnablePakUAssetEncryption = false;
-				Settings.bEnablePakIniEncryption = Settings.bEnablePakIndexEncryption;
-
-				string EncryptionKeyString;
-				Ini.GetString("Core.Encryption", "aes.key", out EncryptionKeyString);
-				Settings.EncryptionKey = new EncryptionKey();
-				Settings.EncryptionKey.Key = ParseAnsiStringToByteArray(EncryptionKeyString);
 			}
 
 			return Settings;

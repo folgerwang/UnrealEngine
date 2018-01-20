@@ -14,7 +14,7 @@
 #include "UObject/ReleaseObjectVersion.h"
 #include "KismetCompilerMisc.h"
 #include "KismetCompiler.h"
-#include "BlueprintsObjectVersion.h" // for ComponentTemplateClassSupport
+#include "UObject/BlueprintsObjectVersion.h" // for ComponentTemplateClassSupport
 
 #define LOCTEXT_NAMESPACE "K2Node_AddComponent"
 

@@ -28,7 +28,7 @@
 #include "CustomDepthRendering.h"
 #include "HeightfieldLighting.h"
 #include "GlobalDistanceFieldParameters.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 class FScene;
 class FSceneViewState;

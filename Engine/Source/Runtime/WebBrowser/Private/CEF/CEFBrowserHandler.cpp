@@ -12,8 +12,8 @@
 #include "CEFBrowserPopupFeatures.h"
 #include "CEFWebBrowserWindow.h"
 #include "CEFBrowserByteResource.h"
-#include "SlateApplication.h"
-#include "ThreadingBase.h"
+#include "Framework/Application/SlateApplication.h"
+#include "HAL/ThreadingBase.h"
 
 
 #define LOCTEXT_NAMESPACE "WebBrowserHandler"

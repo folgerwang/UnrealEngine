@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "IDetailCustomization.h"
-#include "SlateEnums.h"
+#include "Types/SlateEnums.h"
 
 class FPhysicsAssetEditor;
 class IDetailLayoutBuilder;

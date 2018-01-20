@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraDataInterfaceVectorField.h"
-#include "Internationalization.h"
+#include "Internationalization/Internationalization.h"
 #include "VectorField/VectorFieldStatic.h"
 #include "VectorField/VectorFieldAnimated.h"
 #include "Math/Float16Color.h"

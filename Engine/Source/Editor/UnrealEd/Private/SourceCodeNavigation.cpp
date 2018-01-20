@@ -28,18 +28,18 @@
 #include "HttpModule.h"
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <DbgHelp.h>				
 	#include <TlHelp32.h>		
 	#include <psapi.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #elif PLATFORM_MAC
 #include <mach-o/dyld.h>
 #include <mach-o/nlist.h>
 #include <mach-o/stab.h>
 #include <cxxabi.h>
-#include "ApplePlatformSymbolication.h"
+#include "Apple/ApplePlatformSymbolication.h"
 #endif
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"

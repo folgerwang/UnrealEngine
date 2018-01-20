@@ -5,10 +5,10 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
-#include "UObjectGlobals.h"
-#include "Package.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/Package.h"
 #include "UObject/SoftObjectPtr.h"
-#include "SubclassOf.h"
+#include "Templates/SubclassOf.h"
 #include "PersonaPreviewSceneController.h"
 #include "PersonaPreviewSceneDescription.generated.h"
 

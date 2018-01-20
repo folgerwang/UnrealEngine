@@ -9,7 +9,7 @@
 #include "Misc/Paths.h"
 #include "Misc/ConfigCacheIni.h"
 #include "CrashDebugHelperPrivate.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 /*-----------------------------------------------------------------------------
 	PDB Cache implementation

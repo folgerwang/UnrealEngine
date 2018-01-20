@@ -9,7 +9,7 @@
 #include "Misc/ConfigCacheIni.h"
 #include "Modules/ModuleManager.h"
 #include "EditorStyleSet.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "EditorReimportHandler.h"
 #include "FileHelpers.h"
 #include "Toolkits/SStandaloneAssetEditorToolkitHost.h"

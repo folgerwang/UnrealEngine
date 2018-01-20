@@ -4,7 +4,7 @@
 
 #include "CoreTypes.h"
 #include "Containers/Array.h"
-#include "Delegate.h"
+#include "Delegates/Delegate.h"
 #include "Templates/SharedPointer.h"
 
 class IUdpMessageTunnelConnection;

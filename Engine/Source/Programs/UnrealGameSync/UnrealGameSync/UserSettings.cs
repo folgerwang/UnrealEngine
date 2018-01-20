@@ -68,6 +68,8 @@ namespace UnrealGameSync
 		public bool bShowLogWindow;
 		public bool bAutoResolveConflicts;
 		public bool bUseIncrementalBuilds;
+		public bool bShowUnreviewedChanges;
+		public bool bShowAutomatedChanges;
 		public bool bShowLocalTimes;
 		public bool bShowAllStreams;
 		public bool bKeepInTray;
@@ -118,6 +120,8 @@ namespace UnrealGameSync
 			bShowLogWindow = (ConfigFile.GetValue("General.ShowLogWindow", false));
 			bAutoResolveConflicts = (ConfigFile.GetValue("General.AutoResolveConflicts", "1") != "0");
 			bUseIncrementalBuilds = ConfigFile.GetValue("General.IncrementalBuilds", true);
+			bShowUnreviewedChanges = ConfigFile.GetValue("General.ShowUnreviewed", true);
+			bShowAutomatedChanges = ConfigFile.GetValue("General.ShowAutomated", false);
 			bShowLocalTimes = ConfigFile.GetValue("General.ShowLocalTimes", false);
 			bShowAllStreams = ConfigFile.GetValue("General.ShowAllStreams", false);
 			bKeepInTray = ConfigFile.GetValue("General.KeepInTray", true);
@@ -342,6 +346,8 @@ namespace UnrealGameSync
 			GeneralSection.SetValue("ShowLogWindow", bShowLogWindow);
 			GeneralSection.SetValue("AutoResolveConflicts", bAutoResolveConflicts);
 			GeneralSection.SetValue("IncrementalBuilds", bUseIncrementalBuilds);
+			GeneralSection.SetValue("ShowUnreviewed", bShowUnreviewedChanges);
+			GeneralSection.SetValue("ShowAutomated", bShowAutomatedChanges);
 			GeneralSection.SetValue("ShowLocalTimes", bShowLocalTimes);
 			GeneralSection.SetValue("ShowAllStreams", bShowAllStreams);
 			GeneralSection.SetValue("LastProjectFileName", LastProjectFileName);

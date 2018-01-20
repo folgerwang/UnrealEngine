@@ -43,7 +43,7 @@
 #include "Particles/ParticleLODLevel.h"
 #include "Particles/ParticleModuleRequired.h"
 #include "VectorField/VectorField.h"
-#include "CoreDelegates.h"
+#include "Misc/CoreDelegates.h"
 #include "PipelineStateCache.h"
 
 DECLARE_CYCLE_STAT(TEXT("GPUSpriteEmitterInstance Init GT"), STAT_GPUSpriteEmitterInstance_Init, STATGROUP_Particles);

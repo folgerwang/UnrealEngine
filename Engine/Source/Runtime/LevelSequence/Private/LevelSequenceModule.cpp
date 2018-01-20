@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LevelSequenceModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "LevelSequenceActorSpawner.h"
 
 void FLevelSequenceModule::StartupModule()

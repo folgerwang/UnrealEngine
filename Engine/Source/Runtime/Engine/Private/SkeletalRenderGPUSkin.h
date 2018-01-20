@@ -16,8 +16,8 @@
 #include "GPUSkinVertexFactory.h"
 #include "SkeletalRenderPublic.h"
 #include "ClothingSystemRuntimeTypes.h"
-#include "SkeletalMeshRenderData.h"
-#include "SkeletalMeshLODRenderData.h"
+#include "Rendering/SkeletalMeshRenderData.h"
+#include "Rendering/SkeletalMeshLODRenderData.h"
 
 class FGPUSkinCache;
 

@@ -5,7 +5,7 @@
 #include "HeadMountedDisplay.h"
 #include "IHeadMountedDisplay.h"
 #include "SceneViewExtension.h"
-#include "SceneViewport.h"
+#include "Slate/SceneViewport.h"
 #include "SceneView.h"
 #include "GoogleARCoreDevice.h"
 #include "ARSystem.h"

@@ -1,10 +1,10 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "ControlRigObjectSpawner.h"
+#include "Sequencer/ControlRigObjectSpawner.h"
 #include "ControlRig.h"
 #include "MovieSceneSpawnable.h"
 #include "IMovieScenePlayer.h"
-#include "Package.h"
+#include "UObject/Package.h"
 
 TSharedRef<IMovieSceneObjectSpawner> FControlRigObjectSpawner::CreateObjectSpawner()
 {

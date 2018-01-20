@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
-#include "Array.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleInterface.h"
+#include "Containers/Array.h"
+#include "Modules/ModuleManager.h"
 /**
  * Interface for messaging modules.
  */

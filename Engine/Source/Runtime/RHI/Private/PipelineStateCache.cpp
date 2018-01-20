@@ -7,10 +7,10 @@ PipelineStateCache.cpp: Pipeline state cache implementation.
 #include "PipelineStateCache.h"
 #include "Misc/ScopeRWLock.h"
 #include "Misc/ScopeLock.h"
-#include "CoreDelegates.h"
+#include "Misc/CoreDelegates.h"
 #include "CoreGlobals.h"
-#include "TimeGuard.h"
-#include "DiscardableKeyValueCache.h"
+#include "Misc/TimeGuard.h"
+#include "Containers/DiscardableKeyValueCache.h"
 
 // perform cache eviction each frame, used to stress the system and flush out bugs
 #define PSO_DO_CACHE_EVICT_EACH_FRAME 0

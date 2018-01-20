@@ -15,7 +15,7 @@
 #include "Materials/MaterialFunction.h"
 #include "Materials/MaterialLayersFunctions.h"
 #include "Materials/MaterialSharedInputCollection.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 #include "Material.generated.h"
 

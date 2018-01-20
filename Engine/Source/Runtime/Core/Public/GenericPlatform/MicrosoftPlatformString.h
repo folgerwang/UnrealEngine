@@ -4,7 +4,7 @@
 
 #include "Misc/Char.h"
 #include "GenericPlatform/GenericPlatformString.h"
-#include "GenericPlatformStricmp.h"
+#include "GenericPlatform/GenericPlatformStricmp.h"
 
 /**
 * Microsoft specific implementation 

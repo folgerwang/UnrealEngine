@@ -8,9 +8,9 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Animation/AnimSingleNodeInstance.h"
 #include "Runtime/AnimGraphRuntime/Public/AnimSequencerInstance.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 #include "IMovieScenePlayer.h"
-#include "ObjectKey.h"
+#include "UObject/ObjectKey.h"
 
 bool ShouldUsePreviewPlayback(IMovieScenePlayer& Player, UObject& RuntimeObject)
 {

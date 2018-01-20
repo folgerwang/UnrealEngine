@@ -7,7 +7,7 @@
 #include "IDetailPropertyRow.h"
 #include "IDetailChildrenBuilder.h"
 #include "DetailWidgetRow.h"
-#include "STextBlock.h"
+#include "Widgets/Text/STextBlock.h"
 #include "PropertyRestriction.h"
 
 #include "Engine/Texture2D.h"

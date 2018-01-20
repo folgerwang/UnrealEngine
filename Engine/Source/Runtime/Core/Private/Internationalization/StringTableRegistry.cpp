@@ -1,9 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "StringTableRegistry.h"
-#include "StringTableCore.h"
+#include "Internationalization/StringTableRegistry.h"
+#include "Internationalization/StringTableCore.h"
 #include "Misc/ScopeLock.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 #if WITH_EDITOR
 #include "IDirectoryWatcher.h"

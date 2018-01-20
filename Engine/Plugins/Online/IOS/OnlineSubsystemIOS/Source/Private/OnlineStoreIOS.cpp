@@ -2,9 +2,9 @@
 
 #include "OnlineSubsystemIOSPrivatePCH.h"
 #include "OnlineStoreIOS.h"
-#include "Internationalization.h"
+#include "Internationalization/Internationalization.h"
 #include "Internationalization/Culture.h"
-#include "FastDecimalFormat.h"
+#include "Internationalization/FastDecimalFormat.h"
 #import "OnlineStoreKitHelper.h"
 
 FOnlineStoreIOS::FOnlineStoreIOS(FOnlineSubsystemIOS* InSubsystem)

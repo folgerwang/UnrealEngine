@@ -43,13 +43,13 @@
 #include "Misc/CoreDelegates.h"
 #include "Modules/ModuleManager.h"
 #include "Runtime/Launch/Resources/Version.h"
-#include "BuildVersion.h"
-#include "ModuleManifest.h"
+#include "Modules/BuildVersion.h"
+#include "Modules/ModuleManifest.h"
 #include "UObject/DevObjectVersion.h"
 #include "HAL/ThreadHeartBeat.h"
 
 #include "Misc/NetworkVersion.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 #if WITH_COREUOBJECT
 	#include "Internationalization/PackageLocalizationManager.h"
@@ -77,9 +77,9 @@
 	#include "PIEPreviewDeviceProfileSelectorModule.h"
 
 	#if PLATFORM_WINDOWS
-		#include "AllowWindowsPlatformTypes.h"
+		#include "Windows/AllowWindowsPlatformTypes.h"
 			#include <objbase.h>
-		#include "HideWindowsPlatformTypes.h"
+		#include "Windows/HideWindowsPlatformTypes.h"
 	#endif
 #endif //WITH_EDITOR
 
@@ -107,7 +107,7 @@
 	#include "Materials/MaterialInterface.h"
 	#include "TextureResource.h"
 	#include "Engine/Texture2D.h"
-	#include "StringTable.h"
+	#include "Internationalization/StringTable.h"
 	#include "SceneUtils.h"
 	#include "ParticleHelper.h"
 	#include "PhysicsPublic.h"
@@ -175,9 +175,9 @@ class FFeedbackContext;
 #define LOCTEXT_NAMESPACE "LaunchEngineLoop"
 
 #if PLATFORM_WINDOWS
-	#include "AllowWindowsPlatformTypes.h"
+	#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <ObjBase.h>
-	#include "HideWindowsPlatformTypes.h"
+	#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 #if WITH_ENGINE
@@ -3794,12 +3794,24 @@ bool FEngineLoop::AppInit( )
 				if (IncompatibleFiles.Num() > 0)
 				{
 					// Log the modules which need to be rebuilt
-					FString ModulesList = TEXT("The following modules are missing or built with a different engine version:\n\n");
 					for (int Idx = 0; Idx < IncompatibleFiles.Num(); Idx++)
 					{
 						UE_LOG(LogInit, Warning, TEXT("Incompatible or missing module: %s"), *IncompatibleFiles[Idx]);
-						ModulesList += IncompatibleFiles[Idx] + TEXT("\n");
 					}
+
+					// Build the error message for the dialog box
+					FString ModulesList = TEXT("The following modules are missing or built with a different engine version:\n\n");
+
+					int NumModulesToDisplay = (IncompatibleFiles.Num() <= 20)? IncompatibleFiles.Num() : 15;
+					for (int Idx = 0; Idx < NumModulesToDisplay; Idx++)
+					{
+						ModulesList += FString::Printf(TEXT("  %s\n"), *IncompatibleFiles[Idx]);
+					}
+					if(IncompatibleFiles.Num() > NumModulesToDisplay)
+					{
+						ModulesList += FString::Printf(TEXT("  (+%d others, see log for details)\n"), IncompatibleFiles.Num() - NumModulesToDisplay);
+					}
+
 					ModulesList += TEXT("\nWould you like to rebuild them now?");
 
 					// If we're running with -stdout, assume that we're a non interactive process and about to fail

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "NiagaraStackEntry.h"
+#include "ViewModels/Stack/NiagaraStackEntry.h"
 #include "NiagaraTypes.h"
 #include "EdGraph/EdGraphSchema.h"
 #include "NiagaraCommon.h"

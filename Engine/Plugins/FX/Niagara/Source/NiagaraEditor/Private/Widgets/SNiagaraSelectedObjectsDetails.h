@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "SCompoundWidget.h"
-#include "Delegate.h"
-#include "DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Delegates/Delegate.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
 #include "PropertyEditorDelegates.h"
 
 class FNiagaraObjectSelection;

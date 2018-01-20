@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "CocoaMenu.h"
-#include "MacApplication.h"
+#include "Mac/CocoaMenu.h"
+#include "Mac/MacApplication.h"
 
 @implementation FCocoaMenu
 

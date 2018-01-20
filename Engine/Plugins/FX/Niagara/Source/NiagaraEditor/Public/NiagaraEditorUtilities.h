@@ -4,8 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "NiagaraCommon.h"
-#include "StructOnScope.h"
-#include "Attribute.h"
+#include "UObject/StructOnScope.h"
+#include "Misc/Attribute.h"
 
 class UNiagaraNodeInput;
 struct FNiagaraVariable;

@@ -3,8 +3,8 @@
 #pragma once
 
 #include "CoreTypes.h"
-#include "ArchiveProxy.h"
-#include "StructuredArchive.h"
+#include "Serialization/ArchiveProxy.h"
+#include "Serialization/StructuredArchive.h"
 #include "Misc/Optional.h"
 #include "UObject/NameTypes.h"
 #include "Containers/Map.h"

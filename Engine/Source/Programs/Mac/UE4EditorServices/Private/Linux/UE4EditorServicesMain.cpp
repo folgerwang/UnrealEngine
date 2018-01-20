@@ -2,7 +2,7 @@
 
 #include "Core.h"
 #include "RequiredProgramMainCPPInclude.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 IMPLEMENT_APPLICATION(UE4EditorServices, "UE4EditorServices");
 

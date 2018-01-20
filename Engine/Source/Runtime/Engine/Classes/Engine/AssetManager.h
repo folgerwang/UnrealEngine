@@ -4,7 +4,7 @@
 
 #include "AssetData.h"
 #include "AssetManagerTypes.h"
-#include "AssetRegistryInterface.h"
+#include "Misc/AssetRegistryInterface.h"
 #include "StreamableManager.h"
 #include "AssetBundleData.h"
 #include "AssetRegistryModule.h"

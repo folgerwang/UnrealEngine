@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "IOSAdvertising.h"
-#include "IOSAppDelegate.h"
+#include "IOS/IOSAppDelegate.h"
 #include "Modules/ModuleManager.h"
 #include "IOS/IOSAsyncTask.h"
 #include "IOS/IOSAppDelegate.h"

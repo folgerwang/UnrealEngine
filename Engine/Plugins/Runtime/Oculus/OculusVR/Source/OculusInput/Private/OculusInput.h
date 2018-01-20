@@ -4,7 +4,7 @@
 #include "IOculusInputModule.h"
 
 #if OCULUS_INPUT_SUPPORTED_PLATFORMS
-#include "IInputInterface.h"
+#include "GenericPlatform/IInputInterface.h"
 #include "XRMotionControllerBase.h"
 #include "IHapticDevice.h"
 #include "OculusInputState.h"

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "TextureAtlas.h"
+#include "Textures/TextureAtlas.h"
 #include "Rendering/ShaderResourceManager.h"
 #include "SlateD3DTextures.h"
 

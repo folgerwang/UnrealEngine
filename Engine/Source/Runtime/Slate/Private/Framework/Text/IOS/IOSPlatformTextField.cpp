@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Framework/Text/IOS/IOSPlatformTextField.h"
-#include "IOSAppDelegate.h"
-#include "IOSView.h"
+#include "IOS/IOSAppDelegate.h"
+#include "IOS/IOSView.h"
 #include "Widgets/Input/IVirtualKeyboardEntry.h"
 #include "IOS/IOSAsyncTask.h"
 

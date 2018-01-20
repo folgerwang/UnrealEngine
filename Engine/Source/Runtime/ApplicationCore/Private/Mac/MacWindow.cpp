@@ -1,11 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MacWindow.h"
-#include "MacApplication.h"
-#include "MacCursor.h"
-#include "CocoaTextView.h"
-#include "CocoaThread.h"
-#include "MacPlatformApplicationMisc.h"
+#include "Mac/MacWindow.h"
+#include "Mac/MacApplication.h"
+#include "Mac/MacCursor.h"
+#include "Mac/CocoaTextView.h"
+#include "Mac/CocoaThread.h"
+#include "Mac/MacPlatformApplicationMisc.h"
 #include "HAL/PlatformProcess.h"
 
 FMacWindow::FMacWindow()

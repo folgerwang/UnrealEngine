@@ -18,7 +18,7 @@
 #include "Modules/ModuleManager.h"
 #include "ProjectManager.h"
 #include "PluginManifest.h"
-#include "PlatformTime.h"
+#include "HAL/PlatformTime.h"
 
 DEFINE_LOG_CATEGORY_STATIC( LogPluginManager, Log, All );
 
@@ -1013,6 +1013,7 @@ bool FPluginManager::AreRequiredPluginsAvailable()
 	return ConfigureEnabledPlugins();
 }
 
+#if !IS_MONOLITHIC
 bool FPluginManager::CheckModuleCompatibility(TArray<FString>& OutIncompatibleModules)
 {
 	if(!ConfigureEnabledPlugins())
@@ -1031,6 +1032,7 @@ bool FPluginManager::CheckModuleCompatibility(TArray<FString>& OutIncompatibleMo
 	}
 	return bResult;
 }
+#endif
 
 IPluginManager& IPluginManager::Get()
 {

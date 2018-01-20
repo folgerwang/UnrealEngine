@@ -4,7 +4,7 @@
 #include "Widgets/Input/SButton.h"
 #include "PropertyHandleImpl.h"
 #include "DetailPropertyRow.h"
-#include "SImage.h"
+#include "Widgets/Images/SImage.h"
 
 #define LOCTEXT_NAMESPACE "FDetailGroup"
 

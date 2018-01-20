@@ -22,9 +22,9 @@
 #include "ISkeletonTreeBuilder.h"
 #include "ISkeletonTreeItem.h"
 #include "SkeletonTreeBuilder.h"
-#include "SSearchBox.h"
+#include "Widgets/Input/SSearchBox.h"
 #include "EditorUndoClient.h"
-#include "GCObject.h"
+#include "UObject/GCObject.h"
 
 class FMenuBuilder;
 class FSkeletonTreeAttachedAssetItem;

@@ -7,8 +7,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ObjectMacros.h"
-#include "SubclassOf.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
 #include "EditorLevelUtils.generated.h"
 
 class AActor;

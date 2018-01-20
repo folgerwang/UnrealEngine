@@ -2,7 +2,7 @@
 #pragma once
 
 #include "CoreTypes.h"
-#include "SharedPointer.h"
+#include "Templates/SharedPointer.h"
 
 /** Loading policy to use with String Table assets */
 enum class EStringTableLoadingPolicy : uint8

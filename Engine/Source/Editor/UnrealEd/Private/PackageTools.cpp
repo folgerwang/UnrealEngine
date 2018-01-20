@@ -2,7 +2,7 @@
 
 
 #include "PackageTools.h"
-#include "PackageReload.h"
+#include "UObject/PackageReload.h"
 #include "Misc/MessageDialog.h"
 #include "Misc/Paths.h"
 #include "Misc/Guid.h"
@@ -26,7 +26,7 @@
 #include "Toolkits/AssetEditorManager.h"
 
 #include "ObjectTools.h"
-#include "KismetEditorUtilities.h"
+#include "Kismet2/KismetEditorUtilities.h"
 #include "BusyCursor.h"
 
 #include "FileHelpers.h"

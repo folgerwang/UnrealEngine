@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "IOSMallocZone.h"
-#include "IOSPlatformMisc.h"
-#include "IOSPlatformCrashContext.h"
+#include "IOS/IOSMallocZone.h"
+#include "IOS/IOSPlatformMisc.h"
+#include "IOS/IOSPlatformCrashContext.h"
 #include "HAL/PlatformTLS.h"
 #include "HAL/PlatformProcess.h"
 #include <malloc/malloc.h>

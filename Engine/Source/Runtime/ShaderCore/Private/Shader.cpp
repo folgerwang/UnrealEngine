@@ -16,7 +16,7 @@
 #include "ShaderCodeLibrary.h"
 #include "ShaderCore.h"
 #include "Misc/ConfigCacheIni.h"
-#include "RenderingObjectVersion.h"
+#include "UObject/RenderingObjectVersion.h"
 
 
 DEFINE_LOG_CATEGORY(LogShaders);

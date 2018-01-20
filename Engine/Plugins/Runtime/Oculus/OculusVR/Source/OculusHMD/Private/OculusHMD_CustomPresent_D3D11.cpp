@@ -7,7 +7,7 @@
 #include "OculusHMD.h"
 
 #ifndef WINDOWS_PLATFORM_TYPES_GUARD
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #endif
 
 namespace OculusHMD

@@ -14,7 +14,7 @@
 // Debugging
 // End of debugging
 
-#include "LayoutExtender.h"
+#include "Framework/Docking/LayoutExtender.h"
 #include "SBlueprintEditorToolbar.h"
 #include "BlueprintEditorTabs.h"
 #include "BlueprintEditorTabFactories.h"

@@ -3,7 +3,7 @@
 
 #include "CoreMinimal.h"
 #include "NiagaraCommon.h"
-#include "DynamicRHIResourceArray.h"
+#include "Containers/DynamicRHIResourceArray.h"
 #include "RHI.h"
 #include "VectorVM.h"
 #include "RenderingThread.h"

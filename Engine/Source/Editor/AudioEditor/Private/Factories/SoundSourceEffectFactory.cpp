@@ -8,7 +8,7 @@
 #include "SoundFactoryUtility.h"
 #include "Kismet2/SClassPickerDialog.h"
 #include "Modules/ModuleManager.h"
-#include "Classes/Sound/AudioSettings.h"
+#include "Sound/AudioSettings.h"
 
 #define LOCTEXT_NAMESPACE "AudioEditorFactories"
 

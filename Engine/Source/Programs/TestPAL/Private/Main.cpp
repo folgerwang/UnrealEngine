@@ -10,8 +10,8 @@
 
 #include "TestDirectoryWatcher.h"
 #include "RequiredProgramMainCPPInclude.h"
-#include "MallocPoisonProxy.h"
-#include "ThreadSafeCounter64.h"
+#include "HAL/MallocPoisonProxy.h"
+#include "HAL/ThreadSafeCounter64.h"
 
 DEFINE_LOG_CATEGORY(LogTestPAL);
 

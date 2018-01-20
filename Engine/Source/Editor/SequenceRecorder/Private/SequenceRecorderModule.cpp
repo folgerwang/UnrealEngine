@@ -39,10 +39,10 @@
 #include "ActorRecordingDetailsCustomization.h"
 #include "SequenceRecorderDetailsCustomization.h"
 #include "PropertiesToRecordForClassDetailsCustomization.h"
-#include "WorkflowTabFactory.h"
+#include "WorkflowOrientedApp/WorkflowTabFactory.h"
 #include "IStructureDetailsView.h"
-#include "WorkflowTabManager.h"
-#include "LayoutExtender.h"
+#include "WorkflowOrientedApp/WorkflowTabManager.h"
+#include "Framework/Docking/LayoutExtender.h"
 
 #define LOCTEXT_NAMESPACE "SequenceRecorder"
 

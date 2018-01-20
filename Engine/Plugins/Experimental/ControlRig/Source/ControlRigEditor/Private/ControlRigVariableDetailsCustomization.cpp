@@ -7,8 +7,8 @@
 #include "BlueprintEditorModule.h"
 #include "DetailCategoryBuilder.h"
 #include "DetailWidgetRow.h"
-#include "STextBlock.h"
-#include "SCheckBox.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SCheckBox.h"
 #include "Engine/BlueprintGeneratedClass.h"
 
 #define LOCTEXT_NAMESPACE "ControlRigVariableDetailsCustomization"

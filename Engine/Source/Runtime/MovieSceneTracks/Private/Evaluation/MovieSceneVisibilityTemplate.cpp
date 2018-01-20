@@ -5,7 +5,7 @@
 #include "Tracks/MovieScenePropertyTrack.h"
 #include "GameFramework/Actor.h"
 #include "Engine/World.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 #include "Components/SceneComponent.h"
 
 

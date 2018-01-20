@@ -35,7 +35,7 @@
 #include "Engine/TimelineTemplate.h"
 #include "Curves/CurveBase.h"
 #include "Interfaces/ITargetPlatform.h"
-#include "MetaData.h"
+#include "UObject/MetaData.h"
 #endif
 #include "Engine/InheritableComponentHandler.h"
 

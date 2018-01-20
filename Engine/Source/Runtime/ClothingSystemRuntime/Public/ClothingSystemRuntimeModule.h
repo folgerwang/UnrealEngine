@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "Modules/ModuleInterface.h"
 #include "ClothingSimulationFactoryInterface.h"
 
 namespace nv

@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "NiagaraStackScriptItemGroup.h"
-#include "NiagaraStackItem.h"
+#include "ViewModels/Stack/NiagaraStackScriptItemGroup.h"
+#include "ViewModels/Stack/NiagaraStackItem.h"
 #include "NiagaraStackEmitterSpawnScriptItemGroup.generated.h"
 
 class FNiagaraEmitterViewModel;

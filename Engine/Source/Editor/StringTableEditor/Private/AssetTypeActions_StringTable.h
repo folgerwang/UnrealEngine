@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "Toolkits/IToolkitHost.h"
 #include "AssetTypeActions_Base.h"
-#include "StringTable.h"
+#include "Internationalization/StringTable.h"
 
 class FMenuBuilder;
 

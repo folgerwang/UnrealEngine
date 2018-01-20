@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "K2Node_GetSequenceBindings.h"
-#include "BlueprintEditorUtils.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "KismetCompiler.h"
 #include "BlueprintNodeSpawner.h"
 #include "EditorCategoryUtils.h"
@@ -10,7 +10,7 @@
 #include "PropertyCustomizationHelpers.h"
 #include "MovieScene.h"
 #include "MovieSceneSequence.h"
-#include "MultiBox/MultiBoxBuilder.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 
 #define LOCTEXT_NAMESPACE "UDEPRECATED_K2Node_GetSequenceBindings"
 

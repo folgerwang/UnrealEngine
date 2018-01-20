@@ -2,9 +2,9 @@
 
 #include "Installer/InstallerError.h"
 #include "Misc/ScopeLock.h"
-#include "IBuildInstaller.h"
+#include "Interfaces/IBuildInstaller.h"
 #include "BuildPatchServicesPrivate.h"
-#include "ThreadSafeCounter.h"
+#include "HAL/ThreadSafeCounter.h"
 
 namespace BuildPatchServices
 {

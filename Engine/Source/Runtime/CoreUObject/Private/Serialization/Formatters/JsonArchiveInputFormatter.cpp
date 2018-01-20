@@ -1,9 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "JsonArchiveInputFormatter.h"
-#include "JsonReader.h"
-#include "JsonObject.h"
-#include "JsonSerializer.h"
+#include "Serialization/Formatters/JsonArchiveInputFormatter.h"
+#include "Serialization/JsonReader.h"
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonSerializer.h"
 #include "Misc/Base64.h"
 #include "Misc/SecureHash.h"
 

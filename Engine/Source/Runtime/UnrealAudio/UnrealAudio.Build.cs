@@ -54,6 +54,6 @@ public class UnrealAudio : ModuleRules
 // 			PublicAdditionalLibraries.Add(LibSndFilePath);
 // 		}
 
-		PrecompileForTargets = PrecompileTargetsType.None;
+		PrecompileForTargets = PrecompileTargetsType.Editor;
 	}
 }

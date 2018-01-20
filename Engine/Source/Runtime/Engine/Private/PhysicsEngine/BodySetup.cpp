@@ -29,16 +29,16 @@
 	#include "PhysicsEngine/PhysXSupport.h"
 #endif // WITH_PHYSX
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #if WITH_PHYSX
-	#include "IPhysXCookingModule.h"
-	#include "IPhysXCooking.h"
+	#include "Physics/IPhysXCookingModule.h"
+	#include "Physics/IPhysXCooking.h"
 #endif
 
 #include "PhysicsEngine/PhysDerivedData.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "ProfilingDebugging/CookStats.h"
-#include "AnimPhysObjectVersion.h"
+#include "UObject/AnimPhysObjectVersion.h"
 
 /** Helper for enum output... */
 #ifndef CASE_ENUM_TO_TEXT

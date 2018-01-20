@@ -56,7 +56,7 @@ namespace UnrealBuildTool
 		public void SetAndroidPluginData(List<string> Architectures, List<string> inPluginExtraData)
 		{
 			List<string> NDKArches = new List<string>();
-			foreach (var Arch in Architectures)
+			foreach (string Arch in Architectures)
 			{
 				NDKArches.Add(GetNDKArch(Arch));
 			}
@@ -67,7 +67,7 @@ namespace UnrealBuildTool
 			GoogleVRPluginEnabled = false;
 			GearVRPluginEnabled = false;
 			CrashlyticsPluginEnabled = false;
-			foreach (var Plugin in inPluginExtraData)
+			foreach (string Plugin in inPluginExtraData)
 			{
 				// check if the Facebook plugin was enabled
 				if (Plugin.Contains("OnlineSubsystemFacebook_UPL"))
@@ -230,7 +230,7 @@ namespace UnrealBuildTool
 				int SDKLevelInt = GetApiLevelInt(SDKLevel);
 				if (SDKLevelInt < MinimumSDKLevel)
 				{
-					Console.WriteLine("Requires at least SDK API level {0}, currently set to '{1}'", MinimumSDKLevel, SDKLevel);
+					Log.TraceInformation("Requires at least SDK API level {0}, currently set to '{1}'", MinimumSDKLevel, SDKLevel);
 					SDKLevel = GetLatestSDKApiLevel(ToolChain, PlatformsDir);
 
 					SDKLevelInt = GetApiLevelInt(SDKLevel);
@@ -246,7 +246,7 @@ namespace UnrealBuildTool
 					throw new BuildException("The SDK API requested '{0}' not installed in {1}", SDKLevel, PlatformsDir);
 				}
 
-				Console.WriteLine("Building Java with SDK API level '{0}'", SDKLevel);
+				Log.TraceInformation("Building Java with SDK API level '{0}'", SDKLevel);
 				CachedSDKLevel = SDKLevel;
 			}
 
@@ -341,7 +341,7 @@ namespace UnrealBuildTool
 			CachedBuildToolsVersion = BestVersionString;
 			LastAndroidHomePath = HomePath;
 
-			Console.WriteLine("Building with Build Tools version '{0}'", CachedBuildToolsVersion);
+			Log.TraceInformation("Building with Build Tools version '{0}'", CachedBuildToolsVersion);
 
 			return CachedBuildToolsVersion;
 		}
@@ -490,7 +490,7 @@ namespace UnrealBuildTool
 
 		private static string GetAntPath()
 		{
-			// look up an ANT_HOME env var
+			// look up an ANT_HOME environment variable
 			string AntHome = Environment.GetEnvironmentVariable("ANT_HOME");
 			if (!string.IsNullOrEmpty(AntHome) && Directory.Exists(AntHome))
 			{
@@ -563,7 +563,7 @@ namespace UnrealBuildTool
 					string Contents = File.ReadAllText(Filename);
 
 					// replace some variables
-					foreach (var Pair in Replacements)
+					foreach (KeyValuePair<string, string> Pair in Replacements)
 					{
 						Contents = Contents.Replace(Pair.Key, Pair.Value);
 					}
@@ -700,7 +700,7 @@ namespace UnrealBuildTool
 		{
 			if (CachedStoreVersion < 1)
 			{
-				var Ini = GetConfigCacheIni(ConfigHierarchyType.Engine);
+				ConfigHierarchy Ini = GetConfigCacheIni(ConfigHierarchyType.Engine);
 				int StoreVersion = 1;
 				Ini.GetInt32("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "StoreVersion", out StoreVersion);
 
@@ -763,8 +763,8 @@ namespace UnrealBuildTool
 				MakeDirectoryIfRequired(FileName);
 				using (StreamWriter outputFile = new StreamWriter(FileName, false))
 				{
-					var obbSrc = obbData.ToString().Split('\n');
-					foreach (var line in obbSrc)
+					string[] obbSrc = obbData.ToString().Split('\n');
+					foreach (string line in obbSrc)
 					{
 						outputFile.WriteLine(line);
 					}
@@ -825,8 +825,8 @@ namespace UnrealBuildTool
 				MakeDirectoryIfRequired(ShimFileName);
 				using (StreamWriter outputFile = new StreamWriter(ShimFileName, false))
 				{
-					var shimSrc = ShimFileContent.ToString().Split('\n');
-					foreach (var line in shimSrc)
+					string[] shimSrc = ShimFileContent.ToString().Split('\n');
+					foreach (string line in shimSrc)
 					{
 						outputFile.WriteLine(line);
 					}
@@ -838,7 +838,7 @@ namespace UnrealBuildTool
 			}
 
 			// Now we move on to the template files
-			foreach (var template in TemplateFiles)
+			foreach (TemplateFile template in TemplateFiles)
 			{
 				string[] templateSrc = File.ReadAllLines(template.SourceFile);
 				string[] templateDest = File.Exists(template.DestinationFile) ? File.ReadAllLines(template.DestinationFile) : null;
@@ -847,7 +847,7 @@ namespace UnrealBuildTool
 				{
 					string srcLine = templateSrc[i];
 					bool changed = false;
-					foreach (var kvp in replacements)
+					foreach (KeyValuePair<string, string> kvp in replacements)
 					{
 						if (srcLine.Contains(kvp.Key))
 						{
@@ -868,7 +868,7 @@ namespace UnrealBuildTool
 					MakeDirectoryIfRequired(template.DestinationFile);
 					using (StreamWriter outputFile = new StreamWriter(template.DestinationFile, false))
 					{
-						foreach (var line in templateSrc)
+						foreach (string line in templateSrc)
 						{
 							outputFile.WriteLine(line);
 						}
@@ -1034,7 +1034,7 @@ namespace UnrealBuildTool
 							}
 							string MaliLibDstPath = Path.Combine(UE4BuildPath, "libs", NDKArch, "libMGD.so");
 
-							Console.WriteLine("Copying {0} to {1}", MaliLibSrcPath, MaliLibDstPath);
+							Log.TraceInformation("Copying {0} to {1}", MaliLibSrcPath, MaliLibDstPath);
 							File.Copy(MaliLibSrcPath, MaliLibDstPath, true); 
 						}
 					}
@@ -1049,7 +1049,7 @@ namespace UnrealBuildTool
 							string RenderDocLibSrcPath = Path.Combine(RenderDocPath, @"android\lib", NDKArch, "libVkLayer_GLES_RenderDoc.so");
 							string RenderDocLibDstPath = Path.Combine(UE4BuildPath, "libs", NDKArch, "libVkLayer_GLES_RenderDoc.so");
 
-							Console.WriteLine("Copying {0} to {1}", RenderDocLibSrcPath, RenderDocLibDstPath);
+							Log.TraceInformation("Copying {0} to {1}", RenderDocLibSrcPath, RenderDocLibDstPath);
 							File.Copy(RenderDocLibSrcPath, RenderDocLibDstPath, true);
 						}
 					}
@@ -1082,7 +1082,7 @@ namespace UnrealBuildTool
 				string VulkanLayersDir = Environment.ExpandEnvironmentVariables("%NDKROOT%/sources/third_party/vulkan/src/build-android/jniLibs/") + NDKArch;
 				if (Directory.Exists(VulkanLayersDir))
 				{
-					Console.WriteLine("Copying vulkan layers from {0}", VulkanLayersDir);
+					Log.TraceInformation("Copying vulkan layers from {0}", VulkanLayersDir);
 					string DestDir = Path.Combine(UE4BuildPath, "libs", NDKArch);
 					Directory.CreateDirectory(DestDir);
 					CopyFileDirectory(VulkanLayersDir, DestDir);
@@ -1352,13 +1352,13 @@ namespace UnrealBuildTool
 				}
 			}
 
-			var Arches = ToolChain.GetAllArchitectures();
+			List<string> Arches = ToolChain.GetAllArchitectures();
 			foreach (string Arch in Arches)
 			{
 				CurrentSettings.AppendFormat("Arch={0}{1}", Arch, Environment.NewLine);
 			}
 
-			var GPUArchitectures = ToolChain.GetAllGPUArchitectures();
+			List<string> GPUArchitectures = ToolChain.GetAllGPUArchitectures();
 			foreach (string GPUArch in GPUArchitectures)
 			{
 				CurrentSettings.AppendFormat("GPUArch={0}{1}", GPUArch, Environment.NewLine);
@@ -1370,8 +1370,8 @@ namespace UnrealBuildTool
 		private bool CheckDependencies(AndroidToolChain ToolChain, string ProjectName, string ProjectDirectory, string UE4BuildFilesPath, string GameBuildFilesPath, string EngineDirectory, List<string> SettingsFiles,
 			string CookFlavor, string OutputPath, string UE4BuildPath, bool bMakeSeparateApks, bool bPackageDataInsideApk)
 		{
-			var Arches = ToolChain.GetAllArchitectures();
-			var GPUArchitectures = ToolChain.GetAllGPUArchitectures();
+			List<string> Arches = ToolChain.GetAllArchitectures();
+			List<string> GPUArchitectures = ToolChain.GetAllGPUArchitectures();
 
 			// check all input files (.so, java files, .ini files, etc)
 			bool bAllInputsCurrent = true;
@@ -1408,8 +1408,8 @@ namespace UnrealBuildTool
 						string PAKFileLocation = ProjectDirectory + "/Saved/StagedBuilds/Android" + CookFlavor + "/" + ProjectName + "/Content/Paks";
 						if (Directory.Exists(PAKFileLocation))
 						{
-							var PakFiles = Directory.EnumerateFiles(PAKFileLocation, "*.pak", SearchOption.TopDirectoryOnly);
-							foreach (var Name in PakFiles)
+							IEnumerable<string> PakFiles = Directory.EnumerateFiles(PAKFileLocation, "*.pak", SearchOption.TopDirectoryOnly);
+							foreach (string Name in PakFiles)
 							{
 								InputFiles.Add(Name);
 							}
@@ -1418,7 +1418,7 @@ namespace UnrealBuildTool
 
 					// look for any newer input file
 					DateTime ApkTime = File.GetLastWriteTimeUtc(DestApkName);
-					foreach (var InputFileName in InputFiles)
+					foreach (string InputFileName in InputFiles)
 					{
 						if (File.Exists(InputFileName))
 						{
@@ -1781,7 +1781,7 @@ namespace UnrealBuildTool
 					}
 				}
 
-				Console.WriteLine("Using package name: '{0}'", PackageName);
+				Log.TraceInformation("Using package name: '{0}'", PackageName);
 				CachedPackageName = PackageName;
 			}
 
@@ -2726,7 +2726,7 @@ namespace UnrealBuildTool
 
 			// Template generated files           
 			string JavaTemplateSourceDir = GetUE4TemplateJavaSourceDir(EngineDirectory);
-			var templates = from template in Directory.EnumerateFiles(JavaTemplateSourceDir, "*.template")
+			IEnumerable<TemplateFile> templates = from template in Directory.EnumerateFiles(JavaTemplateSourceDir, "*.template")
 							let RealName = Path.GetFileNameWithoutExtension(template)
 							select new TemplateFile { SourceFile = template, DestinationFile = GetUE4TemplateJavaDestination(TemplateDestinationBase, RealName) };
 
@@ -2758,19 +2758,19 @@ namespace UnrealBuildTool
 			{
 				string CleanUpBaseDir = Path.Combine(ProjectDirectory, "Build", "Android", "src");
 				string ImmediateBaseDir = Path.Combine(UE4BuildPath, "src");
-				var files = Directory.EnumerateFiles(CleanUpBaseDir, "*.java", SearchOption.AllDirectories);
+				IEnumerable<string> files = Directory.EnumerateFiles(CleanUpBaseDir, "*.java", SearchOption.AllDirectories);
 
 				Log.TraceInformation("Cleaning up files based on template dir {0}", TemplateDestinationBase);
 
 				// Make a set of files that are okay to clean up
-				var cleanFiles = new HashSet<string>();
+				HashSet<string> cleanFiles = new HashSet<string>();
 				cleanFiles.Add("OBBData.java");
-				foreach (var template in templates)
+				foreach (TemplateFile template in templates)
 				{
 					cleanFiles.Add(Path.GetFileName(template.DestinationFile));
 				}
 
-				foreach (var filename in files)
+				foreach (string filename in files)
 				{
 					if (filename == UE4DownloadShimFileName)  // we always need the shim, and it'll get rewritten if needed anyway
 						continue;
@@ -2802,8 +2802,8 @@ namespace UnrealBuildTool
 				// Directory clean up code (Build/Android/src)
 				try
 				{
-					var BaseDirectories = Directory.EnumerateDirectories(CleanUpBaseDir, "*", SearchOption.AllDirectories).OrderByDescending(x => x);
-					foreach (var directory in BaseDirectories)
+					IEnumerable<string> BaseDirectories = Directory.EnumerateDirectories(CleanUpBaseDir, "*", SearchOption.AllDirectories).OrderByDescending(x => x);
+					foreach (string directory in BaseDirectories)
 					{
 						if (Directory.Exists(directory) && Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories).Count() == 0)
 						{
@@ -2820,8 +2820,8 @@ namespace UnrealBuildTool
 				// Directory clean up code (Intermediate/APK/src)
 				try
 				{
-					var ImmediateDirectories = Directory.EnumerateDirectories(ImmediateBaseDir, "*", SearchOption.AllDirectories).OrderByDescending(x => x);
-					foreach (var directory in ImmediateDirectories)
+					IEnumerable<string> ImmediateDirectories = Directory.EnumerateDirectories(ImmediateBaseDir, "*", SearchOption.AllDirectories).OrderByDescending(x => x);
+					foreach (string directory in ImmediateDirectories)
 					{
 						if (Directory.Exists(directory) && Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories).Count() == 0)
 						{
@@ -2881,7 +2881,7 @@ namespace UnrealBuildTool
 			if (bBuildSettingsMatch)
 			{
 				// check if so's are up to date against various inputs
-				var JavaFiles = new List<string>{
+				List<string> JavaFiles = new List<string>{
                                                     UE4OBBDataFileName,
                                                     UE4DownloadShimFileName
                                                 };
@@ -2894,8 +2894,8 @@ namespace UnrealBuildTool
 
 			}
 
-			var Arches = ToolChain.GetAllArchitectures();
-			var GPUArchitectures = ToolChain.GetAllGPUArchitectures();
+			List<string> Arches = ToolChain.GetAllArchitectures();
+			List<string> GPUArchitectures = ToolChain.GetAllGPUArchitectures();
 
 			// figure out the configuration from output filename
 			string Configuration = "Development";
@@ -2919,7 +2919,7 @@ namespace UnrealBuildTool
 
 			// Initialize UPL contexts for each architecture enabled
 			List<string> NDKArches = new List<string>();
-			foreach (var Arch in Arches)
+			foreach (string Arch in Arches)
 			{
 				string NDKArch = GetNDKArch(Arch);
 				if (!NDKArches.Contains(NDKArch))
@@ -2976,19 +2976,19 @@ namespace UnrealBuildTool
 			Log.TraceInformation("bPackageDataInsideApk = {0}", bPackageDataInsideApk);
 			if (bPackageDataInsideApk)
 			{
-				Console.WriteLine("Obb location {0}", ObbFileLocation);
+				Log.TraceInformation("Obb location {0}", ObbFileLocation);
 				string ObbFileDestination = UE4BuildPath + "/assets";
-				Console.WriteLine("Obb destination location {0}", ObbFileDestination);
+				Log.TraceInformation("Obb destination location {0}", ObbFileDestination);
 				if (File.Exists(ObbFileLocation))
 				{
 					Directory.CreateDirectory(UE4BuildPath);
 					Directory.CreateDirectory(ObbFileDestination);
-					Console.WriteLine("Obb file exists...");
-					var DestFileName = Path.Combine(ObbFileDestination, "main.obb.png"); // Need a rename to turn off compression
-					var SrcFileName = ObbFileLocation;
+					Log.TraceInformation("Obb file exists...");
+					string DestFileName = Path.Combine(ObbFileDestination, "main.obb.png"); // Need a rename to turn off compression
+					string SrcFileName = ObbFileLocation;
 					if (!File.Exists(DestFileName) || File.GetLastWriteTimeUtc(DestFileName) < File.GetLastWriteTimeUtc(SrcFileName))
 					{
-						Console.WriteLine("Copying {0} to {1}", SrcFileName, DestFileName);
+						Log.TraceInformation("Copying {0} to {1}", SrcFileName, DestFileName);
 						File.Copy(SrcFileName, DestFileName);
 					}
 				}
@@ -2996,7 +2996,7 @@ namespace UnrealBuildTool
 			else // try to remove the file it we aren't packaging inside the APK
 			{
 				string ObbFileDestination = UE4BuildPath + "/assets";
-				var DestFileName = Path.Combine(ObbFileDestination, "main.obb.png");
+				string DestFileName = Path.Combine(ObbFileDestination, "main.obb.png");
 				if (File.Exists(DestFileName))
 				{
 					File.Delete(DestFileName);
@@ -3009,7 +3009,7 @@ namespace UnrealBuildTool
 				//Need to clear out JavaLibs if last run was with Ant
 				if (File.Exists(AARExtractListFilename))
 				{
-					Console.WriteLine("Cleanup up JavaLibs from previous Ant packaging");
+					Log.TraceInformation("Cleanup up JavaLibs from previous Ant packaging");
 					DeleteDirectory(Path.Combine(UE4BuildPath, "JavaLibs"));
 				}
 			}
@@ -3080,7 +3080,7 @@ namespace UnrealBuildTool
 			string AntVerbosity;
 			Ini.GetString("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "AntVerbosity", out AntVerbosity);
 
-			foreach (var build in BuildList)
+			foreach (Tuple<string, string, string> build in BuildList)
 			{
 				string Arch = build.Item1;
 				string GPUArchitecture = build.Item2;
@@ -3509,8 +3509,8 @@ namespace UnrealBuildTool
 			}
 
 			// collect plugin extra data paths from target receipt
-			var Results = Receipt.AdditionalProperties.Where(x => x.Name == "AndroidPlugin");
-			foreach (var Property in Results)
+			IEnumerable<ReceiptProperty> Results = Receipt.AdditionalProperties.Where(x => x.Name == "AndroidPlugin");
+			foreach (ReceiptProperty Property in Results)
 			{
 				// Keep only unique paths
 				string PluginPath = Property.Value;
@@ -3547,9 +3547,9 @@ namespace UnrealBuildTool
 			// if we made any non-standard .apk files, the generated debugger settings may be wrong
 			if (ShouldMakeSeparateApks() && (InTarget.OutputPaths.Count > 1 || !InTarget.OutputPaths[0].FullName.Contains("-armv7-es2")))
 			{
-				Console.WriteLine("================================================================================================================================");
-				Console.WriteLine("Non-default apk(s) have been made: If you are debugging, you will need to manually select one to run in the debugger properties!");
-				Console.WriteLine("================================================================================================================================");
+				Log.TraceInformation("================================================================================================================================");
+				Log.TraceInformation("Non-default apk(s) have been made: If you are debugging, you will need to manually select one to run in the debugger properties!");
+				Log.TraceInformation("================================================================================================================================");
 			}
 			return true;
 		}
@@ -3606,7 +3606,7 @@ namespace UnrealBuildTool
 			{
 				string SrcLine = TemplateSrc[LineIndex];
 				bool Changed = false;
-				foreach (var KVP in Replacements)
+				foreach (KeyValuePair<string, string> KVP in Replacements)
 				{
 					if (SrcLine.Contains(KVP.Key))
 					{
@@ -3688,7 +3688,7 @@ namespace UnrealBuildTool
 			{
 				string SrcLine = TemplateSrc[LineIndex];
 				bool Changed = false;
-				foreach (var KVP in Replacements)
+				foreach (KeyValuePair<string, string> KVP in Replacements)
 				{
 					if(SrcLine.Contains(KVP.Key))
 					{

@@ -10,7 +10,7 @@
 #include "WidgetBlueprintEditor.h"
 #include "Misc/TextFilter.h"
 #include "Widgets/Views/STreeView.h"
-#include "TreeFilterHandler.h"
+#include "Framework/Views/TreeFilterHandler.h"
 
 class FWidgetTemplate;
 class UWidgetBlueprint;

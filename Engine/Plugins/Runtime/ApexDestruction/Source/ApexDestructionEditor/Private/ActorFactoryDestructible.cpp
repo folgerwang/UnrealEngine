@@ -13,7 +13,7 @@
 #include "Editor.h"
 #include "ApexDestructibleAssetImport.h"
 #include "ApexClothingUtils.h"
-#include "MessageDialog.h"
+#include "Misc/MessageDialog.h"
 #include "ReimportDestructibleMeshFactory.h"
 #include "EditorFramework/AssetImportData.h"
 

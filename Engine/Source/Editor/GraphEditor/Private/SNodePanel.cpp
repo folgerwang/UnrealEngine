@@ -5,7 +5,7 @@
 #include "Rendering/DrawElements.h"
 #include "Fonts/FontMeasure.h"
 #include "Framework/Application/SlateApplication.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "Settings/LevelEditorViewportSettings.h"
 #include "ScopedTransaction.h"
 #include "GraphEditorSettings.h"

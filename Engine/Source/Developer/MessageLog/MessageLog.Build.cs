@@ -36,5 +36,10 @@ public class MessageLog : ModuleRules
 				}
 			);		
 		}
+
+		if (Target.bCompileAgainstEngine && Target.Configuration != UnrealTargetConfiguration.Shipping)
+		{
+			PrecompileForTargets = PrecompileTargetsType.Any;
+		}
 	}
 }

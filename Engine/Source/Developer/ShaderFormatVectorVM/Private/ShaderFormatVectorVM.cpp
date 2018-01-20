@@ -3,10 +3,10 @@
 
 #include "ShaderFormatVectorVM.h"
 #include "CoreMinimal.h"
-#include "ModuleInterface.h"
-#include "ModuleManager.h"
-#include "IShaderFormat.h"
-#include "IShaderFormatModule.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/IShaderFormat.h"
+#include "Interfaces/IShaderFormatModule.h"
 #include "hlslcc.h"
 #include "ShaderCore.h"
 

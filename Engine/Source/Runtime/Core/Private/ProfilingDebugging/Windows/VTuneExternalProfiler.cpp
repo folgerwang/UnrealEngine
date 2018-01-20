@@ -6,7 +6,7 @@
 #include "ProfilingDebugging/ExternalProfiler.h"
 #include "Templates/ScopedPointer.h"
 #include "Features/IModularFeatures.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "Containers/Map.h"
 #include "HAL/ThreadSingleton.h"
 

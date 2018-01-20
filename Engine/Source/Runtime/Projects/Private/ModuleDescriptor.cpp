@@ -491,6 +491,7 @@ void FModuleDescriptor::LoadModulesForPhase(ELoadingPhase::Type LoadingPhase, co
 	}
 }
 
+#if !IS_MONOLITHIC
 bool FModuleDescriptor::CheckModuleCompatibility(const TArray<FModuleDescriptor>& Modules, bool bGameModules, TArray<FString>& OutIncompatibleFiles)
 {
 	FModuleManager& ModuleManager = FModuleManager::Get();
@@ -506,5 +507,6 @@ bool FModuleDescriptor::CheckModuleCompatibility(const TArray<FModuleDescriptor>
 	}
 	return bResult;
 }
+#endif
 
 #undef LOCTEXT_NAMESPACE

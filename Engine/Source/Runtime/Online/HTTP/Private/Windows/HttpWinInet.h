@@ -5,10 +5,10 @@
 #include "Interfaces/IHttpResponse.h"
 #include "HttpModule.h"
 #include "HAL/ThreadSafeCounter.h"
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <wininet.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 /**
  * Class that encapsulates the logic for using WinInet to parse a URL string.
@@ -74,17 +74,17 @@ public:
 
 	// IHttpBase
 
-	virtual FString GetURL() override;
-	virtual FString GetURLParameter(const FString& ParameterName) override;
-	virtual FString GetHeader(const FString& HeaderName) override;
-	virtual TArray<FString> GetAllHeaders() override;	
-	virtual FString GetContentType() override;
-	virtual int32 GetContentLength() override;
-	virtual const TArray<uint8>& GetContent() override;
+	virtual FString GetURL() const override;
+	virtual FString GetURLParameter(const FString& ParameterName) const override;
+	virtual FString GetHeader(const FString& HeaderName) const override;
+	virtual TArray<FString> GetAllHeaders() const override;	
+	virtual FString GetContentType() const override;
+	virtual int32 GetContentLength() const override;
+	virtual const TArray<uint8>& GetContent() const override;
 
 	// IHttpRequest
 
-	virtual FString GetVerb() override;
+	virtual FString GetVerb() const override;
 	virtual void SetVerb(const FString& Verb) override;
 	virtual void SetURL(const FString& URL) override;
 	virtual void SetContent(const TArray<uint8>& ContentPayload) override;
@@ -95,10 +95,10 @@ public:
 	virtual FHttpRequestCompleteDelegate& OnProcessRequestComplete() override;
 	virtual FHttpRequestProgressDelegate& OnRequestProgress() override;
 	virtual void CancelRequest() override;
-	virtual EHttpRequestStatus::Type GetStatus() override;
+	virtual EHttpRequestStatus::Type GetStatus() const override;
 	virtual const FHttpResponsePtr GetResponse() const override;
 	virtual void Tick(float DeltaSeconds) override;
-	virtual float GetElapsedTime() override;
+	virtual float GetElapsedTime() const override;
 
 	// FHttpRequestWinInet
 
@@ -193,18 +193,18 @@ public:
 
 	// IHttpBase
 
-	virtual FString GetURL() override;
-	virtual FString GetURLParameter(const FString& ParameterName) override;
-	virtual FString GetHeader(const FString& HeaderName) override;
-	virtual TArray<FString> GetAllHeaders() override;	
-	virtual FString GetContentType() override;
-	virtual int32 GetContentLength() override;
-	virtual const TArray<uint8>& GetContent() override;
+	virtual FString GetURL() const override;
+	virtual FString GetURLParameter(const FString& ParameterName) const override;
+	virtual FString GetHeader(const FString& HeaderName) const override;
+	virtual TArray<FString> GetAllHeaders() const override;	
+	virtual FString GetContentType() const override;
+	virtual int32 GetContentLength() const override;
+	virtual const TArray<uint8>& GetContent() const override;
 
 	// IHttpResponse
 
-	virtual int32 GetResponseCode() override;
-	virtual FString GetContentAsString() override;
+	virtual int32 GetResponseCode() const override;
+	virtual FString GetContentAsString() const override;
 
 	// FHttpResponseWinInet
 

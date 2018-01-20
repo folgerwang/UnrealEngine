@@ -23,7 +23,7 @@
 #include "GameFramework/WorldSettings.h"
 #include "ComponentRecreateRenderStateContext.h"
 #include "SceneManagement.h"
-#include "Containers/Algo/Transform.h"
+#include "Algo/Transform.h"
 #include "UObject/MobileObjectVersion.h"
 
 const int32 InstancedStaticMeshMaxTexCoord = 8;

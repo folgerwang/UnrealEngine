@@ -5,7 +5,7 @@
 
 
 #include "OnlineSubsystemIOSTypes.h"
-#include "OnlineIdentityInterface.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 #include "OnlineSubsystemIOSPackage.h"
 
 

@@ -7,7 +7,7 @@
 #include "Math/UnrealMathUtility.h"
 #include "UnrealEngine.h"
 #include "Engine/GameViewportClient.h"
-#include "ARsystem.h"
+#include "ARSystem.h"
 
 // ARKit
 #if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000

@@ -4,7 +4,7 @@
 #include "Templates/ScopedPointer.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/SecureHash.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "BuildPatchManifest.h"
 #include "BuildPatchServicesModule.h"
 #include "BuildPatchHash.h"

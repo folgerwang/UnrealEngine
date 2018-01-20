@@ -19,9 +19,9 @@
 #include "ClassViewerFilter.h"
 #include "Engine/Selection.h"
 #include "Animation/AnimBlueprintGeneratedClass.h"
-#include "SImage.h"
+#include "Widgets/Images/SImage.h"
 #include "PhysicsEngine/PhysicsSettings.h"
-#include "SkeletalMeshCustomizationHelpers.h"
+#include "Customizations/SkeletalMeshCustomizationHelpers.h"
 
 #define LOCTEXT_NAMESPACE "SkeletalMeshComponentDetails"
 

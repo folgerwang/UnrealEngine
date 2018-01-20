@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "SortedMap.h"
+#include "Containers/SortedMap.h"
 
 /** Type of tag map that can be used during construction */
 typedef TSortedMap<FName, FString, FDefaultAllocator, FNameSortIndexes> FAssetDataTagMap;

@@ -1,9 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "PropertyHelpers.h"
-#include "UnrealType.h"
+#include "UObject/UnrealType.h"
 #include "CoreMinimal.h"
-#include "Class.h"
+#include "UObject/Class.h"
 
 namespace PropertyHelpers
 {

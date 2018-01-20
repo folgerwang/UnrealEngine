@@ -14,7 +14,7 @@
 #define LOCTEXT_NAMESPACE "SteamVRController"
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 #endif
 
 #if STEAMVRCONTROLLER_SUPPORTED_PLATFORMS

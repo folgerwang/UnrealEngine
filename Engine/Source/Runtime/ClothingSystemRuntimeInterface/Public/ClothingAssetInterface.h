@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "Object.h"
-#include "Guid.h"
+#include "UObject/Object.h"
+#include "Misc/Guid.h"
 #include "ClothingAssetInterface.generated.h"
 
 class USkeletalMesh;

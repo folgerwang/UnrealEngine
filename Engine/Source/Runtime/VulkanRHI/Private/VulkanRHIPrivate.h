@@ -14,7 +14,7 @@
 #include "VulkanConfiguration.h"
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 #endif
 
 #ifndef VK_PROTOTYPES
@@ -41,7 +41,7 @@
 #endif
 
 #if PLATFORM_WINDOWS
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #endif
 
 #if VULKAN_DYNAMICALLYLOADED
@@ -51,7 +51,7 @@
 #endif
 
 #if PLATFORM_WINDOWS
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 #if VULKAN_COMMANDWRAPPERS_ENABLE
@@ -78,7 +78,7 @@
 #include "VulkanDevice.h"
 #include "VulkanQueue.h"
 #include "VulkanCommandBuffer.h"
-#include "Stats2.h"
+#include "Stats/Stats2.h"
 
 using namespace VulkanRHI;
 

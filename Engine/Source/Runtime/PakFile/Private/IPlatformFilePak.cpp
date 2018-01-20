@@ -93,7 +93,7 @@ void DecryptData(uint8* InData, uint32 InDataSize)
 }
 
 #if USE_PAK_PRECACHE
-#include "TaskGraphInterfaces.h"
+#include "Async/TaskGraphInterfaces.h"
 #define PAK_CACHE_GRANULARITY (64*1024)
 static_assert((PAK_CACHE_GRANULARITY % FPakInfo::MaxChunkDataSize) == 0, "PAK_CACHE_GRANULARITY must be set to a multiple of FPakInfo::MaxChunkDataSize");
 #define PAK_CACHE_MAX_REQUESTS (8)

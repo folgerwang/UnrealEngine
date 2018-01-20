@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "AssetData.h"
 #include "Misc/AssetRegistryInterface.h"
-#include "Interface.h"
+#include "UObject/Interface.h"
 #include "ARFilter.h"
 #include "IAssetRegistry.generated.h"
 

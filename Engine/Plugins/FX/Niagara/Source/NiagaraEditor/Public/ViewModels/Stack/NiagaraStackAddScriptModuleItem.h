@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "NiagaraStackAddModuleItem.h"
+#include "ViewModels/Stack/NiagaraStackAddModuleItem.h"
 #include "EdGraph/EdGraphSchema.h"
 #include "NiagaraStackAddScriptModuleItem.generated.h"
 

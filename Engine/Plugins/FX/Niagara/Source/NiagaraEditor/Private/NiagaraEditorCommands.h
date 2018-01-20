@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Commands.h"
+#include "Framework/Commands/Commands.h"
 #include "EditorStyleSet.h"
 /**
 * Defines commands for the niagara editor.

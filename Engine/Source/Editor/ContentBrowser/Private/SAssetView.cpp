@@ -45,7 +45,7 @@
 #include "EmptyFolderVisibilityManager.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
-#include "SSplitter.h"
+#include "Widgets/Layout/SSplitter.h"
 #include "HAL/PlatformApplicationMisc.h"
 #include "DesktopPlatformModule.h"
 #include "Misc/FileHelper.h"

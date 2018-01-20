@@ -3,9 +3,9 @@
 #include "NiagaraBoolTypeEditorUtilities.h"
 #include "NiagaraTypes.h"
 #include "SNiagaraParameterEditor.h"
-#include "DeclarativeSyntaxSupport.h"
-#include "SBoxPanel.h"
-#include "SCheckBox.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Input/SCheckBox.h"
 
 class SNiagaraBoolParameterEditor : public SNiagaraParameterEditor
 {

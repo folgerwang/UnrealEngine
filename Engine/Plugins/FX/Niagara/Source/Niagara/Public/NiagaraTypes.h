@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/UnrealType.h"
 #include "Engine/UserDefinedStruct.h"
-#include "SharedPointer.h"
+#include "Templates/SharedPointer.h"
 #include "NiagaraTypes.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogNiagara, Log, Verbose);

@@ -20,7 +20,7 @@
 #include "ARFilter.h"
 #include "AssetRegistryModule.h"
 #include "PackageHelperFunctions.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "CollectionManagerModule.h"
 #include "ICollectionManager.h"
 

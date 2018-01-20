@@ -2,7 +2,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "AbilityTask.h"
+#include "Abilities/Tasks/AbilityTask.h"
 #include "AbilityTask_ApplyRootMotion_Base.generated.h"
 
 class UCharacterMovementComponent;

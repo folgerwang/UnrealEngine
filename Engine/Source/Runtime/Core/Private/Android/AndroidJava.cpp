@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidJava.h"
-#include "AndroidJavaEnv.h"
+#include "Android/AndroidJava.h"
+#include "Android/AndroidJavaEnv.h"
 
 FJavaClassObject::FJavaClassObject(FName ClassName, const char* CtorSig, ...)
 {

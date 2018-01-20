@@ -3,7 +3,7 @@
 #pragma once
 
 #include <GameKit/GameKit.h>
-#include "OnlineTurnBasedInterface.h"
+#include "Interfaces/OnlineTurnBasedInterface.h"
 
 @interface FTurnBasedEventListenerIOS : NSObject < GKLocalPlayerListener >
 

@@ -34,10 +34,10 @@ namespace UnrealBuildTool
 		public bool bPrintDebugInfo = false;
 
 		/// <summary>
-		/// Allows logging to a file
+		/// Specifies the file to use for logging
 		/// </summary>
 		[XmlConfigFile]
-		public string LogFilename;
+		public string LogFileName = "../Programs/UnrealBuildTool/Log.txt";
 
 		/// <summary>
 		/// Prints performance diagnostics about include dependencies and other bits
@@ -74,12 +74,6 @@ namespace UnrealBuildTool
 		/// </summary>
 		[XmlConfigFile]
 		public bool bShouldDeleteAllOutdatedProducedItems = false;
-
-		/// <summary>
-		/// What level of logging we wish to show
-		/// </summary>
-		[XmlConfigFile]
-		public string LogLevel = "Log";
 
 		/// <summary>
 		/// Whether we should export a JSON file containing detailed target information.

@@ -2,8 +2,8 @@
 
 #include "LoginFlowManager.h"
 #include "LoginFlowPrivate.h"
-#include "OnlineIdentityInterface.h"
-#include "OnlineExternalUIInterface.h"
+#include "Interfaces/OnlineIdentityInterface.h"
+#include "Interfaces/OnlineExternalUIInterface.h"
 #include "OnlineError.h"
 
 #include "IWebBrowserSingleton.h"

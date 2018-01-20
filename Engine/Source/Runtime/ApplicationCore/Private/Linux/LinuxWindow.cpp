@@ -9,7 +9,7 @@
 #include "Misc/App.h"
 #include "Linux/LinuxApplication.h"
 #include "Linux/LinuxPlatformApplicationMisc.h"
-#include "Internationalization.h" // LOCTEXT
+#include "Internationalization/Internationalization.h" // LOCTEXT
 
 #define LOCTEXT_NAMESPACE "LinuxWindow"
 

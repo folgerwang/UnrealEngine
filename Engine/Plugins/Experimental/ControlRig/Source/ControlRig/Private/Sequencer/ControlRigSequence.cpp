@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "ControlRigSequence.h"
+#include "Sequencer/ControlRigSequence.h"
 #include "UObject/Package.h"
 #include "MovieScene.h"
 #include "ControlRig.h"

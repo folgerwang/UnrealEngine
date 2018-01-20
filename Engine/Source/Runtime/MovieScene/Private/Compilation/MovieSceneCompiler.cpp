@@ -1,10 +1,10 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneCompiler.h"
+#include "Compilation/MovieSceneCompiler.h"
 
 #include "IMovieSceneModule.h"
-#include "MovieSceneEvaluationTemplate.h"
-#include "MovieSceneEvaluationTemplateInstance.h"
+#include "Evaluation/MovieSceneEvaluationTemplate.h"
+#include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
 #include "Compilation/MovieSceneEvaluationTemplateGenerator.h"
 
 #include "MovieScene.h"

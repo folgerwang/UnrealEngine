@@ -51,7 +51,7 @@
 #include "DlgDeltaTransform.h"
 #include "Editor/NewLevelDialog/Public/NewLevelDialogModule.h"
 #include "MRUFavoritesList.h"
-#include "Private/SSocketChooser.h"
+#include "Editor/SceneOutliner/Private/SSocketChooser.h"
 #include "SnappingUtils.h"
 #include "LevelEditorViewport.h"
 #include "Layers/ILayers.h"

@@ -15,7 +15,7 @@
 #include "HAL/PlatformTime.h"
 #include "Templates/ScopedPointer.h"
 #include "Misc/ScopeLock.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 class IAsyncReadFileHandle;
 

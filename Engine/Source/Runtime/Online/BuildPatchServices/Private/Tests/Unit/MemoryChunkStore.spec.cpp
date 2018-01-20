@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AutomationTest.h"
+#include "Misc/AutomationTest.h"
 #include "Installer/MemoryChunkStore.h"
 #include "Tests/TestHelpers.h"
 #include "Tests/Mock/ChunkEvictionPolicy.mock.h"

@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidMisc.h"
-#include "AndroidJavaEnv.h"
+#include "Android/AndroidMisc.h"
+#include "Android/AndroidJavaEnv.h"
 #include "HAL/PlatformStackWalk.h"
 #include "Misc/FileHelper.h"
 #include "Misc/App.h"
@@ -11,24 +11,24 @@
 #include "HAL/IConsoleManager.h"
 #include <android/log.h>
 #include <cpu-features.h>
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include <android/keycodes.h>
 #include <string.h>
 #include <dlfcn.h>
 #include <sys/statfs.h>
 
-#include "AndroidPlatformCrashContext.h"
-#include "PlatformMallocCrash.h"
-#include "AndroidJavaMessageBox.h"
-#include "GenericPlatformChunkInstall.h"
+#include "Android/AndroidPlatformCrashContext.h"
+#include "HAL/PlatformMallocCrash.h"
+#include "Android/AndroidJavaMessageBox.h"
+#include "GenericPlatform/GenericPlatformChunkInstall.h"
 
 #include "Misc/Parse.h"
 #include "Internationalization/Regex.h"
 
 #include <android_native_app_glue.h>
-#include "Function.h"
-#include "AndroidStats.h"
-#include "CoreDelegates.h"
+#include "Templates/Function.h"
+#include "Android/AndroidStats.h"
+#include "Misc/CoreDelegates.h"
 
 #if STATS
 int32 FAndroidMisc::TraceMarkerFileDescriptor = -1;

@@ -44,9 +44,7 @@ struct CORE_API FMsg
 	template <typename FmtType, typename... Types>
 	static void Logf(const ANSICHAR* File, int32 Line, const FName& Category, ELogVerbosity::Type Verbosity, const FmtType& Fmt, Types... Args)
 	{
-#if USE_FORMAT_STRING_TYPE_CHECKING
 		static_assert(TIsArrayOrRefOfType<FmtType, TCHAR>::Value, "Formatting string must be a TCHAR array.");
-#endif
 		static_assert(TAnd<TIsValidVariadicFunctionArg<Types>...>::Value, "Invalid argument(s) passed to FMsg::Logf");
 
 		LogfImpl(File, Line, Category, Verbosity, Fmt, Args...);
@@ -56,9 +54,7 @@ struct CORE_API FMsg
 	template <typename FmtType, typename... Types>
 	static void Logf_Internal(const ANSICHAR* File, int32 Line, const FName& Category, ELogVerbosity::Type Verbosity, const FmtType& Fmt, Types... Args)
 	{
-#if USE_FORMAT_STRING_TYPE_CHECKING
 		static_assert(TIsArrayOrRefOfType<FmtType, TCHAR>::Value, "Formatting string must be a TCHAR array.");
-#endif
 		static_assert(TAnd<TIsValidVariadicFunctionArg<Types>...>::Value, "Invalid argument(s) passed to FMsg::Logf_Internal");
 
 		Logf_InternalImpl(File, Line, Category, Verbosity, Fmt, Args...);

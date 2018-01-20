@@ -1,9 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidDebugOutputDevice.h"
-#include "OutputDeviceHelper.h"
+#include "Android/AndroidDebugOutputDevice.h"
+#include "Misc/OutputDeviceHelper.h"
 #include "CoreGlobals.h"
-#include "UnrealString.h"
+#include "Containers/UnrealString.h"
 
 FAndroidDebugOutputDevice::FAndroidDebugOutputDevice()
 {

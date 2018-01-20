@@ -3,7 +3,7 @@
 #include "Sections/MovieSceneCameraShakeSection.h"
 #include "Tracks/MovieSceneCameraShakeTrack.h"
 #include "Evaluation/MovieSceneCameraAnimTemplate.h"
-#include "SequencerObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
 
 
 UMovieSceneCameraShakeSection::UMovieSceneCameraShakeSection(const FObjectInitializer& ObjectInitializer)

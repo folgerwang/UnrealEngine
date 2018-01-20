@@ -16,9 +16,9 @@
 #include "DetailCategoryBuilder.h"
 #include "DetailLayoutBuilder.h"
 #include "IDetailsView.h"
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 #include "ScopedTransaction.h"
-#include "NotifyHook.h"
+#include "Misc/NotifyHook.h"
 
 #define LOCTEXT_NAMESPACE "MovieSceneEventParameters"
 

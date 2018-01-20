@@ -6,7 +6,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "StaticMeshResources.h"
 #include "Components/SkeletalMeshComponent.h"
-#include "Classes/Engine/SkeletalMesh.h"
+#include "Engine/SkeletalMesh.h"
 #include "Rendering/SkeletalMeshRenderData.h"
 
 #include "IMeshPaintGeometryAdapter.h"

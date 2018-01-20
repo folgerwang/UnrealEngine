@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "HTML5HTTP.h"
-#include "EngineVersion.h"
+#include "Misc/EngineVersion.h"
 #include "Http.h"
 #include "HttpManager.h"
 #include "Misc/App.h"
@@ -29,7 +29,7 @@ FHTML5HttpRequest::~FHTML5HttpRequest()
 }
 
 
-FString FHTML5HttpRequest::GetURL()
+FString FHTML5HttpRequest::GetURL() const
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FHTML5HttpRequest::GetURL() - %s"), *URL);
 	return URL;
@@ -43,7 +43,7 @@ void FHTML5HttpRequest::SetURL(const FString& InURL)
 }
 
 
-FString FHTML5HttpRequest::GetURLParameter(const FString& ParameterName)
+FString FHTML5HttpRequest::GetURLParameter(const FString& ParameterName) const
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FHTML5HttpRequest::GetURLParameter() - %s"), *ParameterName);
 
@@ -66,13 +66,13 @@ FString FHTML5HttpRequest::GetURLParameter(const FString& ParameterName)
 }
 
 
-FString FHTML5HttpRequest::GetHeader(const FString& HeaderName)
+FString FHTML5HttpRequest::GetHeader(const FString& HeaderName) const
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FHTML5HttpRequest::GetHeader() - %s"), *HeaderName);
 
 	FString Result;
 
-	FString* Header = Headers.Find(HeaderName);
+	const FString* Header = Headers.Find(HeaderName);
 
 	if (Header != NULL)
 	{
@@ -90,7 +90,7 @@ void FHTML5HttpRequest::SetHeader(const FString& HeaderName, const FString& Head
 }
 
 
-TArray<FString> FHTML5HttpRequest::GetAllHeaders()
+TArray<FString> FHTML5HttpRequest::GetAllHeaders() const
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FHTML5HttpRequest::GetAllHeaders()"));
 
@@ -103,7 +103,7 @@ TArray<FString> FHTML5HttpRequest::GetAllHeaders()
 }
 
 
-const TArray<uint8>& FHTML5HttpRequest::GetContent()
+const TArray<uint8>& FHTML5HttpRequest::GetContent() const
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FHTML5HttpRequest::GetContent()"));
 
@@ -119,13 +119,13 @@ void FHTML5HttpRequest::SetContent(const TArray<uint8>& ContentPayload)
 }
 
 
-FString FHTML5HttpRequest::GetContentType()
+FString FHTML5HttpRequest::GetContentType() const
 {
 	return GetHeader(TEXT( "Content-Type" ));
 }
 
 
-int32 FHTML5HttpRequest::GetContentLength()
+int32 FHTML5HttpRequest::GetContentLength() const
 {
 	int Len = RequestPayload.Num();
 	UE_LOG(LogHttp, Verbose, TEXT("FHTML5HttpRequest::GetContentLength() - %i"), Len);
@@ -160,7 +160,7 @@ void FHTML5HttpRequest::AppendToHeader(const FString& HeaderName, const FString&
 	}
 }
 
-FString FHTML5HttpRequest::GetVerb()
+FString FHTML5HttpRequest::GetVerb() const
 {
 	return Verb;
 }
@@ -541,7 +541,7 @@ void FHTML5HttpRequest::CancelRequest()
 }
 
 
-EHttpRequestStatus::Type FHTML5HttpRequest::GetStatus()
+EHttpRequestStatus::Type FHTML5HttpRequest::GetStatus() const
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FHTML5HttpRequest::GetStatus()"));
 	return CompletionStatus;
@@ -576,7 +576,7 @@ void FHTML5HttpRequest::Tick(float DeltaSeconds)
 	}
 }
 
-float FHTML5HttpRequest::GetElapsedTime()
+float FHTML5HttpRequest::GetElapsedTime() const
 {
 	return ElapsedTime;
 }
@@ -603,14 +603,14 @@ FHTML5HttpResponse::~FHTML5HttpResponse()
 }
 
 
-FString FHTML5HttpResponse::GetURL()
+FString FHTML5HttpResponse::GetURL() const
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FHTML5HttpResponse::GetURL()"));
 	return Request.GetURL();
 }
 
 
-FString FHTML5HttpResponse::GetURLParameter(const FString& ParameterName)
+FString FHTML5HttpResponse::GetURLParameter(const FString& ParameterName) const
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FHTML5HttpResponse::GetURLParameter()"));
 
@@ -618,7 +618,7 @@ FString FHTML5HttpResponse::GetURLParameter(const FString& ParameterName)
 }
 
 
-FString FHTML5HttpResponse::GetHeader(const FString& HeaderName)
+FString FHTML5HttpResponse::GetHeader(const FString& HeaderName) const
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FHTML5HttpResponse::GetHeader()"));
 
@@ -629,21 +629,16 @@ FString FHTML5HttpResponse::GetHeader(const FString& HeaderName)
 		UE_LOG(LogHttp, Warning, TEXT("Can't get cached header [%s]. Response still processing. %p"),
 			*HeaderName, &Request);
 	}
-	else
+	else if (const FString* Header = Headers.Find(HeaderName))
 	{
-		FString* Header = Headers.Find(HeaderName);
-
-		if (Header != NULL)
-		{
-			return *Header;
-		}
+		return *Header;
 	}
 
 	return Result;
 }
 
 
-TArray<FString> FHTML5HttpResponse::GetAllHeaders()
+TArray<FString> FHTML5HttpResponse::GetAllHeaders() const
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FHTML5HttpResponse::GetAllHeaders()"));
 
@@ -665,7 +660,7 @@ TArray<FString> FHTML5HttpResponse::GetAllHeaders()
 }
 
 
-FString FHTML5HttpResponse::GetContentType()
+FString FHTML5HttpResponse::GetContentType() const
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FHTML5HttpResponse::GetContentType()"));
 
@@ -673,7 +668,7 @@ FString FHTML5HttpResponse::GetContentType()
 }
 
 
-int32 FHTML5HttpResponse::GetContentLength()
+int32 FHTML5HttpResponse::GetContentLength() const
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FHTML5HttpResponse::GetContentLength()"));
 
@@ -681,7 +676,7 @@ int32 FHTML5HttpResponse::GetContentLength()
 }
 
 
-const TArray<uint8>& FHTML5HttpResponse::GetContent()
+const TArray<uint8>& FHTML5HttpResponse::GetContent() const
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FHTML5HttpResponse::GetContent()"));
 
@@ -694,7 +689,7 @@ const TArray<uint8>& FHTML5HttpResponse::GetContent()
 }
 
 
-FString FHTML5HttpResponse::GetContentAsString()
+FString FHTML5HttpResponse::GetContentAsString() const
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FHTML5HttpResponse::GetContentAsString()"));
 
@@ -709,14 +704,14 @@ FString FHTML5HttpResponse::GetContentAsString()
 }
 
 
-int32 FHTML5HttpResponse::GetResponseCode()
+int32 FHTML5HttpResponse::GetResponseCode() const
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FHTML5HttpResponse::GetResponseCode()"));
 
 	return HttpCode;
 }
 
-bool FHTML5HttpResponse::IsReady()
+bool FHTML5HttpResponse::IsReady() const
 {
 	if (bIsReady)
 	{

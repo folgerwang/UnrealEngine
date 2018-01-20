@@ -7,7 +7,7 @@
 #include "UObject/ObjectMacros.h"
 #include "EngineDefines.h"
 #include "Components/SkeletalMeshComponent.h"
-#include "DelegateCombinations.h"
+#include "Delegates/DelegateCombinations.h"
 #include "DebugSkelMeshComponent.generated.h"
 
 class Error;

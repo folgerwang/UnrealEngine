@@ -16,7 +16,7 @@
 #include "Evaluation/MovieSceneSequenceHierarchy.h"
 #include "Evaluation/MovieSceneEvaluationTemplate.h"
 #include "Compilation/MovieSceneSegmentCompiler.h"
-#include "MovieSceneEvaluationTree.h"
+#include "Evaluation/MovieSceneEvaluationTree.h"
 
 class IMovieSceneModule;
 class UMovieSceneSequence;

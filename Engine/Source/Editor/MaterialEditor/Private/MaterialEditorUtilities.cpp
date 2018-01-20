@@ -31,7 +31,7 @@
 #include "Materials/MaterialInstance.h"
 #include "MaterialUtilities.h"
 #include "Misc/ScopedSlowTask.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 #define LOCTEXT_NAMESPACE "MaterialEditorUtilities"
 

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "Widget.h"
+#include "Components/Widget.h"
 
 #include "WebBrowser.generated.h"
 

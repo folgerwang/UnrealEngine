@@ -4,7 +4,7 @@
 #include "Windows/D3D/SlateD3DRenderer.h"
 #include "Windows/D3D/SlateD3DTextureManager.h"
 #include "Windows/D3D/SlateD3DTextures.h"
-#include "SlateStats.h"
+#include "Stats/SlateStats.h"
 #include "Layout/Clipping.h"
 
 SLATE_DECLARE_CYCLE_COUNTER(GSlateResizeRenderBuffers, "Resize Render Buffers");

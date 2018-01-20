@@ -8,9 +8,9 @@
 #include "Misc/Paths.h"
 #include "Misc/ScopeLock.h"
 #include "Templates/ScopedPointer.h"
-#include "UniquePtr.h"
-#include "BigInt.h"
-#include "AES.h"
+#include "Templates/UniquePtr.h"
+#include "Math/BigInt.h"
+#include "Misc/AES.h"
 
 class FChunkCacheWorker;
 class IAsyncReadFileHandle;

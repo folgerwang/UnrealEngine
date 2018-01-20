@@ -26,7 +26,7 @@ LandscapeRender.cpp: New terrain rendering
 #include "EngineGlobals.h"
 #include "UnrealEngine.h"
 #include "LandscapeLight.h"
-#include "Containers/Algo/Find.h"
+#include "Algo/Find.h"
 #include "Engine/StaticMesh.h"
 #include "LandscapeInfo.h"
 #include "LandscapeDataAccess.h"

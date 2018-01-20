@@ -31,14 +31,14 @@
 #include "NiagaraEditorUtilities.h"
 #include "NiagaraDataInterface.h"
 #include "NiagaraNodeIf.h"
-#include "MessageDialog.h"
+#include "Misc/MessageDialog.h"
 #include "NiagaraScriptSource.h"
 #include "NiagaraEmitter.h"
 #include "NiagaraNodeEmitter.h"
 #include "NiagaraParameterCollection.h"
 #include "EdGraphNode_Comment.h"
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "AssetRegistryModule.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraSchema"

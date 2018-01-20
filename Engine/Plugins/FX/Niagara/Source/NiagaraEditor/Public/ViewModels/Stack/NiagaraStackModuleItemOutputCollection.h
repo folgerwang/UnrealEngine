@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "NiagaraStackEntry.h"
+#include "ViewModels/Stack/NiagaraStackEntry.h"
 #include "NiagaraStackModuleItemOutputCollection.generated.h"
 
 class UNiagaraNodeFunctionCall;

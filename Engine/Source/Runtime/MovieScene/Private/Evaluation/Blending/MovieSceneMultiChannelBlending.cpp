@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneMultiChannelBlending.h"
+#include "Evaluation/Blending/MovieSceneMultiChannelBlending.h"
 
 template<> FMovieSceneAnimTypeID GetBlendingDataType<int32>()		{ static FMovieSceneAnimTypeID TypeID = FMovieSceneAnimTypeID::Unique(); return TypeID; }
 template<> FMovieSceneAnimTypeID GetBlendingDataType<float>()		{ static FMovieSceneAnimTypeID TypeID = FMovieSceneAnimTypeID::Unique(); return TypeID; }

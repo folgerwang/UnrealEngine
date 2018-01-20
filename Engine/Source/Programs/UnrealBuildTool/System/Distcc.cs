@@ -177,7 +177,7 @@ namespace UnrealBuildTool
 					string Line = null;
 					while ((Line = File.ReadLine()) != null)
 					{
-						var HostInfo = Line.Split(' ');
+						string[] HostInfo = Line.Split(' ');
 						if (HostInfo.Count() == 3)
 						{
 							int NumCPUs = 0;

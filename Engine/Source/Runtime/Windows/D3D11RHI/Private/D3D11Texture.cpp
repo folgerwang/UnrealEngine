@@ -8,10 +8,10 @@
 
 #if PLATFORM_DESKTOP
 // For Depth Bounds Test interface
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include "nvapi.h"
 #include "amd_ags.h"
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 int64 FD3D11GlobalStats::GDedicatedVideoMemory = 0;

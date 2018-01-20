@@ -2,9 +2,9 @@
 
 #include "SNiagaraGraphParameterMapGetNode.h"
 #include "NiagaraNodeParameterMapGet.h"
-#include "SButton.h"
+#include "Widgets/Input/SButton.h"
 #include "GraphEditorSettings.h"
-#include "DrawElements.h"
+#include "Rendering/DrawElements.h"
 #include "Widgets/SBoxPanel.h"
 #include "SGraphPin.h"
 

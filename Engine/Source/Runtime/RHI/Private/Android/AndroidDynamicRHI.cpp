@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "RHI.h"
-#include "ModuleManager.h"
-#include "AndroidApplication.h"
+#include "Modules/ModuleManager.h"
+#include "Android/AndroidApplication.h"
 
 FDynamicRHI* PlatformCreateDynamicRHI()
 {

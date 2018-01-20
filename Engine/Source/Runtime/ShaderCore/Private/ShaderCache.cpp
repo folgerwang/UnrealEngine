@@ -15,8 +15,8 @@
 #include "Shader.h"
 #include "Misc/EngineVersion.h"
 #include "PipelineStateCache.h"
-#include "ScopeRWLock.h"
-#include "CoreDelegates.h"
+#include "Misc/ScopeRWLock.h"
+#include "Misc/CoreDelegates.h"
 
 DECLARE_STATS_GROUP(TEXT("Shader Cache"),STATGROUP_ShaderCache, STATCAT_Advanced);
 DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num Shaders Cached"),STATGROUP_NumShadersCached,STATGROUP_ShaderCache);

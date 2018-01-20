@@ -5,9 +5,9 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
 #include "SkeletalRenderPublic.h"
-#include "Array.h"
-#include "Set.h"
-#include "Map.h"
+#include "Containers/Array.h"
+#include "Containers/Set.h"
+#include "Containers/Map.h"
 #include "PhysicsAssetUtils.h"
 
 /**

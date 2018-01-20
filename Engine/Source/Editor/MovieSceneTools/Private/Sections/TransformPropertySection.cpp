@@ -5,7 +5,7 @@
 #include "ISectionLayoutBuilder.h"
 #include "Sections/MovieScene3DTransformSection.h"
 #include "SequencerSectionPainter.h"
-#include "MultiBoxBuilder.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "FTransformSection"

@@ -17,7 +17,7 @@
 #include "AnimPreviewInstance.h"
 #include "IEditableSkeleton.h"
 #include "PropertyCustomizationHelpers.h"
-#include "MultiBoxBuilder.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 
 #define LOCTEXT_NAMESPACE "SRetargetManager"
 

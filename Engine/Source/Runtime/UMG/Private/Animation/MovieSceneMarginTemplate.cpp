@@ -4,7 +4,7 @@
 
 #include "Animation/MovieSceneMarginSection.h"
 #include "Tracks/MovieScenePropertyTrack.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 
 template<> FMovieSceneAnimTypeID GetBlendingDataType<FMargin>()
 {

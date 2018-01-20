@@ -11,7 +11,7 @@
 #include "Materials/MaterialInstanceSupport.h"
 #include "Materials/MaterialParameterCollection.h"
 #include "ExternalTexture.h"
-#include "UObjectToken.h"
+#include "Misc/UObjectToken.h"
 
 TLinkedList<FMaterialUniformExpressionType*>*& FMaterialUniformExpressionType::GetTypeList()
 {
@@ -409,7 +409,7 @@ FUniformBufferRHIRef FUniformExpressionSet::CreateUniformBuffer(const FMaterialR
 						ExpressionIndex,
 						FText::FromString(*MaterialRenderContext.Material.GetFriendlyName()));
 
-					GLog->Logf(ELogVerbosity::Warning, *MessageText.ToString());
+					GLog->Logf(ELogVerbosity::Warning, TEXT("%s"), *MessageText.ToString());
 				}
 			}
 

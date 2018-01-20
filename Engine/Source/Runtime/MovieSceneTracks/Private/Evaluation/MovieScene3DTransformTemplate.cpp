@@ -5,11 +5,11 @@
 #include "Sections/MovieScene3DTransformSection.h"
 #include "Evaluation/MovieSceneTemplateCommon.h"
 #include "MovieSceneCommonHelpers.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 #include "IMovieScenePlayer.h"
 #include "Evaluation/Blending/BlendableTokenStack.h"
 #include "Evaluation/Blending/MovieSceneBlendingActuatorID.h"
-#include "IMovieSceneTransformOrigin.h"
+#include "Tracks/IMovieSceneTransformOrigin.h"
 
 DECLARE_CYCLE_STAT(TEXT("Transform Track Evaluate"), MovieSceneEval_TransformTrack_Evaluate, STATGROUP_MovieSceneEval);
 DECLARE_CYCLE_STAT(TEXT("Transform Track Token Execute"), MovieSceneEval_TransformTrack_TokenExecute, STATGROUP_MovieSceneEval);

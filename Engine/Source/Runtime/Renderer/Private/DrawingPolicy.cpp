@@ -7,7 +7,7 @@
 #include "DrawingPolicy.h"
 #include "SceneUtils.h"
 #include "SceneRendering.h"
-#include "LogMacros.h"
+#include "Logging/LogMacros.h"
 #include "MaterialShader.h"
 #include "DebugViewModeRendering.h"
 

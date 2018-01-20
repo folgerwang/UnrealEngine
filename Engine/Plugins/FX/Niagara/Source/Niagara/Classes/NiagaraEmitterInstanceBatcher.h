@@ -13,8 +13,8 @@ the same VectorVM byte code / compute shader code
 #include "NiagaraParameters.h"
 #include "NiagaraEmitter.h"
 #include "Tickable.h"
-#include "ModuleManager.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 struct FNiagaraScriptExecutionContext;
 struct FNiagaraComputeExecutionContext;

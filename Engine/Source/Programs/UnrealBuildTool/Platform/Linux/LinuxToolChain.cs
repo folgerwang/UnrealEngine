@@ -54,7 +54,7 @@ namespace UnrealBuildTool
 					// FIXME: UBT should loop across all the architectures and compile for all the selected ones.
 					BaseLinuxPath = Path.Combine(MultiArchRoot, Architecture);
 
-					Console.WriteLine("Using LINUX_MULTIARCH_ROOT, building with toolchain '{0}'", BaseLinuxPath);
+					Log.TraceInformation("Using LINUX_MULTIARCH_ROOT, building with toolchain '{0}'", BaseLinuxPath);
 				}
 				else
 				{
@@ -62,7 +62,7 @@ namespace UnrealBuildTool
 					BaseLinuxPath = Environment.GetEnvironmentVariable("LINUX_ROOT");
 					MultiArchRoot = BaseLinuxPath;
 
-					Console.WriteLine("Using LINUX_ROOT (deprecated, consider LINUX_MULTIARCH_ROOT), building with toolchain '{0}'", BaseLinuxPath);
+					Log.TraceInformation("Using LINUX_ROOT (deprecated, consider LINUX_MULTIARCH_ROOT), building with toolchain '{0}'", BaseLinuxPath);
 				}
 
 				// don't register if we don't have an LINUX_ROOT specified
@@ -672,7 +672,7 @@ namespace UnrealBuildTool
 				MatchLineNumber.Length == 0 ||
 				MatchDescription.Length == 0)
 			{
-				Console.WriteLine(Output);
+				Log.TraceInformation(Output);
 				return;
 			}
 
@@ -687,7 +687,7 @@ namespace UnrealBuildTool
 
 			// Write output
 			string ConvertedExpression = "  " + ConvertedFilePath + "(" + ConvertedLineNumber + "," + ConvertedColumnNumber + "):" + MatchDescription;
-			Console.WriteLine(ConvertedExpression); // To create clickable vs link
+			Log.TraceInformation(ConvertedExpression); // To create clickable vs link
 		}
 
 		// cache the location of NDK tools
@@ -771,8 +771,8 @@ namespace UnrealBuildTool
 
 		protected void PrintBuildDetails(CppCompileEnvironment CompileEnvironment)
 		{
-			Console.WriteLine("------- Build details --------");
-			Console.WriteLine("Using {0} ({1}) version '{2}' (string), {3} (major), {4} (minor), {5} (patch)",
+			Log.TraceInformation("------- Build details --------");
+			Log.TraceInformation("Using {0} ({1}) version '{2}' (string), {3} (major), {4} (minor), {5} (patch)",
 				String.IsNullOrEmpty(ClangPath) ? "gcc" : "clang",
 				String.IsNullOrEmpty(ClangPath) ? GCCPath : ClangPath,
 				CompilerVersionString, CompilerVersionMajor, CompilerVersionMinor, CompilerVersionPatch);
@@ -780,26 +780,26 @@ namespace UnrealBuildTool
 			if (UsingClang())
 			{
 				// inform the user which C++ library the engine is going to be compiled against - important for compatibility with third party code that uses STL
-				Console.WriteLine("Using {0} standard C++ library.", ShouldUseLibcxx(CompileEnvironment.Architecture) ? "bundled libc++" : "compiler default (most likely libstdc++)");
-				Console.WriteLine("Using {0}", UsingLld() ? "lld linker" : "default linker (ld)");
-				Console.WriteLine("Using {0}", !String.IsNullOrEmpty(LlvmArPath) ? String.Format("llvm-ar : {0}", LlvmArPath) : String.Format("ar and ranlib: {0}, {1}", GetArPath(CompileEnvironment.Architecture), GetRanlibPath(CompileEnvironment.Architecture)));
+				Log.TraceInformation("Using {0} standard C++ library.", ShouldUseLibcxx(CompileEnvironment.Architecture) ? "bundled libc++" : "compiler default (most likely libstdc++)");
+				Log.TraceInformation("Using {0}", UsingLld() ? "lld linker" : "default linker (ld)");
+				Log.TraceInformation("Using {0}", !String.IsNullOrEmpty(LlvmArPath) ? String.Format("llvm-ar : {0}", LlvmArPath) : String.Format("ar and ranlib: {0}, {1}", GetArPath(CompileEnvironment.Architecture), GetRanlibPath(CompileEnvironment.Architecture)));
 			}
 
 			// Also print other once-per-build information
 			if (bUseFixdeps)
 			{
-				Console.WriteLine("Using old way to relink circularly dependent libraries (with a FixDeps step).");
+				Log.TraceInformation("Using old way to relink circularly dependent libraries (with a FixDeps step).");
 			}
 			else
 			{
-				Console.WriteLine("Using fast way to relink  circularly dependent libraries (no FixDeps).");
+				Log.TraceInformation("Using fast way to relink  circularly dependent libraries (no FixDeps).");
 			}
 
 			if (CompileEnvironment.bAllowLTCG)
 			{
-				Console.WriteLine("Using LTO (link-time optimization).");
+				Log.TraceInformation("Using LTO (link-time optimization).");
 			}
-			Console.WriteLine("------------------------------");
+			Log.TraceInformation("------------------------------");
 		}
 
 		protected bool CheckSDKVersionFromFile(string VersionPath, out string ErrorMessage)
@@ -820,7 +820,7 @@ namespace UnrealBuildTool
 			return false;
 		}
 
-		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> SourceFiles, string ModuleName, ActionGraph ActionGraph)
+		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, ActionGraph ActionGraph)
 		{
 			string Arguments = GetCLArguments_Global(CompileEnvironment);
 			string PCHArguments = "";
@@ -856,7 +856,7 @@ namespace UnrealBuildTool
 			{
 				// Add the precompiled header file's path to the include path so Clang can find it.
 				// This needs to be before the other include paths to ensure Clang uses it instead of the source header file.
-				var PrecompiledFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Linux).GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
+				string PrecompiledFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Linux).GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
 				PCHArguments += string.Format(" -include \"{0}\"", CompileEnvironment.PrecompiledHeaderFile.AbsolutePath.Replace(PrecompiledFileExtension, "").Replace('\\', '/'));
 			}
 
@@ -866,13 +866,13 @@ namespace UnrealBuildTool
 			}
 
 			// Add include paths to the argument list.
-			foreach (string IncludePath in CompileEnvironment.IncludePaths.UserIncludePaths)
+			foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.UserIncludePaths)
 			{
-				Arguments += string.Format(" -I\"{0}\"", IncludePath.Replace('\\', '/'));
+				Arguments += string.Format(" -I\"{0}\"", IncludePath.FullName.Replace('\\', '/'));
 			}
-			foreach (string IncludePath in CompileEnvironment.IncludePaths.SystemIncludePaths)
+			foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.SystemIncludePaths)
 			{
-				Arguments += string.Format(" -I\"{0}\"", IncludePath.Replace('\\', '/'));
+				Arguments += string.Format(" -I\"{0}\"", IncludePath.FullName.Replace('\\', '/'));
 			}
 
 			// Add preprocessor definitions to the argument list.
@@ -883,7 +883,7 @@ namespace UnrealBuildTool
 
 			// Create a compile action for each source file.
 			CPPOutput Result = new CPPOutput();
-			foreach (FileItem SourceFile in SourceFiles)
+			foreach (FileItem SourceFile in InputFiles)
 			{
 				Action CompileAction = ActionGraph.Add(ActionType.Compile);
 				string FileArguments = "";
@@ -928,11 +928,11 @@ namespace UnrealBuildTool
 
 				if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Create)
 				{
-					var PrecompiledFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Linux).GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
+					string PrecompiledFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Linux).GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
 					// Add the precompiled header file to the produced item list.
 					FileItem PrecompiledHeaderFile = FileItem.GetItemByFileReference(
 						FileReference.Combine(
-							CompileEnvironment.OutputDirectory,
+							OutputDir,
 							Path.GetFileName(SourceFile.AbsolutePath) + PrecompiledFileExtension
 							)
 						);
@@ -951,11 +951,11 @@ namespace UnrealBuildTool
 						CompileAction.PrerequisiteItems.Add(CompileEnvironment.PrecompiledHeaderFile);
 					}
 
-					var ObjectFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Linux).GetBinaryExtension(UEBuildBinaryType.Object);
+					string ObjectFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Linux).GetBinaryExtension(UEBuildBinaryType.Object);
 					// Add the object file to the produced item list.
 					FileItem ObjectFile = FileItem.GetItemByFileReference(
 						FileReference.Combine(
-							CompileEnvironment.OutputDirectory,
+							OutputDir,
 							Path.GetFileName(SourceFile.AbsolutePath) + ObjectFileExtension
 							)
 						);
@@ -984,7 +984,7 @@ namespace UnrealBuildTool
 				Debug.Assert(CompileAction.ProducedItems.Count > 0);
 
 				// file name needs to include the hash, otherwise changes in compiler flags won't be noticed by UBT
-				FileReference CompilerResponseFileName = CompileAction.ProducedItems[0].Reference + AllArguments.GetHashCode().ToString("X") + ".rsp";
+				FileReference CompilerResponseFileName = CompileAction.ProducedItems[0].Location + AllArguments.GetHashCode().ToString("X") + ".rsp";
 
 				CompileAction.CommandArguments = string.Format(" @\"{0}\"", ResponseFile.Create(CompilerResponseFileName, new string[] { AllArguments }));
 				CompileAction.CommandDescription = "Compile";
@@ -1209,19 +1209,19 @@ namespace UnrealBuildTool
 
 			if (LinkEnvironment.bIsBuildingDLL)
 			{
-				ResponseLines.Add(string.Format(" -soname={0}", OutputFile));
+				ResponseLines.Add(string.Format(" -soname=\"{0}\"", OutputFile.Location.GetFileName()));
 			}
 
 			// Start with the configured LibraryPaths and also add paths to any libraries that
 			// we depend on (libraries that we've build ourselves).
-			List<string> AllLibraryPaths = LinkEnvironment.LibraryPaths;
+			List<DirectoryReference> AllLibraryPaths = LinkEnvironment.LibraryPaths;
 			foreach (string AdditionalLibrary in LinkEnvironment.AdditionalLibraries)
 			{
 				string PathToLib = Path.GetDirectoryName(AdditionalLibrary);
 				if (!String.IsNullOrEmpty(PathToLib))
 				{
 					// make path absolute, because FixDependencies script may be executed in a different directory
-					string AbsolutePathToLib = Path.GetFullPath(PathToLib);
+					DirectoryReference AbsolutePathToLib = new DirectoryReference(PathToLib);
 					if (!AllLibraryPaths.Contains(AbsolutePathToLib))
 					{
 						AllLibraryPaths.Add(AbsolutePathToLib);
@@ -1230,7 +1230,7 @@ namespace UnrealBuildTool
 
 				if ((AdditionalLibrary.Contains("Plugins") || AdditionalLibrary.Contains("Binaries/ThirdParty") || AdditionalLibrary.Contains("Binaries\\ThirdParty")) && Path.GetDirectoryName(AdditionalLibrary) != Path.GetDirectoryName(OutputFile.AbsolutePath))
 				{
-					string RelativePath = new FileReference(AdditionalLibrary).Directory.MakeRelativeTo(OutputFile.Reference.Directory);
+					string RelativePath = new FileReference(AdditionalLibrary).Directory.MakeRelativeTo(OutputFile.Location.Directory);
 					if (!RPaths.Contains(RelativePath))
 					{
 						RPaths.Add(RelativePath);
@@ -1242,10 +1242,10 @@ namespace UnrealBuildTool
 			ResponseLines.Add(string.Format(" -rpath-link=\"{0}\"", Path.GetDirectoryName(OutputFile.AbsolutePath)));
 
 			// Add the library paths to the argument list.
-			foreach (string LibraryPath in AllLibraryPaths)
+			foreach (DirectoryReference LibraryPath in AllLibraryPaths)
 			{
 				// use absolute paths because of FixDependencies script again
-				ResponseLines.Add(string.Format(" -L\"{0}\"", Path.GetFullPath(LibraryPath).Replace('\\', '/')));
+				ResponseLines.Add(string.Format(" -L\"{0}\"", LibraryPath.FullName.Replace('\\', '/')));
 			}
 
 			List<string> EngineAndGameLibrariesLinkFlags = new List<string>();
@@ -1295,7 +1295,7 @@ namespace UnrealBuildTool
 					// dependencies.
 					FileItem LibraryDependency = FileItem.GetItemByPath(AdditionalLibrary);
 
-					var LibName = Path.GetFileNameWithoutExtension(AdditionalLibrary);
+					string LibName = Path.GetFileNameWithoutExtension(AdditionalLibrary);
 					if (LibName.StartsWith("lib"))
 					{
 						// Remove lib prefix
@@ -1415,22 +1415,23 @@ namespace UnrealBuildTool
 					{
 						bHasWipedFixDepsScript = true;
 						Log.TraceVerbose("Creating script: {0}", FixDepsScriptPath);
-						StreamWriter Writer = File.CreateText(FixDepsScriptPath);
-
-						if (bUseCmdExe)
+						Directory.CreateDirectory(Path.GetDirectoryName(FixDepsScriptPath));
+						using (StreamWriter Writer = File.CreateText(FixDepsScriptPath))
 						{
-							Writer.Write("@echo off\n");
-							Writer.Write("rem Automatically generated by UnrealBuildTool\n");
-							Writer.Write("rem *DO NOT EDIT*\n\n");
+							if (bUseCmdExe)
+							{
+								Writer.Write("@echo off\n");
+								Writer.Write("rem Automatically generated by UnrealBuildTool\n");
+								Writer.Write("rem *DO NOT EDIT*\n\n");
+							}
+							else
+							{
+								Writer.Write("#!/bin/sh\n");
+								Writer.Write("# Automatically generated by UnrealBuildTool\n");
+								Writer.Write("# *DO NOT EDIT*\n\n");
+								Writer.Write("set -o errexit\n");
+							}
 						}
-						else
-						{
-							Writer.Write("#!/bin/sh\n");
-							Writer.Write("# Automatically generated by UnrealBuildTool\n");
-							Writer.Write("# *DO NOT EDIT*\n\n");
-							Writer.Write("set -o errexit\n");
-						}
-						Writer.Close();
 					}
 
 					StreamWriter FixDepsScript = File.AppendText(FixDepsScriptPath);
@@ -1482,7 +1483,7 @@ namespace UnrealBuildTool
 					RelinkAction.PrerequisiteItems.Add(OutputFile); // also depend on the first link action's output
 
 					string LinkOutputFileForwardSlashes = OutputFile.AbsolutePath.Replace("\\", "/");
-					string RelinkedFileForwardSlashes = Path.Combine(LinkEnvironment.LocalShadowDirectory.FullName, OutputFile.Reference.GetFileName()) + ".relinked";
+					string RelinkedFileForwardSlashes = Path.Combine(LinkEnvironment.LocalShadowDirectory.FullName, OutputFile.Location.GetFileName()) + ".relinked";
 
 					// cannot use the real product because we need to maintain the timestamp on it
 					FileReference RelinkActionDummyProductRef = FileReference.Combine(LinkEnvironment.LocalShadowDirectory, LinkEnvironment.OutputFilePath.GetFileNameWithoutExtension() + ".relinked_action_ran");
@@ -1500,59 +1501,60 @@ namespace UnrealBuildTool
 					string ExecuteSwitch = bUseCmdExe ? " /C" : ""; // avoid -c so scripts don't need +x
 
 					// create the relinking step
-					string RelinkScriptName = string.Format((bUseCmdExe ? "Relink-{0}.bat" : "Relink-{0}.sh"), OutputFile);
+					string RelinkScriptName = string.Format((bUseCmdExe ? "Relink-{0}.bat" : "Relink-{0}.sh"), OutputFile.Location.GetFileName());
 					string RelinkScriptFullPath = Path.Combine(LinkEnvironment.LocalShadowDirectory.FullName, RelinkScriptName);
 
 					Log.TraceVerbose("Creating script: {0}", RelinkScriptFullPath);
-					StreamWriter RelinkWriter = File.CreateText(RelinkScriptFullPath);
-
-					string RelinkInvocation = LinkAction.CommandPath + " " + LinkAction.CommandArguments;
-					string Replace = "-Wl,--allow-shlib-undefined";
-					RelinkInvocation = RelinkInvocation.Replace(Replace, EngineAndGameLibrariesString);
-
-					// should be the same as RelinkedFileRef
-					RelinkInvocation = RelinkInvocation.Replace(LinkOutputFileForwardSlashes, RelinkedFileForwardSlashes);
-					RelinkInvocation = RelinkInvocation.Replace("$", "\\$");
-
-					if (bUseCmdExe)
+					Directory.CreateDirectory(Path.GetDirectoryName(RelinkScriptFullPath));
+					using (StreamWriter RelinkWriter = File.CreateText(RelinkScriptFullPath))
 					{
-						RelinkWriter.Write("@echo off\n");
-						RelinkWriter.Write("rem Automatically generated by UnrealBuildTool\n");
-						RelinkWriter.Write("rem *DO NOT EDIT*\n\n");
-						RelinkWriter.Write("set Retries=0\n");
-						RelinkWriter.Write(":relinkloop\n");
-						RelinkWriter.Write("if %Retries% GEQ 10 goto failedtorelink\n");
-						RelinkWriter.Write(RelinkInvocation + "\n");
-						RelinkWriter.Write("if %errorlevel% neq 0 goto sleepandretry\n");
-						RelinkWriter.Write("copy /B \"{0}\" \"{1}.temp\" >NUL 2>NUL\n", RelinkedFileForwardSlashes, OutputFile.AbsolutePath);
-						RelinkWriter.Write("if %errorlevel% neq 0 goto sleepandretry\n");
-						RelinkWriter.Write("move /Y \"{0}.temp\" \"{1}\" >NUL 2>NUL\n", OutputFile.AbsolutePath, OutputFile.AbsolutePath);
-						RelinkWriter.Write("if %errorlevel% neq 0 goto sleepandretry\n");
-						RelinkWriter.Write(string.Format("echo \"Dummy\" >> \"{0}\" && copy /b \"{0}\" +,,\n", RelinkActionDummyProductRef.FullName));
-						RelinkWriter.Write("echo Relinked {0} successfully after %Retries% retries\n", OutputFile.AbsolutePath);
-						RelinkWriter.Write("exit 0\n");
-						RelinkWriter.Write(":sleepandretry\n");
-						RelinkWriter.Write("ping 127.0.0.1 -n 1 -w 5000 >NUL 2>NUL\n");     // timeout complains about lack of redirection
-						RelinkWriter.Write("set /a Retries+=1\n");
-						RelinkWriter.Write("goto relinkloop\n");
-						RelinkWriter.Write(":failedtorelink\n");
-						RelinkWriter.Write("echo Failed to relink {0} after %Retries% retries\n", OutputFile.AbsolutePath);
-						RelinkWriter.Write("exit 1\n");
+						string RelinkInvocation = LinkAction.CommandPath + " " + LinkAction.CommandArguments;
+						string Replace = "-Wl,--allow-shlib-undefined";
+						RelinkInvocation = RelinkInvocation.Replace(Replace, EngineAndGameLibrariesString);
+
+						// should be the same as RelinkedFileRef
+						RelinkInvocation = RelinkInvocation.Replace(LinkOutputFileForwardSlashes, RelinkedFileForwardSlashes);
+						RelinkInvocation = RelinkInvocation.Replace("$", "\\$");
+
+						if (bUseCmdExe)
+						{
+							RelinkWriter.Write("@echo off\n");
+							RelinkWriter.Write("rem Automatically generated by UnrealBuildTool\n");
+							RelinkWriter.Write("rem *DO NOT EDIT*\n\n");
+							RelinkWriter.Write("set Retries=0\n");
+							RelinkWriter.Write(":relinkloop\n");
+							RelinkWriter.Write("if %Retries% GEQ 10 goto failedtorelink\n");
+							RelinkWriter.Write(RelinkInvocation + "\n");
+							RelinkWriter.Write("if %errorlevel% neq 0 goto sleepandretry\n");
+							RelinkWriter.Write("copy /B \"{0}\" \"{1}.temp\" >NUL 2>NUL\n", RelinkedFileForwardSlashes, OutputFile.AbsolutePath);
+							RelinkWriter.Write("if %errorlevel% neq 0 goto sleepandretry\n");
+							RelinkWriter.Write("move /Y \"{0}.temp\" \"{1}\" >NUL 2>NUL\n", OutputFile.AbsolutePath, OutputFile.AbsolutePath);
+							RelinkWriter.Write("if %errorlevel% neq 0 goto sleepandretry\n");
+							RelinkWriter.Write(string.Format("echo \"Dummy\" >> \"{0}\" && copy /b \"{0}\" +,,\n", RelinkActionDummyProductRef.FullName));
+							RelinkWriter.Write("echo Relinked {0} successfully after %Retries% retries\n", OutputFile.AbsolutePath);
+							RelinkWriter.Write("exit 0\n");
+							RelinkWriter.Write(":sleepandretry\n");
+							RelinkWriter.Write("ping 127.0.0.1 -n 1 -w 5000 >NUL 2>NUL\n");     // timeout complains about lack of redirection
+							RelinkWriter.Write("set /a Retries+=1\n");
+							RelinkWriter.Write("goto relinkloop\n");
+							RelinkWriter.Write(":failedtorelink\n");
+							RelinkWriter.Write("echo Failed to relink {0} after %Retries% retries\n", OutputFile.AbsolutePath);
+							RelinkWriter.Write("exit 1\n");
+						}
+						else
+						{
+							RelinkWriter.Write("#!/bin/sh\n");
+							RelinkWriter.Write("# Automatically generated by UnrealBuildTool\n");
+							RelinkWriter.Write("# *DO NOT EDIT*\n\n");
+							RelinkWriter.Write("set -o errexit\n");
+							RelinkWriter.Write(RelinkInvocation + "\n");
+							RelinkWriter.Write(string.Format("TIMESTAMP=`stat --format %y \"{0}\"`\n", OutputFile.AbsolutePath));
+							RelinkWriter.Write("cp \"{0}\" \"{1}.temp\"\n", RelinkedFileForwardSlashes, OutputFile.AbsolutePath);
+							RelinkWriter.Write("mv \"{0}.temp\" \"{1}\"\n", OutputFile.AbsolutePath, OutputFile.AbsolutePath);
+							RelinkWriter.Write(string.Format("touch -d \"$TIMESTAMP\" \"{0}\"\n\n", OutputFile.AbsolutePath));
+							RelinkWriter.Write(string.Format("echo \"Dummy\" >> \"{0}\"", RelinkActionDummyProductRef.FullName));
+						}
 					}
-					else
-					{
-						RelinkWriter.Write("#!/bin/sh\n");
-						RelinkWriter.Write("# Automatically generated by UnrealBuildTool\n");
-						RelinkWriter.Write("# *DO NOT EDIT*\n\n");
-						RelinkWriter.Write("set -o errexit\n");
-						RelinkWriter.Write(RelinkInvocation + "\n");
-						RelinkWriter.Write(string.Format("TIMESTAMP=`stat --format %y \"{0}\"`\n", OutputFile.AbsolutePath));
-						RelinkWriter.Write("cp \"{0}\" \"{1}.temp\"\n", RelinkedFileForwardSlashes, OutputFile.AbsolutePath);
-						RelinkWriter.Write("mv \"{0}.temp\" \"{1}\"\n", OutputFile.AbsolutePath, OutputFile.AbsolutePath);
-						RelinkWriter.Write(string.Format("touch -d \"$TIMESTAMP\" \"{0}\"\n\n", OutputFile.AbsolutePath));
-						RelinkWriter.Write(string.Format("echo \"Dummy\" >> \"{0}\"", RelinkActionDummyProductRef.FullName));
-					}
-					RelinkWriter.Close();
 
 					RelinkAction.CommandPath = ShellBinary;
 					RelinkAction.CommandArguments = ExecuteSwitch + " \"" + RelinkScriptFullPath + "\"";
@@ -1578,7 +1580,7 @@ namespace UnrealBuildTool
 			{
 				foreach (UEBuildBinary Binary in Binaries)
 				{
-					AllBinaries.Add(FileItem.GetItemByFileReference(Binary.Config.OutputFilePath));
+					AllBinaries.Add(FileItem.GetItemByFileReference(Binary.OutputFilePath));
 				}
 			}
 		}
@@ -1600,7 +1602,7 @@ namespace UnrealBuildTool
 
 		public override ICollection<FileItem> PostBuild(FileItem Executable, LinkEnvironment BinaryLinkEnvironment, ActionGraph ActionGraph)
 		{
-			var OutputFiles = base.PostBuild(Executable, BinaryLinkEnvironment, ActionGraph);
+			ICollection<FileItem> OutputFiles = base.PostBuild(Executable, BinaryLinkEnvironment, ActionGraph);
 
 			if (bUseFixdeps)
 			{

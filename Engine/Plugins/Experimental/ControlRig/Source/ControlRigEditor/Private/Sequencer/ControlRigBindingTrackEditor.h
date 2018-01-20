@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "SpawnTrackEditor.h"
+#include "TrackEditors/SpawnTrackEditor.h"
 
 /**
 * A property track editor for bindings for animation controllers

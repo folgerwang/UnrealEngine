@@ -24,8 +24,8 @@
 #include <sys/file.h>
 #include <sys/mman.h>
 
-#include "OSAllocationPool.h"
-#include "ScopeLock.h"
+#include "GenericPlatform/OSAllocationPool.h"
+#include "Misc/ScopeLock.h"
 
 // do not do a root privilege check on non-x86-64 platforms (assume an embedded device)
 #if defined(_M_X64) || defined(__x86_64__) || defined (__amd64__) 

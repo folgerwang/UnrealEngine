@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "MultiBoxExtender.h"
-#include "SlateDelegates.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
+#include "Framework/SlateDelegates.h"
 #include "CoreMinimal.h"
 #include "Misc/Attribute.h"
 #include "Layout/Visibility.h"
@@ -15,7 +15,7 @@
 #include "Framework/Commands/UICommandList.h"
 #include "Framework/MultiBox/MultiBoxDefs.h"
 #include "Framework/MultiBox/MultiBoxExtender.h"
-#include "MultiBox.h"
+#include "Framework/MultiBox/MultiBox.h"
 
 class FUICommandInfo;
 class FUICommandList;

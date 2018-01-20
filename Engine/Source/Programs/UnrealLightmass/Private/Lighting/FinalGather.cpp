@@ -6,13 +6,13 @@
 #include "CPUSolver.h"
 #include "LightingSystem.h"
 #include "MonteCarlo.h"
-#include "ExceptionHandling.h"
+#include "HAL/ExceptionHandling.h"
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <psapi.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #pragma comment(lib, "psapi.lib")
 #endif

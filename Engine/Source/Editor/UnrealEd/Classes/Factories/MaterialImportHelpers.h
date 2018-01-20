@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
-#include "TextProperty.h"
+#include "UObject/TextProperty.h"
 #include "MaterialImportHelpers.generated.h"
 
 class UMaterialInterface;

@@ -7,7 +7,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "TargetPlatformBase.h"
+#include "Common/TargetPlatformBase.h"
 #include "Mac/MacPlatformProperties.h"
 #include "Misc/ConfigCacheIni.h"
 #include "LocalMacTargetDevice.h"

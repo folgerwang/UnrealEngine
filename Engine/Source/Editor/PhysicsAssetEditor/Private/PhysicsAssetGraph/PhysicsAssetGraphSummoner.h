@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "WorkflowTabFactory.h"
+#include "WorkflowOrientedApp/WorkflowTabFactory.h"
 #include "ISkeletonTree.h"
 #include "SPhysicsAssetGraph.h"
 

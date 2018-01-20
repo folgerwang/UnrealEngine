@@ -10,7 +10,7 @@
 #include "Misc/NetworkGuid.h"
 #include "UObject/CoreNet.h"
 #include "Engine/EngineTypes.h"
-#include "GCObject.h"
+#include "UObject/GCObject.h"
 
 class FGuidReferences;
 class FNetFieldExportGroup;

@@ -7,9 +7,9 @@ D3D12CommandContext.cpp: RHI  Command Context implementation.
 #include "D3D12RHIPrivate.h"
 
 #if PLATFORM_WINDOWS
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include "amd_ags.h"
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 #if PLATFORM_XBOXONE

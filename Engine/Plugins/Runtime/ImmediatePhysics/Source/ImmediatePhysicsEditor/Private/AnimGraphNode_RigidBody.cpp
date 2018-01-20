@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimGraphNode_RigidBody.h"
-#include "CompilerResultsLog.h"
-#include "AnimNode_RigidBody.h"
+#include "Kismet2/CompilerResultsLog.h"
+#include "BoneControllers/AnimNode_RigidBody.h"
 
 /////////////////////////////////////////////////////
 // UAnimGraphNode_RigidBody

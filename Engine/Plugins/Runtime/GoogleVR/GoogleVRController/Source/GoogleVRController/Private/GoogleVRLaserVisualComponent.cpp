@@ -13,9 +13,9 @@
 * limitations under the License.
 */
 
-#include "Classes/GoogleVRLaserVisualComponent.h"
+#include "GoogleVRLaserVisualComponent.h"
 #include "Materials/MaterialInterface.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "Engine/StaticMesh.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGoogleVRMotionController, Log, All);

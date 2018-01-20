@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidJavaEnv.h"
+#include "Android/AndroidJavaEnv.h"
 #include "CoreMinimal.h"
 #include "HAL/ThreadSingleton.h"
 #include "HAL/PlatformMisc.h"

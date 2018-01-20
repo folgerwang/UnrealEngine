@@ -25,5 +25,10 @@ public class Localization : ModuleRules
 				"Json",
 			}
 		);
+
+		if (Target.Configuration != UnrealTargetConfiguration.Shipping)
+		{
+			PrecompileForTargets = PrecompileTargetsType.Any;
+		}
 	}
 }

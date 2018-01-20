@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "SlateRect.h"
+#include "Layout/SlateRect.h"
 #include "Rendering/RenderingCommon.h"
 #include "Clipping.generated.h"
 

@@ -23,7 +23,7 @@
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Styling/SlateTypes.h"
 #include "Widgets/SWindow.h"
-#include "SEditableTextBox.h"
+#include "Widgets/Input/SEditableTextBox.h"
 #include "RHI.h"
 #include "Materials/MaterialInterface.h"
 #include "RenderingThread.h"
@@ -87,7 +87,7 @@
 #include "Layers/ILayers.h"
 #include "Engine/SCS_Node.h"
 #include "ShaderCompiler.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "Engine/MapBuildDataRegistry.h"
 #include "HAL/PlatformApplicationMisc.h"
 

@@ -13,7 +13,7 @@
 #include "IAssetRegistry.h"
 #include "AssetRegistryModule.h"
 #include "AssetData.h"
-#include "PackageName.h"
+#include "Misc/PackageName.h"
 #include "IAssetTools.h"
 #include "AssetToolsModule.h"
 

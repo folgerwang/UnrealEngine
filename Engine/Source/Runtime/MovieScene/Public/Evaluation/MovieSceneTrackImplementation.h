@@ -7,7 +7,7 @@
 #include "UObject/Class.h"
 #include "Misc/InlineValue.h"
 #include "Evaluation/MovieSceneEvalTemplateBase.h"
-#include "MovieSceneSegment.h"
+#include "Evaluation/MovieSceneSegment.h"
 #include "MovieSceneTrackImplementation.generated.h"
 
 

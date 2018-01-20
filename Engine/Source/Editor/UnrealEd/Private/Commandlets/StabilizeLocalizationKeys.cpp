@@ -18,7 +18,7 @@
 #include "Serialization/JsonInternationalizationManifestSerializer.h"
 #include "Serialization/JsonInternationalizationArchiveSerializer.h"
 #include "Internationalization/TextPackageNamespaceUtil.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "LocalizedAssetUtil.h"
 #include "LocalizationSourceControlUtil.h"
 

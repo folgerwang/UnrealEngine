@@ -14,7 +14,7 @@
 #include "DependsNode.h"
 #include "PackageReader.h"
 #include "GenericPlatform/GenericPlatformChunkInstall.h"
-#include "IPluginManager.h"
+#include "Interfaces/IPluginManager.h"
 #include "Misc/CoreDelegates.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Misc/RedirectCollector.h"

@@ -13,7 +13,7 @@
 #include "MetalCommandBuffer.h"
 #include "RenderUtils.h"
 #include "ShaderCache.h"
-#include "ScopeRWLock.h"
+#include "Misc/ScopeRWLock.h"
 #include <objc/runtime.h>
 
 static int32 GMetalTessellationForcePartitionMode = 0;

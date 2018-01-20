@@ -1,13 +1,13 @@
 // Copyright 2017 Google Inc.
 
-#include "Classes/GoogleVRTransition2DCallbackProxy.h"
+#include "GoogleVRTransition2DCallbackProxy.h"
 #include "CoreMinimal.h"
-#include "LogMacros.h"
+#include "Logging/LogMacros.h"
 #include "GoogleVRTransition2D.h"
 
 #if PLATFORM_ANDROID
 #include "Android/AndroidJNI.h"
-#include "AndroidApplication.h"
+#include "Android/AndroidApplication.h"
 #endif
 
 static UGoogleVRTransition2DCallbackProxy *pProxy = NULL;

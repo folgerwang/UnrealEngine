@@ -165,19 +165,16 @@ namespace UnrealBuildTool
 					{
 					}
 				}
-				XGEResult = ExecuteTaskFileWithProgressMarkup(XGETaskFilePath, Actions.Count, (Sender, Args) =>
-					{
-						if (Actions[0].OutputEventHandler != null)
-						{
-							Actions[0].OutputEventHandler(Sender, Args);
-						}
-						else
-						{
-							Console.WriteLine(Args.Data);
-						}
-					});
+
+				DataReceivedEventHandler OutputHandler = Actions[0].OutputEventHandler ?? ((Sender, Args) => { if(Args.Data != null) { DefaultOutputHandler(Args.Data); } });
+				XGEResult = ExecuteTaskFileWithProgressMarkup(XGETaskFilePath, Actions.Count, OutputHandler);
 			}
 			return XGEResult;
+		}
+
+		private static void DefaultOutputHandler(string Message)
+		{
+			Log.TraceInformation(Message);
 		}
 
 		private static DataReceivedEventArgs ConstructDataReceivedEventArgs(string NewData)
@@ -225,10 +222,6 @@ namespace UnrealBuildTool
 							int DepIndex = InActions.IndexOf(Item.ProducingAction);
 							if (DepIndex > ActionIndex)
 							{
-								//Console.WriteLine("Action is not topologically sorted.");
-								//Console.WriteLine("  {0} {1}", Action.CommandPath, Action.CommandArguments);
-								//Console.WriteLine("Dependency");
-								//Console.WriteLine("  {0} {1}", Item.ProducingAction.CommandPath, Item.ProducingAction.CommandArguments);
 								NumSortErrors++;
 							}
 						}
@@ -236,7 +229,6 @@ namespace UnrealBuildTool
 				}
 				if (NumSortErrors > 0)
 				{
-					//Console.WriteLine("The UBT action graph was not sorted. Sorting actions....");
 					Actions = new List<Action>();
 					HashSet<int> UsedActions = new HashSet<int>();
 					for (int ActionIndex = 0; ActionIndex < InActions.Count; ActionIndex++)
@@ -272,11 +264,7 @@ namespace UnrealBuildTool
 								int DepIndex = Actions.IndexOf(Item.ProducingAction);
 								if (DepIndex > ActionIndex)
 								{
-									Console.WriteLine("Action is not topologically sorted.");
-									Console.WriteLine("  {0} {1}", Action.CommandPath, Action.CommandArguments);
-									Console.WriteLine("Dependency");
-									Console.WriteLine("  {0} {1}", Item.ProducingAction.CommandPath, Item.ProducingAction.CommandArguments);
-									throw new BuildException("Cyclical Dependency in action graph.");
+									throw new BuildException("Action is not topologically sorted.\n  {0} {1}\nDependency\n  {2} {3}", Action.CommandPath, Action.CommandArguments, Item.ProducingAction.CommandPath, Item.ProducingAction.CommandArguments);
 								}
 							}
 						}
@@ -390,7 +378,7 @@ namespace UnrealBuildTool
 					string.Join(
 						",",
 						Action.ProducedItems.ConvertAll<string>(
-							delegate(FileItem ProducedItem) { return ProducedItem.ToString(); }
+							delegate(FileItem ProducedItem) { return ProducedItem.Location.GetFileName(); }
 							).ToArray()
 						)
 					);
@@ -491,7 +479,7 @@ namespace UnrealBuildTool
 
 			ProcessStartInfo XGEStartInfo = new ProcessStartInfo(
 				"xgConsole",
-				string.Format("\"{0}\" /Rebuild /NoWait {1} /NoLogo {2} /ShowTime {3}",
+				string.Format("\"{0}\" /Rebuild /NoWait {1} /NoLogo {2} /ShowAgent /ShowTime {3}",
 					TaskFilePath,
 					bStopXGECompilationAfterErrors ? "/StopOnErrors" : "",
 					SilentOption,

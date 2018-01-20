@@ -5,7 +5,7 @@
 #include "IMovieScenePlayer.h"
 
 #include "EditorUndoClient.h"
-#include "GCObject.h"
+#include "UObject/GCObject.h"
 #include "NiagaraCurveOwner.h"
 #include "TNiagaraViewModelManager.h"
 #include "ISequencer.h"

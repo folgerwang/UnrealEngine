@@ -4,8 +4,8 @@
 	HTML5Misc.cpp: HTML5 implementations of misc functions
 =============================================================================*/
 
-#include "HTML5PlatformMisc.h"
-#include "HTML5PlatformProcess.h"
+#include "HTML5/HTML5PlatformMisc.h"
+#include "HTML5/HTML5PlatformProcess.h"
 
 #include "HTML5JavaScriptFx.h"
 #include "Containers/StringConv.h"
@@ -14,7 +14,7 @@
 THIRD_PARTY_INCLUDES_START
 	#include "unicode/locid.h"
 THIRD_PARTY_INCLUDES_END
-#include "GenericPlatformCrashContext.h"
+#include "GenericPlatform/GenericPlatformCrashContext.h"
 THIRD_PARTY_INCLUDES_START
 	#include <SDL.h>
 	#include <ctime>

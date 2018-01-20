@@ -7,7 +7,7 @@
 #include "Misc/Guid.h"
 #include "Curves/KeyHandle.h"
 #include "MovieSceneSection.h"
-#include "SequencerObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
 #include "MovieSceneObjectBindingID.h"
 #include "MovieSceneCameraCutSection.generated.h"
 

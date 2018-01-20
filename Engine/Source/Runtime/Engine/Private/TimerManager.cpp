@@ -9,7 +9,7 @@
 #include "Misc/CoreDelegates.h"
 #include "Engine/World.h"
 #include "UnrealEngine.h"
-#include "TimeGuard.h"
+#include "Misc/TimeGuard.h"
 
 DECLARE_CYCLE_STAT(TEXT("SetTimer"), STAT_SetTimer, STATGROUP_Engine);
 DECLARE_CYCLE_STAT(TEXT("ClearTimer"), STAT_ClearTimer, STATGROUP_Engine);

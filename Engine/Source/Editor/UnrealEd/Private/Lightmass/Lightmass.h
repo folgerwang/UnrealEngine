@@ -15,12 +15,12 @@
 #include "Lightmass/LightmassImportanceVolume.h"
 #include "Components/LightmassPortalComponent.h"
 #if PLATFORM_WINDOWS
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #endif
 	#include "SwarmInterface.h"
 	#include "Lightmass/LightmassRender.h"
 #if PLATFORM_WINDOWS
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 class FBSPSurfaceStaticLighting;

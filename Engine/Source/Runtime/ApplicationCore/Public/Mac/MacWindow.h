@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "GenericWindow.h"
-#include "SharedPointer.h"
-#include "CocoaWindow.h"
+#include "GenericPlatform/GenericWindow.h"
+#include "Templates/SharedPointer.h"
+#include "Mac/CocoaWindow.h"
 
 /**
  * A platform specific implementation of FGenericWindow.

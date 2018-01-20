@@ -3,9 +3,9 @@
 
 #include "CoreTypes.h"
 #include "HAL/PlatformMemory.h"
-#include "PreWindowsApi.h"
+#include "Windows/PreWindowsApi.h"
 #ifndef STRICT
 #define STRICT
 #endif
-#include "MinWindows.h"
-#include "PostWindowsApi.h"
+#include "Windows/MinWindows.h"
+#include "Windows/PostWindowsApi.h"

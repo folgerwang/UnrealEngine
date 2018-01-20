@@ -8,7 +8,7 @@
 #include "Animation/AnimSequence.h"
 #include "Animation/BlendSpace.h"
 #include "Animation/AnimBlueprintGeneratedClass.h"
-#include "CompilerResultsLog.h"
+#include "Kismet2/CompilerResultsLog.h"
 
 #include "AnimBlueprintPostCompileValidation.generated.h"
 

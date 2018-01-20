@@ -5,7 +5,7 @@
 #include "MovieSceneFolder.h"
 #include "Evaluation/MovieSceneEvaluationCustomVersion.h"
 #include "Compilation/MovieSceneSegmentCompiler.h"
-#include "SequencerObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
 
 /* UMovieScene interface
  *****************************************************************************/

@@ -13,12 +13,12 @@
 #include "Misc/ScopeLock.h"
 #include "Async/AsyncFileHandle.h"
 
-#include "IShaderFormatArchive.h"
+#include "Interfaces/IShaderFormatArchive.h"
 
 #if WITH_EDITORONLY_DATA
 #include "Modules/ModuleManager.h"
-#include "IShaderFormat.h"
-#include "IShaderFormatModule.h"
+#include "Interfaces/IShaderFormat.h"
+#include "Interfaces/IShaderFormatModule.h"
 #include "Interfaces/ITargetPlatform.h"
 #include "Interfaces/ITargetPlatformManagerModule.h"
 #endif

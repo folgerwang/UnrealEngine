@@ -25,7 +25,7 @@
 
 extern UNREALED_API UEditorEngine* GEditor;
 #endif // WITH_EDITOR
-#include "TimeGuard.h"
+#include "Misc/TimeGuard.h"
 
 DEFINE_LOG_CATEGORY(LogEQS);
 

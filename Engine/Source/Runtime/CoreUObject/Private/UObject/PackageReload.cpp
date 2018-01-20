@@ -1,9 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "PackageReload.h"
-#include "StrongObjectPtr.h"
-#include "ReferenceChainSearch.h"
-#include "UObjectHash.h"
+#include "UObject/PackageReload.h"
+#include "UObject/StrongObjectPtr.h"
+#include "UObject/ReferenceChainSearch.h"
+#include "UObject/UObjectHash.h"
 #include "Misc/AssetRegistryInterface.h"
 #include "Misc/ScopedSlowTask.h"
 #include "UObject/Package.h"

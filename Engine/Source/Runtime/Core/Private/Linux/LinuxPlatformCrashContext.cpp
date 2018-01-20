@@ -22,7 +22,7 @@
 #include "Misc/EngineVersion.h"
 #include "HAL/PlatformMallocCrash.h"
 #include "Linux/LinuxPlatformRunnableThread.h"
-#include "ExceptionHandling.h"
+#include "HAL/ExceptionHandling.h"
 
 #include "HAL/ThreadHeartBeat.h"
 

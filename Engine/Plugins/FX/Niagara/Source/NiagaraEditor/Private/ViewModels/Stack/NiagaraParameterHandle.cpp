@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraParameterHandle.h"
+#include "ViewModels/Stack/NiagaraParameterHandle.h"
 #include "NiagaraNodeFunctionCall.h"
 #include "NiagaraScript.h"
 #include "NiagaraTypes.h"

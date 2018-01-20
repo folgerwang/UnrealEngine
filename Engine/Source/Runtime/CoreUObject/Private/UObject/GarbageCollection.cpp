@@ -850,7 +850,8 @@ public:
 			ObjectsToSerialize.Add(FGCObject::GGCObjectReferencer);
 		}
 
-		PerformReachabilityAnalysisOnObjects(ArrayStruct, ObjectsToSerialize, KeepFlags, bForceSingleThreaded);
+		MarkObjectsAsUnreachable(ObjectsToSerialize, KeepFlags);
+		PerformReachabilityAnalysisOnObjects(ArrayStruct, bForceSingleThreaded);
         
 		// Allowing external systems to add object roots. This can't be done through AddReferencedObjects
 		// because it may require tracing objects (via FGarbageCollectionTracer) multiple times
@@ -863,10 +864,8 @@ public:
 #endif
 	}
 
-	virtual void PerformReachabilityAnalysisOnObjects(FGCArrayStruct* ArrayStruct, TArray<UObject*>& ObjectsToSerialize, EObjectFlags KeepFlags, bool bForceSingleThreaded) override
+	virtual void PerformReachabilityAnalysisOnObjects(FGCArrayStruct* ArrayStruct, bool bForceSingleThreaded) override
 	{
-		MarkObjectsAsUnreachable(ObjectsToSerialize, KeepFlags);
-
 		if (!bForceSingleThreaded)
 		{
 			FGCReferenceProcessorMultithreaded ReferenceProcessor;
@@ -2325,3 +2324,21 @@ const FTokenInfo& FGCDebugReferenceTokenMap::GetTokenInfo(int32 TokenIndex) cons
 	return TokenMap[TokenIndex];
 }
 #endif // ENABLE_GC_OBJECT_CHECKS
+
+
+FGCArrayPool* FGCArrayPool::GetGlobalSingleton()
+{
+	static FAutoConsoleCommandWithOutputDevice GCDumpPoolCommand(
+		TEXT("gc.DumpPoolStats"),
+		TEXT("Dumps count and size of GC Pools"),
+		FConsoleCommandWithOutputDeviceDelegate::CreateStatic(&FGCArrayPool::DumpStats)
+	);
+
+	static FGCArrayPool* GlobalSingleton = nullptr;
+
+	if (!GlobalSingleton)
+	{
+		GlobalSingleton = new FGCArrayPool();
+	}
+	return GlobalSingleton;
+}

@@ -20,7 +20,7 @@
 #include "DetailLayoutBuilder.h"
 #include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 
 
 #include "DesktopPlatformModule.h"

@@ -4,7 +4,7 @@
 
 #include "NiagaraObjectSelection.h"
 #include "NiagaraParameterViewModel.h"
-#include "Visibility.h"
+#include "Layout/Visibility.h"
 
 struct FNiagaraTypeDefinition;
 

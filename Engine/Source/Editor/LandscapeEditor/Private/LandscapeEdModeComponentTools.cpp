@@ -21,7 +21,7 @@
 #include "LandscapeEdModeTools.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "Materials/MaterialExpressionLandscapeVisibilityMask.h"
-#include "Containers/Algo/Copy.h"
+#include "Algo/Copy.h"
 
 #define LOCTEXT_NAMESPACE "Landscape"
 

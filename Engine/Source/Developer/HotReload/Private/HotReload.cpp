@@ -31,7 +31,7 @@
 #include "AnalyticsEventAttribute.h"
 #include "Interfaces/IAnalyticsProvider.h"
 #include "ProfilingDebugging/ScopedTimers.h"
-#include "IPluginManager.h"
+#include "Interfaces/IPluginManager.h"
 #include "DesktopPlatformModule.h"
 #if WITH_ENGINE
 #include "Engine/Engine.h"
@@ -238,7 +238,7 @@ private:
 	typedef TFunction<void(const TMap<FString, FString>& ChangedModules, bool bRecompileFinished, ECompilationResult::Type CompilationResult)> FRecompileModulesCallback;
 
 	/** Called for successfully re-complied module */
-	void OnModuleCompileSucceeded(FName ModuleName, const FString& NewModuleFilename);
+	void OnModuleCompileSucceeded(FName ModuleName, const FString& ModuleFilename);
 
 	/** Returns arguments to pass to UnrealBuildTool when compiling modules */
 	static FString MakeUBTArgumentsForModuleCompiling();
@@ -604,7 +604,8 @@ bool FHotReloadModule::RecompileModule(const FName InModuleName, const bool bRel
 	UE_LOG(LogHotReload, Log, TEXT("Recompiling module %s..."), *InModuleName.ToString());
 
 	// This is an internal request for hot-reload (not from IDE)
-	bIsHotReloadingFromEditor = true;
+	TGuardValue<bool> GuardHotReloadingFromEditorFlag(bIsHotReloadingFromEditor, true);
+
 	// A list of modules that have been recompiled in the editor is going to prevent false
 	// hot-reload from IDE events as this call is blocking any potential callbacks coming from the filesystem
 	// and bIsHotReloadingFromEditor may not be enough to prevent those from being treated as actual hot-reload from IDE modules
@@ -651,75 +652,75 @@ bool FHotReloadModule::RecompileModule(const FName InModuleName, const bool bRel
 		return bCompileSucceeded;
 	};
 
-	bool bWasSuccessful = true;
 	if( bUseRollingModuleNames )
 	{
 		// First, try to compile the module.  If the module is already loaded, we won't unload it quite yet.  Instead
 		// make sure that it compiles successfully.
 
 		// Find a unique file name for the module
-		FString UniqueSuffix;
-		FString UniqueModuleFileName;
-		ModuleManager.MakeUniqueModuleFilename( InModuleName, UniqueSuffix, UniqueModuleFileName );
-
-		TArray< FModuleToRecompile > ModulesToRecompile;
 		FModuleToRecompile ModuleToRecompile;
 		ModuleToRecompile.ModuleName = InModuleName.ToString();
-		ModuleToRecompile.ModuleFileSuffix = UniqueSuffix;
-		ModuleToRecompile.NewModuleFilename = UniqueModuleFileName;
-		ModulesToRecompile.Add( ModuleToRecompile );
-		ModulesRecentlyCompiledInTheEditor.Add(FPaths::ConvertRelativePathToFull(UniqueModuleFileName));
-		bWasSuccessful = RecompileModuleDLLs(ModulesToRecompile);
+		ModuleManager.MakeUniqueModuleFilename( InModuleName, ModuleToRecompile.ModuleFileSuffix, ModuleToRecompile.NewModuleFilename );
+
+		TArray< FModuleToRecompile > ModulesToRecompile;
+		ModulesToRecompile.Add( MoveTemp(ModuleToRecompile) );
+		ModulesRecentlyCompiledInTheEditor.Add(FPaths::ConvertRelativePathToFull(ModuleToRecompile.NewModuleFilename));
+		if (!RecompileModuleDLLs(ModulesToRecompile))
+		{
+			return false;
+		}
 	}
 
 	SlowTask.EnterProgressFrame();
-	
-	if( bWasSuccessful )
+
+	// Shutdown the module if it's already running
+	if( bWasModuleLoaded )
 	{
-		// Shutdown the module if it's already running
-		if( bWasModuleLoaded )
-		{
-			Ar.Logf( TEXT( "Unloading module before compile." ) );
-			ModuleManager.UnloadOrAbandonModuleWithCallback( InModuleName, Ar );
-		}
+		Ar.Logf( TEXT( "Unloading module before compile." ) );
+		ModuleManager.UnloadOrAbandonModuleWithCallback( InModuleName, Ar );
+	}
 
-		if( !bUseRollingModuleNames )
+	if( !bUseRollingModuleNames )
+	{
+		// Try to recompile the DLL
+		TArray< FModuleToRecompile > ModulesToRecompile;
+		FModuleToRecompile ModuleToRecompile;
+		ModuleToRecompile.ModuleName = InModuleName.ToString();
+		if (ModuleManager.IsModuleLoaded(InModuleName))
 		{
-			// Try to recompile the DLL
-			TArray< FModuleToRecompile > ModulesToRecompile;
-			FModuleToRecompile ModuleToRecompile;
-			ModuleToRecompile.ModuleName = InModuleName.ToString();			
-			if (ModuleManager.IsModuleLoaded(InModuleName))
-			{
-				ModulesRecentlyCompiledInTheEditor.Add(FPaths::ConvertRelativePathToFull(ModuleManager.GetModuleFilename(InModuleName)));
-			}
-			else
-			{
-				ModuleToRecompile.NewModuleFilename = ModuleManager.GetGameBinariesDirectory() / FModuleManager::GetCleanModuleFilename(InModuleName, true);
-				ModulesRecentlyCompiledInTheEditor.Add(FPaths::ConvertRelativePathToFull(ModuleToRecompile.NewModuleFilename));
-			}
-			ModulesToRecompile.Add( ModuleToRecompile );
-			bWasSuccessful = RecompileModuleDLLs(ModulesToRecompile);
+			ModulesRecentlyCompiledInTheEditor.Add(FPaths::ConvertRelativePathToFull(ModuleManager.GetModuleFilename(InModuleName)));
 		}
-
-		// Reload the module if it was loaded before we recompiled
-		if( bWasSuccessful && (bWasModuleLoaded || bForceCodeProject) && bReloadAfterRecompile )
+		else
 		{
-			TGuardValue<bool> GuardIsHotReload(GIsHotReload, true);
-			Ar.Logf( TEXT( "Reloading module %s after successful compile." ), *InModuleName.ToString() );
-			bWasSuccessful = ModuleManager.LoadModuleWithCallback( InModuleName, Ar );
-			CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
+			ModuleToRecompile.NewModuleFilename = ModuleManager.GetGameBinariesDirectory() / ModuleManager.GetCleanModuleFilename(InModuleName, true);
+			ModulesRecentlyCompiledInTheEditor.Add(FPaths::ConvertRelativePathToFull(ModuleToRecompile.NewModuleFilename));
+		}
+		ModulesToRecompile.Add( ModuleToRecompile );
+		if (!RecompileModuleDLLs(ModulesToRecompile))
+		{
+			return false;
 		}
 	}
 
-	if (bForceCodeProject && bWasSuccessful)
+	// Reload the module if it was loaded before we recompiled
+	if ((bWasModuleLoaded || bForceCodeProject) && bReloadAfterRecompile)
+	{
+		TGuardValue<bool> GuardIsHotReload(GIsHotReload, true);
+		Ar.Logf( TEXT( "Reloading module %s after successful compile." ), *InModuleName.ToString() );
+		if (!ModuleManager.LoadModuleWithCallback( InModuleName, Ar ))
+		{
+			return false;
+		}
+
+		CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
+	}
+
+	if (bForceCodeProject)
 	{
 		HotReloadEvent.Broadcast( false );
 	}
 
-	bIsHotReloadingFromEditor = false;	
-
-	return bWasSuccessful;
+	return true;
 #else
 	return false;
 #endif // WITH_HOT_RELOAD
@@ -1561,10 +1562,10 @@ void FHotReloadModule::RecordAnalyticsEvent(const TCHAR* ReloadFrom, ECompilatio
 #endif
 }
 
-void FHotReloadModule::OnModuleCompileSucceeded(FName ModuleName, const FString& NewModuleFilename)
+void FHotReloadModule::OnModuleCompileSucceeded(FName ModuleName, const FString& ModuleFilename)
 {
 	// If the compile succeeded, update the module info entry with the new file name for this module
-	FModuleManager::Get().SetModuleFilename(ModuleName, NewModuleFilename);
+	FModuleManager::Get().SetModuleFilename(ModuleName, ModuleFilename);
 
 #if WITH_HOT_RELOAD
 	// UpdateModuleCompileData() should have been run before compiling so the
@@ -2030,10 +2031,8 @@ bool FHotReloadModule::IsAnyGameModuleLoaded()
 		TArray< FModuleStatus > ModuleStatuses;
 		FModuleManager::Get().QueryModules(ModuleStatuses);
 
-		for (auto ModuleStatusIt = ModuleStatuses.CreateConstIterator(); ModuleStatusIt; ++ModuleStatusIt)
+		for (const FModuleStatus& ModuleStatus : ModuleStatuses)
 		{
-			const FModuleStatus& ModuleStatus = *ModuleStatusIt;
-
 			// We only care about game modules that are currently loaded
 			if (ModuleStatus.bIsLoaded && ModuleStatus.bIsGameModule)
 			{
@@ -2049,18 +2048,16 @@ bool FHotReloadModule::IsAnyGameModuleLoaded()
 
 bool FHotReloadModule::ContainsOnlyGameModules(const TArray<FModuleToRecompile>& ModulesToCompile) const
 {
-	const FString AbsoluteProjectDir(FPaths::ConvertRelativePathToFull(FPaths::ProjectDir()));
-	bool bOnlyGameModules = true;
-	for (auto& ModuleToCompile : ModulesToCompile)
+	FString AbsoluteProjectDir = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir());
+	for (const FModuleToRecompile& ModuleToCompile : ModulesToCompile)
 	{
-		const FString FullModulePath(FPaths::ConvertRelativePathToFull(ModuleToCompile.NewModuleFilename));
+		FString FullModulePath = FPaths::ConvertRelativePathToFull(ModuleToCompile.NewModuleFilename);
 		if (!FullModulePath.StartsWith(AbsoluteProjectDir))
 		{
-			bOnlyGameModules = false;
-			break;
+			return false;
 		}
 	}
-	return bOnlyGameModules;
+	return true;
 }
 
 void FHotReloadModule::ModulesChangedCallback(FName ModuleName, EModuleChangeReason ReasonForChange)

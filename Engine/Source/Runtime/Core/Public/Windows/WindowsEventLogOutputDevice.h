@@ -4,7 +4,7 @@
 
 #include "CoreTypes.h"
 #include "Misc/OutputDevice.h"
-#include "MinimalWindowsApi.h"
+#include "Windows/MinimalWindowsApi.h"
 
 class FName;
 

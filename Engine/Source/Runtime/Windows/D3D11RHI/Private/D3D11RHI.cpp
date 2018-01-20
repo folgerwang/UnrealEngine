@@ -11,9 +11,9 @@
 
 #if WITH_DX_PERF
 	// For perf events
-	#include "AllowWindowsPlatformTypes.h"
+	#include "Windows/AllowWindowsPlatformTypes.h"
 		#include "d3d9.h"
-	#include "HideWindowsPlatformTypes.h"
+	#include "Windows/HideWindowsPlatformTypes.h"
 #endif	//WITH_DX_PERF
 #include "OneColorShader.h"
 

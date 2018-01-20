@@ -1,17 +1,17 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraStackParameterStoreGroup.h"
-#include "NiagaraStackModuleItem.h"
-#include "NiagaraStackAddScriptModuleItem.h"
+#include "ViewModels/Stack/NiagaraStackParameterStoreGroup.h"
+#include "ViewModels/Stack/NiagaraStackModuleItem.h"
+#include "ViewModels/Stack/NiagaraStackAddScriptModuleItem.h"
 #include "NiagaraScriptViewModel.h"
 #include "NiagaraScriptGraphViewModel.h"
 #include "NiagaraGraph.h"
 #include "NiagaraNodeOutput.h"
 #include "NiagaraNodeFunctionCall.h"
 #include "EdGraphSchema_Niagara.h"
-#include "NiagaraStackErrorItem.h"
-#include "Internationalization.h"
-#include "NiagaraStackParameterStoreEntry.h"
+#include "ViewModels/Stack/NiagaraStackErrorItem.h"
+#include "Internationalization/Internationalization.h"
+#include "ViewModels/Stack/NiagaraStackParameterStoreEntry.h"
 
 
 #define LOCTEXT_NAMESPACE "UNiagaraStackParameterStoreGroup"

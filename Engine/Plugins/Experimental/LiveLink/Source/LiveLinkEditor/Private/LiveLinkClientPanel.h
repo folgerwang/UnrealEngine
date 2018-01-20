@@ -4,8 +4,8 @@
 
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
-#include "SListView.h"
-#include "STreeView.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Views/STreeView.h"
 #include "EditorUndoClient.h"
 
 struct FLiveLinkSourceUIEntry;

@@ -2,7 +2,7 @@
 
 #include "AndroidDeviceProfileSelectorModule.h"
 #include "AndroidDeviceProfileSelector.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 IMPLEMENT_MODULE(FAndroidDeviceProfileSelectorModule, AndroidDeviceProfileSelector);
 

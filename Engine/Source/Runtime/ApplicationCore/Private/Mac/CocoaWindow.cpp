@@ -1,10 +1,10 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "CocoaWindow.h"
-#include "MacApplication.h"
-#include "CocoaTextView.h"
-#include "CocoaThread.h"
-#include "MacCursor.h"
+#include "Mac/CocoaWindow.h"
+#include "Mac/MacApplication.h"
+#include "Mac/CocoaTextView.h"
+#include "Mac/CocoaThread.h"
+#include "Mac/MacCursor.h"
 #include "HAL/IConsoleManager.h"
 
 NSString* NSDraggingExited = @"NSDraggingExited";

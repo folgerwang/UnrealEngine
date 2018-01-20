@@ -122,11 +122,6 @@ namespace AutomationTool
 		abstract public bool IsScriptModuleSupported(string ModuleName);
 
 		/// <summary>
-		/// Gets UBT project name for the current platform.
-		/// </summary>
-		abstract public string UBTProjectName { get; }
-
-		/// <summary>
 		/// Returns the type of the host editor platform.
 		/// </summary>
 		abstract public UnrealBuildTool.UnrealTargetPlatform HostEditorPlatform { get; }

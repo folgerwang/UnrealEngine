@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidWindow.h"
+#include "Android/AndroidWindow.h"
 #include <android/native_window.h>
 #include <android/native_window_jni.h>
 #include <jni.h>
@@ -331,7 +331,7 @@ void FAndroidWindow::CalculateSurfaceSize(void* InWindow, int32_t& SurfaceWidth,
 
 	// ensure the size is divisible by a specified amount
 	// do not convert to a surface size that is larger than native resolution
-	// Mobile VR doesn’t need buffer quantization as UE4 never renders directly to the buffer in VR mode. 
+	// Mobile VR doesnï¿½t need buffer quantization as UE4 never renders directly to the buffer in VR mode. 
 	const int DividableBy = bIsMobileVRApp ? 1 : 8;
 	SurfaceWidth = (SurfaceWidth / DividableBy) * DividableBy;
 	SurfaceHeight = (SurfaceHeight / DividableBy) * DividableBy;

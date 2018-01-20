@@ -8,17 +8,17 @@
 #if WITH_SSL
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #endif
 
 #include <openssl/ssl.h>
 
 #if PLATFORM_WINDOWS
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 void FSslCertificateManager::AddCertificatesToSslContext(SSL_CTX* SslContextPtr)
 {

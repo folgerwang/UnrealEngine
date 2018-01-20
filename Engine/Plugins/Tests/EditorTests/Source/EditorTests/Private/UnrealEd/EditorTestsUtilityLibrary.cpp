@@ -16,7 +16,7 @@
 #include "GameFramework/Actor.h"
 #include "Modules/ModuleManager.h"
 #include "AutomationStaticMeshComponentAdapter.h"
-#include "Containers/Algo/Transform.h"
+#include "Algo/Transform.h"
 #include "Materials/Material.h"
 
 void UEditorTestsUtilityLibrary::BakeMaterialsForComponent(UStaticMeshComponent* InStaticMeshComponent, const UMaterialOptions* MaterialOptions, const UMaterialMergeOptions* MaterialMergeOptions)

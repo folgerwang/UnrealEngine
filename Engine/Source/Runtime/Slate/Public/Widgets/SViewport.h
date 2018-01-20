@@ -13,7 +13,7 @@
 #include "Widgets/SCompoundWidget.h"
 #include "Rendering/RenderingCommon.h"
 #include "Widgets/SWindow.h"
-#include "HittestGrid.h"
+#include "Input/HittestGrid.h"
 
 class FActiveTimerHandle;
 class FPaintArgs;

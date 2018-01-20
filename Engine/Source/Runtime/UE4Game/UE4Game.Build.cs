@@ -7,7 +7,8 @@ public class UE4Game : ModuleRules
 	public UE4Game(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PrivateDependencyModuleNames.Add("Core");
-	
+
+
         //DynamicallyLoadedModuleNames.Add("OnlineSubsystemNull");
 
 		if (Target.Platform == UnrealTargetPlatform.IOS || Target.Platform == UnrealTargetPlatform.TVOS)
@@ -26,5 +27,7 @@ public class UE4Game : ModuleRules
 			DynamicallyLoadedModuleNames.Add("AndroidAdvertising");
             //DynamicallyLoadedModuleNames.Add("OnlineSubsystemGooglePlay");
 		}
+
+		bTreatAsEngineModule = false;
 	}
 }

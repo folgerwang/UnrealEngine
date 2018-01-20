@@ -10,7 +10,7 @@
 #if UE_ENABLE_ICU
 #include "Internationalization/ICUBreakIterator.h"
 #include "Internationalization/ICUTextCharacterIterator.h"
-#include "IConsoleManager.h"
+#include "HAL/IConsoleManager.h"
 
 enum class EHangulTextWrappingMethod : uint8
 {

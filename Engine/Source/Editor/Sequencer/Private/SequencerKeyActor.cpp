@@ -9,7 +9,7 @@
 #include "Engine/Selection.h"
 #include "EditorModeTools.h"
 #include "EditorModeManager.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "EditorViewportClient.h"
 #include "UnrealClient.h"
 

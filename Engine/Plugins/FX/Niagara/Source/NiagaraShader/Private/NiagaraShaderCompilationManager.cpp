@@ -3,11 +3,11 @@
 #include "NiagaraShaderCompilationManager.h"
 #include "NiagaraShared.h"
 #if WITH_EDITOR
-#include "IShaderFormat.h"
-#include "ITargetPlatformManagerModule.h"
+#include "Interfaces/IShaderFormat.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
 #endif
-#include "FileManager.h"
-#include "Paths.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogNiagaraShaderCompiler, All, All);

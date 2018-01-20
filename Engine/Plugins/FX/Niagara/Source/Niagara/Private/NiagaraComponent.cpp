@@ -15,7 +15,7 @@
 #include "NiagaraEmitterInstance.h"
 #include "NiagaraDataInterface.h"
 #include "NiagaraDataInterfaceStaticMesh.h"
-#include "NameTypes.h"
+#include "UObject/NameTypes.h"
 #include "NiagaraParameterCollection.h"
 #include "NiagaraWorldManager.h"
 

@@ -3,7 +3,7 @@
 #include "ProfilingDebugging/InstanceCounter.h"
 #include "Misc/ScopeLock.h"
 #include "Logging/LogMacros.h"
-#include "IConsoleManager.h"
+#include "HAL/IConsoleManager.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogInstanceCount, Log, All);
 

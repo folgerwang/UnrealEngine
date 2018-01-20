@@ -10,9 +10,9 @@
 #include "NiagaraCustomVersion.h"
 #include "ScopedTransaction.h"
 #include "EdGraphSchema_Niagara.h"
-#include "MultiBoxBuilder.h"
-#include "SBox.h"
-#include "SEditableTextBox.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SEditableTextBox.h"
 #include "NiagaraEditorUtilities.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraNodeOutput"

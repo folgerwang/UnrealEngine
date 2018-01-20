@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "DisplayNodes/SequencerDisplayNode.h"
 #include "Widgets/Input/SNumericDropDown.h"
-#include "ArrayView.h"
+#include "Containers/ArrayView.h"
 
 #define LOCTEXT_NAMESPACE "SequencerHelpers"
 

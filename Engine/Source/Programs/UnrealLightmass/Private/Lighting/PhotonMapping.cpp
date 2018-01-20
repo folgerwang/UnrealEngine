@@ -5,7 +5,7 @@
 #include "HAL/RunnableThread.h"
 #include "MonteCarlo.h"
 #include "LightmassSwarm.h"
-#include "ExceptionHandling.h"
+#include "HAL/ExceptionHandling.h"
 
 namespace Lightmass
 {

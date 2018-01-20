@@ -13,7 +13,7 @@
 #include "PhysicsEngine/PhysicsConstraintTemplate.h"
 #include "UObject/ReleaseObjectVersion.h"
 #include "Logging/MessageLog.h"
-#include "UObjectIterator.h"
+#include "UObject/UObjectIterator.h"
 
 #if WITH_EDITOR
 #include "Misc/MessageDialog.h"

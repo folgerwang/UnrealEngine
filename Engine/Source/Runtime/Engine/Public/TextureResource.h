@@ -19,7 +19,7 @@
 #include "Serialization/BulkData.h"
 #include "Engine/TextureDefines.h"
 #include "UnrealClient.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 class FTexture2DResourceMem;
 class UTexture2D;

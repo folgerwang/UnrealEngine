@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidMemory.h"
-#include "MallocBinned.h"
-#include "MallocAnsi.h"
+#include "Android/AndroidMemory.h"
+#include "HAL/MallocBinned.h"
+#include "HAL/MallocAnsi.h"
 #include "unistd.h"
 #include <jni.h>
 #include <sys/sysinfo.h>

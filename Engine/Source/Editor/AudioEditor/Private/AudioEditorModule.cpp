@@ -18,7 +18,7 @@
 #include "Sound/SoundEffectPreset.h"
 #include "SoundCueEditor.h"
 #include "SoundSubmixEditor.h"
-#include "Classes/Sound/AudioSettings.h"
+#include "Sound/AudioSettings.h"
 #include "AssetTypeActions/AssetTypeActions_DialogueVoice.h"
 #include "AssetTypeActions/AssetTypeActions_DialogueWave.h"
 #include "AssetTypeActions/AssetTypeActions_SoundAttenuation.h"

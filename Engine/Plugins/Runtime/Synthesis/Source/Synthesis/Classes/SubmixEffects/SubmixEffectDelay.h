@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "AudioEffect.h"
-#include "Delay.h"
+#include "DSP/Delay.h"
 #include "DSP/Dsp.h"
 #include "Sound/SoundEffectSubmix.h"
 #include "SubmixEffectDelay.generated.h"

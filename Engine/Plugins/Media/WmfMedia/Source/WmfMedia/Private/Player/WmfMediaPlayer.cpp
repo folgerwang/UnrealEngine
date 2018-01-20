@@ -15,7 +15,7 @@
 #include "WmfMediaTracks.h"
 #include "WmfMediaUtils.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 
 /* FWmfVideoPlayer structors
@@ -240,6 +240,6 @@ bool FWmfMediaPlayer::InitializePlayer(const TSharedPtr<FArchive, ESPMode::Threa
 }
 
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #endif //WMFMEDIA_SUPPORTED_PLATFORM

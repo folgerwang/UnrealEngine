@@ -10,7 +10,7 @@
 #include "NiagaraSystemScriptViewModel.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "EditorStyleSet.h"
-#include "AssetEditorToolkit.h"
+#include "Toolkits/AssetEditorToolkit.h"
 #include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
 

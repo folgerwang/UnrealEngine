@@ -25,7 +25,7 @@
 #include "Materials/MaterialExpressionMaterialAttributeLayers.h"
 #include "Materials/MaterialExpressionStaticBoolParameter.h"
 #include "Materials/MaterialExpressionStaticComponentMaskParameter.h"
-#include "UObjectIterator.h"
+#include "UObject/UObjectIterator.h"
 #include "PropertyEditorDelegates.h"
 #include "IDetailsView.h"
 #include "MaterialEditingLibrary.h"

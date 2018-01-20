@@ -4,7 +4,7 @@
 #include "Containers/UnrealString.h"
 
 #if !UE_ENABLE_ICU
-#include "Regex.h"
+#include "Internationalization/Regex.h"
 
 class FRegexPatternImplementation
 {

@@ -44,7 +44,7 @@
 #include "Settings/ProjectPackagingSettings.h"
 #include "Matinee/MatineeActor.h"
 #include "Engine/LevelScriptBlueprint.h"
-#include "BlueprintsObjectVersion.h"
+#include "UObject/BlueprintsObjectVersion.h"
 #include "Kismet2/CompilerResultsLog.h"
 #include "Algo/Transform.h"
 

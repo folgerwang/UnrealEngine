@@ -1,9 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LocalTitleFile.h"
-#include "FileManagerGeneric.h"
-#include "Paths.h"
-#include "FileHelper.h"
+#include "HAL/FileManagerGeneric.h"
+#include "Misc/Paths.h"
+#include "Misc/FileHelper.h"
 
 FLocalTitleFile::FLocalTitleFile(const FString& InRootDirectory)
 : RootDirectory(InRootDirectory)

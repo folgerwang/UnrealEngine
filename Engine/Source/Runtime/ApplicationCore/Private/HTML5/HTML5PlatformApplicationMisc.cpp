@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "HTML5PlatformApplicationMisc.h"
-#include "HTML5Application.h"
+#include "HTML5/HTML5PlatformApplicationMisc.h"
+#include "HTML5/HTML5Application.h"
 #include "Modules/ModuleManager.h"
 
 THIRD_PARTY_INCLUDES_START

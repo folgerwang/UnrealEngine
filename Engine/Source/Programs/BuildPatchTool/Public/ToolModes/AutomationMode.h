@@ -5,7 +5,7 @@
 
 #if !UE_BUILD_SHIPPING
 
-#include "ToolMode.h"
+#include "Interfaces/ToolMode.h"
 
 namespace BuildPatchTool
 {

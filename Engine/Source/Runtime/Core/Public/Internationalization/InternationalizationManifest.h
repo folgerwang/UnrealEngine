@@ -9,7 +9,7 @@
 #include "Containers/Set.h"
 #include "Containers/Map.h"
 #include "Templates/SharedPointer.h"
-#include "LocKeyFuncs.h"
+#include "Internationalization/LocKeyFuncs.h"
 
 class FLocMetadataObject;
 

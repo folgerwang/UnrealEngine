@@ -18,7 +18,7 @@
 #include "IPhysicsAssetEditor.h"
 #include "Editor/PhysicsAssetEditor/Private/PhysicsAssetEditorSharedData.h"
 #include "PhysicsEngine/BodySetupEnums.h"
-#include "ArrayView.h"
+#include "Containers/ArrayView.h"
 #include "GraphEditor.h"
 
 struct FAssetData;

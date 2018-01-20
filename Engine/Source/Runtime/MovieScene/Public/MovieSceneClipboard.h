@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "MovieSceneTrack.h"
-#include "InlineValue.h"
+#include "Misc/InlineValue.h"
 
 #if WITH_EDITOR
 

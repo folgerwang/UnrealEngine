@@ -19,7 +19,7 @@
 #include "HeadMountedDisplay.h"
 #include "XRRenderTargetManager.h"
 #include "IStereoLayers.h"
-#include "Stats.h"
+#include "Stats/Stats.h"
 #include "SceneViewExtension.h"
 #include "Engine/Engine.h"
 #include "Engine/StaticMeshActor.h"

@@ -3,16 +3,16 @@
 #include "UnrealPak.h"
 #include "RequiredProgramMainCPPInclude.h"
 #include "IPlatformFilePak.h"
-#include "SecureHash.h"
-#include "BigInt.h"
+#include "Misc/SecureHash.h"
+#include "Math/BigInt.h"
 #include "SignedArchiveWriter.h"
 #include "KeyGenerator.h"
-#include "AES.h"
-#include "UniquePtr.h"
+#include "Misc/AES.h"
+#include "Templates/UniquePtr.h"
 #include "Serialization/BufferWriter.h"
 #include "AssetRegistryModule.h"
-#include "DiagnosticTable.h"
-#include "JsonSerializer.h"
+#include "ProfilingDebugging/DiagnosticTable.h"
+#include "Serialization/JsonSerializer.h"
 #include "Misc/Base64.h"
 
 IMPLEMENT_APPLICATION(UnrealPak, "UnrealPak");
@@ -1048,6 +1048,7 @@ bool CreatePakFile(const TCHAR* Filename, TArray<FPakInputPair>& FilesToAdd, con
 
 	uint64 TotalRequestedEncryptedFiles = 0;
 	uint64 TotalEncryptedFiles = 0;
+	uint64 TotalEncryptedDataSize = 0;
 
 	for (int32 FileIndex = 0; FileIndex < FilesToAdd.Num(); FileIndex++)
 	{
@@ -1244,6 +1245,7 @@ bool CreatePakFile(const TCHAR* Filename, TArray<FPakInputPair>& FilesToAdd, con
 				if (EncryptionKey.IsValid())
 				{
 					TotalEncryptedFiles++;
+					TotalEncryptedDataSize += SizeToWrite;
 					EncryptedString = TEXT("encrypted ");
 				}
 			}
@@ -1334,6 +1336,7 @@ bool CreatePakFile(const TCHAR* Filename, TArray<FPakInputPair>& FilesToAdd, con
 	{
 		UE_LOG(LogPakFile, Display, TEXT("Encrypting index..."));
 		FAES::EncryptData(IndexData.GetData(), IndexData.Num(), EncryptionKey);
+		TotalEncryptedDataSize += IndexData.Num();
 	}
 
 	PakFileHandle->Serialize(IndexData.GetData(), IndexData.Num());
@@ -1352,7 +1355,7 @@ bool CreatePakFile(const TCHAR* Filename, TArray<FPakInputPair>& FilesToAdd, con
 
 	if (TotalEncryptedFiles)
 	{
-		UE_LOG(LogPakFile, Display, TEXT("Encryption summary: %d files were encrypted. "), TotalEncryptedFiles);
+		UE_LOG(LogPakFile, Display, TEXT("Encryption summary: %d files were encrypted. Total encrypted data size = %d bytes (%.2fMB)"), TotalEncryptedFiles, TotalEncryptedDataSize, (float)TotalEncryptedDataSize / 1024.0f / 1024.0f);
 	}
 
 	if (TotalEncryptedFiles < TotalRequestedEncryptedFiles)

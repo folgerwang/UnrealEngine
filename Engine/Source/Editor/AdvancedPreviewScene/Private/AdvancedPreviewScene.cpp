@@ -21,7 +21,7 @@
 
 #include "Engine/StaticMesh.h"
 #include "AdvancedPreviewSceneCommands.h"
-#include "UICommandList.h"
+#include "Framework/Commands/UICommandList.h"
 #include "Framework/Application/SlateApplication.h"
 
 FAdvancedPreviewScene::FAdvancedPreviewScene(ConstructionValues CVS, float InFloorOffset)
