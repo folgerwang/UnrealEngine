@@ -539,9 +539,6 @@ namespace UnrealBuildTool
 							Directory.Delete(Module.GeneratedCodeDirectory.FullName, true);
 						}
 					}
-
-					// Remove it from the list of public include paths
-					Module.RemoveGeneratedCodeDirectory();
 				}
 			}
 

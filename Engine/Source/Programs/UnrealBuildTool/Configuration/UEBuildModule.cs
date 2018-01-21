@@ -416,6 +416,18 @@ namespace UnrealBuildTool
 			}
 		}
 
+		private void AddIncludePaths(HashSet<DirectoryReference> IncludePaths, HashSet<DirectoryReference> IncludePathsToAdd)
+		{
+			// Need to check whether directories exist to avoid bloating compiler command line with generated code directories
+			foreach(DirectoryReference IncludePathToAdd in IncludePathsToAdd)
+			{
+				if(DirectoryReference.Exists(IncludePathToAdd))
+				{
+					IncludePaths.Add(IncludePathToAdd);
+				}
+			}
+		}
+
 		/// <summary>
 		/// Sets up the environment for compiling any module that includes the public interface of this module.
 		/// </summary>
@@ -432,10 +444,10 @@ namespace UnrealBuildTool
 			IncludePaths.Add(ModuleDirectory.ParentDirectory);
 
 			// Add this module's public include paths and definitions.
-			IncludePaths.UnionWith(PublicIncludePaths);
+			AddIncludePaths(IncludePaths, PublicIncludePaths);
 			if(bLegacyPublicIncludePaths)
 			{
-				IncludePaths.UnionWith(LegacyPublicIncludePaths);
+				AddIncludePaths(IncludePaths, LegacyPublicIncludePaths);
 			}
 			SystemIncludePaths.UnionWith(PublicSystemIncludePaths);
 			Definitions.AddRange(PublicDefinitions);
