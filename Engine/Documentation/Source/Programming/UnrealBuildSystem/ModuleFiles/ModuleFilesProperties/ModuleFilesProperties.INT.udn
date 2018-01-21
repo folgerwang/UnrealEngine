@@ -19,6 +19,10 @@ $ ShortName (String): Specifies an alternate name for intermediate directories a
 
 $ PCHUsage (PCHUsageMode): Precompiled header usage for this module
 
+$ bTreatAsEngineModule (Boolean): Whether this module should be treated as an engine module (eg. using engine definitions, PCHs, compiled with optimizations enabled in DebugGame configurations, etc...). Initialized to a default based on the rules assembly it was created from.
+
+$ bUseBackwardsCompatibleDefaults (Boolean): Whether to use backwards compatible defaults for this module. By default, engine modules always use the latest default settings, while project modules do not (to support an easier migration path).
+
 $ bUseRTTI (Boolean): Use run time type information
 
 $ bUseAVX (Boolean): Use AVX instructions
@@ -50,6 +54,10 @@ $ WhitelistRestrictedFolders (List&lt;String&gt;): List of folders which are whi
 $ bEnforceIWYU (Boolean): Enforce "include what you use" rules when PCHUsage is set to ExplicitOrSharedPCH; warns when monolithic headers (Engine.h, UnrealEd.h, etc...) are used, and checks that source files include their matching header first.
 
 $ bAddDefaultIncludePaths (Boolean): Whether to add all the default include paths to the module (eg. the Source/Classes folder, subfolders under Source/Public).
+
+$ bPrecompile (Boolean): Whether this module should be precompiled. Defaults to the bPrecompile flag from the target. Clear this flag to prevent a module being precompiled.
+
+$ bUsePrecompiled (Boolean): Whether this module should use precompiled data. Always true for modules created from installed assemblies.
 
 $ PublicIncludePathModuleNames (List&lt;String&gt;): List of modules names (no path needed) with header files that our module's public headers needs access to, but we don't need to "import" or link against.
 
@@ -89,8 +97,6 @@ $ PublicDefinitions (List&lt;String&gt;): Public compiler definitions for this m
 
 $ DynamicallyLoadedModuleNames (List&lt;String&gt;): Addition modules this module may require at run-time
 
-$ PlatformSpecificDynamicallyLoadedModuleNames (List&lt;String&gt;): Extra modules this module may require at run time, that are on behalf of another platform (i.e. shader formats and the like)
-
 $ RuntimeDependencies (RuntimeDependencyList): List of files which this module depends on at runtime. These files will be staged along with the target.
 
 $ AdditionalPropertiesForReceipt (ReceiptPropertyList): List of additional properties to be added to the build receipt
@@ -98,5 +104,7 @@ $ AdditionalPropertiesForReceipt (ReceiptPropertyList): List of additional prope
 $ PrecompileForTargets (PrecompileTargetsType): Which targets this module should be precompiled for
 
 $ ExternalDependencies (List&lt;String&gt;): External files which invalidate the makefile if modified. Relative paths are resolved relative to the .build.cs file.
+
+$ bLegacyPublicIncludePaths (Nullable&lt;Boolean&gt;): Whether this module qualifies included headers from other modules relative to the root of their 'Public' folder. This reduces the number of search paths that have to be passed to the compiler, improving performance and reducing the length of the compiler command line.
 
 

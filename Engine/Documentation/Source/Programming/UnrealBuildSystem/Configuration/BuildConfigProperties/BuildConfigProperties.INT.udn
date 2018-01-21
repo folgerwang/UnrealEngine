@@ -106,15 +106,13 @@ $ bFlushBuildDirOnRemoteMac : Whether to clean Builds directory on a remote Mac 
 
 $ bPrintToolChainTimingInfo : Whether to write detailed timing info from the compiler and linker.
 
-$ PCHOutputDirectory : The directory to put precompiled header files in. Experimental setting to allow using a path on a faster drive. Defaults to the standard output directory if not set.
-
 $ bIgnoreOutdatedImportLibraries : Whether to ignore import library files that are out of date when building targets.  Set this to true to improve iteration time. By default we don't bother relinking targets if only a dependent .lib has changed, as chances are that the import library wasn't actually different unless a dependent header file of this target was also changed, in which case the target would be rebuilt automatically.
 
 $ bUseActionHistory : Whether to generate command line dependencies for compile actions when requested
 
 $ bPrintDebugInfo : Whether debug info should be written to the console.
 
-$ LogFilename : Allows logging to a file
+$ LogFileName : Specifies the file to use for logging
 
 $ bPrintPerformanceInfo : Prints performance diagnostics about include dependencies and other bits
 
@@ -125,8 +123,6 @@ $ bAllowXGE : Whether XGE may be used.
 $ bAllowSNDBS : Whether SN-DBS may be used.
 
 $ bShouldDeleteAllOutdatedProducedItems : Whether or not to delete outdated produced items.
-
-$ LogLevel : What level of logging we wish to show
 
 $ JsonExportFile : Whether we should export a JSON file containing detailed target information.
 
