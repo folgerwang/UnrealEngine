@@ -378,6 +378,18 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Remove the generated code directory from the list of public include paths. This is called for modules that do not contain any generated code, once the determination is
+		/// made that UHT will not generate anything, and is necessary to reduce the length of the command line to the compiler.
+		/// </summary>
+		public void RemoveGeneratedCodeDirectory()
+		{
+			if(GeneratedCodeDirectory != null)
+			{
+				PublicIncludePaths.Remove(GeneratedCodeDirectory);
+			}
+		}
+
+		/// <summary>
 		/// Path to the precompiled manifest location
 		/// </summary>
 		public FileReference PrecompiledManifestLocation
