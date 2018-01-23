@@ -6,6 +6,10 @@
 #include "MeshAttributes.h"
 #include "Serialization/ObjectWriter.h"
 
+
+DEFINE_LOG_CATEGORY( LogMeshDescription );
+
+
 UMeshDescription::UMeshDescription()
 {
 	RegisterBaseAttributes();
@@ -98,8 +102,11 @@ void UMeshDescription::Empty()
 	PolygonGroupArray.Reset();
 
 	//Empty all attributes
-	UnRegisterBaseAttributes();
-	RegisterBaseAttributes();
+	VertexAttributesSet.Initialize( 0 );
+	VertexInstanceAttributesSet.Initialize( 0 );
+	EdgeAttributesSet.Initialize( 0 );
+	PolygonAttributesSet.Initialize( 0 );
+	PolygonGroupAttributesSet.Initialize( 0 );
 }
 
 #if WITH_EDITORONLY_DATA
