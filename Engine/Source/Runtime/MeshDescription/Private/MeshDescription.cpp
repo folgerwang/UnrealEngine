@@ -393,20 +393,52 @@ void UMeshDescription::RemapAttributes( const FElementIDRemappings& Remappings )
 	PolygonGroupAttributesSet.Remap( Remappings.NewPolygonGroupIndexLookup );
 }
 
-void UMeshDescription::GetPolygonPerimeterVertices(const FPolygonID PolygonID, TArray<FVertexID>& OutPolygonPerimeterVertexIDs) const
-{
-	const FMeshPolygon& Polygon = GetPolygon(PolygonID);
 
-	OutPolygonPerimeterVertexIDs.SetNumUninitialized(Polygon.PerimeterContour.VertexInstanceIDs.Num(), false);
+bool UMeshDescription::IsVertexOrphaned( const FVertexID VertexID ) const
+{
+	for( const FVertexInstanceID VertexInstanceID : GetVertex( VertexID ).VertexInstanceIDs )
+	{
+		if( GetVertexInstance( VertexInstanceID ).ConnectedPolygons.Num() > 0 )
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+
+void UMeshDescription::GetPolygonPerimeterVertices( const FPolygonID PolygonID, TArray<FVertexID>& OutPolygonPerimeterVertexIDs ) const
+{
+	const FMeshPolygon& Polygon = GetPolygon( PolygonID );
+
+	OutPolygonPerimeterVertexIDs.SetNumUninitialized( Polygon.PerimeterContour.VertexInstanceIDs.Num(), false );
 
 	int32 Index = 0;
-	for (const FVertexInstanceID VertexInstanceID : Polygon.PerimeterContour.VertexInstanceIDs)
+	for( const FVertexInstanceID VertexInstanceID : Polygon.PerimeterContour.VertexInstanceIDs )
 	{
-		const FMeshVertexInstance& VertexInstance = VertexInstanceArray[VertexInstanceID];
-		OutPolygonPerimeterVertexIDs[Index] = VertexInstance.VertexID;
+		const FMeshVertexInstance& VertexInstance = VertexInstanceArray[ VertexInstanceID ];
+		OutPolygonPerimeterVertexIDs[ Index ] = VertexInstance.VertexID;
 		Index++;
 	}
 }
+
+
+void UMeshDescription::GetPolygonHoleVertices( const FPolygonID PolygonID, const int32 HoleIndex, TArray<FVertexID>& OutPolygonHoleVertexIDs ) const
+{
+	const FMeshPolygon& Polygon = GetPolygon( PolygonID );
+
+	OutPolygonHoleVertexIDs.SetNumUninitialized( Polygon.HoleContours[ HoleIndex ].VertexInstanceIDs.Num(), false );
+
+	int32 Index = 0;
+	for( const FVertexInstanceID VertexInstanceID : Polygon.HoleContours[ HoleIndex ].VertexInstanceIDs )
+	{
+		const FMeshVertexInstance& VertexInstance = VertexInstanceArray[ VertexInstanceID ];
+		OutPolygonHoleVertexIDs[ Index ] = VertexInstance.VertexID;
+		Index++;
+	}
+}
+
 
 /** Given three direction vectors, indicates if A and B are on the same 'side' of Vec. */
 bool UMeshDescription::VectorsOnSameSide(const FVector& Vec, const FVector& A, const FVector& B, const float SameSideDotProductEpsilon)

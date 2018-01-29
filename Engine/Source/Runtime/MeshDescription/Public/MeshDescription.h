@@ -614,7 +614,12 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 // Meshdescription general functions
+
 public:
+
+	/** Returns whether a given vertex is orphaned, i.e. it doesn't form part of any polygon */
+	bool IsVertexOrphaned( const FVertexID VertexID ) const;
+
 	/** Returns the edge ID defined by the two given vertex IDs, if there is one; otherwise FEdgeID::Invalid */
 	FEdgeID GetVertexPairEdge( const FVertexID VertexID0, const FVertexID VertexID1 ) const
 	{
@@ -641,6 +646,31 @@ public:
 	const TArray<FVertexInstanceID>& GetVertexVertexInstances( const FVertexID VertexID ) const
 	{
 		return VertexArray[ VertexID ].VertexInstanceIDs;
+	}
+
+	/** Populates the passed array of PolygonIDs with the polygons connected to this vertex */
+	void GetVertexConnectedPolygons( const FVertexID VertexID, TArray<FPolygonID>& OutConnectedPolygonIDs ) const
+	{
+		OutConnectedPolygonIDs.Reset();
+		for( const FVertexInstanceID VertexInstanceID : VertexArray[ VertexID ].VertexInstanceIDs )
+		{
+			OutConnectedPolygonIDs.Append( VertexInstanceArray[ VertexInstanceID ].ConnectedPolygons );
+		}
+	}
+
+	/** Populates the passed array of VertexIDs with the vertices adjacent to this vertex */
+	void GetVertexAdjacentVertices( const FVertexID VertexID, TArray<FVertexID>& OutAdjacentVertexIDs ) const
+	{
+		const TArray<FEdgeID>& ConnectedEdgeIDs = VertexArray[ VertexID ].ConnectedEdgeIDs;
+		OutAdjacentVertexIDs.SetNumUninitialized( ConnectedEdgeIDs.Num() );
+
+		int32 Index = 0;
+		for( const FEdgeID EdgeID : ConnectedEdgeIDs )
+		{
+			const FMeshEdge& Edge = EdgeArray[ EdgeID ];
+			OutAdjacentVertexIDs[ Index ] = ( Edge.VertexIDs[ 0 ] == VertexID ) ? Edge.VertexIDs[ 1 ] : Edge.VertexIDs[ 0 ];
+			Index++;
+		}
 	}
 
 	/** Returns reference to an array of polygon IDs connected to this edge */
@@ -678,6 +708,24 @@ public:
 	const TArray<FVertexInstanceID>& GetPolygonPerimeterVertexInstances( const FPolygonID PolygonID ) const
 	{
 		return PolygonArray[ PolygonID ].PerimeterContour.VertexInstanceIDs;
+	}
+
+	/** Populates the passed array of VertexIDs with the vertices which form the polygon perimeter */
+	void GetPolygonPerimeterVertices( const FPolygonID PolygonID, TArray<FVertexID>& OutPolygonPerimeterVertexIDs ) const;
+
+	/** Returns the number of holes in this polygon */
+	int32 GetNumPolygonHoles( const FPolygonID PolygonID ) const
+	{
+		return PolygonArray[ PolygonID ].HoleContours.Num();
+	}
+
+	/** Populates the passed array of VertexIDs with the vertices which form the contour of the specified hole */
+	void GetPolygonHoleVertices( const FPolygonID PolygonID, const int32 HoleIndex, TArray<FVertexID>& OutPolygonHoleVertexIDs ) const;
+
+	/** Returns reference to an array of VertexInstance IDs forming the contour of the given hole */
+	const TArray<FVertexInstanceID>& GetPolygonHoleVertexInstances( const FPolygonID PolygonID, const int32 HoleIndex ) const
+	{
+		return PolygonArray[ PolygonID ].HoleContours[ HoleIndex ].VertexInstanceIDs;
 	}
 
 	void GetPolygonEdges(const FPolygonID PolygonID, TArray<FEdgeID>& OutPolygonEdges) const
@@ -756,7 +804,6 @@ public:
 private:
 	bool VectorsOnSameSide(const FVector& Vec, const FVector& A, const FVector& B, const float SameSideDotProductEpsilon);
 	bool PointInTriangle(const FVector& A, const FVector& B, const FVector& C, const FVector& P, const float InsideTriangleDotProductEpsilon);
-	void GetPolygonPerimeterVertices(const FPolygonID PolygonID, TArray<FVertexID>& OutPolygonPerimeterVertexIDs) const;
 	FPlane ComputePolygonPlane(const FPolygonID PolygonID) const;
 	FVector ComputePolygonNormal(const FPolygonID PolygonID) const;
 

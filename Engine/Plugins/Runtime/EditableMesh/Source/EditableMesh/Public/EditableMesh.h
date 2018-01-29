@@ -217,8 +217,6 @@ protected:
 	/** Given a set of index remappings, fixes up references in the octree */
 	void RemapOctreeIDs( const FElementIDRemappings& Remappings );
 
-	FEdgeID GetPolygonContourEdge( const FMeshPolygonContour& Contour, const int32 ContourEdgeNumber, bool& bOutEdgeWindingIsReversedForPolygon ) const;
-	void GetPolygonContourEdges( const FMeshPolygonContour& Contour, TArray<FEdgeID>& OutPolygonContourEdgeIDs ) const;
 	void SetVertexAttribute( const FVertexID VertexID, const FMeshElementAttributeData& Attribute );
 	void SetVertexInstanceAttribute( const FVertexInstanceID VertexInstanceID, const FMeshElementAttributeData& Attribute );
 	void SetEdgeAttribute( const FEdgeID EdgeID, const FMeshElementAttributeData& Attribute );
