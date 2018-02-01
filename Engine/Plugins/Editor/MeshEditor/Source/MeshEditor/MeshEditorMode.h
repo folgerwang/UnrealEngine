@@ -18,6 +18,7 @@
 #include "Framework/Commands/UICommandList.h"
 #include "WireframeMeshComponent.h"
 #include "OverlayComponent.h"
+#include "UObject/ObjectKey.h"
 #include "MeshEditorMode.generated.h"
 
 
@@ -535,7 +536,7 @@ protected:
 
 	struct FComponentAndEditableMesh
 	{
-		UPrimitiveComponent* Component;
+		TWeakObjectPtr<UPrimitiveComponent> Component;
 		UEditableMesh* EditableMesh;
 
 		FComponentAndEditableMesh( UPrimitiveComponent* InitComponent, UEditableMesh* InitEditableMesh )
@@ -582,7 +583,7 @@ protected:
 	TMap<FEditableMeshSubMeshAddress, FEditableAndWireframeMeshes> CachedEditableMeshes;
 
 	/** Map mesh components to their wireframe overlays */
-	TMap<UPrimitiveComponent*, FWireframeMeshComponents> ComponentToWireframeComponentMap;
+	TMap<FObjectKey, FWireframeMeshComponents> ComponentToWireframeComponentMap;
 
 	/** Manages saving undo for selected mesh elements while we're dragging them around */
 	FTrackingTransaction TrackingTransaction;
