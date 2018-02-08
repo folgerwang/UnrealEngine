@@ -6,7 +6,7 @@
 #include "DeviceProfiles/DeviceProfile.h"
 #include "DeviceProfiles/DeviceProfileManager.h"
 #include "StaticMeshResources.h"
-#include "Private/SceneRendering.h"
+#include "Runtime/Renderer/Private/SceneRendering.h"
 #include "Async/ParallelFor.h"
 #include "LightMap.h"
 #include "ShadowMap.h"

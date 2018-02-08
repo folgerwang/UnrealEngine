@@ -9,7 +9,7 @@
 #include "NiagaraParameterCollection.h"
 #include "NiagaraSystemInstance.h"
 #include "Scalability.h"
-#include "ConfigCacheIni.h"
+#include "Misc/ConfigCacheIni.h"
 #include "NiagaraDataInterfaceSkeletalMesh.h"
 
 

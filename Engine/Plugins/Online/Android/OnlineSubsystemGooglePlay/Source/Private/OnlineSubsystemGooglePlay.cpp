@@ -10,7 +10,7 @@
 #include "OnlineExternalUIInterfaceGooglePlay.h"
 #include "OnlinePurchaseGooglePlay.h"
 #include "OnlineStoreGooglePlay.h"
-#include "AndroidApplication.h"
+#include "Android/AndroidApplication.h"
 #include "Android/AndroidJNI.h"
 #include "OnlineAsyncTaskManagerGooglePlay.h"
 #include "OnlineAsyncTaskGooglePlayLogin.h"

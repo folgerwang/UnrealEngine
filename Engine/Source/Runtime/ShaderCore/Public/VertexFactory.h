@@ -13,7 +13,7 @@
 #include "RenderResource.h"
 #include "ShaderCore.h"
 #include "Shader.h"
-#include "EnumClassFlags.h"
+#include "Misc/EnumClassFlags.h"
 
 class FMaterial;
 

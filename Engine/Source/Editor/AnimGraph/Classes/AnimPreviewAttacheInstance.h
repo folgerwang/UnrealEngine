@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "AnimCustomInstance.h"
-#include "AnimInstanceProxy.h"
+#include "Animation/AnimInstanceProxy.h"
 #include "AnimNodes/AnimNode_CopyPoseFromMesh.h"
 #include "AnimPreviewAttacheInstance.generated.h"
 

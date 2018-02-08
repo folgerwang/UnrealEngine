@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ScopeLock.h"
+#include "Misc/ScopeLock.h"
 
 // Macros which can be enabled to cause DSP sample checking
 #if 0

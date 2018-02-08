@@ -15,7 +15,7 @@
 #include "Toolkits/AssetEditorToolkit.h"
 #include "Toolkits/SimpleAssetEditor.h"
 #include "LevelEditor.h"
-#include "PackageReload.h"
+#include "UObject/PackageReload.h"
 #include "EngineAnalytics.h"
 #include "AnalyticsEventAttribute.h"
 #include "Interfaces/IAnalyticsProvider.h"

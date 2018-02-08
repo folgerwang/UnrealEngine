@@ -9,7 +9,7 @@
 #if WMFMEDIA_SUPPORTED_PLATFORM
 	#include "../../WmfMediaFactory/Public/WmfMediaSettings.h"
 
-	#include "WindowsHWrapper.h"
+	#include "Windows/WindowsHWrapper.h"
 	#include "Windows/AllowWindowsPlatformTypes.h"
 
 	#include <windows.h>

@@ -19,7 +19,7 @@
 #include "Policies/PrettyJsonPrintPolicy.h"
 #include "Serialization/JsonSerializer.h"
 #include "Types/SlateEnums.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "Engine/Level.h"
 #include "Components/ActorComponent.h"
 #include "AssetData.h"

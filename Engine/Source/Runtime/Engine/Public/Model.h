@@ -19,7 +19,7 @@
 #include "Containers/DynamicRHIResourceArray.h"
 #include "RawIndexBuffer.h"
 #include "LocalVertexFactory.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "StaticMeshResources.h"
 
 class AActor;

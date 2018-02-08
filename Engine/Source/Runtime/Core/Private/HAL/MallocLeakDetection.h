@@ -15,7 +15,7 @@
 #include "Containers/Set.h"
 #include "Containers/Map.h"
 #include "Misc/ScopeLock.h"
-#include "ThreadSafeBool.h"
+#include "HAL/ThreadSafeBool.h"
 
 #ifndef MALLOC_LEAKDETECTION
 	#define MALLOC_LEAKDETECTION 0

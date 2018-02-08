@@ -12,7 +12,7 @@
 #include "AudioDecompress.h"
 #include "AudioEffect.h"
 #include "CoreAudioEffects.h"
-#include "IAudioFormat.h"
+#include "Interfaces/IAudioFormat.h"
 
 /*------------------------------------------------------------------------------------
  FCoreAudioSoundBuffer.

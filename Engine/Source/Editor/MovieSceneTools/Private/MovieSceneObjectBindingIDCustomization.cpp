@@ -11,8 +11,8 @@
 #include "IDetailChildrenBuilder.h"
 #include "SDropTarget.h"
 #include "ISequencer.h"
-#include "SComboButton.h"
-#include "STextBlock.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Text/STextBlock.h"
 #include "ScopedTransaction.h"
 #include "SequencerObjectBindingDragDropOp.h"
 

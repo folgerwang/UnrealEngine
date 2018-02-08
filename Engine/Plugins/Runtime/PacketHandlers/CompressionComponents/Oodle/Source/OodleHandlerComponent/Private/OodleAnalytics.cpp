@@ -3,7 +3,7 @@
 #include "OodleAnalytics.h"
 #include "OodleHandlerComponent.h"
 #include "AnalyticsEventAttribute.h"
-#include "IAnalyticsProvider.h"
+#include "Interfaces/IAnalyticsProvider.h"
 
 class FOodleAnalyticsImpl
 	: public FOodleAnalytics

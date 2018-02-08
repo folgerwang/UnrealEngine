@@ -2,14 +2,14 @@
 
 #include "Commandlets/FixConflictingLocalizationKeys.h"
 #include "Commandlets/GatherTextCommandletBase.h"
-#include "Object.h"
-#include "Class.h"
-#include "Package.h"
-#include "TextProperty.h"
-#include "LocKeyFuncs.h"
-#include "Paths.h"
-#include "PackageName.h"
-#include "TextNamespaceUtil.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "UObject/Package.h"
+#include "UObject/TextProperty.h"
+#include "Internationalization/LocKeyFuncs.h"
+#include "Misc/Paths.h"
+#include "Misc/PackageName.h"
+#include "Internationalization/TextNamespaceUtil.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFixConflictingLocalizationKeys, Log, All);
 

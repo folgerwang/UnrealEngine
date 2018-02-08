@@ -34,12 +34,12 @@
 #include "Animation/AnimNotifies/AnimNotify.h"
 #include "Animation/BlendSpaceBase.h"
 #include "TabSpawners.h"
-#include "SInlineEditableTextBlock.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 #include "HAL/PlatformApplicationMisc.h"
 #include "Modules/ModuleManager.h"
 #include "IEditableSkeleton.h"
 #include "ISkeletonEditorModule.h"
-#include "SNumericEntryBox.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 
 // Track Panel drawing
 const float NotificationTrackHeight = 20.0f;

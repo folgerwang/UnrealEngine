@@ -29,7 +29,7 @@
 #include "AssetManagerEditorCommands.h"
 #include "Engine/BlueprintCore.h"
 #include "Widgets/Input/SComboBox.h"
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 #include "DragAndDrop/AssetDragDropOp.h"
 
 #define LOCTEXT_NAMESPACE "AssetManagementBrowser"

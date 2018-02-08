@@ -17,10 +17,11 @@
 #include "Stats/Stats.h"
 #include "Serialization/Archive.h"
 #include "Misc/FileHelper.h"
-#include "FileManager.h"
-#include "PlatformFilemanager.h"
+#include "HAL/FileManager.h"
+#include "HAL/PlatformFilemanager.h"
 #include "Interfaces/IAndroidDeviceDetectionModule.h"
 #include "Interfaces/IAndroidDeviceDetection.h"
+#include "Misc/SecureHash.h"
 
 #define LOCTEXT_NAMESPACE "FAndroidTargetPlatform"
 

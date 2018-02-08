@@ -5,7 +5,7 @@
 #include "HAL/IConsoleManager.h"
 #include "Widgets/Input/IVirtualKeyboardEntry.h"
 #include "Misc/ConfigCacheIni.h"
-#include "IConsoleManager.h"
+#include "HAL/IConsoleManager.h"
 
 // Java InputType class
 #define TYPE_CLASS_TEXT						0x00000001

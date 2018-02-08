@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 /** A simple class that observes the currently active module list for a specific module to be (un)loaded */
 class FModuleObserver

@@ -5,7 +5,7 @@
 #if WITH_WEBSOCKETS && WITH_LIBWEBSOCKETS
 
 #include "WebSocketsModule.h"
-#include "RunnableThread.h"
+#include "HAL/RunnableThread.h"
 #include "Ssl.h"
 #include "WebSocketsLog.h"
 #include "HAL/PlatformTime.h"

@@ -3,7 +3,7 @@
 #include "Tests/TestFriendsInterface.h"
 #include "OnlineSubsystemNames.h"
 #include "OnlineSubsystemUtils.h"
-#include "OnlineSharingInterface.h"
+#include "Interfaces/OnlineSharingInterface.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 

@@ -16,7 +16,7 @@
 
 #include "MeshUtilities.h"
 #include "Engine/StaticMeshActor.h"
-#include "Public/Widgets/Input/SButton.h"
+#include "Widgets/Input/SButton.h"
 #include "IMeshMergeUtilities.h"
 #include "MeshMergeModule.h"
 #include "Settings/EditorExperimentalSettings.h"

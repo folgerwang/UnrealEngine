@@ -5,7 +5,7 @@
 #include "Sections/MovieSceneActorReferenceSection.h"
 #include "Tracks/MovieSceneActorReferenceTrack.h"
 #include "GameFramework/Actor.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 
 
 namespace PropertyTemplate

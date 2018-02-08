@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "NiagaraStackEntry.h"
-#include "Reply.h"
+#include "ViewModels/Stack/NiagaraStackEntry.h"
+#include "Input/Reply.h"
 #include "Layout/Visibility.h"
 #include "NiagaraStackErrorItem.generated.h"
 

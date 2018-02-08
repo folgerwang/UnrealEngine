@@ -5,7 +5,7 @@
 #include "SymbolDebugger.h"
 #include "RequiredProgramMainCPPInclude.h"
 #include "CrashDebugHelperModule.h"
-#include "AsyncWork.h"
+#include "Async/AsyncWork.h"
 #include "ISourceControlModule.h"
 #include "EditorStyleSet.h"
 #include "Interfaces/IEditorStyleModule.h"

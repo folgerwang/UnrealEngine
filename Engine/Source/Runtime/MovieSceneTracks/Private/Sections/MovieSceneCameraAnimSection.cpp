@@ -2,7 +2,7 @@
 
 #include "Sections/MovieSceneCameraAnimSection.h"
 #include "Evaluation/MovieSceneCameraAnimTemplate.h"
-#include "SequencerObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
 
 
 UMovieSceneCameraAnimSection::UMovieSceneCameraAnimSection(const FObjectInitializer& ObjectInitializer)

@@ -25,17 +25,17 @@
 ------------------------------------------------------------------------------------*/
 #include "AudioDecompress.h"
 #include "AudioEffect.h"
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
-#include "AllowWindowsPlatformAtomics.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformAtomics.h"
 	#include <xaudio2.h>
 	#include <X3Daudio.h>
-#include "HideWindowsPlatformAtomics.h"
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformAtomics.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #if PLATFORM_WINDOWS
-#include "AllowWindowsPlatformTypes.h"
-#include "AllowWindowsPlatformAtomics.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformAtomics.h"
 #include <mmdeviceapi.h>
 #include <functiondiscoverykeys_devpkey.h>
 
@@ -145,8 +145,8 @@ private:
 	bool bComInitialized;
 };
 
-#include "HideWindowsPlatformAtomics.h"
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformAtomics.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif 
 
 

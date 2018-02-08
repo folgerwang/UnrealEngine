@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneEnumSection.h"
+#include "Sections/MovieSceneEnumSection.h"
 #include "Evaluation/MovieScenePropertyTemplates.h"
-#include "SequencerObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
 
 UMovieSceneEnumSection::UMovieSceneEnumSection( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )

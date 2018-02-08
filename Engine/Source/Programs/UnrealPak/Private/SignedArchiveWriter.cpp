@@ -2,7 +2,7 @@
 
 #include "SignedArchiveWriter.h"
 #include "IPlatformFilePak.h"
-#include "SecureHash.h"
+#include "Misc/SecureHash.h"
 #include "HAL/FileManager.h"
 
 FSignedArchiveWriter::FSignedArchiveWriter(FArchive& InPak, const FString& InPakFilename, const FEncryptionKey& InPublicKey, const FEncryptionKey& InPrivateKey)

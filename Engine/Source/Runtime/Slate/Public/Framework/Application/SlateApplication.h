@@ -28,7 +28,7 @@
 #include "Framework/Application/MenuStack.h"
 #include "Framework/SlateDelegates.h"
 
-#include "GestureDetector.h"
+#include "Framework/Application/GestureDetector.h"
 
 class FNavigationConfig;
 class IInputInterface;

@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimHand.h"
+#include "AnimBody/AnimHand.h"
 #include "LeapArm.h"
 #include "LeapFinger.h"
 #include "LeapFingerList.h"

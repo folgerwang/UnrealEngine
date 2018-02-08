@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "Containers/Algo/IntroSort.h"
+#include "Algo/IntroSort.h"
 
 
 namespace Algo

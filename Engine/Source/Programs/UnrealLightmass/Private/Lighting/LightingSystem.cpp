@@ -10,17 +10,17 @@
 #include "HAL/RunnableThread.h"
 #include "HAL/PlatformProcess.h"
 #include "Misc/OutputDeviceRedirector.h"
-#include "ExceptionHandling.h"
+#include "HAL/ExceptionHandling.h"
 #if USE_LOCAL_SWARM_INTERFACE
 #include "IMessagingModule.h"
 #include "Async/TaskGraphInterfaces.h"
 #endif
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <psapi.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #pragma comment(lib, "psapi.lib")
 #endif

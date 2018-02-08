@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Widgets/SCompoundWidget.h"
-#include "ArrayView.h"
+#include "Containers/ArrayView.h"
 
 struct FAssetData;
 class IPersonaPreviewScene;

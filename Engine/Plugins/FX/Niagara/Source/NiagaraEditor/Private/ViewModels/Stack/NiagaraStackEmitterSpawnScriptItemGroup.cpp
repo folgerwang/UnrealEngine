@@ -1,9 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraStackEmitterSpawnScriptItemGroup.h"
-#include "NiagaraStackObject.h"
-#include "NiagaraStackSpacer.h"
-#include "NiagaraStackItemExpander.h"
+#include "ViewModels/Stack/NiagaraStackEmitterSpawnScriptItemGroup.h"
+#include "ViewModels/Stack/NiagaraStackObject.h"
+#include "ViewModels/Stack/NiagaraStackSpacer.h"
+#include "ViewModels/Stack/NiagaraStackItemExpander.h"
 #include "ViewModels/NiagaraSystemViewModel.h"
 #include "ViewModels/NiagaraEmitterViewModel.h"
 #include "NiagaraEmitter.h"

@@ -6,7 +6,7 @@
 
 #include "CEF/CEFWebBrowserWindow.h"
 #include "CEFImeHandler.h"
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 
 
 TSharedRef<FCEFTextInputMethodContext> FCEFTextInputMethodContext::Create(const TSharedRef<FCEFImeHandler>& InOwner)

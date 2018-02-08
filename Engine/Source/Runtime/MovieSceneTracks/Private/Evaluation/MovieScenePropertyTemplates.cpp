@@ -11,7 +11,7 @@
 #include "Sections/MovieSceneStringSection.h"
 #include "Tracks/MovieScenePropertyTrack.h"
 #include "MovieScene.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 #include "MovieSceneTemplateCommon.h"
 #include "Evaluation/Blending/MovieSceneMultiChannelBlending.h"
 

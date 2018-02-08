@@ -7,17 +7,17 @@
 #include "MeshPaintHelpers.h"
 
 #include "Assets/ClothingAsset.h"
-#include "Classes/Animation/DebugSkelMeshComponent.h"
+#include "Animation/DebugSkelMeshComponent.h"
 #include "ClothPaintSettings.h"
 #include "ClothMeshAdapter.h"
 #include "SClothPaintWidget.h"
 
 #include "EditorViewportClient.h"
 #include "ComponentReregisterContext.h"
-#include "Package.h"
+#include "UObject/Package.h"
 #include "ClothPaintTools.h"
-#include "UICommandList.h"
-#include "SlateApplication.h"
+#include "Framework/Commands/UICommandList.h"
+#include "Framework/Application/SlateApplication.h"
 
 #define LOCTEXT_NAMESPACE "ClothPainter"
 

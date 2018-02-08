@@ -2,7 +2,7 @@
 
 #include "AppleMovieStreamer.h"
 
-#include "RenderingCommon.h"
+#include "Rendering/RenderingCommon.h"
 #include "Slate/SlateTextures.h"
 #include "MoviePlayer.h"
 #include "Misc/CommandLine.h"

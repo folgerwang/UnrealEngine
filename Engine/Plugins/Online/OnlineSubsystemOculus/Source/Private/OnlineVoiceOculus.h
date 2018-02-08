@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "VoiceInterface.h"
+#include "Interfaces/VoiceInterface.h"
 #include "OnlineSubsystemOculusTypes.h"
 
 /**

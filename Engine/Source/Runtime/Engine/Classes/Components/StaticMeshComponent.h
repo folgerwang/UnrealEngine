@@ -13,7 +13,7 @@
 #include "Components/MeshComponent.h"
 #include "PackedNormal.h"
 #include "RawIndexBuffer.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "Runtime/Launch/Resources/Version.h"
 #include "StaticMeshComponent.generated.h"
 

@@ -259,7 +259,7 @@ namespace UnrealBuildTool
 		{
 			string BuildCommand;
 			const string CMakeSectionEnd = " )\n\n";
-			var CMakefileContent = new StringBuilder();
+			StringBuilder CMakefileContent = new StringBuilder();
 
 			// Create Engine/Project specific lists
 			StringBuilder CMakeEngineSourceFilesList = new StringBuilder("set(ENGINE_SOURCE_FILES \n");
@@ -277,7 +277,7 @@ namespace UnrealBuildTool
 			StringBuilder PreprocessorDefinitionsList = new StringBuilder("add_definitions( \n");
 
             string UE4RootPath = Utils.CleanDirectorySeparators(UnrealBuildTool.RootDirectory.FullName, '/');
-            var CMakeGameRootPath = "";
+            string CMakeGameRootPath = "";
 			string GameProjectPath = "";
 			string CMakeGameProjectFile = "";
 
@@ -355,9 +355,9 @@ namespace UnrealBuildTool
 			List<string> IncludeDirectories = new List<string>();
 			List<string> PreprocessorDefinitions = new List<string>();
 
-			foreach (var CurProject in GeneratedProjectFiles)
+			foreach (ProjectFile CurProject in GeneratedProjectFiles)
 			{
-				foreach (var IncludeSearchPath in CurProject.IntelliSenseIncludeSearchPaths)
+				foreach (string IncludeSearchPath in CurProject.IntelliSenseIncludeSearchPaths)
 				{
 					string IncludeDirectory = GetIncludeDirectory(IncludeSearchPath, Path.GetDirectoryName(CurProject.ProjectFilePath.FullName));
 					if (IncludeDirectory != null && !IncludeDirectories.Contains(IncludeDirectory))
@@ -382,7 +382,7 @@ namespace UnrealBuildTool
 					}
 				}
 
-				foreach (var PreProcessorDefinition in CurProject.IntelliSensePreprocessorDefinitions)
+				foreach (string PreProcessorDefinition in CurProject.IntelliSensePreprocessorDefinitions)
 				{
 					string Definition = PreProcessorDefinition;
 					string AlternateDefinition = Definition.Contains("=0") ? Definition.Replace("=0", "=1") : Definition.Replace("=1", "=0");
@@ -403,10 +403,10 @@ namespace UnrealBuildTool
 			}
 
 			// Create SourceFiles, HeaderFiles, and ConfigFiles sections.
-			var AllModuleFiles = DiscoverModules(FindGameProjects());
+			List<FileReference> AllModuleFiles = DiscoverModules(FindGameProjects());
 			foreach (FileReference CurModuleFile in AllModuleFiles)
 			{
-				var FoundFiles = SourceFileSearch.FindModuleSourceFiles(CurModuleFile);
+				List<FileReference> FoundFiles = SourceFileSearch.FindModuleSourceFiles(CurModuleFile);
 				foreach (FileReference CurSourceFile in FoundFiles)
 				{
 					string SourceFileRelativeToRoot = CurSourceFile.MakeRelativeTo(UnrealBuildTool.EngineDirectory);
@@ -449,7 +449,7 @@ namespace UnrealBuildTool
 			}
 
 			// Add Engine/Shaders files (game are added via modules)
-			var EngineShaderFiles = SourceFileSearch.FindFiles(DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Shaders"));
+			List<FileReference> EngineShaderFiles = SourceFileSearch.FindFiles(DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Shaders"));
 			foreach (FileReference CurSourceFile in EngineShaderFiles)
 			{
 				string SourceFileRelativeToRoot = CurSourceFile.MakeRelativeTo(UnrealBuildTool.EngineDirectory);
@@ -460,7 +460,7 @@ namespace UnrealBuildTool
 			}
 
 			// Add Engine/Config ini files (game are added via modules)
-			var EngineConfigFiles = SourceFileSearch.FindFiles(DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Config"));
+			List<FileReference> EngineConfigFiles = SourceFileSearch.FindFiles(DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Config"));
 			foreach (FileReference CurSourceFile in EngineConfigFiles)
 			{
 				string SourceFileRelativeToRoot = CurSourceFile.MakeRelativeTo(UnrealBuildTool.EngineDirectory);
@@ -525,16 +525,16 @@ namespace UnrealBuildTool
 				UBTArguements += " -progress";	
 			}
 
-			foreach (var Project in GeneratedProjectFiles)
+			foreach (ProjectFile Project in GeneratedProjectFiles)
 			{
-				foreach (var TargetFile in Project.ProjectTargets)
+				foreach (ProjectTarget TargetFile in Project.ProjectTargets)
 				{
 					if (TargetFile.TargetFilePath == null)
 					{
 						continue;
 					}
 
-					var TargetName = TargetFile.TargetFilePath.GetFileNameWithoutAnyExtensions();       // Remove both ".cs" and ".
+					string TargetName = TargetFile.TargetFilePath.GetFileNameWithoutAnyExtensions();       // Remove both ".cs" and ".
 
 					foreach (UnrealTargetConfiguration CurConfiguration in Enum.GetValues(typeof(UnrealTargetConfiguration)))
 					{
@@ -594,7 +594,7 @@ namespace UnrealBuildTool
 				CMakefileContent.AppendLine("add_executable(FakeTarget ${ENGINE_HEADER_FILES} ${ENGINE_SOURCE_FILES} ${ENGINE_CSHARP_FILES} ${ENGINE_SHADER_FILES} ${ENGINE_CONFIG_FILES} ${PROJECT_HEADER_FILES} ${PROJECT_SOURCE_FILES} ${PROJECT_CSHARP_FILES} ${PROJECT_SHADER_FILES} ${PROJECT_CONFIG_FILES})");
 			}
 
-			var FullFileName = Path.Combine(MasterProjectPath.FullName, ProjectFileName);
+			string FullFileName = Path.Combine(MasterProjectPath.FullName, ProjectFileName);
 
 			// Write out CMake files
 			bool bWriteMakeList = WriteFileIfChanged(FullFileName, CMakefileContent.ToString());
@@ -761,7 +761,7 @@ namespace UnrealBuildTool
 				  "\t</component>" + Environment.NewLine +
 				"</project>" + Environment.NewLine;
 
-			var FullFileName = Path.Combine(MasterProjectPath.FullName, ".idea/misc.xml");
+			string FullFileName = Path.Combine(MasterProjectPath.FullName, ".idea/misc.xml");
 			WriteFileIfChanged(FullFileName, CLionIngoreXml);
 		}
 

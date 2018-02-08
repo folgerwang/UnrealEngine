@@ -2,7 +2,7 @@
 
 #include "MovieSceneImagePlateTemplate.h"
 
-#include "Package.h"
+#include "UObject/Package.h"
 #include "UObject/GCObject.h"
 
 #include "MovieSceneImagePlateTrack.h"

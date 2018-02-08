@@ -5,7 +5,7 @@
 #include "MovieScene.h"
 #include "MovieSceneSpawnable.h"
 #include "IMovieScenePlayer.h"
-#include "ControlRigBindingTrack.h"
+#include "Sequencer/ControlRigBindingTrack.h"
 #include "Sections/MovieSceneSpawnSection.h"
 #include "ISequencer.h"
 #include "ControlRigEditMode.h"

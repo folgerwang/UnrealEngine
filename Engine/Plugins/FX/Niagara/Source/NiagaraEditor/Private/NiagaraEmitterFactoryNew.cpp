@@ -9,7 +9,7 @@
 #include "NiagaraNodeOutput.h"
 #include "NiagaraEditorSettings.h"
 
-#include "ConfigCacheIni.h"
+#include "Misc/ConfigCacheIni.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraEmitterFactory"
 

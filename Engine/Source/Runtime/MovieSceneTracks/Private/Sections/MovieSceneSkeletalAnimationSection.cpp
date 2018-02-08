@@ -3,9 +3,9 @@
 #include "Sections/MovieSceneSkeletalAnimationSection.h"
 #include "Animation/AnimSequence.h"
 #include "Evaluation/MovieSceneSkeletalAnimationTemplate.h"
-#include "MessageLog.h"
+#include "Logging/MessageLog.h"
 #include "MovieScene.h"
-#include "SequencerObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
 
 #define LOCTEXT_NAMESPACE "MovieSceneSkeletalAnimationSection"
 

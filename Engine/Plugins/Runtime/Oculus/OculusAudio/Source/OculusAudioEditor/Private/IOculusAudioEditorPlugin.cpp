@@ -4,7 +4,7 @@
 #include "OculusAudioSettings.h"
 #include "OculusAudioSourceSettingsFactory.h"
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "ISettingsModule.h"
 
 void FOculusAudioEditorPlugin::StartupModule()

@@ -8,7 +8,7 @@
 #include "RenderDocPluginCommands.h"
 #include "RenderDocPluginModule.h"
 
-#include "IMainFrameModule.h"
+#include "Interfaces/IMainFrameModule.h"
 #include "EditorStyleSet.h"
 #include "Editor/UnrealEd/Public/SEditorViewportToolBarMenu.h"
 #include "Editor/UnrealEd/Public/SViewportToolBarComboMenu.h"

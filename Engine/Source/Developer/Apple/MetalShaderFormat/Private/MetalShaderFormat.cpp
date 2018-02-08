@@ -1,17 +1,17 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MetalShaderFormat.h"
-#include "ModuleInterface.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
 #include "Interfaces/IShaderFormat.h"
 #include "Interfaces/IShaderFormatModule.h"
 #include "ShaderCore.h"
-#include "IShaderFormatArchive.h"
+#include "Interfaces/IShaderFormatArchive.h"
 #include "hlslcc.h"
 #include "MetalShaderResources.h"
 #include "HAL/FileManager.h"
 #include "Serialization/Archive.h"
-#include "ConfigCacheIni.h"
+#include "Misc/ConfigCacheIni.h"
 #include "MetalBackend.h"
 
 extern uint16 GetXcodeVersion(uint64& BuildVersion);

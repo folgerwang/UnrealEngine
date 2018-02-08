@@ -5,9 +5,9 @@
 #include "OculusHMDPrivateRHI.h"
 
 #include "EngineAnalytics.h"
-#include "IAnalyticsProvider.h"
+#include "Interfaces/IAnalyticsProvider.h"
 #include "AnalyticsEventAttribute.h"
-#include "SceneViewport.h"
+#include "Slate/SceneViewport.h"
 #include "PostProcess/PostProcessHMD.h"
 #include "PostProcess/SceneRenderTargets.h"
 #include "HardwareInfo.h"
@@ -17,7 +17,7 @@
 #include "Math/TranslationMatrix.h"
 #include "Widgets/SViewport.h"
 #include "Layout/WidgetPath.h"
-#include "Application/SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 #include "Engine/Canvas.h"
 #include "Engine/GameEngine.h"
 #include "Misc/CoreDelegates.h"
@@ -30,7 +30,7 @@
 #if PLATFORM_ANDROID
 #include "Android/AndroidJNI.h"
 #include "Android/AndroidEGL.h"
-#include "AndroidApplication.h"
+#include "Android/AndroidApplication.h"
 #endif
 #include "Runtime/UtilityShaders/Public/OculusShaders.h"
 #include "PipelineStateCache.h"

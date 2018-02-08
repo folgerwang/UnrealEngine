@@ -17,7 +17,7 @@
 #include "CurveEditorHitProxies.h"
 #include "Slate/SceneViewport.h"
 #include "CanvasTypes.h"
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 
 FCurveEditorViewportClient::FCurveEditorViewportClient(TWeakPtr<SDistributionCurveEditor> InCurveEditor, TWeakPtr<SCurveEditorViewport> InCurveEditorViewport)
 	: CurveEditorPtr(InCurveEditor)

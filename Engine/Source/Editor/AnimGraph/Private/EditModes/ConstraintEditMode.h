@@ -3,7 +3,7 @@
 #pragma once
 
 #include "AnimNodeEditMode.h"
-#include "AnimNode_Constraint.h"
+#include "BoneControllers/AnimNode_Constraint.h"
 
 class FConstraintEditMode : public FAnimNodeEditMode
 {

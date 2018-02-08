@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "Range.h"
-#include "UnrealString.h"
+#include "Math/Range.h"
+#include "Containers/UnrealString.h"
 
 namespace Lex
 {

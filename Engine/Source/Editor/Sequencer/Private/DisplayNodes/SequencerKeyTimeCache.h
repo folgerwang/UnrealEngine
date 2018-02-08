@@ -2,13 +2,13 @@
 
 #pragma once
 
-#include "Range.h"
-#include "Guid.h"
-#include "ArrayView.h"
+#include "Math/Range.h"
+#include "Misc/Guid.h"
+#include "Containers/ArrayView.h"
 #include "Curves/KeyHandle.h"
 
-#include "SharedPointer.h"
-#include "Optional.h"
+#include "Templates/SharedPointer.h"
+#include "Misc/Optional.h"
 #include "IKeyArea.h"
 
 /** Key information that has been cached to avoid expensive operations */

@@ -3,7 +3,7 @@
 #include "Evaluation/MovieSceneParameterTemplate.h"
 #include "Tracks/MovieSceneMaterialTrack.h"
 #include "Components/PrimitiveComponent.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 
 
 FMovieSceneParameterSectionTemplate::FMovieSceneParameterSectionTemplate(const UMovieSceneParameterSection& Section)

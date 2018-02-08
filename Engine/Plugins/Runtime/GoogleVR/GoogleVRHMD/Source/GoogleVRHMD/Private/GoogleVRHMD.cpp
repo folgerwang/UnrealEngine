@@ -14,8 +14,8 @@
 #if GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS
 #include "IOS/IOSApplication.h"
 #include "IOS/IOSWindow.h"
-#include "IOSAppDelegate.h"
-#include "IOSView.h"
+#include "IOS/IOSAppDelegate.h"
+#include "IOS/IOSView.h"
 #endif
 #if GOOGLEVRHMD_SUPPORTED_INSTANT_PREVIEW_PLATFORMS
 #include "GlobalShader.h"

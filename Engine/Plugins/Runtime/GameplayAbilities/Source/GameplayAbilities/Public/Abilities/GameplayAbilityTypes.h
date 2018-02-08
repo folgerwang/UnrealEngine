@@ -13,7 +13,7 @@
 #include "GameplayAbilitySpec.h"
 #include "UObject/Package.h"
 #include "Components/SkeletalMeshComponent.h"
-#include "GameplayAbilityTargetTypes.h"
+#include "Abilities/GameplayAbilityTargetTypes.h"
 #include "GameplayAbilityTypes.generated.h"
 
 class APlayerController;

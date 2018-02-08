@@ -6,7 +6,7 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/UObjectGlobals.h"
 #include "ISourceControlRevision.h"
-#include "TextProperty.h"
+#include "UObject/TextProperty.h"
 #include "SourceControlHelpers.generated.h"
 
 

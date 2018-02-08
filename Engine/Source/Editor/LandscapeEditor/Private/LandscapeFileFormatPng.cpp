@@ -5,7 +5,7 @@
 #include "Modules/ModuleManager.h"
 #include "IImageWrapper.h"
 #include "IImageWrapperModule.h"
-#include "Containers/Algo/Transform.h"
+#include "Algo/Transform.h"
 
 
 #define LOCTEXT_NAMESPACE "LandscapeEditor.NewLandscape"

@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "EnumClassFlags.h"
+#include "Misc/EnumClassFlags.h"
 
 #if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
 #import <ARKit/ARKit.h>

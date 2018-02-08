@@ -8,7 +8,7 @@
 #include "NiagaraSystem.h"
 #include "NiagaraParameterBindingInstance.h"
 #include "NiagaraDataInterfaceBindingInstance.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "NiagaraCommon.h"
 #include "NiagaraDataInterface.h"
 

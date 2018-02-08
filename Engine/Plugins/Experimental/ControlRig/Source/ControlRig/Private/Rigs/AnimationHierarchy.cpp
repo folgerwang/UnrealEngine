@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimationHierarchy.h"
+#include "Rigs/AnimationHierarchy.h"
 
 FTransformConstraint* FConstraintNodeData::FindConstraint(const FName& TargetNode)
 {

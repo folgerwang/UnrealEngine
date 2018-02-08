@@ -6,7 +6,7 @@
 
 #include "DistanceFieldGlobalIllumination.h"
 #include "DistanceFieldLightingShared.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "ClearQuad.h"
 
 int32 GDistanceFieldGI = 0;

@@ -2,7 +2,6 @@
 
 #include "CoreMinimal.h"
 #include "UnrealFrontendMain.h"
-#include "RequiredProgramMainCPPInclude.h"
 #include "LinuxCommonStartup.h"
 
 int main(int argc, char *argv[])

@@ -22,6 +22,9 @@ struct FStackEntry;
  */
 class FGCArrayPool
 {
+private:
+	// allows sharing a singleton between all compilation units while still having an inlined getter
+	COREUOBJECT_API static FGCArrayPool* GetGlobalSingleton();
 public:
 
 	/**
@@ -30,17 +33,11 @@ public:
 	 */
 	FORCEINLINE static FGCArrayPool& Get()
 	{
-		static FAutoConsoleCommandWithOutputDevice GCDumpPoolCommand(
-			TEXT("gc.DumpPoolStats"),
-			TEXT("Dumps count and size of GC Pools"),
-			FConsoleCommandWithOutputDeviceDelegate::CreateStatic(&FGCArrayPool::DumpStats)
-		);
-
 		static FGCArrayPool* Singleton = nullptr;
 
 		if (!Singleton)
 		{
-			Singleton = new FGCArrayPool();
+			Singleton = GetGlobalSingleton();
 		}
 		return *Singleton;
 	}

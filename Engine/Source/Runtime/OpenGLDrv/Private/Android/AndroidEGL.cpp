@@ -4,8 +4,8 @@
 
 #include "OpenGLDrvPrivate.h"
 #include "AndroidEGL.h"
-#include "AndroidApplication.h"
-#include "AndroidWindow.h"
+#include "Android/AndroidApplication.h"
+#include "Android/AndroidWindow.h"
 #include <android/native_window.h>
 #include <android/native_window_jni.h>
 #include "OpenGLDrvPrivate.h"

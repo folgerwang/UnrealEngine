@@ -16,7 +16,7 @@
 #include "Async/ParallelFor.h"
 
 #if WITH_EDITOR
-#include "FileHelper.h"
+#include "Misc/FileHelper.h"
 #endif
 
 IMPLEMENT_MODULE(FMaterialBakingModule, MaterialBaking);

@@ -1,9 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "BackgroundBlurSlot.h"
+#include "Components/BackgroundBlurSlot.h"
 #include "ObjectEditorUtils.h"
-#include "SBackgroundBlur.h"
-#include "BackgroundBlur.h"
+#include "Widgets/Layout/SBackgroundBlur.h"
+#include "Components/BackgroundBlur.h"
 
 /////////////////////////////////////////////////////
 // UBackgroundBlurSlot

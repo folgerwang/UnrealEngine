@@ -19,7 +19,7 @@
 
 /** TODO: Yuck. Public headers should not depend on redefining platform-specific macros like ERROR_SUCCESS below */
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 #endif
 
 #ifndef ERROR_SUCCESS

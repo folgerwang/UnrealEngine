@@ -7,7 +7,7 @@
 #include "MeshBuild.h"
 #include "RawMesh.h"
 #include "MeshSimplify.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "Features/IModularFeatures.h"
 #include "IMeshReductionInterfaces.h"
 

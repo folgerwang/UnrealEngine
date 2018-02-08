@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ObjectMacros.h"
+#include "UObject/ObjectMacros.h"
 #include "Components/SplineComponent.h"
 #include "ControlRig.h"
 #include "AlphaBlend.h"

@@ -4,7 +4,7 @@
 
 #include "ResonanceAudioDirectivityVisualizer.h"
 
-#include "ConstructorHelpers.h"
+#include "UObject/ConstructorHelpers.h"
 
 AResonanceAudioDirectivityVisualizer::AResonanceAudioDirectivityVisualizer()
 	: Material(nullptr)

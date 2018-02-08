@@ -4,7 +4,7 @@
 
 #include "MovieScene.h"
 #include "MovieSceneTrack.h"
-#include "MovieScenePropertyTrack.h"
+#include "Tracks/MovieScenePropertyTrack.h"
 #include "MovieSceneEnumTrack.generated.h"
 
 /**

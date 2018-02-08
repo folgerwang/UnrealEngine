@@ -7,11 +7,11 @@
 #pragma once
 
 #if PLATFORM_MAC
-#include "CocoaTextView.h"
+#include "Mac/CocoaTextView.h"
 @interface FMetalView : FCocoaTextView
 @end
 #endif
-#include "PlatformFramePacer.h"
+#include "HAL/PlatformFramePacer.h"
 
 enum EMetalViewportAccessFlag
 {

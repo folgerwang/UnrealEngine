@@ -5,7 +5,7 @@
 #include "NiagaraParameterCollectionViewModel.h"
 #include "TNiagaraViewModelManager.h"
 #include "EditorUndoClient.h"
-#include "NotifyHook.h"
+#include "Misc/NotifyHook.h"
 
 class SNiagaraParameterCollection;
 class UNiagaraParameterCollection;

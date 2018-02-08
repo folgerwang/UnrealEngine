@@ -7,7 +7,7 @@
 #include "NiagaraGraph.h"
 #include "NiagaraNodeInput.h"
 
-#include "GenericCommands.h"
+#include "Framework/Commands/GenericCommands.h"
 #include "ScopedTransaction.h"
 #include "EdGraphUtilities.h"
 #include "Editor.h"

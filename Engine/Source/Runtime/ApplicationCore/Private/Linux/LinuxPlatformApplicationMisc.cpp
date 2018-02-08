@@ -1,13 +1,13 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "LinuxPlatformApplicationMisc.h"
-#include "LinuxApplication.h"
+#include "Linux/LinuxPlatformApplicationMisc.h"
+#include "Linux/LinuxApplication.h"
 #include "Misc/CommandLine.h"
 #include "Misc/App.h"
 #include "HAL/ThreadHeartBeat.h"
 #include "Modules/ModuleManager.h"
-#include "LinuxConsoleOutputDevice.h"
-#include "LinuxErrorOutputDevice.h"
+#include "Linux/LinuxConsoleOutputDevice.h"
+#include "Linux/LinuxErrorOutputDevice.h"
 #include "LinuxFeedbackContext.h"
 
 bool GInitializedSDL = false;

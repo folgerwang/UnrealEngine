@@ -9,7 +9,7 @@
 #import <UIKit/UIKit.h>
 
 #import "IOSAppDelegate.h"
-#include "IOSCommandLineHelper.h"
+#include "IOS/IOSCommandLineHelper.h"
 #include "IOSLaunchDaemonView.h"
 
 #define IOS_MAX_PATH 1024

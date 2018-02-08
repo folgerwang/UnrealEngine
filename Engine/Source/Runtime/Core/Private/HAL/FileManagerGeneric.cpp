@@ -16,7 +16,7 @@
 #include "Misc/CommandLine.h"
 #include "Misc/Paths.h"
 #include "Misc/SecureHash.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include <time.h>
 
 DEFINE_LOG_CATEGORY_STATIC( LogFileManager, Log, All );

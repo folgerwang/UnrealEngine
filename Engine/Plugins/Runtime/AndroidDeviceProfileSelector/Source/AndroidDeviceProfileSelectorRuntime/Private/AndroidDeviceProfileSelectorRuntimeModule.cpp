@@ -3,7 +3,7 @@
 #include "AndroidDeviceProfileSelectorRuntimeModule.h"
 #include "AndroidDeviceProfileSelectorRuntime.h"
 #include "Templates/Casts.h"
-#include "Regex.h"
+#include "Internationalization/Regex.h"
 #include "Modules/ModuleManager.h"
 #include "AndroidDeviceProfileSelectorRuntime.h"
 #include "AndroidDeviceProfileSelector.h"

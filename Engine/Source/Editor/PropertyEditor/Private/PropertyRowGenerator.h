@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "WeakObjectPtr.h"
+#include "UObject/WeakObjectPtr.h"
 #include "PropertyPath.h"
 #include "TickableEditorObject.h"
 #include "IPropertyUtilities.h"

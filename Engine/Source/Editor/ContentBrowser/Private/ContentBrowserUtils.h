@@ -7,7 +7,7 @@
 #include "Framework/SlateDelegates.h"
 #include "AssetData.h"
 #include "CollectionManagerTypes.h"
-#include "IPluginManager.h"
+#include "Interfaces/IPluginManager.h"
 
 class FViewport;
 class SAssetView;

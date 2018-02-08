@@ -2,12 +2,12 @@
 
 #include "ControlRigEditorObjectBinding.h"
 #include "ISequencer.h"
-#include "ControlRigSequence.h"
+#include "Sequencer/ControlRigSequence.h"
 #include "ClassViewerModule.h"
 #include "ClassViewerFilter.h"
-#include "MultiBoxBuilder.h"
-#include "ModuleManager.h"
-#include "SlateApplication.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
 #include "ControlRigEditMode.h"
 #include "EditorModeManager.h"
 

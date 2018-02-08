@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "HTNBuilder.h"
-#include "HTNDebug.h"
+#include "Debug/HTNDebug.h"
 
 //----------------------------------------------------------------------//
 // FHTNDomainBuilder

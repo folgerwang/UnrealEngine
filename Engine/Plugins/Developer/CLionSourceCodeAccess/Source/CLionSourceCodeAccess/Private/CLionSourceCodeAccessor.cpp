@@ -4,14 +4,14 @@
 #include "HAL/PlatformProcess.h"
 #include "Misc/Paths.h"
 #include "DesktopPlatformModule.h"
-#include "Regex.h"
-#include "FileHelper.h"
-#include "JsonReader.h"
-#include "JsonObject.h"
-#include "JsonSerializer.h"
+#include "Internationalization/Regex.h"
+#include "Misc/FileHelper.h"
+#include "Serialization/JsonReader.h"
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonSerializer.h"
 
 #if PLATFORM_WINDOWS
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "CLionSourceCodeAccessor"

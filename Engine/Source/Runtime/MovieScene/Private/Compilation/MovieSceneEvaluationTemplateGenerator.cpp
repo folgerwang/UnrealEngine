@@ -6,9 +6,9 @@
 #include "Algo/Sort.h"
 #include "UObject/ObjectKey.h"
 #include "IMovieSceneModule.h"
-#include "MovieSceneSubTrack.h"
-#include "MovieSceneSubSection.h"
-#include "MovieSceneSegmentCompiler.h"
+#include "Tracks/MovieSceneSubTrack.h"
+#include "Sections/MovieSceneSubSection.h"
+#include "Compilation/MovieSceneSegmentCompiler.h"
 
 FMovieSceneEvaluationTemplateGenerator::FMovieSceneEvaluationTemplateGenerator(UMovieSceneSequence& InSequence, FMovieSceneEvaluationTemplate& OutTemplate)
 	: SourceSequence(InSequence), Template(OutTemplate)

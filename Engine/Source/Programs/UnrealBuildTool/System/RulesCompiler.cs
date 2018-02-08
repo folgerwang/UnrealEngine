@@ -187,8 +187,8 @@ namespace UnrealBuildTool
 			{
 				Cache = new RulesFileCache();
 				FindAllRulesFilesRecursively(Directory, Cache);
-					RootFolderToRulesFileCache[Directory] = Cache;
-				}
+				RootFolderToRulesFileCache[Directory] = Cache;
+			}
 
 			// Get the list of files of the type we're looking for
 			if (Type == RulesCompiler.RulesFileType.Module)
@@ -264,7 +264,7 @@ namespace UnrealBuildTool
 			if (EngineRulesAssembly == null)
 			{
 				IReadOnlyList<PluginInfo> IncludedPlugins = Plugins.ReadEnginePlugins(UnrealBuildTool.EngineDirectory);
-				EngineRulesAssembly = CreateRulesAssembly(UnrealBuildTool.EngineDirectory, ProjectFileGenerator.EngineProjectFileNameBase, IncludedPlugins, null);
+				EngineRulesAssembly = CreateEngineOrEnterpriseRulesAssembly(UnrealBuildTool.EngineDirectory, ProjectFileGenerator.EngineProjectFileNameBase, IncludedPlugins, UnrealBuildTool.IsEngineInstalled(), null);
 			}
 			return EngineRulesAssembly;
 		}
@@ -278,7 +278,7 @@ namespace UnrealBuildTool
 			if (EnterpriseRulesAssembly == null && DirectoryReference.Exists(UnrealBuildTool.EnterpriseDirectory))
 			{
 				IReadOnlyList<PluginInfo> IncludedPlugins = Plugins.ReadEnterprisePlugins(UnrealBuildTool.EnterpriseDirectory);
-				EnterpriseRulesAssembly = CreateRulesAssembly(UnrealBuildTool.EnterpriseDirectory, ProjectFileGenerator.EnterpriseProjectFileNameBase, IncludedPlugins, CreateEngineRulesAssembly());
+				EnterpriseRulesAssembly = CreateEngineOrEnterpriseRulesAssembly(UnrealBuildTool.EnterpriseDirectory, ProjectFileGenerator.EnterpriseProjectFileNameBase, IncludedPlugins, false, CreateEngineRulesAssembly());
 			}
 			return EnterpriseRulesAssembly;
 		}
@@ -289,23 +289,42 @@ namespace UnrealBuildTool
 		/// <param name="RootDirectory">The root directory to create rules for</param>
 		/// <param name="AssemblyPrefix">A prefix for the assembly file name</param>
 		/// <param name="Plugins">List of plugins to include in this assembly</param>
+		/// <param name="bInstalled">Whether the assembly should be marked as installed</param>
 		/// <param name="Parent">The parent rules assembly</param>
 		/// <returns>New rules assembly</returns>
-		private static RulesAssembly CreateRulesAssembly(DirectoryReference RootDirectory, string AssemblyPrefix, IReadOnlyList<PluginInfo> Plugins, RulesAssembly Parent)
+		private static RulesAssembly CreateEngineOrEnterpriseRulesAssembly(DirectoryReference RootDirectory, string AssemblyPrefix, IReadOnlyList<PluginInfo> Plugins, bool bInstalled, RulesAssembly Parent)
 		{
 			DirectoryReference SourceDirectory = DirectoryReference.Combine(RootDirectory, "Source");
+			DirectoryReference ProgramsDirectory = DirectoryReference.Combine(SourceDirectory, "Programs");
 
-			// Find all the rules files
-			List<FileReference> ModuleFiles = new List<FileReference>(FindAllRulesFiles(SourceDirectory, RulesFileType.Module));
-			List<FileReference> TargetFiles = new List<FileReference>(FindAllRulesFiles(SourceDirectory, RulesFileType.Target));
+			// Find the shared modules, excluding the programs directory. These are used to create an assembly with the bContainsEngineModules flag set to true.
+			List<FileReference> EngineModuleFiles = new List<FileReference>();
+			foreach (DirectoryReference SubDirectory in DirectoryLookupCache.EnumerateDirectories(SourceDirectory))
+			{
+				if(SubDirectory != ProgramsDirectory)
+				{
+					EngineModuleFiles.AddRange(FindAllRulesFiles(SubDirectory, RulesFileType.Module));
+				}
+			}
 
 			// Add all the plugin modules too
 			Dictionary<FileReference, PluginInfo> ModuleFileToPluginInfo = new Dictionary<FileReference, PluginInfo>();
-			FindModuleRulesForPlugins(Plugins, ModuleFiles, ModuleFileToPluginInfo);
+			FindModuleRulesForPlugins(Plugins, EngineModuleFiles, ModuleFileToPluginInfo);
+
+			// Create the assembly
+			FileReference EngineAssemblyFileName = FileReference.Combine(RootDirectory, "Intermediate", "Build", "BuildRules", AssemblyPrefix + "Rules" + FrameworkAssemblyExtension);
+			RulesAssembly EngineAssembly = new RulesAssembly(Plugins, EngineModuleFiles, new List<FileReference>(), ModuleFileToPluginInfo, EngineAssemblyFileName, bContainsEngineModules: true, bUseBackwardsCompatibleDefaults: false, bInstalled: bInstalled, Parent: Parent);
+
+			// Find all the rules files
+			List<FileReference> ProgramModuleFiles = new List<FileReference>(FindAllRulesFiles(ProgramsDirectory, RulesFileType.Module));
+			List<FileReference> ProgramTargetFiles = new List<FileReference>(FindAllRulesFiles(SourceDirectory, RulesFileType.Target));
 
 			// Create a path to the assembly that we'll either load or compile
-			FileReference AssemblyFileName = FileReference.Combine(RootDirectory, "Intermediate", "Build", "BuildRules", AssemblyPrefix + "Rules" + FrameworkAssemblyExtension);
-			return new RulesAssembly(Plugins, ModuleFiles, TargetFiles, ModuleFileToPluginInfo, AssemblyFileName, Parent);
+			FileReference ProgramAssemblyFileName = FileReference.Combine(RootDirectory, "Intermediate", "Build", "BuildRules", AssemblyPrefix + "ProgramRules" + FrameworkAssemblyExtension);
+			RulesAssembly ProgramAssembly = new RulesAssembly(new List<PluginInfo>().AsReadOnly(), ProgramModuleFiles, ProgramTargetFiles, new Dictionary<FileReference, PluginInfo>(), ProgramAssemblyFileName, bContainsEngineModules: false, bUseBackwardsCompatibleDefaults: false, bInstalled: bInstalled, Parent: EngineAssembly);
+
+			// Return the combined assembly
+			return ProgramAssembly;
 		}
 
 		/// <summary>
@@ -358,12 +377,13 @@ namespace UnrealBuildTool
 				DirectoryReference ProjectIntermediateSourceDirectory = DirectoryReference.Combine(ProjectDirectory, "Intermediate", "Source");
 				if (DirectoryReference.Exists(ProjectIntermediateSourceDirectory))
 				{
+					ModuleFiles.AddRange(FindAllRulesFiles(ProjectIntermediateSourceDirectory, RulesFileType.Module));
 					TargetFiles.AddRange(FindAllRulesFiles(ProjectIntermediateSourceDirectory, RulesFileType.Target));
 				}
 
 				// Compile the assembly
 				FileReference AssemblyFileName = FileReference.Combine(ProjectDirectory, "Intermediate", "Build", "BuildRules", ProjectFileName.GetFileNameWithoutExtension() + "ModuleRules" + FrameworkAssemblyExtension);
-				ProjectRulesAssembly = new RulesAssembly(ProjectPlugins, ModuleFiles, TargetFiles, ModuleFileToPluginInfo, AssemblyFileName, Parent);
+				ProjectRulesAssembly = new RulesAssembly(ProjectPlugins, ModuleFiles, TargetFiles, ModuleFileToPluginInfo, AssemblyFileName, bContainsEngineModules: false, bUseBackwardsCompatibleDefaults: true, bInstalled: UnrealBuildTool.IsProjectInstalled(), Parent: Parent);
 				LoadedAssemblyMap.Add(ProjectFileName, ProjectRulesAssembly);
 			}
 			return ProjectRulesAssembly;
@@ -398,7 +418,7 @@ namespace UnrealBuildTool
 
 				// Compile the assembly
 				FileReference AssemblyFileName = FileReference.Combine(PluginFileName.Directory, "Intermediate", "Build", "BuildRules", Path.GetFileNameWithoutExtension(PluginFileName.FullName) + "ModuleRules" + FrameworkAssemblyExtension);
-				PluginRulesAssembly = new RulesAssembly(ForeignPlugins, ModuleFiles, TargetFiles, ModuleFileToPluginInfo, AssemblyFileName, Parent);
+				PluginRulesAssembly = new RulesAssembly(ForeignPlugins, ModuleFiles, TargetFiles, ModuleFileToPluginInfo, AssemblyFileName, bContainsEngineModules: true, bUseBackwardsCompatibleDefaults: false, bInstalled: false, Parent: Parent);
 				LoadedAssemblyMap.Add(PluginFileName, PluginRulesAssembly);
 			}
 			return PluginRulesAssembly;

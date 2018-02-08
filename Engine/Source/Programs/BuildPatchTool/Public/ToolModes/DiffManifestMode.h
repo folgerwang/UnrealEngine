@@ -2,7 +2,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ToolMode.h"
+#include "Interfaces/ToolMode.h"
 
 namespace BuildPatchTool
 {

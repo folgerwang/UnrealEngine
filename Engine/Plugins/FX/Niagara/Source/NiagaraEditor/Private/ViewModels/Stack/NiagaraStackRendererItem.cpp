@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraStackRendererItem.h"
-#include "NiagaraStackObject.h"
-#include "NiagaraStackItemExpander.h"
+#include "ViewModels/Stack/NiagaraStackRendererItem.h"
+#include "ViewModels/Stack/NiagaraStackObject.h"
+#include "ViewModels/Stack/NiagaraStackItemExpander.h"
 #include "NiagaraEmitter.h"
 #include "NiagaraStackEditorData.h"
 #include "NiagaraRendererProperties.h"
@@ -10,7 +10,7 @@
 #include "NiagaraSystemViewModel.h"
 #include "NiagaraEmitterViewModel.h"
 #include "NiagaraScriptViewModel.h"
-#include "Internationalization.h"
+#include "Internationalization/Internationalization.h"
 #include "NiagaraNodeAssignment.h"
 #include "NiagaraNodeOutput.h"
 #include "NiagaraConstants.h"
@@ -20,10 +20,10 @@
 #include "NiagaraEmitter.h"
 #include "NiagaraScriptSource.h"
 #include "ScopedTransaction.h"
-#include "NiagaraStackErrorItem.h"
+#include "ViewModels/Stack/NiagaraStackErrorItem.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
-#include "NiagaraStackGraphUtilities.h"
+#include "ViewModels/Stack/NiagaraStackGraphUtilities.h"
 #include "NiagaraScriptMergeManager.h"
 
 #define LOCTEXT_NAMESPACE "UNiagaraStackRendererItem"

@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Layout/Clipping.h"
-#include "AssertionMacros.h"
-#include "LogVerbosity.h"
+#include "Misc/AssertionMacros.h"
+#include "Logging/LogVerbosity.h"
 #include "SlateGlobals.h"
 
 FSlateClippingZone::FSlateClippingZone(const FShortRect& AxisAlignedRect)

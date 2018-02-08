@@ -6,10 +6,10 @@
 #include "UObject/ObjectMacros.h"
 #include "Evaluation/MovieSceneSequenceTransform.h"
 #include "Evaluation/MovieSceneSectionParameters.h"
-#include "SoftObjectPath.h"
+#include "UObject/SoftObjectPath.h"
 #include "MovieSceneSequenceID.h"
-#include "MovieSceneSequenceInstanceData.h"
-#include "ArrayView.h"
+#include "Evaluation/MovieSceneSequenceInstanceData.h"
+#include "Containers/ArrayView.h"
 #include "MovieSceneSequenceHierarchy.generated.h"
 
 class UMovieSceneSequence;

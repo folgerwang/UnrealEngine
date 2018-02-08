@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "GenericWindow.h"
-#include "GenericApplication.h"
+#include "GenericPlatform/GenericWindow.h"
+#include "GenericPlatform/GenericApplication.h"
 
 /**
  * A platform specific implementation of FNativeWindow.

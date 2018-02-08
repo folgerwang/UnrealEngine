@@ -1803,7 +1803,7 @@ namespace AutomationTool
 		/// <param name="ArgList">Argument list.</param>
 		/// <param name="Param">Param to check for.</param>
 		/// <returns>True if param was found, false otherwise.</returns>
-		public static bool ParseParam(object[] ArgList, string Param)
+		public static bool ParseParam(string[] ArgList, string Param)
 		{
             string ValueParam = Param;
             if (!ValueParam.EndsWith("="))
@@ -1811,9 +1811,8 @@ namespace AutomationTool
                 ValueParam += "=";
             }
 
-            foreach (object Arg in ArgList)
+            foreach (string ArgStr in ArgList)
 			{
-                string ArgStr = Arg.ToString();
                 if (ArgStr.Equals(Param, StringComparison.InvariantCultureIgnoreCase) || ArgStr.StartsWith(ValueParam, StringComparison.InvariantCultureIgnoreCase))
 				{
 					return true;

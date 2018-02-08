@@ -24,8 +24,8 @@
 #include "Widgets/Layout/SExpandableArea.h"
 #include "Widgets/Input/STextEntryPopup.h"
 #include "IEditableSkeleton.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
 
 #define LOCTEXT_NAMESPACE "AnimCurvePanel"
 

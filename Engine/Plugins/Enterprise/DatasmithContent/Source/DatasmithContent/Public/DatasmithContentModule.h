@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
-#include "ModuleManager.h"		// For inline LoadModuleChecked()
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"		// For inline LoadModuleChecked()
 
 #define DATASMITHCONTENT_MODULE_NAME TEXT("DatasmithContent")
 

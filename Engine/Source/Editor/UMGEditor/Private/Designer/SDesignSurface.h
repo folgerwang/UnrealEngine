@@ -14,7 +14,7 @@
 #include "Widgets/SCompoundWidget.h"
 #include "Templates/ScopedPointer.h"
 #include "SNodePanel.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 class FActiveTimerHandle;
 class FSlateWindowElementList;

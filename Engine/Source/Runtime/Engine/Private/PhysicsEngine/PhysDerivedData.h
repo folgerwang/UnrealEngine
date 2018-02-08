@@ -10,7 +10,7 @@
 
 #if WITH_PHYSX && WITH_EDITOR
 #include "DerivedDataPluginInterface.h"
-#include "IPhysXCooking.h"
+#include "Physics/IPhysXCooking.h"
 
 class UBodySetup;
 struct FBodyInstance;

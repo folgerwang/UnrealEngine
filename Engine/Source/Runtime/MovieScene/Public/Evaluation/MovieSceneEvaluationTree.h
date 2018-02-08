@@ -2,12 +2,12 @@
 
 #pragma once
 
-#include "Range.h"
-#include "ArrayView.h"
-#include "Array.h"
+#include "Math/Range.h"
+#include "Containers/ArrayView.h"
+#include "Containers/Array.h"
 #include "Templates/Function.h"
 
-#include "SequencerObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
 
 struct FMovieSceneEvaluationTree;
 struct FMovieSceneEvaluationTreeNode;

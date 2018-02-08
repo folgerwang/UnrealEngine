@@ -12,7 +12,7 @@
 #include "IStereoLayers.h"
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 #endif
 
 DECLARE_STATS_GROUP(TEXT("OculusHMD"), STATGROUP_OculusHMD, STATCAT_Advanced);

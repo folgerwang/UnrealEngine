@@ -6,8 +6,8 @@
 #include "UObject/ObjectMacros.h"
 #include "Curves/RichCurve.h"
 #include "Evaluation/MovieSceneEvalTemplate.h"
-#include "MovieScene3DTransformSection.h"
-#include "Blending/BlendableToken.h"
+#include "Sections/MovieScene3DTransformSection.h"
+#include "Evaluation/Blending/BlendableToken.h"
 #include "Evaluation/Blending/MovieSceneMultiChannelBlending.h"
 #include "MovieScene3DTransformTemplate.generated.h"
 

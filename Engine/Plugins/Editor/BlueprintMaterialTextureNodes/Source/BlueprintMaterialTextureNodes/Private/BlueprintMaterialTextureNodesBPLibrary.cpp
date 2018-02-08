@@ -15,7 +15,7 @@
 #include "PackageTools.h"
 #include "Editor.h"
 #include "Factories/MaterialInstanceConstantFactoryNew.h"
-#include "MessageLog.h"
+#include "Logging/MessageLog.h"
 #include "Factories/TextureFactory.h"
 #include "Factories/Factory.h"
 

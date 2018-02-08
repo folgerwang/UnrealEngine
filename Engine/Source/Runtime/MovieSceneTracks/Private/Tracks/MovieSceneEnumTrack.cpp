@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneEnumTrack.h"
-#include "MovieSceneEnumSection.h"
+#include "Tracks/MovieSceneEnumTrack.h"
+#include "Sections/MovieSceneEnumSection.h"
 #include "IMovieScenePlayer.h"
 #include "Evaluation/MovieScenePropertyTemplates.h"
 

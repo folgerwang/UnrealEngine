@@ -2,7 +2,7 @@
 
 
 #include "ThumbnailRendering/SceneThumbnailInfoWithPrimitive.h"
-#include "EditorObjectVersion.h"
+#include "UObject/EditorObjectVersion.h"
 
 USceneThumbnailInfoWithPrimitive::USceneThumbnailInfoWithPrimitive(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

@@ -3,7 +3,7 @@
 #pragma once
 #include <GameKit/GKLocalPlayer.h>
 
-#include "OnlineSessionInterface.h"
+#include "Interfaces/OnlineSessionInterface.h"
 #include "OnlineSubsystemIOSTypes.h"
 
 #if !PLATFORM_TVOS

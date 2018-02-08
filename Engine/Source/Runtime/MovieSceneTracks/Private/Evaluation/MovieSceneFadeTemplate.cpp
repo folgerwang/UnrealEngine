@@ -8,7 +8,7 @@
 #include "EngineGlobals.h"
 #include "GameFramework/PlayerController.h"
 #include "IMovieScenePlayer.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 
 DECLARE_CYCLE_STAT(TEXT("Fade Track Token Execute"), MovieSceneEval_FadeTrack_TokenExecute, STATGROUP_MovieSceneEval);
 

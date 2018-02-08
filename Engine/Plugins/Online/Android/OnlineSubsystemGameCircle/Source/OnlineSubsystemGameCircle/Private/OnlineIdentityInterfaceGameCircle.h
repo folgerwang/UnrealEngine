@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "OnlineIdentityInterface.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 #include "OnlineSubsystemGameCirclePackage.h"
 
 #include "OnlineAGSPlayerClientCallbacks.h"

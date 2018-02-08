@@ -130,26 +130,9 @@ namespace AutomationTool
 				LibraryBuildProductFiles.Add(Item);
 			}
 		}
-
-	
-		/// True if UBT is compiled and ready to build!
-		private bool bIsUBTReady = false;
 		
 		private void PrepareUBT()
 		{			
-			// Don't build UBT if we're running with pre-compiled binaries and if there's a debugger attached to this process.
-			// With the debugger attached, even though deleting the exe will work, the pdb files are still locked and the build will fail.
-			// Also, if we're running from VS then since UAT references UBT, we already have the most up-to-date version of UBT.exe
-			if (!bIsUBTReady && GlobalCommandLine.Compile && !System.Diagnostics.Debugger.IsAttached)
-			{
-				CommandUtils.MsBuild(CommandUtils.CmdEnv,
-						CommandUtils.CmdEnv.LocalRoot + @"/Engine/Source/Programs/UnrealBuildTool/" + HostPlatform.Current.UBTProjectName + @".csproj",
-						"/verbosity:minimal /nologo /property:Configuration=Development /property:Platform=AnyCPU",
-						"BuildUBT");
-
-				bIsUBTReady = true;
-			}
-
 			if (CommandUtils.FileExists(UBTExecutable) == false)
 			{
 				throw new AutomationException("UBT does not exist in {0}.", UBTExecutable);

@@ -20,7 +20,7 @@
 #include "Misc/MapErrors.h"
 #include "Particles/ParticleEventManager.h"
 #include "PhysicsEngine/PhysicsSettings.h"
-#include "ReleaseObjectVersion.h"
+#include "UObject/ReleaseObjectVersion.h"
 #include "SceneManagement.h"
 
 #if WITH_EDITOR

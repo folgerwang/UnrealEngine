@@ -503,7 +503,7 @@ namespace UnrealBuildTool
 
 			if (WindowsPlatform.bCompileWithICL)
 			{
-				var Result = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "IntelSWTools", "compilers_and_libraries", "windows", "bin", Platform == CppPlatform.Win32 ? "ia32" : "intel64", "icl.exe");
+				string Result = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "IntelSWTools", "compilers_and_libraries", "windows", "bin", Platform == CppPlatform.Win32 ? "ia32" : "intel64", "icl.exe");
 				if (!File.Exists(Result))
 				{
 					throw new BuildException("ICL was selected as the Windows compiler, but does not appear to be installed.  Could not find: " + Result);
@@ -557,7 +557,7 @@ namespace UnrealBuildTool
 
 			if (WindowsPlatform.bCompileWithICL && WindowsPlatform.bAllowICLLinker)
 			{
-				var Result = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "IntelSWTools", "compilers_and_libraries", "windows", "bin", Platform == CppPlatform.Win32 ? "ia32" : "intel64", "xilink.exe");
+				string Result = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "IntelSWTools", "compilers_and_libraries", "windows", "bin", Platform == CppPlatform.Win32 ? "ia32" : "intel64", "xilink.exe");
 				if (!File.Exists(Result))
 				{
 					throw new BuildException("ICL was selected as the Windows compiler, but does not appear to be installed.  Could not find: " + Result);
@@ -579,7 +579,7 @@ namespace UnrealBuildTool
 
 			if (WindowsPlatform.bCompileWithICL && WindowsPlatform.bAllowICLLinker)
 			{
-				var Result = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "IntelSWTools", "compilers_and_libraries", "windows", "bin", Platform == CppPlatform.Win32 ? "ia32" : "intel64", "xilib.exe");
+				string Result = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "IntelSWTools", "compilers_and_libraries", "windows", "bin", Platform == CppPlatform.Win32 ? "ia32" : "intel64", "xilib.exe");
 				if (!File.Exists(Result))
 				{
 					throw new BuildException("ICL was selected as the Windows compiler, but does not appear to be installed.  Could not find: " + Result);

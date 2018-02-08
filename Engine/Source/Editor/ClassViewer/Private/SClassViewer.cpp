@@ -74,7 +74,7 @@
 
 #include "SListViewSelectorDropdownMenu.h"
 #include "ClassViewerProjectSettings.h"
-#include "SScrollBorder.h"
+#include "Widgets/Layout/SScrollBorder.h"
 
 #define LOCTEXT_NAMESPACE "SClassViewer"
 

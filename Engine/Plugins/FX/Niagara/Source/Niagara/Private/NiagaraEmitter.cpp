@@ -6,8 +6,8 @@
 #include "NiagaraScriptSourceBase.h"
 #include "NiagaraSpriteRendererProperties.h"
 #include "NiagaraCustomVersion.h"
-#include "Package.h"
-#include "Linker.h"
+#include "UObject/Package.h"
+#include "UObject/Linker.h"
 #include "NiagaraModule.h"
 
 static int32 GbForceNiagaraCompileOnLoad = 0;

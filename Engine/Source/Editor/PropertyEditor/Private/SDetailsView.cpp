@@ -15,7 +15,7 @@
 #include "UserInterface/PropertyDetails/PropertyDetailsUtilities.h"
 #include "Widgets/Colors/SColorPicker.h"
 #include "Widgets/Input/SSearchBox.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "DetailLayoutBuilderImpl.h"
 
 

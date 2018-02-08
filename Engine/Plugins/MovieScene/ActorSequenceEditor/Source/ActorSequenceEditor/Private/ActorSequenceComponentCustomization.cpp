@@ -10,7 +10,7 @@
 #include "DetailLayoutBuilder.h"
 #include "DetailCategoryBuilder.h"
 #include "DetailWidgetRow.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 #include "SSCSEditor.h"
 #include "BlueprintEditorTabs.h"
 #include "ScopedTransaction.h"

@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateShaders.h"
-#include "RenderingCommon.h"
+#include "Rendering/RenderingCommon.h"
 
 /** Flag to determine if we are running with a color vision deficiency shader on */
 uint32 GSlateShaderColorVisionDeficiencyType = 0;

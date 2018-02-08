@@ -13,7 +13,7 @@
 #include "RenderUtils.h"
 #include "RHIStaticStates.h"
 #include "DistanceFieldAtlas.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "SceneRendering.h"
 
 class FLightSceneProxy;

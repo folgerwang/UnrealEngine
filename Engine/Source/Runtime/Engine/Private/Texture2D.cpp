@@ -30,7 +30,7 @@
 #include "Streaming/Texture2DStreamIn_IO_AsyncCreate.h"
 #include "Streaming/Texture2DStreamIn_IO_AsyncReallocate.h"
 #include "Streaming/Texture2DStreamIn_IO_Virtual.h"
-#include "AsyncFileHandle.h"
+#include "Async/AsyncFileHandle.h"
 
 UTexture2D::UTexture2D(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

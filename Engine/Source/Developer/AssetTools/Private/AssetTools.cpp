@@ -108,8 +108,8 @@
 #include "Framework/Application/SlateApplication.h"
 #include "Widgets/Notifications/SNotificationList.h"
 #include "AutomatedAssetImportData.h"
-#include "DlgPickPath.h"
-#include "FeedbackContext.h"
+#include "Dialogs/DlgPickPath.h"
+#include "Misc/FeedbackContext.h"
 #include "BusyCursor.h"
 
 #define LOCTEXT_NAMESPACE "AssetTools"

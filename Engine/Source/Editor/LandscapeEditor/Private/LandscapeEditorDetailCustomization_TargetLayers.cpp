@@ -39,8 +39,8 @@
 #include "Materials/MaterialExpressionLandscapeVisibilityMask.h"
 #include "LandscapeEdit.h"
 #include "IDetailGroup.h"
-#include "SBoxPanel.h"
-#include "Private/SlateEditorStyle.h"
+#include "Widgets/SBoxPanel.h"
+#include "Editor/EditorStyle/Private/SlateEditorStyle.h"
 
 #define LOCTEXT_NAMESPACE "LandscapeEditor.TargetLayers"
 

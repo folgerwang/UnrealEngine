@@ -5,11 +5,11 @@
 #include "CoreMinimal.h"
 #include "IDetailCustomization.h"
 #include "Framework/Commands/Commands.h"
-#include "Reply.h"
+#include "Input/Reply.h"
 #include "AssetData.h"
 #include "UObject/WeakObjectPtr.h"
 #include "Styling/CoreStyle.h"
-#include "STreeView.h"
+#include "Widgets/Views/STreeView.h"
 #include "Constraint.h"
 
 class ITableRow;

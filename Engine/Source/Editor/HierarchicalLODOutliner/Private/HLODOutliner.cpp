@@ -38,7 +38,7 @@
 
 #include "IHierarchicalLODUtilities.h"
 #include "HierarchicalLODUtilitiesModule.h"
-#include "SImage.h"
+#include "Widgets/Images/SImage.h"
 #include "DrawDebugHelpers.h"
 
 #define LOCTEXT_NAMESPACE "HLODOutliner"

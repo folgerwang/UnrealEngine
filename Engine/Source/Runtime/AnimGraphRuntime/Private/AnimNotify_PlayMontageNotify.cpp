@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimNotify_PlayMontageNotify.h"
+#include "AnimNotifies/AnimNotify_PlayMontageNotify.h"
 #include "Animation/AnimInstance.h"
 
 //////////////////////////////////////////////////////////////////////////

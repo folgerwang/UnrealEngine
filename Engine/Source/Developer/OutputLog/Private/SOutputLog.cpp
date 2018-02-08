@@ -18,7 +18,7 @@
 #include "Widgets/Input/SComboButton.h"
 #include "Widgets/Views/SListView.h"
 #include "EditorStyleSet.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "EngineGlobals.h"
 #include "Editor.h"
 #include "Toolkits/GlobalEditorCommonCommands.h"

@@ -14,7 +14,7 @@
 #include "Misc/DateTime.h"
 #include "GenericPlatform/GenericPlatformFile.h"
 #include "HAL/IPlatformFileLogWrapper.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 class IAsyncReadFileHandle;
 

@@ -6,10 +6,10 @@
 
 #pragma once
 
-#include "GenericPlatformSymbolication.h"
-#include "ApplePlatformStackWalk.h"
+#include "GenericPlatform/GenericPlatformSymbolication.h"
+#include "Apple/ApplePlatformStackWalk.h"
 #include "Serialization/Archive.h"
-#include "SharedPointer.h"
+#include "Templates/SharedPointer.h"
 
 /**
  * Opaque symbol cache for improved symbolisation performance.

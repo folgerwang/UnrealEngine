@@ -141,7 +141,7 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 
 
 // Include code analysis features
-#include "WindowsPlatformCodeAnalysis.h"
+#include "Windows/WindowsPlatformCodeAnalysis.h"
 
 #if USING_CODE_ANALYSIS && _MSC_VER == 1900
 	// Disable this warning as VC2015 Update 1 produces this warning erroneously when placed on variadic templates:

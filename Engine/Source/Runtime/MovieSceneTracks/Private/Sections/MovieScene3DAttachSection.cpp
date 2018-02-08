@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Sections/MovieScene3DAttachSection.h"
-#include "SequencerObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
 
 
 UMovieScene3DAttachSection::UMovieScene3DAttachSection( const FObjectInitializer& ObjectInitializer )

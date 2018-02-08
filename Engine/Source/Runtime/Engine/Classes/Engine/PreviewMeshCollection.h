@@ -6,7 +6,7 @@
 #include "UObject/ObjectMacros.h"
 #include "Engine/SkeletalMesh.h"
 #include "Engine/DataAsset.h"
-#include "PreviewCollectionInterface.h"
+#include "Animation/PreviewCollectionInterface.h"
 #include "PreviewMeshCollection.generated.h"
 
 class USkeleton;

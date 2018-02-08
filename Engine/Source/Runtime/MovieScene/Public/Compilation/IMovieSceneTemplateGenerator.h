@@ -6,7 +6,7 @@
 #include "MovieSceneSequenceID.h"
 #include "MovieSceneFwd.h"
 #include "Containers/ArrayView.h"
-#include "MovieSceneSequenceTransform.h"
+#include "Evaluation/MovieSceneSequenceTransform.h"
 
 class UMovieSceneTrack;
 struct FMovieSceneEvaluationFieldSegmentPtr;

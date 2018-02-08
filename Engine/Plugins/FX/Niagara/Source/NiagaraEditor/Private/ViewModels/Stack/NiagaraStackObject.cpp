@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraStackObject.h"
+#include "ViewModels/Stack/NiagaraStackObject.h"
 
 
 UNiagaraStackObject::UNiagaraStackObject()

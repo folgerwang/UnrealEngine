@@ -239,5 +239,5 @@ private:
 #endif
 
 #if PLATFORM_USES_FIXED_GMalloc_CLASS && !FORCE_ANSI_ALLOCATOR && USE_MALLOC_BINNED2
-	#include "MallocBinned2.h"
+	#include "HAL/MallocBinned2.h"
 #endif

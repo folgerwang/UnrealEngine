@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "SCompoundWidget.h"
-#include "StructOnScope.h"
+#include "Widgets/SCompoundWidget.h"
+#include "UObject/StructOnScope.h"
 
 /** Base class for inline parameter editors. These editors are expected to maintain an internal value which
 	is populated from a parameter struct. */

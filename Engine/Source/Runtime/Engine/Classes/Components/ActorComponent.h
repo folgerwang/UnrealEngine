@@ -13,7 +13,7 @@
 #include "UObject/ScriptMacros.h"
 #include "EdGraph/EdGraphPin.h"
 #include "Interfaces/Interface_AssetUserData.h"
-#include "UObjectAnnotation.h"
+#include "UObject/UObjectAnnotation.h"
 #include "ActorComponent.generated.h"
 
 class AActor;

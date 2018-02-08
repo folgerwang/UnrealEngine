@@ -2,13 +2,13 @@
 
 #pragma once
 
-#include "MultiBox.h"
+#include "Framework/MultiBox/MultiBox.h"
 #include "SMenuEntryBlock.h"
-#include "CocoaMenu.h"
+#include "Mac/CocoaMenu.h"
 
 @interface FMacMenu : FCocoaMenu <NSMenuDelegate>
-@property (assign) TSharedPtr<const FMenuEntryBlock> MenuEntryBlock;
-@property (assign) TSharedPtr<const FMultiBox> MultiBox;
+@property (assign) TWeakPtr<const FMenuEntryBlock> MenuEntryBlock;
+@property (assign) TWeakPtr<const FMultiBox> MultiBox;
 @end
 
 class SLATE_API FSlateMacMenu

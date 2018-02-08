@@ -24,7 +24,7 @@
 #include "Widgets/Input/SEditableText.h"
 #include "Widgets/Input/SSpinBox.h"
 #include "Widgets/Colors/SColorBlock.h"
-#include "UnrealString.h"
+#include "Containers/UnrealString.h"
 
 /**
  * Implementation for a box that only accepts a numeric value or that can display an undetermined value via a string

@@ -3,9 +3,9 @@
 #include "AndroidWebBrowserWindow.h"
 #include "AndroidWebBrowserDialog.h"
 #include "AndroidWebBrowserWidget.h"
-#include "AndroidApplication.h"
-#include "AndroidWindow.h"
-#include "AndroidJava.h"
+#include "Android/AndroidApplication.h"
+#include "Android/AndroidWindow.h"
+#include "Android/AndroidJava.h"
 
 #include <jni.h>
 

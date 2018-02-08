@@ -2,7 +2,7 @@
 
 #include "AndroidAudioDevice.h"
 #include "AudioEffect.h"
-#include "IAudioFormat.h"
+#include "Interfaces/IAudioFormat.h"
 #include "AudioDecompress.h"
 #include "ContentStreaming.h"
 

@@ -12,11 +12,11 @@
 #include "MovieSceneExecutionToken.h"
 #include "Evaluation/PersistentEvaluationData.h"
 #include "Evaluation/MovieSceneEvalTemplate.h"
-#include "MessageLog.h"
+#include "Logging/MessageLog.h"
 #include "Misc/UObjectToken.h"
 #include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
 #include "MovieSceneSequence.h"
-#include "MovieSceneBlendingActuator.h"
+#include "Evaluation/Blending/MovieSceneBlendingActuator.h"
 #include "MovieScenePropertyTemplate.generated.h"
 
 class UMovieScenePropertyTrack;

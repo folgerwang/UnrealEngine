@@ -3,10 +3,10 @@
 #pragma once
 
 #include "ControlRig.h"
-#include "AnimationHierarchy.h"
+#include "Rigs/AnimationHierarchy.h"
 #include "BonePose.h"
 #include "NodeChain.h"
-#include "ControlManipulator.h"
+#include "Rigs/ControlManipulator.h"
 #include "Animation/NodeMappingProviderInterface.h"
 #include "Animation/NodeMappingContainer.h"
 #include "HierarchicalRig.generated.h"

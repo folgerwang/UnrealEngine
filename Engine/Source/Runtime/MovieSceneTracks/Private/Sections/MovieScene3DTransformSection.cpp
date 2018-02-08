@@ -3,7 +3,7 @@
 #include "Sections/MovieScene3DTransformSection.h"
 #include "UObject/StructOnScope.h"
 #include "Evaluation/MovieScene3DTransformTemplate.h"
-#include "SequencerObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
 
 
 /* FMovieScene3DLocationKeyStruct interface

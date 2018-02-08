@@ -4,7 +4,7 @@
 #include "AssetRegistryModule.h"
 #include "ContentBrowserUtils.h"
 #include "Settings/ContentBrowserSettings.h"
-#include "Paths.h"
+#include "Misc/Paths.h"
 
 FEmptyFolderVisibilityManager::FEmptyFolderVisibilityManager()
 {

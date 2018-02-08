@@ -7,7 +7,7 @@
 #if WITH_CEF3
 
 #if PLATFORM_WINDOWS
-	#include "AllowWindowsPlatformTypes.h"
+	#include "Windows/AllowWindowsPlatformTypes.h"
 #endif
 
 #pragma push_macro("OVERRIDE")
@@ -20,7 +20,7 @@ typedef CefBase CefBaseRefCounted;
 #endif
 
 #if PLATFORM_WINDOWS
-	#include "HideWindowsPlatformTypes.h"
+	#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 // Helper for posting a closure as a task

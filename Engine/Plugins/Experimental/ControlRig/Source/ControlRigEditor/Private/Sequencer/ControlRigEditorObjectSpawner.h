@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "ControlRigObjectSpawner.h"
+#include "Sequencer/ControlRigObjectSpawner.h"
 
 class FControlRigEditorObjectSpawner : public FControlRigObjectSpawner
 {

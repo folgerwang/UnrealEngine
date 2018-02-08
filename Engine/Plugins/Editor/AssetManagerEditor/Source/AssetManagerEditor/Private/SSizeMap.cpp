@@ -20,7 +20,7 @@
 #include "DragAndDrop/AssetDragDropOp.h"
 #include "CollectionManagerModule.h"
 #include "ICollectionManager.h"
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 #include "Misc/ScopedSlowTask.h"
 
 #define LOCTEXT_NAMESPACE "SizeMap"

@@ -5,7 +5,7 @@
 #include "Misc/Parse.h"
 #include "Misc/CommandLine.h"
 #include "Misc/MessageDialog.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 int32 GAppleMetalEnabled = 1;
 static FAutoConsoleVariableRef CVarMacMetalEnabled(

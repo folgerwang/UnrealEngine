@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 
 #ifndef WINDOWS_PLATFORM_TYPES_GUARD
 	#define WINDOWS_PLATFORM_TYPES_GUARD

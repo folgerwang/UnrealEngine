@@ -25,9 +25,12 @@ UCryptoKeysSettings::UCryptoKeysSettings()
 			}
 
 			FString OldSigningModulus, OldSigningPublicExponent, OldSigningPrivateExponent;
-			if ((bEnablePakSigning = GConfig->GetString(TEXT("Core.Encryption"), TEXT("rsa.privateexp"), OldSigningPrivateExponent, EncryptionIni)
+
+			bEnablePakSigning = GConfig->GetString(TEXT("Core.Encryption"), TEXT("rsa.privateexp"), OldSigningPrivateExponent, EncryptionIni)
 				&& GConfig->GetString(TEXT("Core.Encryption"), TEXT("rsa.publicexp"), OldSigningPublicExponent, EncryptionIni)
-				&& GConfig->GetString(TEXT("Core.Encryption"), TEXT("rsa.modulus"), OldSigningModulus, EncryptionIni)))
+				&& GConfig->GetString(TEXT("Core.Encryption"), TEXT("rsa.modulus"), OldSigningModulus, EncryptionIni);
+
+			if (bEnablePakSigning)
 			{
 				SigningModulus = FBase64::Encode(OldSigningModulus);
 				SigningPublicExponent = FBase64::Encode(OldSigningPublicExponent);

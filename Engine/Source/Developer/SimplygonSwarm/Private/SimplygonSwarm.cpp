@@ -12,7 +12,7 @@
 #include "Editor/EditorPerProjectUserSettings.h"
 #include "Misc/EngineVersion.h"
 #include "Misc/MonitoredProcess.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 THIRD_PARTY_INCLUDES_START
 #include <algorithm>
 THIRD_PARTY_INCLUDES_END

@@ -5,7 +5,7 @@
 #include "LiveLinkRefSkeleton.h"
 #include "Features/IModularFeature.h"
 #include "LiveLinkTypes.h"
-#include "Guid.h"
+#include "Misc/Guid.h"
 
 class ILiveLinkSource;
 

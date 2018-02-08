@@ -25,7 +25,7 @@
 #include "Widgets/Layout/SSpacer.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Input/SButton.h"
-#include "DriverMetaData.h"
+#include "Framework/MetaData/DriverMetaData.h"
 
 namespace SWindowTitleBarDefs
 {

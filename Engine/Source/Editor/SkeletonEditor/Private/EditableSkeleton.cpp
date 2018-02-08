@@ -28,7 +28,7 @@
 #include "AssetRegistryModule.h"
 #include "SSkeletonWidget.h"
 #include "Engine/DataAsset.h"
-#include "PreviewCollectionInterface.h"
+#include "Animation/PreviewCollectionInterface.h"
 #include "HAL/PlatformApplicationMisc.h"
 
 const FString FEditableSkeleton::SocketCopyPasteHeader = TEXT("SocketCopyPasteBuffer");

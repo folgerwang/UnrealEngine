@@ -3,7 +3,7 @@
 #include "Kismet/KismetInternationalizationLibrary.h"
 #include "Internationalization/Internationalization.h"
 #include "Internationalization/Culture.h"
-#include "ConfigCacheIni.h"
+#include "Misc/ConfigCacheIni.h"
 
 #define LOCTEXT_NAMESPACE "Kismet"
 

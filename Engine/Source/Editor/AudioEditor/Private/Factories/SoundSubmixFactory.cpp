@@ -4,7 +4,7 @@
 #include "Sound/SoundSubmix.h"
 #include "AudioDeviceManager.h"
 #include "Engine/Engine.h"
-#include "Classes/Sound/AudioSettings.h"
+#include "Sound/AudioSettings.h"
 
 USoundSubmixFactory::USoundSubmixFactory(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

@@ -807,13 +807,13 @@ namespace UnrealBuildTool
 			// Add path to Intel math libraries when using ICL based on target platform
 			if (WindowsPlatform.bCompileWithICL)
 			{
-				var Result = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "IntelSWTools", "compilers_and_libraries", "windows", "compiler", "lib", Target.Platform == UnrealTargetPlatform.Win32 ? "ia32" : "intel64");
+				string Result = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "IntelSWTools", "compilers_and_libraries", "windows", "compiler", "lib", Target.Platform == UnrealTargetPlatform.Win32 ? "ia32" : "intel64");
 				if (!Directory.Exists(Result))
 				{
 					throw new BuildException("ICL was selected but the required math libraries were not found.  Could not find: " + Result);
 				}
 
-				LinkEnvironment.LibraryPaths.Add(Result);
+				LinkEnvironment.LibraryPaths.Add(new DirectoryReference(Result));
 			}
 
 			// Explicitly exclude the MS C++ runtime libraries we're not using, to ensure other libraries we link with use the same

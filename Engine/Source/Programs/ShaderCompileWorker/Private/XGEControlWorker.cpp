@@ -1,11 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "Async.h"
-#include "PlatformNamedPipe.h"
-#include "MemoryReader.h"
-#include "ScopeLock.h"
+#include "Async/Async.h"
+#include "HAL/PlatformNamedPipe.h"
+#include "Serialization/MemoryReader.h"
+#include "Misc/ScopeLock.h"
 #include "Serialization/MemoryWriter.h"
-#include "ExceptionHandling.h"
+#include "HAL/ExceptionHandling.h"
 #include "LaunchEngineLoop.h"
 
 #if PLATFORM_WINDOWS // XGE is only supported on windows platforms

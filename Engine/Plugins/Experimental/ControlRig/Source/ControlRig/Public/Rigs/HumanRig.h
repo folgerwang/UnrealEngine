@@ -3,9 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ObjectMacros.h"
+#include "UObject/ObjectMacros.h"
 #include "UObject/NoExportTypes.h"
-#include "HierarchicalRig.h"
+#include "Rigs/HierarchicalRig.h"
 #include "AlphaBlend.h"
 #include "Components/SplineComponent.h"
 #include "HumanRig.generated.h"

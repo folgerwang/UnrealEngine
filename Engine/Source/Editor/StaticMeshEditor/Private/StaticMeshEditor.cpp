@@ -25,9 +25,9 @@
 
 #include "StaticMeshResources.h"
 #include "BusyCursor.h"
-#include "Private/GeomFitUtils.h"
+#include "Editor/UnrealEd/Private/GeomFitUtils.h"
 #include "EditorViewportCommands.h"
-#include "Private/ConvexDecompTool.h"
+#include "Editor/UnrealEd/Private/ConvexDecompTool.h"
 
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "EngineAnalytics.h"

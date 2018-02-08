@@ -14,7 +14,7 @@
 #include "Misc/App.h"
 #include "HAL/FeedbackContextAnsi.h"
 #include "Misc/OutputDeviceConsole.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 TCHAR FGenericPlatformOutputDevices::CachedAbsoluteFilename[1024] = { 0 };
 
@@ -25,6 +25,14 @@ void FGenericPlatformOutputDevices::SetupOutputDevices()
 	CachedAbsoluteFilename[0] = 0;
 
 	GLog->AddOutputDevice(FPlatformOutputDevices::GetLog());
+
+	TArray<FOutputDevice*> ChannelFileOverrides;
+	FPlatformOutputDevices::GetPerChannelFileOverrides(ChannelFileOverrides);
+
+	for (FOutputDevice* ChannelFileOverride : ChannelFileOverrides)
+	{
+		GLog->AddOutputDevice(ChannelFileOverride);
+	}
 
 #if !NO_LOGGING
 	// if console is enabled add an output device, unless the commandline says otherwise...
@@ -122,3 +130,34 @@ class FOutputDevice* FGenericPlatformOutputDevices::GetLog()
 	return Singleton.LogDevice.Get();
 }
 
+void FGenericPlatformOutputDevices::GetPerChannelFileOverrides(TArray<FOutputDevice*>& OutputDevices)
+{
+	FString Commands;
+	if (FParse::Value(FCommandLine::Get(), TEXT("logcategoryfiles="), Commands))
+	{
+		Commands = Commands.TrimQuotes();
+
+		TArray<FString> Parts;
+		Commands.ParseIntoArray(Parts, TEXT(","), true);
+
+		for (FString Part : Parts)
+		{
+			FString Filename, CategoriesString;
+			if (Part.TrimStartAndEnd().Split(TEXT("="), &Filename, &CategoriesString))
+			{
+				// do stuff
+				FOutputDeviceFile* OutputDevice = new FOutputDeviceFile(*Filename);
+
+				TArray<FString> Categories;
+				CategoriesString.ParseIntoArray(Categories, TEXT("+"), true);
+
+				for (FString Category : Categories)
+				{
+					OutputDevice->IncludeCategory(FName(*Category));
+				}
+
+				OutputDevices.Add(OutputDevice);
+			}
+		}
+	}
+}

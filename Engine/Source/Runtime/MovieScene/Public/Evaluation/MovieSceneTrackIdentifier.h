@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "EditorObjectVersion.h"
+#include "UObject/EditorObjectVersion.h"
 #include "MovieSceneTrackIdentifier.generated.h"
 
 USTRUCT()

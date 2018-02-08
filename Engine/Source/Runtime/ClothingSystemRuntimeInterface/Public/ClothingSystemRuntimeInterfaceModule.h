@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "Modules/ModuleInterface.h"
 
 class FClothingSystemRuntimeInterfaceModule : public IModuleInterface
 {

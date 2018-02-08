@@ -4,7 +4,7 @@
 #include "ShaderFormatVectorVM.h"
 #include "VectorVMBackend.h"
 #include "CoreMinimal.h"
-#include "FileHelper.h"
+#include "Misc/FileHelper.h"
 #include "ShaderCore.h"
 #include "CrossCompilerCommon.h"
 #include "ShaderCompilerCommon.h"

@@ -147,7 +147,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Because most ManualSDK determination depends on reading env vars, if this process is spawned by a process that ALREADY set up
 		/// AutoSDKs then all the SDK env vars will exist, and we will spuriously detect a Manual SDK. (children inherit the environment of the parent process).
-		/// Therefore we write out an env var to set in the command file (OutputEnvVars.txt) such that child processes can determine if their manual SDK detection
+		/// Therefore we write out an env variable to set in the command file (OutputEnvVars.txt) such that child processes can determine if their manual SDK detection
 		/// is bogus.  Make it platform specific so that platforms can be in different states.
 		/// </summary>
 		protected string GetPlatformAutoSDKSetupEnvVar()
@@ -438,7 +438,7 @@ namespace UnrealBuildTool
 							{
 								bNeedsToWriteAutoSetupEnvVar = false;
 							}
-							// convenience for setup.bat writers.  Trim any accidental whitespace from var names/values.
+							// convenience for setup.bat writers.  Trim any accidental whitespace from variable names/values.
 							EnvVarNames.Add(Parts[0].Trim());
 							EnvVarValues.Add(Parts[1].Trim());
 						}
@@ -517,7 +517,7 @@ namespace UnrealBuildTool
 
 					Reader.Close();
 
-					// write out env var command so any process using this commandfile will mark itself as having had autosdks set up.
+					// write out environment variable command so any process using this commandfile will mark itself as having had autosdks set up.
 					// avoids child processes spuriously detecting manualsdks.
 					if (bNeedsToWriteAutoSetupEnvVar)
 					{
@@ -525,7 +525,7 @@ namespace UnrealBuildTool
 						{
 							Writer.WriteLine("{0}=1", PlatformSetupEnvVar);
 						}
-						// set the var in the local environment in case this process spawns any others.
+						// set the variable in the local environment in case this process spawns any others.
 						Environment.SetEnvironmentVariable(PlatformSetupEnvVar, "1");
 					}
 

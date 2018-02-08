@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "WindowsEventLogOutputDevice.h"
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsEventLogOutputDevice.h"
+#include "Windows/WindowsHWrapper.h"
 #include "Containers/UnrealString.h"
 #include "Misc/Parse.h"
 #include "Misc/App.h"

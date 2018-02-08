@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "IInputDeviceModule.h"
 
 #define OCULUS_INPUT_SUPPORTED_PLATFORMS (PLATFORM_WINDOWS && WINVER > 0x0502) || (PLATFORM_ANDROID && PLATFORM_ANDROID_ARM)

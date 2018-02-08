@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreTypes.h"
-#include "StructuredArchiveFormatter.h"
+#include "Serialization/StructuredArchiveFormatter.h"
 #include "Formatters/BinaryArchiveFormatter.h"
 #include "Misc/Optional.h"
 #include "Containers/Array.h"

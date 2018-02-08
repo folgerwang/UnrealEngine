@@ -4,11 +4,11 @@
 #include "RenderDocPluginModule.h"
 #include "RenderDocPluginSettings.h"
 
-#include "Internationalization.h"
+#include "Internationalization/Internationalization.h"
 
 #include "Developer/DesktopPlatform/public/DesktopPlatformModule.h"
-#include "AllowWindowsPlatformTypes.h"
-#include "ConfigCacheIni.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include "Misc/ConfigCacheIni.h"
 #include "RHI.h"
 
 #define LOCTEXT_NAMESPACE "RenderDocPlugin" 
@@ -173,4 +173,4 @@ void* FRenderDocPluginLoader::GetRenderDocLibrary()
 }
 
 #undef LOCTEXT_NAMESPACE 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"

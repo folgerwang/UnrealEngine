@@ -4,9 +4,9 @@
 
 #include "StandaloneRendererPrivate.h"
 #include "OpenGL/SlateOpenGLRenderer.h"
-#include "MacWindow.h"
-#include "MacTextInputMethodSystem.h"
-#include "CocoaTextView.h"
+#include "Mac/MacWindow.h"
+#include "Mac/MacTextInputMethodSystem.h"
+#include "Mac/CocoaTextView.h"
 #include <OpenGL/gl.h>
 #include <OpenGL/glext.h>
 

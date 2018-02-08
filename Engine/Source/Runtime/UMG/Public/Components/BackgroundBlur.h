@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "ContentWidget.h"
+#include "Components/ContentWidget.h"
 #include "BackgroundBlur.generated.h"
 
 /**

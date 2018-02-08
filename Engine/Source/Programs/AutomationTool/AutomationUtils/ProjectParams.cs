@@ -164,7 +164,7 @@ namespace AutomationTool
                             {
 								// Need to tolerate cook platform names here, which UFE likes to pass in. (TODO: Not sure if it's right to do that, but it does pass -targetplatform as well)
                                 UnrealTargetPlatform NewPlatformType;
-								if(Enum.TryParse(SubPlatformName, out NewPlatformType))
+								if(Enum.TryParse(SubPlatformName, true, out NewPlatformType))
 								{
 									// generate all valid platform descriptions for this platform type + cook flavors
 									List<TargetPlatformDescriptor> PlatformDescriptors = Platform.GetValidTargetPlatforms(NewPlatformType, CookFlavors);

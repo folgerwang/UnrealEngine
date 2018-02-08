@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "PacketHandler.h"
-#include "ArrayView.h"
+#include "Containers/ArrayView.h"
 
 /**
  * IEncryptionComponentInterface

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "OnlineStoreInterface.h"
+#include "Interfaces/OnlineStoreInterface.h"
 
 @class FStoreKitHelper;
 @class SKProductsResponse;

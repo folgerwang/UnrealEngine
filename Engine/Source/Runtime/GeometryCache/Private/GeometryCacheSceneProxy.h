@@ -11,7 +11,7 @@
 #include "LocalVertexFactory.h"
 #include "DynamicMeshBuilder.h"
 #include "StaticMeshResources.h"
-#include "LogMacros.h"
+#include "Logging/LogMacros.h"
 
 class FMeshElementCollector;
 struct FGeometryCacheMeshData;

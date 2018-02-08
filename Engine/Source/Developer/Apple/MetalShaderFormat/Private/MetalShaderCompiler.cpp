@@ -13,8 +13,8 @@
 #include "Misc/Paths.h"
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 THIRD_PARTY_INCLUDES_START
 	#include "Windows/PreWindowsApi.h"
 	#include <objbase.h>
@@ -23,7 +23,7 @@ THIRD_PARTY_INCLUDES_START
 	#include "Windows/PostWindowsApi.h"
 	#include "Windows/MinWindows.h"
 THIRD_PARTY_INCLUDES_END
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 #include "ShaderPreprocessor.h"

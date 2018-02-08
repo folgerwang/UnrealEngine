@@ -7,7 +7,7 @@
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 #include "UObject/Package.h"
-#include "AnimPhysObjectVersion.h"
+#include "UObject/AnimPhysObjectVersion.h"
 
 #if WITH_EDITOR
 #include "Editor/EditorPerProjectUserSettings.h"

@@ -22,7 +22,7 @@
 #if USE_MALLOC_STOMP
 
 #if PLATFORM_WINDOWS
-	#include "WindowsHWrapper.h"
+	#include "Windows/WindowsHWrapper.h"
 #endif
 
 /**

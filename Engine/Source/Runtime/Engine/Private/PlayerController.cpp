@@ -61,7 +61,7 @@
 #include "Engine/ChildConnection.h"
 #include "VisualLogger/VisualLogger.h"
 #include "Logging/MessageLog.h"
-#include "SceneViewport.h"
+#include "Slate/SceneViewport.h"
 #include "Engine/NetworkObjectList.h"
 #include "GameFramework/GameSession.h"
 

@@ -22,7 +22,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Modules that this plugin belongs to
 		/// </summary>
-		public List<UEBuildModule> Modules = new List<UEBuildModule>();
+		public List<UEBuildModuleCPP> Modules = new List<UEBuildModuleCPP>();
 
 		/// <summary>
 		/// Recursive

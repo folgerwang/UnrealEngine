@@ -25,21 +25,39 @@ int32 UTextAssetCommandlet::Main(const FString& CmdLineParams)
 {
 	TArray<FString> Blacklist;
 
-	FString ModeString, FilenameFilterString, OutputPathString, IterationsString;
+	FString ModeString = TEXT("loadsave");
+	FString OutputFormatString = TEXT("text");
+	FString IterationsString = TEXT("1");
+
+	FString FilenameFilterString, OutputPathString;
 	FParse::Value(*CmdLineParams, TEXT("mode="), ModeString);
 	FParse::Value(*CmdLineParams, TEXT("filter="), FilenameFilterString);
 	FParse::Value(*CmdLineParams, TEXT("outputpath="), OutputPathString);
+	FParse::Value(*CmdLineParams, TEXT("outputFormat="), OutputFormatString);
 
 	enum class EMode
 	{
-		ResaveAsText,
+		LoadSave,
+	};
+
+	enum class EOutputFormat
+	{
+		Text,
+		Binary
 	};
 
 	TMap<FString, EMode> Modes;
-	Modes.Add(TEXT("resaveastext"), EMode::ResaveAsText);
+	Modes.Add(TEXT("loadsave"), EMode::LoadSave);
+
+	TMap<FString, EOutputFormat> OutputFormats;
+	OutputFormats.Add(TEXT("text"), EOutputFormat::Text);
+	OutputFormats.Add(TEXT("binary"), EOutputFormat::Binary);
 
 	check(Modes.Contains(ModeString));
 	EMode Mode = Modes[ModeString];
+
+	check(OutputFormats.Contains(OutputFormatString));
+	EOutputFormat OutputFormat = OutputFormats[OutputFormatString];
 	
 	TArray<UPackage*> Packages;
 	TArray<UObject*> Objects;	
@@ -54,6 +72,10 @@ int32 UTextAssetCommandlet::Main(const FString& CmdLineParams)
 	IFileManager::Get().FindFilesRecursive(Files, *BasePath, TEXT("*.umap"), true, false, false);
 
 	TArray<TTuple<FString, FString>> FilesToProcess;
+
+	TMap<EOutputFormat, FString> OutputFormatExtensions;
+	OutputFormatExtensions.Add(EOutputFormat::Binary, FPackageName::GetAssetPackageExtension());
+	OutputFormatExtensions.Add(EOutputFormat::Text, FPackageName::GetTextAssetPackageExtension());
 
 	for (const FString& SrcFilename : Files)
 	{
@@ -83,21 +105,11 @@ int32 UTextAssetCommandlet::Main(const FString& CmdLineParams)
 
 		bool bShouldProcess = true;
 
-		//FString Ext = FPackageName::GetTextAssetPackageExtension();
-		FString Ext = FPackageName::GetAssetPackageExtension();
-		FString DestinationFilename = FPaths::ChangeExtension(Filename, Ext);
+		FString DestinationFilename = FPaths::ChangeExtension(Filename, OutputFormatExtensions[OutputFormat]);
 
-		switch (Mode)
+		if (Filename == DestinationFilename)
 		{
-		case EMode::ResaveAsText:
-		{
-			IFileManager::Get().Delete(*DestinationFilename, true, true, true);
-			break;
-		}
-		default:
-		{
-			break;
-		}
+			DestinationFilename += TEXT(".tmp");
 		}
 
 		if (bShouldProcess)
@@ -109,8 +121,16 @@ int32 UTextAssetCommandlet::Main(const FString& CmdLineParams)
 	float TotalPackageLoadTime = 0.0;
 	float TotalPackageSaveTime = 0.0;
 
+	UE_LOG(LogTextAsset, Log, TEXT("-----------------------------------------------------"));
+
 	for (int32 Iteration = 0; Iteration < NumSaveIterations; ++Iteration)
 	{
+		if (NumSaveIterations > 1)
+		{
+			UE_LOG(LogTextAsset, Log, TEXT("Iteration %i Started"), Iteration + 1);
+			UE_LOG(LogTextAsset, Log, TEXT("-----------------------------------------------------"));
+		}
+
 		double MaxTime = FLT_MIN;
 		double MinTime = FLT_MAX;
 		double TotalTime = 0;
@@ -129,9 +149,8 @@ int32 UTextAssetCommandlet::Main(const FString& CmdLineParams)
 
 			switch (Mode)
 			{
-			case EMode::ResaveAsText:
+			case EMode::LoadSave:
 			{
-				UE_LOG(LogTextAsset, Display, TEXT("Resaving as text asset: '%s'"), *DestinationFilename);
 				UPackage* Package = nullptr;
 
 				double Timer = 0.0;
@@ -146,6 +165,8 @@ int32 UTextAssetCommandlet::Main(const FString& CmdLineParams)
 				{
 					{
 						SCOPE_SECONDS_COUNTER(Timer);
+
+						IFileManager::Get().Delete(*DestinationFilename, false, true);
 						SavePackageHelper(Package, *DestinationFilename, RF_Standalone, GWarn, nullptr, SAVE_KeepGUID);
 					}
 					TotalPackageSaveTime += Timer;
@@ -155,8 +176,9 @@ int32 UTextAssetCommandlet::Main(const FString& CmdLineParams)
 				if (OutputPathString.Len() > 0)
 				{
 					FString CopyFilename = DestinationFilename;
-					FPaths::MakePathRelativeTo(CopyFilename, *FPaths::RootDir());
-					CopyFilename = OutputPathString / CopyFilename;
+					FPaths::MakePathRelativeTo(CopyFilename, *FPaths::ProjectContentDir());
+					CopyFilename = OutputPathString / FApp::GetProjectName() / CopyFilename;
+					CopyFilename.RemoveFromEnd(TEXT(".tmp"));
 					IFileManager::Get().MakeDirectory(*FPaths::GetPath(CopyFilename));
 					IFileManager::Get().Move(*CopyFilename, *DestinationFilename);
 				}
@@ -184,22 +206,28 @@ int32 UTextAssetCommandlet::Main(const FString& CmdLineParams)
 			NumFiles++;
 		}
 
-		UE_LOG(LogTextAsset, Log, TEXT("Iteration %i Completed"), Iteration + 1);
+		if (NumSaveIterations > 1)
+		{
+			UE_LOG(LogTextAsset, Log, TEXT("Iteration %i Completed"), Iteration + 1);
+		}
+		
 		UE_LOG(LogTextAsset, Log, TEXT("\tTotal Time:\t%.2fs"), TotalTime);
-		UE_LOG(LogTextAsset, Log, TEXT("\tAvg Time:  \t%.2fms"), (TotalTime * 1000.0) / (double)NumFiles);
-		UE_LOG(LogTextAsset, Log, TEXT("\tMin Time:  \t%.2fms (%s)"), MinTime * 1000.0, *MinTimePackage);
-		UE_LOG(LogTextAsset, Log, TEXT("\tMax Time:  \t%.2fms (%s)"), MaxTime * 1000.0, *MaxTimePackage);
-		UE_LOG(LogTextAsset, Log, TEXT("\tPackage Load Time:  \t%.2fs"), IterationPackageLoadTime);
-		UE_LOG(LogTextAsset, Log, TEXT("\tPackage Save Time:  \t%.2fs"), IterationPackageSaveTime);
+		UE_LOG(LogTextAsset, Log, TEXT("\tAvg File Time:  \t%.2fms"), (TotalTime * 1000.0) / (double)NumFiles);
+		UE_LOG(LogTextAsset, Log, TEXT("\tMin File Time:  \t%.2fms (%s)"), MinTime * 1000.0, *MinTimePackage);
+		UE_LOG(LogTextAsset, Log, TEXT("\tMax File Time:  \t%.2fms (%s)"), MaxTime * 1000.0, *MaxTimePackage);
+		UE_LOG(LogTextAsset, Log, TEXT("\tTotal Package Load Time:  \t%.2fs"), IterationPackageLoadTime);
+		UE_LOG(LogTextAsset, Log, TEXT("\tTotal Package Save Time:  \t%.2fs"), IterationPackageSaveTime);
 
 		Packages.Empty();
 		CollectGarbage(RF_NoFlags, true);
 	}
 
+	UE_LOG(LogTextAsset, Log, TEXT("-----------------------------------------------------"));
 	UE_LOG(LogTextAsset, Log, TEXT("Text Asset Commandlet Completed!"));
+	UE_LOG(LogTextAsset, Log, TEXT("\tTotal Files Saved:  \t%i"), FilesToProcess.Num());
 	UE_LOG(LogTextAsset, Log, TEXT("\tAvg Iteration Package Load Time:  \t%.2fs"), TotalPackageLoadTime / (float)NumSaveIterations);
 	UE_LOG(LogTextAsset, Log, TEXT("\tAvg Iteration Save Time:  \t%.2fs"), TotalPackageSaveTime / (float)NumSaveIterations);
-
+	UE_LOG(LogTextAsset, Log, TEXT("-----------------------------------------------------"));
 	
 	return 0;
 }

@@ -1,12 +1,12 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "IOSApplication.h"
-#include "IOSInputInterface.h"
+#include "IOS/IOSApplication.h"
+#include "IOS/IOSInputInterface.h"
 #include "IOSWindow.h"
 #include "Misc/CoreDelegates.h"
-#include "IOSAppDelegate.h"
+#include "IOS/IOSAppDelegate.h"
 #include "IInputDeviceModule.h"
-#include "IInputInterface.h"
+#include "GenericPlatform/IInputInterface.h"
 #include "IInputDevice.h"
 #include "Misc/ScopeLock.h"
 #include "HAL/IConsoleManager.h"

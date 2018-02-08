@@ -2,7 +2,7 @@
 
 
 #include "AppleHTTP.h"
-#include "EngineVersion.h"
+#include "Misc/EngineVersion.h"
 #include "Security/Security.h"
 #include "Misc/App.h"
 #include "HAL/PlatformTime.h"
@@ -38,7 +38,7 @@ FAppleHttpRequest::~FAppleHttpRequest()
 }
 
 
-FString FAppleHttpRequest::GetURL()
+FString FAppleHttpRequest::GetURL() const
 {
 	SCOPED_AUTORELEASE_POOL;
 	NSURL* URL = Request.URL;
@@ -64,7 +64,7 @@ void FAppleHttpRequest::SetURL(const FString& URL)
 }
 
 
-FString FAppleHttpRequest::GetURLParameter(const FString& ParameterName)
+FString FAppleHttpRequest::GetURLParameter(const FString& ParameterName) const
 {
 	SCOPED_AUTORELEASE_POOL;
 	UE_LOG(LogHttp, Verbose, TEXT("FAppleHttpRequest::GetURLParameter() - %s"), *ParameterName);
@@ -84,7 +84,7 @@ FString FAppleHttpRequest::GetURLParameter(const FString& ParameterName)
 }
 
 
-FString FAppleHttpRequest::GetHeader(const FString& HeaderName)
+FString FAppleHttpRequest::GetHeader(const FString& HeaderName) const
 {
 	SCOPED_AUTORELEASE_POOL;
 	FString Header([Request valueForHTTPHeaderField:HeaderName.GetNSString()]);
@@ -118,7 +118,7 @@ void FAppleHttpRequest::AppendToHeader(const FString& HeaderName, const FString&
 	}
 }
 
-TArray<FString> FAppleHttpRequest::GetAllHeaders()
+TArray<FString> FAppleHttpRequest::GetAllHeaders() const
 {
 	SCOPED_AUTORELEASE_POOL;
 	UE_LOG(LogHttp, Verbose, TEXT("FAppleHttpRequest::GetAllHeaders()"));
@@ -137,7 +137,7 @@ TArray<FString> FAppleHttpRequest::GetAllHeaders()
 }
 
 
-const TArray<uint8>& FAppleHttpRequest::GetContent()
+const TArray<uint8>& FAppleHttpRequest::GetContent() const
 {
 	SCOPED_AUTORELEASE_POOL;
 	UE_LOG(LogHttp, Verbose, TEXT("FAppleHttpRequest::GetContent()"));
@@ -155,7 +155,7 @@ void FAppleHttpRequest::SetContent(const TArray<uint8>& ContentPayload)
 }
 
 
-FString FAppleHttpRequest::GetContentType()
+FString FAppleHttpRequest::GetContentType() const
 {
 	FString ContentType = GetHeader(TEXT("Content-Type"));
 	UE_LOG(LogHttp, Verbose, TEXT("FAppleHttpRequest::GetContentType() - %s"), *ContentType);
@@ -163,7 +163,7 @@ FString FAppleHttpRequest::GetContentType()
 }
 
 
-int32 FAppleHttpRequest::GetContentLength()
+int32 FAppleHttpRequest::GetContentLength() const
 {
 	SCOPED_AUTORELEASE_POOL;
 	NSData* Body = Request.HTTPBody;
@@ -183,7 +183,7 @@ void FAppleHttpRequest::SetContentAsString(const FString& ContentString)
 }
 
 
-FString FAppleHttpRequest::GetVerb()
+FString FAppleHttpRequest::GetVerb() const
 {
 	FString ConvertedVerb(Request.HTTPMethod);
 	UE_LOG(LogHttp, Verbose, TEXT("FAppleHttpRequest::GetVerb() - %s"), *ConvertedVerb);
@@ -361,7 +361,7 @@ void FAppleHttpRequest::CancelRequest()
 }
 
 
-EHttpRequestStatus::Type FAppleHttpRequest::GetStatus()
+EHttpRequestStatus::Type FAppleHttpRequest::GetStatus() const
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FAppleHttpRequest::GetStatus()"));
 	return CompletionStatus;
@@ -394,7 +394,7 @@ void FAppleHttpRequest::Tick(float DeltaSeconds)
 	}
 }
 
-float FAppleHttpRequest::GetElapsedTime()
+float FAppleHttpRequest::GetElapsedTime() const
 {
 	return ElapsedTime;
 }
@@ -533,14 +533,14 @@ FAppleHttpResponse::~FAppleHttpResponse()
 }
 
 
-FString FAppleHttpResponse::GetURL()
+FString FAppleHttpResponse::GetURL() const
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FAppleHttpResponse::GetURL()"));
 	return FString(Request.Request.URL.query);
 }
 
 
-FString FAppleHttpResponse::GetURLParameter(const FString& ParameterName)
+FString FAppleHttpResponse::GetURLParameter(const FString& ParameterName) const
 {
 	SCOPED_AUTORELEASE_POOL;
 	UE_LOG(LogHttp, Verbose, TEXT("FAppleHttpResponse::GetURLParameter()"));
@@ -560,7 +560,7 @@ FString FAppleHttpResponse::GetURLParameter(const FString& ParameterName)
 }
 
 
-FString FAppleHttpResponse::GetHeader(const FString& HeaderName)
+FString FAppleHttpResponse::GetHeader(const FString& HeaderName) const
 {
 	SCOPED_AUTORELEASE_POOL;
 	UE_LOG(LogHttp, Verbose, TEXT("FAppleHttpResponse::GetHeader()"));
@@ -570,7 +570,7 @@ FString FAppleHttpResponse::GetHeader(const FString& HeaderName)
 }
 
 
-TArray<FString> FAppleHttpResponse::GetAllHeaders()
+TArray<FString> FAppleHttpResponse::GetAllHeaders() const
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FAppleHttpResponse::GetAllHeaders()"));
 
@@ -587,7 +587,7 @@ TArray<FString> FAppleHttpResponse::GetAllHeaders()
 }
 
 
-FString FAppleHttpResponse::GetContentType()
+FString FAppleHttpResponse::GetContentType() const
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FAppleHttpResponse::GetContentType()"));
 
@@ -595,7 +595,7 @@ FString FAppleHttpResponse::GetContentType()
 }
 
 
-int32 FAppleHttpResponse::GetContentLength()
+int32 FAppleHttpResponse::GetContentLength() const
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FAppleHttpResponse::GetContentLength()"));
 
@@ -603,7 +603,7 @@ int32 FAppleHttpResponse::GetContentLength()
 }
 
 
-const TArray<uint8>& FAppleHttpResponse::GetContent()
+const TArray<uint8>& FAppleHttpResponse::GetContent() const
 {
 	if( !IsReady() )
 	{
@@ -619,7 +619,7 @@ const TArray<uint8>& FAppleHttpResponse::GetContent()
 }
 
 
-FString FAppleHttpResponse::GetContentAsString()
+FString FAppleHttpResponse::GetContentAsString() const
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FAppleHttpResponse::GetContentAsString()"));
 
@@ -634,7 +634,7 @@ FString FAppleHttpResponse::GetContentAsString()
 }
 
 
-int32 FAppleHttpResponse::GetResponseCode()
+int32 FAppleHttpResponse::GetResponseCode() const
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FAppleHttpResponse::GetResponseCode()"));
 
@@ -642,7 +642,7 @@ int32 FAppleHttpResponse::GetResponseCode()
 }
 
 
-NSHTTPURLResponse* FAppleHttpResponse::GetResponseObj()
+NSHTTPURLResponse* FAppleHttpResponse::GetResponseObj() const
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FAppleHttpResponse::GetResponseObj()"));
 
@@ -650,7 +650,7 @@ NSHTTPURLResponse* FAppleHttpResponse::GetResponseObj()
 }
 
 
-bool FAppleHttpResponse::IsReady()
+bool FAppleHttpResponse::IsReady() const
 {
 	bool Ready = [ResponseWrapper bIsReady];
 
@@ -662,7 +662,7 @@ bool FAppleHttpResponse::IsReady()
 	return Ready;
 }
 
-bool FAppleHttpResponse::HadError()
+bool FAppleHttpResponse::HadError() const
 {
 	bool bHadError = [ResponseWrapper bHadError];
 	

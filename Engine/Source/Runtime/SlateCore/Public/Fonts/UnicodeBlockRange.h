@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ArrayView.h"
+#include "Containers/ArrayView.h"
 
 /** Enumeration of pre-defined Unicode block ranges that can be used to access entries from FUnicodeBlockRange */
 enum class EUnicodeBlockRange : uint16

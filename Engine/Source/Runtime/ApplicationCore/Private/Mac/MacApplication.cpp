@@ -1,18 +1,18 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MacApplication.h"
-#include "MacWindow.h"
-#include "MacCursor.h"
-#include "CocoaMenu.h"
-#include "GenericApplicationMessageHandler.h"
+#include "Mac/MacApplication.h"
+#include "Mac/MacWindow.h"
+#include "Mac/MacCursor.h"
+#include "Mac/CocoaMenu.h"
+#include "GenericPlatform/GenericApplicationMessageHandler.h"
 #include "HIDInputInterface.h"
 #include "IInputDeviceModule.h"
 #include "IInputDevice.h"
 #include "AnalyticsEventAttribute.h"
-#include "IAnalyticsProvider.h"
-#include "CocoaThread.h"
-#include "ModuleManager.h"
-#include "CocoaTextView.h"
+#include "Interfaces/IAnalyticsProvider.h"
+#include "Mac/CocoaThread.h"
+#include "Modules/ModuleManager.h"
+#include "Mac/CocoaTextView.h"
 #include "Misc/ScopeLock.h"
 #include "Misc/App.h"
 #include "Mac/MacPlatformApplicationMisc.h"
@@ -21,7 +21,7 @@
 
 #include <IOKit/IOKitLib.h>
 #include <IOKit/graphics/IOGraphicsLib.h>
-#include "CoreDelegates.h"
+#include "Misc/CoreDelegates.h"
 
 FMacApplication* MacApplication = nullptr;
 

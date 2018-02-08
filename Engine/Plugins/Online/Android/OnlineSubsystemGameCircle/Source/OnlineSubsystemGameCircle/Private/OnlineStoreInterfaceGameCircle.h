@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "OnlineStoreInterface.h"
+#include "Interfaces/OnlineStoreInterface.h"
 
 class FOnlineSubsystemGameCircle;
 

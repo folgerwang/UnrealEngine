@@ -29,7 +29,7 @@
 #include "HModel.h"
 #include "Components/ModelComponent.h"
 #include "Engine/Brush.h"
-#include "RenderingObjectVersion.h"
+#include "UObject/RenderingObjectVersion.h"
 #include "Components/ModelComponent.h"
 
 namespace

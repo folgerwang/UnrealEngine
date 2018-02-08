@@ -3,8 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "OnlineFriendsInterface.h"
-#include "OnlinePresenceInterface.h"
+#include "Interfaces/OnlineFriendsInterface.h"
+#include "Interfaces/OnlinePresenceInterface.h"
 #include "OnlineSubsystemFacebookTypes.h"
 #include "OnlineJsonSerializer.h"
 #include "Http.h"

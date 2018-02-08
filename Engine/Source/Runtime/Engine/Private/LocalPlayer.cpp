@@ -26,7 +26,7 @@
 #include "Net/OnlineEngineInterface.h"
 #include "SceneManagement.h"
 #include "PhysicsPublic.h"
-#include "SkeletalMeshRenderData.h"
+#include "Rendering/SkeletalMeshRenderData.h"
 #include "HAL/PlatformApplicationMisc.h"
 
 #include "IHeadMountedDisplay.h"

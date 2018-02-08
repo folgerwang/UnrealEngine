@@ -26,7 +26,7 @@
 #include "MovieScene.h"
 #include "ISequencerModule.h"
 #include "EditorSupportDelegates.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "TNiagaraViewModelManager.h"
 #include "Math/NumericLimits.h"
 #include "NiagaraComponent.h"

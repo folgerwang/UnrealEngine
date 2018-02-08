@@ -681,7 +681,7 @@ namespace UnrealBuildTool
 
             if (bRecursive)
             {
-                foreach(var dir in DirectoryReference.EnumerateDirectories(LocalDirectory))
+                foreach(DirectoryReference dir in DirectoryReference.EnumerateDirectories(LocalDirectory))
                 {
                     QueueDirectoryForBatchUpload(dir);
                 }
@@ -714,7 +714,7 @@ namespace UnrealBuildTool
         public FileItem RemoteToLocalFileItem(FileItem RemoteFileItem)
         {
             // Look to see if we've already made a remote FileItem for this local FileItem
-            foreach (var Item in CachedRemoteFileItems)
+            foreach (KeyValuePair<FileItem, FileItem> Item in CachedRemoteFileItems)
             {
                 if (Item.Value.AbsolutePath == RemoteFileItem.AbsolutePath)
                 {
@@ -759,19 +759,19 @@ namespace UnrealBuildTool
 				// header files existed on disk at the time that UBT scanned include statements looking for prerequisite files.  Those
 				// files are created during code generation and must exist on disk by the time this function is called.  We'll scan
 				// for generated code files and make sure they are enqueued for copying to the remote machine.
-				foreach (var UObjectModule in Manifest.Modules)
+				foreach (UHTManifest.Module UObjectModule in Manifest.Modules)
 				{
 					// @todo uht: Ideally would only copy exactly the files emitted by UnrealHeaderTool, rather than scanning directory (could copy stale files; not a big deal though)
 					try
 					{
-						var GeneratedCodeDirectory = Path.GetDirectoryName(UObjectModule.GeneratedCPPFilenameBase);
-						var GeneratedCodeFiles = Directory.GetFiles(GeneratedCodeDirectory, "*", SearchOption.AllDirectories);
-						foreach (var GeneratedCodeFile in GeneratedCodeFiles)
+						string GeneratedCodeDirectory = Path.GetDirectoryName(UObjectModule.GeneratedCPPFilenameBase);
+						string[] GeneratedCodeFiles = Directory.GetFiles(GeneratedCodeDirectory, "*", SearchOption.AllDirectories);
+						foreach (string GeneratedCodeFile in GeneratedCodeFiles)
 						{
 							// Skip copying "Timestamp" files (UBT temporary files)
 							if (!Path.GetFileName(GeneratedCodeFile).Equals(@"Timestamp", StringComparison.InvariantCultureIgnoreCase))
 							{
-								var GeneratedCodeFileItem = FileItem.GetExistingItemByPath(GeneratedCodeFile);
+								FileItem GeneratedCodeFileItem = FileItem.GetExistingItemByPath(GeneratedCodeFile);
 								QueueFileForBatchUpload(GeneratedCodeFileItem);
 							}
 						}
@@ -786,10 +786,10 @@ namespace UnrealBuildTool
 					// header scan wouldn't have picked them up if they hadn't been generated yet!
 					try
 					{
-						var SourceFiles = Directory.GetFiles(UObjectModule.BaseDirectory, "*", SearchOption.AllDirectories);
-						foreach (var SourceFile in SourceFiles)
+						string[] SourceFiles = Directory.GetFiles(UObjectModule.BaseDirectory, "*", SearchOption.AllDirectories);
+						foreach (string SourceFile in SourceFiles)
 						{
-							var SourceFileItem = FileItem.GetExistingItemByPath(SourceFile);
+							FileItem SourceFileItem = FileItem.GetExistingItemByPath(SourceFile);
 							QueueFileForBatchUpload(SourceFileItem);
 						}
 					}
@@ -953,7 +953,7 @@ namespace UnrealBuildTool
 					ConvertPathToCygwin(RSyncPathsFile),
 					ConvertPathToCygwin(IncludeFromFile),
 					RSyncUsername);
-				Console.WriteLine("Command: " + RsyncProcess.StartInfo.Arguments);
+				Log.TraceInformation("Command: " + RsyncProcess.StartInfo.Arguments);
 
 				RsyncProcess.OutputDataReceived += new DataReceivedEventHandler(OutputReceivedForRsync);
 				RsyncProcess.ErrorDataReceived += new DataReceivedEventHandler(OutputErrorForRsync);
@@ -1041,7 +1041,7 @@ namespace UnrealBuildTool
 
 		static public Hashtable SSHCommand(string WorkingDirectory, string Command, string RemoteOutputPath)
 		{
-			Console.WriteLine("Doing {0}", Command);
+			Log.TraceInformation("Doing {0}", Command);
 
 			// make the commandline for other end
 			string RemoteCommandline = "cd \"" + WorkingDirectory + "\"";
@@ -1071,7 +1071,7 @@ namespace UnrealBuildTool
 
 				DateTime Now = DateTime.Now;
 				UploadFile(CommandLineFile, RemoteCommandlinePath);
-				Console.WriteLine("Upload took {0}", (DateTime.Now - Now).ToString());
+				Log.TraceInformation("Upload took {0}", (DateTime.Now - Now).ToString());
 
 				// execute the file, not a commandline
 				RemoteCommandline += string.Format(" && bash < {0} && rm {0}", RemoteCommandlinePath);
@@ -1101,7 +1101,7 @@ namespace UnrealBuildTool
 
 			DateTime Start = DateTime.Now;
 			Int64 ExitCode = Utils.RunLocalProcess(SSHProcess);
-			Console.WriteLine("Execute took {0}", (DateTime.Now - Start).ToString());
+			Log.TraceInformation("Execute took {0}", (DateTime.Now - Start).ToString());
 
 			// now we have enough to fill out the HashTable
 			DictionaryLock.WaitOne();
@@ -1130,7 +1130,7 @@ namespace UnrealBuildTool
 		/// <param name="e">  Event arguments (In this case, the line of string output)</param>
 		protected void RemoteOutputReceivedEventHandler(object sender, DataReceivedEventArgs e)
 		{
-			var Output = e.Data;
+			string Output = e.Data;
 			if (Output == null)
 			{
 				return;

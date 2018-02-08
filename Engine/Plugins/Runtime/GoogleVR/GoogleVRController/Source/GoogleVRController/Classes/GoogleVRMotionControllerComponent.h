@@ -5,9 +5,9 @@
 #include "Components/ActorComponent.h"
 #include "GoogleVRPointer.h"
 #include "GoogleVRLaserVisual.h"
-#include "Classes/GoogleVRPointerInputComponent.h"
+#include "GoogleVRPointerInputComponent.h"
 #include "Components/SceneComponent.h"
-#include "Classes/GoogleVRControllerFunctionLibrary.h"
+#include "GoogleVRControllerFunctionLibrary.h"
 #include "Engine/Texture2D.h"
 #include "GoogleVRMotionControllerComponent.generated.h"
 

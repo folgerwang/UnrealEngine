@@ -5,7 +5,7 @@
 
 
 #include "LevelEditor.h"
-#include "AssetEditorManager.h"
+#include "Toolkits/AssetEditorManager.h"
 #include "Modules/ModuleManager.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "ContentBrowserModule.h"

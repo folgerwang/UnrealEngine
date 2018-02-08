@@ -1989,9 +1989,38 @@ namespace AutomationTool
 		/// </summary>
 		/// <param name="CL">Changelist where the checked out files should be added.</param>
 		/// <param name="CommandLine">Commandline for the command.</param>
-		public void Edit(int CL, string CommandLine)
+		public void Edit(int CL, string CommandLine, bool AllowSpew = true)
 		{
-			LogP4("edit " + String.Format("-c {0} ", CL) + CommandLine);
+			LogP4("edit " + String.Format("-c {0} ", CL) + CommandLine, AllowSpew: AllowSpew);
+		}
+
+		/// <summary>
+		/// Invokes p4 edit command with a list of files.
+		/// </summary>
+		/// <param name="CL">Changelist where the checked out files should be added.</param>
+		/// <param name="CommandLine">Commandline for the command.</param>
+		public void Edit(int CL, List<string> Files, bool AllowSpew = true)
+		{
+			const int MaxCommandLineLength = 1024;
+
+			StringBuilder CommandLine = new StringBuilder();
+			for(int Idx = 0; Idx < Files.Count; Idx++)
+			{
+				if(CommandLine.Length + Files[Idx].Length + 3 > MaxCommandLineLength)
+				{
+					LogP4(String.Format("edit -c {0} {1}", CL, CommandLine.ToString()), AllowSpew: AllowSpew);
+					CommandLine.Clear();
+				}
+				if(CommandLine.Length > 0)
+				{
+					CommandLine.Append(" ");
+				}
+				CommandLine.AppendFormat("\"{0}\"", Files[Idx]);
+			}
+			if(CommandLine.Length > 0)
+			{
+				LogP4(String.Format("edit -c {0} {1}", CL, CommandLine.ToString()), AllowSpew: AllowSpew);
+			}
 		}
 
 		/// <summary>

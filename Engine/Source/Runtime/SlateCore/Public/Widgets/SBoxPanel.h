@@ -12,9 +12,9 @@
 #include "Widgets/SWidget.h"
 #include "Layout/Children.h"
 #include "Widgets/SPanel.h"
-#include "ArrangedChildren.h"
-#include "DragAndDrop.h"
-#include "DrawElements.h"
+#include "Layout/ArrangedChildren.h"
+#include "Input/DragAndDrop.h"
+#include "Rendering/DrawElements.h"
 
 class FArrangedChildren;
 

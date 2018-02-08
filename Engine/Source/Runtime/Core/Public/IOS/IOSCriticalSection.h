@@ -3,8 +3,8 @@
 #pragma once
 
 #include "GenericPlatform/GenericPlatformCriticalSection.h"
-#include "PThreadCriticalSection.h"
-#include "PThreadRWLock.h"
+#include "HAL/PThreadCriticalSection.h"
+#include "HAL/PThreadRWLock.h"
 
 typedef FPThreadsCriticalSection FCriticalSection;
 typedef FSystemWideCriticalSectionNotImplemented FSystemWideCriticalSection;

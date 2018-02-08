@@ -11,7 +11,7 @@
 #include "ScopedTransaction.h"
 #include "Widgets/Input/SSearchBox.h"
 #include "Animation/AnimSingleNodeInstance.h"
-#include "UObjectIterator.h"
+#include "UObject/UObjectIterator.h"
 #include "HAL/PlatformApplicationMisc.h"
 
 #include "Widgets/Text/SInlineEditableTextBlock.h"

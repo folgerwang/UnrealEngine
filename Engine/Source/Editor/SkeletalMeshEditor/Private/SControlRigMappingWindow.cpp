@@ -14,7 +14,7 @@
 #include "ContentBrowserModule.h"
 #include "Engine/Blueprint.h"
 #include "Engine/SkeletalMesh.h"
-#include "NodeMappingProviderInterface.h"
+#include "Animation/NodeMappingProviderInterface.h"
 #include "AnimationRuntime.h"
 
 #define LOCTEXT_NAMESPACE "SControlRigMappingWindow"

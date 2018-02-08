@@ -6,9 +6,9 @@
 #include "NiagaraSystemInstance.h"
 #include "NiagaraParameterCollection.h"
 #include "NiagaraComponent.h"
-#include "Linker.h"
-#include "Class.h"
-#include "Package.h"
+#include "UObject/Linker.h"
+#include "UObject/Class.h"
+#include "UObject/Package.h"
 
 //////////////////////////////////////////////////////////////////////////
 

@@ -36,7 +36,7 @@
 #include "Misc/FeedbackContext.h"
 #include "ILevelViewport.h"
 #include "SLandscapeEditor.h"
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 
 // VR Editor
 #include "VREditorMode.h"

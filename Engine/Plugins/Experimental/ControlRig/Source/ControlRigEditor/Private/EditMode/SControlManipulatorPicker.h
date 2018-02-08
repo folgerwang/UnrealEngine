@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Widgets/SCompoundWidget.h"
-#include "DeclarativeSyntaxSupport.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Delegates/Delegate.h"
 #include "UObject/WeakObjectPtr.h"
 

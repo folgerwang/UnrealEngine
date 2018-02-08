@@ -89,7 +89,7 @@ FORCEINLINE VectorRegister VectorLoadNPlusOneUnalignedBytes(const void* Ptr, int
  *	Constants:
  *============================================================================*/
 
-#include "UnrealMathVectorConstants.h"
+#include "Math/UnrealMathVectorConstants.h"
 
 
 /*=============================================================================

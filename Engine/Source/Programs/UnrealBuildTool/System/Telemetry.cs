@@ -63,7 +63,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		public static void Initialize()
 		{
-			var TelemetryInitStartTime = DateTime.UtcNow;
+			DateTime TelemetryInitStartTime = DateTime.UtcNow;
 
 			// only collect telemetry on Epic builds
 			bool bIsEpicInternal = File.Exists(@"..\Build\NotForLicensees\EpicInternal.txt");
@@ -81,7 +81,7 @@ namespace UnrealBuildTool
 
 			if (UnrealBuildTool.bPrintPerformanceInfo)
 			{
-				var TelemetryInitTime = (DateTime.UtcNow - TelemetryInitStartTime).TotalSeconds;
+				double TelemetryInitTime = (DateTime.UtcNow - TelemetryInitStartTime).TotalSeconds;
 				Log.TraceInformation("Telemetry initialization took " + TelemetryInitTime + "s. Provider Type = " + (Provider == null ? "null" : Provider.GetType().ToString()));
 			}
 		}

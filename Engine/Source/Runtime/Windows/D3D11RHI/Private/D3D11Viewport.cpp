@@ -16,7 +16,7 @@
 #endif
 
 #if D3D11_WITH_DWMAPI
-	#include "AllowWindowsPlatformTypes.h"
+	#include "Windows/AllowWindowsPlatformTypes.h"
 		#include <dwmapi.h>
 #endif	//D3D11_WITH_DWMAPI
 
@@ -631,5 +631,5 @@ FTexture2DRHIRef FD3D11DynamicRHI::RHIGetViewportBackBuffer(FViewportRHIParamRef
 }
 
 #if D3D11_WITH_DWMAPI
-	#include "HideWindowsPlatformTypes.h"
+	#include "Windows/HideWindowsPlatformTypes.h"
 #endif	//D3D11_WITH_DWMAPI

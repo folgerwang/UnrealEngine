@@ -7,7 +7,7 @@
 #include "EdGraph/EdGraph.h"
 #include "EditorStyleSet.h"
 #include "Styling/CoreStyle.h"
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 
 #define LOCTEXT_NAMESPACE "SSoundSubmixActionMenu"
 

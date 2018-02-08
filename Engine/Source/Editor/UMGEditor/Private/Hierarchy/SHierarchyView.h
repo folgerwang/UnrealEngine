@@ -11,7 +11,7 @@
 #include "Widgets/Views/STableRow.h"
 #include "Widgets/Views/STreeView.h"
 #include "Misc/TextFilter.h"
-#include "TreeFilterHandler.h"
+#include "Framework/Views/TreeFilterHandler.h"
 
 class FHierarchyModel;
 class FMenuBuilder;

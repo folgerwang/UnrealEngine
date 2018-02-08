@@ -23,7 +23,7 @@
 #include "WmfMediaTextureSample.h"
 #include "WmfMediaUtils.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 #define LOCTEXT_NAMESPACE "FWmfMediaTracks"
 
@@ -1815,7 +1815,7 @@ void FWmfMediaTracks::HandleMediaSamplerVideoSample(const uint8* Buffer, uint32 
 }
 
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #undef LOCTEXT_NAMESPACE
 

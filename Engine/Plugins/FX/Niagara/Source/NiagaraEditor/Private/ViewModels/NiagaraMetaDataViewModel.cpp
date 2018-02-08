@@ -8,8 +8,8 @@
 #include "NiagaraScriptSource.h"
 #include "ScopedTransaction.h"
 #include "Editor.h"
-#include "Array.h"
-#include "StructOnScope.h"
+#include "Containers/Array.h"
+#include "UObject/StructOnScope.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraMetaDataViewModel"
 

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "Classes/Kismet/BlueprintFunctionLibrary.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "Animation/AnimEnums.h"
 #include "Animation/AnimCurveTypes.h"
 

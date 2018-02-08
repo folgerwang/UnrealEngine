@@ -278,6 +278,14 @@ public:
 	//~ End FRunnable Interface
 };
 
+/**
+
+*/
+struct FOutputDeviceFile::FCategoryInclusionInternal
+{
+	TSet<FName> IncludedCategories;
+};
+
 /** 
  * Constructor, initializing member variables.
  *
@@ -289,6 +297,7 @@ FOutputDeviceFile::FOutputDeviceFile( const TCHAR* InFilename, bool bInDisableBa
 , WriterArchive(nullptr)
 , Opened(false)
 , Dead(false)
+, CategoryInclusionInternal(nullptr)
 , bDisableBackup(bInDisableBackup)
 {
 	if( InFilename )
@@ -433,6 +442,11 @@ bool FOutputDeviceFile::CreateWriter(uint32 MaxAttempts)
 void FOutputDeviceFile::Serialize( const TCHAR* Data, ELogVerbosity::Type Verbosity, const class FName& Category, const double Time )
 {
 #if ALLOW_LOG_FILE && !NO_LOGGING
+	if (CategoryInclusionInternal && !CategoryInclusionInternal->IncludedCategories.Contains(Category))
+	{
+		return;
+	}
+
 	static bool Entry = false;
 	if( !GIsCriticalError || Entry )
 	{
@@ -504,4 +518,14 @@ void FOutputDeviceFile::Serialize( const TCHAR* Data, ELogVerbosity::Type Verbos
 void FOutputDeviceFile::WriteRaw( const TCHAR* C )
 {
 	AsyncWriter->Serialize((uint8*)const_cast<TCHAR*>(C), FCString::Strlen(C)*sizeof(TCHAR));
+}
+
+void FOutputDeviceFile::IncludeCategory(const FName& InCategoryName)
+{
+	if (!CategoryInclusionInternal.IsValid())
+	{
+		CategoryInclusionInternal = MakeUnique<FCategoryInclusionInternal>();
+	}
+
+	CategoryInclusionInternal->IncludedCategories.Add(InCategoryName);
 }

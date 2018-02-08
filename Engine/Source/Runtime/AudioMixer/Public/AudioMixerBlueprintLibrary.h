@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
-#include "Classes/SubmixEffects/AudioMixerSubmixEffectDynamicsProcessor.h"
+#include "SubmixEffects/AudioMixerSubmixEffectDynamicsProcessor.h"
 #include "Sound/SoundEffectSource.h"
 #include "AudioMixerBlueprintLibrary.generated.h"
 

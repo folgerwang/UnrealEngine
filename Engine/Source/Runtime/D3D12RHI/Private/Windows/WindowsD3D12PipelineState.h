@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "ScopeRWLock.h"
+#include "Misc/ScopeRWLock.h"
 
 class FD3D12RootSignature; // forward-declare
 class FD3D12BoundShaderState; // forward-declare

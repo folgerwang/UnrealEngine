@@ -7,7 +7,7 @@
 #include "K2Node_CallFunction.h"
 #include "EditorCategoryUtils.h"
 #include "KismetCompiler.h"
-#include "BlueprintEditorUtils.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "BlueprintNodeSpawner.h"
 #include "BlueprintActionDatabaseRegistrar.h"
 #include "UObject/PropertyPortFlags.h"

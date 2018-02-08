@@ -79,8 +79,8 @@ MONOLITHIC_HEADER_BOILERPLATE()
 #include "Components/WidgetSwitcherSlot.h"
 #include "Components/WidgetSwitcher.h"
 
-#include "BackgroundBlurSlot.h"
-#include "BackgroundBlur.h"
+#include "Components/BackgroundBlurSlot.h"
+#include "Components/BackgroundBlur.h"
 
 #include "Components/BorderSlot.h"
 #include "Components/Border.h"

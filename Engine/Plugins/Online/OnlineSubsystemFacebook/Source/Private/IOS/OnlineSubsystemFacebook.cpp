@@ -10,8 +10,8 @@
 
 #import <FBSDKCoreKit/FBSDKCoreKit.h>
 
-#include "CoreDelegates.h"
-#include "IOSAppDelegate.h"
+#include "Misc/CoreDelegates.h"
+#include "IOS/IOSAppDelegate.h"
 #include "Misc/CommandLine.h"
 #include "Misc/ConfigCacheIni.h"
 

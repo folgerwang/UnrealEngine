@@ -42,8 +42,5 @@ public class IOSPlatformEditor : ModuleRules
 				"GameProjectGeneration",
 				}
 		);
-
-        // this is listed above, so it isn't really dynamically loaded, this just marks it as being platform specific.
-		PlatformSpecificDynamicallyLoadedModuleNames.Add("IOSRuntimeSettings");
 	}
 }

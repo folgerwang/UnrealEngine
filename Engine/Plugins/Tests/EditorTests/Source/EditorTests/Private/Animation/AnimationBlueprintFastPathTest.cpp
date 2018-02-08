@@ -1,12 +1,12 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Misc/AutomationTest.h"
-#include "KismetEditorUtilities.h"
+#include "Kismet2/KismetEditorUtilities.h"
 #include "Animation/AnimBlueprint.h"
 #include "Animation/AnimClassInterface.h"
 #include "Animation/AnimNodeBase.h"
 #include "Animation/AnimInstance.h"
-#include "AnimNode_Root.h"
+#include "AnimNodes/AnimNode_Root.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogAnimBlueprintFastPathTests, Log, All);
 

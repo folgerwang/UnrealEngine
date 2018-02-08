@@ -98,7 +98,9 @@ public:
 	virtual void GetLocalizationPathsForEnabledPlugins( TArray<FString>& OutLocResPaths ) override;
 	virtual void SetRegisterMountPointDelegate( const FRegisterMountPointDelegate& Delegate ) override;
 	virtual bool AreRequiredPluginsAvailable() override;
+#if !IS_MONOLITHIC
 	virtual bool CheckModuleCompatibility( TArray<FString>& OutIncompatibleModules ) override;
+#endif
 	virtual TSharedPtr<IPlugin> FindPlugin(const FString& Name) override;
 	virtual TArray<TSharedRef<IPlugin>> GetEnabledPlugins() override;
 	virtual TArray<TSharedRef<IPlugin>> GetEnabledPluginsWithContent() const override;

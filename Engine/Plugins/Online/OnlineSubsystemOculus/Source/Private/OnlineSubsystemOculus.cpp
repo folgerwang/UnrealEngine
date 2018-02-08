@@ -12,7 +12,7 @@
 #include "OnlineVoiceOculus.h"
 
 #if PLATFORM_ANDROID
-#include "AndroidApplication.h"
+#include "Android/AndroidApplication.h"
 #endif
 
 #if !defined(OVRPL_DISABLED) && WITH_EDITOR

@@ -24,8 +24,8 @@
 #include "IIntroTutorials.h"
 #include "Widgets/Input/SNumericEntryBox.h"
 #include "SFoliagePalette.h"
-#include "SHeader.h"
-#include "SSeparator.h"
+#include "Widgets/Layout/SHeader.h"
+#include "Widgets/Layout/SSeparator.h"
 
 #define LOCTEXT_NAMESPACE "FoliageEd_Mode"
 

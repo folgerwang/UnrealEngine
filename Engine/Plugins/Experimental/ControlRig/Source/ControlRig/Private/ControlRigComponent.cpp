@@ -8,7 +8,7 @@
 #include "Serialization/ObjectReader.h"
 
 #if WITH_EDITOR
-#include "BlueprintEditorUtils.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #endif
 ////////////////////////////////////////////////////////////////////////////////////////
 

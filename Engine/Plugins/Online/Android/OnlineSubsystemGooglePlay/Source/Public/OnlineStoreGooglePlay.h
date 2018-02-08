@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "OnlineStoreInterfaceV2.h"
+#include "Interfaces/OnlineStoreInterfaceV2.h"
 #include "OnlineStoreGooglePlayCommon.h"
 
 class FOnlineSubsystemGooglePlay;

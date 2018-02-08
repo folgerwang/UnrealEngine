@@ -1,12 +1,12 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "GenericPlatformApplicationMisc.h"
-#include "GenericApplication.h"
+#include "GenericPlatform/GenericPlatformApplicationMisc.h"
+#include "GenericPlatform/GenericApplication.h"
 #include "Misc/OutputDeviceAnsiError.h"
 #include "HAL/FeedbackContextAnsi.h"
 #include "Math/Color.h"
 
-#include "PlatformApplicationMisc.h"
+#include "HAL/PlatformApplicationMisc.h"
 
 /** Hooks for moving ClipboardCopy and ClipboardPaste into FPlatformApplicationMisc */
 CORE_API extern void (*ClipboardCopyShim)(const TCHAR* Text);

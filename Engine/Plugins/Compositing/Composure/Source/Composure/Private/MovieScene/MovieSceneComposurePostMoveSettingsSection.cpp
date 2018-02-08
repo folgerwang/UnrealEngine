@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneComposurePostMoveSettingsSection.h"
-#include "SequencerObjectVersion.h"
+#include "MovieScene/MovieSceneComposurePostMoveSettingsSection.h"
+#include "UObject/SequencerObjectVersion.h"
 
 UMovieSceneComposurePostMoveSettingsSection::UMovieSceneComposurePostMoveSettingsSection( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )

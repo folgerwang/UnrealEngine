@@ -5,7 +5,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "MotionControllerComponent.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "UObject/ConstructorHelpers.h"
 
 UDEPRECATED_DeprecatedGearVRControllerComponent::UDEPRECATED_DeprecatedGearVRControllerComponent()

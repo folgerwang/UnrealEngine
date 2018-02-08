@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "SCompoundWidget.h"
-#include "NotifyHook.h"
-#include "SListView.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Misc/NotifyHook.h"
+#include "Widgets/Views/SListView.h"
 
 
 class INiagaraParameterCollectionViewModel;

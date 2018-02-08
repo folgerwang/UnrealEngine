@@ -4,7 +4,7 @@
 #include "NiagaraDataInterfaceMeshCommon.h"
 #include "WeightedRandomSampler.h"
 #include "Engine/SkeletalMesh.h"
-#include "SkeletalMeshRenderData.h"
+#include "Rendering/SkeletalMeshRenderData.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "NiagaraDataInterfaceSkeletalMesh.generated.h"
 

@@ -845,5 +845,5 @@ FTexture2DRHIRef FD3D12DynamicRHI::RHIGetViewportBackBuffer(FViewportRHIParamRef
 }
 
 #if defined(D3D12_WITH_DWMAPI) && D3D12_WITH_DWMAPI
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif	//D3D12_WITH_DWMAPI

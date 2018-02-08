@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "IDetailCustomization.h"
-#include "SlateTypes.h"
+#include "Styling/SlateTypes.h"
 
 class IDetailLayoutBuilder;
 class UAnimSequenceFactory;

@@ -21,9 +21,9 @@ PRAGMA_POP
 
 #include "VectorVM.h"
 
-#include "IConsoleManager.h"
+#include "HAL/IConsoleManager.h"
 
-#include "Stats.h"
+#include "Stats/Stats.h"
 
 DECLARE_STATS_GROUP(TEXT("VectorVMBackend"), STATGROUP_VectorVMBackend, STATCAT_Advanced);
 

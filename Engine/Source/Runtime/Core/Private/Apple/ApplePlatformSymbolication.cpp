@@ -4,7 +4,7 @@
 	ApplePlatformSymbolication.cpp: Apple platform implementation of symbolication
 =============================================================================*/
 
-#include "ApplePlatformSymbolication.h"
+#include "Apple/ApplePlatformSymbolication.h"
 #include "HAL/FileManager.h"
 #include "HAL/PlatformProcess.h"
 #include "Misc/AssertionMacros.h"

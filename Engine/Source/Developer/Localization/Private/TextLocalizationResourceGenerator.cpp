@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "TextLocalizationResourceGenerator.h"
-#include "TextLocalizationResource.h"
+#include "Internationalization/TextLocalizationResource.h"
 #include "Misc/Paths.h"
 #include "Internationalization/Culture.h"
 #include "Misc/ConfigCacheIni.h"

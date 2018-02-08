@@ -19,7 +19,7 @@
 #if WITH_EDITOR
 #include "EditorReimportHandler.h"
 #endif
-#include "UObjectThreadContext.h"
+#include "UObject/UObjectThreadContext.h"
 
 
 #if ENABLE_VISUAL_LOG

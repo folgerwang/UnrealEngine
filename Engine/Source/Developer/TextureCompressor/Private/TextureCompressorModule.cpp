@@ -12,7 +12,7 @@
 #include "ImageCore.h"
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 #endif
 
 DEFINE_LOG_CATEGORY_STATIC(LogTextureCompressor, Log, All);

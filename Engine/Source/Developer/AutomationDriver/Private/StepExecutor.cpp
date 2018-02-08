@@ -6,9 +6,9 @@
 
 #include "DriverConfiguration.h"
 
-#include "ScopeLock.h"
-#include "Ticker.h"
-#include "Async.h"
+#include "Misc/ScopeLock.h"
+#include "Containers/Ticker.h"
+#include "Async/Async.h"
 
 
 class FStepExecutor

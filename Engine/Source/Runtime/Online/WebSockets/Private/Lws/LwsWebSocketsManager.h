@@ -11,7 +11,7 @@
 #include "HAL/ThreadSafeCounter.h"
 
 #if PLATFORM_WINDOWS
-#	include "AllowWindowsPlatformTypes.h"
+#	include "Windows/AllowWindowsPlatformTypes.h"
 #endif
 
 THIRD_PARTY_INCLUDES_START
@@ -19,7 +19,7 @@ THIRD_PARTY_INCLUDES_START
 THIRD_PARTY_INCLUDES_END
 
 #if PLATFORM_WINDOWS
-#	include "HideWindowsPlatformTypes.h"
+#	include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 class FRunnableThread;

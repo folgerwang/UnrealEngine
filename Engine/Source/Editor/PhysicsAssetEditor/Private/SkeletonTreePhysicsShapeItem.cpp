@@ -4,7 +4,7 @@
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Images/SImage.h"
 #include "EditorStyleSet.h"
-#include "SInlineEditableTextBlock.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 #include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "FSkeletonTreePhysicsShapeItem"

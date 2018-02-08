@@ -2,7 +2,7 @@
 
 #include "Sections/MovieSceneParticleSection.h"
 #include "Evaluation/MovieSceneParticleTemplate.h"
-#include "SequencerObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
 
 UMovieSceneParticleSection::UMovieSceneParticleSection( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )

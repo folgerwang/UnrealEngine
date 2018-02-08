@@ -1,12 +1,12 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidJNI.h"
-#include "ExceptionHandling.h"
-#include "AndroidPlatformCrashContext.h"
+#include "Android/AndroidJNI.h"
+#include "HAL/ExceptionHandling.h"
+#include "Android/AndroidPlatformCrashContext.h"
 #include "Runtime/Core/Public/Misc/DateTime.h"
 #include "HAL/PlatformStackWalk.h"
-#include "AndroidApplication.h"
-#include "AndroidInputInterface.h"
+#include "Android/AndroidApplication.h"
+#include "Android/AndroidInputInterface.h"
 #include "Widgets/Input/IVirtualKeyboardEntry.h"
 #include "UnrealEngine.h"
 #include "Misc/ConfigCacheIni.h"

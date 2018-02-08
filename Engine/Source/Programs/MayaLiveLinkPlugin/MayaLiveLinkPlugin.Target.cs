@@ -9,7 +9,6 @@ public class MayaLiveLinkPluginTarget : TargetRules
 	{
 		Type = TargetType.Program;
 
-		OverrideExecutableFileExtension = ".mll";   // Maya requires plugin binaries to have the ".mll" extension
 		bShouldCompileAsDLL = true;
 		LinkType = TargetLinkType.Monolithic;
 
@@ -26,5 +25,13 @@ public class MayaLiveLinkPluginTarget : TargetRules
         bHasExports = true;
 
 		bBuildInSolutionByDefault = false;
+
+		// Add a post-build step that copies the output to a file with the .mll extension
+		string OutputName = "MayaLiveLinkPlugin";
+		if(Target.Configuration != UnrealTargetConfiguration.Development)
+		{
+			OutputName = string.Format("{0}-{1}-{2}", OutputName, Target.Platform, Target.Configuration);
+		}
+		PostBuildSteps.Add(string.Format("copy /Y \"$(EngineDir)\\Binaries\\Win64\\{0}.dll\" \"$(EngineDir)\\Binaries\\Win64\\{0}.mll\" >nul: & echo Copied output to $(EngineDir)\\Binaries\\Win64\\{0}.mll", OutputName));
 	}
 }

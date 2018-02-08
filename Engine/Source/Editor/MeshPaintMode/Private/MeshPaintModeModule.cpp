@@ -13,7 +13,7 @@
 
 #include "PaintModeSettings.h"
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 IMPLEMENT_MODULE(FMeshPaintModeModule, MeshPaintMode );
 

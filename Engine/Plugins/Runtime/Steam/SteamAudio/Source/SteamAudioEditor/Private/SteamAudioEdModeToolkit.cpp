@@ -9,8 +9,8 @@
 #include "PhononScene.h"
 #include "PhononCommon.h"
 
-#include "SScrollBox.h"
-#include "SBox.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/Layout/SBox.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Text/STextBlock.h"
 #include "DetailLayoutBuilder.h"

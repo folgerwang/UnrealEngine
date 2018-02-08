@@ -11,8 +11,8 @@
 #include "Engine/World.h"
 #include "PhysicsPublic.h"
 
-#include "IPhysXCookingModule.h"
-#include "IPhysXCooking.h"
+#include "Physics/IPhysXCookingModule.h"
+#include "Physics/IPhysXCooking.h"
 #include "Modules/ModuleManager.h"
 
 #if WITH_PHYSX
@@ -20,7 +20,7 @@
 #endif
 
 #include "PhysicsEngine/PhysicsSettings.h"
-#include "CoreDelegates.h"
+#include "Misc/CoreDelegates.h"
 
 #ifndef APEX_STATICALLY_LINKED
 	#define APEX_STATICALLY_LINKED	0

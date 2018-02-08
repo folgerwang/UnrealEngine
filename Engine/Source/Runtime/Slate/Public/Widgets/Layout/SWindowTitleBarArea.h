@@ -10,7 +10,7 @@
 #include "Widgets/SPanel.h"
 #include "Widgets/SBoxPanel.h"
 #include "Styling/SlateTypes.h"
-#include "Input/SButton.h"
+#include "Widgets/Input/SButton.h"
 
 
 class FArrangedChildren;

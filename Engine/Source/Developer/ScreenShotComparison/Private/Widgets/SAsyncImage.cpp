@@ -6,8 +6,8 @@
 #include "IImageWrapper.h"
 #include "IImageWrapperModule.h"
 #include "Misc/FileHelper.h"
-#include "ModuleManager.h"
-#include "SlateApplication.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
 #include "Widgets/SOverlay.h"
 
 

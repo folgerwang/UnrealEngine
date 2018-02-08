@@ -22,7 +22,7 @@
 #include "UObject/EditorObjectVersion.h"
 #include "UMGPrivate.h"
 #include "UObject/UObjectHash.h"
-#include "PropertyPortFlags.h"
+#include "UObject/PropertyPortFlags.h"
 #include "TimerManager.h"
 
 DECLARE_CYCLE_STAT(TEXT("UserWidget Create"), STAT_CreateWidget, STATGROUP_Slate);

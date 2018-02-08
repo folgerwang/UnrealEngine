@@ -6,7 +6,7 @@
 #include "GenericPlatform/GenericPlatformFile.h"
 #include "NetworkMessage.h"
 #include "ServerTOC.h"
-#include "CoreMisc.h" // included for FSelfRegisteringExec
+#include "Misc/CoreMisc.h" // included for FSelfRegisteringExec
 
 class FScopedEvent;
 

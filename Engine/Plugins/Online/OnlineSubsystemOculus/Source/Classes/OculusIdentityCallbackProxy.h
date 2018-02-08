@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "Object.h"
-#include "OnlineBlueprintCallProxyBase.h"
-#include "OnlineIdentityInterface.h"
+#include "UObject/Object.h"
+#include "Net/OnlineBlueprintCallProxyBase.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 #include "OculusIdentityCallbackProxy.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOculusIdentitySuccessResult, FString, OculusId, FString, OculusName);

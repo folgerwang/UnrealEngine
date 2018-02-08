@@ -2,7 +2,7 @@
 
 #include "LiveLinkMessageBusSourceEditor.h"
 #include "LiveLinkMessages.h"
-#include "SBox.h"
+#include "Widgets/Layout/SBox.h"
 
 #include "MessageEndpointBuilder.h"
 

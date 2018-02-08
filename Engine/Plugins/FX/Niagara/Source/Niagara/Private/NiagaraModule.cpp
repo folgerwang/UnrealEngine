@@ -6,8 +6,8 @@
 #include "NiagaraEvents.h"
 #include "NiagaraSettings.h"
 #include "NiagaraDataInterfaceCurlNoise.h"
-#include "Class.h"
-#include "Package.h"
+#include "UObject/Class.h"
+#include "UObject/Package.h"
 #include "NiagaraWorldManager.h"
 #include "VectorVM.h"
 

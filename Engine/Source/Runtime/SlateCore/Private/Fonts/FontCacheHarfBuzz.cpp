@@ -7,8 +7,8 @@
 
 #if WITH_HARFBUZZ
 	#if PLATFORM_WINDOWS
-		#include "WindowsHWrapper.h"
-		#include "AllowWindowsPlatformAtomics.h"
+		#include "Windows/WindowsHWrapper.h"
+		#include "Windows/AllowWindowsPlatformAtomics.h"
 	#endif
 	#if PLATFORM_WINDOWS || PLATFORM_XBOXONE
 		#pragma warning(push)
@@ -29,7 +29,7 @@
 		#pragma warning(pop)
 	#endif // #if PLATFORM_WINDOWS
 	#if PLATFORM_WINDOWS
-		#include "HideWindowsPlatformAtomics.h"
+		#include "Windows/HideWindowsPlatformAtomics.h"
 	#endif
 #endif // #if WITH_HARFBUZZ
 

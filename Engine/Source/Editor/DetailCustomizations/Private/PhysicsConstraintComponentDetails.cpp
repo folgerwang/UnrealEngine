@@ -28,7 +28,7 @@
 #include "PhysicsEngine/PhysicsConstraintComponent.h"
 #include "Widgets/Input/SNumericEntryBox.h"
 #include "ScopedTransaction.h"
-#include "SRichTextBlock.h"
+#include "Widgets/Text/SRichTextBlock.h"
 
 #define LOCTEXT_NAMESPACE "PhysicsConstraintComponentDetails"
 namespace ConstraintDetails

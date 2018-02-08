@@ -8,7 +8,7 @@
 #include "AndroidOpenGL.h"
 #include "OpenGLDrvPrivate.h"
 #include "OpenGLES2.h"
-#include "AndroidWindow.h"
+#include "Android/AndroidWindow.h"
 #include "AndroidOpenGLPrivate.h"
 
 PFNEGLGETSYSTEMTIMENVPROC eglGetSystemTimeNV_p = NULL;

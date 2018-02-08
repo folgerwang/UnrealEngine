@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "JsonSerializerMacros.h"
+#include "Serialization/JsonSerializerMacros.h"
 
 /** 
  * Authorization JSON block from Twitch token validation

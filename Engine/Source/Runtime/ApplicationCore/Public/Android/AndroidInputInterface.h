@@ -1,12 +1,12 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "GenericApplicationMessageHandler.h"
+#include "GenericPlatform/GenericApplicationMessageHandler.h"
 #include <android/input.h>
 #include <android/keycodes.h>
 #include <android/api-level.h>
-#include "IInputInterface.h"
-#include "IForceFeedbackSystem.h"
+#include "GenericPlatform/IInputInterface.h"
+#include "GenericPlatform/IForceFeedbackSystem.h"
 #include "Math/Vector.h"
 #include "Math/Vector2D.h"
 #include "Math/Color.h"

@@ -9,9 +9,9 @@
  ------------------------------------------------------------------------------------*/
 
 #include "IOSAudioDevice.h"
-#include "IAudioFormat.h"
+#include "Interfaces/IAudioFormat.h"
 #include "ContentStreaming.h"
-#include "IAudioFormat.h"
+#include "Interfaces/IAudioFormat.h"
 #include "AudioDecompress.h"
 #include "ADPCMAudioInfo.h"
 

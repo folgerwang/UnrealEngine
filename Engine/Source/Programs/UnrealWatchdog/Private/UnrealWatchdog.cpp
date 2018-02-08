@@ -4,7 +4,7 @@
 #include "RequiredProgramMainCPPInclude.h"
 #include "IAnalyticsProviderET.h"
 #include "WatchdogAnalytics.h"
-#include "ExceptionHandling.h"
+#include "HAL/ExceptionHandling.h"
 #include "Misc/EngineBuildSettings.h"
 
 IMPLEMENT_APPLICATION(UnrealWatchdog, "UnrealWatchdog");

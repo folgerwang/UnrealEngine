@@ -6,7 +6,7 @@
 
 #if PLATFORM_SUPPORTS_VOICE_CAPTURE
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 struct FVoiceCaptureWindowsVars
 {
@@ -686,6 +686,6 @@ void FVoiceCaptureWindows::DumpState() const
 	}
 }
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #endif // PLATFORM_SUPPORTS_VOICE_CAPTURE

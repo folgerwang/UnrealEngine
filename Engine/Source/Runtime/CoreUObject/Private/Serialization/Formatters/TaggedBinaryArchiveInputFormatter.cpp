@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "TaggedBinaryArchiveInputFormatter.h"
+#include "Serialization/Formatters/TaggedBinaryArchiveInputFormatter.h"
 
 #if WITH_TEXT_ARCHIVE_SUPPORT
 

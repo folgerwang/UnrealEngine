@@ -18,7 +18,7 @@
 #include "AssetToolsModule.h"
 #include "AssetTypeActions_DestructibleMesh.h"
 #include "ContentBrowserDelegates.h"
-#include "MultiBoxBuilder.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "ContentBrowserModule.h"
 
 #include "DestructibleMeshThumbnailRenderer.h"

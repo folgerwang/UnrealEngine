@@ -5,8 +5,8 @@
 #include "CoreTypes.h"
 #include "CoreFwd.h"
 
-#include "Array.h"
-#include "InlineValue.h"
+#include "Containers/Array.h"
+#include "Misc/InlineValue.h"
 #include "Evaluation/MovieSceneSegment.h"
 
 class UMovieSceneSection;

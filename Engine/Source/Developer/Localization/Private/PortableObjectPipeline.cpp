@@ -6,7 +6,7 @@
 #include "Internationalization/InternationalizationMetadata.h"
 #include "Serialization/JsonInternationalizationMetadataSerializer.h"
 #include "PortableObjectFormatDOM.h"
-#include "TextNamespaceUtil.h"
+#include "Internationalization/TextNamespaceUtil.h"
 #include "LocTextHelper.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPortableObjectPipeline, Log, All);

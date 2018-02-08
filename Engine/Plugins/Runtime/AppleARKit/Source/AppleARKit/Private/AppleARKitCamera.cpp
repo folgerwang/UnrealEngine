@@ -9,7 +9,7 @@
 #include "CoreGlobals.h"
 #include "Engine/EngineTypes.h"
 #include "Kismet/GameplayStatics.h"
-#include "RenderingCommon.h"
+#include "Rendering/RenderingCommon.h"
 
 #if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
 

@@ -4,7 +4,7 @@
 
 #include "OnlineSubsystemTwitch.h"
 #include "OnlineSubsystemTwitchPackage.h"
-#include "OnlineExternalUIInterface.h"
+#include "Interfaces/OnlineExternalUIInterface.h"
 
 class FOnlineSubsystemTwitch;
 class IHttpRequest;

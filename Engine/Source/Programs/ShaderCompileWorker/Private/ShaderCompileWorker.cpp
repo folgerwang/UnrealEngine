@@ -7,9 +7,9 @@
 #include "CoreMinimal.h"
 #include "RequiredProgramMainCPPInclude.h"
 #include "ShaderCore.h"
-#include "ExceptionHandling.h"
-#include "IShaderFormat.h"
-#include "IShaderFormatModule.h"
+#include "HAL/ExceptionHandling.h"
+#include "Interfaces/IShaderFormat.h"
+#include "Interfaces/IShaderFormatModule.h"
 
 #define DEBUG_USING_CONSOLE	0
 

@@ -18,8 +18,8 @@
 #include "OSVRHMD.h"
 #include "OSVRPrivate.h"
 #include "OSVRTypes.h"
-#include "SharedPointer.h"
-#include "SceneViewport.h"
+#include "Templates/SharedPointer.h"
+#include "Slate/SceneViewport.h"
 #include "OSVREntryPoint.h"
 #include "Dom/JsonObject.h"
 #include "Serialization/JsonSerializer.h"
@@ -35,10 +35,10 @@
 #endif
 
 #if PLATFORM_WINDOWS
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <osvr/Util/ReturnCodesC.h>
 #include <osvr/RenderKit/RenderManagerD3D11C.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #else
 #include <osvr/RenderKit/RenderManagerOpenGLC.h>
 #endif

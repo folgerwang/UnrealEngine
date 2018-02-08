@@ -110,12 +110,12 @@ FCurlHttpRequest::~FCurlHttpRequest()
 	}
 }
 
-FString FCurlHttpRequest::GetURL()
+FString FCurlHttpRequest::GetURL() const
 {
 	return URL;
 }
 
-FString FCurlHttpRequest::GetURLParameter(const FString& ParameterName)
+FString FCurlHttpRequest::GetURLParameter(const FString& ParameterName) const
 {
 	TArray<FString> StringElements;
 
@@ -146,11 +146,11 @@ FString FCurlHttpRequest::GetURLParameter(const FString& ParameterName)
 	return FString();
 }
 
-FString FCurlHttpRequest::GetHeader(const FString& HeaderName)
+FString FCurlHttpRequest::GetHeader(const FString& HeaderName) const
 {
 	FString Result;
 
-	FString* Header = Headers.Find(HeaderName);
+	const FString* Header = Headers.Find(HeaderName);
 	if (Header != NULL)
 	{
 		Result = *Header;
@@ -159,7 +159,7 @@ FString FCurlHttpRequest::GetHeader(const FString& HeaderName)
 	return Result;
 }
 
-TArray<FString> FCurlHttpRequest::GetAllHeaders()
+TArray<FString> FCurlHttpRequest::GetAllHeaders() const
 {
 	TArray<FString> Result;
 	for (TMap<FString, FString>::TConstIterator It(Headers); It; ++It)
@@ -169,17 +169,17 @@ TArray<FString> FCurlHttpRequest::GetAllHeaders()
 	return Result;
 }
 
-FString FCurlHttpRequest::GetContentType()
+FString FCurlHttpRequest::GetContentType() const
 {
 	return GetHeader(TEXT( "Content-Type" ));
 }
 
-int32 FCurlHttpRequest::GetContentLength()
+int32 FCurlHttpRequest::GetContentLength() const
 {
 	return RequestPayload.Num();
 }
 
-const TArray<uint8>& FCurlHttpRequest::GetContent()
+const TArray<uint8>& FCurlHttpRequest::GetContent() const
 {
 	return RequestPayload;
 }
@@ -230,7 +230,7 @@ void FCurlHttpRequest::AppendToHeader(const FString& HeaderName, const FString& 
 	}
 }
 
-FString FCurlHttpRequest::GetVerb()
+FString FCurlHttpRequest::GetVerb() const
 {
 	return Verb;
 }
@@ -763,7 +763,7 @@ void FCurlHttpRequest::CancelRequest()
 	}
 }
 
-EHttpRequestStatus::Type FCurlHttpRequest::GetStatus()
+EHttpRequestStatus::Type FCurlHttpRequest::GetStatus() const
 {
 	return CompletionStatus;
 }
@@ -915,7 +915,7 @@ void FCurlHttpRequest::FinishedRequest()
 	}
 }
 
-float FCurlHttpRequest::GetElapsedTime()
+float FCurlHttpRequest::GetElapsedTime() const
 {
 	return ElapsedTime;
 }
@@ -937,17 +937,17 @@ FCurlHttpResponse::~FCurlHttpResponse()
 {	
 }
 
-FString FCurlHttpResponse::GetURL()
+FString FCurlHttpResponse::GetURL() const
 {
 	return Request.GetURL();
 }
 
-FString FCurlHttpResponse::GetURLParameter(const FString& ParameterName)
+FString FCurlHttpResponse::GetURLParameter(const FString& ParameterName) const
 {
 	return Request.GetURLParameter(ParameterName);
 }
 
-FString FCurlHttpResponse::GetHeader(const FString& HeaderName)
+FString FCurlHttpResponse::GetHeader(const FString& HeaderName) const
 {
 	FString Result(TEXT(""));
 	if (!bIsReady)
@@ -957,7 +957,7 @@ FString FCurlHttpResponse::GetHeader(const FString& HeaderName)
 	}
 	else
 	{
-		FString* Header = Headers.Find(HeaderName);
+		const FString* Header = Headers.Find(HeaderName);
 		if (Header != NULL)
 		{
 			return *Header;
@@ -966,7 +966,7 @@ FString FCurlHttpResponse::GetHeader(const FString& HeaderName)
 	return Result;
 }
 
-TArray<FString> FCurlHttpResponse::GetAllHeaders()	
+TArray<FString> FCurlHttpResponse::GetAllHeaders() const
 {
 	TArray<FString> Result;
 	if (!bIsReady)
@@ -983,17 +983,17 @@ TArray<FString> FCurlHttpResponse::GetAllHeaders()
 	return Result;
 }
 
-FString FCurlHttpResponse::GetContentType()
+FString FCurlHttpResponse::GetContentType() const
 {
 	return GetHeader(TEXT("Content-Type"));
 }
 
-int32 FCurlHttpResponse::GetContentLength()
+int32 FCurlHttpResponse::GetContentLength() const
 {
 	return ContentLength;
 }
 
-const TArray<uint8>& FCurlHttpResponse::GetContent()
+const TArray<uint8>& FCurlHttpResponse::GetContent() const
 {
 	if (!bIsReady)
 	{
@@ -1002,12 +1002,12 @@ const TArray<uint8>& FCurlHttpResponse::GetContent()
 	return Payload;
 }
 
-int32 FCurlHttpResponse::GetResponseCode()
+int32 FCurlHttpResponse::GetResponseCode() const
 {
 	return HttpCode;
 }
 
-FString FCurlHttpResponse::GetContentAsString()
+FString FCurlHttpResponse::GetContentAsString() const
 {
 	TArray<uint8> ZeroTerminatedPayload(GetContent());
 	ZeroTerminatedPayload.Add(0);

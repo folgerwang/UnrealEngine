@@ -8,7 +8,7 @@
 #include "Misc/App.h"
 #include "Async/TaskGraphInterfaces.h"
 #include "RHI.h"
-#include "ScopeLock.h"
+#include "Misc/ScopeLock.h"
 #include "PipelineStateCache.h"
 
 DECLARE_CYCLE_STAT(TEXT("Nonimmed. Command List Execute"), STAT_NonImmedCmdListExecuteTime, STATGROUP_RHICMDLIST);

@@ -9,12 +9,12 @@ class FHttpThread;
 
 #if WITH_LIBCURL
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #endif
 	#include "curl/curl.h"
 #if PLATFORM_WINDOWS
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 struct x509_st;

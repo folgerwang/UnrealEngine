@@ -20,7 +20,7 @@
 #include "UObject/Object.h"
 #include "UObject/Class.h"
 #include "UObject/UnrealType.h"
-#include "ConfigCacheIni.h"
+#include "Misc/ConfigCacheIni.h"
 
 #define LOCTEXT_NAMESPACE "SpeedTreeImportDataDetails"
 

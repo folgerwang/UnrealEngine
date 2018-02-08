@@ -1132,10 +1132,10 @@ bool FDesktopPlatformBase::EnumerateProjectsKnownByEngine(const FString &Identif
 
 #if PLATFORM_WINDOWS
 
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <ShlObj.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 static bool TryReadMsBuildInstallPath(HKEY RootKey, const TCHAR* KeyName, const TCHAR* ValueName, const TCHAR* MsBuildRelativePath, FString& OutMsBuildPath)
 {

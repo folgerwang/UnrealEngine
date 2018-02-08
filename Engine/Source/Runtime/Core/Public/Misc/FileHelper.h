@@ -6,7 +6,7 @@
 #include "Containers/UnrealString.h"
 #include "HAL/FileManager.h"
 #include "Containers/ArrayView.h"
-#include "EnumClassFlags.h"
+#include "Misc/EnumClassFlags.h"
 
 /*-----------------------------------------------------------------------------
 	FFileHelper

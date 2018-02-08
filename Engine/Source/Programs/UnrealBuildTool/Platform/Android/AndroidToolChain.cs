@@ -770,11 +770,11 @@ namespace UnrealBuildTool
 			Dir = Dir.Replace("\\", "/").ToLowerInvariant();
 
 			// look for other architectures in the Dir path, and fail if it finds it
-			foreach (var Pair in AllArchNames)
+			foreach (KeyValuePair<string, string[]> Pair in AllArchNames)
 			{
 				if (Pair.Key != Arch)
 				{
-					foreach (var ArchName in Pair.Value)
+					foreach (string ArchName in Pair.Value)
 					{
 						// if there's a directory in the path with a bad architecture name, reject it
 						if (Regex.IsMatch(Dir, "/" + ArchName + "$") || Regex.IsMatch(Dir, "/" + ArchName + "/"))
@@ -791,7 +791,7 @@ namespace UnrealBuildTool
 
 		static bool ShouldSkipModule(string ModuleName, string Arch)
 		{
-			foreach (var ModName in ModulesToSkip[Arch])
+			foreach (string ModName in ModulesToSkip[Arch])
 			{
 				if (ModName == ModuleName)
 				{
@@ -806,7 +806,7 @@ namespace UnrealBuildTool
 		bool ShouldSkipLib(string Lib, string Arch, string GPUArchitecture)
 		{
 			// reject any libs we outright don't want to link with
-			foreach (var LibName in LibrariesToSkip[Arch])
+			foreach (string LibName in LibrariesToSkip[Arch])
 			{
 				if (LibName == Lib)
 				{
@@ -940,7 +940,7 @@ namespace UnrealBuildTool
 				ResponseFile.Create(LinkerExceptionsCPPFilename, new List<string>());
 			}
 
-			var Result = new List<string>();
+			List<string> Result = new List<string>();
 			Result.Add("#include \"CoreTypes.h\"");
 			Result.Add("");
 			foreach (string Arch in Arches)
@@ -954,11 +954,11 @@ namespace UnrealBuildTool
 					default: Result.Add("#if PLATFORM_ANDROID_ARM"); break;
 				}
 
-				foreach (var ModName in ModulesToSkip[Arch])
+				foreach (string ModName in ModulesToSkip[Arch])
 				{
 					Result.Add("  void EmptyLinkFunctionForStaticInitialization" + ModName + "(){}");
 				}
-				foreach (var ModName in GeneratedModulesToSkip[Arch])
+				foreach (string ModName in GeneratedModulesToSkip[Arch])
 				{
 					Result.Add("  void EmptyLinkFunctionForGeneratedCode" + ModName + "(){}");
 				}
@@ -1012,7 +1012,7 @@ namespace UnrealBuildTool
 
 		static private bool bHasPrintedApiLevel = false;
 		static private bool bHasHandledLaunchModule = false;
-		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> SourceFiles, string ModuleName, ActionGraph ActionGraph)
+		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, ActionGraph ActionGraph)
 		{
 			if (Arches.Count == 0)
 			{
@@ -1022,7 +1022,7 @@ namespace UnrealBuildTool
 			CPPOutput Result = new CPPOutput();
 
 			// Skip if nothing to do
-			if (SourceFiles.Count == 0)
+			if (InputFiles.Count == 0)
 			{
 				return Result;
 			}
@@ -1041,7 +1041,7 @@ namespace UnrealBuildTool
 
 			if (!bHasPrintedApiLevel)
 			{
-				Console.WriteLine("Compiling Native code with NDK API '{0}'", GetNdkApiLevel());
+				Log.TraceInformation("Compiling Native code with NDK API '{0}'", GetNdkApiLevel());
 				bHasPrintedApiLevel = true;
 			}
 
@@ -1059,10 +1059,10 @@ namespace UnrealBuildTool
 			if (!bHasHandledLaunchModule && ModuleName.Equals("Launch"))
 			{
 				// Directly added NDK files for NDK extensions
-				ConditionallyAddNDKSourceFiles(SourceFiles, ModuleName, NativeGluePath);
+				ConditionallyAddNDKSourceFiles(InputFiles, ModuleName, NativeGluePath);
 
 				// Deal with dynamic modules removed by architecture
-				GenerateEmptyLinkFunctionsForRemovedModules(SourceFiles, ModuleName, CompileEnvironment.OutputDirectory);
+				GenerateEmptyLinkFunctionsForRemovedModules(InputFiles, ModuleName, OutputDir);
 
 				bHasHandledLaunchModule = true;
 			}
@@ -1073,10 +1073,10 @@ namespace UnrealBuildTool
 				BaseArguments += string.Format(" -D \"{0}\"", Definition);
 			}
 
-			var NDKRoot = Environment.GetEnvironmentVariable("NDKROOT").Replace("\\", "/");
+			string NDKRoot = Environment.GetEnvironmentVariable("NDKROOT").Replace("\\", "/");
 
 			string BasePCHName = "";
-			var PCHExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Android).GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
+			string PCHExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Android).GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
 			if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Include)
 			{
 				BasePCHName = RemoveArchName(CompileEnvironment.PrecompiledHeaderFile.AbsolutePath).Replace(PCHExtension, "");
@@ -1119,22 +1119,22 @@ namespace UnrealBuildTool
 					}
 
 					// Add include paths to the argument list (filtered by architecture)
-					foreach (string IncludePath in CompileEnvironment.IncludePaths.SystemIncludePaths)
+					foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.SystemIncludePaths)
 					{
-						if (IsDirectoryForArch(IncludePath, Arch))
+						if (IsDirectoryForArch(IncludePath.FullName, Arch))
 						{
 							Arguments += string.Format(" -I\"{0}\"", IncludePath);
 						}
 					}
-					foreach (string IncludePath in CompileEnvironment.IncludePaths.UserIncludePaths)
+					foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.UserIncludePaths)
 					{
-						if (IsDirectoryForArch(IncludePath, Arch))
+						if (IsDirectoryForArch(IncludePath.FullName, Arch))
 						{
 							Arguments += string.Format(" -I\"{0}\"", IncludePath);
 						}
 					}
 
-					foreach (FileItem SourceFile in SourceFiles)
+					foreach (FileItem SourceFile in InputFiles)
 					{
 						Action CompileAction = ActionGraph.Add(ActionType.Compile);
 						string FileArguments = "";
@@ -1182,7 +1182,7 @@ namespace UnrealBuildTool
 							// Add the precompiled header file to the produced item list.
 							FileItem PrecompiledHeaderFile = FileItem.GetItemByFileReference(
 								FileReference.Combine(
-									CompileEnvironment.OutputDirectory,
+									OutputDir,
 									Path.GetFileName(InlineArchName(SourceFile.AbsolutePath, Arch, GPUArchitecture) + PCHExtension)
 									)
 								);
@@ -1202,12 +1202,12 @@ namespace UnrealBuildTool
 								CompileAction.PrerequisiteItems.Add(ArchPrecompiledHeaderFile);
 							}
 
-							var ObjectFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Android).GetBinaryExtension(UEBuildBinaryType.Object);
+							string ObjectFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Android).GetBinaryExtension(UEBuildBinaryType.Object);
 
 							// Add the object file to the produced item list.
 							FileItem ObjectFile = FileItem.GetItemByFileReference(
 								FileReference.Combine(
-									CompileEnvironment.OutputDirectory,
+									OutputDir,
 									InlineArchName(Path.GetFileName(SourceFile.AbsolutePath) + ObjectFileExtension, Arch, GPUArchitecture)
 									)
 								);
@@ -1243,7 +1243,7 @@ namespace UnrealBuildTool
 						}
 
 						// Create the response file
-						FileReference ResponseFileName = CompileAction.ProducedItems[0].Reference + "_" + AllArguments.GetHashCode().ToString("X") + ".rsp";
+						FileReference ResponseFileName = CompileAction.ProducedItems[0].Location + "_" + AllArguments.GetHashCode().ToString("X") + ".rsp";
 						string ResponseArgument = string.Format("@\"{0}\"", ResponseFile.Create(ResponseFileName, new List<string> { AllArguments }).FullName);
 
 						CompileAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
@@ -1292,7 +1292,7 @@ namespace UnrealBuildTool
 		{
 			List<FileItem> Outputs = new List<FileItem>();
 
-			var NDKRoot = Environment.GetEnvironmentVariable("NDKROOT").Replace("\\", "/");
+			string NDKRoot = Environment.GetEnvironmentVariable("NDKROOT").Replace("\\", "/");
 			int NDKApiLevelInt = GetNdkApiLevelInt();
 			string OptionalLinkArguments;
 
@@ -1385,12 +1385,17 @@ namespace UnrealBuildTool
 						// make sure it's for current Arch
 						if (Path.GetFileNameWithoutExtension(InputFile.AbsolutePath).EndsWith(Arch + GPUArchitecture))
 						{
-							string AbsolutePath = InputFile.AbsolutePath.Replace("\\", "/");
+							string InputPath;
+							if(InputFile.Location.IsUnderDirectory(LinkEnvironment.IntermediateDirectory))
+							{
+								InputPath = InputFile.Location.MakeRelativeTo(LinkEnvironment.IntermediateDirectory);
+							}
+							else
+							{
+								InputPath = InputFile.Location.FullName;
+							}
+							InputFileNames.Add(string.Format("\"{0}\"", InputPath.Replace('\\', '/')));
 
-							AbsolutePath = AbsolutePath.Replace(LinkEnvironment.IntermediateDirectory.FullName.Replace("\\", "/"), "");
-							AbsolutePath = AbsolutePath.TrimStart(new char[] { '/' });
-
-							InputFileNames.Add(string.Format("\"{0}\"", AbsolutePath));
 							LinkAction.PrerequisiteItems.Add(InputFile);
 						}
 					}
@@ -1401,10 +1406,10 @@ namespace UnrealBuildTool
 					if (!LinkEnvironment.bIsBuildingLibrary)
 					{
 						// Add the library paths to the argument list.
-						foreach (string LibraryPath in LinkEnvironment.LibraryPaths)
+						foreach (DirectoryReference LibraryPath in LinkEnvironment.LibraryPaths)
 						{
 							// LinkerPaths could be relative or absolute
-							string AbsoluteLibraryPath = ActionThread.ExpandEnvironmentVariables(LibraryPath);
+							string AbsoluteLibraryPath = LibraryPath.FullName;
 							if (IsDirectoryForArch(AbsoluteLibraryPath, Arch))
 							{
 								// environment variables aren't expanded when using the $( style
@@ -1475,19 +1480,19 @@ namespace UnrealBuildTool
 			HashSet<DirectoryReference> ObjectFileDirectories = new HashSet<DirectoryReference>();
 			foreach (FileItem InputFile in LinkEnvironment.InputFiles)
 			{
-				ObjectFileDirectories.Add(InputFile.Reference.Directory);
+				ObjectFileDirectories.Add(InputFile.Location.Directory);
 			}
 			foreach (FileItem InputLibrary in LinkEnvironment.InputLibraries)
 			{
-				ObjectFileDirectories.Add(InputLibrary.Reference.Directory);
+				ObjectFileDirectories.Add(InputLibrary.Location.Directory);
 			}
 			foreach (string AdditionalLibrary in LinkEnvironment.AdditionalLibraries.Where(x => Path.IsPathRooted(x)))
 			{
 				ObjectFileDirectories.Add(new FileReference(AdditionalLibrary).Directory);
 			}
-			foreach (string LibraryPath in LinkEnvironment.LibraryPaths)
+			foreach (DirectoryReference LibraryPath in LinkEnvironment.LibraryPaths)
 			{
-				ObjectFileDirectories.Add(new DirectoryReference(LibraryPath));
+				ObjectFileDirectories.Add(LibraryPath);
 			}
 			foreach (string LibraryPath in (Environment.GetEnvironmentVariable("LIB") ?? "").Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
 			{

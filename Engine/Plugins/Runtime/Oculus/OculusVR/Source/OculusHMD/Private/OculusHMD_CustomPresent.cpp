@@ -12,7 +12,7 @@
 #if PLATFORM_ANDROID
 #include "Android/AndroidJNI.h"
 #include "Android/AndroidEGL.h"
-#include "AndroidApplication.h"
+#include "Android/AndroidApplication.h"
 #endif
 
 namespace OculusHMD

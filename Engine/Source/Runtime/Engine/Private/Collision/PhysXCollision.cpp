@@ -16,7 +16,7 @@ float DebugLineLifetime = 2.f;
 
 #include "Collision/CollisionDebugDrawing.h"
 #include "Collision/CollisionConversions.h"
-#include "ScopedTimers.h"
+#include "ProfilingDebugging/ScopedTimers.h"
 
 /**
  * Helper to lock/unlock multiple scenes that also makes sure to unlock everything when it goes out of scope.

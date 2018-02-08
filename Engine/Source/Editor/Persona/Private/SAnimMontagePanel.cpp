@@ -17,7 +17,7 @@
 #include "Widgets/Input/STextComboBox.h"
 #include "SAnimTimingPanel.h"
 #include "TabSpawners.h"
-#include "SNumericEntryBox.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 #include "Styling/CoreStyle.h"
 
 #define LOCTEXT_NAMESPACE "AnimMontagePanel"

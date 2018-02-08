@@ -3,7 +3,7 @@
 #include "BoneControllers/AnimNode_SplineIK.h"
 #include "Animation/AnimTypes.h"
 #include "AnimationRuntime.h"
-#include "AnimInstanceProxy.h"
+#include "Animation/AnimInstanceProxy.h"
 #include "SplineIK.h"
 
 FAnimNode_SplineIK::FAnimNode_SplineIK() 

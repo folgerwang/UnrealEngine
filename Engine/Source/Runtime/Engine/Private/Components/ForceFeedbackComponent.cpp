@@ -1,10 +1,10 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Components/ForceFeedbackComponent.h"
 #include "Components/BillboardComponent.h"
 #include "GameFramework/ForceFeedbackEffect.h"
 #include "Engine/Canvas.h"
-#include "IInputInterface.h"
+#include "GenericPlatform/IInputInterface.h"
 #include "Engine/Texture2D.h"
 
 TArray<FForceFeedbackManager*> FForceFeedbackManager::PerWorldForceFeedbackManagers;

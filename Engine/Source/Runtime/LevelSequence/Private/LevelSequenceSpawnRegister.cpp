@@ -6,7 +6,7 @@
 #include "MovieSceneSequence.h"
 #include "LevelSequenceModule.h"
 #include "IMovieSceneObjectSpawner.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 FLevelSequenceSpawnRegister::FLevelSequenceSpawnRegister()
 {

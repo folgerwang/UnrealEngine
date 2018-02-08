@@ -11,7 +11,7 @@
 
 // version handling
 #include "AnimationCustomVersion.h"
-#include "ReleaseObjectVersion.h"
+#include "UObject/ReleaseObjectVersion.h"
 
 #define LOCTEXT_NAMESPACE "AnimGraphNode_TwoBoneIK"
 

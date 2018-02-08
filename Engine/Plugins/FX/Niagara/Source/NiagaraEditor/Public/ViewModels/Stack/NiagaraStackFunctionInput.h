@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "NiagaraStackEntry.h"
+#include "ViewModels/Stack/NiagaraStackEntry.h"
 #include "NiagaraTypes.h"
-#include "NiagaraParameterHandle.h"
+#include "ViewModels/Stack/NiagaraParameterHandle.h"
 #include "NiagaraStackFunctionInput.generated.h"
 
 class UNiagaraNodeFunctionCall;

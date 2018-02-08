@@ -87,27 +87,31 @@ namespace UnrealBuildTool
 		}
 
 
-		static void AddIncludePath(List<string> Arguments, string IncludePath)
+		static void AddIncludePath(List<string> Arguments, DirectoryReference IncludePath)
 		{
-			// Need to convert to full paths to get full paths in error messages when debug info is disabled. I don't know why.
-			if(!IncludePath.Contains("$"))
+			// If the value has a space in it and isn't wrapped in quotes, do that now. Make sure it doesn't include a trailing slash, because that will escape the closing quote.
+			string IncludePathString;
+			if(IncludePath.IsUnderDirectory(UnrealBuildTool.RootDirectory))
 			{
-				IncludePath = Path.GetFullPath(IncludePath);
+				IncludePathString = IncludePath.MakeRelativeTo(UnrealBuildTool.EngineSourceDirectory);
+			}
+			else
+			{
+				IncludePathString = IncludePath.FullName;
 			}
 
-			// If the value has a space in it and isn't wrapped in quotes, do that now. Make sure it doesn't include a trailing slash, because that will escape the closing quote.
-			if (!IncludePath.StartsWith("\"") && (IncludePath.Contains(" ") || IncludePath.Contains("$")))
+			if(IncludePathString.Contains(" "))
 			{
-				IncludePath = "\"" + IncludePath.TrimEnd('\\') + "\"";
+				IncludePathString = "\"" + IncludePathString + "\"";
 			}
 
 			if (WindowsPlatform.bUseVCCompilerArgs)
 			{
-				Arguments.Add("/I " + IncludePath);
+				Arguments.Add("/I " + IncludePathString);
 			}
 			else
 			{
-				Arguments.Add("-I" + IncludePath);
+				Arguments.Add("-I" + IncludePathString);
 			}
 		}
 
@@ -120,13 +124,13 @@ namespace UnrealBuildTool
 			{
 				if (Directory.Exists(EnvVars.WindowsSDKExtensionDir))
 				{
-					CompileEnvironment.IncludePaths.SystemIncludePaths.Add(string.Format(@"{0}\Include\{1}\um", EnvVars.WindowsSDKExtensionDir, EnvVars.WindowsSDKExtensionHeaderLibVersion));
-					CompileEnvironment.IncludePaths.SystemIncludePaths.Add(string.Format(@"{0}\Include\{1}\shared", EnvVars.WindowsSDKExtensionDir, EnvVars.WindowsSDKExtensionHeaderLibVersion));
-					CompileEnvironment.IncludePaths.SystemIncludePaths.Add(string.Format(@"{0}\Include\{1}\winrt", EnvVars.WindowsSDKExtensionDir, EnvVars.WindowsSDKExtensionHeaderLibVersion));
+					CompileEnvironment.IncludePaths.SystemIncludePaths.Add(new DirectoryReference(string.Format(@"{0}\Include\{1}\um", EnvVars.WindowsSDKExtensionDir, EnvVars.WindowsSDKExtensionHeaderLibVersion)));
+					CompileEnvironment.IncludePaths.SystemIncludePaths.Add(new DirectoryReference(string.Format(@"{0}\Include\{1}\shared", EnvVars.WindowsSDKExtensionDir, EnvVars.WindowsSDKExtensionHeaderLibVersion)));
+					CompileEnvironment.IncludePaths.SystemIncludePaths.Add(new DirectoryReference(string.Format(@"{0}\Include\{1}\winrt", EnvVars.WindowsSDKExtensionDir, EnvVars.WindowsSDKExtensionHeaderLibVersion)));
 				}
 				if (Directory.Exists(EnvVars.NetFxSDKExtensionDir))
 				{
-					CompileEnvironment.IncludePaths.SystemIncludePaths.Add(string.Format(@"{0}\Include\um", EnvVars.NetFxSDKExtensionDir));
+					CompileEnvironment.IncludePaths.SystemIncludePaths.Add(new DirectoryReference(string.Format(@"{0}\Include\um", EnvVars.NetFxSDKExtensionDir)));
 				}
 			}
 
@@ -1027,7 +1031,7 @@ namespace UnrealBuildTool
 			}
 		}
 
-		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> SourceFiles, string ModuleName, ActionGraph ActionGraph)
+		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, ActionGraph ActionGraph)
 		{
 			VCEnvironment EnvVars = VCEnvironment.SetEnvironment(CompileEnvironment.Platform, Compiler);
 
@@ -1035,12 +1039,12 @@ namespace UnrealBuildTool
 			AppendCLArguments_Global(CompileEnvironment, EnvVars, SharedArguments);
 
 			// Add include paths to the argument list.
-			foreach (string IncludePath in CompileEnvironment.IncludePaths.UserIncludePaths)
+			foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.UserIncludePaths)
 			{
 				AddIncludePath(SharedArguments, IncludePath);
 			}
 
-			foreach (string IncludePath in CompileEnvironment.IncludePaths.SystemIncludePaths)
+			foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.SystemIncludePaths)
 			{
 				if (WindowsPlatform.bCompileWithClang)
 				{
@@ -1082,7 +1086,7 @@ namespace UnrealBuildTool
 
 			// Create a compile action for each source file.
 			CPPOutput Result = new CPPOutput();
-			foreach (FileItem SourceFile in SourceFiles)
+			foreach (FileItem SourceFile in InputFiles)
 			{
 				Action CompileAction = ActionGraph.Add(ActionType.Compile);
 				CompileAction.CommandDescription = "Compile";
@@ -1117,14 +1121,13 @@ namespace UnrealBuildTool
 
 					// Make sure the original source directory the PCH header file existed in is added as an include
 					// path -- it might be a private PCH header and we need to make sure that its found!
-					string OriginalPCHHeaderDirectory = Path.GetDirectoryName(SourceFile.AbsolutePath);
-					AddIncludePath(FileArguments, OriginalPCHHeaderDirectory);
+					AddIncludePath(FileArguments, SourceFile.Location.Directory);
 
 					string PrecompiledFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Win64).GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
 					// Add the precompiled header file to the produced items list.
 					FileItem PrecompiledHeaderFile = FileItem.GetItemByFileReference(
 						FileReference.Combine(
-							CompileEnvironment.OutputDirectory,
+							OutputDir,
 							Path.GetFileName(SourceFile.AbsolutePath) + PrecompiledFileExtension
 							)
 						);
@@ -1208,10 +1211,10 @@ namespace UnrealBuildTool
 					string ObjectFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Win64).GetBinaryExtension(UEBuildBinaryType.Object);
 					// Add the object file to the produced item list.
 					string ObjectLeafFilename = Path.GetFileName(SourceFile.AbsolutePath) + ObjectFileExtension;
-					FileItem ObjectFile = FileItem.GetItemByFileReference(FileReference.Combine(CompileEnvironment.OutputDirectory, ObjectLeafFilename));
+					FileItem ObjectFile = FileItem.GetItemByFileReference(FileReference.Combine(OutputDir, ObjectLeafFilename));
 					if (ObjSrcMapFile != null)
 					{
-						using (var Writer = File.AppendText(ObjSrcMapFile))
+						using (StreamWriter Writer = File.AppendText(ObjSrcMapFile))
 						{
 							Writer.WriteLine(string.Format("\"{0}\" -> \"{1}\"", ObjectLeafFilename, SourceFile.AbsolutePath));
 						}
@@ -1261,7 +1264,7 @@ namespace UnrealBuildTool
 						// Specify the PDB file that the compiler should write to.
 						FileItem PDBFile = FileItem.GetItemByFileReference(
 								FileReference.Combine(
-									CompileEnvironment.OutputDirectory,
+									OutputDir,
 									PDBFileName + ".pdb"
 									)
 								);
@@ -1344,13 +1347,13 @@ namespace UnrealBuildTool
 			return Result;
 		}
 
-		public override CPPOutput CompileRCFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> RCFiles, ActionGraph ActionGraph)
+		public override CPPOutput CompileRCFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, ActionGraph ActionGraph)
 		{
 			VCEnvironment EnvVars = VCEnvironment.SetEnvironment(CompileEnvironment.Platform, Compiler);
 
 			CPPOutput Result = new CPPOutput();
 
-			foreach (FileItem RCFile in RCFiles)
+			foreach (FileItem RCFile in InputFiles)
 			{
 				Action CompileAction = ActionGraph.Add(ActionType.Compile);
 				CompileAction.CommandDescription = "Resource";
@@ -1382,13 +1385,13 @@ namespace UnrealBuildTool
 				Arguments.Add("/l 0x409");
 
 				// Include paths. Don't use AddIncludePath() here, since it uses the full path and exceeds the max command line length.
-				foreach (string IncludePath in CompileEnvironment.IncludePaths.UserIncludePaths)
+				foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.UserIncludePaths)
 				{
 					Arguments.Add(String.Format("/I \"{0}\"", IncludePath));
 				}
 
 				// System include paths.
-				foreach (string SystemIncludePath in CompileEnvironment.IncludePaths.SystemIncludePaths)
+				foreach (DirectoryReference SystemIncludePath in CompileEnvironment.IncludePaths.SystemIncludePaths)
 				{
 					Arguments.Add(String.Format("/I \"{0}\"", SystemIncludePath));
 				}
@@ -1405,7 +1408,7 @@ namespace UnrealBuildTool
 				// Add the RES file to the produced item list.
 				FileItem CompiledResourceFile = FileItem.GetItemByFileReference(
 					FileReference.Combine(
-						CompileEnvironment.OutputDirectory,
+						OutputDir,
 						Path.GetFileName(RCFile.AbsolutePath) + ".res"
 						)
 					);
@@ -1434,11 +1437,11 @@ namespace UnrealBuildTool
 			{
 				if (LinkEnvironment.Platform == CppPlatform.Win64)
 				{
-					LinkEnvironment.LibraryPaths.Add(string.Format("{0}/Lib/um/x64", EnvVars.NetFxSDKExtensionDir));
+					LinkEnvironment.LibraryPaths.Add(new DirectoryReference(string.Format("{0}/Lib/um/x64", EnvVars.NetFxSDKExtensionDir)));
 				}
 				else if (LinkEnvironment.Platform == CppPlatform.Win32)
 				{
-					LinkEnvironment.LibraryPaths.Add(string.Format("{0}/Lib/um/x86", EnvVars.NetFxSDKExtensionDir));
+					LinkEnvironment.LibraryPaths.Add(new DirectoryReference(string.Format("{0}/Lib/um/x86", EnvVars.NetFxSDKExtensionDir)));
 				}
 			}
 
@@ -1448,7 +1451,6 @@ namespace UnrealBuildTool
 			}
 
 			bool bIsBuildingLibrary = LinkEnvironment.bIsBuildingLibrary || bBuildImportLibraryOnly;
-			bool bIncludeDependentLibrariesInLibrary = bIsBuildingLibrary && LinkEnvironment.bIncludeDependentLibrariesInLibrary;
 
 			// Get link arguments.
 			List<string> Arguments = new List<string>();
@@ -1502,10 +1504,10 @@ namespace UnrealBuildTool
 				// We shouldn't need them to generate exports.
 				Arguments.Add("/NODEFAULTLIB");
 			}
-			else if (!LinkEnvironment.bIsBuildingLibrary || bIncludeDependentLibrariesInLibrary)
+			else if (!LinkEnvironment.bIsBuildingLibrary)
 			{
 				// Add the library paths to the argument list.
-				foreach (string LibraryPath in LinkEnvironment.LibraryPaths)
+				foreach (DirectoryReference LibraryPath in LinkEnvironment.LibraryPaths)
 				{
 					Arguments.Add(String.Format("/LIBPATH:\"{0}\"", LibraryPath));
 				}
@@ -1564,7 +1566,7 @@ namespace UnrealBuildTool
 				}
 			}
 
-			if (!bIsBuildingLibrary || (LinkEnvironment.bIsBuildingLibrary && bIncludeDependentLibrariesInLibrary))
+			if (!bIsBuildingLibrary)
 			{
 				foreach (string AdditionalLibrary in LinkEnvironment.AdditionalLibraries)
 				{
@@ -1683,19 +1685,19 @@ namespace UnrealBuildTool
 			HashSet<DirectoryReference> ObjectFileDirectories = new HashSet<DirectoryReference>();
 			foreach(FileItem InputFile in LinkEnvironment.InputFiles)
 			{
-				ObjectFileDirectories.Add(InputFile.Reference.Directory);
+				ObjectFileDirectories.Add(InputFile.Location.Directory);
 			}
 			foreach(FileItem InputLibrary in LinkEnvironment.InputLibraries)
 			{
-				ObjectFileDirectories.Add(InputLibrary.Reference.Directory);
+				ObjectFileDirectories.Add(InputLibrary.Location.Directory);
 			}
 			foreach(string AdditionalLibrary in LinkEnvironment.AdditionalLibraries.Where(x => Path.IsPathRooted(x)))
 			{
 				ObjectFileDirectories.Add(new FileReference(AdditionalLibrary).Directory);
 			}
-			foreach(string LibraryPath in LinkEnvironment.LibraryPaths)
+			foreach(DirectoryReference LibraryPath in LinkEnvironment.LibraryPaths)
 			{
-				ObjectFileDirectories.Add(new DirectoryReference(LibraryPath));
+				ObjectFileDirectories.Add(LibraryPath);
 			}
 			foreach(string LibraryPath in (Environment.GetEnvironmentVariable("LIB") ?? "").Split(new char[]{ ';' }, StringSplitOptions.RemoveEmptyEntries))
 			{
@@ -1730,13 +1732,13 @@ namespace UnrealBuildTool
 
 		public override void ModifyBuildProducts(ReadOnlyTargetRules Target, UEBuildBinary Binary, List<string> Libraries, List<UEBuildBundleResource> BundleResources, Dictionary<FileReference, BuildProductType> BuildProducts)
 		{
-			if (Binary.Config.Type == UEBuildBinaryType.DynamicLinkLibrary)
+			if (Binary.Type == UEBuildBinaryType.DynamicLinkLibrary)
 			{
-				BuildProducts.Add(FileReference.Combine(Binary.Config.IntermediateDirectory, Binary.Config.OutputFilePath.GetFileNameWithoutExtension() + ".lib"), BuildProductType.ImportLibrary);
+				BuildProducts.Add(FileReference.Combine(Binary.IntermediateDirectory, Binary.OutputFilePath.GetFileNameWithoutExtension() + ".lib"), BuildProductType.ImportLibrary);
 			}
-			if(Binary.Config.Type == UEBuildBinaryType.Executable && Target.bCreateMapFile)
+			if(Binary.Type == UEBuildBinaryType.Executable && Target.bCreateMapFile)
 			{
-				foreach(FileReference OutputFilePath in Binary.Config.OutputFilePaths)
+				foreach(FileReference OutputFilePath in Binary.OutputFilePaths)
 				{
 					BuildProducts.Add(FileReference.Combine(OutputFilePath.Directory, OutputFilePath.GetFileNameWithoutExtension() + ".map"), BuildProductType.MapFile);
 					BuildProducts.Add(FileReference.Combine(OutputFilePath.Directory, OutputFilePath.GetFileNameWithoutExtension() + ".objpaths"), BuildProductType.MapFile);
@@ -1767,7 +1769,7 @@ namespace UnrealBuildTool
 
 			// We need to replace both of them with MSVC's format ('foo.cpp(30): warning') to make them colourized and clickable.
 			// Note: MSVC does support clickable column numbers, but adding them makes the colours disappear which is much worse
-			foreach (var Group in Regex.Matches(Output, RegexLineAndColumnNumber)
+			foreach (Group Group in Regex.Matches(Output, RegexLineAndColumnNumber)
 				.Cast<Match>()
 				.Where(m => m.Groups.Count == 2)
 				.Select(m => m.Groups[1])
@@ -1780,7 +1782,7 @@ namespace UnrealBuildTool
 				Output = Left + Remainder;
 			}
 
-			foreach (var Group in Regex.Matches(Output, RegexEndOfLineNumber)
+			foreach (Group Group in Regex.Matches(Output, RegexEndOfLineNumber)
 				.Cast<Match>()
 				.Where(m => m.Groups.Count == 2)
 				.Select(m => m.Groups[1])

@@ -5,7 +5,7 @@
 #include "OnlineSubsystemFacebookTypes.h"
 #include "OnlineJsonSerializer.h"
 #include "OnlineSubsystemFacebookPackage.h"
-#include "IHttpRequest.h"
+#include "Interfaces/IHttpRequest.h"
 
 /** Details about the logged in user */
 #define ME_FIELD_ID "id"

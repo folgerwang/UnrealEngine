@@ -9,7 +9,7 @@
 #include "UObject/UObjectHash.h"
 #include "Templates/ScopedPointer.h"
 #include "ComponentReregisterContext.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "Rendering/SkeletalMeshModel.h"
 #include "AnimationBlueprintLibrary.h"
 #include "Async/ParallelFor.h"

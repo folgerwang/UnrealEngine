@@ -4,7 +4,7 @@
 #include "Widgets/SWindow.h"
 #include "Layout/WidgetPath.h"
 #include "Application/ActiveTimerHandle.h"
-#include "ScopeLock.h"
+#include "Misc/ScopeLock.h"
 
 
 /* Static initialization

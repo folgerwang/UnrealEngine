@@ -426,7 +426,7 @@ namespace UnrealGameSync
 		{
 			if(PerforceMonitor != null)
 			{
-				if(OnlyShowReviewedCheckBox.Checked)
+				if(!Settings.bShowUnreviewedChanges)
 				{
 					PerforceMonitor.PendingMaxChanges = 1000;
 				}
@@ -702,7 +702,7 @@ namespace UnrealGameSync
 				}
 
 				bool bFirstChange = true;
-				bool bOnlyShowReviewed = OnlyShowReviewedCheckBox.Checked;
+				bool bHideUnreviewed = !Settings.bShowUnreviewedChanges;
 
 				NumChanges = Changes.Count;
 				ListIndexToChangeIndex = new List<int>();
@@ -715,7 +715,7 @@ namespace UnrealGameSync
 					{
 						SortedChangeNumbers.Add(Change.Number);
 
-						if(!bOnlyShowReviewed || (!EventMonitor.IsUnderInvestigation(Change.Number) && (ShouldIncludeInReviewedList(Change.Number) || bFirstChange)))
+						if(!bHideUnreviewed || (!EventMonitor.IsUnderInvestigation(Change.Number) && (ShouldIncludeInReviewedList(Change.Number) || bFirstChange)))
 						{
 							bFirstChange = false;
 
@@ -803,17 +803,20 @@ namespace UnrealGameSync
 
 		bool ShouldShowChange(PerforceChangeSummary Change, string[] ExcludeChanges)
 		{
-			foreach(string ExcludeChange in ExcludeChanges)
+			if(!Settings.bShowAutomatedChanges)
 			{
-				if(Regex.IsMatch(Change.Description, ExcludeChange, RegexOptions.IgnoreCase))
+				foreach(string ExcludeChange in ExcludeChanges)
+				{
+					if(Regex.IsMatch(Change.Description, ExcludeChange, RegexOptions.IgnoreCase))
+					{
+						return false;
+					}
+				}
+
+				if(String.Compare(Change.User, "buildmachine", true) == 0 && Change.Description.IndexOf("lightmaps", StringComparison.InvariantCultureIgnoreCase) == -1)
 				{
 					return false;
 				}
-			}
-
-			if(String.Compare(Change.User, "buildmachine", true) == 0 && Change.Description.IndexOf("lightmaps", StringComparison.InvariantCultureIgnoreCase) == -1)
-			{
-				return false;
 			}
 			return true;
 		}
@@ -1033,8 +1036,24 @@ namespace UnrealGameSync
 						}
 					}
 				}
+				if(ChangeNumber == 3823446)
+				{
+					Console.WriteLine("");
+				}
 				ChangeNumberToArchivePath.Add(ChangeNumber, ArchivePath);
 			}
+			if(ChangeNumber == 3823446)
+			{
+				if(ArchivePath == null)
+				{
+					Console.WriteLine("");
+				}
+				else
+				{
+					Console.WriteLine("");
+				}
+			}
+
 			return ArchivePath;
 		}
 
@@ -2043,6 +2062,8 @@ namespace UnrealGameSync
 			OptionsContextMenu_TimeZone_PerforceServer.Checked = !Settings.bShowLocalTimes;
 			OptionsContextMenu_AutomaticallyRunAtStartup.Checked = IsAutomaticallyRunAtStartup();
 			OptionsContextMenu_KeepInTray.Checked = Settings.bKeepInTray;
+			OptionsContextMenu_ShowChanges_ShowUnreviewed.Checked = Settings.bShowUnreviewedChanges;
+			OptionsContextMenu_ShowChanges_ShowAutomated.Checked = Settings.bShowAutomatedChanges;
 			OptionsContextMenu_TabNames_Stream.Checked = Settings.TabLabels == TabLabels.Stream;
 			OptionsContextMenu_TabNames_WorkspaceName.Checked = Settings.TabLabels == TabLabels.WorkspaceName;
 			OptionsContextMenu_TabNames_WorkspaceRoot.Checked = Settings.TabLabels == TabLabels.WorkspaceRoot;
@@ -2959,6 +2980,24 @@ namespace UnrealGameSync
 		{
 			Settings.OtherProjectFileNames = new string[0];
 			Settings.Save();
+		}
+
+		private void OptionsContextMenu_ShowChanges_ShowUnreviewed_Click(object sender, EventArgs e)
+		{
+			Settings.bShowUnreviewedChanges ^= true;
+			Settings.Save();
+
+			UpdateBuildList();
+			UpdateNumRequestedBuilds(true);
+		}
+
+		private void OptionsContextMenu_ShowChanges_ShowAutomated_Click(object sender, EventArgs e)
+		{
+			Settings.bShowAutomatedChanges ^= true;
+			Settings.Save();
+
+			UpdateBuildList();
+			UpdateNumRequestedBuilds(true);
 		}
 	}
 }

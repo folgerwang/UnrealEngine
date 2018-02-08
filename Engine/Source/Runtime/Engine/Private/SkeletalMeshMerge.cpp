@@ -10,8 +10,8 @@
 #include "Animation/Skeleton.h"
 #include "Engine/SkeletalMesh.h"
 #include "Engine/SkeletalMeshSocket.h"
-#include "SkeletalMeshRenderData.h"
-#include "SkeletalMeshLODRenderData.h"
+#include "Rendering/SkeletalMeshRenderData.h"
+#include "Rendering/SkeletalMeshLODRenderData.h"
 
 /*-----------------------------------------------------------------------------
 	FSkeletalMeshMerge

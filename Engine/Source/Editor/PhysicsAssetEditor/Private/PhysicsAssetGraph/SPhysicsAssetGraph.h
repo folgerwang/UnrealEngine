@@ -4,7 +4,7 @@
 
 #include "PersonaDelegates.h"
 #include "GraphEditor.h"
-#include "ArrayView.h"
+#include "Containers/ArrayView.h"
 
 class UObject;
 class UPhysicsAsset;

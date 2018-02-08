@@ -2787,16 +2787,9 @@ FString FMath::FormatIntToHumanReadable(int32 Val)
 	FString Src = *FString::Printf(TEXT("%i"), Val);
 	FString Dst;
 
-	if (Val > 999)
+	while (Src.Len() > 3 && Src[Src.Len() - 4] != TEXT('-'))
 	{
-		Dst = FString::Printf(TEXT(",%s"), *Src.Mid(Src.Len() - 3, 3));
-		Src = Src.Left(Src.Len() - 3);
-
-	}
-
-	if (Val > 999999)
-	{
-		Dst = FString::Printf(TEXT(",%s%s"), *Src.Mid(Src.Len() - 3, 3), *Dst);
+		Dst = FString::Printf(TEXT(",%s%s"), *Src.Right(3), *Dst);
 		Src = Src.Left(Src.Len() - 3);
 	}
 

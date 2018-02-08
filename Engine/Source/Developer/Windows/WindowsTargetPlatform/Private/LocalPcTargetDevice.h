@@ -7,8 +7,8 @@
 #include "HAL/FileManager.h"
 #include "HAL/PlatformProcess.h"
 
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <TlHelp32.h>
 
 /**
@@ -407,5 +407,5 @@ private:
 	const ITargetPlatform& TargetPlatform;
 };
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #undef PROCESSENTRY32

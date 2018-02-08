@@ -15,7 +15,7 @@
 #include "HAL/RunnableThread.h"
 #include "HAL/Runnable.h"
 #include "Templates/Atomic.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 class FShaderCompileJob;
 class FShaderPipelineCompileJob;

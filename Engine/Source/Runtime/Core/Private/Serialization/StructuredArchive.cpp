@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "StructuredArchive.h"
+#include "Serialization/StructuredArchive.h"
 #include "Containers/Set.h"
 #include "Containers/UnrealString.h"
 

@@ -7,7 +7,7 @@
 #include "IHierarchicalLODUtilities.h"
 #include "HierarchicalLODUtilitiesModule.h"
 #include "Engine/Selection.h"
-#include "MultiBoxBuilder.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "HLODOutliner.h"
 #include "Editor.h"
 

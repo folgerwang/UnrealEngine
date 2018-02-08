@@ -14,14 +14,14 @@
 #include "CoreGlobals.h"
 #include "Windows/WindowsHWrapper.h"
 #include <sys/utime.h>
-#include "LockFreeList.h"
-#include "AsyncFileHandle.h"
+#include "Containers/LockFreeList.h"
+#include "Async/AsyncFileHandle.h"
 #include "Async/AsyncWork.h"
-#include "ScopeLock.h"
+#include "Misc/ScopeLock.h"
 
 #include "Windows/AllowWindowsPlatformTypes.h"
 
-#include "Private/Windows/WindowsAsyncIO.h"
+#include "WindowsAsyncIO.h"
 
 TLockFreePointerListUnordered<void, PLATFORM_CACHE_LINE_SIZE> WindowsAsyncIOEventPool;
 

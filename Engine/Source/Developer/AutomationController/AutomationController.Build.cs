@@ -52,6 +52,11 @@ namespace UnrealBuildTool.Rules
 					"Runtime/AutomationController/Private"
 				}
 			);
+
+			if (Target.bCompileAgainstEngine && Target.Configuration != UnrealTargetConfiguration.Shipping)
+			{
+				PrecompileForTargets = PrecompileTargetsType.Any;
+			}
 		}
 	}
 }

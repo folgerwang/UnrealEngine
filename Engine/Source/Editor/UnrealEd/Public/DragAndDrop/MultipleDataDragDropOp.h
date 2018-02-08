@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "DecoratedDragDropOp.h"
+#include "DragAndDrop/DecoratedDragDropOp.h"
 
 /** Drag payload type - implement derived types using DRAG_DROP_OPERATOR_TYPE */
 class IDragPayload

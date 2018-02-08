@@ -6,7 +6,7 @@
 #include "Misc/Paths.h"
 #include "HAL/FileManager.h"
 #include "HAL/PlatformProcess.h"
-#include "ITargetPlatform.h"
+#include "Interfaces/ITargetPlatform.h"
 #include "Interfaces/ITargetDevice.h"
 #include "Interfaces/TargetDeviceId.h"
 

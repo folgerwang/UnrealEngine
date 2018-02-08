@@ -5,7 +5,7 @@
 #include "CoreTypes.h"
 #include "Misc/AssertionMacros.h"
 #include "Templates/UnrealTypeTraits.h"
-#include "IntegerSequence.h"
+#include "Delegates/IntegerSequence.h"
 
 /** An array with a static number of elements. */
 template<typename TElement, uint32 NumElements, uint32 Alignment = alignof(TElement)>

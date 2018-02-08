@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "NiagaraStackItemGroup.h"
+#include "ViewModels/Stack/NiagaraStackItemGroup.h"
 #include "NiagaraCommon.h"
 #include "NiagaraStackScriptItemGroup.generated.h"
 

@@ -2,7 +2,7 @@
 
 #include "NiagaraEditorWidgetsStyle.h"
 
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 #include "EditorStyleSet.h"
 #include "Slate/SlateGameResources.h"
 #include "Styling/SlateStyleRegistry.h"

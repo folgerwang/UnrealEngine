@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "GameFramework/Actor.h"
-#include "Future.h"
+#include "Async/Future.h"
 #include "ImagePlateFileSequence.generated.h"
 
 class UTexture;

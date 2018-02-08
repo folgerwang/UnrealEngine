@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "XRRenderTargetManager.h"
-#include "SceneViewport.h"
+#include "Slate/SceneViewport.h"
 #include "Widgets/SViewport.h"
 #include "IHeadMountedDisplay.h"
 #include "IXRTrackingSystem.h"

@@ -17,7 +17,7 @@
 #include "Widgets/Docking/SDockTab.h"
 #include "Framework/Docking/SDockingTabStack.h"
 #include "Framework/Docking/SDockingTabWell.h"
-#include "LayoutExtender.h"
+#include "Framework/Docking/LayoutExtender.h"
 #include "HAL/PlatformApplicationMisc.h"
 #if PLATFORM_MAC
 #include "../MultiBox/Mac/MacMenu.h"

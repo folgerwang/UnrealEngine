@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "WorkflowCentricApplication.h"
+#include "WorkflowOrientedApp/WorkflowCentricApplication.h"
 
 
 /*-----------------------------------------------------------------------------

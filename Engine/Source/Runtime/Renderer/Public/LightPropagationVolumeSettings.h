@@ -8,7 +8,7 @@
 #include "LightPropagationVolumeSettings.generated.h"
 
 USTRUCT(BlueprintType)
-struct RENDERER_API FLightPropagationVolumeSettings
+struct FLightPropagationVolumeSettings
 {
 	GENERATED_USTRUCT_BODY()
 

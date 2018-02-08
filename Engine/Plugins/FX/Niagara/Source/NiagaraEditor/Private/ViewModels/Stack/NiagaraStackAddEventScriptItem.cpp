@@ -1,18 +1,18 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraStackAddEventScriptItem.h"
+#include "ViewModels/Stack/NiagaraStackAddEventScriptItem.h"
 #include "NiagaraNodeOutput.h"
 #include "NiagaraScript.h"
 #include "NiagaraEmitter.h"
 #include "NiagaraNodeFunctionCall.h"
-#include "NiagaraStackEventScriptItemGroup.h"
+#include "ViewModels/Stack/NiagaraStackEventScriptItemGroup.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
 #include "NiagaraScriptSource.h"
 #include "NiagaraGraph.h"
 #include "ViewModels/NiagaraEmitterViewModel.h"
 #include "ViewModels/NiagaraScriptGraphViewModel.h"
-#include "NiagaraStackGraphUtilities.h"
+#include "ViewModels/Stack/NiagaraStackGraphUtilities.h"
 
 #include "ScopedTransaction.h"
 

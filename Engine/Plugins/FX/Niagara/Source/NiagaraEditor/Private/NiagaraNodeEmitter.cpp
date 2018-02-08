@@ -16,8 +16,8 @@
 #include "NiagaraNodeParameterMapBase.h"
 #include "NiagaraNodeOutput.h"
 #include "NiagaraHlslTranslator.h"
-#include "MultiBoxBuilder.h"
-#include "Stats.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Stats/Stats.h"
 #include "NiagaraEditorModule.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraNodeEmitter"

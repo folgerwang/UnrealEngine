@@ -3,8 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ModuleInterface.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
 
 class ULocationServicesAndroidImpl;
 /**

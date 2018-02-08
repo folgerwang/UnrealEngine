@@ -9,7 +9,7 @@
 
 #include "WmfMediaUtils.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 
 #define WMFMEDIASESSION_USE_WINDOWS7FASTFORWARDENDHACK 1
@@ -1428,6 +1428,6 @@ void FWmfMediaSession::HandleSessionTopologyStatus(HRESULT EventStatus, IMFMedia
 }
 
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #endif //WMFMEDIA_SUPPORTED_PLATFORM

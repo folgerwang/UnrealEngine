@@ -2,7 +2,7 @@
  
 #pragma once
 
-#include "OnlineSharedCloudInterface.h"
+#include "Interfaces/OnlineSharedCloudInterface.h"
 #include "OnlineUserCloudInterfaceIOS.h"
 
 

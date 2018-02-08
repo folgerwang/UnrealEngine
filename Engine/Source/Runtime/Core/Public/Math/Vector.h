@@ -20,7 +20,7 @@
 #include "Math/Axis.h"
 
 #if PLATFORM_VECTOR_CUBIC_INTERP_SSE
-#include "UnrealMathSSE.h"
+#include "Math/UnrealMathSSE.h"
 #endif
 
 /**

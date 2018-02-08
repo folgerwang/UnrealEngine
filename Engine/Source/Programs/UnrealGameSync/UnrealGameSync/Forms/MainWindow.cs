@@ -318,16 +318,21 @@ namespace UnrealGameSync
 			ErrorPanel ErrorPanel = new ErrorPanel(ProjectFileName);
 			ErrorPanel.Parent = TabPanel;
 			ErrorPanel.BorderStyle = BorderStyle.FixedSingle;
-			ErrorPanel.BackColor = Color.White;
+			ErrorPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(250)))));
 			ErrorPanel.Location = new Point(0, 0);
 			ErrorPanel.Size = new Size(TabPanel.Width, TabPanel.Height);
 			ErrorPanel.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom;
 			ErrorPanel.Hide();
 
+			string SummaryText = String.Format("Unable to open '{0}'.", ProjectFileName);
+
+			int NewContentWidth = Math.Max(Math.Max(TextRenderer.MeasureText(SummaryText, ErrorPanel.Font).Width, TextRenderer.MeasureText(Message, ErrorPanel.Font).Width), 400);
+			ErrorPanel.SetContentWidth(NewContentWidth);
+
 			List<StatusLine> Lines = new List<StatusLine>();
 
 			StatusLine SummaryLine = new StatusLine();
-			SummaryLine.AddText(String.Format("Unable to open '{0}'.", ProjectFileName));
+			SummaryLine.AddText(SummaryText);
 			Lines.Add(SummaryLine);
 
 			Lines.Add(new StatusLine(){ LineHeight = 0.5f });
@@ -351,12 +356,14 @@ namespace UnrealGameSync
 			string NewTabName = "Error: " + Path.GetFileName(ProjectFileName);
 			if (ReplaceTabIdx == -1)
 			{
-				TabControl.InsertTab(-1, NewTabName, ErrorPanel);
+				int TabIdx = TabControl.InsertTab(-1, NewTabName, ErrorPanel);
+				TabControl.SelectTab(TabIdx);
 			}
 			else
 			{
 				TabControl.InsertTab(ReplaceTabIdx + 1, NewTabName, ErrorPanel);
 				TabControl.RemoveTab(ReplaceTabIdx);
+				TabControl.SelectTab(ReplaceTabIdx);
 			}
 
 			UpdateProgress();

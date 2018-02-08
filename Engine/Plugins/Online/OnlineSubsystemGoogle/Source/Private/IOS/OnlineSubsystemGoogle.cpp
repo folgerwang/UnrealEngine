@@ -3,8 +3,8 @@
 #include "OnlineSubsystemGoogle.h"
 #include "OnlineSubsystemGooglePrivate.h"
 
-#include "CoreDelegates.h"
-#include "IOSAppDelegate.h"
+#include "Misc/CoreDelegates.h"
+#include "IOS/IOSAppDelegate.h"
 
 #include "OnlineIdentityGoogle.h"
 //#include "OnlineExternalUIInterfaceGoogle.h"

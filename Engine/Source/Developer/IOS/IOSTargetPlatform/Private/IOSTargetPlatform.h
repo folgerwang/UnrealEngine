@@ -7,9 +7,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "TargetPlatformBase.h"
-#include "IOSPlatformProperties.h"
-#include "Ticker.h"
+#include "Common/TargetPlatformBase.h"
+#include "IOS/IOSPlatformProperties.h"
+#include "Containers/Ticker.h"
 #include "IOSMessageProtocol.h"
 #include "IMessageContext.h"
 #include "IOSTargetDevice.h"

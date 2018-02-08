@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ObjectEditorUtils.h"
-#include "Package.h"
+#include "UObject/Package.h"
 #include "UObject/PropertyPortFlags.h"
 
 #if WITH_EDITOR

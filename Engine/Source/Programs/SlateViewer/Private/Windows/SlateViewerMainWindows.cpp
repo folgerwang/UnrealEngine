@@ -2,7 +2,7 @@
 
 
 #include "SlateViewerApp.h"
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 
 
 /**

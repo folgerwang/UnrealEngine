@@ -4,7 +4,7 @@
 	ApplePlatformMemory.h: Apple platform memory functions common across all Apple OSes
 =============================================================================*/
 
-#include "ApplePlatformMemory.h"
+#include "Apple/ApplePlatformMemory.h"
 #include "HAL/PlatformMemory.h"
 #include "HAL/PlatformMath.h"
 #include "HAL/UnrealMemory.h"
@@ -13,10 +13,10 @@
 #include <stdlib.h>
 #include "Misc/AssertionMacros.h"
 #include "Misc/CoreStats.h"
-#include "MallocAnsi.h"
-#include "MallocBinned.h"
-#include "MallocBinned2.h"
-#include "MallocStomp.h"
+#include "HAL/MallocAnsi.h"
+#include "HAL/MallocBinned.h"
+#include "HAL/MallocBinned2.h"
+#include "HAL/MallocStomp.h"
 #include "CoreGlobals.h"
 
 #include <stdlib.h>

@@ -1,12 +1,12 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "StringTableCoreFwd.h"
+#include "Internationalization/StringTableCoreFwd.h"
 #include "Containers/Map.h"
 #include "UObject/NameTypes.h"
 #include "Containers/UnrealString.h"
 #include "Internationalization/Text.h"
-#include "LocKeyFuncs.h"
+#include "Internationalization/LocKeyFuncs.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogStringTable, Log, All);
 

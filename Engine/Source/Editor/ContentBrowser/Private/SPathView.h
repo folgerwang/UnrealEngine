@@ -14,7 +14,7 @@
 #include "Misc/TextFilter.h"
 #include "IContentBrowserSingleton.h"
 #include "ContentBrowserDelegates.h"
-#include "DelegateCombinations.h"
+#include "Delegates/DelegateCombinations.h"
 
 struct FHistoryData;
 struct FTreeItem;

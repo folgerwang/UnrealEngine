@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
-#include "Interface.h"
+#include "UObject/Interface.h"
 #include "NodeMappingProviderInterface.generated.h"
 
 UINTERFACE(meta = (CannotImplementInterfaceInBlueprint))

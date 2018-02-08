@@ -8,7 +8,7 @@
 
 #if PLATFORM_WINDOWS
 #ifndef WINDOWS_PLATFORM_TYPES_GUARD
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #endif
 #endif
 

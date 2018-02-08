@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "IDetailCustomization.h"
 #include "IPropertyTypeCustomization.h"
-#include "SlateTypes.h"
+#include "Styling/SlateTypes.h"
 
 class FNiagaraScriptViewModel;
 class IPropertyHandle;

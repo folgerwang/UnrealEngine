@@ -1,8 +1,8 @@
 // Copyright 2017 Google Inc.
 
-#include "Classes/GoogleVRControllerTooltipComponent.h"
+#include "GoogleVRControllerTooltipComponent.h"
 #include "GoogleVRController.h"
-#include "Classes/GoogleVRControllerFunctionLibrary.h"
+#include "GoogleVRControllerFunctionLibrary.h"
 #include "MotionControllerComponent.h"
 #include "Materials/MaterialParameterCollectionInstance.h"
 #include "GameFramework/WorldSettings.h"

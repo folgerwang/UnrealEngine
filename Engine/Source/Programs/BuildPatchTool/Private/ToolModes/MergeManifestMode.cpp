@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MergeManifestMode.h"
+#include "ToolModes/MergeManifestMode.h"
 #include "Interfaces/IBuildPatchServicesModule.h"
 #include "BuildPatchTool.h"
 #include "Misc/CommandLine.h"

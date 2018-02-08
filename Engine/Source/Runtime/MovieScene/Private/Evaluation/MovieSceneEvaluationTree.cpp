@@ -1,15 +1,15 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneEvaluationTree.h"
+#include "Evaluation/MovieSceneEvaluationTree.h"
 #include "CoreMinimal.h"
 #include "Misc/AutomationTest.h"
 #include "Compilation/MovieSceneSegmentCompiler.h"
 #include "Compilation/MovieSceneCompilerRules.h"
 #include "Tests/MovieSceneTestsCommon.h"
-#include "MovieSceneEvaluationField.h"
+#include "Evaluation/MovieSceneEvaluationField.h"
 #include "MovieSceneCommonHelpers.h"
-#include "Package.h"
-#include "Tuple.h"
+#include "UObject/Package.h"
+#include "Templates/Tuple.h"
 
 
 FMovieSceneEvaluationTreeRangeIterator::FMovieSceneEvaluationTreeRangeIterator(const FMovieSceneEvaluationTree& InTree)

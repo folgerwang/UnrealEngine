@@ -3,8 +3,8 @@
 #include "SModifierItemRow.h"
 #include "Widgets/Images/SImage.h"
 #include "Animation/Skeleton.h"
-#include "SImage.h"
-#include "STextBlock.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
 #include "EditorStyleSet.h"
 
 void SModifierItemRow::Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTableView, const ModifierListviewItem& Item)

@@ -394,6 +394,31 @@ public:
 		, bIsRunningMultithreaded(false)
 	{}
 
+	static FString LoadFlagsToString(UObject* Obj)
+	{
+		FString Flags;
+		if (Obj)
+		{
+			if (Obj->HasAnyFlags(RF_NeedLoad))
+			{
+				Flags += TEXT("RF_NeedLoad");
+			}
+			if (Obj->HasAnyFlags(RF_NeedPostLoad))
+			{
+				if (Flags.Len())
+				{
+					Flags += TEXT("|");
+				}
+				Flags += TEXT("RF_NeedPostLoad");
+			}
+		}
+		else
+		{
+			Flags += TEXT("null");
+		}
+		return Flags;
+	}
+
 	FORCEINLINE int32 GetMinDesiredObjectsPerSubTask() const
 	{
 		// We're not running the processor in parallel when creating clusters
@@ -437,8 +462,11 @@ public:
 	void AddObjectToCluster(int32 ObjectIndex, FUObjectItem* ObjectItem, UObject* Obj, TArray<UObject*>& ObjectsToSerialize, bool bOuterAndClass)
 	{
 		// If we haven't finished loading, we can't be sure we know all the references
-		checkf(!Obj->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad), TEXT("%s hasn't been loaded but is being added to cluster %s"), 
-			*Obj->GetFullName(), *GetClusterRoot()->GetFullName());
+		checkf(!Obj->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad), TEXT("%s hasn't been loaded (%s) but is being added to cluster %s"), 
+			*Obj->GetFullName(), 
+			*LoadFlagsToString(Obj),
+			*GetClusterRoot()->GetFullName());
+
 		check(ObjectItem->GetOwnerIndex() == 0 || ObjectItem->GetOwnerIndex() == ClusterRootIndex || ObjectIndex == ClusterRootIndex || GUObjectArray.IsDisregardForGC(Obj));
 		check(Obj->CanBeInCluster());
 		if (ObjectIndex != ClusterRootIndex && ObjectItem->GetOwnerIndex() == 0 && !GUObjectArray.IsDisregardForGC(Obj))
@@ -521,8 +549,10 @@ public:
 		if (Object)
 		{
 			// If we haven't finished loading, we can't be sure we know all the references
-			checkf(!Object->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad), TEXT("%s hasn't been loaded but is being added to cluster %s"),
-				*Object->GetFullName(), *GetClusterRoot()->GetFullName());
+			checkf(!Object->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad), TEXT("%s hasn't been loaded (%s) but is being added to cluster %s"),
+				*Object->GetFullName(), 
+				*LoadFlagsToString(Object),
+				*GetClusterRoot()->GetFullName());
 
 			FUObjectItem* ObjectItem = GUObjectArray.ObjectToObjectItem(Object);
 
@@ -570,8 +600,10 @@ public:
 					}
 					else
 					{
-						checkf(!Object->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad), TEXT("%s hasn't been loaded but is being added to cluster %s"),
-							*Object->GetFullName(), *GetClusterRoot()->GetFullName());
+						checkf(!Object->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad), TEXT("%s hasn't been loaded (%s) but is being added to cluster %s"),
+							*Object->GetFullName(), 
+							*LoadFlagsToString(Object),
+							*GetClusterRoot()->GetFullName());
 
 						Cluster.MutableObjects.AddUnique(GUObjectArray.ObjectToIndex(Object));
 					}
@@ -619,7 +651,7 @@ public:
 };
 
 /** Looks through objects loaded with a package and creates clusters from them */
-void CreateClustersFromPackage(FLinkerLoad* PackageLinker)
+void CreateClustersFromPackage(FLinkerLoad* PackageLinker, TArray<UObject*>& OutClusterObjects)
 {	
 	if (FPlatformProperties::RequiresCookedData() && !GIsInitialLoad && GCreateGCClusters && !GUObjectArray.IsOpenForDisregardForGC() && GUObjectArray.DisregardForGCEnabled() )
 	{
@@ -629,7 +661,7 @@ void CreateClustersFromPackage(FLinkerLoad* PackageLinker)
 		{
 			if (Export.Object && Export.Object->CanBeClusterRoot())
 			{
-				Export.Object->CreateCluster();
+				OutClusterObjects.Add(Export.Object);
 			}
 		}
 	}

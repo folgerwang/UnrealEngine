@@ -1872,7 +1872,7 @@ inline int32 StringToBytes( const FString& String, uint8* OutBytes, int32 MaxBuf
 		CharPos++;
 		++NumBytes;
 	}
-	return NumBytes - 1;
+	return NumBytes;
 }
 
 /** @return Char value of Nibble */

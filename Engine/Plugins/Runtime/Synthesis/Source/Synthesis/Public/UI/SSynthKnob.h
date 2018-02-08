@@ -12,7 +12,7 @@
 #include "Styling/CoreStyle.h"
 #include "Framework/SlateDelegates.h"
 #include "Widgets/SLeafWidget.h"
-#include "SynthKnobStyle.h"
+#include "UI/SynthKnobStyle.h"
 #include "UI/SSynthTooltip.h"
 
 class FPaintArgs;

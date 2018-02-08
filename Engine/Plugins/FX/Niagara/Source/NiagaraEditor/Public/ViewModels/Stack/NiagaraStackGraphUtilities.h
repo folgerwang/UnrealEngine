@@ -4,7 +4,7 @@
 
 #include "NiagaraTypes.h"
 #include "NiagaraCommon.h"
-#include "NiagaraParameterHandle.h"
+#include "ViewModels/Stack/NiagaraParameterHandle.h"
 #include "AssetData.h"
 
 class UEdGraph;

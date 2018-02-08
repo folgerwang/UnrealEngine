@@ -4,8 +4,8 @@
 #include "Math/Sobol.h"
 #include "Math/UnrealMathUtility.h"
 #include "Engine/Texture2D.h"
-#include "Stack.h"
-#include "NoExportTypes.h"
+#include "UObject/Stack.h"
+#include "UObject/NoExportTypes.h"
 
 #define LOCTEXT_NAMESPACE "ImportanceSamplingLibrary"
 

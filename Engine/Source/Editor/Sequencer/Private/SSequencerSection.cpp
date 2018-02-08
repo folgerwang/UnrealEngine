@@ -14,10 +14,10 @@
 #include "ISequencerSection.h"
 #include "ISequencerHotspot.h"
 #include "SequencerHotspots.h"
-#include "SOverlay.h"
+#include "Widgets/SOverlay.h"
 #include "SequencerObjectBindingNode.h"
-#include "FontCache.h"
-#include "SlateApplication.h"
+#include "Fonts/FontCache.h"
+#include "Framework/Application/SlateApplication.h"
 
 double SSequencerSection::SelectionThrobEndTime = 0;
 

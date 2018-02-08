@@ -6,16 +6,16 @@
 
 #include "D3D11RHIPrivate.h"
 #include "Misc/CommandLine.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <delayimp.h>
 	#include "nvapi.h"
 	#include "nvShaderExtnEnums.h"
 	#include "amd_ags.h"
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #include "HardwareInfo.h"
 #include "Runtime/HeadMountedDisplay/Public/IHeadMountedDisplayModule.h"
-#include "GenericPlatformDriver.h"			// FGPUDriverInfo
+#include "GenericPlatform/GenericPlatformDriver.h"			// FGPUDriverInfo
 
 #if NV_AFTERMATH
 // Disabled by default since introduces stalls between render and driver threads

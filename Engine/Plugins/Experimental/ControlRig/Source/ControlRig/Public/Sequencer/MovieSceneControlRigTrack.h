@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "MovieSceneSubTrack.h"
+#include "Tracks/MovieSceneSubTrack.h"
 #include "MovieSceneControlRigTrack.generated.h"
 
 class UControlRigSequence;

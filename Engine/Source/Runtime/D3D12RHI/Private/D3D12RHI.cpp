@@ -10,9 +10,9 @@
 #include "D3D12LLM.h"
 
 #if PLATFORM_WINDOWS
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include "amd_ags.h"
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 #if !UE_BUILD_SHIPPING

@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "RequiredProgramMainCPPInclude.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "UE4EditorServicesAppDelegate.h"
 #include "Misc/CommandLine.h"
 #include "Mac/MacSystemIncludes.h"

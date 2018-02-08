@@ -8,7 +8,7 @@
 #include "Misc/App.h"
 #include "Modules/ModuleManager.h"
 #include "HAL/IPlatformFileModule.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 DEFINE_LOG_CATEGORY(SandboxFile);
 

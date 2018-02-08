@@ -2,9 +2,9 @@
 
 #include "GenericPlatform/GenericPlatformHttp.h"
 #include "Interfaces/IHttpRequest.h"
-#include "Paths.h"
-#include "EngineVersion.h"
-#include "App.h"
+#include "Misc/Paths.h"
+#include "Misc/EngineVersion.h"
+#include "Misc/App.h"
 
 /**
  * A generic http request
@@ -13,30 +13,30 @@ class FGenericPlatformHttpRequest : public IHttpRequest
 {
 public:
 	// IHttpBase
-	virtual FString GetURL() override { return TEXT(""); }
-	virtual FString GetURLParameter(const FString& ParameterName) override { return TEXT(""); }
-	virtual FString GetHeader(const FString& HeaderName) override { return TEXT(""); }
-	virtual TArray<FString> GetAllHeaders() override { return TArray<FString>(); }
-	virtual FString GetContentType() override { return TEXT(""); }
-	virtual int32 GetContentLength() override { return 0; }
-	virtual const TArray<uint8>& GetContent() override { static TArray<uint8> Temp; return Temp; }
+	virtual FString GetURL() const override { return TEXT(""); }
+	virtual FString GetURLParameter(const FString& ParameterName) const override { return TEXT(""); }
+	virtual FString GetHeader(const FString& HeaderName) const override { return TEXT(""); }
+	virtual TArray<FString> GetAllHeaders() const override { return TArray<FString>(); }
+	virtual FString GetContentType() const override { return TEXT(""); }
+	virtual int32 GetContentLength() const override { return 0; }
+	virtual const TArray<uint8>& GetContent() const override { static TArray<uint8> Temp; return Temp; }
 
 	// IHttpRequest
-	virtual FString GetVerb() override { return TEXT(""); }
+	virtual FString GetVerb() const override { return TEXT(""); }
 	virtual void SetVerb(const FString& Verb) override {}
 	virtual void SetURL(const FString& URL) override {}
 	virtual void SetContent(const TArray<uint8>& ContentPayload) override {}
 	virtual void SetContentAsString(const FString& ContentString) override {}
 	virtual void SetHeader(const FString& HeaderName, const FString& HeaderValue) override {}
-	virtual void AppendToHeader(const FString& HeaderName, const FString& AdditionalHeaderValue) override {};
+	virtual void AppendToHeader(const FString& HeaderName, const FString& AdditionalHeaderValue) override {}
 	virtual bool ProcessRequest() override { return false; }
 	virtual FHttpRequestCompleteDelegate& OnProcessRequestComplete() override { static FHttpRequestCompleteDelegate RequestCompleteDelegate; return RequestCompleteDelegate; }
 	virtual FHttpRequestProgressDelegate& OnRequestProgress() override { static FHttpRequestProgressDelegate RequestProgressDelegate; return RequestProgressDelegate; }
 	virtual void CancelRequest() override {}
-	virtual EHttpRequestStatus::Type GetStatus() override { return EHttpRequestStatus::NotStarted; }
+	virtual EHttpRequestStatus::Type GetStatus() const override { return EHttpRequestStatus::NotStarted; }
 	virtual const FHttpResponsePtr GetResponse() const override { return nullptr; }
 	virtual void Tick(float DeltaSeconds) override {}
-	virtual float GetElapsedTime() override { return 0.0f; }
+	virtual float GetElapsedTime() const override { return 0.0f; }
 };
 
 

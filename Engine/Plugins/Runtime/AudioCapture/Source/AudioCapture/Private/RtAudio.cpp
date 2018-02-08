@@ -1,4 +1,4 @@
-﻿/************************************************************************/
+/************************************************************************/
 /*! \class RtAudio
     \brief Realtime audio i/o C++ classes.
 
@@ -60,7 +60,7 @@ const unsigned int RtApi::SAMPLE_RATES[] = {
 
 #if defined(__WINDOWS_DS__) || defined(__WINDOWS_ASIO__) || defined(__WINDOWS_WASAPI__)
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #pragma warning ( disable : 6387 )
 
 #define DISABLE_THROW 1
@@ -6742,7 +6742,7 @@ static const char* getErrorString( int code )
   }
 }
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 //******************** End of __WINDOWS_DS__ *********************//
 #endif

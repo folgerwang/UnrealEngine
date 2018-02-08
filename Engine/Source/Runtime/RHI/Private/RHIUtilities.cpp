@@ -8,8 +8,8 @@ RHIUtilities.cpp:
 #include "HAL/PlatformStackWalk.h"
 #include "HAL/IConsoleManager.h"
 #include "RHI.h"
-#include "Runnable.h"
-#include "RunnableThread.h"
+#include "HAL/Runnable.h"
+#include "HAL/RunnableThread.h"
 
 #define USE_FRAME_OFFSET_THREAD 1
 

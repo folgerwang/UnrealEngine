@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AppleMoviePlayer.h"
-#include "ModuleInterface.h"
+#include "Modules/ModuleInterface.h"
 #include "MoviePlayer.h"
 #include "AppleMovieStreamer.h"
 

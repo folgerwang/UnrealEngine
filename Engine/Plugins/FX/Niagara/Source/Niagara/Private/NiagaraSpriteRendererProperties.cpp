@@ -2,7 +2,7 @@
 
 #include "NiagaraSpriteRendererProperties.h"
 #include "NiagaraRenderer.h"
-#include "Internationalization.h"
+#include "Internationalization/Internationalization.h"
 #include "NiagaraConstants.h"
 
 #define LOCTEXT_NAMESPACE "UNiagaraSpriteRendererProperties"

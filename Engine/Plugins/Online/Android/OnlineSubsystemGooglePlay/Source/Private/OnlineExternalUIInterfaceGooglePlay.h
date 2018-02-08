@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "OnlineDelegateMacros.h"
-#include "OnlineExternalUIInterface.h"
+#include "Interfaces/OnlineExternalUIInterface.h"
 #include "OnlineSubsystemGooglePlayPackage.h"
 
 class FOnlineSubsystemGooglePlay;

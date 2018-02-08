@@ -2,7 +2,7 @@
 
 #include "LocationServicesIOSEditor.h"
 #include "LocationServicesIOSSettings.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "UObject/Class.h"
 #include "UObject/WeakObjectPtr.h"
 

@@ -51,12 +51,12 @@
 #include "UObject/TextProperty.h"
 #include "UObject/MetaData.h"
 #include "HAL/LowLevelMemTracker.h"
-#include "CoreDelegates.h"
+#include "Misc/CoreDelegates.h"
 
 DEFINE_LOG_CATEGORY(LogUObjectGlobals);
 
 #if USE_MALLOC_PROFILER
-#include "MallocProfiler.h"
+#include "ProfilingDebugging/MallocProfiler.h"
 #endif
 
 bool						GIsSavingPackage = false;
@@ -993,7 +993,7 @@ UClass* StaticLoadClass( UClass* BaseClass, UObject* InOuter, const TCHAR* InNam
 }
 
 #if WITH_EDITOR
-#include "StackTracker.h"
+#include "Containers/StackTracker.h"
 class FDiffFileArchive : public FArchiveProxy
 {
 private:

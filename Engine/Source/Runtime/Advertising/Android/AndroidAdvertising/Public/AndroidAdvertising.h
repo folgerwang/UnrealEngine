@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "IAdvertisingProvider.h"
+#include "Interfaces/IAdvertisingProvider.h"
 
 class FAndroidAdvertisingProvider : public IAdvertisingProvider
 {

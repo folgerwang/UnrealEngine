@@ -1,17 +1,17 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "IOSView.h"
-#include "IOSAppDelegate.h"
-#include "IOSApplication.h"
+#include "IOS/IOSView.h"
+#include "IOS/IOSAppDelegate.h"
+#include "IOS/IOSApplication.h"
 #include "IOS/IOSInputInterface.h"
 #include "Delegates/Delegate.h"
 #include "Misc/ConfigCacheIni.h"
 #include "HAL/IConsoleManager.h"
 #include "Misc/CommandLine.h"
-#include "IOSPlatformProcess.h"
+#include "IOS/IOSPlatformProcess.h"
 
 #include <OpenGLES/ES2/gl.h>
-#import "IOSAsyncTask.h"
+#import "IOS/IOSAsyncTask.h"
 #import <QuartzCore/QuartzCore.h>
 #import <OpenGLES/EAGLDrawable.h>
 #import <UIKit/UIGeometry.h>

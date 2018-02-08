@@ -160,7 +160,7 @@ namespace UnrealBuildTool
 					&& Target.bBuildDeveloperTools)
 					|| (Target.bForceBuildTargetPlatforms && ModuleName == "TargetPlatform"))
 				{
-					Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("HTML5TargetPlatform");
+					Rules.DynamicallyLoadedModuleNames.Add("HTML5TargetPlatform");
 				}
 			}
 		}

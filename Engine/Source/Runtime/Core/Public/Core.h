@@ -140,7 +140,7 @@ MONOLITHIC_HEADER_BOILERPLATE()
 #include "UObject/NameTypes.h"
 #include "Math/IntPoint.h"
 #include "Misc/StructBuilder.h"
-#include "Containers/Algo/Reverse.h"
+#include "Algo/Reverse.h"
 #include "HAL/Event.h"
 #include "Misc/ScopedEvent.h"
 #include "HAL/Runnable.h"

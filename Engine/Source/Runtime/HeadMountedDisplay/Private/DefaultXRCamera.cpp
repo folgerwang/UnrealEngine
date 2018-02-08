@@ -4,7 +4,7 @@
 #include "GameFramework/PlayerController.h"
 #include "RendererPrivate.h"
 #include "ScenePrivate.h"
-#include "SceneViewport.h"
+#include "Slate/SceneViewport.h"
 #include "StereoRendering.h"
 #include "StereoRenderTargetManager.h"
 #include "IHeadMountedDisplay.h"

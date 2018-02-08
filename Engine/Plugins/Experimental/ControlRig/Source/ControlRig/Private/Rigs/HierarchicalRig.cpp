@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "HierarchicalRig.h"
+#include "Rigs/HierarchicalRig.h"
 #include "Engine/SkeletalMesh.h"
 #include "AnimationRuntime.h"
 #include "AnimationCoreLibrary.h"

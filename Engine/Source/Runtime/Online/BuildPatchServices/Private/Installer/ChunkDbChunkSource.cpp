@@ -5,7 +5,7 @@
 #include "Async/Async.h"
 #include "HAL/ThreadSafeBool.h"
 #include "Containers/Queue.h"
-#include "Containers/Algo/Transform.h"
+#include "Algo/Transform.h"
 #include "Core/Platform.h"
 #include "Common/FileSystem.h"
 #include "Common/StatsCollector.h"
@@ -16,7 +16,7 @@
 #include "Installer/InstallerError.h"
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 namespace ChunkDbSourceHelpers
 {
 	int32 DisableOsIntervention()

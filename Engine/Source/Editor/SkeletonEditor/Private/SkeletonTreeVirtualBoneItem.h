@@ -13,7 +13,7 @@
 #include "SkeletonTreeItem.h"
 #include "IEditableSkeleton.h"
 #include "BoneProxy.h"
-#include "GCObject.h"
+#include "UObject/GCObject.h"
 
 class SInlineEditableTextBlock;
 

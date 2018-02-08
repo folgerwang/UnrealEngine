@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "DetailCustomizations.h"
-#include "SharedPointer.h"
+#include "Templates/SharedPointer.h"
 #include "Modules/ModuleManager.h"
 #include "PropertyEditorModule.h"
 #include "StaticMeshComponentDetails.h"
@@ -42,7 +42,7 @@
 #include "DialogueStructsCustomizations.h"
 #include "DataTableCustomization.h"
 #include "DataTableCategoryCustomization.h"
-#include "CurveTableCustomization.h"
+#include "Customizations/CurveTableCustomization.h"
 #include "DialogueWaveDetails.h"
 #include "BodySetupDetails.h"
 #include "Customizations/SlateBrushCustomization.h"

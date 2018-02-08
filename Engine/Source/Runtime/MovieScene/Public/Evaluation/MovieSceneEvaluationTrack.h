@@ -12,7 +12,7 @@
 #include "Evaluation/MovieSceneEvalTemplate.h"
 #include "Compilation/MovieSceneSegmentCompiler.h"
 #include "Evaluation/MovieSceneTrackImplementation.h"
-#include "MovieSceneEvaluationTree.h"
+#include "Evaluation/MovieSceneEvaluationTree.h"
 #include "MovieSceneEvaluationTrack.generated.h"
 
 struct FMovieSceneInterrogationData;

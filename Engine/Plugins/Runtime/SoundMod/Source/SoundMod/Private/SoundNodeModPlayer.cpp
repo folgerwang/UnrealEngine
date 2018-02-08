@@ -4,7 +4,7 @@
 #include "Audio.h"
 #include "SoundMod.h"
 #include "ActiveSound.h"
-#include "FrameworkObjectVersion.h"
+#include "UObject/FrameworkObjectVersion.h"
 
 #define LOCTEXT_NAMESPACE "SoundNodeModPlayer"
 

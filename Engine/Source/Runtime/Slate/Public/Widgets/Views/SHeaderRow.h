@@ -12,7 +12,7 @@
 #include "Styling/CoreStyle.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Styling/SlateWidgetStyleAsset.h"
-#include "SSplitter.h"
+#include "Widgets/Layout/SSplitter.h"
 
 class SScrollBar;
 

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "IInputDeviceModule.h"
 
 #define GOOGLEVRCONTROLLER_SUPPORTED_ANDROID_PLATFORMS (PLATFORM_ANDROID)

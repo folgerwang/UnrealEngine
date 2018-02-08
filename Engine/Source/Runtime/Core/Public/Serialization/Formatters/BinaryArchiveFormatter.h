@@ -3,7 +3,7 @@
 #pragma once
 
 #include "Serialization/StructuredArchiveFormatter.h"
-#include "Archive.h"
+#include "Serialization/Archive.h"
 #include "Containers/Array.h"
 
 class CORE_API FBinaryArchiveFormatter final : public FStructuredArchiveFormatter

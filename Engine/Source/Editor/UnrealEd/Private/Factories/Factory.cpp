@@ -423,7 +423,7 @@ UObject* UFactory::StaticImportObject
 
 	if ((Result == nullptr) && !bOutOperationCanceled)
 	{
-		Warn->Logf(*FText::Format(NSLOCTEXT("UnrealEd", "ImportFailed", "Failed to import file '{0}'"), FText::FromString(FString(Filename))).ToString());
+		Warn->Log(*FText::Format(NSLOCTEXT("UnrealEd", "ImportFailed", "Failed to import file '{0}'"), FText::FromString(FString(Filename))).ToString());
 	}
 
 	return Result;

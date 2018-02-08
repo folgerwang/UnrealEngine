@@ -7,7 +7,7 @@
 #include "GenericPlatform/GenericPlatformFile.h"
 #include "Templates/ScopedPointer.h"
 #include "Misc/Paths.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 class IAsyncReadFileHandle;
 

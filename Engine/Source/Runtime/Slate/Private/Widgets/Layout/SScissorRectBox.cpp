@@ -4,7 +4,7 @@
 #include "Types/PaintArgs.h"
 #include "Layout/ArrangedChildren.h"
 #include "Rendering/RenderingCommon.h"
-#include "IConsoleManager.h"
+#include "HAL/IConsoleManager.h"
 
 namespace Slate
 {

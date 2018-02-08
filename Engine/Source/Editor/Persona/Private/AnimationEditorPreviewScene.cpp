@@ -24,7 +24,7 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "Factories/PreviewMeshCollectionFactory.h"
 #include "AnimPreviewAttacheInstance.h"
-#include "PreviewCollectionInterface.h"
+#include "Animation/PreviewCollectionInterface.h"
 #include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "AnimationEditorPreviewScene"

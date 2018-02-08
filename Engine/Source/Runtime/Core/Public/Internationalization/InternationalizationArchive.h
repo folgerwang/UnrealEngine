@@ -10,7 +10,7 @@
 #include "Containers/Map.h"
 #include "Templates/SharedPointer.h"
 #include "Internationalization/InternationalizationManifest.h"
-#include "LocKeyFuncs.h"
+#include "Internationalization/LocKeyFuncs.h"
 
 class FLocMetadataObject;
 

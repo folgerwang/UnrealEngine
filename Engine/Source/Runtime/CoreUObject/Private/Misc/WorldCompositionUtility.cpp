@@ -10,7 +10,7 @@
 #include "Serialization/ArchiveAsync.h"
 #include "UObject/PackageFileSummary.h"
 #include "UObject/Linker.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 FArchive& operator<<( FArchive& Ar, FWorldTileLayer& D )
 {

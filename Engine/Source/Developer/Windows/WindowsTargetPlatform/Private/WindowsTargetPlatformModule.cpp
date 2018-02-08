@@ -4,7 +4,7 @@
 #include "ISettingsModule.h"
 #include "Interfaces/ITargetPlatformModule.h"
 #include "GenericWindowsTargetPlatform.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "UObject/Package.h"
 #include "UObject/WeakObjectPtr.h"
 

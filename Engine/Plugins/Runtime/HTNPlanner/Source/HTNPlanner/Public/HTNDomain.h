@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ObjectMacros.h"
+#include "UObject/ObjectMacros.h"
 
 #define WITH_HTN_DEBUG !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 

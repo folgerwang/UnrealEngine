@@ -32,17 +32,17 @@ public:
 
 
 	//~ Begin IHttpBase Interface
-	virtual FString GetURL() override;
-	virtual FString GetURLParameter(const FString& ParameterName) override;
-	virtual FString GetHeader(const FString& HeaderName) override;
-	virtual TArray<FString> GetAllHeaders() override;	
-	virtual FString GetContentType() override;
-	virtual int32 GetContentLength() override;
-	virtual const TArray<uint8>& GetContent() override;
+	virtual FString GetURL() const override;
+	virtual FString GetURLParameter(const FString& ParameterName) const override;
+	virtual FString GetHeader(const FString& HeaderName) const override;
+	virtual TArray<FString> GetAllHeaders() const override;	
+	virtual FString GetContentType() const override;
+	virtual int32 GetContentLength() const override;
+	virtual const TArray<uint8>& GetContent() const override;
 	//~ End IHttpBase Interface
 
 	//~ Begin IHttpRequest Interface
-	virtual FString GetVerb() override;
+	virtual FString GetVerb() const override;
 	virtual void SetVerb(const FString& Verb) override;
 	virtual void SetURL(const FString& URL) override;
 	virtual void SetContent(const TArray<uint8>& ContentPayload) override;
@@ -53,10 +53,10 @@ public:
 	virtual FHttpRequestCompleteDelegate& OnProcessRequestComplete() override;
 	virtual FHttpRequestProgressDelegate& OnRequestProgress() override;
 	virtual void CancelRequest() override;
-	virtual EHttpRequestStatus::Type GetStatus() override;
+	virtual EHttpRequestStatus::Type GetStatus() const override;
 	virtual const FHttpResponsePtr GetResponse() const override;
 	virtual void Tick(float DeltaSeconds) override;
-	virtual float GetElapsedTime() override;
+	virtual float GetElapsedTime() const override;
 	//~ End IHttpRequest Interface
 
 
@@ -97,7 +97,7 @@ private:
 	TSharedPtr<class FAppleHttpResponse,ESPMode::ThreadSafe> Response;
 
 	/** BYTE array payload to use with the request. Typically for a POST */
-	TArray<uint8> RequestPayload;
+	mutable TArray<uint8> RequestPayload;
 
 	/** Delegate that will get called once request completes or on any error */
 	FHttpRequestCompleteDelegate RequestCompleteDelegate;
@@ -171,31 +171,31 @@ public:
 
 
 	//~ Begin IHttpBase Interface
-	virtual FString GetURL() override;
-	virtual FString GetURLParameter(const FString& ParameterName) override;
-	virtual FString GetHeader(const FString& HeaderName) override;
-	virtual TArray<FString> GetAllHeaders() override;	
-	virtual FString GetContentType() override;
-	virtual int32 GetContentLength() override;
-	virtual const TArray<uint8>& GetContent() override;
+	virtual FString GetURL() const override;
+	virtual FString GetURLParameter(const FString& ParameterName) const override;
+	virtual FString GetHeader(const FString& HeaderName) const override;
+	virtual TArray<FString> GetAllHeaders() const override;	
+	virtual FString GetContentType() const override;
+	virtual int32 GetContentLength() const override;
+	virtual const TArray<uint8>& GetContent() const override;
 	//~ End IHttpBase Interface
 
 	//~ Begin IHttpResponse Interface
-	virtual int32 GetResponseCode() override;
-	virtual FString GetContentAsString() override;
+	virtual int32 GetResponseCode() const override;
+	virtual FString GetContentAsString() const override;
 	//~ End IHttpResponse Interface
 
-	NSHTTPURLResponse* GetResponseObj();
+	NSHTTPURLResponse* GetResponseObj() const;
 
 	/**
 	 * Check whether a response is ready or not.
 	 */
-	bool IsReady();
+	bool IsReady() const;
 	
 	/**
 	 * Check whether a response had an error.
 	 */
-	bool HadError();
+	bool HadError() const;
 
 	/**
 	 * Get the number of bytes received so far
@@ -223,5 +223,5 @@ public:
 private:
 
 	/** BYTE array to fill in as the response is read via didReceiveData */
-	TArray<uint8> Payload;
+	mutable TArray<uint8> Payload;
 };

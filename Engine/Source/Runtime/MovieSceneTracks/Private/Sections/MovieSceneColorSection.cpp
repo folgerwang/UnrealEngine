@@ -2,7 +2,7 @@
 
 #include "Sections/MovieSceneColorSection.h"
 #include "UObject/StructOnScope.h"
-#include "SequencerObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
 
 /* FMovieSceneColorKeyStruct interface
  *****************************************************************************/

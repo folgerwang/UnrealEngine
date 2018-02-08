@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "Modules/ModuleInterface.h"
 #include "ControlRigBlueprintCompiler.h"
 #include "UObject/WeakObjectPtr.h"
 

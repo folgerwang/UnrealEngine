@@ -4,7 +4,7 @@
 	IOSPlatformMemory.cpp: IOS platform memory functions
 =============================================================================*/
 
-#include "IOSPlatformMemory.h"
+#include "IOS/IOSPlatformMemory.h"
 #include "Misc/CoreStats.h"
-#include "MallocBinned.h"
-#include "MallocAnsi.h"
+#include "HAL/MallocBinned.h"
+#include "HAL/MallocAnsi.h"

@@ -8,7 +8,7 @@
 /**
  * Stores a record of a built target, with all metadata that other tools may need to know about the build.
  */
-class PROJECTS_API FModuleManifest
+class CORE_API FModuleManifest
 {
 public:
 	FString BuildId;
@@ -39,11 +39,13 @@ public:
 /**
  * Adapter for the module manager to be able to read and Enumerates the contents Stores a record of a built target, with all metadata that other tools may need to know about the build.
  */
-class PROJECTS_API FModuleEnumerator
+class CORE_API FModuleEnumerator
 {
 public:
-	FModuleEnumerator(const FString& InBuildId);
+	explicit FModuleEnumerator(const FString& InBuildId);
+#if !IS_MONOLITHIC
 	bool RegisterWithModuleManager();
+#endif
 
 private:
 	const FString BuildId;

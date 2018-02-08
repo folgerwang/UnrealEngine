@@ -5,7 +5,7 @@
 
 #if PLATFORM_ANDROID
 #include "Android/AndroidJNI.h"
-#include "AndroidApplication.h"
+#include "Android/AndroidApplication.h"
 #endif
 
 static UAndroidPermissionCallbackProxy *pProxy = NULL;

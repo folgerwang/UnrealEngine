@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateViewerApp.h"
-#include "ExceptionHandling.h"
-#include "CocoaThread.h"
+#include "HAL/ExceptionHandling.h"
+#include "Mac/CocoaThread.h"
 
 static FString GSavedCommandLine;
 

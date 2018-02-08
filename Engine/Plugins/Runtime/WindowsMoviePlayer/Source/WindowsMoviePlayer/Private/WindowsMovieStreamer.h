@@ -5,8 +5,8 @@
 #include "CoreMinimal.h"
 #include "MoviePlayer.h"
 
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <mfapi.h>
 #include <mfidl.h>
 
@@ -185,4 +185,4 @@ private:
 	TArray<uint8>& TextureData;
 };
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"

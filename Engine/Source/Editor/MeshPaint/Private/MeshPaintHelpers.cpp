@@ -20,7 +20,7 @@
 #include "GenericOctree.h"
 #include "Utils.h"
 
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 #include "SImportVertexColorOptions.h"
 #include "EditorViewportClient.h"
 #include "Interfaces/IMainFrameModule.h"
@@ -45,8 +45,8 @@
 #include "VREditorInteractor.h"
 #include "EditorWorldExtension.h"
 
-#include "ParallelFor.h"
-#include "SkeletalMeshModel.h"
+#include "Async/ParallelFor.h"
+#include "Rendering/SkeletalMeshModel.h"
 
 void MeshPaintHelpers::RemoveInstanceVertexColors(UObject* Obj)
 {

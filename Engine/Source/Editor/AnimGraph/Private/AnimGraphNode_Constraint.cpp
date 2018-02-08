@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimGraphNode_Constraint.h"
-#include "CompilerResultsLog.h"
+#include "Kismet2/CompilerResultsLog.h"
 #include "AnimNodeEditModes.h"
 #include "Animation/AnimInstance.h"
 #include "Components/SkeletalMeshComponent.h"

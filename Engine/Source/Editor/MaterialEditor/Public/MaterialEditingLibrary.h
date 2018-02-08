@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "Classes/Kismet/BlueprintFunctionLibrary.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "Materials/MaterialInterface.h"
 #include "SceneTypes.h"
 

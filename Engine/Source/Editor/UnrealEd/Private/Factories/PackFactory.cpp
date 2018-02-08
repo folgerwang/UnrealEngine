@@ -32,9 +32,9 @@
 #include "Misc/AES.h"
 #include "GameProjectGenerationModule.h"
 #include "Dialogs/SOutputLogDialog.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "Logging/MessageLog.h"
-#include "CoreDelegates.h"
+#include "Misc/CoreDelegates.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPackFactory, Log, All);
 

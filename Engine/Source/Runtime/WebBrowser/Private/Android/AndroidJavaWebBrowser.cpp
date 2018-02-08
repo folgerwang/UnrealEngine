@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidJavaWebBrowser.h"
-#include "AndroidApplication.h"
+#include "Android/AndroidApplication.h"
 
 #if UE_BUILD_SHIPPING
 // always clear any exceptions in SHipping

@@ -2,10 +2,10 @@
 
 #pragma once
  
-#include "OnlineIdentityInterface.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 #include "OnlineSubsystemGoogleTypes.h"
 #include "OnlineJsonSerializer.h"
-#include "IHttpRequest.h"
+#include "Interfaces/IHttpRequest.h"
 #include "OnlineSubsystemGooglePackage.h"
 
 // Google scope fields

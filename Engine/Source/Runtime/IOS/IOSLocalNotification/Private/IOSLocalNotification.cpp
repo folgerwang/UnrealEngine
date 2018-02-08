@@ -10,8 +10,8 @@
 
 #include "IOSLocalNotification.h"
 
-#include "IOSApplication.h"
-#include "IOSAppDelegate.h"
+#include "IOS/IOSApplication.h"
+#include "IOS/IOSAppDelegate.h"
 
 #include "Modules/ModuleManager.h"
 

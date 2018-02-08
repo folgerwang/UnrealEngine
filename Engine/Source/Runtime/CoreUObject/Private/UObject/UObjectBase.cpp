@@ -17,7 +17,7 @@
 #include "UObject/Package.h"
 #include "Templates/Casts.h"
 #include "UObject/GCObject.h"
-#include "LinkerLoad.h"
+#include "UObject/LinkerLoad.h"
 #include "Misc/CommandLine.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUObjectBase, Log, All);
@@ -657,21 +657,9 @@ void UObjectCompiledInDefer(UClass *(*InRegister)(), UClass *(*InStaticClass)(),
 	if (!bDynamic)
 	{
 #if WITH_HOT_RELOAD
-		UClass* ClassToHotReload = nullptr;
-		bool    bFound           = false;
-
 		// Either add all classes if not hot-reloading, or those which have changed
 		TMap<FName, FFieldCompiledInInfo*>& DeferMap = GetDeferRegisterClassMap();
-		if (GIsHotReload)
-		{
-			FFieldCompiledInInfo* FoundInfo = DeferMap.FindChecked(Name);
-			if (FoundInfo->bHasChanged)
-			{
-				bFound = true;
-				ClassToHotReload = FoundInfo->OldClass;
-			}
-		}
-		if (!GIsHotReload || bFound)
+		if (!GIsHotReload || DeferMap.FindChecked(Name)->bHasChanged)
 #endif
 		{
 			FString NoPrefix(RemoveClassPrefix(Name));
@@ -680,22 +668,6 @@ void UObjectCompiledInDefer(UClass *(*InRegister)(), UClass *(*InStaticClass)(),
 
 			TArray<UClass *(*)()>& DeferredCompiledInRegistration = GetDeferredCompiledInRegistration();
 			checkSlow(!DeferredCompiledInRegistration.Contains(InRegister));
-
-#if WITH_HOT_RELOAD
-			// Mark existing class as no longer constructed and collapse the Children list so that it gets rebuilt upon registration
-			if (ClassToHotReload)
-			{
-				ClassToHotReload->ClassFlags &= ~CLASS_Constructed;
-				for (UField* Child = ClassToHotReload->Children; Child; )
-				{
-					UField* NextChild = Child->Next;
-					Child->Next = nullptr;
-					Child = NextChild;
-				}
-				ClassToHotReload->Children = nullptr;
-			}
-#endif
-
 			DeferredCompiledInRegistration.Add(InRegister);
 		}
 	}

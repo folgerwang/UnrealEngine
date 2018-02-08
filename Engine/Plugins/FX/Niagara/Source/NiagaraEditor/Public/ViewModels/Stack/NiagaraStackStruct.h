@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "NiagaraStackEntry.h"
-#include "StructOnScope.h"
+#include "ViewModels/Stack/NiagaraStackEntry.h"
+#include "UObject/StructOnScope.h"
 #include "PropertyEditorDelegates.h"
 #include "NiagaraStackStruct.generated.h"
 

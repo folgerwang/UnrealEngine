@@ -9,7 +9,7 @@
 
 #include "OpenGLDrvPrivate.h"
 
-#include "AndroidApplication.h"
+#include "Android/AndroidApplication.h"
 #include "AndroidOpenGLPrivate.h"
 #include <dlfcn.h>
 #include <android/log.h>

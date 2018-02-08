@@ -3,7 +3,7 @@
 #include "VisualStudioSourceCodeAccessor.h"
 #include "VisualStudioSourceCodeAccessModule.h"
 #include "ISourceCodeAccessModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "IDesktopPlatform.h"
 #include "DesktopPlatformModule.h"
 #include "Misc/FileHelper.h"
@@ -17,9 +17,9 @@
 #include "Developer/HotReload/Public/IHotReload.h"
 #endif
 
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
-#include "AllowWindowsPlatformAtomics.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformAtomics.h"
 #include <unknwn.h>
 #include "Windows/COMPointer.h"
 #if VSACCESSOR_HAS_DTE
@@ -38,8 +38,8 @@
 	#include <tlhelp32.h>
 	#include <wbemidl.h>
 	#pragma comment(lib, "wbemuuid.lib")
-#include "HideWindowsPlatformAtomics.h"
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformAtomics.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogVSAccessor, Log, All);
 

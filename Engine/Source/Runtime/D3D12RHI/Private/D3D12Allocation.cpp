@@ -16,7 +16,7 @@
 #endif
 
 #if PIX_MEMORY_PROFILING
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <windows.h>
 #include <pixmemory.h>
 #endif
@@ -1472,5 +1472,5 @@ void* FD3D12FastConstantAllocator::Allocate(uint32 Bytes, FD3D12ResourceLocation
 }
 
 #if PIX_MEMORY_PROFILING
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif

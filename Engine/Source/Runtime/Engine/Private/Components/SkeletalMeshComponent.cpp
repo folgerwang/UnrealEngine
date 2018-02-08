@@ -30,14 +30,14 @@
 #include "Animation/AnimNode_SubInput.h"
 
 #include "PhysXIncludes.h"
-#include "ScopeExit.h"
+#include "Misc/ScopeExit.h"
 #include "ClothingSimulationFactoryInterface.h"
 #include "ClothingSimulationInterface.h"
 #include "ClothingSimulationInteractor.h"
 #include "Features/IModularFeatures.h"
 #include "Misc/RuntimeErrors.h"
-#include "AnimPhysObjectVersion.h"
-#include "ScopeExit.h"
+#include "UObject/AnimPhysObjectVersion.h"
+#include "Misc/ScopeExit.h"
 
 
 #define LOCTEXT_NAMESPACE "SkeletalMeshComponent"

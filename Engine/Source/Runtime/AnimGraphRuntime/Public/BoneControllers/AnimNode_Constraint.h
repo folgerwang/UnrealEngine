@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "AnimNode_SkeletalControlBase.h"
+#include "BoneControllers/AnimNode_SkeletalControlBase.h"
 #include "Constraint.h"
 #include "AnimNode_Constraint.generated.h"
 

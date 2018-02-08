@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "ObjectMacros.h"
+#include "UObject/ObjectMacros.h"
 #include "Engine/Texture2D.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "ImportanceSamplingLibrary.generated.h"

@@ -470,7 +470,7 @@ namespace UnrealBuildTool
 				case UnrealTargetPlatform.Win64:
 					return ";";
 				default:
-					Log.TraceWarning("PATH var delimiter unknown for platform " + BuildHostPlatform.Current.Platform.ToString() + " using ';'");
+					Log.TraceWarning("PATH variable delimiter unknown for platform " + BuildHostPlatform.Current.Platform.ToString() + " using ';'");
 					return ";";
 			}
 		}

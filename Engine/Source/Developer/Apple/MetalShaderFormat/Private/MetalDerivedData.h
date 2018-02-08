@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 
-#include "SecureHash.h"
+#include "Misc/SecureHash.h"
 #include "DerivedDataPluginInterface.h"
 #include "ShaderCompilerCommon.h"
 #include "HlslccDefinitions.h"

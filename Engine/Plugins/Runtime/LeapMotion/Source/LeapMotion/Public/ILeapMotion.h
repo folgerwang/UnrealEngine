@@ -3,8 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ModuleManager.h"
-#include "ModuleInterface.h"
+#include "Modules/ModuleManager.h"
+#include "Modules/ModuleInterface.h"
 #include "InputCoreTypes.h"
 #include "Leap_NoPI.h"
 

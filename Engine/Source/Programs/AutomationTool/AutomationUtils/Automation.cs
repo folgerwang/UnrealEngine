@@ -425,7 +425,7 @@ AutomationTool.exe [-verbose] [-compileonly] [-p4] Command0 [-Arg0 -Arg1 -Arg2 â
 		/// Main method.
 		/// </summary>
 		/// <param name="Arguments">Command line</param>
-		public static ExitCode Process(string[] Arguments)
+		public static ExitCode Process(string[] Arguments, StartupTraceListener StartupListener)
 		{
 			// Initial check for local or build machine runs BEFORE we parse the command line (We need this value set
 			// in case something throws the exception while parsing the command line)
@@ -475,6 +475,11 @@ AutomationTool.exe [-verbose] [-compileonly] [-p4] Command0 [-Arg0 -Arg1 -Arg2 â
 			{
 				bIsEngineInstalled = GlobalCommandLine.InstalledEngine;
 			}
+
+			// Create the log file, and flush the startup listener to it
+			TraceListener LogTraceListener = LogUtils.AddLogFileListener(CommandUtils.CmdEnv.LogFolder, CommandUtils.CmdEnv.FinalLogFolder);
+			StartupListener.CopyTo(LogTraceListener);
+			Trace.Listeners.Remove(StartupListener);
 
 			// Initialize UBT
 			if(!UnrealBuildTool.PlatformExports.Initialize(bIsEngineInstalled.Value))

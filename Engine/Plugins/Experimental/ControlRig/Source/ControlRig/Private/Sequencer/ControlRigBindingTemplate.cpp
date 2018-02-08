@@ -1,14 +1,14 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "ControlRigBindingTemplate.h"
+#include "Sequencer/ControlRigBindingTemplate.h"
 #include "MovieSceneSequence.h"
 #include "Sections/MovieSceneSpawnSection.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 #include "IMovieScenePlayer.h"
 #include "ControlRig.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "ControlRigSequencerAnimInstance.h"
-#include "MovieSceneControlRigInstanceData.h"
+#include "Sequencer/MovieSceneControlRigInstanceData.h"
 
 DECLARE_CYCLE_STAT(TEXT("Binding Track Evaluate"), MovieSceneEval_BindControlRigTemplate_Evaluate, STATGROUP_MovieSceneEval);
 DECLARE_CYCLE_STAT(TEXT("Binding Track Token Execute"), MovieSceneEval_BindControlRig_TokenExecute, STATGROUP_MovieSceneEval);

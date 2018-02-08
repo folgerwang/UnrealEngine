@@ -15,7 +15,7 @@
 #include "Misc/ScopeLock.h"
 #include "PipelineStateCache.h"
 #include "RHIStaticStates.h"
-#include "Class.h"
+#include "UObject/Class.h"
 #endif
 
 #include "AvfMediaTextureSample.h"

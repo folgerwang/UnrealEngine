@@ -2,7 +2,7 @@
 
 #include "NiagaraConstants.h"
 
-#include "Internationalization.h"
+#include "Internationalization/Internationalization.h"
 
 #define LOCTEXT_NAMESPACE "FNiagaraConstants"
 

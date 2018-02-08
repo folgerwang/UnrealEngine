@@ -6,7 +6,7 @@
 
 #include "ISettingsModule.h"
 #include "Engine/World.h"
-#include "SlateStyleRegistry.h"
+#include "Styling/SlateStyleRegistry.h"
 #include "Kismet/GameplayStatics.h"
 #include "Async/Async.h"
 #include "UnrealEdGlobals.h"
@@ -14,8 +14,8 @@
 #include "LevelEditorViewport.h"
 #include "LevelEditor.h"
 #include "PropertyEditorModule.h"
-#include "SlateStyle.h"
-#include "IPluginManager.h"
+#include "Styling/SlateStyle.h"
+#include "Interfaces/IPluginManager.h"
 #include "ClassIconFinder.h"
 #include "Editor.h"
 
@@ -37,9 +37,9 @@
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "AssetRegistryModule.h"
 #include "EditorModeManager.h"
-#include "PlatformFileManager.h"
-#include "GenericPlatformFile.h"
-#include "Paths.h"
+#include "HAL/PlatformFilemanager.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "Misc/Paths.h"
 
 #include <atomic>
 

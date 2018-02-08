@@ -13,7 +13,7 @@
 #include "Widgets/Input/SSpinBox.h"
 #include "Framework/Docking/TabManager.h"
 #include "EditorStyleSet.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "GameFramework/Actor.h"
 #include "Settings/LevelEditorPlaySettings.h"
 #include "Editor/UnrealEdEngine.h"

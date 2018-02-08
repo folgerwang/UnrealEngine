@@ -9,25 +9,25 @@
 #include "ShaderFormatOpenGL.h"
 
 #if PLATFORM_WINDOWS
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include "Windows/PreWindowsApi.h"
 	#include <objbase.h>
 	#include <assert.h>
 	#include <stdio.h>
 	#include "Windows/PostWindowsApi.h"
 	#include "Windows/MinWindows.h"
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 #include "ShaderCore.h"
 #include "ShaderPreprocessor.h"
 #include "ShaderCompilerCommon.h"
 #include "GlslBackend.h"
 #if PLATFORM_WINDOWS
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <GL/glcorearb.h>
 	#include <GL/glext.h>
 	#include <GL/wglext.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #elif PLATFORM_LINUX
 	#define GL_GLEXT_PROTOTYPES 1
 	#include <GL/glcorearb.h>

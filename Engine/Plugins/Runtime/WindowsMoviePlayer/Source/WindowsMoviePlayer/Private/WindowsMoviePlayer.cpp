@@ -5,9 +5,9 @@
 #include "WindowsMovieStreamer.h"
 #include "Modules/ModuleManager.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <mfapi.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 
 TSharedPtr<FMediaFoundationMovieStreamer> MovieStreamer;

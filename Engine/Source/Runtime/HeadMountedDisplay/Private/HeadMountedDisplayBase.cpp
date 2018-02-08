@@ -4,7 +4,7 @@
 
 #include "DefaultStereoLayers.h"
 #include "EngineAnalytics.h"
-#include "IAnalyticsProvider.h"
+#include "Interfaces/IAnalyticsProvider.h"
 #include "AnalyticsEventAttribute.h"
 #include "Misc/CoreDelegates.h"
 #include "RenderingThread.h"

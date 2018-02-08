@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "OnlineIdentityInterface.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 #include "OnlineSubsystemGooglePlayPackage.h"
 
 THIRD_PARTY_INCLUDES_START

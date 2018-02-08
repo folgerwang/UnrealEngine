@@ -1,10 +1,10 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Evaluation/MovieSceneEvaluationTrack.h"
-#include "MovieSceneExecutionTokens.h"
+#include "Evaluation/MovieSceneExecutionTokens.h"
 
-#include "MovieSceneSegmentCompiler.h"
-#include "MovieSceneCompilerRules.h"
+#include "Compilation/MovieSceneSegmentCompiler.h"
+#include "Compilation/MovieSceneCompilerRules.h"
 #include "MovieSceneTrack.h"
 #include "MovieSceneCommonHelpers.h"
 

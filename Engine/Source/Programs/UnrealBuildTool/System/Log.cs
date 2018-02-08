@@ -87,26 +87,32 @@ namespace UnrealBuildTool
 		/// In general user code should not concern itself checking for this.
 		/// </summary>
 		private static bool bIsInitialized = false;
+
 		/// <summary>
 		/// When true, verbose logging is enabled.
 		/// </summary>
 		private static LogEventType LogLevel = LogEventType.VeryVerbose;
+
 		/// <summary>
 		/// When true, warnings and errors will have a WARNING: or ERROR: prexifx, respectively.
 		/// </summary>
 		private static bool bLogSeverity = false;
+		
 		/// <summary>
 		/// When true, logs will have the calling mehod prepended to the output as MethodName:
 		/// </summary>
 		private static bool bLogSources = false;
+		
 		/// <summary>
 		/// When true, console output will have the calling mehod prepended to the output as MethodName:
 		/// </summary>
 		private static bool bLogSourcesToConsole = false;
+		
 		/// <summary>
 		/// When true, will detect warnings and errors and set the console output color to yellow and red.
 		/// </summary>
 		private static bool bColorConsoleOutput = false;
+		
 		/// <summary>
 		/// When configured, this tracks time since initialization to prepend a timestamp to each log.
 		/// </summary>

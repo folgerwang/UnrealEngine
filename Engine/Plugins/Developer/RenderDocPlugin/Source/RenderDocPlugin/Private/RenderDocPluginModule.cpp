@@ -2,16 +2,16 @@
 
 #include "RenderDocPluginModule.h"
 
-#include "Internationalization.h"
+#include "Internationalization/Internationalization.h"
 #include "RendererInterface.h"
 #include "RenderingThread.h"
 
 #include "RenderDocPluginNotification.h"
 #include "RenderDocPluginSettings.h"
-#include "AllowWindowsPlatformTypes.h"
-#include "Async.h"
-#include "FileManager.h"
-#include "ConfigCacheIni.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include "Async/Async.h"
+#include "HAL/FileManager.h"
+#include "Misc/ConfigCacheIni.h"
 #include "Engine/GameViewportClient.h"
 
 #if WITH_EDITOR
@@ -406,6 +406,6 @@ void FRenderDocPluginModule::ShutdownModule()
 
 #undef LOCTEXT_NAMESPACE
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 IMPLEMENT_MODULE(FRenderDocPluginModule, RenderDocPlugin)

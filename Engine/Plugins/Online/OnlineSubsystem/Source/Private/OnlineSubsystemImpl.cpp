@@ -11,9 +11,9 @@
 #include "Interfaces/OnlinePurchaseInterface.h"
 
 #if UE_BUILD_SHIPPING
-#include "JsonObject.h"
-#include "JsonReader.h"
-#include "JsonSerializer.h"
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
 #endif
 
 namespace OSSConsoleVariables

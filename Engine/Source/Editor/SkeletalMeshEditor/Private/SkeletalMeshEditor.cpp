@@ -23,14 +23,14 @@
 #include "Rendering/SkeletalMeshModel.h"
 
 #include "Animation/DebugSkelMeshComponent.h"
-#include "ClothingAsset.h"
+#include "Assets/ClothingAsset.h"
 #include "SCreateClothingSettingsPanel.h"
 #include "ClothingSystemEditorInterfaceModule.h"
-#include "Classes/Preferences/PersonaOptions.h"
+#include "Preferences/PersonaOptions.h"
 
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Layout/SBorder.h"
-#include "Application/SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 #include "EditorViewportClient.h"
 #include "Settings/EditorExperimentalSettings.h"
 #include "Algo/Transform.h"

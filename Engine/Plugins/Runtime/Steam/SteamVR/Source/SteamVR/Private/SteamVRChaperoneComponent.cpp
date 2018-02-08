@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 //
-#include "Classes/SteamVRChaperoneComponent.h"
+#include "SteamVRChaperoneComponent.h"
 #include "SteamVRPrivate.h"
 #include "SteamVRHMD.h"
 #include "Engine/Engine.h"

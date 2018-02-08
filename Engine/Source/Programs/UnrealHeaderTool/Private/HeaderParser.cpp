@@ -7146,6 +7146,27 @@ void FHeaderParser::CompileVariableDeclaration(FClasses& AllClasses, UStruct* St
 			}
 		}
 	}
+	// Using Brace Initialization
+	else if (MatchSymbol(TEXT("{")))
+	{
+		FToken SkipToken;
+		int BraceLevel = 1;
+		while (GetToken(SkipToken))
+		{
+			if (SkipToken.Matches(TEXT("{")))
+			{
+				++BraceLevel;
+			}
+			else if (SkipToken.Matches(TEXT("}")))
+			{
+				--BraceLevel;
+				if (BraceLevel == 0)
+				{
+					break;
+				}
+			}
+		}
+	}
 
 	// Expect a semicolon.
 	RequireSymbol( TEXT(";"), TEXT("'variable declaration'") );

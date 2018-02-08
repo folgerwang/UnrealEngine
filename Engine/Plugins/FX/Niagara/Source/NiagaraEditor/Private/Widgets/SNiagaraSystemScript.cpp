@@ -8,7 +8,7 @@
 #include "SNiagaraParameterCollection.h"
 #include "SNiagaraScriptGraph.h"
 
-#include "SSplitter.h"
+#include "Widgets/Layout/SSplitter.h"
 
 void SNiagaraSystemScript::Construct(const FArguments& InArgs, TSharedRef<FNiagaraSystemViewModel> InSystemViewModel)
 {

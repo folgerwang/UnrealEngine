@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraStackItemExpander.h"
+#include "ViewModels/Stack/NiagaraStackItemExpander.h"
 #include "NiagaraStackEditorData.h"
 #include "NiagaraEmitterViewModel.h"
 

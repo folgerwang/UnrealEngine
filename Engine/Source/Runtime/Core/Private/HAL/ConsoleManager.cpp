@@ -4,7 +4,7 @@
 ConsoleManager.cpp: console command handling
 =============================================================================*/
 
-#include "ConsoleManager.h"
+#include "HAL/ConsoleManager.h"
 #include "Misc/ScopeLock.h"
 #include "Misc/Paths.h"
 #include "Stats/Stats.h"

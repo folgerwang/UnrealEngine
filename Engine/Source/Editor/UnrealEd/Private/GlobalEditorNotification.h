@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GlobalNotification.h"
+#include "Widgets/Notifications/GlobalNotification.h"
 #include "Stats/Stats.h"
 #include "TickableEditorObject.h"
 

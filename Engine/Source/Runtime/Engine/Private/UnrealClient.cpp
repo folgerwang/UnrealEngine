@@ -28,7 +28,7 @@
 #include "RendererInterface.h"
 #include "EngineModule.h"
 #include "Performance/EnginePerformanceTargets.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogClient, Log, All);
 

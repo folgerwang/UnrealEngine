@@ -5,7 +5,7 @@
 #include "Camera/CameraTypes.h"
 #include "Camera/CameraPhotography.h"
 #include "Camera/PlayerCameraManager.h"
-#include "ConsoleManager.h"
+#include "HAL/ConsoleManager.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
 #include "Engine/ViewportSplitScreen.h"
@@ -14,7 +14,7 @@
 #include "GameFramework/WorldSettings.h"
 #include "Kismet/GameplayStatics.h"
 #include "Widgets/SWindow.h"
-#include "SlateApplicationBase.h"
+#include "Application/SlateApplicationBase.h"
 #include <AnselSDK.h>
 
 DEFINE_LOG_CATEGORY_STATIC(LogAnsel, Log, All);

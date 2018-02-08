@@ -9,7 +9,7 @@ class FJsonObject;
 /**
  * Stores the version information associated with a build
  */
-class PROJECTS_API FBuildVersion
+class CORE_API FBuildVersion
 {
 public:
 	/**
@@ -82,13 +82,4 @@ public:
 	 * @return True if the version was read successfully, false otherwise
 	 */
 	static bool TryRead(const FString& FileName, FBuildVersion& OutVersion);
-
-	/**
-	 * Parses a build version from a FJsonObject
-	 *
-	 * @param Object object to parse
-	 * @param OutVersion The version information
-	 * @return True if the version was parsed successfully, false otherwise
-	 */
-	static bool TryParse(const FJsonObject& Object, FBuildVersion& OutVersion);
 };

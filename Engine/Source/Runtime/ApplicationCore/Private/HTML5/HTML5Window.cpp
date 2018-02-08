@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "HTML5Window.h"
+#include "HTML5/HTML5Window.h"
 #include "HAL/OutputDevices.h"
 
 THIRD_PARTY_INCLUDES_START

@@ -4,8 +4,8 @@
 	IOSPlatformSurvey.cpp: HardwareSurvey implementation
 =============================================================================*/
 
-#include "IOSPlatformSurvey.h"
-#include "IOSAppDelegate.h"
+#include "IOS/IOSPlatformSurvey.h"
+#include "IOS/IOSAppDelegate.h"
 #include "IOSWindow.h"
 
 bool FIOSPlatformSurvey::GetSurveyResults(FHardwareSurveyResults& OutResults, bool bWait)

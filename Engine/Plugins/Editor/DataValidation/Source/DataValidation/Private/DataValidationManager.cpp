@@ -2,10 +2,10 @@
 
 #include "DataValidationManager.h"
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "Developer/MessageLog/Public/MessageLogModule.h"
 #include "Logging/MessageLog.h"
-#include "ScopedSlowTask.h"
+#include "Misc/ScopedSlowTask.h"
 
 #include "CoreGlobals.h"
 

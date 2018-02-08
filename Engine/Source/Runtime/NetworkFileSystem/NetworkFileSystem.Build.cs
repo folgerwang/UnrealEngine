@@ -46,7 +46,7 @@ namespace UnrealBuildTool.Rules
 				PublicDefinitions.Add("ENABLE_HTTP_FOR_NFS=0");
 			}
 
-			PrecompileForTargets = PrecompileTargetsType.None;
+			PrecompileForTargets = PrecompileTargetsType.Editor;
 		}
 	}
 }

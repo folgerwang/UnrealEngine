@@ -16,14 +16,14 @@ D3D12CommandContext.h: D3D12 Command Context Interfaces
 #endif
 
 #include "D3D12RHIPrivate.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 THIRD_PARTY_INCLUDES_START
 #include <delayimp.h>
 
 #if USE_PIX
 	#include "pix3.h"
 #endif
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 THIRD_PARTY_INCLUDES_END
 
 class FD3D12CommandContext : public IRHICommandContext, public FD3D12DeviceChild, public FD3D12SingleNodeGPUObject

@@ -313,6 +313,7 @@ namespace UnrealBuildTool
 		/// Build all the plugins that we can find, even if they're not enabled. This is particularly useful for content-only projects, 
 		/// where you're building the UE4Editor target but running it with a game that enables a plugin.
 		/// </summary>
+		[Obsolete("bBuildAllPlugins has been deprecated. Use bPrecompile to build all modules which are not part of the target.")]
 		public bool bBuildAllPlugins = false;
 
 		/// <summary>
@@ -598,6 +599,12 @@ namespace UnrealBuildTool
 		public bool bUseXGEController = true;
 
 		/// <summary>
+		/// Whether to use backwards compatible defaults for this module. By default, engine modules always use the latest default settings, while project modules do not (to support
+		/// an easier migration path).
+		/// </summary>
+		public bool bUseBackwardsCompatibleDefaults = true;
+
+		/// <summary>
 		/// Enables "include what you use" by default for modules in this target. Changes the default PCH mode for any module in this project to PCHUsageModule.UseExplicitOrSharedPCHs.
 		/// </summary>
 		[CommandLine("-IWYU")]
@@ -611,7 +618,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Whether the final executable should export symbols.
 		/// </summary>
-		public bool bHasExports = true;
+		public bool bHasExports = false;
 
 		/// <summary>
 		/// Make static libraries for all engine modules as intermediates for this target.
@@ -957,10 +964,9 @@ namespace UnrealBuildTool
         public bool bAllowGeneratedIniWhenCooked = true;
 
 		/// <summary>
-		/// The directory to put precompiled header files in. Experimental setting to allow using a path on a faster drive. Defaults to the standard output directory if not set.
+		/// Add all the public folders as include paths for the compile environment.
 		/// </summary>
-		[XmlConfigFile(Category = "BuildConfiguration")]
-		public string PCHOutputDirectory = null;
+		public bool bLegacyPublicIncludePaths = true;
 
 		/// <summary>
 		/// Specifies how to link modules in this target (monolithic or modular). This is currently protected for backwards compatibility. Call the GetLinkType() accessor
@@ -992,6 +998,11 @@ namespace UnrealBuildTool
 		[RequiresUniqueBuildEnvironment]
 		[CommandLine("-Define", ValueAfterSpace = true)]
 		public List<string> GlobalDefinitions = new List<string>();
+
+		/// <summary>
+		/// Macros to define across all macros in the project.
+		/// </summary>
+		public List<string> ProjectDefinitions = new List<string>();
 
 		/// <summary>
 		/// Specifies the name of the launch module. For modular builds, this is the module that is compiled into the target's executable.
@@ -1063,20 +1074,18 @@ namespace UnrealBuildTool
 		public XboxOneTargetRules XboxOnePlatform = new XboxOneTargetRules();
 
 		/// <summary>
-		/// Default constructor. Since the parameterless TargetRules constructor is still supported for now, initialization that should happen here 
-		/// is currently done in TargetRules.CreateTargetRulesInstance() instead.
+		/// Constructor.
 		/// </summary>
 		/// <param name="Target">Information about the target being built</param>
 		public TargetRules(TargetInfo Target)
 		{
-			InternalConstructor();
-		}
+			this.Name = Target.Name;
+			this.Platform = Target.Platform;
+			this.Configuration = Target.Configuration;
+			this.Architecture = Target.Architecture;
+			this.ProjectFile = Target.ProjectFile;
+			this.Version = Target.Version;
 
-		/// <summary>
-		/// Initialize this object, using the readonly fields set by RulesAssembly.CreateTargetRulesInstance.
-		/// </summary>
-		private void InternalConstructor()
-		{
 			// Read settings from config files
 			foreach(object ConfigurableObject in GetConfigurableObjects())
 			{
@@ -1114,16 +1123,43 @@ namespace UnrealBuildTool
 			}
 
 			// If we've got a changelist set, set that we're making a formal build
-			BuildVersion Version;
-			if (BuildVersion.TryRead(BuildVersion.GetDefaultFileName(), out Version))
-			{
-				bFormalBuild = (Version.Changelist != 0 && Version.IsPromotedBuild != 0);
-			}
+			bFormalBuild = (Version.Changelist != 0 && Version.IsPromotedBuild);
 
+			// @todo remove this hacky build system stuff
 			if (bCreateStubIPA && (String.IsNullOrEmpty(Environment.GetEnvironmentVariable("uebp_LOCAL_ROOT")) && BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac))
 			{
 				bCreateStubIPA = false;
 			}
+
+			// Setup macros for signing and encryption keys
+			EncryptionAndSigning.CryptoSettings CryptoSettings = EncryptionAndSigning.ParseCryptoSettings(DirectoryReference.FromFile(ProjectFile), Platform);
+			if (CryptoSettings.IsAnyEncryptionEnabled())
+			{
+				ProjectDefinitions.Add(String.Format("IMPLEMENT_ENCRYPTION_KEY_REGISTRATION()=UE_REGISTER_ENCRYPTION_KEY({0})", FormatHexBytes(CryptoSettings.EncryptionKey.Key)));
+			}
+			else
+			{
+				ProjectDefinitions.Add("IMPLEMENT_ENCRYPTION_KEY_REGISTRATION()=");
+			}
+
+			if (CryptoSettings.bEnablePakSigning)
+			{
+				ProjectDefinitions.Add(String.Format("IMPLEMENT_SIGNING_KEY_REGISTRATION()=UE_REGISTER_SIGNING_KEY(UE_LIST_ARGUMENT({0}), UE_LIST_ARGUMENT({1}))", FormatHexBytes(CryptoSettings.SigningKey.PublicKey.Exponent), FormatHexBytes(CryptoSettings.SigningKey.PublicKey.Modulus)));
+			}
+			else
+			{
+				ProjectDefinitions.Add("IMPLEMENT_SIGNING_KEY_REGISTRATION()=");
+			}
+		}
+
+		/// <summary>
+		/// Formats an array of bytes as a sequence of values
+		/// </summary>
+		/// <param name="Data">The data to convert into a string</param>
+		/// <returns>List of hexadecimal bytes</returns>
+		private static string FormatHexBytes(byte[] Data)
+		{
+			return String.Join(",", Data.Select(x => String.Format("0x{0:X2}", x)));
 		}
 
 		/// <summary>
@@ -1145,8 +1181,8 @@ namespace UnrealBuildTool
 				// Compile the engine
 				bCompileAgainstEngine = true;
 
-				// no exports, so no need to verify that a .lib and .exp file was emitted by the linker.
-				bHasExports = false;
+				// only have exports in modular builds
+				bHasExports = (LinkType == TargetLinkType.Modular);
 
 				// Tag it as a 'Game' build
 				GlobalDefinitions.Add("UE_GAME=1");
@@ -1168,8 +1204,8 @@ namespace UnrealBuildTool
 				// Disable server code
 				bWithServerCode = false;
 
-				// no exports, so no need to verify that a .lib and .exp file was emitted by the linker.
-				bHasExports = false;
+				// only have exports in modular builds
+				bHasExports = (LinkType == TargetLinkType.Modular);
 
 				// Tag it as a 'Game' build
 				GlobalDefinitions.Add("UE_GAME=1");
@@ -1194,6 +1230,9 @@ namespace UnrealBuildTool
 				// Include all plugins
 				bIncludePluginsForTargetPlatforms = true;
 
+				// only have exports in modular builds
+				bHasExports = (LinkType == TargetLinkType.Modular);
+
 				// Tag it as a 'Editor' build
 				GlobalDefinitions.Add("UE_EDITOR=1");
 			}
@@ -1214,8 +1253,8 @@ namespace UnrealBuildTool
 				//enable PerfCounters
 				bWithPerfCounters = true;
 
-				// no exports, so no need to verify that a .lib and .exp file was emitted by the linker.
-				bHasExports = false;
+				// only have exports in modular builds
+				bHasExports = (LinkType == TargetLinkType.Modular);
 
 				// Tag it as a 'Server' build
 				GlobalDefinitions.Add("UE_SERVER=1");
@@ -1244,11 +1283,6 @@ namespace UnrealBuildTool
 		{
 			get { return BuildHostPlatform.Current.Platform; }
 		}
-
-		/// <summary>
-		/// Can be set to override the file extension of the executable file (normally .exe or .dll on Windows, for example)
-		/// </summary>
-		public string OverrideExecutableFileExtension = String.Empty;
 
 		/// <summary>
 		/// Setup the global environment for building this target
@@ -1369,6 +1403,7 @@ namespace UnrealBuildTool
 			get { return Inner.UndecoratedConfiguration; }
 		}
 
+		[Obsolete("bBuildAllPlugins has been deprecated. Use bPrecompile to build all modules which are not part of the target.")]
 		public bool bBuildAllPlugins
 		{
 			get { return Inner.bBuildAllPlugins; }
@@ -1603,6 +1638,11 @@ namespace UnrealBuildTool
 		public bool bEventDrivenLoader
 		{
 			get { return Inner.bEventDrivenLoader; }
+		}
+
+		public bool bUseBackwardsCompatibleDefaults
+		{
+			get { return Inner.bUseBackwardsCompatibleDefaults; }
 		}
 
 		public bool bIWYU
@@ -1874,9 +1914,9 @@ namespace UnrealBuildTool
 			get { return Inner.bHideSymbolsByDefault; }
 		}
 
-		public string PCHOutputDirectory
+		public bool bLegacyPublicIncludePaths
 		{
-			get { return Inner.PCHOutputDirectory; }
+			get { return Inner.bLegacyPublicIncludePaths; }
 		}
 
 		public TargetLinkType LinkType
@@ -1887,6 +1927,11 @@ namespace UnrealBuildTool
 		public IReadOnlyList<string> GlobalDefinitions
 		{
 			get { return Inner.GlobalDefinitions.AsReadOnly(); }
+		}
+
+		public IReadOnlyList<string> ProjectDefinitions
+		{
+			get { return Inner.ProjectDefinitions.AsReadOnly(); }
 		}
 
 		public string LaunchModuleName
@@ -1944,11 +1989,6 @@ namespace UnrealBuildTool
 			private set;
 		}
 
-		public string OverrideExecutableFileExtension
-		{
-			get { return Inner.OverrideExecutableFileExtension; }
-		}
-		
 		public bool bShouldCompileAsDLL
 		{
 			get { return Inner.bShouldCompileAsDLL; }

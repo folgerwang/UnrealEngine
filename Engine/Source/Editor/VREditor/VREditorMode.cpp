@@ -4,7 +4,7 @@
 #include "Modules/ModuleManager.h"
 #include "Framework/Application/SlateApplication.h"
 #include "UObject/ConstructorHelpers.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 #include "Engine/EngineTypes.h"
 #include "Components/SceneComponent.h"
 #include "Misc/ConfigCacheIni.h"

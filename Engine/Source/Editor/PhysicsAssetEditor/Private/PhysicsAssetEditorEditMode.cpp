@@ -18,8 +18,8 @@
 #include "DrawDebugHelpers.h"
 #include "SEditorViewport.h"
 #include "IPersonaToolkit.h"
-#include "MultiBoxBuilder.h"
-#include "SlateApplication.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/Application/SlateApplication.h"
 
 #define LOCTEXT_NAMESPACE "PhysicsAssetEditorEditMode"
 

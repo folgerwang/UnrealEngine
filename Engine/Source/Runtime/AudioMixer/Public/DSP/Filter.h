@@ -3,8 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ModulationMatrix.h"
-#include "BiQuadFilter.h"
+#include "DSP/ModulationMatrix.h"
+#include "DSP/BiQuadFilter.h"
 
 namespace Audio
 {

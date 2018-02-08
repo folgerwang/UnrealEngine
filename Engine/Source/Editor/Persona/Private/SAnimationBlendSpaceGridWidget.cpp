@@ -26,7 +26,7 @@
 #include "Customization/BlendSampleDetails.h"
 #include "AssetData.h"
 #include "DragAndDrop/AssetDragDropOp.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 
 #include "Widgets/Input/SButton.h"
 #include "Fonts/FontMeasure.h"

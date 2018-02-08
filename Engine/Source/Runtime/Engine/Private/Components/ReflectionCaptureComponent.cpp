@@ -25,7 +25,7 @@
 #include "DerivedDataCacheInterface.h"
 #include "EngineModule.h"
 #include "ShaderCompiler.h"
-#include "RenderingObjectVersion.h"
+#include "UObject/RenderingObjectVersion.h"
 #include "Engine/SphereReflectionCapture.h"
 #include "Components/SphereReflectionCaptureComponent.h"
 #include "Components/DrawSphereComponent.h"

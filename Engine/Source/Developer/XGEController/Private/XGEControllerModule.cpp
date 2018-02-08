@@ -20,9 +20,9 @@
 
 #if PLATFORM_WINDOWS
 
-	#include "AllowWindowsPlatformTypes.h"
+	#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <winreg.h>
-	#include "HideWindowsPlatformTypes.h"
+	#include "Windows/HideWindowsPlatformTypes.h"
 
 	#define XGE_CONTROL_WORKER_NAME		TEXT("XGEControlWorker")
 	#define XGE_CONTROL_WORKER_FILENAME	TEXT("XGEControlWorker.exe")

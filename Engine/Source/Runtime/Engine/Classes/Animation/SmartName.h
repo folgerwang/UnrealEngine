@@ -7,7 +7,7 @@
 #include "Misc/Guid.h"
 #include "UObject/Class.h"
 #include "BoneContainer.h"
-#include "AnimPhysObjectVersion.h"
+#include "UObject/AnimPhysObjectVersion.h"
 #include "SmartName.generated.h"
 
 struct FSmartName;

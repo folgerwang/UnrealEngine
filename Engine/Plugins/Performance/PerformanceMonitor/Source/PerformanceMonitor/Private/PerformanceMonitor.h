@@ -6,7 +6,7 @@
 #include "Stats/StatsData.h"
 #include "Modules/ModuleInterface.h"
 #include "Modules/ModuleManager.h"
-#include "UnrealString.h"
+#include "Containers/UnrealString.h"
 /**
  * 
  */

@@ -4,7 +4,7 @@
 #include "EdGraphSchema_K2.h"
 #include "BlueprintNodeSpawner.h"
 #include "K2Node_GetArrayItem.h"
-#include "BlueprintsObjectVersion.h"
+#include "UObject/BlueprintsObjectVersion.h"
 #include "Kismet/KismetArrayLibrary.h" // for Array_Get()
 #include "Algo/Transform.h"
 

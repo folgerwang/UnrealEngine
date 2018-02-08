@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-#include "SColorGradingWheel.h"
-#include "CoreStyle.h"
-#include "RenderingCommon.h"
-#include "DrawElements.h"
+#include "Widgets/Colors/SColorGradingWheel.h"
+#include "Styling/CoreStyle.h"
+#include "Rendering/RenderingCommon.h"
+#include "Rendering/DrawElements.h"
 
 
 

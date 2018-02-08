@@ -3,7 +3,7 @@
 #pragma once
  
 #include "OnlineSubsystemTypes.h"
-#include "JsonSerializerMacros.h"
+#include "Serialization/JsonSerializerMacros.h"
 #include "OnlineSubsystemTwitchPackage.h"
 
 struct FTwitchTokenValidationResponse;

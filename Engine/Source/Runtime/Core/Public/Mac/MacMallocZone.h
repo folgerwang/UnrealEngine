@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "MemoryBase.h"
+#include "HAL/MemoryBase.h"
 
 typedef struct _malloc_zone_t malloc_zone_t;
 struct FMacCrashContext;

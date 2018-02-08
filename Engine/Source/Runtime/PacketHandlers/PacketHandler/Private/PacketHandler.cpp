@@ -8,7 +8,7 @@
 #include "Modules/ModuleManager.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Package.h"
-#include "ConsoleManager.h"
+#include "HAL/ConsoleManager.h"
 
 #include "HandlerComponentFactory.h"
 #include "ReliabilityHandlerComponent.h"

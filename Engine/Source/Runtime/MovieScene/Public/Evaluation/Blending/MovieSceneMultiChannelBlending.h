@@ -3,8 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "MovieSceneBlendType.h"
-#include "BlendableTokenStack.h"
+#include "Evaluation/Blending/MovieSceneBlendType.h"
+#include "Evaluation/Blending/BlendableTokenStack.h"
 
 /**~
  * Generic multi-channel blending support for sequencer.

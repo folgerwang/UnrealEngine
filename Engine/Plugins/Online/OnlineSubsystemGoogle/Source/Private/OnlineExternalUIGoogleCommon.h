@@ -3,7 +3,7 @@
 #pragma once
 
 #include "OnlineSubsystemGoogle.h"
-#include "OnlineExternalUIInterface.h"
+#include "Interfaces/OnlineExternalUIInterface.h"
 #include "OnlineSubsystemGooglePackage.h"
 
 class FOnlineSubsystemGoogleCommon;

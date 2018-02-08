@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
 {
@@ -276,6 +277,18 @@ namespace UnrealBuildTool
 		public PCHUsageMode PCHUsage = PCHUsageMode.Default;
 
 		/// <summary>
+		/// Whether this module should be treated as an engine module (eg. using engine definitions, PCHs, compiled with optimizations enabled in DebugGame configurations, etc...).
+		/// Initialized to a default based on the rules assembly it was created from.
+		/// </summary>
+		public bool bTreatAsEngineModule;
+
+		/// <summary>
+		/// Whether to use backwards compatible defaults for this module. By default, engine modules always use the latest default settings, while project modules do not (to support
+		/// an easier migration path).
+		/// </summary>
+		public bool bUseBackwardsCompatibleDefaults;
+
+		/// <summary>
 		/// Use run time type information
 		/// </summary>
 		public bool bUseRTTI = false;
@@ -358,6 +371,16 @@ namespace UnrealBuildTool
 		/// Whether to add all the default include paths to the module (eg. the Source/Classes folder, subfolders under Source/Public).
 		/// </summary>
 		public bool bAddDefaultIncludePaths = true;
+
+		/// <summary>
+		/// Whether this module should be precompiled. Defaults to the bPrecompile flag from the target. Clear this flag to prevent a module being precompiled.
+		/// </summary>
+		public bool bPrecompile;
+
+		/// <summary>
+		/// Whether this module should use precompiled data. Always true for modules created from installed assemblies.
+		/// </summary>
+		public bool bUsePrecompiled;
 
 		/// <summary>
 		/// List of modules names (no path needed) with header files that our module's public headers needs access to, but we don't need to "import" or link against.
@@ -470,7 +493,11 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Extra modules this module may require at run time, that are on behalf of another platform (i.e. shader formats and the like)
 		/// </summary>
-		public List<string> PlatformSpecificDynamicallyLoadedModuleNames = new List<string>();
+		[Obsolete("PlatformSpecificDynamicallyLoadedModuleNames is deprecated; use DynamicallyLoadedModuleNames instead")]
+		public List<string> PlatformSpecificDynamicallyLoadedModuleNames
+		{
+			get { return DynamicallyLoadedModuleNames; }
+		}
 
 		/// <summary>
 		/// List of files which this module depends on at runtime. These files will be staged along with the target.
@@ -493,6 +520,12 @@ namespace UnrealBuildTool
 		public List<string> ExternalDependencies = new List<string>();
 
 		/// <summary>
+		/// Whether this module qualifies included headers from other modules relative to the root of their 'Public' folder. This reduces the number
+		/// of search paths that have to be passed to the compiler, improving performance and reducing the length of the compiler command line.
+		/// </summary>
+		public bool? bLegacyPublicIncludePaths;
+
+		/// <summary>
 		/// Property for the directory containing this module. Useful for adding paths to third party dependencies.
 		/// </summary>
 		public string ModuleDirectory
@@ -510,6 +543,7 @@ namespace UnrealBuildTool
 		/// <param name="Target">Rules for building this target</param>
 		public ModuleRules(ReadOnlyTargetRules Target)
 		{
+			this.Target = Target;
 		}
 
 		/// <summary>
@@ -600,6 +634,32 @@ namespace UnrealBuildTool
 			{
 				PublicDefinitions.Add("WITH_NVCLOTH=0");
 			}
+		}
+
+		/// <summary>
+		/// Determines if this module can be precompiled for the current target.
+		/// </summary>
+		/// <param name="RulesFile">Path to the module rules file</param>
+		/// <returns>True if the module can be precompiled, false otherwise</returns>
+		internal bool CanPrecompile(FileReference RulesFile)
+		{
+			if(Type == ModuleRules.ModuleType.CPlusPlus)
+			{
+				switch (PrecompileForTargets)
+				{
+					case ModuleRules.PrecompileTargetsType.None:
+						return false;
+					case ModuleRules.PrecompileTargetsType.Default:
+						return !RulesFile.IsUnderDirectory(UnrealBuildTool.EngineSourceDeveloperDirectory) || Target.Type == TargetType.Editor;
+					case ModuleRules.PrecompileTargetsType.Game:
+						return (Target.Type == TargetType.Client || Target.Type == TargetType.Server || Target.Type == TargetType.Game);
+					case ModuleRules.PrecompileTargetsType.Editor:
+						return (Target.Type == TargetType.Editor);
+					case ModuleRules.PrecompileTargetsType.Any:
+						return true;
+				}
+			}
+			return false;
 		}
 	}
 }

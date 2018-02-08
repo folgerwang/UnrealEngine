@@ -6,7 +6,7 @@
 #include "Types/SlateEnums.h"
 #include "Layout/Visibility.h"
 #include "IDetailCustomization.h"
-#include "Reply.h"
+#include "Input/Reply.h"
 
 struct FAssetData;
 class IDetailGroup;

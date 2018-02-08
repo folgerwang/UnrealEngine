@@ -4,10 +4,10 @@
 
 #include "NiagaraCommon.h"
 #include "NiagaraEmitter.h"
-#include "NiagaraStackItem.h"
-#include "NiagaraStackScriptItemGroup.h"
-#include "NiagaraStackItemExpander.h"
-#include "NiagaraStackAddEventScriptItem.h"
+#include "ViewModels/Stack/NiagaraStackItem.h"
+#include "ViewModels/Stack/NiagaraStackScriptItemGroup.h"
+#include "ViewModels/Stack/NiagaraStackItemExpander.h"
+#include "ViewModels/Stack/NiagaraStackAddEventScriptItem.h"
 #include "NiagaraStackEventScriptItemGroup.generated.h"
 
 class FNiagaraScriptViewModel;

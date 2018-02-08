@@ -4,7 +4,7 @@
 
 #include "UObject/Interface.h"
 #include "UObject/ObjectMacros.h"
-#include "MovieSceneEasingFunction.h"
+#include "Generators/MovieSceneEasingFunction.h"
 #include "Curves/RichCurve.h"
 #include "MovieSceneEasingCurves.generated.h"
 

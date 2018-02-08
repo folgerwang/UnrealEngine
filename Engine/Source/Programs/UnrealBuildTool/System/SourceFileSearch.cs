@@ -7,6 +7,7 @@ using System.IO;
 using System.Diagnostics;
 using System.Linq;
 using Tools.DotNETCommon;
+using DotNETUtilities;
 
 namespace UnrealBuildTool
 {
@@ -110,7 +111,7 @@ namespace UnrealBuildTool
 			
 			foreach (string InvariantExcludedSuffix in InvariantExcludedSuffixes)
 			{
-				if (Reference.CanonicalName.EndsWith(InvariantExcludedSuffix))
+				if (StringUtils.FastEndsWith(Reference.CanonicalName, InvariantExcludedSuffix))
 				{
 					return false;
 				}

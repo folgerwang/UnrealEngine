@@ -6,8 +6,8 @@
  *****************************************************************************/
 
 #include "CoreMinimal.h"
-#include "ModuleManager.h"
-#include "SlateStyle.h"
+#include "Modules/ModuleManager.h"
+#include "Styling/SlateStyle.h"
 #include "OnlineSubsystem.h"
 
  /* Interfaces

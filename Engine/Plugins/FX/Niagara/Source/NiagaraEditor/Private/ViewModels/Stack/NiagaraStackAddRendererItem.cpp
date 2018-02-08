@@ -1,12 +1,12 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraStackAddRendererItem.h"
+#include "ViewModels/Stack/NiagaraStackAddRendererItem.h"
 #include "NiagaraNodeOutput.h"
 #include "NiagaraScript.h"
 #include "NiagaraEmitter.h"
 #include "NiagaraRendererProperties.h"
 #include "NiagaraNodeFunctionCall.h"
-#include "NiagaraStackRendererItem.h"
+#include "ViewModels/Stack/NiagaraStackRendererItem.h"
 #include "NiagaraEmitterViewModel.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"

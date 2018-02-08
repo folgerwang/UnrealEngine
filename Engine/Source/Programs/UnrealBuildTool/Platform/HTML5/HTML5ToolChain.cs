@@ -82,7 +82,7 @@ namespace UnrealBuildTool
 			HTML5SDKInfo.SetupEmscriptenTemp();
 			HTML5SDKInfo.SetUpEmscriptenConfigFile();
 
-			if (Environment.GetEnvironmentVariable("EMSDK") == null) // If env. var EMSDK is present, Emscripten is already configured by the developer
+			if (Environment.GetEnvironmentVariable("EMSDK") == null) // If EMSDK is present, Emscripten is already configured by the developer
 			{
 				// If not using preset emsdk, configure our generated .emscripten config, instead of autogenerating one in the user's home directory.
 				Environment.SetEnvironmentVariable("EM_CONFIG", HTML5SDKInfo.DOT_EMSCRIPTEN);
@@ -356,7 +356,7 @@ namespace UnrealBuildTool
 
 		public static void CompileOutputReceivedDataEventHandler(Object Sender, DataReceivedEventArgs Line)
 		{
-			var Output = Line.Data;
+			string Output = Line.Data;
 			if (Output == null)
 			{
 				return;
@@ -402,20 +402,32 @@ namespace UnrealBuildTool
 			Log.TraceInformation(Output);				// To preserve readable output log
 		}
 
-		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> SourceFiles, string ModuleName, ActionGraph ActionGraph)
+		public void AddIncludePath(ref string Arguments, DirectoryReference IncludePath)
+		{
+			if(IncludePath.IsUnderDirectory(UnrealBuildTool.EngineDirectory))
+			{
+				Arguments += string.Format(" -I\"{0}\"", IncludePath.MakeRelativeTo(UnrealBuildTool.EngineSourceDirectory));
+			}
+			else
+			{
+				Arguments += string.Format(" -I\"{0}\"", IncludePath);
+			}
+		}
+
+		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, ActionGraph ActionGraph)
 		{
 			string Arguments = GetCLArguments_Global(CompileEnvironment);
 
 			CPPOutput Result = new CPPOutput();
 
 			// Add include paths to the argument list.
-			foreach (string IncludePath in CompileEnvironment.IncludePaths.UserIncludePaths)
+			foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.UserIncludePaths)
 			{
-				Arguments += string.Format(" -I\"{0}\"", IncludePath);
+				AddIncludePath(ref Arguments, IncludePath);
 			}
-			foreach (string IncludePath in CompileEnvironment.IncludePaths.SystemIncludePaths)
+			foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.SystemIncludePaths)
 			{
-				Arguments += string.Format(" -I\"{0}\"", IncludePath);
+				AddIncludePath(ref Arguments, IncludePath);
 			}
 
 
@@ -430,7 +442,7 @@ namespace UnrealBuildTool
 				Arguments += string.Format(" -D__EMSCRIPTEN_TRACING__");
 			}
 
-			foreach (FileItem SourceFile in SourceFiles)
+			foreach (FileItem SourceFile in InputFiles)
 			{
 				Action CompileAction = ActionGraph.Add(ActionType.Compile);
 				CompileAction.CommandDescription = "Compile";
@@ -443,11 +455,11 @@ namespace UnrealBuildTool
 
 				// Add the source file path to the command-line.
 				string FileArguments = string.Format(" \"{0}\"", SourceFile.AbsolutePath);
-				var ObjectFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.HTML5).GetBinaryExtension(UEBuildBinaryType.Object);
+				string ObjectFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.HTML5).GetBinaryExtension(UEBuildBinaryType.Object);
 				// Add the object file to the produced item list.
 				FileItem ObjectFile = FileItem.GetItemByFileReference(
 					FileReference.Combine(
-						CompileEnvironment.OutputDirectory,
+						OutputDir,
 						Path.GetFileName(SourceFile.AbsolutePath) + ObjectFileExtension
 						)
 					);
@@ -491,7 +503,7 @@ namespace UnrealBuildTool
 			return Result;
 		}
 
-		public override CPPOutput CompileRCFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> RCFiles, ActionGraph ActionGraph)
+		public override CPPOutput CompileRCFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, ActionGraph ActionGraph)
 		{
 			CPPOutput Result = new CPPOutput();
 
@@ -505,7 +517,7 @@ namespace UnrealBuildTool
 		/// <param name="e"> Event arguments (In this case, the line of string output)</param>
 		protected void RemoteOutputReceivedEventHandler(object sender, DataReceivedEventArgs e)
 		{
-			var Output = e.Data;
+			string Output = e.Data;
 			if (Output == null)
 			{
 				return;
@@ -650,10 +662,10 @@ namespace UnrealBuildTool
 		public override void ModifyBuildProducts(ReadOnlyTargetRules Target, UEBuildBinary Binary, List<string> Libraries, List<UEBuildBundleResource> BundleResources, Dictionary<FileReference, BuildProductType> BuildProducts)
 		{
 			// we need to include the generated .mem and .symbols file.
-			if (Binary.Config.Type != UEBuildBinaryType.StaticLibrary)
+			if (Binary.Type != UEBuildBinaryType.StaticLibrary)
 			{
-				BuildProducts.Add(Binary.Config.OutputFilePath.ChangeExtension("wasm"), BuildProductType.RequiredResource);
-				BuildProducts.Add(Binary.Config.OutputFilePath + ".symbols", BuildProductType.RequiredResource);
+				BuildProducts.Add(Binary.OutputFilePath.ChangeExtension("wasm"), BuildProductType.RequiredResource);
+				BuildProducts.Add(Binary.OutputFilePath + ".symbols", BuildProductType.RequiredResource);
 			}
 		}
 	};

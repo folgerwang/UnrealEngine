@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ObjectMacros.h"
+#include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
 #if WITH_EDITOR
 #include "PropertyPath.h"

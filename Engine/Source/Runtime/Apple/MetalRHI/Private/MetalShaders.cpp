@@ -14,7 +14,7 @@
 #include "MetalCommandBuffer.h"
 #include "Serialization/MemoryReader.h"
 #include "Misc/FileHelper.h"
-#include "ScopeRWLock.h"
+#include "Misc/ScopeRWLock.h"
 #include "Misc/Compression.h"
 #include "Misc/MessageDialog.h"
 

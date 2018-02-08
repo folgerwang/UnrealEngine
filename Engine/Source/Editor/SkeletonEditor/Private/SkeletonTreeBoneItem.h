@@ -15,7 +15,7 @@
 #include "Animation/Skeleton.h"
 #include "Widgets/Input/SComboButton.h"
 #include "BoneProxy.h"
-#include "GCObject.h"
+#include "UObject/GCObject.h"
 
 class UDebugSkelMeshComponent;
 

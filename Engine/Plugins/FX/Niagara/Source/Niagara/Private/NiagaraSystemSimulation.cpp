@@ -10,7 +10,7 @@
 #include "NiagaraSystemInstance.h"
 #include "NiagaraConstants.h"
 #include "NiagaraStats.h"
-#include "ParallelFor.h"
+#include "Async/ParallelFor.h"
 #include "NiagaraComponent.h"
 #include "NiagaraWorldManager.h"
 

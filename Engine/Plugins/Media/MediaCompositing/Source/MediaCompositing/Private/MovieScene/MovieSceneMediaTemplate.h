@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "MovieSceneEvalTemplate.h"
-#include "MovieScenePropertyTemplate.h"
+#include "Evaluation/MovieSceneEvalTemplate.h"
+#include "Evaluation/MovieScenePropertyTemplate.h"
 
 #include "MovieSceneMediaTemplate.generated.h"
 

@@ -4,8 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "HitProxies.h"
-#include "MovieScene3DTransformSection.h"
-#include "MovieScene3DTransformTrack.h"
+#include "Sections/MovieScene3DTransformSection.h"
+#include "Tracks/MovieScene3DTransformTrack.h"
 #include "MovieSceneTrack.h"
 
 struct HMovieSceneKeyProxy : public HHitProxy

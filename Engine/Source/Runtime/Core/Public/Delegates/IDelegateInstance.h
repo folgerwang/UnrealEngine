@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreTypes.h"
-#include "TypeHash.h" 
+#include "Templates/TypeHash.h" 
 #include "UObject/NameTypes.h"
 #include "Delegates/DelegateSettings.h"
 

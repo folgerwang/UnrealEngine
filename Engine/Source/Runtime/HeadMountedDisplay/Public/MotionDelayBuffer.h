@@ -2,7 +2,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "SharedPointer.h"
+#include "Templates/SharedPointer.h"
 #include "LateUpdateManager.h"
 #include "UObject/WeakObjectPtr.h"
 

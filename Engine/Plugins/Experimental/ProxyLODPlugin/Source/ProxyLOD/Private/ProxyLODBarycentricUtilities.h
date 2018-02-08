@@ -4,7 +4,7 @@
 
 #include <array>
 
-#include "Vector.h"   // For FVector
+#include "Math/Vector.h"   // For FVector
 #include "ProxyLODTwoDTriangleUtilities.h"
 
 namespace ProxyLOD

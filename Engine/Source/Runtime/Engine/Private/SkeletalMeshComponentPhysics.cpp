@@ -21,7 +21,7 @@
 #include "DrawDebugHelpers.h"
 #include "SkeletalRender.h"
 #include "SkeletalRenderPublic.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "PhysicsPublic.h"
 #include "Rendering/SkeletalMeshRenderData.h"
 

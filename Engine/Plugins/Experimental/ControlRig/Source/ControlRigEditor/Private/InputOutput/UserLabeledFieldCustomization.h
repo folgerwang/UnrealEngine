@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "IPropertyTypeCustomization.h"
-#include "Reply.h"
+#include "Input/Reply.h"
 #include "UObject/WeakObjectPtr.h"
 
 class UK2Node_ControlRig;

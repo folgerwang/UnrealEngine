@@ -3,8 +3,8 @@
 #pragma once
 
 #include "SGraphNode.h"
-#include "SMenuAnchor.h"
-#include "UICommandList.h"
+#include "Widgets/Input/SMenuAnchor.h"
+#include "Framework/Commands/UICommandList.h"
 
 /** A graph node widget representing a niagara write data set node. */
 class SNiagaraGraphNodeWriteDataSet : public SGraphNode

@@ -7,7 +7,7 @@
 #include "Modules/ModuleManager.h"
 #include "IPAddress.h"
 #include "Sockets.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 DEFINE_LOG_CATEGORY(LogSockets);
 

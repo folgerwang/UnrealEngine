@@ -5,7 +5,7 @@
 #include "NiagaraTypes.h"
 #include "NiagaraEditorStyle.h"
 
-#include "SSpinBox.h"
+#include "Widgets/Input/SSpinBox.h"
 
 class SNiagaraFloatParameterEditor : public SNiagaraParameterEditor
 {

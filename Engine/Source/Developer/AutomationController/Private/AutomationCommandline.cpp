@@ -10,9 +10,9 @@
 #include "Modules/ModuleManager.h"
 #include "Misc/FilterCollection.h"
 #include "IAutomationControllerModule.h"
-#include "FileManager.h"
-#include "Paths.h"
-#include "FileHelper.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/FileHelper.h"
 #include "AssetRegistryModule.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogAutomationCommandLine, Log, All);

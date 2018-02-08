@@ -482,7 +482,7 @@ void DumpPhysXInstanceMemoryUsage(FOutputDevice* Ar)
 			{
 				if (FBodyInstance* BI = FPhysxUserData::Get<FBodyInstance>(PActor->userData))
 				{
-					Ar->Logf(*BI->GetBodyDebugName());
+					Ar->Log(*BI->GetBodyDebugName());
 				}
 			}
 		}

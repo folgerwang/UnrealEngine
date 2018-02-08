@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimFinger.h"
+#include "AnimBody/AnimFinger.h"
 #include "LeapFinger.h"
 #include "LeapBone.h"
 #include "LeapInterfaceUtility.h"

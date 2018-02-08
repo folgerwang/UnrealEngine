@@ -6,7 +6,7 @@
 #include "Modules/ModuleManager.h"
 #include "Misc/PackageName.h"
 #include "InputCoreTypes.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "AI/Navigation/NavigationSystem.h"
 #include "Model.h"
 #include "ISourceControlModule.h"
@@ -30,7 +30,7 @@
 #include "AutoReimport/AutoReimportUtilities.h"
 #include "Misc/ConfigCacheIni.h" // for FConfigCacheIni::GetString()
 #include "SourceCodeNavigation.h"
-#include "IProjectManager.h"
+#include "Interfaces/IProjectManager.h"
 #include "ProjectDescriptor.h"
 #include "Settings/SkeletalMeshEditorSettings.h"
 

@@ -3,7 +3,7 @@
 
 #include "Data/ChunkData.h"
 #include "Misc/Guid.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 namespace BuildPatchServices
 {

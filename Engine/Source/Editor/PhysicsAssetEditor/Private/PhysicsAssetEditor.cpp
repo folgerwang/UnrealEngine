@@ -70,13 +70,13 @@
 #include "SkeletonTreePhysicsBodyItem.h"
 #include "SkeletonTreePhysicsShapeItem.h"
 #include "SkeletonTreePhysicsConstraintItem.h"
-#include "ScopedSlowTask.h"
+#include "Misc/ScopedSlowTask.h"
 #include "PhysicsAssetGenerationSettings.h"
 #include "Framework/Commands/GenericCommands.h"
 #include "UICommandList_Pinnable.h"
 #include "IPinnedCommandList.h"
-#include "SSpinBox.h"
-#include "SNumericEntryBox.h"
+#include "Widgets/Input/SSpinBox.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 
 const FName PhysicsAssetEditorModes::PhysicsAssetEditorMode("PhysicsAssetEditorMode");
 

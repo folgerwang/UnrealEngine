@@ -13,9 +13,9 @@
 #include "Modules/ModuleManager.h"
 #include "StaticMeshResources.h"
 #include "ProfilingDebugging/CookStats.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "Engine/StaticMesh.h"
-#include "AutomationTest.h"
+#include "Misc/AutomationTest.h"
 
 #if WITH_EDITOR
 #include "DerivedDataCacheInterface.h"

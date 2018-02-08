@@ -5,7 +5,7 @@
 #include "AssetData.h"
 #include "ARFilter.h"
 #include "Materials/MaterialInterface.h"
-#include "Paths.h"
+#include "Misc/Paths.h"
 
 UMaterialInterface* UMaterialImportHelpers::FindExistingMaterialFromSearchLocation(const FString& MaterialFullName, const FString& BasePackagePath, EMaterialSearchLocation SearchLocation, FText& OutError)
 {

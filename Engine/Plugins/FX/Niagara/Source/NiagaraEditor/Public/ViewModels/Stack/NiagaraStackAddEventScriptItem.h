@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "NiagaraStackEntry.h"
+#include "ViewModels/Stack/NiagaraStackEntry.h"
 #include "EdGraph/EdGraphSchema.h"
-#include "NiagaraStackAddModuleItem.h"
+#include "ViewModels/Stack/NiagaraStackAddModuleItem.h"
 #include "NiagaraStackAddEventScriptItem.generated.h"
 
 class FNiagaraEmitterViewModel;

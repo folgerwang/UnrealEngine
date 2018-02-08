@@ -63,7 +63,7 @@ void FHTML5PlatformProcess::SleepInfinite()
 	}); // =)
 }
 
-#include "HTML5PlatformRunnableThread.h"
+#include "HTML5/HTML5PlatformRunnableThread.h"
 
 FRunnableThread* FHTML5PlatformProcess::CreateRunnableThread()
 {

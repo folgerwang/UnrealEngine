@@ -22,9 +22,9 @@ namespace UnrealBuildTool
 			CppPlatform = InCppPlatform;
 		}
 
-		public abstract CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> SourceFiles, string ModuleName, ActionGraph ActionGraph);
+		public abstract CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, ActionGraph ActionGraph);
 
-		public virtual CPPOutput CompileRCFiles(CppCompileEnvironment Environment, List<FileItem> RCFiles, ActionGraph ActionGraph)
+		public virtual CPPOutput CompileRCFiles(CppCompileEnvironment Environment, List<FileItem> InputFiles, DirectoryReference OutputDir, ActionGraph ActionGraph)
 		{
 			CPPOutput Result = new CPPOutput();
 			return Result;
@@ -46,7 +46,7 @@ namespace UnrealBuildTool
 		public static FileReference GetResponseFileName(LinkEnvironment LinkEnvironment, FileItem OutputFile)
 		{
 			// Construct a relative path for the intermediate response file
-			return FileReference.Combine(LinkEnvironment.IntermediateDirectory, OutputFile.Reference.GetFileName() + ".response");
+			return FileReference.Combine(LinkEnvironment.IntermediateDirectory, OutputFile.Location.GetFileName() + ".response");
 		}
 
 		public virtual ICollection<FileItem> PostBuild(FileItem Executable, LinkEnvironment ExecutableLinkEnvironment, ActionGraph ActionGraph)

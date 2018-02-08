@@ -6,8 +6,8 @@
 #include "Types/SlateEnums.h"
 #include "Layout/Visibility.h"
 #include "Materials/MaterialLayersFunctions.h"
-#include "Reply.h"
-#include "SSplitter.h"
+#include "Input/Reply.h"
+#include "Widgets/Layout/SSplitter.h"
 #include "MaterialEditor/MaterialEditorInstanceConstant.h"
 #include "MaterialPropertyHelpers.generated.h"
 

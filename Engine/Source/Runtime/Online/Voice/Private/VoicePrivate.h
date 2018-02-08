@@ -6,9 +6,9 @@
 
 #if PLATFORM_WINDOWS
 
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 THIRD_PARTY_INCLUDES_START
 #include <Audiopolicy.h>
@@ -18,7 +18,7 @@ THIRD_PARTY_INCLUDES_START
 #include <dsound.h>
 THIRD_PARTY_INCLUDES_END
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #endif // PLATFORM_WINDOWS
 

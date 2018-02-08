@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 namespace UnrealBuildTool
 {
 	/// <summary>
-	/// Scoped timer, start is in the constructor, end in Dispose. Best used with using(var Timer = new ScopedTimer()). Suports nesting.
+	/// Scoped timer, start is in the constructor, end in Dispose. Best used with using(ScopedTimer Timer = new ScopedTimer()). Suports nesting.
 	/// </summary>
 	public class ScopedTimer : IDisposable
 	{

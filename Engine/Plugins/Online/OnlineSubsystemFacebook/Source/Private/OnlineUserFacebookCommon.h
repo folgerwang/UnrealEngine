@@ -4,7 +4,7 @@
 #pragma once
  
 // Module includes
-#include "OnlineUserInterface.h"
+#include "Interfaces/OnlineUserInterface.h"
 #include "OnlineSubsystemFacebookPackage.h"
 
 class FOnlineSubsystemFacebookCommon;

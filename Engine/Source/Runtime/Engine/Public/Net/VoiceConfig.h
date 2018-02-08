@@ -9,7 +9,7 @@
 #include "Sound/AudioSettings.h"
 #include "Sound/SoundAttenuation.h"
 #include "GameFramework/PlayerState.h"
-#include "SynthComponent.h"
+#include "Components/SynthComponent.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "VoiceConfig.generated.h"
 

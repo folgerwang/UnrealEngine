@@ -9,7 +9,7 @@
 #include "CoreMinimal.h"
 #include "Templates/ScopedPointer.h"
 #include "Shader.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "RHIResources.h"
 
 class FShaderCommonCompileJob;

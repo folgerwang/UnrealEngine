@@ -8,15 +8,15 @@
 #include "Runtime/Windows/XAudio2/Private/XAudio2Support.h"
 #include "AudioDevice.h"
 
-#include "AllowWindowsPlatformTypes.h"
-#include "AllowWindowsPlatformAtomics.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformAtomics.h"
 THIRD_PARTY_INCLUDES_START
 	#include <xapobase.h>
 	#include <xapofx.h>
 	#include <xaudio2fx.h>
 THIRD_PARTY_INCLUDES_END
-#include "HideWindowsPlatformAtomics.h"
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformAtomics.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #define AUDIO_HRTF_EFFECT_CLASS_ID __declspec( uuid( "{8E67E588-FFF5-4860-A323-5E89B325D5EF}" ) )
 

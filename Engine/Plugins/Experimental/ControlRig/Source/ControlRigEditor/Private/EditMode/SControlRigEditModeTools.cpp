@@ -8,14 +8,14 @@
 #include "ControlRig.h"
 #include "ControlRigEditModeSettings.h"
 #include "IDetailRootObjectCustomization.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "SControlManipulatorPicker.h"
 #include "Rigs/HierarchicalRig.h"
 #include "Rigs/HumanRig.h"
 #include "ControlRigEditMode.h"
 #include "EditorModeManager.h"
-#include "SExpandableArea.h"
-#include "SScrollBox.h"
+#include "Widgets/Layout/SExpandableArea.h"
+#include "Widgets/Layout/SScrollBox.h"
 
 #define LOCTEXT_NAMESPACE "ControlRigRootCustomization"
 

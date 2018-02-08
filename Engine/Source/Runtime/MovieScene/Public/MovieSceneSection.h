@@ -9,7 +9,7 @@
 #include "Curves/KeyHandle.h"
 #include "Curves/RichCurve.h"
 #include "MovieSceneSignedObject.h"
-#include "MovieSceneBlendType.h"
+#include "Evaluation/Blending/MovieSceneBlendType.h"
 #include "Generators/MovieSceneEasingFunction.h"
 #include "MovieSceneSection.generated.h"
 

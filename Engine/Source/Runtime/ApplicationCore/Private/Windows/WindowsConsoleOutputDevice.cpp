@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "WindowsConsoleOutputDevice.h"
+#include "Windows/WindowsConsoleOutputDevice.h"
 #include "Logging/LogMacros.h"
 #include "Misc/OutputDevice.h"
 #include "HAL/PlatformTime.h"

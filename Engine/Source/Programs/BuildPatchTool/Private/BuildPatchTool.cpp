@@ -3,7 +3,7 @@
 #include "BuildPatchTool.h"
 #include "UObject/Object.h"
 #include "RequiredProgramMainCPPInclude.h"
-#include "ToolMode.h"
+#include "Interfaces/ToolMode.h"
 #include "Misc/OutputDeviceError.h"
 
 using namespace BuildPatchTool;

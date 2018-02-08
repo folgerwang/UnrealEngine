@@ -10,7 +10,7 @@
 #include "InterfaceSpecifiers.h"
 #include "StructSpecifiers.h"
 #include "VariableSpecifiers.h"
-#include "Containers/Algo/IsSorted.h"
+#include "Algo/IsSorted.h"
 
 const TCHAR* GFunctionSpecifierStrings[(int32)EFunctionSpecifier::Max] =
 {

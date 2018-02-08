@@ -83,6 +83,7 @@
     <Compile Include="CopyUAT.Automation.cs" />
     <Compile Include="CopyUsingDistillFileSet.Automation.cs" />
     <Compile Include="DeployCommand.Automation.cs" />
+    <Compile Include="RebasePublicIncludePaths.cs" />
     <Compile Include="FixupRedirects.Automation.cs" />
     <Compile Include="GenerateDSYM.Automation.cs" />
     <Compile Include="InstalledBuild.cs" />
@@ -109,7 +110,6 @@
     <Compile Include="Tests.Automation.cs" />
     <Compile Include="TestSnippet.Automation.cs" />
     <Compile Include="UE4BuildUtils.cs" />
-    <Compile Include="UnrealSync.Automation.cs" />
     <Compile Include="UpdateLocalVersion.Automation.cs" />
     <Compile Include="ZipUtils.Automation.cs" />
   </ItemGroup>

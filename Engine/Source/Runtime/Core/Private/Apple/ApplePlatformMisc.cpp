@@ -4,9 +4,9 @@
 	ApplePlatformMisc.mm: iOS implementations of misc functions
 =============================================================================*/
 
-#include "ApplePlatformMisc.h"
-#include "ExceptionHandling.h"
-#include "SecureHash.h"
+#include "Apple/ApplePlatformMisc.h"
+#include "HAL/ExceptionHandling.h"
+#include "Misc/SecureHash.h"
 #include "Misc/CommandLine.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/Guid.h"

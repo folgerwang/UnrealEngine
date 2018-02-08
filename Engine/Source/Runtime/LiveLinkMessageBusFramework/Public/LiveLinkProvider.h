@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "SharedPointer.h"
+#include "Templates/SharedPointer.h"
 #include "LiveLinkTypes.h"
 
 /** Delegate called when the connection status of the provider has changed. */

@@ -7,7 +7,7 @@
 #include "Framework/Text/DefaultLayoutBlock.h"
 #include "Framework/Text/ShapedTextCache.h"
 #include "Framework/Text/RunUtils.h"
-#include "ShapedTextFwd.h"
+#include "Fonts/ShapedTextFwd.h"
 
 TSharedRef< FSlateTextRun > FSlateTextRun::Create( const FRunInfo& InRunInfo, const TSharedRef< const FString >& InText, const FTextBlockStyle& Style )
 {

@@ -4,7 +4,7 @@
 
 #include "Curves/IntegralCurve.h"
 #include "MovieSceneSection.h"
-#include "IKeyframeSection.h"
+#include "Sections/IKeyframeSection.h"
 #include "MovieSceneEnumSection.generated.h"
 
 

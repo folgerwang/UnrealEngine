@@ -297,7 +297,7 @@ namespace UnrealBuildTool
 				Name = Info.ModuleName,
 				ModuleType = Info.ModuleType,
 				BaseDirectory = Info.ModuleDirectory.FullName,
-				IncludeBase = Info.ModuleDirectory.FullName,
+				IncludeBase = Info.ModuleDirectory.ParentDirectory.FullName,
 				OutputDirectory = Path.GetDirectoryName(Info.GeneratedCPPFilenameBase),
 				ClassesHeaders = Info.PublicUObjectClassesHeaders.Select((Header) => Header.AbsolutePath).ToList(),
 				PublicHeaders = Info.PublicUObjectHeaders.Select((Header) => Header.AbsolutePath).ToList(),
@@ -344,11 +344,11 @@ namespace UnrealBuildTool
 
 				if (CPPHeaders.DoesFileContainUObjects(UObjectHeaderFileItem.AbsolutePath))
 				{
-					if (UObjectHeaderFileItem.Reference.IsUnderDirectory(ClassesFolder))
+					if (UObjectHeaderFileItem.Location.IsUnderDirectory(ClassesFolder))
 					{
 						AllClassesHeaders.Add(UObjectHeaderFileItem);
 					}
-					else if (UObjectHeaderFileItem.Reference.IsUnderDirectory(PublicFolder))
+					else if (UObjectHeaderFileItem.Location.IsUnderDirectory(PublicFolder))
 					{
 						PublicUObjectHeaders.Add(UObjectHeaderFileItem);
 					}
@@ -545,7 +545,7 @@ namespace UnrealBuildTool
 			if (UnrealBuildTool.bPrintPerformanceInfo)
 			{
 				double UObjectDiscoveryTime = (DateTime.UtcNow - UObjectDiscoveryStartTime).TotalSeconds;
-				Console.WriteLine("UObject discovery time: " + UObjectDiscoveryTime + "s");
+				Log.TraceInformation("UObject discovery time: " + UObjectDiscoveryTime + "s");
 			}
 		}
 
@@ -1091,6 +1091,16 @@ namespace UnrealBuildTool
 								UBTArguments.Append(" -PLUGIN \"" + EnabledPlugin.Info.File + "\"");
 							}
 						}						
+
+						// Output the log next to the current log
+						if(String.IsNullOrEmpty(BuildConfiguration.LogFileName))
+						{
+							UBTArguments.Append(" -nolog");
+						}
+						else
+						{
+							UBTArguments.AppendFormat(" -log=\"{0}\"", Path.Combine(Path.GetDirectoryName(BuildConfiguration.LogFileName), Path.GetFileNameWithoutExtension(BuildConfiguration.LogFileName) + "_UHT.txt"));
+						}
 
 						if (RunExternalDotNETExecutable(UnrealBuildTool.GetUBTPath(), UBTArguments.ToString()) != 0)
 						{

@@ -311,9 +311,12 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, FString& Value, boo
 	if( FParse::Value( Stream, Match, Temp, ARRAY_COUNT(Temp), bShouldStopOnSeparator) )
 	{
 		Value = Temp;
-		return 1;
+		return true;
 	}
-	else return 0;
+	else
+	{
+		return false;
+	}
 }
 
 // 
@@ -477,7 +480,7 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, FText& Value, const
 		return FParse::Text( Stream, Value, Namespace );
 	}
 
-	return 0;
+	return false;
 }
 
 //
@@ -503,9 +506,12 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, int64& Value )
 			Value = Value*10 + *Ptr++ - '0';
 		if( Negative )
 			Value = -Value;
-		return 1;
+		return true;
 	}
-	else return 0;
+	else
+	{
+		return false;
+	}
 }
 
 //
@@ -517,12 +523,12 @@ bool FParse::Value(	const TCHAR* Stream, const TCHAR* Match, FName& Name )
 
 	if( !FParse::Value(Stream,Match,TempStr,NAME_SIZE) )
 	{
-		return 0;
+		return false;
 	}
 
 	Name = FName(TempStr);
 
-	return 1;
+	return true;
 }
 
 //
@@ -533,10 +539,10 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, uint32& Value )
 	const TCHAR* Temp = FCString::Strifind(Stream,Match);
 	TCHAR* End;
 	if( Temp==NULL )
-		return 0;
+		return false;
 	Value = FCString::Strtoi( Temp + FCString::Strlen(Match), &End, 10 );
 
-	return 1;
+	return true;
 }
 
 //
@@ -546,7 +552,7 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, uint8& Value )
 {
 	const TCHAR* Temp = FCString::Strifind(Stream,Match);
 	if( Temp==NULL )
-		return 0;
+		return false;
 	Temp += FCString::Strlen( Match );
 	Value = (uint8)FCString::Atoi( Temp );
 	return Value!=0 || FChar::IsDigit(Temp[0]);
@@ -559,7 +565,7 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, int8& Value )
 {
 	const TCHAR* Temp = FCString::Strifind(Stream,Match);
 	if( Temp==NULL )
-		return 0;
+		return false;
 	Temp += FCString::Strlen( Match );
 	Value = FCString::Atoi( Temp );
 	return Value!=0 || FChar::IsDigit(Temp[0]);
@@ -572,7 +578,7 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, uint16& Value )
 {
 	const TCHAR* Temp = FCString::Strifind( Stream, Match );
 	if( Temp==NULL )
-		return 0;
+		return false;
 	Temp += FCString::Strlen( Match );
 	Value = (uint16)FCString::Atoi( Temp );
 	return Value!=0 || FChar::IsDigit(Temp[0]);
@@ -585,7 +591,7 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, int16& Value )
 {
 	const TCHAR* Temp = FCString::Strifind( Stream, Match );
 	if( Temp==NULL )
-		return 0;
+		return false;
 	Temp += FCString::Strlen( Match );
 	Value = (int16)FCString::Atoi( Temp );
 	return Value!=0 || FChar::IsDigit(Temp[0]);
@@ -598,9 +604,9 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, float& Value )
 {
 	const TCHAR* Temp = FCString::Strifind( Stream, Match );
 	if( Temp==NULL )
-		return 0;
+		return false;
 	Value = FCString::Atof( Temp+FCString::Strlen(Match) );
-	return 1;
+	return true;
 }
 
 //
@@ -610,9 +616,9 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, int32& Value )
 {
 	const TCHAR* Temp = FCString::Strifind( Stream, Match );
 	if( Temp==NULL )
-		return 0;
+		return false;
 	Value = FCString::Atoi( Temp + FCString::Strlen(Match) );
-	return 1;
+	return true;
 }
 
 //
@@ -624,9 +630,12 @@ bool FParse::Bool( const TCHAR* Stream, const TCHAR* Match, bool& OnOff )
 	if( FParse::Value( Stream, Match, TempStr, 16 ) )
 	{
 		OnOff = FCString::ToBool(TempStr);
-		return 1;
+		return true;
 	}
-	else return 0;
+	else
+	{
+		return false;
+	}
 }
 
 //
@@ -636,7 +645,7 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, struct FGuid& Guid 
 {
 	TCHAR Temp[256];
 	if( !FParse::Value( Stream, Match, Temp, ARRAY_COUNT(Temp) ) )
-		return 0;
+		return false;
 
 	Guid.A = Guid.B = Guid.C = Guid.D = 0;
 	if( FCString::Strlen(Temp)==32 )
@@ -647,7 +656,7 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, struct FGuid& Guid 
 		Guid.B = FCString::Strtoi( Temp+8,  &End, 16 ); Temp[8 ]=0;
 		Guid.A = FCString::Strtoi( Temp+0,  &End, 16 ); Temp[0 ]=0;
 	}
-	return 1;
+	return true;
 }
 
 
@@ -688,15 +697,18 @@ bool FParse::Command( const TCHAR** Stream, const TCHAR* Match, bool bParseMight
 				(*Stream)++;
 			}
 
-			return 1; // Success.
+			return true; // Success.
 		}
 		else
 		{
 			*Stream -= MatchLen;
-			return 0; // Only found partial match.
+			return false; // Only found partial match.
 		}
 	}
-	else return 0; // No match.
+	else
+	{
+		return false; // No match.
+	}
 }
 
 //

@@ -4,7 +4,7 @@
 #include "IOculusHMDModule.h"
 #include "OculusFunctionLibrary.h"
 #include "StereoRendering.h"
-#include "RunnableThread.h"
+#include "HAL/RunnableThread.h"
 #include "RHI.h"
 #include <functional>
 
@@ -31,13 +31,13 @@
 #endif
 
 #if PLATFORM_WINDOWS
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #endif
 
 #include "OVR_Plugin.h"
 
 #if PLATFORM_WINDOWS
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 #if PLATFORM_SUPPORTS_PRAGMA_PACK

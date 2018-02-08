@@ -60,10 +60,10 @@
 #include "BoneSelectionWidget.h"
 #include "BoneProxy.h"
 #include "SkeletonTreeSelection.h"
-#include "SGridPanel.h"
+#include "Widgets/Layout/SGridPanel.h"
 
 #include "HAL/PlatformApplicationMisc.h"
-#include "STreeView.h"
+#include "Widgets/Views/STreeView.h"
 #include "IPinnedCommandList.h"
 #include "PersonaModule.h"
 

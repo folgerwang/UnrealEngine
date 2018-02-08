@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Windows/WindowsPlatformInput.h"
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 
 uint32 FWindowsPlatformInput::GetKeyMap( uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings )
 {

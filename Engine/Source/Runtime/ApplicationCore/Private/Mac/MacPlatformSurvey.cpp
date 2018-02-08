@@ -4,8 +4,8 @@
  MacPlatformSurvey.mm: Mac OS X platform hardware-survey classes
  =================================================================================*/
 
-#include "MacPlatformSurvey.h"
-#include "UnrealString.h"
+#include "Mac/MacPlatformSurvey.h"
+#include "Containers/UnrealString.h"
 #include "SynthBenchmark.h"
 #include "HAL/PlatformTime.h"
 #include "HAL/PlatformProcess.h"

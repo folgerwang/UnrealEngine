@@ -3,10 +3,10 @@
 #include "MetalRHIPrivate.h"
 #include "Misc/App.h"
 #if PLATFORM_IOS
-#include "IOSAppDelegate.h"
+#include "IOS/IOSAppDelegate.h"
 #endif
-#include "ConfigCacheIni.h"
-#include "PlatformFramePacer.h"
+#include "Misc/ConfigCacheIni.h"
+#include "HAL/PlatformFramePacer.h"
 #include "Runtime/HeadMountedDisplay/Public/IHeadMountedDisplayModule.h"
 
 #include "MetalContext.h"
@@ -15,7 +15,7 @@
 
 #if METAL_STATISTICS
 #include "MetalStatistics.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #endif
 
 #include "ShaderCache.h"

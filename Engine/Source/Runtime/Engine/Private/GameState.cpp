@@ -9,7 +9,7 @@
 #include "GameFramework/GameMode.h"
 #include "GameFramework/WorldSettings.h"
 #include "Net/UnrealNetwork.h"
-#include "CoreDelegates.h"
+#include "Misc/CoreDelegates.h"
 
 AGameState::AGameState(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

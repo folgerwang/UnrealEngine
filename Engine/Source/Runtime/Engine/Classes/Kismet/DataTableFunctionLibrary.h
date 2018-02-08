@@ -9,7 +9,7 @@
 #include "UObject/ScriptMacros.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "Engine/DataTable.h"
-#include "Class.h" // for FStructUtils
+#include "UObject/Class.h" // for FStructUtils
 #include "DataTableFunctionLibrary.generated.h"
 
 class UCurveTable;

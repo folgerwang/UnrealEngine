@@ -8,8 +8,8 @@
 #include "VREditorModeManager.h"
 #include "VREditorStyle.h"
 #include "VREditorMode.h"
-#include "MultiBoxBuilder.h"
-#include "MultiBoxExtender.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
 #include "HeadMountedDisplayTypes.h"
 
 class FVREditorModule : public IVREditorModule

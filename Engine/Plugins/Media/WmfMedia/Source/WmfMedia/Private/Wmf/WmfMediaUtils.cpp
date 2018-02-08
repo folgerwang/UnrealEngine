@@ -14,7 +14,7 @@
 
 #include "WmfMediaByteStream.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 #define WMFMEDIA_FRAMERATELUT_SIZE 9
 
@@ -1799,6 +1799,6 @@ namespace WmfMedia
 }
 
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #endif //WMFMEDIA_SUPPORTED_PLATFORM

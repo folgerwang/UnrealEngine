@@ -30,7 +30,7 @@
 #include "SProvisionListRow.h"
 #include "SCertificateListRow.h"
 #include "Misc/EngineBuildSettings.h"
-#include "SNumericDropDown.h"
+#include "Widgets/Input/SNumericDropDown.h"
 #include "Misc/MessageDialog.h"
 #include "Widgets/Notifications/SErrorText.h"
 #include "Interfaces/ITargetPlatform.h"

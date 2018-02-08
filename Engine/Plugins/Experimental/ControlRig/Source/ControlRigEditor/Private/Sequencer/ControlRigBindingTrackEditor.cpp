@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ControlRigBindingTrackEditor.h"
-#include "ControlRigBindingTrack.h"
+#include "Sequencer/ControlRigBindingTrack.h"
 #include "ControlRigEditMode.h"
 #include "EditorModeManager.h"
 

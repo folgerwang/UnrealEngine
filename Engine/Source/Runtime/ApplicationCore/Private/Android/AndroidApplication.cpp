@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidApplication.h"
-#include "AndroidInputInterface.h"
-#include "AndroidWindow.h"
+#include "Android/AndroidApplication.h"
+#include "Android/AndroidInputInterface.h"
+#include "Android/AndroidWindow.h"
 #include "IInputDeviceModule.h"
 #include "HAL/OutputDevices.h"
 #include "Misc/AssertionMacros.h"

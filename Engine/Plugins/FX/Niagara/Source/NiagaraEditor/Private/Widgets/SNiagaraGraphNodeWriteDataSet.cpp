@@ -12,7 +12,7 @@
 #include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
 #include "ISinglePropertyView.h"
 #include "NiagaraNodeWriteDataSet.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "GraphEditorSettings.h"
 
 #define LOCTEXT_NAMESPACE "SNiagaraGraphNodeWriteDataSet"

@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraStackSpacer.h"
+#include "ViewModels/Stack/NiagaraStackSpacer.h"
 
 void UNiagaraStackSpacer::Initialize(TSharedRef<FNiagaraSystemViewModel> InSystemViewModel, TSharedRef<FNiagaraEmitterViewModel> InEmitterViewModel, FName InSpacerKey)
 {

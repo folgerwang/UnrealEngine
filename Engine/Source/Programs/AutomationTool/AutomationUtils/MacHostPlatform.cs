@@ -137,11 +137,6 @@ namespace AutomationTool
 			return true;
 		}
 
-		public override string UBTProjectName
-		{
-			get { return "UnrealBuildTool"; }
-		}
-
 		public override UnrealTargetPlatform HostEditorPlatform
 		{
 			get { return UnrealTargetPlatform.Mac; }

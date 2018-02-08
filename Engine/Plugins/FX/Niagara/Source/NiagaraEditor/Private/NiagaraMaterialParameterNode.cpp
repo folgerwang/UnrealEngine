@@ -17,12 +17,12 @@
 #include "NiagaraEmitter.h"
 #include "NiagaraRendererProperties.h"
 #include "NiagaraNodeIf.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "NiagaraEditorUtilities.h"
 #include "NiagaraEditorModule.h"
 #include "INiagaraEditorTypeUtilities.h"
 #include "NiagaraStackEditorData.h"
-#include "NiagaraStackGraphUtilities.h"
+#include "ViewModels/Stack/NiagaraStackGraphUtilities.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraMaterialParameterNode"
 

@@ -4,20 +4,20 @@
 	IOSPlatformMisc.mm: iOS implementations of misc functions
 =============================================================================*/
 
-#include "IOSPlatformMisc.h"
+#include "IOS/IOSPlatformMisc.h"
 #include "Misc/App.h"
-#include "ExceptionHandling.h"
-#include "SecureHash.h"
-#include "EngineVersion.h"
-#include "IOSMallocZone.h"
-#include "IOSApplication.h"
-#include "IOSAppDelegate.h"
-#include "IOSView.h"
+#include "HAL/ExceptionHandling.h"
+#include "Misc/SecureHash.h"
+#include "Misc/EngineVersion.h"
+#include "IOS/IOSMallocZone.h"
+#include "IOS/IOSApplication.h"
+#include "IOS/IOSAppDelegate.h"
+#include "IOS/IOSView.h"
 #include "IOSChunkInstaller.h"
 #include "Misc/CommandLine.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Apple/ApplePlatformCrashContext.h"
-#include "IOSPlatformCrashContext.h"
+#include "IOS/IOSPlatformCrashContext.h"
 #if !PLATFORM_TVOS
 #include "PLCrashReporter.h"
 #include "PLCrashReport.h"
@@ -186,7 +186,7 @@ EDeviceScreenOrientation FIOSPlatformMisc::GetDeviceOrientation()
 #endif
 }
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 bool FIOSPlatformMisc::HasPlatformFeature(const TCHAR* FeatureName)
 {
@@ -1119,203 +1119,6 @@ void FIOSPlatformMisc::SetCrashHandler(void (* CrashHandler)(const FGenericCrash
 #endif
 }
 
-void FIOSCrashContext::GenerateWindowsErrorReport(char const* WERPath, bool bIsEnsure) const
-{
-	// @pjs commented out to resolve issue with PLATFORM_TVOS being defined by mach-o loader
-/*    int ReportFile = open(WERPath, O_CREAT|O_WRONLY, 0766);
-    if (ReportFile != -1)
-    {
-        TCHAR Line[PATH_MAX] = {};
-        
-        // write BOM
-        static uint16 ByteOrderMarker = 0xFEFF;
-        write(ReportFile, &ByteOrderMarker, sizeof(ByteOrderMarker));
-        
-        WriteLine(ReportFile, TEXT("<?xml version=\"1.0\" encoding=\"UTF-16\"?>"));
-        WriteLine(ReportFile, TEXT("<WERReportMetadata>"));
-        
-        WriteLine(ReportFile, TEXT("\t<OSVersionInformation>"));
-        WriteUTF16String(ReportFile, TEXT("\t\t<WindowsNTVersion>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.OSVersion);
-        WriteLine(ReportFile, TEXT("</WindowsNTVersion>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<Build>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.OSVersion);
-        WriteUTF16String(ReportFile, TEXT(" ("));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.OSBuild);
-        WriteLine(ReportFile, TEXT(")</Build>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<Product>(0x30): IOS "));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.OSVersion);
-        WriteLine(ReportFile, TEXT("</Product>"));
-        
-        WriteLine(ReportFile, TEXT("\t\t<Edition>IOS</Edition>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<BuildString>IOS "));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.OSVersion);
-        WriteUTF16String(ReportFile, TEXT(" ("));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.OSBuild);
-        WriteLine(ReportFile, TEXT(")</BuildString>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<Revision>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.OSBuild);
-        WriteLine(ReportFile, TEXT("</Revision>"));
-        
-        WriteLine(ReportFile, TEXT("\t\t<Flavor>Multiprocessor Free</Flavor>"));
-        WriteLine(ReportFile, TEXT("\t\t<Architecture>X64</Architecture>"));
-        WriteUTF16String(ReportFile, TEXT("\t\t<LCID>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.LCID);
-        WriteLine(ReportFile, TEXT("</LCID>"));
-        WriteLine(ReportFile, TEXT("\t</OSVersionInformation>"));
-        
-        WriteLine(ReportFile, TEXT("\t<ParentProcessInformation>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<ParentProcessId>"));
-        WriteUTF16String(ReportFile, ItoTCHAR(getppid(), 10));
-        WriteLine(ReportFile, TEXT("</ParentProcessId>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<ParentProcessPath>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.ParentProcess);
-        WriteLine(ReportFile, TEXT("</ParentProcessPath>"));
-        
-        WriteLine(ReportFile, TEXT("\t\t<ParentProcessCmdLine></ParentProcessCmdLine>"));	// FIXME: supply valid?
-        WriteLine(ReportFile, TEXT("\t</ParentProcessInformation>"));
-        
-        WriteLine(ReportFile, TEXT("\t<ProblemSignatures>"));
-        WriteLine(ReportFile, TEXT("\t\t<EventType>APPCRASH</EventType>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<Parameter0>UE4-"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.AppName);
-        WriteLine(ReportFile, TEXT("</Parameter0>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<Parameter1>"));
-        WriteUTF16String(ReportFile, ItoTCHAR(FEngineVersion::Current().GetMajor(), 10));
-        WriteUTF16String(ReportFile, TEXT("."));
-        WriteUTF16String(ReportFile, ItoTCHAR(FEngineVersion::Current().GetMinor(), 10));
-        WriteUTF16String(ReportFile, TEXT("."));
-        WriteUTF16String(ReportFile, ItoTCHAR(FEngineVersion::Current().GetPatch(), 10));
-        WriteLine(ReportFile, TEXT("</Parameter1>"));
-        
-        // App time stamp
-        WriteLine(ReportFile, TEXT("\t\t<Parameter2>528f2d37</Parameter2>"));													// FIXME: supply valid?
-        
-        Dl_info DLInfo;
-        if(Info && Info->si_addr != 0 && dladdr(Info->si_addr, &DLInfo) != 0)
-        {
-            // Crash Module name
-            WriteUTF16String(ReportFile, TEXT("\t\t<Parameter3>"));
-            if (DLInfo.dli_fname && FCStringAnsi::Strlen(DLInfo.dli_fname))
-            {
-                FMemory::Memzero(Line, PATH_MAX * sizeof(TCHAR));
-                FUTF8ToTCHAR_Convert::Convert(Line, PATH_MAX, DLInfo.dli_fname, FCStringAnsi::Strlen(DLInfo.dli_fname));
-                WriteUTF16String(ReportFile, Line);
-            }
-            else
-            {
-                WriteUTF16String(ReportFile, TEXT("Unknown"));
-            }
-            WriteLine(ReportFile, TEXT("</Parameter3>"));
-            
-            // Check header
-            uint32 Version = 0;
-            uint32 TimeStamp = 0;
-            struct mach_header_64* Header = (struct mach_header_64*)DLInfo.dli_fbase;
-            struct load_command *CurrentCommand = (struct load_command *)( (char *)Header + sizeof(struct mach_header_64) );
-            if( Header->magic == MH_MAGIC_64 )
-            {
-                for( int32 i = 0; i < Header->ncmds; i++ )
-                {
-                    if( CurrentCommand->cmd == LC_LOAD_DYLIB )
-                    {
-                        struct dylib_command *DylibCommand = (struct dylib_command *) CurrentCommand;
-                        Version = DylibCommand->dylib.current_version;
-                        TimeStamp = DylibCommand->dylib.timestamp;
-                        Version = ((Version & 0xff) + ((Version >> 8) & 0xff) * 100 + ((Version >> 16) & 0xffff) * 10000);
-                        break;
-                    }
-                    
-                    CurrentCommand = (struct load_command *)( (char *)CurrentCommand + CurrentCommand->cmdsize );
-                }
-            }
-            
-            // Module version
-            WriteUTF16String(ReportFile, TEXT("\t\t<Parameter4>"));
-            WriteUTF16String(ReportFile, ItoTCHAR(Version, 10));
-            WriteLine(ReportFile, TEXT("</Parameter4>"));
-            
-            // Module time stamp
-            WriteUTF16String(ReportFile, TEXT("\t\t<Parameter5>"));
-            WriteUTF16String(ReportFile, ItoTCHAR(TimeStamp, 16));
-            WriteLine(ReportFile, TEXT("</Parameter5>"));
-            
-            // MethodDef token -> no equivalent
-            WriteLine(ReportFile, TEXT("\t\t<Parameter6>00000001</Parameter6>"));
-            
-            // IL Offset -> Function pointer
-            WriteUTF16String(ReportFile, TEXT("\t\t<Parameter7>"));
-            WriteUTF16String(ReportFile, ItoTCHAR((uint64)Info->si_addr, 16));
-            WriteLine(ReportFile, TEXT("</Parameter7>"));
-        }
-        
-        // Command line, must match the Windows version.
-        WriteUTF16String(ReportFile, TEXT("\t\t<Parameter8>!"));
-        WriteUTF16String(ReportFile, FCommandLine::GetOriginal());
-        WriteLine(ReportFile, TEXT("!</Parameter8>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<Parameter9>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.BranchBaseDir);
-        WriteLine(ReportFile, TEXT("</Parameter9>"));
-        
-        WriteLine(ReportFile, TEXT("\t</ProblemSignatures>"));
-        
-        WriteLine(ReportFile, TEXT("\t<DynamicSignatures>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<Parameter1>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.BiosUUID);
-        WriteLine(ReportFile, TEXT("</Parameter1>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<Parameter2>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.LCID);
-        WriteLine(ReportFile, TEXT("</Parameter2>"));
-        WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<DeploymentName>%s</DeploymentName>"), FApp::GetDeploymentName()));
-        WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<IsEnsure>%s</IsEnsure>"), bIsEnsure ? TEXT("1") : TEXT("0")));
-        WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<IsAssert>%s</IsAssert>"), FDebug::HasAsserted() ? TEXT("1") : TEXT("0")));
-        WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<CrashType>%s</CrashType>"), FGenericCrashContext::GetCrashTypeString(bIsEnsure, FDebug::HasAsserted(), GIsGPUCrashed)));
-        WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<BuildVersion>%s</BuildVersion>"), FApp::GetBuildVersion()));
-        WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<EngineModeEx>%s</EngineModeEx>"), FGenericCrashContext::EngineModeExString()));
-        
-        WriteLine(ReportFile, TEXT("\t</DynamicSignatures>"));
-        
-        WriteLine(ReportFile, TEXT("\t<SystemInformation>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<MID>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.MachineUUID);
-        WriteLine(ReportFile, TEXT("</MID>"));
-        
-        WriteLine(ReportFile, TEXT("\t\t<SystemManufacturer>Apple Inc.</SystemManufacturer>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<SystemProductName>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.MachineModel);
-        WriteLine(ReportFile, TEXT("</SystemProductName>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<BIOSVersion>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.BiosRelease);
-        WriteUTF16String(ReportFile, TEXT("-"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.BiosRevision);
-        WriteLine(ReportFile, TEXT("</BIOSVersion>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<GraphicsCard>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.PrimaryGPU);
-        WriteLine(ReportFile, TEXT("</GraphicsCard>"));
-        
-        WriteLine(ReportFile, TEXT("\t</SystemInformation>"));
-        
-        WriteLine(ReportFile, TEXT("</WERReportMetadata>"));
-        
-        close(ReportFile);
-    }*/
-}
-
 void FIOSCrashContext::CopyMinidump(char const* OutputPath, char const* InputPath) const
 {
 #if !PLATFORM_TVOS
@@ -1384,12 +1187,7 @@ void FIOSCrashContext::GenerateInfoInFolder(char const* const InfoFolder, bool b
             
             close(ReportFile);
         }
-        
-        // generate "WER"
-        FCStringAnsi::Strncpy(FilePath, CrashInfoFolder, PATH_MAX);
-        FCStringAnsi::Strcat(FilePath, PATH_MAX, "/wermeta.xml");
-        GenerateWindowsErrorReport(FilePath, bIsEnsure);
-        
+                
         // generate "minidump" (Apple crash log format)
         FCStringAnsi::Strncpy(FilePath, CrashInfoFolder, PATH_MAX);
         FCStringAnsi::Strcat(FilePath, PATH_MAX, "/minidump.dmp");
@@ -1425,7 +1223,7 @@ void FIOSCrashContext::GenerateInfoInFolder(char const* const InfoFolder, bool b
         FCStringAnsi::Strncpy(FilePath, CrashInfoFolder, PATH_MAX);
         FCStringAnsi::Strcat(FilePath, PATH_MAX, "/" );
         FCStringAnsi::Strcat(FilePath, PATH_MAX, FGenericCrashContext::CrashContextRuntimeXMLNameA );
-        //SerializeAsXML( FilePath ); @todo uncomment after verification - need to do a bit more work on this for macOS
+        SerializeAsXML(*FString(FilePath));
         
         // copy log
         FCStringAnsi::Strncpy(FilePath, CrashInfoFolder, PATH_MAX);

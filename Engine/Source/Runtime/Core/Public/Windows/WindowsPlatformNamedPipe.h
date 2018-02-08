@@ -4,7 +4,7 @@
 
 #include "CoreTypes.h"
 #include "GenericPlatform/GenericPlatformNamedPipe.h"
-#include "WindowsSystemIncludes.h"
+#include "Windows/WindowsSystemIncludes.h"
 
 
 #if PLATFORM_SUPPORTS_NAMED_PIPES

@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidJavaMessageBox.h"
+#include "Android/AndroidJavaMessageBox.h"
 
 FJavaAndroidMessageBox::FJavaAndroidMessageBox()
 	: FJavaClassObject(GetClassName(), "()V")

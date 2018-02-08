@@ -8,7 +8,7 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Components/BillboardComponent.h"
 #include "Components/StaticMeshComponent.h"
-#include "MovieScene3DTransformSection.h"
+#include "Sections/MovieScene3DTransformSection.h"
 #include "TimerManager.h"
 #include "Editor.h"
 

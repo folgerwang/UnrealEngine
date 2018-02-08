@@ -10,9 +10,9 @@
 #include "Misc/StructBuilder.h"
 #include "Templates/Function.h"
 #include "Containers/Set.h"
-#include "Containers/Algo/Reverse.h"
+#include "Algo/Reverse.h"
 #include "Templates/Tuple.h"
-#include "HasGetTypeHash.h"
+#include "Templates/HasGetTypeHash.h"
 
 #define ExchangeB(A,B) {bool T=A; A=B; B=T;}
 
@@ -887,6 +887,16 @@ public:
 	{
 	}
 
+	/** Constructor which gets its elements from a native initializer list */
+	TMap(std::initializer_list<TPairInitializer<const KeyType&, const ValueType&>> InitList)
+	{
+		this->Reserve((int32)InitList.size());
+		for (const TPairInitializer<const KeyType&, const ValueType&>& Element : InitList)
+		{
+			this->Add(Element.Key, Element.Value);
+		}
+	}
+
 	/** Assignment operator for moving elements from a TMap with a different SetAllocator */
 	template<typename OtherSetAllocator>
 	TMap& operator=(TMap<KeyType, ValueType, OtherSetAllocator, KeyFuncs>&& Other)
@@ -900,6 +910,17 @@ public:
 	TMap& operator=(const TMap<KeyType, ValueType, OtherSetAllocator, KeyFuncs>& Other)
 	{
 		(Super&)*this = Other;
+		return *this;
+	}
+
+	/** Assignment operator which gets its elements from a native initializer list */
+	TMap& operator=(std::initializer_list<TPairInitializer<const KeyType&, const ValueType&>> InitList)
+	{
+		this->Empty((int32)InitList.size());
+		for (const TPairInitializer<const KeyType&, const ValueType&>& Element : InitList)
+		{
+			this->Add(Element.Key, Element.Value);
+		}
 		return *this;
 	}
 
@@ -1012,6 +1033,16 @@ public:
 	{
 	}
 
+	/** Constructor which gets its elements from a native initializer list */
+	TMultiMap(std::initializer_list<TPairInitializer<const KeyType&, const ValueType&>> InitList)
+	{
+		this->Reserve((int32)InitList.size());
+		for (const TPairInitializer<const KeyType&, const ValueType&>& Element : InitList)
+		{
+			this->Add(Element.Key, Element.Value);
+		}
+	}
+
 	/** Assignment operator for moving elements from a TMap with a different SetAllocator */
 	template<typename OtherSetAllocator>
 	TMultiMap& operator=(TMultiMap<KeyType, ValueType, OtherSetAllocator, KeyFuncs>&& Other)
@@ -1025,6 +1056,17 @@ public:
 	TMultiMap& operator=(const TMultiMap<KeyType, ValueType, OtherSetAllocator, KeyFuncs>& Other)
 	{
 		(Super&)*this = Other;
+		return *this;
+	}
+
+	/** Assignment operator which gets its elements from a native initializer list */
+	TMultiMap& operator=(std::initializer_list<TPairInitializer<const KeyType&, const ValueType&>> InitList)
+	{
+		this->Empty((int32)InitList.size());
+		for (const TPairInitializer<const KeyType&, const ValueType&>& Element : InitList)
+		{
+			this->Add(Element.Key, Element.Value);
+		}
 		return *this;
 	}
 

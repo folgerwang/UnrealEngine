@@ -13,7 +13,7 @@
 #include "RHI.h"
 #include "RenderResource.h"
 #include "RenderUtils.h"
-#include "EnumClassFlags.h"
+#include "Misc/EnumClassFlags.h"
 
 class FCanvas;
 class FMaterial;

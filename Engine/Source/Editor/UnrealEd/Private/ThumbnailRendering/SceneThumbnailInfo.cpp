@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ThumbnailRendering/SceneThumbnailInfo.h"
-#include "AnimPhysObjectVersion.h"
+#include "UObject/AnimPhysObjectVersion.h"
 
 
 USceneThumbnailInfo::USceneThumbnailInfo(const FObjectInitializer& ObjectInitializer)

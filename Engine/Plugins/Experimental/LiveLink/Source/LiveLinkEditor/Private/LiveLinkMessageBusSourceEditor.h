@@ -3,11 +3,11 @@
 #pragma once
 
 #include "Widgets/SCompoundWidget.h"
-#include "SListView.h"
+#include "Widgets/Views/SListView.h"
 #include "IMessageContext.h"
 #include "MessageEndpoint.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
-#include "Guid.h"
+#include "Misc/Guid.h"
 
 struct FLiveLinkPongMessage;
 struct FMessageAddress;

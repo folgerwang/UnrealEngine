@@ -9,7 +9,7 @@
 #include "Sound/SoundNodeAttenuation.h"
 #include "Sound/SoundCue.h"
 #include "Components/BillboardComponent.h"
-#include "FrameworkObjectVersion.h"
+#include "UObject/FrameworkObjectVersion.h"
 
 /*-----------------------------------------------------------------------------
 UAudioComponent implementation.

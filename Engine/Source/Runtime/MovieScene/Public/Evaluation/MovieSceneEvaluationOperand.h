@@ -3,7 +3,7 @@
 #pragma once
 
 #include "MovieSceneSequenceID.h"
-#include "Guid.h"
+#include "Misc/Guid.h"
 
 #include "MovieSceneEvaluationOperand.generated.h"
 

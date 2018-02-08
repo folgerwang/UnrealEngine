@@ -2,7 +2,7 @@
 
 #include "StandaloneRendererPrivate.h"
 #include "IOS/SlateOpenGLESView.h"
-#include "IOSAppDelegate.h"
+#include "IOS/IOSAppDelegate.h"
 #include "IOS/IOSInputInterface.h"
 
 @implementation SlateOpenGLESView

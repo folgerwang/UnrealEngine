@@ -40,7 +40,7 @@
 #define OSVR_UNREAL_DEBUG_FORCED_WINDOWMODE 0
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 #endif
 
 #include <osvr/ClientKit/ContextC.h>

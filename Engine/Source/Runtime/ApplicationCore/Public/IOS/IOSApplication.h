@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "GenericApplication.h"
+#include "GenericPlatform/GenericApplication.h"
 
 class FIOSWindow;
 

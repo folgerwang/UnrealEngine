@@ -12,7 +12,7 @@
 #include "VulkanPendingState.h"
 #include "VulkanContext.h"
 #include "Misc/CommandLine.h"
-#include "GenericPlatformDriver.h"
+#include "GenericPlatform/GenericPlatformDriver.h"
 #include "Modules/ModuleManager.h"
 #include "VulkanPipelineState.h"
 
@@ -270,7 +270,7 @@ static void FreeVulkanLibrary()
 
 #elif PLATFORM_WINDOWS
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 static HMODULE GVulkanDLLModule = nullptr;
 static bool LoadVulkanLibrary()
 {
@@ -317,7 +317,7 @@ static void FreeVulkanLibrary()
 		GVulkanDLLModule = nullptr;
 	}
 }
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #else
 #error Unsupported!

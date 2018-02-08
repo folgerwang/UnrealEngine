@@ -7,7 +7,7 @@
 #include "Engine/Engine.h"
 #include "GameFramework/WorldSettings.h"
 #include "EngineGlobals.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 #include "IMovieScenePlayer.h"
 
 

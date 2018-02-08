@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraStackAddModuleItem.h"
+#include "ViewModels/Stack/NiagaraStackAddModuleItem.h"
 #include "NiagaraNodeOutput.h"
 #include "NiagaraScript.h"
 #include "NiagaraNodeFunctionCall.h"
@@ -8,7 +8,7 @@
 #include "NiagaraMaterialParameterNode.h"
 #include "ViewModels/NiagaraEmitterViewModel.h"
 #include "NiagaraStackEditorData.h"
-#include "NiagaraStackGraphUtilities.h"
+#include "ViewModels/Stack/NiagaraStackGraphUtilities.h"
 
 #include "ScopedTransaction.h"
 #include "EdGraph/EdGraph.h"

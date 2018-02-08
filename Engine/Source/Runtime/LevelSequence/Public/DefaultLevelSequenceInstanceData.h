@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "ObjectMacros.h"
-#include "Transform.h"
-#include "IMovieSceneTransformOrigin.h"
+#include "UObject/ObjectMacros.h"
+#include "Algo/Transform.h"
+#include "Tracks/IMovieSceneTransformOrigin.h"
 #include "GameFramework/Actor.h"
 
 #include "DefaultLevelSequenceInstanceData.generated.h"

@@ -9,7 +9,7 @@
 #include "Misc/FileHelper.h"
 #include "UObject/Package.h"
 #include "Misc/PackageName.h"
-#include "EditorObjectVersion.h"
+#include "UObject/EditorObjectVersion.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFontFace, Log, All);
 

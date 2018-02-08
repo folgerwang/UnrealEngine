@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "IOSInputInterface.h"
-#include "IOSAppDelegate.h"
+#include "IOS/IOSInputInterface.h"
+#include "IOS/IOSAppDelegate.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/ScopeLock.h"
 

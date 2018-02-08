@@ -1,9 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "JsonArchiveOutputFormatter.h"
+#include "Serialization/Formatters/JsonArchiveOutputFormatter.h"
 #include "Misc/Base64.h"
 #include "Misc/SecureHash.h"
-#include "Object.h"
+#include "UObject/Object.h"
 
 #if WITH_TEXT_ARCHIVE_SUPPORT
 

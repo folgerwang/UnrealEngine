@@ -4,7 +4,7 @@
 #include "IDirectoryWatcher.h"
 #include "DirectoryWatcherModule.h"
 #include "LaunchEngineLoop.h"	// GEngineLoop
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "TestPALLog.h"
 #include "HAL/PlatformFile.h"
 #include "HAL/PlatformFilemanager.h"

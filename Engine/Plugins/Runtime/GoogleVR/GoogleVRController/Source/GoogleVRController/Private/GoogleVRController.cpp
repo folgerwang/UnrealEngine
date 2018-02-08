@@ -2,10 +2,10 @@
 
 #include "GoogleVRController.h"
 #include "GoogleVRControllerPrivate.h"
-#include "CoreDelegates.h"
+#include "Misc/CoreDelegates.h"
 #include "IXRTrackingSystem.h"
-#include "Classes/GoogleVRControllerFunctionLibrary.h"
-#include "Classes/GoogleVRControllerEventManager.h"
+#include "GoogleVRControllerFunctionLibrary.h"
+#include "GoogleVRControllerEventManager.h"
 #include "Misc/Paths.h"
 #include "HAL/FileManager.h"
 #include "GameFramework/WorldSettings.h"

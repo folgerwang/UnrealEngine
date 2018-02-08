@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "Containers/ArrayView.h"
 #include "HAL/PlatformTime.h"
-#include "IPluginManager.h"
+#include "Interfaces/IPluginManager.h"
 
 /**
  * Type of hierarchy node

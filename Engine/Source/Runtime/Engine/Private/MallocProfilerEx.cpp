@@ -10,8 +10,8 @@
 
 #if USE_MALLOC_PROFILER
 
-#include "MallocProfiler.h"
-#include "MemoryMisc.h"
+#include "ProfilingDebugging/MallocProfiler.h"
+#include "HAL/MemoryMisc.h"
 #include "Engine/World.h"
 #include "Engine/LevelStreaming.h"
 #include "UObject/Package.h"

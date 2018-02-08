@@ -2,9 +2,9 @@
 
 #include "PropertySetter.h"
 #include "PropertyHelpers.h"
-#include "UnrealType.h"
+#include "UObject/UnrealType.h"
 #include "CoreMinimal.h"
-#include "Class.h"
+#include "UObject/Class.h"
 #include "USDImporter.h"
 #include "USDConversionUtils.h"
 #include "GameFramework/Actor.h"

@@ -9,14 +9,14 @@
 #include "Modules/ModuleManager.h"
 #include "RenderUtils.h"
 #if PLATFORM_IOS
-#include "IOSAppDelegate.h"
+#include "IOS/IOSAppDelegate.h"
 #elif PLATFORM_MAC
-#include "MacApplication.h"
+#include "Mac/MacApplication.h"
 #include "HAL/PlatformApplicationMisc.h"
 #endif
 #include "ShaderCache.h"
 #include "MetalProfiler.h"
-#include "GenericPlatformDriver.h"
+#include "GenericPlatform/GenericPlatformDriver.h"
 #include "MetalShaderResources.h"
 
 DEFINE_LOG_CATEGORY(LogMetal)

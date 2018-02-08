@@ -3,7 +3,7 @@
 #include "ControlRigSequenceActions.h"
 #include "EngineGlobals.h"
 #include "Engine/Engine.h"
-#include "ControlRigSequence.h"
+#include "Sequencer/ControlRigSequence.h"
 #include "AssetToolsModule.h"
 #include "IAssetTools.h"
 

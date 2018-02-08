@@ -80,11 +80,6 @@ namespace UnrealBuildTool
 		public BuildProductType Type;
 
 		/// <summary>
-		/// Whether the file is precompiled for use by downstream builds, but not directly used by the current target.
-		/// </summary>
-		public bool IsPrecompiled;
-
-		/// <summary>
 		/// Private constructor, for serialization.
 		/// </summary>
 		private BuildProduct()
@@ -110,7 +105,6 @@ namespace UnrealBuildTool
 		{
 			Path = Other.Path;
 			Type = Other.Type;
-			IsPrecompiled = Other.IsPrecompiled;
 		}
 
 		/// <summary>
@@ -507,13 +501,7 @@ namespace UnrealBuildTool
 						string Module;
 						BuildProductObject.TryGetStringField("Module", out Module);
 
-						BuildProduct NewBuildProduct = Receipt.AddBuildProduct(File, Type);
-
-						bool IsPrecompiled;
-						if (BuildProductObject.TryGetBoolField("IsPrecompiled", out IsPrecompiled))
-						{
-							NewBuildProduct.IsPrecompiled = IsPrecompiled;
-						}
+						Receipt.AddBuildProduct(File, Type);
 					}
 				}
 			}
@@ -642,10 +630,6 @@ namespace UnrealBuildTool
 					Writer.WriteObjectStart();
 					Writer.WriteValue("Path", InsertPathVariables(BuildProduct.Path, EngineDir, ProjectDir));
 					Writer.WriteValue("Type", BuildProduct.Type.ToString());
-					if (BuildProduct.IsPrecompiled)
-					{
-						Writer.WriteValue("IsPrecompiled", BuildProduct.IsPrecompiled);
-					}
 					Writer.WriteObjectEnd();
 				}
 				Writer.WriteArrayEnd();

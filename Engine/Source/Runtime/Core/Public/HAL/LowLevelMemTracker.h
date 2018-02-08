@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreTypes.h"
-#include "ScopeLock.h"
+#include "Misc/ScopeLock.h"
 #include "Templates/Atomic.h"
 
 

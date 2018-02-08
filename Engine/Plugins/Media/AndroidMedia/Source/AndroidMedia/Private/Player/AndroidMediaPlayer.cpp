@@ -17,7 +17,7 @@
 #include "UObject/UObjectGlobals.h"
 #include "ExternalTexture.h"
 
-#include "AndroidJavaMediaPlayer.h"
+#include "Android/AndroidJavaMediaPlayer.h"
 #include "AndroidMediaTextureSample.h"
 
 #define ANDROIDMEDIAPLAYER_USE_EXTERNALTEXTURE 1

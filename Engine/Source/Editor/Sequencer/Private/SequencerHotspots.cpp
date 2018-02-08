@@ -10,7 +10,7 @@
 #include "Tools/SequencerEditTool_Movement.h"
 #include "Tools/SequencerEditTool_Selection.h"
 #include "SequencerTrackNode.h"
-#include "SBox.h"
+#include "Widgets/Layout/SBox.h"
 
 #define LOCTEXT_NAMESPACE "SequencerHotspots"
 

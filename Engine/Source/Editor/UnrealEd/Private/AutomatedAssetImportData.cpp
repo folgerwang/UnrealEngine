@@ -4,7 +4,7 @@
 #include "Factories/Factory.h"
 #include "UObject/Package.h"
 #include "Misc/PackageName.h"
-#include "UObjectIterator.h"
+#include "UObject/UObjectIterator.h"
 
 DEFINE_LOG_CATEGORY(LogAutomatedImport);
 

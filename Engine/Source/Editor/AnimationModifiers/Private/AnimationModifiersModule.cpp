@@ -10,7 +10,7 @@
 #include "AnimationModifierDetailCustomization.h"
 #include "AnimationModifiersTabSummoner.h"
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "PropertyEditorModule.h" 
 
 #define LOCTEXT_NAMESPACE "AnimationModifiersModule"

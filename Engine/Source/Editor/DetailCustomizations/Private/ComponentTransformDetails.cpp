@@ -31,7 +31,7 @@
 #include "IPropertyUtilities.h"
 #include "Math/UnitConversion.h"
 #include "Widgets/Input/NumericUnitTypeInterface.inl"
-#include "EditorProjectSettings.h"
+#include "Settings/EditorProjectSettings.h"
 #include "HAL/PlatformApplicationMisc.h"
 
 #define LOCTEXT_NAMESPACE "FComponentTransformDetails"

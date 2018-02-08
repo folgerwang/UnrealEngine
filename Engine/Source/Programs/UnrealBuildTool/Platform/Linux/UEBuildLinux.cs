@@ -249,10 +249,10 @@ namespace UnrealBuildTool
 					{
 						if (Target.bBuildDeveloperTools)
 						{
-							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxTargetPlatform");
-							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxNoEditorTargetPlatform");
-							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxClientTargetPlatform");
-							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxServerTargetPlatform");
+							Rules.DynamicallyLoadedModuleNames.Add("LinuxTargetPlatform");
+							Rules.DynamicallyLoadedModuleNames.Add("LinuxNoEditorTargetPlatform");
+							Rules.DynamicallyLoadedModuleNames.Add("LinuxClientTargetPlatform");
+							Rules.DynamicallyLoadedModuleNames.Add("LinuxServerTargetPlatform");
 						}
 					}
 				}
@@ -260,10 +260,10 @@ namespace UnrealBuildTool
 				// allow standalone tools to use targetplatform modules, without needing Engine
 				if (Target.bForceBuildTargetPlatforms && ModuleName == "TargetPlatform")
 				{
-					Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxTargetPlatform");
-					Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxNoEditorTargetPlatform");
-					Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxClientTargetPlatform");
-					Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxServerTargetPlatform");
+					Rules.DynamicallyLoadedModuleNames.Add("LinuxTargetPlatform");
+					Rules.DynamicallyLoadedModuleNames.Add("LinuxNoEditorTargetPlatform");
+					Rules.DynamicallyLoadedModuleNames.Add("LinuxClientTargetPlatform");
+					Rules.DynamicallyLoadedModuleNames.Add("LinuxServerTargetPlatform");
 				}
 			}
 		}
@@ -332,7 +332,7 @@ namespace UnrealBuildTool
 			// During the native builds, check the system includes as well (check toolchain when cross-compiling?)
 			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux)
 			{
-				CompileEnvironment.IncludePaths.SystemIncludePaths.Add("/usr/include");
+				CompileEnvironment.IncludePaths.SystemIncludePaths.Add(new DirectoryReference("/usr/include"));
 			}
 
 			if (Target.Architecture.StartsWith("arm"))	// AArch64 doesn't strictly need that - aligned access improves perf, but this will be likely offset by memcpys we're doing to guarantee it.

@@ -7,7 +7,7 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/UObjectBaseUtility.h"
 #include "ProfilingDebugging/ResourceSize.h"
-#include "PrimaryAssetId.h"
+#include "UObject/PrimaryAssetId.h"
 
 class FConfigCacheIni;
 class FEditPropertyChain;
@@ -986,10 +986,7 @@ public:
 	 * 
 	 * @return the archetype for this object
 	 */
-	UObject* GetArchetype() const
-	{
-		return GetArchetypeFromRequiredInfo(GetClass(), GetOuter(), GetFName(), GetFlags());
-	}
+	UObject* GetArchetype() const;
 
 	/**
 	 * Builds a list of objects which have this object in their archetype chain.

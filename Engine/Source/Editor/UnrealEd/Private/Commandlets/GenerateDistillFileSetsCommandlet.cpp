@@ -11,7 +11,7 @@
 #include "Misc/PackageName.h"
 #include "Settings/ProjectPackagingSettings.h"
 #include "FileHelpers.h"
-#include "RedirectCollector.h"
+#include "Misc/RedirectCollector.h"
 #include "Editor.h"
 #include "Engine/AssetManager.h"
 

@@ -37,7 +37,7 @@
 #include "Sound/SoundWave.h"
 #include "Components/AudioComponent.h"
 #include "Misc/ConfigCacheIni.h"
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 #include "Preferences/PersonaOptions.h"
 #include "Settings/SkeletalMeshEditorSettings.h"
 

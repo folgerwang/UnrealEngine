@@ -1,9 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "SynthSlateStyle.h"
-#include "IPluginManager.h"
+#include "UI/SynthSlateStyle.h"
+#include "Interfaces/IPluginManager.h"
 #include "SynthesisModule.h"
-#include "Regex.h"
+#include "Internationalization/Regex.h"
 #include "HAL/FileManager.h"
 #include "Brushes/SlateDynamicImageBrush.h"
 

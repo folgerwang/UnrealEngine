@@ -3,8 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ObjectMacros.h"
-#include "Object.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
 #include "LiveLinkSourceFactory.generated.h"
 
 class ILiveLinkSource;

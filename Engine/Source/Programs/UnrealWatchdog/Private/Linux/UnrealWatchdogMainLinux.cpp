@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealWatchdog.h"
-#include "LinuxPlatformCrashContext.h"
+#include "Linux/LinuxPlatformCrashContext.h"
 #include <locale.h>
 
 extern int32 ReportCrash(const FLinuxCrashContext& Context);	// FIXME: handle expose it someplace else?

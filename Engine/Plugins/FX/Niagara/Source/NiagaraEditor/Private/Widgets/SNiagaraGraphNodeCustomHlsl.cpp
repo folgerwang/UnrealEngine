@@ -11,9 +11,9 @@
 #include "ScopedTransaction.h"
 #include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
 #include "ISinglePropertyView.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "GraphEditorSettings.h"
-#include "SMultiLineEditableTextBox.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
 
 #define LOCTEXT_NAMESPACE "SNiagaraGraphNodeCustomHlsl"
 

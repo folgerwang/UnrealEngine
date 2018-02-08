@@ -8,7 +8,7 @@ See https://developer.apple.com/library/mac/documentation/MusicAudio/Conceptual/
 */
 
 #include "UnrealAudioDeviceModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 /**
 * CoreAudio System Headers

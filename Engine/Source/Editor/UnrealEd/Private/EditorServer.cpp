@@ -2715,7 +2715,7 @@ bool UEditorEngine::Map_Load(const TCHAR* Str, FOutputDevice& Ar)
 		}
 		else
 		{
-			UE_SUPPRESS(LogExec, Warning, Ar.Logf(*NSLOCTEXT("Editor", "MapLoad_BadFilename", "Map_Load failed. The filename '%s' could not be converted to a long package name.").ToString(), TempFname));
+			UE_SUPPRESS(LogExec, Warning, Ar.Log(*FText::Format(NSLOCTEXT("Editor", "MapLoad_BadFilenameFmt", "Map_Load failed. The filename '{0}' could not be converted to a long package name."), FText::FromString(TempFname)).ToString()));
 		}
 	}
 	else
@@ -5123,7 +5123,7 @@ void UEditorEngine::ExecFile( UWorld* InWorld, const TCHAR* InFilename, FOutputD
 	}
 	else
 	{
-		UE_SUPPRESS(LogExec, Warning, Ar.Logf(*FString::Printf( TEXT("Can't find file '%s'"), TempFname)));
+		UE_SUPPRESS(LogExec, Warning, Ar.Logf(TEXT("Can't find file '%s'"), TempFname));
 	}
 }
 

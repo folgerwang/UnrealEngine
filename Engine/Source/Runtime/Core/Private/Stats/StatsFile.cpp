@@ -11,7 +11,7 @@
 #include "Internationalization/Internationalization.h"
 #include "Serialization/MemoryWriter.h"
 #include "Serialization/MemoryReader.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 #if	STATS
 

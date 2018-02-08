@@ -9,14 +9,14 @@
 #if WITH_CEF3
 
 #if PLATFORM_WINDOWS
-#	include "AllowWindowsPlatformTypes.h"
+#	include "Windows/AllowWindowsPlatformTypes.h"
 #endif
 #pragma push_macro("OVERRIDE")
 #	undef OVERRIDE // cef headers provide their own OVERRIDE macro
 #	include "include/cef_jsdialog_handler.h"
 #pragma pop_macro("OVERRIDE")
 #if PLATFORM_WINDOWS
-#	include "HideWindowsPlatformTypes.h"
+#	include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 #include "IWebBrowserDialog.h"

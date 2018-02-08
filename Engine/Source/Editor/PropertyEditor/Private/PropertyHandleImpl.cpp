@@ -21,7 +21,7 @@
 
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
-#include "EnumProperty.h"
+#include "UObject/EnumProperty.h"
 #include "IDetailPropertyRow.h"
 
 #define LOCTEXT_NAMESPACE "PropertyHandleImplementation"

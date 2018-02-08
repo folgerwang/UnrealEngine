@@ -5,7 +5,7 @@
 #include "IncludePython.h"
 #include "PyPtr.h"
 #include "CoreMinimal.h"
-#include "EnumClassFlags.h"
+#include "Misc/EnumClassFlags.h"
 
 #if WITH_PYTHON
 

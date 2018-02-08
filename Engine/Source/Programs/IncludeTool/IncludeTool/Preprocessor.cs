@@ -331,13 +331,19 @@ namespace IncludeTool
 				{
 					NameToMacro[Tokens[0].Text] = new PreprocessorMacro(Tokens[0].Text, null, Tokens.Skip(2).ToList());
 				}
-				else
+				else if(Tokens[1].Text != "(")
 				{
 					throw new PreprocessorException("Expected '=' token for definition on command-line");
 				}
 			}
 
-			this.IncludeDirectories = IncludePaths.Select(x => new IncludeDirectory() { Location = x, WorkspaceDirectory = Workspace.GetDirectory(x) }).ToList();
+			foreach(DirectoryReference IncludePath in IncludePaths)
+			{
+				if(Directory.Exists(IncludePath.FullName))
+				{
+					IncludeDirectories.Add(new IncludeDirectory() { Location = IncludePath, WorkspaceDirectory = Workspace.GetDirectory(IncludePath) });
+				}
+			}
 		}
 
 		/// <summary>

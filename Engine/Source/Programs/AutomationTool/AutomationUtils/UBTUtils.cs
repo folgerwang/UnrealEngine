@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Tools.DotNETCommon;
 using UnrealBuildTool;
@@ -22,7 +23,7 @@ namespace AutomationTool
 		/// <param name="Env">Environment to use.</param>
 		/// <param name="CommandLine">Commandline to pass on to UBT.</param>
 		/// <param name="LogName">Optional logfile name.</param>
-        public static void RunUBT(CommandEnvironment Env, string UBTExecutable, string CommandLine, string LogName = null, Dictionary<string, string> EnvVars = null)
+        public static void RunUBT(CommandEnvironment Env, string UBTExecutable, string CommandLine, Dictionary<string, string> EnvVars = null)
 		{
 			if (!FileExists(UBTExecutable))
 			{
@@ -49,7 +50,30 @@ namespace AutomationTool
 				bJunkDeleted = true;
 			}
 
-			CommandUtils.RunAndLog(Env, UBTExecutable, CommandLine, LogName, EnvVars: EnvVars);
+			string BaseLogName = String.Format("UBT-{0}", String.Join("-", SharedUtils.ParseCommandLine(CommandLine).Where(x => !x.Contains('/') && !x.Contains('\\') && !x.StartsWith("-"))));
+			string LogName;
+			for(int Attempt = 1;;Attempt++)
+			{
+				LogName = String.Format("{0}.txt", (Attempt == 1)? BaseLogName : String.Format("{0}_{1}", BaseLogName, Attempt));
+
+				FileReference LogLocation = FileReference.Combine(new DirectoryReference(Env.LogFolder), LogName);
+				if(!FileReference.Exists(LogLocation))
+				{
+					CommandLine += String.Format(" -log=\"{0}\"", LogLocation);
+					break;
+				}
+
+				if (Attempt >= 50)
+				{
+					throw new AutomationException("Unable to find name for UBT log file after {0} attempts", Attempt);
+				}
+			}
+
+			IProcessResult Result = Run(UBTExecutable, CommandLine, Options: ERunOptions.AllowSpew | ERunOptions.NoStdOutCapture, Env: EnvVars);
+			if(Result.ExitCode != 0)
+			{
+				throw new AutomationException((ExitCode)Result.ExitCode, "UnrealBuildTool failed. See log for more details. ({0})", CommandUtils.CombinePaths(Env.FinalLogFolder, LogName));
+			}
 		}
 
 		/// <summary>
@@ -85,9 +109,9 @@ namespace AutomationTool
 		/// <param name="Config">Configuration to build.</param>
 		/// <param name="AdditionalArgs">Additional arguments to pass on to UBT.</param>
 		/// <param name="LogName">Optional logifle name.</param>
-		public static void RunUBT(CommandEnvironment Env, string UBTExecutable, FileReference Project, string Target, string Platform, string Config, string AdditionalArgs = "", string LogName = null, Dictionary<string, string> EnvVars = null)
+		public static void RunUBT(CommandEnvironment Env, string UBTExecutable, FileReference Project, string Target, string Platform, string Config, string AdditionalArgs = "", Dictionary<string, string> EnvVars = null)
 		{
-			RunUBT(Env, UBTExecutable, UBTCommandline(Project, Target, Platform, Config, AdditionalArgs), LogName, EnvVars);
+			RunUBT(Env, UBTExecutable, UBTCommandline(Project, Target, Platform, Config, AdditionalArgs), EnvVars);
 		}
 
 	}

@@ -1,14 +1,14 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "WindowsPlatformApplicationMisc.h"
-#include "WindowsApplication.h"
-#include "WindowsErrorOutputDevice.h"
-#include "WindowsConsoleOutputDevice.h"
-#include "WindowsFeedbackContext.h"
+#include "Windows/WindowsPlatformApplicationMisc.h"
+#include "Windows/WindowsApplication.h"
+#include "Windows/WindowsErrorOutputDevice.h"
+#include "Windows/WindowsConsoleOutputDevice.h"
+#include "Windows/WindowsFeedbackContext.h"
 #include "HAL/FeedbackContextAnsi.h"
 #include "Misc/App.h"
 #include "Math/Color.h"
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 #include "Modules/ModuleManager.h"
 
 // Resource includes.

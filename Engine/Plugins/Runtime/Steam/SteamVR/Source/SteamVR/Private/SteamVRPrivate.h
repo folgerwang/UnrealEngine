@@ -13,7 +13,7 @@
 #include "Runtime/Engine/Public/ScreenRendering.h"
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 #endif
 
 #if STEAMVR_SUPPORTED_PLATFORMS

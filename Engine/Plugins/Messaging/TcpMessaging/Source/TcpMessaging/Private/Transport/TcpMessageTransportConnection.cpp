@@ -5,7 +5,7 @@
 #include "Common/TcpSocketBuilder.h"
 #include "TcpMessagingPrivate.h"
 #include "Transport/TcpDeserializedMessage.h"
-#include "ScopeLock.h"
+#include "Misc/ScopeLock.h"
 
 /** Header sent over the connection as soon as it's opened */
 struct FTcpMessageHeader

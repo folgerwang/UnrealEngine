@@ -28,8 +28,8 @@
 
 #include "Net/PerfCountersHelpers.h"
 #include "GameDelegates.h"
-#include "PackageName.h"
-#include "LinkerLoad.h"
+#include "Misc/PackageName.h"
+#include "UObject/LinkerLoad.h"
 
 #if !UE_BUILD_SHIPPING
 static TAutoConsoleVariable<int32> CVarPingExcludeFrameTime( TEXT( "net.PingExcludeFrameTime" ), 0, TEXT( "Calculate RTT time between NIC's of server and client." ) );

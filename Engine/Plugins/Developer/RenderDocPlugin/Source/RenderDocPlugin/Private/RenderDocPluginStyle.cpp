@@ -3,10 +3,10 @@
 #if WITH_EDITOR
 
 #include "RenderDocPluginStyle.h"
-#include "SlateStyle.h"
-#include "SlateStyleRegistry.h"
-#include "FileManager.h"
-#include "IPluginManager.h"
+#include "Styling/SlateStyle.h"
+#include "Styling/SlateStyleRegistry.h"
+#include "HAL/FileManager.h"
+#include "Interfaces/IPluginManager.h"
 
 FString FRenderDocPluginStyle::InContent(const FString& RelativePath, const ANSICHAR* Extension)
 {

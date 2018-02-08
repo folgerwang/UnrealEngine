@@ -12,7 +12,7 @@
 #include "GenericOctreePublic.h"
 #include "SceneManagement.h"
 #include "GenericOctree.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 class FLightPrimitiveInteraction;
 class FLightSceneInfo;

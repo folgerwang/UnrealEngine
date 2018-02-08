@@ -5,15 +5,15 @@
 #include "NiagaraScriptSourceBase.h"
 #include "NiagaraComponent.h"
 #include "NiagaraEmitter.h"
-#include "Package.h"
-#include "Linker.h"
+#include "UObject/Package.h"
+#include "UObject/Linker.h"
 #include "NiagaraModule.h"
 #include "NiagaraCustomVersion.h"
 #include "NiagaraShaderCompilationManager.h"
 
 
 #include "Stats/Stats.h"
-#include "Linker.h"
+#include "UObject/Linker.h"
 
 #if WITH_EDITOR
 	#include "Interfaces/ITargetPlatform.h"

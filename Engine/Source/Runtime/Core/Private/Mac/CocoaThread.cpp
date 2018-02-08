@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "CocoaThread.h"
-#include "LockFreeList.h"
+#include "Mac/CocoaThread.h"
+#include "Containers/LockFreeList.h"
 #include "Templates/RefCounting.h"
 #include "Misc/OutputDeviceRedirector.h"
 

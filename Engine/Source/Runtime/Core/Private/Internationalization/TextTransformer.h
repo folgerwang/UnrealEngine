@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreTypes.h"
-#include "UnrealString.h"
+#include "Containers/UnrealString.h"
 
 /**
  * Utility for performing low-level localized transforms.

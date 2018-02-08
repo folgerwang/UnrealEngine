@@ -10,7 +10,7 @@
 
 #include "IOSAudioDevice.h"
 #include "AudioEffect.h"
-#include "IAudioFormat.h"
+#include "Interfaces/IAudioFormat.h"
 #include "Sound/SoundWave.h"
 #include "AudioDeviceManager.h"
 #include "Engine/Engine.h"

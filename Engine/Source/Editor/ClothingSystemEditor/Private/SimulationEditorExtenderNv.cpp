@@ -9,8 +9,8 @@
 #include "ClothingSimulationFactory.h"
 #include "IPersonaPreviewScene.h"
 #include "Animation/DebugSkelMeshComponent.h"
-#include "UIAction.h"
-#include "MultiBoxBuilder.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 
 #define LOCTEXT_NAMESPACE "NvSimEditorExtender"
 

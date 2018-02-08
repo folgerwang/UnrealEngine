@@ -6,11 +6,11 @@
 #include "DetailLayoutBuilder.h"
 #include "DetailCategoryBuilder.h"
 #include "DetailWidgetRow.h"
-#include "Containers/Algo/Transform.h"
+#include "Algo/Transform.h"
 #include "ControlRigField.h"
-#include "HierarchicalRig.h"
-#include "STextBlock.h"
-#include "SCheckBox.h"
+#include "Rigs/HierarchicalRig.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SCheckBox.h"
 
 #define LOCTEXT_NAMESPACE "ControlRigInputOutputDetailsCustomization"
 

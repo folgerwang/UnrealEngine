@@ -4,6 +4,7 @@
 
 #include "CoreTypes.h"
 #include "Misc/OutputDevice.h"
+#include "Templates/UniquePtr.h"
 
 /** string added to the filename of timestamped backup log files */
 #define BACKUP_LOG_FILENAME_POSTFIX TEXT("-backup-")
@@ -70,6 +71,9 @@ public:
 	/** Checks if the filename represents a backup copy of a log file */
 	static bool IsBackupCopy(const TCHAR* Filename);
 
+	/** Add a category name to our inclusion filter. As soon as one inclusion exists, all others will be ignored */
+	void IncludeCategory(const class FName& InCategoryName);
+
 private:
 
 	/** Writes to a file on a separate thread */
@@ -80,6 +84,10 @@ private:
 	TCHAR Filename[1024];
 	bool Opened;
 	bool Dead;
+
+	/** Internal data for category inclusion. Must be declared inside CPP file as it uses a TSet<FName> */
+	struct FCategoryInclusionInternal;
+	TUniquePtr<FCategoryInclusionInternal> CategoryInclusionInternal;
 
 	/** If true, existing files will not be backed up */
 	bool		bDisableBackup;

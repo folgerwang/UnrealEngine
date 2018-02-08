@@ -19,7 +19,7 @@
 #include "Misc/MapErrors.h"
 #include "ShaderCompiler.h"
 #include "Components/BillboardComponent.h"
-#include "ReleaseObjectVersion.h"
+#include "UObject/ReleaseObjectVersion.h"
 
 #define LOCTEXT_NAMESPACE "SkyLightComponent"
 

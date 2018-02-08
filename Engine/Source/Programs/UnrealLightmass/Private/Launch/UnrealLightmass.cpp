@@ -19,9 +19,9 @@
 #endif
 
 #if PLATFORM_WINDOWS
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <d3dx9.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 DEFINE_LOG_CATEGORY(LogLightmass);

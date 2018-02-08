@@ -6,8 +6,8 @@
 #include "DetailLayoutBuilder.h" 
 #include "DetailWidgetRow.h"
 #include "DetailCategoryBuilder.h"
-#include "SButton.h"
-#include "STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Text/STextBlock.h"
 
 #define LOCTEXT_NAMESPACE "FAnimationModifierDetailCustomization"
 

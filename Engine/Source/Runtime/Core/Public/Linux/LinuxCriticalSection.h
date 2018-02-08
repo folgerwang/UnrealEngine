@@ -5,7 +5,7 @@
 #include "CoreTypes.h"
 #include "Misc/Timespan.h"
 #include "HAL/PThreadCriticalSection.h"
-#include "PThreadRWLock.h"
+#include "HAL/PThreadRWLock.h"
 
 /**
   * Linux implementation of the FSystemWideCriticalSection. Uses exclusive file locking.

@@ -68,7 +68,7 @@
 #include "Engine/SkeletalMeshSocket.h"
 #include "Components/BrushComponent.h"
 #include "Streaming/UVChannelDensity.h"
-#include "Paths.h"
+#include "Misc/Paths.h"
 
 #include "ClothingAssetInterface.h"
 

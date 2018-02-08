@@ -6,7 +6,7 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
 #include "UObject/SoftObjectPtr.h"
-#include "NodeMappingProviderInterface.h"
+#include "Animation/NodeMappingProviderInterface.h"
 #include "NodeMappingContainer.generated.h"
 
 USTRUCT()

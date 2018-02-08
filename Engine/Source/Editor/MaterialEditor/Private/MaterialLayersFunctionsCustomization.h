@@ -6,7 +6,7 @@
 #include "IPropertyTypeCustomization.h"
 #include "Materials/MaterialLayersFunctions.h"
 #include "IDetailCustomNodeBuilder.h"
-#include "Reply.h"
+#include "Input/Reply.h"
 
 struct FAssetData;
 enum EMaterialLayerRowType

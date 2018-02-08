@@ -46,7 +46,7 @@
 #include "Widgets/Docking/SDockTab.h"
 #include "SActorDetails.h"
 #include "GameFramework/WorldSettings.h"
-#include "LayoutExtender.h"
+#include "Framework/Docking/LayoutExtender.h"
 #include "HierarchicalLODOutlinerModule.h"
 
 

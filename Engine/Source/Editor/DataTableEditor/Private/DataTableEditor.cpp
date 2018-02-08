@@ -21,7 +21,7 @@
 #include "Widgets/Views/SListView.h"
 #include "SRowEditor.h"
 #include "IDocumentation.h"
-#include "SToolTip.h"
+#include "Widgets/SToolTip.h"
  
 #define LOCTEXT_NAMESPACE "DataTableEditor"
 

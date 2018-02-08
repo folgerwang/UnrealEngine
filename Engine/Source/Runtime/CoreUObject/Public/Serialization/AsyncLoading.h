@@ -492,6 +492,9 @@ struct FAsyncPackage : FGCObject
 	void GetLoadedAssets(TArray<FWeakObjectPtr>& AssetList);
 #endif
 
+	/** Creates GC clusters from loaded objects */
+	EAsyncPackageState::Type CreateClusters(double InTickStartTime, bool bInUseTimeLimit, float& InOutTimeLimit);
+
 private:	
 
 	struct FCompletionCallback
@@ -545,6 +548,8 @@ private:
 	int32						DeferredPostLoadIndex;
 	/** Current index into DeferredFinalizeObjects array used to spread routing PostLoad over several frames			*/
 	int32						DeferredFinalizeIndex;
+	/** Current index into DeferredClusterObjects array used to spread routing CreateClusters over several frames			*/
+	int32						DeferredClusterIndex;
 	/** Currently used time limit for this tick.														*/
 	float						TimeLimit;
 	/** Whether we are using a time limit for this tick.												*/
@@ -577,6 +582,8 @@ private:
 	TArray<UObject*> PackageObjLoaded;
 	/** Packages that were loaded synchronously while async loading this package or packages added by verify import */
 	TArray<FLinkerLoad*> DelayedLinkerClosePackages;
+	/** Objects to create GC clusters from */
+	TArray<UObject*> DeferredClusterObjects;
 
 	/** List of all request handles */
 	TArray<int32> RequestIDs;

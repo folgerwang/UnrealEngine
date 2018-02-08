@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "PThreadCriticalSection.h"
-#include "PThreadRWLock.h"
+#include "HAL/PThreadCriticalSection.h"
+#include "HAL/PThreadRWLock.h"
 #include "Containers/UnrealString.h"
 #include "Misc/Timespan.h"
 

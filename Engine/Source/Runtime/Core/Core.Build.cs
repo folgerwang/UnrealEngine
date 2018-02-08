@@ -12,32 +12,6 @@ public class Core : ModuleRules
 
 		SharedPCHHeaderFile = "Public/CoreSharedPCH.h";
 
-		bAddDefaultIncludePaths = false;
-
-		PublicIncludePaths.AddRange(
-			new string[] {
-				"Runtime/Core/Public",
-				"Runtime/Core/Public/Internationalization",
-				"Runtime/Core/Public/Async",
-				"Runtime/Core/Public/Concurrency",
-				"Runtime/Core/Public/Containers",
-				"Runtime/Core/Public/Delegates",
-				"Runtime/Core/Public/GenericPlatform",
-				"Runtime/Core/Public/HAL",
-				"Runtime/Core/Public/Logging",
-				"Runtime/Core/Public/Math",
-				"Runtime/Core/Public/Misc",
-				"Runtime/Core/Public/Modules",
-				"Runtime/Core/Public/Modules/Boilerplate",
-				"Runtime/Core/Public/ProfilingDebugging",
-				"Runtime/Core/Public/Serialization",
-				"Runtime/Core/Public/Serialization/Csv",
-				"Runtime/Core/Public/Stats",
-				"Runtime/Core/Public/Templates",
-				"Runtime/Core/Public/UObject",
-			}
-			);
-
 		PrivateIncludePaths.AddRange(
 			new string[] {
 				"Developer/DerivedDataCache/Public",
@@ -73,7 +47,6 @@ public class Core : ModuleRules
 		if ((Target.Platform == UnrealTargetPlatform.Win64) ||
 			(Target.Platform == UnrealTargetPlatform.Win32))
 		{
-			PublicIncludePaths.Add("Runtime/Core/Public/Windows");
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"zlib");
 
@@ -84,7 +57,6 @@ public class Core : ModuleRules
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Mac)
 		{
-			PublicIncludePaths.AddRange(new string[] { "Runtime/Core/Public/Apple", "Runtime/Core/Public/Mac" });
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"IntelTBB",
 				"zlib",
@@ -99,7 +71,6 @@ public class Core : ModuleRules
 		}
 		else if (Target.Platform == UnrealTargetPlatform.IOS || Target.Platform == UnrealTargetPlatform.TVOS)
 		{
-			PublicIncludePaths.AddRange(new string[] {"Runtime/Core/Public/Apple", "Runtime/Core/Public/IOS"});
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"zlib"
 				);
@@ -122,7 +93,6 @@ public class Core : ModuleRules
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Android)
 		{
-			PublicIncludePaths.Add("Runtime/Core/Public/Android");
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"cxademangle",
 				"zlib"
@@ -130,7 +100,6 @@ public class Core : ModuleRules
 		}
         else if ((Target.Platform == UnrealTargetPlatform.Linux))
         {
-            PublicIncludePaths.Add("Runtime/Core/Public/Linux");
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"zlib",
 				"jemalloc",

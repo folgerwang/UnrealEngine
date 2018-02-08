@@ -9,7 +9,7 @@
 #include "MovieSceneTestsCommon.h"
 #include "Evaluation/MovieSceneEvaluationTrack.h"
 #include "Evaluation/MovieSceneEvaluationField.h"
-#include "Package.h"
+#include "UObject/Package.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 

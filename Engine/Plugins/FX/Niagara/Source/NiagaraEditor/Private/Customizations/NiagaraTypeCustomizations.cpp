@@ -6,8 +6,8 @@
 #include "DetailWidgetRow.h"
 #include "DetailLayoutBuilder.h"
 #include "NiagaraTypes.h"
-#include "STextBlock.h"
-#include "SCheckBox.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SCheckBox.h"
 #include "IDetailChildrenBuilder.h"
 
 

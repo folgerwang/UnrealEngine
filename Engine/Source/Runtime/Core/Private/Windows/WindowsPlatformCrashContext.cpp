@@ -1,10 +1,10 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "WindowsPlatformCrashContext.h"
-#include "PlatformMallocCrash.h"
-#include "ExceptionHandling.h"
-#include "EngineVersion.h"
-#include "EngineBuildSettings.h"
+#include "Windows/WindowsPlatformCrashContext.h"
+#include "HAL/PlatformMallocCrash.h"
+#include "HAL/ExceptionHandling.h"
+#include "Misc/EngineVersion.h"
+#include "Misc/EngineBuildSettings.h"
 #include "HAL/ExceptionHandling.h"
 #include "HAL/ThreadHeartBeat.h"
 #include "HAL/PlatformProcess.h"
@@ -18,10 +18,10 @@
 #include "Misc/CoreDelegates.h"
 #include "Misc/OutputDeviceRedirector.h"
 #include "Templates/ScopedPointer.h"
-#include "WindowsPlatformStackWalk.h"
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
-#include "UniquePtr.h"
+#include "Windows/WindowsPlatformStackWalk.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include "Templates/UniquePtr.h"
 
 #include <strsafe.h>
 #include <dbghelp.h>
@@ -319,14 +319,14 @@ void NewReportEnsure( const TCHAR* ErrorMessage )
 	EnsureLock.Unlock();
 }
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 // Original code below
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <ErrorRep.h>
 	#include <DbgHelp.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #pragma comment(lib, "Faultrep.lib")
 
@@ -334,7 +334,7 @@ void NewReportEnsure( const TCHAR* ErrorMessage )
  * Creates an info string describing the given exception record.
  * See MSDN docs on EXCEPTION_RECORD.
  */
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 void CreateExceptionInfoString(EXCEPTION_RECORD* ExceptionRecord)
 {
 	// #CrashReport: 2014-08-18 Fix FString usage?
@@ -550,7 +550,7 @@ private:
 
 };
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 TUniquePtr<FCrashReportingThread> GCrashReportingThread = MakeUnique<FCrashReportingThread>();
 

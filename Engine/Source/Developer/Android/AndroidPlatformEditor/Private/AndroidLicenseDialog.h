@@ -6,7 +6,7 @@
 #include "Input/Reply.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SCompoundWidget.h"
-#include "SecureHash.h"
+#include "Misc/SecureHash.h"
 
 class SScrollBox;
 

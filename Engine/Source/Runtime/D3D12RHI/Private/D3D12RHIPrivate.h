@@ -43,7 +43,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogD3D12RHI, Log, All);
 #include "XboxOne/D3D12RHIBasePrivate.h"
 #endif
 
-#include "StaticArray.h"
+#include "Containers/StaticArray.h"
 
 #include "D3D12Residency.h"
 

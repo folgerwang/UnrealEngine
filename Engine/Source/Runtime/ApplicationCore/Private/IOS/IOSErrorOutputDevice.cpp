@@ -4,7 +4,7 @@
 	IOSPlatformOutputDevices.mm: iOS implementations of OutputDevices functions
 =============================================================================*/
 
-#include "IOSErrorOutputDevice.h"
+#include "IOS/IOSErrorOutputDevice.h"
 #include "HAL/PlatformMisc.h"
 #include "HAL/PlatformAtomics.h"
 #include "Misc/OutputDeviceRedirector.h"

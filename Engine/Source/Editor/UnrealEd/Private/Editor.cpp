@@ -41,11 +41,11 @@
 
 
 #if PLATFORM_WINDOWS
-	#include "WindowsHWrapper.h"
+	#include "Windows/WindowsHWrapper.h"
 // For WAVEFORMATEXTENSIBLE
-	#include "AllowWindowsPlatformTypes.h"
+	#include "Windows/AllowWindowsPlatformTypes.h"
 #include <mmreg.h>
-	#include "HideWindowsPlatformTypes.h"
+	#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 

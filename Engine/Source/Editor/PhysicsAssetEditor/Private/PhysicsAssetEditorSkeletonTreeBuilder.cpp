@@ -7,7 +7,7 @@
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "IPersonaPreviewScene.h"
 #include "Animation/DebugSkelMeshComponent.h"
-#include "TextFilterExpressionEvaluator.h"
+#include "Misc/TextFilterExpressionEvaluator.h"
 
 #define LOCTEXT_NAMESPACE "PhysicsAssetEditorSkeletonTreeBuilder"
 

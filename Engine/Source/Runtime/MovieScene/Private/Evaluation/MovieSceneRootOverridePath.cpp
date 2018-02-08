@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneRootOverridePath.h"
-#include "MovieSceneSequenceHierarchy.h"
+#include "Evaluation/MovieSceneRootOverridePath.h"
+#include "Evaluation/MovieSceneSequenceHierarchy.h"
 
 void FMovieSceneRootOverridePath::Reset()
 {

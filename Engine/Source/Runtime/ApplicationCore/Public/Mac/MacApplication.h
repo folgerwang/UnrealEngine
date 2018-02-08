@@ -3,10 +3,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GenericApplication.h"
-#include "MacWindow.h"
-#include "MacTextInputMethodSystem.h"
-#include "IInputInterface.h"
+#include "GenericPlatform/GenericApplication.h"
+#include "Mac/MacWindow.h"
+#include "Mac/MacTextInputMethodSystem.h"
+#include "GenericPlatform/IInputInterface.h"
 
 struct FDeferredMacEvent
 {

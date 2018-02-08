@@ -3,14 +3,14 @@
 // Module includes
 #include "OnlineIdentityFacebook.h"
 #include "OnlineSubsystemFacebookPrivate.h"
-#include "OnlineSharingInterface.h"
+#include "Interfaces/OnlineSharingInterface.h"
 
 #import <FBSDKCoreKit/FBSDKCoreKit.h>
 #import <FBSDKLoginKit/FBSDKLoginKit.h>
 #import "FacebookHelper.h"
 
 // Other UE4 includes
-#include "IOSAppDelegate.h"
+#include "IOS/IOSAppDelegate.h"
 #include "Misc/ConfigCacheIni.h"
 #include "IOS/IOSAsyncTask.h"
 #include "Misc/ConfigCacheIni.h"

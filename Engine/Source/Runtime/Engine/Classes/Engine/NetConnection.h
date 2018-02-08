@@ -17,7 +17,7 @@
 #include "Engine/Player.h"
 #include "Engine/Channel.h"
 #include "ProfilingDebugging/Histogram.h"
-#include "ArrayView.h"
+#include "Containers/ArrayView.h"
 
 #include "NetConnection.generated.h"
 

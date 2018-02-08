@@ -2,7 +2,7 @@
 
 #include "GoogleARCoreBaseModule.h"
 #include "ISettingsModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "Features/IModularFeatures.h"
 #include "Features/IModularFeature.h"
 

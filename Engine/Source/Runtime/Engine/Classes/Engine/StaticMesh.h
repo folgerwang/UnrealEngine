@@ -16,7 +16,7 @@
 #include "Components.h"
 #include "Interfaces/Interface_CollisionDataProvider.h"
 #include "Engine/MeshMerging.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "StaticMeshResources.h"
 #include "StaticMesh.generated.h"
 

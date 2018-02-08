@@ -6,7 +6,7 @@
 #include "Misc/EnumClassFlags.h"
 #include "Internationalization/InternationalizationManifest.h"
 #include "Internationalization/InternationalizationArchive.h"
-#include "LocKeyFuncs.h"
+#include "Internationalization/LocKeyFuncs.h"
 
 class FLocMetadataObject;
 

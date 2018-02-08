@@ -3,7 +3,7 @@
 #include "OnlineSubsystemIOSPrivatePCH.h"
 #import "OnlineAppStoreUtils.h"
 
-#include "PlatformProcess.h"
+#include "HAL/PlatformProcess.h"
 
 @implementation FAppStoreUtils
 

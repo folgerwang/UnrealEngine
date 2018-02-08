@@ -2,13 +2,13 @@
 
 #include "DummyMeshReconstructor.h"
 
-#include "Runnable.h"
-#include "PlatformProcess.h"
-#include "RunnableThread.h"
-#include "ThreadSafeBool.h"
+#include "HAL/Runnable.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/RunnableThread.h"
+#include "HAL/ThreadSafeBool.h"
 #include "MRMeshComponent.h"
 #include "DynamicMeshBuilder.h"
-#include "Queue.h"
+#include "Containers/Queue.h"
 
 static const FVector BRICK_SIZE(256.0f, 256.0f, 256.0f);
 static const int32 BRICK_COORD_RANDMAX = 8;

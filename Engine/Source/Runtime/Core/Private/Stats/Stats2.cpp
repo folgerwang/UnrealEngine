@@ -766,6 +766,10 @@ FName FStatNameAndInfo::GetGroupNameFrom(FName InLongName)
 	if (Input.StartsWith(TEXT("//"), ESearchCase::CaseSensitive))
 	{
 		Input = Input.RightChop(2);
+		if (Input.StartsWith(TEXT("Groups//")))
+		{
+			Input = Input.RightChop(8);
+		}
 		const int32 IndexEnd = Input.Find(TEXT("//"), ESearchCase::CaseSensitive);
 		if (IndexEnd != INDEX_NONE)
 		{

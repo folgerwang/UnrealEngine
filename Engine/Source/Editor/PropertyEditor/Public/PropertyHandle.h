@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "UnrealType.h"
+#include "UObject/UnrealType.h"
 #include "Widgets/SWidget.h"
 #include "PropertyEditorModule.h"
 #include "UObject/PropertyPortFlags.h"

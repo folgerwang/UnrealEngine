@@ -1,10 +1,10 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimNode_ControlRig.h"
-#include "HierarchicalRig.h"
+#include "Rigs/HierarchicalRig.h"
 #include "ControlRigComponent.h"
 #include "Components/SkeletalMeshComponent.h"
-#include "AnimInstanceProxy.h"
+#include "Animation/AnimInstanceProxy.h"
 #include "GameFramework/Actor.h"
 #include "AnimationRuntime.h"
 

@@ -24,6 +24,12 @@
 // when they are enabled.  So we currently only enable them for static analysis builds.
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
 	#define USE_TUPLE_AUTO_RETURN_TYPES USING_CODE_ANALYSIS
+#elif defined(__clang__)
+	#if __has_feature(cxx_decltype_auto)
+		#define USE_TUPLE_AUTO_RETURN_TYPES 1
+	#else
+		#define USE_TUPLE_AUTO_RETURN_TYPES 0
+	#endif
 #else
 	#define USE_TUPLE_AUTO_RETURN_TYPES 1
 #endif

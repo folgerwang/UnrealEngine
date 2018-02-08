@@ -6,7 +6,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
-#include "Public/Styling/SlateBrush.h"
+#include "Styling/SlateBrush.h"
 #include "EditorStyleSettings.generated.h"
 
 /**

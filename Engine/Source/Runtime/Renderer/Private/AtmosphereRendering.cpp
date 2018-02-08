@@ -19,7 +19,7 @@
 #include "SceneRenderTargetParameters.h"
 #include "DeferredShadingRenderer.h"
 #include "ScenePrivate.h"
-#include "Private/Atmosphere/Atmosphere.h"
+#include "Engine/Private/Atmosphere/Atmosphere.h"
 #include "AtmosphereTextures.h"
 #include "PostProcess/SceneFilterRendering.h"
 #include "PipelineStateCache.h"

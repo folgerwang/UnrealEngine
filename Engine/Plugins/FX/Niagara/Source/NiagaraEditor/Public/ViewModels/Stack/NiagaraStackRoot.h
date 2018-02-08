@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "NiagaraStackEntry.h"
+#include "ViewModels/Stack/NiagaraStackEntry.h"
 #include "NiagaraStackRoot.generated.h"
 
 class FNiagaraEmitterViewModel;

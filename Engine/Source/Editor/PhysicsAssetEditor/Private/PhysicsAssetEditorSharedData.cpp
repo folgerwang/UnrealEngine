@@ -30,8 +30,8 @@
 #include "PhysicsAssetGenerationSettings.h"
 #include "IDetailsView.h"
 #include "PropertyEditorModule.h"
-#include "SButton.h"
-#include "STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Text/STextBlock.h"
 #include "ClothingSimulationInteractor.h"
 
 #define LOCTEXT_NAMESPACE "PhysicsAssetEditorShared"

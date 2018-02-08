@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "AGS/AchievementsClientInterface.h"
-#include "OnlineAchievementsInterface.h"
+#include "Interfaces/OnlineAchievementsInterface.h"
 #include "OnlineSubsystemTypes.h"
 
 class FOnlineSubsystemGameCircle;

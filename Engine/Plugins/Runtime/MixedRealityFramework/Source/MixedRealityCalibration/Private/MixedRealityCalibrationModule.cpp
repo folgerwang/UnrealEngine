@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "IMixedRealityCalibrationModule.h"
-#include "ModuleManager.h" // for IMPLEMENT_MODULE()
+#include "Modules/ModuleManager.h" // for IMPLEMENT_MODULE()
 
 
 

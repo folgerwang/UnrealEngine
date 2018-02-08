@@ -21,7 +21,7 @@
 #include "VertexFactory.h"
 #include "SceneTypes.h"
 #include "StaticParameterSet.h"
-#include "Optional.h"
+#include "Misc/Optional.h"
 #include "NiagaraShared.generated.h"
 
 class FNiagaraScript;

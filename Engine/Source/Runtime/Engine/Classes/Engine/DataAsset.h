@@ -6,7 +6,7 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
 #include "AssetBundleData.h"
-#include "SubclassOf.h"
+#include "Templates/SubclassOf.h"
 #include "DataAsset.generated.h"
 
 /**

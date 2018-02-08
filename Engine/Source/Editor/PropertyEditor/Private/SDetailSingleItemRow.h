@@ -10,7 +10,7 @@
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "SDetailsViewBase.h"
 #include "SDetailTableRowBase.h"
-#include "DecoratedDragDropOp.h"
+#include "DragAndDrop/DecoratedDragDropOp.h"
 #include "ScopedTransaction.h"
 
 class IDetailKeyframeHandler;

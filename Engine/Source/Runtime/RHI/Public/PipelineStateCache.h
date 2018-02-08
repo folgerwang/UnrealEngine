@@ -8,7 +8,7 @@
 
 #include "CoreMinimal.h"
 #include "RHI.h"
-#include "EnumClassFlags.h"
+#include "Misc/EnumClassFlags.h"
 
 // Utility flags for modifying render target behavior on a PSO
 enum class EApplyRendertargetOption : int

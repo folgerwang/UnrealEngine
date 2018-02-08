@@ -6,9 +6,9 @@
 #include "NiagaraConvertPinViewModel.h"
 #include "NiagaraConvertPinSocketViewModel.h"
 #include "SNiagaraConvertPinSocket.h"
-#include "SButton.h"
+#include "Widgets/Input/SButton.h"
 #include "GraphEditorSettings.h"
-#include "DrawElements.h"
+#include "Rendering/DrawElements.h"
 #include "SGraphPin.h"
 
 #define LOCTEXT_NAMESPACE "SNiagaraGraphNodeConvert"

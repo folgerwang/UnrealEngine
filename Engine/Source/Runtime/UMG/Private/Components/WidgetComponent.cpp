@@ -20,7 +20,7 @@
 #include "Slate/SGameLayerManager.h"
 #include "Slate/WidgetRenderer.h"
 #include "Slate/SWorldWidgetScreenLayer.h"
-#include "SViewport.h"
+#include "Widgets/SViewport.h"
 
 DECLARE_CYCLE_STAT(TEXT("3DHitTesting"), STAT_Slate3DHitTesting, STATGROUP_Slate);
 

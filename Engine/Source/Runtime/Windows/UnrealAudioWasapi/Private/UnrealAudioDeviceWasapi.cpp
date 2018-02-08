@@ -10,12 +10,12 @@
 #include "UnrealAudioDeviceModule.h"
 #include "UnrealAudioBuffer.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <Audioclient.h>					// WASAPI api
 #include <avrt.h>							// This module contains the multimedia class scheduler APIs and any public data structures needed to call these APIs.
 #include <mmdeviceapi.h>					// For getting endpoint notifications about audio devices
 #include <functiondiscoverykeys_devpkey.h>	// Defines property keys for the Plug and Play Device Property API.
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #if ENABLE_UNREAL_AUDIO
 

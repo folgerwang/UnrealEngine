@@ -24,7 +24,7 @@
 #include "Framework/Application/SWindowTitleBar.h"
 #include "Input/HittestGrid.h"
 #include "Stats/SlateStats.h"
-#include "HardwareCursor.h"
+#include "Framework/Application/HardwareCursor.h"
 #include "HAL/PlatformApplicationMisc.h"
 
 #include "Framework/Application/IWidgetReflector.h"
@@ -41,7 +41,7 @@
 #define SLATE_HAS_WIDGET_REFLECTOR !UE_BUILD_SHIPPING || PLATFORM_DESKTOP
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 #endif
 
 

@@ -9,7 +9,7 @@
 #include "UObject/UObjectHash.h"
 #include "UObject/Class.h"
 #include "UObject/UnrealType.h"
-#include "ConfigCacheIni.h"
+#include "Misc/ConfigCacheIni.h"
 
 UFbxExportOption::UFbxExportOption(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

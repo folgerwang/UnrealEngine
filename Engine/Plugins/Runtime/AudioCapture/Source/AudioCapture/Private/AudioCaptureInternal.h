@@ -7,7 +7,7 @@
 
 #if PLATFORM_WINDOWS
 
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 
 THIRD_PARTY_INCLUDES_START
 #include "RtAudio.h"

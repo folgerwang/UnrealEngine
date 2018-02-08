@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "GenericApplication.h"
-#include "AndroidWindow.h"
-#include "AndroidJavaEnv.h"
+#include "GenericPlatform/GenericApplication.h"
+#include "Android/AndroidWindow.h"
+#include "Android/AndroidJavaEnv.h"
 
 namespace FAndroidAppEntry
 {

@@ -37,7 +37,7 @@
 #include "ClothingSimulationFactoryInterface.h"
 #include "ClothingSystemEditorInterfaceModule.h"
 #include "Widgets/SWidget.h"
-#include "ISlateMetaData.h"
+#include "Types/ISlateMetaData.h"
 #include "Textures/SlateIcon.h"
 #include "ShowFlagMenuCommands.h"
 #include "BufferVisualizationMenuCommands.h"

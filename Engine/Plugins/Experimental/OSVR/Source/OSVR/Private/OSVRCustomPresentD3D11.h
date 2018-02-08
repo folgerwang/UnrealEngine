@@ -24,9 +24,9 @@
 #include "IOSVR.h"
 #include "OSVRCustomPresent.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <osvr/RenderKit/RenderManagerD3D11C.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #include "Runtime/Windows/D3D11RHI/Private/D3D11RHIPrivate.h"
 
 class FCurrentCustomPresent : public FOSVRCustomPresent<ID3D11Device>
