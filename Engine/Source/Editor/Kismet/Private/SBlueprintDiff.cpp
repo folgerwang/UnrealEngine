@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SBlueprintDiff.h"
 #include "Widgets/Layout/SSplitter.h"
@@ -12,7 +12,7 @@
 #include "EditorStyleSet.h"
 #include "Animation/AnimBlueprint.h"
 #include "K2Node_MathExpression.h"
-#include "BlueprintEditorUtils.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "BlueprintEditorModes.h"
 #include "DetailsDiff.h"
 #include "EdGraphUtilities.h"

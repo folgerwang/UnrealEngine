@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "TrackEditors/SkeletalAnimationTrackEditor.h"
 #include "Rendering/DrawElements.h"
@@ -27,8 +27,8 @@
 #include "SequencerUtilities.h"
 #include "FloatCurveKeyArea.h"
 #include "ISectionLayoutBuilder.h"
-#include "Classes/Animation/AnimMontage.h"
-#include "Classes/Animation/AnimSequence.h"
+#include "Animation/AnimMontage.h"
+#include "Animation/AnimSequence.h"
 #include "EditorStyleSet.h"
 
 

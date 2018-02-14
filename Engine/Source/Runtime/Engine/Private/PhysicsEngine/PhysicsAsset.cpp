@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PhysicsAsset.cpp
@@ -13,7 +13,7 @@
 #include "PhysicsEngine/PhysicsConstraintTemplate.h"
 #include "UObject/ReleaseObjectVersion.h"
 #include "Logging/MessageLog.h"
-#include "UObjectIterator.h"
+#include "UObject/UObjectIterator.h"
 
 #if WITH_EDITOR
 #include "Misc/MessageDialog.h"
@@ -605,7 +605,7 @@ void SanitizeProfilesHelper(const TArray<T*>& SetupInstances, const TArray<FName
 
 	if (ArrayIdx != INDEX_NONE)
 	{
-		if(PropertyChangedEvent.ChangeType != EPropertyChangeType::Unspecified)
+		if(PropertyChangedEvent.ChangeType != EPropertyChangeType::Unspecified && PropertyChangedEvent.ChangeType != EPropertyChangeType::ArrayRemove)
 		{
 			int32 CollisionCount = 0;
 			FName NewName = PostProfiles[ArrayIdx] == NAME_None ? FName(TEXT("New")) : PostProfiles[ArrayIdx];
@@ -622,7 +622,7 @@ void SanitizeProfilesHelper(const TArray<T*>& SetupInstances, const TArray<FName
 	}
 	
 
-	if (PropertyChangedEvent.ChangeType == EPropertyChangeType::ValueSet)
+	if (PropertyChangedEvent.ChangeType == EPropertyChangeType::ValueSet || PropertyChangedEvent.ChangeType == EPropertyChangeType::ArrayClear)
 	{
 		if (ArrayIdx != INDEX_NONE)	//INDEX_NONE can come when emptying the array, so just ignore it
 		{
@@ -758,6 +758,8 @@ void UPhysicsAsset::BodyFindConstraints(int32 BodyIndex, TArray<int32>& Constrai
 }
 
 #if WITH_EDITOR
+UPhysicsAsset::FRefreshPhysicsAssetChangeDelegate UPhysicsAsset::OnRefreshPhysicsAssetChange;
+
 void UPhysicsAsset::RefreshPhysicsAssetChange() const
 {
 	for (FObjectIterator Iter(USkeletalMeshComponent::StaticClass()); Iter; ++Iter)
@@ -775,6 +777,8 @@ void UPhysicsAsset::RefreshPhysicsAssetChange() const
 			}
 		}
 	}
+
+	OnRefreshPhysicsAssetChange.Broadcast(this);
 }
 
 USkeletalMesh* UPhysicsAsset::GetPreviewMesh() const
@@ -823,15 +827,9 @@ void UPhysicsAsset::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {
 	Super::GetResourceSizeEx(CumulativeResourceSize);
 
-	for (const auto& SingleBody : SkeletalBodySetups)
-	{
-		SingleBody->GetResourceSizeEx(CumulativeResourceSize);
-	}
-
+	// Nested body setups are handled by default implementation
 	CumulativeResourceSize.AddDedicatedSystemMemoryBytes(BodySetupIndexMap.GetAllocatedSize());
 	CumulativeResourceSize.AddDedicatedSystemMemoryBytes(CollisionDisableTable.GetAllocatedSize());
-
-	// @todo implement inclusive mode
 }
 
 #undef LOCTEXT_NAMESPACE

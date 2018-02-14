@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "ModuleInterface.h"
-#include "NameTypes.h"
+#include "Modules/ModuleInterface.h"
+#include "UObject/NameTypes.h"
 
 class ISimulationEditorExtender;
 class UClothingAssetFactoryBase;

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanMemory.h: Vulkan Memory RHI definitions.
@@ -6,7 +6,12 @@
 
 #pragma once 
 
-#define VULKAN_TRACK_MEMORY_USAGE	1
+// Enable to store file & line of every mem & resource allocation
+#define VULKAN_MEMORY_TRACK_FILE_LINE	(UE_BUILD_DEBUG)
+
+// Enable to save the callstack for every mem and resource allocation
+#define VULKAN_MEMORY_TRACK_CALLSTACK	0
+
 
 class FVulkanQueue;
 class FVulkanCmdBuffer;
@@ -106,7 +111,7 @@ namespace VulkanRHI
 			, bIsCoherent(0)
 			, bIsCached(0)
 			, bFreedBySystem(false)
-#if VULKAN_TRACK_MEMORY_USAGE
+#if VULKAN_MEMORY_TRACK_FILE_LINE
 			, File(nullptr)
 			, Line(0)
 			, UID(0)
@@ -139,7 +144,7 @@ namespace VulkanRHI
 		}
 
 		void FlushMappedMemory(VkDeviceSize InOffset, VkDeviceSize InSize);
-		void InvalidateMappedMemory();
+		void InvalidateMappedMemory(VkDeviceSize InOffset, VkDeviceSize InSize);
 
 		inline VkDeviceMemory GetHandle() const
 		{
@@ -168,10 +173,13 @@ namespace VulkanRHI
 		uint32 bFreedBySystem : 1;
 		uint32 : 0;
 
-#if VULKAN_TRACK_MEMORY_USAGE
+#if VULKAN_MEMORY_TRACK_FILE_LINE
 		const char* File;
 		uint32 Line;
 		uint32 UID;
+#endif
+#if VULKAN_MEMORY_TRACK_CALLSTACK
+		FString Callstack;
 #endif
 		// Only owner can delete!
 		~FDeviceMemoryAllocation();
@@ -344,6 +352,11 @@ namespace VulkanRHI
 			DeviceMemoryAllocation->FlushMappedMemory(AllocationOffset, AllocationSize);
 		}
 
+		inline void InvalidateMappedMemory()
+		{
+			DeviceMemoryAllocation->InvalidateMappedMemory(AllocationOffset, AllocationSize);
+		}
+
 		void BindBuffer(FVulkanDevice* Device, VkBuffer Buffer);
 		void BindImage(FVulkanDevice* Device, VkImage Image);
 
@@ -364,9 +377,12 @@ namespace VulkanRHI
 
 		FDeviceMemoryAllocation* DeviceMemoryAllocation;
 
-#if VULKAN_TRACK_MEMORY_USAGE
+#if VULKAN_MEMORY_TRACK_FILE_LINE
 		const char* File;
 		uint32 Line;
+#endif
+#if VULKAN_MEMORY_TRACK_CALLSTACK
+		FString Callstack;
 #endif
 
 		friend class FOldResourceHeapPage;
@@ -459,9 +475,14 @@ namespace VulkanRHI
 		uint32 AlignedOffset;
 		uint32 AllocationSize;
 		uint32 AllocationOffset;
-#if VULKAN_TRACK_MEMORY_USAGE
+#if VULKAN_MEMORY_TRACK_FILE_LINE
 		const char* File;
 		uint32 Line;
+#endif
+#if VULKAN_MEMORY_TRACK_CALLSTACK
+		FString Callstack;
+#endif
+#if VULKAN_MEMORY_TRACK_CALLSTACK || VULKAN_MEMORY_TRACK_FILE_LINE
 		friend class FSubresourceAllocator;
 #endif
 	};
@@ -878,6 +899,11 @@ namespace VulkanRHI
 			ResourceAllocation->FlushMappedMemory();
 		}
 
+		inline void InvalidateMappedMemory()
+		{
+			ResourceAllocation->InvalidateMappedMemory();
+		}
+
 	protected:
 		TRefCountPtr<FOldResourceAllocation> ResourceAllocation;
 		VkBuffer Buffer;
@@ -1192,13 +1218,14 @@ namespace VulkanRHI
 			bool TryAlloc(uint32 InSize, uint32 InAlignment, FTempAllocInfo& OutInfo);
 		};
 		FFrameEntry Entries[NUM_RENDER_BUFFERS];
+		FCriticalSection CS;
 
 		friend class FVulkanCommandListContext;
 	};
 
 	inline void* FBufferSuballocation::GetMappedPointer()
 	{
-		return Owner->GetMappedPointer();
+		return (uint8*)Owner->GetMappedPointer() + AlignedOffset;
 	}
 
 	enum class EImageLayoutBarrier

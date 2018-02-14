@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -56,6 +56,25 @@ enum class EProjectPackagingInternationalizationPresets : uint8
 };
 
 /**
+ * Determines whether to build the executable when packaging. Note the equivalence between these settings and EPlayOnBuildMode.
+ */
+UENUM()
+enum class EProjectPackagingBuild
+{
+	/** Always build. */
+	Always UMETA(DisplayName="Always"),
+
+	/** Never build. */
+	Never UMETA(DisplayName="Never"),
+
+	/** Default (if the Never build. */
+	IfProjectHasCode UMETA(DisplayName="If project has code, or running a locally built editor"),
+
+	/** If we're not packaging from a promoted build. */
+	IfEditorWasBuiltLocally UMETA(DisplayName="If running a locally built editor")
+};
+
+/**
 * Enumerates the available methods for Blueprint nativization during project packaging.
 */
 UENUM()
@@ -81,6 +100,10 @@ class UNREALED_API UProjectPackagingSettings
 	GENERATED_UCLASS_BODY()
 
 public:
+
+	/** Specifies whether to build the game executable during packaging. */
+	UPROPERTY(config, EditAnywhere, Category=Project)
+	EProjectPackagingBuild Build;
 
 	/** The build configuration for which the project is packaged. */
 	UPROPERTY(config, EditAnywhere, Category=Project)
@@ -118,9 +141,9 @@ public:
 	UPROPERTY(config, EditAnywhere, AdvancedDisplay, Category = Blueprints, meta = (DisplayName = "List of Blueprint assets to nativize", RelativeToGameContentDir, LongPackageName))
 	TArray<FFilePath> NativizeBlueprintAssets;
 
-	/** If enabled, a warning will be emitted at build/cook time if nativization is turned on in the Project Settings, but the nativization flag was omitted from the command line. */
-	UPROPERTY(config, EditAnywhere, Category = Blueprints)
-	bool bWarnIfPackagedWithoutNativizationFlag;
+	/** If enabled, the nativized assets code plugin will be added to the Visual Studio solution if it exists when regenerating the game project. Intended primarily to assist with debugging the target platform after cooking with nativization turned on. */
+	UPROPERTY(config, EditAnywhere, AdvancedDisplay, Category = Blueprints)
+	bool bIncludeNativizedAssetsInProjectGeneration;
 
 	/** If enabled, all content will be put into a single .pak file instead of many individual files (default = enabled). */
 	UPROPERTY(config, EditAnywhere, Category=Packaging)
@@ -228,15 +251,17 @@ public:
 
 	/**
 	* Encrypt ini files inside of the pak file
+	* NOTE: Replaced by the settings inside the cryptokeys system. Kept here for legacy migration purposes.
 	*/
-	UPROPERTY(config, EditAnywhere, Category = Packaging, AdvancedDisplay, meta = (DisplayName = "Encrypt ini files inside pak files"))
-	bool bEncryptIniFiles;
+	UPROPERTY(config)
+	bool bEncryptIniFiles_DEPRECATED;
 
 	/**
-	* Encrypt the pak index 
+	* Encrypt the pak index
+	* NOTE: Replaced by the settings inside the cryptokeys system. Kept here for legacy migration purposes.
 	*/
-	UPROPERTY(config, EditAnywhere, Category = Packaging, AdvancedDisplay, meta = (DisplayName = "Encrypt the pak index, making it unusable without the required key"))
-	bool bEncryptPakIndex;
+	UPROPERTY(config)
+	bool bEncryptPakIndex_DEPRECATED;
 	
 	/**
 	* Don't include content in any editor folders when cooking.  This can cause issues with missing content in cooked games if the content is being used. 
@@ -281,6 +306,22 @@ public:
 	 */
 	UPROPERTY(config, EditAnywhere, Category=Packaging, AdvancedDisplay, meta=(DisplayName="Additional Non-Asset Directories To Copy", RelativeToGameContentDir))
 	TArray<FDirectoryPath> DirectoriesToAlwaysStageAsNonUFS;	
+
+	/**
+	 * Directories containing files that should always be added to the .pak file for a dedicated server (if using a .pak file; otherwise they're copied as individual files)
+	 * This is used to stage additional files that you manually load via the UFS (Unreal File System) file IO API
+	 * Note: These paths are relative to your project Content directory
+	 */
+	UPROPERTY(config, EditAnywhere, Category=Packaging, AdvancedDisplay, meta=(DisplayName="Additional Non-Asset Directories to Package for dedicated server only", RelativeToGameContentDir))
+	TArray<FDirectoryPath> DirectoriesToAlwaysStageAsUFSServer;
+
+	/**
+	 * Directories containing files that should always be copied when packaging your project for a dedicated server, but are not supposed to be part of the .pak file
+	 * This is used to stage additional files that you manually load without using the UFS (Unreal File System) file IO API, eg, third-party libraries that perform their own internal file IO
+	 * Note: These paths are relative to your project Content directory
+	 */
+	UPROPERTY(config, EditAnywhere, Category=Packaging, AdvancedDisplay, meta=(DisplayName="Additional Non-Asset Directories To Copy for dedicated server only", RelativeToGameContentDir))
+	TArray<FDirectoryPath> DirectoriesToAlwaysStageAsNonUFSServer;	
 
 private:
 	/** Helper array used to mirror Blueprint asset selections across edits */

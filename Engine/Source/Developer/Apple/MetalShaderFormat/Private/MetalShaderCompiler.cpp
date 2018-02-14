@@ -1,5 +1,5 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
-// ..
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// ...............
 
 #include "CoreMinimal.h"
 #include "MetalShaderFormat.h"
@@ -13,8 +13,8 @@
 #include "Misc/Paths.h"
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 THIRD_PARTY_INCLUDES_START
 	#include "Windows/PreWindowsApi.h"
 	#include <objbase.h>
@@ -23,7 +23,7 @@ THIRD_PARTY_INCLUDES_START
 	#include "Windows/PostWindowsApi.h"
 	#include "Windows/MinWindows.h"
 THIRD_PARTY_INCLUDES_END
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 #include "ShaderPreprocessor.h"
@@ -31,6 +31,9 @@ THIRD_PARTY_INCLUDES_END
 #include "MetalBackend.h"
 #include "MetalDerivedData.h"
 #include "DerivedDataCacheInterface.h"
+
+// The Metal standard library extensions we need for UE4.
+#include "ue4_stdlib.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogMetalShaderCompiler, Log, All); 
 
@@ -45,106 +48,160 @@ static FString	GMetalLibraryPath[2];
 static FString	GMetalCompilerVers[2];
 static FString	GTempFolderPath;
 static bool		GMetalLoggedRemoteCompileNotConfigured;	// This is used to reduce log spam, its not perfect because there is not a place to reset this flag so a log msg will only be given once per editor run
+static bool		GRemoteBuildConfigured = false;
 
 // Add (|| PLATFORM_MAC) to enable Mac to Mac remote building
 #define UNIXLIKE_TO_MAC_REMOTE_BUILDING (PLATFORM_LINUX)
 
-bool IsRemoteBuildingConfigured()
+bool IsRemoteBuildingConfigured(const FShaderCompilerEnvironment* InEnvironment)
 {
-	bool	remoteCompilingEnabled = false;
-	GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("EnableRemoteShaderCompile"), remoteCompilingEnabled, GEngineIni);
-	if(!remoteCompilingEnabled)
+	// if we have gotten an environment, then it is possible the remote server data has changed, in all other cases, it is not possible for it change
+	if (!GRemoteBuildConfigured || InEnvironment != nullptr)
 	{
-		return false;
-	}
-	
-	GRemoteBuildServerHost = "";
-	GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("RemoteServerName"), GRemoteBuildServerHost, GEngineIni);
-	if(GRemoteBuildServerHost.Len() == 0)
-	{
-		if(!GMetalLoggedRemoteCompileNotConfigured)
+		GRemoteBuildConfigured = false;
+		bool	remoteCompilingEnabled = false;
+		GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("EnableRemoteShaderCompile"), remoteCompilingEnabled, GEngineIni);
+		if (!remoteCompilingEnabled && !FParse::Param(FCommandLine::Get(), TEXT("enableremote")))
 		{
-			UE_LOG(LogMetalShaderCompiler, Warning, TEXT("Remote Building is not configured: RemoteServerName is not set."));
-			GMetalLoggedRemoteCompileNotConfigured = true;
+			if (InEnvironment == nullptr || InEnvironment->RemoteServerData.Num() < 2)
+			{
+				return false;
+			}
 		}
-		return false;
-	}
 
-	GRemoteBuildServerUser = "";
-	GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("RSyncUsername"), GRemoteBuildServerUser, GEngineIni);
-
-	if(GRemoteBuildServerUser.Len() == 0)
-	{
-		if(!GMetalLoggedRemoteCompileNotConfigured)
+		GRemoteBuildServerHost = "";
+		GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("RemoteServerName"), GRemoteBuildServerHost, GEngineIni);
+		if(GRemoteBuildServerHost.Len() == 0)
 		{
-			UE_LOG(LogMetalShaderCompiler, Warning, TEXT("Remote Building is not configured: RSyncUsername is not set."));
-			GMetalLoggedRemoteCompileNotConfigured = true;
+			// check for it on the command line - meant for ShaderCompileWorker
+			if (!FParse::Value(FCommandLine::Get(), TEXT("servername"), GRemoteBuildServerHost) && GRemoteBuildServerHost.Len() == 0)
+			{
+				if (InEnvironment != nullptr && InEnvironment->RemoteServerData.Contains(TEXT("RemoteServerName")))
+				{
+					GRemoteBuildServerHost = InEnvironment->RemoteServerData[TEXT("RemoteServerName")];
+				}
+				if (GRemoteBuildServerHost.Len() == 0)
+				{
+					if (!GMetalLoggedRemoteCompileNotConfigured)
+					{
+						if (!PLATFORM_MAC || UNIXLIKE_TO_MAC_REMOTE_BUILDING)
+						{
+							UE_LOG(LogMetalShaderCompiler, Warning, TEXT("Remote Building is not configured: RemoteServerName is not set."));
+						}
+						GMetalLoggedRemoteCompileNotConfigured = true;
+					}
+					return false;
+				}
+			}
 		}
-		return false;
-	}
 
-	GRemoteBuildServerSSHKey = "";
-	GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("SSHPrivateKeyOverridePath"), GRemoteBuildServerSSHKey, GEngineIni);
+		GRemoteBuildServerUser = "";
+		GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("RSyncUsername"), GRemoteBuildServerUser, GEngineIni);
 
-	if(GRemoteBuildServerSSHKey.Len() == 0)
-	{
-		// RemoteToolChain.cs in UBT looks in a few more places but the code in FIOSTargetSettingsCustomization::OnGenerateSSHKey() only puts the key in this location so just going with that to keep things simple
-		TCHAR Path[4096];
-		FPlatformMisc::GetEnvironmentVariable(TEXT("APPDATA"), Path, ARRAY_COUNT(Path));
-		GRemoteBuildServerSSHKey = FString::Printf(TEXT("%s\\Unreal Engine\\UnrealBuildTool\\SSHKeys\\%s\\%s\\RemoteToolChainPrivate.key"), Path, *GRemoteBuildServerHost, *GRemoteBuildServerUser);
-	}
-
-	if(!FPaths::FileExists(GRemoteBuildServerSSHKey))
-	{
-		if(!GMetalLoggedRemoteCompileNotConfigured)
+		if(GRemoteBuildServerUser.Len() == 0)
 		{
-			UE_LOG(LogMetalShaderCompiler, Warning, TEXT("Remote Building is not configured: SSH private key was not found."));
-			GMetalLoggedRemoteCompileNotConfigured = true;
+			// check for it on the command line - meant for ShaderCompileWorker
+			if (!FParse::Value(FCommandLine::Get(), TEXT("serveruser"), GRemoteBuildServerUser) && GRemoteBuildServerUser.Len() == 0)
+			{
+				if (InEnvironment != nullptr && InEnvironment->RemoteServerData.Contains(TEXT("RSyncUsername")))
+				{
+					GRemoteBuildServerUser = InEnvironment->RemoteServerData[TEXT("RSyncUsername")];
+				}
+				if (GRemoteBuildServerUser.Len() == 0)
+				{
+					if (!GMetalLoggedRemoteCompileNotConfigured)
+					{
+						if (!PLATFORM_MAC || UNIXLIKE_TO_MAC_REMOTE_BUILDING)
+						{
+							UE_LOG(LogMetalShaderCompiler, Warning, TEXT("Remote Building is not configured: RSyncUsername is not set."));
+						}
+						GMetalLoggedRemoteCompileNotConfigured = true;
+					}
+					return false;
+				}
+			}
 		}
-		return false;
-	}
 
-#if PLATFORM_LINUX || PLATFORM_MAC
+		GRemoteBuildServerSSHKey = "";
+		GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("SSHPrivateKeyOverridePath"), GRemoteBuildServerSSHKey, GEngineIni);
 
-	// On Unix like systems we have access to ssh and scp at the command line so we can invoke them directly
-	GSSHPath = FString(TEXT("/usr/bin/ssh"));
-	GRSyncPath = FString(TEXT("/usr/bin/scp"));
-	
-#else
-	
-	// Windows requires a Delta copy install for ssh and rsync
-	FString DeltaCopyPath;
-	GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("DeltaCopyInstallPath"), DeltaCopyPath, GEngineIni);
-	if (DeltaCopyPath.IsEmpty() || !FPaths::DirectoryExists(DeltaCopyPath))
-	{
-		// If no user specified directory try the UE4 bundled directory
-		DeltaCopyPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Extras\\ThirdPartyNotUE\\DeltaCopy\\Binaries"));
-	}
-
-	if (!FPaths::DirectoryExists(DeltaCopyPath))
-	{
-		// if no UE4 bundled version of DeltaCopy, try and use the default install location
-		TCHAR ProgramPath[4096];
-		FPlatformMisc::GetEnvironmentVariable(TEXT("PROGRAMFILES(X86)"), ProgramPath, ARRAY_COUNT(ProgramPath));
-		DeltaCopyPath = FPaths::Combine(ProgramPath, TEXT("DeltaCopy"));
-	}
-	
-	if (!FPaths::DirectoryExists(DeltaCopyPath))
-	{
-		if(!GMetalLoggedRemoteCompileNotConfigured)
+		if(GRemoteBuildServerSSHKey.Len() == 0)
 		{
-			UE_LOG(LogMetalShaderCompiler, Warning, TEXT("Remote Building is not configured: DeltaCopy was not found."));
-			GMetalLoggedRemoteCompileNotConfigured = true;
+			if (!FParse::Value(FCommandLine::Get(), TEXT("serverkey"), GRemoteBuildServerSSHKey) && GRemoteBuildServerSSHKey.Len() == 0)
+			{
+				if (InEnvironment != nullptr && InEnvironment->RemoteServerData.Contains(TEXT("SSHPrivateKeyOverridePath")))
+				{
+					GRemoteBuildServerSSHKey = InEnvironment->RemoteServerData[TEXT("SSHPrivateKeyOverridePath")];
+				}
+				if (GRemoteBuildServerSSHKey.Len() == 0)
+				{
+					// RemoteToolChain.cs in UBT looks in a few more places but the code in FIOSTargetSettingsCustomization::OnGenerateSSHKey() only puts the key in this location so just going with that to keep things simple
+					TCHAR Path[4096];
+					FPlatformMisc::GetEnvironmentVariable(TEXT("APPDATA"), Path, ARRAY_COUNT(Path));
+					GRemoteBuildServerSSHKey = FString::Printf(TEXT("%s\\Unreal Engine\\UnrealBuildTool\\SSHKeys\\%s\\%s\\RemoteToolChainPrivate.key"), Path, *GRemoteBuildServerHost, *GRemoteBuildServerUser);
+				}
+			}
 		}
-		return false;
+
+		if (!FPaths::FileExists(GRemoteBuildServerSSHKey))
+		{
+			if (!GMetalLoggedRemoteCompileNotConfigured)
+			{
+				if (!PLATFORM_MAC || UNIXLIKE_TO_MAC_REMOTE_BUILDING)
+				{
+					UE_LOG(LogMetalShaderCompiler, Warning, TEXT("Remote Building is not configured: SSH private key was not found."));
+				}
+				GMetalLoggedRemoteCompileNotConfigured = true;
+			}
+			return false;
+		}
+
+	#if PLATFORM_LINUX || PLATFORM_MAC
+
+		// On Unix like systems we have access to ssh and scp at the command line so we can invoke them directly
+		GSSHPath = FString(TEXT("/usr/bin/ssh"));
+		GRSyncPath = FString(TEXT("/usr/bin/scp"));
+
+	#else
+
+		// Windows requires a Delta copy install for ssh and rsync
+		FString DeltaCopyPath;
+		GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("DeltaCopyInstallPath"), DeltaCopyPath, GEngineIni);
+		if (DeltaCopyPath.IsEmpty() || !FPaths::DirectoryExists(DeltaCopyPath))
+		{
+			// If no user specified directory try the UE4 bundled directory
+			DeltaCopyPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Extras\\ThirdPartyNotUE\\DeltaCopy\\Binaries"));
+		}
+
+		if (!FPaths::DirectoryExists(DeltaCopyPath))
+		{
+			// if no UE4 bundled version of DeltaCopy, try and use the default install location
+			TCHAR ProgramPath[4096];
+			FPlatformMisc::GetEnvironmentVariable(TEXT("PROGRAMFILES(X86)"), ProgramPath, ARRAY_COUNT(ProgramPath));
+			DeltaCopyPath = FPaths::Combine(ProgramPath, TEXT("DeltaCopy"));
+		}
+
+		if (!FPaths::DirectoryExists(DeltaCopyPath))
+		{
+			if (!GMetalLoggedRemoteCompileNotConfigured)
+			{
+				if (!PLATFORM_MAC || UNIXLIKE_TO_MAC_REMOTE_BUILDING)
+				{
+					UE_LOG(LogMetalShaderCompiler, Warning, TEXT("Remote Building is not configured: DeltaCopy was not found."));
+				}
+				GMetalLoggedRemoteCompileNotConfigured = true;
+			}
+			return false;
+		}
+
+		GSSHPath = FPaths::Combine(*DeltaCopyPath, TEXT("ssh.exe"));
+		GRSyncPath = FPaths::Combine(*DeltaCopyPath, TEXT("rsync.exe"));
+
+	#endif
+		GRemoteBuildConfigured = true;
 	}
 
-	GSSHPath = FPaths::Combine(*DeltaCopyPath, TEXT("ssh.exe"));
-	GRSyncPath = FPaths::Combine(*DeltaCopyPath, TEXT("rsync.exe"));
-	
-#endif
-
-	return true;
+	return true;	
 }
 
 static bool CompileProcessAllowsRuntimeShaderCompiling(const FShaderCompilerInput& InputCompilerEnvironment)
@@ -152,7 +209,7 @@ static bool CompileProcessAllowsRuntimeShaderCompiling(const FShaderCompilerInpu
     bool bArchiving = InputCompilerEnvironment.Environment.CompilerFlags.Contains(CFLAG_Archive);
     bool bDebug = InputCompilerEnvironment.Environment.CompilerFlags.Contains(CFLAG_Debug);
     
-    return !bArchiving || bDebug;
+    return !bArchiving && bDebug;
 }
 
 bool ExecRemoteProcess(const TCHAR* Command, const TCHAR* Params, int32* OutReturnCode, FString* OutStdOut, FString* OutStdErr)
@@ -160,7 +217,12 @@ bool ExecRemoteProcess(const TCHAR* Command, const TCHAR* Params, int32* OutRetu
 #if PLATFORM_MAC && !UNIXLIKE_TO_MAC_REMOTE_BUILDING
 	return FPlatformProcess::ExecProcess(Command, Params, OutReturnCode, OutStdOut, OutStdErr);
 #else
-	FString CmdLine = FString(TEXT("-i \"")) + GRemoteBuildServerSSHKey + TEXT("\" ") + GRemoteBuildServerUser + '@' + GRemoteBuildServerHost + TEXT(" ") + Command + TEXT(" ") + Params;
+	if (GRemoteBuildServerHost.IsEmpty())
+	{
+		return false;
+	}
+
+	FString CmdLine = FString(TEXT("-i \"")) + GRemoteBuildServerSSHKey + TEXT("\" ") + GRemoteBuildServerUser + '@' + GRemoteBuildServerHost + TEXT(" ") + Command + TEXT(" ") + (Params != nullptr ? Params : TEXT(""));
 	return FPlatformProcess::ExecProcess(*GSSHPath, *CmdLine, OutReturnCode, OutStdOut, OutStdErr);
 #endif
 }
@@ -285,7 +347,7 @@ bool CopyLocalFileToRemote(FString const& LocalPath, FString const& RemotePath)
 
 	FString	params = 
 		FString::Printf(
-			TEXT("-zae \"%s -i '%s'\" --rsync-path=\"mkdir -p %s && rsync\" --chmod=ug=rwX,o=rxX '%s' %s@%s:'%s'"), 
+			TEXT("-zrltgoDe \"'%s' -i '%s'\" --rsync-path=\"mkdir -p %s && rsync\" --chmod=ug=rwX,o=rxX '%s' \"%s@%s\":'%s'"), 
 			*GSSHPath,
 			*GRemoteBuildServerSSHKey, 
 			*remoteBasePath, 
@@ -315,7 +377,7 @@ bool CopyRemoteFileToLocal(FString const& RemotePath, FString const& LocalPath)
 
 	FString	params = 
 		FString::Printf(
-			TEXT("-zae \"%s -i '%s'\" %s@%s:'%s' '%s'"), 
+			TEXT("-zrltgoDe \"'%s' -i '%s'\" \"%s@%s\":'%s' '%s'"), 
 			*GSSHPath,
 			*GRemoteBuildServerSSHKey, 
 			*GRemoteBuildServerUser,
@@ -476,6 +538,19 @@ bool ChecksumRemoteFile(FString const& RemotePath, uint32* CRC, uint32* Len)
 		{
 			bOK = false;
 		}
+	}
+	return bOK;
+}
+
+bool ModificationTimeRemoteFile(FString const& RemotePath, uint64& Time)
+{
+	int32 ReturnCode = -1;
+	FString Output;
+	FString Args = TEXT(" -f \"%Sm\" -t \"%s\" ") + RemotePath;
+	bool bOK = ExecRemoteProcess(TEXT("/usr/bin/stat"), *Args, &ReturnCode, &Output, nullptr);
+	if (bOK)
+	{
+		Lex::FromString(Time, *Output);
 	}
 	return bOK;
 }
@@ -792,9 +867,13 @@ void BuildMetalShaderOutput(
 	uint8 Version,
 	TCHAR const* Standard,
 	TCHAR const* MinOSVersion,
+	EMetalTypeBufferMode TypeMode,
 	TArray<FShaderCompilerError>& OutErrors,
 	FMetalTessellationOutputs const& TessOutputAttribs,
-	uint8 const AtomicUAVs,
+	uint32 TypedBuffers,
+	uint32 InvariantBuffers,
+	uint32 TypedUAVs,
+	TArray<uint8> const& TypedBufferFormats,
 	bool bAllowFastIntriniscs
 	)
 {
@@ -813,9 +892,20 @@ void BuildMetalShaderOutput(
 	
 	const ANSICHAR* SideTableString = FCStringAnsi::Strstr(USFSource, "@SideTable: ");
 	
+	EShaderFrequency Frequency = (EShaderFrequency)ShaderOutput.Target.Frequency;
+	const bool bIsMobile = (ShaderInput.Target.Platform == SP_METAL || ShaderInput.Target.Platform == SP_METAL_MRT);
+	bool bNoFastMath = ShaderInput.Environment.CompilerFlags.Contains(CFLAG_NoFastMath);
+	FString const* UsingWPO = ShaderInput.Environment.GetDefinitions().Find(TEXT("USES_WORLD_POSITION_OFFSET"));
+	if (UsingWPO && FString("1") == *UsingWPO && bIsMobile && Frequency == SF_Vertex)
+	{
+		// WPO requires that we make all multiply/sincos instructions invariant :(
+		bNoFastMath = true;
+	}
+	
+	
 	FMetalCodeHeader Header = {0};
 	Header.CompileFlags = (ShaderInput.Environment.CompilerFlags.Contains(CFLAG_Debug) ? (1 << CFLAG_Debug) : 0);
-	Header.CompileFlags |= (ShaderInput.Environment.CompilerFlags.Contains(CFLAG_NoFastMath) ? (1 << CFLAG_NoFastMath) : 0);
+	Header.CompileFlags |= (bNoFastMath ? (1 << CFLAG_NoFastMath) : 0);
 	Header.CompileFlags |= (ShaderInput.Environment.CompilerFlags.Contains(CFLAG_KeepDebugInfo) ? (1 << CFLAG_KeepDebugInfo) : 0);
 	Header.CompileFlags |= (ShaderInput.Environment.CompilerFlags.Contains(CFLAG_ZeroInitialise) ? (1 <<  CFLAG_ZeroInitialise) : 0);
 	Header.CompileFlags |= (ShaderInput.Environment.CompilerFlags.Contains(CFLAG_BoundsChecking) ? (1 << CFLAG_BoundsChecking) : 0);
@@ -825,6 +915,50 @@ void BuildMetalShaderOutput(
 	Header.SideTable = -1;
 	Header.SourceLen = SourceCRCLen;
 	Header.SourceCRC = SourceCRC;
+    Header.Bindings.bDiscards = false;
+	if (Version >= 2)
+	{
+		Header.Bindings.TypedBufferFormats.SetNumZeroed(METAL_MAX_BUFFERS);
+		Header.Bindings.TypedBuffers = TypedBuffers;
+		Header.Bindings.InvariantBuffers = InvariantBuffers;
+		for (uint32 i = 0; i < (uint32)TypedBufferFormats.Num(); i++)
+		{
+			if ((TypedBuffers & (1 << i)) != 0)
+			{
+				check(TypedBufferFormats[i] > Unknown);
+                check(TypedBufferFormats[i] < Max);
+                if ((TypeMode > EMetalTypeBufferModeRaw)
+                && (TypeMode < EMetalTypeBufferModeFun)
+                && (TypedBufferFormats[i] < RGB8Sint || TypedBufferFormats[i] > RGB32Float)
+                && (TypeMode == EMetalTypeBufferModeUAV || !(TypedUAVs & (1 << i))))
+                {
+                	Header.Bindings.LinearBuffer |= (1 << i);
+	                Header.Bindings.TypedBuffers &= ~(1 << i);
+                }
+                else
+                {
+					Header.Bindings.TypedBufferFormats[i] = TypedBufferFormats[i];
+                }
+			}
+			else if ((InvariantBuffers & (1 << i)) != 0)
+			{
+				Header.Bindings.TypedBufferFormats[i] = TypedBufferFormats[i];
+			}
+		}
+		
+		// Raw mode means all buffers are invariant
+		if (TypeMode == EMetalTypeBufferModeRaw)
+		{
+			Header.Bindings.TypedBuffers = 0;
+			Header.Bindings.InvariantBuffers = InvariantBuffers|TypedBuffers;
+		}
+	}
+	else // No typed buffers on Metal 1.0-1.1 - all are invariant
+	{
+		Header.Bindings.TypedBuffers = 0;
+		Header.Bindings.InvariantBuffers = InvariantBuffers|TypedBuffers;
+		Header.Bindings.TypedBufferFormats = TypedBufferFormats;
+	}
 	
 	if (SideTableString)
 	{
@@ -855,7 +989,6 @@ void BuildMetalShaderOutput(
 	}
 	
 	FShaderParameterMap& ParameterMap = ShaderOutput.ParameterMap;
-	EShaderFrequency Frequency = (EShaderFrequency)ShaderOutput.Target.Frequency;
 
 	TBitArray<> UsedUniformBufferSlots;
 	UsedUniformBufferSlots.Init(false,32);
@@ -897,7 +1030,13 @@ void BuildMetalShaderOutput(
 			{
 				Header.Bindings.InOutMask |= 0x8000;
 			}
-		}
+        }
+        
+        // For fragment shaders that discard but don't output anything we need at least a depth-stencil surface, so we need a way to validate this at runtime.
+        if (FCStringAnsi::Strstr(USFSource, "discard_fragment()") != nullptr)
+        {
+            Header.Bindings.bDiscards = true;
+        }
 	}
 
 	bool bHasRegularUniformBuffers = false;
@@ -1086,7 +1225,8 @@ void BuildMetalShaderOutput(
 	Header.TessellationControlPointOutBuffer    = CCHeader.TessellationControlPointOutBuffer;
 	Header.TessellationControlPointIndexBuffer  = CCHeader.TessellationControlPointIndexBuffer;
 	Header.TessellationOutputAttribs            = TessOutputAttribs;
-	Header.bFunctionConstants					= (FCStringAnsi::Strstr(USFSource, "[[ function_constant(") != nullptr);
+	Header.bTessFunctionConstants				= (FCStringAnsi::Strstr(USFSource, "indexBufferType [[ function_constant(32) ]]") != nullptr);
+	Header.bDeviceFunctionConstants				= (FCStringAnsi::Strstr(USFSource, "#define __METAL_DEVICE_CONSTANT_INDEX__ 1") != nullptr);
 	
 	// Build the SRT for this shader.
 	{
@@ -1106,8 +1246,6 @@ void BuildMetalShaderOutput(
 		BuildResourceTableTokenStream(GenericSRT.UnorderedAccessViewMap, GenericSRT.MaxBoundResourceTable, Header.Bindings.ShaderResourceTable.UnorderedAccessViewMap);
 
 		Header.Bindings.NumUniformBuffers = FMath::Max((uint8)GetNumUniformBuffersUsed(GenericSRT), Header.Bindings.NumUniformBuffers);
-		
-		Header.Bindings.AtomicUAVs = AtomicUAVs;
 	}
 
 	FString MetalCode = FString(USFSource);
@@ -1133,7 +1271,7 @@ void BuildMetalShaderOutput(
 			FString::Printf(TEXT("shader uses %d (%d) samplers exceeding the limit of %d\nSamplers:\n%s"),
 				Header.Bindings.NumSamplers, CCHeader.SamplerStates.Num(), MaxMetalSamplers, *SamplerList);
 	}
-	else if(ShaderInput.Environment.CompilerFlags.Contains(CFLAG_Debug))
+	else if(CompileProcessAllowsRuntimeShaderCompiling(ShaderInput))
 	{
 		// Write out the header and shader source code.
 		FMemoryWriter Ar(ShaderOutput.ShaderCode.GetWriteAccess(), true);
@@ -1152,8 +1290,8 @@ void BuildMetalShaderOutput(
 	else
 	{
         // metal commandlines
-        FString DebugInfo = (ShaderInput.Environment.CompilerFlags.Contains(CFLAG_KeepDebugInfo) || ShaderInput.Environment.CompilerFlags.Contains(CFLAG_Archive)) ? TEXT("-gline-tables-only") : TEXT("");
-        FString MathMode = ShaderInput.Environment.CompilerFlags.Contains(CFLAG_NoFastMath) ? TEXT("-fno-fast-math") : TEXT("-ffast-math");
+        FString DebugInfo = (ShaderInput.Environment.CompilerFlags.Contains(CFLAG_KeepDebugInfo) || !bIsMobile || ShaderInput.Environment.CompilerFlags.Contains(CFLAG_Archive)) ? TEXT("-gline-tables-only") : TEXT("");
+        FString MathMode = bNoFastMath ? TEXT("-fno-fast-math") : TEXT("-ffast-math");
         
 		// at this point, the shader source is ready to be compiled
 		// We need to use a temp directory path that will be consistent across devices so that debug info
@@ -1184,49 +1322,47 @@ void BuildMetalShaderOutput(
 		int32 ReturnCode = 0;
 		FString Results;
 		FString Errors;
-		bool bCompileAtRuntime = true;
 		bool bSucceeded = false;
 
-#if METAL_OFFLINE_COMPILE
-		bool bRemoteBuildingConfigured = IsRemoteBuildingConfigured();
+		bool bRemoteBuildingConfigured = IsRemoteBuildingConfigured(&ShaderInput.Environment);
 		
 		FString MetalPath = GetMetalBinaryPath(ShaderInput.Target.Platform);
 		FString MetalToolsPath = GetMetalToolsPath(ShaderInput.Target.Platform);
 		
-		if((PLATFORM_MAC && !UNIXLIKE_TO_MAC_REMOTE_BUILDING) || bRemoteBuildingConfigured)
+		bool bMetalCompilerAvailable = false;
+
+		if (((PLATFORM_MAC && !UNIXLIKE_TO_MAC_REMOTE_BUILDING) || bRemoteBuildingConfigured) && (MetalPath.Len() > 0 && MetalToolsPath.Len() > 0))
 		{
-			if(MetalPath.Len() == 0 || MetalToolsPath.Len() == 0)
+			bMetalCompilerAvailable = true;
+		}
+		else
+		{
+			TCHAR const* Message = nullptr;
+			if (PLATFORM_MAC && !UNIXLIKE_TO_MAC_REMOTE_BUILDING)
 			{
-				if(!GMetalLoggedRemoteCompileNotConfigured)
-				{
-					if (bRemoteBuildingConfigured)
-					{
-						UE_LOG(LogMetalShaderCompiler, Warning, TEXT("Xcode's metal shader compiler was not found, verify Xcode has been installed on the Mac used for remote compilation. Falling back to online compiled text shaders which will be slower on first launch."));
-					}
-					else
-					{
-						UE_LOG(LogMetalShaderCompiler, Warning, TEXT("Xcode's metal shader compiler was not found, verify Xcode has been installed on this Mac. Falling back to online compiled text shaders which will be slower on first launch."));
-					}
-					GMetalLoggedRemoteCompileNotConfigured = true;
-				}
-				bRemoteBuildingConfigured = false;
+				Message = TEXT("Xcode's metal shader compiler was not found, verify Xcode has been installed on this Mac and that it has been selected in Xcode > Preferences > Locations > Command-line Tools.");
+			}
+			else if (!bRemoteBuildingConfigured)
+			{
+				Message = TEXT("Remote shader compilation has not been configured in the Editor settings for this project. Please follow the instructions for enabling remote compilation for iOS.");
 			}
 			else
 			{
-				bCompileAtRuntime = false;
-				bSucceeded = false;
+				Message = TEXT("Xcode's metal shader compiler was not found, verify Xcode has been installed on the Mac used for remote compilation and that the Mac is accessible via SSH from this machine.");
 			}
-		}
-		else if(CompileProcessAllowsRuntimeShaderCompiling(ShaderInput))
-		{
-			bCompileAtRuntime = true;
-			bSucceeded = true;
+
+			FShaderCompilerError* Error = new(OutErrors) FShaderCompilerError();
+			Error->ErrorVirtualFilePath = InputFilename;
+			Error->ErrorLineString = TEXT("0");
+			Error->StrippedErrorMessage = FString(Message);
+
+			bRemoteBuildingConfigured = false;
 		}
 		
 		bool bDebugInfoSucceded = false;
 		FMetalShaderBytecode Bytecode;
 		FMetalShaderDebugInfo DebugCode;
-		if (bCompileAtRuntime == false && ((PLATFORM_MAC && !UNIXLIKE_TO_MAC_REMOTE_BUILDING) || bRemoteBuildingConfigured))
+		if (bMetalCompilerAvailable == true)
 		{
 			bool bUseSharedPCH = false;
 			FString MetalPCHFile;
@@ -1236,17 +1372,26 @@ void BuildMetalShaderOutput(
 			bool bFoundStdLib = false;
             FString StdLibPath = GetMetalLibraryPath(ShaderInput.Target.Platform);
             bFoundStdLib = RemoteFileExists(*StdLibPath);
+
+			// PCHs need the same checksum to ensure that the result can be used with the current version of the file
 			uint32 PchCRC = 0;
 			uint32 PchLen = 0;
-			if(bFoundStdLib && ChecksumRemoteFile(StdLibPath, &PchCRC, &PchLen))
-			{
-				FString VersionedName = FString::Printf(TEXT("metal_stdlib_%u%u%s%s%s%s%s%s.pch"), PchCRC, PchLen, *GUIDHash.ToString(), *CompilerVersion, MinOSVersion, *DebugInfo, *MathMode, Standard);
+			bool const bChkSum = ChecksumRemoteFile(StdLibPath, &PchCRC, &PchLen);
 
-				// get rid of some not so filename-friendly characters ('=',' ' -> '_')
-    		    VersionedName = VersionedName.Replace(TEXT("="), TEXT("_")).Replace(TEXT(" "), TEXT("_"));
-				MetalPCHFile = TempDir / VersionedName;
-				
-				FString RemoteMetalPCHFile = LocalPathToRemote(MetalPCHFile, TempDir);
+			// PCHs need the modifiction time (in secs. since UTC Epoch) to ensure that the result can be used with the current version of the file
+			uint64 ModTime = 0;
+			bool const bModTime = ModificationTimeRemoteFile(StdLibPath, ModTime);
+			
+			FString VersionedName = FString::Printf(TEXT("metal_stdlib_%u%u%llu%s%s%s%s%s%s%d.pch"), PchCRC, PchLen, ModTime, *GUIDHash.ToString(), *CompilerVersion, MinOSVersion, *DebugInfo, *MathMode, Standard, GetTypeHash(MetalToolsPath));
+			
+			// get rid of some not so filename-friendly characters ('=',' ' -> '_')
+			VersionedName = VersionedName.Replace(TEXT("="), TEXT("_")).Replace(TEXT(" "), TEXT("_"));
+			MetalPCHFile = TempDir / VersionedName;
+			
+			FString RemoteMetalPCHFile = LocalPathToRemote(MetalPCHFile, TempDir);
+
+			if(bFoundStdLib && bChkSum)
+			{
 				if(RemoteFileExists(*RemoteMetalPCHFile))
 				{
 					bUseSharedPCH = true;
@@ -1280,26 +1425,47 @@ void BuildMetalShaderOutput(
 						
 						if (!bDataWasBuilt)
 						{
-							bUseSharedPCH = FFileHelper::SaveArrayToFile(Bytecode.OutputFile, *MetalPCHFile);
-							if (!bUseSharedPCH)
+							FString TempPath = FPaths::CreateTempFilename(TempDir, TEXT("MetalSharedPCH-"), TEXT(".metal.pch"));
+							if (FFileHelper::SaveArrayToFile(Bytecode.OutputFile, *TempPath))
 							{
-								UE_LOG(LogMetalShaderCompiler, Warning, TEXT("Metal Shared PCH failed to save %s - compilation will proceed without a shared PCH: %s."), CompileType, *MetalPCHFile);
+								IFileManager::Get().Move(*MetalPCHFile, *TempPath, false, false, true, false);
+								IFileManager::Get().Delete(*TempPath);
+							}
+							
+							int64 FileSize = IFileManager::Get().FileSize(*MetalPCHFile);
+							if(FileSize == Bytecode.OutputFile.Num())
+							{
+								bUseSharedPCH = true;
+							}
+							else
+							{
+								bUseSharedPCH = false;
+								
+								FShaderCompilerError* Error = new(OutErrors) FShaderCompilerError();
+								Error->ErrorVirtualFilePath = InputFilename;
+								Error->ErrorLineString = TEXT("0");
+								Error->StrippedErrorMessage = FString::Printf(TEXT("Metal Shared PCH failed to save %s to %s - compilation will continue without a PCH: %s."), CompileType, *TempPath, *MetalPCHFile);
 							}
 						}
 					}
 					else
 					{
-						UE_LOG(LogMetalShaderCompiler, Warning, TEXT("Metal Shared PCH generation failed %s - compilation will proceed without a shared PCH: %s."), CompileType, *Job.Message);
+						FShaderCompilerError* Error = new(OutErrors) FShaderCompilerError();
+						Error->ErrorVirtualFilePath = InputFilename;
+						Error->ErrorLineString = TEXT("0");
+						Error->StrippedErrorMessage = FString::Printf(TEXT("Metal Shared PCH generation failed %s - compilation will continue without a PCH: %s."), CompileType, *Job.Message);
 					}
 				}
 			}
 			else
 			{
-				UE_LOG(LogMetalShaderCompiler, Warning, TEXT("Metal Shared PCH generation failed - cannot find metal_stdlib header relative to %s %s."), *MetalToolsPath, CompileType);
+				FShaderCompilerError* Error = new(OutErrors) FShaderCompilerError();
+				Error->ErrorVirtualFilePath = InputFilename;
+				Error->ErrorLineString = TEXT("0");
+				Error->StrippedErrorMessage = FString::Printf(TEXT("Metal Shared PCH generation failed - cannot find metal_stdlib header relative to %s %s."), *MetalToolsPath, CompileType);
 			}
 		
 			uint32 DebugInfoHandle = 0;
-			const bool bIsMobile = (ShaderInput.Target.Platform == SP_METAL || ShaderInput.Target.Platform == SP_METAL_MRT);
 			if (!bIsMobile && !ShaderInput.Environment.CompilerFlags.Contains(CFLAG_Archive))
 			{
 				FMetalShaderDebugInfoJob Job;
@@ -1320,8 +1486,107 @@ void BuildMetalShaderOutput(
 				DebugInfoHandle = GetDerivedDataCacheRef().GetAsynchronous(DebugInfoCooker);
 			}
 			
-			FMetalShaderBytecodeJob Job;
+            
+			// Attempt to precompile the ue4_stdlib.metal file as a PCH, using the metal_stdlib PCH if it exists
+			// Will fallback to just using the raw ue4_stdlib.metal file if PCH compilation fails
+			// The ue4_stdlib.metal PCH is not cached in the DDC as modifications to the file invalidate the PCH, so it is only valid for this SCW's existence.
+			FString UE4StdLibFilePath = FString(TempDir) / TEXT("ue4_stdlib.metal");
+			static FString RemoteUE4StdLibFolder = MakeRemoteTempFolder(TempDir);
+			FString RemoteUE4StdLibFilePath = LocalPathToRemote(UE4StdLibFilePath, RemoteUE4StdLibFolder);
+			{
+				static uint32 UE4StdLibCRCLen = ue4_stdlib_metal_len;
+				static uint32 UE4StdLibCRC = 0;
+				if (UE4StdLibCRC == 0)
+				{
+					TArrayView<const uint8> UE4PCHData((const uint8*)ue4_stdlib_metal, ue4_stdlib_metal_len);
+					FString UE4StdLibFilename = FPaths::CreateTempFilename(TempDir, TEXT("ShaderIn"), TEXT(""));
+					if (FFileHelper::SaveArrayToFile(UE4PCHData, *UE4StdLibFilename))
+					{
+						FString RemoteTempPath = LocalPathToRemote(UE4StdLibFilename, MakeRemoteTempFolder(FString(TempDir)));
+						CopyLocalFileToRemote(UE4StdLibFilename, RemoteTempPath);
+						ChecksumRemoteFile(*RemoteTempPath, &UE4StdLibCRC, &UE4StdLibCRCLen);
+						IFileManager::Get().Delete(*UE4StdLibFilename);
+					}
+				}
+
+				uint32 RemotePchCRC = 0;
+				uint32 RemotePchLen = 0;
+				if (!RemoteFileExists(RemoteUE4StdLibFilePath) || !ChecksumRemoteFile(*RemoteUE4StdLibFilePath, &RemotePchCRC, &RemotePchLen) || RemotePchCRC != UE4StdLibCRC)
+				{
+					TArrayView<const uint8> UE4PCHData((const uint8*)ue4_stdlib_metal, ue4_stdlib_metal_len);
+					FString UE4StdLibFilename = FPaths::CreateTempFilename(TempDir, TEXT("ShaderIn"), TEXT(""));
+					if (FFileHelper::SaveArrayToFile(UE4PCHData, *UE4StdLibFilename))
+					{
+						IFileManager::Get().Move(*UE4StdLibFilePath, *UE4StdLibFilename, false, false, true, true);
+						IFileManager::Get().Delete(*UE4StdLibFilename);
+					}
+					CopyLocalFileToRemote(UE4StdLibFilePath, RemoteUE4StdLibFilePath);
+				}
+				
+#if (PLATFORM_MAC && !UNIXLIKE_TO_MAC_REMOTE_BUILDING)				
+				FString Defines = Header.bDeviceFunctionConstants ? TEXT("-D__METAL_DEVICE_CONSTANT_INDEX__=1") : TEXT("");
+				switch(TypeMode)
+				{
+					case EMetalTypeBufferModeRaw:
+						Defines += TEXT(" -D__METAL_TYPED_BUFFER_READ_IMPL__=0");
+						Defines += TEXT(" -D__METAL_TYPED_BUFFER_RW_IMPL__=0");
+						break;
+					case EMetalTypeBufferModeSRV:
+						Defines += TEXT(" -D__METAL_TYPED_BUFFER_READ_IMPL__=1");
+						Defines += TEXT(" -D__METAL_TYPED_BUFFER_RW_IMPL__=2");
+						break;
+					case EMetalTypeBufferModeUAV:
+						Defines += TEXT(" -D__METAL_TYPED_BUFFER_READ_IMPL__=1");
+						Defines += TEXT(" -D__METAL_TYPED_BUFFER_RW_IMPL__=1");
+						break;
+					case EMetalTypeBufferModeFun:
+						Defines += TEXT(" -D__METAL_TYPED_BUFFER_READ_IMPL__=2");
+						Defines += TEXT(" -D__METAL_TYPED_BUFFER_RW_IMPL__=2");
+						break;
+					default:
+						break;
+				}
+				
+				int64 UnixTime = IFileManager::Get().GetTimeStamp(*UE4StdLibFilePath).ToUnixTimestamp();
+				FString UE4StdLibFilePCH = FString::Printf(TEXT("%s.%u%u%u%u%s%s%s%s%s%s%d%d%lld.pch"), *UE4StdLibFilePath, UE4StdLibCRC, UE4StdLibCRCLen, PchCRC, PchLen, *GUIDHash.ToString(), *CompilerVersion, MinOSVersion, *DebugInfo, *MathMode, Standard, GetTypeHash(MetalToolsPath), GetTypeHash(Defines), UnixTime);
+				FString RemoteUE4StdLibFilePCH = LocalPathToRemote(UE4StdLibFilePCH, RemoteUE4StdLibFolder);
+				if (RemoteFileExists(RemoteUE4StdLibFilePath) && !IFileManager::Get().FileExists(*UE4StdLibFilePCH) && !RemoteFileExists(RemoteUE4StdLibFilePCH))
+				{
+					FMetalShaderBytecodeJob Job;
+					Job.ShaderFormat = ShaderInput.ShaderFormat;
+					Job.Hash = GUIDHash;
+					Job.TmpFolder = TempDir;
+					Job.InputFile = RemoteUE4StdLibFilePath;
+					Job.OutputFile = RemoteUE4StdLibFilePCH;
+					Job.CompilerVersion = CompilerVersion;
+					Job.MinOSVersion = MinOSVersion;
+					Job.DebugInfo = DebugInfo;
+					Job.MathMode = MathMode;
+					Job.Standard = Standard;
+					Job.SourceCRCLen = ue4_stdlib_metal_len;
+					Job.SourceCRC = FCrc::MemCrc32(ue4_stdlib_metal, Job.SourceCRCLen);
+					Job.bRetainObjectFile = false;
+					Job.bCompileAsPCH = true;
+                    Job.Defines = Defines;
+					
+					FMetalShaderBytecodeCooker Cooker(Job);
+					TArray<uint8> Data;
+					Cooker.Build(Data);
+				}
+				
+				if (IFileManager::Get().FileExists(*UE4StdLibFilePCH) && RemoteFileExists(RemoteUE4StdLibFilePath))
+				{
+					if (bUseSharedPCH)
+					{
+						CopyLocalFileToRemote(MetalPCHFile, RemoteMetalPCHFile);
+					}
+					MetalPCHFile = UE4StdLibFilePCH;
+					bUseSharedPCH = true;
+				}
+#endif
+			}
 			
+			FMetalShaderBytecodeJob Job;
 			Job.ShaderFormat = ShaderInput.ShaderFormat;
 			Job.Hash = GUIDHash;
 			Job.TmpFolder = TempDir;
@@ -1341,7 +1606,8 @@ void BuildMetalShaderOutput(
 			Job.SourceCRC = SourceCRC;
 			Job.bRetainObjectFile = ShaderInput.Environment.CompilerFlags.Contains(CFLAG_Archive);
 			Job.bCompileAsPCH = false;
-			
+			Job.IncludeDir = RemoteUE4StdLibFolder;
+
 			FMetalShaderBytecodeCooker* BytecodeCooker = new FMetalShaderBytecodeCooker(Job);
 			
 			bool bDataWasBuilt = false;
@@ -1385,53 +1651,24 @@ void BuildMetalShaderOutput(
 				Error->StrippedErrorMessage = Job.Message;
 			}
 		}
-#else
-		// Assume success if we can't compile shaders offline unless we are compiling for archive type operations
-		if(CompileProcessAllowsRuntimeShaderCompiling(ShaderInput))
-		{
-			bSucceeded = true;
-		}
 		
-#endif	// METAL_OFFLINE_COMPILE
-
 		if (bSucceeded)
 		{
 			// Write out the header and compiled shader code
 			FMemoryWriter Ar(ShaderOutput.ShaderCode.GetWriteAccess(), true);
-			uint8 PrecompiledFlag = bCompileAtRuntime ? 0 : 1;
+			uint8 PrecompiledFlag = 1;
 			Ar << PrecompiledFlag;
+			Ar << Header;
 
-			if (!bCompileAtRuntime)
+			// jam it into the output bytes
+			Ar.Serialize(Bytecode.OutputFile.GetData(), Bytecode.OutputFile.Num());
+
+			if (ShaderInput.Environment.CompilerFlags.Contains(CFLAG_Archive))
 			{
-				Ar << Header;
-
-				// jam it into the output bytes
-				Ar.Serialize(Bytecode.OutputFile.GetData(), Bytecode.OutputFile.Num());
-
-				if (ShaderInput.Environment.CompilerFlags.Contains(CFLAG_Archive))
-				{
-					ShaderOutput.ShaderCode.AddOptionalData('o', Bytecode.ObjectFile.GetData(), Bytecode.ObjectFile.Num());
-				}
-			}
-			else
-			{
-				// Always debug flag, even if it wasn't set, as we are storing text.
-				Header.CompileFlags |= (1 << CFLAG_Debug);
-				// Can't be archived as we are storing text and not binary data.
-				Header.CompileFlags &= ~(1 << CFLAG_Archive);
-				
-				Ar << Header;
-
-				// Write out the header and shader source code.
-				Ar.Serialize((void*)USFSource, SourceLen + 1 - (USFSource - InShaderSource));
-
-				// store data we can pickup later with ShaderCode.FindOptionalData('n'), could be removed for shipping
-				// Daniel L: This GenerateShaderName does not generate a deterministic output among shaders as the shader code can be shared. 
-				//			uncommenting this will cause the project to have non deterministic materials and will hurt patch sizes
-				//ShaderOutput.ShaderCode.AddOptionalData('n', TCHAR_TO_UTF8(*ShaderInput.GenerateShaderName()));
+				ShaderOutput.ShaderCode.AddOptionalData('o', Bytecode.ObjectFile.GetData(), Bytecode.ObjectFile.Num());
 			}
 			
-			if (bDebugInfoSucceded && !bCompileAtRuntime && !ShaderInput.Environment.CompilerFlags.Contains(CFLAG_Archive) && DebugCode.CompressedData.Num())
+			if (bDebugInfoSucceded && !ShaderInput.Environment.CompilerFlags.Contains(CFLAG_Archive) && DebugCode.CompressedData.Num())
 			{
 				ShaderOutput.ShaderCode.AddOptionalData('z', DebugCode.CompressedData.GetData(), DebugCode.CompressedData.Num());
 				ShaderOutput.ShaderCode.AddOptionalData('p', TCHAR_TO_UTF8(*Bytecode.NativePath));
@@ -1510,6 +1747,58 @@ static const EHlslShaderFrequency FrequencyTable2[] =
 	HSF_ComputeShader
 };
 
+FString CreateRemoteDataFromEnvironment(const FShaderCompilerEnvironment& Environment)
+{
+	FString Line = TEXT("\n#if 0 /*BEGIN_REMOTE_SERVER*/\n");
+	for (auto Pair : Environment.RemoteServerData)
+	{
+		Line += FString::Printf(TEXT("%s=%s\n"), *Pair.Key, *Pair.Value);
+	}
+	Line += TEXT("#endif /*END_REMOTE_SERVER*/\n");
+	return Line;
+}
+
+void CreateEnvironmentFromRemoteData(const FString& String, FShaderCompilerEnvironment& OutEnvironment)
+{
+	FString Prolog = TEXT("#if 0 /*BEGIN_REMOTE_SERVER*/");
+	int32 FoundBegin = String.Find(Prolog, ESearchCase::CaseSensitive);
+	if (FoundBegin == INDEX_NONE)
+	{
+		return;
+	}
+	int32 FoundEnd = String.Find(TEXT("#endif /*END_REMOTE_SERVER*/"), ESearchCase::CaseSensitive, ESearchDir::FromStart, FoundBegin);
+	if (FoundEnd == INDEX_NONE)
+	{
+		return;
+	}
+
+	// +1 for EOL
+	const TCHAR* Ptr = &String[FoundBegin + 1 + Prolog.Len()];
+	const TCHAR* PtrEnd = &String[FoundEnd];
+	while (Ptr < PtrEnd)
+	{
+		FString Key;
+		if (!CrossCompiler::ParseIdentifier(Ptr, Key))
+		{
+			return;
+		}
+		if (!CrossCompiler::Match(Ptr, TEXT("=")))
+		{
+			return;
+		}
+		FString Value;
+		if (!CrossCompiler::ParseString(Ptr, Value))
+		{
+			return;
+		}
+		if (!CrossCompiler::Match(Ptr, '\n'))
+		{
+			return;
+		}
+		OutEnvironment.RemoteServerData.FindOrAdd(Key) = Value;
+	}
+}
+
 void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutput& Output,const FString& WorkingDirectory)
 {
 	auto Input = _Input;
@@ -1538,7 +1827,7 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
 
 	static FName NAME_SF_METAL(TEXT("SF_METAL"));
 	static FName NAME_SF_METAL_MRT(TEXT("SF_METAL_MRT"));
-	static FName NAME_SF_METAL_SM4(TEXT("SF_METAL_SM4"));
+	static FName NAME_SF_METAL_SM5_NOTESS(TEXT("SF_METAL_SM5_NOTESS"));
 	static FName NAME_SF_METAL_SM5(TEXT("SF_METAL_SM5"));
 	static FName NAME_SF_METAL_MACES3_1(TEXT("SF_METAL_MACES3_1"));
 	static FName NAME_SF_METAL_MACES2(TEXT("SF_METAL_MACES2"));
@@ -1585,13 +1874,13 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
 		MetalCompilerTarget = HCT_FeatureLevelES3_1;
 		Semantics = EMetalGPUSemanticsImmediateDesktop;
 	}
-	else if (Input.ShaderFormat == NAME_SF_METAL_SM4)
+	else if (Input.ShaderFormat == NAME_SF_METAL_SM5_NOTESS)
 	{
         UE_CLOG(VersionEnum == 0, LogShaders, Warning, TEXT("Metal shader version should be Metal v1.2 or higher for format %s!"), VersionEnum, *Input.ShaderFormat.ToString());
-		AdditionalDefines.SetDefine(TEXT("METAL_SM4_PROFILE"), 1);
+		AdditionalDefines.SetDefine(TEXT("METAL_SM5_NOTESS_PROFILE"), 1);
 		AdditionalDefines.SetDefine(TEXT("USING_VERTEX_SHADER_LAYER"), 1);
         VersionEnum = VersionEnum > 0 ? VersionEnum : 2;
-		MetalCompilerTarget = HCT_FeatureLevelSM4;
+		MetalCompilerTarget = HCT_FeatureLevelSM5;
 		Semantics = EMetalGPUSemanticsImmediateDesktop;
 	}
 	else if (Input.ShaderFormat == NAME_SF_METAL_SM5)
@@ -1618,14 +1907,7 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
 		return;
 	}
 	
-	// Force floats if the material requests it
-	const bool bUseFullPrecisionInPS = Input.Environment.CompilerFlags.Contains(CFLAG_UseFullPrecisionInPS);
-	if (bUseFullPrecisionInPS)
-	{
-		AdditionalDefines.SetDefine(TEXT("FORCE_FLOATS"), (uint32)1);
-	}
-	
-    EMetalTypeBufferMode TypeMode = EMetalTypeBufferModeNone;
+    EMetalTypeBufferMode TypeMode = EMetalTypeBufferModeRaw;
 	FString MinOSVersion;
 	FString StandardVersion;
 	switch(VersionEnum)
@@ -1635,12 +1917,14 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
             HlslCompilerTarget = HCT_FeatureLevelSM5;
 			StandardVersion = TEXT("2.0");
 			MinOSVersion = bIsMobile ? TEXT("") : TEXT("-mmacosx-version-min=10.13");
+			TypeMode = EMetalTypeBufferModeSRV;
 			break;
 		case 2:
 			// Enable full SM5 feature support so tessellation & fragment UAVs compile
             HlslCompilerTarget = HCT_FeatureLevelSM5;
 			StandardVersion = TEXT("1.2");
 			MinOSVersion = bIsMobile ? TEXT("") : TEXT("-mmacosx-version-min=10.12");
+			TypeMode = EMetalTypeBufferModeSRV;
 			break;
 		case 1:
 			HlslCompilerTarget = bIsMobile ? HlslCompilerTarget : HCT_FeatureLevelSM5;
@@ -1655,7 +1939,20 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
 			break;
 	}
 	
+	// Force floats if the material requests it
+	const bool bUseFullPrecisionInPS = Input.Environment.CompilerFlags.Contains(CFLAG_UseFullPrecisionInPS);
+	if (bUseFullPrecisionInPS || (VersionEnum < 2)) // Too many bugs in Metal 1.0 & 1.1 with half floats the more time goes on and the compiler stack changes
+	{
+		AdditionalDefines.SetDefine(TEXT("FORCE_FLOATS"), (uint32)1);
+	}
+	
 	FString Standard = FString::Printf(TEXT("-std=%s-metal%s"), StandardPlatform, *StandardVersion);
+	
+	bool const bDirectCompile = FParse::Param(FCommandLine::Get(), TEXT("directcompile"));
+	if (bDirectCompile)
+	{
+		Input.DumpDebugInfoPath = FPaths::GetPath(Input.VirtualSourceFilePath);
+	}
 	
 	const bool bDumpDebugInfo = (Input.DumpDebugInfoPath != TEXT("") && IFileManager::Get().DirectoryExists(*Input.DumpDebugInfoPath));
 
@@ -1676,16 +1973,8 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
 		AdditionalDefines.SetDefine(TEXT("COMPILER_SUPPORTS_ATTRIBUTES"), (uint32)1);
 	}
 
-	bool const bDirectCompile = FParse::Param(FCommandLine::Get(), TEXT("directcompile"));
 	if (!Input.bSkipPreprocessedCache && !bDirectCompile)
 	{
-		FString const* UsingWPO = Input.Environment.GetDefinitions().Find(TEXT("USES_WORLD_POSITION_OFFSET"));
-		if (UsingWPO && FString("1") == *UsingWPO)
-		{
-			// FMAs are deoptimised when fast-math is enabled and arguments are literals :(
-			Input.Environment.CompilerFlags.Add(CFLAG_NoFastMath);
-		}
-		
 		FString const* UsingTessellationDefine = Input.Environment.GetDefinitions().Find(TEXT("USING_TESSELLATION"));
 		bool bUsingTessellation = (UsingTessellationDefine != nullptr && FString("1") == *UsingTessellationDefine);
 		if (bUsingTessellation && (Input.Target.Frequency == SF_Vertex))
@@ -1722,6 +2011,7 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
 
 		// Remove const as we are on debug-only mode
 		CrossCompiler::CreateEnvironmentFromResourceTable(PreprocessedShader, (FShaderCompilerEnvironment&)Input.Environment);
+		CreateEnvironmentFromRemoteData(PreprocessedShader, (FShaderCompilerEnvironment&)Input.Environment);
 	}
 	else
 	{
@@ -1771,6 +2061,13 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
 			{
 				FString Line = CrossCompiler::CreateResourceTableFromEnvironment(Input.Environment);
 				FileWriter->Serialize(TCHAR_TO_ANSI(*Line), Line.Len());
+
+				// add the remote data if necessary
+//				if (IsRemoteBuildingConfigured(&Input.Environment))
+				{
+					Line = CreateRemoteDataFromEnvironment(Input.Environment);
+					FileWriter->Serialize(TCHAR_TO_ANSI(*Line), Line.Len());
+				}
 			}
 			FileWriter->Close();
 			delete FileWriter;
@@ -1807,6 +2104,7 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
 	bool bDataWasBuilt = false;
 	TArray<uint8> OutData;
 	bool bCompiled = GetDerivedDataCacheRef().GetSynchronous(Cooker, OutData, &bDataWasBuilt) && OutData.Num();
+	Output.bSucceeded = bCompiled;
 	if (bCompiled && !bDataWasBuilt)
 	{
 		FShaderCompilerOutput TestOutput;
@@ -1995,7 +2293,7 @@ EShaderPlatform MetalShaderFormatToLegacyShaderPlatform(FName ShaderFormat)
 {
 	static FName NAME_SF_METAL(TEXT("SF_METAL"));
 	static FName NAME_SF_METAL_MRT(TEXT("SF_METAL_MRT"));
-	static FName NAME_SF_METAL_SM4(TEXT("SF_METAL_SM4"));
+	static FName NAME_SF_METAL_SM5_NOTESS(TEXT("SF_METAL_SM5_NOTESS"));
 	static FName NAME_SF_METAL_SM5(TEXT("SF_METAL_SM5"));
 	static FName NAME_SF_METAL_MRT_MAC(TEXT("SF_METAL_MRT_MAC"));
 	static FName NAME_SF_METAL_MACES3_1(TEXT("SF_METAL_MACES3_1"));
@@ -2005,7 +2303,7 @@ EShaderPlatform MetalShaderFormatToLegacyShaderPlatform(FName ShaderFormat)
 	if (ShaderFormat == NAME_SF_METAL_MRT)			return SP_METAL_MRT;
 	if (ShaderFormat == NAME_SF_METAL_MRT_MAC)		return SP_METAL_MRT_MAC;
 	if (ShaderFormat == NAME_SF_METAL_SM5)			return SP_METAL_SM5;
-	if (ShaderFormat == NAME_SF_METAL_SM4)			return SP_METAL_SM4;
+	if (ShaderFormat == NAME_SF_METAL_SM5_NOTESS)	return SP_METAL_SM5_NOTESS;
 	if (ShaderFormat == NAME_SF_METAL_MACES3_1)		return SP_METAL_MACES3_1;
 	if (ShaderFormat == NAME_SF_METAL_MACES2)		return SP_METAL_MACES2;
 	
@@ -2016,8 +2314,6 @@ uint64 AppendShader_Metal(FName const& Format, FString const& WorkingDir, const 
 {
 	uint64 Id = 0;
 	
-#if METAL_OFFLINE_COMPILE
-
 	// Remote building needs to run through the check code for the Metal tools paths to be available for remotes (ensures this will work on incremental launches if there are no shaders to build)
 	bool bRemoteBuildingConfigured = IsRemoteBuildingConfigured();
 	
@@ -2048,8 +2344,9 @@ uint64 AppendShader_Metal(FName const& Format, FString const& WorkingDir, const 
 				const uint8* SourceCodePtr = (uint8*)InShaderCode.GetData() + CodeOffset;
 				
 				// Copy the non-optional shader bytecode
-				int32 ObjectCodeDataSize = ShaderCode.GetActualShaderCodeSize() - CodeOffset;
-				TArrayView<const uint8> ObjectCodeArray(SourceCodePtr, ObjectCodeDataSize);
+				int32 ObjectCodeDataSize = 0;
+				uint8 const* Object = ShaderCode.FindOptionalDataAndSize('o', ObjectCodeDataSize);
+				TArrayView<const uint8> ObjectCodeArray(Object, ObjectCodeDataSize);
 				
 				// Object code segment
 				FString ObjFilename = WorkingDir / FString::Printf(TEXT("Main_%0.8x_%0.8x.o"), Header.SourceLen, Header.SourceCRC);
@@ -2110,7 +2407,6 @@ uint64 AppendShader_Metal(FName const& Format, FString const& WorkingDir, const 
 		}
 	}
 	else
-#endif
 	{
 		UE_LOG(LogShaders, Error, TEXT("Archiving failed: no Xcode install on the local machine or a remote Mac."));
 	}
@@ -2121,8 +2417,6 @@ bool FinalizeLibrary_Metal(FName const& Format, FString const& WorkingDir, FStri
 {
 	bool bOK = false;
 	
-#if METAL_OFFLINE_COMPILE
-
 	// Check remote building before the Metal tools paths to ensure configured
 	bool bRemoteBuildingConfigured = IsRemoteBuildingConfigured();
 
@@ -2195,7 +2489,7 @@ bool FinalizeLibrary_Metal(FName const& Format, FString const& WorkingDir, FStri
 					ExecRemoteProcess( *MetalArPath, *Params, &ReturnCode, &Results, &Errors );
 					bArchiveFileValid = RemoteFileExists(*ArchivePath);
 					
-                    if (ReturnCode != 0 || !bArchiveFileValid)
+					if (ReturnCode != 0 || !bArchiveFileValid)
 					{
 						UE_LOG(LogShaders, Error, TEXT("Archiving failed: metal-ar failed with code %d: %s"), ReturnCode, *Errors);
 						Params.Empty();
@@ -2239,8 +2533,8 @@ bool FinalizeLibrary_Metal(FName const& Format, FString const& WorkingDir, FStri
 				FString Params = FString::Printf(TEXT("-o=\"%s\" \"%s\""), *RemoteLibPath, *ArchivePath);
 					
 				ExecRemoteProcess( *MetalLibPath, *Params, &ReturnCode, &Results, &Errors );
-					
-                if(ReturnCode == 0)
+				
+				if(ReturnCode == 0)
                 {
                     // There is problem going to location with spaces using remote copy (at least on Mac no combination of \ and/or "" works) - work around this issue @todo investigate this further
                     FString LocalCopyLocation = FPaths::Combine(TEXT("/tmp"),FPaths::GetCleanFilename(LibraryPath));
@@ -2268,12 +2562,10 @@ bool FinalizeLibrary_Metal(FName const& Format, FString const& WorkingDir, FStri
 		}
 	}
 	else
-#endif
 	{
 		UE_LOG(LogShaders, Error, TEXT("Archiving failed: no Xcode install."));
 	}
 	
-#if METAL_OFFLINE_COMPILE
 #if PLATFORM_MAC && !UNIXLIKE_TO_MAC_REMOTE_BUILDING
 	if(bOK)
 	{
@@ -2349,7 +2641,6 @@ bool FinalizeLibrary_Metal(FName const& Format, FString const& WorkingDir, FStri
 			UE_LOG(LogShaders, Error, TEXT("Archive Shader Source failed %d: %s"), ReturnCode, *Errors);
 		}
 	}
-#endif
 #endif
 	
 	return bOK;

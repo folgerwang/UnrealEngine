@@ -1,9 +1,9 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "SCompoundWidget.h"
-#include "DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
 #include "UObject/GCObject.h"
 
 class FNiagaraSystemViewModel;
@@ -26,6 +26,8 @@ public:
 
 private:
 	void SelectedEmitterHandlesChanged();
+
+	void EmitterHandleViewModelsChanged();
 
 	void RefreshEmitterWidgets();
 

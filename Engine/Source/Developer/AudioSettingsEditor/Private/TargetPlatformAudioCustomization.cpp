@@ -1,3 +1,5 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 #include "TargetPlatformAudioCustomization.h"
 
 #include "EditorDirectories.h"
@@ -6,15 +8,19 @@
 #include "IDetailChildrenBuilder.h"
 #include "UObject/UnrealType.h"
 #include "Widgets/Text/STextBlock.h"
-#include "SComboButton.h"
-#include "SListView.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Views/SListView.h"
 #include "DetailLayoutBuilder.h"
 #include "DetailCategoryBuilder.h"
-#include "SEditableTextBox.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Features/IModularFeatures.h"
+
 
 #if WITH_ENGINE
 #include "AudioDevice.h"
 #endif 
+
+IMPLEMENT_MODULE(FDefaultModuleImpl, AudioSettingsEditor)
 
 #define LOCTEXT_NAMESPACE "PlatformAudio"
 

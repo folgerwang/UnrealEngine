@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -7,7 +7,7 @@
 #include "Misc/Guid.h"
 #include "UObject/Class.h"
 #include "BoneContainer.h"
-#include "AnimPhysObjectVersion.h"
+#include "UObject/AnimPhysObjectVersion.h"
 #include "SmartName.generated.h"
 
 struct FSmartName;

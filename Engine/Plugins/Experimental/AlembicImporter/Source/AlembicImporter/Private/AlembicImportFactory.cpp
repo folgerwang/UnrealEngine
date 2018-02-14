@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AlembicImportFactory.h"
 #include "Engine/StaticMesh.h"
@@ -8,7 +8,7 @@
 #include "HAL/FileManager.h"
 #include "Framework/Application/SlateApplication.h"
 
-#include "IMainFrameModule.h"
+#include "Interfaces/IMainFrameModule.h"
 
 #include "AlembicImportOptions.h"
 

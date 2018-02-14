@@ -1,13 +1,13 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ActorGroupingUtils.h"
 #include "Editor.h"
 #include "Engine/Selection.h"
 #include "Editor/GroupActor.h"
 #include "ScopedTransaction.h"
-#include "MessageDialog.h"
-#include "NotificationManager.h"
-#include "SNotificationList.h"
+#include "Misc/MessageDialog.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 bool UActorGroupingUtils::bGroupingActive = true;
 

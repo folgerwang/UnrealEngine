@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -78,6 +78,10 @@ class ENGINESETTINGS_API UGeneralProjectSettings
 	/** Should the game attempt to start in VR, regardless of whether -vr was set on the commandline */
 	UPROPERTY(config, EditAnywhere, Category = Settings)
 	bool bStartInVR;
+	
+	/** Should the game start in AR */
+	UPROPERTY(config, EditAnywhere, Category = Settings)
+	bool bStartInAR;
 	
 	UPROPERTY(config, EditAnywhere, Category = Settings)
 	bool bAllowWindowResize;

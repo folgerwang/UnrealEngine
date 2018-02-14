@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "IOSPlatformFile.h"
 #include "HAL/PlatformTLS.h"
@@ -760,7 +760,7 @@ FString FIOSPlatformFile::ConvertToIOSPath(const FString& Filename, bool bForWri
 
 	if(bForWrite)
 	{
-		static FString WritePathBase = FString([NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES) objectAtIndex:0]) + TEXT("/");
+		static FString WritePathBase = FString([NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0]) + TEXT("/");
 		return WritePathBase + Result;
 	}
 	else

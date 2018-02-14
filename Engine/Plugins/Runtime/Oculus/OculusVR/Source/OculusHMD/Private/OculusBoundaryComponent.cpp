@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OculusBoundaryComponent.h"
 #include "OculusHMDPrivate.h"
@@ -60,13 +60,13 @@ static ovrpBoundaryType ToOvrpBoundaryType(EBoundaryType Source)
 
 static FVector PointToWorldSpace(ovrpVector3f ovrPoint)
 {
-	FOculusHMD* OculusHMD = (FOculusHMD*)(GEngine->HMDDevice.Get());
+	FOculusHMD* OculusHMD = (FOculusHMD*)(GEngine->XRSystem->GetHMDDevice());
 	return OculusHMD->ScaleAndMovePointWithPlayer(ovrPoint);
 }
 
 static FVector DimensionsToWorldSpace(ovrpVector3f Dimensions)
 {
-	FOculusHMD* OculusHMD = (FOculusHMD*)(GEngine->HMDDevice.Get());
+	FOculusHMD* OculusHMD = (FOculusHMD*)(GEngine->XRSystem->GetHMDDevice());
 	FVector WorldLength = OculusHMD->ConvertVector_M2U(Dimensions);
 	WorldLength.X = -WorldLength.X;
 	return WorldLength;
@@ -84,7 +84,7 @@ static FVector NormalToWorldSpace(ovrpVector3f Normal)
 
 static float DistanceToWorldSpace(float ovrDistance)
 {
-	FOculusHMD* OculusHMD = (FOculusHMD*)(GEngine->HMDDevice.Get());
+	FOculusHMD* OculusHMD = (FOculusHMD*)(GEngine->XRSystem->GetHMDDevice());
 	return OculusHMD->ConvertFloat_M2U(ovrDistance);
 }
 
@@ -224,11 +224,30 @@ void UOculusBoundaryComponent::BeginPlay()
 #endif
 }
 
+OculusHMD::FOculusHMD* GetOculusHMD()
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	if (GEngine && GEngine->XRSystem.IsValid())
+	{
+		IHeadMountedDisplay* HMDDevice = GEngine->XRSystem->GetHMDDevice();
+		if (HMDDevice)
+		{
+			const FName SystemName = GEngine->XRSystem->GetSystemName();
+			if (SystemName == FOculusHMD::OculusSystemName)
+			{
+				return static_cast<OculusHMD::FOculusHMD*>(HMDDevice);
+			}
+		}
+	}
+#endif
+	return nullptr;
+}
+
 void UOculusBoundaryComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 #if OCULUS_HMD_SUPPORTED_PLATFORMS
-	FOculusHMD* OculusHMD = (FOculusHMD*)(GEngine->HMDDevice.Get());
+	FOculusHMD* OculusHMD = GetOculusHMD();
 	if (OculusHMD && OculusHMD->IsHMDActive())
 	{
 		OuterBoundsInteractionList.Empty(); // Reset list of FBoundaryTestResults

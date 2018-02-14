@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "HAL/PlatformProcess.h"
@@ -328,7 +328,7 @@ public:
 		const struct FTextureBuildSettings* BuildSettings = nullptr
 	) const override
 	{
-		return GetQualityVersion((BuildSettings ? BuildSettings->CompressionQuality : -1) + BASE_ASTC_FORMAT_VERSION);
+		return GetQualityVersion(BuildSettings ? BuildSettings->CompressionQuality : -1) + BASE_ASTC_FORMAT_VERSION;
 	}
 
 //	// Since we want to have per texture [group] compression settings, we need to have the key based on the texture

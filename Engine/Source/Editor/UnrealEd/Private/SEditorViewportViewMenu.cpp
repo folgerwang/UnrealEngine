@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SEditorViewportViewMenu.h"
@@ -18,17 +18,17 @@ void SEditorViewportViewMenu::Construct( const FArguments& InArgs, TSharedRef<SE
 		SEditorViewportToolbarMenu::FArguments()
 			.ParentToolBar( InParentToolBar)
 			.Cursor( EMouseCursor::Default )
-			.Label_Static( &SEditorViewportViewMenu::GetViewMenuLabel, Viewport)
-			.LabelIcon( this, &SEditorViewportViewMenu::GetViewMenuLabelBrush)
+			.Label(this, &SEditorViewportViewMenu::GetViewMenuLabel)
+			.LabelIcon(this, &SEditorViewportViewMenu::GetViewMenuLabelIcon)
 			.OnGetMenuContent( this, &SEditorViewportViewMenu::GenerateViewMenuContent )
 	);
 		
 }
 
-FText SEditorViewportViewMenu::GetViewMenuLabel(TWeakPtr<SEditorViewport> InViewport)
+FText SEditorViewportViewMenu::GetViewMenuLabel() const
 {
 	FText Label = LOCTEXT("ViewMenuTitle_Default", "View");
-	TSharedPtr< SEditorViewport > PinnedViewport = InViewport.Pin();
+	TSharedPtr< SEditorViewport > PinnedViewport = Viewport.Pin();
 	if( PinnedViewport.IsValid() )
 	{
 		switch( PinnedViewport->GetViewportClient()->GetViewMode() )
@@ -119,6 +119,7 @@ FText SEditorViewportViewMenu::GetViewMenuLabel(TWeakPtr<SEditorViewport> InView
 			case VMI_LODColoration:
 				Label = LOCTEXT("ViewMenuTitle_LODColoration", "LOD Coloration");
 				break;
+
 			case VMI_HLODColoration:
 				Label = LOCTEXT("ViewMenuTitle_HLODColoration", "HLOD Coloration");
 				break;
@@ -128,15 +129,10 @@ FText SEditorViewportViewMenu::GetViewMenuLabel(TWeakPtr<SEditorViewport> InView
 	return Label;
 }
 
-const FSlateBrush* SEditorViewportViewMenu::GetViewMenuLabelBrush() const
-{
-	return GetViewMenuLabelIcon(Viewport).GetIcon();
-}
-
-FSlateIcon SEditorViewportViewMenu::GetViewMenuLabelIcon(TWeakPtr<SEditorViewport> InViewport)
+const FSlateBrush* SEditorViewportViewMenu::GetViewMenuLabelIcon() const
 {
 	FName Icon = NAME_None;
-	TSharedPtr< SEditorViewport > PinnedViewport = InViewport.Pin();
+	TSharedPtr< SEditorViewport > PinnedViewport = Viewport.Pin();
 	if( PinnedViewport.IsValid() )
 	{
 		static FName WireframeIcon( "EditorViewport.WireframeMode" );
@@ -259,34 +255,29 @@ FSlateIcon SEditorViewportViewMenu::GetViewMenuLabelIcon(TWeakPtr<SEditorViewpor
 		}
 	}
 
-	return FSlateIcon( "EditorStyle", Icon );
+	return FEditorStyle::GetBrush(Icon);
 }
 
 TSharedRef<SWidget> SEditorViewportViewMenu::GenerateViewMenuContent() const
 {
-	const bool bInShouldCloseWindowAfterMenuSelection = true;
+	const FEditorViewportCommands& BaseViewportActions = FEditorViewportCommands::Get();
 
+	const bool bInShouldCloseWindowAfterMenuSelection = true;
 	FMenuBuilder ViewMenuBuilder(bInShouldCloseWindowAfterMenuSelection, Viewport.Pin()->GetCommandList(), MenuExtenders);
 
-	GenerateViewMenu(ViewMenuBuilder, ParentToolBar);
-
-	return ViewMenuBuilder.MakeWidget();
-}
-
-void SEditorViewportViewMenu::GenerateViewMenu(FMenuBuilder& ViewMenuBuilder, TWeakPtr<SViewportToolBar> ParentToolBar )
-{
-	const FEditorViewportCommands& BaseViewportActions = FEditorViewportCommands::Get();
 	{
 		// View modes
 		{
 			ViewMenuBuilder.BeginSection("ViewMode", LOCTEXT("ViewModeHeader", "View Mode") );
 			{
-				ViewMenuBuilder.AddMenuEntry( BaseViewportActions.LitMode, NAME_None, LOCTEXT("LitViewModeDisplayName", "Lit") );
-				ViewMenuBuilder.AddMenuEntry( BaseViewportActions.UnlitMode, NAME_None, LOCTEXT("UnlitViewModeDisplayName", "Unlit") );
-				ViewMenuBuilder.AddMenuEntry( BaseViewportActions.WireframeMode, NAME_None, LOCTEXT("BrushWireframeViewModeDisplayName", "Wireframe") );
-				ViewMenuBuilder.AddMenuEntry( BaseViewportActions.DetailLightingMode, NAME_None, LOCTEXT("DetailLightingViewModeDisplayName", "Detail Lighting") );
-				ViewMenuBuilder.AddMenuEntry( BaseViewportActions.LightingOnlyMode, NAME_None, LOCTEXT("LightingOnlyViewModeDisplayName", "Lighting Only") );
-				ViewMenuBuilder.AddMenuEntry( BaseViewportActions.ReflectionOverrideMode, NAME_None, LOCTEXT("ReflectionOverrideViewModeDisplayName", "Reflections") );
+				ViewMenuBuilder.AddMenuEntry(BaseViewportActions.LitMode, NAME_None, LOCTEXT("LitViewModeDisplayName", "Lit"));
+				ViewMenuBuilder.AddMenuEntry(BaseViewportActions.UnlitMode, NAME_None, LOCTEXT("UnlitViewModeDisplayName", "Unlit"));
+				ViewMenuBuilder.AddMenuEntry(BaseViewportActions.WireframeMode, NAME_None, LOCTEXT("BrushWireframeViewModeDisplayName", "Wireframe"));
+				ViewMenuBuilder.AddMenuEntry(BaseViewportActions.DetailLightingMode, NAME_None, LOCTEXT("DetailLightingViewModeDisplayName", "Detail Lighting"));
+				ViewMenuBuilder.AddMenuEntry(BaseViewportActions.LightingOnlyMode, NAME_None, LOCTEXT("LightingOnlyViewModeDisplayName", "Lighting Only"));
+				ViewMenuBuilder.AddMenuEntry(BaseViewportActions.ReflectionOverrideMode, NAME_None, LOCTEXT("ReflectionOverrideViewModeDisplayName", "Reflections"));
+				ViewMenuBuilder.AddMenuEntry(BaseViewportActions.CollisionPawn, NAME_None, LOCTEXT("CollisionPawnViewModeDisplayName", "Player Collision"));
+				ViewMenuBuilder.AddMenuEntry(BaseViewportActions.CollisionVisibility, NAME_None, LOCTEXT("CollisionVisibilityViewModeDisplayName", "Visibility Collision"));
 			}
 
 			// Optimization
@@ -296,21 +287,24 @@ void SEditorViewportViewMenu::GenerateViewMenu(FMenuBuilder& ViewMenuBuilder, TW
 					static void BuildOptimizationMenu( FMenuBuilder& Menu, TWeakPtr< SViewportToolBar > InParentToolBar )
 					{
 						const FEditorViewportCommands& BaseViewportCommands = FEditorViewportCommands::Get();
-						Menu.AddMenuEntry( BaseViewportCommands.LightComplexityMode, NAME_None, LOCTEXT("LightComplexityViewModeDisplayName", "Light Complexity") );
-						Menu.AddMenuEntry( BaseViewportCommands.LightmapDensityMode, NAME_None, LOCTEXT("LightmapDensityViewModeDisplayName", "Lightmap Density") );
-						Menu.AddMenuEntry( BaseViewportCommands.StationaryLightOverlapMode, NAME_None, LOCTEXT("StationaryLightOverlapViewModeDisplayName", "Stationary Light Overlap") );
-						Menu.AddMenuEntry( BaseViewportCommands.ShaderComplexityMode, NAME_None, LOCTEXT("ShaderComplexityViewModeDisplayName", "Shader Complexity") );
 
-						if ( AllowDebugViewShaderMode(DVSM_ShaderComplexityContainedQuadOverhead) )
+						Menu.BeginSection("OptimizationViewmodes", LOCTEXT("OptimizationSubMenuHeader", "Optimization Viewmodes"));
 						{
-							Menu.AddMenuEntry( BaseViewportCommands.ShaderComplexityWithQuadOverdrawMode, NAME_None, LOCTEXT("ShaderComplexityWithQuadOverdrawViewModeDisplayName", "Shader Complexity & Quads") );
-						}
-						if ( AllowDebugViewShaderMode(DVSM_QuadComplexity) )
-						{
-							Menu.AddMenuEntry( BaseViewportCommands.QuadOverdrawMode, NAME_None, LOCTEXT("QuadOverdrawViewModeDisplayName", "Quad Overdraw") );
-						}
+							Menu.AddMenuEntry(BaseViewportCommands.LightComplexityMode, NAME_None, LOCTEXT("LightComplexityViewModeDisplayName", "Light Complexity"));
+							Menu.AddMenuEntry(BaseViewportCommands.LightmapDensityMode, NAME_None, LOCTEXT("LightmapDensityViewModeDisplayName", "Lightmap Density"));
+							Menu.AddMenuEntry(BaseViewportCommands.StationaryLightOverlapMode, NAME_None, LOCTEXT("StationaryLightOverlapViewModeDisplayName", "Stationary Light Overlap"));
+							Menu.AddMenuEntry(BaseViewportCommands.ShaderComplexityMode, NAME_None, LOCTEXT("ShaderComplexityViewModeDisplayName", "Shader Complexity"));
 
-						Menu.AddMenuEntry( BaseViewportCommands.LODColorationMode, NAME_None, LOCTEXT("LODColorationViewModeDisplayName", "LOD Coloration") );
+							if (AllowDebugViewShaderMode(DVSM_ShaderComplexityContainedQuadOverhead))
+							{
+								Menu.AddMenuEntry(BaseViewportCommands.ShaderComplexityWithQuadOverdrawMode, NAME_None, LOCTEXT("ShaderComplexityWithQuadOverdrawViewModeDisplayName", "Shader Complexity & Quads"));
+							}
+							if (AllowDebugViewShaderMode(DVSM_QuadComplexity))
+							{
+								Menu.AddMenuEntry(BaseViewportCommands.QuadOverdrawMode, NAME_None, LOCTEXT("QuadOverdrawViewModeDisplayName", "Quad Overdraw"));
+							}
+						}
+						Menu.EndSection();
 
 						Menu.BeginSection("TextureStreaming", LOCTEXT("TextureStreamingHeader", "Texture Streaming Accuracy") );
 						if ( AllowDebugViewShaderMode(DVSM_PrimitiveDistanceAccuracy) && (!InParentToolBar.IsValid() || InParentToolBar.Pin()->IsViewModeSupported(VMI_PrimitiveDistanceAccuracy)) )
@@ -337,35 +331,41 @@ void SEditorViewportViewMenu::GenerateViewMenu(FMenuBuilder& ViewMenuBuilder, TW
 				ViewMenuBuilder.AddSubMenu( LOCTEXT("OptimizationSubMenu", "Optimization Viewmodes"), LOCTEXT("Optimization_ToolTip", "Select optimization visualizer"), FNewMenuDelegate::CreateStatic( &Local::BuildOptimizationMenu, ParentToolBar ) );
 			}
 
+			{
+				struct Local
+				{
+					static void BuildLODMenu(FMenuBuilder& Menu)
+					{
+						Menu.BeginSection("LevelViewportLODColoration", LOCTEXT("LODModesHeader", "Level of Detail Coloration"));
+						{
+							Menu.AddMenuEntry(FEditorViewportCommands::Get().LODColorationMode, NAME_None, LOCTEXT("LODColorationModeDisplayName", "Mesh LODs"));
+							Menu.AddMenuEntry(FEditorViewportCommands::Get().HLODColorationMode, NAME_None, LOCTEXT("HLODColorationModeDisplayName", "Hierarchical LODs"));
+						}
+						Menu.EndSection();
+					}
+				};
+
+				ViewMenuBuilder.AddSubMenu(LOCTEXT("VisualizeGroupedLODDisplayName", "Level of Detail Coloration"), LOCTEXT("GroupedLODMenu_ToolTip", "Select a mode for LOD Coloration"), FNewMenuDelegate::CreateStatic(&Local::BuildLODMenu), /*Default*/false, FSlateIcon(FEditorStyle::GetStyleSetName(), "EditorViewport.GroupLODColorationMode"));
+			}
+
 			ViewMenuBuilder.EndSection();
 		}
 
 		// Auto Exposure
 		{
-			struct Local
-			{
-				static void BuildExposureMenu( FMenuBuilder& Menu )
-				{
-					const FEditorViewportCommands& BaseViewportCommands = FEditorViewportCommands::Get();
+			const FEditorViewportCommands& BaseViewportCommands = FEditorViewportCommands::Get();
 
-					Menu.AddMenuEntry( BaseViewportCommands.ToggleAutoExposure, NAME_None );
-					Menu.AddMenuEntry( BaseViewportCommands.FixedExposure4m, NAME_None, LOCTEXT("FixedExposure4m", "Fixed at Log -4 = Brightness 1/16x") );
-					Menu.AddMenuEntry( BaseViewportCommands.FixedExposure3m, NAME_None, LOCTEXT("FixedExposure3m", "Fixed at Log -3 = Brightness 1/8x") );
-					Menu.AddMenuEntry( BaseViewportCommands.FixedExposure2m, NAME_None, LOCTEXT("FixedExposure2m", "Fixed at Log -2 = Brightness 1/4x") );
-					Menu.AddMenuEntry( BaseViewportCommands.FixedExposure1m, NAME_None, LOCTEXT("FixedExposure1m", "Fixed at Log -1 = Brightness 1/2x") );
-					Menu.AddMenuEntry( BaseViewportCommands.FixedExposure0,  NAME_None, LOCTEXT("FixedExposure0",  "Fixed at Log  0") );
-					Menu.AddMenuEntry( BaseViewportCommands.FixedExposure1p, NAME_None, LOCTEXT("FixedExposure1p", "Fixed at Log +1 = Brightness 2x") );
-					Menu.AddMenuEntry( BaseViewportCommands.FixedExposure2p, NAME_None, LOCTEXT("FixedExposure2p", "Fixed at Log +2 = Brightness 4x") );
-					Menu.AddMenuEntry( BaseViewportCommands.FixedExposure3p, NAME_None, LOCTEXT("FixedExposure3p", "Fixed at Log +3 = Brightness 8x") );
-					Menu.AddMenuEntry( BaseViewportCommands.FixedExposure4p, NAME_None, LOCTEXT("FixedExposure4p", "Fixed at Log +4 = Brightness 16x") );
-				}
-			};
+			TSharedRef<SWidget> FixedEV100Menu = Viewport.Pin()->BuildFixedEV100Menu();
+			TSharedPtr<FEditorViewportClient> EditorViewPostClient = Viewport.Pin()->GetViewportClient();
+			const bool bIsLevelEditor = EditorViewPostClient.IsValid() && EditorViewPostClient->IsLevelEditorClient();
 
-			ViewMenuBuilder.BeginSection("Exposure");
-			ViewMenuBuilder.AddSubMenu( LOCTEXT("ExposureSubMenu", "Exposure"), LOCTEXT("ExposureSubMenu_ToolTip", "Select exposure"), FNewMenuDelegate::CreateStatic( &Local::BuildExposureMenu ) );
+			ViewMenuBuilder.BeginSection("Exposure", LOCTEXT("ExposureHeader", "Exposure"));
+			ViewMenuBuilder.AddMenuEntry( bIsLevelEditor ? BaseViewportCommands.ToggleInGameExposure : BaseViewportCommands.ToggleAutoExposure, NAME_None );
+			ViewMenuBuilder.AddWidget( FixedEV100Menu, LOCTEXT("FixedEV100", "EV100") );
 			ViewMenuBuilder.EndSection();
 		}
 	}
+	return ViewMenuBuilder.MakeWidget();
 }
 
 #undef LOCTEXT_NAMESPACE

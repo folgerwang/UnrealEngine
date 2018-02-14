@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Change.h"
+#include "Misc/Change.h"
 #include "EditableMeshTypes.h"
 
 

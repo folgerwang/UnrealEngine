@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UnObj.cpp: Unreal object global data and functions
@@ -51,11 +51,12 @@
 #include "UObject/TextProperty.h"
 #include "UObject/MetaData.h"
 #include "HAL/LowLevelMemTracker.h"
+#include "Misc/CoreDelegates.h"
 
 DEFINE_LOG_CATEGORY(LogUObjectGlobals);
 
 #if USE_MALLOC_PROFILER
-#include "MallocProfiler.h"
+#include "ProfilingDebugging/MallocProfiler.h"
 #endif
 
 bool						GIsSavingPackage = false;
@@ -100,24 +101,18 @@ namespace LoadPackageStats
 FCoreUObjectDelegates::FRegisterHotReloadAddedClassesDelegate FCoreUObjectDelegates::RegisterHotReloadAddedClassesDelegate;
 FCoreUObjectDelegates::FRegisterClassForHotReloadReinstancingDelegate FCoreUObjectDelegates::RegisterClassForHotReloadReinstancingDelegate;
 FCoreUObjectDelegates::FReinstanceHotReloadedClassesDelegate FCoreUObjectDelegates::ReinstanceHotReloadedClassesDelegate;
-// Delegates used by SavePackage()
 FCoreUObjectDelegates::FIsPackageOKToSaveDelegate FCoreUObjectDelegates::IsPackageOKToSaveDelegate;
-FCoreUObjectDelegates::FAutoPackageBackupDelegate FCoreUObjectDelegates::AutoPackageBackupDelegate;
-
 FCoreUObjectDelegates::FOnPackageReloaded FCoreUObjectDelegates::OnPackageReloaded;
 FCoreUObjectDelegates::FNetworkFileRequestPackageReload FCoreUObjectDelegates::NetworkFileRequestPackageReload;
-
+#if WITH_EDITOR
+FCoreUObjectDelegates::FAutoPackageBackupDelegate FCoreUObjectDelegates::AutoPackageBackupDelegate;
 FCoreUObjectDelegates::FOnPreObjectPropertyChanged FCoreUObjectDelegates::OnPreObjectPropertyChanged;
 FCoreUObjectDelegates::FOnObjectPropertyChanged FCoreUObjectDelegates::OnObjectPropertyChanged;
-
-#if WITH_EDITOR
-// Set of objects modified this frame
 TSet<UObject*> FCoreUObjectDelegates::ObjectsModifiedThisFrame;
 FCoreUObjectDelegates::FOnObjectModified FCoreUObjectDelegates::OnObjectModified;
 FCoreUObjectDelegates::FOnAssetLoaded FCoreUObjectDelegates::OnAssetLoaded;
 FCoreUObjectDelegates::FOnObjectSaved FCoreUObjectDelegates::OnObjectSaved;
 #endif // WITH_EDITOR
-
 
 FSimpleMulticastDelegate& FCoreUObjectDelegates::GetPreGarbageCollectDelegate()
 {
@@ -140,7 +135,6 @@ FSimpleMulticastDelegate FCoreUObjectDelegates::PostGarbageCollectConditionalBeg
 FCoreUObjectDelegates::FPreLoadMapDelegate FCoreUObjectDelegates::PreLoadMap;
 FCoreUObjectDelegates::FPostLoadMapDelegate FCoreUObjectDelegates::PostLoadMapWithWorld;
 PRAGMA_DISABLE_DEPRECATION_WARNINGS
-FSimpleMulticastDelegate FCoreUObjectDelegates::PostLoadMap;
 FCoreUObjectDelegates::FSoftObjectPathLoaded FCoreUObjectDelegates::StringAssetReferenceLoaded;
 FCoreUObjectDelegates::FSoftObjectPathSaving FCoreUObjectDelegates::StringAssetReferenceSaving;
 FCoreUObjectDelegates::FOnRedirectorFollowed FCoreUObjectDelegates::RedirectorFollowed;
@@ -999,7 +993,7 @@ UClass* StaticLoadClass( UClass* BaseClass, UObject* InOuter, const TCHAR* InNam
 }
 
 #if WITH_EDITOR
-#include "StackTracker.h"
+#include "Containers/StackTracker.h"
 class FDiffFileArchive : public FArchiveProxy
 {
 private:
@@ -1117,6 +1111,8 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 {
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("LoadPackageInternal"), STAT_LoadPackageInternal, STATGROUP_ObjectVerbose);
 
+	checkf(IsInGameThread(), TEXT("Unable to load %s. Objects and Packages can only be loaded from the game thread."), InLongPackageNameOrFilename);
+
 	UPackage* Result = nullptr;
 
 	if (FPlatformProperties::RequiresCookedData() && GEventDrivenLoaderEnabled
@@ -1147,6 +1143,11 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 		FName PackageFName(*InPackageName);
 
 		{
+			if (FCoreDelegates::OnSyncLoadPackage.IsBound())
+			{
+				FCoreDelegates::OnSyncLoadPackage.Broadcast(InName);
+			}
+
 			int32 RequestID = LoadPackageAsync(InName, nullptr, *InPackageName);
 			FlushAsyncLoading(RequestID);
 		}
@@ -1194,6 +1195,8 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 		}
 	}
 #if WITH_EDITOR
+	// In the editor loading cannot be part of a transaction as it cannot be undone, and may result in recording half-loaded objects. So we suppress any active transaction while in this stack, and set the editor loading flag
+	TGuardValue<ITransaction*> SuppressTransaction(GUndo, nullptr);
 	TGuardValue<bool> IsEditorLoadingPackage(GIsEditorLoadingPackage, GIsEditor || GIsEditorLoadingPackage);
 #endif
 
@@ -1201,6 +1204,11 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 	SlowTask.Visibility = ESlowTaskVisibility::Invisible;
 	
 	SlowTask.EnterProgressFrame(10);
+
+	if (FCoreDelegates::OnSyncLoadPackage.IsBound())
+	{
+		FCoreDelegates::OnSyncLoadPackage.Broadcast(FileToLoad);
+	}
 
 	// Try to load.
 	BeginLoad(InLongPackageNameOrFilename);
@@ -1518,6 +1526,7 @@ void EndLoad()
 	FScopedSlowTask SlowTask(0, NSLOCTEXT("Core", "PerformingPostLoad", "Performing post-load..."), ShouldReportProgress());
 
 	int32 NumObjectsLoaded = 0, NumObjectsFound = 0;
+	TSet<UObject*> AssetsLoaded;
 #endif
 
 	while (--ThreadContext.ObjBeginLoadCount == 0 && (ThreadContext.ObjLoaded.Num() || ThreadContext.ImportCount || ThreadContext.ForcedExportCount))
@@ -1636,17 +1645,14 @@ void EndLoad()
 			}
 
 #if WITH_EDITOR
-			// Send global notification for each object that was loaded.
-			// Useful for updating UI such as ContentBrowser's loaded status.
+			// Schedule asset loaded callbacks for later
+			for( int32 CurObjIndex=0; CurObjIndex<ObjLoaded.Num(); CurObjIndex++ )
 			{
-				for( int32 CurObjIndex=0; CurObjIndex<ObjLoaded.Num(); CurObjIndex++ )
+				UObject* Obj = ObjLoaded[CurObjIndex];
+				check(Obj);
+				if ( Obj->IsAsset() )
 				{
-					UObject* Obj = ObjLoaded[CurObjIndex];
-					check(Obj);
-					if ( Obj->IsAsset() )
-					{
-						FCoreUObjectDelegates::OnAssetLoaded.Broadcast(Obj);
-					}
+					AssetsLoaded.Add(Obj);
 				}
 			}
 #endif	// WITH_EDITOR
@@ -1707,6 +1713,16 @@ void EndLoad()
 
 	// Loaded new objects, so allow reaccessing asset ptrs
 	FSoftObjectPath::InvalidateTag();
+
+#if WITH_EDITOR
+	// Now call asset loaded callbacks for anything that was loaded. We do this at the very end so any nested objects will load properly
+	// Useful for updating UI such as ContentBrowser's loaded status.
+	for (UObject* LoadedAsset : AssetsLoaded)
+	{
+		check(LoadedAsset);
+		FCoreUObjectDelegates::OnAssetLoaded.Broadcast(LoadedAsset);
+	}
+#endif	// WITH_EDITOR
 }
 
 /*-----------------------------------------------------------------------------
@@ -1783,7 +1799,7 @@ FName MakeUniqueObjectName( UObject* Parent, UClass* Class, FName InBaseName/*=N
 					if (Parent && (Parent != ANY_PACKAGE) )
 					{
 						UPackage* ParentPackage = Parent->GetOutermost();
-						int32& ClassUnique = ParentPackage->ClassUniqueNameIndexMap.FindOrAdd(Class->GetFName());
+						int32& ClassUnique = ParentPackage->GetClassUniqueNameIndexMap().FindOrAdd(Class->GetFName());
 						NameNumber = ++ClassUnique;
 					}
 					else
@@ -2361,10 +2377,11 @@ UObject* StaticAllocateObject
 			// Should only get in here if we're NOT creating a subobject of a CDO.  CDO subobjects may still need to be serialized off of disk after being created by the constructor
 			// if really necessary there was code to allow replacement of object just needing postload, but lets not go there unless we have to
 			checkf(!Obj->HasAnyFlags(RF_NeedLoad|RF_NeedPostLoad|RF_ClassDefaultObject) || bIsOwnedByCDO,
-				*FText::Format(NSLOCTEXT("Core", "ReplaceNotFullyLoaded_f", "Attempting to replace an object that hasn't been fully loaded: {0} (Outer={1}, Flags={2})"),
-					FText::FromString(Obj->GetFullName()),
-					InOuter ? FText::FromString(InOuter->GetFullName()) : FText::FromString(TEXT("NULL")),
-					FText::FromString(FString::Printf(TEXT("0x%08x"), (int32)Obj->GetFlags()))).ToString());
+				TEXT("Attempting to replace an object that hasn't been fully loaded: %s (Outer=%s, Flags=0x%08x)"),
+				*Obj->GetFullName(),
+				InOuter ? *InOuter->GetFullName() : TEXT("NULL"),
+				(int32)Obj->GetFlags()
+			);
 #endif//UE_BUILD_SHIPPING
 		}
 		// Subobjects are always created in the constructor, no need to re-create them here unless their archetype != CDO or they're blueprint generated.	
@@ -2647,8 +2664,7 @@ FObjectInitializer::~FObjectInitializer()
 
 				FLinkerLoad* SuperClassLinker = SuperClass->GetLinker();
 				const bool bSuperLoadPending = FDeferredObjInitializerTracker::IsCdoDeferred(SuperClass) ||
-					(SuperBpCDO && SuperBpCDO->HasAnyFlags(RF_NeedLoad)) ||
-					(SuperClassLinker && SuperClassLinker->IsBlueprintFinalizationPending());
+					(SuperBpCDO && (SuperBpCDO->HasAnyFlags(RF_NeedLoad) || (SuperBpCDO->HasAnyFlags(RF_WasLoaded) && !SuperBpCDO->HasAnyFlags(RF_LoadCompleted))));
 
 				FLinkerLoad* ObjLinker = BlueprintClass->GetLinker();
 				const bool bIsBpClassSerializing    = ObjLinker && (ObjLinker->LoadFlags & LOAD_DeferDependencyLoads);
@@ -2832,6 +2848,8 @@ void FObjectInitializer::PostConstructInit()
 		SCOPE_CYCLE_COUNTER(STAT_PostInitProperties);
 		Obj->PostInitProperties();
 	}
+
+	Class->PostInitInstance(Obj);
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	if (!FUObjectThreadContext::Get().PostInitPropertiesCheck.Num() || (FUObjectThreadContext::Get().PostInitPropertiesCheck.Pop() != Obj))

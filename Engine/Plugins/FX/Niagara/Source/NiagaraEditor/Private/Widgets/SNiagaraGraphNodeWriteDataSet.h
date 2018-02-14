@@ -1,10 +1,10 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "SGraphNode.h"
-#include "SMenuAnchor.h"
-#include "UICommandList.h"
+#include "Widgets/Input/SMenuAnchor.h"
+#include "Framework/Commands/UICommandList.h"
 
 /** A graph node widget representing a niagara write data set node. */
 class SNiagaraGraphNodeWriteDataSet : public SGraphNode

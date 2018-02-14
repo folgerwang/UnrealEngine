@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "GenericPlatform/GenericApplication.h"
 #include "HAL/IConsoleManager.h"
@@ -133,6 +133,20 @@ struct FSafeZoneConsoleVariables
 
 FSafeZoneConsoleVariables GSafeZoneConsoleVariables;
 
+FPlatformRect FDisplayMetrics::GetMonitorWorkAreaFromPoint(const FVector2D& Point) const
+{
+	for (const FMonitorInfo& Info : MonitorInfo)
+	{
+		// The point may not actually be inside the work area (for example on Windows taskbar or Mac menu bar), so we use DisplayRect to find the monitor
+		if (Point.X >= Info.DisplayRect.Left && Point.X <= Info.DisplayRect.Right && Point.Y >= Info.DisplayRect.Top && Point.Y <= Info.DisplayRect.Bottom)
+		{
+			return Info.WorkArea;
+		}
+	}
+
+	return FPlatformRect(0, 0, 0, 0);
+}
+
 float FDisplayMetrics::GetDebugTitleSafeZoneRatio()
 {
 	return GDebugSafeZoneRatio;
@@ -149,14 +163,14 @@ void FDisplayMetrics::ApplyDefaultSafeZones()
 	if (SafeZoneRatio < 1.0f)
 	{
 		const float HalfUnsafeRatio = (1.0f - SafeZoneRatio) * 0.5f;
-		TitleSafePaddingSize = FVector2D(PrimaryDisplayWidth * HalfUnsafeRatio, PrimaryDisplayHeight * HalfUnsafeRatio);
+		TitleSafePaddingSize = FVector4(PrimaryDisplayWidth * HalfUnsafeRatio, PrimaryDisplayHeight * HalfUnsafeRatio, PrimaryDisplayWidth * HalfUnsafeRatio, PrimaryDisplayHeight * HalfUnsafeRatio);
 	}
 
 	const float ActionSafeZoneRatio = GetDebugActionSafeZoneRatio();
 	if (ActionSafeZoneRatio < 1.0f)
 	{
 		const float HalfUnsafeRatio = (1.0f - ActionSafeZoneRatio) * 0.5f;
-		ActionSafePaddingSize = FVector2D(PrimaryDisplayWidth * HalfUnsafeRatio, PrimaryDisplayHeight * HalfUnsafeRatio);
+		ActionSafePaddingSize = FVector4(PrimaryDisplayWidth * HalfUnsafeRatio, PrimaryDisplayHeight * HalfUnsafeRatio, PrimaryDisplayWidth * HalfUnsafeRatio, PrimaryDisplayHeight * HalfUnsafeRatio);
 	}
 }
 

@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
-#include "SortedMap.h"
+#include "Containers/SortedMap.h"
 
 /** Type of tag map that can be used during construction */
 typedef TSortedMap<FName, FString, FDefaultAllocator, FNameSortIndexes> FAssetDataTagMap;

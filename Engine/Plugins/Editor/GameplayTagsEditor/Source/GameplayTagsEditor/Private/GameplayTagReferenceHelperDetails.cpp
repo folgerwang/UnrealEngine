@@ -1,13 +1,13 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "GameplayTagReferenceHelperDetails.h"
 #include "AssetRegistryModule.h"
-#include "SHyperlink.h"
+#include "Widgets/Input/SHyperlink.h"
 #include "Toolkits/AssetEditorManager.h"
 #include "ObjectTools.h"
 #include "GameplayTagContainer.h"
-#include "UObjectHash.h"
-#include "UnrealType.h"
+#include "UObject/UObjectHash.h"
+#include "UObject/UnrealType.h"
 #include "GameplayTagsManager.h"
 #include "SGameplayTagWidget.h"
 #include "IDetailChildrenBuilder.h"

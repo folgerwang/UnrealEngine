@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -311,7 +311,6 @@ namespace UnrealBuildTool
 		/// </summary>
 		public override void ValidateTarget(TargetRules Target)
 		{
-			Target.bCompileNvCloth = true;
 			// Disable Simplygon support if compiling against the NULL RHI.
 			if (Target.GlobalDefinitions.Contains("USE_NULL_RHI=1"))
 			{
@@ -754,12 +753,12 @@ namespace UnrealBuildTool
 				if (Target.WindowsPlatform.bPixProfilingEnabled && Target.Platform == UnrealTargetPlatform.Win64 && Target.Configuration != UnrealTargetConfiguration.Shipping && Target.Configuration != UnrealTargetConfiguration.Test)
 				{
 					// Define to indicate profiling enabled (64-bit only)
-					Rules.Definitions.Add("D3D12_PROFILING_ENABLED=1");
-					Rules.Definitions.Add("PROFILE");
+					Rules.PublicDefinitions.Add("D3D12_PROFILING_ENABLED=1");
+					Rules.PublicDefinitions.Add("PROFILE");
 				}
 				else
 				{
-					Rules.Definitions.Add("D3D12_PROFILING_ENABLED=0");
+					Rules.PublicDefinitions.Add("D3D12_PROFILING_ENABLED=0");
 				}
 
 				// To enable platform specific D3D12 RHI Types
@@ -808,13 +807,13 @@ namespace UnrealBuildTool
 			// Add path to Intel math libraries when using ICL based on target platform
 			if (WindowsPlatform.bCompileWithICL)
 			{
-				var Result = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "IntelSWTools", "compilers_and_libraries", "windows", "compiler", "lib", Target.Platform == UnrealTargetPlatform.Win32 ? "ia32" : "intel64");
+				string Result = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "IntelSWTools", "compilers_and_libraries", "windows", "compiler", "lib", Target.Platform == UnrealTargetPlatform.Win32 ? "ia32" : "intel64");
 				if (!Directory.Exists(Result))
 				{
 					throw new BuildException("ICL was selected but the required math libraries were not found.  Could not find: " + Result);
 				}
 
-				LinkEnvironment.LibraryPaths.Add(Result);
+				LinkEnvironment.LibraryPaths.Add(new DirectoryReference(Result));
 			}
 
 			// Explicitly exclude the MS C++ runtime libraries we're not using, to ensure other libraries we link with use the same

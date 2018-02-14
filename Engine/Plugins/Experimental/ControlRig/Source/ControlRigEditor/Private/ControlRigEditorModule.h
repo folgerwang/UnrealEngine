@@ -1,8 +1,8 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "ModuleInterface.h"
+#include "Modules/ModuleInterface.h"
 #include "ControlRigBlueprintCompiler.h"
 #include "UObject/WeakObjectPtr.h"
 
@@ -16,6 +16,7 @@ class USkeletalMesh;
 class FToolBarBuilder;
 class FExtender;
 class FUICommandList;
+class UMovieSceneTrack;
 
 class FControlRigEditorModule : public IModuleInterface
 {
@@ -59,6 +60,9 @@ private:
 
 	/** Bind our module-level commands */
 	void BindCommands();
+
+	/** Whether the track is visible in the sequencer node tree */
+	bool IsTrackVisible(const UMovieSceneTrack* InTrack);
 
 	/** Compiler customization for animation controllers */
 	FControlRigBlueprintCompiler ControlRigBlueprintCompiler;

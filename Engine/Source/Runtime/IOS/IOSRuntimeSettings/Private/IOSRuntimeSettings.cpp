@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "IOSRuntimeSettings.h"
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
 #include "Misc/EngineBuildSettings.h"
-
+#include "HAL/IConsoleManager.h"
 
 UIOSRuntimeSettings::UIOSRuntimeSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -19,7 +19,7 @@ UIOSRuntimeSettings::UIOSRuntimeSettings(const FObjectInitializer& ObjectInitial
     FrameRateLock = EPowerUsageFrameRateLock::PUFRL_30;
 	bSupportsIPad = true;
 	bSupportsIPhone = true;
-	MinimumiOSVersion = EIOSVersion::IOS_8;
+	MinimumiOSVersion = EIOSVersion::IOS_9;
 	EnableRemoteShaderCompile = false;
 	bGeneratedSYMFile = false;
 	bGeneratedSYMBundle = false;
@@ -43,6 +43,7 @@ UIOSRuntimeSettings::UIOSRuntimeSettings(const FObjectInitializer& ObjectInitial
 	bSupportsOpenGLES2 = false;
 	bSupportsMetal = true;
 	bSupportsMetalMRT = false;
+	bDisableHTTPS = false;
 }
 
 #if WITH_EDITOR
@@ -163,7 +164,7 @@ void UIOSRuntimeSettings::PostInitProperties()
 	{
 		bShipForArmV7S = false;
 	}
-	if (!bSupportsMetal)
+	if (!bSupportsMetal && !bSupportsMetalMRT)
 	{
 		bSupportsMetal = true;
 	}
@@ -174,6 +175,13 @@ void UIOSRuntimeSettings::PostInitProperties()
 	if (!bShipForArm64)
 	{
 		bShipForArm64 = true;
+	}
+	
+	// Due to a driver bug on A8 devices running iOS 9 we can only support the global clip-plane when running iOS 10+
+	static IConsoleVariable* ClipPlaneCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.AllowGlobalClipPlane"));
+	if (ClipPlaneCVar && ClipPlaneCVar->GetInt() != 0 && MinimumiOSVersion < EIOSVersion::IOS_10)
+	{
+		MinimumiOSVersion = EIOSVersion::IOS_10;
 	}
 }
 #endif

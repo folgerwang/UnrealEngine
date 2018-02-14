@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "../DesktopPlatformBase.h"
 #include "Containers/IndirectArray.h"
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 #include "WindowsRegistry.h"
 
 class FDesktopPlatformWindows : public FDesktopPlatformBase

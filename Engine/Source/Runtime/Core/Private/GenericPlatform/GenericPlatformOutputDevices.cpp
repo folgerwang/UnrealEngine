@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "GenericPlatform/GenericPlatformOutputDevices.h"
 #include "HAL/PlatformOutputDevices.h"
@@ -14,7 +14,7 @@
 #include "Misc/App.h"
 #include "HAL/FeedbackContextAnsi.h"
 #include "Misc/OutputDeviceConsole.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 TCHAR FGenericPlatformOutputDevices::CachedAbsoluteFilename[1024] = { 0 };
 
@@ -26,15 +26,23 @@ void FGenericPlatformOutputDevices::SetupOutputDevices()
 
 	GLog->AddOutputDevice(FPlatformOutputDevices::GetLog());
 
+	TArray<FOutputDevice*> ChannelFileOverrides;
+	FPlatformOutputDevices::GetPerChannelFileOverrides(ChannelFileOverrides);
+
+	for (FOutputDevice* ChannelFileOverride : ChannelFileOverrides)
+	{
+		GLog->AddOutputDevice(ChannelFileOverride);
+	}
+
+#if !NO_LOGGING
 	// if console is enabled add an output device, unless the commandline says otherwise...
-	if (ALLOW_CONSOLE && !FParse::Param(FCommandLine::Get(), TEXT("NOCONSOLE")))
+	if (GLogConsole && !FParse::Param(FCommandLine::Get(), TEXT("NOCONSOLE")))
 	{
 		GLog->AddOutputDevice(GLogConsole);
 	}
 	
 	// If the platform has a separate debug output channel (e.g. OutputDebugString) then add an output device
 	// unless logging is turned off
-#if !NO_LOGGING
 	if (FPlatformMisc::HasSeparateChannelForDebugOutput())
 	{
 		GLog->AddOutputDevice(new FOutputDeviceDebug());
@@ -122,3 +130,34 @@ class FOutputDevice* FGenericPlatformOutputDevices::GetLog()
 	return Singleton.LogDevice.Get();
 }
 
+void FGenericPlatformOutputDevices::GetPerChannelFileOverrides(TArray<FOutputDevice*>& OutputDevices)
+{
+	FString Commands;
+	if (FParse::Value(FCommandLine::Get(), TEXT("logcategoryfiles="), Commands))
+	{
+		Commands = Commands.TrimQuotes();
+
+		TArray<FString> Parts;
+		Commands.ParseIntoArray(Parts, TEXT(","), true);
+
+		for (FString Part : Parts)
+		{
+			FString Filename, CategoriesString;
+			if (Part.TrimStartAndEnd().Split(TEXT("="), &Filename, &CategoriesString))
+			{
+				// do stuff
+				FOutputDeviceFile* OutputDevice = new FOutputDeviceFile(*Filename);
+
+				TArray<FString> Categories;
+				CategoriesString.ParseIntoArray(Categories, TEXT("+"), true);
+
+				for (FString Category : Categories)
+				{
+					OutputDevice->IncludeCategory(FName(*Category));
+				}
+
+				OutputDevices.Add(OutputDevice);
+			}
+		}
+	}
+}

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 namespace UnrealBuildTool.Rules
 {
@@ -52,6 +52,11 @@ namespace UnrealBuildTool.Rules
 					"Runtime/AutomationController/Private"
 				}
 			);
+
+			if (Target.bCompileAgainstEngine && Target.Configuration != UnrealTargetConfiguration.Shipping)
+			{
+				PrecompileForTargets = PrecompileTargetsType.Any;
+			}
 		}
 	}
 }

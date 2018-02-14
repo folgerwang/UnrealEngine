@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintEditorModes.h"
 #include "Settings/EditorExperimentalSettings.h"
@@ -14,7 +14,7 @@
 // Debugging
 // End of debugging
 
-#include "LayoutExtender.h"
+#include "Framework/Docking/LayoutExtender.h"
 #include "SBlueprintEditorToolbar.h"
 #include "BlueprintEditorTabs.h"
 #include "BlueprintEditorTabFactories.h"

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #include "CoreMinimal.h"
@@ -13,6 +13,7 @@
 #include "Components/ModelComponent.h"
 #include "Engine/BlueprintGeneratedClass.h"
 #include "BSPOps.h"
+#include "Engine/DataTable.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditorTransaction, Log, All);
 
@@ -75,6 +76,11 @@ FTransaction::FObjectRecord::FObjectRecord(FTransaction* Owner, UObject* InObjec
 	if (UBlueprintGeneratedClass* Class = Cast<UBlueprintGeneratedClass>(InObject->GetClass()))
 	{
 		bWantsBinarySerialization = false; 
+	}
+	// Data tables can contain user structs, so it's unsafe to use binary
+	if (UDataTable* DataTable = Cast<UDataTable>(InObject))
+	{
+		bWantsBinarySerialization = false;
 	}
 	ObjectAnnotation = Object->GetTransactionAnnotation();
 

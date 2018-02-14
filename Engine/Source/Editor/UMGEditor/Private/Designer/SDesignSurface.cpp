@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Designer/SDesignSurface.h"
 #include "Rendering/DrawElements.h"
@@ -164,7 +164,7 @@ EActiveTimerReturnType SDesignSurface::HandleZoomToFit( double InCurrentTime, fl
 	if (bDoneZooming && bDoneScrolling)
 	{
 		// One final push to make sure we're centered in the end
-		ViewOffset = DesiredViewCenter - ( 0.5f * GetCachedGeometry().Scale * GetCachedGeometry().GetLocalSize() / GetZoomAmount() );
+		ViewOffset = DesiredViewCenter - ( 0.5f * GetCachedGeometry().GetLocalSize() / GetZoomAmount() );
 
 		ZoomTargetTopLeft = FVector2D::ZeroVector;
 		ZoomTargetBottomRight = FVector2D::ZeroVector;

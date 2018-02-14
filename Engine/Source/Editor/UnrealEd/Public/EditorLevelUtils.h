@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	EditorLevelUtils.h: Editor-specific level management routines
@@ -7,8 +7,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ObjectMacros.h"
-#include "SubclassOf.h"
+#include "UObject/ObjectMacros.h"
+#include "Templates/SubclassOf.h"
 #include "EditorLevelUtils.generated.h"
 
 class AActor;
@@ -16,6 +16,14 @@ class ULevel;
 class ULevelStreaming;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogLevelTools, Warning, All);
+
+enum class ELevelVisibilityDirtyMode
+{
+	// Use when the user is causing the visibility change.  Will update transaction state and mark the package dirty.
+	ModifyOnChange,
+	// Use when code is causing the visibility change.
+	DontModify
+};
 
 UCLASS(transient)
 class UEditorLevelUtils : public UObject
@@ -130,6 +138,12 @@ public:
 	 */
 	static UNREALED_API bool RemoveInvalidLevelFromWorld(ULevelStreaming* InLevelStreaming);
 
+	/** 
+	 * Sets the actors within a level's visibility via bHiddenEdLevel.  
+	 * Warning: modifies ULevel::bIsVisible and bHiddenEdLevel without marking packages dirty or supporting undo.  
+	 * Calling code must restore to the original state before the user can interact with the levels.
+	 */
+	static UNREALED_API void SetLevelVisibilityTemporarily(ULevel* Level, bool bShouldBeVisible);
 
 	/**
 	 * Sets a level's visibility in the editor.
@@ -138,7 +152,7 @@ public:
 	 * @param	bShouldBeVisible		The level's new visibility state.
 	 * @param	bForceLayersVisible		If true and the level is visible, force the level's layers to be visible.
 	 */
-	static UNREALED_API void SetLevelVisibility(ULevel* Level, bool bShouldBeVisible, bool bForceLayersVisible);
+	static UNREALED_API void SetLevelVisibility(ULevel* Level, bool bShouldBeVisible, bool bForceLayersVisible, ELevelVisibilityDirtyMode ModifyMode = ELevelVisibilityDirtyMode::ModifyOnChange);
 	
 	/** 
 	 * Deselects all BSP surfaces in this level 

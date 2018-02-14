@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ControlRigEditorModule.h"
 #include "PropertyEditorModule.h"
 #include "ControlRigVariableDetailsCustomization.h"
 #include "BlueprintEditorModule.h"
-#include "KismetEditorUtilities.h"
+#include "Kismet2/KismetEditorUtilities.h"
 #include "ControlRig.h"
 #include "K2Node_ControlRig.h"
 #include "K2Node_ControlRigOutput.h"
@@ -16,18 +16,18 @@
 #include "IAssetTools.h"
 #include "ControlRigSequenceActions.h"
 #include "ControlRigSequenceEditorStyle.h"
-#include "LayoutExtender.h"
+#include "Framework/Docking/LayoutExtender.h"
 #include "LevelEditor.h"
 #include "MovieSceneToolsProjectSettings.h"
 #include "PropertyEditorModule.h"
 #include "Styling/SlateStyle.h"
-#include "WorkflowTabManager.h"
+#include "WorkflowOrientedApp/WorkflowTabManager.h"
 #include "Modules/ModuleManager.h"
 #include "Widgets/Docking/SDockTab.h"
-#include "ControlRigSequence.h"
+#include "Sequencer/ControlRigSequence.h"
 #include "EditorModeRegistry.h"
 #include "ControlRigEditMode.h"
-#include "HumanRig.h"
+#include "Rigs/HumanRig.h"
 #include "HumanRigDetails.h"
 #include "ControlRigEditorObjectBinding.h"
 #include "ControlRigEditorObjectSpawner.h"
@@ -35,7 +35,7 @@
 #include "ControlRigBindingTrackEditor.h"
 #include "EditorModeManager.h"
 #include "ControlRigEditMode.h"
-#include "MovieSceneControlRigSection.h"
+#include "Sequencer/MovieSceneControlRigSection.h"
 #include "MovieSceneControlRigSectionDetailsCustomization.h"
 #include "ControlRigCommands.h"
 #include "Materials/Material.h"
@@ -464,6 +464,8 @@ void FControlRigEditorModule::HandleSequencerCreated(TSharedRef<ISequencer> InSe
 			}
 		}
 	});
+
+	InSequencer->OnGetIsTrackVisible().BindRaw(this, &FControlRigEditorModule::IsTrackVisible);
 }
 
 void FControlRigEditorModule::HandleAssetEditorOpened(UObject* InAsset)
@@ -607,6 +609,21 @@ void FControlRigEditorModule::ReImportFromRigSequence(TArray<FAssetData> InAsset
 
 		ControlRigSequenceConverter::Convert(ControlRigSequence, AnimSequence, SkeletalMesh, bShowDialog);
 	}
+}
+
+bool FControlRigEditorModule::IsTrackVisible(const UMovieSceneTrack* InTrack)
+{
+	if (FControlRigEditMode* ControlRigEditMode = static_cast<FControlRigEditMode*>(GLevelEditorModeTools().GetActiveMode(FControlRigEditMode::ModeName)))
+	{		
+		// If nothing selected, show all nodes
+		if (ControlRigEditMode->GetSelectedNodes().Num() == 0)
+		{
+			return true;
+		}
+
+		return ControlRigEditMode->IsNodeSelected(ControlRigEditMode->GetNodeFromPropertyPath(InTrack->GetTrackName().ToString()));
+	}
+	return true;
 }
 
 IMPLEMENT_MODULE(FControlRigEditorModule, ControlRigEditor)

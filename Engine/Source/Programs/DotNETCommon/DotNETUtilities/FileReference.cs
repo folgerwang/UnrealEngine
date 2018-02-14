@@ -1,4 +1,6 @@
-﻿using System;
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -20,7 +22,7 @@ namespace Tools.DotNETCommon
 		public FileReference(string InPath)
 			: base(Path.GetFullPath(InPath))
 		{
-			if(FullName.EndsWith("\\") || FullName.EndsWith("/"))
+			if(FullName[FullName.Length - 1] == '\\' || FullName[FullName.Length - 1] == '/')
 			{
 				throw new ArgumentException("File names may not be terminated by a path separator character");
 			}

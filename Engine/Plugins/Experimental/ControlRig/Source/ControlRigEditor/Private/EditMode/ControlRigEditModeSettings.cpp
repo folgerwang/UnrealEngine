@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ControlRigEditModeSettings.h"
 #include "EditorModeManager.h"
 #include "ControlRigEditMode.h"
-#include "ControlRigSequence.h"
-#include "AssetEditorManager.h"
+#include "Sequencer/ControlRigSequence.h"
+#include "Toolkits/AssetEditorManager.h"
 #include "Components/SkeletalMeshComponent.h"
 
 void UControlRigEditModeSettings::PreEditChange(UProperty* PropertyAboutToChange)

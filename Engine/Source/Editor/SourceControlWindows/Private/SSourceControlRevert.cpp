@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Misc/MessageDialog.h"
@@ -31,7 +31,7 @@
 #include "Settings/EditorExperimentalSettings.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
-#include "Linker.h"
+#include "UObject/Linker.h"
 
 #define LOCTEXT_NAMESPACE "SSourceControlRevert"
 

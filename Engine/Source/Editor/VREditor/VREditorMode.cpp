@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "VREditorMode.h"
 #include "Modules/ModuleManager.h"
 #include "Framework/Application/SlateApplication.h"
 #include "UObject/ConstructorHelpers.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 #include "Engine/EngineTypes.h"
 #include "Components/SceneComponent.h"
 #include "Misc/ConfigCacheIni.h"
@@ -34,6 +34,7 @@
 #include "MotionControllerComponent.h"
 #include "EngineAnalytics.h"
 #include "IHeadMountedDisplay.h"
+#include "IXRTrackingSystem.h"
 #include "Interfaces/IAnalyticsProvider.h"
 
 #include "IViewportInteractionModule.h"
@@ -51,6 +52,7 @@
 #include "Engine/StaticMeshActor.h"
 #include "EngineUtils.h"
 #include "Kismet/GameplayStatics.h"
+#include "XRMotionControllerBase.h" // for FXRMotionControllerBase::Left/RightHandSourceId
 
 #define LOCTEXT_NAMESPACE "VREditorMode"
 
@@ -231,7 +233,7 @@ void UVREditorMode::Enter()
 			if (FEngineAnalytics::IsAvailable())
 			{
 				TArray< FAnalyticsEventAttribute > Attributes;
-				FString HMDName = GEditor->HMDDevice->GetDeviceName().ToString();
+				FString HMDName = GEditor->XRSystem->GetSystemName().ToString();
 				Attributes.Add(FAnalyticsEventAttribute(TEXT("HMDDevice"), HMDName));
 				FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.EnterVRMode"), Attributes);
 			}
@@ -271,12 +273,12 @@ void UVREditorMode::Enter()
 		// Motion controllers
 		{
 			LeftHandInteractor = NewObject<UVREditorMotionControllerInteractor>();
-			LeftHandInteractor->SetControllerHandSide( EControllerHand::Left );
+			LeftHandInteractor->SetControllerHandSide( FXRMotionControllerBase::LeftHandSourceId );
 			LeftHandInteractor->Init( this );
 			WorldInteraction->AddInteractor( LeftHandInteractor );
 
 			RightHandInteractor = NewObject<UVREditorMotionControllerInteractor>();
-			RightHandInteractor->SetControllerHandSide( EControllerHand::Right );
+			RightHandInteractor->SetControllerHandSide( FXRMotionControllerBase::RightHandSourceId );
 			RightHandInteractor->Init( this );
 			WorldInteraction->AddInteractor( RightHandInteractor );
 
@@ -683,9 +685,9 @@ void UVREditorMode::CycleTransformGizmoHandleType()
 	WorldInteraction->SetGizmoHandleType( NewGizmoType );
 }
 
-EHMDDeviceType::Type UVREditorMode::GetHMDDeviceType() const
+FName UVREditorMode::GetHMDDeviceType() const
 {
-	return GEngine->HMDDevice.IsValid() ? GEngine->HMDDevice->GetHMDDeviceType() : EHMDDeviceType::DT_SteamVR;
+	return GEngine->XRSystem.IsValid() ? GEngine->XRSystem->GetSystemName() : FName();
 }
 
 FLinearColor UVREditorMode::GetColor( const EColors Color ) const
@@ -837,7 +839,7 @@ void UVREditorMode::TogglePIEAndVREditor()
 	{
 		const FVector* StartLoc = NULL;
 		const FRotator* StartRot = NULL;
-		const bool bHMDIsReady = (GEngine && GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsHMDConnected());
+		const bool bHMDIsReady = (GEngine && GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice() && GEngine->XRSystem->GetHMDDevice()->IsHMDConnected());
 		GEditor->RequestPlaySession(true, VREditorLevelViewportWeakPtr.Pin(), false /*bSimulateInEditor*/, StartLoc, StartRot, -1, false, bHMDIsReady);
 		bRequestedPIE = true;
 	}
@@ -900,7 +902,7 @@ void UVREditorMode::StartViewport(TSharedPtr<SLevelViewport> Viewport)
 		FVector2D WindowSize;
 		{
 			IHeadMountedDisplay::MonitorInfo HMDMonitorInfo;
-			if (bActuallyUsingVR && GEngine->HMDDevice->GetHMDMonitorInfo(HMDMonitorInfo))
+			if (bActuallyUsingVR && GEngine->XRSystem->GetHMDDevice() && GEngine->XRSystem->GetHMDDevice()->GetHMDMonitorInfo(HMDMonitorInfo))
 			{
 				WindowSize = FVector2D(HMDMonitorInfo.ResolutionX, HMDMonitorInfo.ResolutionY);
 			}
@@ -1015,8 +1017,8 @@ void UVREditorMode::StartViewport(TSharedPtr<SLevelViewport> Viewport)
 
 		if (bActuallyUsingVR)
 		{
-			SavedEditorState.TrackingOrigin = GEngine->HMDDevice->GetTrackingOrigin();
-			GEngine->HMDDevice->SetTrackingOrigin(EHMDTrackingOrigin::Floor);
+			SavedEditorState.TrackingOrigin = GEngine->XRSystem->GetTrackingOrigin();
+			GEngine->XRSystem->SetTrackingOrigin(EHMDTrackingOrigin::Floor);
 		}
 
 		// Make the new viewport the active level editing viewport right away
@@ -1040,7 +1042,7 @@ void UVREditorMode::StartViewport(TSharedPtr<SLevelViewport> Viewport)
 		Viewport->EnableStereoRendering( bActuallyUsingVR );
 		Viewport->SetRenderDirectlyToWindow( bActuallyUsingVR );
 
-		GEngine->HMDDevice->EnableStereo(true);
+		GEngine->StereoRenderingDevice->EnableStereo(true);
 	}
 
 	if (WorldInteraction != nullptr)
@@ -1052,9 +1054,9 @@ void UVREditorMode::StartViewport(TSharedPtr<SLevelViewport> Viewport)
 
 void UVREditorMode::CloseViewport( const bool bShouldDisableStereo )
 {
-	if (bActuallyUsingVR && GEngine->HMDDevice.IsValid() && bShouldDisableStereo)
+	if (bActuallyUsingVR && GEngine->XRSystem.IsValid() && bShouldDisableStereo)
 	{
-		GEngine->HMDDevice->EnableStereo(false);
+		GEngine->StereoRenderingDevice->EnableStereo(false);
 	}
 
 	TSharedPtr<SLevelViewport> VREditorLevelViewport(VREditorLevelViewportWeakPtr.Pin());
@@ -1097,7 +1099,7 @@ void UVREditorMode::CloseViewport( const bool bShouldDisableStereo )
 
 			if (bActuallyUsingVR)
 			{
-				GEngine->HMDDevice->SetTrackingOrigin(SavedEditorState.TrackingOrigin);
+				GEngine->XRSystem->SetTrackingOrigin(SavedEditorState.TrackingOrigin);
 			}
 
 			RestoreWorldToMeters();
@@ -1144,11 +1146,11 @@ void UVREditorMode::RestoreWorldToMeters()
 UStaticMeshComponent* UVREditorMode::CreateMotionControllerMesh( AActor* OwningActor, USceneComponent* AttachmentToComponent )
 {
 	UStaticMesh* ControllerMesh = nullptr;
-	if(GetHMDDeviceType() == EHMDDeviceType::DT_SteamVR)
+	if(GetHMDDeviceType() == FName(TEXT("SteamVR")))
 	{
 		ControllerMesh = AssetContainer->VivePreControllerMesh;
 	}
-	else if(GetHMDDeviceType() == EHMDDeviceType::DT_OculusRift)
+	else if(GetHMDDeviceType() == FName(TEXT("OculusHMD")))
 	{
 		ControllerMesh = AssetContainer->OculusControllerMesh;
 	}

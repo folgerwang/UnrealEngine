@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -74,7 +74,7 @@
 #include "Containers/SparseArray.h"
 #include "Containers/ScriptArray.h"
 #include "Containers/BitArray.h"
-#include "Containers/Algo/Reverse.h"
+#include "Algo/Reverse.h"
 #include "Math/IntPoint.h"
 #include "Logging/LogMacros.h"
 #include "Logging/LogCategory.h"
@@ -544,7 +544,6 @@
 #include "Engine/LevelStreaming.h"
 #include "Engine/TextureLightProfile.h"
 #include "GPUSkinPublicDefs.h"
-#include "SkeletalMeshTypes.h"
 #include "SceneManagement.h"
 #include "SceneUtils.h"
 #include "Curves/CurveOwnerInterface.h"

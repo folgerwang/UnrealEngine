@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "StaticMeshComponentDetails.h"
 #include "Components/StaticMeshComponent.h"
 #include "PropertyHandle.h"
 #include "DetailLayoutBuilder.h"
-#include "SNumericEntryBox.h"
-#include "SWidgetSwitcher.h"
+#include "Widgets/Input/SNumericEntryBox.h"
+#include "Widgets/Layout/SWidgetSwitcher.h"
 #include "IDetailPropertyRow.h"
 #include "DetailCategoryBuilder.h"
 #include "DetailWidgetRow.h"

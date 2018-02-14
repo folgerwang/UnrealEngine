@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -69,14 +69,9 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// The project file for this target
-		/// </summary>
-		public FileReference ProjectFile = null;
-
-		/// <summary>
 		/// A list of the paths used to find libraries.
 		/// </summary>
-		public List<string> LibraryPaths = new List<string>();
+		public List<DirectoryReference> LibraryPaths = new List<DirectoryReference>();
 
 		/// <summary>
 		/// A list of libraries to exclude from linking.
@@ -166,11 +161,6 @@ namespace UnrealBuildTool
 		public bool bIsCrossReferenced = false;
 
 		/// <summary>
-		/// True if we should include dependent libraries when building a static library
-		/// </summary>
-		public bool bIncludeDependentLibrariesInLibrary = false;
-
-		/// <summary>
 		/// True if the application we're linking has any exports, and we should be expecting the linker to
 		/// generate a .lib and/or .exp file along with the target output file
 		/// </summary>
@@ -216,10 +206,30 @@ namespace UnrealBuildTool
 		/// </summary>
 		public bool bAllowLTCG;
 
-		/// <summary>
-		/// Whether to request the linker create a map file as part of the build
-		/// </summary>
-		public bool bCreateMapFile;
+        /// <summary>
+        /// Whether to enable Profile Guided Optimization (PGO) instrumentation in this build.
+        /// </summary>
+        public bool bPGOProfile;
+
+        /// <summary>
+        /// Whether to optimize this build with Profile Guided Optimization (PGO).
+        /// </summary>
+        public bool bPGOOptimize;
+
+        /// <summary>
+        /// Platform specific directory where PGO profiling data is stored.
+        /// </summary>
+        public string PGODirectory;
+
+        /// <summary>
+        /// Platform specific filename where PGO profiling data is saved.
+        /// </summary>
+        public string PGOFilenamePrefix;
+
+        /// <summary>
+        /// Whether to request the linker create a map file as part of the build
+        /// </summary>
+        public bool bCreateMapFile;
 
 		/// <summary>
 		/// Whether to allow the use of ASLR (address space layout randomization) if supported.
@@ -300,7 +310,6 @@ namespace UnrealBuildTool
 			IntermediateDirectory = Other.IntermediateDirectory;
 			LocalShadowDirectory = Other.LocalShadowDirectory;
 			OutputFilePaths = Other.OutputFilePaths.ToList();
-			ProjectFile = Other.ProjectFile;
 			LibraryPaths.AddRange(Other.LibraryPaths);
 			ExcludedLibraries.AddRange(Other.ExcludedLibraries);
 			AdditionalLibraries.AddRange(Other.AdditionalLibraries);
@@ -327,7 +336,11 @@ namespace UnrealBuildTool
 			bSupportEditAndContinue = Other.bSupportEditAndContinue;
 			bUseIncrementalLinking = Other.bUseIncrementalLinking;
 			bAllowLTCG = Other.bAllowLTCG;
-			bCreateMapFile = Other.bCreateMapFile;
+            bPGOOptimize = Other.bPGOOptimize;
+            bPGOProfile = Other.bPGOProfile;
+            PGODirectory = Other.PGODirectory;
+            PGOFilenamePrefix = Other.PGOFilenamePrefix;
+            bCreateMapFile = Other.bCreateMapFile;
 			bAllowALSR = Other.bAllowALSR;
 			bUsePDBFiles = Other.bUsePDBFiles;
 			bUseFastPDBLinking = Other.bUseFastPDBLinking;

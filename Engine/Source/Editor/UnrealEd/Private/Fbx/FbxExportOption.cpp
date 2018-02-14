@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #include "Exporters/FbxExportOption.h"
 
 #include "CoreMinimal.h"
@@ -9,7 +9,7 @@
 #include "UObject/UObjectHash.h"
 #include "UObject/Class.h"
 #include "UObject/UnrealType.h"
-#include "ConfigCacheIni.h"
+#include "Misc/ConfigCacheIni.h"
 
 UFbxExportOption::UFbxExportOption(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

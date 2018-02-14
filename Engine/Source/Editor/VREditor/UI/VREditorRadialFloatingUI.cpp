@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "VREditorRadialFloatingUI.h"
 #include "VREditorUISystem.h"
@@ -8,7 +8,7 @@
 #include "VREditorWidgetComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "VREditorActions.h"
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "VREditorAssetContainer.h"
 #include "VRModeSettings.h"

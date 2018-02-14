@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,13 +6,13 @@
 
 #if WITH_CEF3 && !PLATFORM_LINUX
 
-#include "Geometry.h"
-#include "SWindow.h"
+#include "Layout/Geometry.h"
+#include "Widgets/SWindow.h"
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
-#include "AllowWindowsPlatformAtomics.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformAtomics.h"
 #endif
 
 #pragma push_macro("OVERRIDE")
@@ -23,11 +23,11 @@ THIRD_PARTY_INCLUDES_END
 #pragma pop_macro("OVERRIDE")
 
 #if PLATFORM_WINDOWS
-#include "HideWindowsPlatformAtomics.h"
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformAtomics.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
-#include "ITextInputMethodSystem.h"
+#include "GenericPlatform/ITextInputMethodSystem.h"
 
 class FCEFWebBrowserWindow;
 class FCEFImeHandler;

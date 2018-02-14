@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SPluginTile.h"
 #include "HAL/PlatformFilemanager.h"
@@ -666,7 +666,7 @@ void SPluginTile::OnPackagePlugin()
 	FString DescriptorFilename = Plugin->GetDescriptorFileName();
 	FString DescriptorFullPath = FPaths::ConvertRelativePathToFull(DescriptorFilename);
 	OutputDirectory = FPaths::Combine(OutputDirectory, Plugin->GetName());
-	FString CommandLine = FString::Printf(TEXT("BuildPlugin -Rocket -Plugin=\"%s\" -Package=\"%s\" -CreateSubFolder"), *DescriptorFullPath, *OutputDirectory);
+	FString CommandLine = FString::Printf(TEXT("BuildPlugin -Plugin=\"%s\" -Package=\"%s\" -CreateSubFolder"), *DescriptorFullPath, *OutputDirectory);
 
 #if PLATFORM_WINDOWS
 	FText PlatformName = LOCTEXT("PlatformName_Windows", "Windows");

@@ -1,10 +1,10 @@
 // Copyright 2017 Google Inc.
 
 
-#include "Classes/GoogleVRGazeReticleComponent.h"
+#include "GoogleVRGazeReticleComponent.h"
 #include "GoogleVRController.h"
-#include "Classes/GoogleVRPointerInputComponent.h"
-#include "Classes/GoogleVRControllerFunctionLibrary.h"
+#include "GoogleVRPointerInputComponent.h"
+#include "GoogleVRControllerFunctionLibrary.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/WorldSettings.h"
 #include "Components/StaticMeshComponent.h"
@@ -203,7 +203,6 @@ void UGoogleVRGazeReticleComponent::OnPointerEnter(const FHitResult& HitResult, 
 void UGoogleVRGazeReticleComponent::OnPointerHover(const FHitResult& HitResult, bool IsHitInteractive)
 {
 	SetReticleExpanded(IsHitInteractive);
-	
 	if (CameraComponent != nullptr)
 	{
 		CurrentReticleDistance = CameraComponent->GetComponentTransform().InverseTransformPosition(HitResult.Location).X;
@@ -228,7 +227,6 @@ FVector UGoogleVRGazeReticleComponent::GetOrigin() const
 	{
 		return CameraComponent->GetComponentLocation();
 	}
-	
 	return FVector::ZeroVector;
 }
 
@@ -259,7 +257,18 @@ float UGoogleVRGazeReticleComponent::GetMaxPointerDistance() const
 	return ReticleDistanceMax * WorldToMetersScale;
 }
 
+float UGoogleVRGazeReticleComponent::GetDefaultReticleDistance() const
+{
+	float WorldToMetersScale = GetWorldToMetersScale();
+	return ReticleDistanceMax * WorldToMetersScale;
+}
+
 bool UGoogleVRGazeReticleComponent::IsPointerActive() const
 {
 	return IsActive();
+}
+
+EGoogleVRPointerInputMode UGoogleVRGazeReticleComponent::GetPointerInputMode() const
+{
+	return EGoogleVRPointerInputMode::Camera;
 }

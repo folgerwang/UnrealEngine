@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Static mesh creation from FBX data.
@@ -2049,157 +2049,12 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 	return StaticMesh;
 }
 
-void UnFbx::FFbxImporter::PostImportStaticMesh(UStaticMesh* StaticMesh, TArray<FbxNode*>& MeshNodeArray)
+void ReorderMaterialAfterImport(UStaticMesh* StaticMesh, TArray<FbxNode*>& MeshNodeArray)
 {
 	if (StaticMesh == nullptr)
 	{
 		return;
 	}
-
-	// Build the staticmesh, we move the build here because we want to avoid building the staticmesh for every LOD
-	// when we import the mesh.
-	TArray<FText> BuildErrors;
-#if UE_BUILD_DEBUG
-	if (GIsAutomationTesting)
-	{
-		//Generate a random GUID to be sure it rebuild the asset
-		StaticMesh->BuildCacheAutomationTestGuid = FGuid::NewGuid();
-	}
-#endif
-
-	if (GIsAutomationTesting)
-	{
-		//Avoid distance field calculation in automation test setting this to false is not suffisant since the condition OR with the CVar
-		//But fbx automation test turn off the CVAR
-		StaticMesh->bGenerateMeshDistanceField = false;
-	}
-
-	static const auto CVarDistanceField = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.GenerateMeshDistanceFields"));
-	int32 OriginalCVarDistanceFieldValue = CVarDistanceField->GetValueOnGameThread();
-	IConsoleVariable* CVarDistanceFieldInterface = IConsoleManager::Get().FindConsoleVariable(TEXT("r.GenerateMeshDistanceFields"));
-	bool bOriginalGenerateMeshDistanceField = StaticMesh->bGenerateMeshDistanceField;
-
-	//Prebuild the static mesh when we use LodGroup and we want to modify the LodNumber
-	if (!ImportOptions->bImportScene)
-	{
-		//Set the minimum LOD
-		if (ImportOptions->MinimumLodNumber > 0)
-		{
-			StaticMesh->MinLOD = ImportOptions->MinimumLodNumber;
-		}
-
-		//User specify a number of LOD.
-		if (ImportOptions->LodNumber > 0)
-		{
-			//In case we plan to change the LodNumber we will build the static mesh 2 time
-			//We have to disable the distance field calculation so it get calculated only during the second build
-			bool bSpecifiedLodGroup = ImportOptions->StaticMeshLODGroup != NAME_None;
-			if (bSpecifiedLodGroup)
-			{
-				//Avoid building the distance field when we prebuild
-				if (OriginalCVarDistanceFieldValue != 0 && CVarDistanceFieldInterface)
-				{
-					//Hack we change the distance field user console variable to control the build, but we put back the value after the first build
-					CVarDistanceFieldInterface->SetWithCurrentPriority(0);
-				}
-				StaticMesh->bGenerateMeshDistanceField = false;
-
-				StaticMesh->Build(false, &BuildErrors);
-				for (FText& Error : BuildErrors)
-				{
-					AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, Error), FFbxErrors::StaticMesh_BuildError);
-				}
-
-				StaticMesh->bGenerateMeshDistanceField = bOriginalGenerateMeshDistanceField;
-				if (OriginalCVarDistanceFieldValue != 0 && CVarDistanceFieldInterface)
-				{
-					CVarDistanceFieldInterface->SetWithCurrentPriority(OriginalCVarDistanceFieldValue);
-				}
-			}
-
-			//Set the Number of LODs, this has to be done after we build the specified LOD Group
-			int32 LODCount = ImportOptions->LodNumber;
-			if (LODCount < 0)
-			{
-				LODCount = 0;
-			}
-			if (LODCount > MAX_STATIC_MESH_LODS)
-			{
-				LODCount = MAX_STATIC_MESH_LODS;
-			}
-
-			//Remove extra LODs
-			if (StaticMesh->SourceModels.Num() > LODCount)
-			{
-				int32 NumToRemove = StaticMesh->SourceModels.Num() - LODCount;
-				StaticMesh->SourceModels.RemoveAt(LODCount, NumToRemove);
-			}
-			//Add missing LODs
-			while (StaticMesh->SourceModels.Num() < LODCount)
-			{
-				FStaticMeshSourceModel* SrcModel = new(StaticMesh->SourceModels) FStaticMeshSourceModel();
-			}
-		}
-	}
-	StaticMesh->Build(false, &BuildErrors);
-	for (FText& Error : BuildErrors)
-	{
-		AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, Error), FFbxErrors::StaticMesh_BuildError);
-	}
-
-	//Set the specified LOD distances for every LODs we have to do this after the build in case there is a specified Lod Group
-	if (!ImportOptions->bAutoComputeLodDistances && !ImportOptions->bImportScene)
-	{
-		StaticMesh->bAutoComputeLODScreenSize = false;
-
-		for (int32 LodIndex = 0; LodIndex < StaticMesh->SourceModels.Num(); ++LodIndex)
-		{
-			FStaticMeshSourceModel &StaticMeshSourceModel = StaticMesh->SourceModels[LodIndex];
-			StaticMeshSourceModel.ScreenSize = ImportOptions->LodDistances.IsValidIndex(LodIndex) ? ImportOptions->LodDistances[LodIndex] : 0.0f;
-		}
-	}
-
-	// this is damage control. After build, we'd like to absolutely sure that 
-	// all index is pointing correctly and they're all used. Otherwise we remove them
-	FMeshSectionInfoMap TempOldSectionInfoMap = StaticMesh->SectionInfoMap;
-	StaticMesh->SectionInfoMap.Clear();
-	if (StaticMesh->RenderData)
-	{
-		// fix up section data
-		for (int32 LODResoureceIndex = 0; LODResoureceIndex < StaticMesh->RenderData->LODResources.Num(); ++LODResoureceIndex)
-		{
-			FStaticMeshLODResources& LOD = StaticMesh->RenderData->LODResources[LODResoureceIndex];
-			int32 NumSections = LOD.Sections.Num();
-			for (int32 SectionIndex = 0; SectionIndex < NumSections; ++SectionIndex)
-			{
-				FMeshSectionInfo Info = TempOldSectionInfoMap.Get(LODResoureceIndex, SectionIndex);
-				if (StaticMesh->StaticMaterials.IsValidIndex(Info.MaterialIndex))
-				{
-					StaticMesh->SectionInfoMap.Set(LODResoureceIndex, SectionIndex, Info);
-				}
-			}
-		}
-	}
-
-	//collision generation must be done after the build, this will ensure a valid BodySetup
-	if (StaticMesh->bCustomizedCollision == false && ImportOptions->bAutoGenerateCollision && StaticMesh->BodySetup)
-	{
-		FKAggregateGeom & AggGeom = StaticMesh->BodySetup->AggGeom;
-		AggGeom.ConvexElems.Empty(1);	//if no custom collision is setup we just regenerate collision when reimport
-
-		const int32 NumDirs = 18;
-		TArray<FVector> Dirs;
-		Dirs.AddUninitialized(NumDirs);
-		for (int32 DirIdx = 0; DirIdx < NumDirs; ++DirIdx) { Dirs[DirIdx] = KDopDir18[DirIdx]; }
-		GenerateKDopAsSimpleCollision(StaticMesh, Dirs);
-	}
-
-	//If there is less the 2 materials in the fbx file there is no need to reorder them
-	if (StaticMesh->StaticMaterials.Num() < 2)
-	{
-		return;
-	}
-
 	TArray<FString> MeshMaterials;
 	for (int32 MeshIndex = 0; MeshIndex < MeshNodeArray.Num(); MeshIndex++)
 	{
@@ -2300,7 +2155,7 @@ void UnFbx::FFbxImporter::PostImportStaticMesh(UStaticMesh* StaticMesh, TArray<F
 				break;
 			}
 		}
-		
+
 		if (FoundMaterialIndex != INDEX_NONE)
 		{
 			FbxRemapMaterials.Add(FoundMaterialIndex);
@@ -2346,8 +2201,165 @@ void UnFbx::FFbxImporter::PostImportStaticMesh(UStaticMesh* StaticMesh, TArray<F
 			{
 				Info.MaterialIndex = RemapIndex;
 				StaticMesh->SectionInfoMap.Set(LODResoureceIndex, SectionIndex, Info);
+				StaticMesh->OriginalSectionInfoMap.Set(LODResoureceIndex, SectionIndex, Info);
 			}
 		}
+	}
+}
+
+void UnFbx::FFbxImporter::PostImportStaticMesh(UStaticMesh* StaticMesh, TArray<FbxNode*>& MeshNodeArray, int32 LODIndex)
+{
+	if (StaticMesh == nullptr)
+	{
+		return;
+	}
+
+	// Build the staticmesh, we move the build here because we want to avoid building the staticmesh for every LOD
+	// when we import the mesh.
+	TArray<FText> BuildErrors;
+#if UE_BUILD_DEBUG
+	if (GIsAutomationTesting)
+	{
+		//Generate a random GUID to be sure it rebuild the asset
+		StaticMesh->BuildCacheAutomationTestGuid = FGuid::NewGuid();
+	}
+#endif
+
+	if (GIsAutomationTesting)
+	{
+		//Avoid distance field calculation in automation test setting this to false is not suffisant since the condition OR with the CVar
+		//But fbx automation test turn off the CVAR
+		StaticMesh->bGenerateMeshDistanceField = false;
+	}
+
+	static const auto CVarDistanceField = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.GenerateMeshDistanceFields"));
+	int32 OriginalCVarDistanceFieldValue = CVarDistanceField->GetValueOnGameThread();
+	IConsoleVariable* CVarDistanceFieldInterface = IConsoleManager::Get().FindConsoleVariable(TEXT("r.GenerateMeshDistanceFields"));
+	bool bOriginalGenerateMeshDistanceField = StaticMesh->bGenerateMeshDistanceField;
+	
+	//Prebuild the static mesh when we use LodGroup and we want to modify the LodNumber
+	if (!ImportOptions->bImportScene)
+	{
+		//Set the minimum LOD
+		if (ImportOptions->MinimumLodNumber > 0)
+		{
+			StaticMesh->MinLOD = ImportOptions->MinimumLodNumber;
+		}
+
+		//User specify a number of LOD.
+		if (ImportOptions->LodNumber > 0)
+		{
+			//In case we plan to change the LodNumber we will build the static mesh 2 time
+			//We have to disable the distance field calculation so it get calculated only during the second build
+			bool bSpecifiedLodGroup = ImportOptions->StaticMeshLODGroup != NAME_None;
+			if (bSpecifiedLodGroup)
+			{
+				//Avoid building the distance field when we prebuild
+				if (OriginalCVarDistanceFieldValue != 0 && CVarDistanceFieldInterface)
+				{
+					//Hack we change the distance field user console variable to control the build, but we put back the value after the first build
+					CVarDistanceFieldInterface->SetWithCurrentPriority(0);
+				}
+				StaticMesh->bGenerateMeshDistanceField = false;
+
+				StaticMesh->Build(false, &BuildErrors);
+				for (FText& Error : BuildErrors)
+				{
+					AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, Error), FFbxErrors::StaticMesh_BuildError);
+				}
+
+				StaticMesh->bGenerateMeshDistanceField = bOriginalGenerateMeshDistanceField;
+				if (OriginalCVarDistanceFieldValue != 0 && CVarDistanceFieldInterface)
+				{
+					CVarDistanceFieldInterface->SetWithCurrentPriority(OriginalCVarDistanceFieldValue);
+				}
+			}
+
+			//Set the Number of LODs, this has to be done after we build the specified LOD Group
+			int32 LODCount = ImportOptions->LodNumber;
+			if (LODCount < 0)
+			{
+				LODCount = 0;
+			}
+			if (LODCount > MAX_STATIC_MESH_LODS)
+			{
+				LODCount = MAX_STATIC_MESH_LODS;
+			}
+
+			//Remove extra LODs
+			if (StaticMesh->SourceModels.Num() > LODCount)
+			{
+				int32 NumToRemove = StaticMesh->SourceModels.Num() - LODCount;
+				StaticMesh->SourceModels.RemoveAt(LODCount, NumToRemove);
+			}
+			//Add missing LODs
+			while (StaticMesh->SourceModels.Num() < LODCount)
+			{
+				FStaticMeshSourceModel* SrcModel = new(StaticMesh->SourceModels) FStaticMeshSourceModel();
+			}
+		}
+	}
+
+	StaticMesh->Build(false, &BuildErrors);
+	for (FText& Error : BuildErrors)
+	{
+		AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, Error), FFbxErrors::StaticMesh_BuildError);
+	}
+
+	//Set the specified LOD distances for every LODs we have to do this after the build in case there is a specified Lod Group
+	if (!ImportOptions->bAutoComputeLodDistances && !ImportOptions->bImportScene)
+	{
+		StaticMesh->bAutoComputeLODScreenSize = false;
+
+		for (int32 LodIndex = 0; LodIndex < StaticMesh->SourceModels.Num(); ++LodIndex)
+		{
+			FStaticMeshSourceModel &StaticMeshSourceModel = StaticMesh->SourceModels[LodIndex];
+			StaticMeshSourceModel.ScreenSize = ImportOptions->LodDistances.IsValidIndex(LodIndex) ? ImportOptions->LodDistances[LodIndex] : 0.0f;
+		}
+	}
+
+	// this is damage control. After build, we'd like to absolutely sure that 
+	// all index is pointing correctly and they're all used. Otherwise we remove them
+	FMeshSectionInfoMap TempOldSectionInfoMap = StaticMesh->SectionInfoMap;
+	StaticMesh->SectionInfoMap.Clear();
+	StaticMesh->OriginalSectionInfoMap.Clear();
+	if (StaticMesh->RenderData)
+	{
+		// fix up section data
+		for (int32 LODResoureceIndex = 0; LODResoureceIndex < StaticMesh->RenderData->LODResources.Num(); ++LODResoureceIndex)
+		{
+			FStaticMeshLODResources& LOD = StaticMesh->RenderData->LODResources[LODResoureceIndex];
+			int32 NumSections = LOD.Sections.Num();
+			for (int32 SectionIndex = 0; SectionIndex < NumSections; ++SectionIndex)
+			{
+				FMeshSectionInfo Info = TempOldSectionInfoMap.Get(LODResoureceIndex, SectionIndex);
+				if (StaticMesh->StaticMaterials.IsValidIndex(Info.MaterialIndex))
+				{
+					StaticMesh->SectionInfoMap.Set(LODResoureceIndex, SectionIndex, Info);
+					StaticMesh->OriginalSectionInfoMap.Set(LODResoureceIndex, SectionIndex, Info);
+				}
+			}
+		}
+	}
+
+	//collision generation must be done after the build, this will ensure a valid BodySetup
+	if (StaticMesh->bCustomizedCollision == false && ImportOptions->bAutoGenerateCollision && StaticMesh->BodySetup)
+	{
+		FKAggregateGeom & AggGeom = StaticMesh->BodySetup->AggGeom;
+		AggGeom.ConvexElems.Empty(1);	//if no custom collision is setup we just regenerate collision when reimport
+
+		const int32 NumDirs = 18;
+		TArray<FVector> Dirs;
+		Dirs.AddUninitialized(NumDirs);
+		for (int32 DirIdx = 0; DirIdx < NumDirs; ++DirIdx) { Dirs[DirIdx] = KDopDir18[DirIdx]; }
+		GenerateKDopAsSimpleCollision(StaticMesh, Dirs);
+	}
+
+	//If there is less the 2 materials in the fbx file there is no need to reorder them
+	//If we have import a LOD other then the base, the material array cannot be sorted, because only the base LOD reorder the material array
+	if (LODIndex == 0 && StaticMesh->StaticMaterials.Num() > 1)
+	{
+		ReorderMaterialAfterImport(StaticMesh, MeshNodeArray);
 	}
 }
 
@@ -2418,7 +2430,7 @@ static void FindMeshSockets( FbxNode* StartNode, TArray<FbxSocketNode>& OutFbxSo
 		// Find null attributes, they cold be sockets
 		FbxNodeAttribute* Attribute = StartNode->GetNodeAttribute();
 
-		if( Attribute != NULL && Attribute->GetAttributeType() == FbxNodeAttribute::eNull )
+		if( Attribute != NULL && (Attribute->GetAttributeType() == FbxNodeAttribute::eNull || Attribute->GetAttributeType() == FbxNodeAttribute::eSkeleton))
 		{
 			// Is this prefixed correctly? If so it is a socket
 			FString SocketName = UTF8_TO_TCHAR( StartNode->GetName() );

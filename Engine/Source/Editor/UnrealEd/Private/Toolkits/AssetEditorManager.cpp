@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #include "Toolkits/AssetEditorManager.h"
@@ -15,7 +15,7 @@
 #include "Toolkits/AssetEditorToolkit.h"
 #include "Toolkits/SimpleAssetEditor.h"
 #include "LevelEditor.h"
-#include "PackageReload.h"
+#include "UObject/PackageReload.h"
 #include "EngineAnalytics.h"
 #include "AnalyticsEventAttribute.h"
 #include "Interfaces/IAnalyticsProvider.h"

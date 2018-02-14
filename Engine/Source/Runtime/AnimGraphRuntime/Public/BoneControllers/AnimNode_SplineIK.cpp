@@ -1,9 +1,9 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "BoneControllers/AnimNode_SplineIK.h"
 #include "Animation/AnimTypes.h"
 #include "AnimationRuntime.h"
-#include "AnimInstanceProxy.h"
+#include "Animation/AnimInstanceProxy.h"
 #include "SplineIK.h"
 
 FAnimNode_SplineIK::FAnimNode_SplineIK() 

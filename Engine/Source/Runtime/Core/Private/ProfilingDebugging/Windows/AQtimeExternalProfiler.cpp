@@ -1,12 +1,12 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreTypes.h"
 #include "Misc/AssertionMacros.h"
 #include "ProfilingDebugging/ExternalProfiler.h"
 #include "Templates/ScopedPointer.h"
 #include "Features/IModularFeatures.h"
-#include "WindowsPlatformProcess.h"
-#include "UniquePtr.h"
+#include "Windows/WindowsPlatformProcess.h"
+#include "Templates/UniquePtr.h"
 
 
 /**

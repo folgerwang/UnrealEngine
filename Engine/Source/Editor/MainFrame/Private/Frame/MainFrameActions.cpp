@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #include "Frame/MainFrameActions.h"
@@ -333,7 +333,7 @@ const TCHAR* GetUATCompilationFlags()
 {
 	// We never want to compile editor targets when invoking UAT in this context.
 	// If we are installed or don't have a compiler, we must assume we have a precompiled UAT.
-	return (FApp::GetEngineIsPromotedBuild() || FApp::IsEngineInstalled() || FPlatformMisc::IsDebuggerPresent())
+	return (FApp::GetEngineIsPromotedBuild() || FApp::IsEngineInstalled())
 		? TEXT("-nocompile -nocompileeditor")
 		: TEXT("-nocompileeditor");
 }
@@ -429,11 +429,6 @@ void FMainFrameActionCallbacks::PackageBuildConfiguration( EProjectPackagingBuil
 
 bool FMainFrameActionCallbacks::CanPackageBuildConfiguration( EProjectPackagingBuildConfigurations BuildConfiguration )
 {
-	UProjectPackagingSettings* PackagingSettings = Cast<UProjectPackagingSettings>(UProjectPackagingSettings::StaticClass()->GetDefaultObject());
-	if (PackagingSettings->ForDistribution && BuildConfiguration != PPBC_Shipping && BuildConfiguration != PPBC_ShippingClient)
-	{
-		return false;
-	}
 	return true;
 }
 
@@ -548,7 +543,7 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 				UnrecoverableError = true;
 			}
 
-			if ((Result & ETargetPlatformReadyStatus::RemoveServerNameEmpty) != 0 && (bProjectHasCode || (!FApp::GetEngineIsPromotedBuild() && !FApp::IsEngineInstalled()) || PackagingSettings->BlueprintNativizationMethod != EProjectPackagingBlueprintNativizationMethod::Disabled))
+			if ((Result & ETargetPlatformReadyStatus::RemoveServerNameEmpty) != 0 && (bProjectHasCode || (!FApp::GetEngineIsPromotedBuild() && !FApp::IsEngineInstalled())))
 			{
 				AddMessageLog(
 					LOCTEXT("RemoveServerNameNotFound", "Remote compiling requires a server name. "),
@@ -653,11 +648,6 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 		OptionalParams += TEXT(" -nodebuginfo");
 	}
 
-	if (PackagingSettings->BlueprintNativizationMethod != EProjectPackagingBlueprintNativizationMethod::Disabled)
-	{
-		OptionalParams += TEXT(" -nativizeAssets");
-	}
-
 	if (PackagingSettings->bGenerateChunks)
 	{
 		OptionalParams += TEXT(" -manifests");
@@ -687,8 +677,25 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 		OptionalParams += *PlatformInfo->TargetPlatformName.ToString();
 	}
 
-	// only build if the project has code that might need to be built
-	if (bProjectHasCode || (!FApp::GetEngineIsPromotedBuild() && !FApp::IsEngineInstalled()) || PackagingSettings->BlueprintNativizationMethod != EProjectPackagingBlueprintNativizationMethod::Disabled)
+	// Only build if the user elects to do so
+	bool bBuild = false;
+	if(PackagingSettings->Build == EProjectPackagingBuild::Always)
+	{
+		bBuild = true;
+	}
+	else if(PackagingSettings->Build == EProjectPackagingBuild::Never)
+	{
+		bBuild = false;
+	}
+	else if(PackagingSettings->Build == EProjectPackagingBuild::IfProjectHasCode)
+	{
+		bBuild = bProjectHasCode || !FApp::GetEngineIsPromotedBuild();
+	}
+	else if(PackagingSettings->Build == EProjectPackagingBuild::IfEditorWasBuiltLocally)
+	{
+		bBuild = !FApp::GetEngineIsPromotedBuild();
+	}
+	if(bBuild)
 	{
 		OptionalParams += TEXT(" -build");
 	}
@@ -1145,9 +1152,14 @@ void FMainFrameActionCallbacks::AddMessageLog( const FText& Text, const FText& D
 	TSharedRef<FTokenizedMessage> Message = FTokenizedMessage::Create(EMessageSeverity::Error);
 	Message->AddToken(FTextToken::Create(Text));
 	Message->AddToken(FTextToken::Create(Detail));
-	Message->AddToken(FTutorialToken::Create(TutorialLink));
-	Message->AddToken(FDocumentationToken::Create(DocumentationLink));
-
+	if (!TutorialLink.IsEmpty())
+	{
+		Message->AddToken(FTutorialToken::Create(TutorialLink));
+	}
+	if (!DocumentationLink.IsEmpty())
+	{
+		Message->AddToken(FDocumentationToken::Create(DocumentationLink));
+	}
 	FMessageLog MessageLog("PackagingResults");
 	MessageLog.AddMessage(Message);
 	MessageLog.Open();

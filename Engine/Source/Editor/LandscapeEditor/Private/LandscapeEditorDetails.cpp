@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LandscapeEditorDetails.h"
 #include "Framework/Commands/UIAction.h"
@@ -198,7 +198,7 @@ TSharedRef<SWidget> FLandscapeEditorDetails::GetTargetLandscapeMenu()
 		const TArray<FLandscapeListInfo>& LandscapeList = LandscapeEdMode->GetLandscapeList();
 		for (auto It = LandscapeList.CreateConstIterator(); It; It++)
 		{
-			FUIAction Action = FUIAction(FExecuteAction::CreateStatic(&FLandscapeEditorDetails::OnChangeTargetLandscape, TWeakObjectPtr<ULandscapeInfo>(It->Info)));
+			FUIAction Action = FUIAction(FExecuteAction::CreateStatic(&FLandscapeEditorDetails::OnChangeTargetLandscape, MakeWeakObjectPtr(It->Info)));
 			MenuBuilder.AddMenuEntry(FText::FromString(It->Info->GetLandscapeProxy()->GetActorLabel()), FText(), FSlateIcon(), Action);
 		}
 
@@ -213,6 +213,13 @@ void FLandscapeEditorDetails::OnChangeTargetLandscape(TWeakObjectPtr<ULandscapeI
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
 	if (LandscapeEdMode)
 	{
+		// Unregister from old one
+		if (LandscapeEdMode->CurrentToolTarget.LandscapeInfo.IsValid())
+		{
+			ALandscapeProxy* LandscapeProxy = LandscapeEdMode->CurrentToolTarget.LandscapeInfo->GetLandscapeProxy();
+			LandscapeProxy->OnMaterialChangedDelegate().RemoveAll(LandscapeEdMode);
+		}
+
 		LandscapeEdMode->CurrentToolTarget.LandscapeInfo = LandscapeInfo.Get();
 		LandscapeEdMode->UpdateTargetList();
 		// force a Leave and Enter the current tool, in case it has something about the current landscape cached
@@ -221,6 +228,16 @@ void FLandscapeEditorDetails::OnChangeTargetLandscape(TWeakObjectPtr<ULandscapeI
 		{
 			LandscapeEdMode->CurrentGizmoActor->SetTargetLandscape(LandscapeEdMode->CurrentToolTarget.LandscapeInfo.Get());
 		}
+
+		// register to new one
+		if (LandscapeEdMode->CurrentToolTarget.LandscapeInfo.IsValid())
+		{
+			ALandscapeProxy* LandscapeProxy = LandscapeEdMode->CurrentToolTarget.LandscapeInfo->GetLandscapeProxy();
+			LandscapeProxy->OnMaterialChangedDelegate().AddRaw(LandscapeEdMode, &FEdModeLandscape::OnLandscapeMaterialChangedDelegate);
+		}
+
+		LandscapeEdMode->UpdateTargetList();
+		LandscapeEdMode->UpdateShownLayerList();
 	}
 }
 

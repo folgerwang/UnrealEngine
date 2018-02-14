@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -79,8 +79,8 @@ MONOLITHIC_HEADER_BOILERPLATE()
 #include "Components/WidgetSwitcherSlot.h"
 #include "Components/WidgetSwitcher.h"
 
-#include "BackgroundBlurSlot.h"
-#include "BackgroundBlur.h"
+#include "Components/BackgroundBlurSlot.h"
+#include "Components/BackgroundBlur.h"
 
 #include "Components/BorderSlot.h"
 #include "Components/Border.h"

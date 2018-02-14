@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "EditorAnalytics.h"
 #include "GeneralProjectSettings.h"
@@ -188,6 +188,8 @@ FString FEditorAnalytics::TranslateErrorCode(int32 ErrorCode)
 		return TEXT("Failed to sign executable.  Make sure your developer certificates have been installed in the System Keychain on the remote Mac.");
 	case EAnalyticsErrorCodes::SymbolizedSONotFound:
 		return TEXT("Symbolized .so file not found");
+	case EAnalyticsErrorCodes::AndroidOBBError:
+		return TEXT("Failed to create valid OBB.  OBB may have exceeded 2 GiB limit; check log for details.");
 	}
 	return TEXT("Unknown Error");
 }

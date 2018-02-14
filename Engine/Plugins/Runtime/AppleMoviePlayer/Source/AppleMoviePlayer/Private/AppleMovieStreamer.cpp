@@ -1,8 +1,8 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AppleMovieStreamer.h"
 
-#include "RenderingCommon.h"
+#include "Rendering/RenderingCommon.h"
 #include "Slate/SlateTextures.h"
 #include "MoviePlayer.h"
 #include "Misc/CommandLine.h"

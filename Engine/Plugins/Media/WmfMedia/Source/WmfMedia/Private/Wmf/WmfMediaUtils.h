@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -9,7 +9,7 @@
 #include "Containers/UnrealString.h"
 #include "Templates/SharedPointer.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 
 namespace WmfMedia
@@ -44,12 +44,12 @@ namespace WmfMedia
 	/**
 	 * Create an output media type for the given input media type.
 	 *
-	 * @param MajorType The output's major type, i.e. audio or video.
-	 * @param SubType The output's sub type, i.e. PCM or RGB32.
+	 * @param InputType The input type to create the output type for.
 	 * @param AllowNonStandardCodecs Whether non-standard codecs should be allowed.
+	 * @param Whether the media source is a video capture device (there are some limitations with those).
 	 * @return The output type, or NULL on error.
 	 */
-	TComPtr<IMFMediaType> CreateOutputType(const GUID& MajorType, const GUID& SubType, bool AllowNonStandardCodecs);
+	TComPtr<IMFMediaType> CreateOutputType(IMFMediaType& InputType, bool AllowNonStandardCodecs, bool IsVideoDevice);
 
 	/**
 	 * Dump information about the given media type to the output log.
@@ -228,6 +228,6 @@ namespace WmfMedia
 }
 
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #endif //WMFMEDIA_SUPPORTED_PLATFORM

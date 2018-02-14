@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -288,6 +288,10 @@ namespace AutomationTool
 			"rsa.modulus",
 			"rsa.publicexp",
 			"aes.key",
+			"SigningPublicExponent",
+			"SigningModulus",
+			"SigningPrivateExponent",
+			"EncryptionKey"
 		};
 
 		private static void FilterIniFile(string SourceName, string TargetName)
@@ -688,11 +692,11 @@ namespace AutomationTool
 		/// </summary>
 		/// <param name="Main"></param>
 		/// <param name="Param"></param>
-		public static ExitCode RunSingleInstance(Func<object, ExitCode> Main, object Param)
+		public static ExitCode RunSingleInstance(Func<ExitCode> Main)
 		{
 			if (Environment.GetEnvironmentVariable("uebp_UATMutexNoWait") == "1")
 			{
-				return Main(Param);
+				return Main();
 			}
 			var bCreatedMutex = false;
             var EntryAssemblyLocation = Assembly.GetEntryAssembly().GetOriginalLocation();
@@ -705,7 +709,7 @@ namespace AutomationTool
                     throw new AutomationException("A conflicting instance of AutomationTool is already running. Curent location: {0}. A process manager may be used to determine the conflicting process and what tool may have launched it", EntryAssemblyLocation);
 				}
 
-				ExitCode Result = Main(Param);
+				ExitCode Result = Main();
 
 				SingleInstanceMutex.ReleaseMutex();
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ProjectManager.h"
 #include "Misc/MessageDialog.h"
@@ -112,10 +112,12 @@ bool FProjectManager::LoadModulesForProject( const ELoadingPhase::Type LoadingPh
 	return bSuccess;
 }
 
+#if !IS_MONOLITHIC
 bool FProjectManager::CheckModuleCompatibility(TArray<FString>& OutIncompatibleModules)
 {
 	return !CurrentProject.IsValid() || FModuleDescriptor::CheckModuleCompatibility(CurrentProject->Modules, true, OutIncompatibleModules);
 }
+#endif
 
 const FString& FProjectManager::GetAutoLoadProjectFileName()
 {

@@ -1,8 +1,8 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "CocoaTextView.h"
-#include "CocoaWindow.h"
-#include "CocoaThread.h"
+#include "Mac/CocoaTextView.h"
+#include "Mac/CocoaWindow.h"
+#include "Mac/CocoaThread.h"
 
 @implementation FCocoaTextView
 
@@ -378,6 +378,12 @@
  */
 - (NSRange)selectedRange
 {
+	FCocoaWindow* CocoaWindow = [[self window] isKindOfClass:[FCocoaWindow class]] ? (FCocoaWindow*)[self window] : nil;
+	if (CocoaWindow && CocoaWindow->bIsBeingResized)
+	{
+		return {0, 0};
+	}
+	
 	if (IMMContext.IsValid())
 	{
 		__block uint32 SelectionLocation;
@@ -440,7 +446,8 @@
 			CFRelease(CFString);
 			if(actualRange)
 			{
-				*actualRange = aRange;
+				actualRange->location = aRange.location;
+				actualRange->length = String.Len();
 			}
 		}
 	}

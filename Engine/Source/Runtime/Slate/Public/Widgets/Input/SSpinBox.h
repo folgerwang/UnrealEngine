@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -249,7 +249,8 @@ public:
 				.MinDesiredWidth( this, &SSpinBox<NumericType>::GetTextMinDesiredWidth )
 				.VirtualKeyboardType(EKeyboardType::Keyboard_Number)
 				.Justification(InArgs._Justification)
-			]			
+				.VirtualKeyboardTrigger(EVirtualKeyboardTrigger::OnAllFocusEvents)
+			]
 
 			+SHorizontalBox::Slot()
 			.AutoWidth()

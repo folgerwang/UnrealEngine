@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved. 
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved. 
 
 #include "ScriptFactory.h"
 #include "GameFramework/Actor.h"
@@ -13,7 +13,7 @@
 #include "ReimportScriptFactory.h"
 #include "HAL/FileManager.h"
 #include "ScriptBlueprintGeneratedClass.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 UScriptFactory::UScriptFactory(const FObjectInitializer& ObjectInitializer)
 	: Super( ObjectInitializer )

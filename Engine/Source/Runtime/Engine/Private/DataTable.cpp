@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/DataTable.h"
 #include "Serialization/PropertyLocalizationDataGathering.h"
@@ -171,10 +171,6 @@ void UDataTable::AddReferencedObjects(UObject* InThis, FReferenceCollector& Coll
 		}
 	}
 
-#if WITH_EDITOR
-	Collector.AddReferencedObjects(This->TemporarilyReferencedObjects);
-#endif //WITH_EDITOR
-
 	Super::AddReferencedObjects( This, Collector );
 }
 
@@ -211,11 +207,10 @@ void UDataTable::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 		OutTags.Add( FAssetRegistryTag(SourceFileTagName(), AssetImportData->GetSourceData().ToJson(), FAssetRegistryTag::TT_Hidden) );
 	}
 
-	const FName ResolvedRowStructName = GetRowStructName();
-	if (!ResolvedRowStructName.IsNone())
+	// Add the row structure tag
 	{
 		static const FName RowStructureTag = "RowStructure";
-		OutTags.Add( FAssetRegistryTag(RowStructureTag, ResolvedRowStructName.ToString(), FAssetRegistryTag::TT_Alphabetical) );
+		OutTags.Add( FAssetRegistryTag(RowStructureTag, GetRowStructName().ToString(), FAssetRegistryTag::TT_Alphabetical) );
 	}
 
 	Super::GetAssetRegistryTags(OutTags);
@@ -329,28 +324,37 @@ UProperty* UDataTable::FindTableProperty(const FName& PropertyName) const
 
 void UDataTable::CleanBeforeStructChange()
 {
-	RowsSerializedWithTags.Reset();
-	TemporarilyReferencedObjects.Empty();
+	if (RowsSerializedWithTags.Num() > 0)
 	{
-		class FRawStructWriter : public FObjectWriter
-		{
-			TSet<UObject*>& TemporarilyReferencedObjects;
-		public: 
-			FRawStructWriter(TArray<uint8>& InBytes, TSet<UObject*>& InTemporarilyReferencedObjects) 
-				: FObjectWriter(InBytes), TemporarilyReferencedObjects(InTemporarilyReferencedObjects) {}
-			virtual FArchive& operator<<(class UObject*& Res) override
-			{
-				FObjectWriter::operator<<(Res);
-				TemporarilyReferencedObjects.Add(Res);
-				return *this;
-			}
-		};
-
-		FRawStructWriter MemoryWriter(RowsSerializedWithTags, TemporarilyReferencedObjects);
-		SaveStructData(MemoryWriter);
+		// This is part of an undo, so restore that value instead of calculating a new one
+		EmptyTable();
 	}
-	EmptyTable();
-	Modify();
+	else
+	{
+		RowsSerializedWithTags.Reset();
+		TemporarilyReferencedObjects.Empty();
+		{
+			class FRawStructWriter : public FObjectWriter
+			{
+				TSet<UObject*>& TemporarilyReferencedObjects;
+			public:
+				FRawStructWriter(TArray<uint8>& InBytes, TSet<UObject*>& InTemporarilyReferencedObjects)
+					: FObjectWriter(InBytes), TemporarilyReferencedObjects(InTemporarilyReferencedObjects) {}
+				virtual FArchive& operator<<(class UObject*& Res) override
+				{
+					FObjectWriter::operator<<(Res);
+					TemporarilyReferencedObjects.Add(Res);
+					return *this;
+				}
+			};
+
+			FRawStructWriter MemoryWriter(RowsSerializedWithTags, TemporarilyReferencedObjects);
+			SaveStructData(MemoryWriter);
+		}
+
+		EmptyTable();
+		Modify();
+	}
 }
 
 void UDataTable::RestoreAfterStructChange()
@@ -455,6 +459,12 @@ bool UDataTable::WriteTableAsJSON(const TSharedRef< TJsonWriter<TCHAR, TPrettyJs
 {
 	return FDataTableExporterJSON(InDTExportFlags, JsonWriter).WriteTable(*this);
 }
+
+bool UDataTable::WriteTableAsJSONObject(const TSharedRef< TJsonWriter<TCHAR, TPrettyJsonPrintPolicy<TCHAR> > >& JsonWriter, const EDataTableExportFlags InDTExportFlags) const
+{
+	return FDataTableExporterJSON(InDTExportFlags, JsonWriter).WriteTableAsObject(*this);
+}
+#endif
 
 /** Get array of UProperties that corresponds to columns in the table */
 TArray<UProperty*> UDataTable::GetTablePropertyArray(const TArray<const TCHAR*>& Cells, UStruct* InRowStruct, TArray<FString>& OutProblems)
@@ -563,6 +573,35 @@ TArray<FString> UDataTable::CreateTableFromJSONString(const FString& InString)
 
 	return OutProblems;
 }
+
+TArray<FString> UDataTable::CreateTableFromOtherTable(const UDataTable* InTable)
+{
+	// Array used to store problems about table creation
+	TArray<FString> OutProblems;
+
+	if (InTable == nullptr)
+	{
+		OutProblems.Add(TEXT("No input table provided"));
+		return OutProblems;
+	}
+
+	RowStruct = InTable->RowStruct;
+
+	EmptyTable();
+
+	UScriptStruct& EmptyUsingStruct = GetEmptyUsingStruct();
+	for (TMap<FName, uint8*>::TConstIterator RowMapIter(InTable->RowMap.CreateConstIterator()); RowMapIter; ++RowMapIter)
+	{
+		uint8* NewRawRowData = (uint8*)FMemory::Malloc(EmptyUsingStruct.GetStructureSize());
+		EmptyUsingStruct.InitializeStruct(NewRawRowData);
+		EmptyUsingStruct.CopyScriptStruct(NewRawRowData, RowMapIter.Value());
+		RowMap.Add(RowMapIter.Key(), NewRawRowData);
+	}
+		
+	return OutProblems;
+}
+
+#if WITH_EDITOR
 
 TArray<FString> UDataTable::GetColumnTitles() const
 {

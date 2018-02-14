@@ -1,12 +1,12 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SocketSubsystemWindows.h"
 #include "SocketSubsystemModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include "Iphlpapi.h"
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 
 FSocketSubsystemWindows* FSocketSubsystemWindows::SocketSingleton = nullptr;

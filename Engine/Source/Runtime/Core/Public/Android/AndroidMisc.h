@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 /*=============================================================================================
@@ -32,6 +32,7 @@ struct CORE_API FAndroidMisc : public FGenericPlatformMisc
 	static bool AllowRenderThread();
 	static bool HasPlatformFeature(const TCHAR* FeatureName);
 	static bool ShouldDisablePluginAtRuntime(const FString& PluginName);
+	static void SetThreadName(const char* name);
 	static bool SupportsES30();
 
 public:

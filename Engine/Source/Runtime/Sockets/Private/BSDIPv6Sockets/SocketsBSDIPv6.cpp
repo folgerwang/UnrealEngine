@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "BSDIPv6Sockets/SocketsBSDIPv6.h"
 
@@ -82,7 +82,7 @@ EIPv6SocketInternalState::Return FSocketBSDIPv6::HasState(EIPv6SocketInternalSta
 #endif
 }
 
-bool FSocketBSDIPv6::HasPendingConnection(bool& bHasPendingConnection)
+bool FSocketBSDIPv6::WaitForPendingConnection(bool& bHasPendingConnection, const FTimespan& WaitTime)
 {
 	bool bHasSucceeded = false;
 	bHasPendingConnection = false;
@@ -91,7 +91,7 @@ bool FSocketBSDIPv6::HasPendingConnection(bool& bHasPendingConnection)
 	if (HasState(EIPv6SocketInternalState::HasError) == EIPv6SocketInternalState::No)
 	{
 		// get the read state
-		EIPv6SocketInternalState::Return State = HasState(EIPv6SocketInternalState::CanRead);
+		EIPv6SocketInternalState::Return State = HasState(EIPv6SocketInternalState::CanRead, WaitTime);
 		
 		// turn the result into the outputs
 		bHasSucceeded = State != EIPv6SocketInternalState::EncounteredError;

@@ -1,18 +1,19 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ControlRigEditMode.h"
 #include "ControlRigEditModeToolkit.h"
 #include "Toolkits/ToolkitManager.h"
 #include "SControlRigEditModeTools.h"
-#include "Containers/Algo/Transform.h"
+#include "Algo/Transform.h"
 #include "ControlRig.h"
 #include "HitProxies.h"
-#include "HierarchicalRig.h"
-#include "HumanRig.h"
+#include "Rigs/HierarchicalRig.h"
+#include "Rigs/HumanRig.h"
 #include "ControlRigEditModeSettings.h"
 #include "ISequencer.h"
-#include "ControlRigSequence.h"
-#include "ControlRigBindingTemplate.h"
+#include "SequencerSettings.h"
+#include "Sequencer/ControlRigSequence.h"
+#include "Sequencer/ControlRigBindingTemplate.h"
 #include "Sections/MovieSceneSpawnSection.h"
 #include "MovieScene.h"
 #include "EditorViewportClient.h"
@@ -20,8 +21,8 @@
 #include "Engine/Selection.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "ControlRigCommands.h"
-#include "SlateApplication.h"
-#include "ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Modules/ModuleManager.h"
 #include "ISequencerModule.h"
 #include "Toolkits/AssetEditorToolkit.h"
 #include "ControlRigEditorModule.h"
@@ -123,7 +124,7 @@ void FControlRigEditMode::SetObjects(const TArray<TWeakObjectPtr<>>& InSelectedO
 	check(InSelectedObjects.Num() == InObjectBindings.Num());
 
 	ControlRigGuids = InObjectBindings;
-	Algo::Transform(InSelectedObjects, ControlRigs, [](TWeakObjectPtr<> Object) { return TWeakObjectPtr<UControlRig>(Cast<UControlRig>(Object.Get())); });
+	Algo::Transform(InSelectedObjects, ControlRigs, [](TWeakObjectPtr<> Object) { return Cast<UControlRig>(Object); });
 
 	SetObjects_Internal();
 }
@@ -1014,6 +1015,25 @@ void FControlRigEditMode::SetNodeSelectionByPropertyPath(const TArray<FString>& 
 	}
 }
 
+FName FControlRigEditMode::GetNodeFromPropertyPath(const FString& InPropertyPath) const
+{
+	for (TWeakObjectPtr<UControlRig> ControlRig : ControlRigs)
+	{
+		if (UHierarchicalRig* HierarchicalRig = Cast<UHierarchicalRig>(ControlRig.Get()))
+		{
+			for (UControlManipulator* Manipulator : HierarchicalRig->Manipulators)
+			{
+				if (InPropertyPath == Manipulator->PropertyToManipulate.ToString())
+				{
+					return Manipulator->Name;
+				}
+			}
+		}
+	}
+	
+	return NAME_None;
+}
+
 void FControlRigEditMode::HandleObjectSpawned(FGuid InObjectBinding, UObject* SpawnedObject, IMovieScenePlayer& Player)
 {
 	if (WeakSequencer.IsValid())
@@ -1174,6 +1194,14 @@ void FControlRigEditMode::HandleSelectionChanged(const TArray<FName>& InSelected
 	if (Settings->bDisplayTrajectories)
 	{
 		TrajectoryCache.RebuildMesh(SelectedIndices);
+	}
+
+	if (WeakSequencer.IsValid())
+	{
+		if (WeakSequencer.Pin()->GetSequencerSettings()->GetShowSelectedNodesOnly())
+		{
+			WeakSequencer.Pin()->RefreshTree();
+		}
 	}
 }
 

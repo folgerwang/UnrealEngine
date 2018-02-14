@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ModulationMatrix.h"
-#include "BiQuadFilter.h"
+#include "DSP/ModulationMatrix.h"
+#include "DSP/BiQuadFilter.h"
 
 namespace Audio
 {

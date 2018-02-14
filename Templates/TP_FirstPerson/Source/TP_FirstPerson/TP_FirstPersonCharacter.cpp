@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "TP_FirstPersonCharacter.h"
 #include "TP_FirstPersonProjectile.h"
@@ -10,6 +10,7 @@
 #include "HeadMountedDisplayFunctionLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "MotionControllerComponent.h"
+#include "XRMotionControllerBase.h" // for FXRMotionControllerBase::RightHandSourceId
 
 DEFINE_LOG_CATEGORY_STATIC(LogFPChar, Warning, All);
 
@@ -60,7 +61,7 @@ ATP_FirstPersonCharacter::ATP_FirstPersonCharacter()
 
 	// Create VR Controllers.
 	R_MotionController = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("R_MotionController"));
-	R_MotionController->Hand = EControllerHand::Right;
+	R_MotionController->MotionSource = FXRMotionControllerBase::RightHandSourceId;
 	R_MotionController->SetupAttachment(RootComponent);
 	L_MotionController = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("L_MotionController"));
 	L_MotionController->SetupAttachment(RootComponent);
@@ -112,17 +113,19 @@ void ATP_FirstPersonCharacter::SetupPlayerInputComponent(class UInputComponent* 
 	// set up gameplay key bindings
 	check(PlayerInputComponent);
 
+	// Bind jump events
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
 	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
 
-	//InputComponent->BindTouch(EInputEvent::IE_Pressed, this, &ATP_FirstPersonCharacter::TouchStarted);
-	if (EnableTouchscreenMovement(PlayerInputComponent) == false)
-	{
-		PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &ATP_FirstPersonCharacter::OnFire);
-	}
+	// Bind fire event
+	PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &ATP_FirstPersonCharacter::OnFire);
+
+	// Enable touchscreen input
+	EnableTouchscreenMovement(PlayerInputComponent);
 
 	PlayerInputComponent->BindAction("ResetVR", IE_Pressed, this, &ATP_FirstPersonCharacter::OnResetVR);
 
+	// Bind movement events
 	PlayerInputComponent->BindAxis("MoveForward", this, &ATP_FirstPersonCharacter::MoveForward);
 	PlayerInputComponent->BindAxis("MoveRight", this, &ATP_FirstPersonCharacter::MoveRight);
 
@@ -194,6 +197,10 @@ void ATP_FirstPersonCharacter::BeginTouch(const ETouchIndex::Type FingerIndex, c
 	{
 		return;
 	}
+	if ((FingerIndex == TouchItem.FingerIndex) && (TouchItem.bMoved == false))
+	{
+		OnFire();
+	}
 	TouchItem.bIsPressed = true;
 	TouchItem.FingerIndex = FingerIndex;
 	TouchItem.Location = Location;
@@ -205,10 +212,6 @@ void ATP_FirstPersonCharacter::EndTouch(const ETouchIndex::Type FingerIndex, con
 	if (TouchItem.bIsPressed == false)
 	{
 		return;
-	}
-	if ((FingerIndex == TouchItem.FingerIndex) && (TouchItem.bMoved == false))
-	{
-		OnFire();
 	}
 	TouchItem.bIsPressed = false;
 }
@@ -283,15 +286,15 @@ void ATP_FirstPersonCharacter::LookUpAtRate(float Rate)
 
 bool ATP_FirstPersonCharacter::EnableTouchscreenMovement(class UInputComponent* PlayerInputComponent)
 {
-	bool bResult = false;
 	if (FPlatformMisc::SupportsTouchInput() || GetDefault<UInputSettings>()->bUseMouseForTouch)
 	{
-		bResult = true;
 		PlayerInputComponent->BindTouch(EInputEvent::IE_Pressed, this, &ATP_FirstPersonCharacter::BeginTouch);
 		PlayerInputComponent->BindTouch(EInputEvent::IE_Released, this, &ATP_FirstPersonCharacter::EndTouch);
 
 		//Commenting this out to be more consistent with FPS BP template.
 		//PlayerInputComponent->BindTouch(EInputEvent::IE_Repeat, this, &ATP_FirstPersonCharacter::TouchUpdate);
+		return true;
 	}
-	return bResult;
+	
+	return false;
 }

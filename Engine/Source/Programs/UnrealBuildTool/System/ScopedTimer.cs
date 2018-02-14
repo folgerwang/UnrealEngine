@@ -1,4 +1,6 @@
-﻿using System;
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -7,7 +9,7 @@ using System.Threading.Tasks;
 namespace UnrealBuildTool
 {
 	/// <summary>
-	/// Scoped timer, start is in the constructor, end in Dispose. Best used with using(var Timer = new ScopedTimer()). Suports nesting.
+	/// Scoped timer, start is in the constructor, end in Dispose. Best used with using(ScopedTimer Timer = new ScopedTimer()). Suports nesting.
 	/// </summary>
 	public class ScopedTimer : IDisposable
 	{

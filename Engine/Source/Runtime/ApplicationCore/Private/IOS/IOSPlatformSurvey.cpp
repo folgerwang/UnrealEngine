@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	IOSPlatformSurvey.cpp: HardwareSurvey implementation
 =============================================================================*/
 
-#include "IOSPlatformSurvey.h"
-#include "IOSAppDelegate.h"
+#include "IOS/IOSPlatformSurvey.h"
+#include "IOS/IOSAppDelegate.h"
 #include "IOSWindow.h"
 
 bool FIOSPlatformSurvey::GetSurveyResults(FHardwareSurveyResults& OutResults, bool bWait)

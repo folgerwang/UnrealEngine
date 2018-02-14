@@ -1,10 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Transport/TcpMessageTransportConnection.h"
 #include "Serialization/ArrayWriter.h"
 #include "Common/TcpSocketBuilder.h"
 #include "TcpMessagingPrivate.h"
 #include "Transport/TcpDeserializedMessage.h"
+#include "Misc/ScopeLock.h"
 
 /** Header sent over the connection as soon as it's opened */
 struct FTcpMessageHeader
@@ -70,8 +71,8 @@ FTcpMessageTransportConnection::FTcpMessageTransportConnection(FSocket* InSocket
 	, RecvMessageDataRemaining(0)
 {
 	int32 NewSize = 0;
-	Socket->SetReceiveBufferSize(2*1024*1024, NewSize);
-	Socket->SetSendBufferSize(2*1024*1024, NewSize);
+	Socket->SetReceiveBufferSize(TCP_MESSAGING_RECEIVE_BUFFER_SIZE, NewSize);
+	Socket->SetSendBufferSize(TCP_MESSAGING_SEND_BUFFER_SIZE, NewSize);
 }
 
 FTcpMessageTransportConnection::~FTcpMessageTransportConnection()
@@ -115,9 +116,36 @@ bool FTcpMessageTransportConnection::Receive(TSharedPtr<FTcpDeserializedMessage,
 
 bool FTcpMessageTransportConnection::Send(FTcpSerializedMessagePtr Message)
 {
-	if (GetConnectionState() == STATE_Connected)
+	FScopeLock SendLock(&SendCriticalSection);
+
+	if (GetConnectionState() == STATE_Connected && bSentHeader)
 	{
-		return Outbox.Enqueue(Message);
+		int32 BytesSent = 0;
+		const TArray<uint8>& Payload = Message->GetDataArray();
+
+		// send the payload size
+		FArrayWriter MessagesizeData = FArrayWriter(true);
+		uint32 Messagesize = Payload.Num();
+		MessagesizeData << Messagesize;
+
+		if (!BlockingSend(MessagesizeData.GetData(), sizeof(uint32)))
+		{
+			UE_LOG(LogTcpMessaging, Verbose, TEXT("Payload size write failed with code %d"), (int32)ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->GetLastErrorCode());
+			return false;
+		}
+
+		TotalBytesSent += sizeof(uint32);
+
+		// send the payload
+		if (!BlockingSend(Payload.GetData(), Payload.Num()))
+		{
+			UE_LOG(LogTcpMessaging, Verbose, TEXT("Payload write failed with code %d"), (int32)ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->GetLastErrorCode());
+			return false;
+		}
+
+		TotalBytesSent += Payload.Num();
+
+		return true;
 	}
 
 	return false;
@@ -136,35 +164,51 @@ uint32 FTcpMessageTransportConnection::Run()
 {
 	while (bRun)
 	{
-		// Try sending and receiving messages and detect if they fail or if another connection error is reported.
-		if ((!ReceiveMessages() || !SendMessages() || Socket->GetConnectionState() == SCS_ConnectionError) && bRun)
+		// Try sending the header if needed, and receiving messages and detect if they fail or if another connection error is reported.
+		if ((!SendHeader() || !ReceiveMessages() || Socket->GetConnectionState() == SCS_ConnectionError) && bRun)
 		{
 			// Disconnected. Reconnect if requested.
 			if (ConnectionRetryDelay > 0)
 			{
-				Socket->Close();
-				ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->DestroySocket(Socket);
-				Socket = nullptr;
+				bool bReconnectPending = false;
 
-				UE_LOG(LogTcpMessaging, Verbose, TEXT("Connection to '%s' failed, retrying..."), *RemoteEndpoint.ToString());
-				FPlatformProcess::Sleep(ConnectionRetryDelay);
-
-				Socket = FTcpSocketBuilder(TEXT("FTcpMessageTransport.RemoteConnection"));
-				if (Socket && Socket->Connect(RemoteEndpoint.ToInternetAddr().Get()))
 				{
-					bSentHeader = false;
-					bReceivedHeader = false;
-					UpdateConnectionState(STATE_DisconnectReconnectPending);
-					RemoteNodeId.Invalidate();
+				    // Wait for any sending before we close the socket
+				    FScopeLock SendLock(&SendCriticalSection);
+    
+				    Socket->Close();
+				    ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->DestroySocket(Socket);
+				    Socket = nullptr;
+    
+				    UE_LOG(LogTcpMessaging, Verbose, TEXT("Connection to '%s' failed, retrying..."), *RemoteEndpoint.ToString());
+				    FPlatformProcess::Sleep(ConnectionRetryDelay);
+    
+				    Socket = FTcpSocketBuilder(TEXT("FTcpMessageTransport.RemoteConnection"))
+						.WithSendBufferSize(TCP_MESSAGING_SEND_BUFFER_SIZE)
+						.WithReceiveBufferSize(TCP_MESSAGING_RECEIVE_BUFFER_SIZE);
+
+				    if (Socket && Socket->Connect(RemoteEndpoint.ToInternetAddr().Get()))
+				    {
+					    bSentHeader = false;
+					    bReceivedHeader = false;
+						ConnectionState = STATE_DisconnectReconnectPending;
+					    RemoteNodeId.Invalidate();
+						bReconnectPending = true;
+				    }
+				    else
+				    {
+					    if (Socket)
+					    {
+						    ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->DestroySocket(Socket);
+						    Socket = nullptr;
+					    }
+					    bRun = false;
+				    }
 				}
-				else
+
+				if (bReconnectPending)
 				{
-					if (Socket)
-					{
-						ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->DestroySocket(Socket);
-						Socket = nullptr;
-					}
-					bRun = false;
+					ConnectionStateChangedDelegate.ExecuteIfBound();
 				}
 			}
 			else
@@ -176,7 +220,12 @@ uint32 FTcpMessageTransportConnection::Run()
 		FPlatformProcess::SleepNoStats(0.0001f);
 	}
 
-	UpdateConnectionState(STATE_Disconnected);
+	{
+		FScopeLock SendLock(&SendCriticalSection);
+		ConnectionState = STATE_Disconnected;
+	}
+	ConnectionStateChangedDelegate.ExecuteIfBound();
+	
 	RemoteNodeId.Invalidate();
 	ClosedTime = FDateTime::UtcNow();
 
@@ -255,17 +304,11 @@ FGuid FTcpMessageTransportConnection::GetRemoteNodeId() const
 	return RemoteNodeId;
 }
 
-void FTcpMessageTransportConnection::UpdateConnectionState(EConnectionState NewConnectionState)
-{
-	ConnectionState = NewConnectionState;
-	ConnectionStateChangedDelegate.ExecuteIfBound();
-}
-
 bool FTcpMessageTransportConnection::ReceiveMessages()
 {
 	ISocketSubsystem* SocketSubsystem = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM);
 	uint32 PendingDataSize = 0;
-
+	
 	// check if the socket has closed
 	{
 		int32 BytesRead;
@@ -275,6 +318,12 @@ bool FTcpMessageTransportConnection::ReceiveMessages()
 			UE_LOG(LogTcpMessaging, Verbose, TEXT("Dummy read failed with code %d"), (int32)SocketSubsystem->GetLastErrorCode());
 			return false;
 		}
+	}
+	
+	// Block waiting for some data
+	if (!Socket->Wait(ESocketWaitConditions::WaitForRead, FTimespan::FromSeconds(1.0)))
+	{
+		return (Socket->GetConnectionState() != SCS_ConnectionError);
 	}
 	
 	if (!bReceivedHeader)
@@ -307,7 +356,11 @@ bool FTcpMessageTransportConnection::ReceiveMessages()
 				RemoteProtocolVersion = MessageHeader.GetVersion();
 				bReceivedHeader = true;
 				OpenedTime = FDateTime::UtcNow();
-				UpdateConnectionState(STATE_Connected);
+	            {
+		            FScopeLock SendLock(&SendCriticalSection);
+		            ConnectionState = STATE_Connected;
+				}
+	            ConnectionStateChangedDelegate.ExecuteIfBound();
 			}
 		}
 		else
@@ -408,71 +461,36 @@ bool FTcpMessageTransportConnection::BlockingSend(const uint8* Data, int32 Bytes
 	return true;
 }
 
-bool FTcpMessageTransportConnection::SendMessages()
+bool FTcpMessageTransportConnection::SendHeader()
 {
-	ISocketSubsystem* SocketSubsystem = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM);
-	if (Outbox.IsEmpty() && bSentHeader)
+	if (bSentHeader)
 	{
 		return true;
 	}
 
+	FScopeLock SendLock(&SendCriticalSection);
+
+	ISocketSubsystem* SocketSubsystem = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM);
+
+	// See if we're writable
 	if (!Socket->Wait(ESocketWaitConditions::WaitForWrite, FTimespan::Zero()))
 	{
 		return true;
 	}
 
-	if (!bSentHeader)
+	FArrayWriter HeaderData;
+	FTcpMessageHeader MessageHeader(LocalNodeId);
+	HeaderData << MessageHeader;
+
+	if (!BlockingSend(HeaderData.GetData(), sizeof(FTcpMessageHeader)))
 	{
-		FArrayWriter HeaderData;
-		FTcpMessageHeader MessageHeader(LocalNodeId);
-		HeaderData << MessageHeader;
-
-		if (!BlockingSend(HeaderData.GetData(), sizeof(FTcpMessageHeader)))
-		{
-			UE_LOG(LogTcpMessaging, Verbose, TEXT("Header write failed with code %d"), (int32)SocketSubsystem->GetLastErrorCode());
-			return false;
-		}
-
-		bSentHeader = true;
-		TotalBytesSent += sizeof(FTcpMessageHeader);
+		UE_LOG(LogTcpMessaging, Verbose, TEXT("Header write failed with code %d"), (int32)SocketSubsystem->GetLastErrorCode());
+		return false;
 	}
-	else
-	{
-		FTcpSerializedMessagePtr Message;
-		while (Outbox.Dequeue(Message))
-		{
-			int32 BytesSent = 0;
-			const TArray<uint8>& Payload = Message->GetDataArray();
 
-			// send the payload size
-			FArrayWriter MessagesizeData = FArrayWriter(true);
-			uint32 Messagesize = Payload.Num();
-			MessagesizeData << Messagesize;
+	bSentHeader = true;
+	TotalBytesSent += sizeof(FTcpMessageHeader);
 
-			if (!BlockingSend(MessagesizeData.GetData(), sizeof(uint32)))
-			{
-				UE_LOG(LogTcpMessaging, Verbose, TEXT("Payload size write failed with code %d"), (int32)SocketSubsystem->GetLastErrorCode());
-				return false;
-			}
-
-			TotalBytesSent += sizeof(uint32);
-
-			// send the payload
-			if (!BlockingSend(Payload.GetData(), Payload.Num()))
-			{
-				UE_LOG(LogTcpMessaging, Verbose, TEXT("Payload write failed with code %d"), (int32)SocketSubsystem->GetLastErrorCode());
-				return false;
-			}
-
-			TotalBytesSent += Payload.Num();
-
-			// return if the socket is no longer writable, or that was the last message
-			if (Outbox.IsEmpty() || !Socket->Wait(ESocketWaitConditions::WaitForWrite, FTimespan::Zero()))
-			{
-				return true;
-			}
-		}
-	}
 	return true;
 }
 

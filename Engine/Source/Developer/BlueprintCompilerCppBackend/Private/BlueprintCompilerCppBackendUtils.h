@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #pragma  once
 
 #include "CoreMinimal.h"
@@ -321,7 +321,7 @@ struct FNonativeComponentData;
 
 struct FEmitDefaultValueHelper
 {
-	static void GenerateGetDefaultValue(const UUserDefinedStruct* Struct, FEmitterLocalContext& EmitterContext);
+	static void GenerateUserStructConstructor(const UUserDefinedStruct* Struct, FEmitterLocalContext& EmitterContext);
 
 	static void GenerateConstructor(FEmitterLocalContext& Context);
 
@@ -384,8 +384,12 @@ struct FBackendHelperUMG
 struct FBackendHelperAnim
 {
 	static void AddHeaders(FEmitterLocalContext& EmitterContext);
-
 	static void CreateAnimClassData(FEmitterLocalContext& Context);
+	static bool ShouldAddAnimNodeInitializationFunctionCall(FEmitterLocalContext& Context, const UProperty* InProperty);
+	static void AddAllAnimNodesInitializationFunction(FEmitterLocalContext& Context, const FString& InCppClassName, const TArray<const UProperty*>& InAnimProperties);
+	static void AddAllAnimNodesInitializationFunctionCall(FEmitterLocalContext& Context);
+	static void AddAnimNodeInitializationFunctionCall(FEmitterLocalContext& Context, const UProperty* InProperty);
+	static void AddAnimNodeInitializationFunction(FEmitterLocalContext& Context, const FString& InCppClassName, const UProperty* InProperty, bool bInNewProperty, UObject* InCDO, UObject* InParentCDO);
 };
 
 /** this struct helps generate a static function that initializes Static Searchable Values. */
@@ -429,6 +433,16 @@ private:
 public:
 	FDisableUnwantedWarningOnScope(FCodeText& InCodeText);
 	~FDisableUnwantedWarningOnScope();
+};
+
+struct FDisableOptimizationOnScope
+{
+private:
+	FCodeText& CodeText;
+
+public:
+	FDisableOptimizationOnScope(FCodeText& InCodeText);
+	~FDisableOptimizationOnScope();
 };
 
 struct FStructAccessHelper

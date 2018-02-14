@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MetalViewport.h: Metal viewport RHI definitions.
@@ -7,11 +7,11 @@
 #pragma once
 
 #if PLATFORM_MAC
-#include "CocoaTextView.h"
+#include "Mac/CocoaTextView.h"
 @interface FMetalView : FCocoaTextView
 @end
 #endif
-#include "PlatformFramePacer.h"
+#include "HAL/PlatformFramePacer.h"
 
 enum EMetalViewportAccessFlag
 {
@@ -68,6 +68,7 @@ private:
 	FMetalViewportPresentHandler Block;
 	volatile int32 FrameAvailable;
 	TRefCountPtr<FMetalTexture2D> LastCompleteFrame;
+	bool bIsFullScreen;
 
 #if PLATFORM_MAC
 	FMetalView* View;

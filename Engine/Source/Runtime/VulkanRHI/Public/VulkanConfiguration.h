@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanConfiguration.h: Vulkan resource RHI definitions.
@@ -75,6 +75,8 @@ inline EDescriptorSetStage GetDescriptorSetForStage(EShaderFrequency Stage)
 // Keep the Vk*CreateInfo stored per object for debugging
 #define VULKAN_KEEP_CREATE_INFO									0
 
+#define VULKAN_USE_PER_PIPELINE_DESCRIPTOR_POOLS				PLATFORM_WINDOWS
+
 #define VULKAN_SINGLE_ALLOCATION_PER_RESOURCE					0
 
 #define VULKAN_CUSTOM_MEMORY_MANAGER_ENABLED					0
@@ -88,6 +90,8 @@ inline EDescriptorSetStage GetDescriptorSetForStage(EShaderFrequency Stage)
 #define VULKAN_ENABLE_RHI_DEBUGGING								1
 
 #define VULKAN_REUSE_FENCES										1
+
+#define VULKAN_ENABLE_DESKTOP_HMD_SUPPORT						PLATFORM_WINDOWS
 
 #if PLATFORM_ANDROID
 	#define VULKAN_SIGNAL_UNIMPLEMENTED()

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "WmfMediaUtils.h"
 
@@ -14,7 +14,7 @@
 
 #include "WmfMediaByteStream.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 #define WMFMEDIA_FRAMERATELUT_SIZE 9
 
@@ -341,8 +341,30 @@ namespace WmfMedia
 	}
 
 
-	TComPtr<IMFMediaType> CreateOutputType(const GUID& MajorType, const GUID& SubType, bool AllowNonStandardCodecs)
+	TComPtr<IMFMediaType> CreateOutputType(IMFMediaType& InputType, bool AllowNonStandardCodecs, bool IsVideoDevice)
 	{
+		GUID MajorType;
+		{
+			const HRESULT Result = InputType.GetGUID(MF_MT_MAJOR_TYPE, &MajorType);
+
+			if (FAILED(Result))
+			{
+				UE_LOG(LogWmfMedia, Warning, TEXT("Failed to get major type: %s"), *ResultToString(Result));
+				return NULL;
+			}
+		}
+
+		GUID SubType;
+		{
+			const HRESULT Result = InputType.GetGUID(MF_MT_SUBTYPE, &SubType);
+
+			if (FAILED(Result))
+			{
+				UE_LOG(LogWmfMedia, Warning, TEXT("Failed to get sub-type: %s"), *ResultToString(Result));
+				return NULL;
+			}
+		}
+
 		TComPtr<IMFMediaType> OutputType;
 		{
 			HRESULT Result = ::MFCreateMediaType(&OutputType);
@@ -407,12 +429,20 @@ namespace WmfMedia
 				}
 			}
 
-			// configure audio output (re-sampling fails for many media types, so we don't attempt it)
+			// configure audio output
 			if (FAILED(OutputType->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Audio)) ||
 				FAILED(OutputType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_PCM)) ||
 				FAILED(OutputType->SetUINT32(MF_MT_AUDIO_BITS_PER_SAMPLE, 16u)))
 			{
 				UE_LOG(LogWmfMedia, Warning, TEXT("Failed to initialize audio output type"));
+				return NULL;
+			}
+
+			// copy media type attributes
+			if (FAILED(CopyAttribute(&InputType, OutputType, MF_MT_AUDIO_NUM_CHANNELS)) ||
+				FAILED(CopyAttribute(&InputType, OutputType, MF_MT_AUDIO_SAMPLES_PER_SECOND)))
+			{
+				UE_LOG(LogWmfMedia, Warning, TEXT("Failed to copy audio output type attributes"));
 				return NULL;
 			}
 		}
@@ -453,17 +483,30 @@ namespace WmfMedia
 				}
 			}
 
-			if ((SubType == MFVideoFormat_HEVC) && !FWindowsPlatformMisc::VerifyWindowsVersion(10, 0))
+			if ((SubType == MFVideoFormat_H264) || (SubType == MFVideoFormat_H264_ES))
 			{
-				UE_LOG(LogWmfMedia, Warning, TEXT("Your Windows version is %s"), *FPlatformMisc::GetOSVersion());
-
-				if ((SubType == MFVideoFormat_HEVC) && !FWindowsPlatformMisc::VerifyWindowsVersion(6, 2))
+				if (IsVideoDevice /*&& !FWindowsPlatformMisc::VerifyWindowsVersion(6, 2)*/ /*Win8*/)
 				{
-					UE_LOG(LogWmfMedia, Warning, TEXT("HEVC video type requires Windows 10 or newer"));
+					UE_LOG(LogWmfMedia, Warning, TEXT("Your Windows version is %s"), *FPlatformMisc::GetOSVersion());
+					UE_LOG(LogWmfMedia, Warning, TEXT("H264 video type requires Windows 8 or newer"));
 					return NULL;
 				}
+			}
 
-				UE_LOG(LogWmfMedia, Warning, TEXT("HEVC video type requires Windows 10 or newer (game must be manifested for Windows 10)"));
+			if ((SubType == MFVideoFormat_HEVC) || (SubType == MFVideoFormat_HEVC_ES))
+			{
+				if (!FWindowsPlatformMisc::VerifyWindowsVersion(10, 0) /*Win10*/)
+				{
+					UE_LOG(LogWmfMedia, Warning, TEXT("Your Windows version is %s"), *FPlatformMisc::GetOSVersion());
+
+					if (!FWindowsPlatformMisc::VerifyWindowsVersion(6, 2) /*Win8*/)
+					{
+						UE_LOG(LogWmfMedia, Warning, TEXT("HEVC video type requires Windows 10 or newer"));
+						return NULL;
+					}
+
+					UE_LOG(LogWmfMedia, Warning, TEXT("HEVC video type requires Windows 10 or newer (game must be manifested for Windows 10)"));
+				}
 			}
 
 			// configure video output
@@ -475,7 +518,10 @@ namespace WmfMedia
 				return NULL;
 			}
 
-			if (SubType == MFVideoFormat_HEVC)
+			if ((SubType == MFVideoFormat_HEVC) ||
+				(SubType == MFVideoFormat_HEVC_ES) ||
+				(SubType == MFVideoFormat_NV12) ||
+				(SubType == MFVideoFormat_IYUV))
 			{
 				Result = OutputType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_NV12);
 			}
@@ -495,6 +541,21 @@ namespace WmfMedia
 			{
 				UE_LOG(LogWmfMedia, Warning, TEXT("Failed to set video output sub-type: %s"), *ResultToString(Result));
 				return NULL;
+			}
+
+			// copy media type attributes
+			if (IsVideoDevice)
+			{
+				// the following attributes seem to help with web cam issues on Windows 7,
+				// but we generally don't want to copy these for any other media sources
+				// and let the WMF topology resolver pick optimal defaults instead.
+
+				if (FAILED(CopyAttribute(&InputType, OutputType, MF_MT_FRAME_RATE)) ||
+					FAILED(CopyAttribute(&InputType, OutputType, MF_MT_FRAME_SIZE)))
+				{
+					UE_LOG(LogWmfMedia, Warning, TEXT("Failed to copy video output type attributes"));
+					return NULL;
+				}
 			}
 		}
 		else
@@ -540,7 +601,7 @@ namespace WmfMedia
 
 			if (Guid == MF_MT_AM_FORMAT_TYPE)
 			{
-				Dump += Dump += FString::Printf(TEXT("\t%s: %s (%s)\n"), *GuidName, *GuidToString(*Item.puuid), *FormatTypeToString(*Item.puuid));
+				Dump += FString::Printf(TEXT("\t%s: %s (%s)\n"), *GuidName, *GuidToString(*Item.puuid), *FormatTypeToString(*Item.puuid));
 			}
 			else if (Guid == MF_MT_MAJOR_TYPE)
 			{
@@ -699,11 +760,18 @@ namespace WmfMedia
 		for (int32 CharIndex = 0; CharIndex < 4; ++CharIndex)
 		{
 			const unsigned char C = Fourcc & 0xff;
-			Result += FString::Printf(TChar<char>::IsPrint(C) ? TEXT("%c") : TEXT("[%d]"), C);
+			if (TChar<char>::IsPrint(C))
+			{
+				Result += FString::Printf(TEXT("%c"), C);
+			}
+			else
+			{
+				Result += FString::Printf(TEXT("[%d]"), C);
+			}
 			Fourcc >>= 8;
 		}
 
-		return Result;
+		return Result.Reverse();
 	}
 
 
@@ -1127,8 +1195,10 @@ namespace WmfMedia
 	{
 		if (!Archive.IsValid())
 		{
+			const bool IsAudioDevice = Url.StartsWith(TEXT("audcap://"));
+			
 			// create capture device media source
-			if (Url.StartsWith(TEXT("audcap://")) || Url.StartsWith(TEXT("vidcap://")))
+			if (IsAudioDevice || Url.StartsWith(TEXT("vidcap://")))
 			{
 				const TCHAR* EndpointOrSymlink = &Url[9];
 
@@ -1142,11 +1212,7 @@ namespace WmfMedia
 						return NULL;
 					}
 
-					const bool IsAudioDevice = Url.StartsWith(TEXT("audcap://"));
-
-					Result = Attributes->SetGUID(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE, IsAudioDevice
-						? MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_AUDCAP_GUID
-						: MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID);
+					Result = Attributes->SetGUID(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE, IsAudioDevice ? MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_AUDCAP_GUID : MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID);
 
 					if (FAILED(Result))
 					{
@@ -1154,14 +1220,7 @@ namespace WmfMedia
 						return NULL;
 					}
 
-					if (IsAudioDevice)
-					{
-						Result = Attributes->SetString(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_AUDCAP_ENDPOINT_ID, EndpointOrSymlink);
-					}
-					else
-					{
-						Result = Attributes->SetString(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_SYMBOLIC_LINK, EndpointOrSymlink);
-					}
+					Result = Attributes->SetString(IsAudioDevice ? MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_AUDCAP_ENDPOINT_ID : MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_SYMBOLIC_LINK, EndpointOrSymlink);
 
 					if (FAILED(Result))
 					{
@@ -1740,6 +1799,6 @@ namespace WmfMedia
 }
 
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #endif //WMFMEDIA_SUPPORTED_PLATFORM

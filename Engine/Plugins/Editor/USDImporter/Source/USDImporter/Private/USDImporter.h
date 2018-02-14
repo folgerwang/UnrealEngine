@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once 
 
 #include "USDImportOptions.h"
-#include "TokenizedMessage.h"
+#include "Logging/TokenizedMessage.h"
 #include "USDPrimResolver.h"
 
 THIRD_PARTY_INCLUDES_START
@@ -94,7 +94,7 @@ public:
 
 	IUsdStage* ReadUSDFile(FUsdImportContext& ImportContext, const FString& Filename);
 
-	UObject* ImportMeshes(FUsdImportContext& ImportContext, const TArray<FUsdPrimToImport>& PrimsToImport);
+	TArray<UObject*> ImportMeshes(FUsdImportContext& ImportContext, const TArray<FUsdAssetPrimToImport>& PrimsToImport);
 
-	UObject* ImportSingleMesh(FUsdImportContext& ImportContext, EUsdMeshImportType ImportType, const FUsdPrimToImport& PrimToImport);
+	UObject* ImportSingleMesh(FUsdImportContext& ImportContext, EUsdMeshImportType ImportType, const FUsdAssetPrimToImport& PrimToImport);
 };

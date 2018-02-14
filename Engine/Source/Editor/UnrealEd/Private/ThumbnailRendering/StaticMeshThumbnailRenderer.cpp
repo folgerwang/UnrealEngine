@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ThumbnailRendering/StaticMeshThumbnailRenderer.h"
 #include "Misc/App.h"
@@ -6,10 +6,6 @@
 #include "SceneView.h"
 #include "ThumbnailHelpers.h"
 #include "Engine/StaticMesh.h"
-
-// FPreviewScene derived helpers for rendering
-#include "RendererInterface.h"
-#include "EngineModule.h"
 
 UStaticMeshThumbnailRenderer::UStaticMeshThumbnailRenderer(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -22,8 +18,13 @@ void UStaticMeshThumbnailRenderer::Draw(UObject* Object, int32 X, int32 Y, uint3
 	UStaticMesh* StaticMesh = Cast<UStaticMesh>(Object);
 	if (StaticMesh != nullptr && !StaticMesh->IsPendingKill())
 	{
-		if ( ThumbnailScene == nullptr )
+		if (ThumbnailScene == nullptr || ensure(ThumbnailScene->GetWorld() != nullptr) == false)
 		{
+			if (ThumbnailScene)
+			{
+				FlushRenderingCommands();
+				delete ThumbnailScene;
+			}
 			ThumbnailScene = new FStaticMeshThumbnailScene();
 		}
 
@@ -38,7 +39,7 @@ void UStaticMeshThumbnailRenderer::Draw(UObject* Object, int32 X, int32 Y, uint3
 		ViewFamily.EngineShowFlags.LOD = 0;
 
 		ThumbnailScene->GetView(&ViewFamily, X, Y, Width, Height);
-		GetRendererModule().BeginRenderingViewFamily(Canvas,&ViewFamily);
+		RenderViewFamily(Canvas,&ViewFamily);
 		ThumbnailScene->SetStaticMesh(nullptr);
 	}
 }

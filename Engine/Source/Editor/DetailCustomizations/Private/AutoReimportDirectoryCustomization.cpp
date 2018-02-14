@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AutoReimportDirectoryCustomization.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
@@ -20,7 +20,7 @@
 #include "DetailLayoutBuilder.h"
 #include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 
 
 #include "DesktopPlatformModule.h"

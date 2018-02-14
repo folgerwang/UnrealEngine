@@ -1,9 +1,9 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SNiagaraSelectedObjectsDetails.h"
 #include "NiagaraObjectSelection.h"
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
 #include "IDetailsView.h"
 

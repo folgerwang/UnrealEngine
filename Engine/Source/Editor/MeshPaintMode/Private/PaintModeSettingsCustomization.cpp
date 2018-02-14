@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "PaintModeSettingsCustomization.h"
 
@@ -7,7 +7,7 @@
 #include "IDetailPropertyRow.h"
 #include "IDetailChildrenBuilder.h"
 #include "DetailWidgetRow.h"
-#include "STextBlock.h"
+#include "Widgets/Text/STextBlock.h"
 #include "PropertyRestriction.h"
 
 #include "Engine/Texture2D.h"

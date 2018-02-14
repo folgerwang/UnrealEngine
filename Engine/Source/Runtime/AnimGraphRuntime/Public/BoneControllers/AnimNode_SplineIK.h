@@ -1,8 +1,8 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "AnimNode_SkeletalControlBase.h"
+#include "BoneControllers/AnimNode_SkeletalControlBase.h"
 #include "Components/SplineComponent.h"
 #include "AlphaBlend.h"
 #include "AnimNode_SplineIK.generated.h"

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -369,6 +369,8 @@ namespace AutomationTool
 
 		/// <summary>
 		/// Remaps movie directory for platforms that need a remap
+		/// If true, CopyBuildToStagingDirectory.Automation.cs will do this. 
+		/// If false, each platform can still do this individually.
 		/// </summary>
 		public virtual bool StageMovies
 		{

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,7 +8,7 @@
 #include "Animation/AnimSequence.h"
 #include "Animation/BlendSpace.h"
 #include "Animation/AnimBlueprintGeneratedClass.h"
-#include "CompilerResultsLog.h"
+#include "Kismet2/CompilerResultsLog.h"
 
 #include "AnimBlueprintPostCompileValidation.generated.h"
 

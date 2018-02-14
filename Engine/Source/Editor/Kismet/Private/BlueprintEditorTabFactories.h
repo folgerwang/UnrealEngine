@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -53,29 +53,6 @@ struct FLocalKismetCallbacks
 
 		return LOCTEXT("UnknownGraphName", "UNKNOWN");
 	}
-
-	static void RecompileGraphEditor_OnClicked()
-	{
-		FAssetEditorManager::Get().CloseAllAssetEditors();
-		GEngine->DeferredCommands.Add( TEXT( "Module Recompile GraphEditor" ) );
-	}
-
-	static void RecompileKismetCompiler_OnClicked()
-	{
-		GEngine->DeferredCommands.Add( TEXT( "Module Recompile KismetCompiler" ) );
-	}
-
-	static void RecompileBlueprintEditor_OnClicked()
-	{
-		FAssetEditorManager::Get().CloseAllAssetEditors();
-		GEngine->DeferredCommands.Add( TEXT( "Module Recompile Kismet" ) );
-	}
-
-	static void RecompilePersona_OnClicked()
-	{
-		FAssetEditorManager::Get().CloseAllAssetEditors();
-		GEngine->DeferredCommands.Add( TEXT( "Module Recompile Persona" ) );
-	}
 };
 
 /////////////////////////////////////////////////////
@@ -128,7 +105,7 @@ public:
 
 	}
 
-	virtual void EvokeHistory(TSharedPtr<FTabInfo> InTabInfo) override;
+	virtual void EvokeHistory(TSharedPtr<FTabInfo> InTabInfo, bool bPrevTabMatches) override;
 
 	virtual void SaveHistory() override;
 

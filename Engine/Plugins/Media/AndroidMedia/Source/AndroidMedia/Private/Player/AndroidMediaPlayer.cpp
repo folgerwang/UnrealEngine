@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidMediaPlayer.h"
 #include "AndroidMediaPrivate.h"
@@ -17,7 +17,7 @@
 #include "UObject/UObjectGlobals.h"
 #include "ExternalTexture.h"
 
-#include "AndroidJavaMediaPlayer.h"
+#include "Android/AndroidJavaMediaPlayer.h"
 #include "AndroidMediaTextureSample.h"
 
 #define ANDROIDMEDIAPLAYER_USE_EXTERNALTEXTURE 1

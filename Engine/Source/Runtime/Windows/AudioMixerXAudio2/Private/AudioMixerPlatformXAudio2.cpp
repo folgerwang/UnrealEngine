@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /**
 	Concrete implementation of FAudioDevice for XAudio2
@@ -238,16 +238,18 @@ namespace Audio
 				if (WaveFormatExtensible->dwChannelMask & ChannelTypeMap[ChannelTypeIndex])
 				{
 					OutInfo.OutputChannelArray.Add((EAudioMixerChannel::Type)ChannelTypeIndex);
+					++ChanCount;
 				}
-				else
-				{
-					EAudioMixerChannel::Type ChannelType;
-					bool bSuccess = GetChannelTypeAtIndex(ChanCount, ChannelType);
-					check(bSuccess);
+			}
 
-					OutInfo.OutputChannelArray.Add(ChannelType);
+			if (ChanCount != WaveFormatEx.nChannels)
+			{
+				UE_LOG(LogAudioMixerDebug, Warning, TEXT("Did not find the channel type flags for audio device '%s'. Filling in with default channel type mappings"), *OutInfo.Name);
+				while ((int32)ChanCount < OutInfo.OutputChannelArray.Num())
+				{
+					// Fill in the channel array with speaker types as a guess. This may not be accurate.
+					OutInfo.OutputChannelArray.Add((EAudioMixerChannel::Type)ChanCount++);
 				}
-				++ChanCount;
 			}
 		}
 		else

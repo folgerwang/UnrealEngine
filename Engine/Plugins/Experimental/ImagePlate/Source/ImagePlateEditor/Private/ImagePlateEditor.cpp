@@ -1,12 +1,12 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ISequencerModule.h"
 #include "Modules/ModuleInterface.h"
 #include "Modules/ModuleManager.h"
 #include "MovieSceneImagePlateSection.h"
 #include "PropertyEditorModule.h"
-#include "SlateStyle.h"
-#include "SlateStyleRegistry.h"
+#include "Styling/SlateStyle.h"
+#include "Styling/SlateStyleRegistry.h"
 #include "ImagePlateTrackEditor.h"
 #include "AssetTypeActions_ImagePlateFileSequence.h"
 #include "IAssetTools.h"

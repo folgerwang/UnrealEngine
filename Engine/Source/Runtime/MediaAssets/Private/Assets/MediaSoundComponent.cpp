@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MediaSoundComponent.h"
 
@@ -17,9 +17,16 @@
 UMediaSoundComponent::UMediaSoundComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, Channels(EMediaSoundChannels::Stereo)
+	, CachedRate(0.0f)
+	, CachedTime(FTimespan::Zero())
 	, Resampler(new FMediaAudioResampler)
 {
 	PrimaryComponentTick.bCanEverTick = true;
+	bAutoActivate = true;
+
+#if PLATFORM_MAC
+	PreferredBufferLength = 2048; // increase buffer callback size on macOS to prevent underruns
+#endif
 }
 
 
@@ -32,16 +39,25 @@ UMediaSoundComponent::~UMediaSoundComponent()
 /* UMediaSoundComponent interface
  *****************************************************************************/
 
+void UMediaSoundComponent::SetMediaPlayer(UMediaPlayer* NewMediaPlayer)
+{
+	CurrentPlayer = NewMediaPlayer;
+}
+
+
 void UMediaSoundComponent::UpdatePlayer()
 {
-	if (MediaPlayer == nullptr)
+	if (!CurrentPlayer.IsValid())
 	{
+		CachedRate = 0.0f;
+		CachedTime = FTimespan::Zero();
 		SampleQueue.Reset();
+
 		return;
 	}
 
 	// create a new sample queue if the player changed
-	TSharedRef<FMediaPlayerFacade, ESPMode::ThreadSafe> PlayerFacade = MediaPlayer->GetPlayerFacade();
+	TSharedRef<FMediaPlayerFacade, ESPMode::ThreadSafe> PlayerFacade = CurrentPlayer->GetPlayerFacade();
 
 	if (PlayerFacade != CurrentPlayerFacade)
 	{
@@ -55,6 +71,10 @@ void UMediaSoundComponent::UpdatePlayer()
 		PlayerFacade->AddAudioSampleSink(SampleQueue.ToSharedRef());
 		CurrentPlayerFacade = PlayerFacade;
 	}
+
+	// caching play rate and time for audio thread (eventual consistency is sufficient)
+	CachedRate = PlayerFacade->GetRate();
+	CachedTime = PlayerFacade->GetTime();
 
 	check(SampleQueue.IsValid());
 }
@@ -71,7 +91,7 @@ void UMediaSoundComponent::TickComponent(float DeltaTime, enum ELevelTick TickTy
 }
 
 
-/* USynthComponent interface
+/* USceneComponent interface
  *****************************************************************************/
 
 void UMediaSoundComponent::Activate(bool bReset)
@@ -96,10 +116,45 @@ void UMediaSoundComponent::Deactivate()
 }
 
 
+/* UObject interface
+ *****************************************************************************/
+
+void UMediaSoundComponent::PostLoad()
+{
+	Super::PostLoad();
+
+	CurrentPlayer = MediaPlayer;
+}
+
+
+#if WITH_EDITOR
+
+void UMediaSoundComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	static const FName MediaPlayerName = GET_MEMBER_NAME_CHECKED(UMediaSoundComponent, MediaPlayer);
+
+	UProperty* PropertyThatChanged = PropertyChangedEvent.Property;
+
+	if (PropertyThatChanged != nullptr)
+	{
+		const FName PropertyName = PropertyThatChanged->GetFName();
+
+		if (PropertyName == MediaPlayerName)
+		{
+			CurrentPlayer = MediaPlayer;
+		}
+	}
+
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+
+#endif //WITH_EDITOR
+
+
 /* USynthComponent interface
  *****************************************************************************/
 
-void UMediaSoundComponent::Init(const int32 SampleRate)
+bool UMediaSoundComponent::Init(int32& SampleRate)
 {
 	Super::Init(SampleRate);
 
@@ -117,24 +172,22 @@ void UMediaSoundComponent::Init(const int32 SampleRate)
 	}*/
 
 	Resampler->Initialize(NumChannels, SampleRate);
+	return true;
 }
 
 
 void UMediaSoundComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 {
-	TSharedPtr<FMediaPlayerFacade, ESPMode::ThreadSafe> PinnedPlayerFacade;
 	TSharedPtr<FMediaAudioSampleQueue, ESPMode::ThreadSafe> PinnedSampleQueue;
 	{
 		FScopeLock Lock(&CriticalSection);
-
-		PinnedPlayerFacade = CurrentPlayerFacade.Pin();
 		PinnedSampleQueue = SampleQueue;
 	}
 
-	if (PinnedPlayerFacade.IsValid() && PinnedPlayerFacade->IsPlaying() && PinnedSampleQueue.IsValid())
+	if (PinnedSampleQueue.IsValid() && (CachedRate != 0.0f))
 	{
 		const uint32 FramesRequested = NumSamples / NumChannels;
-		const uint32 FramesWritten = Resampler->Generate(OutAudio, FramesRequested, PinnedPlayerFacade->GetRate(), PinnedPlayerFacade->GetTime(), *PinnedSampleQueue);
+		const uint32 FramesWritten = Resampler->Generate(OutAudio, FramesRequested, CachedRate, CachedTime, *PinnedSampleQueue);
 	}
 	else
 	{

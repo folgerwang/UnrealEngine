@@ -1,8 +1,8 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "UI/SSynthTooltip.h"
 #include "Widgets/SToolTip.h"
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 
 SSynthTooltip::~SSynthTooltip()
 {

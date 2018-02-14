@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -24,7 +24,7 @@
 #include "Widgets/Input/SEditableText.h"
 #include "Widgets/Input/SSpinBox.h"
 #include "Widgets/Colors/SColorBlock.h"
-#include "UnrealString.h"
+#include "Containers/UnrealString.h"
 
 /**
  * Implementation for a box that only accepts a numeric value or that can display an undetermined value via a string

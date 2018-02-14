@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,8 +6,8 @@
  *****************************************************************************/
 
 #include "CoreMinimal.h"
-#include "ModuleManager.h"
-#include "SlateStyle.h"
+#include "Modules/ModuleManager.h"
+#include "Styling/SlateStyle.h"
 #include "OnlineSubsystem.h"
 
  /* Interfaces

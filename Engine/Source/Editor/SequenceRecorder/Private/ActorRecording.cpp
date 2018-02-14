@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ActorRecording.h"
 #include "Misc/ScopedSlowTask.h"
@@ -15,6 +15,7 @@
 #include "CameraRig_Rail.h"
 #include "SequenceRecorder.h"
 #include "Features/IModularFeatures.h"
+#include "Toolkits/AssetEditorManager.h"
 
 static const FName SequencerActorTag(TEXT("SequencerActor"));
 static const FName MovieSceneSectionRecorderFactoryName("MovieSceneSectionRecorderFactory");
@@ -22,6 +23,7 @@ static const FName MovieSceneSectionRecorderFactoryName("MovieSceneSectionRecord
 UActorRecording::UActorRecording(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	bActive = true;
 	bWasSpawnedPostRecord = false;
 	Guid.Invalidate();
 	bNewComponentAddedWhileRecording = false;
@@ -60,11 +62,26 @@ bool UActorRecording::IsRelevantForRecording(AActor* Actor)
 
 bool UActorRecording::StartRecording(ULevelSequence* CurrentSequence, float CurrentSequenceTime)
 {
+	if (!bActive)
+	{
+		return false;
+	}
+
 	bNewComponentAddedWhileRecording = false;
 	DuplicatedDynamicComponents.Reset();
 
 	if(GetActorToRecord() != nullptr)
 	{
+		if (TargetAnimation.IsValid())
+		{
+			IAssetEditorInstance* EditorInstance = FAssetEditorManager::Get().FindEditorForAsset(TargetAnimation.Get(), false);
+			if (EditorInstance)
+			{
+				UE_LOG(LogAnimation, Log, TEXT("Closing '%s' so we don't invalidate the open version when unloading it."), *TargetAnimation->GetName());
+				EditorInstance->CloseWindow();
+			}
+		}
+
 		if(CurrentSequence != nullptr)
 		{
 			StartRecordingActorProperties(CurrentSequence, CurrentSequenceTime);
@@ -133,6 +150,11 @@ void UActorRecording::GetSceneComponents(TArray<USceneComponent*>& OutArray, boo
 
 			auto ShouldRemovePredicate = [&](UActorComponent* PossiblyRemovedComponent)
 				{
+					if (PossiblyRemovedComponent == nullptr)
+					{
+						return true;
+					}
+
 					// try to find a component with this name in the CDO
 					for (UActorComponent* SearchComponent : CDO->GetComponents())
 					{
@@ -205,7 +227,7 @@ bool UActorRecording::ValidComponent(USceneComponent* SceneComponent) const
 		const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
 		for (const FPropertiesToRecordForClass& PropertiesToRecordForClass : Settings->ClassesAndPropertiesToRecord)
 		{			
-			if (PropertiesToRecordForClass.Class != nullptr && SceneComponent->IsA(PropertiesToRecordForClass.Class))
+			if (PropertiesToRecordForClass.Class != nullptr && SceneComponent->IsA(PropertiesToRecordForClass.Class) && !SceneComponent->bIsEditorOnly)
 			{
 				return true;
 			}
@@ -339,7 +361,7 @@ void UActorRecording::StartRecordingActorProperties(ULevelSequence* CurrentSeque
 			TSharedPtr<FMovieSceneAnimationSectionRecorder> FirstAnimRecorder = nullptr;
 			for(USceneComponent* SceneComponent : ValidSceneComponents)
 			{
-				TSharedPtr<FMovieSceneAnimationSectionRecorder> AnimRecorder = StartRecordingComponentProperties(SceneComponent->GetFName(), SceneComponent, GetActorToRecord(), CurrentSequence, CurrentSequenceTime, AnimationSettings);
+				TSharedPtr<FMovieSceneAnimationSectionRecorder> AnimRecorder = StartRecordingComponentProperties(SceneComponent->GetFName(), SceneComponent, GetActorToRecord(), CurrentSequence, CurrentSequenceTime, AnimationSettings, TargetAnimation.Get());
 				if(!FirstAnimRecorder.IsValid() && AnimRecorder.IsValid() && GetActorToRecord()->IsA<ACharacter>())
 				{
 					FirstAnimRecorder = AnimRecorder;
@@ -376,7 +398,7 @@ void UActorRecording::StartRecordingActorProperties(ULevelSequence* CurrentSeque
 	}
 }
 
-TSharedPtr<FMovieSceneAnimationSectionRecorder> UActorRecording::StartRecordingComponentProperties(const FName& BindingName, USceneComponent* SceneComponent, UObject* BindingContext, ULevelSequence* CurrentSequence, float CurrentSequenceTime, const FAnimationRecordingSettings& InAnimationSettings)
+TSharedPtr<FMovieSceneAnimationSectionRecorder> UActorRecording::StartRecordingComponentProperties(const FName& BindingName, USceneComponent* SceneComponent, UObject* BindingContext, ULevelSequence* CurrentSequence, float CurrentSequenceTime, const FAnimationRecordingSettings& InAnimationSettings, UAnimSequence* InTargetSequence)
 {
 	// first create a possessable for this component to be controlled by
 	UMovieScene* OwnerMovieScene = CurrentSequence->GetMovieScene();
@@ -402,7 +424,7 @@ TSharedPtr<FMovieSceneAnimationSectionRecorder> UActorRecording::StartRecordingC
 	TSharedPtr<FMovieSceneAnimationSectionRecorder> AnimationRecorder = nullptr;
 	if (FSequenceRecorder::Get().GetAnimationRecorderFactory().CanRecordObject(SceneComponent))
 	{
-		AnimationRecorder = FSequenceRecorder::Get().GetAnimationRecorderFactory().CreateSectionRecorder(this, InAnimationSettings);
+		AnimationRecorder = FSequenceRecorder::Get().GetAnimationRecorderFactory().CreateSectionRecorder(InTargetSequence, InAnimationSettings);
 		AnimationRecorder->CreateSection(SceneComponent, OwnerMovieScene, PossessableGuid, CurrentSequenceTime);
 		AnimationRecorder->Record(CurrentSequenceTime);
 		SectionRecorders.Add(AnimationRecorder);
@@ -735,7 +757,7 @@ void UActorRecording::StartRecordingNewComponents(ULevelSequence* CurrentSequenc
 					NewName = SceneComponent->GetFName();
 				}
 
-				StartRecordingComponentProperties(NewName, SceneComponent, GetActorToRecord(), CurrentSequence, CurrentSequenceTime, ComponentAnimationSettings);
+				StartRecordingComponentProperties(NewName, SceneComponent, GetActorToRecord(), CurrentSequence, CurrentSequenceTime, ComponentAnimationSettings, nullptr);
 
 				bNewComponentAddedWhileRecording = true;
 			}
@@ -747,7 +769,7 @@ void UActorRecording::StartRecordingNewComponents(ULevelSequence* CurrentSequenc
 			for (USceneComponent* SceneComponent : NewComponents)
 			{
 				// new component, start recording
-				StartRecordingComponentProperties(SceneComponent->GetFName(), SceneComponent, GetActorToRecord(), CurrentSequence, CurrentSequenceTime, ComponentAnimationSettings);
+				StartRecordingComponentProperties(SceneComponent->GetFName(), SceneComponent, GetActorToRecord(), CurrentSequence, CurrentSequenceTime, ComponentAnimationSettings, nullptr);
 			}
 
 			SyncTrackedComponents();

@@ -6,8 +6,8 @@
 #include "UObject/Object.h"
 #include "MeshDescription.h"
 #include "EditableMeshTypes.h"
-#include "EditableMeshCustomVersion.h"
-#include "Change.h"		// For TUniquePtr<FChange>
+#include "EditableMesh/EditableMeshCustomVersion.h"
+#include "Misc/Change.h"		// For TUniquePtr<FChange>
 #include "Logging/LogMacros.h"
 #include "Materials/MaterialInterface.h"
 #include "GenericOctreePublic.h"	// For FOctreeElementId

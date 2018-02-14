@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -111,7 +111,7 @@ public:
 	 *
 	 * @return true if successful, false otherwise
 	 */
-	virtual bool HasPendingConnection(bool& bHasPendingConnection) override;
+	virtual bool WaitForPendingConnection(bool& bHasPendingConnection, const FTimespan& WaitTime) override;
 
 	/**
 	* Queries the socket to determine if there is pending data on the queue

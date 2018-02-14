@@ -1,12 +1,12 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "IInputDeviceModule.h"
 #include "IInputDevice.h"
-#include "GenericApplicationMessageHandler.h"
+#include "GenericPlatform/GenericApplicationMessageHandler.h"
 
 DECLARE_DELEGATE_RetVal_TwoParams( bool, FRawInputDataDelegate, int32 /*DataSize*/, const struct tagRAWINPUT* /*Data */);
 

@@ -1,15 +1,15 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ApplePlatformDebugEvents.cpp: Apple platform implementations of File functions
 =============================================================================*/
 
-#include "ApplePlatformDebugEvents.h"
-#include "ApplePlatformTLS.h"
-#include "UnrealString.h"
-#include "IConsoleManager.h"
-#include "Color.h"
-#include "ScopeRWLock.h"
+#include "Apple/ApplePlatformDebugEvents.h"
+#include "Apple/ApplePlatformTLS.h"
+#include "Containers/UnrealString.h"
+#include "HAL/IConsoleManager.h"
+#include "Math/Color.h"
+#include "Misc/ScopeRWLock.h"
 #include <sys/kdebug_signpost.h>
 #include <sys/syscall.h>
 

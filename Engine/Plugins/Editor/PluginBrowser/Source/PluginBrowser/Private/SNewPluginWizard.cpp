@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SNewPluginWizard.h"
 #include "Misc/Paths.h"
@@ -37,8 +37,8 @@
 #include "SFilePathBlock.h"
 #include "Interfaces/IProjectManager.h"
 #include "ProjectDescriptor.h"
-#include "IMainFrameModule.h"
-#include "IProjectManager.h"
+#include "Interfaces/IMainFrameModule.h"
+#include "Interfaces/IProjectManager.h"
 #include "GameProjectGenerationModule.h"
 #include "DefaultPluginWizardDefinition.h"
 #include "UnrealEdMisc.h"
@@ -743,7 +743,7 @@ FReply SNewPluginWizard::OnCreatePluginClicked()
 	if (bSucceeded && bHasModules)
 	{
 		FString ProjectFileName = FPaths::GetProjectFilePath();
-		FString Arguments = FString::Printf(TEXT("%sEditor %s %s -EditorRecompile -Module %s -Project=\"%s\" -Plugin \"%s\" -Progress -NoHotReloadFromIDE"), *FPaths::GetBaseFilename(ProjectFileName), FModuleManager::Get().GetUBTConfiguration(), FPlatformMisc::GetUBTPlatform(), *PluginModuleName, *ProjectFileName, *UPluginFilePath);
+		FString Arguments = FString::Printf(TEXT("%sEditor %s %s -EditorRecompile -Module %s -Project=\"%s\" -Progress -NoHotReloadFromIDE"), *FPaths::GetBaseFilename(ProjectFileName), FModuleManager::Get().GetUBTConfiguration(), FPlatformMisc::GetUBTPlatform(), *PluginModuleName, *ProjectFileName);
 		if (!FDesktopPlatformModule::Get()->RunUnrealBuildTool(LOCTEXT("Compiling", "Compiling..."), FPaths::RootDir(), Arguments, GWarn))
 		{
 			PopErrorNotification(LOCTEXT("FailedToCompile", "Failed to compile source code."));
@@ -843,7 +843,6 @@ FReply SNewPluginWizard::OnCreatePluginClicked()
 	}
 	else
 	{
-		DeletePluginDirectory(*PluginFolder);
 		return FReply::Unhandled();
 	}
 }
@@ -890,7 +889,7 @@ bool SNewPluginWizard::WritePluginDescriptor(const FString& PluginModuleName, co
 	FText FailReason;
 	if (!Descriptor.Save(UPluginFilePath, FailReason))
 	{
-		PopErrorNotification(FText::Format(LOCTEXT("FailedToWriteDescriptor", "Couldn't save plugin descriptor under %s"), FText::AsCultureInvariant(UPluginFilePath)));
+		PopErrorNotification(FText::Format(LOCTEXT("FailedToWriteDescriptor", "Couldn't save plugin descriptor under {0}"), FText::AsCultureInvariant(UPluginFilePath)));
 		return false;
 	}
 
@@ -903,7 +902,7 @@ void SNewPluginWizard::PopErrorNotification(const FText& ErrorMessage)
 
 	// Create and display a notification about the failure
 	FNotificationInfo Info(ErrorMessage);
-	Info.ExpireDuration = 2.0f;
+	Info.ExpireDuration = 10.0f;
 
 	TSharedPtr<SNotificationItem> Notification = FSlateNotificationManager::Get().AddNotification(Info);
 	if (Notification.IsValid())

@@ -3,8 +3,8 @@
 //
 
 #include "TickableNotification.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
 #include "LevelEditor.h"
 #include "Misc/ScopeLock.h"
 
@@ -108,11 +108,6 @@ namespace SteamAudio
 		{
 			NotifyDestruction();
 		}
-	}
-
-	bool FTickableNotification::IsTickable() const
-	{
-		return true;
 	}
 
 	TStatId FTickableNotification::GetStatId() const

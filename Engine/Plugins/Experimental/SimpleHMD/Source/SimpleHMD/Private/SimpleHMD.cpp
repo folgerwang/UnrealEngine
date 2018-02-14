@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SimpleHMD.h"
 #include "Misc/App.h"
@@ -18,7 +18,7 @@
 class FSimpleHMDPlugin : public ISimpleHMDPlugin
 {
 	/** IHeadMountedDisplayModule implementation */
-	virtual TSharedPtr< class IHeadMountedDisplay, ESPMode::ThreadSafe > CreateHeadMountedDisplay() override;
+	virtual TSharedPtr< class IXRTrackingSystem, ESPMode::ThreadSafe > CreateTrackingSystem() override;
 
 	FString GetModuleKeyName() const override
 	{
@@ -28,16 +28,21 @@ class FSimpleHMDPlugin : public ISimpleHMDPlugin
 
 IMPLEMENT_MODULE( FSimpleHMDPlugin, SimpleHMD )
 
-TSharedPtr< class IHeadMountedDisplay, ESPMode::ThreadSafe > FSimpleHMDPlugin::CreateHeadMountedDisplay()
+TSharedPtr< class IXRTrackingSystem, ESPMode::ThreadSafe > FSimpleHMDPlugin::CreateTrackingSystem()
 {
-	TSharedPtr< FSimpleHMD, ESPMode::ThreadSafe > SimpleHMD( new FSimpleHMD() );
+	auto SimpleHMD = FSceneViewExtensions::NewExtension<FSimpleHMD>();
 	if( SimpleHMD->IsInitialized() )
 	{
 		return SimpleHMD;
 	}
-	return NULL;
+	return nullptr;
 }
 
+
+float FSimpleHMD::GetWorldToMetersScale() const
+{
+	return GWorld ? GWorld->GetWorldSettings()->WorldToMeters : 100.0f;
+}
 
 //---------------------------------------------------
 // SimpleHMD IHeadMountedDisplay Implementation
@@ -50,11 +55,6 @@ bool FSimpleHMD::IsHMDEnabled() const
 
 void FSimpleHMD::EnableHMD(bool enable)
 {
-}
-
-EHMDDeviceType::Type FSimpleHMD::GetHMDDeviceType() const
-{
-	return EHMDDeviceType::DT_ES2GenericStereoMesh;
 }
 
 bool FSimpleHMD::GetHMDMonitorInfo(MonitorInfo& MonitorDesc)
@@ -71,22 +71,14 @@ void FSimpleHMD::GetFieldOfView(float& OutHFOVInDegrees, float& OutVFOVInDegrees
 	OutVFOVInDegrees = 0.0f;
 }
 
-bool FSimpleHMD::DoesSupportPositionalTracking() const
+bool FSimpleHMD::EnumerateTrackedDevices(TArray<int32>& OutDevices, EXRTrackedDeviceType Type)
 {
+	if (Type == EXRTrackedDeviceType::Any || Type == EXRTrackedDeviceType::HeadMountedDisplay)
+	{
+		OutDevices.Add(IXRTrackingSystem::HMDDeviceId);
+		return true;
+	}
 	return false;
-}
-
-bool FSimpleHMD::HasValidTrackingPosition()
-{
-	return false;
-}
-
-void FSimpleHMD::GetPositionalTrackingCameraProperties(FVector& OutOrigin, FQuat& OutOrientation, float& OutHFOV, float& OutVFOV, float& OutCameraDistance, float& OutNearPlane, float& OutFarPlane) const
-{
-}
-
-void FSimpleHMD::RebaseObjectOrientationAndPosition(FVector& OutPosition, FQuat& OutOrientation) const
-{
 }
 
 void FSimpleHMD::SetInterpupillaryDistance(float NewInterpupillaryDistance)
@@ -98,7 +90,7 @@ float FSimpleHMD::GetInterpupillaryDistance() const
 	return 0.064f;
 }
 
-void FSimpleHMD::GetCurrentPose(FQuat& CurrentOrientation)
+void FSimpleHMD::GetHMDOrientation(FQuat& CurrentOrientation)
 {
 	// very basic.  no head model, no prediction, using debuglocalplayer
 	ULocalPlayer* Player = GEngine->GetDebugLocalPlayer();
@@ -127,57 +119,22 @@ void FSimpleHMD::GetCurrentPose(FQuat& CurrentOrientation)
 	}
 }
 
-void FSimpleHMD::GetCurrentOrientationAndPosition(FQuat& CurrentOrientation, FVector& CurrentPosition)
+bool FSimpleHMD::GetCurrentPose(int32 DeviceId, FQuat& CurrentOrientation, FVector& CurrentPosition)
 {
+	if (DeviceId != IXRTrackingSystem::HMDDeviceId)
+	{
+		return false;
+	}
+	CurrentOrientation = CurHmdOrientation;
 	CurrentPosition = FVector(0.0f, 0.0f, 0.0f);
-
-	GetCurrentPose(CurrentOrientation);
+	GetHMDOrientation(CurrentOrientation);
 	CurHmdOrientation = LastHmdOrientation = CurrentOrientation;
-}
-
-TSharedPtr<ISceneViewExtension, ESPMode::ThreadSafe> FSimpleHMD::GetViewExtension()
-{
-	TSharedPtr<FSimpleHMD, ESPMode::ThreadSafe> ptr(AsShared());
-	return StaticCastSharedPtr<ISceneViewExtension>(ptr);
-}
-
-void FSimpleHMD::ApplyHmdRotation(APlayerController* PC, FRotator& ViewRotation)
-{
-	ViewRotation.Normalize();
-
-	GetCurrentPose(CurHmdOrientation);
-	LastHmdOrientation = CurHmdOrientation;
-
-	const FRotator DeltaRot = ViewRotation - PC->GetControlRotation();
-	DeltaControlRotation = (DeltaControlRotation + DeltaRot).GetNormalized();
-
-	// Pitch from other sources is never good, because there is an absolute up and down that must be respected to avoid motion sickness.
-	// Same with roll.
-	DeltaControlRotation.Pitch = 0;
-	DeltaControlRotation.Roll = 0;
-	DeltaControlOrientation = DeltaControlRotation.Quaternion();
-
-	ViewRotation = FRotator(DeltaControlOrientation * CurHmdOrientation);
-}
-
-bool FSimpleHMD::UpdatePlayerCamera(FQuat& CurrentOrientation, FVector& CurrentPosition)
-{
-	return false;
+	return true;
 }
 
 bool FSimpleHMD::IsChromaAbCorrectionEnabled() const
 {
 	return false;
-}
-
-bool FSimpleHMD::IsPositionalTrackingEnabled() const
-{
-	return false;
-}
-
-bool FSimpleHMD::IsHeadTrackingAllowed() const
-{
-	return true;
 }
 
 void FSimpleHMD::ResetOrientationAndPosition(float yaw)
@@ -189,11 +146,8 @@ void FSimpleHMD::ResetOrientationAndPosition(float yaw)
 void FSimpleHMD::ResetOrientation(float Yaw)
 {
 }
-void FSimpleHMD::ResetPosition()
-{
-}
 
-void FSimpleHMD::SetClippingPlanes(float NCP, float FCP)
+void FSimpleHMD::ResetPosition()
 {
 }
 
@@ -220,8 +174,8 @@ void FSimpleHMD::DrawDistortionMesh_RenderThread(struct FRenderingCompositePassC
 	float ClipSpaceQuadZ = 0.0f;
 	FMatrix QuadTexTransform = FMatrix::Identity;
 	FMatrix QuadPosTransform = FMatrix::Identity;
-	const FSceneView& View = Context.View;
-	const FIntRect SrcRect = View.ViewRect;
+	const FViewInfo& View = Context.View;
+	const FIntRect SrcRect = View.UnscaledViewRect;
 
 	FRHICommandListImmediate& RHICmdList = Context.RHICmdList;
 	const FSceneViewFamily& ViewFamily = *(View.Family);
@@ -270,7 +224,7 @@ void FSimpleHMD::AdjustViewRect(EStereoscopicPass StereoPass, int32& X, int32& Y
 	}
 }
 
-void FSimpleHMD::CalculateStereoViewOffset(const enum EStereoscopicPass StereoPassType, const FRotator& ViewRotation, const float WorldToMeters, FVector& ViewLocation)
+void FSimpleHMD::CalculateStereoViewOffset(const enum EStereoscopicPass StereoPassType, FRotator& ViewRotation, const float WorldToMeters, FVector& ViewLocation)
 {
 	if( StereoPassType != eSSP_FULL)
 	{
@@ -280,7 +234,7 @@ void FSimpleHMD::CalculateStereoViewOffset(const enum EStereoscopicPass StereoPa
 	}
 }
 
-FMatrix FSimpleHMD::GetStereoProjectionMatrix(const enum EStereoscopicPass StereoPassType, const float FOV) const
+FMatrix FSimpleHMD::GetStereoProjectionMatrix(const enum EStereoscopicPass StereoPassType) const
 {
 	const float ProjectionCenterOffset = 0.151976421f;
 	const float PassProjectionOffset = (StereoPassType == eSSP_LEFT_EYE) ? ProjectionCenterOffset : -ProjectionCenterOffset;
@@ -301,10 +255,6 @@ FMatrix FSimpleHMD::GetStereoProjectionMatrix(const enum EStereoscopicPass Stere
 		* FTranslationMatrix(FVector(PassProjectionOffset,0,0));
 }
 
-void FSimpleHMD::InitCanvasFromView(FSceneView* InView, UCanvas* Canvas)
-{
-}
-
 void FSimpleHMD::GetEyeRenderParams_RenderThread(const FRenderingCompositePassContext& Context, FVector2D& EyeToSrcUVScaleValue, FVector2D& EyeToSrcUVOffsetValue) const
 {
 	EyeToSrcUVOffsetValue = FVector2D::ZeroVector;
@@ -316,7 +266,6 @@ void FSimpleHMD::SetupViewFamily(FSceneViewFamily& InViewFamily)
 {
 	InViewFamily.EngineShowFlags.MotionBlur = 0;
 	InViewFamily.EngineShowFlags.HMDDistortion = true;
-	InViewFamily.EngineShowFlags.SetScreenPercentage(true);
 	InViewFamily.EngineShowFlags.StereoRendering = IsStereoEnabled();
 }
 
@@ -324,8 +273,6 @@ void FSimpleHMD::SetupView(FSceneViewFamily& InViewFamily, FSceneView& InView)
 {
 	InView.BaseHmdOrientation = FQuat(FRotator(0.0f,0.0f,0.0f));
 	InView.BaseHmdLocation = FVector(0.f);
-//	WorldToMetersScale = InView.WorldToMetersScale;
-	InViewFamily.bUseSeparateRenderTarget = false;
 }
 
 void FSimpleHMD::PreRenderView_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView)
@@ -338,7 +285,13 @@ void FSimpleHMD::PreRenderViewFamily_RenderThread(FRHICommandListImmediate& RHIC
 	check(IsInRenderingThread());
 }
 
-FSimpleHMD::FSimpleHMD() :
+bool FSimpleHMD::IsActiveThisFrame(class FViewport* InViewport) const
+{
+	return GEngine && GEngine->IsStereoscopic3D(InViewport);
+}
+
+FSimpleHMD::FSimpleHMD(const FAutoRegister& AutoRegister) :
+	FSceneViewExtensionBase(AutoRegister),
 	CurHmdOrientation(FQuat::Identity),
 	LastHmdOrientation(FQuat::Identity),
 	DeltaControlRotation(FRotator::ZeroRotator),

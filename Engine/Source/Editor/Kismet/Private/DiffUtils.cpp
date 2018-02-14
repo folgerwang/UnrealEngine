@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "DiffUtils.h"
 #include "UObject/PropertyPortFlags.h"
@@ -12,27 +12,30 @@
 #include "IAssetTypeActions.h"
 #include "ObjectEditorUtils.h"
 
-static const UProperty* Resolve( const UStruct* Class, FName PropertyName )
+namespace UE4DiffUtils_Private
 {
-	if(Class == nullptr )
+	UProperty* Resolve( const UStruct* Class, FName PropertyName )
 	{
+		if(Class == nullptr )
+		{
+			return nullptr;
+		}
+
+		for (UProperty* Prop : TFieldRange<UProperty>(Class))
+		{
+			if( Prop->GetFName() == PropertyName )
+			{
+				return Prop;
+			}
+		}
+
 		return nullptr;
 	}
 
-	for (TFieldIterator<UProperty> PropertyIt(Class); PropertyIt; ++PropertyIt)
+	FPropertySoftPathSet GetPropertyNameSet(const UObject* ForObj)
 	{
-		if( PropertyIt->GetFName() == PropertyName )
-		{
-			return *PropertyIt;
-		}
+		return FPropertySoftPathSet(DiffUtils::GetVisiblePropertiesInOrderDeclared(ForObj));
 	}
-
-	return nullptr;
-}
-
-static FPropertySoftPathSet GetPropertyNameSet(const UObject* ForObj)
-{
-	return FPropertySoftPathSet(DiffUtils::GetVisiblePropertiesInOrderDeclared(ForObj));
 }
 
 FResolvedProperty FPropertySoftPath::Resolve(const UObject* Object) const
@@ -46,7 +49,7 @@ FResolvedProperty FPropertySoftPath::Resolve(const UObject* Object) const
 	for( int32 i = 0; i < PropertyChain.Num(); ++i )
 	{
 		CurrentBlock = NextBlock;
-		const UProperty* NextProperty = ::Resolve(NextClass, PropertyChain[i]);
+		const UProperty* NextProperty = UE4DiffUtils_Private::Resolve(NextClass, PropertyChain[i]);
 		if( NextProperty )
 		{
 			Property = NextProperty;
@@ -113,14 +116,14 @@ FPropertyPath FPropertySoftPath::ResolvePath(const UObject* Object) const
 	};
 
 	const void* ContainerAddress = Object;
-	const UStruct* ContainerStruct = Object->GetClass();
+	const UStruct* ContainerStruct = (Object ? Object->GetClass() : nullptr);
 
 	FPropertyPath Ret;
 	for( int32 I = 0; I < PropertyChain.Num(); ++I )
 	{
 		FName PropertyIdentifier = PropertyChain[I];
-		const UProperty * ResolvedProperty = ::Resolve(ContainerStruct, PropertyIdentifier);
-			
+		UProperty* ResolvedProperty = UE4DiffUtils_Private::Resolve(ContainerStruct, PropertyIdentifier);
+
 		FPropertyInfo Info(ResolvedProperty, INDEX_NONE);
 		Ret.AddProperty(Info);
 
@@ -277,8 +280,8 @@ const UObject* DiffUtils::GetCDO(const UBlueprint* ForBlueprint)
 
 void DiffUtils::CompareUnrelatedObjects(const UObject* A, const UObject* B, TArray<FSingleObjectDiffEntry>& OutDifferingProperties)
 {
-	FPropertySoftPathSet PropertiesInA = GetPropertyNameSet(A);
-	FPropertySoftPathSet PropertiesInB = GetPropertyNameSet(B);
+	FPropertySoftPathSet PropertiesInA = UE4DiffUtils_Private::GetPropertyNameSet(A);
+	FPropertySoftPathSet PropertiesInB = UE4DiffUtils_Private::GetPropertyNameSet(B);
 
 	// any properties in A that aren't in B are differing:
 	auto AddedToA = PropertiesInA.Difference(PropertiesInB).Array();
@@ -433,11 +436,7 @@ static void IdenticalHelper(const UProperty* AProperty, const UProperty* BProper
 
 		return;
 	}
-	else if (AProperty->Identical(AValue, BValue, PPF_DeepComparison))
-	{
-		return;
-	}
-
+	
 	const UStructProperty* APropAsStruct = Cast<UStructProperty>(AProperty);
 	const UArrayProperty* APropAsArray = Cast<UArrayProperty>(AProperty);
 	const USetProperty* APropAsSet = Cast<USetProperty>(AProperty);
@@ -463,7 +462,7 @@ static void IdenticalHelper(const UProperty* AProperty, const UProperty* BProper
 	else if (APropAsArray != nullptr)
 	{
 		const UArrayProperty* BPropAsArray = CastChecked<UArrayProperty>(BProperty);
-		if(BPropAsArray->Inner == APropAsArray->Inner)
+		if(BPropAsArray->Inner->GetClass() == APropAsArray->Inner->GetClass())
 		{
 			FScriptArrayHelper ArrayHelperA(APropAsArray, AValue);
 			FScriptArrayHelper ArrayHelperB(BPropAsArray, BValue);
@@ -488,7 +487,7 @@ static void IdenticalHelper(const UProperty* AProperty, const UProperty* BProper
 	else if(APropAsSet != nullptr)
 	{
 		const USetProperty* BPropAsSet = CastChecked<USetProperty>(BProperty);
-		if(BPropAsSet->ElementProp == APropAsSet->ElementProp)
+		if(BPropAsSet->ElementProp->GetClass() == APropAsSet->ElementProp->GetClass())
 		{
 			FScriptSetHelper SetHelperA(APropAsSet, AValue);
 			FScriptSetHelper SetHelperB(BPropAsSet, BValue);
@@ -527,7 +526,7 @@ static void IdenticalHelper(const UProperty* AProperty, const UProperty* BProper
 	else if(APropAsMap != nullptr)
 	{
 		const UMapProperty* BPropAsMap = CastChecked<UMapProperty>(BProperty);
-		if(APropAsMap->KeyProp == BPropAsMap->KeyProp && APropAsMap->ValueProp == BPropAsMap->ValueProp)
+		if(APropAsMap->KeyProp->GetClass() == BPropAsMap->KeyProp->GetClass() && APropAsMap->ValueProp->GetClass() == BPropAsMap->ValueProp->GetClass())
 		{
 			FScriptMapHelper MapHelperA(APropAsMap, AValue);
 			FScriptMapHelper MapHelperB(BPropAsMap, BValue);
@@ -564,6 +563,12 @@ static void IdenticalHelper(const UProperty* AProperty, const UProperty* BProper
 	}
 	else if(APropAsObject != nullptr)
 	{
+		// Past container check, do a normal identical check now before going into components
+		if (AProperty->Identical(AValue, BValue, PPF_DeepComparison))
+		{
+			return;
+		}
+
 		// dig into the objects if they are in the same package as our initial object:
 		const UObjectProperty* BPropAsObject = CastChecked<UObjectProperty>(BProperty);
 
@@ -582,12 +587,18 @@ static void IdenticalHelper(const UProperty* AProperty, const UProperty* BProper
 			}
 		}
 		else
-		{		
+		{
 			DifferingSubProperties.Push(RootPath);
 		}
 	}
 	else
 	{
+		// Passed all container tests that would check for nested properties being wrong
+		if (AProperty->Identical(AValue, BValue, PPF_DeepComparison))
+		{
+			return;
+		}
+
 		DifferingSubProperties.Push(RootPath);
 	}
 }

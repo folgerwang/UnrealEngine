@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.Collections.Generic;
@@ -10,9 +10,6 @@ public class UE4GameTarget : TargetRules
 	{
 		Type = TargetType.Game;
 		BuildEnvironment = TargetBuildEnvironment.Shared;
-
-		// Output to Engine/Binaries/<PLATFORM> even if built as monolithic
-		bOutputToEngineBinaries = true;
 
 		ExtraModuleNames.Add("UE4Game");
 	}

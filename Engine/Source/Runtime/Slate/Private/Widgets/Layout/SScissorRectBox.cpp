@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Widgets/Layout/SScissorRectBox.h"
 #include "Types/PaintArgs.h"
 #include "Layout/ArrangedChildren.h"
 #include "Rendering/RenderingCommon.h"
-#include "IConsoleManager.h"
+#include "HAL/IConsoleManager.h"
 
 namespace Slate
 {

@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "EmptyFolderVisibilityManager.h"
 #include "AssetRegistryModule.h"
 #include "ContentBrowserUtils.h"
 #include "Settings/ContentBrowserSettings.h"
-#include "Paths.h"
+#include "Misc/Paths.h"
 
 FEmptyFolderVisibilityManager::FEmptyFolderVisibilityManager()
 {

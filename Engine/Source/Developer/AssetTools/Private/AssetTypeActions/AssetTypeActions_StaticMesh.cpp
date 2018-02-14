@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AssetTypeActions/AssetTypeActions_StaticMesh.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
@@ -10,8 +10,8 @@
 #include "FbxMeshUtils.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
-#include "MessageDialog.h"
-#include "ScopedSlowTask.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/ScopedSlowTask.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 

@@ -2,8 +2,8 @@
 
 #include "MeshEditorStyle.h"
 #include "Styling/SlateStyleRegistry.h"
-#include "IPluginManager.h"
-#include "SlateTypes.h"
+#include "Interfaces/IPluginManager.h"
+#include "Styling/SlateTypes.h"
 
 #define IMAGE_BRUSH( RelativePath, ... ) FSlateImageBrush( StyleSet->RootToContentDir( RelativePath, TEXT( ".png" ) ), __VA_ARGS__ )
 #define IMAGE_PLUGIN_BRUSH( RelativePath, ... ) FSlateImageBrush( FMeshEditorStyle::InContent( RelativePath, ".png" ), __VA_ARGS__ )

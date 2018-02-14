@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraEmitterDetailsCustomization.h"
 #include "NiagaraCommon.h"
@@ -17,9 +17,9 @@
 #include "PropertyCustomizationHelpers.h"
 #include "ScopedTransaction.h"
 
-#include "SBorder.h"
-#include "STextBlock.h"
-#include "SButton.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
 
 
 #define LOCTEXT_NAMESPACE "NiagaraSystemEditor"

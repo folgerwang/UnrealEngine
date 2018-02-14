@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "IMeshPaintMode.h"
 #include "SceneView.h"
@@ -10,7 +10,7 @@
 #include "UnrealEdGlobals.h"
 #include "Engine/Selection.h"
 #include "EditorModeManager.h"
-#include "ToolkitManager.h"
+#include "Toolkits/ToolkitManager.h"
 
 #include "VREditorMode.h"
 #include "IVREditorModule.h"

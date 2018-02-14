@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Framework/Text/Android/AndroidPlatformTextField.h"
 
 #include "HAL/IConsoleManager.h"
 #include "Widgets/Input/IVirtualKeyboardEntry.h"
 #include "Misc/ConfigCacheIni.h"
-#include "IConsoleManager.h"
+#include "HAL/IConsoleManager.h"
 
 // Java InputType class
 #define TYPE_CLASS_TEXT						0x00000001
@@ -22,7 +22,6 @@
 #define TYPE_TEXT_VARIATION_URI				0x00000010
 
 // Java InputType text flags
-
 #define TYPE_TEXT_FLAG_NO_SUGGESTIONS		0x00080001
 #define TYPE_TEXT_FLAG_MULTI_LINE			0x00020000
 
@@ -65,12 +64,7 @@ void FAndroidPlatformTextField::ShowVirtualKeyboard(bool bShow, int32 UserIndex,
 		InputType |= TYPE_TEXT_FLAG_NO_SUGGESTIONS;
 	}
 
-	// read the value from the config file
-	static bool bEnableNewKeyboardConfig = false;
-	GConfig->GetBool( TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bEnableNewKeyboard"), bEnableNewKeyboardConfig, GEngineIni );
-
-	// use integrated keyboard if the runtime setting is set or the console variable is set to 1
-	bool bIsUsingIntegratedKeyboard = bEnableNewKeyboardConfig;
+	bool bIsUsingIntegratedKeyboard = EnableNewKeyboardConfig();
 	switch (GAndroidNewKeyboard)
 	{
 	case 1:
@@ -115,4 +109,19 @@ void FAndroidPlatformTextField::ShowVirtualKeyboard(bool bShow, int32 UserIndex,
 			AndroidThunkCpp_HideVirtualKeyboardInputDialog();
 		}
 	}
+}
+
+bool FAndroidPlatformTextField::AllowMoveCursor()
+{
+	return !EnableNewKeyboardConfig();
+}
+
+bool FAndroidPlatformTextField::EnableNewKeyboardConfig() const
+{
+	// read the value from the config file
+	static bool bEnableNewKeyboardConfig = false;
+	GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bEnableNewKeyboard"), bEnableNewKeyboardConfig, GEngineIni);
+
+	// use integrated keyboard if the runtime setting is set or the console variable is set to 1
+	return bEnableNewKeyboardConfig;
 }

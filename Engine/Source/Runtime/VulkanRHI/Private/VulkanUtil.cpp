@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanUtil.cpp: Vulkan Utility implementation.
@@ -22,11 +22,9 @@ void FVulkanGPUTiming::PlatformStaticInitialize(void* UserData)
 	check( !GAreGlobalsInitialized );
 
 	FVulkanGPUTiming* Caller = (FVulkanGPUTiming*)UserData;
-	if (Caller)
+	if (Caller && Caller->Device)
 	{
-		FVulkanDevice * Device = Caller->CmdContext->GetDevice();
-
-		bool bSupportsTimestamps = (Device->GetDeviceProperties().limits.timestampComputeAndGraphics == VK_TRUE);
+		bool bSupportsTimestamps = (Caller->Device->GetDeviceProperties().limits.timestampComputeAndGraphics == VK_TRUE);
 		if (!bSupportsTimestamps)
 		{
 			UE_LOG(LogVulkanRHI, Warning, TEXT("Timestamps not supported on Device"));
@@ -92,12 +90,16 @@ void FVulkanGPUTiming::StartTiming(FVulkanCmdBuffer* CmdBuffer)
  * End a GPU timing measurement.
  * The timing for this particular measurement will be resolved at a later time by the GPU.
  */
-void FVulkanGPUTiming::EndTiming()
+void FVulkanGPUTiming::EndTiming(FVulkanCmdBuffer* CmdBuffer)
 {
 	// Issue a timestamp query for the 'end' time.
-	if ( GIsSupported && bIsTiming )
+	if (GIsSupported && bIsTiming)
 	{
-		CmdContext->RHIEndRenderQuery(EndTimer);
+		if (CmdBuffer == nullptr)
+		{
+			CmdBuffer = CmdContext->GetCommandBufferManager()->GetActiveCmdBuffer();
+		}
+		CmdContext->EndRenderQueryInternal(CmdBuffer, EndTimer);
 		bIsTiming = false;
 		bEndTimestampIssued = true;
 	}
@@ -191,7 +193,7 @@ void FVulkanGPUProfiler::BeginFrame()
 	// if we are starting a hitch profile or this frame is a gpu profile, then save off the state of the draw events
 	if (bLatchedGProfilingGPU || (!bPreviousLatchedGProfilingGPUHitches && bLatchedGProfilingGPUHitches))
 	{
-		bOriginalGEmitDrawEvents = GEmitDrawEvents;
+		bOriginalGEmitDrawEvents = GetEmitDrawEvents();
 	}
 
 	if (bLatchedGProfilingGPU || bLatchedGProfilingGPUHitches)
@@ -204,9 +206,9 @@ void FVulkanGPUProfiler::BeginFrame()
 		}
 		else
 		{
-			GEmitDrawEvents = true;  // thwart an attempt to turn this off on the game side
+			SetEmitDrawEvents(true);  // thwart an attempt to turn this off on the game side
 			bTrackingEvents = true;
-			CurrentEventNodeFrame = new FVulkanEventNodeFrame(CmdContext);
+			CurrentEventNodeFrame = new FVulkanEventNodeFrame(CmdContext, Device);
 			CurrentEventNodeFrame->StartFrame();
 		}
 	}
@@ -214,11 +216,11 @@ void FVulkanGPUProfiler::BeginFrame()
 	{
 		// hitch profiler is turning off, clear history and restore draw events
 		GPUHitchEventNodeFrames.Empty();
-		GEmitDrawEvents = bOriginalGEmitDrawEvents;
+		SetEmitDrawEvents(bOriginalGEmitDrawEvents);
 	}
 	bPreviousLatchedGProfilingGPUHitches = bLatchedGProfilingGPUHitches;
 
-	if (GEmitDrawEvents)
+	if (GetEmitDrawEvents())
 	{
 		PushEvent(TEXT("FRAME"), FColor(0, 255, 0, 255));
 	}
@@ -226,7 +228,7 @@ void FVulkanGPUProfiler::BeginFrame()
 
 void FVulkanGPUProfiler::EndFrameBeforeSubmit()
 {
-	if (GEmitDrawEvents)
+	if (GetEmitDrawEvents())
 	{
 		// Finish all open nodes
 		// This is necessary because timestamps must be issued before SubmitDone(), and SubmitDone() happens in RHIEndDrawingViewport instead of RHIEndFrame
@@ -257,7 +259,7 @@ void FVulkanGPUProfiler::EndFrame()
 		{
 			CmdContext->GetDevice()->SubmitCommandsAndFlushGPU();
 
-			GEmitDrawEvents = bOriginalGEmitDrawEvents;
+			SetEmitDrawEvents(bOriginalGEmitDrawEvents);
 			UE_LOG(LogRHI, Warning, TEXT(""));
 			UE_LOG(LogRHI, Warning, TEXT(""));
 			check(CurrentEventNodeFrame);
@@ -363,8 +365,6 @@ DEFINE_STAT(STAT_VulkanDrawCallPrepareTime);
 DEFINE_STAT(STAT_VulkanDispatchCallPrepareTime);
 DEFINE_STAT(STAT_VulkanGetOrCreatePipeline);
 DEFINE_STAT(STAT_VulkanGetDescriptorSet);
-DEFINE_STAT(STAT_VulkanCreateUniformBufferTime);
-//DEFINE_STAT(STAT_VulkanCreatePipeline);
 DEFINE_STAT(STAT_VulkanPipelineBind);
 DEFINE_STAT(STAT_VulkanNumBoundShaderState);
 DEFINE_STAT(STAT_VulkanNumRenderPasses);
@@ -385,18 +385,18 @@ DEFINE_STAT(STAT_VulkanDeletionQueue);
 DEFINE_STAT(STAT_VulkanQueueSubmit);
 DEFINE_STAT(STAT_VulkanQueuePresent);
 DEFINE_STAT(STAT_VulkanWaitQuery);
+DEFINE_STAT(STAT_VulkanWaitFence);
 DEFINE_STAT(STAT_VulkanResetQuery);
 DEFINE_STAT(STAT_VulkanWaitSwapchain);
 DEFINE_STAT(STAT_VulkanAcquireBackBuffer);
 DEFINE_STAT(STAT_VulkanStagingBuffer);
+DEFINE_STAT(STAT_VulkanVkCreateDescriptorPool);
+DEFINE_STAT(STAT_VulkanDescriptorPools);
 #if VULKAN_ENABLE_AGGRESSIVE_STATS
-DEFINE_STAT(STAT_VulkanApplyDSResources);
 DEFINE_STAT(STAT_VulkanUpdateDescriptorSets);
 DEFINE_STAT(STAT_VulkanNumUpdateDescriptors);
 DEFINE_STAT(STAT_VulkanNumDescSets);
-DEFINE_STAT(STAT_VulkanSetShaderParamTime);
 DEFINE_STAT(STAT_VulkanSetUniformBufferTime);
 DEFINE_STAT(STAT_VulkanVkUpdateDS);
-DEFINE_STAT(STAT_VulkanClearDirtyDSState);
 DEFINE_STAT(STAT_VulkanBindVertexStreamsTime);
 #endif

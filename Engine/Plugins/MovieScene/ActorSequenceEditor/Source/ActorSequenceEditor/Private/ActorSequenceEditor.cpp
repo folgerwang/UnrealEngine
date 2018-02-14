@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ActorSequence.h"
 #include "ActorSequenceComponent.h"
@@ -7,12 +7,12 @@
 #include "ActorSequenceComponentCustomization.h"
 #include "ActorSequenceEditorStyle.h"
 #include "ActorSequenceEditorTabSummoner.h"
-#include "LayoutExtender.h"
+#include "Framework/Docking/LayoutExtender.h"
 #include "LevelEditor.h"
 #include "MovieSceneToolsProjectSettings.h"
 #include "PropertyEditorModule.h"
 #include "Styling/SlateStyle.h"
-#include "WorkflowTabManager.h"
+#include "WorkflowOrientedApp/WorkflowTabManager.h"
 #include "Modules/ModuleManager.h"
 #include "Widgets/Docking/SDockTab.h"
 #include "ISettingsModule.h"

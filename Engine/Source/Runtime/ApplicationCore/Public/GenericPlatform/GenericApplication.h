@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,7 @@
 #include "Containers/Array.h"
 #include "Containers/UnrealString.h"
 #include "Math/Vector2D.h"
+#include "Math/Vector4.h"
 #include "Templates/SharedPointer.h"
 #include "Delegates/Delegate.h"
 #include "GenericPlatform/GenericApplicationMessageHandler.h"
@@ -313,6 +314,11 @@ struct FPlatformRect
 
 	FPlatformRect() {}
 	FPlatformRect(int32 InLeft, int32 InTop, int32 InRight, int32 InBottom) : Left(InLeft), Top(InTop), Right(InRight), Bottom(InBottom) {}
+
+	bool operator==(const FPlatformRect& Other) const
+	{
+		return Left == Other.Left && Top == Other.Top && Right == Other.Right && Bottom == Other.Bottom;
+	}
 };
 
 
@@ -336,7 +342,7 @@ struct FMonitorInfo
  */
 struct FDisplayMetrics
 {
-	FDisplayMetrics() : TitleSafePaddingSize(0, 0), ActionSafePaddingSize(0, 0) { }
+	FDisplayMetrics() : TitleSafePaddingSize(0, 0, 0, 0), ActionSafePaddingSize(0, 0, 0, 0) { }
 
 	/** Width of the primary display in pixels */
 	int32 PrimaryDisplayWidth;
@@ -354,12 +360,15 @@ struct FDisplayMetrics
 	FPlatformRect VirtualDisplayRect;
 
 	/** The safe area for all content on TVs (see http://en.wikipedia.org/wiki/Safe_area_%28television%29) - content will be inset TitleSafePaddingSize.X on left _and_ right */
-	FVector2D TitleSafePaddingSize;
+	FVector4 TitleSafePaddingSize;
 
 	/** The safe area for less important spill over on TVs (see TitleSafePaddingSize) */
-	FVector2D ActionSafePaddingSize;
+	FVector4 ActionSafePaddingSize;
 
 	APPLICATIONCORE_API static void GetDisplayMetrics(struct FDisplayMetrics& OutDisplayMetrics);
+
+	/** Gets the monitor work area from a position in the global display rect */
+	APPLICATIONCORE_API FPlatformRect GetMonitorWorkAreaFromPoint(const FVector2D& Point) const;
 
 	/** Logs out display metrics */
 	APPLICATIONCORE_API void PrintToLog() const;

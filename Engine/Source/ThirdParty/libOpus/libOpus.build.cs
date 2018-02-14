@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.IO;
@@ -55,6 +55,18 @@ public class libOpus : ModuleRules
             {
                 PublicAdditionalLibraries.Add(LibraryPath + "Linux/" + Target.Architecture + "/libopus_fPIC.a");
             }
+
+			if (Target.Architecture.StartsWith("x86_64"))
+			{
+				if (Target.LinkType == TargetLinkType.Monolithic)
+				{
+					PublicAdditionalLibraries.Add(LibraryPath + "Linux/" + Target.Architecture + "/libresampler.a");
+				}
+				else
+				{
+					PublicAdditionalLibraries.Add(LibraryPath + "Linux/" + Target.Architecture + "/libresampler_fPIC.a");
+				}
+			}
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Android)
 		{

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	IOSAudioSource.cpp: Unreal IOSAudio source interface object.
@@ -9,9 +9,9 @@
  ------------------------------------------------------------------------------------*/
 
 #include "IOSAudioDevice.h"
-#include "IAudioFormat.h"
+#include "Interfaces/IAudioFormat.h"
 #include "ContentStreaming.h"
-#include "IAudioFormat.h"
+#include "Interfaces/IAudioFormat.h"
 #include "AudioDecompress.h"
 #include "ADPCMAudioInfo.h"
 

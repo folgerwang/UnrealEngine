@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CurveEditorSharedData.h"
 #include "Engine/InterpCurveEdSetup.h"
@@ -8,7 +8,7 @@
 FCurveEditorSharedData::FCurveEditorSharedData(UInterpCurveEdSetup* InEdSetup)
 	: LabelEntryHeight(36)
 {
-	EditorOptions = NewObject<UCurveEdOptions>(GetTransientPackage(), TEXT("EditorOptions"));
+	EditorOptions = NewObject<UCurveEdOptions>(GetTransientPackage(), MakeUniqueObjectName(GetTransientPackage(), UCurveEdOptions::StaticClass(), FName(TEXT("EditorOptions"))));
 	check(EditorOptions);
 	MinViewRange = EditorOptions->MinViewRange;
 	MaxViewRange = EditorOptions->MaxViewRange;

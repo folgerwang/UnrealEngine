@@ -1,8 +1,8 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "OnlineStoreInterfaceV2.h"
+#include "Interfaces/OnlineStoreInterfaceV2.h"
 
 enum class EPurchaseTransactionState : uint8;
 struct FStoreKitTransactionData;

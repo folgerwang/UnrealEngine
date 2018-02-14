@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ImgMediaPlayer.h"
 #include "ImgMediaPrivate.h"
@@ -395,6 +395,11 @@ bool FImgMediaPlayer::Seek(const FTimespan& Time)
 	CurrentTime = Time;
 	LastFetchTime = FTimespan::MinValue();
 
+	if (CurrentState == EMediaState::Paused)
+	{
+		Loader->RequestFrame(CurrentTime, CurrentRate);
+	}
+
 	EventSink.ReceiveMediaEvent(EMediaEvent::SeekCompleted);
 
 	return true;
@@ -473,6 +478,11 @@ bool FImgMediaPlayer::FetchVideo(TRange<FTimespan> TimeRange, TSharedPtr<IMediaT
 	if ((CurrentState != EMediaState::Paused) && (CurrentState != EMediaState::Playing))
 	{
 		return false; // nothing to play
+	}
+
+	if (SelectedVideoTrack != 0)
+	{
+		return false; // no video track selected
 	}
 
 	TSharedPtr<IMediaTextureSample, ESPMode::ThreadSafe> Sample = Loader->GetFrameSample(CurrentTime);

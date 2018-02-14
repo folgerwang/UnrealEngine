@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "VREditorModule.h"
 #include "Modules/ModuleManager.h"
@@ -8,8 +8,8 @@
 #include "VREditorModeManager.h"
 #include "VREditorStyle.h"
 #include "VREditorMode.h"
-#include "MultiBoxBuilder.h"
-#include "MultiBoxExtender.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
 #include "HeadMountedDisplayTypes.h"
 
 class FVREditorModule : public IVREditorModule

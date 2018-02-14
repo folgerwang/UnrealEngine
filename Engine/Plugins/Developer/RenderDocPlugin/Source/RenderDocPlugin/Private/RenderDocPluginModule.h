@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -9,13 +9,13 @@
 
 #if WITH_EDITOR
 #include "Editor/LevelEditor/Public/LevelEditor.h"
-#include "MultiBoxExtender.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
 #include "RenderDocPluginStyle.h"
 #include "RenderDocPluginCommands.h"
 #include "SRenderDocPluginEditorExtension.h"
 #endif
 
-#include "SharedPointer.h"
+#include "Templates/SharedPointer.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(RenderDocPlugin, Log, All);
 

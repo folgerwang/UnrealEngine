@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -171,12 +171,15 @@ namespace UnrealBuildTool
 		{
 			string[] BoolKeys = new string[] {
 				"bBuildForArmV7", "bBuildForArm64", "bBuildForX86", "bBuildForX8664", 
-				"bBuildForES2", "bBuildForESDeferred", "bBuildForES3", "bBuildWithHiddenSymbolVisibility"
+				"bBuildForES2", "bBuildForES31", "bBuildWithHiddenSymbolVisibility"
+			};
+			string[] StringKeys = new string[] {
+				"NDKAPILevelOverride"
 			};
 
 			// look up Android specific settings
 			if (!DoProjectSettingsMatchDefault(Platform, ProjectPath, "/Script/AndroidRuntimeSettings.AndroidRuntimeSettings",
-				BoolKeys, null, null))
+				BoolKeys, null, StringKeys))
 			{
 				return false;
 			}
@@ -224,14 +227,15 @@ namespace UnrealBuildTool
 					{
 						if (Target.bBuildDeveloperTools)
 						{
-							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("AndroidTargetPlatform");
-							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("Android_PVRTCTargetPlatform");
-							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("Android_ATCTargetPlatform");
-							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("Android_DXTTargetPlatform");
-							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("Android_ETC1TargetPlatform");
-							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("Android_ETC2TargetPlatform");
-							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("Android_ASTCTargetPlatform");
-							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("Android_MultiTargetPlatform");
+							Rules.DynamicallyLoadedModuleNames.Add("AndroidTargetPlatform");
+							Rules.DynamicallyLoadedModuleNames.Add("Android_PVRTCTargetPlatform");
+							Rules.DynamicallyLoadedModuleNames.Add("Android_ATCTargetPlatform");
+							Rules.DynamicallyLoadedModuleNames.Add("Android_DXTTargetPlatform");
+							Rules.DynamicallyLoadedModuleNames.Add("Android_ETC1TargetPlatform");
+                            Rules.DynamicallyLoadedModuleNames.Add("Android_ETC1aTargetPlatform");
+							Rules.DynamicallyLoadedModuleNames.Add("Android_ETC2TargetPlatform");
+							Rules.DynamicallyLoadedModuleNames.Add("Android_ASTCTargetPlatform");
+							Rules.DynamicallyLoadedModuleNames.Add("Android_MultiTargetPlatform");
 						}
 					}
 					else if (ModuleName == "TargetPlatform")
@@ -240,7 +244,7 @@ namespace UnrealBuildTool
 						Rules.DynamicallyLoadedModuleNames.Add("TextureFormatPVR");
 						Rules.DynamicallyLoadedModuleNames.Add("TextureFormatDXT");
 						Rules.DynamicallyLoadedModuleNames.Add("TextureFormatASTC");
-						Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("TextureFormatAndroid");    // ATITC, ETC1 and ETC2
+						Rules.DynamicallyLoadedModuleNames.Add("TextureFormatAndroid");    // ATITC, ETC1 and ETC2
 						if (Target.bBuildDeveloperTools)
 						{
 							//Rules.DynamicallyLoadedModuleNames.Add("AudioFormatADPCM");	//@todo android: android audio
@@ -253,14 +257,15 @@ namespace UnrealBuildTool
 				{
 					if (Target.bForceBuildTargetPlatforms)
 					{
-						Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("AndroidTargetPlatform");
-						Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("Android_PVRTCTargetPlatform");
-						Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("Android_ATCTargetPlatform");
-						Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("Android_DXTTargetPlatform");
-						Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("Android_ETC1TargetPlatform");
-						Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("Android_ETC2TargetPlatform");
-						Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("Android_ASTCTargetPlatform");
-						Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("Android_MultiTargetPlatform");
+						Rules.DynamicallyLoadedModuleNames.Add("AndroidTargetPlatform");
+						Rules.DynamicallyLoadedModuleNames.Add("Android_PVRTCTargetPlatform");
+						Rules.DynamicallyLoadedModuleNames.Add("Android_ATCTargetPlatform");
+						Rules.DynamicallyLoadedModuleNames.Add("Android_DXTTargetPlatform");
+						Rules.DynamicallyLoadedModuleNames.Add("Android_ETC1TargetPlatform");
+                        Rules.DynamicallyLoadedModuleNames.Add("Android_ETC1aTargetPlatform");
+						Rules.DynamicallyLoadedModuleNames.Add("Android_ETC2TargetPlatform");
+						Rules.DynamicallyLoadedModuleNames.Add("Android_ASTCTargetPlatform");
+						Rules.DynamicallyLoadedModuleNames.Add("Android_MultiTargetPlatform");
 					}
 
 					if (bBuildShaderFormats)
@@ -275,8 +280,8 @@ namespace UnrealBuildTool
 		{
 			AndroidToolChain ToolChain = new AndroidToolChain(ProjectFile, false, Target.AndroidPlatform.Architectures, Target.AndroidPlatform.GPUArchitectures);
 
-			var Architectures = ToolChain.GetAllArchitectures();
-			var GPUArchitectures = ToolChain.GetAllGPUArchitectures();
+			List<string> Architectures = ToolChain.GetAllArchitectures();
+			List<string> GPUArchitectures = ToolChain.GetAllGPUArchitectures();
 
 			// make multiple output binaries
 			List<FileReference> AllBinaries = new List<FileReference>();
@@ -423,21 +428,22 @@ namespace UnrealBuildTool
 			CompileEnvironment.Definitions.Add("USE_NULL_RHI=0");
 			CompileEnvironment.Definitions.Add("REQUIRES_ALIGNED_INT_ACCESS");
 
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add("$(NDKROOT)/sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/include");
+			DirectoryReference NdkDir = new DirectoryReference(NDKPath);
+			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/include"));
 
 			// the toolchain will actually filter these out
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add("$(NDKROOT)/sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/armeabi-v7a/include");
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add("$(NDKROOT)/sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/arm64-v8a/include");
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add("$(NDKROOT)/sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/x86/include");
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add("$(NDKROOT)/sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/x86_64/include");
+			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/armeabi-v7a/include"));
+			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/arm64-v8a/include"));
+			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/x86/include"));
+			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/x86_64/include"));
 
-			LinkEnvironment.LibraryPaths.Add("$(NDKROOT)/sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/armeabi-v7a");
-			LinkEnvironment.LibraryPaths.Add("$(NDKROOT)/sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/arm64-v8a");
-			LinkEnvironment.LibraryPaths.Add("$(NDKROOT)/sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/x86");
-			LinkEnvironment.LibraryPaths.Add("$(NDKROOT)/sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/x86_64");
+			LinkEnvironment.LibraryPaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/armeabi-v7a"));
+			LinkEnvironment.LibraryPaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/arm64-v8a"));
+			LinkEnvironment.LibraryPaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/x86"));
+			LinkEnvironment.LibraryPaths.Add(DirectoryReference.Combine(NdkDir, "sources/cxx-stl/gnu-libstdc++/" + GccVersion + "/libs/x86_64"));
 
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add("$(NDKROOT)/sources/android/native_app_glue");
-			CompileEnvironment.IncludePaths.SystemIncludePaths.Add("$(NDKROOT)/sources/android/cpufeatures");
+			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/android/native_app_glue"));
+			CompileEnvironment.IncludePaths.SystemIncludePaths.Add(DirectoryReference.Combine(NdkDir, "sources/android/cpufeatures"));
 
 			//@TODO: Tegra Gfx Debugger - standardize locations - for now, change the hardcoded paths and force this to return true to test
 			if (UseTegraGraphicsDebugger(Target))
@@ -484,8 +490,8 @@ namespace UnrealBuildTool
 				string RenderDocLibPath = Path.Combine(RenderDocPath, @"android\lib\armeabi-v7a");
 				if (Directory.Exists(RenderDocLibPath))
 				{
-					LinkEnvironment.LibraryPaths.Add(RenderDocLibPath);
-					LinkEnvironment.AdditionalLibraries.Add("VkLayer_RenderDoc");
+					LinkEnvironment.LibraryPaths.Add(new DirectoryReference(RenderDocLibPath));
+					LinkEnvironment.AdditionalLibraries.Add("VkLayer_GLES_RenderDoc");
 					return true;
 				}
 			}
@@ -591,8 +597,8 @@ namespace UnrealBuildTool
 		{
 			string NDKPath = Environment.GetEnvironmentVariable("NDKROOT");
 			{
-				var configCacheIni = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, (DirectoryReference)null, UnrealTargetPlatform.Unknown);
-				var AndroidEnv = new Dictionary<string, string>();
+				ConfigHierarchy configCacheIni = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, (DirectoryReference)null, UnrealTargetPlatform.Unknown);
+				Dictionary<string, string> AndroidEnv = new Dictionary<string, string>();
 
 				Dictionary<string, string> EnvVarNames = new Dictionary<string, string> { 
                                                          {"ANDROID_HOME", "SDKPath"}, 
@@ -602,7 +608,7 @@ namespace UnrealBuildTool
                                                          };
 
 				string path;
-				foreach (var kvp in EnvVarNames)
+				foreach (KeyValuePair<string, string> kvp in EnvVarNames)
 				{
 					if (GetPath(configCacheIni, "/Script/AndroidPlatformEditor.AndroidSDKSettings", kvp.Value, out path) && !string.IsNullOrEmpty(path))
 					{
@@ -610,7 +616,7 @@ namespace UnrealBuildTool
 					}
 					else
 					{
-						var envValue = Environment.GetEnvironmentVariable(kvp.Key);
+						string envValue = Environment.GetEnvironmentVariable(kvp.Key);
 						if (!String.IsNullOrEmpty(envValue))
 						{
 							AndroidEnv.Add(kvp.Key, envValue);
@@ -634,7 +640,7 @@ namespace UnrealBuildTool
 						// Walk backwards so we keep the last export setting instead of the first
 						for (int LineIndex = BashProfileContents.Length - 1; LineIndex >= 0; --LineIndex)
 						{
-							foreach (var kvp in EnvVarNames)
+							foreach (KeyValuePair<string, string> kvp in EnvVarNames)
 							{
 								if (AndroidEnv.ContainsKey(kvp.Key))
 								{
@@ -652,7 +658,7 @@ namespace UnrealBuildTool
 				}
 
 				// Set for the process
-				foreach (var kvp in AndroidEnv)
+				foreach (KeyValuePair<string, string> kvp in AndroidEnv)
 				{
 					Environment.SetEnvironmentVariable(kvp.Key, kvp.Value);
 				}

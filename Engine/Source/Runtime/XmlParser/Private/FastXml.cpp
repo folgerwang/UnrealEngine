@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "FastXml.h"
 #include "HAL/PlatformFilemanager.h"
@@ -300,6 +300,7 @@ protected:
 
 		TCHAR* Element;
 		TCHAR* Buffer = &XmlFileContents[ 0 ];
+		TCHAR* AttributeDelimiter;
 
 		while( *Buffer )
 		{
@@ -445,15 +446,16 @@ protected:
 									Buffer = SkipNextData( Buffer );
 									if( *Buffer == L'"' || *Buffer == L'\'' )
 									{
+										AttributeDelimiter = Buffer;
 										Buffer++;
 										AttributeCount++;
 										Attributes[ AttributeCount ] = Buffer;
 										AttributeCount++;
-										while( *Buffer && *Buffer != L'"' && *Buffer != L'\'' )
+										while(*Buffer && *Buffer != *AttributeDelimiter)
 										{
 											Buffer++;
 										}
-										if( *Buffer == L'"' || *Buffer == L'\'' )
+										if(*Buffer == *AttributeDelimiter)
 										{
 											*Buffer = 0;
 											Buffer++;

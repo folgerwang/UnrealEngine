@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "OnlineAsyncTaskManager.h"
-#include "OnlineExternalUIInterface.h"
+#include "Interfaces/OnlineExternalUIInterface.h"
 #include "OnlineAsyncTaskGooglePlayAuthAction.h"
 #include "OnlineSubsystemGooglePlayPackage.h"
 #include "AndroidPermissionFunctionLibrary.h"

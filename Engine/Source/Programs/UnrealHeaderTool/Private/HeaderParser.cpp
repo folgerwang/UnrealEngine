@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #include "HeaderParser.h"
@@ -3527,11 +3527,11 @@ void FHeaderParser::GetVarType(
 		{
 			if (0 != (CPF_DisableEditOnInstance & Flags))
 			{
-				UE_LOG_WARNING_UHT(TEXT("Property cannot have 'DisableEditOnInstance' or 'BlueprintReadOnly' and 'ExposeOnSpawn' flags"));
+				UE_LOG_WARNING_UHT(TEXT("Property cannot have both 'DisableEditOnInstance' and 'ExposeOnSpawn' flags"));
 			}
 			if (0 == (CPF_BlueprintVisible & Flags))
 			{
-				UE_LOG_WARNING_UHT(TEXT("Property cannot have 'ExposeOnSpawn' with 'BlueprintVisible' flag."));
+				UE_LOG_WARNING_UHT(TEXT("Property cannot have 'ExposeOnSpawn' without 'BlueprintVisible' flag."));
 			}
 			Flags |= CPF_ExposeOnSpawn;
 		}
@@ -4536,8 +4536,25 @@ UProperty* FHeaderParser::GetVarNameAndDim
 				FError::Throwf(TEXT("Deprecated variables must end with _DEPRECATED"));
 			}
 
+			// We allow deprecated properties in blueprints that have getters and setters assigned as they may be part of a backwards compatibility path
+			const bool bBlueprintVisible = (VarProperty.PropertyFlags & CPF_BlueprintVisible) > 0;
+			const bool bWarnOnGetter = bBlueprintVisible && !VarProperty.MetaData.Contains(TEXT("BlueprintGetter"));
+			const bool bWarnOnSetter = bBlueprintVisible && !(VarProperty.PropertyFlags & CPF_BlueprintReadOnly) && !VarProperty.MetaData.Contains(TEXT("BlueprintSetter"));
+
+			if (bWarnOnGetter)
+			{
+				UE_LOG_WARNING_UHT(TEXT("%s: Deprecated property '%s' should not be marked as blueprint visible without having a BlueprintGetter"), HintText, *VarName);
+			}
+
+			if (bWarnOnSetter)
+			{
+				UE_LOG_WARNING_UHT(TEXT("%s: Deprecated property '%s' should not be marked as blueprint writeable without having a BlueprintSetter"), HintText, *VarName);
+			}
+
+
 			// Warn if a deprecated property is visible
-			if (VarProperty.PropertyFlags & (CPF_Edit | CPF_EditConst | CPF_BlueprintVisible | CPF_BlueprintReadOnly) && !(VarProperty.ImpliedPropertyFlags & CPF_BlueprintReadOnly))
+			if (VarProperty.PropertyFlags & (CPF_Edit | CPF_EditConst) || // Property is marked as editable
+				(!bBlueprintVisible && (VarProperty.PropertyFlags & CPF_BlueprintReadOnly) && !(VarProperty.ImpliedPropertyFlags & CPF_BlueprintReadOnly)) ) // Is BPRO, but not via Implied Flags and not caught by Getter/Setter path above
 			{
 				UE_LOG_WARNING_UHT(TEXT("%s: Deprecated property '%s' should not be marked as visible or editable"), HintText, *VarName);
 			}
@@ -7129,6 +7146,27 @@ void FHeaderParser::CompileVariableDeclaration(FClasses& AllClasses, UStruct* St
 			}
 		}
 	}
+	// Using Brace Initialization
+	else if (MatchSymbol(TEXT("{")))
+	{
+		FToken SkipToken;
+		int BraceLevel = 1;
+		while (GetToken(SkipToken))
+		{
+			if (SkipToken.Matches(TEXT("{")))
+			{
+				++BraceLevel;
+			}
+			else if (SkipToken.Matches(TEXT("}")))
+			{
+				--BraceLevel;
+				if (BraceLevel == 0)
+				{
+					break;
+				}
+			}
+		}
+	}
 
 	// Expect a semicolon.
 	RequireSymbol( TEXT(";"), TEXT("'variable declaration'") );
@@ -8309,7 +8347,7 @@ void FHeaderParser::SimplifiedClassParse(const TCHAR* Filename, const TCHAR* InB
 		{
 			if (bFoundGeneratedInclude)
 			{
-				UE_LOG_ERROR_UHT(TEXT("#include found after .generated.h file - the .generated.h file should always be the last #include in a header"));
+				FFileLineException::Throwf(Filename, CurrentLine, TEXT("#include found after .generated.h file - the .generated.h file should always be the last #include in a header"));
 			}
 
 			// Handle #include directives as if they were 'dependson' keywords.
@@ -8489,7 +8527,7 @@ void FHeaderParser::SimplifiedClassParse(const TCHAR* Filename, const TCHAR* InB
 
 	if (bFoundExportedClasses && !bFoundGeneratedInclude)
 	{
-		UE_LOG_ERROR_UHT(TEXT("No #include found for the .generated.h file - the .generated.h file should always be the last #include in a header"));
+		FError::Throwf(TEXT("No #include found for the .generated.h file - the .generated.h file should always be the last #include in a header"));
 	}
 }
 

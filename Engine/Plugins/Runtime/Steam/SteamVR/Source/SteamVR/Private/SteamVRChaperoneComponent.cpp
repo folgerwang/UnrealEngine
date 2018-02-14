@@ -1,6 +1,6 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 //
-#include "Classes/SteamVRChaperoneComponent.h"
+#include "SteamVRChaperoneComponent.h"
 #include "SteamVRPrivate.h"
 #include "SteamVRHMD.h"
 #include "Engine/Engine.h"
@@ -23,26 +23,30 @@ void USteamVRChaperoneComponent::TickComponent(float DeltaTime, enum ELevelTick 
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 #if STEAMVR_SUPPORTED_PLATFORMS
-	//@todo Make this safe once we can add something to the DeviceType enum.  For now, make the terrible assumption this is a SteamVR device.
- 	FSteamVRHMD* SteamVRHMD = (FSteamVRHMD*)(GEngine->HMDDevice.Get());
- 	if (SteamVRHMD && SteamVRHMD->IsStereoEnabled())
- 	{
- 		bool bInBounds = SteamVRHMD->IsInsideBounds();
- 
-		if (bInBounds != bWasInsideBounds)
-		{
-			if (bInBounds)
-			{
-				OnReturnToBounds.Broadcast();
-			}
-			else
-			{
-				OnLeaveBounds.Broadcast();
-			}
-		}
+	IXRTrackingSystem* ActiveXRSystem = GEngine->XRSystem.Get();
 
-		bWasInsideBounds = bInBounds;
- 	}
+	if (ActiveXRSystem && ActiveXRSystem->GetSystemName() == FSteamVRHMD::SteamSystemName)
+	{
+		FSteamVRHMD* SteamVRHMD = (FSteamVRHMD*)(ActiveXRSystem);
+		if (SteamVRHMD->IsStereoEnabled())
+		{
+			bool bInBounds = SteamVRHMD->IsInsideBounds();
+
+			if (bInBounds != bWasInsideBounds)
+			{
+				if (bInBounds)
+				{
+					OnReturnToBounds.Broadcast();
+				}
+				else
+				{
+					OnLeaveBounds.Broadcast();
+				}
+			}
+
+			bWasInsideBounds = bInBounds;
+		}
+	}
 #endif // STEAMVR_SUPPORTED_PLATFORMS
 }
 
@@ -51,11 +55,18 @@ TArray<FVector> USteamVRChaperoneComponent::GetBounds() const
 	TArray<FVector> RetValue;
 
 #if STEAMVR_SUPPORTED_PLATFORMS
-	FSteamVRHMD* SteamVRHMD = (FSteamVRHMD*)(GEngine->HMDDevice.Get());
-	if (SteamVRHMD && SteamVRHMD->IsStereoEnabled())
+	if (GEngine->XRSystem.IsValid())
 	{
-		RetValue = SteamVRHMD->GetBounds();
-	}
+		IXRTrackingSystem* XRSystem = GEngine->XRSystem.Get();
+		if (XRSystem->GetSystemName() == FSteamVRHMD::SteamSystemName)
+		{
+			FSteamVRHMD* SteamVRHMD = (FSteamVRHMD*)(XRSystem);
+			if (SteamVRHMD->IsStereoEnabled())
+			{
+				RetValue = SteamVRHMD->GetBounds();
+			}
+		}
+	}	
 #endif // STEAMVR_SUPPORTED_PLATFORMS
 
 	return RetValue;

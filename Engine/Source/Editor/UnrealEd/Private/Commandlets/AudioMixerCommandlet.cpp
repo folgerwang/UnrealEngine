@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Commandlets/AudioMixerCommandlet.h"
 #include "HAL/FileManager.h"
@@ -17,8 +17,8 @@
 
 #include "AudioDevice.h"
 #include "AudioMixerModule.h"
-#include "Classes/Components/AudioComponent.h"
-#include "Classes/Sound/AudioSettings.h"
+#include "Components/AudioComponent.h"
+#include "Sound/AudioSettings.h"
 
 DEFINE_LOG_CATEGORY_STATIC(AudioMixerCommandlet, Log, All);
 

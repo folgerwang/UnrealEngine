@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanUniformBuffer.cpp: Vulkan Constant buffer implementation.
@@ -111,8 +111,6 @@ FVulkanUniformBuffer::~FVulkanUniformBuffer()
 
 FUniformBufferRHIRef FVulkanDynamicRHI::RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage)
 {
-	SCOPE_CYCLE_COUNTER(STAT_VulkanCreateUniformBufferTime);
-
 	// Emulation: Creates and returns a CPU-Only buffer.
 	// Parts of the buffer are later on copied for each shader stage into the packed uniform buffer
 	return new FVulkanUniformBuffer(*Device, Layout, Contents, Usage);

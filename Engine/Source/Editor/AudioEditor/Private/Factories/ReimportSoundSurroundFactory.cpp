@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Factories/ReimportSoundSurroundFactory.h"
 #include "Logging/MessageLog.h"
@@ -137,6 +137,7 @@ EReimportResult::Type UReimportSoundSurroundFactory::Reimport(UObject* Obj)
 
 			// Mark the package dirty after the successful import
 			SoundWave->MarkPackageDirty();
+			SoundWave->bNeedsThumbnailGeneration = true;
 
 			bSourceReimported = true;
 		}

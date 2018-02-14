@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimationModifierDetailCustomization.h"
 #include "AnimationModifier.h"
@@ -6,8 +6,8 @@
 #include "DetailLayoutBuilder.h" 
 #include "DetailWidgetRow.h"
 #include "DetailCategoryBuilder.h"
-#include "SButton.h"
-#include "STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Text/STextBlock.h"
 
 #define LOCTEXT_NAMESPACE "FAnimationModifierDetailCustomization"
 

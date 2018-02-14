@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D11Viewport.cpp: D3D viewport RHI implementation.
@@ -16,7 +16,7 @@
 #endif
 
 #if D3D11_WITH_DWMAPI
-	#include "AllowWindowsPlatformTypes.h"
+	#include "Windows/AllowWindowsPlatformTypes.h"
 		#include <dwmapi.h>
 #endif	//D3D11_WITH_DWMAPI
 
@@ -46,14 +46,6 @@ namespace RHIConsoleVariables
 		TEXT("RHI.TargetRefreshRate"),
 		TargetRefreshRate,
 		TEXT("If non-zero, the display will never update more often than the target refresh rate (in Hz)."),
-		ECVF_RenderThreadSafe
-		);
-
-	int32 SyncInterval = 1;
-	static FAutoConsoleVariableRef CVarSyncInterval(
-		TEXT("RHI.SyncInterval"),
-		SyncInterval,
-		TEXT("When synchronizing with D3D, specifies the interval at which to refresh."),
 		ECVF_RenderThreadSafe
 		);
 
@@ -466,7 +458,7 @@ bool FD3D11Viewport::Present(bool bLockToVsync)
 #endif	//D3D11_WITH_DWMAPI
 	{
 		// Present the back buffer to the viewport window.
-		bNativelyPresented = PresentChecked(bLockToVsync ? RHIConsoleVariables::SyncInterval : 0);
+		bNativelyPresented = PresentChecked(bLockToVsync ? RHIGetSyncInterval() : 0);
 	}
 	return bNativelyPresented;
 }
@@ -627,7 +619,7 @@ void FD3D11DynamicRHI::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI,bo
 #endif
 }
 
-void FD3D11DynamicRHI::RHIAdvanceFrameForGetViewportBackBuffer()
+void FD3D11DynamicRHI::RHIAdvanceFrameForGetViewportBackBuffer(FViewportRHIParamRef Viewport)
 {
 }
 
@@ -639,5 +631,5 @@ FTexture2DRHIRef FD3D11DynamicRHI::RHIGetViewportBackBuffer(FViewportRHIParamRef
 }
 
 #if D3D11_WITH_DWMAPI
-	#include "HideWindowsPlatformTypes.h"
+	#include "Windows/HideWindowsPlatformTypes.h"
 #endif	//D3D11_WITH_DWMAPI

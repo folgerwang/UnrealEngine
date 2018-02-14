@@ -1,10 +1,10 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "SCompoundWidget.h"
-#include "NotifyHook.h"
-#include "SListView.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Misc/NotifyHook.h"
+#include "Widgets/Views/SListView.h"
 
 
 class INiagaraParameterCollectionViewModel;

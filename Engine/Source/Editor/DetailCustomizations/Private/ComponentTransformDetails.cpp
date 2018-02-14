@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ComponentTransformDetails.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
@@ -31,7 +31,7 @@
 #include "IPropertyUtilities.h"
 #include "Math/UnitConversion.h"
 #include "Widgets/Input/NumericUnitTypeInterface.inl"
-#include "EditorProjectSettings.h"
+#include "Settings/EditorProjectSettings.h"
 #include "HAL/PlatformApplicationMisc.h"
 
 #define LOCTEXT_NAMESPACE "FComponentTransformDetails"
@@ -1311,7 +1311,7 @@ void FComponentTransformDetails::OnBeginRotatonSlider()
 			{
 				if(Object->IsA<AActor>())
 				{
-					GEditor->BeginTransaction( LOCTEXT( "OnSetRotation", "Set actor rotation" ) );
+					GEditor->BeginTransaction( LOCTEXT( "OnSetRotation", "Set Rotation" ) );
 				}
 				else
 				{
@@ -1344,7 +1344,7 @@ void FComponentTransformDetails::OnBeginRotatonSlider()
 	// Just in case we couldn't start a new transaction for some reason
 	if(!bBeganTransaction)
 	{
-		GEditor->BeginTransaction( LOCTEXT( "OnSetRotation", "Set actor rotation" ) );
+		GEditor->BeginTransaction( LOCTEXT( "OnSetRotation", "Set Rotation" ) );
 	}	
 }
 

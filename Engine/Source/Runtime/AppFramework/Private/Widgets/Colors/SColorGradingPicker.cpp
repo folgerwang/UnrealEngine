@@ -1,8 +1,8 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#include "SColorGradingPicker.h"
-#include "SColorGradingWheel.h"
-#include "SNumericEntryBox.h"
-#include "SBox.h"
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+#include "Widgets/Colors/SColorGradingPicker.h"
+#include "Widgets/Colors/SColorGradingWheel.h"
+#include "Widgets/Input/SNumericEntryBox.h"
+#include "Widgets/Layout/SBox.h"
 
 
 #define LOCTEXT_NAMESPACE "ColorGradingWheel"

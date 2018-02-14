@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "IOSTargetSettingsCustomization.h"
 #include "Containers/Ticker.h"
@@ -30,7 +30,7 @@
 #include "SProvisionListRow.h"
 #include "SCertificateListRow.h"
 #include "Misc/EngineBuildSettings.h"
-#include "SNumericDropDown.h"
+#include "Widgets/Input/SNumericDropDown.h"
 #include "Misc/MessageDialog.h"
 #include "Widgets/Notifications/SErrorText.h"
 #include "Interfaces/ITargetPlatform.h"
@@ -78,6 +78,7 @@ FIOSTargetSettingsCustomization::FIOSTargetSettingsCustomization()
 	new (IconNames) FPlatformIconInfo(TEXT("Icon76.png"), LOCTEXT("AppIcon_iPad_iOS7", "iPad iOS7 App Icon"), FText::GetEmpty(), 76, 76, FPlatformIconInfo::Required);
 	new (IconNames) FPlatformIconInfo(TEXT("Icon76@2x.png"), LOCTEXT("AppIcon_iPadRetina_iOS7", "iPad Retina iOS7 App Icon"), FText::GetEmpty(), 152, 152, FPlatformIconInfo::Required);
 	new (IconNames)FPlatformIconInfo(TEXT("Icon83.5@2x.png"), LOCTEXT("AppIcon_iPadProRetina_iOS9", "iPad Pro Retina iOS9 App Icon"), FText::GetEmpty(), 167, 167, FPlatformIconInfo::Required);
+	new (IconNames)FPlatformIconInfo(TEXT("Icon1024.png"), LOCTEXT("AppIcon_Marketing", "Marketing Icon"), FText::GetEmpty(), 1024, 1024, FPlatformIconInfo::Required);
 
 	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default.png"), LOCTEXT("LaunchImage_iPhone", "Launch iPhone 4/4S"), FText::GetEmpty(), 320, 480, FPlatformIconInfo::Required);
 	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default@2x.png"), LOCTEXT("LaunchImage_iPhoneRetina", "Launch iPhone 4/4S Retina"), FText::GetEmpty(), 640, 960, FPlatformIconInfo::Required);
@@ -90,6 +91,8 @@ FIOSTargetSettingsCustomization::FIOSTargetSettingsCustomization()
 	new (LaunchImageNames)FPlatformIconInfo(TEXT("Default-IPhone6-Landscape.png"), LOCTEXT("LaunchImage_iPhone6_Landscape", "Launch iPhone 6 in Landscape"), FText::GetEmpty(), 1334, 750, FPlatformIconInfo::Required);
 	new (LaunchImageNames)FPlatformIconInfo(TEXT("Default-IPhone6Plus-Landscape.png"), LOCTEXT("LaunchImage_iPhone6Plus_Landscape", "Launch iPhone 6 Plus in Landscape"), FText::GetEmpty(), 2208, 1242, FPlatformIconInfo::Required);
 	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-IPhone6Plus-Portrait.png"), LOCTEXT("LaunchImage_iPhone6Plus_Portrait", "Launch iPhone 6 Plus in Portrait"), FText::GetEmpty(), 1242, 2208, FPlatformIconInfo::Required);
+	new (LaunchImageNames)FPlatformIconInfo(TEXT("Default-IPhoneX-Landscape.png"), LOCTEXT("LaunchImage_iPhoneX_Landscape", "Launch iPhone X in Landscape"), FText::GetEmpty(), 2436, 1125, FPlatformIconInfo::Required);
+	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-IPhoneX-Portrait.png"), LOCTEXT("LaunchImage_iPhoneX_Portrait", "Launch iPhone X in Portrait"), FText::GetEmpty(), 1125, 2436, FPlatformIconInfo::Required);
 	new (LaunchImageNames) FPlatformIconInfo(TEXT("Default-Landscape-1336.png"), LOCTEXT("LaunchImage_iPadPro_Landscape", "Launch iPad Pro in Landscape"), FText::GetEmpty(), 1336, 1024, FPlatformIconInfo::Required);
 	new (LaunchImageNames)FPlatformIconInfo(TEXT("Default-Portrait-1336.png"), LOCTEXT("LaunchImage_iPadPro_Portrait", "Launch iPad Pro in Portrait"), FText::GetEmpty(), 1024, 1336, FPlatformIconInfo::Required);
 	new (LaunchImageNames)FPlatformIconInfo(TEXT("Default-Landscape-1336@2x.png"), LOCTEXT("LaunchImage_iPadProRetina_Landscape", "Launch iPad Pro Retina in Landscape"), FText::GetEmpty(), 2732, 2048, FPlatformIconInfo::Required);
@@ -290,8 +293,12 @@ void FIOSTargetSettingsCustomization::BuildPListSection(IDetailLayoutBuilder& De
 	BuildCategory.AddProperty(SignCertificateProperty)
 		.Visibility(EVisibility::Hidden);
 	AutomaticSigningProperty = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bAutomaticSigning));
+#if PLATFORM_MAC
+	BuildCategory.AddProperty(AutomaticSigningProperty);
+#else
 	BuildCategory.AddProperty(AutomaticSigningProperty)
 		.Visibility(EVisibility::Hidden);
+#endif // PLATFORM_MAC
 //	ProvisionCategory.AddProperty(AutomaticSigningProperty);
 
 /*	ProvisionCategory.AddCustomRow(TEXT("Certificate Request"), false)
@@ -720,14 +727,15 @@ void FIOSTargetSettingsCustomization::BuildPListSection(IDetailLayoutBuilder& De
 
 	FSimpleDelegate OnUpdateShaderStandardWarning = FSimpleDelegate::CreateSP(this, &FIOSTargetSettingsCustomization::UpdateShaderStandardWarning);
 	FSimpleDelegate OnUpdateOSVersionWarning = FSimpleDelegate::CreateSP(this, &FIOSTargetSettingsCustomization::UpdateOSVersionWarning);
+	FSimpleDelegate OnEnableMetalMRT = FSimpleDelegate::CreateSP(this, &FIOSTargetSettingsCustomization::UpdateMetalMRTWarning);
 
 /*	GLES2PropertyHandle = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bSupportsOpenGLES2));
 	GLES2PropertyHandle->SetOnPropertyValueChanged(OnUpdateShaderStandardWarning);
-	RenderCategory.AddProperty(GLES2PropertyHandle);*/
+	RenderCategory.AddProperty(GLES2PropertyHandle);
 
 	MinOSPropertyHandle = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, MinimumiOSVersion));
 	MinOSPropertyHandle->SetOnPropertyValueChanged(OnUpdateShaderStandardWarning);
-	OSInfoCategory.AddProperty(MinOSPropertyHandle);
+	OSInfoCategory.AddProperty(MinOSPropertyHandle);*/
 
 	DevArmV7PropertyHandle = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bDevForArmV7));
 	DevArmV7PropertyHandle->SetOnPropertyValueChanged(OnUpdateOSVersionWarning);
@@ -755,6 +763,10 @@ void FIOSTargetSettingsCustomization::BuildPListSection(IDetailLayoutBuilder& De
 	SETUP_PLIST_PROP(bSupportsLandscapeRightOrientation, OrientationCategory);
 	
 	SETUP_PLIST_PROP(bSupportsMetal, RenderCategory);
+	
+	MRTPropertyHandle = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bSupportsMetalMRT));
+	MRTPropertyHandle->SetOnPropertyValueChanged(OnEnableMetalMRT);
+	RenderCategory.AddProperty(MRTPropertyHandle);
 
 	SETUP_SOURCEONLY_PROP(bEnableRemoteNotificationsSupport, OnlineCategory)
 //	SETUP_SOURCEONLY_PROP(bAutomaticSigning, ProvisionCategory)
@@ -762,6 +774,7 @@ void FIOSTargetSettingsCustomization::BuildPListSection(IDetailLayoutBuilder& De
     // Handle max. shader version a little specially.
     {
         ShaderVersionPropertyHandle = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, MaxShaderLanguageVersion));
+		ShaderVersionPropertyHandle->SetOnPropertyValueChanged(OnUpdateShaderStandardWarning);
 		
 		// Drop-downs for setting type of lower and upper bound normalization
 		IDetailPropertyRow& ShaderVersionPropertyRow = RenderCategory.AddProperty(ShaderVersionPropertyHandle.ToSharedRef());
@@ -800,6 +813,49 @@ void FIOSTargetSettingsCustomization::BuildPListSection(IDetailLayoutBuilder& De
 		
 		UpdateShaderStandardWarning();
     }
+
+	// Handle max. shader version a little specially.
+	{
+		MinOSPropertyHandle = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, MinimumiOSVersion));
+		MinOSPropertyHandle->SetOnPropertyValueChanged(OnUpdateOSVersionWarning);
+
+		// Drop-downs for setting type of lower and upper bound normalization
+		IDetailPropertyRow& MinOSPropertyRow = OSInfoCategory.AddProperty(MinOSPropertyHandle.ToSharedRef());
+		MinOSPropertyRow.CustomWidget()
+		.NameContent()
+		[
+			MinOSPropertyHandle->CreatePropertyNameWidget()
+		]
+		.ValueContent()
+		.HAlign(HAlign_Fill)
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(2)
+			[
+				SNew(SComboButton)
+				.OnGetMenuContent(this, &FIOSTargetSettingsCustomization::OnGetMinVersionContent)
+				.ContentPadding(FMargin(2.0f, 2.0f))
+				.ButtonContent()
+				[
+					SNew(STextBlock)
+					.Text(this, &FIOSTargetSettingsCustomization::GetMinVersionDesc)
+					.Font(IDetailLayoutBuilder::GetDetailFont())
+				]
+			]
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.HAlign(HAlign_Fill)
+			.Padding(2)
+			[
+				SAssignNew(IOSVersionWarningTextBox, SErrorText)
+				.AutoWrapText(true)
+			]
+		];
+
+		UpdateOSVersionWarning();
+	}
 
 	SETUP_PLIST_PROP(bSupportsIPad, DeviceCategory);
 	SETUP_PLIST_PROP(bSupportsIPhone, DeviceCategory);
@@ -962,7 +1018,9 @@ void FIOSTargetSettingsCustomization::BuildIconSection(IDetailLayoutBuilder& Det
 	// Add the icons
 	for (const FPlatformIconInfo& Info : IconNames)
 	{
-		const FVector2D IconImageMaxSize(Info.IconRequiredSize);
+		FVector2D IconImageMaxSize(Info.IconRequiredSize);
+		IconImageMaxSize.X = FMath::Min(IconImageMaxSize.X, 150.0f);
+		IconImageMaxSize.Y = FMath::Min(IconImageMaxSize.Y, 150.0f);
 		IDetailCategoryBuilder& IconCategory = (Info.RequiredState == FPlatformIconInfo::Required) ? RequiredIconCategory : OptionalIconCategory;
 		BuildImageRow(DetailLayout, IconCategory, Info, IconImageMaxSize);
 	}
@@ -1280,7 +1338,7 @@ FReply FIOSTargetSettingsCustomization::OnGenerateSSHKey()
 
 	FString CygwinPath = TEXT("/cygdrive/") + FString(Path).Replace(TEXT(":"), TEXT("")).Replace(TEXT("\\"), TEXT("/"));
 	FString EnginePath = FPaths::EngineDir();
-	FString CommandLine = FString::Printf(TEXT("\"%s/ssh.exe\" %s \"%s\\rsync.exe\" %s %s \"%s\" \"%s\" \"%s\""),
+	FString CommandLine = FString::Printf(TEXT("\"%s/ssh.exe\" %s \"%s\\rsync.exe\" \"%s\" %s \"%s\" \"%s\" \"%s\""),
 		*DeltaCopyPath,
 		*RemoteServerPort,
 		*DeltaCopyPath,
@@ -1637,30 +1695,48 @@ FText FIOSTargetSettingsCustomization::GetMinVersionDesc() const
 
 void FIOSTargetSettingsCustomization::SetShaderStandard(int32 Value)
 {
-    if (Value >= 1 && MinOSPropertyHandle.IsValid() && GLES2PropertyHandle.IsValid())
-    {
-        FText Message;
-        
+	FPropertyAccess::Result Res = ShaderVersionPropertyHandle->SetValue((uint8)Value);
+	check(Res == FPropertyAccess::Success);
+	
+	if (MinOSPropertyHandle.IsValid())
+	{
+		FText Message;
+		
 		uint8 EnumValue = (uint8)EIOSVersion::IOS_10;
 		if (MinOSPropertyHandle.IsValid())
 		{
-		MinOSPropertyHandle->GetValue(EnumValue);
+			MinOSPropertyHandle->GetValue(EnumValue);
 		}
 		
-		bool bHasGL = false;
-		GLES2PropertyHandle->GetValue(bHasGL);
+		bool bMRTEnabled = false;
+		if (MRTPropertyHandle.IsValid())
+		{
+			MRTPropertyHandle->GetValue(bMRTEnabled);
+		}
 		
-		if (Value == 1)
-        {
-			if ((EIOSVersion)EnumValue < EIOSVersion::IOS_9 && !bHasGL)
-			{
-				Message = LOCTEXT("iOSMetalShaderVersion1_1","Enabling Metal Shader Standard v1.1 increases the minimum operating system requirement for Metal from iOS 8.0 or later to iOS 9.0 or later - earlier OS versions would require OpenGL ES2. This does not affect tvOS.");
-			}
-        }
-        else if ((EIOSVersion)EnumValue < EIOSVersion::IOS_10 && !bHasGL)
-        {
-            Message = LOCTEXT("iOSMetalShaderVersion1_2","Enabling Metal Shader Standard v1.2 increases the minimum operating system requirement for Metal from iOS 8.0/tvOS 9.0 or later to iOS/tvOS 10.0 or later - earlier OS versions would require OpenGL ES2.");
-        }
+		if (Value == 1 && ((EIOSVersion)EnumValue < EIOSVersion::IOS_9))
+		{
+			Message = LOCTEXT("iOSMetalShaderVersion1_1","Enabling Metal Shader Standard v1.1 increases the minimum operating system requirement for Metal from iOS 8.0 or later to iOS 9.0 or later. This does not affect tvOS.");
+			SetMinVersion((int32)EIOSVersion::IOS_9);
+		}
+		else if (Value < 2 && bMRTEnabled)
+		{
+			FPropertyAccess::Result ResMRT = ShaderVersionPropertyHandle->SetValue((uint8)2);
+			check(ResMRT == FPropertyAccess::Success);
+
+			Message = LOCTEXT("MetalMRTStandardv1.2","Enabling the Desktop Forward Renderer Metal requires Shader Standard v1.2 which increases the minimum operating system requirement for Metal from iOS 8.0 or later to iOS 10.0 or later.");
+			SetMinVersion((int32)EIOSVersion::IOS_10);
+		}
+		else if (Value == 2 && (EIOSVersion)EnumValue < EIOSVersion::IOS_10)
+		{
+			Message = LOCTEXT("iOSMetalShaderVersion1_2","Enabling Metal Shader Standard v1.2 increases the minimum operating system requirement for Metal from iOS 8.0/tvOS 9.0 or later to iOS/tvOS 10.0 or later.");
+			SetMinVersion((int32)EIOSVersion::IOS_10);
+		}
+		else if (Value == 3 && (EIOSVersion)EnumValue < EIOSVersion::IOS_11)
+		{
+			Message = LOCTEXT("iOSMetalShaderVersion1_2","Enabling Metal Shader Standard v2.0 increases the minimum operating system requirement for Metal from iOS 8.0/tvOS 9.0 or later to iOS/tvOS 11.0 or later.");
+			SetMinVersion((int32)EIOSVersion::IOS_11);
+		}
 		
 		
 		ShaderVersionWarningTextBox->SetError(Message);
@@ -1669,8 +1745,6 @@ void FIOSTargetSettingsCustomization::SetShaderStandard(int32 Value)
 	{
 		ShaderVersionWarningTextBox->SetError(TEXT(""));
 	}
-	FPropertyAccess::Result Res = ShaderVersionPropertyHandle->SetValue((uint8)Value);
-	check(Res == FPropertyAccess::Success);
 }
 
 void FIOSTargetSettingsCustomization::UpdateShaderStandardWarning()
@@ -1683,31 +1757,74 @@ void FIOSTargetSettingsCustomization::UpdateShaderStandardWarning()
 
 void FIOSTargetSettingsCustomization::UpdateOSVersionWarning()
 {
-	bool ArchValue;
-	bool bEnabled = false;
-	DevArmV7PropertyHandle->GetValue(ArchValue);
-	bEnabled |= ArchValue;
-
-	DevArmV7sPropertyHandle->GetValue(ArchValue);
-	bEnabled |= ArchValue;
-
-	ShipArmV7PropertyHandle->GetValue(ArchValue);
-	bEnabled |= ArchValue;
-
-	ShipArmV7sPropertyHandle->GetValue(ArchValue);
-	bEnabled |= ArchValue;
-
-	FText Message;
-	Message = LOCTEXT("IOSDeprecation", "Enabling ArmV7 or ArmV7S will no longer be supported in 4.17.");
-
-	// Update the UI
-	if (bEnabled)
+	bool bMRTEnabled = false;
+	if (MRTPropertyHandle.IsValid())
 	{
+		MRTPropertyHandle->GetValue(bMRTEnabled);
+	}
+	
+	// Due to a driver bug on A8 devices running iOS 9 we can only support the global clip-plane when running iOS 10+
+	static IConsoleVariable* ClipPlaneCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.AllowGlobalClipPlane"));
+	if (MinOSPropertyHandle.IsValid() && IOSVersionWarningTextBox.IsValid() && ((ClipPlaneCVar && ClipPlaneCVar->GetInt() != 0) || bMRTEnabled))
+	{
+		uint8 EnumValue;
+		MinOSPropertyHandle->GetValue(EnumValue);
+		
+		if (EnumValue < (uint8)EIOSVersion::IOS_10)
+		{
+			SetMinVersion((int32)EIOSVersion::IOS_10);
+		}
+		
+		FText Message;
+		if (bMRTEnabled)
+		{
+			Message = LOCTEXT("MetalMRTStandardv1.2","Enabling the Desktop Forward Renderer Metal requires Shader Standard v1.2 which increases the minimum operating system requirement for Metal from iOS 8.0 or later to iOS 10.0 or later.");
+			
+			if (ShaderVersionPropertyHandle.IsValid())
+			{
+				ShaderVersionPropertyHandle->GetValue(EnumValue);
+				if (EnumValue < (uint8)EIOSMetalShaderStandard::IOSMetalSLStandard_1_2)
+				{
+					SetShaderStandard((int32)EIOSMetalShaderStandard::IOSMetalSLStandard_1_2);
+				}
+			}
+		}
+		else
+		{
+			Message = LOCTEXT("GlobalClipPlaneiOS10", "Enabling the Global Clip Plane increases the minimum operating system requirement for Metal from iOS 8.0 or later to iOS 10.0 or later.");
+		}
+		
+		// Update the UI
 		IOSVersionWarningTextBox->SetError(Message);
 	}
-	else
+}
+
+void FIOSTargetSettingsCustomization::UpdateMetalMRTWarning()
+{
+	if (MRTPropertyHandle.IsValid() && ShaderVersionPropertyHandle.IsValid() && MinOSPropertyHandle.IsValid())
 	{
-		IOSVersionWarningTextBox->SetError(TEXT(""));
+		bool bMRTEnabled = false;
+		MRTPropertyHandle->GetValue(bMRTEnabled);
+		
+		if (bMRTEnabled)
+		{
+			uint8 EnumValue;
+			MinOSPropertyHandle->GetValue(EnumValue);
+			if (EnumValue < (uint8)EIOSVersion::IOS_10)
+			{
+				SetMinVersion((int32)EIOSVersion::IOS_10);
+			}
+			
+			ShaderVersionPropertyHandle->GetValue(EnumValue);
+			if (EnumValue < (uint8)EIOSMetalShaderStandard::IOSMetalSLStandard_1_2)
+			{
+				SetShaderStandard((int32)EIOSMetalShaderStandard::IOSMetalSLStandard_1_2);
+			}
+		}
+		else
+		{
+			UpdateOSVersionWarning();
+		}
 	}
 }
 

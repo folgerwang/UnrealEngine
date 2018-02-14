@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -118,7 +118,7 @@ public:
 
 	/** Scrolls the ScrollBox to the widget during the next layout pass. */
 	UFUNCTION(BlueprintCallable, Category="Widget")
-	void ScrollWidgetIntoView(UWidget* WidgetToFind, bool AnimateScroll = true, EDescendantScrollDestination ScrollDesintion = EDescendantScrollDestination::IntoView );
+	void ScrollWidgetIntoView(UWidget* WidgetToFind, bool AnimateScroll = true, EDescendantScrollDestination ScrollDestination = EDescendantScrollDestination::IntoView );
 
 	//~ Begin UWidget Interface
 	virtual void SynchronizeProperties() override;

@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Stats.h"
+#include "Stats/Stats.h"
 
 /**
  * Generic result type for cryptographic functions.

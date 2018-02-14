@@ -1,10 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #pragma once
+
+#include "CoreMinimal.h"
 
 #if !UE_BUILD_SHIPPING
 
-#include "CoreMinimal.h"
-#include "ToolMode.h"
+#include "Interfaces/ToolMode.h"
 
 namespace BuildPatchTool
 {

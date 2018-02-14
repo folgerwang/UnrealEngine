@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -8,6 +8,8 @@ namespace UnrealBuildTool.Rules
     {
         public ViewportInteraction(ReadOnlyTargetRules Target) : base(Target)
         {
+			PrivateIncludePaths.Add(ModuleDirectory);
+
             PublicDependencyModuleNames.AddRange(
                 new string[] {
                     "Core",

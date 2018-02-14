@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "PropertySetter.h"
 #include "PropertyHelpers.h"
-#include "UnrealType.h"
+#include "UObject/UnrealType.h"
 #include "CoreMinimal.h"
-#include "Class.h"
+#include "UObject/Class.h"
 #include "USDImporter.h"
 #include "USDConversionUtils.h"
 #include "GameFramework/Actor.h"

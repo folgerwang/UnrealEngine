@@ -1,8 +1,8 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OculusCreateSessionCallbackProxy.h"
 #include "OnlineSubsystemOculusPrivate.h"
-#include "CoreOnline.h"
+#include "UObject/CoreOnline.h"
 #include "Online.h"
 #include "OnlineSessionInterfaceOculus.h"
 

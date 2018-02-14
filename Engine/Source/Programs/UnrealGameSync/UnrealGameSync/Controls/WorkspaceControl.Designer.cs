@@ -29,13 +29,16 @@
 			this.OptionsContextMenu_BuildConfig_Development = new System.Windows.Forms.ToolStripMenuItem();
 			this.OptionsContextMenu_UseIncrementalBuilds = new System.Windows.Forms.ToolStripMenuItem();
 			this.OptionsContextMenu_CustomizeBuildSteps = new System.Windows.Forms.ToolStripMenuItem();
+			this.OptionsContextMenu_EditorArguments = new System.Windows.Forms.ToolStripMenuItem();
 			this.toolStripSeparator5 = new System.Windows.Forms.ToolStripSeparator();
 			this.tabLabelsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.OptionsContextMenu_TabNames_Stream = new System.Windows.Forms.ToolStripMenuItem();
 			this.OptionsContextMenu_TabNames_WorkspaceName = new System.Windows.Forms.ToolStripMenuItem();
 			this.OptionsContextMenu_TabNames_WorkspaceRoot = new System.Windows.Forms.ToolStripMenuItem();
 			this.OptionsContextMenu_TabNames_ProjectFile = new System.Windows.Forms.ToolStripMenuItem();
-			this.OptionsContextMenu_EditorArguments = new System.Windows.Forms.ToolStripMenuItem();
+			this.showChangesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+			this.OptionsContextMenu_ShowChanges_ShowUnreviewed = new System.Windows.Forms.ToolStripMenuItem();
+			this.OptionsContextMenu_ShowChanges_ShowAutomated = new System.Windows.Forms.ToolStripMenuItem();
 			this.OptionsContextMenu_TimeZone = new System.Windows.Forms.ToolStripMenuItem();
 			this.OptionsContextMenu_TimeZone_Local = new System.Windows.Forms.ToolStripMenuItem();
 			this.OptionsContextMenu_TimeZone_PerforceServer = new System.Windows.Forms.ToolStripMenuItem();
@@ -43,7 +46,6 @@
 			this.OptionsContextMenu_KeepInTray = new System.Windows.Forms.ToolStripMenuItem();
 			this.toolStripSeparator6 = new System.Windows.Forms.ToolStripSeparator();
 			this.OptionsContextMenu_Diagnostics = new System.Windows.Forms.ToolStripMenuItem();
-			this.OnlyShowReviewedCheckBox = new System.Windows.Forms.CheckBox();
 			this.RunAfterSyncCheckBox = new System.Windows.Forms.CheckBox();
 			this.BuildAfterSyncCheckBox = new System.Windows.Forms.CheckBox();
 			this.AfterSyncingLabel = new System.Windows.Forms.Label();
@@ -71,6 +73,7 @@
 			this.BuildListContextMenu_TimeZoneSeparator = new System.Windows.Forms.ToolStripSeparator();
 			this.BuildListContextMenu_ShowServerTimes = new System.Windows.Forms.ToolStripMenuItem();
 			this.BuildListContextMenu_ShowLocalTimes = new System.Windows.Forms.ToolStripMenuItem();
+			this.BuildListContextMenu_CustomTool_Start = new System.Windows.Forms.ToolStripSeparator();
 			this.BuildListContextMenu_CustomTool_End = new System.Windows.Forms.ToolStripSeparator();
 			this.BuildListContextMenu_MoreInfo = new System.Windows.Forms.ToolStripMenuItem();
 			this.NotifyIcon = new System.Windows.Forms.NotifyIcon(this.components);
@@ -79,6 +82,7 @@
 			this.flowLayoutPanel1 = new System.Windows.Forms.FlowLayoutPanel();
 			this.OpenSolutionAfterSyncCheckBox = new System.Windows.Forms.CheckBox();
 			this.tableLayoutPanel3 = new System.Windows.Forms.TableLayoutPanel();
+			this.label1 = new System.Windows.Forms.Label();
 			this.OptionsButton = new System.Windows.Forms.Button();
 			this.tableLayoutPanel2 = new System.Windows.Forms.TableLayoutPanel();
 			this.Splitter = new UnrealGameSync.LogSplitContainer();
@@ -109,7 +113,6 @@
 			this.toolStripSeparator9 = new System.Windows.Forms.ToolStripSeparator();
 			this.RecentMenu_Separator = new System.Windows.Forms.ToolStripSeparator();
 			this.RecentMenu_ClearList = new System.Windows.Forms.ToolStripMenuItem();
-			this.BuildListContextMenu_CustomTool_Start = new System.Windows.Forms.ToolStripSeparator();
 			this.OptionsContextMenu.SuspendLayout();
 			this.BuildListContextMenu.SuspendLayout();
 			this.flowLayoutPanel1.SuspendLayout();
@@ -138,16 +141,17 @@
             this.OptionsContextMenu_EditorBuildConfiguration,
             this.OptionsContextMenu_UseIncrementalBuilds,
             this.OptionsContextMenu_CustomizeBuildSteps,
+            this.OptionsContextMenu_EditorArguments,
             this.toolStripSeparator5,
             this.tabLabelsToolStripMenuItem,
-            this.OptionsContextMenu_EditorArguments,
+            this.showChangesToolStripMenuItem,
             this.OptionsContextMenu_TimeZone,
             this.OptionsContextMenu_AutomaticallyRunAtStartup,
             this.OptionsContextMenu_KeepInTray,
             this.toolStripSeparator6,
             this.OptionsContextMenu_Diagnostics});
 			this.OptionsContextMenu.Name = "ToolsMenuStrip";
-			this.OptionsContextMenu.Size = new System.Drawing.Size(268, 330);
+			this.OptionsContextMenu.Size = new System.Drawing.Size(268, 352);
 			// 
 			// OptionsContextMenu_ScheduledSync
 			// 
@@ -236,6 +240,13 @@
 			this.OptionsContextMenu_CustomizeBuildSteps.Text = "Customize Build Steps...";
 			this.OptionsContextMenu_CustomizeBuildSteps.Click += new System.EventHandler(this.OptionsContextMenu_EditBuildSteps_Click);
 			// 
+			// OptionsContextMenu_EditorArguments
+			// 
+			this.OptionsContextMenu_EditorArguments.Name = "OptionsContextMenu_EditorArguments";
+			this.OptionsContextMenu_EditorArguments.Size = new System.Drawing.Size(267, 22);
+			this.OptionsContextMenu_EditorArguments.Text = "Editor Command Line Arguments...";
+			this.OptionsContextMenu_EditorArguments.Click += new System.EventHandler(this.OptionsContextMenu_EditorArguments_Click);
+			// 
 			// toolStripSeparator5
 			// 
 			this.toolStripSeparator5.Name = "toolStripSeparator5";
@@ -280,12 +291,28 @@
 			this.OptionsContextMenu_TabNames_ProjectFile.Text = "Project File";
 			this.OptionsContextMenu_TabNames_ProjectFile.Click += new System.EventHandler(this.OptionsContextMenu_TabNames_ProjectFile_Click);
 			// 
-			// OptionsContextMenu_EditorArguments
+			// showChangesToolStripMenuItem
 			// 
-			this.OptionsContextMenu_EditorArguments.Name = "OptionsContextMenu_EditorArguments";
-			this.OptionsContextMenu_EditorArguments.Size = new System.Drawing.Size(267, 22);
-			this.OptionsContextMenu_EditorArguments.Text = "Editor Command Line Arguments...";
-			this.OptionsContextMenu_EditorArguments.Click += new System.EventHandler(this.OptionsContextMenu_EditorArguments_Click);
+			this.showChangesToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.OptionsContextMenu_ShowChanges_ShowUnreviewed,
+            this.OptionsContextMenu_ShowChanges_ShowAutomated});
+			this.showChangesToolStripMenuItem.Name = "showChangesToolStripMenuItem";
+			this.showChangesToolStripMenuItem.Size = new System.Drawing.Size(267, 22);
+			this.showChangesToolStripMenuItem.Text = "Show Changes";
+			// 
+			// OptionsContextMenu_ShowChanges_WithoutReviews
+			// 
+			this.OptionsContextMenu_ShowChanges_ShowUnreviewed.Name = "OptionsContextMenu_ShowChanges_WithoutReviews";
+			this.OptionsContextMenu_ShowChanges_ShowUnreviewed.Size = new System.Drawing.Size(281, 22);
+			this.OptionsContextMenu_ShowChanges_ShowUnreviewed.Text = "Show changes without reviews";
+			this.OptionsContextMenu_ShowChanges_ShowUnreviewed.Click += new System.EventHandler(this.OptionsContextMenu_ShowChanges_ShowUnreviewed_Click);
+			// 
+			// OptionsContextMenu_ShowChanges_ByAutomatedProcesses
+			// 
+			this.OptionsContextMenu_ShowChanges_ShowAutomated.Name = "OptionsContextMenu_ShowChanges_ByAutomatedProcesses";
+			this.OptionsContextMenu_ShowChanges_ShowAutomated.Size = new System.Drawing.Size(281, 22);
+			this.OptionsContextMenu_ShowChanges_ShowAutomated.Text = "Show changes by automated processes";
+			this.OptionsContextMenu_ShowChanges_ShowAutomated.Click += new System.EventHandler(this.OptionsContextMenu_ShowChanges_ShowAutomated_Click);
 			// 
 			// OptionsContextMenu_TimeZone
 			// 
@@ -335,19 +362,6 @@
 			this.OptionsContextMenu_Diagnostics.Size = new System.Drawing.Size(267, 22);
 			this.OptionsContextMenu_Diagnostics.Text = "Diagnostics...";
 			this.OptionsContextMenu_Diagnostics.Click += new System.EventHandler(this.OptionsContextMenu_Diagnostics_Click);
-			// 
-			// OnlyShowReviewedCheckBox
-			// 
-			this.OnlyShowReviewedCheckBox.AutoSize = true;
-			this.OnlyShowReviewedCheckBox.Dock = System.Windows.Forms.DockStyle.Left;
-			this.OnlyShowReviewedCheckBox.Location = new System.Drawing.Point(0, 16);
-			this.OnlyShowReviewedCheckBox.Margin = new System.Windows.Forms.Padding(0, 3, 3, 2);
-			this.OnlyShowReviewedCheckBox.Name = "OnlyShowReviewedCheckBox";
-			this.OnlyShowReviewedCheckBox.Size = new System.Drawing.Size(179, 21);
-			this.OnlyShowReviewedCheckBox.TabIndex = 3;
-			this.OnlyShowReviewedCheckBox.Text = "Only show reviewed changes";
-			this.OnlyShowReviewedCheckBox.UseVisualStyleBackColor = true;
-			this.OnlyShowReviewedCheckBox.CheckedChanged += new System.EventHandler(this.OnlyShowReviewedCheckBox_CheckedChanged);
 			// 
 			// RunAfterSyncCheckBox
 			// 
@@ -413,7 +427,7 @@
             this.BuildListContextMenu_CustomTool_End,
             this.BuildListContextMenu_MoreInfo});
 			this.BuildListContextMenu.Name = "BuildListContextMenu";
-			this.BuildListContextMenu.Size = new System.Drawing.Size(200, 518);
+			this.BuildListContextMenu.Size = new System.Drawing.Size(200, 496);
 			// 
 			// BuildListContextMenu_LaunchEditor
 			// 
@@ -570,6 +584,11 @@
 			this.BuildListContextMenu_ShowLocalTimes.Text = "Show local times";
 			this.BuildListContextMenu_ShowLocalTimes.Click += new System.EventHandler(this.BuildListContextMenu_ShowLocalTimes_Click);
 			// 
+			// BuildListContextMenu_CustomTool_Start
+			// 
+			this.BuildListContextMenu_CustomTool_Start.Name = "BuildListContextMenu_CustomTool_Start";
+			this.BuildListContextMenu_CustomTool_Start.Size = new System.Drawing.Size(196, 6);
+			// 
 			// BuildListContextMenu_CustomTool_End
 			// 
 			this.BuildListContextMenu_CustomTool_End.Name = "BuildListContextMenu_CustomTool_End";
@@ -596,7 +615,7 @@
 			this.flowLayoutPanel1.Controls.Add(this.BuildAfterSyncCheckBox);
 			this.flowLayoutPanel1.Controls.Add(this.RunAfterSyncCheckBox);
 			this.flowLayoutPanel1.Controls.Add(this.OpenSolutionAfterSyncCheckBox);
-			this.flowLayoutPanel1.Location = new System.Drawing.Point(546, 17);
+			this.flowLayoutPanel1.Location = new System.Drawing.Point(529, 17);
 			this.flowLayoutPanel1.Margin = new System.Windows.Forms.Padding(0, 4, 0, 3);
 			this.flowLayoutPanel1.Name = "flowLayoutPanel1";
 			this.flowLayoutPanel1.Size = new System.Drawing.Size(311, 19);
@@ -624,7 +643,7 @@
 			this.tableLayoutPanel3.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
 			this.tableLayoutPanel3.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
 			this.tableLayoutPanel3.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
-			this.tableLayoutPanel3.Controls.Add(this.OnlyShowReviewedCheckBox, 0, 0);
+			this.tableLayoutPanel3.Controls.Add(this.label1, 0, 0);
 			this.tableLayoutPanel3.Controls.Add(this.flowLayoutPanel1, 1, 0);
 			this.tableLayoutPanel3.Controls.Add(this.OptionsButton, 2, 0);
 			this.tableLayoutPanel3.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -637,6 +656,13 @@
 			this.tableLayoutPanel3.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 26F));
 			this.tableLayoutPanel3.Size = new System.Drawing.Size(1363, 39);
 			this.tableLayoutPanel3.TabIndex = 11;
+			// 
+			// label1
+			// 
+			this.label1.Location = new System.Drawing.Point(3, 13);
+			this.label1.Name = "label1";
+			this.label1.Size = new System.Drawing.Size(141, 26);
+			this.label1.TabIndex = 1;
 			// 
 			// OptionsButton
 			// 
@@ -915,11 +941,6 @@
 			this.RecentMenu_ClearList.Text = "Clear List";
 			this.RecentMenu_ClearList.Click += new System.EventHandler(this.RecentMenu_ClearList_Click);
 			// 
-			// BuildListContextMenu_CustomTool_Start
-			// 
-			this.BuildListContextMenu_CustomTool_Start.Name = "BuildListContextMenu_CustomTool_Start";
-			this.BuildListContextMenu_CustomTool_Start.Size = new System.Drawing.Size(196, 6);
-			// 
 			// WorkspaceControl
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
@@ -965,7 +986,6 @@
 		private System.Windows.Forms.ColumnHeader AuthorColumn;
 		private System.Windows.Forms.Button OptionsButton;
 		private System.Windows.Forms.ContextMenuStrip OptionsContextMenu;
-		private System.Windows.Forms.CheckBox OnlyShowReviewedCheckBox;
 		private System.Windows.Forms.CheckBox RunAfterSyncCheckBox;
 		private System.Windows.Forms.CheckBox BuildAfterSyncCheckBox;
 		private System.Windows.Forms.Label AfterSyncingLabel;
@@ -1049,5 +1069,9 @@
 		private System.Windows.Forms.ToolStripMenuItem RecentMenu_Browse;
 		private System.Windows.Forms.ToolStripSeparator toolStripSeparator9;
 		private System.Windows.Forms.ToolStripSeparator BuildListContextMenu_CustomTool_Start;
+		private System.Windows.Forms.ToolStripMenuItem showChangesToolStripMenuItem;
+		private System.Windows.Forms.Label label1;
+		private System.Windows.Forms.ToolStripMenuItem OptionsContextMenu_ShowChanges_ShowUnreviewed;
+		private System.Windows.Forms.ToolStripMenuItem OptionsContextMenu_ShowChanges_ShowAutomated;
 	}
 }

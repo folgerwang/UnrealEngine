@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreTypes.h"
-#include "WindowsPlatformCompilerSetup.h"
-#include "MinimalWindowsApi.h"
+#include "Windows/WindowsPlatformCompilerSetup.h"
+#include "Windows/MinimalWindowsApi.h"
 
 // Macro for releasing COM objects
 #define SAFE_RELEASE(p) { if(p) { (p)->Release(); (p)=NULL; } }

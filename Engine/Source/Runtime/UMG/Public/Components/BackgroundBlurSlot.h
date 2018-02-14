@@ -1,10 +1,10 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "UObject/ScriptMacros.h"
-#include "SlateWrapperTypes.h"
-#include "PanelSlot.h"
+#include "Components/SlateWrapperTypes.h"
+#include "Components/PanelSlot.h"
 #include "Layout/Margin.h"
 #include "BackgroundBlurSlot.generated.h"
 

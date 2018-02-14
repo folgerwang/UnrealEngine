@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,7 +6,7 @@
 #include "KismetCompiler.h"
 #include "ScriptBlueprint.h"
 #include "Templates/Casts.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 /**
 * Script Blueprint Compiler

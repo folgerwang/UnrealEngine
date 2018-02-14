@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
  
 #include "OnlineSubsystemFacebookTypes.h"
 #include "OnlineJsonSerializer.h"
 #include "OnlineSubsystemFacebookPackage.h"
-#include "IHttpRequest.h"
+#include "Interfaces/IHttpRequest.h"
 
 /** Details about the logged in user */
 #define ME_FIELD_ID "id"

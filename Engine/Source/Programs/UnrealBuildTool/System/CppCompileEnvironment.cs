@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -89,16 +89,6 @@ namespace UnrealBuildTool
 		public readonly string Architecture;
 
 		/// <summary>
-		/// The directory to put the output object/debug files in.
-		/// </summary>
-		public DirectoryReference OutputDirectory = null;
-
-		/// <summary>
-		/// The directory to put precompiled header files in. Experimental setting to allow using a path on a faster drive. Defaults to the standard output directory if not set.
-		/// </summary>
-		public DirectoryReference PCHOutputDirectory = null;
-
-		/// <summary>
 		/// The directory to shadow source files in for syncing to remote compile servers
 		/// </summary>
 		public DirectoryReference LocalShadowDirectory = null;
@@ -117,6 +107,11 @@ namespace UnrealBuildTool
 		/// Use run time type information
 		/// </summary>
 		public bool bUseRTTI = false;
+
+		/// <summary>
+		/// Enable inlining.
+		/// </summary>
+		public bool bUseInlining = false;
 
 		/// <summary>
 		/// Use AVX instructions
@@ -244,6 +239,26 @@ namespace UnrealBuildTool
 		/// </summary>
 		public bool bAllowLTCG;
 
+        /// <summary>
+        /// Whether to enable Profile Guided Optimization (PGO) instrumentation in this build.
+        /// </summary>
+        public bool bPGOProfile;
+        
+        /// <summary>
+        /// Whether to optimize this build with Profile Guided Optimization (PGO).
+        /// </summary>
+        public bool bPGOOptimize;
+
+        /// <summary>
+        /// Platform specific directory where PGO profiling data is stored.
+        /// </summary>
+        public string PGODirectory;
+
+        /// <summary>
+        /// Platform specific filename where PGO profiling data is saved.
+        /// </summary>
+        public string PGOFilenamePrefix;
+
 		/// <summary>
 		/// Whether to log detailed timing info from the compiler
 		/// </summary>
@@ -295,6 +310,11 @@ namespace UnrealBuildTool
 		public bool bHackHeaderGenerator;
 
 		/// <summary>
+		/// Whether to hide symbols by default
+		/// </summary>
+		public bool bHideSymbolsByDefault;
+
+		/// <summary>
 		/// Default constructor.
 		/// </summary>
         public CppCompileEnvironment(CppPlatform Platform, CppConfiguration Configuration, string Architecture, CPPHeaders Headers)
@@ -314,12 +334,11 @@ namespace UnrealBuildTool
 			Platform = Other.Platform;
 			Configuration = Other.Configuration;
 			Architecture = Other.Architecture;
-			OutputDirectory = Other.OutputDirectory;
-			PCHOutputDirectory = Other.PCHOutputDirectory;
 			LocalShadowDirectory = Other.LocalShadowDirectory;
 			PrecompiledHeaderIncludeFilename = Other.PrecompiledHeaderIncludeFilename;
 			PrecompiledHeaderAction = Other.PrecompiledHeaderAction;
 			bUseRTTI = Other.bUseRTTI;
+			bUseInlining = Other.bUseInlining;
 			bUseAVX = Other.bUseAVX;
 			bFasterWithoutUnity = Other.bFasterWithoutUnity;
 			MinSourceFilesForUnityBuildOverride = Other.MinSourceFilesForUnityBuildOverride;
@@ -344,6 +363,10 @@ namespace UnrealBuildTool
 			bSupportEditAndContinue = Other.bSupportEditAndContinue;
 			bUseIncrementalLinking = Other.bUseIncrementalLinking;
 			bAllowLTCG = Other.bAllowLTCG;
+			bPGOOptimize = Other.bPGOOptimize;
+			bPGOProfile = Other.bPGOProfile;
+			PGOFilenamePrefix = Other.PGOFilenamePrefix;
+			PGODirectory = Other.PGODirectory;
 			bPrintTimingInfo = Other.bPrintTimingInfo;
 			bAllowRemotelyCompiledPCHs = Other.bAllowRemotelyCompiledPCHs;
 			IncludePaths = new CppIncludePaths(Other.IncludePaths);
@@ -354,6 +377,7 @@ namespace UnrealBuildTool
 			PrecompiledHeaderFile = Other.PrecompiledHeaderFile;
 			Headers = Other.Headers;
 			bHackHeaderGenerator = Other.bHackHeaderGenerator;
+			bHideSymbolsByDefault = Other.bHideSymbolsByDefault;
 		}
 	}
 }

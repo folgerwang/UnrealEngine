@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Windows/WindowsPlatformProcess.h"
 #include "HAL/PlatformMisc.h"
@@ -386,7 +386,19 @@ FProcHandle FWindowsPlatformProcess::CreateProc( const TCHAR* URL, const TCHAR* 
 
 	if (!CreateProcess(NULL, CommandLine.GetCharArray().GetData(), &Attr, &Attr, true, (::DWORD)CreateFlags, NULL, OptionalWorkingDirectory, &StartupInfo, &ProcInfo))
 	{
-		UE_LOG(LogWindows, Warning, TEXT("CreateProc failed (%u) %s %s"), ::GetLastError(), URL, Parms);
+		DWORD ErrorCode = GetLastError();
+
+		TCHAR ErrorMessage[512];
+		FWindowsPlatformMisc::GetSystemErrorMessage(ErrorMessage, 512, ErrorCode);
+
+		UE_LOG(LogWindows, Warning, TEXT("CreateProc failed: %s (0x%08x)"), ErrorMessage, ErrorCode);
+		if (ErrorCode == ERROR_NOT_ENOUGH_MEMORY || ErrorCode == ERROR_OUTOFMEMORY)
+		{
+			// These errors are common enough that we want some available memory information
+			FPlatformMemoryStats Stats = FPlatformMemory::GetStats();
+			UE_LOG(LogWindows, Warning, TEXT("Mem used: %.2f MB, OS Free %.2f MB"), Stats.UsedPhysical / 1048576.0f, Stats.AvailablePhysical / 1048576.0f);
+		}
+		UE_LOG(LogWindows, Warning, TEXT("URL: %s %s"), URL, Parms);
 		if (OutProcessID != nullptr)
 		{
 			*OutProcessID = 0;
@@ -668,10 +680,12 @@ bool FWindowsPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params
 	}
 	else
 	{
+		DWORD ErrorCode = GetLastError();
+
 		// if CreateProcess failed, we should return a useful error code, which GetLastError will have
 		if (OutReturnCode)
 		{
-			*OutReturnCode = GetLastError();
+			*OutReturnCode = ErrorCode;
 		}
 		if (bRedirectOutput)
 		{
@@ -680,6 +694,18 @@ bool FWindowsPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params
 				verify(::CloseHandle(WritablePipes[PipeIndex]));
 			}
 		}
+
+		TCHAR ErrorMessage[512];
+		FWindowsPlatformMisc::GetSystemErrorMessage(ErrorMessage, 512, ErrorCode);
+
+		UE_LOG(LogWindows, Warning, TEXT("CreateProc failed: %s (0x%08x)"), ErrorMessage, ErrorCode);
+		if (ErrorCode == ERROR_NOT_ENOUGH_MEMORY || ErrorCode == ERROR_OUTOFMEMORY)
+		{
+			// These errors are common enough that we want some available memory information
+			FPlatformMemoryStats Stats = FPlatformMemory::GetStats();
+			UE_LOG(LogWindows, Warning, TEXT("Mem used: %.2f MB, OS Free %.2f MB"), Stats.UsedPhysical / 1048576.0f, Stats.AvailablePhysical / 1048576.0f);
+		}
+		UE_LOG(LogWindows, Warning, TEXT("URL: %s %s"), URL, Params);
 	}
 
 	if (bRedirectOutput)
@@ -789,6 +815,10 @@ const TCHAR* FWindowsPlatformProcess::BaseDir()
 			TempResult = TempResult.Replace(TEXT("\\"), TEXT("/"));
 			FCString::Strcpy(Result, *TempResult);
 			int32 StringLength = FCString::Strlen(Result);
+			int32 NumSubDirectories = 0;
+#ifdef ENGINE_BASE_DIR_ADJUST
+			NumSubDirectories = ENGINE_BASE_DIR_ADJUST;
+#endif
 			if (StringLength > 0)
 			{
 				--StringLength;
@@ -796,7 +826,10 @@ const TCHAR* FWindowsPlatformProcess::BaseDir()
 				{
 					if (Result[StringLength - 1] == TEXT('/') || Result[StringLength - 1] == TEXT('\\'))
 					{
-						break;
+						if(--NumSubDirectories < 0)
+						{
+							break;
+						}
 					}
 				}
 			}
@@ -1272,6 +1305,28 @@ bool FWindowsPlatformProcess::WritePipe(void* WritePipe, const FString& Message,
 	{
 		Buffer[BytesWritten] = '\0';
 		*OutWritten = FUTF8ToTCHAR((const ANSICHAR*)Buffer).Get();
+	}
+
+	delete[] Buffer;
+	return bIsWritten;
+}
+
+bool FWindowsPlatformProcess::WritePipe(void* WritePipe, const uint8* Data, const int32 DataLength, int32* OutDataLength)
+{
+	// if there is not a message or WritePipe is null
+	if ((DataLength == 0) || (WritePipe == nullptr))
+	{
+		return false;
+	}
+
+	// write to pipe
+	uint32 BytesWritten = 0;
+	bool bIsWritten = !!WriteFile(WritePipe, Data, DataLength, (::DWORD*)&BytesWritten, nullptr);
+
+	// Get written Data Length
+	if (OutDataLength)
+	{
+		*OutDataLength = (int32)BytesWritten;
 	}
 
 	return bIsWritten;

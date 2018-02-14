@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #include "ObjectTools.h"
@@ -23,7 +23,7 @@
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Styling/SlateTypes.h"
 #include "Widgets/SWindow.h"
-#include "SEditableTextBox.h"
+#include "Widgets/Input/SEditableTextBox.h"
 #include "RHI.h"
 #include "Materials/MaterialInterface.h"
 #include "RenderingThread.h"
@@ -87,7 +87,7 @@
 #include "Layers/ILayers.h"
 #include "Engine/SCS_Node.h"
 #include "ShaderCompiler.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "Engine/MapBuildDataRegistry.h"
 #include "HAL/PlatformApplicationMisc.h"
 
@@ -448,13 +448,14 @@ namespace ObjectTools
 			bool bOverwriteExistingObjects =
 				EAppReturnType::Yes == FMessageDialog::Open(
 				EAppMsgType::YesNo,
+				EAppReturnType::No,
 				FText::Format(
 				NSLOCTEXT("UnrealEd", "ReplaceExistingObjectInPackage_F", "An object [{0}] of class [{1}] already exists in file [{2}].  Do you want to replace the existing object?  If you click 'Yes', the existing object will be deleted.  Otherwise, click 'No' and choose a unique name for your new object." ),
 				FText::FromString(ObjectsToOverwriteName),
 				FText::FromString(ObjectsToOverwriteClass),
 				FText::FromString(ObjectsToOverwritePackage) ) );					
 
-			// The user didn't want to overwrite the existing opitons, so bail out of the duplicate operation.
+			// The user didn't want to overwrite the existing options, so bail out of the duplicate operation.
 			if( !bOverwriteExistingObjects )
 			{
 				return NULL;
@@ -1885,7 +1886,7 @@ namespace ObjectTools
 						Args.Add(TEXT("Filename"), FText::FromString(PackageFilename));
 						const FText Message = FText::Format(NSLOCTEXT("ObjectTools", "DeleteReadOnlyWarning", "File '{Filename}' is read-only on disk, are you sure you want to delete it?"), Args);
 
-						ReturnType = FMessageDialog::Open(EAppMsgType::YesNoYesAllNoAll, Message);
+						ReturnType = FMessageDialog::Open(EAppMsgType::YesNoYesAllNoAll, EAppReturnType::No, Message);
 						bMakeWritable = ReturnType == EAppReturnType::YesAll;
 						bSilent = ReturnType == EAppReturnType::NoAll;
 					}
@@ -3010,18 +3011,27 @@ namespace ObjectTools
 		}
 	}
 
-	FString SanitizeObjectName (const FString& InObjectName)
+	FString SanitizeObjectName(const FString& InObjectName)
+	{
+		return SanitizeInvalidChars(InObjectName, INVALID_OBJECTNAME_CHARACTERS);
+	}
+
+	FString SanitizeObjectPath(const FString& InObjectPath)
+	{
+		return SanitizeInvalidChars(InObjectPath, INVALID_OBJECTPATH_CHARACTERS);
+	}
+
+	FString SanitizeInvalidChars(const FString& InObjectName, const FString& InvalidChars)
 	{
 		FString SanitizedName;
-		FString InvalidChars = INVALID_OBJECTNAME_CHARACTERS;
 
 		// See if the name contains invalid characters.
 		FString Char;
-		for( int32 CharIdx = 0; CharIdx < InObjectName.Len(); ++CharIdx )
+		for (int32 CharIdx = 0; CharIdx < InObjectName.Len(); ++CharIdx)
 		{
 			Char = InObjectName.Mid(CharIdx, 1);
 
-			if ( InvalidChars.Contains(*Char) )
+			if (InvalidChars.Contains(*Char))
 			{
 				SanitizedName += TEXT("_");
 			}
@@ -4148,16 +4158,23 @@ namespace ThumbnailTools
 		return true;
 	}
 
-	UNREALED_API bool AssetHasCustomThumbnail(const FAssetData& InAssetData)
+	bool AssetHasCustomThumbnail(const FString& InAssetDataFullName)
 	{
-		const FObjectThumbnail* CachedThumbnail = FindCachedThumbnail(InAssetData.GetFullName());
+		FObjectThumbnail Thumbnail;
+		return AssetHasCustomThumbnail(InAssetDataFullName, Thumbnail);
+	}
+
+	bool AssetHasCustomThumbnail(const FString& InAssetDataFullName, FObjectThumbnail& OutThumbnail)
+	{
+		const FObjectThumbnail* CachedThumbnail = FindCachedThumbnail(InAssetDataFullName);
 		if (CachedThumbnail != NULL && !CachedThumbnail->IsEmpty())
 		{
+			OutThumbnail = *CachedThumbnail;
 			return true;
 		}
 
 		// If we don't yet have a thumbnail map, check the disk
-		FName ObjectFullName = FName(*InAssetData.GetFullName());
+		FName ObjectFullName = FName(*InAssetDataFullName);
 		TArray<FName> ObjectFullNames;
 		FThumbnailMap LoadedThumbnails;
 		ObjectFullNames.Add(ObjectFullName);
@@ -4167,9 +4184,21 @@ namespace ThumbnailTools
 
 			if (Thumbnail != NULL && !Thumbnail->IsEmpty())
 			{
+				OutThumbnail = *Thumbnail;
 				return true;
 			}
 		}
+		return false;
+	}
+
+	bool AssetHasCustomCreatedThumbnail(const FString& InAssetDataFullName)
+	{
+		FObjectThumbnail Thumbnail;
+		if (AssetHasCustomThumbnail(InAssetDataFullName, Thumbnail))
+		{
+			return Thumbnail.IsCreatedAfterCustomThumbsEnabled();
+		}
+
 		return false;
 	}
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AssetTypeActions_NiagaraParameterCollection.h"
 #include "NiagaraParameterCollection.h"
@@ -9,7 +9,7 @@
 #include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
 
-#include "MultiBoxBuilder.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "EditorStyleSet.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions_NiagaraParameterCollection"

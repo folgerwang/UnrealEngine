@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #if __cplusplus_cli
 // there are compile issues with this file in managed mode, so use the FPU version
-#include "UnrealMathFPU.h"
+#include "Math/UnrealMathFPU.h"
 #else
 
 #include <DirectXMath.h>
@@ -71,7 +71,7 @@ FORCEINLINE VectorRegisterInt MakeVectorRegisterInt(int32 X, int32 Y, int32 Z, i
  *	Constants:
  *============================================================================*/
 
-#include "UnrealMathVectorConstants.h"
+#include "Math/UnrealMathVectorConstants.h"
 
 
 /*=============================================================================

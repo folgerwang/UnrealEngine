@@ -1,10 +1,10 @@
 // Copyright 2017 Google Inc.
 
-#include "Classes/GoogleVRMotionControllerComponent.h"
+#include "GoogleVRMotionControllerComponent.h"
 #include "GoogleVRController.h"
 #include "GoogleVRLaserPlaneComponent.h"
-#include "Classes/GoogleVRPointerInputComponent.h"
-#include "Classes/GoogleVRControllerFunctionLibrary.h"
+#include "GoogleVRLaserVisualComponent.h"
+#include "GoogleVRControllerFunctionLibrary.h"
 #include "MotionControllerComponent.h"
 #include "Materials/MaterialParameterCollection.h"
 #include "Materials/MaterialParameterCollectionInstance.h"
@@ -34,7 +34,6 @@ UGoogleVRMotionControllerComponent::UGoogleVRMotionControllerComponent()
 , AppMaterial(nullptr)
 , SystemMaterial(nullptr)
 , ControllerTouchPointMaterial(nullptr)
-, ControllerReticleMaterial(nullptr)
 , ParameterCollection(nullptr)
 , ControllerBatteryMesh(nullptr)
 , BatteryTextureParameterName("Texture")
@@ -45,25 +44,21 @@ UGoogleVRMotionControllerComponent::UGoogleVRMotionControllerComponent()
 , BatteryLowTexture(nullptr)
 , BatteryCriticalLowTexture(nullptr)
 , BatteryChargingTexture(nullptr)
-, LaserPlaneMesh(nullptr)
-, LaserDistanceMax(0.75f)
-, ReticleDistanceMin(0.45f)
-, ReticleDistanceMax(2.5f)
-, ReticleSize(0.05f)
 , EnterRadiusCoeff(0.1f)
 , ExitRadiusCoeff(0.2f)
+, PointerInputMode(EGoogleVRPointerInputMode::Camera)
 , RequireInputComponent(true)
+, IsLockedToHead(false)
 , TranslucentSortPriority(1)
 , PlayerController(nullptr)
+, InputComponent(nullptr)
 , MotionControllerComponent(nullptr)
 , ControllerMeshComponent(nullptr)
 , ControllerTouchPointMeshComponent(nullptr)
 , ControllerBatteryMeshComponent(nullptr)
 , ControllerBatteryStaticMaterial(nullptr)
 , ControllerBatteryMaterial(nullptr)
-, PointerContainerComponent(nullptr)
-, LaserPlaneComponent(nullptr)
-, ReticleBillboardComponent(nullptr)
+, LaserVisualComponent(nullptr)
 , TouchMeshScale(FVector::ZeroVector)
 , bAreSubComponentsEnabled(false)
 , LastKnownBatteryState(EGoogleVRControllerBatteryLevel::Unknown)
@@ -90,9 +85,7 @@ UGoogleVRMotionControllerComponent::UGoogleVRMotionControllerComponent()
 		BatteryLowTexture = Cast<UTexture2D>(StaticLoadObject(UTexture2D::StaticClass(), NULL, TEXT("/GoogleVRController/BatteryIndicatorLow")));
 		BatteryCriticalLowTexture = Cast<UTexture2D>(StaticLoadObject(UTexture2D::StaticClass(), NULL, TEXT("/GoogleVRController/BatteryIndicatorCriticalLow")));
 		BatteryChargingTexture = Cast<UTexture2D>(StaticLoadObject(UTexture2D::StaticClass(), NULL, TEXT("/GoogleVRController/BatteryIndicatorCharging")));
-		ControllerReticleMaterial = Cast<UMaterialInterface>(StaticLoadObject(UMaterialInterface::StaticClass(), NULL, TEXT("/GoogleVRController/ControllerRetMaterial")));
 		ParameterCollection = Cast<UMaterialParameterCollection>(StaticLoadObject(UMaterialParameterCollection::StaticClass(), NULL, TEXT("/GoogleVRController/ControllerParameters")));
-		LaserPlaneMesh = Cast<UStaticMesh>(StaticLoadObject(UStaticMesh::StaticClass(), NULL, TEXT("/GoogleVRController/LaserPlane")));
 	}
 }
 
@@ -106,25 +99,17 @@ UStaticMeshComponent* UGoogleVRMotionControllerComponent::GetControllerMesh() co
 	return ControllerMeshComponent;
 }
 
-UStaticMeshComponent* UGoogleVRMotionControllerComponent::GetLaser() const
-{
-	return LaserPlaneComponent;
-}
-
 UMaterialInstanceDynamic* UGoogleVRMotionControllerComponent::GetLaserMaterial() const
 {
-	return LaserPlaneComponent ? LaserPlaneComponent->GetLaserMaterial() : nullptr;
-}
-
-UMaterialBillboardComponent* UGoogleVRMotionControllerComponent::GetReticle() const
-{
-	return ReticleBillboardComponent;
+	return LaserVisualComponent != nullptr ? LaserVisualComponent->GetLaserMaterial() : nullptr;
 }
 
 void UGoogleVRMotionControllerComponent::SetPointerDistance(float Distance)
 {
-	UpdateLaserDistance(Distance);
-	UpdateReticleDistance(Distance);
+	if (LaserVisualComponent != nullptr)
+	{
+		LaserVisualComponent->SetPointerDistance(Distance, GetWorldToMetersScale(), PlayerController->PlayerCameraManager->GetCameraLocation());
+	}
 }
 
 void UGoogleVRMotionControllerComponent::OnRegister()
@@ -148,10 +133,7 @@ void UGoogleVRMotionControllerComponent::OnRegister()
 	check(BatteryLowTexture != nullptr);
 	check(BatteryCriticalLowTexture != nullptr);
 	check(BatteryChargingTexture != nullptr);
-	check(ControllerReticleMaterial != nullptr);
 	check(ParameterCollection != nullptr);
-	check(LaserPlaneMesh != nullptr);
-
 
 	// Get the world to meters scale.
 	const float WorldToMetersScale = GetWorldToMetersScale();
@@ -225,27 +207,6 @@ void UGoogleVRMotionControllerComponent::OnRegister()
 		ControllerBatteryMeshComponent->RegisterComponent();
 	}
 
-	// Create the pointer container.
-	PointerContainerComponent = NewObject<USceneComponent>(this, TEXT("Pointer"));
-	PointerContainerComponent->SetupAttachment(MotionControllerComponent);
-	PointerContainerComponent->RegisterComponent();
-
-	// Create the laser plane.
-	LaserPlaneComponent = NewObject<UGoogleVRLaserPlaneComponent>(this, TEXT("LaserPlaneMesh"));
-	LaserPlaneComponent->SetStaticMesh(LaserPlaneMesh);
-	LaserPlaneComponent->SetTranslucentSortPriority(TranslucentSortPriority + 1);
-	LaserPlaneComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	LaserPlaneComponent->SetupAttachment(PointerContainerComponent);
-	LaserPlaneComponent->RegisterComponent();
-
-	// Create the reticle.
-	ReticleBillboardComponent = NewObject<UMaterialBillboardComponent>(this, TEXT("Reticle"));
-	ReticleBillboardComponent->AddElement(ControllerReticleMaterial, nullptr, false, 1.0f, 1.0f, nullptr);
-	ReticleBillboardComponent->SetTranslucentSortPriority(TranslucentSortPriority);
-	ReticleBillboardComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	ReticleBillboardComponent->SetupAttachment(PointerContainerComponent);
-	ReticleBillboardComponent->RegisterComponent();
-
 	// Now that everything is created, set the visibility based on the active status.
 	// Set bAreSubComponentsEnabled to prevent SetSubComponentsEnabled from returning early since
 	// The components have only just been created and may not be set properly yet.
@@ -256,11 +217,10 @@ void UGoogleVRMotionControllerComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	TArray<UGoogleVRPointerInputComponent*> Components;
-	UGoogleVRPointerInputComponent* InputComponent = nullptr;
+	TArray<UGoogleVRPointerInputComponent*> PointerInputComponents;
+	GetOwner()->GetComponents(PointerInputComponents);
 
-	GetOwner()->GetComponents(Components);
-	if(Components.Num() == 0)
+	if (PointerInputComponents.Num() == 0)
 	{
 		if (RequireInputComponent)
 		{
@@ -272,7 +232,18 @@ void UGoogleVRMotionControllerComponent::BeginPlay()
 	}
 	else
 	{
-		InputComponent = Components[0];
+		InputComponent = PointerInputComponents[0];
+	}
+
+	TArray<UActorComponent*> LaserVisualComponents = GetOwner()->GetComponentsByTag(UGoogleVRLaserVisual::StaticClass(), LaserVisualComponentTag);
+	if (LaserVisualComponents.Num() > 0)
+	{
+		LaserVisualComponent = (UGoogleVRLaserVisual*)LaserVisualComponents[0];
+		LaserVisualComponent->AttachToComponent(MotionControllerComponent, FAttachmentTransformRules::KeepWorldTransform);
+	}
+	else
+	{
+		UE_LOG(LogGoogleVRMotionController, Warning, TEXT("GoogleVRMotionControllerComponent: the actor does not have a GoogleVRLaserVisualComponent."));
 	}
 
 	// If we found an InputComponent and it doesn't already have a Pointer, automatically set
@@ -287,12 +258,28 @@ void UGoogleVRMotionControllerComponent::BeginPlay()
 	PlayerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
 	check(PlayerController != nullptr);
 
-	// Get the world to meters scale.
-	const float WorldToMetersScale = GetWorldToMetersScale();
-
 	// Set the laser and reticle distances to their default positions.
-	UpdateLaserDistance(LaserDistanceMax * WorldToMetersScale);
-	UpdateReticleDistance(ReticleDistanceMax * WorldToMetersScale);
+	if (LaserVisualComponent != nullptr)
+	{
+		LaserVisualComponent->SetSubComponentsEnabled(bAreSubComponentsEnabled);
+
+		// Get the world to meters scale.
+		const float WorldToMetersScale = GetWorldToMetersScale();
+
+		if (PointerInputMode == EGoogleVRPointerInputMode::HybridExperimental
+			|| PointerInputMode == EGoogleVRPointerInputMode::Camera)
+		{
+			LaserVisualComponent->UpdateLaserDistance(0, WorldToMetersScale);
+		}
+		else
+		{
+			LaserVisualComponent->SetDefaultLaserDistance(WorldToMetersScale);
+		}
+
+		LaserVisualComponent->SetDefaultReticleDistance(WorldToMetersScale, PlayerController->PlayerCameraManager->GetCameraLocation());
+	}
+
+	UGoogleVRControllerFunctionLibrary::SetArmModelIsLockedToHead(IsLockedToHead);
 }
 
 void UGoogleVRMotionControllerComponent::Activate(bool bReset)
@@ -379,8 +366,12 @@ void UGoogleVRMotionControllerComponent::TickComponent( float DeltaTime, ELevelT
 	// Update the position of the pointer.
 	FVector PointerPositionOffset = UGoogleVRControllerFunctionLibrary::GetArmModelPointerPositionOffset();
 	float PointerTiltAngle = UGoogleVRControllerFunctionLibrary::GetArmModelPointerTiltAngle();
-	PointerContainerComponent->SetRelativeLocation(PointerPositionOffset);
-	PointerContainerComponent->SetRelativeRotation(FRotator(-PointerTiltAngle, 0.0f, 0.0f));
+
+	if (LaserVisualComponent != nullptr)
+	{
+		LaserVisualComponent->SetRelativeLocation(PointerPositionOffset);
+		LaserVisualComponent->SetRelativeRotation(FRotator(-PointerTiltAngle, 0.0f, 0.0f));
+	}
 
 	// Adjust Transparency
 	if (ParameterCollection != nullptr)
@@ -464,71 +455,6 @@ void UGoogleVRMotionControllerComponent::UpdateBatteryIndicator()
 	}
 }
 
-void UGoogleVRMotionControllerComponent::UpdateLaserDistance(float Distance)
-{
-	if (LaserPlaneComponent != nullptr)
-	{
-		LaserPlaneComponent->UpdateLaserDistance(Distance);
-	}
-}
-
-void UGoogleVRMotionControllerComponent::UpdateLaserCorrection(FVector Correction)
-{
-	if (LaserPlaneComponent != nullptr)
-	{
-		LaserPlaneComponent->UpdateLaserCorrection(Correction);
-	}
-}
-
-void UGoogleVRMotionControllerComponent::UpdateReticleDistance(float Distance)
-{
-	if (ReticleBillboardComponent != nullptr)
-	{
-		const float WorldToMetersScale = GetWorldToMetersScale();
-		float ClampedDistance = FMath::Clamp(Distance,
-											 ReticleDistanceMin * WorldToMetersScale,
-											 ReticleDistanceMax * WorldToMetersScale);
-
-		ReticleBillboardComponent->SetRelativeLocation(FVector(ClampedDistance, 0.0f, 0.0f));
-	}
-
-	UpdateReticleSize();
-}
-
-void UGoogleVRMotionControllerComponent::UpdateReticleLocation(FVector Location, FVector OriginLocation)
-{
-	if (ReticleBillboardComponent != nullptr)
-	{
-		const float WorldToMetersScale = GetWorldToMetersScale();
-		FVector Difference = Location - OriginLocation;
-		FVector ClampedDifference = Difference.GetClampedToSize(ReticleDistanceMin * WorldToMetersScale,
-																ReticleDistanceMax * WorldToMetersScale);
-		Location = OriginLocation + ClampedDifference;
-
-		ReticleBillboardComponent->SetWorldLocation(Location);
-	}
-
-	UpdateReticleSize();
-}
-
-void UGoogleVRMotionControllerComponent::UpdateReticleSize()
-{
-	if (ReticleBillboardComponent != nullptr)
-	{
-		FVector CameraLocation = PlayerController->PlayerCameraManager->GetCameraLocation();
-		float ReticleDistanceFromCamera = (ReticleBillboardComponent->GetComponentLocation() - CameraLocation).Size();
-		float SpriteSize = ReticleSize * ReticleDistanceFromCamera;
-
-		FMaterialSpriteElement& Sprite = ReticleBillboardComponent->Elements[0];
-		if (Sprite.BaseSizeX != SpriteSize)
-		{
-			Sprite.BaseSizeX = SpriteSize;
-			Sprite.BaseSizeY = SpriteSize;
-			ReticleBillboardComponent->MarkRenderStateDirty();
-		}
-	}
-}
-
 void UGoogleVRMotionControllerComponent::SetSubComponentsEnabled(bool bNewEnabled)
 {
 	if (bNewEnabled == bAreSubComponentsEnabled)
@@ -566,16 +492,9 @@ void UGoogleVRMotionControllerComponent::SetSubComponentsEnabled(bool bNewEnable
 		ControllerBatteryMeshComponent->SetVisibility(bNewEnabled);
 	}
 
-	if (LaserPlaneComponent != nullptr)
+	if (LaserVisualComponent != nullptr)
 	{
-		LaserPlaneComponent->SetActive(bNewEnabled);
-		LaserPlaneComponent->SetVisibility(bNewEnabled);
-	}
-
-	if (ReticleBillboardComponent != nullptr)
-	{
-		ReticleBillboardComponent->SetActive(bNewEnabled);
-		ReticleBillboardComponent->SetVisibility(bNewEnabled);
+		LaserVisualComponent->SetSubComponentsEnabled(bNewEnabled);
 	}
 }
 
@@ -602,33 +521,43 @@ void UGoogleVRMotionControllerComponent::OnPointerEnter(const FHitResult& HitRes
 
 void UGoogleVRMotionControllerComponent::OnPointerHover(const FHitResult& HitResult, bool IsHitInteractive)
 {
-	FVector Location = HitResult.Location;
-	FVector OriginLocation = HitResult.TraceStart;
-	UpdateReticleLocation(Location, OriginLocation);
-
-	FTransform PointerContainerTransform = PointerContainerComponent->GetComponentTransform();
-
-	FVector Difference = Location - PointerContainerTransform.GetLocation();
-	float Distance = Difference.Size();
-	UpdateLaserDistance(Distance);
-
-	FVector UncorrectedLaserEndpoint = PointerContainerTransform.GetLocation() + PointerContainerTransform.GetUnitAxis(EAxis::X) * Distance;
-	UpdateLaserCorrection(Location - UncorrectedLaserEndpoint);
+	if (LaserVisualComponent != nullptr)
+	{
+		FVector Location = HitResult.Location;
+		FVector OriginLocation = HitResult.TraceStart;
+		FTransform PointerContainerTransform = LaserVisualComponent->GetComponentTransform();
+		FVector Difference = Location - PointerContainerTransform.GetLocation();
+		float Distance = Difference.Size();
+		float ModifiedDistance = GetRaycastModeBasedDistance(Distance);
+		LaserVisualComponent->UpdateLaserDistance(ModifiedDistance, GetWorldToMetersScale());
+		LaserVisualComponent->UpdateReticleLocation(Location, OriginLocation, GetWorldToMetersScale(), PlayerController->PlayerCameraManager->GetCameraLocation());
+	}
 }
 
 void UGoogleVRMotionControllerComponent::OnPointerExit(const FHitResult& HitResult)
 {
-	const float WorldToMetersScale = GetWorldToMetersScale();
-	UpdateReticleDistance(ReticleDistanceMax * WorldToMetersScale);
-	UpdateLaserDistance(LaserDistanceMax * WorldToMetersScale);
-	UpdateLaserCorrection(FVector(0, 0, 0));
+	if (LaserVisualComponent != nullptr)
+	{
+		const float WorldToMetersScale = GetWorldToMetersScale();
+		if (PointerInputMode == EGoogleVRPointerInputMode::HybridExperimental
+			|| PointerInputMode == EGoogleVRPointerInputMode::Camera)
+		{
+			LaserVisualComponent->UpdateLaserDistance(0, WorldToMetersScale);
+		}
+		else
+		{
+			LaserVisualComponent->SetDefaultLaserDistance(WorldToMetersScale);
+		}
+		LaserVisualComponent->SetDefaultReticleDistance(WorldToMetersScale, PlayerController->PlayerCameraManager->GetCameraLocation());
+		LaserVisualComponent->UpdateLaserCorrection(FVector(0, 0, 0));
+	}
 }
 
 FVector UGoogleVRMotionControllerComponent::GetOrigin() const
 {
-	if (PointerContainerComponent != nullptr)
+	if (LaserVisualComponent != nullptr)
 	{
-		return PointerContainerComponent->GetComponentLocation();
+		return LaserVisualComponent->GetComponentLocation();
 	}
 
 	return FVector::ZeroVector;
@@ -636,9 +565,9 @@ FVector UGoogleVRMotionControllerComponent::GetOrigin() const
 
 FVector UGoogleVRMotionControllerComponent::GetDirection() const
 {
-	if (PointerContainerComponent != nullptr)
+	if (LaserVisualComponent != nullptr)
 	{
-		return PointerContainerComponent->GetForwardVector();
+		return LaserVisualComponent->GetForwardVector();
 	}
 
 	return FVector::ZeroVector;
@@ -646,9 +575,9 @@ FVector UGoogleVRMotionControllerComponent::GetDirection() const
 
 void UGoogleVRMotionControllerComponent::GetRadius(float& OutEnterRadius, float& OutExitRadius) const
 {
-	if (ReticleBillboardComponent != nullptr)
+	if (LaserVisualComponent != nullptr)
 	{
-		FMaterialSpriteElement& Sprite = ReticleBillboardComponent->Elements[0];
+		FMaterialSpriteElement& Sprite = *(LaserVisualComponent->GetReticleSprite());
 		float SpriteSize = Sprite.BaseSizeX;
 
 		// Fixed size for enter radius to avoid flickering.
@@ -656,7 +585,7 @@ void UGoogleVRMotionControllerComponent::GetRadius(float& OutEnterRadius, float&
 		// and is optimized for the average case. For this to be fixed, the hit test must be done via a cone instead
 		// of the spherecast that is currently used.
 		const float WorldToMetersScale = GetWorldToMetersScale();
-		OutEnterRadius = ReticleSize * WorldToMetersScale * EnterRadiusCoeff;
+		OutEnterRadius = LaserVisualComponent->GetReticleSize() * WorldToMetersScale * EnterRadiusCoeff;
 
 		// Dynamic size for exit radius.
 		// Will always be correct because we know the intersection point of the object and are therefore using
@@ -673,10 +602,95 @@ void UGoogleVRMotionControllerComponent::GetRadius(float& OutEnterRadius, float&
 float UGoogleVRMotionControllerComponent::GetMaxPointerDistance() const
 {
 	float WorldToMetersScale = GetWorldToMetersScale();
-	return ReticleDistanceMax * WorldToMetersScale;
+	if (LaserVisualComponent != nullptr)
+	{
+		return LaserVisualComponent->GetMaxPointerDistance(WorldToMetersScale);
+	}
+	return 2.5f * WorldToMetersScale;
+}
+
+float UGoogleVRMotionControllerComponent::GetDefaultReticleDistance() const
+{
+	float WorldToMetersScale = GetWorldToMetersScale();
+	if (LaserVisualComponent != nullptr)
+	{
+		return LaserVisualComponent->GetDefaultReticleDistance(WorldToMetersScale);
+	}
+	return 2.5f * WorldToMetersScale;
 }
 
 bool UGoogleVRMotionControllerComponent::IsPointerActive() const
 {
 	return IsActive() && IsControllerConnected();
+}
+
+EGoogleVRPointerInputMode UGoogleVRMotionControllerComponent::GetPointerInputMode() const
+{
+	return PointerInputMode;
+}
+
+float UGoogleVRMotionControllerComponent::GetRaycastModeBasedDistance(float Distance)
+{
+	float retValue = Distance;
+	if (PointerInputMode == EGoogleVRPointerInputMode::Camera)
+	{
+		retValue = 0.0f;
+	}
+	else if (PointerInputMode == EGoogleVRPointerInputMode::HybridExperimental)
+	{
+		// Amount to shrink the laser when it is fully shrunk.
+		// Eventually, the laser will become fully invisible even without fully shrinking it because
+		// of foreshortening.
+		float shrunkScale = 0.2f;
+
+		// Begin shrinking the laser when the angle between transform.forward and the reticle
+		// is greater than this value.
+		float beginShrinkAngleDegrees = 0.0f;
+
+		// Finish shrinking the laser when the angle between transform.forward and the reticle
+		// is greater than this value.
+		float endShrinkAngleDegrees = 2.0f;
+
+		// Calculate the angle of rotation in degrees.
+		FVector currentLocalPosition = LaserVisualComponent->GetComponentTransform().GetLocation();
+		currentLocalPosition.Normalize();
+		FVector forwardDir = GetDirection();
+		forwardDir.Normalize();
+		float angle = FMath::Acos(FVector::DotProduct(forwardDir, currentLocalPosition));
+
+		// Calculate the shrink ratio based on the angle.
+		float shrinkAngleDelta = endShrinkAngleDegrees - beginShrinkAngleDegrees;
+		float clampedAngle = FMath::Clamp(angle - beginShrinkAngleDegrees, 0.0f, shrinkAngleDelta);
+		float shrinkRatio = clampedAngle / shrinkAngleDelta;
+
+		// Calculate the shrink coeff.
+		float shrinkCoeff = EaseOutCubic(shrunkScale, 1.0f, 1.0f - shrinkRatio);
+
+		// Calculate the final distance of the laser.
+		FVector diff = LaserVisualComponent->GetComponentTransform().GetLocation() - LaserVisualComponent->GetReticleLocation();
+		retValue = FMath::Min(diff.Size(), GetMaxPointerDistance()) * shrinkCoeff;
+
+		if (Distance > GetMaxPointerDistance())
+			retValue = 0.0f;
+	}
+	else
+	{
+		retValue = Distance;
+	}
+	return retValue;
+}
+
+float UGoogleVRMotionControllerComponent::EaseOutCubic(float min, float max, float value)
+{
+	if (min > max)
+	{
+		UE_LOG(LogGoogleVRMotionController, Error, TEXT("Invalid values passed to EaseOutCubic, max must be greater than min. min: %f, max: %f"), min, max);
+		return value;
+	}
+
+	value = FMath::Clamp(value, 0.0f, 1.0f);
+	value -= 1.0f;
+	float delta = max - min;
+	float result = delta * (value * value * value + 1.0f) + min;
+	return result;
 }

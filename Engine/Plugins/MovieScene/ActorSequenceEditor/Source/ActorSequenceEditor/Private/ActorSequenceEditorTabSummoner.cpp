@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ActorSequenceEditorTabSummoner.h"
 
@@ -7,8 +7,8 @@
 #include "ISequencerModule.h"
 #include "LevelEditorSequencerIntegration.h"
 #include "SSCSEditor.h"
-#include "SlateIconFinder.h"
-#include "BlueprintEditorUtils.h"
+#include "Styling/SlateIconFinder.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "EditorStyleSet.h"
 #include "Widgets/Images/SImage.h"
 #include "Editor.h"

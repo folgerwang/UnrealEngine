@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "UnrealFrontendMain.h"
-#include "ExceptionHandling.h"
+#include "HAL/ExceptionHandling.h"
 #include "LaunchEngineLoop.h"
 #include "Misc/CommandLine.h"
-#include "CocoaThread.h"
+#include "Mac/CocoaThread.h"
 
 
 static FString GSavedCommandLine;

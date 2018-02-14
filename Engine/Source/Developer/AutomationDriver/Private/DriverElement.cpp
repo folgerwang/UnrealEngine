@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "DriverElement.h"
 #include "IDriverElement.h"
@@ -8,10 +8,10 @@
 
 #include "AutomationDriver.h"
 
-#include "Async.h"
-#include "AsyncResult.h"
+#include "Async/Async.h"
+#include "Async/AsyncResult.h"
 #include "InputCoreTypes.h"
-#include "GenericApplicationMessageHandler.h"
+#include "GenericPlatform/GenericApplicationMessageHandler.h"
 
 class FDriverElementExtensions
 {

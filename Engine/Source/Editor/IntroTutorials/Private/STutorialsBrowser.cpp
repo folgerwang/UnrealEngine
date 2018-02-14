@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "STutorialsBrowser.h"
 #include "Brushes/SlateDynamicImageBrush.h"
@@ -25,7 +25,7 @@
 #include "Interfaces/IAnalyticsProvider.h"
 #include "Widgets/Input/SSearchBox.h"
 #include "Widgets/Navigation/SBreadcrumbTrail.h"
-#include "GCObject.h"
+#include "UObject/GCObject.h"
 
 #define LOCTEXT_NAMESPACE "TutorialsBrowser"
 

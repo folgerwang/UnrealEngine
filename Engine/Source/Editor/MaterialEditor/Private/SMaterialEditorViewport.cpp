@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SMaterialEditorViewport.h"
 #include "Widgets/SBoxPanel.h"
@@ -28,7 +28,7 @@
 #include "Widgets/Input/SNumericEntryBox.h"
 #include "AdvancedPreviewScene.h"
 #include "AssetViewerSettings.h"
-
+#include "Engine/PostProcessVolume.h"
 
 #define LOCTEXT_NAMESPACE "MaterialEditor"
 
@@ -40,6 +40,7 @@ public:
 
 	// FEditorViewportClient interface
 	virtual bool InputKey(FViewport* InViewport, int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed = 1.f, bool bGamepad = false) override;
+	virtual bool InputAxis(FViewport* InViewport, int32 ControllerId, FKey Key, float Delta, float DeltaTime, int32 NumSamples/* =1 */, bool bGamepad/* =false */) override;
 	virtual FLinearColor GetBackgroundColor() const override;
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void Draw(FViewport* Viewport,FCanvas* Canvas) override;
@@ -132,6 +133,26 @@ bool FMaterialEditorViewportClient::InputKey(FViewport* InViewport, int32 Contro
 	return bHandled;
 }
 
+bool FMaterialEditorViewportClient::InputAxis(FViewport* InViewport, int32 ControllerId, FKey Key, float Delta, float DeltaTime, int32 NumSamples/* =1 */, bool bGamepad/* =false */)
+{
+	bool bResult = true;
+
+	if (!bDisableInput)
+	{
+		bResult = AdvancedPreviewScene->HandleViewportInput(InViewport, ControllerId, Key, Delta, DeltaTime, NumSamples, bGamepad);
+		if (bResult)
+		{
+			Invalidate();
+		}
+		else
+		{
+			bResult = FEditorViewportClient::InputAxis(InViewport, ControllerId, Key, Delta, DeltaTime, NumSamples, bGamepad);
+		}
+	}
+
+	return bResult;
+}
+
 FLinearColor FMaterialEditorViewportClient::GetBackgroundColor() const
 {
 	FLinearColor BackgroundColor = FLinearColor::Black;
@@ -215,6 +236,7 @@ void SMaterialEditor3DPreviewViewport::Construct(const FArguments& InArgs)
 
 	PreviewMaterial = nullptr;
 	PreviewMeshComponent = nullptr;
+	PostProcessVolumeActor = nullptr;
 
 	UMaterialInterface* Material = MaterialEditorPtr.Pin()->GetMaterialInterface();
 	if (Material)
@@ -223,6 +245,9 @@ void SMaterialEditor3DPreviewViewport::Construct(const FArguments& InArgs)
 	}
 
 	SetPreviewAsset( GUnrealEd->GetThumbnailManager()->EditorSphere );
+
+	OnPropertyChangedHandle = FCoreUObjectDelegates::FOnObjectPropertyChanged::FDelegate::CreateRaw(this, &SMaterialEditor3DPreviewViewport::OnPropertyChanged);
+	OnPropertyChangedHandleDelegateHandle = FCoreUObjectDelegates::OnObjectPropertyChanged.Add(OnPropertyChangedHandle);
 }
 
 SMaterialEditor3DPreviewViewport::~SMaterialEditor3DPreviewViewport()
@@ -237,12 +262,17 @@ SMaterialEditor3DPreviewViewport::~SMaterialEditor3DPreviewViewport()
 	{
 		EditorViewportClient->Viewport = NULL;
 	}
+
+	FCoreUObjectDelegates::OnObjectPropertyChanged.Remove(OnPropertyChangedHandleDelegateHandle);
+
+	PostProcessVolumeActor = nullptr;
 }
 
 void SMaterialEditor3DPreviewViewport::AddReferencedObjects( FReferenceCollector& Collector )
 {
 	Collector.AddReferencedObject( PreviewMeshComponent );
 	Collector.AddReferencedObject( PreviewMaterial );
+	Collector.AddReferencedObject( PostProcessVolumeActor );
 }
 
 void SMaterialEditor3DPreviewViewport::RefreshViewport()
@@ -360,10 +390,39 @@ void SMaterialEditor3DPreviewViewport::SetPreviewMaterial(UMaterialInterface* In
 {
 	PreviewMaterial = InMaterialInterface;
 
-	if (PreviewMeshComponent != nullptr)
+	// Spawn post processing volume actor if the material has post processing as domain.
+	if (PreviewMaterial->GetMaterial()->IsPostProcessMaterial())
 	{
-		PreviewMeshComponent->OverrideMaterials.Empty();
-		PreviewMeshComponent->OverrideMaterials.Add(PreviewMaterial);
+		if (PostProcessVolumeActor == nullptr)
+		{
+			PostProcessVolumeActor = GetWorld()->SpawnActor<APostProcessVolume>(APostProcessVolume::StaticClass(), FTransform::Identity);
+
+			GetViewportClient()->EngineShowFlags.SetPostProcessing(true);
+			GetViewportClient()->EngineShowFlags.SetPostProcessMaterial(true);
+		}
+
+		check (PreviewMaterial != nullptr);
+		PostProcessVolumeActor->AddOrUpdateBlendable(PreviewMaterial);
+		PostProcessVolumeActor->bEnabled = true;
+		PostProcessVolumeActor->BlendWeight = 1.0f;
+		PostProcessVolumeActor->bUnbound = true;
+
+		// Remove preview material from the preview mesh.
+		if (PreviewMeshComponent != nullptr)
+		{
+			PreviewMeshComponent->OverrideMaterials.Empty();
+		}
+	}
+	else
+	{
+		// Add the preview material to the preview mesh.
+		if (PreviewMeshComponent != nullptr)
+		{
+			PreviewMeshComponent->OverrideMaterials.Empty();
+			PreviewMeshComponent->OverrideMaterials.Add(PreviewMaterial);
+		}
+		
+		PostProcessVolumeActor = nullptr;
 	}
 }
 
@@ -630,6 +689,19 @@ EVisibility SMaterialEditor3DPreviewViewport::OnGetViewportContentVisibility() c
 		return BaseVisibility;
 	}
 	return IsVisible() ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+void SMaterialEditor3DPreviewViewport::OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent)
+{
+	if (ObjectBeingModified != nullptr && ObjectBeingModified == PreviewMaterial)
+	{
+		UProperty* PropertyThatChanged = PropertyChangedEvent.Property;
+		static const FString MaterialDomain = TEXT("MaterialDomain");
+		if (PropertyThatChanged != nullptr && PropertyThatChanged->GetName() == MaterialDomain)
+		{
+			SetPreviewMaterial(PreviewMaterial);
+		}
+	}
 }
 
 class SMaterialEditorUIPreviewZoomer : public SPanel

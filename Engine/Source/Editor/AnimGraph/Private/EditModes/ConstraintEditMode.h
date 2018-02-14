@@ -1,9 +1,9 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "AnimNodeEditMode.h"
-#include "AnimNode_Constraint.h"
+#include "BoneControllers/AnimNode_Constraint.h"
 
 class FConstraintEditMode : public FAnimNodeEditMode
 {

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AndroidTargetPlatform.inl: Implements the FAndroidTargetPlatform class.
@@ -17,10 +17,11 @@
 #include "Stats/Stats.h"
 #include "Serialization/Archive.h"
 #include "Misc/FileHelper.h"
-#include "FileManager.h"
-#include "PlatformFilemanager.h"
+#include "HAL/FileManager.h"
+#include "HAL/PlatformFilemanager.h"
 #include "Interfaces/IAndroidDeviceDetectionModule.h"
 #include "Interfaces/IAndroidDeviceDetection.h"
+#include "Misc/SecureHash.h"
 
 #define LOCTEXT_NAMESPACE "FAndroidTargetPlatform"
 
@@ -50,7 +51,7 @@ static bool SupportsES2()
 
 static bool SupportsES31()
 {
-	// default to support ES3
+	// default no support for ES31
 	bool bBuildForES31 = false;
 	GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bBuildForES31"), bBuildForES31, GEngineIni);
 	return bBuildForES31;
@@ -58,10 +59,7 @@ static bool SupportsES31()
 
 static bool SupportsAEP()
 {
-	// default to not supporting ES31
-	bool bBuildForESDeferred = false;
-	GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bBuildForESDeferred"), bBuildForESDeferred, GEngineIni);
-	return bBuildForESDeferred;
+	return false;
 }
 
 static bool SupportsVulkan()
@@ -79,7 +77,7 @@ static bool SupportsVulkan()
 #elif PLATFORM_MAC
 	GlslangAvailable = true;
 #elif PLATFORM_LINUX
-	GlslangAvailable = false;	// @TODO: change when glslang library compiled for Linux
+	GlslangAvailable = true;
 #endif
 
 	return bSupportsVulkan && GlslangAvailable;
@@ -321,6 +319,7 @@ inline int32 FAndroidTargetPlatform<TPlatformProperties>::CheckRequirements(cons
 		// need to check license was accepted
 		if (!HasLicense())
 		{
+			OutTutorialPath.Empty();
 			CustomizedLogMessage = LOCTEXT("AndroidLicenseNotAcceptedMessageDetail", "SDK License must be accepted in the Android project settings to deploy your app to the device.");
 			bReadyToBuild |= ETargetPlatformReadyStatus::LicenseNotAccepted;
 		}
@@ -448,6 +447,7 @@ inline void FAndroidTargetPlatform<TPlatformProperties>::GetTextureFormats( cons
 		AddTextureFormatIfSupports(AndroidTexFormat::NameDXT5, OutFormats, bIsNonPOT);
 		AddTextureFormatIfSupports(AndroidTexFormat::NameATC_RGBA_I, OutFormats, bIsNonPOT);
 		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC2, OutFormats, bIsNonPOT);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC1a, OutFormats, bIsNonPOT);
 		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC1, OutFormats, bIsNonPOT);
 	}
 	else if (InTexture->CompressionSettings == TC_Displacementmap)
@@ -477,6 +477,7 @@ inline void FAndroidTargetPlatform<TPlatformProperties>::GetTextureFormats( cons
 		AddTextureFormatIfSupports(AndroidTexFormat::NameDXT5, OutFormats, bIsNonPOT);
 		AddTextureFormatIfSupports(AndroidTexFormat::NameATC_RGBA_I, OutFormats, bIsNonPOT);
 		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC2, OutFormats, bIsNonPOT);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC1a, OutFormats, bIsNonPOT);
 		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC1, OutFormats, bIsNonPOT);
 	}
 	else if (InTexture->CompressionNoAlpha)
@@ -485,6 +486,7 @@ inline void FAndroidTargetPlatform<TPlatformProperties>::GetTextureFormats( cons
 		AddTextureFormatIfSupports(AndroidTexFormat::NameDXT1, OutFormats, bIsNonPOT);
 		AddTextureFormatIfSupports(AndroidTexFormat::NameATC_RGB, OutFormats, bIsNonPOT);
 		AddTextureFormatIfSupports(AndroidTexFormat::NameETC2_RGB, OutFormats, bIsNonPOT);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC1a, OutFormats, bIsNonPOT);
 		AddTextureFormatIfSupports(AndroidTexFormat::NameETC1, OutFormats, bIsNonPOT);
 	}
 	else if (InTexture->bDitherMipMapAlpha)
@@ -493,6 +495,7 @@ inline void FAndroidTargetPlatform<TPlatformProperties>::GetTextureFormats( cons
 		AddTextureFormatIfSupports(AndroidTexFormat::NameDXT5, OutFormats, bIsNonPOT);
 		AddTextureFormatIfSupports(AndroidTexFormat::NameATC_RGBA_I, OutFormats, bIsNonPOT);
 		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC2, OutFormats, bIsNonPOT);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC1a, OutFormats, bIsNonPOT);
 		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC1, OutFormats, bIsNonPOT);
 	}
 	else
@@ -501,6 +504,7 @@ inline void FAndroidTargetPlatform<TPlatformProperties>::GetTextureFormats( cons
 		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoDXT, OutFormats, bIsNonPOT);
 		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoATC, OutFormats, bIsNonPOT);
 		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC2, OutFormats, bIsNonPOT);
+		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC1a, OutFormats, bIsNonPOT);
 		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC1, OutFormats, bIsNonPOT);
 	}
 }
@@ -536,6 +540,7 @@ inline void FAndroidTargetPlatform<TPlatformProperties>::GetAllTextureFormats(TA
 		AddTextureFormatIfSupports(AndroidTexFormat::NameATC_RGBA_I, OutFormats, bIsNonPOT);
 	
 		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC1, OutFormats, bIsNonPOT); 
+		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC1a, OutFormats, bIsNonPOT);
 		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoETC2, OutFormats, bIsNonPOT);
 	
 		AddTextureFormatIfSupports(AndroidTexFormat::NameAutoATC, OutFormats, bIsNonPOT);
@@ -681,9 +686,19 @@ inline bool FAndroidTargetPlatform<TPlatformProperties>::HandleTicker( float Del
 			// see if this device is already known
 			if (Devices.Contains(DeviceIt.Key()))
 			{
-				//still update its authorized status, which could change while connected
-				Devices[DeviceIt.Key()]->SetAuthorized(DeviceInfo.bAuthorizedDevice);
-				continue;
+				FAndroidTargetDevicePtr TestDevice = Devices[DeviceIt.Key()];
+
+				// ignore if authorization didn't change
+				if (DeviceInfo.bAuthorizedDevice == TestDevice->IsAuthorized())
+				{
+					continue;
+				}
+
+				// remove it to add again
+				TestDevice->SetConnected(false);
+				Devices.Remove(DeviceIt.Key());
+
+				DeviceLostEvent.Broadcast(TestDevice.ToSharedRef());
 			}
 
 			// check if this platform is supported by the extensions and version

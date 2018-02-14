@@ -1,23 +1,25 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "VisualStudioSourceCodeAccessor.h"
 #include "VisualStudioSourceCodeAccessModule.h"
 #include "ISourceCodeAccessModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "IDesktopPlatform.h"
 #include "DesktopPlatformModule.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Misc/ScopeLock.h"
+#include "Misc/UProjectInfo.h"
+#include "Misc/App.h"
 #include "HAL/PlatformTime.h"
 
 #if WITH_EDITOR
 #include "Developer/HotReload/Public/IHotReload.h"
 #endif
 
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
-#include "AllowWindowsPlatformAtomics.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformAtomics.h"
 #include <unknwn.h>
 #include "Windows/COMPointer.h"
 #if VSACCESSOR_HAS_DTE
@@ -36,8 +38,8 @@
 	#include <tlhelp32.h>
 	#include <wbemidl.h>
 	#pragma comment(lib, "wbemuuid.lib")
-#include "HideWindowsPlatformAtomics.h"
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformAtomics.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogVSAccessor, Log, All);
 
@@ -83,10 +85,10 @@ enum class EAccessVisualStudioResult : uint8
 };
 
 /** save all open documents in visual studio, when recompiling */
-void OnModuleCompileStarted(bool bIsAsyncCompile)
+static void OnModuleCompileStarted(bool bIsAsyncCompile)
 {
-	FVisualStudioSourceCodeAccessModule& VisualStudioSourceCodeAccessModule = FModuleManager::LoadModuleChecked<FVisualStudioSourceCodeAccessModule>(TEXT("VisualStudioSourceCodeAccess"));
-	VisualStudioSourceCodeAccessModule.GetAccessor().SaveAllOpenDocuments();
+	ISourceCodeAccessModule& SourceCodeAccessModule = FModuleManager::LoadModuleChecked<ISourceCodeAccessModule>("SourceCodeAccess");
+	SourceCodeAccessModule.GetAccessor().SaveAllOpenDocuments();
 }
 
 int32 GetVisualStudioVersionForCompiler()
@@ -754,6 +756,38 @@ bool FVisualStudioSourceCodeAccessor::OpenSolution()
 	return OpenVisualStudioSolutionViaProcess();
 }
 
+bool FVisualStudioSourceCodeAccessor::OpenSolutionAtPath(const FString& InSolutionPath)
+{
+	bool bSuccess = false;
+
+	{
+		FScopeLock Lock(&CachedSolutionPathCriticalSection);
+		CachedSolutionPathOverride = InSolutionPath;
+	}
+#if VSACCESSOR_HAS_DTE
+	if (OpenVisualStudioSolutionViaDTE())
+	{
+		bSuccess = true;
+	}
+	else
+#endif
+	{
+		bSuccess = OpenVisualStudioSolutionViaProcess();
+	}
+
+	{
+		FScopeLock Lock(&CachedSolutionPathCriticalSection);
+		CachedSolutionPathOverride = TEXT("");
+	}
+	return bSuccess;
+}
+
+bool FVisualStudioSourceCodeAccessor::DoesSolutionExist() const
+{
+	const FString SolutionPath = GetSolutionPath();
+	return FPaths::FileExists(SolutionPath);
+}
+
 bool FVisualStudioSourceCodeAccessor::OpenVisualStudioFilesInternal(const TArray<FileOpenRequest>& Requests)
 {
 #if VSACCESSOR_HAS_DTE
@@ -1234,12 +1268,28 @@ FText FVisualStudioSourceCodeAccessor::GetDescriptionText() const
 FString FVisualStudioSourceCodeAccessor::GetSolutionPath() const
 {
 	FScopeLock Lock(&CachedSolutionPathCriticalSection);
+
 	if(IsInGameThread())
 	{
-		FString SolutionPath;
-		if(FDesktopPlatformModule::Get()->GetSolutionPath(SolutionPath))
+		if (CachedSolutionPathOverride.Len() > 0)
 		{
-			CachedSolutionPath = FPaths::ConvertRelativePathToFull(SolutionPath);
+			CachedSolutionPath = CachedSolutionPathOverride + TEXT(".sln");
+		}
+		else
+		{
+			CachedSolutionPath = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir());
+
+			if (!FUProjectDictionary(FPaths::RootDir()).IsForeignProject(CachedSolutionPath))
+			{
+				CachedSolutionPath = FPaths::Combine(FPaths::RootDir(), TEXT("UE4.sln"));
+			}
+			else
+			{
+				FString BaseName = FApp::HasProjectName() ? FApp::GetProjectName() : FPaths::GetBaseFilename(CachedSolutionPath);
+				CachedSolutionPath = FPaths::Combine(CachedSolutionPath, BaseName + TEXT(".sln"));
+			}
+
+			FPaths::MakeStandardFilename(CachedSolutionPath);
 		}
 	}
 	return CachedSolutionPath;

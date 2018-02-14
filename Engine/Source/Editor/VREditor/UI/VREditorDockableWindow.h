@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -54,6 +54,7 @@ public:
 	virtual void OnHoverLeave( UViewportInteractor* Interactor, const UActorComponent* NewComponent ) override;
 	virtual void OnDragRelease( UViewportInteractor* Interactor ) override;
 	virtual class UViewportDragOperationComponent* GetDragOperationComponent() override;
+	virtual bool CanBeSelected() override { return false; };
 
 protected:
 

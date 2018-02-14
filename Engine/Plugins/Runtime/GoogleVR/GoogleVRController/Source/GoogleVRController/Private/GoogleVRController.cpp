@@ -2,11 +2,10 @@
 
 #include "GoogleVRController.h"
 #include "GoogleVRControllerPrivate.h"
-#include "CoreDelegates.h"
-#include "IHeadMountedDisplay.h"
-#include "Classes/GoogleVRControllerFunctionLibrary.h"
-#include "Classes/GoogleVRControllerEventManager.h"
-//#include "Engine/Engine.h"
+#include "Misc/CoreDelegates.h"
+#include "IXRTrackingSystem.h"
+#include "GoogleVRControllerFunctionLibrary.h"
+#include "GoogleVRControllerEventManager.h"
 #include "Misc/Paths.h"
 #include "HAL/FileManager.h"
 #include "GameFramework/WorldSettings.h"
@@ -200,7 +199,6 @@ FGoogleVRController::FGoogleVRController(const TSharedRef< FGenericApplicationMe
 	Buttons[(int32)EControllerHand::Left][EGoogleVRControllerButton::TouchPadPress] = FGamepadKeyNames::MotionController_Left_Thumbstick;
 	Buttons[(int32)EControllerHand::Right][EGoogleVRControllerButton::TouchPadPress] = FGamepadKeyNames::MotionController_Right_Thumbstick;
 
-	Buttons[(int32)EControllerHand::Left][EGoogleVRControllerButton::TouchPadTouch] = GoogleVRControllerKeyNames::Touch0;
 	Buttons[(int32)EControllerHand::Right][EGoogleVRControllerButton::TouchPadTouch] = GoogleVRControllerKeyNames::Touch0;
 
 	// Register callbacks for pause and resume
@@ -335,11 +333,11 @@ void FGoogleVRController::PollController(float DeltaTime)
 		}
 
 		// Get head direction and position of the HMD, used for FollowGaze options
-		if (GEngine->HMDDevice.IsValid())
+		if (GEngine->XRSystem.IsValid())
 		{
 			FQuat HmdOrientation;
 			FVector HmdPosition;
-			GEngine->HMDDevice->GetCurrentOrientationAndPosition(HmdOrientation, HmdPosition);
+			GEngine->XRSystem->GetCurrentPose(IXRTrackingSystem::HMDDeviceId, HmdOrientation, HmdPosition);
 			FVector HmdDirection = HmdOrientation * FVector::ForwardVector;
 
 			const float WorldToMetersScale = GetWorldToMetersScale();
@@ -493,13 +491,19 @@ void FGoogleVRController::ProcessControllerButtons()
 			// OnDown
 			if(CurrentButtonStates[ButtonIndex])
 			{
-				MessageHandler->OnControllerButtonPressed( Buttons[(int32)EControllerHand::Left][ButtonIndex], 0, false);
+				if (ButtonIndex != EGoogleVRControllerButton::TouchPadTouch)
+				{
+					MessageHandler->OnControllerButtonPressed(Buttons[(int32)EControllerHand::Left][ButtonIndex], 0, false);
+				}
 				MessageHandler->OnControllerButtonPressed( Buttons[(int32)EControllerHand::Right][ButtonIndex], 0, false);
 			}
 			// On Up
 			else
 			{
-				MessageHandler->OnControllerButtonReleased( Buttons[(int32)EControllerHand::Left][ButtonIndex], 0, false);
+				if (ButtonIndex != EGoogleVRControllerButton::TouchPadTouch)
+				{
+					MessageHandler->OnControllerButtonReleased(Buttons[(int32)EControllerHand::Left][ButtonIndex], 0, false);
+				}
 				MessageHandler->OnControllerButtonReleased( Buttons[(int32)EControllerHand::Right][ButtonIndex], 0, false);
 			}
 		}
@@ -517,13 +521,17 @@ void FGoogleVRController::ProcessControllerEvents()
 	{
 #if GOOGLEVRCONTROLLER_SUPPORTED_EMULATOR_PLATFORMS
 		// Perform recenter when using in editor controller emulation
-		if (GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->GetVersionString().Contains(TEXT("GoogleVR")) )
+		if (GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetSystemName() == FName("FGoogleVRHMD"))
 		{
-			GEngine->HMDDevice.Get()->ResetOrientation();
+			GEngine->XRSystem->ResetOrientation();
 		}
 		BaseEmulatorOrientation.Yaw += LastOrientation.Yaw;
 #endif
-		UGoogleVRControllerFunctionLibrary::GetGoogleVRControllerEventManager()->OnControllerRecenteredDelegate.Broadcast();
+
+		FCoreDelegates::VRControllerRecentered.Broadcast();
+
+		// Deprecate me!
+		UGoogleVRControllerFunctionLibrary::GetGoogleVRControllerEventManager()->OnControllerRecenteredDelegate_DEPRECATED.Broadcast();
 	}
 
 
@@ -714,6 +722,14 @@ void FGoogleVRController::SetChannelValues(int32 ControllerId, const FForceFeedb
 
 bool FGoogleVRController::GetControllerOrientationAndPosition(const int32 ControllerIndex, const EControllerHand DeviceHand, FRotator& OutOrientation, FVector& OutPosition, float WorldToMetersScale) const
 {
+	// Opt-out the render thread late update for GoogleVR Controller for now.
+	// We can't do late update cleanly because updating controller state will also affect the controller
+	// button status.
+	if (IsInRenderingThread())
+	{
+		return false;
+	}
+
 	if(IsAvailable())
 	{
 		OutPosition = FVector::ZeroVector;
@@ -729,12 +745,12 @@ bool FGoogleVRController::GetControllerOrientationAndPosition(const int32 Contro
 
 			FQuat BaseOrientation;
 			const bool bUsingGoogleVRHMD =
-				GEngine->HMDDevice.IsValid() &&
-				(GEngine->HMDDevice->GetDeviceName() == FName(TEXT("FGoogleVRHMD")));
+				GEngine->XRSystem.IsValid() &&
+				(GEngine->XRSystem->GetSystemName() == FName(TEXT("FGoogleVRHMD")));
 
 			if (bUsingGoogleVRHMD)
 			{
-				BaseOrientation = GEngine->HMDDevice->GetBaseOrientation();
+				BaseOrientation = GEngine->XRSystem->GetBaseOrientation();
 			}
 
 			OutOrientation = (BaseOrientation * Orientation).Rotator();

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SFoliagePalette.h"
 #include "Widgets/Layout/SSplitter.h"
@@ -1368,6 +1368,7 @@ EActiveTimerReturnType SFoliagePalette::UpdatePaletteItems(double InCurrentTime,
 		// Cache the currently selected items
 		auto ActiveViewWidget = GetActiveViewWidget();
 		TArray<FFoliagePaletteItemModelPtr> PreviouslySelectedItems = ActiveViewWidget->GetSelectedItems();
+		ActiveViewWidget->ClearSelection();
 
 		// Rebuild the list of palette items
 		const auto& AllTypesList = FoliageEditMode->GetFoliageMeshList();

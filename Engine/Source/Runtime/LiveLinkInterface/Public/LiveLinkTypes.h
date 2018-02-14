@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,21 @@
 #include "UObject/ObjectMacros.h"
 #include "LiveLinkRefSkeleton.h"
 #include "LiveLinkTypes.generated.h"
+
+USTRUCT()
+struct FLiveLinkSubjectName
+{
+public:
+	GENERATED_USTRUCT_BODY()
+
+	// Name of the subject
+	UPROPERTY(EditAnywhere, Category="Live Link")
+	FName Name;
+
+	// FName operators
+	operator FName&() { return Name; }
+	operator const FName&() const { return Name; }
+};
 
 USTRUCT()
 struct FLiveLinkCurveElement
@@ -84,6 +99,9 @@ struct FLiveLinkSubjectFrame
 {
 	// Ref Skeleton for transforms
 	FLiveLinkRefSkeleton RefSkeleton;
+
+	// Fuid for ref skeleton so we can track modifications
+	FGuid RefSkeletonGuid;
 
 	// Key for storing curve data (Names)
 	FLiveLinkCurveKey	 CurveKeyData;

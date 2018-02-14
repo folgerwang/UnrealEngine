@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "TextureCompressorModule.h"
 #include "Math/RandomStream.h"
@@ -12,7 +12,7 @@
 #include "ImageCore.h"
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 #endif
 
 DEFINE_LOG_CATEGORY_STATIC(LogTextureCompressor, Log, All);

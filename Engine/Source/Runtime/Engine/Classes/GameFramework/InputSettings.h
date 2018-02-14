@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -105,7 +105,7 @@ class ENGINE_API UInputSettings
 	virtual void PostInitProperties() override;
 	// End of UObject interface
 
-	/** Returns the game local machine settings (resolution, windowing mode, scalability settings, etc...) */
+	/** Returns the game local input settings (action mappings, axis mappings, etc...) */
 	UFUNCTION(BlueprintPure, Category = Settings)
 	static UInputSettings* GetInputSettings();
 

@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "KeyGenerator.h"
 #include "UnrealPak.h"
 #include "IPlatformFilePak.h"
-#include "SecureHash.h"
-#include "BigInt.h"
-#include "TaskGraphInterfaces.h"
+#include "Misc/SecureHash.h"
+#include "Math/BigInt.h"
+#include "Async/TaskGraphInterfaces.h"
 #include "HAL/Runnable.h"
 #include "HAL/RunnableThread.h"
 #include "Math/RandomStream.h"
@@ -260,7 +260,7 @@ void GeneratePrimeNumberTable(int64 MaxValue, const TCHAR* Filename)
 
 	UE_LOG(LogPakFile, Display, TEXT("Generating prime number table <= %lld: %s."), MaxValue, Filename);
 
-	FString PrimeTableString(TEXT("// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.\nTEncryptionInt PrimeTable[] = \n{\n\t2, "));
+	FString PrimeTableString(TEXT("// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.\nTEncryptionInt PrimeTable[] = \n{\n\t2, "));
 	int64 PrimeCount = 1;
 	const double StartTime = FPlatformTime::Seconds();
 	for (int64 SmallNumber = 3; SmallNumber <= MaxValue; SmallNumber += 2)
@@ -394,8 +394,6 @@ bool GenerateKeys(const TCHAR* KeyFilename)
 {
 	UE_LOG(LogPakFile, Display, TEXT("Generating keys %s."), KeyFilename);
 
-	GeneratePrimeNumberLookupTable();
-
 	TEncryptionInt P;
 	TEncryptionInt Q;
 
@@ -404,14 +402,20 @@ bool GenerateKeys(const TCHAR* KeyFilename)
 	FParse::Value(FCommandLine::Get(), TEXT("P="), CmdLineP);
 	FParse::Value(FCommandLine::Get(), TEXT("Q="), CmdLineQ);
 
-	const bool bNoVerifyPrimes = FParse::Param(FCommandLine::Get(), TEXT("NoVerifyPrimes"));
-
 	P.Parse(CmdLineP);
 	Q.Parse(CmdLineQ);
+
+	const bool bNoVerifyPrimes = FParse::Param(FCommandLine::Get(), TEXT("NoVerifyPrimes"));
 
 	// Check if we have valid primes in the command line.
 	// @todo: IsPrime check should probably go when we start to use big primes
 	bool bGeneratePrimes = !(P > Two && Q > Two);
+
+	if (bGeneratePrimes || !bNoVerifyPrimes)
+	{
+		GeneratePrimeNumberLookupTable();
+	}
+
 	if (!bGeneratePrimes && !bNoVerifyPrimes)
 	{
 		if (!IsPrime(P, false))

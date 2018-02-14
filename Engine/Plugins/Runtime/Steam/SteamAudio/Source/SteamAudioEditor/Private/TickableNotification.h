@@ -5,8 +5,8 @@
 #pragma once
 
 #include "TickableEditorObject.h"
-#include "SNotificationList.h"
-#include "Queue.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Containers/Queue.h"
 
 namespace SteamAudio
 {
@@ -33,7 +33,7 @@ namespace SteamAudio
 
 	protected:
 		virtual void Tick(float DeltaTime) override;
-		virtual bool IsTickable() const override;
+		virtual ETickableTickType GetTickableTickType() const override { return ETickableTickType::Always; }
 		virtual TStatId GetStatId() const override;
 
 	private:

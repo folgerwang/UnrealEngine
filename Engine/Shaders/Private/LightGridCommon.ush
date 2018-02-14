@@ -2,14 +2,14 @@
 	LightGridCommon.usf
 =============================================================================*/
 
-Buffer<uint> NumCulledLightsGrid;
-Buffer<uint> CulledLightDataGrid;
-Buffer<float4> ForwardLocalLightBuffer;
+STRONG_TYPE Buffer<uint> NumCulledLightsGrid;
+STRONG_TYPE Buffer<uint> CulledLightDataGrid;
+STRONG_TYPE Buffer<float4> ForwardLocalLightBuffer;
 
 // ISR copies
-Buffer<uint> InstancedNumCulledLightsGrid;
-Buffer<uint> InstancedCulledLightDataGrid;
-Buffer<float4> InstancedForwardLocalLightBuffer;
+STRONG_TYPE Buffer<uint> InstancedNumCulledLightsGrid;
+STRONG_TYPE Buffer<uint> InstancedCulledLightDataGrid;
+STRONG_TYPE Buffer<float4> InstancedForwardLocalLightBuffer;
 
 struct LightGridData
 {

@@ -1,9 +1,9 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "MovieSceneEvalTemplate.h"
-#include "MovieScenePropertyTemplate.h"
+#include "Evaluation/MovieSceneEvalTemplate.h"
+#include "Evaluation/MovieScenePropertyTemplate.h"
 #include "MovieSceneImagePlateTemplate.generated.h"
 
 class UMovieSceneImagePlateSection;

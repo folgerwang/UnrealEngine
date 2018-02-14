@@ -1,10 +1,10 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "Object.h"
-#include "OnlineBlueprintCallProxyBase.h"
-#include "OnlineSessionInterface.h"
+#include "UObject/Object.h"
+#include "Net/OnlineBlueprintCallProxyBase.h"
+#include "Interfaces/OnlineSessionInterface.h"
 #include "FindSessionsCallbackProxy.h"
 #include "OculusFindSessionsCallbackProxy.generated.h"
 

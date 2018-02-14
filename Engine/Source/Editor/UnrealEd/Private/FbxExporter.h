@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -10,6 +10,7 @@
 #include "MovieSceneSequenceID.h"
 #include "MovieSceneFwd.h"
 #include "FbxImporter.h"
+#include "UObject/GCObject.h"
 
 class ABrush;
 class ACameraActor;
@@ -47,7 +48,7 @@ namespace UnFbx
 /**
  * Main FBX Exporter class.
  */
-class UNREALED_API FFbxExporter  : public MatineeExporter
+class UNREALED_API FFbxExporter  : public MatineeExporter, public FGCObject
 {
 public:
 	/**
@@ -57,6 +58,16 @@ public:
 	static void DeleteInstance();
 	~FFbxExporter();
 	
+	//~ FGCObject
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
+	{
+		if (ExportOptions != nullptr)
+		{
+			Collector.AddReferencedObject(ExportOptions);
+		}
+	}
+
+
 	/**
 	* Load the export option from the last save state and show the dialog if bShowOptionDialog is true.
 	* FullPath is the export file path we display it in the dialog
@@ -225,6 +236,7 @@ private:
 	TMap<const USkeletalMeshComponent*, FbxNode*> FbxSkeletonRoots;
 	TMap<const UMaterialInterface*, FbxSurfaceMaterial*> FbxMaterials;
 	TMap<const UStaticMesh*, FbxMesh*> FbxMeshes;
+	TMap<const UStaticMesh*, FbxMesh*> FbxCollisionMeshes;
 
 	/** The frames-per-second (FPS) used when baking transforms */
 	static const float BakeTransformsFPS;
@@ -342,7 +354,7 @@ private:
 	FbxNode* CreateSkeleton(const USkeletalMesh* SkelMesh, TArray<FbxNode*>& BoneNodes);
 
 	/**
-	 * Adds an Fbx Mesh to the FBX scene based on the data in the given FStaticLODModel
+	 * Adds an Fbx Mesh to the FBX scene based on the data in the given FSkeletalMeshLODModel
 	 */
 	FbxNode* CreateMesh(const USkeletalMesh* SkelMesh, const TCHAR* MeshName);
 

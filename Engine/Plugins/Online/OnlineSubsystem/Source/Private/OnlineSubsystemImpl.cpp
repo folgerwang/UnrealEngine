@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemImpl.h"
 #include "Containers/Ticker.h"
@@ -11,9 +11,9 @@
 #include "Interfaces/OnlinePurchaseInterface.h"
 
 #if UE_BUILD_SHIPPING
-#include "JsonObject.h"
-#include "JsonReader.h"
-#include "JsonSerializer.h"
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
 #endif
 
 namespace OSSConsoleVariables
@@ -253,6 +253,11 @@ bool FOnlineSubsystemImpl::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice
 	}
 	
 	return bWasHandled;
+}
+
+bool FOnlineSubsystemImpl::IsEnabled() const
+{
+	return IOnlineSubsystem::IsEnabled(SubsystemName);
 }
 
 void FOnlineSubsystemImpl::DumpReceipts(const FUniqueNetId& UserId)

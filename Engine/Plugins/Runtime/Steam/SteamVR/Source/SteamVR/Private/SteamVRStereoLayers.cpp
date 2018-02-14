@@ -1,10 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 //
 #include "CoreMinimal.h"
 #include "SteamVRPrivate.h"
 #include "StereoLayerManager.h"
 #include "SteamVRHMD.h"
 #include "Misc/ScopeLock.h"
+#include "DefaultXRCamera.h"
 
 #if STEAMVR_SUPPORTED_PLATFORMS
 
@@ -78,15 +79,24 @@ void FSteamVRHMD::UpdateSplashScreen()
 		LayerDesc.Flags = ELayerFlags::LAYER_FLAG_TEX_NO_ALPHA_CHANNEL;
 		LayerDesc.PositionType = ELayerType::TrackerLocked;
 		LayerDesc.Texture = Texture;
+		const FIntPoint TextureSize = Texture->GetSizeXY();
+		const float	InvAspectRatio = (TextureSize.X > 0) ? float(TextureSize.Y) / float(TextureSize.X) : 1.0f;
+
 		LayerDesc.UVRect = FBox2D(SplashOffset, SplashOffset + SplashScale);
 		
+		// Get the current pose of the HMD
+		FVector HMDPosition;
+		FQuat HMDOrientation;
+		GetCurrentPose(IXRTrackingSystem::HMDDeviceId, HMDOrientation, HMDPosition);
+
 		FTransform Translation(FVector(500.0f, 0.0f, 100.0f));
-		FRotator Rotation(LastHmdOrientation);
+		FRotator Rotation(HMDOrientation);
 		Rotation.Pitch = 0.0f;
 		Rotation.Roll = 0.0f;
 		LayerDesc.Transform = Translation * FTransform(Rotation.Quaternion());
 
-		LayerDesc.QuadSize = FVector2D(800.0f, 450.0f);
+		// Set texture size to 8m wide, keeping the aspect ratio.
+		LayerDesc.QuadSize = FVector2D(800.0f, 800.0f*InvAspectRatio);
 
 		if (SplashLayerHandle)
 		{
@@ -208,6 +218,12 @@ void FSteamVRHMD::UpdateStereoLayers_RenderThread()
 		return;
 	}
 
+	// Metal is not supported yet
+	if (IsMetalPlatform(GMaxRHIShaderPlatform))
+	{
+		return;
+	}
+
 	static const auto CVarMixLayerPriorities = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.StereoLayers.bMixLayerPriorities"));
 	const bool bUpdateLayerPriorities = (CVarMixLayerPriorities->GetValueOnRenderThread() == 0) && GetStereoLayersDirty();
 	
@@ -217,7 +233,20 @@ void FSteamVRHMD::UpdateStereoLayers_RenderThread()
 	const float WorldToMeterScale = GetWorldToMetersScale();
 	check(WorldToMeterScale > 0.f);
 	FQuat AdjustedPlayerOrientation = BaseOrientation.Inverse() * PlayerOrientation;
-	FTransform InvWorldTransform = FTransform(AdjustedPlayerOrientation, PlayerLocation).Inverse();
+	AdjustedPlayerOrientation.Normalize();
+
+	check(XRCamera.IsValid());
+	FVector AdjustedPlayerLocation = PlayerLocation;
+	if (XRCamera->GetUseImplicitHMDPosition())
+	{
+		FQuat DeviceOrientation; // Unused
+		FVector DevicePosition;
+		GetCurrentPose(IXRTrackingSystem::HMDDeviceId, DeviceOrientation, DevicePosition);
+		AdjustedPlayerLocation -= BaseOrientation.Inverse().RotateVector(DevicePosition);
+	}
+
+	FTransform InvWorldTransform = FTransform(AdjustedPlayerOrientation, AdjustedPlayerLocation).Inverse();
+
 
 	// We have loop through all layers every frame, in case we have world locked layers or continuously updated textures.
 	ForEachLayer([&](uint32 /* unused */, FSteamVRLayer& Layer)

@@ -1,4 +1,6 @@
-﻿using System;
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -20,7 +22,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Modules that this plugin belongs to
 		/// </summary>
-		public List<UEBuildModule> Modules = new List<UEBuildModule>();
+		public List<UEBuildModuleCPP> Modules = new List<UEBuildModuleCPP>();
 
 		/// <summary>
 		/// Recursive

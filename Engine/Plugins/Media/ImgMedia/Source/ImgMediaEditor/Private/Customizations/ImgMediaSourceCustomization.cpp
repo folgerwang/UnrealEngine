@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ImgMediaSourceCustomization.h"
 
@@ -31,7 +31,7 @@
 void FImgMediaSourceCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
 	// customize 'File' category
-	IDetailCategoryBuilder& FileCategory = DetailBuilder.EditCategory("EXR");
+	IDetailCategoryBuilder& FileCategory = DetailBuilder.EditCategory("Sequence");
 	{
 		// FilePath
 		SequencePathProperty = DetailBuilder.GetProperty("SequencePath");

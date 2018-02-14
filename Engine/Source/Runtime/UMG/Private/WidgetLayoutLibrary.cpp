@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Blueprint/WidgetLayoutLibrary.h"
 #include "EngineGlobals.h"
@@ -15,14 +15,14 @@
 #include "Components/BorderSlot.h"
 #include "Engine/UserInterfaceSettings.h"
 #include "Slate/SlateBrushAsset.h"
-#include "WidgetLayoutLibrary.h"
+#include "Blueprint/WidgetLayoutLibrary.h"
 #include "Runtime/Engine/Classes/Engine/UserInterfaceSettings.h"
 #include "Runtime/Engine/Classes/Engine/RendererSettings.h"
 #include "Blueprint/SlateBlueprintLibrary.h"
 #include "Slate/SceneViewport.h"
 #include "Slate/SGameLayerManager.h"
 #include "Framework/Application/SlateApplication.h"
-#include "FrameValue.h"
+#include "Misc/FrameValue.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 

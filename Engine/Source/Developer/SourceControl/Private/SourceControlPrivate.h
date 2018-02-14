@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -16,7 +16,7 @@
 
 #if WITH_EDITOR
 #include "PackageTools.h"
-#include "MessageLog.h"
+#include "Logging/MessageLog.h"
 #endif
 
 #if WITH_UNREAL_DEVELOPER_TOOLS

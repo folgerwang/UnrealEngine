@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 // Core includes.
 #include "Misc/CoreDelegates.h"
@@ -51,6 +51,8 @@ FCoreDelegates::FPakSigningKeysDelegate& FCoreDelegates::GetPakSigningKeysDelega
 #if WITH_EDITOR
 	FSimpleMulticastDelegate FCoreDelegates::PreModal;
 	FSimpleMulticastDelegate FCoreDelegates::PostModal;
+    FSimpleMulticastDelegate FCoreDelegates::PreSlateModal;
+    FSimpleMulticastDelegate FCoreDelegates::PostSlateModal;
 #endif	//WITH_EDITOR
 FSimpleMulticastDelegate FCoreDelegates::OnShutdownAfterError;
 FSimpleMulticastDelegate FCoreDelegates::OnInit;
@@ -102,18 +104,20 @@ FCoreDelegates::FVRHeadsetReconnected FCoreDelegates::VRHeadsetReconnected;
 FCoreDelegates::FVRHeadsetConnectCanceled FCoreDelegates::VRHeadsetConnectCanceled;
 FCoreDelegates::FVRHeadsetPutOnHead FCoreDelegates::VRHeadsetPutOnHead;
 FCoreDelegates::FVRHeadsetRemovedFromHead FCoreDelegates::VRHeadsetRemovedFromHead;
+FCoreDelegates::FVRControllerRecentered FCoreDelegates::VRControllerRecentered;
 
 FCoreDelegates::FOnUserActivityStringChanged FCoreDelegates::UserActivityStringChanged;
 FCoreDelegates::FOnGameSessionIDChange FCoreDelegates::GameSessionIDChanged;
+FCoreDelegates::FOnGameStateClassChange FCoreDelegates::GameStateClassChanged;
 FCoreDelegates::FOnCrashOverrideParamsChanged FCoreDelegates::CrashOverrideParamsChanged;
 FCoreDelegates::FOnIsVanillaProductChanged FCoreDelegates::IsVanillaProductChanged;
 
 FCoreDelegates::FOnAsyncLoadingFlush FCoreDelegates::OnAsyncLoadingFlush;
 FCoreDelegates::FOnAsyncLoadingFlushUpdate FCoreDelegates::OnAsyncLoadingFlushUpdate;
 FCoreDelegates::FOnAsyncLoadPackage FCoreDelegates::OnAsyncLoadPackage;
+FCoreDelegates::FOnSyncLoadPackage FCoreDelegates::OnSyncLoadPackage;
 FCoreDelegates::FRenderingThreadChanged FCoreDelegates::PostRenderingThreadCreated;
 FCoreDelegates::FRenderingThreadChanged FCoreDelegates::PreRenderingThreadDestroyed;
-FCoreDelegates::FImageIntegrityChanged  FCoreDelegates::OnImageIntegrityChanged;
 
 FCoreDelegates::FApplicationReceivedOnScreenOrientationChangedNotificationDelegate FCoreDelegates::ApplicationReceivedScreenOrientationChangedNotificationDelegate;
 
@@ -137,19 +141,21 @@ FSimpleMulticastDelegate& FCoreDelegates::GetOutOfMemoryDelegate()
 
 FCoreDelegates::FGetOnScreenMessagesDelegate FCoreDelegates::OnGetOnScreenMessages;
 
-void RegisterEncryptionKey(const char* InEncryptionKey)
+typedef void(*TSigningKeyFunc)(uint8[64], uint8[64]);
+typedef void(*TEncryptionKeyFunc)(unsigned char[32]);
+
+void RegisterSigningKeyCallback(TSigningKeyFunc InCallback)
 {
-	FCoreDelegates::GetPakEncryptionKeyDelegate().BindLambda([InEncryptionKey]() { return InEncryptionKey; });
+	FCoreDelegates::GetPakSigningKeysDelegate().BindLambda([InCallback](uint8 OutExponent[64], uint8 OutModulus[64])
+	{
+		InCallback(OutExponent, OutModulus);
+	});
 }
 
-void RegisterPakSigningKeys(const char* InExponent, const char* InModulus)
+void RegisterEncryptionKeyCallback(TEncryptionKeyFunc InCallback)
 {
-	static FString Exponent(ANSI_TO_TCHAR(InExponent));
-	static FString Modulus(ANSI_TO_TCHAR(InModulus));
-
-	FCoreDelegates::GetPakSigningKeysDelegate().BindLambda([](FString& OutExponent, FString& OutModulus)
+	FCoreDelegates::GetPakEncryptionKeyDelegate().BindLambda([InCallback](uint8 OutKey[32])
 	{
-		OutExponent = Exponent;
-		OutModulus = Modulus;
+		InCallback(OutKey);
 	});
 }

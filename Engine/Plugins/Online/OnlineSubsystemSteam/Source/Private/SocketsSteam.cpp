@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SocketsSteam.h"
 #include "SocketSubsystemSteam.h"
@@ -60,7 +60,7 @@ bool FSocketSteam::Listen(int32 MaxBacklog)
  *
  * @return true if successful, false otherwise
  */
-bool FSocketSteam::HasPendingConnection(bool& bHasPendingConnection) 
+bool FSocketSteam::WaitForPendingConnection(bool& bHasPendingConnection, const FTimespan& WaitTime)
 {
 	/** Not supported - connectionless (UDP) only */
 	return false;

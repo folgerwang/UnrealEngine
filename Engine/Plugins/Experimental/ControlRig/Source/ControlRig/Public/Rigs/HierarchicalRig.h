@@ -1,12 +1,12 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "ControlRig.h"
-#include "AnimationHierarchy.h"
+#include "Rigs/AnimationHierarchy.h"
 #include "BonePose.h"
 #include "NodeChain.h"
-#include "ControlManipulator.h"
+#include "Rigs/ControlManipulator.h"
 #include "Animation/NodeMappingProviderInterface.h"
 #include "Animation/NodeMappingContainer.h"
 #include "HierarchicalRig.generated.h"

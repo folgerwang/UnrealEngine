@@ -1,13 +1,13 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "EditorUndoClient.h"
-#include "SCompoundWidget.h"
-#include "DeclarativeSyntaxSupport.h"
-#include "STableRow.h"
-#include "STableViewBase.h"
-#include "STreeView.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STreeView.h"
 #include "ViewModels/Stack/NiagaraStackEntry.h"
 #include "EdGraph/EdGraphSchema.h"
 #include "SNiagaraStack.generated.h"

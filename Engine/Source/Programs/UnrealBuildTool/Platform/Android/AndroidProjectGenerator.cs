@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -49,8 +49,8 @@ namespace UnrealBuildTool
 			else
 			{
 				// If the sandboxed SDK is not present (pre Visual Studio 15.4) then the non-Sandboxed SDK tools should have the correct build tools for building
-				string Path = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Android SDK Tools", "Path", null) as string;
-				if (!String.IsNullOrEmpty(Path) && VSDebugCommandLineOptionPresent)
+				string SDKToolsPath = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Android SDK Tools", "Path", null) as string;
+				if (!String.IsNullOrEmpty(SDKToolsPath) && VSDebugCommandLineOptionPresent)
 				{
 					VSDebuggingEnabled = true;
 				}

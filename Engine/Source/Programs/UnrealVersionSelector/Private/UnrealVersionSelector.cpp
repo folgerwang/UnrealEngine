@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealVersionSelector.h"
 #include "RequiredProgramMainCPPInclude.h"
@@ -208,7 +208,7 @@ bool GenerateProjectFiles(const FString& ProjectFileName)
 
 	// Generate project files
 	FFeedbackContext* Warn = DesktopPlatform->GetNativeFeedbackContext();
-	bool bResult = DesktopPlatform->GenerateProjectFiles(RootDir, ProjectFileName, Warn);
+	bool bResult = DesktopPlatform->GenerateProjectFiles(RootDir, ProjectFileName, Warn, FPaths::ProjectLogDir() / FString::Printf(TEXT("%s-%s.log"), FPlatformProcess::ExecutableName(), *FDateTime::Now().ToString()));
 	GLog->RemoveOutputDevice(&LogCapture);
 
 	// Display an error dialog if we failed
@@ -274,7 +274,7 @@ int Main(const TArray<FString>& Arguments)
 
 #if PLATFORM_WINDOWS
 
-	#include "AllowWindowsPlatformTypes.h"
+	#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <Shellapi.h>
 
 	int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int ShowCmd)
@@ -298,7 +298,7 @@ int Main(const TArray<FString>& Arguments)
 		return Main(Arguments);
 	}
 
-	#include "HideWindowsPlatformTypes.h"
+	#include "Windows/HideWindowsPlatformTypes.h"
 
 #else
 

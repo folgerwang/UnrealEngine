@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Installer/CloudChunkSource.h"
 #include "CoreMinimal.h"
@@ -10,7 +10,7 @@
 #include "Installer/DownloadService.h"
 #include "Installer/InstallerError.h"
 #include "Common/StatsCollector.h"
-#include "IBuildInstaller.h"
+#include "Interfaces/IBuildInstaller.h"
 #include "BuildPatchUtil.h"
 #include "HAL/ThreadSafeBool.h"
 #include "Containers/Queue.h"

@@ -4,7 +4,7 @@
 
 #include "EditableMeshTypes.h"
 #include "MeshElement.h"
-#include "Change.h"
+#include "Misc/Change.h"
 
 
 class IMeshEditorModeEditingContract

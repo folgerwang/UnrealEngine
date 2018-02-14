@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Misc/MessageDialog.h"
@@ -29,7 +29,7 @@
 #include "Widgets/SViewport.h"
 #include "Framework/Docking/TabManager.h"
 #include "EditorStyleSet.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "Engine/EngineTypes.h"
 #include "Async/TaskGraphInterfaces.h"
 #include "GameFramework/Actor.h"
@@ -92,12 +92,14 @@
 #include "Slate/SGameLayerManager.h"
 
 #include "IHeadMountedDisplay.h"
+#include "IXRTrackingSystem.h"
 #include "Engine/LevelStreaming.h"
 #include "Components/ModelComponent.h"
 #include "GameDelegates.h"
 #include "Net/OnlineEngineInterface.h"
 #include "Kismet2/DebuggerCommands.h"
 #include "Misc/ScopeExit.h"
+#include "IVREditorModule.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogPlayLevel, Log, All);
@@ -188,9 +190,9 @@ void UEditorEngine::EndPlayMap()
 		}
 	}
 
-	if (GEngine->HMDDevice.IsValid() && !bIsSimulatingInEditor)
+	if (GEngine->XRSystem.IsValid() && !bIsSimulatingInEditor)
 	{
-		GEngine->HMDDevice->OnEndPlay(*GEngine->GetWorldContextFromWorld(PlayWorld));
+		GEngine->XRSystem->OnEndPlay(*GEngine->GetWorldContextFromWorld(PlayWorld));
 	}
 
 	// Matinee must be closed before PIE can stop - matinee during PIE will be editing a PIE-world actor
@@ -1226,7 +1228,12 @@ void UEditorEngine::StartQueuedPlayMapRequest()
 
 		// Build the connection String
 		FString ConnectionAddr(TEXT("127.0.0.1"));
-		const bool WillAutoConnectToServer = [&PlayInSettings] { bool AutoConnectToServer(false); return (PlayInSettings->GetAutoConnectToServer(AutoConnectToServer) && AutoConnectToServer); }();
+
+		// Ignore the user's settings if the autoconnect option is inaccessible due to settings conflicts.
+		const bool WillAutoConnectToServer = [&PlayInSettings] { bool AutoConnectToServer(false); 
+			return (PlayInSettings->GetAutoConnectToServerVisibility() == EVisibility::Visible) ? 
+				(PlayInSettings->GetAutoConnectToServer(AutoConnectToServer) && AutoConnectToServer) : true; }();
+
 		if (WillAutoConnectToServer)
 		{
 			uint16 ServerPort = 0;
@@ -1364,7 +1371,7 @@ void UEditorEngine::PlayStandaloneLocalPc(FString MapNameOverride, FIntPoint* Wi
 	}
 
 	// Disable the HMD device in the new process if present. The editor process owns the HMD resource.
-	if (!bPlayUsingMobilePreview && !bPlayUsingVulkanPreview && GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsHMDConnected())
+	if (!bPlayUsingMobilePreview && !bPlayUsingVulkanPreview && GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice() && GEngine->XRSystem->GetHMDDevice()->IsHMDConnected())
 	{
 		AdditionalParameters += TEXT(" -nohmd");
 		UE_LOG(LogHMD, Warning, TEXT("Standalone game VR not supported, please use VR Preview."));
@@ -1539,14 +1546,13 @@ void UEditorEngine::HandleStageStarted(const FString& InStage, TWeakPtr<SNotific
 	}
 	else if (InStage.Contains(TEXT("Build Task")))
 	{
-		EPlayOnBuildMode bBuildType = GetDefault<ULevelEditorPlaySettings>()->BuildGameBeforeLaunch;
 		FString PlatformName = PlayUsingLauncherDeviceId.Left(PlayUsingLauncherDeviceId.Find(TEXT("@")));
 		if (PlatformName.Contains(TEXT("NoEditor")))
 		{
 			PlatformName = PlatformName.Left(PlatformName.Find(TEXT("NoEditor")));
 		}
 		Arguments.Add(TEXT("PlatformName"), FText::FromString(PlatformName));
-		if (FApp::IsEngineInstalled() || !bPlayUsingLauncherHasCode || !bPlayUsingLauncherHasCompiler || bBuildType == EPlayOnBuildMode::PlayOnBuild_Never)
+		if (!bPlayUsingLauncherBuild)
 		{
 			NotificationText = FText::Format(LOCTEXT("LauncherTaskValidateNotification", "Validating Executable for {PlatformName}..."), Arguments);
 		}
@@ -1872,16 +1878,27 @@ void UEditorEngine::PlayUsingLauncher()
 		// does the project have any code?
 		FGameProjectGenerationModule& GameProjectModule = FModuleManager::LoadModuleChecked<FGameProjectGenerationModule>(TEXT("GameProjectGeneration"));
 		bPlayUsingLauncherHasCode = GameProjectModule.Get().ProjectRequiresBuild(FName(*PlayUsingLauncherDeviceId.Left(PlayUsingLauncherDeviceId.Find(TEXT("@")))));
-		bPlayUsingLauncherHasCompiler = FSourceCodeNavigation::IsCompilerAvailable();
 
 		const ULevelEditorPlaySettings* PlayInSettings = GetDefault<ULevelEditorPlaySettings>();
 		// Setup launch profile, keep the setting here to a minimum.
 		ILauncherProfileRef LauncherProfile = LauncherServicesModule.CreateProfile(TEXT("Launch On Device"));
-		EPlayOnBuildMode bBuildType = PlayInSettings->BuildGameBeforeLaunch;
-		if ((bBuildType == EPlayOnBuildMode::PlayOnBuild_Always) || (bBuildType == PlayOnBuild_Default && (bPlayUsingLauncherHasCode) && bPlayUsingLauncherHasCompiler))
+		if(PlayInSettings->BuildGameBeforeLaunch == EPlayOnBuildMode::PlayOnBuild_Always)
 		{
-			LauncherProfile->SetBuildGame(true);
+			bPlayUsingLauncherBuild = true;
 		}
+		else if(PlayInSettings->BuildGameBeforeLaunch == EPlayOnBuildMode::PlayOnBuild_Never)
+		{
+			bPlayUsingLauncherBuild = false;
+		}
+		else if(PlayInSettings->BuildGameBeforeLaunch == EPlayOnBuildMode::PlayOnBuild_Default)
+		{
+			bPlayUsingLauncherBuild = bPlayUsingLauncherHasCode || !FApp::GetEngineIsPromotedBuild();
+		}
+		else if(PlayInSettings->BuildGameBeforeLaunch == EPlayOnBuildMode::PlayOnBuild_IfEditorBuiltLocally)
+		{
+			bPlayUsingLauncherBuild = !FApp::GetEngineIsPromotedBuild();
+		}
+		LauncherProfile->SetBuildGame(bPlayUsingLauncherBuild);
 
 		// set the build/launch configuration 
 		switch (PlayInSettings->LaunchConfiguration)
@@ -2298,9 +2315,9 @@ void UEditorEngine::PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor )
 		OutputLogErrorsToMessageLogProxyPtr = MakeShareable(new FOutputLogErrorsToMessageLogProxy());
 	}
 
-	if (GEngine->HMDDevice.IsValid() && !bInSimulateInEditor)
+	if (GEngine->XRSystem.IsValid() && !bInSimulateInEditor)
 	{
-		GEngine->HMDDevice->OnBeginPlay(*GEngine->GetWorldContextFromWorld(InWorld));
+		GEngine->XRSystem->OnBeginPlay(*GEngine->GetWorldContextFromWorld(InWorld));
 	}
 
 	// remember old GWorld
@@ -2451,7 +2468,7 @@ void UEditorEngine::PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor )
 	}
 
 	// Make sure to focus the game viewport.
-	if (!bInSimulateInEditor)
+	if (!bInSimulateInEditor && (GetDefault<ULevelEditorPlaySettings>()->GameGetsMouseControl || IVREditorModule::Get().IsVREditorEnabled() || (bUseVRPreviewForPlayWorld && GEngine->XRSystem.IsValid())))
 	{
 		FSlateApplication::Get().SetAllUserFocusToGameViewport();
 	}
@@ -2980,9 +2997,9 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bI
 	UGameViewportClient* ViewportClient = NULL;
 	ULocalPlayer *NewLocalPlayer = NULL;
 	
-	if (GEngine->HMDDevice.IsValid() && !bInSimulateInEditor )
+	if (GEngine->XRSystem.IsValid() && !bInSimulateInEditor )
 	{
-		GEngine->HMDDevice->OnBeginPlay(*PieWorldContext);
+		GEngine->XRSystem->OnBeginPlay(*PieWorldContext);
 	}
 
 	if (!PieWorldContext->RunAsDedicated)
@@ -3147,7 +3164,7 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bI
 
 				ViewportClient->SetViewportOverlayWidget( PieWindow, ViewportOverlayWidgetRef );
 				ViewportClient->SetGameLayerManager(GameLayerManagerRef);
-				bool bShouldMinimizeRootWindow = bUseVRPreview && GEngine->HMDDevice.IsValid() && GetDefault<ULevelEditorPlaySettings>()->ShouldMinimizeEditorOnVRPIE;
+				bool bShouldMinimizeRootWindow = bUseVRPreview && GEngine->XRSystem.IsValid() && GetDefault<ULevelEditorPlaySettings>()->ShouldMinimizeEditorOnVRPIE;
 				// Set up a notification when the window is closed so we can clean up PIE
 				{
 					struct FLocal
@@ -3200,7 +3217,7 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bI
 				// Create a new viewport that the viewport widget will use to render the game
 				SlatePlayInEditorSession.SlatePlayInEditorWindowViewport = MakeShareable( new FSceneViewport( ViewportClient, PieViewportWidget ) );
 
-				const bool bShouldGameGetMouseControl = GetDefault<ULevelEditorPlaySettings>()->GameGetsMouseControl || (bUseVRPreview && GEngine->HMDDevice.IsValid());
+				const bool bShouldGameGetMouseControl = GetDefault<ULevelEditorPlaySettings>()->GameGetsMouseControl || (bUseVRPreview && GEngine->XRSystem.IsValid());
 				SlatePlayInEditorSession.SlatePlayInEditorWindowViewport->SetPlayInEditorGetsMouseControl(bShouldGameGetMouseControl);
 				PieViewportWidget->SetViewportInterface( SlatePlayInEditorSession.SlatePlayInEditorWindowViewport.ToSharedRef() );
 				
@@ -3222,7 +3239,7 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bI
 
 				if (bUseVRPreview)
 				{
-					GEngine->HMDDevice->EnableStereo(true);
+					GEngine->StereoRenderingDevice->EnableStereo(true);
 
 					// minimize the root window to provide max performance for the preview.
 					TSharedPtr<SWindow> RootWindow = FGlobalTabmanager::Get()->GetRootWindow();
@@ -3585,6 +3602,7 @@ UWorld* UEditorEngine::CreatePIEWorldByDuplication(FWorldContext &WorldContext, 
 	PlayWorldPackage->PIEInstanceID = WorldContext.PIEInstance;
 	PlayWorldPackage->FileName = InPackage->FileName;
 	PlayWorldPackage->SetGuid( InPackage->GetGuid() );
+	PlayWorldPackage->MarkAsFullyLoaded();
 
 	// check(GPlayInEditorID == -1 || GPlayInEditorID == WorldContext.PIEInstance);
 	// Currently GPlayInEditorID is not correctly reset after map loading, so it's not safe to assert here

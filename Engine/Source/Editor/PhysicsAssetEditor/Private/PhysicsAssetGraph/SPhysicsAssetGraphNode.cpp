@@ -1,13 +1,13 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SPhysicsAssetGraphNode.h"
 #include "SCommentBubble.h"
 #include "PhysicsAssetGraphNode.h"
 #include "SGraphPin.h"
-#include "SInlineEditableTextBlock.h"
-#include "SImage.h"
-#include "SSpacer.h"
-#include "SBoxPanel.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SSpacer.h"
+#include "Widgets/SBoxPanel.h"
 
 #define LOCTEXT_NAMESPACE "PhysicsAssetEditor"
 

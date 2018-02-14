@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidLicenseDialog.h"
 #include "Misc/Paths.h"
@@ -20,8 +20,8 @@
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Layout/SScrollBox.h"
 #include "EditorStyleSet.h"
-#include "SecureHash.h"
-#include "PlatformFilemanager.h"
+#include "Misc/SecureHash.h"
+#include "HAL/PlatformFilemanager.h"
 #include "Interfaces/IAndroidDeviceDetectionModule.h"
 #include "Interfaces/IAndroidDeviceDetection.h"
 #include "Interfaces/IMainFrameModule.h"
@@ -34,7 +34,7 @@ void SAndroidLicenseDialog::Construct(const FArguments& InArgs)
 {
 	bLicenseValid = false;
 
-	// from Android SDK Tools 25.2.3
+	// from Android SDK Tools 26.1.1
 	FString LicenseFilename = FPaths::EngineDir() + TEXT("Source/ThirdParty/Android/package.xml");
 	FString LicenseText = "Unable to read " + LicenseFilename;
 

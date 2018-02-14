@@ -1,16 +1,16 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MacPlatformMemory.cpp: Mac platform memory functions
 =============================================================================*/
 
-#include "MacPlatformMemory.h"
+#include "Mac/MacPlatformMemory.h"
 #include "HAL/PlatformMemory.h"
-#include "MallocTBB.h"
-#include "MallocAnsi.h"
-#include "MallocBinned.h"
-#include "MallocBinned2.h"
-#include "MallocStomp.h"
+#include "HAL/MallocTBB.h"
+#include "HAL/MallocAnsi.h"
+#include "HAL/MallocBinned.h"
+#include "HAL/MallocBinned2.h"
+#include "HAL/MallocStomp.h"
 #include "Misc/AssertionMacros.h"
 #include "Misc/CoreStats.h"
 #include "CoreGlobals.h"
@@ -62,6 +62,12 @@ FMalloc* FMacPlatformMemory::BaseAllocator()
 	{
 		AllocatorToUse = EMemoryAllocatorToUse::Ansi;
 	}
+
+#if defined(__has_feature)
+	#if __has_feature(thread_sanitizer)
+		AllocatorToUse = EMemoryAllocatorToUse::Ansi;
+	#endif
+#endif
 
 	switch (AllocatorToUse)
 	{

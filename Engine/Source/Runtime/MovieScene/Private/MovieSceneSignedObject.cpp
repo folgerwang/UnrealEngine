@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneSignedObject.h"
 #include "Templates/Casts.h"
 #include "MovieSceneSequence.h"
-#include "Package.h"
+#include "UObject/Package.h"
 
 UMovieSceneSignedObject::UMovieSceneSignedObject(const FObjectInitializer& Init)
 	: Super(Init)

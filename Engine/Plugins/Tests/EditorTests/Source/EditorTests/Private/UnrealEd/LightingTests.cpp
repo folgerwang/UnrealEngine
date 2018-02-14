@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Misc/AutomationTest.h"
@@ -16,6 +16,8 @@
 
 // Misc
 #include "ScopedTransaction.h"
+#include "Engine/Selection.h"
+#include "EditorModeManager.h"
 
 #define POINTLIGHT_TRANSFORM			FTransform()
 #define POINT_LIGHT_UPDATED_LOCATION	FVector(50.f, 50.f, 50.f)
@@ -196,36 +198,66 @@ bool FLightingPromotionModifyProperties::RunTest(const FString& Parameters)
 }
 
 
-/**
+/*
+/ **
 * Lighting Promotion Test - Duplicate/Copy Paste a point light.
-*/
+* /
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FLightingPromotionDuplicationTest, "System.Promotion.Editor.Lighting.Duplicate and Copy Paste", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FLightingPromotionDuplicationTest::RunTest(const FString& Parameters)
 {
-	//** SETUP **//
 	UWorld* World = FAutomationEditorCommonUtils::CreateNewMap();
 	ULevel* CurrentLevel = World->GetCurrentLevel();
 	// Test Summary
 	AddInfo(TEXT("Duplicate and Copy Paste\n- Duplicates a point light.\n- Copies and Pastes a point light."));
 
+	GLevelEditorModeTools().ActivateDefaultMode();
+
 	if (!LightingTestHelpers::DoesActorExistInTheLevel(CurrentLevel, TEXT("PointLight"), APointLight::StaticClass()))
 	{
-		//** TEST **//
 		// Add a point light to the level.
 		APointLight* PointLight = Cast<APointLight>(GEditor->AddActor(World->GetCurrentLevel(), APointLight::StaticClass(), FTransform()));
+
+		int32 NumberOfPointLights = 0;
+		// Count the number of point lights in the level.
+		for ( TActorIterator<APointLight> It(World); It; ++It )
+		{
+			NumberOfPointLights++;
+		}
+
+		// Make sure there's only one point light in the level.
+		TestEqual(TEXT("The light count before copy/paste"), NumberOfPointLights, 1);
+
 		// Deselect all and then Select the light
 		LightingTestHelpers::SelectActorInLevel(PointLight);
+
+		TestEqual(TEXT("Selected actor count"), GEditor->GetSelectedActorCount(), 1);
+
+		TestEqual<APointLight*>(TEXT("PointLight is selected"), PointLight, GEditor->GetSelectedActors()->GetTop<APointLight>());
+
 		// Copy and Paste.
-		GEngine->Exec(World, TEXT("EDIT COPY"));
-		GEngine->Exec(World, TEXT("EDIT PASTE"));
+		GEditor->CopySelectedActorsToClipboard(World, false);
+
+		FText TransDescription = FText::FromString("Automation Test Copy/Paste");
+		GEditor->PasteSelectedActorsFromClipboard(World, TransDescription, EPasteTo::PT_OriginalLocation);
+
+		NumberOfPointLights = 0;
+		// Count the number of point lights in the level.
+		for ( TActorIterator<APointLight> It(World); It; ++It )
+		{
+			NumberOfPointLights++;
+		}
+
+		// We are expecting two point lights to be in the level now.
+		TestEqual(TEXT("The light count after copy/paste"), NumberOfPointLights, 2);
+
 		// Deselect all and then select a light
 		LightingTestHelpers::SelectActorInLevel(PointLight);
+
 		// Duplicate the light
 		GEngine->Exec(World, TEXT("DUPLICATE"));
 
-		//** Verify **//
-		int32 NumberOfPointLights = 0;
+		NumberOfPointLights = 0;
 		// Count the number of point lights in the level.
 		for ( TActorIterator<APointLight> It(World); It; ++It )
 		{
@@ -240,7 +272,7 @@ bool FLightingPromotionDuplicationTest::RunTest(const FString& Parameters)
 
 	AddError(TEXT("A point light already exists in this level which would dirty the test results."));
 	return false;
-}
+}*/
 
 
 //////////////////////////////////////////////////////////////////////////

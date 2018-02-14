@@ -1,13 +1,13 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "ScriptGeneratorLog.h"
 #include "ScriptCodeGeneratorBase.h"
 #include "GenericScriptCodeGenerator.h"
 #include "LuaScriptCodeGenerator.h"
-#include "IProjectManager.h"
+#include "Interfaces/IProjectManager.h"
 #include "Features/IModularFeatures.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "ProjectDescriptor.h"
 
 DEFINE_LOG_CATEGORY(LogScriptGenerator);

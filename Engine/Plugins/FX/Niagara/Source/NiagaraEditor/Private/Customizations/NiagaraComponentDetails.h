@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,8 +6,8 @@
 #include "IDetailCustomization.h"
 #include "EditorUndoClient.h"
 #include "TickableEditorObject.h"
-#include "Reply.h"
-#include "Visibility.h"
+#include "Input/Reply.h"
+#include "Layout/Visibility.h"
 #include "Misc/NotifyHook.h"
 
 class IDetailLayoutBuilder;

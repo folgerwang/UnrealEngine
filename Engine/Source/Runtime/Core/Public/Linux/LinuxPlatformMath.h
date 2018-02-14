@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================================
 	LinuxPlatformMath.h: Linux platform Math functions
@@ -75,7 +75,7 @@ struct FLinuxPlatformMath : public FGenericPlatformMath
 		return UnrealPlatformMathSSE::InvSqrtEst(F);
 	}
 
-#if PLATFORM_64BITS && PLATFORM_CPU_X86_FAMILY
+#if PLATFORM_ENABLE_POPCNT_INTRINSIC
 	/**
 	 * Use the SSE instruction to count bits
 	 */

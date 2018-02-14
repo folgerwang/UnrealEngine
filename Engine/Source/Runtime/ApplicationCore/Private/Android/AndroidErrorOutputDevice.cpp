@@ -1,11 +1,12 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidErrorOutputDevice.h"
+#include "Android/AndroidErrorOutputDevice.h"
 
 #include "CoreGlobals.h"
-#include "OutputDeviceHelper.h"
+#include "Misc/OutputDeviceHelper.h"
 #include "HAL/PlatformMisc.h"
 #include "Misc/OutputDeviceRedirector.h"
+#include "CoreGlobals.h"
 
 FAndroidErrorOutputDevice::FAndroidErrorOutputDevice()
 {
@@ -40,6 +41,11 @@ void FAndroidErrorOutputDevice::HandleError()
 	GIsRunning = 0;
 	GIsCriticalError = 1;
 	GLogConsole = NULL;
+	GErrorHist[ARRAY_COUNT(GErrorHist) - 1] = 0;
 
-	GLog->Flush();
+	// Dump the error and flush the log.
+#if !NO_LOGGING
+	FDebug::LogFormattedMessageWithCallstack(LogAndroid.GetCategoryName(), __FILE__, __LINE__, TEXT("=== Critical error: ==="), GErrorHist, ELogVerbosity::Error);
+#endif
+	GLog->PanicFlushThreadedLogs();
 }

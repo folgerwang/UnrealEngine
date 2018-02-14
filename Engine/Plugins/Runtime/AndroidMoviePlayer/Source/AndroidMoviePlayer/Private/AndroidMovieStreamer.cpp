@@ -1,16 +1,16 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidMovieStreamer.h"
 
-#include "AndroidApplication.h"
-#include "AndroidJava.h"
-#include "AndroidFile.h"
+#include "Android/AndroidApplication.h"
+#include "Android/AndroidJava.h"
+#include "Android/AndroidFile.h"
 
-#include "RenderingCommon.h"
+#include "Rendering/RenderingCommon.h"
 #include "RenderUtils.h"
 #include "Slate/SlateTextures.h"
 #include "MoviePlayer.h"
-#include "StringConv.h"
+#include "Containers/StringConv.h"
 
 #include "Misc/ScopeLock.h"
 #include "Misc/Paths.h"

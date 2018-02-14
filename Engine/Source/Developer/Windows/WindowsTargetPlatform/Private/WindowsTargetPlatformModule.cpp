@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "ISettingsModule.h"
 #include "Interfaces/ITargetPlatformModule.h"
 #include "GenericWindowsTargetPlatform.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "UObject/Package.h"
 #include "UObject/WeakObjectPtr.h"
 

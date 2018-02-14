@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 D3D12Device.cpp: D3D device RHI implementation.
@@ -130,6 +130,11 @@ void FD3D12Device::SetupAfterDeviceCreation()
 			// Running under RenderDoc, so enable capturing mode
 			GDynamicRHI->EnableIdealGPUCaptureOptions(true);
 		}
+	}
+	if (GEmitRgpFrameMarkers && GetOwningRHI()->GetAmdAgsContext())
+	{
+		// Running on AMD with RGP profiling enabled, so enable capturing mode
+		GDynamicRHI->EnableIdealGPUCaptureOptions(true);
 	}
 #endif
 

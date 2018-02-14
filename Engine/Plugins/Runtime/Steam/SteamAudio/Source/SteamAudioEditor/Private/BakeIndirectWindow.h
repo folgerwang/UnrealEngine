@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "SListView.h"
-#include "SharedPointer.h"
+#include "Widgets/Views/SListView.h"
+#include "Templates/SharedPointer.h"
 #include "IndirectBaker.h"
 
 class STableViewBase;

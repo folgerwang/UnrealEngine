@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AsyncLoading.h: Unreal async loading definitions.
@@ -484,6 +484,17 @@ struct FAsyncPackage : FGCObject
 	/** Removes all objects from the list and clears async loading flags */
 	void EmptyReferencedObjects();
 
+	/** Returns the UPackage wrapped by this, if it is valid */
+	UPackage* GetLoadedPackage();
+
+#if WITH_EDITOR
+	/** Gets all assets loaded by this async package, used in the editor */
+	void GetLoadedAssets(TArray<FWeakObjectPtr>& AssetList);
+#endif
+
+	/** Creates GC clusters from loaded objects */
+	EAsyncPackageState::Type CreateClusters(double InTickStartTime, bool bInUseTimeLimit, float& InOutTimeLimit);
+
 private:	
 
 	struct FCompletionCallback
@@ -537,6 +548,8 @@ private:
 	int32						DeferredPostLoadIndex;
 	/** Current index into DeferredFinalizeObjects array used to spread routing PostLoad over several frames			*/
 	int32						DeferredFinalizeIndex;
+	/** Current index into DeferredClusterObjects array used to spread routing CreateClusters over several frames			*/
+	int32						DeferredClusterIndex;
 	/** Currently used time limit for this tick.														*/
 	float						TimeLimit;
 	/** Whether we are using a time limit for this tick.												*/
@@ -569,6 +582,8 @@ private:
 	TArray<UObject*> PackageObjLoaded;
 	/** Packages that were loaded synchronously while async loading this package or packages added by verify import */
 	TArray<FLinkerLoad*> DelayedLinkerClosePackages;
+	/** Objects to create GC clusters from */
+	TArray<UObject*> DeferredClusterObjects;
 
 	/** List of all request handles */
 	TArray<int32> RequestIDs;
@@ -622,7 +637,7 @@ public:
 	int64 CurrentBlockBytes;
 	TSet<int32> ExportsInThisBlock;
 
-	TMultiMap<FName, FPackageIndex> ObjectNameToImportOrExport;
+	TMap<TPair<FName, FPackageIndex>, FPackageIndex> ObjectNameWithOuterToExport;
 
 	TSet<FWeakAsyncPackagePtr> PackagesIMayBeWaitingForBeforePostload; // these need to be reexamined and perhaps deleted or collapsed
 

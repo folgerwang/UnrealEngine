@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SViewportToolBarIconMenu.h"
 #include "Widgets/SBoxPanel.h"
@@ -23,7 +23,7 @@ void SViewportToolBarIconMenu::Construct( const FArguments& InArgs )
 	[
 		SNew(SButton)
 		.ButtonStyle( FEditorStyle::Get(), ButtonStyle )
-		.ContentPadding( FMargin( 5.0f, 2.0f ) )
+		.ContentPadding( FMargin( 5.0f, 0.0f ) )
 		.OnClicked(this, &SViewportToolBarIconMenu::OnMenuClicked)
 		[
 			SNew(SHorizontalBox)

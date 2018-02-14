@@ -7,7 +7,7 @@
 struct FRect;
 struct Rect;
 
-class MESHUTILITIES_API FAllocator2D
+class MESHBUILDER_API FAllocator2D
 {
 public:
 	struct FRect

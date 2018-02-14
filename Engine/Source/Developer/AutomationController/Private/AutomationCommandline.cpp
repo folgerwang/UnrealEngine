@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Misc/CoreMisc.h"
@@ -10,9 +10,9 @@
 #include "Modules/ModuleManager.h"
 #include "Misc/FilterCollection.h"
 #include "IAutomationControllerModule.h"
-#include "FileManager.h"
-#include "Paths.h"
-#include "FileHelper.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/FileHelper.h"
 #include "AssetRegistryModule.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogAutomationCommandLine, Log, All);

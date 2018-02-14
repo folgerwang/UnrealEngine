@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AssetTypeActions/AssetTypeActions_AnimationAsset.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
@@ -14,7 +14,7 @@
 #include "Preferences/PersonaOptions.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Framework/Application/SlateApplication.h"
-#include "Containers/Algo/Transform.h"
+#include "Algo/Transform.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 

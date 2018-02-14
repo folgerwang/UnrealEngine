@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Tiles/WorldTileModel.h"
 #include "Engine/World.h"
@@ -688,7 +688,11 @@ void FWorldTileModel::OnLevelRemovedFromWorld()
 {
 	FLevelModel::OnLevelRemovedFromWorld();
 
-	LoadedLevel.Get()->LevelBoundsActorUpdated().RemoveAll(this);
+	ULevel* ThisLevel = LoadedLevel.Get();
+	if (ThisLevel)
+	{
+		ThisLevel->LevelBoundsActorUpdated().RemoveAll(this);
+	}
 }
 
 void FWorldTileModel::OnParentChanged()

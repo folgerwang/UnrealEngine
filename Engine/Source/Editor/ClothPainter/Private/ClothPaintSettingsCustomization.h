@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "IDetailCustomization.h"
 #include "IPropertyTypeCustomization.h"
 #include "IDetailRootObjectCustomization.h"
-#include "SListView.h"
+#include "Widgets/Views/SListView.h"
 
 class FClothPainter;
 class UClothingAsset;
@@ -32,6 +32,9 @@ private:
 	TSharedRef<SWidget> OnGenerateToolComboRow(TSharedPtr<FClothPaintToolBase> InItem);
 	void OnHandleToolSelection(TSharedPtr<FClothPaintToolBase> InItem, ESelectInfo::Type InSelectInfo, IDetailLayoutBuilder* DetailBuider);
 	FText GetToolComboText() const;
+
+	/** Callback to calculate auto view range values */
+	void OnAutoRangeFlagChanged();
 
 	/** The painter containing the paint settings we are customizing */
 	FClothPainter* Painter;

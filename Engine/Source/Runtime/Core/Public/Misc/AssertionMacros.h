@@ -1,15 +1,23 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreTypes.h"
 #include "HAL/PlatformMisc.h"
-#include "VarArgs.h"
+#include "Templates/AndOrNot.h"
+#include "Templates/IsArrayOrRefOfType.h"
+#include "Templates/IsValidVariadicFunctionArg.h"
+#include "Misc/VarArgs.h"
 
 namespace ELogVerbosity
 {
 	enum Type : uint8;
 }
+/**
+ * C Exposed function to print the callstack to ease debugging needs.  In an 
+ * editor build you can call this in the Immediate Window by doing, {,,UE4Editor-Core}::PrintScriptCallstack()
+ */
+extern "C" DLLEXPORT void PrintScriptCallstack();
 
 /**
  * FDebug
@@ -21,15 +29,29 @@ struct CORE_API FDebug
 	/** Logs final assert message and exits the program. */
 	static void VARARGS AssertFailed(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Format = TEXT(""), ...);
 
-	/** Records the calling of AssertFailed() */
-	static bool bHasAsserted;
+	// returns true if an assert has occurred
+	static bool HasAsserted();
+
+	// returns true if an ensure is currently in progress (e.g. the RenderThread is ensuring)
+	static bool IsEnsuring();
 
 	/** Dumps the stack trace into the log, meant to be used for debugging purposes. */
 	static void DumpStackTraceToLog();
 
 #if DO_CHECK || DO_GUARD_SLOW
+private:
+	static void VARARGS LogAssertFailedMessageImpl(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Fmt, ...);
+
+public:
 	/** Failed assertion handler.  Warning: May be called at library startup time. */
-	VARARG_DECL(static void, static void, VARARG_NONE, LogAssertFailedMessage, VARARG_NONE, const TCHAR*, VARARG_EXTRA(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line), VARARG_EXTRA(Expr, File, Line));
+	template <typename FmtType, typename... Types>
+	static void LogAssertFailedMessage(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const FmtType& Fmt, Types... Args)
+	{
+		static_assert(TIsArrayOrRefOfType<FmtType, TCHAR>::Value, "Formatting string must be a TCHAR array.");
+		static_assert(TAnd<TIsValidVariadicFunctionArg<Types>...>::Value, "Invalid argument(s) passed to FDebug::LogAssertFailedMessage");
+
+		LogAssertFailedMessageImpl(Expr, File, Line, Fmt, Args...);
+	}
 	
 	/**
 	 * Called when an 'ensure' assertion fails; gathers stack data and generates and error report.
@@ -226,6 +248,8 @@ namespace UE4Asserts_Private
 	bool GetMemberNameCheckedJunk(const T&);
 	template <typename T>
 	bool GetMemberNameCheckedJunk(const volatile T&);
+	template <typename R, typename ...Args>
+	bool GetMemberNameCheckedJunk(R(*)(Args...));
 }
 
 // Returns FName(TEXT("EnumeratorName")), while statically verifying that the enumerator exists in the enum
@@ -250,21 +274,12 @@ namespace UE4Asserts_Private
 	Low level error macros
 ----------------------------------------------------------------------------*/
 
-struct FTCharArrayTester
-{
-	template <uint32 N>
-	static char (&Func(const TCHAR(&)[N]))[2];
-	static char (&Func(...))[1];
-};
-
-#define IS_TCHAR_ARRAY(expr) (sizeof(FTCharArrayTester::Func(expr)) == 2)
-
 /** low level fatal error handler. */
 CORE_API void VARARGS LowLevelFatalErrorHandler(const ANSICHAR* File, int32 Line, const TCHAR* Format=TEXT(""), ... );
 
 #define LowLevelFatalError(Format, ...) \
 	{ \
-		static_assert(IS_TCHAR_ARRAY(Format), "Formatting string must be a TCHAR array."); \
+		static_assert(TIsArrayOrRefOfType<decltype(Format), TCHAR>::Value, "Formatting string must be a TCHAR array."); \
 		LowLevelFatalErrorHandler(__FILE__, __LINE__, Format, ##__VA_ARGS__); \
 		_DebugBreakAndPromptForRemote(); \
 		FDebug::AssertFailed("", __FILE__, __LINE__, Format, ##__VA_ARGS__); \

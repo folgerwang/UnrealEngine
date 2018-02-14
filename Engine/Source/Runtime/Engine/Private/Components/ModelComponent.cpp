@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ModelComponent.cpp: Model component implementation
@@ -319,18 +319,6 @@ void UModelComponent::PostEditUndo()
 	Super::PostEditUndo();
 }
 #endif // WITH_EDITOR
-
-void UModelComponent::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
-{
-	Super::GetResourceSizeEx(CumulativeResourceSize);
-
-	// Count the bodysetup we own as well for 'inclusive' stats
-	if((CumulativeResourceSize.GetResourceSizeMode() == EResourceSizeMode::Inclusive) && (ModelBodySetup != NULL))
-	{
-		ModelBodySetup->GetResourceSizeEx(CumulativeResourceSize);
-	}
-}
-
 
 bool UModelComponent::IsNameStableForNetworking() const
 {
@@ -668,15 +656,34 @@ bool UModelComponent::GetPhysicsTriMeshData(struct FTriMeshCollisionData* Collis
 	for(int32 ElementIndex = 0;ElementIndex < Elements.Num();ElementIndex++)
 	{
 		FModelElement& Element = Elements[ElementIndex];
-		FRawIndexBuffer16or32* IndexBuffer = (FRawIndexBuffer16or32*)Element.IndexBuffer; // @Bad to assume its always one of these?
+		FRawIndexBuffer16or32* IndexBuffer = Element.IndexBuffer;
+		int32 IndexBufferSize = 0;
 
-		for(uint32 TriIdx=0; TriIdx<Element.NumTriangles; TriIdx++)
+		if (IndexBuffer == nullptr || IndexBuffer->Indices.Num() == 0)
+		{
+			UE_LOG(LogPhysics, Warning, TEXT("Found bad index buffer when cooking UModelComponent physics data! Component: %s, Buffer: %x, Buffer Size: %d, Element: %d"), *GetPathName(), IndexBuffer, IndexBufferSize, ElementIndex);
+			verify(IndexBufferSize >= 0);
+			continue;
+		}
+
+		int32 NumVertices = Model->VertexBuffer.Vertices.Num();
+
+		if (NumVertices < (int32)Element.MaxVertexIndex)
+		{
+			UE_LOG(LogPhysics, Warning, TEXT("Found bad vertex buffer when cooking UModelComponent physics data! Component: %s, Element: %d. Verts Exected: %d, Actual: %d"), 
+				*GetPathName(), ElementIndex, Element.MaxVertexIndex, NumVertices);
+			continue;
+		}
+
+		IndexBufferSize = IndexBuffer->Indices.Num();
+
+		for (uint32 TriIdx = 0; TriIdx < Element.NumTriangles; TriIdx++)
 		{
 			FTriIndices Triangle;
 
-			Triangle.v0 = IndexBuffer->Indices[Element.FirstIndex + (TriIdx*3) + 0];
-			Triangle.v1 = IndexBuffer->Indices[Element.FirstIndex + (TriIdx*3) + 1];
-			Triangle.v2 = IndexBuffer->Indices[Element.FirstIndex + (TriIdx*3) + 2];
+			Triangle.v0 = IndexBuffer->Indices[Element.FirstIndex + (TriIdx * 3) + 0];
+			Triangle.v1 = IndexBuffer->Indices[Element.FirstIndex + (TriIdx * 3) + 1];
+			Triangle.v2 = IndexBuffer->Indices[Element.FirstIndex + (TriIdx * 3) + 2];
 
 			if (AreaThreshold >= 0.f)
 			{

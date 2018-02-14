@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,7 +6,7 @@
 #include "GenericPlatform/GenericPlatformFile.h"
 #include "NetworkMessage.h"
 #include "ServerTOC.h"
-#include "CoreMisc.h" // included for FSelfRegisteringExec
+#include "Misc/CoreMisc.h" // included for FSelfRegisteringExec
 
 class FScopedEvent;
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "PhysicsAssetUtils.h"
 #include "Modules/ModuleManager.h"
@@ -15,7 +15,7 @@
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "PhysicsEngine/PhysicsConstraintTemplate.h"
 #include "PreviewScene.h"
-#include "ScopedSlowTask.h"
+#include "Misc/ScopedSlowTask.h"
 #include "SkinnedBoneTriangleCache.h"
 
 namespace FPhysicsAssetUtils
@@ -237,7 +237,7 @@ bool CreateFromSkeletalMeshInternal(UPhysicsAsset* PhysicsAsset, USkeletalMesh* 
 			if(bSuccess)
 			{
 				// create joint to parent body
-				if (Params.bCreateJoints)
+				if (Params.bCreateConstraints)
 				{
 					// Transform of child from parent is just child ref-pose entry.
 					FTransform RelTM = FTransform::Identity;
@@ -317,18 +317,22 @@ bool CreateFromSkeletalMeshInternal(UPhysicsAsset* PhysicsAsset, USkeletalMesh* 
 	for(int32 BodyIdx = 0; BodyIdx < NumBodies; ++BodyIdx)
 	{
 		FBodyInstance* BodyInstance = Bodies[BodyIdx];
-
-		SlowTask.EnterProgressFrame(1.0f, FText::Format(NSLOCTEXT("PhysicsAssetEditor", "ResetCollsionStepInfoOverlaps", "Fixing overlaps for {0}"), FText::FromName(BodyInstance->BodySetup->BoneName)));
-
-		FTransform BodyTM = BodyInstance->GetUnrealWorldTransform();
-
-		for(int32 OtherBodyIdx = BodyIdx + 1; OtherBodyIdx < NumBodies; ++OtherBodyIdx)
+		if(BodyInstance && BodyInstance->BodySetup.IsValid())
 		{
-			FBodyInstance* OtherBodyInstance = Bodies[OtherBodyIdx];
+			SlowTask.EnterProgressFrame(1.0f, FText::Format(NSLOCTEXT("PhysicsAssetEditor", "ResetCollsionStepInfoOverlaps", "Fixing overlaps for {0}"), FText::FromName(BodyInstance->BodySetup->BoneName)));
 
-			if(BodyInstance->OverlapTestForBody(BodyTM.GetLocation(), BodyTM.GetRotation(), OtherBodyInstance))
+			FTransform BodyTM = BodyInstance->GetUnrealWorldTransform();
+
+			for(int32 OtherBodyIdx = BodyIdx + 1; OtherBodyIdx < NumBodies; ++OtherBodyIdx)
 			{
-				PhysicsAsset->DisableCollision(BodyIdx, OtherBodyIdx);
+				FBodyInstance* OtherBodyInstance = Bodies[OtherBodyIdx];
+				if(OtherBodyInstance && OtherBodyInstance->BodySetup.IsValid())
+				{
+					if(BodyInstance->OverlapTestForBody(BodyTM.GetLocation(), BodyTM.GetRotation(), OtherBodyInstance))
+					{
+						PhysicsAsset->DisableCollision(BodyIdx, OtherBodyIdx);
+					}
+				}
 			}
 		}
 	}
@@ -552,7 +556,7 @@ bool CreateCollisionFromBoneInternal(UBodySetup* bs, USkeletalMesh* skelMesh, in
 
 		if (Verts.Num())
 		{
-			DecomposeMeshToHulls(bs, Verts, Indices, Params.HullAccuracy, Params.MaxHullVerts);
+			DecomposeMeshToHulls(bs, Verts, Indices, Params.HullCount, Params.MaxHullVerts);
 		}
 		else
 		{

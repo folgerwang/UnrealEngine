@@ -127,6 +127,7 @@
   <ItemGroup>
     <Compile Include="Configuration\ModuleRules.cs" />
     <Compile Include="Configuration\PlatformTargetRules.cs" />
+    <Compile Include="Configuration\TargetDescriptor.cs" />
     <Compile Include="Configuration\UEBuildDeployTarget.cs" />
     <Compile Include="Configuration\UEBuildModuleExternal.cs" />
     <Compile Include="Configuration\UEBuildPlatformFactory.cs" />
@@ -153,6 +154,8 @@
     <Compile Include="System\ExceptionUtils.cs" />
     <Compile Include="System\ModuleManifest.cs" />
     <Compile Include="System\PluginReferenceDescriptor.cs" />
+    <Compile Include="System\PrecompiledManifest.cs" />
+    <Compile Include="System\PrecompileMode.cs" />
     <Compile Include="System\RulesDocumentation.cs" />
     <Compile Include="System\FileFilter.cs" />
     <Compile Include="System\FileFilterNode.cs" />
@@ -181,6 +184,7 @@
     <Compile Include="System\RulesAssembly.cs" />
     <Compile Include="System\ScopedTimer.cs" />
     <Compile Include="System\SourceFileWorkingSet.cs" />
+    <Compile Include="System\StartupTraceListener.cs" />
     <Compile Include="System\StreamUtils.cs" />
     <Compile Include="System\SupportedConfigurationsAttribute.cs" />
     <Compile Include="System\SupportedPlatformsAttribute.cs" />
@@ -219,7 +223,7 @@
   <ItemGroup>
     <Compile Include="ToolChain\RemoteExports.cs" />
     <Compile Include="UnrealBuildTool.cs" />
-    <Compile Include="Utilities\EncryptionAndSigning.cs" />
+    <Compile Include="Utilities\Crypto.cs" />
     <Compile Include="Utilities\HashSetExtensions.cs" />
     <Compile Include="Platform\Windows\PVSToolChain.cs" />
     <Compile Include="Platform\Windows\WindowsDeploy.cs" />
@@ -249,6 +253,7 @@
   <Choose>
     <When Condition="Exists('Platform\Linux\UEBuildLinux.cs')">
       <ItemGroup>
+        <Compile Include="Platform\Linux\LinuxCommon.cs" />
         <Compile Include="Platform\Linux\LinuxExports.cs" />
         <Compile Include="Platform\Linux\LinuxProjectGenerator.cs" />
         <Compile Include="Platform\Linux\LinuxToolChain.cs" />

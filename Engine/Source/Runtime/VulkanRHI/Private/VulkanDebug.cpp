@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanDebug.cpp: Vulkan device RHI implementation.
@@ -79,6 +79,14 @@ static VkBool32 VKAPI_PTR DebugReportFunction(
 				return VK_FALSE;
 			}
 		}
+		else if (!FCStringAnsi::Strcmp(LayerPrefix, "DS"))
+		{
+			if (MsgCode == 15)
+			{
+				// DescriptorSet previously bound is incompatible with set newly bound as set #0 so set #1 and any subsequent sets were disturbed by newly bound pipelineLayout
+				return VK_FALSE;
+			}
+		}
 	}
 	else if (MsgFlags & VK_DEBUG_REPORT_INFORMATION_BIT_EXT)
 	{
@@ -93,7 +101,7 @@ static VkBool32 VKAPI_PTR DebugReportFunction(
 		ensure(0);
 	}
 
-	FString LayerCode = FString::Printf(TEXT("%s%d"), ANSI_TO_TCHAR(LayerPrefix), MsgCode);
+	FString LayerCode = FString::Printf(TEXT("%s%x"), ANSI_TO_TCHAR(LayerPrefix), MsgCode);
 
 	static TSet<FString> SeenCodes;
 	if (GCVarUniqueValidationMessages->GetInt() == 0 || !SeenCodes.Contains(LayerCode))
@@ -1744,7 +1752,7 @@ namespace VulkanRHI
 
 	void DumpCreatePipelineCache(VkDevice Device, const VkPipelineCacheCreateInfo* CreateInfo, VkPipelineCache* PipelineCache)
 	{
-		DevicePrintfBeginResult(Device, FString::Printf(TEXT("vkCreatePipelineCache(CreateInfo=0x%016llx, OutPipelineCache=0x%016llx)[...]"), CreateInfo, PipelineCache));
+		DevicePrintfBeginResult(Device, FString::Printf(TEXT("vkCreatePipelineCache(CreateInfo=0x%016llx, OutPipelineCache=0x%016llx) InitialSize=%d Data=%p "), CreateInfo, PipelineCache, (uint32)CreateInfo.initialDataSize, CreateInfo.pInitialData));
 		FlushDebugWrapperLog();
 	}
 

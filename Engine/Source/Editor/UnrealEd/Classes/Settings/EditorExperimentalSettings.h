@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -124,6 +124,14 @@ public:
 	/** Enables the ability to bake materials inside of the Static Mesh and Skeletal Mesh Editor, and for static mesh instances. */
 	UPROPERTY(EditAnywhere, config, Category = Tools, meta = (ConfigRestartRequired = true))
 	bool bAssetMaterialBaking;
+
+	/** Enables in-editor support for text asset formats */
+	UPROPERTY(EditAnywhere, config, Category = Core)
+	bool bTextAssetFormatSupport;
+
+	/** Enable material layering assets and workflow */
+	UPROPERTY(EditAnywhere, config, Category = Materials)
+	bool bMaterialLayeringEnabled;
 
 	/** Allows usage of the mesh description instead of the raw mesh when we build static mesh */
 	UPROPERTY(EditAnywhere, config, Category = Tools, meta = (DisplayName = "Use Mesh Description"))

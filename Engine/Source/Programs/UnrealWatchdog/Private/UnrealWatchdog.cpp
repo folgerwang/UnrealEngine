@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealWatchdog.h"
 #include "RequiredProgramMainCPPInclude.h"
 #include "IAnalyticsProviderET.h"
 #include "WatchdogAnalytics.h"
-#include "ExceptionHandling.h"
+#include "HAL/ExceptionHandling.h"
 #include "Misc/EngineBuildSettings.h"
 
 IMPLEMENT_APPLICATION(UnrealWatchdog, "UnrealWatchdog");

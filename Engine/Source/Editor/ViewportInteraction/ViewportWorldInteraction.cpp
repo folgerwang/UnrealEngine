@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ViewportWorldInteraction.h"
 #include "Materials/MaterialInterface.h"
@@ -35,6 +35,7 @@
 
 // For actor placement
 #include "IHeadMountedDisplay.h"
+#include "IXRTrackingSystem.h"
 #include "EngineUtils.h"
 #include "ActorViewportTransformable.h"
 
@@ -77,7 +78,7 @@ namespace VI
 	static FAutoConsoleVariable SnapGridLineWidth( TEXT( "VI.SnapGridLineWidth" ), 3.0f, TEXT( "Width of the grid lines on the snap grid" ) );
 	static FAutoConsoleVariable MinVelocityForInertia( TEXT( "VI.MinVelocityForInertia" ), 1.0f, TEXT( "Minimum velocity (in cm/frame in unscaled room space) before inertia will kick in when releasing objects (or the world)" ) );
 	static FAutoConsoleVariable GridHapticFeedbackStrength( TEXT( "VI.GridHapticFeedbackStrength" ), 0.4f, TEXT( "Default strength for haptic feedback when moving across grid points" ) );
-	static FAutoConsoleVariable EnableGuides(TEXT("VI.EnableGuides"), 0, TEXT("Whether or not guidelines should be enabled. Off by default, set to 1 to enable."));
+	static FAutoConsoleVariable ActorSnap(TEXT("VI.ActorSnap"), 0, TEXT("Whether or not to snap to Actors in the scene. Off by default, set to 1 to enable."));
 	static FAutoConsoleVariable AlignCandidateDistance(TEXT("VI.AlignCandidateDistance"), 2.0f, TEXT("The distance candidate actors can be from our transformable (in multiples of our transformable's size"));
 	static FAutoConsoleVariable ForceSnapDistance(TEXT("VI.ForceSnapDistance"), 25.0f, TEXT("The distance (in % of transformable size) where guide lines indicate that actors are aligned"));
 
@@ -85,7 +86,7 @@ namespace VI
 	static FAutoConsoleVariable SFXMultiplier(TEXT("VI.SFXMultiplier"), 1.5f, TEXT("Default Sound Effect Volume Multiplier"));
 }
 
-const FString UViewportWorldInteraction::AssetContainerPath = FString("/Engine/VREditor/ViewportInteractionAssetContainerData");
+const TCHAR* UViewportWorldInteraction::AssetContainerPath = TEXT("/Engine/VREditor/ViewportInteractionAssetContainerData");
 
 struct FGuideData
 {
@@ -314,8 +315,7 @@ void UViewportWorldInteraction::Init()
 	AppTimeEntered = FTimespan::FromSeconds( FApp::GetCurrentTime() );
 
 	// Setup the asset container.
-	AssetContainer = LoadObject<UViewportInteractionAssetContainer>(nullptr, *UViewportWorldInteraction::AssetContainerPath);
-	check(AssetContainer != nullptr);
+	AssetContainer = &LoadAssetContainer();
 
 	// Start with the default transformer
 	SetTransformer( nullptr );
@@ -665,7 +665,7 @@ FTransform UViewportWorldInteraction::GetRoomSpaceHeadTransform() const
 	{
 		FQuat RoomSpaceHeadOrientation;
 		FVector RoomSpaceHeadLocation;
-		GEngine->HMDDevice->GetCurrentOrientationAndPosition( /* Out */ RoomSpaceHeadOrientation, /* Out */ RoomSpaceHeadLocation );
+		GEngine->XRSystem->GetCurrentPose( IXRTrackingSystem::HMDDeviceId, /* Out */ RoomSpaceHeadOrientation, /* Out */ RoomSpaceHeadLocation );
 
 		HeadTransform = FTransform(
 			RoomSpaceHeadOrientation,
@@ -685,7 +685,7 @@ FTransform UViewportWorldInteraction::GetHeadTransform() const
 
 bool UViewportWorldInteraction::HaveHeadTransform() const
 {
-	return DefaultOptionalViewportClient != nullptr && GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsStereoEnabled();
+	return DefaultOptionalViewportClient != nullptr && GEngine->XRSystem.IsValid() && GEngine->StereoRenderingDevice.IsValid() && GEngine->StereoRenderingDevice->IsStereoEnabled();
 }
 
 
@@ -1365,7 +1365,7 @@ void UViewportWorldInteraction::InteractionTick( const float DeltaTime )
 		const bool bUseElasticSnapping = bSmoothSnappingEnabled && 
 										VI::ElasticSnap->GetInt() > 0 && 
 										DraggingWithInteractor != nullptr &&	// Only while we're still dragging stuff!
-										VI::EnableGuides->GetInt() == 0;	// Not while using actor align/snap
+										VI::ActorSnap->GetInt() == 0;	// Not while using actor align/snap
 		const float ElasticSnapStrength = VI::ElasticSnapStrength->GetFloat();
 
 		float InterpProgress = 1.0f;
@@ -1619,7 +1619,7 @@ void UViewportWorldInteraction::UpdateDragging(
 		if (DragData.bAllowSnap)
 		{
 			// Translation snap
-			if (DragData.bOutTranslated && FSnappingUtils::IsSnapToGridEnabled())
+			if (DragData.bOutTranslated && (AreAligningToActors() || FSnappingUtils::IsSnapToGridEnabled()))
 			{
 				const FVector ResultLocation = SnapLocation(bLocalSpaceSnapping,
 					DragData.OutGizmoUnsnappedTargetTransform.GetLocation(),
@@ -1798,7 +1798,7 @@ void UViewportWorldInteraction::UpdateDragging(
 			// Grid snap!
 			FTransform SnappedNewGizmoToWorld = NewGizmoToWorld;
 			{
-				if (FSnappingUtils::IsSnapToGridEnabled())
+				if (FSnappingUtils::IsSnapToGridEnabled() || AreAligningToActors())
 				{
 					const FVector GizmoDragDelta = NewGizmoToWorld.GetLocation() - GizmoUnsnappedTargetTransform.GetLocation();
 					const bool bShouldConstrainMovement = false;
@@ -2499,7 +2499,7 @@ bool UViewportWorldInteraction::IsSmoothSnappingEnabled() const
 	const float SmoothSnapSpeed = VI::SmoothSnapSpeed->GetFloat();
 	const bool bSmoothSnappingEnabled =
 		( !GEditor->bIsSimulatingInEditor || !bAnyPhysicallySimulatedTransformables ) &&
-		( FSnappingUtils::IsSnapToGridEnabled() || FSnappingUtils::IsRotationSnapEnabled() || FSnappingUtils::IsScaleSnapEnabled() || VI::EnableGuides->GetInt() == 1) &&
+		( FSnappingUtils::IsSnapToGridEnabled() || FSnappingUtils::IsRotationSnapEnabled() || FSnappingUtils::IsScaleSnapEnabled() || VI::ActorSnap->GetInt() == 1) &&
 		VI::SmoothSnap->GetInt() != 0 &&
 		!FMath::IsNearlyZero( SmoothSnapSpeed );
 
@@ -2965,7 +2965,7 @@ void UViewportWorldInteraction::DestroyActors()
 
 bool UViewportWorldInteraction::AreAligningToActors()
 {
-	return (VI::EnableGuides->GetInt() == 1) ? true : false;
+	return (VI::ActorSnap->GetInt() == 1) ? true : false;
 }
 
 bool UViewportWorldInteraction::HasCandidatesSelected()
@@ -2979,7 +2979,7 @@ void UViewportWorldInteraction::SetSelectionAsCandidates()
 	{
 		CandidateActors.Reset();
 	}
-	else if (VI::EnableGuides->GetInt() == 1)
+	else if (VI::ActorSnap->GetInt() == 1)
 	{
 		TArray<TUniquePtr<FViewportTransformable>> NewTransformables;
 
@@ -3017,6 +3017,16 @@ bool UViewportWorldInteraction::ShouldSuppressExistingCursor() const
 
 }
 
+void UViewportWorldInteraction::SetForceCursor(const bool bInShouldForceCursor)
+{
+	bShouldForceCursor = bInShouldForceCursor;
+}
+
+bool UViewportWorldInteraction::ShouldForceCursor() const
+{
+	return true;
+}
+
 const UViewportInteractionAssetContainer& UViewportWorldInteraction::GetAssetContainer() const
 {
 	return *AssetContainer;
@@ -3024,7 +3034,9 @@ const UViewportInteractionAssetContainer& UViewportWorldInteraction::GetAssetCon
 
 const class UViewportInteractionAssetContainer& UViewportWorldInteraction::LoadAssetContainer()
 {
-	return *LoadObject<UViewportInteractionAssetContainer>(nullptr, *UViewportWorldInteraction::AssetContainerPath);
+	UViewportInteractionAssetContainer* AssetContainer = LoadObject<UViewportInteractionAssetContainer>(nullptr, UViewportWorldInteraction::AssetContainerPath);
+	checkf(AssetContainer, TEXT("Failed to load ViewportInteractionAssetContainer (%s). See log for reason."), UViewportWorldInteraction::AssetContainerPath);
+	return *AssetContainer;
 }
 
 void UViewportWorldInteraction::PlaySound(USoundBase* SoundBase, const FVector& InWorldLocation, const float InVolume /*= 1.0f*/)
@@ -3561,7 +3573,7 @@ FVector UViewportWorldInteraction::SnapLocation(const bool bLocalSpaceSnapping, 
 
 	const FVector GizmoSpaceDesiredGizmoLocation = GizmoStartTransform.InverseTransformPosition( DesiredGizmoLocation );
 	
-	if ((VI::EnableGuides->GetInt() == 1) && bLocalSpaceSnapping && ViewportTransformer->CanAlignToActors() == true)
+	if ((VI::ActorSnap->GetInt() == 1) && bLocalSpaceSnapping && ViewportTransformer->CanAlignToActors() == true)
 	{
 		FTransform DesiredGizmoTransform = GizmoStartTransform;
 		DesiredGizmoTransform.SetLocation( DesiredGizmoLocation );

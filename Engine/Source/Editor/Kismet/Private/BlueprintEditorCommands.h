@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -70,10 +70,6 @@ public:
 
 	// Development commands
 	TSharedPtr< FUICommandInfo > SaveIntermediateBuildProducts;
-	TSharedPtr< FUICommandInfo > RecompileGraphEditor;
-	TSharedPtr< FUICommandInfo > RecompileKismetCompiler;
-	TSharedPtr< FUICommandInfo > RecompileBlueprintEditor;
-	TSharedPtr< FUICommandInfo > RecompilePersona;
 	TSharedPtr< FUICommandInfo > GenerateNativeCode;
 	TSharedPtr< FUICommandInfo > ShowActionMenuItemSignatures;
 

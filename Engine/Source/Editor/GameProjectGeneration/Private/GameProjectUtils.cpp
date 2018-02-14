@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #include "GameProjectUtils.h"
@@ -70,6 +70,7 @@
 
 #include "PlatformInfo.h"
 #include "Blueprint/BlueprintSupport.h"
+#include "Settings/ProjectPackagingSettings.h"
 
 #define LOCTEXT_NAMESPACE "GameProjectUtils"
 
@@ -656,38 +657,15 @@ bool GameProjectUtils::OpenCodeIDE(const FString& ProjectFile, FText& OutFailRea
 		SolutionFilenameWithoutExtension = TEXT("UE4");
 	}
 
-	// Get the solution filename
-	FString CodeSolutionFile;
-#if PLATFORM_WINDOWS
-	CodeSolutionFile = SolutionFilenameWithoutExtension + TEXT(".sln");
-#elif PLATFORM_MAC
-	CodeSolutionFile = SolutionFilenameWithoutExtension + TEXT(".xcworkspace");
-#elif PLATFORM_LINUX
-	// FIXME: Should depend on PreferredAccessor setting
-	CodeSolutionFile = SolutionFilenameWithoutExtension + TEXT(".workspace");
-#else
-	OutFailReason = LOCTEXT( "OpenCodeIDE_UnknownPlatform", "could not open the code editing IDE. The operating system is unknown." );
-	return false;
-#endif
-
-	// Open the solution with the default application
-	const FString FullPath = FPaths::Combine(*SolutionFolder, *CodeSolutionFile);
-#if PLATFORM_MAC
-	if ( IFileManager::Get().DirectoryExists(*FullPath) )
-#else
-	if ( FPaths::FileExists(FullPath) )
-#endif
-	{
-		FPlatformProcess::LaunchFileInDefaultExternalApplication( *FullPath );
-		return true;
-	}
-	else
+	if (!FSourceCodeNavigation::OpenProjectSolution(FPaths::Combine(SolutionFolder, SolutionFilenameWithoutExtension)))
 	{
 		FFormatNamedArguments Args;
-		Args.Add( TEXT("Path"), FText::FromString( FullPath ) );
-		OutFailReason = FText::Format( LOCTEXT( "OpenCodeIDE_MissingFile", "Could not edit the code editing IDE. {Path} could not be found." ), Args );
+		Args.Add(TEXT("AccessorName"), FSourceCodeNavigation::GetSelectedSourceCodeIDE());
+		OutFailReason = FText::Format(LOCTEXT("OpenCodeIDE_FailedToOpen", "Failed to open selected source code accessor '{AccessorName}'"), Args);
 		return false;
 	}
+
+	return true;
 }
 
 void GameProjectUtils::GetStarterContentFiles(TArray<FString>& OutFilenames)
@@ -3369,6 +3347,9 @@ bool GameProjectUtils::ProjectRequiresBuild(const FName InPlatformInfoName)
 	// check to see if any plugins beyond the defaults have been enabled
 	bRequiresBuild |= IProjectManager::Get().IsNonDefaultPluginEnabled();
 
+	// check to see if Blueprint nativization is enabled in the Project settings
+	bRequiresBuild |= GetDefault<UProjectPackagingSettings>()->BlueprintNativizationMethod != EProjectPackagingBlueprintNativizationMethod::Disabled;
+
 	return bRequiresBuild;
 }
 
@@ -3693,8 +3674,7 @@ GameProjectUtils::EAddCodeToProjectResult GameProjectUtils::AddCodeToProject_Int
 			if (PackagesToRebind.Num() > 0)
 			{
 				// Perform a hot reload
-				const bool bWaitForCompletion = true;			
-				ECompilationResult::Type CompilationResult = HotReloadSupport.RebindPackages( PackagesToRebind, TArray<FName>(), bWaitForCompletion, *GWarn );
+				ECompilationResult::Type CompilationResult = HotReloadSupport.RebindPackages( PackagesToRebind, EHotReloadFlags::WaitForCompletion, *GWarn );
 				if( CompilationResult != ECompilationResult::Succeeded && CompilationResult != ECompilationResult::UpToDate )
 				{
 					OutFailReason = FText::Format(LOCTEXT("FailedToHotReloadModuleFmt", "Failed to automatically hot reload the '{0}' module."), FText::FromString(ModuleInfo.ModuleName));

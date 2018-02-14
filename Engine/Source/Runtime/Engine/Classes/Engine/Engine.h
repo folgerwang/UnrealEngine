@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -31,7 +31,7 @@ class IMessageRpcClient;
 class IPerformanceDataConsumer;
 class IPortalRpcLocator;
 class IPortalServiceLocator;
-class ISceneViewExtension;
+class FSceneViewExtensions;
 class IStereoRendering;
 class SViewport;
 class UEditorEngine;
@@ -565,6 +565,10 @@ struct FPluginRedirect
 	UPROPERTY()
 	FString NewPluginName;
 };
+
+
+/** Game thread events for dynamic resolution state. */
+enum class EDynamicResolutionStateEvent : uint8;
 
 
 class IAnalyticsProvider;
@@ -1563,6 +1567,36 @@ public:
 	 */
 	void RestoreSelectedMaterialColor();
 
+	/** Emit an event for dynamic resolution if not already done. */
+	void EmitDynamicResolutionEvent(EDynamicResolutionStateEvent Event);
+
+	/** Get's global dynamic resolution state */
+	FORCEINLINE class IDynamicResolutionState* GetDynamicResolutionState()
+	{
+		#if UE_SERVER
+			return nullptr;
+		#else
+			// Returns next's frame dynamic resolution state to keep game thread consistency after a ChangeDynamicResolutionStateAtNextFrame().
+			check(NextDynamicResolutionState.IsValid() || IsRunningCommandlet() || IsRunningDedicatedServer());
+			return NextDynamicResolutionState.Get();
+		#endif
+	}
+
+	/** Override dynamic resolution state for next frame. */
+	void ChangeDynamicResolutionStateAtNextFrame(TSharedPtr< class IDynamicResolutionState > NewState);
+
+private:
+	#if !UE_SERVER
+		/** Last dynamic resolution event. */
+		EDynamicResolutionStateEvent LastDynamicResolutionEvent;
+
+		/** Global state for dynamic resolution's heuristic. */
+		TSharedPtr< class IDynamicResolutionState > DynamicResolutionState;
+
+		/** Next frame's Global state for dynamic resolution's heuristic. */
+		TSharedPtr< class IDynamicResolutionState > NextDynamicResolutionState;
+	#endif
+
 protected:
 
 	/** The audio device manager */
@@ -1576,14 +1610,14 @@ public:
 	/** A collection of messages to display on-screen. */
 	TMap<int32, FScreenMessageString> ScreenMessages;
 
-	/** Reference to the stereoscopic rendering interace, if any */
+	/** Reference to the stereoscopic rendering interface, if any */
 	TSharedPtr< class IStereoRendering, ESPMode::ThreadSafe > StereoRenderingDevice;
 
-	/** Reference to the HMD device that is attached, if any */
-	TSharedPtr< class IHeadMountedDisplay, ESPMode::ThreadSafe > HMDDevice;
+	/** Reference to the VR/AR/MR tracking system that is attached, if any */
+	TSharedPtr< class IXRTrackingSystem, ESPMode::ThreadSafe > XRSystem;
 
 	/** Extensions that can modify view parameters on the render thread. */
-	TArray<TSharedPtr<class ISceneViewExtension, ESPMode::ThreadSafe> > ViewExtensions;
+	TSharedPtr<FSceneViewExtensions> ViewExtensions;
 
 	/** Triggered when a world is added. */	
 	DECLARE_EVENT_OneParam( UEngine, FWorldAddedEvent , UWorld* );

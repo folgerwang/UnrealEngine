@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #import <UIKit/UIKit.h>
 
@@ -7,15 +7,15 @@
 #include "Misc/OutputDeviceError.h"
 #include "LaunchEngineLoop.h"
 #include "IMessagingModule.h"
-#include "IOSAppDelegate.h"
-#include "IOSView.h"
-#include "IOSCommandLineHelper.h"
+#include "IOS/IOSAppDelegate.h"
+#include "IOS/IOSView.h"
+#include "IOS/IOSCommandLineHelper.h"
 #include "GameLaunchDaemonMessageHandler.h"
 #include "AudioDevice.h"
-#include "GenericPlatformChunkInstall.h"
+#include "GenericPlatform/GenericPlatformChunkInstall.h"
 #include "IOSAudioDevice.h"
 #include "LocalNotification.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "RenderingThread.h"
 #include "GenericPlatform/GenericApplication.h"
 #include "Misc/ConfigCacheIni.h"

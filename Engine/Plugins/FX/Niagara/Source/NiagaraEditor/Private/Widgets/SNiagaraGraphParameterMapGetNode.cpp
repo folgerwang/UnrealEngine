@@ -1,10 +1,10 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SNiagaraGraphParameterMapGetNode.h"
 #include "NiagaraNodeParameterMapGet.h"
-#include "SButton.h"
+#include "Widgets/Input/SButton.h"
 #include "GraphEditorSettings.h"
-#include "DrawElements.h"
+#include "Rendering/DrawElements.h"
 #include "Widgets/SBoxPanel.h"
 #include "SGraphPin.h"
 

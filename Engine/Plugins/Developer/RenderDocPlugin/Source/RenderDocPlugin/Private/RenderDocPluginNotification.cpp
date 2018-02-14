@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #if WITH_EDITOR
 
 #include "RenderDocPluginNotification.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
 
 FRenderDocPluginNotification::FRenderDocPluginNotification()
 	: RenderDocNotificationPtr()

@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "PLUGIN_NAME.h"
 #include "Core.h"
-#include "ModuleManager.h"
-#include "IPluginManager.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/IPluginManager.h"
 #include "ExampleLibrary.h"
 
 #define LOCTEXT_NAMESPACE "FPLUGIN_NAMEModule"

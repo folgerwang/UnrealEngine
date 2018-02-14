@@ -1,8 +1,14 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include <Metal/Metal.h>
+
+// For some reason when including this file while building the editor Clang 9 ignores this pragma from MacPlatformCompilerPreSetup.h,
+// resulting in errors in FMetalDebugBufferBindings, FMetalDebugTextureBindings and FMetalDebugSamplerBindings. Readding it here works around this problem.
+#if (__clang_major__ >= 9)
+#pragma clang diagnostic ignored "-Wnullability-inferred-on-nested-type"
+#endif
 
 NS_ASSUME_NONNULL_BEGIN
 

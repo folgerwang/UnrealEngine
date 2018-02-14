@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanResources.h: Vulkan resource RHI definitions.
@@ -206,8 +206,8 @@ public:
 
 	// Constructor for externally owned Image
 	FVulkanSurface(FVulkanDevice& Device, VkImageViewType ResourceType, EPixelFormat Format,
-					uint32 SizeX, uint32 SizeY, uint32 SizeZ, VkImage InImage,
-					uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo);
+					uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint32 NumMips, uint32 NumSamples,
+					VkImage InImage, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo);
 
 	virtual ~FVulkanSurface();
 
@@ -271,6 +271,11 @@ public:
 	inline bool IsImageOwner() const
 	{
 		return bIsImageOwner;
+	}
+
+	inline VulkanRHI::FDeviceMemoryAllocation* GetAllocation() const
+	{
+		return Allocation;
 	}
 
 	FVulkanDevice* Device;
@@ -349,10 +354,11 @@ struct FVulkanTextureBase : public FVulkanBaseShaderResource
 
 
 	FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType ResourceType, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 SizeZ, bool bArray, uint32 ArraySize, uint32 NumMips, uint32 NumSamples, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo);
-	FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType ResourceType, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 SizeZ, VkImage InImage, VkDeviceMemory InMem, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo = FRHIResourceCreateInfo());
+	FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType ResourceType, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint32 NumMips, uint32 NumSamples, VkImage InImage, VkDeviceMemory InMem, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo = FRHIResourceCreateInfo());
 	virtual ~FVulkanTextureBase();
 
 	VkImageView CreateRenderTargetView(uint32 MipIndex, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices);
+	void AliasTextureResources(const FVulkanTextureBase* SrcTexture);
 
 	FVulkanSurface Surface;
 
@@ -367,7 +373,10 @@ struct FVulkanTextureBase : public FVulkanBaseShaderResource
 	FVulkanTextureView MSAAView;
 #endif
 
+	bool bIsAliased;
+
 private:
+	void DestroyViews();
 };
 
 class FVulkanBackBuffer;
@@ -375,6 +384,7 @@ class FVulkanTexture2D : public FRHITexture2D, public FVulkanTextureBase
 {
 public:
 	FVulkanTexture2D(FVulkanDevice& Device, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 NumMips, uint32 NumSamples, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo);
+	FVulkanTexture2D(FVulkanDevice& Device, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 NumMips, uint32 NumSamples, VkImage Image, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo);
 	virtual ~FVulkanTexture2D();
 
 	// IRefCountedObject interface.
@@ -401,17 +411,13 @@ public:
 		FVulkanTextureBase* Base = static_cast<FVulkanTextureBase*>(this);
 		return Base;
 	}
-
-protected:
-	// Only used for back buffer
-	FVulkanTexture2D(FVulkanDevice& Device, EPixelFormat Format, uint32 SizeX, uint32 SizeY, VkImage Image, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo);
 };
 
 class FVulkanBackBuffer : public FVulkanTexture2D
 {
 public:
-	FVulkanBackBuffer(FVulkanDevice& Device, EPixelFormat Format, uint32 SizeX, uint32 SizeY, VkImage Image, uint32 UEFlags);
 	FVulkanBackBuffer(FVulkanDevice& Device, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 UEFlags);
+	FVulkanBackBuffer(FVulkanDevice& Device, EPixelFormat Format, uint32 SizeX, uint32 SizeY, VkImage Image, uint32 UEFlags);
 	virtual ~FVulkanBackBuffer();
 
 	virtual FVulkanBackBuffer* GetBackBuffer() override final
@@ -424,12 +430,9 @@ class FVulkanTexture2DArray : public FRHITexture2DArray, public FVulkanTextureBa
 {
 public:
 	// Constructor, just calls base and Surface constructor
-	FVulkanTexture2DArray(FVulkanDevice& Device, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 ArraySize, uint32 NumMips, uint32 Flags, FResourceBulkDataInterface* BulkData, const FClearValueBinding& InClearValue)
-	:	FRHITexture2DArray(SizeX, SizeY, ArraySize, NumMips, Format, Flags, InClearValue)
-	,	FVulkanTextureBase(Device, VK_IMAGE_VIEW_TYPE_2D_ARRAY, Format, SizeX, SizeY, 1, /*bArray=*/ true, ArraySize, NumMips, /*NumSamples=*/ 1, Flags, BulkData)
-	{
-	}
-
+	FVulkanTexture2DArray(FVulkanDevice& Device, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 ArraySize, uint32 NumMips, uint32 Flags, FResourceBulkDataInterface* BulkData, const FClearValueBinding& InClearValue);
+	FVulkanTexture2DArray(FVulkanDevice& Device, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 ArraySize, uint32 NumMips, VkImage Image, uint32 Flags, FResourceBulkDataInterface* BulkData, const FClearValueBinding& InClearValue);
+		
 	// IRefCountedObject interface.
 	virtual uint32 AddRef() const override final
 	{
@@ -455,6 +458,7 @@ class FVulkanTexture3D : public FRHITexture3D, public FVulkanTextureBase
 public:
 	// Constructor, just calls base and Surface constructor
 	FVulkanTexture3D(FVulkanDevice& Device, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint32 NumMips, uint32 Flags, FResourceBulkDataInterface* BulkData, const FClearValueBinding& InClearValue);
+	FVulkanTexture3D(FVulkanDevice& Device, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint32 NumMips, VkImage Image, uint32 Flags, FResourceBulkDataInterface* BulkData, const FClearValueBinding& InClearValue);
 	virtual ~FVulkanTexture3D();
 
 	// IRefCountedObject interface.
@@ -481,6 +485,7 @@ class FVulkanTextureCube : public FRHITextureCube, public FVulkanTextureBase
 {
 public:
 	FVulkanTextureCube(FVulkanDevice& Device, EPixelFormat Format, uint32 Size, bool bArray, uint32 ArraySize, uint32 NumMips, uint32 Flags, FResourceBulkDataInterface* BulkData, const FClearValueBinding& InClearValue);
+	FVulkanTextureCube(FVulkanDevice& Device, EPixelFormat Format, uint32 Size, bool bArray, uint32 ArraySize, uint32 NumMips, VkImage Image, uint32 Flags, FResourceBulkDataInterface* BulkData, const FClearValueBinding& InClearValue);
 	virtual ~FVulkanTextureCube();
 
 	// IRefCountedObject interface.
@@ -508,7 +513,7 @@ class FVulkanTextureReference : public FRHITextureReference, public FVulkanTextu
 public:
 	explicit FVulkanTextureReference(FVulkanDevice& Device, FLastRenderTimeContainer* InLastRenderTime)
 	:	FRHITextureReference(InLastRenderTime)
-	,	FVulkanTextureBase(Device, VK_IMAGE_VIEW_TYPE_MAX_ENUM, PF_Unknown, 0, 0, 0, VK_NULL_HANDLE, VK_NULL_HANDLE, 0)
+	,	FVulkanTextureBase(Device, VK_IMAGE_VIEW_TYPE_MAX_ENUM, PF_Unknown, 0, 0, 0, 1, 1, VK_NULL_HANDLE, VK_NULL_HANDLE, 0)
 	{}
 
 	// IRefCountedObject interface.
@@ -629,7 +634,7 @@ public:
 					BeginQueryWord >>= 1;
 				}
 				OutIndex += WordIndex * 64;
-				uint64 Bit = (uint64)1 << (uint64)OutIndex;
+				uint64 Bit = (uint64)1 << (uint64)(OutIndex % 64);
 				UsedQueryBits[WordIndex] = UsedQueryBits[WordIndex] | Bit;
 				ReadResultsBits[WordIndex] &= ~Bit;
 				LastBeginIndex = OutIndex + 1;
@@ -1027,12 +1032,13 @@ protected:
 class FVulkanShaderResourceView : public FRHIShaderResourceView, public VulkanRHI::FDeviceChild
 {
 public:
-	FVulkanShaderResourceView(FVulkanDevice* Device, FVulkanResourceMultiBuffer* InSourceBuffer, uint32 InSize, EPixelFormat InFormat);
+	FVulkanShaderResourceView(FVulkanDevice* Device, FRHIResource* InRHIBuffer, FVulkanResourceMultiBuffer* InSourceBuffer, uint32 InSize, EPixelFormat InFormat);
 
-	FVulkanShaderResourceView(FVulkanDevice* Device, FRHITexture* InSourceTexture, uint32 InMipLevel, int32 InNumMips)
+	FVulkanShaderResourceView(FVulkanDevice* Device, FRHITexture* InSourceTexture, uint32 InMipLevel, int32 InNumMips, EPixelFormat InFormat)
 		: VulkanRHI::FDeviceChild(Device)
-		, BufferViewFormat(PF_Unknown)
+		, BufferViewFormat(InFormat)
 		, SourceTexture(InSourceTexture)
+		, SourceStructuredBuffer(nullptr)
 		, MipLevel(InMipLevel)
 		, NumMips(InNumMips)
 		, Size(0)
@@ -1040,6 +1046,20 @@ public:
 		, VolatileLockCounter(MAX_uint32)
 	{
 	}
+
+	FVulkanShaderResourceView(FVulkanDevice* Device, FVulkanStructuredBuffer* InStructuredBuffer)
+		: VulkanRHI::FDeviceChild(Device)
+		, BufferViewFormat(PF_Unknown)
+		, SourceTexture(nullptr)
+		, SourceStructuredBuffer(InStructuredBuffer)
+		, MipLevel(0)
+		, NumMips(0)
+		, Size(InStructuredBuffer->GetSize())
+		, SourceBuffer(nullptr)
+		, VolatileLockCounter(MAX_uint32)
+	{
+	}
+
 
 	void UpdateView();
 
@@ -1053,7 +1073,7 @@ public:
 	// The texture that this SRV come from
 	TRefCountPtr<FRHITexture> SourceTexture;
 	FVulkanTextureView TextureView;
-	FVulkanStructuredBuffer* SourceStructuredBuffer = nullptr;
+	FVulkanStructuredBuffer* SourceStructuredBuffer;
 	uint32 MipLevel;
 	uint32 NumMips;
 
@@ -1064,6 +1084,8 @@ public:
 	uint32 Size;
 	// The buffer this SRV comes from (can be null)
 	FVulkanResourceMultiBuffer* SourceBuffer;
+	// To keep a reference
+	TRefCountPtr<FRHIResource> SourceRHIBuffer;
 
 protected:
 	// Used to check on volatile buffers if a new BufferView is required

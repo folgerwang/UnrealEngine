@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "BodyInstanceCustomization.h"
 #include "Components/SceneComponent.h"
@@ -814,7 +814,7 @@ void FBodyInstanceCustomization::OnCollisionProfileComboOpening()
 
 void FBodyInstanceCustomization::MarkAllBodiesDefaultCollision(bool bUseDefaultCollision)
 {
-	if(PrimComponents.Num())	//If we have prim components we might be coming from bp editor which needs to propagate all instances
+	if(PrimComponents.Num() && UseDefaultCollisionHandle.IsValid())	//If we have prim components we might be coming from bp editor which needs to propagate all instances
 	{
 		for(UPrimitiveComponent* PrimComp : PrimComponents)
 		{

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Atmosphere/Atmosphere.h"
 #include "UObject/ConstructorHelpers.h"
@@ -11,8 +11,8 @@
 #include "ComponentReregisterContext.h"
 #include "Atmosphere/AtmosphericFog.h"
 #include "Components/BillboardComponent.h"
-#include "Private/ScenePrivate.h"
-#include "Private/AtmosphereRendering.h"
+#include "Runtime/Renderer/Private/ScenePrivate.h"
+#include "Runtime/Renderer/Private/AtmosphereRendering.h"
 
 #if WITH_EDITOR
 #include "ObjectEditorUtils.h"
@@ -203,9 +203,9 @@ public:
 		}              
 	}
 
-	virtual bool IsTickable() const override
+	virtual ETickableTickType GetTickableTickType() const override
 	{
-		return true;
+		return ETickableTickType::Always;
 	}
 
 	TStatId GetStatId() const override

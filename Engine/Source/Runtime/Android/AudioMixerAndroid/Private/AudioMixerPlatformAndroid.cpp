@@ -1,7 +1,7 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AudioMixerPlatformAndroid.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "AudioMixer.h"
 #include "AudioMixerDevice.h"
 #include "CoreGlobals.h"
@@ -374,22 +374,49 @@ namespace Audio
 
 	bool FMixerPlatformAndroid::HasCompressedAudioInfoClass(USoundWave* InSoundWave)
 	{
-		return true;
+#if WITH_OGGVORBIS
+		if (InSoundWave->bStreaming)
+		{
+			return true;
+		}
+
+		static FName NAME_OGG(TEXT("OGG"));
+		if (InSoundWave->HasCompressedData(NAME_OGG))
+		{
+			return true;
+		}
+#endif
+
+		if (InSoundWave->bStreaming)
+		{
+			return true;
+		}
+
+		static FName NAME_ADPCM(TEXT("ADPCM"));
+		if (InSoundWave->HasCompressedData(NAME_ADPCM))
+		{
+			return true;
+		}
+
+		return false;
 	}
 
 	ICompressedAudioInfo* FMixerPlatformAndroid::CreateCompressedAudioInfo(USoundWave* InSoundWave)
 	{
 #if WITH_OGGVORBIS
 		static FName NAME_OGG(TEXT("OGG"));
-		if (InSoundWave->HasCompressedData(NAME_OGG))
+		if (InSoundWave->bStreaming || InSoundWave->HasCompressedData(NAME_OGG))
 		{
 			return new FVorbisAudioInfo();
 		}
 #endif
-
 		static FName NAME_ADPCM(TEXT("ADPCM"));
+		if (InSoundWave->bStreaming || InSoundWave->HasCompressedData(NAME_ADPCM))
+		{
+			return new FADPCMAudioInfo();
+		}
 
-		return new FADPCMAudioInfo();
+		return nullptr;
 	}
 
 	FString FMixerPlatformAndroid::GetDefaultDeviceName()

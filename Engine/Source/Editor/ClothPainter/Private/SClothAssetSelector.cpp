@@ -1,28 +1,31 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SClothAssetSelector.h"
-#include "SExpandableArea.h"
-#include "SBoxPanel.h"
+#include "Widgets/Layout/SExpandableArea.h"
+#include "Widgets/SBoxPanel.h"
 #include "EditorStyleSet.h"
 #include "DetailLayoutBuilder.h"
-#include "SButton.h"
-#include "SImage.h"
-#include "ClothingAsset.h"
-#include "MultiBoxBuilder.h"
-#include "SCheckBox.h"
-#include "SInlineEditableTextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Images/SImage.h"
+#include "Assets/ClothingAsset.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 #include "Engine/SkeletalMesh.h"
 #include "ApexClothingUtils.h"
-#include "UObjectIterator.h"
+#include "UObject/UObjectIterator.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "ComponentReregisterContext.h"
-#include "MessageDialog.h"
+#include "Misc/MessageDialog.h"
 #include "ClothingSystemEditorInterfaceModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "ClothingAssetFactoryInterface.h"
-#include "ClothingMeshUtils.h"
+#include "Utils/ClothingMeshUtils.h"
 #include "ClothingAssetListCommands.h"
-#include "GenericCommands.h"
+#include "Framework/Commands/GenericCommands.h"
+#include "Rendering/SkeletalMeshModel.h"
+#include "ScopedTransaction.h"
+#include "Editor.h"
 
 #define LOCTEXT_NAMESPACE "ClothAssetSelector"
 
@@ -38,6 +41,16 @@ FClothParameterMask_PhysMesh* FClothingMaskListItem::GetMask()
 				return &LodData.ParameterMasks[MaskIndex];
 			}
 		}
+	}
+
+	return nullptr;
+}
+
+USkeletalMesh* FClothingMaskListItem::GetOwningMesh()
+{
+	if(UClothingAsset* Asset = ClothingAsset.Get())
+	{
+		return Cast<USkeletalMesh>(Asset->GetOuter());
 	}
 
 	return nullptr;
@@ -183,13 +196,15 @@ private:
 
 					FMultiComponentReregisterContext ReregisterContext(ComponentsToReregister);
 
+					SkelMesh->PreEditChange(nullptr);
+
 					Asset->UnbindFromSkeletalMesh(SkelMesh);
 					SkelMesh->MeshClothingAssets.RemoveAt(AssetIndex);
 
 					// Need to fix up asset indices on sections.
-					if(FSkeletalMeshResource* MeshResource = SkelMesh->GetImportedResource())
+					if(FSkeletalMeshModel* Model = SkelMesh->GetImportedModel())
 					{
-						for(FStaticLODModel& LodModel : MeshResource->LODModels)
+						for(FSkeletalMeshLODModel& LodModel : Model->LODModels)
 						{
 							for(FSkelMeshSection& Section : LodModel.Sections)
 							{
@@ -200,6 +215,8 @@ private:
 							}
 						}
 					}
+
+					SkelMesh->PostEditChange();
 
 					OnInvalidateList.ExecuteIfBound();
 				}
@@ -481,20 +498,43 @@ private:
 
 	void OnDeleteMask()
 	{
-		if(FClothLODData* LodData = GetCurrentLod())
+		USkeletalMesh* CurrentMesh = Item->GetOwningMesh();
+
+		if(CurrentMesh)
 		{
-			if(LodData->ParameterMasks.IsValidIndex(Item->MaskIndex))
+			FScopedTransaction CurrTransaction(LOCTEXT("DeleteMask_Transaction", "Delete clothing parameter mask."));
+			Item->ClothingAsset->Modify();
+
+			if(FClothLODData* LodData = GetCurrentLod())
 			{
-				LodData->ParameterMasks.RemoveAt(Item->MaskIndex);
-				OnInvalidateList.ExecuteIfBound();
+				if(LodData->ParameterMasks.IsValidIndex(Item->MaskIndex))
+				{
+					LodData->ParameterMasks.RemoveAt(Item->MaskIndex);
+
+					// We've removed a mask, so it will need to be applied to the clothing data
+					if(Item.IsValid())
+					{
+						if(UClothingAsset* Asset = Item->ClothingAsset.Get())
+						{
+							Asset->ApplyParameterMasks();
+						}
+					}
+
+					OnInvalidateList.ExecuteIfBound();
+				}
 			}
 		}
 	}
 
 	void OnSetTarget(int32 InTargetEntryIndex)
 	{
-		if(Item.IsValid())
+		USkeletalMesh* CurrentMesh = Item->GetOwningMesh();
+
+		if(Item.IsValid() && CurrentMesh)
 		{
+			FScopedTransaction CurrTransaction(LOCTEXT("SetMaskTarget_Transaction", "Set clothing parameter mask target."));
+			Item->ClothingAsset->Modify();
+
 			if(FClothParameterMask_PhysMesh* Mask = Item->GetMask())
 			{
 				Mask->CurrentTarget = (MaskTarget_PhysMesh)InTargetEntryIndex;
@@ -616,6 +656,11 @@ SClothAssetSelector::~SClothAssetSelector()
 	{
 		Mesh->UnregisterOnClothingChange(MeshClothingChangedHandle);
 	}
+
+	if(GEditor)
+	{
+		GEditor->UnregisterForUndo(this);
+	}
 }
 
 void SClothAssetSelector::Construct(const FArguments& InArgs, USkeletalMesh* InMesh)
@@ -629,6 +674,11 @@ void SClothAssetSelector::Construct(const FArguments& InArgs, USkeletalMesh* InM
 	if(Mesh)
 	{
 		MeshClothingChangedHandle = Mesh->RegisterOnClothingChange(FSimpleMulticastDelegate::FDelegate::CreateSP(this, &SClothAssetSelector::OnRefresh));
+	}
+
+	if(GEditor)
+	{
+		GEditor->RegisterForUndo(this);
 	}
 
 	ChildSlot
@@ -843,6 +893,11 @@ int32 SClothAssetSelector::GetSelectedLod() const
 int32 SClothAssetSelector::GetSelectedMask() const
 {
 	return SelectedMask;
+}
+
+void SClothAssetSelector::PostUndo(bool bSuccess)
+{
+	OnRefresh();
 }
 
 FReply SClothAssetSelector::OnImportApexFileClicked()

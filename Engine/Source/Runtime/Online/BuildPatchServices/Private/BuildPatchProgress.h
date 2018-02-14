@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	BuildPatchProgress.h: Declares classes involved with tracking the patch
@@ -8,7 +8,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ThreadSafeBool.h"
+#include "HAL/ThreadSafeBool.h"
 #include "Installer/Controllable.h"
 #include "BuildPatchState.h"
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SDetailsViewBase.h"
 #include "GameFramework/Actor.h"
@@ -21,15 +21,12 @@
 #include "Widgets/Colors/SColorPicker.h"
 #include "DetailPropertyRow.h"
 #include "Widgets/Input/SSearchBox.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "DetailLayoutHelpers.h"
 
 SDetailsViewBase::~SDetailsViewBase()
 {
-	if (ThumbnailPool.IsValid())
-	{
-		ThumbnailPool->ReleaseResources();
-	}
+	ThumbnailPool.Reset();
 }
 
 
@@ -290,7 +287,7 @@ void SDetailsViewBase::CreateColorPickerWindow(const TSharedRef< FPropertyEditor
 	PickerArgs.LinearColorArray = &LinearColor;
 	PickerArgs.OnColorCommitted = FOnLinearColorValueChanged::CreateSP(this, &SDetailsViewBase::SetColorPropertyFromColorPicker);
 	PickerArgs.OnColorPickerWindowClosed = FOnWindowClosed::CreateSP(this, &SDetailsViewBase::OnColorPickerWindowClosed);
-
+	PickerArgs.OptionalOwningDetailsView = AsShared();
 	OpenColorPicker(PickerArgs);
 }
 
@@ -341,16 +338,16 @@ void SDetailsViewBase::UpdatePropertyMaps()
 	for(int32 RootNodeIndex = 0; RootNodeIndex < RootPropertyNodes.Num(); ++RootNodeIndex)
 	{
 		FDetailLayoutData& LayoutData = DetailLayouts[RootNodeIndex];
-		UpdateSinglePropertyMap(RootPropertyNodes[RootNodeIndex], LayoutData);
+		UpdateSinglePropertyMap(RootPropertyNodes[RootNodeIndex], LayoutData, false);
 	}
 }
 
-void SDetailsViewBase::UpdateSinglePropertyMap(TSharedPtr<FComplexPropertyNode> InRootPropertyNode, FDetailLayoutData& LayoutData)
+void SDetailsViewBase::UpdateSinglePropertyMap(TSharedPtr<FComplexPropertyNode> InRootPropertyNode, FDetailLayoutData& LayoutData, bool bIsExternal)
 {
 	// Reset everything
 	LayoutData.ClassToPropertyMap.Empty();
 
-	TSharedPtr<FDetailLayoutBuilderImpl> DetailLayout = MakeShareable(new FDetailLayoutBuilderImpl(InRootPropertyNode, LayoutData.ClassToPropertyMap, PropertyUtilities.ToSharedRef(), SharedThis(this)));
+	TSharedPtr<FDetailLayoutBuilderImpl> DetailLayout = MakeShareable(new FDetailLayoutBuilderImpl(InRootPropertyNode, LayoutData.ClassToPropertyMap, PropertyUtilities.ToSharedRef(), SharedThis(this), bIsExternal));
 	LayoutData.DetailLayout = DetailLayout;
 
 	TSharedPtr<FComplexPropertyNode> RootPropertyNode = InRootPropertyNode;

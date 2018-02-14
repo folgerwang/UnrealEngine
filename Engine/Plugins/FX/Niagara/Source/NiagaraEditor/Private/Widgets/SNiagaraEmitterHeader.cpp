@@ -1,13 +1,13 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SNiagaraEmitterHeader.h"
 #include "NiagaraEmitterHandleViewModel.h"
 #include "NiagaraEmitterViewModel.h"
 #include "NiagaraEditorStyle.h"
-#include "SInlineEditableTextBlock.h"
-#include "SBoxPanel.h"
-#include "SCheckBox.h"
-#include "STextBlock.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Text/STextBlock.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraEmitterHeader"
 

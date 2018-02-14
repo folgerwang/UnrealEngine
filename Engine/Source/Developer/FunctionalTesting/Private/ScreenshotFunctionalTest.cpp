@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ScreenshotFunctionalTest.h"
 
@@ -10,32 +10,38 @@
 #include "Engine/Engine.h"
 #include "EngineGlobals.h"
 #include "Misc/AutomationTest.h"
+#include "HighResScreenshot.h"
+#include "UnrealClient.h"
+#include "Slate/SceneViewport.h"
+#include "UObject/AutomationObjectVersion.h"
 
 AScreenshotFunctionalTest::AScreenshotFunctionalTest( const FObjectInitializer& ObjectInitializer )
-	: AFunctionalTest(ObjectInitializer)
-	, bCameraCutOnScreenshotPrep(false)
-	, ScreenshotOptions(EComparisonTolerance::Low)
+	: AScreenshotFunctionalTestBase(ObjectInitializer)
+	, bCameraCutOnScreenshotPrep(true)
 {
-	ScreenshotCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
-	ScreenshotCamera->SetupAttachment(RootComponent);
+}
+
+void AScreenshotFunctionalTest::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	Ar.UsingCustomVersion(FAutomationObjectVersion::GUID);
+
+	if (Ar.CustomVer(FAutomationObjectVersion::GUID) < FAutomationObjectVersion::DefaultToScreenshotCameraCutAndFixedTonemapping)
+	{
+		bCameraCutOnScreenshotPrep = true;
+	}
 }
 
 void AScreenshotFunctionalTest::PrepareTest()
 {
-	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
-	if (PlayerController)
-	{
-		PlayerController->SetViewTarget(this, FViewTargetTransitionParams());
-	}
-
-	// It's possible the defaults for certain tolerance levels have changed, so reset them on test start.
-	ScreenshotOptions.SetToleranceAmounts(ScreenshotOptions.Tolerance);
-
 	Super::PrepareTest();
 
 	// Apply a camera cut if requested
 	if (bCameraCutOnScreenshotPrep)
 	{
+		APlayerController* PlayerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+
 		if (PlayerController && PlayerController->PlayerCameraManager)
 		{
 			PlayerController->PlayerCameraManager->bGameCameraCutThisFrame = true;
@@ -45,70 +51,38 @@ void AScreenshotFunctionalTest::PrepareTest()
 			}
 		}
 	}
+
+	UAutomationBlueprintFunctionLibrary::FinishLoadingBeforeScreenshot();
 }
 
-bool AScreenshotFunctionalTest::IsReady_Implementation()
+void AScreenshotFunctionalTest::RequestScreenshot()
 {
-	if ( (GetWorld()->GetTimeSeconds() - RunTime) > ScreenshotOptions.Delay )
+	Super::RequestScreenshot();
+
+	if(IsMobilePlatform(GShaderPlatformForFeatureLevel[GMaxRHIFeatureLevel]))
 	{
-		return ( GFrameNumber - RunFrame ) > 5;
-	}
-	
-	return false;
-}
-
-void AScreenshotFunctionalTest::StartTest()
-{
-	Super::StartTest();
-
-	UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshotInternal(this, GetName(), ScreenshotOptions);
-
-	FAutomationTestFramework::Get().OnScreenshotTakenAndCompared.AddUObject(this, &AScreenshotFunctionalTest::OnScreenshotTakenAndCompared);
-}
-
-void AScreenshotFunctionalTest::OnScreenshotTakenAndCompared()
-{
-	FAutomationTestFramework::Get().OnScreenshotTakenAndCompared.RemoveAll(this);
-
-	FinishTest(EFunctionalTestResult::Succeeded, TEXT(""));
-}
-
-#if WITH_EDITOR
-
-bool AScreenshotFunctionalTest::CanEditChange(const UProperty* InProperty) const
-{
-	bool bIsEditable = Super::CanEditChange(InProperty);
-	if ( bIsEditable && InProperty )
-	{
-		const FName PropertyName = InProperty->GetFName();
-
-		if ( PropertyName == GET_MEMBER_NAME_CHECKED(FAutomationScreenshotOptions, ToleranceAmount) )
+		// For mobile, use the high res screenshot API to ensure a fixed resolution screenshot is produced.
+		// This means screenshot comparisons can compare with the output from any device.
+		FHighResScreenshotConfig& Config = GetHighResScreenshotConfig();
+		FIntPoint ScreenshotViewportSize = UAutomationBlueprintFunctionLibrary::GetAutomationScreenshotSize(ScreenshotOptions);
+		if (Config.SetResolution(ScreenshotViewportSize.X, ScreenshotViewportSize.Y, 1.0f))
 		{
-			bIsEditable = ScreenshotOptions.Tolerance == EComparisonTolerance::Custom;
-		}
-		else if ( PropertyName == TEXT("ObservationPoint") )
-		{
-			// You can't ever observe from anywhere but the camera on the screenshot test.
-			bIsEditable = false;
+			GEngine->GameViewport->GetGameViewport()->TakeHighResScreenShot();
 		}
 	}
-
-	return bIsEditable;
-}
-
-void AScreenshotFunctionalTest::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
-{
-	Super::PostEditChangeProperty(PropertyChangedEvent);
-
-	if ( PropertyChangedEvent.Property )
+	else
 	{
-		const FName PropertyName = PropertyChangedEvent.Property->GetFName();
+		// Screenshots in UE4 work in this way:
+		// 1. Call FScreenshotRequest::RequestScreenshot to ask the system to take a screenshot. The screenshot
+		//    will have the same resolution as the current viewport;
+		// 2. Register a callback to UGameViewportClient::OnScreenshotCaptured() delegate. The call back will be
+		//    called with screenshot pixel data when the shot is taken;
+		// 3. Wait till the next frame or call FSceneViewport::Invalidate to force a redraw. Screenshot is not
+		//    taken until next draw where UGameViewportClient::ProcessScreenshots or
+		//    FEditorViewportClient::ProcessScreenshots is called to read pixels back from the viewport. It also
+		//    trigger the callback function registered in step 2.
 
-		if ( PropertyName == GET_MEMBER_NAME_CHECKED(FAutomationScreenshotOptions, Tolerance) )
-		{
-			ScreenshotOptions.SetToleranceAmounts(ScreenshotOptions.Tolerance);
-		}
+		bool bShowUI = false;
+		FScreenshotRequest::RequestScreenshot(bShowUI);
 	}
 }
-
-#endif

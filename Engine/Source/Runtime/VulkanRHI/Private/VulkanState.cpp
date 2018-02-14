@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanState.cpp: Vulkan state implementation.
@@ -80,16 +80,6 @@ inline VkSamplerAddressMode TranslateWrapMode(ESamplerAddressMode InAddressMode,
 	// Check for missing translation
 	check(OutAddressMode != VK_SAMPLER_ADDRESS_MODE_MAX_ENUM);
 	return OutAddressMode;
-}
-
-static int32 GetMaxAnisotropy(ESamplerFilter Filter, int32 MaxAniso)
-{
-	switch (Filter)
-	{
-		case SF_AnisotropicPoint:
-		case SF_AnisotropicLinear:	return FMath::Clamp((MaxAniso > 0 ? MaxAniso : (int32)ComputeAnisotropyRT(MaxAniso)), 1, GMaxVulkanTextureFilterAnisotropic);
-		default:					return 1;
-	}
 }
 
 inline VkCompareOp TranslateSamplerCompareFunction(ESamplerCompareFunction InSamplerComparisonFunction)
@@ -256,7 +246,7 @@ FVulkanSamplerState::FVulkanSamplerState(const FSamplerStateInitializerRHI& Init
 	
 
 	SamplerInfo.mipLodBias = Initializer.MipBias;
-	SamplerInfo.maxAnisotropy = GetMaxAnisotropy(Initializer.Filter, Initializer.MaxAnisotropy);
+	SamplerInfo.maxAnisotropy = FMath::Clamp((float)ComputeAnisotropyRT(Initializer.MaxAnisotropy), 1.0f, InDevice.GetLimits().maxSamplerAnisotropy);
 	SamplerInfo.anisotropyEnable = SamplerInfo.maxAnisotropy > 1;
 
 	// FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Using LOD Group %d / %d, MaxAniso = %f \n"), (int32)Initializer.Filter, Initializer.MaxAnisotropy, SamplerInfo.maxAnisotropy);

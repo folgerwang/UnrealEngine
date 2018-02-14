@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -32,5 +32,10 @@ public class AudioMixerXAudio2 : ModuleRules
         {
             PrivateDependencyModuleNames.Add("XMA2");
         }
+
+		if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.XboxOne)
+		{
+			PrecompileForTargets = PrecompileTargetsType.Any;
+		}
 	}
 }

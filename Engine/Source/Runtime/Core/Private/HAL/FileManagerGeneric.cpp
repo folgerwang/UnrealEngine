@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	FileManagerGeneric.cpp: Unreal generic file manager support code.
@@ -16,7 +16,7 @@
 #include "Misc/CommandLine.h"
 #include "Misc/Paths.h"
 #include "Misc/SecureHash.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include <time.h>
 
 DEFINE_LOG_CATEGORY_STATIC( LogFileManager, Log, All );

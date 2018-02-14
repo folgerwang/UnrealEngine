@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealHeaderTool.h"
 #include "CoreMinimal.h"
@@ -10,7 +10,7 @@
 #include "InterfaceSpecifiers.h"
 #include "StructSpecifiers.h"
 #include "VariableSpecifiers.h"
-#include "Containers/Algo/IsSorted.h"
+#include "Algo/IsSorted.h"
 
 const TCHAR* GFunctionSpecifierStrings[(int32)EFunctionSpecifier::Max] =
 {

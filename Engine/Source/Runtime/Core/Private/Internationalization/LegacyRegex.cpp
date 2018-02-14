@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreTypes.h"
 #include "Containers/UnrealString.h"
 
 #if !UE_ENABLE_ICU
-#include "Regex.h"
+#include "Internationalization/Regex.h"
 
 class FRegexPatternImplementation
 {

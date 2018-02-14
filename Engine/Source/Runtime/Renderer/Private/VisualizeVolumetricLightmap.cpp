@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VolumetricLightmap.cpp
@@ -23,6 +23,7 @@
 #include "ScenePrivate.h"
 #include "SpriteIndexBuffer.h"
 #include "SceneFilterRendering.h"
+#include "PrecomputedVolumetricLightmap.h"
 
 float GVolumetricLightmapVisualizationRadiusScale = .01f;
 FAutoConsoleVariableRef CVarVolumetricLightmapVisualizationRadiusScale(
@@ -50,12 +51,12 @@ class FVisualizeVolumetricLightmapVS : public FGlobalShader
 	DECLARE_SHADER_TYPE(FVisualizeVolumetricLightmapVS, Global);
 public:
 
-	static bool ShouldCache(EShaderPlatform Platform)
+	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
+		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM4);
 	}
 
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
+	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		OutEnvironment.SetDefine(TEXT("QUADS_PER_INSTANCE"), GQuadsPerVisualizeInstance);
 	}
@@ -102,14 +103,9 @@ class FVisualizeVolumetricLightmapPS : public FGlobalShader
 	DECLARE_SHADER_TYPE(FVisualizeVolumetricLightmapPS, Global);
 public:
 
-	static bool ShouldCache(EShaderPlatform Platform)
+	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
-	}
-
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
-	{
-
+		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM4);
 	}
 
 	/** Default constructor. */
@@ -128,7 +124,7 @@ public:
 
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
 
-		FLinearColor DiffuseColorValue(FLinearColor::White);
+		FLinearColor DiffuseColorValue(.18f, .18f, .18f);
 
 		if (!View.Family->EngineShowFlags.Materials)
 		{
@@ -154,13 +150,12 @@ IMPLEMENT_SHADER_TYPE(,FVisualizeVolumetricLightmapPS,TEXT("/Engine/Private/Visu
 
 void FDeferredShadingSceneRenderer::VisualizeVolumetricLightmap(FRHICommandListImmediate& RHICmdList)
 {
-	FIntVector IndirectionTextureSize = FIntVector(Scene->VolumetricLightmapSceneData.IndirectionTextureSize);
-
 	if (ViewFamily.EngineShowFlags.VisualizeVolumetricLightmap
-		&& IndirectionTextureSize.X > 0 
-		&& IndirectionTextureSize.Y > 0 
-		&& IndirectionTextureSize.Z > 0)
+		&& Scene->VolumetricLightmapSceneData.GetLevelVolumetricLightmap()
+		&& Scene->VolumetricLightmapSceneData.GetLevelVolumetricLightmap()->Data->IndirectionTextureDimensions.GetMin() > 0)
 	{
+		const FPrecomputedVolumetricLightmapData* VolumetricLightmapData = Scene->VolumetricLightmapSceneData.GetLevelVolumetricLightmap()->Data;
+
 		SCOPED_DRAW_EVENT(RHICmdList, VisualizeVolumetricLightmap);
 					
 		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
@@ -205,8 +200,8 @@ void FDeferredShadingSceneRenderer::VisualizeVolumetricLightmap(FRHICommandListI
 			VertexShader->SetParameters(RHICmdList, View);
 			PixelShader->SetParameters(RHICmdList, View);
 
-			int32 BrickSize = Scene->VolumetricLightmapSceneData.BrickSize;
-			int32 NumQuads = IndirectionTextureSize.X * IndirectionTextureSize.Y * IndirectionTextureSize.Z * BrickSize * BrickSize * BrickSize;
+			int32 BrickSize = VolumetricLightmapData->BrickSize;
+			int32 NumQuads = VolumetricLightmapData->IndirectionTextureDimensions.X * VolumetricLightmapData->IndirectionTextureDimensions.Y * VolumetricLightmapData->IndirectionTextureDimensions.Z * BrickSize * BrickSize * BrickSize;
 
 			RHICmdList.SetStreamSource(0, NULL, 0);
 			RHICmdList.DrawIndexedPrimitive(GVisualizeQuadIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0, 4 * GQuadsPerVisualizeInstance, 0, 2 * GQuadsPerVisualizeInstance, FMath::DivideAndRoundUp(NumQuads, GQuadsPerVisualizeInstance));

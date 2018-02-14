@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "BSDSockets/SocketsBSD.h"
 
@@ -52,7 +52,7 @@ bool FSocketBSD::Listen(int32 MaxBacklog)
 }
 
 
-bool FSocketBSD::HasPendingConnection(bool& bHasPendingConnection)
+bool FSocketBSD::WaitForPendingConnection(bool& bHasPendingConnection, const FTimespan& WaitTime)
 {
 	bool bHasSucceeded = false;
 	bHasPendingConnection = false;
@@ -61,7 +61,7 @@ bool FSocketBSD::HasPendingConnection(bool& bHasPendingConnection)
 	if (HasState(ESocketBSDParam::HasError) == ESocketBSDReturn::No)
 	{
 		// get the read state
-		ESocketBSDReturn State = HasState(ESocketBSDParam::CanRead);
+		ESocketBSDReturn State = HasState(ESocketBSDParam::CanRead, WaitTime);
 		
 		// turn the result into the outputs
 		bHasSucceeded = State != ESocketBSDReturn::EncounteredError;

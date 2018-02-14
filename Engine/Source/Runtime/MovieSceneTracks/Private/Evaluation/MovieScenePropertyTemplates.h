@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -10,8 +10,8 @@
 #include "Curves/IntegralCurve.h"
 #include "Curves/StringCurve.h"
 #include "Templates/UnrealTypeTraits.h"
-#include "MovieScene3DTransformTemplate.h"
-#include "MovieSceneBlendType.h"
+#include "Evaluation/MovieScene3DTransformTemplate.h"
+#include "Evaluation/Blending/MovieSceneBlendType.h"
 #include "MovieScenePropertyTemplates.generated.h"
 
 class UMovieSceneBoolSection;

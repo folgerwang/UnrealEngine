@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "GenericWindow.h"
-#include "SharedPointer.h"
-#include "CocoaWindow.h"
+#include "GenericPlatform/GenericWindow.h"
+#include "Templates/SharedPointer.h"
+#include "Mac/CocoaWindow.h"
 
 /**
  * A platform specific implementation of FGenericWindow.
@@ -113,4 +113,7 @@ private:
 
 	bool bIsVisible : 1;
 	bool bIsClosed : 1;
+
+	/** Whether the window is yet to have its first Show() call. This is set false after first Show(). */
+	bool bIsFirstTimeVisible : 1;
 };

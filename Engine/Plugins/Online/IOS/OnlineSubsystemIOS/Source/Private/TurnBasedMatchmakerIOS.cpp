@@ -1,12 +1,12 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemIOSPrivatePCH.h"
 #include "TurnBasedMatchmakerIOS.h"
 
 #include <GameKit/GameKit.h>
-#include "IOSAppDelegate.h"
+#include "IOS/IOSAppDelegate.h"
 #include "TurnBasedMatchmakerDelegateIOS.h"
-#include "IOSView.h"
+#include "IOS/IOSView.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogTurnBasedMatchmakerIOS, Log, All);
 

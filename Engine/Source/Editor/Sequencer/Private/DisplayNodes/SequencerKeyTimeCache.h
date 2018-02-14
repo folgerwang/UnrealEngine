@@ -1,14 +1,14 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "Range.h"
-#include "Guid.h"
-#include "ArrayView.h"
+#include "Math/Range.h"
+#include "Misc/Guid.h"
+#include "Containers/ArrayView.h"
 #include "Curves/KeyHandle.h"
 
-#include "SharedPointer.h"
-#include "Optional.h"
+#include "Templates/SharedPointer.h"
+#include "Misc/Optional.h"
 #include "IKeyArea.h"
 
 /** Key information that has been cached to avoid expensive operations */

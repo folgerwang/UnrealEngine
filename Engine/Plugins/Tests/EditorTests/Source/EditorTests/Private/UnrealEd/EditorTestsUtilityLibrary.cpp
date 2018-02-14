@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "EditorTestsUtilityLibrary.h"
 #include "CoreMinimal.h"
@@ -16,7 +16,7 @@
 #include "GameFramework/Actor.h"
 #include "Modules/ModuleManager.h"
 #include "AutomationStaticMeshComponentAdapter.h"
-#include "Containers/Algo/Transform.h"
+#include "Algo/Transform.h"
 #include "Materials/Material.h"
 
 void UEditorTestsUtilityLibrary::BakeMaterialsForComponent(UStaticMeshComponent* InStaticMeshComponent, const UMaterialOptions* MaterialOptions, const UMaterialMergeOptions* MaterialMergeOptions)
@@ -26,7 +26,11 @@ void UEditorTestsUtilityLibrary::BakeMaterialsForComponent(UStaticMeshComponent*
 		FModuleManager::Get().LoadModule("MaterialBaking");
 		// Retrieve settings object
 		UAssetBakeOptions* AssetOptions = GetMutableDefault<UAssetBakeOptions>();
-		TArray<TWeakObjectPtr<UObject>> Objects{ MaterialMergeOptions, AssetOptions, MaterialOptions };
+		TArray<TWeakObjectPtr<UObject>> Objects = {
+			MakeWeakObjectPtr(const_cast<UMaterialMergeOptions*>(MaterialMergeOptions)),
+			MakeWeakObjectPtr(AssetOptions),
+			MakeWeakObjectPtr(const_cast<UMaterialOptions*>(MaterialOptions))
+		};
 
 		FAutomationStaticMeshComponentAdapter Adapter(InStaticMeshComponent);
 		const IMeshMergeUtilities& MeshMergeUtilities = FModuleManager::Get().LoadModuleChecked<IMeshMergeModule>("MeshMergeUtilities").GetUtilities();

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -60,6 +60,7 @@ namespace AutomationTool
 		Error_TestFailure = 152,
 		Error_SymbolizedSONotFound = 153,
 		Error_LicenseNotAccepted = 154,
+		Error_AndroidOBBError = 155,
 	};
 
     /// <summary>

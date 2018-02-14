@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /**
  * this volume only blocks the path builder - it has no gameplay collision
@@ -28,6 +28,7 @@ class ANavMeshBoundsVolume : public AVolume
 #if WITH_EDITOR
 	//~ Begin UObject Interface
 	virtual void PostEditChangeProperty( struct FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PostEditUndo() override;
 	//~ End UObject Interface
 #endif // WITH_EDITOR
 };

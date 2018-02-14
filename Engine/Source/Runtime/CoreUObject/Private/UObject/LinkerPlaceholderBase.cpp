@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "UObject/LinkerPlaceholderBase.h"
 #include "UObject/UnrealType.h"
@@ -234,8 +234,6 @@ FScopedPlaceholderContainerTracker::~FScopedPlaceholderContainerTracker()
 #endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
 }
 
-#if WITH_EDITOR
-
 FScopedPlaceholderRawContainerTracker::FScopedPlaceholderRawContainerTracker(void* InData)
 	:Data(InData)
 {
@@ -249,8 +247,6 @@ FScopedPlaceholderRawContainerTracker::~FScopedPlaceholderRawContainerTracker()
 	check(StackTop == Data);
 #endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
 }
-
-#endif
 
 //------------------------------------------------------------------------------
 FScopedPlaceholderPropertyTracker::FScopedPlaceholderPropertyTracker(const UStructProperty* InIntermediateProperty)
@@ -564,7 +560,7 @@ int32 TLinkerImportPlaceholder<UClass>::ResolvePropertyReferences(UClass* Replac
 		}
 		else
 		{
-			checkf(TEXT("Unhandled property type: %s"), *Property->GetClass()->GetName());
+			checkf(false, TEXT("Unhandled property type: %s"), *Property->GetClass()->GetName());
 		}
 	}
 
@@ -603,7 +599,7 @@ int32 TLinkerImportPlaceholder<UFunction>::ResolvePropertyReferences(UFunction* 
 		}
 		else
 		{
-			checkf(TEXT("Unhandled property type: %s"), *Property->GetClass()->GetName());
+			checkf(false, TEXT("Unhandled property type: %s"), *Property->GetClass()->GetName());
 		}
 	}
 

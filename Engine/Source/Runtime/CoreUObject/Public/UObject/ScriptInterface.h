@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ScriptInterface.h: Script interface definitions.
@@ -7,7 +7,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "UObjectGlobals.h"
+#include "UObject/UObjectGlobals.h"
 #include "Templates/Casts.h"
 
 /**

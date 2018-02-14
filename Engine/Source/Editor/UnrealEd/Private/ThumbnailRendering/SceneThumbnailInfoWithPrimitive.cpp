@@ -1,8 +1,8 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #include "ThumbnailRendering/SceneThumbnailInfoWithPrimitive.h"
-#include "EditorObjectVersion.h"
+#include "UObject/EditorObjectVersion.h"
 
 USceneThumbnailInfoWithPrimitive::USceneThumbnailInfoWithPrimitive(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

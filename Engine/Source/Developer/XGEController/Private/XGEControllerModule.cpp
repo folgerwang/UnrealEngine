@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "XGEControllerInterface.h"
 #include "Containers/Queue.h"
@@ -20,9 +20,9 @@
 
 #if PLATFORM_WINDOWS
 
-	#include "AllowWindowsPlatformTypes.h"
+	#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <winreg.h>
-	#include "HideWindowsPlatformTypes.h"
+	#include "Windows/HideWindowsPlatformTypes.h"
 
 	#define XGE_CONTROL_WORKER_NAME		TEXT("XGEControlWorker")
 	#define XGE_CONTROL_WORKER_FILENAME	TEXT("XGEControlWorker.exe")
@@ -573,6 +573,6 @@ XGECONTROLLER_API IXGEController& IXGEController::Get()
 	return Ref;
 }
 
-IMPLEMENT_MODULE(FXGEControllerModule, XGEControllerModule);
+IMPLEMENT_MODULE(FXGEControllerModule, XGEController);
 
 #endif // WITH_XGE_CONTROLLER

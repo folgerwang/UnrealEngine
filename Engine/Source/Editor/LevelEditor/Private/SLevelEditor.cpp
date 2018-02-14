@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SLevelEditor.h"
 #include "Framework/MultiBox/MultiBoxExtender.h"
@@ -46,7 +46,7 @@
 #include "Widgets/Docking/SDockTab.h"
 #include "SActorDetails.h"
 #include "GameFramework/WorldSettings.h"
-#include "LayoutExtender.h"
+#include "Framework/Docking/LayoutExtender.h"
 #include "HierarchicalLODOutlinerModule.h"
 
 
@@ -268,13 +268,20 @@ SLevelEditor::~SLevelEditor()
 	FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked< FLevelEditorModule >( LevelEditorModuleName );
 	LevelEditorModule.OnNotificationBarChanged().RemoveAll( this );
 	
-	GetMutableDefault<UEditorExperimentalSettings>()->OnSettingChanged().RemoveAll( this );
-	GetMutableDefault<UEditorPerProjectUserSettings>()->OnUserSettingChanged().RemoveAll( this );
+	if(UObjectInitialized())
+	{
+		GetMutableDefault<UEditorExperimentalSettings>()->OnSettingChanged().RemoveAll(this);
+		GetMutableDefault<UEditorPerProjectUserSettings>()->OnUserSettingChanged().RemoveAll(this);
+	}
+
 	FEditorModeRegistry::Get().OnRegisteredModesChanged().RemoveAll( this );
 
 	FEditorDelegates::MapChange.RemoveAll(this);
 
-	GEditor->GetEditorWorldContext(true).RemoveRef(World);
+	if (GEditor)
+	{
+		GEditor->GetEditorWorldContext(true).RemoveRef(World);
+	}
 }
 
 FText SLevelEditor::GetTabTitle() const

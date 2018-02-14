@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -13,7 +13,7 @@
 #include "Widgets/SCompoundWidget.h"
 #include "Rendering/RenderingCommon.h"
 #include "Widgets/SWindow.h"
-#include "HittestGrid.h"
+#include "Input/HittestGrid.h"
 
 class FActiveTimerHandle;
 class FPaintArgs;

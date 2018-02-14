@@ -3,9 +3,9 @@
 #pragma once
 
 #include "MeshElement.h"
-#include "UIAction.h"
-#include "UICommandInfo.h"
-#include "Commands.h"
+#include "Framework/Commands/UIAction.h"
+#include "Framework/Commands/UICommandInfo.h"
+#include "Framework/Commands/Commands.h"
 #include "MeshEditorCommands.generated.h"
 
 

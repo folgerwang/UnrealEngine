@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ProfilerManager.h"
 #include "Templates/ScopedPointer.h"
@@ -9,7 +9,7 @@
 #include "ProfilerRawStatsForThreadView.h"
 #include "Widgets/SProfilerMiniView.h"
 #include "Widgets/SProfilerWindow.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 #define LOCTEXT_NAMESPACE "FProfilerCommands"
 

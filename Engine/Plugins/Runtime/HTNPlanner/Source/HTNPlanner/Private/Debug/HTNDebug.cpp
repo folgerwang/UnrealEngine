@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Debug/HTNDebug.h"
 #include "HTNBuilder.h"
-#include "Class.h"
-#include "Package.h"
+#include "UObject/Class.h"
+#include "UObject/Package.h"
 
 namespace FHTNDebug
 {

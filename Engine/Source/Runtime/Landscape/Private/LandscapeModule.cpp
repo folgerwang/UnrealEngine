@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LandscapeModule.h"
 #include "Serialization/CustomVersion.h"
@@ -80,7 +80,7 @@ void WorldDestroyEventFunction(UWorld* World)
 	World->PerModuleDataObjects.RemoveAll(
 		[](UObject* Object)
 		{
-			return Object->IsA(ULandscapeInfoMap::StaticClass());
+			return Object != nullptr && Object->IsA(ULandscapeInfoMap::StaticClass());
 		}
 	);
 }

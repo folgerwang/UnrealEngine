@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -21,7 +21,10 @@ class FAssetRenameManager : public TSharedFromThis<FAssetRenameManager>
 {
 public:
 	/** Renames assets using the specified names. */
-	void RenameAssets(const TArray<FAssetRenameData>& AssetsAndNames) const;
+	bool RenameAssets(const TArray<FAssetRenameData>& AssetsAndNames) const;
+
+	/** Renames assets using the specified names. */
+	void RenameAssetsWithDialog(const TArray<FAssetRenameData>& AssetsAndNames, bool bAutoCheckout = false) const;
 
 	/** Returns list of objects that soft reference the given soft object path. This will load assets into memory to verify */
 	void FindSoftReferencesToObject(FSoftObjectPath TargetObject, TArray<UObject*>& ReferencingObjects) const;
@@ -35,14 +38,17 @@ public:
 	 * @param PackagesToCheck Packages to check for referencing FSoftObjectPath.
 	 * @param AssetRedirectorMap Map from old asset path to new asset path
 	 */
-	static void RenameReferencingSoftObjectPaths(TArray<UPackage*> PackagesToCheck, const TMap<FSoftObjectPath, FSoftObjectPath>& AssetRedirectorMap);
+	void RenameReferencingSoftObjectPaths(TArray<UPackage*> PackagesToCheck, const TMap<FSoftObjectPath, FSoftObjectPath>& AssetRedirectorMap) const;
 
 	/** Filters packages list depending on if it actually has soft object paths pointing to the specific object being renamed */
-	static bool CheckPackageForSoftObjectReferences(UPackage* Package, const TMap<FSoftObjectPath, FSoftObjectPath>& AssetRedirectorMap, TArray<UObject*>& OutReferencingObjects);
+	bool CheckPackageForSoftObjectReferences(UPackage* Package, const TMap<FSoftObjectPath, FSoftObjectPath>& AssetRedirectorMap, TArray<UObject*>& OutReferencingObjects) const;
 
 private:
+	/** Callback used by DiscoverintAssetsDialog to call FixrefrencesAndRename */
+	void FixReferencesAndRenameCallback(TArray<FAssetRenameData> AssetsAndNames, bool bAutoCheckout, bool bWithDialog) const;
+
 	/** Attempts to load and fix redirector references for the supplied assets */
-	void FixReferencesAndRename(TArray<FAssetRenameData> AssetsAndNames) const;
+	bool FixReferencesAndRename(const TArray<FAssetRenameData>& AssetsAndNames, bool bAutoCheckout, bool bWithDialog) const;
 
 	/** Get a list of assets referenced from CDOs */
 	TArray<TWeakObjectPtr<UObject>> FindCDOReferencedAssets(const TArray<FAssetRenameDataWithReferencers>& AssetsToRename) const;
@@ -53,19 +59,23 @@ private:
 	/** Updates the source control status of the packages containing the assets to rename */
 	bool UpdatePackageStatus(const TArray<FAssetRenameDataWithReferencers>& AssetsToRename) const;
 
-	/** 
-	  * Loads all referencing packages to assets in AssetsToRename, finds assets whose references can
-	  * not be fixed up to mark that a redirector should be left, and returns a list of referencing packages to save.
-	  * if bFindAllSoftObjectReferences is true, it will load all referencing packages even if they can't be checked out
-	  */
-	void LoadReferencingPackages(TArray<FAssetRenameDataWithReferencers>& AssetsToRename, bool bLoadAllPackages, TArray<UPackage*>& OutReferencingPackagesToSave, TArray<UObject*>& OutSoftReferencingObjects) const;
+	/**
+	 * Loads all referencing packages to assets in AssetsToRename, finds assets whose references can
+	 * not be fixed up to mark that a redirector should be left, and returns a list of referencing packages to save.
+	 * If bLoadAllPackages is true, it will load all referencing packages even if they can't be checked out
+	 * If bCheckStatus is true it will check the source control status
+	 */
+	void LoadReferencingPackages(TArray<FAssetRenameDataWithReferencers>& AssetsToRename, bool bLoadAllPackages, bool bCheckStatus, TArray<UPackage*>& OutReferencingPackagesToSave, TArray<UObject*>& OutSoftReferencingObjects) const;
 
 	/** 
-	  * Prompts to check out the source package and all referencing packages and marks assets whose referencing packages were not checked out to leave a redirector.
-	  * Trims PackagesToSave when necessary.
-	  * Returns true if the user opted to continue the operation or no dialog was required.
-	  */
-	bool CheckOutPackages(TArray<FAssetRenameDataWithReferencers>& AssetsToRename, TArray<UPackage*>& InOutReferencingPackagesToSave) const;
+	 * Prompts to check out the source package and all referencing packages and marks assets whose referencing packages were not checked out to leave a redirector.
+	 * Trims PackagesToSave when necessary.
+	 * Returns true if the user opted to continue the operation or no dialog was required.
+	 */
+	bool CheckOutPackages(TArray<FAssetRenameDataWithReferencers>& AssetsToRename, TArray<UPackage*>& InOutReferencingPackagesToSave, bool bAutoCheckout) const;
+
+	/** Attempts to check out packages, returns false on any failure */
+	bool AutoCheckOut(TArray<UPackage*>& PackagesToCheckOut) const;
 
 	/** Finds any collections that are referencing the assets to be renamed. Assets referenced by collections will leave redirectors */
 	void DetectReferencingCollections(TArray<FAssetRenameDataWithReferencers>& AssetsToRename) const;
@@ -79,11 +89,17 @@ private:
 	/** Saves all the referencing packages and updates SCC state */
 	void SaveReferencingPackages(const TArray<UPackage*>& ReferencingPackagesToSave) const;
 
-	/** Report any failures that may have happened during the rename */
-	void ReportFailures(const TArray<FAssetRenameDataWithReferencers>& AssetsToRename) const;
+	/** Report any failures that may have happened during the rename. Return the number of failures */
+	int32 ReportFailures(const TArray<FAssetRenameDataWithReferencers>& AssetsToRename, bool bWithDialog) const;
 
-private:
+	/** Called when a package is dirtied, clears the cache */
+	void OnMarkPackageDirty(UPackage* Pkg, bool bWasDirty);
 
 	/** Event issued at the end of the rename process */
 	FAssetPostRenameEvent AssetPostRenameEvent;
+
+	/** Cache of package->soft references, to avoid serializing the same package over and over */
+	mutable TMap<FName, TSet<FSoftObjectPath>> CachedSoftReferences;
+	mutable FDelegateHandle DirtyDelegateHandle;
+
 };

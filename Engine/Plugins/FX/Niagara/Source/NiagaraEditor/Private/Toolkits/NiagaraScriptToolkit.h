@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -7,7 +7,7 @@
 #include "Toolkits/IToolkitHost.h"
 #include "Misc/NotifyHook.h"
 #include "EditorUndoClient.h"
-#include "AssetEditorToolkit.h"
+#include "Toolkits/AssetEditorToolkit.h"
 #include "UObject/GCObject.h"
 
 class IDetailsView;
@@ -77,7 +77,7 @@ private:
 	void ExtendToolbar();
 
 	/** Compiles the script. */
-	void CompileScript();
+	void CompileScript(bool bForce);
 
 	/** Refreshes the nodes in the script graph, updating the pins to match external changes. */
 	void RefreshNodes();

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PrecomputedVolumetricLightmap.h: Declarations for precomputed volumetric lightmap.
@@ -9,9 +9,11 @@
 #include "CoreMinimal.h"
 #include "Misc/Guid.h"
 #include "Math/SHMath.h"
-#include "ResourceArray.h"
+#include "Containers/ResourceArray.h"
 #include "PixelFormat.h"
 #include "Math/PackedVector.h"
+#include "RHI.h"
+#include "RenderResource.h"
 
 class FSceneInterface;
 
@@ -20,6 +22,7 @@ class FVolumetricLightmapDataLayer : public FResourceBulkDataInterface
 public:
 
 	FVolumetricLightmapDataLayer() :
+		DataSize(0),
 		Format(PF_Unknown)
 	{}
 
@@ -37,14 +40,27 @@ public:
 
 	virtual void Discard() override
 	{
+		//temporarily remove until the semantics around lighting scenarios are fixed.
 		if (!GIsEditor)
 		{
 			Data.Empty();
 		}
 	}
 
+	void Resize(int32 NewSize)
+	{
+		Data.Empty(NewSize);
+		Data.AddUninitialized(NewSize);
+		DataSize = NewSize;
+	}
+
+	ENGINE_API void CreateTexture(FIntVector Dimensions);
+
 	TArray<uint8> Data;
+	// Stored redundantly for stats after Data has been discarded
+	int32 DataSize;
 	EPixelFormat Format;
+	FTexture3DRHIRef Texture;
 };
 
 class FVolumetricLightmapBrickData
@@ -54,56 +70,54 @@ public:
 	FVolumetricLightmapDataLayer SHCoefficients[6];
 	FVolumetricLightmapDataLayer SkyBentNormal;
 	FVolumetricLightmapDataLayer DirectionalLightShadowing;
+	// Mobile LQ layers:
+	FVolumetricLightmapDataLayer LQLightColor;
+	FVolumetricLightmapDataLayer LQLightDirection;
 
 	ENGINE_API int32 GetMinimumVoxelSize() const;
 
 	SIZE_T GetAllocatedBytes() const
 	{
-		SIZE_T NumBytes = AmbientVector.Data.Num() + SkyBentNormal.Data.Num() + DirectionalLightShadowing.Data.Num();
+		SIZE_T NumBytes = AmbientVector.DataSize + SkyBentNormal.DataSize + DirectionalLightShadowing.DataSize;
+		NumBytes += LQLightColor.Data.Num() + LQLightDirection.Data.Num();
 
 		for (int32 i = 0; i < ARRAY_COUNT(SHCoefficients); i++)
 		{
-			NumBytes += SHCoefficients[i].Data.Num();
+			NumBytes += SHCoefficients[i].DataSize;
 		}
 
 		return NumBytes;
 	}
 
-	void Discard()
+	// discard the layers used for low quality lightmap (LQ includes direct lighting from stationary lights).
+	void DiscardLowQualityLayers()
 	{
-		AmbientVector.Discard();
-		SkyBentNormal.Discard();
-		DirectionalLightShadowing.Discard();
-
-		for (int32 i = 0; i < ARRAY_COUNT(SHCoefficients); i++)
-		{
-			SHCoefficients[i].Discard();
-		}
+		LQLightColor.Discard();
+		LQLightDirection.Discard();
 	}
 };
 
-/**  */
-class FPrecomputedVolumetricLightmapData
+/** 
+ * Data for a Volumetric Lightmap, built during import from Lightmass.
+ * Its lifetime is managed by UMapBuildDataRegistry. 
+ */
+class FPrecomputedVolumetricLightmapData : public FRenderResource
 {
 public:
 
 	ENGINE_API FPrecomputedVolumetricLightmapData();
-	~FPrecomputedVolumetricLightmapData();
+	virtual ~FPrecomputedVolumetricLightmapData();
 
 	friend FArchive& operator<<(FArchive& Ar, FPrecomputedVolumetricLightmapData& Volume);
 	friend FArchive& operator<<(FArchive& Ar, FPrecomputedVolumetricLightmapData*& Volume);
 
-	/** Frees any previous samples, prepares the volume to have new samples added. */
-	ENGINE_API void Initialize(const FBox& NewBounds, int32 InBrickSize);
-
+	ENGINE_API void InitializeOnImport(const FBox& NewBounds, int32 InBrickSize);
 	ENGINE_API void FinalizeImport();
 
-	SIZE_T GetAllocatedBytes() const;
+	ENGINE_API virtual void InitRHI() override;
+	ENGINE_API virtual void ReleaseRHI() override;
 
-	bool IsInitialized() const
-	{
-		return bInitialized;
-	}
+	SIZE_T GetAllocatedBytes() const;
 
 	const FBox& GetBounds() const
 	{
@@ -121,13 +135,13 @@ public:
 
 private:
 
-	bool bInitialized;
-
 	friend class FPrecomputedVolumetricLightmap;
 };
 
 
-/**  */
+/** 
+ * Represents the Volumetric Lightmap for a specific ULevel.  
+ */
 class FPrecomputedVolumetricLightmap
 {
 public:
@@ -149,6 +163,7 @@ public:
 	ENGINE_API void ApplyWorldOffset(const FVector& InOffset);
 
 	// Owned by rendering thread
+	// ULevel's MapBuildData GC-visible property guarantees that the FPrecomputedVolumetricLightmapData will not be deleted during the lifetime of FPrecomputedVolumetricLightmap.
 	FPrecomputedVolumetricLightmapData* Data;
 
 private:
@@ -290,6 +305,8 @@ VoxelDataType NearestVolumeLookup(FVector Coordinate, FIntVector DataDimensions,
 	const int32 LinearIndex = ((NearestCoordinateInt.Z * DataDimensions.Y) + NearestCoordinateInt.Y) * DataDimensions.X + NearestCoordinateInt.X;
 	return Data[LinearIndex];
 }
+
+extern ENGINE_API FVector ComputeIndirectionCoordinate(FVector LookupPosition, const FBox& VolumeBounds, FIntVector IndirectionTextureDimensions);
 
 extern ENGINE_API void SampleIndirectionTexture(
 	FVector IndirectionDataSourceCoordinate,

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimGraphNode_TwoBoneIK.h"
 #include "AnimNodeEditModes.h"
@@ -11,7 +11,7 @@
 
 // version handling
 #include "AnimationCustomVersion.h"
-#include "ReleaseObjectVersion.h"
+#include "UObject/ReleaseObjectVersion.h"
 
 #define LOCTEXT_NAMESPACE "AnimGraphNode_TwoBoneIK"
 

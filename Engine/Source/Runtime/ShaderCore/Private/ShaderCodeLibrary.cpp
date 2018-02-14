@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ShaderCodeLibrary.cpp: Bound shader state cache implementation.
@@ -13,12 +13,12 @@
 #include "Misc/ScopeLock.h"
 #include "Async/AsyncFileHandle.h"
 
-#include "IShaderFormatArchive.h"
+#include "Interfaces/IShaderFormatArchive.h"
 
 #if WITH_EDITORONLY_DATA
 #include "Modules/ModuleManager.h"
-#include "IShaderFormat.h"
-#include "IShaderFormatModule.h"
+#include "Interfaces/IShaderFormat.h"
+#include "Interfaces/IShaderFormatModule.h"
 #include "Interfaces/ITargetPlatform.h"
 #include "Interfaces/ITargetPlatformManagerModule.h"
 #endif
@@ -91,9 +91,9 @@ struct FShaderCodeEntry
 	// Transient
 	TArray<uint8> LoadedCode;
 	int32 NumRefs;
-#if DO_CHECK
-	volatile int32 NumPendingLoadRequests;
-#endif
+
+	// Async Code Request
+	IAsyncReadRequest* AsynReq;
 
 	FShaderCodeEntry()
 		: Size(0) 
@@ -101,9 +101,7 @@ struct FShaderCodeEntry
 		, UncompressedSize(0)
 		, Frequency(0)
 		, NumRefs(0)
-#if DO_CHECK
-		, NumPendingLoadRequests(0)
-#endif
+		, AsynReq(nullptr)
 	{}
 };
 
@@ -150,11 +148,12 @@ public:
 		FShaderCodeEntry* Entry = Shaders.Find(Hash);
 		if (Entry)
 		{
-			FScopeLock ScopeLock(&ReadRequestLock);
+			// Ensure we have the code
+			ShaderCodeEntryCodeReadUpdate(Entry, 0.0);
 
 			check(Entry->NumRefs > 0);
 			check(Entry->LoadedCode.Num() != 0);
-			check(Entry->NumPendingLoadRequests == 0);
+			check(Entry->AsynReq == nullptr);
 
 			OutSize = Entry->UncompressedSize;
 			return &Entry->LoadedCode;
@@ -174,16 +173,16 @@ public:
 			if (CodeNumRefs == 0)
 			{
 				check(Entry->LoadedCode.Num() == 0);
-				check(FPlatformAtomics::InterlockedIncrement(&Entry->NumPendingLoadRequests) == 1);
+				check(Entry->AsynReq == nullptr);
 
 				int64 ReadSize = Entry->Size;
 				int64 ReadOffset = LibraryCodeOffset + Entry->Offset;
 				Entry->LoadedCode.SetNumUninitialized(ReadSize);
-				IAsyncReadRequest* AsynReq = LibraryAsyncFileHandle->ReadRequest(ReadOffset, ReadSize, AIOP_Normal, nullptr, Entry->LoadedCode.GetData());
+				Entry->AsynReq = LibraryAsyncFileHandle->ReadRequest(ReadOffset, ReadSize, AIOP_Normal, nullptr, Entry->LoadedCode.GetData());
 				
-				FExternalReadCallback ExternalReadCallback = [this, Entry, AsynReq](double ReaminingTime)
+				FExternalReadCallback ExternalReadCallback = [this, Entry](double ReaminingTime)
 				{
-					return this->OnExternalReadCallback(AsynReq, Entry, ReaminingTime);
+					return this->ShaderCodeEntryCodeReadUpdate(Entry, ReaminingTime);
 				};
 												
 				if (!Ar || !Ar->AttachExternalReadDependency(ExternalReadCallback))
@@ -205,17 +204,26 @@ public:
 		return false;
 	}
 
-	bool OnExternalReadCallback(IAsyncReadRequest* AsynReq, FShaderCodeEntry* Entry, double RemainingTime)
+	bool ShaderCodeEntryCodeReadUpdate(FShaderCodeEntry* Entry, double RemainingTime)
 	{
-		if (!AsynReq->WaitCompletion(RemainingTime))
+		if(Entry->AsynReq != nullptr)
 		{
-			return false;
+			// Lazy acquire lock if and only if we have a request active
+			FScopeLock ScopeLock(&ReadRequestLock);
+			
+			// Make sure we've not been beaten to this by a force block load or an async callback
+			if(Entry->AsynReq != nullptr)
+			{
+				if (!Entry->AsynReq->WaitCompletion(RemainingTime))
+				{
+					return false;
+				}
+				
+				delete Entry->AsynReq;
+				Entry->AsynReq = nullptr;
+			}
 		}
-		delete AsynReq;
-
-		// There must be only one request
-		check(FPlatformAtomics::InterlockedDecrement(&Entry->NumPendingLoadRequests) == 0);
-
+		
 		return true;
 	}
 
@@ -230,7 +238,7 @@ public:
 			if (Entry->NumRefs == 0)
 			{
 				// Do not attempt to release shader code while it's loading
-				check(Entry->NumPendingLoadRequests == 0);
+				check(Entry->AsynReq == nullptr);
 
 				// free code mem
 				Entry->LoadedCode.Empty();
@@ -483,6 +491,7 @@ struct FEditorShaderCodeArchive
 {
 	FEditorShaderCodeArchive(FName InFormat)
 	: FormatName(InFormat)
+	, Offset(0)
 	, Format(nullptr)
 	{
 		Format = FindShaderFormat(InFormat);
@@ -510,12 +519,14 @@ struct FEditorShaderCodeArchive
 
 			FShaderCodeEntry Entry;
 			Entry.Size = InCode.Num();
-			Entry.Offset = ShaderCode.Num();
+			Entry.Offset = Offset;
 			Entry.UncompressedSize = UncompressedSize;
 			Entry.Frequency = Frequency;
+			Entry.LoadedCode = InCode;
+			
+			Offset += Entry.Size;
 			
 			Shaders.Add(Hash, Entry);
-			ShaderCode.Append(InCode);
 			bAdd = true;
 		}
 		return bAdd;
@@ -577,12 +588,11 @@ struct FEditorShaderCodeArchive
 					IFileManager::Get().MakeDirectory(*DebugPlatformDir, true);	
 										
 					TMap<FSHAHash, FShaderCodeEntry> StrippedShaders;
-					TArray<uint8> StrippedShaderCode;
-
+					uint32 TotalSize = 0;
 					for (const auto& Pair : Shaders)
 					{
 						TArray<uint8> CompressedCode;
-						CompressedCode.Append(ShaderCode.GetData() + Pair.Value.Offset, Pair.Value.Size);
+						CompressedCode.Append(Pair.Value.LoadedCode.GetData(), Pair.Value.Size);
 
 						int32 UncompressedSize = Pair.Value.UncompressedSize;
 					
@@ -598,23 +608,31 @@ struct FEditorShaderCodeArchive
 
 						FShaderCodeEntry StrippedEntry;
 						StrippedEntry.Size = CompressedCode.Num();
-						StrippedEntry.Offset = StrippedShaderCode.Num();
+						StrippedEntry.Offset = TotalSize;
 						StrippedEntry.UncompressedSize = UncompressedCode.Num();
 						StrippedEntry.Frequency = Pair.Value.Frequency;
+						StrippedEntry.LoadedCode = CompressedCode;
+						
+						TotalSize += StrippedEntry.Size;
 
 						StrippedShaders.Add(Pair.Key, StrippedEntry);
-						StrippedShaderCode.Append(CompressedCode);
 					}
-
+					
 					// Write stripped shader library
 					*FileWriter << StrippedShaders;
-					FileWriter->Serialize(StrippedShaderCode.GetData(), StrippedShaderCode.Num());
+					for (auto& Pair : StrippedShaders)
+					{
+						FileWriter->Serialize(Pair.Value.LoadedCode.GetData(), Pair.Value.Size);
+					}
 				}
 				else
 				{
 					// Write shader library
 					*FileWriter << Shaders;
-					FileWriter->Serialize(ShaderCode.GetData(), ShaderCode.Num());
+					for (auto& Pair : Shaders)
+					{
+						FileWriter->Serialize(Pair.Value.LoadedCode.GetData(), Pair.Value.Size);
+					}
 				}
 						
 				FileWriter->Close();
@@ -663,63 +681,19 @@ struct FEditorShaderCodeArchive
 			FString DebugPath = GetShaderCodeFilename(DebugShaderCodeDir, FormatName);
 			bOK = true;
 			
-			//Collect previous native cooked bytecode files into this shader files processing directory - keep the rest of the code simpler, don't overwrite in case dest file is newer
+			// Add the shaders to the archive.
+			for (auto& Pair : Shaders)
 			{
-				TArray<FString> NativeShaderFiles;
-				IFileManager::Get().FindFiles(NativeShaderFiles, *IntermediateCookedByteCodePath, TEXT("*.ushaderbytecode"));
+				FSHAHash& Hash = Pair.Key;
+				FShaderCodeEntry& Entry = Pair.Value;
 				
-				for (FString const& FileName : NativeShaderFiles)
+				TArray<uint8> UCode;
+				TArray<uint8>& UncompressedCode = FShaderLibraryHelperUncompressCode(Platform, Entry.UncompressedSize, Entry.LoadedCode, UCode);
+				
+				if(!Archive->AddShader(Entry.Frequency, Hash, UncompressedCode))
 				{
-					if (FileName.Len() > 2 && FileName[1] == TEXT('_'))
-					{
-						IFileManager::Get().Move(*(OutputPath / FileName), *(IntermediateCookedByteCodePath / FileName), false);
-					}
-				}
-			}
-			
-			TArray<FString> ShaderFiles;
-			IFileManager::Get().FindFiles(ShaderFiles, *OutputPath, TEXT("*.ushaderbytecode"));
-			
-			for (FString const& FileName : ShaderFiles)
-			{
-				if (FileName.Len() > 2 && FileName[1] == TEXT('_'))
-				{
-					FShaderCodeEntry Entry;
-					TCHAR FreqChar[2] = {0, 0};
-					FreqChar[0] = FileName[0];
-					Entry.Frequency = (EShaderFrequency)FCStringWide::Atoi(FreqChar);
-					check(Entry.Frequency < SF_NumFrequencies);
-					
-					FSHAHash Hash;
-					FString Name = FPaths::GetBaseFilename(FileName);
-					HexToBytes(Name.RightChop(2), Hash.Hash);
-					
-					FString Path = OutputPath / FileName;
-					FArchive* Ar = IFileManager::Get().CreateFileReader(*Path);
-					if (Ar)
-					{
-						uint32 UncompressedSize = 0;
-						TArray<uint8> CompressedCode;
-						
-						*Ar << UncompressedSize;
-						*Ar << CompressedCode;
-						
-						Ar->Close();
-						
-						TArray<uint8> UCode;
-						TArray<uint8>& UncompressedCode = FShaderLibraryHelperUncompressCode(Platform, UncompressedSize, CompressedCode, UCode);
-						
-						if(!Archive->AddShader(Entry.Frequency, Hash, UncompressedCode))
-						{
-							bOK = false;
-							break;
-						}
-					}
-					else
-					{
-						bOK = false;
-						break;
-					}
+					bOK = false;
+					break;
 				}
 			}
 			
@@ -730,19 +704,13 @@ struct FEditorShaderCodeArchive
 				//Always delete debug directory
 				IFileManager::Get().DeleteDirectory(*DebugShaderCodeDir, true, true);
 				
-				//Move files to intermediate dir for next iterative cook with overwwrite Move mode
-				if (bOK)
 				{
-					for (FString const& FileName : ShaderFiles)
-					{
-						if (FileName.Len() > 2 && FileName[1] == TEXT('_'))
-						{
-							IFileManager::Get().Move(*(IntermediateCookedByteCodePath / FileName), *(OutputPath / FileName), true);
-						}
-					}
-					
-					//We don't want to keep the shader code library shader files for native cooked content
-					IFileManager::Get().DeleteDirectory(*OutputPath, true, true);
+					FString OutputFilePath = GetCodeArchiveFilename(ShaderCodeDir, FormatName);
+					IFileManager::Get().Delete(*OutputFilePath);
+				}
+				{
+					FString OutputFilePath = GetPipelinesArchiveFilename(ShaderCodeDir, FormatName);
+					IFileManager::Get().Delete(*OutputFilePath);
 				}
 			}
 		}
@@ -752,7 +720,7 @@ struct FEditorShaderCodeArchive
 private:
 	FName FormatName;
 	TMap<FSHAHash, FShaderCodeEntry> Shaders;
-	TArray<uint8> ShaderCode;
+	uint32 Offset;
 	TSet<FShaderCodeLibraryPipeline> Pipelines;
 	const IShaderFormat* Format;
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Debug/DebugDrawService.h"
 #include "UObject/Package.h"
@@ -62,9 +62,8 @@ void UDebugDrawService::Draw(const FEngineShowFlags Flags, FViewport* Viewport, 
 		CanvasObject->AddToRoot();
 	}
 
-	CanvasObject->Init(View->UnscaledViewRect.Width(), View->UnscaledViewRect.Height(), View);
+	CanvasObject->Init(View->UnscaledViewRect.Width(), View->UnscaledViewRect.Height(), View, Canvas);
 	CanvasObject->Update();	
-	CanvasObject->Canvas = Canvas;
 	CanvasObject->SetView(View);
 
 	// PreRender the player's view.

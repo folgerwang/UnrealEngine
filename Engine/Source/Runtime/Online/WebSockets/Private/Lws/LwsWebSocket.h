@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Ticker.h"
+#include "Containers/Ticker.h"
 #include "Containers/Queue.h"
 
 #if WITH_WEBSOCKETS && WITH_LIBWEBSOCKETS
@@ -11,8 +11,8 @@
 #include "IWebSocket.h"
 
 #if PLATFORM_WINDOWS
-#   include "WindowsHWrapper.h"
-#	include "AllowWindowsPlatformTypes.h"
+#   include "Windows/WindowsHWrapper.h"
+#	include "Windows/AllowWindowsPlatformTypes.h"
 #endif
 
 THIRD_PARTY_INCLUDES_START
@@ -20,7 +20,7 @@ THIRD_PARTY_INCLUDES_START
 THIRD_PARTY_INCLUDES_END
 
 #if PLATFORM_WINDOWS
-#	include "HideWindowsPlatformTypes.h"
+#	include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 /** Buffer for one outgoing packet */
@@ -279,6 +279,7 @@ private:
 	FString Url;
 	/** Protocols to use with this connection */
 	TArray<FString> Protocols;
+	/** The upgrade header(s) to send with the upgrade request */
 	FString UpgradeHeader;
 
 	/**

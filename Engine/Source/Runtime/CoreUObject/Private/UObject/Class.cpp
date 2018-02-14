@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UnClass.cpp: Object class implementation.
@@ -102,12 +102,12 @@ COREUOBJECT_API void InitializePrivateStaticClass(
 	NotifyRegistrationEvent(PackageName, Name, ENotifyRegistrationType::NRT_Class, ENotifyRegistrationPhase::NRP_Finished);
 }
 
-void FNativeFunctionRegistrar::RegisterFunction(class UClass* Class, const ANSICHAR* InName, Native InPointer)
+void FNativeFunctionRegistrar::RegisterFunction(class UClass* Class, const ANSICHAR* InName, FNativeFuncPtr InPointer)
 {
 	Class->AddNativeFunction(InName, InPointer);
 }
 
-void FNativeFunctionRegistrar::RegisterFunction(class UClass* Class, const WIDECHAR* InName, Native InPointer)
+void FNativeFunctionRegistrar::RegisterFunction(class UClass* Class, const WIDECHAR* InName, FNativeFuncPtr InPointer)
 {
 	Class->AddNativeFunction(InName, InPointer);
 }
@@ -168,6 +168,17 @@ void UField::PostLoad()
 {
 	Super::PostLoad();
 	Bind();
+}
+
+bool UField::NeedsLoadForClient() const
+{
+	// Overridden to avoid calling the expensive generic version, which only ensures that our class is not excluded, which it never can be
+	return true;
+}
+
+bool UField::NeedsLoadForServer() const
+{
+	return true;
 }
 
 void UField::Serialize( FArchive& Ar )
@@ -1349,20 +1360,35 @@ void UStruct::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collect
 		}
 	}
 
-	//@todo NickW, temp hack to make stale property chains less crashy
-	for (UProperty* Property = This->PropertyLink; Property != NULL; Property = Property->PropertyLinkNext)
+	bool bPropertiesRequireRelink = false;
+	auto AROPropertyChain = [&This, &Collector, &bPropertiesRequireRelink](UProperty* InProp, UProperty* UProperty::*NextPropPtr)
 	{
-		Collector.AddReferencedObject(Property, This);
-	}
-	for (UProperty* Property = This->RefLink; Property != NULL; Property = Property->NextRef)
+		//@todo NickW, temp hack to make stale property chains less crashy
+		for (UProperty* CurProperty = InProp; CurProperty;)
+		{
+			// Cache NextProperty now as ARO may re-point (or null) the Property pointer
+			UProperty* NextProperty = CurProperty->*NextPropPtr;
+
+			UProperty* PropertyToARO = CurProperty;
+			Collector.AddReferencedObject(PropertyToARO, This);
+			if (CurProperty != PropertyToARO)
+			{
+				// This property was re-pointed by ARO - we need to re-link the property chain
+				bPropertiesRequireRelink = true;
+			}
+
+			CurProperty = NextProperty;
+		}
+	};
+
+	AROPropertyChain(This->PropertyLink, &UProperty::PropertyLinkNext);
+	AROPropertyChain(This->RefLink, &UProperty::NextRef);
+	AROPropertyChain(This->DestructorLink, &UProperty::DestructorLinkNext);
+
+	if (bPropertiesRequireRelink)
 	{
-		Collector.AddReferencedObject(Property, This);
+		This->StaticLink(bPropertiesRequireRelink);
 	}
-	for (UProperty* Property = This->DestructorLink; Property != NULL; Property = Property->DestructorLinkNext)
-	{
-		Collector.AddReferencedObject(Property, This);
-	}
-	//
 #endif
 	Super::AddReferencedObjects( This, Collector );
 }
@@ -1472,7 +1498,7 @@ EExprToken UStruct::SerializeExpr( int32& iCode, FArchive& Ar )
 {
 #define SERIALIZEEXPR_INC
 #define SERIALIZEEXPR_AUTO_UNDEF_XFER_MACROS
-#include "ScriptSerialization.h"
+#include "UObject/ScriptSerialization.h"
 	return Expr;
 #undef SERIALIZEEXPR_INC
 #undef SERIALIZEEXPR_AUTO_UNDEF_XFER_MACROS
@@ -1882,6 +1908,11 @@ void UScriptStruct::PrepareCppStructOps()
 		UE_LOG(LogClass, Verbose, TEXT("Native struct %s wants post serialize."),*GetName());
 		StructFlags = EStructFlags(StructFlags | STRUCT_PostSerializeNative );
 	}
+	if (CppStructOps->HasPostScriptConstruct())
+	{
+		UE_LOG(LogClass, Verbose, TEXT("Native struct %s wants post script construct."),*GetName());
+		StructFlags = EStructFlags(StructFlags | STRUCT_PostScriptConstruct);
+	}
 	if (CppStructOps->HasNetSerializer())
 	{
 		UE_LOG(LogClass, Verbose, TEXT("Native struct %s has a custom net serializer."),*GetName());
@@ -1968,14 +1999,6 @@ void UScriptStruct::PrepareCppStructOps()
 	check(!bPrepareCppStructOpsCompleted); // recursion is unacceptable
 	bPrepareCppStructOpsCompleted = true;
 }
-
-void UScriptStruct::PostLoad()
-{
-	Super::PostLoad();
-	ClearCppStructOps(); // we want to be sure to do this from scratch
-	PrepareCppStructOps();
-}
-
 
 void UScriptStruct::Serialize( FArchive& Ar )
 {
@@ -2378,12 +2401,10 @@ void UScriptStruct::InitializeStruct(void* InDest, int32 ArrayDim) const
 	}
 }
 
-#if WITH_EDITOR
 void UScriptStruct::InitializeDefaultValue(uint8* InStructData) const
 {
 	InitializeStruct(InStructData);
 }
-#endif // WITH_EDITOR
 
 void UScriptStruct::ClearScriptStruct(void* Dest, int32 ArrayDim) const
 {
@@ -3002,6 +3023,11 @@ void UClass::PostLoad()
 	{
 		GetSuperClass()->ConditionalPostLoad();
 	}
+
+	if (!HasAnyClassFlags(CLASS_Native))
+	{
+		SetUpRuntimeReplicationData();
+	}
 }
 
 FString UClass::GetDesc()
@@ -3033,6 +3059,16 @@ void UClass::Link(FArchive& Ar, bool bRelinkExistingProperties)
 	check(!bRelinkExistingProperties || !(ClassFlags & CLASS_Intrinsic));
 	Super::Link(Ar, bRelinkExistingProperties);
 
+	// For non-native classes, this will happen in PostLoad when all its functions
+	// are guaranteed to be loaded. Native classes have to do this now.
+	if (HasAnyClassFlags(CLASS_Native))
+	{
+		SetUpRuntimeReplicationData();
+	}
+}
+
+void UClass::SetUpRuntimeReplicationData()
+{
 	if (PropertyLink != NULL)
 	{
 		NetFields.Empty();
@@ -3065,7 +3101,11 @@ void UClass::Link(FArchive& Ar, bool bRelinkExistingProperties)
 			}
 			else if( (F=dynamic_cast<UFunction*>(*It))!=NULL )
 			{
-				check(!F->GetSuperFunction() || (F->GetSuperFunction()->FunctionFlags&FUNC_NetFuncFlags) == (F->FunctionFlags&FUNC_NetFuncFlags));
+				// When loading reflection data (e.g. from blueprints), we may have references to placeholder functions, or reflection data 
+				// in children may be out of date. In that case we cannot enforce this check, but that is ok because reflection data will
+				// be regenerated by compile on load anyway:
+				const bool bCanCheck = (!GIsEditor && !IsRunningCommandlet()) || !F->HasAnyFlags(RF_WasLoaded);
+				check(!bCanCheck || (!F->GetSuperFunction() || (F->GetSuperFunction()->FunctionFlags&FUNC_NetFuncFlags) == (F->FunctionFlags&FUNC_NetFuncFlags)));
 				if( (F->FunctionFlags&FUNC_Net) && !F->GetSuperFunction() )
 					NetFields.Add( *It );
 			}
@@ -3747,10 +3787,6 @@ void UClass::PurgeClass(bool bRecompilingOnLoad)
 	ClassUnique = 0;
 	ClassReps.Empty();
 	NetFields.Empty();
-	for (TObjectIterator<UPackage> PackageIt; PackageIt; ++PackageIt)
-	{
-		PackageIt->ClassUniqueNameIndexMap.Remove(GetFName());
-	}
 
 #if WITH_EDITOR
 	if (!bRecompilingOnLoad)
@@ -4038,20 +4074,10 @@ bool UClass::HotReloadPrivateStaticClass(
 		UE_LOG(LogClass, Error, TEXT("VTable for class %s did not change?"),*GetName());
 	}
 
-	// Mark class as no longer constructed and collapse the Children list so that it gets rebuilt
-	ClassFlags &= ~CLASS_Constructed;
-	for (UField* Child = Children; Child; )
-	{
-		UField* NextChild = Child->Next;
-		Child->Next = nullptr;
-		Child = NextChild;
-	}
-	Children = nullptr;
-
 	return true;
 }
 
-bool UClass::ReplaceNativeFunction(FName InFName, Native InPointer, bool bAddToFunctionRemapTable)
+bool UClass::ReplaceNativeFunction(FName InFName, FNativeFuncPtr InPointer, bool bAddToFunctionRemapTable)
 {
 	IHotReloadInterface* HotReloadSupport = nullptr;
 
@@ -4079,7 +4105,7 @@ bool UClass::ReplaceNativeFunction(FName InFName, Native InPointer, bool bAddToF
 
 #endif
 
-void UClass::AddNativeFunction(const ANSICHAR* InName,Native InPointer)
+void UClass::AddNativeFunction(const ANSICHAR* InName, FNativeFuncPtr InPointer)
 {
 	FName InFName(InName);
 #if WITH_HOT_RELOAD
@@ -4100,7 +4126,7 @@ void UClass::AddNativeFunction(const ANSICHAR* InName,Native InPointer)
 	new(NativeFunctionLookupTable) FNativeFunctionLookup(InFName,InPointer);
 }
 
-void UClass::AddNativeFunction(const WIDECHAR* InName, Native InPointer)
+void UClass::AddNativeFunction(const WIDECHAR* InName, FNativeFuncPtr InPointer)
 {
 	FName InFName(InName);
 #if WITH_HOT_RELOAD
@@ -4368,34 +4394,36 @@ void GetPrivateStaticClassBody(
 	{
 		check(!bIsDynamic);
 		UPackage* Package = FindPackage(NULL, PackageName);
-		if (!Package)
+		if (Package)
 		{
-			UE_LOG(LogClass, Log, TEXT("Could not find existing package %s for HotReload."), PackageName);
-			return;
-		}
-		ReturnClass = FindObject<UClass>((UObject *)Package, Name);
-		if (ReturnClass)
-		{
-			if (ReturnClass->HotReloadPrivateStaticClass(
-				InSize,
-				InClassFlags,
-				InClassCastFlags,
-				InConfigName,
-				InClassConstructor,
-				InClassVTableHelperCtorCaller,
-				InClassAddReferencedObjects,
-				InSuperClassFn(),
-				InWithinClassFn()
-				))
+			ReturnClass = FindObject<UClass>((UObject *)Package, Name);
+			if (ReturnClass)
 			{
-				// Register the class's native functions.
-				RegisterNativeFunc();
+				if (ReturnClass->HotReloadPrivateStaticClass(
+					InSize,
+					InClassFlags,
+					InClassCastFlags,
+					InConfigName,
+					InClassConstructor,
+					InClassVTableHelperCtorCaller,
+					InClassAddReferencedObjects,
+					InSuperClassFn(),
+					InWithinClassFn()
+					))
+				{
+					// Register the class's native functions.
+					RegisterNativeFunc();
+				}
+				return;
 			}
-			return;
+			else
+			{
+				UE_LOG(LogClass, Log, TEXT("Could not find existing class %s in package %s for HotReload, assuming new class"), Name, PackageName);
+			}
 		}
 		else
 		{
-			UE_LOG(LogClass, Log, TEXT("Could not find existing class %s in package %s for HotReload, assuming new class"), Name, PackageName);
+			UE_LOG(LogClass, Log, TEXT("Could not find existing package %s for HotReload of class %s, assuming a new package."), PackageName, Name);
 		}
 	}
 #endif
@@ -4520,7 +4548,7 @@ void UFunction::Invoke(UObject* Obj, FFrame& Stack, RESULT_DECL)
 	}
 
 	TGuardValue<UFunction*> NativeFuncGuard(Stack.CurrentNativeFunction, this);
-	return (Obj->*Func)(Stack, RESULT_PARAM);
+	return (*Func)(Obj, Stack, RESULT_PARAM);
 }
 
 void UFunction::Serialize( FArchive& Ar )
@@ -4767,6 +4795,12 @@ UScriptStruct* TBaseStructure<FRotator>::Get()
 	return ScriptStruct;
 }
 
+UScriptStruct* TBaseStructure<FQuat>::Get()
+{
+	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Quat"));
+	return ScriptStruct;
+}
+
 UScriptStruct* TBaseStructure<FTransform>::Get()
 {
 	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Transform"));
@@ -4785,6 +4819,12 @@ UScriptStruct* TBaseStructure<FColor>::Get()
 	return ScriptStruct;
 }
 
+UScriptStruct* TBaseStructure<FPlane>::Get()
+{
+	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Plane"));
+	return ScriptStruct;
+}
+
 UScriptStruct* TBaseStructure<FVector>::Get()
 {
 	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Vector"));
@@ -4794,6 +4834,12 @@ UScriptStruct* TBaseStructure<FVector>::Get()
 UScriptStruct* TBaseStructure<FVector2D>::Get()
 {
 	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Vector2D"));
+	return ScriptStruct;
+}
+
+UScriptStruct* TBaseStructure<FVector4>::Get()
+{
+	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Vector4"));
 	return ScriptStruct;
 }
 

@@ -1,12 +1,12 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Commandlets/GenerateTextLocalizationResourceCommandlet.h"
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
 #include "Templates/ScopedPointer.h"
-#include "TextLocalizationResource.h"
+#include "Internationalization/TextLocalizationResource.h"
 #include "TextLocalizationResourceGenerator.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGenerateTextLocalizationResourceCommandlet, Log, All);
 

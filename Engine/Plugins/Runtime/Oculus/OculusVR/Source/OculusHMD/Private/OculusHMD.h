@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "OculusHMDModule.h"
@@ -11,12 +11,16 @@
 #include "OculusHMD_Splash.h"
 #include "OculusHMD_StressTester.h"
 #include "OculusHMD_ConsoleCommands.h"
+#include "OculusHMD_SpectatorScreenController.h"
+
+#include "OculusAssetManager.h"
 
 #include "HeadMountedDisplayBase.h"
 #include "HeadMountedDisplay.h"
-#include "Stats.h"
+#include "XRRenderTargetManager.h"
+#include "IStereoLayers.h"
+#include "Stats/Stats.h"
 #include "SceneViewExtension.h"
-#include "ScenePrivate.h"
 #include "Engine/Engine.h"
 #include "Engine/StaticMeshActor.h"
 
@@ -51,7 +55,7 @@ struct FPerformanceStats
 // FOculusHMD - Oculus Rift Head Mounted Display
 //-------------------------------------------------------------------------------------------------
 
-class FOculusHMD : public FHeadMountedDisplayBase, public IStereoLayers, public ISceneViewExtension, public TSharedFromThis<FOculusHMD, ESPMode::ThreadSafe>
+class FOculusHMD : public FHeadMountedDisplayBase, public FXRRenderTargetManager, public IStereoLayers, public FSceneViewExtensionBase, public FOculusAssetManager
 {
 	friend class UOculusFunctionLibrary;
 	friend FOculusHMDModule;
@@ -59,82 +63,117 @@ class FOculusHMD : public FHeadMountedDisplayBase, public IStereoLayers, public 
 	friend class FConsoleCommands;
 
 public:
-	// IStereoRendering interface
-	virtual bool IsStereoEnabled() const override;
-	virtual bool IsStereoEnabledOnNextFrame() const override;
-	virtual bool EnableStereo(bool stereo = true) override;
-	virtual void AdjustViewRect(EStereoscopicPass StereoPass, int32& X, int32& Y, uint32& SizeX, uint32& SizeY) const override;
-	virtual void CalculateStereoViewOffset(const EStereoscopicPass StereoPassType, const FRotator& ViewRotation, const float MetersToWorld, FVector& ViewLocation) override;
-	virtual FMatrix GetStereoProjectionMatrix(const EStereoscopicPass StereoPassType, const float FOV) const override;
-	virtual void InitCanvasFromView(FSceneView* InView, UCanvas* Canvas) override;
-	virtual void UpdateViewport(bool bUseSeparateRenderTarget, const FViewport& Viewport, SViewport*) override;
-	virtual void CalculateRenderTargetSize(const FViewport& Viewport, uint32& InOutSizeX, uint32& InOutSizeY) override;
-	virtual bool NeedReAllocateViewportRenderTarget(const FViewport& Viewport) override;
-	virtual bool ShouldUseSeparateRenderTarget() const override;
-	virtual void RenderTexture_RenderThread(class FRHICommandListImmediate& RHICmdList, class FRHITexture2D* BackBuffer, class FRHITexture2D* SrcTexture) const override;
-	virtual void GetOrthoProjection(int32 RTWidth, int32 RTHeight, float OrthoDistance, FMatrix OrthoProjection[2]) const override;
-	virtual void SetClippingPlanes(float NCP, float FCP) override;
-	virtual FRHICustomPresent* GetCustomPresent() override { return CustomPresent; }
-	virtual uint32 GetNumberOfBufferedFrames() const override { return 1; }
-	virtual IStereoLayers* GetStereoLayers() override { return this; }
-	virtual bool AllocateRenderTargetTexture(uint32 Index, uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 InTexFlags, uint32 InTargetableTextureFlags, FTexture2DRHIRef& OutTargetableTexture, FTexture2DRHIRef& OutShaderResourceTexture, uint32 NumSamples = 1) override;
-	virtual void UseImplicitHmdPosition(bool bInImplicitHmdPosition) override;
+	static const FName OculusSystemName;
+	// IXRSystemIdentifier
+	virtual FName GetSystemName() const override;
 
-
-	// IHeadMountedDisplay interface
-	virtual FName GetDeviceName() const override;
-	virtual bool IsHMDConnected() override;
-	virtual bool IsHMDEnabled() const override;
-	virtual EHMDWornState::Type GetHMDWornState() override;
-	virtual void EnableHMD(bool allow = true) override;
-	virtual EHMDDeviceType::Type GetHMDDeviceType() const override;
-	virtual bool GetHMDMonitorInfo(MonitorInfo&) override;
-	virtual void GetFieldOfView(float& InOutHFOVInDegrees, float& InOutVFOVInDegrees) const override;
+	// IXRTrackingSystem
+	virtual FString GetVersionString() const override;
 	virtual bool DoesSupportPositionalTracking() const override;
 	virtual bool HasValidTrackingPosition() override;
-	virtual uint32 GetNumOfTrackingSensors() const override;
-	virtual bool GetTrackingSensorProperties(uint8 InSensorIndex, FVector& OutOrigin, FQuat& OutOrientation, float& OutLeftFOV, float& OutRightFOV, float& OutTopFOV, float& OutBottomFOV, float& OutCameraDistance, float& OutNearPlane, float& OutFarPlane) const override;
-	virtual void SetInterpupillaryDistance(float NewInterpupillaryDistance) override;
-	virtual float GetInterpupillaryDistance() const override;
-	virtual void GetCurrentOrientationAndPosition(FQuat& CurrentOrientation, FVector& CurrentPosition) override;
-	virtual void RebaseObjectOrientationAndPosition(FVector& OutPosition, FQuat& OutOrientation) const override;
-	virtual TSharedPtr<class ISceneViewExtension, ESPMode::ThreadSafe> GetViewExtension() override;
-	virtual void ApplyHmdRotation(APlayerController* PC, FRotator& ViewRotation) override;
-	virtual bool UpdatePlayerCamera(FQuat& CurrentOrientation, FVector& CurrentPosition) override;
-	virtual bool IsChromaAbCorrectionEnabled() const override;
-	// virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override;
-	virtual bool IsPositionalTrackingEnabled() const override;
-	virtual bool IsHeadTrackingAllowed() const override;
-	virtual void ResetOrientationAndPosition(float yaw = 0.f) override;
+	virtual bool EnumerateTrackedDevices(TArray<int32>& OutDevices, EXRTrackedDeviceType Type=EXRTrackedDeviceType::Any) override;
+	virtual bool GetCurrentPose(int32 InDeviceId, FQuat& OutOrientation, FVector& OutPosition) override;
+	virtual bool GetRelativeEyePose(int32 InDeviceId, EStereoscopicPass InEye, FQuat& OutOrientation, FVector& OutPosition) override;
+	virtual bool GetTrackingSensorProperties(int32 InDeviceId, FQuat& OutOrientation, FVector& OutPosition, FXRSensorProperties& OutSensorProperties) override;
+	virtual void SetTrackingOrigin(EHMDTrackingOrigin::Type NewOrigin) override;
+	virtual EHMDTrackingOrigin::Type GetTrackingOrigin() override;
+	//virtual FVector GetAudioListenerOffset(int32 InDeviceId = HMDDeviceId) const override;
+	virtual void ResetOrientationAndPosition(float Yaw = 0.f) override;
 	virtual void ResetOrientation(float Yaw = 0.f) override;
 	virtual void ResetPosition() override;
 	virtual void SetBaseRotation(const FRotator& BaseRot) override;
 	virtual FRotator GetBaseRotation() const override;
 	virtual void SetBaseOrientation(const FQuat& BaseOrient) override;
 	virtual FQuat GetBaseOrientation() const override;
-	virtual bool HasHiddenAreaMesh() const override;
-	virtual bool HasVisibleAreaMesh() const override;
-	virtual void DrawHiddenAreaMesh_RenderThread(FRHICommandList& RHICmdList, EStereoscopicPass StereoPass) const override;
-	virtual void DrawVisibleAreaMesh_RenderThread(FRHICommandList& RHICmdList, EStereoscopicPass StereoPass) const override;
-	virtual void DrawDebug(UCanvas* Canvas) override;
-	virtual bool HandleInputKey(class UPlayerInput*, const FKey& Key, EInputEvent EventType, float AmountDepressed, bool bGamepad) override;
+	//virtual TSharedPtr<class IXRCamera, ESPMode::ThreadSafe> GetXRCamera(int32 DeviceId = HMDDeviceId) override;
+	virtual class IHeadMountedDisplay* GetHMDDevice() override { return this; }
+	virtual class TSharedPtr< class IStereoRendering, ESPMode::ThreadSafe > GetStereoRenderingDevice() override { return SharedThis(this); }
+	//virtual class IXRInput* GetXRInput() override;
+	virtual bool IsHeadTrackingAllowed() const override;
 	virtual void OnBeginPlay(FWorldContext& InWorldContext) override;
 	virtual void OnEndPlay(FWorldContext& InWorldContext) override;
-	virtual bool OnStartGameFrame(FWorldContext& InWorldContext) override;
-	virtual bool OnEndGameFrame(FWorldContext& InWorldContext) override;
-	// virtual void RecordAnalytics() override;
-	virtual FString GetVersionString() const override;
-	virtual void SetTrackingOrigin(EHMDTrackingOrigin::Type) override;
-	virtual EHMDTrackingOrigin::Type GetTrackingOrigin() override;
-	// virtual bool DoesAppUseVRFocus() const override;
-	// virtual bool DoesAppHaveVRFocus() const override;
-	// virtual void SetupLateUpdate(const FTransform& ParentToWorld, USceneComponent* Component) override;
-	// virtual void ApplyLateUpdate(FSceneInterface* Scene, const FTransform& OldRelativeTransform, const FTransform& NewRelativeTransform) override;
+	virtual bool OnStartGameFrame(FWorldContext& WorldContext) override;
+	virtual bool OnEndGameFrame(FWorldContext& WorldContext) override;
 
+	// IHeadMountedDisplay
+	virtual bool IsHMDConnected() override;
+	virtual bool IsHMDEnabled() const override;
+	virtual EHMDWornState::Type GetHMDWornState() override;
+	virtual void EnableHMD(bool bEnable = true) override;
+	virtual bool GetHMDMonitorInfo(MonitorInfo&) override;
+	virtual void GetFieldOfView(float& InOutHFOVInDegrees, float& InOutVFOVInDegrees) const override;
+	virtual void SetInterpupillaryDistance(float NewInterpupillaryDistance) override;
+	virtual float GetInterpupillaryDistance() const override;
+	//virtual void SetClippingPlanes(float NCP, float FCP) override;
+	//virtual FVector GetAudioListenerOffset() const override;
+	virtual bool GetHMDDistortionEnabled(EShadingPath ShadingPath) const override;
+	//virtual void BeginRendering_RenderThread(const FTransform& NewRelativeTransform, FRHICommandListImmediate& RHICmdList, FSceneViewFamily& ViewFamily) override;
+	//virtual class ISpectatorScreenController* GetSpectatorScreenController() override;
+	//virtual class ISpectatorScreenController const* GetSpectatorScreenController() const override;
+	//virtual float GetDistortionScalingFactor() const override;
+	//virtual float GetLensCenterOffset() const override;
+	//virtual void GetDistortionWarpValues(FVector4& K) const override;
+	virtual bool IsChromaAbCorrectionEnabled() const override;
+	//virtual bool GetChromaAbCorrectionValues(FVector4& K) const override;
+	virtual bool HasHiddenAreaMesh() const override;
+	virtual bool HasVisibleAreaMesh() const override;
+	virtual void DrawHiddenAreaMesh_RenderThread(class FRHICommandList& RHICmdList, EStereoscopicPass StereoPass) const override;
+	virtual void DrawVisibleAreaMesh_RenderThread(class FRHICommandList& RHICmdList, EStereoscopicPass StereoPass) const override;
+	//virtual void DrawDistortionMesh_RenderThread(struct FRenderingCompositePassContext& Context, const FIntPoint& TextureSize) override;
+	//virtual void UpdateScreenSettings(const FViewport* InViewport) override;
+	//virtual void UpdatePostProcessSettings(FPostProcessSettings*) override;
+	//virtual FTexture* GetDistortionTextureLeft() const override;
+	//virtual FTexture* GetDistortionTextureRight() const override;
+	//virtual FVector2D GetTextureOffsetLeft() const override;
+	//virtual FVector2D GetTextureOffsetRight() const override;
+	//virtual FVector2D GetTextureScaleLeft() const override;
+	//virtual FVector2D GetTextureScaleRight() const override;
+	//virtual const float* GetRedDistortionParameters() const override;
+	//virtual const float* GetGreenDistortionParameters() const override;
+	//virtual const float* GetBlueDistortionParameters() const override;
+	//virtual bool NeedsUpscalePostProcessPass() override;
+	//virtual void RecordAnalytics() override;
+	//virtual bool DoesAppUseVRFocus() const override;
+	//virtual bool DoesAppHaveVRFocus() const override;
+	virtual float GetPixelDenity() const override;
+	virtual void SetPixelDensity(const float NewDensity) override;
+	virtual FIntPoint GetIdealRenderTargetSize() const override;
+
+	// IStereoRendering interface
+	virtual bool IsStereoEnabled() const override;
+	virtual bool IsStereoEnabledOnNextFrame() const override;
+	virtual bool EnableStereo(bool stereo = true) override;
+	virtual void AdjustViewRect(enum EStereoscopicPass StereoPass, int32& X, int32& Y, uint32& SizeX, uint32& SizeY) const  override;
+	//virtual FVector2D GetTextSafeRegionBounds() const override;
+	virtual void CalculateStereoViewOffset(const enum EStereoscopicPass StereoPassType, FRotator& ViewRotation, const float WorldToMeters, FVector& ViewLocation) override;
+	virtual FMatrix GetStereoProjectionMatrix(const enum EStereoscopicPass StereoPassType) const override;
+	virtual void InitCanvasFromView(class FSceneView* InView, class UCanvas* Canvas) override;
+	//virtual void GetEyeRenderParams_RenderThread(const struct FRenderingCompositePassContext& Context, FVector2D& EyeToSrcUVScaleValue, FVector2D& EyeToSrcUVOffsetValue) const override;
+	//virtual bool IsSpectatorScreenActive() const override;
+	virtual void RenderTexture_RenderThread(class FRHICommandListImmediate& RHICmdList, class FRHITexture2D* BackBuffer, class FRHITexture2D* SrcTexture, FVector2D WindowSize) const override;
+	virtual void GetOrthoProjection(int32 RTWidth, int32 RTHeight, float OrthoDistance, FMatrix OrthoProjection[2]) const override;
+	//virtual void SetClippingPlanes(float NCP, float FCP) override;
+	virtual FRHICustomPresent* GetCustomPresent() override { return CustomPresent; }
+	virtual IStereoRenderTargetManager* GetRenderTargetManager() override { return this; }
+	virtual IStereoLayers* GetStereoLayers() override { return this; }
+	//virtual void UseImplicitHmdPosition(bool bInImplicitHmdPosition) override;
+	//virtual bool GetUseImplicitHmdPosition() override;
 
 	// FHeadMoundedDisplayBase interface
+	virtual FVector2D GetEyeCenterPoint_RenderThread(EStereoscopicPass StereoPassType) const override;
+	virtual FIntRect GetFullFlatEyeRect_RenderThread(FTexture2DRHIRef EyeTexture) const override;
+	virtual void CopyTexture_RenderThread(FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef SrcTexture, FIntRect SrcRect, FTexture2DRHIParamRef DstTexture, FIntRect DstRect, bool bClearBlack) const override;
 	virtual bool PopulateAnalyticsAttributes(TArray<struct FAnalyticsEventAttribute>& EventAttributes) override;
 
+	// FXRRenderTargetManager interface
+	virtual bool ShouldUseSeparateRenderTarget() const override;
+	virtual void CalculateRenderTargetSize(const FViewport& Viewport, uint32& InOutSizeX, uint32& InOutSizeY) override;
+	virtual bool NeedReAllocateViewportRenderTarget(const class FViewport& Viewport) override;
+	virtual bool NeedReAllocateDepthTexture(const TRefCountPtr<IPooledRenderTarget>& DepthTarget) override;
+	virtual bool AllocateRenderTargetTexture(uint32 Index, uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 InTexFlags, uint32 InTargetableTextureFlags, FTexture2DRHIRef& OutTargetableTexture, FTexture2DRHIRef& OutShaderResourceTexture, uint32 NumSamples = 1) override;
+	virtual bool AllocateDepthTexture(uint32 Index, uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 InTexFlags, uint32 TargetableTextureFlags, FTexture2DRHIRef& OutTargetableTexture, FTexture2DRHIRef& OutShaderResourceTexture, uint32 NumSamples = 1) override;
+	virtual void UpdateViewportWidget(bool bUseSeparateRenderTarget, const class FViewport& Viewport, class SViewport* ViewportWidget) override;
+	virtual void UpdateViewportRHIBridge(bool bUseSeparateRenderTarget, const class FViewport& Viewport, FRHIViewport* const ViewportRHI) override;
 
 	// IStereoLayers interface
 	virtual uint32 CreateLayer(const IStereoLayers::FLayerDesc& InLayerDesc) override;
@@ -143,7 +182,7 @@ public:
 	virtual bool GetLayerDesc(uint32 LayerId, IStereoLayers::FLayerDesc& OutLayerDesc) override;
 	virtual void MarkTextureForUpdate(uint32 LayerId) override;
 	virtual void UpdateSplashScreen() override;
-
+	virtual IStereoLayers::FLayerDesc GetDebugCanvasLayerDesc(FTextureRHIRef Texture) override;
 
 	// ISceneViewExtension
 	virtual void SetupViewFamily(FSceneViewFamily& InViewFamily) override;
@@ -152,44 +191,35 @@ public:
 	virtual void PreRenderViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& InViewFamily) override;
 	virtual void PreRenderView_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView) override;
 	virtual void PostRenderViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& InViewFamily) override;
-
-
-	// Spectator Screen
-public:
-	virtual FIntRect GetFullFlatEyeRect(FTexture2DRHIRef EyeTexture) const override;
-	virtual void CopyTexture_RenderThread(FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef SrcTexture, FIntRect SrcRect, FTexture2DRHIParamRef DstTexture, FIntRect DstRect, bool bClearBlack) const override;
-	ESpectatorScreenMode GetSpectatorScreenMode() const;
-
-private:
-	void CreateSpectatorScreenController();
-	bool ShouldDisableHiddenAndVisibileAreaMeshForSpectatorScreen_RenderThread() const;
+	virtual int32 GetPriority() const override;
+	virtual bool IsActiveThisFrame(class FViewport* InViewport) const override;
 
 
 public:
-	FOculusHMD();
+	FOculusHMD(const FAutoRegister&);
 	~FOculusHMD();
 
 protected:
 	bool Startup();
 	void PreShutdown();
 	void Shutdown();
-
-	bool InitializeSession(ovrpRenderAPIType apiType);
+	bool InitializeSession();
 	void ShutdownSession();
-
 	bool InitDevice();
 	void ReleaseDevice();
-
 	void ApplicationPauseDelegate();
 	void ApplicationResumeDelegate();
-
 	void SetupOcclusionMeshes();
 	void UpdateStereoRenderingParams();
 	void UpdateHmdRenderInfo();
+	void InitializeEyeLayer_RenderThread(FRHICommandListImmediate& RHICmdList);
 	void ApplySystemOverridesOnStereo(bool force = false);
 	bool OnOculusStateChange(bool bIsEnabledNow);
-
+	bool ShouldDisableHiddenAndVisibileAreaMeshForSpectatorScreen_RenderThread() const;
 	void RenderPokeAHole(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& InViewFamily);
+#if !UE_BUILD_SHIPPING
+	void DrawDebug(UCanvas* InCanvas, APlayerController* InPlayerController);
+#endif
 
 	class FSceneViewport* FindSceneViewport();
 
@@ -197,24 +227,14 @@ public:
 	bool IsHMDActive() const;
 
 	FSplash* GetSplash() const { return Splash.Get(); }
-
-	IRendererModule* GetRendererModule() { return RendererModule; }
 	FCustomPresent* GetCustomPresent_Internal() const { return CustomPresent; }
 
 	float GetWorldToMetersScale() const;
-
 	float GetMonoCullingDistance() const;
 
-	/**
-	* A helper function that calculates the estimated neck position using the specified orientation and position
-	* (for example, reported by GetCurrentOrientationAndPosition()).
-	*
-	* @param CurrentOrientation	(in) The device's current rotation
-	* @param CurrentPosition		(in) The device's current position, in its own tracking space
-	* @param PositionScale			(in) The 3D scale that will be applied to position.
-	* @return			The estimated neck position, calculated using NeckToEye vector from User Profile. Same coordinate space as CurrentPosition.
-	*/
-	FVector GetNeckPosition(const FQuat& CurrentOrientation, const FVector& CurrentPosition, const FVector& PositionScale);
+	ESpectatorScreenMode GetSpectatorScreenMode_RenderThread() const;
+
+	FVector GetNeckPosition(const FQuat& HeadOrientation, const FVector& HeadPosition);
 
 	/**
 	* Sets base position offset (in meters). The base position offset is the distance from the physical (0, 0, 0) position
@@ -236,17 +256,12 @@ public:
 	*/
 	FVector GetBaseOffsetInMeters() const;
 
-	void GetCurrentHMDPose(FQuat& HeadOrientation, FVector& HeadPosition, bool bUseOrienationForPlayerCamera, bool bUsePositionForPlayerCamera, const FVector& PositionScale = FVector::ZeroVector);
-
-	bool UpdatePose();
-	bool UpdatePose_RenderThread();
-
 	OCULUSHMD_API bool ConvertPose(const ovrpPosef& InPose, FPose& OutPose) const;
 	OCULUSHMD_API bool ConvertPose_RenderThread(const ovrpPosef& InPose, FPose& OutPose) const;
-	OCULUSHMD_API static bool ConvertPose_Internal(const ovrpPosef& InPose, FPose& OutPose, const FSettings* Settings, float WorldToMetersScale = 100.0f, FVector PositionScale = FVector(1.0f));
+	OCULUSHMD_API static bool ConvertPose_Internal(const ovrpPosef& InPose, FPose& OutPose, const FSettings* Settings, float WorldToMetersScale = 100.0f);
 
 	/** Turns ovrVector3f in Unreal World space to a scaled FVector and applies translation and rotation corresponding to player movement */
-	FVector ScaleAndMovePointWithPlayer(ovrpVector3f& OculusHMDPoint) const;
+	FVector ScaleAndMovePointWithPlayer(ovrpVector3f& OculusHMDPoint);
 
 	/** Convert dimension of a float (e.g., a distance) from meters to Unreal Units */
 	float ConvertFloat_M2U(float OculusFloat) const;
@@ -262,9 +277,7 @@ public:
 	bool GetUserProfile(UserProfile& OutProfile);
 	float GetVsyncToNextVsync() const;
 	FPerformanceStats GetPerformanceStats() const;
-	void SetPixelDensity(float NewPD);
 	bool DoEnableStereo(bool bStereo);
-	void ResetStereoRenderingParams();
 	void ResetControlRotation() const;
 
 
@@ -277,6 +290,8 @@ public:
 	const FGameFrame* GetFrame_RenderThread() const { CheckInRenderThread(); return Frame_RenderThread.Get(); }
 	FGameFrame* GetFrame_RHIThread() { CheckInRHIThread(); return Frame_RHIThread.Get(); }
 	const FGameFrame* GetFrame_RHIThread() const { CheckInRHIThread(); return Frame_RHIThread.Get(); }
+	FGameFrame* GetNextFrameToRender() { CheckInGameThread(); return NextFrameToRender.Get(); }
+	const FGameFrame* GetNextFrameToRender() const { CheckInGameThread(); return NextFrameToRender.Get(); }
 
 	FSettings* GetSettings() { CheckInGameThread(); return Settings.Get(); }
 	const FSettings* GetSettings() const { CheckInGameThread(); return Settings.Get(); }
@@ -285,23 +300,18 @@ public:
 	FSettings* GetSettings_RHIThread() { CheckInRHIThread(); return Settings_RHIThread.Get(); }
 	const FSettings* GetSettings_RHIThread() const { CheckInRHIThread(); return Settings_RHIThread.Get(); }
 
-	FLayer* GetEyeLayer_RenderThread() { CheckInRenderThread(); return EyeLayer_RenderThread.Get(); }
-	const FLayer* GetEyeLayer_RenderThread() const { CheckInRenderThread(); return EyeLayer_RenderThread.Get(); }
-	FLayer* GetEyeLayer_RHIThread() { CheckInRHIThread(); return EyeLayer_RHIThread.Get(); }
-	const FLayer* GetEyeLayer_RHIThread() const { CheckInRHIThread(); return EyeLayer_RHIThread.Get(); }
-
-	bool StartGameFrame_GameThread(); // Called from OnStartGameFrame
+	void StartGameFrame_GameThread(); // Called from OnStartGameFrame
 	void FinishGameFrame_GameThread(); // Called from OnEndGameFrame
-	bool StartRenderFrame_GameThread(); // Called from BeginRenderViewFamily
+	void StartRenderFrame_GameThread(); // Called from BeginRenderViewFamily
 	void FinishRenderFrame_RenderThread(FRHICommandListImmediate& RHICmdList); // Called from PostRenderViewFamily_RenderThread
-	bool StartRHIFrame_RenderThread(); // Called from PreRenderViewFamily_RenderThread
+	void StartRHIFrame_RenderThread(); // Called from PreRenderViewFamily_RenderThread
 	void FinishRHIFrame_RHIThread(); // Called from FinishRendering_RHIThread
 
+	void SetTiledMultiResLevel(ETiledMultiResLevel multiresLevel);
 
 protected:
 	FConsoleCommands ConsoleCommands;
 	void UpdateOnRenderThreadCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
-	void PixelDensityCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
 	void PixelDensityMinCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
 	void PixelDensityMaxCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
 	void PixelDensityAdaptiveCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
@@ -310,18 +320,11 @@ protected:
 	void ShowGlobalMenuCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
 	void ShowQuitMenuCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
 #if !UE_BUILD_SHIPPING
-	void UpdateOnGameThreadCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
-	void PositionOffsetCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
 	void EnforceHeadTrackingCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
 	void StatsCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
-	void GridCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
 	void ShowSettingsCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
 	void IPDCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
-	void FCPCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
-	void NCPCommandHandler(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar);
 #endif
-	static void CVarSinkHandler();
-	static FAutoConsoleVariableSink CVarSink;
 
 	void LoadFromIni();
 	void SaveToIni();
@@ -329,7 +332,7 @@ protected:
 protected:
 	void UpdateHMDWornState();
 	EHMDWornState::Type HMDWornState = EHMDWornState::Unknown;
-		
+
 	union
 	{
 		struct
@@ -378,23 +381,25 @@ protected:
 
 	// Game thread
 	FSettingsPtr Settings;
-	uint32 FrameNumber;
+	uint32 NextFrameNumber;
 	FGameFramePtr Frame; // Valid from OnStartGameFrame to OnEndGameFrame
 	FGameFramePtr NextFrameToRender; // Valid from OnStartGameFrame to BeginRenderViewFamily
+	FGameFramePtr LastFrameToRender; // Valid from OnStartGameFrame to BeginRenderViewFamily
 	uint32 NextLayerId;
 	TMap<uint32, FLayerPtr> LayerMap;
+	bool bNeedReAllocateViewportRenderTarget;
 
 	// Render thread
 	FSettingsPtr Settings_RenderThread;
 	FGameFramePtr Frame_RenderThread; // Valid from BeginRenderViewFamily to PostRenderViewFamily_RenderThread
 	TArray<FLayerPtr> Layers_RenderThread;
-	FLayerPtr EyeLayer_RenderThread;
+	FLayerPtr EyeLayer_RenderThread; // Valid to be accessed from game thread, since updated only when game thread is waiting
+	bool bNeedReAllocateDepthTexture_RenderThread;
 
 	// RHI thread
 	FSettingsPtr Settings_RHIThread;
 	FGameFramePtr Frame_RHIThread; // Valid from PreRenderViewFamily_RenderThread to FinishRendering_RHIThread
 	TArray<FLayerPtr> Layers_RHIThread;
-	FLayerPtr EyeLayer_RHIThread;
 
 
 	FHMDViewMesh HiddenAreaMeshes[2];
@@ -403,13 +408,7 @@ protected:
 	FPerformanceStats PerformanceStats;
 
 #if !UE_BUILD_SHIPPING
-	TWeakObjectPtr<AStaticMeshActor> SeaOfCubesActorPtr;
-	FVector CachedViewLocation;
-	FString CubeMeshName, CubeMaterialName;
-	float SideOfSingleCubeInMeters;
-	float SeaOfCubesVolumeSizeInMeters;
-	int NumberOfCubesInOneSide;
-	FVector CenterOffsetInMeters; // offset from the center of 'sea of cubes'
+	FDelegateHandle DrawDebugDelegateHandle;
 #endif
 };
 

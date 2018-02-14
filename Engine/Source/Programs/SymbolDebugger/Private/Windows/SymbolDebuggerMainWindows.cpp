@@ -1,8 +1,8 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SymbolDebuggerApp.h"
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 
 /**
  * WinMain, called when the application is started

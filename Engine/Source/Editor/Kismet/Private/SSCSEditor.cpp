@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SSCSEditor.h"
@@ -27,14 +27,14 @@
 #include "Kismet2/KismetEditorUtilities.h"
 #include "EdGraphSchema_K2.h"
 #include "GraphEditorActions.h"
-#include "ToolkitManager.h"
+#include "Toolkits/ToolkitManager.h"
 #include "K2Node_Variable.h"
 #include "K2Node_ComponentBoundEvent.h"
 #include "K2Node_VariableGet.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "ComponentAssetBroker.h"
 #include "ClassViewerFilter.h"
-#include "SSearchBox.h"
+#include "Widgets/Input/SSearchBox.h"
 #include "PropertyPath.h"
 
 #include "AssetSelection.h"
@@ -4453,7 +4453,7 @@ void SSCSEditor::UpdateTree(bool bRegenerateTreeNodes)
 		if (EditorMode == EComponentEditorMode::BlueprintSCS)
 		{
 			// Get the class default object
-			AActor* CDO = NULL;
+			AActor* CDO = nullptr;
 			TArray<UBlueprint*> ParentBPStack;
 
 			if(AActor* Actor = GetActorContext())
@@ -4468,7 +4468,7 @@ void SSCSEditor::UpdateTree(bool bRegenerateTreeNodes)
 				}
 			}
 
-			if(CDO != NULL)
+			if(CDO != nullptr)
 			{
 				
 				TInlineComponentArray<UActorComponent*> Components;
@@ -4476,7 +4476,7 @@ void SSCSEditor::UpdateTree(bool bRegenerateTreeNodes)
 
 				// Add the native root component
 				USceneComponent* RootComponent = CDO->GetRootComponent();
-				if(RootComponent != NULL)
+				if(RootComponent != nullptr)
 				{
 					Components.Remove(RootComponent);
 					AddTreeNodeFromComponent(RootComponent);
@@ -4505,29 +4505,45 @@ void SSCSEditor::UpdateTree(bool bRegenerateTreeNodes)
 			// Add the full SCS tree node hierarchy (including SCS nodes inherited from parent blueprints)
 			for(int32 StackIndex = ParentBPStack.Num() - 1; StackIndex >= 0; --StackIndex)
 			{
-				if(ParentBPStack[StackIndex]->SimpleConstructionScript != NULL)
+				if(ParentBPStack[StackIndex]->SimpleConstructionScript != nullptr)
 				{
 					const TArray<USCS_Node*>& SCS_RootNodes = ParentBPStack[StackIndex]->SimpleConstructionScript->GetRootNodes();
 					for(int32 NodeIndex = 0; NodeIndex < SCS_RootNodes.Num(); ++NodeIndex)
 					{
 						USCS_Node* SCS_Node = SCS_RootNodes[NodeIndex];
-						check(SCS_Node != NULL);
+						check(SCS_Node != nullptr);
 
+						FSCSEditorTreeNodePtrType NewNodePtr;
 						if(SCS_Node->ParentComponentOrVariableName != NAME_None)
 						{
 							USceneComponent* ParentComponent = SCS_Node->GetParentComponentTemplate(ParentBPStack[0]);
-							if(ParentComponent != NULL)
+							if(ParentComponent != nullptr)
 							{
 								FSCSEditorTreeNodePtrType ParentNodePtr = FindTreeNode(ParentComponent);
 								if(ParentNodePtr.IsValid())
 								{
-									AddTreeNode(SCS_Node, ParentNodePtr, StackIndex > 0);
+									NewNodePtr = AddTreeNode(SCS_Node, ParentNodePtr, StackIndex > 0);
 								}
 							}
 						}
 						else
 						{
-							AddTreeNode(SCS_Node, SceneRootNodePtr, StackIndex > 0);
+							NewNodePtr = AddTreeNode(SCS_Node, SceneRootNodePtr, StackIndex > 0);
+						}
+
+						// Only necessary to do the following for inherited nodes (StackIndex > 0).
+						if (NewNodePtr.IsValid() && StackIndex > 0)
+						{
+							// This call creates ICH override templates for the current Blueprint. Without this, the parent node
+							// search above can fail when attempting to match an inherited node in the tree via component template.
+							NewNodePtr->GetEditableComponentTemplate(ParentBPStack[0]);
+							for (FSCSEditorTreeNodePtrType ChildNodePtr : NewNodePtr->GetChildren())
+							{
+								if (ensure(ChildNodePtr.IsValid()))
+								{
+									ChildNodePtr->GetEditableComponentTemplate(ParentBPStack[0]);
+								}
+							}
 						}
 					}
 				}
@@ -5643,18 +5659,35 @@ void SSCSEditor::RemoveComponentNode(FSCSEditorTreeNodePtrType InNodePtr)
 			// Clear the delegate
 			SCS_Node->SetOnNameChanged(FSCSNodeNameChanged());
 
-			// on removal, since we don't move the template from the 
-			// GeneratedClass (which we shouldn't, as it would create a 
-			// discrepancy with existing instances), we rename it instead so that 
-			// we can re-use the name without having to compile (we still have a 
-			// problem if they attempt to name it to what ever we choose here, 
-			// but that is unlikely)
+			// on removal, since we don't move the template from the GeneratedClass (which we shouldn't, as it would create a 
+			// discrepancy with existing instances), we rename it instead so that we can re-use the name without having to compile  
+			// (we still have a problem if they attempt to name it to what ever we choose here, but that is unlikely)
 			// note: skip this for the default scene root; we don't actually destroy that node when it's removed, so we don't need the template to be renamed.
 			if (!InNodePtr->IsDefaultSceneRoot() && SCS_Node->ComponentTemplate != nullptr)
 			{
-				SCS_Node->ComponentTemplate->Modify();
+				const FName TemplateName = SCS_Node->ComponentTemplate->GetFName();
 				const FString RemovedName = SCS_Node->GetVariableName().ToString() + TEXT("_REMOVED_") + FGuid::NewGuid().ToString();
+
+				SCS_Node->ComponentTemplate->Modify();
 				SCS_Node->ComponentTemplate->Rename(*RemovedName, /*NewOuter =*/nullptr, REN_DontCreateRedirectors);
+
+				if (Blueprint)
+				{
+					// Children need to have their inherited component template instance of the component renamed out of the way as well
+					TArray<UClass*> ChildrenOfClass;
+					GetDerivedClasses(Blueprint->GeneratedClass, ChildrenOfClass);
+
+					for (UClass* ChildClass : ChildrenOfClass)
+					{
+						UBlueprintGeneratedClass* BPChildClass = CastChecked<UBlueprintGeneratedClass>(ChildClass);
+
+						if (UActorComponent* Component = (UActorComponent*)FindObjectWithOuter(BPChildClass, UActorComponent::StaticClass(), TemplateName))
+						{
+							Component->Modify();
+							Component->Rename(*RemovedName, /*NewOuter =*/nullptr, REN_DontCreateRedirectors);
+						}
+					}
+				}
 			}
 		}
 	}

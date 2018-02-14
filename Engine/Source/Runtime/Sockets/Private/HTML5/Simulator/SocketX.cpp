@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SocketX.h"
 #include "Sockets/SocketRaw.h"
@@ -32,9 +32,9 @@ bool FSocketX::Listen( int32 MaxBacklog )
 	return Pimpl->Listen(MaxBacklog);
 }
 
-bool FSocketX::HasPendingConnection( bool& bHasPendingConnection )
+bool FSocketX::WaitForPendingConnection( bool& bHasPendingConnection, const FTimespan& WaitTime)
 {
-	return Pimpl->HasPendingConnection(bHasPendingConnection); 
+	return Pimpl->WaitForPendingConnection(bHasPendingConnection, WaitTime); 
 }
 
 bool FSocketX::HasPendingData( uint32& PendingDataSize )

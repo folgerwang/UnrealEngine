@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerDisplayNodeDragDropOp.h"
 #include "MovieSceneSequence.h"
@@ -7,9 +7,9 @@
 #include "SequencerDisplayNode.h"
 #include "SequencerObjectBindingNode.h"
 #include "K2Node_GetSequenceBinding.h"
-#include "SBorder.h"
-#include "SImage.h"
-#include "STextBlock.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
 #include "EditorStyleSet.h"
 #include "EdGraph/EdGraph.h"
 

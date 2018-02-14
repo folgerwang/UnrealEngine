@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanRenderTarget.cpp: Vulkan render target implementation.
@@ -30,6 +30,9 @@ static FAutoConsoleVariableRef CVarVulkanIgnoreCPUReads(
 	TEXT(" 2 will NOT read from the GPU and fill with zeros.\n"),
 	ECVF_Default
 	);
+
+static FCriticalSection GStagingMapLock;
+static TMap<FVulkanTextureBase*, VulkanRHI::FStagingBuffer*> GPendingLockedStagingBuffers;
 
 void FVulkanCommandListContext::FTransitionState::Destroy(FVulkanDevice& InDevice)
 {
@@ -324,7 +327,17 @@ void FVulkanCommandListContext::RHISetRenderTargets(uint32 NumSimultaneousRender
 
 	if (TransitionState.RenderingMipChainInfo.bInsideRenderingMipChain)
 	{
-		check(Framebuffer);
+		if (!Framebuffer)
+		{
+			UE_LOG(LogVulkanRHI, Fatal, TEXT("Unable to find framebuffer during mipchain generation: W,H:%d,%d CurrMip:%d LastMip:%d #Mips:%d VkViewType:%d PF_:%d"),
+				RTLayout.GetExtent2D().width,
+				RTLayout.GetExtent2D().height,
+				TransitionState.RenderingMipChainInfo.CurrentMip,
+				TransitionState.RenderingMipChainInfo.LastRenderedMip,
+				TransitionState.RenderingMipChainInfo.Texture->Surface.GetNumMips(),
+				(int32)TransitionState.RenderingMipChainInfo.Texture->Surface.GetViewType(),
+				(int32)TransitionState.RenderingMipChainInfo.Texture->Surface.PixelFormat);
+		}
 		TransitionState.ProcessMipChainTransitions(CmdBuffer, Framebuffer, Framebuffer->RTInfo.ColorRenderTarget[0].MipIndex);
 	}
 
@@ -550,7 +563,7 @@ void FVulkanDynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI, FIntR
 
 	FVulkanCmdBuffer* CmdBuffer = ImmediateContext.GetCommandBufferManager()->GetUploadCmdBuffer();
 
-	ensure(Texture2D->Surface.StorageFormat == VK_FORMAT_R8G8B8A8_UNORM || Texture2D->Surface.StorageFormat == VK_FORMAT_B8G8R8A8_UNORM || Texture2D->Surface.StorageFormat == VK_FORMAT_R16G16B16A16_SFLOAT);
+	ensure(Texture2D->Surface.StorageFormat == VK_FORMAT_R8G8B8A8_UNORM || Texture2D->Surface.StorageFormat == VK_FORMAT_B8G8R8A8_UNORM || Texture2D->Surface.StorageFormat == VK_FORMAT_R16G16B16A16_SFLOAT || Texture2D->Surface.StorageFormat == VK_FORMAT_A2B10G10R10_UNORM_PACK32);
 	const uint32 Size = NumPixels * sizeof(FColor);
 	VulkanRHI::FStagingBuffer* StagingBuffer = Device->GetStagingManager().AcquireBuffer(Size, VK_BUFFER_USAGE_TRANSFER_DST_BIT, true);
 	if (GIgnoreCPUReads == 0)
@@ -560,7 +573,7 @@ void FVulkanDynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI, FIntR
 		//Region.bufferOffset = 0;
 		CopyRegion.bufferRowLength = TextureRHI2D->GetSizeX();
 		CopyRegion.bufferImageHeight = TextureRHI2D->GetSizeY();
-		CopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		CopyRegion.imageSubresource.aspectMask = Texture2D->Surface.GetFullAspectMask();
 		//Region.imageSubresource.mipLevel = 0;
 		//Region.imageSubresource.baseArrayLayer = 0;
 		CopyRegion.imageSubresource.layerCount = 1;
@@ -597,6 +610,7 @@ void FVulkanDynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI, FIntR
 	ImmediateContext.GetCommandBufferManager()->SubmitUploadCmdBuffer(true);
 	Device->WaitUntilIdle();
 
+/*
 	VkMappedMemoryRange MappedRange;
 	FMemory::Memzero(MappedRange);
 	MappedRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
@@ -604,6 +618,8 @@ void FVulkanDynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI, FIntR
 	MappedRange.offset = StagingBuffer->GetAllocationOffset();
 	MappedRange.size = Size;
 	VulkanRHI::vkInvalidateMappedMemoryRanges(Device->GetInstanceHandle(), 1, &MappedRange);
+*/
+	StagingBuffer->InvalidateMappedMemory();
 
 	OutData.SetNum(NumPixels);
 	FColor* Dest = OutData.GetData();
@@ -615,12 +631,37 @@ void FVulkanDynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI, FIntR
 			FFloat16Color* Src = (FFloat16Color*)StagingBuffer->GetMappedPointer() + Row * TextureRHI2D->GetSizeX() + Rect.Min.X;
 			for (int32 Col = Rect.Min.X; Col < Rect.Max.X; ++Col)
 			{
-				Dest->R = (uint8)(uint32)FMath::Clamp<int32>((int32)(Src->B.GetFloat() * 255.0f), 0, 255);
+				Dest->R = (uint8)(uint32)FMath::Clamp<int32>((int32)(Src->R.GetFloat() * 255.0f), 0, 255);
 				Dest->G = (uint8)(uint32)FMath::Clamp<int32>((int32)(Src->G.GetFloat() * 255.0f), 0, 255);
-				Dest->B = (uint8)(uint32)FMath::Clamp<int32>((int32)(Src->R.GetFloat() * 255.0f), 0, 255);
+				Dest->B = (uint8)(uint32)FMath::Clamp<int32>((int32)(Src->B.GetFloat() * 255.0f), 0, 255);
 				Dest->A = (uint8)(uint32)FMath::Clamp<int32>((int32)(Src->A.GetFloat() * 255.0f), 0, 255);
 				Dest++;
 				Src++;
+			}
+		}
+	}
+	else if (Texture2D->Surface.StorageFormat == VK_FORMAT_A2B10G10R10_UNORM_PACK32)
+	{
+		struct FR10G10B10A2
+		{
+			uint32 R : 10;
+			uint32 G : 10;
+			uint32 B : 10;
+			uint32 A : 2;
+		};
+		for (int32 Row = Rect.Min.Y; Row < Rect.Max.Y; ++Row)
+		{
+			FR10G10B10A2* Src = (FR10G10B10A2*)StagingBuffer->GetMappedPointer() + Row * TextureRHI2D->GetSizeX() + Rect.Min.X;
+			for (int32 Col = Rect.Min.X; Col < Rect.Max.X; ++Col)
+			{
+				*Dest = FLinearColor(
+					(float)Src->R / 1023.0f,
+					(float)Src->G / 1023.0f,
+					(float)Src->B / 1023.0f,
+					(float)Src->A / 3.0f
+				).Quantize();
+				++Dest;
+				++Src;
 			}
 		}
 	}
@@ -658,12 +699,84 @@ void FVulkanDynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI, FIntR
 
 void FVulkanDynamicRHI::RHIMapStagingSurface(FTextureRHIParamRef TextureRHI,void*& OutData,int32& OutWidth,int32& OutHeight)
 {
-	VULKAN_SIGNAL_UNIMPLEMENTED();
+	FRHITexture2D* TextureRHI2D = TextureRHI->GetTexture2D();
+	check(TextureRHI2D);
+	FVulkanTexture2D* Texture2D = ResourceCast(TextureRHI2D);
+
+	VulkanRHI::FStagingBuffer** StagingBufferPtr = nullptr;
+	{
+		FScopeLock Lock(&GStagingMapLock);
+		StagingBufferPtr = &GPendingLockedStagingBuffers.FindOrAdd(Texture2D);
+		checkf(!*StagingBufferPtr, TEXT("Can't map the same texture twice!"));
+	}
+
+	OutWidth = Texture2D->GetSizeX();
+	OutHeight = Texture2D->GetSizeY();
+
+	uint32 BufferSize = OutWidth * OutHeight * VulkanRHI::GetNumBitsPerPixel(Texture2D->Surface.ViewFormat) / 8;
+	VulkanRHI::FStagingBuffer* StagingBuffer = Device->GetStagingManager().AcquireBuffer(BufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT, true);
+	*StagingBufferPtr = StagingBuffer;
+
+	Device->PrepareForCPURead(); //make sure the results are ready 
+	FVulkanCmdBuffer* CmdBuffer = Device->GetImmediateContext().GetCommandBufferManager()->GetUploadCmdBuffer();
+
+	// Transition texture to source copy layout
+	const VkImageLayout* CurrentLayout = Device->GetImmediateContext().TransitionState.CurrentLayout.Find(Texture2D->Surface.Image);
+	VulkanSetImageLayoutSimple(CmdBuffer->GetHandle(), Texture2D->Surface.Image, CurrentLayout ? *CurrentLayout : VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
+	VkBufferImageCopy CopyRegion;
+	FMemory::Memzero(CopyRegion);
+	//Region.bufferOffset = 0;
+	CopyRegion.bufferRowLength = OutWidth;
+	CopyRegion.bufferImageHeight = OutHeight;
+	CopyRegion.imageSubresource.aspectMask = Texture2D->Surface.GetFullAspectMask();
+	//CopyRegion.imageSubresource.mipLevel = InMipIndex;
+	//CopyRegion.imageSubresource.baseArrayLayer = SrcBaseArrayLayer;
+	CopyRegion.imageSubresource.layerCount = 1;
+	CopyRegion.imageExtent.width = OutWidth;
+	CopyRegion.imageExtent.height = OutHeight;
+	CopyRegion.imageExtent.depth = 1;
+
+	VulkanRHI::vkCmdCopyImageToBuffer(CmdBuffer->GetHandle(), Texture2D->Surface.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, StagingBuffer->GetHandle(), 1, &CopyRegion);
+	// Transition back to original layout
+	if (CurrentLayout)
+	{
+		VulkanSetImageLayoutSimple(CmdBuffer->GetHandle(), Texture2D->Surface.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *CurrentLayout);
+	}
+	else
+	{
+		Device->GetImmediateContext().TransitionState.CurrentLayout.Add(Texture2D->Surface.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+	}
+
+	VkBufferMemoryBarrier Barrier;
+	ensure(StagingBuffer->GetSize() >= BufferSize);
+	//#todo-rco: Change offset if reusing a buffer suballocation
+	VulkanRHI::SetupAndZeroBufferBarrier(Barrier, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT, StagingBuffer->GetHandle(), 0/*StagingBuffer->GetOffset()*/, BufferSize);
+	VulkanRHI::vkCmdPipelineBarrier(CmdBuffer->GetHandle(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0, 0, nullptr, 1, &Barrier, 0, nullptr);
+
+	Device->GetImmediateContext().GetCommandBufferManager()->SubmitUploadCmdBuffer(true);
+
+	OutData = StagingBuffer->GetMappedPointer();
+	StagingBuffer->InvalidateMappedMemory();
 }
 
 void FVulkanDynamicRHI::RHIUnmapStagingSurface(FTextureRHIParamRef TextureRHI)
 {
-	VULKAN_SIGNAL_UNIMPLEMENTED();
+	FRHITexture2D* TextureRHI2D = TextureRHI->GetTexture2D();
+	check(TextureRHI2D);
+	FVulkanTexture2D* Texture2D = ResourceCast(TextureRHI2D);
+
+	VulkanRHI::FStagingBuffer* StagingBuffer = nullptr;
+	{
+		FScopeLock Lock(&GStagingMapLock);
+		bool bFound = GPendingLockedStagingBuffers.RemoveAndCopyValue(Texture2D, StagingBuffer);
+		checkf(bFound, TEXT("Texture was not mapped!"));
+	}
+
+	ensure(!Device->GetImmediateContext().GetCommandBufferManager()->HasPendingUploadCmdBuffer());
+
+	Device->GetImmediateContext().GetCommandBufferManager()->PrepareForNewActiveCommandBuffer();
+	Device->GetStagingManager().ReleaseBuffer(nullptr, StagingBuffer);
 }
 
 void FVulkanDynamicRHI::RHIReadSurfaceFloatData(FTextureRHIParamRef TextureRHI, FIntRect Rect, TArray<FFloat16Color>& OutData, ECubeFace CubeFace,int32 ArrayIndex,int32 MipIndex)
@@ -683,7 +796,7 @@ void FVulkanDynamicRHI::RHIReadSurfaceFloatData(FTextureRHIParamRef TextureRHI, 
 			//Region.bufferOffset = 0;
 			CopyRegion.bufferRowLength = Surface.Width >> InMipIndex;
 			CopyRegion.bufferImageHeight = Surface.Height >> InMipIndex;
-			CopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			CopyRegion.imageSubresource.aspectMask = Surface.GetFullAspectMask();
 			CopyRegion.imageSubresource.mipLevel = InMipIndex;
 			CopyRegion.imageSubresource.baseArrayLayer = SrcBaseArrayLayer;
 			CopyRegion.imageSubresource.layerCount = 1;
@@ -722,6 +835,8 @@ void FVulkanDynamicRHI::RHIReadSurfaceFloatData(FTextureRHIParamRef TextureRHI, 
 		InDevice->GetImmediateContext().GetCommandBufferManager()->SubmitUploadCmdBuffer(true);
 		InDevice->WaitUntilIdle();
 
+		StagingBuffer->InvalidateMappedMemory();
+/*
 		VkMappedMemoryRange MappedRange;
 		FMemory::Memzero(MappedRange);
 		MappedRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
@@ -729,6 +844,7 @@ void FVulkanDynamicRHI::RHIReadSurfaceFloatData(FTextureRHIParamRef TextureRHI, 
 		MappedRange.offset = StagingBuffer->GetAllocationOffset();
 		MappedRange.size = Size;
 		VulkanRHI::vkInvalidateMappedMemoryRanges(InDevice->GetInstanceHandle(), 1, &MappedRange);
+*/
 
 		OutputData.SetNum(NumPixels);
 		FFloat16Color* Dest = OutputData.GetData();
@@ -1126,15 +1242,15 @@ FVulkanRenderTargetLayout::FVulkanRenderTargetLayout(const FRHISetRenderTargetsI
 	
 			if (bSetExtent)
 			{
-				ensure(Extent.Extent3D.width == Texture->Surface.Width >> RTView.MipIndex);
-				ensure(Extent.Extent3D.height == Texture->Surface.Height >> RTView.MipIndex);
+				ensure(Extent.Extent3D.width == FMath::Max(1u, Texture->Surface.Width >> RTView.MipIndex));
+				ensure(Extent.Extent3D.height == FMath::Max(1u, Texture->Surface.Height >> RTView.MipIndex));
 				ensure(Extent.Extent3D.depth == Texture->Surface.Depth);
 			}
 			else
 			{
 				bSetExtent = true;
-				Extent.Extent3D.width = Texture->Surface.Width >> RTView.MipIndex;
-				Extent.Extent3D.height = Texture->Surface.Height >> RTView.MipIndex;
+				Extent.Extent3D.width = FMath::Max(1u, Texture->Surface.Width >> RTView.MipIndex);
+				Extent.Extent3D.height = FMath::Max(1u, Texture->Surface.Height >> RTView.MipIndex);
 				Extent.Extent3D.depth = Texture->Surface.Depth;
 			}
 

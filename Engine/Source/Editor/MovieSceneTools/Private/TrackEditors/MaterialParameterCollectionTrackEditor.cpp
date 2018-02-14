@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "TrackEditors/MaterialParameterCollectionTrackEditor.h"
 #include "Tracks/MovieSceneMaterialParameterCollectionTrack.h"
@@ -8,11 +8,11 @@
 #include "Sections/ParameterSection.h"
 #include "SequencerUtilities.h"
 #include "Algo/Sort.h"
-#include "SlateIconFinder.h"
+#include "Styling/SlateIconFinder.h"
 #include "ContentBrowserModule.h"
 #include "IContentBrowserSingleton.h"
-#include "SBox.h"
-#include "SlateApplication.h"
+#include "Widgets/Layout/SBox.h"
+#include "Framework/Application/SlateApplication.h"
 
 #define LOCTEXT_NAMESPACE "MaterialParameterCollectionTrackEditor"
 

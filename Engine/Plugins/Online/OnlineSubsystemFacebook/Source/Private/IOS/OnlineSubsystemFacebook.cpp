@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemFacebook.h"
 #include "OnlineSubsystemFacebookPrivate.h"
@@ -10,8 +10,8 @@
 
 #import <FBSDKCoreKit/FBSDKCoreKit.h>
 
-#include "CoreDelegates.h"
-#include "IOSAppDelegate.h"
+#include "Misc/CoreDelegates.h"
+#include "IOS/IOSAppDelegate.h"
 #include "Misc/CommandLine.h"
 #include "Misc/ConfigCacheIni.h"
 

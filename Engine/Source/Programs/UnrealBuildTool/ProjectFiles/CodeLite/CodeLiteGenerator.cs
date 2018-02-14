@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -19,15 +19,33 @@ namespace UnrealBuildTool
 		}
 	}
 
+	enum CodeliteProjectFileFormat
+	{
+		CodeLite9,
+		CodeLite10
+	}
+
 	class CodeLiteGenerator : ProjectFileGenerator
 	{
 		public string SolutionExtension = ".workspace";
 		public string CodeCompletionFileName = "CodeCompletionFolders.txt";
 		public string CodeCompletionPreProcessorFileName = "CodeLitePreProcessor.txt";
+		CodeliteProjectFileFormat ProjectFileFormat = CodeliteProjectFileFormat.CodeLite10;
 
-		public CodeLiteGenerator(FileReference InOnlyGameProject)
+		public CodeLiteGenerator(FileReference InOnlyGameProject, string[] Arguments)
 			: base(InOnlyGameProject)
 		{
+			foreach(string Argument in Arguments)
+			{
+				if(Argument.Equals("-cl10", StringComparison.InvariantCultureIgnoreCase))
+				{
+					ProjectFileFormat = CodeliteProjectFileFormat.CodeLite10;
+				}
+				else if (Argument.Equals("-cl9", StringComparison.InvariantCultureIgnoreCase))
+				{
+					ProjectFileFormat = CodeliteProjectFileFormat.CodeLite9;
+				}
+			}
 		}
 
 		//
@@ -42,13 +60,13 @@ namespace UnrealBuildTool
 		}
 		protected override bool WriteMasterProjectFile(ProjectFile UBTProject)
 		{
-			var SolutionFileName = MasterProjectName + SolutionExtension;
-			var CodeCompletionFile = MasterProjectName + CodeCompletionFileName;
-			var CodeCompletionPreProcessorFile = MasterProjectName + CodeCompletionPreProcessorFileName;
+			string SolutionFileName = MasterProjectName + SolutionExtension;
+			string CodeCompletionFile = MasterProjectName + CodeCompletionFileName;
+			string CodeCompletionPreProcessorFile = MasterProjectName + CodeCompletionPreProcessorFileName;
 
-			var FullCodeLiteMasterFile = Path.Combine(MasterProjectPath.FullName, SolutionFileName);
-			var FullCodeLiteCodeCompletionFile = Path.Combine(MasterProjectPath.FullName, CodeCompletionFile);
-			var FullCodeLiteCodeCompletionPreProcessorFile = Path.Combine(MasterProjectPath.FullName, CodeCompletionPreProcessorFile);
+			string FullCodeLiteMasterFile = Path.Combine(MasterProjectPath.FullName, SolutionFileName);
+			string FullCodeLiteCodeCompletionFile = Path.Combine(MasterProjectPath.FullName, CodeCompletionFile);
+			string FullCodeLiteCodeCompletionPreProcessorFile = Path.Combine(MasterProjectPath.FullName, CodeCompletionPreProcessorFile);
 
 			//
 			// HACK 
@@ -58,7 +76,7 @@ namespace UnrealBuildTool
 			List<string> IncludeDirectories = new List<string>();
 			List<string> PreProcessor = new List<string>();
 
-			foreach (var CurProject in GeneratedProjectFiles)
+			foreach (ProjectFile CurProject in GeneratedProjectFiles)
 			{
 				CodeLiteProject Project = CurProject as CodeLiteProject;
 				if (Project == null)
@@ -66,20 +84,20 @@ namespace UnrealBuildTool
 					continue;
 				}
 
-				foreach (var CurrentPath in Project.IntelliSenseIncludeSearchPaths)
+				foreach (string CurrentPath in Project.IntelliSenseIncludeSearchPaths)
 				{
 					// Convert relative path into absolute.
 					DirectoryReference IntelliSenseIncludeSearchPath = DirectoryReference.Combine(Project.ProjectFilePath.Directory, CurrentPath);
 					IncludeDirectories.Add(IntelliSenseIncludeSearchPath.FullName);
 				}
-				foreach (var CurrentPath in Project.IntelliSenseSystemIncludeSearchPaths)
+				foreach (string CurrentPath in Project.IntelliSenseSystemIncludeSearchPaths)
 				{
 					// Convert relative path into absolute.
 					DirectoryReference IntelliSenseSystemIncludeSearchPath = DirectoryReference.Combine(Project.ProjectFilePath.Directory, CurrentPath);
 					IncludeDirectories.Add(IntelliSenseSystemIncludeSearchPath.FullName);
 				}
 
-				foreach (var CurDef in Project.IntelliSensePreprocessorDefinitions)
+				foreach (string CurDef in Project.IntelliSensePreprocessorDefinitions)
 				{
 					if (!PreProcessor.Contains(CurDef))
 					{
@@ -115,7 +133,7 @@ namespace UnrealBuildTool
 			// Write Code Completion folders into the WorkspaceParserPaths section.
 			//
 			XElement CodeLiteWorkspaceParserPaths = new XElement("WorkspaceParserPaths");
-			foreach (var CurrentPath in IncludeDirectories)
+			foreach (string CurrentPath in IncludeDirectories)
 			{
 				XElement CodeLiteWorkspaceParserPathInclude = new XElement("Include");
 				XAttribute CodeLiteWorkspaceParserPath = new XAttribute("Path", CurrentPath);
@@ -128,9 +146,13 @@ namespace UnrealBuildTool
 			//
 			// Write project file information into CodeLite's workspace file.
 			//
-			foreach (var CurProject in AllProjectFiles)
+			XElement CodeLiteWorkspaceTargetEngine = null;
+			XElement CodeLiteWorkspaceTargetPrograms = null;
+			XElement CodeLiteWorkspaceTargetGame = null;
+
+			foreach (ProjectFile CurProject in AllProjectFiles)
 			{
-				var ProjectExtension = CurProject.ProjectFilePath.GetExtension();
+				string ProjectExtension = CurProject.ProjectFilePath.GetExtension();
 
 				//
 				// TODO For now ignore C# project files.
@@ -142,7 +164,7 @@ namespace UnrealBuildTool
 
 				//
 				// Iterate through all targets.
-				// 
+				//
 				foreach (ProjectTarget CurrentTarget in CurProject.ProjectTargets)
 				{
 					string[] tmp = CurrentTarget.ToString().Split('.');
@@ -157,10 +179,74 @@ namespace UnrealBuildTool
 					CodeLiteWorkspaceProject.Add(CodeLiteWorkspaceProjectName);
 					CodeLiteWorkspaceProject.Add(CodeLiteWorkspaceProjectPath);
 					CodeLiteWorkspaceProject.Add(CodeLiteWorkspaceProjectActive);
-					CodeLiteWorkspace.Add(CodeLiteWorkspaceProject);
+
+					//
+					// For CodeLite 10 we can use virtual folder to group projects.
+					//
+					if (ProjectFileFormat == CodeliteProjectFileFormat.CodeLite10)
+					{
+						if ((CurrentTarget.TargetRules.Type == TargetType.Client) ||
+						    (CurrentTarget.TargetRules.Type == TargetType.Server) ||
+						    (CurrentTarget.TargetRules.Type == TargetType.Editor) ||
+						    (CurrentTarget.TargetRules.Type == TargetType.Game))
+						{
+							if (ProjectName.Equals("UE4Client") ||
+								ProjectName.Equals("UE4Server") ||
+								ProjectName.Equals("UE4Game") ||
+								ProjectName.Equals("UE4Editor"))
+							{
+								if (CodeLiteWorkspaceTargetEngine == null)
+								{
+									CodeLiteWorkspaceTargetEngine = new XElement("VirtualDirectory");
+									XAttribute CodeLiteWorkspaceTargetEngineName = new XAttribute("Name", "Engine");
+									CodeLiteWorkspaceTargetEngine.Add(CodeLiteWorkspaceTargetEngineName);
+								}
+								CodeLiteWorkspaceTargetEngine.Add(CodeLiteWorkspaceProject);
+							}
+							else
+							{
+								if (CodeLiteWorkspaceTargetGame == null)
+								{
+									CodeLiteWorkspaceTargetGame = new XElement("VirtualDirectory");
+									XAttribute CodeLiteWorkspaceTargetGameName = new XAttribute("Name", "Game");
+									CodeLiteWorkspaceTargetGame.Add(CodeLiteWorkspaceTargetGameName);
+								}
+								CodeLiteWorkspaceTargetGame.Add(CodeLiteWorkspaceProject);
+							}
+						}
+						else if (CurrentTarget.TargetRules.Type == TargetType.Program)
+						{
+							if (CodeLiteWorkspaceTargetPrograms == null)
+							{
+								CodeLiteWorkspaceTargetPrograms = new XElement("VirtualDirectory");
+								XAttribute CodeLiteWorkspaceTargetProgramsName = new XAttribute("Name", "Programs");
+								CodeLiteWorkspaceTargetPrograms.Add(CodeLiteWorkspaceTargetProgramsName);
+							}
+							CodeLiteWorkspaceTargetPrograms.Add(CodeLiteWorkspaceProject);
+						}
+					}
+					else if (ProjectFileFormat == CodeliteProjectFileFormat.CodeLite9)
+					{
+						CodeLiteWorkspace.Add(CodeLiteWorkspaceProject);
+					}
 				}
 			}
-
+			if (ProjectFileFormat == CodeliteProjectFileFormat.CodeLite10)
+			{
+				
+				if (CodeLiteWorkspaceTargetEngine != null)
+				{
+					CodeLiteWorkspace.Add(CodeLiteWorkspaceTargetEngine);
+				}
+				if (CodeLiteWorkspaceTargetPrograms != null)
+				{
+					CodeLiteWorkspace.Add(CodeLiteWorkspaceTargetPrograms);
+				}
+				if (CodeLiteWorkspaceTargetGame != null)
+				{
+					CodeLiteWorkspace.Add(CodeLiteWorkspaceTargetGame);
+				}
+			}
 			//
 			// We need to create the configuration matrix. That will assign the project configuration to 
 			// the samge workspace configuration.
@@ -176,9 +262,9 @@ namespace UnrealBuildTool
 					CodeLiteWorkspaceBuildMatrixConfiguration.Add(CodeLiteWorkspaceProjectName);
 					CodeLiteWorkspaceBuildMatrixConfiguration.Add(CodeLiteWorkspaceProjectSelected);
 
-					foreach (var CurProject in AllProjectFiles)
+					foreach (ProjectFile CurProject in AllProjectFiles)
 					{
-						var ProjectExtension = CurProject.ProjectFilePath.GetExtension();
+						string ProjectExtension = CurProject.ProjectFilePath.GetExtension();
 
 						//
 						// TODO For now ignore C# project files.
@@ -224,9 +310,9 @@ namespace UnrealBuildTool
 		public override void CleanProjectFiles(DirectoryReference InMasterProjectDirectory, string InMasterProjectName, DirectoryReference InIntermediateProjectFilesDirectory)
 		{
 			// TODO Delete all files here. Not finished yet.
-			var SolutionFileName = InMasterProjectName + SolutionExtension;
-			var CodeCompletionFile = InMasterProjectName + CodeCompletionFileName;
-			var CodeCompletionPreProcessorFile = InMasterProjectName + CodeCompletionPreProcessorFileName;
+			string SolutionFileName = InMasterProjectName + SolutionExtension;
+			string CodeCompletionFile = InMasterProjectName + CodeCompletionFileName;
+			string CodeCompletionPreProcessorFile = InMasterProjectName + CodeCompletionPreProcessorFileName;
 
 			FileReference FullCodeLiteMasterFile = FileReference.Combine(InMasterProjectDirectory, SolutionFileName);
 			FileReference FullCodeLiteCodeCompletionFile = FileReference.Combine(InMasterProjectDirectory, CodeCompletionFile);

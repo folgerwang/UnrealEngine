@@ -1,13 +1,13 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "MovieSceneFwd.h"
-#include "ObjectKey.h"
+#include "UObject/ObjectKey.h"
 #include "IMovieScenePlayer.h"
-#include "BlendableTokenStack.h"
-#include "MovieSceneInitialValueStore.h"
+#include "Evaluation/Blending/BlendableTokenStack.h"
+#include "Evaluation/Blending/MovieSceneInitialValueStore.h"
 
 class UObject;
 

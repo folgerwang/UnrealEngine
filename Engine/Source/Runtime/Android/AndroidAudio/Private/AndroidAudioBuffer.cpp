@@ -1,8 +1,8 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidAudioDevice.h"
 #include "AudioEffect.h"
-#include "IAudioFormat.h"
+#include "Interfaces/IAudioFormat.h"
 #include "AudioDecompress.h"
 #include "ContentStreaming.h"
 
@@ -40,16 +40,8 @@ FSLESSoundBuffer::~FSLESSoundBuffer( void )
 
 FSLESSoundBuffer* FSLESSoundBuffer::CreateQueuedBuffer( FSLESAudioDevice* AudioDevice, USoundWave* InWave )
 {
-	// Check to see if thread has finished decompressing on the other thread
-	if (InWave->AudioDecompressor != nullptr)
-	{
-		InWave->AudioDecompressor->EnsureCompletion();
-
-		// Remove the decompressor
-		delete InWave->AudioDecompressor;
-		InWave->AudioDecompressor = nullptr;
-	}
-
+	check(InWave->bIsPrecacheDone);
+	
 	// Always create a new buffer for real time decompressed sounds
 	FSLESSoundBuffer* Buffer = new FSLESSoundBuffer( AudioDevice);
 	
@@ -156,16 +148,6 @@ FSLESSoundBuffer* FSLESSoundBuffer::CreateStreamBuffer( FSLESAudioDevice* AudioD
  */
 FSLESSoundBuffer* FSLESSoundBuffer::CreateNativeBuffer( FSLESAudioDevice* AudioDevice, USoundWave* InWave )
 {
-	// Check to see if thread has finished decompressing on the other thread
-	if( InWave->AudioDecompressor != NULL )
-	{
-		InWave->AudioDecompressor->EnsureCompletion();
-
-		// Remove the decompressor
-		delete InWave->AudioDecompressor;
-		InWave->AudioDecompressor = NULL;
-	}
-
 	FSLESSoundBuffer* Buffer = NULL;
 
 	// Create new buffer.

@@ -1,13 +1,13 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "WindowsMoviePlayer.h"
 #include "MoviePlayer.h"
 #include "WindowsMovieStreamer.h"
 #include "Modules/ModuleManager.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <mfapi.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 
 TSharedPtr<FMediaFoundationMovieStreamer> MovieStreamer;

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	GarbageCollection.h: Unreal realtime garbage collection helpers
@@ -510,6 +510,6 @@ class FGarbageCollectionTracer
 public:
 	virtual ~FGarbageCollectionTracer() {}
 
-	virtual void PerformReachabilityAnalysisOnObjects(FGCArrayStruct* ArrayStruct, TArray<UObject*>& ObjectsToSerialize, EObjectFlags KeepFlags, bool bForceSingleThreaded) = 0;
+	virtual void PerformReachabilityAnalysisOnObjects(FGCArrayStruct* ArrayStruct, bool bForceSingleThreaded) = 0;
 
 };

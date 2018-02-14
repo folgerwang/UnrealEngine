@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "VREditorModeManager.h"
 #include "InputCoreTypes.h"
@@ -13,10 +13,11 @@
 #include "EngineGlobals.h"
 #include "LevelEditor.h"
 #include "IHeadMountedDisplay.h"
+#include "IXRTrackingSystem.h"
 #include "EditorWorldExtension.h"
 #include "ViewportWorldInteraction.h"
 #include "VRModeSettings.h"
-#include "Dialogs.h"
+#include "Dialogs/Dialogs.h"
 #include "ProjectDescriptor.h"
 #include "Interfaces/IProjectManager.h"
 #include "UnrealEdMisc.h"
@@ -38,13 +39,13 @@ FVREditorModeManager::~FVREditorModeManager()
 void FVREditorModeManager::Tick( const float DeltaTime )
 {
 	// You can only auto-enter VR if the setting is enabled. Other criteria are that the VR Editor is enabled in experimental settings, that you are not in PIE, and that the editor is foreground.
+	IHeadMountedDisplay * const HMD = GEngine != nullptr && GEngine->XRSystem.IsValid() ? GEngine->XRSystem->GetHMDDevice() : nullptr;
 	if (GetDefault<UVRModeSettings>()->bEnableAutoVREditMode
-		&& GEngine != nullptr 
-		&& GEngine->HMDDevice.IsValid()
+		&& HMD
 		&& (GEditor->PlayWorld == nullptr || (CurrentVREditorMode != nullptr && CurrentVREditorMode->GetStartedPlayFromVREditor()))
 		&& FPlatformApplicationMisc::IsThisApplicationForeground())
 	{
-		const EHMDWornState::Type LatestHMDWornState = GEngine->HMDDevice->GetHMDWornState();
+		const EHMDWornState::Type LatestHMDWornState = HMD->GetHMDWornState();
 		if (HMDWornState != LatestHMDWornState)
 		{
 			HMDWornState = LatestHMDWornState;
@@ -147,7 +148,7 @@ bool FVREditorModeManager::IsVREditorActive() const
 
 bool FVREditorModeManager::IsVREditorAvailable() const
 {
-	const bool bHasHMDDevice = GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsHMDEnabled();
+	const bool bHasHMDDevice = GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice() && GEngine->XRSystem->GetHMDDevice()->IsHMDEnabled();
 	return bHasHMDDevice && !GEditor->bIsSimulatingInEditor;
 }
 

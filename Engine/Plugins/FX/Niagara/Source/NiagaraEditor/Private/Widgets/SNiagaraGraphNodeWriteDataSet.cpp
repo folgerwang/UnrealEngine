@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SNiagaraGraphNodeWriteDataSet.h"
 #include "NiagaraNodeInput.h"
@@ -12,7 +12,7 @@
 #include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
 #include "ISinglePropertyView.h"
 #include "NiagaraNodeWriteDataSet.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "GraphEditorSettings.h"
 
 #define LOCTEXT_NAMESPACE "SNiagaraGraphNodeWriteDataSet"

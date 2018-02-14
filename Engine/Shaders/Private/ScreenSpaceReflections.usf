@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ScreenSpaceReflections.usf: To generate screen space reflections as a postprocess
@@ -16,8 +16,12 @@
 // define can be removed or used to judge the quality difference or profile on different platforms
 #define RANDOM_OPTIMZATION 1
 
+#define SSR_CONE_QUALITY 5
+
 // .r:Intensity in 0..1 range .g:RoughnessMaskMul, b:EnableDiscard for FPostProcessScreenSpaceReflectionsStencilPS, a:(bTemporalAAIsOn?TemporalAAIndex:StateFrameIndexMod8)*1551
 float4 SSRParams;
+
+float PrevSceneColorPreExposureCorrection;
 
 uint MortonCode( uint x )
 {
@@ -280,4 +284,8 @@ void ScreenSpaceReflectionsPS(in noperspective float4 UVAndScreenPos : TEXCOORD0
 	
 	OutColor *= RoughnessFade;
 	OutColor *= SSRParams.r;
+
+#if USE_PREEXPOSURE
+	OutColor.rgb *= PrevSceneColorPreExposureCorrection;
+#endif
 }

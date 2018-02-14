@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "PaperSprite.h"
 #include "UObject/ConstructorHelpers.h"
@@ -1780,6 +1780,12 @@ void UPaperSprite::Serialize(FArchive& Ar)
 	Super::Serialize(Ar);
 
 	Ar.UsingCustomVersion(FPaperCustomVersion::GUID);
+
+	if (SpriteCollisionDomain == ESpriteCollisionMode::Use2DPhysics)
+	{
+		UE_LOG(LogPaper2D, Warning, TEXT("PaperSprite '%s' was using 2D physics which has been removed, it has been switched to 3D physics."), *GetPathName());
+		SpriteCollisionDomain = ESpriteCollisionMode::Use3DPhysics;
+	}
 }
 
 void UPaperSprite::PostLoad()

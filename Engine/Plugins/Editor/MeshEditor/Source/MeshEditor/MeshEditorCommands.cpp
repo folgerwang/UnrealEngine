@@ -3,8 +3,8 @@
 #include "MeshEditorCommands.h"
 #include "MeshEditorStyle.h"
 #include "IMeshEditorModeUIContract.h"
-#include "UIAction.h"
-#include "UObjectIterator.h"
+#include "Framework/Commands/UIAction.h"
+#include "UObject/UObjectIterator.h"
 
 
 #define LOCTEXT_NAMESPACE "MeshEditorCommands"

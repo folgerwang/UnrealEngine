@@ -1,13 +1,13 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "LinuxPlatformApplicationMisc.h"
-#include "LinuxApplication.h"
+#include "Linux/LinuxPlatformApplicationMisc.h"
+#include "Linux/LinuxApplication.h"
 #include "Misc/CommandLine.h"
 #include "Misc/App.h"
 #include "HAL/ThreadHeartBeat.h"
 #include "Modules/ModuleManager.h"
-#include "LinuxConsoleOutputDevice.h"
-#include "LinuxErrorOutputDevice.h"
+#include "Linux/LinuxConsoleOutputDevice.h"
+#include "Linux/LinuxErrorOutputDevice.h"
 #include "LinuxFeedbackContext.h"
 
 bool GInitializedSDL = false;
@@ -239,6 +239,11 @@ uint32 FLinuxPlatformApplicationMisc::WindowStyle()
 	return GWindowStyleSDL;
 }
 
+void FLinuxPlatformApplicationMisc::PreInit()
+{
+	MessageBoxExtCallback = MessageBoxExtImpl;
+}
+
 void FLinuxPlatformApplicationMisc::Init()
 {
 	// skip for servers and programs, unless they request later
@@ -250,7 +255,6 @@ void FLinuxPlatformApplicationMisc::Init()
 
 	FGenericPlatformApplicationMisc::Init();
 
-	MessageBoxExtCallback = MessageBoxExtImpl;
 #if !UE_BUILD_SHIPPING
 	UngrabAllInputCallback = UngrabAllInputImpl;
 #endif
@@ -346,6 +350,7 @@ void FLinuxPlatformApplicationMisc::LoadStartupModules()
 {
 #if !IS_PROGRAM && !UE_SERVER
 	FModuleManager::Get().LoadModule(TEXT("ALAudio"));	// added in Launch.Build.cs for non-server targets
+	FModuleManager::Get().LoadModule(TEXT("AudioMixerSDL"));	// added in Launch.Build.cs for non-server targets
 	FModuleManager::Get().LoadModule(TEXT("HeadMountedDisplay"));
 #endif // !IS_PROGRAM && !UE_SERVER
 
@@ -431,9 +436,21 @@ bool FLinuxPlatformApplicationMisc::ControlScreensaver(EScreenSaverAction Action
 	return true;
 }
 
+namespace LinuxPlatformApplicationMisc
+{
+	/**
+	 * Round the scale to 0.5, 1, 1.5, etc (note - step coarser than 0.25 is needed because a lot of monitors are 107-108 DPI and not 96).
+	 */
+	float QuantizeScale(float Scale)
+	{
+		float NewScale = FMath::FloorToFloat((64.0f * Scale / 32.0f) + 0.5f) / 2.0f;
+		return NewScale > 0.0f ? NewScale : 1.0f;
+	}
+}
+
 float FLinuxPlatformApplicationMisc::GetDPIScaleFactorAtPoint(float X, float Y)
 {
-	if (!FParse::Param(FCommandLine::Get(), TEXT("nohighdpi")))
+	if ((GIsEditor || IS_PROGRAM) && IsHighDPIAwarenessEnabled())
 	{
 		FDisplayMetrics DisplayMetrics;
 		FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
@@ -450,7 +467,7 @@ float FLinuxPlatformApplicationMisc::GetDPIScaleFactorAtPoint(float X, float Y)
 				float HorzDPI = 1.0f, VertDPI = 1.0f;
 				if (SDL_GetDisplayDPI(Idx, nullptr, &HorzDPI, &VertDPI) == 0)
 				{
-					float Scale = (HorzDPI + VertDPI) / 192.0f;	// average between two scales (divided by 96.0f)
+					float Scale = LinuxPlatformApplicationMisc::QuantizeScale((HorzDPI + VertDPI) / 192.0f);	// average between two scales (divided by 96.0f)
 					UE_LOG(LogLinux, Log, TEXT("Scale at X=%f, Y=%f: %f (monitor=#%d, HDPI=%f (horz scale: %f), VDPI=%f (vert scale: %f))"), X, Y, Scale, Idx, HorzDPI, HorzDPI / 96.0f, VertDPI, VertDPI / 96.0f);
 					return Scale;
 				}

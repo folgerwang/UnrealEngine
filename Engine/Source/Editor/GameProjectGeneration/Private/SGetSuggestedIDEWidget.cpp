@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SGetSuggestedIDEWidget.h"
@@ -9,7 +9,7 @@
 #include "Widgets/Notifications/SNotificationList.h"
 #include "Widgets/Input/SHyperlink.h"
 #include "EngineAnalytics.h"
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 #include "Interfaces/IAnalyticsProvider.h"
 
 #define LOCTEXT_NAMESPACE "GameProjectGeneration"

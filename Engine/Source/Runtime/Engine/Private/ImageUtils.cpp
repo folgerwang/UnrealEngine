@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 ImageUtils.cpp: Image utility functions.
@@ -12,7 +12,7 @@ ImageUtils.cpp: Image utility functions.
 #include "Logging/MessageLog.h"
 #include "IImageWrapper.h"
 #include "IImageWrapperModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogImageUtils, Log, All);
 

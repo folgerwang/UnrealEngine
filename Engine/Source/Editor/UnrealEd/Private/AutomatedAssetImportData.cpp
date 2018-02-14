@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AutomatedAssetImportData.h"
 #include "Factories/Factory.h"
 #include "UObject/Package.h"
 #include "Misc/PackageName.h"
-#include "UObjectIterator.h"
+#include "UObject/UObjectIterator.h"
 
 DEFINE_LOG_CATEGORY(LogAutomatedImport);
 

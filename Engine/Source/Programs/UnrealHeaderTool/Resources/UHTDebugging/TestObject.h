@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -30,6 +30,12 @@ public:
 
 	UPROPERTY()
 	int32 Cpp11Init = 123;
+
+	UPROPERTY()
+	TArray<int> Cpp11BracedInit { 1, 2, 3 };
+
+	UPROPERTY()
+	TArray<FVector4> Cpp11NestedBracedInit { { 1, 2, 3, 4 }, { 5, 6, 7, 8 } };
 
 	UPROPERTY()
 	int RawInt;

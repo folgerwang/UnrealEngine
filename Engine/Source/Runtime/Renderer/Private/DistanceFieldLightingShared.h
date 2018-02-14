@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DistanceFieldLightingShared.h
@@ -13,7 +13,7 @@
 #include "RenderUtils.h"
 #include "RHIStaticStates.h"
 #include "DistanceFieldAtlas.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "SceneRendering.h"
 
 class FLightSceneProxy;

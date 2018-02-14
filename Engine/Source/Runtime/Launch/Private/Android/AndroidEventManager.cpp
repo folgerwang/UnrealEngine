@@ -1,12 +1,13 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidEventManager.h"
-#include "AndroidApplication.h"
+#include "Android/AndroidEventManager.h"
+#include "Android/AndroidApplication.h"
 #include "AudioDevice.h"
-#include "CallbackDevice.h"
+#include "Misc/CallbackDevice.h"
 #include <android/native_window.h> 
 #include <android/native_window_jni.h> 
 #include "IHeadMountedDisplay.h"
+#include "IXRTrackingSystem.h"
 #include "RenderingThread.h"
 #include "UnrealEngine.h"
 
@@ -65,9 +66,9 @@ void FAppEventManager::Tick()
 			}
 			else
 			{
-				if (GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsHMDConnected())
+				if (GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice() && GEngine->XRSystem->GetHMDDevice()->IsHMDConnected())
 				{
-					// delay the destruction until after the renderer teardown on GearVR
+					// delay the destruction until after the renderer teardown on Gear VR
 					bDestroyWindow = true;
 				}
 				else
@@ -443,9 +444,9 @@ void FAppEventManager::PauseAudio()
 			AudioDevice->SuspendContext();
 		}
 		else
-		{
-			GEngine->GetMainAudioDevice()->Suspend(false);
-		}
+	{
+		GEngine->GetMainAudioDevice()->Suspend(false);
+	}
 	}
 }
 
@@ -464,9 +465,9 @@ void FAppEventManager::ResumeAudio()
 			AudioDevice->ResumeContext();
 		}
 		else
-		{
-			GEngine->GetMainAudioDevice()->Suspend(true);
-		}
+	{
+		GEngine->GetMainAudioDevice()->Suspend(true);
+	}
 	}
 }
 

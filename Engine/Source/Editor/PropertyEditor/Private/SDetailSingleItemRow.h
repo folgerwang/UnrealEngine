@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -10,11 +10,12 @@
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "SDetailsViewBase.h"
 #include "SDetailTableRowBase.h"
-#include "DecoratedDragDropOp.h"
+#include "DragAndDrop/DecoratedDragDropOp.h"
 #include "ScopedTransaction.h"
 
 class IDetailKeyframeHandler;
 struct FDetailLayoutCustomization;
+class SDetailSingleItemRow;
 
 class SConstrainedBox : public SCompoundWidget
 {
@@ -41,7 +42,7 @@ public:
 	SLATE_BEGIN_ARGS(SArrayRowHandle)
 	{}
 	SLATE_DEFAULT_SLOT(FArguments, Content)
-	SLATE_ARGUMENT(class SDetailSingleItemRow*, ParentRow)
+	SLATE_ARGUMENT(TSharedPtr<SDetailSingleItemRow>, ParentRow)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
@@ -53,10 +54,10 @@ public:
 
 
 	FReply OnDragDetected(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
-	TSharedPtr<class FArrayRowDragDropOp> CreateDragDropOperation(class SDetailSingleItemRow* InRow);
+	TSharedPtr<class FArrayRowDragDropOp> CreateDragDropOperation(TSharedPtr<SDetailSingleItemRow> InRow);
 
 private:
-	class SDetailSingleItemRow* ParentRow;
+	TWeakPtr<SDetailSingleItemRow> ParentRow;
 };
 
 
@@ -97,11 +98,6 @@ private:
 	FReply OnFavoriteToggle();
 	void AllowShowFavorite();
 
-// For array drag drop:
-	FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override
-	{
-		return FReply::Handled().EndDragDrop();
-	};
 	void OnArrayDragEnter(const FDragDropEvent& DragDropEvent);
 	void OnArrayDragLeave(const FDragDropEvent& DragDropEvent);
 	FReply OnArrayDrop(const FDragDropEvent& DragDropEvent);
@@ -119,7 +115,9 @@ private:
 class FArrayRowDragDropOp : public FDecoratedDragDropOp
 {
 public:
-	FArrayRowDragDropOp(class SDetailSingleItemRow* InRow)
+	DRAG_DROP_OPERATOR_TYPE(FArrayRowDragDropOp, FDecoratedDragDropOp)
+
+	FArrayRowDragDropOp(TSharedPtr<SDetailSingleItemRow> InRow)
 	{
 		Row = InRow;
 		DecoratorWidget = SNew(SBorder)
@@ -146,5 +144,5 @@ public:
 		return DecoratorWidget;
 	}
 
-	class SDetailSingleItemRow* Row;
+	TWeakPtr<class SDetailSingleItemRow> Row;
 };

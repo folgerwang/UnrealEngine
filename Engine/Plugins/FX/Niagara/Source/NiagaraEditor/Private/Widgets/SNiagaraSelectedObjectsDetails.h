@@ -1,10 +1,10 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "SCompoundWidget.h"
-#include "Delegate.h"
-#include "DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Delegates/Delegate.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
 #include "PropertyEditorDelegates.h"
 
 class FNiagaraObjectSelection;

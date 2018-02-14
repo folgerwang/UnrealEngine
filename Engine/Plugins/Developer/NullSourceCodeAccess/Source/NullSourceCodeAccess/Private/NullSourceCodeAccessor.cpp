@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "NullSourceCodeAccessor.h"
 #include "Misc/Paths.h"
@@ -28,6 +28,16 @@ FText FNullSourceCodeAccessor::GetDescriptionText() const
 }
 
 bool FNullSourceCodeAccessor::OpenSolution()
+{
+	return true;
+}
+
+bool FNullSourceCodeAccessor::OpenSolutionAtPath(const FString& InSolutionPath)
+{
+	return true;
+}
+
+bool FNullSourceCodeAccessor::DoesSolutionExist() const
 {
 	return false;
 }

@@ -40,6 +40,9 @@
 -keep class com.epicgames.ue4.LocalNotificationReceiver {
 	public *;
 }
+-keep class com.epicgames.ue4.MulticastBroadcastReceiver {
+	public *;
+}
 
 # Needed...
 
@@ -192,3 +195,4 @@
 
 -dontwarn com.google.vr.cardboard.AndroidNCompat
 -dontwarn com.google.vr.cardboard.StoragePermissionUtils
+-dontwarn sun.misc.Unsafe

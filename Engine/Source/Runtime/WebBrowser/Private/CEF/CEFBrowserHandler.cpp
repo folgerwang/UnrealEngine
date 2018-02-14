@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CEF/CEFBrowserHandler.h"
 #include "HAL/PlatformApplicationMisc.h"
@@ -12,8 +12,8 @@
 #include "CEFBrowserPopupFeatures.h"
 #include "CEFWebBrowserWindow.h"
 #include "CEFBrowserByteResource.h"
-#include "SlateApplication.h"
-#include "ThreadingBase.h"
+#include "Framework/Application/SlateApplication.h"
+#include "HAL/ThreadingBase.h"
 
 
 #define LOCTEXT_NAMESPACE "WebBrowserHandler"

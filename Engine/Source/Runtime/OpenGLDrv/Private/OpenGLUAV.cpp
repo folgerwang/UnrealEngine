@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #include "CoreMinimal.h"
@@ -12,6 +12,8 @@ FShaderResourceViewRHIRef FOpenGLDynamicRHI::RHICreateShaderResourceView(FVertex
 	GLuint TextureID = 0;
 	if ( FOpenGL::SupportsResourceView() )
 	{
+		UE_CLOG(!GPixelFormats[Format].Supported, LogRHI, Error, TEXT("Unsupported EPixelFormat %d"), Format);
+
 		FOpenGLVertexBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
 
 		const uint32 FormatBPP = GPixelFormats[Format].BlockBytes;
@@ -23,7 +25,6 @@ FShaderResourceViewRHIRef FOpenGLDynamicRHI::RHICreateShaderResourceView(FVertex
 		}
 
 		const FOpenGLTextureFormat& GLFormat = GOpenGLTextureFormats[Format];
-
 		FOpenGL::GenTextures(1,&TextureID);
 
 		// Use a texture stage that's not likely to be used for draws, to avoid waiting

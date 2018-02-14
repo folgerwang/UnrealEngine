@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MeshMergeHelpers.h"
 
@@ -13,6 +13,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/SplineMeshComponent.h"
 #include "Components/SkinnedMeshComponent.h"
+#include "Rendering/SkeletalMeshModel.h"
 
 #include "SkeletalMeshTypes.h"
 #include "SkeletalRenderPublic.h"
@@ -83,13 +84,13 @@ void FMeshMergeHelpers::ExtractSections(const UStaticMeshComponent* Component, i
 void FMeshMergeHelpers::ExtractSections(const USkeletalMeshComponent* Component, int32 LODIndex, TArray<FSectionInfo>& OutSections)
 {
 	static UMaterialInterface* DefaultMaterial = UMaterial::GetDefaultMaterial(MD_Surface);
-	FSkeletalMeshResource* Resource = Component->GetSkeletalMeshResource();
+	FSkeletalMeshModel* Resource = Component->SkeletalMesh->GetImportedModel();
 
 	checkf(Resource->LODModels.IsValidIndex(LODIndex), TEXT("Invalid LOD Index"));
 
 	TArray<FName> MaterialSlotNames = Component->GetMaterialSlotNames();
 
-	const FStaticLODModel& Model = Resource->LODModels[LODIndex];
+	const FSkeletalMeshLODModel& Model = Resource->LODModels[LODIndex];
 	for (const FSkelMeshSection& MeshSection : Model.Sections)
 	{
 		// Retrieve material for this section
@@ -104,11 +105,6 @@ void FMeshMergeHelpers::ExtractSections(const USkeletalMeshComponent* Component,
 		if (MeshSection.bCastShadow && Component->CastShadow)
 		{
 			SectionInfo.EnabledProperties.Add(GET_MEMBER_NAME_CHECKED(FSkelMeshSection, bCastShadow));
-		}
-
-		if (MeshSection.bDisabled)
-		{
-			SectionInfo.EnabledProperties.Add(GET_MEMBER_NAME_CHECKED(FSkelMeshSection, bDisabled));
 		}
 
 		if (MeshSection.bRecomputeTangent)
@@ -212,7 +208,7 @@ void FMeshMergeHelpers::RetrieveMesh(const UStaticMeshComponent* StaticMeshCompo
 
 void FMeshMergeHelpers::RetrieveMesh(USkeletalMeshComponent* SkeletalMeshComponent, int32 LODIndex, FRawMesh& RawMesh, bool bPropagateVertexColours)
 {
-	FSkeletalMeshResource* Resource = SkeletalMeshComponent->SkeletalMesh->GetResourceForRendering();
+	FSkeletalMeshModel* Resource = SkeletalMeshComponent->SkeletalMesh->GetImportedModel();
 	if (Resource->LODModels.IsValidIndex(LODIndex))
 	{
 		FSkeletalMeshLODInfo& SrcLODInfo = SkeletalMeshComponent->SkeletalMesh->LODInfo[LODIndex];
@@ -221,8 +217,7 @@ void FMeshMergeHelpers::RetrieveMesh(USkeletalMeshComponent* SkeletalMeshCompone
 		TArray<FFinalSkinVertex> FinalVertices;
 		SkeletalMeshComponent->GetCPUSkinnedVertices(FinalVertices, LODIndex);
 
-		FSkeletalMeshResource& SkeletalMeshResource = SkeletalMeshComponent->MeshObject->GetSkeletalMeshResource();
-		FStaticLODModel& StaticLODModel = SkeletalMeshResource.LODModels[LODIndex];
+		FSkeletalMeshLODModel& LODModel = Resource->LODModels[LODIndex];
 
 		// Copy skinned vertex positions
 		for (int32 VertIndex = 0; VertIndex < FinalVertices.Num(); ++VertIndex)
@@ -230,68 +225,65 @@ void FMeshMergeHelpers::RetrieveMesh(USkeletalMeshComponent* SkeletalMeshCompone
 			RawMesh.VertexPositions.Add(FinalVertices[VertIndex].Position);
 		}
 
-		const uint32 NumTexCoords = FMath::Min(StaticLODModel.VertexBufferGPUSkin.GetNumTexCoords(), (uint32)MAX_MESH_TEXTURE_COORDS);
-		const int32 NumSections = StaticLODModel.Sections.Num();
-		FRawStaticIndexBuffer16or32Interface& IndexBuffer = *StaticLODModel.MultiSizeIndexContainer.GetIndexBuffer();
+		const int32 NumSections = LODModel.Sections.Num();
 
 		for (int32 SectionIndex = 0; SectionIndex < NumSections; SectionIndex++)
 		{
-			const FSkelMeshSection& SkelMeshSection = StaticLODModel.Sections[SectionIndex];
-			if (!SkelMeshSection.bDisabled)
+			const FSkelMeshSection& SkelMeshSection = LODModel.Sections[SectionIndex];
+			// Build 'wedge' info
+			const int32 NumWedges = SkelMeshSection.NumTriangles * 3;
+			for (int32 WedgeIndex = 0; WedgeIndex < NumWedges; WedgeIndex++)
 			{
-				// Build 'wedge' info
-				const int32 NumWedges = SkelMeshSection.NumTriangles * 3;
-				for (int32 WedgeIndex = 0; WedgeIndex < NumWedges; WedgeIndex++)
+				const int32 VertexIndexForWedge = LODModel.IndexBuffer[SkelMeshSection.BaseIndex + WedgeIndex];
+
+				RawMesh.WedgeIndices.Add(VertexIndexForWedge);
+
+				const FSoftSkinVertex& SoftVertex = SkelMeshSection.SoftVertices[VertexIndexForWedge - SkelMeshSection.BaseVertexIndex];
+
+				const FFinalSkinVertex& SkinnedVertex = FinalVertices[VertexIndexForWedge];
+				const FVector TangentX = SkinnedVertex.TangentX;
+				const FVector TangentZ = SkinnedVertex.TangentZ;
+				const FVector4 UnpackedTangentZ = SkinnedVertex.TangentZ;
+				const FVector TangentY = (TangentX ^ TangentZ).GetSafeNormal() * UnpackedTangentZ.W;
+
+				RawMesh.WedgeTangentX.Add(TangentX);
+				RawMesh.WedgeTangentY.Add(TangentY);
+				RawMesh.WedgeTangentZ.Add(TangentZ);
+
+				for (uint32 TexCoordIndex = 0; TexCoordIndex < MAX_MESH_TEXTURE_COORDS; TexCoordIndex++)
 				{
-					const int32 VertexIndexForWedge = IndexBuffer.Get(SkelMeshSection.BaseIndex + WedgeIndex);
-
-					RawMesh.WedgeIndices.Add(VertexIndexForWedge);
-
-					const FFinalSkinVertex& SkinnedVertex = FinalVertices[VertexIndexForWedge];
-					const FVector TangentX = SkinnedVertex.TangentX;
-					const FVector TangentZ = SkinnedVertex.TangentZ;
-					const FVector4 UnpackedTangentZ = SkinnedVertex.TangentZ;
-					const FVector TangentY = (TangentX ^ TangentZ).GetSafeNormal() * UnpackedTangentZ.W;
-
-					RawMesh.WedgeTangentX.Add(TangentX);
-					RawMesh.WedgeTangentY.Add(TangentY);
-					RawMesh.WedgeTangentZ.Add(TangentZ);
-
-					for (uint32 TexCoordIndex = 0; TexCoordIndex < MAX_MESH_TEXTURE_COORDS; TexCoordIndex++)
+					if (TexCoordIndex >= MAX_TEXCOORDS)
 					{
-						if (TexCoordIndex >= NumTexCoords)
-						{
-							RawMesh.WedgeTexCoords[TexCoordIndex].AddDefaulted();
-						}
-						else
-						{
-							RawMesh.WedgeTexCoords[TexCoordIndex].Add(StaticLODModel.VertexBufferGPUSkin.GetVertexUV(VertexIndexForWedge, TexCoordIndex));
-						}
-					}
-
-					if (StaticLODModel.ColorVertexBuffer.IsInitialized() && bPropagateVertexColours)
-					{
-						RawMesh.WedgeColors.Add(StaticLODModel.ColorVertexBuffer.VertexColor(VertexIndexForWedge));
+						RawMesh.WedgeTexCoords[TexCoordIndex].AddDefaulted();
 					}
 					else
 					{
-						RawMesh.WedgeColors.Add(FColor::White);
+						RawMesh.WedgeTexCoords[TexCoordIndex].Add(SoftVertex.UVs[TexCoordIndex]);
 					}
 				}
 
-				int32 MaterialIndex = SkelMeshSection.MaterialIndex;
-				// use the remapping of material indices for all LODs besides the base LOD 
-				if (LODIndex > 0 && SrcLODInfo.LODMaterialMap.IsValidIndex(SkelMeshSection.MaterialIndex))
+				if (bPropagateVertexColours)
 				{
-					MaterialIndex = FMath::Clamp<int32>(SrcLODInfo.LODMaterialMap[SkelMeshSection.MaterialIndex], 0, SkeletalMeshComponent->SkeletalMesh->Materials.Num());
+					RawMesh.WedgeColors.Add(SoftVertex.Color);
 				}
+				else
+				{
+					RawMesh.WedgeColors.Add(FColor::White);
+				}
+			}
 
-				// copy face info
-				for (uint32 TriIndex = 0; TriIndex < SkelMeshSection.NumTriangles; TriIndex++)
-				{
-					RawMesh.FaceMaterialIndices.Add(MaterialIndex);
-					RawMesh.FaceSmoothingMasks.Add(0); // Assume this is ignored as bRecomputeNormals is false
-				}
+			int32 MaterialIndex = SkelMeshSection.MaterialIndex;
+			// use the remapping of material indices for all LODs besides the base LOD 
+			if (LODIndex > 0 && SrcLODInfo.LODMaterialMap.IsValidIndex(SkelMeshSection.MaterialIndex))
+			{
+				MaterialIndex = FMath::Clamp<int32>(SrcLODInfo.LODMaterialMap[SkelMeshSection.MaterialIndex], 0, SkeletalMeshComponent->SkeletalMesh->Materials.Num());
+			}
+
+			// copy face info
+			for (uint32 TriIndex = 0; TriIndex < SkelMeshSection.NumTriangles; TriIndex++)
+			{
+				RawMesh.FaceMaterialIndices.Add(MaterialIndex);
+				RawMesh.FaceSmoothingMasks.Add(0); // Assume this is ignored as bRecomputeNormals is false
 			}
 		}
 	}
@@ -341,7 +333,7 @@ void FMeshMergeHelpers::RetrieveMesh(const UStaticMesh* StaticMesh, int32 LODInd
 void FMeshMergeHelpers::ExportStaticMeshLOD(const FStaticMeshLODResources& StaticMeshLOD, FRawMesh& OutRawMesh)
 {
 	const int32 NumWedges = StaticMeshLOD.IndexBuffer.GetNumIndices();
-	const int32 NumVertexPositions = StaticMeshLOD.PositionVertexBuffer.GetNumVertices();
+	const int32 NumVertexPositions = StaticMeshLOD.VertexBuffers.PositionVertexBuffer.GetNumVertices();
 	const int32 NumFaces = NumWedges / 3;
 
 	// Indices
@@ -353,19 +345,19 @@ void FMeshMergeHelpers::ExportStaticMeshLOD(const FStaticMeshLODResources& Stati
 		OutRawMesh.VertexPositions.Empty(NumVertexPositions);
 		for (int32 PosIdx = 0; PosIdx < NumVertexPositions; ++PosIdx)
 		{
-			FVector Pos = StaticMeshLOD.PositionVertexBuffer.VertexPosition(PosIdx);
+			FVector Pos = StaticMeshLOD.VertexBuffers.PositionVertexBuffer.VertexPosition(PosIdx);
 			OutRawMesh.VertexPositions.Add(Pos);
 		}
 	}
 
 	// Vertex data
-	if (StaticMeshLOD.VertexBuffer.GetNumVertices() > 0)
+	if (StaticMeshLOD.VertexBuffers.StaticMeshVertexBuffer.GetNumVertices() > 0)
 	{
 		OutRawMesh.WedgeTangentX.Empty(NumWedges);
 		OutRawMesh.WedgeTangentY.Empty(NumWedges);
 		OutRawMesh.WedgeTangentZ.Empty(NumWedges);
 
-		const int32 NumTexCoords = StaticMeshLOD.VertexBuffer.GetNumTexCoords();
+		const int32 NumTexCoords = StaticMeshLOD.VertexBuffers.StaticMeshVertexBuffer.GetNumTexCoords();
 		for (int32 TexCoodIdx = 0; TexCoodIdx < NumTexCoords; ++TexCoodIdx)
 		{
 			OutRawMesh.WedgeTexCoords[TexCoodIdx].Empty(NumWedges);
@@ -373,28 +365,28 @@ void FMeshMergeHelpers::ExportStaticMeshLOD(const FStaticMeshLODResources& Stati
 
 		for (int32 WedgeIndex : OutRawMesh.WedgeIndices)
 		{
-			FVector WedgeTangentX = StaticMeshLOD.VertexBuffer.VertexTangentX(WedgeIndex);
-			FVector WedgeTangentY = StaticMeshLOD.VertexBuffer.VertexTangentY(WedgeIndex);
-			FVector WedgeTangentZ = StaticMeshLOD.VertexBuffer.VertexTangentZ(WedgeIndex);
+			FVector WedgeTangentX = StaticMeshLOD.VertexBuffers.StaticMeshVertexBuffer.VertexTangentX(WedgeIndex);
+			FVector WedgeTangentY = StaticMeshLOD.VertexBuffers.StaticMeshVertexBuffer.VertexTangentY(WedgeIndex);
+			FVector WedgeTangentZ = StaticMeshLOD.VertexBuffers.StaticMeshVertexBuffer.VertexTangentZ(WedgeIndex);
 			OutRawMesh.WedgeTangentX.Add(WedgeTangentX);
 			OutRawMesh.WedgeTangentY.Add(WedgeTangentY);
 			OutRawMesh.WedgeTangentZ.Add(WedgeTangentZ);
 
 			for (int32 TexCoodIdx = 0; TexCoodIdx < NumTexCoords; ++TexCoodIdx)
 			{
-				FVector2D WedgeTexCoord = StaticMeshLOD.VertexBuffer.GetVertexUV(WedgeIndex, TexCoodIdx);
+				FVector2D WedgeTexCoord = StaticMeshLOD.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(WedgeIndex, TexCoodIdx);
 				OutRawMesh.WedgeTexCoords[TexCoodIdx].Add(WedgeTexCoord);
 			}
 		}
 	}
 
 	// Vertex colors
-	if (StaticMeshLOD.ColorVertexBuffer.GetNumVertices() > 0)
+	if (StaticMeshLOD.VertexBuffers.ColorVertexBuffer.GetNumVertices() > 0)
 	{
 		OutRawMesh.WedgeColors.Empty(NumWedges);
 		for (int32 WedgeIndex : OutRawMesh.WedgeIndices)
 		{
-			FColor VertexColor = StaticMeshLOD.ColorVertexBuffer.VertexColor(WedgeIndex);
+			FColor VertexColor = StaticMeshLOD.VertexBuffers.ColorVertexBuffer.VertexColor(WedgeIndex);
 			OutRawMesh.WedgeColors.Add(VertexColor);
 		}
 	}
@@ -932,39 +924,36 @@ bool FMeshMergeHelpers::PropagatePaintedColorsToRawMesh(const UStaticMeshCompone
 		StaticMeshComponent->LODData[LODIndex].OverrideVertexColors != nullptr)
 	{
 		FColorVertexBuffer& ColorVertexBuffer = *StaticMeshComponent->LODData[LODIndex].OverrideVertexColors;
-		FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[LODIndex];
-		FStaticMeshRenderData& RenderData = *StaticMesh->RenderData;
-		FStaticMeshLODResources& RenderModel = RenderData.LODResources[LODIndex];
+		FStaticMeshLODResources& RenderModel = StaticMesh->RenderData->LODResources[LODIndex];
 
 		if (ColorVertexBuffer.GetNumVertices() == RenderModel.GetNumVertices())
-		{
-			int32 NumWedges = RawMesh.WedgeIndices.Num();
-			const bool bUseWedgeMap = RenderData.WedgeMap.Num() > 0 && RenderData.WedgeMap.Num() == NumWedges && !StaticMeshComponent->IsA<USplineMeshComponent>();
-			// If we have a wedge map
-			if (bUseWedgeMap)
+		{	
+			const int32 NumWedges = RawMesh.WedgeIndices.Num();
+			const int32 NumRenderWedges = RenderModel.IndexBuffer.GetNumIndices();
+			const bool bUseRenderWedges = NumWedges == NumRenderWedges;
+					
+			if (bUseRenderWedges)
 			{
-				if (RenderData.WedgeMap.Num() == NumWedges)
+				const int32 NumExistingColors = RawMesh.WedgeColors.Num();
+				if (NumExistingColors < NumRenderWedges)
 				{
-					int32 NumExistingColors = RawMesh.WedgeColors.Num();
-					if (NumExistingColors < NumWedges)
-					{
-						RawMesh.WedgeColors.AddUninitialized(NumWedges - NumExistingColors);
-					}
-
-					for (int32 i = 0; i < NumWedges; ++i)
-					{
-						FColor WedgeColor = FColor::White;
-						int32 Index = RenderData.WedgeMap[i];
-						if (Index != INDEX_NONE)
-						{
-							WedgeColor = ColorVertexBuffer.VertexColor(Index);
-						}
-
-						RawMesh.WedgeColors[i] = WedgeColor;
-					}
-
-					return true;
+					RawMesh.WedgeColors.AddUninitialized(NumRenderWedges - NumExistingColors);
 				}
+
+				const FIndexArrayView ArrayView = RenderModel.IndexBuffer.GetArrayView();
+				for (int32 WedgeIndex = 0; WedgeIndex < NumRenderWedges; WedgeIndex++)
+				{
+					const int32 Index = ArrayView[WedgeIndex];
+					FColor WedgeColor = FColor::White;
+					if (Index != INDEX_NONE)
+					{
+						WedgeColor = ColorVertexBuffer.VertexColor(Index);
+					}
+
+					RawMesh.WedgeColors[WedgeIndex] = WedgeColor;
+				}
+
+				return true;				
 			}
 			// No wedge map (this can happen when we poly reduce the LOD for example)
 			// Use index buffer directly
@@ -974,16 +963,16 @@ bool FMeshMergeHelpers::PropagatePaintedColorsToRawMesh(const UStaticMeshCompone
 
 				if (RawMesh.VertexPositions.Num() == ColorVertexBuffer.GetNumVertices())
 				{
-					for (int32 i = 0; i < NumWedges; ++i)
+					for (int32 WedgeIndex = 0; WedgeIndex < NumWedges; ++WedgeIndex)
 					{
 						FColor WedgeColor = FColor::White;
-						uint32 VertIndex = RawMesh.WedgeIndices[i];
+						uint32 VertIndex = RawMesh.WedgeIndices[WedgeIndex];
 
 						if (VertIndex < ColorVertexBuffer.GetNumVertices())
 						{
 							WedgeColor = ColorVertexBuffer.VertexColor(VertIndex);
 						}
-						RawMesh.WedgeColors[i] = WedgeColor;
+						RawMesh.WedgeColors[WedgeIndex] = WedgeColor;
 					}
 
 					return true;

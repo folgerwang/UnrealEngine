@@ -279,7 +279,8 @@ class FWireframeMeshVertexFactory : public FLocalVertexFactory
 {
 public:
 
-	FWireframeMeshVertexFactory()
+	FWireframeMeshVertexFactory(ERHIFeatureLevel::Type InFeatureLevel)
+		: FLocalVertexFactory(InFeatureLevel, "FWireframeMeshVertexFactory")
 	{}
 
 	/** Init function that should only be called on render thread. */
@@ -325,8 +326,10 @@ class FWireframeMeshSceneProxy : public FPrimitiveSceneProxy
 public:
 
 	FWireframeMeshSceneProxy( UWireframeMeshComponent* Component )
-		: FPrimitiveSceneProxy( Component ),
-		  MaterialRelevance( Component->GetMaterialRelevance( GetScene().GetFeatureLevel() ) )
+		: FPrimitiveSceneProxy( Component )
+		, MaterialRelevance( Component->GetMaterialRelevance( GetScene().GetFeatureLevel() ) )
+		, VertexFactory(GetScene().GetFeatureLevel())
+		
 	{
 		check( Component->GetWireframeMesh() );
 
@@ -422,6 +425,11 @@ public:
 
 	uint32 GetAllocatedSize() const { return FPrimitiveSceneProxy::GetAllocatedSize(); }
 
+	virtual SIZE_T GetTypeHash() const override
+	{
+		static SIZE_T UniquePointer;
+		return reinterpret_cast<SIZE_T>(&UniquePointer);
+	}
 private:
 
 	UMaterialInterface* Material;

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CrashDebugPDBCache.h"
 #include "HAL/PlatformTime.h"
@@ -9,7 +9,7 @@
 #include "Misc/Paths.h"
 #include "Misc/ConfigCacheIni.h"
 #include "CrashDebugHelperPrivate.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 /*-----------------------------------------------------------------------------
 	PDB Cache implementation

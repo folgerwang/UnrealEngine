@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "StatsConvertCommand.h"
 #include "Misc/CommandLine.h"
 #include "HAL/FileManager.h"
 #include "Templates/ScopedPointer.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 /** Helper class used to extract stats data into CSV file. */
 class FCSVStatsProfiler : public FStatsReadFile

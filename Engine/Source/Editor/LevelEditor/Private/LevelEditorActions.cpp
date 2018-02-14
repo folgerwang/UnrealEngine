@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LevelEditorActions.h"
 #include "SceneView.h"
@@ -51,7 +51,7 @@
 #include "DlgDeltaTransform.h"
 #include "Editor/NewLevelDialog/Public/NewLevelDialogModule.h"
 #include "MRUFavoritesList.h"
-#include "Private/SSocketChooser.h"
+#include "Editor/SceneOutliner/Private/SSocketChooser.h"
 #include "SnappingUtils.h"
 #include "LevelEditorViewport.h"
 #include "Layers/ILayers.h"
@@ -62,8 +62,6 @@
 #include "SourceCodeNavigation.h"
 #include "EngineAnalytics.h"
 #include "Interfaces/IAnalyticsProvider.h"
-#include "ReferenceViewer.h"
-#include "ISizeMapModule.h"
 #include "EditorClassUtils.h"
 
 #include "EditorActorFolders.h"
@@ -616,12 +614,31 @@ bool FLevelEditorActionCallbacks::IsFeatureLevelPreviewChecked(ERHIFeatureLevel:
 	return InPreviewFeatureLevel == GetWorld()->FeatureLevel;
 }
 
+bool FLevelEditorActionCallbacks::IsFeatureLevelPreviewAvailable(ERHIFeatureLevel::Type InPreviewFeatureLevel)
+{
+	return GShaderPlatformForFeatureLevel[InPreviewFeatureLevel] != SP_NumPlatforms;
+}
+
 void FLevelEditorActionCallbacks::ConfigureLightingBuildOptions( const FLightingBuildOptions& Options )
 {
 	GConfig->SetBool( TEXT("LightingBuildOptions"), TEXT("OnlyBuildSelected"),		Options.bOnlyBuildSelected,			GEditorPerProjectIni );
 	GConfig->SetBool( TEXT("LightingBuildOptions"), TEXT("OnlyBuildCurrentLevel"),	Options.bOnlyBuildCurrentLevel,		GEditorPerProjectIni );
 	GConfig->SetBool( TEXT("LightingBuildOptions"), TEXT("OnlyBuildSelectedLevels"),Options.bOnlyBuildSelectedLevels,	GEditorPerProjectIni );
 	GConfig->SetBool( TEXT("LightingBuildOptions"), TEXT("OnlyBuildVisibility"),	Options.bOnlyBuildVisibility,		GEditorPerProjectIni );
+}
+
+bool FLevelEditorActionCallbacks::CanBuildLighting()
+{
+	// Building lighting modifies the BuildData package, which the PIE session will also be referencing without getting notified
+	return !(GEditor->PlayWorld || GUnrealEd->bIsSimulatingInEditor);
+}
+
+bool FLevelEditorActionCallbacks::CanBuildReflectionCaptures()
+{
+	// Building reflection captures modifies the BuildData package, which the PIE session will also be referencing without getting notified
+	return !(GEditor->PlayWorld || GUnrealEd->bIsSimulatingInEditor)
+		// Build reflection captures requires SM5.  Don't allow building when previewing other feature levels.
+		&& GetWorld()->FeatureLevel >= ERHIFeatureLevel::SM5;
 }
 
 
@@ -636,7 +653,7 @@ void FLevelEditorActionCallbacks::Build_Execute()
 
 bool FLevelEditorActionCallbacks::Build_CanExecute()
 {
-	return !(GEditor->PlayWorld || GUnrealEd->bIsSimulatingInEditor);
+	return CanBuildLighting() && CanBuildReflectionCaptures();
 }
 
 void FLevelEditorActionCallbacks::BuildAndSubmitToSourceControl_Execute()
@@ -660,12 +677,18 @@ bool FLevelEditorActionCallbacks::BuildLighting_CanExecute()
 {
 	static const auto AllowStaticLightingVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowStaticLighting"));
 	const bool bAllowStaticLighting = (!AllowStaticLightingVar || AllowStaticLightingVar->GetValueOnGameThread() != 0);
-	return bAllowStaticLighting && !(GEditor->PlayWorld || GUnrealEd->bIsSimulatingInEditor);
+	
+	return bAllowStaticLighting && CanBuildLighting() && CanBuildReflectionCaptures();
 }
 
 void FLevelEditorActionCallbacks::BuildReflectionCapturesOnly_Execute()
 {
-	GEditor->UpdateReflectionCaptures();
+	GEditor->BuildReflectionCaptures();
+}
+
+bool FLevelEditorActionCallbacks::BuildReflectionCapturesOnly_CanExecute()
+{
+	return CanBuildReflectionCaptures();
 }
 
 void FLevelEditorActionCallbacks::BuildLightingOnly_VisibilityOnly_Execute()
@@ -1001,14 +1024,19 @@ void FLevelEditorActionCallbacks::RecompileGameCode_Clicked()
 	IHotReloadInterface& HotReloadSupport = FModuleManager::LoadModuleChecked<IHotReloadInterface>(HotReloadModule);
 	if( !HotReloadSupport.IsCurrentlyCompiling() )
 	{
-		// Don't wait -- we want compiling to happen asynchronously
-		const bool bWaitForCompletion = false;
-		HotReloadSupport.DoHotReloadFromEditor(bWaitForCompletion);
+		// We want compiling to happen asynchronously
+		HotReloadSupport.DoHotReloadFromEditor(EHotReloadFlags::None);
 	}
 }
 
 bool FLevelEditorActionCallbacks::Recompile_CanExecute()
 {
+	// We can't recompile while in PIE
+	if (GEditor->bIsPlayWorldQueued || GEditor->PlayWorld)
+	{
+		return false;
+	}
+
 	// We're not able to recompile if a compile is already in progress!
 
 	IHotReloadInterface& HotReloadSupport = FModuleManager::LoadModuleChecked<IHotReloadInterface>(HotReloadModule);
@@ -1085,70 +1113,6 @@ void FLevelEditorActionCallbacks::GoToDocsForActor_Clicked()
 void FLevelEditorActionCallbacks::FindInContentBrowser_Clicked()
 {
 	GEditor->SyncToContentBrowser();
-}
-
-void FLevelEditorActionCallbacks::ViewReferences_Execute()
-{
-	if( GEditor->GetSelectedActorCount() > 0 )
-	{
-		TArray< UObject* > ReferencedAssets;
-		GEditor->GetReferencedAssetsForEditorSelection( ReferencedAssets );
-
-		if (ReferencedAssets.Num() > 0)
-		{
-			TArray< FName > ViewableObjects;
-			for( auto ObjectIter = ReferencedAssets.CreateConstIterator(); ObjectIter; ++ObjectIter )
-			{
-				// Don't allow user to perform certain actions on objects that aren't actually assets (e.g. Level Script blueprint objects)
-				const auto EditingObject = *ObjectIter;
-				if( EditingObject != NULL && EditingObject->IsAsset() )
-				{
-					ViewableObjects.Add( EditingObject->GetOuter()->GetFName());
-				}
-			}
-
-			IReferenceViewerModule::Get().InvokeReferenceViewerTab(ViewableObjects);
-		}
-	}
-}
-
-bool FLevelEditorActionCallbacks::CanViewReferences()
-{
-	TArray< UObject* > ReferencedAssets;
-	GEditor->GetReferencedAssetsForEditorSelection(ReferencedAssets);
-	return ReferencedAssets.Num() > 0;
-}
-
-void FLevelEditorActionCallbacks::ViewSizeMap_Execute()
-{
-	if( GEditor->GetSelectedActorCount() > 0 )
-	{
-		TArray< UObject* > ReferencedAssets;
-		GEditor->GetReferencedAssetsForEditorSelection( ReferencedAssets );
-
-		if (ReferencedAssets.Num() > 0)
-		{
-			TArray< FName > ViewableObjects;
-			for( auto ObjectIter = ReferencedAssets.CreateConstIterator(); ObjectIter; ++ObjectIter )
-			{
-				// Don't allow user to perform certain actions on objects that aren't actually assets (e.g. Level Script blueprint objects)
-				const auto EditingObject = *ObjectIter;
-				if( EditingObject != NULL && EditingObject->IsAsset() )
-				{
-					ViewableObjects.Add( EditingObject->GetOuter()->GetFName());
-				}
-			}
-
-			ISizeMapModule::Get().InvokeSizeMapTab(ViewableObjects);
-		}
-	}
-}
-
-bool FLevelEditorActionCallbacks::CanViewSizeMap()
-{
-	TArray< UObject* > ReferencedAssets;
-	GEditor->GetReferencedAssetsForEditorSelection(ReferencedAssets);
-	return ReferencedAssets.Num() > 0;
 }
 
 void FLevelEditorActionCallbacks::EditAsset_Clicked( const EToolkitMode::Type ToolkitMode, TWeakPtr< SLevelEditor > LevelEditor, bool bConfirmMultiple )
@@ -1482,7 +1446,11 @@ bool FLevelEditorActionCallbacks::Duplicate_CanExecute()
 	}
 	else
 	{
-		bCanCopy = GUnrealEd->CanCopySelectedActorsToClipboard(GetWorld());
+		UWorld* World = GetWorld();
+		if (World)
+		{
+			bCanCopy = GUnrealEd->CanCopySelectedActorsToClipboard(World);
+		}
 	}
 
 	return bCanCopy;
@@ -1518,7 +1486,11 @@ bool FLevelEditorActionCallbacks::Delete_CanExecute()
 	}
 	else
 	{
-		bCanDelete = GUnrealEd->CanDeleteSelectedActors(GetWorld(), true, false);
+		UWorld* World = GetWorld();
+		if (World)
+		{
+			bCanDelete = GUnrealEd->CanDeleteSelectedActors(World, true, false);
+		}
 	}
 
 	return bCanDelete;
@@ -1592,7 +1564,11 @@ bool FLevelEditorActionCallbacks::Cut_CanExecute()
 	else
 	{
 		// For actors, if we can copy, we can cut
-		bCanCut = GUnrealEd->CanCopySelectedActorsToClipboard(GetWorld());
+		UWorld* World = GetWorld();
+		if (World)
+		{
+			bCanCut = GUnrealEd->CanCopySelectedActorsToClipboard(World);
+		}
 	}
 
 	return bCanCut;
@@ -1628,7 +1604,11 @@ bool FLevelEditorActionCallbacks::Copy_CanExecute()
 	}
 	else
 	{
-		bCanCopy = GUnrealEd->CanCopySelectedActorsToClipboard(GetWorld());
+		UWorld* World = GetWorld();
+		if (World)
+		{
+			bCanCopy = GUnrealEd->CanCopySelectedActorsToClipboard(World);
+		}
 	}
 
 	return bCanCopy;
@@ -1662,7 +1642,11 @@ bool FLevelEditorActionCallbacks::Paste_CanExecute()
 	}
 	else
 	{
-		bCanPaste = GUnrealEd->CanPasteSelectedActorsFromClipboard(GetWorld());
+		UWorld* World = GetWorld();
+		if (World)
+		{
+			bCanPaste = GUnrealEd->CanPasteSelectedActorsFromClipboard(World);
+		}
 	}
 
 	return bCanPaste;
@@ -2959,10 +2943,10 @@ void FLevelEditorCommands::RegisterCommands()
 	UI_COMMAND( ExportAll, "Export All...", "Exports the entire level to a file on disk (multiple formats are supported.)", EUserInterfaceActionType::Button, FInputChord() );
 	UI_COMMAND( ExportSelected, "Export Selected...", "Exports currently-selected objects to a file on disk (multiple formats are supported.)", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND( Build, "Build All Levels", "Builds all levels (precomputes lighting data and visibility data, generates navigation networks and updates brush models.)", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( Build, "Build All Levels", "Builds all levels (precomputes lighting data and visibility data, generates navigation networks and updates brush models.)\nThis action is not available while Play in Editor is active, or when previewing less than Shader Model 5", EUserInterfaceActionType::Button, FInputChord() );
 	UI_COMMAND( BuildAndSubmitToSourceControl, "Build and Submit...", "Displays a window that allows you to build all levels and submit them to source control", EUserInterfaceActionType::Button, FInputChord() );
-	UI_COMMAND( BuildLightingOnly, "Build Lighting", "Only precomputes lighting (all levels.)", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Control|EModifierKey::Shift, EKeys::Semicolon) );
-	UI_COMMAND( BuildReflectionCapturesOnly, "Update Reflection Captures", "Only updates Reflection Captures (all levels.)", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( BuildLightingOnly, "Build Lighting", "Only precomputes lighting (all levels.)\nThis action is not available while Play in Editor is active, or when previewing less than Shader Model 5", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Control|EModifierKey::Shift, EKeys::Semicolon) );
+	UI_COMMAND( BuildReflectionCapturesOnly, "Build Reflection Captures", "Updates Reflection Captures and stores their data in the BuildData package.\nThis action is not available while Play in Editor is active, or when previewing less than Shader Model 5", EUserInterfaceActionType::Button, FInputChord() );
 	UI_COMMAND( BuildLightingOnly_VisibilityOnly, "Precompute Static Visibility", "Only precomputes static visibility data (all levels.)", EUserInterfaceActionType::Button, FInputChord() );
 	UI_COMMAND( LightingBuildOptions_UseErrorColoring, "Use Error Coloring", "When enabled, errors during lighting precomputation will be baked as colors into light map data", EUserInterfaceActionType::ToggleButton, FInputChord() );
 	UI_COMMAND( LightingBuildOptions_ShowLightingStats, "Show Lighting Stats", "When enabled, a window containing metrics about lighting performance and memory will be displayed after a successful build.", EUserInterfaceActionType::ToggleButton, FInputChord() );
@@ -3203,12 +3187,11 @@ void FLevelEditorCommands::RegisterCommands()
 
 	UI_COMMAND(PreviewPlatformOverride_DefaultES2, "Default Mobile / HTML5 Preview", "Use default mobile settings (no quality overrides).", EUserInterfaceActionType::RadioButton, FInputChord());
 	UI_COMMAND(PreviewPlatformOverride_AndroidGLES2, "Android Preview", "Mobile preview using Android's quality settings.", EUserInterfaceActionType::RadioButton, FInputChord());
-	UI_COMMAND(PreviewPlatformOverride_IOSGLES2, "iOS ES2 Preview", "Mobile preview using iOS's OpenGL ES2 quality settings.", EUserInterfaceActionType::RadioButton, FInputChord());
 
 	UI_COMMAND(PreviewPlatformOverride_DefaultES31, "Default High-End Mobile", "Use default mobile settings (no quality overrides).", EUserInterfaceActionType::RadioButton, FInputChord());
 	UI_COMMAND(PreviewPlatformOverride_AndroidGLES31, "Android GLES3.1 Preview", "Mobile preview using Android ES3.1 quality settings.", EUserInterfaceActionType::RadioButton, FInputChord());
 	UI_COMMAND(PreviewPlatformOverride_AndroidVulkanES31, "Android Vulkan Preview", "Mobile preview using Android Vulkan quality settings.", EUserInterfaceActionType::RadioButton, FInputChord());
-	UI_COMMAND(PreviewPlatformOverride_IOSMetalES31, "iOS Metal Preview", "Mobile preview using iOS Metal quality settings.", EUserInterfaceActionType::RadioButton, FInputChord());
+	UI_COMMAND(PreviewPlatformOverride_IOSMetalES31, "iOS Preview", "Mobile preview using iOS material quality settings.", EUserInterfaceActionType::RadioButton, FInputChord());
 
 
 	UI_COMMAND( ConnectToSourceControl, "Connect to Source Control...", "Opens a dialog to connect to source control.", EUserInterfaceActionType::Button, FInputChord());
@@ -3219,7 +3202,7 @@ void FLevelEditorCommands::RegisterCommands()
 	static const FText FeatureLevelLabels[ERHIFeatureLevel::Num] = 
 	{
 		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewType_ES2", "Mobile / HTML5"),
-		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewType_ES31", "High-End Mobile / Metal"),
+		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewType_ES31", "High-End Mobile"),
 		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewType_SM4", "Shader Model 4"),
 		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewType_SM5", "Shader Model 5"),
 	};
@@ -3227,7 +3210,7 @@ void FLevelEditorCommands::RegisterCommands()
 	static const FText FeatureLevelToolTips[ERHIFeatureLevel::Num] = 
 	{
 		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewTooltip_ES2", "OpenGLES 2"),
-		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewTooltip_ES3", "OpenGLES 3.1, Metal"),
+		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewTooltip_ES3", "OpenGLES 3.1, Metal, Vulkan"),
 		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewTooltip_SM4", "DirectX 10, OpenGL 3.3+"),
 		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewTooltip_SM5", "DirectX 11, OpenGL 4.3+, PS4, XB1"),
 	};

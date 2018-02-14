@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 
@@ -9,7 +9,7 @@
 
 #include "OpenGLDrvPrivate.h"
 
-#include "AndroidApplication.h"
+#include "Android/AndroidApplication.h"
 #include "AndroidOpenGLPrivate.h"
 #include <dlfcn.h>
 #include <android/log.h>

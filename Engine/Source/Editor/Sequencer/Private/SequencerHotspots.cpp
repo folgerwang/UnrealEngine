@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerHotspots.h"
 #include "DisplayNodes/SequencerObjectBindingNode.h"
@@ -10,7 +10,7 @@
 #include "Tools/SequencerEditTool_Movement.h"
 #include "Tools/SequencerEditTool_Selection.h"
 #include "SequencerTrackNode.h"
-#include "SBox.h"
+#include "Widgets/Layout/SBox.h"
 
 #define LOCTEXT_NAMESPACE "SequencerHotspots"
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 // Implementation of Memory Allocation Strategies
 
@@ -16,7 +16,7 @@
 #endif
 
 #if PIX_MEMORY_PROFILING
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <windows.h>
 #include <pixmemory.h>
 #endif
@@ -1472,5 +1472,5 @@ void* FD3D12FastConstantAllocator::Allocate(uint32 Bytes, FD3D12ResourceLocation
 }
 
 #if PIX_MEMORY_PROFILING
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif

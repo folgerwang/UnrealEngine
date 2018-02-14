@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "WidgetBlueprintEditorUtils.h"
 #include "Components/PanelSlot.h"
@@ -276,6 +276,7 @@ void FWidgetBlueprintEditorUtils::CreateWidgetContextMenu(FMenuBuilder& MenuBuil
 		MenuBuilder.AddMenuEntry(FGenericCommands::Get().Cut);
 		MenuBuilder.AddMenuEntry(FGenericCommands::Get().Copy);
 		MenuBuilder.AddMenuEntry(FGenericCommands::Get().Paste);
+		MenuBuilder.AddMenuEntry(FGenericCommands::Get().Rename);
 		MenuBuilder.AddMenuEntry(FGenericCommands::Get().Delete);
 	}
 	MenuBuilder.EndSection();

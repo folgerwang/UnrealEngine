@@ -1,4 +1,6 @@
-﻿using System;
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -105,6 +107,8 @@ namespace UnrealBuildTool
 			this.Directories = new List<DirectoryReference>();
 			this.ErrorOutput = new List<string>();
 
+			Log.WriteLine(LogEventType.Console, "Using 'git status' to determine working set for adaptive non-unity build.");
+
 			BackgroundProcess = new Process();
 			BackgroundProcess.StartInfo.FileName = GitPath;
 			BackgroundProcess.StartInfo.Arguments = "status --porcelain";
@@ -112,14 +116,12 @@ namespace UnrealBuildTool
 			BackgroundProcess.StartInfo.RedirectStandardOutput = true;
 			BackgroundProcess.StartInfo.RedirectStandardError = true;
 			BackgroundProcess.StartInfo.UseShellExecute = false;
+			BackgroundProcess.ErrorDataReceived += ErrorDataReceived;
+			BackgroundProcess.OutputDataReceived += OutputDataReceived;
 			try
 			{
 				BackgroundProcess.Start();
-
-				BackgroundProcess.ErrorDataReceived += ErrorDataReceived;
 				BackgroundProcess.BeginErrorReadLine();
-
-				BackgroundProcess.OutputDataReceived += OutputDataReceived;
 				BackgroundProcess.BeginOutputReadLine();
 			}
 			catch
@@ -130,17 +132,49 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Stop the background thread
+		/// Terminates the background process.
 		/// </summary>
-		private void StopBackgroundProcess(bool bWaitForCompletion)
+		private void TerminateBackgroundProcess()
 		{
 			if (BackgroundProcess != null)
 			{
-				if (!bWaitForCompletion && !BackgroundProcess.HasExited)
+				if (!BackgroundProcess.HasExited)
 				{
-					BackgroundProcess.Kill();
-					BackgroundProcess.WaitForExit();
+					try
+					{
+						BackgroundProcess.Kill();
+					}
+					catch
+					{
+					}
 				}
+				WaitForBackgroundProcess();
+			}
+		}
+
+		/// <summary>
+		/// Waits for the background to terminate.
+		/// </summary>
+		private void WaitForBackgroundProcess()
+		{
+			if (BackgroundProcess != null)
+			{
+				if(!BackgroundProcess.WaitForExit(500))
+				{
+					Log.WriteLine(LogEventType.Console, "Waiting for 'git status' command to complete");
+				}
+				if(!BackgroundProcess.WaitForExit(15000))
+				{
+					Log.WriteLine(LogEventType.Console, "Terminating git child process due to timeout");
+					try
+					{
+						BackgroundProcess.Kill();
+					}
+					catch
+					{
+					}
+				}
+				BackgroundProcess.WaitForExit();
 				BackgroundProcess.Dispose();
 				BackgroundProcess = null;
 			}
@@ -151,7 +185,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		public void Dispose()
 		{
-			StopBackgroundProcess(false);
+			TerminateBackgroundProcess();
 		}
 
 		/// <summary>
@@ -161,7 +195,7 @@ namespace UnrealBuildTool
 		/// <returns>True if the file is part of the working set, false otherwise</returns>
 		public bool Contains(FileReference File)
 		{
-			StopBackgroundProcess(true);
+			WaitForBackgroundProcess();
 			return Files.Contains(File) || Directories.Any(x => File.IsUnderDirectory(x));
 		}
 
@@ -266,7 +300,7 @@ namespace UnrealBuildTool
 		/// <returns>Working set instance for the given directory</returns>
 		public static ISourceFileWorkingSet Create(DirectoryReference RootDir, DirectoryReference ProjectDir)
 		{
-			if (Provider == ProviderType.None)
+			if (Provider == ProviderType.None || ProjectFileGenerator.bGenerateProjectFiles)
 			{
 				return new EmptySourceFileWorkingSet();
 			}

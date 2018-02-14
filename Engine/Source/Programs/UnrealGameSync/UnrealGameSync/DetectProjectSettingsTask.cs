@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -121,7 +121,7 @@ namespace UnrealGameSync
 						}
 
 						Records.RemoveAll(x => !x.IsMapped);
-						if(Records.Count != 1)
+						if(Records.Count == 0)
 						{
 							Log.WriteLine("Rejecting {0} due to {1} matching records", Client.Name, Records.Count);
 							continue;

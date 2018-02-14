@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 D3D12DescriptorCache.h: D3D12 State application functionality
@@ -490,7 +490,7 @@ private:
 		TRefCountPtr<ID3D12DescriptorHeap> Heap;
 		FD3D12CLSyncPoint SyncPoint;
 
-		PoolEntry()
+		PoolEntry() 
 		{}
 
 		PoolEntry(const PoolEntry& InPoolEntry) : Heap(InPoolEntry.Heap), SyncPoint(InPoolEntry.SyncPoint)
@@ -500,7 +500,6 @@ private:
 		{
 			Heap = InPoolEntry.Heap;
 			SyncPoint = InPoolEntry.SyncPoint;
-
 			return *this;
 		}
 	};

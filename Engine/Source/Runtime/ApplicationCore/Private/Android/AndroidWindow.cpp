@@ -1,6 +1,6 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidWindow.h"
+#include "Android/AndroidWindow.h"
 #include <android/native_window.h>
 #include <android/native_window_jni.h>
 #include <jni.h>
@@ -116,7 +116,7 @@ FPlatformRect FAndroidWindow::GetScreenRect()
 	// CSF is a multiplier to 1280x720
 	static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.MobileContentScaleFactor"));
 	static const bool bIsGearVRApp = AndroidThunkCpp_IsGearVRApplication();
-	// If the app is for GearVR then always use 0 as ScaleFactor (to match window size).
+	// If the app is for Gear VR then always use 0 as ScaleFactor (to match window size).
 	float RequestedContentScaleFactor = (!bIsGearVRApp) ? CVar->GetFloat() : 0;
 
 	ANativeWindow* Window = (ANativeWindow*)FAndroidWindow::GetHardwareWindow();
@@ -314,6 +314,9 @@ FPlatformRect FAndroidWindow::GetScreenRect()
 void FAndroidWindow::CalculateSurfaceSize(void* InWindow, int32_t& SurfaceWidth, int32_t& SurfaceHeight)
 {
 	check(InWindow);
+
+	static const bool bIsMobileVRApp = AndroidThunkCpp_IsGearVRApplication() || FAndroidMisc::IsDaydreamApplication();
+
 	ANativeWindow* Window = (ANativeWindow*)InWindow;
 
 	SurfaceWidth = (GSurfaceViewWidth > 0) ? GSurfaceViewWidth : ANativeWindow_getWidth(Window);
@@ -328,7 +331,8 @@ void FAndroidWindow::CalculateSurfaceSize(void* InWindow, int32_t& SurfaceWidth,
 
 	// ensure the size is divisible by a specified amount
 	// do not convert to a surface size that is larger than native resolution
-	const int DividableBy = 8;
+	// Mobile VR doesn�t need buffer quantization as UE4 never renders directly to the buffer in VR mode. 
+	const int DividableBy = bIsMobileVRApp ? 1 : 8;
 	SurfaceWidth = (SurfaceWidth / DividableBy) * DividableBy;
 	SurfaceHeight = (SurfaceHeight / DividableBy) * DividableBy;
 }

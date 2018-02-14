@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -109,10 +109,8 @@ private:
 	int32 StartCycles;
 };
 
-typedef TScopedDurationThreadSafeTimer<FThreadSafeCounter> FScopedDurationThreadSafeTimer;
-#if PLATFORM_HAS_64BIT_ATOMICS
+typedef TScopedDurationThreadSafeTimer<FThreadSafeCounter>   FScopedDurationThreadSafeTimer;
 typedef TScopedDurationThreadSafeTimer<FThreadSafeCounter64> FScopedDurationThreadSafeTimer64;
-#endif
 
 /**
  * Utility class for logging the duration of a scoped action (the user 

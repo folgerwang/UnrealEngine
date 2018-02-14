@@ -1,13 +1,13 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "NiagaraParameterEditMode.h"
-#include "DelegateCombinations.h"
-#include "Delegate.h"
-#include "SlateTypes.h"
-#include "StructOnScope.h"
-#include "Text.h"
+#include "Delegates/DelegateCombinations.h"
+#include "Delegates/Delegate.h"
+#include "Styling/SlateTypes.h"
+#include "UObject/StructOnScope.h"
+#include "Internationalization/Text.h"
 
 struct FNiagaraTypeDefinition;
 struct FNiagaraVariable;

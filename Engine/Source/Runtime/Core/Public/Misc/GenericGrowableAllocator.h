@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	GrowableAllocator.h: Memory allocator that allocates direct memory for pool memory
@@ -7,7 +7,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ScopeLock.h"
+#include "Misc/ScopeLock.h"
 #include "Stats/Stats.h"
 
 

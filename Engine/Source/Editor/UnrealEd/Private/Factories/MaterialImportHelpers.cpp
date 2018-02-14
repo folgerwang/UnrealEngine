@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Factories/MaterialImportHelpers.h"
 #include "AssetRegistryModule.h"
 #include "AssetData.h"
 #include "ARFilter.h"
 #include "Materials/MaterialInterface.h"
-#include "Paths.h"
+#include "Misc/Paths.h"
 
 UMaterialInterface* UMaterialImportHelpers::FindExistingMaterialFromSearchLocation(const FString& MaterialFullName, const FString& BasePackagePath, EMaterialSearchLocation SearchLocation, FText& OutError)
 {

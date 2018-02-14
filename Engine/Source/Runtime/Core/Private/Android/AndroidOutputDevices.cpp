@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AndroidOutputDevices.cpp: Android implementations of OutputDevices functions
 =============================================================================*/
 
-#include "AndroidOutputDevices.h"
+#include "Android/AndroidOutputDevices.h"
 
 /*class FOutputDevice* FAndroidOutputDevices::GetLog()
 {

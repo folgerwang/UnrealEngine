@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DebugViewModeHelpers.cpp: debug view shader helpers.
@@ -6,8 +6,8 @@
 #include "DebugViewModeHelpers.h"
 #include "DebugViewModeMaterialProxy.h"
 #include "ShaderCompiler.h"
-#include "ScopedSlowTask.h"
-#include "FeedbackContext.h"
+#include "Misc/ScopedSlowTask.h"
+#include "Misc/FeedbackContext.h"
 #include "Engine/World.h"
 #include "Components/PrimitiveComponent.h"
 

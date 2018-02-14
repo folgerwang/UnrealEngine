@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System;
@@ -75,7 +75,7 @@ public class PhysXVehicleLib : ModuleRules
         PhysXLibraryMode LibraryMode = GetPhysXLibraryMode(Target.Configuration);
         string LibrarySuffix = GetPhysXLibrarySuffix(LibraryMode);
 
-        string PhysXLibDir = Target.UEThirdPartySourceDirectory + "PhysX/Lib/";
+        string PhysXLibDir = Target.UEThirdPartySourceDirectory + "PhysX3/Lib/";
 
         // Libraries and DLLs for windows platform
         if (Target.Platform == UnrealTargetPlatform.Win64)
@@ -127,7 +127,23 @@ public class PhysXVehicleLib : ModuleRules
         }
         else if (Target.Platform == UnrealTargetPlatform.HTML5)
         {
-            PublicAdditionalLibraries.Add(PhysXLibDir + "HTML5/PhysX3Vehicle" + (Target.bCompileForSize ? "_Oz" : "") + ".bc");
+			string OpimizationSuffix = "";
+			if (Target.bCompileForSize)
+			{
+				OpimizationSuffix = "_Oz";
+			}
+			else
+			{
+				if (Target.Configuration == UnrealTargetConfiguration.Development)
+				{
+					OpimizationSuffix = "_O2";
+				}
+				else if (Target.Configuration == UnrealTargetConfiguration.Shipping)
+				{
+					OpimizationSuffix = "_O3";
+				}
+			}
+            PublicAdditionalLibraries.Add(PhysXLibDir + "HTML5/PhysX3Vehicle" + OpimizationSuffix + ".bc");
         }
         else if (Target.Platform == UnrealTargetPlatform.PS4)
         {

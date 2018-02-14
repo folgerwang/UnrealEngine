@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 
@@ -8,7 +8,7 @@
 
 #include "CoreMinimal.h"
 #include "RHI.h"
-#include "SHMath.h"
+#include "Math/SHMath.h"
 #include "ScenePrivate.h"
 
 namespace MobileReflectionEnvironmentCapture

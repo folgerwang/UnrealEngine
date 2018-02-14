@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "DesktopPlatformBase.h"
 #include "HAL/FileManager.h"
@@ -600,15 +600,9 @@ bool FDesktopPlatformBase::CompileGameProject(const FString& RootDir, const FStr
 	return RunUnrealBuildTool(LOCTEXT("CompilingProject", "Compiling project..."), RootDir, Arguments, Warn);
 }
 
-bool FDesktopPlatformBase::GenerateProjectFiles(const FString& RootDir, const FString& ProjectFileName, FFeedbackContext* Warn)
+bool FDesktopPlatformBase::GenerateProjectFiles(const FString& RootDir, const FString& ProjectFileName, FFeedbackContext* Warn, FString LogFilePath)
 {
-#if PLATFORM_MAC
-	FString Arguments = TEXT(" -xcodeprojectfile");
-#elif PLATFORM_LINUX
-	FString Arguments = TEXT(" -makefile -kdevelopfile -qmakefile -cmakefile -codelitefile ");
-#else
 	FString Arguments = TEXT(" -projectfiles");
-#endif
 
 	// Build the arguments to pass to UBT. If it's a non-foreign project, just build full project files.
 	if ( !ProjectFileName.IsEmpty() && GetCachedProjectDictionary(RootDir).IsForeignProject(ProjectFileName) )
@@ -636,6 +630,11 @@ bool FDesktopPlatformBase::GenerateProjectFiles(const FString& RootDir, const FS
 		}
 	}
 	Arguments += TEXT(" -progress");
+
+	if (!LogFilePath.IsEmpty())
+	{
+		Arguments += TEXT(" -log=") + LogFilePath;
+	}
 
 	// Compile UnrealBuildTool if it doesn't exist. This can happen if we're just copying source from somewhere.
 	bool bRes = true;
@@ -1133,10 +1132,10 @@ bool FDesktopPlatformBase::EnumerateProjectsKnownByEngine(const FString &Identif
 
 #if PLATFORM_WINDOWS
 
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <ShlObj.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 static bool TryReadMsBuildInstallPath(HKEY RootKey, const TCHAR* KeyName, const TCHAR* ValueName, const TCHAR* MsBuildRelativePath, FString& OutMsBuildPath)
 {

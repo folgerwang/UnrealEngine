@@ -1,15 +1,15 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "MovieSceneSequence.h"
-#include "MovieSceneSegment.h"
-#include "MovieSceneEvalTemplate.h"
-#include "MovieSceneTrackImplementation.h"
-#include "MovieScenePreAnimatedState.h"
+#include "Evaluation/MovieSceneSegment.h"
+#include "Evaluation/MovieSceneEvalTemplate.h"
+#include "Evaluation/MovieSceneTrackImplementation.h"
+#include "Evaluation/MovieScenePreAnimatedState.h"
 #include "MovieSceneSection.h"
-#include "MovieSceneEvaluationState.h"
-#include "MovieScenePlayback.h"
-#include "MovieSceneExecutionTokens.h"
-#include "MovieSceneEvaluationTemplate.h"
-#include "MovieSceneEvaluationTemplateInstance.h"
+#include "Evaluation/MovieSceneEvaluationState.h"
+#include "Evaluation/MovieScenePlayback.h"
+#include "Evaluation/MovieSceneExecutionTokens.h"
+#include "Evaluation/MovieSceneEvaluationTemplate.h"
+#include "Evaluation/MovieSceneEvaluationTemplateInstance.h"

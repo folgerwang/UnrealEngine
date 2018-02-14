@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SLevelsTreeWidget.h"
 
 #include "EditorStyleSet.h"
-#include "AssetDragDropOp.h"
+#include "DragAndDrop/AssetDragDropOp.h"
 #include "LevelCollectionModel.h"
 #include "AssetSelection.h"
 #include "LevelModel.h"

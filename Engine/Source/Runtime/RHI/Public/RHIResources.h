@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -1311,12 +1311,19 @@ public:
 	// Called when viewport is resized.
 	virtual void OnBackBufferResize() = 0;
 
+	// Called from render thread to see if a native present will be requested for this frame.
+	// @return	true if native Present will be requested for this frame; false otherwise.  Must
+	// match value subsequently returned by Present for this frame.
+	virtual bool NeedsNativePresent() = 0;
+
+	// Called from RHI thread to perform custom present.
 	// @param InOutSyncInterval - in out param, indicates if vsync is on (>0) or off (==0).
-	// @return	true if normal Present should be performed; false otherwise. If it returns
-	// true, then InOutSyncInterval could be modified to switch between VSync/NoVSync for the normal Present.
+	// @return	true if native Present should be also be performed; false otherwise. If it returns
+	// true, then InOutSyncInterval could be modified to switch between VSync/NoVSync for the normal 
+	// Present.  Must match value previously returned by NeedsNormalPresent for this frame.
 	virtual bool Present(int32& InOutSyncInterval) = 0;
 
-	// Called after a normal present has been called
+	// Called from RHI thread after native Present has been called
 	virtual void PostPresent() {};
 
 	// Called when rendering thread is acquired
@@ -1394,9 +1401,9 @@ struct FBoundShaderStateInput
 class FGraphicsPipelineStateInitializer
 {
 public:
-	using TRenderTargetFormats = TStaticArray<EPixelFormat, MaxSimultaneousRenderTargets>;
-	using TRenderTargetFlags = TStaticArray<uint32, MaxSimultaneousRenderTargets>;
-	using TRenderTargetLoadActions = TStaticArray<ERenderTargetLoadAction, MaxSimultaneousRenderTargets>;
+	using TRenderTargetFormats		= TStaticArray<EPixelFormat, MaxSimultaneousRenderTargets>;
+	using TRenderTargetFlags		= TStaticArray<uint32, MaxSimultaneousRenderTargets>;
+	using TRenderTargetLoadActions	= TStaticArray<ERenderTargetLoadAction, MaxSimultaneousRenderTargets>;
 	using TRenderTargetStoreActions = TStaticArray<ERenderTargetStoreAction, MaxSimultaneousRenderTargets>;
 
 	FGraphicsPipelineStateInitializer()
@@ -1405,6 +1412,10 @@ public:
 		, DepthStencilState(nullptr)
 		, PrimitiveType(PT_Num)
 		, RenderTargetsEnabled(0)
+		, RenderTargetFormats(PF_Unknown)
+		, RenderTargetFlags(0)
+		, RenderTargetLoadActions(ERenderTargetLoadAction::ENoAction)
+		, RenderTargetStoreActions(ERenderTargetStoreAction::ENoAction)
 		, DepthStencilTargetFormat(PF_Unknown)
 		, DepthStencilTargetFlag(0)
 		, DepthTargetLoadAction(ERenderTargetLoadAction::ENoAction)
@@ -1413,13 +1424,6 @@ public:
 		, StencilTargetStoreAction(ERenderTargetStoreAction::ENoAction)
 		, NumSamples(0)
 	{
-		for (uint32 i = 0; i < MaxSimultaneousRenderTargets; ++i)
-		{
-			RenderTargetFormats[i] = PF_Unknown;
-			RenderTargetFlags[i] = 0;
-			RenderTargetLoadActions[i] = ERenderTargetLoadAction::ENoAction;
-			RenderTargetStoreActions[i] = ERenderTargetStoreAction::ENoAction;
-		}
 	}
 
 	FGraphicsPipelineStateInitializer(

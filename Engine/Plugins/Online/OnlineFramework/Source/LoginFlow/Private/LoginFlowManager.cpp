@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LoginFlowManager.h"
 #include "LoginFlowPrivate.h"
-#include "OnlineIdentityInterface.h"
-#include "OnlineExternalUIInterface.h"
+#include "Interfaces/OnlineIdentityInterface.h"
+#include "Interfaces/OnlineExternalUIInterface.h"
 #include "OnlineError.h"
 
 #include "IWebBrowserSingleton.h"

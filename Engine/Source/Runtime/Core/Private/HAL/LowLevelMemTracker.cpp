@@ -1,7 +1,7 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "HAL/LowLevelMemTracker.h"
-#include "ScopeLock.h"
+#include "Misc/ScopeLock.h"
 #include "LowLevelMemoryUtils.h"
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
@@ -398,7 +398,7 @@ bool FLowLevelMemTracker::IsEnabled()
 
 FLowLevelMemTracker::FLowLevelMemTracker()
 	: bFirstTimeUpdating(true)
-	, bIsDisabled(false)		// must start off enabled because alllocations happen before the command line enables/disables us
+	, bIsDisabled(false)		// must start off enabled because allocations happen before the command line enables/disables us
 	, bCanEnable(true)
 	, bCsvWriterEnabled(false)
 	, bInitialisedTrackers(false)

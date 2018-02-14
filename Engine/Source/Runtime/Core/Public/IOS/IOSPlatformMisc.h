@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================================
 	IOSPlatformMisc.h: iOS platform misc functions
@@ -26,13 +26,18 @@ struct CORE_API FIOSPlatformMisc : public FApplePlatformMisc
 	static EAppReturnType::Type MessageBoxExt( EAppMsgType::Type MsgType, const TCHAR* Text, const TCHAR* Caption );
 	static void SetMemoryWarningHandler(void (* Handler)(const FGenericMemoryWarningContext& Context));
 	static bool HasPlatformFeature(const TCHAR* FeatureName);
+	static bool SetStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName, const FString& InValue);
+	static bool GetStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName, FString& OutValue);
+	static bool DeleteStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName);
 	static void GetValidTargetPlatforms(class TArray<class FString>& TargetPlatformNames);
 	static bool HasActiveWiFiConnection();
+    static const TCHAR* GamePersistentDownloadDir();
 
 	static int GetAudioVolume();
 	static bool AreHeadphonesPluggedIn();
 	static int GetBatteryLevel();
 	static bool IsRunningOnBattery();
+	static EDeviceScreenOrientation GetDeviceOrientation();
 
 	static void RegisterForRemoteNotifications();
 	static bool IsRegisteredForRemoteNotifications();
@@ -79,13 +84,18 @@ struct CORE_API FIOSPlatformMisc : public FApplePlatformMisc
 		IOS_IPhone6SPlus,
         IOS_IPhone7,
         IOS_IPhone7Plus,
+		IOS_IPhone8,
+		IOS_IPhone8Plus,
+		IOS_IPhoneX,
 		IOS_IPadPro,
 		IOS_AppleTV,
+		IOS_AppleTV4K,
 		IOS_IPhoneSE,
 		IOS_IPadPro_129,
 		IOS_IPadPro_97,
 		IOS_IPadPro_105,
 		IOS_IPadPro2_129,
+		IOS_IPad5,
 		IOS_Unknown,
 	};
 
@@ -115,13 +125,18 @@ struct CORE_API FIOSPlatformMisc : public FApplePlatformMisc
 			L"IPhone6SPlus",
             L"IPhone7",
             L"IPhone7Plus",
+			L"IPhone8",
+			L"IPhone8Plus",
+			L"IPhoneX",
 			L"IPadPro",
 			L"AppleTV",
+			L"AppleTV4K",
 			L"IPhoneSE",
 			L"IPadPro129",
 			L"IPadPro97",
 			L"IPadPro105",
 			L"IPadPro2_129",
+			L"IPad5",
 			L"Unknown",
 		};
 		static_assert((sizeof(IOSDeviceNames) / sizeof(IOSDeviceNames[0])) == ((int32)IOS_Unknown + 1), "Mismatched IOSDeviceNames and EIOSDevice.");

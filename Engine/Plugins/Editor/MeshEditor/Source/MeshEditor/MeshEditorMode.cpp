@@ -31,11 +31,11 @@
 #include "MeshEditorSettings.h"
 #include "LevelEditor.h"
 #include "VREditorMode.h" // @TODO: remove once radial menu code is in a non-VREditor module
-#include "MultiBoxBuilder.h"
-#include "UICommandList.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/Commands/UICommandList.h"
 #include "MeshEditorAssetContainer.h"
 #include "Kismet/GameplayStatics.h"
-#include "SlateApplication.h"	// For GetCurrentTime()
+#include "Framework/Application/SlateApplication.h"	// For GetCurrentTime()
 #include "Materials/Material.h"
 #include "Materials/MaterialInterface.h"
 #include "MeshEditorStaticMeshAdapter.h"

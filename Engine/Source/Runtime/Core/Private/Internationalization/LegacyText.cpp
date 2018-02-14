@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreTypes.h"
 #include "Misc/AssertionMacros.h"
@@ -9,7 +9,7 @@
 #include "Internationalization/Internationalization.h"
 
 #if !UE_ENABLE_ICU
-#include "Text.h"
+#include "Internationalization/Text.h"
 #include "TextData.h"
 
 FString FTextChronoFormatter::AsDate( const FDateTime& DateTime, const EDateTimeStyle::Type DateStyle, const FString& TimeZone, const FCulture& TargetCulture )

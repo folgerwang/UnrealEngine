@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Animation/MovieSceneWidgetMaterialTemplate.h"
 #include "Animation/WidgetMaterialTrackUtilities.h"
 #include "Animation/MovieSceneWidgetMaterialTrack.h"
 #include "Components/Widget.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 
 // Container to ensure unique IDs per property path
 TMovieSceneAnimTypeIDContainer<TArray<FName>> BrushPropertyIDs;
@@ -15,26 +15,6 @@ struct FWidgetMaterialAccessor : FDefaultMaterialAccessor
 		: AnimTypeID(BrushPropertyIDs.GetAnimTypeID(InBrushPropertyNamePath))
 		, BrushPropertyNamePath(InBrushPropertyNamePath)
 	{}
-
-	FWidgetMaterialAccessor(const FWidgetMaterialAccessor&) = default;
-	FWidgetMaterialAccessor& operator=(const FWidgetMaterialAccessor&) = default;
-
-#if PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS
-	FWidgetMaterialAccessor(FWidgetMaterialAccessor&&) = default;
-	FWidgetMaterialAccessor& operator=(FWidgetMaterialAccessor&&) = default;
-#else
-	FWidgetMaterialAccessor(FWidgetMaterialAccessor&& RHS)
-		: AnimTypeID(MoveTemp(RHS.AnimTypeID))
-		, BrushPropertyNamePath(MoveTemp(RHS.BrushPropertyNamePath))
-	{
-	}
-	FWidgetMaterialAccessor& operator=(FWidgetMaterialAccessor&& RHS)
-	{
-		AnimTypeID = MoveTemp(RHS.AnimTypeID);
-		BrushPropertyNamePath = MoveTemp(RHS.BrushPropertyNamePath);
-		return *this;
-	}
-#endif
 
 	FMovieSceneAnimTypeID GetAnimTypeID() const
 	{

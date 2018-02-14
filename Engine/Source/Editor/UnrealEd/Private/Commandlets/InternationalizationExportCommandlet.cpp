@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Commandlets/InternationalizationExportCommandlet.h"
 #include "PortableObjectPipeline.h"
-#include "UObjectGlobals.h"
-#include "Package.h"
-#include "Class.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/Package.h"
+#include "UObject/Class.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogInternationalizationExportCommandlet, Log, All);
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LMCore.h"
 #include "Misc/Guid.h"
@@ -8,7 +8,7 @@
 #include "Templates/ScopedPointer.h"
 #include "UnrealLightmass.h"
 #include "Misc/Paths.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 namespace Lightmass
 {

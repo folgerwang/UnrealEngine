@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ControlRigSequenceActions.h"
 #include "EngineGlobals.h"
 #include "Engine/Engine.h"
-#include "ControlRigSequence.h"
+#include "Sequencer/ControlRigSequence.h"
 #include "AssetToolsModule.h"
 #include "IAssetTools.h"
 

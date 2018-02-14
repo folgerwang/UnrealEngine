@@ -1,9 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LiveLinkRemapAsset.h"
 #include "LiveLinkTypes.h"
 #include "BonePose.h"
-
+#include "Engine/Blueprint.h"
+  
 ULiveLinkRemapAsset::ULiveLinkRemapAsset(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -32,7 +33,7 @@ void ULiveLinkRemapAsset::OnBlueprintClassCompiled(UBlueprint* TargetBlueprint)
 	NameMap.Reset();
 }
 
-void ULiveLinkRemapAsset::BuildPoseForSubject(const FLiveLinkSubjectFrame& InFrame, FCompactPose& OutPose, FBlendedCurve& OutCurve)
+void ULiveLinkRemapAsset::BuildPoseForSubject(float DeltaTime, const FLiveLinkSubjectFrame& InFrame, FCompactPose& OutPose, FBlendedCurve& OutCurve)
 {
 	const TArray<FName>& SourceBoneNames = InFrame.RefSkeleton.GetBoneNames();
 

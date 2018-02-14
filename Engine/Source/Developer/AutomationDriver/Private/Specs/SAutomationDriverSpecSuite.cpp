@@ -1,16 +1,16 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SAutomationDriverSpecSuite.h"
 #include "AutomationDriverSpecSuiteViewModel.h"
-#include "DriverMetaData.h"
+#include "Framework/MetaData/DriverMetaData.h"
 
-#include "SMenuAnchor.h"
-#include "SButton.h"
-#include "SScrollBox.h"
-#include "STileView.h"
-#include "SListView.h"
-#include "SOverlay.h"
-#include "SMultiLineEditableTextBox.h"
+#include "Widgets/Input/SMenuAnchor.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/Views/STileView.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/SOverlay.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
 #include "Widgets/Input/SEditableTextBox.h"
 
 class SAutomationDriverSpecSuiteImpl

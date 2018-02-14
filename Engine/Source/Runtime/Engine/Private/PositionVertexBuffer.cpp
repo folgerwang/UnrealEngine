@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Rendering/PositionVertexBuffer.h"
 
@@ -43,7 +43,21 @@ void FPositionVertexBuffer::CleanUp()
 	{
 		delete VertexData;
 		VertexData = NULL;
+		Data = NULL;
+		NumVertices = 0;
 	}
+}
+
+void FPositionVertexBuffer::Init(uint32 InNumVertices, bool bNeedsCPUAccess)
+{
+	// Allocate the vertex data storage type.
+	AllocateData(bNeedsCPUAccess);
+
+	NumVertices = InNumVertices;
+
+	// Allocate the vertex data buffer.
+	VertexData->ResizeBuffer(NumVertices);
+	Data = NumVertices ? VertexData->GetDataPointer() : nullptr;
 }
 
 /**
@@ -52,24 +66,14 @@ void FPositionVertexBuffer::CleanUp()
  */
 void FPositionVertexBuffer::Init(const TArray<FStaticMeshBuildVertex>& InVertices)
 {
-	NumVertices = InVertices.Num();
+	Init(InVertices.Num());
 
-	// Allocate the vertex data storage type.
-	AllocateData();
-
-	// Allocate the vertex data buffer.
-	VertexData->ResizeBuffer(NumVertices);
-	if( NumVertices > 0 )
+	// Copy the vertices into the buffer.
+	for(int32 VertexIndex = 0;VertexIndex < InVertices.Num();VertexIndex++)
 	{
-		Data = VertexData->GetDataPointer();
-
-		// Copy the vertices into the buffer.
-		for(int32 VertexIndex = 0;VertexIndex < InVertices.Num();VertexIndex++)
-		{
-			const FStaticMeshBuildVertex& SourceVertex = InVertices[VertexIndex];
-			const uint32 DestVertexIndex = VertexIndex;
-			VertexPosition(DestVertexIndex) = SourceVertex.Position;
-		}
+		const FStaticMeshBuildVertex& SourceVertex = InVertices[VertexIndex];
+		const uint32 DestVertexIndex = VertexIndex;
+		VertexPosition(DestVertexIndex) = SourceVertex.Position;
 	}
 }
 
@@ -79,34 +83,25 @@ void FPositionVertexBuffer::Init(const TArray<FStaticMeshBuildVertex>& InVertice
  */
 void FPositionVertexBuffer::Init(const FPositionVertexBuffer& InVertexBuffer)
 {
-	NumVertices = InVertexBuffer.GetNumVertices();
-	if ( NumVertices )
+	Init(InVertexBuffer.GetNumVertices());
+
+	if( NumVertices )
 	{
-		AllocateData();
 		check( Stride == InVertexBuffer.GetStride() );
-		VertexData->ResizeBuffer(NumVertices);
-		if( NumVertices > 0 )
-		{
-			Data = VertexData->GetDataPointer();
-			const uint8* InData = InVertexBuffer.Data;
-			FMemory::Memcpy( Data, InData, Stride * NumVertices );
-		}
+
+		const uint8* InData = InVertexBuffer.Data;
+		FMemory::Memcpy( Data, InData, Stride * NumVertices );
 	}
 }
 
 void FPositionVertexBuffer::Init(const TArray<FVector>& InPositions)
 {
-	NumVertices = InPositions.Num();
+	Init(InPositions.Num());
+
 	if ( NumVertices )
 	{
-		AllocateData();
 		check( Stride == InPositions.GetTypeSize() );
-		VertexData->ResizeBuffer(NumVertices);
-		if( NumVertices > 0 )
-		{
-			Data = VertexData->GetDataPointer();
-			FMemory::Memcpy( Data, InPositions.GetData(), Stride * NumVertices );
-		}
+		FMemory::Memcpy( Data, InPositions.GetData(), Stride * NumVertices );
 	}
 }
 
@@ -118,10 +113,9 @@ void FPositionVertexBuffer::AppendVertices( const FStaticMeshBuildVertex* Vertic
 		AllocateData();
 	}
 
-
-	check( VertexData != nullptr );	// Must only be called after Init() has already initialized the buffer!
 	if( NumVerticesToAppend > 0 )
 	{
+		check( VertexData != nullptr );
 		check( Vertices != nullptr );
 
 		const uint32 FirstDestVertexIndex = NumVertices;
@@ -164,11 +158,8 @@ void FPositionVertexBuffer::Serialize( FArchive& Ar, bool bNeedsCPUAccess )
 		// Serialize the vertex data.
 		VertexData->Serialize(Ar);
 
-		if( NumVertices > 0 )
-		{
-			// Make a copy of the vertex data pointer.
-			Data = VertexData->GetDataPointer();
-		}
+		// Make a copy of the vertex data pointer.
+		Data = NumVertices ? VertexData->GetDataPointer() : nullptr;
 	}
 }
 
@@ -185,11 +176,12 @@ void FPositionVertexBuffer::InitRHI()
 {
 	check(VertexData);
 	FResourceArrayInterface* ResourceArray = VertexData->GetResourceArray();
-	if(ResourceArray->GetResourceDataSize())
+	if (ResourceArray->GetResourceDataSize())
 	{
 		// Create the vertex buffer.
 		FRHIResourceCreateInfo CreateInfo(ResourceArray);
-		VertexBufferRHI = RHICreateVertexBuffer(ResourceArray->GetResourceDataSize(),BUF_Static,CreateInfo);
+		VertexBufferRHI = RHICreateVertexBuffer(ResourceArray->GetResourceDataSize(), BUF_Static | BUF_ShaderResource, CreateInfo);
+		PositionComponentSRV = RHICreateShaderResourceView(VertexBufferRHI, 4, PF_R32_FLOAT);
 	}
 }
 
@@ -203,3 +195,13 @@ void FPositionVertexBuffer::AllocateData( bool bNeedsCPUAccess /*= true*/ )
 	Stride = VertexData->GetStride();
 }
 
+void FPositionVertexBuffer::BindPositionVertexBuffer(const FVertexFactory* VertexFactory, FStaticMeshDataType& StaticMeshData) const
+{
+	StaticMeshData.PositionComponent = FVertexStreamComponent(
+		this,
+		STRUCT_OFFSET(FPositionVertex, Position),
+		GetStride(),
+		VET_Float3
+	);
+	StaticMeshData.PositionComponentSRV = PositionComponentSRV;
+}

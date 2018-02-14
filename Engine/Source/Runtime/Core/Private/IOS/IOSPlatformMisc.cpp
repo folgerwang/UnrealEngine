@@ -1,23 +1,23 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	IOSPlatformMisc.mm: iOS implementations of misc functions
 =============================================================================*/
 
-#include "IOSPlatformMisc.h"
+#include "IOS/IOSPlatformMisc.h"
 #include "Misc/App.h"
-#include "ExceptionHandling.h"
-#include "SecureHash.h"
-#include "EngineVersion.h"
-#include "IOSMallocZone.h"
-#include "IOSApplication.h"
-#include "IOSAppDelegate.h"
-#include "IOSView.h"
+#include "HAL/ExceptionHandling.h"
+#include "Misc/SecureHash.h"
+#include "Misc/EngineVersion.h"
+#include "IOS/IOSMallocZone.h"
+#include "IOS/IOSApplication.h"
+#include "IOS/IOSAppDelegate.h"
+#include "IOS/IOSView.h"
 #include "IOSChunkInstaller.h"
 #include "Misc/CommandLine.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Apple/ApplePlatformCrashContext.h"
-#include "IOSPlatformCrashContext.h"
+#include "IOS/IOSPlatformCrashContext.h"
 #if !PLATFORM_TVOS
 #include "PLCrashReporter.h"
 #include "PLCrashReport.h"
@@ -40,7 +40,8 @@
 #include <netinet/in.h>
 
 //#include <libproc.h>
-#include <mach-o/dyld.h>
+// @pjs commented out to resolve issue with PLATFORM_TVOS being defined by mach-o loader
+//#include <mach-o/dyld.h>
 
 /** Amount of free memory in MB reported by the system at startup */
 CORE_API int32 GStartupFreeMemoryMB;
@@ -93,7 +94,44 @@ void FIOSPlatformMisc::PlatformInit()
 
 void FIOSPlatformMisc::PlatformHandleSplashScreen(bool ShowSplashScreen)
 {
-//    GShowSplashScreen = ShowSplashScreen;
+    GShowSplashScreen = ShowSplashScreen;
+}
+
+const TCHAR* FIOSPlatformMisc::GamePersistentDownloadDir()
+{
+    static FString GamePersistentDownloadDir = TEXT("");
+    
+    if (GamePersistentDownloadDir.Len() == 0)
+    {
+        FString BaseProjectDir = ProjectDir();
+        
+        if (BaseProjectDir.Len() > 0)
+        {
+            GamePersistentDownloadDir = BaseProjectDir / TEXT("PersistentDownloadDir");
+        }
+        
+        // create the directory so we can exclude it from iCloud backup
+        FString Result = GamePersistentDownloadDir;
+        Result.ReplaceInline(TEXT("../"), TEXT(""));
+        Result.ReplaceInline(TEXT(".."), TEXT(""));
+        Result.ReplaceInline(FPlatformProcess::BaseDir(), TEXT(""));
+        FString DownloadPath = FString([NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0]) + TEXT("/");
+        Result = DownloadPath + Result;
+        NSURL* URL = [NSURL fileURLWithPath : Result.GetNSString()];
+        if (![[NSFileManager defaultManager] fileExistsAtPath:[URL path]])
+        {
+            [[NSFileManager defaultManager] createDirectoryAtURL:URL withIntermediateDirectories : YES attributes : nil error : nil];
+        }
+        
+        // mark it to not be uploaded
+        NSError *error = nil;
+        BOOL success = [URL setResourceValue : [NSNumber numberWithBool : YES] forKey : NSURLIsExcludedFromBackupKey error : &error];
+        if (!success)
+        {
+            NSLog(@"Error excluding %@ from backup %@",[URL lastPathComponent], error);
+        }
+    }
+    return *GamePersistentDownloadDir;
 }
 
 EAppReturnType::Type FIOSPlatformMisc::MessageBoxExt( EAppMsgType::Type MsgType, const TCHAR* Text, const TCHAR* Caption )
@@ -122,7 +160,33 @@ bool FIOSPlatformMisc::IsRunningOnBattery()
 	return [[IOSAppDelegate GetDelegate] IsRunningOnBattery];
 }
 
-#include "ModuleManager.h"
+#if !PLATFORM_TVOS
+EDeviceScreenOrientation ConvertFromUIDeviceOrientation(UIDeviceOrientation Orientation)
+{
+	switch(Orientation)
+	{
+		default:
+		case UIDeviceOrientationUnknown : return EDeviceScreenOrientation::Unknown; break;
+		case UIDeviceOrientationPortrait : return EDeviceScreenOrientation::Portrait; break;
+		case UIDeviceOrientationPortraitUpsideDown : return EDeviceScreenOrientation::PortraitUpsideDown; break;
+		case UIDeviceOrientationLandscapeLeft : return EDeviceScreenOrientation::LandscapeLeft; break;
+		case UIDeviceOrientationLandscapeRight : return EDeviceScreenOrientation::LandscapeRight; break;
+		case UIDeviceOrientationFaceUp : return EDeviceScreenOrientation::FaceUp; break;
+		case UIDeviceOrientationFaceDown : return EDeviceScreenOrientation::FaceDown; break;
+	}
+}
+#endif
+
+EDeviceScreenOrientation FIOSPlatformMisc::GetDeviceOrientation()
+{
+#if !PLATFORM_TVOS
+	return ConvertFromUIDeviceOrientation([[UIDevice currentDevice] orientation]);
+#else
+	return EDeviceScreenOrientation::Unknown;
+#endif
+}
+
+#include "Modules/ModuleManager.h"
 
 bool FIOSPlatformMisc::HasPlatformFeature(const TCHAR* FeatureName)
 {
@@ -249,6 +313,10 @@ FIOSPlatformMisc::EIOSDevice FIOSPlatformMisc::GetIOSDeviceType()
 			{
 				DeviceType = IOS_IPadPro_97;
 			}
+			else if (Minor == 11 || Minor == 12)
+			{
+				DeviceType = IOS_IPad5;
+			}
 			else
 			{
 				DeviceType = IOS_IPadPro_129;
@@ -333,24 +401,54 @@ FIOSPlatformMisc::EIOSDevice FIOSPlatformMisc::GetIOSDeviceType()
                 DeviceType = IOS_IPhone7Plus;
             }
 		}
-        else if (Major >= 10)
+        else if (Major == 10)
         {
-            // for going forward into unknown devices (like 8/8+?), we can't use Minor,
-            // so treat devices with a scale > 2.5 to be 6SPlus type devices, < 2.5 to be 6S type devices
-            if ([UIScreen mainScreen].scale > 2.5f)
-            {
-                DeviceType = IOS_IPhone7Plus;
-            }
-            else
-            {
-                DeviceType = IOS_IPhone7;
-            }
-        }
+			if (Minor == 1 || Minor == 4)
+			{
+				DeviceType = IOS_IPhone8;
+			}
+			else if (Minor == 2 || Minor == 5)
+			{
+				DeviceType = IOS_IPhone8Plus;
+			}
+			else if (Minor == 3 || Minor == 6)
+			{
+				DeviceType = IOS_IPhoneX;
+			}
+		}
+		else if (Major >= 10)
+		{
+			// for going forward into unknown devices (like 8/8+?), we can't use Minor,
+			// so treat devices with a scale > 2.5 to be 6SPlus type devices, < 2.5 to be 6S type devices
+			if ([UIScreen mainScreen].scale > 2.5f)
+			{
+				DeviceType = IOS_IPhone8Plus;
+			}
+			else
+			{
+				DeviceType = IOS_IPhone8;
+			}
+		}
 	}
 	// tvOS
 	else if (DeviceIDString.StartsWith(TEXT("AppleTV")))
 	{
-		DeviceType = IOS_AppleTV;
+		const int Major = FCString::Atoi(&DeviceIDString[7]);
+		const int CommaIndex = DeviceIDString.Find(TEXT(","), ESearchCase::CaseSensitive, ESearchDir::FromStart, 6);
+		const int Minor = FCString::Atoi(&DeviceIDString[CommaIndex + 1]);
+
+		if (Major == 5)
+		{
+			DeviceType = IOS_AppleTV;
+		}
+		else if (Major == 6)
+		{
+			DeviceType = IOS_AppleTV4K;
+		}
+		else if (Major >= 6)
+		{
+			DeviceType = IOS_AppleTV4K;
+		}
 	}
 	// simulator
 	else if (DeviceIDString.StartsWith(TEXT("x86")))
@@ -916,6 +1014,48 @@ void FIOSPlatformMisc::PlatformPreInit()
     signal(SIGPIPE, SIG_IGN);
 }
 
+// Make sure that SetStoredValue and GetStoredValue generate the same key
+static NSString* MakeStoredValueKeyName(const FString& SectionName, const FString& KeyName)
+{
+	return [NSString stringWithFString:(SectionName + "/" + KeyName)];
+}
+
+bool FIOSPlatformMisc::SetStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName, const FString& InValue)
+{
+	NSUserDefaults* UserSettings = [NSUserDefaults standardUserDefaults];
+
+	// convert input to an NSString
+	NSString* StoredValue = [NSString stringWithFString:InValue];
+
+	// store it
+	[UserSettings setObject:StoredValue forKey:MakeStoredValueKeyName(InSectionName, InKeyName)];
+
+	return true;
+}
+
+bool FIOSPlatformMisc::GetStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName, FString& OutValue)
+{
+	NSUserDefaults* UserSettings = [NSUserDefaults standardUserDefaults];
+
+	// get the stored NSString
+	NSString* StoredValue = [UserSettings objectForKey:MakeStoredValueKeyName(InSectionName, InKeyName)];
+
+	// if it was there, convert back to FString
+	if (StoredValue != nil)
+	{
+		OutValue = StoredValue;
+		return true;
+	}
+
+	return false;
+}
+
+bool FIOSPlatformMisc::DeleteStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName)
+{
+	// No Implementation (currently only used by editor code so not needed on iOS)
+	return false;
+}
+
 void FIOSPlatformMisc::SetGracefulTerminationHandler()
 {
     struct sigaction Action;
@@ -977,202 +1117,6 @@ void FIOSPlatformMisc::SetCrashHandler(void (* CrashHandler)(const FGenericCrash
         }
     }
 #endif
-}
-
-void FIOSCrashContext::GenerateWindowsErrorReport(char const* WERPath, bool bIsEnsure) const
-{
-    int ReportFile = open(WERPath, O_CREAT|O_WRONLY, 0766);
-    if (ReportFile != -1)
-    {
-        TCHAR Line[PATH_MAX] = {};
-        
-        // write BOM
-        static uint16 ByteOrderMarker = 0xFEFF;
-        write(ReportFile, &ByteOrderMarker, sizeof(ByteOrderMarker));
-        
-        WriteLine(ReportFile, TEXT("<?xml version=\"1.0\" encoding=\"UTF-16\"?>"));
-        WriteLine(ReportFile, TEXT("<WERReportMetadata>"));
-        
-        WriteLine(ReportFile, TEXT("\t<OSVersionInformation>"));
-        WriteUTF16String(ReportFile, TEXT("\t\t<WindowsNTVersion>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.OSVersion);
-        WriteLine(ReportFile, TEXT("</WindowsNTVersion>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<Build>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.OSVersion);
-        WriteUTF16String(ReportFile, TEXT(" ("));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.OSBuild);
-        WriteLine(ReportFile, TEXT(")</Build>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<Product>(0x30): IOS "));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.OSVersion);
-        WriteLine(ReportFile, TEXT("</Product>"));
-        
-        WriteLine(ReportFile, TEXT("\t\t<Edition>IOS</Edition>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<BuildString>IOS "));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.OSVersion);
-        WriteUTF16String(ReportFile, TEXT(" ("));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.OSBuild);
-        WriteLine(ReportFile, TEXT(")</BuildString>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<Revision>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.OSBuild);
-        WriteLine(ReportFile, TEXT("</Revision>"));
-        
-        WriteLine(ReportFile, TEXT("\t\t<Flavor>Multiprocessor Free</Flavor>"));
-        WriteLine(ReportFile, TEXT("\t\t<Architecture>X64</Architecture>"));
-        WriteUTF16String(ReportFile, TEXT("\t\t<LCID>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.LCID);
-        WriteLine(ReportFile, TEXT("</LCID>"));
-        WriteLine(ReportFile, TEXT("\t</OSVersionInformation>"));
-        
-        WriteLine(ReportFile, TEXT("\t<ParentProcessInformation>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<ParentProcessId>"));
-        WriteUTF16String(ReportFile, ItoTCHAR(getppid(), 10));
-        WriteLine(ReportFile, TEXT("</ParentProcessId>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<ParentProcessPath>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.ParentProcess);
-        WriteLine(ReportFile, TEXT("</ParentProcessPath>"));
-        
-        WriteLine(ReportFile, TEXT("\t\t<ParentProcessCmdLine></ParentProcessCmdLine>"));	// FIXME: supply valid?
-        WriteLine(ReportFile, TEXT("\t</ParentProcessInformation>"));
-        
-        WriteLine(ReportFile, TEXT("\t<ProblemSignatures>"));
-        WriteLine(ReportFile, TEXT("\t\t<EventType>APPCRASH</EventType>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<Parameter0>UE4-"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.AppName);
-        WriteLine(ReportFile, TEXT("</Parameter0>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<Parameter1>"));
-        WriteUTF16String(ReportFile, ItoTCHAR(FEngineVersion::Current().GetMajor(), 10));
-        WriteUTF16String(ReportFile, TEXT("."));
-        WriteUTF16String(ReportFile, ItoTCHAR(FEngineVersion::Current().GetMinor(), 10));
-        WriteUTF16String(ReportFile, TEXT("."));
-        WriteUTF16String(ReportFile, ItoTCHAR(FEngineVersion::Current().GetPatch(), 10));
-        WriteLine(ReportFile, TEXT("</Parameter1>"));
-        
-        // App time stamp
-        WriteLine(ReportFile, TEXT("\t\t<Parameter2>528f2d37</Parameter2>"));													// FIXME: supply valid?
-        
-        Dl_info DLInfo;
-        if(Info && Info->si_addr != 0 && dladdr(Info->si_addr, &DLInfo) != 0)
-        {
-            // Crash Module name
-            WriteUTF16String(ReportFile, TEXT("\t\t<Parameter3>"));
-            if (DLInfo.dli_fname && FCStringAnsi::Strlen(DLInfo.dli_fname))
-            {
-                FMemory::Memzero(Line, PATH_MAX * sizeof(TCHAR));
-                FUTF8ToTCHAR_Convert::Convert(Line, PATH_MAX, DLInfo.dli_fname, FCStringAnsi::Strlen(DLInfo.dli_fname));
-                WriteUTF16String(ReportFile, Line);
-            }
-            else
-            {
-                WriteUTF16String(ReportFile, TEXT("Unknown"));
-            }
-            WriteLine(ReportFile, TEXT("</Parameter3>"));
-            
-            // Check header
-            uint32 Version = 0;
-            uint32 TimeStamp = 0;
-            struct mach_header_64* Header = (struct mach_header_64*)DLInfo.dli_fbase;
-            struct load_command *CurrentCommand = (struct load_command *)( (char *)Header + sizeof(struct mach_header_64) );
-            if( Header->magic == MH_MAGIC_64 )
-            {
-                for( int32 i = 0; i < Header->ncmds; i++ )
-                {
-                    if( CurrentCommand->cmd == LC_LOAD_DYLIB )
-                    {
-                        struct dylib_command *DylibCommand = (struct dylib_command *) CurrentCommand;
-                        Version = DylibCommand->dylib.current_version;
-                        TimeStamp = DylibCommand->dylib.timestamp;
-                        Version = ((Version & 0xff) + ((Version >> 8) & 0xff) * 100 + ((Version >> 16) & 0xffff) * 10000);
-                        break;
-                    }
-                    
-                    CurrentCommand = (struct load_command *)( (char *)CurrentCommand + CurrentCommand->cmdsize );
-                }
-            }
-            
-            // Module version
-            WriteUTF16String(ReportFile, TEXT("\t\t<Parameter4>"));
-            WriteUTF16String(ReportFile, ItoTCHAR(Version, 10));
-            WriteLine(ReportFile, TEXT("</Parameter4>"));
-            
-            // Module time stamp
-            WriteUTF16String(ReportFile, TEXT("\t\t<Parameter5>"));
-            WriteUTF16String(ReportFile, ItoTCHAR(TimeStamp, 16));
-            WriteLine(ReportFile, TEXT("</Parameter5>"));
-            
-            // MethodDef token -> no equivalent
-            WriteLine(ReportFile, TEXT("\t\t<Parameter6>00000001</Parameter6>"));
-            
-            // IL Offset -> Function pointer
-            WriteUTF16String(ReportFile, TEXT("\t\t<Parameter7>"));
-            WriteUTF16String(ReportFile, ItoTCHAR((uint64)Info->si_addr, 16));
-            WriteLine(ReportFile, TEXT("</Parameter7>"));
-        }
-        
-        // Command line, must match the Windows version.
-        WriteUTF16String(ReportFile, TEXT("\t\t<Parameter8>!"));
-        WriteUTF16String(ReportFile, FCommandLine::GetOriginal());
-        WriteLine(ReportFile, TEXT("!</Parameter8>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<Parameter9>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.BranchBaseDir);
-        WriteLine(ReportFile, TEXT("</Parameter9>"));
-        
-        WriteLine(ReportFile, TEXT("\t</ProblemSignatures>"));
-        
-        WriteLine(ReportFile, TEXT("\t<DynamicSignatures>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<Parameter1>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.BiosUUID);
-        WriteLine(ReportFile, TEXT("</Parameter1>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<Parameter2>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.LCID);
-        WriteLine(ReportFile, TEXT("</Parameter2>"));
-        WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<DeploymentName>%s</DeploymentName>"), FApp::GetDeploymentName()));
-        WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<IsEnsure>%s</IsEnsure>"), bIsEnsure ? TEXT("1") : TEXT("0")));
-        WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<IsAssert>%s</IsAssert>"), FDebug::bHasAsserted ? TEXT("1") : TEXT("0")));
-        WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<CrashType>%s</CrashType>"), FGenericCrashContext::GetCrashTypeString(bIsEnsure, FDebug::bHasAsserted, GIsGPUCrashed)));
-        WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<BuildVersion>%s</BuildVersion>"), FApp::GetBuildVersion()));
-        WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<EngineModeEx>%s</EngineModeEx>"), FGenericCrashContext::EngineModeExString()));
-        
-        WriteLine(ReportFile, TEXT("\t</DynamicSignatures>"));
-        
-        WriteLine(ReportFile, TEXT("\t<SystemInformation>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<MID>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.MachineUUID);
-        WriteLine(ReportFile, TEXT("</MID>"));
-        
-        WriteLine(ReportFile, TEXT("\t\t<SystemManufacturer>Apple Inc.</SystemManufacturer>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<SystemProductName>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.MachineModel);
-        WriteLine(ReportFile, TEXT("</SystemProductName>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<BIOSVersion>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.BiosRelease);
-        WriteUTF16String(ReportFile, TEXT("-"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.BiosRevision);
-        WriteLine(ReportFile, TEXT("</BIOSVersion>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<GraphicsCard>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.PrimaryGPU);
-        WriteLine(ReportFile, TEXT("</GraphicsCard>"));
-        
-        WriteLine(ReportFile, TEXT("\t</SystemInformation>"));
-        
-        WriteLine(ReportFile, TEXT("</WERReportMetadata>"));
-        
-        close(ReportFile);
-    }
 }
 
 void FIOSCrashContext::CopyMinidump(char const* OutputPath, char const* InputPath) const
@@ -1243,12 +1187,7 @@ void FIOSCrashContext::GenerateInfoInFolder(char const* const InfoFolder, bool b
             
             close(ReportFile);
         }
-        
-        // generate "WER"
-        FCStringAnsi::Strncpy(FilePath, CrashInfoFolder, PATH_MAX);
-        FCStringAnsi::Strcat(FilePath, PATH_MAX, "/wermeta.xml");
-        GenerateWindowsErrorReport(FilePath, bIsEnsure);
-        
+                
         // generate "minidump" (Apple crash log format)
         FCStringAnsi::Strncpy(FilePath, CrashInfoFolder, PATH_MAX);
         FCStringAnsi::Strcat(FilePath, PATH_MAX, "/minidump.dmp");
@@ -1284,7 +1223,7 @@ void FIOSCrashContext::GenerateInfoInFolder(char const* const InfoFolder, bool b
         FCStringAnsi::Strncpy(FilePath, CrashInfoFolder, PATH_MAX);
         FCStringAnsi::Strcat(FilePath, PATH_MAX, "/" );
         FCStringAnsi::Strcat(FilePath, PATH_MAX, FGenericCrashContext::CrashContextRuntimeXMLNameA );
-        //SerializeAsXML( FilePath ); @todo uncomment after verification - need to do a bit more work on this for macOS
+        SerializeAsXML(*FString(FilePath));
         
         // copy log
         FCStringAnsi::Strncpy(FilePath, CrashInfoFolder, PATH_MAX);

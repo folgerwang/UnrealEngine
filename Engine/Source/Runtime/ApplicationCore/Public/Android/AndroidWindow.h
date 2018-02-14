@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "GenericWindow.h"
-#include "GenericApplication.h"
+#include "GenericPlatform/GenericWindow.h"
+#include "GenericPlatform/GenericApplication.h"
 #include <android/native_window.h> 
 #include <android/native_window_jni.h> 
 

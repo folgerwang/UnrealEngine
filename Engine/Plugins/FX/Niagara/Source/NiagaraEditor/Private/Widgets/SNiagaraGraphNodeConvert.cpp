@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SNiagaraGraphNodeConvert.h"
 #include "NiagaraNodeConvert.h"
@@ -6,9 +6,9 @@
 #include "NiagaraConvertPinViewModel.h"
 #include "NiagaraConvertPinSocketViewModel.h"
 #include "SNiagaraConvertPinSocket.h"
-#include "SButton.h"
+#include "Widgets/Input/SButton.h"
 #include "GraphEditorSettings.h"
-#include "DrawElements.h"
+#include "Rendering/DrawElements.h"
 #include "SGraphPin.h"
 
 #define LOCTEXT_NAMESPACE "SNiagaraGraphNodeConvert"

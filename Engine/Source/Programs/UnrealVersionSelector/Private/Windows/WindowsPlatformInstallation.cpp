@@ -1,8 +1,8 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "WindowsPlatformInstallation.h"
 #include "Runtime/Core/Public/Misc/EngineVersion.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include "DesktopPlatformModule.h"
 #include "Misc/Paths.h"
 #include "Resources/Resource.h"
@@ -250,4 +250,4 @@ void FWindowsPlatformInstallation::ErrorDialog(const FString &Message, const FSt
 	Dialog.DoModal(NULL);
 }
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"

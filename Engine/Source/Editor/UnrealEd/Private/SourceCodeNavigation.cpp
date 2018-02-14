@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SourceCodeNavigation.h"
@@ -28,18 +28,18 @@
 #include "HttpModule.h"
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <DbgHelp.h>				
 	#include <TlHelp32.h>		
 	#include <psapi.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #elif PLATFORM_MAC
 #include <mach-o/dyld.h>
 #include <mach-o/nlist.h>
 #include <mach-o/stab.h>
 #include <cxxabi.h>
-#include "ApplePlatformSymbolication.h"
+#include "Apple/ApplePlatformSymbolication.h"
 #endif
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
@@ -364,9 +364,9 @@ public:
 protected:
 	/** FTickableEditorObject interface */
 	virtual void Tick( float DeltaTime ) override;
-	virtual bool IsTickable() const override
+	virtual ETickableTickType GetTickableTickType() const override
 	{
-		return true;
+		return ETickableTickType::Always;
 	}
 	virtual TStatId GetStatId() const override;
 
@@ -668,21 +668,28 @@ void FSourceCodeNavigationImpl::NavigateToFunctionSource( const FString& Functio
 								FPlatformProcess::ExecProcess( *AtoSPath, *AtoSCommand, &ReturnCode, &Results, NULL );
 								if(ReturnCode == 0)
 								{
+									bool bSourceFileOpened = false;
 									int32 FirstIndex = -1;
 									int32 LastIndex = -1;
 									if(Results.FindChar(TCHAR('('), FirstIndex) && Results.FindLastChar(TCHAR('('), LastIndex) && FirstIndex != LastIndex)
 									{
 										int32 CloseIndex = -1;
 										int32 ColonIndex = -1;
-										if(Results.FindLastChar(TCHAR(':'), ColonIndex) && Results.FindLastChar(TCHAR(')'), CloseIndex))
+										if(Results.FindLastChar(TCHAR(':'), ColonIndex) && Results.FindLastChar(TCHAR(')'), CloseIndex) && CloseIndex > ColonIndex && LastIndex < ColonIndex)
 										{
 											int32 FileNamePos = LastIndex+1;
 											int32 FileNameLen = ColonIndex-FileNamePos;
 											FString FileName = Results.Mid(FileNamePos, FileNameLen);
 											FString LineNumber = Results.Mid(ColonIndex + 1, CloseIndex-(ColonIndex + 1));
-											SourceCodeAccessor.OpenFileAtLine( FileName, FCString::Atoi(*LineNumber), 0 );
+											bSourceFileOpened = SourceCodeAccessor.OpenFileAtLine( FileName, FCString::Atoi(*LineNumber), 0 );
 										}
 									}
+#if !NO_LOGGING
+									if (!bSourceFileOpened)
+									{
+										UE_LOG(LogSelectionDetails, Warning, TEXT("NavigateToFunctionSource:  Unable to find source file and line number for '%s'"), *FunctionSymbolName);
+									}
+#endif
 								}
 								break;
 							}
@@ -1653,6 +1660,8 @@ FText FSourceCodeNavigation::GetSuggestedSourceCodeIDE(bool bShortIDEName)
 	}
 #elif PLATFORM_MAC
 	return LOCTEXT("SuggestedCodeIDE_Mac", "Xcode");
+#elif PLATFORM_LINUX
+	return LOCTEXT("SuggestedCodeIDE_Linux", "NullSourceCodeAccessor");
 #else
 	return LOCTEXT("SuggestedCodeIDE_Generic", "an IDE to edit source code");
 #endif
@@ -1761,6 +1770,19 @@ bool FSourceCodeNavigation::OpenModuleSolution()
 {
 	ISourceCodeAccessModule& SourceCodeAccessModule = FModuleManager::LoadModuleChecked<ISourceCodeAccessModule>("SourceCodeAccess");
 	return SourceCodeAccessModule.GetAccessor().OpenSolution();
+}
+
+bool FSourceCodeNavigation::OpenProjectSolution(const FString& InProjectFilename)
+{
+	ISourceCodeAccessModule& SourceCodeAccessModule = FModuleManager::LoadModuleChecked<ISourceCodeAccessModule>("SourceCodeAccess");
+	return SourceCodeAccessModule.GetAccessor().OpenSolutionAtPath(InProjectFilename);
+}
+
+/** Query if the current source code solution exists */
+bool FSourceCodeNavigation::DoesModuleSolutionExist()
+{
+	ISourceCodeAccessModule& SourceCodeAccessModule = FModuleManager::LoadModuleChecked<ISourceCodeAccessModule>("SourceCodeAccess");
+	return SourceCodeAccessModule.GetAccessor().DoesSolutionExist();
 }
 
 /** Call this to access the multi-cast delegate that you can register a callback with */

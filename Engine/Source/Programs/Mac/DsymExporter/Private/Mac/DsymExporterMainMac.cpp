@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "DsymExporterApp.h"
 
 #include "CoreMinimal.h"
 #include "RequiredProgramMainCPPInclude.h"
-#include "ExceptionHandling.h"
+#include "HAL/ExceptionHandling.h"
 
 IMPLEMENT_APPLICATION( DsymExporter, "DsymExporter" )
 

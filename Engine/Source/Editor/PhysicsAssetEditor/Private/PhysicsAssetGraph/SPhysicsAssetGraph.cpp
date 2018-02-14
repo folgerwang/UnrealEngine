@@ -1,8 +1,8 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SPhysicsAssetGraph.h"
 #include "GraphEditor.h"
-#include "GlobalEditorCommonCommands.h"
+#include "Toolkits/GlobalEditorCommonCommands.h"
 
 #include "Editor/UnrealEd/Public/ObjectTools.h"
 #include "Engine/Selection.h"
@@ -18,12 +18,12 @@
 #include "ISkeletonTreeItem.h"
 #include "PhysicsAssetEditor.h"
 #include "ISkeletonEditorModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "SkeletonTreePhysicsBodyItem.h"
 #include "PhysicsAssetEditorSkeletonTreeBuilder.h"
 #include "IPersonaToolkit.h"
-#include "SlateApplication.h"
-#include "MultiBoxBuilder.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 
 #define LOCTEXT_NAMESPACE "PhysicsAssetGraph"
 
@@ -91,8 +91,8 @@ FActionMenuContent SPhysicsAssetGraph::OnCreateGraphActionMenu(UEdGraph* InGraph
 		if(UPhysicsAssetGraphNode_Bone* BodyNode = Cast<UPhysicsAssetGraphNode_Bone>(InDraggedPins[0]->GetOwningNode()))
 		{
 			FMenuBuilder MenuBuilder(true, nullptr);
-			GraphObj->GetPhysicsAssetEditor()->BuildMenuWidgetNewConstraintForBody(MenuBuilder, BodyNode->BodyIndex);
-			return FActionMenuContent(MenuBuilder.MakeWidget(), nullptr);
+			TSharedPtr<ISkeletonTree> SkeletonTree = GraphObj->GetPhysicsAssetEditor()->BuildMenuWidgetNewConstraintForBody(MenuBuilder, BodyNode->BodyIndex, InOnMenuClosed);
+			return FActionMenuContent(MenuBuilder.MakeWidget(), SkeletonTree->GetSearchWidget());
 		}
 	}
 

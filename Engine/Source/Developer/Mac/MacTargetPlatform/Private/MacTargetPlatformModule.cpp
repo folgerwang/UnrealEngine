@@ -1,8 +1,8 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "GenericMacTargetPlatform.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "ISettingsModule.h"
 #include "Interfaces/ITargetPlatformModule.h"
 #include "Modules/ModuleManager.h"

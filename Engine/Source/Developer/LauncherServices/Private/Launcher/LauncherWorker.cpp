@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Launcher/LauncherWorker.h"
 #include "HAL/PlatformTime.h"
@@ -468,6 +468,15 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 		MapList = TEXT(" -map=") + InitialMap;
 	}
 
+	// Override the Blueprint nativization method for anything other than "cook by the book" mode. Nativized assets
+	// won't get regenerated otherwise, and we don't want UBT to include generated code assets from a previous cook.
+	// Also disable Blueprint nativization if the profile is not configured to also build code. Otherwise nativized
+	// assets generated at cook time will not be linked into the game's executable prior to stage/deployment phases.
+	if (InProfile->GetCookMode() != ELauncherProfileCookModes::ByTheBook || !InProfile->IsBuilding())
+	{
+		UATCommand += TEXT(" -ini:Game:[/Script/UnrealEd.ProjectPackagingSettings]:BlueprintNativizationMethod=Disabled");
+	}
+
 	// build
 	if (InProfile->IsBuilding())
 	{
@@ -629,8 +638,6 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 		UATCommand += TEXT(" -skipcook");
 		break;
 	}
-
-
 
 	if ( InProfile->IsForDistribution() )
 	{

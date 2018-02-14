@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ScriptBlueprint.h"
 #include "ScriptPluginLog.h"
@@ -6,7 +6,7 @@
 #include "Misc/FileHelper.h"
 #if WITH_EDITOR
 #include "EditorFramework/AssetImportData.h"
-#include "BlueprintEditorUtils.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #endif
 
 /////////////////////////////////////////////////////

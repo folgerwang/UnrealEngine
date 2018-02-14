@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "IMediaModule.h"
 
@@ -123,9 +123,12 @@ public:
 
 	virtual void ShutdownModule() override
 	{
-		TickerThread->Kill(true);
-		delete TickerThread;
-		TickerThread = nullptr;
+		if (TickerThread != nullptr)
+		{
+			TickerThread->Kill(true);
+			delete TickerThread;
+			TickerThread = nullptr;
+		}
 
 		CaptureSupports.Reset();
 		PlayerFactories.Reset();

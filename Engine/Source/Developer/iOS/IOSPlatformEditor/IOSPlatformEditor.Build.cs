@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -42,8 +42,5 @@ public class IOSPlatformEditor : ModuleRules
 				"GameProjectGeneration",
 				}
 		);
-
-        // this is listed above, so it isn't really dynamically loaded, this just marks it as being platform specific.
-		PlatformSpecificDynamicallyLoadedModuleNames.Add("IOSRuntimeSettings");
 	}
 }

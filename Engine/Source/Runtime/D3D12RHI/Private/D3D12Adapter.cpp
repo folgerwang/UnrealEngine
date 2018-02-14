@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 D3D12Adapter.cpp:D3D12 Adapter implementation.
@@ -6,7 +6,7 @@ D3D12Adapter.cpp:D3D12 Adapter implementation.
 
 #include "D3D12RHIPrivate.h"
 
-struct FRHICommandSignalFrameFence : public FRHICommand<FRHICommandSignalFrameFence>
+struct FRHICommandSignalFrameFence final : public FRHICommand<FRHICommandSignalFrameFence>
 {
 	ID3D12CommandQueue* const pCommandQueue;
 	FD3D12ManualFence* const Fence;
@@ -66,9 +66,9 @@ void FD3D12Adapter::CreateRootDevice(bool bWithDebug)
 	//		Software must be NULL. 
 	D3D_DRIVER_TYPE DriverType = D3D_DRIVER_TYPE_UNKNOWN;
 
+#if PLATFORM_WINDOWS
 	if (bWithDebug)
 	{
-#if PLATFORM_WINDOWS
 		TRefCountPtr<ID3D12Debug> DebugController;
 		VERIFYD3D12RESULT(D3D12GetDebugInterface(IID_PPV_ARGS(DebugController.GetInitReference())));
 		DebugController->EnableDebugLayer();
@@ -87,13 +87,22 @@ void FD3D12Adapter::CreateRootDevice(bool bWithDebug)
 		}
 		// END TEMPORARY WORKAROUND
 
-		UE_LOG(LogD3D12RHI, Log, TEXT("InitD3DDevice: -D3DDebug = %s"), bWithDebug ? TEXT("on") : TEXT("off"));
-#endif
+		bool bD3d12gpuvalidation = false;
+		if (FParse::Param(FCommandLine::Get(), TEXT("d3d12gpuvalidation")))
+		{
+			TRefCountPtr<ID3D12Debug1> DebugController1;
+			VERIFYD3D12RESULT(DebugController->QueryInterface(IID_PPV_ARGS(DebugController1.GetInitReference())));
+			DebugController1->SetEnableGPUBasedValidation(true);
+			bD3d12gpuvalidation = true;
+		}
+
+		UE_LOG(LogD3D12RHI, Log, TEXT("InitD3DDevice: -D3DDebug = %s -D3D12GPUValidation = %s"), bWithDebug ? TEXT("on") : TEXT("off"), bD3d12gpuvalidation ? TEXT("on") : TEXT("off") );
 	}
+#endif // PLATFORM_WINDOWS
 
 #if USE_PIX
 	UE_LOG(LogD3D12RHI, Log, TEXT("Emitting draw events for PIX profiling."));
-	GEmitDrawEvents = true;
+	SetEmitDrawEvents(true);
 #endif
 	const bool bIsPerfHUD = !FCString::Stricmp(GetD3DAdapterDesc().Description, TEXT("NVIDIA PerfHUD"));
 

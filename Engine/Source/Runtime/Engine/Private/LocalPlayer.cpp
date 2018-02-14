@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/LocalPlayer.h"
 #include "Misc/FileHelper.h"
@@ -26,10 +26,12 @@
 #include "Net/OnlineEngineInterface.h"
 #include "SceneManagement.h"
 #include "PhysicsPublic.h"
-#include "SkeletalMeshTypes.h"
+#include "Rendering/SkeletalMeshRenderData.h"
 #include "HAL/PlatformApplicationMisc.h"
 
 #include "IHeadMountedDisplay.h"
+#include "IXRTrackingSystem.h"
+#include "IXRCamera.h"
 #include "SceneViewExtension.h"
 #include "Net/DataChannel.h"
 #include "GameFramework/PlayerState.h"
@@ -41,7 +43,7 @@ DEFINE_LOG_CATEGORY(LogPlayerManagement);
 #if !UE_BUILD_SHIPPING
 
 static TAutoConsoleVariable<int32> CVarViewportTest(
-	TEXT("r.ViewportTest"),
+	TEXT("r.Test.ConstrainedView"),
 	0,
 	TEXT("Allows to test different viewport rectangle configuations (in game only) as they can happen when using Matinee/Editor.\n")
 	TEXT("0: off(default)\n")
@@ -153,7 +155,7 @@ class APawn* FLocalPlayerContext::GetPawn() const
 
 void FLocalPlayerContext::SetLocalPlayer( const ULocalPlayer* InLocalPlayer )
 {
-	LocalPlayer = InLocalPlayer;
+	LocalPlayer = MakeWeakObjectPtr(const_cast<ULocalPlayer*>(InLocalPlayer));
 }
 
 void FLocalPlayerContext::SetPlayerController( const APlayerController* InPlayerController )
@@ -192,8 +194,16 @@ void ULocalPlayer::PostInitProperties()
 
 		if( GEngine->StereoRenderingDevice.IsValid() )
 		{
-			StereoViewState.Allocate();
 			MonoViewState.Allocate();
+
+			const int32 NumViews = GEngine->StereoRenderingDevice->GetDesiredNumberOfViews(true);
+			check(NumViews > 0);
+			// ViewState is used for eSSP_LEFT_EYE, so we don't create one for that here.
+			StereoViewStates.SetNum(NumViews - 1);
+			for (auto& State : StereoViewStates)
+			{
+				State.Allocate();
+			}
 		}
 	}
 }
@@ -256,6 +266,7 @@ bool ULocalPlayer::SpawnPlayActor(const FString& URL,FString& OutError, UWorld* 
 		PlayerController = InWorld->SpawnActor<APlayerController>(PCClass, SpawnInfo);
 		const int32 PlayerIndex = GEngine->GetGamePlayers(InWorld).Find(this);
 		PlayerController->NetPlayerIndex = PlayerIndex;
+		PlayerController->Player = this;
 	}
 	return PlayerController != NULL;
 }
@@ -308,6 +319,13 @@ void ULocalPlayer::SendSplitJoin()
 				URL.AddOption(*FString::Printf(TEXT("Name=%s"), *PlayerName));
 			}
 
+			// Send any game-specific url options for this player
+			FString GameUrlOptions = GetGameLoginOptions();
+			if (GameUrlOptions.Len() > 0)
+			{
+				URL.AddOption(*FString::Printf(TEXT("%s"), *GameUrlOptions));
+			}
+
 			// Send the player unique Id at login
 			FUniqueNetIdRepl UniqueIdRepl(GetPreferredUniqueNetId());
 
@@ -323,8 +341,12 @@ void ULocalPlayer::FinishDestroy()
 	if ( !IsTemplate() )
 	{
 		ViewState.Destroy();
-		StereoViewState.Destroy();
 		MonoViewState.Destroy();
+
+		for (FSceneViewStateReference& StereoViewState : StereoViewStates)
+		{
+			StereoViewState.Destroy();
+		}
 	}
 	Super::FinishDestroy();
 }
@@ -637,10 +659,10 @@ void ULocalPlayer::GetViewPoint(FMinimalViewInfo& OutViewInfo, EStereoscopicPass
 		}
 	}
 
-	for (int ViewExt = 0; ViewExt < GEngine->ViewExtensions.Num(); ViewExt++)
+	for (auto& ViewExt : GEngine->ViewExtensions->GatherActiveExtensions())
 	{
-		GEngine->ViewExtensions[ViewExt]->SetupViewPoint(PlayerController, OutViewInfo);
-	}
+		ViewExt->SetupViewPoint(PlayerController, OutViewInfo);
+	};
 }
 
 bool ULocalPlayer::CalcSceneViewInitOptions(
@@ -699,28 +721,18 @@ bool ULocalPlayer::CalcSceneViewInitOptions(
 		break;
 
 	case eSSP_RIGHT_EYE:
-		ViewInitOptions.SceneViewStateInterface = StereoViewState.GetReference();
+		ViewInitOptions.SceneViewStateInterface = StereoViewStates[0].GetReference();
 		break;
 
 	case eSSP_MONOSCOPIC_EYE:
 		ViewInitOptions.SceneViewStateInterface = MonoViewState.GetReference();
 		break;
+		
+	default:
+		check(StereoPass > eSSP_MONOSCOPIC_EYE);
+		ViewInitOptions.SceneViewStateInterface = StereoViewStates[StereoPass - eSSP_MONOSCOPIC_EYE].GetReference();
+		break;
 	}
-
-
-#if WITH_EDITOR
-	if (GIsEditor)
-	{
-		static const auto ScreenPercentageCVar = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.ScreenPercentage"));
-
-		// Let scalability settings override editor in game viewports
-		if(ScreenPercentageCVar->GetValueOnGameThread() == 100)
-		{
-			// PIE viewports should adjust screen percentage if necessary (for DPI scale performance)
-			ViewInitOptions.EditorViewScreenPercentage = ViewportClient->GetEditorScreenPercentage();
-		}
-	}
-#endif
 
 	ViewInitOptions.ViewActor = PlayerController->GetViewTarget();
 	ViewInitOptions.PlayerIndex = GetControllerId();
@@ -973,6 +985,10 @@ bool ULocalPlayer::GetProjectionData(FViewport* Viewport, EStereoscopicPass Ster
 
 	int32 X = FMath::TruncToInt(Origin.X * Viewport->GetSizeXY().X);
 	int32 Y = FMath::TruncToInt(Origin.Y * Viewport->GetSizeXY().Y);
+
+	X += Viewport->GetInitialPositionXY().X;
+	Y += Viewport->GetInitialPositionXY().Y;
+
 	uint32 SizeX = FMath::TruncToInt(Size.X * Viewport->GetSizeXY().X);
 	uint32 SizeY = FMath::TruncToInt(Size.Y * Viewport->GetSizeXY().Y);
 
@@ -1013,6 +1029,7 @@ bool ULocalPlayer::GetProjectionData(FViewport* Viewport, EStereoscopicPass Ster
 
 	// If stereo rendering is enabled, update the size and offset appropriately for this pass
 	const bool bNeedStereo = (StereoPass != eSSP_FULL) && GEngine->IsStereoscopic3D();
+	const bool bIsHeadTrackingAllowed = GEngine->XRSystem.IsValid() && GEngine->XRSystem->IsHeadTrackingAllowed();
 	if (bNeedStereo)
 	{
 		GEngine->StereoRenderingDevice->AdjustViewRect(StereoPass, X, Y, SizeX, SizeY);
@@ -1022,12 +1039,20 @@ bool ULocalPlayer::GetProjectionData(FViewport* Viewport, EStereoscopicPass Ster
 	PlayerController->LocalPlayerCachedLODDistanceFactor = ViewInfo.FOV / FMath::Max<float>(0.01f, (PlayerController->PlayerCameraManager != NULL) ? PlayerController->PlayerCameraManager->DefaultFOV : 90.f);
 
     FVector StereoViewLocation = ViewInfo.Location;
-    if (bNeedStereo || (GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsHeadTrackingAllowed()))
+    if (bNeedStereo || bIsHeadTrackingAllowed)
+    {
+		auto XRCamera = GEngine->XRSystem.IsValid() ? GEngine->XRSystem->GetXRCamera() : nullptr;
+		if (XRCamera.IsValid())
     {
 		AActor* ViewTarget = PlayerController->GetViewTarget();
 		const bool bHasActiveCamera = ViewTarget && ViewTarget->HasActiveCameraComponent();
-		GEngine->StereoRenderingDevice->UseImplicitHmdPosition(bHasActiveCamera);
+			XRCamera->UseImplicitHMDPosition(bHasActiveCamera);
+		}
+
+		if (GEngine->StereoRenderingDevice.IsValid())
+		{
         GEngine->StereoRenderingDevice->CalculateStereoViewOffset(StereoPass, ViewInfo.Rotation, GetWorld()->GetWorldSettings()->WorldToMeters, StereoViewLocation);
+    }
     }
 
 	// Create the view matrix
@@ -1038,21 +1063,21 @@ bool ULocalPlayer::GetProjectionData(FViewport* Viewport, EStereoscopicPass Ster
 		FPlane(0,	1,	0,	0),
 		FPlane(0,	0,	0,	1));
 
+	// @todo viewext this use case needs to be revisited
 	if (!bNeedStereo)
 	{
 		// Create the projection matrix (and possibly constrain the view rectangle)
 		FMinimalViewInfo::CalculateProjectionMatrixGivenView(ViewInfo, AspectRatioAxisConstraint, ViewportClient->Viewport, /*inout*/ ProjectionData);
 
-        // ViewExtension may need to update the projection matrix when not using stereo rendering. for example when doing monocular AR.
-        for (int ViewExt = 0; ViewExt < GEngine->ViewExtensions.Num(); ViewExt++)
+		for (auto& ViewExt : GEngine->ViewExtensions->GatherActiveExtensions())
         {
-            GEngine->ViewExtensions[ViewExt]->SetupViewProjectionMatrix(ProjectionData);
-        }
+			ViewExt->SetupViewProjectionMatrix(ProjectionData);
+		};
 	}
 	else
 	{
 		// Let the stereoscopic rendering device handle creating its own projection matrix, as needed
-		ProjectionData.ProjectionMatrix = GEngine->StereoRenderingDevice->GetStereoProjectionMatrix(StereoPass, ViewInfo.FOV);
+		ProjectionData.ProjectionMatrix = GEngine->StereoRenderingDevice->GetStereoProjectionMatrix(StereoPass);
 
 		// calculate the out rect
 		ProjectionData.SetViewRectangle(FIntRect(X, Y, X + SizeX, Y + SizeY));
@@ -1162,9 +1187,9 @@ bool ULocalPlayer::HandleListSkelMeshesCommand( const TCHAR* Cmd, FOutputDevice&
 		if( SkeletalMesh && SkeletalMeshComponents.Num() )
 		{
 			// Dump information about skeletal mesh.
-			FSkeletalMeshResource* SkelMeshResource = SkeletalMesh->GetResourceForRendering();
-			check(SkelMeshResource->LODModels.Num());
-			UE_LOG(LogPlayerManagement, Log, TEXT("%5i Vertices for LOD 0 of %s"),SkelMeshResource->LODModels[0].NumVertices,*SkeletalMesh->GetFullName());
+			FSkeletalMeshRenderData* SkelMeshRenderData = SkeletalMesh->GetResourceForRendering();
+			check(SkelMeshRenderData->LODRenderData.Num());
+			UE_LOG(LogPlayerManagement, Log, TEXT("%5i Vertices for LOD 0 of %s"), SkelMeshRenderData->LODRenderData[0].GetNumVertices(),*SkeletalMesh->GetFullName());
 
 			// Dump all instances.
 			for( int32 InstanceIndex=0; InstanceIndex<SkeletalMeshComponents.Num(); InstanceIndex++ )
@@ -1232,14 +1257,14 @@ bool ULocalPlayer::HandleExecCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 bool ULocalPlayer::HandleToggleDrawEventsCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 {
 #if WITH_PROFILEGPU
-	if( GEmitDrawEvents )
+	if( GetEmitDrawEvents() )
 	{
-		GEmitDrawEvents = false;
+		SetEmitDrawEvents(false);
 		UE_LOG(LogEngine, Warning, TEXT("Draw events are now DISABLED"));
 	}
 	else
 	{
-		GEmitDrawEvents = true;
+		SetEmitDrawEvents(true);
 		UE_LOG(LogEngine, Warning, TEXT("Draw events are now ENABLED"));
 	}
 #endif
@@ -1588,10 +1613,13 @@ void ULocalPlayer::AddReferencedObjects(UObject* InThis, FReferenceCollector& Co
 		Ref->AddReferencedObjects(Collector);
 	}
 
-	FSceneViewStateInterface* StereoRef = This->StereoViewState.GetReference();
-	if (StereoRef)
+	for (FSceneViewStateReference& StereoViewState : This->StereoViewStates)
 	{
-		StereoRef->AddReferencedObjects(Collector);
+		FSceneViewStateInterface* StereoRef = StereoViewState.GetReference();
+		if (StereoRef)
+		{
+			StereoRef->AddReferencedObjects(Collector);
+		}
 	}
 
 	FSceneViewStateInterface* MonoRef = This->MonoViewState.GetReference();

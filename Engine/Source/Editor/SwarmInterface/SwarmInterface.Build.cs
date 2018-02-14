@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -22,6 +22,9 @@ public class SwarmInterface : ModuleRules
 		if (Target.Platform == UnrealTargetPlatform.Mac || Target.Platform == UnrealTargetPlatform.Linux)
 		{
 			PrivateIncludePathModuleNames.Add("MessagingCommon");
+			// the modules below are only needed for the UMB usability check
+			PublicDependencyModuleNames.Add("Sockets");
+			PublicDependencyModuleNames.Add("Networking");
 		}
 	}
 }

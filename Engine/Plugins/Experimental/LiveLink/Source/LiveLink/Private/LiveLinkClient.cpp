@@ -1,10 +1,13 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LiveLinkClient.h"
-#include "ScopeLock.h"
-#include "UObjectHash.h"
+#include "Misc/ScopeLock.h"
+#include "UObject/UObjectHash.h"
 #include "LiveLinkSourceFactory.h"
-#include "Guid.h"
+#include "Misc/Guid.h"
+#include "UObject/Package.h"
+
+DEFINE_LOG_CATEGORY(LogLiveLink);
 
 const double VALIDATE_SOURCES_TIME = 3.0; //How long should we wait between validation checks
 const int32 MIN_FRAMES_TO_REMOVE = 5;
@@ -66,7 +69,7 @@ void FLiveLinkSubject::AddFrame(const TArray<FTransform>& Transforms, const TArr
 
 	FLiveLinkFrame* NewFrame = nullptr;
 
-	if(CachedConnectionSettings.bUseInterpolation)
+	if(CachedInterpolationSettings.bUseInterpolation)
 	{
 		if (TimeCode.Time < LastReadTime)
 		{
@@ -146,12 +149,13 @@ void FLiveLinkSubject::AddFrame(const TArray<FTransform>& Transforms, const TArr
 void FLiveLinkSubject::BuildInterpolatedFrame(const double InSeconds, FLiveLinkSubjectFrame& OutFrame)
 {
 	OutFrame.RefSkeleton = RefSkeleton;
+	OutFrame.RefSkeletonGuid = RefSkeletonGuid;
 	OutFrame.CurveKeyData = CurveKeyData;
 
 	OutFrame.Transforms.Reset();
 	OutFrame.Curves.Reset();
 
-	if (!CachedConnectionSettings.bUseInterpolation)
+	if (!CachedInterpolationSettings.bUseInterpolation)
 	{
 		OutFrame.Transforms = Frames.Last().Transforms;
 		OutFrame.Curves = Frames.Last().Curves;
@@ -160,7 +164,7 @@ void FLiveLinkSubject::BuildInterpolatedFrame(const double InSeconds, FLiveLinkS
 	}
 	else
 	{
-		LastReadTime = (InSeconds - SubjectTimeOffset) - CachedConnectionSettings.InterpolationOffset;
+		LastReadTime = (InSeconds - SubjectTimeOffset) - CachedInterpolationSettings.InterpolationOffset;
 
 		bool bBuiltFrame = false;
 
@@ -240,6 +244,14 @@ void FLiveLinkClient::Tick(float DeltaTime)
 	BuildThisTicksSubjectSnapshot();
 }
 
+void FLiveLinkClient::AddReferencedObjects(FReferenceCollector & Collector)
+{
+	for (const ULiveLinkSourceSettings* Settings : SourceSettings)
+	{
+		Collector.AddReferencedObject(Settings);
+	}
+}
+
 void FLiveLinkClient::ValidateSources()
 {
 	bool bSourcesChanged = false;
@@ -271,6 +283,8 @@ void FLiveLinkClient::ValidateSources()
 
 void FLiveLinkClient::BuildThisTicksSubjectSnapshot()
 {
+	const int32 PreviousSize = ActiveSubjectSnapshots.Num();
+
 	TArray<FName> OldSubjectSnapshotNames;
 	ActiveSubjectSnapshots.GenerateKeyArray(OldSubjectSnapshotNames);
 	
@@ -287,41 +301,110 @@ void FLiveLinkClient::BuildThisTicksSubjectSnapshot()
 
 			FLiveLinkSubject& SourceSubject = SubjectPair.Value;
 
-			FLiveLinkConnectionSettings* SubjectConnectionSettings = GetConnectionSettingsForEntry(SourceSubject.LastModifier);
-			if (SubjectConnectionSettings)
+			FLiveLinkInterpolationSettings* SubjectInterpolationSettings = GetInterpolationSettingsForEntry(SourceSubject.LastModifier);
+			if (SubjectInterpolationSettings)
 			{
-				SourceSubject.CachedConnectionSettings = *SubjectConnectionSettings;
+				SourceSubject.CachedInterpolationSettings = *SubjectInterpolationSettings;
 			}
 
 			if (SourceSubject.Frames.Num() > 0)
 			{
-				FLiveLinkSubjectFrame& SnapshotSubject = ActiveSubjectSnapshots.FindOrAdd(SubjectName);
+				FLiveLinkSubjectFrame* SnapshotSubject = ActiveSubjectSnapshots.Find(SubjectName);
+				if (!SnapshotSubject)
+				{
+					ActiveSubjectNames.Add(SubjectName);
+					SnapshotSubject = &ActiveSubjectSnapshots.Add(SubjectName);
+				}
 
-				SourceSubject.BuildInterpolatedFrame(CurrentInterpTime, SnapshotSubject);
+				SourceSubject.BuildInterpolatedFrame(CurrentInterpTime, *SnapshotSubject);
 			}
 		}
+	}
+
+	//Now that ActiveSubjectSnapshots is up to date we now need to build the virtual subject data
+	for (TPair<FName, FLiveLinkVirtualSubject>& SubjectPair : VirtualSubjects)
+	{
+		if(SubjectPair.Value.GetSubjects().Num() > 0)
+		{
+			const FName SubjectName = SubjectPair.Key;
+			OldSubjectSnapshotNames.RemoveSingleSwap(SubjectName, false);
+
+			FLiveLinkSubjectFrame& SnapshotSubject = ActiveSubjectSnapshots.FindOrAdd(SubjectName);
+
+			BuildVirtualSubjectFrame(SubjectPair.Value, SnapshotSubject);
+		}
+	}
+
+	if (PreviousSize != ActiveSubjectSnapshots.Num() || OldSubjectSnapshotNames.Num() > 0)
+	{
+		//Have either added or removed a subject, must signal update
+		OnLiveLinkSubjectsChanged.Broadcast();
 	}
 
 	for (FName SubjectName : OldSubjectSnapshotNames)
 	{
 		ActiveSubjectSnapshots.Remove(SubjectName);
+		ActiveSubjectNames.RemoveSingleSwap(SubjectName, false);
 	}
+}
+
+void FLiveLinkClient::BuildVirtualSubjectFrame(FLiveLinkVirtualSubject& VirtualSubject, FLiveLinkSubjectFrame& SnapshotSubject)
+{
+	VirtualSubject.BuildRefSkeletonForVirtualSubject(ActiveSubjectSnapshots, ActiveSubjectNames);
+
+	SnapshotSubject.RefSkeleton = VirtualSubject.GetRefSkeleton();
+	SnapshotSubject.CurveKeyData = VirtualSubject.CurveKeyData;
+
+	SnapshotSubject.Transforms.Reset(SnapshotSubject.RefSkeleton.GetBoneNames().Num());
+	SnapshotSubject.Transforms.Add(FTransform::Identity);
+	for (FName SubjectName : VirtualSubject.Subjects)
+	{
+		FLiveLinkSubjectFrame& SubjectFrame = ActiveSubjectSnapshots.FindChecked(SubjectName);
+		SnapshotSubject.Transforms.Append(SubjectFrame.Transforms);
+	}
+}
+
+void FLiveLinkClient::AddVirtualSubject(FName NewVirtualSubjectName)
+{
+	VirtualSubjects.Add(NewVirtualSubjectName);
 }
 
 void FLiveLinkClient::AddSource(TSharedPtr<ILiveLinkSource> InSource)
 {
 	Sources.Add(InSource);
 	SourceGuids.Add(FGuid::NewGuid());
-	ConnectionSettings.AddDefaulted();
 
+	UClass* CustomSettingsClass = InSource->GetCustomSettingsClass();
+
+	if (CustomSettingsClass && !CustomSettingsClass->IsChildOf<ULiveLinkSourceSettings>())
+	{
+		UE_LOG(LogLiveLink, Warning, TEXT("Custom Setting Failure: Source '%s' settings class '%s' does not derive from ULiveLinkSourceSettings"), *InSource->GetSourceType().ToString(), *CustomSettingsClass->GetName());
+		CustomSettingsClass = nullptr;
+	}
+
+	UClass* SettingsClass = CustomSettingsClass ? CustomSettingsClass : ULiveLinkSourceSettings::StaticClass();
+	ULiveLinkSourceSettings* NewSettings = NewObject<ULiveLinkSourceSettings>(GetTransientPackage(), SettingsClass);
+
+	SourceSettings.Add(NewSettings);
+	
 	InSource->ReceiveClient(this, SourceGuids.Last());
+	InSource->InitializeSettings(NewSettings);
+}
+
+void FLiveLinkClient::AddVirtualSubjectSource()
+{
+	SourceGuids.Add(VirtualSubjectGuid);
+	Sources.Add(MakeShared<FLiveLinkVirtualSubjectSource>());
+
+	ULiveLinkSourceSettings* NewSettings = NewObject<ULiveLinkSourceSettings>(GetTransientPackage());
+	SourceSettings.Add(NewSettings);
 }
 
 void FLiveLinkClient::RemoveSourceInternal(int32 SourceIdx)
 {
 	Sources.RemoveAtSwap(SourceIdx, 1, false);
 	SourceGuids.RemoveAtSwap(SourceIdx, 1, false);
-	ConnectionSettings.RemoveAtSwap(SourceIdx, 1, false);
+	SourceSettings.RemoveAtSwap(SourceIdx, 1, false);
 }
 
 void FLiveLinkClient::RemoveSource(FGuid InEntryGuid)
@@ -342,7 +425,9 @@ void FLiveLinkClient::RemoveAllSources()
 	SourcesToRemove = Sources;
 	Sources.Reset();
 	SourceGuids.Reset();
-	ConnectionSettings.Reset();
+	SourceSettings.Reset();
+
+	AddVirtualSubjectSource();
 	OnLiveLinkSourcesChanged.Broadcast();
 }
 
@@ -362,18 +447,19 @@ FLiveLinkTimeCode FLiveLinkClient::MakeTimeCodeFromTimeOnly(double InTime) const
 }
 
 
-void FLiveLinkClient::PushSubjectSkeleton(FName SubjectName, const FLiveLinkRefSkeleton& RefSkeleton)
+void FLiveLinkClient::PushSubjectSkeleton(FGuid SourceGuid, FName SubjectName, const FLiveLinkRefSkeleton& RefSkeleton)
 {
 	FScopeLock Lock(&SubjectDataAccessCriticalSection);
 	
 	if (FLiveLinkSubject* Subject = LiveSubjectData.Find(SubjectName))
 	{
 		Subject->Frames.Reset();
-		Subject->RefSkeleton = RefSkeleton;
+		Subject->SetRefSkeleton(RefSkeleton);
+		Subject->LastModifier = SourceGuid;
 	}
 	else
 	{
-		LiveSubjectData.Emplace(SubjectName, FLiveLinkSubject(RefSkeleton));
+		LiveSubjectData.Emplace(SubjectName, FLiveLinkSubject(RefSkeleton)).LastModifier = SourceGuid;
 	}
 }
 
@@ -401,6 +487,29 @@ const FLiveLinkSubjectFrame* FLiveLinkClient::GetSubjectData(FName SubjectName)
 		return Subject;
 	}
 	return nullptr;
+}
+
+TArray<FLiveLinkSubjectKey> FLiveLinkClient::GetSubjects()
+{
+	TArray<FLiveLinkSubjectKey> SubjectEntries;
+	{
+		FScopeLock Lock(&SubjectDataAccessCriticalSection);
+		
+		SubjectEntries.Reserve(LiveSubjectData.Num() + VirtualSubjects.Num());
+
+		for (const TPair<FName, FLiveLinkSubject>& LiveSubject : LiveSubjectData)
+		{
+			SubjectEntries.Emplace(LiveSubject.Key);
+			SubjectEntries.Last().Source = LiveSubject.Value.LastModifier;
+		}
+	}
+
+	for (TPair<FName, FLiveLinkVirtualSubject>& VirtualSubject : VirtualSubjects)
+	{
+		const int32 NewItem = SubjectEntries.Emplace(VirtualSubject.Key);
+		SubjectEntries[NewItem].Source = VirtualSubjectGuid;
+	}
+	return SubjectEntries;
 }
 
 int32 FLiveLinkClient::GetSourceIndexForGUID(FGuid InEntryGuid) const
@@ -434,6 +543,21 @@ FText FLiveLinkClient::GetMachineNameForEntry(FGuid InEntryGuid) const
 	return FText(NSLOCTEXT("TempLocTextLiveLink","InvalidSourceMachineName", "Invalid Source Machine Name"));
 }
 
+bool FLiveLinkClient::ShowSourceInUI(FGuid InEntryGuid) const
+{
+	TSharedPtr<ILiveLinkSource> Source = GetSourceForGUID(InEntryGuid);
+	if (Source.IsValid())
+	{
+		return Source->CanBeDisplayedInUI();
+	}
+	return false;
+}
+
+bool FLiveLinkClient::IsVirtualSubject(const FLiveLinkSubjectKey& Subject) const
+{
+	return Subject.Source == VirtualSubjectGuid && VirtualSubjects.Contains(Subject.SubjectName);
+}
+
 FText FLiveLinkClient::GetEntryStatusForEntry(FGuid InEntryGuid) const
 {
 	TSharedPtr<ILiveLinkSource> Source = GetSourceForGUID(InEntryGuid);
@@ -444,13 +568,71 @@ FText FLiveLinkClient::GetEntryStatusForEntry(FGuid InEntryGuid) const
 	return FText(NSLOCTEXT("TempLocTextLiveLink","InvalidSourceStatus", "Invalid Source Status"));
 }
 
-FLiveLinkConnectionSettings* FLiveLinkClient::GetConnectionSettingsForEntry(FGuid InEntryGuid)
+FLiveLinkInterpolationSettings* FLiveLinkClient::GetInterpolationSettingsForEntry(FGuid InEntryGuid)
 {
 	const int32 SourceIndex = GetSourceIndexForGUID(InEntryGuid);
-	return (SourceIndex != INDEX_NONE) ? &ConnectionSettings[SourceIndex] : nullptr;
+	return (SourceIndex != INDEX_NONE) ? &SourceSettings[SourceIndex]->InterpolationSettings : nullptr;
 }
 
-FDelegateHandle FLiveLinkClient::RegisterSourcesChangedHandle(const FLiveLinkSourcesChanged::FDelegate& SourcesChanged)
+ULiveLinkSourceSettings* FLiveLinkClient::GetSourceSettingsForEntry(FGuid InEntryGuid)
+{
+	const int32 SourceIndex = GetSourceIndexForGUID(InEntryGuid);
+	return (SourceIndex != INDEX_NONE) ? SourceSettings[SourceIndex] : nullptr;
+}
+
+void FLiveLinkClient::UpdateVirtualSubjectProperties(const FLiveLinkSubjectKey& Subject, const FLiveLinkVirtualSubject& VirtualSubject)
+{
+	if (Subject.Source == VirtualSubjectGuid)
+	{
+		FLiveLinkVirtualSubject& ExistingVirtualSubject = VirtualSubjects.FindOrAdd(Subject.SubjectName);
+		ExistingVirtualSubject = VirtualSubject;
+		ExistingVirtualSubject.InvalidateSubjectGuids();
+	}
+}
+
+FLiveLinkVirtualSubject FLiveLinkClient::GetVirtualSubjectProperties(const FLiveLinkSubjectKey& SubjectKey) const
+{
+	check(SubjectKey.Source == VirtualSubjectGuid);
+	
+	return VirtualSubjects.FindChecked(SubjectKey.SubjectName);
+}
+
+void FLiveLinkClient::OnPropertyChanged(FGuid InEntryGuid, const FPropertyChangedEvent& PropertyChangedEvent)
+{
+	const int32 SourceIndex = GetSourceIndexForGUID(InEntryGuid);
+	if (SourceIndex != INDEX_NONE)
+	{
+		Sources[SourceIndex]->OnSettingsChanged(SourceSettings[SourceIndex], PropertyChangedEvent);
+	}
+}
+
+TArray<FLiveLinkSubjectKeyXR> FLiveLinkClient::GetSubjectsXR()
+{
+	TArray<FLiveLinkSubjectKeyXR> SubjectEntries;
+	{
+		FScopeLock Lock(&SubjectDataAccessCriticalSection);
+
+		SubjectEntries.Reserve(LiveSubjectData.Num());
+
+		for (const TPair<FName, FLiveLinkSubject>& LiveSubject : LiveSubjectData)
+		{
+			SubjectEntries.Emplace(LiveSubject.Key, LiveSubject.Value.LastModifier);
+		}
+	}
+	return SubjectEntries;
+}
+
+FDelegateHandle FLiveLinkClient::RegisterSubjectsChangedHandleXR(const FSimpleMulticastDelegate::FDelegate& SourcesChanged)
+{
+	return OnLiveLinkSubjectsChanged.Add(SourcesChanged);
+}
+
+void FLiveLinkClient::UnregisterSubjectsChangedHandleXR(FDelegateHandle Handle)
+{
+	OnLiveLinkSubjectsChanged.Remove(Handle);
+}
+
+FDelegateHandle FLiveLinkClient::RegisterSourcesChangedHandle(const FSimpleMulticastDelegate::FDelegate& SourcesChanged)
 {
 	return OnLiveLinkSourcesChanged.Add(SourcesChanged);
 }
@@ -458,4 +640,19 @@ FDelegateHandle FLiveLinkClient::RegisterSourcesChangedHandle(const FLiveLinkSou
 void FLiveLinkClient::UnregisterSourcesChangedHandle(FDelegateHandle Handle)
 {
 	OnLiveLinkSourcesChanged.Remove(Handle);
+}
+
+FDelegateHandle FLiveLinkClient::RegisterSubjectsChangedHandle(const FSimpleMulticastDelegate::FDelegate& SourcesChanged)
+{
+	return OnLiveLinkSubjectsChanged.Add(SourcesChanged);
+}
+
+void FLiveLinkClient::UnregisterSubjectsChangedHandle(FDelegateHandle Handle)
+{
+	OnLiveLinkSubjectsChanged.Remove(Handle);
+}
+
+FText FLiveLinkVirtualSubjectSource::GetSourceType() const
+{
+	return NSLOCTEXT("TempLocTextLiveLink", "LiveLinkVirtualSubjectName", "Virtual Subjects");
 }

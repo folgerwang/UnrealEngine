@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.AndroidDeviceProfileSelector
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.AndroidDeviceProfileSelector
 
 #include "AndroidDeviceProfileSelectorRuntimeModule.h"
 #include "AndroidDeviceProfileSelectorRuntime.h"
 #include "Templates/Casts.h"
-#include "Regex.h"
+#include "Internationalization/Regex.h"
 #include "Modules/ModuleManager.h"
 #include "AndroidDeviceProfileSelectorRuntime.h"
 #include "AndroidDeviceProfileSelector.h"

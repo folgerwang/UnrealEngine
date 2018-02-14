@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 D3D12RHICommon.h: Common D3D12 RHI definitions for Windows.
@@ -8,7 +8,7 @@ D3D12RHICommon.h: Common D3D12 RHI definitions for Windows.
 
 DECLARE_STATS_GROUP(TEXT("D3D12RHI"), STATGROUP_D3D12RHI, STATCAT_Advanced);
 
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 
 class FD3D12Adapter;
 class FD3D12Device;

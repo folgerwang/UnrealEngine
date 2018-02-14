@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -229,6 +229,8 @@ private:
 
 	/** Whether we already serialized the package file summary.																*/
 	bool					bHasSerializedPackageFileSummary;
+	/** Whether we already serialized preload dependencies.																*/
+	bool					bHasSerializedPreloadDependencies;
 	/** Whether we already fixed up import map.																				*/
 	bool					bHasFixedUpImportMap;
 	/** Whether we already matched up existing exports.																		*/
@@ -617,6 +619,7 @@ private:
 	 */
 	UClass* GetExportLoadClass(int32 ExportIndex);
 
+#if WITH_EDITORONLY_DATA
 	/** 
 	 * Looks for and loads meta data object from export map.
 	 *
@@ -627,6 +630,7 @@ private:
 	 *         INDEX_NONE otherwise.
 	 */
 	int32 LoadMetaDataFromExportMap(bool bForcePreload);
+#endif
 
 	UObject* CreateImport( int32 Index );
 

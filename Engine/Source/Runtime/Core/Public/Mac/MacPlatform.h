@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*================================================================================
 	MacPlatform.h: Setup for the Mac platform
@@ -45,6 +45,8 @@ typedef FMacPlatformTypes FPlatformTypes;
 #define PLATFORM_HAS_BSD_SOCKET_FEATURE_MSG_DONTWAIT	1
 
 #define PLATFORM_RHITHREAD_DEFAULT_BYPASS			WITH_EDITOR
+
+#define PLATFORM_ENABLE_POPCNT_INTRINSIC 1
 
 // Function type macros.
 #define VARARGS															/* Functions with variable arguments */

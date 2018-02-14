@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "PhysXCooking.h"
 #include "Serialization/MemoryWriter.h"
 #include "Modules/ModuleManager.h"
 #include "Interfaces/Interface_CollisionDataProvider.h"
-#include "IPhysXCookingModule.h"
+#include "Physics/IPhysXCookingModule.h"
 #include "PhysicsPublic.h"
 #include "PhysicsEngine/PhysXSupport.h"
 
@@ -272,7 +272,7 @@ bool FPhysXCooking::CookTriMeshImp(FName Format, EPhysXMeshCookFlags CookFlags, 
 	PTriMeshDesc.triangles.stride = sizeof(FTriIndices);
 	PTriMeshDesc.materialIndices.data = SrcMaterialIndices.GetData();
 	PTriMeshDesc.materialIndices.stride = sizeof(PxMaterialTableIndex);
-	PTriMeshDesc.flags = FlipNormals ? PxMeshFlag::eFLIPNORMALS : (PxMeshFlags)0;
+	PTriMeshDesc.flags = FlipNormals ? PxMeshFlag::eFLIPNORMALS : static_cast<PxMeshFlag::Enum>(0);
 
 	// Set up cooking
 	const PxCookingParams CurrentParams = PhysXCooking->getParams();

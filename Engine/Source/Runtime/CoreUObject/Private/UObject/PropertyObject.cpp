@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
@@ -43,6 +43,9 @@ bool UObjectProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uin
 		// now copy the value into the object's address space
 		UObject* PreviousValueObj = PreviousValue.LoadSynchronous();
 		SetPropertyValue_InContainer(Data, PreviousValueObj, Tag.ArrayIndex);
+
+		// Validate the type is proper
+		CheckValidObject(GetPropertyValuePtr_InContainer(Data, Tag.ArrayIndex));
 
 		return true;
 	}

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 D3D12View.h: D3D12 Resource Views
@@ -713,7 +713,7 @@ protected:
 
 	void AllocateHeapSlot()
 	{
-		FD3D12OfflineDescriptorManager& DescriptorAllocator = GetParentDevice()->template GetViewDescriptorAllocator<TDesc>();
+		FD3D12OfflineDescriptorManager& DescriptorAllocator = this->GetParentDevice()->template GetViewDescriptorAllocator<TDesc>();
 		Descriptor = DescriptorAllocator.AllocateHeapSlot(DescriptorHeapIndex);
 		check(Descriptor.ptr != 0);
 	}
@@ -722,7 +722,7 @@ protected:
 	{
 		if (Descriptor.ptr)
 		{
-			FD3D12OfflineDescriptorManager& DescriptorAllocator = GetParentDevice()->template GetViewDescriptorAllocator<TDesc>();
+			FD3D12OfflineDescriptorManager& DescriptorAllocator = this->GetParentDevice()->template GetViewDescriptorAllocator<TDesc>();
 			DescriptorAllocator.FreeHeapSlot(Descriptor, DescriptorHeapIndex);
 			Descriptor.ptr = 0;
 		}

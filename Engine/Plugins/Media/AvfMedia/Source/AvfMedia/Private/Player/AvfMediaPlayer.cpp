@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AvfMediaPlayer.h"
 #include "AvfMediaPrivate.h"
@@ -8,6 +8,7 @@
 #include "MediaSamples.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Paths.h"
+#include "Misc/CoreDelegates.h"
 
 #if PLATFORM_MAC
 	#include "Mac/CocoaThread.h"
@@ -136,8 +137,11 @@ void FAvfMediaPlayer::OnEndReached()
 	{
 		PlayerTasks.Enqueue([=]() {
 			EventSink.ReceiveMediaEvent(EMediaEvent::PlaybackEndReached);
+			
+			float PreSeekRate = CurrentRate;
+			SetRate(0.f);
 			Seek(FTimespan::FromSeconds(0.0f));
-			SetRate(CurrentRate);
+			SetRate(PreSeekRate);
 		});
 	}
 	else
@@ -170,16 +174,16 @@ void FAvfMediaPlayer::OnStatusNotification(AVPlayerItemStatus Status)
 				
 				PlayerTasks.Enqueue([=]() {
 					Duration = FTimespan::FromSeconds(CMTimeGetSeconds(PlayerItem.asset.duration));
-					CurrentState = (CurrentState == EMediaState::Closed) ? EMediaState::Preparing : CurrentState;
+					CurrentState = (CurrentState == EMediaState::Closed) ? EMediaState::Stopped : CurrentState;
 
 					if (!bPrerolled)
 					{
 						// Preroll for playback.
 						[MediaPlayer prerollAtRate:1.0f completionHandler:^(BOOL bFinished)
 						{
-							bPrerolled = true;
 							if (bFinished)
 							{
+								bPrerolled = true;
 								CurrentState = EMediaState::Stopped;
 								PlayerTasks.Enqueue([=]() {
 									EventSink.ReceiveMediaEvent(EMediaEvent::MediaOpened);
@@ -241,6 +245,18 @@ void FAvfMediaPlayer::Close()
 		return;
 	}
 
+    if (ResumeHandle.IsValid())
+    {
+        FCoreDelegates::ApplicationHasEnteredForegroundDelegate.Remove(ResumeHandle);
+        ResumeHandle.Reset();
+    }
+    
+    if (PauseHandle.IsValid())
+    {
+        FCoreDelegates::ApplicationWillEnterBackgroundDelegate.Remove(PauseHandle);
+        PauseHandle.Reset();
+    }
+    
 	CurrentTime = 0;
 	MediaUrl = FString();
 	
@@ -249,9 +265,9 @@ void FAvfMediaPlayer::Close()
 		if (MediaHelper != nil)
 		{
 			[[NSNotificationCenter defaultCenter] removeObserver:MediaHelper name:AVPlayerItemDidPlayToEndTimeNotification object:PlayerItem];
+			[PlayerItem removeObserver:MediaHelper forKeyPath:@"status"];
 		}
 
-		[PlayerItem removeObserver:MediaHelper forKeyPath:@"status"];
 		[PlayerItem release];
 		PlayerItem = nil;
 	}
@@ -280,7 +296,7 @@ void FAvfMediaPlayer::Close()
 	EventSink.ReceiveMediaEvent(EMediaEvent::MediaClosed);
 		
 	bPrerolled = false;
-	
+
 	CurrentRate = 0.f;
 }
 
@@ -418,16 +434,11 @@ bool FAvfMediaPlayer::Open(const FString& Url, const IMediaOptions* /*Options*/)
 
 		if ([[PlayerItem asset] statusOfValueForKey:@"tracks" error : &Error] == AVKeyValueStatusLoaded)
 		{
-			[[NSNotificationCenter defaultCenter] addObserver:MediaHelper selector:@selector(playerItemPlaybackEndReached:) name:AVPlayerItemDidPlayToEndTimeNotification object:PlayerItem];
-			
 			// File movies will be ready now
 			if (PlayerItem.status == AVPlayerItemStatusReadyToPlay)
 			{
 				OnStatusNotification(PlayerItem.status);
 			}
-			
-			// Streamed movies might not be and we want to know if it ever fails.
-			[PlayerItem addObserver:MediaHelper forKeyPath:@"status" options:0 context:PlayerItem];
 		}
 		else if (Error != nullptr)
 		{
@@ -444,12 +455,27 @@ bool FAvfMediaPlayer::Open(const FString& Url, const IMediaOptions* /*Options*/)
 		}
 	}];
 
+	[[NSNotificationCenter defaultCenter] addObserver:MediaHelper selector:@selector(playerItemPlaybackEndReached:) name:AVPlayerItemDidPlayToEndTimeNotification object:PlayerItem];
+	[PlayerItem addObserver:MediaHelper forKeyPath:@"status" options:0 context:PlayerItem];
+
 	[MediaPlayer replaceCurrentItemWithPlayerItem : PlayerItem];
 	[[MediaPlayer currentItem] seekToTime:kCMTimeZero];
 
 	MediaPlayer.rate = 0.0;
 	CurrentTime = FTimespan::Zero();
 		
+    if (!ResumeHandle.IsValid())
+    {
+        FCoreDelegates::ApplicationHasEnteredForegroundDelegate.AddRaw(this, &FAvfMediaPlayer::HandleApplicationHasEnteredForeground);
+        ResumeHandle.Reset();
+    }
+    
+    if (!PauseHandle.IsValid())
+    {
+        FCoreDelegates::ApplicationWillEnterBackgroundDelegate.AddRaw(this, &FAvfMediaPlayer::HandleApplicationWillEnterBackground);
+        PauseHandle.Reset();
+    }
+    
 	return true;
 }
 
@@ -462,16 +488,7 @@ bool FAvfMediaPlayer::Open(const TSharedRef<FArchive, ESPMode::ThreadSafe>& /*Ar
 
 void FAvfMediaPlayer::TickAudio()
 {
-	if ((CurrentState > EMediaState::Error) && (Duration > 0.0f))
-	{
-		Tracks->ProcessAudio();
-		if(MediaPlayer != nil)
-		{
-			CMTime Current = [MediaPlayer currentTime];
-			FTimespan DiplayTime = FTimespan::FromSeconds(CMTimeGetSeconds(Current));
-			CurrentTime = FMath::Min(DiplayTime, Duration);
-		}
-	}
+	// NOP
 }
 
 
@@ -486,6 +503,17 @@ void FAvfMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan /*Timecode*/)
 
 void FAvfMediaPlayer::TickInput(FTimespan DeltaTime, FTimespan /*Timecode*/)
 {
+	// Prevent deadlock - can't do this in TickAudio
+	if ((CurrentState > EMediaState::Error) && (Duration > 0.0f))
+	{
+		if(MediaPlayer != nil)
+		{
+			CMTime Current = [MediaPlayer currentTime];
+			FTimespan DiplayTime = FTimespan::FromSeconds(CMTimeGetSeconds(Current));
+			CurrentTime = FMath::Min(DiplayTime, Duration);
+		}
+	}
+	
 	// process deferred tasks
 	TFunction<void()> Task;
 
@@ -578,16 +606,21 @@ bool FAvfMediaPlayer::Seek(const FTimespan& Time)
 	
 	if (bPrerolled)
 	{
-		Tracks->Seek(Time);
-		
 		double TotalSeconds = Time.GetTotalSeconds();
 		CMTime CurrentTimeInSeconds = CMTimeMakeWithSeconds(TotalSeconds, 1000);
 		
 		static CMTime Tolerance = CMTimeMakeWithSeconds(0.01, 1000);
-		[MediaPlayer seekToTime:CurrentTimeInSeconds toleranceBefore:Tolerance toleranceAfter:Tolerance];
+		[MediaPlayer seekToTime:CurrentTimeInSeconds toleranceBefore:Tolerance toleranceAfter:Tolerance completionHandler:^(BOOL bFinished)
+		{
+			if(bFinished)
+			{
+				PlayerTasks.Enqueue([=]()
+				{
+					EventSink.ReceiveMediaEvent(EMediaEvent::SeekCompleted);
+				});
+			}
+		}];
 	}
-
-	EventSink.ReceiveMediaEvent(EMediaEvent::SeekCompleted);
 
 	return true;
 }
@@ -633,4 +666,22 @@ bool FAvfMediaPlayer::SetRate(float Rate)
 	}
 
 	return true;
+}
+
+void FAvfMediaPlayer::HandleApplicationHasEnteredForeground()
+{
+    // check the state to ensure we are still playing
+    if ((CurrentState == EMediaState::Playing) && MediaPlayer != nil)
+    {
+        [MediaPlayer play];
+    }
+}
+
+void FAvfMediaPlayer::HandleApplicationWillEnterBackground()
+{
+    // check the state to ensure we are still playing
+    if ((CurrentState == EMediaState::Playing) && MediaPlayer != nil)
+    {
+        [MediaPlayer pause];
+    }
 }

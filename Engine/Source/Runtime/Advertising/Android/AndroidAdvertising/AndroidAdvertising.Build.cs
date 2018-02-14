@@ -1,4 +1,6 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+using System.IO;
 
 namespace UnrealBuildTool.Rules
 {
@@ -49,6 +51,12 @@ namespace UnrealBuildTool.Rules
                     // ... add any modules that your module loads dynamically here ...
 				}
 				);
+
+			if (Target.Platform == UnrealTargetPlatform.Android)
+			{
+				string PluginPath = Utils.MakePathRelativeTo(ModuleDirectory, Target.RelativeEnginePath);
+				AdditionalPropertiesForReceipt.Add("AndroidPlugin", Path.Combine(PluginPath, "AndroidAdvertising_APL.xml"));
+			}
 		}
 	}
 }

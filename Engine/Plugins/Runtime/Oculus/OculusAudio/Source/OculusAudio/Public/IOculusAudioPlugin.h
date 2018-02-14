@@ -1,8 +1,8 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "OculusAudio.h"
 #include "OculusAudioDllManager.h"
 
@@ -19,6 +19,14 @@ public:
 	virtual void ShutdownModule() override;
 	//~ End IModuleInterface
 
+    void RegisterAudioDevice(FAudioDevice* AudioDeviceHandle);
+    void UnregisterAudioDevice(FAudioDevice* AudioDeviceHandle);
+
+    FOculusSpatializationPluginFactory* GetSpatializationPluginFactory() { return &PluginFactory; }
+    FOculusReverbPluginFactory* GetReverbPluginFactory() { return &ReverbPluginFactory; }
+
 private:
-	FOculusSpatializationPluginFactory PluginFactory;
+    TArray<FAudioDevice*> RegisteredAudioDevices;
+    FOculusSpatializationPluginFactory PluginFactory;
+    FOculusReverbPluginFactory ReverbPluginFactory;
 };

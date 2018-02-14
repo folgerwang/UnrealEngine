@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Factories/FbxAssetImportData.h"
 
@@ -10,7 +10,7 @@
 #include "UObject/Object.h"
 #include "UObject/Class.h"
 #include "UObject/UnrealType.h"
-#include "ConfigCacheIni.h"
+#include "Misc/ConfigCacheIni.h"
 #include "FbxImporter.h"
 
 UFbxAssetImportData::UFbxAssetImportData(const FObjectInitializer& ObjectInitializer)

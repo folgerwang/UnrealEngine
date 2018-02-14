@@ -1,8 +1,8 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "HAL/IPlatformFileLogWrapper.h"
 #include "Misc/CoreMisc.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 bool bSuppressFileLog = false;
 DEFINE_LOG_CATEGORY(LogPlatformFile);

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -128,7 +128,7 @@ public abstract class BaseWinPlatform : Platform
 				}
 
 				// Update the resources in the new file
-				using(ModuleResourceUpdate Update = new ModuleResourceUpdate(IntermediateFile.FullName, true))
+				using(ModuleResourceUpdate Update = new ModuleResourceUpdate(IntermediateFile.FullName, false))
 				{
 					const int IconResourceId = 101;
 					if(GroupIcon != null) Update.SetIcons(IconResourceId, GroupIcon);

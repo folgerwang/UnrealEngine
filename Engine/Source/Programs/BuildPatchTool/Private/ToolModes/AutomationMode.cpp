@@ -1,6 +1,6 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AutomationMode.h"
+#include "ToolModes/AutomationMode.h"
 
 #if !UE_BUILD_SHIPPING
 
@@ -9,10 +9,11 @@
 #include "Misc/CommandLine.h"
 #include "Misc/Paths.h"
 
-#include "Interfaces/IAutomationWorkerModule.h"
-#include "Interfaces/IAutomationControllerModule.h"
+#include "IAutomationWorkerModule.h"
+#include "IAutomationControllerModule.h"
 #include "Modules/ModuleManager.h"
 #include "UObject/UObjectGlobals.h"
+#include "Containers/Ticker.h"
 
 using namespace BuildPatchTool;
 

@@ -1,13 +1,20 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "HeadMountedDisplayFunctionLibrary.h"
 #include "EngineGlobals.h"
 #include "Engine/Engine.h"
 #include "GameFramework/WorldSettings.h"
 #include "IHeadMountedDisplay.h"
+#include "IXRTrackingSystem.h"
 #include "ISpectatorScreenController.h"
+#include "IXRSystemAssets.h"
+#include "Components/PrimitiveComponent.h"
+#include "Features/IModularFeatures.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUHeadMountedDisplay, Log, All);
+
+/* UHeadMountedDisplayFunctionLibrary
+ *****************************************************************************/
 
 UHeadMountedDisplayFunctionLibrary::UHeadMountedDisplayFunctionLibrary(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -16,27 +23,26 @@ UHeadMountedDisplayFunctionLibrary::UHeadMountedDisplayFunctionLibrary(const FOb
 
 bool UHeadMountedDisplayFunctionLibrary::IsHeadMountedDisplayEnabled()
 {
-	return GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsHeadTrackingAllowed();
+	return GEngine->XRSystem.IsValid() && GEngine->XRSystem->IsHeadTrackingAllowed();
 }
 
 bool UHeadMountedDisplayFunctionLibrary::IsHeadMountedDisplayConnected()
 {
-	return GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsHMDConnected();
+	return GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice() && GEngine->XRSystem->GetHMDDevice()->IsHMDConnected();
 }
 
 bool UHeadMountedDisplayFunctionLibrary::EnableHMD(bool bEnable)
 {
-	if (GEngine->HMDDevice.IsValid())
+	if (GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice())
 	{
-		GEngine->HMDDevice->EnableHMD(bEnable);
-		if (bEnable)
+		GEngine->XRSystem->GetHMDDevice()->EnableHMD(bEnable);
+		if (GEngine->StereoRenderingDevice.IsValid())
 		{
-			return GEngine->HMDDevice->EnableStereo(true);
+			return GEngine->StereoRenderingDevice->EnableStereo(bEnable) || !bEnable; // EnableStereo returns the actual value. When disabling, we always report success.
 		}
 		else
 		{
-			GEngine->HMDDevice->EnableStereo(false);
-			return true;
+			return true; // Assume that if we have a valid HMD but no stereo rendering that the operation succeeded.
 		}
 	}
 	return false;
@@ -46,9 +52,9 @@ FName UHeadMountedDisplayFunctionLibrary::GetHMDDeviceName()
 {
 	FName DeviceName(NAME_None);
 
-	if (GEngine->HMDDevice.IsValid())
+	if (GEngine->XRSystem.IsValid())
 	{
-		DeviceName = GEngine->HMDDevice->GetDeviceName();
+		DeviceName = GEngine->XRSystem->GetSystemName();
 	}
 
 	return DeviceName;
@@ -56,9 +62,9 @@ FName UHeadMountedDisplayFunctionLibrary::GetHMDDeviceName()
 
 EHMDWornState::Type UHeadMountedDisplayFunctionLibrary::GetHMDWornState()
 {
-	if (GEngine->HMDDevice.IsValid())
+	if (GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice())
 	{
-		return GEngine->HMDDevice->GetHMDWornState();
+		return GEngine->XRSystem->GetHMDDevice()->GetHMDWornState();
 	}
 
 	return EHMDWornState::Unknown;
@@ -66,12 +72,12 @@ EHMDWornState::Type UHeadMountedDisplayFunctionLibrary::GetHMDWornState()
 
 void UHeadMountedDisplayFunctionLibrary::GetOrientationAndPosition(FRotator& DeviceRotation, FVector& DevicePosition)
 {
-	if(GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsHeadTrackingAllowed())
+	if(GEngine->XRSystem.IsValid() && GEngine->XRSystem->IsHeadTrackingAllowed())
 	{
 		FQuat OrientationAsQuat;
 		FVector Position(0.f);
 
-		GEngine->HMDDevice->GetCurrentOrientationAndPosition(OrientationAsQuat, Position);
+		GEngine->XRSystem->GetCurrentPose(IXRTrackingSystem::HMDDeviceId, OrientationAsQuat, Position);
 
 		DeviceRotation = OrientationAsQuat.Rotator();
 		DevicePosition = Position;
@@ -85,9 +91,9 @@ void UHeadMountedDisplayFunctionLibrary::GetOrientationAndPosition(FRotator& Dev
 
 bool UHeadMountedDisplayFunctionLibrary::HasValidTrackingPosition()
 {
-	if(GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsHeadTrackingAllowed())
+	if(GEngine->XRSystem.IsValid() && GEngine->XRSystem->IsHeadTrackingAllowed())
 	{
-		return GEngine->HMDDevice->HasValidTrackingPosition();
+		return GEngine->XRSystem->HasValidTrackingPosition();
 	}
 
 	return false;
@@ -95,9 +101,9 @@ bool UHeadMountedDisplayFunctionLibrary::HasValidTrackingPosition()
 
 int32 UHeadMountedDisplayFunctionLibrary::GetNumOfTrackingSensors()
 {
-	if (GEngine->HMDDevice.IsValid())
+	if (GEngine->XRSystem.IsValid())
 	{
-		return GEngine->HMDDevice->GetNumOfTrackingSensors();
+		return GEngine->XRSystem->CountTrackedDevices(EXRTrackedDeviceType::TrackingReference);
 	}
 	return 0;
 }
@@ -117,11 +123,23 @@ void UHeadMountedDisplayFunctionLibrary::GetPositionalTrackingCameraParameters(F
 void UHeadMountedDisplayFunctionLibrary::GetTrackingSensorParameters(FVector& Origin, FRotator& Rotation, float& LeftFOV, float& RightFOV, float& TopFOV, float& BottomFOV, float& Distance, float& NearPlane, float& FarPlane, bool& IsActive, int32 Index)
 {
 	IsActive = false;
-	if (Index >= 0 && GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsHeadTrackingAllowed() && GEngine->HMDDevice->DoesSupportPositionalTracking())
+
+	if (Index >= 0 && GEngine->XRSystem.IsValid() && GEngine->XRSystem->IsHeadTrackingAllowed() && GEngine->XRSystem->DoesSupportPositionalTracking())
 	{
+		TArray<int32> TrackingSensors;
+		GEngine->XRSystem->EnumerateTrackedDevices(TrackingSensors, EXRTrackedDeviceType::TrackingReference);
+
 		FQuat Orientation;
-		IsActive = GEngine->HMDDevice->GetTrackingSensorProperties((uint8)Index, Origin, Orientation, LeftFOV, RightFOV, TopFOV, BottomFOV, Distance, NearPlane, FarPlane);
+		FXRSensorProperties SensorProperties;
+		IsActive = GEngine->XRSystem->GetTrackingSensorProperties(TrackingSensors[Index], Orientation, Origin, SensorProperties);
 		Rotation = Orientation.Rotator();
+		LeftFOV = SensorProperties.LeftFOV;
+		RightFOV = SensorProperties.RightFOV;
+		TopFOV = SensorProperties.TopFOV;
+		BottomFOV = SensorProperties.BottomFOV;
+		Distance = SensorProperties.CameraDistance;
+		NearPlane = SensorProperties.NearPlane;
+		FarPlane = SensorProperties.FarPlane;
 	}
 	else
 	{
@@ -137,27 +155,29 @@ void UHeadMountedDisplayFunctionLibrary::GetTrackingSensorParameters(FVector& Or
 
 void UHeadMountedDisplayFunctionLibrary::ResetOrientationAndPosition(float Yaw, EOrientPositionSelector::Type Options)
 {
-	if (GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsHeadTrackingAllowed())
+	if (GEngine->XRSystem.IsValid() && GEngine->XRSystem->IsHeadTrackingAllowed())
 	{
 		switch (Options)
 		{
 		case EOrientPositionSelector::Orientation:
-			GEngine->HMDDevice->ResetOrientation(Yaw);
+			GEngine->XRSystem->ResetOrientation(Yaw);
 			break;
 		case EOrientPositionSelector::Position:
-			GEngine->HMDDevice->ResetPosition();
+			GEngine->XRSystem->ResetPosition();
 			break;
 		default:
-			GEngine->HMDDevice->ResetOrientationAndPosition(Yaw);
+			GEngine->XRSystem->ResetOrientationAndPosition(Yaw);
 		}
 	}
 }
 
 void UHeadMountedDisplayFunctionLibrary::SetClippingPlanes(float Near, float Far)
 {
-	if (GEngine->HMDDevice.IsValid())
+	IHeadMountedDisplay* HMD = GEngine->XRSystem.IsValid() ? GEngine->XRSystem->GetHMDDevice() : nullptr;
+
+	if (HMD)
 	{
-		GEngine->HMDDevice->SetClippingPlanes(Near, Far);
+		HMD->SetClippingPlanes(Near, Far);
 	}
 }
 
@@ -196,6 +216,12 @@ float UHeadMountedDisplayFunctionLibrary::GetScreenPercentage()
 	return ScreenPercentageTCVar->GetValueOnGameThread();
 }
 
+float UHeadMountedDisplayFunctionLibrary::GetPixelDensity()
+{
+	static const auto PixelDensityTCVar = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("vr.pixeldensity"));
+	return PixelDensityTCVar->GetValueOnGameThread();
+}
+
 void UHeadMountedDisplayFunctionLibrary::SetWorldToMetersScale(UObject* WorldContext, float NewScale)
 {
 	if (WorldContext)
@@ -211,7 +237,7 @@ float UHeadMountedDisplayFunctionLibrary::GetWorldToMetersScale(UObject* WorldCo
 
 void UHeadMountedDisplayFunctionLibrary::SetTrackingOrigin(TEnumAsByte<EHMDTrackingOrigin::Type> InOrigin)
 {
-	if (GEngine->HMDDevice.IsValid())
+	if (GEngine->XRSystem.IsValid())
 	{
 		EHMDTrackingOrigin::Type Origin = EHMDTrackingOrigin::Eye;
 		switch (InOrigin)
@@ -225,7 +251,7 @@ void UHeadMountedDisplayFunctionLibrary::SetTrackingOrigin(TEnumAsByte<EHMDTrack
 		default:
 			break;
 		}
-		GEngine->HMDDevice->SetTrackingOrigin(Origin);
+		GEngine->XRSystem->SetTrackingOrigin(Origin);
 	}
 }
 
@@ -233,20 +259,31 @@ TEnumAsByte<EHMDTrackingOrigin::Type> UHeadMountedDisplayFunctionLibrary::GetTra
 {
 	EHMDTrackingOrigin::Type Origin = EHMDTrackingOrigin::Eye;
 
-	if (GEngine->HMDDevice.IsValid())
+	if (GEngine->XRSystem.IsValid())
 	{
-		Origin = GEngine->HMDDevice->GetTrackingOrigin();
+		Origin = GEngine->XRSystem->GetTrackingOrigin();
 	}
 
 	return Origin;
 }
 
+FTransform UHeadMountedDisplayFunctionLibrary::GetTrackingToWorldTransform(UObject* WorldContext)
+{
+	IXRTrackingSystem* TrackingSys = GEngine->XRSystem.Get();
+	if (TrackingSys)
+	{
+		return TrackingSys->GetTrackingToWorldTransform();
+	}
+	return FTransform::Identity;
+}
+
 void UHeadMountedDisplayFunctionLibrary::GetVRFocusState(bool& bUseFocus, bool& bHasFocus)
 {
-	if (GEngine->HMDDevice.IsValid())
+	IHeadMountedDisplay* HMD = GEngine->XRSystem.IsValid() ? GEngine->XRSystem->GetHMDDevice() : nullptr;
+	if (HMD)
 	{
-		bUseFocus = GEngine->HMDDevice->DoesAppUseVRFocus();
-		bHasFocus = GEngine->HMDDevice->DoesAppHaveVRFocus();
+		bUseFocus = HMD->DoesAppUseVRFocus();
+		bHasFocus = HMD->DoesAppHaveVRFocus();
 	}
 	else
 	{
@@ -258,9 +295,10 @@ namespace HMDFunctionLibraryHelpers
 {
 	ISpectatorScreenController* GetSpectatorScreenController()
 	{
-		if (GEngine->HMDDevice.IsValid())
+		IHeadMountedDisplay* HMD = GEngine->XRSystem.IsValid() ? GEngine->XRSystem->GetHMDDevice() : nullptr;
+		if (HMD)
 		{
-			return GEngine->HMDDevice->GetSpectatorScreenController();
+			return HMD->GetSpectatorScreenController();
 		}
 		return nullptr;
 	}
@@ -277,6 +315,14 @@ void UHeadMountedDisplayFunctionLibrary::SetSpectatorScreenMode(ESpectatorScreen
 	if (Controller)
 	{
 		Controller->SetSpectatorScreenMode(Mode);
+	}
+	else
+	{
+		static FName PSVRName(TEXT("PSVR"));
+		if (GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetSystemName() == PSVRName)
+		{
+			UE_LOG(LogHMD, Warning, TEXT("SetSpectatorScreenMode called while running PSVR, but the SpectatorScreenController was not found.  Perhaps you need to set the plugin project setting bEnableSocialScreenSeparateMode to true to enable it?  Ignoring this call."));
+		}
 	}
 }
 
@@ -303,3 +349,113 @@ void UHeadMountedDisplayFunctionLibrary::SetSpectatorScreenModeTexturePlusEyeLay
 	}
 }
 
+TArray<FXRDeviceId> UHeadMountedDisplayFunctionLibrary::EnumerateTrackedDevices(const FName SystemId, EXRTrackedDeviceType DeviceType)
+{
+	TArray<FXRDeviceId> DeviceListOut;
+
+	// @TODO: It seems certain IXRTrackingSystem's aren't registering themselves with the modular feature framework. Ideally we'd be loop over them instead of picking just one.
+	IXRTrackingSystem* TrackingSys = GEngine->XRSystem.Get();
+	if (TrackingSys)
+	{
+		if (SystemId.IsNone() || TrackingSys->GetSystemName() == SystemId)
+		{
+			TArray<int32> DeviceIds;
+			TrackingSys->EnumerateTrackedDevices(DeviceIds, DeviceType);
+
+			DeviceListOut.Reserve(DeviceListOut.Num() + DeviceIds.Num());
+			for (const int32& DeviceId : DeviceIds)
+			{
+				DeviceListOut.Add(FXRDeviceId(TrackingSys, DeviceId));
+			}
+		}			
+	}
+
+	return DeviceListOut;
+}
+
+void UHeadMountedDisplayFunctionLibrary::GetDevicePose(const FXRDeviceId& XRDeviceId, bool& bIsTracked, FRotator& Orientation, bool& bHasPositionalTracking, FVector& Position)
+{
+	bIsTracked = false;
+	bHasPositionalTracking = false;
+
+	// @TODO: It seems certain IXRTrackingSystem's aren't registering themselves with the modular feature framework. Ideally we'd be loop over them instead of picking just one.
+	IXRTrackingSystem* TrackingSys = GEngine->XRSystem.Get();
+	if (TrackingSys)
+	{
+		if (XRDeviceId.IsOwnedBy(TrackingSys))
+		{
+			FQuat QuatRotation;
+			if (TrackingSys->GetCurrentPose(XRDeviceId.DeviceId, QuatRotation, Position))
+			{
+				bIsTracked = true;
+				bHasPositionalTracking = TrackingSys->HasValidTrackingPosition();
+
+				Orientation = FRotator(QuatRotation);
+			}
+			else
+			{
+				Position = FVector::ZeroVector;
+				Orientation = FRotator::ZeroRotator;
+			}
+		}
+	}
+}
+
+void UHeadMountedDisplayFunctionLibrary::GetDeviceWorldPose(UObject* WorldContext, const FXRDeviceId& XRDeviceId, bool& bIsTracked, FRotator& Orientation, bool& bHasPositionalTracking, FVector& Position)
+{
+	GetDevicePose(XRDeviceId, bIsTracked, Orientation, bHasPositionalTracking, Position);
+
+	const FTransform TrackingToWorld = GetTrackingToWorldTransform(WorldContext);
+	Position = TrackingToWorld.TransformPosition(Position);
+
+	FQuat WorldOrientation = TrackingToWorld.TransformRotation(Orientation.Quaternion());
+	Orientation = WorldOrientation.Rotator();
+}
+
+UPrimitiveComponent* UHeadMountedDisplayFunctionLibrary::AddDeviceVisualizationComponent(AActor* Target, const FXRDeviceId& XRDeviceId, bool bManualAttachment, const FTransform& RelativeTransform)
+{
+	if (!IsValid(Target))
+	{
+		UE_LOG(LogHMD, Warning, TEXT("The target actor is invalid. Therefore you're unable to add a device render component to it."));
+		return nullptr;
+	}
+	UPrimitiveComponent* DeviceProxy = nullptr;
+
+	TArray<IXRSystemAssets*> XRAssetSystems = IModularFeatures::Get().GetModularFeatureImplementations<IXRSystemAssets>(IXRSystemAssets::GetModularFeatureName());
+	for (IXRSystemAssets* AssetSys : XRAssetSystems)
+	{
+		if (!XRDeviceId.IsOwnedBy(AssetSys))
+		{
+			continue;
+		}
+
+		DeviceProxy = AssetSys->CreateRenderComponent(XRDeviceId.DeviceId, Target, RF_StrongRefOnFrame);
+		if (DeviceProxy == nullptr)
+		{
+			UE_LOG(LogHMD, Warning, TEXT("The specified XR device does not have an associated render model."));
+		}
+		break;
+	}
+
+	if (DeviceProxy)
+	{
+		if (!bManualAttachment)
+		{
+			USceneComponent* RootComponent = Target->GetRootComponent();
+			if (RootComponent == nullptr)
+			{
+				Target->SetRootComponent(DeviceProxy);
+			}
+			else
+			{
+				DeviceProxy->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
+			}
+		}
+		DeviceProxy->SetRelativeTransform(RelativeTransform);
+	}
+	else
+	{
+		UE_LOG(LogHMD, Warning, TEXT("Failed to find an active XR system with a model for the requested component."));
+	}
+	return DeviceProxy;
+}

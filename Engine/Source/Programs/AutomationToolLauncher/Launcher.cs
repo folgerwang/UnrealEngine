@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,7 +20,7 @@ namespace AutomationToolLauncher
 			// Create the application domain.			
 			var Domain = AppDomain.CreateDomain("AutomationTool", AppDomain.CurrentDomain.Evidence, Domaininfo);
 			// Execute assembly and pass through command line
-			var CommandLine = AutomationTool.SharedUtils.ParseCommandLine();
+			var CommandLine = AutomationTool.SharedUtils.ParseCommandLineAndRemoveExe(Environment.CommandLine);
 			var UATExecutable = Path.Combine(Domaininfo.ApplicationBase, "AutomationTool.exe");
 			// Default exit code in case UAT does not even start, otherwise we always return UAT's exit code.
 			var ExitCode = 193;

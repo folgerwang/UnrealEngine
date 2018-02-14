@@ -1,13 +1,13 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimationModifier.h"
 #include "Animation/AnimSequence.h"
 #include "Animation/Skeleton.h"
 #include "ModifierOutputFilter.h"
 #include "Editor/Transactor.h"
-#include "UObjectIterator.h"
+#include "UObject/UObjectIterator.h"
 
-#include "Dialogs.h"
+#include "Dialogs/Dialogs.h"
 #include "Editor/Transactor.h"
 #include "UObject/UObjectIterator.h"
 

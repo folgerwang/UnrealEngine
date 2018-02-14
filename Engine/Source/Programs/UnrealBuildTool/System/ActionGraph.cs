@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -395,7 +395,7 @@ namespace UnrealBuildTool
 			{
 				foreach (FileItem ProducedItem in ActionToExecute.ProducedItems)
 				{
-					if(ProducedItem.bExists && !ActionToExecute.bUseIncrementalLinking && ProducedItem.Reference.HasExtension(".pdb"))
+					if(ProducedItem.bExists && !ActionToExecute.bUseIncrementalLinking && ProducedItem.Location.HasExtension(".pdb"))
 					{
 						Log.TraceVerbose("Deleting outdated pdb: {0}", ProducedItem.AbsolutePath);
 						ProducedItem.Delete();
@@ -430,8 +430,8 @@ namespace UnrealBuildTool
 					HashSet<Action> UnlinkedActionsToReadd = UnlinkedActions.Where(Action => PrerequisiteLinkActions.Contains(Action)).ToHashSet();
 
 					// Also re-add any DLL whose import library is being rebuilt. These may be separate actions, and the import library will reference the new DLL even if it isn't being compiled itself, so it must exist.
-					HashSet<FileReference> ProducedItemsToReAdd = ActionsToExecute.SelectMany(x => x.ProducedItems).Select(x => x.Reference).Where(x => x.HasExtension(".lib")).Select(x => x.ChangeExtension(".suppressed.lib")).ToHashSet();
-					UnlinkedActionsToReadd.UnionWith(UnlinkedActions.Where(x => x.ProducedItems.Any(y => ProducedItemsToReAdd.Contains(y.Reference))));
+					HashSet<FileReference> ProducedItemsToReAdd = ActionsToExecute.SelectMany(x => x.ProducedItems).Select(x => x.Location).Where(x => x.HasExtension(".lib")).Select(x => x.ChangeExtension(".suppressed.lib")).ToHashSet();
+					UnlinkedActionsToReadd.UnionWith(UnlinkedActions.Where(x => x.ProducedItems.Any(y => ProducedItemsToReAdd.Contains(y.Location))));
 
 					// Bail if we didn't find anything
 					if (UnlinkedActionsToReadd.Count == 0)
@@ -465,7 +465,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Executes a list of actions.
 		/// </summary>
-		public static bool ExecuteActions(BuildConfiguration BuildConfiguration, List<Action> ActionsToExecute, bool bIsRemoteCompile, out string ExecutorName, string TargetInfoForTelemetry, bool bIsHotReload = false)
+		public static bool ExecuteActions(BuildConfiguration BuildConfiguration, List<Action> ActionsToExecute, bool bIsRemoteCompile, out string ExecutorName, string TargetInfoForTelemetry, EHotReload HotReload)
 		{
 			bool Result = true;
 			ExecutorName = "";
@@ -512,7 +512,7 @@ namespace UnrealBuildTool
 						"Targets", TargetInfoForTelemetry,
 						"NumActions", ActionsToExecute.Count.ToString(),
 						"NumCompileActions", ActionsToExecute.Count(x => x.ActionType == ActionType.Compile).ToString(),
-						"NumPchCompileActions", ActionsToExecute.Count(x => x.ActionType == ActionType.Compile && x.ProducedItems.Any(y => y.Reference.HasExtension(".pch") || y.Reference.HasExtension(".gch"))).ToString(),
+						"NumPchCompileActions", ActionsToExecute.Count(x => x.ActionType == ActionType.Compile && x.ProducedItems.Any(y => y.Location.HasExtension(".pch") || y.Location.HasExtension(".gch"))).ToString(),
 						"NumLinkActions", ActionsToExecute.Count(x => x.ActionType == ActionType.Link).ToString(),
 						"ElapsedTime", (DateTime.UtcNow - StartTime).TotalSeconds.ToString());
 				}
@@ -539,7 +539,7 @@ namespace UnrealBuildTool
 									bExists = File.Exists(Item.AbsolutePath) || Directory.Exists(Item.AbsolutePath);
 								}
 
-								if (bIsHotReload)
+								if (HotReload != EHotReload.Disabled)
 								{
 									string FailedFilename = Path.Combine(Path.GetDirectoryName(Item.AbsolutePath), "failed.hotreload");
 									if (!bExists)
@@ -927,8 +927,8 @@ namespace UnrealBuildTool
 						if (!ActionHistory.GetProducingCommandLine(ProducedItem, out OldProducingCommandLine)
 						|| !String.Equals(OldProducingCommandLine, NewProducingCommandLine, StringComparison.InvariantCultureIgnoreCase))
 						{
-							Log.TraceVerbose(
-								"{0}: Produced item \"{1}\" was produced by outdated command-line.\nOld command-line: {2}\nNew command-line: {3}",
+							Log.TraceLog(
+								"{0}: Produced item \"{1}\" was produced by outdated command-line.\n  Old command-line: {2}\n  New command-line: {3}",
 								RootAction.StatusDescription,
 								Path.GetFileName(ProducedItem.AbsolutePath),
 								OldProducingCommandLine,
@@ -947,15 +947,11 @@ namespace UnrealBuildTool
 					// legitimate output to always be considered outdated.
 					if (ProducedItem.bExists && (ProducedItem.bIsRemoteFile || ProducedItem.Length > 0 || ProducedItem.IsDirectory))
 					{
-						// When linking incrementally, don't use LIB, EXP pr PDB files when checking for the oldest produced item,
-						// as those files aren't always touched.
-						if (RootAction.bUseIncrementalLinking)
+						// VS 15.3+ does not touch lib files if they do not contain any modifications, so ignore any timestamps on them.
+						String ProducedItemExtension = Path.GetExtension(ProducedItem.AbsolutePath).ToUpperInvariant();
+						if (ProducedItemExtension == ".LIB" || ProducedItemExtension == ".EXP" || ProducedItemExtension == ".PDB")
 						{
-							String ProducedItemExtension = Path.GetExtension(ProducedItem.AbsolutePath).ToUpperInvariant();
-							if (ProducedItemExtension == ".LIB" || ProducedItemExtension == ".EXP" || ProducedItemExtension == ".PDB")
-							{
-								continue;
-							}
+							continue;
 						}
 
 						// Use the oldest produced item's time as the last execution time.
@@ -968,7 +964,7 @@ namespace UnrealBuildTool
 					else
 					{
 						// If any of the produced items doesn't exist, the action is outdated.
-						Log.TraceVerbose(
+						Log.TraceLog(
 							"{0}: Produced item \"{1}\" doesn't exist.",
 							RootAction.StatusDescription,
 							Path.GetFileName(ProducedItem.AbsolutePath)
@@ -1027,7 +1023,7 @@ namespace UnrealBuildTool
 										bool bPrerequisiteItemIsNewerThanLastExecution = TimeDifference.TotalSeconds > 1;
 										if (bPrerequisiteItemIsNewerThanLastExecution)
 										{
-											Log.TraceVerbose(
+											Log.TraceLog(
 												"{0}: Included file {1} is newer than the last execution of the action: {2} vs {3}",
 												RootAction.StatusDescription,
 												Path.GetFileName(IncludedFile.AbsolutePath),
@@ -1073,7 +1069,7 @@ namespace UnrealBuildTool
 							{
 								if (IsActionOutdated(BuildConfiguration, Target, Headers, PrerequisiteItem.ProducingAction, OutdatedActionDictionary, ActionHistory, TargetToOutdatedPrerequisitesMap))
 								{
-									Log.TraceVerbose(
+									Log.TraceLog(
 										"{0}: Prerequisite {1} is produced by outdated action.",
 										RootAction.StatusDescription,
 										Path.GetFileName(PrerequisiteItem.AbsolutePath)
@@ -1089,7 +1085,7 @@ namespace UnrealBuildTool
 								bool bPrerequisiteItemIsNewerThanLastExecution = TimeDifference.TotalSeconds > 1;
 								if (bPrerequisiteItemIsNewerThanLastExecution)
 								{
-									Log.TraceVerbose(
+									Log.TraceLog(
 										"{0}: Prerequisite {1} is newer than the last execution of the action: {2} vs {3}",
 										RootAction.StatusDescription,
 										Path.GetFileName(PrerequisiteItem.AbsolutePath),
@@ -1550,7 +1546,7 @@ namespace UnrealBuildTool
 							else
 							{
 								// Not a file we were tracking
-								// Console.WriteLine( "Unknown file: " + PrerequisiteFileItem.AbsolutePath );
+								// Log.TraceInformation( "Unknown file: " + PrerequisiteFileItem.AbsolutePath );
 							}
 						}
 						else if (PrerequisiteFileItem.ProducingAction != null)
@@ -1625,7 +1621,7 @@ namespace UnrealBuildTool
 						else
 						{
 							// Some other header that we don't track directly
-							//Console.WriteLine( "File not known: " + PrerequisiteFileItem.AbsolutePath );
+							//Log.TraceInformation( "File not known: " + PrerequisiteFileItem.AbsolutePath );
 						}
 					}
 				}

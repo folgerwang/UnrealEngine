@@ -1,9 +1,9 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "InputCoreTypes.h"
 #include "Containers/BitArray.h"
-#include "GenericApplicationMessageHandler.h"
+#include "GenericPlatform/GenericApplicationMessageHandler.h"
 
 /**
  * The gesture detector can simulate the detection of certain kinds of gestures that may or may not

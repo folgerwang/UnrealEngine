@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "UniquePtr.h"
-#include "Array.h"
+#include "Templates/UniquePtr.h"
+#include "Containers/Array.h"
 
 // @todo mesheditor: Comment these classes and enums!
 

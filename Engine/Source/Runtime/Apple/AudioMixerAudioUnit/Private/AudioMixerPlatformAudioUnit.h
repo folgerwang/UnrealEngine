@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -64,6 +64,8 @@ namespace Audio
 
         int32       RemainingBytesInCurrentSubmittedBuffer;
         int32       BytesPerSubmittedBuffer;
+        
+        double GraphSampleRate;
         
 		bool PerformCallback(AudioBufferList* OutputBufferData);
 		void HandleError(const TCHAR* InLogOutput, bool bTeardown = true);

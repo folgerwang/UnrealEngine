@@ -1,8 +1,8 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "Engine.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "PLUGIN_NAMEBPLibrary.generated.h"
 
 /* 

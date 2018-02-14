@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ControlRigInputOutputDetailsCustomization.h"
 #include "K2Node_ControlRig.h"
@@ -6,11 +6,11 @@
 #include "DetailLayoutBuilder.h"
 #include "DetailCategoryBuilder.h"
 #include "DetailWidgetRow.h"
-#include "Containers/Algo/Transform.h"
+#include "Algo/Transform.h"
 #include "ControlRigField.h"
-#include "HierarchicalRig.h"
-#include "STextBlock.h"
-#include "SCheckBox.h"
+#include "Rigs/HierarchicalRig.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SCheckBox.h"
 
 #define LOCTEXT_NAMESPACE "ControlRigInputOutputDetailsCustomization"
 

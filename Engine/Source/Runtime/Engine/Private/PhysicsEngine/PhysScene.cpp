@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Misc/CommandLine.h"
@@ -701,17 +701,12 @@ void FPhysScene::AddTorque_AssumesLocked(FBodyInstance* BodyInstance, const FVec
 #if WITH_PHYSX
 void FPhysScene::RemoveActiveBody_AssumesLocked(FBodyInstance* BodyInstance, uint32 SceneType)
 {
-	if(PxRigidActor* RigidActor = BodyInstance->GetPxRigidActorFromScene_AssumesLocked(SceneType))
-	{
-		RemoveActiveRigidActor(SceneType, RigidActor);
-	}
-
-
 	PendingSleepEvents[SceneType].Remove(BodyInstance->GetPxRigidActorFromScene_AssumesLocked(SceneType));
 }
 #endif
 void FPhysScene::TermBody_AssumesLocked(FBodyInstance* BodyInstance)
 {
+#if WITH_PHYSX
 	if (PxRigidBody* PRigidBody = BodyInstance->GetPxRigidBody_AssumesLocked())
 	{
 		FPhysSubstepTask* PhysSubStepper = PhysSubSteppers[SceneType_AssumesLocked(BodyInstance)];
@@ -729,10 +724,9 @@ void FPhysScene::TermBody_AssumesLocked(FBodyInstance* BodyInstance)
 		}
 	}
 
-#if WITH_PHYSX
 	RemoveActiveBody_AssumesLocked(BodyInstance, PST_Sync);
 	RemoveActiveBody_AssumesLocked(BodyInstance, PST_Async);
-#endif
+#endif // WITH_PHYSX
 }
 
 FAutoConsoleTaskPriority CPrio_PhysXStepSimulation(
@@ -769,9 +763,12 @@ bool FPhysScene::SubstepSimulation(uint32 SceneType, FGraphEventRef &InOutComple
 		);
 		return true;
 	}
+#else
+	return false;
 #endif
 
 }
+
 
 /** Adds to queue of skelmesh we want to add to collision disable table */
 void FPhysScene::DeferredAddCollisionDisableTable(uint32 SkelMeshCompID, TMap<struct FRigidBodyIndexPair, bool> * CollisionDisableTable)
@@ -816,6 +813,8 @@ void FPhysScene::FlushDeferredCollisionDisableTableQueue()
 
 	DeferredCollisionDisableTableQueue.Empty();
 }
+
+#if WITH_PHYSX
 
 void GatherPhysXStats_AssumesLocked(PxScene* PSyncScene, PxScene* PAsyncScene)
 {
@@ -868,6 +867,7 @@ void GatherPhysXStats_AssumesLocked(PxScene* PSyncScene, PxScene* PAsyncScene)
 		SET_DWORD_STAT(STAT_NumShapesAsync, NumShapes);
 	}
 }
+#endif // WITH_PHYSX
 
 DECLARE_FLOAT_COUNTER_STAT(TEXT("Sync Sim Time (ms)"), STAT_PhysSyncSim, STATGROUP_Physics);
 DECLARE_FLOAT_COUNTER_STAT(TEXT("Async Sim Time (ms)"), STAT_PhysAsyncSim, STATGROUP_Physics);
@@ -894,6 +894,7 @@ void FinishSceneStat(uint32 Scene)
 
 void GatherClothingStats(const UWorld* World)
 {
+#if WITH_PHYSX
 #if STATS
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_GatherApexStats);
 
@@ -913,6 +914,7 @@ void GatherClothingStats(const UWorld* World)
 		}
 	}
 #endif
+#endif // WITH_PHYSX
 }
 
 void FPhysScene::MarkForPreSimKinematicUpdate(USkeletalMeshComponent* InSkelComp, ETeleportType InTeleport, bool bNeedsSkinning)
@@ -1113,10 +1115,12 @@ void FPhysScene::TickPhysScene(uint32 SceneType, FGraphEventRef& InOutCompletion
 
 void FPhysScene::KillVisualDebugger()
 {
+#if WITH_PHYSX
 	if (GPhysXVisualDebugger)
 	{
 		GPhysXVisualDebugger->disconnect();
 	}
+#endif // WITH_PHYSX 
 }
 
 void FPhysScene::WaitPhysScenes()
@@ -1191,18 +1195,16 @@ void FPhysScene::ProcessPhysScene(uint32 SceneType)
 	// Reset execution flag
 
 	bool bSuccess = false;
-	IgnoreActiveActors[SceneType].Empty();
 
-//This fetches and gets active transforms. It's important that the function that calls this locks because getting the transforms and using the data must be an atomic operation
 #if WITH_PHYSX
+	//This fetches and gets active transforms. It's important that the function that calls this locks because getting the transforms and using the data must be an atomic operation
 	PxScene* PScene = GetPhysXScene(SceneType);
 	check(PScene);
 	PxU32 OutErrorCode = 0;
 
-#if !WITH_APEX
 	PScene->lockWrite();
+#if !WITH_APEX
 	bSuccess = PScene->fetchResults(true, &OutErrorCode);
-	PScene->unlockWrite();
 #else	//	#if !WITH_APEX
 	// The APEX scene calls the fetchResults function for the PhysX scene, so we only call ApexScene->fetchResults().
 	apex::Scene* ApexScene = GetApexScene(SceneType);
@@ -1214,6 +1216,9 @@ void FPhysScene::ProcessPhysScene(uint32 SceneType)
 	{
 		UE_LOG(LogPhysics, Log, TEXT("PHYSX FETCHRESULTS ERROR: %d"), OutErrorCode);
 	}
+
+	SyncComponentsToBodies_AssumesLocked(SceneType);
+	PScene->unlockWrite();
 #endif // WITH_PHYSX
 
 	PhysicsSubsceneCompletion[SceneType] = NULL;
@@ -1224,6 +1229,20 @@ void FPhysScene::ProcessPhysScene(uint32 SceneType)
 	FlushDeferredActors((EPhysicsSceneType)SceneType);
 #endif
 }
+
+/** Struct to remember a pending component transform change */
+struct FPhysScenePendingComponentTransform
+{
+	/** Component to move */
+	TWeakObjectPtr<UPrimitiveComponent> OwningComp;
+	/** New transform from physics engine */
+	FTransform NewTransform;
+
+	FPhysScenePendingComponentTransform(UPrimitiveComponent* InOwningComp, const FTransform& InNewTransform)
+		: OwningComp(InOwningComp)
+		, NewTransform(InNewTransform)
+	{}
+};
 
 void FPhysScene::SyncComponentsToBodies_AssumesLocked(uint32 SceneType)
 {
@@ -1244,21 +1263,18 @@ void FPhysScene::SyncComponentsToBodies_AssumesLocked(uint32 SceneType)
 	PxU32 NumActors = 0;
 	PxActor** PActiveActors = PScene->getActiveActors(NumActors);
 
+	TArray<FPhysScenePendingComponentTransform> PendingTransforms;
+
 	for (PxU32 TransformIdx = 0; TransformIdx < NumActors; ++TransformIdx)
 	{
 		PxActor* PActiveActor = PActiveActors[TransformIdx];
-#if PLATFORM_HTML5
+#ifdef __EMSCRIPTEN__
 		// emscripten doesn't seem to know how to look at <PxRigidActor> from the PxActor class...
 		PxRigidActor* XRigidActor = static_cast<PxRigidActor*>(PActiveActor); // is()
 		PxRigidActor* RigidActor = XRigidActor->PxRigidActor::isKindOf(PxTypeInfo<PxRigidActor>::name()) ? XRigidActor : NULL; // typeMatch<T>()
 #else
 		PxRigidActor* RigidActor = PActiveActor->is<PxRigidActor>();
 #endif
-
-		if (IgnoreActiveActors[SceneType].Find(RigidActor) != INDEX_NONE)
-		{
-			continue;
-		}
 
 		ensure(!RigidActor->userData || !FPhysxUserData::IsGarbage(RigidActor->userData));
 
@@ -1268,24 +1284,13 @@ void FPhysScene::SyncComponentsToBodies_AssumesLocked(uint32 SceneType)
 			{
 				check(BodyInstance->OwnerComponent->IsRegistered()); // shouldn't have a physics body for a non-registered component!
 
-				AActor* Owner = BodyInstance->OwnerComponent->GetOwner();
-
-				// See if the transform is actually different, and if so, move the component to match physics
 				const FTransform NewTransform = BodyInstance->GetUnrealWorldTransform_AssumesLocked();
-				if (!NewTransform.EqualsNoScale(BodyInstance->OwnerComponent->GetComponentTransform()))
-				{
-					const FVector MoveBy = NewTransform.GetLocation() - BodyInstance->OwnerComponent->GetComponentTransform().GetLocation();
-					const FQuat NewRotation = NewTransform.GetRotation();
 
-					//@warning: do not reference BodyInstance again after calling MoveComponent() - events from the move could have made it unusable (destroying the actor, SetPhysics(), etc)
-					BodyInstance->OwnerComponent->MoveComponent(MoveBy, NewRotation, false, NULL, MOVECOMP_SkipPhysicsMove);
-				}
-
-				// Check if we didn't fall out of the world
-				if (Owner != NULL && !Owner->IsPendingKill())
-				{
-					Owner->CheckStillInWorld();
-				}
+				// Add to set of transforms to process
+				// We can't actually move the component now (or check for out of world), because that could destroy a body
+				// elsewhere in the PActiveActors array, resulting in a bad pointer
+				FPhysScenePendingComponentTransform NewEntry(BodyInstance->OwnerComponent.Get(), NewTransform);
+				PendingTransforms.Add(NewEntry);
 			}
 		}
 		else if (const FCustomPhysXPayload* CustomPayload = FPhysxUserData::Get<FCustomPhysXPayload>(RigidActor->userData))
@@ -1298,18 +1303,52 @@ void FPhysScene::SyncComponentsToBodies_AssumesLocked(uint32 SceneType)
 		}
 	}
 
-	for(FCustomPhysXSyncActors* CustomSync : CustomPhysXSyncActors)
+	//Give custom plugins the chance to build the sync data
+	for (FCustomPhysXSyncActors* CustomSync : CustomPhysXSyncActors)
 	{
-		CustomSync->SyncToActors_AssumesLocked(SceneType, CustomSync->Actors);
+		CustomSync->BuildSyncData_AssumesLocked(SceneType, CustomSync->Actors);
 		CustomSync->Actors.Empty(CustomSync->Actors.Num());
 	}
 
-	IgnoreActiveActors[SceneType].Empty();
-#endif
+	//Allow custom plugins to actually act on the sync data
+	for (FCustomPhysXSyncActors* CustomSync : CustomPhysXSyncActors)
+	{
+		CustomSync->FinalizeSync(SceneType);
+	}
+
+	/// Now actually move components
+	for (FPhysScenePendingComponentTransform& Entry : PendingTransforms)
+	{
+		// Check if still valid (ie not destroyed)
+		UPrimitiveComponent* OwnerComponent = Entry.OwningComp.Get();
+		if (OwnerComponent != nullptr)
+		{
+			AActor* Owner = OwnerComponent->GetOwner();
+
+			// See if the transform is actually different, and if so, move the component to match physics
+			if (!Entry.NewTransform.EqualsNoScale(OwnerComponent->GetComponentTransform()))
+			{
+				const FVector MoveBy = Entry.NewTransform.GetLocation() - OwnerComponent->GetComponentTransform().GetLocation();
+				const FQuat NewRotation = Entry.NewTransform.GetRotation();
+
+				//@warning: do not reference BodyInstance again after calling MoveComponent() - events from the move could have made it unusable (destroying the actor, SetPhysics(), etc)
+				OwnerComponent->MoveComponent(MoveBy, NewRotation, false, NULL, MOVECOMP_SkipPhysicsMove);
+			}
+
+			// Check if we didn't fall out of the world
+			if (Owner != NULL && !Owner->IsPendingKill())
+			{
+				Owner->CheckStillInWorld();
+			}
+		}
+	}
+
+#endif // WITH_PHYSX 
 }
 
 void FPhysScene::DispatchPhysNotifications_AssumesLocked()
 {
+#if WITH_PHYSX
 	SCOPE_CYCLE_COUNTER(STAT_PhysicsEventTime);
 
 	for(int32 SceneType = 0; SceneType < PST_MAX; ++SceneType)
@@ -1344,7 +1383,6 @@ void FPhysScene::DispatchPhysNotifications_AssumesLocked()
 		PendingCollisionNotifies.Reset();
 	}
 
-#if WITH_PHYSX
 	for (int32 SceneType = 0; SceneType < PST_MAX; ++SceneType)
 	{
 		for (auto MapItr = PendingSleepEvents[SceneType].CreateIterator(); MapItr; ++MapItr)
@@ -1361,7 +1399,6 @@ void FPhysScene::DispatchPhysNotifications_AssumesLocked()
 
 		PendingSleepEvents[SceneType].Empty();
 	}
-#endif
 
 	for(int32 SceneType = 0; SceneType < PST_MAX; ++SceneType)
 	{
@@ -1373,7 +1410,7 @@ void FPhysScene::DispatchPhysNotifications_AssumesLocked()
 
 		ConstraintData.PendingConstraintBroken.Empty();
 	}
-
+#endif // WITH_PHYSX 
 
 	FPhysicsDelegates::OnPhysDispatchNotifications.Broadcast(this);
 }
@@ -1545,24 +1582,19 @@ void FPhysScene::EndFrame(ULineBatchComponent* InLineBatcher)
 	* This means that anyone attempting to write on other threads will be blocked. This is OK because accessing any of these game objects from another thread is probably a bad idea!
 	*/
 
+#if WITH_PHYSX
 	SCOPED_SCENE_WRITE_LOCK(GetPhysXScene(PST_Sync));
 	SCOPED_SCENE_WRITE_LOCK(bAsyncSceneEnabled ? GetPhysXScene(PST_Async) : nullptr);
+#endif // WITH_PHYSX 
 
 #if ( WITH_PHYSX  && !(UE_BUILD_SHIPPING || WITH_PHYSX_RELEASE))
 	GatherPhysXStats_AssumesLocked(GetPhysXScene(PST_Sync), HasAsyncScene() ? GetPhysXScene(PST_Async) : nullptr);
 #endif
-
-	if (bAsyncSceneEnabled)
-	{
-		SyncComponentsToBodies_AssumesLocked(PST_Async);
-	}
-
-	SyncComponentsToBodies_AssumesLocked(PST_Sync);
-
+	
 	// Perform any collision notification events
 	DispatchPhysNotifications_AssumesLocked();
 
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST || WITH_PHYSX_RELEASE)
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	// Handle debug rendering
 	if (InLineBatcher)
 	{
@@ -1574,7 +1606,7 @@ void FPhysScene::EndFrame(ULineBatchComponent* InLineBatcher)
 		}
 
 	}
-#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST || WITH_PHYSX_RELEASE)
+#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 }
 
 #if WITH_PHYSX
@@ -2068,6 +2100,7 @@ void FPhysScene::TermPhysScene(uint32 SceneType)
 #endif
 }
 
+#if WITH_PHYSX
 void FPhysScene::AddPendingOnConstraintBreak(FConstraintInstance* ConstraintInstance, int32 SceneType)
 {
 	PendingConstraintData[SceneType].PendingConstraintBroken.Add( FConstraintBrokenDelegateData(ConstraintInstance) );
@@ -2079,8 +2112,6 @@ FConstraintBrokenDelegateData::FConstraintBrokenDelegateData(FConstraintInstance
 {
 
 }
-
-#if WITH_PHYSX
 
 void FPhysScene::AddPendingSleepingEvent(PxActor* Actor, SleepEvent::Type SleepEventType, int32 SceneType)
 {

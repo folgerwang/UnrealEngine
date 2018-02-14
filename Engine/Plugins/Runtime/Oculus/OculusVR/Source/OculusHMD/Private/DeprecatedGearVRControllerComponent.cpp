@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "../Public/DeprecatedGearVRControllerComponent.h"
 //#include "../Public/GearVRControllerFunctionLibrary.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "MotionControllerComponent.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "UObject/ConstructorHelpers.h"
 
 UDEPRECATED_DeprecatedGearVRControllerComponent::UDEPRECATED_DeprecatedGearVRControllerComponent()

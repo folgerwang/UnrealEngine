@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ShaderFormatD3D.h"
 #include "ShaderPreprocessor.h"
@@ -23,11 +23,11 @@ DEFINE_LOG_CATEGORY_STATIC(LogD3D11ShaderCompiler, Log, All);
 #pragma warning(push)
 #pragma warning(disable : 4005)	// macro redefinition
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <D3D11.h>
 	#include <D3Dcompiler.h>
 	#include <d3d11Shader.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #undef DrawText
 
 #pragma warning(pop)

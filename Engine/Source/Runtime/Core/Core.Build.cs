@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System;
@@ -11,32 +11,6 @@ public class Core : ModuleRules
 		PrivatePCHHeaderFile = "Private/CorePrivatePCH.h";
 
 		SharedPCHHeaderFile = "Public/CoreSharedPCH.h";
-
-		bAddDefaultIncludePaths = false;
-
-		PublicIncludePaths.AddRange(
-			new string[] {
-				"Runtime/Core/Public",
-				"Runtime/Core/Public/Internationalization",
-				"Runtime/Core/Public/Async",
-				"Runtime/Core/Public/Concurrency",
-				"Runtime/Core/Public/Containers",
-				"Runtime/Core/Public/Delegates",
-				"Runtime/Core/Public/GenericPlatform",
-				"Runtime/Core/Public/HAL",
-				"Runtime/Core/Public/Logging",
-				"Runtime/Core/Public/Math",
-				"Runtime/Core/Public/Misc",
-				"Runtime/Core/Public/Modules",
-				"Runtime/Core/Public/Modules/Boilerplate",
-				"Runtime/Core/Public/ProfilingDebugging",
-				"Runtime/Core/Public/Serialization",
-				"Runtime/Core/Public/Serialization/Csv",
-				"Runtime/Core/Public/Stats",
-				"Runtime/Core/Public/Templates",
-				"Runtime/Core/Public/UObject",
-			}
-			);
 
 		PrivateIncludePaths.AddRange(
 			new string[] {
@@ -73,17 +47,16 @@ public class Core : ModuleRules
 		if ((Target.Platform == UnrealTargetPlatform.Win64) ||
 			(Target.Platform == UnrealTargetPlatform.Win32))
 		{
-			PublicIncludePaths.Add("Runtime/Core/Public/Windows");
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"zlib");
 
 			AddEngineThirdPartyPrivateStaticDependencies(Target, 
-				"IntelTBB"
+				"IntelTBB",
+				"IntelVTune"
 				);
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Mac)
 		{
-			PublicIncludePaths.AddRange(new string[] { "Runtime/Core/Public/Apple", "Runtime/Core/Public/Mac" });
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"IntelTBB",
 				"zlib",
@@ -98,7 +71,6 @@ public class Core : ModuleRules
 		}
 		else if (Target.Platform == UnrealTargetPlatform.IOS || Target.Platform == UnrealTargetPlatform.TVOS)
 		{
-			PublicIncludePaths.AddRange(new string[] {"Runtime/Core/Public/Apple", "Runtime/Core/Public/IOS"});
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"zlib"
 				);
@@ -121,7 +93,6 @@ public class Core : ModuleRules
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Android)
 		{
-			PublicIncludePaths.Add("Runtime/Core/Public/Android");
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"cxademangle",
 				"zlib"
@@ -129,7 +100,6 @@ public class Core : ModuleRules
 		}
         else if ((Target.Platform == UnrealTargetPlatform.Linux))
         {
-            PublicIncludePaths.Add("Runtime/Core/Public/Linux");
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"zlib",
 				"jemalloc",
@@ -153,7 +123,7 @@ public class Core : ModuleRules
         {
 			AddEngineThirdPartyPrivateStaticDependencies(Target, "ICU");
         }
-        Definitions.Add("UE_ENABLE_ICU=" + (Target.bCompileICU ? "1" : "0")); // Enable/disable (=1/=0) ICU usage in the codebase. NOTE: This flag is for use while integrating ICU and will be removed afterward.
+        PublicDefinitions.Add("UE_ENABLE_ICU=" + (Target.bCompileICU ? "1" : "0")); // Enable/disable (=1/=0) ICU usage in the codebase. NOTE: This flag is for use while integrating ICU and will be removed afterward.
 
         // If we're compiling with the engine, then add Core's engine dependencies
 		if (Target.bCompileAgainstEngine == true)
@@ -176,28 +146,25 @@ public class Core : ModuleRules
 			if (File.Exists(Path.Combine(PerfIncludeDirectory, "VSPerf.h")))
 			{
 				PrivateIncludePaths.Add(PerfIncludeDirectory);
-				Definitions.Add("WITH_VS_PERF_PROFILER=1");
+				PublicDefinitions.Add("WITH_VS_PERF_PROFILER=1");
 			}
 			else
 			{
-				Definitions.Add("WITH_VS_PERF_PROFILER=0");
+				PublicDefinitions.Add("WITH_VS_PERF_PROFILER=0");
 			}
 		}
 
-		if(Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
-		{
-			WhitelistRestrictedFolders.Add("Private/Windows/NoRedist");
-		}
+		WhitelistRestrictedFolders.Add("Private/NoRedist");
 
         if (Target.Platform == UnrealTargetPlatform.XboxOne)
         {
-            Definitions.Add("WITH_DIRECTXMATH=1");
+            PublicDefinitions.Add("WITH_DIRECTXMATH=1");
         }
         else if ((Target.Platform == UnrealTargetPlatform.Win64) ||
                 (Target.Platform == UnrealTargetPlatform.Win32))
         {
 			// To enable this requires Win8 SDK
-            Definitions.Add("WITH_DIRECTXMATH=0");  // Enable to test on Win64/32.
+            PublicDefinitions.Add("WITH_DIRECTXMATH=0");  // Enable to test on Win64/32.
 
             //PublicDependencyModuleNames.AddRange(  // Enable to test on Win64/32.
 			//    new string[] {
@@ -206,7 +173,7 @@ public class Core : ModuleRules
         }
         else
         {
-            Definitions.Add("WITH_DIRECTXMATH=0");
+            PublicDefinitions.Add("WITH_DIRECTXMATH=0");
         }
     }
 }

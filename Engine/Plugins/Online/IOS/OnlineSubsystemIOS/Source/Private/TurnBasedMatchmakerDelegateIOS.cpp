@@ -1,8 +1,8 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemIOSPrivatePCH.h"
 
-#include "OnlineTurnBasedInterface.h"
+#include "Interfaces/OnlineTurnBasedInterface.h"
 #include "TurnBasedMatchmakerDelegateIOS.h"
 
 @interface FTurnBasedMatchmakerDelegateIOS()

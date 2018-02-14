@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/FontFace.h"
 #include "Engine/Font.h"
@@ -9,7 +9,7 @@
 #include "Misc/FileHelper.h"
 #include "UObject/Package.h"
 #include "Misc/PackageName.h"
-#include "EditorObjectVersion.h"
+#include "UObject/EditorObjectVersion.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFontFace, Log, All);
 

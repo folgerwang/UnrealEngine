@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Framework/Application/HardwareCursor.h"
 #include "HAL/PlatformProcess.h"
@@ -7,8 +7,8 @@
 #include "Logging/LogMacros.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
-#include "ModuleManager.h"
-#include "SlateApplication.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
 #include "HAL/PlatformApplicationMisc.h"
 
 #if PLATFORM_LINUX

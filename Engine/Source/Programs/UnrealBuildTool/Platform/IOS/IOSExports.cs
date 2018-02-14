@@ -1,3 +1,5 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -41,14 +43,21 @@ namespace UnrealBuildTool
 				MobileProvision = null;
 				SigningCertificate = null;
 				TeamUUID = null;
-				bAutomaticSigning = false;
+				bAutomaticSigning = true;
 			}
 			else
 			{
 				MobileProvision = Data.MobileProvision;
 				SigningCertificate = Data.SigningCertificate;
 				TeamUUID = Data.TeamUUID;
-				bAutomaticSigning = ProjectSettings.bAutomaticSigning;
+                if (Data.MobileProvisionName.Contains("*") || ProjectSettings.bAutomaticSigning)
+                {
+                    bAutomaticSigning = true;
+                }
+                else
+                {
+                    bAutomaticSigning = false;
+                }
 			}
 		}
 
@@ -125,7 +134,7 @@ namespace UnrealBuildTool
             if (System.IO.File.Exists(ReceiptFilename.FullName))
             {
                 TargetReceipt Receipt = TargetReceipt.Read(ReceiptFilename, UnrealBuildTool.EngineDirectory, ProjectDirectory);
-                var Results = Receipt.AdditionalProperties.Where(x => x.Name == "SDK");
+                IEnumerable<ReceiptProperty> Results = Receipt.AdditionalProperties.Where(x => x.Name == "SDK");
 
                 if (Results.Count() > 0)
                 {

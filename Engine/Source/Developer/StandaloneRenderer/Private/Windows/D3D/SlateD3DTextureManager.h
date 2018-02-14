@@ -1,8 +1,8 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "TextureAtlas.h"
+#include "Textures/TextureAtlas.h"
 #include "Rendering/ShaderResourceManager.h"
 #include "SlateD3DTextures.h"
 

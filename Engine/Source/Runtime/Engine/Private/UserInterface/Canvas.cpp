@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Canvas.cpp: Unreal canvas rendering.
@@ -218,7 +218,7 @@ int32 FCanvasWordWrapper::FindEndOfLastWholeGraphemeCluster(const int32 InStartI
 	return BreakIndex;
 }
 
-FCanvas::FCanvas(FRenderTarget* InRenderTarget, FHitProxyConsumer* InHitProxyConsumer, UWorld* InWorld, ERHIFeatureLevel::Type InFeatureLevel, ECanvasDrawMode InDrawMode)
+FCanvas::FCanvas(FRenderTarget* InRenderTarget, FHitProxyConsumer* InHitProxyConsumer, UWorld* InWorld, ERHIFeatureLevel::Type InFeatureLevel, ECanvasDrawMode InDrawMode, float InDPIScale)
 :	ViewRect(0,0,0,0)
 ,	ScissorRect(0,0,0,0)
 ,	RenderTarget(InRenderTarget)
@@ -230,8 +230,10 @@ FCanvas::FCanvas(FRenderTarget* InRenderTarget, FHitProxyConsumer* InHitProxyCon
 ,	CurrentWorldTime(0)
 ,	CurrentDeltaWorldTime(0)
 ,	FeatureLevel(InFeatureLevel)
+,	bUseInternalTexture(false)
 ,	StereoDepth(150)
 ,	DrawMode(InDrawMode)
+,	DPIScale(InDPIScale)
 {
 	Construct();
 
@@ -243,7 +245,7 @@ FCanvas::FCanvas(FRenderTarget* InRenderTarget, FHitProxyConsumer* InHitProxyCon
 	}
 }
 
-FCanvas::FCanvas(FRenderTarget* InRenderTarget,FHitProxyConsumer* InHitProxyConsumer, float InRealTime, float InWorldTime, float InWorldDeltaTime, ERHIFeatureLevel::Type InFeatureLevel)
+FCanvas::FCanvas(FRenderTarget* InRenderTarget,FHitProxyConsumer* InHitProxyConsumer, float InRealTime, float InWorldTime, float InWorldDeltaTime, ERHIFeatureLevel::Type InFeatureLevel, float InDPIScale)
 :	ViewRect(0,0,0,0)
 ,	ScissorRect(0,0,0,0)
 ,	RenderTarget(InRenderTarget)
@@ -255,8 +257,10 @@ FCanvas::FCanvas(FRenderTarget* InRenderTarget,FHitProxyConsumer* InHitProxyCons
 ,	CurrentWorldTime(InWorldTime)
 ,	CurrentDeltaWorldTime(InWorldDeltaTime)
 ,	FeatureLevel(InFeatureLevel)
+,	bUseInternalTexture(false)
 ,	StereoDepth(150)
 ,	DrawMode(CDM_DeferDrawing)
+,	DPIScale(InDPIScale)
 {
 	Construct();
 }
@@ -271,9 +275,8 @@ void FCanvas::Construct()
 	bScaledToRenderTarget = false;
 	bAllowsToSwitchVerticalAxis = true;
 
-	// Push the viewport transform onto the stack.  Default to using a 2D projection. 
 	new(TransformStack) FTransformEntry( 
-		FMatrix( CalcBaseTransform2D(RenderTarget->GetSizeXY().X,RenderTarget->GetSizeXY().Y) ) 
+		FMatrix( FScaleMatrix(GetDPIScale()) * CalcBaseTransform2D(RenderTarget->GetSizeXY().X,RenderTarget->GetSizeXY().Y) ) 
 		);
 
 	// init alpha to 1
@@ -533,7 +536,7 @@ FCanvas::FCanvasSortElement& FCanvas::GetSortElement(int32 DepthSortKey)
 }
 
 
-FBatchedElements* FCanvas::GetBatchedElements(EElementType InElementType, FBatchedElementParameters* InBatchedElementParameters, const FTexture* InTexture, ESimpleElementBlendMode InBlendMode, const FDepthFieldGlowInfo& GlowInfo)
+FBatchedElements* FCanvas::GetBatchedElements(EElementType InElementType, FBatchedElementParameters* InBatchedElementParameters, const FTexture* InTexture, ESimpleElementBlendMode InBlendMode, const FDepthFieldGlowInfo& GlowInfo, bool bApplyDPIScale)
 {
 	SCOPE_CYCLE_COUNTER(STAT_Canvas_GetBatchElementsTime);
 
@@ -542,7 +545,12 @@ FBatchedElements* FCanvas::GetBatchedElements(EElementType InElementType, FBatch
 	// find a batch to use 
 	FCanvasBatchedElementRenderItem* RenderBatch = NULL;
 	// get the current transform entry from top of transform stack
-	const FTransformEntry& TopTransformEntry = TransformStack.Top();
+	FTransformEntry FinalTransform = TransformStack.Top();
+
+	if (!bApplyDPIScale && GetDPIScale() != 1.0f)
+	{
+		FinalTransform = FTransformEntry(FScaleMatrix(1/GetDPIScale()) * FinalTransform.GetMatrix());
+	}
 
 	// try to use the current top entry in the render batch array
 	if( SortElement.RenderBatchArray.Num() > 0 )
@@ -550,13 +558,14 @@ FBatchedElements* FCanvas::GetBatchedElements(EElementType InElementType, FBatch
 		checkSlow( SortElement.RenderBatchArray.Last() );
 		RenderBatch = SortElement.RenderBatchArray.Last()->GetCanvasBatchedElementRenderItem();
 	}	
+
 	// if a matching entry for this batch doesn't exist then allocate a new entry
 	if( RenderBatch == NULL ||		
-		!RenderBatch->IsMatch(InBatchedElementParameters, InTexture, InBlendMode, InElementType, TopTransformEntry, GlowInfo) )
+		!RenderBatch->IsMatch(InBatchedElementParameters, InTexture, InBlendMode, InElementType, FinalTransform, GlowInfo) )
 	{
 		INC_DWORD_STAT(STAT_Canvas_NumBatchesCreated);
 
-		RenderBatch = new FCanvasBatchedElementRenderItem( InBatchedElementParameters, InTexture, InBlendMode, InElementType, TopTransformEntry, GlowInfo);
+		RenderBatch = new FCanvasBatchedElementRenderItem( InBatchedElementParameters, InTexture, InBlendMode, InElementType, FinalTransform, GlowInfo);
 		SortElement.RenderBatchArray.Add(RenderBatch);
 	}
 	return RenderBatch->GetBatchedElements();
@@ -586,7 +595,7 @@ void FCanvas::AddTileRenderItem(float X, float Y, float SizeX, float SizeY, floa
 	{
 		INC_DWORD_STAT(STAT_Canvas_NumBatchesCreated);
 
-		RenderBatch = new FCanvasTileRendererItem( MaterialRenderProxy,TopTransformEntry,bFreezeTime );
+		RenderBatch = new FCanvasTileRendererItem(FeatureLevel, MaterialRenderProxy,TopTransformEntry,bFreezeTime );
 		SortElement.RenderBatchArray.Add(RenderBatch);
 	}
 	// add the quad to the tile render batch
@@ -616,7 +625,7 @@ void FCanvas::AddTriangleRenderItem(const FCanvasUVTri& Tri, const FMaterialRend
 	{
 		INC_DWORD_STAT(STAT_Canvas_NumBatchesCreated);
 	
-		RenderBatch = new FCanvasTriangleRendererItem(MaterialRenderProxy, TopTransformEntry, bFreezeTime);
+		RenderBatch = new FCanvasTriangleRendererItem(FeatureLevel, MaterialRenderProxy, TopTransformEntry, bFreezeTime);
 		SortElement.RenderBatchArray.Add(RenderBatch);
 	}
 	// add the triangle to the triangle render batch
@@ -677,7 +686,14 @@ void FCanvas::Flush_RenderThread(FRHICommandListImmediate& RHICmdList, bool bFor
 	check(IsValidRef(RenderTargetTexture));
 	
 	// Set the RHI render target.
-	::SetRenderTarget(RHICmdList, RenderTargetTexture, FTexture2DRHIRef());
+	if (IsUsingInternalTexture())
+	{
+		::SetRenderTarget(RHICmdList, RenderTargetTexture, FTexture2DRHIRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
+	}
+	else
+	{
+		::SetRenderTarget(RHICmdList, RenderTargetTexture, FTexture2DRHIRef());
+	}
 
 	FDrawingPolicyRenderState DrawRenderState;
 	// disable depth test & writes
@@ -783,7 +799,7 @@ void FCanvas::Flush_GameThread(bool bForce)
 		RenderTarget,
 		IsScaledToRenderTarget()
 	};
-	bool bEmitCanvasDrawEvents = GEmitDrawEvents;
+	bool bEmitCanvasDrawEvents = GetEmitDrawEvents();
 
 	ENQUEUE_RENDER_COMMAND(CanvasFlushSetupCommand)(
 		[FlushParameters](FRHICommandList& RHICmdList)
@@ -885,7 +901,6 @@ void FCanvas::SetHitProxy(HHitProxy* HitProxy)
 	}
 }
 
-
 bool FCanvas::HasBatchesToRender() const
 {
 	for( int32 Idx=0; Idx < SortedElements.Num(); Idx++ )
@@ -967,15 +982,16 @@ void FCanvas::DrawTile( float X, float Y, float SizeX,	float SizeY, float U, flo
 	SCOPE_CYCLE_COUNTER(STAT_Canvas_DrawTextureTileTime);
 
 	FCanvasTileItem TileItem(FVector2D(X,Y), Texture ? Texture : GWhiteTexture, FVector2D(SizeX,SizeY), FVector2D(U,V), FVector2D(SizeU,SizeV), Color);
-	TileItem.BlendMode = AlphaBlend ? SE_BLEND_Translucent : SE_BLEND_Opaque;
+	TileItem.BlendMode = AlphaBlend ? 
+		(bUseInternalTexture ? SE_BLEND_TranslucentAlphaOnlyWriteAlpha : SE_BLEND_Translucent) :
+		SE_BLEND_Opaque;
 	DrawItem(TileItem);
 }
 
-int32 FCanvas::DrawShadowedString( float StartX,float StartY,const TCHAR* Text,const UFont* Font,const FLinearColor& Color, const float TextScale, const FLinearColor& ShadowColor )
+int32 FCanvas::DrawShadowedString( float StartX,float StartY,const TCHAR* Text,const UFont* Font,const FLinearColor& Color, const FLinearColor& ShadowColor)
 {
 	const float Z = 1.0f;
-	FCanvasTextItem TextItem( FVector2D( StartX, StartY ), FText::FromString( Text ), Font, Color );
-	TextItem.Scale = FVector2D(TextScale, TextScale);
+	FCanvasTextItem TextItem( FVector2D( StartX, StartY ), FText::FromString( Text ), Font, Color);
 	// just render text in single pass for distance field drop shadow
 	if (Font && Font->ImportOptions.bUseDistanceFieldAlpha)
 	{	
@@ -1203,14 +1219,15 @@ UCanvas::UCanvas(const FObjectInitializer& ObjectInitializer)
 	FCoreDelegates::OnSafeFrameChangedEvent.AddUObject(this, &UCanvas::UpdateSafeZoneData);
 }
 
-void UCanvas::Init(int32 InSizeX, int32 InSizeY, FSceneView* InSceneView)
+void UCanvas::Init(int32 InSizeX, int32 InSizeY, FSceneView* InSceneView, FCanvas* InCanvas)
 {
 	HmdOrientation = FQuat::Identity;
 	SizeX = InSizeX;
 	SizeY = InSizeY;
 	UnsafeSizeX = SizeX;
 	UnsafeSizeY = SizeY;
-	SceneView = InSceneView;		
+	SceneView = InSceneView;
+	Canvas = InCanvas;
 	
 	Update();
 }
@@ -1228,7 +1245,7 @@ void UCanvas::ApplySafeZoneTransform()
 	// if there is no required safezone padding, then we can bail on the whole operation.
 	// this is also basically punting on a bug we have on PC where GetDisplayMetrics isn't the right thing
 	// to do, as it gives the monitor size, not the window size which we actually want.
-	if (SafeZonePadX == 0 && SafeZonePadY == 0)
+	if (SafeZonePadX == 0 && SafeZonePadY == 0 && SafeZonePadEX == 0 && SafeZonePadEY == 0)
 	{
 		return;
 	}
@@ -1273,8 +1290,8 @@ void UCanvas::ApplySafeZoneTransform()
 	int32 DistToYBorder = CachedDisplayHeight - AbsMaxY;
 
 	//compute how much more we must move the canvas away from the border to meet safe zone requirements.
-	int32 SizeXPad = AbsMaxX <= CachedDisplayWidth - SafeZonePadX ? 0 : SafeZonePadX - DistToXBorder;
-	int32 SizeYPad = AbsMaxY <= CachedDisplayHeight - SafeZonePadY ? 0 : SafeZonePadY - DistToYBorder;
+	int32 SizeXPad = AbsMaxX <= CachedDisplayWidth - SafeZonePadEX ? 0 : SafeZonePadEX - DistToXBorder;
+	int32 SizeYPad = AbsMaxY <= CachedDisplayHeight - SafeZonePadEY ? 0 : SafeZonePadEY - DistToYBorder;
 
 	int32 OrigClipOffsetX = SizeX - ClipX;
 	int32 OrigClipOffsetY = SizeY - ClipY;
@@ -1368,6 +1385,14 @@ void UCanvas::Update()
 	// Copy size parameters from viewport.
 	ClipX = SizeX;
 	ClipY = SizeY;
+
+	if (Canvas)
+	{
+		ClipX /= Canvas->GetDPIScale();
+		ClipY /= Canvas->GetDPIScale();
+
+		Canvas->SetParentCanvasSize(FIntPoint(SizeX, SizeY));
+	}
 }
 
 /*-----------------------------------------------------------------------------
@@ -1800,6 +1825,7 @@ void UCanvas::DrawItem( class FCanvasItem& Item, float X, float Y )
 bool FCanvas::GetOrthoProjectionMatrices(float InDrawDepth, FMatrix OutOrthoProjection[2])
 {
 	bool rv = false;
+
 	if (bStereoRendering)
 	{
 		rv = true;
@@ -1833,10 +1859,13 @@ void FCanvas::DrawItem(FCanvasItem& Item)
 		PushRelativeTransform(OrthoProjection[0]); //apply projection matrix
 		Item.Draw(this);
 		PopTransform();
-		//right eye
-		PushRelativeTransform(OrthoProjection[1]);
-		Item.Draw(this);
-		PopTransform();
+		if (!bUseInternalTexture)
+		{
+			//right eye
+			PushRelativeTransform(OrthoProjection[1]);
+			Item.Draw(this);
+			PopTransform();
+		}
 	}
 	else
 	{
@@ -1859,10 +1888,13 @@ void FCanvas::DrawItem(FCanvasItem& Item, const FVector2D& InPosition)
 		PushRelativeTransform(OrthoProjection[0]); //apply projection matrix
 		Item.Draw(this, InPosition);
 		PopTransform();
-		//right eye
-		PushRelativeTransform(OrthoProjection[1]);
-		Item.Draw(this , InPosition);
-		PopTransform();
+		if (!bUseInternalTexture)
+		{
+			//right eye
+			PushRelativeTransform(OrthoProjection[1]);
+			Item.Draw(this, InPosition);
+			PopTransform();
+		}
 	}
 	else
 	{
@@ -1885,10 +1917,13 @@ void FCanvas::DrawItem(FCanvasItem& Item, float X, float Y)
 		PushRelativeTransform(OrthoProjection[0]); //apply projection matrix
 		Item.Draw(this, X, Y);
 		PopTransform();
-		//right eye
-		PushRelativeTransform(OrthoProjection[1]);
-		Item.Draw(this, X, Y);
-		PopTransform();
+		if (!bUseInternalTexture)
+		{
+			//right eye
+			PushRelativeTransform(OrthoProjection[1]);
+			Item.Draw(this, X, Y);
+			PopTransform();
+		}
 	}
 	else
 	{

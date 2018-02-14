@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,8 +6,8 @@
 
 #include "CoreMinimal.h"
 #include "SocketSubsystem.h"
-#include "ModuleManager.h"
-#include "IOSAppDelegate.h"
+#include "Modules/ModuleManager.h"
+#include "IOS/IOSAppDelegate.h"
 #include "IOS/IOSAsyncTask.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/ScopeLock.h"

@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Sound/SoundNodeAssetReferencer.h"
 #include "Sound/SoundNodeQualityLevel.h"
 #include "Sound/SoundCue.h"
-#include "FrameworkObjectVersion.h"
+#include "UObject/FrameworkObjectVersion.h"
 
 bool USoundNodeAssetReferencer::ShouldHardReferenceAsset() const
 {

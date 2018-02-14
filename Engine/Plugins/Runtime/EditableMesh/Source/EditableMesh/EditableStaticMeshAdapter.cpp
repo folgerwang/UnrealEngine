@@ -116,12 +116,12 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 				EditableMesh->TextureCoordinateCount = NumUVs;
 
 				// Vertices
-				const int32 NumRenderingVertices = StaticMeshLOD.PositionVertexBuffer.GetNumVertices();
+				const int32 NumRenderingVertices = StaticMeshLOD.VertexBuffers.PositionVertexBuffer.GetNumVertices();
 				MeshDescription->ReserveNewVertices( NumRenderingVertices );	// possibly more than necessary, but doesn't matter
 				MeshDescription->ReserveNewVertexInstances( NumRenderingVertices );
 
-				const bool bHasColor = StaticMeshLOD.ColorVertexBuffer.GetNumVertices() > 0;
-				check( !bHasColor || StaticMeshLOD.ColorVertexBuffer.GetNumVertices() == StaticMeshLOD.VertexBuffer.GetNumVertices() );
+				const bool bHasColor = StaticMeshLOD.VertexBuffers.ColorVertexBuffer.GetNumVertices() > 0;
+				check( !bHasColor || StaticMeshLOD.VertexBuffers.ColorVertexBuffer.GetNumVertices() == StaticMeshLOD.VertexBuffers.StaticMeshVertexBuffer.GetNumVertices() );
 
 				// @todo mesheditor cleanup: This code is very similar to the static mesh build code; try to share helper structs
 				static TMultiMap<int32, int32> OverlappingRenderingVertexIndices;
@@ -153,7 +153,7 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 						RenderingVertexIndicesSortedByZ.SetNumUninitialized( NumRenderingVertices, false );
 						for( int32 RenderingVertexIndex = 0; RenderingVertexIndex < NumRenderingVertices; ++RenderingVertexIndex )
 						{
-							const FVector VertexPosition = StaticMeshLOD.PositionVertexBuffer.VertexPosition( RenderingVertexIndex );
+							const FVector VertexPosition = StaticMeshLOD.VertexBuffers.PositionVertexBuffer.VertexPosition( RenderingVertexIndex );
 							RenderingVertexIndicesSortedByZ[ RenderingVertexIndex ] = FIndexAndZ( RenderingVertexIndex, VertexPosition );
 						}
 
@@ -180,8 +180,8 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 							const int32 RenderingVertexIndexA = RenderingVertexIndicesSortedByZ[ RenderingVertexIterA ].Index;
 							const int32 RenderingVertexIndexB = RenderingVertexIndicesSortedByZ[ RenderingVertexIterB ].Index;
 
-							const FVector VertexPositionA = StaticMeshLOD.PositionVertexBuffer.VertexPosition( RenderingVertexIndexA );
-							const FVector VertexPositionB = StaticMeshLOD.PositionVertexBuffer.VertexPosition( RenderingVertexIndexB );
+							const FVector VertexPositionA = StaticMeshLOD.VertexBuffers.PositionVertexBuffer.VertexPosition( RenderingVertexIndexA );
+							const FVector VertexPositionB = StaticMeshLOD.VertexBuffers.PositionVertexBuffer.VertexPosition( RenderingVertexIndexB );
 
 							if( VertexPositionA.Equals( VertexPositionB, ComparisonThreshold ) )
 							{
@@ -199,7 +199,7 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 				// still be interactable in the editor.
 				for( int32 RenderingVertexIndex = 0; RenderingVertexIndex < NumRenderingVertices; ++RenderingVertexIndex )
 				{
-					const FVector VertexPosition = StaticMeshLOD.PositionVertexBuffer.VertexPosition( RenderingVertexIndex );
+					const FVector VertexPosition = StaticMeshLOD.VertexBuffers.PositionVertexBuffer.VertexPosition( RenderingVertexIndex );
 					const FVertexInstanceID VertexInstanceID( RenderingVertexIndex );
 
 					// Check to see if we already have this vertex
@@ -241,11 +241,11 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 
 					// Populate the vertex instance attributes
 					{
-						const FVector Normal = StaticMeshLOD.VertexBuffer.VertexTangentZ( RenderingVertexIndex );
-						const FVector Tangent = StaticMeshLOD.VertexBuffer.VertexTangentX( RenderingVertexIndex );
-						const FVector Binormal = StaticMeshLOD.VertexBuffer.VertexTangentY( RenderingVertexIndex );
+						const FVector Normal = StaticMeshLOD.VertexBuffers.StaticMeshVertexBuffer.VertexTangentZ( RenderingVertexIndex );
+						const FVector Tangent = StaticMeshLOD.VertexBuffers.StaticMeshVertexBuffer.VertexTangentX( RenderingVertexIndex );
+						const FVector Binormal = StaticMeshLOD.VertexBuffers.StaticMeshVertexBuffer.VertexTangentY( RenderingVertexIndex );
 						const float BinormalSign = GetBasisDeterminantSign(Tangent, Binormal, Normal);
-						const FLinearColor Color = bHasColor ? FLinearColor( StaticMeshLOD.ColorVertexBuffer.VertexColor( RenderingVertexIndex ) ) : FLinearColor::White;
+						const FLinearColor Color = bHasColor ? FLinearColor( StaticMeshLOD.VertexBuffers.ColorVertexBuffer.VertexColor( RenderingVertexIndex ) ) : FLinearColor::White;
 
 						VertexInstanceNormals[ VertexInstanceID ] = Normal;
 						VertexInstanceTangents[ VertexInstanceID ] = Tangent;
@@ -253,7 +253,7 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 						VertexInstanceColors[ VertexInstanceID ] = Color;
 						for( int32 UVIndex = 0; UVIndex < NumUVs; ++UVIndex )
 						{
-							VertexInstanceUVs.GetArrayForIndex( UVIndex )[ VertexInstanceID ] = StaticMeshLOD.VertexBuffer.GetVertexUV( RenderingVertexIndex, UVIndex );
+							VertexInstanceUVs.GetArrayForIndex( UVIndex )[ VertexInstanceID ] = StaticMeshLOD.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV( RenderingVertexIndex, UVIndex );
 						}
 					}
 				}
@@ -788,16 +788,16 @@ void UEditableStaticMeshAdapter::OnRebuildRenderMesh( const UEditableMesh* Edita
 	}
 	const EIndexBufferStride::Type IndexBufferStride = bNeeds32BitIndices ? EIndexBufferStride::Force32Bit : EIndexBufferStride::Force16Bit;
 
-	StaticMeshLOD.PositionVertexBuffer.Init( StaticMeshBuildVertices );
-	StaticMeshLOD.VertexBuffer.Init( StaticMeshBuildVertices, EditableMesh->GetTextureCoordinateCount() );
+	StaticMeshLOD.VertexBuffers.PositionVertexBuffer.Init( StaticMeshBuildVertices );
+	StaticMeshLOD.VertexBuffers.StaticMeshVertexBuffer.Init( StaticMeshBuildVertices, EditableMesh->GetTextureCoordinateCount() );
 
 	if( bHasColor )
 	{
-		StaticMeshLOD.ColorVertexBuffer.Init( StaticMeshBuildVertices );
+		StaticMeshLOD.VertexBuffers.ColorVertexBuffer.Init( StaticMeshBuildVertices );
 	}
 	else
 	{
-		StaticMeshLOD.ColorVertexBuffer.InitFromSingleColor( FColor::White, StaticMeshBuildVertices.Num() );
+		StaticMeshLOD.VertexBuffers.ColorVertexBuffer.InitFromSingleColor( FColor::White, StaticMeshBuildVertices.Num() );
 	}
 
 	StaticMeshLOD.IndexBuffer.SetIndices( IndexBuffer, IndexBufferStride );
@@ -1171,7 +1171,7 @@ void UEditableStaticMeshAdapter::OnSetVertexAttribute( const UEditableMesh* Edit
 			for( const FVertexInstanceID VertexInstanceID : MeshDescription->GetVertexVertexInstances( VertexID ) )
 			{
 				check( MeshDescription->IsVertexInstanceValid( VertexInstanceID ) );
-				StaticMeshLOD.PositionVertexBuffer.VertexPosition( VertexInstanceID.GetValue() ) = NewVertexPosition;
+				StaticMeshLOD.VertexBuffers.PositionVertexBuffer.VertexPosition( VertexInstanceID.GetValue() ) = NewVertexPosition;
 			}
 		}
 
@@ -1223,7 +1223,7 @@ void UEditableStaticMeshAdapter::OnSetVertexInstanceAttribute( const UEditableMe
 			// @todo mesheditor perf: SetVertexTangents() and VertexTangentX/Y() functions actually does a bit of work to compute the basis every time. 
 			// Ideally we can get/set this stuff directly to improve performance.  This became slower after high precision basis values were added.
 			// @todo mesheditor perf: this is even more pertinent now we already have the binormal sign!
-			StaticMeshLOD.VertexBuffer.SetVertexTangents(
+			StaticMeshLOD.VertexBuffers.StaticMeshVertexBuffer.SetVertexTangents(
 				VertexInstanceID.GetValue(),
 				Tangent,
 				FVector::CrossProduct( Normal, Tangent ).GetSafeNormal() * BinormalSign,
@@ -1235,7 +1235,7 @@ void UEditableStaticMeshAdapter::OnSetVertexInstanceAttribute( const UEditableMe
 		if( !EditableMesh->IsPreviewingSubdivisions() )
 		{
 			check( Attribute.AttributeIndex < EditableMesh->GetTextureCoordinateCount() );
-			StaticMeshLOD.VertexBuffer.SetVertexUV( VertexInstanceID.GetValue(), Attribute.AttributeIndex, Attribute.AttributeValue.GetValue<FVector2D>() );
+			StaticMeshLOD.VertexBuffers.StaticMeshVertexBuffer.SetVertexUV( VertexInstanceID.GetValue(), Attribute.AttributeIndex, Attribute.AttributeValue.GetValue<FVector2D>() );
 		}
 	}
 	else if( Attribute.AttributeName == MeshAttribute::VertexInstance::Color )
@@ -1246,7 +1246,7 @@ void UEditableStaticMeshAdapter::OnSetVertexInstanceAttribute( const UEditableMe
 			const FLinearColor LinearColor( Value.X, Value.Y, Value.Z, Value.W );
 			const FColor NewColor = LinearColor.ToFColor( true );
 
-			if( StaticMeshLOD.ColorVertexBuffer.GetNumVertices() != EditableMesh->GetMeshDescription()->VertexInstances().GetArraySize() )
+			if( StaticMeshLOD.VertexBuffers.ColorVertexBuffer.GetNumVertices() != EditableMesh->GetMeshDescription()->VertexInstances().GetArraySize() )
 			{
 				if( LinearColor != FLinearColor::White )
 				{
@@ -1257,7 +1257,7 @@ void UEditableStaticMeshAdapter::OnSetVertexInstanceAttribute( const UEditableMe
 			}
 			else
 			{
-				StaticMeshLOD.ColorVertexBuffer.VertexColor( VertexInstanceID.GetValue() ) = NewColor;
+				StaticMeshLOD.VertexBuffers.ColorVertexBuffer.VertexColor( VertexInstanceID.GetValue() ) = NewColor;
 			}
 		}
 	}
@@ -1282,10 +1282,10 @@ void UEditableStaticMeshAdapter::OnCreateVertexInstances( const UEditableMesh* E
 		FStaticMeshLODResources& StaticMeshLOD = GetStaticMeshLOD();
 		const int32 NumUVs = MeshDescription->VertexInstanceAttributes().GetAttributeIndexCount<FVector2D>( MeshAttribute::VertexInstance::TextureCoordinate );
 		const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
-		const bool bHasColors = StaticMeshLOD.ColorVertexBuffer.GetNumVertices() > 0;
+		const bool bHasColors = StaticMeshLOD.VertexBuffers.ColorVertexBuffer.GetNumVertices() > 0;
 
 		// Determine if we need to grow the render buffers
-		const int32 OldVertexBufferRenderingVertexCount = StaticMeshLOD.PositionVertexBuffer.GetNumVertices();
+		const int32 OldVertexBufferRenderingVertexCount = StaticMeshLOD.VertexBuffers.PositionVertexBuffer.GetNumVertices();
 		const int32 NumNewVertexBufferRenderingVertices = FMath::Max( 0, MeshDescription->VertexInstances().GetArraySize() - OldVertexBufferRenderingVertexCount );
 
 		static TArray<FStaticMeshBuildVertex> RenderingVerticesToAppend;
@@ -1301,8 +1301,8 @@ void UEditableStaticMeshAdapter::OnCreateVertexInstances( const UEditableMesh* E
 			{
 				// Rendering vertex is within the already allocated buffer. Initialize the new vertices to some defaults
 				// @todo mesheditor: these defaults should come from the attributes themselves
-				StaticMeshLOD.PositionVertexBuffer.VertexPosition( NewRenderingVertexIndex ) = VertexPositions[ ReferencedVertexID ];
-				StaticMeshLOD.VertexBuffer.SetVertexTangents(
+				StaticMeshLOD.VertexBuffers.PositionVertexBuffer.VertexPosition( NewRenderingVertexIndex ) = VertexPositions[ ReferencedVertexID ];
+				StaticMeshLOD.VertexBuffers.StaticMeshVertexBuffer.SetVertexTangents(
 					NewRenderingVertexIndex,
 					FVector::ZeroVector,
 					FVector::ZeroVector,
@@ -1310,12 +1310,12 @@ void UEditableStaticMeshAdapter::OnCreateVertexInstances( const UEditableMesh* E
 
 				for( int32 UVIndex = 0; UVIndex < NumUVs; ++UVIndex )
 				{
-					StaticMeshLOD.VertexBuffer.SetVertexUV( NewRenderingVertexIndex, UVIndex, FVector2D::ZeroVector );
+					StaticMeshLOD.VertexBuffers.StaticMeshVertexBuffer.SetVertexUV( NewRenderingVertexIndex, UVIndex, FVector2D::ZeroVector );
 				}
 
 				if( bHasColors )
 				{
-					StaticMeshLOD.ColorVertexBuffer.VertexColor( NewRenderingVertexIndex ) = FColor::White;
+					StaticMeshLOD.VertexBuffers.ColorVertexBuffer.VertexColor( NewRenderingVertexIndex ) = FColor::White;
 				}
 			}
 			else
@@ -1342,12 +1342,12 @@ void UEditableStaticMeshAdapter::OnCreateVertexInstances( const UEditableMesh* E
 
 		if( RenderingVerticesToAppend.Num() > 0 )
 		{
-			StaticMeshLOD.VertexBuffer.AppendVertices( RenderingVerticesToAppend.GetData(), RenderingVerticesToAppend.Num() );
-			StaticMeshLOD.PositionVertexBuffer.AppendVertices( RenderingVerticesToAppend.GetData(), RenderingVerticesToAppend.Num() );
+			StaticMeshLOD.VertexBuffers.StaticMeshVertexBuffer.AppendVertices( RenderingVerticesToAppend.GetData(), RenderingVerticesToAppend.Num() );
+			StaticMeshLOD.VertexBuffers.PositionVertexBuffer.AppendVertices( RenderingVerticesToAppend.GetData(), RenderingVerticesToAppend.Num() );
 
 			if( bHasColors )
 			{
-				StaticMeshLOD.ColorVertexBuffer.AppendVertices( RenderingVerticesToAppend.GetData(), RenderingVerticesToAppend.Num() );
+				StaticMeshLOD.VertexBuffers.ColorVertexBuffer.AppendVertices( RenderingVerticesToAppend.GetData(), RenderingVerticesToAppend.Num() );
 			}
 		}
 	}

@@ -1,9 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreTypes.h"
-#include "ScopeLock.h"
+#include "Misc/ScopeLock.h"
+#include "Templates/Atomic.h"
 
 
 // this is currently incompatible with PLATFORM_USES_FIXED_GMalloc_CLASS, because this ends up being included way too early
@@ -19,7 +20,7 @@
 	#define LLM_SUPPORTED_PLATFORM (PLATFORM_XBOXONE || PLATFORM_PS4 || PLATFORM_WINDOWS)
 
 	// *** enable/disable LLM here ***
-	#define ENABLE_LOW_LEVEL_MEM_TRACKER (!UE_BUILD_SHIPPING && LLM_SUPPORTED_PLATFORM && WITH_ENGINE && 1)
+	#define ENABLE_LOW_LEVEL_MEM_TRACKER (!UE_BUILD_SHIPPING && !UE_BUILD_TEST && LLM_SUPPORTED_PLATFORM && WITH_ENGINE && 1)
 
 	// using asset tagging requires a significantly higher number of per-thread tags, so make it optional
 	// even if this is on, we still need to run with -llmtagset=assets because of the shear number of stat ids it makes
@@ -331,7 +332,7 @@ private:
 
 	uint64 ProgramSize;
 
-	bool bIsDisabled;
+	TAtomic<bool> bIsDisabled;
 
 	bool ActiveSets[(int32)ELLMTagSet::Max];
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -64,12 +64,12 @@ template<typename,typename> class TOctree;
  * Misc. Iterator types
  *
  */
-typedef TArray<TAutoWeakObjectPtr<AController> >::TConstIterator FConstControllerIterator;
-typedef TArray<TAutoWeakObjectPtr<APlayerController> >::TConstIterator FConstPlayerControllerIterator;
-typedef TArray<TAutoWeakObjectPtr<APawn> >::TConstIterator FConstPawnIterator;	
-typedef TArray<TAutoWeakObjectPtr<ACameraActor> >::TConstIterator FConstCameraActorIterator;
+typedef TArray<TWeakObjectPtr<AController> >::TConstIterator FConstControllerIterator;
+typedef TArray<TWeakObjectPtr<APlayerController> >::TConstIterator FConstPlayerControllerIterator;
+typedef TArray<TWeakObjectPtr<APawn> >::TConstIterator FConstPawnIterator;	
+typedef TArray<TWeakObjectPtr<ACameraActor> >::TConstIterator FConstCameraActorIterator;
 typedef TArray<class ULevel*>::TConstIterator FConstLevelIterator;
-typedef TArray<TAutoWeakObjectPtr<APhysicsVolume> >::TConstIterator FConstPhysicsVolumeIterator;
+typedef TArray<TWeakObjectPtr<APhysicsVolume> >::TConstIterator FConstPhysicsVolumeIterator;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogSpawn, Warning, All);
 
@@ -692,18 +692,29 @@ public:
 	/**
 	 * Constructor that will save the current relevant values of InWorld
 	 * and set the collection's context values for InWorld.
+	 * The constructor that takes an index is preferred, but this one
+	 * still exists for backwards compatibility.
 	 *
 	 * @param InLevelCollection The collection's context to use
 	 * @param InWorld The world on which to set the context.
 	 */
 	FScopedLevelCollectionContextSwitch(const FLevelCollection* const InLevelCollection, UWorld* const InWorld);
-	
+
+	/**
+	 * Constructor that will save the current relevant values of InWorld
+	 * and set the collection's context values for InWorld.
+	 *
+	 * @param InLevelCollectionIndex The index of the collection to use
+	 * @param InWorld The world on which to set the context.
+	 */
+	FScopedLevelCollectionContextSwitch(int32 InLevelCollectionIndex, UWorld* const InWorld);
+
 	/** The destructor restores the context on the world that was saved in the constructor. */
 	~FScopedLevelCollectionContextSwitch();
 
 private:
 	class UWorld* World;
-	const FLevelCollection* SavedTickingCollection;
+	int32 SavedTickingCollectionIndex;
 };
 
 /** 
@@ -851,8 +862,8 @@ private:
 	UPROPERTY(Transient, NonTransactional)
 	TArray<FLevelCollection>					LevelCollections;
 
-	/** Pointer to the level collection that's currently ticking. */
-	const FLevelCollection*						ActiveLevelCollection;
+	/** Index of the level collection that's currently ticking. */
+	int32										ActiveLevelCollectionIndex;
 
 	/** Creates the dynamic source and static level collections if they don't already exist. */
 	void ConditionallyCreateDefaultLevelCollections();
@@ -1229,8 +1240,7 @@ public:
 	 **/
 	uint32 NumLightingUnbuiltObjects;
 	
-	/** Num of reflection capture components missing valid data. This can be non-zero only in game with FeatureLevel < SM4*/
-	uint32 NumInvalidReflectionCaptureComponents;
+	uint32 NumUnbuiltReflectionCaptures;
 
 	/** Num of components missing valid texture streaming data. Updated in map check. */
 	int32 NumTextureStreamingUnbuiltComponents;
@@ -2177,9 +2187,6 @@ public:
 	 */
 	void CommitModelSurfaces();
 
-	/** Purges all reflection capture cached derived data and forces a re-render of captured scene data. */
-	void UpdateAllReflectionCaptures();
-
 	/** Purges all sky capture cached derived data and forces a re-render of captured scene data. */
 	void UpdateAllSkyCaptures();
 
@@ -2187,7 +2194,7 @@ public:
 	ULevel* GetActiveLightingScenario() const;
 
 	/** Propagates a change to the active lighting scenario. */
-	void PropagateLightingScenarioChange(bool bLevelWasMadeVisible);
+	void PropagateLightingScenarioChange();
 
 	/**
 	 * Associates the passed in level with the world. The work to make the level visible is spread across several frames and this
@@ -2541,20 +2548,32 @@ public:
 	/** Returns the FLevelCollection for the given InType. If one does not exist, it is created. */
 	FLevelCollection& FindOrAddCollectionByType(const ELevelCollectionType InType);
 
+	/** Returns the index of the first FLevelCollection of the given InType. If one does not exist, it is created and its index returned. */
+	int32 FindOrAddCollectionByType_Index(const ELevelCollectionType InType);
+
 	/** Returns the FLevelCollection for the given InType, or null if a collection of that type hasn't been created yet. */
 	FLevelCollection* FindCollectionByType(const ELevelCollectionType InType);
 
 	/** Returns the FLevelCollection for the given InType, or null if a collection of that type hasn't been created yet. */
 	const FLevelCollection* FindCollectionByType(const ELevelCollectionType InType) const;
 
+	/** Returns the index of the FLevelCollection with the given InType, or INDEX_NONE if a collection of that type hasn't been created yet. */
+	int32 FindCollectionIndexByType(const ELevelCollectionType InType) const;
+	
 	/**
 	 * Returns the level collection which currently has its context set on this world. May be null.
 	 * If non-null, this implies that execution is currently within the scope of an FScopedLevelCollectionContextSwitch for this world.
 	 */
-	const FLevelCollection* GetActiveLevelCollection() const { return ActiveLevelCollection; }
+	const FLevelCollection* GetActiveLevelCollection() const;
+
+	/**
+	 * Returns the index of the level collection which currently has its context set on this world. May be INDEX_NONE.
+	 * If not INDEX_NONE, this implies that execution is currently within the scope of an FScopedLevelCollectionContextSwitch for this world.
+	 */
+	int32 GetActiveLevelCollectionIndex() const { return ActiveLevelCollectionIndex; }
 
 	/** Sets the level collection and its context on this world. Should only be called by FScopedLevelCollectionContextSwitch. */
-	void SetActiveLevelCollection(const FLevelCollection* InCollection);
+	void SetActiveLevelCollection(int32 LevelCollectionIndex);
 
 	/** Returns a read-only reference to the list of level collections in this world. */
 	const TArray<FLevelCollection>& GetLevelCollections() const { return LevelCollections; }
@@ -3106,7 +3125,7 @@ public:
 	 * Sets NumLightingUnbuiltObjects to the specified value.  Marks the worldsettings package dirty if the value changed.
 	 * @param	InNumLightingUnbuiltObjects			The new value.
 	 */
-	void SetMapNeedsLightingFullyRebuilt(int32 InNumLightingUnbuiltObjects);
+	void SetMapNeedsLightingFullyRebuilt(int32 InNumLightingUnbuiltObjects, int32 InNumUnbuiltReflectionCaptures);
 
 	/** Returns TimerManager instance for this world. */
 	inline FTimerManager& GetTimerManager() const
@@ -3175,6 +3194,9 @@ public:
 public:
 	/** Rename this world such that it has the prefix on names for the given PIE Instance ID */
 	void RenameToPIEWorld(int32 PIEInstanceID);
+
+	/** Given a level script actor, modify the string such that it points to the correct instance of the object. For replays. */
+	bool RemapCompiledScriptActor(FString& Str) const;
 
 	/** Given a PackageName and a PIE Instance ID return the name of that Package when being run as a PIE world */
 	static FString ConvertToPIEPackageName(const FString& PackageName, int32 PIEInstanceID);

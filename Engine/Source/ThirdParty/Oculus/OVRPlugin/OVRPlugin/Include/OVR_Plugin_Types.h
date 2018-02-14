@@ -28,7 +28,7 @@ limitations under the License.
 #endif
 
 #define OVRP_MAJOR_VERSION 1
-#define OVRP_MINOR_VERSION 15
+#define OVRP_MINOR_VERSION 21
 #define OVRP_PATCH_VERSION 0
 
 #define OVRP_VERSION OVRP_MAJOR_VERSION, OVRP_MINOR_VERSION, OVRP_PATCH_VERSION
@@ -56,6 +56,9 @@ limitations under the License.
 #define OVRP_DEFAULTVALUE(Value)
 #endif
 
+#ifndef OVRP_MIXED_REALITY_PRIVATE
+#define OVRP_MIXED_REALITY_PRIVATE 0
+#endif
 
 /// True or false
 enum {
@@ -98,6 +101,8 @@ typedef enum {
   ovrpInitializeFlag_StartGearVRReceivers = (1 << 0),
   /// Supports 2D/3D switching
   ovrpInitializeFlag_SupportsVRToggle = (1 << 1),
+  /// Supports Life Cycle Focus (Dash)
+  ovrpInitializeFlag_FocusAware = (1 << 2),
 } ovrpInitializeFlags;
 
 /// Identifies an eye in a stereo pair.
@@ -119,12 +124,12 @@ typedef enum {
   ovrpHand_EnumSize = 0x7fffffff
 } ovrpHand;
 
-/// Identifies a hand.
+/// Identifies a tracked device object.
 typedef enum {
-    ovrpDeviceObject_None = -1,
-    ovrpDeviceObject_Zero = 0,
-    ovrpDeviceObject_Count,
-    ovrpDeviceObject_EnumSize = 0x7fffffff
+  ovrpDeviceObject_None = -1,
+  ovrpDeviceObject_Zero = 0,
+  ovrpDeviceObject_Count,
+  ovrpDeviceObject_EnumSize = 0x7fffffff
 } ovrpDeviceObject;
 
 /// Identifies a tracking sensor.
@@ -197,6 +202,9 @@ typedef enum {
   ovrpSystemHeadset_GearVR_R321, // S6 Innovator
   ovrpSystemHeadset_GearVR_R322, // GearVR Commercial 1
   ovrpSystemHeadset_GearVR_R323, // GearVR Commercial 2 (USB Type C)
+  ovrpSystemHeadset_GearVR_R324, // GearVR Commercial 3 (USB Type C)
+  ovrpSystemHeadset_GearVR_R325, // GearVR Commercial 4 (USB Type C)
+  ovrpSystemHeadset_Oculus_Go,   // Oculus Go Commercial 1
 
   ovrpSystemHeadset_Rift_DK1 = 0x1000,
   ovrpSystemHeadset_Rift_DK2,
@@ -314,7 +322,20 @@ typedef enum {
   ovrpLogLevel_EnumSize = 0x7fffffff
 } ovrpLogLevel;
 
+/// Foveation levels
+typedef enum {
+  ovrpTiledMultiResLevel_Off = 0,
+  ovrpTiledMultiResLevel_LMSLow = 1,
+  ovrpTiledMultiResLevel_LMSMedium = 2,
+  ovrpTiledMultiResLevel_LMSHigh = 3,
+  ovrpTiledMultiResLevel_EnumSize = 0x7fffffff
+} ovrpTiledMultiResLevel;
+
+#if defined(__arm__)
+typedef void(* ovrpLogCallback)(ovrpLogLevel, const char*);
+#else
 typedef void(__cdecl* ovrpLogCallback)(ovrpLogLevel, const char*);
+#endif
 
 typedef struct {
   int MajorVersion;
@@ -426,6 +447,17 @@ typedef struct {
   ovrpSizef Size;
 } ovrpRectf;
 
+typedef struct {
+	float WarpLeft;
+	float WarpRight;
+	float WarpUp;
+	float WarpDown;
+	float SizeLeft;
+	float SizeRight;
+	float SizeUp;
+	float SizeDown;
+} ovrpOctilinearLayout;
+
 typedef struct { float r, g, b, a; } ovrpColorf;
 
 /// Describes Input State for use with Gamepads and Oculus Controllers.
@@ -438,7 +470,10 @@ typedef struct {
   float HandTrigger[2];
   ovrpVector2f Thumbstick[2];
   ovrpVector2f Touchpad[2];
-} ovrpControllerState2;
+  unsigned char BatteryPercentRemaining[2];
+  unsigned char RecenterCount[2];
+  unsigned char Reserved[28];
+} ovrpControllerState4;
 
 /// Describes Haptics Buffer for use with Oculus Controllers.
 typedef struct {
@@ -496,10 +531,18 @@ typedef struct {
   int PointsCount;
 } ovrpBoundaryGeometry;
 
-typedef enum {
-	ovrpFunctionEndFrame = 0,
-	ovrpFunctionCreateTexture
-} ovrpFunctionType;
+typedef struct {
+  /// Distance between eyes.
+  float InterpupillaryDistance;
+  /// Eye height relative to the ground.
+  float EyeHeight;
+  /// Eye offset forward from the head center at EyeHeight.
+  float HeadModelDepth;
+  /// Neck joint offset down from the head center at EyeHeight.
+  float HeadModelHeight;
+} ovrpHeadModelParms;
+
+typedef enum { ovrpFunctionEndFrame = 0, ovrpFunctionCreateTexture } ovrpFunctionType;
 
 /// Camera status
 typedef enum {
@@ -532,6 +575,7 @@ typedef struct {
 
 #define OVRP_EXTERNAL_CAMERA_NAME_SIZE 32
 
+#if !OVRP_MIXED_REALITY_PRIVATE
 /// Unified camera device types
 typedef enum {
   ovrpCameraDevice_None = 0,
@@ -539,12 +583,40 @@ typedef enum {
   ovrpCameraDevice_WebCamera0 = ovrpCameraDevice_WebCamera_First + 0,
   ovrpCameraDevice_WebCamera1 = ovrpCameraDevice_WebCamera_First + 1,
   ovrpCameraDevice_WebCamera_Last = ovrpCameraDevice_WebCamera1,
-  ovrpCameraDevice_KinectSensor = 200,
+  ovrpCameraDevice_ZEDStereoCamera = 300,
   ovrpCameraDevice_EnumSize = 0x7fffffff
 } ovrpCameraDevice;
+#endif
+
+typedef enum {
+  ovrpCameraDeviceDepthSensingMode_Standard = 0,
+  ovrpCameraDeviceDepthSensingMode_Fill,
+  ovrpCameraDeviceDepthSensingMode_EnumSize = 0x7fffffff
+} ovrpCameraDeviceDepthSensingMode;
+
+typedef enum {
+  ovrpCameraDeviceDepthQuality_Low = 0,
+  ovrpCameraDeviceDepthQuality_Medium,
+  ovrpCameraDeviceDepthQuality_High,
+  ovrpCameraDeviceDepthQuality_EnumSize = 0x7fffffff
+} ovrpCameraDeviceDepthQuality;
+
+typedef struct {
+  float fx; /* Focal length in pixels along x axis. */
+  float fy; /* Focal length in pixels along y axis. */
+  float cx; /* Optical center along x axis, defined in pixels (usually close to width/2). */
+  float cy; /* Optical center along y axis, defined in pixels (usually close to height/2). */
+  double disto[5]; /* Distortion factor : [ k1, k2, p1, p2, k3 ]. Radial (k1,k2,k3) and Tangential (p1,p2) distortion.*/
+  float v_fov; /* Vertical field of view after stereo rectification, in degrees. */
+  float h_fov; /* Horizontal field of view after stereo rectification, in degrees.*/
+  float d_fov; /* Diagonal field of view after stereo rectification, in degrees.*/
+  int w; /* Resolution width */
+  int h; /* Resolution height */
+} ovrpCameraDeviceIntrinsicsParameters;
 
 const static ovrpPosef s_identityPose = {{0, 0, 0, 1}, {0, 0, 0}};
-const static ovrpPoseStatef s_identityPoseState = {{{0, 0, 0, 1}, {0, 0, 0}}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, 0};
+const static ovrpPoseStatef s_identityPoseState =
+    {{{0, 0, 0, 1}, {0, 0, 0}}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, 0};
 const static ovrpFrustum2f s_identityFrustum2 = {0, 0, {0, 0, 0, 0}};
 const static ovrpVector3f s_vec3Zero = {0, 0, 0};
 const static ovrpVector2f s_vec2Zero = {0, 0};
@@ -564,6 +636,8 @@ typedef enum {
   ovrpDistortionWindowFlag_None = 0x00000000,
   /// If true, the distortion window and eye buffers are set up to handle DRM-protected content.
   ovrpDistortionWindowFlag_Protected = 0x00000001,
+  /// If true, the compositor's graphics device skips error checking to improve performance.
+  ovrpDistortionWindowFlag_NoErrorContext = 0x00000002,
   ovrpDistortionWindowFlag_EnumSize = 0x7fffffff
 } ovrpDistortionWindowFlag;
 
@@ -584,6 +658,7 @@ typedef enum {
   ovrpShape_Cubemap = 2,
   ovrpShape_EyeFov = 3,
   ovrpShape_OffcenterCubemap = 4,
+  ovrpShape_Equirect = 5,
   ovrpShape_EnumSize = 0xF
 } ovrpShape;
 
@@ -603,6 +678,16 @@ typedef enum {
   ovrpTextureFormat_R11G11B10_FP = 3,
   ovrpTextureFormat_B8G8R8A8_sRGB = 4,
   ovrpTextureFormat_B8G8R8A8 = 5,
+  ovrpTextureFormat_R5G6B5 = 11,
+
+  //depth texture formats
+  ovrpTextureFormat_D16 = 6,
+  ovrpTextureFormat_D24_S8 = 7,
+  ovrpTextureFormat_D32_FP = 8,
+  ovrpTextureFormat_D32_S824_FP = 9,
+
+  ovrpTextureFormat_None = 10,
+
   ovrpTextureFormat_EnumSize = 0x7fffffff
 } ovrpTextureFormat;
 
@@ -651,9 +736,12 @@ typedef struct {
   ovrpFovf Fov[ovrpEye_Count];
   ovrpRectf VisibleRect[ovrpEye_Count];
   ovrpSizei MaxViewportSize;
+  //added for 1.17
+  ovrpTextureFormat DepthFormat;
 } ovrpLayerDesc_EyeFov;
 
 typedef OVRP_LAYER_DESC_TYPE ovrpLayerDesc_OffcenterCubemap;
+typedef OVRP_LAYER_DESC_TYPE ovrpLayerDesc_Equirect;
 
 typedef union {
   OVRP_LAYER_DESC_TYPE;
@@ -662,6 +750,7 @@ typedef union {
   ovrpLayerDesc_Cubemap Cubemap;
   ovrpLayerDesc_EyeFov EyeFov;
   ovrpLayerDesc_OffcenterCubemap OffcenterCubemap;
+  ovrpLayerDesc_Equirect Equirect;
 } ovrpLayerDescUnion;
 
 #undef OVRP_LAYER_DESC
@@ -671,6 +760,10 @@ typedef union {
 typedef enum {
   /// Pose relative to head
   ovrpLayerSubmitFlag_HeadLocked = (1 << 0),
+  /// Layer is octilinear (LMS)
+  ovrpLayerSubmitFlag_Octilinear = (1 << 1),
+  /// Use reverse Z
+  ovrpLayerSubmitFlag_ReverseZ = (1 << 2),
 } ovrpLayerSubmitFlags;
 
 /// Layer state to submit to ovrp_EndFrame
@@ -704,8 +797,17 @@ typedef struct {
 } ovrpLayerSubmit_Cylinder;
 
 typedef OVRP_LAYER_SUBMIT_TYPE ovrpLayerSubmit_Cubemap;
-typedef OVRP_LAYER_SUBMIT_TYPE ovrpLayerSubmit_EyeFov;
+
+typedef struct {
+	OVRP_LAYER_SUBMIT_TYPE;
+	// added in 1.18
+	ovrpOctilinearLayout OctilinearLayout[ovrpEye_Count];
+	float DepthNear;
+	float DepthFar;
+} ovrpLayerSubmit_EyeFov;
+
 typedef OVRP_LAYER_SUBMIT_TYPE ovrpLayerSubmit_OffcenterCubemap;
+typedef OVRP_LAYER_SUBMIT_TYPE ovrpLayerSubmit_Equirect;
 
 typedef union {
   OVRP_LAYER_SUBMIT_TYPE;
@@ -714,6 +816,7 @@ typedef union {
   ovrpLayerSubmit_Cubemap Cubemap;
   ovrpLayerSubmit_EyeFov EyeFov;
   ovrpLayerSubmit_OffcenterCubemap OffcenterCubemap;
+  ovrpLayerSubmit_Equirect Equirect;
 } ovrpLayerSubmitUnion;
 
 #undef OVRP_LAYER_SUBMIT

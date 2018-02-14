@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	DepthRendering.cpp: Depth rendering implementation.
@@ -22,6 +22,7 @@
 #include "ScenePrivate.h"
 #include "OneColorShader.h"
 #include "IHeadMountedDisplay.h"
+#include "IXRTrackingSystem.h"
 #include "ScreenRendering.h"
 #include "PostProcess/SceneFilterRendering.h"
 #include "DynamicPrimitiveDrawing.h"
@@ -63,7 +64,7 @@ const TCHAR* GetDepthDrawingModeString(EDepthDrawingMode Mode)
 	return TEXT("");
 }
 
-DECLARE_FLOAT_COUNTER_STAT(TEXT("Prepass"), Stat_GPU_Prepass, STATGROUP_GPU);
+DECLARE_GPU_STAT(Prepass);
 
 /**
  * A vertex shader for rendering the depth of a mesh.
@@ -91,7 +92,7 @@ private:
 
 public:
 
-	static bool ShouldCache(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
+	static bool ShouldCompilePermutation(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
 	{
 		// Only the local vertex factory supports the position-only stream
 		if (bUsePositionOnlyStream)
@@ -162,10 +163,10 @@ class FDepthOnlyHS : public FBaseHS
 	DECLARE_SHADER_TYPE(FDepthOnlyHS,MeshMaterial);
 public:
 
-	static bool ShouldCache(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
+	static bool ShouldCompilePermutation(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
 	{
-		return FBaseHS::ShouldCache(Platform, Material, VertexFactoryType)
-			&& TDepthOnlyVS<false>::ShouldCache(Platform,Material,VertexFactoryType);
+		return FBaseHS::ShouldCompilePermutation(Platform, Material, VertexFactoryType)
+			&& TDepthOnlyVS<false>::ShouldCompilePermutation(Platform,Material,VertexFactoryType);
 	}
 
 	FDepthOnlyHS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
@@ -183,10 +184,10 @@ class FDepthOnlyDS : public FBaseDS
 	DECLARE_SHADER_TYPE(FDepthOnlyDS,MeshMaterial);
 public:
 
-	static bool ShouldCache(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
+	static bool ShouldCompilePermutation(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
 	{
-		return FBaseDS::ShouldCache(Platform, Material, VertexFactoryType)
-			&& TDepthOnlyVS<false>::ShouldCache(Platform,Material,VertexFactoryType);		
+		return FBaseDS::ShouldCompilePermutation(Platform, Material, VertexFactoryType)
+			&& TDepthOnlyVS<false>::ShouldCompilePermutation(Platform,Material,VertexFactoryType);		
 	}
 
 	FDepthOnlyDS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
@@ -209,7 +210,7 @@ class FDepthOnlyPS : public FMeshMaterialShader
 	DECLARE_SHADER_TYPE(FDepthOnlyPS,MeshMaterial);
 public:
 
-	static bool ShouldCache(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
+	static bool ShouldCompilePermutation(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
 	{
 		return 
 			// Compile for materials that are masked.
@@ -330,6 +331,7 @@ FDepthDrawingPolicy::FDepthDrawingPolicy(
 			}
 		}
 	}
+	BaseVertexShader = VertexShader;
 }
 
 void ApplyDitheredLODTransitionStateInternal(FDrawingPolicyRenderState& DrawRenderState, const FViewInfo& ViewInfo, const FStaticMesh& Mesh, const bool InAllowStencilDither)
@@ -487,6 +489,7 @@ FPositionOnlyDepthDrawingPolicy::FPositionOnlyDepthDrawingPolicy(
 		? ShaderPipeline->GetShader<TDepthOnlyVS<true> >()
 		: InMaterialResource.GetShader<TDepthOnlyVS<true> >(InVertexFactory->GetType());
 	bUsePositionOnlyVS = true;
+	BaseVertexShader = VertexShader;
 }
 
 void FPositionOnlyDepthDrawingPolicy::SetSharedState(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FSceneView* View, FPositionOnlyDepthDrawingPolicy::ContextDataType PolicyContext) const
@@ -687,10 +690,10 @@ bool FDepthDrawingPolicyFactory::DrawMesh(
 						DrawingPolicy.SetInstancedEyeIndex(RHICmdList, DrawCountIter);
 
 						TDrawEvent<FRHICommandList> MeshEvent;
-						BeginMeshDrawEvent(RHICmdList, PrimitiveSceneProxy, Mesh, MeshEvent);
+						BeginMeshDrawEvent(RHICmdList, PrimitiveSceneProxy, Mesh, MeshEvent, EnumHasAnyFlags(EShowMaterialDrawEventTypes(GShowMaterialDrawEventTypes), EShowMaterialDrawEventTypes::DepthPositionOnly));
 
 						DrawingPolicy.SetMeshRenderState(RHICmdList, View, PrimitiveSceneProxy, Mesh, BatchElementIndex, DrawRenderStateLocal, FPositionOnlyDepthDrawingPolicy::ElementDataType(), FPositionOnlyDepthDrawingPolicy::ContextDataType());
-						DrawingPolicy.DrawMesh(RHICmdList, Mesh, BatchElementIndex, bIsInstancedStereo);
+						DrawingPolicy.DrawMesh(RHICmdList, View, Mesh, BatchElementIndex, bIsInstancedStereo);
 					}
 				}
 				Mask >>= 1;
@@ -754,10 +757,10 @@ bool FDepthDrawingPolicyFactory::DrawMesh(
 							DrawingPolicy.SetInstancedEyeIndex(RHICmdList, DrawCountIter);
 
 							TDrawEvent<FRHICommandList> MeshEvent;
-							BeginMeshDrawEvent(RHICmdList, PrimitiveSceneProxy, Mesh, MeshEvent);
+							BeginMeshDrawEvent(RHICmdList, PrimitiveSceneProxy, Mesh, MeshEvent, EnumHasAnyFlags(EShowMaterialDrawEventTypes(GShowMaterialDrawEventTypes), EShowMaterialDrawEventTypes::Depth));
 
 							DrawingPolicy.SetMeshRenderState(RHICmdList, View, PrimitiveSceneProxy, Mesh, BatchElementIndex, DrawRenderStateLocal, FMeshDrawingPolicy::ElementDataType(), FDepthDrawingPolicy::ContextDataType());
-							DrawingPolicy.DrawMesh(RHICmdList, Mesh, BatchElementIndex, bIsInstancedStereo);
+							DrawingPolicy.DrawMesh(RHICmdList, View, Mesh, BatchElementIndex, bIsInstancedStereo);
 						}
 					}
 					Mask >>= 1;
@@ -837,12 +840,6 @@ bool FDepthDrawingPolicyFactory::DrawStaticMesh(
 
 bool FDeferredShadingSceneRenderer::RenderPrePassViewDynamic(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState)
 {
-	// Transition after static since only dynamic needs the skin cache (currently)
-	if (FGPUSkinCache* GPUSkinCache = Scene->GetGPUSkinCache())
-	{
-		GPUSkinCache->TransitionAllToReadable(RHICmdList);
-	}
-
 	FDepthDrawingPolicyFactory::ContextType Context(EarlyZPassMode, true);
 
 	for (int32 MeshBatchIndex = 0; MeshBatchIndex < View.DynamicMeshElements.Num(); MeshBatchIndex++)
@@ -875,12 +872,10 @@ bool FDeferredShadingSceneRenderer::RenderPrePassViewDynamic(FRHICommandList& RH
 		}
 	}
 
-	RenderPrePassEditorPrimitives(RHICmdList, View, Context);
-
 	return true;
 }
 
-static void SetupPrePassView(FRHICommandList& RHICmdList, const FViewInfo& View, FDrawingPolicyRenderState& DrawRenderState)
+static void SetupPrePassView(FRHICommandList& RHICmdList, const FViewInfo& View, const FSceneRenderer* SceneRenderer, FDrawingPolicyRenderState& DrawRenderState, const bool bIsEditorPrimitivePass = false)
 {
 	// Disable color writes, enable depth tests and writes.
 	DrawRenderState.SetBlendState(TStaticBlendState<CW_NONE>::GetRHI());
@@ -888,7 +883,7 @@ static void SetupPrePassView(FRHICommandList& RHICmdList, const FViewInfo& View,
 	
 	RHICmdList.SetScissorRect(false, 0, 0, 0, 0);
 
-	if (!View.IsInstancedStereoPass())
+	if (!View.IsInstancedStereoPass() || bIsEditorPrimitivePass)
 	{
 		RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
 	}
@@ -896,19 +891,19 @@ static void SetupPrePassView(FRHICommandList& RHICmdList, const FViewInfo& View,
 	{
 		if (View.bIsMultiViewEnabled)
 		{
-			const uint32 LeftMinX = View.Family->Views[0]->ViewRect.Min.X;
-			const uint32 LeftMaxX = View.Family->Views[0]->ViewRect.Max.X;
-			const uint32 RightMinX = View.Family->Views[1]->ViewRect.Min.X;
-			const uint32 RightMaxX = View.Family->Views[1]->ViewRect.Max.X;
+			const uint32 LeftMinX = SceneRenderer->Views[0].ViewRect.Min.X;
+			const uint32 LeftMaxX = SceneRenderer->Views[0].ViewRect.Max.X;
+			const uint32 RightMinX = SceneRenderer->Views[1].ViewRect.Min.X;
+			const uint32 RightMaxX = SceneRenderer->Views[1].ViewRect.Max.X;
 			
-			const uint32 LeftMaxY = View.Family->Views[0]->ViewRect.Max.Y;
-			const uint32 RightMaxY = View.Family->Views[1]->ViewRect.Max.Y;
+			const uint32 LeftMaxY = SceneRenderer->Views[0].ViewRect.Max.Y;
+			const uint32 RightMaxY = SceneRenderer->Views[1].ViewRect.Max.Y;
 			
 			RHICmdList.SetStereoViewport(LeftMinX, RightMinX, 0, 0, 0.0f, LeftMaxX, RightMaxX, LeftMaxY, RightMaxY, 1.0f);
 		}
 		else
 		{
-			RHICmdList.SetViewport(0, 0, 0, View.Family->InstancedStereoWidth, View.ViewRect.Max.Y, 1);
+			RHICmdList.SetViewport(0, 0, 0, SceneRenderer->InstancedStereoWidth, View.ViewRect.Max.Y, 1);
 		}
 	}
 }
@@ -926,7 +921,10 @@ static void RenderHiddenAreaMaskView(FRHICommandList& RHICmdList, FGraphicsPipel
 
 	SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-	GEngine->HMDDevice->DrawHiddenAreaMesh_RenderThread(RHICmdList, View.StereoPass);
+	if (GEngine->XRSystem->GetHMDDevice())
+	{
+		GEngine->XRSystem->GetHMDDevice()->DrawHiddenAreaMesh_RenderThread(RHICmdList, View.StereoPass);
+	}
 }
 
 bool FDeferredShadingSceneRenderer::RenderPrePassView(FRHICommandList& RHICmdList, const FViewInfo& View)
@@ -934,7 +932,7 @@ bool FDeferredShadingSceneRenderer::RenderPrePassView(FRHICommandList& RHICmdLis
 	bool bDirty = false;
 
 	FDrawingPolicyRenderState DrawRenderState(View);
-	SetupPrePassView(RHICmdList, View, DrawRenderState);
+	SetupPrePassView(RHICmdList, View, this, DrawRenderState);
 
 	// Draw the static occluder primitives using a depth drawing policy.
 
@@ -1025,11 +1023,19 @@ public:
 
 DECLARE_CYCLE_STAT(TEXT("Prepass"), STAT_CLP_Prepass, STATGROUP_ParallelCommandListMarkers);
 
+static int32 GStartPrepassParallelTranslatesImmediately = 0;
+static FAutoConsoleVariableRef CVarStartPrepassParallelTranslatesImmediately(
+	TEXT("r.StartPrepassParallelTranslatesImmediately"),
+	GStartPrepassParallelTranslatesImmediately,
+	TEXT("Experimental option, allows the parallel translate tasks for the prepass to start immediately. Makes the most sense with r.DoInitViewsLightingAfterPrepass = 1."),
+	ECVF_RenderThreadSafe
+);
+
 class FPrePassParallelCommandListSet : public FParallelCommandListSet
 {
 public:
-	FPrePassParallelCommandListSet(const FViewInfo& InView, FRHICommandListImmediate& InParentCmdList, bool bInParallelExecute, bool bInCreateSceneContext)
-		: FParallelCommandListSet(GET_STATID(STAT_CLP_Prepass), InView, InParentCmdList, bInParallelExecute, bInCreateSceneContext)
+	FPrePassParallelCommandListSet(const FViewInfo& InView, const FSceneRenderer* InSceneRenderer, FRHICommandListImmediate& InParentCmdList, bool bInParallelExecute, bool bInCreateSceneContext)
+		: FParallelCommandListSet(GET_STATID(STAT_CLP_Prepass), InView, InSceneRenderer, InParentCmdList, bInParallelExecute, bInCreateSceneContext)
 	{
 		// Do not copy-paste. this is a very unusual FParallelCommandListSet because it is a prepass and we want to do some work after starting some tasks
 	}
@@ -1045,61 +1051,97 @@ public:
 	{
 		FParallelCommandListSet::SetStateOnCommandList(CmdList);
 		FSceneRenderTargets::Get(CmdList).BeginRenderingPrePass(CmdList, false);
-		SetupPrePassView(CmdList, View, DrawRenderState);
+		SetupPrePassView(CmdList, View, SceneRenderer, DrawRenderState);
 	}
 };
 
 bool FDeferredShadingSceneRenderer::RenderPrePassViewParallel(const FViewInfo& View, FRHICommandListImmediate& ParentCmdList, TFunctionRef<void()> AfterTasksAreStarted, bool bDoPrePre)
 {
 	bool bDepthWasCleared = false;
-	FPrePassParallelCommandListSet ParallelCommandListSet(View, ParentCmdList,
-		CVarRHICmdPrePassDeferredContexts.GetValueOnRenderThread() > 0, 
-		CVarRHICmdFlushRenderThreadTasksPrePass.GetValueOnRenderThread() == 0  && CVarRHICmdFlushRenderThreadTasks.GetValueOnRenderThread() == 0);
 
-	if (!View.IsInstancedStereoPass())
+
 	{
-		// Draw the static occluder primitives using a depth drawing policy.
-		// Draw opaque occluders which support a separate position-only
-		// vertex buffer to minimize vertex fetch bandwidth, which is
-		// often the bottleneck during the depth only pass.
-		Scene->PositionOnlyDepthDrawList.DrawVisibleParallel(View.StaticMeshOccluderMap, View.StaticMeshBatchVisibility, ParallelCommandListSet);
+		FPrePassParallelCommandListSet ParallelCommandListSet(View, this, ParentCmdList,
+			CVarRHICmdPrePassDeferredContexts.GetValueOnRenderThread() > 0, 
+			CVarRHICmdFlushRenderThreadTasksPrePass.GetValueOnRenderThread() == 0 && CVarRHICmdFlushRenderThreadTasks.GetValueOnRenderThread() == 0);
 
-		// Draw opaque occluders, using double speed z where supported.
-		Scene->DepthDrawList.DrawVisibleParallel(View.StaticMeshOccluderMap, View.StaticMeshBatchVisibility, ParallelCommandListSet);
-
-		// Draw opaque occluders with masked materials
-		if (EarlyZPassMode >= DDM_AllOccluders)
-		{			
-			Scene->MaskedDepthDrawList.DrawVisibleParallel(View.StaticMeshOccluderMap, View.StaticMeshBatchVisibility, ParallelCommandListSet);
-		}
-	}
-	else
-	{
-		const StereoPair StereoView(Views[0], Views[1], Views[0].StaticMeshOccluderMap, Views[1].StaticMeshOccluderMap, Views[0].StaticMeshBatchVisibility, Views[1].StaticMeshBatchVisibility);
-
-		Scene->PositionOnlyDepthDrawList.DrawVisibleParallelInstancedStereo(StereoView, ParallelCommandListSet);
-		Scene->DepthDrawList.DrawVisibleParallelInstancedStereo(StereoView, ParallelCommandListSet);
-
-		if (EarlyZPassMode >= DDM_AllOccluders)
+		if (!View.IsInstancedStereoPass())
 		{
-			Scene->MaskedDepthDrawList.DrawVisibleParallelInstancedStereo(StereoView, ParallelCommandListSet);
+			// Draw the static occluder primitives using a depth drawing policy.
+			// Draw opaque occluders which support a separate position-only
+			// vertex buffer to minimize vertex fetch bandwidth, which is
+			// often the bottleneck during the depth only pass.
+			Scene->PositionOnlyDepthDrawList.DrawVisibleParallel(View.StaticMeshOccluderMap, View.StaticMeshBatchVisibility, ParallelCommandListSet);
+
+			// Draw opaque occluders, using double speed z where supported.
+			Scene->DepthDrawList.DrawVisibleParallel(View.StaticMeshOccluderMap, View.StaticMeshBatchVisibility, ParallelCommandListSet);
+
+			// Draw opaque occluders with masked materials
+			if (EarlyZPassMode >= DDM_AllOccluders)
+		{			
+				Scene->MaskedDepthDrawList.DrawVisibleParallel(View.StaticMeshOccluderMap, View.StaticMeshBatchVisibility, ParallelCommandListSet);
+			}
+		}
+		else
+		{
+			const StereoPair StereoView(Views[0], Views[1], Views[0].StaticMeshOccluderMap, Views[1].StaticMeshOccluderMap, Views[0].StaticMeshBatchVisibility, Views[1].StaticMeshBatchVisibility);
+
+			Scene->PositionOnlyDepthDrawList.DrawVisibleParallelInstancedStereo(StereoView, ParallelCommandListSet);
+			Scene->DepthDrawList.DrawVisibleParallelInstancedStereo(StereoView, ParallelCommandListSet);
+
+			if (EarlyZPassMode >= DDM_AllOccluders)
+			{
+				Scene->MaskedDepthDrawList.DrawVisibleParallelInstancedStereo(StereoView, ParallelCommandListSet);
+			}
+		}
+
+		if (!GStartPrepassParallelTranslatesImmediately)
+		{
+			// we do this step here (awkwardly) so that the above tasks can be in flight while we get the particles (which must be dynamic) setup.
+			if (bDoPrePre)
+			{
+				AfterTasksAreStarted();
+				bDepthWasCleared = PreRenderPrePass(ParentCmdList);
+			}
+			// Dynamic
+			FRHICommandList* CmdList = ParallelCommandListSet.NewParallelCommandList();
+
+			FGraphEventRef AnyThreadCompletionEvent = TGraphTask<FRenderPrepassDynamicDataThreadTask>::CreateTask(ParallelCommandListSet.GetPrereqs(), ENamedThreads::GetRenderThread())
+				.ConstructAndDispatchWhenReady(*this, *CmdList, View, ParallelCommandListSet.DrawRenderState);
+
+			ParallelCommandListSet.AddParallelCommandList(CmdList, AnyThreadCompletionEvent);
+		}
+		else
+		{
+			if (bDoPrePre)
+			{
+				bDepthWasCleared = PreRenderPrePass(ParentCmdList);
+			}
 		}
 	}
 
-	// we do this step here (awkwardly) so that the above tasks can be in flight while we get the particles (which must be dynamic) setup.
-	if (bDoPrePre)
+	if (GStartPrepassParallelTranslatesImmediately)
 	{
-		AfterTasksAreStarted();
-		bDepthWasCleared = PreRenderPrePass(ParentCmdList);
+		// we do this step here (awkwardly) so that the above tasks can be in flight while we get the particles (which must be dynamic) setup.
+		if (bDoPrePre)
+		{
+			AfterTasksAreStarted();
+		}
+		FPrePassParallelCommandListSet ParallelCommandListSet(View, this, ParentCmdList,
+			CVarRHICmdPrePassDeferredContexts.GetValueOnRenderThread() > 0,
+			CVarRHICmdFlushRenderThreadTasksPrePass.GetValueOnRenderThread() == 0 && CVarRHICmdFlushRenderThreadTasks.GetValueOnRenderThread() == 0);
+
+		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(ParentCmdList);
+		SceneContext.BeginRenderingPrePass(ParentCmdList, false);
+
+		// Dynamic
+		FRHICommandList* CmdList = ParallelCommandListSet.NewParallelCommandList();
+
+		FGraphEventRef AnyThreadCompletionEvent = TGraphTask<FRenderPrepassDynamicDataThreadTask>::CreateTask(ParallelCommandListSet.GetPrereqs(), ENamedThreads::GetRenderThread())
+			.ConstructAndDispatchWhenReady(*this, *CmdList, View, ParallelCommandListSet.DrawRenderState);
+
+		ParallelCommandListSet.AddParallelCommandList(CmdList, AnyThreadCompletionEvent);
 	}
-
-	// Dynamic
-	FRHICommandList* CmdList = ParallelCommandListSet.NewParallelCommandList();
-
-	FGraphEventRef AnyThreadCompletionEvent = TGraphTask<FRenderPrepassDynamicDataThreadTask>::CreateTask(ParallelCommandListSet.GetPrereqs(), ENamedThreads::RenderThread)
-		.ConstructAndDispatchWhenReady(*this, *CmdList, View, ParallelCommandListSet.DrawRenderState);
-
-	ParallelCommandListSet.AddParallelCommandList(CmdList, AnyThreadCompletionEvent);
 
 	return bDepthWasCleared;
 }
@@ -1110,9 +1152,9 @@ class FDitheredTransitionStencilPS : public FGlobalShader
 	DECLARE_SHADER_TYPE(FDitheredTransitionStencilPS, Global);
 public:
 
-	static bool ShouldCache(EShaderPlatform Platform)
+	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{ 
-		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
+		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM4);
 	}
 
 	FDitheredTransitionStencilPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
@@ -1211,9 +1253,9 @@ bool FDeferredShadingSceneRenderer::PreRenderPrePass(FRHICommandListImmediate& R
 void FDeferredShadingSceneRenderer::RenderPrePassEditorPrimitives(FRHICommandList& RHICmdList, const FViewInfo& View, FDepthDrawingPolicyFactory::ContextType Context) 
 {
 	FDrawingPolicyRenderState DrawRenderState(View);
-	SetupPrePassView(RHICmdList, View, DrawRenderState);
+	SetupPrePassView(RHICmdList, View, this, DrawRenderState, true);
 
-	View.SimpleElementCollector.DrawBatchedElements(RHICmdList, DrawRenderState, View, FTexture2DRHIRef(), EBlendModeFilter::OpaqueAndMasked);
+	View.SimpleElementCollector.DrawBatchedElements(RHICmdList, DrawRenderState, View, EBlendModeFilter::OpaqueAndMasked);
 
 	bool bDirty = false;
 	if (!View.Family->EngineShowFlags.CompositeEditorPrimitives)
@@ -1244,7 +1286,7 @@ bool FDeferredShadingSceneRenderer::RenderPrePass(FRHICommandListImmediate& RHIC
 	SCOPED_DRAW_EVENTF(RHICmdList, PrePass, TEXT("PrePass %s %s"), GetDepthDrawingModeString(EarlyZPassMode), GetDepthPassReason(bDitheredLODTransitionsUseStencil, FeatureLevel));
 
 	SCOPE_CYCLE_COUNTER(STAT_DepthDrawTime);
-	SCOPED_GPU_STAT(RHICmdList, Stat_GPU_Prepass);
+	SCOPED_GPU_STAT(RHICmdList, Prepass);
 
 	bool bDirty = false;
 	bool bDidPrePre = false;
@@ -1280,6 +1322,8 @@ bool FDeferredShadingSceneRenderer::RenderPrePass(FRHICommandListImmediate& RHIC
 					bDirty = true; // assume dirty since we are not going to wait
 					bDidPrePre = true;
 				}
+
+				RenderPrePassEditorPrimitives(RHICmdList, View, FDepthDrawingPolicyFactory::ContextType(EarlyZPassMode, true));
 			}
 		}
 		else
@@ -1292,6 +1336,8 @@ bool FDeferredShadingSceneRenderer::RenderPrePass(FRHICommandListImmediate& RHIC
 				{
 					bDirty |= RenderPrePassView(RHICmdList, View);
 				}
+
+				RenderPrePassEditorPrimitives(RHICmdList, View, FDepthDrawingPolicyFactory::ContextType(EarlyZPassMode, true));
 			}
 		}
 	}
@@ -1332,8 +1378,8 @@ static FORCEINLINE bool HasHiddenAreaMask()
 	return (HiddenAreaMaskCVar != nullptr &&
 		HiddenAreaMaskCVar->GetValueOnRenderThread() == 1 &&
 		GEngine &&
-		GEngine->HMDDevice.IsValid() &&
-		GEngine->HMDDevice->HasHiddenAreaMesh());
+		GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice() &&
+		GEngine->XRSystem->GetHMDDevice()->HasHiddenAreaMesh());
 }
 
 bool FDeferredShadingSceneRenderer::RenderPrePassHMD(FRHICommandListImmediate& RHICmdList)

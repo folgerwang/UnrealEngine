@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -88,17 +88,23 @@ enum EPlayNetMode
 };
 
 
+/**
+ * Determines whether to build the executable when launching on device. Note the equivalence between these settings and EProjectPackagingBuild.
+ */
 UENUM()
 enum EPlayOnBuildMode
 {
 	/** Always build. */
-	PlayOnBuild_Always UMETA(DisplayName="Always Build"),
+	PlayOnBuild_Always UMETA(DisplayName="Always"),
 
 	/** Never build. */
-	PlayOnBuild_Never UMETA(DisplayName="Never Build"),
+	PlayOnBuild_Never UMETA(DisplayName="Never"),
 
 	/** Build based on project type. */
-	PlayOnBuild_Default UMETA(DisplayName="Only Build Code Projects"),
+	PlayOnBuild_Default UMETA(DisplayName="If project has code, or running a locally built editor"),
+
+	/** Build if we're using a locally built (ie. non-promoted) editor. */
+	PlayOnBuild_IfEditorBuiltLocally UMETA(DisplayName="If running a locally built editor"),
 };
 
 /* Configuration to use when launching on device. */
@@ -298,7 +304,7 @@ private:
 	int32 PlayNumberOfClients;
 
 	/** What port used by the server for simple networking */
-	UPROPERTY(config, EditAnywhere, Category = MultiplayerOptions)
+	UPROPERTY(config, EditAnywhere, Category = MultiplayerOptions, meta=(ClampMin="1", UIMin="1", ClampMax="65535"))
 	uint16 ServerPort;
 
 	/** Width to use when spawning additional windows. */

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -195,7 +195,7 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Rendering, meta = (DisplayName = "Metal Mobile Renderer"))
 	bool bSupportsMetal;
 
-	// Whether or not to compile iOS Metal shaders for the desktop Forward renderer (requires iOS 9+ and an A8 processor, MSAA requires an A9 processor)
+	// Whether or not to compile iOS Metal shaders for the desktop Forward renderer (requires iOS 10+ and an A10 processor)
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Rendering, meta = (DisplayName = "Metal Desktop-Forward Renderer"))
 	bool bSupportsMetalMRT;
 	
@@ -223,6 +223,10 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Build, meta = (DisplayName = "Generate dSYM bundle for third party crash tools"))
 	bool bGeneratedSYMBundle;
 
+	// Enable generation of a .udebugsymbols file, which allows offline, platform-independent symbolication for the Malloc Profiler or external crash reporting tools. Requires a dSYM file or bundle.
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Build, meta = (DisplayName = "Generate .udebugsymbols file"))
+	bool bGenerateCrashReportSymbols;
+	
 	// Enable generation of xcode archive package
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Build, meta = (DisplayName = "Generate xcode archive package"))
 	bool bGenerateXCArchive;	
@@ -374,6 +378,11 @@ public:
 	// Whether to use automatic signing through Xcode
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Build)
 	bool bAutomaticSigning;
+
+	// Whether the app supports HTTPS
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Online, meta = (DisplayName = "Allow web connections to non-HTTPS websites"))
+	bool bDisableHTTPS;
+
 
     // The maximum supported Metal shader langauge version.
     // This defines what features may be used and OS versions supported.

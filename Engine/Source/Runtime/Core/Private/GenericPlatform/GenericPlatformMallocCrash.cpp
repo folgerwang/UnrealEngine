@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "GenericPlatform/GenericPlatformMallocCrash.h"
 #include "HAL/PlatformProcess.h"
@@ -199,7 +199,7 @@ FGenericPlatformMallocCrash::FGenericPlatformMallocCrash( FMalloc* MainMalloc ) 
 	LLM_SCOPE(ELLMTag::GenericPlatformMallocCrash);
 	LLM_PLATFORM_SCOPE(ELLMTag::GenericPlatformMallocCrashPlatform);
 
-	const uint32 LargeMemoryPoolSize = Align(LARGE_MEMORYPOOL_SIZE,SafePageSize());
+	const uint32 LargeMemoryPoolSize = Align((int32)LARGE_MEMORYPOOL_SIZE,SafePageSize());
 	LargeMemoryPool = (uint8*)FPlatformMemory::BinnedAllocFromOS( LargeMemoryPoolSize );
 	SmallMemoryPool = (uint8*)FPlatformMemory::BinnedAllocFromOS( (SIZE_T)GetSmallPoolTotalSize() );
 

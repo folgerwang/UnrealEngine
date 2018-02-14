@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "Constraint.h"
-#include "Containers/Algo/Transform.h"
+#include "Algo/Transform.h"
 #include "NodeHierarchy.generated.h"
 
 /** A node in a named hierarchy */

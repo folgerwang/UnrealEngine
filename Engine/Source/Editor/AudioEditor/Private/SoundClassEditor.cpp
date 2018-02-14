@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SoundClassEditor.h"
 #include "Modules/ModuleManager.h"
@@ -26,7 +26,7 @@
 #include "IAssetTools.h"
 #include "Factories/SoundClassFactory.h"
 #include "UObject/Package.h"
-#include "UObjectIterator.h"
+#include "UObject/UObjectIterator.h"
 
 #define LOCTEXT_NAMESPACE "SoundClassEditor"
 DEFINE_LOG_CATEGORY_STATIC( LogSoundClassEditor, Log, All );

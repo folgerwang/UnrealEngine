@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PrecomputedVolumetricLightmap.cpp
@@ -12,12 +12,34 @@
 #include "UnrealEngine.h"
 #include "Engine/MapBuildDataRegistry.h"
 #include "Interfaces/ITargetPlatform.h"
+#include "UObject/MobileObjectVersion.h"
 
+DECLARE_MEMORY_STAT(TEXT("Volumetric Lightmap"),STAT_VolumetricLightmapBuildData,STATGROUP_MapBuildData);
+
+void FVolumetricLightmapDataLayer::CreateTexture(FIntVector Dimensions)
+{
+	FRHIResourceCreateInfo CreateInfo;
+	CreateInfo.BulkData = this;
+
+	Texture = RHICreateTexture3D(
+		Dimensions.X, 
+		Dimensions.Y, 
+		Dimensions.Z, 
+		Format,
+		1,
+		TexCreate_ShaderResource | TexCreate_DisableAutoDefrag,
+		CreateInfo);
+}
 
 FArchive& operator<<(FArchive& Ar,FVolumetricLightmapDataLayer& Layer)
 {
 	Ar << Layer.Data;
 	
+	if (Ar.IsLoading())
+	{
+		Layer.DataSize = Layer.Data.Num() * Layer.Data.GetTypeSize();
+	}
+
 	UEnum* PixelFormatEnum = UTexture::GetPixelFormatEnum();
 
 	if (Ar.IsLoading())
@@ -37,6 +59,8 @@ FArchive& operator<<(FArchive& Ar,FVolumetricLightmapDataLayer& Layer)
 
 FArchive& operator<<(FArchive& Ar,FPrecomputedVolumetricLightmapData& Volume)
 {
+	Ar.UsingCustomVersion(FMobileObjectVersion::GUID);
+
 	Ar << Volume.Bounds;
 	Ar << Volume.IndirectionTextureDimensions;
 	Ar << Volume.IndirectionTexture;
@@ -53,12 +77,33 @@ FArchive& operator<<(FArchive& Ar,FPrecomputedVolumetricLightmapData& Volume)
 
 	Ar << Volume.BrickData.SkyBentNormal;
 	Ar << Volume.BrickData.DirectionalLightShadowing;
+	
+	if (Ar.CustomVer(FMobileObjectVersion::GUID) >= FMobileObjectVersion::LQVolumetricLightmapLayers)
+	{
+		if (Ar.IsCooking() && !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::LowQualityLightmaps))
+		{
+			// Don't serialize cooked LQ data if the cook target does not want it.
+			FVolumetricLightmapDataLayer Dummy;
+			Ar << Dummy;
+			Ar << Dummy;
+		}
+		else
+		{
+			Ar << Volume.BrickData.LQLightColor;
+			Ar << Volume.BrickData.LQLightDirection;
+		}
+	}
 
 	if (Ar.IsLoading())
 	{
-		Volume.bInitialized = true;
+		if (GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM4)
+		{
+			// drop LQ data for SM4+
+			Volume.BrickData.DiscardLowQualityLayers();
+		}
+
 		const SIZE_T VolumeBytes = Volume.GetAllocatedBytes();
-		INC_DWORD_STAT_BY(STAT_PrecomputedVolumetricLightmapMemory, VolumeBytes);
+		INC_DWORD_STAT_BY(STAT_VolumetricLightmapBuildData, VolumeBytes);
 	}
 
 	return Ar;
@@ -100,24 +145,18 @@ int32 FVolumetricLightmapBrickData::GetMinimumVoxelSize() const
 	return VoxelSize;
 }
 
-FPrecomputedVolumetricLightmapData::FPrecomputedVolumetricLightmapData() :
-	bInitialized(false)
+FPrecomputedVolumetricLightmapData::FPrecomputedVolumetricLightmapData()
 {}
 
 FPrecomputedVolumetricLightmapData::~FPrecomputedVolumetricLightmapData()
 {
-	if (bInitialized)
-	{
-		const SIZE_T VolumeBytes = GetAllocatedBytes();
-		DEC_DWORD_STAT_BY(STAT_PrecomputedVolumetricLightmapMemory, VolumeBytes);
-	}
+	const SIZE_T VolumeBytes = GetAllocatedBytes();
+	DEC_DWORD_STAT_BY(STAT_VolumetricLightmapBuildData, VolumeBytes);
 }
 
 /** */
-void FPrecomputedVolumetricLightmapData::Initialize(const FBox& NewBounds, int32 InBrickSize)
+void FPrecomputedVolumetricLightmapData::InitializeOnImport(const FBox& NewBounds, int32 InBrickSize)
 {
-	check(!bInitialized);
-	bInitialized = true;
 	Bounds = NewBounds;
 	BrickSize = InBrickSize;
 }
@@ -125,12 +164,44 @@ void FPrecomputedVolumetricLightmapData::Initialize(const FBox& NewBounds, int32
 void FPrecomputedVolumetricLightmapData::FinalizeImport()
 {
 	const SIZE_T VolumeBytes = GetAllocatedBytes();
-	INC_DWORD_STAT_BY(STAT_PrecomputedVolumetricLightmapMemory, VolumeBytes);
+	INC_DWORD_STAT_BY(STAT_VolumetricLightmapBuildData, VolumeBytes);
+}
+
+ENGINE_API void FPrecomputedVolumetricLightmapData::InitRHI()
+{
+	IndirectionTexture.CreateTexture(IndirectionTextureDimensions);
+	BrickData.AmbientVector.CreateTexture(BrickDataDimensions);
+
+	for (int32 i = 0; i < ARRAY_COUNT(BrickData.SHCoefficients); i++)
+	{
+		BrickData.SHCoefficients[i].CreateTexture(BrickDataDimensions);
+	}
+
+	if (BrickData.SkyBentNormal.Data.Num() > 0)
+	{
+		BrickData.SkyBentNormal.CreateTexture(BrickDataDimensions);
+	}
+
+	BrickData.DirectionalLightShadowing.CreateTexture(BrickDataDimensions);
+}
+
+ENGINE_API void FPrecomputedVolumetricLightmapData::ReleaseRHI()
+{
+	IndirectionTexture.Texture.SafeRelease();
+	BrickData.AmbientVector.Texture.SafeRelease();
+
+	for (int32 i = 0; i < ARRAY_COUNT(BrickData.SHCoefficients); i++)
+	{
+		BrickData.SHCoefficients[i].Texture.SafeRelease();
+	}
+
+	BrickData.SkyBentNormal.Texture.SafeRelease();
+	BrickData.DirectionalLightShadowing.Texture.SafeRelease();
 }
 
 SIZE_T FPrecomputedVolumetricLightmapData::GetAllocatedBytes() const
 {
-	return IndirectionTexture.Data.Num() + BrickData.GetAllocatedBytes();
+	return IndirectionTexture.DataSize + BrickData.GetAllocatedBytes();
 }
 
 
@@ -155,7 +226,7 @@ void FPrecomputedVolumetricLightmap::AddToScene(FSceneInterface* Scene, UMapBuil
 		NewData = Registry->GetLevelPrecomputedVolumetricLightmapBuildData(LevelBuildDataId);
 	}
 
-	if (NewData && NewData->bInitialized && Scene)
+	if (NewData && Scene)
 	{
 		bAddedToScene = true;
 
@@ -188,11 +259,30 @@ void FPrecomputedVolumetricLightmap::RemoveFromScene(FSceneInterface* Scene)
 void FPrecomputedVolumetricLightmap::SetData(FPrecomputedVolumetricLightmapData* NewData, FSceneInterface* Scene)
 {
 	Data = NewData;
+
+	if (Data && RHISupportsVolumeTextures(Scene->GetFeatureLevel()))
+	{
+		Data->InitResource();
+	}
 }
 
 void FPrecomputedVolumetricLightmap::ApplyWorldOffset(const FVector& InOffset)
 {
 	WorldOriginOffset += InOffset;
+}
+
+FVector ComputeIndirectionCoordinate(FVector LookupPosition, const FBox& VolumeBounds, FIntVector IndirectionTextureDimensions)
+{
+	const FVector InvVolumeSize = FVector(1.0f) / VolumeBounds.GetSize();
+	const FVector VolumeWorldToUVScale = InvVolumeSize;
+	const FVector VolumeWorldToUVAdd = -VolumeBounds.Min * InvVolumeSize;
+
+	FVector IndirectionDataSourceCoordinate = (LookupPosition * VolumeWorldToUVScale + VolumeWorldToUVAdd) * FVector(IndirectionTextureDimensions);
+	IndirectionDataSourceCoordinate.X = FMath::Clamp<float>(IndirectionDataSourceCoordinate.X, 0.0f, IndirectionTextureDimensions.X - .01f);
+	IndirectionDataSourceCoordinate.Y = FMath::Clamp<float>(IndirectionDataSourceCoordinate.Y, 0.0f, IndirectionTextureDimensions.Y - .01f);
+	IndirectionDataSourceCoordinate.Z = FMath::Clamp<float>(IndirectionDataSourceCoordinate.Z, 0.0f, IndirectionTextureDimensions.Z - .01f);
+
+	return IndirectionDataSourceCoordinate;
 }
 
 void SampleIndirectionTexture(

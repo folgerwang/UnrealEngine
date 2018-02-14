@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -42,4 +42,7 @@ struct LIVELINK_API FAnimNode_LiveLinkPose : public FAnimNode_Base
 private:
 
 	ILiveLinkClient* LiveLinkClient;
+
+	// Delta time from update so that it can be passed to retargeter
+	float CachedDeltaTime;
 };

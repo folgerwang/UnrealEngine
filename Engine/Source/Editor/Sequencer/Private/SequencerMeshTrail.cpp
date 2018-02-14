@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerMeshTrail.h"
 #include "SequencerKeyActor.h"
@@ -8,7 +8,7 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Components/BillboardComponent.h"
 #include "Components/StaticMeshComponent.h"
-#include "MovieScene3DTransformSection.h"
+#include "Sections/MovieScene3DTransformSection.h"
 #include "TimerManager.h"
 #include "Editor.h"
 

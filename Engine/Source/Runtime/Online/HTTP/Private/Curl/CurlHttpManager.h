@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -9,12 +9,12 @@ class FHttpThread;
 
 #if WITH_LIBCURL
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #endif
 	#include "curl/curl.h"
 #if PLATFORM_WINDOWS
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 struct x509_st;
@@ -35,6 +35,7 @@ public:
 			,	bUseHttpProxy(false)
 			,	bDontReuseConnections(false)
 			,	CertBundlePath(nullptr)
+			,	MaxHostConnections(0)
 		{}
 
 		/** Prints out the options to the log */
@@ -54,6 +55,12 @@ public:
 
 		/** A path to certificate bundle */
 		const char * CertBundlePath;
+
+		/** The maximum number of connections to a particular host */
+		int32 MaxHostConnections;
+
+		/** Local address to use when making request, respects MULTIHOME command line option */
+		FString LocalHostAddr;
 	}
 	CurlRequestOptions;
 

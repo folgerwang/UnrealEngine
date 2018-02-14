@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Windows/WindowsApplication.h"
 #include "Containers/StringConv.h"
@@ -16,10 +16,11 @@
 #include "IInputDevice.h"
 #include "IHapticDevice.h"
 #include "HAL/ThreadHeartBeat.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
+#include "Windows/WindowsPlatformApplicationMisc.h"
 
 #if WITH_EDITOR
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "Developer/SourceCodeAccess/Public/ISourceCodeAccessModule.h"
 #endif
 
@@ -100,7 +101,7 @@ FWindowsApplication::FWindowsApplication( const HINSTANCE HInstance, const HICON
 
 	if (GIsEditor)
 	{
-		FWindowsPlatformMisc::SetHighDPIMode();
+		FWindowsPlatformApplicationMisc::SetHighDPIMode();
 	}
 
 	// Register the Win32 class for Slate windows and assign the application instance and icon

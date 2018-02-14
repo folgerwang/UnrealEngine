@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -354,7 +354,6 @@ namespace UnrealBuildTool
 			CompilerResults CompileResults;
 			try
 			{
-				// Enable .NET 4.0 as we want modern language features like 'var'
 				Dictionary<string, string> ProviderOptions = new Dictionary<string, string>() { { "CompilerVersion", "v4.0" } };
 				CSharpCodeProvider Compiler = new CSharpCodeProvider(ProviderOptions);
 				CompileResults = Compiler.CompileAssemblyFromFile(CompileParams, SourceFileNames.Select(x => x.FullName).ToArray());
@@ -370,14 +369,7 @@ namespace UnrealBuildTool
 				Log.TraceInformation("While compiling {0}:", OutputAssemblyPath);
 				foreach (CompilerError CurError in CompileResults.Errors)
 				{
-					if (CurError.IsWarning)
-					{
-						Log.TraceWarning(CurError.ToString());
-					}
-					else
-					{
-						Log.TraceError(CurError.ToString());
-					}
+					Log.WriteLine(0, CurError.IsWarning? LogEventType.Warning : LogEventType.Error, LogFormatOptions.NoSeverityPrefix, "{0}", CurError.ToString());
 				}
 				if (CompileResults.Errors.HasErrors || TreatWarningsAsErrors)
 				{

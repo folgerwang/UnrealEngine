@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ApplePlatformString.mm: Mac implementations of string functions
 =============================================================================*/
 
-#include "ApplePlatformString.h"
-#include "UnrealString.h"
+#include "Apple/ApplePlatformString.h"
+#include "Containers/UnrealString.h"
 #include "Containers/StringConv.h"
 
 @implementation NSString (FString_Extensions)

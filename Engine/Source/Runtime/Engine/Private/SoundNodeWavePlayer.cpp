@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Sound/SoundNodeWavePlayer.h"
 #include "Audio.h"
 #include "ActiveSound.h"
 #include "Sound/SoundWave.h"
-#include "FrameworkObjectVersion.h"
+#include "UObject/FrameworkObjectVersion.h"
 
 #define LOCTEXT_NAMESPACE "SoundNodeWavePlayer"
 
@@ -150,6 +150,11 @@ float USoundNodeWavePlayer::GetDuration()
 		}
 	}
 	return Duration;
+}
+
+bool USoundNodeWavePlayer::IsAllowedVirtual() const
+{
+	return SoundWave && SoundWave->IsAllowedVirtual();
 }
 
 #if WITH_EDITOR

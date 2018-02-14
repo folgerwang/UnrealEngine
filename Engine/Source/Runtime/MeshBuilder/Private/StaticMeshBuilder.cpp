@@ -150,7 +150,7 @@ bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh, const FStaticMeshLODGrou
 
 	// Calculate the bounding box.
 	FBox BoundingBox(ForceInit);
-	FPositionVertexBuffer& BasePositionVertexBuffer = StaticMeshRenderData.LODResources[0].PositionVertexBuffer;
+	FPositionVertexBuffer& BasePositionVertexBuffer = StaticMeshRenderData.LODResources[0].VertexBuffers.PositionVertexBuffer;
 	for (uint32 VertexIndex = 0; VertexIndex < BasePositionVertexBuffer.GetNumVertices(); VertexIndex++)
 	{
 		BoundingBox += BasePositionVertexBuffer.VertexPosition(VertexIndex);
@@ -531,17 +531,17 @@ void BuildVertexBuffer(
 		BuildOptimizationHelper::CacheOptimizeVertexAndIndexBuffer(StaticMeshBuildVertices, OutPerSectionIndices);
 	}
 
-	StaticMeshLOD.VertexBuffer.SetUseHighPrecisionTangentBasis(LODBuildSettings.bUseHighPrecisionTangentBasis);
-	StaticMeshLOD.VertexBuffer.SetUseFullPrecisionUVs(LODBuildSettings.bUseFullPrecisionUVs);
-	StaticMeshLOD.VertexBuffer.Init(StaticMeshBuildVertices, NumTextureCoord);
-	StaticMeshLOD.PositionVertexBuffer.Init(StaticMeshBuildVertices);
+	StaticMeshLOD.VertexBuffers.StaticMeshVertexBuffer.SetUseHighPrecisionTangentBasis(LODBuildSettings.bUseHighPrecisionTangentBasis);
+	StaticMeshLOD.VertexBuffers.StaticMeshVertexBuffer.SetUseFullPrecisionUVs(LODBuildSettings.bUseFullPrecisionUVs);
+	StaticMeshLOD.VertexBuffers.StaticMeshVertexBuffer.Init(StaticMeshBuildVertices, NumTextureCoord);
+	StaticMeshLOD.VertexBuffers.PositionVertexBuffer.Init(StaticMeshBuildVertices);
 	if (bHasColor)
 	{
-		StaticMeshLOD.ColorVertexBuffer.Init(StaticMeshBuildVertices);
+		StaticMeshLOD.VertexBuffers.ColorVertexBuffer.Init(StaticMeshBuildVertices);
 	}
 	else
 	{
-		StaticMeshLOD.ColorVertexBuffer.InitFromSingleColor(FColor::White, StaticMeshBuildVertices.Num());
+		StaticMeshLOD.VertexBuffers.ColorVertexBuffer.InitFromSingleColor(FColor::White, StaticMeshBuildVertices.Num());
 	}
 }
 
@@ -622,8 +622,8 @@ void BuildAllBufferOptimizations(FStaticMeshLODResources& StaticMeshLOD, const F
 		TArray<uint32> AdjacencyIndices;
 
 		BuildOptimizationHelper::BuildStaticAdjacencyIndexBuffer(
-			StaticMeshLOD.PositionVertexBuffer,
-			StaticMeshLOD.VertexBuffer,
+			StaticMeshLOD.VertexBuffers.PositionVertexBuffer,
+			StaticMeshLOD.VertexBuffers.StaticMeshVertexBuffer,
 			IndexBuffer,
 			AdjacencyIndices
 		);

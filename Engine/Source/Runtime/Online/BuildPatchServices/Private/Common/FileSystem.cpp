@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Common/FileSystem.h"
 #include "HAL/FileManager.h"
@@ -7,8 +7,8 @@
 
 #if PLATFORM_WINDOWS
 // Start of region that uses windows types.
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <wtypes.h>
 #include <winbase.h>
 #include <winioctl.h>
@@ -89,7 +89,7 @@ namespace FileSystemHelpers
 	}
 }
 // End of region that uses windows types.
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 // Stop windows header breaking our class's function name.
 #undef GetFileAttributes
 #elif PLATFORM_MAC

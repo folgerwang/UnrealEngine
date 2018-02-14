@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SceneFilterRendering.cpp: Filter rendering implementation.
@@ -9,6 +9,7 @@
 #include "EngineGlobals.h"
 #include "Engine/Engine.h"
 #include "IHeadMountedDisplay.h"
+#include "IXRTrackingSystem.h"
 
 /**
 * Static vertex and index buffer used for 2D screen rectangles.
@@ -343,7 +344,10 @@ void DrawHmdMesh(
 
 	SetUniformBufferParameterImmediate(RHICmdList, VertexShader->GetVertexShader(), VertexShader->GetUniformBufferParameter<FDrawRectangleParameters>(), Parameters);
 
-	GEngine->HMDDevice->DrawVisibleAreaMesh_RenderThread(RHICmdList, StereoView);
+	if (GEngine->XRSystem->GetHMDDevice())
+	{
+		GEngine->XRSystem->GetHMDDevice()->DrawVisibleAreaMesh_RenderThread(RHICmdList, StereoView);
+	}
 }
 
 void DrawPostProcessPass(

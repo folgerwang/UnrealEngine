@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SkeletonTreeVirtualBoneItem.h"
 #include "Widgets/Text/STextBlock.h"
@@ -6,8 +6,8 @@
 #include "IPersonaPreviewScene.h"
 #include "EditorStyleSet.h"
 #include "Widgets/Images/SImage.h"
-#include "SInlineEditableTextBlock.h"
-#include "UnrealString.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
+#include "Containers/UnrealString.h"
 #include "Animation/DebugSkelMeshComponent.h"
 #include "UObject/Package.h"
 

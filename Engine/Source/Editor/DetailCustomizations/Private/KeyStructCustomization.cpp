@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "KeyStructCustomization.h"
 #include "DetailWidgetRow.h"
 #include "SKeySelector.h"
-#include "UnrealType.h"
+#include "UObject/UnrealType.h"
 
 #define LOCTEXT_NAMESPACE "FKeyStructCustomization"
 

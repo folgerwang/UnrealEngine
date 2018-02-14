@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -30,7 +30,10 @@ namespace EMultiBoxType
 		Menu,
 
 		/** Buttons arranged in rows, with a maximum number of buttons per row, like a toolbar but can have multiple rows*/
-		ButtonRow
+		ButtonRow,
+
+		/** Horizontal menu bar used as a tool bar */
+		ToolMenuBar
 	};
 }
 

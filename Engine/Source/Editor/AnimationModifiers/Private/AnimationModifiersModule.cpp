@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimationModifiersModule.h"
 #include "IAssetTools.h"
@@ -10,7 +10,7 @@
 #include "AnimationModifierDetailCustomization.h"
 #include "AnimationModifiersTabSummoner.h"
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "PropertyEditorModule.h" 
 
 #define LOCTEXT_NAMESPACE "AnimationModifiersModule"

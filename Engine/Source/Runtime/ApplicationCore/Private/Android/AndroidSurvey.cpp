@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AndroidSurvey.cpp: HardwareSurvey implementation
 =============================================================================*/
 
-#include "AndroidSurvey.h"
-#include "AndroidWindow.h"
+#include "Android/AndroidSurvey.h"
+#include "Android/AndroidWindow.h"
 
 bool FAndroidPlatformSurvey::GetSurveyResults(FHardwareSurveyResults& OutResults, bool bWait)
 {

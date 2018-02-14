@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "GameplayTagCustomization.h"
 #include "Widgets/Input/SComboButton.h"
@@ -7,7 +7,7 @@
 #include "PropertyHandle.h"
 #include "DetailWidgetRow.h"
 #include "GameplayTagsEditorModule.h"
-#include "SHyperlink.h"
+#include "Widgets/Input/SHyperlink.h"
 
 #define LOCTEXT_NAMESPACE "GameplayTagCustomization"
 

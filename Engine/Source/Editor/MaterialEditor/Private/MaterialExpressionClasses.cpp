@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MaterialExpressionClasses.h"
 #include "UObject/ObjectMacros.h"
@@ -10,9 +10,12 @@
 #include "UObject/UObjectHash.h"
 #include "UObject/UObjectIterator.h"
 #include "Preferences/MaterialEditorOptions.h"
+#include "MaterialEditorModule.h"
 
 #include "Materials/MaterialExpressionComment.h"
 #include "Materials/MaterialExpressionParameter.h"
+#include "Materials/MaterialExpressionGetSharedInput.h"
+#include "Materials/MaterialExpressionSetSharedInput.h"
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -23,6 +26,7 @@
 
 MaterialExpressionClasses::MaterialExpressionClasses()
 	: bInitialized( false )
+	, bMaterialLayersEnabled( false )
 {
 
 }
@@ -72,8 +76,14 @@ FCategorizedMaterialExpressionNode* MaterialExpressionClasses::GetCategoryNode(c
 
 void MaterialExpressionClasses::InitMaterialExpressionClasses()
 {
-	if( !bInitialized )
+	// @TODO: Remove this. Temporary flag for toggling experimental material layers functionality
+	IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>("MaterialEditor");
+	const bool bNewMaterialLayersEnabled = MaterialEditorModule.MaterialLayersEnabled();
+
+	if( !bInitialized || bMaterialLayersEnabled != bNewMaterialLayersEnabled )
 	{
+		bMaterialLayersEnabled = bNewMaterialLayersEnabled;
+
 		UMaterialEditorOptions* TempEditorOptions = NewObject<UMaterialEditorOptions>();
 		UClass* BaseType = UMaterialExpression::StaticClass();
 		if( BaseType )
@@ -89,6 +99,15 @@ void MaterialExpressionClasses::InitMaterialExpressionClasses()
 					if( Class->IsChildOf(UMaterialExpression::StaticClass()) )
 					{
 						ExpressionInputs.Empty();
+
+						// @TODO: Remove this. Temporary flag for toggling experimental material layers functionality
+						if (!bMaterialLayersEnabled &&
+							(Class == UMaterialExpressionMaterialAttributeLayers::StaticClass() ||
+							 Class == UMaterialExpressionGetSharedInput::StaticClass() ||
+							 Class == UMaterialExpressionSetSharedInput::StaticClass()) )
+						{
+							continue;
+						}
 
 						// Exclude comments from the expression list, as well as the base parameter expression, as it should not be used directly
 						if ( Class != UMaterialExpressionComment::StaticClass() 

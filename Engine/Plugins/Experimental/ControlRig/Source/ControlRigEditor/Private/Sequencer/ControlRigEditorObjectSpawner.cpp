@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ControlRigEditorObjectSpawner.h"
 #include "ControlRig.h"
 #include "MovieScene.h"
 #include "MovieSceneSpawnable.h"
 #include "IMovieScenePlayer.h"
-#include "ControlRigBindingTrack.h"
+#include "Sequencer/ControlRigBindingTrack.h"
 #include "Sections/MovieSceneSpawnSection.h"
 #include "ISequencer.h"
 #include "ControlRigEditMode.h"
@@ -35,7 +35,7 @@ UObject* FControlRigEditorObjectSpawner::SpawnObject(FMovieSceneSpawnable& Spawn
 
 #if WITH_EDITOR
 
-TValueOrError<FNewSpawnable, FText> FControlRigEditorObjectSpawner::CreateNewSpawnableType(UObject& SourceObject, UMovieScene& OwnerMovieScene)
+TValueOrError<FNewSpawnable, FText> FControlRigEditorObjectSpawner::CreateNewSpawnableType(UObject& SourceObject, UMovieScene& OwnerMovieScene, UActorFactory* ActorFactory)
 {
 	// Right now we only support creating a spawnable for classes
 	if (UClass* InClass = Cast<UClass>(&SourceObject))

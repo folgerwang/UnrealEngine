@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -42,7 +42,7 @@ namespace UnrealGameSync
 		void UpdateProgress();
 	}
 
-	partial class WorkspaceControl : UserControl
+	partial class WorkspaceControl : UserControl, IMainWindowTabPanel
 	{
 		static Rectangle GoodBuildIcon = new Rectangle(0, 0, 16, 16);
 		static Rectangle MixedBuildIcon = new Rectangle(16, 0, 16, 16);
@@ -202,7 +202,7 @@ namespace UnrealGameSync
 
 			// Set the project logo on the status panel and notification window
 			NotificationWindow = new NotificationWindow(Properties.Resources.DefaultNotificationLogo);
-			StatusPanel.SetProjectLogo(DetectSettings.ProjectLogo);
+			StatusPanel.SetProjectLogo(DetectSettings.ProjectLogo, true);
 			DetectSettings.ProjectLogo = null;
 
 			// Commit all the new project info
@@ -231,7 +231,7 @@ namespace UnrealGameSync
 			Workspace = new Workspace(PerforceClient, BranchDirectoryName, SelectedFileName, DetectSettings.BranchClientPath, DetectSettings.NewSelectedClientFileName, CurrentChangeNumber, WorkspaceSettings.LastBuiltChangeNumber, TelemetryProjectIdentifier, new LogControlTextWriter(SyncLog));
 			Workspace.OnUpdateComplete += UpdateCompleteCallback;
 
-			PerforceMonitor = new PerforceMonitor(PerforceClient, DetectSettings.BranchClientPath, DetectSettings.NewSelectedClientFileName, SelectedProjectIdentifier, ProjectLogBaseName + ".p4.log");
+			PerforceMonitor = new PerforceMonitor(PerforceClient, DetectSettings.BranchClientPath, DetectSettings.NewSelectedClientFileName, DetectSettings.NewSelectedFileName, SelectedProjectIdentifier, ProjectLogBaseName + ".p4.log");
 			PerforceMonitor.OnUpdate += UpdateBuildListCallback;
 			PerforceMonitor.OnUpdateMetadata += UpdateBuildMetadataCallback;
 			PerforceMonitor.OnStreamChange += StreamChangedCallbackAsync;
@@ -400,7 +400,7 @@ namespace UnrealGameSync
 
 			UpdateBuildSteps();
 
-			StatusPanel.SetProjectLogo(null);
+			StatusPanel.SetProjectLogo(null, false);
 
 			DesiredTaskbarState = Tuple.Create(TaskbarState.NoProgress, 0.0f);
 		}
@@ -426,7 +426,7 @@ namespace UnrealGameSync
 		{
 			if(PerforceMonitor != null)
 			{
-				if(OnlyShowReviewedCheckBox.Checked)
+				if(!Settings.bShowUnreviewedChanges)
 				{
 					PerforceMonitor.PendingMaxChanges = 1000;
 				}
@@ -702,7 +702,7 @@ namespace UnrealGameSync
 				}
 
 				bool bFirstChange = true;
-				bool bOnlyShowReviewed = OnlyShowReviewedCheckBox.Checked;
+				bool bHideUnreviewed = !Settings.bShowUnreviewedChanges;
 
 				NumChanges = Changes.Count;
 				ListIndexToChangeIndex = new List<int>();
@@ -715,7 +715,7 @@ namespace UnrealGameSync
 					{
 						SortedChangeNumbers.Add(Change.Number);
 
-						if(!bOnlyShowReviewed || (!EventMonitor.IsUnderInvestigation(Change.Number) && (ShouldIncludeInReviewedList(Change.Number) || bFirstChange)))
+						if(!bHideUnreviewed || (!EventMonitor.IsUnderInvestigation(Change.Number) && (ShouldIncludeInReviewedList(Change.Number) || bFirstChange)))
 						{
 							bFirstChange = false;
 
@@ -803,17 +803,20 @@ namespace UnrealGameSync
 
 		bool ShouldShowChange(PerforceChangeSummary Change, string[] ExcludeChanges)
 		{
-			foreach(string ExcludeChange in ExcludeChanges)
+			if(!Settings.bShowAutomatedChanges)
 			{
-				if(Regex.IsMatch(Change.Description, ExcludeChange, RegexOptions.IgnoreCase))
+				foreach(string ExcludeChange in ExcludeChanges)
+				{
+					if(Regex.IsMatch(Change.Description, ExcludeChange, RegexOptions.IgnoreCase))
+					{
+						return false;
+					}
+				}
+
+				if(String.Compare(Change.User, "buildmachine", true) == 0 && Change.Description.IndexOf("lightmaps", StringComparison.InvariantCultureIgnoreCase) == -1)
 				{
 					return false;
 				}
-			}
-
-			if(String.Compare(Change.User, "buildmachine", true) == 0 && Change.Description.IndexOf("lightmaps", StringComparison.InvariantCultureIgnoreCase) == -1)
-			{
-				return false;
 			}
 			return true;
 		}
@@ -1033,8 +1036,24 @@ namespace UnrealGameSync
 						}
 					}
 				}
+				if(ChangeNumber == 3823446)
+				{
+					Console.WriteLine("");
+				}
 				ChangeNumberToArchivePath.Add(ChangeNumber, ArchivePath);
 			}
+			if(ChangeNumber == 3823446)
+			{
+				if(ArchivePath == null)
+				{
+					Console.WriteLine("");
+				}
+				else
+				{
+					Console.WriteLine("");
+				}
+			}
+
 			return ArchivePath;
 		}
 
@@ -2043,6 +2062,8 @@ namespace UnrealGameSync
 			OptionsContextMenu_TimeZone_PerforceServer.Checked = !Settings.bShowLocalTimes;
 			OptionsContextMenu_AutomaticallyRunAtStartup.Checked = IsAutomaticallyRunAtStartup();
 			OptionsContextMenu_KeepInTray.Checked = Settings.bKeepInTray;
+			OptionsContextMenu_ShowChanges_ShowUnreviewed.Checked = Settings.bShowUnreviewedChanges;
+			OptionsContextMenu_ShowChanges_ShowAutomated.Checked = Settings.bShowAutomatedChanges;
 			OptionsContextMenu_TabNames_Stream.Checked = Settings.TabLabels == TabLabels.Stream;
 			OptionsContextMenu_TabNames_WorkspaceName.Checked = Settings.TabLabels == TabLabels.WorkspaceName;
 			OptionsContextMenu_TabNames_WorkspaceRoot.Checked = Settings.TabLabels == TabLabels.WorkspaceRoot;
@@ -2191,7 +2212,7 @@ namespace UnrealGameSync
 
 		private void BuildListContextMenu_MoreInfo_Click(object sender, EventArgs e)
 		{
-			if(!Utility.SpawnHiddenProcess("p4vc.exe", String.Format("-c{0} change {1}", Workspace.ClientName, ContextMenuChange.Number)))
+			if(!Utility.SpawnHiddenProcess("p4vc.exe", String.Format("-p\"{0}\" -c{1} change {2}", Workspace.Perforce.ServerAndPort ?? "perforce:1666", Workspace.ClientName, ContextMenuChange.Number)))
 			{
 				MessageBox.Show("Unable to spawn p4vc. Check you have P4V installed.");
 			}
@@ -2741,10 +2762,16 @@ namespace UnrealGameSync
 
 		private Dictionary<Guid,ConfigObject> GetDefaultBuildStepObjects()
 		{
+			string ProjectArgument = "";
+			if(SelectedFileName.EndsWith(".uproject", StringComparison.InvariantCultureIgnoreCase) && EditorTargetName != null)
+			{
+				ProjectArgument = String.Format("\"{0}\"", SelectedFileName);
+			}
+
 			List<BuildStep> DefaultBuildSteps = new List<BuildStep>();
 			DefaultBuildSteps.Add(new BuildStep(new Guid("{01F66060-73FA-4CC8-9CB3-E217FBBA954E}"), 0, "Compile UnrealHeaderTool", "Compiling UnrealHeaderTool...", 1, "UnrealHeaderTool", "Win64", "Development", "", !ShouldSyncPrecompiledEditor));
 			string ActualEditorTargetName = EditorTargetName ?? "UE4Editor";
-			DefaultBuildSteps.Add(new BuildStep(new Guid("{F097FF61-C916-4058-8391-35B46C3173D5}"), 1, String.Format("Compile {0}", ActualEditorTargetName), String.Format("Compiling {0}...", ActualEditorTargetName), 10, ActualEditorTargetName, "Win64", Settings.CompiledEditorBuildConfig.ToString(), "", !ShouldSyncPrecompiledEditor));
+			DefaultBuildSteps.Add(new BuildStep(new Guid("{F097FF61-C916-4058-8391-35B46C3173D5}"), 1, String.Format("Compile {0}", ActualEditorTargetName), String.Format("Compiling {0}...", ActualEditorTargetName), 10, ActualEditorTargetName, "Win64", Settings.CompiledEditorBuildConfig.ToString(), ProjectArgument, !ShouldSyncPrecompiledEditor));
 			DefaultBuildSteps.Add(new BuildStep(new Guid("{C6E633A1-956F-4AD3-BC95-6D06D131E7B4}"), 2, "Compile ShaderCompileWorker", "Compiling ShaderCompileWorker...", 1, "ShaderCompileWorker", "Win64", "Development", "", !ShouldSyncPrecompiledEditor));
 			DefaultBuildSteps.Add(new BuildStep(new Guid("{24FFD88C-7901-4899-9696-AE1066B4B6E8}"), 3, "Compile UnrealLightmass", "Compiling UnrealLightmass...", 1, "UnrealLightmass", "Win64", "Development", "", !ShouldSyncPrecompiledEditor));
 			DefaultBuildSteps.Add(new BuildStep(new Guid("{FFF20379-06BF-4205-8A3E-C53427736688}"), 4, "Compile CrashReportClient", "Compiling CrashReportClient...", 1, "CrashReportClient", "Win64", "Shipping", "", !ShouldSyncPrecompiledEditor));
@@ -2953,6 +2980,24 @@ namespace UnrealGameSync
 		{
 			Settings.OtherProjectFileNames = new string[0];
 			Settings.Save();
+		}
+
+		private void OptionsContextMenu_ShowChanges_ShowUnreviewed_Click(object sender, EventArgs e)
+		{
+			Settings.bShowUnreviewedChanges ^= true;
+			Settings.Save();
+
+			UpdateBuildList();
+			UpdateNumRequestedBuilds(true);
+		}
+
+		private void OptionsContextMenu_ShowChanges_ShowAutomated_Click(object sender, EventArgs e)
+		{
+			Settings.bShowAutomatedChanges ^= true;
+			Settings.Save();
+
+			UpdateBuildList();
+			UpdateNumRequestedBuilds(true);
 		}
 	}
 }

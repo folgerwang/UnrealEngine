@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Installer/InstallerError.h"
 #include "Misc/ScopeLock.h"
-#include "IBuildInstaller.h"
+#include "Interfaces/IBuildInstaller.h"
 #include "BuildPatchServicesPrivate.h"
-#include "ThreadSafeCounter.h"
+#include "HAL/ThreadSafeCounter.h"
 
 namespace BuildPatchServices
 {

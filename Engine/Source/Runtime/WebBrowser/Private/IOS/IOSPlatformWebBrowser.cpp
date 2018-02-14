@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "IOSPlatformWebBrowser.h"
 
 #if PLATFORM_IOS
-#include "IOSView.h"
-#include "IOSAppDelegate.h"
+#include "IOS/IOSView.h"
+#include "IOS/IOSAppDelegate.h"
 #include "Widgets/SLeafWidget.h"
 
 #import <UIKit/UIKit.h>

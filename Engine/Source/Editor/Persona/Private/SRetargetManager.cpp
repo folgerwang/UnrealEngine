@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SRetargetManager.h"
@@ -17,7 +17,7 @@
 #include "AnimPreviewInstance.h"
 #include "IEditableSkeleton.h"
 #include "PropertyCustomizationHelpers.h"
-#include "MultiBoxBuilder.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 
 #define LOCTEXT_NAMESPACE "SRetargetManager"
 

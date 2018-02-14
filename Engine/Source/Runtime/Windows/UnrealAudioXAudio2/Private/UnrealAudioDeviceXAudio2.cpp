@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /**
 Concrete implementation of IAudioDevice for XAudio2
@@ -12,12 +12,12 @@ See https://msdn.microsoft.com/en-us/library/windows/desktop/hh405049%28v=vs.85%
 #include "HAL/RunnableThread.h"
 #include "UnrealAudioDeviceModule.h"
 #include "UnrealAudioBuffer.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <xaudio2.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #if ENABLE_UNREAL_AUDIO
 

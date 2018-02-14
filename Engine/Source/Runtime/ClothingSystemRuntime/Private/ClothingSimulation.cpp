@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ClothingSimulation.h"
 
@@ -6,7 +6,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "ClothingSimulationInterface.h"
 #include "ClothingSystemRuntimeModule.h"
-#include "ClothingAsset.h"
+#include "Assets/ClothingAsset.h"
 
 
 DECLARE_CYCLE_STAT(TEXT("Skin Physics Mesh"), STAT_ClothSkinPhysMesh, STATGROUP_Physics);
@@ -198,4 +198,13 @@ void FClothingSimulationBase::FillContext(USkeletalMeshComponent* InComponent, f
 	BaseContext->TeleportMode = InComponent->ClothTeleportMode;
 
 	BaseContext->MaxDistanceScale = InComponent->GetClothMaxDistanceScale();
+
+	float GravityStrength = 981.0f;
+
+	if(UWorld* CurrWorld = InComponent->GetWorld())
+	{
+		GravityStrength = CurrWorld->GetGravityZ();
+	}
+
+	BaseContext->WorldGravity = FVector(0.0f, 0.0f, GravityStrength);
 }

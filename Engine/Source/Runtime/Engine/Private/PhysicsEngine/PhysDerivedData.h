@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -10,7 +10,7 @@
 
 #if WITH_PHYSX && WITH_EDITOR
 #include "DerivedDataPluginInterface.h"
-#include "IPhysXCooking.h"
+#include "Physics/IPhysXCooking.h"
 
 class UBodySetup;
 struct FBodyInstance;
@@ -50,7 +50,7 @@ public:
 		// This is a version string that mimics the old versioning scheme. If you
 		// want to bump this version, generate a new guid using VS->Tools->Create GUID and
 		// return it here. Ex.
-		return TEXT("3B0AB674B19F4A698B28F7025C031EA2");	
+		return TEXT("8E2B126ED2B644F1BBF553FEF6480DB4");	
 	}
 
 	virtual FString GetPluginSpecificCacheKeySuffix() const override

@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "BuildPatchGeneration.h"
 #include "Templates/ScopedPointer.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/SecureHash.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "BuildPatchManifest.h"
 #include "BuildPatchServicesModule.h"
 #include "BuildPatchHash.h"

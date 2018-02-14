@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "UserInterface/PropertyEditor/SPropertyEditorAsset.h"
 #include "Engine/Texture.h"
@@ -506,6 +506,12 @@ SPropertyEditorAsset::EActorReferenceState SPropertyEditorAsset::GetActorReferen
 
 		if (Value.Object != nullptr)
 		{
+			// If this is not an actual actor, this is broken
+			if (!Value.Object->IsA(AActor::StaticClass()))
+			{
+				return EActorReferenceState::Error;
+			}
+
 			return EActorReferenceState::Loaded;
 		}
 		else if (Value.ObjectPath.IsNull())
@@ -519,7 +525,7 @@ SPropertyEditorAsset::EActorReferenceState SPropertyEditorAsset::GetActorReferen
 
 			if (MapObjectPath.ResolveObject())
 			{
-				// If the map is valid but the 
+				// If the map is valid but the object is not
 				return EActorReferenceState::Error;
 			}
 
@@ -627,8 +633,16 @@ FText SPropertyEditorAsset::OnGetAssetName() const
 		{
 			if( bIsActor )
 			{
-				AActor* Actor = CastChecked<AActor>(Value.Object);
-				Name = FText::AsCultureInvariant(Actor->GetActorLabel());
+				AActor* Actor = Cast<AActor>(Value.Object);
+
+				if (Actor)
+				{
+					Name = FText::AsCultureInvariant(Actor->GetActorLabel());
+				}
+				else
+				{
+					Name = FText::AsCultureInvariant(Value.Object->GetName());
+				}
 			}
 			else if (UField* AsField = Cast<UField>(Value.Object))
 			{
@@ -805,10 +819,21 @@ FPropertyAccess::Result SPropertyEditorAsset::GetValue( FObjectOrAssetData& OutV
 	}
 	else
 	{
+		FSoftObjectPath SoftObjectPath;
 		UObject* Object = nullptr;
 		if (PropertyHandle.IsValid())
 		{
 			Result = PropertyHandle->GetValue(Object);
+		}
+		else
+		{
+			SoftObjectPath = FSoftObjectPath(ObjectPath.Get());
+			Object = SoftObjectPath.ResolveObject();
+
+			if (Object != nullptr)
+			{
+				Result = FPropertyAccess::Success;
+			}
 		}
 
 		if (Object != nullptr)
@@ -825,13 +850,14 @@ FPropertyAccess::Result SPropertyEditorAsset::GetValue( FObjectOrAssetData& OutV
 		}
 		else
 		{
-			const FString CurrentObjectPath = ObjectPath.Get();
-			Result = FPropertyAccess::Success;
-
-			FSoftObjectPath SoftObjectPath = FSoftObjectPath(CurrentObjectPath);
+			if (SoftObjectPath.IsNull())
+			{
+				SoftObjectPath = FSoftObjectPath(ObjectPath.Get());
+			}
 
 			if (SoftObjectPath.IsAsset())
 			{
+				const FString CurrentObjectPath = SoftObjectPath.ToString();
 				if (CurrentObjectPath != TEXT("None") && (!CachedAssetData.IsValid() || CachedAssetData.ObjectPath.ToString() != CurrentObjectPath))
 				{
 					static FName AssetRegistryName("AssetRegistry");
@@ -841,6 +867,7 @@ FPropertyAccess::Result SPropertyEditorAsset::GetValue( FObjectOrAssetData& OutV
 				}
 
 				OutValue = FObjectOrAssetData(CachedAssetData);
+				Result = FPropertyAccess::Success;
 			}
 			else
 			{

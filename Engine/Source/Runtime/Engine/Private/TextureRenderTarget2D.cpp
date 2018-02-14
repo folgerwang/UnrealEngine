@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	TextureRenderTarget2D.cpp: UTextureRenderTarget2D implementation
@@ -11,7 +11,7 @@
 #include "UnrealEngine.h"
 #include "DeviceProfiles/DeviceProfile.h"
 #include "DeviceProfiles/DeviceProfileManager.h"
-#include "RenderingObjectVersion.h"
+#include "UObject/RenderingObjectVersion.h"
 
 int32 GTextureRenderTarget2DMaxSizeX = 999999999;
 int32 GTextureRenderTarget2DMaxSizeY = 999999999;

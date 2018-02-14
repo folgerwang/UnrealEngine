@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "PortableObjectPipeline.h"
 #include "Misc/FileHelper.h"
@@ -6,7 +6,7 @@
 #include "Internationalization/InternationalizationMetadata.h"
 #include "Serialization/JsonInternationalizationMetadataSerializer.h"
 #include "PortableObjectFormatDOM.h"
-#include "TextNamespaceUtil.h"
+#include "Internationalization/TextNamespaceUtil.h"
 #include "LocTextHelper.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPortableObjectPipeline, Log, All);

@@ -1,8 +1,8 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "DecoratedDragDropOp.h"
+#include "DragAndDrop/DecoratedDragDropOp.h"
 
 /** Drag payload type - implement derived types using DRAG_DROP_OPERATOR_TYPE */
 class IDragPayload

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -30,11 +30,5 @@ public class TextureFormatAndroid : ModuleRules
 		{
 			AddEngineThirdPartyPrivateStaticDependencies(Target, "QualcommTextureConverter");
 		}
-
-                // opt-out from precompile for Linux (this module cannot be built for Linux atm)
-                if (Target.Platform == UnrealTargetPlatform.Linux)
-                {
-                    PrecompileForTargets = PrecompileTargetsType.None;
-                }
 	}
 }

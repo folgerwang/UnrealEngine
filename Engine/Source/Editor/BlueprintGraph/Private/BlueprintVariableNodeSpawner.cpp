@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintVariableNodeSpawner.h"
 #include "Engine/BlueprintGeneratedClass.h"
@@ -7,7 +7,7 @@
 #include "K2Node_VariableGet.h"
 #include "K2Node_VariableSet.h"
 #include "Kismet2/BlueprintEditorUtils.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "Editor/EditorEngine.h"
 #include "ObjectEditorUtils.h"
 #include "EditorCategoryUtils.h"

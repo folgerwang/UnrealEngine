@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimGraphNode_AssetPlayerBase.h"
 #include "EdGraphSchema_K2.h"
@@ -15,7 +15,7 @@
 #include "AnimGraphNode_PoseBlendNode.h"
 #include "AnimGraphNode_PoseByName.h"
 #include "AnimGraphNode_PoseDriver.h"
-#include "UObjectIterator.h"
+#include "UObject/UObjectIterator.h"
 
 void UAnimGraphNode_AssetPlayerBase::PinConnectionListChanged(UEdGraphPin* Pin)
 {

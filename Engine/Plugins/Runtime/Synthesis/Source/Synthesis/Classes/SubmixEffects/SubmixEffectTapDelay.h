@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "AudioEffect.h"
-#include "Delay.h"
+#include "DSP/Delay.h"
 #include "DSP/Dsp.h"
 #include "Sound/SoundEffectSubmix.h"
 #include "SubmixEffectTapDelay.generated.h"
@@ -171,7 +171,7 @@ private:
 // Class which processes audio streams and uses parameters defined in the preset class.
 // ========================================================================
 
-UCLASS()
+UCLASS(ClassGroup = AudioSourceEffect, meta = (BlueprintSpawnableComponent))
 class SYNTHESIS_API USubmixEffectTapDelayPreset : public USoundEffectSubmixPreset
 {
 	GENERATED_BODY()
@@ -218,6 +218,5 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = SubmixEffectPreset, Meta = (ShowOnlyInnerProperties))
 	FSubmixEffectTapDelaySettings Settings;
 
-	UPROPERTY(transient)
 	FSubmixEffectTapDelaySettings DynamicSettings;
 };

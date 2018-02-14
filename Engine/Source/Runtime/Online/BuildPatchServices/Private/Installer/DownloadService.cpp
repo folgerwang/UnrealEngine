@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Installer/DownloadService.h"
 #include "Core/AsyncHelpers.h"
@@ -8,7 +8,7 @@
 #include "Installer/InstallerAnalytics.h"
 #include "Common/HttpManager.h"
 #include "Common/FileSystem.h"
-#include "ThreadSafeBool.h"
+#include "HAL/ThreadSafeBool.h"
 #include "Misc/ScopeLock.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogDownloadService, Warning, All);

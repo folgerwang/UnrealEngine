@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "StringTableEditor.h"
 #include "Misc/FileHelper.h"
@@ -7,18 +7,18 @@
 #include "EditorDirectories.h"
 #include "DesktopPlatformModule.h"
 #include "StringTableEditorModule.h"
-#include "StringTable.h"
-#include "StringTableCore.h"
-#include "TextNamespaceUtil.h"
+#include "Internationalization/StringTable.h"
+#include "Internationalization/StringTableCore.h"
+#include "Internationalization/TextNamespaceUtil.h"
 #include "Editor.h"
 #include "ScopedTransaction.h"
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 
-#include "SButton.h"
-#include "SImage.h"
-#include "SDockTab.h"
-#include "STextBlock.h"
-#include "SHeaderRow.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Views/SHeaderRow.h"
  
 #define LOCTEXT_NAMESPACE "StringTableEditor"
 

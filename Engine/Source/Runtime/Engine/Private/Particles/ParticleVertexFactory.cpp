@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ParticleVertexFactory.cpp: Particle vertex factory implementation.
@@ -221,7 +221,7 @@ static inline TGlobalResource<FParticleSpriteVertexDeclaration>& GetParticleSpri
 	}
 }
 
-bool FParticleSpriteVertexFactory::ShouldCache(EShaderPlatform Platform, const class FMaterial* Material, const class FShaderType* ShaderType)
+bool FParticleSpriteVertexFactory::ShouldCompilePermutation(EShaderPlatform Platform, const class FMaterial* Material, const class FShaderType* ShaderType)
 {
 	return Material->IsUsedWithParticleSprites() || Material->IsSpecialEngineMaterial();
 }
@@ -260,7 +260,7 @@ void FParticleSpriteVertexFactory::InitStreams()
 	}
 	FVertexStream* InstanceStream = new(Streams) FVertexStream;
 	FVertexStream* DynamicParameterStream = new(Streams) FVertexStream;
-	DynamicParameterStream->Stride = DynamicParameterStride;
+	DynamicParameterStream->Stride = bUsesDynamicParameter ? DynamicParameterStride : 0;
 }
 
 void FParticleSpriteVertexFactory::SetInstanceBuffer(const FVertexBuffer* InInstanceBuffer, uint32 StreamOffset, uint32 Stride, bool bInstanced)

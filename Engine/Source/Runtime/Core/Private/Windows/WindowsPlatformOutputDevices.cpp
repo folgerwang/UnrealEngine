@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Windows/WindowsPlatformOutputDevices.h"
 #include "Logging/LogMacros.h"
@@ -17,7 +17,7 @@
 #include "Misc/CoreDelegates.h"
 #include "Misc/App.h"
 #include "HAL/FeedbackContextAnsi.h"
-#include "WindowsEventLogOutputDevice.h"
+#include "Windows/WindowsEventLogOutputDevice.h"
 #include "HAL/ThreadHeartBeat.h"
 
 //////////////////////////////////

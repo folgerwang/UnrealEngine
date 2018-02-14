@@ -1,14 +1,14 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SNiagaraCurveEditor.h"
 #include "NiagaraSystemViewModel.h"
 #include "SCurveEditor.h"
-#include "SOverlay.h"
+#include "Widgets/SOverlay.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "RichCurveEditorCommands.h"
 #include "Widgets/Input/SNumericDropDown.h"
 #include "SCurveEditor.h"
-#include "SOverlay.h"
+#include "Widgets/SOverlay.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraCurveEditor"
 

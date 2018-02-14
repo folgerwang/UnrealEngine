@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Linux/LinuxPlatformFile.h"
 #include "GenericPlatform/GenericPlatformProcess.h"
@@ -8,7 +8,7 @@
 #include "Misc/Paths.h"
 #include <sys/file.h>
 
-#include "PlatformFileCommon.h"
+#include "HAL/PlatformFileCommon.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogLinuxPlatformFile, Log, All);
 

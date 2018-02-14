@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Factories/SoundSourceBusFactory.h"
 #include "Sound/SoundSourceBus.h"
 #include "AudioDeviceManager.h"
 #include "Engine/Engine.h"
-#include "Classes/Sound/AudioSettings.h"
+#include "Sound/AudioSettings.h"
 
 USoundSourceBusFactory::USoundSourceBusFactory(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

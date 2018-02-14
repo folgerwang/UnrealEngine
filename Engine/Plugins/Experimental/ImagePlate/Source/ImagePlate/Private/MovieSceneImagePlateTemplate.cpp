@@ -1,8 +1,8 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneImagePlateTemplate.h"
 
-#include "Package.h"
+#include "UObject/Package.h"
 #include "UObject/GCObject.h"
 
 #include "MovieSceneImagePlateTrack.h"

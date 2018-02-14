@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "Misc/Char.h"
 #include "GenericPlatform/GenericPlatformString.h"
-#include "GenericPlatformStricmp.h"
+#include "GenericPlatform/GenericPlatformStricmp.h"
 
 /**
 * Microsoft specific implementation 

@@ -1,14 +1,14 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MacConsoleOutputDevice.h"
+#include "Mac/MacConsoleOutputDevice.h"
 #include "Misc/App.h"
 #include "Misc/CoreDelegates.h"
 #include "Misc/ConfigCacheIni.h"
-#include "MacApplication.h"
-#include "MacPlatformApplicationMisc.h"
+#include "Mac/MacApplication.h"
+#include "Mac/MacPlatformApplicationMisc.h"
 #include "Misc/OutputDeviceHelper.h"
 #include "Misc/ScopeLock.h"
-#include "CocoaThread.h"
+#include "Mac/CocoaThread.h"
 #include "HAL/PlatformApplicationMisc.h"
 
 FMacConsoleOutputDevice::FMacConsoleOutputDevice()
@@ -216,18 +216,14 @@ void FMacConsoleOutputDevice::Serialize( const TCHAR* Data, ELogVerbosity::Type 
 			{
 				SCOPED_AUTORELEASE_POOL;
 				
-				TCHAR OutputString[MAX_SPRINTF]=TEXT(""); //@warning: this is safe as FCString::Sprintf only use 1024 characters max
-				FCString::Sprintf(OutputString,TEXT("%s%s"),*FOutputDeviceHelper::FormatLogLine(Verbosity, Category, Data, GPrintLogTimes),LINE_TERMINATOR);
+				FString OutputString = FString::Printf(TEXT("%s%s"), *FOutputDeviceHelper::FormatLogLine(Verbosity, Category, Data, GPrintLogTimes), LINE_TERMINATOR);
 
-				CFStringRef CocoaText = FPlatformString::TCHARToCFString(OutputString);
-				
 				OutstandingTasks++;
 				MainThreadCall(^{
-					NSAttributedString *AttributedString = [[NSAttributedString alloc] initWithString:(NSString*)CocoaText attributes:TextViewTextColor];
+					NSAttributedString *AttributedString = [[NSAttributedString alloc] initWithString:OutputString.GetNSString() attributes:TextViewTextColor];
 					[[TextView textStorage] appendAttributedString:AttributedString];
 					[TextView scrollRangeToVisible:NSMakeRange([[TextView string] length], 0)];
 					[AttributedString release];
-					CFRelease(CocoaText);
 					OutstandingTasks--;
 				}, NSDefaultRunLoopMode, false);
 				

@@ -1,14 +1,20 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "IOSApplication.h"
-#include "IOSInputInterface.h"
+#include "IOS/IOSApplication.h"
+#include "IOS/IOSInputInterface.h"
 #include "IOSWindow.h"
-#include "IOSAppDelegate.h"
+#include "Misc/CoreDelegates.h"
+#include "IOS/IOSAppDelegate.h"
 #include "IInputDeviceModule.h"
-#include "IInputInterface.h"
+#include "GenericPlatform/IInputInterface.h"
 #include "IInputDevice.h"
 #include "Misc/ScopeLock.h"
+#include "HAL/IConsoleManager.h"
 
+static TAutoConsoleVariable<float> CVarIOSSafeZoneMarginLeft(TEXT("IOSSafeZoneMarginLeft"), 0.f, TEXT("IOS SafeZone Margin Left"), ECVF_Scalability);
+static TAutoConsoleVariable<float> CVarIOSSafeZoneMarginTop(TEXT("IOSSafeZoneMarginTop"), 0.f, TEXT("IOS SafeZone Margin Top"), ECVF_Scalability);
+static TAutoConsoleVariable<float> CVarIOSSafeZoneMarginRight(TEXT("IOSSafeAoneMarginRight"), 0.f, TEXT("IOS SafeZone Margin Right"), ECVF_Scalability);
+static TAutoConsoleVariable<float> CVarIOSSafeZoneMarginBottom(TEXT("IOSSafeZoneMarginBottom"), 0.f, TEXT("IOS SafeZone Margin Bottom"), ECVF_Scalability);
 
 FCriticalSection FIOSApplication::CriticalSection;
 bool FIOSApplication::bOrientationChanged = false;
@@ -92,6 +98,7 @@ void FIOSApplication::PollGameDeviceState( const float TimeDelta )
 		FDisplayMetrics DisplayMetrics;
 		FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
 		BroadcastDisplayMetricsChanged(DisplayMetrics);
+		FCoreDelegates::OnSafeFrameChangedEvent.Broadcast();
 		bOrientationChanged = false;
 	}
 }
@@ -111,8 +118,25 @@ void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 	OutDisplayMetrics.PrimaryDisplayWidth = OutDisplayMetrics.PrimaryDisplayWorkAreaRect.Right - OutDisplayMetrics.PrimaryDisplayWorkAreaRect.Left;
 	OutDisplayMetrics.PrimaryDisplayHeight = OutDisplayMetrics.PrimaryDisplayWorkAreaRect.Bottom - OutDisplayMetrics.PrimaryDisplayWorkAreaRect.Top;
 
-	// Apply the debug safe zones
-	OutDisplayMetrics.ApplyDefaultSafeZones();
+	static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.MobileContentScaleFactor"));
+	float RequestedContentScaleFactor = CVar->GetFloat();
+
+#ifdef __IPHONE_11_0
+	if ([[[[UIApplication sharedApplication] delegate] window] respondsToSelector : @selector(safeAreaInsets)] == YES)
+	{
+		UIEdgeInsets insets = [[[[UIApplication sharedApplication] delegate] window] safeAreaInsets];
+
+		// Apply the debug safe zones
+		OutDisplayMetrics.TitleSafePaddingSize.X = insets.left * RequestedContentScaleFactor;
+		OutDisplayMetrics.TitleSafePaddingSize.Z = insets.right * RequestedContentScaleFactor;
+		OutDisplayMetrics.TitleSafePaddingSize.Y = insets.top * RequestedContentScaleFactor;
+		OutDisplayMetrics.TitleSafePaddingSize.W = insets.bottom * RequestedContentScaleFactor;
+	}
+	else
+#endif
+	{
+		OutDisplayMetrics.ApplyDefaultSafeZones();
+	}
 }
 
 TSharedRef< FGenericWindow > FIOSApplication::MakeWindow()

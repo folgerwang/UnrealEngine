@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Windows/WindowsPlatformMisc.h"
 #include "Misc/DateTime.h"
@@ -86,9 +86,6 @@ static TAutoConsoleVariable<int32> CVarDriverDetectionMethod(
 	TEXT("  3: Use Windows functions, use the primary device (might be wrong when API is using another adapter)\n")
 	TEXT("  4: Use Windows functions, use the one names like the DirectX Device (newest, most promising)"),
 	ECVF_RenderThreadSafe);
-
-typedef HRESULT(STDAPICALLTYPE *GetDpiForMonitorProc)(HMONITOR Monitor, int32 DPIType, uint32 *DPIX, uint32 *DPIY);
-CORE_API GetDpiForMonitorProc GetDpiForMonitor = nullptr;
 
 namespace
 {
@@ -558,67 +555,6 @@ static void SetProcessMemoryLimit( SIZE_T ProcessMemoryLimitMB )
 	const BOOL bAssign = ::AssignProcessToJobObject(JobObject, GetCurrentProcess());
 }
 
-void FWindowsPlatformMisc::SetHighDPIMode()
-{
-	if (!FParse::Param(FCommandLine::Get(), TEXT("nohighdpi")))
-	{
-		if (void* ShCoreDll = FPlatformProcess::GetDllHandle(TEXT("shcore.dll")))
-		{
-			typedef enum _PROCESS_DPI_AWARENESS {
-				PROCESS_DPI_UNAWARE = 0,
-				PROCESS_SYSTEM_DPI_AWARE = 1,
-				PROCESS_PER_MONITOR_DPI_AWARE = 2
-			} PROCESS_DPI_AWARENESS;
-
-			typedef HRESULT(STDAPICALLTYPE *SetProcessDpiAwarenessProc)(PROCESS_DPI_AWARENESS Value);
-			SetProcessDpiAwarenessProc SetProcessDpiAwareness = (SetProcessDpiAwarenessProc)FPlatformProcess::GetDllExport(ShCoreDll, TEXT("SetProcessDpiAwareness"));
-			GetDpiForMonitor = (GetDpiForMonitorProc)FPlatformProcess::GetDllExport(ShCoreDll, TEXT("GetDpiForMonitor"));
-
-			typedef HRESULT(STDAPICALLTYPE *GetProcessDpiAwarenessProc)(HANDLE hProcess, PROCESS_DPI_AWARENESS* Value);
-			GetProcessDpiAwarenessProc GetProcessDpiAwareness = (GetProcessDpiAwarenessProc)FPlatformProcess::GetDllExport(ShCoreDll, TEXT("GetProcessDpiAwareness"));
-
-			if (SetProcessDpiAwareness && GetProcessDpiAwareness && !IsRunningCommandlet() && !FApp::IsUnattended())
-			{
-				PROCESS_DPI_AWARENESS CurrentAwareness = PROCESS_DPI_UNAWARE;
-
-				GetProcessDpiAwareness(nullptr, &CurrentAwareness);
-
-				if(CurrentAwareness != PROCESS_PER_MONITOR_DPI_AWARE)
-				{
-					UE_LOG(LogInit, Log, TEXT("Setting process to per monitor DPI aware"));
-					HRESULT Hr = SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE); // PROCESS_PER_MONITOR_DPI_AWARE_VALUE
-					// We dont care about this warning if we are in any kind of headless mode
-					if (Hr != S_OK)
-					{
-						UE_LOG(LogInit, Warning, TEXT("SetProcessDpiAwareness failed.  Error code %x"), Hr);
-					}
-				}
-			}
-
-			FPlatformProcess::FreeDllHandle(ShCoreDll);
-		}
-		else if (void* User32Dll = FPlatformProcess::GetDllHandle(TEXT("user32.dll")))
-		{
-			typedef BOOL(WINAPI *SetProcessDpiAwareProc)(void);
-			SetProcessDpiAwareProc SetProcessDpiAware = (SetProcessDpiAwareProc)FPlatformProcess::GetDllExport(User32Dll, TEXT("SetProcessDPIAware"));
-
-			if (SetProcessDpiAware && !IsRunningCommandlet() && !FApp::IsUnattended())
-			{
-				UE_LOG(LogInit, Log, TEXT("Setting process to DPI aware"));
-
-				BOOL Result = SetProcessDpiAware();
-				if (Result == 0)
-				{
-					UE_LOG(LogInit, Warning, TEXT("SetProcessDpiAware failed"));
-				}
-			}
-
-			FPlatformProcess::FreeDllHandle(User32Dll);
-		}
-	}
-
-}
-
 void FWindowsPlatformMisc::PlatformPreInit()
 {
 	//SetProcessMemoryLimit( 92 );
@@ -954,6 +890,11 @@ bool FWindowsPlatformMisc::IsDebuggerPresent()
 	return !GIgnoreDebugger && !!::IsDebuggerPresent();
 }
 #endif // UE_BUILD_SHIPPING
+
+bool FWindowsPlatformMisc::IsRemoteSession()
+{
+	return ::GetSystemMetrics(SM_REMOTESESSION) != 0;
+}
 
 void FWindowsPlatformMisc::SetUTF8Output()
 {
@@ -1741,6 +1682,29 @@ int32 FWindowsPlatformMisc::NumberOfCoresIncludingHyperthreads()
 		CoreCount = (int32)SI.dwNumberOfProcessors;
 	}
 	return CoreCount;
+}
+
+int32 FWindowsPlatformMisc::NumberOfWorkerThreadsToSpawn()
+{
+	static int32 MaxServerWorkerThreads = 4;
+	static int32 MaxWorkerThreads = 26;
+
+	int32 NumberOfCores = FWindowsPlatformMisc::NumberOfCores();
+	int32 NumberOfCoresIncludingHyperthreads = FWindowsPlatformMisc::NumberOfCoresIncludingHyperthreads();
+	int32 NumberOfThreads = 0;
+
+	if (NumberOfCoresIncludingHyperthreads > NumberOfCores)
+	{
+		NumberOfThreads = NumberOfCoresIncludingHyperthreads - 2;
+	}
+	else
+	{
+		NumberOfThreads = NumberOfCores - 1;
+	}
+
+	int32 MaxWorkerThreadsWanted = IsRunningDedicatedServer() ? MaxServerWorkerThreads : MaxWorkerThreads;
+	// need to spawn at least one worker thread (see FTaskGraphImplementation)
+	return FMath::Max(FMath::Min(NumberOfThreads, MaxWorkerThreadsWanted), 1);
 }
 
 bool FWindowsPlatformMisc::OsExecute(const TCHAR* CommandType, const TCHAR* Command, const TCHAR* CommandLine)
@@ -2561,14 +2525,14 @@ uint32 FWindowsPlatformMisc::GetCPUInfo()
 
 bool FWindowsPlatformMisc::HasNonoptionalCPUFeatures()
 {
-	// Check for SSSE3 instruction support
-	return (FCPUIDQueriedData::GetCPUInfo2() & (1 << 9)) != 0;
+	// Check for popcnt is bit 23
+	return (FCPUIDQueriedData::GetCPUInfo2() & (1 << 23)) != 0;
 }
 
 bool FWindowsPlatformMisc::NeedsNonoptionalCPUFeaturesCheck()
 {
-	// popcnt is 64bit and intel only
-	return PLATFORM_64BITS && PLATFORM_CPU_X86_FAMILY;
+	// popcnt is 64bit
+	return PLATFORM_ENABLE_POPCNT_INTRINSIC;
 }
 
 int32 FWindowsPlatformMisc::GetCacheLineSize()

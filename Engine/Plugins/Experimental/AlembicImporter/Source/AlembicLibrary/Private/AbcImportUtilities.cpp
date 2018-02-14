@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AbcImportUtilities.h"
 #include "Stats/StatsMisc.h"
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 #endif
 
 THIRD_PARTY_INCLUDES_START
@@ -18,6 +18,7 @@ THIRD_PARTY_INCLUDES_START
 THIRD_PARTY_INCLUDES_END
 
 #include "AbcImportData.h"
+#include "Rendering/SkeletalMeshLODModel.h"
 
 #define LOCTEXT_NAMESPACE "AbcImporterUtilities"
 

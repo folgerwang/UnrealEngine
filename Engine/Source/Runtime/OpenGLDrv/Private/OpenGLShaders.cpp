@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	OpenGLShaders.cpp: OpenGL shader RHI implementation.
@@ -649,6 +649,23 @@ void OPENGLDRV_API GetCurrentOpenGLShaderDeviceCapabilities(FOpenGLShaderDeviceC
 
 #if PLATFORM_DESKTOP
 	Capabilities.TargetPlatform = EOpenGLShaderTargetPlatform::OGLSTP_Desktop;
+	if (FOpenGL::IsAndroidGLESCompatibilityModeEnabled())
+	{
+		Capabilities.TargetPlatform = EOpenGLShaderTargetPlatform::OGLSTP_Android;
+		Capabilities.bUseES30ShadingLanguage = false;
+		Capabilities.bSupportsStandardDerivativesExtension = true;
+		Capabilities.bSupportsRenderTargetFormat_PF_FloatRGBA = GSupportsRenderTargetFormat_PF_FloatRGBA;
+		Capabilities.bSupportsShaderFramebufferFetch = FOpenGL::SupportsShaderFramebufferFetch();
+		Capabilities.bRequiresARMShaderFramebufferFetchDepthStencilUndef = false;
+		Capabilities.bRequiresDontEmitPrecisionForTextureSamplers = false;
+		Capabilities.bSupportsShaderTextureLod = true;
+		Capabilities.bSupportsShaderTextureCubeLod = true;
+		Capabilities.bRequiresTextureCubeLodEXTToTextureCubeLodDefine = false;
+		Capabilities.bRequiresGLFragCoordVaryingLimitHack = false;
+		Capabilities.MaxVaryingVectors = FOpenGL::GetMaxVaryingVectors();
+		Capabilities.bRequiresTexture2DPrecisionHack = false;
+	}
+
 #elif PLATFORM_ANDROID
 	Capabilities.TargetPlatform = EOpenGLShaderTargetPlatform::OGLSTP_Android;
 	Capabilities.bUseES30ShadingLanguage = FOpenGL::UseES30ShadingLanguage();
@@ -663,6 +680,7 @@ void OPENGLDRV_API GetCurrentOpenGLShaderDeviceCapabilities(FOpenGLShaderDeviceC
 	Capabilities.bRequiresGLFragCoordVaryingLimitHack = FOpenGL::RequiresGLFragCoordVaryingLimitHack();
 	Capabilities.MaxVaryingVectors = FOpenGL::GetMaxVaryingVectors();
 	Capabilities.bRequiresTexture2DPrecisionHack = FOpenGL::RequiresTexture2DPrecisionHack();
+	Capabilities.bRequiresRoundFunctionHack = FOpenGL::RequiresRoundFunctionHack();
 #elif PLATFORM_HTML5
 	Capabilities.TargetPlatform = EOpenGLShaderTargetPlatform::OGLSTP_HTML5;
 	Capabilities.bUseES30ShadingLanguage = FOpenGL::UseES30ShadingLanguage();
@@ -684,7 +702,8 @@ void OPENGLDRV_API GetCurrentOpenGLShaderDeviceCapabilities(FOpenGLShaderDeviceC
 void OPENGLDRV_API GLSLToDeviceCompatibleGLSL(FAnsiCharArray& GlslCodeOriginal, const FString& ShaderName, GLenum TypeEnum, const FOpenGLShaderDeviceCapabilities& Capabilities, FAnsiCharArray& GlslCode)
 {
 	// Whether shader was compiled for ES 3.1
-	const bool bES31 = (FCStringAnsi::Strstr(GlslCodeOriginal.GetData(), "#version 310 es") != nullptr);
+	const ANSICHAR* ES310Version = "#version 310 es";
+	const bool bES31 = (FCStringAnsi::Strstr(GlslCodeOriginal.GetData(), ES310Version) != nullptr);
 
 	// Whether we need to emit mobile multi-view code or not.
 	const bool bEmitMobileMultiView = (FCStringAnsi::Strstr(GlslCodeOriginal.GetData(), "gl_ViewID_OVR") != nullptr);
@@ -697,19 +716,28 @@ void OPENGLDRV_API GLSLToDeviceCompatibleGLSL(FAnsiCharArray& GlslCodeOriginal, 
 #if PLATFORM_ANDROID
 	FOpenGL::EImageExternalType ImageExternalType = FOpenGL::GetImageExternalType();
 
-	if (ImageExternalType == FOpenGL::EImageExternalType::ImageExternal100)
+	if (bEmitTextureExternal && ImageExternalType == FOpenGL::EImageExternalType::ImageExternal100)
 	{
 		bUseES30ShadingLanguage = false;
 	}
 #endif
 
+	bool bNeedsExtDrawInstancedDefine = false;
 	if (Capabilities.TargetPlatform == EOpenGLShaderTargetPlatform::OGLSTP_Android || Capabilities.TargetPlatform == EOpenGLShaderTargetPlatform::OGLSTP_HTML5)
 	{
-		if (IsES2Platform(Capabilities.MaxRHIShaderPlatform) && !bES31)
+		bNeedsExtDrawInstancedDefine = !bES31;
+		if (bES31)
+		{
+			AppendCString(GlslCode, ES310Version);
+			AppendCString(GlslCode, "\n");
+			ReplaceCString(GlslCodeOriginal, ES310Version, "");
+		}
+		else if (IsES2Platform(Capabilities.MaxRHIShaderPlatform))
 		{
 			// #version NNN has to be the first line in the file, so it has to be added before anything else.
 			if (bUseES30ShadingLanguage)
 			{
+				bNeedsExtDrawInstancedDefine = false;
 				AppendCString(GlslCode, "#version 300 es\n");
 			}
 			else 
@@ -721,29 +749,33 @@ void OPENGLDRV_API GLSLToDeviceCompatibleGLSL(FAnsiCharArray& GlslCodeOriginal, 
 	}
 	else if (Capabilities.TargetPlatform == EOpenGLShaderTargetPlatform::OGLSTP_iOS)
 	{
+		bNeedsExtDrawInstancedDefine = true;
 		AppendCString(GlslCode, "#version 100\n");
 		ReplaceCString(GlslCodeOriginal, "#version 100", "");
 	}
 
-	if (bEmitMobileMultiView)
+	if (bNeedsExtDrawInstancedDefine)
 	{
-		MoveHashLines(GlslCode, GlslCodeOriginal);
+		// Check for the GL_EXT_draw_instanced extension if necessary (version < 300)
+		AppendCString(GlslCode, "#ifdef GL_EXT_draw_instanced\n");
+		AppendCString(GlslCode, "#define UE_EXT_draw_instanced 1\n");
+		AppendCString(GlslCode, "#endif\n");
+	}
 
-		if (GSupportsMobileMultiView)
-		{
-			AppendCString(GlslCode, "\n\n");
-			AppendCString(GlslCode, "#extension GL_OVR_multiview2 : enable\n");
-			AppendCString(GlslCode, "\n\n");
-		}
-		else
-		{
-			// Strip out multi-view for devices that don't support it.
-			AppendCString(GlslCode, "#define gl_ViewID_OVR 0\n");
-		}
+	// The incoming glsl may have preprocessor code that is dependent on defines introduced via the engine.
+	// This is the place to insert such engine preprocessor defines, immediately after the glsl version declaration.
+	if (Capabilities.bRequiresUEShaderFramebufferFetchDef && TypeEnum == GL_FRAGMENT_SHADER )
+	{
+		// Some devices (Zenfone5) support GL_EXT_shader_framebuffer_fetch but do not define GL_EXT_shader_framebuffer_fetch in GLSL compiler
+		// We can't define anything with GL_, so we use UE_EXT_shader_framebuffer_fetch to enable frame buffer fetch
+		AppendCString(GlslCode, "#define UE_EXT_shader_framebuffer_fetch 1\n");
 	}
 
 	if (bEmitTextureExternal)
 	{
+		// remove comment so MoveHashLines works as intended
+		ReplaceCString(GlslCodeOriginal, "// Uses samplerExternalOES", "");
+
 		MoveHashLines(GlslCode, GlslCodeOriginal);
 
 		if (GSupportsImageExternal)
@@ -775,6 +807,23 @@ void OPENGLDRV_API GLSLToDeviceCompatibleGLSL(FAnsiCharArray& GlslCodeOriginal, 
 		{
 			// Strip out texture external for devices that don't support it.
 			AppendCString(GlslCode, "#define samplerExternalOES sampler2D\n");
+		}
+	}
+
+	if (bEmitMobileMultiView)
+	{
+		MoveHashLines(GlslCode, GlslCodeOriginal);
+
+		if (GSupportsMobileMultiView)
+		{
+			AppendCString(GlslCode, "\n\n");
+			AppendCString(GlslCode, "#extension GL_OVR_multiview2 : enable\n");
+			AppendCString(GlslCode, "\n\n");
+		}
+		else
+		{
+			// Strip out multi-view for devices that don't support it.
+			AppendCString(GlslCode, "#define gl_ViewID_OVR 0\n");
 		}
 	}
 
@@ -822,17 +871,10 @@ void OPENGLDRV_API GLSLToDeviceCompatibleGLSL(FAnsiCharArray& GlslCodeOriginal, 
 		AppendCString(GlslCode, "\n\n");
 	}
 
-	if (Capabilities.bRequiresUEShaderFramebufferFetchDef && TypeEnum == GL_FRAGMENT_SHADER)
-	{
-		// Some devices (Zenfone5) support GL_EXT_shader_framebuffer_fetch but do not define GL_EXT_shader_framebuffer_fetch in GLSL compiler
-		// We can't define anything with GL_, so we use UE_EXT_shader_framebuffer_fetch to enable frame buffer fetch
-		AppendCString(GlslCode, "#define UE_EXT_shader_framebuffer_fetch 1\n");
-	}
-
 	if (Capabilities.TargetPlatform == EOpenGLShaderTargetPlatform::OGLSTP_Android)
 	{
 		// Temporary patch to remove #extension GL_OES_standard_derivaties if not supported
-		if (Capabilities.bSupportsStandardDerivativesExtension)
+		if (!Capabilities.bSupportsStandardDerivativesExtension)
 		{
 			const ANSICHAR * FoundPointer = FCStringAnsi::Strstr(GlslCodeOriginal.GetData(), "#extension GL_OES_standard_derivatives");
 			if (FoundPointer != nullptr)
@@ -958,6 +1000,54 @@ void OPENGLDRV_API GLSLToDeviceCompatibleGLSL(FAnsiCharArray& GlslCodeOriginal, 
 							"#define textureCubeLodEXT textureCubeLod \n");
 					}
 
+					if (Capabilities.bRequiresRoundFunctionHack)
+					{
+						const bool bIsMediumPrecision = (FCStringAnsi::Strstr(GlslCodeOriginal.GetData(), "precision mediump float;") != nullptr);
+
+						if (!bIsMediumPrecision)
+						{
+							AppendCString(GlslCode,
+								"highp float round(highp float value)\n"
+								"{\n"
+								"	return floor(value + 0.5);\n"
+								"}\n"
+								"highp vec2 round(highp vec2 value)\n"
+								"{\n"
+								"	return floor(value + vec2(0.5, 0.5));\n"
+								"}\n"
+								"highp vec3 round(highp vec3 value)\n"
+								"{\n"
+								"	return floor(value + vec3(0.5, 0.5, 0.5));\n"
+								"}\n"
+								"highp vec4 round(highp vec4 value)\n"
+								"{\n"
+								"	return floor(value + vec4(0.5, 0.5, 0.5, 0.5));\n"
+								"}\n"
+							);
+						}
+						else
+						{
+							AppendCString(GlslCode,
+								"mediump float round(mediump float value)\n"
+								"{\n"
+								"	return floor(value + 0.5);\n"
+								"}\n"
+								"mediump vec2 round(mediump vec2 value)\n"
+								"{\n"
+								"	return floor(value + vec2(0.5, 0.5));\n"
+								"}\n"
+								"mediump vec3 round(mediump vec3 value)\n"
+								"{\n"
+								"	return floor(value + vec3(0.5, 0.5, 0.5));\n"
+								"}\n"
+								"mediump vec4 round(mediump vec4 value)\n"
+								"{\n"
+								"	return floor(value + vec4(0.5, 0.5, 0.5, 0.5));\n"
+								"}\n"
+							);
+						}
+					}
+
 					// Deal with gl_FragCoord using one of the varying vectors and shader possibly exceeding the limit
 					if (Capabilities.bRequiresGLFragCoordVaryingLimitHack)
 					{
@@ -1071,6 +1161,7 @@ static void MarkShaderParameterCachesDirty(FOpenGLShaderParameterCache* ShaderPa
 void FOpenGLDynamicRHI::BindUniformBufferBase(FOpenGLContextState& ContextState, int32 NumUniformBuffers, FUniformBufferRHIRef* BoundUniformBuffers, uint32 FirstUniformBuffer, bool ForceUpdate)
 {
 	SCOPE_CYCLE_COUNTER_DETAILED(STAT_OpenGLUniformBindTime);
+	VERIFY_GL_SCOPE();
 	checkSlow(IsInRenderingThread());
 	for (int32 BufferIndex = 0; BufferIndex < NumUniformBuffers; ++BufferIndex)
 	{

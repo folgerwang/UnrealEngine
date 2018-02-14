@@ -1,9 +1,9 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "NiagaraStackEntry.h"
-#include "Reply.h"
+#include "ViewModels/Stack/NiagaraStackEntry.h"
+#include "Input/Reply.h"
 #include "Layout/Visibility.h"
 #include "NiagaraStackErrorItem.generated.h"
 

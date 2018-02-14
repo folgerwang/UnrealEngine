@@ -1,12 +1,12 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once 
 
 #include "StandaloneRendererPrivate.h"
 #include "OpenGL/SlateOpenGLRenderer.h"
-#include "MacWindow.h"
-#include "MacTextInputMethodSystem.h"
-#include "CocoaTextView.h"
+#include "Mac/MacWindow.h"
+#include "Mac/MacTextInputMethodSystem.h"
+#include "Mac/CocoaTextView.h"
 #include <OpenGL/gl.h>
 #include <OpenGL/glext.h>
 

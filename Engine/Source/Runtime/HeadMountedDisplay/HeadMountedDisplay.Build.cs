@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -12,7 +12,13 @@ public class HeadMountedDisplay : ModuleRules
 			}
 		);
 
-		PrivateDependencyModuleNames.AddRange(
+        PrivateIncludePaths.AddRange(
+            new string[] {
+                "Runtime/Renderer/Private"
+            }
+        );
+
+        PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"Core",
 				"CoreUObject",
@@ -28,5 +34,14 @@ public class HeadMountedDisplay : ModuleRules
                 "Analytics"
             }
         );
+
+		if (Target.bBuildEditor == true)
+		{
+			PrivateDependencyModuleNames.AddRange(
+				new string[]
+				{
+					"UnrealEd"
+				});
+		}
 	}
 }

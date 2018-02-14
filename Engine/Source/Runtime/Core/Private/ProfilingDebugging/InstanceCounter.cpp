@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ProfilingDebugging/InstanceCounter.h"
 #include "Misc/ScopeLock.h"
 #include "Logging/LogMacros.h"
-#include "IConsoleManager.h"
+#include "HAL/IConsoleManager.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogInstanceCount, Log, All);
 

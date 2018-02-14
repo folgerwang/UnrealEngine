@@ -1,19 +1,24 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "HeadMountedDisplayBase.h"
 
 #include "DefaultStereoLayers.h"
 #include "EngineAnalytics.h"
-#include "IAnalyticsProvider.h"
+#include "Interfaces/IAnalyticsProvider.h"
 #include "AnalyticsEventAttribute.h"
 #include "Misc/CoreDelegates.h"
 #include "RenderingThread.h"
 #include "Engine/Texture.h"
 #include "DefaultSpectatorScreenController.h"
+#include "DefaultXRCamera.h"
+#include "Engine/Engine.h"
+#if WITH_EDITOR
+#include "Editor/EditorEngine.h" // for UEditorEngine::IsHMDTrackingAllowed()
+#endif
 
 // including interface headers without their own implementation file, so that 
 // functions (default ctors, etc.) get compiled into this module
-#include "IXRDeviceAssets.h"
+#include "IXRSystemAssets.h"
 
 void FHeadMountedDisplayBase::RecordAnalytics()
 {
@@ -31,7 +36,7 @@ bool FHeadMountedDisplayBase::PopulateAnalyticsAttributes(TArray<FAnalyticsEvent
 	IHeadMountedDisplay::MonitorInfo MonitorInfo;
 	GetHMDMonitorInfo(MonitorInfo);
 
-	EventAttributes.Add(FAnalyticsEventAttribute(TEXT("DeviceName"), GetDeviceName().ToString()));
+	EventAttributes.Add(FAnalyticsEventAttribute(TEXT("DeviceName"), GetSystemName().ToString()));
 	EventAttributes.Add(FAnalyticsEventAttribute(TEXT("DisplayDeviceName"), *MonitorInfo.MonitorName));
 #if PLATFORM_WINDOWS
 	EventAttributes.Add(FAnalyticsEventAttribute(TEXT("DisplayId"), MonitorInfo.MonitorId));
@@ -48,32 +53,65 @@ bool FHeadMountedDisplayBase::PopulateAnalyticsAttributes(TArray<FAnalyticsEvent
 	return true;
 }
 
+bool FHeadMountedDisplayBase::IsHeadTrackingAllowed() const
+{
+#if WITH_EDITOR
+	if (GIsEditor)
+	{
+		// @todo vreditor: We need to do a pass over VREditor code and make sure we are handling the VR modes correctly.  HeadTracking can be enabled without Stereo3D, for example
+		UEditorEngine* EdEngine = Cast<UEditorEngine>(GEngine);
+		return (!EdEngine || EdEngine->IsHMDTrackingAllowed()) && IsStereoEnabled();
+	}
+#endif // WITH_EDITOR
+	return IsStereoEnabled();
+}
 
 IStereoLayers* FHeadMountedDisplayBase::GetStereoLayers()
 {
 	if (!DefaultStereoLayers.IsValid())
 	{
-		DefaultStereoLayers = MakeShared<FDefaultStereoLayers, ESPMode::ThreadSafe>(this);
+		DefaultStereoLayers = FSceneViewExtensions::NewExtension<FDefaultStereoLayers>(this);
 	}
 	return DefaultStereoLayers.Get();
 }
 
-void FHeadMountedDisplayBase::GatherViewExtensions(TArray<TSharedPtr<class ISceneViewExtension, ESPMode::ThreadSafe>>& OutViewExtensions)
+bool FHeadMountedDisplayBase::GetHMDDistortionEnabled(EShadingPath /* ShadingPath */) const
 {
-	if (DefaultStereoLayers.IsValid())
-	{
-		OutViewExtensions.Add(StaticCastSharedPtr<ISceneViewExtension>(DefaultStereoLayers));
-	}
-	IHeadMountedDisplay::GatherViewExtensions(OutViewExtensions);
+	return true;
 }
 
-void FHeadMountedDisplayBase::ApplyLateUpdate(FSceneInterface* Scene, const FTransform& OldRelativeTransform, const FTransform& NewRelativeTransform)
+FVector2D FHeadMountedDisplayBase::GetEyeCenterPoint_RenderThread(EStereoscopicPass Eye) const
+{
+	check(IsInRenderingThread());
+
+	if (!IsStereoEnabled())
+	{
+		return FVector2D(0.5f, 0.5f);
+	}
+
+	const FMatrix StereoProjectionMatrix = GetStereoProjectionMatrix(Eye);
+	//0,0,1 is the straight ahead point, wherever it maps to is the center of the projection plane in -1..1 coordinates.  -1,-1 is bottom left.
+	const FVector4 ScreenCenter = StereoProjectionMatrix.TransformPosition(FVector(0.0f, 0.0f, 1.0f));
+	//transform into 0-1 screen coordinates 0,0 is top left.  
+	const FVector2D CenterPoint(0.5f + (ScreenCenter.X / 2.0f), 0.5f - (ScreenCenter.Y / 2.0f));
+	return CenterPoint;
+}
+
+void FHeadMountedDisplayBase::OnLateUpdateApplied_RenderThread(const FTransform& NewRelativeTransform)
 {
 	if (DefaultStereoLayers.IsValid())
 	{
 		DefaultStereoLayers->UpdateHmdTransform(NewRelativeTransform);
 	}
-	IHeadMountedDisplay::ApplyLateUpdate(Scene, OldRelativeTransform, NewRelativeTransform);
+}
+
+void FHeadMountedDisplayBase::CalculateStereoViewOffset(const enum EStereoscopicPass StereoPassType, FRotator& ViewRotation, const float WorldToMeters, FVector& ViewLocation)
+{
+	GetXRCamera()->CalculateStereoCameraOffset(StereoPassType, ViewRotation, ViewLocation);
+}
+
+void FHeadMountedDisplayBase::InitCanvasFromView(FSceneView* InView, UCanvas* Canvas)
+{
 }
 
 bool FHeadMountedDisplayBase::IsSpectatorScreenActive() const
@@ -91,3 +129,26 @@ class ISpectatorScreenController const * FHeadMountedDisplayBase::GetSpectatorSc
 {
 	return SpectatorScreenController.Get();
 }
+
+void FHeadMountedDisplayBase::CVarSinkHandler()
+{
+	check(IsInGameThread());
+
+	if (GEngine && GEngine->XRSystem.IsValid())
+	{
+		static const auto PixelDensityCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("vr.PixelDensity"));
+		IHeadMountedDisplay* const HMDDevice = GEngine->XRSystem->GetHMDDevice();
+		if (HMDDevice && PixelDensityCVar)
+		{
+			float NewPixelDensity = PixelDensityCVar->GetFloat();
+			if (NewPixelDensity < PixelDensityMin || NewPixelDensity > PixelDensityMax)
+			{
+				UE_LOG(LogHMD, Warning, TEXT("Invalid pixel density. Valid values must be within the range: [%f, %f]."), PixelDensityMin, PixelDensityMax);
+				NewPixelDensity = FMath::Clamp(NewPixelDensity, PixelDensityMin, PixelDensityMax);
+			}
+			HMDDevice->SetPixelDensity(NewPixelDensity);
+		}
+	}
+}
+
+FAutoConsoleVariableSink FHeadMountedDisplayBase::CVarSink(FConsoleCommandDelegate::CreateStatic(&FHeadMountedDisplayBase::CVarSinkHandler));

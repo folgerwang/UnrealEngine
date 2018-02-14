@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "PacketHandler.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 /** Encryption Handler Component Module Interface */
 class FEncryptionHandlerComponentModuleInterface : public FPacketHandlerComponentModuleInterface

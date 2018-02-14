@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SFoliageEdit.h"
 #include "Fonts/SlateFontInfo.h"
@@ -24,8 +24,8 @@
 #include "IIntroTutorials.h"
 #include "Widgets/Input/SNumericEntryBox.h"
 #include "SFoliagePalette.h"
-#include "SHeader.h"
-#include "SSeparator.h"
+#include "Widgets/Layout/SHeader.h"
+#include "Widgets/Layout/SSeparator.h"
 
 #define LOCTEXT_NAMESPACE "FoliageEd_Mode"
 

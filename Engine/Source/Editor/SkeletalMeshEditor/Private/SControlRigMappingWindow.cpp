@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SControlRigMappingWindow.h"
 #include "Misc/MessageDialog.h"
@@ -14,7 +14,7 @@
 #include "ContentBrowserModule.h"
 #include "Engine/Blueprint.h"
 #include "Engine/SkeletalMesh.h"
-#include "NodeMappingProviderInterface.h"
+#include "Animation/NodeMappingProviderInterface.h"
 #include "AnimationRuntime.h"
 
 #define LOCTEXT_NAMESPACE "SControlRigMappingWindow"

@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "IScriptGeneratorPluginInterface.h"
 #include "UnrealHeaderTool.h"
 #include "UObject/ErrorException.h"
-#include "Containers/Algo/FindSortedStringCaseInsensitive.h"
+#include "Algo/FindSortedStringCaseInsensitive.h"
 
 EBuildModuleType::Type EBuildModuleType::Parse(const TCHAR* Value)
 {

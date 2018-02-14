@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MacWindow.h"
-#include "MacApplication.h"
-#include "MacCursor.h"
-#include "CocoaTextView.h"
-#include "CocoaThread.h"
-#include "MacPlatformApplicationMisc.h"
+#include "Mac/MacWindow.h"
+#include "Mac/MacApplication.h"
+#include "Mac/MacCursor.h"
+#include "Mac/CocoaTextView.h"
+#include "Mac/CocoaThread.h"
+#include "Mac/MacPlatformApplicationMisc.h"
 #include "HAL/PlatformProcess.h"
 
 FMacWindow::FMacWindow()
@@ -13,6 +13,7 @@ FMacWindow::FMacWindow()
 ,	DisplayID(kCGNullDirectDisplay)
 ,	bIsVisible(false)
 ,	bIsClosed(false)
+,	bIsFirstTimeVisible(true)
 {
 }
 
@@ -45,7 +46,7 @@ void FMacWindow::Initialize( FMacApplication* const Application, const TSharedRe
 	PositionX = Definition->XDesiredPositionOnScreen;
 	PositionY = Definition->YDesiredPositionOnScreen >= TargetScreen->VisibleFramePixels.origin.y ? Definition->YDesiredPositionOnScreen : TargetScreen->VisibleFramePixels.origin.y;
 
-	const float ScreenDPIScaleFactor = MacApplication->IsHighDPIModeEnabled() ? TargetScreen->Screen.backingScaleFactor : 1.0f;
+	const float ScreenDPIScaleFactor = FPlatformApplicationMisc::IsHighDPIModeEnabled() ? TargetScreen->Screen.backingScaleFactor : 1.0f;
 	const FVector2D CocoaPosition = FMacApplication::ConvertSlatePositionToCocoa(PositionX, PositionY);
 	const NSRect ViewRect = NSMakeRect(CocoaPosition.X, CocoaPosition.Y - (SizeY / ScreenDPIScaleFactor) + 1, SizeX / ScreenDPIScaleFactor, SizeY / ScreenDPIScaleFactor);
 
@@ -127,6 +128,8 @@ void FMacWindow::Initialize( FMacApplication* const Application, const TSharedRe
 
 			[WindowHandle setLevel:WindowLevel];
 
+			WindowedModeSavedState.WindowLevel = WindowLevel;
+
 			if( !Definition->HasOSWindowBorder )
 			{
 				[WindowHandle setBackgroundColor: [NSColor clearColor]];
@@ -156,6 +159,12 @@ void FMacWindow::Initialize( FMacApplication* const Application, const TSharedRe
 				if( Definition->HasOSWindowBorder )
 				{
 					[WindowHandle setCollectionBehavior: NSWindowCollectionBehaviorFullScreenPrimary|NSWindowCollectionBehaviorDefault|NSWindowCollectionBehaviorManaged|NSWindowCollectionBehaviorParticipatesInCycle];
+
+					// By default NSResizableWindowMask enables zoom button as well, so we need to disable it if that's what the project requests
+					if (Definition->HasSizingFrame && !Definition->SupportsMaximize)
+					{
+						[[WindowHandle standardWindowButton:NSWindowZoomButton] setEnabled:NO];
+					}
 				}
 				else
 				{
@@ -227,7 +236,7 @@ bool FMacWindow::GetFullScreenInfo( int32& X, int32& Y, int32& Width, int32& Hei
 	const FVector2D SlatePosition = FMacApplication::ConvertCocoaPositionToSlate(Frame.origin.x, Frame.origin.y - Frame.size.height + 1.0f);
 	X = SlatePosition.X;
 	Y = SlatePosition.Y;
-	const float DPIScaleFactor = MacApplication->IsHighDPIModeEnabled() ? WindowHandle.screen.backingScaleFactor : 1.0f;
+	const float DPIScaleFactor = FPlatformApplicationMisc::IsHighDPIModeEnabled() ? WindowHandle.screen.backingScaleFactor : 1.0f;
 	Width = Frame.size.width * DPIScaleFactor;
 	Height = Frame.size.height * DPIScaleFactor;
 	return true;
@@ -250,6 +259,8 @@ void FMacWindow::BringToFront( bool bForce )
 			SCOPED_AUTORELEASE_POOL;
 			[WindowHandle orderFrontAndMakeMain:IsRegularWindow() andKey:IsRegularWindow()];
 		}, UE4ShowEventMode, true);
+
+		MacApplication->OnWindowOrderedFront(SharedThis(this));
 	}
 }
 
@@ -307,12 +318,34 @@ void FMacWindow::Show()
 {
 	if (!bIsClosed && !bIsVisible)
 	{
-		const bool bMakeMainAndKey = [WindowHandle canBecomeKeyWindow] && Definition->ActivationPolicy != EWindowActivationPolicy::Never;
+		// Should the show command include activation?
+		// Do not activate windows that do not take input; e.g. tool-tips and cursor decorators
+		bool bShouldActivate = false;
+		if (Definition->AcceptsInput)
+		{
+			bShouldActivate = Definition->ActivationPolicy == EWindowActivationPolicy::Always;
+			if (bIsFirstTimeVisible && Definition->ActivationPolicy == EWindowActivationPolicy::FirstShown)
+			{
+				bShouldActivate = true;
+			}
+		}
+
+		bIsFirstTimeVisible = false;
 
 		MainThreadCall(^{
 			SCOPED_AUTORELEASE_POOL;
-			[WindowHandle orderFrontAndMakeMain:bMakeMainAndKey andKey:bMakeMainAndKey];
-		}, UE4ShowEventMode, false);
+			[WindowHandle orderFrontAndMakeMain:bShouldActivate andKey:bShouldActivate];
+		}, UE4ShowEventMode, true);
+
+		if (bShouldActivate)
+		{
+			// Tell MacApplication to send window deactivate and activate messages to Slate without waiting for Cocoa events.
+			MacApplication->OnWindowActivated(SharedThis(this));
+		}
+		else
+		{
+			MacApplication->OnWindowOrderedFront(SharedThis(this));
+		}
 
 		bIsVisible = true;
 	}
@@ -327,7 +360,7 @@ void FMacWindow::Hide()
 		MainThreadCall(^{
 			SCOPED_AUTORELEASE_POOL;
 			[WindowHandle orderOut:nil];
-		}, UE4CloseEventMode, false);
+		}, UE4CloseEventMode, true);
 	}
 }
 
@@ -368,7 +401,7 @@ bool FMacWindow::GetRestoredDimensions(int32& X, int32& Y, int32& Width, int32& 
 
 		const FVector2D SlatePosition = FMacApplication::ConvertCocoaPositionToSlate(Frame.origin.x, Frame.origin.y);
 
-		const float DPIScaleFactor = MacApplication->IsHighDPIModeEnabled() ? WindowHandle.backingScaleFactor : 1.0f;
+		const float DPIScaleFactor = FPlatformApplicationMisc::IsHighDPIModeEnabled() ? WindowHandle.backingScaleFactor : 1.0f;
 		Width = Frame.size.width * DPIScaleFactor;
 		Height = Frame.size.height * DPIScaleFactor;
 
@@ -389,6 +422,8 @@ void FMacWindow::SetWindowFocus()
 		SCOPED_AUTORELEASE_POOL;
 		[WindowHandle orderFrontAndMakeMain:true andKey:true];
 	}, UE4ShowEventMode, true);
+
+	MacApplication->OnWindowOrderedFront(SharedThis(this));
 }
 
 void FMacWindow::SetOpacity( const float InOpacity )
@@ -478,7 +513,7 @@ bool FMacWindow::IsRegularWindow() const
 
 float FMacWindow::GetDPIScaleFactor() const
 {
-	return MacApplication->IsHighDPIModeEnabled() ? WindowHandle.backingScaleFactor : 1.0f;
+	return FPlatformApplicationMisc::IsHighDPIModeEnabled() ? WindowHandle.backingScaleFactor : 1.0f;
 }
 
 void FMacWindow::OnDisplayReconfiguration(CGDirectDisplayID Display, CGDisplayChangeSummaryFlags Flags)
@@ -635,7 +670,7 @@ void FMacWindow::UpdateFullScreenState(bool bToggleFullScreen)
 			}
 			[NSApp setPresentationOptions:NSApplicationPresentationHideDock | NSApplicationPresentationHideMenuBar];
 		}
-		else
+		else if (WindowHandle.level != WindowedModeSavedState.WindowLevel)
 		{
 			[WindowHandle setLevel:WindowedModeSavedState.WindowLevel];
 			[NSApp setPresentationOptions:NSApplicationPresentationDefault];

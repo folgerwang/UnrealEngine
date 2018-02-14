@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintCompilerCppBackendUtils.h"
 #include "Misc/App.h"
@@ -40,6 +40,7 @@ FString FEmitterLocalContext::FindGloballyMappedObject(const UObject* Object, co
 		}
 	}
 
+	UUserDefinedStruct* ActualUserStruct = Cast<UUserDefinedStruct>(Dependencies.GetActualStruct());
 	UClass* ActualClass = Cast<UClass>(Dependencies.GetActualStruct());
 	UClass* OriginalActualClass = Dependencies.FindOriginalClass(ActualClass);
 	UClass* OuterClass = Object ? Cast<UClass>(Object->GetOuter()) : nullptr;	// SCS component templates will have an Outer that equates to their owning BPGC; since they're not currently DSOs, we have to special-case them.
@@ -197,7 +198,6 @@ FString FEmitterLocalContext::FindGloballyMappedObject(const UObject* Object, co
 		}
 	}
 
-	// TODO: handle subobjects
 	ensure(!bLoadIfNotFound || Object);
 	if (Object && (bLoadIfNotFound || bTryUsedAssetsList))
 	{
@@ -207,6 +207,39 @@ FString FEmitterLocalContext::FindGloballyMappedObject(const UObject* Object, co
 			if (INDEX_NONE == AssetIndex && Dependencies.Assets.Contains(Object))
 			{
 				AssetIndex = UsedObjectInCurrentClass.Add(Object);
+			}
+
+			if (INDEX_NONE == AssetIndex)
+			{
+				// Handle subobjects of assets
+				UPackage* Outermost = Object->GetOutermost();
+				if(Object->GetOuter() != Outermost)
+				{
+					// Try to see if an already referenced object exists in our outer chain
+					UObject* ObjectOuter = Object->GetOuter();
+					while(ObjectOuter != Outermost)
+					{
+						if (Dependencies.Assets.Contains(ObjectOuter))
+						{
+							// Add the outer if it hasnt been added already
+							int32 OuterAssetIndex = UsedObjectInCurrentClass.IndexOfByKey(ObjectOuter);
+							if(INDEX_NONE == OuterAssetIndex)
+							{
+								UsedObjectInCurrentClass.Add(ObjectOuter);
+							}
+
+							// Then add the inner object (again, if it hasnt already been added)
+							AssetIndex = UsedObjectInCurrentClass.IndexOfByKey(Object);
+							if(INDEX_NONE == AssetIndex)
+							{
+								AssetIndex = UsedObjectInCurrentClass.Add(Object);
+							}
+							break;
+						}
+
+						ObjectOuter = ObjectOuter->GetOuter();
+					}
+				}
 			}
 
 			if (INDEX_NONE != AssetIndex)
@@ -225,6 +258,15 @@ FString FEmitterLocalContext::FindGloballyMappedObject(const UObject* Object, co
 				, *ClassString()
 				, *(Object->GetPathName().ReplaceCharWithEscapedChar()));
 		}
+	}
+
+	if (Object && ActualUserStruct)
+	{
+		// For user structs, the default action of loading is unsafe so call the wrapper function
+		return FString::Printf(TEXT("CastChecked<%s>(FConvertedBlueprintsDependencies::LoadObjectForStructConstructor(%s::StaticStruct(),TEXT(\"%s\")), ECastCheckedType::NullAllowed)")
+			, *ClassString()
+			, *FEmitHelper::GetCppName(ActualUserStruct)
+			, *(Object->GetPathName().ReplaceCharWithEscapedChar()));
 	}
 
 	return FString{};
@@ -1072,7 +1114,7 @@ FString FEmitHelper::LiteralTerm(FEmitterLocalContext& EmitterContext, const FEd
 				EmitterContext.AddLine(FString::Printf(TEXT("auto %s = %s%s;")
 					, *LocalStructNativeName
 					, *StructName
-					, AsUDS ? TEXT("::GetDefaultValue()") : FEmitHelper::EmptyDefaultConstructor(StructType)));
+					, FEmitHelper::EmptyDefaultConstructor(StructType)));
 				if (AsUDS)
 				{
 					EmitterContext.StructsWithDefaultValuesUsed.Add(AsUDS);
@@ -1410,19 +1452,25 @@ bool FEmitHelper::GenerateAutomaticCast(FEmitterLocalContext& EmitterContext, co
 			return RType.IsArray() && LClass && RClass && (LClass->IsChildOf(RClass) || RClass->IsChildOf(LClass)) && (LClass != RClass);
 		};
 
+		// No need to check both types here because we already checked for a match above.
 		const bool bIsClassTerm = LType.PinCategory == UEdGraphSchema_K2::PC_Class;
-		auto GetTypeString = [bIsClassTerm](UClass* TermType, const UObjectProperty* AssociatedProperty)->FString
+		const bool bIsObjectTerm = LType.PinCategory == UEdGraphSchema_K2::PC_Object;
+		const bool bIsSoftObjTerm = LType.PinCategory == UEdGraphSchema_K2::PC_SoftClass || LType.PinCategory == UEdGraphSchema_K2::PC_SoftObject;
+		auto GetTypeString = [bIsClassTerm, bIsSoftObjTerm](UClass* TermType, const UObjectPropertyBase* AssociatedProperty)->FString
 		{
 			// favor the property's CPPType since it makes choices based off of things like CPF_UObjectWrapper (which 
 			// adds things like TSubclassof<> to the decl)... however, if the property type doesn't match the term 
 			// type, then ignore the property (this can happen for things like our array library, which uses wildcards 
 			// and custom thunks to allow differing types)
-			const bool bPropertyMatch = AssociatedProperty && ((AssociatedProperty->PropertyClass == TermType) ||
+			const bool bPropertyMatch = AssociatedProperty &&
+				(bIsSoftObjTerm ||
+				(AssociatedProperty->PropertyClass == TermType) ||
 				(bIsClassTerm && CastChecked<UClassProperty>(AssociatedProperty)->MetaClass == TermType));
 
 			if (bPropertyMatch)
 			{
 				// use GetCPPTypeCustom() so that it properly fills out nativized class names
+				// note: soft properties will use the term type that we pass in here in place of the internal MetaClass/PropertyClass, so we just always match them (above)
 				return AssociatedProperty->GetCPPTypeCustom(/*ExtendedTypeText=*/nullptr, CPPF_None, FEmitHelper::GetCppName(TermType));
 			}
 			else if (bIsClassTerm)
@@ -1434,15 +1482,16 @@ bool FEmitHelper::GenerateAutomaticCast(FEmitterLocalContext& EmitterContext, co
 
 		auto GetInnerTypeString = [GetTypeString](UClass* TermType, const UArrayProperty* ArrayProp)
 		{
-			const UObjectProperty* InnerProp = ArrayProp ? Cast<UObjectProperty>(ArrayProp->Inner) : nullptr;
+			const UObjectPropertyBase* InnerProp = ArrayProp ? Cast<UObjectPropertyBase>(ArrayProp->Inner) : nullptr;
 			return GetTypeString(TermType, InnerProp);
 		};
 
 		auto GenerateArrayCast = [&OutCastBegin, &OutCastEnd](const FString& LTypeStr, const FString& RTypeStr)
 		{
-			OutCastBegin = FString::Printf(TEXT("TArrayCaster< %s >("), *RTypeStr);
-			OutCastEnd   = FString::Printf(TEXT(").Get< %s >()"), *LTypeStr);
+			OutCastBegin = FString::Printf(TEXT("TArrayCaster<%s>("), *RTypeStr);
+			OutCastEnd   = FString::Printf(TEXT(").Get<%s>()"), *LTypeStr);
 		};
+
 		// CLASS/TSubClassOf<> to CLASS/TSubClassOf<>
 		if (bIsClassTerm)
 		{
@@ -1468,7 +1517,7 @@ bool FEmitHelper::GenerateAutomaticCast(FEmitterLocalContext& EmitterContext, co
 			}
 		}
 		// OBJECT to OBJECT
-		else if (LType.PinCategory == UEdGraphSchema_K2::PC_Object)
+		else if (bIsObjectTerm || bIsSoftObjTerm)
 		{
 			UClass* LClass = GetClassType(LType);
 			UClass* RClass = GetClassType(RType);
@@ -1476,14 +1525,25 @@ bool FEmitHelper::GenerateAutomaticCast(FEmitterLocalContext& EmitterContext, co
 			if (!RType.IsContainer() && LClass && RClass && (LType.bIsReference || bForceReference) && (LClass != RClass) && RClass->IsChildOf(LClass))
 			{
 				// when pointer is passed as reference, the type must be exactly the same
-				OutCastBegin = FString::Printf(TEXT("*(%s*)(&("), *GetTypeString(LClass, Cast<UObjectProperty>(LProp)));
+				OutCastBegin = FString::Printf(TEXT("*(%s*)(&("), *GetTypeString(LClass, Cast<UObjectPropertyBase>(LProp)));
 				OutCastEnd = TEXT("))");
 				return true;
 			}
 			if (!RType.IsContainer() && LClass && RClass && LClass->IsChildOf(RClass) && !RClass->IsChildOf(LClass))
 			{
-				OutCastBegin = FString::Printf(TEXT("CastChecked<%s>("), *FEmitHelper::GetCppName(LClass));
-				OutCastEnd = TEXT(", ECastCheckedType::NullAllowed)");
+				if (bIsObjectTerm)
+				{
+					OutCastBegin = FString::Printf(TEXT("CastChecked<%s>("), *FEmitHelper::GetCppName(LClass));
+					OutCastEnd = TEXT(", ECastCheckedType::NullAllowed)");
+				}
+				else
+				{
+					// TSoftClassPtr/TSoftObjectPtr cannot be implicitly downcast via assignment operator, but
+					// rather than emit an explicit cast here, we can just assign it to the wrapped object path.
+					OutCastBegin = TEXT("");
+					OutCastEnd = TEXT(".ToSoftObjectPath()");
+				}
+				
 				return true;
 			}
 			else if (RequiresArrayCast(LClass, RClass))
@@ -1871,7 +1931,8 @@ FString FDependenciesGlobalMapHelper::EmitBodyCode(const FString& PCHFilename)
 	CodeText.AddLine(FString::Printf(TEXT("#include \"%s.h\""), *PCHFilename));
 	{
 		FDisableUnwantedWarningOnScope DisableUnwantedWarningOnScope(CodeText);
-
+		FDisableOptimizationOnScope DisableOptimizationOnScope(CodeText);
+		
 		CodeText.AddLine("namespace");
 		CodeText.AddLine("{");
 		CodeText.IncreaseIndent();
@@ -1956,6 +2017,17 @@ FDisableUnwantedWarningOnScope::~FDisableUnwantedWarningOnScope()
 	CodeText.AddLine(TEXT("#ifdef _MSC_VER"));
 	CodeText.AddLine(TEXT("#pragma warning (pop)"));
 	CodeText.AddLine(TEXT("#endif"));
+}
+
+FDisableOptimizationOnScope::FDisableOptimizationOnScope(FCodeText& InCodeText)
+	: CodeText(InCodeText)
+{
+	CodeText.AddLine(TEXT("PRAGMA_DISABLE_OPTIMIZATION"));
+}
+
+FDisableOptimizationOnScope::~FDisableOptimizationOnScope()
+{
+	CodeText.AddLine(TEXT("PRAGMA_ENABLE_OPTIMIZATION"));
 }
 
 FScopeBlock::FScopeBlock(FEmitterLocalContext& InContext)

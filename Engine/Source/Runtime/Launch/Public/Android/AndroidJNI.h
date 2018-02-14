@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -49,7 +49,8 @@ public:
 	static jmethodID AndroidThunkJava_GetAndroidId;
 	static jmethodID AndroidThunkJava_SetSustainedPerformanceMode;
 
-	static jmethodID AndroidThunkCpp_IsVirtuaInputClicked;
+	static jmethodID AndroidThunkCpp_VirtualInputIgnoreClick;
+	static jmethodID AndroidThunkCpp_IsVirtuaKeyboardShown;
 
 	// InputDeviceInfo member field ids
 	static jclass InputDeviceInfoClass;
@@ -91,13 +92,18 @@ public:
 	// SurfaceView functionality for view scaling on some devices
 	static jmethodID AndroidThunkJava_UseSurfaceViewWorkaround;
 	static jmethodID AndroidThunkJava_SetDesiredViewSize;
-	static jmethodID AndroidThunkJava_IsVirtuaInputClicked;
+	static jmethodID AndroidThunkJava_VirtualInputIgnoreClick;
 
 	// member fields for getting the launch notification
 	static jclass LaunchNotificationClass;
 	static jfieldID LaunchNotificationUsed;
 	static jfieldID LaunchNotificationEvent;
 	static jfieldID LaunchNotificationFireDate;
+
+	// method and classes for thread name change
+	static jclass ThreadClass;
+	static jmethodID CurrentThreadMethod;
+	static jmethodID SetNameMethod;
 
 	/**
 	 * Find all known classes and methods

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UnMath.cpp: Unreal math routines
@@ -2594,6 +2594,23 @@ FVector FMath::VRandCone(FVector const& Dir, float HorizontalConeHalfAngleRad, f
 	}
 }
 
+FVector2D FMath::RandPointInCircle(float CircleRadius)
+{
+	FVector2D Point;
+	float L;
+
+	do
+	{
+		// Check random vectors in the unit circle so result is statistically uniform.
+		Point.X = FRand() * 2.f - 1.f;
+		Point.Y = FRand() * 2.f - 1.f;
+		L = Point.SizeSquared();
+	}
+	while (L > 1.0f);
+
+	return Point * CircleRadius;
+}
+
 FVector FMath::RandPointInBox(const FBox& Box)
 {
 	return FVector(	FRandRange(Box.Min.X, Box.Max.X),
@@ -2770,16 +2787,9 @@ FString FMath::FormatIntToHumanReadable(int32 Val)
 	FString Src = *FString::Printf(TEXT("%i"), Val);
 	FString Dst;
 
-	if (Val > 999)
+	while (Src.Len() > 3 && Src[Src.Len() - 4] != TEXT('-'))
 	{
-		Dst = FString::Printf(TEXT(",%s"), *Src.Mid(Src.Len() - 3, 3));
-		Src = Src.Left(Src.Len() - 3);
-
-	}
-
-	if (Val > 999999)
-	{
-		Dst = FString::Printf(TEXT(",%s%s"), *Src.Mid(Src.Len() - 3, 3), *Dst);
+		Dst = FString::Printf(TEXT(",%s%s"), *Src.Right(3), *Dst);
 		Src = Src.Left(Src.Len() - 3);
 	}
 

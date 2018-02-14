@@ -1,6 +1,6 @@
 // Copyright 2017 Google Inc.
 
-#include "Classes/GoogleVRControllerFunctionLibrary.h"
+#include "GoogleVRControllerFunctionLibrary.h"
 #include "GoogleVRController.h"
 #include "GoogleVRControllerPrivate.h"
 #include "InputCoreTypes.h"
@@ -101,7 +101,7 @@ FRotator UGoogleVRControllerFunctionLibrary::GetGoogleVRControllerOrientation()
 	{
 		FRotator orientation;
 		FVector position;
-		GVRController->GetControllerOrientationAndPosition(0, EControllerHand::Right, orientation, position, GVRController->GetWorldToMetersScale());
+		GVRController->GetControllerOrientationAndPosition(0, EControllerHand::AnyHand, orientation, position, GVRController->GetWorldToMetersScale());
 		return orientation;
 	}
 	return FRotator::ZeroRotator;
@@ -293,6 +293,29 @@ void UGoogleVRControllerFunctionLibrary::SetWillArmModelUseAccelerometer(bool Us
 		GVRController->GetArmModelController().SetUseAccelerometer(UseAccelerometer);
 	}
 #endif
+}
+
+void UGoogleVRControllerFunctionLibrary::SetArmModelIsLockedToHead(bool IsLockedToHead)
+{
+#if GOOGLEVRCONTROLLER_SUPPORTED_PLATFORMS
+	FGoogleVRController* GVRController = GetGoogleVRController();
+	if (GVRController != nullptr)
+	{
+		return GVRController->GetArmModelController().SetIsLockedToHead(IsLockedToHead);
+	}
+#endif
+}
+
+bool UGoogleVRControllerFunctionLibrary::GetArmModelIsLockedToHead()
+{
+#if GOOGLEVRCONTROLLER_SUPPORTED_PLATFORMS
+	FGoogleVRController* GVRController = GetGoogleVRController();
+	if (GVRController != nullptr)
+	{
+		return GVRController->GetArmModelController().GetIsLockedToHead();
+	}
+#endif
+	return false;
 }
 
 float UGoogleVRControllerFunctionLibrary::GetFadeDistanceFromFace()

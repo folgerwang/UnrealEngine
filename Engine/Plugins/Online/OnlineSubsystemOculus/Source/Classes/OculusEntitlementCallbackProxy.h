@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "Object.h"
-#include "OnlineBlueprintCallProxyBase.h"
-#include "OnlineIdentityInterface.h"
+#include "UObject/Object.h"
+#include "Net/OnlineBlueprintCallProxyBase.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 #include "OculusEntitlementCallbackProxy.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOculusEntitlementCheckResult);

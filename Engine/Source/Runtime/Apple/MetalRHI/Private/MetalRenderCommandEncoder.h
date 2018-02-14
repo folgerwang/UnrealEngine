@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -22,7 +22,9 @@ NS_ASSUME_NONNULL_BEGIN
     FMetalDebugBufferBindings ShaderBuffers[EMetalShaderRenderNum];
     FMetalDebugTextureBindings ShaderTextures[EMetalShaderRenderNum];
     FMetalDebugSamplerBindings ShaderSamplers[EMetalShaderRenderNum];
+	id<MTLRenderPipelineState> DebugState;
 #endif
+	MTLRenderPassDescriptor* RenderPassDesc;
 }
 
 /** The wrapped native command-encoder for which we collect debug information. */
@@ -31,7 +33,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, retain) FMetalShaderPipeline* Pipeline;
 
 /** Initialise the wrapper with the provided command-buffer. */
--(id)initWithEncoder:(id<MTLRenderCommandEncoder>)Encoder andCommandBuffer:(FMetalDebugCommandBuffer*)Buffer;
+-(id)initWithEncoder:(id<MTLRenderCommandEncoder>)Encoder fromDescriptor:(MTLRenderPassDescriptor*)RenderPassDesc andCommandBuffer:(FMetalDebugCommandBuffer*)Buffer;
 
 /** Validates the pipeline/binding state */
 -(bool)validateFunctionBindings:(EMetalShaderFrequency)Frequency;

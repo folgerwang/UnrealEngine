@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "WindowsPlatformStackWalkExt.h"
 #include "CrashDebugHelperPrivate.h"
@@ -12,11 +12,11 @@
 #include "HAL/PlatformProcess.h"
 #include "HAL/FileManager.h"
 
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include "dbgeng.h"
 #include <DbgHelp.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #pragma comment( lib, "dbgeng.lib" )
 

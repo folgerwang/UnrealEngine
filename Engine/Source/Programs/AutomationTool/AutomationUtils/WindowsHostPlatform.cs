@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -55,11 +55,6 @@ namespace AutomationTool
 		public override bool IsScriptModuleSupported(string ModuleName)
 		{
 			return true;
-		}
-
-		public override string UBTProjectName
-		{
-			get { return "UnrealBuildTool"; }
 		}
 
 		public override UnrealTargetPlatform HostEditorPlatform

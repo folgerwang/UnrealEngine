@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -16,7 +16,7 @@
 #include "Components.h"
 #include "Interfaces/Interface_CollisionDataProvider.h"
 #include "Engine/MeshMerging.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "StaticMeshResources.h"
 #include "StaticMesh.generated.h"
 
@@ -430,6 +430,9 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 #if WITH_EDITOR
 	/** Notification when bounds changed */
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnExtendedBoundsChanged, const FBoxSphereBounds&);
+
+	/** Notification when anything changed */
+	DECLARE_MULTICAST_DELEGATE(FOnMeshChanged);
 #endif
 
 	/** Pointer to the data used to render this static mesh. */
@@ -445,6 +448,17 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 	/** Map of LOD+Section index to per-section info. */
 	UPROPERTY()
 	FMeshSectionInfoMap SectionInfoMap;
+
+	/**
+	 * We need the OriginalSectionInfoMap to be able to build mesh in a non destructive way. Reduce has to play with SectionInfoMap in case some sections disappear.
+	 * This member will be update in the following situation
+	 * 1. After a static mesh import/reimport
+	 * 2. Postload, if the OriginalSectionInfoMap is empty, we will fill it with the current SectionInfoMap
+	 *
+	 * We do not update it when the user shuffle section in the staticmesh editor because the OriginalSectionInfoMap must always be in sync with the saved rawMesh bulk data.
+	 */
+	UPROPERTY()
+	FMeshSectionInfoMap OriginalSectionInfoMap;
 
 	/** The LOD group to which this mesh belongs. */
 	UPROPERTY(EditAnywhere, AssetRegistrySearchable, Category=LodSettings)
@@ -616,6 +630,7 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 
 #if WITH_EDITOR
 	FOnExtendedBoundsChanged OnExtendedBoundsChanged;
+	FOnMeshChanged OnMeshChanged;
 
 	/** This transient guid is use by the automation framework to modify the DDC key to force a build. */
 	FGuid BuildCacheAutomationTestGuid;
@@ -687,6 +702,7 @@ public:
 	ENGINE_API void BroadcastNavCollisionChange();
 
 	FOnExtendedBoundsChanged& GetOnExtendedBoundsChanged() { return OnExtendedBoundsChanged; }
+	FOnMeshChanged& GetOnMeshChanged() { return OnMeshChanged; }
 #endif // WITH_EDITOR
 
 	ENGINE_API virtual void Serialize(FArchive& Ar) override;

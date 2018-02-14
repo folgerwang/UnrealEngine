@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -113,8 +113,9 @@ private:
 	struct FPropertyConditionInfo
 	{
 	public:
-		/** Address of the target property. */
-		uint8* Address;
+		TWeakObjectPtr<UObject> Object;
+
+		uint8* BaseAddress;
 		/** Whether the condition should be negated. */
 		bool bNegateValue;
 	};
@@ -134,7 +135,7 @@ private:
 	 * Returns true if the value of the conditional property matches the value required.  Indicates whether editing or otherwise interacting with this item's
 	 * associated property should be allowed.
 	 */
-	static bool IsEditConditionMet( UBoolProperty* ConditionProperty, const TArray<FPropertyConditionInfo>& ConditionValues );
+	bool IsEditConditionMet( UBoolProperty* ConditionProperty, const TArray<FPropertyConditionInfo>& ConditionValues ) const;
 
 	/**
 	 * Finds the property being used to determine whether this item's associated property should be editable/expandable.

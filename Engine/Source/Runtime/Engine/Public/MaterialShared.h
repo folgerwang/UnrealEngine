@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MaterialShared.h: Shared material definitions.
@@ -21,7 +21,7 @@
 #include "VertexFactory.h"
 #include "SceneTypes.h"
 #include "StaticParameterSet.h"
-#include "Optional.h"
+#include "Misc/Optional.h"
 
 class FMaterial;
 class FMaterialCompiler;
@@ -55,10 +55,13 @@ template <class ElementType> class TLinkedList;
 
 #define ALLOW_DITHERED_LOD_FOR_INSTANCED_STATIC_MESHES (1)
 
+#define USE_EDITOR_ONLY_DEFAULT_MATERIAL_FALLBACK	(WITH_EDITOR && !(UE_BUILD_SHIPPING || UE_BUILD_TEST))
+
 DECLARE_LOG_CATEGORY_EXTERN(LogMaterial,Log,Verbose);
 
 /** Creates a string that represents the given quality level. */
 extern void GetMaterialQualityLevelName(EMaterialQualityLevel::Type InMaterialQualityLevel, FString& OutName);
+extern FName GetMaterialQualityLevelFName(EMaterialQualityLevel::Type InMaterialQualityLevel);
 
 inline bool IsSubsurfaceShadingModel(EMaterialShadingModel ShadingModel)
 {
@@ -496,14 +499,20 @@ public:
 	 */
 	EMaterialShaderMapUsage::Type Usage;
 
+private:
 	/** Static parameters and base Id. */
 	FStaticParameterSet ParameterSet;
+	FString ParameterSetLayerParametersKey;
 
+public:
 	/** Guids of any functions the material was dependent on. */
 	TArray<FGuid> ReferencedFunctions;
 
 	/** Guids of any Parameter Collections the material was dependent on. */
 	TArray<FGuid> ReferencedParameterCollections;
+
+	/** Guids of any Shared Input Collections the material was dependent on. */
+	TArray<FGuid> ReferencedSharedInputCollections;
 
 	/** Shader types of shaders that are inlined in this shader map in the DDC. */
 	TArray<FShaderTypeDependency> ShaderTypeDependencies;
@@ -549,6 +558,7 @@ public:
 		return sizeof(*this)
 			+ ReferencedFunctions.GetAllocatedSize()
 			+ ReferencedParameterCollections.GetAllocatedSize()
+			+ ReferencedSharedInputCollections.GetAllocatedSize()
 			+ ShaderTypeDependencies.GetAllocatedSize()
 			+ ShaderPipelineTypeDependencies.GetAllocatedSize()
 			+ VertexFactoryTypeDependencies.GetAllocatedSize();
@@ -568,6 +578,19 @@ public:
 	bool operator!=(const FMaterialShaderMapId& ReferenceSet) const
 	{
 		return !(*this == ReferenceSet);
+	}
+
+	/** Updates the Id's static parameter set */	
+	void UpdateParameterSet(FStaticParameterSet& StaticParameters);
+	
+	const FStaticParameterSet& GetParameterSet() const
+	{
+		return ParameterSet;
+	}
+
+	const FString& GetParameterSetLayerParametersKey() const
+	{
+		return ParameterSetLayerParametersKey;
 	}
 
 	/** Appends string representations of this Id to a key string. */
@@ -830,6 +853,21 @@ public:
 	const FUniformExpressionSet& GetUniformExpressionSet() const { return MaterialCompilationOutput.UniformExpressionSet; }
 
 	int32 GetNumRefs() const { return NumRefs; }
+
+	void CountNumShaders(int32& NumShaders, int32& NumPipelines) const
+	{
+		NumShaders = GetNumShaders();
+		NumPipelines = GetNumShaderPipelines();
+
+		for (FMeshMaterialShaderMap* MeshShaderMap : OrderedMeshShaderMaps)
+		{
+			if (MeshShaderMap)
+			{
+				NumShaders += MeshShaderMap->GetNumShaders();
+				NumPipelines += MeshShaderMap->GetNumShaderPipelines();
+			}
+		}
+	}
 
 private:
 
@@ -1139,6 +1177,9 @@ public:
 	virtual bool HasNormalConnected() const { return false; }
 	virtual bool RequiresSynchronousCompilation() const { return false; };
 	virtual bool IsDefaultMaterial() const { return false; };
+#if USE_EDITOR_ONLY_DEFAULT_MATERIAL_FALLBACK
+	virtual bool IsEditorOnlyDefaultMaterial() const { return false; };
+#endif
 	virtual int32 GetNumCustomizedUVs() const { return 0; }
 	virtual int32 GetBlendableLocation() const { return 0; }
 	virtual bool GetBlendableOutputAlpha() const { return false; }
@@ -1154,7 +1195,7 @@ public:
 	virtual void NotifyCompilationFinished() { }
 
 	/**
-	* Cancels all outstanding compilation jobs for this materail.
+	* Cancels all outstanding compilation jobs for this material.
 	*/
 	ENGINE_API void CancelCompilation();
 
@@ -1272,9 +1313,9 @@ public:
 	 * Note - Only implemented for FMeshMaterialShaderTypes
 	 */
 	template<typename ShaderType>
-	ShaderType* GetShader(FVertexFactoryType* VertexFactoryType) const
+	ShaderType* GetShader(FVertexFactoryType* VertexFactoryType, bool bFatalIfMissing = true) const
 	{
-		return (ShaderType*)GetShader(&ShaderType::StaticType, VertexFactoryType);
+		return (ShaderType*)GetShader(&ShaderType::StaticType, VertexFactoryType, bFatalIfMissing);
 	}
 
 	ENGINE_API FShaderPipeline* GetShaderPipeline(class FShaderPipelineType* ShaderPipelineType, FVertexFactoryType* VertexFactoryType, bool bFatalIfNotFound = true) const;
@@ -1299,7 +1340,13 @@ public:
 	/* Helper function to look at both IsMasked and IsDitheredLODTransition to determine if it writes every pixel */
 	ENGINE_API bool WritesEveryPixel(bool bShadowPass = false) const
 	{
-		return !IsMasked() && !(IsDitheredLODTransition() && bShadowPass) && !IsWireframe();
+		static TConsoleVariableData<int32>* CVarStencilDitheredLOD =
+			IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.StencilForLODDither"));
+
+		return !IsMasked()
+			// Render dithered material as masked if a stencil prepass is not used (UE-50064, UE-49537)
+			&& !((bShadowPass || !CVarStencilDitheredLOD->GetValueOnAnyThread()) && IsDitheredLODTransition())
+			&& !IsWireframe();
 	}
 
 	/** 
@@ -1451,7 +1498,7 @@ private:
 	/**
 	 * Finds the shader matching the template type and the passed in vertex factory, asserts if not found.
 	 */
-	ENGINE_API FShader* GetShader(class FMeshMaterialShaderType* ShaderType, FVertexFactoryType* VertexFactoryType) const;
+	ENGINE_API FShader* GetShader(class FMeshMaterialShaderType* ShaderType, FVertexFactoryType* VertexFactoryType, bool bFatalIfMissing = true) const;
 
 	void GetReferencedTexturesHash(EShaderPlatform Platform, FSHAHash& OutHash) const;
 
@@ -1544,9 +1591,9 @@ public:
 	/** Returns the FMaterial, without using a fallback if the FMaterial doesn't have a valid shader map. Can return NULL. */
 	virtual FMaterial* GetMaterialNoFallback(ERHIFeatureLevel::Type InFeatureLevel) const { return NULL; }
 	virtual UMaterialInterface* GetMaterialInterface() const { return NULL; }
-	virtual bool GetVectorValue(const FName ParameterName, FLinearColor* OutValue, const FMaterialRenderContext& Context) const = 0;
-	virtual bool GetScalarValue(const FName ParameterName, float* OutValue, const FMaterialRenderContext& Context) const = 0;
-	virtual bool GetTextureValue(const FName ParameterName,const UTexture** OutValue, const FMaterialRenderContext& Context) const = 0;
+	virtual bool GetVectorValue(const FMaterialParameterInfo& ParameterInfo, FLinearColor* OutValue, const FMaterialRenderContext& Context) const = 0;
+	virtual bool GetScalarValue(const FMaterialParameterInfo& ParameterInfo, float* OutValue, const FMaterialRenderContext& Context) const = 0;
+	virtual bool GetTextureValue(const FMaterialParameterInfo& ParameterInfo,const UTexture** OutValue, const FMaterialRenderContext& Context) const = 0;
 	bool IsSelected() const { return bSelected; }
 	bool IsHovered() const { return bHovered; }
 	bool IsDeleted() const
@@ -1645,9 +1692,9 @@ public:
 
 	// FMaterialRenderProxy interface.
 	ENGINE_API virtual const class FMaterial* GetMaterial(ERHIFeatureLevel::Type InFeatureLevel) const;
-	ENGINE_API virtual bool GetVectorValue(const FName ParameterName, FLinearColor* OutValue, const FMaterialRenderContext& Context) const;
-	ENGINE_API virtual bool GetScalarValue(const FName ParameterName, float* OutValue, const FMaterialRenderContext& Context) const;
-	ENGINE_API virtual bool GetTextureValue(const FName ParameterName,const UTexture** OutValue, const FMaterialRenderContext& Context) const;
+	ENGINE_API virtual bool GetVectorValue(const FMaterialParameterInfo& ParameterInfo, FLinearColor* OutValue, const FMaterialRenderContext& Context) const;
+	ENGINE_API virtual bool GetScalarValue(const FMaterialParameterInfo& ParameterInfo, float* OutValue, const FMaterialRenderContext& Context) const;
+	ENGINE_API virtual bool GetTextureValue(const FMaterialParameterInfo& ParameterInfo,const UTexture** OutValue, const FMaterialRenderContext& Context) const;
 };
 
 /**
@@ -1665,7 +1712,7 @@ public:
 	{}
 
 	// FMaterialRenderProxy interface.
-	virtual bool GetVectorValue(const FName ParameterName, FLinearColor* OutValue, const FMaterialRenderContext& Context) const;
+	virtual bool GetVectorValue(const FMaterialParameterInfo& ParameterInfo, FLinearColor* OutValue, const FMaterialRenderContext& Context) const;
 };
 
 
@@ -1687,9 +1734,9 @@ public:
 
 	// FMaterialRenderProxy interface.
 	ENGINE_API virtual const class FMaterial* GetMaterial(ERHIFeatureLevel::Type InFeatureLevel) const;
-	ENGINE_API virtual bool GetVectorValue(const FName ParameterName, FLinearColor* OutValue, const FMaterialRenderContext& Context) const;
-	ENGINE_API virtual bool GetScalarValue(const FName ParameterName, float* OutValue, const FMaterialRenderContext& Context) const;
-	ENGINE_API virtual bool GetTextureValue(const FName ParameterName,const UTexture** OutValue, const FMaterialRenderContext& Context) const;
+	ENGINE_API virtual bool GetVectorValue(const FMaterialParameterInfo& ParameterInfo, FLinearColor* OutValue, const FMaterialRenderContext& Context) const;
+	ENGINE_API virtual bool GetScalarValue(const FMaterialParameterInfo& ParameterInfo, float* OutValue, const FMaterialRenderContext& Context) const;
+	ENGINE_API virtual bool GetTextureValue(const FMaterialParameterInfo& ParameterInfo,const UTexture** OutValue, const FMaterialRenderContext& Context) const;
 };
 
 
@@ -1800,6 +1847,9 @@ public:
 	ENGINE_API virtual FString GetFriendlyName() const override;
 	ENGINE_API virtual bool RequiresSynchronousCompilation() const override;
 	ENGINE_API virtual bool IsDefaultMaterial() const override;
+#if USE_EDITOR_ONLY_DEFAULT_MATERIAL_FALLBACK
+	ENGINE_API virtual bool IsEditorOnlyDefaultMaterial() const override;
+#endif
 	ENGINE_API virtual int32 GetNumCustomizedUVs() const override;
 	ENGINE_API virtual int32 GetBlendableLocation() const override;
 	ENGINE_API virtual bool GetBlendableOutputAlpha() const override;
@@ -1825,9 +1875,6 @@ public:
 	ENGINE_API void GetRepresentativeInstructionCounts(TArray<FString> &Descriptions, TArray<int32> &InstructionCounts) const;
 
 	ENGINE_API void GetRepresentativeShaderTypesAndDescriptions(TMap<FName, FString>& OutShaderTypeNameAndDescriptions) const;
-
-	DEPRECATED(4.14, "GetResourceSizeInclusive is deprecated. Please use GetResourceSizeEx instead.")
-	ENGINE_API SIZE_T GetResourceSizeInclusive();
 
 	ENGINE_API void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize);
 

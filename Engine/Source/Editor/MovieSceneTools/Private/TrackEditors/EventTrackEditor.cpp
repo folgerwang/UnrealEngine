@@ -1,16 +1,16 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "TrackEditors/EventTrackEditor.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "GameFramework/Actor.h"
 #include "EditorStyleSet.h"
-#include "Package.h"
+#include "UObject/Package.h"
 #include "Tracks/MovieSceneEventTrack.h"
 #include "Sections/EventTrackSection.h"
 #include "MovieSceneObjectBindingIDPicker.h"
 #include "IDetailCustomization.h"
 #include "PropertyEditorModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "DetailLayoutBuilder.h"
 #include "MovieSceneObjectBindingIDCustomization.h"
 #include "DetailCategoryBuilder.h"
@@ -78,24 +78,6 @@ void FEventTrackEditor::BuildTrackContextMenu(FMenuBuilder& MenuBuilder, UMovieS
 	class FEventTrackCustomization : public IDetailCustomization
 	{
 	public:
-		FEventTrackCustomization(TSharedRef<IDetailsView> InDetailsView, TSharedPtr<ISequencer> InSequencer)
-			: WeakDetailsView(InDetailsView)
-		{
-			FOnGetPropertyTypeCustomizationInstance Factory = FOnGetPropertyTypeCustomizationInstance::CreateLambda([=]{ return MakeShared<FMovieSceneObjectBindingIDCustomization>(InSequencer->GetFocusedTemplateID(), InSequencer); });
-
-			// Register an object binding ID customization that can use the current sequencer interface
-			InDetailsView->RegisterInstancedCustomPropertyTypeLayout("MovieSceneObjectBindingID", Factory);
-		}
-
-		~FEventTrackCustomization()
-		{
-			auto PinnedDetailsView = WeakDetailsView.Pin();
-			if (PinnedDetailsView.IsValid())
-			{
-				PinnedDetailsView->UnregisterInstancedCustomPropertyTypeLayout("MovieSceneObjectBindingID");
-			}
-		}
-
 		virtual void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override
 		{
 			DetailBuilder.HideCategory("Track");
@@ -104,8 +86,6 @@ void FEventTrackEditor::BuildTrackContextMenu(FMenuBuilder& MenuBuilder, UMovieS
 			IDetailCategoryBuilder& Category = DetailBuilder.EditCategory("TrackEvent");
 			Category.AddProperty("EventReceivers").ShouldAutoExpand(true);
 		}
-
-		TWeakPtr<IDetailsView> WeakDetailsView;
 	};
 
 	auto PopulateSubMenu = [this, EventTrack](FMenuBuilder& SubMenuBuilder)
@@ -118,9 +98,12 @@ void FEventTrackEditor::BuildTrackContextMenu(FMenuBuilder& MenuBuilder, UMovieS
 		DetailsViewArgs.bShowOptions = false;
 		
 		TSharedRef<IDetailsView> DetailsView = PropertyEditor.CreateDetailView(DetailsViewArgs);
+		
 		// Register the custom type layout for the class
-		FOnGetDetailCustomizationInstance CreateInstance = FOnGetDetailCustomizationInstance::CreateLambda([=]{ return MakeShared<FEventTrackCustomization>(DetailsView, GetSequencer()); });
+		FOnGetDetailCustomizationInstance CreateInstance = FOnGetDetailCustomizationInstance::CreateLambda(&MakeShared<FEventTrackCustomization>);
 		DetailsView->RegisterInstancedCustomPropertyLayout(UMovieSceneEventTrack::StaticClass(), CreateInstance);
+
+		GetSequencer()->OnInitializeDetailsPanel().Broadcast(DetailsView, GetSequencer().ToSharedRef());
 
 		// Assign the object
 		DetailsView->SetObject(EventTrack, true);

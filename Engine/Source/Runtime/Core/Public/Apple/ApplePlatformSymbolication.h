@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================================
 	ApplePlatformSymbolication.h: Apple platform implementation of symbolication
@@ -6,10 +6,10 @@
 
 #pragma once
 
-#include "GenericPlatformSymbolication.h"
-#include "ApplePlatformStackWalk.h"
+#include "GenericPlatform/GenericPlatformSymbolication.h"
+#include "Apple/ApplePlatformStackWalk.h"
 #include "Serialization/Archive.h"
-#include "SharedPointer.h"
+#include "Templates/SharedPointer.h"
 
 /**
  * Opaque symbol cache for improved symbolisation performance.

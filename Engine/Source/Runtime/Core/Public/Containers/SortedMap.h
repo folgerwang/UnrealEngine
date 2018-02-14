@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "Containers/Map.h"
-#include "Containers/Algo/BinarySearch.h"
-#include "Containers/Algo/Sort.h"
+#include "Algo/BinarySearch.h"
+#include "Algo/Sort.h"
 #include "UObject/NameTypes.h"
 
 /** 

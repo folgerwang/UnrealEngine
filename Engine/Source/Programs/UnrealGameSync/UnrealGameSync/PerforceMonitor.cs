@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Concurrent;
@@ -31,6 +31,7 @@ namespace UnrealGameSync
 		PerforceConnection Perforce;
 		readonly string BranchClientPath;
 		readonly string SelectedClientFileName;
+		readonly string SelectedLocalFileName;
 		readonly string SelectedProjectIdentifier;
 		Thread WorkerThread;
 		int PendingMaxChangesValue;
@@ -48,11 +49,12 @@ namespace UnrealGameSync
 		public event Action OnUpdateMetadata;
 		public event Action OnStreamChange;
 
-		public PerforceMonitor(PerforceConnection InPerforce, string InBranchClientPath, string InSelectedClientFileName, string InSelectedProjectIdentifier, string InLogPath)
+		public PerforceMonitor(PerforceConnection InPerforce, string InBranchClientPath, string InSelectedClientFileName, string InSelectedLocalFilename, string InSelectedProjectIdentifier, string InLogPath)
 		{
 			Perforce = InPerforce;
 			BranchClientPath = InBranchClientPath;
 			SelectedClientFileName = InSelectedClientFileName;
+			SelectedLocalFileName = InSelectedLocalFilename;
 			SelectedProjectIdentifier = InSelectedProjectIdentifier;
 			PendingMaxChangesValue = 100;
 			LastChangeByCurrentUser = -1;
@@ -198,6 +200,10 @@ namespace UnrealGameSync
 				DepotPaths.Add(String.Format("{0}/*", BranchClientPath));
 				DepotPaths.Add(String.Format("{0}/Engine/...", BranchClientPath));
 				DepotPaths.Add(String.Format("{0}/...", PerforceUtils.GetClientOrDepotDirectoryName(SelectedClientFileName)));
+				if (Utility.IsEnterpriseProject(SelectedLocalFileName))
+				{
+					DepotPaths.Add(String.Format("{0}/Enterprise/...", BranchClientPath));
+				}
 			}
 
 			// Read any new changes
@@ -225,6 +231,25 @@ namespace UnrealGameSync
 			{
 				OldestChangeNumber = Math.Max(OldestChangeNumber, NewChanges.Last().Number);
 				NewestChangeNumber = Math.Min(NewestChangeNumber, NewChanges.First().Number);
+			}
+
+			// If we are using zipped binaries, make sure we have every change since the last zip containing them. This is necessary for ensuring that content changes show as
+			// syncable in the workspace view if there have been a large number of content changes since the last code change.
+			int MinZippedChangeNumber = -1;
+			foreach(int ChangeNumber in ChangeNumberToZippedBinaries.Keys)
+			{
+				if(ChangeNumber > MinZippedChangeNumber && ChangeNumber <= OldestChangeNumber)
+				{
+					MinZippedChangeNumber = ChangeNumber;
+				}
+			}
+			if(MinZippedChangeNumber != -1 && MinZippedChangeNumber < OldestChangeNumber)
+			{
+				List<PerforceChangeSummary> ZipChanges;
+				if(Perforce.FindChanges(DepotPaths.Select(DepotPath => String.Format("{0}@{1},{2}", DepotPath, MinZippedChangeNumber, OldestChangeNumber - 1)), -1, out ZipChanges, LogWriter))
+				{
+					NewChanges.AddRange(ZipChanges);
+				}
 			}
 
 			// Fixup any ROBOMERGE authors
@@ -260,9 +285,20 @@ namespace UnrealGameSync
 				lock(this)
 				{
 					Changes.UnionWith(NewChanges);
-					while(Changes.Count > MaxChanges)
+					if(Changes.Count > MaxChanges)
 					{
-						Changes.Remove(Changes.Last());
+						// Remove changes to shrink it to the max requested size, being careful to avoid removing changes that would affect our ability to correctly
+						// show the availability for content changes using zipped binaries.
+						SortedSet<PerforceChangeSummary> TrimmedChanges = new SortedSet<PerforceChangeSummary>(new PerforceChangeSorter());
+						foreach(PerforceChangeSummary Change in Changes)
+						{
+							TrimmedChanges.Add(Change);
+							if(TrimmedChanges.Count >= MaxChanges && (ChangeNumberToZippedBinaries.Count == 0 || ChangeNumberToZippedBinaries.ContainsKey(Change.Number) || ChangeNumberToZippedBinaries.First().Key > Change.Number))
+							{
+								break;
+							}
+						}
+						Changes = TrimmedChanges;
 					}
 					CurrentMaxChanges = MaxChanges;
 				}
@@ -305,7 +341,7 @@ namespace UnrealGameSync
 			// Update them in batches
 			foreach(int QueryChangeNumber in QueryChangeNumbers)
 			{
-				string[] CodeExtensions = { ".cs", ".h", ".cpp", ".usf", ".ush" };
+				string[] CodeExtensions = { ".cs", ".h", ".cpp", ".usf", ".ush", ".uproject", ".uplugin" };
 
 				// If there's something to check for, find all the content changes after this changelist
 				PerforceDescribeRecord DescribeRecord;
@@ -320,6 +356,11 @@ namespace UnrealGameSync
 					else
 					{
 						Type = PerforceChangeType.Content;
+					}
+
+					if(QueryChangeNumber == 3823446)
+					{
+						Console.WriteLine();
 					}
 
 					// Update the type of this change

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "StreamingNetworkPlatformFile.h"
 #include "Templates/ScopedPointer.h"
@@ -6,7 +6,7 @@
 #include "Misc/ScopeLock.h"
 #include "Modules/ModuleManager.h"
 #include "HAL/IPlatformFileModule.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 DEFINE_LOG_CATEGORY(LogStreamingPlatformFile);
 

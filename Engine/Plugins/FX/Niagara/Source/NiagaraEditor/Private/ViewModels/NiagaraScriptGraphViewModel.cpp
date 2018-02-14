@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraScriptGraphViewModel.h"
 #include "NiagaraScript.h"
@@ -7,7 +7,7 @@
 #include "NiagaraGraph.h"
 #include "NiagaraNodeInput.h"
 
-#include "GenericCommands.h"
+#include "Framework/Commands/GenericCommands.h"
 #include "ScopedTransaction.h"
 #include "EdGraphUtilities.h"
 #include "Editor.h"

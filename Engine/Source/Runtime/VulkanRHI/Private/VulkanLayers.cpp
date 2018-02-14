@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanLayers.cpp: Vulkan device layers implementation.
@@ -41,10 +41,6 @@ static const ANSICHAR* GRequiredLayersInstance[] =
 // List of validation layers which we want to activate for the instance
 static const ANSICHAR* GValidationLayersInstance[] =
 {
-#if VULKAN_ENABLE_API_DUMP
-	"VK_LAYER_LUNARG_api_dump",
-#endif
-
 #if VULKAN_ENABLE_STANDARD_VALIDATION
 	"VK_LAYER_LUNARG_standard_validation",
 #else
@@ -76,10 +72,6 @@ static const ANSICHAR* GRequiredLayersDevice[] =
 // List of validation layers which we want to activate for the device
 static const ANSICHAR* GValidationLayersDevice[] =
 {
-#if VULKAN_ENABLE_API_DUMP
-	"VK_LAYER_LUNARG_api_dump",
-#endif
-
 	// Only have device validation layers on SDKs below 13
 #if defined(VK_HEADER_VERSION) && (VK_HEADER_VERSION < 13)
 #if VULKAN_ENABLE_STANDARD_VALIDATION
@@ -119,6 +111,10 @@ static const ANSICHAR* GInstanceExtensions[] =
 #if VULKAN_HAS_DEBUGGING_ENABLED
 	VK_EXT_DEBUG_REPORT_EXTENSION_NAME,
 #endif
+#if VULKAN_ENABLE_DESKTOP_HMD_SUPPORT
+	VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME,
+	VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
+#endif
 	nullptr
 };
 
@@ -142,6 +138,7 @@ static const ANSICHAR* GDeviceExtensions[] =
 	nullptr
 };
 
+TSharedPtr< IHeadMountedDisplayVulkanExtensions, ESPMode::ThreadSafe > FVulkanDynamicRHI::HMDVulkanExtensions;
 
 struct FLayerExtension
 {
@@ -207,6 +204,12 @@ void FVulkanDynamicRHI::GetInstanceLayersAndExtensions(TArray<const ANSICHAR*>& 
 	FMemory::Memzero(GlobalExtensions.LayerProps);
 	GetInstanceLayerExtensions(nullptr, GlobalExtensions);
 
+	for (int32 Index = 0; Index < GlobalExtensions.ExtensionProps.Num(); ++Index)
+	{
+		UE_LOG(LogVulkanRHI, Display, TEXT("- Found Instance Layer %s"), ANSI_TO_TCHAR(GlobalExtensions.ExtensionProps[Index].extensionName));
+	}
+
+
 	// Now per layer
 	TArray<VkLayerProperties> GlobalLayerProperties;
 	do
@@ -230,7 +233,7 @@ void FVulkanDynamicRHI::GetInstanceLayersAndExtensions(TArray<const ANSICHAR*>& 
 		FLayerExtension* Layer = new(GlobalLayers) FLayerExtension;
 		Layer->LayerProps = GlobalLayerProperties[Index];
 		GetInstanceLayerExtensions(GlobalLayerProperties[Index].layerName, *Layer);
-		UE_LOG(LogVulkanRHI, Display, TEXT("- Found Global Layer %s"), ANSI_TO_TCHAR(GlobalLayerProperties[Index].layerName));
+		UE_LOG(LogVulkanRHI, Display, TEXT("- Found global layer %s"), ANSI_TO_TCHAR(GlobalLayerProperties[Index].layerName));
 	}
 
 #if VULKAN_HAS_DEBUGGING_ENABLED
@@ -258,6 +261,26 @@ void FVulkanDynamicRHI::GetInstanceLayersAndExtensions(TArray<const ANSICHAR*>& 
 		}
 	}
 
+#if VULKAN_ENABLE_API_DUMP
+	{
+		bool bApiDumpFound = false;
+		const char* ApiDumpName = "VK_LAYER_LUNARG_api_dump";
+		for (int32 Index = 0; Index < GlobalLayers.Num(); ++Index)
+		{
+			if (!FCStringAnsi::Strcmp(GlobalLayers[Index].LayerProps.layerName, ApiDumpName))
+			{
+				bApiDumpFound = true;
+				OutInstanceLayers.Add(ApiDumpName);
+				break;
+			}
+		}
+		if (!bApiDumpFound)
+		{
+			UE_LOG(LogVulkanRHI, Warning, TEXT("Unable to find Vulkan instance layer %s"), ANSI_TO_TCHAR(ApiDumpName));
+		}
+	}
+#endif	// VULKAN_ENABLE_API_DUMP
+
 	if (GValidationCvar.GetValueOnAnyThread() > 0)
 	{
 		// Verify that all requested debugging device-layers are available
@@ -284,9 +307,10 @@ void FVulkanDynamicRHI::GetInstanceLayersAndExtensions(TArray<const ANSICHAR*>& 
 #endif	// VULKAN_HAS_DEBUGGING_ENABLED
 
 #if PLATFORM_LINUX
-	uint32_t count = 0;
-	auto RequiredExtensions = SDL_VK_GetRequiredInstanceExtensions(&count);
-	for(int32 i = 0; i < count; i++) {
+	uint32_t Count = 0;
+	auto RequiredExtensions = SDL_VK_GetRequiredInstanceExtensions(&Count);
+	for(int32 i = 0; i < Count; i++)
+	{
 		OutInstanceExtensions.Add(RequiredExtensions[i]);
 	}
 #endif
@@ -294,11 +318,11 @@ void FVulkanDynamicRHI::GetInstanceLayersAndExtensions(TArray<const ANSICHAR*>& 
 	// Check to see if the HMD requires any specific Vulkan extensions to operate
 	if (IHeadMountedDisplayModule::IsAvailable())
 	{
-		IHeadMountedDisplayVulkanExtensions* VulkanExtensions = IHeadMountedDisplayModule::Get().GetVulkanExtensions();
+		HMDVulkanExtensions = IHeadMountedDisplayModule::Get().GetVulkanExtensions();
 	
-		if (VulkanExtensions)
+		if (HMDVulkanExtensions.IsValid())
 		{
-			if (!VulkanExtensions->GetVulkanInstanceExtensionsRequired(OutInstanceExtensions))
+			if (!HMDVulkanExtensions->GetVulkanInstanceExtensionsRequired(OutInstanceExtensions))
 			{
 				UE_LOG(LogVulkanRHI, Warning, TEXT("Trying to use Vulkan with an HMD, but required extensions aren't supported!"));
 			}
@@ -335,7 +359,6 @@ void FVulkanDynamicRHI::GetInstanceLayersAndExtensions(TArray<const ANSICHAR*>& 
 		}
 	}
 }
-
 
 void FVulkanDevice::GetDeviceExtensions(TArray<const ANSICHAR*>& OutDeviceExtensions, TArray<const ANSICHAR*>& OutDeviceLayers, bool& bOutDebugMarkers)
 {
@@ -434,20 +457,15 @@ void FVulkanDevice::GetDeviceExtensions(TArray<const ANSICHAR*>& OutDeviceExtens
 		UE_LOG(LogVulkanRHI, Display, TEXT("- Found Device Extension %s"), ANSI_TO_TCHAR(Extensions.ExtensionProps[Index].extensionName));
 	}
 
-	// Check to see if the HMD requires any specific Vulkan extensions to operate
-	if (IHeadMountedDisplayModule::IsAvailable())
+	if ( FVulkanDynamicRHI::HMDVulkanExtensions.IsValid() )
 	{
-		IHeadMountedDisplayVulkanExtensions* VulkanExtensions = IHeadMountedDisplayModule::Get().GetVulkanExtensions();
-
-		if (VulkanExtensions)
+		if ( !FVulkanDynamicRHI::HMDVulkanExtensions->GetVulkanDeviceExtensionsRequired( Gpu, OutDeviceExtensions ) )
 		{
-			if (!VulkanExtensions->GetVulkanDeviceExtensionsRequired(Gpu, OutDeviceExtensions))
-			{
-				UE_LOG(LogVulkanRHI, Warning, TEXT("Trying to use Vulkan with an HMD, but required extensions aren't supported on the selected device!"));
-			}
+			UE_LOG( LogVulkanRHI, Warning, TEXT( "Trying to use Vulkan with an HMD, but required extensions aren't supported on the selected device!" ) );
 		}
 	}
 
+	// ARRAY_COUNT is unnecessary, but MSVC analyzer doesn't seem to be happy with just a null check
 	for (uint32 Index = 0; Index < ARRAY_COUNT(GDeviceExtensions) && GDeviceExtensions[Index] != nullptr; ++Index)
 	{
 		for (int32 i = 0; i < Extensions.ExtensionProps.Num(); i++)
@@ -512,6 +530,12 @@ void FVulkanDevice::ParseOptionalDeviceExtensions(const TArray<const ANSICHAR *>
 	OptionalDeviceExtensions.HasKHRMaintenance1 = HasExtension(VK_KHR_MAINTENANCE1_EXTENSION_NAME);
 #endif
 	OptionalDeviceExtensions.HasMirrorClampToEdge = HasExtension(VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME);
+
+#if VULKAN_ENABLE_DESKTOP_HMD_SUPPORT
+	OptionalDeviceExtensions.HasKHRExternalMemoryCapabilities = HasExtension(VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME);
+	OptionalDeviceExtensions.HasKHRGetPhysicalDeviceProperties2 = HasExtension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+#endif
+
 #if !PLATFORM_ANDROID
 	// Verify the assumption on FVulkanSamplerState::FVulkanSamplerState()!
 	ensure(OptionalDeviceExtensions.HasMirrorClampToEdge != 0);

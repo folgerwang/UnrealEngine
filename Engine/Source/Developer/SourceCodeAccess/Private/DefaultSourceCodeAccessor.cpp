@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "DefaultSourceCodeAccessor.h"
 
@@ -25,6 +25,16 @@ FText FDefaultSourceCodeAccessor::GetDescriptionText() const
 }
 
 bool FDefaultSourceCodeAccessor::OpenSolution()
+{
+	return false;
+}
+
+bool FDefaultSourceCodeAccessor::OpenSolutionAtPath(const FString& InSolutionPath)
+{
+	return false;
+}
+
+bool FDefaultSourceCodeAccessor::DoesSolutionExist() const
 {
 	return false;
 }

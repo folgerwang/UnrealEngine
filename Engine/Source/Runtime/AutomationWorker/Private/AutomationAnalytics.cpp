@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AutomationAnalytics.h"
 #include "AutomationWorkerPrivate.h"
@@ -6,7 +6,7 @@
 #include "AnalyticsET.h"
 #include "AnalyticsEventAttribute.h"
 #include "AutomationWorkerMessages.h"
-#include "IAnalyticsProvider.h"
+#include "Interfaces/IAnalyticsProvider.h"
 #include "IAnalyticsProviderET.h"
 #include "Misc/App.h"
 #include "Misc/CommandLine.h"

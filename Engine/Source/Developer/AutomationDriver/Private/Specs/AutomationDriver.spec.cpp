@@ -1,12 +1,12 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Misc/AutomationTest.h"
 #include "AutomationDriverCommon.h"
 #include "AutomationDriverTypeDefs.h"
 #include "SAutomationDriverSpecSuite.h"
 #include "AutomationDriverSpecSuiteViewModel.h"
-#include "Ticker.h"
-#include "Async.h"
+#include "Containers/Ticker.h"
+#include "Async/Async.h"
 #include "Framework/Application/SlateApplication.h"
 
 #define TEST_TRUE(expression) \

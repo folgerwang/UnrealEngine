@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -9,7 +9,7 @@
 #include "Widgets/SWidget.h"
 #include "Toolkits/AssetEditorToolkit.h"
 #include "WorkflowOrientedApp/WorkflowTabFactory.h"
-#include "WorkflowTabFactory.h"
+#include "WorkflowOrientedApp/WorkflowTabFactory.h"
 
 
 /////////////////////////////////////////////////////
@@ -95,7 +95,7 @@ public:
 
 	virtual bool IsPayloadSupported(TSharedRef<FTabPayload> Payload) const override
 	{
-		if (Payload->PayloadType == NAME_Object)
+		if (Payload->PayloadType == NAME_Object && Payload->IsValid())
 		{
 			UObject* DocumentID = FTabPayload_UObject::CastChecked<UObject>(Payload);
 			return SupportsObjectType(DocumentID);

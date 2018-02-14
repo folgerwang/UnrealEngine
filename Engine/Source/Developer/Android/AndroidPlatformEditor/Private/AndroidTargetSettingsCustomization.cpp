@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidTargetSettingsCustomization.h"
 #include "Misc/Paths.h"
@@ -103,10 +103,12 @@ static void OnBrowserLinkClicked(const FSlateHyperlinkRun::FMetadata& Metadata)
 void FAndroidTargetSettingsCustomization::BuildAppManifestSection(IDetailLayoutBuilder& DetailLayout)
 {
 	// Cache some categories
-	IDetailCategoryBuilder& APKPackagingCategory = DetailLayout.EditCategory(TEXT("APKPackaging"));
+	IDetailCategoryBuilder& APKPackagingCategory = DetailLayout.EditCategory(TEXT("APK Packaging"));
 	IDetailCategoryBuilder& BuildCategory = DetailLayout.EditCategory(TEXT("Build"));
 	IDetailCategoryBuilder& AdvancedBuildCategory = DetailLayout.EditCategory(TEXT("AdvancedBuild"));
 	AdvancedBuildCategory.InitiallyCollapsed(true);
+	IDetailCategoryBuilder& SDKConfigCategory = DetailLayout.EditCategory(TEXT("Project SDK Override"));
+	SDKConfigCategory.InitiallyCollapsed(true);
 
 	IDetailCategoryBuilder& SigningCategory = DetailLayout.EditCategory(TEXT("DistributionSigning"));
 
@@ -190,6 +192,32 @@ void FAndroidTargetSettingsCustomization::BuildAppManifestSection(IDetailLayoutB
 			]
 		];
 
+	SDKConfigCategory.AddCustomRow(LOCTEXT("SDKConfigInfo", "SDK Config Info"), false)
+		.WholeRowWidget
+		[
+			SNew(SBorder)
+			.Padding(1)
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.Padding(FMargin(10, 10, 10, 10))
+				.FillWidth(1.0f)
+				[
+					SNew(SRichTextBlock)
+					.Text(LOCTEXT("SDKConfigMessage", "Leave these fields blank to use global Android SDK project settings. Changing these settings will only affect this project."))
+					.TextStyle(FEditorStyle::Get(), "MessageLog")
+					.DecoratorStyleSet(&FEditorStyle::Get())
+					.AutoWrapText(true)
+				]
+			]
+		];
+
+	TSharedRef<IPropertyHandle> SDKAPILevelOverrideProperty = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UAndroidRuntimeSettings, SDKAPILevelOverride));
+	SDKConfigCategory.AddProperty(SDKAPILevelOverrideProperty);
+
+	TSharedRef<IPropertyHandle> NDKAPILevelOverrideProperty = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UAndroidRuntimeSettings, NDKAPILevelOverride));
+	SDKConfigCategory.AddProperty(NDKAPILevelOverrideProperty);
+
 	// Signing category
 	SigningCategory.AddCustomRow(LOCTEXT("SigningHyperlink", "Signing Hyperlink"), false)
 		.WholeRowWidget
@@ -239,6 +267,10 @@ void FAndroidTargetSettingsCustomization::BuildAppManifestSection(IDetailLayoutB
 	GooglePlayCategory.AddProperty(AppIDProperty)
 		.EditCondition(SetupForGooglePlayAttribute, NULL);
 
+	TSharedRef<IPropertyHandle> SupportAdMobProperty = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UAndroidRuntimeSettings, bSupportAdMob));
+	GooglePlayCategory.AddProperty(SupportAdMobProperty)
+		.EditCondition(SetupForGooglePlayAttribute, NULL);
+
 	TSharedRef<IPropertyHandle> AdMobAdUnitIDProperty = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UAndroidRuntimeSettings, AdMobAdUnitID));
 	AdMobAdUnitIDProperty->MarkHiddenByCustomization();
 
@@ -270,7 +302,6 @@ void FAndroidTargetSettingsCustomization::BuildAppManifestSection(IDetailLayoutB
 	SETUP_ANDROIDARCH_PROP(TEXT("-x86"), bBuildForX86, BuildCategory, LOCTEXT("BuildForX86ToolTip", "Enable X86 CPU architecture support?"));
 	SETUP_ANDROIDARCH_PROP(TEXT("-x64"), bBuildForX8664, BuildCategory, LOCTEXT("BuildForX8664ToolTip", "Enable X86-64 CPU architecture support?"));
 	SETUP_ANDROIDARCH_PROP(TEXT("-es2"), bBuildForES2, BuildCategory, LOCTEXT("BuildForES2ToolTip", "Enable OpenGL ES2 rendering support? (this will be used if rendering types are unchecked)"));
-	SETUP_ANDROIDARCH_PROP(TEXT("-esdeferred"), bBuildForESDeferred, BuildCategory, LOCTEXT("BuildForESDeferredToolTip", "Enable the Deferred Shading Renderer using OpenGL ES 3.1+AEP (Android Extension Pack)? This setting is not recommended for general use and is supported only on Nvidia K1 and X1 devices."));
 
 	// @todo android fat binary: Put back in when we expose those
 //	SETUP_SOURCEONLY_PROP(bSplitIntoSeparateApks, BuildCategory, LOCTEXT("SplitIntoSeparateAPKsToolTip", "If checked, CPU architectures and rendering types will be split into separate .apk files"));

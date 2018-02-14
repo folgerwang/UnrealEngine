@@ -3,7 +3,7 @@
 #include "RemoveEdge.h"
 #include "IMeshEditorModeEditingContract.h"
 #include "IMeshEditorModeUIContract.h"
-#include "UICommandInfo.h"
+#include "Framework/Commands/UICommandInfo.h"
 #include "EditableMesh.h"
 #include "MeshElement.h"
 #include "Framework/Multibox/MultiBoxBuilder.h"

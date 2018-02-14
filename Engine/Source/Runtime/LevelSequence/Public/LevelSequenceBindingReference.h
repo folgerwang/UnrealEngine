@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -7,7 +7,7 @@
 #include "UObject/SoftObjectPath.h"
 #include "Misc/Guid.h"
 #include "Engine/Engine.h"
-#include "Paths.h"
+#include "Misc/Paths.h"
 #include "LevelSequenceBindingReference.generated.h"
 
 /**

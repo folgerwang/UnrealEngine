@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	XeAudioDevice.cpp: Unreal XAudio2 Audio interface object.
@@ -17,15 +17,15 @@
 #include "XAudio2Support.h"
 #include "Misc/App.h"
 
-#include "AllowWindowsPlatformTypes.h"
-#include "AllowWindowsPlatformAtomics.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformAtomics.h"
 THIRD_PARTY_INCLUDES_START
 	#include <xapobase.h>
 	#include <xapofx.h>
 	#include <xaudio2fx.h>
 THIRD_PARTY_INCLUDES_END
-#include "HideWindowsPlatformAtomics.h"
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformAtomics.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 /*-----------------------------------------------------------------------------
 	FBandPassFilter
@@ -295,7 +295,7 @@ XAPO_REGISTRATION_PROPERTIES FXAudio2RadioEffect::Registration =
 {
 	__uuidof( FXAudio2RadioEffect ),
 	TEXT( "FXAudio2RadioEffect" ), 
-	TEXT( "Copyright 1998-2017 Epic Games, Inc. All Rights Reserved." ),
+	TEXT( "Copyright 1998-2018 Epic Games, Inc. All Rights Reserved." ),
 	1, 0,
 	XAPO_FLAG_INPLACE_REQUIRED	| XAPO_FLAG_CHANNELS_MUST_MATCH
 								| XAPO_FLAG_FRAMERATE_MUST_MATCH

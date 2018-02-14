@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D11Viewport.cpp: D3D viewport RHI implementation.
@@ -8,7 +8,7 @@
 #include "RenderCore.h"
 #include "Misc/CommandLine.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <dwmapi.h>
 
 extern FD3D11Texture2D* GetSwapChainSurface(FD3D11DynamicRHI* D3DRHI, EPixelFormat PixelFormat, IDXGISwapChain* SwapChain);
@@ -126,4 +126,4 @@ void FD3D11Viewport::ConditionalResetSwapChain(bool bIgnoreFocus)
 	}
 }
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"

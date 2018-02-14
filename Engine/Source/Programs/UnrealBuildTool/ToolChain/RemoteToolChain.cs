@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections;
@@ -490,7 +490,7 @@ namespace UnrealBuildTool
 					KeyProcess.StartInfo.WorkingDirectory = DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Build", "BatchFiles").FullName;
 					KeyProcess.StartInfo.FileName = "MakeAndInstallSSHKey.bat";
 					KeyProcess.StartInfo.Arguments = string.Format(
-						"\"{0}\" {1} \"{2}\" {3} {4} \"{5}\" \"{6}\" \"{7}\"",
+                        "\"{0}\" {1} \"{2}\" \"{3}\" {4} \"{5}\" \"{6}\" \"{7}\"",
 						ResolvedSSHExe,
 						RemoteServerPort,
 						ResolvedRSyncExe,
@@ -681,7 +681,7 @@ namespace UnrealBuildTool
 
             if (bRecursive)
             {
-                foreach(var dir in DirectoryReference.EnumerateDirectories(LocalDirectory))
+                foreach(DirectoryReference dir in DirectoryReference.EnumerateDirectories(LocalDirectory))
                 {
                     QueueDirectoryForBatchUpload(dir);
                 }
@@ -714,7 +714,7 @@ namespace UnrealBuildTool
         public FileItem RemoteToLocalFileItem(FileItem RemoteFileItem)
         {
             // Look to see if we've already made a remote FileItem for this local FileItem
-            foreach (var Item in CachedRemoteFileItems)
+            foreach (KeyValuePair<FileItem, FileItem> Item in CachedRemoteFileItems)
             {
                 if (Item.Value.AbsolutePath == RemoteFileItem.AbsolutePath)
                 {
@@ -759,19 +759,19 @@ namespace UnrealBuildTool
 				// header files existed on disk at the time that UBT scanned include statements looking for prerequisite files.  Those
 				// files are created during code generation and must exist on disk by the time this function is called.  We'll scan
 				// for generated code files and make sure they are enqueued for copying to the remote machine.
-				foreach (var UObjectModule in Manifest.Modules)
+				foreach (UHTManifest.Module UObjectModule in Manifest.Modules)
 				{
 					// @todo uht: Ideally would only copy exactly the files emitted by UnrealHeaderTool, rather than scanning directory (could copy stale files; not a big deal though)
 					try
 					{
-						var GeneratedCodeDirectory = Path.GetDirectoryName(UObjectModule.GeneratedCPPFilenameBase);
-						var GeneratedCodeFiles = Directory.GetFiles(GeneratedCodeDirectory, "*", SearchOption.AllDirectories);
-						foreach (var GeneratedCodeFile in GeneratedCodeFiles)
+						string GeneratedCodeDirectory = Path.GetDirectoryName(UObjectModule.GeneratedCPPFilenameBase);
+						string[] GeneratedCodeFiles = Directory.GetFiles(GeneratedCodeDirectory, "*", SearchOption.AllDirectories);
+						foreach (string GeneratedCodeFile in GeneratedCodeFiles)
 						{
 							// Skip copying "Timestamp" files (UBT temporary files)
 							if (!Path.GetFileName(GeneratedCodeFile).Equals(@"Timestamp", StringComparison.InvariantCultureIgnoreCase))
 							{
-								var GeneratedCodeFileItem = FileItem.GetExistingItemByPath(GeneratedCodeFile);
+								FileItem GeneratedCodeFileItem = FileItem.GetExistingItemByPath(GeneratedCodeFile);
 								QueueFileForBatchUpload(GeneratedCodeFileItem);
 							}
 						}
@@ -786,10 +786,10 @@ namespace UnrealBuildTool
 					// header scan wouldn't have picked them up if they hadn't been generated yet!
 					try
 					{
-						var SourceFiles = Directory.GetFiles(UObjectModule.BaseDirectory, "*", SearchOption.AllDirectories);
-						foreach (var SourceFile in SourceFiles)
+						string[] SourceFiles = Directory.GetFiles(UObjectModule.BaseDirectory, "*", SearchOption.AllDirectories);
+						foreach (string SourceFile in SourceFiles)
 						{
-							var SourceFileItem = FileItem.GetExistingItemByPath(SourceFile);
+							FileItem SourceFileItem = FileItem.GetExistingItemByPath(SourceFile);
 							QueueFileForBatchUpload(SourceFileItem);
 						}
 					}
@@ -808,6 +808,32 @@ namespace UnrealBuildTool
 				Log.TraceInformation(Line.Data);
 			}
 		}
+
+        static public void OutputErrorForRsync(Object Sender, DataReceivedEventArgs Line)
+        {
+            if ((Line != null) && (Line.Data != null) && (Line.Data != ""))
+            {
+                // check to see if we're trying to delete a floder that does not exist (not really an error in this case)
+                if (Line.Data.IndexOf("failed: No such file or directory") >= 0)
+                {
+                    int startDir = Line.Data.IndexOf('"');
+                    if (startDir >= 0)
+                    {
+                        int endDir = Line.Data.LastIndexOf('"');
+                        string dirPath = Line.Data.Substring(startDir + 1, endDir - startDir - 1) + "/";
+                        if (dirPath.StartsWith("/cygdrive/"))
+                        {
+                            dirPath = dirPath.Substring(10);
+                        }
+                        if (RelativeRsyncDirs.Contains(dirPath))
+                        {
+                            return;
+                        }
+                    }
+                }
+                Log.TraceInformation(Line.Data);
+            }
+        }
 
 		private static Dictionary<Object, StringBuilder> SSHOutputMap = new Dictionary<object, StringBuilder>();
 		private static System.Threading.Mutex DictionaryLock = new System.Threading.Mutex();
@@ -835,6 +861,7 @@ namespace UnrealBuildTool
 			return "/cygdrive/" + Utils.CleanDirectorySeparators(InPath.Replace(":", ""), '/');
 		}
 
+        static List<string> RelativeRsyncDirs = new List<string>();
 		public static void PreBuildSync()
 		{
 			// no need to sync on the Mac!
@@ -887,7 +914,7 @@ namespace UnrealBuildTool
 			}
 			else
 			{
-				List<string> RelativeRsyncDirs = new List<string>();
+				RelativeRsyncDirs.Clear();
 				foreach (string Dir in RsyncDirs)
 				{
 					RelativeRsyncDirs.Add(Utils.CleanDirectorySeparators(Dir.Replace(":", ""), '/') + "/");
@@ -917,8 +944,8 @@ namespace UnrealBuildTool
 
 				// --exclude='*'  ??? why???
 				RsyncProcess.StartInfo.FileName = ResolvedRSyncExe;
-				RsyncProcess.StartInfo.Arguments = string.Format(
-					"-vzae \"{0}\" --rsync-path=\"mkdir -p {2} && rsync\" --chmod=ug=rwX,o=rxX --delete --files-from=\"{4}\" --include-from=\"{5}\" --include='*/' --exclude='*.o' --exclude='Timestamp' '{1}' {6}@{3}:'{2}'",
+                RsyncProcess.StartInfo.Arguments = string.Format(
+                    "-vzrltgoDe \"{0}\" --rsync-path=\"mkdir -p {2} && rsync\" --chmod=ug=rwX,o=rxX --delete --files-from=\"{4}\" --include-from=\"{5}\" --include='*/' --exclude='*.o' --exclude='Timestamp' '{1}' \"{6}@{3}\":'{2}'",
 					ResolvedRsyncAuthentication,
 					CygRootPath,
 					RemotePath,
@@ -926,10 +953,10 @@ namespace UnrealBuildTool
 					ConvertPathToCygwin(RSyncPathsFile),
 					ConvertPathToCygwin(IncludeFromFile),
 					RSyncUsername);
-				Console.WriteLine("Command: " + RsyncProcess.StartInfo.Arguments);
+				Log.TraceInformation("Command: " + RsyncProcess.StartInfo.Arguments);
 
 				RsyncProcess.OutputDataReceived += new DataReceivedEventHandler(OutputReceivedForRsync);
-				RsyncProcess.ErrorDataReceived += new DataReceivedEventHandler(OutputReceivedForRsync);
+				RsyncProcess.ErrorDataReceived += new DataReceivedEventHandler(OutputErrorForRsync);
 
 				// run rsync
 				Utils.RunLocalProcess(RsyncProcess);
@@ -961,7 +988,7 @@ namespace UnrealBuildTool
 			// make simple rsync commandline to send a file
 			RsyncProcess.StartInfo.FileName = ResolvedRSyncExe;
 			RsyncProcess.StartInfo.Arguments = string.Format(
-				"-zae \"{0}\" --rsync-path=\"mkdir -p {1} && rsync\" --chmod=ug=rwX,o=rxX '{2}' {3}@{4}:'{1}/{5}'",
+                "-zrltgoDe \"{0}\" --rsync-path=\"mkdir -p {1} && rsync\" --chmod=ug=rwX,o=rxX '{2}' \"{3}@{4}\":'{1}/{5}'",
 				ResolvedRsyncAuthentication,
 				RemoteDir,
 				ConvertPathToCygwin(LocalPath),
@@ -995,7 +1022,7 @@ namespace UnrealBuildTool
 			// make simple rsync commandline to send a file
 			RsyncProcess.StartInfo.FileName = ResolvedRSyncExe;
 			RsyncProcess.StartInfo.Arguments = string.Format(
-				"-zae \"{0}\" {2}@{3}:'{4}' \"{1}\"",
+                "-zrltgoDe \"{0}\" \"{2}@{3}\":'{4}' \"{1}\"",
 				ResolvedRsyncAuthentication,
 				ConvertPathToCygwin(LocalPath),
 				RSyncUsername,
@@ -1014,7 +1041,7 @@ namespace UnrealBuildTool
 
 		static public Hashtable SSHCommand(string WorkingDirectory, string Command, string RemoteOutputPath)
 		{
-			Console.WriteLine("Doing {0}", Command);
+			Log.TraceInformation("Doing {0}", Command);
 
 			// make the commandline for other end
 			string RemoteCommandline = "cd \"" + WorkingDirectory + "\"";
@@ -1044,7 +1071,7 @@ namespace UnrealBuildTool
 
 				DateTime Now = DateTime.Now;
 				UploadFile(CommandLineFile, RemoteCommandlinePath);
-				Console.WriteLine("Upload took {0}", (DateTime.Now - Now).ToString());
+				Log.TraceInformation("Upload took {0}", (DateTime.Now - Now).ToString());
 
 				// execute the file, not a commandline
 				RemoteCommandline += string.Format(" && bash < {0} && rm {0}", RemoteCommandlinePath);
@@ -1056,7 +1083,7 @@ namespace UnrealBuildTool
 
 			SSHProcess.StartInfo.FileName = ResolvedSSHExe;
 			SSHProcess.StartInfo.Arguments = string.Format(
-				"-o BatchMode=yes {0} {1}@{2} \"{3}\"",
+				"-o BatchMode=yes {0} \"{1}@{2}\" \"{3}\"",
 //				"-o CheckHostIP=no {0} {1}@{2} \"{3}\"",
 				ResolvedSSHAuthentication,
 				RSyncUsername,
@@ -1074,7 +1101,7 @@ namespace UnrealBuildTool
 
 			DateTime Start = DateTime.Now;
 			Int64 ExitCode = Utils.RunLocalProcess(SSHProcess);
-			Console.WriteLine("Execute took {0}", (DateTime.Now - Start).ToString());
+			Log.TraceInformation("Execute took {0}", (DateTime.Now - Start).ToString());
 
 			// now we have enough to fill out the HashTable
 			DictionaryLock.WaitOne();
@@ -1103,7 +1130,7 @@ namespace UnrealBuildTool
 		/// <param name="e">  Event arguments (In this case, the line of string output)</param>
 		protected void RemoteOutputReceivedEventHandler(object sender, DataReceivedEventArgs e)
 		{
-			var Output = e.Data;
+			string Output = e.Data;
 			if (Output == null)
 			{
 				return;

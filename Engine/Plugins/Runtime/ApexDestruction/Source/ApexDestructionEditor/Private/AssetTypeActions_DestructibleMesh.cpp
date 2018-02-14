@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AssetTypeActions_DestructibleMesh.h"
 #include "DestructibleMesh.h"
 #include "ApexDestructionEditorModule.h"
 #include "Engine/StaticMesh.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 

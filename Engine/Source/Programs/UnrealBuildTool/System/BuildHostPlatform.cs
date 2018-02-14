@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -135,9 +135,9 @@ namespace UnrealBuildTool
 		/// <returns></returns>
 		public virtual ProcessInfo[] GetProcesses()
 		{
-			var AllProcesses = Process.GetProcesses();
-			var Result = new List<ProcessInfo>(AllProcesses.Length);
-			foreach (var Proc in AllProcesses)
+			Process[] AllProcesses = Process.GetProcesses();
+			List<ProcessInfo> Result = new List<ProcessInfo>(AllProcesses.Length);
+			foreach (Process Proc in AllProcesses)
 			{
 				try
 				{
@@ -158,8 +158,8 @@ namespace UnrealBuildTool
 		/// <returns></returns>
 		public virtual ProcessInfo GetProcessByName(string Name)
 		{
-			var AllProcess = GetProcesses();
-			foreach (var Info in AllProcess)
+			ProcessInfo[] AllProcess = GetProcesses();
+			foreach (ProcessInfo Info in AllProcess)
 			{
 				if (Info.Name == Name)
 				{
@@ -176,9 +176,9 @@ namespace UnrealBuildTool
 		/// <returns></returns>
 		public virtual ProcessInfo[] GetProcessesByName(string Name)
 		{
-			var AllProcess = GetProcesses();
-			var Result = new List<ProcessInfo>();
-			foreach (var Info in AllProcess)
+			ProcessInfo[] AllProcess = GetProcesses();
+			List<ProcessInfo> Result = new List<ProcessInfo>();
+			foreach (ProcessInfo Info in AllProcess)
 			{
 				if (Info.Name == Name)
 				{
@@ -199,10 +199,10 @@ namespace UnrealBuildTool
 			List<string> Modules = new List<string>();
 			try
 			{
-				var Proc = Process.GetProcessById(PID);
+				Process Proc = Process.GetProcessById(PID);
 				if (Proc != null)
 				{
-					foreach (var Module in Proc.Modules.Cast<System.Diagnostics.ProcessModule>())
+					foreach (ProcessModule Module in Proc.Modules.Cast<System.Diagnostics.ProcessModule>())
 					{
 						Modules.Add(Path.GetFullPath(Module.FileName));
 					}
@@ -211,6 +211,12 @@ namespace UnrealBuildTool
 			catch { }
 			return Modules.ToArray();
 		}
+
+		/// <summary>
+		/// Determines the default project file formats for this platform
+		/// </summary>
+		/// <returns>Sequence of project file formats</returns>
+		internal abstract void GetDefaultProjectFileFormats(List<ProjectFileFormat> Formats);
 	}
 
 	class WindowsBuildHostPlatform : BuildHostPlatform
@@ -288,7 +294,7 @@ namespace UnrealBuildTool
 								uint Length = SizeofResource(hModule, hResInfo);
 								if (Length > 0)
 								{
-									var Str = Marshal.PtrToStringAnsi(pResData);
+									string Str = Marshal.PtrToStringAnsi(pResData);
 									Result = Int32.Parse(Str);
 								}
 							}
@@ -305,6 +311,10 @@ namespace UnrealBuildTool
 			return Result;
 		}
 
+		internal override void GetDefaultProjectFileFormats(List<ProjectFileFormat> Formats)
+		{
+			Formats.Add(ProjectFileFormat.VisualStudio);
+		}
 	}
 
 	class MacBuildHostPlatform : BuildHostPlatform
@@ -326,16 +336,16 @@ namespace UnrealBuildTool
 		/// <returns></returns>
 		public override ProcessInfo[] GetProcesses()
 		{
-			var Result = new List<ProcessInfo>();
+			List<ProcessInfo> Result = new List<ProcessInfo>();
 
-			var StartInfo = new ProcessStartInfo();
+			ProcessStartInfo StartInfo = new ProcessStartInfo();
 			StartInfo.FileName = "ps";
 			StartInfo.Arguments = "-eaw -o pid,comm";
 			StartInfo.CreateNoWindow = true;
 			StartInfo.UseShellExecute = false;
 			StartInfo.RedirectStandardOutput = true;
 
-			var Proc = new Process();
+			Process Proc = new Process();
 			Proc.StartInfo = StartInfo;
 			try
 			{
@@ -345,17 +355,17 @@ namespace UnrealBuildTool
 				{
 					Line = Line.Trim();
 					int PIDEnd = Line.IndexOf(' ');
-					var PIDString = Line.Substring(0, PIDEnd);
+					string PIDString = Line.Substring(0, PIDEnd);
 					if (PIDString != "PID")
 					{
-						var Filename = Line.Substring(PIDEnd + 1);
-						var Pid = Int32.Parse(PIDString);
+						string Filename = Line.Substring(PIDEnd + 1);
+						int Pid = Int32.Parse(PIDString);
 						try
 						{
-							var ExistingProc = Process.GetProcessById(Pid);
+							Process ExistingProc = Process.GetProcessById(Pid);
 							if (ExistingProc != null && Pid != Process.GetCurrentProcess().Id && ExistingProc.HasExited == false)
 							{
-								var ProcInfo = new ProcessInfo(ExistingProc.Id, Path.GetFileName(Filename), Filename);
+								ProcessInfo ProcInfo = new ProcessInfo(ExistingProc.Id, Path.GetFileName(Filename), Filename);
 								Result.Add(ProcInfo);
 							}
 						}
@@ -380,14 +390,14 @@ namespace UnrealBuildTool
 			// Add the process file name to the module list. This is to make it compatible with the results of Process.Modules on Windows.
 			Modules.Add(Filename);
 
-			var StartInfo = new ProcessStartInfo();
+			ProcessStartInfo StartInfo = new ProcessStartInfo();
 			StartInfo.FileName = "vmmap";
 			StartInfo.Arguments = String.Format("{0} -w", PID);
 			StartInfo.CreateNoWindow = true;
 			StartInfo.UseShellExecute = false;
 			StartInfo.RedirectStandardOutput = true;
 
-			var Proc = new Process();
+			Process Proc = new Process();
 			Proc.StartInfo = StartInfo;
 			try
 			{
@@ -419,6 +429,11 @@ namespace UnrealBuildTool
 					}
 				}
 			}
+		}
+
+		internal override void GetDefaultProjectFileFormats(List<ProjectFileFormat> Formats)
+		{
+			Formats.Add(ProjectFileFormat.XCode);
 		}
 	}
 
@@ -457,6 +472,16 @@ namespace UnrealBuildTool
 		{
 			// @TODO: Implement for Linux
 			return new List<string>().ToArray();
+		}
+
+		internal override void GetDefaultProjectFileFormats(List<ProjectFileFormat> Formats)
+		{
+			Formats.Add(ProjectFileFormat.Make);
+			Formats.Add(ProjectFileFormat.VisualStudioCode);
+			Formats.Add(ProjectFileFormat.KDevelop);
+			Formats.Add(ProjectFileFormat.QMake);
+			Formats.Add(ProjectFileFormat.CMake);
+			Formats.Add(ProjectFileFormat.CodeLite);
 		}
 	}
 }

@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "DisplayNodes/SequencerDisplayNode.h"
 #include "Widgets/Input/SNumericDropDown.h"
-#include "ArrayView.h"
+#include "Containers/ArrayView.h"
 
 #define LOCTEXT_NAMESPACE "SequencerHelpers"
 

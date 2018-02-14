@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -30,7 +30,9 @@ enum class EControllerHand : uint8
 	Special_6,
 	Special_7,
 	Special_8,
-	Special_9
+	Special_9,
+	Special_10,
+	Special_11
 };
 
 USTRUCT(BlueprintType)
@@ -82,6 +84,8 @@ struct INPUTCORE_API FKey
 
 	friend struct EKeys;
 
+	static const TCHAR* SyntheticCharPrefix;
+
 private:
 
 	UPROPERTY()
@@ -90,7 +94,7 @@ private:
 	mutable class TSharedPtr<struct FKeyDetails> KeyDetails;
 
 	void ConditionalLookupKeyDetails() const;
-
+	void ResetKey();
 };
 
 template<>

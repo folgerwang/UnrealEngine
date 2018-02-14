@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
  
-#include "OnlineIdentityInterface.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 #include "OnlineSubsystemGoogleTypes.h"
 #include "OnlineJsonSerializer.h"
-#include "IHttpRequest.h"
+#include "Interfaces/IHttpRequest.h"
 #include "OnlineSubsystemGooglePackage.h"
 
 // Google scope fields

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneEventParametersCustomization.h"
 
@@ -16,9 +16,9 @@
 #include "DetailCategoryBuilder.h"
 #include "DetailLayoutBuilder.h"
 #include "IDetailsView.h"
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 #include "ScopedTransaction.h"
-#include "NotifyHook.h"
+#include "Misc/NotifyHook.h"
 
 #define LOCTEXT_NAMESPACE "MovieSceneEventParameters"
 

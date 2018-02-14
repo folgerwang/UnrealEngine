@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.Collections.Generic;
@@ -9,7 +9,6 @@ public class UE4EditorTarget : TargetRules
 	{
 		Type = TargetType.Editor;
 		BuildEnvironment = TargetBuildEnvironment.Shared;
-		bBuildAllPlugins = true;
 		bPrecompile = true;
 		ExtraModuleNames.Add("UE4Game");
 	}

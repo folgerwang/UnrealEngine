@@ -1,8 +1,8 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreTypes.h"
-#include "SharedPointer.h"
+#include "Templates/SharedPointer.h"
 
 /** Loading policy to use with String Table assets */
 enum class EStringTableLoadingPolicy : uint8

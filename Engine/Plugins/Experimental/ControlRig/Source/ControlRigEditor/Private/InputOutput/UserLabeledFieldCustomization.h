@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "IPropertyTypeCustomization.h"
-#include "Reply.h"
+#include "Input/Reply.h"
 #include "UObject/WeakObjectPtr.h"
 
 class UK2Node_ControlRig;

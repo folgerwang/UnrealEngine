@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -88,7 +88,7 @@
 #include "Containers/BitArray.h"
 #include "Containers/SparseArray.h"
 #include "Containers/Set.h"
-#include "Containers/Algo/Reverse.h"
+#include "Algo/Reverse.h"
 #include "Containers/Map.h"
 #include "Math/ColorList.h"
 #include "Math/IntPoint.h"

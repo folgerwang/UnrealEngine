@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "PacketHandler.h"
-#include "ArrayView.h"
+#include "Containers/ArrayView.h"
 
 /**
  * IEncryptionComponentInterface
@@ -12,6 +12,11 @@
 class PACKETHANDLER_API FEncryptionComponent : public HandlerComponent
 {
 public:
+	/**
+	 * Constructor that forwards the name to the base HandlerComponent.
+	 */
+	explicit FEncryptionComponent(FName InName) : HandlerComponent(InName) {}
+
 	/**
 	 * Enable encryption. Future packets that are processed by this component will be encrypted. By default, encryption is disabled.
 	 */

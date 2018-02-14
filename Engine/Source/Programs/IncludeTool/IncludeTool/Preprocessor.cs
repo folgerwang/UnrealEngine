@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -337,7 +337,13 @@ namespace IncludeTool
 				}
 			}
 
-			this.IncludeDirectories = IncludePaths.Select(x => new IncludeDirectory() { Location = x, WorkspaceDirectory = Workspace.GetDirectory(x) }).ToList();
+			foreach(DirectoryReference IncludePath in IncludePaths)
+			{
+				if(Directory.Exists(IncludePath.FullName))
+				{
+					IncludeDirectories.Add(new IncludeDirectory() { Location = IncludePath, WorkspaceDirectory = Workspace.GetDirectory(IncludePath) });
+				}
+			}
 		}
 
 		/// <summary>

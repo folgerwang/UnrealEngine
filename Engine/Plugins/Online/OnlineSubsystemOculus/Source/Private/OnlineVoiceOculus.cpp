@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineVoiceOculus.h"
 #include "Voice.h"
@@ -9,7 +9,7 @@
 #include "Runtime/Engine/Classes/Sound/SoundWaveProcedural.h"
 #include "OnlineSubsystemUtils.h"
 
-#include "ConfigCacheIni.h"
+#include "Misc/ConfigCacheIni.h"
 #include "OnlineSubsystemOculusPackage.h"
 
 // Define the voice sample rate the default in OVR_VoipSampleRate

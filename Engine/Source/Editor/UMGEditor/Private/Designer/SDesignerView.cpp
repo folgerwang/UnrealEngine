@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Designer/SDesignerView.h"
 #include "Rendering/DrawElements.h"
@@ -2030,8 +2030,8 @@ void SDesignerView::DrawSafeZone(const FOnPaintHandlerParams& PaintArgs)
 			FSlateApplication::Get().GetDisplayMetrics(Metrics);
 
 			const FMargin DebugSafeMargin = ( DebugSafeZoneMode == 1 ) ?
-				FMargin(Metrics.TitleSafePaddingSize.X, Metrics.TitleSafePaddingSize.Y) :
-				FMargin(Metrics.ActionSafePaddingSize.X, Metrics.ActionSafePaddingSize.Y);
+				FMargin(Metrics.TitleSafePaddingSize.X, Metrics.TitleSafePaddingSize.Y, Metrics.TitleSafePaddingSize.Z, Metrics.TitleSafePaddingSize.W) :
+				FMargin(Metrics.ActionSafePaddingSize.X, Metrics.ActionSafePaddingSize.Y, Metrics.ActionSafePaddingSize.Z, Metrics.ActionSafePaddingSize.W);
 
 			float PaddingRatio = DebugSafeMargin.Left / ( Metrics.PrimaryDisplayWidth * 0.5 );
 
@@ -2865,7 +2865,7 @@ FReply SDesignerView::OnDrop(const FGeometry& MyGeometry, const FDragDropEvent& 
 	
 	const bool bIsPreview = false;
 	ProcessDropAndAddWidget(MyGeometry, DragDropEvent, bIsPreview);
-
+	TSharedPtr<FSelectedWidgetDragDropOp> SelectedDragDropOp = DragDropEvent.GetOperationAs<FSelectedWidgetDragDropOp>();
 	if (DropPreviews.Num() > 0)
 	{
 		UWidgetBlueprint* BP = GetBlueprint();
@@ -2886,7 +2886,15 @@ FReply SDesignerView::OnDrop(const FGeometry& MyGeometry, const FDragDropEvent& 
 		DropPreviews.Empty();
 		return FReply::Handled().SetUserFocus(SharedThis(this));
 	}
-	
+	else if (SelectedDragDropOp.IsValid())
+	{
+		// If we were dragging any widgets, even if we didn't move them, we need to refresh the preview
+		// because they are collapsed in the preview when the drag begins
+		if (SelectedDragDropOp->DraggedWidgets.Num() > 0)
+		{
+			BlueprintEditor.Pin().Get()->RefreshPreview();
+		}
+	}
 	return FReply::Unhandled();
 }
 

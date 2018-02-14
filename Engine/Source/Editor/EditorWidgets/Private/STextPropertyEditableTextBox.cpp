@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "STextPropertyEditableTextBox.h"
 #include "Internationalization/TextNamespaceUtil.h"
@@ -15,9 +15,9 @@
 #include "Widgets/Input/SComboBox.h"
 #include "Widgets/Input/SCheckBox.h"
 #include "EditorStyleSet.h"
-#include "PackageName.h"
+#include "Misc/PackageName.h"
 #include "AssetRegistryModule.h"
-#include "StringTable.h"
+#include "Internationalization/StringTable.h"
 #include "Internationalization/TextPackageNamespaceUtil.h"
 #include "Internationalization/StringTableCore.h"
 #include "Internationalization/StringTableRegistry.h"
@@ -451,7 +451,7 @@ void STextPropertyEditableTextBox::Construct(const FArguments& InArgs, const TSh
 					.AutoWrapText(InArgs._AutoWrapText)
 					.WrapTextAt(InArgs._WrapTextAt)
 					.ModiferKeyForNewLine(EModifierKey::Shift)
-					.IsPassword(bIsPassword)
+					//.IsPassword(bIsPassword)
 				]
 			]
 		];

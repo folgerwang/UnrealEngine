@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Widgets/Layout/SScaleBox.h"
 #include "Layout/LayoutUtils.h"
@@ -115,7 +115,15 @@ void SScaleBox::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedC
 					break;
 				}
 
-				LastFinalScale = FinalScale;
+				// Force full layout calculations when the previously calculated final scale is zero
+				if (!FMath::IsNearlyZero(FinalScale) || !bSingleLayoutPass)
+				{
+					LastFinalScale = FinalScale;
+				}
+				else
+				{
+					LastFinalScale.Reset();
+				}
 			}
 			else
 			{
@@ -324,7 +332,7 @@ void SScaleBox::RefreshSafeZoneScale()
 				FSlateApplication::Get().GetDisplayMetrics(Metrics);
 
 				// Safe zones are uniform, so the axis we check is irrelevant
-				ScaleDownBy = (Metrics.TitleSafePaddingSize.X * 2.f) / (float)ViewportSize.X;
+				ScaleDownBy = (Metrics.TitleSafePaddingSize.X + Metrics.TitleSafePaddingSize.Z) / (float)ViewportSize.X;
 			}
 		}
 	}

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -120,11 +120,6 @@ namespace AutomationTool
 		/// <param name="ModuleName">Module name</param>
 		/// <returns>True if module should be compiled or loaded</returns>
 		abstract public bool IsScriptModuleSupported(string ModuleName);
-
-		/// <summary>
-		/// Gets UBT project name for the current platform.
-		/// </summary>
-		abstract public string UBTProjectName { get; }
 
 		/// <summary>
 		/// Returns the type of the host editor platform.

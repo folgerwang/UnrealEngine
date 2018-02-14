@@ -1,17 +1,17 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "USDSceneImportFactory.h"
 #include "USDImportOptions.h"
 #include "ActorFactories/ActorFactoryEmptyActor.h"
 #include "Engine/Selection.h"
 #include "ScopedTransaction.h"
-#include "ILayers.h"
+#include "Layers/ILayers.h"
 #include "IAssetRegistry.h"
 #include "AssetRegistryModule.h"
 #include "IUSDImporterModule.h"
 #include "USDConversionUtils.h"
 #include "ObjectTools.h"
-#include "ScopedSlowTask.h"
+#include "Misc/ScopedSlowTask.h"
 #include "PackageTools.h"
 #include "Editor.h"
 #include "PropertySetter.h"
@@ -69,7 +69,7 @@ UObject* UUSDSceneImportFactory::FactoryCreateFile(UClass* InClass, UObject* InP
 			// Actors will have the transform
 			ImportContext.bApplyWorldTransformToGeometry = false;
 
-			TArray<FUsdPrimToImport> PrimsToImport;
+			TArray<FUsdAssetPrimToImport> PrimsToImport;
 
 			UUSDPrimResolver* PrimResolver = ImportContext.PrimResolver;
 		
@@ -82,10 +82,17 @@ UObject* UUSDSceneImportFactory::FactoryCreateFile(UClass* InClass, UObject* InP
 			SlowTask.EnterProgressFrame(1.0f, LOCTEXT("FindingActorsToSpawn", "Finding Actors To Spawn"));
 			PrimResolver->FindActorsToSpawn(ImportContext, SpawnDatas);
 
-			SlowTask.EnterProgressFrame(1.0f, LOCTEXT("SpawningActors", "SpawningActors"));
-			RemoveExistingActors();
+			if (SpawnDatas.Num() > 0)
+			{
+				SlowTask.EnterProgressFrame(1.0f, LOCTEXT("SpawningActors", "SpawningActors"));
+				RemoveExistingActors();
 
-			SpawnActors(SpawnDatas, SlowTask);
+				SpawnActors(SpawnDatas, SlowTask);
+			}
+			else
+			{
+				ImportContext.AddErrorMessage(EMessageSeverity::Error, LOCTEXT("NoActorsFoundError", "Nothing was imported.  No actors were found to spawn"));
+			}
 		}
 
 		FEditorDelegates::OnAssetPostImport.Broadcast(this, ImportContext.World);

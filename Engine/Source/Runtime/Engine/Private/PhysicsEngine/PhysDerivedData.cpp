@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #include "PhysicsEngine/PhysDerivedData.h"
 #include "Serialization/MemoryWriter.h"
 #include "Modules/ModuleManager.h"
@@ -11,7 +11,7 @@
 
 #if WITH_PHYSX && WITH_EDITOR
 
-#include "IPhysXCookingModule.h"
+#include "Physics/IPhysXCookingModule.h"
 
 FDerivedDataPhysXCooker::FDerivedDataPhysXCooker(FName InFormat, EPhysXMeshCookFlags InRuntimeCookFlags, UBodySetup* InBodySetup, bool InIsRuntime)
 	: BodySetup( InBodySetup )

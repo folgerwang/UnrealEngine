@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections;
@@ -20,6 +20,7 @@ namespace UnrealBuildTool
         }
 
         protected UnrealPluginLanguage UPL = null;
+		protected delegate bool FilenameFilter(string InFilename);
 
 		protected class VersionUtilities
 		{
@@ -272,6 +273,13 @@ namespace UnrealBuildTool
 					RequiredCaps += "\t\t<string>" + Arches[0] + "</string>\n";
 				}
 			}
+			ConfigHierarchy GameIni = ConfigCache.ReadHierarchy(ConfigHierarchyType.Game, DirRef, UnrealTargetPlatform.IOS);
+			bool bStartInAR = false;
+			GameIni.GetBool("/Script/EngineSettings.GeneralProjectSettings", "bStartInAR", out bStartInAR);
+			if (bStartInAR)
+			{
+				RequiredCaps += "\t\t<string>arkit</string>\n";
+			}
 
 			Ini.GetBool("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bSupportsOpenGLES2", out bSupported);
 			RequiredCaps += bSupported ? "\t\t<string>opengles-2</string>\n" : "";
@@ -292,9 +300,11 @@ namespace UnrealBuildTool
 						MinVersion = "7.0";
 						break;
 					case "IOS_7":
+						Log.TraceWarning("IOS 7 is no longer supported in UE4 as 4.15");
 						MinVersion = "7.0";
 						break;
 					case "IOS_8":
+						Log.TraceWarning("IOS 8 is no longer supported in UE4 as 4.18");
 						MinVersion = "8.0";
 						break;
 					case "IOS_9":
@@ -310,7 +320,7 @@ namespace UnrealBuildTool
 			}
 			else
 			{
-				MinVersion = "7.0";
+				MinVersion = "9.0";
 			}
 
 			// Get Facebook Support details
@@ -524,10 +534,10 @@ namespace UnrealBuildTool
                         "Default-IPhone6.png", "Portrait", "{375, 667}",  "8.0",
                         "Default-IPhone6Plus-Landscape.png", "Landscape", "{414, 736}",  "8.0",
                         "Default-IPhone6Plus-Portrait.png", "Portrait", "{414, 736}",  "8.0",
-                        "Default.png", "Landscape", "{320, 480}", "7.0",
                         "Default.png", "Portrait", "{320, 480}", "7.0",
-                        "Default-568h.png", "Landscape", "{320, 568}", "7.0",
                         "Default-568h.png", "Portrait", "{320, 568}", "7.0",
+                        "Default-IPhoneX-Landscape.png", "Landscape", "{375, 812}",  "11.0",
+                        "Default-IPhoneX-Portrait.png", "Portrait", "{375, 812}",  "11.0",
 					};
 
 				Text.AppendLine("\t<key>UILaunchImages~iphone</key>");
@@ -535,7 +545,7 @@ namespace UnrealBuildTool
 				for (int ConfigIndex = 0; ConfigIndex < IPhoneConfigs.Length; ConfigIndex += 4)
 				{
                     if ((bSupportsPortrait && IPhoneConfigs[ConfigIndex + 1] == "Portrait") ||
-                        (bSupportsLandscape && IPhoneConfigs[ConfigIndex + 1] == "Landscape"))
+                        (bSupportsLandscape && (IPhoneConfigs[ConfigIndex + 1] == "Landscape") || ConfigIndex > 12))
                     {
                         Text.AppendLine("\t\t<dict>");
                         Text.AppendLine("\t\t\t<key>UILaunchImageMinimumOSVersion</key>");
@@ -634,6 +644,13 @@ namespace UnrealBuildTool
 						Text.AppendLine("\t" + Line);
 					}
 				}
+			}
+
+			// add the camera usage key
+			if (bStartInAR)
+			{
+				Text.AppendLine("\t<key>NSCameraUsageDescription</key>");
+				Text.AppendLine("\t\t<string>The camera is used for augmenting reality.</string>");
 			}
 
 			// Add remote-notifications as background mode
@@ -744,6 +761,7 @@ namespace UnrealBuildTool
                     CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-Portrait@2x.png", true);
 //                    CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-Portrait-1336.png", true);
                     CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-Portrait-1336@2x.png", true);
+                    CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-IPhoneX-Portrait.png", true);
                 }
                 if (bSupportsLandscape)
                 {
@@ -753,6 +771,7 @@ namespace UnrealBuildTool
                     CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-Landscape@2x.png", true);
 //                    CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-Landscape-1336.png", true);
                     CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-Landscape-1336@2x.png", true);
+                    CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-IPhoneX-Landscape.png", true);
                 }
 //                CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default.png", true);
                 CopyFiles(InEngineDir + "/Build/IOS/Resources/Graphics", AppDirectory, "Default@2x.png", true);
@@ -774,6 +793,7 @@ namespace UnrealBuildTool
                     CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-Portrait@2x.png", true);
 //                    CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-Portrait-1336.png", true);
                     CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-Portrait-1336@2x.png", true);
+                    CopyFiles(BuildDirectory + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-IPhoneX-Portrait.png", true);
                 }
                 if (bSupportsLandscape)
                 {
@@ -783,14 +803,28 @@ namespace UnrealBuildTool
                     CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-Landscape@2x.png", true);
 //                    CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-Landscape-1336.png", true);
                     CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-Landscape-1336@2x.png", true);
+                    CopyFiles(BuildDirectory + "/Build/IOS/Resources/Graphics", AppDirectory, "Default-IPhoneX-Landscape.png", true);
                 }
 //                CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default.png", true);
                 CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default@2x.png", true);
                 CopyFiles(BuildDirectory + "/Resources/Graphics", AppDirectory, "Default-568h@2x.png", true);
             }
         }
+		protected virtual void CopyLocalizationsResources(string InEngineDir, string AppDirectory, string BuildDirectory, string IntermediateDir)
+		{
+			string LocalizationsPath = BuildDirectory + "/Resources/Localizations";
+			if (Directory.Exists(LocalizationsPath))
+			{
+				Log.TraceInformation("Copy localizations from Resources {0}, {1}", LocalizationsPath, AppDirectory);
+				CopyFolder(BuildDirectory + "/Resources/Localizations", AppDirectory, true, delegate (string InFilename)
+				{
+					if (Path.GetFileName(InFilename).Equals(".DS_Store")) return false;
+					return true;
+				});
+			}
+		}
 
-        public bool PrepForUATPackageOrDeploy(UnrealTargetConfiguration Config, FileReference ProjectFile, string InProjectName, string InProjectDirectory, string InExecutablePath, string InEngineDir, bool bForDistribution, string CookFlavor, bool bIsDataDeploy, bool bCreateStubIPA)
+		public bool PrepForUATPackageOrDeploy(UnrealTargetConfiguration Config, FileReference ProjectFile, string InProjectName, string InProjectDirectory, string InExecutablePath, string InEngineDir, bool bForDistribution, string CookFlavor, bool bIsDataDeploy, bool bCreateStubIPA)
 		{
 			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
 			{
@@ -968,10 +1002,11 @@ namespace UnrealBuildTool
 			if (!bCreateStubIPA)
 			{
                 CopyGraphicsResources(bSkipDefaultPNGs, bSkipIcons, InEngineDir, AppDirectory, BuildDirectory, IntermediateDirectory, bSupportsPortrait, bSupportsLandscape);
+				CopyLocalizationsResources(InEngineDir, AppDirectory, BuildDirectory, IntermediateDirectory);
 
-                // copy additional engine framework assets in
-                // @todo tvos: TVOS probably needs its own assets?
-                string FrameworkAssetsPath = InEngineDir + "/Intermediate/IOS/FrameworkAssets";
+				// copy additional engine framework assets in
+				// @todo tvos: TVOS probably needs its own assets?
+				string FrameworkAssetsPath = InEngineDir + "/Intermediate/IOS/FrameworkAssets";
 
                 // Let project override assets if they exist
                 if (Directory.Exists(InProjectDirectory + "/Intermediate/IOS/FrameworkAssets"))
@@ -1016,7 +1051,7 @@ namespace UnrealBuildTool
 			else
 			{
                 // @todo tvos merge: This used to copy the bundle back - where did that code go? It needs to be fixed up for TVOS directories
-                bool bSupportPortrait, bSupportLandscape, bSkipIcons;
+				bool bSupportPortrait, bSupportLandscape, bSkipIcons;
 				GeneratePList(InTarget.ProjectFile, InTarget.Configuration, ProjectDirectory, bIsUE4Game, GameName, (InTarget.ProjectFile == null) ? "" : Path.GetFileNameWithoutExtension(InTarget.ProjectFile.FullName), "../../Engine", "", out bSupportPortrait, out bSupportLandscape, out bSkipIcons);
 			}
 			return true;
@@ -1027,14 +1062,14 @@ namespace UnrealBuildTool
 			List<string> PluginExtras = new List<string>();
 			if (Receipt == null)
 			{
-				Console.WriteLine("Receipt is NULL");
+				Log.TraceInformation("Receipt is NULL");
 				//Log.TraceInformation("Receipt is NULL");
 				return PluginExtras;
 			}
 
 			// collect plugin extra data paths from target receipt
-			var Results = Receipt.AdditionalProperties.Where(x => x.Name == "IOSPlugin");
-			foreach (var Property in Results)
+			IEnumerable<ReceiptProperty> Results = Receipt.AdditionalProperties.Where(x => x.Name == "IOSPlugin");
+			foreach (ReceiptProperty Property in Results)
 			{
 				// Keep only unique paths
 				string PluginPath = Property.Value;
@@ -1119,6 +1154,7 @@ namespace UnrealBuildTool
 				DI.Delete();
 			}
 
+			Directory.CreateDirectory(Path.GetDirectoryName(DestinationPath));
 			SourceFile.CopyTo(DestinationPath, bOverwrite);
 
 			FileInfo DI2 = new FileInfo(DestinationPath);
@@ -1131,25 +1167,32 @@ namespace UnrealBuildTool
 		protected void CopyFiles(string SourceDirectory, string DestinationDirectory, string TargetFiles, bool bOverwrite = false)
 		{
 			DirectoryInfo SourceFolderInfo = new DirectoryInfo(SourceDirectory);
-			FileInfo[] SourceFiles = SourceFolderInfo.GetFiles(TargetFiles);
-			foreach (FileInfo SourceFile in SourceFiles)
+			if(SourceFolderInfo.Exists)
 			{
-				string DestinationPath = Path.Combine(DestinationDirectory, SourceFile.Name);
-				SafeFileCopy(SourceFile, DestinationPath, bOverwrite);
+				FileInfo[] SourceFiles = SourceFolderInfo.GetFiles(TargetFiles);
+				foreach (FileInfo SourceFile in SourceFiles)
+				{
+					string DestinationPath = Path.Combine(DestinationDirectory, SourceFile.Name);
+					SafeFileCopy(SourceFile, DestinationPath, bOverwrite);
+				}
 			}
 		}
 
-		protected void CopyFolder(string SourceDirectory, string DestinationDirectory, bool bOverwrite = false)
+		protected void CopyFolder(string SourceDirectory, string DestinationDirectory, bool bOverwrite = false, FilenameFilter Filter = null)
 		{
 			Directory.CreateDirectory(DestinationDirectory);
-			RecursiveFolderCopy(new DirectoryInfo(SourceDirectory), new DirectoryInfo(DestinationDirectory), bOverwrite);
+			RecursiveFolderCopy(new DirectoryInfo(SourceDirectory), new DirectoryInfo(DestinationDirectory), bOverwrite, Filter);
 		}
 
-		static private void RecursiveFolderCopy(DirectoryInfo SourceFolderInfo, DirectoryInfo DestFolderInfo, bool bOverwrite = false)
+		static private void RecursiveFolderCopy(DirectoryInfo SourceFolderInfo, DirectoryInfo DestFolderInfo, bool bOverwrite = false, FilenameFilter Filter = null)
 		{
 			foreach (FileInfo SourceFileInfo in SourceFolderInfo.GetFiles())
 			{
 				string DestinationPath = Path.Combine(DestFolderInfo.FullName, SourceFileInfo.Name);
+				if (Filter != null && !Filter(DestinationPath))
+				{
+					continue;
+				}
 				SafeFileCopy(SourceFileInfo, DestinationPath, bOverwrite);
 			}
 

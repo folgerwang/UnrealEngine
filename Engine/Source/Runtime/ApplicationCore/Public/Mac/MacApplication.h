@@ -1,12 +1,12 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GenericApplication.h"
-#include "MacWindow.h"
-#include "MacTextInputMethodSystem.h"
-#include "IInputInterface.h"
+#include "GenericPlatform/GenericApplication.h"
+#include "Mac/MacWindow.h"
+#include "Mac/MacTextInputMethodSystem.h"
+#include "GenericPlatform/IInputInterface.h"
 
 struct FDeferredMacEvent
 {
@@ -132,7 +132,9 @@ struct FMacScreen
 /**
  * Mac-specific application implementation.
  */
-class APPLICATIONCORE_API FMacApplication : public GenericApplication
+class APPLICATIONCORE_API FMacApplication 
+	: public GenericApplication
+	, public IInputInterface
 {
 public:
 
@@ -180,6 +182,10 @@ public:
 
 #if WITH_EDITOR
 	virtual void SendAnalytics(IAnalyticsProvider* Provider) override;
+
+	void StartScopedModalEvent();
+
+	void EndScopedModalEvent();
 #endif
 
 public:
@@ -201,11 +207,11 @@ public:
 
 	bool IsWorkspaceSessionActive() const { return bIsWorkspaceSessionActive; }
 
-	bool IsHighDPIModeEnabled() const { return bIsHighDPIModeEnabled; }
-
 	void SystemModalMode(bool const bInSystemModalMode) { bSystemModalMode = bInSystemModalMode; }
 
 	const TArray<TSharedRef<FMacWindow>>& GetAllWindows() const { return Windows; }
+
+	FCriticalSection& GetWindowsArrayMutex() { return WindowsMutex; }
 
 	void OnCursorLock();
 
@@ -216,6 +222,22 @@ public:
 	void OnWindowDidResize(TSharedRef<FMacWindow> Window, bool bRestoreMouseCursorLocking = false);
 
 	void OnWindowChangedScreen(TSharedRef<FMacWindow> Window);
+
+	void OnWindowOrderedFront(TSharedRef<FMacWindow> Window);
+
+	void OnWindowActivationChanged(const TSharedRef<FMacWindow>& Window, const EWindowActivation ActivationType);
+
+	static void OnDisplayReconfiguration(CGDirectDisplayID Display, CGDisplayChangeSummaryFlags Flags, void* UserInfo);
+
+public:
+    virtual IInputInterface* GetInputInterface() override { return this; }
+    
+	// IInputInterface overrides
+
+	virtual void SetForceFeedbackChannelValue (int32 ControllerId, FForceFeedbackChannelType ChannelType, float Value) override;
+	virtual void SetForceFeedbackChannelValues(int32 ControllerId, const FForceFeedbackValues &Values) override;
+	virtual void SetHapticFeedbackValues(int32 ControllerId, int32 Hand, const FHapticFeedbackValues& Values) override;
+	virtual void SetLightColor(int32 ControllerId, FColor Color) override { }
 public:
 
 	static void UpdateScreensArray();
@@ -239,7 +261,6 @@ public:
 private:
 
 	static NSEvent* HandleNSEvent(NSEvent* Event);
-	static void OnDisplayReconfiguration(CGDirectDisplayID Display, CGDisplayChangeSummaryFlags Flags, void* UserInfo);
 #if WITH_EDITOR
 	static int32 MTContactCallback(void* Device, void* Data, int32 NumFingers, double TimeStamp, int32 Frame);
 #endif
@@ -258,7 +279,8 @@ private:
 	void ProcessKeyUpEvent(const FDeferredMacEvent& Event);
 
 	void OnWindowDidMove(TSharedRef<FMacWindow> Window);
-	bool OnWindowDestroyed(TSharedRef<FMacWindow> Window);
+	bool OnWindowDestroyed(TSharedRef<FMacWindow> DestroyedWindow);
+	void OnWindowActivated(TSharedRef<FMacWindow> Window);
 
 	void OnApplicationDidBecomeActive();
 	void OnApplicationWillResignActive();
@@ -318,6 +340,8 @@ private:
 
 	FCocoaWindow* DraggedWindow;
 
+	TSharedPtr<FMacWindow> ActiveWindow;
+
 	bool bSystemModalMode;
 
 	/** The current set of modifier keys that are pressed. This is used to detect differences between left and right modifier keys on key up events*/
@@ -340,8 +364,6 @@ private:
 	TSharedPtr<FMacTextInputMethodSystem> TextInputMethodSystem;
 
 	bool bIsWorkspaceSessionActive;
-
-	bool bIsHighDPIModeEnabled;
 
 	/** Notification center observers */
 	id AppActivationObserver;

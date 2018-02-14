@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "Abilities/Tasks/AbilityTask.h"
-#include "AbilityTask_ApplyRootMotion_Base.h"
+#include "Abilities/Tasks/AbilityTask_ApplyRootMotion_Base.h"
 #include "AbilityTask_ApplyRootMotionRadialForce.generated.h"
 
 class UCharacterMovementComponent;

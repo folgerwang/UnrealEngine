@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #include "Editor.h"
@@ -41,11 +41,11 @@
 
 
 #if PLATFORM_WINDOWS
-	#include "WindowsHWrapper.h"
+	#include "Windows/WindowsHWrapper.h"
 // For WAVEFORMATEXTENSIBLE
-	#include "AllowWindowsPlatformTypes.h"
+	#include "Windows/AllowWindowsPlatformTypes.h"
 #include <mmreg.h>
-	#include "HideWindowsPlatformTypes.h"
+	#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 

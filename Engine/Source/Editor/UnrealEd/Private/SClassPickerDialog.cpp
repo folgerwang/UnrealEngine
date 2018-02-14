@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #include "Kismet2/SClassPickerDialog.h"
@@ -22,7 +22,7 @@
 #include "Widgets/Views/STableViewBase.h"
 #include "Widgets/Views/STableRow.h"
 #include "Widgets/Views/SListView.h"
-#include "Private/SClassViewer.h"
+#include "Editor/ClassViewer/Private/SClassViewer.h"
 #include "EditorClassUtils.h"
 #include "Widgets/Layout/SExpandableArea.h"
 #include "Styling/SlateIconFinder.h"

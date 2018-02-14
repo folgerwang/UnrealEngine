@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "VREditorActions.h"
 #include "VREditorModule.h"
@@ -9,14 +9,14 @@
 #include "VREditorFloatingUI.h"
 #include "SLevelViewport.h"
 #include "ImageUtils.h"
-#include "FileHelper.h"
+#include "Misc/FileHelper.h"
 #include "Framework/Application/SlateApplication.h"
 #include "ILevelEditor.h"
 #include "LevelEditor.h"
-#include "AssetEditorManager.h"
+#include "Toolkits/AssetEditorManager.h"
 #include "Developer/AssetTools/Public/IAssetTools.h"
 #include "Developer/AssetTools/Public/AssetToolsModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "LevelSequence.h"
 #include "LevelSequenceActor.h"
 #include "ISequencer.h"
@@ -28,7 +28,7 @@
 #include "Engine/Selection.h"
 #include "VREditorMotionControllerInteractor.h"
 #include "LevelEditorActions.h"
-#include "UObjectIterator.h"
+#include "UObject/UObjectIterator.h"
 #include "Factories/Factory.h"
 
 #define LOCTEXT_NAMESPACE "VREditorActions"
@@ -299,8 +299,9 @@ void FVREditorActionCallbacks::OnPlayButtonClicked(UVREditorMode* InVRMode)
 
 bool FVREditorActionCallbacks::CanPlay(UVREditorMode* InVRMode)
 {
+	static const FName OculusSystemName(TEXT("OculusHMD"));
 	return FLevelEditorActionCallbacks::DefaultCanExecuteAction() && VREd::AllowPlay->GetInt() == 1 &&
-		(InVRMode->GetHMDDeviceType() != EHMDDeviceType::DT_OculusRift || (InVRMode->GetHMDDeviceType() == EHMDDeviceType::DT_OculusRift && GEditor != nullptr && !GEditor->bIsSimulatingInEditor));
+		(InVRMode->GetHMDDeviceType() != OculusSystemName || (InVRMode->GetHMDDeviceType() == OculusSystemName && GEditor != nullptr && !GEditor->bIsSimulatingInEditor));
 }
 
 void FVREditorActionCallbacks::OnSimulateButtonClicked(UVREditorMode* InVRMode)
@@ -431,7 +432,8 @@ void FVREditorActionCallbacks::PlaySequenceAtRate(UVREditorMode* InVRMode, float
 	ISequencer* CurrentSequencer = InVRMode->GetCurrentSequencer();
 	if (CurrentSequencer != nullptr)
 	{
-		CurrentSequencer->OnPlay(false, Rate);
+		CurrentSequencer->SetPlaybackSpeed(Rate);
+		CurrentSequencer->OnPlay(false);
 	}
 }
 
@@ -450,8 +452,8 @@ void FVREditorActionCallbacks::PlayFromBeginning(UVREditorMode* InVRMode)
 	if (CurrentSequencer != nullptr)
 	{
 		CurrentSequencer->SetLocalTime(0.0f);
-		const float Rate = 1.0f;
-		CurrentSequencer->OnPlay(false, Rate);
+		CurrentSequencer->SetPlaybackSpeed(1.f);
+		CurrentSequencer->OnPlay(false);
 	}
 }
 
@@ -506,11 +508,11 @@ void FVREditorActionCallbacks::ToggleAligningToActors(UVREditorMode* InVRMode)
 		{
 			ToggleSelectingCandidateActors(InVRMode);
 		}
-		GUnrealEd->Exec(InVRMode->GetWorld(), TEXT("VI.EnableGuides 0"));
+		GUnrealEd->Exec(InVRMode->GetWorld(), TEXT("VI.ActorSnap 0"));
 	}
 	else
 	{
-		GUnrealEd->Exec(InVRMode->GetWorld(), TEXT("VI.EnableGuides 1"));
+		GUnrealEd->Exec(InVRMode->GetWorld(), TEXT("VI.ActorSnap 1"));
 	}
 }
 

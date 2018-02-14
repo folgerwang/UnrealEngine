@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "VirtualTextureShared.h"
-#include "BinaryHeap.h"
-#include "HashTable.h"
+#include "Containers/BinaryHeap.h"
+#include "Containers/HashTable.h"
 
 // 16m x 16m virtual pages
 // 256 x 256 physical pages

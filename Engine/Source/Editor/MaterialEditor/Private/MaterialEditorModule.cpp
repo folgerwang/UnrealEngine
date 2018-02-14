@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MaterialEditorModule.h"
 #include "Modules/ModuleManager.h"
@@ -7,11 +7,11 @@
 #include "MaterialEditorUtilities.h"
 #include "MaterialInstanceEditor.h"
 #include "Materials/MaterialInstance.h"
+#include "Materials/MaterialFunctionInstance.h"
+#include "Settings/EditorExperimentalSettings.h"
 
 const FName MaterialEditorAppIdentifier = FName(TEXT("MaterialEditorApp"));
 const FName MaterialInstanceEditorAppIdentifier = FName(TEXT("MaterialInstanceEditorApp"));
-
-
 
 /**
  * Material editor module
@@ -45,7 +45,7 @@ public:
 	/**
 	 * Creates a new material editor, either for a material or a material function
 	 */
-	virtual TSharedRef<IMaterialEditor> CreateMaterialEditor( const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, UMaterial* Material ) override
+	virtual TSharedRef<IMaterialEditor> CreateMaterialEditor(const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, UMaterial* Material) override
 	{
 		TSharedRef<FMaterialEditor> NewMaterialEditor(new FMaterialEditor());
 		NewMaterialEditor->InitEditorForMaterial(Material);
@@ -54,7 +54,7 @@ public:
 		return NewMaterialEditor;
 	}
 
-	virtual TSharedRef<IMaterialEditor> CreateMaterialEditor( const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, UMaterialFunction* MaterialFunction ) override
+	virtual TSharedRef<IMaterialEditor> CreateMaterialEditor(const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, UMaterialFunction* MaterialFunction) override
 	{
 		TSharedRef<FMaterialEditor> NewMaterialEditor(new FMaterialEditor());
 		NewMaterialEditor->InitEditorForMaterialFunction(MaterialFunction);
@@ -63,18 +63,33 @@ public:
 		return NewMaterialEditor;
 	}
 
-	virtual TSharedRef<IMaterialEditor> CreateMaterialInstanceEditor( const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, UMaterialInstance* MaterialInstance ) override
+	virtual TSharedRef<IMaterialEditor> CreateMaterialInstanceEditor(const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, UMaterialInstance* MaterialInstance) override
 	{
 		TSharedRef<FMaterialInstanceEditor> NewMaterialInstanceEditor(new FMaterialInstanceEditor());
+		NewMaterialInstanceEditor->InitEditorForMaterial(MaterialInstance);
 		OnMaterialInstanceEditorOpened().Broadcast(NewMaterialInstanceEditor);
 		NewMaterialInstanceEditor->InitMaterialInstanceEditor(Mode, InitToolkitHost, MaterialInstance);
 		return NewMaterialInstanceEditor;
 	}
+
+	virtual TSharedRef<IMaterialEditor> CreateMaterialInstanceEditor(const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, UMaterialFunctionInstance* MaterialFunction) override
+	{
+		TSharedRef<FMaterialInstanceEditor> NewMaterialInstanceEditor(new FMaterialInstanceEditor());
+		NewMaterialInstanceEditor->InitEditorForMaterialFunction(MaterialFunction);
+		OnMaterialInstanceEditorOpened().Broadcast(NewMaterialInstanceEditor);
+		NewMaterialInstanceEditor->InitMaterialInstanceEditor(Mode, InitToolkitHost, MaterialFunction);
+		return NewMaterialInstanceEditor;
+	}
 	
-	virtual void GetVisibleMaterialParameters(const class UMaterial* Material, class UMaterialInstance* MaterialInstance, TArray<struct FGuid>& VisibleExpressions) override
+	virtual void GetVisibleMaterialParameters(const class UMaterial* Material, class UMaterialInstance* MaterialInstance, TArray<FMaterialParameterInfo>& VisibleExpressions) override
 	{
 		FMaterialEditorUtilities::GetVisibleMaterialParameters(Material, MaterialInstance, VisibleExpressions);
 	}
+
+	virtual bool MaterialLayersEnabled()
+	{
+		return GetDefault<UEditorExperimentalSettings>()->bMaterialLayeringEnabled;
+	};
 
 	/** Gets the extensibility managers for outside entities to extend material editor's menus and toolbars */
 	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager() override { return MenuExtensibilityManager; }
@@ -83,6 +98,7 @@ public:
 private:
 	TSharedPtr<FExtensibilityManager> MenuExtensibilityManager;
 	TSharedPtr<FExtensibilityManager> ToolBarExtensibilityManager;
+
 };
 
 IMPLEMENT_MODULE( FMaterialEditorModule, MaterialEditor );

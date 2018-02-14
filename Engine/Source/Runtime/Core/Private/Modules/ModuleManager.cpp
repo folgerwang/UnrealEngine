@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Modules/ModuleManager.h"
 #include "Misc/DateTime.h"
@@ -88,6 +88,10 @@ FModuleManager& FModuleManager::Get()
 	return *ModuleManager;
 }
 
+FModuleManager::FModuleManager()
+	: bCanProcessNewlyLoadedObjects(false)
+{
+}
 
 FModuleManager::~FModuleManager()
 {
@@ -95,6 +99,24 @@ FModuleManager::~FModuleManager()
 	//       DLLs may have already been unloaded, which means we can't safely call clean up methods
 }
 
+IModuleInterface* FModuleManager::GetModulePtr_Internal(FName ModuleName)
+{
+	FModuleManager& ModuleManager = FModuleManager::Get();
+
+	ModuleInfoPtr ModuleInfo = ModuleManager.FindModule(ModuleName);
+	if (!ModuleInfo.IsValid())
+	{
+		return nullptr;
+	}
+
+	if (!ModuleInfo->Module.IsValid())
+	{
+		return nullptr;
+	}
+
+	// Access the Module C pointer directly without creating any non-thread safe shared pointers which would unsafely modify the shared pointer's refcount
+	return ModuleInfo->Module.Get();
+}
 
 void FModuleManager::FindModules(const TCHAR* WildcardWithoutExtension, TArray<FName>& OutModules) const
 {
@@ -151,7 +173,7 @@ bool FModuleManager::IsModuleLoaded( const FName InModuleName ) const
 	return false;
 }
 
-
+#if !IS_MONOLITHIC
 bool FModuleManager::IsModuleUpToDate(const FName InModuleName) const
 {
 	TMap<FName, FString> ModulePathMap;
@@ -162,8 +184,9 @@ bool FModuleManager::IsModuleUpToDate(const FName InModuleName) const
 		return false;
 	}
 
-	return CheckModuleCompatibility(*TMap<FName, FString>::TConstIterator(ModulePathMap).Value());
+	return CheckModuleCompatibility(*TMap<FName, FString>::TConstIterator(ModulePathMap).Value(), ECheckModuleCompatibilityFlags::DisplayUpToDateModules);
 }
+#endif
 
 bool FindNewestModuleFile(TArray<FString>& FilesToSearch, const FDateTime& NewerThan, const FString& ModuleFileSearchDirectory, const FString& Prefix, const FString& Suffix, FString& OutFilename)
 {
@@ -329,13 +352,13 @@ void FModuleManager::AddModule(const FName InModuleName)
 }
 
 
-IModuleInterface* FModuleManager::LoadModule( const FName InModuleName, bool bWasReloaded )
+IModuleInterface* FModuleManager::LoadModule( const FName InModuleName )
 {
 	// FModuleManager is not thread-safe
 	ensure(IsInGameThread());
 
 	EModuleLoadResult FailureReason;
-	IModuleInterface* Result = LoadModuleWithFailureReason(InModuleName, FailureReason, bWasReloaded );
+	IModuleInterface* Result = LoadModuleWithFailureReason(InModuleName, FailureReason );
 
 	// This should return a valid pointer only if and only if the module is loaded
 	check((Result != nullptr) == IsModuleLoaded(InModuleName));
@@ -344,16 +367,16 @@ IModuleInterface* FModuleManager::LoadModule( const FName InModuleName, bool bWa
 }
 
 
-IModuleInterface& FModuleManager::LoadModuleChecked( const FName InModuleName, const bool bWasReloaded )
+IModuleInterface& FModuleManager::LoadModuleChecked( const FName InModuleName )
 {
-	IModuleInterface* Module = LoadModule(InModuleName, bWasReloaded);
-	checkf(Module, *InModuleName.ToString());
+	IModuleInterface* Module = LoadModule(InModuleName);
+	checkf(Module, TEXT("%s"), *InModuleName.ToString());
 
 	return *Module;
 }
 
 
-IModuleInterface* FModuleManager::LoadModuleWithFailureReason(const FName InModuleName, EModuleLoadResult& OutFailureReason, bool bWasReloaded /*=false*/)
+IModuleInterface* FModuleManager::LoadModuleWithFailureReason(const FName InModuleName, EModuleLoadResult& OutFailureReason)
 {
 #if 0
 	ensureMsgf(IsInGameThread(), TEXT("ModuleManager: Attempting to load '%s' outside the main thread.  Please call LoadModule on the main/game thread only.  You can use GetModule or GetModuleChecked instead, those are safe to call outside the game thread."), *InModuleName.ToString());
@@ -883,12 +906,11 @@ void FModuleManager::QueryModules( TArray< FModuleStatus >& OutModuleStatuses ) 
 	}
 }
 
-
+#if !IS_MONOLITHIC
 FString FModuleManager::GetModuleFilename(FName ModuleName) const
 {
 	return FindModuleChecked(ModuleName)->Filename;
 }
-
 
 void FModuleManager::SetModuleFilename(FName ModuleName, const FString& Filename)
 {
@@ -901,14 +923,12 @@ void FModuleManager::SetModuleFilename(FName ModuleName, const FString& Filename
 	}
 }
 
-
 FString FModuleManager::GetCleanModuleFilename(FName ModuleName, bool bGameModule)
 {
 	FString Prefix, Suffix;
 	GetModuleFilenameFormat(bGameModule, Prefix, Suffix);
 	return Prefix + ModuleName.ToString() + Suffix;
 }
-
 
 void FModuleManager::GetModuleFilenameFormat(bool bGameModule, FString& OutPrefix, FString& OutSuffix)
 {
@@ -958,12 +978,14 @@ void FModuleManager::GetModuleFilenameFormat(bool bGameModule, FString& OutPrefi
 	OutSuffix += TEXT(".");
 	OutSuffix += FPlatformProcess::GetModuleExtension();
 }
+#endif
 
 void FModuleManager::ResetModulePathsCache()
 {
 	ModulePathsCache.Reset();
 }
 
+#if !IS_MONOLITHIC
 void FModuleManager::FindModulePaths(const TCHAR* NamePattern, TMap<FName, FString> &OutModulePaths, bool bCanUseCache /*= true*/) const
 {
 	if (!ModulePathsCache)
@@ -998,7 +1020,6 @@ void FModuleManager::FindModulePaths(const TCHAR* NamePattern, TMap<FName, FStri
 		FindModulePathsInDirectory(GameBinariesDirectories[Idx], true, NamePattern, OutModulePaths);
 	}
 }
-
 
 void FModuleManager::FindModulePathsInDirectory(const FString& InDirectoryName, bool bIsGameDirectory, const TCHAR* NamePattern, TMap<FName, FString> &OutModulePaths) const
 {
@@ -1040,7 +1061,7 @@ void FModuleManager::FindModulePathsInDirectory(const FString& InDirectoryName, 
 		for (int32 Idx = 0; Idx < FullFileNames.Num(); Idx++)
 		{
 			const FString &FullFileName = FullFileNames[Idx];
-	
+
 			// On Mac OS X the separate debug symbol format is the dSYM bundle, which is a bundle folder hierarchy containing a .dylib full of Mach-O formatted DWARF debug symbols, these are not loadable modules, so we mustn't ever try and use them. If we don't eliminate this here then it will appear in the module paths & cause errors later on which cannot be recovered from.
 		#if PLATFORM_MAC
 			if(FullFileName.Contains(".dSYM"))
@@ -1048,7 +1069,7 @@ void FModuleManager::FindModulePathsInDirectory(const FString& InDirectoryName, 
 				continue;
 			}
 		#endif
-		
+
 			FString FileName = FPaths::GetCleanFilename(FullFileName);
 			if (FileName.StartsWith(ModulePrefix) && FileName.EndsWith(ModuleSuffix))
 			{
@@ -1061,7 +1082,7 @@ void FModuleManager::FindModulePathsInDirectory(const FString& InDirectoryName, 
 		}
 	}
 }
-
+#endif
 
 void FModuleManager::UnloadOrAbandonModuleWithCallback(const FName InModuleName, FOutputDevice &Ar)
 {
@@ -1104,19 +1125,15 @@ void FModuleManager::AbandonModuleWithCallback(const FName InModuleName)
 
 bool FModuleManager::LoadModuleWithCallback( const FName InModuleName, FOutputDevice &Ar )
 {
-	IModuleInterface* LoadedModule = LoadModule( InModuleName, true );
-	bool bWasSuccessful = IsModuleLoaded( InModuleName );
-
-	if (bWasSuccessful && (LoadedModule != nullptr))
-	{
-		LoadedModule->PostLoadCallback();
-	}
-	else
+	IModuleInterface* LoadedModule = LoadModule( InModuleName );
+	if (!LoadedModule)
 	{
 		Ar.Logf(TEXT("Module couldn't be loaded."));
+		return false;
 	}
 
-	return bWasSuccessful;
+	LoadedModule->PostLoadCallback();
+	return true;
 }
 
 
@@ -1146,27 +1163,35 @@ void FModuleManager::MakeUniqueModuleFilename( const FName InModuleName, FString
 	while (FileManager.GetFileAgeSeconds(*UniqueModuleFileName) != -1.0);
 }
 
-
 const TCHAR *FModuleManager::GetUBTConfiguration()
 {
 	return EBuildConfigurations::ToString(FApp::GetBuildConfiguration());
 }
 
-
-bool FModuleManager::CheckModuleCompatibility(const TCHAR* Filename)
+#if !IS_MONOLITHIC
+bool FModuleManager::CheckModuleCompatibility(const TCHAR* Filename, ECheckModuleCompatibilityFlags Flags)
 {
 	int32 ModuleApiVersion = FPlatformProcess::GetDllApiVersion(Filename);
 	int32 CompiledInApiVersion = MODULE_API_VERSION;
 
 	if (ModuleApiVersion != CompiledInApiVersion)
 	{
-		UE_LOG(LogModuleManager, Warning, TEXT("Found module file %s (API version %d), but it was incompatible with the current engine API version (%d). This is likely a stale module that must be recompiled."), Filename, ModuleApiVersion, CompiledInApiVersion);
+		if (ModuleApiVersion < 0)
+		{
+			UE_LOG(LogModuleManager, Warning, TEXT("Module file %s is missing. This is likely a stale module that must be recompiled."), Filename);
+		}
+		else
+		{
+			UE_LOG(LogModuleManager, Warning, TEXT("Found module file %s (API version %d), but it was incompatible with the current engine API version (%d). This is likely a stale module that must be recompiled."), Filename, ModuleApiVersion, CompiledInApiVersion);
+		}
 		return false;
 	}
 
+	UE_CLOG(!!(Flags & ECheckModuleCompatibilityFlags::DisplayUpToDateModules), LogModuleManager, Display, TEXT("Found up-to-date module file %s (API version %d)."), Filename, ModuleApiVersion);
+
 	return true;
 }
-
+#endif
 
 void FModuleManager::StartProcessingNewlyLoadedObjects()
 {

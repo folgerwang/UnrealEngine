@@ -1,15 +1,22 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MetalRHIPrivate.h"
 #include "MetalCaptureManager.h"
 #include "MetalCommandQueue.h"
+
+bool GMetalSupportsCaptureManager = false;
 
 FMetalCaptureManager::FMetalCaptureManager(id<MTLDevice> InDevice, FMetalCommandQueue& InQueue)
 : Device(InDevice)
 , Queue(InQueue)
 {
 #if METAL_SUPPORTS_CAPTURE_MANAGER
-	if (@available(iOS 11.0, macOS 10.13, *))
+	if (FApplePlatformMisc::IsOSAtLeastVersion((uint32[]){10, 13, 0}, (uint32[]){11, 0, 0}, (uint32[]){11, 0, 0}))
+	{
+		GMetalSupportsCaptureManager = true;
+	}
+	
+	if (GMetalSupportsCaptureManager)
 	{
 		MTLCaptureManager* Manager = [MTLCaptureManager sharedCaptureManager];
 		
@@ -47,7 +54,7 @@ FMetalCaptureManager::~FMetalCaptureManager()
 void FMetalCaptureManager::PresentFrame(uint32 FrameNumber)
 {
 #if METAL_SUPPORTS_CAPTURE_MANAGER
-	if (@available(iOS 11.0, macOS 10.13, *))
+	if (GMetalSupportsCaptureManager)
 	{
 		for (FMetalCaptureScope& Scope : ActiveScopes)
 		{
@@ -79,7 +86,7 @@ void FMetalCaptureManager::PresentFrame(uint32 FrameNumber)
 void FMetalCaptureManager::BeginCapture(void)
 {
 #if METAL_SUPPORTS_CAPTURE_MANAGER
-	if (@available(iOS 11.0, macOS 10.13, *))
+	if (GMetalSupportsCaptureManager)
 	{
 		[[MTLCaptureManager sharedCaptureManager] startCaptureWithDevice:Device];
 	}
@@ -89,7 +96,7 @@ void FMetalCaptureManager::BeginCapture(void)
 void FMetalCaptureManager::EndCapture(void)
 {
 #if METAL_SUPPORTS_CAPTURE_MANAGER
-	if (@available(iOS 11.0, macOS 10.13, *))
+	if (GMetalSupportsCaptureManager)
 	{
 		[[MTLCaptureManager sharedCaptureManager] stopCapture];
 	}

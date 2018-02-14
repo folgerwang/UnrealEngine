@@ -1,9 +1,9 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "Features/IModularFeature.h"
-#include "SharedPointer.h"
+#include "Templates/SharedPointer.h"
 
 class UClass;
 class FMenuBuilder;

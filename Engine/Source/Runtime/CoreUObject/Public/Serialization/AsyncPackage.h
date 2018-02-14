@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	AsyncPackage.h: Unreal async loading definitions.
@@ -9,7 +9,7 @@
 #include "CoreMinimal.h"
 #include "UObject/UObjectGlobals.h"
 #include "Misc/Guid.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 struct FAsyncPackageDesc
 {

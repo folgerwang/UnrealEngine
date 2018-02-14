@@ -1,8 +1,8 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SignedArchiveWriter.h"
 #include "IPlatformFilePak.h"
-#include "SecureHash.h"
+#include "Misc/SecureHash.h"
 #include "HAL/FileManager.h"
 
 FSignedArchiveWriter::FSignedArchiveWriter(FArchive& InPak, const FString& InPakFilename, const FEncryptionKey& InPublicKey, const FEncryptionKey& InPrivateKey)

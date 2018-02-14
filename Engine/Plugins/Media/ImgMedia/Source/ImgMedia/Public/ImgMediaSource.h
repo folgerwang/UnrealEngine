@@ -1,9 +1,9 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreTypes.h"
-#include "Classes/Engine/EngineTypes.h"
+#include "Engine/EngineTypes.h"
 #include "Containers/UnrealString.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/ScriptMacros.h"
@@ -17,8 +17,9 @@
  *
  * Image sequence media sources point to a directory that contains a series of
  * image files in which each image represents a single frame of the sequence.
- * Currently, only EXR images are supported, but other formats, such as PNG
- * and JPEG will be added in the future.
+ * BMP, EXR, PNG and JPG images are currently supported. EXR image sequences
+ * are optimized for performance. The first frame of an image sequence is used
+ * to determine the image dimensions (all formats) and frame rate (EXR only).
  *
  * The image sequence directory may contain sub-directories, which are called
  * 'proxies'. Proxies can be used to provide alternative media for playback

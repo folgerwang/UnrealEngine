@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /**
  *
@@ -22,7 +22,7 @@ class USoundWaveThumbnailRenderer : public UThumbnailRenderer
 
 	// Begin UThumbnailRenderer Object
 	virtual void Draw(UObject* Object, int32 X, int32 Y, uint32 Width, uint32 Height, FRenderTarget*, FCanvas* Canvas) override;
-	virtual bool AllowsRealtimeThumbnails(UObject* Object) const override { return false; }
+	virtual bool AllowsRealtimeThumbnails(UObject* Object) const override;
 	// End UThumbnailRenderer Object
 };
 

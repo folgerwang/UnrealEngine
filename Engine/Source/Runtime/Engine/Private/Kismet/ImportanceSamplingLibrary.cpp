@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Kismet/ImportanceSamplingLibrary.h"
 #include "Math/Sobol.h"
 #include "Math/UnrealMathUtility.h"
 #include "Engine/Texture2D.h"
-#include "Stack.h"
-#include "NoExportTypes.h"
+#include "UObject/Stack.h"
+#include "UObject/NoExportTypes.h"
 
 #define LOCTEXT_NAMESPACE "ImportanceSamplingLibrary"
 

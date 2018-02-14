@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	TextureStreamingManager.cpp: Implementation of content streaming classes.
@@ -348,7 +348,8 @@ void FStreamingManagerTexture::ConditionalUpdateStaticData()
 		// This is used to test regression / improvements, and insertion perfs.
 		if (PreviousSettings.bUseMaterialData != Settings.bUseMaterialData ||
 			PreviousSettings.bUseNewMetrics != Settings.bUseNewMetrics ||
-			PreviousSettings.bUsePerTextureBias != Settings.bUsePerTextureBias)
+			PreviousSettings.bUsePerTextureBias != Settings.bUsePerTextureBias || 
+			PreviousSettings.MaxTextureUVDensity != Settings.MaxTextureUVDensity)
 		{
 			TArray<ULevel*, TInlineAllocator<32> > Levels;
 
@@ -621,7 +622,7 @@ void FStreamingManagerTexture::NotifyActorDestroyed( AActor* Actor )
 	for (UPrimitiveComponent* Component : Components)
 	{
 		// Remove any references in the dynamic component manager.
-		DynamicComponentManager.Remove(Component, RemovedTextures);
+		DynamicComponentManager.Remove(Component, &RemovedTextures);
 
 		// Reset this now as we have finished iterating over the levels
 		Component->bAttachedToStreamingManagerAsStatic = false;
@@ -721,7 +722,7 @@ void FStreamingManagerTexture::NotifyPrimitiveDetached( const UPrimitiveComponen
 	}
 	
 	// Dynamic component must be removed when visibility changes.
-	DynamicComponentManager.Remove(Primitive, RemovedTextures);
+	DynamicComponentManager.Remove(Primitive, &RemovedTextures);
 
 	SetTexturesRemovedTimestamp(RemovedTextures);
 	STAT(GatheredStats.CallbacksCycles += FPlatformTime::Cycles();)
@@ -1022,9 +1023,14 @@ static TAutoConsoleVariable<int32> CVarFramesForFullUpdate(
 	5,
 	TEXT("Texture streaming is time sliced per frame. This values gives the number of frames to visit all textures."));
 
+static TAutoConsoleVariable<int32> CVarUseBackgroundThreadPool(
+	TEXT("r.Streaming.UseBackgroundThreadPool"),
+	1,
+	TEXT("If true, use the background thread pool for mip calculations."));
+
 void FStreamingManagerTexture::UpdateResourceStreaming( float DeltaTime, bool bProcessEverything/*=false*/ )
 {
-	SCOPE_CYCLE_COUNTER(STAT_GameThreadUpdateTime);
+	SCOPE_CYCLE_COUNTER(STAT_TextureStreaming_GameThreadUpdateTime);
 
 	LogViewLocationChange();
 	STAT(DisplayedStats.Apply();)
@@ -1071,7 +1077,7 @@ void FStreamingManagerTexture::UpdateResourceStreaming( float DeltaTime, bool bP
 		// Here we rely on dynamic components to be updated on the last stage, in order to split the workload. 
 		UpdatePendingStates(false);
 		PrepareAsyncTask(bProcessEverything);
-		AsyncWork->StartBackgroundTask();
+		AsyncWork->StartBackgroundTask(CVarUseBackgroundThreadPool.GetValueOnGameThread() ? GBackgroundPriorityThreadPool : GThreadPool);
 		++ProcessingStage;
 
 		STAT(GatheredStats.SetupAsyncTaskCycles += FPlatformTime::Cycles();)
@@ -1113,7 +1119,7 @@ void FStreamingManagerTexture::UpdateResourceStreaming( float DeltaTime, bool bP
 		STAT(UpdateStats();)
 	}
 
-	TextureInstanceAsyncWork->StartBackgroundTask();
+	TextureInstanceAsyncWork->StartBackgroundTask(CVarUseBackgroundThreadPool.GetValueOnGameThread() ? GBackgroundPriorityThreadPool : GThreadPool);
 }
 
 /**
@@ -1483,7 +1489,7 @@ bool FStreamingManagerTexture::HandleStreamOutCommand( const TCHAR* Cmd, FOutput
 	if ( FreeMB > 0 )
 	{
 		bool bSucceeded = StreamOutTextureData( FreeMB * 1024 * 1024 );
-		Ar.Logf( TEXT("Tried to stream out %ld MB of texture data: %s"), FreeMB, bSucceeded ? TEXT("Succeeded") : TEXT("Failed") );
+		Ar.Logf( TEXT("Tried to stream out %ll MB of texture data: %s"), FreeMB, bSucceeded ? TEXT("Succeeded") : TEXT("Failed") );
 	}
 	else
 	{

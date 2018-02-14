@@ -1,18 +1,18 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "UserLabeledFieldCustomization.h"
 #include "K2Node_ControlRig.h"
 #include "IDetailChildrenBuilder.h"
 #include "PropertyHandle.h"
-#include "Containers/Algo/Transform.h"
-#include "HierarchicalRig.h"
+#include "Algo/Transform.h"
+#include "Rigs/HierarchicalRig.h"
 #include "DetailWidgetRow.h"
-#include "SComboBox.h"
+#include "Widgets/Input/SComboBox.h"
 #include "DetailLayoutBuilder.h"
 #include "PropertyCustomizationHelpers.h"
-#include "SEditableTextBox.h"
-#include "SButton.h"
-#include "SImage.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Images/SImage.h"
 
 #define LOCTEXT_NAMESPACE "UserLabeledFieldCustomization"
 

@@ -1,14 +1,14 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "MovieSceneFwd.h"
-#include "MovieSceneAnimTypeID.h"
-#include "ObjectKey.h"
-#include "InlineValue.h"
-#include "BlendableTokenStack.h"
-#include "MovieSceneEvaluationScope.h"
-#include "MovieSceneBlendingActuatorID.h"
+#include "Evaluation/MovieSceneAnimTypeID.h"
+#include "UObject/ObjectKey.h"
+#include "Misc/InlineValue.h"
+#include "Evaluation/Blending/BlendableTokenStack.h"
+#include "Evaluation/MovieSceneEvaluationScope.h"
+#include "Evaluation/Blending/MovieSceneBlendingActuatorID.h"
 
 /**
  * Container struct that houses all tokens of a single data type that are to be applied using a specific actuator

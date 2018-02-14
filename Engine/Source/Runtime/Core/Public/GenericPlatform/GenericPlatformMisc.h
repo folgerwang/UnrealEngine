@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -116,6 +116,31 @@ enum class EConvertibleLaptopMode
 
 	/** Laptop arranged as a tablet. */
 	Tablet
+};
+
+/** Device orientations for screens. e.g. Landscape, Portrait, etc.*/
+enum class EDeviceScreenOrientation : uint8
+{
+	/** The orientation is not known */
+	Unknown,
+	
+	/** The orientation is portrait with the home button at the bottom */
+	Portrait,
+	
+	/** The orientation is portrait with the home button at the top */
+	PortraitUpsideDown,
+	
+	/** The orientation is landscape with the home button at the right side */
+	LandscapeLeft,
+	
+	/** The orientation is landscape with the home button at the left side */
+	LandscapeRight,
+	
+	/** The orientation is as if place on a desk with the screen upward */
+	FaceUp,
+	
+	/** The orientation is as if place on a desk with the screen downward */
+	FaceDown
 };
 
 
@@ -299,6 +324,12 @@ struct CORE_API FGenericPlatformMisc
 	/** Submits a crash report to a central server (release builds only) */
 	static void SubmitErrorReport( const TCHAR* InErrorHist, EErrorReportMode::Type InMode );
 
+	/** Check to see if the platform is being viewed remotely. In such a mode we should aim to minimize screen refresh to get the best performance on the remote viewer */
+	static bool IsRemoteSession()
+	{
+		return false;
+	}
+
 	/** Return true if a debugger is present */
 	FORCEINLINE static bool IsDebuggerPresent()
 	{
@@ -429,20 +460,13 @@ public:
 	/**
 	 * Platform specific function for adding a named event that can be viewed in PIX
 	 */
-	FORCEINLINE static void BeginNamedEvent(const struct FColor& Color,const TCHAR* Text)
-	{
-	}
-
-	FORCEINLINE static void BeginNamedEvent(const struct FColor& Color,const ANSICHAR* Text)
-	{
-	}
+	static void BeginNamedEvent(const struct FColor& Color, const TCHAR* Text);
+	static void BeginNamedEvent(const struct FColor& Color, const ANSICHAR* Text);
 
 	/**
 	 * Platform specific function for closing a named event that can be viewed in PIX
 	 */
-	FORCEINLINE static void EndNamedEvent()
-	{
-	}
+	static void EndNamedEvent();
 
     /**
 	* Platform specific function for initializing storage of tagged memory buffers
@@ -782,6 +806,12 @@ public:
 	static FString GetDefaultLocale();
 
 	/**
+	 * Get the timezone identifier for this platform, or an empty string if the default timezone calculation will work.
+	 * @note This should return either an Olson timezone (eg, "America/Los_Angeles") or an offset from GMT/UTC (eg, "GMT-8:00").
+	 */
+	static FString GetTimeZoneId();
+
+	/**
 	 *	Platform-specific Exec function
 	 *
 	 *  @param	InWorld		World context
@@ -912,6 +942,12 @@ public:
 	 * Returns whether the platform is running on battery power or not.
 	 */
 	static bool IsRunningOnBattery();
+	
+	/**
+	 * Returns the orientation of the device: e.g. Portrait, LandscapeRight.
+	 * @see EScreenOrientation
+	 */
+	static EDeviceScreenOrientation GetDeviceOrientation();
 
 	/**
 	 * Get (or create) the unique ID used to identify this computer.
@@ -1021,14 +1057,6 @@ public:
 	static bool AllowSendAnonymousGameUsageDataToEpic()
 	{
 		return true;
-	}
-
-	/**
-	 * Allows the OS to enable high DPI mode 
-	 */
-	static void SetHighDPIMode()
-	{
-
 	}
 
 #if !UE_BUILD_SHIPPING

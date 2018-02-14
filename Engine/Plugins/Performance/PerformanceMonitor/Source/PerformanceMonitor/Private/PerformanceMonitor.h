@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -6,7 +6,7 @@
 #include "Stats/StatsData.h"
 #include "Modules/ModuleInterface.h"
 #include "Modules/ModuleManager.h"
-#include "UnrealString.h"
+#include "Containers/UnrealString.h"
 /**
  * 
  */
@@ -26,7 +26,7 @@ private:
 #if STATS
 	TArray<TArray<FStatMessage>> StoredMessages;
 	// Received frame data. Cleared after parsing.
-	TArray<FStatMessage> ReceivedFramePayload;
+	TArray<FStatMessage>ReceivedFramePayload[10];
 #endif
 	TMap<FString, TArray<float>> GeneratedStats;
 	FArchive * FileToLogTo;
@@ -84,7 +84,7 @@ public:
 	bool IsTickable() const { return bRecording; }
 
 	// Whether the received frame is ready to be interacted with on the game thread.
-	bool bNewFrameDataReady;
+	bool bNewFrameDataReady[10];
 	void GetDataFromStatsThread(int64 CurrentFrame);
 
 	bool IsRecordingPerfTimers() { return bRecording; }
@@ -95,6 +95,8 @@ public:
 	void GetStatsBreakdown();
 	void RecordData();	
 
+	float GetAverageOfArray(TArray<float>ArrayToAvg, FString StatName);
+	
 	void StopRecordingPerformanceTimers();
 	void FinalizeFTestPerfReport();
 	void CleanUpPerfFileHandles();

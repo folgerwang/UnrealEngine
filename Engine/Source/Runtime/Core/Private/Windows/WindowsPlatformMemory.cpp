@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Windows/WindowsPlatformMemory.h"
 #include "Misc/AssertionMacros.h"
@@ -11,20 +11,20 @@
 #include "Stats/Stats.h"
 #include "GenericPlatform/GenericPlatformMemoryPoolStats.h"
 
-#include "MallocTBB.h"
-#include "MallocAnsi.h"
-#include "MallocStomp.h"
-#include "GenericPlatformMemoryPoolStats.h"
-#include "MemoryMisc.h"
-#include "MallocBinned.h"
-#include "MallocBinned2.h"
+#include "HAL/MallocTBB.h"
+#include "HAL/MallocAnsi.h"
+#include "HAL/MallocStomp.h"
+#include "GenericPlatform/GenericPlatformMemoryPoolStats.h"
+#include "HAL/MemoryMisc.h"
+#include "HAL/MallocBinned.h"
+#include "HAL/MallocBinned2.h"
 #include "Windows/WindowsHWrapper.h"
 
 #if ENABLE_WIN_ALLOC_TRACKING
 #include <crtdbg.h>
 #endif // ENABLE_WIN_ALLOC_TRACKING
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <Psapi.h>
 #pragma comment(lib, "psapi.lib")
 

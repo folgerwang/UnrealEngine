@@ -77,8 +77,9 @@ public:
 class FOverlayVertexFactory : public FLocalVertexFactory
 {
 public:
-
-	FOverlayVertexFactory() = default;
+	FOverlayVertexFactory(ERHIFeatureLevel::Type InFeatureLevel)
+		: FLocalVertexFactory(InFeatureLevel, "FOverlayVertexFactory")
+	{}
 
 	/** Init function that should only be called on render thread. */
 	void Init_RenderThread( const FOverlayVertexBuffer* VertexBuffer )
@@ -121,6 +122,13 @@ public:
 
 struct FMeshBatchData
 {
+	FMeshBatchData(ERHIFeatureLevel::Type FeatureLevel)
+		: MaterialProxy(nullptr)
+		, VertexBuffer()
+		, IndexBuffer()
+		, VertexFactory(FeatureLevel)
+	{}
+
 	FMaterialRenderProxy* MaterialProxy;
 	FOverlayVertexBuffer VertexBuffer;
 	FOverlayIndexBuffer IndexBuffer;
@@ -136,6 +144,7 @@ public:
 		: FPrimitiveSceneProxy( Component ),
 		  MaterialRelevance( Component->GetMaterialRelevance( GetScene().GetFeatureLevel() ) )
 	{
+		ERHIFeatureLevel::Type FeatureLevel = GetScene().GetFeatureLevel();
 		// @todo perf: Render state is marked dirty every time a new element is added, and a new scene proxy will be created.
 		// Perhaps we can instead create the render buffers as BUF_Dynamic and amend them directly on the render thread.
 		// However they will still require a reallocation if the number of elements grows, so this may not be a worthwhile optimization.
@@ -146,7 +155,7 @@ public:
 		// material should thicken the polys.
 		if( Component->Lines.Num() > 0 )
 		{
-			MeshBatchDatas.Emplace();
+			MeshBatchDatas.Emplace(FMeshBatchData(FeatureLevel));
 			FMeshBatchData& MeshBatchData = MeshBatchDatas.Last();
 
 			MeshBatchData.MaterialProxy = Component->GetMaterial( 0 )->GetRenderProxy( IsSelected() );
@@ -187,7 +196,7 @@ public:
 		// Size of the point is given by U0.
 		if( Component->Points.Num() > 0 )
 		{
-			MeshBatchDatas.Emplace();
+			MeshBatchDatas.Emplace(FMeshBatchData(FeatureLevel));
 			FMeshBatchData& MeshBatchData = MeshBatchDatas.Last();
 
 			MeshBatchData.MaterialProxy = Component->GetMaterial( 1 )->GetRenderProxy( IsSelected() );
@@ -225,7 +234,7 @@ public:
 		int32 MaterialIndex = 2;
 		for( const auto& MaterialTriangles : Component->TrianglesByMaterial )
 		{
-			MeshBatchDatas.Emplace();
+			MeshBatchDatas.Emplace(FMeshBatchData(FeatureLevel));
 			FMeshBatchData& MeshBatchData = MeshBatchDatas.Last();
 
 			MeshBatchData.MaterialProxy = Component->GetMaterial( MaterialIndex )->GetRenderProxy( IsSelected() );
@@ -318,6 +327,11 @@ public:
 
 	uint32 GetAllocatedSize() const { return FPrimitiveSceneProxy::GetAllocatedSize(); }
 
+	virtual SIZE_T GetTypeHash() const override
+	{
+		static SIZE_T UniquePointer;
+		return reinterpret_cast<SIZE_T>(&UniquePointer);
+	}
 private:
 
 	TArray<FMeshBatchData> MeshBatchDatas;

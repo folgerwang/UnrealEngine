@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Widgets/SAsyncImage.h"
 
@@ -6,8 +6,8 @@
 #include "IImageWrapper.h"
 #include "IImageWrapperModule.h"
 #include "Misc/FileHelper.h"
-#include "ModuleManager.h"
-#include "SlateApplication.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
 #include "Widgets/SOverlay.h"
 
 

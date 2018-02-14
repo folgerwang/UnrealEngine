@@ -1,14 +1,14 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "FoliageEditUtility.h"
 #include "FoliageType.h"
 #include "InstancedFoliage.h"
 #include "LevelUtils.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
 #include "InstancedFoliageActor.h"
 #include "ScopedTransaction.h"
-#include "DlgPickAssetPath.h"
+#include "Dialogs/DlgPickAssetPath.h"
 #include "AssetRegistryModule.h"
 #include "FoliageEdMode.h"
 #include "FileHelpers.h"
@@ -63,7 +63,12 @@ UFoliageType* FFoliageEditUtility::SaveFoliageTypeObject(UFoliageType* InFoliage
 		PackagesToSave.Add(TypeToSave->GetOutermost());
 		const bool bCheckDirty = false;
 		const bool bPromptToSave = false;
-		FEditorFileUtils::PromptForCheckoutAndSave(PackagesToSave, bCheckDirty, bPromptToSave);
+		FEditorFileUtils::EPromptReturnCode ReturnValue = FEditorFileUtils::PromptForCheckoutAndSave(PackagesToSave, bCheckDirty, bPromptToSave);
+
+		if (ReturnValue != FEditorFileUtils::PR_Success)
+		{
+			TypeToSave = nullptr;
+		}
 	}
 
 	return TypeToSave;

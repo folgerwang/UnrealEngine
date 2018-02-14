@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LandscapeEditorDetailCustomization_MiscTools.h"
 #include "Widgets/Text/STextBlock.h"
@@ -14,7 +14,7 @@
 
 #include "ScopedTransaction.h"
 #include "IDetailPropertyRow.h"
-#include "SNumericEntryBox.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 #include "SFlattenHeightEyeDropperButton.h"
 #include "LandscapeEdModeTools.h"
 

@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LandscapeFileFormatPng.h"
 #include "Misc/FileHelper.h"
 #include "Modules/ModuleManager.h"
 #include "IImageWrapper.h"
 #include "IImageWrapperModule.h"
-#include "Containers/Algo/Transform.h"
+#include "Algo/Transform.h"
 
 
 #define LOCTEXT_NAMESPACE "LandscapeEditor.NewLandscape"

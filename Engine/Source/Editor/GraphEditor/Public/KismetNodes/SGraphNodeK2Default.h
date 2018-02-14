@@ -1,14 +1,14 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
-#include "SGraphNodeK2Base.h"
+#include "KismetNodes/SGraphNodeK2Base.h"
 
 class UK2Node;
 
-class SGraphNodeK2Default : public SGraphNodeK2Base
+class GRAPHEDITOR_API SGraphNodeK2Default : public SGraphNodeK2Base
 {
 public:
 	SLATE_BEGIN_ARGS(SGraphNodeK2Default){}

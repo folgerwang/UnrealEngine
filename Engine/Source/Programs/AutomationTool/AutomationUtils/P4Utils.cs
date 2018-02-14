@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -1907,6 +1907,48 @@ namespace AutomationTool
 		}
 
 		/// <summary>
+		/// Invokes p4 preview sync command and gets a list of preview synced files.
+		/// </summary>
+		/// <param name="FilesPreviewSynced">Files that have been preview synced with the command</param>
+		/// <param name="CommandLine">CommandLine to pass on to the command.</param>
+		/// <returns>Whether preview sync is successful</returns>
+		public bool PreviewSync(out List<string> FilesPreviewSynced, string CommandLine, bool AllowSpew = true, bool SpewIsVerbose = false)
+		{
+			FilesPreviewSynced = new List<string>();
+
+			try
+			{
+				string Output;
+				LogP4Output(out Output, "sync -n " + CommandLine, null, AllowSpew, SpewIsVerbose: SpewIsVerbose);
+
+				string UpToDateOutput = String.Format("{0} - file(s) up-to-date.\r\n", CommandLine);
+				if (Output == UpToDateOutput)
+				{
+					return true;
+				}
+
+				var Lines = Output.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+				foreach(var line in Lines)
+				{
+					// Line example: //Fortnite/Main/FortniteGame/Content/Backend/Calendars/athena-sales.ics#11 - updating D:\Build\UE4-Fortnite\FortniteGame\Content\Backend\Calendars\athena-sales.ics
+					var splittedLine = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+					if(splittedLine.Length > 3)
+					{
+						FilesPreviewSynced.Add(splittedLine[3]);
+					}
+				}
+			}
+			catch (Exception Ex)
+			{
+				CommandUtils.LogWarning("Unable to preview sync P4 changes with {0}", CommandLine);
+				CommandUtils.LogWarning(" Exception was {0}", LogUtils.FormatException(Ex));
+				return false;
+			}
+
+			return true;
+		}
+
+		/// <summary>
 		/// Invokes p4 unshelve command.
 		/// </summary>
 		/// <param name="FromCL">Changelist to unshelve.</param>
@@ -1947,9 +1989,38 @@ namespace AutomationTool
 		/// </summary>
 		/// <param name="CL">Changelist where the checked out files should be added.</param>
 		/// <param name="CommandLine">Commandline for the command.</param>
-		public void Edit(int CL, string CommandLine)
+		public void Edit(int CL, string CommandLine, bool AllowSpew = true)
 		{
-			LogP4("edit " + String.Format("-c {0} ", CL) + CommandLine);
+			LogP4("edit " + String.Format("-c {0} ", CL) + CommandLine, AllowSpew: AllowSpew);
+		}
+
+		/// <summary>
+		/// Invokes p4 edit command with a list of files.
+		/// </summary>
+		/// <param name="CL">Changelist where the checked out files should be added.</param>
+		/// <param name="CommandLine">Commandline for the command.</param>
+		public void Edit(int CL, List<string> Files, bool AllowSpew = true)
+		{
+			const int MaxCommandLineLength = 1024;
+
+			StringBuilder CommandLine = new StringBuilder();
+			for(int Idx = 0; Idx < Files.Count; Idx++)
+			{
+				if(CommandLine.Length + Files[Idx].Length + 3 > MaxCommandLineLength)
+				{
+					LogP4(String.Format("edit -c {0} {1}", CL, CommandLine.ToString()), AllowSpew: AllowSpew);
+					CommandLine.Clear();
+				}
+				if(CommandLine.Length > 0)
+				{
+					CommandLine.Append(" ");
+				}
+				CommandLine.AppendFormat("\"{0}\"", Files[Idx]);
+			}
+			if(CommandLine.Length > 0)
+			{
+				LogP4(String.Format("edit -c {0} {1}", CL, CommandLine.ToString()), AllowSpew: AllowSpew);
+			}
 		}
 
 		/// <summary>

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SProjectBrowser.h"
@@ -49,7 +49,7 @@
 #include "Framework/Application/SlateApplication.h"
 #include "ILauncherPlatform.h"
 #include "LauncherPlatformModule.h"
-#include "IMainFrameModule.h"
+#include "Interfaces/IMainFrameModule.h"
 
 #define LOCTEXT_NAMESPACE "ProjectBrowser"
 

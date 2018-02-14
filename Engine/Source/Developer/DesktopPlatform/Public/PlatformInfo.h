@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -362,4 +362,14 @@ namespace PlatformInfo
 	* @return An EPlatformType value.
 	*/
 	DESKTOPPLATFORM_API EPlatformType EPlatformTypeFromString(const FString& PlatformTypeName);
+}
+
+namespace Lex
+{
+	DESKTOPPLATFORM_API FString ToString(const PlatformInfo::EPlatformType Value);
+
+	inline void FromString(PlatformInfo::EPlatformType& OutValue, const TCHAR* Buffer)
+	{
+		OutValue = PlatformInfo::EPlatformTypeFromString(FString(Buffer));
+	}
 }

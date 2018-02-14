@@ -4,16 +4,17 @@
 
 #include "Components/ActorComponent.h"
 #include "GoogleVRPointer.h"
+#include "GoogleVRLaserVisual.h"
+#include "GoogleVRPointerInputComponent.h"
 #include "Components/SceneComponent.h"
-#include "Classes/GoogleVRControllerFunctionLibrary.h"
+#include "GoogleVRControllerFunctionLibrary.h"
 #include "Engine/Texture2D.h"
 #include "GoogleVRMotionControllerComponent.generated.h"
 
 class UMotionControllerComponent;
-class UGoogleVRPointerInputComponent;
+class IGoogleVRLaserVisual;
 class UMaterialInterface;
 class UMaterialParameterCollection;
-class UGoogleVRLaserPlaneComponent;
 
 /**
  * GoogleVRMotionControllerComponent is a customizable Daydream Motion Controller.
@@ -71,10 +72,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Materials")
 	UMaterialInterface* ControllerTouchPointMaterial;
 
-	/** Material used for the reticle billboard. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Materials")
-	UMaterialInterface* ControllerReticleMaterial;
-
 	/** Parameter collection used to set the alpha of all components.
 	 *  Must include property named "GoogleVRMotionControllerAlpha".
 	 */
@@ -117,26 +114,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Battery")
 	UTexture2D* BatteryChargingTexture;
 
-	/** Static mesh used to represent the laser. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Laser")
-	UStaticMesh* LaserPlaneMesh;
-
-	/** Maximum distance of the pointer (in meters). */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Laser")
-	float LaserDistanceMax;
-
-	/** Minimum distance of the reticle (in meters). */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reticle")
-	float ReticleDistanceMin;
-
-	/** Maximum distance of the reticle (in meters). */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reticle")
-	float ReticleDistanceMax;
-
-	/** Size of the reticle (in meters) as seen from 1 meter */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Reticle")
-	float ReticleSize;
-
 	/** The enter radius for the ray is the sprite size multiplied by this value.
 	 *  See IGoogleVRPointer.h for details.
 	 */
@@ -149,9 +126,22 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ray")
 	float ExitRadiusCoeff;
 
+	/** The name of the LaserVisualComponent to use.
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ray")
+	FName LaserVisualComponentTag;
+
+	/** Determines the method used to detect what the pointer hits. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	EGoogleVRPointerInputMode PointerInputMode;
+
 	/** If true, then a GoogleVRInputComponent will automatically be created if one doesn't already exist. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
 	bool RequireInputComponent;
+
+	/** If true, the root of the pose is locked to the local position of the player's head. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Arm Model")
+	bool IsLockedToHead;
 
 	/** TranslucentSortPriority to use when rendering.
 	 *  The reticle, the laser, and the controller mesh use TranslucentSortPriority.
@@ -178,13 +168,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "GoogleVRMotionController", meta = (Keywords = "Cardboard AVR GVR"))
 	UStaticMeshComponent* GetControllerMesh() const;
 
-	/** Get the StaticMeshComponent used to represent the laser.
-	*  Can be used if you desire to modify the laser at runtime
-	*  @return laser static mesh component.
-	*/
-	UFUNCTION(BlueprintCallable, Category = "GoogleVRMotionController", meta = (Keywords = "Cardboard AVR GVR"))
-	UStaticMeshComponent* GetLaser() const;
-
 	/** Get the MaterialInstanceDynamic used to represent the laser material.
 	*  Can be used if you desire to modify the laser at runtime
 	*  (i.e. change laser color when pointing at object).
@@ -192,13 +175,6 @@ public:
 	*/
 	UFUNCTION(BlueprintCallable, Category = "GoogleVRMotionController", meta = (Keywords = "Cardboard AVR GVR"))
 	UMaterialInstanceDynamic* GetLaserMaterial() const;
-
-	/** Get the MaterialBillboardComponent used to represent the reticle.
-	 *  Can be used if you desire to modify the reticle at runtime
-	 *  @return reticle billboard component.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "GoogleVRMotionController", meta = (Keywords = "Cardboard AVR GVR"))
-	UMaterialBillboardComponent* GetReticle() const;
 
 	/** Set the distance of the pointer.
 	 *  This will update the distance of the laser and the reticle
@@ -216,7 +192,9 @@ public:
 	virtual FVector GetDirection() const override;
 	virtual void GetRadius(float& OutEnterRadius, float& OutExitRadius) const override;
 	virtual float GetMaxPointerDistance() const override;
+	virtual float GetDefaultReticleDistance() const override;
 	virtual bool IsPointerActive() const override;
+	virtual EGoogleVRPointerInputMode GetPointerInputMode() const override;
 
 	/** ActorComponent Overrides */
 	virtual void OnRegister() override;
@@ -236,16 +214,14 @@ private:
 
 	void TrySetControllerMaterial(UMaterialInterface* NewMaterial);
 	void UpdateBatteryIndicator();
-	void UpdateLaserDistance(float Distance);
-	void UpdateLaserCorrection(FVector Correction);
-	void UpdateReticleDistance(float Distance);
-	void UpdateReticleLocation(FVector Location, FVector OriginLocation);
-	void UpdateReticleSize();
 	void SetSubComponentsEnabled(bool bNewEnabled);
 	bool IsControllerConnected() const;
 	float GetWorldToMetersScale() const;
+	float GetRaycastModeBasedDistance(float Distance);
+	float EaseOutCubic(float min, float max, float value);
 
 	APlayerController* PlayerController;
+	UGoogleVRPointerInputComponent* InputComponent;
 
 	UMotionControllerComponent* MotionControllerComponent;
 	UStaticMeshComponent* ControllerMeshComponent;
@@ -253,14 +229,13 @@ private:
 	UStaticMeshComponent* ControllerBatteryMeshComponent;
 	UMaterialInterface* ControllerBatteryStaticMaterial;
 	UMaterialInstanceDynamic* ControllerBatteryMaterial;
-	USceneComponent* PointerContainerComponent;
-	UGoogleVRLaserPlaneComponent* LaserPlaneComponent;
-	UMaterialBillboardComponent* ReticleBillboardComponent;
+	UGoogleVRLaserVisual* LaserVisualComponent;
 
 	FVector TouchMeshScale;
 	bool bAreSubComponentsEnabled;
 	EGoogleVRControllerBatteryLevel LastKnownBatteryState;
 	bool bBatteryWasCharging;
+	float Counter = 0.0f;
 
 	static constexpr float CONTROLLER_OFFSET_RATIO = 0.8f;
 	static constexpr float TOUCHPAD_RADIUS = 0.015f;

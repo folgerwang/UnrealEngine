@@ -1,4 +1,4 @@
-/// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -11,7 +11,7 @@
 #include "HAL/ThreadSafeCounter.h"
 
 #if PLATFORM_WINDOWS
-#	include "AllowWindowsPlatformTypes.h"
+#	include "Windows/AllowWindowsPlatformTypes.h"
 #endif
 
 THIRD_PARTY_INCLUDES_START
@@ -19,7 +19,7 @@ THIRD_PARTY_INCLUDES_START
 THIRD_PARTY_INCLUDES_END
 
 #if PLATFORM_WINDOWS
-#	include "HideWindowsPlatformTypes.h"
+#	include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 class FRunnableThread;
@@ -47,7 +47,7 @@ private:
 	// IWebSocketsManager
 	virtual void InitWebSockets(TArrayView<const FString> Protocols) override;
 	virtual void ShutdownWebSockets() override;
-	virtual TSharedRef<IWebSocket> CreateWebSocket(const FString& Url, const TArray<FString>& Protocols, const FString& UpgradeHeader) override;
+	virtual TSharedRef<IWebSocket> CreateWebSocket(const FString& Url, const TArray<FString>& Protocols, const TMap<FString, FString>& UpgradeHeaders) override;
 
 	//~ Begin FRunnable Interface
 	virtual bool Init() override;

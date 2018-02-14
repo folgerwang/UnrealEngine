@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.IO;
 using System.Net.Http;
@@ -109,13 +109,14 @@ public class HTML5Platform : Platform
 		}
 
 		// copy the "Executable" to the package directory
-		string GameBasename = Path.GetFileNameWithoutExtension(Params.ProjectGameExeFilename);
+		string ProjectGameExeFilename = Params.GetProjectExeForPlatform(UnrealTargetPlatform.HTML5).ToString();
+		string GameBasename = Path.GetFileNameWithoutExtension(ProjectGameExeFilename);
 		if (Params.ClientConfigsToBuild[0].ToString() != "Development")
 		{
 			GameBasename += "-HTML5-" + Params.ClientConfigsToBuild[0].ToString();
 		}
 		// no extension
-		string GameBasepath = Path.GetDirectoryName(Params.ProjectGameExeFilename);
+		string GameBasepath = Path.GetDirectoryName(ProjectGameExeFilename);
 		string FullGameBasePath = Path.Combine(GameBasepath, GameBasename);
 		string FullPackageGameBasePath = Path.Combine(PackagePath, GameBasename);
 
@@ -125,7 +126,7 @@ public class HTML5Platform : Platform
 		string FullPackageGameExePath = Path.Combine(PackagePath, GameExe);
 
 		// ensure the ue4game binary exists, if applicable
-		if (!SC.IsCodeBasedProject && !FileExists_NoExceptions(FullGameExePath))
+		if (!FileExists_NoExceptions(FullGameExePath))
 		{
 			Log("Failed to find game application " + FullGameExePath);
 			throw new AutomationException(ExitCode.Error_MissingExecutable, "Stage Failed. Could not find application {0}. You may need to build the UE4 project with your target configuration and platform.", FullGameExePath);
@@ -322,7 +323,7 @@ public class HTML5Platform : Platform
 				{
 					InArguments = InArguments.Replace ("\"", "");
 					string[] Arguments = InArguments.Split(' ');
-					string ArgumentString = IsContentOnly ? "'../../../" + InGameName + "/" + InGameName + ".uproject '," : "";
+					string ArgumentString = "'../../../" + InGameName + "/" + InGameName + ".uproject ',";
 					for (int i = 0; i < Arguments.Length - 1; ++i)
 					{
 						ArgumentString += "'" + Arguments[i] + "'" + ",' ',";
@@ -422,7 +423,7 @@ public class HTML5Platform : Platform
 		string ProjectDataName = Params.ShortProjectName + ".data";
 
 		// copy the "Executable" to the archive directory
-		string GameBasename = Path.GetFileNameWithoutExtension(Params.ProjectGameExeFilename);
+		string GameBasename = Path.GetFileNameWithoutExtension(Params.GetProjectExeForPlatform(UnrealTargetPlatform.HTML5).ToString());
 		if (Params.ClientConfigsToBuild[0].ToString() != "Development")
 		{
 			GameBasename += "-HTML5-" + Params.ClientConfigsToBuild[0].ToString();

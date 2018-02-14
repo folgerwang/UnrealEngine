@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -1607,17 +1607,10 @@ namespace AutomationTool
 			{
                 throw new AutomationException("Source count ({0}) does not match Dest count ({1})", Source.Count, Dest.Count);
 			}
-            try
-            {
-                Parallel.ForEach(Source.Zip(Dest, (Src, Dst) => new { SourceFile = Src, DestFile = Dst }), new ParallelOptions { MaxDegreeOfParallelism = MaxThreads }, (Pair) =>
-                {
-                    CommandUtils.CopyFile(Pair.SourceFile, Pair.DestFile, true);
-                });
-            }
-            catch (AggregateException Ex)
-            {
-                throw new AutomationException(Ex, "Failed to thread-copy files.");
-            }
+			Parallel.ForEach(Source.Zip(Dest, (Src, Dst) => new { SourceFile = Src, DestFile = Dst }), new ParallelOptions { MaxDegreeOfParallelism = MaxThreads }, (Pair) =>
+			{
+				CommandUtils.CopyFile(Pair.SourceFile, Pair.DestFile, true);
+			});
         }
 
 		/// <summary>
@@ -1810,7 +1803,7 @@ namespace AutomationTool
 		/// <param name="ArgList">Argument list.</param>
 		/// <param name="Param">Param to check for.</param>
 		/// <returns>True if param was found, false otherwise.</returns>
-		public static bool ParseParam(object[] ArgList, string Param)
+		public static bool ParseParam(string[] ArgList, string Param)
 		{
             string ValueParam = Param;
             if (!ValueParam.EndsWith("="))
@@ -1818,9 +1811,8 @@ namespace AutomationTool
                 ValueParam += "=";
             }
 
-            foreach (object Arg in ArgList)
+            foreach (string ArgStr in ArgList)
 			{
-                string ArgStr = Arg.ToString();
                 if (ArgStr.Equals(Param, StringComparison.InvariantCultureIgnoreCase) || ArgStr.StartsWith(ValueParam, StringComparison.InvariantCultureIgnoreCase))
 				{
 					return true;
@@ -2079,7 +2071,7 @@ namespace AutomationTool
 			}
 			else
 			{
-				using (Ionic.Zip.ZipFile Zip = new Ionic.Zip.ZipFile())
+				using (Ionic.Zip.ZipFile Zip = new Ionic.Zip.ZipFile(Encoding.UTF8))
 				{
 					Zip.UseZip64WhenSaving = Ionic.Zip.Zip64Option.Always;
 					foreach (FileReference FilteredFile in Filter.ApplyToDirectory(BaseDirectory, true))
@@ -2123,7 +2115,7 @@ namespace AutomationTool
 			}
 			else
 			{
-				Ionic.Zip.ZipFile Zip = new Ionic.Zip.ZipFile();
+				Ionic.Zip.ZipFile Zip = new Ionic.Zip.ZipFile(Encoding.UTF8);
 				Zip.UseZip64WhenSaving = Ionic.Zip.Zip64Option.Always;
 				foreach(FileReference File in Files)
 				{
@@ -2573,8 +2565,8 @@ namespace AutomationTool
 		{
 			string[] PossibleSignToolNames =
 			{
-				"C:/Program Files (x86)/Windows Kits/10/bin/x86/SignTool.exe",
-				"C:/Program Files (x86)/Windows Kits/8.1/bin/x86/SignTool.exe"
+				"C:/Program Files (x86)/Windows Kits/8.1/bin/x86/SignTool.exe",
+				"C:/Program Files (x86)/Windows Kits/10/bin/x86/SignTool.exe"
 			};
 
 			foreach(string PossibleSignToolName in PossibleSignToolNames)
@@ -2816,7 +2808,7 @@ namespace AutomationTool
 				//@TODO: Verbosity choosing
 				//  /v will spew lots of info
 				//  /q does nothing on success and minimal output on failure
-				string CodeSignArgs = String.Format("sign{0} /a /n \"{1}\" /t {2} /v {3}", SpecificStoreArg, SigningIdentity, TimestampServer[NumTrials % TimestampServer.Length], FilesToSign);
+				string CodeSignArgs = String.Format("sign{0} /a /n \"{1}\" /t {2} /debug {3}", SpecificStoreArg, SigningIdentity, TimestampServer[NumTrials % TimestampServer.Length], FilesToSign);
 
 				IProcessResult Result = CommandUtils.Run(SignToolName, CodeSignArgs, null, CommandUtils.ERunOptions.AllowSpew);
 				++NumTrials;

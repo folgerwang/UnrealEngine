@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidDeviceProfileSelector.h"
 #include "AndroidDeviceProfileMatchingRules.h"
 #include "AndroidJavaSurfaceViewDevices.h"
 #include "Templates/Casts.h"
-#include "Regex.h"
+#include "Internationalization/Regex.h"
 
 UAndroidDeviceProfileMatchingRules::UAndroidDeviceProfileMatchingRules(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

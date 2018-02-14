@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -297,7 +297,7 @@ namespace UnrealBuildTool
 				Name = Info.ModuleName,
 				ModuleType = Info.ModuleType,
 				BaseDirectory = Info.ModuleDirectory.FullName,
-				IncludeBase = Info.ModuleDirectory.FullName,
+				IncludeBase = Info.ModuleDirectory.ParentDirectory.FullName,
 				OutputDirectory = Path.GetDirectoryName(Info.GeneratedCPPFilenameBase),
 				ClassesHeaders = Info.PublicUObjectClassesHeaders.Select((Header) => Header.AbsolutePath).ToList(),
 				PublicHeaders = Info.PublicUObjectHeaders.Select((Header) => Header.AbsolutePath).ToList(),
@@ -344,11 +344,11 @@ namespace UnrealBuildTool
 
 				if (CPPHeaders.DoesFileContainUObjects(UObjectHeaderFileItem.AbsolutePath))
 				{
-					if (UObjectHeaderFileItem.Reference.IsUnderDirectory(ClassesFolder))
+					if (UObjectHeaderFileItem.Location.IsUnderDirectory(ClassesFolder))
 					{
 						AllClassesHeaders.Add(UObjectHeaderFileItem);
 					}
-					else if (UObjectHeaderFileItem.Reference.IsUnderDirectory(PublicFolder))
+					else if (UObjectHeaderFileItem.Location.IsUnderDirectory(PublicFolder))
 					{
 						PublicUObjectHeaders.Add(UObjectHeaderFileItem);
 					}
@@ -545,7 +545,7 @@ namespace UnrealBuildTool
 			if (UnrealBuildTool.bPrintPerformanceInfo)
 			{
 				double UObjectDiscoveryTime = (DateTime.UtcNow - UObjectDiscoveryStartTime).TotalSeconds;
-				Console.WriteLine("UObject discovery time: " + UObjectDiscoveryTime + "s");
+				Log.TraceInformation("UObject discovery time: " + UObjectDiscoveryTime + "s");
 			}
 		}
 
@@ -715,11 +715,13 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Checks the class header files and determines if generated UObject code files are out of date in comparison.
 		/// </summary>
+		/// <param name="BuildConfiguration">Build configuration</param>
 		/// <param name="UObjectModules">Modules that we generate headers for</param>
 		/// <param name="HeaderToolTimestamp">Timestamp for UHT</param>
 		/// <param name="bUsePrecompiled">Whether to use precompiled engine modules</param>
+		/// <param name="HotReload">The hot reload state</param>
 		/// <returns>    True if the code files are out of date</returns>
-		private static bool AreGeneratedCodeFilesOutOfDate(List<UHTModuleInfo> UObjectModules, DateTime HeaderToolTimestamp, bool bUsePrecompiled)
+		private static bool AreGeneratedCodeFilesOutOfDate(BuildConfiguration BuildConfiguration, List<UHTModuleInfo> UObjectModules, DateTime HeaderToolTimestamp, bool bUsePrecompiled, EHotReload HotReload)
 		{
 			// Get CoreUObject.init.gen.cpp timestamp.  If the source files are older than the CoreUObject generated code, we'll
 			// need to regenerate code for the module
@@ -829,7 +831,9 @@ namespace UnrealBuildTool
 					// able to process the known UObject headers that are in the Makefile.  If UObject header files are added/removed,
 					// we expect the user to re-run GenerateProjectFiles which will force UBTMakefile outdatedness.
 					// @todo ubtmake: Possibly, we should never be doing this check these days.
-					if (UnrealBuildTool.IsGatheringBuild || !UnrealBuildTool.IsAssemblingBuild)
+					//
+					// We don't need to do this check if using hot reload makefiles, since makefile out-of-date checks already handle it.
+					if (!BuildConfiguration.bUseUBTMakefiles && (UnrealBuildTool.IsGatheringBuild || !UnrealBuildTool.IsAssemblingBuild))
 					{
 						// Also check the timestamp on the directory the source file is in.  If the directory timestamp has
 						// changed, new source files may have been added or deleted.  We don't know whether the new/deleted
@@ -983,7 +987,7 @@ namespace UnrealBuildTool
 		/// Builds and runs the header tool and touches the header directories.
 		/// Performs any early outs if headers need no changes, given the UObject modules, tool path, game name, and configuration
 		/// </summary>
-		public static bool ExecuteHeaderToolIfNecessary(BuildConfiguration BuildConfiguration, UEBuildTarget Target, CppCompileEnvironment GlobalCompileEnvironment, List<UHTModuleInfo> UObjectModules, FileReference ModuleInfoFileName, ref ECompilationResult UHTResult)
+		public static bool ExecuteHeaderToolIfNecessary(BuildConfiguration BuildConfiguration, UEBuildTarget Target, CppCompileEnvironment GlobalCompileEnvironment, List<UHTModuleInfo> UObjectModules, FileReference ModuleInfoFileName, ref ECompilationResult UHTResult, EHotReload HotReload)
 		{
 			if (ProgressWriter.bWriteMarkup)
 			{
@@ -1001,7 +1005,7 @@ namespace UnrealBuildTool
 				bool bHaveHeaderTool = !bIsBuildingUHT && GetHeaderToolTimestamp(out HeaderToolTimestamp);
 
 				// ensure the headers are up to date
-				bool bUHTNeedsToRun = (BuildConfiguration.bForceHeaderGeneration == true || !bHaveHeaderTool || AreGeneratedCodeFilesOutOfDate(UObjectModules, HeaderToolTimestamp, Target.bUsePrecompiled));
+				bool bUHTNeedsToRun = (BuildConfiguration.bForceHeaderGeneration || !bHaveHeaderTool || AreGeneratedCodeFilesOutOfDate(BuildConfiguration, UObjectModules, HeaderToolTimestamp, Target.bUsePrecompiled, HotReload));
 				if (bUHTNeedsToRun || UnrealBuildTool.IsGatheringBuild)
 				{
 					// Since code files are definitely out of date, we'll now finish computing information about the UObject modules for UHT.  We
@@ -1042,9 +1046,9 @@ namespace UnrealBuildTool
 				if (!bIsBuildingUHT && bUHTNeedsToRun)
 				{
 					// Always build UnrealHeaderTool if header regeneration is required, unless we're running within an installed ecosystem or hot-reloading
-					if ((UnrealBuildTool.IsEngineInstalled() == false || Target.EnabledPlugins.Any(x => x.Descriptor.bCanBeUsedWithUnrealHeaderTool && !x.File.IsUnderDirectory(UnrealBuildTool.EngineDirectory))) &&
-						BuildConfiguration.bDoNotBuildUHT == false &&
-						BuildConfiguration.bHotReloadFromIDE == false &&
+					if ((!UnrealBuildTool.IsEngineInstalled() || Target.bHasProjectScriptPlugin) &&
+						!BuildConfiguration.bDoNotBuildUHT &&
+						HotReload != EHotReload.FromIDE &&
 						!(bHaveHeaderTool && !UnrealBuildTool.IsGatheringBuild && UnrealBuildTool.IsAssemblingBuild))	// If running in "assembler only" mode, we assume UHT is already up to date for much faster iteration!
 					{
 						// If it is out of date or not there it will be built.
@@ -1087,6 +1091,16 @@ namespace UnrealBuildTool
 								UBTArguments.Append(" -PLUGIN \"" + EnabledPlugin.Info.File + "\"");
 							}
 						}						
+
+						// Output the log next to the current log
+						if(String.IsNullOrEmpty(BuildConfiguration.LogFileName))
+						{
+							UBTArguments.Append(" -nolog");
+						}
+						else
+						{
+							UBTArguments.AppendFormat(" -log=\"{0}\"", Path.Combine(Path.GetDirectoryName(BuildConfiguration.LogFileName), Path.GetFileNameWithoutExtension(BuildConfiguration.LogFileName) + "_UHT.txt"));
+						}
 
 						if (RunExternalDotNETExecutable(UnrealBuildTool.GetUBTPath(), UBTArguments.ToString()) != 0)
 						{

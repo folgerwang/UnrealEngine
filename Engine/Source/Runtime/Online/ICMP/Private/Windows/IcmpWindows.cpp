@@ -1,19 +1,19 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Icmp.h"
 #include "IcmpPrivate.h"
 #include "IcmpModule.h"
 #include "SocketSubsystem.h"
 
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #include "WinSock2.h"
 #include "Ws2tcpip.h"
 #include "iphlpapi.h"
 #include "IcmpAPI.h"
 #undef _WINSOCK_DEPRECATED_NO_WARNINGS
-#include "HideWindowsPLatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #if PLATFORM_32BITS
 typedef ICMP_ECHO_REPLY FIcmpEchoReply;

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessMorpheus.cpp: Post processing for Sony Morpheus HMD device.
@@ -11,6 +11,7 @@
 #include "SceneRendering.h"
 #include "PostProcess/SceneFilterRendering.h"
 #include "IHeadMountedDisplay.h"
+#include "IXRTrackingSystem.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Engine/Engine.h"
 #include "EngineGlobals.h"
@@ -25,7 +26,7 @@ class FPostProcessMorpheusPS : public FGlobalShader
 {
 	DECLARE_SHADER_TYPE(FPostProcessMorpheusPS, Global);
 
-	static bool ShouldCache(EShaderPlatform Platform)
+	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
 		// we must use a run time check for this because the builds the build machines create will have Morpheus defined,
 		// but a user will not necessarily have the Morpheus files
@@ -37,9 +38,9 @@ class FPostProcessMorpheusPS : public FGlobalShader
 		return false;
 	}
 
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
+	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
 	{
-		FGlobalShader::ModifyCompilationEnvironment(Platform, OutEnvironment);
+		FGlobalShader::ModifyCompilationEnvironment(Parameters, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("NEW_MORPHEUS_DISTORTION"), TEXT("1"));
 	}
 
@@ -98,10 +99,12 @@ public:
 		DeferredParameters.Set(RHICmdList, ShaderRHI, Context.View, MD_PostProcess);
 
 		{
-			check(GEngine->HMDDevice.IsValid());
-			TSharedPtr< class IHeadMountedDisplay, ESPMode::ThreadSafe > HMDDevice = GEngine->HMDDevice;
+			static FName MorpheusName(TEXT("PSVR"));
+			check(GEngine->XRSystem.IsValid());
+			check(GEngine->XRSystem->GetSystemName() == MorpheusName);
 
-			check(HMDDevice->GetHMDDeviceType() == EHMDDeviceType::DT_Morpheus);
+			IHeadMountedDisplay* HMDDevice = GEngine->XRSystem->GetHMDDevice();
+			check(HMDDevice);
 
 			auto RCoefs = HMDDevice->GetRedDistortionParameters();
 			auto GCoefs = HMDDevice->GetGreenDistortionParameters();
@@ -145,7 +148,7 @@ class FPostProcessMorpheusVS : public FGlobalShader
 {
 	DECLARE_SHADER_TYPE(FPostProcessMorpheusVS,Global);
 
-	static bool ShouldCache(EShaderPlatform Platform)
+	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
 		// we must use a run time check for this because the builds the build machines create will have Morpheus defined,
 		// but a user will not necessarily have the Morpheus files
@@ -157,9 +160,9 @@ class FPostProcessMorpheusVS : public FGlobalShader
 		return false;
 	}
 
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
+	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
 	{
-		FGlobalShader::ModifyCompilationEnvironment(Platform, OutEnvironment);
+		FGlobalShader::ModifyCompilationEnvironment(Parameters, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("NEW_MORPHEUS_DISTORTION"), TEXT("1"));
 	}
 
@@ -200,7 +203,7 @@ void FRCPassPostProcessMorpheus::Process(FRenderingCompositePassContext& Context
 		return;
 	}
 
-	const FSceneView& View = Context.View;
+	const FViewInfo& View = Context.View;
 	const FSceneViewFamily& ViewFamily = *(View.Family);
 	
 	FIntRect SrcRect = View.ViewRect;

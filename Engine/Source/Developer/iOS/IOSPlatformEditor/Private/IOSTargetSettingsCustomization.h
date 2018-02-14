@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -98,6 +98,7 @@ private:
 	TSharedPtr<IPropertyHandle> SignCertificateProperty;
 	TSharedPtr<IPropertyHandle> ShaderVersionPropertyHandle;
 	TSharedPtr<IPropertyHandle> MinOSPropertyHandle;
+	TSharedPtr<IPropertyHandle> MRTPropertyHandle;
 	TSharedPtr<IPropertyHandle> GLES2PropertyHandle;
 	TSharedPtr<IPropertyHandle> DevArmV7PropertyHandle;
 	TSharedPtr<IPropertyHandle> DevArmV7sPropertyHandle;
@@ -206,6 +207,8 @@ private:
 	void UpdateShaderStandardWarning();
 	
 	void UpdateOSVersionWarning();
+	
+	void UpdateMetalMRTWarning();
 
 	void UpdateGLVersionWarning();
 

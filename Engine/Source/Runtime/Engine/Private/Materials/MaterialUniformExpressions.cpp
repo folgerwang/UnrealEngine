@@ -1,17 +1,17 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MaterialShared.cpp: Shared material implementation.
 =============================================================================*/
 
 #include "Materials/MaterialUniformExpressions.h"
+#include "CoreGlobals.h"
 #include "SceneManagement.h"
 #include "Materials/MaterialInstance.h"
 #include "Materials/MaterialInstanceSupport.h"
 #include "Materials/MaterialParameterCollection.h"
 #include "ExternalTexture.h"
-#include "MessageLog.h"
-#include "UObjectToken.h"
+#include "Misc/UObjectToken.h"
 
 TLinkedList<FMaterialUniformExpressionType*>*& FMaterialUniformExpressionType::GetTypeList()
 {
@@ -409,9 +409,7 @@ FUniformBufferRHIRef FUniformExpressionSet::CreateUniformBuffer(const FMaterialR
 						ExpressionIndex,
 						FText::FromString(*MaterialRenderContext.Material.GetFriendlyName()));
 
-					FMessageLog("PIE").Warning()
-						->AddToken(FUObjectToken::Create(Value))
-						->AddToken(FTextToken::Create(MessageText));
+					GLog->Logf(ELogVerbosity::Warning, TEXT("%s"), *MessageText.ToString());
 				}
 			}
 
@@ -651,7 +649,7 @@ bool FMaterialUniformExpressionExternalTexture::GetExternalTexture(const FMateri
 	check(IsInParallelRenderingThread());
 
 	FGuid GuidToLookup = ResolveExternalTextureGUID(Context);
-	return GuidToLookup.IsValid() && FExternalTextureRegistry::Get().GetExternalTexture(Context.MaterialRenderProxy, GuidToLookup, OutTextureRHI, OutSamplerStateRHI);
+	return FExternalTextureRegistry::Get().GetExternalTexture(Context.MaterialRenderProxy, GuidToLookup, OutTextureRHI, OutSamplerStateRHI);
 }
 
 FMaterialUniformExpressionExternalTextureParameter::FMaterialUniformExpressionExternalTextureParameter()
@@ -673,7 +671,7 @@ bool FMaterialUniformExpressionExternalTextureParameter::GetExternalTexture(cons
 	check(IsInParallelRenderingThread());
 
 	FGuid GuidToLookup = ResolveExternalTextureGUID(Context, ParameterName);
-	return GuidToLookup.IsValid() && FExternalTextureRegistry::Get().GetExternalTexture(Context.MaterialRenderProxy, GuidToLookup, OutTextureRHI, OutSamplerStateRHI);
+	return FExternalTextureRegistry::Get().GetExternalTexture(Context.MaterialRenderProxy, GuidToLookup, OutTextureRHI, OutSamplerStateRHI);
 }
 
 bool FMaterialUniformExpressionExternalTextureParameter::IsIdentical(const FMaterialUniformExpression* OtherExpression) const
@@ -700,7 +698,7 @@ void FMaterialUniformExpressionVectorParameter::GetGameThreadNumberValue(const U
 
 		if (MatInst)
 		{
-			const FVectorParameterValue* ParameterValue = GameThread_FindParameterByName(MatInst->VectorParameterValues, ParameterName);
+			const FVectorParameterValue* ParameterValue = GameThread_FindParameterByName(MatInst->VectorParameterValues, ParameterInfo);
 			if(ParameterValue)
 			{
 				OutValue = ParameterValue->ParameterValue;
@@ -733,7 +731,7 @@ void FMaterialUniformExpressionScalarParameter::GetGameThreadNumberValue(const U
 
 		if (MatInst)
 		{
-			const FScalarParameterValue* ParameterValue = GameThread_FindParameterByName(MatInst->ScalarParameterValues, ParameterName);
+			const FScalarParameterValue* ParameterValue = GameThread_FindParameterByName(MatInst->ScalarParameterValues, ParameterInfo);
 			if(ParameterValue)
 			{
 				OutValue = ParameterValue->ParameterValue;

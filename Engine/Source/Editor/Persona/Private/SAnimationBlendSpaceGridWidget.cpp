@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SAnimationBlendSpaceGridWidget.h"
 
@@ -26,7 +26,7 @@
 #include "Customization/BlendSampleDetails.h"
 #include "AssetData.h"
 #include "DragAndDrop/AssetDragDropOp.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 
 #include "Widgets/Input/SButton.h"
 #include "Fonts/FontMeasure.h"

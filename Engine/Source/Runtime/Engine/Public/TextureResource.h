@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -19,7 +19,7 @@
 #include "Serialization/BulkData.h"
 #include "Engine/TextureDefines.h"
 #include "UnrealClient.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 class FTexture2DResourceMem;
 class UTexture2D;
@@ -147,6 +147,9 @@ private:
 
 	/** Whether the texture RHI has been initialized.														*/
 	bool bReadyForStreaming;
+
+	/** Whether this texture should be updated using the virtual allocations.								*/
+	bool bUseVirtualUpdatePath;
 
 	EMipFadeSettings MipFadeSetting;
 

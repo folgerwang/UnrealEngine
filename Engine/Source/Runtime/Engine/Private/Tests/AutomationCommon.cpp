@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Tests/AutomationCommon.h"
 #include "Misc/Paths.h"
@@ -19,8 +19,8 @@
 #include "GameFramework/GameStateBase.h"
 #include "Scalability.h"
 #include "Matinee/MatineeActor.h"
-#include "IHeadMountedDisplay.h"
-#include "PackageName.h"
+#include "StereoRendering.h"
+#include "Misc/PackageName.h"
 
 #if (WITH_DEV_AUTOMATION_TESTS || WITH_PERF_AUTOMATION_TESTS)
 
@@ -85,7 +85,7 @@ namespace AutomationCommon
 	void GetScreenshotPath(const FString& TestName, FString& OutScreenshotName)
 	{
 		FString PathName = FPaths::AutomationDir() + TestName / FPlatformProperties::IniPlatformName();
-		PathName = PathName + TEXT("_") + GetRenderDetailsString();
+		PathName = PathName + TEXT("/") + GetRenderDetailsString();
 
 		FPaths::MakePathRelativeTo(PathName, *FPaths::RootDir());
 
@@ -106,7 +106,7 @@ namespace AutomationCommon
 		Data.Platform = FPlatformProperties::IniPlatformName();
 		Data.Rhi = FHardwareInfo::GetHardwareInfo(NAME_RHI);
 		GetFeatureLevelName(GMaxRHIFeatureLevel, Data.FeatureLevel);
-		Data.bIsStereo = GEngine->HMDDevice.IsValid() ? GEngine->HMDDevice->IsStereoEnabled() : false;
+		Data.bIsStereo = GEngine->StereoRenderingDevice.IsValid() ? GEngine->StereoRenderingDevice->IsStereoEnabled() : false;
 		Data.Vendor = RHIVendorIdToString();
 		Data.AdapterName = GRHIAdapterName;
 		Data.AdapterInternalDriverVersion = GRHIAdapterInternalDriverVersion;
@@ -129,7 +129,7 @@ namespace AutomationCommon
 		// TBD - 
 		// Device's native resolution (we want to use a hardware dump of the frontbuffer at the native resolution so we compare what we actually output rather than what we think we rendered)
 
-		const FString MapAndTest = MapOrContext + TEXT("_") + TestName;
+		const FString MapAndTest = MapOrContext + TEXT("/") + TestName;
 		AutomationCommon::GetScreenshotPath(MapAndTest, Data.Path);
 
 		return Data;

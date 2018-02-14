@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Toolkits/SGlobalTabSwitchingDialog.h"
 #include "Modules/ModuleManager.h"
@@ -22,7 +22,7 @@
 #include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
 
 #if PLATFORM_MAC
-#include "MacApplication.h"
+#include "Mac/MacApplication.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "SGlobalTabSwitchingDialog"

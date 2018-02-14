@@ -1,10 +1,10 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemIOSPrivatePCH.h"
 #include "OnlineStoreIOS.h"
-#include "Internationalization.h"
+#include "Internationalization/Internationalization.h"
 #include "Internationalization/Culture.h"
-#include "FastDecimalFormat.h"
+#include "Internationalization/FastDecimalFormat.h"
 #import "OnlineStoreKitHelper.h"
 
 FOnlineStoreIOS::FOnlineStoreIOS(FOnlineSubsystemIOS* InSubsystem)

@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "Object.h"
-#include "ObjectMacros.h"
+#include "UObject/Object.h"
+#include "UObject/ObjectMacros.h"
 #include "Features/IModularFeature.h"
 
 #include "ClothingAssetFactoryInterface.generated.h"

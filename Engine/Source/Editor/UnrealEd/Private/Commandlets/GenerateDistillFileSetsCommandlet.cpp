@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #include "Commandlets/GenerateDistillFileSetsCommandlet.h"
@@ -11,7 +11,7 @@
 #include "Misc/PackageName.h"
 #include "Settings/ProjectPackagingSettings.h"
 #include "FileHelpers.h"
-#include "RedirectCollector.h"
+#include "Misc/RedirectCollector.h"
 #include "Editor.h"
 #include "Engine/AssetManager.h"
 
@@ -119,6 +119,13 @@ int32 UGenerateDistillFileSetsCommandlet::Main( const FString& InParams )
 
 			for (const FAssetData& AssetData : AssetDataList)
 			{
+				FString PackageName = AssetData.PackageName.ToString();
+				// Warn about maps in "NoShip" or "TestMaps" folders.
+				if (PackageName.Contains("/NoShip/") || PackageName.Contains("/TestMaps/"))
+				{
+					UE_LOG(LogGenerateDistillFileSetsCommandlet, Display, TEXT("Skipping map package %s in TestMaps or NoShip folder"), *PackageName);
+					continue;
+				}
 				MapList.AddUnique(AssetData.PackageName.ToString());
 			}
 		}

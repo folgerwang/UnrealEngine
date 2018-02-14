@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "RenderUtils.h"
 #include "Containers/ResourceArray.h"
@@ -68,9 +68,9 @@ FPixelFormatInfo	GPixelFormats[PF_MAX] =
 	{ TEXT("DXT3"),				4,			4,			1,			16,			4,				0,				1,				PF_DXT3				},
 	{ TEXT("DXT5"),				4,			4,			1,			16,			4,				0,				1,				PF_DXT5				},
 	{ TEXT("UYVY"),				2,			1,			1,			4,			4,				0,				0,				PF_UYVY				},
-	{ TEXT("FloatRGB"),			1,			1,			1,			0,			3,				0,				1,				PF_FloatRGB			},
+	{ TEXT("FloatRGB"),			1,			1,			1,			4,			3,				0,				1,				PF_FloatRGB			},
 	{ TEXT("FloatRGBA"),		1,			1,			1,			8,			4,				0,				1,				PF_FloatRGBA		},
-	{ TEXT("DepthStencil"),		1,			1,			1,			0,			1,				0,				0,				PF_DepthStencil		},
+	{ TEXT("DepthStencil"),		1,			1,			1,			4,			1,				0,				0,				PF_DepthStencil		},
 	{ TEXT("ShadowDepth"),		1,			1,			1,			4,			1,				0,				0,				PF_ShadowDepth		},
 	{ TEXT("R32_FLOAT"),		1,			1,			1,			4,			1,				0,				1,				PF_R32_FLOAT		},
 	{ TEXT("G16R16"),			1,			1,			1,			4,			2,				0,				1,				PF_G16R16			},
@@ -85,7 +85,7 @@ FPixelFormatInfo	GPixelFormats[PF_MAX] =
 	{ TEXT("BC5"),				4,			4,			1,			16,			2,				0,				1,				PF_BC5				},
 	{ TEXT("V8U8"),				1,			1,			1,			2,			2,				0,				1,				PF_V8U8				},
 	{ TEXT("A1"),				1,			1,			1,			1,			1,				0,				0,				PF_A1				},
-	{ TEXT("FloatR11G11B10"),	1,			1,			1,			0,			3,				0,				0,				PF_FloatR11G11B10	},
+	{ TEXT("FloatR11G11B10"),	1,			1,			1,			4,			3,				0,				0,				PF_FloatR11G11B10	},
 	{ TEXT("A8"),				1,			1,			1,			1,			1,				0,				1,				PF_A8				},	
 	{ TEXT("R32_UINT"),			1,			1,			1,			4,			1,				0,				1,				PF_R32_UINT			},
 	{ TEXT("R32_SINT"),			1,			1,			1,			4,			1,				0,				1,				PF_R32_SINT			},
@@ -128,6 +128,9 @@ FPixelFormatInfo	GPixelFormats[PF_MAX] =
 	{ TEXT("XGXR8"),			1,			1,			1,			4,			4,				0,				1,				PF_XGXR8 			},
 	{ TEXT("R8G8B8A8_UINT"),	1,			1,			1,			4,			4,				0,				1,				PF_R8G8B8A8_UINT	},
 	{ TEXT("R8G8B8A8_SNORM"),	1,			1,			1,			4,			4,				0,				1,				PF_R8G8B8A8_SNORM	},
+
+	{ TEXT("R16G16B16A16_UINT"),1,			1,			1,			8,			4,				0,				1,				PF_R16G16B16A16_UNORM },
+	{ TEXT("R16G16B16A16_SINT"),1,			1,			1,			8,			4,				0,				1,				PF_R16G16B16A16_SNORM },
 };
 
 static struct FValidatePixelFormats
@@ -920,12 +923,12 @@ RENDERCORE_API FIndexBufferRHIRef& GetUnitCubeIndexBuffer()
 	return GUnitCubeIndexBuffer.IndexBufferRHI;
 }
 
-RENDERCORE_API void QuantizeSceneBufferSize(int32& InOutBufferSizeX, int32& InOutBufferSizeY)
+RENDERCORE_API void QuantizeSceneBufferSize(const FIntPoint& InBufferSize, FIntPoint& OutBufferSize)
 {
 	// Ensure sizes are dividable by DividableBy to get post processing effects with lower resolution working well
 	const uint32 DividableBy = 4;
 
 	const uint32 Mask = ~(DividableBy - 1);
-	InOutBufferSizeX = (InOutBufferSizeX + DividableBy - 1) & Mask;
-	InOutBufferSizeY = (InOutBufferSizeY + DividableBy - 1) & Mask;
+	OutBufferSize.X = (InBufferSize.X + DividableBy - 1) & Mask;
+	OutBufferSize.Y = (InBufferSize.Y + DividableBy - 1) & Mask;
 }

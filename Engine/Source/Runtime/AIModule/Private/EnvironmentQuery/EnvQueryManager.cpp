@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "EnvironmentQuery/EnvQueryManager.h"
 #include "UObject/UObjectIterator.h"
@@ -25,7 +25,7 @@
 
 extern UNREALED_API UEditorEngine* GEditor;
 #endif // WITH_EDITOR
-#include "TimeGuard.h"
+#include "Misc/TimeGuard.h"
 
 DEFINE_LOG_CATEGORY(LogEQS);
 

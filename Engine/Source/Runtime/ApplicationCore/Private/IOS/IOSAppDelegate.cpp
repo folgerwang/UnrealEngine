@@ -1,14 +1,14 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "IOSAppDelegate.h"
-#include "IOSCommandLineHelper.h"
-#include "ExceptionHandling.h"
-#include "ModuleBoilerplate.h"
-#include "CallbackDevice.h"
-#include "IOSView.h"
-#include "TaskGraphInterfaces.h"
-#include "GenericPlatformChunkInstall.h"
-#include "IOSPlatformMisc.h"
+#include "IOS/IOSAppDelegate.h"
+#include "IOS/IOSCommandLineHelper.h"
+#include "HAL/ExceptionHandling.h"
+#include "Modules/Boilerplate/ModuleBoilerplate.h"
+#include "Misc/CallbackDevice.h"
+#include "IOS/IOSView.h"
+#include "Async/TaskGraphInterfaces.h"
+#include "GenericPlatform/GenericPlatformChunkInstall.h"
+#include "IOS/IOSPlatformMisc.h"
 #include "HAL/PlatformStackWalk.h"
 #include "HAL/PlatformProcess.h"
 #include "Misc/OutputDeviceError.h"
@@ -16,7 +16,7 @@
 #include "IOS/IOSPlatformFramePacer.h"
 #include "IOS/IOSAsyncTask.h"
 #include "Misc/ConfigCacheIni.h"
-#include "IOSPlatformCrashContext.h"
+#include "IOS/IOSPlatformCrashContext.h"
 #include "Misc/OutputDeviceError.h"
 #include "Misc/OutputDeviceRedirector.h"
 #include "Misc/FeedbackContext.h"
@@ -129,6 +129,8 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
 @synthesize IdleTimerEnableTimer;
 @synthesize IdleTimerEnablePeriod;
 
+@synthesize savedOpenUrlParameters;
+
 -(void)dealloc
 {
 #if !UE_BUILD_SHIPPING && !PLATFORM_TVOS
@@ -204,6 +206,16 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
 	bEngineInit = true;
 	// @PJS - need a better way to allow the game to turn off the splash screen
     GShowSplashScreen = false;
+
+	for (NSDictionary* openUrlParameter in self.savedOpenUrlParameters)
+	{
+		UIApplication* application = [openUrlParameter valueForKey : @"application"];
+		NSURL* url = [openUrlParameter valueForKey : @"url"];
+		NSString * sourceApplication = [openUrlParameter valueForKey : @"sourceApplication"];
+		id annotation = [openUrlParameter valueForKey : @"annotation"];
+		FIOSCoreDelegates::OnOpenURL.Broadcast(application, url, sourceApplication, annotation);
+	}
+	self.savedOpenUrlParameters = nil; // clear after saved openurl delegate running
 
 	while( !GIsRequestingExit )
 	{
@@ -592,10 +604,12 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
 	NSMutableString* PngString = [[NSMutableString alloc] init];
     [ImageString appendString:@"Default"];
 
+	self.savedOpenUrlParameters = [[NSMutableArray alloc] init];
+
 	FPlatformMisc::EIOSDevice Device = FPlatformMisc::GetIOSDeviceType();
 
-	// iphone6 has specially named files
-    if (Device == FPlatformMisc::IOS_IPhone6 || Device == FPlatformMisc::IOS_IPhone6S || Device == FPlatformMisc::IOS_IPhone7)
+	// iphone6 has specially named files, this seems to be needed for every iphone since, so let's see if we can find a better way to do this which isn't device specific
+    if (Device == FPlatformMisc::IOS_IPhone6 || Device == FPlatformMisc::IOS_IPhone6S || Device == FPlatformMisc::IOS_IPhone7 || Device == FPlatformMisc::IOS_IPhone8)
 	{
 		[ImageString appendString:@"-IPhone6"];
 		if (!self.bDeviceInPortraitMode)
@@ -603,9 +617,21 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
 			[ImageString appendString : @"-Landscape"];
 		}
 	}
-    else if (Device == FPlatformMisc::IOS_IPhone6Plus || Device == FPlatformMisc::IOS_IPhone6SPlus || Device == FPlatformMisc::IOS_IPhone7Plus)
+    else if (Device == FPlatformMisc::IOS_IPhone6Plus || Device == FPlatformMisc::IOS_IPhone6SPlus || Device == FPlatformMisc::IOS_IPhone7Plus || Device == FPlatformMisc::IOS_IPhone8Plus)
 	{
 		[ImageString appendString : @"-IPhone6Plus"];
+		if (!self.bDeviceInPortraitMode)
+		{
+			[ImageString appendString : @"-Landscape"];
+		}
+		else
+		{
+			[ImageString appendString : @"-Portrait"];
+		}
+	}
+	else if (Device == FPlatformMisc::IOS_IPhoneX)
+	{
+		[ImageString appendString : @"-IPhoneX"];
 		if (!self.bDeviceInPortraitMode)
 		{
 			[ImageString appendString : @"-Landscape"];
@@ -786,8 +812,27 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
 	[self.CommandLineParseTimer invalidate];
 	self.CommandLineParseTimer = nil;
 	
-	FIOSCoreDelegates::OnOpenURL.Broadcast(application, url, sourceApplication, annotation);
-	
+	//    Save openurl infomation before engine initialize.
+	//    When engine is done ready, running like previous. ( if OnOpenUrl is bound on game source. )
+	if (bEngineInit)
+	{
+		FIOSCoreDelegates::OnOpenURL.Broadcast(application, url, sourceApplication, annotation);
+	}
+	else
+	{
+#if !NO_LOGGING
+		NSLog(@"%s", "Before Engine Init receive IOSAppDelegate openURL\n");
+#endif
+			NSDictionary* openUrlParameter = [NSDictionary dictionaryWithObjectsAndKeys :
+		application, @"application",
+			url, @"url",
+			sourceApplication, @"sourceApplication",
+			annotation, @"annotation",
+			nil];
+
+		[savedOpenUrlParameters addObject : openUrlParameter];
+	}
+
 	return YES;
 }
 

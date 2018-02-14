@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -22,6 +22,9 @@ struct FStackEntry;
  */
 class FGCArrayPool
 {
+private:
+	// allows sharing a singleton between all compilation units while still having an inlined getter
+	COREUOBJECT_API static FGCArrayPool* GetGlobalSingleton();
 public:
 
 	/**
@@ -30,17 +33,11 @@ public:
 	 */
 	FORCEINLINE static FGCArrayPool& Get()
 	{
-		static FAutoConsoleCommandWithOutputDevice GCDumpPoolCommand(
-			TEXT("gc.DumpPoolStats"),
-			TEXT("Dumps count and size of GC Pools"),
-			FConsoleCommandWithOutputDeviceDelegate::CreateStatic(&FGCArrayPool::DumpStats)
-		);
-
 		static FGCArrayPool* Singleton = nullptr;
 
 		if (!Singleton)
 		{
-			Singleton = new FGCArrayPool();
+			Singleton = GetGlobalSingleton();
 		}
 		return *Singleton;
 	}
@@ -802,7 +799,7 @@ private:
 					break;
 					default:
 					{
-						UE_LOG(LogGarbage, Fatal, TEXT("Unknown token"));
+						UE_LOG(LogGarbage, Fatal, TEXT("Unknown token. Type:%d ReferenceTokenStreamIndex:%d Class:%s Obj:%s"), ReferenceInfo.Type, ReferenceTokenStreamIndex, CurrentObject ? *GetNameSafe(CurrentObject->GetClass()) : TEXT("Unknown"), *GetPathNameSafe(CurrentObject));
 						break;
 					}
 				}

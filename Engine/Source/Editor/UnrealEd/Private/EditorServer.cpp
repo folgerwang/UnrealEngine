@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #include "CoreMinimal.h"
@@ -2029,6 +2029,8 @@ void UEditorEngine::EditorDestroyWorld( FWorldContext & Context, const FText& Cl
 		}
 	}
 
+	FEditorSupportDelegates::PrepareToCleanseEditorObject.Broadcast(ContextWorld);
+
 	ContextWorld->DestroyWorld( true, NewWorld );
 	Context.SetCurrentWorld(NULL);
 
@@ -2064,7 +2066,7 @@ bool UEditorEngine::ShouldAbortBecauseOfPIEWorld() const
 	// If a PIE world exists, warn the user that the PIE session will be terminated.
 	if ( GEditor->PlayWorld )
 	{
-		if( EAppReturnType::Yes == FMessageDialog::Open( EAppMsgType::YesNo, NSLOCTEXT("UnrealEd", "Prompt_ThisActionWillTerminatePIEContinue", "This action will terminate your Play In Editor session.  Continue?") ) )
+		if( EAppReturnType::Yes == FMessageDialog::Open( EAppMsgType::YesNo, EAppReturnType::Yes, NSLOCTEXT("UnrealEd", "Prompt_ThisActionWillTerminatePIEContinue", "This action will terminate your Play In Editor session.  Continue?") ) )
 		{
 			// End the play world.
 			GEditor->EndPlayMap();
@@ -2095,7 +2097,7 @@ bool UEditorEngine::ShouldAbortBecauseOfUnsavedWorld() const
 			if ( !FPackageName::DoesPackageExist(PackageName) )
 			{
 				// This world will be completely lost if a map transition happens. Warn the user that this is happening and ask him/her how to proceed.
-				if (EAppReturnType::Yes != FMessageDialog::Open(EAppMsgType::YesNo, FText::Format(NSLOCTEXT("UnrealEd", "Prompt_ThisActionWillDiscardWorldContinue", "The unsaved level {0} will be lost.  Continue?"), FText::FromString(LevelEditorWorld->GetName()))))
+				if (EAppReturnType::Yes != FMessageDialog::Open(EAppMsgType::YesNo, EAppReturnType::Yes, FText::Format(NSLOCTEXT("UnrealEd", "Prompt_ThisActionWillDiscardWorldContinue", "The unsaved level {0} will be lost.  Continue?"), FText::FromString(LevelEditorWorld->GetName()))))
 				{
 					// User doesn't want to lose the world -- abort the load.
 					return true;
@@ -2524,6 +2526,8 @@ bool UEditorEngine::Map_Load(const TCHAR* Str, FOutputDevice& Ar)
 
 				World->WorldType = EWorldType::Editor;
 
+				Context.World()->PersistentLevel->HandleLegacyMapBuildData();
+
 				// Parse requested feature level if supplied
 				int32 FeatureLevelIndex = (int32)GMaxRHIFeatureLevel;
 				FParse::Value(Str, TEXT("FEATURELEVEL="), FeatureLevelIndex);
@@ -2711,7 +2715,7 @@ bool UEditorEngine::Map_Load(const TCHAR* Str, FOutputDevice& Ar)
 		}
 		else
 		{
-			UE_SUPPRESS(LogExec, Warning, Ar.Logf(*NSLOCTEXT("Editor", "MapLoad_BadFilename", "Map_Load failed. The filename '%s' could not be converted to a long package name.").ToString(), TempFname));
+			UE_SUPPRESS(LogExec, Warning, Ar.Log(*FText::Format(NSLOCTEXT("Editor", "MapLoad_BadFilenameFmt", "Map_Load failed. The filename '{0}' could not be converted to a long package name."), FText::FromString(TempFname)).ToString()));
 		}
 	}
 	else
@@ -4374,7 +4378,8 @@ bool UEditorEngine::Exec_Obj( const TCHAR* Str, FOutputDevice& Ar )
 
 		if( FParse::Value( Str, TEXT( "FILE=" ), TempFname, 256 ) && ParseObject<UPackage>( Str, TEXT( "Package=" ), Pkg, NULL ) )
 		{
-			if ( GUnrealEd == NULL || Pkg == NULL || !GUnrealEd->CanSavePackage(Pkg) )
+			// Allow commandlets proceed without testing if we need to check out on assumption that they know what they are doing.
+			if ( Pkg == nullptr || ( !IsRunningCommandlet() && ( GUnrealEd == nullptr || !GUnrealEd->CanSavePackage(Pkg ) ) ) )
 			{
 				return false;
 			}
@@ -4466,20 +4471,7 @@ AActor* UEditorEngine::SelectNamedActor(const TCHAR* TargetActorName)
  */
 static bool IsInALevel(UObject* Obj)
 {
-	UObject* Outer = Obj->GetOuter();
-
-	// Keep looping while we walk up Outer chain.
-	while(Outer)
-	{
-		if(Outer->IsA(ULevel::StaticClass()))
-		{
-			return true;
-		}
-
-		Outer = Outer->GetOuter();
-	}
-
-	return false;
+	return Obj->GetTypedOuter<ULevel>() != nullptr;
 }
 
 
@@ -5046,6 +5038,10 @@ bool UEditorEngine::Exec_Transaction(const TCHAR* Str, FOutputDevice& Ar)
 
 void UEditorEngine::BroadcastPostUndo(const FString& Context, UObject* PrimaryObject, bool bUndoSuccess )
 {
+	// This sanitization code can be removed once blueprint ::Conform(ImplementedEvents/ImplementedInterfaces) 
+	// functions have been fixed. For the time being it improves editor stability, though:
+	UEdGraphPin::SanitizePinsPostUndoRedo();
+
 	for (auto UndoIt = UndoClients.CreateIterator(); UndoIt; ++UndoIt)
 	{
 		FEditorUndoClient* Client = *UndoIt;
@@ -5058,6 +5054,10 @@ void UEditorEngine::BroadcastPostUndo(const FString& Context, UObject* PrimaryOb
 
 void UEditorEngine::BroadcastPostRedo(const FString& Context, UObject* PrimaryObject, bool bRedoSuccess )
 {
+	// This sanitization code can be removed once blueprint ::Conform(ImplementedEvents/ImplementedInterfaces) 
+	// functions have been fixed. For the time being it improves editor stability, though:
+	UEdGraphPin::SanitizePinsPostUndoRedo();
+
 	for (auto UndoIt = UndoClients.CreateIterator(); UndoIt; ++UndoIt)
 	{
 		FEditorUndoClient* Client = *UndoIt;
@@ -5123,7 +5123,7 @@ void UEditorEngine::ExecFile( UWorld* InWorld, const TCHAR* InFilename, FOutputD
 	}
 	else
 	{
-		UE_SUPPRESS(LogExec, Warning, Ar.Logf(*FString::Printf( TEXT("Can't find file '%s'"), TempFname)));
+		UE_SUPPRESS(LogExec, Warning, Ar.Logf(TEXT("Can't find file '%s'"), TempFname));
 	}
 }
 

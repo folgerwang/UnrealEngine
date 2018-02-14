@@ -3,12 +3,12 @@
 #include "RemoveVertex.h"
 #include "IMeshEditorModeEditingContract.h"
 #include "IMeshEditorModeUIContract.h"
-#include "UICommandInfo.h"
+#include "Framework/Commands/UICommandInfo.h"
 #include "EditableMesh.h"
 #include "MeshElement.h"
 #include "ScopedTransaction.h"
-#include "MultiBoxBuilder.h"
-#include "UICommandList.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/Commands/UICommandList.h"
 
 
 #define LOCTEXT_NAMESPACE "MeshEditorMode"

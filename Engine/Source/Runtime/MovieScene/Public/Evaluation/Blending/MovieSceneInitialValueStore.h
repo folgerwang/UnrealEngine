@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "MovieSceneFwd.h"
 #include "MovieSceneExecutionToken.h"
-#include "ObjectKey.h"
+#include "UObject/ObjectKey.h"
 #include "IMovieScenePlayer.h"
 
 struct IMovieSceneBlendingActuator;

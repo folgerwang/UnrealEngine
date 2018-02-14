@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "RHI.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/Parse.h"
 #include "Misc/CommandLine.h"
 #include "Misc/MessageDialog.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 int32 GAppleMetalEnabled = 1;
 static FAutoConsoleVariableRef CVarMacMetalEnabled(

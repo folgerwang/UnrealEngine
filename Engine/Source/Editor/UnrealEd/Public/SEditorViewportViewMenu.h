@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -9,6 +9,7 @@
 #include "Widgets/SWidget.h"
 #include "SEditorViewport.h"
 #include "SEditorViewportToolBarMenu.h"
+#include "Styling/SlateTypes.h"
 
 struct FSlateBrush;
 
@@ -21,15 +22,11 @@ public:
 
 	void Construct( const FArguments& InArgs, TSharedRef<SEditorViewport> InViewport, TSharedRef<class SViewportToolBar> InParentToolBar );
 
-	/** Generate the view menu */
-	static void GenerateViewMenu(FMenuBuilder& InMenuBuilder, TWeakPtr<SViewportToolBar> ParentToolBar);
-
-	static FText GetViewMenuLabel(TWeakPtr<SEditorViewport> InViewport);
-
-	static FSlateIcon GetViewMenuLabelIcon(TWeakPtr<SEditorViewport> InViewport);
+private:
+	FText GetViewMenuLabel() const;
+	const FSlateBrush* GetViewMenuLabelIcon() const;
 
 protected:
-	const FSlateBrush* GetViewMenuLabelBrush() const;
 	virtual TSharedRef<SWidget> GenerateViewMenuContent() const;
 	TWeakPtr<SEditorViewport> Viewport;
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ShaderCache.cpp: Bound shader state cache implementation.
@@ -15,8 +15,8 @@
 #include "Shader.h"
 #include "Misc/EngineVersion.h"
 #include "PipelineStateCache.h"
-#include "ScopeRWLock.h"
-#include "CoreDelegates.h"
+#include "Misc/ScopeRWLock.h"
+#include "Misc/CoreDelegates.h"
 
 DECLARE_STATS_GROUP(TEXT("Shader Cache"),STATGROUP_ShaderCache, STATCAT_Advanced);
 DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num Shaders Cached"),STATGROUP_NumShadersCached,STATGROUP_ShaderCache);
@@ -34,7 +34,7 @@ DECLARE_FLOAT_ACCUMULATOR_STAT(TEXT("Binary Cache Load Time (s)"),STATGROUP_Bina
 const FGuid FShaderCacheCustomVersion::Key(0xB954F018, 0xC9624DD6, 0xA74E79B1, 0x8EA113C2);
 const FGuid FShaderCacheCustomVersion::GameKey(0x03D4EB48, 0xB50B4CC3, 0xA598DE41, 0x5C6CC993);
 FCustomVersionRegistration GRegisterShaderCacheVersion(FShaderCacheCustomVersion::Key, FShaderCacheCustomVersion::Latest, TEXT("ShaderCacheVersion"));
-FCustomVersionRegistration GRegisterShaderCacheGameVersion(FShaderCacheCustomVersion::GameKey, 0, TEXT("ShaderCacheGameVersion"));
+FCustomVersionRegistration GRegisterShaderCacheGameVersion(FShaderCacheCustomVersion::GameKey, (int32)FEngineVersion::Current().GetChangelist(), TEXT("ShaderCacheGameVersion"));
 
 #define SHADER_CACHE_ENABLED (!WITH_EDITOR && PLATFORM_MAC)
 
@@ -637,6 +637,7 @@ static bool ShaderPlatformCanPrebindBoundShaderState(EShaderPlatform Platform)
 		case SP_METAL_MRT:
 		case SP_METAL_MRT_MAC:
 		case SP_METAL_SM5:
+		case SP_METAL_SM5_NOTESS:
 		case SP_METAL_MACES3_1:
 		case SP_METAL_MACES2:
 		case SP_OPENGL_PCES2:

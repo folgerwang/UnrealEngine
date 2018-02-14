@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -17,6 +17,7 @@
 #include "Engine/GameViewportDelegates.h"
 #include "Engine/DebugDisplayProperty.h"
 #include "UObject/SoftObjectPath.h"
+#include "StereoRendering.h"
 
 #include "GameViewportClient.generated.h"
 
@@ -32,16 +33,6 @@ class ULocalPlayer;
 class UNetDriver;
 class FHardwareCursor;
 
-/**
- * Stereoscopic rendering passes.  FULL implies stereoscopic rendering isn't enabled for this pass
- */
-enum EStereoscopicPass
-{
-	eSSP_FULL,
-	eSSP_LEFT_EYE,
-	eSSP_RIGHT_EYE,
-	eSSP_MONOSCOPIC_EYE
-};
 
 /** Delegate for overriding the behavior when a navigation action is taken, Not to be confused with FNavigationDelegate which allows a specific widget to override behavior for itself */
 DECLARE_DELEGATE_RetVal_TwoParams(bool, FCustomNavigationHandler, const uint32, TSharedPtr<SWidget>);
@@ -566,9 +557,11 @@ public:
 	 */
 	bool IsSimulateInEditorViewport() const;
 
+	/** FViewport interface */
+	virtual bool ShouldDPIScaleSceneCanvas() const override { return false; }
 protected:
 	/** FCommonViewportClient interface */
-	virtual float GetViewportClientWindowDPIScale() const override;
+	virtual float UpdateViewportClientWindowDPIScale() const override;
 
 public:
 	/** The show flags used by the viewport's players. */

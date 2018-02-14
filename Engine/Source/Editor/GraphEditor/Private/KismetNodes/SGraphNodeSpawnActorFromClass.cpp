@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "KismetNodes/SGraphNodeSpawnActorFromClass.h"
 #include "Modules/ModuleManager.h"
@@ -8,10 +8,11 @@
 #include "Editor.h"
 #include "EdGraphSchema_K2.h"
 #include "K2Node_SpawnActorFromClass.h"
-#include "SGraphPinObject.h"
+#include "KismetPins/SGraphPinObject.h"
 #include "NodeFactory.h"
 #include "ClassViewerModule.h"
 #include "ClassViewerFilter.h"
+#include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "SGraphPinActorBasedClass"
 
@@ -32,6 +33,9 @@ class SGraphPinActorBasedClass : public SGraphPinObject
 		{
 			if(const UEdGraphSchema* Schema = GraphPinObj->GetSchema())
 			{
+				const FScopedTransaction Transaction(NSLOCTEXT("GraphEditor", "ChangeClassPinValue", "Change Class Pin Value"));
+				GraphPinObj->Modify();
+
 				Schema->TrySetDefaultObject(*GraphPinObj, InChosenClass);
 			}
 		}
@@ -75,6 +79,9 @@ protected:
 			const UClass* SelectedClass = GEditor->GetFirstSelectedClass(PinRequiredParentClass);
 			if(SelectedClass)
 			{
+				const FScopedTransaction Transaction(NSLOCTEXT("GraphEditor", "ChangeClassPinValue", "Change Class Pin Value"));
+				GraphPinObj->Modify();
+
 				GraphPinObj->GetSchema()->TrySetDefaultObject(*GraphPinObj, const_cast<UClass*>(SelectedClass));
 			}
 		}

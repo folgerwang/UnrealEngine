@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 // Implementation of Device Context State Caching to improve draw
 //	thread performance by removing redundant device context calls.
 
 #pragma once
-#include "Queue.h"
+#include "Containers/Queue.h"
 #include "D3D12DirectCommandListManager.h"
 
 //-----------------------------------------------------------------------------

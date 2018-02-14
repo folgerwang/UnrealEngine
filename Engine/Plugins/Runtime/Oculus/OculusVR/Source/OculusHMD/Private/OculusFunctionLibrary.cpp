@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OculusFunctionLibrary.h"
 #include "OculusHMDPrivate.h"
@@ -16,12 +16,11 @@ UOculusFunctionLibrary::UOculusFunctionLibrary(const FObjectInitializer& ObjectI
 OculusHMD::FOculusHMD* UOculusFunctionLibrary::GetOculusHMD()
 {
 #if OCULUS_HMD_SUPPORTED_PLATFORMS
-	if (GEngine && GEngine->HMDDevice.IsValid())
+	if (GEngine && GEngine->XRSystem.IsValid())
 	{
-		auto HMDType = GEngine->HMDDevice->GetHMDDeviceType();
-		if (HMDType == EHMDDeviceType::DT_OculusRift || HMDType == EHMDDeviceType::DT_GearVR)
+		if (GEngine->XRSystem->GetSystemName() == OculusHMD::FOculusHMD::OculusSystemName)
 		{
-			return static_cast<OculusHMD::FOculusHMD*>(GEngine->HMDDevice.Get());
+			return static_cast<OculusHMD::FOculusHMD*>(GEngine->XRSystem.Get());
 		}
 	}
 #endif
@@ -34,23 +33,21 @@ void UOculusFunctionLibrary::GetPose(FRotator& DeviceRotation, FVector& DevicePo
 	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
 	if (OculusHMD && OculusHMD->IsHeadTrackingAllowed())
 	{
-		FQuat OrientationAsQuat;
+		FQuat HeadOrientation = FQuat::Identity;
+		FVector HeadPosition = FVector::ZeroVector;
 
-		OculusHMD->GetCurrentHMDPose(OrientationAsQuat, DevicePosition, bUseOrienationForPlayerCamera, bUsePositionForPlayerCamera, PositionScale);
+		OculusHMD->GetCurrentPose(OculusHMD->HMDDeviceId, HeadOrientation, HeadPosition);
 
-		DeviceRotation = OrientationAsQuat.Rotator();
-
-		NeckPosition = OculusHMD->GetNeckPosition(OrientationAsQuat, DevicePosition, PositionScale);
-
-		//UE_LOG(LogUHeadMountedDisplay, Log, TEXT("POS: %.3f %.3f %.3f"), DevicePosition.X, DevicePosition.Y, DevicePosition.Z);
-		//UE_LOG(LogUHeadMountedDisplay, Log, TEXT("NECK: %.3f %.3f %.3f"), NeckPosition.X, NeckPosition.Y, NeckPosition.Z);
-		//UE_LOG(LogUHeadMountedDisplay, Log, TEXT("ROT: sYaw %.3f Pitch %.3f Roll %.3f"), DeviceRotation.Yaw, DeviceRotation.Pitch, DeviceRotation.Roll);
+		DeviceRotation = HeadOrientation.Rotator();
+		DevicePosition = HeadPosition;
+		NeckPosition = OculusHMD->GetNeckPosition(HeadOrientation, HeadPosition);
 	}
 	else
 #endif // #if OCULUS_HMD_SUPPORTED_PLATFORMS
 	{
 		DeviceRotation = FRotator::ZeroRotator;
 		DevicePosition = FVector::ZeroVector;
+		NeckPosition = FVector::ZeroVector;
 	}
 }
 
@@ -95,7 +92,7 @@ void UOculusFunctionLibrary::GetRawSensorData(FVector& AngularAcceleration, FVec
 	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
 	if (OculusHMD != nullptr && OculusHMD->IsHMDActive())
 	{
-		ovrpPoseStatef state;		
+		ovrpPoseStatef state;
 		if (OVRP_SUCCESS(ovrp_GetNodePoseState2(ovrpStep_Game, OculusHMD::ToOvrpNode(DeviceType), &state)))
 		{
 			AngularAcceleration = OculusHMD::ToFVector(state.AngularAcceleration);
@@ -118,7 +115,7 @@ bool UOculusFunctionLibrary::IsDeviceTracked(ETrackedDeviceType DeviceType)
 		if (OVRP_SUCCESS(ovrp_GetNodePresent2(OculusHMD::ToOvrpNode(DeviceType), &present)))
 		{
 			return present == ovrpBool_True;
-		} 
+		}
 		else
 		{
 			return false;
@@ -170,11 +167,7 @@ void UOculusFunctionLibrary::SetBaseRotationAndPositionOffset(FRotator BaseRot, 
 	{
 		if (Options == EOrientPositionSelector::Orientation || Options == EOrientPositionSelector::OrientationAndPosition)
 		{
-			GEngine->HMDDevice->SetBaseRotation(BaseRot);
-		}
-		if (Options == EOrientPositionSelector::Position || Options == EOrientPositionSelector::OrientationAndPosition)
-		{
-			OculusHMD->GetSettings()->PositionOffset = PosOffset;
+			OculusHMD->SetBaseRotation(BaseRot);
 		}
 	}
 #endif // OCULUS_HMD_SUPPORTED_PLATFORMS
@@ -187,7 +180,7 @@ void UOculusFunctionLibrary::GetBaseRotationAndPositionOffset(FRotator& OutRot, 
 	if (OculusHMD != nullptr)
 	{
 		OutRot = OculusHMD->GetBaseRotation();
-		OutPosOffset = OculusHMD->GetSettings()->PositionOffset;
+		OutPosOffset = FVector::ZeroVector;
 	}
 #endif // OCULUS_HMD_SUPPORTED_PLATFORMS
 }
@@ -238,7 +231,7 @@ void UOculusFunctionLibrary::ShowLoadingSplashScreen()
 {
 #if OCULUS_HMD_SUPPORTED_PLATFORMS
 	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
-	if (OculusHMD != nullptr)
+	if (OculusHMD != nullptr && OculusHMD->IsStereoEnabledOnNextFrame())
 	{
 		OculusHMD::FSplash* Splash = OculusHMD->GetSplash();
 		if (Splash)
@@ -304,7 +297,7 @@ void UOculusFunctionLibrary::ShowLoadingIcon(class UTexture2D* Texture)
 {
 #if OCULUS_HMD_SUPPORTED_PLATFORMS
 	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
-	if (OculusHMD != nullptr)
+	if (OculusHMD != nullptr && OculusHMD->IsStereoEnabledOnNextFrame())
 	{
 		OculusHMD::FSplash* Splash = OculusHMD->GetSplash();
 		if (Splash)
@@ -407,6 +400,147 @@ void UOculusFunctionLibrary::GetLoadingSplashParams(FString& TexturePath, FVecto
 #endif // OCULUS_HMD_SUPPORTED_PLATFORMS
 }
 
+bool UOculusFunctionLibrary::HasInputFocus()
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	const OculusHMD::FOculusHMD* const OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr && OculusHMD->IsHMDActive())
+	{
+		ovrpBool HasFocus = ovrpBool_False;
+		if (OVRP_SUCCESS(ovrp_GetAppHasInputFocus(&HasFocus)))
+		{
+			return HasFocus == ovrpBool_True;
+		}
+		else
+		{
+			return false;
+		}
+	}
+#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
+	return false;
+}
+
+bool UOculusFunctionLibrary::HasSystemOverlayPresent()
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	const OculusHMD::FOculusHMD* const OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr && OculusHMD->IsHMDActive())
+	{
+		ovrpBool IsPresent = ovrpBool_False;
+
+		if (OVRP_SUCCESS(ovrp_GetAppHasInputFocus(&IsPresent)))
+		{
+			return IsPresent == ovrpBool_False;
+		}
+		else
+		{
+			return false;
+		}
+	}
+#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
+	return false;
+}
+
+void UOculusFunctionLibrary::GetGPUUtilization(bool& IsGPUAvailable, float& GPUUtilization)
+{
+	IsGPUAvailable = false;
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	const OculusHMD::FOculusHMD* const OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		ovrpBool GPUAvailable;
+		if (OVRP_SUCCESS(ovrp_GetGPUUtilSupported(&GPUAvailable)))
+		{
+			IsGPUAvailable = (GPUAvailable == ovrpBool_True);
+
+			ovrp_GetGPUUtilLevel(&GPUUtilization);
+		}
+}
+#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
+}
+
+void UOculusFunctionLibrary::SetTiledMultiresLevel(ETiledMultiResLevel level)
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		OculusHMD->SetTiledMultiResLevel(level);
+	}
+#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
+}
+
+ETiledMultiResLevel UOculusFunctionLibrary::GetTiledMultiresLevel()
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		ovrpTiledMultiResLevel lvl = ovrpTiledMultiResLevel_Off;
+		ovrp_GetTiledMultiResLevel(&lvl);
+		return (ETiledMultiResLevel)lvl;
+	}
+#endif // OCULUS_HMD_SUPPORTED_PLATFORMS
+	return ETiledMultiResLevel::ETiledMultiResLevel_Off;
+}
+
+FString UOculusFunctionLibrary::GetDeviceName()
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		const char *nameString;
+		ovrp_GetSystemProductName2(&nameString);
+		return FString(nameString);
+	}
+#endif
+	return FString();
+}
+
+TArray<float> UOculusFunctionLibrary::GetAvailableDisplayFrequencies()
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		int numberOfFrequencies = 0;
+		ovrp_GetSystemDisplayAvailableFrequencies(NULL, &numberOfFrequencies);
+
+		TArray<float> freqArray;
+		freqArray.SetNum(numberOfFrequencies);
+		ovrp_GetSystemDisplayAvailableFrequencies(freqArray.GetData(), &numberOfFrequencies);
+		return freqArray;
+	}
+#endif
+	return TArray<float>();
+}
+
+float UOculusFunctionLibrary::GetCurrentDisplayFrequency()
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		float frequency = 0;
+		ovrp_GetSystemDisplayFrequency2(&frequency);
+		return frequency;
+	}
+#endif
+	return 0.0f;
+}
+
+void UOculusFunctionLibrary::SetDisplayFrequency(float RequestedFrequency)
+{
+#if OCULUS_HMD_SUPPORTED_PLATFORMS
+	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		ovrp_SetSystemDisplayFrequency(RequestedFrequency);
+	}
+#endif
+}
+
 class IStereoLayers* UOculusFunctionLibrary::GetStereoLayers()
 {
 #if OCULUS_HMD_SUPPORTED_PLATFORMS
@@ -419,90 +553,90 @@ class IStereoLayers* UOculusFunctionLibrary::GetStereoLayers()
 	return nullptr;
 }
 
-DECLARE_FUNCTION(UOculusFunctionLibrary::execIsPowerLevelStateMinimum)
+DEFINE_FUNCTION(UOculusFunctionLibrary::execIsPowerLevelStateMinimum)
 {
 	P_FINISH;
 
 	FBlueprintExceptionInfo ExceptionInfo(
 		EBlueprintExceptionType::AccessViolation,
-		FText::Format(NSLOCTEXT("OculusFuncLib", "DeprecatedGearVRFunc", "The Oculus API no longer supports this GearVR function ({0}). Please remove it from your Blueprint."), FText::FromString(TEXT("IsPowerLevelStateMinimum")))
+		FText::Format(NSLOCTEXT("OculusFuncLib", "DeprecatedGearVRFunc", "The Oculus API no longer supports this Gear VR function ({0}). Please remove it from your Blueprint."), FText::FromString(TEXT("IsPowerLevelStateMinimum")))
 	);
-	FBlueprintCoreDelegates::ThrowScriptException(this, Stack, ExceptionInfo);
+	FBlueprintCoreDelegates::ThrowScriptException(P_THIS, Stack, ExceptionInfo);
 
 	P_NATIVE_BEGIN;
 	*(bool*)Z_Param__Result = false;
 	P_NATIVE_END;
 }
 
-DECLARE_FUNCTION(UOculusFunctionLibrary::execIsPowerLevelStateThrottled)
+DEFINE_FUNCTION(UOculusFunctionLibrary::execIsPowerLevelStateThrottled)
 {
 	P_FINISH;
 
 	FBlueprintExceptionInfo ExceptionInfo(
 		EBlueprintExceptionType::AccessViolation,
-		FText::Format(NSLOCTEXT("OculusFuncLib", "DeprecatedGearVRFunc", "The Oculus API no longer supports this GearVR function ({0}). Please remove it from your Blueprint."), FText::FromString(TEXT("IsPowerLevelStateThrottled")))
+		FText::Format(NSLOCTEXT("OculusFuncLib", "DeprecatedGearVRFunc", "The Oculus API no longer supports this Gear VR function ({0}). Please remove it from your Blueprint."), FText::FromString(TEXT("IsPowerLevelStateThrottled")))
 	);
-	FBlueprintCoreDelegates::ThrowScriptException(this, Stack, ExceptionInfo);
+	FBlueprintCoreDelegates::ThrowScriptException(P_THIS, Stack, ExceptionInfo);
 
 	P_NATIVE_BEGIN;
 	*(bool*)Z_Param__Result = false;
 	P_NATIVE_END;
 }
 
-DECLARE_FUNCTION(UOculusFunctionLibrary::execAreHeadPhonesPluggedIn)
+DEFINE_FUNCTION(UOculusFunctionLibrary::execAreHeadPhonesPluggedIn)
 {
 	P_FINISH;
 
 	FBlueprintExceptionInfo ExceptionInfo(
 		EBlueprintExceptionType::AccessViolation,
-		FText::Format(NSLOCTEXT("OculusFuncLib", "DeprecatedGearVRFunc", "The Oculus API no longer supports this GearVR function ({0}). Please remove it from your Blueprint."), FText::FromString(TEXT("AreHeadPhonesPluggedIn")))
+		FText::Format(NSLOCTEXT("OculusFuncLib", "DeprecatedGearVRFunc", "The Oculus API no longer supports this Gear VR function ({0}). Please remove it from your Blueprint."), FText::FromString(TEXT("AreHeadPhonesPluggedIn")))
 	);
-	FBlueprintCoreDelegates::ThrowScriptException(this, Stack, ExceptionInfo);
+	FBlueprintCoreDelegates::ThrowScriptException(P_THIS, Stack, ExceptionInfo);
 
 	P_NATIVE_BEGIN;
 	*(bool*)Z_Param__Result = false;
 	P_NATIVE_END;
 }
 
-DECLARE_FUNCTION(UOculusFunctionLibrary::execGetTemperatureInCelsius)
+DEFINE_FUNCTION(UOculusFunctionLibrary::execGetTemperatureInCelsius)
 {
 	P_FINISH;
 
 	FBlueprintExceptionInfo ExceptionInfo(
 		EBlueprintExceptionType::AccessViolation,
-		FText::Format(NSLOCTEXT("OculusFuncLib", "DeprecatedGearVRFunc", "The Oculus API no longer supports this GearVR function ({0}). Please remove it from your Blueprint."), FText::FromString(TEXT("GetTemperatureInCelsius")))
+		FText::Format(NSLOCTEXT("OculusFuncLib", "DeprecatedGearVRFunc", "The Oculus API no longer supports this Gear VR function ({0}). Please remove it from your Blueprint."), FText::FromString(TEXT("GetTemperatureInCelsius")))
 	);
-	FBlueprintCoreDelegates::ThrowScriptException(this, Stack, ExceptionInfo);
+	FBlueprintCoreDelegates::ThrowScriptException(P_THIS, Stack, ExceptionInfo);
 
 	P_NATIVE_BEGIN;
 	*(float*)Z_Param__Result = 0.f;
 	P_NATIVE_END;
 }
 
-DECLARE_FUNCTION(UOculusFunctionLibrary::execGetBatteryLevel)
+DEFINE_FUNCTION(UOculusFunctionLibrary::execGetBatteryLevel)
 {
 	P_FINISH;
 
 	FBlueprintExceptionInfo ExceptionInfo(
 		EBlueprintExceptionType::AccessViolation,
-		FText::Format(NSLOCTEXT("OculusFuncLib", "DeprecatedGearVRFunc", "The Oculus API no longer supports this GearVR function ({0}). Please remove it from your Blueprint."), FText::FromString(TEXT("GetBatteryLevel")))
+		FText::Format(NSLOCTEXT("OculusFuncLib", "DeprecatedGearVRFunc", "The Oculus API no longer supports this Gear VR function ({0}). Please remove it from your Blueprint."), FText::FromString(TEXT("GetBatteryLevel")))
 	);
-	FBlueprintCoreDelegates::ThrowScriptException(this, Stack, ExceptionInfo);
+	FBlueprintCoreDelegates::ThrowScriptException(P_THIS, Stack, ExceptionInfo);
 
 	P_NATIVE_BEGIN;
 	*(float*)Z_Param__Result = 0.f;
 	P_NATIVE_END;
 }
 
-DECLARE_FUNCTION(UOculusFunctionLibrary::execGetGearVRControllerHandedness)
+DEFINE_FUNCTION(UOculusFunctionLibrary::execGetGearVRControllerHandedness)
 {
 	P_FINISH;
 
 	FBlueprintExceptionInfo ExceptionInfo(
 		EBlueprintExceptionType::AccessViolation,
-		FText::Format(NSLOCTEXT("OculusFuncLib", "DeprecatedGearVRFunc", "The Oculus API no longer supports this GearVR function ({0}). Please remove it from your Blueprint."), FText::FromString(TEXT("GetGearVRControllerHandedness")))
+		FText::Format(NSLOCTEXT("OculusFuncLib", "DeprecatedGearVRFunc", "The Oculus API no longer supports this Gear VR function ({0}). Please remove it from your Blueprint."), FText::FromString(TEXT("GetGearVRControllerHandedness")))
 	);
-	FBlueprintCoreDelegates::ThrowScriptException(this, Stack, ExceptionInfo);
+	FBlueprintCoreDelegates::ThrowScriptException(P_THIS, Stack, ExceptionInfo);
 
 	P_NATIVE_BEGIN;
 	PRAGMA_DISABLE_DEPRECATION_WARNINGS
@@ -511,27 +645,27 @@ DECLARE_FUNCTION(UOculusFunctionLibrary::execGetGearVRControllerHandedness)
 	P_NATIVE_END;
 }
 
-DECLARE_FUNCTION(UOculusFunctionLibrary::execEnableArmModel)
+DEFINE_FUNCTION(UOculusFunctionLibrary::execEnableArmModel)
 {
 	P_GET_UBOOL(Z_Param_bArmModelEnable);
 	P_FINISH;
 
 	FBlueprintExceptionInfo ExceptionInfo(
 		EBlueprintExceptionType::AccessViolation,
-		FText::Format(NSLOCTEXT("OculusFuncLib", "DeprecatedGearVRFunc", "The Oculus API no longer supports this GearVR function ({0}). Please remove it from your Blueprint."), FText::FromString(TEXT("EnableArmModel")))
+		FText::Format(NSLOCTEXT("OculusFuncLib", "DeprecatedGearVRFunc", "The Oculus API no longer supports this Gear VR function ({0}). Please remove it from your Blueprint."), FText::FromString(TEXT("EnableArmModel")))
 	);
-	FBlueprintCoreDelegates::ThrowScriptException(this, Stack, ExceptionInfo);
+	FBlueprintCoreDelegates::ThrowScriptException(P_THIS, Stack, ExceptionInfo);
 }
 
-DECLARE_FUNCTION(UOculusFunctionLibrary::execIsControllerActive)
+DEFINE_FUNCTION(UOculusFunctionLibrary::execIsControllerActive)
 {
 	P_FINISH;
 
 	FBlueprintExceptionInfo ExceptionInfo(
 		EBlueprintExceptionType::AccessViolation,
-		FText::Format(NSLOCTEXT("OculusFuncLib", "DeprecatedGearVRFunc", "The Oculus API no longer supports this GearVR function ({0}). Please remove it from your Blueprint."), FText::FromString(TEXT("IsControllerActive")))
+		FText::Format(NSLOCTEXT("OculusFuncLib", "DeprecatedGearVRFunc", "The Oculus API no longer supports this Gear VR function ({0}). Please remove it from your Blueprint."), FText::FromString(TEXT("IsControllerActive")))
 	);
-	FBlueprintCoreDelegates::ThrowScriptException(this, Stack, ExceptionInfo);
+	FBlueprintCoreDelegates::ThrowScriptException(P_THIS, Stack, ExceptionInfo);
 
 	P_NATIVE_BEGIN;
 	*(bool*)Z_Param__Result = false;

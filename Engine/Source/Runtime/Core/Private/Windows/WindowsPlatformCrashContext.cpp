@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "WindowsPlatformCrashContext.h"
-#include "PlatformMallocCrash.h"
-#include "ExceptionHandling.h"
-#include "EngineVersion.h"
-#include "EngineBuildSettings.h"
+#include "Windows/WindowsPlatformCrashContext.h"
+#include "HAL/PlatformMallocCrash.h"
+#include "HAL/ExceptionHandling.h"
+#include "Misc/EngineVersion.h"
+#include "Misc/EngineBuildSettings.h"
 #include "HAL/ExceptionHandling.h"
 #include "HAL/ThreadHeartBeat.h"
 #include "HAL/PlatformProcess.h"
@@ -18,10 +18,10 @@
 #include "Misc/CoreDelegates.h"
 #include "Misc/OutputDeviceRedirector.h"
 #include "Templates/ScopedPointer.h"
-#include "WindowsPlatformStackWalk.h"
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
-#include "UniquePtr.h"
+#include "Windows/WindowsPlatformStackWalk.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include "Templates/UniquePtr.h"
 
 #include <strsafe.h>
 #include <dbghelp.h>
@@ -34,7 +34,7 @@
 #pragma comment( lib, "version.lib" )
 #pragma comment( lib, "Shlwapi.lib" )
 
-void FWindowsPlatformCrashContext::AddPlatformSpecificProperties()
+void FWindowsPlatformCrashContext::AddPlatformSpecificProperties() const
 {
 	AddCrashProperty(TEXT("PlatformIsRunningWindows"), 1);
 	// On windows track the crash type
@@ -135,7 +135,7 @@ int32 ReportCrashUsingCrashReportClient(FWindowsPlatformCrashContext& InContext,
 		// Generate Crash GUID
 		TCHAR CrashGUID[FGenericCrashContext::CrashGUIDLength];
 		InContext.GetUniqueCrashName(CrashGUID, FGenericCrashContext::CrashGUIDLength);
-		const FString AppName = FString::Printf(TEXT("UE4-%s"), FApp::GetProjectName());
+		const FString AppName = InContext.GetCrashGameName();
 
 		FString CrashFolder = FPaths::Combine(*FPaths::ProjectSavedDir(), TEXT("Crashes"), CrashGUID);
 		FString CrashFolderAbsolute = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*CrashFolder);
@@ -296,6 +296,7 @@ void NewReportEnsure( const TCHAR* ErrorMessage )
 	// The reason why we don't call HeartBeat() at the end of this function is that maybe this thread
 	// Never had a heartbeat checked and may not be sending heartbeats at all which would later lead to a false positives when detecting hangs.
 	FThreadHeartBeat::Get().KillHeartBeat();
+	FGameThreadHitchHeartBeat::Get().FrameStart(true);
 
 	bReentranceGuard = true;
 
@@ -318,14 +319,14 @@ void NewReportEnsure( const TCHAR* ErrorMessage )
 	EnsureLock.Unlock();
 }
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 // Original code below
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <ErrorRep.h>
 	#include <DbgHelp.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #pragma comment(lib, "Faultrep.lib")
 
@@ -333,7 +334,7 @@ void NewReportEnsure( const TCHAR* ErrorMessage )
  * Creates an info string describing the given exception record.
  * See MSDN docs on EXCEPTION_RECORD.
  */
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 void CreateExceptionInfoString(EXCEPTION_RECORD* ExceptionRecord)
 {
 	// #CrashReport: 2014-08-18 Fix FString usage?
@@ -391,6 +392,7 @@ class FCrashReportingThread
 	HANDLE CrashEvent;
 	/** Exception information */
 	LPEXCEPTION_POINTERS ExceptionInfo;
+	HANDLE CrashingThreadHandle;
 	/** Event that signals the crash reporting thread has finished processing the crash */
 	HANDLE CrashHandledEvent;
 
@@ -467,6 +469,7 @@ public:
 	FORCEINLINE void OnCrashed(LPEXCEPTION_POINTERS InExceptionInfo)
 	{
 		ExceptionInfo = InExceptionInfo;
+		CrashingThreadHandle = GetCurrentThread();
 		SetEvent(CrashEvent);
 	}
 
@@ -525,8 +528,9 @@ private:
 			ANSICHAR* StackTrace = (ANSICHAR*)GMalloc->Malloc(StackTraceSize);
 			StackTrace[0] = 0;
 			// Walk the stack and dump it to the allocated memory. This process usually allocates a lot of memory.
-			FPlatformStackWalk::StackWalkAndDump(StackTrace, StackTraceSize, 0, ExceptionInfo->ContextRecord);
-
+			void* ContextWapper = FWindowsPlatformStackWalk::MakeThreadContextWrapper(ExceptionInfo->ContextRecord, CrashingThreadHandle);
+			FPlatformStackWalk::StackWalkAndDump(StackTrace, StackTraceSize, 0, ContextWapper);
+			FWindowsPlatformStackWalk::ReleaseThreadContextWrapper(ContextWapper);
 			if (ExceptionInfo->ExceptionRecord->ExceptionCode != 1)
 			{
 				CreateExceptionInfoString(ExceptionInfo->ExceptionRecord);
@@ -546,7 +550,7 @@ private:
 
 };
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 TUniquePtr<FCrashReportingThread> GCrashReportingThread = MakeUnique<FCrashReportingThread>();
 

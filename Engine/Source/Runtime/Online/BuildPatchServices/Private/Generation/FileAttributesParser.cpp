@@ -1,8 +1,8 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #include "Generation/FileAttributesParser.h"
 #include "Templates/ScopedPointer.h"
 #include "Misc/FileHelper.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogFileAttributesParser, Log, All);
 DEFINE_LOG_CATEGORY(LogFileAttributesParser);

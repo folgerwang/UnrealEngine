@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	EditorFactories.cpp: Editor class factories.
@@ -47,6 +47,9 @@
 #include "MaterialExpressionIO.h"
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialFunction.h"
+#include "Materials/MaterialFunctionMaterialLayer.h"
+#include "Materials/MaterialFunctionMaterialLayerBlend.h"
+#include "Materials/MaterialFunctionInstance.h"
 #include "Materials/Material.h"
 #include "Animation/AnimSequence.h"
 #include "Curves/CurveBase.h"
@@ -86,8 +89,12 @@
 #include "Factories/LevelFactory.h"
 #include "Factories/MaterialFactoryNew.h"
 #include "Factories/MaterialFunctionFactoryNew.h"
+#include "Factories/MaterialFunctionMaterialLayerFactory.h"
+#include "Factories/MaterialFunctionMaterialLayerBlendFactory.h"
+#include "Factories/MaterialFunctionInstanceFactory.h"
 #include "Factories/MaterialInstanceConstantFactoryNew.h"
 #include "Factories/MaterialParameterCollectionFactoryNew.h"
+#include "Factories/MaterialSharedInputCollectionFactory.h"
 #include "Factories/ModelFactory.h"
 #include "Factories/ObjectLibraryFactory.h"
 #include "Factories/PackageFactory.h"
@@ -148,6 +155,7 @@
 #include "Sound/DialogueWave.h"
 #include "Materials/MaterialInstanceConstant.h"
 #include "Materials/MaterialParameterCollection.h"
+#include "Materials/MaterialSharedInputCollection.h"
 #include "Engine/ObjectLibrary.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "Engine/Polys.h"
@@ -190,7 +198,7 @@
 #include "IImageWrapperModule.h"
 
 #include "FbxImporter.h"
-#include "FbxErrors.h"
+#include "Misc/FbxErrors.h"
 
 #include "AssetRegistryModule.h"
 #include "IContentBrowserSingleton.h"
@@ -206,10 +214,10 @@
 
 #if PLATFORM_WINDOWS
 	// Needed for DDS support.
-	#include "WindowsHWrapper.h"
-	#include "AllowWindowsPlatformTypes.h"
+	#include "Windows/WindowsHWrapper.h"
+	#include "Windows/AllowWindowsPlatformTypes.h"
 		#include <ddraw.h>
-	#include "HideWindowsPlatformTypes.h"
+	#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 #if WITH_EDITOR
@@ -240,11 +248,12 @@
 #include "Engine/PreviewMeshCollection.h"
 #include "Factories/PreviewMeshCollectionFactory.h"
 #include "Factories/ForceFeedbackAttenuationFactory.h"
-#include "FileHelper.h"
+#include "Misc/FileHelper.h"
 #include "ActorGroupingUtils.h"
 
 #include "Editor/EditorPerProjectUserSettings.h"
 #include "JsonObjectConverter.h"
+#include "MaterialEditorModule.h"
 
 DEFINE_LOG_CATEGORY(LogEditorFactories);
 
@@ -428,7 +437,6 @@ UObject* UMaterialFactoryNew::FactoryCreateNew(UClass* Class,UObject* InParent,F
 UMaterialFunctionFactoryNew::UMaterialFunctionFactoryNew(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-
 	SupportedClass = UMaterialFunction::StaticClass();
 	bCreateNew = true;
 	bEditAfterNew = true;
@@ -439,6 +447,129 @@ UObject* UMaterialFunctionFactoryNew::FactoryCreateNew(UClass* Class,UObject* In
 	return NewObject<UObject>(InParent, Class, Name, Flags);
 }
 
+/*------------------------------------------------------------------------------
+	UMaterialFunctionMaterialLayerFactory implementation.
+------------------------------------------------------------------------------*/
+UMaterialFunctionMaterialLayerFactory::UMaterialFunctionMaterialLayerFactory(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	SupportedClass = UMaterialFunctionMaterialLayer::StaticClass();
+	bCreateNew = true;
+	bEditAfterNew = true;
+}
+
+bool UMaterialFunctionMaterialLayerFactory::CanCreateNew() const
+{
+	IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>( "MaterialEditor" );
+	return MaterialEditorModule.MaterialLayersEnabled();
+}
+
+UObject* UMaterialFunctionMaterialLayerFactory::FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn)
+{
+	UMaterialFunctionMaterialLayer* Function = NewObject<UMaterialFunctionMaterialLayer>(InParent, UMaterialFunctionMaterialLayer::StaticClass(), Name, Flags);
+	if (Function)
+	{
+		Function->SetMaterialFunctionUsage(EMaterialFunctionUsage::MaterialLayer);
+	}
+	return Function;
+}
+
+/*------------------------------------------------------------------------------
+	UMaterialFunctionMaterialLayerBlendFactory implementation.
+------------------------------------------------------------------------------*/
+UMaterialFunctionMaterialLayerBlendFactory::UMaterialFunctionMaterialLayerBlendFactory(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	SupportedClass = UMaterialFunctionMaterialLayerBlend::StaticClass();
+	bCreateNew = true;
+	bEditAfterNew = true;
+}
+
+bool UMaterialFunctionMaterialLayerBlendFactory::CanCreateNew() const
+{
+	IMaterialEditorModule& MaterialEditorModule = FModuleManager::LoadModuleChecked<IMaterialEditorModule>( "MaterialEditor" );
+	return MaterialEditorModule.MaterialLayersEnabled();
+}
+
+UObject* UMaterialFunctionMaterialLayerBlendFactory::FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn)
+{
+	UMaterialFunctionMaterialLayerBlend* Function = NewObject<UMaterialFunctionMaterialLayerBlend>(InParent, UMaterialFunctionMaterialLayerBlend::StaticClass(), Name, Flags);
+	if (Function)
+	{
+		Function->SetMaterialFunctionUsage(EMaterialFunctionUsage::MaterialLayerBlend);
+	}
+	return Function;
+}
+
+
+/*------------------------------------------------------------------------------
+	UMaterialFunctionInstanceFactory implementation.
+------------------------------------------------------------------------------*/
+UMaterialFunctionInstanceFactory::UMaterialFunctionInstanceFactory(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	SupportedClass = UMaterialFunctionInstance::StaticClass();
+	bCreateNew = true;
+	bEditAfterNew = true;
+}
+
+UObject* UMaterialFunctionInstanceFactory::FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn)
+{
+	auto MFI = NewObject<UMaterialFunctionInstance>(InParent, Class, Name, Flags);
+
+	if (MFI)
+	{
+		MFI->SetParent(InitialParent);
+	}
+
+	return MFI;
+}
+
+/*------------------------------------------------------------------------------
+UMaterialFunctionMaterialLayerInstanceFactory implementation.
+------------------------------------------------------------------------------*/
+UMaterialFunctionMaterialLayerInstanceFactory::UMaterialFunctionMaterialLayerInstanceFactory(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	SupportedClass = UMaterialFunctionMaterialLayerInstance::StaticClass();
+	bCreateNew = true;
+	bEditAfterNew = true;
+}
+
+UObject* UMaterialFunctionMaterialLayerInstanceFactory::FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
+{
+	auto MFI = NewObject<UMaterialFunctionMaterialLayerInstance>(InParent, Class, Name, Flags);
+
+	if (MFI)
+	{
+		MFI->SetParent(InitialParent);
+	}
+
+	return MFI;
+}
+
+/*------------------------------------------------------------------------------
+UMaterialFunctionMaterialLayerBlendInstanceFactory implementation.
+------------------------------------------------------------------------------*/
+UMaterialFunctionMaterialLayerBlendInstanceFactory::UMaterialFunctionMaterialLayerBlendInstanceFactory(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	SupportedClass = UMaterialFunctionMaterialLayerBlendInstance::StaticClass();
+	bCreateNew = true;
+	bEditAfterNew = true;
+}
+
+UObject* UMaterialFunctionMaterialLayerBlendInstanceFactory::FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
+{
+	auto MFI = NewObject<UMaterialFunctionMaterialLayerBlendInstance>(InParent, Class, Name, Flags);
+
+	if (MFI)
+	{
+		MFI->SetParent(InitialParent);
+	}
+
+	return MFI;
+}
 
 /*------------------------------------------------------------------------------
 	UMaterialParameterCollectionFactoryNew implementation.
@@ -453,6 +584,23 @@ UMaterialParameterCollectionFactoryNew::UMaterialParameterCollectionFactoryNew(c
 }
 
 UObject* UMaterialParameterCollectionFactoryNew::FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn)
+{
+	return NewObject<UObject>(InParent, Class, Name, Flags);
+}
+
+/*------------------------------------------------------------------------------
+	UMaterialParameterCollectionFactoryNew implementation.
+------------------------------------------------------------------------------*/
+UMaterialSharedInputCollectionFactory::UMaterialSharedInputCollectionFactory(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+
+	SupportedClass = UMaterialSharedInputCollection::StaticClass();
+	bCreateNew = true;
+	bEditAfterNew = true;
+}
+
+UObject* UMaterialSharedInputCollectionFactory::FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn)
 {
 	return NewObject<UObject>(InParent, Class, Name, Flags);
 }
@@ -2891,8 +3039,14 @@ UTexture* UTextureFactory::ImportTexture(UClass* Class, UObject* InParent, FName
 				uint8* MipData = Texture->Source.LockMip(0);
 				FMemory::Memcpy( MipData, RawPNG->GetData(), RawPNG->Num() );
 
-				// Replace the pixels with 0.0 alpha with a color value from the nearest neighboring color which has a non-zero alpha
-				FillZeroAlphaPNGData( Texture->Source, MipData );
+				bool bFillPNGZeroAlpha = true;
+				GConfig->GetBool(TEXT("TextureImporter"), TEXT("FillPNGZeroAlpha"), bFillPNGZeroAlpha, GEditorIni);
+
+				if (bFillPNGZeroAlpha) 
+				{
+					// Replace the pixels with 0.0 alpha with a color value from the nearest neighboring color which has a non-zero alpha
+					FillZeroAlphaPNGData(Texture->Source, MipData);
+				}
 			}
 			else
 			{
@@ -3909,7 +4063,7 @@ bool UTextureFactory::IsImportResolutionValid(int32 Width, int32 Height, bool bA
 	// Check if the texture dimensions are powers of two
 	if ( !bAllowNonPowerOfTwo && !bIsPowerOfTwo )
 	{
-		Warn->Logf(ELogVerbosity::Error, *NSLOCTEXT("UnrealEd", "Warning_TextureNotAPowerOfTwo", "Cannot import texture with non-power of two dimensions").ToString() );
+		Warn->Log(ELogVerbosity::Error, *NSLOCTEXT("UnrealEd", "Warning_TextureNotAPowerOfTwo", "Cannot import texture with non-power of two dimensions").ToString() );
 		bValid = false;
 	}
 	
@@ -4957,7 +5111,10 @@ bool UReimportFbxStaticMeshFactory::CanReimport( UObject* Obj, TArray<FString>& 
 				//This mesh was import with a scene import, we cannot reimport it
 				return false;
 			}
-
+			else if (!FbxAssetImportData)
+			{
+				return false;
+			}
 			OutFilenames.Add(Mesh->AssetImportData->GetFirstFilename());
 		}
 		else
@@ -5001,7 +5158,6 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 	
 	UFbxImportUI* ReimportUI = NewObject<UFbxImportUI>();
 	ReimportUI->MeshTypeToImport = FBXIT_StaticMesh;
-	ReimportUI->bOverrideFullName = false;
 	ReimportUI->StaticMeshImportData->bCombineMeshes = true;
 
 	if (!ImportUI)
@@ -5249,7 +5405,6 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 	// Prepare the import options
 	UFbxImportUI* ReimportUI = NewObject<UFbxImportUI>();
 	ReimportUI->MeshTypeToImport = FBXIT_SkeletalMesh;
-	ReimportUI->bOverrideFullName = false;
 	ReimportUI->Skeleton = SkeletalMesh->Skeleton;
 	ReimportUI->bCreatePhysicsAsset = false;
 	ReimportUI->PhysicsAsset = SkeletalMesh->PhysicsAsset;

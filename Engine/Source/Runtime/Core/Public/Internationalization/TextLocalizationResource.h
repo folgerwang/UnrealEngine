@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once 
 
 #include "CoreMinimal.h"
-#include "LocKeyFuncs.h"
+#include "Internationalization/LocKeyFuncs.h"
 
 /** Utility class for working with Localization MetaData Resource (LocMeta) files. */
 class CORE_API FTextLocalizationMetaDataResource

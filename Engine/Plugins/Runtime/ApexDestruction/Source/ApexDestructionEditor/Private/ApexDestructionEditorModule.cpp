@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ApexDestructionEditorModule.h"
 #include "Misc/PackageName.h"
@@ -18,7 +18,7 @@
 #include "AssetToolsModule.h"
 #include "AssetTypeActions_DestructibleMesh.h"
 #include "ContentBrowserDelegates.h"
-#include "MultiBoxBuilder.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "ContentBrowserModule.h"
 
 #include "DestructibleMeshThumbnailRenderer.h"
@@ -28,7 +28,7 @@
 #include "PropertyEditorModule.h"
 #include "DestructibleMeshDetails.h"
 
-IMPLEMENT_MODULE( FDestructibleMeshEditorModule, DestructibleMeshEditor );
+IMPLEMENT_MODULE( FDestructibleMeshEditorModule, ApexDestructionEditor );
 
 #define LOCTEXT_NAMESPACE "DestructibleMeshEditor"
 
@@ -54,14 +54,7 @@ void FDestructibleMeshEditorModule::StartupModule()
 		ContentBrowserExtenderDelegateHandle = CBMenuExtenderDelegates.Last().GetHandle();
 	}
 
-	FModuleManager::Get().OnModulesChanged().AddLambda([](FName InModuleName, EModuleChangeReason InModuleChangeReason)
-	{
-		if(InModuleChangeReason == EModuleChangeReason::ModuleLoaded && InModuleName == TEXT("UnrealEd"))
-		{
-			// Register the thumbnail renderers
-			UThumbnailManager::Get().RegisterCustomRenderer(UDestructibleMesh::StaticClass(), UDestructibleMeshThumbnailRenderer::StaticClass());
-		}
-	});
+	UThumbnailManager::Get().RegisterCustomRenderer(UDestructibleMesh::StaticClass(), UDestructibleMeshThumbnailRenderer::StaticClass());
 
 	DestructibleMeshComponentBroker = MakeShareable(new FDestructibleMeshComponentBroker);
 	FComponentAssetBrokerage::RegisterBroker(DestructibleMeshComponentBroker, UDestructibleComponent::StaticClass(), false, true);

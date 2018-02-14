@@ -1,18 +1,18 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LensDistortionAPI.h"
 
 
 #include "Classes/Engine/TextureRenderTarget2D.h"
 #include "Classes/Engine/World.h"
-#include "Public/GlobalShader.h"
-#include "Public/PipelineStateCache.h"
-#include "Public/RHIStaticStates.h"
-#include "Public/SceneUtils.h"
-#include "Public/SceneInterface.h"
-#include "Public/ShaderParameterUtils.h"
-#include "Public/Logging/MessageLog.h"
-#include "Public/Internationalization/Internationalization.h"
+#include "GlobalShader.h"
+#include "PipelineStateCache.h"
+#include "RHIStaticStates.h"
+#include "SceneUtils.h"
+#include "SceneInterface.h"
+#include "ShaderParameterUtils.h"
+#include "Logging/MessageLog.h"
+#include "Internationalization/Internationalization.h"
 
 
 static const uint32 kGridSubdivisionX = 32;
@@ -55,14 +55,14 @@ static FVector2D LensUndistortViewportUVIntoViewSpace(
 class FLensDistortionUVGenerationShader : public FGlobalShader
 {
 public:
-	static bool ShouldCache(EShaderPlatform Platform)
+	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
+		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM4);
 	}
 
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
+	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
 	{
-		FGlobalShader::ModifyCompilationEnvironment(Platform, OutEnvironment);
+		FGlobalShader::ModifyCompilationEnvironment(Parameters, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("GRID_SUBDIVISION_X"), kGridSubdivisionX);
 		OutEnvironment.SetDefine(TEXT("GRID_SUBDIVISION_Y"), kGridSubdivisionY);
 	}

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -12,7 +12,7 @@
 #include "Styling/CoreStyle.h"
 #include "Framework/SlateDelegates.h"
 #include "Widgets/SLeafWidget.h"
-#include "SynthKnobStyle.h"
+#include "UI/SynthKnobStyle.h"
 #include "UI/SSynthTooltip.h"
 
 class FPaintArgs;

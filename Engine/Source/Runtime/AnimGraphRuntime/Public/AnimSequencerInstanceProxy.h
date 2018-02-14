@@ -1,8 +1,8 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "AnimInstanceProxy.h"
+#include "Animation/AnimInstanceProxy.h"
 #include "AnimNodes/AnimNode_SequenceEvaluator.h"
 #include "AnimNodes/AnimNode_ApplyAdditive.h"
 #include "AnimNodes/AnimNode_MultiWayBlend.h"

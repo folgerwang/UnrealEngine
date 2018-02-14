@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Sections/MovieSceneAnimationSectionRecorder.h"
 #include "AnimationRecorder.h"
@@ -15,9 +15,9 @@ TSharedPtr<IMovieSceneSectionRecorder> FMovieSceneAnimationSectionRecorderFactor
 	return nullptr;
 }
 
-TSharedPtr<FMovieSceneAnimationSectionRecorder> FMovieSceneAnimationSectionRecorderFactory::CreateSectionRecorder(UActorRecording* InActorRecording, const FAnimationRecordingSettings& InAnimationSettings) const
+TSharedPtr<FMovieSceneAnimationSectionRecorder> FMovieSceneAnimationSectionRecorderFactory::CreateSectionRecorder(UAnimSequence* InAnimSequence, const FAnimationRecordingSettings& InAnimationSettings) const
 {
-	return MakeShareable(new FMovieSceneAnimationSectionRecorder(InAnimationSettings, InActorRecording->TargetAnimation.Get()));
+	return MakeShareable(new FMovieSceneAnimationSectionRecorder(InAnimationSettings, InAnimSequence));
 }
 
 bool FMovieSceneAnimationSectionRecorderFactory::CanRecordObject(UObject* InObjectToRecord) const

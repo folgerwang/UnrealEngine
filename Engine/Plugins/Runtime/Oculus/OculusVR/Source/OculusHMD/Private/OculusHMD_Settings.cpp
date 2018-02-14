@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OculusHMD_Settings.h"
 
@@ -12,11 +12,8 @@ namespace OculusHMD
 //-------------------------------------------------------------------------------------------------
 
 FSettings::FSettings() :
-	  NearClippingPlane(0)
-	, FarClippingPlane(0)
-	, BaseOffset(0, 0, 0)
+	BaseOffset(0, 0, 0)
 	, BaseOrientation(FQuat::Identity)
-	, PositionOffset(FVector::ZeroVector)
 	, PixelDensity(1.0f)
 	, PixelDensityMin(0.5f)
 	, PixelDensityMax(1.0f)
@@ -28,9 +25,14 @@ FSettings::FSettings() :
 	Flags.bChromaAbCorrectionEnabled = true;
 	Flags.bUpdateOnRT = true;
 	Flags.bHQBuffer = false;
-	Flags.bPlayerCameraManagerFollowsHmdOrientation = true;
-	Flags.bPlayerCameraManagerFollowsHmdPosition = true;
 	Flags.bDirectMultiview = true;
+	Flags.bIsUsingDirectMultiview = false;
+#if PLATFORM_ANDROID
+	Flags.bCompositeDepth = false;
+#else
+	Flags.bCompositeDepth = true;
+#endif
+	Flags.bSupportsDash = false;
 	EyeRenderViewport[0] = EyeRenderViewport[1] = EyeRenderViewport[2] = FIntRect(0, 0, 0, 0);
 
 	RenderTargetSize = FIntPoint(0, 0);
@@ -42,20 +44,16 @@ TSharedPtr<FSettings, ESPMode::ThreadSafe> FSettings::Clone() const
 	return NewSettings;
 }
 
-bool FSettings::UpdatePixelDensityFromScreenPercentage()
+bool FSettings::UpdatePixelDensity(const float NewPixelDensity)
 {
 	if (!bPixelDensityAdaptive)
 	{
-		static const auto ScreenPercentageCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ScreenPercentage"));
-		float ScreenPercentage = ScreenPercentageCVar->GetFloat() / 100.;
-
-		PixelDensity = FMath::Clamp(ScreenPercentage, ClampPixelDensityMin, ClampPixelDensityMax);
+		PixelDensity = NewPixelDensity;
 		PixelDensityMin = FMath::Min(PixelDensity, PixelDensityMin);
 		PixelDensityMax = FMath::Max(PixelDensity, PixelDensityMax);
 	}
 	return true;
 }
-
 
 
 } // namespace OculusHMD

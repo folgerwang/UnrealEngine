@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ActorFactoryDestructible.h"
 #include "DestructibleActor.h"
@@ -13,7 +13,7 @@
 #include "Editor.h"
 #include "ApexDestructibleAssetImport.h"
 #include "ApexClothingUtils.h"
-#include "MessageDialog.h"
+#include "Misc/MessageDialog.h"
 #include "ReimportDestructibleMeshFactory.h"
 #include "EditorFramework/AssetImportData.h"
 

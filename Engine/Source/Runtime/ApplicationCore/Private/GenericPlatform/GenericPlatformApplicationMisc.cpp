@@ -1,12 +1,12 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "GenericPlatformApplicationMisc.h"
-#include "GenericApplication.h"
+#include "GenericPlatform/GenericPlatformApplicationMisc.h"
+#include "GenericPlatform/GenericApplication.h"
 #include "Misc/OutputDeviceAnsiError.h"
 #include "HAL/FeedbackContextAnsi.h"
 #include "Math/Color.h"
 
-#include "PlatformApplicationMisc.h"
+#include "HAL/PlatformApplicationMisc.h"
 
 /** Hooks for moving ClipboardCopy and ClipboardPaste into FPlatformApplicationMisc */
 CORE_API extern void (*ClipboardCopyShim)(const TCHAR* Text);
@@ -15,6 +15,15 @@ CORE_API extern void (*ClipboardPasteShim)(FString& Dest);
 bool FGenericPlatformApplicationMisc::CachedPhysicalScreenData = false;
 EScreenPhysicalAccuracy FGenericPlatformApplicationMisc::CachedPhysicalScreenAccuracy = EScreenPhysicalAccuracy::Unknown;
 int32 FGenericPlatformApplicationMisc::CachedPhysicalScreenDensity = 0;
+
+static int32 bEnableHighDPIAwareness = 0;
+
+FAutoConsoleVariableRef FGenericPlatformApplicationMisc::CVarEnableHighDPIAwareness(
+	TEXT("EnableHighDPIAwareness"),
+	bEnableHighDPIAwareness,
+	TEXT("Enables or disables high dpi mode"),
+	ECVF_ReadOnly
+);
 
 void FGenericPlatformApplicationMisc::PreInit()
 {
@@ -71,6 +80,11 @@ bool FGenericPlatformApplicationMisc::IsThisApplicationForeground()
 FLinearColor FGenericPlatformApplicationMisc::GetScreenPixelColor(const struct FVector2D& InScreenPos, float InGamma)
 { 
 	return FLinearColor::Black;
+}
+
+bool FGenericPlatformApplicationMisc::IsHighDPIAwarenessEnabled()
+{
+	return bEnableHighDPIAwareness != 0;
 }
 
 void FGenericPlatformApplicationMisc::ClipboardCopy(const TCHAR* Str)

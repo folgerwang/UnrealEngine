@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -12,9 +12,9 @@
 #include "Widgets/SWidget.h"
 #include "Layout/Children.h"
 #include "Widgets/SPanel.h"
-#include "ArrangedChildren.h"
-#include "DragAndDrop.h"
-#include "DrawElements.h"
+#include "Layout/ArrangedChildren.h"
+#include "Input/DragAndDrop.h"
+#include "Rendering/DrawElements.h"
 
 class FArrangedChildren;
 

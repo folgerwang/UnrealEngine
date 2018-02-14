@@ -1,8 +1,8 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
-#include "AutomationCommon.h"
+#include "Tests/AutomationCommon.h"
 
 /* Wait for all running functional tests to finish */
 DEFINE_EXPORTED_LATENT_AUTOMATION_COMMAND(FUNCTIONALTESTING_API, FWaitForFTestsToFinish);

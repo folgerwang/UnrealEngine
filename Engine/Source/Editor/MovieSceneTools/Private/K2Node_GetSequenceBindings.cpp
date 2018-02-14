@@ -1,7 +1,7 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "K2Node_GetSequenceBindings.h"
-#include "BlueprintEditorUtils.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "KismetCompiler.h"
 #include "BlueprintNodeSpawner.h"
 #include "EditorCategoryUtils.h"
@@ -10,7 +10,7 @@
 #include "PropertyCustomizationHelpers.h"
 #include "MovieScene.h"
 #include "MovieSceneSequence.h"
-#include "MultiBox/MultiBoxBuilder.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 
 #define LOCTEXT_NAMESPACE "UDEPRECATED_K2Node_GetSequenceBindings"
 
@@ -138,8 +138,8 @@ void UDEPRECATED_K2Node_GetSequenceBindings::UpdatePins()
 				continue;
 			}
 
-			FString GuidString = Possessable.GetGuid().ToString();
-			UEdGraphPin* NewPin = CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Struct, FString(), FMovieSceneObjectBindingID::StaticStruct(), GuidString);
+			const FName GuidString = *Possessable.GetGuid().ToString();
+			UEdGraphPin* NewPin = CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Struct, FMovieSceneObjectBindingID::StaticStruct(), GuidString);
 			NewPin->PinFriendlyName = MovieScene->GetObjectDisplayName(Possessable.GetGuid());
 			NewPin->PersistentGuid = Possessable.GetGuid();
 

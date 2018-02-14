@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -23,6 +23,7 @@ class UAnimCompress;
 class UAnimSequence;
 class UEdGraph;
 class UPoseWatch;
+class UEdGraphNode;
 
 /** dialog to prompt users to decide an animation asset name */
 class SCreateAnimationAssetDlg : public SWindow
@@ -68,8 +69,8 @@ protected:
 	static FText LastUsedAssetPath;
 };
 
-/** Defines FCanExecuteAction delegate interface.  Returns true when an action is able to execute. */
-DECLARE_DELEGATE_OneParam(FAnimAssetCreated, TArray<class UObject*>);
+/** Defines FCanExecuteAction delegate interface. Returns false to force the caller to delete the just created assets*/
+DECLARE_DELEGATE_RetVal_OneParam(bool, FAnimAssetCreated, TArray<class UObject*>);
 
 //Animation editor utility functions
 namespace AnimationEditorUtils
@@ -170,7 +171,17 @@ namespace AnimationEditorUtils
 					{
 						TArray<UObject*> NewAssets;
 						NewAssets.Add(NewAsset);
-						AssetCreated.Execute(NewAssets);
+						if (!AssetCreated.Execute(NewAssets))
+						{
+							//Destroy the assets we just create
+							for (UObject* ObjectToDelete : NewAssets)
+							{
+								ObjectToDelete->ClearFlags(RF_Standalone | RF_Public);
+								ObjectToDelete->RemoveFromRoot();
+								ObjectToDelete->MarkPendingKill();
+							}
+							CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
+						}
 					}
 				}
 			}

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -84,7 +84,7 @@
 #include "Containers/ScriptArray.h"
 #include "Containers/BitArray.h"
 #include "Containers/Map.h"
-#include "Containers/Algo/Reverse.h"
+#include "Algo/Reverse.h"
 #include "Templates/SharedPointer.h"
 #include "Delegates/IDelegateInstance.h"
 #include "Delegates/DelegateSettings.h"

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -22,7 +22,7 @@
 #if USE_MALLOC_STOMP
 
 #if PLATFORM_WINDOWS
-	#include "WindowsHWrapper.h"
+	#include "Windows/WindowsHWrapper.h"
 #endif
 
 /**

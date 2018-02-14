@@ -1,9 +1,9 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "IOSAdjust.h"
 #include "IOSAdjustPrivatePCH.h"
-#include "Paths.h"
-#include "ConfigCacheIni.h"
+#include "Misc/Paths.h"
+#include "Misc/ConfigCacheIni.h"
 
 #import <AdjustSdk/Adjust.h>
 

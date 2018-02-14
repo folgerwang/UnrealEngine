@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -34,7 +34,6 @@ struct CORE_API FWindowsOSVersionHelper
 struct CORE_API FWindowsPlatformMisc
 	: public FGenericPlatformMisc
 {
-	static void SetHighDPIMode();
 	static void PlatformPreInit();
 	static void PlatformInit();
 	static void SetGracefulTerminationHandler();
@@ -83,6 +82,10 @@ struct CORE_API FWindowsPlatformMisc
 		return false;
 	}
 
+	FORCEINLINE static void MemoryBarrier() { _mm_sfence(); }
+
+	static bool IsRemoteSession();
+
 	static void SetUTF8Output();
 	static void LocalPrint(const TCHAR *Message);
 	static void RequestExit(bool Force);
@@ -94,6 +97,7 @@ struct CORE_API FWindowsPlatformMisc
 	static bool IsValidAbsolutePathFormat(const FString& Path);
 	static int32 NumberOfCores();
 	static int32 NumberOfCoresIncludingHyperthreads();
+	static int32 NumberOfWorkerThreadsToSpawn();
 
 	static FString GetDefaultLanguage();
 	static FString GetDefaultLocale();

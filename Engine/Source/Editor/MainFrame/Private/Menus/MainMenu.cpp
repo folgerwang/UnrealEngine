@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Menus/MainMenu.h"
 #include "Framework/Commands/UIAction.h"
@@ -13,7 +13,7 @@
 #include "Interfaces/ITargetPlatform.h"
 #include "Interfaces/ITargetPlatformManagerModule.h"
 #include "EditorStyleSet.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "Editor/UnrealEdEngine.h"
 #include "Settings/EditorExperimentalSettings.h"
 #include "UnrealEdGlobals.h"
@@ -272,7 +272,9 @@ void FMainMenu::FillWindowMenu( FMenuBuilder& MenuBuilder, const TSharedRef< FEx
 	{
 		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().ResetLayout);
 		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().SaveLayout);
+#if !PLATFORM_MAC // On Mac windowed fullscreen mode in the editor is currently unavailable
 		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().ToggleFullscreen);
+#endif
 	}
 	MenuBuilder.EndSection();
 }
@@ -418,7 +420,7 @@ TSharedRef< SWidget > FMainMenu::MakeMainTabMenu( const TSharedPtr<FTabManager>&
 				*/
 
 				FString SolutionPath;
-				if(FDesktopPlatformModule::Get()->GetSolutionPath(SolutionPath))
+				if (FSourceCodeNavigation::DoesModuleSolutionExist())
 				{
 					MenuBuilder.AddMenuEntry( FMainFrameCommands::Get().RefreshCodeProject,
 						NAME_None,

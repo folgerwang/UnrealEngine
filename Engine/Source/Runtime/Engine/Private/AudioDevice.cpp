@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AudioDevice.h"
 #include "PhysicsEngine/BodyInstance.h"
@@ -1104,7 +1104,7 @@ bool FAudioDevice::HandleSoundClassFixup(const TCHAR* Cmd, FOutputDevice& Ar)
 				// unless the assets are renamed immediately
 				RenameData.Reset();
 				RenameData.Add(FAssetRenameData(AssetData.GetAsset(), LongPackagePath, OutAssetName));
-				AssetToolsModule.Get().RenameAssets(RenameData);
+				AssetToolsModule.Get().RenameAssetsWithDialog(RenameData);
 			}		
 		}
 	}
@@ -1766,7 +1766,7 @@ void FAudioDevice::UpdateSoundMix(USoundMix* SoundMix, FSoundMixState* SoundMixS
 					// Flip the state to fade in
 					SoundMixState->CurrentState = ESoundMixState::FadingIn;
 
-					SoundMixState->InterpValue = 1.0f - SoundMixState->InterpValue;
+					SoundMixState->InterpValue = 0.0f;
 
 					SoundMixState->FadeInStartTime = GetAudioClock() - SoundMixState->InterpValue * SoundMix->FadeInTime;
 					SoundMixState->StartTime = SoundMixState->FadeInStartTime;
@@ -2024,6 +2024,8 @@ void FAudioDevice::ApplyClassAdjusters(USoundMix* SoundMix, float InterpValue, f
 		return;
 	}
 
+	InterpValue = FMath::Clamp(InterpValue, 0.0f, 1.0f);
+
 	// Check if there is a sound mix override entry
 	FSoundMixClassOverrideMap* SoundMixOverrideMap = SoundMixClassEffectOverrides.Find(SoundMix);
 
@@ -2184,9 +2186,11 @@ void FAudioDevice::UpdateSoundClassProperties(float DeltaTime)
 			// Work out the fade in portion
 			SoundMixState->InterpValue = (float)((AudioTime - SoundMixState->FadeInStartTime) / (SoundMixState->FadeInEndTime - SoundMixState->FadeInStartTime));
 			SoundMixState->CurrentState = ESoundMixState::FadingIn;
-		}
+		}	
 		else if (AudioTime >= SoundMixState->FadeInEndTime
-			&& (SoundMixState->IsBaseSoundMix || SoundMixState->PassiveRefCount > 0 || SoundMixState->FadeOutStartTime < 0.f || AudioTime < SoundMixState->FadeOutStartTime))
+			&& (SoundMixState->IsBaseSoundMix
+			|| ((SoundMixState->PassiveRefCount > 0 || SoundMixState->ActiveRefCount > 0) && SoundMixState->FadeOutStartTime < 0.f)
+			|| AudioTime < SoundMixState->FadeOutStartTime))
 		{
 			// .. ensure the full mix is applied between the end of the fade in time and the start of the fade out time
 			// or if SoundMix is the base or active via a passive push - ignores duration.
@@ -2206,7 +2210,6 @@ void FAudioDevice::UpdateSoundClassProperties(float DeltaTime)
 		}
 		else 
 		{
-			check(SoundMixState->EndTime >= 0.f && AudioTime >= SoundMixState->EndTime);
 			// Clear the effect of this SoundMix - may need to revisit for passive
 			SoundMixState->InterpValue = 0.0f;
 			SoundMixState->CurrentState = ESoundMixState::AwaitingRemoval;
@@ -2234,7 +2237,7 @@ float FListener::Interpolate(const double EndTime)
 	}
 
 	float InterpValue = (float)((FApp::GetCurrentTime() - InteriorStartTime) / (EndTime - InteriorStartTime));
-	return InterpValue;
+	return FMath::Clamp(InterpValue, 0.0f, 1.0f);
 }
 
 void FListener::UpdateCurrentInteriorSettings()
@@ -2873,7 +2876,7 @@ int32 FAudioDevice::GetSortedActiveWaveInstances(TArray<FWaveInstance*>& WaveIns
 				if (!bStopped)
 				{
 					// If not in game, do not advance sounds unless they are UI sounds.
-					float UsedDeltaTime = FApp::GetDeltaTime();
+					float UsedDeltaTime = GetGameDeltaTime();
 					if (GetType == ESortedActiveWaveGetType::QueryOnly || (GetType == ESortedActiveWaveGetType::PausedUpdate && !ActiveSound->bIsUISound))
 					{
 						UsedDeltaTime = 0.0f;
@@ -2929,7 +2932,7 @@ void FAudioDevice::UpdateActiveSoundPlaybackTime(bool bIsGameTicking)
 	{
 		for (FActiveSound* ActiveSound : ActiveSounds)
 		{
-			ActiveSound->PlaybackTime += DeviceDeltaTime;
+			ActiveSound->PlaybackTime += GetDeviceDeltaTime();
 		}
 	}
 	else if (GIsEditor)
@@ -2938,7 +2941,7 @@ void FAudioDevice::UpdateActiveSoundPlaybackTime(bool bIsGameTicking)
 		{
 			if (ActiveSound->bIsPreviewSound)
 			{
-				ActiveSound->PlaybackTime += DeviceDeltaTime;
+				ActiveSound->PlaybackTime += GetDeviceDeltaTime();
 			}
 		}
 	}
@@ -3031,7 +3034,13 @@ void FAudioDevice::StartSources(TArray<FWaveInstance*>& WaveInstances, int32 Fir
 	for (int32 InstanceIndex = FirstActiveIndex; InstanceIndex < WaveInstances.Num(); InstanceIndex++)
 	{
 		FWaveInstance* WaveInstance = WaveInstances[InstanceIndex];
-
+		
+		// Make sure we've finished precaching the wave instance's wave data before trying to create a source for it
+		if (!WaveInstance->WaveData->bIsPrecacheDone)
+		{
+			continue;
+		}
+		
 		// Editor uses bIsUISound for sounds played in the browser.
 		if (!WaveInstance->ShouldStopDueToMaxConcurrency() && (bGameTicking || WaveInstance->bIsUISound))
 		{
@@ -3087,7 +3096,7 @@ void FAudioDevice::StartSources(TArray<FWaveInstance*>& WaveInstances, int32 Fir
 					// If we failed, then we need to stop the wave instance and add the source back to the free list
 					// This can happen if e.g. the USoundWave pointed to by the WaveInstance is not a valid sound file.
 					// If we don't stop the wave file, it will continue to try initializing the file every frame, which is a perf hit
-					UE_LOG(LogAudio, Warning, TEXT("Failed to start sound source for %s"), (WaveInstance->ActiveSound && WaveInstance->ActiveSound->Sound) ? *WaveInstance->ActiveSound->Sound->GetName() : TEXT("UNKNOWN") );
+					UE_LOG(LogAudio, Log, TEXT("Failed to start sound source for %s"), (WaveInstance->ActiveSound && WaveInstance->ActiveSound->Sound) ? *WaveInstance->ActiveSound->Sound->GetName() : TEXT("UNKNOWN") );
 					Source->Stop();
 				}
 			}
@@ -3096,7 +3105,7 @@ void FAudioDevice::StartSources(TArray<FWaveInstance*>& WaveInstances, int32 Fir
 				// If we've already been initialized, then just update the voice
 				if (Source->IsInitialized())
 				{
-					Source->NotifyPlaybackPercent();
+					Source->NotifyPlaybackData();
 					Source->Update();
 				}
 				// Otherwise, we need still need to initialize
@@ -3139,12 +3148,14 @@ void FAudioDevice::Update(bool bGameTicking)
 	SCOPED_NAMED_EVENT(FAudioDevice_Update, FColor::Blue);
 	if (!IsInAudioThread())
 	{
-
 		FAudioDevice* AudioDevice = this;
 		FAudioThread::RunCommandOnAudioThread([AudioDevice, bGameTicking]()
 		{
 			AudioDevice->Update(bGameTicking);
 		});
+
+		// We process all enqueued commands on the audio device update
+		FAudioThread::ProcessAllCommands();
 
 		return;
 	}
@@ -3454,6 +3465,19 @@ void FAudioDevice::AddNewActiveSound(const FActiveSound& NewActiveSound)
 		return;
 	}
 
+	// Don't allow buses to try to play if we're not using the audio mixer.
+	if (!IsAudioMixerEnabled())
+	{
+		if (NewActiveSound.Sound)
+		{
+			USoundSourceBus* Bus = Cast<USoundSourceBus>(NewActiveSound.Sound);
+			if (Bus)
+			{
+				return;
+			}
+		}
+	}
+
 	if (!IsInAudioThread())
 	{
 		DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.AddNewActiveSound"), STAT_AudioAddNewActiveSound, STATGROUP_AudioThreadCommands);
@@ -3487,7 +3511,7 @@ void FAudioDevice::AddNewActiveSound(const FActiveSound& NewActiveSound)
 		// If the sound played on an editor preview world, treat it as a preview sound (unpausable and ignoring the realtime volume slider)
 		if (const UWorld* World = NewActiveSound.GetWorld())
 		{
-			ActiveSound->bIsPreviewSound = (World->WorldType == EWorldType::EditorPreview);
+			ActiveSound->bIsPreviewSound |= (World->WorldType == EWorldType::EditorPreview);
 		}
 	}
 
@@ -3533,7 +3557,7 @@ void FAudioDevice::ProcessingPendingActiveSoundStops(bool bForceDelete)
 	for (int32 i = PendingSoundsToDelete.Num() - 1; i >= 0; --i)
 	{
 		FActiveSound* ActiveSound = PendingSoundsToDelete[i];
-		if (bForceDelete || ActiveSound->CanDelete())
+		if (ActiveSound && (bForceDelete || ActiveSound->CanDelete()))
 		{
 			ActiveSound->bAsyncOcclusionPending = false;
 			PendingSoundsToDelete.RemoveAtSwap(i, 1, false);
@@ -3556,7 +3580,7 @@ void FAudioDevice::ProcessingPendingActiveSoundStops(bool bForceDelete)
 		else
 		{
 			// There was an async operation pending. We need to defer deleting this sound
-			PendingSoundsToDelete.Add(ActiveSound);
+			PendingSoundsToDelete.AddUnique(ActiveSound);
 		}
 	}
 	PendingSoundsToStop.Reset();
@@ -4233,6 +4257,12 @@ void FAudioDevice::Flush(UWorld* WorldToFlush, bool bClearActivatedReverb)
 			WaveInstanceSourceMap.Reset();
 		}
 	}
+
+	// Make sure we update any hardware changes that need to happen after flushing
+	if (IsAudioMixerEnabled() && (WorldToFlush == nullptr || WorldToFlush->bIsTearingDown))
+	{
+		UpdateHardware();
+	}
 }
 
 /**
@@ -4333,6 +4363,9 @@ void FAudioDevice::Precache(USoundWave* SoundWave, bool bSynchronous, bool bTrac
 			}
 			else
 			{
+				// This should only happen in the game thread.
+				ensure(IsInGameThread());
+				SoundWave->bIsPrecacheDone = false;
 				SoundWave->AudioDecompressor = new FAsyncAudioDecompress(SoundWave);
 				SoundWave->AudioDecompressor->StartBackgroundTask();
 			}
@@ -4596,6 +4629,20 @@ FVector FAudioDevice::GetListenerTransformedDirection(const FVector& Position, f
 	return UnnormalizedDirection.GetSafeNormal();
 }
 
+float FAudioDevice::GetDeviceDeltaTime() const
+{
+	// Clamp the delta time to a reasonable max delta time. 
+	return FMath::Min(DeviceDeltaTime, 0.5f);
+}
+
+float FAudioDevice::GetGameDeltaTime() const
+{
+	float DeltaTime = FApp::GetDeltaTime();
+
+	// Clamp the delta time to a reasonable max delta time. 
+	return FMath::Min(DeltaTime, 0.5f);
+}
+
 #if WITH_EDITOR
 void FAudioDevice::OnBeginPIE(const bool bIsSimulating)
 {
@@ -4741,7 +4788,7 @@ void FAudioDevice::DumpActiveSounds() const
 			for (const TPair<UPTRINT, FWaveInstance*>& WaveInstancePair : ActiveSound->WaveInstances)
 			{
 				const FWaveInstance* WaveInstance = WaveInstancePair.Value;
-				UE_LOG(LogAudio, Display, TEXT("   %s (%.3g) (%d) - %.3g"), *WaveInstance->GetName(), WaveInstance->WaveData->GetDuration(), WaveInstance->WaveData->GetResourceSizeBytes(EResourceSizeMode::Inclusive), WaveInstance->GetActualVolume());
+				UE_LOG(LogAudio, Display, TEXT("   %s (%.3g) (%d) - %.3g"), *WaveInstance->GetName(), WaveInstance->WaveData->GetDuration(), WaveInstance->WaveData->GetResourceSizeBytes(EResourceSizeMode::EstimatedTotal), WaveInstance->GetActualVolume());
 			}
 		}
 	}

@@ -1,8 +1,8 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "OnlineUserCloudInterface.h"
+#include "Interfaces/OnlineUserCloudInterface.h"
 
 #ifdef __IPHONE_8_0
 #import <CloudKit/CloudKit.h>

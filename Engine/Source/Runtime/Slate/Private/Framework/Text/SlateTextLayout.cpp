@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Framework/Text/SlateTextLayout.h"
 #include "Rendering/DrawElements.h"
@@ -123,8 +123,12 @@ int32 FSlateTextLayout::OnPaint( const FPaintArgs& Args, const FGeometry& Allott
 		}
 
 		// Render any overlays for this line
-		const int32 HighestOverlayLayerId = OnPaintHighlights( Args, LineView, LineView.OverlayHighlights, DefaultTextStyle, AllottedGeometry, MyCullingRect, OutDrawElements, HighestBlockLayerId, InWidgetStyle, bParentEnabled );
-		HighestLayerId = FMath::Max( HighestLayerId, HighestOverlayLayerId );
+		//#jira UE - 49124 Cursor in virtual keyboard and UMG don't match
+		if (FSlateApplication::Get().AllowMoveCursor())
+		{
+			const int32 HighestOverlayLayerId = OnPaintHighlights(Args, LineView, LineView.OverlayHighlights, DefaultTextStyle, AllottedGeometry, MyCullingRect, OutDrawElements, HighestBlockLayerId, InWidgetStyle, bParentEnabled);
+			HighestLayerId = FMath::Max(HighestLayerId, HighestOverlayLayerId);
+		}
 	}
 
 	return HighestLayerId;

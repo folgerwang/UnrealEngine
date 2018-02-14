@@ -1,12 +1,12 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealAtoSApp.h"
 #include "Misc/Paths.h"
 #include "HAL/PlatformMisc.h"
 
-#include "GenericPlatformSymbolication.h"
+#include "GenericPlatform/GenericPlatformSymbolication.h"
 #if PLATFORM_MAC
-#include "ApplePlatformSymbolication.h"
+#include "Apple/ApplePlatformSymbolication.h"
 #endif
 
 static void ShowUsage()

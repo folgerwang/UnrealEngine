@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	IOSPlatformOutputDevices.mm: iOS implementations of OutputDevices functions
 =============================================================================*/
 
-#include "IOSErrorOutputDevice.h"
+#include "IOS/IOSErrorOutputDevice.h"
 #include "HAL/PlatformMisc.h"
 #include "HAL/PlatformAtomics.h"
 #include "Misc/OutputDeviceRedirector.h"
@@ -47,5 +47,5 @@ void FIOSErrorOutputDevice::HandleError()
 	GIsCriticalError = 1;
 	GLogConsole = NULL;
 
-	GLog->Flush();
+	GLog->PanicFlushThreadedLogs();
 }

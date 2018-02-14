@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SNiagaraParameterCollection.h"
 #include "NiagaraEditorModule.h"
@@ -9,24 +9,24 @@
 #include "SNiagaraParameterEditor.h"
 #include "NiagaraEditorStyle.h"
 
-#include "SButton.h"
-#include "SExpandableArea.h"
-#include "SInlineEditableTextBlock.h"
-#include "SComboBox.h"
-#include "SImage.h"
-#include "SSplitter.h"
-#include "MultiBoxBuilder.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SExpandableArea.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
+#include "Widgets/Input/SComboBox.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 
 #include "Modules/ModuleManager.h"
 #include "IStructureDetailsView.h"
-#include "GenericCommands.h"
+#include "Framework/Commands/GenericCommands.h"
 #include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
 #include "IDetailsView.h"
-#include "SButton.h"
-#include "SNullWidget.h"
-#include "SSpinBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/SNullWidget.h"
+#include "Widgets/Input/SSpinBox.h"
 #include "ScopedTransaction.h"
-#include "SCheckBox.h"
+#include "Widgets/Input/SCheckBox.h"
 
 
 #define LOCTEXT_NAMESPACE "NiagaraParameterCollectionEditor"
@@ -490,11 +490,12 @@ TSharedRef<ITableRow> SNiagaraParameterCollection::OnGenerateRowForParameter(TSh
 	if (bCanEdit && Item->GetDefaultValueType() == INiagaraParameterViewModel::EDefaultValueType::Struct)
 	{
 		FNiagaraEditorModule& NiagaraEditorModule = FModuleManager::GetModuleChecked<FNiagaraEditorModule>("NiagaraEditor");
-		TSharedPtr<INiagaraEditorTypeUtilities> TypeEditorUtilities = NiagaraEditorModule.GetTypeUtilities(*Item->GetType().Get());
+		FNiagaraTypeDefinition ParameterType = *Item->GetType().Get();
+		TSharedPtr<INiagaraEditorTypeUtilities> TypeEditorUtilities = NiagaraEditorModule.GetTypeUtilities(ParameterType);
 		TSharedPtr<SNiagaraParameterEditor> ParameterEditor;
 		if (TypeEditorUtilities.IsValid() && TypeEditorUtilities->CanCreateParameterEditor())
 		{
-			ParameterEditor = TypeEditorUtilities->CreateParameterEditor();
+			ParameterEditor = TypeEditorUtilities->CreateParameterEditor(ParameterType);
 			ParameterEditor->UpdateInternalValueFromStruct(Item->GetDefaultValueStruct());
 			ParameterEditor->SetOnBeginValueChange(SNiagaraParameterEditor::FOnValueChange::CreateSP(
 				this, &SNiagaraParameterCollection::ParameterEditorBeginValueChange, Item));

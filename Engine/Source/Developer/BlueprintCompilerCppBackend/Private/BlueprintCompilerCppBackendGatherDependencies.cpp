@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintCompilerCppBackendGatherDependencies.h"
 #include "Misc/CoreMisc.h"
@@ -500,7 +500,7 @@ UClass* FGatherConvertedClassDependencies::FindOriginalClass(const UClass* InCla
 	if (InClass)
 	{
 		IBlueprintCompilerCppBackendModule& BackEndModule = (IBlueprintCompilerCppBackendModule&)IBlueprintCompilerCppBackendModule::Get();
-		auto ClassWeakPtrPtr = BackEndModule.GetOriginalClassMap().Find(InClass);
+		TWeakObjectPtr<UClass>* ClassWeakPtrPtr = BackEndModule.GetOriginalClassMap().Find(MakeWeakObjectPtr(const_cast<UClass*>(InClass)));
 		UClass* OriginalClass = ClassWeakPtrPtr ? ClassWeakPtrPtr->Get() : nullptr;
 		return OriginalClass ? OriginalClass : const_cast<UClass*>(InClass);
 	}

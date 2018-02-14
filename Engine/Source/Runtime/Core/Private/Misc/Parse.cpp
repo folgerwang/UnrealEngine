@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Misc/Parse.h"
 #include "Misc/DateTime.h"
@@ -227,7 +227,7 @@ bool FParse::Value(
 	bool bSuccess = false;
 	int32 MatchLen = FCString::Strlen(Match);
 
-	for (const TCHAR* Found = FCString::Strifind(Stream, Match); Found != nullptr; Found = FCString::Strifind(Found + MatchLen, Match))
+	for (const TCHAR* Found = FCString::Strifind(Stream, Match, true); Found != nullptr; Found = FCString::Strifind(Found + MatchLen, Match, true))
 	{
 		const TCHAR* Start = Found + MatchLen;
 
@@ -236,36 +236,10 @@ bool FParse::Value(
 		//         ^~~~Start
 		bool bArgumentsQuoted = *Start == '"';
 
-		// Number of characters we can look back from found looking for first parenthesis.
-		uint32 AllowedBacktraceCharactersCount = Found - Stream;
-
-		// Check for fully quoted string with spaces
-		bool bFullyQuoted = 
-			// "-Option=Value1 Value2"
-			//   ^~~~Found
-			AllowedBacktraceCharactersCount > 1 && *(Found - 1) == '-' && *(Found - 2) == '"';
-
-		// If we are parsing within a parameter value, this is an invalid match - skip past and try again
-		bool bWithinParamValue = bFullyQuoted &&
-			// -Param="-Option=Value1 Value2"
-			//   ^~~~Found
-			AllowedBacktraceCharactersCount > 2 && *(Found - 3) == '=';
-
-		if (bWithinParamValue)
-		{
-			continue;
-		}
-
-
-		bFullyQuoted = bFullyQuoted ||
-			// "Option=Value1 Value2"
-			//  ^~~~Found
-			(AllowedBacktraceCharactersCount > 0 && *(Found - 1) == '"');
-
-		if (bArgumentsQuoted || bFullyQuoted)
+		if (bArgumentsQuoted)
 		{
 			// Skip quote character if only params were quoted.
-			int32 QuoteCharactersToSkip = bArgumentsQuoted ? 1 : 0;
+			int32 QuoteCharactersToSkip = 1;
 			FCString::Strncpy(Value, Start + QuoteCharactersToSkip, MaxLen);
 
 			Value[MaxLen-1]=0;
@@ -310,7 +284,7 @@ bool FParse::Param( const TCHAR* Stream, const TCHAR* Param )
 	const TCHAR* Start = Stream;
 	if( *Stream )
 	{
-		while( (Start=FCString::Strifind(Start+1,Param)) != NULL )
+		while( (Start=FCString::Strifind(Start,Param,true)) != NULL )
 		{
 			if( Start>Stream && (Start[-1]=='-' || Start[-1]=='/') && 
 				(Stream > (Start - 2) || FChar::IsWhitespace(Start[-2]))) // Reject if the character before '-' or '/' is not a whitespace
@@ -321,6 +295,8 @@ bool FParse::Param( const TCHAR* Stream, const TCHAR* Param )
 					return true;
 				}
 			}
+
+			Start++;
 		}
 	}
 	return false;
@@ -335,9 +311,12 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, FString& Value, boo
 	if( FParse::Value( Stream, Match, Temp, ARRAY_COUNT(Temp), bShouldStopOnSeparator) )
 	{
 		Value = Temp;
-		return 1;
+		return true;
 	}
-	else return 0;
+	else
+	{
+		return false;
+	}
 }
 
 // 
@@ -358,7 +337,12 @@ bool FParse::QuotedString( const TCHAR* Buffer, FString& Value, int32* OutNumCha
 		return false;
 	}
 
-	while (*Buffer && *Buffer != TCHAR('"') && *Buffer != TCHAR('\n') && *Buffer != TCHAR('\r'))
+	auto ShouldParse = [](const TCHAR Ch)
+	{
+		return Ch != 0 && Ch != TCHAR('"') && Ch != TCHAR('\n') && Ch != TCHAR('\r');
+	};
+
+	while (ShouldParse(*Buffer))
 	{
 		if (*Buffer != TCHAR('\\')) // unescaped character
 		{
@@ -369,7 +353,7 @@ bool FParse::QuotedString( const TCHAR* Buffer, FString& Value, int32* OutNumCha
 			Value += TEXT("\\");
 			++Buffer;
 		}
-		else if (*Buffer == TCHAR('\"')) // escaped double quote "\""
+		else if (*Buffer == TCHAR('"')) // escaped double quote "\""
 		{
 			Value += TCHAR('"');
 			++Buffer;
@@ -394,10 +378,68 @@ bool FParse::QuotedString( const TCHAR* Buffer, FString& Value, int32* OutNumCha
 			Value += TCHAR('\t');
 			++Buffer;
 		}
-		else // some other escape sequence, assume it's a hex character value
+		else if (FChar::IsOctDigit(*Buffer)) // octal sequence (\012)
 		{
-			Value += FString::Printf(TEXT("%c"), (HexDigit(Buffer[0]) * 16) + HexDigit(Buffer[1]));
-			Buffer += 2;
+			FString OctSequence;
+			while (ShouldParse(*Buffer) && FChar::IsOctDigit(*Buffer) && OctSequence.Len() < 3) // Octal sequences can only be up-to 3 digits long
+			{
+				OctSequence += *Buffer++;
+			}
+
+			Value += (TCHAR)FCString::Strtoi(*OctSequence, nullptr, 8);
+		}
+		else if (*Buffer == TCHAR('x')) // hex sequence (\xBEEF)
+		{
+			++Buffer;
+
+			FString HexSequence;
+			while (ShouldParse(*Buffer) && FChar::IsHexDigit(*Buffer))
+			{
+				HexSequence += *Buffer++;
+			}
+
+			Value += (TCHAR)FCString::Strtoi(*HexSequence, nullptr, 16);
+		}
+		else if (*Buffer == TCHAR('u')) // UTF-16 sequence (\u1234)
+		{
+			++Buffer;
+
+			FString UnicodeSequence;
+			while (ShouldParse(*Buffer) && FChar::IsHexDigit(*Buffer) && UnicodeSequence.Len() < 4) // UTF-16 sequences can only be up-to 4 digits long
+			{
+				UnicodeSequence += *Buffer++;
+			}
+
+			const uint32 UnicodeCodepoint = (uint32)FCString::Strtoi(*UnicodeSequence, nullptr, 16);
+
+			FString UnicodeString;
+			if (FUnicodeChar::CodepointToString(UnicodeCodepoint, UnicodeString))
+			{
+				Value += MoveTemp(UnicodeString);
+			}
+		}
+		else if (*Buffer == TCHAR('U')) // UTF-32 sequence (\U12345678)
+		{
+			++Buffer;
+
+			FString UnicodeSequence;
+			while (ShouldParse(*Buffer) && FChar::IsHexDigit(*Buffer) && UnicodeSequence.Len() < 8) // UTF-32 sequences can only be up-to 8 digits long
+			{
+				UnicodeSequence += *Buffer++;
+			}
+
+			const uint32 UnicodeCodepoint = (uint32)FCString::Strtoi(*UnicodeSequence, nullptr, 16);
+
+			FString UnicodeString;
+			if (FUnicodeChar::CodepointToString(UnicodeCodepoint, UnicodeString))
+			{
+				Value += MoveTemp(UnicodeString);
+			}
+		}
+		else // unhandled escape sequence
+		{
+			Value += TEXT("\\");
+			Value += *Buffer++;
 		}
 	}
 
@@ -438,7 +480,7 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, FText& Value, const
 		return FParse::Text( Stream, Value, Namespace );
 	}
 
-	return 0;
+	return false;
 }
 
 //
@@ -464,9 +506,12 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, int64& Value )
 			Value = Value*10 + *Ptr++ - '0';
 		if( Negative )
 			Value = -Value;
-		return 1;
+		return true;
 	}
-	else return 0;
+	else
+	{
+		return false;
+	}
 }
 
 //
@@ -478,12 +523,12 @@ bool FParse::Value(	const TCHAR* Stream, const TCHAR* Match, FName& Name )
 
 	if( !FParse::Value(Stream,Match,TempStr,NAME_SIZE) )
 	{
-		return 0;
+		return false;
 	}
 
 	Name = FName(TempStr);
 
-	return 1;
+	return true;
 }
 
 //
@@ -494,10 +539,10 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, uint32& Value )
 	const TCHAR* Temp = FCString::Strifind(Stream,Match);
 	TCHAR* End;
 	if( Temp==NULL )
-		return 0;
+		return false;
 	Value = FCString::Strtoi( Temp + FCString::Strlen(Match), &End, 10 );
 
-	return 1;
+	return true;
 }
 
 //
@@ -507,7 +552,7 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, uint8& Value )
 {
 	const TCHAR* Temp = FCString::Strifind(Stream,Match);
 	if( Temp==NULL )
-		return 0;
+		return false;
 	Temp += FCString::Strlen( Match );
 	Value = (uint8)FCString::Atoi( Temp );
 	return Value!=0 || FChar::IsDigit(Temp[0]);
@@ -520,7 +565,7 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, int8& Value )
 {
 	const TCHAR* Temp = FCString::Strifind(Stream,Match);
 	if( Temp==NULL )
-		return 0;
+		return false;
 	Temp += FCString::Strlen( Match );
 	Value = FCString::Atoi( Temp );
 	return Value!=0 || FChar::IsDigit(Temp[0]);
@@ -533,7 +578,7 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, uint16& Value )
 {
 	const TCHAR* Temp = FCString::Strifind( Stream, Match );
 	if( Temp==NULL )
-		return 0;
+		return false;
 	Temp += FCString::Strlen( Match );
 	Value = (uint16)FCString::Atoi( Temp );
 	return Value!=0 || FChar::IsDigit(Temp[0]);
@@ -546,7 +591,7 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, int16& Value )
 {
 	const TCHAR* Temp = FCString::Strifind( Stream, Match );
 	if( Temp==NULL )
-		return 0;
+		return false;
 	Temp += FCString::Strlen( Match );
 	Value = (int16)FCString::Atoi( Temp );
 	return Value!=0 || FChar::IsDigit(Temp[0]);
@@ -559,9 +604,9 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, float& Value )
 {
 	const TCHAR* Temp = FCString::Strifind( Stream, Match );
 	if( Temp==NULL )
-		return 0;
+		return false;
 	Value = FCString::Atof( Temp+FCString::Strlen(Match) );
-	return 1;
+	return true;
 }
 
 //
@@ -571,9 +616,9 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, int32& Value )
 {
 	const TCHAR* Temp = FCString::Strifind( Stream, Match );
 	if( Temp==NULL )
-		return 0;
+		return false;
 	Value = FCString::Atoi( Temp + FCString::Strlen(Match) );
-	return 1;
+	return true;
 }
 
 //
@@ -585,9 +630,12 @@ bool FParse::Bool( const TCHAR* Stream, const TCHAR* Match, bool& OnOff )
 	if( FParse::Value( Stream, Match, TempStr, 16 ) )
 	{
 		OnOff = FCString::ToBool(TempStr);
-		return 1;
+		return true;
 	}
-	else return 0;
+	else
+	{
+		return false;
+	}
 }
 
 //
@@ -597,7 +645,7 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, struct FGuid& Guid 
 {
 	TCHAR Temp[256];
 	if( !FParse::Value( Stream, Match, Temp, ARRAY_COUNT(Temp) ) )
-		return 0;
+		return false;
 
 	Guid.A = Guid.B = Guid.C = Guid.D = 0;
 	if( FCString::Strlen(Temp)==32 )
@@ -608,7 +656,7 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, struct FGuid& Guid 
 		Guid.B = FCString::Strtoi( Temp+8,  &End, 16 ); Temp[8 ]=0;
 		Guid.A = FCString::Strtoi( Temp+0,  &End, 16 ); Temp[0 ]=0;
 	}
-	return 1;
+	return true;
 }
 
 
@@ -649,15 +697,18 @@ bool FParse::Command( const TCHAR** Stream, const TCHAR* Match, bool bParseMight
 				(*Stream)++;
 			}
 
-			return 1; // Success.
+			return true; // Success.
 		}
 		else
 		{
 			*Stream -= MatchLen;
-			return 0; // Only found partial match.
+			return false; // Only found partial match.
 		}
 	}
-	else return 0; // No match.
+	else
+	{
+		return false; // No match.
+	}
 }
 
 //

@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ScopeLock.h"
+#include "Misc/ScopeLock.h"
 
 // Macros which can be enabled to cause DSP sample checking
 #if 0
@@ -293,6 +293,7 @@ namespace Audio
 			, DurationTicks(0)
 			, DefaultDurationTicks(0)
 			, CurrentTick(0)
+			, bIsInit(true)
 		{
 		}
 
@@ -308,6 +309,7 @@ namespace Audio
 		void Init(float InSampleRate)
 		{
 			SampleRate = InSampleRate;
+			bIsInit = true;
 		}
 
 		void SetValueRange(const float Start, const float End, const float InTimeSec)
@@ -349,7 +351,15 @@ namespace Audio
 
 		void SetValue(const float InValue, float InTimeSec = 0.0f)
 		{
-			DurationTicks = (int32)(SampleRate * InTimeSec);
+			if (bIsInit)
+			{
+				bIsInit = false;
+				DurationTicks = 0;
+			}
+			else
+			{
+				DurationTicks = (int32)(SampleRate * InTimeSec);
+			}
 			CurrentTick = 0;
 
 			if (DurationTicks == 0)
@@ -371,6 +381,7 @@ namespace Audio
 		int32 DurationTicks;
 		int32 DefaultDurationTicks;
 		int32 CurrentTick;
+		bool bIsInit;
 	};
 
 	// Simple parameter object which uses critical section to write to and read from data

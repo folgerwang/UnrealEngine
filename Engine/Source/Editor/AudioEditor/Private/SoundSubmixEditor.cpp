@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SoundSubmixEditor.h"
 
@@ -9,11 +9,11 @@
 #include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
 
 #include "GraphEditor.h"
-#include "BlueprintEditorUtils.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "ScopedTransaction.h"
 #include "Toolkits/IToolkitHost.h"
-#include "SDockTab.h"
-#include "GenericCommands.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Framework/Commands/GenericCommands.h"
 #include "Sound/SoundSubmix.h"
 #include "SoundSubmixGraph/SoundSubmixGraph.h"
 #include "SoundSubmixGraph/SoundSubmixGraphNode.h"

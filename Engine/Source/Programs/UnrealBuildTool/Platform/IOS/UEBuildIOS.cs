@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -155,11 +155,11 @@ namespace UnrealBuildTool
 		{
 			get
 			{
-				if(bDevForArmV7 || (!bDevForArm64 && !bDevForArmV7S))
+				if(bDevForArmV7)
 				{
 					yield return "armv7";
 				}
-				if(bDevForArm64)
+				if(bDevForArm64 || (!bDevForArmV7 && !bDevForArmV7S))
 				{
 					yield return "arm64";
 				}
@@ -177,7 +177,7 @@ namespace UnrealBuildTool
 		{
 			get
 			{
-				if(bShipForArmV7 || (!bShipForArm64 && !bShipForArmV7S))
+				if(bShipForArmV7)
 				{
 					yield return "armv7";
 				}
@@ -263,6 +263,7 @@ namespace UnrealBuildTool
 		public string SigningCertificate;
 		public string MobileProvision;
         public string MobileProvisionUUID;
+        public string MobileProvisionName;
         public string TeamUUID;
 		public bool bHaveCertificate = false;
 
@@ -396,6 +397,16 @@ namespace UnrealBuildTool
 							TeamUUID = AllText.Substring(idx, AllText.IndexOf("</string>", idx) - idx);
 						}
 					}
+                    idx = AllText.IndexOf("<key>Name</key>");
+                    if (idx > 0)
+                    {
+                        idx = AllText.IndexOf("<string>", idx);
+                        if (idx > 0)
+                        {
+                            idx += "<string>".Length;
+                            MobileProvisionName = AllText.Substring(idx, AllText.IndexOf("</string>", idx) - idx);
+                        }
+                    }
 				}
 
 				if (string.IsNullOrEmpty(MobileProvisionUUID) || string.IsNullOrEmpty(TeamUUID))
@@ -475,7 +486,8 @@ namespace UnrealBuildTool
 			Target.bBuildEditor = false;
 			Target.bBuildDeveloperTools = false;
 			Target.bCompileAPEX = false;
-			Target.bCompileSimplygon = false;
+            Target.bCompileNvCloth = false;
+            Target.bCompileSimplygon = false;
             Target.bCompileSimplygonSSF = false;
 			Target.bBuildDeveloperTools = false;
 		}
@@ -693,8 +705,8 @@ namespace UnrealBuildTool
 					{
 						if (Target.bBuildDeveloperTools)
 						{
-							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("IOSTargetPlatform");
-							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("TVOSTargetPlatform");
+							Rules.DynamicallyLoadedModuleNames.Add("IOSTargetPlatform");
+							Rules.DynamicallyLoadedModuleNames.Add("TVOSTargetPlatform");
 						}
 					}
 					else if (ModuleName == "TargetPlatform")
@@ -704,7 +716,7 @@ namespace UnrealBuildTool
 						Rules.DynamicallyLoadedModuleNames.Add("TextureFormatASTC");
 						if (Target.bBuildDeveloperTools && Target.bCompileAgainstEngine)
 						{
-							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("AudioFormatADPCM");
+							Rules.DynamicallyLoadedModuleNames.Add("AudioFormatADPCM");
 						}
 					}
 				}
@@ -714,13 +726,13 @@ namespace UnrealBuildTool
 				{
 					if (Target.bForceBuildTargetPlatforms)
 					{
-						Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("IOSTargetPlatform");
-						Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("TVOSTargetPlatform");
+						Rules.DynamicallyLoadedModuleNames.Add("IOSTargetPlatform");
+						Rules.DynamicallyLoadedModuleNames.Add("TVOSTargetPlatform");
 					}
 
 					if (bBuildShaderFormats)
 					{
-						Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("MetalShaderFormat");
+						Rules.DynamicallyLoadedModuleNames.Add("MetalShaderFormat");
 					}
 				}
 			}

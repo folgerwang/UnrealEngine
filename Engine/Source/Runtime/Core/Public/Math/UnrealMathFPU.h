@@ -1,8 +1,8 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "UnrealMemory.h"
+#include "HAL/UnrealMemory.h"
 
 /*=============================================================================
  *	Helpers:
@@ -92,7 +92,7 @@ FORCEINLINE VectorRegisterInt MakeVectorRegisterInt(int32 X, int32 Y, int32 Z, i
  *	Constants:
  *============================================================================*/
 
-#include "UnrealMathVectorConstants.h"
+#include "Math/UnrealMathVectorConstants.h"
 
 
 /*=============================================================================

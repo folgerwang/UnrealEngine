@@ -1,8 +1,8 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "CriticalSection.h"
+#include "HAL/CriticalSection.h"
 #include "Math/BoxSphereBounds.h"
 #include "ClothingSimulationInterface.h"
 
@@ -49,6 +49,9 @@ public:
 
 	// Wind velocity at the component location
 	FVector WindVelocity;
+
+	// Gravity extracted from the world
+	FVector WorldGravity;
 
 	// Wind adaption, a measure of how quickly to adapt to the wind speed
 	// when using the legacy wind calculation mode

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 // .
 
 #include "CoreMinimal.h"
@@ -9,25 +9,25 @@
 #include "ShaderFormatOpenGL.h"
 
 #if PLATFORM_WINDOWS
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include "Windows/PreWindowsApi.h"
 	#include <objbase.h>
 	#include <assert.h>
 	#include <stdio.h>
 	#include "Windows/PostWindowsApi.h"
 	#include "Windows/MinWindows.h"
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 #include "ShaderCore.h"
 #include "ShaderPreprocessor.h"
 #include "ShaderCompilerCommon.h"
 #include "GlslBackend.h"
 #if PLATFORM_WINDOWS
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <GL/glcorearb.h>
 	#include <GL/glext.h>
 	#include <GL/wglext.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #elif PLATFORM_LINUX
 	#define GL_GLEXT_PROTOTYPES 1
 	#include <GL/glcorearb.h>
@@ -1325,7 +1325,7 @@ uint32 FOpenGLFrontend::GetMaxSamplers(GLSLVersion Version)
 	}
 }
 
-uint32 FOpenGLFrontend::CalculateCrossCompilerFlags(GLSLVersion Version, bool bCompileES2With310, bool bUseFullPrecisionInPS)
+uint32 FOpenGLFrontend::CalculateCrossCompilerFlags(GLSLVersion Version, bool bCompileES2With310, bool bUseFullPrecisionInPS, bool bUsesExternalTexture)
 {
 	uint32  CCFlags = HLSLCC_NoPreprocess | HLSLCC_PackUniforms | HLSLCC_DX11ClipSpace;
 	if (IsES2Platform(Version) && !IsPCES2Platform(Version))
@@ -1353,6 +1353,11 @@ uint32 FOpenGLFrontend::CalculateCrossCompilerFlags(GLSLVersion Version, bool bC
 	if (SupportsSeparateShaderObjects(Version))
 	{
 		CCFlags |= HLSLCC_SeparateShaderObjects;
+	}
+
+	if (bUsesExternalTexture)
+	{
+		CCFlags |= HLSLCC_UsesExternalTexture;
 	}
 
 	return CCFlags;
@@ -1408,6 +1413,8 @@ void FOpenGLFrontend::CompileShader(const FShaderCompilerInput& Input,FShaderCom
 	{
 		AdditionalDefines.SetDefine(TEXT("COMPILER_SUPPORTS_ATTRIBUTES"), (uint32)0);
 	}
+
+	const bool bUsesExternalTexture = Input.Environment.CompilerFlags.Contains(CFLAG_UsesExternalTexture);
 
 	const bool bUseFullPrecisionInPS = Input.Environment.CompilerFlags.Contains(CFLAG_UseFullPrecisionInPS);
 	if (bUseFullPrecisionInPS)
@@ -1489,7 +1496,7 @@ void FOpenGLFrontend::CompileShader(const FShaderCompilerInput& Input,FShaderCom
 		}
 	}
 
-	uint32 CCFlags = CalculateCrossCompilerFlags(Version, bCompileES2With310, bUseFullPrecisionInPS);
+	uint32 CCFlags = CalculateCrossCompilerFlags(Version, bCompileES2With310, bUseFullPrecisionInPS, bUsesExternalTexture);
 
 	// Required as we added the RemoveUniformBuffersFromSource() function (the cross-compiler won't be able to interpret comments w/o a preprocessor)
 	CCFlags &= ~HLSLCC_NoPreprocess;

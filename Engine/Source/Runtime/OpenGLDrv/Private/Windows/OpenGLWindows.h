@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	OpenGLWindows.h: Manual loading of OpenGL functions from DLL.
@@ -10,12 +10,12 @@
 	#error "OpenGLWindows.h included for a platform other than Windows."
 #endif
 
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <GL/glcorearb.h>
 	#include <GL/glext.h>
 	#include <GL/wglext.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 /** List all OpenGL entry points used by Unreal that must be loaded from opengl32.dll */
 #define ENUM_GL_ENTRYPOINTS_DLL(EnumMacro) \
@@ -395,6 +395,7 @@
 /** Declare all GL functions. */
 #define DECLARE_GL_ENTRYPOINTS(Type,Func) extern Type OPENGLDRV_API Func;
 ENUM_GL_ENTRYPOINTS_ALL(DECLARE_GL_ENTRYPOINTS);
+#undef DECLARE_GL_ENTRYPOINTS
 
 /** This function is handled separately because it is used to get a real context. */
 extern PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB;

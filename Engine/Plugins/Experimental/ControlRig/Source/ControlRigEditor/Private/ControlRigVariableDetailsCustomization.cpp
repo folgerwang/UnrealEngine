@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ControlRigVariableDetailsCustomization.h"
 #include "Kismet2/BlueprintEditorUtils.h"
@@ -7,8 +7,8 @@
 #include "BlueprintEditorModule.h"
 #include "DetailCategoryBuilder.h"
 #include "DetailWidgetRow.h"
-#include "STextBlock.h"
-#include "SCheckBox.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SCheckBox.h"
 #include "Engine/BlueprintGeneratedClass.h"
 
 #define LOCTEXT_NAMESPACE "ControlRigVariableDetailsCustomization"
@@ -18,7 +18,7 @@ static FName AnimationInputMetadataName("AnimationInput");
 
 TSharedPtr<IDetailCustomization> FControlRigVariableDetailsCustomization::MakeInstance(TSharedPtr<IBlueprintEditor> InBlueprintEditor)
 {
-	const TArray<UObject*>* Objects = InBlueprintEditor->GetObjectsCurrentlyBeingEdited();
+	const TArray<UObject*>* Objects = (InBlueprintEditor.IsValid() ? InBlueprintEditor->GetObjectsCurrentlyBeingEdited() : nullptr);
 	if (Objects && Objects->Num() == 1)
 	{
 		if (UBlueprint* Blueprint = Cast<UBlueprint>((*Objects)[0]))

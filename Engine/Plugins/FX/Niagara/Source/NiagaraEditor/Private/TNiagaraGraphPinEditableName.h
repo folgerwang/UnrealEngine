@@ -1,10 +1,10 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "SGraphPin.h"
 #include "NiagaraNode.h"
-#include "SInlineEditableTextBlock.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 
 /** A graph pin widget for allowing a pin to have an editable name for a pin. */
 template< class BaseClass >
@@ -17,7 +17,7 @@ public:
 	FORCENOINLINE void Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj)
 	{
 		bPendingRename = false;
-		BaseClass::Construct(BaseClass::FArguments(), InGraphPinObj);
+		BaseClass::Construct(typename BaseClass::FArguments(), InGraphPinObj);
 	}
 
 protected:

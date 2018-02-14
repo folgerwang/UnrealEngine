@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	StatsFile.cpp: Implements stats file related functionality.
@@ -11,7 +11,7 @@
 #include "Internationalization/Internationalization.h"
 #include "Serialization/MemoryWriter.h"
 #include "Serialization/MemoryReader.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 #if	STATS
 

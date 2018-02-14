@@ -1,12 +1,12 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MetalRHIPrivate.h"
 #include "Misc/App.h"
 #if PLATFORM_IOS
-#include "IOSAppDelegate.h"
+#include "IOS/IOSAppDelegate.h"
 #endif
-#include "ConfigCacheIni.h"
-#include "PlatformFramePacer.h"
+#include "Misc/ConfigCacheIni.h"
+#include "HAL/PlatformFramePacer.h"
 #include "Runtime/HeadMountedDisplay/Public/IHeadMountedDisplayModule.h"
 
 #include "MetalContext.h"
@@ -15,7 +15,7 @@
 
 #if METAL_STATISTICS
 #include "MetalStatistics.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #endif
 
 #include "ShaderCache.h"
@@ -42,6 +42,13 @@ static FAutoConsoleVariableRef CVarMetalNonBlockingPresent(
 	GMetalNonBlockingPresent,
 	TEXT("When enabled (> 0) this will force MetalRHI to query if a back-buffer is available to present and if not will skip the frame. Only functions on macOS, it is ignored on iOS/tvOS.\n")
 	TEXT("(Off by default (0))"));
+
+int32 GMetalManualVertexFetch = 0;
+static FAutoConsoleVariableRef CVarMetalManualVertexFetch(
+	TEXT("r.Metal.ManualVertexFetch"),
+	GMetalManualVertexFetch,
+	TEXT("When enabled (> 0) this will allow MetalRHI to use the manual-vertex-fetch shader permutations that reduce the number of pipeline states.\n")
+	TEXT("(Off by default (0))"), ECVF_ReadOnly);
 
 #if PLATFORM_MAC
 static int32 GMetalCommandQueueSize = 5120; // This number is large due to texture streaming - currently each texture is its own command-buffer.
@@ -167,7 +174,12 @@ static id<MTLDevice> GetMTLDevice(uint32& DeviceIndex)
 	TArray<FMacPlatformMisc::FGPUDescriptor> const& GPUs = FPlatformMisc::GetGPUDescriptors();
 	check(GPUs.Num() > 0);
 
-	int32 HmdGraphicsAdapter  = IHeadMountedDisplayModule::IsAvailable() ? IHeadMountedDisplayModule::Get().GetGraphicsAdapter() : -1;
+	// @TODO  here, GetGraphicsAdapterLuid() is used as a device index (how the function "GetGraphicsAdapter" used to work)
+	//        eventually we want the HMD module to return the MTLDevice's registryID, but we cannot fully handle that until
+	//        we drop support for 10.12
+	//  NOTE: this means any implementation of GetGraphicsAdapterLuid() for Mac should return an index, and use -1 as a 
+	//        sentinel value representing "no device" (instead of 0, which is used in the LUID case)
+	int32 HmdGraphicsAdapter  = IHeadMountedDisplayModule::IsAvailable() ? (int32)IHeadMountedDisplayModule::Get().GetGraphicsAdapterLuid() : -1;
  	int32 OverrideRendererId = FPlatformMisc::GetExplicitRendererIndex();
 	
 	int32 ExplicitRendererId = OverrideRendererId >= 0 ? OverrideRendererId : HmdGraphicsAdapter;
@@ -202,7 +214,12 @@ static id<MTLDevice> GetMTLDevice(uint32& DeviceIndex)
 		FString(GPU.GPUName).TrimStart().ParseIntoArray(NameComponents, TEXT(" "));	
 		for (id<MTLDevice> Device in DeviceList)
 		{
-			if(([Device.name rangeOfString:@"Nvidia" options:NSCaseInsensitiveSearch].location != NSNotFound && GPU.GPUVendorId == 0x10DE)
+			if([Device respondsToSelector:@selector(registryID)] && (uint64)[Device performSelector:@selector(registryID)] == GPU.RegistryID)
+			{
+				DeviceIndex = ExplicitRendererId;
+				SelectedDevice = Device;
+			}
+			else if(([Device.name rangeOfString:@"Nvidia" options:NSCaseInsensitiveSearch].location != NSNotFound && GPU.GPUVendorId == 0x10DE)
 			   || ([Device.name rangeOfString:@"AMD" options:NSCaseInsensitiveSearch].location != NSNotFound && GPU.GPUVendorId == 0x1002)
 			   || ([Device.name rangeOfString:@"Intel" options:NSCaseInsensitiveSearch].location != NSNotFound && GPU.GPUVendorId == 0x8086))
 			{
@@ -232,7 +249,13 @@ static id<MTLDevice> GetMTLDevice(uint32& DeviceIndex)
 		for (uint32 i = 0; i < GPUs.Num(); i++)
 		{
 			FMacPlatformMisc::FGPUDescriptor const& GPU = GPUs[i];
-			if(([SelectedDevice.name rangeOfString:@"Nvidia" options:NSCaseInsensitiveSearch].location != NSNotFound && GPU.GPUVendorId == 0x10DE)
+			if([SelectedDevice respondsToSelector:@selector(registryID)] && (uint64)[SelectedDevice performSelector:@selector(registryID)] == GPU.RegistryID)
+			{
+				DeviceIndex = i;
+				bFoundDefault = true;
+				break;
+			}
+			else if(([SelectedDevice.name rangeOfString:@"Nvidia" options:NSCaseInsensitiveSearch].location != NSNotFound && GPU.GPUVendorId == 0x10DE)
 			   || ([SelectedDevice.name rangeOfString:@"AMD" options:NSCaseInsensitiveSearch].location != NSNotFound && GPU.GPUVendorId == 0x1002)
 			   || ([SelectedDevice.name rangeOfString:@"Intel" options:NSCaseInsensitiveSearch].location != NSNotFound && GPU.GPUVendorId == 0x8086))
 			{
@@ -332,6 +355,13 @@ FMetalDeviceContext* FMetalDeviceContext::CreateDeviceContext()
 #endif
 	FMetalCommandQueue* Queue = new FMetalCommandQueue(Device, GMetalCommandQueueSize);
 	check(Queue);
+	
+	uint32 MetalDebug = GMetalRuntimeDebugLevel;
+	const bool bOverridesMetalDebug = FParse::Value( FCommandLine::Get(), TEXT( "MetalRuntimeDebugLevel=" ), MetalDebug );
+	if (bOverridesMetalDebug)
+	{
+		GMetalRuntimeDebugLevel = MetalDebug;
+	}
 	
 	return new FMetalDeviceContext(Device, DeviceIndex, Queue);
 }
@@ -846,7 +876,7 @@ void FMetalDeviceContext::ReleasePooledBuffer(id<MTLBuffer> Buffer)
 	}
 }
 
-struct FMetalRHICommandUpdateFence : public FRHICommand<FMetalRHICommandUpdateFence>
+struct FMetalRHICommandUpdateFence final : public FRHICommand<FMetalRHICommandUpdateFence>
 {
 	enum EMode
 	{
@@ -1108,7 +1138,7 @@ void FMetalContext::ResetRenderCommandEncoder()
 	
 	StateCache.InvalidateRenderTargets();
 	
-	SetRenderTargetsInfo(StateCache.GetRenderTargetsInfo(), false);
+	SetRenderTargetsInfo(StateCache.GetRenderTargetsInfo(), true);
 }
 
 bool FMetalContext::PrepareToDraw(uint32 PrimitiveType, EMetalIndexType IndexType)
@@ -1226,7 +1256,7 @@ bool FMetalContext::PrepareToDraw(uint32 PrimitiveType, EMetalIndexType IndexTyp
 			}
 		}
 		
-		if (StateCache.SetRenderTargetsInfo(Info, StateCache.GetVisibilityResultsBuffer(), false))
+		if (StateCache.SetRenderTargetsInfo(Info, StateCache.GetVisibilityResultsBuffer(), true))
 		{
 			RenderPass.RestartRenderPass(StateCache.GetRenderPassDescriptor());
 		}
@@ -1251,7 +1281,7 @@ bool FMetalContext::PrepareToDraw(uint32 PrimitiveType, EMetalIndexType IndexTyp
 		RenderPass.EndRenderPass();
 		
 		StateCache.SetRenderTargetsActive(false);
-		StateCache.SetRenderTargetsInfo(Info, StateCache.GetVisibilityResultsBuffer(), false);
+		StateCache.SetRenderTargetsInfo(Info, StateCache.GetVisibilityResultsBuffer(), true);
 		
 		RenderPass.BeginRenderPass(StateCache.GetRenderPassDescriptor());
 		
@@ -1264,12 +1294,11 @@ bool FMetalContext::PrepareToDraw(uint32 PrimitiveType, EMetalIndexType IndexTyp
 	
 	// make sure the BSS has a valid pipeline state object
 	StateCache.SetIndexType(IndexType);
-	check(CurrentPSO->GetPipeline(IndexType));
 	
 	return true;
 }
 
-void FMetalContext::SetRenderTargetsInfo(const FRHISetRenderTargetsInfo& RenderTargetsInfo, bool const bReset)
+void FMetalContext::SetRenderTargetsInfo(const FRHISetRenderTargetsInfo& RenderTargetsInfo, bool const bRestart)
 {
 #if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
 	if (!CommandList.IsImmediate())
@@ -1321,16 +1350,16 @@ void FMetalContext::SetRenderTargetsInfo(const FRHISetRenderTargetsInfo& RenderT
 			check(IsValidRef(FallbackDepthStencilSurface));
 			Info.DepthStencilRenderTarget = FRHIDepthRenderTargetView(FallbackDepthStencilSurface, ERenderTargetLoadAction::ELoad, ERenderTargetStoreAction::ENoAction, FExclusiveDepthStencil::DepthRead_StencilRead);
 
-			bSet = StateCache.SetRenderTargetsInfo(Info, QueryBuffer->GetCurrentQueryBuffer()->Buffer, bReset);
+			bSet = StateCache.SetRenderTargetsInfo(Info, QueryBuffer->GetCurrentQueryBuffer()->Buffer, bRestart);
 		}
 		else
 		{
-			bSet = StateCache.SetRenderTargetsInfo(RenderTargetsInfo, QueryBuffer->GetCurrentQueryBuffer()->Buffer, bReset);
+			bSet = StateCache.SetRenderTargetsInfo(RenderTargetsInfo, QueryBuffer->GetCurrentQueryBuffer()->Buffer, bRestart);
 		}
 	}
 	else
 	{
-		bSet = StateCache.SetRenderTargetsInfo(RenderTargetsInfo, NULL, bReset);
+		bSet = StateCache.SetRenderTargetsInfo(RenderTargetsInfo, NULL, bRestart);
 	}
 	
 	if (bSet && StateCache.GetHasValidRenderTarget())
@@ -1435,9 +1464,9 @@ void FMetalContext::CopyFromTextureToBuffer(id<MTLTexture> Texture, uint32 sourc
 	RenderPass.CopyFromTextureToBuffer(Texture, sourceSlice, sourceLevel, sourceOrigin, sourceSize, toBuffer, destinationOffset, destinationBytesPerRow, destinationBytesPerImage, options);
 }
 
-void FMetalContext::CopyFromBufferToTexture(id<MTLBuffer> Buffer, uint32 sourceOffset, uint32 sourceBytesPerRow, uint32 sourceBytesPerImage, MTLSize sourceSize, id<MTLTexture> toTexture, uint32 destinationSlice, uint32 destinationLevel, MTLOrigin destinationOrigin)
+void FMetalContext::CopyFromBufferToTexture(id<MTLBuffer> Buffer, uint32 sourceOffset, uint32 sourceBytesPerRow, uint32 sourceBytesPerImage, MTLSize sourceSize, id<MTLTexture> toTexture, uint32 destinationSlice, uint32 destinationLevel, MTLOrigin destinationOrigin, MTLBlitOption options)
 {
-	RenderPass.CopyFromBufferToTexture(Buffer, sourceOffset, sourceBytesPerRow, sourceBytesPerImage, sourceSize, toTexture, destinationSlice, destinationLevel, destinationOrigin);
+	RenderPass.CopyFromBufferToTexture(Buffer, sourceOffset, sourceBytesPerRow, sourceBytesPerImage, sourceSize, toTexture, destinationSlice, destinationLevel, destinationOrigin, options);
 }
 
 void FMetalContext::CopyFromTextureToTexture(id<MTLTexture> Texture, uint32 sourceSlice, uint32 sourceLevel, MTLOrigin sourceOrigin, MTLSize sourceSize, id<MTLTexture> toTexture, uint32 destinationSlice, uint32 destinationLevel, MTLOrigin destinationOrigin)
@@ -1450,9 +1479,9 @@ void FMetalContext::CopyFromBufferToBuffer(id<MTLBuffer> SourceBuffer, NSUIntege
 	RenderPass.CopyFromBufferToBuffer(SourceBuffer, SourceOffset, DestinationBuffer, DestinationOffset, Size);
 }
 
-void FMetalContext::AsyncCopyFromBufferToTexture(id<MTLBuffer> Buffer, uint32 sourceOffset, uint32 sourceBytesPerRow, uint32 sourceBytesPerImage, MTLSize sourceSize, id<MTLTexture> toTexture, uint32 destinationSlice, uint32 destinationLevel, MTLOrigin destinationOrigin)
+void FMetalContext::AsyncCopyFromBufferToTexture(id<MTLBuffer> Buffer, uint32 sourceOffset, uint32 sourceBytesPerRow, uint32 sourceBytesPerImage, MTLSize sourceSize, id<MTLTexture> toTexture, uint32 destinationSlice, uint32 destinationLevel, MTLOrigin destinationOrigin, MTLBlitOption options)
 {
-	RenderPass.AsyncCopyFromBufferToTexture(Buffer, sourceOffset, sourceBytesPerRow, sourceBytesPerImage, sourceSize, toTexture, destinationSlice, destinationLevel, destinationOrigin);
+	RenderPass.AsyncCopyFromBufferToTexture(Buffer, sourceOffset, sourceBytesPerRow, sourceBytesPerImage, sourceSize, toTexture, destinationSlice, destinationLevel, destinationOrigin, options);
 }
 
 void FMetalContext::AsyncCopyFromTextureToTexture(id<MTLTexture> Texture, uint32 sourceSlice, uint32 sourceLevel, MTLOrigin sourceOrigin, MTLSize sourceSize, id<MTLTexture> toTexture, uint32 destinationSlice, uint32 destinationLevel, MTLOrigin destinationOrigin)

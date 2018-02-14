@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MetalViewport.cpp: Metal viewport RHI implementation.
@@ -6,13 +6,13 @@
 
 #include "MetalRHIPrivate.h"
 #if PLATFORM_MAC
-#include "CocoaWindow.h"
-#include "CocoaThread.h"
+#include "Mac/CocoaWindow.h"
+#include "Mac/CocoaThread.h"
 #else
-#include "IOSAppDelegate.h"
+#include "IOS/IOSAppDelegate.h"
 #endif
 #include "RenderCommandFence.h"
-#include "Set.h"
+#include "Containers/Set.h"
 #include "MetalProfiler.h"
 
 extern int32 GMetalSupportsIntermediateBackBuffer;
@@ -59,6 +59,7 @@ static TSet<FMetalViewport*> Viewports;
 FMetalViewport::FMetalViewport(void* WindowHandle, uint32 InSizeX,uint32 InSizeY,bool bInIsFullscreen,EPixelFormat Format)
 : DisplayID(0)
 , Block(nil)
+, bIsFullScreen(bInIsFullscreen)
 #if PLATFORM_MAC
 , CustomPresent(nullptr)
 #endif
@@ -104,10 +105,13 @@ FMetalViewport::FMetalViewport(void* WindowHandle, uint32 InSizeX,uint32 InSizeY
 
 FMetalViewport::~FMetalViewport()
 {
-	if (GMetalSeparatePresentThread && Block)
+	if (Block)
 	{
 		FScopeLock BlockLock(&Mutex);
-		FPlatformRHIFramePacer::RemoveHandler(Block);
+		if (GMetalSeparatePresentThread)
+		{
+			FPlatformRHIFramePacer::RemoveHandler(Block);
+		}
 		Block_release(Block);
 		Block = nil;
 	}
@@ -146,6 +150,8 @@ uint32 FMetalViewport::GetViewportIndex(EMetalViewportAccessFlag Accessor) const
 void FMetalViewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen,EPixelFormat Format)
 {
 	bool bCanUseHDR = GRHISupportsHDROutput;
+	
+	bIsFullScreen = bInIsFullscreen;
 	
 #if PLATFORM_MAC
 	static bool sbHDROSVersionSafe = FPlatformMisc::MacOSXVersionCompare(10,13,0) >= 0;
@@ -344,7 +350,7 @@ void FMetalViewport::Present(FMetalCommandQueue& CommandQueue, bool bLockToVsync
 	if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesSupportsVSyncToggle))
 	{
 		FCAMetalLayer* CurrentLayer = (FCAMetalLayer*)[View layer];
-		CurrentLayer.displaySyncEnabled = bLockToVsync;
+		CurrentLayer.displaySyncEnabled = bLockToVsync || !(IsRunningGame() && bIsFullScreen);
 	}
 #endif
 	
@@ -541,7 +547,7 @@ FTexture2DRHIRef FMetalDynamicRHI::RHIGetViewportBackBuffer(FViewportRHIParamRef
 	}
 }
 
-void FMetalDynamicRHI::RHIAdvanceFrameForGetViewportBackBuffer()
+void FMetalDynamicRHI::RHIAdvanceFrameForGetViewportBackBuffer(FViewportRHIParamRef ViewportRHI)
 {
 	if (GMetalSeparatePresentThread && (GRHISupportsRHIThread && IsRunningRHIInSeparateThread()))
 	{

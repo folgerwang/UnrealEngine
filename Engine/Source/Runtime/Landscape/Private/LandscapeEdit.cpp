@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 LandscapeEdit.cpp: Landscape editing
@@ -47,7 +47,7 @@ LandscapeEdit.cpp: Landscape editing
 #include "LandscapeFileFormatInterface.h"
 #include "ComponentRecreateRenderStateContext.h"
 #endif
-#include "Containers/Algo/Count.h"
+#include "Algo/Count.h"
 
 DEFINE_LOG_CATEGORY(LogLandscape);
 
@@ -129,7 +129,7 @@ ULandscapeMaterialInstanceConstant* ALandscapeProxy::GetLayerThumbnailMIC(UMater
 	for (int32 LayerParameterIdx = 0; LayerParameterIdx < StaticParameters.TerrainLayerWeightParameters.Num(); ++LayerParameterIdx)
 	{
 		FStaticTerrainLayerWeightParameter& LayerParameter = StaticParameters.TerrainLayerWeightParameters[LayerParameterIdx];
-		if (LayerParameter.ParameterName == LayerName)
+		if (LayerParameter.ParameterInfo.Name == LayerName)
 		{
 			LayerParameter.WeightmapIndex = 0;
 			LayerParameter.bOverride = true;
@@ -154,8 +154,6 @@ ULandscapeMaterialInstanceConstant* ALandscapeProxy::GetLayerThumbnailMIC(UMater
 UMaterialInstanceConstant* ULandscapeComponent::GetCombinationMaterial(bool bMobile /*= false*/)
 {
 	check(GIsEditor);
-
-	ALandscapeProxy* Proxy = GetLandscapeProxy();
 
 	const bool bComponentHasHoles = ComponentHasVisibilityPainted();
 	UMaterialInterface* const LandscapeMaterial = GetLandscapeMaterial();
@@ -186,6 +184,7 @@ UMaterialInstanceConstant* ULandscapeComponent::GetCombinationMaterial(bool bMob
 
 	if (ensure(MaterialToUse != nullptr))
 	{
+		ALandscapeProxy* Proxy = GetLandscapeProxy();
 		FString LayerKey = GetLayerAllocationKey(MaterialToUse, bMobile);
 		//UE_LOG(LogLandscape, Log, TEXT("Looking for key %s"), *LayerKey);
 
@@ -285,7 +284,7 @@ void ULandscapeComponent::UpdateMaterialInstances_Internal(FMaterialUpdateContex
 		}
 		MaterialInstance->PostEditChange();
 
-		// Setup material instance with disabled tessellation for LODs 1+
+		// Setup material instance with disabled tessellation
 		if (bTessellationEnabled)
 		{
 			ULandscapeMaterialInstanceConstant*& TessellationMaterialInstance = (ULandscapeMaterialInstanceConstant*&)MaterialInstances[1];
@@ -531,9 +530,9 @@ void ULandscapeComponent::FixupWeightmaps()
 			RemoveInvalidWeightmaps();
 
 			// Store the layer combination in the MaterialInstanceConstantMap
-			if (MaterialInstances[0] != nullptr)
+			if (GetMaterialInstance(0, false) != nullptr)
 			{
-				UMaterialInstanceConstant* CombinationMaterialInstance = Cast<UMaterialInstanceConstant>(MaterialInstances[0]->Parent);
+				UMaterialInstanceConstant* CombinationMaterialInstance = Cast<UMaterialInstanceConstant>(GetMaterialInstance(0, false)->Parent);
 				if (CombinationMaterialInstance)
 				{
 					Proxy->MaterialInstanceConstantMap.Add(*GetLayerAllocationKey(CombinationMaterialInstance->Parent), CombinationMaterialInstance);
@@ -1951,17 +1950,26 @@ TArray<FName> ALandscapeProxy::GetLayersFromMaterial(UMaterialInterface* Materia
 
 	if (MaterialInterface)
 	{
-		UMaterial* Material = MaterialInterface->GetMaterial();
-		TArray<FName> ParameterNames;
+		TArray<FMaterialParameterInfo> OutParameterInfo;
 		TArray<FGuid> Guids;
-		Material->GetAllParameterNames<UMaterialExpressionLandscapeLayerBlend>(ParameterNames, Guids);
-		Material->GetAllParameterNames<UMaterialExpressionLandscapeLayerWeight>(ParameterNames, Guids);
-		Material->GetAllParameterNames<UMaterialExpressionLandscapeLayerSwitch>(ParameterNames, Guids);
-		Material->GetAllParameterNames<UMaterialExpressionLandscapeLayerSample>(ParameterNames, Guids);
-
-		for (const FName& Name : ParameterNames)
+		if (UMaterialInstance* Instance = Cast<UMaterialInstance>(MaterialInterface))
 		{
-			Result.AddUnique(Name);
+			Instance->GetAllParameterInfo<UMaterialExpressionLandscapeLayerBlend>(OutParameterInfo, Guids);
+			Instance->GetAllParameterInfo<UMaterialExpressionLandscapeLayerWeight>(OutParameterInfo, Guids);
+			Instance->GetAllParameterInfo<UMaterialExpressionLandscapeLayerSwitch>(OutParameterInfo, Guids);
+			Instance->GetAllParameterInfo<UMaterialExpressionLandscapeLayerSample>(OutParameterInfo, Guids);
+		}
+		else if (UMaterial* Material = MaterialInterface->GetMaterial())
+		{
+			Material->GetAllParameterInfo<UMaterialExpressionLandscapeLayerBlend>(OutParameterInfo, Guids);
+			Material->GetAllParameterInfo<UMaterialExpressionLandscapeLayerWeight>(OutParameterInfo, Guids);
+			Material->GetAllParameterInfo<UMaterialExpressionLandscapeLayerSwitch>(OutParameterInfo, Guids);
+			Material->GetAllParameterInfo<UMaterialExpressionLandscapeLayerSample>(OutParameterInfo, Guids);
+		}
+
+		for (const FMaterialParameterInfo& ParameterInfo : OutParameterInfo)
+		{
+			Result.AddUnique(ParameterInfo.Name);
 		}
 	}
 
@@ -3108,7 +3116,7 @@ void ULandscapeInfo::ExportLayer(ULandscapeLayerInfoObject* LayerInfo, const FSt
 	GWarn->EndSlowTask();
 }
 
-void ULandscapeInfo::DeleteLayer(ULandscapeLayerInfoObject* LayerInfo)
+void ULandscapeInfo::DeleteLayer(ULandscapeLayerInfoObject* LayerInfo, const FName& LayerName)
 {
 	GWarn->BeginSlowTask(LOCTEXT("BeginDeletingLayerTask", "Deleting Layer"), true);
 
@@ -3118,7 +3126,7 @@ void ULandscapeInfo::DeleteLayer(ULandscapeLayerInfoObject* LayerInfo)
 
 	// Remove from layer settings array
 	{
-		int32 LayerIndex = Layers.IndexOfByPredicate([LayerInfo](const FLandscapeInfoLayerSettings& LayerSettings) { return LayerSettings.LayerInfoObj == LayerInfo; });
+		int32 LayerIndex = Layers.IndexOfByPredicate([LayerInfo, LayerName](const FLandscapeInfoLayerSettings& LayerSettings) { return LayerSettings.LayerInfoObj == LayerInfo && LayerSettings.LayerName == LayerName; });
 		if (LayerIndex != INDEX_NONE)
 		{
 			Layers.RemoveAt(LayerIndex);
@@ -3306,18 +3314,22 @@ void ALandscape::PostEditMove(bool bFinished)
 	Super::PostEditMove(bFinished);
 }
 
+bool ALandscape::ShouldImport(FString* ActorPropString, bool IsMovingLevel)
+{
+	return GetWorld() != nullptr && !GetWorld()->IsGameWorld();
+}
+
 void ALandscape::PostEditImport()
 {
-	if (GetWorld())
+	check(GetWorld() && !GetWorld()->IsGameWorld());
+
+	for (ALandscape* Landscape : TActorRange<ALandscape>(GetWorld()))
 	{
-		for (ALandscape* Landscape : TActorRange<ALandscape>(GetWorld()))
+		if (Landscape && Landscape != this && !Landscape->HasAnyFlags(RF_BeginDestroyed) && Landscape->LandscapeGuid == LandscapeGuid)
 		{
-			if (Landscape && Landscape != this && !Landscape->HasAnyFlags(RF_BeginDestroyed) && Landscape->LandscapeGuid == LandscapeGuid)
-			{
-				// Copy/Paste case, need to generate new GUID
-				LandscapeGuid = FGuid::NewGuid();
-				break;
-			}
+			// Copy/Paste case, need to generate new GUID
+			LandscapeGuid = FGuid::NewGuid();
+			break;
 		}
 	}
 
@@ -3659,6 +3671,29 @@ void ALandscapeProxy::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 			RecreateCollisionComponents();
 		}
 	}
+	else if (PropertyName == GET_MEMBER_NAME_CHECKED(ALandscapeProxy, TessellationComponentScreenSize))
+	{
+		ChangeTessellationComponentScreenSize(TessellationComponentScreenSize);
+	}
+	else if (PropertyName == GET_MEMBER_NAME_CHECKED(ALandscapeProxy, ComponentScreenSizeToUseSubSections))
+	{
+		ChangeComponentScreenSizeToUseSubSections(ComponentScreenSizeToUseSubSections);
+	}
+	else if (PropertyName == GET_MEMBER_NAME_CHECKED(ALandscapeProxy, UseTessellationComponentScreenSizeFalloff))
+	{
+		ChangeUseTessellationComponentScreenSizeFalloff(UseTessellationComponentScreenSizeFalloff);
+	}
+	else if (PropertyName == GET_MEMBER_NAME_CHECKED(ALandscapeProxy, TessellationComponentScreenSizeFalloff))
+	{
+		ChangeTessellationComponentScreenSizeFalloff(TessellationComponentScreenSizeFalloff);
+	}
+	else if (PropertyName == GET_MEMBER_NAME_CHECKED(ALandscapeProxy, LODDistributionSetting)
+		|| PropertyName == GET_MEMBER_NAME_CHECKED(ALandscapeProxy, LOD0DistributionSetting)
+		|| PropertyName == GET_MEMBER_NAME_CHECKED(ALandscapeProxy, IncludeTessellationInShadowLOD)
+		|| PropertyName == GET_MEMBER_NAME_CHECKED(ALandscapeProxy, RestrictTessellationToShadowCascade))
+	{		
+		MarkComponentsRenderStateDirty();
+	}
 	else if (PropertyName == GET_MEMBER_NAME_CHECKED(ALandscapeProxy, bUseMaterialPositionOffsetInStaticLighting))
 	{
 		InvalidateLightingCache();
@@ -3812,9 +3847,39 @@ void ALandscape::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEv
 		MaxLODLevel = FMath::Clamp<int32>(MaxLODLevel, -1, FMath::CeilLogTwo(SubsectionSizeQuads + 1) - 1);
 		bPropagateToProxies = true;
 	}
-	else if (PropertyName == FName(TEXT("LODDistanceFactor")))
+	else if (PropertyName == FName(TEXT("TessellationComponentScreenSize")))
 	{
-		LODDistanceFactor = FMath::Clamp<float>(LODDistanceFactor, 0.1f, MAX_LANDSCAPE_LOD_DISTANCE_FACTOR); // limit because LOD transition became too popping...
+		TessellationComponentScreenSize = FMath::Clamp<float>(TessellationComponentScreenSize, 0.01f, 1.0f);
+		bPropagateToProxies = true;
+	}
+	else if (PropertyName == FName(TEXT("ComponentScreenSizeToUseSubSections")))
+	{
+		ComponentScreenSizeToUseSubSections = FMath::Clamp<float>(ComponentScreenSizeToUseSubSections, 0.01f, 1.0f);
+		bPropagateToProxies = true;
+	}
+	else if (PropertyName == FName(TEXT("UseTessellationComponentScreenSizeFalloff"))
+			|| PropertyName == FName(TEXT("IncludeTessellationInShadowLOD")))
+	{
+		bPropagateToProxies = true;
+	}
+	else if (PropertyName == FName(TEXT("TessellationComponentScreenSizeFalloff")))
+	{
+		TessellationComponentScreenSizeFalloff = FMath::Clamp<float>(TessellationComponentScreenSizeFalloff, 0.01f, 1.0f);
+		bPropagateToProxies = true;
+	}
+	else if (PropertyName == FName(TEXT("RestrictTessellationToShadowCascade")))
+	{
+		FMath::Max<float>(RestrictTessellationToShadowCascade, 10.0f);
+		bPropagateToProxies = true;
+	}		
+	else if (PropertyName == FName(TEXT("LODDistributionSetting")))
+	{
+		LODDistributionSetting = FMath::Clamp<float>(LODDistributionSetting, 1.0f, 10.0f);
+		bPropagateToProxies = true;
+	}
+	else if (PropertyName == FName(TEXT("LOD0DistributionSetting")))
+	{
+		LOD0DistributionSetting = FMath::Clamp<float>(LOD0DistributionSetting, 1.0f, 5.0f);
 		bPropagateToProxies = true;
 	}
 	else if (PropertyName == FName(TEXT("CollisionMipLevel")))
@@ -3828,10 +3893,6 @@ void ALandscape::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEv
 		bPropagateToProxies = true;
 	}
 	else if (PropertyName == GET_MEMBER_NAME_CHECKED(ALandscapeProxy, bBakeMaterialPositionOffsetIntoCollision))
-	{
-		bPropagateToProxies = true;
-	}
-	else if (PropertyName == FName(TEXT("LODFalloff")))
 	{
 		bPropagateToProxies = true;
 	}
@@ -3920,6 +3981,12 @@ void ALandscape::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEv
 			{
 				Gizmo->MarkComponentsRenderStateDirty();
 			}
+		}
+
+		// Must be done after the AActor::PostEditChange as we depend on the relinking of the landscapeInfo->LandscapeActor
+		if (ChangedMaterial)
+		{
+			LandscapeMaterialChangedDelegate.Broadcast();
 		}
 	}
 }
@@ -4733,7 +4800,7 @@ void ULandscapeComponent::ImportCustomProperties(const TCHAR* SourceText, FFeedb
 
 		if (i != NumVertices)
 		{
-			Warn->Logf(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
+			Warn->Log(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
 		}
 
 		int32 ComponentSizeVerts = NumSubsections * (SubsectionSizeQuads + 1);
@@ -4799,7 +4866,7 @@ void ULandscapeComponent::ImportCustomProperties(const TCHAR* SourceText, FFeedb
 
 				if (i != NumVertices)
 				{
-					Warn->Logf(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
+					Warn->Log(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
 				}
 				LayerIdx++;
 			}

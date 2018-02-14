@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -43,9 +43,7 @@ namespace UnrealBuildTool
 			new FileSystemName("NoRedist"),
 			new FileSystemName("PS4"),
 			new FileSystemName("XboxOne"),
-			new FileSystemName("Switch"),
-			new FileSystemName("Wolf"),
-			new FileSystemName("WolfPlat"),
+			new FileSystemName("Switch")
 		};
 
 		/// <summary>
@@ -472,7 +470,7 @@ namespace UnrealBuildTool
 				case UnrealTargetPlatform.Win64:
 					return ";";
 				default:
-					Log.TraceWarning("PATH var delimiter unknown for platform " + BuildHostPlatform.Current.Platform.ToString() + " using ';'");
+					Log.TraceWarning("PATH variable delimiter unknown for platform " + BuildHostPlatform.Current.Platform.ToString() + " using ';'");
 					return ";";
 			}
 		}

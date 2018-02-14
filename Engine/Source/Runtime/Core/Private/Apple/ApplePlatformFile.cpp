@@ -1,13 +1,13 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	ApplePlatformFile.mm: Apple platform implementations of File functions
 =============================================================================*/
 
-#include "ApplePlatformFile.h"
+#include "Apple/ApplePlatformFile.h"
 #include "HAL/PlatformTime.h"
 #include "HAL/PlatformFile.h"
-#include "UnrealString.h"
+#include "Containers/UnrealString.h"
 #include "Containers/StringConv.h"
 #include "Templates/Function.h"
 #include "CoreGlobals.h"

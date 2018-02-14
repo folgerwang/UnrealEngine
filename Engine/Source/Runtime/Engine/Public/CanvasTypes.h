@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Canvas.h: Unreal canvas definition.
@@ -11,6 +11,8 @@
 #include "Engine/EngineTypes.h"
 #include "HitProxies.h"
 #include "BatchedElements.h"
+#include "RendererInterface.h"
+#include "StaticMeshResources.h"
 #include "CanvasTypes.generated.h"
 
 class FCanvasItem;
@@ -195,9 +197,9 @@ private:
  */
 class FCanvas
 {
-public:	
+public:
 
-	/** 
+	/**
 	 * Enum that describes what type of element we are currently batching.
 	 */
 	enum EElementType
@@ -213,9 +215,9 @@ public:
 	enum ECanvasAllowModes
 	{
 		// flushing and rendering
-		Allow_Flush			= 1<<0,
+		Allow_Flush = 1 << 0,
 		// delete the render batches when rendering
-		Allow_DeleteOnRender= 1<<1
+		Allow_DeleteOnRender = 1 << 1
 	};
 
 	enum ECanvasDrawMode
@@ -224,22 +226,22 @@ public:
 		CDM_ImmediateDrawing
 	};
 
-	/** 
+	/**
 	* Constructor.
 	*/
-	ENGINE_API FCanvas(FRenderTarget* InRenderTarget,FHitProxyConsumer* InHitProxyConsumer, UWorld* InWorld, ERHIFeatureLevel::Type InFeatureLevel, ECanvasDrawMode DrawMode = CDM_DeferDrawing);
+	ENGINE_API FCanvas(FRenderTarget* InRenderTarget, FHitProxyConsumer* InHitProxyConsumer, UWorld* InWorld, ERHIFeatureLevel::Type InFeatureLevel, ECanvasDrawMode DrawMode = CDM_DeferDrawing, float InDPIScale = 1.0f);
 
-	/** 
+	/**
 	* Constructor. For situations where a world is not available, but time information is
 	*/
-	ENGINE_API FCanvas(FRenderTarget* InRenderTarget, FHitProxyConsumer* InHitProxyConsumer, float InRealTime, float InWorldTime, float InWorldDeltaTime, ERHIFeatureLevel::Type InFeatureLevel);
+	ENGINE_API FCanvas(FRenderTarget* InRenderTarget, FHitProxyConsumer* InHitProxyConsumer, float InRealTime, float InWorldTime, float InWorldDeltaTime, ERHIFeatureLevel::Type InFeatureLevel, float InDPIScale = 1.0f);
 
-	/** 
+	/**
 	* Destructor.
 	*/
 	ENGINE_API ~FCanvas();
 
-	
+
 	ENGINE_API static ESimpleElementBlendMode BlendToSimpleElementBlend(EBlendMode BlendMode);
 	/**
 	* Returns a FBatchedElements pointer to be used for adding vertices and primitives for rendering.
@@ -252,20 +254,20 @@ public:
 	* @param GlowInfo - info for optional glow effect when using depth field rendering
 	* @return Returns a pointer to a FBatchedElements object.
 	*/
-	ENGINE_API FBatchedElements* GetBatchedElements(EElementType InElementType, FBatchedElementParameters* InBatchedElementParameters=NULL, const FTexture* Texture=NULL, ESimpleElementBlendMode BlendMode=SE_BLEND_MAX,const FDepthFieldGlowInfo& GlowInfo = FDepthFieldGlowInfo());
-	
+	ENGINE_API FBatchedElements* GetBatchedElements(EElementType InElementType, FBatchedElementParameters* InBatchedElementParameters = NULL, const FTexture* Texture = NULL, ESimpleElementBlendMode BlendMode = SE_BLEND_MAX, const FDepthFieldGlowInfo& GlowInfo = FDepthFieldGlowInfo(), bool bApplyDPIScale = true);
+
 	/**
 	* Generates a new FCanvasTileRendererItem for the current sortkey and adds it to the sortelement list of items to render
 	*/
-	ENGINE_API void AddTileRenderItem(float X,float Y,float SizeX,float SizeY,float U,float V,float SizeU,float SizeV,const FMaterialRenderProxy* MaterialRenderProxy,FHitProxyId HitProxyId,bool bFreezeTime,FColor InColor);
+	ENGINE_API void AddTileRenderItem(float X, float Y, float SizeX, float SizeY, float U, float V, float SizeU, float SizeV, const FMaterialRenderProxy* MaterialRenderProxy, FHitProxyId HitProxyId, bool bFreezeTime, FColor InColor);
 
 	/**
 	* Generates a new FCanvasTriangleRendererItem for the current sortkey and adds it to the sortelement list of items to render
 	*/
 	ENGINE_API void AddTriangleRenderItem(const FCanvasUVTri& Tri, const FMaterialRenderProxy* MaterialRenderProxy, FHitProxyId HitProxyId, bool bFreezeTime);
-	
-	/** 
-	* Sends a message to the rendering thread to draw the batched elements. 
+
+	/**
+	* Sends a message to the rendering thread to draw the batched elements.
 	* @param RHICmdList - command list to use
 	* @param bForce - force the flush even if Allow_Flush is not enabled
 	*/
@@ -311,7 +313,7 @@ public:
 	ENGINE_API static FMatrix CalcBaseTransform2D(uint32 ViewSizeX, uint32 ViewSizeY);
 
 	/**
-	* Generate a 3D projection for the canvas. Use this if you want to transform in 3D 
+	* Generate a 3D projection for the canvas. Use this if you want to transform in 3D
 	*
 	* @param ViewSizeX - Viewport width
 	* @param ViewSizeY - Viewport height
@@ -320,7 +322,7 @@ public:
 	* @return Matrix for canvas projection
 	*/
 	ENGINE_API static FMatrix CalcBaseTransform3D(uint32 ViewSizeX, uint32 ViewSizeY, float fFOV, float NearPlane);
-	
+
 	/**
 	* Generate a view matrix for the canvas. Used for CalcBaseTransform3D
 	*
@@ -330,7 +332,7 @@ public:
 	* @return Matrix for canvas view orientation
 	*/
 	ENGINE_API static FMatrix CalcViewMatrix(uint32 ViewSizeX, uint32 ViewSizeY, float fFOV);
-	
+
 	/**
 	* Generate a projection matrix for the canvas. Used for CalcBaseTransform3D
 	*
@@ -344,29 +346,29 @@ public:
 
 	/**
 	* Get the current top-most transform entry without the canvas projection
-	* @return matrix from transform stack. 
+	* @return matrix from transform stack.
 	*/
 	ENGINE_API FMatrix GetTransform() const
-	{ 
-		return TransformStack.Top().GetMatrix() * TransformStack[0].GetMatrix().InverseFast(); 
-	}
-
-	/** 
-	* Get the bottom-most element of the transform stack. 
-	* @return matrix from transform stack. 
-	*/
-	ENGINE_API const FMatrix& GetBottomTransform() const
-	{ 
-		return TransformStack[0].GetMatrix(); 
+	{
+		return TransformStack.Top().GetMatrix() * TransformStack[0].GetMatrix().InverseFast();
 	}
 
 	/**
-	* Get the current top-most transform entry 
-	* @return matrix from transform stack. 
+	* Get the bottom-most element of the transform stack.
+	* @return matrix from transform stack.
+	*/
+	ENGINE_API const FMatrix& GetBottomTransform() const
+	{
+		return TransformStack[0].GetMatrix();
+	}
+
+	/**
+	* Get the current top-most transform entry
+	* @return matrix from transform stack.
 	*/
 	ENGINE_API const FMatrix& GetFullTransform() const
-	{ 
-		return TransformStack.Top().GetMatrix(); 
+	{
+		return TransformStack.Top().GetMatrix();
 	}
 
 	/**
@@ -383,10 +385,10 @@ public:
 
 	/**
 	* Get the current render target for the canvas
-	*/	
+	*/
 	ENGINE_API FORCEINLINE FRenderTarget* GetRenderTarget() const
-	{ 
-		return RenderTarget; 
+	{
+		return RenderTarget;
 	}
 
 	/**
@@ -395,7 +397,7 @@ public:
 	 *
 	 * @param ViewRect The rect to use
 	 */
-	ENGINE_API void SetRenderTargetRect( const FIntRect& ViewRect );
+	ENGINE_API void SetRenderTargetRect(const FIntRect& ViewRect);
 
 	/**
 	 * The clipping rectangle used when rendering this canvas
@@ -406,14 +408,14 @@ public:
 	/**
 	* Marks render target as dirty so that it will be resolved to texture
 	*/
-	void SetRenderTargetDirty(bool bDirty) 
-	{ 
-		bRenderTargetDirty = bDirty; 
+	void SetRenderTargetDirty(bool bDirty)
+	{
+		bRenderTargetDirty = bDirty;
 	}
 
 	/**
 	* Sets the hit proxy which will be used for subsequent canvas primitives.
-	*/ 
+	*/
 	ENGINE_API void SetHitProxy(HHitProxy* HitProxy);
 
 	// HitProxy Accessors.	
@@ -421,7 +423,7 @@ public:
 	FHitProxyId GetHitProxyId() const { return CurrentHitProxy ? CurrentHitProxy->Id : FHitProxyId(); }
 	FHitProxyConsumer* GetHitProxyConsumer() const { return HitProxyConsumer; }
 	bool IsHitTesting() const { return HitProxyConsumer != NULL; }
-	
+
 	FSceneInterface* GetScene() const { return Scene; }
 
 	/**
@@ -442,7 +444,7 @@ public:
 	int32 PopDepthSortKey()
 	{
 		int32 Result = 0;
-		if( DepthSortKeyStack.Num() > 0 )
+		if (DepthSortKeyStack.Num() > 0)
 		{
 			Result = DepthSortKeyStack.Pop();
 		}
@@ -451,7 +453,7 @@ public:
 			// should always have one entry
 			PushDepthSortKey(0);
 		}
-		return Result;		
+		return Result;
 	};
 
 	/**
@@ -518,14 +520,14 @@ public:
 	{
 	public:
 		FTransformEntry(const FMatrix& InMatrix)
-			:	Matrix(InMatrix)
-		{			
-			MatrixCRC = FCrc::MemCrc_DEPRECATED(&Matrix,sizeof(FMatrix));
+			: Matrix(InMatrix)
+		{
+			MatrixCRC = FCrc::MemCrc_DEPRECATED(&Matrix, sizeof(FMatrix));
 		}
 		FORCEINLINE void SetMatrix(const FMatrix& InMatrix)
 		{
 			Matrix = InMatrix;
-			MatrixCRC = FCrc::MemCrc_DEPRECATED(&Matrix,sizeof(FMatrix));
+			MatrixCRC = FCrc::MemCrc_DEPRECATED(&Matrix, sizeof(FMatrix));
 		}
 		FORCEINLINE const FMatrix& GetMatrix() const
 		{
@@ -540,7 +542,7 @@ public:
 		uint32 MatrixCRC;
 	};
 
-	/** returns the transform stack */	
+	/** returns the transform stack */
 	FORCEINLINE const TArray<FTransformEntry>& GetTransformStack() const
 	{
 		return TransformStack;
@@ -562,6 +564,13 @@ public:
 	}
 	FORCEINLINE bool IsStereoRendering() const { return bStereoRendering; }
 
+	FORCEINLINE void SetUseInternalTexture(const bool bInUseInternalTexture)
+	{
+		bUseInternalTexture = bInUseInternalTexture;
+	}
+
+	FORCEINLINE bool IsUsingInternalTexture() const { return bUseInternalTexture; }
+
 	/** Depth used for orthographic stereo projection. Uses World Units.*/
 	FORCEINLINE void SetStereoDepth(int32 InDepth)
 	{
@@ -569,6 +578,14 @@ public:
 	}
 	FORCEINLINE int32 GetStereoDepth() const { return StereoDepth; }
 
+	FORCEINLINE void SetParentCanvasSize(FIntPoint InParentSize)
+	{
+		ParentSize = InParentSize;
+	}
+
+	FORCEINLINE FIntPoint GetParentCanvasSize() const { return ParentSize; }
+
+	float GetDPIScale() const { return  bStereoRendering ? 1.0f : DPIScale; }
 public:
 	/** Private class for handling word wrapping behavior. */
 	TSharedPtr<FCanvasWordWrapper> WordWrapper;
@@ -610,6 +627,9 @@ private:
 	/** true, if Canvas should be rendered in stereo */
 	bool bStereoRendering;
 
+	/** true, if Canvas is being rendered in its own texture */
+	bool bUseInternalTexture;
+
 	/** Depth used for orthographic stereo projection. Uses World Units.*/
 	int32 StereoDepth;
 
@@ -617,7 +637,11 @@ private:
 	FMatrix CachedOrthoProjection[2];
 	int32 CachedRTWidth, CachedRTHeight, CachedDrawDepth;
 
+	FIntPoint ParentSize;
+
 	ECanvasDrawMode DrawMode;
+
+	float DPIScale;
 
 	bool GetOrthoProjectionMatrices(float InDrawDepth, FMatrix OutOrthoProjection[2]);
 
@@ -705,8 +729,8 @@ public:
 	* @param ShadowColor - Shadow color to draw underneath the text (ignored for distance field fonts)
 	* @return total size in pixels of text drawn
 	*/
-	ENGINE_API int32 DrawShadowedString( float StartX, float StartY, const TCHAR* Text, const UFont* Font, const FLinearColor& Color, const float TextScale = 1.0f, const FLinearColor& ShadowColor = FLinearColor::Black );
-
+	ENGINE_API int32 DrawShadowedString( float StartX, float StartY, const TCHAR* Text, const UFont* Font, const FLinearColor& Color, const FLinearColor& ShadowColor = FLinearColor::Black );
+	
 	ENGINE_API int32 DrawShadowedText( float StartX, float StartY, const FText& Text, const UFont* Font, const FLinearColor& Color, const FLinearColor& ShadowColor = FLinearColor::Black );
 
 	ENGINE_API void WrapString( FTextSizingParameters& Parameters, const float InCurX, const TCHAR* const pText, TArray<FWrappedStringElement>& out_Lines, FCanvasWordWrapper::FWrappedLineData* const OutWrappedLineData = nullptr);
@@ -954,22 +978,19 @@ public:
 	/** 
 	* Init constructor 
 	*/
-	FCanvasTileRendererItem( 
+	FCanvasTileRendererItem(ERHIFeatureLevel::Type InFeatureLevel,
 		const FMaterialRenderProxy* InMaterialRenderProxy=NULL,
 		const FCanvas::FTransformEntry& InTransform=FCanvas::FTransformEntry(FMatrix::Identity),
 		bool bInFreezeTime=false)
 		// this data is deleted after rendering has completed
-		:	Data(new FRenderData(InMaterialRenderProxy,InTransform))
+		:	Data(new FRenderData(InFeatureLevel,InMaterialRenderProxy,InTransform))
 		,	bFreezeTime(bInFreezeTime)
 	{}
 
 	/**
 	* Destructor to delete data in case nothing rendered
 	*/
-	virtual ~FCanvasTileRendererItem()
-	{
-		delete Data;
-	}
+	virtual ~FCanvasTileRendererItem();	
 
 	/**
 	* FCanvasTileRendererItem instance accessor
@@ -1030,17 +1051,45 @@ public:
 	{
 		return Data->AddTile(X,Y,SizeX,SizeY,U,V,SizeU,SizeV,HitProxyId,InColor);
 	};
-	
+
 private:
-	class FRenderData
+	class FTileVertexFactory : public FLocalVertexFactory
 	{
 	public:
-		FRenderData(
-			const FMaterialRenderProxy* InMaterialRenderProxy=NULL,
-			const FCanvas::FTransformEntry& InTransform=FCanvas::FTransformEntry(FMatrix::Identity) )
-			:	MaterialRenderProxy(InMaterialRenderProxy)
-			,	Transform(InTransform)
-		{}
+		/** Default constructor. */
+		FTileVertexFactory(ERHIFeatureLevel::Type InFeatureLevel);
+	};
+
+	class FTileMesh : public FRenderResource
+	{
+	public:
+		FTileMesh(FTileVertexFactory* VertexFactory);
+
+		/** The mesh element. */
+		FMeshBatch MeshElement;
+
+		virtual void InitRHI() override;
+		virtual void ReleaseRHI() override;
+	private:
+		FTileVertexFactory* VertexFactory;
+	};
+
+	class FRenderData
+	{
+		friend class FCanvasTileRendererItem;
+
+	private:
+		/** The buffer containing vertex data. */
+		FStaticMeshVertexBuffers StaticMeshVertexBuffers;
+		FTileVertexFactory VertexFactory;
+		FTileMesh TileMesh;
+
+	public:
+
+		FRenderData(ERHIFeatureLevel::Type InFeatureLevel,
+			const FMaterialRenderProxy* InMaterialRenderProxy = nullptr,
+			const FCanvas::FTransformEntry& InTransform = FCanvas::FTransformEntry(FMatrix::Identity));
+		
 		const FMaterialRenderProxy* MaterialRenderProxy;
 		FCanvas::FTransformEntry Transform;
 
@@ -1068,6 +1117,9 @@ private:
 	FRenderData* Data;	
 
 	const bool bFreezeTime;
+
+	typedef FRenderData::FTileInst FTileInst;
+	void InitTileBuffers(FLocalVertexFactory* VertexFactory, TArray<FTileInst>& Tiles, const FSceneView& View, bool bNeedsToSwitchVerticalAxis);
 };
 
 /**
@@ -1079,12 +1131,12 @@ public:
 	/**
 	* Init constructor
 	*/
-	FCanvasTriangleRendererItem(
+	FCanvasTriangleRendererItem(ERHIFeatureLevel::Type InFeatureLevel,
 		const FMaterialRenderProxy* InMaterialRenderProxy = NULL,
 		const FCanvas::FTransformEntry& InTransform = FCanvas::FTransformEntry(FMatrix::Identity),
 		bool bInFreezeTime = false)
 		// this data is deleted after rendering has completed
-		: Data(new FRenderData(InMaterialRenderProxy, InTransform))
+		: Data(new FRenderData(InFeatureLevel, InMaterialRenderProxy, InTransform))
 		, bFreezeTime(bInFreezeTime)
 	{}
 
@@ -1169,17 +1221,41 @@ public:
 	}
 
 private:
-	class FRenderData
+	class FTriangleVertexFactory : public FLocalVertexFactory
 	{
 	public:
-		FRenderData(
-			const FMaterialRenderProxy* InMaterialRenderProxy = NULL,
-			const FCanvas::FTransformEntry& InTransform = FCanvas::FTransformEntry(FMatrix::Identity))
-			: MaterialRenderProxy(InMaterialRenderProxy)
-			, Transform(InTransform)
-		{}
+		/** Default constructor. */
+		FTriangleVertexFactory(ERHIFeatureLevel::Type InFeatureLevel);
+	};
+
+	/**
+	* Mesh used to render triangles.
+	*/
+	class FTriangleMesh : public FRenderResource
+	{
+	public:
+		FTriangleMesh(FTriangleVertexFactory* VertexFactory);
+
+		/** The mesh element. */
+		FMeshBatch TriMeshElement;
+		virtual void InitRHI() override;
+		virtual void ReleaseRHI() override;
+	private:
+		FTriangleVertexFactory* VertexFactory;
+	};
+
+	class FRenderData
+	{
+		friend class FCanvasTriangleRendererItem;
+
+	private:
 		const FMaterialRenderProxy* MaterialRenderProxy;
 		FCanvas::FTransformEntry Transform;
+
+		/** The buffer containing vertex data. */
+		FStaticMeshVertexBuffers StaticMeshVertexBuffers;
+		FTriangleVertexFactory VertexFactory;
+		FTriangleMesh TriMesh;
 
 		struct FTriangleInst
 		{
@@ -1187,6 +1263,17 @@ private:
 			FHitProxyId HitProxyId;
 		};
 		TArray<FTriangleInst> Triangles;
+
+	public:
+		FRenderData(ERHIFeatureLevel::Type InFeatureLevel,
+			const FMaterialRenderProxy* InMaterialRenderProxy = NULL,
+			const FCanvas::FTransformEntry& InTransform = FCanvas::FTransformEntry(FMatrix::Identity))
+			: MaterialRenderProxy(InMaterialRenderProxy)
+			, Transform(InTransform)
+			, VertexFactory(InFeatureLevel)
+			, TriMesh(&VertexFactory)
+		{
+		}
 
 		FORCEINLINE int32 AddTriangle(const FCanvasUVTri& Tri, FHitProxyId HitProxyId)
 		{
@@ -1211,6 +1298,9 @@ private:
 	FRenderData* Data;
 
 	const bool bFreezeTime;
+
+	typedef FRenderData::FTriangleInst FTriangleInst;
+	void InitTriangleBuffers(FLocalVertexFactory* VertexFactory, TArray<FTriangleInst>& Triangles, const FSceneView& View, bool bNeedsToSwitchVerticalAxis);
 };
 
 /**
@@ -1222,6 +1312,6 @@ private:
 * @param YL - out height
 * @param Text - string of text to be measured
 */
-extern ENGINE_API void StringSize( const UFont* Font, int32& XL, int32& YL, const TCHAR* Text );
+extern ENGINE_API void StringSize( const UFont* Font, int32& XL, int32& YL, const TCHAR* Text);
 
 

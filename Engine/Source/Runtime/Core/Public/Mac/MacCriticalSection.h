@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "PThreadCriticalSection.h"
-#include "PThreadRWLock.h"
+#include "HAL/PThreadCriticalSection.h"
+#include "HAL/PThreadRWLock.h"
 #include "Containers/UnrealString.h"
 #include "Misc/Timespan.h"
 

@@ -1,7 +1,7 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Sections/MovieSceneParameterSection.h"
-#include "SequencerObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
 
 FScalarParameterNameAndCurve::FScalarParameterNameAndCurve( FName InParameterName )
 {
@@ -21,7 +21,12 @@ FColorParameterNameAndCurves::FColorParameterNameAndCurves( FName InParameterNam
 UMovieSceneParameterSection::UMovieSceneParameterSection( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )
 {
-	EvalOptions.EnableAndSetCompletionMode(GetLinkerCustomVersion(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::WhenFinishedDefaultsToRestoreState ? EMovieSceneCompletionMode::KeepState : EMovieSceneCompletionMode::RestoreState);
+	EvalOptions.EnableAndSetCompletionMode
+		(GetLinkerCustomVersion(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::WhenFinishedDefaultsToRestoreState ? 
+			EMovieSceneCompletionMode::KeepState : 
+			GetLinkerCustomVersion(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::WhenFinishedDefaultsToProjectDefault ? 
+			EMovieSceneCompletionMode::RestoreState : 
+			EMovieSceneCompletionMode::ProjectDefault);
 }
 
 void UMovieSceneParameterSection::AddScalarParameterKey( FName InParameterName, float InTime, float InValue )

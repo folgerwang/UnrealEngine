@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "WidgetBlueprintEditor.h"
 #include "MovieSceneBinding.h"
@@ -87,6 +87,7 @@ FWidgetBlueprintEditor::~FWidgetBlueprintEditor()
 	if ( Sequencer.IsValid() )
 	{
 		Sequencer->OnMovieSceneDataChanged().RemoveAll( this );
+		Sequencer->OnMovieSceneBindingsPasted().RemoveAll( this );
 		Sequencer.Reset();
 	}
 
@@ -702,6 +703,7 @@ TSharedPtr<ISequencer>& FWidgetBlueprintEditor::GetSequencer()
 
 		Sequencer = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer").CreateSequencer(SequencerInitParams);
 		Sequencer->OnMovieSceneDataChanged().AddSP( this, &FWidgetBlueprintEditor::OnMovieSceneDataChanged );
+		Sequencer->OnMovieSceneBindingsPasted().AddSP( this, &FWidgetBlueprintEditor::OnMovieSceneBindingsPasted );
 		// Change selected widgets in the sequencer tree view
 		Sequencer->GetSelectionChangedObjectGuids().AddSP(this, &FWidgetBlueprintEditor::SyncSelectedWidgetsWithSequencerSelection);
 		ChangeViewedAnimation(*UWidgetAnimation::GetNullAnimation());
@@ -1008,6 +1010,9 @@ public:
 
 void GetBindableObjects(UWidgetTree* WidgetTree, TArray<FObjectAndDisplayName>& BindableObjects)
 {
+	// Add the 'this' widget so you can animate it.
+	BindableObjects.Add(FObjectAndDisplayName(LOCTEXT("RootWidgetFormat", "[[This]]"), WidgetTree->GetOuter()));
+
 	WidgetTree->ForEachWidget([&BindableObjects] (UWidget* Widget) {
 		
 		// if the widget has a generated name this is just some unimportant widget, don't show it in the list?
@@ -1316,6 +1321,57 @@ void FWidgetBlueprintEditor::AddMaterialTrack( UWidget* Widget, TArray<UProperty
 void FWidgetBlueprintEditor::OnMovieSceneDataChanged(EMovieSceneDataChangeType DataChangeType)
 {
 	bRefreshGeneratedClassAnimations = true;
+}
+
+void FWidgetBlueprintEditor::OnMovieSceneBindingsPasted(const TArray<FMovieSceneBinding>& BindingsPasted)
+{
+	TArray<FObjectAndDisplayName> BindableObjects;
+	{
+		GetBindableObjects(GetPreview()->WidgetTree, BindableObjects);
+	}
+
+	UMovieSceneSequence* AnimationSequence = GetSequencer().Get()->GetFocusedMovieSceneSequence();
+	UObject* BindingContext = GetAnimationPlaybackContext();
+
+	// First, rebind top level possessables (without parents) - match binding pasted's name with the bindable object name
+	for (const FMovieSceneBinding& BindingPasted : BindingsPasted)
+	{
+		FMovieScenePossessable* Possessable = AnimationSequence->GetMovieScene()->FindPossessable(BindingPasted.GetObjectGuid());
+		if (Possessable && !Possessable->GetParent().IsValid())
+		{
+			for (FObjectAndDisplayName& BindableObject : BindableObjects)
+			{
+				if (BindableObject.DisplayName.ToString() == BindingPasted.GetName())
+				{
+					AnimationSequence->BindPossessableObject(BindingPasted.GetObjectGuid(), *BindableObject.Object, BindingContext);			
+					break;
+				}
+			}
+		}
+	}
+
+	// Second, bind child possessables - match the binding pasted's parent guid with the bindable slot's content guid
+	for (const FMovieSceneBinding& BindingPasted : BindingsPasted)
+	{
+		FMovieScenePossessable* Possessable = AnimationSequence->GetMovieScene()->FindPossessable(BindingPasted.GetObjectGuid());
+		if (Possessable && Possessable->GetParent().IsValid())
+		{
+			for (FObjectAndDisplayName& BindableObject : BindableObjects)
+			{
+				UPanelSlot* PanelSlot = Cast<UPanelSlot>(BindableObject.Object);
+				if (PanelSlot && PanelSlot->Content)
+				{
+					FGuid ParentGuid = AnimationSequence->FindPossessableObjectId(*PanelSlot->Content, BindingContext);
+
+					if (ParentGuid == Possessable->GetParent())
+					{
+						AnimationSequence->BindPossessableObject(BindingPasted.GetObjectGuid(), *BindableObject.Object, BindingContext);			
+						break;
+					}
+				}
+			}
+		}
+	}
 }
 
 void FWidgetBlueprintEditor::SyncSelectedWidgetsWithSequencerSelection(TArray<FGuid> ObjectGuids)

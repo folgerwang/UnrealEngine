@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================================
 	MacPlatformMisc.h: Mac platform misc functions
@@ -74,14 +74,11 @@ struct CORE_API FMacPlatformMisc : public FApplePlatformMisc
 	static uint32 GetCPUInfo();
 
     static bool HasNonoptionalCPUFeatures() { return true; }
-    static bool NeedsNonoptionalCPUFeaturesCheck() { return true; }
+    static bool NeedsNonoptionalCPUFeaturesCheck() { return PLATFORM_ENABLE_POPCNT_INTRINSIC; }
 
 	static void SetGracefulTerminationHandler();
 	
 	static void SetCrashHandler(void (* CrashHandler)(const FGenericCrashContext& Context));
-
-	static FString GetDefaultLanguage();
-	static FString GetDefaultLocale();
 
 	/** @return Get the name of the platform specific file manager (Finder) */
 	static FText GetFileManagerName();
@@ -123,6 +120,7 @@ struct CORE_API FMacPlatformMisc : public FApplePlatformMisc
 		FGPUDescriptor& operator=(FGPUDescriptor const& Other);
 		TMap<FString, float> GetPerformanceStatistics() const;
 		
+		uint64 RegistryID;
 		uint32 PCIDevice; // This is really an io_registry_entry_t which is a mach port name
 		NSString* GPUName;
 		NSString* GPUMetalBundle;
@@ -145,6 +143,11 @@ struct CORE_API FMacPlatformMisc : public FApplePlatformMisc
     static void UpdateDriverMonitorStatistics(int32 DeviceIndex);
 
 	static int GetDefaultStackSize();
+
+	/** Updates variables in GMacAppInfo that cannot be initialized before PlatformPostInit() */
+	static void PostInitMacAppInfoUpdate();
+
+	static CGDisplayModeRef GetSupportedDisplayMode(CGDirectDisplayID DisplayID, uint32 Width, uint32 Height);
 };
 
 typedef FMacPlatformMisc FPlatformMisc;

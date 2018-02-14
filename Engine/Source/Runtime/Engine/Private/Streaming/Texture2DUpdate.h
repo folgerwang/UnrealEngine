@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 Texture2DUpdate.h: Helpers to stream in and out mips.
@@ -199,4 +199,11 @@ private:
 	EThreadType CancelationThread; // The thread on which the callbacks should be called.
 	/** The callback handling the cancellation of the update (only if the update gets cancelled). */
 	FCallback CancelationCallback;
+
+public:
+	/** A counter defining whether render thread tasks should be postponed The callback handling the cancellation of the update (only if the update gets cancelled). */
+	static volatile int32 GSuspendRenderThreadTasks;
 };
+
+void SuspendTextureStreamingRenderTasksInternal();
+void ResumeTextureStreamingRenderTasksInternal();

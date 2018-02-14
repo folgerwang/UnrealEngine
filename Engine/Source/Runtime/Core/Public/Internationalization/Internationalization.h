@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreTypes.h"
@@ -7,7 +7,7 @@
 #include "Templates/SharedPointer.h"
 #include "Delegates/Delegate.h"
 #include "Internationalization/Text.h"
-#include "LocTesting.h"
+#include "Internationalization/LocTesting.h"
 
 #include "Templates/UniqueObj.h"
 

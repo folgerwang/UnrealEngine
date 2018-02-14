@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MacPlatformProcess.mm: Mac implementations of Process functions
 =============================================================================*/
 
-#include "MacPlatformProcess.h"
-#include "ApplePlatformRunnableThread.h"
+#include "Mac/MacPlatformProcess.h"
+#include "Apple/ApplePlatformRunnableThread.h"
 #include "Misc/App.h"
 #include "Misc/Paths.h"
 #include "HAL/FileManager.h"
@@ -171,34 +171,36 @@ int32 FMacPlatformProcess::GetDllApiVersion( const TCHAR* Filename )
 		
 	CFRelease(CFStr);
 		
-	if(File > -1)
+	if(File <= -1)
 	{
-		struct mach_header_64 Header;
-		ssize_t Bytes = read( File, &Header, sizeof( Header ) );
-		if( Bytes == sizeof( Header ) && Header.filetype == MH_DYLIB )
-		{
-			struct load_command* Commands = ( struct load_command* )FMemory::Malloc( Header.sizeofcmds );
-			Bytes = read( File, Commands, Header.sizeofcmds );
-				
-			if( Bytes == Header.sizeofcmds )
-			{
-				struct load_command* Command = Commands;
-				for( int32 Index = 0; Index < Header.ncmds; Index++ )
-				{
-					if( Command->cmd == LC_ID_DYLIB )
-					{
-						CurrentVersion = ( ( struct dylib_command* )Command )->dylib.current_version;
-						break;
-					}
-						
-					Command = ( struct load_command* )( ( uint8* )Command + Command->cmdsize );
-				}
-			}
-				
-			FMemory::Free( Commands );
-		}
-		close(File);
+		return -1;
 	}
+
+	struct mach_header_64 Header;
+	ssize_t Bytes = read( File, &Header, sizeof( Header ) );
+	if( Bytes == sizeof( Header ) && Header.filetype == MH_DYLIB )
+	{
+		struct load_command* Commands = ( struct load_command* )FMemory::Malloc( Header.sizeofcmds );
+		Bytes = read( File, Commands, Header.sizeofcmds );
+
+		if( Bytes == Header.sizeofcmds )
+		{
+			struct load_command* Command = Commands;
+			for( int32 Index = 0; Index < Header.ncmds; Index++ )
+			{
+				if( Command->cmd == LC_ID_DYLIB )
+				{
+					CurrentVersion = ( ( struct dylib_command* )Command )->dylib.current_version;
+					break;
+				}
+
+				Command = ( struct load_command* )( ( uint8* )Command + Command->cmdsize );
+			}
+		}
+
+		FMemory::Free( Commands );
+	}
+	close(File);
 
 	return ((CurrentVersion & 0xff) + ((CurrentVersion >> 8) & 0xff) * 100 + ((CurrentVersion >> 16) & 0xffff) * 10000);
 }
@@ -1147,7 +1149,28 @@ bool FMacPlatformProcess::WritePipe(void* WritePipe, const FString& Message, FSt
 		*OutWritten = FUTF8ToTCHAR((const ANSICHAR*)Buffer).Get();
 	}
 
+	delete[] Buffer;
 	return (BytesWritten == BytesAvailable);
+}
+
+bool FMacPlatformProcess::WritePipe(void* WritePipe, const uint8* Data, const int32 DataLength, int32* OutDataLength)
+{
+	// if there is not a message or WritePipe is null
+	if ((DataLength == 0) || (WritePipe == nullptr))
+	{
+		return false;
+	}
+
+	// write to pipe
+	uint32 BytesWritten = write([(NSFileHandle*)WritePipe fileDescriptor], Data, DataLength);
+
+	// Get written Data Length
+	if (OutDataLength)
+	{
+		*OutDataLength = (int32)BytesWritten;
+	}
+
+	return (BytesWritten == DataLength);
 }
 
 bool FMacPlatformProcess::IsApplicationRunning(const TCHAR* ProcName)

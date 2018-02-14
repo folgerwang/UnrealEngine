@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "GenericApplication.h"
-#include "HTML5Window.h"
+#include "GenericPlatform/GenericApplication.h"
+#include "HTML5/HTML5Window.h"
 
 /**
  * HTML5-specific application implementation.

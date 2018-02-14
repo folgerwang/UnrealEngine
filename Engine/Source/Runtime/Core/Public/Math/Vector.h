@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -20,7 +20,7 @@
 #include "Math/Axis.h"
 
 #if PLATFORM_VECTOR_CUBIC_INTERP_SSE
-#include "UnrealMathSSE.h"
+#include "Math/UnrealMathSSE.h"
 #endif
 
 /**

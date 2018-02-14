@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	WindowsD3D12Device.cpp: Windows D3D device RHI implementation.
@@ -6,13 +6,14 @@
 
 #include "D3D12RHIPrivate.h"
 #include "Modules/ModuleManager.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <delayimp.h>
-#include "HideWindowsPlatformTypes.h"
+	#include "amd_ags.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #include "HardwareInfo.h"
 #include "Runtime/HeadMountedDisplay/Public/IHeadMountedDisplayModule.h"
-#include "GenericPlatformDriver.h"			// FGPUDriverInfo
+#include "GenericPlatform/GenericPlatformDriver.h"			// FGPUDriverInfo
 
 #pragma comment(lib, "d3d12.lib")
 
@@ -307,9 +308,8 @@ void FD3D12DynamicRHIModule::FindAdapter()
 #endif
 
 	// Allow HMD to override which graphics adapter is chosen, so we pick the adapter where the HMD is connected
-	int32 HmdGraphicsAdapter = IHeadMountedDisplayModule::IsAvailable() ? IHeadMountedDisplayModule::Get().GetGraphicsAdapter() : -1;
-	bool bUseHmdGraphicsAdapter = HmdGraphicsAdapter >= 0;
-	int32 CVarExplicitAdapterValue = bUseHmdGraphicsAdapter ? HmdGraphicsAdapter : CVarGraphicsAdapter.GetValueOnGameThread();
+	uint64 HmdGraphicsAdapterLuid = IHeadMountedDisplayModule::IsAvailable() ? IHeadMountedDisplayModule::Get().GetGraphicsAdapterLuid() : 0;
+	int32 CVarExplicitAdapterValue = HmdGraphicsAdapterLuid == 0 ? CVarGraphicsAdapter.GetValueOnGameThread() : -2;
 
 	const bool bFavorNonIntegrated = CVarExplicitAdapterValue == -1;
 
@@ -377,10 +377,13 @@ void FD3D12DynamicRHIModule::FindAdapter()
 				// we don't allow the PerfHUD adapter
 				const bool bSkipPerfHUDAdapter = bIsPerfHUD && !bAllowPerfHUD;
 
+				// the HMD wants a specific adapter, not this one
+				const bool bSkipHmdGraphicsAdapter = HmdGraphicsAdapterLuid != 0 && FMemory::Memcmp(&HmdGraphicsAdapterLuid, &AdapterDesc.AdapterLuid, sizeof(LUID)) != 0;
+
 				// the user wants a specific adapter, not this one
 				const bool bSkipExplicitAdapter = CVarExplicitAdapterValue >= 0 && AdapterIndex != CVarExplicitAdapterValue;
 
-				const bool bSkipAdapter = bSkipRequestedWARP || bSkipPerfHUDAdapter || bSkipExplicitAdapter;
+				const bool bSkipAdapter = bSkipRequestedWARP || bSkipPerfHUDAdapter || bSkipHmdGraphicsAdapter || bSkipExplicitAdapter;
 
 				if (!bSkipAdapter)
 				{
@@ -493,6 +496,17 @@ void FD3D12DynamicRHI::Init()
 
 	const DXGI_ADAPTER_DESC& AdapterDesc = GetAdapter().GetD3DAdapterDesc();
 
+	// Need to set GRHIVendorId before calling IsRHIDevice* functions
+	GRHIVendorId = AdapterDesc.VendorId;
+
+	// Initialize the AMD AGS utility library, when running on an AMD device
+	if (IsRHIDeviceAMD())
+	{
+		check(AmdAgsContext == nullptr);
+		// agsInit should be called before D3D device creation
+		agsInit(&AmdAgsContext, nullptr, nullptr);
+	}
+
 	// Create a device chain for each of the adapters we have choosen. This could be a single discrete card,
 	// a set discrete cards linked together (i.e. SLI/Crossfire) an Integrated device or any combination of the above
 	for (FD3D12Adapter*& Adapter : ChosenAdapters)
@@ -501,10 +515,27 @@ void FD3D12DynamicRHI::Init()
 		Adapter->InitializeDevices();
 	}
 
+	uint32 AmdSupportedExtensionFlags = 0;
+	if (AmdAgsContext)
+	{
+		// Initialize AMD driver extensions
+		agsDriverExtensionsDX12_Init(AmdAgsContext, GetAdapter().GetD3DDevice(), &AmdSupportedExtensionFlags);
+	}
+
+	// Warn if we are trying to use RGP frame markers but are either running on a non-AMD device
+	// or using an older AMD driver without RGP marker support
+	if (GEmitRgpFrameMarkers && !IsRHIDeviceAMD())
+	{
+		UE_LOG(LogD3D12RHI, Warning, TEXT("Attempting to use RGP frame markers on a non-AMD device."));
+	}
+	else if (GEmitRgpFrameMarkers && (AmdSupportedExtensionFlags & AGS_DX12_EXTENSION_USER_MARKERS) == 0)
+	{
+		UE_LOG(LogD3D12RHI, Warning, TEXT("Attempting to use RGP frame markers without driver support. Update AMD driver."));
+	}
+
 	GTexturePoolSize = 0;
 
 	GRHIAdapterName = AdapterDesc.Description;
-	GRHIVendorId = AdapterDesc.VendorId;
 	GRHIDeviceId = AdapterDesc.DeviceId;
 	GRHIDeviceRevision = AdapterDesc.Revision;
 
@@ -619,7 +650,6 @@ void FD3D12DynamicRHI::Init()
 	FHardwareInfo::RegisterHardwareInfo(NAME_RHI, TEXT("D3D12"));
 
 	GRHISupportsTextureStreaming = true;
-	GRHIRequiresEarlyBackBufferRenderTarget = false;
 	GRHISupportsFirstInstance = true;
 
 	// Indicate that the RHI needs to use the engine's deferred deletion queue.

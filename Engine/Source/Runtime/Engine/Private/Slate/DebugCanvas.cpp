@@ -1,13 +1,14 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Slate/DebugCanvas.h"
 #include "RenderingThread.h"
 #include "UnrealClient.h"
 #include "CanvasTypes.h"
+#include "Engine/Engine.h"
+#include "EngineModule.h"
 #include "Framework/Application/SlateApplication.h"
-
-
-
+#include "IStereoLayers.h"
+#include "StereoRendering.h"
 
 /**
  * Simple representation of the backbuffer that the debug canvas renders to
@@ -49,11 +50,33 @@ private:
 	FIntRect ViewRect;
 };
 
+#define INVALID_LAYER_ID UINT_MAX
+
 FDebugCanvasDrawer::FDebugCanvasDrawer()
 	: GameThreadCanvas( NULL )
 	, RenderThreadCanvas( NULL )
 	, RenderTarget( new FSlateCanvasRenderTarget )
+	, LayerID(INVALID_LAYER_ID)
 {}
+
+void FDebugCanvasDrawer::ReleaseTexture()
+{
+	LayerTexture.SafeRelease();
+}
+
+void FDebugCanvasDrawer::ReleaseResources()
+{
+	FDebugCanvasDrawer* const ReleaseMe = this;
+
+	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+		ReleaseCommand,
+		FDebugCanvasDrawer*, ReleaseMe, ReleaseMe,
+		{
+			ReleaseMe->ReleaseTexture();
+		});
+
+	FlushRenderingCommands();
+}
 
 FDebugCanvasDrawer::~FDebugCanvasDrawer()
 {
@@ -75,6 +98,12 @@ FDebugCanvasDrawer::~FDebugCanvasDrawer()
 		});
 
 		RenderThreadCanvas = nullptr;
+	}
+
+	if (LayerID != INVALID_LAYER_ID)
+	{
+		GEngine->StereoRenderingDevice->GetStereoLayers()->DestroyLayer(LayerID);
+		LayerID = INVALID_LAYER_ID;
 	}
 }
 
@@ -116,7 +145,7 @@ void FDebugCanvasDrawer::BeginRenderingCanvas( const FIntRect& CanvasRect )
 }
 
 
-void FDebugCanvasDrawer::InitDebugCanvas(UWorld* InWorld)
+void FDebugCanvasDrawer::InitDebugCanvas(FViewportClient* ViewportClient, UWorld* InWorld)
 {
 	// If the canvas is not null there is more than one viewport draw call before slate draws.  This can happen on resizes. 
 	// We need to delete the old canvas
@@ -124,10 +153,46 @@ void FDebugCanvasDrawer::InitDebugCanvas(UWorld* InWorld)
 		// the same canvas
 	if (FSlateApplication::Get().IsNormalExecution())
 	{
-		GameThreadCanvas = MakeShared<FCanvas, ESPMode::ThreadSafe>(RenderTarget, nullptr, InWorld, InWorld ? InWorld->FeatureLevel : GMaxRHIFeatureLevel);
+		GameThreadCanvas = MakeShared<FCanvas, ESPMode::ThreadSafe>(RenderTarget, nullptr, InWorld, InWorld ? InWorld->FeatureLevel : GMaxRHIFeatureLevel, FCanvas::CDM_DeferDrawing, ViewportClient->GetDPIScale());
 
 		// Do not allow the canvas to be flushed outside of our debug rendering path
 		GameThreadCanvas->SetAllowedModes(FCanvas::Allow_DeleteOnRender);
+	}
+
+	if (GameThreadCanvas.IsValid())
+	{
+		const bool bIsStereoscopic3D = GEngine && GEngine->IsStereoscopic3D();
+		IStereoLayers* const StereoLayers = (bIsStereoscopic3D && GEngine && GEngine->StereoRenderingDevice.IsValid()) ? GEngine->StereoRenderingDevice->GetStereoLayers() : nullptr;
+		const bool bHMDAvailable = StereoLayers && bIsStereoscopic3D;
+
+		static const auto DebugCanvasInLayerCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.DebugCanvasInLayer"));
+		const bool bDebugInLayer = bHMDAvailable && DebugCanvasInLayerCVar && DebugCanvasInLayerCVar->GetValueOnAnyThread() != 0;
+		GameThreadCanvas->SetUseInternalTexture(bDebugInLayer);
+
+		if (bDebugInLayer && LayerTexture && bCanvasRenderedLastFrame)
+		{
+			if (StereoLayers)
+			{
+				const IStereoLayers::FLayerDesc StereoLayerDesc = StereoLayers->GetDebugCanvasLayerDesc(LayerTexture->GetRenderTargetItem().ShaderResourceTexture);
+				if (LayerID == INVALID_LAYER_ID)
+				{
+					LayerID = StereoLayers->CreateLayer(StereoLayerDesc);
+				}
+				else
+				{
+					StereoLayers->SetLayerDesc(LayerID, StereoLayerDesc);
+				}
+			}
+		}
+
+		if (LayerID != INVALID_LAYER_ID && (!bDebugInLayer || !bCanvasRenderedLastFrame))
+		{
+			if (StereoLayers)
+			{
+				StereoLayers->DestroyLayer(LayerID);
+			}
+			LayerID = INVALID_LAYER_ID;
+		}
 	}
 }
 
@@ -138,7 +203,28 @@ void FDebugCanvasDrawer::DrawRenderThread(FRHICommandListImmediate& RHICmdList, 
 	if( RenderThreadCanvas.IsValid() )
 	{
 		FTexture2DRHIRef& RT = *(FTexture2DRHIRef*)InWindowBackBuffer;
-		RenderTarget->SetRenderTargetTexture( RT );
+		if (RenderThreadCanvas->IsUsingInternalTexture())
+		{
+			if (LayerTexture && RenderThreadCanvas->GetParentCanvasSize() != LayerTexture->GetDesc().Extent)
+			{
+				LayerTexture.SafeRelease();
+			}
+
+			if (!LayerTexture)
+			{
+				const FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(RenderThreadCanvas->GetParentCanvasSize(), PF_B8G8R8A8, FClearValueBinding(), TexCreate_SRGB, TexCreate_RenderTargetable, false));
+				GetRendererModule().RenderTargetPoolFindFreeElement(RHICmdList, Desc, LayerTexture, TEXT("DebugCanvasLayerTexture"));
+				UE_LOG(LogProfilingDebugging, Log, TEXT("Allocated a %d x %d texture for HMD canvas layer"), RenderThreadCanvas->GetParentCanvasSize().X, RenderThreadCanvas->GetParentCanvasSize().Y);
+			}
+
+			FTexture2DRHIRef& LayerTextureRT = *reinterpret_cast<FTexture2DRHIRef*>(&LayerTexture->GetRenderTargetItem().ShaderResourceTexture);
+			RenderTarget->SetRenderTargetTexture(LayerTextureRT);
+		}
+		else
+		{
+			RenderTarget->SetRenderTargetTexture(RT);
+		}
+
 		bool bNeedToFlipVertical = RenderThreadCanvas->GetAllowSwitchVerticalAxis();
 		// Do not flip when rendering to the back buffer
 		RenderThreadCanvas->SetAllowSwitchVerticalAxis(false);
@@ -150,6 +236,8 @@ void FDebugCanvasDrawer::DrawRenderThread(FRHICommandListImmediate& RHICmdList, 
 		{
 			RenderThreadCanvas->SetRenderTargetRect( RenderTarget->GetViewRect() );
 		}
+
+		bCanvasRenderedLastFrame = RenderThreadCanvas->HasBatchesToRender();
 		RenderThreadCanvas->Flush_RenderThread(RHICmdList, true);
 		RenderThreadCanvas->SetAllowSwitchVerticalAxis(bNeedToFlipVertical);
 		RenderTarget->ClearRenderTargetTexture();

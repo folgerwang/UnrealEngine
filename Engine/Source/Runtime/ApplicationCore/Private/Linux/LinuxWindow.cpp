@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Linux/LinuxWindow.h"
 #include "HAL/FileManager.h"
@@ -9,7 +9,7 @@
 #include "Misc/App.h"
 #include "Linux/LinuxApplication.h"
 #include "Linux/LinuxPlatformApplicationMisc.h"
-#include "Internationalization.h" // LOCTEXT
+#include "Internationalization/Internationalization.h" // LOCTEXT
 
 #define LOCTEXT_NAMESPACE "LinuxWindow"
 
@@ -799,7 +799,7 @@ void FLinuxWindow::LogInfo()
 	UE_LOG(LogLinuxWindowType, Verbose, TEXT("AcceptsInput: %d"), Definition->AcceptsInput);
 	UE_LOG(LogLinuxWindowType, Verbose, TEXT("IsModalWindow: %d"), Definition->IsModalWindow);
 	UE_LOG(LogLinuxWindowType, Verbose, TEXT("IsRegularWindow: %d"), Definition->IsRegularWindow);
-	UE_LOG(LogLinuxWindowType, Verbose, TEXT("ActivationPolicy: %d"), Definition->ActivationPolicy);
+	UE_LOG(LogLinuxWindowType, Verbose, TEXT("ActivationPolicy: %d"), (int)Definition->ActivationPolicy);
 	UE_LOG(LogLinuxWindowType, Verbose, TEXT("FocusWhenFirstShown: %d"), Definition->FocusWhenFirstShown);
 	UE_LOG(LogLinuxWindowType, Verbose, TEXT("SizeWillChangeOften: %d"), Definition->SizeWillChangeOften);
 }

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SAnimMontagePanel.h"
 #include "Widgets/Layout/SBorder.h"
@@ -17,7 +17,8 @@
 #include "Widgets/Input/STextComboBox.h"
 #include "SAnimTimingPanel.h"
 #include "TabSpawners.h"
-#include "SNumericEntryBox.h"
+#include "Widgets/Input/SNumericEntryBox.h"
+#include "Styling/CoreStyle.h"
 
 #define LOCTEXT_NAMESPACE "AnimMontagePanel"
 
@@ -124,7 +125,7 @@ void SAnimMontagePanel::Update()
 						.HAlign(HAlign_Center)
 						[
 							SAssignNew(StatusBarTextBlock, STextBlock)
-							.Font(FSlateFontInfo(FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Regular.ttf"), 12))
+							.Font(FCoreStyle::GetDefaultFontStyle("Regular", 12))
 							.ColorAndOpacity(FLinearColor(1, 1, 1, 0.5))
 						]
 					]

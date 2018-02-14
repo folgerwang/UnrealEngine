@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	InstancedStaticMesh.cpp: Static mesh rendering code.
@@ -53,7 +53,8 @@ static TAutoConsoleVariable<int32> CVarDisableCull(
 static TAutoConsoleVariable<int32> CVarCullAll(
 	TEXT("foliage.CullAll"),
 	0,
-	TEXT("If greater than zero, everything is considered culled."));
+	TEXT("If greater than zero, everything is considered culled."),
+	ECVF_Scalability);
 
 static TAutoConsoleVariable<int32> CVarDitheredLOD(
 	TEXT("foliage.DitheredLOD"),
@@ -88,7 +89,7 @@ TAutoConsoleVariable<float> CVarRandomLODRange(
 
 static TAutoConsoleVariable<int32> CVarMinVertsToSplitNode(
 	TEXT("foliage.MinVertsToSplitNode"),
-	16384,
+	8192,
 	TEXT("Controls the accuracy between culling and LOD accuracy and culling and CPU performance."));
 
 static TAutoConsoleVariable<int32> CVarMaxOcclusionQueriesPerComponent(
@@ -346,6 +347,12 @@ public:
 		}
 		InternalNodeBranchingFactor = CVarFoliageSplitFactor.GetValueOnAnyThread();
 		MaxInstancesPerLeaf = InMaxInstancesPerLeaf;
+
+		if (Num / MaxInstancesPerLeaf < InternalNodeBranchingFactor) // if there are less than InternalNodeBranchingFactor leaf nodes
+		{
+			MaxInstancesPerLeaf = FMath::Clamp<int32>(Num / InternalNodeBranchingFactor, 1, 1024); // then make sure we have at least InternalNodeBranchingFactor leaves
+		}
+
 	}
 
 	void BuildAsync(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
@@ -746,14 +753,14 @@ struct FFoliageElementParams;
 struct FFoliageRenderInstanceParams;
 struct FFoliageCullInstanceParams;
 
-class FHierarchicalStaticMeshSceneProxy : public FInstancedStaticMeshSceneProxy
+class FHierarchicalStaticMeshSceneProxy final : public FInstancedStaticMeshSceneProxy
 {
 	TSharedRef<TArray<FClusterNode>, ESPMode::ThreadSafe> ClusterTreePtr;
 	const TArray<FClusterNode>& ClusterTree;
 
 	TArray<FBox> UnbuiltBounds;
 	int32 FirstUnbuiltIndex;
-	int32 LastUnbuiltIndex;
+	int32 UnbuiltInstanceCount;
 
 	int32 FirstOcclusionNode;
 	int32 LastOcclusionNode;
@@ -772,6 +779,11 @@ class FHierarchicalStaticMeshSceneProxy : public FInstancedStaticMeshSceneProxy
 #endif
 
 public:
+	SIZE_T GetTypeHash() const override
+	{
+		static size_t UniquePointer;
+		return reinterpret_cast<size_t>(&UniquePointer);
+	}
 
 	FHierarchicalStaticMeshSceneProxy(bool bInIsGrass, UHierarchicalInstancedStaticMeshComponent* InComponent, ERHIFeatureLevel::Type InFeatureLevel)
 		: FInstancedStaticMeshSceneProxy(InComponent, InFeatureLevel)
@@ -779,7 +791,7 @@ public:
 		, ClusterTree(*InComponent->ClusterTreePtr)
 		, UnbuiltBounds(InComponent->UnbuiltInstanceBoundsList)
 		, FirstUnbuiltIndex(InComponent->NumBuiltRenderInstances)
-		, LastUnbuiltIndex(InComponent->GetNumRenderInstances()-1)
+		, UnbuiltInstanceCount(InComponent->UnbuiltInstanceIndexList.Num())
 		, bIsGrass(bInIsGrass)
 		, SceneProxyCreatedFrameNumberRenderThread(UINT32_MAX)
 		, bDitheredLODTransitions(InComponent->SupportsDitheredLODTransitions())
@@ -796,7 +808,7 @@ public:
 		, ClusterTree(*InComponent->ClusterTreePtr)
 		, UnbuiltBounds(InComponent->UnbuiltInstanceBoundsList)
 		, FirstUnbuiltIndex(InComponent->NumBuiltRenderInstances)
-		, LastUnbuiltIndex(InComponent->GetNumRenderInstances()-1)
+		, UnbuiltInstanceCount(InComponent->UnbuiltInstanceIndexList.Num())
 		, bIsGrass(bInIsGrass)
 		, SceneProxyCreatedFrameNumberRenderThread(UINT32_MAX)
 		, bDitheredLODTransitions(InComponent->SupportsDitheredLODTransitions())
@@ -1027,8 +1039,8 @@ static FORCEINLINE_DEBUGGABLE bool CullNode(const FFoliageCullInstanceParams& Pa
 		checkSlow(Params.ViewFrustumLocal.PermutedPlanes.Num() == 4);
 
 		//@todo, once we have more than one mesh per tree, these should be aligned
-		VectorRegister BoxMin = VectorLoadFloat3(&Node.BoundMin);
-		VectorRegister BoxMax = VectorLoadFloat3(&Node.BoundMax);
+		VectorRegister BoxMin = VectorLoad(&Node.BoundMin);
+		VectorRegister BoxMax = VectorLoad(&Node.BoundMax);
 
 		VectorRegister BoxDiff = VectorSubtract(BoxMax,BoxMin);
 		VectorRegister BoxSum = VectorAdd(BoxMax,BoxMin);
@@ -1048,14 +1060,10 @@ static FORCEINLINE_DEBUGGABLE bool CullNode(const FFoliageCullInstanceParams& Pa
 		const FPlane* RESTRICT PermutedPlanePtr = (FPlane*)Params.ViewFrustumLocal.PermutedPlanes.GetData();
 		// Process four planes at a time until we have < 4 left
 		// Load 4 planes that are already all Xs, Ys, ...
-		VectorRegister PlanesX = VectorLoadAligned(PermutedPlanePtr);
-		PermutedPlanePtr++;
-		VectorRegister PlanesY = VectorLoadAligned(PermutedPlanePtr);
-		PermutedPlanePtr++;
-		VectorRegister PlanesZ = VectorLoadAligned(PermutedPlanePtr);
-		PermutedPlanePtr++;
-		VectorRegister PlanesW = VectorLoadAligned(PermutedPlanePtr);
-		PermutedPlanePtr++;
+		VectorRegister PlanesX = VectorLoadAligned(&PermutedPlanePtr[0]);
+		VectorRegister PlanesY = VectorLoadAligned(&PermutedPlanePtr[1]);
+		VectorRegister PlanesZ = VectorLoadAligned(&PermutedPlanePtr[2]);
+		VectorRegister PlanesW = VectorLoadAligned(&PermutedPlanePtr[3]);
 		// Calculate the distance (x * x) + (y * y) + (z * z) - w
 		VectorRegister DistX = VectorMultiply(OrigX,PlanesX);
 		VectorRegister DistY = VectorMultiplyAdd(OrigY,PlanesY,DistX);
@@ -1080,7 +1088,7 @@ static FORCEINLINE_DEBUGGABLE bool CullNode(const FFoliageCullInstanceParams& Pa
 	return false;
 }
 
-inline void CalcLOD(int32& InOutMinLOD, int32& InOutMaxLOD, const FVector& BoundMin, const FVector& BoundMax, const FVector& ViewOriginInLocalZero, const FVector& ViewOriginInLocalOne, const float LODPlanesMin[], const float LODPlanesMax[])
+inline void CalcLOD(int32& InOutMinLOD, int32& InOutMaxLOD, const FVector& BoundMin, const FVector& BoundMax, const FVector& ViewOriginInLocalZero, const FVector& ViewOriginInLocalOne, const float (&LODPlanesMin)[MAX_STATIC_MESH_LODS], const float (&LODPlanesMax)[MAX_STATIC_MESH_LODS])
 {
 	if (InOutMinLOD != InOutMaxLOD)
 	{
@@ -1101,6 +1109,20 @@ inline void CalcLOD(int32& InOutMinLOD, int32& InOutMaxLOD, const FVector& Bound
 		}
 	}
 }
+
+inline bool CanGroup(const FVector& BoundMin, const FVector& BoundMax, const FVector& ViewOriginInLocalZero, const FVector& ViewOriginInLocalOne, float MaxDrawDist)
+{
+	const FVector Center = (BoundMax + BoundMin) * 0.5f;
+	const float DistCenterZero = FVector::Dist(Center, ViewOriginInLocalZero);
+	const float DistCenterOne = FVector::Dist(Center, ViewOriginInLocalOne);
+	const float HalfWidth = FVector::Dist(BoundMax, BoundMin) * 0.5f;
+	const float FarDot = FMath::Max(DistCenterZero, DistCenterOne) + HalfWidth;
+
+	// We are sure that everything in the bound won't be distance culled
+	return FarDot < MaxDrawDist;
+}
+
+
 
 template<bool TUseVector>
 void FHierarchicalStaticMeshSceneProxy::Traverse(const FFoliageCullInstanceParams& Params, int32 Index, int32 MinLOD, int32 MaxLOD, bool bFullyContained) const
@@ -1123,6 +1145,7 @@ void FHierarchicalStaticMeshSceneProxy::Traverse(const FFoliageCullInstanceParam
 			return;
 		}
 	}
+
 	if (Index >= Params.FirstOcclusionNode && Index <= Params.LastOcclusionNode)
 	{
 		check(Params.OcclusionResults != NULL);
@@ -1134,9 +1157,11 @@ void FHierarchicalStaticMeshSceneProxy::Traverse(const FFoliageCullInstanceParam
 		}
 	}
 
-	bool bSplit = (!bFullyContained || MinLOD < MaxLOD || Index < Params.FirstOcclusionNode) 
-		&& Node.FirstChild >= 0 
-		&& (1 + Node.LastInstance - Node.FirstInstance) >= Params.MinInstancesToSplit[MinLOD];
+	bool bShouldGroup = Node.FirstChild < 0
+		|| ((Node.LastInstance - Node.FirstInstance + 1) < Params.MinInstancesToSplit[MinLOD]
+			&& CanGroup(Node.BoundMin, Node.BoundMax, Params.ViewOriginInLocalZero, Params.ViewOriginInLocalOne, Params.LODPlanesMax[Params.LODs - 1]));
+	bool bSplit = (!bFullyContained || MinLOD < MaxLOD || Index < Params.FirstOcclusionNode)
+		&& !bShouldGroup;
 
 	if (!bSplit)
 	{
@@ -1498,7 +1523,7 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 				for (int32 LODIndex = 0; LODIndex < InstanceParams.LODs; LODIndex++)
 				{
 					InstanceParams.MinInstancesToSplit[LODIndex] = 2;
-					int32 NumVerts = RenderData->LODResources[LODIndex].VertexBuffer.GetNumVertices();
+					int32 NumVerts = RenderData->LODResources[LODIndex].VertexBuffers.StaticMeshVertexBuffer.GetNumVertices();
 					if (NumVerts)
 					{
 						InstanceParams.MinInstancesToSplit[LODIndex] = MinVertsToSplitNode / NumVerts;
@@ -1607,15 +1632,14 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 			}
 
 			// Render unbuilt instances
-			if (FirstUnbuiltIndex <= LastUnbuiltIndex)
+			if (UnbuiltInstanceCount > 0)
 			{
 				FFoliageRenderInstanceParams InstanceParams(true, false, false);
 
 				// disable LOD blending for unbuilt instances as we haven't calculated the correct LOD.
 				ElementParams.bBlendLODs = false;
 
-				const int32 NumUnbuiltInstances = LastUnbuiltIndex - FirstUnbuiltIndex + 1;
-				if (NumUnbuiltInstances < 1000)
+				if (UnbuiltInstanceCount < 1000)
 				{
 					const int32 NumLODs = RenderData->LODResources.Num();
 
@@ -1623,7 +1647,7 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 					if (Force >= 0)
 					{
 						Force = FMath::Clamp(Force, 0, NumLODs - 1);
-						InstanceParams.AddRun(Force, Force, FirstUnbuiltIndex, LastUnbuiltIndex);
+						InstanceParams.AddRun(Force, Force, FirstUnbuiltIndex, FirstUnbuiltIndex + UnbuiltInstanceCount);
 					}
 					else
 					{
@@ -1667,7 +1691,7 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 						int32 MaxLOD = NumLODs;
 						CalcLOD(MinLOD, MaxLOD, UnbuiltBounds[0].Min, UnbuiltBounds[0].Max, ViewOriginInLocalZero, ViewOriginInLocalOne, LODPlanesMin, LODPlanesMax);
 						int32 FirstIndexInRun = 0;
-						for (int32 Index = 1; Index < NumUnbuiltInstances; ++Index)
+						for (int32 Index = 1; Index < UnbuiltInstanceCount; ++Index)
 						{
 							int32 TempMinLOD = 0;
 							int32 TempMaxLOD = NumLODs;
@@ -1682,13 +1706,13 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 								FirstIndexInRun = Index;
 							}
 						}
-						InstanceParams.AddRun(MinLOD, MinLOD, FirstIndexInRun + FirstUnbuiltIndex, LastUnbuiltIndex);
+						InstanceParams.AddRun(MinLOD, MinLOD, FirstIndexInRun + FirstUnbuiltIndex, FirstIndexInRun + FirstUnbuiltIndex + UnbuiltInstanceCount);
 					}
 				}
 				else
 				{
 					// more than 1000, render them all at lowest LOD (until we have an updated tree)
-					InstanceParams.AddRun(RenderData->LODResources.Num() - 1, RenderData->LODResources.Num() - 1, FirstUnbuiltIndex, LastUnbuiltIndex);
+					InstanceParams.AddRun(RenderData->LODResources.Num() - 1, RenderData->LODResources.Num() - 1, FirstUnbuiltIndex, FirstUnbuiltIndex + UnbuiltInstanceCount);
 				}
 				FillDynamicMeshElements(Collector, ElementParams, InstanceParams);
 			}
@@ -1789,23 +1813,29 @@ void UHierarchicalInstancedStaticMeshComponent::PostEditChangeChainProperty(FPro
 	if ((PropertyChangedEvent.Property != NULL && PropertyChangedEvent.Property->GetFName() == "PerInstanceSMData") ||
 		(PropertyChangedEvent.Property != NULL && PropertyChangedEvent.Property->GetFName() == "Transform"))
 	{
-		BuildTreeIfOutdated(true, false);
+		if (FApp::CanEverRender() && !HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))
+		{
+			BuildTreeIfOutdated(true, false);
+		}
 	}
 }
 #endif
 
+void UHierarchicalInstancedStaticMeshComponent::PreSave(const class ITargetPlatform* TargetPlatform)
+{
+	Super::PreSave(TargetPlatform);
+
+	// On save, if we have a pending async build we should wait for it to complete rather than saving an incomplete tree
+	const bool bIsCooking = (TargetPlatform != nullptr);
+	if (bIsCooking || !IsTreeFullyBuilt())
+	{
+		BuildTreeIfOutdated(false, true);
+	}
+}
+
 void UHierarchicalInstancedStaticMeshComponent::Serialize(FArchive& Ar)
 {
 	LLM_SCOPE(ELLMTag::StaticMesh);	
-
-	// On save, if we have a pending async build we should wait for it to complete rather than saving an incomplete tree
-	if (Ar.IsSaving())
-	{
-		if (!IsTreeFullyBuilt())
-		{
-			BuildTreeIfOutdated(false, true);
-		}
-	}
 
 	Super::Serialize(Ar);
 
@@ -1842,9 +1872,16 @@ void UHierarchicalInstancedStaticMeshComponent::RemoveInstanceInternal(int32 Ins
 		RemovedInstances.Add(RemovedRenderIndex);
 	}
 
+	if (PerInstanceRenderData.IsValid())
+	{
+		PerInstanceRenderData->RemoveInstanceData(this, InstanceIndex);
+	}
+
 	// Remove the instance
 	PerInstanceSMData.RemoveAtSwap(InstanceIndex);
 	InstanceReorderTable.RemoveAtSwap(InstanceIndex);
+	UnbuiltInstanceIndexList.RemoveSwap(InstanceIndex);
+
 #if WITH_EDITOR
 	if (SelectedInstances.Num())
 	{
@@ -1888,10 +1925,6 @@ void UHierarchicalInstancedStaticMeshComponent::RemoveInstanceInternal(int32 Ins
 		}
 	}
 
-	if (PerInstanceRenderData.IsValid())
-	{
-		PerInstanceRenderData->RemoveInstanceData(this, InstanceIndex);
-	}
 }
 
 bool UHierarchicalInstancedStaticMeshComponent::RemoveInstances(const TArray<int32>& InstancesToRemove)
@@ -1901,6 +1934,12 @@ bool UHierarchicalInstancedStaticMeshComponent::RemoveInstances(const TArray<int
 	if (InstancesToRemove.Num() == 0)
 	{
 		return true;
+	}
+
+	if (PerInstanceSMData.Num() > 0 && PerInstanceRenderData.IsValid() && PerInstanceRenderData->InstanceBuffer.GetCurrentNumInstances() == 0 && !KeepInstanceBufferCPUAccess)
+	{
+		UE_LOG(LogStaticMesh, Warning, TEXT("Trying to change instance buffer for component %s, but we have no CPU copy. Set KeepInstanceBufferCPUAccess to true to keep access at the cost of memory."), *GetPathName());
+		return false;
 	}
 
 	TArray<int32> SortedInstancesToRemove = InstancesToRemove;
@@ -1932,6 +1971,12 @@ bool UHierarchicalInstancedStaticMeshComponent::RemoveInstance(int32 InstanceInd
 {
 	if (!PerInstanceSMData.IsValidIndex(InstanceIndex))
 	{
+		return false;
+	}
+
+	if (PerInstanceSMData.Num() > 0 && PerInstanceRenderData.IsValid() && PerInstanceRenderData->InstanceBuffer.GetCurrentNumInstances() == 0 && !KeepInstanceBufferCPUAccess)
+	{
+		UE_LOG(LogStaticMesh, Warning, TEXT("Trying to change instance buffer for component %s, but we have no CPU copy. Set KeepInstanceBufferCPUAccess to true to keep access at the cost of memory."), *GetPathName());
 		return false;
 	}
 
@@ -1972,7 +2017,7 @@ bool UHierarchicalInstancedStaticMeshComponent::UpdateInstanceTransform(int32 In
 
 	bool Result = Super::UpdateInstanceTransform(InstanceIndex, NewInstanceTransform, bWorldSpace, bMarkRenderStateDirty, bTeleport);
 	
-	if (GetStaticMesh())
+	if (Result && GetStaticMesh() != nullptr)
 	{
 		const FBox NewInstanceBounds = GetStaticMesh()->GetBounds().GetBox().TransformBy(NewLocalTransform);
 
@@ -2010,24 +2055,21 @@ int32 UHierarchicalInstancedStaticMeshComponent::AddInstance(const FTransform& I
 {
 	int32 InstanceIndex = UInstancedStaticMeshComponent::AddInstance(InstanceTransform);
 
-	if (bAutoRebuildTreeOnInstanceChanges)
-	{
-		BuildTreeIfOutdated(PerInstanceSMData.Num() > 1, false);
-	}
-	
-	if (GetStaticMesh())
-	{
-		// Need to offset the newly added instance's RenderIndex by the amount that will be adjusted at the end of the frame
-		InstanceReorderTable.Add(GetNumRenderInstances());
+	if (InstanceIndex != INDEX_NONE)
+	{	
+		if (GetStaticMesh())
+		{
+			const FBox NewInstanceBounds = GetStaticMesh()->GetBounds().GetBox().TransformBy(InstanceTransform);
+			UnbuiltInstanceBounds += NewInstanceBounds;
+			UnbuiltInstanceBoundsList.Add(NewInstanceBounds);
 
-		const FBox NewInstanceBounds = GetStaticMesh()->GetBounds().GetBox().TransformBy(InstanceTransform);
-		UnbuiltInstanceBounds += NewInstanceBounds;
-		UnbuiltInstanceBoundsList.Add(NewInstanceBounds);
-	}
+			UnbuiltInstanceIndexList.Add(InstanceIndex);
+		}
 
-	if (PerInstanceRenderData.IsValid())
-	{
-		PerInstanceRenderData->UpdateInstanceData(this, InstanceIndex);
+		if (bAutoRebuildTreeOnInstanceChanges)
+		{
+			BuildTreeIfOutdated(PerInstanceSMData.Num() > 1, false);
+		}
 	}
 
 	return InstanceIndex;
@@ -2046,6 +2088,7 @@ void UHierarchicalInstancedStaticMeshComponent::ClearInstances()
 	SortedInstances.Empty();
 	UnbuiltInstanceBounds.Init();
 	UnbuiltInstanceBoundsList.Empty();
+	UnbuiltInstanceIndexList.Empty();
 	NeedUpdatingInstanceIndexList.Empty();
 
 	if (ProxySize)
@@ -2113,11 +2156,12 @@ void UHierarchicalInstancedStaticMeshComponent::PostBuildStats()
 {
 #if 0
 	const TArray<FClusterNode>& ClusterTree = *ClusterTreePtr;
+	FString MeshName = GetStaticMesh() ? GetStaticMesh()->GetPathName() : FString(TEXT("null"));
 	check(PerInstanceRenderData.IsValid());
 	bool bIsGrass = !PerInstanceSMData.Num();
 	NumInst = bIsGrass ? PerInstanceRenderData->InstanceBuffer.GetNumInstances() : PerInstanceSMData.Num();
 
-	UE_LOG(LogStaticMesh, Display, TEXT("Built a foliage hierarchy with %d instances, %d nodes, %f instances / leaf (desired %d) and %d verts in LOD0. Grass? %d "), NumInst, ClusterTree.Num(), ActualInstancesPerLeaf(), DesiredInstancesPerLeaf(), GetVertsForLOD(0), bIsGrass);
+	UE_LOG(LogStaticMesh, Display, TEXT("Built a foliage hierarchy with %d instances, %d nodes, %f instances / leaf (desired %d) and %d verts in LOD0. Grass? %d    %s"), NumInst, ClusterTree.Num(), ActualInstancesPerLeaf(), DesiredInstancesPerLeaf(), GetVertsForLOD(0), bIsGrass), *MeshName);
 #endif
 }
 
@@ -2168,6 +2212,7 @@ void UHierarchicalInstancedStaticMeshComponent::BuildTree()
 		UnbuiltInstanceBounds.Init();
 		RemovedInstances.Empty();
 		UnbuiltInstanceBoundsList.Empty();
+		UnbuiltInstanceIndexList.Empty();
 		BuiltInstanceBounds = (Builder.Result->Nodes.Num() > 0 ? FBox(Builder.Result->Nodes[0].BoundMin, Builder.Result->Nodes[0].BoundMax) : FBox(ForceInit));
 
 		ClusterTreePtr = MakeShareable(new TArray<FClusterNode>(MoveTemp(Builder.Result->Nodes)));
@@ -2181,7 +2226,7 @@ void UHierarchicalInstancedStaticMeshComponent::BuildTree()
 		}
 
 		// Resync RenderData with newly built cluster tree so we take into account the newly generated InstanceReorderTable generated from the cluster tree
-		PerInstanceRenderData->UpdateInstanceData(this, 0, PerInstanceSMData.Num(), false);
+		PerInstanceRenderData->UpdateAllInstanceData(this, false);
 
 		MarkRenderStateDirty();
 
@@ -2199,8 +2244,9 @@ void UHierarchicalInstancedStaticMeshComponent::BuildTree()
 		RemovedInstances.Empty();
 
 		UnbuiltInstanceBoundsList.Empty();
+		UnbuiltInstanceIndexList.Empty();
 		BuiltInstanceBounds.Init();
-		CacheMeshExtendedBounds = FBoxSphereBounds();
+		CacheMeshExtendedBounds = FBoxSphereBounds(EForceInit::ForceInitToZero);
 	}
 
 	if (bIsAsyncBuilding)
@@ -2245,6 +2291,7 @@ void UHierarchicalInstancedStaticMeshComponent::AcceptPrebuiltTree(TArray<FClust
 	check(NumBuiltRenderInstances);
 	UnbuiltInstanceBounds.Init();
 	UnbuiltInstanceBoundsList.Empty();
+	UnbuiltInstanceIndexList.Empty();
 	RemovedInstances.Empty();
 	ClusterTreePtr = MakeShareable(new TArray<FClusterNode>);
 	InstanceReorderTable.Empty();
@@ -2334,19 +2381,21 @@ void UHierarchicalInstancedStaticMeshComponent::ApplyBuildTreeAsync(ENamedThread
 			{
 				// There are new outstanding instances, build again!
 				UnbuiltInstanceBoundsList.RemoveAt(0, UnbuiltInstanceBoundsList.Num() - (PerInstanceSMData.Num() - NumBuiltInstances));
+				UnbuiltInstanceIndexList.RemoveAt(0, UnbuiltInstanceIndexList.Num() - (PerInstanceSMData.Num() - NumBuiltInstances));
 				BuildTreeAsync();
 			}
 			else
 			{
 				UnbuiltInstanceBounds.Init();
 				UnbuiltInstanceBoundsList.Empty();
+				UnbuiltInstanceIndexList.Empty();
 				FlushAccumulatedNavigationUpdates();
 			}
 
 			// Resync RenderData with newly built cluster tree so we take into account the newly generated InstanceReorderTable generated from the cluster tree
 			if (PerInstanceRenderData.IsValid())
 			{
-				PerInstanceRenderData->UpdateInstanceData(this, 0, PerInstanceSMData.Num(), false);
+				PerInstanceRenderData->UpdateAllInstanceData(this, false);
 			}
 
 			MarkRenderStateDirty();
@@ -2362,7 +2411,7 @@ bool UHierarchicalInstancedStaticMeshComponent::BuildTreeIfOutdated(bool Async, 
 		|| InstanceReorderTable.Num() != PerInstanceSMData.Num()
 		|| NumBuiltInstances != PerInstanceSMData.Num() 
 		|| (GetStaticMesh() != nullptr && CacheMeshExtendedBounds != GetStaticMesh()->GetBounds())
-		|| UnbuiltInstanceBoundsList.Num() > 0
+		|| UnbuiltInstanceBoundsList.Num() > 0 || UnbuiltInstanceIndexList.Num() > 0
 		|| GetLinkerUE4Version() < VER_UE4_REBUILD_HIERARCHICAL_INSTANCE_TREES)
 	{
 		if (GetStaticMesh() != nullptr && !GetStaticMesh()->HasAnyFlags(RF_NeedLoad)) // we can build the tree if the static mesh is not even loaded, and we can't call PostLoad as the load is not even done
@@ -2375,6 +2424,7 @@ bool UHierarchicalInstancedStaticMeshComponent::BuildTreeIfOutdated(bool Async, 
 				{
 					// invalidate the results of the current async build we need to modify the tree
 					bConcurrentRemoval = true;
+					bDiscardAsyncBuildResults = false;
 				}
 				else
 				{
@@ -2434,7 +2484,7 @@ void UHierarchicalInstancedStaticMeshComponent::BuildTreeAsync()
 
 		UE_LOG(LogStaticMesh, Verbose, TEXT("Copied %d transforms in %.3fs."), Num, float(FPlatformTime::Seconds() - StartTime));
 
-		TSharedRef<FClusterBuilder, ESPMode::ThreadSafe> Builder(new FClusterBuilder(InstanceTransforms, GetStaticMesh()->GetBounds().GetBox(), DesiredInstancesPerLeaf()));
+		TSharedRef<FClusterBuilder, ESPMode::ThreadSafe> Builder(new FClusterBuilder(InstanceTransforms, GetStaticMesh()->GetBounds().GetBox(), DesiredInstancesPerLeaf(), ExcludedDueToDensityScaling));
 
 		bIsAsyncBuilding = true;
 
@@ -2457,9 +2507,10 @@ void UHierarchicalInstancedStaticMeshComponent::BuildTreeAsync()
 		InstanceReorderTable.Empty();
 		SortedInstances.Empty();
 		RemovedInstances.Empty();
-		CacheMeshExtendedBounds = FBoxSphereBounds();
+		CacheMeshExtendedBounds = FBoxSphereBounds(EForceInit::ForceInitToZero);
 
 		UnbuiltInstanceBoundsList.Empty();
+		UnbuiltInstanceIndexList.Empty();
 		BuiltInstanceBounds.Init();
 	}
 }
@@ -2479,8 +2530,8 @@ FPrimitiveSceneProxy* UHierarchicalInstancedStaticMeshComponent::CreateSceneProx
 
 	// Verify that the mesh is valid before using it.
 	const bool bMeshIsValid = 
-		// make sure we have instances
-		(GetNumRenderInstances() - RemovedInstances.Num() > 0 || bPerInstanceRenderDataWasPrebuilt) &&
+		// make sure we have instances		
+		((PerInstanceRenderData.IsValid() && PerInstanceRenderData->InstanceBuffer.GetNumInstances() > 0) || bPerInstanceRenderDataWasPrebuilt) &&
 		// make sure we have an actual staticmesh
 		GetStaticMesh() &&
 		GetStaticMesh()->HasValidRenderData() &&
@@ -2498,18 +2549,8 @@ FPrimitiveSceneProxy* UHierarchicalInstancedStaticMeshComponent::CreateSceneProx
 			InstancingRandomSeed = FMath::Rand();
 		}
 
-		const bool bSupportsVertexHalfFloat = GVertexElementTypeSupport.IsSupported(VET_Half2);
+		ProxySize = FStaticMeshInstanceData::GetResourceSize(PerInstanceRenderData->InstanceBuffer.GetNumInstances(), GVertexElementTypeSupport.IsSupported(VET_Half2));
 		bool bIsGrass = !PerInstanceSMData.Num();
-
-		if (bIsGrass || bPerInstanceRenderDataWasPrebuilt)
-		{
-			ProxySize = FStaticMeshInstanceData::GetResourceSize(PerInstanceRenderData->InstanceBuffer.GetNumInstances(), bSupportsVertexHalfFloat);
-		}
-		else
-		{
-			ProxySize = FStaticMeshInstanceData::GetResourceSize(PerInstanceSMData.Num(), bSupportsVertexHalfFloat);
-		}
-
 		INC_DWORD_STAT_BY(STAT_FoliageInstanceBuffers, ProxySize);
 		return ::new FHierarchicalStaticMeshSceneProxy(bIsGrass, this, GetWorld()->FeatureLevel);
 	}
@@ -2696,7 +2737,7 @@ void UHierarchicalInstancedStaticMeshComponent::PartialNavigationUpdate(int32 In
 		// Accumulate dirty areas and send them to navigation system once cluster tree is rebuilt
 		UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
 		// Check if this component is registered in navigation system
-		if (NavSys && NavSys->GetObjectsNavOctreeId(this))
+		if (NavSys && (NavSys->GetObjectsNavOctreeId(this) || NavSys->HasPendingObjectNavOctreeId(this)))
 		{
 			FTransform InstanceTransform(PerInstanceSMData[InstanceIdx].Transform);
 			FBox InstanceBox = GetStaticMesh()->GetBounds().TransformBy(InstanceTransform*GetComponentTransform()).GetBox(); // in world space

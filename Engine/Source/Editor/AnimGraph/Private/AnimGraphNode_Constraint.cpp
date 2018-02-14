@@ -1,7 +1,7 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimGraphNode_Constraint.h"
-#include "CompilerResultsLog.h"
+#include "Kismet2/CompilerResultsLog.h"
 #include "AnimNodeEditModes.h"
 #include "Animation/AnimInstance.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -142,12 +142,12 @@ void UAnimGraphNode_Constraint::PostProcessPinName(const UEdGraphPin* Pin, FStri
 	if (Pin->Direction == EGPD_Input)
 	{
 		const FString ConstraintWeightPrefix = TEXT("ConstraintWeights_");
-		FString PinName = Pin->PinName;
+		const FString PinName = Pin->PinName.ToString();
 		FString IndexString;
 		if (PinName.Split(ConstraintWeightPrefix, nullptr, &IndexString))
 		{
 			// convert index and display better name
-			int32 Index = FCString::Atoi(*IndexString);
+			const int32 Index = FCString::Atoi(*IndexString);
 			if (Node.ConstraintSetup.IsValidIndex(Index))
 			{
 				const FConstraint& Constraint = Node.ConstraintSetup[Index];

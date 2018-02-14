@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -16,7 +16,7 @@
 #include "MediaSampleQueue.h"
 #include "Templates/SharedPointer.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 class FWmfMediaAudioSamplePool;
 class FWmfMediaSampler;
@@ -145,9 +145,17 @@ public:
 	 * Initialize the track collection.
 	 *
 	 * @param InMediaSource The media source object.
+	 * @param Url The media source URL.
 	 * @see IsInitialized, Shutdown
 	 */
-	void Initialize(IMFMediaSource* InMediaSource);
+	void Initialize(IMFMediaSource* InMediaSource, const FString& Url);
+
+	/**
+	 * Reinitialize the track collection
+	 *
+	 * @see IsInitialized, Shutdown
+	 */
+	void ReInitialize();
 
 	/**
 	 * Whether this object has been initialized.
@@ -201,10 +209,11 @@ protected:
 	 *
 	 * @param StreamIndex The index of the stream to add.
 	 * @param OutInfo Will contain appended debug information.
+	 * @param IsVideoDevice Whether the stream belongs to a video capture device.
 	 * @return true on success, false otherwise.
 	 * @see AddTrackToTopology
 	 */
-	bool AddStreamToTracks(uint32 StreamIndex, FString& OutInfo);
+	bool AddStreamToTracks(uint32 StreamIndex, bool IsVideoDevice, FString& OutInfo);
 
 	/**
 	 * Add the given track to the specified playback topology.
@@ -287,6 +296,9 @@ private:
 	/** Media information string. */
 	FString Info;
 
+	/** The initial media url. */
+	FString SourceUrl;
+
 	/** The currently opened media. */
 	TComPtr<IMFMediaSource> MediaSource;
 
@@ -328,6 +340,6 @@ private:
 };
 
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #endif //WMFMEDIA_SUPPORTED_PLATFORM

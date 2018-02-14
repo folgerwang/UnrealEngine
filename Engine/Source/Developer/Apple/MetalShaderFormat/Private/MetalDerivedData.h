@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 
-#include "SecureHash.h"
+#include "Misc/SecureHash.h"
 #include "DerivedDataPluginInterface.h"
 #include "ShaderCompilerCommon.h"
 #include "HlslccDefinitions.h"
@@ -62,6 +62,7 @@ struct FMetalShaderBytecodeJob
 {
 	FName ShaderFormat;
 	FSHAHash Hash;
+    FString Defines;
 	FString TmpFolder;
 	FString InputFile;
 	FString InputPCHFile;
@@ -72,6 +73,7 @@ struct FMetalShaderBytecodeJob
 	FString DebugInfo;
 	FString MathMode;
 	FString Standard;
+	FString IncludeDir;
 	uint32 SourceCRCLen;
 	uint32 SourceCRC;
 	bool bRetainObjectFile;

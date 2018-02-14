@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 LandscapeEditInterface.cpp: Landscape editing interface
@@ -21,7 +21,7 @@ LandscapeEditInterface.cpp: Landscape editing interface
 #include "LandscapeEdit.h"
 #include "LandscapeRender.h"
 #include "ComponentReregisterContext.h"
-#include "Containers/Algo/Transform.h"
+#include "Algo/Transform.h"
 
 // Channel remapping
 extern const size_t ChannelOffsets[4] = {STRUCT_OFFSET(FColor,R), STRUCT_OFFSET(FColor,G), STRUCT_OFFSET(FColor,B), STRUCT_OFFSET(FColor,A)};
@@ -1985,7 +1985,6 @@ void ULandscapeComponent::ReplaceLayer(ULandscapeLayerInfoObject* FromLayerInfo,
 	const bool bToLayerIsNoWeightBlend = (ToLayerInfo && ToLayerInfo->bNoWeightBlend);
 
 	const bool bRequireNormalization = (bFromLayerIsNoWeightBlend != bToLayerIsNoWeightBlend);
-	checkf(!bRequireNormalization, TEXT("It is not yet supported to replace a layer with another whose bNoWeightBlend setting does not match"))
 
 	if (bMerging)
 	{

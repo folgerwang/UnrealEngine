@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "GenericPlatform/GenericPlatformStackWalk.h"
@@ -42,8 +42,8 @@
 #include "EngineUtils.h"
 #include "Engine/Engine.h"
 #include "Materials/MaterialInstanceConstant.h"
-#if WITH_EDITOR
-	#include "IPhysXCooking.h"
+#if WITH_EDITOR && WITH_PHYSX
+	#include "Physics/IPhysXCooking.h"
 #endif
 
 #if ENABLE_COOK_STATS
@@ -1441,7 +1441,7 @@ void ULandscapeHeightfieldCollisionComponent::Serialize(FArchive& Ar)
 	}
 	else
 	{
-		bool bCooked = Ar.IsCooking();
+		bool bCooked = Ar.IsCooking() || (FPlatformProperties::RequiresCookedData() && Ar.IsSaving());
 		Ar << bCooked;
 
 		if (FPlatformProperties::RequiresCookedData() && !bCooked && Ar.IsLoading())
@@ -1698,7 +1698,7 @@ void ULandscapeHeightfieldCollisionComponent::PreSave(const class ITargetPlatfor
 			{
 				if (!RenderComponent->CanRenderGrassMap())
 				{
-					RenderComponent->MaterialInstances[0]->GetMaterialResource(GetWorld()->FeatureLevel)->FinishCompilation();
+					RenderComponent->GetMaterialInstance(0, false)->GetMaterialResource(GetWorld()->FeatureLevel)->FinishCompilation();
 				}
 				RenderComponent->RenderGrassMap();
 			}
@@ -1961,7 +1961,7 @@ void ULandscapeHeightfieldCollisionComponent::ImportCustomProperties(const TCHAR
 
 		if (i != NumHeights)
 		{
-			Warn->Logf(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
+			Warn->Log(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
 		}
 	}
 	else if (FParse::Command(&SourceText, TEXT("DominantLayerData")))
@@ -1987,7 +1987,7 @@ void ULandscapeHeightfieldCollisionComponent::ImportCustomProperties(const TCHAR
 
 		if (i != NumDominantLayerSamples)
 		{
-			Warn->Logf(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
+			Warn->Log(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
 		}
 	}
 }
@@ -2045,7 +2045,7 @@ void ULandscapeMeshCollisionComponent::ImportCustomProperties(const TCHAR* Sourc
 
 		if (i != NumHeights)
 		{
-			Warn->Logf(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
+			Warn->Log(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
 		}
 	}
 	else if (FParse::Command(&SourceText, TEXT("DominantLayerData")))
@@ -2071,7 +2071,7 @@ void ULandscapeMeshCollisionComponent::ImportCustomProperties(const TCHAR* Sourc
 
 		if (i != NumDominantLayerSamples)
 		{
-			Warn->Logf(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
+			Warn->Log(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
 		}
 	}
 	else if (FParse::Command(&SourceText, TEXT("CollisionXYOffsetData")))
@@ -2102,7 +2102,7 @@ void ULandscapeMeshCollisionComponent::ImportCustomProperties(const TCHAR* Sourc
 
 		if (i != NumOffsets)
 		{
-			Warn->Logf(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
+			Warn->Log(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
 		}
 	}
 }

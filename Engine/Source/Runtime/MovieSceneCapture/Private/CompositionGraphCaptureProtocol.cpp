@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Protocols/CompositionGraphCaptureProtocol.h"
 #include "Misc/CommandLine.h"
@@ -13,28 +13,32 @@
 #include "BufferVisualizationData.h"
 #include "MovieSceneCaptureSettings.h"
 
-struct FSceneViewExtension : ISceneViewExtension
+struct FFrameCaptureViewExtension : public FSceneViewExtensionBase
 {
-	FSceneViewExtension(const TArray<FString>& InRenderPasses, bool bInCaptureFramesInHDR, int32 InHDRCompressionQuality, int32 InCaptureGamut, UMaterialInterface* InPostProcessingMaterial)
-		: RenderPasses(InRenderPasses)
+	FFrameCaptureViewExtension( const FAutoRegister& AutoRegister, const TArray<FString>& InRenderPasses, bool bInCaptureFramesInHDR, int32 InHDRCompressionQuality, int32 InCaptureGamut, UMaterialInterface* InPostProcessingMaterial)
+		: FSceneViewExtensionBase(AutoRegister)
+		, RenderPasses(InRenderPasses)
 		, bNeedsCapture(true)
 		, bCaptureFramesInHDR(bInCaptureFramesInHDR)
 		, HDRCompressionQuality(InHDRCompressionQuality)
 		, CaptureGamut(InCaptureGamut)
 		, PostProcessingMaterial(InPostProcessingMaterial)
-		, RestoreDumpHDR(0)
-		, RestoreHDRCompressionQuality(0)
-		, RestoreDumpGamut(HCGM_Rec709)
 	{
 		CVarDumpFrames = IConsoleManager::Get().FindConsoleVariable(TEXT("r.BufferVisualizationDumpFrames"));
 		CVarDumpFramesAsHDR = IConsoleManager::Get().FindConsoleVariable(TEXT("r.BufferVisualizationDumpFramesAsHDR"));
 		CVarHDRCompressionQuality = IConsoleManager::Get().FindConsoleVariable(TEXT("r.SaveEXR.CompressionQuality"));
 		CVarDumpGamut = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.Display.ColorGamut"));
+		CVarDumpDevice = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.Display.OutputDevice"));
+
+		RestoreDumpHDR = CVarDumpFramesAsHDR->GetInt();
+		RestoreHDRCompressionQuality = CVarHDRCompressionQuality->GetInt();
+		RestoreDumpGamut = CVarDumpGamut->GetInt();
+		RestoreDumpDevice = CVarDumpDevice->GetInt();
 
 		Disable();
 	}
 
-	virtual ~FSceneViewExtension()
+	virtual ~FFrameCaptureViewExtension()
 	{
 		Disable();
 	}
@@ -50,14 +54,16 @@ struct FSceneViewExtension : ISceneViewExtension
 
 		bNeedsCapture = true;
 
-		RestoreDumpHDR = CVarDumpFramesAsHDR->GetInt();
-		RestoreHDRCompressionQuality = CVarHDRCompressionQuality->GetInt();
-		RestoreDumpGamut = CVarDumpGamut->GetInt();
-
 		CVarDumpFramesAsHDR->Set(bCaptureFramesInHDR);
 		CVarHDRCompressionQuality->Set(HDRCompressionQuality);
 		CVarDumpGamut->Set(CaptureGamut);
 		CVarDumpFrames->Set(1);
+
+		if (CaptureGamut == HCGM_Linear)
+		{
+			CVarDumpGamut->Set(1);
+			CVarDumpDevice->Set(7);
+		}
 	}
 
 	void Disable(bool bFinalize = false)
@@ -72,12 +78,13 @@ struct FSceneViewExtension : ISceneViewExtension
 			}
 			CVarDumpFramesAsHDR->Set(RestoreDumpHDR);
 			CVarHDRCompressionQuality->Set(RestoreHDRCompressionQuality);
-			CVarDumpGamut->Set(RestoreDumpGamut);
+			CVarDumpGamut->Set(RestoreDumpGamut);			
+			CVarDumpDevice->Set(RestoreDumpDevice);
 			CVarDumpFrames->Set(0);
 		}
 	}
 
-	virtual void SetupView(FSceneViewFamily& InViewFamily, FSceneView& InView)
+	virtual void SetupView(FSceneViewFamily& InViewFamily, FSceneView& InView) override
 	{
 		if (!bNeedsCapture)
 		{
@@ -113,17 +120,20 @@ struct FSceneViewExtension : ISceneViewExtension
 			PostProcessingMaterial->OverrideBlendableSettings(InView, 1.f);
 		}
 
-
-		// Ensure we're rendering at full size
-		InView.ViewRect = InView.UnscaledViewRect;
-
 		bNeedsCapture = false;
 	}
 
-	virtual void SetupViewFamily(FSceneViewFamily& InViewFamily) {}
+	virtual void SetupViewFamily(FSceneViewFamily& InViewFamily) override
+	{
+		// Ensure we're rendering at full size.
+		InViewFamily.EngineShowFlags.ScreenPercentage = false;
+	}
+
 	virtual void BeginRenderViewFamily(FSceneViewFamily& InViewFamily) {}
 	virtual void PreRenderViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& InViewFamily) {}
 	virtual void PreRenderView_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView) {}
+
+	virtual bool IsActiveThisFrame(class FViewport* InViewport) const override { return IsEnabled(); }
 
 private:
 	const TArray<FString>& RenderPasses;
@@ -141,10 +151,12 @@ private:
 	IConsoleVariable* CVarDumpFramesAsHDR;
 	IConsoleVariable* CVarHDRCompressionQuality;
 	IConsoleVariable* CVarDumpGamut;
+	IConsoleVariable* CVarDumpDevice;
 
 	int32 RestoreDumpHDR;
 	int32 RestoreHDRCompressionQuality;
 	int32 RestoreDumpGamut;
+	int32 RestoreDumpDevice;
 };
 
 void UCompositionGraphCaptureSettings::OnReleaseConfig(FMovieSceneCaptureSettings& InSettings)
@@ -232,7 +244,7 @@ bool FCompositionGraphCaptureProtocol::Initialize(const FCaptureProtocolInitSett
 		}
 	}
 
-	ViewExtension = MakeShareable(new FSceneViewExtension(RenderPasses, bCaptureFramesInHDR, HDRCompressionQuality, CaptureGamut, PostProcessingMaterial));
+	ViewExtension = FSceneViewExtensions::NewExtension<FFrameCaptureViewExtension>(RenderPasses, bCaptureFramesInHDR, HDRCompressionQuality, CaptureGamut, PostProcessingMaterial);
 
 	return true;
 }
@@ -240,14 +252,11 @@ bool FCompositionGraphCaptureProtocol::Initialize(const FCaptureProtocolInitSett
 void FCompositionGraphCaptureProtocol::Finalize()
 {
 	ViewExtension->Disable(true);
-	GEngine->ViewExtensions.Remove(ViewExtension);
 }
 
 void FCompositionGraphCaptureProtocol::CaptureFrame(const FFrameMetrics& FrameMetrics, const ICaptureProtocolHost& Host)
 {
 	ViewExtension->Enable(Host.GenerateFilename(FrameMetrics, TEXT("")));
-
-	GEngine->ViewExtensions.AddUnique(ViewExtension);
 }
 
 bool FCompositionGraphCaptureProtocol::HasFinishedProcessing() const
@@ -260,6 +269,5 @@ void FCompositionGraphCaptureProtocol::Tick()
 	if (!ViewExtension->IsEnabled())
 	{
 		ViewExtension->Disable();
-		GEngine->ViewExtensions.Remove(ViewExtension);
 	}
 }

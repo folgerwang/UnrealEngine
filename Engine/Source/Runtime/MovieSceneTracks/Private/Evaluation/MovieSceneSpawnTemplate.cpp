@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Evaluation/MovieSceneSpawnTemplate.h"
 #include "MovieSceneSequence.h"
 #include "Sections/MovieSceneSpawnSection.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 #include "IMovieScenePlayer.h"
 #include "MovieSceneBindingOverridesInterface.h"
 

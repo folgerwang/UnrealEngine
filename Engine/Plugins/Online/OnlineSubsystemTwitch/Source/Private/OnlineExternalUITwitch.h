@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "OnlineSubsystemTwitch.h"
 #include "OnlineSubsystemTwitchPackage.h"
-#include "OnlineExternalUIInterface.h"
+#include "Interfaces/OnlineExternalUIInterface.h"
 
 class FOnlineSubsystemTwitch;
 class IHttpRequest;

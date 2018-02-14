@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -6,6 +6,7 @@ using System.Text;
 using System.Diagnostics;
 using System.IO;
 using Tools.DotNETCommon;
+using System.Text.RegularExpressions;
 
 namespace UnrealBuildTool
 {
@@ -248,10 +249,10 @@ namespace UnrealBuildTool
 					{
 						if (Target.bBuildDeveloperTools)
 						{
-							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxTargetPlatform");
-							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxNoEditorTargetPlatform");
-							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxClientTargetPlatform");
-							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxServerTargetPlatform");
+							Rules.DynamicallyLoadedModuleNames.Add("LinuxTargetPlatform");
+							Rules.DynamicallyLoadedModuleNames.Add("LinuxNoEditorTargetPlatform");
+							Rules.DynamicallyLoadedModuleNames.Add("LinuxClientTargetPlatform");
+							Rules.DynamicallyLoadedModuleNames.Add("LinuxServerTargetPlatform");
 						}
 					}
 				}
@@ -259,10 +260,10 @@ namespace UnrealBuildTool
 				// allow standalone tools to use targetplatform modules, without needing Engine
 				if (Target.bForceBuildTargetPlatforms && ModuleName == "TargetPlatform")
 				{
-					Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxTargetPlatform");
-					Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxNoEditorTargetPlatform");
-					Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxClientTargetPlatform");
-					Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxServerTargetPlatform");
+					Rules.DynamicallyLoadedModuleNames.Add("LinuxTargetPlatform");
+					Rules.DynamicallyLoadedModuleNames.Add("LinuxNoEditorTargetPlatform");
+					Rules.DynamicallyLoadedModuleNames.Add("LinuxClientTargetPlatform");
+					Rules.DynamicallyLoadedModuleNames.Add("LinuxServerTargetPlatform");
 				}
 			}
 		}
@@ -308,17 +309,8 @@ namespace UnrealBuildTool
 
 				if (bBuildShaderFormats)
 				{
-					// Rules.DynamicallyLoadedModuleNames.Add("ShaderFormatD3D");
 					Rules.DynamicallyLoadedModuleNames.Add("ShaderFormatOpenGL");
 					Rules.DynamicallyLoadedModuleNames.Add("VulkanShaderFormat");
-				}
-			}
-			else if (ModuleName == "Launch")
-			{
-				// this is a hack to influence symbol resolution on Linux that results in global delete being called from within CEF
-				if (Target.LinkType != TargetLinkType.Monolithic && Target.bCompileCEF3)
-				{
-					Rules.AddEngineThirdPartyPrivateStaticDependencies(Target, "CEF3");
 				}
 			}
 		}
@@ -340,12 +332,26 @@ namespace UnrealBuildTool
 			// During the native builds, check the system includes as well (check toolchain when cross-compiling?)
 			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux)
 			{
-				CompileEnvironment.IncludePaths.SystemIncludePaths.Add("/usr/include");
+				CompileEnvironment.IncludePaths.SystemIncludePaths.Add(new DirectoryReference("/usr/include"));
 			}
 
 			if (Target.Architecture.StartsWith("arm"))	// AArch64 doesn't strictly need that - aligned access improves perf, but this will be likely offset by memcpys we're doing to guarantee it.
 			{
 				CompileEnvironment.Definitions.Add("REQUIRES_ALIGNED_INT_ACCESS");
+			}
+
+			if (CompileEnvironment.bAllowLTCG != LinkEnvironment.bAllowLTCG)
+			{
+				Log.TraceWarning("Inconsistency between LTCG settings in Compile and Link environments: link one takes priority");
+				CompileEnvironment.bAllowLTCG = LinkEnvironment.bAllowLTCG;
+			}
+
+			// disable to LTO for modular builds
+			if (CompileEnvironment.bAllowLTCG && Target.LinkType != TargetLinkType.Monolithic)
+			{
+				Log.TraceWarning("LTO (LTCG) for modular builds is not supported, disabling it");
+				CompileEnvironment.bAllowLTCG = false;
+				LinkEnvironment.bAllowLTCG = false;
 			}
 
 			// link with Linux libraries.
@@ -395,7 +401,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// This is the SDK version we support
 		/// </summary>
-		static string ExpectedSDKVersion = "v10_clang-5.0.0-centos7";	// now unified for all the architectures
+		static string ExpectedSDKVersion = "v11_clang-5.0.0-centos7";	// now unified for all the architectures
 
 		/// <summary>
 		/// Platform name (embeds architecture for now)
@@ -437,6 +443,67 @@ namespace UnrealBuildTool
 		protected override bool PreferAutoSDK()
 		{
 			// having LINUX_ROOT set (for legacy reasons or for convenience of cross-compiling certain third party libs) should not make UBT skip AutoSDKs
+			return true;
+		}
+
+		public static string HaveLinuxDependenciesFile()
+		{
+			// This file must have no extension so that GitDeps considers it a binary dependency - it will only be pulled by the Setup script if Linux is enabled.
+			return "HaveLinuxDependencies";
+		}
+
+		public static string SDKVersionFileName()
+		{
+			return "ToolchainVersion.txt";
+		}
+
+		protected static int GetLinuxToolchainVersionFromString(string SDKVersion)
+		{
+			// Example: v11_clang-5.0.0-centos7
+			string FullVersionPattern = @"^v[0-9]+_.*$";
+			Regex Regex = new Regex(FullVersionPattern);
+			if (Regex.IsMatch(SDKVersion))
+			{
+				string VersionPattern = @"[0-9]+";
+				Regex = new Regex(VersionPattern);
+				Match Match = Regex.Match(SDKVersion);
+				if (Match.Success)
+				{
+					int Version;
+					bool bParsed = Int32.TryParse(Match.Value, out Version);
+					if (bParsed)
+					{
+						return Version;
+					}
+				}
+			}
+
+			return -1;
+		}
+
+		public static bool CheckSDKCompatible(string VersionString, out string ErrorMessage)
+		{
+			int Version = GetLinuxToolchainVersionFromString(VersionString);
+			int ExpectedVersion = GetLinuxToolchainVersionFromString(ExpectedSDKVersion);
+			if (Version >= 0 && ExpectedVersion >= 0 && Version != ExpectedVersion)
+			{
+				if (Version < ExpectedVersion)
+				{
+					ErrorMessage = "Toolchain found \"" + VersionString + "\" is older then the required version \"" + ExpectedSDKVersion + "\"";
+					return false;
+				}
+				else
+				{
+					Log.TraceWarning("Toolchain \"{0}\" is newer than the expected version \"{1}\", you may run into compilation errors", VersionString, ExpectedSDKVersion);
+				}
+			}
+			else if (VersionString != ExpectedSDKVersion)
+			{
+				ErrorMessage = "Failed to find a supported toolchain, found \"" + VersionString + "\", expected \"" + ExpectedSDKVersion + "\"";
+				return false;
+			}
+
+			ErrorMessage = "";
 			return true;
 		}
 

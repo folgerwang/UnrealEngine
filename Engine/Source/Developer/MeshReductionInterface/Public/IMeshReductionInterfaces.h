@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -84,6 +84,9 @@ struct FMergeCompleteData
 	FCreateProxyDelegate CallbackDelegate;
 };
 
+struct FFlattenMaterial;
+
+DECLARE_DELEGATE_OneParam(FBakeMaterialsDelegate, TArray<FFlattenMaterial>&);
 /**
 * Mesh merging interface.
 */
@@ -96,11 +99,20 @@ public:
 		const struct FMeshProxySettings& InProxySettings,
 		const TArray<struct FFlattenMaterial>& InputMaterials,
 		const FGuid InJobGUID) {}
+	
 
 	virtual void AggregateLOD() {}
 
+	virtual FString GetName() = 0;
+
+	/*
+	* Does this tool support baking materials in parallel
+	*/
+	virtual bool bSupportsParallelMaterialBake() { return false; }
+
 	FProxyCompleteDelegate CompleteDelegate;
 	FProxyFailedDelegate FailedDelegate;
+	FBakeMaterialsDelegate BakeMaterialsDelegate;
 };
 
 /**

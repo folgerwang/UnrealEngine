@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ComposurePostProcessPass.h"
 #include "ComposurePostProcessBlendable.h"
@@ -82,7 +82,7 @@ void UComposurePostProcessPass::InitializeComponent()
 	SceneCapture->AttachToComponent(this, FAttachmentTransformRules::KeepRelativeTransform);
 
 	// Avoid drawing any primitive by using the empty show only lists.
-	SceneCapture->PrimitiveRenderMode = PRM_UseShowOnlyList;
+	SceneCapture->PrimitiveRenderMode = ESceneCapturePrimitiveRenderMode::PRM_UseShowOnlyList;
 
 	// Avoid capturing every frame and on movement.
 	SceneCapture->bCaptureEveryFrame = false;

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,7 +8,7 @@
 #include "UObject/GCObject.h"
 #include "Toolkits/IToolkitHost.h"
 
-#include "AssetEditorToolkit.h"
+#include "Toolkits/AssetEditorToolkit.h"
 
 class SNiagaraParameterCollection;
 class FNiagaraParameterCollectionAssetViewModel;

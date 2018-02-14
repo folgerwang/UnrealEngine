@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PlanarReflectionSceneProxy.h: 
@@ -123,7 +123,7 @@ public:
 	FVector PlanarReflectionParameters;
 	FVector2D PlanarReflectionParameters2;
 	FMatrix ProjectionWithExtraFOV[GMaxPlanarReflectionViews];
-	FVector4 ScreenScaleBias[GMaxPlanarReflectionViews];
+	FIntRect ViewRect[GMaxPlanarReflectionViews];
 	FVector4 InverseTransposeMirrorMatrix[3];
 	FName OwnerName;
 	int32 PlanarReflectionId;

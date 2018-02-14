@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 using System.IO;
@@ -28,7 +28,7 @@ public class MayaLiveLinkPlugin : ModuleRules
 		//
 
 		{
-			string MayaVersionString = "2016";
+			string MayaVersionString = "2017";
 			string MayaInstallFolder = @"C:\Program Files\Autodesk\Maya" + MayaVersionString;
 
 			// Make sure this version of Maya is actually installed
@@ -37,8 +37,8 @@ public class MayaLiveLinkPlugin : ModuleRules
                 //throw new BuildException( "Couldn't find Autodesk Maya " + MayaVersionString + " in folder '" + MayaInstallFolder + "'.  This version of Maya must be installed for us to find the Maya SDK files." );
 
                 // These are required for Maya headers to compile properly as a DLL
-                Definitions.Add("NT_PLUGIN=1");
-                Definitions.Add("REQUIRE_IOSTREAM=1");
+                PublicDefinitions.Add("NT_PLUGIN=1");
+                PublicDefinitions.Add("REQUIRE_IOSTREAM=1");
 
                 PrivateIncludePaths.Add(Path.Combine(MayaInstallFolder, "include"));
 
@@ -51,7 +51,8 @@ public class MayaLiveLinkPlugin : ModuleRules
                         {
                             "Foundation.lib",
                             "OpenMaya.lib",
-                            "OpenMayaAnim.lib" }
+                            "OpenMayaAnim.lib",
+                            "OpenMayaUI.lib"}
                     );
                 }
             }

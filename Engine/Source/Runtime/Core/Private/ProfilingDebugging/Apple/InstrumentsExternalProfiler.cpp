@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreTypes.h"
 #include "HAL/PlatformMisc.h"
@@ -7,7 +7,7 @@
 #include "ProfilingDebugging/ExternalProfiler.h"
 #include "Features/IModularFeatures.h"
 #include "Templates/ScopedPointer.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "Apple/ApplePlatformDebugEvents.h"
 #include "Misc/Paths.h"
 #include "HAL/FileManager.h"

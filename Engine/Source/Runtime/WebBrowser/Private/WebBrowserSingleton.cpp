@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "WebBrowserSingleton.h"
 #include "Misc/Paths.h"
@@ -13,7 +13,7 @@
 #include "WebBrowserLog.h"
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 #endif
 
 #if WITH_CEF3
@@ -23,7 +23,7 @@
 #include "CEF/CEFWebBrowserWindow.h"
 #include "CEF/CEFSchemeHandler.h"
 #	if PLATFORM_WINDOWS
-#		include "AllowWindowsPlatformTypes.h"
+#		include "Windows/AllowWindowsPlatformTypes.h"
 #	endif
 #	pragma push_macro("OVERRIDE")
 #		undef OVERRIDE // cef headers provide their own OVERRIDE macro
@@ -32,7 +32,7 @@ THIRD_PARTY_INCLUDES_START
 THIRD_PARTY_INCLUDES_END
 #	pragma pop_macro("OVERRIDE")
 #	if PLATFORM_WINDOWS
-#		include "HideWindowsPlatformTypes.h"
+#		include "Windows/HideWindowsPlatformTypes.h"
 #	endif
 #endif
 
@@ -332,6 +332,8 @@ FWebBrowserSingleton::~FWebBrowserSingleton()
 			BrowserWindow->InternalCefBrowser->GetHost()->CloseBrowser(true);
 		}
 	}
+	// Clear this before CefShutdown() below
+	WindowInterfaces.Reset();
 
 	// Remove references to the scheme handler factories
 	CefClearSchemeHandlerFactories();
@@ -339,14 +341,14 @@ FWebBrowserSingleton::~FWebBrowserSingleton()
 	{
 		RequestContextPair.Value->ClearSchemeHandlerFactories();
 	}
-
+	// Clear this before CefShutdown() below
+	RequestContexts.Reset();
 	// Just in case, although we deallocate CEFBrowserApp right after this.
 	CEFBrowserApp->OnRenderProcessThreadCreated().Unbind();
 	// CefRefPtr takes care of delete
 	CEFBrowserApp = nullptr;
 	// Shut down CEF.
 	CefShutdown();
-
 #endif
 }
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -15,6 +15,8 @@ public:
 	virtual FText GetNameText() const override;
 	virtual FText GetDescriptionText() const override;
 	virtual bool OpenSolution() override;
+	virtual bool OpenSolutionAtPath(const FString& InSolutionPath) override;
+	virtual bool DoesSolutionExist() const override;
 	virtual bool OpenFileAtLine(const FString& FullPath, int32 LineNumber, int32 ColumnNumber = 0) override;
 	virtual bool OpenSourceFiles(const TArray<FString>& AbsoluteSourcePaths) override;
 	virtual bool AddSourceFiles(const TArray<FString>& AbsoluteSourcePaths, const TArray<FString>& AvailableModules) override;

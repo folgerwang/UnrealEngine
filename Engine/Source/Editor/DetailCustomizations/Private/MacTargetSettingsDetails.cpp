@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MacTargetSettingsDetails.h"
 #include "Misc/Paths.h"
@@ -17,7 +17,7 @@
 #include "Interfaces/ITargetPlatform.h"
 #include "Interfaces/ITargetPlatformModule.h"
 #include "SExternalImageReference.h"
-#include "SNumericDropDown.h"
+#include "Widgets/Input/SNumericDropDown.h"
 #include "Dialogs/Dialogs.h"
 #include "Widgets/Notifications/SErrorText.h"
 #include "IDetailPropertyRow.h"
@@ -281,6 +281,13 @@ bool FMacTargetSettingsDetails::HandlePostExternalIconCopy(const FString& InChos
 	return true;
 }
 
+static uint32 GMacTargetSettingsMinOSVers[][3] = {
+	{10,11,6},
+	{10,11,6},
+	{10,12,6},
+	{10,13,0}
+};
+
 TSharedRef<SWidget> FMacTargetSettingsDetails::OnGetShaderVersionContent()
 {
 	FMenuBuilder MenuBuilder(true, NULL);
@@ -289,7 +296,11 @@ TSharedRef<SWidget> FMacTargetSettingsDetails::OnGetShaderVersionContent()
 	
 	for (int32 i = 0; i < Enum->GetMaxEnumValue(); i++)
 	{
-		if (Enum->IsValidEnumValue(i))
+		bool bValidTargetForCurrentOS = true;
+#if PLATFORM_MAC
+		bValidTargetForCurrentOS = FPlatformMisc::MacOSXVersionCompare(GMacTargetSettingsMinOSVers[i][0], GMacTargetSettingsMinOSVers[i][1], GMacTargetSettingsMinOSVers[i][2]) >= 0;
+#endif
+		if (Enum->IsValidEnumValue(i) && bValidTargetForCurrentOS)
 		{
 			FUIAction ItemAction(FExecuteAction::CreateSP(this, &FMacTargetSettingsDetails::SetShaderStandard, i));
 			MenuBuilder.AddMenuEntry(Enum->GetDisplayNameTextByValue(i), TAttribute<FText>(), FSlateIcon(), ItemAction);
@@ -316,15 +327,6 @@ FText FMacTargetSettingsDetails::GetShaderVersionDesc() const
 
 void FMacTargetSettingsDetails::SetShaderStandard(int32 Value)
 {
-	if (Value > 1 && TargetShaderFormatsDetails->IsTargetedRHIChecked(TEXT("SF_METAL_SM4")) != ECheckBoxState::Checked)
-	{
-		FText Message = LOCTEXT("MacMetalShaderVersion1_2","Enabling Mac Metal Shader Standard v1.2 increases the minimum operating system requirement for Metal Shader Model 5 from OS X El Capitan 10.11.5 or later to macOS Sierra 10.12.0 or later. Either set the minimum supported OS version to 10.12.0 or enable Metal Shader Model 4 support in \"Targeted RHIs\" which will be used on OS X El Capitan.");
-		ShaderVersionWarningTextBox->SetError(Message);
-	}
-	else
-	{
-		ShaderVersionWarningTextBox->SetError(TEXT(""));
-	}
 	FPropertyAccess::Result Res = ShaderVersionPropertyHandle->SetValue((uint8)Value);
 	check(Res == FPropertyAccess::Success);
 }

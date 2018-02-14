@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "BuildPatchTool.h"
 #include "UObject/Object.h"
 #include "RequiredProgramMainCPPInclude.h"
-#include "ToolMode.h"
+#include "Interfaces/ToolMode.h"
 #include "Misc/OutputDeviceError.h"
 
 using namespace BuildPatchTool;

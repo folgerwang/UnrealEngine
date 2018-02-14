@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	XeAudioDevice.cpp: Unreal XAudio2 Audio interface object.
@@ -18,16 +18,16 @@
 #include "XAudio2Effects.h"
 #include "Interfaces/IAudioFormat.h"
 #include "HAL/PlatformAffinity.h"
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
-#include "AllowWindowsPlatformAtomics.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformAtomics.h"
 THIRD_PARTY_INCLUDES_START
 	#include <xapobase.h>
 	#include <xapofx.h>
 	#include <xaudio2fx.h>
 THIRD_PARTY_INCLUDES_END
-#include "HideWindowsPlatformAtomics.h"
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformAtomics.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #include "XAudio2Support.h"
 #include "Runtime/HeadMountedDisplay/Public/IHeadMountedDisplayModule.h"
 
@@ -290,6 +290,9 @@ void FXAudio2Device::UpdateHardware()
 	// If the audio device changed, we need to tear down and restart the audio engine state
 	if (DeviceProperties->DidAudioDeviceChange())
 	{
+		//Cache the current audio clock.
+		CachedAudioClockStartTime = GetAudioClock();
+
 		// Flush stops all sources so sources can be safely deleted below.
 		Flush(nullptr);
 
@@ -329,7 +332,7 @@ void FXAudio2Device::UpdateAudioClock()
 	}
 	else
 	{
-		AudioClock = NewAudioClock;
+		AudioClock = NewAudioClock + CachedAudioClockStartTime;
 	}
 }
 

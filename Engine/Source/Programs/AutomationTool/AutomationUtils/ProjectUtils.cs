@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -161,10 +161,8 @@ namespace AutomationTool
 			{
 				foreach (UnrealTargetPlatform ClientPlatform in ClientTargetPlatforms)
 				{
-					String EncryptionKey;
-					String[] SigningKeys;
-					EncryptionAndSigning.ParseEncryptionIni(RawProjectPath.Directory, ClientPlatform, out SigningKeys, out EncryptionKey);
-					if (SigningKeys != null || !string.IsNullOrEmpty(EncryptionKey))
+					EncryptionAndSigning.CryptoSettings Settings = EncryptionAndSigning.ParseCryptoSettings(RawProjectPath.Directory, ClientPlatform);
+					if (Settings.IsAnyEncryptionEnabled() || Settings.bEnablePakSigning)
 					{
 						return true;
 					}
@@ -215,7 +213,7 @@ namespace AutomationTool
 					foreach(PluginInfo Plugin in AvailablePlugins)
 					{
 						bool bPluginEnabledForProject = Plugins.IsPluginEnabledForProject(Plugin, Project, TargetPlatformType, TargetType.Game);
-						if ((bPluginEnabledForProject && !Plugin.EnabledByDefault) || (bPluginEnabledForProject && Plugin.Descriptor.bInstalled))
+						if ((bPluginEnabledForProject != Plugin.EnabledByDefault) || (bPluginEnabledForProject && Plugin.Descriptor.bInstalled))
 						{
 							// NOTE: this code was only marking plugins that compiled for the platform to upgrade to code project, however
 							// this doesn't work in practice, because the runtime code will look for the plugin, without a .uplugin file,
@@ -244,21 +242,53 @@ namespace AutomationTool
 
 		private static void GenerateTempTarget(FileReference RawProjectPath)
 		{
-			// read in the template target cs file
-			var TempCSFile = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "Engine", "Build", "Target.cs.template");
-			string TargetCSFile = File.ReadAllText(TempCSFile);
+			DirectoryReference TempDir = DirectoryReference.Combine(RawProjectPath.Directory, "Intermediate", "Source");
+			DirectoryReference.CreateDirectory(TempDir);
 
-			// replace {GAME_NAME} with the game name
-			TargetCSFile = TargetCSFile.Replace("{GAME_NAME}", Path.GetFileNameWithoutExtension(RawProjectPath.FullName));
+			// Get the project name for use in temporary files
+			string ProjectName = RawProjectPath.GetFileNameWithoutExtension();
 
-			// write out the file in a new Source directory
-			string FileName = CommandUtils.CombinePaths(Path.GetDirectoryName(RawProjectPath.FullName), "Intermediate", "Source", Path.GetFileNameWithoutExtension(RawProjectPath.FullName) + ".Target.cs");
-			if (!Directory.Exists(Path.GetDirectoryName(FileName)))
+			// Create a target.cs file
+			FileReference TargetLocation = FileReference.Combine(TempDir, ProjectName + ".Target.cs");
+			using (StreamWriter Writer = new StreamWriter(TargetLocation.FullName))
 			{
-				Directory.CreateDirectory(Path.GetDirectoryName(FileName));
+				Writer.WriteLine("using UnrealBuildTool;");
+				Writer.WriteLine();
+				Writer.WriteLine("public class {0}Target : TargetRules", ProjectName);
+				Writer.WriteLine("{");
+				Writer.WriteLine("\tpublic {0}Target(TargetInfo Target) : base(Target)", ProjectName);
+				Writer.WriteLine("\t{");
+				Writer.WriteLine("\t\tType = TargetType.Game;");
+				Writer.WriteLine("\t\tExtraModuleNames.Add(\"{0}\");", ProjectName);
+				Writer.WriteLine("\t}");
+				Writer.WriteLine("}");
 			}
 
-			File.WriteAllText(FileName, TargetCSFile);
+			// Create a build.cs file
+			FileReference ModuleLocation = FileReference.Combine(TempDir, ProjectName + ".Build.cs");
+			using (StreamWriter Writer = new StreamWriter(ModuleLocation.FullName))
+			{
+				Writer.WriteLine("using UnrealBuildTool;");
+				Writer.WriteLine();
+				Writer.WriteLine("public class {0} : ModuleRules", ProjectName);
+				Writer.WriteLine("{");
+				Writer.WriteLine("\tpublic {0}(ReadOnlyTargetRules Target) : base(Target)", ProjectName);
+				Writer.WriteLine("\t{");
+				Writer.WriteLine("\t\tPrivateDependencyModuleNames.Add(\"Core\");");
+				Writer.WriteLine("\t\tPrivateDependencyModuleNames.Add(\"Core\");");
+				Writer.WriteLine("\t}");
+				Writer.WriteLine("}");
+			}
+
+			// Create a main module cpp file
+			FileReference SourceFileLocation = FileReference.Combine(TempDir, ProjectName + ".cpp");
+			using (StreamWriter Writer = new StreamWriter(SourceFileLocation.FullName))
+			{
+				Writer.WriteLine("#include \"CoreTypes.h\"");
+				Writer.WriteLine("#include \"Modules/ModuleManager.h\"");
+				Writer.WriteLine();
+				Writer.WriteLine("IMPLEMENT_PRIMARY_GAME_MODULE(FDefaultModuleImpl, {0}, \"{0}\");", ProjectName);
+			}
 		}
 
 		/// <summary>
@@ -504,7 +534,8 @@ namespace AutomationTool
 						"System.Xml.dll", 
 						typeof(UnrealBuildTool.PlatformExports).Assembly.Location
 					};
-			var TargetsDLL = DynamicCompilation.CompileAndLoadAssembly(TargetsDllFilename, TargetScripts, ReferencedAssemblies, null, DoNotCompile);
+			List<string> PreprocessorDefinitions = RulesAssembly.GetPreprocessorDefinitions();
+			var TargetsDLL = DynamicCompilation.CompileAndLoadAssembly(TargetsDllFilename, TargetScripts, ReferencedAssemblies, PreprocessorDefinitions, DoNotCompile);
 			var AllCompiledTypes = TargetsDLL.GetTypes();
 			foreach (Type TargetType in AllCompiledTypes)
 			{
@@ -513,7 +544,8 @@ namespace AutomationTool
 				{
 					string TargetName = GetTargetName(TargetType);
 
-					TargetInfo DummyTargetInfo = new TargetInfo(TargetName, BuildHostPlatform.Current.Platform, UnrealTargetConfiguration.Development, "", Properties.RawProjectPath);
+					ReadOnlyBuildVersion Version = new ReadOnlyBuildVersion(BuildVersion.ReadDefault());
+					TargetInfo DummyTargetInfo = new TargetInfo(TargetName, BuildHostPlatform.Current.Platform, UnrealTargetConfiguration.Development, "", Properties.RawProjectPath, Version);
 
 					// Create an instance of this type
 					CommandUtils.LogVerbose("Creating target rules object: {0}", TargetType.Name);

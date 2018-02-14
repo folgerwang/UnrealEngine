@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	GenerateAssetManifestCommandlet.cpp: Commandlet for generating a filtered
@@ -8,8 +8,8 @@
 
 #include "Commandlets/GenerateAssetManifestCommandlet.h"
 #include "AssetRegistryModule.h"
-#include "FileManager.h"
-#include "Paths.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
 #include "ARFilter.h"
 #include "Engine/World.h"
 #include "Misc/FileHelper.h"

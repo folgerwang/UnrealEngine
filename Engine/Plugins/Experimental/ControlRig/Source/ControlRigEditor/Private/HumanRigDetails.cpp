@@ -1,8 +1,8 @@
-	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "HumanRigDetails.h"
 #include "UObject/Class.h"
-#include "HumanRig.h"
+#include "Rigs/HumanRig.h"
 #include "DetailLayoutBuilder.h"
 #include "DetailCategoryBuilder.h"
 #include "DetailWidgetRow.h"
@@ -12,11 +12,11 @@
 #include "Widgets/Input/SNumericEntryBox.h"
 #include "Framework/Commands/GenericCommands.h"
 #include "ScopedTransaction.h"
-#include "SButton.h"
-#include "STreeView.h"
-#include "SSearchBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Views/STreeView.h"
+#include "Widgets/Input/SSearchBox.h"
 #include "Framework/Commands/UICommandList.h"
-#include "MultiBoxBuilder.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "ControlRigEditMode.h"
 #include "EditorModeManager.h"
 

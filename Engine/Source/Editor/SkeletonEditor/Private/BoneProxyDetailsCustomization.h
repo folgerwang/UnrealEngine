@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "IDetailCustomization.h"
-#include "ArrayView.h"
+#include "Containers/ArrayView.h"
 
 class IPropertyHandle;
 class UBoneProxy;

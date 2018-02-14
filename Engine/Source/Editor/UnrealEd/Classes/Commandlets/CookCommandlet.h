@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	CookCommandlet.cpp: Commandlet for cooking content
@@ -13,7 +13,7 @@
 #include "Templates/ScopedPointer.h"
 #include "Misc/PackageName.h"
 #include "Commandlets/Commandlet.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "IPlatformFileSandboxWrapper.h"
 #include "CookCommandlet.generated.h"
 
@@ -36,7 +36,7 @@ class UCookCommandlet
 	bool bCookOnTheFly; 
 	/** Cook everything */
 	bool bCookAll;
-	/** Skip saving any packages in Engine/COntent/Editor* UNLESS TARGET HAS EDITORONLY DATA (in which case it will save those anyway) */
+	/** Skip saving any packages in Engine/Content/Editor* UNLESS TARGET HAS EDITORONLY DATA (in which case it will save those anyway) */
 	bool bSkipEditorContent;
 	/** Test for UObject leaks */
 	bool bLeakTest;  

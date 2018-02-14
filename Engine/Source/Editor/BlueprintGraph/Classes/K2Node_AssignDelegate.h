@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -25,9 +25,13 @@ public:
 	virtual FText GetMenuCategory() const override;
 	virtual bool IsCompatibleWithGraph(const UEdGraph* TargetGraph) const override;
 	virtual void PostPlacedNewNode() override;
+	virtual void AllocateDefaultPins() override;
 	// End of UEdGraphNode interface
 
 private:
 	/** Constructing FText strings can be costly, so we cache the node's title */
 	FNodeTextCache CachedListTitle;
+
+	/** If true, should try to spawn a bound custom event node on next allocate */
+	bool bShouldSpawnCustomEvent;
 };

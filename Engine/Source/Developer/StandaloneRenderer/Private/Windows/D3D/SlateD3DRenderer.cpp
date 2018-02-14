@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Windows/D3D/SlateD3DRenderer.h"
 #include "Windows/D3D/SlateD3DTextureManager.h"
 #include "Windows/D3D/SlateD3DRenderingPolicy.h"
-#include "ElementBatcher.h"
-#include "FontCache.h"
-#include "SlateStats.h"
+#include "Rendering/ElementBatcher.h"
+#include "Fonts/FontCache.h"
+#include "Stats/SlateStats.h"
 #include "Widgets/SWindow.h"
 #include "Misc/CommandLine.h"
 #include "StandaloneRendererLog.h"

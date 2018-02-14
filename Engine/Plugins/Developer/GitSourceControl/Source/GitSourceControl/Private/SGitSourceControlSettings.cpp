@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SGitSourceControlSettings.h"
 #include "Fonts/SlateFontInfo.h"
@@ -13,8 +13,8 @@
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Input/SCheckBox.h"
 #include "EditorStyleSet.h"
-#include "SSeparator.h"
-#include "SMultiLineEditableTextBox.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
 #include "SourceControlOperations.h"
@@ -254,8 +254,8 @@ void SGitSourceControlSettings::Construct(const FArguments& InArgs)
 			]
 			// Button to initialize the project with Git, create .gitignore/.gitattributes files, and make the first commit)
 			+SVerticalBox::Slot()
-			.FillHeight(2.0f)
-			.Padding(2.5f)
+			.FillHeight(2.5f)
+			.Padding(4.0f)
 			.VAlign(VAlign_Center)
 			[
 				SNew(SHorizontalBox)
@@ -364,7 +364,7 @@ FReply SGitSourceControlSettings::OnClickedInitializeGitRepository()
 		{
 			// 2.a. Create a standard ".gitignore" file with common patterns for a typical Blueprint & C++ project
 			const FString GitIgnoreFilename = FPaths::Combine(FPaths::ProjectDir(), TEXT(".gitignore"));
-			const FString GitIgnoreContent = TEXT("Binaries\nDerivedDataCache\nIntermediate\nSaved\n.vs\n*.VC.db\n*.opensdf\n*.opendb\n*.sdf\n*.sln\n*.suo\n*.xcodeproj\n*.xcworkspace");
+			const FString GitIgnoreContent = TEXT("Binaries\nDerivedDataCache\nIntermediate\nSaved\n.vscode\n.vs\n*.VC.db\n*.opensdf\n*.opendb\n*.sdf\n*.sln\n*.suo\n*.xcodeproj\n*.xcworkspace");
 			if(FFileHelper::SaveStringToFile(GitIgnoreContent, *GitIgnoreFilename, FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM))
 			{
 				ProjectFiles.Add(GitIgnoreFilename);

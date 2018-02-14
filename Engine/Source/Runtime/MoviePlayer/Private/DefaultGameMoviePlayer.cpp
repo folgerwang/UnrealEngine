@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "DefaultGameMoviePlayer.h"
 #include "HAL/PlatformSplash.h"
@@ -14,11 +14,12 @@
 #include "MoviePlayerSettings.h"
 #include "ShaderCompiler.h"
 #include "IHeadMountedDisplay.h"
+#include "IXRTrackingSystem.h"
 #include "IStereoLayers.h"
-#include "ConfigCacheIni.h"
-#include "FileManager.h"
-#include "SVirtualWindow.h"
-#include "SlateDrawBuffer.h"
+#include "Misc/ConfigCacheIni.h"
+#include "HAL/FileManager.h"
+#include "Widgets/SVirtualWindow.h"
+#include "Rendering/SlateDrawBuffer.h"
 #include "HAL/PlatformApplicationMisc.h"
 #include "Widgets/Layout/SDPIScaler.h"
 #include "Engine/UserInterfaceSettings.h"
@@ -204,10 +205,10 @@ void FDefaultGameMoviePlayer::Initialize(FSlateRenderer& InSlateRenderer)
 			[
 				SAssignNew(UserWidgetDPIScaler, SDPIScaler)
 				[
-					SAssignNew(UserWidgetHolder, SBorder)
-					.BorderImage(FCoreStyle::Get().GetBrush(TEXT("NoBorder")))
-					.Padding(0)
-				]
+				SAssignNew(UserWidgetHolder, SBorder)
+				.BorderImage(FCoreStyle::Get().GetBrush(TEXT("NoBorder")))
+				.Padding(0)
+			]
 			]
 		];
 
@@ -284,7 +285,7 @@ void FDefaultGameMoviePlayer::SetupLoadingScreen(const FLoadingScreenAttributes&
 	}
 	else
 	{
-		LoadingScreenAttributes = InLoadingScreenAttributes;
+	LoadingScreenAttributes = InLoadingScreenAttributes;
 }
 }
 
@@ -474,7 +475,7 @@ void FDefaultGameMoviePlayer::WaitForMovieToFinish()
 		LoadingIsDone.Set(1);
 
 		IStereoLayers* StereoLayers;
-		if (GEngine && GEngine->HMDDevice.IsValid() && (StereoLayers = GEngine->HMDDevice->GetStereoLayers()) != nullptr && SyncMechanism == nullptr)
+		if (GEngine && GEngine->StereoRenderingDevice.IsValid() && (StereoLayers = GEngine->StereoRenderingDevice->GetStereoLayers()) != nullptr && SyncMechanism == nullptr)
 		{
 			StereoLayers->SetSplashScreenMovie(FTextureRHIRef());
 		}
@@ -558,7 +559,7 @@ void FDefaultGameMoviePlayer::TickStreamer(float DeltaTime)
 		}
 
 		IStereoLayers* StereoLayers;
-		if (GEngine && GEngine->HMDDevice.IsValid() && (StereoLayers = GEngine->HMDDevice->GetStereoLayers()) != nullptr)
+		if (GEngine && GEngine->StereoRenderingDevice.IsValid() && (StereoLayers = GEngine->StereoRenderingDevice->GetStereoLayers()) != nullptr)
 		{
 			FTexture2DRHIRef Movie2DTexture = MovieStreamer->GetTexture();
 			FTextureRHIRef MovieTexture;

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MeshPaintModeModule.h"
 #include "Modules/ModuleManager.h"
@@ -13,7 +13,7 @@
 
 #include "PaintModeSettings.h"
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 IMPLEMENT_MODULE(FMeshPaintModeModule, MeshPaintMode );
 

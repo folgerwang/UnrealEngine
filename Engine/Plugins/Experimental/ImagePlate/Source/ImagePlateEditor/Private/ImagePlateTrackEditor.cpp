@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ImagePlateTrackEditor.h"
 #include "ImagePlateFileSequence.h"
@@ -13,7 +13,7 @@
 #include "TrackEditorThumbnail/TrackEditorThumbnailPool.h"
 #include "EditorStyleSet.h"
 #include "Sections/ThumbnailSection.h"
-#include "GCObject.h"
+#include "UObject/GCObject.h"
 #include "ImagePlate.h"
 #include "ImagePlateComponent.h"
 #include "ContentBrowserModule.h"
@@ -409,7 +409,7 @@ void FImagePlateTrackEditor::AddNewSection(const FAssetData& AssetData, UMovieSc
 	check(Track);
 
 	const float TimeToStart = GetSequencer()->GetLocalTime();
-	const float Length = FMath::Max(0.f, FileSequence->GetAsyncCache().Length() / FileSequence->Framerate);
+	const float Length = FileSequence->Framerate <= 0.f ? 1.f : FMath::Max(0.f, FileSequence->GetAsyncCache().Length() / FileSequence->Framerate);
 
 	TRange<float> SectionRange(TimeToStart, TimeToStart + Length);
 

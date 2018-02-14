@@ -1,9 +1,9 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "GCObject.h"
-#include "UniquePtr.h"
+#include "UObject/GCObject.h"
+#include "Templates/UniquePtr.h"
 
 /**
  * Specific implementation of FGCObject that prevents a single UObject-based pointer from being GC'd while this guard is in scope.

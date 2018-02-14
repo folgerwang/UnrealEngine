@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Misc/MemStack.h"
 #include "Misc/Parse.h"
@@ -19,7 +19,7 @@ FPageAllocator::TPageAllocator FPageAllocator::TheAllocator;
 
 #define MEMSTACK_PUGATORY_COMPILED_IN (1)
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <Psapi.h>
 
 TLockFreePointerListUnordered<void> TheAllocatorReady;
@@ -197,7 +197,7 @@ uint64 FPageAllocator::BytesFree()
 		uint64(TheAllocator.GetNumFree().GetValue()) * PageSize + uint64(TheSmallAllocator.GetNumFree().GetValue()) * SmallPageSize;
 }
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #else
 

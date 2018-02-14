@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -101,7 +101,7 @@ namespace UnrealBuildTool
 
 		private bool WriteWorkspaceSettingsFile(string Path)
 		{
-			var WorkspaceSettingsContent = new StringBuilder();
+			StringBuilder WorkspaceSettingsContent = new StringBuilder();
 			WorkspaceSettingsContent.Append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>" + ProjectFileGenerator.NewLine);
 			WorkspaceSettingsContent.Append("<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">" + ProjectFileGenerator.NewLine);
 			WorkspaceSettingsContent.Append("<plist version=\"1.0\">" + ProjectFileGenerator.NewLine);
@@ -129,7 +129,7 @@ namespace UnrealBuildTool
 		{
 			bool bSuccess = true;
 
-			var WorkspaceDataContent = new StringBuilder();
+			StringBuilder WorkspaceDataContent = new StringBuilder();
 
 			WorkspaceDataContent.Append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>" + ProjectFileGenerator.NewLine);
 			WorkspaceDataContent.Append("<Workspace" + ProjectFileGenerator.NewLine);
@@ -138,6 +138,7 @@ namespace UnrealBuildTool
 			System.Action< List<MasterProjectFolder> /* Folders */, string /* Ident */ > AddProjectsFunction = null;
 			AddProjectsFunction = (FolderList, Ident) =>
 				{
+					int SchemeIndex = 0;
 					foreach (XcodeProjectFolder CurFolder in FolderList)
 					{
 						WorkspaceDataContent.Append(Ident + "   <Group" + ProjectFileGenerator.NewLine);
@@ -145,7 +146,10 @@ namespace UnrealBuildTool
 
 						AddProjectsFunction(CurFolder.SubFolders, Ident + "   ");
 
-						foreach (ProjectFile CurProject in CurFolder.ChildProjects)
+						List<ProjectFile> ChildProjects = new List<ProjectFile>(CurFolder.ChildProjects);
+						ChildProjects.Sort((ProjectFile A, ProjectFile B) => { return A.ProjectFilePath.GetFileName().CompareTo(B.ProjectFilePath.GetFileName()); });
+
+						foreach (ProjectFile CurProject in ChildProjects)
 						{
 							XcodeProjectFile XcodeProject = CurProject as XcodeProjectFile;
 							if (XcodeProject != null)
@@ -153,6 +157,16 @@ namespace UnrealBuildTool
 								WorkspaceDataContent.Append(Ident + "      <FileRef" + ProjectFileGenerator.NewLine);
 								WorkspaceDataContent.Append(Ident + "         location = \"group:" + XcodeProject.ProjectFilePath.MakeRelativeTo(ProjectFileGenerator.MasterProjectPath) + "\">" + ProjectFileGenerator.NewLine);
 								WorkspaceDataContent.Append(Ident + "      </FileRef>" + ProjectFileGenerator.NewLine);
+
+								// Also, update project's schemes index so that the schemes list order match projects order in the navigator
+								FileReference SchemeManagementFile = XcodeProject.ProjectFilePath + "/xcuserdata/" + Environment.UserName + ".xcuserdatad/xcschemes/xcschememanagement.plist";
+								if (FileReference.Exists(SchemeManagementFile))
+								{
+									string SchemeManagementContent = FileReference.ReadAllText(SchemeManagementFile);
+									SchemeManagementContent = SchemeManagementContent.Replace("<key>orderHint</key>\n\t\t\t<integer>1</integer>", "<key>orderHint</key>\n\t\t\t<integer>" + SchemeIndex.ToString() + "</integer>");
+									FileReference.WriteAllText(SchemeManagementFile, SchemeManagementContent);
+									SchemeIndex++;
+								}
 							}
 						}
 
@@ -168,11 +182,11 @@ namespace UnrealBuildTool
 			{
 				ProjectName += ProjectFilePlatform == XcodeProjectFilePlatform.Mac ? "_Mac" : (ProjectFilePlatform == XcodeProjectFilePlatform.iOS ? "_IOS" : "_TVOS");
 			}
-			var WorkspaceDataFilePath = MasterProjectPath + "/" + ProjectName + ".xcworkspace/contents.xcworkspacedata";
+			string WorkspaceDataFilePath = MasterProjectPath + "/" + ProjectName + ".xcworkspace/contents.xcworkspacedata";
 			bSuccess = WriteFileIfChanged(WorkspaceDataFilePath, WorkspaceDataContent.ToString(), new UTF8Encoding());
 			if (bSuccess)
 			{
-				var WorkspaceSettingsFilePath = MasterProjectPath + "/" + ProjectName + ".xcworkspace/xcuserdata/" + Environment.UserName + ".xcuserdatad/WorkspaceSettings.xcsettings";
+				string WorkspaceSettingsFilePath = MasterProjectPath + "/" + ProjectName + ".xcworkspace/xcuserdata/" + Environment.UserName + ".xcuserdatad/WorkspaceSettings.xcsettings";
 				bSuccess = WriteWorkspaceSettingsFile(WorkspaceSettingsFilePath);
 			}
 
@@ -213,7 +227,7 @@ namespace UnrealBuildTool
 			base.ConfigureProjectFileGeneration(Arguments, ref IncludeAllPlatforms);
 			ProjectFilePlatform = IncludeAllPlatforms ? XcodeProjectFilePlatform.All : XcodeProjectFilePlatform.Mac;
 
-			foreach (var CurArgument in Arguments)
+			foreach (string CurArgument in Arguments)
 			{
 				if (CurArgument.StartsWith("-iOSDeployOnly", StringComparison.InvariantCultureIgnoreCase))
 				{

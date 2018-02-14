@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #include "SGraphPanel.h"
@@ -579,9 +579,11 @@ FReply SGraphPanel::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InK
 		// Iterate through all key mappings to generate key event flags
 		for (uint32 i = 0; i < static_cast<uint8>(EMultipleKeyBindingIndex::NumChords); ++i)
 		{
-			EMultipleKeyBindingIndex ChordIndex = static_cast<EMultipleKeyBindingIndex> (i);
-			bZoomOutKeyEvent |= InKeyEvent.GetKey() == FGraphEditorCommands::Get().ZoomOut->GetActiveChord(ChordIndex)->Key;
-			bZoomInKeyEvent |= InKeyEvent.GetKey() == FGraphEditorCommands::Get().ZoomIn->GetActiveChord(ChordIndex)->Key;
+			EMultipleKeyBindingIndex ChordIndex = static_cast<EMultipleKeyBindingIndex>(i);
+			const FInputChord& ZoomOutChord = *FGraphEditorCommands::Get().ZoomOut->GetActiveChord(ChordIndex);
+			const FInputChord& ZoomInChord = *FGraphEditorCommands::Get().ZoomIn->GetActiveChord(ChordIndex);
+			bZoomOutKeyEvent |= ZoomOutChord.IsValidChord() && InKeyEvent.GetKey() == ZoomOutChord.Key;
+			bZoomInKeyEvent |= ZoomInChord.IsValidChord() && InKeyEvent.GetKey() == ZoomInChord.Key;
 		}
 
 		if(bZoomOutKeyEvent)
@@ -1612,7 +1614,7 @@ void SGraphPanel::OnGraphChanged(const FEdGraphEditAction& EditAction)
 
 			for (const UEdGraphNode* Node : EditAction.Nodes)
 			{
-				TWeakObjectPtr<UEdGraphNode> NodePtr = Node;
+				TWeakObjectPtr<UEdGraphNode> NodePtr = MakeWeakObjectPtr(const_cast<UEdGraphNode*>(Node));
 				RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateStatic(RemoveNodeDelegateWrapper, this, NodePtr));
 			}
 		}
@@ -1631,7 +1633,7 @@ void SGraphPanel::OnGraphChanged(const FEdGraphEditAction& EditAction)
 
 			for (const UEdGraphNode* Node : EditAction.Nodes)
 			{
-				TWeakObjectPtr<UEdGraphNode> NodePtr = Node;
+				TWeakObjectPtr<UEdGraphNode> NodePtr = MakeWeakObjectPtr(const_cast<UEdGraphNode*>(Node));
 				RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateStatic(AddNodeDelegateWrapper, this, NodePtr, EditAction.bUserInvoked));
 			}
 		}
@@ -1654,7 +1656,8 @@ void SGraphPanel::OnGraphChanged(const FEdGraphEditAction& EditAction)
 			TSet< TWeakObjectPtr<UEdGraphNode> > NodePtrSet;
 			for (const UEdGraphNode* Node : EditAction.Nodes)
 			{
-				NodePtrSet.Add(Node);
+				TWeakObjectPtr<UEdGraphNode> NodePtr = MakeWeakObjectPtr(const_cast<UEdGraphNode*>(Node));
+				NodePtrSet.Add(NodePtr);
 			}
 
 			RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateStatic(SelectNodeDelegateWrapper, this, NodePtrSet));

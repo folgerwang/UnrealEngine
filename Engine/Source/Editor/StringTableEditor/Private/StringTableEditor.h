@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -7,9 +7,9 @@
 #include "IStringTableEditor.h"
 #include "EditorUndoClient.h"
 
-#include "SEditableTextBox.h"
-#include "SMultiLineEditableTextBox.h"
-#include "SListView.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
+#include "Widgets/Views/SListView.h"
 
 /** Viewer/editor for a String Table */
 class FStringTableEditor : public IStringTableEditor, public FEditorUndoClient

@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
-#include "AnimBone.h"
+#include "AnimBody/AnimBone.h"
 #include "LeapEnums.h"
 #include "AnimFinger.generated.h"
 

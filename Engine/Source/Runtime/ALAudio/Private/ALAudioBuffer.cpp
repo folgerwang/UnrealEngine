@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Stats/Stats.h"
@@ -110,15 +110,7 @@ void FALSoundBuffer::CreateNativeBuffer(FALAudioDevice* AudioDevice, USoundWave*
 	{
 		SCOPE_CYCLE_COUNTER( STAT_AudioResourceCreationTime );
 
-		// Check to see if thread has finished decompressing on the other thread
-		if (Wave->AudioDecompressor)
-		{
-			Wave->AudioDecompressor->EnsureCompletion();
-
-			// Remove the decompressor
-			delete Wave->AudioDecompressor;
-			Wave->AudioDecompressor = nullptr;
-		}
+		check(Wave->bIsPrecacheDone);
 
 		// Create new buffer.
 		Buffer = new FALSoundBuffer(AudioDevice);

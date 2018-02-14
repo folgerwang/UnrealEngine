@@ -1,19 +1,20 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	HTML5Misc.cpp: HTML5 implementations of misc functions
 =============================================================================*/
 
-#include "HTML5PlatformMisc.h"
-#include "HTML5PlatformProcess.h"
+#include "HTML5/HTML5PlatformMisc.h"
+#include "HTML5/HTML5PlatformProcess.h"
 
 #include "HTML5JavaScriptFx.h"
+#include "Containers/StringConv.h"
 #include <emscripten/trace.h>
 
 THIRD_PARTY_INCLUDES_START
 	#include "unicode/locid.h"
 THIRD_PARTY_INCLUDES_END
-#include "GenericPlatformCrashContext.h"
+#include "GenericPlatform/GenericPlatformCrashContext.h"
 THIRD_PARTY_INCLUDES_START
 	#include <SDL.h>
 	#include <ctime>
@@ -86,3 +87,7 @@ void FHTML5Misc::SetCrashHandler(void(* CrashHandler)(const FGenericCrashContext
 	GHTML5CrashHandler = CrashHandler;
 }
 
+void FHTML5Misc::LocalPrint(const TCHAR* Str)
+{
+	emscripten_log(EM_LOG_CONSOLE, TCHAR_TO_ANSI(Str));
+}

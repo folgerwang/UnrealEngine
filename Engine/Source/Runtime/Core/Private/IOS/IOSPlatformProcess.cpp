@@ -1,12 +1,12 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 IOSPlatformProcess.cpp: iOS implementations of Process functions
 =============================================================================*/
 
-#include "IOSPlatformProcess.h"
-#include "ApplePlatformRunnableThread.h"
-#include "IOSAppDelegate.h"
+#include "IOS/IOSPlatformProcess.h"
+#include "Apple/ApplePlatformRunnableThread.h"
+#include "IOS/IOSAppDelegate.h"
 #include <mach-o/dyld.h>
 
 // numbers recommended by Apple

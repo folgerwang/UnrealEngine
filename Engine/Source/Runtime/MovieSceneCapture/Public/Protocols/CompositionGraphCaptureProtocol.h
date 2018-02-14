@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -11,7 +11,7 @@
 
 class FSceneViewport;
 struct FMovieSceneCaptureSettings;
-struct FSceneViewExtension;
+struct FFrameCaptureViewExtension;
 
 /** Used by UCompositionGraphCaptureSettings. Matches gamut oreder in TonemapCommon.usf OuputGamutMappingMatrix()*/
 UENUM()
@@ -22,6 +22,7 @@ enum EHDRCaptureGamut
 	HCGM_Rec2020 UMETA(DisplayName = "Rec.2020"),
 	HCGM_ACES UMETA(DisplayName = "ACES"),
 	HCGM_ACEScg UMETA(DisplayName = "ACEScg"),
+	HCGM_Linear UMETA(DisplayName = "Linear"),
 	HCGM_MAX,
 };
 
@@ -80,7 +81,7 @@ private:
 	TWeakPtr<FSceneViewport> SceneViewport;
 
 	/** A view extension that we use to ensure we dump out the composition graph frames with the correct settings */
-	TSharedPtr<struct FSceneViewExtension, ESPMode::ThreadSafe> ViewExtension;
+	TSharedPtr<FFrameCaptureViewExtension, ESPMode::ThreadSafe> ViewExtension;
 
 	/** The render passes we want to export */
 	TArray<FString> RenderPasses;

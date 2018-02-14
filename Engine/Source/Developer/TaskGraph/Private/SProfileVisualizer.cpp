@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SProfileVisualizer.h"
 #include "Widgets/SBoxPanel.h"
@@ -15,11 +15,11 @@
 #include "SBarVisualizer.h"
 #include "SEventsTree.h"
 #include "STaskGraph.h"
-#include "SButton.h"
-#include "STextBlock.h"
-#include "App.h"
-#include "EngineVersion.h"
-#include "FileManager.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Misc/App.h"
+#include "Misc/EngineVersion.h"
+#include "HAL/FileManager.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
 
@@ -27,7 +27,7 @@
 #include "DesktopPlatformModule.h"
 #endif
 
-#include "GenericCommands.h"
+#include "Framework/Commands/GenericCommands.h"
 	
 void SProfileVisualizer::Construct(const FArguments& InArgs)
 {

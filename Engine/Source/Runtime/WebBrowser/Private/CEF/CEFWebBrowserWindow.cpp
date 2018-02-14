@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CEF/CEFWebBrowserWindow.h"
 #include "IWebBrowserDialog.h"
@@ -21,10 +21,10 @@
 #endif
 
 #if PLATFORM_WINDOWS
-#include "WindowsCursor.h"
+#include "Windows/WindowsCursor.h"
 typedef FWindowsCursor FPlatformCursor;
 #elif PLATFORM_MAC
-#include "MacCursor.h"
+#include "Mac/MacCursor.h"
 typedef FMacCursor FPlatformCursor;
 #else
 #endif

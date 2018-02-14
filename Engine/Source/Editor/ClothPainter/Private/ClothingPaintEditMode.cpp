@@ -1,18 +1,18 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ClothingPaintEditMode.h"
 #include "IPersonaPreviewScene.h"
 #include "AssetEditorModeManager.h"
 #include "EngineUtils.h"
 
-#include "Classes/Animation/DebugSkelMeshComponent.h"
+#include "Animation/DebugSkelMeshComponent.h"
 
 #include "ClothPainter.h"
 #include "ComponentReregisterContext.h"
 #include "ClothingAssetInterface.h"
 #include "ComponentRecreateRenderStateContext.h"
 #include "IPersonaToolkit.h"
-#include "ClothingAsset.h"
+#include "Assets/ClothingAsset.h"
 #include "EditorViewportClient.h"
 #include "AssetViewerSettings.h"
 #include "Editor/EditorPerProjectUserSettings.h"
@@ -75,7 +75,7 @@ void FClothingPaintEditMode::Enter()
 		ClothPainter->SetSkeletalMeshComponent(Scene->GetPreviewMeshComponent());
 	}
 	
-	ClothPainter->Reset();
+	ClothPainter->EnterPaintMode();
 }
 
 void FClothingPaintEditMode::Exit()
@@ -140,6 +140,8 @@ void FClothingPaintEditMode::Exit()
 			ViewportClient->EngineShowFlags.DisableAdvancedFeatures();
 		}
 	}
+
+	ClothPainter->ExitPaintMode();
 
 	IMeshPaintEdMode::Exit();
 }

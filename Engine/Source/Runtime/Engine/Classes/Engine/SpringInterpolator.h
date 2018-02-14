@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
-#include "UnrealMath.h"
-#include "IConsoleManager.h"
+#include "Math/UnrealMath.h"
+#include "HAL/IConsoleManager.h"
 #include "SpringInterpolator.generated.h"
 
 struct FRK4SpringConstants

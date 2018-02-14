@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -17,7 +17,7 @@ struct CORE_API FGenericPlatformOutputDevices
 	static void							SetupOutputDevices();
 	static FString						GetAbsoluteLogFilename();
 	static FOutputDevice*				GetLog();
-
+	static void							GetPerChannelFileOverrides(TArray<FOutputDevice*>& OutputDevices);
 	static FOutputDevice*				GetEventLog()
 	{
 		return nullptr; // normally only used for dedicated servers

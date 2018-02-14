@@ -1,19 +1,19 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ImagePlateFileSequence.h"
 #include "IImageWrapper.h"
 #include "IImageWrapperModule.h"
-#include "ModuleManager.h"
-#include "FileHelper.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/FileHelper.h"
 #include "RenderingThread.h"
 #include "RHI.h"
 #include "TextureResource.h"
 #include "RenderUtils.h"
-#include "Paths.h"
-#include "Runnable.h"
+#include "Misc/Paths.h"
+#include "HAL/Runnable.h"
 #include "Algo/Sort.h"
-#include "Async.h"
-#include "PackageName.h"
+#include "Async/Async.h"
+#include "Misc/PackageName.h"
 #include "Engine/Texture2DDynamic.h"
 #include "Engine/TextureRenderTarget2D.h"
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -82,7 +82,7 @@ namespace UnrealBuildTool
 			HTML5SDKInfo.SetupEmscriptenTemp();
 			HTML5SDKInfo.SetUpEmscriptenConfigFile();
 
-			if (Environment.GetEnvironmentVariable("EMSDK") == null) // If env. var EMSDK is present, Emscripten is already configured by the developer
+			if (Environment.GetEnvironmentVariable("EMSDK") == null) // If EMSDK is present, Emscripten is already configured by the developer
 			{
 				// If not using preset emsdk, configure our generated .emscripten config, instead of autogenerating one in the user's home directory.
 				Environment.SetEnvironmentVariable("EM_CONFIG", HTML5SDKInfo.DOT_EMSCRIPTEN);
@@ -90,7 +90,7 @@ namespace UnrealBuildTool
 			}
 		}
 
-		string GetSharedArguments_Global(CppConfiguration Configuration, bool bOptimizeForSize, string Architecture, bool bEnableShadowVariableWarnings, bool bShadowVariableWarningsAsErrors, bool bEnableUndefinedIdentifierWarnings, bool bUndefinedIdentifierWarningsAsErrors)
+		string GetSharedArguments_Global(CppConfiguration Configuration, bool bOptimizeForSize, string Architecture, bool bEnableShadowVariableWarnings, bool bShadowVariableWarningsAsErrors, bool bEnableUndefinedIdentifierWarnings, bool bUndefinedIdentifierWarningsAsErrors, bool bUseInlining)
 		{
 			string Result = " ";
 //			string Result = " -Werror";
@@ -142,6 +142,11 @@ namespace UnrealBuildTool
 				Result += " -O3"; // favor speed over size
 			}
 
+			if (!bUseInlining)
+			{
+				Result += " -fno-inline-functions";
+			}
+
 			PrintOnce(Configuration, bOptimizeForSize);
 
 			// --------------------------------------------------------------------------------
@@ -189,7 +194,7 @@ namespace UnrealBuildTool
 
 		string GetCLArguments_Global(CppCompileEnvironment CompileEnvironment)
 		{
-			string Result = GetSharedArguments_Global(CompileEnvironment.Configuration, CompileEnvironment.bOptimizeForSize, CompileEnvironment.Architecture, CompileEnvironment.bEnableShadowVariableWarnings, CompileEnvironment.bShadowVariableWarningsAsErrors, CompileEnvironment.bEnableUndefinedIdentifierWarnings, CompileEnvironment.bUndefinedIdentifierWarningsAsErrors);
+			string Result = GetSharedArguments_Global(CompileEnvironment.Configuration, CompileEnvironment.bOptimizeForSize, CompileEnvironment.Architecture, CompileEnvironment.bEnableShadowVariableWarnings, CompileEnvironment.bShadowVariableWarningsAsErrors, CompileEnvironment.bEnableUndefinedIdentifierWarnings, CompileEnvironment.bUndefinedIdentifierWarningsAsErrors, CompileEnvironment.bUseInlining);
 
 // no longer needed as of UE4.18
 //			Result += " -Wno-reorder"; // we disable constructor order warnings.
@@ -213,7 +218,7 @@ namespace UnrealBuildTool
 
 		string GetLinkArguments(LinkEnvironment LinkEnvironment)
 		{
-			string Result = GetSharedArguments_Global(LinkEnvironment.Configuration, LinkEnvironment.bOptimizeForSize, LinkEnvironment.Architecture, false, false, false, false);
+			string Result = GetSharedArguments_Global(LinkEnvironment.Configuration, LinkEnvironment.bOptimizeForSize, LinkEnvironment.Architecture, false, false, false, false, false);
 
 			/* N.B. When editing link flags in this function, UnrealBuildTool does not seem to automatically pick them up and do an incremental
 			 *	relink only of UE4Game.js (at least when building blueprints projects). Therefore after editing, delete the old build
@@ -252,11 +257,11 @@ namespace UnrealBuildTool
 			// Emit a .symbols map file of the minified function names. (on -g2 builds this has no effect)
 			Result += " --emit-symbol-map";
 
-			if (LinkEnvironment.Configuration != CppConfiguration.Debug)
-			{
-				if (LinkEnvironment.bOptimizeForSize) Result += " -s OUTLINING_LIMIT=40000";
-				else Result += " -s OUTLINING_LIMIT=110000";
-			}
+//			if (LinkEnvironment.Configuration != CppConfiguration.Debug)
+//			{
+//				if (LinkEnvironment.bOptimizeForSize) Result += " -s OUTLINING_LIMIT=40000";
+//				else Result += " -s OUTLINING_LIMIT=110000";
+//			}
 
 			if (LinkEnvironment.Configuration == CppConfiguration.Debug || LinkEnvironment.Configuration == CppConfiguration.Development)
 			{
@@ -286,6 +291,7 @@ namespace UnrealBuildTool
 			Result += " -s BINARYEN=1 -s ALLOW_MEMORY_GROWTH=1";
 //			Result += " -s BINARYEN_METHOD=\\'native-wasm\\'";
 //			Result += " -s BINARYEN_MEM_MAX=-1";
+//			Result += " -s BINARYEN_TRAP_MODE=\\'clamp\\'";
 
 			// no need for exceptions
 			Result += " -s DISABLE_EXCEPTION_CATCHING=1";
@@ -350,7 +356,7 @@ namespace UnrealBuildTool
 
 		public static void CompileOutputReceivedDataEventHandler(Object Sender, DataReceivedEventArgs Line)
 		{
-			var Output = Line.Data;
+			string Output = Line.Data;
 			if (Output == null)
 			{
 				return;
@@ -377,14 +383,7 @@ namespace UnrealBuildTool
 				MatchLineNumber.Length == 0 ||
 				MatchDescription.Length == 0)
 			{
-				// emscripten output match
-				string RegexEmscriptenInfo = @"^INFO:";
-				Match match = Regex.Match(Output, RegexEmscriptenInfo);
-				if ( match.Success ) {
-					Log.TraceInformation(Output);
-				} else {
-					Log.TraceWarning(Output);
-				}
+				Log.TraceInformation(Output);
 				return;
 			}
 
@@ -403,20 +402,32 @@ namespace UnrealBuildTool
 			Log.TraceInformation(Output);				// To preserve readable output log
 		}
 
-		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> SourceFiles, string ModuleName, ActionGraph ActionGraph)
+		public void AddIncludePath(ref string Arguments, DirectoryReference IncludePath)
+		{
+			if(IncludePath.IsUnderDirectory(UnrealBuildTool.EngineDirectory))
+			{
+				Arguments += string.Format(" -I\"{0}\"", IncludePath.MakeRelativeTo(UnrealBuildTool.EngineSourceDirectory));
+			}
+			else
+			{
+				Arguments += string.Format(" -I\"{0}\"", IncludePath);
+			}
+		}
+
+		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, ActionGraph ActionGraph)
 		{
 			string Arguments = GetCLArguments_Global(CompileEnvironment);
 
 			CPPOutput Result = new CPPOutput();
 
 			// Add include paths to the argument list.
-			foreach (string IncludePath in CompileEnvironment.IncludePaths.UserIncludePaths)
+			foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.UserIncludePaths)
 			{
-				Arguments += string.Format(" -I\"{0}\"", IncludePath);
+				AddIncludePath(ref Arguments, IncludePath);
 			}
-			foreach (string IncludePath in CompileEnvironment.IncludePaths.SystemIncludePaths)
+			foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.SystemIncludePaths)
 			{
-				Arguments += string.Format(" -I\"{0}\"", IncludePath);
+				AddIncludePath(ref Arguments, IncludePath);
 			}
 
 
@@ -431,7 +442,7 @@ namespace UnrealBuildTool
 				Arguments += string.Format(" -D__EMSCRIPTEN_TRACING__");
 			}
 
-			foreach (FileItem SourceFile in SourceFiles)
+			foreach (FileItem SourceFile in InputFiles)
 			{
 				Action CompileAction = ActionGraph.Add(ActionType.Compile);
 				CompileAction.CommandDescription = "Compile";
@@ -444,11 +455,11 @@ namespace UnrealBuildTool
 
 				// Add the source file path to the command-line.
 				string FileArguments = string.Format(" \"{0}\"", SourceFile.AbsolutePath);
-				var ObjectFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.HTML5).GetBinaryExtension(UEBuildBinaryType.Object);
+				string ObjectFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.HTML5).GetBinaryExtension(UEBuildBinaryType.Object);
 				// Add the object file to the produced item list.
 				FileItem ObjectFile = FileItem.GetItemByFileReference(
 					FileReference.Combine(
-						CompileEnvironment.OutputDirectory,
+						OutputDir,
 						Path.GetFileName(SourceFile.AbsolutePath) + ObjectFileExtension
 						)
 					);
@@ -492,7 +503,7 @@ namespace UnrealBuildTool
 			return Result;
 		}
 
-		public override CPPOutput CompileRCFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> RCFiles, ActionGraph ActionGraph)
+		public override CPPOutput CompileRCFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, ActionGraph ActionGraph)
 		{
 			CPPOutput Result = new CPPOutput();
 
@@ -506,7 +517,7 @@ namespace UnrealBuildTool
 		/// <param name="e"> Event arguments (In this case, the line of string output)</param>
 		protected void RemoteOutputReceivedEventHandler(object sender, DataReceivedEventArgs e)
 		{
-			var Output = e.Data;
+			string Output = e.Data;
 			if (Output == null)
 			{
 				return;
@@ -651,10 +662,10 @@ namespace UnrealBuildTool
 		public override void ModifyBuildProducts(ReadOnlyTargetRules Target, UEBuildBinary Binary, List<string> Libraries, List<UEBuildBundleResource> BundleResources, Dictionary<FileReference, BuildProductType> BuildProducts)
 		{
 			// we need to include the generated .mem and .symbols file.
-			if (Binary.Config.Type != UEBuildBinaryType.StaticLibrary)
+			if (Binary.Type != UEBuildBinaryType.StaticLibrary)
 			{
-				BuildProducts.Add(Binary.Config.OutputFilePath.ChangeExtension("wasm"), BuildProductType.RequiredResource);
-				BuildProducts.Add(Binary.Config.OutputFilePath + ".symbols", BuildProductType.RequiredResource);
+				BuildProducts.Add(Binary.OutputFilePath.ChangeExtension("wasm"), BuildProductType.RequiredResource);
+				BuildProducts.Add(Binary.OutputFilePath + ".symbols", BuildProductType.RequiredResource);
 			}
 		}
 	};

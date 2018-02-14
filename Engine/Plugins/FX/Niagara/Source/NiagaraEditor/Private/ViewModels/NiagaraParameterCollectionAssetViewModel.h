@@ -1,11 +1,11 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "NiagaraParameterCollectionViewModel.h"
 #include "TNiagaraViewModelManager.h"
 #include "EditorUndoClient.h"
-#include "NotifyHook.h"
+#include "Misc/NotifyHook.h"
 
 class SNiagaraParameterCollection;
 class UNiagaraParameterCollection;

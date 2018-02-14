@@ -44,7 +44,7 @@ struct FAllocator2DShader
 	}
 };
 
-class MESHUTILITIES_API FLayoutUV
+class FLayoutUV
 {
 public:
 				FLayoutUV( UMeshDescription* InMesh, uint32 InSrcChannel, uint32 InDstChannel, uint32 InTextureResolution );

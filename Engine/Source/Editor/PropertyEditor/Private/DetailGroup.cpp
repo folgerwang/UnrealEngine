@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "DetailGroup.h"
 #include "Widgets/Input/SButton.h"
 #include "PropertyHandleImpl.h"
 #include "DetailPropertyRow.h"
-#include "SImage.h"
+#include "Widgets/Images/SImage.h"
 
 #define LOCTEXT_NAMESPACE "FDetailGroup"
 

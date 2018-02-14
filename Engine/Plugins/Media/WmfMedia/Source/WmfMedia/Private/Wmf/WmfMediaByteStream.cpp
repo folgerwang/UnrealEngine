@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "WmfMediaByteStream.h"
 
@@ -7,7 +7,7 @@
 #include "WmfMediaReadState.h"
 #include "Misc/ScopeLock.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 
 /* FWmfByteStream structors
@@ -346,6 +346,6 @@ STDMETHODIMP FWmfMediaByteStream::Write(const BYTE* pb, ULONG cb, ULONG* pcbWrit
 }
 
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #endif //WMFMEDIA_SUPPORTED_PLATFORM

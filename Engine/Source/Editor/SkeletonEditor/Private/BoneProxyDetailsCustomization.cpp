@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "BoneProxyDetailsCustomization.h"
 #include "BoneProxy.h"
@@ -10,9 +10,9 @@
 #include "IDetailPropertyRow.h"
 #include "Animation/DebugSkelMeshComponent.h"
 #include "ScopedTransaction.h"
-#include "MultiBoxBuilder.h"
-#include "SComboButton.h"
-#include "SBox.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Layout/SBox.h"
 #include "Algo/Transform.h"
 
 #define LOCTEXT_NAMESPACE "FBoneProxyDetailsCustomization"

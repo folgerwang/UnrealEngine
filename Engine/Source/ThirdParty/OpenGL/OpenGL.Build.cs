@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 using UnrealBuildTool;
 
 public class OpenGL : ModuleRules
@@ -7,6 +7,7 @@ public class OpenGL : ModuleRules
 	{
 		Type = ModuleType.External;
 
+		PublicIncludePaths.Add(ModuleDirectory);
 
 		if ((Target.Platform == UnrealTargetPlatform.Win64) ||
 			(Target.Platform == UnrealTargetPlatform.Win32))

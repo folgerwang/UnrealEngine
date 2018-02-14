@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "WmfMediaSession.h"
 
@@ -9,7 +9,7 @@
 
 #include "WmfMediaUtils.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 
 #define WMFMEDIASESSION_USE_WINDOWS7FASTFORWARDENDHACK 1
@@ -80,14 +80,14 @@ void FWmfMediaSession::GetEvents(TArray<EMediaEvent>& OutEvents)
 
 		if ((Time < FTimespan::Zero()) || (Time > CurrentDuration))
 		{
-			if (ShouldLoop)
+			if (!ShouldLoop)
 			{
-				HandleSessionEnded();
+				const HRESULT Result = MediaSession->Stop();
+
+				UE_LOG(LogWmfMedia, Verbose, TEXT("Session %p: Forced media session to stop at end: %s"), this, *WmfMedia::ResultToString(Result));
 			}
-			else
-			{
-				MediaSession->Stop();
-			}
+
+			HandleSessionEnded();
 		}
 	}
 #endif
@@ -169,7 +169,7 @@ bool FWmfMediaSession::SetTopology(const TComPtr<IMFTopology>& InTopology, FTime
 		return false;
 	}
 
-	UE_LOG(LogWmfMedia, Verbose, TEXT("Session: %p: Setting new partial topology (duration = %s)"), this, *InDuration.ToString());
+	UE_LOG(LogWmfMedia, Verbose, TEXT("Session: %p: Setting new partial topology %p (duration = %s)"), this, InTopology.Get(), *InDuration.ToString());
 
 	FScopeLock Lock(&CriticalSection);
 
@@ -266,6 +266,8 @@ bool FWmfMediaSession::CanControl(EMediaControl Control) const
 		return false;
 	}
 
+	FScopeLock Lock(&CriticalSection);
+
 	if (Control == EMediaControl::Pause)
 	{
 		return ((SessionState == EMediaState::Playing) && (((Capabilities & MFSESSIONCAP_PAUSE) != 0) || UnthinnedRates.Contains(0.0f)));
@@ -321,15 +323,19 @@ EMediaStatus FWmfMediaSession::GetStatus() const
 
 TRangeSet<float> FWmfMediaSession::GetSupportedRates(EMediaRateThinning Thinning) const
 {
+	FScopeLock Lock(&CriticalSection);
+
 	return (Thinning == EMediaRateThinning::Thinned) ? ThinnedRates : UnthinnedRates;
 }
 
 
 FTimespan FWmfMediaSession::GetTime() const
 {
+	FScopeLock Lock(&CriticalSection);
+
 	MFCLOCK_STATE ClockState;
 
-	if ((PresentationClock == NULL) || FAILED(PresentationClock->GetState(0, &ClockState)) || (ClockState == MFCLOCK_STATE_INVALID))
+	if (!PresentationClock.IsValid() || FAILED(PresentationClock->GetState(0, &ClockState)) || (ClockState == MFCLOCK_STATE_INVALID))
 	{
 		return FTimespan::Zero(); // topology not initialized, or clock not started yet
 	}
@@ -366,14 +372,14 @@ bool FWmfMediaSession::Seek(const FTimespan& Time)
 
 	UE_LOG(LogWmfMedia, Verbose, TEXT("Session %p: Seeking to %s"), this, *Time.ToString());
 
-	FScopeLock Lock(&CriticalSection);
-
 	// validate seek
 	if (!CanControl(EMediaControl::Seek))
 	{
 		UE_LOG(LogWmfMedia, Verbose, TEXT("Session %p: Media source doesn't support seeking"), this);
 		return false;
 	}
+
+	FScopeLock Lock(&CriticalSection);
 
 	if ((SessionState == EMediaState::Closed) || (SessionState == EMediaState::Error))
 	{
@@ -1422,6 +1428,6 @@ void FWmfMediaSession::HandleSessionTopologyStatus(HRESULT EventStatus, IMFMedia
 }
 
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #endif //WMFMEDIA_SUPPORTED_PLATFORM

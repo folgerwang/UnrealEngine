@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AudioEditorModule.h"
 #include "Modules/ModuleManager.h"
@@ -18,7 +18,7 @@
 #include "Sound/SoundEffectPreset.h"
 #include "SoundCueEditor.h"
 #include "SoundSubmixEditor.h"
-#include "Classes/Sound/AudioSettings.h"
+#include "Sound/AudioSettings.h"
 #include "AssetTypeActions/AssetTypeActions_DialogueVoice.h"
 #include "AssetTypeActions/AssetTypeActions_DialogueWave.h"
 #include "AssetTypeActions/AssetTypeActions_SoundAttenuation.h"

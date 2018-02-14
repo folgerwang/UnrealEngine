@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Texture2D.cpp: Implementation of UTexture2D.
@@ -30,7 +30,7 @@
 #include "Streaming/Texture2DStreamIn_IO_AsyncCreate.h"
 #include "Streaming/Texture2DStreamIn_IO_AsyncReallocate.h"
 #include "Streaming/Texture2DStreamIn_IO_Virtual.h"
-#include "AsyncFileHandle.h"
+#include "Async/AsyncFileHandle.h"
 
 UTexture2D::UTexture2D(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -122,6 +122,11 @@ static bool CanCreateAsVirtualTexture(uint32 TexCreateFlags)
 int32 GDefragmentationRetryCounter = 10;
 /** Number of times to retry to reallocate a texture before trying a panic defragmentation, subsequent times. */
 int32 GDefragmentationRetryCounterLong = 100;
+
+#if STATS
+int64 GUITextureMemory = 0;
+int64 GNeverStreamTextureMemory = 0;
+#endif
 
 /** Turn on ENABLE_TEXTURE_TRACKING in ContentStreaming.cpp and setup GTrackedTextures to track specific textures through the streaming system. */
 extern bool TrackTextureEvent( FStreamingTexture* StreamingTexture, UTexture2D* Texture, bool bForceMipLevelsToBeResident, const FStreamingManagerTexture* Manager );
@@ -914,14 +919,13 @@ void UTexture2D::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 
 	if (CumulativeResourceSize.GetResourceSizeMode() == EResourceSizeMode::Exclusive)
 	{
-		CumulativeResourceSize.AddUnknownMemoryBytes(CalcTextureMemorySize(GetNumResidentMips()));
+		// Use only loaded mips
+		CumulativeResourceSize.AddDedicatedVideoMemoryBytes(CalcTextureMemorySize(GetNumResidentMips()));
 	}
 	else
 	{
-		if (PlatformData)
-		{
-			CumulativeResourceSize.AddUnknownMemoryBytes(CalcTextureSize(GetSizeX(), GetSizeY(), GetPixelFormat(), GetNumMips()));
-		}
+		// Use all possible mips
+		CumulativeResourceSize.AddDedicatedVideoMemoryBytes(CalcTextureMemorySize(GetNumMipsAllowed(true)));
 	}
 }
 
@@ -1001,11 +1005,31 @@ void UTexture2D::SetForceMipLevelsToBeResident( float Seconds, int32 CinematicTe
 
 int32 UTexture2D::Blueprint_GetSizeX() const
 {
+#if WITH_EDITORONLY_DATA
+	// When cooking, blueprint construction scripts are ran before textures get postloaded.
+	// In that state, the texture size is 0. Here we compute the resolution once cooked.
+	if (!GetSizeX())
+	{
+		const UTextureLODSettings* LODSettings = UDeviceProfileManager::Get().GetActiveProfile()->GetTextureLODSettings();
+		const int32 CookedLODBias = LODSettings->CalculateLODBias(Source.SizeX, Source.SizeY, LODGroup, LODBias, 0, MipGenSettings);
+		return FMath::Max<int32>(Source.SizeX >> CookedLODBias, 1);
+	}
+#endif
 	return GetSizeX();
 }
 
 int32 UTexture2D::Blueprint_GetSizeY() const
 {
+#if WITH_EDITORONLY_DATA
+	// When cooking, blueprint construction scripts are ran before textures get postloaded.
+	// In that state, the texture size is 0. Here we compute the resolution once cooked.
+	if (!GetSizeY())
+	{
+		const UTextureLODSettings* LODSettings = UDeviceProfileManager::Get().GetActiveProfile()->GetTextureLODSettings();
+		const int32 CookedLODBias = LODSettings->CalculateLODBias(Source.SizeX, Source.SizeY, LODGroup, LODBias, 0, MipGenSettings);
+		return FMath::Max<int32>(Source.SizeY >> CookedLODBias, 1);
+	}
+#endif
 	return GetSizeY();
 }
 
@@ -1116,6 +1140,7 @@ FTexture2DResource::FTexture2DResource( UTexture2D* InOwner, int32 InitialMipCou
 :	Owner( InOwner )
 ,	ResourceMem( InOwner->ResourceMem )
 ,	bReadyForStreaming(false)
+,	bUseVirtualUpdatePath(false)
 #if STATS
 ,	TextureSize( 0 )
 #endif
@@ -1179,13 +1204,24 @@ void FTexture2DResource::InitRHI()
 	INC_DWORD_STAT_BY( STAT_TextureMemory, TextureSize );
 	INC_DWORD_STAT_FNAME_BY( LODGroupStatName, TextureSize );
 
+#if STATS
+	if (Owner->LODGroup == TEXTUREGROUP_UI)
+	{
+		GUITextureMemory += TextureSize;
+	}
+	else if (Owner->NeverStream)
+	{
+		GNeverStreamTextureMemory += TextureSize;
+	}
+#endif
+
 	const TIndirectArray<FTexture2DMipMap>& OwnerMips = Owner->GetPlatformMips();
 	const int32 RequestedMips = OwnerMips.Num() - CurrentFirstMip;
 	uint32 SizeX = OwnerMips[CurrentFirstMip].SizeX;
 	uint32 SizeY = OwnerMips[CurrentFirstMip].SizeY;
 
 	// Create the RHI texture.
-	uint32 TexCreateFlags = (Owner->SRGB ? TexCreate_SRGB : 0) | TexCreate_OfflineProcessed;
+	uint32 TexCreateFlags = (Owner->SRGB ? TexCreate_SRGB : 0) | TexCreate_OfflineProcessed | TexCreate_Streamable;
 	// if no miptail is available then create the texture without a packed miptail
 	if( Owner->GetMipTailBaseIndex() == -1 )
 	{
@@ -1196,6 +1232,10 @@ void FTexture2DResource::InitRHI()
 	{
 		TexCreateFlags |= TexCreate_NoTiling;
 	}
+
+	// Determine if this texture should use the virtual update path when streaming in and out mips. 
+	// Note that because of "r.VirtualTextureReducedMemory" it might use a virtual allocation initially.
+	bUseVirtualUpdatePath = CanCreateAsVirtualTexture(TexCreateFlags);
 
 	EPixelFormat EffectiveFormat = Owner->GetPixelFormat();
 
@@ -1215,7 +1255,7 @@ void FTexture2DResource::InitRHI()
 			static auto CVarVirtualTextureReducedMemoryEnabled = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.VirtualTextureReducedMemory"));
 			check(CVarVirtualTextureReducedMemoryEnabled);
 
-			if ( Owner->bIsStreamable && CanCreateAsVirtualTexture(TexCreateFlags) && (CVarVirtualTextureReducedMemoryEnabled->GetValueOnRenderThread() == 0 || RequestedMips > UTexture2D::GetMinTextureResidentMipCount()) )
+			if ( Owner->bIsStreamable && bUseVirtualUpdatePath && (CVarVirtualTextureReducedMemoryEnabled->GetValueOnRenderThread() == 0 || RequestedMips > UTexture2D::GetMinTextureResidentMipCount()) )
 			{
 				TexCreateFlags |= TexCreate_Virtual;
 
@@ -1339,6 +1379,17 @@ void FTexture2DResource::ReleaseRHI()
 
 	DEC_DWORD_STAT_BY( STAT_TextureMemory, TextureSize );
 	DEC_DWORD_STAT_FNAME_BY( LODGroupStatName, TextureSize );
+
+#if STATS
+	if (Owner->LODGroup == TEXTUREGROUP_UI)
+	{
+		GUITextureMemory -= TextureSize;
+	}
+	else if (Owner->NeverStream)
+	{
+		GNeverStreamTextureMemory -= TextureSize;
+	}
+#endif
 
 	FTextureResource::ReleaseRHI();
 	Texture2DRHI.SafeRelease();
@@ -1468,7 +1519,7 @@ bool UTexture2D::StreamIn(int32 NewMipCount, bool bHighPrio)
 {
 	check(IsInGameThread());
 	FTexture2DResource* Texture2DResource = (FTexture2DResource*)Resource;
-	if (bIsStreamable && !PendingUpdate && Texture2DResource && Texture2DResource->bReadyForStreaming && Texture2DResource->TextureRHI && NewMipCount > GetNumResidentMips())
+	if (bIsStreamable && !PendingUpdate && Texture2DResource && Texture2DResource->bReadyForStreaming && NewMipCount > GetNumResidentMips())
 	{
 #if WITH_EDITORONLY_DATA
 		if (FPlatformProperties::HasEditorOnlyData())
@@ -1485,11 +1536,8 @@ bool UTexture2D::StreamIn(int32 NewMipCount, bool bHighPrio)
 		else
 #endif
 		{
-			const uint32 TexCreateFlags = Texture2DResource->TextureRHI->GetFlags();
-			const bool bIsVirtualTexture = (TexCreateFlags & TexCreate_Virtual) == TexCreate_Virtual;
-
 			// If the future texture is to be a virtual texture, use the virtual stream in path.
-			if (CanCreateAsVirtualTexture(TexCreateFlags) || bIsVirtualTexture)
+			if (Texture2DResource->bUseVirtualUpdatePath)
 			{
 				PendingUpdate = new FTexture2DStreamIn_IO_Virtual(this, NewMipCount, bHighPrio);
 			}
@@ -1516,12 +1564,9 @@ bool UTexture2D::StreamOut(int32 NewMipCount)
 {
 	check(IsInGameThread());
 	FTexture2DResource* Texture2DResource = (FTexture2DResource*)Resource;
-	if (bIsStreamable && !PendingUpdate && Texture2DResource && Texture2DResource->bReadyForStreaming && Texture2DResource->TextureRHI && NewMipCount < GetNumResidentMips())
+	if (bIsStreamable && !PendingUpdate && Texture2DResource && Texture2DResource->bReadyForStreaming && NewMipCount < GetNumResidentMips())
 	{
-		const uint32 TexCreateFlags = Texture2DResource->TextureRHI->GetFlags();
-		const bool bIsVirtualTexture = (TexCreateFlags & TexCreate_Virtual) == TexCreate_Virtual;
-
-		if (bIsVirtualTexture)
+		if (Texture2DResource->bUseVirtualUpdatePath)
 		{
 			PendingUpdate = new FTexture2DStreamOut_Virtual(this, NewMipCount);
 		}

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Misc/FileHelper.h"
 #include "Containers/StringConv.h"
@@ -39,7 +39,7 @@ bool FFileHelper::LoadFileToArray( TArray<uint8>& Result, const TCHAR* Filename,
 		{
 			UE_LOG(LogStreaming,Warning,TEXT("Failed to read file '%s' error."),Filename);
 		}
-		return 0;
+		return false;
 	}
 	int64 TotalSize = Reader->TotalSize();
 	Result.Reset( TotalSize );
@@ -118,7 +118,7 @@ bool FFileHelper::LoadFileToString( FString& Result, const TCHAR* Filename, EHas
 	TUniquePtr<FArchive> Reader( IFileManager::Get().CreateFileReader( Filename ) );
 	if( !Reader )
 	{
-		return 0;
+		return false;
 	}
 	
 	int32 Size = Reader->TotalSize();
@@ -190,7 +190,7 @@ bool FFileHelper::SaveArrayToFile(TArrayView<const uint8> Array, const TCHAR* Fi
 	FArchive* Ar = FileManager->CreateFileWriter( Filename, WriteFlags );
 	if( !Ar )
 	{
-		return 0;
+		return false;
 	}
 	Ar->Serialize(const_cast<uint8*>(Array.GetData()), Array.Num());
 	delete Ar;
@@ -484,11 +484,11 @@ bool FFileHelper::CreateBitmap( const TCHAR* Pattern, int32 SourceWidth, int32 S
 	}
 	else 
 	{
-		return 0;
+		return false;
 	}
 #endif
 	// Success.
-	return 1;
+	return true;
 }
 
 /**
@@ -652,6 +652,7 @@ bool FFileHelper::IsFilenameValidForSaving(const FString& Filename, FText& OutEr
 -----------------------------------------------------------------------------*/
 void FMaintenance::DeleteOldLogs()
 {
+	double StartTime = FPlatformTime::Seconds();
 	int32 PurgeLogsDays = -1; // -1 means don't delete old files
 	int32 MaxLogFilesOnDisk = -1; // -1 means keep all files
 
@@ -736,6 +737,7 @@ void FMaintenance::DeleteOldLogs()
 		const FString CrashConfigDirectory = FPaths::ProjectLogDir() / Dir;
 		IFileManager::Get().DeleteDirectory(*CrashConfigDirectory, false, true);
 	}
+	UE_CLOG(!IS_PROGRAM, LogStreaming, Display, TEXT("Took %6.3fs to delete old logs."), FPlatformTime::Seconds() - StartTime);
 }
 
 #undef LOCTEXT_NAMESPACE

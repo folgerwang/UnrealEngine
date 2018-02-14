@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "DriverSequence.h"
 #include "IStepExecutor.h"
@@ -15,10 +15,10 @@
 #include "WaitUntil.h"
 #include "LocateBy.h"
 
-#include "ICursor.h"
+#include "GenericPlatform/ICursor.h"
 #include "Misc/Timespan.h"
 #include "InputCoreTypes.h"
-#include "GenericApplicationMessageHandler.h"
+#include "GenericPlatform/GenericApplicationMessageHandler.h"
 #include "Framework/Application/SlateApplication.h"
 
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,6 +14,9 @@ using Tools.DotNETCommon;
 
 public class AndroidPlatform : Platform
 {
+	// Maximum allowed OBB size (2 GiB)
+	private const Int64 MaxOBBSizeAllowed = 2147483648;
+
 	private const int DeployMaxParallelCommands = 6;
 
     private const string TargetAndroidLocation = "obb/";
@@ -25,7 +28,7 @@ public class AndroidPlatform : Platform
 
 	private static string GetSONameWithoutArchitecture(ProjectParams Params, string DecoratedExeName)
 	{
-		return Path.Combine(Path.GetDirectoryName(Params.ProjectGameExeFilename), DecoratedExeName) + ".so";
+		return Path.Combine(Path.GetDirectoryName(Params.GetProjectExeForPlatform(UnrealTargetPlatform.Android).ToString()), DecoratedExeName) + ".so";
 	}
 
 	private static string GetFinalApkName(ProjectParams Params, string DecoratedExeName, bool bRenameUE4Game, string Architecture, string GPUArchitecture)
@@ -41,7 +44,7 @@ public class AndroidPlatform : Platform
 		string ApkName = Path.Combine(ProjectDir, DecoratedExeName) + Architecture + GPUArchitecture + ".apk";
 
 		// if the source binary was UE4Game, handle using it or switching to project name
-		if (Path.GetFileNameWithoutExtension(Params.ProjectGameExeFilename) == "UE4Game")
+		if (Path.GetFileNameWithoutExtension(Params.GetProjectExeForPlatform(UnrealTargetPlatform.Android).ToString()) == "UE4Game")
 		{
 			if (bRenameUE4Game)
 			{
@@ -103,7 +106,7 @@ public class AndroidPlatform : Platform
         return TargetAndroidLocation + PackageName + "/" + Path.GetFileName(ObbName);
 	}
 
-    private static string GetStorageQueryCommand()
+    public static string GetStorageQueryCommand()
     {
 		if (Utils.IsRunningOnMono)
 		{
@@ -240,8 +243,17 @@ public class AndroidPlatform : Platform
 			catch (Exception)
 			{
 				Log("Failed to build OBB: " + LocalObbName);
-				throw new AutomationException(ExitCode.Error_MissingExecutable, "Stage Failed. Could not build OBB {0}. The file may be too big to fit in an OBB (2 GiB limit)", LocalObbName);
+				throw new AutomationException(ExitCode.Error_AndroidOBBError, "Stage Failed. Could not build OBB {0}. The file may be too big to fit in an OBB (2 GiB limit)", LocalObbName);
 			}
+		}
+
+		// make sure the OBB is <= 2GiB
+		FileInfo OBBFileInfo = new FileInfo(LocalObbName);
+		Int64 ObbFileLength = OBBFileInfo.Length;
+		if (ObbFileLength > MaxOBBSizeAllowed)
+		{
+			Log("OBB exceeds 2 GiB limit: " + ObbFileLength + " bytes");
+			throw new AutomationException(ExitCode.Error_AndroidOBBError, "Stage Failed. OBB {0} exceeds 2 GiB limit)", LocalObbName);
 		}
 
 		// collect plugin extra data paths from target receipts
@@ -369,11 +381,14 @@ public class AndroidPlatform : Platform
 		// This way developer can catch permission issue if they try to save/load game file in folder that requires runtime storage permission.
 		bool bNeedGrantStoragePermission = bRequireRuntimeStoragePermission && !bIsDistribution;
 
+		// We can't always push directly to Android/obb so uploads to Download then moves it
+		bool bDontMoveOBB = bPackageDataInsideApk || !bIsDistribution;
+
 		if (!bIsPC)
         {
 			// If it is a distribution build, push to $STORAGE/Android/obb folder instead of $STORAGE/obb folder.
 			// Note that $STORAGE/Android/obb will be the folder that contains the obb if you download the app from playstore.
-			string OBBInstallCommand = bNoObbInstall ? "shell 'rm -r $EXTERNAL_STORAGE/" + DeviceObbName + "'" : "push " + Path.GetFileName(ObbName) + " $STORAGE/" + (bIsDistribution ? "Android/" : "") + DeviceObbName;
+			string OBBInstallCommand = bNoObbInstall ? "shell 'rm -r $EXTERNAL_STORAGE/" + DeviceObbName + "'" : "push " + Path.GetFileName(ObbName) + " $STORAGE/" + (bIsDistribution ? "Download/" : "") + DeviceObbName;
 
             Log("Writing shell script for install with {0}", bPackageDataInsideApk ? "data in APK" : "separate obb");
             BatchLines = new string[] {
@@ -405,7 +420,8 @@ public class AndroidPlatform : Platform
 						bPackageDataInsideApk ? "" : "\tSTORAGE=$(echo \"`$ADB $DEVICE shell 'echo $EXTERNAL_STORAGE'`\" | cat -v | tr -d '^M')",
 						bPackageDataInsideApk ? "" : "\t$ADB $DEVICE " + OBBInstallCommand,
 						bPackageDataInsideApk ? "if [ 1 ]; then" : "\tif [ $? -eq 0 ]; then",
-                        "\t\techo",
+						bDontMoveOBB ? "" : "\t\t$ADB $DEVICE shell mv $STORAGE/Download/obb/" + PackageName + " $STORAGE/Android/obb/" + PackageName,
+						"\t\techo",
 						"\t\techo Installation successful",
 						"\t\texit 0",
 						"\tfi",
@@ -422,7 +438,7 @@ public class AndroidPlatform : Platform
         }
         else
         {
-            string OBBInstallCommand = bNoObbInstall ? "shell rm -r %STORAGE%/" + DeviceObbName : "push " + Path.GetFileName(ObbName) + " %STORAGE%/" + (bIsDistribution ? "Android/" : "") + DeviceObbName;
+			string OBBInstallCommand = bNoObbInstall ? "shell rm -r %STORAGE%/" + DeviceObbName : "push " + Path.GetFileName(ObbName) + " %STORAGE%/" + (bIsDistribution ? "Download/" : "") + DeviceObbName;
 
 			Log("Writing bat for install with {0}", bPackageDataInsideApk ? "data in APK" : "separate OBB");
             BatchLines = new string[] {
@@ -448,6 +464,8 @@ public class AndroidPlatform : Platform
 						bPackageDataInsideApk ? "" : "@echo Installing new data. Failures here indicate storage problems (missing SD card or bad permissions) and are fatal.",
 						bPackageDataInsideApk ? "" : "%ADB% %DEVICE% " + OBBInstallCommand,
 						bPackageDataInsideApk ? "" : "if \"%ERRORLEVEL%\" NEQ \"0\" goto Error",
+						bDontMoveOBB ? "" : "%ADB% %DEVICE% shell mv %STORAGE%/Download/obb/" + PackageName + " %STORAGE%/Android/obb/" + PackageName,
+						bDontMoveOBB ? "" : "if \"%ERRORLEVEL%\" NEQ \"0\" goto Error",
 						"@echo.",
 						bNeedGrantStoragePermission ? "@echo Grant READ_EXTERNAL_STORAGE and WRITE_EXTERNAL_STORAGE to the apk for reading OBB file or game file in external storage." : "",
 						bNeedGrantStoragePermission ? "%ADB% %DEVICE% " + ReadPermissionGrantCommand : "",
@@ -692,7 +710,7 @@ public class AndroidPlatform : Platform
 		}
 	}
 
-	private string GetAdbCommandLine(ProjectParams Params, string SerialNumber, string Args)
+	private static string GetAdbCommandLine(ProjectParams Params, string SerialNumber, string Args)
 	{
 	    if (SerialNumber != "")
 		{
@@ -704,7 +722,7 @@ public class AndroidPlatform : Platform
 
 	static string LastSpewFilename = "";
 
-	public string ADBSpewFilter(string Message)
+	public static string ADBSpewFilter(string Message)
 	{
 		if (Message.StartsWith("[") && Message.Contains("%]"))
 		{
@@ -725,7 +743,7 @@ public class AndroidPlatform : Platform
 		return Message;
 	}
 
-	private IProcessResult RunAdbCommand(ProjectParams Params, string SerialNumber, string Args, string Input = null, ERunOptions Options = ERunOptions.Default)
+	public static IProcessResult RunAdbCommand(ProjectParams Params, string SerialNumber, string Args, string Input = null, ERunOptions Options = ERunOptions.Default)
 	{
 		string AdbCommand = Environment.ExpandEnvironmentVariables("%ANDROID_HOME%/platform-tools/adb" + (Utils.IsRunningOnMono ? "" : ".exe"));
 		if (Options.HasFlag(ERunOptions.AllowSpew) || Options.HasFlag(ERunOptions.SpewIsVerbose))
@@ -1180,7 +1198,7 @@ public class AndroidPlatform : Platform
 	private static string LaunchableActivityLine = null;
 
 	/** Run an external exe (and capture the output), given the exe path and the commandline. */
-	private static string GetPackageInfo(string ApkName, bool bRetrieveVersionCode)
+	public static string GetPackageInfo(string ApkName, bool bRetrieveVersionCode)
 	{
 		// we expect there to be one, so use the first one
 		string AaptPath = GetAaptPath();
@@ -1216,7 +1234,7 @@ public class AndroidPlatform : Platform
 	}
 
 	/** Returns the launch activity name to launch (must call GetPackageInfo first), returns "com.epicgames.ue4.SplashActivity" default if not found */
-	private static string GetLaunchableActivityName()
+	public static string GetLaunchableActivityName()
 	{
 		string ReturnValue = "com.epicgames.ue4.SplashActivity";
 		if (LaunchableActivityLine != null)
@@ -1416,21 +1434,6 @@ public class AndroidPlatform : Platform
 			return "";
 		}
 
-		var AppGPUArchitectures = AndroidExports.CreateToolChain(Params.RawProjectPath).GetAllGPUArchitectures();
-
-		// get the device extensions
-		IProcessResult ExtensionsResult = RunAdbCommand(Params, DeviceName, "shell dumpsys SurfaceFlinger", null, ERunOptions.AppMustExist);
-		string Extensions = ExtensionsResult.Output.Trim();
-
-		// look for AEP support (on device and in project)
-		if (Extensions.Contains("GL_ANDROID_extension_pack_es31a") && Extensions.Contains("GL_EXT_color_buffer_half_float"))
-		{
-			if (AppGPUArchitectures.Contains("-esdeferred"))
-			{
-				return "-esdeferred";
-			}
-		}
-
 		return "-es2";
 	}
 
@@ -1466,7 +1469,7 @@ public class AndroidPlatform : Platform
 			{
 				throw new AutomationException(ExitCode.Error_AppNotFound, "Failed to find application " + ApkName);
 			}
-			Console.WriteLine("Apk='{0}', ClientApp='{1}', ExeName='{2}'", ApkName, ClientApp, Params.ProjectGameExeFilename);
+			Console.WriteLine("Apk='{0}', ClientApp='{1}', ExeName='{2}'", ApkName, ClientApp, Params.GetProjectExeForPlatform(UnrealTargetPlatform.Android).ToString());
 
 			// run aapt to get the name of the intent
 			string PackageName = GetPackageInfo(ApkName, false);
@@ -1511,7 +1514,7 @@ public class AndroidPlatform : Platform
 					FinishedRunning = true;
 				}
 
-				Thread.Sleep(10);
+				Thread.Sleep(1000);
 
 				if(!FinishedRunning)
 				{
@@ -1660,6 +1663,18 @@ public class AndroidPlatformETC1 : AndroidPlatform
     public override TargetPlatformDescriptor GetTargetPlatformDescriptor()
     {
         return new TargetPlatformDescriptor(TargetPlatformType, "ETC1");
+    }
+}
+
+public class AndroidPlatformETC1a : AndroidPlatform
+{
+    public override string GetCookPlatform(bool bDedicatedServer, bool bIsClientOnly)
+    {
+        return "Android_ETC1a";
+    }
+    public override TargetPlatformDescriptor GetTargetPlatformDescriptor()
+    {
+        return new TargetPlatformDescriptor(TargetPlatformType, "ETC1a");
     }
 }
 

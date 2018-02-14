@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+ * Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
  */
 
 using System;
@@ -335,10 +335,15 @@ namespace iPhonePackager
 		/// </summary>
 		public static string Provision = "";
 
-		/// <summary>
-		/// Whether the install should be performed on a certificate
+        /// <summary>
+		/// provision to be installed
 		/// </summary>
-		public static bool bCert = false;
+		public static string ProvisionUUID = "";
+
+        /// <summary>
+        /// Whether the install should be performed on a certificate
+        /// </summary>
+        public static bool bCert = false;
 
 		/// <summary>
 		/// Certificate to be installed

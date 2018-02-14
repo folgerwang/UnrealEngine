@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessVisualizeHDR.cpp: Post processing VisualizeHDR implementation.
@@ -23,18 +23,19 @@ class FPostProcessVisualizeHDRPS : public FGlobalShader
 {
 	DECLARE_SHADER_TYPE(FPostProcessVisualizeHDRPS, Global);
 
-	static bool ShouldCache(EShaderPlatform Platform)
+	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
-		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5);
+		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5);
 	}
 
-	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
+	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
 	{
-		FGlobalShader::ModifyCompilationEnvironment(Platform, OutEnvironment);
+		FGlobalShader::ModifyCompilationEnvironment(Parameters, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("USE_COLOR_MATRIX"), 1);
 		OutEnvironment.SetDefine(TEXT("USE_SHADOW_TINT"), 1);
 		OutEnvironment.SetDefine(TEXT("USE_CONTRAST"), 1);
 		OutEnvironment.SetDefine(TEXT("USE_APPROXIMATE_SRGB"), (uint32)0);
+		OutEnvironment.SetDefine(TEXT("EYE_ADAPTATION_PARAMS_SIZE"), (uint32)EYE_ADAPTATION_PARAMS_SIZE);
 	}
 
 	/** Default constructor. */
@@ -93,7 +94,7 @@ public:
 		PostprocessParameter.SetPS(RHICmdList, ShaderRHI, Context, TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI());
 
 		{
-			FVector4 Temp[3];
+			FVector4 Temp[EYE_ADAPTATION_PARAMS_SIZE];
 
 			FRCPassPostProcessEyeAdaptation::ComputeEyeAdaptationParamsValue(Context.View, Temp);
 			if (GetAutoExposureMethod(Context.View) == EAutoExposureMethod::AEM_Basic)
@@ -105,7 +106,7 @@ public:
 				Temp[2].W = 0.0f;
 			}
 
-			SetShaderValueArray(RHICmdList, ShaderRHI, EyeAdaptationParams, Temp, 3);
+			SetShaderValueArray(Context.RHICmdList, ShaderRHI, EyeAdaptationParams, Temp, EYE_ADAPTATION_PARAMS_SIZE);
 		}
 
 		SetTextureParameter(RHICmdList, ShaderRHI, MiniFontTexture, GEngine->MiniFontTexture ? GEngine->MiniFontTexture->Resource->TextureRHI : GSystemTextures.WhiteDummy->GetRenderTargetItem().TargetableTexture);
@@ -125,7 +126,7 @@ public:
 		}
 
 		{
-			FIntPoint GatherExtent = FRCPassPostProcessHistogram::ComputeGatherExtent(Context.View);
+			FIntPoint GatherExtent = FRCPassPostProcessHistogram::ComputeGatherExtent(Context);
 
 			uint32 TexelPerThreadGroupX = FRCPassPostProcessHistogram::ThreadGroupSizeX * FRCPassPostProcessHistogram::LoopCountX;
 			uint32 TexelPerThreadGroupY = FRCPassPostProcessHistogram::ThreadGroupSizeY * FRCPassPostProcessHistogram::LoopCountY;
@@ -191,7 +192,7 @@ void FRCPassPostProcessVisualizeHDR::Process(FRenderingCompositePassContext& Con
 		return;
 	}
 
-	const FSceneView& View = Context.View;
+	const FViewInfo& View = Context.View;
 	const FViewInfo& ViewInfo = Context.View;
 	const FSceneViewFamily& ViewFamily = *(View.Family);
 	
@@ -292,6 +293,10 @@ void FRCPassPostProcessVisualizeHDR::Process(FRenderingCompositePassContext& Con
 
 	Line = FString::Printf(TEXT("%g"), View.FinalPostProcessSettings.AutoExposureBias);
 	Canvas.DrawShadowedString( X, Y += YStep, TEXT("Exposure Bias: "), GetStatsFont(), FLinearColor(1, 1, 1));
+	Canvas.DrawShadowedString( X + ColumnWidth, Y, *Line, GetStatsFont(), FLinearColor(1, 0.3f, 0.3f));
+
+	Line = FString::Printf(TEXT("%g"), View.FinalPostProcessSettings.AutoExposureCalibrationConstant);
+	Canvas.DrawShadowedString( X, Y += YStep, TEXT("Calibration Constant: "), GetStatsFont(), FLinearColor(1, 1, 1));
 	Canvas.DrawShadowedString( X + ColumnWidth, Y, *Line, GetStatsFont(), FLinearColor(1, 0.3f, 0.3f));
 
 	Line = FString::Printf(TEXT("%g .. %g (log2)"),

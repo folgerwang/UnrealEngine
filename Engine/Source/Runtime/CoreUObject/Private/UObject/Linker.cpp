@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Linker.cpp: Unreal object linker.
@@ -730,9 +730,12 @@ void ResetLoadersForSave(UObject* InOuter, const TCHAR *Filename)
 	// This is the loader corresponding to the package we're saving.
 	if( Loader )
 	{
-		// Before we save the package, make sure that we load up any thumbnails that aren't already
-		// in memory so that they won't be wiped out during this save
-		Loader->SerializeThumbnails();
+		if (!Package->HasAnyPackageFlags(PKG_FilterEditorOnly))
+		{
+			// Before we save the package, make sure that we load up any thumbnails that aren't already
+			// in memory so that they won't be wiped out during this save
+			Loader->SerializeThumbnails();
+		}
 
 		// Compare absolute filenames to see whether we're trying to save over an existing file.
 		if( FPaths::ConvertRelativePathToFull(Filename) == FPaths::ConvertRelativePathToFull( Loader->Filename ) )

@@ -1,12 +1,12 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "StandaloneRendererPrivate.h"
 #include "OpenGL/SlateOpenGLRenderer.h"
-#include "CocoaThread.h"
+#include "Mac/CocoaThread.h"
 #include "SlateOpenGLMac.h"
 #include "Widgets/SWindow.h"
 
-#include "MacWindow.h"
+#include "Mac/MacWindow.h"
 
 FSlateOpenGLViewport::FSlateOpenGLViewport()
 {

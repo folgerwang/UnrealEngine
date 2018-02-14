@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "Misc/MessageDialog.h"
@@ -21,7 +21,7 @@
 #include "LandscapeEdModeTools.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "Materials/MaterialExpressionLandscapeVisibilityMask.h"
-#include "Containers/Algo/Copy.h"
+#include "Algo/Copy.h"
 
 #define LOCTEXT_NAMESPACE "Landscape"
 

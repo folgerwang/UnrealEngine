@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	OpenGLResources.h: OpenGL resource RHI definitions.
@@ -706,6 +706,7 @@ struct FOpenGLVertexElement
 	GLuint Offset;
 	GLuint Size;
 	GLuint Divisor;
+	GLuint HashStride;
 	uint8 bNormalized;
 	uint8 AttributeIndex;
 	uint8 bShouldConvertToFloat;
@@ -875,6 +876,12 @@ public:
 #endif
 
 	void InvalidateTextureResourceInCache();
+
+	void AliasResources(FOpenGLTextureBase* Texture)
+	{
+		Resource = Texture->Resource;
+		SRVResource = Texture->SRVResource;
+	}
 
 private:
 	uint32 MemorySize		: 31;

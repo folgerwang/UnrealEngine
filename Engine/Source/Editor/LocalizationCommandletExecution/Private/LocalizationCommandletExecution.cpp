@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LocalizationCommandletExecution.h"
 #include "HAL/FileManager.h"
@@ -300,8 +300,11 @@ namespace
 			}
 
 			// Forward string to proper log.
-			const TSharedPtr<FTaskListModel> CurrentTaskModel = TaskListModels[CurrentTaskIndex];
-			CurrentTaskModel->LogOutput.Append(String);
+			if (TaskListModels.IsValidIndex(CurrentTaskIndex))
+			{
+				const TSharedPtr<FTaskListModel> CurrentTaskModel = TaskListModels[CurrentTaskIndex];
+				CurrentTaskModel->LogOutput.Append(String);
+			}
 		}
 
 		// On Task Completed.

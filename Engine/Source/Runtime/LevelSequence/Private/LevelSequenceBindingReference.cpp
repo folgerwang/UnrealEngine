@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LevelSequenceBindingReference.h"
 #include "LevelSequenceLegacyObjectReference.h"
 #include "UObject/Package.h"
 #include "UObject/ObjectMacros.h"
 #include "MovieSceneFwd.h"
-#include "PackageName.h"
+#include "Misc/PackageName.h"
 #include "Engine/World.h"
 
 FLevelSequenceBindingReference::FLevelSequenceBindingReference(UObject* InObject, UObject* InContext)
@@ -50,7 +50,18 @@ UObject* FLevelSequenceBindingReference::Resolve(UObject* InContext) const
 		FSoftObjectPath TempPath = ExternalObjectPath;
 
 #if WITH_EDITORONLY_DATA
-		TempPath.FixupForPIE();
+		int32 ContextPlayInEditorID = InContext ? InContext->GetOutermost()->PIEInstanceID : INDEX_NONE;
+
+		if (ContextPlayInEditorID != INDEX_NONE)
+		{
+			// We have an override PIE id, so set the global before entering
+			TGuardValue<int32> PIEGuard(GPlayInEditorID, ContextPlayInEditorID);
+			TempPath.FixupForPIE();
+		}
+		else
+		{
+			TempPath.FixupForPIE();
+		}
 #endif
 
 		return TempPath.ResolveObject();

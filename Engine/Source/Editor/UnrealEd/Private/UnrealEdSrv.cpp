@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #include "CoreMinimal.h"
@@ -98,7 +98,7 @@
 #include "EngineUtils.h"
 #include "AutoReimport/AssetSourceFilenameCache.h"
 #if PLATFORM_WINDOWS
-	#include "WindowsHWrapper.h"
+	#include "Windows/WindowsHWrapper.h"
 #endif
 #include "ActorGroupingUtils.h"
 
@@ -1002,7 +1002,7 @@ bool UUnrealEdEngine::Exec( UWorld* InWorld, const TCHAR* Stream, FOutputDevice&
 					{
 						Mesh->Modify();
 
-						GWarn->StatusUpdate(MeshIndex + 1, SelectedMeshes.Num(), FText::Format(NSLOCTEXT("UnrealEd", "ScalingStaticMeshes_Value", "Static Mesh: %s"), FText::FromString(Mesh->GetName())));
+						GWarn->StatusUpdate(MeshIndex + 1, SelectedMeshes.Num(), FText::Format(NSLOCTEXT("UnrealEd", "ScalingStaticMeshes_Value", "Static Mesh: {0}"), FText::FromString(Mesh->GetName())));
 
 						FStaticMeshSourceModel& Model = Mesh->SourceModels[0];
 
@@ -1132,6 +1132,11 @@ bool UUnrealEdEngine::Exec( UWorld* InWorld, const TCHAR* Stream, FOutputDevice&
 			FString ReplaceStr;
 			FParse::Value(Str, TEXT("Replace="), ReplaceStr );
 
+			FString AutoCheckOutStr;
+			FParse::Value(Str, TEXT("AutoCheckOut="), AutoCheckOutStr);
+			AutoCheckOutStr = AutoCheckOutStr.ToLower();
+			bool bAutoCheckOut = (AutoCheckOutStr == "yes" || AutoCheckOutStr == "true" || AutoCheckOutStr == "1");
+
 			GWarn->BeginSlowTask(NSLOCTEXT("UnrealEd", "RenamingAssets", "Renaming Assets"), true, true);
 
 			FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
@@ -1178,7 +1183,7 @@ bool UUnrealEdEngine::Exec( UWorld* InWorld, const TCHAR* Stream, FOutputDevice&
 
 			if( AssetsToRename.Num() > 0 )
 			{
-				AssetTools.RenameAssets( AssetsToRename );
+				AssetTools.RenameAssetsWithDialog( AssetsToRename, bAutoCheckOut );
 			}
 
 			GWarn->EndSlowTask();
@@ -1804,7 +1809,7 @@ TArray<FPoly*> GetSelectedPolygons()
 						int32 NumTriangles = MeshLodZero.GetNumTriangles();
 						int32 NumVertices = MeshLodZero.GetNumVertices();
 			
-						const FPositionVertexBuffer& PositionVertexBuffer = MeshLodZero.PositionVertexBuffer;
+						const FPositionVertexBuffer& PositionVertexBuffer = MeshLodZero.VertexBuffers.PositionVertexBuffer;
 						FIndexArrayView Indices = MeshLodZero.DepthOnlyIndexBuffer.GetArrayView();
 
 						for ( int32 TriangleIndex = 0; TriangleIndex < NumTriangles; TriangleIndex++ )

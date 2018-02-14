@@ -1,8 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Misc/CoreDelegates.h"
 #include "Misc/Attribute.h"
 #include "Layout/Margin.h"
 #include "Styling/SlateColor.h"
@@ -84,6 +85,15 @@ enum class ESizingRule : uint8
 	/** The window can be resized by users */
 	UserSized,
 };
+
+namespace SWindowDefs
+{
+	/** Height of a Slate window title bar, in pixels */
+	static const float DefaultTitleBarSize = 24.0f;
+
+	/** Size of the corner rounding radius.  Used for regular, non-maximized windows only (not tool-tips or decorators.) */
+	static const int32 CornerRadius = 6;
+}
 
 /** Proxy structure to handle deprecated construction from bool */
 struct FWindowTransparency
@@ -868,8 +878,14 @@ public:
 
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 
-protected:
+	/** Windows that are not hittestable should not show up in the hittest grid. */
+	EVisibility GetWindowVisibility() const;
 
+protected:
+	/**Returns swindow title bar widgets. */
+	virtual TSharedRef<SWidget> MakeWindowTitleBar(const TSharedRef<SWindow>& Window, const TSharedPtr<SWidget>& CenterContent, EHorizontalAlignment CenterContentAlignment);
+	/**Returns the alignment type for the titlebar's title text. */
+	virtual EHorizontalAlignment GetTitleAlignment();
 	/** Get the desired color of titlebar items. These change during flashing. */
 	FSlateColor GetWindowTitleContentColor() const;
 
@@ -887,9 +903,6 @@ protected:
 
 	/** Get the color used to tint the window outline */
 	FSlateColor GetWindowOutlineColor() const;
-
-	/** Windows that are not hittestable should not show up in the hittest grid. */
-	EVisibility GetWindowVisibility() const;
 
 protected:
 

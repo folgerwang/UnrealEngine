@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once 
 
@@ -622,6 +622,11 @@ public:
 	void SetListener(UWorld* World, int32 InListenerIndex, const FTransform& ListenerTransform, float InDeltaSeconds);
 
 	const TArray<FListener>& GetListeners() const { check(IsInAudioThread()); return Listeners; }
+
+	/**
+	 * Get ambisonics mixer, if one is available
+	 */
+	TAmbisonicsMixerPtr GetAmbisonicsMixer() { return AmbisonicsMixer; };
 
 	/** 
 	 * Returns the currently applied reverb effect if there is one.
@@ -1293,10 +1298,10 @@ public:
 	FVector GetListenerTransformedDirection(const FVector& Position, float* OutDistance);
 
 	/** Returns the current audio device update delta time. */
-	float GetDeviceDeltaTime() const
-	{
-		return DeviceDeltaTime;
-	}
+	float GetDeviceDeltaTime() const;
+
+	/** Returns the game's delta time */
+	float GetGameDeltaTime() const;
 
 	/** Sets the update delta time for the audio frame */
 	void UpdateDeviceDeltaTime()
@@ -1418,15 +1423,16 @@ public:
 	/** 3rd party occlusion interface. */
 	TAudioOcclusionPtr OcclusionInterface;
 
+	/* This devices ambisonics pointer, if one exists */
+	TAmbisonicsMixerPtr AmbisonicsMixer;
+
 	/** 3rd party listener observers registered to this audio device. */
 	TArray<TAudioPluginListenerPtr> PluginListeners;
 
-private:
-	// Audio thread representation of listeners
-	TArray<FListener> Listeners;
-
 	// Game thread cache of listener transforms
 	TArray<FTransform> ListenerTransforms;
+
+private:
 
 	uint64 CurrentTick;
 
@@ -1454,6 +1460,8 @@ private:
 
 	/** Set of sources used to play sounds (platform will subclass these) */
 protected:
+	// Audio thread representation of listeners
+	TArray<FListener> Listeners;
 	TArray<FSoundSource*> Sources;
 	TArray<FSoundSource*> FreeSources;
 

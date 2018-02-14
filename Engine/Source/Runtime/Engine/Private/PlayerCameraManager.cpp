@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Camera/PlayerCameraManager.h"
 #include "GameFramework/Pawn.h"
@@ -19,6 +19,7 @@
 #include "Camera/CameraModifier_CameraShake.h"
 #include "Camera/CameraPhotography.h"
 #include "GameFramework/PlayerState.h"
+#include "IXRTrackingSystem.h" // for IsHeadTrackingAllowed()
 
 DEFINE_LOG_CATEGORY_STATIC(LogPlayerCameraManager, Log, All);
 
@@ -446,8 +447,17 @@ void APlayerCameraManager::UpdateViewTargetInternal(FTViewTarget& OutVT, float D
 {
 	if (OutVT.Target)
 	{
-		const bool bK2Camera = BlueprintUpdateCamera(OutVT.Target, OutVT.POV.Location, OutVT.POV.Rotation, OutVT.POV.FOV);
-		if (bK2Camera == false)
+		FVector OutLocation;
+		FRotator OutRotation;
+		float OutFOV;
+
+		if (BlueprintUpdateCamera(OutVT.Target, OutLocation, OutRotation, OutFOV))
+		{
+			OutVT.POV.Location = OutLocation;
+			OutVT.POV.Rotation = OutRotation;
+			OutVT.POV.FOV = OutFOV;
+		}
+		else
 		{
 			OutVT.Target->CalcCamera(DeltaTime, OutVT.POV);
 		}
@@ -1062,7 +1072,7 @@ void APlayerCameraManager::ProcessViewRotation(float DeltaTime, FRotator& OutVie
 	OutViewRotation += OutDeltaRot;
 	OutDeltaRot = FRotator::ZeroRotator;
 
-	if(GEngine->HMDDevice.IsValid() && GEngine->IsStereoscopic3D())
+	if(GEngine->XRSystem.IsValid() && GEngine->XRSystem->IsHeadTrackingAllowed())
 	{
 		// With the HMD devices, we can't limit the view pitch, because it's bound to the player's head.  A simple normalization will suffice
 		OutViewRotation.Normalize();

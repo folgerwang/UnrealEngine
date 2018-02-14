@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MediaThumbnailSection.h"
 
@@ -219,7 +219,7 @@ void FMediaThumbnailSection::Setup()
 	if (MediaTexture == nullptr)
 	{
 		MediaTexture = NewObject<UMediaTexture>(GetTransientPackage(), MakeUniqueObjectName(GetTransientPackage(), UMediaTexture::StaticClass()));
-		MediaTexture->MediaPlayer = MediaPlayer;
+		MediaTexture->SetMediaPlayer(MediaPlayer);
 		MediaTexture->UpdateResource();
 	}
 

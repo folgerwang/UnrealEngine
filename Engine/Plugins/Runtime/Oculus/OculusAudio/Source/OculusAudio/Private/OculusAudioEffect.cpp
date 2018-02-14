@@ -1,4 +1,6 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+#if PLATFORM_WINDOWS
 
 #include "OculusAudioEffect.h"
 #include "OculusAudio.h"
@@ -8,15 +10,15 @@
 #include "AudioEffect.h"
 #include "XAudio2Effects.h"
 
-#include "AllowWindowsPlatformTypes.h"
-#include "AllowWindowsPlatformAtomics.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformAtomics.h"
 THIRD_PARTY_INCLUDES_START
 	#include <xapobase.h>
 	#include <xapofx.h>
 	#include <xaudio2fx.h>
 THIRD_PARTY_INCLUDES_END
-#include "HideWindowsPlatformAtomics.h"
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformAtomics.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 FXAudio2HRTFEffect::FXAudio2HRTFEffect(uint32 InVoiceId, FAudioDevice* InAudioDevice)
 	: CXAPOBase(&Registration)
@@ -150,10 +152,12 @@ XAPO_REGISTRATION_PROPERTIES FXAudio2HRTFEffect::Registration =
 {
 	__uuidof(FXAudio2HRTFEffect),										// clsid
 	TEXT("FXAudio2HRTFEffect"),											// Friendly Name
-	TEXT("Copyright 1998-2017 Epic Games, Inc. All Rights Reserved."),	// Registration string length
+	TEXT("Copyright 1998-2018 Epic Games, Inc. All Rights Reserved."),	// Registration string length
 	1, 0,																// Major/Minor Version
 	XAPO_FLAG_FRAMERATE_MUST_MATCH |									// Flags: note, this is not supporting in-place processing
 	XAPO_FLAG_BITSPERSAMPLE_MUST_MATCH |
 	XAPO_FLAG_BUFFERCOUNT_MUST_MATCH,
 	1, 1, 1, 1															// all buffer counts are the same
 };
+
+#endif //PLATFORM_WINDOWS

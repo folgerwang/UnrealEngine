@@ -8,7 +8,7 @@
 #include "Framework/Commands/UIAction.h"
 #include "Framework/Commands/UICommandList.h"
 #include "MeshElement.h"
-#include "ArrayView.h"
+#include "Containers/ArrayView.h"
 #include "LevelEditorViewport.h"	// For FTrackingTransaction
 #include "UnrealEdMisc.h"
 #include "IMeshEditorModeUIContract.h"

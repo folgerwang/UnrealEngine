@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 // ShaderCompileWorker.cpp : Defines the entry point for the console application.
@@ -7,14 +7,14 @@
 #include "CoreMinimal.h"
 #include "RequiredProgramMainCPPInclude.h"
 #include "ShaderCore.h"
-#include "ExceptionHandling.h"
-#include "IShaderFormat.h"
-#include "IShaderFormatModule.h"
+#include "HAL/ExceptionHandling.h"
+#include "Interfaces/IShaderFormat.h"
+#include "Interfaces/IShaderFormatModule.h"
 
 #define DEBUG_USING_CONSOLE	0
 
 // this is for the protocol, not the data, bump if FShaderCompilerInput or ProcessInputFromArchive changes (also search for the second one with the same name, todo: put into one header file)
-const int32 ShaderCompileWorkerInputVersion = 8;
+const int32 ShaderCompileWorkerInputVersion = 9;
 // this is for the protocol, not the data, bump if FShaderCompilerOutput or WriteToOutputArchive changes (also search for the second one with the same name, todo: put into one header file)
 const int32 ShaderCompileWorkerOutputVersion = 3;
 // this is for the protocol, not the data, bump if FShaderCompilerOutput or WriteToOutputArchive changes (also search for the second one with the same name, todo: put into one header file)
@@ -289,6 +289,35 @@ private:
 			}
 		}
 
+		TMap<FString, TSharedPtr<FString>> ExternalIncludes;
+		TArray<FShaderCompilerEnvironment> SharedEnvironments;
+
+		// Shared inputs
+		{
+			int32 NumExternalIncludes = 0;
+			InputFile << NumExternalIncludes;
+			ExternalIncludes.Reserve(NumExternalIncludes);
+
+			for (int32 IncludeIndex = 0; IncludeIndex < NumExternalIncludes; IncludeIndex++)
+			{
+				FString NewIncludeName;
+				InputFile << NewIncludeName;
+				FString* NewIncludeContents = new FString();
+				InputFile << (*NewIncludeContents);
+				ExternalIncludes.Add(NewIncludeName, MakeShareable(NewIncludeContents));
+			}
+
+			int32 NumSharedEnvironments = 0;
+			InputFile << NumSharedEnvironments;
+			SharedEnvironments.Empty(NumSharedEnvironments);
+			SharedEnvironments.AddDefaulted(NumSharedEnvironments);
+
+			for (int32 EnvironmentIndex = 0; EnvironmentIndex < NumSharedEnvironments; EnvironmentIndex++)
+			{
+				InputFile << SharedEnvironments[EnvironmentIndex];
+			}
+		}
+
 		// Individual jobs
 		{
 			int32 SingleJobHeader = ShaderCompileWorkerSingleJobHeader;
@@ -310,6 +339,7 @@ private:
 				// Deserialize the job's inputs.
 				FShaderCompilerInput CompilerInput;
 				InputFile << CompilerInput;
+				CompilerInput.DeserializeSharedInputs(InputFile, ExternalIncludes, SharedEnvironments);
 
 				if (IsValidRef(CompilerInput.SharedEnvironment))
 				{
@@ -355,6 +385,7 @@ private:
 				{
 					// Deserialize the job's inputs.
 					InputFile << CompilerInputs[StageIndex];
+					CompilerInputs[StageIndex].DeserializeSharedInputs(InputFile, ExternalIncludes, SharedEnvironments);
 
 					if (IsValidRef(CompilerInputs[StageIndex].SharedEnvironment))
 					{
@@ -614,7 +645,7 @@ static FName NAME_VULKAN_SM4_UB(TEXT("SF_VULKAN_SM4_UB"));
 static FName NAME_VULKAN_SM4(TEXT("SF_VULKAN_SM4"));
 static FName NAME_VULKAN_SM5_UB(TEXT("SF_VULKAN_SM5_UB"));
 static FName NAME_VULKAN_SM5(TEXT("SF_VULKAN_SM5"));
-static FName NAME_SF_METAL_SM4(TEXT("SF_METAL_SM4"));
+static FName NAME_SF_METAL_SM5_NOTESS(TEXT("SF_METAL_SM5_NOTESS"));
 static FName NAME_SF_METAL_MACES3_1(TEXT("SF_METAL_MACES3_1"));
 static FName NAME_GLSL_ES3_1_ANDROID(TEXT("GLSL_ES3_1_ANDROID"));
 
@@ -644,7 +675,7 @@ static EShaderPlatform FormatNameToEnum(FName ShaderFormat)
 	if (ShaderFormat == NAME_VULKAN_ES3_1)			return SP_VULKAN_PCES3_1;
 	if (ShaderFormat == NAME_VULKAN_SM4_UB)		return SP_VULKAN_SM4;
 	if (ShaderFormat == NAME_VULKAN_SM5_UB)		return SP_VULKAN_SM5;
-	if (ShaderFormat == NAME_SF_METAL_SM4)		return SP_METAL_SM4;
+	if (ShaderFormat == NAME_SF_METAL_SM5_NOTESS)		return SP_METAL_SM5_NOTESS;
 	if (ShaderFormat == NAME_SF_METAL_MACES3_1)	return SP_METAL_MACES3_1;
 	if (ShaderFormat == NAME_GLSL_ES3_1_ANDROID) return SP_OPENGL_ES3_1_ANDROID;
 	return SP_NumPlatforms;

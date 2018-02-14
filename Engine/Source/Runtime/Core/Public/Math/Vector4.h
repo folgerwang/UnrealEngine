@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -122,6 +122,14 @@ public:
 	 * @return The result of vector subtraction.
 	 */
 	FORCEINLINE FVector4 operator-(const FVector4& V) const;
+
+	/**
+	 * Subtracts another vector to this one.
+	 *
+	 * @param V The other vector to subtract.
+	 * @return Copy of the vector after subtraction.
+	 */
+	FORCEINLINE FVector4 operator-=(const FVector4& V);
 
 	/**
 	 * Gets the result of scaling this vector.
@@ -524,6 +532,14 @@ FORCEINLINE FVector4 FVector4::operator+=(const FVector4& V)
 FORCEINLINE FVector4 FVector4::operator-(const FVector4& V) const
 {
 	return FVector4(X - V.X, Y - V.Y, Z - V.Z, W - V.W);
+}
+
+
+FORCEINLINE FVector4 FVector4::operator-=(const FVector4& V)
+{
+	X -= V.X; Y -= V.Y; Z -= V.Z; W -= V.W;
+	DiagnosticCheckNaN();
+	return *this;
 }
 
 

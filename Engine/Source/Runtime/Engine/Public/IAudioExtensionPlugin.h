@@ -1,13 +1,14 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Sound/SoundSubmix.h"
 #include "UObject/ObjectMacros.h"
 #include "Modules/ModuleInterface.h"
 #include "Modules/ModuleManager.h"
 #include "Features/IModularFeature.h"
-#include "Features/IModularFeatures.h"
+#include "IAmbisonicsMixer.h"
 #include "IAudioExtensionPlugin.generated.h"
 
 class FAudioDevice;
@@ -57,13 +58,16 @@ struct FSpatializationParams
 	FVector ListenerPosition;
 
 	/** The listener orientation. */
-	FVector ListenerOrientation;
+	FQuat ListenerOrientation;
 
 	/** The emitter position relative to listener. */
 	FVector EmitterPosition;
 
 	/** The emitter world position. */
 	FVector EmitterWorldPosition;
+
+	/** The emitter world rotation. */
+	FQuat EmitterWorldRotation;
 
 	/** The left channel position. */
 	FVector LeftChannelPosition;
@@ -79,9 +83,10 @@ struct FSpatializationParams
 
 	FSpatializationParams()
 		: ListenerPosition(FVector::ZeroVector)
-		, ListenerOrientation(FVector::ZeroVector)
+		, ListenerOrientation(FQuat::Identity)
 		, EmitterPosition(FVector::ZeroVector)
 		, EmitterWorldPosition(FVector::ZeroVector)
+		, EmitterWorldRotation(FQuat::Identity)
 		, LeftChannelPosition(FVector::ZeroVector)
 		, RightChannelPosition(FVector::ZeroVector)
 		, Distance(0.0f)
@@ -132,13 +137,16 @@ struct FAudioPluginSourceInputData
 	// Number of channels of the source audio buffer.
 	int32 NumChannels;
 
+	// The listener orientation.
+	FQuat ListenerOrientation;
+
 	// Spatialization parameters.
 	const FSpatializationParams* SpatializationParams;
 };
 
 struct FAudioPluginSourceOutputData
 {
-	// The audio ouput buffer
+	// The audio output buffer
 	TArray<float> AudioBuffer;
 };
 
@@ -148,7 +156,6 @@ class ENGINE_API USpatializationPluginSourceSettingsBase : public UObject
 {
 	GENERATED_BODY()
 };
-
 
 /************************************************************************/
 /* IAudioPluginFactory                                             */
@@ -226,10 +233,21 @@ public:
 	*/
 	virtual TAudioSpatializationPtr CreateNewSpatializationPlugin(FAudioDevice* OwningDevice) = 0;
 
-	/*
-	* @return true if this plugin uses a custom setting.
+	/**
+	* @return a new instance of an ambisonics mixer to use, owned by a shared pointer. This is optional.
 	*/
-	virtual bool HasCustomSpatializationSetting() const { return false; }
+	virtual TAmbisonicsMixerPtr CreateNewAmbisonicsMixer(FAudioDevice* OwningDevice)
+	{
+		return TAmbisonicsMixerPtr();
+	}
+
+	/** 
+	* @return the UClass type of your settings for spatialization. This allows us to only pass in user settings for your plugin.
+	*/
+	virtual UClass* GetCustomSpatializationSettingsClass() const
+	{
+		return nullptr;
+	}
 };
 
 /**
@@ -366,7 +384,13 @@ public:
 
 	virtual TAudioOcclusionPtr CreateNewOcclusionPlugin(FAudioDevice* OwningDevice) = 0;
 
-	virtual bool HasCustomOcclusionSetting() const { return false; }
+	/**
+	* @return the UClass type of your settings for occlusion. This allows us to only pass in user settings for your plugin.
+	*/
+	virtual UClass* GetCustomOcclusionSettingsClass() const
+	{
+		return nullptr;
+	}
 };
 
 class IAudioOcclusion
@@ -430,7 +454,13 @@ public:
 
 	virtual TAudioReverbPtr CreateNewReverbPlugin(FAudioDevice* OwningDevice) = 0;
 
-	virtual bool HasCustomReverbSetting() const { return false; }
+	/**
+	* @return the UClass type of your settings for reverb. This allows us to only pass in user settings for your plugin.
+	*/
+	virtual UClass* GetCustomReverbSettingsClass() const
+	{
+		return nullptr;
+	}
 };
 
 class IAudioReverb

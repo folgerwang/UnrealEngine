@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreTypes.h"
 #include "HAL/PlatformProcess.h"
@@ -6,7 +6,7 @@
 #include "ProfilingDebugging/ExternalProfiler.h"
 #include "Features/IModularFeatures.h"
 #include "Templates/ScopedPointer.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 // Not all versions of Visual Studio include the profiler SDK headers
 #if WITH_VS_PERF_PROFILER

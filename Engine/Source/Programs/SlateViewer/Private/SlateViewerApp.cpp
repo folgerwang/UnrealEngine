@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateViewerApp.h"
 #include "RequiredProgramMainCPPInclude.h"
-#include "STestSuite.h"
+#include "Widgets/Testing/STestSuite.h"
 #include "ISourceCodeAccessModule.h"
-#include "SPerfSuite.h"
-#include "SDockTab.h"
+#include "Widgets/Testing/SPerfSuite.h"
+#include "Widgets/Docking/SDockTab.h"
 #include "SWebBrowser.h"
 #include "Framework/Application/SlateApplication.h"
 #include "IWebBrowserWindow.h"

@@ -1,12 +1,12 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineStoreGooglePlay.h"
 #include "OnlineSubsystemGooglePlay.h"
 #include "OnlineAsyncTaskGooglePlayQueryInAppPurchases.h"
 
-#include "Internationalization.h"
+#include "Internationalization/Internationalization.h"
 #include "Internationalization/Culture.h"
-#include "FastDecimalFormat.h"
+#include "Internationalization/FastDecimalFormat.h"
 #include "Misc/ConfigCacheIni.h"
 
 FOnlineStoreGooglePlayV2::FOnlineStoreGooglePlayV2(FOnlineSubsystemGooglePlay* InSubsystem)

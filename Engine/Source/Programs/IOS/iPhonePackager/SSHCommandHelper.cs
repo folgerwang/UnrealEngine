@@ -1,5 +1,5 @@
 ﻿/**
- * Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+ * Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
  */
 
 using System;
@@ -140,7 +140,7 @@ namespace iPhonePackager
 
 		// SSH command output, tracks output and errors from the remote execution
 		private static Dictionary<Object, StringBuilder> SSHOutputMap = new Dictionary<object, StringBuilder>();
-
+        public static Hashtable SSHReturn = new Hashtable();
 		/** 
 		 * Execute a console command on the remote mac.
 		 */
@@ -160,7 +160,7 @@ namespace iPhonePackager
 
 			SSHProcess.StartInfo.FileName = SSHExePath;
 			SSHProcess.StartInfo.Arguments = string.Format(
-				"{0} {1}@{2} \"{3}\"",
+				"{0} \"{1}@{2}\" \"{3}\"",
 				SSHAuthentication,
 				SSHUser,
 				RemoteMac,
@@ -171,9 +171,9 @@ namespace iPhonePackager
 
 			SSHProcess.StartInfo.UseShellExecute = false;
 			SSHProcess.StartInfo.RedirectStandardOutput = true;
-			SSHProcess.OutputDataReceived += new DataReceivedEventHandler(OutputReceivedForRsync);
+			SSHProcess.OutputDataReceived += new DataReceivedEventHandler(OutputReceivedForSSH);
 			SSHProcess.StartInfo.RedirectStandardError = true;
-			SSHProcess.ErrorDataReceived += new DataReceivedEventHandler(OutputReceivedForRsync);
+			SSHProcess.ErrorDataReceived += new DataReceivedEventHandler(OutputReceivedForSSH);
 
 			DateTime Start = DateTime.Now;
 			SSHProcess.Start();
@@ -186,9 +186,9 @@ namespace iPhonePackager
 			Console.WriteLine("Execute took {0}", (DateTime.Now - Start).ToString());
 
 			// now we have enough to fill out the HashTable
-			Hashtable Return = new Hashtable();
-			Return["CommandOutput"] = SSHOutputMap[SSHProcess].ToString();
-			Return["ExitCode"] = (object)SSHProcess.ExitCode;
+			SSHReturn = new Hashtable();
+            SSHReturn["CommandOutput"] = SSHOutputMap[SSHProcess].ToString();
+            SSHReturn["ExitCode"] = (object)SSHProcess.ExitCode;
 
 			SSHOutputMap.Remove(SSHProcess);
 
@@ -260,7 +260,7 @@ namespace iPhonePackager
 			// make simple rsync commandline to send a file
 			RsyncProcess.StartInfo.FileName = RSyncExePath;
 			RsyncProcess.StartInfo.Arguments = string.Format(
-				"-zae \"ssh {0}\" --rsync-path=\"mkdir -p {1} && rsync\" --chmod=ug=rwX,o=rxX '{2}' {3}@{4}:'{1}/{5}'",
+                "-zrltgoDe \"ssh {0}\" --rsync-path=\"mkdir -p {1} && rsync\" --chmod=ug=rwX,o=rxX '{2}' \"{3}@{4}\":'{1}/{5}'",
 				SSHAuthentication,
 				RemoteDir,
 				ConvertPathToCygwin(LocalPath),
@@ -316,7 +316,7 @@ namespace iPhonePackager
 			// make simple rsync commandline to send a file
 			RsyncProcess.StartInfo.FileName = RSyncExePath;
 			RsyncProcess.StartInfo.Arguments = string.Format(
-				"-zae \"ssh {0}\" {2}@{3}:'{4}' \"{1}\"",
+                "-zrltgoDe \"ssh {0}\" \"{2}@{3}\":'{4}' \"{1}\"",
 				SSHAuthentication,
 				ConvertPathToCygwin(LocalPath),
 				SSHUser,
@@ -362,6 +362,7 @@ namespace iPhonePackager
 		{
 			if ((Line != null) && (Line.Data != null) && (Line.Data != ""))
 			{
+                Program.Log(Line.Data);
 				StringBuilder SSHOutput = SSHOutputMap[Sender];
 				if (SSHOutput.Length != 0)
 				{

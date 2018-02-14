@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Framework/Text/SlateTextRun.h"
 #include "Rendering/DrawElements.h"
@@ -7,7 +7,7 @@
 #include "Framework/Text/DefaultLayoutBlock.h"
 #include "Framework/Text/ShapedTextCache.h"
 #include "Framework/Text/RunUtils.h"
-#include "ShapedTextFwd.h"
+#include "Fonts/ShapedTextFwd.h"
 
 TSharedRef< FSlateTextRun > FSlateTextRun::Create( const FRunInfo& InRunInfo, const TSharedRef< const FString >& InText, const FTextBlockStyle& Style )
 {
@@ -136,7 +136,7 @@ int32 FSlateTextRun::OnPaint( const FPaintArgs& Args, const FTextLayout::FLineVi
 			ShadowShapedText,
 			DrawEffects,
 			InWidgetStyle.GetColorAndOpacityTint() * Style.ShadowColorAndOpacity,
-			InWidgetStyle.GetColorAndOpacityTint() * Style.ShadowColorAndOpacity
+			InWidgetStyle.GetColorAndOpacityTint() * Style.Font.OutlineSettings.OutlineColor
 			);
 	}
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraEmitterFactoryNew.h"
 #include "NiagaraEmitter.h"
@@ -9,7 +9,7 @@
 #include "NiagaraNodeOutput.h"
 #include "NiagaraEditorSettings.h"
 
-#include "ConfigCacheIni.h"
+#include "Misc/ConfigCacheIni.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraEmitterFactory"
 
@@ -49,6 +49,8 @@ UObject* UNiagaraEmitterFactoryNew::FactoryCreateNew(UClass* Class, UObject* InP
 			NewEmitter->GraphSource = Source;
 			NewEmitter->SpawnScriptProps.Script->SetSource(Source);
 			NewEmitter->UpdateScriptProps.Script->SetSource(Source);
+			NewEmitter->EmitterSpawnScriptProps.Script->SetSource(Source);
+			NewEmitter->EmitterUpdateScriptProps.Script->SetSource(Source);
 		}
 	}
 	

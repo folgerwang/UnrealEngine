@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LandscapeEditorDetailCustomization_TargetLayers.h"
 #include "IDetailChildrenBuilder.h"
@@ -39,8 +39,8 @@
 #include "Materials/MaterialExpressionLandscapeVisibilityMask.h"
 #include "LandscapeEdit.h"
 #include "IDetailGroup.h"
-#include "SBoxPanel.h"
-#include "Private/SlateEditorStyle.h"
+#include "Widgets/SBoxPanel.h"
+#include "Editor/EditorStyle/Private/SlateEditorStyle.h"
 
 #define LOCTEXT_NAMESPACE "LandscapeEditor.TargetLayers"
 
@@ -944,14 +944,14 @@ void FLandscapeEditorCustomNodeBuilder_TargetLayers::OnExportLayer(const TShared
 
 		if (Target->TargetType == ELandscapeToolTargetType::Heightmap)
 		{
-			SaveDialogTitle = *LOCTEXT("ExportHeightmap", "Export Landscape Heightmap").ToString();
-			DefaultFileName = TEXT("Heightmap.png");
+			SaveDialogTitle = LOCTEXT("ExportHeightmap", "Export Landscape Heightmap").ToString();
+			DefaultFileName = TEXT("Heightmap");
 			FileTypes = LandscapeEditorModule.GetHeightmapExportDialogTypeString();
 		}
 		else //if (Target->TargetType == ELandscapeToolTargetType::Weightmap)
 		{
-			SaveDialogTitle = *FText::Format(LOCTEXT("ExportLayer", "Export Landscape Layer: {0}"), FText::FromName(LayerInfoObj->LayerName)).ToString();
-			DefaultFileName = *FString::Printf(TEXT("%s.png"), *(LayerInfoObj->LayerName.ToString()));
+			SaveDialogTitle = FText::Format(LOCTEXT("ExportLayer", "Export Landscape Layer: {0}"), FText::FromName(LayerInfoObj->LayerName)).ToString();
+			DefaultFileName = LayerInfoObj->LayerName.ToString();
 			FileTypes = LandscapeEditorModule.GetWeightmapExportDialogTypeString();
 		}
 
@@ -1307,19 +1307,19 @@ FReply FLandscapeEditorCustomNodeBuilder_TargetLayers::OnTargetLayerMakePublicCl
 
 FReply FLandscapeEditorCustomNodeBuilder_TargetLayers::OnTargetLayerDeleteClicked(const TSharedRef<FLandscapeTargetListInfo> Target)
 {
-	check(Target->LayerInfoObj.IsValid());
 	check(Target->LandscapeInfo.IsValid());
 
 	if (FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("Prompt_DeleteLayer", "Are you sure you want to delete this layer?")) == EAppReturnType::Yes)
 	{
 		FScopedTransaction Transaction(LOCTEXT("Undo_Delete", "Delete Layer"));
 
-		Target->LandscapeInfo->DeleteLayer(Target->LayerInfoObj.Get());
+		Target->LandscapeInfo->DeleteLayer(Target->LayerInfoObj.Get(), Target->LayerName);
 
 		FEdModeLandscape* LandscapeEdMode = GetEditorMode();
 		if (LandscapeEdMode)
 		{
 			LandscapeEdMode->UpdateTargetList();
+			LandscapeEdMode->UpdateShownLayerList();
 		}
 	}
 

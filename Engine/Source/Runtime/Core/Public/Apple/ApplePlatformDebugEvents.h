@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================================
 	FApplePlatformDebugEvents.h: Apple platform debug events
@@ -6,9 +6,9 @@
 
 #pragma once
 #include "CoreTypes.h"
-#include "LogMacros.h"
-#include "Map.h"
-#include "UnrealString.h"
+#include "Logging/LogMacros.h"
+#include "Containers/Map.h"
+#include "Containers/UnrealString.h"
 #if PLATFORM_MAC
 #include "Mac/MacSystemIncludes.h"
 #elif PLATFORM_IOS

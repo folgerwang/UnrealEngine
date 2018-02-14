@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	D3D11Resources.h: D3D resource RHI definitions.
@@ -296,6 +296,24 @@ public:
 	{
 		return ( NumDepthStencilViews > 0 );
 	}	
+
+	void AliasResources(FD3D11TextureBase* Texture)
+	{
+		check(MemorySize == Texture->MemorySize);
+		check(bCreatedRTVsPerSlice == Texture->bCreatedRTVsPerSlice);
+		check(RTVArraySize == Texture->RTVArraySize);
+		check(NumDepthStencilViews == Texture->NumDepthStencilViews);
+
+		Resource = Texture->Resource;
+		BaseShaderResource = Texture->BaseShaderResource;
+		ShaderResourceView = Texture->ShaderResourceView;
+		RenderTargetViews = Texture->RenderTargetViews;
+
+		for (uint32 Index = 0; Index < NumDepthStencilViews; Index++)
+		{
+			DepthStencilViews[Index] = Texture->DepthStencilViews[Index];
+		}
+	}
 
 protected:
 

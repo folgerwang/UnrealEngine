@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "Evaluation/Blending/MovieSceneBlendType.h"
-#include "InlineValue.h"
-#include "MovieScenePlayback.h"
+#include "Misc/InlineValue.h"
+#include "Evaluation/MovieScenePlayback.h"
 #include "Evaluation/MovieSceneEvaluationScope.h"
 
 

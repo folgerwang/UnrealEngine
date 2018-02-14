@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MetalRHI.cpp: Metal device RHI implementation.
@@ -9,16 +9,26 @@
 #include "Modules/ModuleManager.h"
 #include "RenderUtils.h"
 #if PLATFORM_IOS
-#include "IOSAppDelegate.h"
+#include "IOS/IOSAppDelegate.h"
 #elif PLATFORM_MAC
-#include "MacApplication.h"
+#include "Mac/MacApplication.h"
 #include "HAL/PlatformApplicationMisc.h"
 #endif
 #include "ShaderCache.h"
 #include "MetalProfiler.h"
-#include "GenericPlatformDriver.h"
+#include "GenericPlatform/GenericPlatformDriver.h"
+#include "MetalShaderResources.h"
 
 DEFINE_LOG_CATEGORY(LogMetal)
+
+bool GMetalSupportsHeaps = false;
+bool GMetalSupportsIndirectArgumentBuffers = false;
+bool GMetalSupportsTileShaders = false;
+bool GMetalSupportsStoreActionOptions = false;
+bool GMetalSupportsDepthClipMode = false;
+bool GMetalCommandBufferHasStartEndTimeAPI = false;
+
+FMetalBufferFormat GMetalBufferFormats[PF_MAX];
 
 static void ValidateTargetedRHIFeatureLevelExists(EShaderPlatform Platform)
 {
@@ -87,7 +97,7 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	GSupportsVolumeTextureRendering = false;
 	
 	// Metal always needs a render target to render with fragment shaders!
-	GRHIRequiresRenderTargetForPixelShaderUAVs = true;
+	// GRHIRequiresRenderTargetForPixelShaderUAVs = true;
 
 	//@todo-rco: Query name from API
 	GRHIAdapterName = TEXT("Metal");
@@ -174,7 +184,7 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	// 10.11.6 for AMD/Nvidia
 	// 10.12.2+ for AMD/Nvidia
 	// 10.12.4+ for Intel
-	bool bSupportsSM5 = ((FPlatformMisc::MacOSXVersionCompare(10,11,6) == 0) || (FPlatformMisc::MacOSXVersionCompare(10,12,2) >= 0));
+	bool bSupportsSM5 = true;
 	if(GRHIAdapterName.Contains("Nvidia"))
 	{
 		bSupportsPointLights = true;
@@ -202,8 +212,6 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 		GRHIVendorId = 0x8086;
 		bSupportsRHIThread = true;
 		bSupportsDistanceFields = (FPlatformMisc::MacOSXVersionCompare(10,12,2) >= 0);
-		// Only for 10.12.4 and later...
-		bSupportsSM5 = (FPlatformMisc::MacOSXVersionCompare(10,12,4) >= 0);
 	}
 
 	bool const bRequestedSM5 = (RequestedFeatureLevel == ERHIFeatureLevel::SM5 || (!bRequestedFeatureLevel && (FParse::Param(FCommandLine::Get(),TEXT("metalsm5")) || FParse::Param(FCommandLine::Get(),TEXT("metalmrt")))));
@@ -223,11 +231,11 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	{
 		if (bRequestedSM5)
 		{
-			UE_LOG(LogMetal, Warning, TEXT("Metal Shader Model 5 support requires Mac OS X El Capitan 10.11.6 or later & an AMD or Nvidia GPU, or 10.12.4 or later for Intel. Falling back to Metal Shader Model 4."));
+			UE_LOG(LogMetal, Warning, TEXT("Metal Shader Model 5 w/tessellation support requires 10.12.6 for Nvidia, it is broken on 10.13.0+. Falling back to Metal Shader Model 5 without tessellation support."));
 		}
 	
-		GMaxRHIFeatureLevel = ERHIFeatureLevel::SM4;
-		GMaxRHIShaderPlatform = SP_METAL_SM4;
+		GMaxRHIFeatureLevel = ERHIFeatureLevel::SM5;
+		GMaxRHIShaderPlatform = SP_METAL_SM5_NOTESS;
 	}
 
 	ERHIFeatureLevel::Type PreviewFeatureLevel;
@@ -251,7 +259,7 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	
 	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES2] = SP_METAL_MACES2;
 	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES3_1] = (GMaxRHIFeatureLevel >= ERHIFeatureLevel::ES3_1) ? SP_METAL_MACES3_1 : SP_NumPlatforms;
-	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM4] = (GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM4) ? SP_METAL_SM4 : SP_NumPlatforms;
+	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM4] = SP_NumPlatforms;
 	GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM5] = (GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM5) ? GMaxRHIShaderPlatform : SP_NumPlatforms;
 	
 	// Mac GPUs support layer indexing.
@@ -282,7 +290,7 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	}
 	
 	// Disable the distance field AO & shadowing effects on GPU drivers that don't currently execute the shaders correctly.
-	if (GMaxRHIShaderPlatform == SP_METAL_SM5 && !bSupportsDistanceFields && !FParse::Param(FCommandLine::Get(),TEXT("metaldistancefields")))
+	if ((GMaxRHIShaderPlatform == SP_METAL_SM5 || GMaxRHIShaderPlatform == SP_METAL_SM5_NOTESS) && !bSupportsDistanceFields && !FParse::Param(FCommandLine::Get(),TEXT("metaldistancefields")))
 	{
 		static auto CVarDistanceFieldAO = IConsoleManager::Get().FindConsoleVariable(TEXT("r.DistanceFieldAO"));
 		if(CVarDistanceFieldAO && CVarDistanceFieldAO->GetInt() != 0)
@@ -298,7 +306,25 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	}
 	
 #endif
-		
+
+	if (FApplePlatformMisc::IsOSAtLeastVersion((uint32[]){10, 13, 0}, (uint32[]){11, 0, 0}, (uint32[]){11, 0, 0}))
+	{
+		GMetalSupportsIndirectArgumentBuffers = true;
+		GMetalSupportsStoreActionOptions = true;
+	}
+	if (!PLATFORM_MAC && FApplePlatformMisc::IsOSAtLeastVersion((uint32[]){0, 0, 0}, (uint32[]){11, 0, 0}, (uint32[]){11, 0, 0}))
+	{
+		GMetalSupportsTileShaders = true;
+	}
+	if (FApplePlatformMisc::IsOSAtLeastVersion((uint32[]){10, 11, 0}, (uint32[]){11, 0, 0}, (uint32[]){11, 0, 0}))
+	{
+		GMetalSupportsDepthClipMode = true;
+	}
+	if (FApplePlatformMisc::IsOSAtLeastVersion((uint32[]){10, 13, 0}, (uint32[]){10, 3, 0}, (uint32[]){10, 3, 0}))
+	{
+		GMetalCommandBufferHasStartEndTimeAPI = true;
+	}
+
 	GPoolSizeVRAMPercentage = 0;
 	GTexturePoolSize = 0;
 	GConfig->GetInt(TEXT("TextureStreaming"), TEXT("PoolSizeVRAMPercentage"), GPoolSizeVRAMPercentage, GEngineIni);
@@ -320,7 +346,7 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	{
 #if METAL_SUPPORTS_PARALLEL_RHI_EXECUTE
 #if WITH_EDITORONLY_DATA
-		GRHISupportsRHIThread = true;
+		GRHISupportsRHIThread = (!GIsEditor && bSupportsRHIThread);
 #else
 		GRHISupportsRHIThread = bSupportsRHIThread;
 #endif
@@ -353,7 +379,7 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 		extern int32 GEmitMeshDrawEvent;
 		GEmitMeshDrawEvent = 1;
 #endif
-		GEmitDrawEvents = true;
+		SetEmitDrawEvents(true);
 	}
 	
 	// Force disable vertex-shader-layer point light rendering on GPUs that don't support it properly yet.
@@ -377,7 +403,7 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 		}
 	}
 	
-	GEmitDrawEvents |= ENABLE_METAL_GPUEVENTS;
+	SetEmitDrawEvents(GetEmitDrawEvents() | ENABLE_METAL_GPUEVENTS);
 
 	GSupportsShaderFramebufferFetch = !PLATFORM_MAC;
 	GHardwareHiddenSurfaceRemoval = true;
@@ -386,7 +412,6 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	GRHISupportsTextureStreaming = true;
 	GSupportsWideMRT = bCanUseWideMRTs;
 
-	GRHIRequiresEarlyBackBufferRenderTarget = false;
 	GSupportsSeparateRenderTargetBlendState = (GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM4);
 
 #if PLATFORM_MAC
@@ -418,6 +443,75 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	GMaxTextureMipCount = FPlatformMath::CeilLogTwo( GMaxTextureDimensions ) + 1;
 	GMaxTextureMipCount = FPlatformMath::Min<int32>( MAX_TEXTURE_MIP_COUNT, GMaxTextureMipCount );
 
+	// Initialize the buffer format map - in such a way as to be able to validate it in non-shipping...
+#if METAL_DEBUG_OPTIONS
+	FMemory::Memset(GMetalBufferFormats, 255);
+#endif
+	GMetalBufferFormats[PF_Unknown              ] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_A32B32G32R32F        ] = { MTLPixelFormatRGBA32Float, EMetalBufferFormat::RGBA32Float };
+	GMetalBufferFormats[PF_B8G8R8A8             ] = { MTLPixelFormatRGBA8Unorm, EMetalBufferFormat::RGBA8Unorm }; // MTLPixelFormatBGRA8Unorm/EMetalBufferFormat::BGRA8Unorm,  < We don't support this as a vertex-format so we have code to swizzle in the shader
+	GMetalBufferFormats[PF_G8                   ] = { MTLPixelFormatR8Unorm, EMetalBufferFormat::R8Unorm };
+	GMetalBufferFormats[PF_G16                  ] = { MTLPixelFormatR16Unorm, EMetalBufferFormat::R16Unorm };
+	GMetalBufferFormats[PF_DXT1                 ] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_DXT3                 ] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_DXT5                 ] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_UYVY                 ] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_FloatRGB             ] = { MTLPixelFormatInvalid, EMetalBufferFormat::RGB16Half };
+	GMetalBufferFormats[PF_FloatRGBA            ] = { MTLPixelFormatRGBA16Float, EMetalBufferFormat::RGBA16Half };
+	GMetalBufferFormats[PF_DepthStencil         ] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_ShadowDepth          ] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_R32_FLOAT            ] = { MTLPixelFormatR32Float, EMetalBufferFormat::R32Float };
+	GMetalBufferFormats[PF_G16R16               ] = { MTLPixelFormatRG16Unorm, EMetalBufferFormat::RG16Unorm };
+	GMetalBufferFormats[PF_G16R16F              ] = { MTLPixelFormatRG16Float, EMetalBufferFormat::RG16Half };
+	GMetalBufferFormats[PF_G16R16F_FILTER       ] = { MTLPixelFormatRG16Float, EMetalBufferFormat::RG16Half };
+	GMetalBufferFormats[PF_G32R32F              ] = { MTLPixelFormatRG32Float, EMetalBufferFormat::RG32Float };
+	GMetalBufferFormats[PF_A2B10G10R10          ] = { MTLPixelFormatRGB10A2Unorm, EMetalBufferFormat::RGB10A2Unorm };
+	GMetalBufferFormats[PF_A16B16G16R16         ] = { MTLPixelFormatRGBA16Unorm, EMetalBufferFormat::RGBA16Half };
+	GMetalBufferFormats[PF_D24                  ] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_R16F                 ] = { MTLPixelFormatR16Float, EMetalBufferFormat::RG16Half };
+	GMetalBufferFormats[PF_R16F_FILTER          ] = { MTLPixelFormatR16Float, EMetalBufferFormat::RG16Half };
+	GMetalBufferFormats[PF_BC5                  ] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_V8U8                 ] = { MTLPixelFormatRG8Snorm, EMetalBufferFormat::RG8Unorm };
+	GMetalBufferFormats[PF_A1                   ] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_FloatR11G11B10       ] = { MTLPixelFormatRG11B10Float, EMetalBufferFormat::RG11B10Half }; // < May not work on tvOS
+	GMetalBufferFormats[PF_A8                   ] = { MTLPixelFormatA8Unorm, EMetalBufferFormat::R8Unorm };
+	GMetalBufferFormats[PF_R32_UINT             ] = { MTLPixelFormatR32Uint, EMetalBufferFormat::R32Uint };
+	GMetalBufferFormats[PF_R32_SINT             ] = { MTLPixelFormatR32Sint, EMetalBufferFormat::R32Sint };
+	GMetalBufferFormats[PF_PVRTC2               ] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_PVRTC4               ] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_R16_UINT             ] = { MTLPixelFormatR16Uint, EMetalBufferFormat::R16Uint };
+	GMetalBufferFormats[PF_R16_SINT             ] = { MTLPixelFormatR16Sint, EMetalBufferFormat::R16Sint };
+	GMetalBufferFormats[PF_R16G16B16A16_UINT    ] = { MTLPixelFormatRGBA16Uint, EMetalBufferFormat::RGBA16Uint };
+	GMetalBufferFormats[PF_R16G16B16A16_SINT    ] = { MTLPixelFormatRGBA16Sint, EMetalBufferFormat::RGBA16Sint };
+	GMetalBufferFormats[PF_R5G6B5_UNORM         ] = { MTLPixelFormatInvalid, EMetalBufferFormat::R5G6B5Unorm };
+	GMetalBufferFormats[PF_R8G8B8A8             ] = { MTLPixelFormatRGBA8Unorm, EMetalBufferFormat::RGBA8Unorm };
+	GMetalBufferFormats[PF_A8R8G8B8				] = { MTLPixelFormatRGBA8Unorm, EMetalBufferFormat::RGBA8Unorm }; // MTLPixelFormatBGRA8Unorm/EMetalBufferFormat::BGRA8Unorm,  < We don't support this as a vertex-format so we have code to swizzle in the shader
+	GMetalBufferFormats[PF_BC4					] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_R8G8                 ] = { MTLPixelFormatRG8Unorm, EMetalBufferFormat::RG8Unorm };
+	GMetalBufferFormats[PF_ATC_RGB				] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_ATC_RGBA_E			] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_ATC_RGBA_I			] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_X24_G8				] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_ETC1					] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_ETC2_RGB				] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_ETC2_RGBA			] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_R32G32B32A32_UINT	] = { MTLPixelFormatRGBA32Uint, EMetalBufferFormat::RGBA32Uint };
+	GMetalBufferFormats[PF_R16G16_UINT			] = { MTLPixelFormatRG16Uint, EMetalBufferFormat::RG16Uint };
+	GMetalBufferFormats[PF_ASTC_4x4             ] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_ASTC_6x6             ] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_ASTC_8x8             ] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_ASTC_10x10           ] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_ASTC_12x12           ] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_BC6H					] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_BC7					] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_R8_UINT				] = { MTLPixelFormatR8Uint, EMetalBufferFormat::R8Uint };
+	GMetalBufferFormats[PF_L8					] = { MTLPixelFormatInvalid, EMetalBufferFormat::R8Unorm };
+	GMetalBufferFormats[PF_XGXR8				] = { MTLPixelFormatInvalid, EMetalBufferFormat::Unknown };
+	GMetalBufferFormats[PF_R8G8B8A8_UINT		] = { MTLPixelFormatRGBA8Uint, EMetalBufferFormat::RGBA8Uint };
+	GMetalBufferFormats[PF_R8G8B8A8_SNORM		] = { MTLPixelFormatRGBA8Snorm, EMetalBufferFormat::RGBA8Snorm };
+	GMetalBufferFormats[PF_R16G16B16A16_UNORM	] = { MTLPixelFormatRGBA16Unorm, EMetalBufferFormat::RGBA16Unorm };
+	GMetalBufferFormats[PF_R16G16B16A16_SNORM	] = { MTLPixelFormatRGBA16Snorm, EMetalBufferFormat::RGBA16Snorm };
+		
 	// Initialize the platform pixel format map.
 	GPixelFormats[PF_Unknown			].PlatformFormat	= MTLPixelFormatInvalid;
 	GPixelFormats[PF_A32B32G32R32F		].PlatformFormat	= MTLPixelFormatRGBA32Float;
@@ -447,17 +541,24 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	GPixelFormats[PF_ASTC_10x10			].Supported			= bCanUseASTC;
 	GPixelFormats[PF_ASTC_12x12			].PlatformFormat	= MTLPixelFormatASTC_12x12_LDR;
 	GPixelFormats[PF_ASTC_12x12			].Supported			= bCanUseASTC;
-#else // @todo zebra : srgb?
-    GPixelFormats[PF_DXT1				].PlatformFormat	= MTLPixelFormatBC1_RGBA;
-    GPixelFormats[PF_DXT3				].PlatformFormat	= MTLPixelFormatBC2_RGBA;
-    GPixelFormats[PF_DXT5				].PlatformFormat	= MTLPixelFormatBC3_RGBA;
+		
+#if !PLATFORM_TVOS
+	if (![Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v2])
+	{
+		GPixelFormats[PF_FloatRGB			].PlatformFormat 	= MTLPixelFormatRGBA16Float;
+		GPixelFormats[PF_FloatRGBA			].BlockBytes		= 8;
+		GPixelFormats[PF_FloatR11G11B10		].PlatformFormat	= MTLPixelFormatRGBA16Float;
+		GPixelFormats[PF_FloatR11G11B10		].BlockBytes		= 8;
+	}
+	else
 #endif
-	GPixelFormats[PF_UYVY				].PlatformFormat	= MTLPixelFormatInvalid;
-	GPixelFormats[PF_FloatRGB			].PlatformFormat	= MTLPixelFormatRG11B10Float;
-	GPixelFormats[PF_FloatRGB			].BlockBytes		= 4;
-	GPixelFormats[PF_FloatRGBA			].PlatformFormat	= MTLPixelFormatRGBA16Float;
-	GPixelFormats[PF_FloatRGBA			].BlockBytes		= 8;
-#if PLATFORM_IOS
+	{
+		GPixelFormats[PF_FloatRGB			].PlatformFormat	= MTLPixelFormatRG11B10Float;
+		GPixelFormats[PF_FloatRGB			].BlockBytes		= 4;
+		GPixelFormats[PF_FloatR11G11B10		].PlatformFormat	= MTLPixelFormatRG11B10Float;
+		GPixelFormats[PF_FloatR11G11B10		].BlockBytes		= 4;
+	}
+	
 	if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesStencilView) && FMetalCommandQueue::SupportsFeature(EMetalFeaturesCombinedDepthStencil) && !FParse::Param(FCommandLine::Get(),TEXT("metalforceseparatedepthstencil")))
 	{
 		GPixelFormats[PF_DepthStencil		].PlatformFormat	= MTLPixelFormatDepth32Float_Stencil8;
@@ -470,7 +571,19 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	}
 	GPixelFormats[PF_ShadowDepth		].PlatformFormat	= MTLPixelFormatDepth32Float;
 	GPixelFormats[PF_ShadowDepth		].BlockBytes		= 4;
-#else
+		
+	GPixelFormats[PF_BC5				].PlatformFormat	= MTLPixelFormatInvalid;
+	GPixelFormats[PF_R5G6B5_UNORM		].PlatformFormat	= MTLPixelFormatB5G6R5Unorm;
+#else // @todo zebra : srgb?
+    GPixelFormats[PF_DXT1				].PlatformFormat	= MTLPixelFormatBC1_RGBA;
+    GPixelFormats[PF_DXT3				].PlatformFormat	= MTLPixelFormatBC2_RGBA;
+    GPixelFormats[PF_DXT5				].PlatformFormat	= MTLPixelFormatBC3_RGBA;
+	
+	GPixelFormats[PF_FloatRGB			].PlatformFormat	= MTLPixelFormatRG11B10Float;
+	GPixelFormats[PF_FloatRGB			].BlockBytes		= 4;
+	GPixelFormats[PF_FloatR11G11B10		].PlatformFormat	= MTLPixelFormatRG11B10Float;
+	GPixelFormats[PF_FloatR11G11B10		].BlockBytes		= 4;
+		
 	// Use Depth28_Stencil8 when it is available for consistency
 	if(bSupportsD24S8)
 	{
@@ -480,18 +593,39 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	{
 		GPixelFormats[PF_DepthStencil	].PlatformFormat	= MTLPixelFormatDepth32Float_Stencil8;
 	}
-    GPixelFormats[PF_DepthStencil		].BlockBytes		= 4;
-    if (bSupportsD16)
-    {
-        GPixelFormats[PF_ShadowDepth		].PlatformFormat	= MTLPixelFormatDepth16Unorm;
-        GPixelFormats[PF_ShadowDepth		].BlockBytes		= 2;
-    }
-    else
-    {
-        GPixelFormats[PF_ShadowDepth		].PlatformFormat	= MTLPixelFormatDepth32Float;
-        GPixelFormats[PF_ShadowDepth		].BlockBytes		= 4;
-    }
+	GPixelFormats[PF_DepthStencil		].BlockBytes		= 4;
+	if (bSupportsD16)
+	{
+		GPixelFormats[PF_ShadowDepth		].PlatformFormat	= MTLPixelFormatDepth16Unorm;
+		GPixelFormats[PF_ShadowDepth		].BlockBytes		= 2;
+	}
+	else
+	{
+		GPixelFormats[PF_ShadowDepth		].PlatformFormat	= MTLPixelFormatDepth32Float;
+		GPixelFormats[PF_ShadowDepth		].BlockBytes		= 4;
+	}
+	if(bSupportsD24S8)
+	{
+		GPixelFormats[PF_D24			].PlatformFormat	= MTLPixelFormatDepth24Unorm_Stencil8;
+	}
+	else
+	{
+		GPixelFormats[PF_D24			].PlatformFormat	= MTLPixelFormatDepth32Float;
+	}
+	GPixelFormats[PF_D24				].Supported			= true;
+	GPixelFormats[PF_BC4				].Supported			= true;
+	GPixelFormats[PF_BC4				].PlatformFormat	= MTLPixelFormatBC4_RUnorm;
+	GPixelFormats[PF_BC5				].Supported			= true;
+	GPixelFormats[PF_BC5				].PlatformFormat	= MTLPixelFormatBC5_RGUnorm;
+	GPixelFormats[PF_BC6H				].Supported			= true;
+	GPixelFormats[PF_BC6H               ].PlatformFormat	= MTLPixelFormatBC6H_RGBUfloat;
+	GPixelFormats[PF_BC7				].Supported			= true;
+	GPixelFormats[PF_BC7				].PlatformFormat	= MTLPixelFormatBC7_RGBAUnorm;
+	GPixelFormats[PF_R5G6B5_UNORM		].PlatformFormat	= MTLPixelFormatInvalid;
 #endif
+	GPixelFormats[PF_UYVY				].PlatformFormat	= MTLPixelFormatInvalid;
+	GPixelFormats[PF_FloatRGBA			].PlatformFormat	= MTLPixelFormatRGBA16Float;
+	GPixelFormats[PF_FloatRGBA			].BlockBytes		= 8;
     GPixelFormats[PF_X24_G8				].PlatformFormat	= MTLPixelFormatStencil8;
     GPixelFormats[PF_X24_G8				].BlockBytes		= 1;
 	GPixelFormats[PF_R32_FLOAT			].PlatformFormat	= MTLPixelFormatR32Float;
@@ -502,45 +636,15 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	GPixelFormats[PF_G32R32F			].PlatformFormat	= MTLPixelFormatRG32Float;
 	GPixelFormats[PF_A2B10G10R10		].PlatformFormat    = MTLPixelFormatRGB10A2Unorm;
 	GPixelFormats[PF_A16B16G16R16		].PlatformFormat    = MTLPixelFormatRGBA16Unorm;
-#if PLATFORM_MAC
-	if(bSupportsD24S8)
-	{
-		GPixelFormats[PF_D24			].PlatformFormat	= MTLPixelFormatDepth24Unorm_Stencil8;
-	}
-	else
-	{
-		GPixelFormats[PF_D24			].PlatformFormat	= MTLPixelFormatDepth32Float;
-	}
-	GPixelFormats[PF_D24				].Supported			= true;
-#endif
 	GPixelFormats[PF_R16F				].PlatformFormat	= MTLPixelFormatR16Float;
 	GPixelFormats[PF_R16F_FILTER		].PlatformFormat	= MTLPixelFormatR16Float;
-#if PLATFORM_IOS
-	GPixelFormats[PF_BC5				].PlatformFormat	= MTLPixelFormatInvalid;
-#else
-    GPixelFormats[PF_BC4				].Supported			= true;
-    GPixelFormats[PF_BC4				].PlatformFormat	= MTLPixelFormatBC4_RUnorm;
-    GPixelFormats[PF_BC5				].Supported			= true;
-    GPixelFormats[PF_BC5				].PlatformFormat	= MTLPixelFormatBC5_RGUnorm;
-    GPixelFormats[PF_BC6H				].Supported			= true;
-    GPixelFormats[PF_BC6H               ].PlatformFormat	= MTLPixelFormatBC6H_RGBUfloat;
-    GPixelFormats[PF_BC7				].Supported			= true;
-    GPixelFormats[PF_BC7				].PlatformFormat	= MTLPixelFormatBC7_RGBAUnorm;
-#endif
-	GPixelFormats[PF_V8U8				].PlatformFormat	=
+	GPixelFormats[PF_V8U8				].PlatformFormat	= MTLPixelFormatRG8Snorm;
 	GPixelFormats[PF_A1					].PlatformFormat	= MTLPixelFormatInvalid;
-	GPixelFormats[PF_FloatR11G11B10		].PlatformFormat	= MTLPixelFormatRG11B10Float;
-	GPixelFormats[PF_FloatR11G11B10		].BlockBytes		= 4;
 	GPixelFormats[PF_A8					].PlatformFormat	= MTLPixelFormatA8Unorm;
 	GPixelFormats[PF_R32_UINT			].PlatformFormat	= MTLPixelFormatR32Uint;
 	GPixelFormats[PF_R32_SINT			].PlatformFormat	= MTLPixelFormatR32Sint;
 	GPixelFormats[PF_R16G16B16A16_UINT	].PlatformFormat	= MTLPixelFormatRGBA16Uint;
 	GPixelFormats[PF_R16G16B16A16_SINT	].PlatformFormat	= MTLPixelFormatRGBA16Sint;
-#if PLATFORM_IOS
-	GPixelFormats[PF_R5G6B5_UNORM		].PlatformFormat	= MTLPixelFormatB5G6R5Unorm;
-#else // @todo zebra
-    GPixelFormats[PF_R5G6B5_UNORM		].PlatformFormat	= MTLPixelFormatInvalid;
-#endif
 	GPixelFormats[PF_R8G8B8A8			].PlatformFormat	= MTLPixelFormatRGBA8Unorm;
 	GPixelFormats[PF_R8G8B8A8_UINT		].PlatformFormat	= MTLPixelFormatRGBA8Uint;
 	GPixelFormats[PF_R8G8B8A8_SNORM		].PlatformFormat	= MTLPixelFormatRGBA8Snorm;
@@ -549,6 +653,17 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	GPixelFormats[PF_R16_UINT			].PlatformFormat	= MTLPixelFormatR16Uint;
 	GPixelFormats[PF_R8_UINT			].PlatformFormat	= MTLPixelFormatR8Uint;
 
+	GPixelFormats[PF_R16G16B16A16_UNORM ].PlatformFormat	= MTLPixelFormatRGBA16Unorm;
+	GPixelFormats[PF_R16G16B16A16_SNORM ].PlatformFormat	= MTLPixelFormatRGBA16Snorm;
+
+#if METAL_DEBUG_OPTIONS
+	for (uint32 i = 0; i < PF_MAX; i++)
+	{
+		checkf(GMetalBufferFormats[i].LinearTextureFormat != NSUIntegerMax, TEXT("Metal linear texture format for pixel-format %s (%d) is not configured!"), GPixelFormats[i].Name, i);
+		checkf(GMetalBufferFormats[i].DataFormat != 255, TEXT("Metal data buffer format for pixel-format %s (%d) is not configured!"), GPixelFormats[i].Name, i);
+	}
+#endif
+		
 	// get driver version (todo: share with other RHIs)
 	{
 		FGPUDriverInfo GPUDriverInfo = FPlatformMisc::GetGPUDriverInfo(GRHIAdapterName);

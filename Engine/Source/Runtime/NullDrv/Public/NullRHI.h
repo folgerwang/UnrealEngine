@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -480,7 +480,7 @@ public:
 	{
 
 	}
-	virtual void RHIAdvanceFrameForGetViewportBackBuffer() final override
+	virtual void RHIAdvanceFrameForGetViewportBackBuffer(FViewportRHIParamRef Viewport) final override
 	{
 
 	}
@@ -515,10 +515,6 @@ public:
 	virtual void RHITick(float DeltaTime) final override
 	{
 
-	}
-
-	virtual void RHISetStreamSource(uint32 StreamIndex, FVertexBufferRHIParamRef VertexBuffer, uint32 Stride, uint32 Offset) final override
-	{
 	}
 
 	virtual void RHISetStreamSource(uint32 StreamIndex, FVertexBufferRHIParamRef VertexBuffer, uint32 Offset) final override

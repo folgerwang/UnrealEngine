@@ -1,11 +1,11 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ObjectMacros.h"
+#include "UObject/ObjectMacros.h"
 #include "UObject/NoExportTypes.h"
-#include "HierarchicalRig.h"
+#include "Rigs/HierarchicalRig.h"
 #include "AlphaBlend.h"
 #include "Components/SplineComponent.h"
 #include "HumanRig.generated.h"

@@ -752,19 +752,19 @@ public:
 	/** Inserts a default-initialized value for all attributes of the given ID */
 	void Insert( const ElementIDType ElementID )
 	{
-		VisitTupleElements( Container, [ ElementID ]( auto& AttributesMap ) { AttributesMap.Insert( ElementID ); } );
+		VisitTupleElements( [ ElementID ]( auto& AttributesMap ) { AttributesMap.Insert( ElementID ); }, Container );
 	}
 
 	/** Removes all attributes with the given ID */
 	void Remove( const ElementIDType ElementID )
 	{
-		VisitTupleElements( Container, [ ElementID ]( auto& AttributesMap ) { AttributesMap.Remove( ElementID ); } );
+		VisitTupleElements( [ ElementID ]( auto& AttributesMap ) { AttributesMap.Remove( ElementID ); }, Container );
 	}
 
 	/** Initializes the attribute set with the given number of elements, all at the default value */
 	void Initialize( const int32 NumElements )
 	{
-		VisitTupleElements( Container, [ NumElements ]( auto& AttributesMap ) { AttributesMap.Initialize( NumElements ); } );
+		VisitTupleElements( [ NumElements ]( auto& AttributesMap ) { AttributesMap.Initialize( NumElements); }, Container );
 	}
 
 	/**
@@ -774,19 +774,19 @@ public:
 	template <typename FuncType>
 	void ForEachAttributeIndicesArray( const FuncType& Func )
 	{
-		VisitTupleElements( Container, [ &Func ]( auto& AttributesMap ) { AttributesMap.ForEachAttributeIndicesArray( Func ); } );
+		VisitTupleElements( [ &Func ]( auto& AttributesMap ) { AttributesMap.ForEachAttributeIndicesArray( Func ); }, Container );
 	}
 
 	template <typename FuncType>
 	void ForEachAttributeIndicesArray( const FuncType& Func ) const
 	{
-		VisitTupleElements( Container, [ &Func ]( const auto& AttributesMap ) { AttributesMap.ForEachAttributeIndicesArray( Func ); } );
+		VisitTupleElements( [ &Func ]( const auto& AttributesMap ) { AttributesMap.ForEachAttributeIndicesArray( Func ); }, Container );
 	}
 
 	/** Applies the given remapping to the attributes set */
 	void Remap( const TSparseArray<ElementIDType>& IndexRemap )
 	{
-		VisitTupleElements( Container, [ &IndexRemap ]( auto& AttributesMap ) { AttributesMap.Remap( IndexRemap ); } );
+		VisitTupleElements( [ &IndexRemap ]( auto& AttributesMap ) { AttributesMap.Remap( IndexRemap ); }, Container );
 	}
 
 	/** Serializer */
@@ -802,7 +802,7 @@ public:
 
 		// Serialize the tuple of attribute maps by hand, so we can deserialize correctly when the archive contains fewer tuple elements than the current code
 		// NOTE: This relies on the assumption that VisitTupleElements will always visit elements in ascending order.
-		VisitTupleElements( AttributesSet.Container, [ &Ar, SerializedAttributeTypes, TypeIndex = 0, NumElements = 0 ]( auto& AttributesMap ) mutable
+		VisitTupleElements( [ &Ar, SerializedAttributeTypes, TypeIndex = 0, NumElements = 0 ]( auto& AttributesMap ) mutable
 		{
 			if( TypeIndex < SerializedAttributeTypes )
 			{
@@ -820,7 +820,8 @@ public:
 				AttributesMap.Initialize( NumElements );
 			}
 			TypeIndex++;
-		}
+		},
+		AttributesSet.Container
 		);
 
 		return Ar;

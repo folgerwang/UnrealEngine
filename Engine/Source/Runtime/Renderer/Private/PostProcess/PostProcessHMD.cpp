@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessHMD.cpp: Post processing for HMD devices.
@@ -8,6 +8,7 @@
 #include "EngineGlobals.h"
 #include "Engine/Engine.h"
 #include "IHeadMountedDisplay.h"
+#include "IXRTrackingSystem.h"
 #include "SceneUtils.h"
 #include "StaticBoundShaderState.h"
 #include "SceneRenderTargetParameters.h"
@@ -59,7 +60,7 @@ class FPostProcessHMDVS : public FGlobalShader
 	FShaderParameter EyeRotationStart;
 	FShaderParameter EyeRotationEnd;
 
-	static bool ShouldCache(EShaderPlatform Platform)
+	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
 		return true;
 	}
@@ -83,10 +84,10 @@ public:
 
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(Context.RHICmdList, ShaderRHI, Context.View.ViewUniformBuffer);
 
-		check(GEngine->HMDDevice.IsValid());
+		check(GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice());
 		FVector2D EyeToSrcUVScaleValue;
 		FVector2D EyeToSrcUVOffsetValue;
-		GEngine->HMDDevice->GetEyeRenderParams_RenderThread(Context, EyeToSrcUVScaleValue, EyeToSrcUVOffsetValue);
+		GEngine->XRSystem->GetHMDDevice()->GetEyeRenderParams_RenderThread(Context, EyeToSrcUVScaleValue, EyeToSrcUVOffsetValue);
 		SetShaderValue(Context.RHICmdList, ShaderRHI, EyeToSrcUVScale, EyeToSrcUVScaleValue);
 		SetShaderValue(Context.RHICmdList, ShaderRHI, EyeToSrcUVOffset, EyeToSrcUVOffsetValue);
 	}
@@ -107,7 +108,7 @@ class FPostProcessHMDPS : public FGlobalShader
 {
 	DECLARE_SHADER_TYPE(FPostProcessHMDPS, Global);
 
-	static bool ShouldCache(EShaderPlatform Platform)
+	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
 		return true;
 	}
@@ -161,7 +162,7 @@ void FRCPassPostProcessHMD::Process(FRenderingCompositePassContext& Context)
 		return;
 	}
 
-	const FSceneView& View = Context.View;
+	const FViewInfo& View = Context.View;
 	const FSceneViewFamily& ViewFamily = *(View.Family);
 	
 	const FIntRect SrcRect = View.ViewRect;
@@ -194,7 +195,7 @@ void FRCPassPostProcessHMD::Process(FRenderingCompositePassContext& Context)
 	FMatrix QuadTexTransform = FMatrix::Identity;
 	FMatrix QuadPosTransform = FMatrix::Identity;
 
-	check(GEngine->HMDDevice.IsValid());
+	check(GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice());
 
 	{
 		TShaderMapRef<FPostProcessHMDVS> VertexShader(Context.GetShaderMap());
@@ -210,7 +211,7 @@ void FRCPassPostProcessHMD::Process(FRenderingCompositePassContext& Context)
 		VertexShader->SetVS(Context);
 		PixelShader->SetPS(Context.RHICmdList, Context, SrcRect, SrcSize, View.StereoPass, QuadTexTransform);
 	}
-	GEngine->HMDDevice->DrawDistortionMesh_RenderThread(Context, SrcSize);
+	GEngine->XRSystem->GetHMDDevice()->DrawDistortionMesh_RenderThread(Context, SrcSize);
 
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
 }

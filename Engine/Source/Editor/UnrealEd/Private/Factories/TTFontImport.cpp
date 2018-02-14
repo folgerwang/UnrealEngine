@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	TTFontImport.cpp: True-type Font Importing
@@ -27,13 +27,13 @@
 #endif // WITH_FREETYPE
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 namespace TTFConstants
 {
 	uint32 WIN_SRCCOPY = SRCCOPY;
 }
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif // PLATFORM_WINDOWS
 
 #define USE_FREETYPE (!PLATFORM_WINDOWS && WITH_FREETYPE) // @todo: Enable for Windows when support for bitmap fonts is fixed
@@ -1660,6 +1660,11 @@ void* UTrueTypeFontFactory::LoadFontFace( void* FTLibrary, int32 Height, FFeedba
 }
 
 #elif PLATFORM_LINUX
+void* UTrueTypeFontFactory::LoadFontFace( void* FTLibrary, int32 Height, FFeedbackContext* Warn, void** OutFontData )
+{
+	STUBBED("UTrueTypeFontFactory::LoadFontFace");
+	return nullptr;
+}
 #else 
 #error "Unknown platform"
 #endif

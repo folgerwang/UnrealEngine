@@ -2,7 +2,7 @@
 
 #include "TessellatePolygon.h"
 #include "IMeshEditorModeEditingContract.h"
-#include "UICommandInfo.h"
+#include "Framework/Commands/UICommandInfo.h"
 #include "EditableMesh.h"
 #include "MeshElement.h"
 #include "ScopedTransaction.h"

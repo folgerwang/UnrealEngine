@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanCommands.cpp: Vulkan RHI commands implementation.
@@ -24,15 +24,6 @@ static inline bool UseRealUBs()
 {
 	static TConsoleVariableData<int32>* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Vulkan.UseRealUBs"));
 	return (CVar && CVar->GetValueOnAnyThread() != 0);
-}
-
-void FVulkanCommandListContext::RHISetStreamSource(uint32 StreamIndex,FVertexBufferRHIParamRef VertexBufferRHI, uint32 Stride, uint32 Offset)
-{
-	FVulkanVertexBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
-	if (VertexBuffer != NULL)
-	{
-		PendingGfxState->SetStreamSource(StreamIndex, VertexBuffer, Offset + VertexBuffer->GetOffset());
-	}
 }
 
 void FVulkanCommandListContext::RHISetStreamSource(uint32 StreamIndex, FVertexBufferRHIParamRef VertexBufferRHI, uint32 Offset)
@@ -336,12 +327,14 @@ struct FSrtResourceBinding
 };
 
 
+typedef TArray<FSrtResourceBinding, TInlineAllocator<16>> FResourceBindingArray;
+
 static void GatherUniformBufferResources(
 	const TArray<uint32>& InBindingArray,
 	const uint32& InBindingMask,
 	const FVulkanUniformBuffer* UniformBuffer,
 	uint32 BufferIndex,
-	TArray<FSrtResourceBinding>& OutResourcesBindings)
+	FResourceBindingArray& OutResourcesBindings)
 {
 	check(UniformBuffer);
 
@@ -354,6 +347,8 @@ static void GatherUniformBufferResources(
 
 	// Expected to get an empty array
 	check(OutResourcesBindings.Num() == 0);
+
+	OutResourcesBindings.Empty(ResourceArray.Num());
 
 	// Verify mask and array corelational validity
 	check(InBindingMask == 0 ? (InBindingArray.Num() == 0) : (InBindingArray.Num() > 0));
@@ -416,14 +411,14 @@ inline void FVulkanCommandListContext::SetShaderUniformBuffer(EShaderFrequency S
 	// Uniform Buffers
 	//#todo-rco: Quite slow...
 	// Gather texture bindings from the SRT table
-	TArray<FSrtResourceBinding> TextureBindings;
+	FResourceBindingArray TextureBindings;
 	if (ResourceBindingTable.TextureMap.Num() != 0)
 	{
 		GatherUniformBufferResources(ResourceBindingTable.TextureMap, ResourceBindingTable.ResourceTableBits, UniformBuffer, BindingIndex, TextureBindings);
 	}
 
 	// Gather Sampler bindings from the SRT table
-	TArray<FSrtResourceBinding> SamplerBindings;
+	FResourceBindingArray SamplerBindings;
 	if (ResourceBindingTable.SamplerMap.Num() != 0)
 	{
 		GatherUniformBufferResources(ResourceBindingTable.SamplerMap, ResourceBindingTable.ResourceTableBits, UniformBuffer, BindingIndex, SamplerBindings);
@@ -530,14 +525,14 @@ void FVulkanCommandListContext::RHISetShaderUniformBuffer(FComputeShaderRHIParam
 
 	//#todo-rco: Quite slow...
 	// Gather texture bindings from the SRT table
-	TArray<FSrtResourceBinding> TextureBindings;
+	FResourceBindingArray TextureBindings;
 	if (ResourceBindingTable.TextureMap.Num() != 0)
 	{
 		GatherUniformBufferResources(ResourceBindingTable.TextureMap, ResourceBindingTable.ResourceTableBits, UniformBuffer, BufferIndex, TextureBindings);
 	}
 
 	// Gather Sampler bindings from the SRT table
-	TArray<FSrtResourceBinding> SamplerBindings;
+	FResourceBindingArray SamplerBindings;
 	if (ResourceBindingTable.SamplerMap.Num() != 0)
 	{
 		GatherUniformBufferResources(ResourceBindingTable.SamplerMap, ResourceBindingTable.ResourceTableBits, UniformBuffer, BufferIndex, SamplerBindings);
@@ -965,6 +960,21 @@ IRHICommandContext* FVulkanCommandContextContainer::GetContext()
 
 	// these are expensive and we don't want to worry about allocating them on the fly, so they should only be allocated while actually used, and it should not be possible to have more than we preallocated, based on the number of task threads
 	CmdContext = Device->AcquireDeferredContext();
+	FVulkanCommandBufferManager* CmdMgr = CmdContext->GetCommandBufferManager();
+	FVulkanCmdBuffer* CmdBuffer = CmdMgr->GetActiveCmdBuffer();
+	if (CmdBuffer->IsInsideRenderPass())
+	{
+		CmdContext->TransitionState.EndRenderPass(CmdBuffer);
+	}
+	if (CmdBuffer->IsSubmitted())
+	{
+		CmdMgr->PrepareForNewActiveCommandBuffer();
+		CmdBuffer = CmdMgr->GetActiveCmdBuffer();
+	}
+	if (!CmdBuffer->HasBegun())
+	{
+		CmdBuffer->Begin();
+	}
 	//CmdContext->InitContextBuffers();
 	//CmdContext->ClearState();
 	return CmdContext;
@@ -979,6 +989,15 @@ void FVulkanCommandContextContainer::FinishContext()
 	//FinalCommandList = CmdContext->GetContext().Finalize(CmdContext->GetBeginCmdListTimestamp(), CmdContext->GetEndCmdListTimestamp());
 
 	Device->ReleaseDeferredContext(CmdContext);
+
+	FVulkanCommandBufferManager* CmdMgr = CmdContext->GetCommandBufferManager();
+	FVulkanCmdBuffer* CmdBuffer = CmdMgr->GetActiveCmdBuffer();
+	if (CmdBuffer->IsInsideRenderPass())
+	{
+		CmdContext->TransitionState.EndRenderPass(CmdBuffer);
+	}
+	check(CmdBuffer->HasBegun());
+
 	//CmdContext = nullptr;
 	//CmdContext->CommandBufferManager->GetActiveCmdBuffer()->End();
 	//check(!CmdContext/* && FinalCommandList.SubmissionAddrs.Num() > 0*/);
@@ -999,6 +1018,11 @@ void FVulkanCommandContextContainer::SubmitAndFreeContextContainer(int32 Index, 
 	if (CmdBufMgr->HasPendingUploadCmdBuffer())
 	{
 		CmdBufMgr->SubmitUploadCmdBuffer(false);
+	}
+	FVulkanCmdBuffer* CmdBuffer = CmdBufMgr->GetActiveCmdBuffer();
+	if (CmdBuffer->IsInsideRenderPass())
+	{
+		CmdContext->TransitionState.EndRenderPass(CmdBuffer);
 	}
 	CmdBufMgr->SubmitActiveCmdBuffer(false);
 	CmdBufMgr->PrepareForNewActiveCommandBuffer();

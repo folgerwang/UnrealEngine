@@ -1,11 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ThumbnailRendering/SoundWaveThumbnailRenderer.h"
 #include "CanvasItem.h"
 #include "Audio.h"
 #include "Sound/SoundWave.h"
-
-PRAGMA_DISABLE_OPTIMIZATION
 
 USoundWaveThumbnailRenderer::USoundWaveThumbnailRenderer(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -20,6 +18,8 @@ void USoundWaveThumbnailRenderer::Draw(UObject* Object, int32 X, int32 Y, uint32
 		// check if there is any raw sound data
 		if (SoundWave->RawData.GetBulkDataSize() > 0)
 		{
+			SoundWave->bNeedsThumbnailGeneration = false;
+
 			// Canvas line item to draw with
 			FCanvasLineItem LineItem;
 			LineItem.SetColor(FLinearColor::White);
@@ -142,5 +142,12 @@ void USoundWaveThumbnailRenderer::Draw(UObject* Object, int32 X, int32 Y, uint32
 	}
 }
 
-
-PRAGMA_ENABLE_OPTIMIZATION
+bool USoundWaveThumbnailRenderer::AllowsRealtimeThumbnails(UObject* Object) const
+{
+	USoundWave* SoundWave = Cast<USoundWave>(Object);
+	if (SoundWave)
+	{
+		return SoundWave->bNeedsThumbnailGeneration;
+	}
+	return false;
+}

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "TP_VehicleHud.h"
 #include "TP_VehiclePawn.h"
@@ -11,11 +11,6 @@
 #include "CanvasItem.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/Engine.h"
-
-// Needed for VR Headset
-#if HMD_MODULE_INCLUDED
-#include "IHeadMountedDisplay.h"
-#endif // HMD_MODULE_INCLUDED 
 
 #define LOCTEXT_NAMESPACE "VehicleHUD"
 
@@ -35,10 +30,7 @@ void ATP_VehicleHud::DrawHUD()
 
 	bool bWantHUD = true;
 #if HMD_MODULE_INCLUDED
-	if (GEngine->HMDDevice.IsValid() == true)
-	{
-		bWantHUD = GEngine->HMDDevice->IsStereoEnabled();
-	}
+	bWantHUD = !GEngine->IsStereoscopic3D();
 #endif // HMD_MODULE_INCLUDED
 	// We dont want the onscreen hud when using a HMD device	
 	if (bWantHUD == true)

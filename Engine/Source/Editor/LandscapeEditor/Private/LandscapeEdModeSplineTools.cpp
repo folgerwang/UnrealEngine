@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
 #include "EngineDefines.h"
@@ -30,8 +30,9 @@
 #include "LandscapeSplineSegment.h"
 #include "LandscapeSplineControlPoint.h"
 #include "ControlPointMeshComponent.h"
-#include "Containers/Algo/Copy.h"
+#include "Algo/Copy.h"
 #include "HAL/PlatformApplicationMisc.h"
+#include "UnrealExporter.h"
 
 
 #define LOCTEXT_NAMESPACE "Landscape"
@@ -1734,10 +1735,12 @@ public:
 
 			// Perform export to text format
 			FStringOutputDevice Ar;
+			const FExportObjectInnerContext Context;
+
 			Ar.Logf(TEXT("Begin Splines\r\n"));
 			for (UObject* Object : Objects)
 			{
-				UExporter::ExportToOutputDevice(NULL, Object, NULL, Ar, TEXT("copy"), 3, PPF_None, false);
+				UExporter::ExportToOutputDevice(&Context, Object, NULL, Ar, TEXT("copy"), 3, PPF_ExportsNotFullyQualified | PPF_Copy | PPF_Delimited, false);
 			}
 			Ar.Logf(TEXT("End Splines\r\n"));
 

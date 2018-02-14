@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 //
 #include "CoreMinimal.h"
 #include "SteamVRPrivate.h"
@@ -30,7 +30,7 @@ void FSteamVRHMD::DrawDistortionMesh_RenderThread(struct FRenderingCompositePass
 	check(0);
 }
 
-void FSteamVRHMD::RenderTexture_RenderThread(FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef BackBuffer, FTexture2DRHIParamRef SrcTexture) const
+void FSteamVRHMD::RenderTexture_RenderThread(FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef BackBuffer, FTexture2DRHIParamRef SrcTexture, FVector2D WindowSize) const
 {
 	check(IsInRenderingThread());
 	const_cast<FSteamVRHMD*>(this)->UpdateStereoLayers_RenderThread();
@@ -42,7 +42,7 @@ void FSteamVRHMD::RenderTexture_RenderThread(FRHICommandListImmediate& RHICmdLis
 	}
 
 	check(SpectatorScreenController);
-	SpectatorScreenController->RenderSpectatorScreen_RenderThread(RHICmdList, BackBuffer, SrcTexture);
+	SpectatorScreenController->RenderSpectatorScreen_RenderThread(RHICmdList, BackBuffer, SrcTexture, WindowSize);
 }
 
 static void DrawOcclusionMesh(FRHICommandList& RHICmdList, EStereoscopicPass StereoPass, const FHMDViewMesh MeshAssets[])
@@ -77,27 +77,14 @@ void FSteamVRHMD::DrawVisibleAreaMesh_RenderThread(FRHICommandList& RHICmdList, 
 	DrawOcclusionMesh(RHICmdList, StereoPass, VisibleAreaMeshes);
 }
 
-void FSteamVRHMD::BridgeBaseImpl::UpdateFrameSettings(FSteamVRHMD::FFrameSettings& NewSettings)
+bool FSteamVRHMD::BridgeBaseImpl::NeedsNativePresent()
 {
-	FrameSettingsStack.Add(NewSettings);
-	if (FrameSettingsStack.Num() > 3)
-	{
-		FrameSettingsStack.RemoveAt(0);
-	}
-}
-
-FSteamVRHMD::FFrameSettings FSteamVRHMD::BridgeBaseImpl::GetFrameSettings(int32 NumBufferedFrames/*=0*/)
-{
-	check(FrameSettingsStack.Num() > 0);
-	if (NumBufferedFrames < FrameSettingsStack.Num())
-	{
-		return FrameSettingsStack[NumBufferedFrames];
-	}
-	else
-	{
-		// Until we build a buffer of adequate size, stick with the last submitted
-		return FrameSettingsStack[0];
-	}
+    if (Plugin->VRCompositor == nullptr)
+    {
+        return false;
+    }
+    
+    return true;
 }
 
 #if PLATFORM_WINDOWS
@@ -121,8 +108,6 @@ void FSteamVRHMD::D3D11Bridge::BeginRendering()
 
 void FSteamVRHMD::D3D11Bridge::FinishRendering()
 {
-	FFrameSettings FS = GetFrameSettings(1);
-
 	vr::Texture_t Texture;
 	Texture.handle = RenderTargetTexture;
 	Texture.eType = vr::TextureType_DirectX;
@@ -130,19 +115,18 @@ void FSteamVRHMD::D3D11Bridge::FinishRendering()
 
 	vr::VRTextureBounds_t LeftBounds;
     LeftBounds.uMin = 0.0f;
-    LeftBounds.uMax = (float)FS.EyeViewports[0].Max.X / (float)FS.RenderTargetSize.X;
+	LeftBounds.uMax = 0.5f;
     LeftBounds.vMin = 0.0f;
-    LeftBounds.vMax = (float)FS.EyeViewports[0].Max.Y / (float)FS.RenderTargetSize.Y;
+    LeftBounds.vMax = 1.0f;
 	
     vr::EVRCompositorError Error = Plugin->VRCompositor->Submit(vr::Eye_Left, &Texture, &LeftBounds);
 
 	vr::VRTextureBounds_t RightBounds;
-	RightBounds.uMin = (float)FS.EyeViewports[1].Min.X / (float)FS.RenderTargetSize.X;;
+	RightBounds.uMin = 0.5f;
     RightBounds.uMax = 1.0f;
     RightBounds.vMin = 0.0f;
-    RightBounds.vMax = (float)FS.EyeViewports[1].Max.Y / (float)FS.RenderTargetSize.Y;
-	
-    
+    RightBounds.vMax = 1.0f;
+	   
 	Texture.handle = RenderTargetTexture;
 	Error = Plugin->VRCompositor->Submit(vr::Eye_Right, &Texture, &RightBounds);
     if (Error != vr::VRCompositorError_None)
@@ -228,19 +212,17 @@ void FSteamVRHMD::VulkanBridge::FinishRendering()
 		VkImageSubresourceRange SubresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
 		vlkRHI->VulkanSetImageLayout( CmdBuffer->GetHandle(), Texture2D->Surface.Image, CurrentLayout ? *CurrentLayout : VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, SubresourceRange );
 
-		FFrameSettings FS = GetFrameSettings();
-
 		vr::VRTextureBounds_t LeftBounds;
 		LeftBounds.uMin = 0.0f;
-		LeftBounds.uMax = (float)FS.EyeViewports[0].Max.X / (float)FS.RenderTargetSize.X;
+		LeftBounds.uMax = 0.5f;
 		LeftBounds.vMin = 0.0f;
-		LeftBounds.vMax = (float)FS.EyeViewports[0].Max.Y / (float)FS.RenderTargetSize.Y;
+		LeftBounds.vMax = 1.0f;
 
 		vr::VRTextureBounds_t RightBounds;
-		RightBounds.uMin = (float)FS.EyeViewports[1].Min.X / (float)FS.RenderTargetSize.X;;
+		RightBounds.uMin = 0.5f;
 		RightBounds.uMax = 1.0f;
 		RightBounds.vMin = 0.0f;
-		RightBounds.vMax = (float)FS.EyeViewports[1].Max.Y / (float)FS.RenderTargetSize.Y;
+		RightBounds.vMax = 1.0f;
 
 		vr::VRVulkanTextureData_t vulkanData {};
 		vulkanData.m_pInstance			= vlkRHI->GetInstance();
@@ -325,18 +307,16 @@ void FSteamVRHMD::OpenGLBridge::FinishRendering()
 		return;
 	}
 
-	FFrameSettings FS = GetFrameSettings();
-
 	vr::VRTextureBounds_t LeftBounds;
 	LeftBounds.uMin = 0.0f;
-	LeftBounds.uMax = (float)FS.EyeViewports[0].Max.X / (float)FS.RenderTargetSize.X;
-	LeftBounds.vMin = (float)FS.EyeViewports[0].Max.Y / (float)FS.RenderTargetSize.Y;
+	LeftBounds.uMax = 0.5f;
+	LeftBounds.vMin = 1.0f;
 	LeftBounds.vMax = 0.0f;
 
 	vr::VRTextureBounds_t RightBounds;
-	RightBounds.uMin = (float)FS.EyeViewports[1].Min.X / (float)FS.RenderTargetSize.X;;
+	RightBounds.uMin = 0.5f;
 	RightBounds.uMax = 1.0f;
-	RightBounds.vMin = (float)FS.EyeViewports[1].Max.Y / (float)FS.RenderTargetSize.Y;
+	RightBounds.vMin = 1.0f;
 	RightBounds.vMax = 0.0f;
 
 	vr::Texture_t Texture;
@@ -411,22 +391,13 @@ void FSteamVRHMD::MetalBridge::BeginRendering()
 
 void FSteamVRHMD::MetalBridge::FinishRendering()
 {
-	if(IsOnLastPresentedFrame())
-	{
-		return;
-	}
-	
-	LastPresentedFrameNumber = GetFrameNumber();
-	
 	check(TextureSet.IsValid());
-	
-	FFrameSettings FS = GetFrameSettings();
 
 	vr::VRTextureBounds_t LeftBounds;
-    LeftBounds.uMin = 0.0f;
-    LeftBounds.uMax = (float)FS.EyeViewports[0].Max.X / (float)FS.RenderTargetSize.X;
-    LeftBounds.vMin = 0.0f;
-    LeftBounds.vMax = (float)FS.EyeViewports[0].Max.Y / (float)FS.RenderTargetSize.Y;
+	LeftBounds.uMin = 0.0f;
+	LeftBounds.uMax = 0.5f;
+	LeftBounds.vMin = 0.0f;
+	LeftBounds.vMax = 1.0f;
 	
 	id<MTLTexture> TextureHandle = (id<MTLTexture>)TextureSet->GetNativeResource();
 	
@@ -437,10 +408,10 @@ void FSteamVRHMD::MetalBridge::FinishRendering()
 	vr::EVRCompositorError Error = Plugin->VRCompositor->Submit(vr::Eye_Left, &Texture, &LeftBounds);
 
 	vr::VRTextureBounds_t RightBounds;
-	RightBounds.uMin = (float)FS.EyeViewports[1].Min.X / (float)FS.RenderTargetSize.X;
-    RightBounds.uMax = 1.0f;
-    RightBounds.vMin = 0.0f;
-    RightBounds.vMax = (float)FS.EyeViewports[1].Max.Y / (float)FS.RenderTargetSize.Y;
+	RightBounds.uMin = 0.5f;
+	RightBounds.uMax = 1.0f;
+	RightBounds.vMin = 0.0f;
+	RightBounds.vMax = 1.0f;
 	
 	Error = Plugin->VRCompositor->Submit(vr::Eye_Right, &Texture, &RightBounds);
 	if (Error != vr::VRCompositorError_None)

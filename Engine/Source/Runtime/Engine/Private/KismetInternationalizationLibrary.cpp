@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Kismet/KismetInternationalizationLibrary.h"
 #include "Internationalization/Internationalization.h"
 #include "Internationalization/Culture.h"
-#include "ConfigCacheIni.h"
+#include "Misc/ConfigCacheIni.h"
 
 #define LOCTEXT_NAMESPACE "Kismet"
 

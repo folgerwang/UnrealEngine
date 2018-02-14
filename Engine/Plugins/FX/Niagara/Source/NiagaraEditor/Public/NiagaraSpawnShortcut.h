@@ -1,7 +1,9 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 #pragma once
 
 #include "NiagaraScript.h"
-#include "InputChord.h"
+#include "Framework/Commands/InputChord.h"
 #include "NiagaraSpawnShortcut.generated.h"
 
 USTRUCT()

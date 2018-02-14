@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MfMediaPrivate.h"
 
@@ -10,6 +10,15 @@
 #endif
 
 #include "IMfMediaModule.h"
+
+#if PLATFORM_WINDOWS
+	#pragma comment(lib, "mf")
+	#pragma comment(lib, "mfplat")
+	#pragma comment(lib, "mfreadwrite")
+	#pragma comment(lib, "mfuuid")
+	#pragma comment(lib, "propsys")
+	#pragma comment(lib, "shlwapi")
+#endif
 
 
 DEFINE_LOG_CATEGORY(LogMfMedia);

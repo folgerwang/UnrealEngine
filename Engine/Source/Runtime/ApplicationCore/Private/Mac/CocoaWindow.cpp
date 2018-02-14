@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "CocoaWindow.h"
-#include "MacApplication.h"
-#include "CocoaTextView.h"
-#include "CocoaThread.h"
-#include "MacCursor.h"
+#include "Mac/CocoaWindow.h"
+#include "Mac/MacApplication.h"
+#include "Mac/CocoaTextView.h"
+#include "Mac/CocoaThread.h"
+#include "Mac/MacCursor.h"
 #include "HAL/IConsoleManager.h"
 
 NSString* NSDraggingExited = @"NSDraggingExited";
@@ -25,6 +25,8 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 	bAcceptsInput = false;
 	bDisplayReconfiguring = false;
 	bRenderInitialized = false;
+	bIsBeingOrderedFront = false;
+	bIsBeingResized = false;
 	Opacity = 0.0f;
 
 	id NewSelf = [super initWithContentRect:ContentRect styleMask:Style backing:BufferingType defer:Flag];
@@ -100,6 +102,8 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 	SCOPED_AUTORELEASE_POOL;
 	if ([NSApp isHidden] == NO)
 	{
+		bIsBeingOrderedFront = true;
+
 		[self orderFront:nil];
 
 		if (bMain && [self canBecomeMainWindow] && self != [NSApp mainWindow])
@@ -110,6 +114,8 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 		{
 			[self makeKeyWindow];
 		}
+
+		bIsBeingOrderedFront = false;
 	}
 }
 
@@ -167,7 +173,7 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 				MacApplication->CloseWindow(Window.ToSharedRef());
 			}
 		}
-	}, @[ NSDefaultRunLoopMode ], false);
+	});
 }
 
 - (void)performZoom:(id)Sender
@@ -251,12 +257,6 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 	}
 }
 
-- (NSSize)window:(NSWindow*)Window willUseFullScreenContentSize:(NSSize)ProposedSize
-{
-	// Make sure the window in fullscreen is the size of the screen instead of the size of Metal drawable
-	return Window.screen.frame.size;
-}
-
 - (void)windowDidBecomeMain:(NSNotification*)Notification
 {
 	SCOPED_AUTORELEASE_POOL;
@@ -267,7 +267,16 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 
 	if (MacApplication)
 	{
-		MacApplication->DeferEvent(Notification);
+		GameThreadCall(^{
+			if (MacApplication) // Another check because game thread may destroy MacApplication before it gets here
+			{
+				TSharedPtr<FMacWindow> Window = MacApplication->FindWindowByNSWindow(self);
+				if (Window.IsValid())
+				{
+					MacApplication->OnWindowActivationChanged(Window.ToSharedRef(), EWindowActivation::Activate);
+				}
+			}
+		}, @[ NSDefaultRunLoopMode, UE4ResizeEventMode, UE4ShowEventMode, UE4FullscreenEventMode, UE4CloseEventMode ], true);
 	}
 }
 
@@ -279,7 +288,16 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 
 	if (MacApplication)
 	{
-		MacApplication->DeferEvent(Notification);
+		GameThreadCall(^{
+			if (MacApplication) // Another check because game thread may destroy MacApplication before it gets here
+			{
+				TSharedPtr<FMacWindow> Window = MacApplication->FindWindowByNSWindow(self);
+				if (Window.IsValid())
+				{
+					MacApplication->OnWindowActivationChanged(Window.ToSharedRef(), EWindowActivation::Deactivate);
+				}
+			}
+		}, @[ NSDefaultRunLoopMode, UE4ResizeEventMode, UE4ShowEventMode, UE4FullscreenEventMode, UE4CloseEventMode ], true);
 	}
 }
 
@@ -426,7 +444,7 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 - (NSSize)windowWillResize:(NSWindow *)sender toSize:(NSSize)frameSize
 {
 	SCOPED_AUTORELEASE_POOL;
-	if (MacApplication && sender == self)
+	if (MacApplication && sender == self && !bIsBeingOrderedFront) // Skip informing Slate if we're simply changing the z order of windows
 	{
 		GameThreadCall(^{
 			if (MacApplication) // Another check because game thread may destroy MacApplication before it gets here
@@ -448,7 +466,9 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 	bZoomed = [self isZoomed];
 	if (MacApplication)
 	{
+		bIsBeingResized = true;
 		MacApplication->DeferEvent(Notification);
+		bIsBeingResized = false;
 	}
 }
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	World.cpp: UWorld implementation
@@ -252,19 +252,34 @@ void FLevelCollection::RemoveLevel(ULevel* const Level)
 
 FScopedLevelCollectionContextSwitch::FScopedLevelCollectionContextSwitch(const FLevelCollection* const InLevelCollection, UWorld* const InWorld)
 	: World(InWorld)
-	, SavedTickingCollection(InWorld ? InWorld->GetActiveLevelCollection() : nullptr)
+	, SavedTickingCollectionIndex(InWorld ? InWorld->GetActiveLevelCollectionIndex() : INDEX_NONE)
 {
-	if (InLevelCollection && World)
+	if (World)
 	{
-		World->SetActiveLevelCollection(InLevelCollection);
+		const int32 FoundIndex = World->GetLevelCollections().IndexOfByPredicate([InLevelCollection](const FLevelCollection& Collection)
+		{
+			return &Collection == InLevelCollection;
+		});
+
+		World->SetActiveLevelCollection(FoundIndex);
 	}
 }
-	
+
+FScopedLevelCollectionContextSwitch::FScopedLevelCollectionContextSwitch(int32 InLevelCollectionIndex, UWorld* const InWorld)
+	: World(InWorld)
+	, SavedTickingCollectionIndex(InWorld ? InWorld->GetActiveLevelCollectionIndex() : INDEX_NONE)
+{
+	if (World)
+	{
+		World->SetActiveLevelCollection(InLevelCollectionIndex);
+	}
+}
+
 FScopedLevelCollectionContextSwitch::~FScopedLevelCollectionContextSwitch()
 {
 	if (World)
 	{
-		World->SetActiveLevelCollection(SavedTickingCollection);
+		World->SetActiveLevelCollection(SavedTickingCollectionIndex);
 	}
 }
 
@@ -301,7 +316,7 @@ FWorldDelegates::FRefreshLevelScriptActionsEvent FWorldDelegates::RefreshLevelSc
 
 UWorld::UWorld( const FObjectInitializer& ObjectInitializer )
 : UObject(ObjectInitializer)
-, ActiveLevelCollection(nullptr)
+, ActiveLevelCollectionIndex(INDEX_NONE)
 #if WITH_EDITOR
 , HierarchicalLODBuilder(new FHierarchicalLODBuilder(this))
 #endif
@@ -756,10 +771,12 @@ void UWorld::FinishDestroy()
 			delete PhysicsScene;
 			PhysicsScene = NULL;
 
+#if WITH_PHYSX
 			if(GPhysCommandHandler)
 			{
 				GPhysCommandHandler->Flush();
 			}
+#endif // WITH_PHYSX
 		}
 
 		if (Scene)
@@ -895,6 +912,9 @@ void UWorld::PostLoad()
 		}
 	}
 #endif
+
+	// Reset between worlds so that the metric is only relevant to the current world.
+	ResetAverageRequiredTexturePoolSize();
 }
 
 
@@ -1316,19 +1336,17 @@ void UWorld::ConditionallyCreateDefaultLevelCollections()
 	// Create main level collection. The persistent level will always be considered dynamic.
 	if (!FindCollectionByType(ELevelCollectionType::DynamicSourceLevels))
 	{
-		FLevelCollection& DynamicCollection = FindOrAddCollectionByType(ELevelCollectionType::DynamicSourceLevels);
-		DynamicCollection.SetPersistentLevel(PersistentLevel);
+		// Default to the dynamic source collection
+		ActiveLevelCollectionIndex = FindOrAddCollectionByType_Index(ELevelCollectionType::DynamicSourceLevels);
+		LevelCollections[ActiveLevelCollectionIndex].SetPersistentLevel(PersistentLevel);
 		
 		// Don't add the persistent level if it is already a member of another collection.
 		// This may be the case if, for example, this world is the outer of a streaming level,
 		// in which case the persistent level may be in one of the collections in the streaming level's OwningWorld.
 		if (PersistentLevel->GetCachedLevelCollection() == nullptr)
 		{
-			DynamicCollection.AddLevel(PersistentLevel);
+			LevelCollections[ActiveLevelCollectionIndex].AddLevel(PersistentLevel);
 		}
-
-		// Default to the dynamic source collection
-		ActiveLevelCollection = &DynamicCollection;
 	}
 
 	if (!FindCollectionByType(ELevelCollectionType::StaticLevels))
@@ -1483,9 +1501,8 @@ UWorld* UWorld::CreateWorld(const EWorldType::Type InWorldType, bool bInformEngi
 
 void UWorld::RemoveActor(AActor* Actor, bool bShouldModifyLevel)
 {
-	bool	bSuccessfulRemoval = false;
 	ULevel* CheckLevel = Actor->GetLevel();
-	int32 ActorListIndex = CheckLevel->Actors.Find( Actor );
+	const int32 ActorListIndex = CheckLevel->Actors.Find( Actor );
 	// Search the entire list.
 	if( ActorListIndex != INDEX_NONE )
 	{
@@ -1499,37 +1516,11 @@ void UWorld::RemoveActor(AActor* Actor, bool bShouldModifyLevel)
 			CheckLevel->Actors[ActorListIndex]->Modify();
 		}
 		
-		CheckLevel->Actors[ActorListIndex] = NULL;
-		bSuccessfulRemoval = true;		
+		CheckLevel->Actors[ActorListIndex] = nullptr;
 	}
 
 	// Remove actor from network list
 	RemoveNetworkActor( Actor );
-
-	// TTP 281860: Callstack will hopefully indicate how the actors array ends up without the required default actors
-	check(CheckLevel->Actors.Num() >= 2);
-
-	if ( !bSuccessfulRemoval && !( Actor->GetFlags() & RF_Transactional ) )
-	{
-		//CheckLevel->Actors is a transactional array so it is very likely that non-transactional
-		//actors could be missing from the array if the array was reverted to a state before they
-		//existed. (but they won't be reverted since they are non-transactional)
-		bSuccessfulRemoval = true;
-	}
-
-	if ( !bSuccessfulRemoval )
-	{
-		// TTP 270000: Trying to track down why certain actors aren't in the level actor list when saving.  If we're reinstancing, dump the list
-		{
-			UE_LOG(LogWorld, Log, TEXT("--- Actors Currently in %s ---"), *CheckLevel->GetPathName());
-			for (int32 ActorIdx = 0; ActorIdx < CheckLevel->Actors.Num(); ActorIdx++)
-			{
-				AActor* CurrentActor = CheckLevel->Actors[ActorIdx];
-				UE_LOG(LogWorld, Log, TEXT("  %s"), (CurrentActor ? *CurrentActor->GetPathName() : TEXT("NONE")));
-			}
-		}
-		ensureMsgf(false, TEXT("Could not remove actor %s from world (check level is %s)"), *Actor->GetPathName(), *CheckLevel->GetPathName());
-	}
 }
 
 
@@ -2223,12 +2214,13 @@ void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform )
 			}
 		}
 
+		// Set visibility before adding the rendering resource and adding to streaming.
+		Level->bIsVisible = true;
+
 		Level->InitializeRenderingResources();
 
 		// Notify the texture streaming system now that everything is set up.
 		IStreamingManager::Get().AddLevel( Level );
-
-		Level->bIsVisible = true;
 	
 		// send a callback that a level was added to the world
 		FWorldDelegates::LevelAddedToWorld.Broadcast(Level, this);
@@ -2468,14 +2460,13 @@ void FLevelStreamingGCHelper::PrepareStreamedOutLevelsForGC()
 			// Make sure that this package has been unloaded after GC pass.
 			LevelPackageNames.Add( LevelPackage->GetFName() );
 
-			// Mark level as pending kill so references to it get deleted.
-			UWorld* LevelWorld = CastChecked<UWorld>(Level->GetOuter());
-			LevelWorld->MarkObjectsPendingKill();
-			LevelWorld->MarkPendingKill();
-			if (LevelPackage->MetaData)
+			// Mark world and all other package subobjects as pending kill
+			// This will destroy metadata objects and any other objects left behind
+			auto MarkObjectPendingKill = [](UObject* Object)
 			{
-				LevelPackage->MetaData->MarkPendingKill();
-			}
+				Object->MarkPendingKill();
+			};
+			ForEachObjectWithOuter(Level->GetOutermost(), MarkObjectPendingKill, true, RF_NoFlags, EInternalObjectFlags::PendingKill);
 		}
 	}
 
@@ -2589,6 +2580,30 @@ FString UWorld::BuildPIEPackagePrefix(int PIEInstanceID)
 	return FString::Printf(TEXT("%s_%d_"), PLAYWORLD_PACKAGE_PREFIX, PIEInstanceID);
 }
 
+bool UWorld::RemapCompiledScriptActor(FString& Str) const 
+{
+	// We're really only interested in compiled script actors, skip everything else.
+	if (!Str.Contains(TEXT("_C_")))
+	{
+		return false;
+	}
+
+	// Wrap our search string as an FName. This will allow us to do a quick search to see if the object exists regardless of index.
+	const FName ActorName(*Str);
+	for (TArray<ULevel*>::TConstIterator it = GetLevels().CreateConstIterator(); it; ++it)
+	{
+		const ALevelScriptActor* const LSA = GetLevelScriptActor(*it);
+		// As there should only be one instance of the persistent level script actor, if the indexes match, then this is the object name we want.
+		if(LSA && LSA->GetFName().IsEqual(ActorName, ENameCase::IgnoreCase, false))
+		{
+			Str = LSA->GetFName().ToString();
+			return true;
+		}
+	}
+
+	return false;
+}
+
 /**
  * Simple archive for updating lazy pointer GUIDs when a sub-level gets duplicated for PIE
  */
@@ -2620,11 +2635,23 @@ public:
 
 	virtual FArchive& operator<<(UObject*& Object) override
 	{
-		if (Object && !VisitedObjects.Contains(Object))
+		if (Object && (Object->IsA(UWorld::StaticClass()) || Object->IsInA(UWorld::StaticClass())) && !VisitedObjects.Contains(Object))
 		{
 			VisitedObjects.Add(Object);
 			Object->Serialize(*this);
 		}
+		return *this;
+	}
+
+	virtual FArchive& operator<<(FSoftObjectPtr& Value) override
+	{
+		// Explicitly do nothing, we don't want to accidentally do PIE fixups
+		return *this;
+	}
+
+	virtual FArchive& operator<<(FSoftObjectPath& Value) override
+	{
+		// Explicitly do nothing, we don't want to accidentally do PIE fixups
 		return *this;
 	}
 };
@@ -2681,6 +2708,7 @@ UWorld* UWorld::DuplicateWorldForPIE(const FString& PackageName, UWorld* OwningW
 	PIELevelPackage->SetPackageFlags(PKG_PlayInEditor);
 	PIELevelPackage->PIEInstanceID = PIEInstanceID;
 	PIELevelPackage->SetGuid( EditorLevelPackage->GetGuid() );
+	PIELevelPackage->MarkAsFullyLoaded();
 
 	ULevel::StreamedLevelsOwningWorld.Add(PIELevelPackage->GetFName(), OwningWorld);
 	UWorld* PIELevelWorld = CastChecked<UWorld>(StaticDuplicateObject(EditorLevelWorld, PIELevelPackage, EditorLevelWorld->GetFName(), RF_AllFlags, nullptr, EDuplicateMode::PIE));
@@ -2704,6 +2732,8 @@ UWorld* UWorld::DuplicateWorldForPIE(const FString& PackageName, UWorld* OwningW
 		ULevel* EditorLevel = EditorLevelWorld->PersistentLevel;
 		ULevel* PIELevel = PIELevelWorld->PersistentLevel;
 
+		// If editor has run construction scripts or applied level offset, we dont do it again
+		PIELevel->bAlreadyMovedActors = EditorLevel->bAlreadyMovedActors;
 		PIELevel->bHasRerunConstructionScripts = EditorLevel->bHasRerunConstructionScripts;
 
 		// Fixup model components. The index buffers have been created for the components in the EditorWorld and the order
@@ -2790,14 +2820,18 @@ void UWorld::UpdateLevelStreamingInner(ULevelStreaming* StreamingLevel)
 	// NOTE: AllowLevelLoadRequests not an invariant as streaming might affect the result, do NOT pulled out of the loop.
 	bool bAllowLevelLoadRequests =	bShouldBlockOnLoad || AllowLevelLoadRequests();
 
-	// Figure out whether there are any levels we haven't collected garbage yet.
-	bool bAreLevelsPendingPurge	=	FLevelStreamingGCHelper::GetNumLevelsPendingPurge() > 0;
-	// Request a 'soft' GC if there are levels pending purge and there are levels to be loaded. In the case of a blocking
-	// load this is going to guarantee GC firing first thing afterwards and otherwise it is going to sneak in right before
-	// kicking off the async load.
-	if (bAreLevelsPendingPurge)
+	if (GLevelStreamingContinuouslyIncrementalGCWhileLevelsPendingPurge)
 	{
-		GEngine->ForceGarbageCollection( false );
+		// Figure out whether there are any levels we haven't collected garbage yet.
+		bool bAreLevelsPendingPurge = FLevelStreamingGCHelper::GetNumLevelsPendingPurge() > 0;
+
+		// Request a 'soft' GC if there are levels pending purge and there are levels to be loaded. In the case of a blocking
+		// load this is going to guarantee GC firing first thing afterwards and otherwise it is going to sneak in right before
+		// kicking off the async load.
+		if (bAreLevelsPendingPurge)
+		{
+			GEngine->ForceGarbageCollection( false );
+		}
 	}
 
 	// See whether level is already loaded
@@ -2902,9 +2936,12 @@ void UWorld::UpdateLevelStreaming()
 	}
 			
 	// In case more levels has been requested to unload, force GC on next tick 
-	if (NumLevelsPendingPurge < FLevelStreamingGCHelper::GetNumLevelsPendingPurge())
+	if (GLevelStreamingForceGCAfterLevelStreamedOut != 0)
 	{
-		GEngine->ForceGarbageCollection(true); 
+		if (NumLevelsPendingPurge < FLevelStreamingGCHelper::GetNumLevelsPendingPurge())
+		{
+			GEngine->ForceGarbageCollection(true); 
+		}
 	}
 }
 
@@ -3059,13 +3096,17 @@ bool UWorld::AllowLevelLoadRequests()
 	// Always allow level load request in the editor or when we do full streaming flush
 	if (IsGameWorld() && FlushLevelStreamingType != EFlushLevelStreamingType::Full)
 	{
-		const bool bAreLevelsPendingPurge = FLevelStreamingGCHelper::GetNumLevelsPendingPurge() > 0;
+		const bool bAreLevelsPendingPurge = 
+			GLevelStreamingForceGCAfterLevelStreamedOut != 0 &&
+			FLevelStreamingGCHelper::GetNumLevelsPendingPurge() > 0;
 		
 		// Let code choose. Hold off queueing in case: 
 		// We are only flushing levels visibility
 		// There pending unload requests
 		// There pending load requests and gameplay has already started.
-		if (bAreLevelsPendingPurge || FlushLevelStreamingType == EFlushLevelStreamingType::Visibility || (IsAsyncLoading() && GetTimeSeconds() > 1.f))
+		const bool bWorldIsRendering = GetGameViewport() != nullptr && !GetGameViewport()->bDisableWorldRendering;
+		const bool bIsPlayingWhileLoading = ( IsAsyncLoading() && bWorldIsRendering && GetTimeSeconds() > 1.f );
+		if (bAreLevelsPendingPurge || FlushLevelStreamingType == EFlushLevelStreamingType::Visibility || (bIsPlayingWhileLoading && !GLevelStreamingAllowLevelRequestsWhileAsyncLoadingInMatch))
 		{
 			return false;
 		}
@@ -3242,11 +3283,27 @@ bool UWorld::HandleDemoPlayCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld*
 	{
 		ErrorString = TEXT( "InWorld is null" );
 	}
+	else if (InWorld->WorldType == EWorldType::Editor)
+	{
+		ErrorString = TEXT("Cannot play a demo without a PIE instance running");
+	}
 	else if ( InWorld->GetGameInstance() == nullptr )
 	{
 		ErrorString = TEXT( "InWorld->GetGameInstance() is null" );
 	}
-	
+	else if (InWorld->WorldType == EWorldType::PIE)
+	{
+		// Prevent multiple playback in the editor.
+		for (const FWorldContext& Context : GEngine->GetWorldContexts())
+		{
+			if (Context.World()->DemoNetDriver != nullptr && Context.World()->DemoNetDriver->IsPlaying())
+			{
+				ErrorString = TEXT("A demo is already in progress, cannot play more than one demo at a time");
+				break;
+			}
+		}
+	}
+
 	if (ErrorString != nullptr)
 	{
 		Ar.Log(ErrorString);
@@ -3258,7 +3315,18 @@ bool UWorld::HandleDemoPlayCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld*
 	}
 	else
 	{
-		InWorld->GetGameInstance()->PlayReplay(Temp);
+		// Allow additional url arguments after the demo name
+		TArray<FString> Options;
+		if (Temp.ParseIntoArray(Options, TEXT("?")) > 1)
+		{
+			Temp = Options[0];
+			Options.RemoveAtSwap(0);
+			InWorld->GetGameInstance()->PlayReplay(Temp, nullptr, Options);
+		}
+		else
+		{
+			InWorld->GetGameInstance()->PlayReplay(Temp);
+		}
 	}
 
 	return true;
@@ -3406,16 +3474,26 @@ void UWorld::InitializeActorsForPlay(const FURL& InURL, bool bResetTime)
 		}
 
 		// Let server know client sub-levels visibility state
-		for (int32 LevelIndex = 1; LevelIndex < Levels.Num(); LevelIndex++)
 		{
-			ULevel*	SubLevel = Levels[LevelIndex];
-
 			for (FLocalPlayerIterator It(GEngine, this); It; ++It)
 			{
 				APlayerController* LocalPlayerController = It->GetPlayerController(this);
 				if (LocalPlayerController != NULL)
 				{
-					LocalPlayerController->ServerUpdateLevelVisibility(LocalPlayerController->NetworkRemapPath(SubLevel->GetOutermost()->GetFName(), false), SubLevel->bIsVisible);
+					TArray<FUpdateLevelVisibilityLevelInfo> LevelVisibilities;
+					for (int32 LevelIndex = 1; LevelIndex < Levels.Num(); LevelIndex++)
+					{
+						ULevel*	SubLevel = Levels[LevelIndex];
+
+						FUpdateLevelVisibilityLevelInfo& LevelVisibility = *new( LevelVisibilities ) FUpdateLevelVisibilityLevelInfo();
+						LevelVisibility.PackageName = LocalPlayerController->NetworkRemapPath(SubLevel->GetOutermost()->GetFName(), false);
+						LevelVisibility.bIsVisible = SubLevel->bIsVisible;
+					}
+
+					if( LevelVisibilities.Num() > 0 )
+					{
+						LocalPlayerController->ServerUpdateMultipleLevelsVisibility( LevelVisibilities );
+					}
 				}
 			}
 		}
@@ -3603,11 +3681,6 @@ void UWorld::CleanupWorld(bool bSessionEnded, bool bCleanupResources, UWorld* Ne
 		}
 	}
 
-	if (bCleanupResources)
-	{
-		LevelCollections.Empty();
-	}
-
 	FWorldDelegates::OnPostWorldCleanup.Broadcast(this, bSessionEnded, bCleanupResources);
 }
 
@@ -3619,14 +3692,12 @@ UGameViewportClient* UWorld::GetGameViewport() const
 
 FConstControllerIterator UWorld::GetControllerIterator() const
 {
-	auto Result = ControllerList.CreateConstIterator();
-	return (const FConstControllerIterator&)Result;
+	return ControllerList.CreateConstIterator();
 }
 
 FConstPlayerControllerIterator UWorld::GetPlayerControllerIterator() const
 {
-	auto Result = PlayerControllerList.CreateConstIterator();
-	return (const FConstPlayerControllerIterator&)Result;
+	return PlayerControllerList.CreateConstIterator();
 }
 
 APlayerController* UWorld::GetFirstPlayerController() const
@@ -3747,7 +3818,7 @@ void UWorld::AddNetworkActor( AActor* Actor )
 		if (Driver != nullptr)
 		{
 			// Special case the demo net driver, since actors currently only have one associated NetDriverName.
-			Driver->GetNetworkObjectList().Add(Actor, Driver->NetDriverName);
+			Driver->GetNetworkObjectList().FindOrAdd(Actor, Driver->NetDriverName);
 		}
 	});
 }
@@ -4090,7 +4161,7 @@ void UWorld::WelcomePlayer(UNetConnection* Connection)
 	Connection->SendPackageMap();
 	
 	FString LevelName = CurrentLevel->GetOutermost()->GetName();
-	Connection->ClientWorldPackageName = CurrentLevel->GetOutermost()->GetFName();
+	Connection->SetClientWorldPackageName(CurrentLevel->GetOutermost()->GetFName());
 
 	FString GameName;
 	FString RedirectURL;
@@ -4105,7 +4176,7 @@ void UWorld::WelcomePlayer(UNetConnection* Connection)
 	// don't count initial join data for netspeed throttling
 	// as it's unnecessary, since connection won't be fully open until it all gets received, and this prevents later gameplay data from being delayed to "catch up"
 	Connection->QueuedBits = 0;
-	Connection->SetClientLoginState( EClientLoginState::Welcomed );		// Client is fully logged in
+	Connection->SetClientLoginState( EClientLoginState::Welcomed );		// Client has been told to load the map, will respond via SendJoin
 }
 
 bool UWorld::DestroySwappedPC(UNetConnection* Connection)
@@ -4140,29 +4211,35 @@ void UWorld::NotifyControlMessage(UNetConnection* Connection, uint8 MessageType,
 				// our connection attempt failed for some reason, for example a synchronization mismatch (bad GUID, etc) or because the server rejected our join attempt (too many players, etc)
 				// here we can further parse the string to determine the reason that the server closed our connection and present it to the user
 				FString EntryURL = TEXT("?failed");
-
 				FString ErrorMsg;
-				FNetControlMessage<NMT_Failure>::Receive(Bunch, ErrorMsg);
-				if (ErrorMsg.IsEmpty())
+
+				if (FNetControlMessage<NMT_Failure>::Receive(Bunch, ErrorMsg))
 				{
-					ErrorMsg = NSLOCTEXT("NetworkErrors", "GenericConnectionFailed", "Connection Failed.").ToString();
+					if (ErrorMsg.IsEmpty())
+					{
+						ErrorMsg = NSLOCTEXT("NetworkErrors", "GenericConnectionFailed", "Connection Failed.").ToString();
+					}
+
+					GEngine->BroadcastNetworkFailure(this, NetDriver, ENetworkFailure::FailureReceived, ErrorMsg);
+					if (Connection)
+					{
+						Connection->Close();
+					}
 				}
 
-				GEngine->BroadcastNetworkFailure(this, NetDriver, ENetworkFailure::FailureReceived, ErrorMsg);
-				if (Connection)
-				{
-					Connection->Close();
-				}
 				break;
 			}
 			case NMT_DebugText:
 			{
 				// debug text message
 				FString Text;
-				FNetControlMessage<NMT_DebugText>::Receive(Bunch,Text);
 
-				UE_LOG(LogNet, Log, TEXT("%s received NMT_DebugText Text=[%s] Desc=%s DescRemote=%s"),
-					*Connection->Driver->GetDescription(),*Text,*Connection->LowLevelDescribe(),*Connection->LowLevelGetRemoteAddress());
+				if (FNetControlMessage<NMT_DebugText>::Receive(Bunch, Text))
+				{
+					UE_LOG(LogNet, Log, TEXT("%s received NMT_DebugText Text=[%s] Desc=%s DescRemote=%s"),
+							*Connection->Driver->GetDescription(), *Text, *Connection->LowLevelDescribe(),
+							*Connection->LowLevelGetRemoteAddress());
+				}
 
 				break;
 			}
@@ -4170,10 +4247,13 @@ void UWorld::NotifyControlMessage(UNetConnection* Connection, uint8 MessageType,
 			{
 				FNetworkGUID NetGUID;
 				FString Path;
-				FNetControlMessage<NMT_NetGUIDAssign>::Receive(Bunch, NetGUID, Path);
 
-				UE_LOG(LogNet, Verbose, TEXT("NMT_NetGUIDAssign  NetGUID %s. Path: %s. "), *NetGUID.ToString(), *Path );
-				Connection->PackageMap->ResolvePathAndAssignNetGUID( NetGUID, Path );
+				if (FNetControlMessage<NMT_NetGUIDAssign>::Receive(Bunch, NetGUID, Path))
+				{
+					UE_LOG(LogNet, Verbose, TEXT("NMT_NetGUIDAssign  NetGUID %s. Path: %s. "), *NetGUID.ToString(), *Path);
+					Connection->PackageMap->ResolvePathAndAssignNetGUID(NetGUID, Path);
+				}
+
 				break;
 			}
 		}
@@ -4201,48 +4281,53 @@ void UWorld::NotifyControlMessage(UNetConnection* Connection, uint8 MessageType,
 				uint32 LocalNetworkVersion = FNetworkVersion::GetLocalNetworkVersion();
 				FString EncryptionToken;
 
-				FNetControlMessage<NMT_Hello>::Receive(Bunch, IsLittleEndian, RemoteNetworkVersion, EncryptionToken);
-
-				if (!FNetworkVersion::IsNetworkCompatible(LocalNetworkVersion, RemoteNetworkVersion))
+				if (FNetControlMessage<NMT_Hello>::Receive(Bunch, IsLittleEndian, RemoteNetworkVersion, EncryptionToken))
 				{
-					UE_LOG(LogNet, Log, TEXT("NotifyControlMessage: Client connecting with invalid version. LocalNetworkVersion: %i, RemoteNetworkVersion: %i"), LocalNetworkVersion, RemoteNetworkVersion);
-					FNetControlMessage<NMT_Upgrade>::Send(Connection, LocalNetworkVersion);
-					Connection->FlushNet(true);
-					Connection->Close();
-
-					PerfCountersIncrement(TEXT("ClosedConnectionsDueToIncompatibleVersion"));
-				}
-				else
-				{
-					if (EncryptionToken.IsEmpty())
+					if (!FNetworkVersion::IsNetworkCompatible(LocalNetworkVersion, RemoteNetworkVersion))
 					{
-						SendChallengeControlMessage(Connection);
+						UE_LOG(LogNet, Log, TEXT("NotifyControlMessage: Client connecting with invalid version. LocalNetworkVersion: %i, RemoteNetworkVersion: %i"), LocalNetworkVersion, RemoteNetworkVersion);
+						FNetControlMessage<NMT_Upgrade>::Send(Connection, LocalNetworkVersion);
+						Connection->FlushNet(true);
+						Connection->Close();
+
+						PerfCountersIncrement(TEXT("ClosedConnectionsDueToIncompatibleVersion"));
 					}
 					else
 					{
-						if (FNetDelegates::OnReceivedNetworkEncryptionToken.IsBound())
+						if (EncryptionToken.IsEmpty())
 						{
-							TWeakObjectPtr<UNetConnection> WeakConnection = Connection;
-							FNetDelegates::OnReceivedNetworkEncryptionToken.Execute(EncryptionToken, FOnEncryptionKeyResponse::CreateUObject(this, &UWorld::SendChallengeControlMessage, WeakConnection));
+							SendChallengeControlMessage(Connection);
 						}
 						else
 						{
-							FString FailureMsg(TEXT("Encryption failure"));
-							UE_LOG(LogNet, Warning, TEXT("%s: No delegate available to handle encryption token, disconnecting."), *Connection->GetName());
-							FNetControlMessage<NMT_Failure>::Send(Connection, FailureMsg);
-							Connection->FlushNet(true);
+							if (FNetDelegates::OnReceivedNetworkEncryptionToken.IsBound())
+							{
+								TWeakObjectPtr<UNetConnection> WeakConnection = Connection;
+								FNetDelegates::OnReceivedNetworkEncryptionToken.Execute(EncryptionToken, FOnEncryptionKeyResponse::CreateUObject(this, &UWorld::SendChallengeControlMessage, WeakConnection));
+							}
+							else
+							{
+								FString FailureMsg(TEXT("Encryption failure"));
+								UE_LOG(LogNet, Warning, TEXT("%s: No delegate available to handle encryption token, disconnecting."), *Connection->GetName());
+								FNetControlMessage<NMT_Failure>::Send(Connection, FailureMsg);
+								Connection->FlushNet(true);
+							}
 						}
 					}
 				}
+
 				break;
 			}
 
 			case NMT_Netspeed:
 			{
 				int32 Rate;
-				FNetControlMessage<NMT_Netspeed>::Receive(Bunch, Rate);
-				Connection->CurrentNetSpeed = FMath::Clamp(Rate, 1800, NetDriver->MaxClientRate);
-				UE_LOG(LogNet, Log, TEXT("Client netspeed is %i"), Connection->CurrentNetSpeed);
+
+				if (FNetControlMessage<NMT_Netspeed>::Receive(Bunch, Rate))
+				{
+					Connection->CurrentNetSpeed = FMath::Clamp(Rate, 1800, NetDriver->MaxClientRate);
+					UE_LOG(LogNet, Log, TEXT("Client netspeed is %i"), Connection->CurrentNetSpeed);
+				}
 
 				break;
 			}
@@ -4256,69 +4341,84 @@ void UWorld::NotifyControlMessage(UNetConnection* Connection, uint8 MessageType,
 			}
 			case NMT_Login:
 			{
+				// Admit or deny the player here.
 				FUniqueNetIdRepl UniqueIdRepl;
 				FString OnlinePlatformName;
 
-				// Admit or deny the player here.
-				TArray<uint8> RequestUrlBytes;
-				FNetControlMessage<NMT_Login>::Receive(Bunch, Connection->ClientResponse, RequestUrlBytes, UniqueIdRepl, OnlinePlatformName);
-				Connection->RequestURL = UTF8_TO_TCHAR(RequestUrlBytes.GetData());
-				UE_LOG(LogNet, Log, TEXT("Login request: %s userId: %s"), *Connection->RequestURL, UniqueIdRepl.IsValid() ? *UniqueIdRepl->ToString() : TEXT("Invalid"));
+				// Expand the maximum string serialization size, to accommodate extremely large Fortnite join URL's.
+				Bunch.ArMaxSerializeSize += (16 * 1024 * 1024);
 
+				bool bReceived = FNetControlMessage<NMT_Login>::Receive(Bunch, Connection->ClientResponse, Connection->RequestURL,
+																		UniqueIdRepl, OnlinePlatformName);
 
-				// Compromise for passing splitscreen playercount through to gameplay login code,
-				// without adding a lot of extra unnecessary complexity throughout the login code.
-				// NOTE: This code differs from NMT_JoinSplit, by counting + 1 for SplitscreenCount
-				//			(since this is the primary connection, not counted in Children)
-				FURL InURL( NULL, *Connection->RequestURL, TRAVEL_Absolute );
+				Bunch.ArMaxSerializeSize -= (16 * 1024 * 1024);
 
-				if ( !InURL.Valid )
+				if (bReceived)
 				{
-					UE_LOG( LogNet, Error, TEXT( "NMT_Login: Invalid URL %s" ), *Connection->RequestURL );
-					Bunch.SetError();
-					break;
-				}
+					UE_LOG(LogNet, Log, TEXT("Login request: %s userId: %s"), *Connection->RequestURL,
+							(UniqueIdRepl.IsValid() ? *UniqueIdRepl->ToString() : TEXT("Invalid")));
 
-				uint8 SplitscreenCount = FMath::Min(Connection->Children.Num() + 1, 255);
 
-				// Don't allow clients to specify this value
-				InURL.RemoveOption(TEXT("SplitscreenCount"));
-				InURL.AddOption(*FString::Printf(TEXT("SplitscreenCount=%i"), SplitscreenCount));
+					// Compromise for passing splitscreen playercount through to gameplay login code,
+					// without adding a lot of extra unnecessary complexity throughout the login code.
+					// NOTE: This code differs from NMT_JoinSplit, by counting + 1 for SplitscreenCount
+					//			(since this is the primary connection, not counted in Children)
+					FURL InURL( NULL, *Connection->RequestURL, TRAVEL_Absolute );
 
-				Connection->RequestURL = InURL.ToString();
+					if ( !InURL.Valid )
+					{
+						UE_LOG( LogNet, Error, TEXT( "NMT_Login: Invalid URL %s" ), *Connection->RequestURL );
+						Bunch.SetError();
+						break;
+					}
 
-				// skip to the first option in the URL
-				const TCHAR* Tmp = *Connection->RequestURL;
-				for (; *Tmp && *Tmp != '?'; Tmp++);
+					uint8 SplitscreenCount = FMath::Min(Connection->Children.Num() + 1, 255);
 
-				// keep track of net id for player associated with remote connection
-				Connection->PlayerId = UniqueIdRepl;
+					// Don't allow clients to specify this value
+					InURL.RemoveOption(TEXT("SplitscreenCount"));
+					InURL.AddOption(*FString::Printf(TEXT("SplitscreenCount=%i"), SplitscreenCount));
 
-				// keep track of the online platform the player associated with this connection is using.
-				Connection->SetPlayerOnlinePlatformName(FName(*OnlinePlatformName));
+					Connection->RequestURL = InURL.ToString();
 
-				// ask the game code if this player can join
-				FString ErrorMsg;
-				AGameModeBase* GameMode = GetAuthGameMode();
+					// skip to the first option in the URL
+					const TCHAR* Tmp = *Connection->RequestURL;
+					for (; *Tmp && *Tmp != '?'; Tmp++);
 
-				if (GameMode)
-				{
-					GameMode->PreLogin(Tmp, Connection->LowLevelGetRemoteAddress(), Connection->PlayerId, ErrorMsg);
-				}
-				if (!ErrorMsg.IsEmpty())
-				{
-					UE_LOG(LogNet, Log, TEXT("PreLogin failure: %s"), *ErrorMsg);
-					NETWORK_PROFILER(GNetworkProfiler.TrackEvent(TEXT("PRELOGIN FAILURE"), *ErrorMsg, Connection));
-					FNetControlMessage<NMT_Failure>::Send(Connection, ErrorMsg);
-					Connection->FlushNet(true);
-					//@todo sz - can't close the connection here since it will leave the failure message 
-					// in the send buffer and just close the socket. 
-					//Connection->Close();
+					// keep track of net id for player associated with remote connection
+					Connection->PlayerId = UniqueIdRepl;
+
+					// keep track of the online platform the player associated with this connection is using.
+					Connection->SetPlayerOnlinePlatformName(FName(*OnlinePlatformName));
+
+					// ask the game code if this player can join
+					FString ErrorMsg;
+					AGameModeBase* GameMode = GetAuthGameMode();
+
+					if (GameMode)
+					{
+						GameMode->PreLogin(Tmp, Connection->LowLevelGetRemoteAddress(), Connection->PlayerId, ErrorMsg);
+					}
+					if (!ErrorMsg.IsEmpty())
+					{
+						UE_LOG(LogNet, Log, TEXT("PreLogin failure: %s"), *ErrorMsg);
+						NETWORK_PROFILER(GNetworkProfiler.TrackEvent(TEXT("PRELOGIN FAILURE"), *ErrorMsg, Connection));
+						FNetControlMessage<NMT_Failure>::Send(Connection, ErrorMsg);
+						Connection->FlushNet(true);
+						//@todo sz - can't close the connection here since it will leave the failure message 
+						// in the send buffer and just close the socket. 
+						//Connection->Close();
+					}
+					else
+					{
+						WelcomePlayer(Connection);
+					}
 				}
 				else
 				{
-					WelcomePlayer(Connection);
+					Connection->ClientResponse.Empty();
+					Connection->RequestURL.Empty();
 				}
+
 				break;
 			}
 			case NMT_Join:
@@ -4353,8 +4453,11 @@ void UWorld::NotifyControlMessage(UNetConnection* Connection, uint8 MessageType,
 					else
 					{
 						// Successfully in game.
-						UE_LOG(LogNet, Log, TEXT("Join succeeded: %s"), *Connection->PlayerController->PlayerState->PlayerName);
-						NETWORK_PROFILER(GNetworkProfiler.TrackEvent(TEXT("JOIN"), *Connection->PlayerController->PlayerState->PlayerName, Connection));
+						UE_LOG(LogNet, Log, TEXT("Join succeeded: %s"), *Connection->PlayerController->PlayerState->GetPlayerName());
+						NETWORK_PROFILER(GNetworkProfiler.TrackEvent(TEXT("JOIN"), *Connection->PlayerController->PlayerState->GetPlayerName(), Connection));
+
+						Connection->SetClientLoginState(EClientLoginState::ReceivedJoin);
+
 						// if we're in the middle of a transition or the client is in the wrong world, tell it to travel
 						FString LevelName;
 						FSeamlessTravelHandler &SeamlessTravelHandler = GEngine->SeamlessTravelHandlerForWorld( this );
@@ -4386,80 +4489,52 @@ void UWorld::NotifyControlMessage(UNetConnection* Connection, uint8 MessageType,
 			{
 				// Handle server-side request for spawning a new controller using a child connection.
 				FString SplitRequestURL;
-				FUniqueNetIdRepl UniqueIdRepl;
-				FNetControlMessage<NMT_JoinSplit>::Receive(Bunch, SplitRequestURL, UniqueIdRepl);
+				FUniqueNetIdRepl SplitRequestUniqueIdRepl;
 
-				// Compromise for passing splitscreen playercount through to gameplay login code,
-				// without adding a lot of extra unnecessary complexity throughout the login code.
-				// NOTE: This code differs from NMT_Login, by counting + 2 for SplitscreenCount
-				//			(once for pending child connection, once for primary non-child connection)
-				FURL InURL( NULL, *SplitRequestURL, TRAVEL_Absolute );
-
-				if ( !InURL.Valid )
+				if (FNetControlMessage<NMT_JoinSplit>::Receive(Bunch, SplitRequestURL, SplitRequestUniqueIdRepl))
 				{
-					UE_LOG( LogNet, Error, TEXT( "NMT_JoinSplit: Invalid URL %s" ), *SplitRequestURL );
-					Bunch.SetError();
-					break;
-				}
+					UE_LOG(LogNet, Log, TEXT("Join splitscreen request: %s userId: %s parentUserId: %s"),
+						*SplitRequestURL,
+						SplitRequestUniqueIdRepl.IsValid() ? *SplitRequestUniqueIdRepl->ToString() : TEXT("Invalid"),
+						Connection->PlayerId.IsValid() ? *Connection->PlayerId->ToString() : TEXT("Invalid"));
 
-				uint8 SplitscreenCount = FMath::Min(Connection->Children.Num() + 2, 255);
+					// Compromise for passing splitscreen playercount through to gameplay login code,
+					// without adding a lot of extra unnecessary complexity throughout the login code.
+					// NOTE: This code differs from NMT_Login, by counting + 2 for SplitscreenCount
+					//			(once for pending child connection, once for primary non-child connection)
+					FURL InURL(NULL, *SplitRequestURL, TRAVEL_Absolute);
 
-				// Don't allow clients to specify this value
-				InURL.RemoveOption(TEXT("SplitscreenCount"));
-				InURL.AddOption(*FString::Printf(TEXT("SplitscreenCount=%i"), SplitscreenCount));
-
-				SplitRequestURL = InURL.ToString();
-
-				// skip to the first option in the URL
-				const TCHAR* Tmp = *SplitRequestURL;
-				for (; *Tmp && *Tmp != '?'; Tmp++);
-
-				// keep track of net id for player associated with remote connection
-				Connection->PlayerId = UniqueIdRepl;
-
-				// go through the same full login process for the split player even though it's all in the same frame
-				FString ErrorMsg;
-				AGameModeBase* GameMode = GetAuthGameMode();
-				if (GameMode)
-				{
-					GameMode->PreLogin(Tmp, Connection->LowLevelGetRemoteAddress(), Connection->PlayerId, ErrorMsg);
-				}
-				if (!ErrorMsg.IsEmpty())
-				{
-					// if any splitscreen viewport fails to join, all viewports on that client also fail
-					UE_LOG(LogNet, Log, TEXT("PreLogin failure: %s"), *ErrorMsg);
-					NETWORK_PROFILER(GNetworkProfiler.TrackEvent(TEXT("PRELOGIN FAILURE"), *ErrorMsg, Connection));
-					FNetControlMessage<NMT_Failure>::Send(Connection, ErrorMsg);
-					Connection->FlushNet(true);
-					//@todo sz - can't close the connection here since it will leave the failure message 
-					// in the send buffer and just close the socket. 
-					//Connection->Close();
-				}
-				else
-				{
-					// create a child network connection using the existing connection for its parent
-					check(Connection->GetUChildConnection() == NULL);
-					check(CurrentLevel);
-
-					UChildConnection* ChildConn = NetDriver->CreateChild(Connection);
-					ChildConn->PlayerId = Connection->PlayerId;
-					ChildConn->SetPlayerOnlinePlatformName(Connection->GetPlayerOnlinePlatformName());
-					ChildConn->RequestURL = SplitRequestURL;
-					ChildConn->ClientWorldPackageName = CurrentLevel->GetOutermost()->GetFName();
-
-					// create URL from string
-					FURL JoinSplitURL(NULL, *SplitRequestURL, TRAVEL_Absolute);
-
-					UE_LOG(LogNet, Log, TEXT("JOINSPLIT: Join request: URL=%s"), *JoinSplitURL.ToString());
-					APlayerController* PC = SpawnPlayActor(ChildConn, ROLE_AutonomousProxy, JoinSplitURL, ChildConn->PlayerId, ErrorMsg, uint8(Connection->Children.Num()));
-					if (PC == NULL)
+					if (!InURL.Valid)
 					{
-						// Failed to connect.
-						UE_LOG(LogNet, Log, TEXT("JOINSPLIT: Join failure: %s"), *ErrorMsg);
-						NETWORK_PROFILER(GNetworkProfiler.TrackEvent(TEXT("JOINSPLIT FAILURE"), *ErrorMsg, Connection));
-						// remove the child connection
-						Connection->Children.Remove(ChildConn);
+						UE_LOG(LogNet, Error, TEXT("NMT_JoinSplit: Invalid URL %s"), *SplitRequestURL);
+						Bunch.SetError();
+						break;
+					}
+
+					uint8 SplitscreenCount = FMath::Min(Connection->Children.Num() + 2, 255);
+
+					// Don't allow clients to specify this value
+					InURL.RemoveOption(TEXT("SplitscreenCount"));
+					InURL.AddOption(*FString::Printf(TEXT("SplitscreenCount=%i"), SplitscreenCount));
+
+					SplitRequestURL = InURL.ToString();
+
+					// skip to the first option in the URL
+					const TCHAR* Tmp = *SplitRequestURL;
+					for (; *Tmp && *Tmp != '?'; Tmp++);
+
+					// go through the same full login process for the split player even though it's all in the same frame
+					FString ErrorMsg;
+					AGameModeBase* GameMode = GetAuthGameMode();
+					if (GameMode)
+					{
+						GameMode->PreLogin(Tmp, Connection->LowLevelGetRemoteAddress(), SplitRequestUniqueIdRepl, ErrorMsg);
+					}
+					if (!ErrorMsg.IsEmpty())
+					{
 						// if any splitscreen viewport fails to join, all viewports on that client also fail
+						UE_LOG(LogNet, Log, TEXT("PreLogin failure: %s"), *ErrorMsg);
+						NETWORK_PROFILER(GNetworkProfiler.TrackEvent(TEXT("PRELOGIN FAILURE"), *ErrorMsg, Connection));
 						FNetControlMessage<NMT_Failure>::Send(Connection, ErrorMsg);
 						Connection->FlushNet(true);
 						//@todo sz - can't close the connection here since it will leave the failure message 
@@ -4468,43 +4543,84 @@ void UWorld::NotifyControlMessage(UNetConnection* Connection, uint8 MessageType,
 					}
 					else
 					{
-						// Successfully spawned in game.
-						UE_LOG(LogNet, Log, TEXT("JOINSPLIT: Succeeded: %s PlayerId: %s"), 
-							*ChildConn->PlayerController->PlayerState->PlayerName,
-							*ChildConn->PlayerController->PlayerState->UniqueId.ToDebugString());
+						// create a child network connection using the existing connection for its parent
+						check(Connection->GetUChildConnection() == NULL);
+						check(CurrentLevel);
+
+						UChildConnection* ChildConn = NetDriver->CreateChild(Connection);
+						ChildConn->PlayerId = SplitRequestUniqueIdRepl;
+						ChildConn->SetPlayerOnlinePlatformName(Connection->GetPlayerOnlinePlatformName());
+						ChildConn->RequestURL = SplitRequestURL;
+						ChildConn->SetClientWorldPackageName(CurrentLevel->GetOutermost()->GetFName());
+
+						// create URL from string
+						FURL JoinSplitURL(NULL, *SplitRequestURL, TRAVEL_Absolute);
+
+						UE_LOG(LogNet, Log, TEXT("JOINSPLIT: Join request: URL=%s"), *JoinSplitURL.ToString());
+						APlayerController* PC = SpawnPlayActor(ChildConn, ROLE_AutonomousProxy, JoinSplitURL, ChildConn->PlayerId, ErrorMsg, uint8(Connection->Children.Num()));
+						if (PC == NULL)
+						{
+							// Failed to connect.
+							UE_LOG(LogNet, Log, TEXT("JOINSPLIT: Join failure: %s"), *ErrorMsg);
+							NETWORK_PROFILER(GNetworkProfiler.TrackEvent(TEXT("JOINSPLIT FAILURE"), *ErrorMsg, Connection));
+							// remove the child connection
+							Connection->Children.Remove(ChildConn);
+							// if any splitscreen viewport fails to join, all viewports on that client also fail
+							FNetControlMessage<NMT_Failure>::Send(Connection, ErrorMsg);
+							Connection->FlushNet(true);
+							//@todo sz - can't close the connection here since it will leave the failure message 
+							// in the send buffer and just close the socket. 
+							//Connection->Close();
+						}
+						else
+						{
+							// Successfully spawned in game.
+							UE_LOG(LogNet, Log, TEXT("JOINSPLIT: Succeeded: %s PlayerId: %s"),
+								*ChildConn->PlayerController->PlayerState->GetPlayerName(),
+								*ChildConn->PlayerController->PlayerState->UniqueId.ToDebugString());
+						}
 					}
 				}
+
 				break;
 			}
 			case NMT_PCSwap:
 			{
 				UNetConnection* SwapConnection = Connection;
 				int32 ChildIndex;
-				FNetControlMessage<NMT_PCSwap>::Receive(Bunch, ChildIndex);
-				if (ChildIndex >= 0)
+
+				if (FNetControlMessage<NMT_PCSwap>::Receive(Bunch, ChildIndex))
 				{
-					SwapConnection = Connection->Children.IsValidIndex(ChildIndex) ? Connection->Children[ChildIndex] : NULL;
+					if (ChildIndex >= 0)
+					{
+						SwapConnection = Connection->Children.IsValidIndex(ChildIndex) ? Connection->Children[ChildIndex] : NULL;
+					}
+					bool bSuccess = false;
+					if (SwapConnection != NULL)
+					{
+						bSuccess = DestroySwappedPC(SwapConnection);
+					}
+
+					if (!bSuccess)
+					{
+						UE_LOG(LogNet, Log, TEXT("Received invalid swap message with child index %i"), ChildIndex);
+					}
 				}
-				bool bSuccess = false;
-				if (SwapConnection != NULL)
-				{
-					bSuccess = DestroySwappedPC(SwapConnection);
-				}
-				
-				if (!bSuccess)
-				{
-					UE_LOG(LogNet, Log, TEXT("Received invalid swap message with child index %i"), ChildIndex);
-				}
+
 				break;
 			}
 			case NMT_DebugText:
 			{
 				// debug text message
 				FString Text;
-				FNetControlMessage<NMT_DebugText>::Receive(Bunch,Text);
 
-				UE_LOG(LogNet, Log, TEXT("%s received NMT_DebugText Text=[%s] Desc=%s DescRemote=%s"),
-					*Connection->Driver->GetDescription(),*Text,*Connection->LowLevelDescribe(),*Connection->LowLevelGetRemoteAddress());
+				if (FNetControlMessage<NMT_DebugText>::Receive(Bunch, Text))
+				{
+					UE_LOG(LogNet, Log, TEXT("%s received NMT_DebugText Text=[%s] Desc=%s DescRemote=%s"),
+							*Connection->Driver->GetDescription(), *Text, *Connection->LowLevelDescribe(),
+							*Connection->LowLevelGetRemoteAddress());
+				}
+
 				break;
 			}
 		}
@@ -4924,8 +5040,6 @@ bool FSeamlessTravelHandler::StartTravel(UWorld* InCurrentWorld, const FURL& InU
 		}
 		else
 		{
-			CurrentWorld = InCurrentWorld;
-
 			bool bCancelledExisting = false;
 			if (IsInTransition())
 			{
@@ -4939,6 +5053,9 @@ bool FSeamlessTravelHandler::StartTravel(UWorld* InCurrentWorld, const FURL& InU
 				CancelTravel();
 				bCancelledExisting = true;
 			}
+
+			// CancelTravel will null out CurrentWorld, so we need to assign it after that.
+			CurrentWorld = InCurrentWorld;
 
 			if (CurrentWorld->DemoNetDriver && CurrentWorld->DemoNetDriver->IsRecording())
 			{
@@ -4997,7 +5114,7 @@ bool FSeamlessTravelHandler::StartTravel(UWorld* InCurrentWorld, const FURL& InU
 							{
 								// Empty the current map name in case we are going A -> transition -> A and the server loads fast enough
 								// that the clients are not on the transition map yet causing the server to think its loaded
-								Connection->ClientWorldPackageName = NAME_None;
+								Connection->SetClientWorldPackageName(NAME_None);
 							}
 						}
 					}
@@ -5053,7 +5170,7 @@ void FSeamlessTravelHandler::CancelTravel()
 						}
 
 						// Mark all clients as being where they are since this was set to None in StartTravel
-						Connection->ClientWorldPackageName = CurrentPackageName;
+						Connection->SetClientWorldPackageName(CurrentPackageName);
 					}
 				}
 			}
@@ -5327,7 +5444,7 @@ UWorld* FSeamlessTravelHandler::Tick()
 			// Rename dynamic actors in the old world's PersistentLevel that we want to keep into the new world
 			auto ProcessActor = [this, &KeepAnnotation, &ActuallyKeptActors, NetDriver](AActor* TheActor) -> bool
 			{
-				const FNetworkObjectInfo* NetworkObjectInfo = NetDriver ? NetDriver->GetNetworkObjectInfo(TheActor) : nullptr;
+				const FNetworkObjectInfo* NetworkObjectInfo = NetDriver ? NetDriver->FindNetworkObjectInfo(TheActor) : nullptr;
 
 				const bool bIsInCurrentLevel	= TheActor->GetLevel() == CurrentWorld->PersistentLevel;
 				const bool bManuallyMarkedKeep	= KeepAnnotation.Get(TheActor);
@@ -5606,9 +5723,6 @@ UWorld* FSeamlessTravelHandler::Tick()
 				LoadedWorld->BeginPlay();
 
 				FCoreUObjectDelegates::PostLoadMapWithWorld.Broadcast(LoadedWorld);
-				PRAGMA_DISABLE_DEPRECATION_WARNINGS
-				FCoreUObjectDelegates::PostLoadMap.Broadcast();
-				PRAGMA_ENABLE_DEPRECATION_WARNINGS
 			}
 			else
 			{
@@ -6317,6 +6431,21 @@ FLevelCollection& UWorld::FindOrAddCollectionByType(const ELevelCollectionType I
 	return LevelCollections.Last();
 }
 
+int32 UWorld::FindOrAddCollectionByType_Index(const ELevelCollectionType InType)
+{
+	const int32 FoundIndex = FindCollectionIndexByType(InType);
+
+	if (FoundIndex != INDEX_NONE)
+	{
+		return FoundIndex;
+	}
+
+	// Not found, add a new one.
+	FLevelCollection NewLC;
+	NewLC.SetType(InType);
+	return LevelCollections.Add(MoveTemp(NewLC));
+}
+
 FLevelCollection* UWorld::FindCollectionByType(const ELevelCollectionType InType)
 {
 	for (FLevelCollection& LC : LevelCollections)
@@ -6343,18 +6472,42 @@ const FLevelCollection* UWorld::FindCollectionByType(const ELevelCollectionType 
 	return nullptr;
 }
 
-void UWorld::SetActiveLevelCollection(const FLevelCollection* InCollection)
+int32 UWorld::FindCollectionIndexByType(const ELevelCollectionType InType) const
 {
-	ActiveLevelCollection = InCollection;
+	return LevelCollections.IndexOfByPredicate([InType](const FLevelCollection& Collection)
+	{
+		return Collection.GetType() == InType;
+	});
+}
 
-	PersistentLevel = InCollection->GetPersistentLevel();
+const FLevelCollection* UWorld::GetActiveLevelCollection() const
+{
+	if (LevelCollections.IsValidIndex(ActiveLevelCollectionIndex))
+	{
+		return &LevelCollections[ActiveLevelCollectionIndex];
+	}
+
+	return nullptr;
+}
+
+void UWorld::SetActiveLevelCollection(int32 LevelCollectionIndex)
+{
+	ActiveLevelCollectionIndex = LevelCollectionIndex;
+	const FLevelCollection* const ActiveLevelCollection = GetActiveLevelCollection();
+
+	if (ActiveLevelCollection == nullptr)
+	{
+		return;
+	}
+
+	PersistentLevel = ActiveLevelCollection->GetPersistentLevel();
 	if (IsGameWorld())
 	{
-		SetCurrentLevel(InCollection->GetPersistentLevel());
+		SetCurrentLevel(ActiveLevelCollection->GetPersistentLevel());
 	}
-	GameState = InCollection->GetGameState();
-	NetDriver = InCollection->GetNetDriver();
-	DemoNetDriver = InCollection->GetDemoNetDriver();
+	GameState = ActiveLevelCollection->GetGameState();
+	NetDriver = ActiveLevelCollection->GetNetDriver();
+	DemoNetDriver = ActiveLevelCollection->GetDemoNetDriver();
 
 	// TODO: START TEMP FIX FOR UE-42508
 	if (NetDriver && NetDriver->NetDriverName != NAME_None)
@@ -6402,6 +6555,7 @@ static ULevel* DuplicateLevelWithPrefix(ULevel* InLevel, int32 InstanceID )
 	NewPackage->PIEInstanceID = InstanceID;
 	NewPackage->FileName = OriginalPackage->FileName;
 	NewPackage->SetGuid( OriginalPackage->GetGuid() );
+	NewPackage->MarkAsFullyLoaded();
 
 	FSoftObjectPath::AddPIEPackageName(NewPackage->GetFName());
 
@@ -6592,10 +6746,9 @@ void UWorld::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 	// Get the full file path with extension
 	const FString FullFilePath = FPackageName::LongPackageNameToFilename(GetOutermost()->GetName(), FPackageName::GetMapPackageExtension());
 
-	// Save/Display the file size and modify date
+	// Save/Display the modify date. File size is handled generically for all packages
 	FDateTime AssetDateModified = IFileManager::Get().GetTimeStamp(*FullFilePath);
 	OutTags.Add(FAssetRegistryTag("DateModified", AssetDateModified.ToString(), FAssetRegistryTag::TT_Chronological, FAssetRegistryTag::TD_Date));
-	OutTags.Add(FAssetRegistryTag("MapFileSize", Lex::ToString(IFileManager::Get().FileSize(*FullFilePath)), FAssetRegistryTag::TT_Numerical, FAssetRegistryTag::TD_Memory));
 
 	FWorldDelegates::GetAssetTags.Broadcast(this, OutTags);
 }

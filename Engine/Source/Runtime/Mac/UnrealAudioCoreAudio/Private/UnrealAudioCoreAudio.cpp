@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /**
 Implementation of IAudioDevice for CoreAudio
@@ -8,7 +8,7 @@ See https://developer.apple.com/library/mac/documentation/MusicAudio/Conceptual/
 */
 
 #include "UnrealAudioDeviceModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 /**
 * CoreAudio System Headers

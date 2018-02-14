@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -282,7 +282,7 @@ namespace AutomationTool
 				const string KeyName = "P4PORT=";
 				if (Result.Output.StartsWith(KeyName))
 				{
-					int LastIdx = Result.Output.IndexOfAny(new char[] { ' ', '\n' });
+					int LastIdx = Result.Output.IndexOfAny(new char[] { ' ', '\n', '\r' });
 					if (LastIdx == -1)
 					{
 						LastIdx = Result.Output.Length;
@@ -495,7 +495,7 @@ namespace AutomationTool
 				// Get the client root
 				if (LocalRootPath.StartsWith(CommandUtils.CombinePaths(PathSeparator.Slash, ThisClient.RootPath, "/"), StringComparison.InvariantCultureIgnoreCase) || LocalRootPath == CommandUtils.CombinePaths(PathSeparator.Slash, ThisClient.RootPath))
 				{
-					ClientRootPath = CommandUtils.CombinePaths(PathSeparator.Depot, String.Format("//{0}/", ThisClient.Name), LocalRootPath.Substring(ThisClient.RootPath.Length));
+					ClientRootPath = CommandUtils.CombinePaths(PathSeparator.Depot, String.Format("//{0}", ThisClient.Name), LocalRootPath.Substring(ThisClient.RootPath.Length));
 				}
 				else
 				{

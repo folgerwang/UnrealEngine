@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AvfMediaVideoSampler.h"
 #include "AvfMediaPrivate.h"
@@ -15,7 +15,7 @@
 #include "Misc/ScopeLock.h"
 #include "PipelineStateCache.h"
 #include "RHIStaticStates.h"
-#include "Class.h"
+#include "UObject/Class.h"
 #endif
 
 #include "AvfMediaTextureSample.h"

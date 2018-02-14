@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerKeyActor.h"
 #include "Components/StaticMeshComponent.h"
@@ -9,7 +9,7 @@
 #include "Engine/Selection.h"
 #include "EditorModeTools.h"
 #include "EditorModeManager.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "EditorViewportClient.h"
 #include "UnrealClient.h"
 

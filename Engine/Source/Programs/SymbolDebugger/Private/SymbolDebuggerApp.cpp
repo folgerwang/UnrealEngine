@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SymbolDebuggerApp.h"
 #include "SSymbolDebugger.h"
 #include "SymbolDebugger.h"
 #include "RequiredProgramMainCPPInclude.h"
 #include "CrashDebugHelperModule.h"
-#include "AsyncWork.h"
+#include "Async/AsyncWork.h"
 #include "ISourceControlModule.h"
 #include "EditorStyleSet.h"
 #include "Interfaces/IEditorStyleModule.h"

@@ -1,9 +1,9 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MediaCompositingEditorStyle.h"
 
 #include "Math/Vector2D.h"
-#include "SlateStyleRegistry.h"
+#include "Styling/SlateStyleRegistry.h"
 
 
 /* Static initialization

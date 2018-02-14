@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #if WITH_EDITOR
 
@@ -8,7 +8,7 @@
 #include "RenderDocPluginCommands.h"
 #include "RenderDocPluginModule.h"
 
-#include "IMainFrameModule.h"
+#include "Interfaces/IMainFrameModule.h"
 #include "EditorStyleSet.h"
 #include "Editor/UnrealEd/Public/SEditorViewportToolBarMenu.h"
 #include "Editor/UnrealEd/Public/SViewportToolBarComboMenu.h"

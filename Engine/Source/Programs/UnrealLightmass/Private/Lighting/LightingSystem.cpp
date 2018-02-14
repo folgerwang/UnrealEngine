@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LightingSystem.h"
 #include "Exporter.h"
@@ -10,17 +10,17 @@
 #include "HAL/RunnableThread.h"
 #include "HAL/PlatformProcess.h"
 #include "Misc/OutputDeviceRedirector.h"
-#include "ExceptionHandling.h"
+#include "HAL/ExceptionHandling.h"
 #if USE_LOCAL_SWARM_INTERFACE
 #include "IMessagingModule.h"
 #include "Async/TaskGraphInterfaces.h"
 #endif
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <psapi.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #pragma comment(lib, "psapi.lib")
 #endif
@@ -93,9 +93,10 @@ FLightMapData2D* FGatheredLightMapData2D::ConvertToLightmap2D(bool bDebugThisMap
 	return ConvertedLightMap;
 }
 
-FStaticLightingMappingContext::FStaticLightingMappingContext(const FStaticLightingMesh* InSubjectMesh, FStaticLightingSystem& InSystem) :
+FStaticLightingMappingContext::FStaticLightingMappingContext(const FStaticLightingMesh* InSubjectMesh, FStaticLightingSystem& InSystem, FDebugLightingOutput* InDebugOutput) :
 	FirstBounceCache(InSubjectMesh ? InSubjectMesh->BoundingBox : FBox::BuildAABB(FVector4(0,0,0), FVector4(HALF_WORLD_MAX)), InSystem, 1),
-	System(InSystem)
+	System(InSystem),
+	DebugOutput(InDebugOutput)
 {}
 
 FStaticLightingMappingContext::~FStaticLightingMappingContext()
@@ -182,7 +183,7 @@ FStaticLightingSystem::FStaticLightingSystem(const FLightingBuildOptions& InOpti
 	int32 NumTriangles = 0;
 	int32 NumMappings = InScene.TextureLightingMappings.Num() +
 		InScene.FluidMappings.Num() + InScene.LandscapeMappings.Num() + InScene.BspMappings.Num();
-	int32 NumMeshInstances = InScene.BspMappings.Num() + InScene.StaticMeshInstances.Num();
+	int32 NumMeshInstances = InScene.BspMappings.Num() + InScene.StaticMeshInstances.Num() + InScene.VolumeMappings.Num();
 	AllMappings.Reserve( NumMappings );
 	Meshes.Reserve( NumMeshInstances );
 
@@ -255,6 +256,17 @@ FStaticLightingSystem::FStaticLightingSystem(const FLightingBuildOptions& InOpti
 		if (bDumpAllMappings)
 		{
 			UE_LOG(LogLightmass, Log, TEXT("\t%s"), *(BSPMapping->Mapping.Guid.ToString()));
+		}
+	}
+
+	for (int32 MappingIndex = 0; MappingIndex < InScene.VolumeMappings.Num(); MappingIndex++)
+	{
+		FStaticLightingGlobalVolumeMapping* Mapping = &InScene.VolumeMappings[MappingIndex];
+		Mappings.Add(Mapping->Guid, Mapping);
+		AllMappings.Add(Mapping);
+		if (bDumpAllMappings)
+		{
+			UE_LOG(LogLightmass, Log, TEXT("\t%s"), *(Mapping->Guid.ToString()));
 		}
 	}
 
@@ -450,7 +462,7 @@ FStaticLightingSystem::FStaticLightingSystem(const FLightingBuildOptions& InOpti
 	for (int32 MappingIndex = 0; MappingIndex < AllMappings.Num(); MappingIndex++)
 	{
 		FStaticLightingTextureMapping* TextureMapping = AllMappings[MappingIndex]->GetTextureMapping();
-		if (TextureMapping)
+		if (TextureMapping && !AllMappings[MappingIndex]->GetVolumeMapping())
 		{
 			Stats.NumTexelsProcessed += TextureMapping->CachedSizeX * TextureMapping->CachedSizeY;
 		}
@@ -1594,6 +1606,7 @@ void FStaticLightingSystem::ThreadLoop(bool bIsMainThread, int32 ThreadIndex, FT
 			
 			if(Mapping->GetTextureMapping())
 			{
+				check(!Mapping->GetVolumeMapping());
 				ProcessTextureMapping(Mapping->GetTextureMapping());
 				double MappingTimeEnd = FPlatformTime::Seconds();
 				ThreadStatistics.TextureMappingTime += MappingTimeEnd - MappingTimeStart;
@@ -1763,11 +1776,6 @@ void TCompleteStaticLightingList<StaticLightingDataType>::ApplyAndClear(FStaticL
 		const double ExportTimeStart = FPlatformTime::Seconds();
 		while(CurrentElement)
 		{
-			if (CurrentElement->Element.Mapping->Guid == LightingSystem.GetDebugGuid())
-			{
-				// Send debug info back with the mapping task that is being debugged
-				LightingSystem.GetExporter().ExportDebugInfo(LightingSystem.DebugOutput);
-			}
 			// write back to Unreal
 			LightingSystem.GetExporter().ExportResults(CurrentElement->Element, bUseUniqueChannel);
 
@@ -2274,7 +2282,7 @@ bool FStaticLightingSystem::CalculatePointShadowing(
 				{
 					DebugRay.End = Intersection.IntersectionVertex.WorldPosition;
 				}
-				DebugOutput.ShadowRays.Add(DebugRay);
+				MappingContext.DebugOutput->ShadowRays.Add(DebugRay);
 			}
 #endif
 		}
@@ -2377,7 +2385,7 @@ int32 FStaticLightingSystem::CalculatePointAreaShadowing(
 				{
 					DebugRay.End = Intersection.IntersectionVertex.WorldPosition;
 				}
-				DebugOutput.ShadowRays.Add(DebugRay);
+				MappingContext.DebugOutput->ShadowRays.Add(DebugRay);
 			}
 #endif
 		}

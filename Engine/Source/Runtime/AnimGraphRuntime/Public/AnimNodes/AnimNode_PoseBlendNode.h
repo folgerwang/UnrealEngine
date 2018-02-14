@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "AnimNode_PoseHandler.h"
+#include "AnimNodes/AnimNode_PoseHandler.h"
 #include "AlphaBlend.h"
 #include "AnimNode_PoseBlendNode.generated.h"
 

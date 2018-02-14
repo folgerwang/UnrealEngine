@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "EditModes/TwoBoneIKEditMode.h"
 #include "SceneManagement.h"
@@ -111,7 +111,16 @@ FVector FTwoBoneIKEditMode::GetWidgetLocation(BoneSelectModeType InBoneSelectMod
 	}
 
 	USkeletalMeshComponent* SkelComp = GetAnimPreviewScene().GetPreviewMeshComponent();
-	return ConvertWidgetLocation(SkelComp, TwoBoneIKRuntimeNode->ForwardedPose, Target, Location, Space);
+
+	// Make sure Node has had a chance to evaluate and cache a pose.
+	if (TwoBoneIKRuntimeNode->ForwardedPose.GetPose().GetNumBones() > 0)
+	{
+		return ConvertWidgetLocation(SkelComp, TwoBoneIKRuntimeNode->ForwardedPose, Target, Location, Space);
+	}
+	else
+	{
+		return SkelComp->GetComponentTransform().GetLocation();
+	}
 }
 
 FVector FTwoBoneIKEditMode::GetWidgetLocation() const

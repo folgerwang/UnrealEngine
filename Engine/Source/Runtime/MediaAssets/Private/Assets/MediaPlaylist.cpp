@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MediaPlaylist.h"
 #include "MediaAssetsPrivate.h"
@@ -7,6 +7,7 @@
 #include "UObject/Package.h"
 #include "UObject/UObjectGlobals.h"
 
+#include "FileMediaSource.h"
 #include "StreamMediaSource.h"
 
 
@@ -28,19 +29,18 @@ bool UMediaPlaylist::Add(UMediaSource* MediaSource)
 
 bool UMediaPlaylist::AddFile(const FString& FilePath)
 {
-	FString FullPath;
-
-	if (FPaths::IsRelative(FilePath))
+	if (FilePath.IsEmpty())
 	{
-		FullPath = FPaths::ConvertRelativePathToFull(FilePath);
-	}
-	else
-	{
-		FullPath = FilePath;
-		FPaths::NormalizeFilename(FullPath);
+		return false;
 	}
 
-	return AddUrl(FString(TEXT("file://")) + FullPath);
+	const FString FileName = FPaths::GetBaseFilename(FilePath);
+	const FName ObjectName = MakeUniqueObjectName(GetTransientPackage(), UFileMediaSource::StaticClass(), FName(*FileName));
+
+	auto MediaSource = NewObject<UFileMediaSource>(GetTransientPackage(), ObjectName, RF_Transactional | RF_Transient);
+	MediaSource->SetFilePath(FilePath);
+
+	return Add(MediaSource);
 }
 
 
@@ -81,16 +81,9 @@ UMediaSource* UMediaPlaylist::GetNext(int32& InOutIndex)
 	if (Items.Num() > 0)
 	{
 		InOutIndex = FMath::Clamp(InOutIndex, (int32)INDEX_NONE, Items.Num() - 1) + 1;
+		InOutIndex %= Items.Num();
 
-		if (Loop)
-		{
-			InOutIndex %= Items.Num();
-		}
-
-		if (InOutIndex < Items.Num())
-		{
-			return Items[InOutIndex];
-		}
+		return Items[InOutIndex];
 	}
 
 	InOutIndex = INDEX_NONE;
@@ -104,22 +97,13 @@ UMediaSource* UMediaPlaylist::GetPrevious(int32& InOutIndex)
 	if (Items.Num() > 0)
 	{
 		InOutIndex = FMath::Clamp(InOutIndex, 0, Items.Num()) - 1;
+		InOutIndex += Items.Num();
+		InOutIndex %= Items.Num();
 
-		if (Loop)
-		{
-			InOutIndex += Items.Num();
-			InOutIndex %= Items.Num();
-		}
+		return Items[InOutIndex];
+	}
 
-		if (InOutIndex >= 0)
-		{
-			return Items[InOutIndex];
-		}
-	}
-	else
-	{
-		InOutIndex = INDEX_NONE;
-	}
+	InOutIndex = INDEX_NONE;
 
 	return nullptr;
 }

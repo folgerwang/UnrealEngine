@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "Components/PrimitiveComponent.h"
-#include "InterpCurve.h"
+#include "Math/InterpCurve.h"
 #include "SplineComponent.generated.h"
 
 class FPrimitiveSceneProxy;
@@ -13,7 +13,7 @@ class FPrimitiveDrawInterface;
 class FSceneView;
 
 /** Permitted spline point types for SplineComponent. */
-UENUM()
+UENUM(BlueprintType)
 namespace ESplinePointType
 {
 	enum Type
@@ -114,25 +114,25 @@ struct FSplinePoint
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, Category = SplinePoint)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = SplinePoint)
 	float InputKey;
 
-	UPROPERTY(EditAnywhere, Category = SplinePoint)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = SplinePoint)
 	FVector Position;
 
-	UPROPERTY(EditAnywhere, Category = SplinePoint)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = SplinePoint)
 	FVector ArriveTangent;
 
-	UPROPERTY(EditAnywhere, Category = SplinePoint)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = SplinePoint)
 	FVector LeaveTangent;
 
-	UPROPERTY(EditAnywhere, Category = SplinePoint)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = SplinePoint)
 	FRotator Rotation;
 
-	UPROPERTY(EditAnywhere, Category = SplinePoint)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = SplinePoint)
 	FVector Scale;
 
-	UPROPERTY(EditAnywhere, Category = SplinePoint)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = SplinePoint)
 	TEnumAsByte<ESplinePointType::Type> Type;
 
 	/** Default constructor */

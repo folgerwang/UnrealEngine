@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -38,6 +38,16 @@ public:
 	 * Open the CodeLite Workspace for editing.
 	 */
 	virtual bool OpenSolution() override;
+
+	/**
+	 * Open the CodeLite Workspace for editing.
+	 */
+	virtual bool OpenSolutionAtPath(const FString& InSolutionPath) override;
+
+	/**
+	 * Open the CodeLite Workspace for editing.
+	 */
+	virtual bool DoesSolutionExist() const override;
 
 	/**
 	 * Open a file at a specific line and optional column.

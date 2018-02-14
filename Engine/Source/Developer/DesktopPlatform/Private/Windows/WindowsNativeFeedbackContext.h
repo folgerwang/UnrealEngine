@@ -1,11 +1,11 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Misc/FeedbackContext.h"
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <CommCtrl.h>
 
 
@@ -20,8 +20,6 @@ public:
 	virtual ~FWindowsNativeFeedbackContext();
 
 	virtual void Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category ) override;
-
-	VARARG_BODY( bool, YesNof, const TCHAR*, VARARG_NONE );
 
 	virtual bool ReceivedUserCancel() override;
 	virtual void StartSlowTask( const FText& Task, bool bShouldShowCancelButton=false ) override;
@@ -66,4 +64,4 @@ private:
 	static void LayoutControls(HWND hWnd, const FWindowParams* Params);
 };
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"

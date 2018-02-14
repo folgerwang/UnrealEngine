@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -121,7 +121,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// The type of project files to generate
 	/// </summary>
-	enum ProjectFileType
+	enum ProjectFileFormat
 	{
 		Make,
 		CMake,
@@ -129,9 +129,46 @@ namespace UnrealBuildTool
 		KDevelop,
 		CodeLite,
 		VisualStudio,
+		VisualStudio2012,
+		VisualStudio2013,
+		VisualStudio2015,
+		VisualStudio2017,
 		XCode,
 		Eddie,
-		VSCode,
+		VisualStudioCode,
+	}
+
+	/// <summary>
+	/// Static class containing 
+	/// </summary>
+	static class ProjectFileGeneratorSettings
+	{
+		/// <summary>
+		/// Default list of project file formats to generate
+		/// </summary>
+		[XmlConfigFile(Category = "ProjectFileGenerator", Name = "Format")]
+		public static string Format = null;
+
+		/// <summary>
+		/// Parses a list of project file formats from a string
+		/// </summary>
+		/// <param name="Formats"></param>
+		/// <returns>Sequence of project file formats</returns>
+		public static IEnumerable<ProjectFileFormat> ParseFormatList(string Formats)
+		{
+			foreach(string FormatName in Formats.Split('+').Select(x => x.Trim()))
+			{
+				ProjectFileFormat Format;
+				if(Enum.TryParse(FormatName, true, out Format))
+				{
+					yield return Format;
+				}
+				else
+				{
+					Log.TraceError("Invalid project file format '{0}'", FormatName);
+				}
+			}
+		}
 	}
 
 	/// <summary>
@@ -169,7 +206,7 @@ namespace UnrealBuildTool
 
 		/// True if we should include documentation in the generated projects
 		[XmlConfigFile]
-		bool bIncludeDocumentation = true;
+		protected bool bIncludeDocumentation = false;
 
 		/// True if all documentation languages should be included in generated projects, otherwise only "INT" will be included
 		bool bAllDocumentationLanguages = false;
@@ -181,19 +218,19 @@ namespace UnrealBuildTool
 		protected bool bIncludeEngineSource = true;
 
 		/// True if shader source files should be included in the generated projects
-		bool bIncludeShaderSource = true;
+		protected bool bIncludeShaderSource = true;
 
 		/// True if build system files should be included
 		bool bIncludeBuildSystemFiles = true;
 
 		/// True if we should include config files (.ini files) in the generated project
-		bool bIncludeConfigFiles = true;
+		protected bool bIncludeConfigFiles = true;
 
 		/// True if we should include localization files (.int/.kor/etc files) in the generated project
 		bool bIncludeLocalizationFiles = false;
 
-        /// True if we should include template files (.template files) in the generated project
-        bool bIncludeTemplateFiles = true;
+		/// True if we should include template files (.template files) in the generated project
+		protected bool bIncludeTemplateFiles = true;
 
 		/// True if we should include program projects in the generated solution
 		protected bool IncludeEnginePrograms = true;
@@ -311,20 +348,26 @@ namespace UnrealBuildTool
 		/// </summary>
 		void DiscoverCSharpProgramProjects(MasterProjectFolder ProgramsFolder)
 		{
+			FileSystemName[] UnsupportedPlatformNames = Utils.MakeListOfUnsupportedPlatforms(SupportedPlatforms).Select(x => new FileSystemName(x)).ToArray();
+
 			List<FileReference> FoundProjects = new List<FileReference>();
 			DirectoryReference EngineProgramsSource = DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Source", "Programs");
 			DiscoverCSharpProgramProjectsRecursively(EngineProgramsSource, FoundProjects);
+
 			foreach (FileReference FoundProject in FoundProjects)
 			{
-				VCSharpProjectFile Project = new VCSharpProjectFile(FoundProject);
-
-				if (AllowDotNetCoreProjects || !Project.IsDotNETCoreProject())
+				if(!FoundProject.ContainsAnyNames(UnsupportedPlatformNames, EngineProgramsSource))
 				{
-					Project.ShouldBuildForAllSolutionTargets = true;
-					Project.ShouldBuildByDefaultForSolutionTargets = true;
+					VCSharpProjectFile Project = new VCSharpProjectFile(FoundProject);
 
-					AddExistingProjectFile(Project, bForceDevelopmentConfiguration: false);
-					ProgramsFolder.ChildProjects.Add(Project);
+					if (AllowDotNetCoreProjects || !Project.IsDotNETCoreProject())
+					{
+						Project.ShouldBuildForAllSolutionTargets = true;
+						Project.ShouldBuildByDefaultForSolutionTargets = true;
+
+						AddExistingProjectFile(Project, bForceDevelopmentConfiguration: false);
+						ProgramsFolder.ChildProjects.Add(Project);
+					}
 				}
 			}
 		}
@@ -404,8 +447,8 @@ namespace UnrealBuildTool
 			// Parse project generator options
 			bool IncludeAllPlatforms = true;
 			ConfigureProjectFileGeneration( Arguments, ref IncludeAllPlatforms);
-
-			if (bGeneratingGameProjectFiles || UnrealBuildTool.IsEngineInstalled())
+      
+            if (bGeneratingGameProjectFiles || UnrealBuildTool.IsEngineInstalled())
 			{
 				Log.TraceInformation("Discovering modules, targets and source code for project...");
 
@@ -978,14 +1021,14 @@ namespace UnrealBuildTool
 				// Game build files
 				if( bIncludeBuildSystemFiles )
 				{
-					var GameBuildDirectory = DirectoryReference.Combine(GameProjectDirectory, "Build");
+					DirectoryReference GameBuildDirectory = DirectoryReference.Combine(GameProjectDirectory, "Build");
 					if( DirectoryReference.Exists(GameBuildDirectory) )
 					{
-						var SubdirectoryNamesToExclude = new List<string>();
+						List<string> SubdirectoryNamesToExclude = new List<string>();
 						SubdirectoryNamesToExclude.Add("Receipts");
 						SubdirectoryNamesToExclude.Add("Scripts");
 
-						var GameProjectFile = GameFolderAndProjectFile.Value;
+						ProjectFile GameProjectFile = GameFolderAndProjectFile.Value;
 						GameProjectFile.AddFilesToProject( SourceFileSearch.FindFiles( GameBuildDirectory, SubdirectoryNamesToExclude ), GameProjectDirectory );
 					}
 				}
@@ -1046,27 +1089,30 @@ namespace UnrealBuildTool
 				EngineProject.AddFilesToProject(SourceFileSearch.FindFiles(UHTConfigDirectory), UnrealBuildTool.EngineDirectory);
 			}
 		}
+
+        /// <summary>
+        /// Finds any additional plugin files.
+        /// </summary>
+        /// <returns>List of additional plugin files</returns>
 		private List<FileReference> DiscoverExtraPlugins(List<FileReference> AllGameProjects)
 		{
 			List<FileReference> AddedPlugins = new List<FileReference>();
-			foreach (FileReference GameProject in AllGameProjects)
+
+            foreach (FileReference GameProject in AllGameProjects)
 			{
-				ProjectDescriptor ProjectDesc = ProjectDescriptor.FromFile(GameProject);
-				if (ProjectDesc.AdditionalPluginDirectories != null)
-				{
-					foreach (string AdditionalPluginDirectory in ProjectDesc.AdditionalPluginDirectories)
-					{
-						// @TODO: Right now, we're only including additional plugins that are still inside a game directory.
-						//        This is so FindProjectForModule() succeeds in matching up a project with the plugin. If 
-						//        the plugin is outside of a game directory, then we'll need to add special handling to AddProjectsForAllModules()
-						//        and generate a standalone project, since multiple games could share the same plugin
-						DirectoryReference PluginDir = DirectoryReference.Combine(GameProject.Directory, AdditionalPluginDirectory);
-						if (PluginDir.IsUnderDirectory(GameProject.Directory))
-						{
-							AddedPlugins.AddRange(Plugins.EnumeratePlugins(PluginDir));
-						}
-					}
-				}
+                // Check the user preference to see if they'd like to include nativized assets as a generated project.
+                bool bIncludeNativizedAssets = false;
+                ConfigHierarchy Config = ConfigCache.ReadHierarchy(ConfigHierarchyType.Game, GameProject.Directory, BuildHostPlatform.Current.Platform);
+                if (Config != null)
+                {
+                    Config.TryGetValue("/Script/UnrealEd.ProjectPackagingSettings", "bIncludeNativizedAssetsInProjectGeneration", out bIncludeNativizedAssets);
+                }
+
+                // Note: Whether or not we include nativized assets here has no bearing on whether or not they actually get built.
+                if (bIncludeNativizedAssets)
+                {
+                    AddedPlugins.AddRange(Plugins.EnumeratePlugins(DirectoryReference.Combine(GameProject.Directory, "Intermediate", "Plugins")).Where(x => x.GetFileNameWithoutExtension() == "NativizedAssets"));
+                }
 			}
 			return AddedPlugins;
 		}
@@ -1503,12 +1549,15 @@ namespace UnrealBuildTool
 
 						Log.TraceVerbose( "Found target: " + CurTarget.TargetFilePath.GetFileNameWithoutAnyExtensions() );
 
-						string[] NewArguments = new string[ Arguments.Length + 4 ];
-						NewArguments[ 0 ] = CurTarget.TargetFilePath.GetFileNameWithoutAnyExtensions();
-						NewArguments[ 1 ] = BuildHostPlatform.Current.Platform.ToString();
-						NewArguments[ 2 ] = UnrealTargetConfiguration.Development.ToString();
-						NewArguments[ 3 ] = "-precompile";
-						Array.Copy(Arguments, 0, NewArguments, 4, Arguments.Length);
+						List<string> NewArguments = new List<string>(Arguments.Length + 4);
+						NewArguments.Add(CurTarget.TargetFilePath.GetFileNameWithoutAnyExtensions());
+						NewArguments.Add(BuildHostPlatform.Current.Platform.ToString());
+						NewArguments.Add(UnrealTargetConfiguration.Development.ToString());
+						if(CurTarget.TargetRules.Type != TargetType.Program)
+						{
+							NewArguments.Add("-precompile");
+						}
+						NewArguments.AddRange(Arguments);
 
 						// We only want to update definitions and include paths for modules that are part of this target's project file.
 						ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject = TargetProjectFile;
@@ -1517,9 +1566,17 @@ namespace UnrealBuildTool
 						// out any state.
 						FileItem.ClearCachedIncludePaths();
 
-						// Run UnrealBuildTool, pretending to build this target but instead only gathering data for IntelliSense (include paths and definitions).
-						// No actual compiling or linking will happen because we early out using the ProjectFileGenerator.bGenerateProjectFiles global
-						bSuccess = UnrealBuildTool.RunUBT( BuildConfiguration, NewArguments, CurTarget.UnrealProjectFilePath ) == ECompilationResult.Succeeded;
+						try
+						{
+							// Run UnrealBuildTool, pretending to build this target but instead only gathering data for IntelliSense (include paths and definitions).
+							// No actual compiling or linking will happen because we early out using the ProjectFileGenerator.bGenerateProjectFiles global
+							bSuccess = UnrealBuildTool.RunUBT( BuildConfiguration, NewArguments.ToArray(), CurTarget.UnrealProjectFilePath, false ) == ECompilationResult.Succeeded;
+						}
+						catch(Exception Ex)
+						{
+							Progress.LogMessage(LogEventType.Warning, "Exception while generating include data for {0}: {1}", CurTarget.TargetFilePath.GetFileNameWithoutAnyExtensions(), Ex.ToString());
+						}
+
 						ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject = null;
 
 						if( !bSuccess )
@@ -1815,6 +1872,9 @@ namespace UnrealBuildTool
 			DirectoryReference EnterpriseTemplatesDirectory = DirectoryReference.Combine(UnrealBuildTool.EnterpriseDirectory, "Templates");
 			DirectoryReference EnterpriseSamplesDirectory = DirectoryReference.Combine(UnrealBuildTool.EnterpriseDirectory, "Samples");
 
+			// Read the current engine version
+			ReadOnlyBuildVersion Version = new ReadOnlyBuildVersion(BuildVersion.ReadDefault());
+
 			// Find all of the target files.  This will filter out any modules or targets that don't
 			// belong to platforms we're generating project files for.
 			List<FileReference> AllTargetFiles = DiscoverTargets(AllGames);
@@ -1878,7 +1938,7 @@ namespace UnrealBuildTool
 
 					// Create target rules for all of the platforms and configuration combinations that we want to enable support for.
 					// Just use the current platform as we only need to recover the target type and both should be supported for all targets...
-					TargetRules TargetRulesObject = RulesAssembly.CreateTargetRules(TargetName, BuildHostPlatform.Current.Platform, UnrealTargetConfiguration.Development, "", CheckProjectFile, false);
+					TargetRules TargetRulesObject = RulesAssembly.CreateTargetRules(TargetName, BuildHostPlatform.Current.Platform, UnrealTargetConfiguration.Development, "", CheckProjectFile, Version, false);
 
 					bool IsProgramTarget = false;
 
@@ -2020,7 +2080,7 @@ namespace UnrealBuildTool
 							ProjectFilePath = ProjectFilePath,
 							UnrealProjectFilePath = CheckProjectFile,
 							SupportedPlatforms = UEBuildTarget.GetSupportedPlatforms(TargetRulesObject).Where(x => UEBuildPlatform.GetBuildPlatform(x, true) != null).ToArray(),
-							CreateRulesDelegate = (Platform, Configuration) => RulesAssembly.CreateTargetRules(TargetName, Platform, Configuration, "", CheckProjectFile, false)
+							CreateRulesDelegate = (Platform, Configuration) => RulesAssembly.CreateTargetRules(TargetName, Platform, Configuration, "", CheckProjectFile, Version, false)
                         };
 
 					if (TargetName == "ShaderCompileWorker")		// @todo projectfiles: Ideally, the target rules file should set this
@@ -2332,7 +2392,7 @@ namespace UnrealBuildTool
 				{
 					// Unable to write to the project file.
 					string Message = string.Format("Error while trying to write file {0}.  The file is probably read-only.", FileName);
-					Console.WriteLine();
+					Log.TraceInformation("");
 					Log.TraceError(Message);
 					throw new BuildException(ex, Message);
 				}
@@ -2422,8 +2482,40 @@ namespace UnrealBuildTool
 			}
 			else
 			{
-				// For existing project files, just support the default desktop platforms and configurations
-				ProjectTarget.ExtraSupportedPlatforms.AddRange(Utils.GetPlatformsInClass(UnrealPlatformClass.Desktop));
+                bool bFoundDevelopmentConfig = false;
+                bool bFoundDebugConfig = false;
+
+                try
+                {
+
+                    // Parse the project and ensure both Development and Debug configurations are present
+                    foreach (string Config in XElement.Load(InProject.ProjectFilePath.FullName).Elements("{http://schemas.microsoft.com/developer/msbuild/2003}PropertyGroup")
+                                           .Where(node => node.Attribute("Condition") != null)
+                                           .Select(node => node.Attribute("Condition").ToString())
+                                           .ToList())
+                    {
+                        if (Config.Contains("Development|"))
+                        {
+                            bFoundDevelopmentConfig = true;
+                        }
+                        else if (Config.Contains("Debug|"))
+                        {
+                            bFoundDebugConfig = true;
+                        }
+                    }
+                }
+                catch
+                {
+                    Trace.TraceError("Unable to parse existing project file {0}", InProject.ProjectFilePath.FullName);
+                }
+
+                if (!bFoundDebugConfig || !bFoundDevelopmentConfig)
+                {
+                    throw new BuildException("Existing C# project {0} must contain a {1} configuration", InProject.ProjectFilePath.FullName, bFoundDebugConfig ? "Development" : "Debug");
+                }
+
+                // For existing project files, just support the default desktop platforms and configurations
+                ProjectTarget.ExtraSupportedPlatforms.AddRange(Utils.GetPlatformsInClass(UnrealPlatformClass.Desktop));
 				// Debug and Development only
 				ProjectTarget.ExtraSupportedConfigurations.Add(UnrealTargetConfiguration.Debug);
 				ProjectTarget.ExtraSupportedConfigurations.Add(UnrealTargetConfiguration.Development);

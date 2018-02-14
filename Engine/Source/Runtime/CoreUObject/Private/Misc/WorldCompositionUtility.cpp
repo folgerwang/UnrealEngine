@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	WorldCompositionUtility.cpp : Support structures for world composition
@@ -10,7 +10,7 @@
 #include "Serialization/ArchiveAsync.h"
 #include "UObject/PackageFileSummary.h"
 #include "UObject/Linker.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 FArchive& operator<<( FArchive& Ar, FWorldTileLayer& D )
 {

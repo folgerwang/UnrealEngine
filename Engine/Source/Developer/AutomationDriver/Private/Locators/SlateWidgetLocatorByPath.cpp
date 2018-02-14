@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateWidgetLocatorByPath.h"
 #include "SlateWidgetElement.h"
 #include "IElementLocator.h"
-#include "DriverIdMetaData.h"
+#include "Framework/MetaData/DriverIdMetaData.h"
 #include "AutomationDriverLogging.h"
 #include "Widgets/SWidget.h"
 #include "Framework/Application/SlateApplication.h"

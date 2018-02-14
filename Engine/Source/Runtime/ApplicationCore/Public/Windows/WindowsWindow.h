@@ -1,16 +1,16 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreTypes.h"
 #include "GenericPlatform/GenericWindow.h"
 #include "Templates/SharedPointer.h"
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <Ole2.h>
 #include <oleidl.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 class FWindowsApplication;
 struct FVector2D;

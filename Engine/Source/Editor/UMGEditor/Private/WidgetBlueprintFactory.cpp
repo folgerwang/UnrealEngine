@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "WidgetBlueprintFactory.h"
 #include "UObject/Interface.h"
@@ -11,7 +11,7 @@
 
 
 #include "Components/CanvasPanel.h"
-#include "WidgetTree.h"
+#include "Blueprint/WidgetTree.h"
 
 #define LOCTEXT_NAMESPACE "UWidgetBlueprintFactory"
 

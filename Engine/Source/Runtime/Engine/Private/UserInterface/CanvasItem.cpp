@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	Canvas.cpp: Unreal canvas rendering.
@@ -508,7 +508,7 @@ void FCanvasTileItem::RenderMaterialTile( class FCanvas* InCanvas, const FVector
 	{
 		INC_DWORD_STAT(STAT_Canvas_NumBatchesCreated);
 
-		RenderBatch = new FCanvasTileRendererItem( MaterialRenderProxy,TopTransformEntry,bFreezeTime );
+		RenderBatch = new FCanvasTileRendererItem(InCanvas->GetFeatureLevel(), MaterialRenderProxy,TopTransformEntry,bFreezeTime );
 		SortElement.RenderBatchArray.Add(RenderBatch);
 	}
 	FHitProxyId HitProxyId = InCanvas->GetHitProxyId();
@@ -845,13 +845,19 @@ void FCanvasTextItemBase::Draw( class FCanvas* InCanvas )
 		EnableShadow( FLinearColor::Black );
 	}
 	BlendMode = GetTextBlendMode( bHasShadow );
+	if (InCanvas->IsUsingInternalTexture())
+	{
+		BlendMode = SE_BLEND_TranslucentAlphaOnlyWriteAlpha;
+	}
 
-	FVector2D DrawPos( Position.X , Position.Y );
+	const float DPIScale = InCanvas->GetDPIScale();
+
+	FVector2D DrawPos( Position.X * DPIScale, Position.Y * DPIScale);
 
 	// If we are centering the string or we want to fix stereoscopic rendering issues we need to measure the string
 	if( ( bCentreX || bCentreY ) || ( !bDontCorrectStereoscopic ) )
 	{
-		const FVector2D MeasuredTextSize = GetTextSize();
+		const FVector2D MeasuredTextSize = GetTextSize(DPIScale);
 		
 		// Calculate the offset if we are centering
 		if( bCentreX || bCentreY )
@@ -891,7 +897,7 @@ void FCanvasTextItemBase::Draw( class FCanvas* InCanvas )
 		// Copy the Alpha from the shadow otherwise if we fade the text the shadow wont fade - which is almost certainly not what we will want.
 		DrawColor.A = Color.A;
 		DrawColor.A *= InCanvas->AlphaModulate;
-		DrawStringInternal(InCanvas, DrawPos + ShadowOffset, DrawColor);
+		DrawStringInternal(InCanvas, DrawPos + ShadowOffset*DPIScale, DrawColor);
 	}
 
 	if( bOutlined )
@@ -939,13 +945,13 @@ ESimpleElementBlendMode FCanvasTextItem::GetTextBlendMode( const bool bHasShadow
 	if (GetFontCacheType() == EFontCacheType::Runtime)
 	{
 		// The runtime font cache uses an alpha-only texture, so we have to force this blend mode so we use the correct shader
-		check(BlendModeToUse == SE_BLEND_Translucent || BlendModeToUse == SE_BLEND_TranslucentAlphaOnly);
+		check(BlendModeToUse == SE_BLEND_Translucent || BlendModeToUse == SE_BLEND_TranslucentAlphaOnly || BlendModeToUse == SE_BLEND_TranslucentAlphaOnlyWriteAlpha);
 		BlendModeToUse = SE_BLEND_TranslucentAlphaOnly;
 	}
 	return BlendModeToUse;
 }
 
-FVector2D FCanvasTextItem::GetTextSize() const
+FVector2D FCanvasTextItem::GetTextSize(float DPIScale) const
 {
 	FVector2D MeasuredTextSize = FVector2D::ZeroVector;
 	switch( GetFontCacheType() )
@@ -963,7 +969,7 @@ FVector2D FCanvasTextItem::GetTextSize() const
 		{
 			const FSlateFontInfo LegacyFontInfo = (SlateFontInfo.IsSet()) ? SlateFontInfo.GetValue() : Font->GetLegacySlateFontInfo();
 			const TSharedRef<FSlateFontMeasure> FontMeasure = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
-			MeasuredTextSize = FontMeasure->Measure( Text, LegacyFontInfo ) * Scale;
+			MeasuredTextSize = FontMeasure->Measure( Text, LegacyFontInfo, DPIScale) * Scale;
 		}
 		break;
 
@@ -1050,7 +1056,7 @@ void FCanvasTextItem::DrawStringInternal_OfflineCache( FCanvas* InCanvas, const 
 			if( LastTexture != Tex->Resource || BatchedElements == nullptr )
 			{
 				FBatchedElementParameters* BatchedElementParams = nullptr;
-				BatchedElements = InCanvas->GetBatchedElements(FCanvas::ET_Triangle, BatchedElementParams, Tex->Resource, BlendMode, FontRenderInfo.GlowInfo);
+				BatchedElements = InCanvas->GetBatchedElements(FCanvas::ET_Triangle, BatchedElementParams, Tex->Resource, BlendMode, FontRenderInfo.GlowInfo, false);
 				check(BatchedElements != nullptr);
 				// Trade-off to use memory for performance by pre-allocating more reserved space 
 				// for the triangles/vertices of the batched elements used to render the text tiles
@@ -1122,6 +1128,8 @@ void FCanvasTextItem::DrawStringInternal_OfflineCache( FCanvas* InCanvas, const 
 
 void FCanvasTextItem::DrawStringInternal_RuntimeCache( FCanvas* InCanvas, const FVector2D& DrawPos, const FLinearColor& InColor )
 {
+	const float DPIScale = InCanvas->GetDPIScale();
+
 	DrawnSize = FVector2D::ZeroVector;
 
 	// Nothing to do if no text
@@ -1137,7 +1145,7 @@ void FCanvasTextItem::DrawStringInternal_RuntimeCache( FCanvas* InCanvas, const 
 		return;
 	}
 
-	const float FontScale = 1.0f;
+	const float FontScale = DPIScale;
 	const FSlateFontInfo LegacyFontInfo = (SlateFontInfo.IsSet()) ? SlateFontInfo.GetValue() : Font->GetLegacySlateFontInfo();
 	FCharacterList& CharacterList = FontCache->GetCharacterList( LegacyFontInfo, FontScale );
 
@@ -1153,8 +1161,8 @@ void FCanvasTextItem::DrawStringInternal_RuntimeCache( FCanvas* InCanvas, const 
 
 	FVector2D TopLeft(0,0);
 
-	const float PosX = TopLeft.X;
-	float PosY = TopLeft.Y;
+	const float PosX = TopLeft.X * DPIScale;
+	float PosY = TopLeft.Y * DPIScale;
 
 	const float ScaledHorizSpacingAdjust = HorizSpacingAdjust * Scale.X;
 	const float ScaledMaxHeight = CharacterList.GetMaxHeight() * Scale.Y;
@@ -1195,7 +1203,7 @@ void FCanvasTextItem::DrawStringInternal_RuntimeCache( FCanvas* InCanvas, const 
 				check(FontTexture);
 
 				FBatchedElementParameters* BatchedElementParams = nullptr;
-				BatchedElements = InCanvas->GetBatchedElements(FCanvas::ET_Triangle, BatchedElementParams, FontTexture, BlendMode, FontRenderInfo.GlowInfo);
+				BatchedElements = InCanvas->GetBatchedElements(FCanvas::ET_Triangle, BatchedElementParams, FontTexture, BlendMode, FontRenderInfo.GlowInfo, false);
 				check(BatchedElements);
 
 				// Trade-off to use memory for performance by pre-allocating more reserved space 
@@ -1292,7 +1300,7 @@ ESimpleElementBlendMode FCanvasShapedTextItem::GetTextBlendMode( const bool bHas
 	return BlendModeToUse;
 }
 
-FVector2D FCanvasShapedTextItem::GetTextSize() const
+FVector2D FCanvasShapedTextItem::GetTextSize(float DPIScale) const
 {
 	return FVector2D(ShapedGlyphSequence->GetMeasuredWidth(), ShapedGlyphSequence->GetMaxTextHeight());
 }
@@ -1513,7 +1521,7 @@ void FCanvasTriangleItem::Draw( class FCanvas* InCanvas )
 		{
 			INC_DWORD_STAT(STAT_Canvas_NumBatchesCreated);
 
-			RenderBatch = new FCanvasTriangleRendererItem(MaterialRenderProxy, TopTransformEntry, bFreezeTime);
+			RenderBatch = new FCanvasTriangleRendererItem(InCanvas->GetFeatureLevel(), MaterialRenderProxy, TopTransformEntry, bFreezeTime);
 			SortElement.RenderBatchArray.Add(RenderBatch);
 		}
 

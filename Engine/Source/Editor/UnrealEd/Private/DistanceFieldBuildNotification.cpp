@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #include "CoreMinimal.h"
@@ -8,7 +8,7 @@
 #include "DistanceFieldAtlas.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 /** Notification class for asynchronous distance field building. */
 class FDistanceFieldBuildNotificationImpl
@@ -31,9 +31,9 @@ public:
 protected:
 	/** FTickableEditorObject interface */
 	virtual void Tick(float DeltaTime) override;
-	virtual bool IsTickable() const override
+	virtual ETickableTickType GetTickableTickType() const override
 	{
-		return true;
+		return ETickableTickType::Always;
 	}
 	virtual TStatId GetStatId() const override;
 

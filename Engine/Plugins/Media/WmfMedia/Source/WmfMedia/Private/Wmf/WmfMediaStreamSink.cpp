@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "WmfMediaStreamSink.h"
 
@@ -393,7 +393,7 @@ STDMETHODIMP FWmfMediaStreamSink::IsMediaTypeSupported(IMFMediaType* pMediaType,
 		return E_POINTER;
 	}
 
-	UE_LOG(LogWmfMedia, VeryVerbose, TEXT("StreamSink %p: Checking if media type is supported:\n%s"), *WmfMedia::DumpAttributes(*pMediaType));
+	UE_LOG(LogWmfMedia, VeryVerbose, TEXT("StreamSink %p: Checking if media type is supported:\n%s"), this, *WmfMedia::DumpAttributes(*pMediaType));
 
 	FScopeLock Lock(&CriticalSection);
 
@@ -452,7 +452,7 @@ STDMETHODIMP FWmfMediaStreamSink::SetCurrentMediaType(IMFMediaType* pMediaType)
 		return E_POINTER;
 	}
 
-	UE_LOG(LogWmfMedia, VeryVerbose, TEXT("StreamSink %p: Setting current media type:\n%s"), *WmfMedia::DumpAttributes(*pMediaType));
+	UE_LOG(LogWmfMedia, VeryVerbose, TEXT("StreamSink %p: Setting current media type:\n%s"), this, *WmfMedia::DumpAttributes(*pMediaType));
 
 	FScopeLock Lock(&CriticalSection);
 

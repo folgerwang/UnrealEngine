@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "K2Node_CallParentFunction.h"
 #include "UObject/UObjectHash.h"
 #include "GraphEditorSettings.h"
 #include "EdGraphSchema_K2.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "Editor.h"
 
 #define LOCTEXT_NAMESPACE "K2Node"

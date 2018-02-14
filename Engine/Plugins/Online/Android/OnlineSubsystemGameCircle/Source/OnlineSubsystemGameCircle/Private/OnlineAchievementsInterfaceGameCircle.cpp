@@ -1,8 +1,8 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineAchievementsInterfaceGameCircle.h"
 #include "Online.h"
-#include "OnlineAchievementsInterface.h"
+#include "Interfaces/OnlineAchievementsInterface.h"
 #include "Android/AndroidJNI.h"
 #include "AGS/PlayerClientInterface.h"
 #include "OnlineSubsystemGameCircle.h"

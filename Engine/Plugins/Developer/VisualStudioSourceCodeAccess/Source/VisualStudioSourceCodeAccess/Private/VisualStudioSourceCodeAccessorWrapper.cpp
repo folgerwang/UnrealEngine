@@ -1,9 +1,9 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "VisualStudioSourceCodeAccessorWrapper.h"
 #include "VisualStudioSourceCodeAccessModule.h"
 #include "ISourceCodeAccessModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "DesktopPlatformModule.h"
 
 FVisualStudioSourceCodeAccessorWrapper::FVisualStudioSourceCodeAccessorWrapper(const FName& InName, const FText& InNameText, const FText& InDescriptionText, const TSharedRef<FVisualStudioSourceCodeAccessor>& InInner)
@@ -42,6 +42,16 @@ FText FVisualStudioSourceCodeAccessorWrapper::GetDescriptionText() const
 bool FVisualStudioSourceCodeAccessorWrapper::OpenSolution()
 {
 	return Inner->OpenSolution();
+}
+
+bool FVisualStudioSourceCodeAccessorWrapper::OpenSolutionAtPath(const FString& InSolutionPath)
+{
+	return Inner->OpenSolutionAtPath(InSolutionPath);
+}
+
+bool FVisualStudioSourceCodeAccessorWrapper::DoesSolutionExist() const
+{
+	return Inner->DoesSolutionExist();
 }
 
 bool FVisualStudioSourceCodeAccessorWrapper::OpenFileAtLine(const FString& FullPath, int32 LineNumber, int32 ColumnNumber)
