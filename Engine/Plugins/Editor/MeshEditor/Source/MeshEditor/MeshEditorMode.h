@@ -63,7 +63,7 @@ public:
 	struct FMeshEditorInteractorData
 	{
 		/** The viewport interactor that is this data's counterpart */
-		TWeakObjectPtr<class UViewportInteractor> ViewportInteractor;
+		TWeakObjectPtr<const class UViewportInteractor> ViewportInteractor;
 
 		/** True if we have a valid interaction grabber sphere right now */
 		bool bGrabberSphereIsValid;

@@ -2577,7 +2577,7 @@ FMeshEditorMode::FMeshEditorInteractorData& FMeshEditorMode::GetMeshEditorIntera
 	{
 		FMeshEditorInteractorData& MeshEditorInteractorData = MeshEditorInteractorDatas[ MeshEditorInteractorDataIndex ];
 
-		UViewportInteractor* CurrentViewportInteractor = MeshEditorInteractorData.ViewportInteractor.Get();
+		const UViewportInteractor* CurrentViewportInteractor = MeshEditorInteractorData.ViewportInteractor.Get();
 		if( CurrentViewportInteractor == nullptr )
 		{
 			// Expired
