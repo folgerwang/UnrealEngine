@@ -90,9 +90,6 @@ private:
 };
 
 
-#define THRESH_UVS_ARE_SAME (GetUVEqualityThreshold())
-
-
 inline bool FLayoutUV::PositionsMatch( uint32 a, uint32 b ) const
 {
 	const FVertexInstanceID VertexInstanceIDA(a);
@@ -136,7 +133,7 @@ inline bool FLayoutUV::UVsMatch( uint32 a, uint32 b ) const
 	const FVertexInstanceID VertexInstanceIDB(b);
 
 	const TVertexInstanceAttributeArray<FVector2D>& VertexUVs = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, SrcChannel);
-	return VertexUVs[VertexInstanceIDA].Equals(VertexUVs[VertexInstanceIDB], THRESH_UVS_ARE_SAME);
+	return VertexUVs[VertexInstanceIDA].Equals(VertexUVs[VertexInstanceIDB], GetUVEqualityThreshold());
 }
 
 inline bool FLayoutUV::VertsMatch( uint32 a, uint32 b ) const
