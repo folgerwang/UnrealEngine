@@ -9,6 +9,8 @@
 #include "RenderResource.h"
 #include "PackedNormal.h"
 #include "EditableMeshTypes.h"
+#include "StaticMeshResources.h"
+#include "DynamicMeshBuilder.h"
 #include "WireframeMeshComponent.generated.h"
 
 class FPrimitiveSceneProxy;
@@ -148,8 +150,8 @@ public:
 	// An edge instance represents a unique quadrilaterial which forms part of the wireframe mesh.
 	TArray<FWireframeEdgeInstance> EdgeInstances;
 
-	FWireframeMeshVertexBuffer VertexBuffer;
-	FWireframeMeshIndexBuffer IndexBuffer;
+	FStaticMeshVertexBuffers VertexBuffers;
+	FDynamicMeshIndexBuffer32 IndexBuffer;
 
 	mutable FBoxSphereBounds Bounds;
 	mutable bool bBoundsDirty;
