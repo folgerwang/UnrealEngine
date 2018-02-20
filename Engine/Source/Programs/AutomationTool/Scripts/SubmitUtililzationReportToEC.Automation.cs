@@ -53,7 +53,7 @@ class SubmitUtilizationReportToEC : BuildCommand
 		CommandUtils.ERunOptions Opts = CommandUtils.ERunOptions.Default | CommandUtils.ERunOptions.SpewIsVerbose;
 		XmlDocument Reader = new XmlDocument();
 		// get all of the existing properties
-		Reader.LoadXml(CommandUtils.RunAndLog("ectool", "--timeout 900 getProperties --path \"/projects/GUBP_V5/Generated/Utilization\"", Options: Opts));
+		Reader.LoadXml(CommandUtils.RunAndLog("ectool", "--timeout 900 getProperties --path \"/projects/GUBP_V5/Generated/Utilization2\"", Options: Opts));
 		// grab just the prop names
 		XmlNodeList ExistingProps = Reader.GetElementsByTagName("propertyName");
 		foreach(XmlNode prop in ExistingProps)
@@ -69,12 +69,12 @@ class SubmitUtilizationReportToEC : BuildCommand
 			if(ExistingDate < TwoWeeksAgo)
 			{
 				Log("Deleting out-of-date property: " + prop.InnerText);
-				CommandUtils.RunAndLog("ectool", string.Format("--timeout 900 deleteProperty --propertyName \"/projects/GUBP_V5/Generated/Utilization/{0}\"", prop.InnerText), Options: Opts);
+				CommandUtils.RunAndLog("ectool", string.Format("--timeout 900 deleteProperty --propertyName \"/projects/GUBP_V5/Generated/Utilization2/{0}\"", prop.InnerText), Options: Opts);
 			}
 
 		}
 		// add today's
 		Log("Adding report: " + Day.Subtract(new TimeSpan(1,0,0,0)).ToString("yyyy-MM-dd") + "->" + Day.ToString("yyyy-MM-dd"));
-		CommandUtils.RunAndLog("ectool", string.Format("--timeout 900 setProperty \"/projects/GUBP_V5/Generated/Utilization/Report_{0}\" --valueFile {1}", Day.Subtract(new TimeSpan(1,0,0,0)).ToString("yyyy-MM-dd"), FileName), Options: Opts);
+		CommandUtils.RunAndLog("ectool", string.Format("--timeout 900 setProperty \"/projects/GUBP_V5/Generated/Utilization2/Report_{0}\" --valueFile {1}", Day.Subtract(new TimeSpan(1,0,0,0)).ToString("yyyy-MM-dd"), FileName), Options: Opts);
 	}
 }
