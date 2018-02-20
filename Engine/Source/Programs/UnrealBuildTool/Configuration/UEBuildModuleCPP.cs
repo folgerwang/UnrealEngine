@@ -584,6 +584,9 @@ namespace UnrealBuildTool
 				}
 			}
 
+			// Write all the definitions to a separate file
+			CreateHeaderForDefinitions(CompileEnvironment, IntermediateDirectory, null);
+
 			// Compile CPP files
 			List<FileItem> CPPFilesToCompile = SourceFilesToBuild.CPPFiles;
 			if (bModuleUsesUnityBuild)
@@ -825,6 +828,9 @@ namespace UnrealBuildTool
 				}
 				AdaptiveUnityEnvironment.PrecompiledHeaderAction = PrecompiledHeaderAction.None;
 
+				// Write all the definitions out to a separate file
+				CreateHeaderForDefinitions(AdaptiveUnityEnvironment, IntermediateDirectory, "Adaptive");
+
 				// Compile the files
 				CPPOutput AdaptiveOutput = ToolChain.CompileCPPFiles(AdaptiveUnityEnvironment, AdaptiveFiles, IntermediateDirectory, Name, ActionGraph);
 
@@ -834,6 +840,37 @@ namespace UnrealBuildTool
 			}
 
 			return OutputFiles;
+		}
+
+		/// <summary>
+		/// Creates a header file containing all the preprocessor definitions for a compile environment, and force-include it. We allow a more flexible syntax for preprocessor definitions than
+		/// is typically allowed on the command line (allowing function macros or double-quote characters, for example). Ensuring all definitions are specified in a header files ensures consistent
+		/// behavior.
+		/// </summary>
+		/// <param name="CompileEnvironment">The compile environment</param>
+		/// <param name="IntermediateDirectory">Directory to create the intermediate file</param>
+		/// <param name="HeaderSuffix">Suffix for the included file</param>
+		static void CreateHeaderForDefinitions(CppCompileEnvironment CompileEnvironment, DirectoryReference IntermediateDirectory, string HeaderSuffix)
+		{
+			if(CompileEnvironment.Definitions.Count > 0)
+			{
+				StringBuilder PrivateDefinitionsName = new StringBuilder("Definitions");
+				if(!String.IsNullOrEmpty(HeaderSuffix))
+				{
+					PrivateDefinitionsName.Append('.');
+					PrivateDefinitionsName.Append(HeaderSuffix);
+				}
+				PrivateDefinitionsName.Append(".h");
+
+				FileReference PrivateDefinitionsFile = FileReference.Combine(IntermediateDirectory, PrivateDefinitionsName.ToString());
+				using (StringWriter Writer = new StringWriter())
+				{
+					WriteDefinitions(CompileEnvironment.Definitions, Writer);
+					CompileEnvironment.Definitions.Clear();
+					FileItem.CreateIntermediateTextFile(PrivateDefinitionsFile, Writer.ToString());
+				}
+				CompileEnvironment.ForceIncludeFiles.Add(PrivateDefinitionsFile);
+			}
 		}
 
 		/// <summary>
