@@ -12,6 +12,7 @@
 #include "IMeshReductionInterfaces.h"
 #include "MeshDescription.h"
 #include "MeshAttributes.h"
+#include "RenderUtils.h"
 
 class FQuadricSimplifierMeshReductionModule : public IMeshReductionModule
 {
