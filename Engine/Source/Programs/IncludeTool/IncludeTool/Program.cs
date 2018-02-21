@@ -933,7 +933,7 @@ namespace IncludeTool
 			IncludePaths.AddRange(ExtraSystemIncludePaths);
 
 			// Set up the preprocessor with the correct defines for this environment
-			Preprocessor PreprocessorInst = new Preprocessor(PreludeLocation, CompileEnvironment.Definitions, IncludePaths);
+			Preprocessor PreprocessorInst = new Preprocessor(PreludeLocation, CompileEnvironment.Definitions, IncludePaths, CompileEnvironment.ForceIncludeFiles);
 			PreprocessIncludedFile(PreprocessorInst, InitialFile, FileToActiveMarkup, Log);
 		}
 

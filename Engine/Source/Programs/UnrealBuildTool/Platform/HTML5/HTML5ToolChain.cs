@@ -442,6 +442,12 @@ namespace UnrealBuildTool
 				Arguments += string.Format(" -D__EMSCRIPTEN_TRACING__");
 			}
 
+			// Force include all the requested headers
+			foreach(FileReference ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
+			{
+				Arguments += String.Format(" -include \"{0}\"", ForceIncludeFile.FullName);
+			}
+
 			foreach (FileItem SourceFile in InputFiles)
 			{
 				Action CompileAction = ActionGraph.Add(ActionType.Compile);
