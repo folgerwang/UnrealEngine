@@ -2167,7 +2167,7 @@ FStaticMeshSourceModel::~FStaticMeshSourceModel()
 #if WITH_EDITOR
 bool FStaticMeshSourceModel::IsRawMeshEmpty() const
 {
-	return (RawMeshBulkData == nullptr || RawMeshBulkData->IsEmpty() && OriginalMeshDescription == nullptr);
+	return (RawMeshBulkData == nullptr || (RawMeshBulkData->IsEmpty() && OriginalMeshDescription == nullptr));
 }
 
 void FStaticMeshSourceModel::LoadRawMesh(FRawMesh& OutRawMesh) const

@@ -388,9 +388,9 @@ FMeshEditorMode::FMeshEditorInteractorData::FMeshEditorInteractorData()
 	  bLaserIsValid( false ),
 	  LaserStart( FVector::ZeroVector ),
 	  LaserEnd( FVector::ZeroVector ),
+	  HoverInteractorShape(EInteractorShape::Invalid),
 	  HoveredMeshElement(),
 	  PreviouslyHoveredMeshElement(),
-	  HoverInteractorShape( EInteractorShape::Invalid ),
 	  HoverLocation( FVector::ZeroVector )
 {
 }

@@ -264,8 +264,8 @@ public:
 
 	FWireframeMeshSceneProxy( UWireframeMeshComponent* Component )
 		: FPrimitiveSceneProxy( Component )
-		, MaterialRelevance( Component->GetMaterialRelevance( GetScene().GetFeatureLevel() ) )
 		, VertexFactory( GetScene().GetFeatureLevel(), "FWireframeMeshSceneProxy" )
+		, MaterialRelevance(Component->GetMaterialRelevance(GetScene().GetFeatureLevel()))
 		
 	{
 		check( Component->GetWireframeMesh() );
