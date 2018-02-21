@@ -3604,11 +3604,13 @@ FEditableMeshElementAddress FMeshEditorMode::QueryElement( const UEditableMesh& 
 	static TSet<FPolygonID> FrontFacingPolygons;
 	FrontFacingPolygons.Reset();
 
+	const TPolygonAttributeArray<FVector>& PolygonCenters = EditableMesh.GetMeshDescription()->PolygonAttributes().GetAttributes<FVector>( MeshAttribute::Polygon::Center );
+
 	// Look for all the front-facing elements
 	for( const FPolygonID PolygonID : CandidatePolygons )
 	{
 		const FVector PolygonNormal = EditableMesh.ComputePolygonNormal( PolygonID );
-		const FVector PolygonCenter = EditableMesh.ComputePolygonCenter( PolygonID );
+		const FVector PolygonCenter = PolygonCenters[ PolygonID ];
 		if( ( InteractorShape == EInteractorShape::GrabberSphere ) ||	// Sphere tests never eliminate back-facing geometry
 			!bIsPerspectiveView ||			// @todo mesheditor: Add support for backface culling in orthographic views
 			FVector::DotProduct( CameraLocation - PolygonCenter, PolygonNormal ) > 0.0f )
@@ -4698,7 +4700,8 @@ void FMeshEditorMode::RefreshTransformables( const bool bNewObjectsSelected )
 						{
 							const FPolygonID PolygonID( MeshElement.ElementAddress.ElementID );
 
-							const FVector ComponentSpacePolygonCenter = EditableMesh->ComputePolygonCenter( PolygonID );
+							const TPolygonAttributeArray<FVector>& PolygonCenters = EditableMesh->GetMeshDescription()->PolygonAttributes().GetAttributes<FVector>( MeshAttribute::Polygon::Center );
+							const FVector ComponentSpacePolygonCenter = PolygonCenters[ PolygonID ];
 							ElementTransform.SetLocation( ComponentToWorldMatrix.TransformPosition( ComponentSpacePolygonCenter ) );
 
 							const FVector WindingVector =

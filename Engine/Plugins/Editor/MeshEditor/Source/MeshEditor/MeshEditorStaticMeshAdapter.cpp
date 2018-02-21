@@ -70,10 +70,11 @@ void UMeshEditorStaticMeshAdapter::OnRebuildRenderMesh( const UEditableMesh* Edi
 
 	// Add all polygons and edge instances
 	// @todo mesheditor wireframe: holes not yet handled
+	const TPolygonAttributeArray<FVector>& PolygonNormals = MeshDescription->PolygonAttributes().GetAttributes<FVector>( MeshAttribute::Polygon::Normal );
 	for( const FPolygonID PolygonID : EditableMesh->GetMeshDescription()->Polygons().GetElementIDs() )
 	{
 		WireframeMesh->AddPolygon( PolygonID );
-		WireframeMesh->SetPolygonNormal( PolygonID, EditableMesh->ComputePolygonNormal( PolygonID ) );
+		WireframeMesh->SetPolygonNormal( PolygonID, PolygonNormals[ PolygonID ] );
 
 		const int32 NumEdges = EditableMesh->GetPolygonPerimeterEdgeCount( PolygonID );
 		for( int32 Index = 0; Index < NumEdges; ++Index )
@@ -274,10 +275,14 @@ void UMeshEditorStaticMeshAdapter::OnSetEdgeAttribute( const UEditableMesh* Edit
 
 void UMeshEditorStaticMeshAdapter::OnCreatePolygons( const UEditableMesh* EditableMesh, const TArray<FPolygonID>& PolygonIDs )
 {
+	const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+	check( MeshDescription );
+
+	const TPolygonAttributeArray<FVector>& PolygonNormals = MeshDescription->PolygonAttributes().GetAttributes<FVector>( MeshAttribute::Polygon::Normal );
 	for( const FPolygonID PolygonID : PolygonIDs )
 	{
 		WireframeMesh->AddPolygon( PolygonID );
-		WireframeMesh->SetPolygonNormal( PolygonID, EditableMesh->ComputePolygonNormal( PolygonID ) );
+		WireframeMesh->SetPolygonNormal( PolygonID, PolygonNormals[ PolygonID ] );
 
 		const int32 NumEdges = EditableMesh->GetPolygonPerimeterEdgeCount( PolygonID );
 		for( int32 Index = 0; Index < NumEdges; ++Index )

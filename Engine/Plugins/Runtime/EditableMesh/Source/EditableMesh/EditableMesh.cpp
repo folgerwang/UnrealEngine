@@ -6295,9 +6295,19 @@ void UEditableMesh::GeneratePolygonTangentsAndNormals( const TArray<FPolygonID>&
 	TPolygonAttributeArray<FVector>& PolygonNormals = GetMeshDescription()->PolygonAttributes().GetAttributes<FVector>( MeshAttribute::Polygon::Normal );
 	TPolygonAttributeArray<FVector>& PolygonTangents = GetMeshDescription()->PolygonAttributes().GetAttributes<FVector>( MeshAttribute::Polygon::Tangent );
 	TPolygonAttributeArray<FVector>& PolygonBinormals = GetMeshDescription()->PolygonAttributes().GetAttributes<FVector>( MeshAttribute::Polygon::Binormal );
+	TPolygonAttributeArray<FVector>& PolygonCenters = GetMeshDescription()->PolygonAttributes().GetAttributes<FVector>( MeshAttribute::Polygon::Center );
 
 	for( const FPolygonID PolygonID : PolygonIDs )
 	{
+		// Calculate the center of this polygon
+		FVector Center = FVector::ZeroVector;
+		const TArray<FVertexInstanceID>& VertexInstanceIDs = GetMeshDescription()->GetPolygonPerimeterVertexInstances( PolygonID );
+		for( const FVertexInstanceID VertexInstanceID : VertexInstanceIDs )
+		{
+			Center += VertexPositions[ GetMeshDescription()->GetVertexInstanceVertex( VertexInstanceID ) ];
+		}
+		Center /= float( VertexInstanceIDs.Num() );
+
 		// Calculate the tangent basis for the polygon, based on the average of all constituent triangles
 		FVector Normal = FVector::ZeroVector;
 		FVector Tangent = FVector::ZeroVector;
@@ -6330,6 +6340,7 @@ void UEditableMesh::GeneratePolygonTangentsAndNormals( const TArray<FPolygonID>&
 		PolygonNormals[ PolygonID ] = Normal.GetSafeNormal();
 		PolygonTangents[ PolygonID ] = Tangent.GetSafeNormal();
 		PolygonBinormals[ PolygonID ] = Binormal.GetSafeNormal();
+		PolygonCenters[ PolygonID ] = Center;
 	}
 }
 
