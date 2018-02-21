@@ -530,13 +530,13 @@ private:
 					// Re-register any attributes that aren't there
 					AttributeIndicesArrayType NewAttributeIndicesArray( RegisteredAttribute.NumIndices, RegisteredAttribute.DefaultValue, RegisteredAttribute.Flags, AttributesMap.NumElements );
 
-					UE_LOG( LogMeshDescription, Warning, TEXT( "Didn't find attribute '%s' - adding" ), *RegisteredAttribute.Name.ToString() );
+					UE_LOG( LogMeshDescription, Log, TEXT( "Didn't find attribute '%s' - adding" ), *RegisteredAttribute.Name.ToString() );
 					AttributesMap.Map.Add( RegisteredAttribute.Name, MoveTemp( NewAttributeIndicesArray ) );
 				}
 				else if( AttributeIndicesArray->GetNumIndices() != RegisteredAttribute.NumIndices )
 				{
 					// Amend the number of attribute indices for any which are not correct
-					UE_LOG( LogMeshDescription, Warning, TEXT( "Found attribute '%s' with the wrong number of indices - amending" ), *RegisteredAttribute.Name.ToString() );
+					UE_LOG( LogMeshDescription, Log, TEXT( "Found attribute '%s' with the wrong number of indices - amending" ), *RegisteredAttribute.Name.ToString() );
 					AttributeIndicesArray->SetNumIndices( RegisteredAttribute.NumIndices );
 				}
 				else

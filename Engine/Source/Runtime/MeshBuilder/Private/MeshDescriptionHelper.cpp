@@ -1000,6 +1000,7 @@ void FMeshDescriptionHelper::ConverToRawMesh(const UMeshDescription* SourceMeshD
 
 void FMeshDescriptionHelper::ConverFromRawMesh(const struct FRawMesh &SourceRawMesh, UMeshDescription* DestinationMeshDescription)
 {
+	check(DestinationMeshDescription != nullptr);
 	static BuildStatisticManager::FStatisticData StatisticData;
 	BuildStatisticManager::FBuildStatisticScope StatScope(TEXT("ConverFromRawMesh"), StatisticData);
 	DestinationMeshDescription->Empty();
