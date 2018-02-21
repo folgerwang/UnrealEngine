@@ -7,9 +7,6 @@
 #include "Serialization/ObjectWriter.h"
 
 
-DEFINE_LOG_CATEGORY( LogMeshDescription );
-
-
 UMeshDescription::UMeshDescription()
 {
 	RegisterBaseAttributes();

@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "MeshTypes.generated.h"
 
+MESHDESCRIPTION_API DECLARE_LOG_CATEGORY_EXTERN( LogMeshDescription, Log, All );
+
 
 // @todo mesheditor: Need comments
 

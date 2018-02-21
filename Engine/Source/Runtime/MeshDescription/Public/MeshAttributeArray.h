@@ -144,7 +144,7 @@ void TMeshAttributeArray<ElementType, ElementIDType>::Remap( const TSparseArray<
 {
 	TMeshAttributeArray NewAttributeArray;
 
-	for( TSparseArray<ElementIDType>::TConstIterator It( IndexRemap ); It; ++It )
+	for( typename TSparseArray<ElementIDType>::TConstIterator It( IndexRemap ); It; ++It )
 	{
 		const int32 OldElementIndex = It.GetIndex();
 		const ElementIDType NewElementIndex = IndexRemap[ OldElementIndex ];
@@ -311,12 +311,12 @@ template <typename AttributeType> using TPolygonGroupAttributeIndicesArray = TAt
 /**
  * This maps an attribute name to a TAttributeIndicesArray, i.e. an array of MeshAttributeArrays, one per attribute index.
  */
-template <typename Attribute, typename ElementID>
+template <typename T, typename U>
 class TAttributesMap
 {
 public:
-	using AttributeType = Attribute;
-	using ElementIDType = ElementID;
+	using AttributeType = T;
+	using ElementIDType = U;
 	using AttributeIndicesArrayType = TAttributeIndicesArray<AttributeType, ElementIDType>;
 	using MapType = TMap<FName, AttributeIndicesArrayType>;
 

@@ -2,6 +2,9 @@
 
 #include "MeshTypes.h"
 
+DEFINE_LOG_CATEGORY( LogMeshDescription );
+
+
 const FElementID FElementID::Invalid( TNumericLimits<uint32>::Max() );
 const FVertexID FVertexID::Invalid( TNumericLimits<uint32>::Max() );
 const FVertexInstanceID FVertexInstanceID::Invalid( TNumericLimits<uint32>::Max() );

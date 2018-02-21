@@ -11,9 +11,6 @@
 #include "MeshDescription.generated.h"
 
 
-MESHDESCRIPTION_API DECLARE_LOG_CATEGORY_EXTERN( LogMeshDescription, Log, All );
-
-
 USTRUCT()
 struct FMeshVertex
 {
