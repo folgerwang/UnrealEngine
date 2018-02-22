@@ -1,11 +1,13 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MeshDescriptionOperations.h"
+#include "UObject/Package.h"
 #include "MeshDescription.h"
 #include "MeshAttributes.h"
 #include "RawMesh.h"
 #include "RenderUtils.h"
 #include "mikktspace.h"
+#include "LayoutUV.h"
 
 DEFINE_LOG_CATEGORY(LogMeshDescriptionOperations);
 
@@ -27,6 +29,31 @@ struct FVertexInfo
 	FVertexInstanceID VertexInstanceID;
 	FVector2D UVs;
 	TArray<FEdgeID> EdgeIDs;
+};
+
+/** Helper struct for building acceleration structures. */
+struct FIndexAndZ
+{
+	float Z;
+	int32 Index;
+	const FVector *OriginalVector;
+
+	/** Default constructor. */
+	FIndexAndZ() {}
+
+	/** Initialization constructor. */
+	FIndexAndZ(int32 InIndex, const FVector& V)
+	{
+		Z = 0.30f * V.X + 0.33f * V.Y + 0.37f * V.Z;
+		Index = InIndex;
+		OriginalVector = &V;
+	}
+};
+
+/** Sorting function for vertex Z/index pairs. */
+struct FCompareIndexAndZ
+{
+	FORCEINLINE bool operator()(FIndexAndZ const& A, FIndexAndZ const& B) const { return A.Z < B.Z; }
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -824,6 +851,103 @@ namespace MeshDescriptionMikktSpaceInterface
 		UV[0] = TexCoord.X;
 		UV[1] = TexCoord.Y;
 	}
+}
+
+void FMeshDescriptionOperations::FindOverlappingCorners(TMultiMap<int32, int32>& OverlappingCorners, const UMeshDescription* MeshDescription, float ComparisonThreshold)
+{
+	//Empty the old data
+	OverlappingCorners.Reset();
+
+	const FVertexInstanceArray& VertexInstanceArray = MeshDescription->VertexInstances();
+	const FVertexArray& VertexArray = MeshDescription->Vertices();
+
+	const int32 NumWedges = VertexInstanceArray.Num();
+
+	// Create a list of vertex Z/index pairs
+	TArray<FIndexAndZ> VertIndexAndZ;
+	VertIndexAndZ.Reserve(NumWedges);
+
+	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+
+	for (const FVertexInstanceID VertexInstanceID : VertexInstanceArray.GetElementIDs())
+	{
+		new(VertIndexAndZ)FIndexAndZ(VertexInstanceID.GetValue(), VertexPositions[MeshDescription->GetVertexInstanceVertex(VertexInstanceID)]);
+	}
+
+	// Sort the vertices by z value
+	VertIndexAndZ.Sort(FCompareIndexAndZ());
+
+	// Search for duplicates, quickly!
+	for (int32 i = 0; i < VertIndexAndZ.Num(); i++)
+	{
+		// only need to search forward, since we add pairs both ways
+		for (int32 j = i + 1; j < VertIndexAndZ.Num(); j++)
+		{
+			if (FMath::Abs(VertIndexAndZ[j].Z - VertIndexAndZ[i].Z) > ComparisonThreshold)
+				break; // can't be any more dups
+
+			const FVector& PositionA = *(VertIndexAndZ[i].OriginalVector);
+			const FVector& PositionB = *(VertIndexAndZ[j].OriginalVector);
+
+			if (PositionA.Equals(PositionB, ComparisonThreshold))
+			{
+				OverlappingCorners.Add(VertIndexAndZ[i].Index, VertIndexAndZ[j].Index);
+				OverlappingCorners.Add(VertIndexAndZ[j].Index, VertIndexAndZ[i].Index);
+			}
+		}
+	}
+}
+
+void FMeshDescriptionOperations::CreateLightMapUVLayout(UMeshDescription* MeshDescription,
+	int32 SrcLightmapIndex,
+	int32 DstLightmapIndex,
+	int32 MinLightmapResolution,
+	ELightmapUVVersion LightmapUVVersion,
+	const TMultiMap<int32, int32>& OverlappingCorners)
+{
+	FLayoutUV Packer(MeshDescription, SrcLightmapIndex, DstLightmapIndex, MinLightmapResolution);
+	Packer.SetVersion(LightmapUVVersion);
+
+	Packer.FindCharts(OverlappingCorners);
+	bool bPackSuccess = Packer.FindBestPacking();
+	if (bPackSuccess)
+	{
+		Packer.CommitPackedUVs();
+	}
+}
+
+bool FMeshDescriptionOperations::GenerateUniqueUVsForStaticMesh(const UMeshDescription* MeshDescription, int32 TextureResolution, TArray<FVector2D>& OutTexCoords)
+{
+	// Create a copy of original mesh (only copy necessary data)
+	UMeshDescription* DuplicateMeshDescription = Cast<UMeshDescription>(StaticDuplicateObject(MeshDescription, GetTransientPackage(), NAME_None, RF_NoFlags));
+	// Find overlapping corners for UV generator. Allow some threshold - this should not produce any error in a case if resulting
+	// mesh will not merge these vertices.
+	TMultiMap<int32, int32> OverlappingCorners;
+	FindOverlappingCorners(OverlappingCorners, DuplicateMeshDescription, THRESH_POINTS_ARE_SAME);
+
+	// Generate new UVs
+	FLayoutUV Packer(DuplicateMeshDescription, 0, 1, FMath::Clamp(TextureResolution / 4, 32, 512));
+	Packer.FindCharts(OverlappingCorners);
+
+	bool bPackSuccess = Packer.FindBestPacking();
+	if (bPackSuccess)
+	{
+		Packer.CommitPackedUVs();
+		TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs = DuplicateMeshDescription->VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+		// Save generated UVs
+		check(VertexInstanceUVs.GetNumIndices() > 1);
+		auto& UniqueUVsArray = VertexInstanceUVs.GetArrayForIndex(1);
+		OutTexCoords.AddZeroed(UniqueUVsArray.Num());
+		int32 TextureCoordIndex = 0;
+		for (const FVertexInstanceID& VertexInstanceID : DuplicateMeshDescription->VertexInstances().GetElementIDs())
+		{
+			OutTexCoords[TextureCoordIndex++] = UniqueUVsArray[VertexInstanceID];
+		}
+	}
+	//Make sure the transient duplicate will be GC
+	DuplicateMeshDescription->MarkPendingKill();
+
+	return bPackSuccess;
 }
 
 #undef LOCTEXT_NAMESPACE

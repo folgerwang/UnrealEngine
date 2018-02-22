@@ -32,7 +32,6 @@ public:
 	//Return true if there is a valid original mesh description, false otherwise(Auto generate LOD).
 	bool IsValidOriginalMeshDescription();
 
-	static void FindOverlappingCorners(TMultiMap<int32, int32>& OverlappingCorners, const UMeshDescription* MeshDescription, float ComparisonThreshold);
 	void FindOverlappingCorners(const UMeshDescription* MeshDescription, float ComparisonThreshold);
 
 	const TMultiMap<int32, int32>& GetOverlappingCorners() const { return OverlappingCorners; }
@@ -52,31 +51,6 @@ private:
 	
 	//////////////////////////////////////////////////////////////////////////
 	//INLINE small helper use to optimize search and compare
-
-	/** Helper struct for building acceleration structures. */
-	struct FIndexAndZ
-	{
-		float Z;
-		int32 Index;
-		const FVector *OriginalVector;
-
-		/** Default constructor. */
-		FIndexAndZ() {}
-
-		/** Initialization constructor. */
-		FIndexAndZ(int32 InIndex, const FVector& V)
-		{
-			Z = 0.30f * V.X + 0.33f * V.Y + 0.37f * V.Z;
-			Index = InIndex;
-			OriginalVector = &V;
-		}
-	};
-
-	/** Sorting function for vertex Z/index pairs. */
-	struct FCompareIndexAndZ
-	{
-		FORCEINLINE bool operator()(FIndexAndZ const& A, FIndexAndZ const& B) const { return A.Z < B.Z; }
-	};
 
 	/**
 	* Smoothing group interpretation helper structure.

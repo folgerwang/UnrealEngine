@@ -21,11 +21,3 @@ public:
 private:
 
 };
-
-class MESHBUILDER_API FMeshBuilderOperations
-{
-public:
-	/** Create some UVs from the specified mesh description data. */
-	static bool GenerateUniqueUVsForStaticMesh(const class UMeshDescription* MeshDescription, int32 TextureResolution, TArray<FVector2D>& OutTexCoords);
-};
-

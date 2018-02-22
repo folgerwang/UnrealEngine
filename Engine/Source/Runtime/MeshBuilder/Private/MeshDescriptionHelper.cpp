@@ -13,7 +13,6 @@
 #include "Serialization/MemoryWriter.h"
 #include "Serialization/MemoryReader.h"
 #include "RenderUtils.h"
-#include "LayoutUV.h"
 #include "IMeshReductionInterfaces.h"
 #include "IMeshReductionManagerModule.h"
 #include "Materials/Material.h"
@@ -54,7 +53,7 @@ UMeshDescription* FMeshDescriptionHelper::GetRenderMeshDescription(UObject* Owne
 	TVertexInstanceAttributeArray<float>& BinormalSigns = RenderMeshDescription->VertexInstanceAttributes().GetAttributes<float>( MeshAttribute::VertexInstance::BinormalSign );
 
 	// Find overlapping corners to accelerate adjacency.
-	FindOverlappingCorners(OverlappingCorners, RenderMeshDescription, ComparisonThreshold);
+	FMeshDescriptionOperations::FindOverlappingCorners(OverlappingCorners, RenderMeshDescription, ComparisonThreshold);
 
 	// Compute any missing normals or tangents.
 	{
@@ -132,15 +131,12 @@ UMeshDescription* FMeshDescriptionHelper::GetRenderMeshDescription(UObject* Owne
 			BuildSettings->DstLightmapIndex = NumIndices;
 		}
 
-		FLayoutUV Packer(RenderMeshDescription, BuildSettings->SrcLightmapIndex, BuildSettings->DstLightmapIndex, BuildSettings->MinLightmapResolution);
-		Packer.SetVersion((FMeshDescriptionOperations::ELightmapUVVersion)(StaticMesh->LightmapUVVersion));
-
-		Packer.FindCharts(OverlappingCorners);
-		bool bPackSuccess = Packer.FindBestPacking();
-		if (bPackSuccess)
-		{
-			Packer.CommitPackedUVs();
-		}
+		FMeshDescriptionOperations::CreateLightMapUVLayout(RenderMeshDescription,
+			BuildSettings->SrcLightmapIndex,
+			BuildSettings->DstLightmapIndex,
+			BuildSettings->MinLightmapResolution,
+			(FMeshDescriptionOperations::ELightmapUVVersion)(StaticMesh->LightmapUVVersion),
+			OverlappingCorners);
 	}
 
 	return RenderMeshDescription;
@@ -171,53 +167,8 @@ bool FMeshDescriptionHelper::IsValidOriginalMeshDescription()
 	return OriginalMeshDescription != nullptr;
 }
 
-void FMeshDescriptionHelper::FindOverlappingCorners(TMultiMap<int32, int32>& OverlappingCorners, const UMeshDescription* MeshDescription, float ComparisonThreshold)
-{
-	//Empty the old data
-	OverlappingCorners.Reset();
-	
-	const FVertexInstanceArray& VertexInstanceArray = MeshDescription->VertexInstances();
-	const FVertexArray& VertexArray = MeshDescription->Vertices();
-
-	const int32 NumWedges = VertexInstanceArray.Num();
-
-	// Create a list of vertex Z/index pairs
-	TArray<FIndexAndZ> VertIndexAndZ;
-	VertIndexAndZ.Reserve(NumWedges);
-
-	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
-
-	for (const FVertexInstanceID VertexInstanceID : VertexInstanceArray.GetElementIDs())
-	{
-		new(VertIndexAndZ)FIndexAndZ(VertexInstanceID.GetValue(), VertexPositions[MeshDescription->GetVertexInstanceVertex(VertexInstanceID)]);
-	}
-
-	// Sort the vertices by z value
-	VertIndexAndZ.Sort(FCompareIndexAndZ());
-
-	// Search for duplicates, quickly!
-	for (int32 i = 0; i < VertIndexAndZ.Num(); i++)
-	{
-		// only need to search forward, since we add pairs both ways
-		for (int32 j = i + 1; j < VertIndexAndZ.Num(); j++)
-		{
-			if (FMath::Abs(VertIndexAndZ[j].Z - VertIndexAndZ[i].Z) > ComparisonThreshold)
-				break; // can't be any more dups
-
-			const FVector& PositionA = *(VertIndexAndZ[i].OriginalVector);
-			const FVector& PositionB = *(VertIndexAndZ[j].OriginalVector);
-
-			if (PositionA.Equals(PositionB, ComparisonThreshold))
-			{
-				OverlappingCorners.Add(VertIndexAndZ[i].Index, VertIndexAndZ[j].Index);
-				OverlappingCorners.Add(VertIndexAndZ[j].Index, VertIndexAndZ[i].Index);
-			}
-		}
-	}
-}
-
 void FMeshDescriptionHelper::FindOverlappingCorners(const UMeshDescription* MeshDescription, float ComparisonThreshold)
 {
-	FindOverlappingCorners(OverlappingCorners, MeshDescription, ComparisonThreshold);
+	FMeshDescriptionOperations::FindOverlappingCorners(OverlappingCorners, MeshDescription, ComparisonThreshold);
 }
 

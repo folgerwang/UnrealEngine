@@ -39,9 +39,6 @@ public:
 	/** Convert old FRawMesh format to MeshDescription. */
 	static void ConverFromRawMesh(const struct FRawMesh &SourceRawMesh, class UMeshDescription* DestinationMeshDescription);
 
-	/** Create some UVs from the specified mesh description data. */
-	static bool GenerateUniqueUVsForStaticMesh(const class UMeshDescription* MeshDescription, int32 TextureResolution, TArray<FVector2D>& OutTexCoords);
-
 	/**
 	 * Compute normal, tangent and Bi-Normal for every polygon in the mesh description. (this do not compute Vertex NTBs)
 	 * It also remove the degenerated polygon from the mesh description
@@ -54,9 +51,22 @@ public:
 	/** Compute tangent and Bi-Normal using mikkt space for every vertex in the mesh description. */
 	static void CreateMikktTangents(UMeshDescription* MeshDescription, ETangentOptions TangentOptions);
 
+	/** Find all overlapping vertex using the threshold in the mesh description. */
+	static void FindOverlappingCorners(TMultiMap<int32, int32>& OverlappingCorners, const UMeshDescription* MeshDescription, float ComparisonThreshold);
+
+	static void CreateLightMapUVLayout(UMeshDescription* MeshDescription,
+		int32 SrcLightmapIndex,
+		int32 DstLightmapIndex,
+		int32 MinLightmapResolution,
+		ELightmapUVVersion LightmapUVVersion,
+		const TMultiMap<int32, int32>& OverlappingCorners);
+
+	/** Create some UVs from the specified mesh description data. */
+	static bool GenerateUniqueUVsForStaticMesh(const UMeshDescription* MeshDescription, int32 TextureResolution, TArray<FVector2D>& OutTexCoords);
+
 private:
 	
 	static void ConvertHardEdgesToSmoothGroup(const UMeshDescription* SourceMeshDescription, struct FRawMesh &DestinationRawMesh);
 
-	static void ConvertSmoothGroupToHardEdges(const struct FRawMesh &SourceRawMesh, UMeshDescription* DestinationMeshDescription);
+	static void ConvertSmoothGroupToHardEdges(const FRawMesh &SourceRawMesh, UMeshDescription* DestinationMeshDescription);
 };

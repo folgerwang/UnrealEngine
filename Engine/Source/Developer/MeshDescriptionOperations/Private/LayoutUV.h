@@ -5,7 +5,6 @@
 #include "CoreMinimal.h"
 #include "Allocator2D.h"
 #include "MeshDescription.h"
-#include "MeshDescriptionHelper.h"
 #include "MeshDescriptionOperations.h"
 #include "MeshAttributes.h"
 
