@@ -9,6 +9,7 @@
 #include "Engine/StaticMesh.h"
 #include "Materials/Material.h"
 #include "MeshDescription.h"
+#include "MeshDescriptionOperations.h"
 #include "MeshBuilder.h"
 #include "MeshAttributes.h"
 #include "RawMesh.h"

@@ -117,8 +117,8 @@ public class Engine : ModuleRules
 		{
 			// for now we depend on this
 			PrivateDependencyModuleNames.Add("RawMesh");
-			PrivateDependencyModuleNames.Add("MeshBuilder");
-		}
+            PrivateDependencyModuleNames.Add("MeshDescriptionOperations");
+        }
 
 		bool bVariadicTemplatesSupported = true;
 		if (Target.Platform == UnrealTargetPlatform.XboxOne)

@@ -2,6 +2,7 @@
 
 #include "LayoutUV.h"
 #include "DisjointSet.h"
+#include "MeshDescriptionOperations.h"
 
 #include "Algo/IntroSort.h"
 
@@ -19,7 +20,7 @@ FLayoutUV::FLayoutUV( UMeshDescription* InMesh, uint32 InSrcChannel, uint32 InDs
 	, ChartRaster( TextureResolution, TextureResolution )
 	, BestChartRaster( TextureResolution, TextureResolution )
 	, ChartShader( &ChartRaster )
-	, LayoutVersion(FMeshDescriptionHelper::ELightmapUVVersion::Latest )
+	, LayoutVersion(FMeshDescriptionOperations::ELightmapUVVersion::Latest )
 {}
 
 void FLayoutUV::FindCharts( const TMultiMap<int32,int32>& OverlappingCorners )
@@ -218,7 +219,7 @@ void FLayoutUV::FindCharts( const TMultiMap<int32,int32>& OverlappingCorners )
 		Chart.LastTri = Tri;
 
 #if !CHART_JOINING
-		if (LayoutVersion >= FMeshDescriptionHelper::ELightmapUVVersion::SmallChartPacking)
+		if (LayoutVersion >= FMeshDescriptionOperations::ELightmapUVVersion::SmallChartPacking)
 		{
 			Chart.WorldScale /= FMath::Max(Chart.UVArea, 1e-8f);
 		}
@@ -537,7 +538,7 @@ void FLayoutUV::FindCharts( const TMultiMap<int32,int32>& OverlappingCorners )
 	{
 		FMeshChart& Chart = Charts[i];
 
-		if (LayoutVersion >= FMeshDescriptionHelper::ELightmapUVVersion::SmallChartPacking)
+		if (LayoutVersion >= FMeshDescriptionOperations::ELightmapUVVersion::SmallChartPacking)
 		{
 			Chart.WorldScale /= FMath::Max(Chart.UVArea, 1e-8f);
 		}
@@ -809,11 +810,11 @@ bool FLayoutUV::PackCharts()
 			}
 			else
 			{
-				if ( LayoutVersion >= FMeshDescriptionHelper::ELightmapUVVersion::Segments && Orientation % 4 == 1 )
+				if ( LayoutVersion >= FMeshDescriptionOperations::ELightmapUVVersion::Segments && Orientation % 4 == 1 )
 				{
 					ChartRaster.FlipX( Rect );
 				}
-				else if ( LayoutVersion >= FMeshDescriptionHelper::ELightmapUVVersion::Segments && Orientation % 4 == 3 )
+				else if ( LayoutVersion >= FMeshDescriptionOperations::ELightmapUVVersion::Segments && Orientation % 4 == 3 )
 				{
 					ChartRaster.FlipY( Rect );
 				}
@@ -827,11 +828,11 @@ bool FLayoutUV::PackCharts()
 				bool bFound = false;
 
 				uint32 BeginFind = FPlatformTime::Cycles();
-				if ( LayoutVersion == FMeshDescriptionHelper::ELightmapUVVersion::BitByBit )
+				if ( LayoutVersion == FMeshDescriptionOperations::ELightmapUVVersion::BitByBit )
 				{
 					bFound = LayoutRaster.FindBitByBit( Rect, ChartRaster );
 				}
-				else if ( LayoutVersion >= FMeshDescriptionHelper::ELightmapUVVersion::Segments )
+				else if ( LayoutVersion >= FMeshDescriptionOperations::ELightmapUVVersion::Segments )
 				{
 					bFound = LayoutRaster.FindWithSegments( Rect, BestRect, ChartRaster );
 				}
@@ -1044,7 +1045,7 @@ void FLayoutUV::RasterizeChart( const FMeshChart& Chart, uint32 RectW, uint32 Re
 		RasterizeTriangle< FAllocator2DShader, 16 >( ChartShader, Points, RectW, RectH );
 	}
 
-	if ( LayoutVersion >= FMeshDescriptionHelper::ELightmapUVVersion::Segments )
+	if ( LayoutVersion >= FMeshDescriptionOperations::ELightmapUVVersion::Segments )
 	{
 		ChartRaster.CreateUsedSegments();
 	}

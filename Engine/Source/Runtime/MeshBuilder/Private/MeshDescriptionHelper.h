@@ -21,21 +21,6 @@ enum
 class FMeshDescriptionHelper
 {
 public:
-	enum ETangentOptions
-	{
-		None = 0,
-		BlendOverlappingNormals = 0x1,
-		IgnoreDegenerateTriangles = 0x2,
-		UseMikkTSpace = 0x4,
-	};
-
-	enum class ELightmapUVVersion : int32
-	{
-		BitByBit = 0,
-		Segments = 1,
-		SmallChartPacking = 2,
-		Latest = SmallChartPacking
-	};
 
 	FMeshDescriptionHelper(FMeshBuildSettings* InBuildSettings, const UMeshDescription* InOriginalMeshDescription);
 
@@ -52,21 +37,10 @@ public:
 
 	const TMultiMap<int32, int32>& GetOverlappingCorners() const { return OverlappingCorners; }
 
-	/** Convert this mesh description into the old FRawMesh format*/
-	static void ConverToRawMesh(const UMeshDescription* SourceMeshDescription, struct FRawMesh &DestinationRawMesh);
-	/** Convert old FRawMesh format to MeshDescription*/
-	static void ConverFromRawMesh(const struct FRawMesh &SourceRawMesh, UMeshDescription* DestinationMeshDescription);
-
-	static void CreatePolygonNTB(UMeshDescription* MeshDescription, float ComparisonThreshold);
-	static void CreateNormals(UMeshDescription* MeshDescription, ETangentOptions TangentOptions, bool bComputeTangent);
-	static void CreateMikktTangents(UMeshDescription* MeshDescription, ETangentOptions TangentOptions);
 private:
 
 	//////////////////////////////////////////////////////////////////////////
 	//PRIVATE function declarations
-
-	static void ConvertHardEdgesToSmoothGroup(const UMeshDescription* SourceMeshDescription, struct FRawMesh &DestinationRawMesh);
-	static void ConvertSmoothGroupToHardEdges(const struct FRawMesh &SourceRawMesh, UMeshDescription* DestinationMeshDescription);
 
 	//////////////////////////////////////////////////////////////////////////
 	//PRIVATE class members

@@ -50,6 +50,7 @@
 #include "MeshUtilities.h"
 #include "DerivedDataCacheInterface.h"
 #include "IMeshBuilderModule.h"
+#include "MeshDescriptionOperations.h"
 #endif // #if WITH_EDITOR
 
 #include "Engine/StaticMeshSocket.h"

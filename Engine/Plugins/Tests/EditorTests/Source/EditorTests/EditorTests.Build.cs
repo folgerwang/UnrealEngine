@@ -65,6 +65,7 @@ public class EditorTests : ModuleRules
 				"MeshMergeUtilities",
 				"MaterialBaking",
                 "MeshDescription",
+                "MeshDescriptionOperations",
                 "MeshBuilder",
                 "RawMesh",
 			}

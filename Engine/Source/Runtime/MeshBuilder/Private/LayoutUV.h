@@ -6,6 +6,7 @@
 #include "Allocator2D.h"
 #include "MeshDescription.h"
 #include "MeshDescriptionHelper.h"
+#include "MeshDescriptionOperations.h"
 #include "MeshAttributes.h"
 
 #define NEW_UVS_ARE_SAME THRESH_POINTS_ARE_SAME
@@ -53,7 +54,7 @@ public:
 	bool		FindBestPacking();
 	void		CommitPackedUVs();
 
-	void		SetVersion(FMeshDescriptionHelper::ELightmapUVVersion Version ) { LayoutVersion = Version; }
+	void		SetVersion(FMeshDescriptionOperations::ELightmapUVVersion Version ) { LayoutVersion = Version; }
 
 private:
 	bool		PositionsMatch( uint32 a, uint32 b ) const;
@@ -68,7 +69,7 @@ private:
 	void		OrientChart( FMeshChart& Chart, int32 Orientation );
 	void		RasterizeChart( const FMeshChart& Chart, uint32 RectW, uint32 RectH );
 
-	float		GetUVEqualityThreshold() const { return LayoutVersion >= FMeshDescriptionHelper::ELightmapUVVersion::SmallChartPacking ? NEW_UVS_ARE_SAME : LEGACY_UVS_ARE_SAME; }
+	float		GetUVEqualityThreshold() const { return LayoutVersion >= FMeshDescriptionOperations::ELightmapUVVersion::SmallChartPacking ? NEW_UVS_ARE_SAME : LEGACY_UVS_ARE_SAME; }
 
 	UMeshDescription* MeshDescription;
 	uint32		SrcChannel;
@@ -86,7 +87,7 @@ private:
 	FAllocator2D		BestChartRaster;
 	FAllocator2DShader	ChartShader;
 
-	FMeshDescriptionHelper::ELightmapUVVersion LayoutVersion;
+	FMeshDescriptionOperations::ELightmapUVVersion LayoutVersion;
 };
 
 

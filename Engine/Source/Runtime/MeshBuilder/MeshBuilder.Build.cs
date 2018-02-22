@@ -17,6 +17,7 @@ namespace UnrealBuildTool.Rules
                     "Engine",
                     "RenderCore",
                     "MeshDescription",
+                    "MeshDescriptionOperations",
                     "MeshReductionInterface",
                     "RenderCore",
                     "RawMesh"
@@ -26,7 +27,6 @@ namespace UnrealBuildTool.Rules
             AddEngineThirdPartyPrivateStaticDependencies(Target, "nvTriStrip");
             AddEngineThirdPartyPrivateStaticDependencies(Target, "ForsythTriOptimizer");
             AddEngineThirdPartyPrivateStaticDependencies(Target, "nvTessLib");
-            AddEngineThirdPartyPrivateStaticDependencies(Target, "MikkTSpace");
             AddEngineThirdPartyPrivateStaticDependencies(Target, "QuadricMeshReduction");
 
             if (Target.bCompileSimplygon == true)
