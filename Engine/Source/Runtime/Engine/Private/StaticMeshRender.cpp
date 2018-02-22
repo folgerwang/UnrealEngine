@@ -104,17 +104,14 @@ static FAutoConsoleCommand GToggleForceDefaultMaterialCmd(
 	);
 
 /** Initialization constructor. */
-FStaticMeshSceneProxy::FStaticMeshSceneProxy(UStaticMeshComponent* InComponent, bool bForceLODsShareStaticLighting):
-	FPrimitiveSceneProxy(InComponent, InComponent->GetStaticMesh()->GetFName())
-	, Owner(InComponent->GetOwner())
-	, StaticMesh(InComponent->GetStaticMesh())
-	, BodySetup(InComponent->GetBodySetup())
+FStaticMeshSceneProxy::FStaticMeshSceneProxy(UStaticMeshComponent* InComponent, bool bForceLODsShareStaticLighting)
+	: FPrimitiveSceneProxy(InComponent, InComponent->GetStaticMesh()->GetFName())
 	, RenderData(InComponent->GetStaticMesh()->RenderData.Get())
+	, OccluderData(InComponent->GetStaticMesh()->OccluderData.Get())
 	, ForcedLodModel(InComponent->ForcedLodModel)
 	, bCastShadow(InComponent->CastShadow)
-	, CollisionTraceFlag(ECollisionTraceFlag::CTF_UseSimpleAndComplex)
+	, bReverseCulling(InComponent->bReverseCulling)
 	, MaterialRelevance(InComponent->GetMaterialRelevance(GetScene().GetFeatureLevel()))
-	, CollisionResponse(InComponent->GetCollisionResponseToChannels())
 #if WITH_EDITORONLY_DATA
 	, StreamingDistanceMultiplier(FMath::Max(0.0f, InComponent->StreamingDistanceMultiplier))
 	, StreamingTransformScale(InComponent->GetTextureStreamingTransformScale())
@@ -122,10 +119,13 @@ FStaticMeshSceneProxy::FStaticMeshSceneProxy(UStaticMeshComponent* InComponent, 
 	, SectionIndexPreview(InComponent->SectionIndexPreview)
 	, MaterialIndexPreview(InComponent->MaterialIndexPreview)
 #endif
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if STATICMESH_ENABLE_DEBUG_RENDERING
+	, Owner(InComponent->GetOwner())
+	, StaticMesh(InComponent->GetStaticMesh())
 	, LightMapResolution(InComponent->GetStaticLightMapResolution())
-#endif
-#if !(UE_BUILD_SHIPPING)
+	, BodySetup(InComponent->GetBodySetup())
+	, CollisionTraceFlag(ECollisionTraceFlag::CTF_UseSimpleAndComplex)
+	, CollisionResponse(InComponent->GetCollisionResponseToChannels())
 	, LODForCollision(InComponent->GetStaticMesh()->LODForCollision)
 	, bDrawMeshCollisionIfComplex(InComponent->bDrawMeshCollisionIfComplex)
 	, bDrawMeshCollisionIfSimple(InComponent->bDrawMeshCollisionIfSimple)
@@ -133,18 +133,41 @@ FStaticMeshSceneProxy::FStaticMeshSceneProxy(UStaticMeshComponent* InComponent, 
 {
 	check(RenderData);
 
-	const int32 EffectiveMinLOD = InComponent->bOverrideMinLOD ? InComponent->MinLOD : InComponent->GetStaticMesh()->MinLOD;
-	ClampedMinLOD = FMath::Clamp(EffectiveMinLOD, 0, RenderData->LODResources.Num() - 1);
+	const auto FeatureLevel = GetScene().GetFeatureLevel();
 
-	WireframeColor = InComponent->GetWireframeColor();
-	LevelColor = FLinearColor(1,1,1);
-	PropertyColor = FLinearColor(1,1,1);
+	const int32 SMCurrentMinLOD = InComponent->GetStaticMesh()->MinLOD.GetValueForFeatureLevel(FeatureLevel);
+	int32 EffectiveMinLOD = InComponent->bOverrideMinLOD ? InComponent->MinLOD : SMCurrentMinLOD;
+
+#if WITH_EDITOR
+	// If we plan to strip the min LOD during cooking, emulate that behavior in the editor
+	static const auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.StaticMesh.StripMinLodDataDuringCooking"));
+	check(CVar);
+	if (CVar->GetValueOnAnyThread())
+	{
+		EffectiveMinLOD = FMath::Max<int32>(EffectiveMinLOD, SMCurrentMinLOD);
+	}
+#endif
+
+	// Find the first LOD with any vertices (ie that haven't been stripped)
+	int FirstAvailableLOD = 0;
+	for (; FirstAvailableLOD < RenderData->LODResources.Num(); FirstAvailableLOD++)
+	{
+		if (RenderData->LODResources[FirstAvailableLOD].GetNumVertices() > 0)
+		{
+			break;
+		}
+	}
+
+	ClampedMinLOD = FMath::Clamp(EffectiveMinLOD, FirstAvailableLOD, RenderData->LODResources.Num() - 1);
+
+	SetWireframeColor(InComponent->GetWireframeColor());
+	SetLevelColor(FLinearColor(1,1,1));
+	SetPropertyColor(FLinearColor(1,1,1));
 	bSupportsDistanceFieldRepresentation = true;
 	bCastsDynamicIndirectShadow = InComponent->bCastDynamicShadow && InComponent->CastShadow && InComponent->bCastDistanceFieldIndirectShadow && InComponent->Mobility != EComponentMobility::Static;
 	DynamicIndirectShadowMinVisibility = FMath::Clamp(InComponent->DistanceFieldIndirectShadowMinVisibility, 0.0f, 1.0f);
-	DistanceFieldSelfShadowBias = FMath::Max(InComponent->bOverrideDistanceFieldSelfShadowBias ? InComponent->DistanceFieldSelfShadowBias : StaticMesh->DistanceFieldSelfShadowBias, 0.0f);
+	DistanceFieldSelfShadowBias = FMath::Max(InComponent->bOverrideDistanceFieldSelfShadowBias ? InComponent->DistanceFieldSelfShadowBias : InComponent->GetStaticMesh()->DistanceFieldSelfShadowBias, 0.0f);
 
-	const auto FeatureLevel = GetScene().GetFeatureLevel();
 
 	// Copy the pointer to the volume data, async building of the data may modify the one on FStaticMeshLODResources while we are rendering
 	DistanceFieldData = RenderData->LODResources[0].DistanceFieldData;
@@ -188,7 +211,7 @@ FStaticMeshSceneProxy::FStaticMeshSceneProxy(UStaticMeshComponent* InComponent, 
 
 	LpvBiasMultiplier = FMath::Min( InComponent->GetStaticMesh()->LpvBiasMultiplier * InComponent->LpvBiasMultiplier, 3.0f );
 
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) || WITH_EDITOR
+#if STATICMESH_ENABLE_DEBUG_RENDERING
 	if( GIsEditor )
 	{
 		// Try to find a color for level coloration.
@@ -198,7 +221,7 @@ FStaticMeshSceneProxy::FStaticMeshSceneProxy(UStaticMeshComponent* InComponent, 
 			ULevelStreaming* LevelStreaming = FLevelUtils::FindStreamingLevel( Level );
 			if ( LevelStreaming )
 			{
-				LevelColor = LevelStreaming->LevelColor;
+				SetLevelColor(LevelStreaming->LevelColor);
 			}
 		}
 
@@ -206,7 +229,7 @@ FStaticMeshSceneProxy::FStaticMeshSceneProxy(UStaticMeshComponent* InComponent, 
 		FColor TempPropertyColor;
 		if (GEngine->GetPropertyColorationColor( (UObject*)InComponent, TempPropertyColor ))
 		{
-			PropertyColor = TempPropertyColor;
+			SetPropertyColor(TempPropertyColor);
 		}
 	}
 
@@ -226,12 +249,12 @@ FStaticMeshSceneProxy::FStaticMeshSceneProxy(UStaticMeshComponent* InComponent, 
 		// Not part of a HLOD cluster (draw as white when visualizing)
 		HierarchicalLODIndex = 0;
 	}
-#endif
 
 	if (BodySetup)
 	{
 		CollisionTraceFlag = BodySetup->GetCollisionTraceFlag();
 	}
+#endif
 
 	AddSpeedTreeWind();
 }
@@ -243,6 +266,7 @@ FStaticMeshSceneProxy::~FStaticMeshSceneProxy()
 
 void FStaticMeshSceneProxy::AddSpeedTreeWind()
 {
+#if STATICMESH_ENABLE_DEBUG_RENDERING
 	if (StaticMesh && StaticMesh->SpeedTreeWind.IsValid())
 	{
 		for (int32 LODIndex = 0; LODIndex < RenderData->LODVertexFactories.Num(); ++LODIndex)
@@ -251,10 +275,12 @@ void FStaticMeshSceneProxy::AddSpeedTreeWind()
 			GetScene().AddSpeedTreeWind(&RenderData->LODVertexFactories[LODIndex].VertexFactoryOverrideColorVertexBuffer, StaticMesh);
 		}
 	}
+#endif
 }
 
 void FStaticMeshSceneProxy::RemoveSpeedTreeWind()
 {
+#if STATICMESH_ENABLE_DEBUG_RENDERING
 	if (StaticMesh && StaticMesh->SpeedTreeWind.IsValid())
 	{
 		for (int32 LODIndex = 0; LODIndex < RenderData->LODVertexFactories.Num(); ++LODIndex)
@@ -263,6 +289,7 @@ void FStaticMeshSceneProxy::RemoveSpeedTreeWind()
 			GetScene().RemoveSpeedTreeWind(&RenderData->LODVertexFactories[LODIndex].VertexFactory, StaticMesh);
 		}
 	}
+#endif
 }
 
 void UStaticMeshComponent::SetLODDataCount( const uint32 MinSize, const uint32 MaxSize )
@@ -320,9 +347,9 @@ bool FStaticMeshSceneProxy::GetShadowMeshElement(int32 LODIndex, int32 BatchInde
 	OutBatchElement.MinVertexIndex = 0;
 	OutBatchElement.MaxVertexIndex = LOD.VertexBuffers.PositionVertexBuffer.GetNumVertices() - 1;
 	OutMeshBatch.DepthPriorityGroup = InDepthPriorityGroup;
-	OutMeshBatch.ReverseCulling = IsLocalToWorldDeterminantNegative() && !bUseReversedIndices;
+	OutMeshBatch.ReverseCulling = (bReverseCulling || IsLocalToWorldDeterminantNegative()) && !bUseReversedIndices;
 	OutMeshBatch.LODIndex = LODIndex;
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if STATICMESH_ENABLE_DEBUG_RENDERING
 	OutMeshBatch.VisualizeLODIndex = LODIndex;
 	OutMeshBatch.VisualizeHLODIndex = HierarchicalLODIndex;
 #endif
@@ -412,12 +439,12 @@ bool FStaticMeshSceneProxy::GetMeshElement(
 		OutBatchElement.MinVertexIndex = Section.MinVertexIndex;
 		OutBatchElement.MaxVertexIndex = Section.MaxVertexIndex;
 		OutMeshBatch.LODIndex = LODIndex;
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if STATICMESH_ENABLE_DEBUG_RENDERING
 		OutBatchElement.VisualizeElementIndex = SectionIndex;
 		OutMeshBatch.VisualizeLODIndex = LODIndex;
 		OutMeshBatch.VisualizeHLODIndex = HierarchicalLODIndex;
 #endif
-		OutMeshBatch.ReverseCulling = IsLocalToWorldDeterminantNegative() && !bUseReversedIndices;
+		OutMeshBatch.ReverseCulling = (bReverseCulling || IsLocalToWorldDeterminantNegative()) && !bUseReversedIndices;
 		OutMeshBatch.CastShadow = bCastShadow && Section.bCastShadow;
 		OutMeshBatch.DepthPriorityGroup = (ESceneDepthPriorityGroup)InDepthPriorityGroup;
 		if (ForcedLodModel > 0) 
@@ -446,6 +473,17 @@ bool FStaticMeshSceneProxy::GetMeshElement(
 	}
 }
 
+bool FStaticMeshSceneProxy::CollectOccluderElements(FOccluderElementsCollector& Collector) const
+{
+	if (OccluderData)
+	{	
+		Collector.AddElements(OccluderData->VerticesSP, OccluderData->IndicesSP, GetLocalToWorld());
+		return true;
+	}
+	
+	return false;
+}
+
 /** Sets up a wireframe FMeshBatch for a specific LOD. */
 bool FStaticMeshSceneProxy::GetWireframeMeshElement(int32 LODIndex, int32 BatchIndex, const FMaterialRenderProxy* WireframeRenderProxy, uint8 InDepthPriorityGroup, bool bAllowPreCulledIndices, FMeshBatch& OutMeshBatch) const
 {
@@ -460,7 +498,7 @@ bool FStaticMeshSceneProxy::GetWireframeMeshElement(int32 LODIndex, int32 BatchI
 	OutBatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();
 	OutBatchElement.MinVertexIndex = 0;
 	OutBatchElement.MaxVertexIndex = LODModel.GetNumVertices() - 1;
-	OutMeshBatch.ReverseCulling = IsLocalToWorldDeterminantNegative();
+	OutMeshBatch.ReverseCulling = bReverseCulling || IsLocalToWorldDeterminantNegative();
 	OutMeshBatch.CastShadow = bCastShadow;
 	OutMeshBatch.DepthPriorityGroup = (ESceneDepthPriorityGroup)InDepthPriorityGroup;
 	if (ForcedLodModel > 0) 
@@ -725,7 +763,7 @@ void FStaticMeshSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PD
 		//check if a LOD is being forced
 		if (ForcedLodModel > 0) 
 		{
-			int32 LODIndex = FMath::Clamp(ForcedLodModel, 1, NumLODs) - 1;
+			int32 LODIndex = FMath::Clamp(ForcedLodModel, ClampedMinLOD + 1, NumLODs) - 1;
 			const FStaticMeshLODResources& LODModel = RenderData->LODResources[LODIndex];
 			// Draw the static mesh elements.
 			for(int32 SectionIndex = 0; SectionIndex < LODModel.Sections.Num(); SectionIndex++)
@@ -865,6 +903,8 @@ bool FStaticMeshSceneProxy::IsCollisionView(const FEngineShowFlags& EngineShowFl
 	bDrawSimpleCollision = bDrawComplexCollision = false;
 
 	const bool bInCollisionView = EngineShowFlags.CollisionVisibility || EngineShowFlags.CollisionPawn;
+
+#if STATICMESH_ENABLE_DEBUG_RENDERING
 	// If in a 'collision view' and collision is enabled
 	if (bInCollisionView && IsCollisionEnabled())
 	{
@@ -874,14 +914,12 @@ bool FStaticMeshSceneProxy::IsCollisionView(const FEngineShowFlags& EngineShowFl
 
 		if(bHasResponse)
 		{
-			const ECollisionTraceFlag TraceFlag = BodySetup ? BodySetup->GetCollisionTraceFlag().GetValue() : ECollisionTraceFlag::CTF_UseSimpleAndComplex;
-			
 			//Visiblity uses complex and pawn uses simple. However, if UseSimpleAsComplex or UseComplexAsSimple is used we need to adjust accordingly
-			bDrawComplexCollision = (EngineShowFlags.CollisionVisibility && TraceFlag != ECollisionTraceFlag::CTF_UseSimpleAsComplex) || (EngineShowFlags.CollisionPawn && TraceFlag == ECollisionTraceFlag::CTF_UseComplexAsSimple);
-			bDrawSimpleCollision  = (EngineShowFlags.CollisionPawn && TraceFlag != ECollisionTraceFlag::CTF_UseComplexAsSimple) || (EngineShowFlags.CollisionVisibility && TraceFlag == ECollisionTraceFlag::CTF_UseSimpleAsComplex);
+			bDrawComplexCollision = (EngineShowFlags.CollisionVisibility && CollisionTraceFlag != ECollisionTraceFlag::CTF_UseSimpleAsComplex) || (EngineShowFlags.CollisionPawn && CollisionTraceFlag == ECollisionTraceFlag::CTF_UseComplexAsSimple);
+			bDrawSimpleCollision  = (EngineShowFlags.CollisionPawn && CollisionTraceFlag != ECollisionTraceFlag::CTF_UseComplexAsSimple) || (EngineShowFlags.CollisionVisibility && CollisionTraceFlag == ECollisionTraceFlag::CTF_UseSimpleAsComplex);
 		}
 	}
-
+#endif
 	return bInCollisionView;
 }
 
@@ -922,10 +960,10 @@ void FStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView
 	const bool bDrawMesh = !bInCollisionView && 
 	(	IsRichView(ViewFamily) || HasViewDependentDPG()
 		|| EngineShowFlags.Collision
-#if !(UE_BUILD_SHIPPING)
+#if STATICMESH_ENABLE_DEBUG_RENDERING
 		|| bDrawMeshCollisionIfComplex
 		|| bDrawMeshCollisionIfSimple
-#endif // !(UE_BUILD_SHIPPING)
+#endif
 		|| EngineShowFlags.Bounds
 		|| bProxyIsSelected 
 		|| IsHovered()
@@ -953,7 +991,7 @@ void FStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView
 
 				for (int32 LODIndex = 0; LODIndex < RenderData->LODResources.Num(); LODIndex++)
 				{
-					if (LODMask.ContainsLOD(LODIndex))
+					if (LODMask.ContainsLOD(LODIndex) && LODIndex >= ClampedMinLOD)
 					{
 						const FStaticMeshLODResources& LODModel = RenderData->LODResources[LODIndex];
 						const FLODInfo& ProxyLODInfo = LODs[LODIndex];
@@ -962,10 +1000,10 @@ void FStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView
 							// If any of the materials are mesh-modifying, we can't use the single merged mesh element of GetWireframeMeshElement()
 							&& !ProxyLODInfo.UsesMeshModifyingMaterials())
 						{
-							FLinearColor ViewWireframeColor( bLevelColorationEnabled ? LevelColor : WireframeColor );
+							FLinearColor ViewWireframeColor( bLevelColorationEnabled ? GetLevelColor() : GetWireframeColor() );
 							if ( bPropertyColorationEnabled )
 							{
-								ViewWireframeColor = PropertyColor;
+								ViewWireframeColor = GetPropertyColor();
 							}
 
 							auto WireframeMaterialInstance = new FColoredMaterialRenderProxy(
@@ -992,7 +1030,7 @@ void FStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView
 						}
 						else
 						{
-							const FLinearColor UtilColor( LevelColor );
+							const FLinearColor UtilColor( GetLevelColor() );
 
 							// Draw the static mesh sections.
 							for (int32 SectionIndex = 0; SectionIndex < LODModel.Sections.Num(); SectionIndex++)
@@ -1016,7 +1054,7 @@ void FStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView
 								
 									if (GetMeshElement(LODIndex, BatchIndex, SectionIndex, SDPG_World, bSectionIsSelected, IsHovered(), true, MeshElement))
 									{
-	#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	#if STATICMESH_ENABLE_DEBUG_RENDERING
 										if (bProxyIsSelected && EngineShowFlags.VertexColors && AllowDebugViewmodes())
 										{
 											// Override the mesh's material with our material that draws the vertex colors
@@ -1098,7 +1136,7 @@ void FStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView
 		}
 	}
 	
-#if !(UE_BUILD_SHIPPING)
+#if STATICMESH_ENABLE_DEBUG_RENDERING
 	// Collision and bounds drawing
 	FColor SimpleCollisionColor = FColor(157, 149, 223, 255);
 	FColor ComplexCollisionColor = FColor(0, 255, 255, 255);
@@ -1127,7 +1165,7 @@ void FStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView
 						const FStaticMeshLODResources& LODModel = RenderData->LODResources[DrawLOD];
 
 						UMaterial* MaterialToUse = UMaterial::GetDefaultMaterial(MD_Surface);
-						FLinearColor DrawCollisionColor = WireframeColor;
+						FLinearColor DrawCollisionColor = GetWireframeColor();
 						// Collision view modes draw collision mesh as solid
 						if(bInCollisionView)
 						{
@@ -1146,8 +1184,12 @@ void FStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView
 							// If this section has collision enabled
 							if (LODModel.Sections[SectionIndex].bEnableCollision)
 							{
+#if WITH_EDITOR
 								// See if we are selected
 								const bool bSectionIsSelected = LODs[DrawLOD].Sections[SectionIndex].bSelected;
+#else
+								const bool bSectionIsSelected = false;
+#endif
 
 								// Create colored proxy
 								FColoredMaterialRenderProxy* CollisionMaterialInstance = new FColoredMaterialRenderProxy(MaterialToUse->GetRenderProxy(bSectionIsSelected, false), DrawCollisionColor);
@@ -1190,13 +1232,13 @@ void FStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView
 						// Make a material for drawing solid collision stuff
 						auto SolidMaterialInstance = new FColoredMaterialRenderProxy(
 							GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(IsSelected(), IsHovered()),
-							WireframeColor
+							GetWireframeColor()
 							);
 
 						Collector.RegisterOneFrameMaterialProxy(SolidMaterialInstance);
 
 						FTransform GeomTransform(GetLocalToWorld());
-						BodySetup->AggGeom.GetAggGeom(GeomTransform, WireframeColor.ToFColor(true), SolidMaterialInstance, false, true, UseEditorDepthTest(), ViewIndex, Collector);
+						BodySetup->AggGeom.GetAggGeom(GeomTransform, GetWireframeColor().ToFColor(true), SolidMaterialInstance, false, true, UseEditorDepthTest(), ViewIndex, Collector);
 					}
 					// wireframe
 					else
@@ -1228,8 +1270,7 @@ void FStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView
 			}
 		}
 	}
-#endif // !(UE_BUILD_SHIPPING)
-
+#endif // STATICMESH_ENABLE_DEBUG_RENDERING
 }
 
 void FStaticMeshSceneProxy::GetLCIs(FLCIArray& LCIs)
@@ -1239,15 +1280,6 @@ void FStaticMeshSceneProxy::GetLCIs(FLCIArray& LCIs)
 		FLightCacheInterface* LCI = &LODs[LODIndex];
 		LCIs.Push(LCI);
 	}
-}
-
-void FStaticMeshSceneProxy::OnTransformChanged()
-{
-	// Update the cached scaling.
-	const FMatrix& ProxyLocalToWorld = GetLocalToWorld();
-	TotalScale3D.X = FVector(ProxyLocalToWorld.TransformVector(FVector(1.f,0.f,0.f))).Size();
-	TotalScale3D.Y = FVector(ProxyLocalToWorld.TransformVector(FVector(0.f,1.f,0.f))).Size();
-	TotalScale3D.Z = FVector(ProxyLocalToWorld.TransformVector(FVector(0.f,0.f,1.f))).Size();
 }
 
 bool FStaticMeshSceneProxy::CanBeOccluded() const
@@ -1265,12 +1297,13 @@ FPrimitiveViewRelevance FStaticMeshSceneProxy::GetViewRelevance(const FSceneView
 	Result.bRenderInMainPass = ShouldRenderInMainPass();
 	Result.bUsesLightingChannels = GetLightingChannelMask() != GetDefaultLightingChannelMask();
 
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) || WITH_EDITOR
+#if STATICMESH_ENABLE_DEBUG_RENDERING
 	bool bDrawSimpleCollision = false, bDrawComplexCollision = false;
 	const bool bInCollisionView = IsCollisionView(View->Family->EngineShowFlags, bDrawSimpleCollision, bDrawComplexCollision);
 #else
 	bool bInCollisionView = false;
 #endif
+	const bool bAllowStaticLighting = FReadOnlyCVARCache::Get().bAllowStaticLighting;
 
 	if(
 #if !(UE_BUILD_SHIPPING) || WITH_EDITOR
@@ -1282,19 +1315,19 @@ FPrimitiveViewRelevance FStaticMeshSceneProxy::GetViewRelevance(const FSceneView
 #if WITH_EDITOR
 		(IsSelected() && View->Family->EngineShowFlags.VertexColors) ||
 #endif
-#if !(UE_BUILD_SHIPPING)
+#if STATICMESH_ENABLE_DEBUG_RENDERING
 		bDrawMeshCollisionIfComplex ||
 		bDrawMeshCollisionIfSimple ||
-#endif // !(UE_BUILD_SHIPPING)
+#endif
 		// Force down dynamic rendering path if invalid lightmap settings, so we can apply an error material in DrawRichMesh
-		(HasStaticLighting() && !HasValidSettingsForStaticLighting()) ||
+		(bAllowStaticLighting && HasStaticLighting() && !HasValidSettingsForStaticLighting()) ||
 		HasViewDependentDPG() ||
 		 !IsStaticPathAvailable()
 		)
 	{
 		Result.bDynamicRelevance = true;
 
-#if !(UE_BUILD_SHIPPING) || WITH_EDITOR
+#if STATICMESH_ENABLE_DEBUG_RENDERING
 		// If we want to draw collision, needs to make sure we are considered relevant even if hidden
 		if(View->Family->EngineShowFlags.Collision || bInCollisionView)
 		{
@@ -1317,7 +1350,7 @@ FPrimitiveViewRelevance FStaticMeshSceneProxy::GetViewRelevance(const FSceneView
 	MaterialRelevance.SetPrimitiveViewRelevance(Result);
 
 	if (!View->Family->EngineShowFlags.Materials 
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) || WITH_EDITOR
+#if STATICMESH_ENABLE_DEBUG_RENDERING
 		|| bInCollisionView
 #endif
 		)
@@ -1599,7 +1632,7 @@ FLightInteraction FStaticMeshSceneProxy::FLODInfo::GetInteraction(const FLightSc
 
 float FStaticMeshSceneProxy::GetScreenSize( int32 LODIndex ) const
 {
-	return RenderData->ScreenSize[LODIndex];
+	return RenderData->ScreenSize[LODIndex].GetValueForFeatureLevel(GetScene().GetFeatureLevel());
 }
 
 /**
@@ -1609,7 +1642,13 @@ float FStaticMeshSceneProxy::GetScreenSize( int32 LODIndex ) const
  */
 int32 FStaticMeshSceneProxy::GetLOD(const FSceneView* View) const 
 {
-	if (ensureMsgf(RenderData, TEXT("StaticMesh [%s] missing RenderData."), StaticMesh ? *StaticMesh->GetName() : TEXT("None")))
+#if STATICMESH_ENABLE_DEBUG_RENDERING
+	const TCHAR* StaticMeshName = StaticMesh ? *StaticMesh->GetName() : TEXT("None");
+#else
+	const TCHAR* StaticMeshName = TEXT("Unknown");
+#endif
+
+	if (ensureMsgf(RenderData, TEXT("StaticMesh [%s] missing RenderData."), StaticMeshName))
 	{
 		int32 CVarForcedLODLevel = GetCVarForceLOD();
 
@@ -1621,7 +1660,7 @@ int32 FStaticMeshSceneProxy::GetLOD(const FSceneView* View) const
 
 		if (ForcedLodModel > 0)
 		{
-			return FMath::Clamp(ForcedLodModel, 1, RenderData->LODResources.Num()) - 1;
+			return FMath::Clamp(ForcedLodModel, ClampedMinLOD + 1, RenderData->LODResources.Num()) - 1;
 		}
 	}
 
@@ -1640,7 +1679,13 @@ FLODMask FStaticMeshSceneProxy::GetLODMask(const FSceneView* View) const
 {
 	FLODMask Result;
 
-	if (!ensureMsgf(RenderData, TEXT("StaticMesh [%s] missing RenderData."), StaticMesh ? *StaticMesh->GetName() : TEXT("None")))
+#if STATICMESH_ENABLE_DEBUG_RENDERING
+	const TCHAR* StaticMeshName = StaticMesh ? *StaticMesh->GetName() : TEXT("None");
+#else
+	const TCHAR* StaticMeshName = TEXT("Unknown");
+#endif
+
+	if (!ensureMsgf(RenderData, TEXT("StaticMesh [%s] missing RenderData."), StaticMeshName))
 	{
 		Result.SetLOD(0);
 	}
@@ -1651,7 +1696,7 @@ FLODMask FStaticMeshSceneProxy::GetLODMask(const FSceneView* View) const
 		//If a LOD is being forced, use that one
 		if (CVarForcedLODLevel >= 0)
 		{
-			Result.SetLOD(FMath::Clamp<int32>(CVarForcedLODLevel, 0, RenderData->LODResources.Num() - 1));
+			Result.SetLOD(FMath::Clamp<int32>(CVarForcedLODLevel, ClampedMinLOD, RenderData->LODResources.Num() - 1));
 		}
 		else if (View->DrawDynamicFlags & EDrawDynamicFlags::ForceLowestLOD)
 		{
@@ -1659,7 +1704,7 @@ FLODMask FStaticMeshSceneProxy::GetLODMask(const FSceneView* View) const
 		}
 		else if (ForcedLodModel > 0)
 		{
-			Result.SetLOD(FMath::Clamp(ForcedLodModel, 1, RenderData->LODResources.Num()) - 1);
+			Result.SetLOD(FMath::Clamp(ForcedLodModel, ClampedMinLOD + 1, RenderData->LODResources.Num()) - 1);
 		}
 #if WITH_EDITOR
 		else if (View->Family && View->Family->EngineShowFlags.LOD == 0)
@@ -1713,16 +1758,19 @@ FLODMask FStaticMeshSceneProxy::GetLODMask(const FSceneView* View) const
 
 FPrimitiveSceneProxy* UStaticMeshComponent::CreateSceneProxy()
 {
-	if(GetStaticMesh() == NULL
-		|| GetStaticMesh()->RenderData == NULL
-		|| GetStaticMesh()->RenderData->LODResources.Num() == 0
-		|| GetStaticMesh()->RenderData->LODResources[0].VertexBuffers.StaticMeshVertexBuffer.GetNumVertices() == 0)
+	if (GetStaticMesh() == nullptr || GetStaticMesh()->RenderData == nullptr)
 	{
-		return NULL;
+		return nullptr;
+	}
+
+	const TIndirectArray<FStaticMeshLODResources>& LODResources = GetStaticMesh()->RenderData->LODResources;
+	if (LODResources.Num() == 0	|| LODResources[FMath::Clamp<int32>(GetStaticMesh()->MinLOD.Default, 0, LODResources.Num()-1)].VertexBuffers.StaticMeshVertexBuffer.GetNumVertices() == 0)
+	{
+		return nullptr;
 	}
 
 	FPrimitiveSceneProxy* Proxy = ::new FStaticMeshSceneProxy(this, false);
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if STATICMESH_ENABLE_DEBUG_RENDERING
 	SendRenderDebugPhysics(Proxy);
 #endif
 

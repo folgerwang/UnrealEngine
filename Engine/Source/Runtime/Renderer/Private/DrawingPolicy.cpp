@@ -105,7 +105,7 @@ void FMeshDrawingPolicy::DrawMesh(FRHICommandList& RHICmdList, const FSceneView&
 					{
 						const uint32 InstanceCount = (1 + BatchElement.InstanceRuns[Run * 2 + 1] - BatchElement.InstanceRuns[Run * 2]);
 						SetInstanceParameters(RHICmdList, View, BatchElement.BaseVertexIndex, 0, InstanceCount);
-						GetVertexFactory()->OffsetPositionInstanceStreams(RHICmdList, BatchElement.InstanceRuns[Run * 2]);
+						Mesh.VertexFactory->OffsetPositionInstanceStreams(RHICmdList, BatchElement.InstanceRuns[Run * 2]);
 
 						RHICmdList.DrawIndexedPrimitive(
 							BatchElement.IndexBuffer->IndexBufferRHI,
@@ -125,7 +125,7 @@ void FMeshDrawingPolicy::DrawMesh(FRHICommandList& RHICmdList, const FSceneView&
 					{
 						uint32 InstanceCount = (1 + BatchElement.InstanceRuns[Run * 2 + 1] - BatchElement.InstanceRuns[Run * 2]);
 						SetInstanceParameters(RHICmdList, View, BatchElement.BaseVertexIndex, 0, InstanceCount);
-						GetVertexFactory()->OffsetInstanceStreams(RHICmdList, BatchElement.InstanceRuns[Run * 2]);
+						Mesh.VertexFactory->OffsetInstanceStreams(RHICmdList, BatchElement.InstanceRuns[Run * 2]);
 
 						RHICmdList.DrawIndexedPrimitive(
 							BatchElement.IndexBuffer->IndexBufferRHI,

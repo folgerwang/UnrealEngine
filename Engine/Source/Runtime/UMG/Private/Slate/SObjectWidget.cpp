@@ -14,6 +14,14 @@ void SObjectWidget::Construct(const FArguments& InArgs, UUserWidget* InWidgetObj
 	[
 		InArgs._Content.Widget
 	];
+
+#if SLATE_VERBOSE_NAMED_EVENTS
+	if (WidgetObject)
+	{
+		DebugPaintEventName = WidgetObject->GetFullName() + TEXT("_Paint");
+		DebugTickEventName = WidgetObject->GetFullName() + TEXT("_Tick");
+	}
+#endif
 }
 
 SObjectWidget::~SObjectWidget(void)
@@ -38,6 +46,11 @@ void SObjectWidget::ResetWidget()
 		WidgetObject->ReleaseSlateResources(bReleaseChildren);
 
 		WidgetObject = nullptr;
+
+#if SLATE_VERBOSE_NAMED_EVENTS
+		DebugTickEventName = TEXT("");
+		DebugPaintEventName = TEXT("");
+#endif
 	}
 
 	// Remove slate widget from our container
@@ -59,6 +72,10 @@ void SObjectWidget::SetPadding(const TAttribute<FMargin>& InMargin)
 
 void SObjectWidget::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
+#if SLATE_VERBOSE_NAMED_EVENTS
+	FScopedNamedEvent TickEvent(FColor::Turquoise, *DebugTickEventName);
+#endif
+
 #if WITH_VERY_VERBOSE_SLATE_STATS
 	FScopeCycleCounterUObject NativeFunctionScope(WidgetObject);
 #endif
@@ -71,6 +88,10 @@ void SObjectWidget::Tick( const FGeometry& AllottedGeometry, const double InCurr
 
 int32 SObjectWidget::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
 {
+#if SLATE_VERBOSE_NAMED_EVENTS
+	FScopedNamedEvent PaintEvent(FColor::Silver, *DebugPaintEventName);
+#endif
+
 #if WITH_VERY_VERBOSE_SLATE_STATS
 	FScopeCycleCounterUObject NativeFunctionScope(WidgetObject);
 #endif
@@ -79,10 +100,7 @@ int32 SObjectWidget::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGe
 
 	if ( CanRouteEvent() )
 	{
-		FPaintContext Context(AllottedGeometry, MyCullingRect, OutDrawElements, MaxLayer, InWidgetStyle, bParentEnabled);
-		WidgetObject->NativePaint(Context);
-
-		return FMath::Max(MaxLayer, Context.MaxLayer);
+		return WidgetObject->NativePaint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, MaxLayer, InWidgetStyle, bParentEnabled);
 	}
 	
 	return MaxLayer;

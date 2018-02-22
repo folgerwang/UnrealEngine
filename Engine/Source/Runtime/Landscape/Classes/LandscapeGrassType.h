@@ -98,6 +98,10 @@ struct FGrassVariety
 	UPROPERTY(EditAnywhere, Category = Grass)
 	bool bReceivesDecals;
 
+	/** Whether the grass should cast shadows when using non-precomputed shadowing. **/
+	UPROPERTY(EditAnywhere, Category = Grass)
+	bool bCastDynamicShadow;
+
 	FGrassVariety()
 		: GrassMesh(nullptr)
 		, GrassDensity(400)
@@ -114,6 +118,7 @@ struct FGrassVariety
 		, AlignToSurface(true)
 		, bUseLandscapeLightmap(false)
 		, bReceivesDecals(true)
+		, bCastDynamicShadow(true)
 	{
 	}
 };
@@ -125,6 +130,13 @@ class ULandscapeGrassType : public UObject
 
 	UPROPERTY(EditAnywhere, Category = Grass)
 	TArray<FGrassVariety> GrassVarieties;
+
+	/**
+	* Whether this grass type should be affected by the Engine Scalability system's Foliage grass.DensityScale setting. 
+	* This is enabled by default but can be disabled should this grass type be important for gameplay reasons.
+	*/
+	UPROPERTY(EditAnywhere, Category = Scalability)
+	uint32 bEnableDensityScaling : 1;
 
 	UPROPERTY()
 	UStaticMesh* GrassMesh_DEPRECATED;

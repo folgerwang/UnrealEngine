@@ -23,9 +23,12 @@ struct CORE_API FAndroidPlatformMemory : public FGenericPlatformMemory
 	static void Init();
 	static FPlatformMemoryStats GetStats();
 	static const FPlatformMemoryConstants& GetConstants();
+	static EPlatformMemorySizeBucket GetMemorySizeBucket();
 	static FMalloc* BaseAllocator();
 	static void* BinnedAllocFromOS( SIZE_T Size );
 	static void BinnedFreeToOS( void* Ptr, SIZE_T Size );
+
+	static bool GetLLMAllocFunctions(void*(*&OutAllocFunction)(size_t), void(*&OutFreeFunction)(void*, size_t), int32& OutAlignment);
 	//~ End FGenericPlatformMemory Interface
 };
 

@@ -103,9 +103,13 @@ protected:
 	UUserWidget* WidgetObject;
 
 private:
-
 	FORCEINLINE bool CanRouteEvent() const
 	{
 		return WidgetObject && WidgetObject->CanSafelyRouteEvent();
 	}
+
+#if SLATE_VERBOSE_NAMED_EVENTS
+	FString DebugTickEventName;
+	FString DebugPaintEventName;
+#endif
 };

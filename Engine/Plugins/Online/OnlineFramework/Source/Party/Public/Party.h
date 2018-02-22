@@ -445,14 +445,14 @@ protected:
 	 */
 	virtual bool ShouldTryRejoiningPersistentParty(const FRejoinableParty& InRejoinableParty);
 
+	/** Array of leave persistent party delegates gathered while already leaving a persistent party */
+	TArray<UPartyDelegates::FOnLeaveUPartyComplete> LeavePartyCompleteDelegates;
 
 private:
 
 	/** Is leaving the persistent party already in flight */
 	UPROPERTY()
 	bool bLeavingPersistentParty;
-	/** Array of leave persistent party delegates gathered while already leaving a persistent party */
-	TArray<UPartyDelegates::FOnLeaveUPartyComplete> LeavePartyCompleteDelegates;
 	/** Id of the current persistent party, only one and it should always be valid except while transferring between parties */
 	TSharedPtr<const FOnlinePartyId> PersistentPartyId;
 	/** Mapping of all known joined parties */

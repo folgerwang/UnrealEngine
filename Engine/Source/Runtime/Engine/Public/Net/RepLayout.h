@@ -81,6 +81,76 @@ public:
 };
 
 class FRepLayout;
+class FRepLayoutCmd;
+
+/** FRepSerializedPropertyInfo
+ * Holds the unique identifier and offsets/lengths of a net serialized property
+ */
+struct FRepSerializedPropertyInfo
+{
+	FRepSerializedPropertyInfo()
+		: BitOffset(0)
+		, BitLength(0)
+		, PropBitOffset(0)
+		, PropBitLength(0)
+	{}
+
+	FGuid Guid;				// unique identifier for this property, may include array index and depth
+	int32 BitOffset;		// bit offset into shared buffer of the shared data
+	int32 BitLength;		// length in bits of all serialized data for this property, may include handle and checksum
+	int32 PropBitOffset;	// bit offset into shared buffer of the property data
+	int32 PropBitLength;	// length in bits of net serialized property data only
+};
+
+/** FRepSerializationSharedInfo
+ * Holds a set of shared net serialized properties
+ */
+struct FRepSerializationSharedInfo
+{
+	FRepSerializationSharedInfo()
+		: SerializedProperties(MakeUnique<FNetBitWriter>(0))
+		, bIsValid(false)
+	{}
+
+	void SetValid()
+	{
+		bIsValid = true;
+	}
+
+	bool IsValid() const
+	{
+		return bIsValid;
+	}
+
+	void Reset()
+	{
+		if (bIsValid)
+		{
+			SharedPropertyInfo.Reset();
+			SerializedProperties->Reset();
+
+			bIsValid = false;
+		}
+	}
+
+	const FRepSerializedPropertyInfo* WriteSharedProperty(
+		const FRepLayoutCmd&	Cmd,
+		const FGuid&			PropertyGuid,
+		const int32				CmdIndex,
+		const uint16			Handle,
+		const uint8* RESTRICT	Data,
+		const bool				bWriteHandle,
+		const bool				bDoChecksum);
+
+	// Metadata for properties in the shared data blob
+	TArray<FRepSerializedPropertyInfo> SharedPropertyInfo;
+
+	// Binary blob of net serialized data to be shared
+	TUniquePtr<FNetBitWriter>	SerializedProperties;
+
+private:
+	bool bIsValid;
+};
 
 class FRepChangedHistory
 {
@@ -143,6 +213,7 @@ public:
 	int32											CompareIndex;
 
 	FRepStateStaticBuffer							StaticBuffer;
+	FRepSerializationSharedInfo						SharedSerialization;
 };
 
 /** FRepState
@@ -196,39 +267,42 @@ public:
 	bool							ConditionMap[COND_Max];
 };
 
-enum ERepLayoutCmdType
+enum class ERepLayoutCmdType : uint8
 {
-	REPCMD_DynamicArray			= 0,	// Dynamic array
-	REPCMD_Return				= 1,	// Return from array, or end of stream
-	REPCMD_Property				= 2,	// Generic property
+	DynamicArray			= 0,	// Dynamic array
+	Return					= 1,	// Return from array, or end of stream
+	Property				= 2,	// Generic property
 
-	REPCMD_PropertyBool			= 3,
-	REPCMD_PropertyFloat		= 4,
-	REPCMD_PropertyInt			= 5,
-	REPCMD_PropertyByte			= 6,
-	REPCMD_PropertyName			= 7,
-	REPCMD_PropertyObject		= 8,
-	REPCMD_PropertyUInt32		= 9,
-	REPCMD_PropertyVector		= 10,
-	REPCMD_PropertyRotator		= 11,
-	REPCMD_PropertyPlane		= 12,
-	REPCMD_PropertyVector100	= 13,
-	REPCMD_PropertyNetId		= 14,
-	REPCMD_RepMovement			= 15,
-	REPCMD_PropertyVectorNormal	= 16,
-	REPCMD_PropertyVector10		= 17,
-	REPCMD_PropertyVectorQ		= 18,
-	REPCMD_PropertyString		= 19,
-	REPCMD_PropertyUInt64		= 20,
+	PropertyBool			= 3,
+	PropertyFloat			= 4,
+	PropertyInt				= 5,
+	PropertyByte			= 6,
+	PropertyName			= 7,
+	PropertyObject			= 8,
+	PropertyUInt32			= 9,
+	PropertyVector			= 10,
+	PropertyRotator			= 11,
+	PropertyPlane			= 12,
+	PropertyVector100		= 13,
+	PropertyNetId			= 14,
+	RepMovement				= 15,
+	PropertyVectorNormal	= 16,
+	PropertyVector10		= 17,
+	PropertyVectorQ			= 18,
+	PropertyString			= 19,
+	PropertyUInt64			= 20,
 };
 
-enum ERepParentFlags
+enum class ERepParentFlags : uint32
 {
-	PARENT_IsLifetime			= ( 1 << 0 ),
-	PARENT_IsConditional		= ( 1 << 1 ),		// True if this property has a secondary condition to check
-	PARENT_IsConfig				= ( 1 << 2 ),		// True if this property is defaulted from a config file
-	PARENT_IsCustomDelta		= ( 1 << 3 )		// True if this property uses custom delta compression
+	None				= 0,
+	IsLifetime			= ( 1 << 0 ),
+	IsConditional		= ( 1 << 1 ),		// True if this property has a secondary condition to check
+	IsConfig			= ( 1 << 2 ),		// True if this property is defaulted from a config file
+	IsCustomDelta		= ( 1 << 3 )		// True if this property uses custom delta compression
 };
+
+ENUM_CLASS_FLAGS(ERepParentFlags)
 
 class FRepParentCmd
 {
@@ -241,7 +315,7 @@ public:
 		RoleSwapIndex( -1 ), 
 		Condition( COND_None ),
 		RepNotifyCondition(REPNOTIFY_OnChanged),
-		Flags( 0 )
+		Flags( ERepParentFlags::None )
 	{}
 
 	UProperty *			Property;
@@ -252,20 +326,29 @@ public:
 	ELifetimeCondition	Condition;
 	ELifetimeRepNotifyCondition	RepNotifyCondition;
 
-	uint32				Flags;
+	ERepParentFlags		Flags;
 };
+
+enum class ERepLayoutFlags : uint8
+{
+	None					= 0,
+	IsSharedSerialization	= ( 1 << 0 )
+};
+
+ENUM_CLASS_FLAGS(ERepLayoutFlags)
 
 class FRepLayoutCmd
 {
 public:
-	UProperty * Property;			// Pointer back to property, used for NetSerialize calls, etc.
-	uint8		Type;
-	uint16		EndCmd;				// For arrays, this is the cmd index to jump to, to skip this arrays inner elements
-	uint16		ElementSize;		// For arrays, element size of data
-	int32		Offset;				// Absolute offset of property
-	uint16		RelativeHandle;		// Handle relative to start of array, or top list
-	uint16		ParentIndex;		// Index into Parents
-	uint32		CompatibleChecksum;	// Used to determine if property is still compatible
+	UProperty *			Property;			// Pointer back to property, used for NetSerialize calls, etc.
+	uint16				EndCmd;				// For arrays, this is the cmd index to jump to, to skip this arrays inner elements
+	uint16				ElementSize;		// For arrays, element size of data
+	int32				Offset;				// Absolute offset of property
+	uint16				RelativeHandle;		// Handle relative to start of array, or top list
+	uint16				ParentIndex;		// Index into Parents
+	uint32				CompatibleChecksum;	// Used to determine if property is still compatible
+	ERepLayoutCmdType	Type;
+	ERepLayoutFlags		Flags;
 };
 	
 /** FHandleToCmdIndex
@@ -402,9 +485,10 @@ public:
 		const uint8* RESTRICT		Data,
 		UClass*						ObjectClass,
 		FNetBitWriter&				Writer,
-		TArray< uint16 >&			Changed ) const;
+		TArray< uint16 >&			Changed,
+		const FRepSerializationSharedInfo& SharedInfo) const;
 
-	ENGINE_API void InitFromObjectClass( UClass * InObjectClass );
+	ENGINE_API void InitFromObjectClass( UClass * InObjectClass, const UNetConnection* ServerConnection = nullptr );
 
 	bool ReceiveProperties( UActorChannel* OwningChannel, UClass * InObjectClass, FRepState * RESTRICT RepState, void* RESTRICT Data, FNetBitReader & InBunch, bool & bOutHasUnmapped, const bool bEnableRepNotifies, bool& bOutGuidsChanged ) const;
 
@@ -420,7 +504,7 @@ public:
 	bool AllAcked( FRepState * RepState ) const;
 	bool ReadyForDormancy( FRepState * RepState ) const;
 
-	void ValidateWithChecksum( const void* RESTRICT Data, FArchive & Ar ) const;
+	void ValidateWithChecksum( const void* RESTRICT Data, FBitArchive & Ar ) const;
 	uint32 GenerateChecksum( const FRepState* RepState ) const;
 
 	/** Clamp the changelist so that it conforms to the current size of either the array, or arrays within structs/arrays */
@@ -433,16 +517,22 @@ public:
 	void GetLifetimeCustomDeltaProperties(TArray< int32 > & OutCustom, TArray< ELifetimeCondition >	& OutConditions);
 
 	// RPC support
-	void InitFromFunction( UFunction * InFunction );
+	void InitFromFunction( UFunction * InFunction, const UNetConnection* ServerConnection = nullptr );
 	void SendPropertiesForRPC( UObject* Object, UFunction * Function, UActorChannel * Channel, FNetBitWriter & Writer, void* Data ) const;
 	void ReceivePropertiesForRPC( UObject* Object, UFunction * Function, UActorChannel * Channel, FNetBitReader & Reader, void* Data, TSet<FNetworkGUID>& UnmappedGuids) const;
 
+	// Builds shared serialization state for a multicast rpc
+	void BuildSharedSerializationForRPC( void* Data );
+
+	// Clears shared serialization state for a multicast rpc
+	void ClearSharedSerializationForRPC();
+
 	// Struct support
-	void SerializePropertiesForStruct( UStruct * Struct, FArchive & Ar, UPackageMap	* Map, void* Data, bool & bHasUnmapped ) const;	
-	void InitFromStruct( UStruct * InStruct );
+	void SerializePropertiesForStruct( UStruct * Struct, FBitArchive & Ar, UPackageMap	* Map, void* Data, bool & bHasUnmapped ) const;	
+	void InitFromStruct( UStruct * InStruct, const UNetConnection* ServerConnection = nullptr );
 
 	// Serializes all replicated properties of a UObject in or out of an archive (depending on what type of archive it is)
-	ENGINE_API void SerializeObjectReplicatedProperties(UObject* Object, FArchive & Ar) const;
+	ENGINE_API void SerializeObjectReplicatedProperties(UObject* Object, FBitArchive & Ar) const;
 
 	UObject* GetOwner() const { return Owner; }
 
@@ -500,7 +590,9 @@ private:
 		FNetBitWriter&						Writer,
 		const bool							bDoChecksum,
 		FRepHandleIterator&					HandleIterator,
-		const uint8* RESTRICT				SourceData ) const;
+		const uint8* RESTRICT				SourceData,
+		const int32							ArrayDepth,
+		const FRepSerializationSharedInfo&	SharedInfo ) const;
 
 	uint16 CompareProperties_r(
 		const int32				CmdStart,
@@ -520,6 +612,23 @@ private:
 		const uint16			Handle,
 		const bool				bIsInitial,
 		const bool				bForceFail ) const;
+
+	void BuildSharedSerialization(
+		const uint8* RESTRICT		Data,
+		TArray< uint16 >&			Changed,
+		const bool					bWriteHandle,
+		FRepSerializationSharedInfo& SharedInfo ) const;
+
+	void BuildSharedSerialization_r(
+		FRepHandleIterator&		RepHandleIterator,
+		const uint8* RESTRICT	SourceData,
+		const bool				bWriteHandle,
+		const bool				bDoChecksum,
+		const int32				ArrayDepth,
+		FRepSerializationSharedInfo& SharedInfo ) const;
+
+	void BuildSharedSerializationForRPC_DynamicArray_r( const int32 CmdIndex, uint8 * Data, int32 AarayDepth, FRepSerializationSharedInfo& SharedInfo );
+	void BuildSharedSerializationForRPC_r( const int32 CmdStart, const int32 CmdEnd, void * Data, int32 ArrayIndex, int32 ArrayDepth, FRepSerializationSharedInfo& SharedInfo );
 
 	TSharedPtr< FNetFieldExportGroup > CreateNetfieldExportGroup() const;
 
@@ -553,8 +662,8 @@ private:
 		bool&					bOutSomeObjectsWereMapped,
 		bool&					bOutHasMoreUnmapped ) const;
 
-	void ValidateWithChecksum_DynamicArray_r( const FRepLayoutCmd& Cmd, const int32 CmdIndex, const uint8* RESTRICT Data, FArchive & Ar ) const;
-	void ValidateWithChecksum_r( const int32 CmdStart, const int32 CmdEnd, const uint8* RESTRICT Data, FArchive & Ar ) const;
+	void ValidateWithChecksum_DynamicArray_r( const FRepLayoutCmd& Cmd, const int32 CmdIndex, const uint8* RESTRICT Data, FBitArchive & Ar ) const;
+	void ValidateWithChecksum_r( const int32 CmdStart, const int32 CmdEnd, const uint8* RESTRICT Data, FBitArchive & Ar ) const;
 
 	void SanityCheckChangeList_DynamicArray_r( 
 		const int32				CmdIndex, 
@@ -574,26 +683,31 @@ private:
 
 	uint16 AddParentProperty( UProperty * Property, int32 ArrayIndex );
 
-	int32 InitFromProperty_r( UProperty * Property, int32 Offset, int32 RelativeHandle, int32 ParentIndex, uint32 ParentChecksum, int32 StaticArrayIndex );
+	int32 InitFromProperty_r( UProperty * Property, int32 Offset, int32 RelativeHandle, int32 ParentIndex, uint32 ParentChecksum, int32 StaticArrayIndex, const UNetConnection* ServerConnection );
 
-	uint32 AddPropertyCmd( UProperty * Property, int32 Offset, int32 RelativeHandle, int32 ParentIndex, uint32 ParentChecksum, int32 StaticArrayIndex );
-	uint32 AddArrayCmd( UArrayProperty * Property, int32 Offset, int32 RelativeHandle, int32 ParentIndex, uint32 ParentChecksum, int32 StaticArrayIndex );
+	uint32 AddPropertyCmd( UProperty * Property, int32 Offset, int32 RelativeHandle, int32 ParentIndex, uint32 ParentChecksum, int32 StaticArrayIndex, const UNetConnection* ServerConnection );
+	uint32 AddArrayCmd( UArrayProperty * Property, int32 Offset, int32 RelativeHandle, int32 ParentIndex, uint32 ParentChecksum, int32 StaticArrayIndex, const UNetConnection* ServerConnection );
 	void AddReturnCmd();
 
 	void SerializeProperties_DynamicArray_r( 
-		FArchive &			Ar, 
+		FBitArchive &		Ar, 
 		UPackageMap	*		Map,
 		const int32			CmdIndex,
 		uint8 *				Data,
-		bool &				bHasUnmapped ) const;
+		bool &				bHasUnmapped,
+		const int32			ArrayDepth,
+		const FRepSerializationSharedInfo&	SharedInfo ) const;
 
 	void SerializeProperties_r( 
-		FArchive &			Ar, 
+		FBitArchive &		Ar, 
 		UPackageMap	*		Map,
 		const int32			CmdStart, 
 		const int32			CmdEnd, 
 		void *				Data,
-		bool &				bHasUnmapped ) const;
+		bool &				bHasUnmapped,
+		const int32			ArrayIndex,
+		const int32			ArrayDepth,
+		const FRepSerializationSharedInfo&	SharedInfo ) const;
 
 	void MergeChangeList_r(
 		FRepHandleIterator&		RepHandleIterator1,
@@ -624,4 +738,7 @@ private:
 	int32						RemoteRoleIndex;
 
 	UObject *					Owner;						// Either a UCkass or UFunction
+
+	FRepSerializationSharedInfo	SharedInfoRPC;					// Shared serialization state for a multicast rpc
+	TBitArray<>					SharedInfoRPCParentsChanged;	// Shared comparison to default state for multicast rpc
 };

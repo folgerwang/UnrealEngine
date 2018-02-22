@@ -12,6 +12,8 @@
 #include "LobbyBeaconPlayerState.h"
 #include "OnlineSubsystemUtils.h"
 
+DEFINE_LOG_CATEGORY(LogLobbyBeacon);
+
 
 ALobbyBeaconHost::ALobbyBeaconHost(const FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer),
@@ -81,40 +83,48 @@ bool ALobbyBeaconHost::DoesSessionMatch(const FString& InSessionId) const
 
 ALobbyBeaconPlayerState* ALobbyBeaconHost::HandlePlayerLogin(ALobbyBeaconClient* ClientActor, const FUniqueNetIdRepl& InUniqueId, const FString& Options)
 {
-	UWorld* World = GetWorld();
-	check(World);
-
-	FString NewPlayerName = UGameplayStatics::ParseOption(Options, TEXT("Name")).Left(20);
-	if (NewPlayerName.IsEmpty())
+	if (LobbyState != nullptr)
 	{
-		NewPlayerName = TEXT("UnknownUser");
-	}
+		UWorld* World = GetWorld();
+		check(World);
 
-	FString InGameAccountId = UGameplayStatics::ParseOption(Options, TEXT("GameAccountId"));
-	FString InAuthTicket = UGameplayStatics::ParseOption(Options, TEXT("AuthTicket"));
-	UE_LOG(LogOnlineGame, Log, TEXT("Lobby beacon received GameAccountId and AuthTicket from client for player: UniqueId:[%s] GameAccountId=[%s]"),
-		InUniqueId.IsValid() ? *InUniqueId->ToString() : TEXT("-invalid-"),
-		*InGameAccountId);
-
-	if (GetNetMode() != NM_Standalone)
-	{
-		IOnlineSessionPtr SessionInt = Online::GetSessionInterface(World);
-		if (SessionInt.IsValid() && InUniqueId.IsValid())
+		FString NewPlayerName = UGameplayStatics::ParseOption(Options, TEXT("Name")).Left(20);
+		if (NewPlayerName.IsEmpty())
 		{
-			// Register the player as part of the session
-			bool bWasFromInvite = UGameplayStatics::HasOption(Options, TEXT("bIsFromInvite"));
-			SessionInt->RegisterPlayer(NAME_GameSession, *InUniqueId, bWasFromInvite);
+			NewPlayerName = TEXT("UnknownUser");
 		}
-	}
 
-	FText DisplayName = FText::FromString(NewPlayerName);
-	ALobbyBeaconPlayerState* NewLobbyPlayer = LobbyState->AddPlayer(DisplayName, InUniqueId);
-	return NewLobbyPlayer;
+		FString InGameAccountId = UGameplayStatics::ParseOption(Options, TEXT("GameAccountId"));
+		FString InAuthTicket = UGameplayStatics::ParseOption(Options, TEXT("AuthTicket"));
+		UE_LOG(LogLobbyBeacon, Log, TEXT("Lobby beacon received GameAccountId and AuthTicket from client for player: UniqueId:[%s] GameAccountId=[%s]"),
+			InUniqueId.IsValid() ? *InUniqueId->ToString() : TEXT("-invalid-"),
+			*InGameAccountId);
+
+		if (GetNetMode() != NM_Standalone)
+		{
+			IOnlineSessionPtr SessionInt = Online::GetSessionInterface(World);
+			if (SessionInt.IsValid() && InUniqueId.IsValid())
+			{
+				// Register the player as part of the session
+				bool bWasFromInvite = UGameplayStatics::HasOption(Options, TEXT("bIsFromInvite"));
+				SessionInt->RegisterPlayer(NAME_GameSession, *InUniqueId, bWasFromInvite);
+			}
+		}
+
+		FText DisplayName = FText::FromString(NewPlayerName);
+		ALobbyBeaconPlayerState* NewLobbyPlayer = LobbyState->AddPlayer(DisplayName, InUniqueId);
+		return NewLobbyPlayer;
+	}
+	else
+	{
+		UE_LOG(LogLobbyBeacon, Warning, TEXT("No lobby state to handle user logging in!"));
+		return nullptr;
+	}
 }
 
 void ALobbyBeaconHost::ProcessLogin(ALobbyBeaconClient* ClientActor, const FString& InSessionId, const FUniqueNetIdRepl& InUniqueId, const FString& UrlString)
 {
-	UE_LOG(LogBeacon, Verbose, TEXT("ProcessLogin %s SessionId %s %s %s from (%s)"),
+	UE_LOG(LogLobbyBeacon, Verbose, TEXT("ProcessLogin %s SessionId %s %s %s from (%s)"),
 		ClientActor ? *ClientActor->GetName() : TEXT("NULL"),
 		*InSessionId,
 		*InUniqueId.ToString(),
@@ -202,23 +212,30 @@ void ALobbyBeaconHost::PostLogin(ALobbyBeaconClient* ClientActor)
 
 void ALobbyBeaconHost::KickPlayer(ALobbyBeaconClient* ClientActor, const FText& KickReason)
 {
-	UE_LOG(LogBeacon, Log, TEXT("KickPlayer for %s. PendingKill %d UNetConnection %s UNetDriver %s State %d"), *GetNameSafe(ClientActor), ClientActor->IsPendingKill(), *GetNameSafe(ClientActor->BeaconConnection), ClientActor->BeaconConnection ? *GetNameSafe(ClientActor->BeaconConnection->Driver) : TEXT("null"), ClientActor->BeaconConnection ? ClientActor->BeaconConnection->State : -1);
+	UE_LOG(LogLobbyBeacon, Log, TEXT("KickPlayer for %s. PendingKill %d UNetConnection %s UNetDriver %s State %d"), *GetNameSafe(ClientActor), ClientActor->IsPendingKill(), *GetNameSafe(ClientActor->BeaconConnection), ClientActor->BeaconConnection ? *GetNameSafe(ClientActor->BeaconConnection->Driver) : TEXT("null"), ClientActor->BeaconConnection ? ClientActor->BeaconConnection->State : -1);
 	ClientActor->ClientWasKicked(KickReason);
 	DisconnectClient(ClientActor);
 }
 
 void ALobbyBeaconHost::ProcessJoinServer(ALobbyBeaconClient* ClientActor)
 {
-	ALobbyBeaconPlayerState* Player = LobbyState->GetPlayer(ClientActor);
-	if (Player && Player->bInLobby)
+	if (LobbyState != nullptr)
 	{
-		Player->bInLobby = false;
-		ClientActor->AckJoiningServer();
+		ALobbyBeaconPlayerState* Player = LobbyState->GetPlayer(ClientActor);
+		if (Player && Player->bInLobby)
+		{
+			Player->bInLobby = false;
+			ClientActor->AckJoiningServer();
+		}
+		else
+		{
+			FString PlayerName = ClientActor ? (ClientActor->PlayerState ? *ClientActor->PlayerState->UniqueId.ToString() : TEXT("Unknown")) : TEXT("Unknown Client Actor");
+			UE_LOG(LogLobbyBeacon, Warning, TEXT("Player attempting to join server while not logged in %s Id: %s"), *GetName(), *PlayerName);
+		}
 	}
 	else
 	{
-		FString PlayerName = ClientActor ? (ClientActor->PlayerState ? *ClientActor->PlayerState->UniqueId.ToString() : TEXT("Unknown")) : TEXT("Unknown Client Actor");
-		UE_LOG(LogBeacon, Warning, TEXT("Player attempting to join server while not logged in %s Id: %s"), *GetName(), *PlayerName);
+		UE_LOG(LogLobbyBeacon, Warning, TEXT("No lobby state to handle user joining the game!"));
 	}
 }
 
@@ -304,7 +321,7 @@ void ALobbyBeaconHost::NotifyClientDisconnected(AOnlineBeaconClient* LeavingClie
 	}
 	else
 	{
-		UE_LOG(LogBeacon, Warning, TEXT("No lobby beacon state to handle disconnection!"));
+		UE_LOG(LogLobbyBeacon, Warning, TEXT("No lobby beacon state to handle disconnection!"));
 	}
 
 	Super::NotifyClientDisconnected(LeavingClientActor);
@@ -316,7 +333,7 @@ void ALobbyBeaconHost::AdvertiseSessionJoinability(const FJoinabilitySettings& S
 
 void ALobbyBeaconHost::DumpState() const
 {
-	UE_LOG(LogBeacon, Display, TEXT("Lobby Beacon: %s"), *GetBeaconType());
+	UE_LOG(LogLobbyBeacon, Display, TEXT("Lobby Beacon: %s"), *GetBeaconType());
 
 	if (LobbyState)
 	{

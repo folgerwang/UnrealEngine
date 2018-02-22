@@ -55,7 +55,7 @@ class UMaterialExpressionGetSharedInput : public UMaterialExpression
 	virtual uint32 GetOutputType(int32 OutputIndex) override;
 	virtual UTexture* GetReferencedTexture() override { return PreviewTexture; }
 	void GetEffectiveTextureData(class FMaterialCompiler* Compiler, UTexture*& EffectiveTexture, UMaterialExpression*& EffectiveExpression);
-#endif
 	virtual bool MatchesSearchQuery( const TCHAR* SearchQuery ) override;
+#endif
 	//~ End UMaterialExpression Interface
 };

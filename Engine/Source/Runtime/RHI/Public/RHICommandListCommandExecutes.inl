@@ -541,7 +541,7 @@ void FRHICommandBuildLocalUniformBuffer::Execute(FRHICommandListBase& CmdList)
 	check(WorkArea.Contents); 
 	if (WorkArea.ComputedUniformBuffer->UseCount)
 	{
-		WorkArea.ComputedUniformBuffer->UniformBuffer = RHICreateUniformBuffer(WorkArea.Contents, *WorkArea.Layout, UniformBuffer_SingleFrame); 
+		WorkArea.ComputedUniformBuffer->UniformBuffer = GDynamicRHI->RHICreateUniformBuffer(WorkArea.Contents, *WorkArea.Layout, UniformBuffer_SingleFrame);
 	}
 	WorkArea.Layout = nullptr;
 	WorkArea.Contents = nullptr;

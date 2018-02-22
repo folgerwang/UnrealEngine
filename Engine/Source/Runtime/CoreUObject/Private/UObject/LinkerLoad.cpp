@@ -4992,6 +4992,7 @@ bool FLinkerLoad::FinishExternalReadDependencies(double InTimeLimit)
 {
 	double LocalStartTime = FPlatformTime::Seconds();
 	double RemainingTime = InTimeLimit;
+	const int32 Granularity = 5;
 	
 	while (ExternalReadDependencies.Num())
 	{
@@ -5007,16 +5008,17 @@ bool FLinkerLoad::FinishExternalReadDependencies(double InTimeLimit)
 		}
 
 		// Update remaining time
-		if (RemainingTime > 0.0)
+		if (InTimeLimit > 0.0 && (ExternalReadDependencies.Num() % Granularity) == 0)
 		{
-			RemainingTime-= (FPlatformTime::Seconds() - LocalStartTime);
+			RemainingTime = InTimeLimit - (FPlatformTime::Seconds() - LocalStartTime);
 			if (RemainingTime <= 0.0)
 			{
 				return false;
 			}
 		}
 	}
-	return true;
+
+	return (ExternalReadDependencies.Num() == 0);
 }
 
 #if WITH_EDITORONLY_DATA

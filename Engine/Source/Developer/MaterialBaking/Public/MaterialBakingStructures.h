@@ -25,11 +25,20 @@ struct FMaterialData
 struct FMeshData
 {
 	FMeshData()
-		: RawMesh(nullptr), TextureCoordinateIndex(0), LightMapIndex(0), LightMap(nullptr)
+		: RawMesh(nullptr), Mesh(nullptr), bMirrored(false), VertexColorHash(0), TextureCoordinateIndex(0), LightMapIndex(0), LightMap(nullptr)
 	{}
 
 	/** Ptr to raw mesh data to use for baking out the material data, if nullptr a standard quad is used */
 	FRawMesh* RawMesh;
+
+	/** Ptr to original static mesh this mesh data came from */
+	UStaticMesh* Mesh;
+
+	/** Transform determinant used to detect mirroring */
+	bool bMirrored;
+
+	/** A hash of the vertex color buffer for the rawmesh */
+	uint32 VertexColorHash;
 
 	/** Material indices to test the Raw Mesh data against, ensuring we only bake out triangles which use the currently baked out material */
 	TArray<int32> MaterialIndices;

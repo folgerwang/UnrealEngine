@@ -37,6 +37,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	UGridSlot* AddChildToGrid(UWidget* Content);
 
+	UFUNCTION(BlueprintCallable, Category = "Widget")
+	void SetColumnFill(int32 ColumnIndex, float Coefficient);
+
+	UFUNCTION(BlueprintCallable, Category = "Widget")
+	void SetRowFill(int32 ColumnIndex, float Coefficient);
+
 public:
 
 	// UWidget interface

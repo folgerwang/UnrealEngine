@@ -37,7 +37,16 @@ public:
 	 * @param InDelegate Delegate to fire after the delay
 	 * @param InDelay Delay until next fire; 0 means "next frame"
 	 */
-	CORE_API FDelegateHandle AddTicker(const FTickerDelegate& InDelegate, float InDelay = 0.0f);
+	CORE_API FDelegateHandle AddTicker(const FTickerDelegate& InDelegate, float InDelay = 0.0f);	
+
+	/**
+	* Add a new ticker with a given delay / interval.
+	*
+	* @param InName Name of this ticker for profiling
+	* @param InDelay Delay until next fire; 0 means "next frame"
+	* @param Function Function to execute. Should return true to fire after another InDelay time
+	*/
+	CORE_API FDelegateHandle AddTicker(const TCHAR* InName, float InDelay, TFunction<bool(float)> Function);
 
 	/**
 	 * Removes a previously added ticker delegate.
@@ -60,6 +69,7 @@ public:
 	 * @param DeltaTime	time that has passed since the last tick call
 	 */
 	CORE_API void Tick(float DeltaTime);
+
 
 private:
 	/**

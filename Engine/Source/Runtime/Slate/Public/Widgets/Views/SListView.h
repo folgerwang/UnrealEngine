@@ -1356,6 +1356,7 @@ protected:
 			
 			if (bNavigateOnScrollIntoView && Widget.IsValid())
 			{
+				SelectorItem = NonNullItemToNotifyWhenInView;
 				NavigateToWidget(UserRequestingScrollIntoView, Widget->AsWidget());
 			}
 			bNavigateOnScrollIntoView = false;

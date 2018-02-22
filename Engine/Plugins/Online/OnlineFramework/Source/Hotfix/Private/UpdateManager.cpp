@@ -229,6 +229,13 @@ void UUpdateManager::StartPatchCheck()
 
 	SetUpdateState(EUpdateState::CheckingForPatch);
 
+	if (PLATFORM_ANDROID || PLATFORM_IOS)
+	{
+		UE_LOG(LogHotfixManager, Warning, TEXT("Mobile skipping hotfixes for now"));
+		PatchCheckComplete(EPatchCheckResult::NoPatchRequired);
+		return;
+	}
+
 	IOnlineSubsystem* PlatformOnlineSub = IOnlineSubsystem::GetByPlatform();
 	if (PlatformOnlineSub)
 	{
@@ -354,7 +361,12 @@ void UUpdateManager::OnCheckForPatchComplete(const FUniqueNetId& UniqueId, EUser
 			}
 			else if (PrivilegeResult & (uint32)IOnlineIdentity::EPrivilegeResults::GenericFailure)
 			{
-				Result = EPatchCheckResult::PatchCheckFailure;
+#if (PLATFORM_XBOXONE || PLATFORM_PS4)
+				// Skip console backend failures
+				Result = EPatchCheckResult::NoPatchRequired;
+#else
+				Result = EPatchCheckResult::PatchCheckFailure;	
+#endif
 			}
 		}
 	}
@@ -458,8 +470,18 @@ void UUpdateManager::PlatformEnvironmentCheck_OnLoginConsoleComplete(int32 Local
 		}
 		else
 		{
-			UE_LOG(LogHotfixManager, Warning, TEXT("Failed to detect online environment for the platform"));
-			CheckComplete(EUpdateCompletionStatus::UpdateFailure_NotLoggedIn);
+			if (Error.Contains(TEXT("com.epicgames.identity.notloggedin"), ESearchCase::IgnoreCase))
+			{
+				UE_LOG(LogHotfixManager, Warning, TEXT("Failed to detect online environment for the platform, no user signed in"));
+				CheckComplete(EUpdateCompletionStatus::UpdateFailure_NotLoggedIn);
+			}
+			else
+			{
+				// just a platform env error, assume production and keep going
+				UE_LOG(LogHotfixManager, Warning, TEXT("Failed to detect online environment for the platform"));
+				bPlatformEnvironmentDetected = true;
+				StartHotfixCheck();
+			}
 		}
 	}
 }

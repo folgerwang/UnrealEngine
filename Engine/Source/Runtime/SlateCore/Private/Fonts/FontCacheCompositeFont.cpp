@@ -393,15 +393,7 @@ TSharedPtr<FFreeTypeFace> FCompositeFontCache::GetFontFace(const FFontData& InFo
 
 			if (!LoadLogMessage.IsEmpty())
 			{
-				const bool bLogLoadAsWarning = GIsRunning && !GIsEditor;
-				if (bLogLoadAsWarning)
-				{
-					UE_LOG(LogSlate, Log, TEXT("%s"), *LoadLogMessage);
-				}
-				else
-				{
-					UE_LOG(LogSlate, Log, TEXT("%s"), *LoadLogMessage);
-				}
+				UE_LOG(LogSlate, Log, TEXT("%s"), *LoadLogMessage);
 			}
 		}
 		else

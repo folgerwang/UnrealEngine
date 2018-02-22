@@ -9,6 +9,9 @@
 #include "Engine/GameEngine.h"
 #include "GameFramework/PlayerController.h"
 #include "Engine/NetDriver.h"
+#include "Engine/NetConnection.h"
+#include "SocketSubsystem.h"
+#include "IPAddress.h"
 #include "OnlineSubsystemImpl.h"
 #include "OnlineSubsystemBPCallHelper.h"
 
@@ -42,7 +45,7 @@ UAudioComponent* CreateVoiceAudioComponent(uint32 SampleRate, int32 NumChannels)
 		if (FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice())
 		{
 			USoundWaveProcedural* SoundStreaming = NewObject<USoundWaveProcedural>();
-			SoundStreaming->SampleRate = SampleRate;
+			SoundStreaming->SetSampleRate(SampleRate);
 			SoundStreaming->NumChannels = NumChannels;
 			SoundStreaming->Duration = INDEFINITELY_LOOPING_DURATION;
 			SoundStreaming->SoundGroup = SOUNDGROUP_Voice;
@@ -217,23 +220,44 @@ int32 GetClientPeerIp(FName InstanceName, const FUniqueNetId& UserId)
 	return PeerIp;
 }
 
-bool HandleSessionCommands(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
+#if WITH_ENGINE
+uint64 GetBaseVoiceChatTeamId(UWorld* World)
 {
-	bool bWasHandled = true;
+	uint64 VoiceChatIdBase = 0;
 
-	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(InWorld);
-	if (SessionInt.IsValid())
+	UNetDriver* NetDriver = World ? GEngine->FindNamedNetDriver(World, NAME_GameNetDriver) : nullptr;
+	if (NetDriver)
 	{
-		if (FParse::Command(&Cmd, TEXT("DUMP")))
+		FString AddressStr = NetDriver->LowLevelGetNetworkNumber();
+		if (!AddressStr.IsEmpty())
 		{
-			SessionInt->DumpSessionState();
+			TSharedRef<FInternetAddr> LocalAddr = ISocketSubsystem::Get()->CreateInternetAddr();
+
+			bool bIsValid = false;
+			LocalAddr->SetIp(*AddressStr, bIsValid);
+			if (bIsValid)
+			{
+				uint32 OutAddr = 0;
+				LocalAddr->GetIp(OutAddr);
+				const uint32 ProcId = FPlatformProcess::GetCurrentProcessId();
+				// <32bit IP Addr> | <EmptySpace> | <24bit ProcessId>
+				VoiceChatIdBase = ((static_cast<uint64>(OutAddr) << 32) & 0xFFFFFFFF00000000);
+				VoiceChatIdBase |= (ProcId & 0x0000000000FFFFFF);
+			}
 		}
 	}
 
-	return bWasHandled;
+	return VoiceChatIdBase;
 }
 
-bool HandleVoiceCommands(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
+uint64 GetVoiceChatTeamId(uint64 VoiceChatIdBase, uint8 TeamIndex)
+{
+	// <32bit IP Addr> | <8bit team index> | <24bit ProcessId>
+	return VoiceChatIdBase | static_cast<uint64>(((TeamIndex << 24) & 0xFF000000));
+}
+#endif
+
+bool HandleVoiceCommands(IOnlineSubsystem* InOnlineSub, UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
 {
 	bool bWasHandled = true;
 
@@ -286,7 +310,7 @@ bool HandleVoiceCommands(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
 		FString VoiceDump;
 
 		bool bVoiceInterface = false;
-		IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(InWorld);
+		IOnlineVoicePtr VoiceInt = InOnlineSub->GetVoiceInterface();
 		if (VoiceInt.IsValid())
 		{
 			bVoiceInterface = true;
@@ -312,7 +336,7 @@ bool HandleVoiceCommands(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
 	}
 	else
 	{
-		IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(InWorld);
+		IOnlineVoicePtr VoiceInt = InOnlineSub->GetVoiceInterface();
 		if (VoiceInt.IsValid())
 		{
 		}
@@ -570,13 +594,9 @@ static bool OnlineExec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 					}
 #endif //WITH_DEV_AUTOMATION_TESTS
 				}
-				else if (FParse::Command(&Cmd, TEXT("SESSION")))
-				{
-					bWasHandled = HandleSessionCommands(InWorld, Cmd, Ar);
-				}
 				else if (FParse::Command(&Cmd, TEXT("VOICE")))
 				{
-					bWasHandled = HandleVoiceCommands(InWorld, Cmd, Ar);
+					bWasHandled = HandleVoiceCommands(OnlineSub, InWorld, Cmd, Ar);
 				}
 			}
 		}

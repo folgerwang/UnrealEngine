@@ -200,9 +200,17 @@ void FSkeletalMeshObjectGPUSkin::InitMorphResources(bool bInUsePerBoneMotionBlur
 	for( int32 LODIndex=0;LODIndex < LODs.Num();LODIndex++ )
 	{
 		FSkeletalMeshObjectLOD& SkelLOD = LODs[LODIndex];
-		// init any morph vertex buffers for each LOD
-		const FSkelMeshObjectLODInfo& MeshLODInfo = LODInfo[LODIndex];
-		SkelLOD.InitMorphResources(MeshLODInfo,bInUsePerBoneMotionBlur, FeatureLevel);
+
+		// Check the LOD render data for verts, if it's been stripped we don't create morph buffers
+		const int32 LodIndexInMesh = SkelLOD.LODIndex;
+		const FSkeletalMeshLODRenderData& RenderData = SkelLOD.SkelMeshRenderData->LODRenderData[LodIndexInMesh];
+
+		if(RenderData.GetNumVertices() > 0)
+		{
+			// init any morph vertex buffers for each LOD
+			const FSkelMeshObjectLODInfo& MeshLODInfo = LODInfo[LODIndex];
+			SkelLOD.InitMorphResources(MeshLODInfo, bInUsePerBoneMotionBlur, FeatureLevel);
+		}
 	}
 	bMorphResourcesInitialized = true;
 }
@@ -212,8 +220,16 @@ void FSkeletalMeshObjectGPUSkin::ReleaseMorphResources()
 	for( int32 LODIndex=0;LODIndex < LODs.Num();LODIndex++ )
 	{
 		FSkeletalMeshObjectLOD& SkelLOD = LODs[LODIndex];
-		// release morph vertex buffers and factories if they were created
-		SkelLOD.ReleaseMorphResources();
+
+		// Check the LOD render data for verts, if it's been stripped we don't create morph buffers, so shouldn't release them
+		const int32 LodIndexInMesh = SkelLOD.LODIndex;
+		const FSkeletalMeshLODRenderData& RenderData = SkelLOD.SkelMeshRenderData->LODRenderData[LodIndexInMesh];
+
+		if(RenderData.GetNumVertices() > 0)
+		{
+			// release morph vertex buffers and factories if they were created
+			SkelLOD.ReleaseMorphResources();
+		}
 	}
 
 	bMorphResourcesInitialized = false;
@@ -323,10 +339,11 @@ void FSkeletalMeshObjectGPUSkin::ProcessUpdatedDynamicData(FGPUSkinCache* GPUSki
 	// if hasn't been updated, force update again
 	bMorphNeedsUpdate = LOD.MorphVertexBuffer.bHasBeenUpdated ? bMorphNeedsUpdate : true;
 
-	bool bMorph = DynamicData->NumWeightedActiveMorphTargets > 0;
-
 	const FSkeletalMeshLODRenderData& LODData = SkeletalMeshRenderData->LODRenderData[DynamicData->LODIndex];
 	const TArray<FSkelMeshRenderSection>& Sections = GetRenderSections(DynamicData->LODIndex);
+
+	// Only consider morphs with active curves and data to deform.
+	const bool bMorph = DynamicData->NumWeightedActiveMorphTargets > 0 && LODData.GetNumVertices() > 0;
 
 	// use correct vertex factories based on alternate weights usage
 	FVertexFactoryData& VertexFactoryData = LOD.GPUSkinVertexFactories;

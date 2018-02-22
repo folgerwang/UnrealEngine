@@ -10,6 +10,7 @@
 #include "Stats/Stats.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/UObjectGlobals.h"
+#include "HAL/LowLevelMemTracker.h"
 
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("STAT_UObjectsStatGroupTester"), STAT_UObjectsStatGroupTester, STATGROUP_UObjects, COREUOBJECT_API);
 
@@ -30,7 +31,7 @@ class COREUOBJECT_API UObjectBase
 protected:
 	UObjectBase() :
 		 NamePrivate(NoInit)  // screwy, but the name was already set and we don't want to set it again
-#if ENABLE_STATNAMEDEVENTS
+#if ENABLE_STATNAMEDEVENTS_UOBJECT
 		, StatIDStringStorage(nullptr)
 #endif
 	{
@@ -143,7 +144,7 @@ public:
 			}
 			return StatID;
 		}
-#elif ENABLE_STATNAMEDEVENTS
+#elif ENABLE_STATNAMEDEVENTS_UOBJECT
 		if (!StatID.IsValidStat() && (bForDeferredUse || GCycleStatsShouldEmitNamedEvents))
 		{
 			CreateStatID();
@@ -159,7 +160,7 @@ private:
 	/** 
 	 * Creates this stat ID for the object...and handle a null this pointer
 	**/
-#if STATS || ENABLE_STATNAMEDEVENTS
+#if STATS || ENABLE_STATNAMEDEVENTS_UOBJECT
 	void CreateStatID() const;
 #endif
 
@@ -238,11 +239,11 @@ private:
 	UObject*						OuterPrivate;
 
 
-#if STATS || ENABLE_STATNAMEDEVENTS
+#if STATS || ENABLE_STATNAMEDEVENTS_UOBJECT
 	/** Stat id of this object, 0 if nobody asked for it yet */
 	mutable TStatId				StatID;
 
-#if ENABLE_STATNAMEDEVENTS
+#if ENABLE_STATNAMEDEVENTS_UOBJECT
 	mutable PROFILER_CHAR* StatIDStringStorage;
 #endif
 #endif // STATS || ENABLE_STATNAMEDEVENTS
@@ -324,6 +325,7 @@ struct TClassCompiledInDefer : public FFieldCompiledInInfo
 	}
 	virtual UClass* Register() const override
 	{
+        LLM_SCOPE(ELLMTag::UObject);
 		return TClass::StaticClass();
 	}
 	virtual const TCHAR* ClassPackage() const override

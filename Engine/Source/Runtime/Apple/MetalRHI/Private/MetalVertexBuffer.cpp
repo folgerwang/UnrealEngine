@@ -10,6 +10,7 @@
 #include "MetalCommandQueue.h"
 #include "Containers/ResourceArray.h"
 #include "RenderUtils.h"
+#include "HAL/LowLevelMemTracker.h"
 
 @implementation FMetalBufferData
 
@@ -70,7 +71,9 @@ FMetalVertexBuffer::FMetalVertexBuffer(uint32 InSize, uint32 InUsage)
 {
 	checkf(InSize <= 256 * 1024 * 1024, TEXT("Metal doesn't support buffers > 256 MB"));
 	
-	INC_DWORD_STAT_BY(STAT_MetalVertexMemAlloc, InSize);
+    LLM_SCOPE(ELLMTag::VertexBuffer);
+
+    INC_DWORD_STAT_BY(STAT_MetalVertexMemAlloc, InSize);
 
 	// Anything less than the buffer page size - currently 4Kb - is better off going through the set*Bytes API if available.
 	// These can't be used for shader resources or UAVs if we want to use the 'Linear Texture' code path - this is presently disabled so don't consider it
@@ -100,6 +103,8 @@ FMetalVertexBuffer::~FMetalVertexBuffer()
 {
 	INC_DWORD_STAT_BY(STAT_MetalVertexMemFreed, GetSize());
 
+    LLM_SCOPE(ELLMTag::VertexBuffer);
+    
 	for (TPair<EPixelFormat, id<MTLTexture>> Pair : LinearTextures)
 	{
 		SafeReleaseMetalObject(Pair.Value);
@@ -132,6 +137,8 @@ void FMetalVertexBuffer::Alloc(uint32 InSize)
 {
 	if (!Buffer)
 	{
+		LLM_SCOPE(ELLMTag::VertexBuffer);
+
 		// Zero-stride buffers must be separate in order to wrap appropriately
 		if(!(GetUsage() & BUF_ZeroStride))
 		{

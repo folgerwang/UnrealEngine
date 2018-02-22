@@ -17,7 +17,7 @@ class SLATE_API FSlateTextLayout : public FTextLayout
 {
 public:
 
-	static TSharedRef< FSlateTextLayout > Create(FTextBlockStyle InDefaultTextStyle);
+	static TSharedRef< FSlateTextLayout > Create(SWidget* InOwner, FTextBlockStyle InDefaultTextStyle);
 
 	FChildren* GetChildren();
 
@@ -36,7 +36,7 @@ public:
 
 protected:
 
-	FSlateTextLayout(FTextBlockStyle InDefaultTextStyle);
+	FSlateTextLayout(SWidget* InOwner, FTextBlockStyle InDefaultTextStyle);
 
 	virtual int32 OnPaintHighlights(const FPaintArgs& Args, const FTextLayout::FLineView& LineView, const TArray<FLineViewHighlight>& Highlights, const FTextBlockStyle& DefaultTextStyle, const FGeometry& AllottedGeometry, const FSlateRect& ClippingRect, FSlateWindowElementList& OutDrawElements, const int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const;
 

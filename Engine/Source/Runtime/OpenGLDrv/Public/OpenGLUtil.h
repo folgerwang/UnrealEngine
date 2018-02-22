@@ -5,6 +5,7 @@
 =============================================================================*/
 
 #pragma once
+#include "RHICommandList.h"
 
 /** Set to 1 to enable the ability to dump OpenGL frame debug functionality */
 #define ENABLE_OPENGL_FRAMEDUMP 0
@@ -12,6 +13,9 @@
 /** Set to 1 to enable the VERIFY_GL macros which call glGetError */
 #define ENABLE_VERIFY_GL (0 & UE_BUILD_DEBUG)
 #define ENABLE_VERIFY_GL_TRACE 0
+
+// Additional check that our GL calls are occurring on the expected thread
+#define ENABLE_VERIFY_GL_THREAD (DO_CHECK)
 
 /** Set to 1 to verify that the the engine side uniform buffer layout matches the driver side of the GLSL shader*/
 #define ENABLE_UNIFORM_BUFFER_LAYOUT_VERIFICATION ( 0 & UE_BUILD_DEBUG & (OPENGL_ESDEFERRED | OPENGL_GL3 | OPENGL_GL4))
@@ -55,12 +59,24 @@ FORCEINLINE GLenum GetOpenGLCubeFace(ECubeFace Face)
 	};
 }
 
+extern bool PlatformOpenGLContextValid();
+
+#if ENABLE_VERIFY_GL_THREAD
+	// check that the current thread has a valid context and matches our RT / RHIT expectations.
+	// Note that the game thread can access the shared context.
+	#define CHECK_EXPECTED_GL_THREAD() if(!(PlatformOpenGLContextValid() && (IsInGameThread() || ( (IsInRenderingThread() && !IsRunningRHIInSeparateThread()) || (IsInRHIThread() && IsRunningRHIInSeparateThread()) ))))\
+		{ \
+			UE_LOG(LogRHI, Fatal, TEXT("Potential use of GL context from incorrect thread."));\
+		}
+#else
+	#define CHECK_EXPECTED_GL_THREAD() 
+#endif
+
 #if ENABLE_VERIFY_GL
-	extern bool PlatformOpenGLContextValid();
 	extern int32 PlatformGlGetError();
 
 	void VerifyOpenGLResult(GLenum ErrorCode, const TCHAR* Msg1, const TCHAR* Msg2, const TCHAR* Filename, uint32 Line);
-	#define VERIFY_GL(msg) { GLenum ErrorCode = PlatformGlGetError(); if (ErrorCode != GL_NO_ERROR) { VerifyOpenGLResult(ErrorCode,TEXT(#msg),TEXT(""),TEXT(__FILE__),__LINE__); } }
+	#define VERIFY_GL(msg) { CHECK_EXPECTED_GL_THREAD(); GLenum ErrorCode = PlatformGlGetError(); if (ErrorCode != GL_NO_ERROR) { VerifyOpenGLResult(ErrorCode,TEXT(#msg),TEXT(""),TEXT(__FILE__),__LINE__); } }
 
 	struct FOpenGLErrorScope
 	{
@@ -106,7 +122,7 @@ FORCEINLINE GLenum GetOpenGLCubeFace(ECubeFace Face)
 	};
 	#define MACRO_TOKENIZER(IdentifierName, Msg, FileName, LineNumber) FOpenGLErrorScope IdentifierName_ ## LineNumber (Msg, FileName, LineNumber)
 	#define MACRO_TOKENIZER2(IdentifierName, Msg, FileName, LineNumber) MACRO_TOKENIZER(IdentiferName, Msg, FileName, LineNumber)
-	#define VERIFY_GL_SCOPE_WITH_MSG_STR(MsgStr) MACRO_TOKENIZER2(ErrorScope_, MsgStr, TEXT(__FILE__), __LINE__)
+	#define VERIFY_GL_SCOPE_WITH_MSG_STR(MsgStr) CHECK_EXPECTED_GL_THREAD(); MACRO_TOKENIZER2(ErrorScope_, MsgStr, TEXT(__FILE__), __LINE__)
 	#define VERIFY_GL_SCOPE() VERIFY_GL_SCOPE_WITH_MSG_STR(ANSI_TO_TCHAR(__FUNCTION__))
 	#define VERIFY_GL_FUNC(Func, ...) { VERIFY_GL_SCOPE_WITH_MSG_STR(TEXT(#Func)); Func(__VA_ARGS__); }
 
@@ -119,8 +135,8 @@ FORCEINLINE GLenum GetOpenGLCubeFace(ECubeFace Face)
 	#define glCompressedTexImage2D(...) VERIFY_GL_FUNC(glCompressedTexImage2D, __VA_ARGS__)
 
 #else
-	#define VERIFY_GL(...)
-	#define VERIFY_GL_SCOPE(...)
+	#define VERIFY_GL(...) CHECK_EXPECTED_GL_THREAD()
+	#define VERIFY_GL_SCOPE(...) CHECK_EXPECTED_GL_THREAD()
 #endif
 
 /** OpenGL frame dump debug functionality */
@@ -159,3 +175,18 @@ FORCEINLINE GLenum GetOpenGLCubeFace(ECubeFace Face)
 	#define INITIATE_GL_FRAME_DUMP_EVERY_X_CALLS( a )
 #endif
 
+struct FRHICommandGLCommand final : public FRHICommand<FRHICommandGLCommand>
+{
+	TFunction<void()> GLFunction;
+
+	FORCEINLINE_DEBUGGABLE FRHICommandGLCommand(TFunction<void()> InGLFunction)
+		: GLFunction(InGLFunction)
+	{}
+
+	void Execute(FRHICommandListBase& CmdList)
+	{
+		GLFunction();
+	}
+};
+
+void RunOnGLRenderContextThread(TFunction<void(void)> GLFunc);

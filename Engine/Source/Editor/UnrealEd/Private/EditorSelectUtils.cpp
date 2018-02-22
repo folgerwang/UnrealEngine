@@ -797,13 +797,11 @@ void UUnrealEdEngine::DeselectAllSurfaces()
 	if (World)
 	{
 		DeselectAllSurfacesForLevel(World->PersistentLevel);
-		for (int32 LevelIndex = 0; LevelIndex < World->StreamingLevels.Num(); ++LevelIndex)
+		for (ULevelStreaming* StreamingLevel: World->GetStreamingLevels())
 		{
-			ULevelStreaming* StreamingLevel = World->StreamingLevels[LevelIndex];
 			if (StreamingLevel)
 			{
-				ULevel* Level = StreamingLevel->GetLoadedLevel();
-				if (Level != NULL)
+				if (ULevel* Level = StreamingLevel->GetLoadedLevel())
 				{
 					DeselectAllSurfacesForLevel(Level);
 				}
@@ -875,13 +873,11 @@ void UUnrealEdEngine::SelectNone(bool bNoteSelectionChange, bool bDeselectBSPSur
 	{
 		// Unselect all surfaces in all levels.
 		NumDeselectSurfaces += DeselectAllSurfacesForLevel( World->PersistentLevel );
-		for( int32 LevelIndex = 0 ; LevelIndex < World->StreamingLevels.Num() ; ++LevelIndex )
+		for (ULevelStreaming* StreamingLevel : World->GetStreamingLevels())
 		{
-			ULevelStreaming* StreamingLevel = World->StreamingLevels[LevelIndex];
 			if( StreamingLevel )
 			{
-				ULevel* Level = StreamingLevel->GetLoadedLevel();
-				if ( Level != NULL )
+				if (ULevel* Level = StreamingLevel->GetLoadedLevel())
 				{
 					NumDeselectSurfaces += DeselectAllSurfacesForLevel( Level );
 				}

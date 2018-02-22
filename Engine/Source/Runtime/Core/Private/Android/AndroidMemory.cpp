@@ -1,7 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Android/AndroidMemory.h"
+#include "HAL/LowLevelMemTracker.h"
 #include "HAL/MallocBinned.h"
+#include "HAL/MallocBinned2.h"
 #include "HAL/MallocAnsi.h"
 #include "unistd.h"
 #include <jni.h>
@@ -37,7 +39,16 @@ static int64 GetNativeHeapAllocatedSize()
 
 void FAndroidPlatformMemory::Init()
 {
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+	FPlatformMemoryStats Stats = FAndroidPlatformMemory::GetStats();
+	uint64 ProgramSize = Stats.UsedPhysical;
+#endif
+
 	FGenericPlatformMemory::Init();
+
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+	FLowLevelMemTracker::Get().SetProgramSize(ProgramSize);
+#endif
 
 	const FPlatformMemoryConstants& MemoryConstants = FPlatformMemory::GetConstants();
 	FPlatformMemoryStats MemoryStats = GetStats();
@@ -93,45 +104,7 @@ namespace AndroidPlatformMemory
 	}
 }
 
-#if 0
-
-FPlatformMemoryStats FAndroidPlatformMemory::GetStats()
-{
-	const FPlatformMemoryConstants& MemoryConstants = FPlatformMemory::GetConstants();
-
-	FPlatformMemoryStats MemoryStats;
-
-	//int32 NumAvailPhysPages = sysconf(_SC_AVPHYS_PAGES);
-	//MemoryStats.AvailablePhysical = NumAvailPhysPages * MemoryConstants.PageSize;
-
-	MemoryStats.AvailablePhysical = MemoryConstants.TotalPhysical - GetNativeHeapAllocatedSize();
-	MemoryStats.AvailableVirtual = 0;
-	MemoryStats.UsedPhysical = 0;
-	MemoryStats.UsedVirtual = 0;
-
-	return MemoryStats;
-}
-
-const FPlatformMemoryConstants& FAndroidPlatformMemory::GetConstants()
-{
-	static FPlatformMemoryConstants MemoryConstants;
-
-	if (MemoryConstants.TotalPhysical == 0)
-	{
-		int32 NumPhysPages = sysconf(_SC_PHYS_PAGES);
-		int32 PageSize = sysconf(_SC_PAGESIZE);
-
-		MemoryConstants.TotalPhysical = NumPhysPages * PageSize;
-		MemoryConstants.TotalVirtual = 0;
-		MemoryConstants.PageSize = (uint32)PageSize;
-
-		MemoryConstants.TotalPhysicalGB = (MemoryConstants.TotalPhysical + 1024 * 1024 * 1024 - 1) / 1024 / 1024 / 1024;
-	}
-
-	return MemoryConstants;
-}
-
-#else
+extern int32 AndroidThunkCpp_GetMetaDataInt(const FString& Key);
 
 FPlatformMemoryStats FAndroidPlatformMemory::GetStats()
 {
@@ -223,9 +196,16 @@ FPlatformMemoryStats FAndroidPlatformMemory::GetStats()
 		fclose(ProcMemStats);
 	}
 
+
 	// sanitize stats as sometimes peak < used for some reason
 	MemoryStats.PeakUsedVirtual = FMath::Max(MemoryStats.PeakUsedVirtual, MemoryStats.UsedVirtual);
 	MemoryStats.PeakUsedPhysical = FMath::Max(MemoryStats.PeakUsedPhysical, MemoryStats.UsedPhysical);
+
+	// get this value from Java instead (DO NOT INTEGRATE at this time) - skip this if JavaVM not set up yet!
+	if (GJavaVM)
+	{
+//		MemoryStats.UsedPhysical = static_cast<uint64>(AndroidThunkCpp_GetMetaDataInt(TEXT("ue4.getUsedMemory"))) * 1024ULL;
+	}
 
 	return MemoryStats;
 }
@@ -253,41 +233,172 @@ const FPlatformMemoryConstants& FAndroidPlatformMemory::GetConstants()
 		MemoryConstants.PageSize = sysconf(_SC_PAGESIZE);
 		MemoryConstants.BinnedPageSize = FMath::Max((SIZE_T)65536, MemoryConstants.PageSize);
 		MemoryConstants.OsAllocationGranularity = MemoryConstants.PageSize;
+#if PLATFORM_32BITS
+		MemoryConstants.AddressLimit = DECLARE_UINT64(4) * 1024 * 1024 * 1024;
+#else
+		MemoryConstants.AddressLimit = FPlatformMath::RoundUpToPowerOfTwo64(MemoryConstants.TotalPhysical);
+#endif
 	}
 
 	return MemoryConstants;
 }
 
-#endif
+EPlatformMemorySizeBucket FAndroidPlatformMemory::GetMemorySizeBucket()
+{
+	// @todo android - if running in ES2 mode, or at least without the extensions for texture streaming, we will load all of the textures
+	// so we better look like a low memory device
+	return FGenericPlatformMemory::GetMemorySizeBucket();
+}
+
+// Set rather to use BinnedMalloc2 for binned malloc, can be overridden below
+#define USE_MALLOC_BINNED2 PLATFORM_ANDROID_ARM64
 
 FMalloc* FAndroidPlatformMemory::BaseAllocator()
 {
+#if USE_MALLOC_BINNED2
+	return new FMallocBinned2();
+#else
 	const FPlatformMemoryConstants& MemoryConstants = FPlatformMemory::GetConstants();
 	// 1 << FMath::CeilLogTwo(MemoryConstants.TotalPhysical) should really be FMath::RoundUpToPowerOfTwo,
 	// but that overflows to 0 when MemoryConstants.TotalPhysical is close to 4GB, since CeilLogTwo returns 32
 	// this then causes the MemoryLimit to be 0 and crashing the app
-	uint64 MemoryLimit = FMath::Min<uint64>( uint64(1) << FMath::CeilLogTwo(MemoryConstants.TotalPhysical), 0x100000000);
+	uint64 MemoryLimit = FMath::Min<uint64>(uint64(1) << FMath::CeilLogTwo(MemoryConstants.TotalPhysical), 0x100000000);
 
-#if PLATFORM_ANDROID_ARM64
-	// todo: track down why FMallocBinned is failing on ARM64
-	return new FMallocAnsi();
-#else
+	// todo: Verify MallocBinned2 on 32bit
 	// [RCL] 2017-03-06 FIXME: perhaps BinnedPageSize should be used here, but leaving this change to the Android platform owner.
 	return new FMallocBinned(MemoryConstants.PageSize, MemoryLimit);
 #endif
 }
 
+
 void* FAndroidPlatformMemory::BinnedAllocFromOS(SIZE_T Size)
 {
-	return mmap(nullptr, Size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+	void* Ptr;
+	if (USE_MALLOC_BINNED2)
+	{
+		static FCriticalSection CriticalSection;
+		FScopeLock Lock(&CriticalSection);
+
+		const FPlatformMemoryConstants& MemoryConstants = FPlatformMemory::GetConstants();
+
+		static uint8* Base = nullptr;
+		static uint8* End = nullptr;
+
+		static const SIZE_T MinAllocSize = 4 * 1024 * 1024; // we will allocate chunks of 4MB, that means the amount we will need to unmap, assuming a lot of 64k blocks, will be small.
+
+		if (End - Base < Size)
+		{
+			if (Base)
+			{
+				if (Base < End)
+				{
+					if (munmap(Base, End - Base) != 0)
+					{
+						const int ErrNo = errno;
+						UE_LOG(LogHAL, Fatal, TEXT("munmap (for trim) (addr=%p, len=%llu) failed with errno = %d (%s)"), Base, End - Base,
+							ErrNo, StringCast< TCHAR >(strerror(ErrNo)).Get());
+					}
+				}
+				Base = nullptr;
+				End = nullptr;
+			}
+
+			SIZE_T SizeToAlloc = FMath::Max<SIZE_T>(MinAllocSize, Align(Size, MemoryConstants.PageSize) + MemoryConstants.BinnedPageSize);
+			uint8* UnalignedBase = (uint8*)mmap(nullptr, SizeToAlloc, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+			End = UnalignedBase + SizeToAlloc;
+			Base = Align(UnalignedBase, MemoryConstants.BinnedPageSize);
+
+			if (Base > UnalignedBase)
+			{
+				if (munmap(UnalignedBase, Base - UnalignedBase) != 0)
+				{
+					const int ErrNo = errno;
+					UE_LOG(LogHAL, Fatal, TEXT("munmap (for align) (addr=%p, len=%llu) failed with errno = %d (%s)"), UnalignedBase, Base - UnalignedBase,
+						ErrNo, StringCast< TCHAR >(strerror(ErrNo)).Get());
+				}
+			}
+
+
+		}
+		Ptr = Base;
+		uint8* UnalignedBase = Align(Base + Size, MemoryConstants.PageSize);
+		Base = Align(UnalignedBase, MemoryConstants.BinnedPageSize);
+
+		if (Base > End)
+		{
+			Base = End;
+		}
+
+		if (Base > UnalignedBase)
+		{
+			if (munmap(UnalignedBase, Base - UnalignedBase) != 0)
+			{
+				const int ErrNo = errno;
+				UE_LOG(LogHAL, Fatal, TEXT("munmap (for tail align) (addr=%p, len=%llu) failed with errno = %d (%s)"), UnalignedBase, Base - UnalignedBase,
+					ErrNo, StringCast< TCHAR >(strerror(ErrNo)).Get());
+			}
+		}
+	}
+	else
+	{
+		Ptr = mmap(nullptr, Size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+	}
+
+	LLM(FLowLevelMemTracker::Get().OnLowLevelAlloc(ELLMTracker::Platform, Ptr, Size));
+	return Ptr;
 }
 
 void FAndroidPlatformMemory::BinnedFreeToOS(void* Ptr, SIZE_T Size)
 {
+	LLM(FLowLevelMemTracker::Get().OnLowLevelFree(ELLMTracker::Platform, Ptr, 0));
 	if (munmap(Ptr, Size) != 0)
 	{
 		const int ErrNo = errno;
 		UE_LOG(LogHAL, Fatal, TEXT("munmap(addr=%p, len=%llu) failed with errno = %d (%s)"), Ptr, Size,
 			ErrNo, StringCast< TCHAR >(strerror(ErrNo)).Get());
 	}
+}
+
+/**
+* LLM uses these low level functions (LLMAlloc and LLMFree) to allocate memory. It grabs
+* the function pointers by calling FPlatformMemory::GetLLMAllocFunctions. If these functions
+* are not implemented GetLLMAllocFunctions should return false and LLM will be disabled.
+*/
+
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+
+int64 LLMMallocTotal = 0;
+
+void* LLMAlloc(size_t Size)
+{
+	void* Ptr = mmap(nullptr, Size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+
+	LLMMallocTotal += Size;
+
+	return Ptr;
+}
+
+void LLMFree(void* Addr, size_t Size)
+{
+	LLMMallocTotal -= Size;
+	if (Addr != nullptr && munmap(Addr, Size) != 0)
+	{
+		const int ErrNo = errno;
+		UE_LOG(LogHAL, Fatal, TEXT("munmap(addr=%p, len=%llu) failed with errno = %d (%s)"), Addr, Size,
+			ErrNo, StringCast< TCHAR >(strerror(ErrNo)).Get());
+	}
+}
+
+#endif
+
+bool FAndroidPlatformMemory::GetLLMAllocFunctions(void*(*&OutAllocFunction)(size_t), void(*&OutFreeFunction)(void*, size_t), int32& OutAlignment)
+{
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+	OutAllocFunction = LLMAlloc;
+	OutFreeFunction = LLMFree;
+	OutAlignment = sysconf(_SC_PAGESIZE);
+	return true;
+#else
+	return false;
+#endif
 }

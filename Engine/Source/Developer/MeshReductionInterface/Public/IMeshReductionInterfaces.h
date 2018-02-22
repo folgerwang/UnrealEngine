@@ -36,8 +36,6 @@ public:
 	virtual bool ReduceSkeletalMesh(
 		class USkeletalMesh* SkeletalMesh,
 		int32 LODIndex,
-		const struct FSkeletalMeshOptimizationSettings& Settings,
-		bool bCalcLODDistance,
 		bool bReregisterComponent = true
 	) = 0;
 	/**
@@ -66,6 +64,10 @@ struct FMergeCompleteData
 	FMeshProxySettings InProxySettings;
 	/** Callback delegate object used as a callback when the job finishes */
 	FCreateProxyDelegate CallbackDelegate;
+	/** List of Components containing imposter LODs */
+	TArray<const UStaticMeshComponent*> ImposterComponents;
+	/** Base material to instance for the proxy material */
+	UMaterialInterface* BaseMaterial;
 };
 
 struct FFlattenMaterial;

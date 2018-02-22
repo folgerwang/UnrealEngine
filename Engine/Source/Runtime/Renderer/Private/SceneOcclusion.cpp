@@ -52,21 +52,43 @@ FAutoConsoleVariableRef CVarOcclusionCullCascadedShadowMaps(
 	ECVF_Scalability | ECVF_RenderThreadSafe
 	);
 
+int32 GMobileAllowSoftwareOcclusion = 0;
+FAutoConsoleVariableRef CVarMobileAllowSoftwareOcclusion(
+	TEXT("r.Mobile.AllowSoftwareOcclusion"),
+	GMobileAllowSoftwareOcclusion,
+	TEXT("Whether to allow rasterizing scene on CPU for primitive occlusion.\n"),
+	ECVF_RenderThreadSafe
+	);
+
 #define NUM_CUBE_VERTICES 36
 
 /** Random table for occlusion **/
 FOcclusionRandomStream GOcclusionRandomStream;
 
-int32 FOcclusionQueryHelpers::GetNumBufferedFrames()
+int32 FOcclusionQueryHelpers::GetNumBufferedFrames(ERHIFeatureLevel::Type FeatureLevel)
 {
+	int32 NumGPUS = 1;
 #if WITH_SLI
 	// If we're running with SLI, assume throughput is more important than latency, and buffer an extra frame
 	check(GNumActiveGPUsForRendering <= (int32)FOcclusionQueryHelpers::MaxBufferedOcclusionFrames);
-	return FMath::Min<int32>(GNumActiveGPUsForRendering, (int32)FOcclusionQueryHelpers::MaxBufferedOcclusionFrames);
-#else
-	static const auto NumBufferedQueriesVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.NumBufferedOcclusionQueries"));
-	return FMath::Clamp<int32>(NumBufferedQueriesVar->GetValueOnAnyThread(), 1, (int32)FOcclusionQueryHelpers::MaxBufferedOcclusionFrames);
+	NumGPUS = GNumActiveGPUsForRendering;
 #endif
+	static const auto NumBufferedQueriesVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.NumBufferedOcclusionQueries"));
+
+	int32 NumExtraMobileFrames = 0;
+	if (FeatureLevel <= ERHIFeatureLevel::ES3_1)
+	{
+		NumExtraMobileFrames++; // the mobile renderer just doesn't do much after the basepass, and hence it will be asking for the query results almost immediately; the results can't possibly be ready in 1 frame.
+
+		if (IsOpenGLPlatform(GShaderPlatformForFeatureLevel[FeatureLevel]) && IsRunningRHIInSeparateThread())
+		{
+			// OpenGL, unfortunately, requires the RHIThread to mediate the readback of queries. Therefore we need an extra frame to avoid a stall in either thread. 
+			// The RHIT needs to do read back after the queries are ready and before the RT needs them to avoid stalls. The RHIT may be busy when the queries become ready, so this is all very complicated.
+			NumExtraMobileFrames++;
+		}
+	}
+
+	return FMath::Clamp<int32>(NumExtraMobileFrames + NumBufferedQueriesVar->GetValueOnAnyThread() * NumGPUS, 1, (int32)FOcclusionQueryHelpers::MaxBufferedOcclusionFrames);
 }
 
 
@@ -189,7 +211,7 @@ void FSceneViewState::TrimOcclusionHistory(FRHICommandListImmediate& RHICmdList,
 	// Only trim every few frames, since stale entries won't cause problems
 	if (FrameNumber % 6 == 0)
 	{
-		int32 NumBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames();
+		int32 NumBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames(GetFeatureLevel());
 
 		for(TSet<FPrimitiveOcclusionHistory,FPrimitiveOcclusionHistoryKeyFuncs>::TIterator PrimitiveIt(PrimitiveOcclusionHistorySet);
 			PrimitiveIt;
@@ -234,6 +256,38 @@ bool FSceneViewState::IsShadowOccluded(FRHICommandListImmediate& RHICmdList, FSc
 		// If the shadow wasn't queried the previous frame, it isn't occluded.
 
 		return false;
+	}
+}
+
+void FSceneViewState::ConditionallyAllocateSceneSoftwareOcclusion(ERHIFeatureLevel::Type InFeatureLevel)
+{
+	static bool bOnce = false;
+	static bool bForceByCmdLine = false;
+	static bool bCmdLineShouldBeEnabledValue = false;
+	if (!bOnce)
+	{
+		bOnce = true;
+		if (FParse::Param(FCommandLine::Get(), TEXT("softwareocclusionculling")) && GMobileAllowSoftwareOcclusion == 0)
+		{
+			bForceByCmdLine = true;
+			bCmdLineShouldBeEnabledValue = true;
+		}
+		else if (FParse::Param(FCommandLine::Get(), TEXT("hardwareocclusionculling")) && GMobileAllowSoftwareOcclusion >= 1)
+		{
+			bForceByCmdLine = true;
+			bCmdLineShouldBeEnabledValue = false;
+		}
+	}
+	// Want to use software occlusion only for "Mobile" feature level
+	bool bShouldBeEnabled = bForceByCmdLine ? bCmdLineShouldBeEnabledValue : (InFeatureLevel <= ERHIFeatureLevel::ES3_1 && GMobileAllowSoftwareOcclusion != 0);
+
+	if (bShouldBeEnabled && !SceneSoftwareOcclusion)
+	{
+		SceneSoftwareOcclusion = MakeUnique<FSceneSoftwareOcclusion>();
+	}
+	else if (!bShouldBeEnabled && SceneSoftwareOcclusion)
+	{
+		SceneSoftwareOcclusion.Reset();
 	}
 }
 
@@ -1229,7 +1283,7 @@ void BuildHZB( FRHICommandListImmediate& RHICmdList, FViewInfo& View )
 	GRenderTargetPool.VisualizeTexture.SetCheckPoint( RHICmdList, View.HZB );
 }
 
-void FDeferredShadingSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate& RHICmdList, bool bRenderQueries)
+void FSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate& RHICmdList, bool bRenderQueries)
 {
 	SCOPED_NAMED_EVENT(FDeferredShadingSceneRenderer_BeginOcclusionTests, FColor::Emerald);
 	SCOPE_CYCLE_COUNTER(STAT_BeginOcclusionTestsTime);
@@ -1238,7 +1292,7 @@ void FDeferredShadingSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate
 
 	if (bRenderQueries)
 	{
-		int32 const NumBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames();
+		int32 const NumBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames(FeatureLevel);
 		
 		bool bBatchedQueries = false;
 		
@@ -1388,7 +1442,7 @@ void FDeferredShadingSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate
 			{
 				SetRenderTarget(RHICmdList, NULL, SceneContext.GetSmallDepthSurface(), ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
 			}
-			else
+			else if (FeatureLevel > ERHIFeatureLevel::ES3_1) // Don't change target on mobile
 			{
 				SetRenderTarget(RHICmdList, NULL, SceneContext.GetSceneDepthSurface(), ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
 			}
@@ -1490,5 +1544,35 @@ void FDeferredShadingSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate
 				SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EUninitializedColorExistingDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
 			}
 		}
+	}
+}
+
+DECLARE_CYCLE_STAT(TEXT("OcclusionSubmittedFence Dispatch"), STAT_OcclusionSubmittedFence_Dispatch, STATGROUP_SceneRendering);
+DECLARE_CYCLE_STAT(TEXT("OcclusionSubmittedFence Wait"), STAT_OcclusionSubmittedFence_Wait, STATGROUP_SceneRendering);
+
+void FSceneRenderer::FenceOcclusionTests(FRHICommandListImmediate& RHICmdList)
+{
+	if (IsRunningRHIInSeparateThread())
+	{
+		SCOPE_CYCLE_COUNTER(STAT_OcclusionSubmittedFence_Dispatch);
+		int32 NumFrames = FOcclusionQueryHelpers::GetNumBufferedFrames(FeatureLevel);
+		for (int32 Dest = 1; Dest < NumFrames; Dest++)
+		{
+			CA_SUPPRESS(6385);
+			OcclusionSubmittedFence[Dest] = OcclusionSubmittedFence[Dest - 1];
+		}
+		OcclusionSubmittedFence[0] = RHICmdList.RHIThreadFence();
+		RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
+	}
+}
+
+void FSceneRenderer::WaitOcclusionTests(FRHICommandListImmediate& RHICmdList)
+{
+	if (IsRunningRHIInSeparateThread())
+	{
+		SCOPE_CYCLE_COUNTER(STAT_OcclusionSubmittedFence_Wait);
+		int32 BlockFrame = FOcclusionQueryHelpers::GetNumBufferedFrames(FeatureLevel) - 1;
+		FRHICommandListExecutor::WaitOnRHIThreadFence(OcclusionSubmittedFence[BlockFrame]);
+		OcclusionSubmittedFence[BlockFrame] = nullptr;
 	}
 }

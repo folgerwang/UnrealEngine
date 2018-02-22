@@ -148,7 +148,7 @@ UDrawFrustumComponent::UDrawFrustumComponent(const FObjectInitializer& ObjectIni
 	bUseEditorCompositing = true;
 	bHiddenInGame = true;
 	SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
-	bGenerateOverlapEvents = false;
+	SetGenerateOverlapEvents(false);
 }
 
 FPrimitiveSceneProxy* UDrawFrustumComponent::CreateSceneProxy()

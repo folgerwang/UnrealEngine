@@ -470,7 +470,23 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 	for(int32 SectionIndex=MaterialIndexOffset; SectionIndex<MaterialIndexOffset+MaterialCount; SectionIndex++)
 	{
 		FMeshSectionInfo Info = StaticMesh->SectionInfoMap.Get(LODIndex, SectionIndex);
+		
 		Info.bEnableCollision = bEnableCollision;
+		//Make sure LOD greater then 0 copy the LOD 0 sections collision flags
+		if (LODIndex != 0)
+		{
+			//Match the material slot index
+			for (int32 LodZeroSectionIndex = 0; LodZeroSectionIndex < StaticMesh->SectionInfoMap.GetSectionNumber(0); ++LodZeroSectionIndex)
+			{
+				FMeshSectionInfo InfoLodZero = StaticMesh->SectionInfoMap.Get(0, LodZeroSectionIndex);
+				if (InfoLodZero.MaterialIndex == Info.MaterialIndex)
+				{
+					Info.bEnableCollision = InfoLodZero.bEnableCollision;
+					Info.bCastShadow = InfoLodZero.bCastShadow;
+					break;
+				}
+			}
+		}
 		StaticMesh->SectionInfoMap.Set(LODIndex, SectionIndex, Info);
 	}
 
@@ -1848,7 +1864,7 @@ void UnFbx::FFbxImporter::PostImportStaticMesh(UStaticMesh* StaticMesh, TArray<F
 	}
 
 	//collision generation must be done after the build, this will ensure a valid BodySetup
-	if (StaticMesh->bCustomizedCollision == false && ImportOptions->bAutoGenerateCollision && StaticMesh->BodySetup)
+	if (StaticMesh->bCustomizedCollision == false && ImportOptions->bAutoGenerateCollision && StaticMesh->BodySetup && LODIndex == 0)
 	{
 		FKAggregateGeom & AggGeom = StaticMesh->BodySetup->AggGeom;
 		AggGeom.ConvexElems.Empty(1);	//if no custom collision is setup we just regenerate collision when reimport

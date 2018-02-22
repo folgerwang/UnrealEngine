@@ -38,6 +38,7 @@ LandscapeEdit.cpp: Landscape editing
 #include "Logging/MessageLog.h"
 #include "Misc/MapErrors.h"
 #include "LandscapeSplinesComponent.h"
+#include "Serialization/MemoryWriter.h"
 #if WITH_EDITOR
 #include "RawMesh.h"
 #include "EngineUtils.h"
@@ -46,6 +47,7 @@ LandscapeEdit.cpp: Landscape editing
 #include "LandscapeEditorModule.h"
 #include "LandscapeFileFormatInterface.h"
 #include "ComponentRecreateRenderStateContext.h"
+#include "Interfaces/ITargetPlatform.h"
 #endif
 #include "Algo/Count.h"
 
@@ -399,7 +401,7 @@ void ULandscapeComponent::PreFeatureLevelChange(ERHIFeatureLevel::Type PendingFe
 	if (PendingFeatureLevel <= ERHIFeatureLevel::ES3_1)
 	{
 		// See if we need to cook platform data for ES2 preview in editor
-		CheckGenerateLandscapePlatformData(false);
+		CheckGenerateLandscapePlatformData(false, nullptr);
 	}
 }
 
@@ -696,7 +698,7 @@ void ULandscapeComponent::UpdateCollisionHeightData(const FColor* const Heightma
 		CollisionComp->CollisionScale = (float)(ComponentSizeQuads) / (float)(CollisionComp->CollisionSizeQuads);
 		CollisionComp->SimpleCollisionSizeQuads = bUsingSimpleCollision ? SimpleCollisionSubsectionSizeQuads * NumSubsections : 0;
 		CollisionComp->CachedLocalBox = CachedLocalBox;
-		CollisionComp->bGenerateOverlapEvents = Proxy->bGenerateOverlapEvents;
+		CollisionComp->SetGenerateOverlapEvents(Proxy->bGenerateOverlapEvents);
 		CreatedNew = true;
 
 		// Reallocate raw collision data
@@ -3716,7 +3718,12 @@ void ALandscapeProxy::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 			}
 		}
 	}
-
+	else if (GIsEditor && PropertyName == GET_MEMBER_NAME_CHECKED(ALandscapeProxy, OccluderGeometryLOD))
+	{
+		CheckGenerateLandscapePlatformData(false, nullptr);
+		MarkComponentsRenderStateDirty();
+	}
+	
 	// Remove null layer infos
 	EditorLayerSettings.RemoveAll([](const FLandscapeEditorLayerSettings& Entry) { return Entry.LayerInfoObj == nullptr; });
 
@@ -3893,6 +3900,10 @@ void ALandscape::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEv
 		bPropagateToProxies = true;
 	}
 	else if (PropertyName == GET_MEMBER_NAME_CHECKED(ALandscapeProxy, bBakeMaterialPositionOffsetIntoCollision))
+	{
+		bPropagateToProxies = true;
+	}
+	else if (PropertyName == GET_MEMBER_NAME_CHECKED(ALandscapeProxy, OccluderGeometryLOD))
 	{
 		bPropagateToProxies = true;
 	}
@@ -5081,7 +5092,7 @@ void ULandscapeComponent::GeneratePlatformPixelData()
 //
 // Generates vertex buffer data from the component's heightmap texture, for use on platforms without vertex texture fetch
 //
-void ULandscapeComponent::GeneratePlatformVertexData()
+void ULandscapeComponent::GeneratePlatformVertexData(const ITargetPlatform* TargetPlatform)
 {
 	if (IsTemplate())
 	{
@@ -5091,17 +5102,14 @@ void ULandscapeComponent::GeneratePlatformVertexData()
 	check(HeightmapTexture->Source.GetFormat() == TSF_BGRA8);
 
 	TArray<uint8> NewPlatformData;
-	int32 NewPlatformDataSize = 0;
+	FMemoryWriter PlatformAr(NewPlatformData);
 
 	int32 SubsectionSizeVerts = SubsectionSizeQuads + 1;
 	int32 MaxLOD = FMath::CeilLogTwo(SubsectionSizeVerts) - 1;
 
 	float HeightmapSubsectionOffsetU = (float)(SubsectionSizeVerts) / (float)HeightmapTexture->Source.GetSizeX();
 	float HeightmapSubsectionOffsetV = (float)(SubsectionSizeVerts) / (float)HeightmapTexture->Source.GetSizeY();
-
-	NewPlatformDataSize += sizeof(FLandscapeMobileVertex) * FMath::Square(SubsectionSizeVerts * NumSubsections);
-	NewPlatformData.AddZeroed(NewPlatformDataSize);
-
+	
 	// Get the required mip data
 	TArray<TArray<uint8>> HeightmapMipRawData;
 	TArray<FColor*> HeightmapMipData;
@@ -5175,8 +5183,12 @@ void ULandscapeComponent::GeneratePlatformVertexData()
 	}
 	check(VertexOrder.Num() == FMath::Square(SubsectionSizeVerts) * FMath::Square(NumSubsections));
 
+	int32 NumMobileVerices = FMath::Square(SubsectionSizeVerts * NumSubsections);
+	TArray<FLandscapeMobileVertex> MobileVertices;
+	MobileVertices.AddZeroed(NumMobileVerices);
+	FLandscapeMobileVertex* DstVert = MobileVertices.GetData();
+
 	// Fill in the vertices in the specified order
-	FLandscapeMobileVertex* DstVert = (FLandscapeMobileVertex*)NewPlatformData.GetData();
 	for (int32 Idx = 0; Idx < VertexOrder.Num(); Idx++)
 	{
 		int32 X = VertexOrder[Idx].X;
@@ -5237,6 +5249,51 @@ void ULandscapeComponent::GeneratePlatformVertexData()
 		DstVert++;
 	}
 
+	PlatformAr << NumMobileVerices;
+	PlatformAr.Serialize(MobileVertices.GetData(), NumMobileVerices*sizeof(FLandscapeMobileVertex));
+	
+	// Generate occlusion mesh
+	TArray<FVector> OccluderVertices;
+	const int32 OcclusionMeshMip = FMath::Clamp<int32>(GetLandscapeProxy()->OccluderGeometryLOD, -1, MaxLOD);
+
+	if (OcclusionMeshMip >= 0 && (!TargetPlatform || TargetPlatform->SupportsFeature(ETargetPlatformFeatures::SoftwareOcclusion)))
+	{
+		int32 LodSubsectionSizeQuads = (SubsectionSizeVerts >> OcclusionMeshMip) - 1;
+		float MipRatio = (float)SubsectionSizeQuads / (float)LodSubsectionSizeQuads;
+		
+		for (int32 SubY = 0; SubY < NumSubsections; SubY++)
+		{
+			for (int32 SubX = 0; SubX < NumSubsections; SubX++)
+			{
+				float HeightmapScaleBiasZ = HeightmapScaleBias.Z + HeightmapSubsectionOffsetU * (float)SubX;
+				float HeightmapScaleBiasW = HeightmapScaleBias.W + HeightmapSubsectionOffsetV * (float)SubY;
+				int32 BaseMipOfsX = FMath::RoundToInt(HeightmapScaleBiasZ * (float)HeightmapTexture->Source.GetSizeX());
+				int32 BaseMipOfsY = FMath::RoundToInt(HeightmapScaleBiasW * (float)HeightmapTexture->Source.GetSizeY());
+
+				for (int32 y = 0; y <= LodSubsectionSizeQuads; y++)
+				{
+					for (int32 x = 0; x <= LodSubsectionSizeQuads; x++)
+					{
+						int32 MipSizeX = HeightmapTexture->Source.GetSizeX() >> OcclusionMeshMip;
+
+						int32 CurrentMipOfsX = BaseMipOfsX >> OcclusionMeshMip;
+						int32 CurrentMipOfsY = BaseMipOfsY >> OcclusionMeshMip;
+												
+						FColor* CurrentMipSrcRow = HeightmapMipData[OcclusionMeshMip] + (CurrentMipOfsY + y) * MipSizeX + CurrentMipOfsX;
+						uint16 Height = CurrentMipSrcRow[x].R << 8 | CurrentMipSrcRow[x].G;
+
+						FVector VtxPos = FVector(x*MipRatio, y*MipRatio, ((float)Height - 32768.f) * LANDSCAPE_ZSCALE);
+						OccluderVertices.Add(VtxPos);
+					}
+				}
+			}
+		}
+	}
+
+	int32 NumOccluderVerices = OccluderVertices.Num();
+	PlatformAr << NumOccluderVerices;
+	PlatformAr.Serialize(OccluderVertices.GetData(), NumOccluderVerices*sizeof(FVector));
+	
 	// Copy to PlatformData as Compressed
 	PlatformData.InitializeFromUncompressedData(NewPlatformData);
 }

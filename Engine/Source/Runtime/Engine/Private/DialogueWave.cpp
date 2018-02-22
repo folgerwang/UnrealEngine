@@ -428,12 +428,12 @@ const FSoundAttenuationSettings* UDialogueSoundWaveProxy::GetAttenuationSettings
 	return SoundWave->GetAttenuationSettingsToApply();
 }
 
-float UDialogueSoundWaveProxy::GetMaxAudibleDistance()
+float UDialogueSoundWaveProxy::GetMaxDistance() const
 {
-	return SoundWave->GetMaxAudibleDistance();
+	return SoundWave->GetMaxDistance();
 }
 
-float UDialogueSoundWaveProxy::GetDuration()
+float UDialogueSoundWaveProxy::GetDuration() const
 {
 	return SoundWave->GetDuration();
 }

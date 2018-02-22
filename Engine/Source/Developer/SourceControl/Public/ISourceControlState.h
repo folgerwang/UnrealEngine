@@ -103,8 +103,28 @@ public:
 	/** Get whether this file is checked out */
 	virtual bool IsCheckedOut() const = 0;
 
-	/** Get whether this file is checked out by someone else */
+	/** Get whether this file is checked out by someone else in the current branch */
 	virtual bool IsCheckedOutOther(FString* Who = NULL) const = 0;
+
+	/** Get whether this file is checked out in a different branch, if no branch is specified defaults to FEngineVerion current branch */
+	virtual bool IsCheckedOutInOtherBranch(const FString& CurrentBranch = FString()) const = 0;
+
+	/** Get whether this file is modified in a different branch, if no branch is specified defaults to FEngineVerion current branch */
+	virtual bool IsModifiedInOtherBranch(const FString& CurrentBranch = FString()) const = 0;
+
+	/** Get whether this file is checked out or modified in a different branch, if no branch is specified defaults to FEngineVerion current branch */
+	virtual bool IsCheckedOutOrModifiedInOtherBranch(const FString& CurrentBranch = FString()) const = 0;
+
+	/** Get the other branches this file is checked out in */
+	virtual TArray<FString> GetCheckedOutBranches() const = 0;
+
+	/** Get the user info for checkouts on other branches */
+	virtual FString GetOtherUserBranchCheckedOuts() const = 0;
+
+	/** Get head modification information for other branches
+	 * @returns true with parameters populated if there is a branch with a newer modification (edit/delete/etc)  
+	*/
+	virtual bool GetOtherBranchHeadModification(FString& HeadBranchOut, FString& ActionOut, int32& HeadChangeListOut) const = 0;
 
 	/** Get whether this file is up-to-date with the version in source control */
 	virtual bool IsCurrent() const = 0;

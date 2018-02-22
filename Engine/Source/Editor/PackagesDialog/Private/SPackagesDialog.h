@@ -222,6 +222,27 @@ public:
 		if (SourceControlState.IsValid())
 		{
 			SourceControlState->IsCheckedOutOther(&CheckedOutBy);
+
+			// If not checked out in this branch, see if checked out or modified in other branches
+			if (!CheckedOutBy.Len())
+			{
+				// Check for modification first, as this is a more important state than only checked out
+				if (SourceControlState->IsModifiedInOtherBranch())
+				{
+					FString HeadBranch, HeadAction;
+					int32 HeadCL;
+					SourceControlState->GetOtherBranchHeadModification(HeadBranch, HeadAction, HeadCL);
+
+					FNumberFormattingOptions NoCommas;
+					NoCommas.UseGrouping = false;
+					return FString::Format(TEXT("Modified in {0} CL:{1} ({2})"), { HeadBranch, FText::AsNumber(HeadCL, &NoCommas).ToString(), HeadAction });
+				}
+
+				if (SourceControlState->IsCheckedOutInOtherBranch())
+				{
+					return SourceControlState->GetOtherUserBranchCheckedOuts();
+				}
+			}
 		}
 
 		return CheckedOutBy;

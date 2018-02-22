@@ -19,6 +19,7 @@
 class FOnlineSubsystemGoogle;
 class FUserOnlineAccountGoogleCommon;
 
+#define AUTH_TYPE_GOOGLE TEXT("google")
 #define GOOGLE_AUTH_EXPIRED_CREDS TEXT("com.epicgames.google.oauth.expiredcreds")
 
 /**

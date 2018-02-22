@@ -346,7 +346,7 @@ void SStatsViewer::Tick( const FGeometry& AllottedGeometry, const double InCurre
 					if( SortModeString.Len() > 0 )
 					{
 						EColumnSortMode::Type SortType = SortModeString == TEXT( "Ascending" ) ? EColumnSortMode::Ascending : EColumnSortMode::Descending;
-						PropertyTable->SortByColumn( Column, SortType );
+						PropertyTable->SortByColumn( Column, SortType, EColumnSortPriority::Primary);
 					}
 				}
 

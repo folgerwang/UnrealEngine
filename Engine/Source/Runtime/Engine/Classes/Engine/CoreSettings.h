@@ -76,6 +76,11 @@ protected:
 		ToolTip = "Maximum allowed time to spend for actor registration steps during level streaming (ms per frame)."))
 	float LevelStreamingActorsUpdateTimeLimit;
 
+	UPROPERTY(EditAnywhere, config, Category = LevelStreaming, AdvancedDisplay, meta = (
+		ConsoleVariable = "s.PriorityLevelStreamingActorsUpdateExtraTime", DisplayName = "Priority Actor Initialization Update Extra Time",
+		ToolTip = "Additional time to spend on actor registration steps during a high priority load."))
+	float PriorityLevelStreamingActorsUpdateExtraTime;
+
 	/** Batching granularity used to register actor components during level streaming */
 	UPROPERTY(EditAnywhere, config, Category = LevelStreaming, AdvancedDisplay, meta = (
 		ConsoleVariable = "s.LevelStreamingComponentsRegistrationGranularity", DisplayName = "Components Registration Granularity",
@@ -118,6 +123,8 @@ extern ENGINE_API int32 GAsyncLoadingUseFullTimeLimit;
 extern ENGINE_API float GPriorityAsyncLoadingExtraTime;
 /** Maximum allowed time to spend for actor registration steps during level streaming (ms per frame). */
 extern ENGINE_API float GLevelStreamingActorsUpdateTimeLimit;
+/** Additional time to spend on actor registration steps during a high priority load. */
+extern ENGINE_API float GPriorityLevelStreamingActorsUpdateExtraTime;
 /** Batching granularity used to register actor components during level streaming. */
 extern ENGINE_API int32 GLevelStreamingComponentsRegistrationGranularity;
 /** Batching granularity used to unregister actor components during level streaming.  */
@@ -130,6 +137,8 @@ extern ENGINE_API int32 GLevelStreamingForceGCAfterLevelStreamedOut;
 extern ENGINE_API int32 GLevelStreamingContinuouslyIncrementalGCWhileLevelsPendingPurge;
 /** Enables level streaming requests while async loading (of anything) while the match is already in progress and no loading screen is up. */
 extern ENGINE_API int32 GLevelStreamingAllowLevelRequestsWhileAsyncLoadingInMatch;
+/** When we're already loading this many levels and actively in match, don't allow any more requests until one of those completes.  Set to zero to disable. */
+extern ENGINE_API int32 GLevelStreamingMaxLevelRequestsAtOnceWhileInMatch;
 
 
 /**

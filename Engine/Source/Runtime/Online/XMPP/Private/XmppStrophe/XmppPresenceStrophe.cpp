@@ -37,7 +37,7 @@ bool FXmppPresenceStrophe::ReceiveStanza(const FStropheStanza& IncomingStanza)
 		// Our MultiUserChat interface will handle this stanza
 		return false;
 	}
-	else if (!FromJid.Resource.IsEmpty())
+	else if (FromJid.Resource.IsEmpty())
 	{
 		// Skip user presence updates that are missing a resource
 		return true;

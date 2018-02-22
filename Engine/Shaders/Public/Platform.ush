@@ -329,6 +329,10 @@
 // Whether the platform support pixel coverage on MSAA targets (SV_Coverage).
 #define SUPPORTS_PIXEL_COVERAGE (FEATURE_LEVEL >= FEATURE_LEVEL_SM5 && !COMPILER_GLSL && !MOBILE_EMULATION)
 
+// Must match C++ RHISupports4ComponentUAVReadWrite
+// D3D11 does not support multi-component loads from a UAV: "error X3676: typed UAV loads are only allowed for single-component 32-bit element types"
+#define PLATFORM_SUPPORTS_4COMPONENT_UAV_READ_WRITE (PS4_PROFILE || XBOXONE_PROFILE)
+
 
 // ---------------------------------------------------- Compiler specific defaults and fallbacks
 

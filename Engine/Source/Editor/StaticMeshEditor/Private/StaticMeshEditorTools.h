@@ -466,18 +466,27 @@ private:
 
 	void OnSelectedLODChanged(int32 NewLodIndex);
 
-	void OnMinLODChanged(int32 NewValue);
-	void OnMinLODCommitted(int32 InValue, ETextCommit::Type CommitInfo);
-	int32 GetMinLOD() const;
+	void OnMinLODChanged(int32 NewValue, FName Platform);
+	void OnMinLODCommitted(int32 InValue, ETextCommit::Type CommitInfo, FName Platform);
+	int32 GetMinLOD(FName Platform) const;
+	TSharedRef<SWidget> GetMinLODWidget(FName PlatformGroupName) const;
+	bool AddMinLODPlatformOverride(FName PlatformGroupName);
+	bool RemoveMinLODPlatformOverride(FName PlatformGroupName);
+	TArray<FName> GetMinLODPlatformOverrideNames() const;
 
 	bool CanRemoveLOD(int32 LODIndex) const;
 	FReply OnRemoveLOD(int32 LODIndex);
 
-	float GetLODScreenSize(int32 LODIndex)const;
+	float GetLODScreenSize(FName PlatformGroupName, int32 LODIndex)const;
 	FText GetLODScreenSizeTitle(int32 LODIndex) const;
 	bool CanChangeLODScreenSize() const;
-	void OnLODScreenSizeChanged(float NewValue, int32 LODIndex);
-	void OnLODScreenSizeCommitted(float NewValue, ETextCommit::Type CommitType, int32 LODIndex);
+	TSharedRef<SWidget> GetLODScreenSizeWidget(FName PlatformGroupName, int32 LODIndex) const;
+	TArray<FName> GetLODScreenSizePlatformOverrideNames(int32 LODIndex) const;
+	bool AddLODScreenSizePlatformOverride(FName PlatformGroupName, int32 LODIndex);
+	bool RemoveLODScreenSizePlatformOverride(FName PlatformGroupName, int32 LODIndex);
+	void OnLODScreenSizeChanged(float NewValue, FName PlatformGroupName, int32 LODIndex);
+	void OnLODScreenSizeCommitted(float NewValue, ETextCommit::Type CommitType, FName PlatformGroupName, int32 LODIndex);
+	float GetScreenSizeWidgetWidth(int32 LODIndex) const;
 
 	void OnBuildSettingsExpanded(bool bIsExpanded, int32 LODIndex);
 	void OnReductionSettingsExpanded(bool bIsExpanded, int32 LODIndex);
@@ -529,7 +538,7 @@ private:
 	TSharedPtr<STextComboBox> LODGroupComboBox;
 
 	/** The display factors at which LODs swap */
-	float LODScreenSizes[MAX_STATIC_MESH_LODS];
+	FPerPlatformFloat LODScreenSizes[MAX_STATIC_MESH_LODS];
 
 	/** Helper value that corresponds to the 'Number of LODs' spinbox.*/
 	int32 LODCount;

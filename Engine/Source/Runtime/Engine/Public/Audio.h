@@ -15,7 +15,6 @@
 #include "Sound/SoundEffectSource.h"
 #include "Sound/SoundSourceBusSend.h"
 #include "IAudioExtensionPlugin.h"
-#include "AudioPluginUtilities.h"
 
 class FAudioDevice;
 class USoundNode;

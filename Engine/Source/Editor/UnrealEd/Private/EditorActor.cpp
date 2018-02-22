@@ -236,14 +236,13 @@ bool UUnrealEdEngine::WarnIfDestinationLevelIsHidden( UWorld* InWorld )
 	FSuppressableWarningDialog PasteHiddenWarning( Info );
 
 	//check streaming levels first	
-	for (int32 i = 0; i < InWorld->StreamingLevels.Num(); i++)
+	for (ULevelStreaming* StreamedLevel : InWorld->GetStreamingLevels())
 	{
-		ULevelStreaming* StreamedLevel = InWorld->StreamingLevels[i];
 		//this is the active level - check if it is visible
-		if ( StreamedLevel != NULL && StreamedLevel->bShouldBeVisibleInEditor == false )
+		if (StreamedLevel && StreamedLevel->GetShouldBeVisibleInEditor() == false )
 		{
 			ULevel* Level = StreamedLevel->GetLoadedLevel();
-			if( Level != NULL && Level->IsCurrentLevel() )
+			if( Level && Level->IsCurrentLevel() )
 			{
 				//the streamed level is not visible - check what the user wants to do
 				FSuppressableWarningDialog::EResult DialogResult = PasteHiddenWarning.ShowModal();

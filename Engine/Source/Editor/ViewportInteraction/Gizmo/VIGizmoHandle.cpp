@@ -264,7 +264,7 @@ class UGizmoHandleMeshComponent* UGizmoHandleGroup::CreateMeshHandle( class USta
 	HandleComponent->SetCollisionResponseToChannel( COLLISION_GIZMO, ECollisionResponse::ECR_Block );
 	HandleComponent->SetCollisionObjectType( COLLISION_GIZMO );
 
-	HandleComponent->bGenerateOverlapEvents = false;
+	HandleComponent->SetGenerateOverlapEvents(false);
 	HandleComponent->SetCanEverAffectNavigation( false );
 	HandleComponent->bCastDynamicShadow = bAllowGizmoLighting;
 	HandleComponent->bCastStaticShadow = false;

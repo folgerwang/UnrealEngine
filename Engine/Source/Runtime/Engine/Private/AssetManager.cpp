@@ -2670,6 +2670,12 @@ void UAssetManager::UpdateManagementDatabase(bool bForceRefresh)
 
 			for (const FName& AssetPackage : AssetPackagesReferenced)
 			{
+				if (AssetPackage == NAME_None)
+				{
+					UE_LOG(LogAssetManager, Warning, TEXT("Ignoring 'None' reference originating from %s"), *PrimaryAssetId.ToString());
+					continue;
+				}
+
 				TMultiMap<FAssetIdentifier, FAssetIdentifier>& ManagerMap = Rules.bApplyRecursively ? PriorityManagementMap.FindOrAdd(Rules.Priority) : NoReferenceManagementMap;
 
 				ManagerMap.Add(PrimaryAssetId, AssetPackage);
@@ -3238,7 +3244,7 @@ void UAssetManager::RefreshAssetData(UObject* ChangedObject)
 	}
 }
 
-void UAssetManager::InitializeAssetBundlesFromMetadata(const UStruct* Struct, const void* StructValue, FAssetBundleData& AssetBundle) const
+void UAssetManager::InitializeAssetBundlesFromMetadata(const UStruct* Struct, const void* StructValue, FAssetBundleData& AssetBundle, FName DebugName) const
 {
 	static FName AssetBundlesName = TEXT("AssetBundles");
 
@@ -3286,41 +3292,48 @@ void UAssetManager::InitializeAssetBundlesFromMetadata(const UStruct* Struct, co
 
 		if (!FoundRef.IsNull())
 		{
-			// Compute the intersection of all specified bundle sets in this property and parent properties
-			TSet<FName> BundleSet;
-
-			TArray<const UProperty*> PropertyChain;
-			It.GetPropertyChain(PropertyChain);
-
-			for (const UProperty* PropertyToSearch : PropertyChain)
+			if (!FoundRef.GetLongPackageName().IsEmpty())
 			{
-				if (PropertyToSearch->HasMetaData(AssetBundlesName))
+				// Compute the intersection of all specified bundle sets in this property and parent properties
+				TSet<FName> BundleSet;
+
+				TArray<const UProperty*> PropertyChain;
+				It.GetPropertyChain(PropertyChain);
+
+				for (const UProperty* PropertyToSearch : PropertyChain)
 				{
-					TSet<FName> LocalBundleSet;
-					TArray<FString> BundleList;
-					const FString& BundleString = PropertyToSearch->GetMetaData(AssetBundlesName);
-					BundleString.ParseIntoArrayWS(BundleList, TEXT(","));
+					if (PropertyToSearch->HasMetaData(AssetBundlesName))
+					{
+						TSet<FName> LocalBundleSet;
+						TArray<FString> BundleList;
+						const FString& BundleString = PropertyToSearch->GetMetaData(AssetBundlesName);
+						BundleString.ParseIntoArrayWS(BundleList, TEXT(","));
 
-					for (const FString& BundleNameString : BundleList)
-					{
-						LocalBundleSet.Add(FName(*BundleNameString));
-					}
+						for (const FString& BundleNameString : BundleList)
+						{
+							LocalBundleSet.Add(FName(*BundleNameString));
+						}
 
-					// If Set is empty, initialize. Otherwise intersect
-					if (BundleSet.Num() == 0)
-					{
-						BundleSet = LocalBundleSet;
-					}
-					else
-					{
-						BundleSet = BundleSet.Intersect(LocalBundleSet);
+						// If Set is empty, initialize. Otherwise intersect
+						if (BundleSet.Num() == 0)
+						{
+							BundleSet = LocalBundleSet;
+						}
+						else
+						{
+							BundleSet = BundleSet.Intersect(LocalBundleSet);
+						}
 					}
 				}
-			}
 
-			for (const FName& BundleName : BundleSet)
+				for (const FName& BundleName : BundleSet)
+				{
+					AssetBundle.AddBundleAsset(BundleName, FoundRef);
+				}
+			}
+			else
 			{
-				AssetBundle.AddBundleAsset(BundleName, FoundRef);
+				UE_LOG(LogAssetManager, Error, TEXT("Asset bundle reference with invalid package name in %s. Property:%s"), *DebugName.ToString(), *GetNameSafe(Property));
 			}
 		}
 	}

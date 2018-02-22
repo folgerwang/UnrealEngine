@@ -173,6 +173,14 @@ struct TStructOpsTypeTraits<FWidgetAnimation_DEPRECATED> : public TStructOpsType
 	};
 };
 
+UENUM()
+enum class EWidgetSupportsDynamicCreation : uint8
+{
+	Default,
+	Yes,
+	No,
+};
+
 
 /**
  * The widget blueprint enables extending UUserWidget the user extensible UWidget.
@@ -203,11 +211,21 @@ public:
 	 * in the CDO of the UUserWidget, but a copy is stored here so that it's available in the serialized 
 	 * Tag data in the asset header for access in the FAssetData.
 	 */
-	UPROPERTY(AssetRegistrySearchable)
+	UPROPERTY(AssetRegistrySearchable, AssetRegistrySearchable)
 	FString PaletteCategory;
 
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=WidgetBlueprintOptions)
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=WidgetBlueprintOptions, AssetRegistrySearchable)
 	bool bForceSlowConstructionPath;
+
+private:
+	/**
+	 * Widgets by default all support calling CreateWidget for them, however for mobile games
+	 * you may want to disable this by default, or on a per widget basis as it can save several
+	 * MB on a large game from lots of widget templates being cooked ready to make dynamic
+	 * construction faster.
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=WidgetBlueprintOptions, AssetRegistrySearchable)
+	EWidgetSupportsDynamicCreation SupportDynamicCreation;
 #endif
 
 public:
@@ -253,6 +271,8 @@ public:
 	/** Identical to GetAllSourceWidgets, but as an algorithm */
 	void ForEachSourceWidget(TFunctionRef<void(UWidget*)> Fn);
 	void ForEachSourceWidget(TFunctionRef<void(const UWidget*)> Fn) const;
+
+	bool WidgetSupportsDynamicCreation() const;
 
 	static bool ValidateGeneratedClass(const UClass* InClass);
 	

@@ -7,6 +7,13 @@
 #include "UObject/Object.h"
 #include "UObject/Class.h"
 #include "UObject/PropertyPortFlags.h"
+
+#if WITH_ENGINE
+#include "AudioCompressionSettings.h"
+#else
+struct FPlatformRuntimeAudioCompressionOverrides;
+#endif
+
 #include "IOSRuntimeSettings.generated.h"
 
 UENUM()
@@ -442,6 +449,35 @@ public:
 	/** Which of the currently enabled occlusion plugins to use on Windows. */
 	UPROPERTY(config, EditAnywhere, Category = "Audio")
 	FString OcclusionPlugin;
+
+	/** Various overrides for how this platform should handle compression and decompression */
+	UPROPERTY(config, EditAnywhere, Category = "Audio")
+	FPlatformRuntimeAudioCompressionOverrides CompressionOverrides;
+
+
+	UPROPERTY(config, EditAnywhere, Category = "Audio|CookOverrides")
+	bool bResampleForDevice;
+
+	// Mapping of which sample rates are used for each sample rate quality for a specific platform.
+
+	UPROPERTY(config, EditAnywhere, Category = "Audio|CookOverrides|ResamplingQuality", meta = (DisplayName = "Max"))
+	float MaxSampleRate;
+
+	UPROPERTY(config, EditAnywhere, Category = "Audio|CookOverrides|ResamplingQuality", meta = (DisplayName = "High"))
+	float HighSampleRate;
+
+	UPROPERTY(config, EditAnywhere, Category = "Audio|CookOverrides|ResamplingQuality", meta = (DisplayName = "Medium"))
+	float MedSampleRate;
+
+	UPROPERTY(config, EditAnywhere, Category = "Audio|CookOverrides|ResamplingQuality", meta = (DisplayName = "Low"))
+	float LowSampleRate;
+
+	UPROPERTY(config, EditAnywhere, Category = "Audio|CookOverrides|ResamplingQuality", meta = (DisplayName = "Min"))
+	float MinSampleRate;
+
+	// Scales all compression qualities when cooking to this platform. For example, 0.5 will halve all compression qualities, and 1.0 will leave them unchanged.
+	UPROPERTY(config, EditAnywhere, Category = "Audio|CookOverrides")
+	float CompressionQualityModifier;
 
 #if WITH_EDITOR
 	// UObject interface

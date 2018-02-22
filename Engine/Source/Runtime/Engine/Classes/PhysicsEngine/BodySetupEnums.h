@@ -6,7 +6,7 @@
 #include "UObject/ObjectMacros.h"
 #include "BodySetupEnums.generated.h"
 
-UENUM()
+UENUM(BlueprintType)
 enum ECollisionTraceFlag
 {
 	/** Use project physics settings (DefaultShapeComplexity) */

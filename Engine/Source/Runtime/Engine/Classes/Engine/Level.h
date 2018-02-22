@@ -331,6 +331,23 @@ struct ENGINE_API FLevelSimplificationDetails
 	bool operator == (const FLevelSimplificationDetails& Other) const;
 };
 
+/**
+ * Stored information about replicated static/placed actors that have been destroyed in a level.
+ * This information is cached in ULevel so that any net drivers that are created after these actors
+ * are destroyed can access this info and correctly replicate the destruction to their clients.
+ */
+USTRUCT()
+struct FReplicatedStaticActorDestructionInfo
+{
+	GENERATED_BODY()
+
+	FName PathName;
+	FVector	DestroyedPosition;
+	TWeakObjectPtr<UObject> ObjOuter;
+	UPROPERTY()
+	UClass* ObjClass;
+};
+
 //
 // The level object.  Contains the level's actor list, BSP information, and brush list.
 // Every Level has a World as its Outer and can be used as the PersistentLevel, however,
@@ -493,11 +510,13 @@ public:
 	UPROPERTY(transient)
 	uint8										bIsVisible:1;
 
+#if WITH_EDITORONLY_DATA
 	/** Whether this level is locked; that is, its actors are read-only 
 	 *	Used by WorldBrowser to lock a level when corresponding ULevelStreaming does not exist
 	 */
 	UPROPERTY()
 	uint8 										bLocked:1;
+#endif
 	
 	/** The below variables are used temporarily while making a level visible.				*/
 
@@ -529,7 +548,8 @@ public:
 	uint8										bHasRerunConstructionScripts:1;
 	/** Whether the level had its actor cluster created. This doesn't mean that the creation was successful. */
 	uint8										bActorClusterCreated : 1;
-
+	/** Whether the actor referenced by CurrentActorIndexForUpdateComponents has called PreRegisterAllComponents */
+	uint8										bHasCurrentActorCalledPreRegister;
 	/** Current index into actors array for updating components.							*/
 	int32										CurrentActorIndexForUpdateComponents;
 	/** Current index into actors array for updating components.							*/
@@ -597,9 +617,18 @@ private:
 	// Actors awaiting input to be enabled once the appropriate PlayerController has been created
 	TArray<FPendingAutoReceiveInputActor> PendingAutoReceiveInputActors;
 
+	/** List of replicated static actors that have been destroyed. Used by net drivers to replicate destruction to clients. */
+	UPROPERTY()
+	TArray<FReplicatedStaticActorDestructionInfo> DestroyedReplicatedStaticActors;
+
 public:
 	// Used internally to determine which actors should go on the world's NetworkActor list
 	static bool IsNetActor(const AActor* Actor);
+
+	/** Populate an entry for Actor in the DestroyedReplicatedStaticActors list */
+	void CreateReplicatedDestructionInfo(AActor* const Actor);
+
+	const TArray<FReplicatedStaticActorDestructionInfo>& GetDestroyedReplicatedStaticActors() const;
 
 	/** Called when a level package has been dirtied. */
 	ENGINE_API static FSimpleMulticastDelegate LevelDirtiedEvent;

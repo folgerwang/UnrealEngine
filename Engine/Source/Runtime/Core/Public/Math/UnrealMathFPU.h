@@ -939,6 +939,30 @@ FORCEINLINE VectorRegister VectorMax( const VectorRegister& Vec1, const VectorRe
 #define VectorShuffle( Vec1, Vec2, X, Y, Z, W )	MakeVectorRegister( (Vec1).V[X], (Vec1).V[Y], (Vec2).V[Z], (Vec2).V[W] )
 
 /**
+* Creates a vector by combining two high components from each vector
+*
+* @param Vec1		Source vector1
+* @param Vec2		Source vector2
+* @return			The combined vector
+*/
+FORCEINLINE VectorRegister VectorCombineHigh(const VectorRegister& Vec1, const VectorRegister& Vec2 )
+{
+	return VectorShuffle(Vec1, Vec2, 2, 3, 2, 3);
+}
+
+/**
+* Creates a vector by combining two low components from each vector
+*
+* @param Vec1		Source vector1
+* @param Vec2		Source vector2
+* @return			The combined vector
+*/
+FORCEINLINE VectorRegister VectorCombineLow(const VectorRegister& Vec1, const VectorRegister& Vec2 )
+{
+	return VectorShuffle(Vec1, Vec2, 0, 1, 0, 1);
+}
+
+/**
  * Merges the XYZ components of one vector with the W component of another vector and returns the result.
  *
  * @param VecXYZ	Source vector for XYZ_

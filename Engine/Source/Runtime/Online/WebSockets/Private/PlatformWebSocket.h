@@ -4,7 +4,7 @@
 
 #include "HAL/Platform.h"
 
-#if PLATFORM_WINDOWS || PLATFORM_MAC || PLATFORM_LINUX || PLATFORM_PS4
+#if WITH_LIBWEBSOCKETS
 #include "Lws/LwsWebSocketsManager.h"
 typedef FLwsWebSocketsManager FPlatformWebSocketsManager;
 #elif PLATFORM_XBOXONE

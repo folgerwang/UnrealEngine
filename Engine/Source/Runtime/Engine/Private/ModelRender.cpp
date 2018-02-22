@@ -241,14 +241,14 @@ public:
 			ULevelStreaming* LevelStreaming = FLevelUtils::FindStreamingLevel( Level );
 			if ( LevelStreaming )
 			{
-				LevelColor = LevelStreaming->LevelColor;
+				SetLevelColor(LevelStreaming->LevelColor);
 			}
 		}
 
 		// Get a color for property coloration.
 		FColor NewPropertyColor;
 		GEngine->GetPropertyColorationColor( (UObject*)InComponent, NewPropertyColor );
-		PropertyColor = NewPropertyColor;
+		SetPropertyColor(NewPropertyColor);
 	}
 
 	~FModelSceneProxy()

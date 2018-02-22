@@ -101,11 +101,10 @@ public:
 
 	/**
 	 * Writes out the stats contained within the stats write object to the online
-	 * subsystem's cache of stats data. Note the new data replaces the old. It does
-	 * not write the data to the permanent storage until a FlushOnlineStats() call
-	 * or a session ends. Stats cannot be written without a session or the write
-	 * request is ignored. No more than 5 stats views can be written to at a time
-	 * or the write request is ignored.
+	 * subsystem's cache of stats data. Note the new data replaces the old. 
+	 * Stats cannot be written without a session or the write request is ignored.
+	 * No more than 5 stats views can be written to at a time or the write request
+	 * is ignored.
 	 *
 	 * @param SessionName the name of the session to write stats for
 	 * @param Player the player to write stats for

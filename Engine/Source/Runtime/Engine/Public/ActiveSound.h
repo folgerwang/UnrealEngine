@@ -246,6 +246,15 @@ public:
 	/** Returns whether or not the active sound can be deleted. */
 	bool CanDelete() const { return !bAsyncOcclusionPending; }
 
+	/** Whether or not the active sound is a looping sound. */
+	bool IsLooping() const { return Sound && Sound->IsLooping(); }
+
+	/** Whether or not the active sound a one-shot sound. */
+	bool IsOneShot() const { return !IsLooping(); }
+
+	/** Whether or not the active sound is currently playing audible sound. */
+	bool IsPlayingAudio() const { return bIsPlayingAudio; }
+
 	FAudioDevice* AudioDevice;
 
 	/** The group of active concurrent sounds that this sound is playing in. */
@@ -357,6 +366,9 @@ public:
 	/** Whether or not this active sound will update the average envelope value of every wave instance that plays a sound source. Based on set delegates on audio component. */
 	uint8 bUpdateMultiEnvelopeValue:1;
 
+	/** Whether or not this active sound is playing audio, as in making audible sounds. */
+	uint8 bIsPlayingAudio:1;
+
 public:
 	uint8 UserIndex;
 
@@ -367,6 +379,7 @@ public:
 	FThreadSafeBool bAsyncOcclusionPending;
 
 	float PlaybackTime;
+	float MinCurrentPitch;
 	float RequestedStartTime;
 
 	float CurrentAdjustVolumeMultiplier;

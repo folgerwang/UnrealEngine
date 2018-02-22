@@ -364,9 +364,9 @@ void FMeshPaintGeometryAdapterForSkeletalMeshes::SetVertexColor(int32 VertexInde
 		LODModel->GetSectionFromVertexIndex(VertexIndex, SectionIndex, SectionVertexIndex);
 		LODModel->Sections[SectionIndex].SoftVertices[SectionVertexIndex].Color = Color;
 
-		if (!ReferencedSkeletalMesh->LODInfo[MeshLODIndex].bHasPerLODVertexColors)
+		if (!ReferencedSkeletalMesh->GetLODInfo(MeshLODIndex)->bHasPerLODVertexColors)
 		{
-			ReferencedSkeletalMesh->LODInfo[MeshLODIndex].bHasPerLODVertexColors = true;
+			ReferencedSkeletalMesh->GetLODInfo(MeshLODIndex)->bHasPerLODVertexColors = true;
 		}
 	}
 }

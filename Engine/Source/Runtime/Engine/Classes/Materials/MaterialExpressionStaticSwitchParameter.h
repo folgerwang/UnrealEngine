@@ -22,8 +22,8 @@ class UMaterialExpressionStaticSwitchParameter : public UMaterialExpressionStati
 
 
 	//~ Begin UMaterialExpression Interface
-	virtual FName GetInputName(int32 InputIndex) const override;
 #if WITH_EDITOR
+	virtual FName GetInputName(int32 InputIndex) const override;
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 	virtual bool IsResultMaterialAttributes(int32 OutputIndex) override;

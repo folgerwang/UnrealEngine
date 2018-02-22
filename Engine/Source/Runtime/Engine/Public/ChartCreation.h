@@ -140,14 +140,27 @@ public:
 	int32 TotalRenderThreadBoundHitchCount;
 	int32 TotalGPUBoundHitchCount;
 
+	/** Total number of draw calls made */
+	int32 MaxDrawCalls;
+	int32 MinDrawCalls;
+	int32 TotalDrawCalls;
+
+	/** Total number of primitives drawn */
+	int32 MaxDrawnPrimitives;
+	int32 MinDrawnPrimitives;
+	int32 TotalDrawnPrimitives;
+
 	/** Start time of the capture */
-	const FDateTime CaptureStartTime;
+	FDateTime CaptureStartTime;
 
 	/** Total accumulated raw (including idle) time spent with the chart registered */
 	double AccumulatedChartTime;
 
 public:
 	FPerformanceTrackingChart(const FDateTime& InStartTime, const FString& InChartLabel);
+
+	// Discard all accumulated data
+	void Reset(const FDateTime& InStartTime);
 
 	double GetAverageFramerate() const
 	{

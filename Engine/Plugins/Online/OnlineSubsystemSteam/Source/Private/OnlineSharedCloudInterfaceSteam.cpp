@@ -5,7 +5,7 @@
 
 FString FOnlineAsyncTaskSteamReadSharedFile::ToString() const
 {
-	return FString::Printf(TEXT("FOnlineAsyncTaskSteamReadSharedFile bWasSuccessful: %d Handle: %s"), bWasSuccessful, *SharedHandle.ToDebugString());
+	return FString::Printf(TEXT("FOnlineAsyncTaskSteamReadSharedFile bWasSuccessful: %d Handle: %s"), WasSuccessful(), *SharedHandle.ToDebugString());
 }
 
 void FOnlineAsyncTaskSteamReadSharedFile::Tick()
@@ -113,7 +113,7 @@ void FOnlineAsyncTaskSteamReadSharedFile::TriggerDelegates()
 FString FOnlineAsyncTaskSteamWriteSharedFile::ToString() const
 {
 	return FString::Printf(TEXT("FOnlineAsyncTaskSteamWriteSharedFile bWasSuccessful:%d UserId:%s FileName:%s Handle:%s"),
-								bWasSuccessful, *UserId.ToDebugString(), *FileName, *FSharedContentHandleSteam(CallbackResults.m_hFile).ToDebugString());
+								WasSuccessful(), *UserId.ToDebugString(), *FileName, *FSharedContentHandleSteam(CallbackResults.m_hFile).ToDebugString());
 }
 
 void FOnlineAsyncTaskSteamWriteSharedFile::Tick()

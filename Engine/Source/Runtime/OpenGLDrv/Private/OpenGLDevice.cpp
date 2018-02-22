@@ -137,9 +137,17 @@ bool IsUniformBufferBound( GLuint Buffer )
 
 extern void BeginFrame_UniformBufferPoolCleanup();
 extern void BeginFrame_VertexBufferCleanup();
+extern void BeginFrame_QueryBatchCleanup();
+
 
 FOpenGLContextState& FOpenGLDynamicRHI::GetContextStateForCurrentContext(bool bAssertIfInvalid)
 {
+	// most common case
+	if (BeginSceneContextType == CONTEXT_Rendering)
+	{
+		return RenderingContextState;
+	}
+	
 	int32 ContextType = (int32)PlatformOpenGLCurrentContext(PlatformDevice);
 	if (bAssertIfInvalid)
 	{
@@ -163,8 +171,7 @@ FOpenGLContextState& FOpenGLDynamicRHI::GetContextStateForCurrentContext(bool bA
 void FOpenGLDynamicRHI::RHIBeginFrame()
 {
 	RHIPrivateBeginFrame();
-	BeginFrame_UniformBufferPoolCleanup();
-	BeginFrame_VertexBufferCleanup();
+
 	GPUProfilingData.BeginFrame(this);
 
 #if PLATFORM_ANDROID //adding #if since not sure if this is required for any other platform.
@@ -179,6 +186,14 @@ void FOpenGLDynamicRHI::RHIEndFrame()
 {
 	GPUProfilingData.EndFrame();
 }
+
+void FOpenGLDynamicRHI::RHIPerFrameRHIFlushComplete()
+{
+	BeginFrame_UniformBufferPoolCleanup();
+	BeginFrame_VertexBufferCleanup();
+	BeginFrame_QueryBatchCleanup();
+}
+
 
 void FOpenGLDynamicRHI::RHIBeginScene()
 {
@@ -195,11 +210,14 @@ void FOpenGLDynamicRHI::RHIBeginScene()
 	{
 		ResourceTableFrameCounter = SceneFrameCounter;
 	}
+
+	BeginSceneContextType = (int32)PlatformOpenGLCurrentContext(PlatformDevice);
 }
 
 void FOpenGLDynamicRHI::RHIEndScene()
 {
 	ResourceTableFrameCounter = INDEX_NONE;
+	BeginSceneContextType = CONTEXT_Other;
 }
 
 #if PLATFORM_ANDROID
@@ -763,6 +781,13 @@ static void InitRHICapabilitiesForGL()
 	GMaxRHIFeatureLevel = FOpenGL::GetFeatureLevel();
 	GMaxRHIShaderPlatform = FOpenGL::GetShaderPlatform();
 
+#if !PLATFORM_DESKTOP
+	GRHISupportsRHIThread = GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1;
+#else
+	// Enabling GRHISupportsRHIThread causes multi-threading issues on Linux, possibly Windows too
+	GRHISupportsRHIThread = false;
+#endif
+
 	// Emulate uniform buffers on ES2, unless we're on a desktop platform emulating ES2.
 	GUseEmulatedUniformBuffers = IsES2Platform(GMaxRHIShaderPlatform) && !IsPCPlatform(GMaxRHIShaderPlatform);
 #if PLATFORM_HTML5
@@ -795,6 +820,9 @@ static void InitRHICapabilitiesForGL()
 #if defined(GL_MAX_ARRAY_TEXTURE_LAYERS) && GL_MAX_ARRAY_TEXTURE_LAYERS
 	GMaxTextureArrayLayers = Value_GL_MAX_ARRAY_TEXTURE_LAYERS;
 #endif
+
+	GSupportsParallelRenderingTasksWithSeparateRHIThread = false; // hopefully this is just temporary
+	GRHIThreadNeedsKicking = true; // GL is SLOW
 
 	GSupportsVolumeTextureRendering = FOpenGL::SupportsVolumeTextureRendering();
 	GSupportsRenderDepthTargetableShaderResources = true;
@@ -841,6 +869,13 @@ static void InitRHICapabilitiesForGL()
 	else
 	{
 		GRHISupportsTextureStreaming = true;
+	}
+
+	// Disable texture streaming if forced off by r.OpenGL.DisableTextureStreamingSupport
+	static const auto CVarDisableOpenGLTextureStreamingSupport = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.OpenGL.DisableTextureStreamingSupport"));
+	if (CVarDisableOpenGLTextureStreamingSupport->GetValueOnAnyThread())
+	{
+		GRHISupportsTextureStreaming = false;
 	}
 
 	GVertexElementTypeSupport.SetSupported(VET_Half2,		FOpenGL::SupportsVertexHalfFloat());
@@ -1002,7 +1037,7 @@ static void InitRHICapabilitiesForGL()
 		{
 			// @todo android: This is cheating by not setting a stencil anywhere, need that! And Shield is still rendering black scene
 			SetupTextureFormat(PF_DepthStencil, FOpenGLTextureFormat(DepthFormat, GL_NONE, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, false, false));
-		}
+	}
 #endif // !PLATFORM_DESKTOP
 	}
 
@@ -1082,6 +1117,7 @@ FOpenGLDynamicRHI::FOpenGLDynamicRHI()
 ,	ResourceTableFrameCounter(INDEX_NONE)
 ,	bRevertToSharedContextAfterDrawingViewport(false)
 ,	bIsRenderingContextAcquired(false)
+,   BeginSceneContextType(CONTEXT_Other)
 ,	PlatformDevice(NULL)
 ,	GPUProfilingData(this)
 {
@@ -1487,9 +1523,12 @@ void FOpenGLDynamicRHI::Init()
 	FSamplerStateInitializerRHI PointSamplerStateParams(SF_Point,AM_Clamp,AM_Clamp,AM_Clamp);
 	PointSamplerState = this->RHICreateSamplerState(PointSamplerStateParams);
 
-	// Allocate vertex and index buffers for DrawPrimitiveUP calls.
-	DynamicVertexBuffers.Init(CalcDynamicBufferSize(1));
-	DynamicIndexBuffers.Init(CalcDynamicBufferSize(1));
+	if (FOpenGL::SupportsFastBufferData())
+	{
+		// Allocate vertex and index buffers for DrawPrimitiveUP calls.
+		DynamicVertexBuffers.Init(CalcDynamicBufferSize(1));
+		DynamicIndexBuffers.Init(CalcDynamicBufferSize(1));
+	}
 
 	// Notify all initialized FRenderResources that there's a valid RHI device to create their RHI resources for now.
 	for(TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList());ResourceIt;ResourceIt.Next())
@@ -1527,6 +1566,15 @@ void FOpenGLDynamicRHI::Init()
 		}
 	}
 
+#else
+
+	static const auto CVarStreamingTexturePoolSize = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Streaming.PoolSize"));
+	GTexturePoolSize = (int64)CVarStreamingTexturePoolSize->GetValueOnAnyThread() * 1024 * 1024;
+
+	UE_LOG(LogRHI,Log,TEXT("Texture pool is %llu MB (of %llu MB total graphics mem)"),
+			GTexturePoolSize / 1024 / 1024,
+			FOpenGL::GetVideoMemorySize());
+
 #endif
 
 	// Flush here since we might be switching to a different context/thread for rendering
@@ -1540,6 +1588,14 @@ void FOpenGLDynamicRHI::Init()
 	CheckTextureCubeLodSupport();
 	CheckVaryingLimit();
 	CheckRoundFunction();
+}
+
+void FOpenGLDynamicRHI::PostInit()
+{
+	if (GRHISupportsRHIThread)
+	{
+		SetupRecursiveResources();
+	}
 }
 
 void FOpenGLDynamicRHI::Shutdown()

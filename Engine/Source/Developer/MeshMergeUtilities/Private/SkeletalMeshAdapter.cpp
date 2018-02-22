@@ -11,7 +11,7 @@ FSkeletalMeshComponentAdapter::FSkeletalMeshComponentAdapter(USkeletalMeshCompon
 	: SkeletalMeshComponent(InSkeletalMeshComponent), SkeletalMesh(InSkeletalMeshComponent->SkeletalMesh)
 {
 	checkf(SkeletalMesh != nullptr, TEXT("Invalid skeletal mesh in adapter"));
-	NumLODs = SkeletalMesh->LODInfo.Num();
+	NumLODs = SkeletalMesh->GetLODNum();
 }
 
 int32 FSkeletalMeshComponentAdapter::GetNumberOfLODs() const

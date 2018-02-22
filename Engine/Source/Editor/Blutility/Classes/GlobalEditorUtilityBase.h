@@ -70,9 +70,13 @@ class BLUTILITY_API UGlobalEditorUtilityBase : public UObject
 	UFUNCTION(BlueprintCallable, Category="Development|Editor")
 	void ForEachSelectedAsset();
 
-	// The method called for each selected actor when ForEachSelectedAsset is called
+	// The method called for each selected asset when ForEachSelectedAsset is called
 	UPROPERTY(BlueprintAssignable)
 	FForEachAssetIteratorSignature OnEachSelectedAsset;
+
+	// Gets the set of currently selected assets
+	UFUNCTION(BlueprintCallable, Category="Development|Editor")
+	TArray<UObject*> GetSelectedAssets();
 
 	///////////////////////////
 

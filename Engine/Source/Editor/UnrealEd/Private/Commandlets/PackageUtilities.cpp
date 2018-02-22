@@ -749,7 +749,7 @@ int32 ULoadPackageCommandlet::Main( const FString& Params )
 	{
 		const FString& Filename = FilesInPath[FileIndex];
 
-		UE_LOG(LogPackageUtilities, Warning, TEXT("Loading %s"), *Filename );
+		UE_LOG(LogPackageUtilities, Display, TEXT("Loading %s"), *Filename );
 
 		FString PackageName;
 		if (FPackageName::TryConvertFilenameToLongPackageName(Filename, PackageName))
@@ -913,50 +913,50 @@ void FPkgInfoReporter_Log::GeneratePackageReport( FLinkerLoad* InLinker/*=NULL*/
 
 	if ( PackageCount++ > 0 )
 	{
-		UE_LOG(LogPackageUtilities, Warning, TEXT(""));
+		UE_LOG(LogPackageUtilities, Display, TEXT(""));
 	}
 
 	// Display information about the package.
 	FName LinkerName = Linker->LinkerRoot->GetFName();
 
 	// Display summary info.
-	UE_LOG(LogPackageUtilities, Warning, TEXT("********************************************") );
-	UE_LOG(LogPackageUtilities, Warning, TEXT("Package '%s' Summary"), *LinkerName.ToString() );
-	UE_LOG(LogPackageUtilities, Warning, TEXT("--------------------------------------------") );
+	UE_LOG(LogPackageUtilities, Display, TEXT("********************************************") );
+	UE_LOG(LogPackageUtilities, Display, TEXT("Package '%s' Summary"), *LinkerName.ToString() );
+	UE_LOG(LogPackageUtilities, Display, TEXT("--------------------------------------------") );
 
-	UE_LOG(LogPackageUtilities, Warning, TEXT("\t         Filename: %s"), *Linker->Filename);
-	UE_LOG(LogPackageUtilities, Warning, TEXT("\t     File Version: %i"), Linker->UE4Ver() );
-	UE_LOG(LogPackageUtilities, Warning, TEXT("\t   Engine Version: %s"), *Linker->Summary.SavedByEngineVersion.ToString());
-	UE_LOG(LogPackageUtilities, Warning, TEXT("\t   Compat Version: %s"), *Linker->Summary.CompatibleWithEngineVersion.ToString());
-	UE_LOG(LogPackageUtilities, Warning, TEXT("\t     PackageFlags: %X"), Linker->Summary.PackageFlags );
-	UE_LOG(LogPackageUtilities, Warning, TEXT("\t        NameCount: %d"), Linker->Summary.NameCount );
-	UE_LOG(LogPackageUtilities, Warning, TEXT("\t       NameOffset: %d"), Linker->Summary.NameOffset );
-	UE_LOG(LogPackageUtilities, Warning, TEXT("\t      ImportCount: %d"), Linker->Summary.ImportCount );
-	UE_LOG(LogPackageUtilities, Warning, TEXT("\t     ImportOffset: %d"), Linker->Summary.ImportOffset );
-	UE_LOG(LogPackageUtilities, Warning, TEXT("\t      ExportCount: %d"), Linker->Summary.ExportCount );
-	UE_LOG(LogPackageUtilities, Warning, TEXT("\t     ExportOffset: %d"), Linker->Summary.ExportOffset );
-	UE_LOG(LogPackageUtilities, Warning, TEXT("\tCompression Flags: %X"), Linker->Summary.CompressionFlags);
-	UE_LOG(LogPackageUtilities, Warning, TEXT("\t  Custom Versions:\n%s"), *Linker->Summary.GetCustomVersionContainer().ToString("\t\t"));
+	UE_LOG(LogPackageUtilities, Display, TEXT("\t         Filename: %s"), *Linker->Filename);
+	UE_LOG(LogPackageUtilities, Display, TEXT("\t     File Version: %i"), Linker->UE4Ver() );
+	UE_LOG(LogPackageUtilities, Display, TEXT("\t   Engine Version: %s"), *Linker->Summary.SavedByEngineVersion.ToString());
+	UE_LOG(LogPackageUtilities, Display, TEXT("\t   Compat Version: %s"), *Linker->Summary.CompatibleWithEngineVersion.ToString());
+	UE_LOG(LogPackageUtilities, Display, TEXT("\t     PackageFlags: %X"), Linker->Summary.PackageFlags );
+	UE_LOG(LogPackageUtilities, Display, TEXT("\t        NameCount: %d"), Linker->Summary.NameCount );
+	UE_LOG(LogPackageUtilities, Display, TEXT("\t       NameOffset: %d"), Linker->Summary.NameOffset );
+	UE_LOG(LogPackageUtilities, Display, TEXT("\t      ImportCount: %d"), Linker->Summary.ImportCount );
+	UE_LOG(LogPackageUtilities, Display, TEXT("\t     ImportOffset: %d"), Linker->Summary.ImportOffset );
+	UE_LOG(LogPackageUtilities, Display, TEXT("\t      ExportCount: %d"), Linker->Summary.ExportCount );
+	UE_LOG(LogPackageUtilities, Display, TEXT("\t     ExportOffset: %d"), Linker->Summary.ExportOffset );
+	UE_LOG(LogPackageUtilities, Display, TEXT("\tCompression Flags: %X"), Linker->Summary.CompressionFlags);
+	UE_LOG(LogPackageUtilities, Display, TEXT("\t  Custom Versions:\n%s"), *Linker->Summary.GetCustomVersionContainer().ToString("\t\t"));
 	
 
 	FString szGUID = Linker->Summary.Guid.ToString();
-	UE_LOG(LogPackageUtilities, Warning, TEXT("\t             Guid: %s"), *szGUID );
-	GWarn->Log ( TEXT("\t      Generations:"));
+	UE_LOG(LogPackageUtilities, Display, TEXT("\t             Guid: %s"), *szGUID );
+	UE_LOG(LogPackageUtilities, Display, TEXT("\t      Generations:"));
 	for( int32 i = 0; i < Linker->Summary.Generations.Num(); ++i )
 	{
 		const FGenerationInfo& generationInfo = Linker->Summary.Generations[ i ];
-		UE_LOG(LogPackageUtilities, Warning,TEXT("\t\t\t%d) ExportCount=%d, NameCount=%d "), i, generationInfo.ExportCount, generationInfo.NameCount );
+		UE_LOG(LogPackageUtilities, Display,TEXT("\t\t\t%d) ExportCount=%d, NameCount=%d "), i, generationInfo.ExportCount, generationInfo.NameCount );
 	}
 
 	if( (InfoFlags&PKGINFO_Names) != 0 )
 	{
-		UE_LOG(LogPackageUtilities, Warning, TEXT("--------------------------------------------") );
-		GWarn->Log ( TEXT("Name Map"));
-		GWarn->Log ( TEXT("========"));
+		UE_LOG(LogPackageUtilities, Display, TEXT("--------------------------------------------") );
+		UE_LOG(LogPackageUtilities, Display, TEXT("Name Map"));
+		UE_LOG(LogPackageUtilities, Display, TEXT("========"));
 		for( int32 i = 0; i < Linker->NameMap.Num(); ++i )
 		{
 			FName& name = Linker->NameMap[ i ];
-			UE_LOG(LogPackageUtilities, Warning, TEXT("\t%d: Name '%s' Comparison Index %d Display Index %d [Internal: %s, %d]"), i, *name.ToString(), name.GetComparisonIndex(), name.GetDisplayIndex(), *name.GetPlainNameString(), name.GetNumber() );
+			UE_LOG(LogPackageUtilities, Display, TEXT("\t%d: Name '%s' Comparison Index %d Display Index %d [Internal: %s, %d]"), i, *name.ToString(), name.GetComparisonIndex(), name.GetDisplayIndex(), *name.GetPlainNameString(), name.GetNumber() );
 		}
 	}
 
@@ -965,9 +965,9 @@ void FPkgInfoReporter_Log::GeneratePackageReport( FLinkerLoad* InLinker/*=NULL*/
 	{
 		if( (InfoFlags&PKGINFO_Imports) != 0 )
 		{
-			UE_LOG(LogPackageUtilities, Warning, TEXT("--------------------------------------------") );
-			GWarn->Log ( TEXT("Import Map"));
-			GWarn->Log ( TEXT("=========="));
+			UE_LOG(LogPackageUtilities, Display, TEXT("--------------------------------------------") );
+			UE_LOG(LogPackageUtilities, Display, TEXT("Import Map"));
+			UE_LOG(LogPackageUtilities, Display, TEXT("=========="));
 		}
 
 		TArray<FName> DependentPackages;
@@ -1001,7 +1001,7 @@ void FPkgInfoReporter_Log::GeneratePackageReport( FLinkerLoad* InLinker/*=NULL*/
 
 			if ( (InfoFlags&PKGINFO_Imports) != 0 )
 			{
-				GWarn->Log ( TEXT("\t*************************"));
+				UE_LOG(LogPackageUtilities, Display, TEXT("\t*************************"));
 				UE_LOG(LogPackageUtilities, Display, TEXT("\tImport %d: '%s'"), i, *import.ObjectName.ToString() );
 				UE_LOG(LogPackageUtilities, Display, TEXT("\t\t       Outer: '%s' (%d)"), *OuterName.ToString(), import.OuterIndex.ForDebugging());
 				UE_LOG(LogPackageUtilities, Display, TEXT("\t\t     Package: '%s'"), *PackageName.ToString());
@@ -1051,20 +1051,20 @@ void FPkgInfoReporter_Log::GeneratePackageReport( FLinkerLoad* InLinker/*=NULL*/
 
 		if ( DependentPackages.Num() )
 		{
-			UE_LOG(LogPackageUtilities, Warning, TEXT("--------------------------------------------") );
-			UE_LOG(LogPackageUtilities, Warning, TEXT("\tPackages referenced by %s:"), *LinkerName.ToString());
+			UE_LOG(LogPackageUtilities, Display, TEXT("--------------------------------------------") );
+			UE_LOG(LogPackageUtilities, Display, TEXT("\tPackages referenced by %s:"), *LinkerName.ToString());
 			for ( int32 i = 0; i < DependentPackages.Num(); i++ )
 			{
-				UE_LOG(LogPackageUtilities, Warning, TEXT("\t\t%i) %s"), i, *DependentPackages[i].ToString());
+				UE_LOG(LogPackageUtilities, Display, TEXT("\t\t%i) %s"), i, *DependentPackages[i].ToString());
 			}
 		}
 	}
 
 	if( (InfoFlags&PKGINFO_Exports) != 0 )
 	{
-		UE_LOG(LogPackageUtilities, Warning, TEXT("--------------------------------------------") );
-		GWarn->Log ( TEXT("Export Map"));
-		GWarn->Log ( TEXT("=========="));
+		UE_LOG(LogPackageUtilities, Display, TEXT("--------------------------------------------") );
+		UE_LOG(LogPackageUtilities, Display, TEXT("Export Map"));
+		UE_LOG(LogPackageUtilities, Display, TEXT("=========="));
 
 		TArray<FExportInfo> SortedExportMap;
 		SortedExportMap.Empty(Linker->ExportMap.Num());
@@ -1114,10 +1114,10 @@ void FPkgInfoReporter_Log::GeneratePackageReport( FLinkerLoad* InLinker/*=NULL*/
 		{
 			for( const auto& ExportInfo : SortedExportMap )
 			{
-				GWarn->Log ( TEXT("\t*************************"));
+				UE_LOG(LogPackageUtilities, Display, TEXT("\t*************************"));
 				const FObjectExport& Export = ExportInfo.Export;
 
-				UE_LOG(LogPackageUtilities, Warning, TEXT("\tExport %d: '%s'"), ExportInfo.ExportIndex, *Export.ObjectName.ToString() );
+				UE_LOG(LogPackageUtilities, Display, TEXT("\tExport %d: '%s'"), ExportInfo.ExportIndex, *Export.ObjectName.ToString() );
 
 				// find the name of this object's class
 				FPackageIndex ClassIndex = Export.ClassIndex;
@@ -1168,24 +1168,24 @@ void FPkgInfoReporter_Log::GeneratePackageReport( FLinkerLoad* InLinker/*=NULL*/
 					}
 				}
 
-				UE_LOG(LogPackageUtilities, Warning, TEXT("\t\t         Class: '%s' (%i)"), *ClassName.ToString(), ClassIndex.ForDebugging() );
-				UE_LOG(LogPackageUtilities, Warning, TEXT("\t\t        Parent: '%s' (%d)"), *ParentName, Export.SuperIndex.ForDebugging());
-				UE_LOG(LogPackageUtilities, Warning, TEXT("\t\t      Template: '%s' (%d)"), *TemplateName, Export.TemplateIndex.ForDebugging());
-				UE_LOG(LogPackageUtilities, Warning, TEXT("\t\t         Outer: '%s' (%d)"), *OuterName, Export.OuterIndex.ForDebugging() );
-				UE_LOG(LogPackageUtilities, Warning, TEXT("\t\t      Pkg Guid: %s"), *Export.PackageGuid.ToString());
-				UE_LOG(LogPackageUtilities, Warning, TEXT("\t\t   ObjectFlags: 0x%08X"), (uint32)Export.ObjectFlags );
-				UE_LOG(LogPackageUtilities, Warning, TEXT("\t\t          Size: %d"), Export.SerialSize );
+				UE_LOG(LogPackageUtilities, Display, TEXT("\t\t         Class: '%s' (%i)"), *ClassName.ToString(), ClassIndex.ForDebugging() );
+				UE_LOG(LogPackageUtilities, Display, TEXT("\t\t        Parent: '%s' (%d)"), *ParentName, Export.SuperIndex.ForDebugging());
+				UE_LOG(LogPackageUtilities, Display, TEXT("\t\t      Template: '%s' (%d)"), *TemplateName, Export.TemplateIndex.ForDebugging());
+				UE_LOG(LogPackageUtilities, Display, TEXT("\t\t         Outer: '%s' (%d)"), *OuterName, Export.OuterIndex.ForDebugging() );
+				UE_LOG(LogPackageUtilities, Display, TEXT("\t\t      Pkg Guid: %s"), *Export.PackageGuid.ToString());
+				UE_LOG(LogPackageUtilities, Display, TEXT("\t\t   ObjectFlags: 0x%08X"), (uint32)Export.ObjectFlags );
+				UE_LOG(LogPackageUtilities, Display, TEXT("\t\t          Size: %d"), Export.SerialSize );
 				if ( !bHideOffsets )
 				{
-					UE_LOG(LogPackageUtilities, Warning, TEXT("\t\t      Offset: %d"), Export.SerialOffset );
+					UE_LOG(LogPackageUtilities, Display, TEXT("\t\t      Offset: %d"), Export.SerialOffset );
 				}
-				UE_LOG(LogPackageUtilities, Warning, TEXT("\t\t       Object: %s"), Export.Object ? TEXT("VALID") : TEXT("NULL"));
+				UE_LOG(LogPackageUtilities, Display, TEXT("\t\t       Object: %s"), Export.Object ? TEXT("VALID") : TEXT("NULL"));
 				if ( !bHideOffsets )
 				{
-					UE_LOG(LogPackageUtilities, Warning, TEXT("\t\t    HashNext: %d"), Export.HashNext );
+					UE_LOG(LogPackageUtilities, Display, TEXT("\t\t    HashNext: %d"), Export.HashNext );
 				}
-				UE_LOG(LogPackageUtilities, Warning, TEXT("\t\t   bNotForClient: %d"), Export.bNotForClient );
-				UE_LOG(LogPackageUtilities, Warning, TEXT("\t\t   bNotForServer: %d"), Export.bNotForServer );
+				UE_LOG(LogPackageUtilities, Display, TEXT("\t\t   bNotForClient: %d"), Export.bNotForClient );
+				UE_LOG(LogPackageUtilities, Display, TEXT("\t\t   bNotForServer: %d"), Export.bNotForServer );
 
 				// dump depends info
 				if (InfoFlags & PKGINFO_Depends)
@@ -1197,7 +1197,7 @@ void FPkgInfoReporter_Log::GeneratePackageReport( FLinkerLoad* InLinker/*=NULL*/
 
 						for (int32 DependsIndex = 0; DependsIndex < Depends.Num(); DependsIndex++)
 						{
-							UE_LOG(LogPackageUtilities, Warning,TEXT("\t\t\t%i) %s (%i)"),
+							UE_LOG(LogPackageUtilities, Display,TEXT("\t\t\t%i) %s (%i)"),
 								DependsIndex, 
 								*Linker->GetFullImpExpName(Depends[DependsIndex]),
 								Depends[DependsIndex].ForDebugging()
@@ -1213,14 +1213,14 @@ void FPkgInfoReporter_Log::GeneratePackageReport( FLinkerLoad* InLinker/*=NULL*/
 							const FDependencyRef& Ref = *It;
 							if (Ref.Linker)
 							{
-								UE_LOG(LogPackageUtilities, Warning,TEXT("\t\t\t%i) %s (%i)"),
+								UE_LOG(LogPackageUtilities, Display,TEXT("\t\t\t%i) %s (%i)"),
 									DependsIndex++,
 									*Ref.Linker->GetExportFullName(Ref.ExportIndex),
 									Ref.ExportIndex);
 							}
 							else
 							{
-								UE_LOG(LogPackageUtilities, Warning,TEXT("\t\t\t%i) NULL (%i)"),
+								UE_LOG(LogPackageUtilities, Display,TEXT("\t\t\t%i) NULL (%i)"),
 									DependsIndex++,
 									Ref.ExportIndex);
 							}
@@ -1234,7 +1234,7 @@ void FPkgInfoReporter_Log::GeneratePackageReport( FLinkerLoad* InLinker/*=NULL*/
 			for( const auto& ExportInfo : SortedExportMap )
 			{
 				const FObjectExport& Export = ExportInfo.Export;
-				UE_LOG(LogPackageUtilities, Warning, TEXT("  %8i %10i %32s %s"), ExportInfo.ExportIndex, Export.SerialSize, 
+				UE_LOG(LogPackageUtilities, Display, TEXT("  %8i %10i %32s %s"), ExportInfo.ExportIndex, Export.SerialSize, 
 					*(Linker->GetExportClassName(ExportInfo.ExportIndex).ToString()), 
 					(InfoFlags&PKGINFO_Paths) != 0 ? *Linker->GetExportPathName(ExportInfo.ExportIndex) : *Export.ObjectName.ToString());
 			}
@@ -1243,9 +1243,9 @@ void FPkgInfoReporter_Log::GeneratePackageReport( FLinkerLoad* InLinker/*=NULL*/
 
 	if( (InfoFlags&PKGINFO_Text) != 0 )
 	{
-		UE_LOG(LogPackageUtilities, Warning, TEXT("--------------------------------------------") );
-		GWarn->Log ( TEXT("Gatherable Text Data Map"));
-		GWarn->Log ( TEXT("=========="));
+		UE_LOG(LogPackageUtilities, Display, TEXT("--------------------------------------------") );
+		UE_LOG(LogPackageUtilities, Display, TEXT("Gatherable Text Data Map"));
+		UE_LOG(LogPackageUtilities, Display, TEXT("=========="));
 
 		if (Linker->SerializeGatherableTextDataMap(true))
 		{
@@ -1276,9 +1276,9 @@ void FPkgInfoReporter_Log::GeneratePackageReport( FLinkerLoad* InLinker/*=NULL*/
 
 	if( (InfoFlags&PKGINFO_Thumbs) != 0 )
 	{
-		UE_LOG(LogPackageUtilities, Warning, TEXT("--------------------------------------------") );
-		GWarn->Log ( TEXT("Thumbnail Data"));
-		GWarn->Log ( TEXT("=========="));
+		UE_LOG(LogPackageUtilities, Display, TEXT("--------------------------------------------") );
+		UE_LOG(LogPackageUtilities, Display, TEXT("Thumbnail Data"));
+		UE_LOG(LogPackageUtilities, Display, TEXT("=========="));
 
 		if ( Linker->SerializeThumbnails(true) )
 		{
@@ -1299,7 +1299,7 @@ void FPkgInfoReporter_Log::GeneratePackageReport( FLinkerLoad* InLinker/*=NULL*/
 					FName& ObjectFullName = It.Key();
 					FObjectThumbnail& Thumb = It.Value();
 
-					UE_LOG(LogPackageUtilities, Warning,TEXT("\t\t%i) %*s: %ix%i\t\tImage Data:%i bytes"), ThumbIdx++, MaxObjectNameSize, *ObjectFullName.ToString(), Thumb.GetImageWidth(), Thumb.GetImageHeight(), Thumb.GetCompressedDataSize());
+					UE_LOG(LogPackageUtilities, Display,TEXT("\t\t%i) %*s: %ix%i\t\tImage Data:%i bytes"), ThumbIdx++, MaxObjectNameSize, *ObjectFullName.ToString(), Thumb.GetImageWidth(), Thumb.GetImageHeight(), Thumb.GetCompressedDataSize());
 				}
 			}
 			else
@@ -1318,23 +1318,23 @@ void FPkgInfoReporter_Log::GeneratePackageReport( FLinkerLoad* InLinker/*=NULL*/
 
 	if( (InfoFlags&PKGINFO_Lazy) != 0 )
 	{
-		UE_LOG(LogPackageUtilities, Warning, TEXT("--------------------------------------------") );
-		GWarn->Log ( TEXT("Lazy Pointer Data"));
-		GWarn->Log ( TEXT("==============="));		
+		UE_LOG(LogPackageUtilities, Display, TEXT("--------------------------------------------") );
+		UE_LOG(LogPackageUtilities, Display, TEXT("Lazy Pointer Data"));
+		UE_LOG(LogPackageUtilities, Display, TEXT("==============="));
 	}
 
 	if( (InfoFlags&PKGINFO_AssetRegistry) != 0 )
 	{
-		UE_LOG(LogPackageUtilities, Warning, TEXT("--------------------------------------------"));
+		UE_LOG(LogPackageUtilities, Display, TEXT("--------------------------------------------"));
 
 		{
 			const int32 NextOffset = Linker->Summary.WorldTileInfoDataOffset ? Linker->Summary.WorldTileInfoDataOffset : Linker->Summary.TotalHeaderSize;
 			const int32 AssetRegistrySize = NextOffset - Linker->Summary.AssetRegistryDataOffset;
 			UE_LOG(LogPackageUtilities, Display, TEXT("Asset Registry Size: %10i"), AssetRegistrySize);
 		}
-		
-		GWarn->Log ( TEXT("Asset Registry Data"));
-		GWarn->Log ( TEXT("=========="));
+
+		UE_LOG(LogPackageUtilities, Display, TEXT("Asset Registry Data"));
+		UE_LOG(LogPackageUtilities, Display, TEXT("=========="));
 
 		if( Linker->Summary.AssetRegistryDataOffset > 0 )
 		{
@@ -2179,7 +2179,7 @@ struct CompressAnimationsFunctor
 						if( SavePackageHelper( Package, PackageFileName ) == true )
 						{
 							bCorrectlySaved = true;
-							UE_LOG(LogPackageUtilities, Warning, TEXT("Correctly saved:  [%s]."), *PackageFileName );
+							UE_LOG(LogPackageUtilities, Display, TEXT("Correctly saved:  [%s]."), *PackageFileName );
 						}
 						else
 						{
@@ -2228,7 +2228,7 @@ struct CompressAnimationsFunctor
 				if( SavePackageHelper( Package, PackageFileName ) == true )
 				{
 					bCorrectlySaved = true;
-					UE_LOG(LogPackageUtilities, Warning, TEXT("Correctly saved:  [%s]."), *PackageFileName );
+					UE_LOG(LogPackageUtilities, Display, TEXT("Correctly saved:  [%s]."), *PackageFileName );
 				}
 				else
 				{
@@ -2268,21 +2268,25 @@ int32 UCompressAnimationsCommandlet::Main( const FString& Params )
 
 	if (bAnalyze)
 	{
-		UE_LOG(LogPackageUtilities, Warning, TEXT("Analyzing content for uncompressed animations..."));
+		UE_LOG(LogPackageUtilities, Display, TEXT("Analyzing content for uncompressed animations..."));
 		DoActionToAllPackages<UAnimSequence, CompressAnimationsFunctor>(this, ParamsUpperCase);
 
-		UE_LOG(LogPackageUtilities, Warning, TEXT("Done analyzing. Potential canditates: %i"), AnalyzeCompressionCandidates);
+		UE_LOG(LogPackageUtilities, Display, TEXT("Done analyzing. Potential canditates: %i"), AnalyzeCompressionCandidates);
 	}
 	else
 	{
 		// Then do the animation recompression
-		UE_LOG(LogPackageUtilities, Warning, TEXT("Recompressing all animations..."));
+		UE_LOG(LogPackageUtilities, Display, TEXT("Recompressing all animations..."));
 		DoActionToAllPackages<UAnimSequence, CompressAnimationsFunctor>(this, ParamsUpperCase);
 
-		UE_LOG(LogPackageUtilities, Warning, TEXT("\n*** Packages that could not be recompressed: %i"), PackagesThatCouldNotBeSavedList.Num());
-		for(int32 i=0; i<PackagesThatCouldNotBeSavedList.Num(); i++)
+		int32 NumPackagesThatCouldNotBeSaved = PackagesThatCouldNotBeSavedList.Num();
+		if (NumPackagesThatCouldNotBeSaved > 0)
 		{
-			UE_LOG(LogPackageUtilities, Warning, TEXT("\t%s"), *PackagesThatCouldNotBeSavedList[i]);
+			UE_LOG(LogPackageUtilities, Warning, TEXT("\n*** Packages that could not be recompressed: %i"), PackagesThatCouldNotBeSavedList.Num());
+			for(int32 i=0; i<NumPackagesThatCouldNotBeSaved; i++)
+			{
+				UE_LOG(LogPackageUtilities, Warning, TEXT("\t%s"), *PackagesThatCouldNotBeSavedList[i]);
+			}
 		}
 	}
 	
@@ -2441,7 +2445,7 @@ int32 UReplaceActorCommandlet::Main(const FString& Params)
 			}
 
 			// load the package
-			UE_LOG(LogPackageUtilities, Warning, TEXT("Loading %s..."), *FileName); 
+			UE_LOG(LogPackageUtilities, Display, TEXT("Loading %s..."), *FileName); 
 			UPackage* Package = LoadPackage(NULL, *FileName, LOAD_None);
 
 			// load the world we're interested in
@@ -2450,7 +2454,7 @@ int32 UReplaceActorCommandlet::Main(const FString& Params)
 			// this is the case where .uasset objects have class references (e.g. prefabs, animnodes, etc)
 			if( World == NULL )
 			{
-				UE_LOG(LogPackageUtilities, Warning, TEXT("%s (not a map)"), *FileName);
+				UE_LOG(LogPackageUtilities, Display, TEXT("%s (not a map)"), *FileName);
 				for( FObjectIterator It; It; ++It )
 				{
 					UObject* OldObject = *It;
@@ -2462,7 +2466,7 @@ int32 UReplaceActorCommandlet::Main(const FString& Params)
 						FArchiveReplaceObjectRef<UClass> ReplaceAr(OldObject, ReplaceMap, false, false, false);
 						if( ReplaceAr.GetCount() > 0 )
 						{
-							UE_LOG(LogPackageUtilities, Warning, TEXT("Replaced %i class references in an Object: %s"), ReplaceAr.GetCount(), *OldObject->GetName() );
+							UE_LOG(LogPackageUtilities, Display, TEXT("Replaced %i class references in an Object: %s"), ReplaceAr.GetCount(), *OldObject->GetName() );
 							Package->MarkPackageDirty();
 						}
 					}
@@ -2475,7 +2479,7 @@ int32 UReplaceActorCommandlet::Main(const FString& Params)
 						SourceControl.GetProvider().Execute(ISourceControlOperation::Create<FCheckOut>(), Package);
 					}
 
-					UE_LOG(LogPackageUtilities, Warning, TEXT("Saving %s..."), *FileName);
+					UE_LOG(LogPackageUtilities, Display, TEXT("Saving %s..."), *FileName);
 					GEditor->SavePackage( Package, NULL, RF_Standalone, *FileName, GWarn );
 				}
 			}
@@ -2502,7 +2506,7 @@ int32 UReplaceActorCommandlet::Main(const FString& Params)
 					if (OldActor->GetClass() == ClassToReplace)
 					{
 						// replace an instance of the old actor
-						UE_LOG(LogPackageUtilities, Warning, TEXT("Replacing actor %s"), *OldActor->GetName());
+						UE_LOG(LogPackageUtilities, Display, TEXT("Replacing actor %s"), *OldActor->GetName());
 						bIsDirty = true;
 						// make sure we spawn the new actor in the same level as the old
 						//@warning: this relies on the outer of an actor being the level
@@ -2544,7 +2548,7 @@ int32 UReplaceActorCommandlet::Main(const FString& Params)
 						FArchiveReplaceObjectRef<AActor> ReplaceAr(World, ReplaceMap, false, false, false);
 						if (ReplaceAr.GetCount() > 0)
 						{
-							UE_LOG(LogPackageUtilities, Warning, TEXT("Replaced %i actor references in %s"), ReplaceAr.GetCount(), *It->GetName());
+							UE_LOG(LogPackageUtilities, Display, TEXT("Replaced %i actor references in %s"), ReplaceAr.GetCount(), *It->GetName());
 							Package->MarkPackageDirty();
 						}
 					}
@@ -2556,7 +2560,7 @@ int32 UReplaceActorCommandlet::Main(const FString& Params)
 						FArchiveReplaceObjectRef<UClass> ReplaceAr(*It, ReplaceMap, false, false, false);
 						if (ReplaceAr.GetCount() > 0)
 						{
-							UE_LOG(LogPackageUtilities, Warning, TEXT("Replaced %i class references in actor %s"), ReplaceAr.GetCount(), *It->GetName());
+							UE_LOG(LogPackageUtilities, Display, TEXT("Replaced %i class references in actor %s"), ReplaceAr.GetCount(), *It->GetName());
 							Package->MarkPackageDirty();
 							bIsDirty = true;
 						}
@@ -2575,7 +2579,7 @@ int32 UReplaceActorCommandlet::Main(const FString& Params)
 						SourceControl.GetProvider().Execute(ISourceControlOperation::Create<FCheckOut>(), Package);
 					}
 
-					UE_LOG(LogPackageUtilities, Warning, TEXT("Saving %s..."), *FileName);
+					UE_LOG(LogPackageUtilities, Display, TEXT("Saving %s..."), *FileName);
 					GEditor->SavePackage(Package, World, RF_NoFlags, *FileName, GWarn);
 				}
 
@@ -2587,7 +2591,7 @@ int32 UReplaceActorCommandlet::Main(const FString& Params)
 		}
 
 		// get rid of the loaded world
-		UE_LOG(LogPackageUtilities, Warning, TEXT("GCing..."));
+		UE_LOG(LogPackageUtilities, Display, TEXT("GCing..."));
 		CollectGarbage(RF_NoFlags);
 	}
 

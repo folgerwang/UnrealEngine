@@ -232,7 +232,7 @@ FOpenGLViewport::FOpenGLViewport(FOpenGLDynamicRHI* InOpenGLRHI,void* InWindowHa
 
 FOpenGLViewport::~FOpenGLViewport()
 {
-	check(IsInRenderingThread());
+	check(IsInRenderingThread() || IsInRHIThread());
 
 	if (bIsFullscreen)
 	{

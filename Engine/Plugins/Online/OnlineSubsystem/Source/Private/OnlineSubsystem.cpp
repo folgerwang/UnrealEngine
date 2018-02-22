@@ -8,6 +8,7 @@
 #include "Online.h"
 #include "Misc/NetworkVersion.h"
 #include "Logging/LogMacros.h"
+#include "Misc/EngineVersion.h"
 
 DEFINE_LOG_CATEGORY(LogOnline);
 DEFINE_LOG_CATEGORY(LogOnlineGame);
@@ -40,12 +41,21 @@ TSharedPtr<const FUniqueNetId> GetFirstSignedInUser(IOnlineIdentityPtr IdentityI
 	return UserId;
 }
 
+
+
+
 int32 GetBuildUniqueId()
 {
 	static bool bStaticCheck = false;
 	static int32 BuildId = 0;
 	static bool bUseBuildIdOverride = false;
 	static int32 BuildIdOverride = 0;
+
+	// add a cvar so it can be modified at runtime
+	static FAutoConsoleVariableRef CVarBuildIdOverride(
+		TEXT("buildidoverride"), BuildId,
+		TEXT("Sets build id used for matchmaking "),
+		ECVF_Default);
 
 	if (!bStaticCheck)
 	{
@@ -67,31 +77,17 @@ int32 GetBuildUniqueId()
 			}
 		}
 
-		const uint32 NetworkVersion = FNetworkVersion::GetLocalNetworkVersion();
 		if (bUseBuildIdOverride == false)
 		{
-			/** Engine package CRC doesn't change, can't be used as the version - BZ */
-			FNboSerializeToBuffer Buffer(64);
-			// Serialize to a NBO buffer for consistent CRCs across platforms
-			Buffer << NetworkVersion;
-			// Now calculate the CRC
-			uint32 Crc = FCrc::MemCrc32((uint8*)Buffer, Buffer.GetByteCount());
-
-			// make sure it's positive when it's cast back to an int
-			BuildId = static_cast<int32>(Crc & 0x7fffffff);
+			// Removed old hashing code to use something more predictable and easier to override for when
+			// it's necessary to force compatibility with an older build
+			BuildId = FNetworkVersion::GetNetworkCompatibleChangelist();
 		}
 		else
 		{
 			BuildId = BuildIdOverride;
 		}
 	}
-
-	UE_LOG_ONLINE(VeryVerbose, TEXT("GetBuildUniqueId: Network CL %u LocalNetworkVersion %u bUseBuildIdOverride %d BuildIdOverride %d BuildId %d"),
-		FNetworkVersion::GetNetworkCompatibleChangelist(),
-		FNetworkVersion::GetLocalNetworkVersion(),
-		bUseBuildIdOverride,
-		BuildIdOverride,
-		BuildId);
 
 	return BuildId;
 }

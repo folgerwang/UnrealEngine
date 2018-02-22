@@ -28,9 +28,9 @@ UMaterialExpressionLandscapeLayerCoords::UMaterialExpressionLandscapeLayerCoords
 
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Landscape);
-#endif
 
 	bCollapsed = false;
+#endif
 }
 
 #if WITH_EDITOR

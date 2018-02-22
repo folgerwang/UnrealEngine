@@ -17,8 +17,8 @@ public:
 	class FAtlasVisualizerPanelSlot : public TSupportsOneChildMixin<FAtlasVisualizerPanelSlot>
 	{
 	public:
-		FAtlasVisualizerPanelSlot()
-			: TSupportsOneChildMixin<FAtlasVisualizerPanelSlot>()
+		FAtlasVisualizerPanelSlot(SWidget* InOwner)
+			: TSupportsOneChildMixin<FAtlasVisualizerPanelSlot>(InOwner)
 		{
 		}
 	};
@@ -37,7 +37,7 @@ public:
 		, CachedSize(ForceInitToZero)
 		, ZoomLevel(1.0f)
 		, bFitToWindow(true)
-		, ChildSlot()
+		, ChildSlot(this)
 		, ScrollyZoomy(false)
 	{
 	}

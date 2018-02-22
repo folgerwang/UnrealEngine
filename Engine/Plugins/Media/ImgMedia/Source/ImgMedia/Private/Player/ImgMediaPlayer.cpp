@@ -155,15 +155,22 @@ bool FImgMediaPlayer::Open(const FString& Url, const IMediaOptions* Options)
 	Loader = MakeShared<FImgMediaLoader, ESPMode::ThreadSafe>();
 
 	const float FpsOverride = (Options != nullptr) ? Options->GetMediaOption(ImgMedia::FramesPerSecondOverrideOption, 0.0f) : 0.0f;
-	const FString SequencePath = Proxy.IsEmpty() ? Url.RightChop(6) : FPaths::Combine(&Url[6], Proxy);
+	const FString SequencePath = Url.RightChop(6);
 
-	Async<void>(EAsyncExecution::ThreadPool, [FpsOverride, LoaderPtr = TWeakPtr<FImgMediaLoader, ESPMode::ThreadSafe>(Loader), SequencePath]()
+	Async<void>(EAsyncExecution::ThreadPool, [FpsOverride, LoaderPtr = TWeakPtr<FImgMediaLoader, ESPMode::ThreadSafe>(Loader), Proxy, SequencePath]()
 	{
 		TSharedPtr<FImgMediaLoader, ESPMode::ThreadSafe> PinnedLoader = LoaderPtr.Pin();
 
 		if (PinnedLoader.IsValid())
 		{
-			PinnedLoader->Initialize(SequencePath, FpsOverride);
+			FString ProxyPath = FPaths::Combine(SequencePath, Proxy);
+
+			if (!FPaths::DirectoryExists(ProxyPath))
+			{
+				ProxyPath = SequencePath; // fall back to root folder
+			}
+
+			PinnedLoader->Initialize(ProxyPath, FpsOverride);
 		}
 	});
 

@@ -17,6 +17,7 @@
 #include "ShaderCore.h"
 #include "Misc/ConfigCacheIni.h"
 #include "UObject/RenderingObjectVersion.h"
+#include "UObject/AthenaObjectVersion.h"
 
 
 DEFINE_LOG_CATEGORY(LogShaders);
@@ -474,6 +475,11 @@ void FShaderResource::Register()
 {
 	check(IsInGameThread());
 	ShaderResourceIdMap.Add(GetId(), this);
+
+	if (FShaderCache::GetShaderCache())
+	{
+		FShaderCache::LogShader((EShaderPlatform)Target.Platform, (EShaderFrequency)Target.Frequency, OutputHash, UncompressedCodeSize, Code);
+	}
 }
 
 
@@ -512,11 +518,6 @@ void FShaderResource::Serialize(FArchive& Ar)
 	{
 		INC_DWORD_STAT_BY_FName(GetMemoryStatType((EShaderFrequency)Target.Frequency).GetName(), (int64)Code.Num());
 		INC_DWORD_STAT_BY(STAT_Shaders_ShaderResourceMemory, GetSizeBytes());
-
-		if (FShaderCache::GetShaderCache())
-		{
-			FShaderCache::LogShader((EShaderPlatform)Target.Platform, (EShaderFrequency)Target.Frequency, OutputHash, UncompressedCodeSize, Code);
-		}
 		
 		// The shader resource has been serialized in, so this shader resource is now initialized.
 		check(Canary != FShader::ShaderMagic_CleaningUp);
@@ -954,6 +955,8 @@ const FSHAHash& FShader::GetHash() const
 
 bool FShader::SerializeBase(FArchive& Ar, bool bShadersInline)
 {
+	Ar.UsingCustomVersion(FAthenaObjectVersion::GUID);
+
 	Serialize(Ar);
 
 	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
@@ -976,13 +979,28 @@ bool FShader::SerializeBase(FArchive& Ar, bool bShadersInline)
 		int32 NumUniformParameters;
 		Ar << NumUniformParameters;
 
+		UniformBufferParameterStructs.Empty(NumUniformParameters);
+		UniformBufferParameters.Empty(NumUniformParameters);
+
 		for (int32 ParameterIndex = 0; ParameterIndex < NumUniformParameters; ParameterIndex++)
 		{
-			FString StructName;
-			Ar << StructName;
+			FUniformBufferStruct* Struct = nullptr;
 
-			FUniformBufferStruct* Struct = FindUniformBufferStructByName(*StructName);
-			checkf(Struct, TEXT("Uniform Buffer Struct %s no longer exists, which shader of type %s was compiled with.  Modify ShaderVersion.ush to invalidate old shaders."), *StructName, Type->GetName());
+			if (Ar.CustomVer(FAthenaObjectVersion::GUID) < FAthenaObjectVersion::MaterialInstanceSerializeOptimization_ShaderFName)
+			{
+				FString StructName;
+				Ar << StructName;
+				Struct = FindUniformBufferStructByName(*StructName);
+				checkf(Struct, TEXT("Uniform Buffer Struct %s no longer exists, which shader of type %s was compiled with.  Modify ShaderVersion.ush to invalidate old shaders."), *StructName, Type->GetName());
+			}
+			else
+			{
+				FName StructFName;
+				Ar << StructFName;
+				Struct = FindUniformBufferStructByFName(StructFName);
+				checkf(Struct, TEXT("Uniform Buffer Struct %s no longer exists, which shader of type %s was compiled with.  Modify ShaderVersion.ush to invalidate old shaders."), *StructFName.ToString(), Type->GetName());
+			}
+			
 			FShaderUniformBufferParameter* Parameter = Struct->ConstructTypedParameter();
 
 			Ar << *Parameter;
@@ -1003,7 +1021,17 @@ bool FShader::SerializeBase(FArchive& Ar, bool bShadersInline)
 		for (int32 StructIndex = 0; StructIndex < UniformBufferParameters.Num(); StructIndex++)
 		{
 			FString StructName(UniformBufferParameterStructs[StructIndex]->GetStructTypeName());
-			Ar << StructName;
+
+			if (Ar.CustomVer(FAthenaObjectVersion::GUID) < FAthenaObjectVersion::MaterialInstanceSerializeOptimization_ShaderFName)
+			{
+				Ar << StructName;
+			}
+			else
+			{
+				FName StructFName(*StructName);
+				Ar << StructFName;
+			}
+
 			Ar << *UniformBufferParameters[StructIndex];
 		}
 	}
@@ -1929,8 +1957,7 @@ void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 			KeyString += (CVar && CVar->GetInt() != 0) ? TEXT("_BoundsChecking") : TEXT("");
 		}
 		{
-			static const auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Metal.ManualVertexFetch"));
-			KeyString += (CVar && CVar->GetInt() != 0 && RHIGetShaderLanguageVersion(Platform) >= 2) ? TEXT("_MVF") : TEXT("");
+			KeyString += (!IsMobilePlatform(Platform) && RHIGetShaderLanguageVersion(Platform) >= 2) ? TEXT("_MVFetch") : TEXT("");
 		}
 		
 		uint32 ShaderVersion = RHIGetShaderLanguageVersion(Platform);

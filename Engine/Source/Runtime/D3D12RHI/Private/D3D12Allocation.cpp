@@ -1456,6 +1456,31 @@ void* FD3D12FastConstantAllocator::Allocate(uint32 Bytes, FD3D12ResourceLocation
 
 	const uint64 Offset = Location * D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT;
 
+#if 0  // used to detect problems with fencing 
+	static FThreadSafeCounter Cnt;
+	if (Cnt.Increment() % 1000 == 0)
+	{
+		uint64 Block1Start = 0;
+		uint64 Block1Size = 0;
+		uint64 Block2Start = 0;
+		uint64 Block2Size = 0;
+		RingBuffer.GetOverwritableBlocks(Block1Start, Block1Size, Block2Start, Block2Size);
+		Block1Start *= D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT;
+		Block1Size *= D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT;
+		Block2Start *= D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT;
+		Block2Size *= D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT;
+
+		if (Block1Size)
+		{
+			FMemory::Memset((uint8*)UnderlyingResource.GetMappedBaseAddress() + Block1Start, 0xff, Block1Size);
+		}
+		if (Block2Size)
+		{
+			FMemory::Memset((uint8*)UnderlyingResource.GetMappedBaseAddress() + Block2Start, 0xff, Block2Size);
+		}
+	}
+#endif
+
 	OutLocation.AsFastAllocation(UnderlyingResource.GetResource(),
 		AlignedSize,
 		UnderlyingResource.GetGPUVirtualAddress(),

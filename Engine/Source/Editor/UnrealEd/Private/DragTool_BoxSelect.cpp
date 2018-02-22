@@ -48,14 +48,12 @@ void FDragTool_ActorBoxSelect::StartDrag(FEditorViewportClient* InViewportClient
 		// Add the persistent level always
 		ModelsToCheck.Add( World->PersistentLevel->Model );
 		// Add all streaming level models
-		for( int32 LevelIndex = 0; LevelIndex < World->StreamingLevels.Num(); ++LevelIndex )
+		for (ULevelStreaming* StreamingLevel : World->GetStreamingLevels())
 		{
-			ULevelStreaming* StreamingLevel = World->StreamingLevels[LevelIndex];
 			// Only add streaming level models if the level is visible
-			if( StreamingLevel != NULL && StreamingLevel->bShouldBeVisibleInEditor )
+			if (StreamingLevel && StreamingLevel->GetShouldBeVisibleInEditor())
 			{	
-				ULevel* Level = StreamingLevel->GetLoadedLevel();
-				if ( Level != NULL )
+				if (ULevel* Level = StreamingLevel->GetLoadedLevel())
 				{
 					ModelsToCheck.Add( Level->Model );
 				}

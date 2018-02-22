@@ -16,7 +16,6 @@
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/WorldSettings.h"
 #include "Engine/Engine.h"
-#include "Engine/LevelStreaming.h"
 #include "Engine/LocalPlayer.h"
 #include "Engine/LevelStreamingKismet.h"
 #include "Engine/AssetManager.h"
@@ -76,13 +75,12 @@ void UWorldComposition::PostLoad()
 {
 	Super::PostLoad();
 
-	if (GetWorld()->IsGameWorld())
+	UWorld* World = GetWorld();
+
+	if (World->IsGameWorld())
 	{
 		// Remove streaming levels created by World Browser, to avoid duplication with streaming levels from world composition
-		GetWorld()->StreamingLevels.Empty();
-		
-		// Add streaming levels managed by world composition
-		GetWorld()->StreamingLevels.Append(TilesStreaming);
+		World->SetStreamingLevels(TilesStreaming);
 	}
 }
 
@@ -311,8 +309,7 @@ void UWorldComposition::ReinitializeForPIE()
 {
 	Rescan();
 	FixupForPIE(GetOutermost()->PIEInstanceID);
-	GetWorld()->StreamingLevels.Empty();
-	GetWorld()->StreamingLevels.Append(TilesStreaming);
+	GetWorld()->SetStreamingLevels(TilesStreaming);
 }
 
 bool UWorldComposition::DoesTileExists(const FName& InTilePackageName) const
@@ -330,8 +327,7 @@ bool UWorldComposition::DoesTileExists(const FName& InTilePackageName) const
 ULevelStreaming* UWorldComposition::CreateStreamingLevel(const FWorldCompositionTile& InTile) const
 {
 	UWorld* OwningWorld = GetWorld();
-	UClass* StreamingClass = ULevelStreamingKismet::StaticClass();
-	ULevelStreaming* StreamingLevel = NewObject<ULevelStreaming>(OwningWorld, StreamingClass, NAME_None, RF_Transient, NULL);
+	ULevelStreamingKismet* StreamingLevel = NewObject<ULevelStreamingKismet>(OwningWorld, NAME_None, RF_Transient);
 		
 	// Associate a package name.
 	StreamingLevel->SetWorldAssetByPackageName(InTile.PackageName);
@@ -349,7 +345,7 @@ void UWorldComposition::CaclulateTilesAbsolutePositions()
 	{
 		TSet<FName> VisitedParents;
 		
-		Tile.Info.AbsolutePosition = FIntPoint::ZeroValue;
+		Tile.Info.AbsolutePosition = FIntVector::ZeroValue;
 		FWorldCompositionTile* ParentTile = &Tile;
 		
 		do 
@@ -583,8 +579,9 @@ void UWorldComposition::GetDistanceVisibleLevels(
 			//
 			// Check if tile bounding box intersects with a sphere with origin at provided location and with radius equal to tile layer distance settings
 			//
-			FIntPoint LevelOffset = Tile.Info.AbsolutePosition - WorldOriginLocationXY;
-			FBox LevelBounds = Tile.Info.Bounds.ShiftBy(FVector(LevelOffset));
+			FIntPoint LevelPositionXY = FIntPoint(Tile.Info.AbsolutePosition.X, Tile.Info.AbsolutePosition.Y);
+			FIntPoint LevelOffsetXY = LevelPositionXY - WorldOriginLocationXY;
+			FBox LevelBounds = Tile.Info.Bounds.ShiftBy(FVector(LevelOffsetXY));
 			// We don't care about third dimension yet
 			LevelBounds.Min.Z = -WORLD_MAX;
 			LevelBounds.Max.Z = +WORLD_MAX;
@@ -766,9 +763,9 @@ bool UWorldComposition::UpdateEditorStreamingState(const FVector& InLocation)
 			ULevelStreaming* EditorStreamingLevel = OwningWorld->GetLevelStreamingForPackageName(TilesStreaming[Level.TileIdx]->GetWorldAssetPackageFName());
 			if (EditorStreamingLevel && 
 				EditorStreamingLevel->IsLevelLoaded() &&
-				EditorStreamingLevel->bShouldBeVisibleInEditor != false)
+				EditorStreamingLevel->GetShouldBeVisibleInEditor())
 			{
-				EditorStreamingLevel->bShouldBeVisibleInEditor = false;
+				EditorStreamingLevel->SetShouldBeVisibleInEditor(false);
 				bStateChanged = true;
 			}
 		}
@@ -779,9 +776,9 @@ bool UWorldComposition::UpdateEditorStreamingState(const FVector& InLocation)
 			ULevelStreaming* EditorStreamingLevel = OwningWorld->GetLevelStreamingForPackageName(TilesStreaming[Level.TileIdx]->GetWorldAssetPackageFName());
 			if (EditorStreamingLevel &&
 				EditorStreamingLevel->IsLevelLoaded() &&
-				EditorStreamingLevel->bShouldBeVisibleInEditor != true)
+				!EditorStreamingLevel->GetShouldBeVisibleInEditor())
 			{
-				EditorStreamingLevel->bShouldBeVisibleInEditor = true;
+				EditorStreamingLevel->SetShouldBeVisibleInEditor(true);
 				bStateChanged = true;
 			}
 		}
@@ -839,10 +836,11 @@ bool UWorldComposition::CommitTileStreamingState(UWorld* PersistenWorld, int32 T
 	ULevelStreaming* StreamingLevel = TilesStreaming[TileIdx];
 
 	// Quit early in case state is not going to be changed
-	if (StreamingLevel->bShouldBeLoaded == bShouldBeLoaded &&
-		StreamingLevel->bShouldBeVisible == bShouldBeVisible &&
-		StreamingLevel->bShouldBlockOnLoad == bShouldBlock &&
-		StreamingLevel->LevelLODIndex == LODIdx)
+	if (StreamingLevel->bShouldBlockOnLoad == bShouldBlock &&
+		StreamingLevel->GetLevelLODIndex() == LODIdx &&
+		StreamingLevel->GetShouldBeVisibleFlag() == bShouldBeVisible &&
+		StreamingLevel->ShouldBeLoaded() == bShouldBeLoaded
+		)
 	{
 		return false;
 	}
@@ -864,9 +862,9 @@ bool UWorldComposition::CommitTileStreamingState(UWorld* PersistenWorld, int32 T
 
 	// Commit new state
 	StreamingLevel->bShouldBlockOnLoad	= bShouldBlock;
-	StreamingLevel->bShouldBeLoaded		= bShouldBeLoaded;
-	StreamingLevel->bShouldBeVisible	= bShouldBeVisible;
-	StreamingLevel->LevelLODIndex		= LODIdx;
+	StreamingLevel->SetShouldBeLoaded(bShouldBeLoaded);
+	StreamingLevel->SetShouldBeVisible(bShouldBeVisible);
+	StreamingLevel->SetLevelLODIndex(LODIdx);
 	return true;
 }
 
@@ -956,8 +954,7 @@ FIntVector UWorldComposition::GetLevelOffset(ULevel* InLevel) const
 	FIntVector LevelPosition = FIntVector::ZeroValue;
 	if (LevelPackage->WorldTileInfo)
 	{
-		FIntPoint AbsolutePosition = LevelPackage->WorldTileInfo->AbsolutePosition;
-		LevelPosition = FIntVector(AbsolutePosition.X, AbsolutePosition.Y, 0);
+		LevelPosition = LevelPackage->WorldTileInfo->AbsolutePosition;
 	}
 	
 	return LevelPosition - OwningWorld->OriginLocation;

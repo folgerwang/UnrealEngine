@@ -6,7 +6,7 @@
 
 
 SCanvas::SCanvas()
-: Children()
+: Children(this)
 {
 	bCanTick = false;
 	bCanSupportFocus = false;

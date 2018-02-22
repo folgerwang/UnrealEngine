@@ -7,7 +7,9 @@ public class ClothingSystemRuntimeInterface : ModuleRules
 {
 	public ClothingSystemRuntimeInterface(ReadOnlyTargetRules Target) : base(Target)
 	{
-		PrivateIncludePaths.Add("Runtime/ClothingSystemRuntimeInterface/Private");
+        ShortName = "ClothSysRuntimeIntrfc";
+
+        PrivateIncludePaths.Add("Runtime/ClothingSystemRuntimeInterface/Private");
 
         PublicDependencyModuleNames.AddRange(
             new string[] {

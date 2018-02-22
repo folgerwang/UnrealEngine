@@ -320,7 +320,7 @@ void UpdatePublishedSettings(UWorld* World, FNamedOnlineSession* Session)
  */
 FString FOnlineAsyncTaskSteamCreateServer::ToString() const 
 {
-	return FString::Printf(TEXT("FOnlineAsyncTaskSteamCreateServer bWasSuccessful: %d"), bWasSuccessful);
+	return FString::Printf(TEXT("FOnlineAsyncTaskSteamCreateServer bWasSuccessful: %d"), WasSuccessful());
 }
 
 /**
@@ -452,7 +452,7 @@ void FOnlineAsyncTaskSteamCreateServer::TriggerDelegates()
 FString FOnlineAsyncTaskSteamUpdateServer::ToString() const
 {
 	return FString::Printf(TEXT("FOnlineAsyncTaskSteamUpdateServer bWasSuccessful: %d Session: %s"),
-		bWasSuccessful, 
+		WasSuccessful(),
 		*SessionName.ToString());
 }
 
@@ -510,7 +510,7 @@ void FOnlineAsyncTaskSteamUpdateServer::TriggerDelegates()
  */
 FString FOnlineAsyncTaskSteamLogoffServer::ToString() const 
 {
-	return FString::Printf(TEXT("FOnlineAsyncTaskSteamLogoffServer bWasSuccessful: %d"), bWasSuccessful);
+	return FString::Printf(TEXT("FOnlineAsyncTaskSteamLogoffServer bWasSuccessful: %d"), WasSuccessful());
 }
 
 /**
@@ -1153,7 +1153,7 @@ void FOnlineAsyncTaskSteamFindServerBase::Finalize()
 */
 FString FOnlineAsyncTaskSteamFindServerForInviteSession::ToString() const
 {
-	return FString::Printf(TEXT("FOnlineAsyncTaskSteamFindServerForInvite bWasSuccessful: %d Results: %d"), bWasSuccessful, SearchSettings->SearchResults.Num());
+	return FString::Printf(TEXT("FOnlineAsyncTaskSteamFindServerForInvite bWasSuccessful: %d Results: %d"), WasSuccessful(), SearchSettings->SearchResults.Num());
 }
 
 
@@ -1181,7 +1181,7 @@ void FOnlineAsyncTaskSteamFindServerForInviteSession::TriggerDelegates()
 */
 FString FOnlineAsyncTaskSteamFindServerForFriendSession::ToString() const
 {
-	return FString::Printf(TEXT("FOnlineAsyncTaskSteamFindServerForFriend bWasSuccessful: %d Results: %d"), bWasSuccessful, SearchSettings->SearchResults.Num());
+	return FString::Printf(TEXT("FOnlineAsyncTaskSteamFindServerForFriend bWasSuccessful: %d Results: %d"), WasSuccessful(), SearchSettings->SearchResults.Num());
 }
 
 /**
@@ -1208,7 +1208,7 @@ void FOnlineAsyncTaskSteamFindServerForFriendSession::TriggerDelegates()
  */
 FString FOnlineAsyncTaskSteamFindServers::ToString() const
 {
-	return FString::Printf(TEXT("FOnlineAsyncTaskSteamFindServers bWasSuccessful: %d Results: %d"), bWasSuccessful, SearchSettings->SearchResults.Num());
+	return FString::Printf(TEXT("FOnlineAsyncTaskSteamFindServers bWasSuccessful: %d Results: %d"), WasSuccessful(), SearchSettings->SearchResults.Num());
 }
 
 /**

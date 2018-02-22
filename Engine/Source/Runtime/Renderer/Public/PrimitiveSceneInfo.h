@@ -269,8 +269,8 @@ public:
 	/** The scene the primitive is in. */
 	FScene* Scene;
 
-	/** The number of dynamic point lights for ES2 */
-	int32 NumES2DynamicPointLights;
+	/** The number of movable point lights for mobile */
+	int32 NumMobileMovablePointLights;
 
 	/** This indicate that we should call the GetCustomLOD function on the proxy instead of the generic implementation. */
 	bool bIsUsingCustomLODRules : 1;

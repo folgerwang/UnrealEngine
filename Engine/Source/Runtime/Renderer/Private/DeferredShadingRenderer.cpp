@@ -146,9 +146,6 @@ DECLARE_CYCLE_STAT(TEXT("DeferredShadingSceneRenderer RenderFog"), STAT_FDeferre
 DECLARE_CYCLE_STAT(TEXT("DeferredShadingSceneRenderer RenderLightShaftBloom"), STAT_FDeferredShadingSceneRenderer_RenderLightShaftBloom, STATGROUP_SceneRendering);
 DECLARE_CYCLE_STAT(TEXT("DeferredShadingSceneRenderer RenderFinish"), STAT_FDeferredShadingSceneRenderer_RenderFinish, STATGROUP_SceneRendering);
 
-DECLARE_CYCLE_STAT(TEXT("OcclusionSubmittedFence Dispatch"), STAT_OcclusionSubmittedFence_Dispatch, STATGROUP_SceneRendering);
-DECLARE_CYCLE_STAT(TEXT("OcclusionSubmittedFence Wait"), STAT_OcclusionSubmittedFence_Wait, STATGROUP_SceneRendering);
-
 DECLARE_GPU_STAT(Postprocessing);
 DECLARE_GPU_STAT(HZB);
 DECLARE_GPU_STAT_NAMED(Unaccounted, TEXT("[unaccounted]"));
@@ -415,7 +412,6 @@ DECLARE_CYCLE_STAT(TEXT("AfterVelocity"), STAT_CLM_AfterVelocity, STATGROUP_Comm
 DECLARE_CYCLE_STAT(TEXT("RenderFinish"), STAT_CLM_RenderFinish, STATGROUP_CommandListMarkers);
 DECLARE_CYCLE_STAT(TEXT("AfterFrame"), STAT_CLM_AfterFrame, STATGROUP_CommandListMarkers);
 
-FGraphEventRef FDeferredShadingSceneRenderer::OcclusionSubmittedFence[FOcclusionQueryHelpers::MaxBufferedOcclusionFrames];
 FGraphEventRef FDeferredShadingSceneRenderer::TranslucencyTimestampQuerySubmittedFence[FOcclusionQueryHelpers::MaxBufferedOcclusionFrames + 1];
 
 /**
@@ -500,24 +496,9 @@ void FDeferredShadingSceneRenderer::RenderOcclusion(FRHICommandListImmediate& RH
 
 void FDeferredShadingSceneRenderer::FinishOcclusion(FRHICommandListImmediate& RHICmdList)
 {
-	SCOPED_GPU_STAT(RHICmdList, HZB);
-
 	// Hint to the RHI to submit commands up to this point to the GPU if possible.  Can help avoid CPU stalls next frame waiting
 	// for these query results on some platforms.
 	RHICmdList.SubmitCommandsHint();
-
-	if (IsRunningRHIInSeparateThread())
-	{
-		SCOPE_CYCLE_COUNTER(STAT_OcclusionSubmittedFence_Dispatch);
-		int32 NumFrames = FOcclusionQueryHelpers::GetNumBufferedFrames();
-		for (int32 Dest = 1; Dest < NumFrames; Dest++)
-		{
-			CA_SUPPRESS(6385);
-			OcclusionSubmittedFence[Dest] = OcclusionSubmittedFence[Dest - 1];
-		}
-		OcclusionSubmittedFence[0] = RHICmdList.RHIThreadFence();
-		RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
-	}
 }
 // The render thread is involved in sending stuff to the RHI, so we will periodically service that queue
 void ServiceLocalQueue()
@@ -555,13 +536,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 
 	bool bDBuffer = !ViewFamily.EngineShowFlags.ShaderComplexity && ViewFamily.EngineShowFlags.Decals && IsDBufferEnabled();
 
-	if (IsRunningRHIInSeparateThread())
-	{
-		SCOPE_CYCLE_COUNTER(STAT_OcclusionSubmittedFence_Wait);
-		int32 BlockFrame = FOcclusionQueryHelpers::GetNumBufferedFrames() - 1;
-		FRHICommandListExecutor::WaitOnRHIThreadFence(OcclusionSubmittedFence[BlockFrame]);
-		OcclusionSubmittedFence[BlockFrame] = nullptr;
-	}
+	WaitOcclusionTests(RHICmdList);
 
 	if (!ViewFamily.EngineShowFlags.Rendering)
 	{
@@ -610,7 +585,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		}	
 	}
 
-	if (GDoPrepareDistanceFieldSceneAfterRHIFlush && IsRunningRHIInSeparateThread())
+	if (GDoPrepareDistanceFieldSceneAfterRHIFlush && (GRHINeedsExtraDeletionLatency || !GRHICommandList.Bypass()))
 	{
 		// we will probably stall on occlusion queries, so might as well have the RHI thread and GPU work while we wait.
 		SCOPE_CYCLE_COUNTER(STAT_PostInitViews_FlushDel);
@@ -651,7 +626,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		}
 	}
 
-	if (!GDoPrepareDistanceFieldSceneAfterRHIFlush && IsRunningRHIInSeparateThread())
+	if (!GDoPrepareDistanceFieldSceneAfterRHIFlush && (GRHINeedsExtraDeletionLatency || !GRHICommandList.Bypass()))
 	{
 		// we will probably stall on occlusion queries, so might as well have the RHI thread and GPU work while we wait.
 		SCOPE_CYCLE_COUNTER(STAT_PostInitViews_FlushDel);
@@ -864,9 +839,15 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 			RenderOcclusion(RHICmdList);
 		}
 		bool bUseHzbOcclusion = RenderHzb(RHICmdList);
+		
+		SCOPED_GPU_STAT(RHICmdList, HZB);
 		if (bUseHzbOcclusion || bIsOcclusionTesting)
 		{
 			FinishOcclusion(RHICmdList);
+		}
+		if (bIsOcclusionTesting)
+		{
+			FenceOcclusionTests(RHICmdList);
 		}
 	}
 
@@ -1032,9 +1013,14 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 			RenderOcclusion(RHICmdList);
 		}
 		bool bUseHzbOcclusion = RenderHzb(RHICmdList);
+		SCOPED_GPU_STAT(RHICmdList, HZB);
 		if (bUseHzbOcclusion || bIsOcclusionTesting)
 		{
 			FinishOcclusion(RHICmdList);
+		}
+		if (bIsOcclusionTesting)
+		{
+			FenceOcclusionTests(RHICmdList);
 		}
 	}
 

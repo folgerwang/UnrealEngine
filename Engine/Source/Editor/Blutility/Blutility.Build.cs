@@ -27,7 +27,8 @@ public class Blutility : ModuleRules
 				"ContentBrowser",
 				"ClassViewer",
 				"CollectionManager",
-                "PropertyEditor"
+                "PropertyEditor",
+                "BlueprintGraph"
 			}
 			);
 	}

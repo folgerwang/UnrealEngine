@@ -237,7 +237,7 @@ void FAssetRegistryState::InitializeFromExisting(const TMap<FName, FAssetData*>&
 	}
 }
 
-void FAssetRegistryState::PruneAssetData(const TSet<FName>& RequiredPackages, const TSet<FName>& RemovePackages, bool bFilterAssetDataWithNoTags)
+void FAssetRegistryState::PruneAssetData(const TSet<FName>& RequiredPackages, const TSet<FName>& RemovePackages, const FAssetRegistrySerializationOptions& Options)
 {
 	// Generate list up front as the maps will get cleaned up
 	TArray<FAssetData*> AllAssetData;
@@ -253,19 +253,34 @@ void FAssetRegistryState::PruneAssetData(const TSet<FName>& RequiredPackages, co
 		{
 			RemoveAssetData(AssetData);
 		}
-		else if (bFilterAssetDataWithNoTags && AssetData->TagsAndValues.Num() == 0 && !FPackageName::IsLocalizedPackage(AssetData->PackageName.ToString()))
+		else if (Options.bFilterAssetDataWithNoTags && AssetData->TagsAndValues.Num() == 0 && !FPackageName::IsLocalizedPackage(AssetData->PackageName.ToString()))
 		{
-			RemoveAssetData(AssetData);
+			// Optionally remove dependency data
+			RemoveAssetData(AssetData, Options.bFilterDependenciesWithNoTags);
 		}
 	}
 
-	// Remove any orphaned depends nodes. This will leave cycles in but those might represent useful data
 	TArray<FDependsNode*> AllDependsNodes;
 	CachedDependsNodes.GenerateValueArray(AllDependsNodes);
 
+	if (Options.bFilterSearchableNames)
+	{
+		// Remove searchable names if specified
+		for (FDependsNode* DependsNode : AllDependsNodes)
+		{
+			if (DependsNode->GetIdentifier().IsValue())
+			{
+				RemoveDependsNode(DependsNode->GetIdentifier());
+			}
+		}
+
+		CachedDependsNodes.GenerateValueArray(AllDependsNodes);
+	}
+
+	// Remove any orphaned depends nodes. This will leave cycles in but those might represent useful data
 	for (FDependsNode* DependsNode : AllDependsNodes)
 	{
-		if (DependsNode->GetConnectionCount() == 0 && !DependsNode->GetIdentifier().IsPackage())
+		if (DependsNode->GetConnectionCount() == 0)
 		{
 			RemoveDependsNode(DependsNode->GetIdentifier());
 		}
@@ -818,6 +833,9 @@ uint32 FAssetRegistryState::GetAllocatedSize(bool bLogDetailed) const
 	MapMemory += CachedAssetsByTag.GetAllocatedSize();
 	MapMemory += CachedDependsNodes.GetAllocatedSize();
 	MapMemory += CachedPackageData.GetAllocatedSize();
+	MapMemory += PreallocatedAssetDataBuffers.GetAllocatedSize();
+	MapMemory += PreallocatedDependsNodeDataBuffers.GetAllocatedSize();
+	MapMemory += PreallocatedPackageDataBuffers.GetAllocatedSize();
 
 	if (bLogDetailed)
 	{
@@ -1074,7 +1092,7 @@ void FAssetRegistryState::UpdateAssetData(FAssetData* AssetData, const FAssetDat
 	*AssetData = NewAssetData;
 }
 
-bool FAssetRegistryState::RemoveAssetData(FAssetData* AssetData)
+bool FAssetRegistryState::RemoveAssetData(FAssetData* AssetData, bool bRemoveDependencyData)
 {
 	bool bRemoved = false;
 
@@ -1097,7 +1115,10 @@ bool FAssetRegistryState::RemoveAssetData(FAssetData* AssetData)
 
 		// We need to update the cached dependencies references cache so that they know we no
 		// longer exist and so don't reference them.
-		RemoveDependsNode(AssetData->PackageName);
+		if (bRemoveDependencyData)
+		{
+			RemoveDependsNode(AssetData->PackageName);
+		}
 
 		// Remove the package data as well
 		RemovePackageData(AssetData->PackageName);

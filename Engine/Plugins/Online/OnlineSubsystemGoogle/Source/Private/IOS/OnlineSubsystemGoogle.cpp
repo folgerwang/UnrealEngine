@@ -63,6 +63,6 @@ bool FOnlineSubsystemGoogle::Init()
 
 bool FOnlineSubsystemGoogle::Shutdown()
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSubsystemGoogle::Shutdown()"));
+	UE_LOG(LogOnline, VeryVerbose, TEXT("FOnlineSubsystemGoogle::Shutdown()"));
 	return FOnlineSubsystemGoogleCommon::Shutdown();
 }

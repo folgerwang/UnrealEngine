@@ -98,11 +98,6 @@ protected:
 		return false;
 	}
 
-	void AddUserAttributes(const TSharedPtr<FJsonObject>& JsonUser);
-
-	/** Any addition account data associated with the user */
-	FJsonSerializableKeyValueMap AccountData;
-
 	/** User Id represented as a FUniqueNetId */
 	TSharedRef<const FUniqueNetId> UserIdPtr;
 	/** Id associated with the user account provided by the online service during registration */
@@ -115,6 +110,8 @@ protected:
 	FString LastName;
 	/** Token which is provided to user once authenticated by the online service */
 	FAuthTokenGoogle AuthToken;
+	/** Any addition account data associated with the user */
+	FJsonSerializableKeyValueMap AccountData;
 
 private:
 
@@ -125,6 +122,7 @@ private:
 		ONLINE_JSON_SERIALIZE("given_name", FirstName);
 		ONLINE_JSON_SERIALIZE("family_name", LastName);
 		ONLINE_JSON_SERIALIZE("name", RealName);
+		ONLINE_JSON_SERIALIZE_SIMPLE_COPY(AccountData);
 	END_ONLINE_JSON_SERIALIZER
 
 	/** Allow the Google identity to fill in our private members from it's callbacks */

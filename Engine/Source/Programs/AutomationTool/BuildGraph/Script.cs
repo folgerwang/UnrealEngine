@@ -995,6 +995,16 @@ namespace AutomationTool
 			if(EvaluateCondition(Element))
 			{
 				string Name = ReadAttribute(Element, "Name");
+				string Separator = ReadAttribute(Element, "Separator");
+				if(Separator.Length > 1)
+				{
+					LogWarning(Element, "Node {0}'s Separator attribute is more than one character ({1}). Defaulting to ;", Name, Separator);
+					Separator = ";";
+				}
+				if(string.IsNullOrEmpty(Separator))
+				{
+					Separator = ";";
+				}
 				if (ValidateName(Element, Name))
 				{
 					if(ScopedProperties.Any(x => x.ContainsKey(Name)))
@@ -1004,7 +1014,7 @@ namespace AutomationTool
 					else
 					{
 						// Loop through all the values
-						string[] Values = ReadListAttribute(Element, "Values");
+						string[] Values = ReadListAttribute(Element, "Values", Convert.ToChar(Separator));
 						foreach(string Value in Values)
 						{
 							ScopedProperties[ScopedProperties.Count - 1][Name] = Value;
@@ -1437,11 +1447,12 @@ namespace AutomationTool
 		/// </summary>
 		/// <param name="Element"></param>
 		/// <param name="Name"></param>
+		/// <param name="Separator"></param>
 		/// <returns>Array of names, with all leading and trailing whitespace removed</returns>
-		string[] ReadListAttribute(ScriptElement Element, string Name)
+		string[] ReadListAttribute(ScriptElement Element, string Name, char Separator = ';')
 		{
 			string Value = ReadAttribute(Element, Name);
-			return Value.Split(new char[] { ';' }).Select(x => x.Trim()).Where(x => x.Length > 0).ToArray();
+			return Value.Split(new char[] { Separator }).Select(x => x.Trim()).Where(x => x.Length > 0).ToArray();
 		}
 
 		/// <summary>

@@ -63,11 +63,14 @@ FSimpleMulticastDelegate FCoreDelegates::OnPreExit;
 FSimpleMulticastDelegate FCoreDelegates::ColorPickerChanged;
 FSimpleMulticastDelegate FCoreDelegates::OnBeginFrame;
 FSimpleMulticastDelegate FCoreDelegates::OnEndFrame;
+FSimpleMulticastDelegate FCoreDelegates::OnBeginFrameRT;
+FSimpleMulticastDelegate FCoreDelegates::OnEndFrameRT;
 FCoreDelegates::FOnModalMessageBox FCoreDelegates::ModalErrorMessage;
 FCoreDelegates::FOnInviteAccepted FCoreDelegates::OnInviteAccepted;
 FCoreDelegates::FWorldOriginOffset FCoreDelegates::PreWorldOriginOffset;
 FCoreDelegates::FWorldOriginOffset FCoreDelegates::PostWorldOriginOffset;
 FCoreDelegates::FStarvedGameLoop FCoreDelegates::StarvedGameLoop;
+FCoreDelegates::FOnTemperatureChange FCoreDelegates::OnTemperatureChange;
 
 FCoreDelegates::FApplicationLifetimeDelegate FCoreDelegates::ApplicationWillDeactivateDelegate;
 FCoreDelegates::FApplicationLifetimeDelegate FCoreDelegates::ApplicationHasReactivatedDelegate;

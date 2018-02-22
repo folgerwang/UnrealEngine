@@ -3307,15 +3307,11 @@ namespace ObjectTools
 				Levels.Add( World->PersistentLevel );
 			}
 			// Add all other levels if they are visible
-			for( int32 LevelIndex = 0; LevelIndex < World->StreamingLevels.Num(); ++LevelIndex )
+			for (ULevelStreaming* StreamingLevel  : World->GetStreamingLevels())
 			{
-				ULevelStreaming* StreamingLevel = World->StreamingLevels[ LevelIndex ];
-
-				if( StreamingLevel != NULL && FLevelUtils::IsLevelVisible( StreamingLevel ) )
+				if (StreamingLevel && FLevelUtils::IsStreamingLevelVisibleInEditor( StreamingLevel ) )
 				{
-					ULevel* Level = StreamingLevel->GetLoadedLevel();
-					
-					if ( Level != NULL )
+					if (ULevel* Level = StreamingLevel->GetLoadedLevel())
 					{
 						LevelPackages.Add( Level->GetOutermost() );
 						Levels.Add( Level );
@@ -3329,15 +3325,11 @@ namespace ObjectTools
 			Levels.Add( World->PersistentLevel );
 			
 			// Add all other levels
-			for( int32 LevelIndex = 0; LevelIndex < World->StreamingLevels.Num(); ++LevelIndex )
+			for (ULevelStreaming* StreamingLevel : World->GetStreamingLevels())
 			{
-				ULevelStreaming* StreamingLevel = World->StreamingLevels[ LevelIndex ];
-
-				if( StreamingLevel != NULL )
+				if (StreamingLevel)
 				{
-					ULevel* Level = StreamingLevel->GetLoadedLevel();
-					
-					if ( Level != NULL )
+					if (ULevel* Level = StreamingLevel->GetLoadedLevel())
 					{
 						LevelPackages.Add( Level->GetOutermost() );
 						Levels.Add( Level );

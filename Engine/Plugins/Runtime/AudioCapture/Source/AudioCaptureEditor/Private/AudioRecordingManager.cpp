@@ -412,7 +412,7 @@ void FAudioRecordingManager::StopRecording(TArray<USoundWave*>& OutSoundWaves)
 
 					// Calculate the duration of the sound wave
 					NewSoundWave->Duration = (float)(NumRecordedSamples / NumChannelsToSerialize) / WAVE_FILE_SAMPLERATE;
-					NewSoundWave->SampleRate = WAVE_FILE_SAMPLERATE;
+					NewSoundWave->SetSampleRate(WAVE_FILE_SAMPLERATE);
 					NewSoundWave->NumChannels = NumChannelsToSerialize;
 
 					if (bCreatedPackage)

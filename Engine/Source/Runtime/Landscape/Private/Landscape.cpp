@@ -73,6 +73,7 @@ DEFINE_STAT(STAT_LandscapeDrawCalls);
 DEFINE_STAT(STAT_LandscapeTriangles);
 
 DEFINE_STAT(STAT_LandscapeVertexMem);
+DEFINE_STAT(STAT_LandscapeOccluderMem);
 DEFINE_STAT(STAT_LandscapeComponentMem);
 
 #if ENABLE_COOK_STATS
@@ -118,7 +119,7 @@ ULandscapeComponent::ULandscapeComponent(const FObjectInitializer& ObjectInitial
 , GrassData(MakeShareable(new FLandscapeComponentGrassData()))
 {
 	SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
-	bGenerateOverlapEvents = false;
+	SetGenerateOverlapEvents(false);
 	CastShadow = true;
 	// by default we want to see the Landscape shadows even in the far shadow cascades
 	bCastFarShadow = true;
@@ -193,11 +194,19 @@ void ULandscapeComponent::BeginCacheForCookedPlatformData(const ITargetPlatform*
 
 	if (TargetPlatform->SupportsFeature(ETargetPlatformFeatures::MobileRendering) && !HasAnyFlags(RF_ClassDefaultObject))
 	{
-		CheckGenerateLandscapePlatformData(true);
+		CheckGenerateLandscapePlatformData(true, TargetPlatform);
 	}
 }
 
-void ULandscapeComponent::CheckGenerateLandscapePlatformData(bool bIsCooking)
+void ALandscapeProxy::CheckGenerateLandscapePlatformData(bool bIsCooking, const ITargetPlatform* TargetPlatform)
+{
+	for (ULandscapeComponent* Component : LandscapeComponents)
+	{
+		Component->CheckGenerateLandscapePlatformData(bIsCooking, TargetPlatform);
+	}
+}
+
+void ULandscapeComponent::CheckGenerateLandscapePlatformData(bool bIsCooking, const ITargetPlatform* TargetPlatform)
 {
 #if ENABLE_LANDSCAPE_COOKING
 	// Calculate hash of source data and skip generation if the data we have in memory is unchanged
@@ -234,7 +243,7 @@ void ULandscapeComponent::CheckGenerateLandscapePlatformData(bool bIsCooking)
 			}
 			else if (bIsCooking)
 			{
-				GeneratePlatformVertexData();
+				GeneratePlatformVertexData(TargetPlatform);
 				PlatformData.SaveToDDC(NewSourceHash);
 				COOK_STAT(Timer.AddMiss(PlatformData.GetPlatformDataSize()));
 				bGenerateVertexData = false;
@@ -246,7 +255,7 @@ void ULandscapeComponent::CheckGenerateLandscapePlatformData(bool bIsCooking)
 	{
 		// If we didn't even try to load from the DDC for some reason, but still need to build the data, treat that as a separate "miss" case that is causing DDC-related work to be done.
 		COOK_STAT(auto Timer = LandscapeCookStats::UsageStats.TimeSyncWork());
-		GeneratePlatformVertexData();
+		GeneratePlatformVertexData(TargetPlatform);
 		if (bIsCooking)
 		{
 			PlatformData.SaveToDDC(NewSourceHash);
@@ -274,7 +283,7 @@ void ULandscapeComponent::Serialize(FArchive& Ar)
 		// for -oldcook:
 		// the old cooker calls BeginCacheForCookedPlatformData after the package export set is tagged, so the mobile material doesn't get saved, so we have to do CheckGenerateLandscapePlatformData in serialize
 		// the new cooker clears the texture source data before calling serialize, causing GeneratePlatformVertexData to crash, so we have to do CheckGenerateLandscapePlatformData in BeginCacheForCookedPlatformData
-		CheckGenerateLandscapePlatformData(true);
+		CheckGenerateLandscapePlatformData(true, Ar.CookingTarget());
 	}
 
 	if (Ar.IsCooking() && !HasAnyFlags(RF_ClassDefaultObject) && !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::DeferredRendering))
@@ -639,7 +648,7 @@ void ULandscapeComponent::PostLoad()
 		// If we're loading on a platform that doesn't require cooked data, but *only* supports OpenGL ES, generate or preload data from the DDC
 		if (!FPlatformProperties::RequiresCookedData() && GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1)
 		{
-			CheckGenerateLandscapePlatformData(false);
+			CheckGenerateLandscapePlatformData(false, nullptr);
 		}
 	}
 
@@ -700,6 +709,8 @@ void ULandscapeComponent::PostLoad()
 		}
 	}
 #endif
+
+	GrassData->ConditionalDiscardDataOnLoad();
 }
 
 #endif // WITH_EDITOR
@@ -734,6 +745,7 @@ ALandscapeProxy::ALandscapeProxy(const FObjectInitializer& ObjectInitializer)
 	StreamingDistanceMultiplier = 1.0f;
 	MaxLODLevel = -1;
 	bUseDynamicMaterialInstance = false;
+	OccluderGeometryLOD = 1; // 1 - usually is a good default
 #if WITH_EDITORONLY_DATA
 	bLockLocation = true;
 	bIsMovingToLevel = false;
@@ -1683,6 +1695,7 @@ void ALandscapeProxy::GetSharedProperties(ALandscapeProxy* Landscape)
 		RestrictTessellationToShadowCascade = Landscape->RestrictTessellationToShadowCascade;
 		LODDistributionSetting = Landscape->LODDistributionSetting;
 		LOD0DistributionSetting = Landscape->LOD0DistributionSetting;
+		OccluderGeometryLOD = Landscape->OccluderGeometryLOD;
 		NegativeZBoundsExtension = Landscape->NegativeZBoundsExtension;
 		PositiveZBoundsExtension = Landscape->PositiveZBoundsExtension;
 		CollisionMipLevel = Landscape->CollisionMipLevel;
@@ -1767,6 +1780,12 @@ void ALandscapeProxy::ConditionalAssignCommonProperties(ALandscape* Landscape)
 	if (LOD0DistributionSetting != Landscape->LOD0DistributionSetting)
 	{
 		LOD0DistributionSetting = Landscape->LOD0DistributionSetting;
+		bUpdated = true;
+	}
+
+	if (OccluderGeometryLOD != Landscape->OccluderGeometryLOD)
+	{
+		OccluderGeometryLOD = Landscape->OccluderGeometryLOD;
 		bUpdated = true;
 	}
 
@@ -2486,7 +2505,7 @@ ALandscapeMeshProxyActor::ALandscapeMeshProxyActor(const FObjectInitializer& Obj
 	LandscapeMeshProxyComponent = CreateDefaultSubobject<ULandscapeMeshProxyComponent>(TEXT("LandscapeMeshProxyComponent0"));
 	LandscapeMeshProxyComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 	LandscapeMeshProxyComponent->Mobility = EComponentMobility::Static;
-	LandscapeMeshProxyComponent->bGenerateOverlapEvents = false;
+	LandscapeMeshProxyComponent->SetGenerateOverlapEvents(false);
 
 	RootComponent = LandscapeMeshProxyComponent;
 }
@@ -2534,6 +2553,9 @@ void ULandscapeComponent::SerializeStateHashes(FArchive& Ar)
 		FGuid WeightmapGuid = WeightmapTexture->Source.GetId();
 		Ar << WeightmapGuid;
 	}
+
+	int32 OccluderGeometryLOD = GetLandscapeProxy()->OccluderGeometryLOD;
+	Ar << OccluderGeometryLOD;
 }
 
 void ALandscapeProxy::UpdateBakedTextures()

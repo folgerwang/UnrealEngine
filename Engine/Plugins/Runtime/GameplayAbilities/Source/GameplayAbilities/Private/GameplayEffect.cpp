@@ -478,6 +478,36 @@ TSubclassOf<UGameplayModMagnitudeCalculation> FGameplayEffectModifierMagnitude::
 	return CustomCalcClass;
 }
 
+bool FGameplayEffectModifierMagnitude::Serialize(FArchive& Ar)
+{
+	// Clear properties that are not needed for the chosen calculation type
+	if (Ar.IsSaving() && Ar.IsPersistent() && !Ar.IsTransacting())
+	{
+		if (MagnitudeCalculationType != EGameplayEffectMagnitudeCalculation::ScalableFloat)
+		{
+			ScalableFloatMagnitude = FScalableFloat();
+		}
+
+		if (MagnitudeCalculationType != EGameplayEffectMagnitudeCalculation::AttributeBased)
+		{
+			AttributeBasedMagnitude = FAttributeBasedFloat();
+		}
+
+		if (MagnitudeCalculationType != EGameplayEffectMagnitudeCalculation::CustomCalculationClass)
+		{
+			CustomMagnitude = FCustomCalculationBasedFloat();
+		}
+
+		if (MagnitudeCalculationType != EGameplayEffectMagnitudeCalculation::SetByCaller)
+		{
+			SetByCallerMagnitude = FSetByCallerFloat();
+		}
+	}
+
+	// Return false to let normal tagged serialization occur
+	return false;
+}
+
 bool FGameplayEffectModifierMagnitude::operator==(const FGameplayEffectModifierMagnitude& Other) const
 {
 	if (MagnitudeCalculationType != Other.MagnitudeCalculationType)

@@ -128,18 +128,6 @@ static TAutoConsoleVariable<int32> CVarTriangleOrderOptimization(
 	TEXT("2: No triangle order optimization. (least efficient, debugging purposes only)"),
 	ECVF_Default);
 
-static TAutoConsoleVariable<int32> CVarSupportDepthOnlyIndexBuffers(
-	TEXT("r.SupportDepthOnlyIndexBuffers"),
-	1,
-	TEXT("Enables depth-only index buffers. Saves a little time at the expense of doubling the size of index buffers."),
-	ECVF_ReadOnly | ECVF_RenderThreadSafe);
-
-static TAutoConsoleVariable<int32> CVarSupportReversedIndexBuffers(
-	TEXT("r.SupportReversedIndexBuffers"),
-	1,
-	TEXT("Enables reversed index buffers. Saves a little time at the expense of doubling the size of index buffers."),
-	ECVF_ReadOnly | ECVF_RenderThreadSafe);
-
 IMPLEMENT_MODULE(FMeshUtilities, MeshUtilities);
 
 /*------------------------------------------------------------------------------
@@ -577,7 +565,7 @@ static void SkinnedMeshToRawMeshes(USkinnedMeshComponent* InSkinnedMeshComponent
 		FRawMeshTracker& RawMeshTracker = OutRawMeshTrackers[OverallLODIndex];
 		const int32 BaseVertexIndex = RawMesh.VertexPositions.Num();
 
-		FSkeletalMeshLODInfo& SrcLODInfo = InSkinnedMeshComponent->SkeletalMesh->LODInfo[LODIndexRead];
+		FSkeletalMeshLODInfo& SrcLODInfo = *(InSkinnedMeshComponent->SkeletalMesh->GetLODInfo(LODIndexRead));
 
 		// Get the CPU skinned verts for this LOD
 		TArray<FFinalSkinVertex> FinalVertices;
@@ -2974,8 +2962,8 @@ public:
 				{
 					if (DestMesh.IsValid())
 					{
-						//Set the new SectionInfoMap for this reduced LOD base on the ReductionSettings.BaseLODModel OriginalSectionInfoMap
-						const FMeshSectionInfoMap& BaseLODModelSectionInfoMap = StaticMesh->OriginalSectionInfoMap;
+						//Set the new SectionInfoMap for this reduced LOD base on the ReductionSettings.BaseLODModel SectionInfoMap
+						const FMeshSectionInfoMap& BaseLODModelSectionInfoMap = StaticMesh->SectionInfoMap;
 						TArray<int32> UniqueMaterialIndex;
 						//Find all unique Material in used order
 						int32 NumFaces = DestMesh.FaceMaterialIndices.Num();
@@ -2993,10 +2981,10 @@ public:
 							{
 								FMeshSectionInfo SectionInfo = BaseLODModelSectionInfoMap.Get(ReductionSettings.BaseLODModel, UniqueMaterialIndex[SectionIndex]);
 								//Try to recuperate the valid data
-								if (StaticMesh->SectionInfoMap.IsValidSection(LODIndex, SectionIndex))
+								if (BaseLODModelSectionInfoMap.IsValidSection(LODIndex, SectionIndex))
 								{
 									//If the old LOD section was using the same Material copy the data
-									FMeshSectionInfo OriginalLODSectionInfo = StaticMesh->SectionInfoMap.Get(LODIndex, SectionIndex);
+									FMeshSectionInfo OriginalLODSectionInfo = BaseLODModelSectionInfoMap.Get(LODIndex, SectionIndex);
 									if (OriginalLODSectionInfo.MaterialIndex == SectionInfo.MaterialIndex)
 									{
 										SectionInfo.bCastShadow = OriginalLODSectionInfo.bCastShadow;
@@ -3138,7 +3126,7 @@ public:
 			LODModel.IndexBuffer.SetIndices(CombinedIndices, bNeeds32BitIndices ? EIndexBufferStride::Force32Bit : EIndexBufferStride::Force16Bit);
 			
 			// Build the reversed index buffer.
-			if (InOutModels[0].BuildSettings.bBuildReversedIndexBuffer && MeshUtilities.bEnableReversedIndexBuffer)
+			if (InOutModels[0].BuildSettings.bBuildReversedIndexBuffer)
 			{
 				TArray<uint32> InversedIndices;
 				const int32 IndexCount = CombinedIndices.Num();
@@ -3159,7 +3147,6 @@ public:
 
 			// Build the depth-only index buffer.
 			TArray<uint32> DepthOnlyIndices;
-			if (MeshUtilities.bEnableDepthOnlyIndexBuffer)
 			{
 				BuildDepthOnlyIndexBuffer(
 					DepthOnlyIndices,
@@ -3177,7 +3164,7 @@ public:
 			}
 
 			// Build the inversed depth only index buffer.
-			if (InOutModels[0].BuildSettings.bBuildReversedIndexBuffer && MeshUtilities.bEnableDepthOnlyIndexBuffer && MeshUtilities.bEnableReversedIndexBuffer)
+			if (InOutModels[0].BuildSettings.bBuildReversedIndexBuffer)
 			{
 				TArray<uint32> ReversedDepthOnlyIndices;
 				const int32 IndexCount = DepthOnlyIndices.Num();
@@ -5592,21 +5579,16 @@ void FMeshUtilities::StartupModule()
 
 	bUsingNvTriStrip = !bDisableTriangleOrderOptimization && (CVarTriangleOrderOptimization.GetValueOnGameThread() == 0);
 
-	bEnableDepthOnlyIndexBuffer = (CVarSupportDepthOnlyIndexBuffers.GetValueOnGameThread() == 1);
-	bEnableReversedIndexBuffer = (CVarSupportReversedIndexBuffers.GetValueOnGameThread() == 1);
-
 	IMeshReductionManagerModule& Module = FModuleManager::Get().LoadModuleChecked<IMeshReductionManagerModule>("MeshReductionInterface");
 	IMeshReduction* StaticMeshReduction = Module.GetStaticMeshReductionInterface();
 
 
 	// Construct and cache the version string for the mesh utilities module.
 	VersionString = FString::Printf(
-		TEXT("%s%s%s%s%s"),
+		TEXT("%s%s%s"),
 		MESH_UTILITIES_VER,
 		StaticMeshReduction ? *StaticMeshReduction->GetVersionString() : TEXT(""),
-		bUsingNvTriStrip ? TEXT("_NvTriStrip") : TEXT(""),
-		bEnableDepthOnlyIndexBuffer ? TEXT("_DepthOnlyIB") : TEXT("_NoDepthOnlyIB"),
-		bEnableReversedIndexBuffer ? TEXT("_ReversedIB") : TEXT("_NoReversedIB")
+		bUsingNvTriStrip ? TEXT("_NvTriStrip") : TEXT("")
 		);
 
 	// hook up level editor extension for skeletal mesh conversion
@@ -6113,7 +6095,7 @@ void FMeshUtilities::MergeActors(
 	const float ScreenSize = TNumericLimits<float>::Max();
 
 	const IMeshMergeUtilities& Module = FModuleManager::Get().LoadModuleChecked<IMeshMergeModule>("MeshMergeUtilities").GetUtilities();
-	Module.MergeComponentsToStaticMesh(ComponentsToMerge, World, InSettings, InOuter, InBasePackageName, OutAssetsToSync, OutMergedActorLocation, ScreenSize, bSilent);
+	Module.MergeComponentsToStaticMesh(ComponentsToMerge, World, InSettings, nullptr, InOuter, InBasePackageName, OutAssetsToSync, OutMergedActorLocation, ScreenSize, bSilent);
 }
 
 void FMeshUtilities::MergeStaticMeshComponents(
@@ -6133,7 +6115,7 @@ void FMeshUtilities::MergeStaticMeshComponents(
 	TArray<UPrimitiveComponent*> PrimCompsToMerge;
 	Algo::Transform(ComponentsToMerge, PrimCompsToMerge, [](UStaticMeshComponent* StaticMeshComp) { return StaticMeshComp; });
 
-	Module.MergeComponentsToStaticMesh(PrimCompsToMerge, World, InSettings, InOuter, InBasePackageName, OutAssetsToSync, OutMergedActorLocation, ScreenSize, bSilent);
+	Module.MergeComponentsToStaticMesh(PrimCompsToMerge, World, InSettings, nullptr, InOuter, InBasePackageName, OutAssetsToSync, OutMergedActorLocation, ScreenSize, bSilent);
 }
 
 void FMeshUtilities::CreateProxyMesh(const TArray<AActor*>& InActors, const struct FMeshProxySettings& InMeshProxySettings, UPackage* InOuter, const FString& InProxyBasePackageName, const FGuid InGuid, FCreateProxyDelegate InProxyCreatedDelegate, const bool bAllowAsync,

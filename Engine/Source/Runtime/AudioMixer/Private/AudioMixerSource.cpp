@@ -258,7 +258,7 @@ namespace Audio
 			SetReverbApplied(true);
 
 			// Update the buffer sample rate to the wave instance sample rate in case it was serialized incorrectly
-			MixerBuffer->InitSampleRate(InWaveInstance->WaveData->SampleRate);
+			MixerBuffer->InitSampleRate(InWaveInstance->WaveData->GetSampleRateForCurrentPlatform());
 
 			if (MixerSourceVoice->Init(InitParams))
 			{

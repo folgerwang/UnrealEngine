@@ -38,6 +38,9 @@
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "Engine/NetworkObjectList.h"
 #include "HAL/LowLevelMemTracker.h"
+#include "DeviceProfiles/DeviceProfileManager.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "DeviceProfiles/DeviceProfile.h"
 
 DEFINE_LOG_CATEGORY(LogActor);
 
@@ -290,6 +293,40 @@ void AActor::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collecto
 #endif
 	Super::AddReferencedObjects(InThis, Collector);
 }
+
+bool AActor::IsEditorOnly() const
+{ 
+	return bIsEditorOnlyActor; 
+}
+
+#if WITH_EDITOR
+
+bool AActor::NeedsLoadForTargetPlatform(const ITargetPlatform* TargetPlatform) const
+{
+	if(UDeviceProfile* DeviceProfile = UDeviceProfileManager::Get().FindProfile(TargetPlatform->IniPlatformName()))
+	{
+		// get local scalability CVars that could cull this actor
+		int32 CVarCullBasedOnDetailLevel;
+		if(DeviceProfile->GetConsolidatedCVarValue(TEXT("r.CookOutUnusedDetailModeComponents"), CVarCullBasedOnDetailLevel) && CVarCullBasedOnDetailLevel == 1)
+		{
+			int32 CVarDetailMode;
+			if(DeviceProfile->GetConsolidatedCVarValue(TEXT("r.DetailMode"), CVarDetailMode))
+			{
+				// Check root component's detail mode.
+				// If e.g. the component's detail mode is High and the platform detail is Medium,
+				// then we should cull it.
+				if(RootComponent && (int32)RootComponent->DetailMode > CVarDetailMode)
+				{
+					return false;
+				}
+			}
+		}
+	}
+
+	return true;
+}
+
+#endif
 
 UWorld* AActor::GetWorld() const
 {
@@ -789,7 +826,7 @@ void AActor::RegisterAllActorTickFunctions(bool bRegister, bool bDoComponents)
 
 void AActor::SetActorTickEnabled(bool bEnabled)
 {
-	if (!IsTemplate() && PrimaryActorTick.bCanEverTick)
+	if (PrimaryActorTick.bCanEverTick && !IsTemplate())
 	{
 		PrimaryActorTick.SetTickFunctionEnable(bEnabled);
 	}
@@ -1234,7 +1271,7 @@ bool AActor::IsOverlappingActor(const AActor* Other) const
 	{
 		if (UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(OwnedComp))
 		{
-			if (PrimComp->IsOverlappingActor(Other))
+			if ((PrimComp->GetOverlapInfos().Num() > 0) && PrimComp->IsOverlappingActor(Other))
 			{
 				// found one, finished
 				return true;
@@ -1713,9 +1750,9 @@ bool AActor::IsInPersistentLevel(bool bIncludeLevelStreamingPersistent) const
 {
 	ULevel* MyLevel = GetLevel();
 	UWorld* World = GetWorld();
-	return ( (MyLevel == World->PersistentLevel) || ( bIncludeLevelStreamingPersistent && World->StreamingLevels.Num() > 0 &&
-														Cast<ULevelStreamingPersistent>(World->StreamingLevels[0]) != nullptr &&
-														World->StreamingLevels[0]->GetLoadedLevel() == MyLevel ) );
+	return ( (MyLevel == World->PersistentLevel) || ( bIncludeLevelStreamingPersistent && World->GetStreamingLevels().Num() > 0 &&
+														Cast<ULevelStreamingPersistent>(World->GetStreamingLevels()[0]) &&
+														World->GetStreamingLevels()[0]->GetLoadedLevel() == MyLevel ) );
 }
 
 
@@ -2425,13 +2462,10 @@ enum ECollisionResponse AActor::GetComponentsCollisionResponseToChannel(enum ECo
 {
 	ECollisionResponse OutResponse = ECR_Ignore;
 
-	TInlineComponentArray<UPrimitiveComponent*> Components;
-	GetComponents(Components);
-
-	for (int32 i = 0; i < Components.Num(); i++)
+	for (UActorComponent* ActorComponent : OwnedComponents)
 	{
-		UPrimitiveComponent* Primitive = Components[i];
-		if ( Primitive->IsCollisionEnabled() )
+		UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(ActorComponent);
+		if ( Primitive && Primitive->IsCollisionEnabled() )
 		{
 			// find Max of the response, blocking > overlapping > ignore
 			OutResponse = FMath::Max(Primitive->GetCollisionResponseToChannel(Channel), OutResponse);
@@ -2640,6 +2674,10 @@ void AActor::DisableComponentsSimulatePhysics()
 	{
 		Component->SetSimulatePhysics(false);
 	}
+}
+
+void AActor::PreRegisterAllComponents()
+{
 }
 
 void AActor::PostRegisterAllComponents() 
@@ -3994,6 +4032,8 @@ void AActor::UnregisterAllComponents(const bool bForReregister)
 
 void AActor::RegisterAllComponents()
 {
+	PreRegisterAllComponents();
+
 	// 0 - means register all components
 	verify(IncrementalRegisterComponents(0));
 

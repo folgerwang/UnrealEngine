@@ -602,7 +602,7 @@ public:
 	 */
 	virtual void Finalize() override
 	{
-		Subsystem->TriggerOnConnectionStatusChangedDelegates(EOnlineServerConnectionStatus::Normal, ConnectionState);
+		Subsystem->TriggerOnConnectionStatusChangedDelegates(Subsystem->GetSubsystemName().ToString(), EOnlineServerConnectionStatus::Normal, ConnectionState);
 	}
 };
 
@@ -753,7 +753,7 @@ public:
 		if (bTriggerConnectionStatusUpdate)
 		{
 			EOnlineServerConnectionStatus::Type ConnectionState = SteamConnectionResult(CallbackResults.m_eResult);
-			Subsystem->TriggerOnConnectionStatusChangedDelegates(EOnlineServerConnectionStatus::Normal, ConnectionState);
+			Subsystem->TriggerOnConnectionStatusChangedDelegates(Subsystem->GetSubsystemName().ToString(), EOnlineServerConnectionStatus::Normal, ConnectionState);
 		}
 	}
 };

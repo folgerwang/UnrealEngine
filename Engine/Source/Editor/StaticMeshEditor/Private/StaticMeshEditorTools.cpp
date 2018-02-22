@@ -26,6 +26,7 @@
 #include "PhysicsEngine/BodySetup.h"
 #include "FbxMeshUtils.h"
 #include "Widgets/Input/SVectorInputBox.h"
+#include "SPerPlatformPropertiesWidget.h"
 
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "EngineAnalytics.h"
@@ -2811,15 +2812,11 @@ void FLevelOfDetailSettingsLayout::AddToDetailsPanel( IDetailLayoutBuilder& Deta
 	]
 	.ValueContent()
 	[
-		SNew(SSpinBox<int32>)
-		.Font( IDetailLayoutBuilder::GetDetailFont() )
-		.Value(this, &FLevelOfDetailSettingsLayout::GetMinLOD)
-		.OnValueChanged(this, &FLevelOfDetailSettingsLayout::OnMinLODChanged)
-		.OnValueCommitted(this, &FLevelOfDetailSettingsLayout::OnMinLODCommitted)
-		.MinValue(0)
-		.MaxValue(MAX_STATIC_MESH_LODS)
-		.ToolTipText(this, &FLevelOfDetailSettingsLayout::GetMinLODTooltip)
-		.IsEnabled(FLevelOfDetailSettingsLayout::GetLODCount() > 1)
+		SNew(SPerPlatformPropertiesWidget)
+		.OnGenerateWidget(this, &FLevelOfDetailSettingsLayout::GetMinLODWidget)
+		.OnAddPlatform(this, &FLevelOfDetailSettingsLayout::AddMinLODPlatformOverride)
+		.OnRemovePlatform(this, &FLevelOfDetailSettingsLayout::RemoveMinLODPlatformOverride)
+		.PlatformOverrideNames(this, &FLevelOfDetailSettingsLayout::GetMinLODPlatformOverrideNames)
 	];
 
 	// Add Number of LODs slider.
@@ -3037,10 +3034,10 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 					ReductionSettingsWidgets[LODIndex]->UpdateSettings(ReductionSettings);
 				}
 
-				if(LODScreenSizes[LODIndex] >= LODScreenSizes[LODIndex-1])
+				if(LODScreenSizes[LODIndex].Default >= LODScreenSizes[LODIndex-1].Default)
 				{
 					const float DefaultScreenSizeDifference = 0.01f;
-					LODScreenSizes[LODIndex] = LODScreenSizes[LODIndex-1] - DefaultScreenSizeDifference;
+					LODScreenSizes[LODIndex].Default = LODScreenSizes[LODIndex-1].Default - DefaultScreenSizeDifference;
 				}
 			}
 
@@ -3085,8 +3082,7 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 					]
 				]
 			);
-			
-			
+					
 			SectionSettingsWidgets[ LODIndex ] = MakeShareable( new FMeshSectionSettingsLayout( StaticMeshEditor, LODIndex, LodCategories, &CustomLODEditMode) );
 			SectionSettingsWidgets[ LODIndex ]->AddToCategory( LODCategory );
 
@@ -3098,16 +3094,14 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 				.Text(LOCTEXT("ScreenSizeName", "Screen Size"))
 			]
 			.ValueContent()
+			.MinDesiredWidth(FLevelOfDetailSettingsLayout::GetScreenSizeWidgetWidth(LODIndex))
+			.MaxDesiredWidth(FLevelOfDetailSettingsLayout::GetScreenSizeWidgetWidth(LODIndex))
 			[
-				SNew(SSpinBox<float>)
-				.Font(IDetailLayoutBuilder::GetDetailFont())
-				.MinValue(0.0f)
-				.MaxValue(WORLD_MAX)
-				.SliderExponent(2.0f)
-				.Value(this, &FLevelOfDetailSettingsLayout::GetLODScreenSize, LODIndex)
-				.OnValueChanged(this, &FLevelOfDetailSettingsLayout::OnLODScreenSizeChanged, LODIndex)
-				.OnValueCommitted(this, &FLevelOfDetailSettingsLayout::OnLODScreenSizeCommitted, LODIndex)
-				.IsEnabled(this, &FLevelOfDetailSettingsLayout::CanChangeLODScreenSize)
+				SNew(SPerPlatformPropertiesWidget)
+				.OnGenerateWidget(this, &FLevelOfDetailSettingsLayout::GetLODScreenSizeWidget, LODIndex)
+				.OnAddPlatform(this, &FLevelOfDetailSettingsLayout::AddLODScreenSizePlatformOverride, LODIndex)
+				.OnRemovePlatform(this, &FLevelOfDetailSettingsLayout::RemoveLODScreenSizePlatformOverride, LODIndex)
+				.PlatformOverrideNames(this, &FLevelOfDetailSettingsLayout::GetLODScreenSizePlatformOverrideNames, LODIndex)
 			];
 
 			if (BuildSettingsWidgets[LODIndex].IsValid())
@@ -3159,25 +3153,40 @@ int32 FLevelOfDetailSettingsLayout::GetLODCount() const
 	return LODCount;
 }
 
-float FLevelOfDetailSettingsLayout::GetLODScreenSize( int32 LODIndex ) const
+float FLevelOfDetailSettingsLayout::GetLODScreenSize(FName PlatformGroupName, int32 LODIndex) const
 {
 	check(LODIndex < MAX_STATIC_MESH_LODS);
 	UStaticMesh* Mesh = StaticMeshEditor.GetStaticMesh();
-	float ScreenSize = LODScreenSizes[FMath::Clamp(LODIndex, 0, MAX_STATIC_MESH_LODS-1)];
+	const FPerPlatformFloat& LODScreenSize = LODScreenSizes[FMath::Clamp(LODIndex, 0, MAX_STATIC_MESH_LODS - 1)];
+	float ScreenSize = LODScreenSize.Default;
+	if (PlatformGroupName != NAME_None)
+	{
+		const float* PlatformScreenSize = LODScreenSize.PerPlatform.Find(PlatformGroupName);
+		if (PlatformScreenSize != nullptr)
+		{
+			ScreenSize = *PlatformScreenSize;
+		}
+	}
+
 	if(Mesh->bAutoComputeLODScreenSize)
 	{
-		ScreenSize = Mesh->RenderData->ScreenSize[LODIndex];
+		ScreenSize = Mesh->RenderData->ScreenSize[LODIndex].Default;
 	}
 	else if(Mesh->SourceModels.IsValidIndex(LODIndex))
 	{
-		ScreenSize = Mesh->SourceModels[LODIndex].ScreenSize;
+		ScreenSize = Mesh->SourceModels[LODIndex].ScreenSize.Default;
+		const float* PlatformScreenSize = Mesh->SourceModels[LODIndex].ScreenSize.PerPlatform.Find(PlatformGroupName);
+		if (PlatformScreenSize != nullptr)
+		{
+			ScreenSize = *PlatformScreenSize;
+		}
 	}
 	return ScreenSize;
 }
 
 FText FLevelOfDetailSettingsLayout::GetLODScreenSizeTitle( int32 LODIndex ) const
 {
-	return FText::Format( LOCTEXT("ScreenSize_MeshSimplification", "Screen Size: {0}"), FText::AsNumber(GetLODScreenSize(LODIndex)));
+	return FText::Format( LOCTEXT("ScreenSize_MeshSimplification", "Screen Size: {0}"), FText::AsNumber(GetLODScreenSize(NAME_None, LODIndex)));
 }
 
 bool FLevelOfDetailSettingsLayout::CanChangeLODScreenSize() const
@@ -3185,7 +3194,63 @@ bool FLevelOfDetailSettingsLayout::CanChangeLODScreenSize() const
 	return !IsAutoLODEnabled();
 }
 
-void FLevelOfDetailSettingsLayout::OnLODScreenSizeChanged( float NewValue, int32 LODIndex )
+TSharedRef<SWidget> FLevelOfDetailSettingsLayout::GetLODScreenSizeWidget(FName PlatformGroupName, int32 LODIndex) const
+{
+	return SNew(SSpinBox<float>)
+		.Font(IDetailLayoutBuilder::GetDetailFont())
+		.MinValue(0.0f)
+		.MaxValue(WORLD_MAX)
+		.SliderExponent(2.0f)
+		.Value(this, &FLevelOfDetailSettingsLayout::GetLODScreenSize, PlatformGroupName, LODIndex)
+		.OnValueChanged(this, &FLevelOfDetailSettingsLayout::OnLODScreenSizeChanged, PlatformGroupName, LODIndex)
+		.OnValueCommitted(this, &FLevelOfDetailSettingsLayout::OnLODScreenSizeCommitted, PlatformGroupName, LODIndex)
+		.IsEnabled(this, &FLevelOfDetailSettingsLayout::CanChangeLODScreenSize);
+}
+
+TArray<FName> FLevelOfDetailSettingsLayout::GetLODScreenSizePlatformOverrideNames(int32 LODIndex) const
+{
+	TArray<FName> KeyArray;
+	LODScreenSizes[LODIndex].PerPlatform.GenerateKeyArray(KeyArray);
+	KeyArray.Sort();
+	return KeyArray;
+}
+
+float FLevelOfDetailSettingsLayout::GetScreenSizeWidgetWidth(int32 LODIndex) const
+{
+	return (float)(LODScreenSizes[LODIndex].PerPlatform.Num() + 1) * 125.f;
+}
+
+bool FLevelOfDetailSettingsLayout::AddLODScreenSizePlatformOverride(FName PlatformGroupName, int32 LODIndex)
+{
+	UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
+	if (LODScreenSizes[LODIndex].PerPlatform.Find(PlatformGroupName) == nullptr)
+	{
+		if(!StaticMesh->bAutoComputeLODScreenSize && StaticMesh->SourceModels.IsValidIndex(LODIndex))
+		{
+			float Value = StaticMesh->SourceModels[LODIndex].ScreenSize.Default;
+			StaticMesh->SourceModels[LODIndex].ScreenSize.PerPlatform.Add(PlatformGroupName, Value);
+			OnLODScreenSizeChanged(Value, PlatformGroupName, LODIndex);
+			return true;
+		}
+	}
+	return false;
+}
+
+bool FLevelOfDetailSettingsLayout::RemoveLODScreenSizePlatformOverride(FName PlatformGroupName, int32 LODIndex)
+{
+	UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
+	if (!StaticMesh->bAutoComputeLODScreenSize && StaticMesh->SourceModels.IsValidIndex(LODIndex))
+	{
+		if (StaticMesh->SourceModels[LODIndex].ScreenSize.PerPlatform.Remove(PlatformGroupName) != 0)
+		{
+			OnLODScreenSizeChanged(StaticMesh->SourceModels[LODIndex].ScreenSize.Default, PlatformGroupName, LODIndex);
+			return true;
+		}
+	}
+	return false;
+}
+
+void FLevelOfDetailSettingsLayout::OnLODScreenSizeChanged( float NewValue, FName PlatformGroupName, int32 LODIndex )
 {
 	check(LODIndex < MAX_STATIC_MESH_LODS);
 	UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
@@ -3199,12 +3264,26 @@ void FLevelOfDetailSettingsLayout::OnLODScreenSizeChanged( float NewValue, int32
 
 		// Update Display factors for further LODs
 		const float MinimumDifferenceInScreenSize = KINDA_SMALL_NUMBER;
-		LODScreenSizes[LODIndex] = NewValue;
-		// Make sure we aren't trying to ovelap or have more than one LOD for a value
-		for (int32 i = 1; i < MAX_STATIC_MESH_LODS; ++i)
+		
+		if (PlatformGroupName == NAME_None)
 		{
-			float MaxValue = FMath::Max(LODScreenSizes[i-1] - MinimumDifferenceInScreenSize, 0.0f);
-			LODScreenSizes[i] = FMath::Min(LODScreenSizes[i], MaxValue);
+			LODScreenSizes[LODIndex].Default = NewValue;
+
+			// Make sure we aren't trying to overlap or have more than one LOD for a value
+			for (int32 i = 1; i < MAX_STATIC_MESH_LODS; ++i)
+			{
+				float MaxValue = FMath::Max(LODScreenSizes[i-1].Default - MinimumDifferenceInScreenSize, 0.0f);
+				LODScreenSizes[i].Default = FMath::Min(LODScreenSizes[i].Default, MaxValue);
+			}
+		}
+		else
+		{
+			// Per-platform overrides don't have any restrictions
+			float* PlatformScreenSize = LODScreenSizes[LODIndex].PerPlatform.Find(PlatformGroupName);
+			if (PlatformScreenSize != nullptr)
+			{
+				*PlatformScreenSize = NewValue;
+			}
 		}
 
 		// Push changes immediately.
@@ -3231,9 +3310,9 @@ void FLevelOfDetailSettingsLayout::OnLODScreenSizeChanged( float NewValue, int32
 	}
 }
 
-void FLevelOfDetailSettingsLayout::OnLODScreenSizeCommitted( float NewValue, ETextCommit::Type CommitType, int32 LODIndex )
+void FLevelOfDetailSettingsLayout::OnLODScreenSizeCommitted( float NewValue, ETextCommit::Type CommitType, FName PlatformGroupName, int32 LODIndex )
 {
-	OnLODScreenSizeChanged(NewValue, LODIndex);
+	OnLODScreenSizeChanged(NewValue, PlatformGroupName, LODIndex);
 }
 
 void FLevelOfDetailSettingsLayout::UpdateLODNames()
@@ -3316,11 +3395,11 @@ void FLevelOfDetailSettingsLayout::OnAutoLODChanged(ECheckBoxState NewState)
 	{
 		if (StaticMesh->SourceModels.IsValidIndex(0))
 		{
-			StaticMesh->SourceModels[0].ScreenSize = 1.0f;
+			StaticMesh->SourceModels[0].ScreenSize.Default = 1.0f;
 		}
 		for (int32 LODIndex = 1; LODIndex < StaticMesh->SourceModels.Num(); ++LODIndex)
 		{
-			StaticMesh->SourceModels[LODIndex].ScreenSize = StaticMesh->RenderData->ScreenSize[LODIndex];
+			StaticMesh->SourceModels[LODIndex].ScreenSize.Default = StaticMesh->RenderData->ScreenSize[LODIndex].Default;
 		}
 	}
 	StaticMesh->PostEditChange();
@@ -3408,19 +3487,19 @@ void FLevelOfDetailSettingsLayout::ApplyChanges()
 
 		if (LODIndex == 0)
 		{
-			SrcModel.ScreenSize = 1.0f;
+			SrcModel.ScreenSize.Default = 1.0f;
 		}
 		else
 		{
 			SrcModel.ScreenSize = LODScreenSizes[LODIndex];
 			FStaticMeshSourceModel& PrevModel = StaticMesh->SourceModels[LODIndex-1];
-			if(SrcModel.ScreenSize >= PrevModel.ScreenSize)
+			if(SrcModel.ScreenSize.Default >= PrevModel.ScreenSize.Default)
 			{
 				const float DefaultScreenSizeDifference = 0.01f;
-				LODScreenSizes[LODIndex] = LODScreenSizes[LODIndex-1] - DefaultScreenSizeDifference;
+				LODScreenSizes[LODIndex].Default = LODScreenSizes[LODIndex-1].Default - DefaultScreenSizeDifference;
 
 				// Make sure there are no incorrectly overlapping values
-				SrcModel.ScreenSize = 1.0f - 0.01f * LODIndex;
+				SrcModel.ScreenSize.Default = 1.0f - 0.01f * LODIndex;
 			}
 		}
 	}
@@ -3459,35 +3538,97 @@ FText FLevelOfDetailSettingsLayout::GetLODCountTooltip() const
 	return LOCTEXT("LODCountTooltip_Disabled", "Auto mesh reduction is unavailable! Please provide a mesh reduction interface such as Simplygon to use this feature or manually import LOD levels.");
 }
 
-int32 FLevelOfDetailSettingsLayout::GetMinLOD() const
+int32 FLevelOfDetailSettingsLayout::GetMinLOD(FName Platform) const
 {
 	UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
 	check(StaticMesh);
 
-	return StaticMesh->MinLOD;
+	int32* ValuePtr = (Platform == NAME_None) ? nullptr : StaticMesh->MinLOD.PerPlatform.Find(Platform);
+	return (ValuePtr != nullptr) ? *ValuePtr : StaticMesh->MinLOD.Default;
 }
 
-void FLevelOfDetailSettingsLayout::OnMinLODChanged(int32 NewValue)
+void FLevelOfDetailSettingsLayout::OnMinLODChanged(int32 NewValue, FName Platform)
 {
 	UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
 	check(StaticMesh);
 
 	{
-		FStaticMeshComponentRecreateRenderStateContext ReregisterContext(StaticMesh,false);
-		StaticMesh->MinLOD = FMath::Clamp<int32>(NewValue, 0, MAX_STATIC_MESH_LODS - 1);
+		FStaticMeshComponentRecreateRenderStateContext ReregisterContext(StaticMesh, false);
+		NewValue = FMath::Clamp<int32>(NewValue, 0, MAX_STATIC_MESH_LODS - 1);
+		if (Platform == NAME_None)
+		{
+			StaticMesh->MinLOD.Default = NewValue;
+		}
+		else
+		{
+			int32* ValuePtr = StaticMesh->MinLOD.PerPlatform.Find(Platform);
+			if (ValuePtr != nullptr)
+			{
+				*ValuePtr = NewValue;
+			}
+		}
 		StaticMesh->Modify();
 	}
 	StaticMeshEditor.RefreshViewport();
 }
 
-void FLevelOfDetailSettingsLayout::OnMinLODCommitted(int32 InValue, ETextCommit::Type CommitInfo)
+void FLevelOfDetailSettingsLayout::OnMinLODCommitted(int32 InValue, ETextCommit::Type CommitInfo, FName Platform)
 {
-	OnMinLODChanged(InValue);
+	OnMinLODChanged(InValue, Platform);
 }
 
 FText FLevelOfDetailSettingsLayout::GetMinLODTooltip() const
 {
 	return LOCTEXT("MinLODTooltip", "The minimum LOD to use for rendering.  This can be overridden in components.");
+}
+
+TSharedRef<SWidget> FLevelOfDetailSettingsLayout::GetMinLODWidget(FName PlatformGroupName) const
+{
+	return SNew(SSpinBox<int32>)
+		.Font(IDetailLayoutBuilder::GetDetailFont())
+		.Value(this, &FLevelOfDetailSettingsLayout::GetMinLOD, PlatformGroupName)
+		.OnValueChanged(this, &FLevelOfDetailSettingsLayout::OnMinLODChanged, PlatformGroupName)
+		.OnValueCommitted(this, &FLevelOfDetailSettingsLayout::OnMinLODCommitted, PlatformGroupName)
+		.MinValue(0)
+		.MaxValue(MAX_STATIC_MESH_LODS)
+		.ToolTipText(this, &FLevelOfDetailSettingsLayout::GetMinLODTooltip)
+		.IsEnabled(FLevelOfDetailSettingsLayout::GetLODCount() > 1);
+}
+
+bool FLevelOfDetailSettingsLayout::AddMinLODPlatformOverride(FName PlatformGroupName)
+{
+	UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
+	check(StaticMesh);
+	if (StaticMesh->MinLOD.PerPlatform.Find(PlatformGroupName) == nullptr)
+	{
+		float Value = StaticMesh->MinLOD.Default;
+		StaticMesh->MinLOD.PerPlatform.Add(PlatformGroupName, Value);
+		OnMinLODChanged(Value, PlatformGroupName);
+		return true;
+	}
+	return false;
+}
+
+bool FLevelOfDetailSettingsLayout::RemoveMinLODPlatformOverride(FName PlatformGroupName)
+{
+	UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
+	check(StaticMesh);
+	if (StaticMesh->MinLOD.PerPlatform.Remove(PlatformGroupName) != 0)
+	{
+		OnMinLODChanged(StaticMesh->MinLOD.Default, PlatformGroupName);
+		return true;
+	}
+	return false;
+}
+
+TArray<FName> FLevelOfDetailSettingsLayout::GetMinLODPlatformOverrideNames() const
+{
+	UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
+	check(StaticMesh);
+	TArray<FName> KeyArray;
+	StaticMesh->MinLOD.PerPlatform.GenerateKeyArray(KeyArray);
+	KeyArray.Sort();
+	return KeyArray;
 }
 
 FText FLevelOfDetailSettingsLayout::GetLODCustomModeNameContent(int32 LODIndex) const

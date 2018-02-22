@@ -711,8 +711,8 @@ public:
 	class FMaterialPreviewPanelSlot : public TSupportsOneChildMixin<FMaterialPreviewPanelSlot>
 	{
 	public:
-		FMaterialPreviewPanelSlot()
-			: TSupportsOneChildMixin<FMaterialPreviewPanelSlot>()
+		FMaterialPreviewPanelSlot(SWidget* InOwner)
+			: TSupportsOneChildMixin<FMaterialPreviewPanelSlot>(InOwner)
 		{
 		}
 	};
@@ -721,6 +721,7 @@ public:
 	SLATE_END_ARGS()
 
 	SMaterialEditorUIPreviewZoomer()
+		: ChildSlot(this)
 	{
 	}
 

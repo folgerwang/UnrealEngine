@@ -6,6 +6,8 @@
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/Text/SRichTextBlock.h"
 #include "Components/RichTextBlockDecorator.h"
+#include "Styling/SlateStyle.h"
+#include "Framework/Text/RichTextLayoutMarshaller.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -15,12 +17,6 @@
 URichTextBlock::URichTextBlock(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	if (!IsRunningDedicatedServer())
-	{
-		static ConstructorHelpers::FObjectFinder<UFont> RobotoFontObj(*UWidget::GetDefaultFontName());
-		Font = FSlateFontInfo(RobotoFontObj.Object, 12, FName("Regular"));
-	}
-	Color = FLinearColor::White;
 }
 
 void URichTextBlock::ReleaseSlateResources(bool bReleaseChildren)
@@ -28,16 +24,12 @@ void URichTextBlock::ReleaseSlateResources(bool bReleaseChildren)
 	Super::ReleaseSlateResources(bReleaseChildren);
 
 	MyRichTextBlock.Reset();
+	StyleInstance.Reset();
 }
 
 TSharedRef<SWidget> URichTextBlock::RebuildWidget()
 {
-	//+ OnHyperlinkClicked = FSlateHyperlinkRun::FOnClick::CreateStatic(&RichTextHelper::OnBrowserLinkClicked, AsShared());
-	//+ FHyperlinkDecorator::Create(TEXT("browser"), OnHyperlinkClicked))
-	//+MakeShareable(new FDefaultRichTextDecorator(Font, Color));
-
-	DefaultStyle.SetFont(Font);
-	DefaultStyle.SetColorAndOpacity(Color);
+	UpdateStyleData();
 
 	TArray< TSharedRef< class ITextDecorator > > CreatedDecorators;
 
@@ -45,14 +37,20 @@ TSharedRef<SWidget> URichTextBlock::RebuildWidget()
 	{
 		if ( Decorator )
 		{
-			CreatedDecorators.Add(Decorator->CreateDecorator(Font, Color));
+			TSharedPtr<ITextDecorator> TextDecorator = Decorator->CreateDecorator(this);
+			if (TextDecorator.IsValid())
+			{
+				CreatedDecorators.Add(TextDecorator.ToSharedRef());
+			}
 		}
 	}
 
+	TSharedRef<FRichTextLayoutMarshaller> Marshaller = FRichTextLayoutMarshaller::Create(CreatedDecorators, StyleInstance.Get());
+
 	MyRichTextBlock =
 		SNew(SRichTextBlock)
-		.TextStyle(&DefaultStyle)
-		.Decorators(CreatedDecorators);
+		.TextStyle(&DefaultTextStyle)
+		.Marshaller(Marshaller);
 	
 	return MyRichTextBlock.ToSharedRef();
 }
@@ -61,11 +59,58 @@ void URichTextBlock::SynchronizeProperties()
 {
 	Super::SynchronizeProperties();
 
-	TAttribute<FText> TextBinding = PROPERTY_BINDING(FText, Text);
-
-	MyRichTextBlock->SetText(TextBinding);
+	MyRichTextBlock->SetText(Text);
 
 	Super::SynchronizeTextLayoutProperties( *MyRichTextBlock );
+}
+
+void URichTextBlock::UpdateStyleData()
+{
+	if (!StyleInstance.IsValid() || IsDesignTime())
+	{
+		StyleInstance = MakeShareable(new FSlateStyleSet(TEXT("RichTextStyle")));
+
+		if (TextStyleSet && TextStyleSet->RowStruct->IsChildOf(FRichTextStyleRow::StaticStruct()))
+		{
+			for (const auto& Entry : TextStyleSet->RowMap)
+			{
+				FName SubStyleName = Entry.Key;
+				FRichTextStyleRow* RichTextStyle = (FRichTextStyleRow*)Entry.Value;
+
+				if (SubStyleName == FName(TEXT("Default")))
+				{
+					DefaultTextStyle = RichTextStyle->TextStyle;
+				}
+
+				StyleInstance->Set(SubStyleName, RichTextStyle->TextStyle);
+			}
+		}
+
+		//Decorators.Reset();
+		//for (TSubclassOf<URichTextBlockDecorator> DecoratorClass : DecoratorClasses)
+		//{
+		//	if (UClass* ResolvedClass = DecoratorClass.Get())
+		//	{
+		//		URichTextBlockDecorator* Decorator = NewObject<URichTextBlockDecorator>(this, ResolvedClass);
+		//		Decorators.Add(Decorator);
+		//	}
+		//}
+	}
+}
+
+void URichTextBlock::SetText(const FText& InText)
+{
+	Text = InText;
+	if (MyRichTextBlock.IsValid())
+	{
+		MyRichTextBlock->SetText(InText);
+	}
+}
+
+const FTextBlockStyle& URichTextBlock::GetDefaultTextStyle() const
+{
+	ensure(StyleInstance.IsValid());
+	return DefaultTextStyle;
 }
 
 #if WITH_EDITOR
@@ -77,7 +122,7 @@ const FText URichTextBlock::GetPaletteCategory()
 
 void URichTextBlock::OnCreationFromPalette()
 {
-	Decorators.Add(NewObject<URichTextBlockDecorator>(this, NAME_None, RF_Transactional));
+	//Decorators.Add(NewObject<URichTextBlockDecorator>(this, NAME_None, RF_Transactional));
 }
 
 #endif

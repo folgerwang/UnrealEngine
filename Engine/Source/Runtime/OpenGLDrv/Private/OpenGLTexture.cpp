@@ -12,6 +12,7 @@
 #include "ShaderCache.h"
 #include "OpenGLDrv.h"
 #include "OpenGLDrvPrivate.h"
+#include "HAL/LowLevelMemTracker.h"
 #if PLATFORM_ANDROID
 #include "ThirdParty/Android/detex/AndroidETC.h"
 #endif //PLATFORM_ANDROID
@@ -109,10 +110,16 @@ void OpenGLTextureAllocated(FRHITexture* Texture, uint32 Flags)
 	if( bRenderTarget )
 	{
 		GCurrentRendertargetMemorySize += Align(TextureSize, 1024) / 1024;
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::RenderTargets, TextureSize, ELLMTracker::Platform);
+#endif
 	}
 	else
 	{
 		GCurrentTextureMemorySize += Align(TextureSize, 1024) / 1024;
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::Textures, TextureSize, ELLMTracker::Platform);
+#endif
 	}
 }
 
@@ -178,10 +185,16 @@ void OpenGLTextureDeleted( FRHITexture* Texture )
 	if( bRenderTarget )
 	{
 		GCurrentRendertargetMemorySize -= Align(TextureSize, 1024) / 1024;
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::RenderTargets, TextureSize, ELLMTracker::Platform);
+#endif
 	}
 	else
 	{
 		GCurrentTextureMemorySize -= Align(TextureSize, 1024) / 1024;
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::Textures, TextureSize, ELLMTracker::Platform);
+#endif
 	}
 }
 
@@ -239,14 +252,20 @@ bool FOpenGLDynamicRHI::RHIGetTextureMemoryVisualizeData( FColor* /*TextureData*
 }
 
 
-
 FRHITexture* FOpenGLDynamicRHI::CreateOpenGLTexture(uint32 SizeX, uint32 SizeY, bool bCubeTexture, bool bArrayTexture, bool bIsExternal, uint8 Format, uint32 NumMips, uint32 NumSamples, uint32 ArraySize, uint32 Flags, const FClearValueBinding& InClearValue, FResourceBulkDataInterface* BulkData)
 {
-	VERIFY_GL_SCOPE();
+	// Fill in the GL resources.
+	FRHITexture* Texture = CreateOpenGLRHITextureOnly(SizeX, SizeY, bCubeTexture, bArrayTexture, bIsExternal, Format, NumMips, NumSamples, ArraySize, Flags, InClearValue, BulkData);
 
+	InitializeGLTexture(Texture, SizeX, SizeY, bCubeTexture, bArrayTexture, bIsExternal, Format, NumMips, NumSamples, ArraySize, Flags, InClearValue, BulkData);
+	return Texture;
+}
+
+// Allocate only the RHIresource and its initialize FRHITexture's state.
+// note this can change the value of some input parameters.
+FRHITexture* FOpenGLDynamicRHI::CreateOpenGLRHITextureOnly(const uint32 SizeX, const uint32 SizeY, const bool bCubeTexture, const bool bArrayTexture, const bool bIsExternal, uint8& Format, uint32& NumMips, uint32& NumSamples, const uint32 ArraySize, uint32& Flags, const FClearValueBinding& InClearValue, FResourceBulkDataInterface* BulkData)
+{
 	SCOPE_CYCLE_COUNTER(STAT_OpenGLCreateTextureTime);
-
-	bool bAllocatedStorage = false;
 
 	if (NumMips == 0)
 	{
@@ -288,9 +307,6 @@ FRHITexture* FOpenGLDynamicRHI::CreateOpenGLTexture(uint32 SizeX, uint32 SizeY, 
 		Flags &= ~TexCreate_SRGB;
 	}
 
-	GLuint TextureID = 0;
-	FOpenGL::GenTextures(1, &TextureID);
-
 	GLenum Target = GL_NONE;
 	if (bCubeTexture)
 	{
@@ -305,7 +321,6 @@ FRHITexture* FOpenGLDynamicRHI::CreateOpenGLTexture(uint32 SizeX, uint32 SizeY, 
 		}
 		check(SizeX == SizeY);
 	}
-#if PLATFORM_ANDROID
 	else if (bIsExternal)
 	{
 		if (FOpenGL::SupportsImageExternal())
@@ -318,7 +333,6 @@ FRHITexture* FOpenGLDynamicRHI::CreateOpenGLTexture(uint32 SizeX, uint32 SizeY, 
 			Target = GL_TEXTURE_2D;
 		}
 	}
-#endif
 	else
 	{
 		Target =  (NumSamples > 1) ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
@@ -326,9 +340,31 @@ FRHITexture* FOpenGLDynamicRHI::CreateOpenGLTexture(uint32 SizeX, uint32 SizeY, 
 		// @todo: refactor 2d texture array support here?
 		check(!bArrayTexture);
 	}
-
 	check(Target != GL_NONE);
 
+	// Allocate RHIResource with empty GL values.
+	if (bCubeTexture)
+	{
+		return new FOpenGLTextureCube(this, 0, Target, -1, SizeX, SizeY, 0, NumMips, 1, 1, ArraySize, (EPixelFormat)Format, true, false, Flags, nullptr, InClearValue);
+	}
+	else
+	{
+		return new FOpenGLTexture2D(this, 0, Target, -1, SizeX, SizeY, 0, NumMips, NumSamples, NumSamplesTileMem, 1, (EPixelFormat)Format, false, false, Flags, nullptr, InClearValue);
+	}
+}
+
+// Initalize the FRHITexture's GL resources and fill in state.
+void FOpenGLDynamicRHI::InitializeGLTexture(FRHITexture* Texture, uint32 SizeX, const uint32 SizeY, const bool bCubeTexture, const bool bArrayTexture, const bool bIsExternal, const uint8 Format, const uint32 NumMips, const uint32 NumSamples, const uint32 ArraySize, const uint32 Flags, const FClearValueBinding& InClearValue, FResourceBulkDataInterface* BulkData)
+{
+	VERIFY_GL_SCOPE();
+
+	bool bAllocatedStorage = false;
+
+	GLuint TextureID = 0;
+	FOpenGL::GenTextures(1, &TextureID);
+	
+	const GLenum Target = bCubeTexture ? ((FOpenGLTextureCube*)Texture)->Target : ((FOpenGLTexture2D*)Texture)->Target;
+	
 	const bool bSRGB = (Flags&TexCreate_SRGB) != 0;
 	const FOpenGLTextureFormat& GLFormat = GOpenGLTextureFormats[Format];
 	if (GLFormat.InternalFormat[bSRGB] == GL_NONE)
@@ -349,7 +385,7 @@ FRHITexture* FOpenGLDynamicRHI::CreateOpenGLTexture(uint32 SizeX, uint32 SizeY, 
 	
 	if (NumSamples == 1)
 	{
-		if (!FMath::IsPowerOfTwo(SizeX) || !FMath::IsPowerOfTwo(SizeY))
+		if (Target == GL_TEXTURE_EXTERNAL_OES || !FMath::IsPowerOfTwo(SizeX) || !FMath::IsPowerOfTwo(SizeY))
 		{
 			glTexParameteri(Target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 			glTexParameteri(Target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -377,15 +413,9 @@ FRHITexture* FOpenGLDynamicRHI::CreateOpenGLTexture(uint32 SizeX, uint32 SizeY, 
 		{
 			glTexParameteri(Target, GL_TEXTURE_BASE_LEVEL, 0);
 		}
-		if ( FOpenGL::SupportsTextureMaxLevel() )
+		if ( FOpenGL::SupportsTextureMaxLevel() && Target != GL_TEXTURE_EXTERNAL_OES )
 		{
-#if PLATFORM_ANDROID
-			// Do not use GL_TEXTURE_MAX_LEVEL if external texture on Android
-			if (Target != GL_TEXTURE_EXTERNAL_OES)
-#endif
-			{
-				glTexParameteri(Target, GL_TEXTURE_MAX_LEVEL, NumMips - 1);
-			}
+			glTexParameteri(Target, GL_TEXTURE_MAX_LEVEL, NumMips - 1);
 		}
 		
 		TextureMipLimits.Add(TextureID, TPair<GLenum, GLenum>(0, NumMips - 1));
@@ -400,7 +430,7 @@ FRHITexture* FOpenGLDynamicRHI::CreateOpenGLTexture(uint32 SizeX, uint32 SizeY, 
 		{
 			FOpenGL::TexStorage3D( Target, NumMips, GLFormat.InternalFormat[bSRGB], SizeX, SizeY, ArraySize, GLFormat.Format, GLFormat.Type);
 		}
-		else
+		else if (Target != GL_TEXTURE_EXTERNAL_OES)
 		{
 			// Should we use client-storage to improve update time on platforms that require it
 			bool const bRenderable = (Flags & (TexCreate_RenderTargetable|TexCreate_ResolveTargetable|TexCreate_DepthStencilTargetable|TexCreate_CPUReadback)) != 0;
@@ -611,24 +641,28 @@ FRHITexture* FOpenGLDynamicRHI::CreateOpenGLTexture(uint32 SizeX, uint32 SizeY, 
 	// @todo: If integer pixel format
 	//check(GMaxOpenGLIntegerSamples>=NumSamples);
 
-	FRHITexture* Texture;
 	if (bCubeTexture)
 	{
-		FOpenGLTextureCube* TextureCube = new FOpenGLTextureCube(this, TextureID, Target, Attachment, SizeX, SizeY, 0, NumMips, 1, 1, ArraySize, (EPixelFormat)Format, true, bAllocatedStorage, Flags, TextureRange, InClearValue);
-		Texture = TextureCube;
+		//	FOpenGLTextureCube* TextureCube = new FOpenGLTextureCube(this, TextureID, Target, Attachment, SizeX, SizeY, 0, NumMips, 1, 1, ArraySize, (EPixelFormat)Format, true, bAllocatedStorage, Flags, TextureRange, InClearValue);
+		FOpenGLTextureCube* TextureCube = (FOpenGLTextureCube*)Texture;
+		TextureCube->Resource = TextureID;
+		TextureCube->Target = Target;
+		TextureCube->Attachment = Attachment;
+		TextureCube->SetAllocatedStorage(bAllocatedStorage);
 	}
 	else
 	{
-		FOpenGLTexture2D* Texture2D = new FOpenGLTexture2D(this,TextureID,Target,Attachment,SizeX,SizeY,0,NumMips,NumSamples, NumSamplesTileMem, 1, (EPixelFormat)Format,false,bAllocatedStorage,Flags,TextureRange, InClearValue);
-		Texture = Texture2D;
+		FOpenGLTexture2D* Texture2D = (FOpenGLTexture2D*)Texture;
+		Texture2D->Resource = TextureID;
+		Texture2D->Target = Target;
+		Texture2D->Attachment = Attachment;
+		Texture2D->SetAllocatedStorage(bAllocatedStorage);
 	}
-	OpenGLTextureAllocated( Texture, Flags );
 
+	OpenGLTextureAllocated(Texture, Flags);
 	// No need to restore texture stage; leave it like this,
 	// and the next draw will take care of cleaning it up; or
 	// next operation that needs the stage will switch something else in on it.
-
-	return Texture;
 }
 
 #if PLATFORM_ANDROIDESDEFERRED // Flithy hack to workaround radr://16011763
@@ -655,15 +689,6 @@ GLuint FOpenGLTextureBase::GetOpenGLFramebuffer(uint32 ArrayIndices, uint32 Mipm
 	return FBO;
 }
 #endif
-
-void FOpenGLTextureBase::InvalidateTextureResourceInCache()
-{
-	OpenGLRHI->InvalidateTextureResourceInCache(Resource);
-	if (SRVResource)
-	{
-		OpenGLRHI->InvalidateTextureResourceInCache(SRVResource);
-	}
-}
 
 template<typename RHIResourceType>
 void TOpenGLTexture<RHIResourceType>::Resolve(uint32 MipIndex,uint32 ArrayIndex)
@@ -2035,64 +2060,79 @@ uint32 FOpenGLDynamicRHI::RHIComputeMemorySize(FTextureRHIParamRef TextureRHI)
 	return Texture->GetMemorySize();
 }
 
-/**
- * Starts an asynchronous texture reallocation. It may complete immediately if the reallocation
- * could be performed without any reshuffling of texture memory, or if there isn't enough memory.
- * The specified status counter will be decremented by 1 when the reallocation is complete (success or failure).
- *
- * Returns a new reference to the texture, which will represent the new mip count when the reallocation is complete.
- * RHIGetAsyncReallocateTexture2DStatus() can be used to check the status of an ongoing or completed reallocation.
- *
- * @param Texture2D		- Texture to reallocate
- * @param NewMipCount	- New number of mip-levels
- * @param RequestStatus	- Will be decremented by 1 when the reallocation is complete (success or failure).
- * @return				- New reference to the texture, or an invalid reference upon failure
- */
-FTexture2DRHIRef FOpenGLDynamicRHI::RHIAsyncReallocateTexture2D(FTexture2DRHIParamRef Texture2DRHI, int32 NewMipCount, int32 NewSizeX, int32 NewSizeY, FThreadSafeCounter* RequestStatus)
+
+static FTexture2DRHIRef CreateAsyncReallocate2DTextureTarget(FOpenGLDynamicRHI* OGLRHI, FTexture2DRHIParamRef Texture2DRHI, int32 NewMipCountIn, int32 NewSizeX, int32 NewSizeY)
+{
+	FOpenGLTexture2D* Texture2D = FOpenGLDynamicRHI::ResourceCast(Texture2DRHI);
+	uint8 Format = Texture2D->GetFormat();
+	uint32 NumSamples = 1;
+	uint32 Flags = Texture2D->GetFlags();
+	uint32 NewMipCount = (uint32)NewMipCountIn;
+	uint32 OriginalMipCount = Texture2DRHI->GetNumMips();
+	const FClearValueBinding ClearBinding = Texture2DRHI->GetClearBinding();
+	FTexture2DRHIRef NewTexture2DRHI = (FRHITexture2D*)OGLRHI->CreateOpenGLRHITextureOnly(NewSizeX, NewSizeY, false, false, false, Format, NewMipCount, NumSamples, 1, Flags, ClearBinding);
+
+	// CreateOpenGLRHITextureOnly can potentially change some of the input parameters, ensure that's not happening:
+	check(Format == (uint8)Texture2D->GetFormat());
+	check(Flags == Texture2D->GetFlags());
+	check(NumSamples == 1);
+	return NewTexture2DRHI;
+}
+
+static void GLCopyAsyncTexture2D(FOpenGLDynamicRHI* OGLRHI, FRHITexture2D* NewTexture2DRHI, int32 NewSizeX, int32 NewSizeY, FTexture2DRHIParamRef SourceTexture2DRHI, FThreadSafeCounter* RequestStatus)
 {
 	VERIFY_GL_SCOPE();
 
-	FOpenGLTexture2D* Texture2D = ResourceCast(Texture2DRHI);
+	FOpenGLTexture2D* SourceTexture2D = FOpenGLDynamicRHI::ResourceCast(SourceTexture2DRHI);
+	uint8 Format = NewTexture2DRHI->GetFormat();
+	uint32 NumSamples = 1;
+	uint32 Flags = NewTexture2DRHI->GetFlags();
+	uint32 NewMipCount = (uint32)NewTexture2DRHI->GetNumMips();
+	uint32 SourceMipCount = SourceTexture2DRHI->GetNumMips();
 
-	// Allocate a new texture.
-	FOpenGLTexture2D* NewTexture2D = (FOpenGLTexture2D*)CreateOpenGLTexture(NewSizeX,NewSizeY,false,false,false, Texture2D->GetFormat(),NewMipCount,1,1, Texture2D->GetFlags(), Texture2DRHI->GetClearBinding());
-	
-	const uint32 BlockSizeX = GPixelFormats[Texture2D->GetFormat()].BlockSizeX;
-	const uint32 BlockSizeY = GPixelFormats[Texture2D->GetFormat()].BlockSizeY;
-	const uint32 NumBytesPerBlock = GPixelFormats[Texture2D->GetFormat()].BlockBytes;
-	
+	const FClearValueBinding ClearBinding = NewTexture2DRHI->GetClearBinding();
+
+
+	OGLRHI->InitializeGLTexture(NewTexture2DRHI, NewSizeX, NewSizeY, false, false, false, Format, NewMipCount, 1, 1, Flags, ClearBinding);
+
+	FOpenGLTexture2D* NewTexture2D = FOpenGLDynamicRHI::ResourceCast(NewTexture2DRHI);
+
+	const uint32 BlockSizeX = GPixelFormats[Format].BlockSizeX;
+	const uint32 BlockSizeY = GPixelFormats[Format].BlockSizeY;
+	const uint32 NumBytesPerBlock = GPixelFormats[Format].BlockBytes;
+
 	// Should we use client-storage to improve update time on platforms that require it
-	const bool bCompressed = GOpenGLTextureFormats[Texture2D->GetFormat()].bCompressed;
-	bool const bRenderable = (Texture2D->GetFlags() & (TexCreate_RenderTargetable|TexCreate_ResolveTargetable|TexCreate_DepthStencilTargetable|TexCreate_CPUReadback)) != 0;
+	const bool bCompressed = GOpenGLTextureFormats[Format].bCompressed;
+	bool const bRenderable = (Flags & (TexCreate_RenderTargetable | TexCreate_ResolveTargetable | TexCreate_DepthStencilTargetable | TexCreate_CPUReadback)) != 0;
 	const bool bUseClientStorage = (FOpenGL::SupportsClientStorage() && !FOpenGL::SupportsTextureView() && !bRenderable && !bCompressed);
-	
+
 	// Use the GPU to asynchronously copy the old mip-maps into the new texture.
-	const uint32 NumSharedMips = FMath::Min(Texture2D->GetNumMips(),NewTexture2D->GetNumMips());
-	const uint32 SourceMipOffset = Texture2D->GetNumMips()    - NumSharedMips;
-	const uint32 DestMipOffset   = NewTexture2D->GetNumMips() - NumSharedMips;
+	const uint32 NumSharedMips = FMath::Min(SourceMipCount, NewMipCount);
+	const uint32 SourceMipOffset = SourceMipCount - NumSharedMips;
+	const uint32 DestMipOffset = NewMipCount - NumSharedMips;
 
 	if (FOpenGL::SupportsCopyImage())
 	{
 		FOpenGLTexture2D *NewOGLTexture2D = (FOpenGLTexture2D*)NewTexture2D;
-		FOpenGLTexture2D *OGLTexture2D = (FOpenGLTexture2D*)Texture2D;
-		NewOGLTexture2D->CloneViaCopyImage( OGLTexture2D, NumSharedMips, SourceMipOffset, DestMipOffset);
+		FOpenGLTexture2D *OGLTexture2D = (FOpenGLTexture2D*)SourceTexture2D;
+		NewOGLTexture2D->CloneViaCopyImage(OGLTexture2D, NumSharedMips, SourceMipOffset, DestMipOffset);
 	}
 	else if (FOpenGL::SupportsCopyTextureLevels())
 	{
-		FOpenGL::CopyTextureLevels( NewTexture2D->Resource, Texture2D->Resource, SourceMipOffset, NumSharedMips);
+		FOpenGL::CopyTextureLevels(NewTexture2D->Resource, SourceTexture2D->Resource, SourceMipOffset, NumSharedMips);
 	}
 	else if (FOpenGL::SupportsPixelBuffers() && !bUseClientStorage)
 	{
 		FOpenGLTexture2D *NewOGLTexture2D = (FOpenGLTexture2D*)NewTexture2D;
-		FOpenGLTexture2D *OGLTexture2D = (FOpenGLTexture2D*)Texture2D;
-		NewOGLTexture2D->CloneViaPBO( OGLTexture2D, NumSharedMips, SourceMipOffset, DestMipOffset);
+		FOpenGLTexture2D *OGLTexture2D = (FOpenGLTexture2D*)SourceTexture2D;
+		NewOGLTexture2D->CloneViaPBO(OGLTexture2D, NumSharedMips, SourceMipOffset, DestMipOffset);
 	}
 	else
 	{
-		for(uint32 MipIndex = 0;MipIndex < NumSharedMips;++MipIndex)
+		for (uint32 MipIndex = 0; MipIndex < NumSharedMips; ++MipIndex)
 		{
-			const uint32 MipSizeX = FMath::Max<uint32>(1,NewSizeX >> (MipIndex+DestMipOffset));
-			const uint32 MipSizeY = FMath::Max<uint32>(1,NewSizeY >> (MipIndex+DestMipOffset));
+			const uint32 MipSizeX = FMath::Max<uint32>(1, NewSizeX >> (MipIndex + DestMipOffset));
+			const uint32 MipSizeY = FMath::Max<uint32>(1, NewSizeY >> (MipIndex + DestMipOffset));
 			const uint32 NumBlocksX = AlignArbitrary(MipSizeX, BlockSizeX) / BlockSizeX;
 			const uint32 NumBlocksY = AlignArbitrary(MipSizeY, BlockSizeY) / BlockSizeY;
 			const uint32 NumMipBlocks = NumBlocksX * NumBlocksY;
@@ -2101,20 +2141,48 @@ FTexture2DRHIRef FOpenGLDynamicRHI::RHIAsyncReallocateTexture2D(FTexture2DRHIPar
 			uint32 SrcStride;
 			uint32 DestStride;
 
-			void* Src = RHILockTexture2D( Texture2D, MipIndex + SourceMipOffset, RLM_ReadOnly, SrcStride, false );
-			void* Dst = RHILockTexture2D( NewTexture2D, MipIndex + DestMipOffset, RLM_WriteOnly, DestStride, false );
+			void* Src = RHILockTexture2D(SourceTexture2D, MipIndex + SourceMipOffset, RLM_ReadOnly, SrcStride, false);
+			void* Dst = RHILockTexture2D(NewTexture2D, MipIndex + DestMipOffset, RLM_WriteOnly, DestStride, false);
 			check(SrcStride == DestStride);
-			FMemory::Memcpy( Dst, Src, NumMipBlocks * NumBytesPerBlock );
-			RHIUnlockTexture2D( Texture2D, MipIndex + SourceMipOffset, false );
-			RHIUnlockTexture2D( NewTexture2D, MipIndex + DestMipOffset, false );
+			FMemory::Memcpy(Dst, Src, NumMipBlocks * NumBytesPerBlock);
+			RHIUnlockTexture2D(SourceTexture2D, MipIndex + SourceMipOffset, false);
+			RHIUnlockTexture2D(NewTexture2D, MipIndex + DestMipOffset, false);
 		}
 	}
 
 	// Decrement the thread-safe counter used to track the completion of the reallocation, since D3D handles sequencing the
 	// async mip copies with other D3D calls.
 	RequestStatus->Decrement();
+}
 
-	return NewTexture2D;
+FTexture2DRHIRef FOpenGLDynamicRHI::AsyncReallocateTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture2DRHI, int32 NewMipCountIn, int32 NewSizeX, int32 NewSizeY, FThreadSafeCounter* RequestStatus)
+{
+	if (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
+	{
+		return RHIAsyncReallocateTexture2D(Texture2DRHI, NewMipCountIn, NewSizeX, NewSizeY, RequestStatus);
+	}
+	else
+	{
+		FTexture2DRHIRef NewTexture2DRHI = CreateAsyncReallocate2DTextureTarget(this, Texture2DRHI, NewMipCountIn, NewSizeX, NewSizeY);
+		FOpenGLTexture2D* Texture2D = FOpenGLDynamicRHI::ResourceCast(NewTexture2DRHI.GetReference());
+		Texture2D->CreationFence.Reset();
+
+		new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([=]() 
+		{
+			GLCopyAsyncTexture2D(this, NewTexture2DRHI, NewSizeX, NewSizeY, Texture2DRHI, RequestStatus); 
+			Texture2D->CreationFence.WriteAssertFence();
+		});
+
+		Texture2D->CreationFence.SetRHIThreadFence();
+		return NewTexture2DRHI;
+	}
+}
+
+FTexture2DRHIRef FOpenGLDynamicRHI::RHIAsyncReallocateTexture2D(FTexture2DRHIParamRef Texture2DRHI, int32 NewMipCountIn, int32 NewSizeX, int32 NewSizeY, FThreadSafeCounter* RequestStatus)
+{
+	FTexture2DRHIRef NewTexture2DRHI = CreateAsyncReallocate2DTextureTarget(this, Texture2DRHI, NewMipCountIn, NewSizeX, NewSizeY);
+	GLCopyAsyncTexture2D(this, NewTexture2DRHI, NewSizeX, NewSizeY, Texture2DRHI, RequestStatus);
+	return NewTexture2DRHI;
 }
 
 /**
@@ -2435,3 +2503,5 @@ void FOpenGLDynamicRHI::RHIAliasTextureResources(FTextureRHIParamRef DestRHIText
 		DestTexture->AliasResources(SrcTexture);
 	}
 }
+
+

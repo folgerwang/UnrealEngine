@@ -11,18 +11,51 @@
 
 #define LOCTEXT_NAMESPACE "PropertyTableColumn"
 
+struct FCompareRowByColumnBase
+{
+	virtual int32 Compare(const TSharedRef< IPropertyTableRow >& Lhs, const TSharedRef< IPropertyTableRow >& Rhs) const = 0;
+	virtual ~FCompareRowByColumnBase() {}
+};
+
+struct FCompareRowPrimaryAndSecondary
+{
+	FCompareRowPrimaryAndSecondary(FCompareRowByColumnBase* InPrimarySort, FCompareRowByColumnBase* InSecondarySort)
+		: PrimarySort(InPrimarySort)
+		, SecondarySort(InSecondarySort)
+	{}
+	
+	bool operator()(const TSharedRef< IPropertyTableRow >& Lhs, const TSharedRef< IPropertyTableRow >& Rhs) const
+	{
+		const int32 PrimaryResult = PrimarySort->Compare(Lhs, Rhs);
+		if (PrimaryResult != 0 || !SecondarySort)
+		{
+			return PrimaryResult < 0;
+		}
+		else
+		{
+			return SecondarySort->Compare(Lhs, Rhs) < 0;
+		}
+	}
+private:
+	FCompareRowByColumnBase* PrimarySort;
+	FCompareRowByColumnBase* SecondarySort;
+
+};
+
+
+
 template< typename UPropertyType >
-struct FCompareRowByColumnAscending
+struct FCompareRowByColumnAscending : public FCompareRowByColumnBase
 {
 public:
-	FCompareRowByColumnAscending( const TSharedRef< IPropertyTableColumn >& InColumn, const TWeakObjectPtr< UPropertyType >& InUProperty )
+	FCompareRowByColumnAscending( const TSharedRef< IPropertyTableColumn >& InColumn, const UPropertyType* InUProperty )
 		: Property( InUProperty )
 		, Column( InColumn )
 	{
 
 	}
 
-	FORCEINLINE bool operator()( const TSharedRef< IPropertyTableRow >& Lhs, const TSharedRef< IPropertyTableRow >& Rhs ) const
+	int32 Compare( const TSharedRef< IPropertyTableRow >& Lhs, const TSharedRef< IPropertyTableRow >& Rhs ) const
 	{
 		const TSharedRef< IPropertyTableCell > LhsCell = Column->GetCell( Lhs );
 		const TSharedRef< IPropertyTableCell > RhsCell = Column->GetCell( Rhs );
@@ -30,25 +63,25 @@ public:
 		const TSharedPtr< FPropertyNode > LhsPropertyNode = LhsCell->GetNode();
 		if ( !LhsPropertyNode.IsValid() )
 		{
-			return true;
+			return 1;
 		}
 
 		const TSharedPtr< FPropertyNode > RhsPropertyNode = RhsCell->GetNode();
 		if ( !RhsPropertyNode.IsValid() )
 		{
-			return false;
+			return -1;
 		}
 
 		const TSharedPtr< IPropertyHandle > LhsPropertyHandle = PropertyEditorHelpers::GetPropertyHandle( LhsPropertyNode.ToSharedRef(), NULL, NULL );
 		if ( !LhsPropertyHandle.IsValid() )
 		{
-			return true;
+			return 1;
 		}
 
 		const TSharedPtr< IPropertyHandle > RhsPropertyHandle = PropertyEditorHelpers::GetPropertyHandle( RhsPropertyNode.ToSharedRef(), NULL, NULL );
 		if ( !RhsPropertyHandle.IsValid() )
 		{
-			return false;
+			return -1;
 		}
 
 		return ComparePropertyValue( LhsPropertyHandle, RhsPropertyHandle );
@@ -56,7 +89,7 @@ public:
 
 private:
 
-	FORCEINLINE bool ComparePropertyValue( const TSharedPtr< IPropertyHandle >& LhsPropertyHandle, const TSharedPtr< IPropertyHandle >& RhsPropertyHandle ) const
+	int32 ComparePropertyValue( const TSharedPtr< IPropertyHandle >& LhsPropertyHandle, const TSharedPtr< IPropertyHandle >& RhsPropertyHandle ) const
 	{
 		typename UPropertyType::TCppType LhsValue; 
 		LhsPropertyHandle->GetValue( LhsValue );
@@ -64,28 +97,37 @@ private:
 		typename UPropertyType::TCppType RhsValue; 
 		RhsPropertyHandle->GetValue( RhsValue );
 
-		return LhsValue < RhsValue;
+		if (LhsValue < RhsValue)
+		{
+			return -1;
+		}
+		else if (LhsValue > RhsValue)
+		{
+			return 1;
+		}
+
+		return 0;
 	}
 
 private:
 
-	const TWeakObjectPtr< UPropertyType > Property;
+	const UPropertyType* Property;
 	TSharedRef< IPropertyTableColumn > Column;
 };
 
 template< typename UPropertyType >
-struct FCompareRowByColumnDescending
+struct FCompareRowByColumnDescending : public FCompareRowByColumnBase
 {
 public:
-	FCompareRowByColumnDescending( const TSharedRef< IPropertyTableColumn >& InColumn, const TWeakObjectPtr< UPropertyType >& InUProperty )
+	FCompareRowByColumnDescending( const TSharedRef< IPropertyTableColumn >& InColumn, const UPropertyType* InUProperty )
 		: Comparer( InColumn, InUProperty )
 	{
 
 	}
 
-	FORCEINLINE bool operator()( const TSharedRef< IPropertyTableRow >& Lhs, const TSharedRef< IPropertyTableRow >& Rhs ) const
+	int32 Compare( const TSharedRef< IPropertyTableRow >& Lhs, const TSharedRef< IPropertyTableRow >& Rhs ) const override
 	{
-		return !Comparer( Lhs, Rhs );
+		return Comparer.Compare(Rhs, Lhs);
 	}
 
 
@@ -96,7 +138,7 @@ private:
 
 
 template<>
-FORCEINLINE bool FCompareRowByColumnAscending<UEnumProperty>::ComparePropertyValue( const TSharedPtr< IPropertyHandle >& LhsPropertyHandle, const TSharedPtr< IPropertyHandle >& RhsPropertyHandle ) const
+FORCEINLINE int32 FCompareRowByColumnAscending<UEnumProperty>::ComparePropertyValue( const TSharedPtr< IPropertyHandle >& LhsPropertyHandle, const TSharedPtr< IPropertyHandle >& RhsPropertyHandle ) const
 {
 	// Only Bytes work right now
 
@@ -119,25 +161,25 @@ FORCEINLINE bool FCompareRowByColumnAscending<UEnumProperty>::ComparePropertyVal
 	{
 		FName LhsEnumName(PropertyEnum->GetNameByIndex(LhsIndex));
 		FName RhsEnumName(PropertyEnum->GetNameByIndex(RhsIndex));
-		return LhsEnumName.Compare(RhsEnumName) < 0;
+		return LhsEnumName.Compare(RhsEnumName);
 	}
 	else if(bLhsEnumValid)
 	{
-		return true;
+		return -1;
 	}
 	else if(bRhsEnumValid)
 	{
-		return false;
+		return 1;
 	}
 	else
 	{
-		return LhsValue < RhsValue;
+		return RhsValue - LhsValue;
 	}
 }
 
 // UByteProperty objects may in fact represent Enums - so they need special handling for alphabetic Enum vs. numerical Byte sorting.
 template<>
-FORCEINLINE bool FCompareRowByColumnAscending<UByteProperty>::ComparePropertyValue( const TSharedPtr< IPropertyHandle >& LhsPropertyHandle, const TSharedPtr< IPropertyHandle >& RhsPropertyHandle ) const
+FORCEINLINE int32 FCompareRowByColumnAscending<UByteProperty>::ComparePropertyValue( const TSharedPtr< IPropertyHandle >& LhsPropertyHandle, const TSharedPtr< IPropertyHandle >& RhsPropertyHandle ) const
 {
 	// Get the basic uint8 values
 	uint8 LhsValue; 
@@ -163,7 +205,7 @@ FORCEINLINE bool FCompareRowByColumnAscending<UByteProperty>::ComparePropertyVal
 		{
 			FName LhsEnumName(PropertyEnum->GetNameByIndex(LhsIndex));
 			FName RhsEnumName(PropertyEnum->GetNameByIndex(RhsIndex));
-			return LhsEnumName.Compare(RhsEnumName) < 0;
+			return LhsEnumName.Compare(RhsEnumName);
 		}
 		else if(bLhsEnumValid)
 		{
@@ -175,13 +217,13 @@ FORCEINLINE bool FCompareRowByColumnAscending<UByteProperty>::ComparePropertyVal
 		}
 		else
 		{
-			return LhsValue < RhsValue;
+			return RhsValue - LhsValue;
 		}
 	}
 }
 
 template<>
-FORCEINLINE bool FCompareRowByColumnAscending<UNameProperty>::ComparePropertyValue( const TSharedPtr< IPropertyHandle >& LhsPropertyHandle, const TSharedPtr< IPropertyHandle >& RhsPropertyHandle ) const
+FORCEINLINE int32 FCompareRowByColumnAscending<UNameProperty>::ComparePropertyValue( const TSharedPtr< IPropertyHandle >& LhsPropertyHandle, const TSharedPtr< IPropertyHandle >& RhsPropertyHandle ) const
 {
 	FName LhsValue; 
 	LhsPropertyHandle->GetValue( LhsValue );
@@ -189,18 +231,18 @@ FORCEINLINE bool FCompareRowByColumnAscending<UNameProperty>::ComparePropertyVal
 	FName RhsValue; 
 	RhsPropertyHandle->GetValue( RhsValue );
 
-	return LhsValue.Compare( RhsValue ) < 0;
+	return LhsValue.Compare(RhsValue);
 }
 
 template<>
-FORCEINLINE bool FCompareRowByColumnAscending<UObjectPropertyBase>::ComparePropertyValue( const TSharedPtr< IPropertyHandle >& LhsPropertyHandle, const TSharedPtr< IPropertyHandle >& RhsPropertyHandle ) const
+FORCEINLINE int32 FCompareRowByColumnAscending<UObjectPropertyBase>::ComparePropertyValue( const TSharedPtr< IPropertyHandle >& LhsPropertyHandle, const TSharedPtr< IPropertyHandle >& RhsPropertyHandle ) const
 {
 	UObject* LhsValue; 
 	LhsPropertyHandle->GetValue( LhsValue );
 
 	if ( LhsValue == NULL )
 	{
-		return true;
+		return 1;
 	}
 
 	UObject* RhsValue; 
@@ -208,23 +250,23 @@ FORCEINLINE bool FCompareRowByColumnAscending<UObjectPropertyBase>::ComparePrope
 
 	if ( RhsValue == NULL )
 	{
-		return false;
+		return -1;
 	}
 
-	return LhsValue->GetName() < RhsValue->GetName();
+	return FCString::Stricmp(*LhsValue->GetName(), *RhsValue->GetName());
 }
 
 template<>
-FORCEINLINE bool FCompareRowByColumnAscending<UStructProperty>::ComparePropertyValue( const TSharedPtr< IPropertyHandle >& LhsPropertyHandle, const TSharedPtr< IPropertyHandle >& RhsPropertyHandle ) const
+FORCEINLINE int32 FCompareRowByColumnAscending<UStructProperty>::ComparePropertyValue( const TSharedPtr< IPropertyHandle >& LhsPropertyHandle, const TSharedPtr< IPropertyHandle >& RhsPropertyHandle ) const
 {
 	if ( !FPropertyTableColumn::IsSupportedStructProperty(LhsPropertyHandle->GetProperty() ) )
 	{
-		return true;
+		return 1;
 	}
 
 	if ( !FPropertyTableColumn::IsSupportedStructProperty(RhsPropertyHandle->GetProperty() ) )
 	{
-		return false;
+		return -1;
 	}
 
 	{
@@ -233,7 +275,7 @@ FORCEINLINE bool FCompareRowByColumnAscending<UStructProperty>::ComparePropertyV
 
 		if ( LhsPropertyHandle->GetValue(LhsVector) != FPropertyAccess::Fail && RhsPropertyHandle->GetValue(RhsVector) != FPropertyAccess::Fail )
 		{
-			return LhsVector.SizeSquared() < RhsVector.SizeSquared();
+			return RhsVector.SizeSquared() - LhsVector.SizeSquared();
 		}
 
 		FVector2D LhsVector2D;
@@ -241,7 +283,7 @@ FORCEINLINE bool FCompareRowByColumnAscending<UStructProperty>::ComparePropertyV
 
 		if ( LhsPropertyHandle->GetValue(LhsVector2D) != FPropertyAccess::Fail && RhsPropertyHandle->GetValue(RhsVector2D) != FPropertyAccess::Fail )
 		{
-			return LhsVector2D.SizeSquared()  < RhsVector2D.SizeSquared();
+			return RhsVector2D.SizeSquared() - LhsVector2D.SizeSquared();
 		}
 
 		FVector4 LhsVector4;
@@ -249,12 +291,12 @@ FORCEINLINE bool FCompareRowByColumnAscending<UStructProperty>::ComparePropertyV
 
 		if ( LhsPropertyHandle->GetValue(LhsVector4) != FPropertyAccess::Fail && RhsPropertyHandle->GetValue(RhsVector4) != FPropertyAccess::Fail )
 		{
-			return LhsVector4.SizeSquared()  < RhsVector4.SizeSquared();
+			return RhsVector4.SizeSquared() - LhsVector4.SizeSquared();
 		}
 	}
 
 	ensureMsgf(false, TEXT("A supported struct property does not have a defined implementation for sorting a property column."));
-	return false;
+	return 0;
 }
 
 
@@ -483,142 +525,123 @@ bool FPropertyTableColumn::CanSortBy() const
 	return false;
 }
 
-void FPropertyTableColumn::Sort( TArray< TSharedRef< class IPropertyTableRow > >& Rows, const EColumnSortMode::Type SortMode )
+TSharedPtr<FCompareRowByColumnBase> FPropertyTableColumn::GetPropertySorter(UProperty* Property, EColumnSortMode::Type SortMode)
 {
-	if ( SortMode == EColumnSortMode::None )
+	if (Property->IsA(UEnumProperty::StaticClass()))
 	{
-		return;
-	}
-
-	TWeakObjectPtr< UObject > Object = DataSource->AsUObject();
-	UProperty* Property = Cast< UProperty >( Object.Get() );
-
-	TSharedPtr< FPropertyPath > Path = DataSource->AsPropertyPath();
-	if ( Property == NULL && Path.IsValid() )
-	{
-		Property = Path->GetLeafMostProperty().Property.Get();
-	}
-
-	if (!Property)
-	{
-		return;
-	}
-
-	if ( Property->IsA( UEnumProperty::StaticClass() ) )
-	{
-		TWeakObjectPtr<UEnumProperty> EnumProperty( Cast< UEnumProperty >( Property ) );
-
-		if ( SortMode == EColumnSortMode::Ascending )
-		{
-			Rows.Sort( FCompareRowByColumnAscending< UEnumProperty >( SharedThis( this ), EnumProperty ) );
-		}
-		else
-		{
-			Rows.Sort( FCompareRowByColumnDescending< UEnumProperty >( SharedThis( this ), EnumProperty ) );
-		}
-	}
-	else if ( Property->IsA( UByteProperty::StaticClass() ) )
-	{
-		TWeakObjectPtr<UByteProperty> ByteProperty( Cast< UByteProperty >( Property ) );
-
-		if ( SortMode == EColumnSortMode::Ascending )
-		{
-			Rows.Sort( FCompareRowByColumnAscending< UByteProperty >( SharedThis( this ), ByteProperty ) );
-		}
-		else
-		{
-			Rows.Sort( FCompareRowByColumnDescending< UByteProperty >( SharedThis( this ), ByteProperty ) );
-		}
-	}
-	else if ( Property->IsA( UIntProperty::StaticClass() ) )
-	{
-		TWeakObjectPtr<UIntProperty> IntProperty( Cast< UIntProperty >( Property ) );
-
-		if ( SortMode == EColumnSortMode::Ascending )
-		{
-			Rows.Sort( FCompareRowByColumnAscending< UIntProperty >( SharedThis( this ), IntProperty ) );
-		}
-		else
-		{
-			Rows.Sort( FCompareRowByColumnDescending< UIntProperty >( SharedThis( this ), IntProperty ) );
-		}
-	}
-	else if ( Property->IsA( UBoolProperty::StaticClass() ) )
-	{
-		TWeakObjectPtr<UBoolProperty> BoolProperty( Cast< UBoolProperty >( Property ) );
-
-		if ( SortMode == EColumnSortMode::Ascending )
-		{
-			Rows.Sort( FCompareRowByColumnAscending< UBoolProperty >( SharedThis( this ), BoolProperty ) );
-		}
-		else
-		{
-			Rows.Sort( FCompareRowByColumnDescending< UBoolProperty >( SharedThis( this ), BoolProperty ) );
-		}
-	}
-	else if ( Property->IsA( UFloatProperty::StaticClass() ) )
-	{
-		TWeakObjectPtr<UFloatProperty> FloatProperty( Cast< UFloatProperty >( Property ) );
-
-		if ( SortMode == EColumnSortMode::Ascending )
-		{
-			Rows.Sort( FCompareRowByColumnAscending< UFloatProperty >( SharedThis( this ), FloatProperty ) );
-		}
-		else
-		{
-			Rows.Sort( FCompareRowByColumnDescending< UFloatProperty >( SharedThis( this ), FloatProperty ) );
-		}
-	}
-	else if ( Property->IsA( UNameProperty::StaticClass() ) )
-	{
-		TWeakObjectPtr<UNameProperty> NameProperty( Cast< UNameProperty >( Property ) );
-
-		if ( SortMode == EColumnSortMode::Ascending )
-		{
-			Rows.Sort( FCompareRowByColumnAscending< UNameProperty >( SharedThis( this ), NameProperty ) );
-		}
-		else
-		{
-			Rows.Sort( FCompareRowByColumnDescending< UNameProperty >( SharedThis( this ), NameProperty ) );
-		}
-	}
-	else if ( Property->IsA( UStrProperty::StaticClass() ) )
-	{
-		TWeakObjectPtr<UStrProperty> StrProperty( Cast< UStrProperty >( Property ) );
-
-		if ( SortMode == EColumnSortMode::Ascending )
-		{
-			Rows.Sort( FCompareRowByColumnAscending< UStrProperty >( SharedThis( this ), StrProperty ) );
-		}
-		else
-		{
-			Rows.Sort( FCompareRowByColumnDescending< UStrProperty >( SharedThis( this ), StrProperty ) );
-		}
-	}
-	else if ( Property->IsA( UObjectPropertyBase::StaticClass() ) )
-	{
-		TWeakObjectPtr<UObjectPropertyBase> ObjectProperty( Cast< UObjectPropertyBase >( Property ) );
-
-		if ( SortMode == EColumnSortMode::Ascending )
-		{
-			Rows.Sort( FCompareRowByColumnAscending< UObjectPropertyBase >( SharedThis( this ), ObjectProperty ) );
-		}
-		else
-		{
-			Rows.Sort( FCompareRowByColumnDescending< UObjectPropertyBase >( SharedThis( this ), ObjectProperty ) );
-		}
-	}
-	else if ( IsSupportedStructProperty( Property ) )
-	{
-		TWeakObjectPtr<UStructProperty> StructProperty(Cast < UStructProperty >( Property ) );
+		UEnumProperty* EnumProperty = Cast<UEnumProperty>(Property);
 
 		if (SortMode == EColumnSortMode::Ascending)
 		{
-			Rows.Sort( FCompareRowByColumnAscending< UStructProperty >( SharedThis(this), StructProperty ) );
+			return MakeShareable<FCompareRowByColumnBase>(new FCompareRowByColumnAscending<UEnumProperty>(SharedThis(this), EnumProperty));
 		}
 		else
 		{
-			Rows.Sort( FCompareRowByColumnDescending< UStructProperty >( SharedThis(this), StructProperty ) );
+			return MakeShareable<FCompareRowByColumnBase>(new FCompareRowByColumnDescending<UEnumProperty>(SharedThis(this), EnumProperty));
+		}
+	}
+	else if (Property->IsA(UByteProperty::StaticClass()))
+	{
+		UByteProperty* ByteProperty = Cast<UByteProperty>(Property);
+
+		if (SortMode == EColumnSortMode::Ascending)
+		{
+			return MakeShareable<FCompareRowByColumnBase>(new FCompareRowByColumnAscending<UByteProperty>(SharedThis(this), ByteProperty));
+		}
+		else
+		{
+			return MakeShareable<FCompareRowByColumnBase>(new FCompareRowByColumnDescending<UByteProperty>(SharedThis(this), ByteProperty));
+		}
+	}
+	else if (Property->IsA(UIntProperty::StaticClass()))
+	{
+		UIntProperty* IntProperty = Cast<UIntProperty>(Property);
+
+		if (SortMode == EColumnSortMode::Ascending)
+		{
+			return MakeShareable<FCompareRowByColumnBase>(new FCompareRowByColumnAscending<UIntProperty>(SharedThis(this), IntProperty));
+		}
+		else
+		{
+			return MakeShareable<FCompareRowByColumnBase>(new FCompareRowByColumnDescending<UIntProperty>(SharedThis(this), IntProperty));
+		}
+	}
+	else if (Property->IsA(UBoolProperty::StaticClass()))
+	{
+		UBoolProperty* BoolProperty = Cast<UBoolProperty>(Property);
+
+		if (SortMode == EColumnSortMode::Ascending)
+		{
+			return MakeShareable<FCompareRowByColumnBase>(new FCompareRowByColumnAscending<UBoolProperty>(SharedThis(this), BoolProperty));
+		}
+		else
+		{
+			return MakeShareable<FCompareRowByColumnBase>(new FCompareRowByColumnDescending<UBoolProperty >(SharedThis(this), BoolProperty));
+		}
+	}
+	else if (Property->IsA(UFloatProperty::StaticClass()))
+	{
+		UFloatProperty* FloatProperty(Cast< UFloatProperty >(Property));
+
+		if (SortMode == EColumnSortMode::Ascending)
+		{
+			return MakeShareable<FCompareRowByColumnBase>(new FCompareRowByColumnAscending<UFloatProperty>(SharedThis(this), FloatProperty));
+		}
+		else
+		{
+			return MakeShareable<FCompareRowByColumnBase>(new FCompareRowByColumnDescending<UFloatProperty>(SharedThis(this), FloatProperty));
+		}
+	}
+	else if (Property->IsA(UNameProperty::StaticClass()))
+	{
+		UNameProperty* NameProperty = Cast<UNameProperty>(Property);
+
+		if (SortMode == EColumnSortMode::Ascending)
+		{
+			return MakeShareable<FCompareRowByColumnBase>(new FCompareRowByColumnAscending<UNameProperty>(SharedThis(this), NameProperty));
+		}
+		else
+		{
+			return MakeShareable<FCompareRowByColumnBase>(new FCompareRowByColumnDescending<UNameProperty>(SharedThis(this), NameProperty));
+		}
+	}
+	else if (Property->IsA(UStrProperty::StaticClass()))
+	{
+		UStrProperty* StrProperty = Cast<UStrProperty>(Property);
+
+		if (SortMode == EColumnSortMode::Ascending)
+		{
+			return MakeShareable<FCompareRowByColumnBase>(new FCompareRowByColumnAscending<UStrProperty>(SharedThis(this), StrProperty));
+		}
+		else
+		{
+			return MakeShareable<FCompareRowByColumnBase>(new FCompareRowByColumnDescending<UStrProperty>(SharedThis(this), StrProperty));
+		}
+	}
+	else if (Property->IsA(UObjectPropertyBase::StaticClass()))
+	{
+		UObjectPropertyBase* ObjectProperty = Cast<UObjectPropertyBase>(Property);
+
+		if (SortMode == EColumnSortMode::Ascending)
+		{
+			return MakeShareable<FCompareRowByColumnBase>(new FCompareRowByColumnAscending<UObjectPropertyBase>(SharedThis(this), ObjectProperty));
+		}
+		else
+		{
+			return MakeShareable<FCompareRowByColumnBase>(new FCompareRowByColumnDescending<UObjectPropertyBase>(SharedThis(this), ObjectProperty));
+		}
+	}
+	else if (IsSupportedStructProperty(Property))
+	{
+		UStructProperty* StructProperty = Cast<UStructProperty>(Property);
+
+		if (SortMode == EColumnSortMode::Ascending)
+		{
+			return MakeShareable<FCompareRowByColumnBase>(new FCompareRowByColumnAscending<UStructProperty>(SharedThis(this), StructProperty));
+		}
+		else
+		{
+			return MakeShareable<FCompareRowByColumnBase>(new FCompareRowByColumnDescending<UStructProperty>(SharedThis(this), StructProperty));
 		}
 	}
 	//else if ( Property->IsA( UTextProperty::StaticClass() ) )
@@ -634,8 +657,56 @@ void FPropertyTableColumn::Sort( TArray< TSharedRef< class IPropertyTableRow > >
 	//}
 	else
 	{
-		check( false && "Cannot Sort Rows by this Column!" );
+		check(false && "Cannot Sort Rows by this Column!");
+		return nullptr;
 	}
+}
+
+void FPropertyTableColumn::Sort( TArray< TSharedRef< class IPropertyTableRow > >& Rows, const EColumnSortMode::Type PrimarySortMode, const TSharedPtr<IPropertyTableColumn>& SecondarySortColumn, const EColumnSortMode::Type SecondarySortMode )
+{
+	if (PrimarySortMode == EColumnSortMode::None )
+	{
+		return;
+	}
+
+	UObject* PrimaryObject = DataSource->AsUObject().Get();
+	UProperty* PrimaryProperty = Cast< UProperty >(PrimaryObject);
+	TSharedPtr< FPropertyPath > PrimaryPath = DataSource->AsPropertyPath();
+	if (PrimaryProperty == nullptr && PrimaryPath.IsValid())
+	{
+		PrimaryProperty = PrimaryPath->GetLeafMostProperty().Property.Get();
+	}
+
+	UObject* SecondaryObject = nullptr;
+	UProperty* SecondaryProperty = nullptr;
+	if(SecondarySortColumn.IsValid())
+	{
+		SecondaryObject = SecondarySortColumn->GetDataSource()->AsUObject().Get();
+		SecondaryProperty = Cast< UProperty >(SecondaryObject);
+		TSharedPtr< FPropertyPath > SecondaryPath = SecondarySortColumn->GetDataSource()->AsPropertyPath();
+		if (SecondaryProperty == nullptr && SecondaryPath.IsValid())
+		{
+			SecondaryProperty = SecondaryPath->GetLeafMostProperty().Property.Get();
+		}
+	}
+
+
+	if (!PrimaryProperty)
+	{
+		return;
+	}
+
+
+	TSharedPtr<FCompareRowByColumnBase> SecondarySorter = nullptr;
+	if(SecondaryProperty && SecondarySortMode != EColumnSortMode::None)
+	{
+		SecondarySorter = SecondarySortColumn->GetPropertySorter(SecondaryProperty, SecondarySortMode);
+	}
+
+	// if we had a secondary sort we need to make sure the primary sort is stable to not break the secondary results
+	TSharedPtr<FCompareRowByColumnBase> PrimarySorter = GetPropertySorter(PrimaryProperty, PrimarySortMode);
+	Rows.Sort(FCompareRowPrimaryAndSecondary(PrimarySorter.Get(), SecondarySorter.Get()));
+
 }
 
 void FPropertyTableColumn::Tick()

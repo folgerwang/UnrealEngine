@@ -202,6 +202,10 @@
 	#define ENABLE_STATNAMEDEVENTS	0
 #endif
 
+#ifndef ENABLE_STATNAMEDEVENTS_UOBJECT
+	#define ENABLE_STATNAMEDEVENTS_UOBJECT 0
+#endif
+
 /*--------------------------------------------------------------------------------
 	Basic options that by default depend on the build configuration and platform
 

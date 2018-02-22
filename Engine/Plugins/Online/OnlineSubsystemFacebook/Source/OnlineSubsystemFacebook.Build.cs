@@ -7,7 +7,8 @@ public class OnlineSubsystemFacebook : ModuleRules
 {
 	public OnlineSubsystemFacebook(ReadOnlyTargetRules Target) : base(Target)
 	{
-		PublicDefinitions.Add("ONLINESUBSYSTEMFACEBOOK_PACKAGE=1");
+		bool bUsesRestfulImpl = false;
+		PrivateDefinitions.Add("ONLINESUBSYSTEMFACEBOOK_PACKAGE=1");
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 
 		PrivateIncludePaths.Add("Private");
@@ -72,21 +73,38 @@ public class OnlineSubsystemFacebook : ModuleRules
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
 		{
+			bUsesRestfulImpl = true;
 			PublicDefinitions.Add("WITH_FACEBOOK=1");
-			PrivateIncludePaths.Add("Private/Windows");
 		}
 		else if (Target.Platform == UnrealTargetPlatform.XboxOne)
 		{
+			PublicDefinitions.Add("WITH_FACEBOOK=1");
 			PrivateIncludePaths.Add("Private/XboxOne");
 		}
 		else if (Target.Platform == UnrealTargetPlatform.PS4)
 		{
+			PublicDefinitions.Add("WITH_FACEBOOK=1");
 			PrivateIncludePaths.Add("Private/PS4");
+		}
+		else if (Target.Platform == UnrealTargetPlatform.Mac)
+		{
+			PublicDefinitions.Add("WITH_FACEBOOK=1");
+			bUsesRestfulImpl = true;
 		}
 		else
 		{
 			PublicDefinitions.Add("WITH_FACEBOOK=0");
 			PrecompileForTargets = PrecompileTargetsType.None;
+		}
+
+		if (bUsesRestfulImpl)
+		{
+			PublicDefinitions.Add("USES_RESTFUL_FACEBOOK=1");
+			PrivateIncludePaths.Add("Private/Rest");
+		}
+		else
+		{
+			PublicDefinitions.Add("USES_RESTFUL_FACEBOOK=0");
 		}
 	}
 }

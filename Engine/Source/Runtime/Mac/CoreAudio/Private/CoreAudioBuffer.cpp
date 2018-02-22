@@ -92,7 +92,7 @@ int32 FCoreAudioSoundBuffer::GetSize( void )
  */
 void FCoreAudioSoundBuffer::InitAudioStreamBasicDescription( UInt32 FormatID, USoundWave* Wave, bool bCheckPCMData )
 {
-	PCMFormat.mSampleRate = Wave->SampleRate;
+	PCMFormat.mSampleRate = Wave->GetSampleRateForCurrentPlatform();
 	PCMFormat.mFormatID = FormatID;
 	PCMFormat.mFormatID = kAudioFormatLinearPCM;
 	PCMFormat.mFormatFlags = kLinearPCMFormatFlagIsPacked | kAudioFormatFlagsNativeEndian | kLinearPCMFormatFlagIsSignedInteger;
@@ -292,7 +292,7 @@ FCoreAudioSoundBuffer* FCoreAudioSoundBuffer::CreateStreamingBuffer(FCoreAudioDe
 	if (Buffer->DecompressionState->StreamCompressedInfo(Wave, &QualityInfo))
 	{
 		// Refresh the wave data
-		Wave->SampleRate = QualityInfo.SampleRate;
+		Wave->SetSampleRate(QualityInfo.SampleRate);
 		Wave->NumChannels = QualityInfo.NumChannels;
 		Wave->RawPCMDataSize = QualityInfo.SampleDataSize;
 		Wave->Duration = QualityInfo.Duration;

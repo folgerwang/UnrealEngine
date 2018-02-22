@@ -30,7 +30,7 @@ public:
 	SLATE_END_ARGS()
 
 	SScrollPanel()
-	: Children()
+	: Children(this)
 	{
 	}
 

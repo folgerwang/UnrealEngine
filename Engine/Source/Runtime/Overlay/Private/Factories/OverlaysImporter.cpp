@@ -116,6 +116,10 @@ bool FOverlaysImporter::ParseSubRipSubtitles(TArray<FOverlayItem>& OutSubtitles)
 			break;
 		}
 
+		// sanitize any whitespace from parsing
+		Timespans[0].TrimStartAndEndInline();
+		Timespans[1].TrimStartAndEndInline();
+
 		if (!FTimespan::Parse(Timespans[0], CurrentSubtitle.StartTime) || !FTimespan::Parse(Timespans[1], CurrentSubtitle.EndTime))
 		{
 			ensureMsgf(false, TEXT("Failed to parse %s - times are malformed for subtitle %s"), *Filename, *ExpectedSubtitleIndex);

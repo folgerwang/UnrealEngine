@@ -5,6 +5,7 @@
 #include "Misc/EngineVersion.h"
 #include "Runtime/Launch/Resources/Version.h"
 #include "Misc/NetworkGuid.h"
+#include "HAL/IConsoleManager.h"
 
 DEFINE_LOG_CATEGORY( LogNetVersion );
 
@@ -13,16 +14,10 @@ FNetworkVersion::FIsNetworkCompatibleOverride FNetworkVersion::IsNetworkCompatib
 
 FString FNetworkVersion::ProjectVersion;
 
-enum EEngineNetworkVersionHistory
-{
-	HISTORY_INITIAL					= 1,
-	HISTORY_REPLAY_BACKWARDS_COMPAT	= 2,		// Bump version to get rid of older replays before backwards compat was turned on officially
-};
-
 bool FNetworkVersion::bHasCachedNetworkChecksum			= false;
 uint32 FNetworkVersion::CachedNetworkChecksum			= 0;
 
-uint32 FNetworkVersion::EngineNetworkProtocolVersion	= HISTORY_REPLAY_BACKWARDS_COMPAT;
+uint32 FNetworkVersion::EngineNetworkProtocolVersion	= HISTORY_REPCMD_CHECKSUM_REMOVE_PRINTF;
 uint32 FNetworkVersion::GameNetworkProtocolVersion		= 0;
 
 uint32 FNetworkVersion::EngineCompatibleNetworkProtocolVersion		= HISTORY_REPLAY_BACKWARDS_COMPAT;
@@ -30,12 +25,28 @@ uint32 FNetworkVersion::GameCompatibleNetworkProtocolVersion		= 0;
 
 uint32 FNetworkVersion::GetNetworkCompatibleChangelist()
 {
+	static int32 ReturnedVersion = ENGINE_NET_VERSION;
+	static bool bStaticCheck = false;
+
+	// add a cvar so it can be modified at runtime
+	static FAutoConsoleVariableRef CVarNetworkVersionOverride(
+		TEXT("networkversionoverride"), ReturnedVersion,
+		TEXT("Sets network version used for multiplayer "),
+		ECVF_Default);
+
+	if (!bStaticCheck)
+	{
+		bStaticCheck = true;
+		FParse::Value(FCommandLine::Get(), TEXT("networkversionoverride="), ReturnedVersion);
+	}
+
 	// If we have a version set explicitly, use that. Otherwise fall back to the regular engine version changelist, since it might be set at runtime (via Build.version).
-#if ENGINE_NET_VERSION
-	return ENGINE_NET_VERSION;
-#else
-	return FEngineVersion::CompatibleWith().GetChangelist();
-#endif
+	if (ReturnedVersion == 0)
+	{
+		return ENGINE_NET_VERSION ? ENGINE_NET_VERSION : FEngineVersion::CompatibleWith().GetChangelist();
+	}
+
+	return (uint32)ReturnedVersion;
 }
 
 uint32 FNetworkVersion::GetReplayCompatibleChangelist()

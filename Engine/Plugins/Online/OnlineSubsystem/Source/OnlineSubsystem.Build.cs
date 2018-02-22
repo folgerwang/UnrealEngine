@@ -15,6 +15,7 @@ public class OnlineSubsystem : ModuleRules
 		);
 
 		PublicIncludePaths.Add("OnlineSubsystem/Public/Interfaces");
+		PublicIncludePaths.Add(ModuleDirectory);
 
         PrivateIncludePaths.Add("OnlineSubsystem/Private");
 
@@ -30,9 +31,5 @@ public class OnlineSubsystem : ModuleRules
 				"JsonUtilities"
 			}
 		);
-
-
 	}
-
-  
 }

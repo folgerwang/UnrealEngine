@@ -24,7 +24,7 @@ AWheeledVehicle::AWheeledVehicle(const FObjectInitializer& ObjectInitializer)
 	Mesh->BodyInstance.bNotifyRigidBodyCollision = true;
 	Mesh->BodyInstance.bUseCCD = true;
 	Mesh->bBlendPhysics = true;
-	Mesh->bGenerateOverlapEvents = true;
+	Mesh->SetGenerateOverlapEvents(true);
 	Mesh->SetCanEverAffectNavigation(false);
 	RootComponent = Mesh;
 

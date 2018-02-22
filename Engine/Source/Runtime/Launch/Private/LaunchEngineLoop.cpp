@@ -51,6 +51,10 @@
 #include "Misc/NetworkVersion.h"
 #include "Templates/UniquePtr.h"
 
+#if !(IS_PROGRAM || WITH_EDITOR)
+#include "IPlatformFilePak.h"
+#endif
+
 #if WITH_COREUOBJECT
 	#include "Internationalization/PackageLocalizationManager.h"
 	#include "Misc/PackageName.h"
@@ -185,7 +189,7 @@ class FFeedbackContext;
 	#if ENABLE_VISUAL_LOG
 		#include "VisualLogger/VisualLogger.h"
 	#endif
-	#include "CsvProfiler.h"
+	#include "ProfilingDebugging/CsvProfiler.h"
 #endif
 
 #if defined(WITH_LAUNCHERCHECK) && WITH_LAUNCHERCHECK
@@ -204,6 +208,16 @@ class FFeedbackContext;
     #define RHI_COMMAND_LIST_DEBUG_TRACES 0
 #endif
 
+
+#if !(IS_PROGRAM || WITH_EDITOR)
+// If enabled, pak entry filenames are unloaded from memory if possible.
+int GPakPlatformFile_UnloadFilenamesIfPossible = 0;
+static FAutoConsoleVariableRef CVar_UnloadFilenamesIfPossible(
+	TEXT("pak.UnloadFilenamesIfPossible"),
+	GPakPlatformFile_UnloadFilenamesIfPossible,
+	TEXT("Allow unloading of pak entry filenames from memory")
+);
+#endif
 
 int32 GUseDisregardForGCOnDedicatedServers = 1;
 static FAutoConsoleVariableRef CVarUseDisregardForGCOnDedicatedServers(
@@ -825,8 +839,6 @@ FEngineLoop::FEngineLoop()
 
 int32 FEngineLoop::PreInit(int32 ArgC, TCHAR* ArgV[], const TCHAR* AdditionalCommandline)
 {
-	FMemory::SetupTLSCachesOnCurrentThread();
-
 	FString CmdLine;
 
 	// loop over the parameters, skipping the first one (which is the executable name)
@@ -915,10 +927,26 @@ bool IsServerDelegateForOSS(FName WorldContextHandle)
 }
 #endif
 
+
+#if WITH_ENGINE && CSV_PROFILER
+static void UpdateCoreCsvStats()
+{
+	CSV_CUSTOM_STAT_GLOBAL(RenderThreadTime, FPlatformTime::ToMilliseconds(GRenderThreadTime), ECsvCustomStatOp::Set);
+	CSV_CUSTOM_STAT_GLOBAL(GameThreadTime, FPlatformTime::ToMilliseconds(GGameThreadTime), ECsvCustomStatOp::Set);
+	CSV_CUSTOM_STAT_GLOBAL(GPUTime, FPlatformTime::ToMilliseconds(GGPUFrameTime), ECsvCustomStatOp::Set);
+	FPlatformMemoryStats MemoryStats = FPlatformMemory::GetStats();
+	float PhysicalMBFree = float(MemoryStats.AvailablePhysical / 1024) / 1024.0f;
+	CSV_CUSTOM_STAT_GLOBAL(MemoryFreeMB, PhysicalMBFree, ECsvCustomStatOp::Set);
+}
+#endif // WITH_ENGINE && CSV_PROFILER
+
+
 DECLARE_CYCLE_STAT( TEXT( "FEngineLoop::PreInit.AfterStats" ), STAT_FEngineLoop_PreInit_AfterStats, STATGROUP_LoadTime );
 
 int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 {
+	FMemory::SetupTLSCachesOnCurrentThread();
+
 	// disable/enable LLM based on commandline
 	LLM(FLowLevelMemTracker::Get().ProcessCommandLine(CmdLine));
 	LLM_SCOPE(ELLMTag::EnginePreInitMemory);
@@ -1049,6 +1077,10 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 			}
 		}
 	}
+
+	// Output devices.
+	GError = FPlatformApplicationMisc::GetErrorOutputDevice();
+	GWarn = FPlatformApplicationMisc::GetFeedbackContext();
 
 	// allow the command line to override the platform file singleton
 	bool bFileOverrideFound = false;
@@ -1482,6 +1514,10 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	LoadPreInitModules();
 
 #if WITH_ENGINE && CSV_PROFILER
+	if (!IsRunningDedicatedServer())
+	{
+		FCoreDelegates::OnEndFrame.AddStatic(UpdateCoreCsvStats);
+	}
 	FCsvProfiler::Get()->Init();
 #endif
 
@@ -1666,7 +1702,11 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	IPlatformFeaturesModule::Get();
 
 	// Init physics engine before loading anything, in case we want to do things like cook during post-load.
-	InitGamePhys();
+	if(!InitGamePhys())
+	{
+		// If we failed to initialize physics we cannot continue.
+		return 1;
+	}
 
 	// Delete temporary files in cache.
 	FPlatformProcess::CleanFileCache();
@@ -1816,7 +1856,11 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 		{
 			if(GRHISupportsRHIThread)
 			{
+#if PLATFORM_ANDROID
+				const bool DefaultUseRHIThread = !PLATFORM_RHITHREAD_DEFAULT_BYPASS; // temporary until we decide this is the default.
+#else
 				const bool DefaultUseRHIThread = true;
+#endif
 				GUseRHIThread_InternalUseOnly = DefaultUseRHIThread;
 				if(FParse::Param(FCommandLine::Get(), TEXT("rhithread")))
 				{
@@ -1957,7 +2001,11 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	{
 		if (GRHISupportsRHIThread)
 		{
+#if PLATFORM_ANDROID
+			const bool DefaultUseRHIThread = !PLATFORM_RHITHREAD_DEFAULT_BYPASS; // temporary until we decide this is the default.
+#else
 			const bool DefaultUseRHIThread = true;
+#endif
 			GUseRHIThread_InternalUseOnly = DefaultUseRHIThread;
 			if (FParse::Param(FCommandLine::Get(),TEXT("rhithread")))
 			{
@@ -2367,6 +2415,14 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	//run automation smoke tests now that everything is setup to run
 	FAutomationTestFramework::Get().RunSmokeTests();
 
+#if !(IS_PROGRAM || WITH_EDITOR)
+	if (GPakPlatformFile_UnloadFilenamesIfPossible)
+	{
+		FPakPlatformFile* PakPlatformFile = (FPakPlatformFile*)(FPlatformFileManager::Get().FindPlatformFile(FPakPlatformFile::GetTypeName()));
+		PakPlatformFile->UnloadFilenames(true);
+	}
+#endif
+
 	// Note we still have 20% remaining on the slow task: this will be used by the Editor/Engine initialization next
 	return 0;
 }
@@ -2659,7 +2715,10 @@ int32 FEngineLoop::Init()
 {
 	LLM_SCOPE(ELLMTag::EngineInitMemory);
 
+#if defined(WITH_CODE_GUARD_HANDLER) && WITH_CODE_GUARD_HANDLER
+	void CheckImageIntegrity();
 	CheckImageIntegrity();
+#endif
 
 	DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "FEngineLoop::Init" ), STAT_FEngineLoop_Init, STATGROUP_LoadTime );
 
@@ -3132,6 +3191,7 @@ void FEngineLoop::Tick()
 	{
 		ActiveProfiler->FrameSync();
 	}
+	FPlatformMisc::BeginNamedEventFrame();
 
 	SCOPED_NAMED_EVENT(FEngineLoopTick, FColor::Red);
 
@@ -3197,6 +3257,7 @@ void FEngineLoop::Tick()
 				RHICmdList.PushEvent(*FString::Printf(TEXT("Frame%d"),GFrameNumberRenderThread), FColor(0, 255, 0, 255));
 				GPU_STATS_BEGINFRAME(RHICmdList);
 				RHICmdList.BeginFrame();
+				FCoreDelegates::OnBeginFrameRT.Broadcast();
 			});
 
 		#if !UE_SERVER && WITH_ENGINE
@@ -3215,8 +3276,8 @@ void FEngineLoop::Tick()
 
 		// update memory allocator stats
 		{
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_FEngineLoop_Malloc_UpdateStats);
-		GMalloc->UpdateStats();
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_FEngineLoop_Malloc_UpdateStats);
+			GMalloc->UpdateStats();
 		}
 	}
 
@@ -3303,7 +3364,8 @@ void FEngineLoop::Tick()
 
 #if !UE_SERVER
 		// tick media framework
-		IMediaModule* MediaModule = FModuleManager::LoadModulePtr<IMediaModule>("Media");
+		static const FName MediaModuleName(TEXT("Media"));
+		IMediaModule* MediaModule = FModuleManager::LoadModulePtr<IMediaModule>(MediaModuleName);
 
 		if (MediaModule != nullptr)
 		{
@@ -3508,6 +3570,7 @@ void FEngineLoop::Tick()
 		// end of RHI frame
 		ENQUEUE_UNIQUE_RENDER_COMMAND(EndFrame,
 		{
+			FCoreDelegates::OnEndFrameRT.Broadcast();
 			RHICmdList.EndFrame();
 			GPU_STATS_ENDFRAME(RHICmdList);
 			RHICmdList.PopEvent();
@@ -3643,10 +3706,6 @@ static void CheckForPrintTimesOverride()
 
 bool FEngineLoop::AppInit( )
 {
-	// Output devices.
-	GError = FPlatformApplicationMisc::GetErrorOutputDevice();
-	GWarn = FPlatformApplicationMisc::GetFeedbackContext();
-
 	BeginInitTextLocalization();
 
 	// Avoiding potential exploits by not exposing command line overrides in the shipping games.
@@ -3759,8 +3818,11 @@ bool FEngineLoop::AppInit( )
 	// Init logging to disk
 	FPlatformOutputDevices::SetupOutputDevices();
 
-	// init config system
-	FConfigCacheIni::InitializeConfigSystem();
+	{
+		LLM_SCOPE(ELLMTag::ConfigSystem);
+		// init config system
+		FConfigCacheIni::InitializeConfigSystem();
+	}
 
 	// Now that configs have been initialized, setup stack walking options
 	FPlatformStackWalk::Init();
@@ -3935,7 +3997,9 @@ bool FEngineLoop::AppInit( )
 	UE_LOG(LogInit, Log, TEXT("Engine Version: %s"), *FEngineVersion::Current().ToString());
 	UE_LOG(LogInit, Log, TEXT("Compatible Engine Version: %s"), *FEngineVersion::CompatibleWith().ToString());
 	UE_LOG(LogInit, Log, TEXT("Net CL: %u"), FNetworkVersion::GetNetworkCompatibleChangelist());
-	FDevVersionRegistration::DumpVersionsToLog();
+	FString OSLabel, OSVersion;
+	FPlatformMisc::GetOSVersions(OSLabel, OSVersion);
+	UE_LOG(LogInit, Log, TEXT("OS: %s (%s), CPU: %s, GPU: %s"), *OSLabel, *OSVersion, *FPlatformMisc::GetCPUBrand(), *FPlatformMisc::GetPrimaryGPUBrand());
 
 #if PLATFORM_64BITS
 	UE_LOG(LogInit, Log, TEXT("Compiled (64-bit): %s %s"), ANSI_TO_TCHAR(__DATE__), ANSI_TO_TCHAR(__TIME__));
@@ -3972,6 +4036,8 @@ bool FEngineLoop::AppInit( )
 	UE_LOG(LogInit, Log, TEXT("Base Directory: %s"), FPlatformProcess::BaseDir() );
 	//UE_LOG(LogInit, Log, TEXT("Character set: %s"), sizeof(TCHAR)==1 ? TEXT("ANSI") : TEXT("Unicode") );
 	UE_LOG(LogInit, Log, TEXT("Installed Engine Build: %d"), FApp::IsEngineInstalled() ? 1 : 0);
+
+	FDevVersionRegistration::DumpVersionsToLog();
 
 	// if a logging build, clear out old log files
 #if !NO_LOGGING
@@ -4167,6 +4233,5 @@ void FEngineLoop::PreInitHMDDevice()
 	}
 #endif // #if WITH_ENGINE && !UE_SERVER
 }
-
 
 #undef LOCTEXT_NAMESPACE

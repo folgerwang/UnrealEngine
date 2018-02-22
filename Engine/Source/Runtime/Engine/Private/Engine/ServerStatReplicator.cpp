@@ -5,6 +5,7 @@
 #include "Stats/Stats.h"
 #include "EngineStats.h"
 #include "Engine/World.h"
+#include "Engine/NetDriver.h"
 
 AServerStatReplicator::AServerStatReplicator(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

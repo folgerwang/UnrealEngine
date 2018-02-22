@@ -46,7 +46,7 @@ AVREditorFloatingUI::AVREditorFloatingUI()
 		WindowMeshComponent->SetMobility(EComponentMobility::Movable);
 		WindowMeshComponent->SetupAttachment(RootComponent);
 
-		WindowMeshComponent->bGenerateOverlapEvents = false;
+		WindowMeshComponent->SetGenerateOverlapEvents(false);
 		WindowMeshComponent->SetCanEverAffectNavigation(false);
 		WindowMeshComponent->bCastDynamicShadow = false;
 		WindowMeshComponent->bCastStaticShadow = false;

@@ -1790,7 +1790,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 						LODModel->BuildSettings.bUseHighPrecisionTangentBasis = false;
 						LODModel->BuildSettings.bUseFullPrecisionUVs = false;
 						LODModel->BuildSettings.bGenerateLightmapUVs = false;
-						LODModel->ScreenSize = 0.1f / FMath::Pow(2.0f, StaticMesh->SourceModels.Num() - 1);
+						LODModel->ScreenSize.Default = 0.1f / FMath::Pow(2.0f, StaticMesh->SourceModels.Num() - 1);
 						LODModel->RawMeshBulkData->SaveRawMesh(RawMesh);
 
 						for (int32 MaterialIndex = 0; MaterialIndex < StaticMesh->StaticMaterials.Num(); ++MaterialIndex)
@@ -1904,7 +1904,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 					LODModel->BuildSettings.bUseHighPrecisionTangentBasis = false;
 					LODModel->BuildSettings.bUseFullPrecisionUVs = false;
 					LODModel->BuildSettings.bGenerateLightmapUVs = false;
-					LODModel->ScreenSize = 0.1f / FMath::Pow(2.0f, StaticMesh->SourceModels.Num() - 1);
+					LODModel->ScreenSize.Default = 0.1f / FMath::Pow(2.0f, StaticMesh->SourceModels.Num() - 1);
 					LODModel->RawMeshBulkData->SaveRawMesh(RawMesh);
 					// Add mesh section info entry for billboard LOD (only one section/material index)
 					const int32 LODIndex = StaticMesh->SourceModels.Num() - 1;

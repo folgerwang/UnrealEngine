@@ -103,10 +103,11 @@ typedef TSharedPtr<class FOnlineNotificationTransportManager, ESPMode::ThreadSaf
 /**
  * Called when the connection state as reported by the online platform changes
  *
+ * @param ServiceName the name of the service that is reporting (platform dependent)
  * @param LastConnectionState last state of the connection
  * @param ConnectionState current state of the connection
  */
-DECLARE_MULTICAST_DELEGATE_TwoParams(FOnConnectionStatusChanged, EOnlineServerConnectionStatus::Type /*LastConnectionState*/, EOnlineServerConnectionStatus::Type /*ConnectionState*/);
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnConnectionStatusChanged, const FString& /*ServiceName*/, EOnlineServerConnectionStatus::Type /*LastConnectionState*/, EOnlineServerConnectionStatus::Type /*ConnectionState*/);
 typedef FOnConnectionStatusChanged::FDelegate FOnConnectionStatusChangedDelegate;
 
 /**
@@ -537,10 +538,11 @@ public:
 	/**
 	 * Called when the connection state as reported by the online platform changes
 	 *
+	 * @param ServiceName the name of the service that is reporting (platform dependent)
 	 * @param LastConnectionState last state of the connection
 	 * @param ConnectionState current state of the connection
 	 */
-	DEFINE_ONLINE_DELEGATE_TWO_PARAM(OnConnectionStatusChanged, EOnlineServerConnectionStatus::Type /*LastConnectionState*/, EOnlineServerConnectionStatus::Type /*ConnectionState*/);
+	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnConnectionStatusChanged, const FString& /*ServiceName*/, EOnlineServerConnectionStatus::Type /*LastConnectionState*/, EOnlineServerConnectionStatus::Type /*ConnectionState*/);
 
 	/**
 	 * @return the current environment being used for the online platform

@@ -192,9 +192,9 @@ bool UGameUserSettings::IsVSyncDirty() const
 bool UGameUserSettings::IsDynamicResolutionDirty() const
 {
 	bool bIsDirty = false;
-	if (GEngine && GEngine->GameViewport && GEngine->GameViewport->ViewportFrame && GEngine->GetDynamicResolutionState())
+	if (GEngine && GEngine->GameViewport && GEngine->GameViewport->ViewportFrame)
 	{
-		bIsDirty = (bUseDynamicResolution != GEngine->GetDynamicResolutionState()->IsEnabled());
+		bIsDirty = (bUseDynamicResolution != GEngine->GetDynamicResolutionUserSetting());
 	}
 	return bIsDirty;
 }
@@ -229,6 +229,8 @@ void UGameUserSettings::SetToDefaults()
 	MinResolutionScale = Scalability::MinResolutionScale;
 	DesiredScreenWidth = 1280;
 	DesiredScreenHeight = 720;
+	LastUserConfirmedDesiredScreenWidth = DesiredScreenWidth;
+	LastUserConfirmedDesiredScreenHeight = DesiredScreenHeight;
 	LastCPUBenchmarkResult = -1.0f;
 	LastGPUBenchmarkResult = -1.0f;
 	LastCPUBenchmarkSteps.Empty();
@@ -269,18 +271,6 @@ void UGameUserSettings::UpdateResolutionQuality()
 	const int32 ScreenHeight = (FullscreenMode == EWindowMode::WindowedFullscreen) ? GetDesktopResolution().Y : ResolutionSizeY;
 	MinResolutionScale = FMath::Max<float>(Scalability::MinResolutionScale, ((float)MinHeight / (float)ScreenHeight) * 100.0f);
 
-	// Clamp the desired width to the actual window width
-	if (ScreenWidth > 0 && DesiredScreenWidth > ScreenWidth)
-	{
-		DesiredScreenWidth = ScreenWidth;
-	}
-
-	// Clamp the desired height to the actual window height
-	if (ScreenHeight > 0 && DesiredScreenHeight > ScreenHeight)
-	{
-		DesiredScreenHeight = ScreenHeight;
-	}
-
 	if (bUseDesiredScreenHeight)
 	{
 		ScalabilityQuality.ResolutionQuality = GetDefaultResolutionScale();
@@ -295,8 +285,12 @@ void UGameUserSettings::UpdateResolutionQuality()
 
 float UGameUserSettings::GetDefaultResolutionScale()
 {
-	const float DesiredResQuality = FindResolutionQualityForScreenSize(DesiredScreenWidth, DesiredScreenHeight);
+	const int32 ScreenWidth = (FullscreenMode == EWindowMode::WindowedFullscreen) ? GetDesktopResolution().X : ResolutionSizeX;
+	const int32 ScreenHeight = (FullscreenMode == EWindowMode::WindowedFullscreen) ? GetDesktopResolution().Y : ResolutionSizeY;
+	const int32 ClampedWidth = (ScreenWidth > 0 && DesiredScreenWidth > ScreenWidth) ? ScreenWidth : DesiredScreenWidth;
+	const int32 ClampedHeight = (ScreenHeight > 0 && DesiredScreenHeight > ScreenHeight) ? ScreenHeight : DesiredScreenHeight;
 
+	const float DesiredResQuality = FindResolutionQualityForScreenSize(ClampedWidth, ClampedHeight);
 	return FMath::Max(DesiredResQuality, MinResolutionScale);
 }
 
@@ -394,9 +388,9 @@ void UGameUserSettings::ValidateSettings()
 			static const auto CVarVSync = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.VSync"));
 			SetVSyncEnabled(CVarVSync->GetValueOnGameThread() != 0 );
 
-			if (GEngine && GEngine->GetDynamicResolutionState())
+			if (GEngine)
 			{
-				SetDynamicResolutionEnabled(GEngine->GetDynamicResolutionState()->IsEnabled());
+				SetDynamicResolutionEnabled(GEngine->GetDynamicResolutionUserSetting());
 			}
 
 			IFileManager::Get().Delete( *GGameUserSettingsIni );
@@ -413,6 +407,14 @@ void UGameUserSettings::ValidateSettings()
 		LastUserConfirmedResolutionSizeX = ResolutionSizeX;
 		LastUserConfirmedResolutionSizeY = ResolutionSizeY;
 	}
+
+	const int32 ScreenWidth = (FullscreenMode == EWindowMode::WindowedFullscreen) ? GetDesktopResolution().X : ResolutionSizeX;
+	const int32 ScreenHeight = (FullscreenMode == EWindowMode::WindowedFullscreen) ? GetDesktopResolution().Y : ResolutionSizeY;
+	const int32 ClampedWidth = (ScreenWidth > 0 && DesiredScreenWidth > ScreenWidth) ? ScreenWidth : DesiredScreenWidth;
+	const int32 ClampedHeight = (ScreenHeight > 0 && DesiredScreenHeight > ScreenHeight) ? ScreenHeight : DesiredScreenHeight;
+
+	LastUserConfirmedDesiredScreenWidth = ClampedWidth;
+	LastUserConfirmedDesiredScreenHeight = ClampedHeight;
 
 #if !PLATFORM_PS4 && !PLATFORM_XBOXONE
 	// We do not modify the user setting on console if HDR is not supported
@@ -453,10 +455,7 @@ void UGameUserSettings::ApplyNonResolutionSettings()
 		}
 	}
 
-	if (GEngine->GetDynamicResolutionState())
-	{
-		GEngine->GetDynamicResolutionState()->SetEnabled(IsDynamicResolutionEnabled());
-	}
+	GEngine->SetDynamicResolutionUserSetting(IsDynamicResolutionEnabled());
 
 	if (!IsRunningDedicatedServer())
 	{
@@ -669,19 +668,15 @@ void UGameUserSettings::ResetToCurrentSettings()
 		SetVSyncEnabled(CVarVSync->GetValueOnGameThread() != 0 );
 
 		// Set the current dynamic resolution state
-		if (GEngine && GEngine->GetDynamicResolutionState())
-		{
-			SetDynamicResolutionEnabled(GEngine->GetDynamicResolutionState()->IsEnabled());
-		}
-		else
-		{
-			SetDynamicResolutionEnabled(false);
-		}
+		SetDynamicResolutionEnabled(GEngine->GetDynamicResolutionUserSetting());
 
 		// Reset to confirmed settings
 		FullscreenMode = LastConfirmedFullscreenMode;
 		ResolutionSizeX = LastUserConfirmedResolutionSizeX;
 		ResolutionSizeY = LastUserConfirmedResolutionSizeY;
+
+		DesiredScreenWidth = LastUserConfirmedDesiredScreenWidth;
+		DesiredScreenHeight = LastUserConfirmedDesiredScreenHeight;
 
 		// Reset the quality settings to the current levels
 		ScalabilityQuality = Scalability::GetQualityLevels();

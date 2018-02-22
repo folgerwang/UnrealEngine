@@ -205,16 +205,16 @@ public:
 	 * Delegate executed when new presence data is available for a user.
 	 *
 	 * @param UserId The unique id of the user whose presence was received.
-	 * @param Presence The unique id of the user whose presence was received.
+	 * @param Presence The presence that was received.
 	 */
 	DEFINE_ONLINE_DELEGATE_TWO_PARAM(OnPresenceReceived, const class FUniqueNetId& /*UserId*/, const TSharedRef<FOnlineUserPresence>& /*Presence*/);
 
 	/**
- 	 * Delegate executed when the array of presence data for a user changes.
- 	 *
+	 * Delegate executed when the array of presence data for a user changes.
+	 *
 	 * @param UserId The unique id of the user whose presence was received.
- 	 * @param PresenceArray The updated presence array
- 	 */
+	 * @param PresenceArray The updated presence array
+	 */
 	DEFINE_ONLINE_DELEGATE_TWO_PARAM(OnPresenceArrayUpdated, const class FUniqueNetId& /*UserId*/, const TArray<TSharedRef<FOnlineUserPresence> >& /*NewPresenceArray*/);
 
 	/**

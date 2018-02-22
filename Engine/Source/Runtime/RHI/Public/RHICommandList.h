@@ -108,7 +108,59 @@ extern RHI_API TAutoConsoleVariable<int32> CVarRHICmdWidth;
 extern RHI_API TAutoConsoleVariable<int32> CVarRHICmdFlushRenderThreadTasks;
 class FRHICommandListBase;
 
+struct RHI_API FLockTracker
+{
+	struct FLockParams
+	{
+		void* RHIBuffer;
+		void* Buffer;
+		uint32 BufferSize;
+		uint32 Offset;
+		EResourceLockMode LockMode;
 
+		FORCEINLINE_DEBUGGABLE FLockParams(void* InRHIBuffer, void* InBuffer, uint32 InOffset, uint32 InBufferSize, EResourceLockMode InLockMode)
+			: RHIBuffer(InRHIBuffer)
+			, Buffer(InBuffer)
+			, BufferSize(InBufferSize)
+			, Offset(InOffset)
+			, LockMode(InLockMode)
+		{
+		}
+	};
+	TArray<FLockParams, TInlineAllocator<16> > OutstandingLocks;
+	uint32 TotalMemoryOutstanding;
+
+	FLockTracker()
+	{
+		TotalMemoryOutstanding = 0;
+	}
+
+	FORCEINLINE_DEBUGGABLE void Lock(void* RHIBuffer, void* Buffer, uint32 Offset, uint32 SizeRHI, EResourceLockMode LockMode)
+	{
+#if DO_CHECK
+		for (auto& Parms : OutstandingLocks)
+		{
+			check(Parms.RHIBuffer != RHIBuffer);
+		}
+#endif
+		OutstandingLocks.Add(FLockParams(RHIBuffer, Buffer, Offset, SizeRHI, LockMode));
+		TotalMemoryOutstanding += SizeRHI;
+	}
+	FORCEINLINE_DEBUGGABLE FLockParams Unlock(void* RHIBuffer)
+	{
+		for (int32 Index = 0; Index < OutstandingLocks.Num(); Index++)
+		{
+			if (OutstandingLocks[Index].RHIBuffer == RHIBuffer)
+			{
+				FLockParams Result = OutstandingLocks[Index];
+				OutstandingLocks.RemoveAtSwap(Index, 1, false);
+				return Result;
+			}
+		}
+		check(!"Mismatched RHI buffer locks.");
+		return FLockParams(nullptr, nullptr, 0, 0, RLM_WriteOnly);
+	}
+};
 
 #ifdef CONTINUABLE_PSO_VERIFY
 #define PSO_VERIFY ensure
@@ -416,6 +468,15 @@ public:
 		ComputeContext = ParentCommandList.ComputeContext;
 	}
 
+	void MaybeDispatchToRHIThread()
+	{
+		if (IsImmediate() && HasCommands() && GRHIThreadNeedsKicking && IsRunningRHIInSeparateThread())
+		{
+			MaybeDispatchToRHIThreadInner();
+		}
+	}
+	void MaybeDispatchToRHIThreadInner();
+
 	struct FDrawUpData
 	{
 
@@ -468,8 +529,8 @@ protected:
 	struct FPSOContext
 	{
 		uint32 CachedNumSimultanousRenderTargets = 0;
-	TStaticArray<FRHIRenderTargetView, MaxSimultaneousRenderTargets> CachedRenderTargets;
-	FRHIDepthRenderTargetView CachedDepthStencilTarget;
+		TStaticArray<FRHIRenderTargetView, MaxSimultaneousRenderTargets> CachedRenderTargets;
+		FRHIDepthRenderTargetView CachedDepthStencilTarget;
 	} PSOContext;
 
 	void CacheActiveRenderTargets(
@@ -1334,7 +1395,7 @@ struct FRHICommandTransitionUAVs final : public FRHICommand<FRHICommandTransitio
 	EResourceTransitionPipeline TransitionPipeline;
 	FComputeFenceRHIParamRef WriteFence;
 
-		FORCEINLINE_DEBUGGABLE FRHICommandTransitionUAVs(EResourceTransitionAccess InTransitionType, EResourceTransitionPipeline InTransitionPipeline, FUnorderedAccessViewRHIParamRef* InUAVs, int32 InNumUAVs, FComputeFenceRHIParamRef InWriteFence)
+	FORCEINLINE_DEBUGGABLE FRHICommandTransitionUAVs(EResourceTransitionAccess InTransitionType, EResourceTransitionPipeline InTransitionPipeline, FUnorderedAccessViewRHIParamRef* InUAVs, int32 InNumUAVs, FComputeFenceRHIParamRef InWriteFence)
 		: NumUAVs(InNumUAVs)
 		, UAVs(InUAVs)
 		, TransitionType(InTransitionType)
@@ -3568,7 +3629,8 @@ namespace EImmediateFlushType
 		DispatchToRHIThread, 
 		WaitForDispatchToRHIThread,
 		FlushRHIThread,
-		FlushRHIThreadFlushResources
+		FlushRHIThreadFlushResources,
+		FlushRHIThreadFlushResourcesFlushDeferredDeletes
 	};
 };
 
@@ -3680,7 +3742,7 @@ public:
 		LLM_SCOPE(ELLMTag::Shaders);
 		return GDynamicRHI->CreateDomainShader_RenderThread(*this, Code);
 	}
-		
+	
 	FORCEINLINE FDomainShaderRHIRef CreateDomainShader(FRHIShaderLibraryParamRef Library, FSHAHash Hash)
 	{
 		LLM_SCOPE(ELLMTag::Shaders);
@@ -4074,16 +4136,14 @@ public:
 	
 	FORCEINLINE void* LockTextureCubeFace(FTextureCubeRHIParamRef Texture, uint32 FaceIndex, uint32 ArrayIndex, uint32 MipIndex, EResourceLockMode LockMode, uint32& DestStride, bool bLockWithinMiptail)
 	{
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_LockTextureCubeFace_Flush);
-		ImmediateFlush(EImmediateFlushType::FlushRHIThread);  
-		return GDynamicRHI->RHILockTextureCubeFace(Texture, FaceIndex, ArrayIndex, MipIndex, LockMode, DestStride, bLockWithinMiptail);
+		LLM_SCOPE(ELLMTag::Textures);
+		return GDynamicRHI->RHILockTextureCubeFace_RenderThread(*this, Texture, FaceIndex, ArrayIndex, MipIndex, LockMode, DestStride, bLockWithinMiptail);
 	}
 	
 	FORCEINLINE void UnlockTextureCubeFace(FTextureCubeRHIParamRef Texture, uint32 FaceIndex, uint32 ArrayIndex, uint32 MipIndex, bool bLockWithinMiptail)
 	{
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_UnlockTextureCubeFace_Flush);
-		ImmediateFlush(EImmediateFlushType::FlushRHIThread);   
-		GDynamicRHI->RHIUnlockTextureCubeFace(Texture, FaceIndex, ArrayIndex, MipIndex, bLockWithinMiptail);
+		LLM_SCOPE(ELLMTag::Textures);
+		GDynamicRHI->RHIUnlockTextureCubeFace_RenderThread(*this, Texture, FaceIndex, ArrayIndex, MipIndex, bLockWithinMiptail);
 	}
 	
 	FORCEINLINE void BindDebugLabelName(FTextureRHIParamRef Texture, const TCHAR* Name)
@@ -4126,9 +4186,8 @@ public:
 	
 	FORCEINLINE void ReadSurfaceFloatData(FTextureRHIParamRef Texture,FIntRect Rect,TArray<FFloat16Color>& OutData,ECubeFace CubeFace,int32 ArrayIndex,int32 MipIndex)
 	{
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_ReadSurfaceFloatData_Flush);
-		ImmediateFlush(EImmediateFlushType::FlushRHIThread);  
-		GDynamicRHI->RHIReadSurfaceFloatData(Texture,Rect,OutData,CubeFace,ArrayIndex,MipIndex);
+		LLM_SCOPE(ELLMTag::Textures);
+		GDynamicRHI->RHIReadSurfaceFloatData_RenderThread(*this, Texture,Rect,OutData,CubeFace,ArrayIndex,MipIndex);
 	}
 
 	FORCEINLINE void Read3DSurfaceFloatData(FTextureRHIParamRef Texture,FIntRect Rect,FIntPoint ZMinMax,TArray<FFloat16Color>& OutData)
@@ -4143,6 +4202,12 @@ public:
 		FScopedRHIThreadStaller StallRHIThread(*this);
 		return GDynamicRHI->RHICreateRenderQuery(QueryType);
 	}
+
+	FORCEINLINE FRenderQueryRHIRef CreateRenderQuery_RenderThread(ERenderQueryType QueryType)
+	{
+		return GDynamicRHI->RHICreateRenderQuery_RenderThread(*this, QueryType);
+	}
+
 
 	FORCEINLINE void AcquireTransientResource_RenderThread(FTextureRHIParamRef Texture)
 	{
@@ -4425,7 +4490,7 @@ public:
 
 
 // This controls if the cmd list bypass can be toggled at runtime. It is quite expensive to have these branches in there.
-#define CAN_TOGGLE_COMMAND_LIST_BYPASS (!UE_BUILD_SHIPPING && !UE_BUILD_TEST)
+#define CAN_TOGGLE_COMMAND_LIST_BYPASS (!UE_BUILD_SHIPPING && !UE_BUILD_TEST) || (UE_BUILD_TEST && PLATFORM_ANDROID)
 
 class RHI_API FRHICommandListExecutor
 {
@@ -4828,7 +4893,7 @@ FORCEINLINE void RHIUnlockTextureCubeFace(FTextureCubeRHIParamRef Texture, uint3
 
 FORCEINLINE FRenderQueryRHIRef RHICreateRenderQuery(ERenderQueryType QueryType)
 {
-	return FRHICommandListExecutor::GetImmediateCommandList().CreateRenderQuery(QueryType);
+	return FRHICommandListExecutor::GetImmediateCommandList().CreateRenderQuery_RenderThread(QueryType);
 }
 
 FORCEINLINE void RHIAcquireTransientResource(FTextureRHIParamRef Resource)

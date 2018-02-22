@@ -605,8 +605,17 @@ bool FD3DGPUProfiler::CheckGpuHeartbeat() const
 					}
 					UE_LOG(LogRHI, Error, TEXT("[Aftermath] GPU Stack Dump"));
 				}
+				else
+				{
+					UE_LOG(LogRHI, Error, TEXT("[Aftermath] GFSDK_Aftermath_GetData failed with result: 0x%08X"), (uint32)Result);
+				}
+
 				return false;
 			}
+		}
+		else
+		{
+			UE_LOG(LogRHI, Error, TEXT("[Aftermath] GFSDK_Aftermath_GetDeviceStatus failed with result: 0x%08X"), (uint32)Result);
 		}
 	}
 #endif

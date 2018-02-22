@@ -1561,10 +1561,10 @@ void UEditorEngine::RebuildMap(UWorld* InWorld, EMapRebuildType RebuildType)
 			}
 
 			// Build CSG for all visible streaming levels
-			for( int32 LevelIndex = 0; LevelIndex < InWorld->StreamingLevels.Num() && !GEngine->GetMapBuildCancelled(); ++LevelIndex )
+			for( int32 LevelIndex = 0; LevelIndex < InWorld->GetStreamingLevels().Num() && !GEngine->GetMapBuildCancelled(); ++LevelIndex )
 			{
-				ULevelStreaming* StreamingLevel = InWorld->StreamingLevels[ LevelIndex ];
-				if( StreamingLevel != NULL && FLevelUtils::IsLevelVisible( StreamingLevel ) )
+				ULevelStreaming* StreamingLevel = InWorld->GetStreamingLevels()[ LevelIndex ];
+				if( StreamingLevel != NULL && FLevelUtils::IsStreamingLevelVisibleInEditor( StreamingLevel ) )
 				{
 					Level = StreamingLevel->GetLoadedLevel();
 					if ( Level != NULL )
@@ -1599,9 +1599,9 @@ void UEditorEngine::RebuildMap(UWorld* InWorld, EMapRebuildType RebuildType)
 				}
 
 				// Build CSG for each streaming level that is out of date
-				for( int32 LevelIndex = 0 ; LevelIndex < InWorld->StreamingLevels.Num() && !GEngine->GetMapBuildCancelled(); ++LevelIndex )
+				for( int32 LevelIndex = 0 ; LevelIndex < InWorld->GetStreamingLevels().Num() && !GEngine->GetMapBuildCancelled(); ++LevelIndex )
 				{
-					ULevelStreaming* StreamingLevel = InWorld->StreamingLevels[ LevelIndex ];
+					ULevelStreaming* StreamingLevel = InWorld->GetStreamingLevels()[ LevelIndex ];
 					if( StreamingLevel != NULL )
 					{
 						ULevel* Level = StreamingLevel->GetLoadedLevel();
@@ -3144,7 +3144,7 @@ bool UEditorEngine::CanCopySelectedActorsToClipboard( UWorld* InWorld, FCopySele
 	return false;
 }
 
-void UEditorEngine::CopySelectedActorsToClipboard( UWorld* InWorld, bool bShouldCut, const bool bIsMove )
+void UEditorEngine::CopySelectedActorsToClipboard( UWorld* InWorld, bool bShouldCut, bool bIsMove, bool bWarnAboutReferences)
 {
 	FCopySelectedInfo CopySelected;
 	if ( !CanCopySelectedActorsToClipboard( InWorld, &CopySelected ) )
@@ -3181,7 +3181,9 @@ void UEditorEngine::CopySelectedActorsToClipboard( UWorld* InWorld, bool bShould
 			// Cut!
 			const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "Cut", "Cut") );
 			edactCopySelected( World );
-			edactDeleteSelected( World, true, true, !bIsMove );
+			const bool bVerifyDeletionCanHappen = true;
+
+			edactDeleteSelected( World, bVerifyDeletionCanHappen, bWarnAboutReferences, !bIsMove );
 		}
 		else
 		{
@@ -3678,24 +3680,21 @@ bool UEditorEngine::Map_Check( UWorld* InWorld, const TCHAR* Str, FOutputDevice&
 
 	// Check to see if any of the streaming levels have streaming levels of their own
 	// Grab the world info, and loop through the streaming levels
-	for (int32 LevelIndex = 0; LevelIndex < InWorld->StreamingLevels.Num(); LevelIndex++)
+	for (ULevelStreaming* LevelStreaming: InWorld->GetStreamingLevels())
 	{
-		ULevelStreaming* LevelStreaming = InWorld->StreamingLevels[LevelIndex];
-		if (LevelStreaming != NULL)
+		if (LevelStreaming)
 		{
-			const ULevel* Level = LevelStreaming->GetLoadedLevel();
-			if (Level != NULL)
+			if (const ULevel* Level = LevelStreaming->GetLoadedLevel())
 			{
 				// Grab the world info of the streaming level, and loop through it's streaming levels
 				AWorldSettings* SubLevelWorldSettings = Level->GetWorldSettings();
 				UWorld *SubLevelWorld = CastChecked<UWorld>(Level->GetOuter());
-				if (SubLevelWorld != NULL && SubLevelWorldSettings != NULL )
+				if (SubLevelWorld && SubLevelWorldSettings)
 				{
-					for (int32 SubLevelIndex=0; SubLevelIndex < SubLevelWorld->StreamingLevels.Num(); SubLevelIndex++ )
+					for (ULevelStreaming* SubLevelStreaming : SubLevelWorld->GetStreamingLevels())
 					{
 						// If it has any and they aren't loaded flag a warning to the user
-						ULevelStreaming* SubLevelStreaming = SubLevelWorld->StreamingLevels[SubLevelIndex];
-						if (SubLevelStreaming != NULL && SubLevelStreaming->GetLoadedLevel() == NULL)
+						if (SubLevelStreaming && SubLevelStreaming->GetLoadedLevel() == nullptr)
 						{
 							UE_LOG(LogEditorServer, Warning, TEXT("%s contains streaming level '%s' which isn't loaded."), *SubLevelWorldSettings->GetName(), *SubLevelStreaming->GetWorldAssetPackageName());
 						}

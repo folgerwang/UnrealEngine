@@ -48,6 +48,7 @@ DECLARE_DELEGATE_RetVal(bool, FCanUnpause);
 DECLARE_DELEGATE_ThreeParams(FGetAudioListenerPos, FVector& /*Location*/, FVector& /*ProjFront*/, FVector& /*ProjRight*/);
 
 DECLARE_LOG_CATEGORY_EXTERN(LogPlayerController, Log, All);
+DECLARE_STATS_GROUP(TEXT("PlayerController"), STATGROUP_PlayerController, STATCAT_Advanced);
 
 UENUM()
 namespace EDynamicForceFeedbackAction
@@ -1510,6 +1511,9 @@ public:
 	/** get audio listener position and orientation */
 	virtual void GetAudioListenerPosition(FVector& OutLocation, FVector& OutFrontDir, FVector& OutRightDir);
 
+	/** Gets the attenuation position override. */
+	virtual bool GetAudioListenerAttenuationOverridePosition(FVector& OutLocation);
+
 	/**
 	 * Used to override the default positioning of the audio listener
 	 * 
@@ -1526,15 +1530,28 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Game|Audio")
 	void ClearAudioListenerOverride();
 
+	UFUNCTION(BlueprintCallable, Category = "Game|Audio")
+	void SetAudioListenerAttenuationOverride(USceneComponent* AttachToComponent, FVector AttenuationLocationOVerride);
+
+	UFUNCTION(BlueprintCallable, Category = "Game|Audio")
+	void ClearAudioListenerAttenuationOverride();
+
+
 protected:
 	/** Whether to override the normal audio listener positioning method */
 	uint32 bOverrideAudioListener:1;
+	/** Whether to override the attenuation listener position. */
+	uint32 bOverrideAudioAttenuationListener:1;
 	/** Component that is currently driving the audio listener position/orientation */
 	TWeakObjectPtr<USceneComponent> AudioListenerComponent;
+	/** Component that is used to only override where attenuation calculations are computed from. */
+	TWeakObjectPtr<USceneComponent> AudioListenerAttenuationComponent;
 	/** Currently overridden location of audio listener */
 	FVector AudioListenerLocationOverride;
 	/** Currently overridden rotation of audio listener */
 	FRotator AudioListenerRotationOverride;
+	/** Currently overridden vector used to do attenuation calculations for listener. */
+	FVector AudioListenerAttenuationOverride;
 
 	/** Internal. */
 	void TickPlayerInput(const float DeltaSeconds, const bool bGamePaused);

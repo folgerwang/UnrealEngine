@@ -200,7 +200,7 @@ FString UIpConnection::LowLevelDescribe()
 		*URL.Host,
 		*RemoteAddr->ToString(true),
 		*LocalAddr->ToString(true),
-		*PlayerId->ToDebugString(),
+		*PlayerId.ToDebugString(),
 			State==USOCK_Pending	?	TEXT("Pending")
 		:	State==USOCK_Open		?	TEXT("Open")
 		:	State==USOCK_Closed		?	TEXT("Closed")

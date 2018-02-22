@@ -142,7 +142,7 @@ int32 FSlateFontMeasure::FindCharacterIndexAtOffset( const FString& Text, int32 
 
 FVector2D FSlateFontMeasure::MeasureStringInternal( const FString& Text, int32 StartIndex, int32 EndIndex, const FSlateFontInfo& InFontInfo, bool IncludeKerningWithPrecedingChar, float FontScale, int32 StopAfterHorizontalOffset, ELastCharacterIndexFormat CharIndexFormat, int32& OutLastCharacterIndex ) const
 {
-	SLATE_CYCLE_COUNTER_SCOPE_DETAILED(SLATE_STATS_DETAIL_LEVEL_HI, GSlateMeasureStringTime);
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_Slate_MeasureStringInternal)
 	FCharacterList& CharacterList = FontCache->GetCharacterList( InFontInfo, FontScale );
 	const uint16 MaxHeight = CharacterList.GetMaxHeight();
 

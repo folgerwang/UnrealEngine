@@ -15,10 +15,18 @@
 #include "Engine/ActorChannel.h"
 #include "Engine/NetworkSettings.h"
 #include "HAL/LowLevelMemTracker.h"
+#include "Misc/NetworkVersion.h"
+
+DECLARE_CYCLE_STAT(TEXT("RepLayout AddPropertyCmd"), STAT_RepLayout_AddPropertyCmd, STATGROUP_Game);
+DECLARE_CYCLE_STAT(TEXT("RepLayout InitFromObjectClass"), STAT_RepLayout_InitFromObjectClass, STATGROUP_Game);
+
 
 static TAutoConsoleVariable<int32> CVarDoPropertyChecksum( TEXT( "net.DoPropertyChecksum" ), 0, TEXT( "" ) );
 
 FAutoConsoleVariable CVarDoReplicationContextString( TEXT( "net.ContextDebug" ), 0, TEXT( "" ) );
+
+FAutoConsoleVariable CVarNetShareSerializedData( TEXT( "net.ShareSerializedData" ), 0, TEXT( "" ) );
+FAutoConsoleVariable CVarNetVerifyShareSerializedData( TEXT( "net.VerifyShareSerializedData" ), 0, TEXT( "" ) );
 
 int32 LogSkippedRepNotifies = 0;
 static FAutoConsoleVariable CVarLogSkippedRepNotifies(TEXT("Net.LogSkippedRepNotifies"), LogSkippedRepNotifies, TEXT("Log when the networking code skips calling a repnotify clientside due to the property value not changing."), ECVF_Default );
@@ -130,27 +138,27 @@ static FORCEINLINE bool PropertiesAreIdenticalNative( const FRepLayoutCmd& Cmd, 
 {
 	switch ( Cmd.Type )
 	{
-		case REPCMD_PropertyBool:			return CompareBool( Cmd, A, B );
-		case REPCMD_PropertyByte:			return CompareValue<uint8>( A, B );
-		case REPCMD_PropertyFloat:			return CompareValue<float>( A, B );
-		case REPCMD_PropertyInt:			return CompareValue<int32>( A, B );
-		case REPCMD_PropertyName:			return CompareValue<FName>( A, B );
-		case REPCMD_PropertyObject:			return CompareObject( Cmd, A, B );
-		case REPCMD_PropertyUInt32:			return CompareValue<uint32>( A, B );
-		case REPCMD_PropertyUInt64:			return CompareValue<uint64>( A, B );
-		case REPCMD_PropertyVector:			return CompareValue<FVector>( A, B );
-		case REPCMD_PropertyVector100:		return CompareValue<FVector_NetQuantize100>( A, B );
-		case REPCMD_PropertyVectorQ:		return CompareValue<FVector_NetQuantize>( A, B );
-		case REPCMD_PropertyVectorNormal:	return CompareValue<FVector_NetQuantizeNormal>( A, B );
-		case REPCMD_PropertyVector10:		return CompareValue<FVector_NetQuantize10>( A, B );
-		case REPCMD_PropertyPlane:			return CompareValue<FPlane>( A, B );
-		case REPCMD_PropertyRotator:		return CompareValue<FRotator>( A, B );
-		case REPCMD_PropertyNetId:			return CompareValue<FUniqueNetIdRepl>( A, B );
-		case REPCMD_RepMovement:			return CompareValue<FRepMovement>( A, B );
-		case REPCMD_PropertyString:			return CompareValue<FString>( A, B );
-		case REPCMD_Property:				return Cmd.Property->Identical( A, B );
+		case ERepLayoutCmdType::PropertyBool:			return CompareBool( Cmd, A, B );
+		case ERepLayoutCmdType::PropertyByte:			return CompareValue<uint8>( A, B );
+		case ERepLayoutCmdType::PropertyFloat:			return CompareValue<float>( A, B );
+		case ERepLayoutCmdType::PropertyInt:			return CompareValue<int32>( A, B );
+		case ERepLayoutCmdType::PropertyName:			return CompareValue<FName>( A, B );
+		case ERepLayoutCmdType::PropertyObject:			return CompareObject( Cmd, A, B );
+		case ERepLayoutCmdType::PropertyUInt32:			return CompareValue<uint32>( A, B );
+		case ERepLayoutCmdType::PropertyUInt64:			return CompareValue<uint64>( A, B );
+		case ERepLayoutCmdType::PropertyVector:			return CompareValue<FVector>( A, B );
+		case ERepLayoutCmdType::PropertyVector100:		return CompareValue<FVector_NetQuantize100>( A, B );
+		case ERepLayoutCmdType::PropertyVectorQ:		return CompareValue<FVector_NetQuantize>( A, B );
+		case ERepLayoutCmdType::PropertyVectorNormal:	return CompareValue<FVector_NetQuantizeNormal>( A, B );
+		case ERepLayoutCmdType::PropertyVector10:		return CompareValue<FVector_NetQuantize10>( A, B );
+		case ERepLayoutCmdType::PropertyPlane:			return CompareValue<FPlane>( A, B );
+		case ERepLayoutCmdType::PropertyRotator:		return CompareValue<FRotator>( A, B );
+		case ERepLayoutCmdType::PropertyNetId:			return CompareValue<FUniqueNetIdRepl>( A, B );
+		case ERepLayoutCmdType::RepMovement:			return CompareValue<FRepMovement>( A, B );
+		case ERepLayoutCmdType::PropertyString:			return CompareValue<FString>( A, B );
+		case ERepLayoutCmdType::Property:				return Cmd.Property->Identical( A, B );
 		default: 
-			UE_LOG( LogRep, Fatal, TEXT( "PropertiesAreIdentical: Unsupported type! %i (%s)" ), Cmd.Type, *Cmd.Property->GetName() );
+			UE_LOG( LogRep, Fatal, TEXT( "PropertiesAreIdentical: Unsupported type! %i (%s)" ), (uint8)Cmd.Type, *Cmd.Property->GetName() );
 	}
 
 	return false;
@@ -180,14 +188,14 @@ static FORCEINLINE void StoreProperty( const FRepLayoutCmd& Cmd, void* A, const 
 	Cmd.Property->CopySingleValue( A, B );
 }
 
-static FORCEINLINE void SerializeGenericChecksum( FArchive & Ar )
+static FORCEINLINE void SerializeGenericChecksum( FBitArchive & Ar )
 {
 	uint32 Checksum = 0xABADF00D;
 	Ar << Checksum;
 	check( Checksum == 0xABADF00D );
 }
 
-static void SerializeReadWritePropertyChecksum( const FRepLayoutCmd& Cmd, const int32 CurCmdIndex, const uint8* Data, FArchive & Ar )
+static void SerializeReadWritePropertyChecksum( const FRepLayoutCmd& Cmd, const int32 CurCmdIndex, const uint8* Data, FBitArchive & Ar )
 {
 	// Serialize various attributes that will mostly ensure we are working on the same property
 	const uint32 NameHash = GetTypeHash( Cmd.Property->GetName() );
@@ -272,6 +280,31 @@ static void SerializeReadWritePropertyChecksum( const FRepLayoutCmd& Cmd, const 
 		// This is a warning, because for some reason, float rounding issues in the quantization functions cause this to return false positives
 		UE_LOG( LogRep, Warning, TEXT( "Property checksum failed! [%s]" ), *Cmd.Property->GetFullName() );
 	}
+}
+
+static uint32 GetRepLayoutCmdCompatibleChecksum( const UProperty* Property, const UNetConnection* ServerConnection, const uint32 StaticArrayIndex, const uint32 InChecksum )
+{
+	// Compatible checksums are only used for InternalAck connections
+	if (ServerConnection && !ServerConnection->InternalAck)
+	{
+		return 0;
+	}
+
+	uint32 CompatibleChecksum = FCrc::StrCrc32( *Property->GetName().ToLower(), InChecksum );						// Evolve checksum on name
+	CompatibleChecksum = FCrc::StrCrc32( *Property->GetCPPType( nullptr, 0 ).ToLower(), CompatibleChecksum );		// Evolve by property type
+	
+	// Evolve by StaticArrayIndex (to make all unrolled static array elements unique)
+	if ((ServerConnection == nullptr) ||
+		(ServerConnection->EngineNetworkProtocolVersion >= EEngineNetworkVersionHistory::HISTORY_REPCMD_CHECKSUM_REMOVE_PRINTF))
+	{
+		CompatibleChecksum = FCrc::MemCrc32( &StaticArrayIndex, sizeof(StaticArrayIndex), CompatibleChecksum );
+	}
+	else
+	{
+		CompatibleChecksum = FCrc::StrCrc32( *FString::Printf( TEXT( "%i" ), StaticArrayIndex ), CompatibleChecksum );
+	}
+
+	return CompatibleChecksum;
 }
 
 #define INIT_STACK( TStack )							\
@@ -382,9 +415,9 @@ public:
 		{
 			const FRepLayoutCmd& Cmd = Cmds[ CmdIndex ];
 
-			check( Cmd.Type != REPCMD_Return );
+			check( Cmd.Type != ERepLayoutCmdType::Return );
 
-			if ( Cmd.Type == REPCMD_DynamicArray )
+			if ( Cmd.Type == ERepLayoutCmdType::DynamicArray )
 			{
 				if ( static_cast< TImpl* >( this )->ShouldProcessNextCmd() )
 				{
@@ -432,14 +465,14 @@ uint16 FRepLayout::CompareProperties_r(
 		const FRepLayoutCmd& Cmd = Cmds[CmdIndex];
 		const FRepParentCmd& ParentCmd = Parents[Cmd.ParentIndex];
 
-		check( Cmd.Type != REPCMD_Return );
+		check( Cmd.Type != ERepLayoutCmdType::Return );
 
 		Handle++;
 
-		const bool bIsLifetime = ( ParentCmd.Flags & PARENT_IsLifetime ) ? true : false;
+		const bool bIsLifetime = ((ParentCmd.Flags & ERepParentFlags::IsLifetime) != ERepParentFlags::None);
 		const bool bShouldSkip = !bIsLifetime || ( ParentCmd.Condition == COND_InitialOnly && !bIsInitial );
 
-		if ( Cmd.Type == REPCMD_DynamicArray )
+		if ( Cmd.Type == ERepLayoutCmdType::DynamicArray )
 		{
 			if ( bShouldSkip )
 			{
@@ -516,7 +549,7 @@ void FRepLayout::CompareProperties_Array_r(
 	else if ( ArrayNum != CompareArrayNum )
 	{
 		// If nothing below us changed, we either shrunk, or we grew and our inner was an array that didn't have any elements
-		check( ArrayNum < CompareArrayNum || Cmds[CmdIndex + 1].Type == REPCMD_DynamicArray );
+		check( ArrayNum < CompareArrayNum || Cmds[CmdIndex + 1].Type == ERepLayoutCmdType::DynamicArray );
 
 		// Array got smaller, send the array handle to force array size change
 		Changed.Add( Handle );
@@ -558,6 +591,9 @@ bool FRepLayout::CompareProperties(
 
 	// Move end pointer
 	RepChangelistState->HistoryEnd++;
+
+	// New changes found so clear any existing shared serialization state
+	RepChangelistState->SharedSerialization.Reset();
 
 	// If we're full, merge the oldest up, so we always have room for a new entry
 	if ( RepChangelistState->HistoryEnd - RepChangelistState->HistoryStart == FRepChangelistState::MAX_CHANGE_HISTORY )
@@ -709,12 +745,21 @@ bool FRepLayout::ReplicateProperties(
 	else
 	{
 		// Nothing changed and there are no nak's, so just do normal housekeeping and remove acked history items
-		UpdateChangelistHistory( RepState, ObjectClass, Data, OwningChannel->Connection, NULL );
+		UpdateChangelistHistory( RepState, ObjectClass, Data, OwningChannel->Connection, nullptr );
 		return false;		// Nothing to send
 	}
 
 	// At this point we should have a non empty change list
 	check( Changed.Num() > 0 );
+
+	if (CVarNetShareSerializedData->GetInt() != 0)
+	{
+		// if no shared serialization info exists, build it
+		if (!RepChangelistState->SharedSerialization.IsValid())
+		{
+			BuildSharedSerialization( Data, Changed, true, RepChangelistState->SharedSerialization );
+		}
+	}
 
 	const int32 NumBits = Writer.GetNumBits();
 
@@ -729,7 +774,7 @@ bool FRepLayout::ReplicateProperties(
 	}
 	else
 	{
-		SendProperties( RepState, ChangeTracker, Data, ObjectClass, Writer, Changed );
+		SendProperties( RepState, ChangeTracker, Data, ObjectClass, Writer, Changed, RepChangelistState->SharedSerialization );
 	}
 
 	// See if something actually sent (this may be false due to conditional checks inside the send properties function
@@ -898,8 +943,10 @@ bool FRepLayout::ReadyForDormancy( FRepState * RepState ) const
 	return AllAcked( RepState );
 }
 
-void FRepLayout::SerializeObjectReplicatedProperties(UObject* Object, FArchive & Ar) const
+void FRepLayout::SerializeObjectReplicatedProperties(UObject* Object, FBitArchive & Ar) const
 {
+	static FRepSerializationSharedInfo Empty;
+
 	for (int32 i = 0; i < Parents.Num(); i++)
 	{
         UStructProperty* StructProperty = Cast<UStructProperty>(Parents[i].Property);
@@ -909,7 +956,7 @@ void FRepLayout::SerializeObjectReplicatedProperties(UObject* Object, FArchive &
 		if (ObjectProperty == nullptr && StructProperty == nullptr)
 		{
 			bool bHasUnmapped = false;
-			SerializeProperties_r(Ar, NULL, Parents[i].CmdStart, Parents[i].CmdEnd, (uint8*)Object, bHasUnmapped);
+			SerializeProperties_r(Ar, NULL, Parents[i].CmdStart, Parents[i].CmdEnd, (uint8*)Object, bHasUnmapped, 0, 0, Empty);
 		}
 	}
 }
@@ -959,7 +1006,7 @@ bool FRepHandleIterator::NextHandle()
 		return false;
 	}
 
-	if ( !ensure( Cmd.Type != REPCMD_Return ) )
+	if ( !ensure( Cmd.Type != ERepLayoutCmdType::Return ) )
 	{
 		return false;
 	}
@@ -1105,7 +1152,7 @@ void FRepLayout::MergeChangeList_r(
 
 		const FRepLayoutCmd& Cmd = Cmds[CmdIndex];
 
-		if ( Cmd.Type == REPCMD_DynamicArray )
+		if ( Cmd.Type == ERepLayoutCmdType::DynamicArray )
 		{
 			const uint8* Data = SourceData + ArrayOffset + Cmd.Offset;
 
@@ -1161,7 +1208,7 @@ void FRepLayout::PruneChangeList_r(
 
 		const FRepLayoutCmd& Cmd = Cmds[CmdIndex];
 
-		if ( Cmd.Type == REPCMD_DynamicArray )
+		if ( Cmd.Type == ERepLayoutCmdType::DynamicArray )
 		{
 			const uint8* Data = SourceData + ArrayOffset + Cmd.Offset;
 
@@ -1187,13 +1234,63 @@ void FRepLayout::PruneChangeList_r(
 	}
 }
 
+const FRepSerializedPropertyInfo* FRepSerializationSharedInfo::WriteSharedProperty(
+	const FRepLayoutCmd&	Cmd,
+	const FGuid&			PropertyGuid,
+	const int32				CmdIndex,
+	const uint16			Handle,
+	const uint8* RESTRICT	Data,
+	const bool				bWriteHandle,
+	const bool				bDoChecksum)
+{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	check(!SharedPropertyInfo.ContainsByPredicate([&](const FRepSerializedPropertyInfo& Info)
+	{ 
+		return (Info.Guid == PropertyGuid); 
+	}));
+#endif
+
+	int32 InfoIndex = SharedPropertyInfo.Emplace();
+
+	FRepSerializedPropertyInfo& SharedPropInfo = SharedPropertyInfo[InfoIndex];
+	SharedPropInfo.Guid = PropertyGuid;
+	SharedPropInfo.BitOffset = SerializedProperties->GetNumBits();
+
+	if (bWriteHandle)
+	{
+		WritePropertyHandle( *SerializedProperties, Handle, bDoChecksum );
+	}
+
+	SharedPropInfo.PropBitOffset = SerializedProperties->GetNumBits();
+
+	// This property changed, so send it
+	Cmd.Property->NetSerializeItem( *SerializedProperties, nullptr, ( void* )Data );
+
+	const int64 NumPropEndBits = SerializedProperties->GetNumBits();
+
+	SharedPropInfo.PropBitLength = NumPropEndBits - SharedPropInfo.PropBitOffset;
+
+#ifdef ENABLE_PROPERTY_CHECKSUMS
+	if ( bDoChecksum )
+	{
+		SerializeReadWritePropertyChecksum( Cmd, CmdIndex, Data, *SerializedProperties );
+	}
+#endif
+
+	SharedPropInfo.BitLength = SerializedProperties->GetNumBits() - SharedPropInfo.BitOffset;
+
+	return &SharedPropInfo;
+}
+
 void FRepLayout::SendProperties_r(
-	FRepState*	RESTRICT				RepState,
-	FRepChangedPropertyTracker*			ChangedTracker,
-	FNetBitWriter&						Writer,
-	const bool							bDoChecksum,
-	FRepHandleIterator&					HandleIterator,
-	const uint8* RESTRICT				SourceData ) const
+	FRepState*	RESTRICT			RepState,
+	FRepChangedPropertyTracker*		ChangedTracker,
+	FNetBitWriter&					Writer,
+	const bool						bDoChecksum,
+	FRepHandleIterator&				HandleIterator,
+	const uint8* RESTRICT			SourceData,
+	const int32						ArrayDepth,
+	const FRepSerializationSharedInfo&	SharedInfo ) const
 {
 	while ( HandleIterator.NextHandle() )
 	{
@@ -1203,7 +1300,7 @@ void FRepLayout::SendProperties_r(
 
 		if ( !RepState->ConditionMap[ParentCmd.Condition] || !ChangedTracker->Parents[Cmd.ParentIndex].Active )
 		{
-			if ( Cmd.Type == REPCMD_DynamicArray )
+			if ( Cmd.Type == ERepLayoutCmdType::DynamicArray )
 			{
 				if ( !HandleIterator.JumpOverArray() )
 				{
@@ -1216,10 +1313,10 @@ void FRepLayout::SendProperties_r(
 
 		const uint8* Data = SourceData + HandleIterator.ArrayOffset + Cmd.Offset;
 
-		WritePropertyHandle( Writer, HandleIterator.Handle, bDoChecksum );
-
-		if ( Cmd.Type == REPCMD_DynamicArray )
+		if ( Cmd.Type == ERepLayoutCmdType::DynamicArray )
 		{
+			WritePropertyHandle( Writer, HandleIterator.Handle, bDoChecksum );
+
 			const FScriptArray* Array = ( FScriptArray * )Data;
 
 			// Write array num
@@ -1242,7 +1339,7 @@ void FRepLayout::SendProperties_r(
 			check( ArrayHandleIterator.ArrayElementSize > 0 );
 			check( ArrayHandleIterator.NumHandlesPerElement > 0 );
 
-			SendProperties_r( RepState, ChangedTracker, Writer, bDoChecksum, ArrayHandleIterator, NewData );
+			SendProperties_r( RepState, ChangedTracker, Writer, bDoChecksum, ArrayHandleIterator, NewData, ArrayDepth + 1, SharedInfo );
 
 			check( HandleIterator.ChangelistIterator.ChangedIndex - OldChangedIndex == ArrayChangedCount );				// Make sure we read correct amount
 			check( HandleIterator.ChangelistIterator.Changed[HandleIterator.ChangelistIterator.ChangedIndex] == 0 );	// Make sure we are at the end
@@ -1260,26 +1357,81 @@ void FRepLayout::SendProperties_r(
 		}
 #endif
 
-		const int32 NumStartBits = Writer.GetNumBits();
+		const FRepSerializedPropertyInfo* SharedPropInfo = nullptr;
 
-		// This property changed, so send it
-		Cmd.Property->NetSerializeItem( Writer, Writer.PackageMap, ( void* )Data );
+		if ((CVarNetShareSerializedData->GetInt() != 0) && ((Cmd.Flags & ERepLayoutFlags::IsSharedSerialization) != ERepLayoutFlags::None))
+		{
+			FGuid PropertyGuid(HandleIterator.CmdIndex, HandleIterator.ArrayIndex, ArrayDepth, (int32)((PTRINT)Data & 0xFFFFFFFF));
 
-		const int32 NumEndBits = Writer.GetNumBits();
+			SharedPropInfo = SharedInfo.SharedPropertyInfo.FindByPredicate([&](const FRepSerializedPropertyInfo& Info) 
+			{ 
+				return (Info.Guid == PropertyGuid); 
+			});
+		}
 
-		NETWORK_PROFILER( GNetworkProfiler.TrackReplicateProperty( ParentCmd.Property, NumEndBits - NumStartBits, nullptr ) );
+		// Use shared serialization if was found
+		if (SharedPropInfo)
+		{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+			if (CVarNetVerifyShareSerializedData->GetInt() != 0)
+			{
+				FBitWriterMark BitWriterMark(Writer);
+			
+				WritePropertyHandle( Writer, HandleIterator.Handle, bDoChecksum );
+				Cmd.Property->NetSerializeItem( Writer, Writer.PackageMap, ( void* )Data );
+#ifdef ENABLE_PROPERTY_CHECKSUMS
+				if ( bDoChecksum )
+				{
+					SerializeReadWritePropertyChecksum( Cmd, HandleIterator.CmdIndex, Data, Writer );
+				}
+#endif
+				TArray<uint8> StandardBuffer;
+				BitWriterMark.Copy(Writer, StandardBuffer);
+				BitWriterMark.Pop(Writer);
+
+				Writer.SerializeBitsWithOffset(SharedInfo.SerializedProperties->GetData(), SharedPropInfo->BitOffset, SharedPropInfo->BitLength);
+
+				TArray<uint8> SharedBuffer;
+				BitWriterMark.Copy(Writer, SharedBuffer);
+
+				if (StandardBuffer != SharedBuffer)
+				{
+					UE_LOG(LogRep, Error, TEXT("Shared serialization data mismatch!"));
+				}
+			}
+			else
+#endif
+			{
+				Writer.SerializeBitsWithOffset(SharedInfo.SerializedProperties->GetData(), SharedPropInfo->BitOffset, SharedPropInfo->BitLength);
+			}
+
+			NETWORK_PROFILER( GNetworkProfiler.TrackReplicateProperty( ParentCmd.Property, SharedPropInfo->PropBitLength, nullptr ) );
+		}
+		else
+		{
+			WritePropertyHandle( Writer, HandleIterator.Handle, bDoChecksum );
+
+			const int32 NumStartBits = Writer.GetNumBits();
+
+			// This property changed, so send it
+			Cmd.Property->NetSerializeItem( Writer, Writer.PackageMap, ( void* )Data );
+
+			const int32 NumEndBits = Writer.GetNumBits();
+
+			NETWORK_PROFILER( GNetworkProfiler.TrackReplicateProperty( ParentCmd.Property, NumEndBits - NumStartBits, nullptr ) );
+
+#ifdef ENABLE_PROPERTY_CHECKSUMS
+			if ( bDoChecksum )
+			{
+				SerializeReadWritePropertyChecksum( Cmd, HandleIterator.CmdIndex, Data, Writer );
+			}
+#endif
+		}
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		if ( CVarDoReplicationContextString->GetInt() > 0 )
 		{
 			Writer.PackageMap->ClearDebugContextString();
-		}
-#endif
-
-#ifdef ENABLE_PROPERTY_CHECKSUMS
-		if ( bDoChecksum )
-		{
-			SerializeReadWritePropertyChecksum( Cmd, HandleIterator.CmdIndex, Data, Writer );
 		}
 #endif
 	}
@@ -1291,7 +1443,8 @@ void FRepLayout::SendProperties(
 	const uint8* RESTRICT		Data,
 	UClass *					ObjectClass,
 	FNetBitWriter&				Writer,
-	TArray< uint16 > &			Changed ) const
+	TArray< uint16 > &			Changed,
+	const FRepSerializationSharedInfo& SharedInfo) const
 {
 	SCOPE_CYCLE_COUNTER(STAT_NetReplicateDynamicPropSendTime);
 
@@ -1312,7 +1465,7 @@ void FRepLayout::SendProperties(
 	FChangelistIterator ChangelistIterator( Changed, 0 );
 	FRepHandleIterator HandleIterator( ChangelistIterator, Cmds, BaseHandleToCmdIndex, 0, 1, 0, Cmds.Num() - 1 );
 
-	SendProperties_r( RepState, ChangedTracker, Writer, bDoChecksum, HandleIterator, Data );
+	SendProperties_r( RepState, ChangedTracker, Writer, bDoChecksum, HandleIterator, Data, 0, SharedInfo );
 
 	if ( NumBits != Writer.GetNumBits() )
 	{
@@ -1423,7 +1576,7 @@ void FRepLayout::SendProperties_BackwardsCompatible_r(
 
 		if ( !bConditionMatches )
 		{
-			if ( Cmd.Type == REPCMD_DynamicArray )
+			if ( Cmd.Type == ERepLayoutCmdType::DynamicArray )
 			{
 				if ( !HandleIterator.JumpOverArray() )
 				{
@@ -1452,7 +1605,7 @@ void FRepLayout::SendProperties_BackwardsCompatible_r(
 
 		WritePropertyHandle_BackwardsCompatible( Writer, HandleIterator.CmdIndex + 1, bDoChecksum );
 
-		if ( Cmd.Type == REPCMD_DynamicArray )
+		if ( Cmd.Type == ERepLayoutCmdType::DynamicArray )
 		{
 			const FScriptArray* Array = ( FScriptArray * )Data;
 
@@ -1517,7 +1670,7 @@ void FRepLayout::SendAllProperties_BackwardsCompatible_r(
 	{
 		const FRepLayoutCmd& Cmd = Cmds[CmdIndex];
 
-		check( Cmd.Type != REPCMD_Return );
+		check( Cmd.Type != ERepLayoutCmdType::Return );
 
 		PackageMapClient->TrackNetFieldExport( NetFieldExportGroup, CmdIndex );
 
@@ -1525,7 +1678,7 @@ void FRepLayout::SendAllProperties_BackwardsCompatible_r(
 
 		const uint8* Data = SourceData + Cmd.Offset;
 
-		if ( Cmd.Type == REPCMD_DynamicArray )
+		if ( Cmd.Type == ERepLayoutCmdType::DynamicArray )
 		{			
 			const FScriptArray* Array = ( FScriptArray * )Data;
 
@@ -1985,7 +2138,7 @@ int32 FRepLayout::FindCompatibleProperty( const int32 CmdStart, const int32 CmdE
 	{
 		const FRepLayoutCmd& Cmd = Cmds[CmdIndex];
 
-		check( Cmd.Type != REPCMD_Return );
+		check( Cmd.Type != ERepLayoutCmdType::Return );
 
 		if ( Cmd.CompatibleChecksum == Checksum )
 		{
@@ -1993,7 +2146,7 @@ int32 FRepLayout::FindCompatibleProperty( const int32 CmdStart, const int32 CmdE
 		}
 
 		// Jump over entire array and inner properties if checksum didn't match
-		if ( Cmd.Type == REPCMD_DynamicArray )
+		if ( Cmd.Type == ERepLayoutCmdType::DynamicArray )
 		{
 			CmdIndex = Cmd.EndCmd - 1;
 		}
@@ -2095,7 +2248,7 @@ bool FRepLayout::ReceiveProperties_BackwardsCompatible_r(
 
 		const FRepLayoutCmd& Cmd = Cmds[CmdIndex];
 
-		if ( Cmd.Type == REPCMD_DynamicArray )
+		if ( Cmd.Type == ERepLayoutCmdType::DynamicArray )
 		{
 			uint32 ArrayNum = 0;
 			TempReader.SerializeIntPacked( ArrayNum );
@@ -2213,7 +2366,7 @@ void FRepLayout::GatherGuidReferences_r( FGuidReferencesMap* GuidReferencesMap, 
 
 		if ( GuidReferences.Array != NULL )
 		{
-			check( Cmds[GuidReferences.CmdIndex].Type == REPCMD_DynamicArray );
+			check( Cmds[GuidReferences.CmdIndex].Type == ERepLayoutCmdType::DynamicArray );
 
 			GatherGuidReferences_r( GuidReferences.Array, OutReferencedGuids, OutTrackedGuidMemoryBytes );
 			continue;
@@ -2241,7 +2394,7 @@ bool FRepLayout::MoveMappedObjectToUnmapped_r( FGuidReferencesMap* GuidReference
 
 		if ( GuidReferences.Array != NULL )
 		{
-			check( Cmds[GuidReferences.CmdIndex].Type == REPCMD_DynamicArray );
+			check( Cmds[GuidReferences.CmdIndex].Type == ERepLayoutCmdType::DynamicArray );
 
 			if ( MoveMappedObjectToUnmapped_r( GuidReferences.Array, GUID ) )
 			{
@@ -2295,7 +2448,7 @@ void FRepLayout::UpdateUnmappedObjects_r(
 
 		if ( GuidReferences.Array != NULL )
 		{
-			check( Cmd.Type == REPCMD_DynamicArray );
+			check( Cmd.Type == ERepLayoutCmdType::DynamicArray );
 			
 			FScriptArray* StoredArray = (FScriptArray *)( StoredData + AbsOffset );
 			FScriptArray* Array = (FScriptArray *)( Data + AbsOffset );
@@ -2432,7 +2585,7 @@ void FRepLayout::CallRepNotifies( FRepState * RepState, UObject* Object ) const
 	RepState->RepNotifies.Empty();
 }
 
-void FRepLayout::ValidateWithChecksum_DynamicArray_r( const FRepLayoutCmd& Cmd, const int32 CmdIndex, const uint8* RESTRICT Data, FArchive & Ar ) const
+void FRepLayout::ValidateWithChecksum_DynamicArray_r( const FRepLayoutCmd& Cmd, const int32 CmdIndex, const uint8* RESTRICT Data, FBitArchive & Ar ) const
 {
 	FScriptArray * Array = (FScriptArray *)Data;
 
@@ -2464,15 +2617,15 @@ void FRepLayout::ValidateWithChecksum_r(
 	const int32				CmdStart, 
 	const int32				CmdEnd, 
 	const uint8* RESTRICT	Data, 
-	FArchive &				Ar ) const
+	FBitArchive &			Ar ) const
 {
 	for ( int32 CmdIndex = CmdStart; CmdIndex < CmdEnd; CmdIndex++ )
 	{
 		const FRepLayoutCmd& Cmd = Cmds[ CmdIndex ];
 
-		check( Cmd.Type != REPCMD_Return );
+		check( Cmd.Type != ERepLayoutCmdType::Return );
 
-		if ( Cmd.Type == REPCMD_DynamicArray )
+		if ( Cmd.Type == ERepLayoutCmdType::DynamicArray )
 		{
 			ValidateWithChecksum_DynamicArray_r( Cmd, CmdIndex, Data + Cmd.Offset, Ar );
 			CmdIndex = Cmd.EndCmd - 1;	// Jump past children of this array (-1 for ++ in for loop)
@@ -2483,7 +2636,7 @@ void FRepLayout::ValidateWithChecksum_r(
 	}
 }
 
-void FRepLayout::ValidateWithChecksum( const void* RESTRICT Data, FArchive & Ar ) const
+void FRepLayout::ValidateWithChecksum( const void* RESTRICT Data, FBitArchive & Ar ) const
 {
 	ValidateWithChecksum_r( 0, Cmds.Num() - 1, (const uint8*)Data, Ar );
 }
@@ -2580,11 +2733,11 @@ uint16 FRepLayout::SanityCheckChangeList_r(
 	{
 		const FRepLayoutCmd& Cmd = Cmds[ CmdIndex ];
 
-		check( Cmd.Type != REPCMD_Return );
+		check( Cmd.Type != ERepLayoutCmdType::Return );
 
 		Handle++;
 
-		if ( Cmd.Type == REPCMD_DynamicArray )
+		if ( Cmd.Type == ERepLayoutCmdType::DynamicArray )
 		{
 			if ( Handle == Changed[ChangedIndex] )
 			{
@@ -2644,7 +2797,7 @@ public:
 				return;
 			}
 
-			if ( !( Parents[Cmd.ParentIndex].Flags & PARENT_IsLifetime ) )
+			if ( (Parents[Cmd.ParentIndex].Flags & ERepParentFlags::IsLifetime) == ERepParentFlags::None )
 			{
 				// Currently, only lifetime properties init from their defaults
 				return;
@@ -2677,7 +2830,7 @@ public:
 				return;
 			}
 
-			if ( !( Parent.Flags & PARENT_IsLifetime ) )
+			if ( (Parent.Flags & ERepParentFlags::IsLifetime) == ERepParentFlags::None )
 			{
 				// Currently, only lifetime properties init from their defaults
 				return;
@@ -2717,22 +2870,21 @@ static FName NAME_Vector_NetQuantize(TEXT("Vector_NetQuantize"));
 static FName NAME_UniqueNetIdRepl(TEXT("UniqueNetIdRepl"));
 static FName NAME_RepMovement(TEXT("RepMovement"));
 
-uint32 FRepLayout::AddPropertyCmd( UProperty * Property, int32 Offset, int32 RelativeHandle, int32 ParentIndex, uint32 ParentChecksum, int32 StaticArrayIndex )
+uint32 FRepLayout::AddPropertyCmd( UProperty * Property, int32 Offset, int32 RelativeHandle, int32 ParentIndex, uint32 ParentChecksum, int32 StaticArrayIndex, const UNetConnection* ServerConnection )
 {
+	SCOPE_CYCLE_COUNTER(STAT_RepLayout_AddPropertyCmd);
+
 	const int32 Index = Cmds.AddZeroed();
 
 	FRepLayoutCmd & Cmd = Cmds[Index];
 
 	Cmd.Property			= Property;
-	Cmd.Type				= REPCMD_Property;		// Initially set to generic type
+	Cmd.Type				= ERepLayoutCmdType::Property;		// Initially set to generic type
 	Cmd.Offset				= Offset;
 	Cmd.ElementSize			= Property->ElementSize;
 	Cmd.RelativeHandle		= RelativeHandle;
 	Cmd.ParentIndex			= ParentIndex;
-
-	Cmd.CompatibleChecksum	= FCrc::StrCrc32( *Property->GetName().ToLower(), ParentChecksum );								// Evolve checksum on name
-	Cmd.CompatibleChecksum	= FCrc::StrCrc32( *Property->GetCPPType( nullptr, 0 ).ToLower(), Cmd.CompatibleChecksum );		// Evolve by property type
-	Cmd.CompatibleChecksum	= FCrc::StrCrc32( *FString::Printf( TEXT( "%i" ), StaticArrayIndex ), Cmd.CompatibleChecksum );	// Evolve by StaticArrayIndex (to make all unrolled static array elements unique)
+	Cmd.CompatibleChecksum	= GetRepLayoutCmdCompatibleChecksum(Property, ServerConnection, StaticArrayIndex, ParentChecksum);
 
 	UProperty * UnderlyingProperty = Property;
 	if ( UEnumProperty * EnumProperty = Cast< UEnumProperty >( Property ) )
@@ -2747,39 +2899,39 @@ uint32 FRepLayout::AddPropertyCmd( UProperty * Property, int32 Offset, int32 Rel
 		UScriptStruct * Struct = StructProp->Struct;
 		if ( Struct->GetFName() == NAME_Vector )
 		{
-			Cmd.Type = REPCMD_PropertyVector;
+			Cmd.Type = ERepLayoutCmdType::PropertyVector;
 		}
 		else if ( Struct->GetFName() == NAME_Rotator )
 		{
-			Cmd.Type = REPCMD_PropertyRotator;
+			Cmd.Type = ERepLayoutCmdType::PropertyRotator;
 		}
 		else if ( Struct->GetFName() == NAME_Plane )
 		{
-			Cmd.Type = REPCMD_PropertyPlane;
+			Cmd.Type = ERepLayoutCmdType::PropertyPlane;
 		}
 		else if ( Struct->GetFName() == NAME_Vector_NetQuantize100 )
 		{
-			Cmd.Type = REPCMD_PropertyVector100;
+			Cmd.Type = ERepLayoutCmdType::PropertyVector100;
 		}
 		else if ( Struct->GetFName() == NAME_Vector_NetQuantize10 )
 		{
-			Cmd.Type = REPCMD_PropertyVector10;
+			Cmd.Type = ERepLayoutCmdType::PropertyVector10;
 		}
 		else if ( Struct->GetFName() == NAME_Vector_NetQuantizeNormal )
 		{
-			Cmd.Type = REPCMD_PropertyVectorNormal;
+			Cmd.Type = ERepLayoutCmdType::PropertyVectorNormal;
 		}
 		else if ( Struct->GetFName() == NAME_Vector_NetQuantize )
 		{
-			Cmd.Type = REPCMD_PropertyVectorQ;
+			Cmd.Type = ERepLayoutCmdType::PropertyVectorQ;
 		}
 		else if ( Struct->GetFName() == NAME_UniqueNetIdRepl )
 		{
-			Cmd.Type = REPCMD_PropertyNetId;
+			Cmd.Type = ERepLayoutCmdType::PropertyNetId;
 		}
 		else if ( Struct->GetFName() == NAME_RepMovement )
 		{
-			Cmd.Type = REPCMD_RepMovement;
+			Cmd.Type = ERepLayoutCmdType::RepMovement;
 		}
 		else
 		{
@@ -2788,64 +2940,69 @@ uint32 FRepLayout::AddPropertyCmd( UProperty * Property, int32 Offset, int32 Rel
 	}
 	else if ( UnderlyingProperty->IsA( UBoolProperty::StaticClass() ) )
 	{
-		Cmd.Type = REPCMD_PropertyBool;
+		Cmd.Type = ERepLayoutCmdType::PropertyBool;
 	}
 	else if ( UnderlyingProperty->IsA( UFloatProperty::StaticClass() ) )
 	{
-		Cmd.Type = REPCMD_PropertyFloat;
+		Cmd.Type = ERepLayoutCmdType::PropertyFloat;
 	}
 	else if ( UnderlyingProperty->IsA( UIntProperty::StaticClass() ) )
 	{
-		Cmd.Type = REPCMD_PropertyInt;
+		Cmd.Type = ERepLayoutCmdType::PropertyInt;
 	}
 	else if ( UnderlyingProperty->IsA( UByteProperty::StaticClass() ) )
 	{
-		Cmd.Type = REPCMD_PropertyByte;
+		Cmd.Type = ERepLayoutCmdType::PropertyByte;
 	}
 	else if ( UnderlyingProperty->IsA( UObjectPropertyBase::StaticClass() ) )
 	{
-		Cmd.Type = REPCMD_PropertyObject;
+		Cmd.Type = ERepLayoutCmdType::PropertyObject;
 	}
 	else if ( UnderlyingProperty->IsA( UNameProperty::StaticClass() ) )
 	{
-		Cmd.Type = REPCMD_PropertyName;
+		Cmd.Type = ERepLayoutCmdType::PropertyName;
 	}
 	else if ( UnderlyingProperty->IsA( UUInt32Property::StaticClass() ) )
 	{
-		Cmd.Type = REPCMD_PropertyUInt32;
+		Cmd.Type = ERepLayoutCmdType::PropertyUInt32;
 	}
 	else if ( UnderlyingProperty->IsA( UUInt64Property::StaticClass() ) )
 	{
-		Cmd.Type = REPCMD_PropertyUInt64;
+		Cmd.Type = ERepLayoutCmdType::PropertyUInt64;
 	}
 	else if ( UnderlyingProperty->IsA( UStrProperty::StaticClass() ) )
 	{
-		Cmd.Type = REPCMD_PropertyString;
+		Cmd.Type = ERepLayoutCmdType::PropertyString;
 	}
 	else
 	{
 		UE_LOG( LogRep, VeryVerbose, TEXT( "AddPropertyCmd: Falling back to default type for property [%s]" ), *Cmd.Property->GetFullName() );
 	}
 
+	// Cannot write a shared version of a property that depends on per-connection data (the PackageMap).
+	// Includes object pointers and structs with custom NetSerialize functions (unless they opt in)
+	// Also skip writing the RemoteRole since it can be modified per connection in FObjectReplicator
+	if (Cmd.Property->SupportsNetSharedSerialization() && (Cmd.Property->GetFName() != NAME_RemoteRole))
+	{
+		Cmd.Flags |= ERepLayoutFlags::IsSharedSerialization;
+	}
+
 	return Cmd.CompatibleChecksum;
 }
 
-uint32 FRepLayout::AddArrayCmd( UArrayProperty * Property, int32 Offset, int32 RelativeHandle, int32 ParentIndex, uint32 ParentChecksum, int32 StaticArrayIndex )
+uint32 FRepLayout::AddArrayCmd( UArrayProperty * Property, int32 Offset, int32 RelativeHandle, int32 ParentIndex, uint32 ParentChecksum, int32 StaticArrayIndex, const UNetConnection* ServerConnection )
 {
 	const int32 Index = Cmds.AddZeroed();
 
 	FRepLayoutCmd & Cmd = Cmds[Index];
 
-	Cmd.Type				= REPCMD_DynamicArray;
+	Cmd.Type				= ERepLayoutCmdType::DynamicArray;
 	Cmd.Property			= Property;
 	Cmd.Offset				= Offset;
 	Cmd.ElementSize			= Property->Inner->ElementSize;
 	Cmd.RelativeHandle		= RelativeHandle;
 	Cmd.ParentIndex			= ParentIndex;
-	
-	Cmd.CompatibleChecksum	= FCrc::StrCrc32( *Property->GetName().ToLower(), ParentChecksum );								// Evolve checksum on name
-	Cmd.CompatibleChecksum	= FCrc::StrCrc32( *Property->GetCPPType( nullptr, 0 ).ToLower(), Cmd.CompatibleChecksum );		// Evolve by property type
-	Cmd.CompatibleChecksum	= FCrc::StrCrc32( *FString::Printf( TEXT( "%i" ), StaticArrayIndex ), Cmd.CompatibleChecksum );	// Evolve by StaticArrayIndex (to make all unrolled static array elements unique)
+	Cmd.CompatibleChecksum	= GetRepLayoutCmdCompatibleChecksum(Property, ServerConnection, StaticArrayIndex, ParentChecksum);
 
 	return Cmd.CompatibleChecksum;
 }
@@ -2856,10 +3013,10 @@ void FRepLayout::AddReturnCmd()
 	
 	FRepLayoutCmd & Cmd = Cmds[Index];
 
-	Cmd.Type = REPCMD_Return;
+	Cmd.Type = ERepLayoutCmdType::Return;
 }
 
-int32 FRepLayout::InitFromProperty_r( UProperty * Property, int32 Offset, int32 RelativeHandle, int32 ParentIndex, uint32 ParentChecksum, int32 StaticArrayIndex )
+int32 FRepLayout::InitFromProperty_r( UProperty * Property, int32 Offset, int32 RelativeHandle, int32 ParentIndex, uint32 ParentChecksum, int32 StaticArrayIndex, const UNetConnection* ServerConnection )
 {
 	UArrayProperty * ArrayProp = Cast< UArrayProperty >( Property );
 
@@ -2869,9 +3026,9 @@ int32 FRepLayout::InitFromProperty_r( UProperty * Property, int32 Offset, int32 
 
 		RelativeHandle++;
 
-		const uint32 ArrayChecksum = AddArrayCmd( ArrayProp, Offset + ArrayProp->GetOffset_ForGC(), RelativeHandle, ParentIndex, ParentChecksum, StaticArrayIndex );
+		const uint32 ArrayChecksum = AddArrayCmd( ArrayProp, Offset + ArrayProp->GetOffset_ForGC(), RelativeHandle, ParentIndex, ParentChecksum, StaticArrayIndex, ServerConnection );
 
-		InitFromProperty_r( ArrayProp->Inner, 0, 0, ParentIndex, ArrayChecksum, 0 );
+		InitFromProperty_r( ArrayProp->Inner, 0, 0, ParentIndex, ArrayChecksum, 0, ServerConnection );
 		
 		AddReturnCmd();
 
@@ -2895,7 +3052,7 @@ int32 FRepLayout::InitFromProperty_r( UProperty * Property, int32 Offset, int32 
 		if ( Struct->StructFlags & STRUCT_NetSerializeNative )
 		{
 			RelativeHandle++;
-			AddPropertyCmd( Property, Offset + Property->GetOffset_ForGC(), RelativeHandle, ParentIndex, ParentChecksum, StaticArrayIndex );
+			AddPropertyCmd( Property, Offset + Property->GetOffset_ForGC(), RelativeHandle, ParentIndex, ParentChecksum, StaticArrayIndex, ServerConnection );
 			return RelativeHandle;
 		}
 
@@ -2928,20 +3085,13 @@ int32 FRepLayout::InitFromProperty_r( UProperty * Property, int32 Offset, int32 
 
 		Sort( NetProperties.GetData(), NetProperties.Num(), FCompareUFieldOffsets() );
 
-		// Evolve checksum on struct name
-		uint32 StructChecksum = FCrc::StrCrc32( *Property->GetName().ToLower(), ParentChecksum );
-
-		// Evolve by property type
-		StructChecksum = FCrc::StrCrc32( *Property->GetCPPType( nullptr, 0 ).ToLower(), StructChecksum );
-
-		// Evolve by StaticArrayIndex (to make all unrolled static array elements unique)
-		StructChecksum = FCrc::StrCrc32( *FString::Printf( TEXT( "%i" ), StaticArrayIndex ), StructChecksum );
+		const uint32 StructChecksum = GetRepLayoutCmdCompatibleChecksum(Property, ServerConnection, StaticArrayIndex, ParentChecksum);
 
 		for ( int32 i = 0; i < NetProperties.Num(); i++ )
 		{
 			for ( int32 j = 0; j < NetProperties[i]->ArrayDim; j++ )
 			{
-				RelativeHandle = InitFromProperty_r( NetProperties[i], Offset + StructProp->GetOffset_ForGC() + j * NetProperties[i]->ElementSize, RelativeHandle, ParentIndex, StructChecksum, j );
+				RelativeHandle = InitFromProperty_r( NetProperties[i], Offset + StructProp->GetOffset_ForGC() + j * NetProperties[i]->ElementSize, RelativeHandle, ParentIndex, StructChecksum, j, ServerConnection );
 			}
 		}
 		return RelativeHandle;
@@ -2950,7 +3100,7 @@ int32 FRepLayout::InitFromProperty_r( UProperty * Property, int32 Offset, int32 
 	// Add actual property
 	RelativeHandle++;
 
-	AddPropertyCmd( Property, Offset + Property->GetOffset_ForGC(), RelativeHandle, ParentIndex, ParentChecksum, StaticArrayIndex );
+	AddPropertyCmd( Property, Offset + Property->GetOffset_ForGC(), RelativeHandle, ParentIndex, ParentChecksum, StaticArrayIndex, ServerConnection );
 
 	return RelativeHandle;
 }
@@ -2960,8 +3110,11 @@ uint16 FRepLayout::AddParentProperty( UProperty * Property, int32 ArrayIndex )
 	return Parents.Add( FRepParentCmd( Property, ArrayIndex ) );
 }
 
-void FRepLayout::InitFromObjectClass( UClass * InObjectClass )
+void FRepLayout::InitFromObjectClass( UClass * InObjectClass, const UNetConnection* ServerConnection )
 {
+	SCOPE_CYCLE_COUNTER(STAT_RepLayout_InitFromObjectClass);
+	SCOPE_CYCLE_UOBJECT(ObjectClass, InObjectClass);
+
 	RoleIndex				= -1;
 	RemoteRoleIndex			= -1;
 	FirstNonCustomParent	= -1;
@@ -2986,9 +3139,9 @@ void FRepLayout::InitFromObjectClass( UClass * InObjectClass )
 		check( Parents[i].Property->RepIndex + Parents[i].ArrayIndex == i );
 
 		Parents[ParentHandle].CmdStart = Cmds.Num();
-		RelativeHandle = InitFromProperty_r( Property, Property->ElementSize * ArrayIdx, RelativeHandle, ParentHandle, 0, ArrayIdx );
+		RelativeHandle = InitFromProperty_r( Property, Property->ElementSize * ArrayIdx, RelativeHandle, ParentHandle, 0, ArrayIdx, ServerConnection );
 		Parents[ParentHandle].CmdEnd = Cmds.Num();
-		Parents[ParentHandle].Flags |= PARENT_IsConditional;
+		Parents[ParentHandle].Flags |= ERepParentFlags::IsConditional;
 
 		if ( Parents[i].CmdEnd > Parents[i].CmdStart )
 		{
@@ -2999,16 +3152,16 @@ void FRepLayout::InitFromObjectClass( UClass * InObjectClass )
 		// Setup flags
 		if ( IsCustomDeltaProperty( Property ) )
 		{
-			Parents[ParentHandle].Flags |= PARENT_IsCustomDelta;
+			Parents[ParentHandle].Flags |= ERepParentFlags::IsCustomDelta;
 		}
 
 		if ( Property->GetPropertyFlags() & CPF_Config )
 		{
-			Parents[ParentHandle].Flags |= PARENT_IsConfig;
+			Parents[ParentHandle].Flags |= ERepParentFlags::IsConfig;
 		}
 
 		// Hijack the first non custom property for identifying this as a rep layout block
-		if ( FirstNonCustomParent == -1 && Property->ArrayDim == 1 && ( Parents[ParentHandle].Flags & PARENT_IsCustomDelta ) == 0 )
+		if ( FirstNonCustomParent == -1 && Property->ArrayDim == 1 && ((Parents[ParentHandle].Flags & ERepParentFlags::IsCustomDelta) == ERepParentFlags::None) )
 		{
 			FirstNonCustomParent = ParentHandle;
 		}
@@ -3055,12 +3208,12 @@ void FRepLayout::InitFromObjectClass( UClass * InObjectClass )
 		Parents[LifetimeProps[i].RepIndex].Condition			= LifetimeProps[i].Condition;
 		Parents[LifetimeProps[i].RepIndex].RepNotifyCondition	= LifetimeProps[i].RepNotifyCondition;
 
-		if ( Parents[LifetimeProps[i].RepIndex].Flags & PARENT_IsCustomDelta )
+		if ( (Parents[LifetimeProps[i].RepIndex].Flags & ERepParentFlags::IsCustomDelta) != ERepParentFlags::None )
 		{
 			continue;		// We don't handle custom properties in the FRepLayout class
 		}
 
-		Parents[LifetimeProps[i].RepIndex].Flags |= PARENT_IsLifetime;
+		Parents[LifetimeProps[i].RepIndex].Flags |= ERepParentFlags::IsLifetime;
 
 		if ( LifetimeProps[i].RepIndex == RemoteRoleIndex )
 		{
@@ -3073,7 +3226,7 @@ void FRepLayout::InitFromObjectClass( UClass * InObjectClass )
 
 		if ( LifetimeProps[i].Condition == COND_None )
 		{
-			Parents[LifetimeProps[i].RepIndex].Flags &= ~PARENT_IsConditional;
+			Parents[LifetimeProps[i].RepIndex].Flags &= ~ERepParentFlags::IsConditional;
 		}			
 	}
 
@@ -3082,7 +3235,7 @@ void FRepLayout::InitFromObjectClass( UClass * InObjectClass )
 	Owner = InObjectClass;
 }
 
-void FRepLayout::InitFromFunction( UFunction * InFunction )
+void FRepLayout::InitFromFunction( UFunction * InFunction, const UNetConnection* ServerConnection )
 {
 	int32 RelativeHandle = 0;
 
@@ -3092,7 +3245,7 @@ void FRepLayout::InitFromFunction( UFunction * InFunction )
 		{
 			const int32 ParentHandle = AddParentProperty( *It, ArrayIdx );
 			Parents[ParentHandle].CmdStart = Cmds.Num();
-			RelativeHandle = InitFromProperty_r( *It, It->ElementSize * ArrayIdx, RelativeHandle, ParentHandle, 0, ArrayIdx );
+			RelativeHandle = InitFromProperty_r( *It, It->ElementSize * ArrayIdx, RelativeHandle, ParentHandle, 0, ArrayIdx, ServerConnection );
 			Parents[ParentHandle].CmdEnd = Cmds.Num();
 		}
 	}
@@ -3104,7 +3257,7 @@ void FRepLayout::InitFromFunction( UFunction * InFunction )
 	Owner = InFunction;
 }
 
-void FRepLayout::InitFromStruct( UStruct * InStruct )
+void FRepLayout::InitFromStruct( UStruct * InStruct, const UNetConnection* ServerConnection )
 {
 	int32 RelativeHandle = 0;
 
@@ -3119,7 +3272,7 @@ void FRepLayout::InitFromStruct( UStruct * InStruct )
 		{
 			const int32 ParentHandle = AddParentProperty( *It, ArrayIdx );
 			Parents[ParentHandle].CmdStart = Cmds.Num();
-			RelativeHandle = InitFromProperty_r( *It, It->ElementSize * ArrayIdx, RelativeHandle, ParentHandle, 0, ArrayIdx );
+			RelativeHandle = InitFromProperty_r( *It, It->ElementSize * ArrayIdx, RelativeHandle, ParentHandle, 0, ArrayIdx, ServerConnection );
 			Parents[ParentHandle].CmdEnd = Cmds.Num();
 		}
 	}
@@ -3132,11 +3285,13 @@ void FRepLayout::InitFromStruct( UStruct * InStruct )
 }
 
 void FRepLayout::SerializeProperties_DynamicArray_r( 
-	FArchive &			Ar, 
+	FBitArchive &		Ar, 
 	UPackageMap	*		Map,
 	const int32			CmdIndex,
 	uint8 *				Data,
-	bool &				bHasUnmapped ) const
+	bool &				bHasUnmapped,
+	const int32			ArrayDepth,
+	const FRepSerializationSharedInfo&	SharedInfo ) const
 {
 	const FRepLayoutCmd& Cmd = Cmds[ CmdIndex ];
 
@@ -3180,28 +3335,31 @@ void FRepLayout::SerializeProperties_DynamicArray_r(
 
 		for (int32 i = 0; i < Array->Num() && !Ar.IsError(); i++)
 		{
-			SerializeProperties_r(Ar, Map, CmdIndex + 1, Cmd.EndCmd - 1, Data + i * Cmd.ElementSize, bHasUnmapped);
+			SerializeProperties_r(Ar, Map, CmdIndex + 1, Cmd.EndCmd - 1, Data + i * Cmd.ElementSize, bHasUnmapped, i, ArrayDepth, SharedInfo);
 		}
 	}	
 }
 
 void FRepLayout::SerializeProperties_r( 
-	FArchive &			Ar, 
+	FBitArchive &		Ar, 
 	UPackageMap	*		Map,
 	const int32			CmdStart, 
 	const int32			CmdEnd,
 	void *				Data,
-	bool &				bHasUnmapped ) const
+	bool &				bHasUnmapped,
+	const int32			ArrayIndex,
+	const int32			ArrayDepth,
+	const FRepSerializationSharedInfo&	SharedInfo ) const
 {
 	for ( int32 CmdIndex = CmdStart; CmdIndex < CmdEnd && !Ar.IsError(); CmdIndex++ )
 	{
 		const FRepLayoutCmd& Cmd = Cmds[CmdIndex];
 
-		check( Cmd.Type != REPCMD_Return );
+		check( Cmd.Type != ERepLayoutCmdType::Return );
 
-		if ( Cmd.Type == REPCMD_DynamicArray )
+		if ( Cmd.Type == ERepLayoutCmdType::DynamicArray )
 		{
-			SerializeProperties_DynamicArray_r( Ar, Map, CmdIndex, (uint8*)Data + Cmd.Offset, bHasUnmapped );
+			SerializeProperties_DynamicArray_r( Ar, Map, CmdIndex, (uint8*)Data + Cmd.Offset, bHasUnmapped, ArrayDepth + 1, SharedInfo );
 			CmdIndex = Cmd.EndCmd - 1;		// The -1 to handle the ++ in the for loop
 			continue;
 		}
@@ -3213,9 +3371,57 @@ void FRepLayout::SerializeProperties_r(
 		}
 #endif
 
-		if ( !Cmd.Property->NetSerializeItem( Ar, Map, (void*)( (uint8*)Data + Cmd.Offset ) ) )
+		const FRepSerializedPropertyInfo* SharedPropInfo = nullptr;
+
+		if ((CVarNetShareSerializedData->GetInt() != 0) && Ar.IsSaving() && ((Cmd.Flags & ERepLayoutFlags::IsSharedSerialization) != ERepLayoutFlags::None))
 		{
-			bHasUnmapped = true;
+			FGuid PropertyGuid(CmdIndex, ArrayIndex, ArrayDepth, (int32)((PTRINT)((uint8*)Data + Cmd.Offset) & 0xFFFFFFFF));
+
+			SharedPropInfo = SharedInfo.SharedPropertyInfo.FindByPredicate([&](const FRepSerializedPropertyInfo& Info) 
+			{ 
+				return (Info.Guid == PropertyGuid); 
+			});
+		}
+
+		// Use shared serialization state if it exists
+		// Not concerned with unmapped guids because object references can't be shared
+		if (SharedPropInfo)
+		{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+			if (CVarNetVerifyShareSerializedData->GetInt() != 0 && Ar.IsSaving())
+			{
+				FBitWriter& Writer = static_cast<FBitWriter&>(Ar);
+
+				FBitWriterMark BitWriterMark(Writer);
+
+				Cmd.Property->NetSerializeItem( Writer, Map, (void*)( (uint8*)Data + Cmd.Offset ) );
+
+				TArray<uint8> StandardBuffer;
+				BitWriterMark.Copy(Writer, StandardBuffer);
+				BitWriterMark.Pop(Writer);
+
+				Writer.SerializeBitsWithOffset(SharedInfo.SerializedProperties->GetData(), SharedPropInfo->PropBitOffset, SharedPropInfo->PropBitLength);
+
+				TArray<uint8> SharedBuffer;
+				BitWriterMark.Copy(Writer, SharedBuffer);
+
+				if (StandardBuffer != SharedBuffer)
+				{
+					UE_LOG(LogRep, Error, TEXT("Shared serialization data mismatch!"));
+				}
+			}
+			else
+#endif
+			{
+				Ar.SerializeBitsWithOffset(SharedInfo.SerializedProperties->GetData(), SharedPropInfo->PropBitOffset, SharedPropInfo->PropBitLength);
+			}
+		}
+		else
+		{
+			if ( !Cmd.Property->NetSerializeItem( Ar, Map, (void*)( (uint8*)Data + Cmd.Offset ) ) )
+			{
+				bHasUnmapped = true;
+			}
 		}
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -3233,9 +3439,9 @@ void FRepLayout::BuildChangeList_r( const TArray< FHandleToCmdIndex >& HandleToC
 	{
 		const FRepLayoutCmd& Cmd = Cmds[CmdIndex];
 
-		check( Cmd.Type != REPCMD_Return );
+		check( Cmd.Type != ERepLayoutCmdType::Return );
 
-		if ( Cmd.Type == REPCMD_DynamicArray )
+		if ( Cmd.Type == ERepLayoutCmdType::DynamicArray )
 		{			
 			FScriptArray* Array = ( FScriptArray * )( Data + Cmd.Offset );
 
@@ -3270,6 +3476,153 @@ void FRepLayout::BuildChangeList_r( const TArray< FHandleToCmdIndex >& HandleToC
 	}
 }
 
+
+void FRepLayout::BuildSharedSerialization(
+	const uint8* RESTRICT		Data,
+	TArray< uint16 >&			Changed,
+	const bool					bWriteHandle,
+	FRepSerializationSharedInfo& SharedInfo) const
+{
+#ifdef ENABLE_PROPERTY_CHECKSUMS
+	const bool bDoChecksum = CVarDoPropertyChecksum.GetValueOnAnyThread() == 1;
+#else
+	const bool bDoChecksum = false;
+#endif
+
+	FChangelistIterator ChangelistIterator( Changed, 0 );
+	FRepHandleIterator HandleIterator( ChangelistIterator, Cmds, BaseHandleToCmdIndex, 0, 1, 0, Cmds.Num() - 1 );
+
+	BuildSharedSerialization_r( HandleIterator, ( uint8* )Data, bWriteHandle, bDoChecksum, 0, SharedInfo );
+
+	SharedInfo.SetValid();
+}
+
+void FRepLayout::BuildSharedSerialization_r(
+	FRepHandleIterator&		HandleIterator,
+	const uint8* RESTRICT	SourceData,
+	const bool				bWriteHandle,
+	const bool				bDoChecksum,
+	const int32				ArrayDepth,
+	FRepSerializationSharedInfo& SharedInfo ) const
+{
+	while ( HandleIterator.NextHandle() )
+	{
+		const int32 CmdIndex	= HandleIterator.CmdIndex;
+		const int32 ArrayOffset = HandleIterator.ArrayOffset;
+
+		const FRepLayoutCmd& Cmd = Cmds[CmdIndex];
+		const FRepParentCmd& ParentCmd = Parents[Cmd.ParentIndex];
+
+		const uint8* Data = SourceData + ArrayOffset + Cmd.Offset;
+
+		if ( Cmd.Type == ERepLayoutCmdType::DynamicArray )
+		{
+			const FScriptArray* Array = ( FScriptArray * )Data;
+			const uint8* NewData = ( uint8* )Array->GetData();
+
+			FScopedIteratorArrayTracker ArrayTracker( &HandleIterator );
+
+			TArray< FHandleToCmdIndex >& ArrayHandleToCmdIndex = *HandleIterator.HandleToCmdIndex[Cmd.RelativeHandle - 1].HandleToCmdIndex;
+
+			FRepHandleIterator ArrayIterator( HandleIterator.ChangelistIterator, Cmds, ArrayHandleToCmdIndex, Cmd.ElementSize, Array->Num(), CmdIndex + 1, Cmd.EndCmd - 1 );
+			BuildSharedSerialization_r( ArrayIterator, NewData, bWriteHandle, bDoChecksum, ArrayDepth + 1, SharedInfo );
+			continue;
+		}
+
+		if ((Cmd.Flags & ERepLayoutFlags::IsSharedSerialization) != ERepLayoutFlags::None)
+		{
+			SharedInfo.WriteSharedProperty(Cmd, FGuid(HandleIterator.CmdIndex, HandleIterator.ArrayIndex, ArrayDepth, (int32)((PTRINT)Data & 0xFFFFFFFF)), HandleIterator.CmdIndex, HandleIterator.Handle, Data, bWriteHandle, bDoChecksum);
+		}
+	}
+}
+
+void FRepLayout::BuildSharedSerializationForRPC_DynamicArray_r(const int32 CmdIndex, uint8 * Data, int32 ArrayDepth, FRepSerializationSharedInfo& SharedInfo)
+{
+	const FRepLayoutCmd& Cmd = Cmds[ CmdIndex ];
+
+	FScriptArray * Array = (FScriptArray *)Data;	
+	const int32 ArrayNum = Array->Num();
+
+	// Validate the maximum number of elements.
+	if (ArrayNum > MaxRepArraySize)
+	{
+		return;
+	}
+	// Validate the maximum memory.
+	else if (ArrayNum * (int32)Cmd.ElementSize > MaxRepArrayMemory)
+	{
+		return;
+	}
+
+	Data = (uint8*)Array->GetData();
+
+	for (int32 i = 0; i < ArrayNum; i++)
+	{
+		BuildSharedSerializationForRPC_r(CmdIndex + 1, Cmd.EndCmd - 1, Data + i * Cmd.ElementSize, i, ArrayDepth, SharedInfo);
+	}
+}
+
+void FRepLayout::BuildSharedSerializationForRPC_r(const int32 CmdStart, const int32 CmdEnd, void * Data, int32 ArrayIndex, int32 ArrayDepth, FRepSerializationSharedInfo& SharedInfo)
+{
+	for ( int32 CmdIndex = CmdStart; CmdIndex < CmdEnd; CmdIndex++ )
+	{
+		const FRepLayoutCmd& Cmd = Cmds[CmdIndex];
+
+		check( Cmd.Type != ERepLayoutCmdType::Return );
+
+		if ( Cmd.Type == ERepLayoutCmdType::DynamicArray )
+		{
+			BuildSharedSerializationForRPC_DynamicArray_r( CmdIndex, (uint8*)Data + Cmd.Offset, ArrayDepth + 1, SharedInfo );
+			CmdIndex = Cmd.EndCmd - 1;		// The -1 to handle the ++ in the for loop
+			continue;
+		}
+
+		if (!Parents[Cmd.ParentIndex].Property->HasAnyPropertyFlags(CPF_OutParm) && ((Cmd.Flags & ERepLayoutFlags::IsSharedSerialization) != ERepLayoutFlags::None))
+		{
+			FGuid PropertyGuid(CmdIndex, ArrayIndex, ArrayDepth, (int32)((PTRINT)((uint8*)Data + Cmd.Offset) & 0xFFFFFFFF));
+
+			SharedInfo.WriteSharedProperty(Cmd, PropertyGuid, CmdIndex, 0, (uint8*)Data + Cmd.Offset, false, false);
+		}
+	}
+}
+
+void FRepLayout::BuildSharedSerializationForRPC( void* Data )
+{
+	if (CVarNetShareSerializedData->GetInt() != 0 && !SharedInfoRPC.IsValid())
+	{
+		SharedInfoRPCParentsChanged.Init(false, Parents.Num());
+
+		for ( int32 i = 0; i < Parents.Num(); i++ )
+		{
+			bool bSend = true;
+
+			if ( !Cast<UBoolProperty>( Parents[i].Property ) )
+			{
+				// check for a complete match, including arrays
+				// (we're comparing against zero data here, since 
+				// that's the default.)
+				bSend = !Parents[i].Property->Identical_InContainer( Data, nullptr, Parents[i].ArrayIndex );
+			}
+
+			if ( bSend )
+			{
+				// Cache result of property comparison to default so we only have to do it once
+				SharedInfoRPCParentsChanged[i] = true;
+
+				BuildSharedSerializationForRPC_r(Parents[i].CmdStart, Parents[i].CmdEnd, Data, 0, 0, SharedInfoRPC);
+			}
+		}
+
+		SharedInfoRPC.SetValid();
+	}
+}
+
+void FRepLayout::ClearSharedSerializationForRPC()
+{
+	SharedInfoRPC.Reset();
+	SharedInfoRPCParentsChanged.Reset();
+}
+
 void FRepLayout::SendPropertiesForRPC( UObject* Object, UFunction * Function, UActorChannel * Channel, FNetBitWriter & Writer, void* Data ) const
 {
 	check( Function == Owner );
@@ -3299,10 +3652,18 @@ void FRepLayout::SendPropertiesForRPC( UObject* Object, UFunction * Function, UA
 
 		if ( !Cast<UBoolProperty>( Parents[i].Property ) )
 		{
-			// check for a complete match, including arrays
-			// (we're comparing against zero data here, since 
-			// that's the default.)
-			Send = !Parents[i].Property->Identical_InContainer( Data, NULL, Parents[i].ArrayIndex );
+			// Used cached comparison result if possible
+			if (CVarNetShareSerializedData->GetInt() != 0 && SharedInfoRPC.IsValid())
+			{
+				Send = SharedInfoRPCParentsChanged[i];
+			}
+			else
+			{
+				// check for a complete match, including arrays
+				// (we're comparing against zero data here, since 
+				// that's the default.)
+				Send = !Parents[i].Property->Identical_InContainer( Data, NULL, Parents[i].ArrayIndex );
+			}
 
 			Writer.WriteBit( Send ? 1 : 0 );
 		}
@@ -3310,7 +3671,7 @@ void FRepLayout::SendPropertiesForRPC( UObject* Object, UFunction * Function, UA
 		if ( Send )
 		{
 			bool bHasUnmapped = false;
-			SerializeProperties_r( Writer, Writer.PackageMap, Parents[i].CmdStart, Parents[i].CmdEnd, Data, bHasUnmapped );
+			SerializeProperties_r( Writer, Writer.PackageMap, Parents[i].CmdStart, Parents[i].CmdEnd, Data, bHasUnmapped, 0, 0, SharedInfoRPC );
 		}
 	}
 }
@@ -3357,13 +3718,15 @@ void FRepLayout::ReceivePropertiesForRPC( UObject* Object, UFunction * Function,
 	{
 		Reader.PackageMap->ResetTrackedGuids(true);
 
+		static FRepSerializationSharedInfo Empty;
+
 		for ( int32 i = 0; i < Parents.Num(); i++ )
 		{
 			if ( Cast<UBoolProperty>( Parents[i].Property ) || Reader.ReadBit() )
 			{
 				bool bHasUnmapped = false;
 
-				SerializeProperties_r( Reader, Reader.PackageMap, Parents[i].CmdStart, Parents[i].CmdEnd, Data, bHasUnmapped );
+				SerializeProperties_r( Reader, Reader.PackageMap, Parents[i].CmdStart, Parents[i].CmdEnd, Data, bHasUnmapped, 0, 0, Empty );
 
 				if ( Reader.IsError() )
 				{
@@ -3387,13 +3750,15 @@ void FRepLayout::ReceivePropertiesForRPC( UObject* Object, UFunction * Function,
 	}
 }
 
-void FRepLayout::SerializePropertiesForStruct( UStruct * Struct, FArchive & Ar, UPackageMap	* Map, void* Data, bool & bHasUnmapped ) const
+void FRepLayout::SerializePropertiesForStruct( UStruct * Struct, FBitArchive & Ar, UPackageMap	* Map, void* Data, bool & bHasUnmapped ) const
 {
 	check( Struct == Owner );
 
+	static FRepSerializationSharedInfo Empty;
+
 	for ( int32 i = 0; i < Parents.Num(); i++ )
 	{
-		SerializeProperties_r( Ar, Map, Parents[i].CmdStart, Parents[i].CmdEnd, Data, bHasUnmapped );
+		SerializeProperties_r( Ar, Map, Parents[i].CmdStart, Parents[i].CmdEnd, Data, bHasUnmapped, 0, 0, Empty );
 
 		if ( Ar.IsError() )
 		{
@@ -3408,11 +3773,11 @@ void FRepLayout::BuildHandleToCmdIndexTable_r( const int32 CmdStart, const int32
 	{
 		const FRepLayoutCmd& Cmd = Cmds[CmdIndex];
 
-		check( Cmd.Type != REPCMD_Return );
+		check( Cmd.Type != ERepLayoutCmdType::Return );
 
 		const int32 Index = HandleToCmdIndex.Add( FHandleToCmdIndex( CmdIndex ) );
 
-		if ( Cmd.Type == REPCMD_DynamicArray )
+		if ( Cmd.Type == ERepLayoutCmdType::DynamicArray )
 		{
 			HandleToCmdIndex[Index].HandleToCmdIndex = TUniquePtr< TArray< FHandleToCmdIndex > >( new TArray< FHandleToCmdIndex >() );
 
@@ -3464,7 +3829,7 @@ void FRepLayout::InitChangedTracker(FRepChangedPropertyTracker * ChangedTracker)
 
 	for (int32 i = 0; i < Parents.Num(); i++)
 	{
-		ChangedTracker->Parents[i].IsConditional = (Parents[i].Flags & PARENT_IsConditional) ? 1 : 0;
+		ChangedTracker->Parents[i].IsConditional = ((Parents[i].Flags & ERepParentFlags::IsConditional) != ERepParentFlags::None) ? 1 : 0;
 	}
 }
 
@@ -3565,7 +3930,7 @@ void FRepLayout::GetLifetimeCustomDeltaProperties(TArray< int32 > & OutCustom, T
 
 	for ( int32 i = 0; i < Parents.Num(); i++ )
 	{
-		if ( Parents[i].Flags & PARENT_IsCustomDelta )
+		if ( (Parents[i].Flags & ERepParentFlags::IsCustomDelta) != ERepParentFlags::None )
 		{
 			check( Parents[i].Property->RepIndex + Parents[i].ArrayIndex == i );
 

@@ -32,12 +32,18 @@
 #include "Linux/OpenGLLinux.h"
 #endif
 
+// Define here so don't have to do platform filtering
+#ifndef GL_TEXTURE_EXTERNAL_OES
+#define GL_TEXTURE_EXTERNAL_OES 0x8D65
+#endif
+
 #define OPENGL_USE_BINDABLE_UNIFORMS 0
 #define OPENGL_USE_BLIT_FOR_BACK_BUFFER 1
 
 // OpenGL RHI public headers.
 #include "OpenGLUtil.h"
 #include "OpenGLState.h"
+#include "RenderUtils.h"
 
 #define FOpenGLCachedUniformBuffer_Invalid 0xFFFFFFFF
 
@@ -288,7 +294,7 @@ struct FOpenGLGPUProfiler : public FGPUProfiler
 
 
 /** The interface which is implemented by the dynamically bound RHI. */
-class OPENGLDRV_API FOpenGLDynamicRHI : public FDynamicRHI, public IRHICommandContext
+class OPENGLDRV_API FOpenGLDynamicRHI  final : public FDynamicRHI, public IRHICommandContext
 {
 public:
 
@@ -305,6 +311,8 @@ public:
 
 	// FDynamicRHI interface.
 	virtual void Init();
+	virtual void PostInit();
+
 	virtual void Shutdown();
 	virtual const TCHAR* GetName() override { return TEXT("OpenGL"); }
 
@@ -314,7 +322,6 @@ public:
 		return static_cast<typename TOpenGLResourceTraits<TRHIType>::TConcreteType*>(Resource);
 	}
 
-	virtual FSamplerStateRHIRef RHICreateSamplerState(const FSamplerStateInitializerRHI& Initializer) final override;
 	virtual FRasterizerStateRHIRef RHICreateRasterizerState(const FRasterizerStateInitializerRHI& Initializer) final override;
 	virtual FDepthStencilStateRHIRef RHICreateDepthStencilState(const FDepthStencilStateInitializerRHI& Initializer) final override;
 	virtual FBlendStateRHIRef RHICreateBlendState(const FBlendStateInitializerRHI& Initializer) final override;
@@ -326,7 +333,6 @@ public:
 	virtual FGeometryShaderRHIRef RHICreateGeometryShader(const TArray<uint8>& Code) final override;
 	virtual FGeometryShaderRHIRef RHICreateGeometryShaderWithStreamOutput(const TArray<uint8>& Code, const FStreamOutElementList& ElementList, uint32 NumStrides, const uint32* Strides, int32 RasterizedStream) final override;
 	virtual FComputeShaderRHIRef RHICreateComputeShader(const TArray<uint8>& Code) final override;
-	virtual FBoundShaderStateRHIRef RHICreateBoundShaderState(FVertexDeclarationRHIParamRef VertexDeclaration, FVertexShaderRHIParamRef VertexShader, FHullShaderRHIParamRef HullShader, FDomainShaderRHIParamRef DomainShader, FPixelShaderRHIParamRef PixelShader, FGeometryShaderRHIParamRef GeometryShader) final override;
 	virtual FUniformBufferRHIRef RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage) final override;
 	virtual FIndexBufferRHIRef RHICreateIndexBuffer(uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo) final override;
 	virtual void* RHILockIndexBuffer(FIndexBufferRHIParamRef IndexBuffer, uint32 Offset, uint32 Size, EResourceLockMode LockMode) final override;
@@ -545,7 +551,7 @@ public:
 	void CachedBindUniformBuffer( FOpenGLContextState& ContextState, GLuint Buffer )
 	{
 		VERIFY_GL_SCOPE();
-		check(IsInRenderingThread());
+		check(IsInRenderingThread()||IsInRHIThread());
 		if( ContextState.UniformBufferBound != Buffer )
 		{
 			glBindBuffer( GL_UNIFORM_BUFFER, Buffer );
@@ -567,11 +573,498 @@ public:
 	/** Inform all queries about the need to recreate themselves after OpenGL context they're in gets deleted. */
 	void InvalidateQueries();
 
+	void BeginRenderQuery_OnThisThread(FOpenGLRenderQuery* Query);
+	void EndRenderQuery_OnThisThread(FOpenGLRenderQuery* Query);
+	void GetRenderQueryResult_OnThisThread(FOpenGLRenderQuery* Query, bool bWait);
+
+
+
 	FOpenGLSamplerState* GetPointSamplerState() const { return (FOpenGLSamplerState*)PointSamplerState.GetReference(); }
 
 	FRHITexture* CreateOpenGLTexture(uint32 SizeX, uint32 SizeY, bool CubeTexture, bool ArrayTexture, bool bIsExternal, uint8 Format, uint32 NumMips, uint32 NumSamples, uint32 ArraySize, uint32 Flags, const FClearValueBinding& InClearValue, FResourceBulkDataInterface* BulkData = NULL);
+	
+	FRHITexture* CreateOpenGLRHITextureOnly(const uint32 SizeX, const uint32 SizeY, const bool bCubeTexture, const bool bArrayTexture, const bool bIsExternal, uint8& Format, uint32& NumMips, uint32& NumSamples, const uint32 ArraySize, uint32& Flags, const FClearValueBinding& InClearValue, FResourceBulkDataInterface* BulkData = nullptr);
+	void InitializeGLTexture(FRHITexture* Texture, uint32 SizeX, const uint32 SizeY, const bool bCubeTexture, const bool bArrayTexture, const bool bIsExternal, const uint8 Format, const uint32 NumMips, const uint32 NumSamples, const uint32 ArraySize, const uint32 Flags, const FClearValueBinding& InClearValue, FResourceBulkDataInterface* BulkData = nullptr);
 
 	void SetCustomPresent(class FRHICustomPresent* InCustomPresent);
+
+#define RHITHREAD_GLTRACE 1
+#if RHITHREAD_GLTRACE 
+	#define RHITHREAD_GLTRACE_BLOCKING QUICK_SCOPE_CYCLE_COUNTER(STAT_OGLRHIThread_Flush);
+#else
+	#define RHITHREAD_GLTRACE_BLOCKING 
+#endif
+#define RHITHREAD_GLCOMMAND_PROLOGUE() auto GLCommand= [&]() {
+
+#define RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(x) };\
+		if (RHICmdList.Bypass() ||  !IsRunningRHIInSeparateThread() || IsInRHIThread())\
+		{\
+			return GLCommand();\
+		}\
+		else\
+		{\
+			x ReturnValue = (x)0;\
+			new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([&ReturnValue, GLCommand = MoveTemp(GLCommand)]() { ReturnValue = GLCommand(); }); \
+			RHITHREAD_GLTRACE_BLOCKING;\
+			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);\
+			return ReturnValue;\
+		}\
+
+#define RHITHREAD_GLCOMMAND_EPILOGUE_GET_RETURN(x) };\
+		x ReturnValue = (x)0;\
+		if (RHICmdList.Bypass() ||  !IsRunningRHIInSeparateThread())\
+		{\
+			ReturnValue = GLCommand();\
+		}\
+		else\
+		{\
+			new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([&ReturnValue, GLCommand = MoveTemp(GLCommand)]() { ReturnValue = GLCommand(); }); \
+			RHITHREAD_GLTRACE_BLOCKING;\
+			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);\
+		}\
+
+
+#define RHITHREAD_GLCOMMAND_EPILOGUE() };\
+		if (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())\
+		{\
+			return GLCommand();\
+		}\
+		else\
+		{\
+			new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand( GLCommand ); \
+			RHITHREAD_GLTRACE_BLOCKING;\
+			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);\
+		}\
+
+	struct FTextureLockTracker
+	{
+		struct FLockParams
+		{
+			void* RHIBuffer;
+			void* Buffer;
+			uint32 MipIndex;
+			uint32 BufferSize;
+			uint32 Stride;
+			EResourceLockMode LockMode;
+
+			FORCEINLINE_DEBUGGABLE FLockParams(void* InRHIBuffer, void* InBuffer, uint32 InMipIndex, uint32 InStride, uint32 InBufferSize, EResourceLockMode InLockMode)
+				: RHIBuffer(InRHIBuffer)
+				, Buffer(InBuffer)
+				, MipIndex(InMipIndex)
+				, BufferSize(InBufferSize)
+				, Stride(InStride)
+				, LockMode(InLockMode)
+			{
+			}
+		};
+		TArray<FLockParams, TInlineAllocator<16> > OutstandingLocks;
+		uint32 TotalMemoryOutstanding;
+
+		FTextureLockTracker()
+		{
+			TotalMemoryOutstanding = 0;
+		}
+
+		FORCEINLINE_DEBUGGABLE void Lock(void* RHIBuffer, void* Buffer, uint32 MipIndex, uint32 Stride, uint32 SizeRHI, EResourceLockMode LockMode)
+		{
+//#if DO_CHECK
+			for (auto& Parms : OutstandingLocks)
+			{
+				check(Parms.RHIBuffer != RHIBuffer || Parms.MipIndex != MipIndex);
+			}
+//#endif
+			OutstandingLocks.Add(FLockParams(RHIBuffer, Buffer, MipIndex, Stride, SizeRHI, LockMode));
+			TotalMemoryOutstanding += SizeRHI;
+		}
+
+		FORCEINLINE_DEBUGGABLE FLockParams Unlock(void* RHIBuffer, uint32 MipIndex)
+		{
+			for (int32 Index = 0; Index < OutstandingLocks.Num(); Index++)
+			{
+				FLockParams& CurrentLock = OutstandingLocks[Index];
+				if (CurrentLock.RHIBuffer == RHIBuffer && CurrentLock.MipIndex == MipIndex)
+				{
+					FLockParams Result = OutstandingLocks[Index];
+					OutstandingLocks.RemoveAtSwap(Index, 1, false);
+					TotalMemoryOutstanding -= Result.BufferSize;
+					return Result;
+				}
+			}
+			check(!"Mismatched RHI buffer locks.");
+			return FLockParams(nullptr, nullptr, 0, 0, 0, RLM_WriteOnly);
+		}
+	};
+
+	virtual void* LockTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture, uint32 MipIndex, EResourceLockMode LockMode, uint32& DestStride, bool bLockWithinMiptail, bool bNeedsDefaultRHIFlush)
+	{
+		check(IsInRenderingThread());
+		static auto* CVarRHICmdBufferWriteLocks = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.RHICmdBufferWriteLocks")); 
+		bool bBuffer = CVarRHICmdBufferWriteLocks->GetValueOnRenderThread() > 0;
+		void* Result;
+		uint32 MipBytes = 0;
+		if (!bBuffer || LockMode != RLM_WriteOnly || RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
+		{
+			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+			Result = this->RHILockTexture2D(Texture, MipIndex, LockMode, DestStride, bLockWithinMiptail);
+		}
+		else
+		{
+			// Calculate the dimensions of the mip-map.
+			EPixelFormat PixelFormat = Texture->GetFormat();
+			const uint32 BlockSizeX = GPixelFormats[PixelFormat].BlockSizeX;
+			const uint32 BlockSizeY = GPixelFormats[PixelFormat].BlockSizeY;
+			const uint32 BlockBytes = GPixelFormats[PixelFormat].BlockBytes;
+			const uint32 MipSizeX = FMath::Max(Texture->GetSizeX() >> MipIndex, BlockSizeX);
+			const uint32 MipSizeY = FMath::Max(Texture->GetSizeY() >> MipIndex, BlockSizeY);
+			uint32 NumBlocksX = (MipSizeX + BlockSizeX - 1) / BlockSizeX;
+			uint32 NumBlocksY = (MipSizeY + BlockSizeY - 1) / BlockSizeY;
+			if (PixelFormat == PF_PVRTC2 || PixelFormat == PF_PVRTC4)
+			{
+				// PVRTC has minimum 2 blocks width and height
+				NumBlocksX = FMath::Max<uint32>(NumBlocksX, 2);
+				NumBlocksY = FMath::Max<uint32>(NumBlocksY, 2);
+			}
+			MipBytes = NumBlocksX * NumBlocksY * BlockBytes;
+
+			DestStride = NumBlocksX * BlockBytes;
+
+			Result = FMemory::Malloc(MipBytes, 16);
+
+			check(Result);
+		}
+		GLLockTracker.Lock(Texture, Result, MipIndex, DestStride, MipBytes, LockMode);
+
+		return Result;
+	}
+
+	virtual void UnlockTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture, uint32 MipIndex, bool bLockWithinMiptail, bool bNeedsDefaultRHIFlush) final override
+	{
+		check(IsInRenderingThread());
+		static auto* CVarRHICmdBufferWriteLocks = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.RHICmdBufferWriteLocks"));
+		bool bBuffer = CVarRHICmdBufferWriteLocks->GetValueOnRenderThread() > 0;
+		FTextureLockTracker::FLockParams Params = GLLockTracker.Unlock(Texture, MipIndex);
+		if (!bBuffer || Params.LockMode != RLM_WriteOnly || RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_UnlockVertexBuffer_Flush);
+			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+			this->RHIUnlockTexture2D(Texture, MipIndex, bLockWithinMiptail);
+			GLLockTracker.TotalMemoryOutstanding = 0;
+		}
+		else
+		{
+			auto GLCommand = [=]()
+			{
+				uint32 DestStride;
+				uint8* TexMem = (uint8*)this->RHILockTexture2D(Texture, MipIndex, Params.LockMode, DestStride, bLockWithinMiptail);
+				uint8* BuffMem = (uint8*)Params.Buffer;
+				if (DestStride == Params.Stride)
+				{
+					FMemory::Memcpy(TexMem, BuffMem, Params.BufferSize);
+				}
+				else
+				{
+					EPixelFormat PixelFormat = Texture->GetFormat();
+					const uint32 BlockSizeY = GPixelFormats[PixelFormat].BlockSizeY;
+					const uint32 BlockBytes = GPixelFormats[PixelFormat].BlockBytes;
+					const uint32 MipSizeY = FMath::Max(Texture->GetSizeY() >> MipIndex, BlockSizeY);
+					uint32 NumBlocksY = (MipSizeY + BlockSizeY - 1) / BlockSizeY;
+					uint32 SourceStride = Params.Stride;
+					for (uint32 Y = 0; Y < NumBlocksY; ++Y)
+					{
+						FMemory::Memcpy(TexMem, BuffMem, SourceStride);
+						BuffMem += SourceStride;
+						TexMem += DestStride;
+					}
+				}
+				FMemory::Free(Params.Buffer);
+				this->RHIUnlockTexture2D(Texture, MipIndex, bLockWithinMiptail);
+			};
+			new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand(GLCommand); 
+		}
+	}
+
+	virtual FIndexBufferRHIRef CreateIndexBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo) final override;
+
+	virtual FVertexBufferRHIRef CreateVertexBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo) final override
+	{
+		return this->RHICreateVertexBuffer(Size, InUsage, CreateInfo);
+	}
+
+	virtual FStructuredBufferRHIRef CreateStructuredBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateStructuredBuffer(Stride, Size, InUsage, CreateInfo);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FStructuredBufferRHIRef);
+	}
+
+	virtual FShaderResourceViewRHIRef CreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FVertexBufferRHIParamRef VertexBuffer, uint32 Stride, uint8 Format) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateShaderResourceView(VertexBuffer, Stride, Format);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FShaderResourceViewRHIRef);
+	}
+
+	virtual FShaderResourceViewRHIRef CreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FIndexBufferRHIParamRef Buffer) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateShaderResourceView(Buffer);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FShaderResourceViewRHIRef);
+	}
+
+	virtual FTexture2DRHIRef RHICreateTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 NumSamples, uint32 Flags, FRHIResourceCreateInfo& CreateInfo) final override
+	{
+#if 1
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateTexture2D(SizeX, SizeY, Format, NumMips, NumSamples, Flags, CreateInfo);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FTexture2DRHIRef);
+#else
+		// Fill in the GL resources.
+		FRHITexture* Texture = CreateOpenGLRHITextureOnly(SizeX, SizeY, bCubeTexture, bArrayTexture, bIsExternal, Format, NumMips, NumSamples, ArraySize, Flags, InClearValue, BulkData);
+
+		RunOnGLRenderContextThread([=]()
+		{
+			InitializeGLTexture(Texture, SizeX, SizeY, bCubeTexture, bArrayTexture, bIsExternal, Format, NumMips, NumSamples, ArraySize, Flags, InClearValue, BulkData);
+		});
+
+		return Texture;
+#endif
+	}
+
+	virtual FTexture2DRHIRef RHICreateTextureExternal2D_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 NumSamples, uint32 Flags, FRHIResourceCreateInfo& CreateInfo) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateTextureExternal2D(SizeX, SizeY, Format, NumMips, NumSamples, Flags, CreateInfo);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FTexture2DRHIRef);
+	}
+
+	virtual FTexture2DArrayRHIRef RHICreateTexture2DArray_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint8 Format, uint32 NumMips, uint32 Flags, FRHIResourceCreateInfo& CreateInfo) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateTexture2DArray(SizeX, SizeY, SizeZ, Format, NumMips, Flags, CreateInfo);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FTexture2DArrayRHIRef);
+	}
+
+	virtual FTexture3DRHIRef RHICreateTexture3D_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint8 Format, uint32 NumMips, uint32 Flags, FRHIResourceCreateInfo& CreateInfo) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateTexture3D(SizeX, SizeY, SizeZ, Format, NumMips, Flags, CreateInfo);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FTexture3DRHIRef);
+	}
+
+	virtual FUnorderedAccessViewRHIRef RHICreateUnorderedAccessView_RenderThread(class FRHICommandListImmediate& RHICmdList, FStructuredBufferRHIParamRef StructuredBuffer, bool bUseUAVCounter, bool bAppendBuffer) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateUnorderedAccessView(StructuredBuffer, bUseUAVCounter, bAppendBuffer);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FUnorderedAccessViewRHIRef);
+	}
+
+	virtual FUnorderedAccessViewRHIRef RHICreateUnorderedAccessView_RenderThread(class FRHICommandListImmediate& RHICmdList, FTextureRHIParamRef Texture, uint32 MipLevel) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateUnorderedAccessView(Texture, MipLevel);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FUnorderedAccessViewRHIRef);
+	}
+
+	virtual FUnorderedAccessViewRHIRef RHICreateUnorderedAccessView_RenderThread(class FRHICommandListImmediate& RHICmdList, FVertexBufferRHIParamRef VertexBuffer, uint8 Format) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateUnorderedAccessView(VertexBuffer, Format);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FUnorderedAccessViewRHIRef);
+	}
+
+	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture2DRHI, uint8 MipLevel) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateShaderResourceView(Texture2DRHI, MipLevel);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FShaderResourceViewRHIRef);
+	}
+
+	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture2DRHI, uint8 MipLevel, uint8 NumMipLevels, uint8 Format) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateShaderResourceView(Texture2DRHI, MipLevel, NumMipLevels, Format);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FShaderResourceViewRHIRef);
+	}
+
+	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture3DRHIParamRef Texture3DRHI, uint8 MipLevel) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateShaderResourceView(Texture3DRHI, MipLevel);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FShaderResourceViewRHIRef);
+	}
+
+	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DArrayRHIParamRef Texture2DArrayRHI, uint8 MipLevel) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateShaderResourceView(Texture2DArrayRHI, MipLevel);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FShaderResourceViewRHIRef);
+	}
+
+	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FTextureCubeRHIParamRef TextureCubeRHI, uint8 MipLevel) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateShaderResourceView(TextureCubeRHI, MipLevel);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FShaderResourceViewRHIRef);
+	}
+
+	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FVertexBufferRHIParamRef VertexBuffer, uint32 Stride, uint8 Format) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateShaderResourceView(VertexBuffer, Stride, Format);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FShaderResourceViewRHIRef);
+	}
+
+	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FIndexBufferRHIParamRef Buffer) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateShaderResourceView(Buffer);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FShaderResourceViewRHIRef);
+	}
+
+	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView_RenderThread(class FRHICommandListImmediate& RHICmdList, FStructuredBufferRHIParamRef StructuredBuffer) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateShaderResourceView(StructuredBuffer);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FShaderResourceViewRHIRef);
+	}
+
+	virtual FTextureCubeRHIRef RHICreateTextureCube_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 Size, uint8 Format, uint32 NumMips, uint32 Flags, FRHIResourceCreateInfo& CreateInfo) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateTextureCube(Size, Format, NumMips, Flags, CreateInfo);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FTextureCubeRHIRef);
+	}
+
+	virtual FTextureCubeRHIRef RHICreateTextureCubeArray_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 Size, uint32 ArraySize, uint8 Format, uint32 NumMips, uint32 Flags, FRHIResourceCreateInfo& CreateInfo) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateTextureCubeArray(Size, ArraySize, Format, NumMips, Flags, CreateInfo);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FTextureCubeRHIRef);
+	}
+
+	virtual FRenderQueryRHIRef RHICreateRenderQuery_RenderThread(class FRHICommandListImmediate& RHICmdList, ERenderQueryType QueryType) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateRenderQuery(QueryType);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FRenderQueryRHIRef);
+	}
+
+	virtual void* RHILockTextureCubeFace_RenderThread(class FRHICommandListImmediate& RHICmdList, FTextureCubeRHIParamRef Texture, uint32 FaceIndex, uint32 ArrayIndex, uint32 MipIndex, EResourceLockMode LockMode, uint32& DestStride, bool bLockWithinMiptail) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHILockTextureCubeFace(Texture, FaceIndex, ArrayIndex, MipIndex, LockMode, DestStride, bLockWithinMiptail);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(void*);
+	}
+
+	virtual void RHIUnlockTextureCubeFace_RenderThread(class FRHICommandListImmediate& RHICmdList, FTextureCubeRHIParamRef Texture, uint32 FaceIndex, uint32 ArrayIndex, uint32 MipIndex, bool bLockWithinMiptail) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		this->RHIUnlockTextureCubeFace(Texture, FaceIndex, ArrayIndex, MipIndex, bLockWithinMiptail);
+		RHITHREAD_GLCOMMAND_EPILOGUE();
+	}
+
+
+	virtual FTexture2DRHIRef AsyncReallocateTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture2D, int32 NewMipCount, int32 NewSizeX, int32 NewSizeY, FThreadSafeCounter* RequestStatus) final override;
+
+	virtual ETextureReallocationStatus FinalizeAsyncReallocateTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture2D, bool bBlockUntilCompleted) final override
+	{
+		return this->RHIFinalizeAsyncReallocateTexture2D(Texture2D, bBlockUntilCompleted);
+	}
+
+	virtual ETextureReallocationStatus CancelAsyncReallocateTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture2D, bool bBlockUntilCompleted) final override
+	{
+		return this->RHICancelAsyncReallocateTexture2D(Texture2D, bBlockUntilCompleted);
+	}
+
+	virtual FVertexShaderRHIRef CreateVertexShader_RenderThread(class FRHICommandListImmediate& RHICmdList, const TArray<uint8>& Code) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateVertexShader(Code);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FVertexShaderRHIRef);
+	}
+
+	virtual FPixelShaderRHIRef CreatePixelShader_RenderThread(class FRHICommandListImmediate& RHICmdList, const TArray<uint8>& Code) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreatePixelShader(Code);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FPixelShaderRHIRef);
+	}
+
+	virtual FGeometryShaderRHIRef CreateGeometryShader_RenderThread(class FRHICommandListImmediate& RHICmdList, const TArray<uint8>& Code) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateGeometryShader(Code);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FGeometryShaderRHIRef);
+	}
+
+	virtual FGeometryShaderRHIRef CreateGeometryShaderWithStreamOutput_RenderThread(class FRHICommandListImmediate& RHICmdList, const TArray<uint8>& Code, const FStreamOutElementList& ElementList, uint32 NumStrides, const uint32* Strides, int32 RasterizedStream) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateGeometryShaderWithStreamOutput(Code, ElementList, NumStrides, Strides, RasterizedStream);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FGeometryShaderRHIRef);
+	}
+
+	virtual FComputeShaderRHIRef CreateComputeShader_RenderThread(class FRHICommandListImmediate& RHICmdList, const TArray<uint8>& Code) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateComputeShader(Code);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FComputeShaderRHIRef);
+	}
+
+	virtual FHullShaderRHIRef CreateHullShader_RenderThread(class FRHICommandListImmediate& RHICmdList, const TArray<uint8>& Code) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		return this->RHICreateHullShader(Code);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FHullShaderRHIRef);
+	}
+
+	virtual FSamplerStateRHIRef RHICreateSamplerState(const FSamplerStateInitializerRHI& Initializer) final override;
+
+	virtual void RHIReadSurfaceFloatData_RenderThread(class FRHICommandListImmediate& RHICmdList, FTextureRHIParamRef Texture, FIntRect Rect, TArray<FFloat16Color>& OutData, ECubeFace CubeFace, int32 ArrayIndex, int32 MipIndex) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		RHIReadSurfaceFloatData(Texture, Rect, OutData, CubeFace, ArrayIndex, MipIndex);
+		RHITHREAD_GLCOMMAND_EPILOGUE();
+	}
+
+	virtual void UpdateTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture, uint32 MipIndex, const struct FUpdateTextureRegion2D& UpdateRegion, uint32 SourcePitch, const uint8* SourceData) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		GDynamicRHI->RHIUpdateTexture2D(Texture, MipIndex, UpdateRegion, SourcePitch, SourceData);
+		RHITHREAD_GLCOMMAND_EPILOGUE();
+
+	}
+
+	virtual void UpdateTexture3D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture3DRHIParamRef Texture, uint32 MipIndex, const struct FUpdateTextureRegion3D& UpdateRegion, uint32 SourceRowPitch, uint32 SourceDepthPitch, const uint8* SourceData) final override
+	{
+		RHITHREAD_GLCOMMAND_PROLOGUE();
+		GDynamicRHI->RHIUpdateTexture3D(Texture, MipIndex, UpdateRegion, SourceRowPitch, SourceDepthPitch, SourceData);
+		RHITHREAD_GLCOMMAND_EPILOGUE();
+	}
+	virtual FBoundShaderStateRHIRef RHICreateBoundShaderState(
+		FVertexDeclarationRHIParamRef VertexDeclarationRHI,
+		FVertexShaderRHIParamRef VertexShaderRHI,
+		FHullShaderRHIParamRef HullShaderRHI,
+		FDomainShaderRHIParamRef DomainShaderRHI,
+		FPixelShaderRHIParamRef PixelShaderRHI,
+		FGeometryShaderRHIParamRef GeometryShaderRHI
+	) final override
+	{
+		FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+
+		RHITHREAD_GLCOMMAND_PROLOGUE()
+			return RHICreateBoundShaderState_OnThisThread(VertexDeclarationRHI,
+				VertexShaderRHI,
+				HullShaderRHI,
+				DomainShaderRHI,
+				PixelShaderRHI,
+				GeometryShaderRHI);
+		RHITHREAD_GLCOMMAND_EPILOGUE_RETURN(FBoundShaderStateRHIRef);
+	}
+
+	FBoundShaderStateRHIRef RHICreateBoundShaderState_OnThisThread(FVertexDeclarationRHIParamRef VertexDeclaration, FVertexShaderRHIParamRef VertexShader, FHullShaderRHIParamRef HullShader, FDomainShaderRHIParamRef DomainShader, FPixelShaderRHIParamRef PixelShader, FGeometryShaderRHIParamRef GeometryShader);
+	void RHIPerFrameRHIFlushComplete();
+	
 private:
 
 	/** Counter incremented each time RHIBeginScene is called. */
@@ -600,6 +1093,8 @@ private:
 	FOpenGLContextState InvalidContextState;
 	FOpenGLContextState	SharedContextState;
 	FOpenGLContextState	RenderingContextState;
+	// Cached context type on BeginScene
+	int32 BeginSceneContextType;
 	
 	/** Cached mip-limits for textures when ARB_texture_view is unavailable */
 	TMap<GLuint, TPair<GLenum, GLenum>> TextureMipLimits;
@@ -659,7 +1154,7 @@ private:
 	
 	void SetupTexturesForDraw( FOpenGLContextState& ContextState);
 	template <typename StateType>
-	void SetupTexturesForDraw( FOpenGLContextState& ContextState, const StateType ShaderState, int32 MaxTexturesNeeded);
+	void SetupTexturesForDraw( FOpenGLContextState& ContextState, const StateType& ShaderState, int32 MaxTexturesNeeded);
 
 	void SetupUAVsForDraw(FOpenGLContextState& ContextState, const TRefCountPtr<FOpenGLComputeShader> &ComputeShader, int32 MaxUAVsNeeded);
 
@@ -672,6 +1167,8 @@ public:
 	void InternalSetSamplerStates(GLint TextureIndex, FOpenGLSamplerState* SamplerState);
 
 private:
+	void SetupRecursiveResources();
+
 	void ApplyTextureStage(FOpenGLContextState& ContextState, GLint TextureIndex, const FTextureStage& TextureStage, FOpenGLSamplerState* SamplerState);
 
 	void ReadSurfaceDataRaw(FOpenGLContextState& ContextState, FTextureRHIParamRef TextureRHI,FIntRect Rect,TArray<uint8>& OutData, FReadSurfaceDataFlags InFlags);
@@ -693,6 +1190,9 @@ private:
 		}
 		return VertexAttributeIndex;
 	}
+
+	FTextureLockTracker GLLockTracker;
+
 };
 
 /** Implements the OpenGLDrv module as a dynamic RHI providing module. */

@@ -89,4 +89,9 @@ public:
 		checkf(FrameSet == GFrameCounter, TEXT("Cannot get value on a different frame"));
 		return Value.GetValue();
 	}
+
+	ValueType TryGetValue(ValueType UnsetValue) const
+	{
+		return IsSet() ? Value.GetValue() : UnsetValue;
+	}
 };

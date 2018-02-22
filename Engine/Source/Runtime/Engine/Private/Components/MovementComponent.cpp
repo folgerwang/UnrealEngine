@@ -51,7 +51,7 @@ void UMovementComponent::SetUpdatedComponent(USceneComponent* NewUpdatedComponen
 {
 	if (UpdatedComponent && UpdatedComponent != NewUpdatedComponent)
 	{
-		UpdatedComponent->bShouldUpdatePhysicsVolume = false;
+		UpdatedComponent->SetShouldUpdatePhysicsVolume(false);
 		if (!UpdatedComponent->IsPendingKill())
 		{
 			UpdatedComponent->SetPhysicsVolume(NULL, true);
@@ -69,7 +69,7 @@ void UMovementComponent::SetUpdatedComponent(USceneComponent* NewUpdatedComponen
 	// Assign delegates
 	if (UpdatedComponent && !UpdatedComponent->IsPendingKill())
 	{
-		UpdatedComponent->bShouldUpdatePhysicsVolume = true;
+		UpdatedComponent->SetShouldUpdatePhysicsVolume(true);
 		UpdatedComponent->PhysicsVolumeChangedDelegate.AddUniqueDynamic(this, &UMovementComponent::PhysicsVolumeChanged);
 
 		if (!bInOnRegister && !bInInitializeComponent)

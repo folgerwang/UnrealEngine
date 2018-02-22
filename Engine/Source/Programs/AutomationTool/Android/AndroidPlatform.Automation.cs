@@ -91,7 +91,13 @@ public class AndroidPlatform : Platform
 			PackageVersion = IntVersion.ToString("0");
 		}
 
-		string ObbName = string.Format("main.{0}.{1}.obb", PackageVersion, PackageName);
+		string AppType = GetMetaAppType();
+		if (AppType.Length > 0)
+		{
+			AppType += ".";
+		}
+
+		string ObbName = string.Format("main.{0}.{1}.{2}obb", PackageVersion, PackageName, AppType);
 
 		// plop the .obb right next to the executable
 		ObbName = Path.Combine(Path.GetDirectoryName(ApkName), ObbName);
@@ -124,7 +130,7 @@ public class AndroidPlatform : Platform
 		Uninstall,
 		Symbolize,
 	};
-	private static string GetFinalBatchName(string ApkName, ProjectParams Params, string Architecture, string GPUArchitecture, bool bNoOBBInstall, EBatchType BatchType, UnrealTargetPlatform Target)
+	private static string GetFinalBatchName(string ApkName, DeploymentContext SC, string Architecture, string GPUArchitecture, bool bNoOBBInstall, EBatchType BatchType, UnrealTargetPlatform Target)
 	{
 		string Extension = ".bat";
 		switch (Target)
@@ -147,9 +153,9 @@ public class AndroidPlatform : Platform
 		{
 			case EBatchType.Install:
 			case EBatchType.Uninstall:
-				return Path.Combine(Path.GetDirectoryName(ApkName), (BatchType == EBatchType.Uninstall ? "Uninstall_" : "Install_") + Params.ShortProjectName + (!bNoOBBInstall ? "_" : "_NoOBBInstall_") + Params.ClientConfigsToBuild[0].ToString() + Architecture + GPUArchitecture + Extension);
+				return Path.Combine(Path.GetDirectoryName(ApkName), (BatchType == EBatchType.Uninstall ? "Uninstall_" : "Install_") + SC.StageExecutables[0] + (!bNoOBBInstall ? "" : "_NoOBBInstall") + Architecture + GPUArchitecture + Extension);
 			case EBatchType.Symbolize:
-				return Path.Combine(Path.GetDirectoryName(ApkName), "SymobilzeCrashDump_"  + Params.ShortProjectName + Architecture + GPUArchitecture + Extension);
+				return Path.Combine(Path.GetDirectoryName(ApkName), "SymbolizeCrashDump_" + SC.StageExecutables[0] + Architecture + GPUArchitecture + Extension);
 		}
 		return "";
 	}
@@ -182,6 +188,12 @@ public class AndroidPlatform : Platform
 		bool bBuild = false;
 		return TargetConfiguration == UnrealTargetConfiguration.Shipping && (Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bBuildWithHiddenSymbolVisibility", out bBuild) && bBuild);
 	}
+	private bool GetSaveSymbols(DeploymentContext SC)
+	{
+		ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, DirectoryReference.FromFile(SC.RawProjectPath), SC.StageTargetPlatform.PlatformType);
+		bool bSave = false;
+		return (Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bSaveSymbols", out bSave) && bSave);
+	}
 
 	public override void Package(ProjectParams Params, DeploymentContext SC, int WorkingCL)
 	{
@@ -197,9 +209,10 @@ public class AndroidPlatform : Platform
 		var GPUArchitectures = ToolChain.GetAllGPUArchitectures();
 		bool bMakeSeparateApks = UnrealBuildTool.AndroidExports.ShouldMakeSeparateApks();
 		bool bBuildWithHiddenSymbolVisibility = BuildWithHiddenSymbolVisibility(SC);
+		bool bSaveSymbols = GetSaveSymbols(SC);
 
-		var Deploy = AndroidExports.CreateDeploymentHandler(Params.RawProjectPath);
-		bool bPackageDataInsideApk = Deploy.PackageDataInsideApk(false);
+		var Deploy = AndroidExports.CreateDeploymentHandler(Params.RawProjectPath, Params.ForcePackageData);
+		bool bPackageDataInsideApk = Deploy.GetPackageDataInsideApk();
 
 		string BaseApkName = GetFinalApkName(Params, SC.StageExecutables[0], true, "", "");
 		Log("BaseApkName = {0}", BaseApkName);
@@ -311,18 +324,18 @@ public class AndroidPlatform : Platform
 				{
 					bool bIsPC = (Target == UnrealTargetPlatform.Win64);
 					// Write install batch file(s).
-					string BatchName = GetFinalBatchName(ApkName, Params, bMakeSeparateApks ? Architecture : "", bMakeSeparateApks ? GPUArchitecture : "", false, EBatchType.Install, Target);
 					string PackageName = GetPackageInfo(ApkName, false);
+					string BatchName = GetFinalBatchName(ApkName, SC, bMakeSeparateApks ? Architecture : "", bMakeSeparateApks ? GPUArchitecture : "", false, EBatchType.Install, Target);
 					// make a batch file that can be used to install the .apk and .obb files
 					string[] BatchLines = GenerateInstallBatchFile(bPackageDataInsideApk, PackageName, ApkName, Params, ObbName, DeviceObbName, false, bIsPC, Params.Distribution, TargetSDKVersion > 22);
 					File.WriteAllLines(BatchName, BatchLines);
 					// make a batch file that can be used to uninstall the .apk and .obb files
-					string UninstallBatchName = GetFinalBatchName(ApkName, Params, bMakeSeparateApks ? Architecture : "", bMakeSeparateApks ? GPUArchitecture : "", false, EBatchType.Uninstall, Target);
+					string UninstallBatchName = GetFinalBatchName(ApkName, SC, bMakeSeparateApks ? Architecture : "", bMakeSeparateApks ? GPUArchitecture : "", false, EBatchType.Uninstall, Target);
 					BatchLines = GenerateUninstallBatchFile(bPackageDataInsideApk, PackageName, ApkName, Params, ObbName, DeviceObbName, false, bIsPC);
 					File.WriteAllLines(UninstallBatchName, BatchLines);
 
-					string SymbolizeBatchName = GetFinalBatchName(ApkName, Params, Architecture, GPUArchitecture, false, EBatchType.Symbolize, Target);
-					if(bBuildWithHiddenSymbolVisibility)
+					string SymbolizeBatchName = GetFinalBatchName(ApkName, SC, Architecture, GPUArchitecture, false, EBatchType.Symbolize, Target);
+					if(bBuildWithHiddenSymbolVisibility || bSaveSymbols)
 					{
 						BatchLines = GenerateSymbolizeBatchFile(Params, PackageName, SC, Architecture, GPUArchitecture, bIsPC);
 						File.WriteAllLines(SymbolizeBatchName, BatchLines);
@@ -332,7 +345,7 @@ public class AndroidPlatform : Platform
 					{
 						CommandUtils.FixUnixFilePermissions(BatchName);
 						CommandUtils.FixUnixFilePermissions(UninstallBatchName);
-						if(bBuildWithHiddenSymbolVisibility)
+						if(bBuildWithHiddenSymbolVisibility || bSaveSymbols)
 						{
 							CommandUtils.FixUnixFilePermissions(SymbolizeBatchName);
 						}
@@ -599,7 +612,7 @@ public class AndroidPlatform : Platform
 		var Architectures = ToolChain.GetAllArchitectures();
 		var GPUArchitectures = ToolChain.GetAllGPUArchitectures();
 		bool bMakeSeparateApks = UnrealBuildTool.AndroidExports.ShouldMakeSeparateApks();
-		bool bPackageDataInsideApk = UnrealBuildTool.AndroidExports.CreateDeploymentHandler(Params.RawProjectPath).PackageDataInsideApk(false);
+		bool bPackageDataInsideApk = UnrealBuildTool.AndroidExports.CreateDeploymentHandler(Params.RawProjectPath, Params.ForcePackageData).GetPackageDataInsideApk();
 
 		bool bAddedOBB = false;
 		foreach (string Architecture in Architectures)
@@ -609,6 +622,7 @@ public class AndroidPlatform : Platform
 				string ApkName = GetFinalApkName(Params, SC.StageExecutables[0], true, bMakeSeparateApks ? Architecture : "", bMakeSeparateApks ? GPUArchitecture : "");
 				string ObbName = GetFinalObbName(ApkName);
 				bool bBuildWithHiddenSymbolVisibility = BuildWithHiddenSymbolVisibility(SC);
+				bool bSaveSymbols = GetSaveSymbols(SC);
 				//string NoOBBBatchName = GetFinalBatchName(ApkName, Params, bMakeSeparateApks ? Architecture : "", bMakeSeparateApks ? GPUArchitecture : "", true, false);
 
 				// verify the files exist
@@ -621,7 +635,7 @@ public class AndroidPlatform : Platform
                     throw new AutomationException(ExitCode.Error_ObbNotFound, "ARCHIVE FAILED - {0} was not found", ObbName);
 				}
 
-				if (bBuildWithHiddenSymbolVisibility)
+				if (bBuildWithHiddenSymbolVisibility || bSaveSymbols)
 				{
 					string SymbolizedSODirectory = GetFinalSymbolizedSODirectory(SC, Architecture, GPUArchitecture);
 					string SymbolizedSOPath = Path.Combine(Path.Combine(Path.GetDirectoryName(ApkName), SymbolizedSODirectory), "libUE4.so");
@@ -649,15 +663,15 @@ public class AndroidPlatform : Platform
 				//helper delegate to prevent code duplication but allow us access to all the local variables we need
 				var CreateBatchFilesAndArchiveAction = new Action<UnrealTargetPlatform>(Target =>
 				{
-					string BatchName = GetFinalBatchName(ApkName, Params, bMakeSeparateApks ? Architecture : "", bMakeSeparateApks ? GPUArchitecture : "", false, EBatchType.Install, Target);
-					string UninstallBatchName = GetFinalBatchName(ApkName, Params, bMakeSeparateApks ? Architecture : "", bMakeSeparateApks ? GPUArchitecture : "", false, EBatchType.Uninstall, Target);
+					string BatchName = GetFinalBatchName(ApkName, SC, bMakeSeparateApks ? Architecture : "", bMakeSeparateApks ? GPUArchitecture : "", false, EBatchType.Install, Target);
+					string UninstallBatchName = GetFinalBatchName(ApkName, SC, bMakeSeparateApks ? Architecture : "", bMakeSeparateApks ? GPUArchitecture : "", false, EBatchType.Uninstall, Target);
 
 					SC.ArchiveFiles(Path.GetDirectoryName(BatchName), Path.GetFileName(BatchName));
 					SC.ArchiveFiles(Path.GetDirectoryName(UninstallBatchName), Path.GetFileName(UninstallBatchName));
 
-					if(bBuildWithHiddenSymbolVisibility)
+					if(bBuildWithHiddenSymbolVisibility || bSaveSymbols)
 					{
-						string SymbolizeBatchName = GetFinalBatchName(ApkName, Params, Architecture, GPUArchitecture, false, EBatchType.Symbolize, Target);
+						string SymbolizeBatchName = GetFinalBatchName(ApkName, SC, Architecture, GPUArchitecture, false, EBatchType.Symbolize, Target);
 						SC.ArchiveFiles(Path.GetDirectoryName(SymbolizeBatchName), Path.GetFileName(SymbolizeBatchName));
 					}
 					//SC.ArchiveFiles(Path.GetDirectoryName(NoOBBBatchName), Path.GetFileName(NoOBBBatchName));
@@ -889,7 +903,7 @@ public class AndroidPlatform : Platform
             string ApkName = GetFinalApkName(Params, SC.StageExecutables[0], true, DeviceArchitecture, GPUArchitecture);
 
             // make sure APK is up to date (this is fast if so)
-            var Deploy = AndroidExports.CreateDeploymentHandler(Params.RawProjectPath);
+            var Deploy = AndroidExports.CreateDeploymentHandler(Params.RawProjectPath, Params.ForcePackageData);
             if (!Params.Prebuilt)
             {
                 string CookFlavor = SC.FinalCookPlatform.IndexOf("_") > 0 ? SC.FinalCookPlatform.Substring(SC.FinalCookPlatform.IndexOf("_")) : "";
@@ -1196,6 +1210,7 @@ public class AndroidPlatform : Platform
 	private static string PackageLine = null;
 	private static Mutex PackageInfoMutex = new Mutex();
 	private static string LaunchableActivityLine = null;
+	private static string MetaAppTypeLine = null;
 
 	/** Run an external exe (and capture the output), given the exe path and the commandline. */
 	public static string GetPackageInfo(string ApkName, bool bRetrieveVersionCode)
@@ -1205,13 +1220,14 @@ public class AndroidPlatform : Platform
 
 		PackageInfoMutex.WaitOne();
 
-		var ExeInfo = new ProcessStartInfo(AaptPath, "dump badging \"" + ApkName + "\"");
+		var ExeInfo = new ProcessStartInfo(AaptPath, "dump --include-meta-data badging \"" + ApkName + "\"");
 		ExeInfo.UseShellExecute = false;
 		ExeInfo.RedirectStandardOutput = true;
 		using (var GameProcess = Process.Start(ExeInfo))
 		{
 			PackageLine = null;
 			LaunchableActivityLine = null;
+			MetaAppTypeLine = null;
 			GameProcess.BeginOutputReadLine();
 			GameProcess.OutputDataReceived += ParsePackageName;
 			GameProcess.WaitForExit();
@@ -1249,6 +1265,22 @@ public class AndroidPlatform : Platform
 		return ReturnValue;
 	}
 
+	/** Returns the app type from the packaged APK metadata, returns "" if not found */
+	public static string GetMetaAppType()
+	{
+		string ReturnValue = "";
+		if (MetaAppTypeLine != null)
+		{
+			// the line should look like: meta-data: name='com.epicgames.ue4.GameActivity.AppType' value='Client'
+			string[] Tokens = MetaAppTypeLine.Split("'".ToCharArray());
+			if (Tokens.Length >= 4)
+			{
+				ReturnValue = Tokens[3];
+			}
+		}
+		return ReturnValue;
+	}
+
 	/** Simple function to pipe output asynchronously */
 	private static void ParsePackageName(object Sender, DataReceivedEventArgs Event)
 	{
@@ -1270,6 +1302,14 @@ public class AndroidPlatform : Platform
 				if (Line.StartsWith("launchable-activity:"))
 				{
 					LaunchableActivityLine = Line;
+				}
+			}
+			if (MetaAppTypeLine == null)
+			{
+				string Line = Event.Data;
+				if (Line.StartsWith("meta-data: name='com.epicgames.ue4.GameActivity.AppType'"))
+				{
+					MetaAppTypeLine = Line;
 				}
 			}
 		}
@@ -1569,7 +1609,7 @@ public class AndroidPlatform : Platform
     /// <returns>Cook platform string.</returns>
     public override string GetCookPlatform(bool bDedicatedServer, bool bIsClientOnly)
 	{
-		return "Android";
+		return bIsClientOnly ? "AndroidClient" : "Android";
 	}
 
 	public override bool DeployLowerCaseFilenames()
@@ -1619,7 +1659,7 @@ public class AndroidPlatformMulti : AndroidPlatform
 {
     public override string GetCookPlatform(bool bDedicatedServer, bool bIsClientOnly)
     {
-        return "Android_Multi";
+		return bIsClientOnly ? "Android_MultiClient" : "Android_Multi";
     }
     public override TargetPlatformDescriptor GetTargetPlatformDescriptor()
     {
@@ -1631,10 +1671,10 @@ public class AndroidPlatformATC : AndroidPlatform
 {
     public override string GetCookPlatform(bool bDedicatedServer, bool bIsClientOnly)
     {
-        return "Android_ATC";
-    }
+		return bIsClientOnly ? "Android_ATCClient" : "Android_ATC";
+	}
 
-    public override TargetPlatformDescriptor GetTargetPlatformDescriptor()
+	public override TargetPlatformDescriptor GetTargetPlatformDescriptor()
     {
         return new TargetPlatformDescriptor(TargetPlatformType, "ATC");
     }
@@ -1644,7 +1684,7 @@ public class AndroidPlatformDXT : AndroidPlatform
 {
     public override string GetCookPlatform(bool bDedicatedServer, bool bIsClientOnly)
     {
-        return "Android_DXT";
+		return bIsClientOnly ? "Android_DXTClient" : "Android_DXT";
     }
 
     public override TargetPlatformDescriptor GetTargetPlatformDescriptor()
@@ -1657,7 +1697,7 @@ public class AndroidPlatformETC1 : AndroidPlatform
 {
     public override string GetCookPlatform(bool bDedicatedServer, bool bIsClientOnly)
     {
-        return "Android_ETC1";
+		return bIsClientOnly ? "Android_ETC1Client" : "Android_ETC1";
     }
 
     public override TargetPlatformDescriptor GetTargetPlatformDescriptor()
@@ -1682,7 +1722,7 @@ public class AndroidPlatformETC2 : AndroidPlatform
 {
     public override string GetCookPlatform(bool bDedicatedServer, bool bIsClientOnly)
     {
-        return "Android_ETC2";
+		return bIsClientOnly ? "Android_ETC2Client" : "Android_ETC2";
     }
     public override TargetPlatformDescriptor GetTargetPlatformDescriptor()
     {
@@ -1694,7 +1734,7 @@ public class AndroidPlatformPVRTC : AndroidPlatform
 {
     public override string GetCookPlatform(bool bDedicatedServer, bool bIsClientOnly)
     {
-        return "Android_PVRTC";
+		return bIsClientOnly ? "Android_PVRTCClient" : "Android_PVRTC";
     }
     public override TargetPlatformDescriptor GetTargetPlatformDescriptor()
     {
@@ -1706,7 +1746,7 @@ public class AndroidPlatformASTC : AndroidPlatform
 {
     public override string GetCookPlatform(bool bDedicatedServer, bool bIsClientOnly)
     {
-        return "Android_ASTC";
+		return bIsClientOnly ? "Android_ASTCClient" : "Android_ASTC";
     }
     public override TargetPlatformDescriptor GetTargetPlatformDescriptor()
     {

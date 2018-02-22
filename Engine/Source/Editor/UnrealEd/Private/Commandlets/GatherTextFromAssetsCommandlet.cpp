@@ -4,10 +4,12 @@
 #include "UObject/Class.h"
 #include "HAL/FileManager.h"
 #include "Misc/CommandLine.h"
+#include "Misc/ConfigCacheIni.h"
 #include "Misc/Paths.h"
 #include "Misc/OutputDeviceHelper.h"
 #include "Misc/FeedbackContext.h"
 #include "UObject/EditorObjectVersion.h"
+#include "UObject/UObjectIterator.h"
 #include "Modules/ModuleManager.h"
 #include "Serialization/PropertyLocalizationDataGathering.h"
 #include "Misc/PackageName.h"
@@ -108,6 +110,11 @@ public:
 			++WarningCount;
 			FormattedErrorsAndWarningsList.Add(FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V));
 		}
+		else if (Verbosity == ELogVerbosity::Display)
+		{
+			// Downgrade Display to Log while loading packages
+			OriginalWarningContext->Serialize(V, ELogVerbosity::Log, Category);
+		}
 		else
 		{
 			// Pass anything else on to GWarn so that it can handle them appropriately
@@ -191,14 +198,15 @@ const FString UGatherTextFromAssetsCommandlet::UsageText
 
 UGatherTextFromAssetsCommandlet::UGatherTextFromAssetsCommandlet(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, PackagesPerBatchCount(100)
+	, MaxMemoryAllowanceBytes(0)
 	, bSkipGatherCache(false)
-	, bFixBroken(false)
 	, ShouldGatherFromEditorOnlyData(false)
 	, ShouldExcludeDerivedClasses(false)
 {
 }
 
-void UGatherTextFromAssetsCommandlet::ProcessGatherableTextDataArray(const FString& PackageFilePath, const TArray<FGatherableTextData>& GatherableTextDataArray)
+void UGatherTextFromAssetsCommandlet::ProcessGatherableTextDataArray(const TArray<FGatherableTextData>& GatherableTextDataArray)
 {
 	for (const FGatherableTextData& GatherableTextData : GatherableTextDataArray)
 	{
@@ -229,20 +237,124 @@ void UGatherTextFromAssetsCommandlet::ProcessGatherableTextDataArray(const FStri
 	}
 }
 
-void UGatherTextFromAssetsCommandlet::ProcessPackages(const TArray< UPackage* >& PackagesToProcess)
+void CalculateDependenciesImpl(IAssetRegistry& InAssetRegistry, const FName& InPackageName, TSet<FName>& OutDependencies, TMap<FName, TSet<FName>>& InOutPackageNameToDependencies)
 {
-	TArray<FGatherableTextData> GatherableTextDataArray;
+	const TSet<FName>* CachedDependencies = InOutPackageNameToDependencies.Find(InPackageName);
 
-	for (const UPackage* const Package : PackagesToProcess)
+	if (!CachedDependencies)
 	{
-		GatherableTextDataArray.Reset();
+		// Add a dummy entry now to avoid any infinite recursion for this package as we build the dependencies list
+		InOutPackageNameToDependencies.Add(InPackageName);
 
-		// Gathers from the given package
-		EPropertyLocalizationGathererResultFlags GatherableTextResultFlags = EPropertyLocalizationGathererResultFlags::Empty;
-		FPropertyLocalizationDataGatherer(GatherableTextDataArray, Package, GatherableTextResultFlags);
+		// Build the complete list of dependencies for this package
+		TSet<FName> LocalDependencies;
+		{
+			TArray<FName> LocalDependenciesArray;
+			InAssetRegistry.GetDependencies(InPackageName, LocalDependenciesArray);
 
-		ProcessGatherableTextDataArray(Package->FileName.ToString(), GatherableTextDataArray);
+			LocalDependencies.Append(LocalDependenciesArray);
+			for (const FName& LocalDependency : LocalDependenciesArray)
+			{
+				CalculateDependenciesImpl(InAssetRegistry, LocalDependency, LocalDependencies, InOutPackageNameToDependencies);
+			}
+		}
+
+		// Add the real data now
+		CachedDependencies = &InOutPackageNameToDependencies.Add(InPackageName, MoveTemp(LocalDependencies));
 	}
+
+	check(CachedDependencies);
+	OutDependencies.Append(*CachedDependencies);
+}
+
+void UGatherTextFromAssetsCommandlet::CalculateDependenciesForPackagesPendingGather()
+{
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
+	TMap<FName, TSet<FName>> PackageNameToDependencies;
+
+	for (FPackagePendingGather& PackagePendingGather : PackagesPendingGather)
+	{
+		CalculateDependenciesImpl(AssetRegistry, PackagePendingGather.PackageName, PackagePendingGather.Dependencies, PackageNameToDependencies);
+	}
+}
+
+bool UGatherTextFromAssetsCommandlet::HasExceededMemoryLimit()
+{
+	const FPlatformMemoryStats MemStats = FPlatformMemory::GetStats();
+
+	const uint64 UsedMemory = MemStats.UsedPhysical;
+	if (MaxMemoryAllowanceBytes > 0u && UsedMemory >= MaxMemoryAllowanceBytes)
+	{
+		UE_LOG(LogGatherTextFromAssetsCommandlet, Display, TEXT("Used memory %d kb exceeded max memory %d kb"), UsedMemory / 1024, MaxMemoryAllowanceBytes / 1024);
+		return true;
+	}
+
+	return false;
+}
+
+void UGatherTextFromAssetsCommandlet::PurgeGarbage(const bool bPurgeReferencedPackages)
+{
+	check(ObjectsToKeepAlive.Num() == 0);
+
+	TSet<FName> LoadedPackageNames;
+	TSet<FName> PackageNamesToKeepAlive;
+
+	if (!bPurgeReferencedPackages)
+	{
+		// Build a complete list of packages that we still need to keep alive, either because we still 
+		// have to process them, or because they're a dependency for something we still have to process
+		for (const FPackagePendingGather& PackagePendingGather : PackagesPendingGather)
+		{
+			PackageNamesToKeepAlive.Add(PackagePendingGather.PackageName);
+			PackageNamesToKeepAlive.Append(PackagePendingGather.Dependencies);
+		}
+
+		for (TObjectIterator<UPackage> PackageIt; PackageIt; ++PackageIt)
+		{
+			UPackage* Package = *PackageIt;
+			if (PackageNamesToKeepAlive.Contains(Package->GetFName()))
+			{
+				LoadedPackageNames.Add(Package->GetFName());
+
+				// Keep any requested packages (and their RF_Standalone inners) alive during a call to PurgeGarbage
+				ObjectsToKeepAlive.Add(Package);
+				ForEachObjectWithOuter(Package, [this](UObject* InPackageInner)
+				{
+					if (InPackageInner->HasAnyFlags(RF_Standalone))
+					{
+						ObjectsToKeepAlive.Add(InPackageInner);
+					}
+				}, true, RF_NoFlags, EInternalObjectFlags::PendingKill);
+			}
+		}
+	}
+
+	CollectGarbage(RF_NoFlags);
+	ObjectsToKeepAlive.Reset();
+
+	if (!bPurgeReferencedPackages)
+	{
+		// Sort the remaining packages to gather so that currently loaded packages are processed first, followed by those with the most dependencies
+		// This aims to allow packages to be GC'd as soon as possible once nothing is no longer referencing them as a dependency
+		PackagesPendingGather.Sort([&LoadedPackageNames](const FPackagePendingGather& PackagePendingGatherOne, const FPackagePendingGather& PackagePendingGatherTwo)
+		{
+			const bool bIsPackageOneLoaded = LoadedPackageNames.Contains(PackagePendingGatherOne.PackageName);
+			const bool bIsPackageTwoLoaded = LoadedPackageNames.Contains(PackagePendingGatherTwo.PackageName);
+			return (bIsPackageOneLoaded == bIsPackageTwoLoaded) 
+				? PackagePendingGatherOne.Dependencies.Num() > PackagePendingGatherTwo.Dependencies.Num() 
+				: bIsPackageOneLoaded;
+		});
+	}
+}
+
+void UGatherTextFromAssetsCommandlet::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
+{
+	Super::AddReferencedObjects(InThis, Collector);
+
+	// Keep any requested objects alive during a call to PurgeGarbage
+	UGatherTextFromAssetsCommandlet* This = CastChecked<UGatherTextFromAssetsCommandlet>(InThis);
+	Collector.AddReferencedObjects(This->ObjectsToKeepAlive);
 }
 
 int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
@@ -422,27 +534,41 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 		return 0;
 	}
 
-	// Collect the names of all the packages that need to be processed.
-	TArray<FString> FilePathsOfPackagesToProcess;
-	for (const FAssetData& AssetData : AssetDataArray)
+	// Collect the basic information about the packages that we're going to gather from
 	{
-		FString PackageFilePath;
-		if (!FPackageName::FindPackageFileWithoutExtension(FPackageName::LongPackageNameToFilename(AssetData.PackageName.ToString()), PackageFilePath))
+		// Collapse the assets down to a set of packages
+		TSet<FName> PackageNamesToGather;
+		PackageNamesToGather.Reserve(AssetDataArray.Num());
+		for (const FAssetData& AssetData : AssetDataArray)
 		{
-			continue;
+			PackageNamesToGather.Add(AssetData.PackageName);
 		}
-		PackageFilePath = FPaths::ConvertRelativePathToFull(PackageFilePath);
-		FilePathsOfPackagesToProcess.AddUnique(PackageFilePath);
+		AssetDataArray.Empty();
+
+		// Build the basic information for the packages to gather (dependencies are filled in later once we've processed cached packages)
+		PackagesPendingGather.Reserve(PackageNamesToGather.Num());
+		for (const FName& PackageNameToGather : PackageNamesToGather)
+		{
+			FString PackageFilename;
+			if (!FPackageName::FindPackageFileWithoutExtension(FPackageName::LongPackageNameToFilename(PackageNameToGather.ToString()), PackageFilename))
+			{
+				continue;
+			}
+			PackageFilename = FPaths::ConvertRelativePathToFull(PackageFilename);
+
+			FPackagePendingGather& PackagePendingGather = PackagesPendingGather[PackagesPendingGather.AddDefaulted()];
+			PackagePendingGather.PackageName = PackageNameToGather;
+			PackagePendingGather.PackageFilename = MoveTemp(PackageFilename);
+		}
 	}
-	AssetDataArray.Empty();
 
 	FAssetGatherCacheMetrics AssetGatherCacheMetrics;
 	TMap<FString, FName> AssignedPackageLocalizationIds;
 
 	// Process all packages that do not need to be loaded. Remove processed packages from the list.
-	FilePathsOfPackagesToProcess.RemoveAll([&](const FString& PackageFilePath) -> bool
+	PackagesPendingGather.RemoveAll([&](const FPackagePendingGather& PackagePendingGather) -> bool
 	{
-		TUniquePtr<FArchive> FileReader(IFileManager::Get().CreateFileReader(*PackageFilePath));
+		TUniquePtr<FArchive> FileReader(IFileManager::Get().CreateFileReader(*PackagePendingGather.PackageFilename));
 		if (!FileReader)
 		{
 			return false;
@@ -456,7 +582,7 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 		if (!PackageFileSummary.LocalizationId.IsEmpty())
 		{
 			FString LongPackageName;
-			if (FPackageName::TryConvertFilenameToLongPackageName(PackageFilePath, LongPackageName))
+			if (FPackageName::TryConvertFilenameToLongPackageName(PackagePendingGather.PackageFilename, LongPackageName))
 			{
 				if (const FName* ExistingLongPackageName = AssignedPackageLocalizationIds.Find(PackageFileSummary.LocalizationId))
 				{
@@ -499,9 +625,8 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 		}
 		else if (PackageFileSummary.GetFileVersionUE4() < VER_UE4_DIALOGUE_WAVE_NAMESPACE_AND_CONTEXT_CHANGES)
 		{
-			const FString LongPackageName = FPackageName::FilenameToLongPackageName(PackageFilePath);
 			TArray<FAssetData> AllAssetDataInSamePackage;
-			AssetRegistry.GetAssetsByPackageName(*LongPackageName, AllAssetDataInSamePackage);
+			AssetRegistry.GetAssetsByPackageName(PackagePendingGather.PackageName, AllAssetDataInSamePackage);
 			for (const FAssetData& AssetData : AllAssetDataInSamePackage)
 			{
 				if (AssetData.AssetClass == UDialogueWave::StaticClass()->GetFName())
@@ -538,7 +663,7 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 				(*FileReader) << GatherableTextDataArray[GatherableTextDataIndex];
 			}
 
-			ProcessGatherableTextDataArray(PackageFilePath, GatherableTextDataArray);
+			ProcessGatherableTextDataArray(GatherableTextDataArray);
 		}
 
 		return true;
@@ -546,11 +671,7 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 
 	AssetGatherCacheMetrics.LogMetrics();
 
-	// Collect garbage before beginning to load packages for processing.
-	CollectGarbage(RF_NoFlags);
-
-	const int32 PackagesPerBatchCount = 100;
-	const int32 PackageCount = FilePathsOfPackagesToProcess.Num();
+	const int32 PackageCount = PackagesPendingGather.Num();
 	const int32 BatchCount = PackageCount / PackagesPerBatchCount + (PackageCount % PackagesPerBatchCount > 0 ? 1 : 0); // Add an extra batch for any remainder if necessary.
 	if (PackageCount > 0)
 	{
@@ -558,94 +679,67 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 	}
 	FLoadPackageLogOutputRedirector LogOutputRedirector;
 
-	//Now go through the remaining packages in the main array and process them in batches.
-	TArray< UPackage* > LoadedPackages;
-	TArray< FString > LoadedPackageFileNames;
-	TArray< FString > FailedPackageFileNames;
-	TArray< UPackage* > LoadedPackagesToProcess;
+	CalculateDependenciesForPackagesPendingGather();
 
-	//Load the packages in batches
-	int32 PackageIndex = 0;
+	// Process the packages in batches
+	TArray<FGatherableTextData> GatherableTextDataArray;
 	for (int32 BatchIndex = 0; BatchIndex < BatchCount; ++BatchIndex)
 	{
 		int32 PackagesInThisBatch = 0;
 		int32 FailuresInThisBatch = 0;
-		for (; PackageIndex < PackageCount && PackagesInThisBatch < PackagesPerBatchCount; ++PackageIndex)
-		{
-			const FString& PackageFileName = FilePathsOfPackagesToProcess[PackageIndex];
 
-			UE_LOG(LogGatherTextFromAssetsCommandlet, Verbose, TEXT("Loading package: '%s'."), *PackageFileName);
+		// Collect garbage before beginning to load packages for this batch
+		// This also sorts the list of packages into the best processing order
+		PurgeGarbage(/*bPurgeReferencedPackages*/false);
+
+		// Process this batch
+		const int32 PackagesToProcessThisBatch = FMath::Min(PackagesPendingGather.Num(), PackagesPerBatchCount);
+		for (int32 PackageIndex = 0; PackageIndex < PackagesToProcessThisBatch; ++PackageIndex)
+		{
+			const FPackagePendingGather& PackagePendingGather = PackagesPendingGather[PackageIndex];
+			const FString PackageNameStr = PackagePendingGather.PackageName.ToString();
+
+			UE_LOG(LogGatherTextFromAssetsCommandlet, Verbose, TEXT("Loading package: '%s'."), *PackageNameStr);
 
 			UPackage* Package = nullptr;
 			{
-				FString LongPackageName;
-				if (!FPackageName::TryConvertFilenameToLongPackageName(PackageFileName, LongPackageName))
-				{
-					LongPackageName = FPaths::GetCleanFilename(PackageFileName);
-				}
-
-				FLoadPackageLogOutputRedirector::FScopedCapture ScopedCapture(&LogOutputRedirector, LongPackageName);
-				Package = LoadPackage(NULL, *PackageFileName, LOAD_NoWarn | LOAD_Quiet);
+				FLoadPackageLogOutputRedirector::FScopedCapture ScopedCapture(&LogOutputRedirector, PackageNameStr);
+				Package = LoadPackage(nullptr, *PackageNameStr, LOAD_NoWarn | LOAD_Quiet);
 			}
 
-			if (Package)
+			if (!Package)
 			{
-				// Because packages may not have been resaved after this flagging was implemented, we may have added packages to load that weren't flagged - potential false positives.
-				// The loading process should have reflagged said packages so that only true positives will have this flag.
-				if (Package->RequiresLocalizationGather())
-				{
-					LoadedPackagesToProcess.Add(Package);
-				}
-			}
-			else
-			{
-				FailedPackageFileNames.Add(PackageFileName);
 				++FailuresInThisBatch;
 				continue;
 			}
-
+			
 			++PackagesInThisBatch;
+
+			// Because packages may not have been resaved after this flagging was implemented, we may have added packages to load that weren't flagged - potential false positives.
+			// The loading process should have reflagged said packages so that only true positives will have this flag.
+			if (Package->RequiresLocalizationGather())
+			{
+				// Gathers from the given package
+				EPropertyLocalizationGathererResultFlags GatherableTextResultFlags = EPropertyLocalizationGathererResultFlags::Empty;
+				FPropertyLocalizationDataGatherer(GatherableTextDataArray, Package, GatherableTextResultFlags);
+
+				ProcessGatherableTextDataArray(GatherableTextDataArray);
+				GatherableTextDataArray.Reset();
+			}
+
+			if (HasExceededMemoryLimit())
+			{
+				// Over the memory limit, perform a full purge
+				PurgeGarbage(/*bPurgeReferencedPackages*/true);
+			}
 		}
 
 		UE_LOG(LogGatherTextFromAssetsCommandlet, Display, TEXT("Loaded %i packages in batch %i of %i. %i failed."), PackagesInThisBatch, BatchIndex + 1, BatchCount, FailuresInThisBatch);
 
-		ProcessPackages(LoadedPackagesToProcess);
-		LoadedPackagesToProcess.Empty(PackagesPerBatchCount);
-
-		if (bFixBroken)
-		{
-			for (int32 LoadedPackageIndex = 0; LoadedPackageIndex < LoadedPackages.Num(); ++LoadedPackageIndex)
-			{
-				UPackage *Package = LoadedPackages[LoadedPackageIndex];
-				const FString PackageName = LoadedPackageFileNames[LoadedPackageIndex];
-
-				//Todo - link with source control.
-				if (Package)
-				{
-					if (Package->IsDirty())
-					{
-						if (SavePackageHelper(Package, *PackageName))
-						{
-							UE_LOG(LogGatherTextFromAssetsCommandlet, Display, TEXT("Saved Package %s."), *PackageName);
-						}
-						else
-						{
-							//TODO - Work out how to integrate with source control. The code from the source gatherer doesn't work.
-							UE_LOG(LogGatherTextFromAssetsCommandlet, Display, TEXT("Could not save package %s. Probably due to source control. "), *PackageName);
-						}
-					}
-				}
-				else
-				{
-					UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("Failed to find one of the loaded packages."));
-				}
-			}
-		}
-
-		CollectGarbage(RF_NoFlags);
-		LoadedPackages.Empty(PackagesPerBatchCount);
-		LoadedPackageFileNames.Empty(PackagesPerBatchCount);
+		// Remove the processed packages
+		PackagesPendingGather.RemoveAt(0, PackagesToProcessThisBatch, /*bAllowShrinking*/false);
 	}
+	check(PackagesPendingGather.Num() == 0);
 
 	return 0;
 }
@@ -766,12 +860,6 @@ bool UGatherTextFromAssetsCommandlet::ConfigureFromScript(const FString& GatherT
 
 	GetPathArrayFromConfig(*SectionName, TEXT("ManifestDependencies"), ManifestDependenciesList, GatherTextConfigPath);
 
-	//Get whether we should fix broken properties that we find.
-	if (!GetBoolFromConfig(*SectionName, TEXT("bFixBroken"), bFixBroken, GatherTextConfigPath))
-	{
-		bFixBroken = false;
-	}
-
 	// Get whether we should gather editor-only data. Typically only useful for the localization of UE4 itself.
 	if (!GetBoolFromConfig(*SectionName, TEXT("ShouldGatherFromEditorOnlyData"), ShouldGatherFromEditorOnlyData, GatherTextConfigPath))
 	{
@@ -784,6 +872,17 @@ bool UGatherTextFromAssetsCommandlet::ConfigureFromScript(const FString& GatherT
 		GetBoolFromConfig(*SectionName, TEXT("SkipGatherCache"), bSkipGatherCache, GatherTextConfigPath);
 	}
 	UE_LOG(LogGatherTextFromAssetsCommandlet, Display, TEXT("SkipGatherCache: %s"), bSkipGatherCache ? TEXT("true") : TEXT("false"));
+
+	// Read some settings from the editor config
+	{
+		int32 MaxMemoryAllowanceInMB = 0;
+		GConfig->GetInt(TEXT("GatherTextFromAssets"), TEXT("MaxMemoryAllowance"), MaxMemoryAllowanceInMB, GEditorIni);
+		MaxMemoryAllowanceInMB = FMath::Max(MaxMemoryAllowanceInMB, 0);
+		MaxMemoryAllowanceBytes = MaxMemoryAllowanceInMB * 1024LL * 1024LL;
+
+		PackagesPerBatchCount = 100;
+		GConfig->GetInt(TEXT("GatherTextFromAssets"), TEXT("BatchCount"), PackagesPerBatchCount, GEditorIni);
+	}
 
 	return !HasFatalError;
 }

@@ -186,7 +186,7 @@ void FTextureCacheDerivedDataWorker::BuildTexture()
 		if (DerivedData->Mips.Num())
 		{
 			bool bInlineMips = (CacheFlags & ETextureCacheFlags::InlineMips) != 0;
-			bSucceeded = !bInlineMips || DerivedData->TryInlineMipData();
+			bSucceeded = !bInlineMips || DerivedData->TryInlineMipData(BuildSettings.LODBiasWithCinematicMips);
 		}
 		else
 		{
@@ -283,7 +283,7 @@ void FTextureCacheDerivedDataWorker::DoWork()
 		}
 		else if (bInlineMips)
 		{
-			bSucceeded = DerivedData->TryInlineMipData();
+			bSucceeded = DerivedData->TryInlineMipData(BuildSettings.LODBiasWithCinematicMips);
 		}
 		else
 		{

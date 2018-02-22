@@ -256,9 +256,9 @@ void ULevelSequencePlayer::GetEventContexts(UWorld& InWorld, TArray<UObject*>& O
 		OutContexts.Add(InWorld.GetLevelScriptActor());
 	}
 
-	for (ULevelStreaming* StreamingLevel : InWorld.StreamingLevels)
+	for (ULevelStreaming* StreamingLevel : InWorld.GetStreamingLevels())
 	{
-		if (StreamingLevel->GetLevelScriptActor())
+		if (StreamingLevel && StreamingLevel->GetLevelScriptActor())
 		{
 			OutContexts.Add(StreamingLevel->GetLevelScriptActor());
 		}

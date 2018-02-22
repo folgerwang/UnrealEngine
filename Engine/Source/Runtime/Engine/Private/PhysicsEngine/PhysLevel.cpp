@@ -243,17 +243,21 @@ FString FStartAsyncSimulationFunction::DiagnosticMessage()
 void PvdConnect(FString Host, bool bVisualization);
 
 //////// GAME-LEVEL RIGID BODY PHYSICS STUFF ///////
-void InitGamePhys()
+bool InitGamePhys()
 {
 #if WITH_PHYSX
 	// Do nothing if SDK already exists
 	if(GPhysXFoundation != NULL)
 	{
-		return;
+		return true;
 	}
 
 	// Make sure 
-	PhysDLLHelper::LoadPhysXModules(/*bLoadCookingModule=*/ false);
+	if(!PhysDLLHelper::LoadPhysXModules(/*bLoadCookingModule=*/ false))
+	{
+		// This is fatal. We were not able to successfully load the physics modules
+		return false;
+	}
 
 	// Create Foundation
 	GPhysXAllocator = new FPhysXAllocator();
@@ -345,9 +349,6 @@ void InitGamePhys()
 	GApexSDK->setEnableApexStats(false);
 #endif
 
-
-
-
 #if APEX_STATICALLY_LINKED
 
 #if WITH_APEX_CLOTHING
@@ -393,6 +394,8 @@ void InitGamePhys()
 	});
 	
 #endif // WITH_PHYSX
+
+	return true;
 }
 
 void TermGamePhys()

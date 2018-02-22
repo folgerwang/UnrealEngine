@@ -351,6 +351,14 @@ public:
 	*/
 	virtual IAsyncReadFileHandle* OpenAsyncRead(const TCHAR* Filename);
 
+	/** Controls if the pak precacher should process precache requests.
+	* Without this throttle, quite a lot of memory can be consumed if the disk races ahead of the CPU.
+	* @param bEnablePrecacheRequests true or false depending on if precache requests should be allowed
+	*/
+	virtual void ThrottleAsyncPrecaches(bool bEnablePrecacheRequests)
+	{
+	}
+
 	virtual void GetTimeStampPair(const TCHAR* PathA, const TCHAR* PathB, FDateTime& OutTimeStampA, FDateTime& OutTimeStampB);
 
 	/** Return the modification time of a file in the local time of the calling code (GetTimeStamp returns UTC). Returns FDateTime::MinValue() on failure **/

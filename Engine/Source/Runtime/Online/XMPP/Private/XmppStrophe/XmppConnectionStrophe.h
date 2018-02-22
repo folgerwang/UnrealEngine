@@ -69,8 +69,8 @@ public:
 
 	// XMPP Thread methods
 
-	void ReceiveConnectionStateChange(FStropheConnectionEvent Event);
-	void ReceiveConnectionError(const FStropheError& Error, FStropheConnectionEvent Event);
+	void ReceiveConnectionStateChange(EStropheConnectionEvent Event);
+	void ReceiveConnectionError(const FStropheError& Error, EStropheConnectionEvent Event);
 	void ReceiveStanza(const FStropheStanza& Stanza);
 	void QueueNewLoginStatus(EXmppLoginStatus::Type NewStatus);
 

@@ -3021,7 +3021,7 @@ void FEdModeFoliage::MoveSelectedFoliageToLevel(ULevel* InTargetLevel)
 
 	// Get a world context
 	UWorld* World = InTargetLevel->OwningWorld;
-	bool PromptToMoveFoliageTypeToAsset = World->StreamingLevels.Num() > 0;
+	bool PromptToMoveFoliageTypeToAsset = World->GetStreamingLevels().Num() > 0;
 	bool ShouldPopulateMeshList = false;
 
 	const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "MoveSelectedFoliageToSelectedLevel", "Move Selected Foliage to Level"));
@@ -3109,7 +3109,7 @@ UFoliageType* FEdModeFoliage::AddFoliageAsset(UObject* InAsset)
 		}
 
 		// If there is multiple levels for this world, save the foliage directly as an asset, so user will be able to paint over all levels by default
-		if (World->StreamingLevels.Num() > 0)
+		if (World->GetStreamingLevels().Num() > 0)
 		{
 			UFoliageType* TypeSaved = SaveFoliageTypeObject(FoliageType);
 

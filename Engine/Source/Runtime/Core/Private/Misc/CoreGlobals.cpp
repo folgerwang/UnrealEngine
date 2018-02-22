@@ -233,8 +233,6 @@ FString					GSystemStartTime;
 bool					GIsInitialLoad					= true;
 /* Whether we are using the event driven loader */
 bool					GEventDrivenLoaderEnabled = false;
-//@todoio put this in some kind of API
-bool					GPakCache_AcceptPrecacheRequests = true;
 
 /** Steadily increasing frame counter.																		*/
 TSAN_ATOMIC(uint64)		GFrameCounter(0);

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 // ActorComponent.cpp: Actor component implementation.
 
 #include "Components/ActorComponent.h"
@@ -425,9 +425,9 @@ bool UActorComponent::ComponentIsInPersistentLevel(bool bIncludeLevelStreamingPe
 		return false;
 	}
 
-	return ( (MyLevel == MyWorld->PersistentLevel) || ( bIncludeLevelStreamingPersistent && MyWorld->StreamingLevels.Num() > 0 &&
-														Cast<ULevelStreamingPersistent>(MyWorld->StreamingLevels[0]) != NULL &&
-														MyWorld->StreamingLevels[0]->GetLoadedLevel() == MyLevel ) );
+	return ( (MyLevel == MyWorld->PersistentLevel) || ( bIncludeLevelStreamingPersistent && MyWorld->GetStreamingLevels().Num() > 0 &&
+														Cast<ULevelStreamingPersistent>(MyWorld->GetStreamingLevels()[0]) &&
+														MyWorld->GetStreamingLevels()[0]->GetLoadedLevel() == MyLevel ) );
 }
 
 FString UActorComponent::GetReadableName() const
@@ -704,12 +704,15 @@ void UActorComponent::PostEditChangeChainProperty(FPropertyChangedChainEvent& Pr
 
 void UActorComponent::OnRegister()
 {
+#if !UE_BUILD_SHIPPING
+	// These are removed in shipping because they are still likely to fail in Test and Development builds, and checks in shipping makes this rather expensive.
 	checkf(!IsUnreachable(), TEXT("%s"), *GetDetailedInfo());
 	checkf(!GetOuter()->IsTemplate(), TEXT("'%s' (%s)"), *GetOuter()->GetFullName(), *GetDetailedInfo());
 	checkf(!IsTemplate(), TEXT("'%s' (%s)"), *GetOuter()->GetFullName(), *GetDetailedInfo() );
+	checkf(!IsPendingKill(), TEXT("OnRegister: %s to %s"), *GetDetailedInfo(), GetOwner() ? *GetOwner()->GetFullName() : TEXT("*** No Owner ***") );
+#endif
 	checkf(WorldPrivate, TEXT("OnRegister: %s to %s"), *GetDetailedInfo(), GetOwner() ? *GetOwner()->GetFullName() : TEXT("*** No Owner ***") );
 	checkf(!bRegistered, TEXT("OnRegister: %s to %s"), *GetDetailedInfo(), GetOwner() ? *GetOwner()->GetFullName() : TEXT("*** No Owner ***") );
-	checkf(!IsPendingKill(), TEXT("OnRegister: %s to %s"), *GetDetailedInfo(), GetOwner() ? *GetOwner()->GetFullName() : TEXT("*** No Owner ***") );
 
 	bRegistered = true;
 

@@ -1823,6 +1823,10 @@ class ENGINE_API UKismetMathLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "Nearly Equal (transform)", Keywords = "== equal"), Category = "Math|Transform")
 	static bool NearlyEqual_TransformTransform(const FTransform& A, const FTransform& B, float LocationTolerance = 1.e-4f, float RotationTolerance = 1.e-4f, float Scale3DTolerance = 1.e-4f);
 
+	/** Calculates the determinant of the transform (converts to FMatrix internally) */
+	UFUNCTION(BlueprintPure, Category="Math|Transform", meta = (DisplayName = "Determinant"))
+	static float Transform_Determinant(const FTransform& Transform);
+
 	//
 	// Vector2D functions
 	//

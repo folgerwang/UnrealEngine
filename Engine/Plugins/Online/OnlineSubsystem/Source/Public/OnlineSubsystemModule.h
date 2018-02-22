@@ -83,7 +83,7 @@ public:
 	 *
 	 * @return Requested online subsystem, or NULL if that subsystem was unable to load or doesn't exist
 	 */
-	virtual class IOnlineSubsystem* GetOnlineSubsystem(const FName InSubsystemName = NAME_None);
+	virtual IOnlineSubsystem* GetOnlineSubsystem(const FName InSubsystemName = NAME_None);
 
 	/**
 	 * Destroys an online subsystem created internally via access with GetOnlineSubsystem
@@ -123,6 +123,14 @@ public:
 	virtual void UnregisterPlatformService(const FName FactoryName);
 
 	/**
+	 * Enumerate all loaded online subsystems
+	 *
+	 * @param EnumCb functor to call for each online subsystem
+	 */
+	typedef TFunction<void(IOnlineSubsystem*)> FEnumerateOnlineSubsystemCb;
+	void ONLINESUBSYSTEM_API EnumerateOnlineSubsystems(FEnumerateOnlineSubsystemCb& EnumCb);
+
+	/**
 	 * Shutdown the current default subsystem (may be the fallback) and attempt to reload the one 
 	 * specified in the configuration file
 	 *
@@ -130,7 +138,6 @@ public:
 	 * in unexpected crashes/behavior
 	 */
 	void ReloadDefaultSubsystem();
-
 
 	// IModuleInterface
 

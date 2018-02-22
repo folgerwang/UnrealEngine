@@ -89,6 +89,8 @@ namespace UnrealBuildTool
 		public override void ResetTarget(TargetRules Target)
 		{
 			ValidateTarget(Target);
+
+			Target.bDeployAfterCompile = true;
 		}
 
 		public override void ValidateTarget(TargetRules Target)
@@ -104,7 +106,6 @@ namespace UnrealBuildTool
 			Target.bCompileSimplygonSSF = false;
 
 			Target.bCompileRecast = true;
-			Target.bDeployAfterCompile = true;
 		}
 
 		public override bool CanUseXGE()
@@ -171,7 +172,7 @@ namespace UnrealBuildTool
 		{
 			string[] BoolKeys = new string[] {
 				"bBuildForArmV7", "bBuildForArm64", "bBuildForX86", "bBuildForX8664", 
-				"bBuildForES2", "bBuildForES31", "bBuildWithHiddenSymbolVisibility"
+				"bBuildForES2", "bBuildForES31", "bBuildWithHiddenSymbolVisibility", "bUseNEONForArmV7", "bSaveSymbols"
 			};
 			string[] StringKeys = new string[] {
 				"NDKAPILevelOverride"
@@ -228,14 +229,6 @@ namespace UnrealBuildTool
 						if (Target.bBuildDeveloperTools)
 						{
 							Rules.DynamicallyLoadedModuleNames.Add("AndroidTargetPlatform");
-							Rules.DynamicallyLoadedModuleNames.Add("Android_PVRTCTargetPlatform");
-							Rules.DynamicallyLoadedModuleNames.Add("Android_ATCTargetPlatform");
-							Rules.DynamicallyLoadedModuleNames.Add("Android_DXTTargetPlatform");
-							Rules.DynamicallyLoadedModuleNames.Add("Android_ETC1TargetPlatform");
-                            Rules.DynamicallyLoadedModuleNames.Add("Android_ETC1aTargetPlatform");
-							Rules.DynamicallyLoadedModuleNames.Add("Android_ETC2TargetPlatform");
-							Rules.DynamicallyLoadedModuleNames.Add("Android_ASTCTargetPlatform");
-							Rules.DynamicallyLoadedModuleNames.Add("Android_MultiTargetPlatform");
 						}
 					}
 					else if (ModuleName == "TargetPlatform")
@@ -258,14 +251,6 @@ namespace UnrealBuildTool
 					if (Target.bForceBuildTargetPlatforms)
 					{
 						Rules.DynamicallyLoadedModuleNames.Add("AndroidTargetPlatform");
-						Rules.DynamicallyLoadedModuleNames.Add("Android_PVRTCTargetPlatform");
-						Rules.DynamicallyLoadedModuleNames.Add("Android_ATCTargetPlatform");
-						Rules.DynamicallyLoadedModuleNames.Add("Android_DXTTargetPlatform");
-						Rules.DynamicallyLoadedModuleNames.Add("Android_ETC1TargetPlatform");
-                        Rules.DynamicallyLoadedModuleNames.Add("Android_ETC1aTargetPlatform");
-						Rules.DynamicallyLoadedModuleNames.Add("Android_ETC2TargetPlatform");
-						Rules.DynamicallyLoadedModuleNames.Add("Android_ASTCTargetPlatform");
-						Rules.DynamicallyLoadedModuleNames.Add("Android_MultiTargetPlatform");
 					}
 
 					if (bBuildShaderFormats)
@@ -359,42 +344,9 @@ namespace UnrealBuildTool
 			AndroidToolChain ToolChain = new AndroidToolChain(Target.ProjectFile, false, Target.AndroidPlatform.Architectures, Target.AndroidPlatform.GPUArchitectures);
 
 			// figure out the NDK version
-			string NDKToolchainVersion = "unknown";
-			string NDKDefine = "100500";	// assume r10e
-			string SourcePropFilename = Path.Combine(NDKPath, "source.properties");
-			if (File.Exists(SourcePropFilename))
-			{
-				string RevisionString = "";
-				string[] PropertyContents = File.ReadAllLines(SourcePropFilename);
-				foreach (string PropertyLine in PropertyContents)
-				{
-					if (PropertyLine.StartsWith("Pkg.Revision"))
-					{
-						RevisionString = PropertyLine;
-						break;
-					}
-				}
+			string NDKToolchainVersion = ToolChain.NDKToolchainVersion;
+			string NDKDefine = ToolChain.NDKDefine;
 
-				int EqualsIndex = RevisionString.IndexOf('=');
-				if (EqualsIndex > 0)
-				{
-					string[] RevisionParts = RevisionString.Substring(EqualsIndex + 1).Trim().Split('.');
-					int RevisionMinor = int.Parse(RevisionParts.Length > 1 ? RevisionParts[1] : "0");
-					char RevisionLetter = Convert.ToChar('a' + RevisionMinor);
-					int RevisionBeta = 0;  // @TODO
-					NDKToolchainVersion = "r" + RevisionParts[0] + (RevisionMinor > 0 ? Char.ToString(RevisionLetter) : "");
-					NDKDefine = RevisionParts[0] + string.Format("{0:00}", RevisionMinor + 1) + string.Format("{0:00}", RevisionBeta);
-				}
-			}
-			else {
-				string ReleaseFilename = Path.Combine(NDKPath, "RELEASE.TXT");
-				if (File.Exists(ReleaseFilename))
-				{
-					string[] PropertyContents = File.ReadAllLines(SourcePropFilename);
-					NDKToolchainVersion = PropertyContents[0];
-				}
-			}
-			
 			// PLATFORM_ANDROID_NDK_VERSION is in the form 150100, where 15 is major version, 01 is the letter (1 is 'a'), 00 indicates beta revision if letter is 00
 			Log.TraceInformation("PLATFORM_ANDROID_NDK_VERSION = {0}", NDKDefine);
 			CompileEnvironment.Definitions.Add("PLATFORM_ANDROID_NDK_VERSION=" + NDKDefine);
@@ -524,7 +476,8 @@ namespace UnrealBuildTool
 		/// <param name="Target">Information about the target being deployed</param>
 		public override void Deploy(UEBuildDeployTarget Target)
 		{
-			new UEDeployAndroid(Target.ProjectFile).PrepTargetForDeployment(Target);
+			// do not package data if building via UBT
+			new UEDeployAndroid(Target.ProjectFile, false).PrepTargetForDeployment(Target);
 		}
 	}
 

@@ -976,7 +976,7 @@ public:
 	* @param StartPos					Start position of the simulation
 	* @param EndPos						Desired end location for the simulation
 	* @param OverrideGravityZ			Optional override of WorldGravityZ
-	* @param ArcParam					Change height of arc between 0.0-1.0 where 0.5 is the default medium arc
+	* @param ArcParam					Change height of arc between 0.0-1.0 where 0.5 is the default medium arc, 0 is up, and 1 is directly toward EndPos.
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Game", DisplayName = "SuggestProjectileVelocity Custom Arc", meta = (WorldContext = "WorldContextObject", AdvancedDisplay = "OverrideGravityZ, ArcParam"))
 	static bool SuggestProjectileVelocity_CustomArc(const UObject* WorldContextObject, FVector& OutLaunchVelocity, FVector StartPos, FVector EndPos, float OverrideGravityZ = 0, float ArcParam = 0.5f);

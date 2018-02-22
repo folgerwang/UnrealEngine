@@ -552,6 +552,19 @@ void UGameplayCueManager::InitializeRuntimeObjectLibrary()
 }
 
 #if WITH_EDITOR
+void UGameplayCueManager::ModifyCook(TArray<FName>& PackagesToCook, TArray<FName>& PackagesToNeverCook)
+{
+	if (RuntimeGameplayCueObjectLibrary.CueSet)
+	{
+		TArray<FSoftObjectPath> CuePaths;
+		RuntimeGameplayCueObjectLibrary.CueSet->GetSoftObjectPaths(CuePaths);
+		for (const FSoftObjectPath& Path : CuePaths)
+		{
+			PackagesToCook.Add(FName(*FPackageName::ObjectPathToPackageName(Path.ToString())));
+		}
+	}
+}
+
 void UGameplayCueManager::InitializeEditorObjectLibrary()
 {
 	SCOPE_LOG_TIME_IN_SECONDS(*FString::Printf(TEXT("UGameplayCueManager::InitializeEditorObjectLibrary")), nullptr)

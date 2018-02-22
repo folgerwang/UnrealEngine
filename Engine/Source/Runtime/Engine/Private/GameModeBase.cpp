@@ -526,24 +526,27 @@ void AGameModeBase::SwapPlayerControllers(APlayerController* OldPC, APlayerContr
 	}
 }
 
+TSubclassOf<APlayerController> AGameModeBase::GetPlayerControllerClassToSpawnForSeamlessTravel(APlayerController* PreviousPC)
+{
+	UClass* PCClassToSpawn = PlayerControllerClass;
+
+	if (PreviousPC && ReplaySpectatorPlayerControllerClass && PreviousPC->PlayerState && PreviousPC->PlayerState->bOnlySpectator)
+	{
+		PCClassToSpawn = ReplaySpectatorPlayerControllerClass;
+	}
+
+	return PCClassToSpawn;
+}
+
 void AGameModeBase::HandleSeamlessTravelPlayer(AController*& C)
 {
 	// Default behavior is to spawn new controllers and copy data
 	APlayerController* PC = Cast<APlayerController>(C);
 	if (PC && PC->Player)
 	{
-		APlayerController* NewPC = nullptr;
-		if (PC->PlayerState && PC->PlayerState->bOnlySpectator && ReplaySpectatorPlayerControllerClass != nullptr)
-		{
-			NewPC = SpawnReplayPlayerController(PC->IsLocalPlayerController() ? ROLE_SimulatedProxy : ROLE_AutonomousProxy, PC->GetFocalLocation(), PC->GetControlRotation());
-		}
-		else
-		{
-			// We need to spawn a new PlayerController to replace the old one
-			NewPC = SpawnPlayerController(PC->IsLocalPlayerController() ? ROLE_SimulatedProxy : ROLE_AutonomousProxy, PC->GetFocalLocation(), PC->GetControlRotation());
-		}
-
-
+		// We need to spawn a new PlayerController to replace the old one
+		UClass* PCClassToSpawn = GetPlayerControllerClassToSpawnForSeamlessTravel(PC);
+		APlayerController* const NewPC = SpawnPlayerControllerCommon(PC->IsLocalPlayerController() ? ROLE_SimulatedProxy : ROLE_AutonomousProxy, PC->GetFocalLocation(), PC->GetControlRotation(), PCClassToSpawn);
 		if (NewPC)
 		{
 			PC->SeamlessTravelTo(NewPC);
@@ -653,20 +656,10 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 		return nullptr;
 	}
 
-	APlayerController* NewPlayerController = nullptr;
-	if (Options.Contains(FString(TEXT("SpectatorOnly=1"))) && ReplaySpectatorPlayerControllerClass != nullptr)
-	{
-		NewPlayerController = SpawnReplayPlayerController(InRemoteRole, FVector::ZeroVector, FRotator::ZeroRotator);
-	}
-	else
-	{
-		// We need to spawn a new PlayerController to replace the old one
-		NewPlayerController = SpawnPlayerController(InRemoteRole, FVector::ZeroVector, FRotator::ZeroRotator);
-	}
-
-	// Handle spawn failure.
+	APlayerController* const NewPlayerController = SpawnPlayerController(InRemoteRole, Options);
 	if (NewPlayerController == nullptr)
 	{
+		// Handle spawn failure.
 		UE_LOG(LogGameMode, Log, TEXT("Login: Couldn't spawn player controller of class %s"), PlayerControllerClass ? *PlayerControllerClass->GetName() : TEXT("NULL"));
 		ErrorMessage = FString::Printf(TEXT("Failed to spawn player controller"));
 		return nullptr;
@@ -682,11 +675,26 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	return NewPlayerController;
 }
 
+APlayerController* AGameModeBase::SpawnPlayerController(ENetRole InRemoteRole, const FString& Options)
+{
+// calling the deprecated functions for backward compatibility, should call SpawnPlayerControllerCommon directly in the future.
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	if (Options.Contains(FString(TEXT("SpectatorOnly=1"))) && ReplaySpectatorPlayerControllerClass != nullptr)
+	{
+		return SpawnReplayPlayerController(InRemoteRole, FVector::ZeroVector, FRotator::ZeroRotator);
+	}
+	
+	return SpawnPlayerController(InRemoteRole, FVector::ZeroVector, FRotator::ZeroRotator);
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+}
+
+// deprecated
 APlayerController* AGameModeBase::SpawnPlayerController(ENetRole InRemoteRole, FVector const& SpawnLocation, FRotator const& SpawnRotation)
 {
 	return SpawnPlayerControllerCommon(InRemoteRole, SpawnLocation, SpawnRotation, PlayerControllerClass);
 }
 
+// deprecated
 APlayerController* AGameModeBase::SpawnReplayPlayerController(ENetRole InRemoteRole, FVector const& SpawnLocation, FRotator const& SpawnRotation)
 {
 	return SpawnPlayerControllerCommon(InRemoteRole, SpawnLocation, SpawnRotation, ReplaySpectatorPlayerControllerClass);
@@ -876,32 +884,33 @@ void AGameModeBase::ReplicateStreamingStatus(APlayerController* PC)
 			PC->ClientCommitMapChange();
 		}
 
-		if (MyWorld->StreamingLevels.Num() > 0)
+		if (MyWorld->GetStreamingLevels().Num() > 0)
 		{
 			// Tell the player controller the current streaming level status
 			TArray<FUpdateLevelStreamingLevelStatus> LevelStatuses;
-			for (int32 LevelIndex = 0; LevelIndex < MyWorld->StreamingLevels.Num(); LevelIndex++)
+			for (ULevelStreaming* TheLevel : MyWorld->GetStreamingLevels())
 			{
-				ULevelStreaming* TheLevel = MyWorld->StreamingLevels[LevelIndex];
-
 				if (TheLevel != nullptr)
 				{
 					const ULevel* LoadedLevel = TheLevel->GetLoadedLevel();
 
+					const bool bTheLevelShouldBeVisible = TheLevel->ShouldBeVisible();
+					const bool bTheLevelShouldBeLoaded = TheLevel->ShouldBeLoaded();
+
 					UE_LOG(LogGameMode, Verbose, TEXT("ReplicateStreamingStatus: %s %i %i %i %s %i"),
 						*TheLevel->GetWorldAssetPackageName(),
-						TheLevel->bShouldBeVisible,
+						bTheLevelShouldBeVisible,
 						LoadedLevel && LoadedLevel->bIsVisible,
-						TheLevel->bShouldBeLoaded,
+						bTheLevelShouldBeLoaded,
 						*GetNameSafe(LoadedLevel),
-						TheLevel->bHasLoadRequestPending);
+						TheLevel->HasLoadRequestPending());
 
 					FUpdateLevelStreamingLevelStatus& LevelStatus = *new( LevelStatuses ) FUpdateLevelStreamingLevelStatus();
 					LevelStatus.PackageName = PC->NetworkRemapPath(TheLevel->GetWorldAssetPackageFName(), false);
-					LevelStatus.bNewShouldBeLoaded = TheLevel->bShouldBeLoaded;
-					LevelStatus.bNewShouldBeVisible = TheLevel->bShouldBeVisible;
+					LevelStatus.bNewShouldBeLoaded = bTheLevelShouldBeLoaded;
+					LevelStatus.bNewShouldBeVisible = bTheLevelShouldBeVisible;
 					LevelStatus.bNewShouldBlockOnLoad = TheLevel->bShouldBlockOnLoad;
-					LevelStatus.LODIndex = TheLevel->LevelLODIndex;
+					LevelStatus.LODIndex = TheLevel->GetLevelLODIndex();
 				}
 			}
 			PC->ClientUpdateMultipleLevelsStreamingStatus( LevelStatuses );

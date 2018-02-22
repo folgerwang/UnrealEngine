@@ -499,11 +499,14 @@ enum EStructFlags
 	/** If set, this struct will be have PostScriptConstruct called on it after a temporary object is constructed in a running blueprint */
 	STRUCT_PostScriptConstruct     = 0x00200000,
 
+	/** If set, this struct can share net serialization state across connections */
+	STRUCT_NetSharedSerialization = 0x00400000,
+
 	/** Struct flags that are automatically inherited */
 	STRUCT_Inherit				= STRUCT_HasInstancedReference|STRUCT_Atomic,
 
 	/** Flags that are always computed, never loaded or done with code generation */
-	STRUCT_ComputedFlags		= STRUCT_NetDeltaSerializeNative | STRUCT_NetSerializeNative | STRUCT_SerializeNative | STRUCT_PostSerializeNative | STRUCT_CopyNative | STRUCT_IsPlainOldData | STRUCT_NoDestructor | STRUCT_ZeroConstructor | STRUCT_IdenticalNative | STRUCT_AddStructReferencedObjects | STRUCT_ExportTextItemNative | STRUCT_ImportTextItemNative | STRUCT_SerializeFromMismatchedTag | STRUCT_PostScriptConstruct
+	STRUCT_ComputedFlags		= STRUCT_NetDeltaSerializeNative | STRUCT_NetSerializeNative | STRUCT_SerializeNative | STRUCT_PostSerializeNative | STRUCT_CopyNative | STRUCT_IsPlainOldData | STRUCT_NoDestructor | STRUCT_ZeroConstructor | STRUCT_IdenticalNative | STRUCT_AddStructReferencedObjects | STRUCT_ExportTextItemNative | STRUCT_ImportTextItemNative | STRUCT_SerializeFromMismatchedTag | STRUCT_PostScriptConstruct | STRUCT_NetSharedSerialization
 };
 
 
@@ -528,6 +531,7 @@ struct TStructOpsTypeTraitsBase2
 		WithNetDeltaSerializer         = false,                         // struct has a NetDeltaSerialize function for serializing differences in state from a previous NetSerialize operation.
 		WithSerializeFromMismatchedTag = false,                         // struct has a SerializeFromMismatchedTag function for converting from other property tags.
 		WithPostScriptConstruct        = false,							// struct has a PostScriptConstruct function which is called after it is constructed in blueprints
+		WithNetSharedSerialization     = false,                         // struct has a NetSerialize function that does not require the package map to serialize its state.
 	};
 };
 
@@ -839,6 +843,9 @@ public:
 
 		/** return true if this struct can net serialize **/
 		virtual bool HasNetSerializer() = 0;
+		
+		/** return true if this can share net serialization across connections */
+		virtual bool HasNetSharedSerialization() = 0;
 		/** 
 		 * Net serialize this structure 
 		 * @return true if the struct was serialized, otherwise it will fall back to ordinary script struct net serialization
@@ -985,6 +992,10 @@ public:
 		virtual bool HasNetSerializer() override
 		{
 			return TTraits::WithNetSerializer;
+		}
+		virtual bool HasNetSharedSerialization() override
+		{
+			return TTraits::WithNetSharedSerialization;
 		}
 		virtual bool HasNetDeltaSerializer() override
 		{

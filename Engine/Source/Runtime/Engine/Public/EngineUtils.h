@@ -680,6 +680,7 @@ struct FSubLevelStatus
 	FName				PackageName;
 	EStreamingStatus	StreamingStatus;
 	int32				LODIndex;
+	bool				bInConsiderList;
 	bool				bPlayerInside;
 };
 

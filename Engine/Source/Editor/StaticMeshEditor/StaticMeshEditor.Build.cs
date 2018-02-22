@@ -39,6 +39,7 @@ public class StaticMeshEditor : ModuleRules
                 "Json",
                 "JsonUtilities",
                 "AdvancedPreviewScene",
+                "DesktopPlatform"
             }
 		);
 

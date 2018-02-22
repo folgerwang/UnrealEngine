@@ -56,6 +56,11 @@ class UReflectionCaptureComponent : public USceneComponent
 	UPROPERTY()
 	FGuid MapBuildDataId;
 
+#if WITH_EDITOR
+	/** Check to see if MapBuildDataId was loaded - otherwise we need to display a warning on cook */
+	bool bMapBuildDataIdLoaded;
+#endif
+
 	/** The rendering thread's mirror of this reflection capture. */
 	FReflectionCaptureProxy* SceneProxy;
 

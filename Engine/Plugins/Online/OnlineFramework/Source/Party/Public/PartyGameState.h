@@ -217,7 +217,7 @@ public:
 	virtual void OnShutdown();
 
 	/** @return true if local player is party leader, false otherwise */
-	bool IsLocalPartyLeader();
+	bool IsLocalPartyLeader() const;
 
 	/** @return the party id of this party */
 	FOnlinePartyTypeId GetPartyTypeId() const;
@@ -338,6 +338,13 @@ public:
 	 */
 	virtual FChatRoomId GetChatRoomID() const;
 
+	/**
+	 * Get all party members in this party casted to the specified type
+	 * Note if a member cannot be cast to the specified type, a null entry will be placed in the list
+	 * 
+	 * @param <TPartyMemberState> type to cast the party members to
+	 * @param PartyMembers [out] array of all party members in this party of the specified type
+	 */
 	template< typename TPartyMemberState >
 	void GetTypedPartyMembers(TArray< TPartyMemberState* >& PartyMembers) const
 	{

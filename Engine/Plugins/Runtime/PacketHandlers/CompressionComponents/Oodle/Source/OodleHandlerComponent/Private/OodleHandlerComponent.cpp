@@ -1157,11 +1157,12 @@ static bool OodleExec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
 			if (bTurnOn != bOodleForceEnable)
 			{
 				bOodleForceEnable = bTurnOn;
-
+#if USE_OODLE_TRAINER_COMMANDLET
 				if (bOodleForceEnable)
 				{
 					UOodleTrainerCommandlet::HandleEnable();
 				}
+#endif
 			}
 		}
 		// Used for enabling/disabling compression of outgoing packets (does not affect decompression of incoming packets)
@@ -1398,10 +1399,12 @@ void FOodleComponentModuleInterface::StartupModule()
 	// If Oodle is force-enabled on the commandline, execute the commandlet-enable command, which also adds to the PacketHandler list
 	bOodleForceEnable = FParse::Param(FCommandLine::Get(), TEXT("Oodle"));
 
+#if USE_OODLE_TRAINER_COMMANDLET
 	if (bOodleForceEnable)
 	{
 		UOodleTrainerCommandlet::HandleEnable();
 	}
+#endif
 
 
 	// Use an absolute path for this, as we want all relative paths, to be relative to this folder

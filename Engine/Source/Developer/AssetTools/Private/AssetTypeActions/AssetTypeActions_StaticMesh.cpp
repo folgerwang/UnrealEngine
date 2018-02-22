@@ -192,7 +192,7 @@ void FAssetTypeActions_StaticMesh::ExecutePasteLODSettings(TArray<TWeakObjectPtr
 	for (int32 i = 0; i < LODCopyMesh->SourceModels.Num(); i++)
 	{
 		LODSettings[i].ReductionSettings = LODCopyMesh->SourceModels[i].ReductionSettings;
-		LODSettings[i].ScreenSize = LODCopyMesh->SourceModels[i].ScreenSize;
+		LODSettings[i].ScreenSize = LODCopyMesh->SourceModels[i].ScreenSize.Default;
 	}
 
 	const bool bAutoComputeLODScreenSize = LODCopyMesh->bAutoComputeLODScreenSize;
@@ -219,7 +219,7 @@ void FAssetTypeActions_StaticMesh::ExecutePasteLODSettings(TArray<TWeakObjectPtr
 			for (int32 i = 0; i < LODCount; i++)
 			{
 				Mesh->SourceModels[i].ReductionSettings = LODSettings[i].ReductionSettings;
-				Mesh->SourceModels[i].ScreenSize = LODSettings[i].ScreenSize;
+				Mesh->SourceModels[i].ScreenSize.Default = LODSettings[i].ScreenSize;
 			}
 
 			for (int32 i = LODCount; i < LODSettings.Num(); ++i)
@@ -227,7 +227,7 @@ void FAssetTypeActions_StaticMesh::ExecutePasteLODSettings(TArray<TWeakObjectPtr
 				FStaticMeshSourceModel& SrcModel = Mesh->SourceModels[i];
 
 				SrcModel.ReductionSettings = LODSettings[i].ReductionSettings;
-				SrcModel.ScreenSize = LODSettings[i].ScreenSize;
+				SrcModel.ScreenSize.Default = LODSettings[i].ScreenSize;
 			}
 
 			Mesh->bAutoComputeLODScreenSize = bAutoComputeLODScreenSize;

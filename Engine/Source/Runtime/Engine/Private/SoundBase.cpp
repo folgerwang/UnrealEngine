@@ -3,6 +3,7 @@
 #include "Sound/SoundBase.h"
 #include "Sound/SoundSubmix.h"
 #include "Sound/AudioSettings.h"
+#include "EngineDefines.h"
 
 USoundClass* USoundBase::DefaultSoundClassObject = nullptr;
 USoundConcurrency* USoundBase::DefaultSoundConcurrencyObject = nullptr;
@@ -38,7 +39,6 @@ void USoundBase::PostInitProperties()
 		}
 	}
 	SoundConcurrencySettings = USoundBase::DefaultSoundConcurrencyObject;
-
 }
 
 bool USoundBase::IsPlayable() const
@@ -65,14 +65,29 @@ const FSoundAttenuationSettings* USoundBase::GetAttenuationSettingsToApply() con
 	return nullptr;
 }
 
-float USoundBase::GetMaxAudibleDistance()
+float USoundBase::GetMaxDistance() const
 {
-	return 0.f;
+	return (AttenuationSettings ? AttenuationSettings->Attenuation.GetMaxDimension() : WORLD_MAX);
 }
 
-float USoundBase::GetDuration()
+float USoundBase::GetDuration() const
 {
 	return Duration;
+}
+
+bool USoundBase::HasDelayNode() const
+{
+	return bHasDelayNode;
+}
+
+bool USoundBase::HasConcatenatorNode() const
+{
+	return bHasConcatenatorNode;
+}
+
+bool USoundBase::IsVirtualizeWhenSilent() const
+{
+	return bHasVirtualizeWhenSilent;
 }
 
 float USoundBase::GetVolumeMultiplier()

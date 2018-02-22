@@ -430,11 +430,6 @@ bool FD3D11Viewport::Present(bool bLockToVsync)
 		if ( (!!bSwapChainFullscreenState)  != bIsFullscreen )
 		{
 			bIsValid = false;
-			
-			// Minimize the window.
-			// use SW_FORCEMINIMIZE if the messaging thread is likely to be blocked for a sizeable period.
-			// SW_FORCEMINIMIZE also prevents the minimize animation from playing.
-			::ShowWindow(WindowHandle,SW_MINIMIZE);
 		}
 	}
 

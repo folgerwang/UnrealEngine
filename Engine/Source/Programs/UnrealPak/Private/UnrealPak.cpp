@@ -761,17 +761,81 @@ bool UncompressCopyFile(FArchive& Dest, FArchive& Source, const FPakEntry& Entry
 	return true;
 }
 
+TEncryptionInt ParseEncryptionIntFromJson(TSharedPtr<FJsonObject> InObj, const TCHAR* InName)
+{
+	FString Base64;
+	if (InObj->TryGetStringField(InName, Base64))
+	{
+		TArray<uint8> Bytes;
+		FBase64::Decode(Base64, Bytes);
+		check(Bytes.Num() == sizeof(TEncryptionInt));
+		return TEncryptionInt((uint32*)&Bytes[0]);
+	}
+	else
+	{
+		return TEncryptionInt();
+	}
+}
+
+void PrepareEncryptionAndSigningKeysFromCryptoKeyCache(const FString& InFilename, FKeyPair& OutSigningKey, FAES::FAESKey& OutAESKey)
+{
+	FArchive* File = IFileManager::Get().CreateFileReader(*InFilename);
+	TSharedPtr<FJsonObject> RootObject;
+	TSharedRef<TJsonReader<char>> Reader = TJsonReaderFactory<char>::Create(File);
+	if (FJsonSerializer::Deserialize(Reader, RootObject))
+	{
+		const bool bDataCryptoRequired = RootObject->GetBoolField("bDataCryptoRequired");
+
+		if (bDataCryptoRequired)
+		{
+			const TSharedPtr<FJsonObject>* EncryptionKeyObject;
+			if (RootObject->TryGetObjectField(TEXT("EncryptionKey"), EncryptionKeyObject))
+			{
+				FString EncryptionKeyBase64;
+				if ((*EncryptionKeyObject)->TryGetStringField(TEXT("Key"), EncryptionKeyBase64))
+				{
+					if (EncryptionKeyBase64.Len() > 0)
+					{
+						TArray<uint8> Key;
+						FBase64::Decode(EncryptionKeyBase64, Key);
+						check(Key.Num() == sizeof(FAES::FAESKey::Key));
+						FMemory::Memcpy(OutAESKey.Key, &Key[0], sizeof(FAES::FAESKey::Key));
+					}
+				}
+			}
+
+			const TSharedPtr<FJsonObject>* SigningKey;
+			if (RootObject->TryGetObjectField(TEXT("SigningKey"), SigningKey))
+			{
+				TSharedPtr<FJsonObject> PublicKey = (*SigningKey)->GetObjectField(TEXT("PublicKey"));
+				TSharedPtr<FJsonObject> PrivateKey = (*SigningKey)->GetObjectField(TEXT("PrivateKey"));
+				OutSigningKey.PublicKey.Exponent = ParseEncryptionIntFromJson(PublicKey, TEXT("Exponent"));
+				OutSigningKey.PublicKey.Modulus = ParseEncryptionIntFromJson(PublicKey, TEXT("Modulus"));
+				OutSigningKey.PrivateKey.Exponent = ParseEncryptionIntFromJson(PrivateKey, TEXT("Exponent"));
+				OutSigningKey.PrivateKey.Modulus = ParseEncryptionIntFromJson(PrivateKey, TEXT("Modulus"));
+				check(OutSigningKey.PublicKey.Modulus == OutSigningKey.PrivateKey.Modulus);
+			}
+		}
+	}
+	delete File;
+}
+
 void PrepareEncryptionAndSigningKeys(FKeyPair& OutSigningKey, FAES::FAESKey& OutAESKey)
 {
-	bool bSigningEnabled = false;
-
 	OutSigningKey.PrivateKey.Exponent.Zero();
 	OutSigningKey.PrivateKey.Modulus.Zero();
 	OutSigningKey.PublicKey.Exponent.Zero();
 	OutSigningKey.PublicKey.Modulus.Zero();
 	OutAESKey.Reset();
 
-	if (FParse::Param(FCommandLine::Get(), TEXT("encryptionini")))
+	// First, try and parse the keys from a supplied crypto key cache file
+	FString CryptoKeysCacheFilename;
+	if (FParse::Value(FCommandLine::Get(), TEXT("cryptokeys="), CryptoKeysCacheFilename))
+	{
+		UE_LOG(LogPakFile, Display, TEXT("Parsing crypto keys from a crypto key cache file"));
+		PrepareEncryptionAndSigningKeysFromCryptoKeyCache(CryptoKeysCacheFilename, OutSigningKey, OutAESKey);
+	}
+	else if (FParse::Param(FCommandLine::Get(), TEXT("encryptionini")))
 	{
 		FString ProjectDir, EngineDir, Platform;
 
@@ -827,8 +891,6 @@ void PrepareEncryptionAndSigningKeys(FKeyPair& OutSigningKey, FAES::FAESKey& Out
 					OutSigningKey.PublicKey.Exponent = TEncryptionInt((uint32*)&PublicExp[0]);
 					OutSigningKey.PublicKey.Modulus = OutSigningKey.PrivateKey.Modulus;
 
-					bSigningEnabled = true;
-
 					UE_LOG(LogPakFile, Display, TEXT("Parsed signature keys from config files."));
 				}
 
@@ -868,8 +930,6 @@ void PrepareEncryptionAndSigningKeys(FKeyPair& OutSigningKey, FAES::FAESKey& Out
 					OutSigningKey.PrivateKey.Modulus.Parse(RSAModulus);
 					OutSigningKey.PublicKey.Exponent.Parse(RSAPublicExp);
 					OutSigningKey.PublicKey.Modulus = OutSigningKey.PrivateKey.Modulus;
-
-					bSigningEnabled = true;
 
 					UE_LOG(LogPakFile, Display, TEXT("Parsed signature keys from config files."));
 				}
@@ -940,8 +1000,6 @@ void PrepareEncryptionAndSigningKeys(FKeyPair& OutSigningKey, FAES::FAESKey& Out
 					OutSigningKey.PublicKey.Exponent.Parse(KeyValueText[2]);
 					OutSigningKey.PublicKey.Modulus = OutSigningKey.PrivateKey.Modulus;
 
-					bSigningEnabled = true;
-
 					UE_LOG(LogPakFile, Display, TEXT("Parsed signature keys from command line."));
 				}
 				else
@@ -954,25 +1012,14 @@ void PrepareEncryptionAndSigningKeys(FKeyPair& OutSigningKey, FAES::FAESKey& Out
 			{
 				UE_LOG(LogPakFile, Error, TEXT("Unable to load signature keys %s."), *KeyFilename);
 			}
-			else
-			{
-				bSigningEnabled = true;
-			}
 		}
 	}
 
-	if (bSigningEnabled)
+	if (OutSigningKey.IsValid())
 	{
-		if (OutSigningKey.IsValid())
+		if (!TestKeys(OutSigningKey))
 		{
-			if (!TestKeys(OutSigningKey))
-			{
-				OutSigningKey.PrivateKey.Exponent.Zero();
-			}
-		}
-		else
-		{
-			UE_LOG(LogPakFile, Error, TEXT("Supplied pak signing keys were not valid"));
+			OutSigningKey.PrivateKey.Exponent.Zero();
 		}
 	}
 
@@ -1603,8 +1650,9 @@ bool DiffFilesInPaks(const FString InPakFilename1, const FString InPakFilename2,
 			}
 			
 			//see if entry exists in other pak							
-			const FPakEntry* Entry2 = PakFile2.Find(PakFile1.GetMountPoint() / PAK1FileName);
-			if (Entry2 == nullptr)
+			FPakEntry Entry2;
+			bool bFoundEntry2 = PakFile2.Find(PakFile1.GetMountPoint() / PAK1FileName, &Entry2);
+			if (!bFoundEntry2)
 			{
 				++NumUniquePAK1;
 				if (bLogUniques1)
@@ -1615,10 +1663,10 @@ bool DiffFilesInPaks(const FString InPakFilename1, const FString InPakFilename2,
 			}
 
 			//double check entry info and move pakreader into place
-			PakReader2.Seek(Entry2->Offset);
+			PakReader2.Seek(Entry2.Offset);
 			FPakEntry EntryInfo2;
 			EntryInfo2.Serialize(PakReader2, PakFile2.GetInfo().Version);
-			if (EntryInfo2 != *Entry2)
+			if (EntryInfo2 != Entry2)
 			{
 				UE_LOG(LogPakFile, Log, TEXT("PakEntry2Invalid, %s, 0, 0"), *PAK1FileName);
 				continue;;
@@ -1649,11 +1697,11 @@ bool DiffFilesInPaks(const FString InPakFilename1, const FString InPakFilename2,
 
 				if (EntryInfo2.CompressionMethod == COMPRESS_None)
 				{
-					BufferedCopyFile(PAKWriter2, PakReader2, *Entry2, Buffer, BufferSize, InEncryptionKey);
+					BufferedCopyFile(PAKWriter2, PakReader2, Entry2, Buffer, BufferSize, InEncryptionKey);
 				}
 				else
 				{
-					UncompressCopyFile(PAKWriter2, PakReader2, *Entry2, PersistantCompressionBuffer, CompressionBufferSize, InEncryptionKey);
+					UncompressCopyFile(PAKWriter2, PakReader2, Entry2, PersistantCompressionBuffer, CompressionBufferSize, InEncryptionKey);
 				}
 
 				if (FMemory::Memcmp(PAKDATA1, PAKDATA2, EntryInfo1.UncompressedSize) != 0)
@@ -1682,8 +1730,9 @@ bool DiffFilesInPaks(const FString InPakFilename1, const FString InPakFilename2,
 			if (EntryInfo2 == Entry2)
 			{
 				const FString& PAK2FileName = It.Filename();
-				const FPakEntry* Entry1 = PakFile1.Find(PakFile2.GetMountPoint() / PAK2FileName);
-				if (Entry1 == nullptr)
+				FPakEntry Entry1;
+				bool bFoundEntry1 = PakFile1.Find(PakFile2.GetMountPoint() / PAK2FileName, &Entry1);
+				if (!bFoundEntry1)
 				{
 					++NumUniquePAK2;
 					if (bLogUniques2)
@@ -1736,7 +1785,9 @@ bool GenerateHashForFile( FString Filename, FFileInfo& FileHash)
 
 bool GenerateHashesFromPak(const TCHAR* InPakFilename, const TCHAR* InDestPakFilename, TMap<FString, FFileInfo>& FileHashes, bool bUseMountPoint, const FAES::FAESKey& InEncryptionKey)
 {
-	if (!IFileManager::Get().FileExists(InPakFilename))
+	TArray<FString> FoundFiles;
+	IFileManager::Get().FindFiles(FoundFiles, InPakFilename, true, false);
+	if (FoundFiles.Num() == 0)
 	{
 		return false;
 	}
@@ -2428,11 +2479,21 @@ INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 
 					IFileManager::Get().DeleteDirectory(*OutputPath);
 
+					// Check command line for the "patchcryptokeys" param, which will tell us where to look for the encryption keys that
+					// we need to access the patch reference data
+					FString PatchReferenceCryptoKeysFilename;
+					FAES::FAESKey PatchReferenceEncryptionKey = EncryptionKey;
+					if (FParse::Value(FCommandLine::Get(), TEXT("PatchCryptoKeys="), PatchReferenceCryptoKeysFilename))
+					{
+						FKeyPair UnusedSigningKey;
+						PrepareEncryptionAndSigningKeysFromCryptoKeyCache(PatchReferenceCryptoKeysFilename, UnusedSigningKey, PatchReferenceEncryptionKey);
+					}
+
 					UE_LOG(LogPakFile, Display, TEXT("Generating patch from %s."), *CmdLineParameters.SourcePatchPakFilename, true );
 
-					if (!GenerateHashesFromPak(*CmdLineParameters.SourcePatchPakFilename, *PakFilename, SourceFileHashes, true, EncryptionKey))
+					if (!GenerateHashesFromPak(*CmdLineParameters.SourcePatchPakFilename, *PakFilename, SourceFileHashes, true, PatchReferenceEncryptionKey))
 					{
-						if (ExtractFilesFromPak(*CmdLineParameters.SourcePatchPakFilename, SourceFileHashes, *OutputPath, true, EncryptionKey) == false)
+						if (ExtractFilesFromPak(*CmdLineParameters.SourcePatchPakFilename, SourceFileHashes, *OutputPath, true, PatchReferenceEncryptionKey) == false)
 						{
 							UE_LOG(LogPakFile, Warning, TEXT("Unable to extract files from source pak file for patch"));
 						}

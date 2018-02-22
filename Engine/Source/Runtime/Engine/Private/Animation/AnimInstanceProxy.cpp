@@ -416,6 +416,30 @@ void FAnimInstanceProxy::InitializeObjects(UAnimInstance* InAnimInstance)
 	{
 		Skeleton = nullptr;
 	}
+
+	// Calculate the number of skipped frames after this one due to URO and store it on our evaluation and update counters
+	const FAnimUpdateRateParameters* RateParams = SkeletalMeshComponent->AnimUpdateRateParams;
+
+	NumUroSkippedFrames_Update = 0;
+	NumUroSkippedFrames_Eval = 0;
+	if(RateParams)
+	{
+		bool bDoUro = SkeletalMeshComponent->ShouldUseUpdateRateOptimizations();
+		bool bDoEvalOptimization = bDoUro && RateParams->DoEvaluationRateOptimizations();
+
+		if(bDoUro)
+		{
+			NumUroSkippedFrames_Update = RateParams->UpdateRate - 1;
+		}
+
+		if(bDoEvalOptimization)
+		{
+			NumUroSkippedFrames_Eval = RateParams->EvaluationRate - 1;
+		}
+	}
+
+	UpdateCounter.SetMaxSkippedFrames(NumUroSkippedFrames_Update);
+	EvaluationCounter.SetMaxSkippedFrames(NumUroSkippedFrames_Eval);
 }
 
 void FAnimInstanceProxy::ClearObjects()
@@ -610,9 +634,8 @@ void FAnimInstanceProxy::TickAssetPlayerInstances(float DeltaSeconds)
 	for (int32 TickIndex = 0; TickIndex < UngroupedActivePlayers.Num(); ++TickIndex)
 	{
 		FAnimTickRecord& AssetPlayerToTick = UngroupedActivePlayers[TickIndex];
-		static TArray<FName> TempNames;
 		const TArray<FName>* UniqueNames = AssetPlayerToTick.SourceAsset->GetUniqueMarkerNames();
-		const TArray<FName>& ValidMarkers = UniqueNames ? *UniqueNames : TempNames;
+		const TArray<FName>& ValidMarkers = UniqueNames ? *UniqueNames : FMarkerTickContext::DefaultMarkerNames;
 
 		const bool bOnlyOneAnimationInGroup = true;
 		FAnimAssetTickContext TickContext(DeltaSeconds, RootMotionMode, bOnlyOneAnimationInGroup, ValidMarkers);

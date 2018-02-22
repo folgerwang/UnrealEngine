@@ -35,10 +35,14 @@ bool CacheShadowDepthsFromPrimitivesUsingWPO()
 }
 
 FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponent, FName InResourceName)
-:	WireframeColor(FLinearColor::White)
+:
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	WireframeColor(FLinearColor::White)
 ,	LevelColor(FLinearColor::White)
 ,	PropertyColor(FLinearColor::White)
-,	Mobility(InComponent->Mobility)
+,	
+#endif
+	Mobility(InComponent->Mobility)
 ,	LightmapType(InComponent->LightmapType)
 ,	DrawInGame(InComponent->IsVisible())
 ,	DrawInEditor(InComponent->bVisible)

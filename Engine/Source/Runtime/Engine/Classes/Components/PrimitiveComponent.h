@@ -209,16 +209,31 @@ public:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Lighting)
 	TEnumAsByte<EIndirectLightingCacheQuality> IndirectLightingCacheQuality;
 
-#if WITH_EDITORONLY_DATA
-	/** If true, and if World setting has bEnableHierarchicalLOD equal to true, then this component will be included when generating a Proxy mesh for the parent Actor */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = HLOD, meta = (DisplayName = "Include Component for HLOD Mesh generation"))
-	uint8 bEnableAutoLODGeneration : 1;
-#endif 
 	/** Controls the type of lightmap used for this component. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Lighting)
 	ELightmapType LightmapType;
 
+#if WITH_EDITORONLY_DATA
+	/** If true, and if World setting has bEnableHierarchicalLOD equal to true, then this component will be included when generating a Proxy mesh for the parent Actor */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = HLOD, meta = (DisplayName = "Include Component for HLOD Mesh generation"))
+	uint8 bEnableAutoLODGeneration : 1;
+
+	/** Use the Maximum LOD Mesh (imposter) instead of including Mesh data from this component in the Proxy Generation process */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = HLOD)
+	uint8 bUseMaxLODAsImposter: 1;
+
+	/** Which specific HLOD levels this component should be excluded from */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = HLOD)
+	TArray<int32> ExcludeForSpecificHLODLevels;
+#endif 
+
 public:
+
+	/**
+	 * When enabled this object will not be culled by distance. This is ignored if a child of a HLOD.
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=LOD)
+	uint8 bNeverDistanceCull:1;
 
 	/** Whether this primitive is referenced by a FLevelTextureManager  */
 	mutable uint8 bAttachedToStreamingManagerAsStatic : 1;
@@ -245,9 +260,18 @@ public:
 	 * @see [Overlap Events](https://docs.unrealengine.com/latest/INT/Engine/Physics/Collision/index.html#overlapandgenerateoverlapevents)
 	 * @see UpdateOverlaps(), BeginComponentOverlap(), EndComponentOverlap()
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Collision)
-	uint8 bGenerateOverlapEvents:1;
 
+	UFUNCTION(BlueprintGetter)
+	bool GetGenerateOverlapEvents() const;
+
+	UFUNCTION(BlueprintSetter)
+	void SetGenerateOverlapEvents(bool bInGenerateOverlapEvents);
+
+private:
+	UPROPERTY(EditAnywhere, BlueprintGetter = GetGenerateOverlapEvents, BlueprintSetter = SetGenerateOverlapEvents, Category = Collision)
+	uint8 bGenerateOverlapEvents : 1;
+
+public:
 	/**
 	 * If true, this component will generate individual overlaps for each overlapping physics body if it is a multi-body component. When false, this component will
 	 * generate only one overlap, regardless of how many physics bodies it has and how many of them are overlapping another component/body. This flag has no
@@ -480,8 +504,10 @@ public:
 	TEnumAsByte<EHasCustomNavigableGeometry::Type> bHasCustomNavigableGeometry;
 
 private:
+#if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	TEnumAsByte<enum ECanBeCharacterBase> CanBeCharacterBase_DEPRECATED;
+#endif
 
 	FMaskFilter MoveIgnoreMask;
 
@@ -753,9 +779,12 @@ public:
 	*/
 	void GetOverlappingActors(TSet<AActor*>& OverlappingActors, TSubclassOf<AActor> ClassFilter=nullptr) const;
 
-	/** Returns list of components this component is overlapping. */
+	/** Returns unique list of components this component is overlapping. */
 	UFUNCTION(BlueprintPure, Category="Collision", meta=(UnsafeDuringActorConstruction="true"))
-	void GetOverlappingComponents(TArray<UPrimitiveComponent*>& InOverlappingComponents) const;
+	void GetOverlappingComponents(TArray<UPrimitiveComponent*>& OutOverlappingComponents) const;
+
+	/** Returns unique set of components this component is overlapping. */
+	void GetOverlappingComponents(TSet<UPrimitiveComponent*>& OutOverlappingComponents) const;
 
 	/** Returns list of components this component is overlapping. */
 	const TArray<FOverlapInfo>& GetOverlapInfos() const;
@@ -767,8 +796,9 @@ public:
 	 * @param bDoNotifies				True to dispatch being/end overlap notifications when these events occur.
 	 * @param OverlapsAtEndLocation		If non-null, the given list of overlaps will be used as the overlaps for this component at the current location, rather than checking for them with a scene query.
 	 *									Generally this should only be used if this component is the RootComponent of the owning actor and overlaps with other descendant components have been verified.
+	 * @return							True if we can skip calling this in the future (i.e. no useful work is being done.)
 	 */
-	virtual void UpdateOverlaps(TArray<FOverlapInfo> const* NewPendingOverlaps=nullptr, bool bDoNotifies=true, const TArray<FOverlapInfo>* OverlapsAtEndLocation=nullptr) override;
+	virtual bool UpdateOverlapsImpl(TArray<FOverlapInfo> const* NewPendingOverlaps=nullptr, bool bDoNotifies=true, const TArray<FOverlapInfo>* OverlapsAtEndLocation=nullptr) override;
 
 	/** Update current physics volume for this component, if bShouldUpdatePhysicsVolume is true. Overridden to use the overlaps to find the physics volume. */
 	virtual void UpdatePhysicsVolume( bool bTriggerNotifiers ) override;
@@ -817,7 +847,7 @@ public:
 	 *	Event called when something starts to overlaps this component, for example a player walking into a trigger.
 	 *	For events when objects have a blocking collision, for example a player hitting a wall, see 'Hit' events.
 	 *
-	 *	@note Both this component and the other one must have bGenerateOverlapEvents set to true to generate overlap events.
+	 *	@note Both this component and the other one must have GetGenerateOverlapEvents() set to true to generate overlap events.
 	 *	@note When receiving an overlap from another object's movement, the directions of 'Hit.Normal' and 'Hit.ImpactNormal'
 	 *	will be adjusted to indicate force from the other object against this object.
 	 */
@@ -826,7 +856,7 @@ public:
 
 	/** 
 	 *	Event called when something stops overlapping this component 
-	 *	@note Both this component and the other one must have bGenerateOverlapEvents set to true to generate overlap events.
+	 *	@note Both this component and the other one must have GetGenerateOverlapEvents() set to true to generate overlap events.
 	 */
 	UPROPERTY(BlueprintAssignable, Category="Collision")
 	FComponentEndOverlapSignature OnComponentEndOverlap;
@@ -1376,6 +1406,13 @@ public:
 public:
 	static int32 CurrentTag;
 
+	/**
+	 * Count of all component overlap events (begin or end) ever generated for any components.
+	 * Changes to this number within a scope can also be a simple way to know if any events were triggered.
+	 * It can also be useful for identifying performance issues due to high numbers of events.
+	 */
+	static uint32 GlobalOverlapEventsCounter;
+
 	/** The primitive's scene info. */
 	FPrimitiveSceneProxy* SceneProxy;
 	
@@ -1395,7 +1432,7 @@ public:
 #if WITH_EDITOR
 	virtual const int32 GetNumUncachedStaticLightingInteractions() const override; // recursive function
 	/** This function is used to create hierarchical LOD for the level. You can decide to opt out if you don't want. */
-	virtual const bool ShouldGenerateAutoLOD() const;
+	virtual const bool ShouldGenerateAutoLOD(const int32 HierarchicalLevelIndex) const;
 #endif
 
 	//~ Begin UActorComponent Interface
@@ -2067,17 +2104,6 @@ protected:
 
 private:
 	
-	/**
-	 *	Applies a RigidBodyState struct to this Actor.
-	 *	When we get an update for the physics, we try to do it smoothly if it is less than ..DeltaThreshold.
-	 *	We directly fix ..InterpAlpha * error. The rest is fixed by altering the velocity to correct the actor over 1.0/..RecipFixTime seconds.
-	 *	So if ..InterpAlpha is 1, we will always just move the actor directly to its correct position (as it the error was over ..DeltaThreshold)
-	 *	If ..InterpAlpha is 0, we will correct just by changing the velocity.
-	 *
-	 * Returns true if restored state is matching requested one (no velocity corrections required)
-	 */
-	bool ApplyRigidBodyState(const FRigidBodyState& NewState, const FRigidBodyErrorCorrection& ErrorCorrection, FVector& OutDeltaPos, FName BoneName = NAME_None);
-
 	/** Check if mobility is set to non-static. If BodyInstanceRequiresSimulation is non-null we check that it is simulated. Triggers a PIE warning if conditions fails */
 	void WarnInvalidPhysicsOperations_Internal(const FText& ActionText, const FBodyInstance* BodyInstanceRequiresSimulation, FName BoneName) const;
 
@@ -2087,7 +2113,7 @@ public:
 	 * Applies RigidBodyState only if it needs to be updated
 	 * NeedsUpdate flag will be removed from UpdatedState after all velocity corrections are finished
 	 */
-	bool ConditionalApplyRigidBodyState(FRigidBodyState& UpdatedState, const FRigidBodyErrorCorrection& ErrorCorrection, FVector& OutDeltaPos, FName BoneName = NAME_None);
+	void SetRigidBodyReplicatedTarget(FRigidBodyState& UpdatedState, const FName BoneName = NAME_None);
 
 	/** 
 	 *	Get the state of the rigid body responsible for this Actor's physics, and fill in the supplied FRigidBodyState struct based on it.
@@ -2299,4 +2325,9 @@ FORCEINLINE_DEBUGGABLE bool UPrimitiveComponent::K2_IsQueryCollisionEnabled() co
 FORCEINLINE_DEBUGGABLE bool UPrimitiveComponent::K2_IsPhysicsCollisionEnabled() const
 {
 	return IsPhysicsCollisionEnabled();
+}
+
+FORCEINLINE_DEBUGGABLE bool UPrimitiveComponent::GetGenerateOverlapEvents() const
+{
+	return bGenerateOverlapEvents;
 }

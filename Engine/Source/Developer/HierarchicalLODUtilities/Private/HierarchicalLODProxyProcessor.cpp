@@ -83,7 +83,16 @@ bool FHierarchicalLODProxyProcessor::Tick(float DeltaTime)
 
 		FHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<FHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
 		IHierarchicalLODUtilities* Utilities = Module.GetUtilities();
-		Data->LODActor->LODDrawDistance = Utilities->CalculateDrawDistanceFromScreenSize(Bounds.SphereRadius, Data->LODSetup.TransitionScreenSize, ProjectionMatrix);
+		
+		if (Data->LODSetup.bUseOverrideDrawDistance)
+		{
+			Data->LODActor->SetDrawDistance(Data->LODSetup.OverrideDrawDistance);
+		}
+		else
+		{
+			Data->LODActor->SetDrawDistance(Utilities->CalculateDrawDistanceFromScreenSize(Bounds.SphereRadius, Data->LODSetup.TransitionScreenSize, ProjectionMatrix));
+		}
+		
 		Data->LODActor->UpdateSubActorLODParents();
 
 		// Freshly build so mark not dirty

@@ -11,6 +11,7 @@
 
 #if WITH_EDITOR
 #include "Editor.h"
+#include "MeshMergeHelpers.h"
 #endif // WITH_EDITOR
 
 FProxyGenerationProcessor::FProxyGenerationProcessor()
@@ -141,7 +142,7 @@ void FProxyGenerationProcessor::ProcessJob(const FGuid& JobGuid, FProxyGeneratio
 	FMaterialUtilities::OptimizeFlattenMaterial(FlattenMaterial);
 
 	// Create a new proxy material instance
-	UMaterialInstanceConstant* ProxyMaterial = ProxyMaterialUtilities::CreateProxyMaterialInstance(Data->MergeData->InOuter, Data->MergeData->InProxySettings.MaterialSettings, FlattenMaterial, AssetBasePath, AssetBaseName, OutAssetsToSync);
+	UMaterialInstanceConstant* ProxyMaterial = ProxyMaterialUtilities::CreateProxyMaterialInstance(Data->MergeData->InOuter, Data->MergeData->InProxySettings.MaterialSettings, Data->MergeData->BaseMaterial, FlattenMaterial, AssetBasePath, AssetBaseName, OutAssetsToSync);
 
 	// Set material static lighting usage flag if project has static lighting enabled
 	static const auto AllowStaticLightingVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowStaticLighting"));
@@ -174,19 +175,73 @@ void FProxyGenerationProcessor::ProcessJob(const FGuid& JobGuid, FProxyGeneratio
 	StaticMesh->LightMapCoordinateIndex = 1;
 
 	FStaticMeshSourceModel* SrcModel = new (StaticMesh->SourceModels) FStaticMeshSourceModel();
-	/*Don't allow the engine to recalculate normals*/
 	SrcModel->BuildSettings.bRecomputeNormals = false;
 	SrcModel->BuildSettings.bRecomputeTangents = false;
 	SrcModel->BuildSettings.bRemoveDegenerates = true;
 	SrcModel->BuildSettings.bUseHighPrecisionTangentBasis = false;
 	SrcModel->BuildSettings.bUseFullPrecisionUVs = false;
-	SrcModel->RawMeshBulkData->SaveRawMesh(Data->RawMesh);
+	SrcModel->BuildSettings.bGenerateLightmapUVs = Data->MergeData->InProxySettings.bGenerateLightmapUVs;
+	SrcModel->BuildSettings.bBuildReversedIndexBuffer = false;
+	SrcModel->BuildSettings.bBuildAdjacencyBuffer = Data->MergeData->InProxySettings.bAllowAdjacency;
+	if (!Data->MergeData->InProxySettings.bAllowDistanceField)
+	{
+		SrcModel->BuildSettings.DistanceFieldResolutionScale = 0.0f;
+	}
 
-	//Assign the proxy material to the static mesh
-	StaticMesh->StaticMaterials.Add(FStaticMaterial(ProxyMaterial));
+	const bool bContainsImposters = Data->MergeData->ImposterComponents.Num() > 0;
+	if (bContainsImposters)
+	{
+		TArray<UMaterialInterface*> ImposterMaterials;
+
+		// Merge imposter meshes to rawmesh
+		// The base material index is always one here as we assume we only have one HLOD material
+		FMeshMergeHelpers::MergeImpostersToRawMesh(Data->MergeData->ImposterComponents, Data->RawMesh, FVector::ZeroVector, 1, ImposterMaterials);
+
+		if (!Data->MergeData->InProxySettings.bAllowVertexColors)
+		{
+			Data->RawMesh.WedgeColors.Empty();
+		}
+
+		SrcModel->RawMeshBulkData->SaveRawMesh(Data->RawMesh);
+		StaticMesh->StaticMaterials.Add(FStaticMaterial(ProxyMaterial));
+
+		for (UMaterialInterface* Material : ImposterMaterials)
+		{
+			StaticMesh->StaticMaterials.Add(FStaticMaterial(Material));
+		}
+	}
+	else
+	{
+		if (!Data->MergeData->InProxySettings.bAllowVertexColors)
+		{
+			Data->RawMesh.WedgeColors.Empty();
+		}
+
+		SrcModel->RawMeshBulkData->SaveRawMesh(Data->RawMesh);
+		StaticMesh->StaticMaterials.Add(FStaticMaterial(ProxyMaterial));
+	}	
 
 	//Set the Imported version before calling the build
 	StaticMesh->ImportVersion = EImportStaticMeshVersion::LastVersion;
+
+	// setup section info map
+	TArray<int32> UniqueMaterialIndices;
+	for (int32 MaterialIndex : Data->RawMesh.FaceMaterialIndices)
+	{
+		UniqueMaterialIndices.AddUnique(MaterialIndex);
+	}
+
+	int32 SectionIndex = 0;
+	for (int32 UniqueMaterialIndex : UniqueMaterialIndices)
+	{
+		FMeshSectionInfo MeshSectionInfo(UniqueMaterialIndex);
+
+		// enable/disable section collision according to settings
+		MeshSectionInfo.bEnableCollision = Data->MergeData->InProxySettings.bCreateCollision;
+
+		StaticMesh->SectionInfoMap.Set(0, SectionIndex, MeshSectionInfo);
+		SectionIndex++;
+	}
 
 	StaticMesh->Build();
 	StaticMesh->PostEditChange();

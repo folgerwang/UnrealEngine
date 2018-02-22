@@ -681,6 +681,12 @@ void FAnimNode_AnimDynamics::UpdateLimits(FComponentSpacePoseContext& Output)
 
 void FAnimNode_AnimDynamics::PreUpdate(const UAnimInstance* InAnimInstance)
 {
+	// If dynamics are disabled, skip all this work as it'll never get used
+	if(CVarEnableDynamics.GetValueOnAnyThread() == 0)
+	{
+		return;
+	}
+
 	if(!InAnimInstance)
 	{
 		// No anim instance, won't be able to find our world.

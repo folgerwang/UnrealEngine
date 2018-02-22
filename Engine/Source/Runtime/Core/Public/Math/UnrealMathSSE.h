@@ -813,7 +813,29 @@ FORCEINLINE VectorRegister VectorTransformVector(const VectorRegister&  VecP,  c
  */
 #define VectorShuffle( Vec1, Vec2, X, Y, Z, W )	_mm_shuffle_ps( Vec1, Vec2, SHUFFLEMASK(X,Y,Z,W) )
 
+/**
+* Creates a vector by combining two high components from each vector
+*
+* @param Vec1		Source vector1
+* @param Vec2		Source vector2
+* @return			The combined vector
+*/
+FORCEINLINE VectorRegister VectorCombineHigh(const VectorRegister& Vec1, const VectorRegister& Vec2 )
+{
+	return VectorShuffle(Vec1, Vec2, 2, 3, 2, 3);
+}
 
+/**
+* Creates a vector by combining two low components from each vector
+*
+* @param Vec1		Source vector1
+* @param Vec2		Source vector2
+* @return			The combined vector
+*/
+FORCEINLINE VectorRegister VectorCombineLow(const VectorRegister& Vec1, const VectorRegister& Vec2 )
+{
+	return VectorShuffle(Vec1, Vec2, 0, 1, 0, 1);
+}
 
 /**
  * These functions return a vector mask to indicate which components pass the comparison.

@@ -158,14 +158,24 @@ class FDerivedDataCache : public FDerivedDataCacheInterface
 					
 					bool bMatchesInSize = NumGenerated == NumInDDC;
 					bool bDifferentMemory = true;
+					int32 DifferentOffset = 0;
 					if (bMatchesInSize)
 					{
-						bDifferentMemory = 0 != FMemory::Memcmp(CmpData.GetData(), &Data[NumBeforeDDC], NumGenerated);
+						bDifferentMemory = false;
+						for (int32 i = 0; i < NumGenerated; i++)
+						{
+							if (CmpData[i] != Data[i])
+							{
+								bDifferentMemory = true;
+								DifferentOffset = i;
+								break;
+							}
+						}
 					}
 
 					if(!bMatchesInSize || bDifferentMemory)
 					{
-						FString ErrMsg = FString::Printf(TEXT("There is a mismatch between the DDC data and the generated data for plugin (%s) for asset (%s). BytesInDDC:%d, BytesGenerated:%d, bDifferentMemory:%d"), DataDeriver->GetPluginName(), *DataDeriver->GetDebugContextString(), NumInDDC, NumGenerated, bDifferentMemory);
+						FString ErrMsg = FString::Printf(TEXT("There is a mismatch between the DDC data and the generated data for plugin (%s) for asset (%s). BytesInDDC:%d, BytesGenerated:%d, bDifferentMemory:%d, offset:%d"), DataDeriver->GetPluginName(), *DataDeriver->GetDebugContextString(), NumInDDC, NumGenerated, bDifferentMemory, DifferentOffset);
 						ensureMsgf(false, *ErrMsg);
 						UE_LOG(LogDerivedDataCache, Error, TEXT("%s"), *ErrMsg );
 					}

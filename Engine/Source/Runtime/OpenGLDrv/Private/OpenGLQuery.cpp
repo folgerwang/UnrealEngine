@@ -9,12 +9,204 @@
 #include "OpenGLDrv.h"
 #include "OpenGLDrvPrivate.h"
 
+
+struct FQueryItem
+{
+	FRenderQueryRHIParamRef Query;
+	int32 BeginSequence;
+
+	FQueryItem(FRenderQueryRHIParamRef InQueryRHI)
+		: Query(InQueryRHI)
+	{
+		FOpenGLRenderQuery* InQuery = FOpenGLDynamicRHI::ResourceCast(InQueryRHI);
+		BeginSequence = InQuery->TotalBegins.GetValue();
+	}
+};
+
+struct FGLQueryBatch
+{
+	TArray<FQueryItem> BatchContents;
+	uint32 FrameNumberRenderThread;
+	bool bHasFlushedSinceLastWait;
+
+	FGLQueryBatch()
+		: FrameNumberRenderThread(0)
+		, bHasFlushedSinceLastWait(false)
+	{
+
+	}
+};
+
+struct FGLQueryBatcher
+{
+	FGLQueryBatch* NewBatch;
+	TArray<FGLQueryBatch*> Batches;
+	uint32 NextFrameNumberRenderThread;
+
+	FGLQueryBatcher()
+		: NewBatch(nullptr)
+		, NextFrameNumberRenderThread(1)
+	{
+	}
+
+	void Add(FRenderQueryRHIParamRef Query)
+	{
+		if (NewBatch && NewBatch->FrameNumberRenderThread)
+		{
+			NewBatch->BatchContents.Add(FQueryItem(Query));
+		}
+	}
+	void Waited()
+	{
+		for (int32 Index = 0; Index < Batches.Num(); Index++)
+		{
+			FGLQueryBatch* Batch = Batches[Index];
+			Batch->bHasFlushedSinceLastWait = false;
+		}
+	}
+	void Flush(FOpenGLDynamicRHI& RHI, FRenderQueryRHIParamRef TargetQueryRHI)
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FGLQueryBatcher_FlushScan);
+		bool bFoundQuery = false;
+		for (int32 Index = 0; Index < Batches.Num() && !bFoundQuery; Index++)
+		{
+			FGLQueryBatch* Batch = Batches[Index];
+			if (Batch->bHasFlushedSinceLastWait)
+			{
+				break;
+			}
+			bool bAnyUnfinished = false;
+
+			for (int32 IndexInner = 0; IndexInner < Batch->BatchContents.Num(); IndexInner++)
+			{
+				FQueryItem& Item = Batch->BatchContents[IndexInner];
+				FRenderQueryRHIParamRef QueryRHI = Item.Query;
+				FOpenGLRenderQuery* Query = FOpenGLDynamicRHI::ResourceCast(QueryRHI);
+				if (TargetQueryRHI == QueryRHI)
+				{
+					bFoundQuery = true;
+				}
+
+				if (Item.BeginSequence < Query->TotalBegins.GetValue())
+				{
+					// stale entry, was never checked, but was reused
+					Batch->BatchContents.RemoveAtSwap(IndexInner--, 1, false);
+					continue;
+				}
+			
+				RHI.GetRenderQueryResult_OnThisThread(Query, false);
+				if (Query->TotalResults.GetValue() == Query->TotalBegins.GetValue())
+				{
+					Batch->BatchContents.RemoveAtSwap(IndexInner--, 1, false);
+				}
+				else
+				{
+					bAnyUnfinished = true;
+				}
+			}
+			if (!bAnyUnfinished || Batch->BatchContents.Num() == 0)
+			{
+				delete Batch;
+				Batches.RemoveAt(Index--);
+			}
+			else
+			{
+				Batch->bHasFlushedSinceLastWait = true;
+				break;
+			}
+		}
+	}
+
+	void PerFrameFlush()
+	{
+		NextFrameNumberRenderThread++;
+		for (int32 Index = 0; Index < Batches.Num(); Index++)
+		{
+			FGLQueryBatch* Batch = Batches[Index];
+			if (Batch->FrameNumberRenderThread <= NextFrameNumberRenderThread - 5)
+			{
+				delete Batch;
+				Batches.RemoveAt(Index--);
+			}
+		}
+	}
+
+	void StartNewBatch(FOpenGLDynamicRHI& RHI)
+	{
+		check(!NewBatch);
+		NewBatch = new FGLQueryBatch();
+		NewBatch->FrameNumberRenderThread = NextFrameNumberRenderThread;
+	}
+	void EndBatch(FOpenGLDynamicRHI& RHI)
+	{
+#if 1 // this look will try to scan ahead for any stale entires that were reused
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FGLQueryBatcher_EndBatch);
+		for (int32 Index = 0; Index < Batches.Num(); Index++)
+		{
+			FGLQueryBatch* Batch = Batches[Index];
+			Batch->bHasFlushedSinceLastWait = false; // we will try a full scan if we get around to initviews
+
+			for (int32 IndexInner = 0; IndexInner < Batch->BatchContents.Num(); IndexInner++)
+			{
+				FQueryItem& Item = Batch->BatchContents[IndexInner];
+				FRenderQueryRHIParamRef QueryRHI = Item.Query;
+				FOpenGLRenderQuery* Query = FOpenGLDynamicRHI::ResourceCast(QueryRHI);
+
+				int32 Begins = Query->TotalBegins.GetValue();
+
+				if (Item.BeginSequence < Query->TotalBegins.GetValue())
+				{
+					// stale entry, was never checked, but was reused
+					Batch->BatchContents.RemoveAtSwap(IndexInner--, 1, false);
+					continue;
+				}
+
+				RHI.GetRenderQueryResult_OnThisThread(Query, false);
+				if (Query->TotalResults.GetValue() == Query->TotalBegins.GetValue())
+				{
+					Batch->BatchContents.RemoveAtSwap(IndexInner--, 1, false);
+				}
+			}
+			if (Batch->BatchContents.Num() == 0)
+			{
+				delete Batch;
+				Batches.RemoveAt(Index--);
+			}
+			else
+			{
+				break;
+			}
+		}
+#endif
+		if (NewBatch)
+		{
+			Batches.Add(NewBatch);
+			NewBatch = nullptr;
+		}
+	}
+
+} GBatcher;
+
+void BeginFrame_QueryBatchCleanup()
+{
+	GBatcher.PerFrameFlush();
+}
+
 void FOpenGLDynamicRHI::RHIBeginOcclusionQueryBatch()
 {
+	if (IsRunningRHIInSeparateThread())
+	{
+
+		GBatcher.StartNewBatch(*this);
+	}
 }
 
 void FOpenGLDynamicRHI::RHIEndOcclusionQueryBatch()
 {
+	if (IsRunningRHIInSeparateThread())
+	{
+		GBatcher.EndBatch(*this);
+	}
 }
 
 FRenderQueryRHIRef FOpenGLDynamicRHI::RHICreateRenderQuery(ERenderQueryType QueryType)
@@ -36,8 +228,36 @@ void FOpenGLDynamicRHI::RHIBeginRenderQuery(FRenderQueryRHIParamRef QueryRHI)
 	VERIFY_GL_SCOPE();
 
 	FOpenGLRenderQuery* Query = ResourceCast(QueryRHI);
-	Query->bResultIsCached = false;
-	if(Query->QueryType == RQT_Occlusion)
+
+	if (Query)
+	{
+		BeginRenderQuery_OnThisThread(Query);
+		GBatcher.Add(QueryRHI);
+	}
+}
+
+void FOpenGLDynamicRHI::RHIEndRenderQuery(FRenderQueryRHIParamRef QueryRHI)
+{
+	VERIFY_GL_SCOPE();
+
+	FOpenGLRenderQuery* Query = ResourceCast(QueryRHI);
+
+	if (Query)
+	{
+		EndRenderQuery_OnThisThread(Query);
+	}
+}
+
+void FOpenGLDynamicRHI::BeginRenderQuery_OnThisThread(FOpenGLRenderQuery* Query)
+{
+	VERIFY_GL_SCOPE();
+
+	int32 NewVal = Query->TotalBegins.Increment();
+	Query->TotalResults.Set(NewVal - 1);
+	Query->Result = 0;
+	Query->bResultWasSuccess = false;
+
+	if (Query->QueryType == RQT_Occlusion)
 	{
 		check(PendingState.RunningOcclusionQuery == 0);
 
@@ -64,15 +284,13 @@ void FOpenGLDynamicRHI::RHIBeginRenderQuery(FRenderQueryRHIParamRef QueryRHI)
 	}
 }
 
-void FOpenGLDynamicRHI::RHIEndRenderQuery(FRenderQueryRHIParamRef QueryRHI)
+void FOpenGLDynamicRHI::EndRenderQuery_OnThisThread(FOpenGLRenderQuery* Query)
 {
 	VERIFY_GL_SCOPE();
 
-	FOpenGLRenderQuery* Query = ResourceCast(QueryRHI);
-
 	if (Query)
 	{
-		if(Query->QueryType == RQT_Occlusion)
+		if (Query->QueryType == RQT_Occlusion)
 		{
 			if (!Query->bInvalidResource && !PlatformContextIsCurrent(Query->ResourceContext))
 			{
@@ -89,8 +307,13 @@ void FOpenGLDynamicRHI::RHIEndRenderQuery(FRenderQueryRHIParamRef QueryRHI)
 				FOpenGL::EndQuery(QueryType);
 			}
 		}
-		else if(Query->QueryType == RQT_AbsoluteTime)
+		else if (Query->QueryType == RQT_AbsoluteTime)
 		{
+			int32 NewVal = Query->TotalBegins.Increment();
+			Query->TotalResults.Set(NewVal - 1);
+			Query->Result = 0;
+			Query->bResultWasSuccess = false;
+
 			if (!Query->bInvalidResource && !PlatformContextIsCurrent(Query->ResourceContext))
 			{
 				PlatformReleaseRenderQuery(Query->Resource, Query->ResourceContext);
@@ -106,26 +329,19 @@ void FOpenGLDynamicRHI::RHIEndRenderQuery(FRenderQueryRHIParamRef QueryRHI)
 			}
 
 			FOpenGL::QueryTimestampCounter(Query->Resource);
-			Query->bResultIsCached = false;
 		}
 	}
 }
 
-bool FOpenGLDynamicRHI::RHIGetRenderQueryResult(FRenderQueryRHIParamRef QueryRHI,uint64& OutResult,bool bWait)
+void FOpenGLDynamicRHI::GetRenderQueryResult_OnThisThread(FOpenGLRenderQuery* Query, bool bWait)
 {
-	check(IsInRenderingThread());
-	VERIFY_GL_SCOPE();
-
-	FOpenGLRenderQuery* Query = ResourceCast(QueryRHI);
-
-	if (!Query)
+	if (Query->TotalResults.GetValue() == Query->TotalBegins.GetValue())
 	{
-		// If timer queries are unsupported, just make sure that OutResult does not contain any random values.
-		OutResult = 0;
-		return false;
+		return;
 	}
+	check(Query->TotalResults.GetValue() + 1 == Query->TotalBegins.GetValue());
 
-	bool bSuccess = true;
+	VERIFY_GL_SCOPE();
 
 	if (!Query->bInvalidResource && !PlatformContextIsCurrent(Query->ResourceContext))
 	{
@@ -134,31 +350,27 @@ bool FOpenGLDynamicRHI::RHIGetRenderQueryResult(FRenderQueryRHIParamRef QueryRHI
 		Query->bInvalidResource = true;
 	}
 
-	if(!Query->bResultIsCached)
-	{
 		// Check if the query is valid first
 		if (Query->bInvalidResource)
 		{
-			bSuccess = false;
+		Query->Result = 0;
+		Query->TotalResults.Increment();
 		}
 		else
 		{
 			// Check if the query is finished
 			GLuint Result = 0;
-			{
-				VERIFY_GL_SCOPE();
 				FOpenGL::GetQueryObject(Query->Resource, FOpenGL::QM_ResultAvailable, &Result);
-			}
 
 			// Isn't the query finished yet, and can we wait for it?
 			if (Result == GL_FALSE && bWait)
 			{
-				SCOPE_CYCLE_COUNTER( STAT_RenderQueryResultTime );
+			SCOPE_CYCLE_COUNTER(STAT_RenderQueryResultTime);
 				uint32 IdleStart = FPlatformTime::Cycles();
 				double StartTime = FPlatformTime::Seconds();
 				do
 				{
-					VERIFY_GL_SCOPE();
+				GBatcher.Waited();
 					FPlatformProcess::Sleep(0);	// yield to other threads - some of them may be OpenGL driver's and we'd be starving them
 
 					if (Query->bInvalidResource)
@@ -166,11 +378,10 @@ bool FOpenGLDynamicRHI::RHIGetRenderQueryResult(FRenderQueryRHIParamRef QueryRHI
 						// Query got invalidated while we were sleeping.
 						// Bail out, no sense to wait and generate OpenGL errors,
 						// we're in a new OpenGL context that knows nothing about us.
-						Query->bResultIsCached = true;
 						Query->Result = 1000;	// safe value
 						Result = GL_FALSE;
 						bWait = false;
-						bSuccess = true;
+					Query->bResultWasSuccess = true;
 						break;
 					}
 
@@ -192,16 +403,71 @@ bool FOpenGLDynamicRHI::RHIGetRenderQueryResult(FRenderQueryRHIParamRef QueryRHI
 			if (Result == GL_TRUE)
 			{
 				VERIFY_GL_SCOPE();
-				FOpenGL::GetQueryObject(Query->Resource, FOpenGL::QM_Result, &Query->Result);
+				if (Query->QueryType == RQT_AbsoluteTime)
+				{
+					FOpenGL::GetQueryObject(Query->Resource, FOpenGL::QM_Result, &Query->Result);
+				}
+				else
+				{
+					GLuint Result32 = 0;
+					FOpenGL::GetQueryObject(Query->Resource, FOpenGL::QM_Result, &Result32);
+				Query->Result = Result32 * (FOpenGL::SupportsExactOcclusionQueries() ? 1 : 500000); // half a mega pixel display
+				}
+			Query->bResultWasSuccess = true;
+			Query->TotalResults.Increment();
 			}
 			else if (Result == GL_FALSE && bWait)
 			{
-				bSuccess = false;
+			Query->Result = 0;
+			Query->TotalResults.Increment();
 			}
 		}
+}
+
+
+bool FOpenGLDynamicRHI::RHIGetRenderQueryResult(FRenderQueryRHIParamRef QueryRHI,uint64& OutResult,bool bWait)
+{
+	check(IsInRenderingThread() || IsInRHIThread());
+
+	FOpenGLRenderQuery* Query = ResourceCast(QueryRHI);
+
+	if (!Query)
+	{
+		// If timer queries are unsupported, just make sure that OutResult does not contain any random values.
+		OutResult = 0;
+		return false;
 	}
 
-	if(Query->QueryType == RQT_AbsoluteTime)
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+
+	const bool bCanRunOnThisThread = RHICmdList.Bypass() || (!IsRunningRHIInSeparateThread() && IsInRenderingThread()) || IsInRHIThread();
+
+	if (Query->TotalResults.GetValue() != Query->TotalBegins.GetValue())
+	{
+		if (bCanRunOnThisThread)
+		{
+			GetRenderQueryResult_OnThisThread(Query, bWait);
+		}
+		else
+		{
+			if (bWait)
+			{
+				new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([=]() {GetRenderQueryResult_OnThisThread(ResourceCast(QueryRHI), true);});
+				FGraphEventRef Done = RHICmdList.RHIThreadFence(false);
+				new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([=]() {GBatcher.Flush(*this, QueryRHI);});
+				RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
+				FRHICommandListExecutor::WaitOnRHIThreadFence(Done);
+				check(Query->TotalResults.GetValue() == Query->TotalBegins.GetValue());
+			}
+			else
+			{
+				new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([=]() {GetRenderQueryResult_OnThisThread(ResourceCast(QueryRHI), false); GBatcher.Flush(*this, QueryRHI);  });
+			}
+		}	
+	}
+	if (Query->TotalResults.GetValue() == Query->TotalBegins.GetValue() && Query->bResultWasSuccess)
+	{
+		if (Query->QueryType == RQT_AbsoluteTime)
 	{
 		// GetTimingFrequency is the number of ticks per second
 		uint64 Div = FMath::Max(1llu, FOpenGLBufferedGPUTiming::GetTimingFrequency() / (1000 * 1000));
@@ -213,11 +479,10 @@ bool FOpenGLDynamicRHI::RHIGetRenderQueryResult(FRenderQueryRHIParamRef QueryRHI
 	{
 		OutResult = Query->Result;
 	}
-
-
-	Query->bResultIsCached = bSuccess;
-
-	return bSuccess;
+		return true;
+	}
+	OutResult = 0;
+	return false;
 }
 
 
@@ -226,43 +491,63 @@ extern void OnQueryCreation( FOpenGLRenderQuery* Query );
 extern void OnQueryDeletion( FOpenGLRenderQuery* Query );
 
 FOpenGLRenderQuery::FOpenGLRenderQuery(ERenderQueryType InQueryType)
-	: bResultIsCached(false)
-	, bInvalidResource(false)
+	: Result(0)
+	, bInvalidResource(true)
 	, QueryType(InQueryType)
 {
-	PlatformGetNewRenderQuery(&Resource, &ResourceContext);
-	OnQueryCreation( this );
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+
+	const bool bCanRunOnThisThread = RHICmdList.Bypass() || (!IsRunningRHIInSeparateThread() && IsInRenderingThread()) || IsInRHIThread();
+
+	if (bCanRunOnThisThread)
+	{
+		AcquireResource();
+	}
+	else
+	{
+		CreationFence.Reset();
+		new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([=]() {VERIFY_GL_SCOPE(); AcquireResource(); CreationFence.WriteAssertFence(); });
+		CreationFence.SetRHIThreadFence();
+	}
 }
 
-FOpenGLRenderQuery::FOpenGLRenderQuery(FOpenGLRenderQuery const& OtherQuery)
-{
-	operator=(OtherQuery);
-	OnQueryCreation( this );
-}
 
 FOpenGLRenderQuery::~FOpenGLRenderQuery()
 {
+	CreationFence.WaitFence();
+
 	OnQueryDeletion( this );
+
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+
+	const bool bCanRunOnThisThread = RHICmdList.Bypass() || (!IsRunningRHIInSeparateThread() && IsInRenderingThread()) || IsInRHIThread();
 	if (Resource && !bInvalidResource)
 	{
-		PlatformReleaseRenderQuery(Resource, ResourceContext);
+		bInvalidResource = true;
+		if (bCanRunOnThisThread)
+		{
+			ReleaseResource(Resource, ResourceContext);
+		}
+		else
+		{
+			new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([Resource = Resource, ResourceContext = ResourceContext]() {VERIFY_GL_SCOPE(); ReleaseResource(Resource, ResourceContext); });
+		}
 	}
 }
 
-FOpenGLRenderQuery& FOpenGLRenderQuery::operator=(FOpenGLRenderQuery const& OtherQuery)
+void FOpenGLRenderQuery::AcquireResource()
 {
-	if(this != &OtherQuery)
-	{
-		Resource = OtherQuery.Resource;
-		ResourceContext = OtherQuery.ResourceContext;
-		Result = OtherQuery.Result;
-		bResultIsCached = OtherQuery.bResultIsCached;
-		bInvalidResource = OtherQuery.bInvalidResource;
-		QueryType = OtherQuery.QueryType;
-		const_cast<FOpenGLRenderQuery*>(&OtherQuery)->bInvalidResource = true;
-	}
-	return *this;
+	bInvalidResource = false;
+	PlatformGetNewRenderQuery(&Resource, &ResourceContext);
+	OnQueryCreation(this);
 }
+void FOpenGLRenderQuery::ReleaseResource(GLuint Resource, uint64 ResourceContext)
+{
+	VERIFY_GL_SCOPE();
+	check(Resource);
+	PlatformReleaseRenderQuery(Resource, ResourceContext);
+}
+
 
 
 void FOpenGLEventQuery::IssueEvent()

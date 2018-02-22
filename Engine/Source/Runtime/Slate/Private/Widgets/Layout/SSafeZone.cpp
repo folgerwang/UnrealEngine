@@ -5,7 +5,25 @@
 #include "Framework/Application/SlateApplication.h"
 #include "Misc/CoreDelegates.h"
 
-float SSafeZone::SafeZoneScale = 1.0f;
+float GSafeZoneScale = 1.0f;
+static FAutoConsoleVariableRef CVarDumpVMIR(
+	TEXT("SafeZone.Scale"),
+	GSafeZoneScale,
+	TEXT("The safezone scale."),
+	ECVF_Default
+);
+
+void SSafeZone::SetGlobalSafeZoneScale(float InScale)
+{
+	GSafeZoneScale = InScale;
+
+	FCoreDelegates::OnSafeFrameChangedEvent.Broadcast();
+}
+
+float SSafeZone::GetGlobalSafeZoneScale()
+{
+	return GSafeZoneScale;
+}
 
 void SSafeZone::Construct( const FArguments& InArgs )
 {
@@ -40,19 +58,6 @@ SSafeZone::~SSafeZone()
 	FCoreDelegates::OnSafeFrameChangedEvent.Remove(OnSafeFrameChangedHandle);
 }
 
-
-void SSafeZone::SetSafeZoneScale(float InScale)
-{
-	SafeZoneScale = InScale;
-
-	FCoreDelegates::OnSafeFrameChangedEvent.Broadcast();
-}
-
-float SSafeZone::GetSafeZoneScale()
-{
-	return SafeZoneScale;
-}
-
 void SSafeZone::SafeAreaUpdated()
 {
 	SetTitleSafe(bIsTitleSafe);
@@ -63,9 +68,7 @@ void SSafeZone::SetTitleSafe( bool InIsTitleSafe )
 	FDisplayMetrics Metrics;
 	FSlateApplication::Get().GetDisplayMetrics( Metrics );
 
-	const FMargin DeviceSafeMargin = bIsTitleSafe ?
-		FMargin(Metrics.TitleSafePaddingSize.X, Metrics.TitleSafePaddingSize.Y, Metrics.TitleSafePaddingSize.Z, Metrics.TitleSafePaddingSize.W) :
-		FMargin(Metrics.ActionSafePaddingSize.X, Metrics.ActionSafePaddingSize.Y, Metrics.ActionSafePaddingSize.Z, Metrics.ActionSafePaddingSize.W);
+	const FMargin DeviceSafeMargin = bIsTitleSafe ? FMargin(Metrics.TitleSafePaddingSize) : FMargin(Metrics.ActionSafePaddingSize);
 
 #if WITH_EDITOR
 	if ( OverrideScreenSize.IsSet() )
@@ -83,7 +86,7 @@ void SSafeZone::SetTitleSafe( bool InIsTitleSafe )
 	}
 
 #if PLATFORM_XBOXONE
-	SafeMargin = SafeMargin * SafeZoneScale;
+	SafeMargin = SafeMargin * GSafeZoneScale;
 #endif
 
 	SafeMargin = FMargin(bPadLeft ? SafeMargin.Left : 0.0f, bPadTop ? SafeMargin.Top : 0.0f, bPadRight ? SafeMargin.Right : 0.0f, bPadBottom ? SafeMargin.Bottom : 0.0f);

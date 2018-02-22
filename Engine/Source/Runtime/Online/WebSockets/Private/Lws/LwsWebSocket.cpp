@@ -117,9 +117,11 @@ void FLwsWebSocket::Close(int32 Code, const FString& Reason)
 		return;
 	}
 
+	// We are doing this conversion here so we don't have to do it on the ws thread
 	FTCHARToUTF8 Convert(*Reason);
 	ANSICHAR* ANSIReason = static_cast<ANSICHAR*>(FMemory::Malloc(Convert.Length() + 1));
 	FCStringAnsi::Strcpy(ANSIReason, Convert.Length(), Convert.Get());
+	ANSIReason[Convert.Length()] = 0;
 
 	UE_LOG(LogWebSockets, Verbose, TEXT("FLwsWebSocket[%d]::Close: Close queued with code=%d reason=%s"), Identifier, Code, *Reason);
 

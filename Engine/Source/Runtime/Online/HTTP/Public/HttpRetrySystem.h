@@ -49,6 +49,14 @@ namespace FHttpRetrySystem
     typedef TSet<FName> FRetryVerbs;
 };
 
+/**
+* Delegate called when an Http request will be retried in the future
+*
+* @param first parameter - original Http request that started things
+* @param second parameter - response received from the server if a successful connection was established
+* @param third parameter - seconds in the future when the response will be retried
+*/
+DECLARE_DELEGATE_ThreeParams(FHttpRequestWillRetryDelegate, FHttpRequestPtr, FHttpResponsePtr, float);
 
 namespace FHttpRetrySystem
 {
@@ -79,6 +87,7 @@ namespace FHttpRetrySystem
 		HTTP_API virtual void CancelRequest() override;
 		virtual FHttpRequestCompleteDelegate& OnProcessRequestComplete() override { return OnProcessRequestCompleteDelegate; }
 		virtual FHttpRequestProgressDelegate& OnRequestProgress() override { return OnProcessRequestProgressDelegate; }
+		virtual FHttpRequestWillRetryDelegate& OnRequestWillRetry() { return OnRequestWillRetryDelegate; }
 		
 		// FRequest
 		EStatus::Type GetRetryStatus() const { return Status; }
@@ -106,6 +115,7 @@ namespace FHttpRetrySystem
 
 		FHttpRequestCompleteDelegate OnProcessRequestCompleteDelegate;
 		FHttpRequestProgressDelegate OnProcessRequestProgressDelegate;
+		FHttpRequestWillRetryDelegate OnRequestWillRetryDelegate;
 
 		FManager& RetryManager;
     };

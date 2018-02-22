@@ -10,6 +10,7 @@
 #include "MetalCommandQueue.h"
 #include "Containers/ResourceArray.h"
 #include "RenderUtils.h"
+#include "HAL/LowLevelMemTracker.h"
 
 /** Constructor */
 FMetalIndexBuffer::FMetalIndexBuffer(uint32 InStride, uint32 InSize, uint32 InUsage)
@@ -50,6 +51,8 @@ void FMetalIndexBuffer::Alloc(uint32 InSize)
 {
 	if (!Buffer)
 	{
+		LLM_SCOPE(ELLMTag::IndexBuffer);
+
 		MTLStorageMode Mode = (FMetalCommandQueue::SupportsFeature(EMetalFeaturesEfficientBufferBlits) ? MTLStorageModePrivate : BUFFER_STORAGE_MODE);
 		Buffer = GetMetalDeviceContext().CreatePooledBuffer(FMetalPooledBufferArgs(GetMetalDeviceContext().GetDevice(), InSize, Mode));
 		INC_DWORD_STAT_BY(STAT_MetalIndexMemAlloc, InSize);

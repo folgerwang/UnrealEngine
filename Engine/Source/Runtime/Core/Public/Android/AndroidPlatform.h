@@ -51,6 +51,12 @@ typedef FAndroidTypes FPlatformTypes;
 #define PLATFORM_UI_HAS_MOBILE_SCROLLBARS			1
 #define PLATFORM_UI_NEEDS_TOOLTIPS					0
 #define PLATFORM_UI_NEEDS_FOCUS_OUTLINES			0
+#define PLATFORM_RHITHREAD_DEFAULT_BYPASS			1
+
+// Conditionally set in AndroidToolChain.cs
+// always set to 1 for ARM64 builds
+// set to 1 for ARMV7 builds if bUseNEONForArmV7=True in AndroidRuntimeSettings section
+//#define PLATFORM_ENABLE_VECTORINTRINSICS_NEON		1
 
 // Function type macros.
 #define VARARGS													/* Functions with variable arguments */

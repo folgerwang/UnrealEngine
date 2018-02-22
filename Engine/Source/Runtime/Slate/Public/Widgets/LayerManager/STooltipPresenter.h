@@ -26,6 +26,7 @@ public:
 
 	/** Constructor */
 	STooltipPresenter()
+		: ChildSlot(this)
 	{
 		bCanSupportFocus = false;
 	}

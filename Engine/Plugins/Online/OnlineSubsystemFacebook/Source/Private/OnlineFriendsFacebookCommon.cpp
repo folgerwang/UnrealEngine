@@ -2,7 +2,11 @@
 
 #include "OnlineFriendsFacebookCommon.h"
 #include "OnlineSubsystemFacebookPrivate.h"
+#if USES_RESTFUL_FACEBOOK
+#include "OnlineIdentityFacebookRest.h"
+#else // USES_RESTFUL_FACEBOOK
 #include "OnlineIdentityFacebook.h"
+#endif // USES_RESTFUL_FACEBOOK
 #include "HttpModule.h"
 #include "Interfaces/IHttpResponse.h"
 #include "Misc/ConfigCacheIni.h"
@@ -56,48 +60,16 @@ bool FOnlineFriendFacebook::Parse(const TSharedPtr<FJsonObject>& JsonObject)
 {
 	bool bSuccess = false;
 
-	FString UserIdStr;
-	if (JsonObject->TryGetStringField(TEXT(FRIEND_FIELD_ID), UserIdStr))
+	if (FromJson(JsonObject))
 	{
-		UserIdPtr = MakeShared<FUniqueNetIdString>(UserIdStr);
-
-		AddUserAttributes(JsonObject);
-
-		const TSharedPtr<FJsonObject>* JsonPictureField = nullptr;
-		if (JsonObject->TryGetObjectField(TEXT(FRIEND_FIELD_PICTURE), JsonPictureField))
+		if (!UserIdStr.IsEmpty())
 		{
-			if (!Picture.FromJson(*JsonPictureField))
-			{
-				UE_LOG_ONLINE(Warning, TEXT("Failed to parse picture data"));
-			}
+			UserIdPtr = MakeShared<FUniqueNetIdString>(UserIdStr);
+			bSuccess = true;
 		}
-
-		bSuccess = true;
 	}
 
 	return bSuccess;
-}
-
-void FOnlineFriendFacebook::AddUserAttributes(const TSharedPtr<FJsonObject>& JsonUser)
-{
-	for (auto It = JsonUser->Values.CreateConstIterator(); It; ++It)
-	{
-		if (It.Value().IsValid())
-		{
-			if (It.Value()->Type == EJson::String)
-			{
-				AccountData.Add(It.Key(), It.Value()->AsString());
-			}
-			else if (It.Value()->Type == EJson::Boolean)
-			{
-				AccountData.Add(It.Key(), It.Value()->AsBool() ? TEXT("true") : TEXT("false"));
-			}
-			else if (It.Value()->Type == EJson::Number)
-			{
-				AccountData.Add(It.Key(), FString::Printf(TEXT("%f"), (double)It.Value()->AsNumber()));
-			}
-		}
-	}
 }
 
 // FOnlineFriendsFacebookCommon

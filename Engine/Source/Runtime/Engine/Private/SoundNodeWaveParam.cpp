@@ -14,7 +14,7 @@ USoundNodeWaveParam::USoundNodeWaveParam(const FObjectInitializer& ObjectInitial
 {
 }
 
-float USoundNodeWaveParam::GetDuration()
+float USoundNodeWaveParam::GetDuration() const
 {
 	// Since we can't know how long this node will be we say it is indefinitely looping
 	return INDEFINITELY_LOOPING_DURATION;

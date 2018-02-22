@@ -117,27 +117,37 @@ bool FXmppMessagesStrophe::HandleMessageErrorStanza(const FStropheStanza& ErrorS
 	return true;
 }
 
-bool FXmppMessagesStrophe::SendMessage(const FString& RecipientId, const FXmppMessage& Message)
+bool FXmppMessagesStrophe::SendMessage(const FXmppUserJid& RecipientId, const FString& Type, const FString& Payload, bool bPayloadIsSerializedJson)
 {
 	if (ConnectionManager.GetLoginStatus() != EXmppLoginStatus::LoggedIn)
 	{
 		return false;
 	}
 
-	const FXmppUserJid ToJid(Message.ToJid.Id, ConnectionManager.GetServer().Domain, Message.ToJid.Resource);
-	const FXmppUserJid FromJid(ConnectionManager.GetUserJid());
+	if (!RecipientId.IsValid())
+	{
+		UE_LOG(LogXmpp, Warning, TEXT("Unable to send message. Invalid jid: %s"), *RecipientId.GetFullPath());
+		return false;
+	}
 
 	FStropheStanza MessageStanza(ConnectionManager, Strophe::SN_MESSAGE);
 	{
 		MessageStanza.SetId(FGuid::NewGuid().ToString());
-		MessageStanza.SetTo(ToJid);
-		MessageStanza.SetFrom(FromJid);
+		MessageStanza.SetTo(RecipientId);
 
 		FString StanzaText;
 		auto JsonWriter = TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR> >::Create(&StanzaText);
 		JsonWriter->WriteObjectStart();
-		JsonWriter->WriteValue(TEXT("type"), Message.Type);
-		JsonWriter->WriteValue(TEXT("payload"), Message.Payload);
+		JsonWriter->WriteValue(TEXT("type"), Type);
+		if (bPayloadIsSerializedJson)
+		{
+			JsonWriter->WriteIdentifierPrefix(TEXT("payload"));
+			JsonWriter->WriteRawJSONValue(Payload);
+		}
+		else
+		{
+			JsonWriter->WriteValue(TEXT("payload"), Payload);
+		}
 		JsonWriter->WriteValue(TEXT("timestamp"), FDateTime::UtcNow().ToIso8601());
 		JsonWriter->WriteObjectEnd();
 		JsonWriter->Close();
@@ -146,6 +156,15 @@ bool FXmppMessagesStrophe::SendMessage(const FString& RecipientId, const FXmppMe
 	}
 
 	return ConnectionManager.SendStanza(MoveTemp(MessageStanza));
+}
+
+bool FXmppMessagesStrophe::SendMessage(const FXmppUserJid& RecipientId, const FString& Type, const TSharedRef<FJsonObject>& Payload)
+{
+	FString SerializedPayload;
+	auto JsonWriter = TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>::Create(&SerializedPayload);
+	check(FJsonSerializer::Serialize(Payload, JsonWriter));
+
+	return SendMessage(RecipientId, Type, SerializedPayload, true);
 }
 
 bool FXmppMessagesStrophe::Tick(float DeltaTime)

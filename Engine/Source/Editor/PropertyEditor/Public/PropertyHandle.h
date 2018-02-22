@@ -253,6 +253,7 @@ public:
 	virtual FPropertyAccess::Result GetValue( UObject*& OutValue ) const = 0;
 	virtual FPropertyAccess::Result GetValue( const UObject*& OutValue ) const = 0;
 	virtual FPropertyAccess::Result GetValue( FAssetData& OutValue ) const = 0;
+	virtual FPropertyAccess::Result GetValueData( void*& OutAddress ) const = 0;
 
 	/**
 	 * Sets the typed value of a property.  

@@ -59,6 +59,9 @@ enum class ETargetPlatformFeatures
 
 	/* Should split paks into smaller sized paks */
 	ShouldSplitPaksIntoSmallerSizes,
+
+	/* The platform uses software rasterization of the scene for primitive occlusion */
+	SoftwareOcclusion,
 };
 
 
@@ -340,6 +343,12 @@ public:
 	 */
 	virtual FName GetWaveFormat( const class USoundWave* Wave ) const = 0;
 
+	/**
+	* Get the audio compression settings for this platform.
+	* 
+	* @return the compression overrides for this platform, or the default platform overrides.
+	*/
+	virtual const struct FPlatformAudioCookOverrides* GetAudioCompressionSettings() const = 0;
 
 	/**
 	* Gets all the formats which can be returned from GetWaveFormat

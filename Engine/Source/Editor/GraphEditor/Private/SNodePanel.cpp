@@ -200,8 +200,8 @@ namespace NodePanelDefs
 };
 
 SNodePanel::SNodePanel()
-: Children()
-, VisibleChildren()
+: Children(this)
+, VisibleChildren(this)
 {
 }
 

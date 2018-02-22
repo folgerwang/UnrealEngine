@@ -270,6 +270,12 @@ public:
 	bool bSkipEditorContent;
 
 	/**
+	 * Don't include movies when staging/packaging
+	 */
+	UPROPERTY(config, EditAnywhere, Category = Packaging, AdvancedDisplay, meta = (DisplayName = "Exclude movie files when staging"))
+	bool bSkipMovies;
+
+	/**
 	 * List of maps to include when no other map list is specified on commandline
 	 */
 	UPROPERTY(config, EditAnywhere, Category = Packaging, AdvancedDisplay, meta = (DisplayName = "List of maps to include in a packaged build", RelativeToGameContentDir, LongPackageName))

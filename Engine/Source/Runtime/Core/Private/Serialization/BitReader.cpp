@@ -190,6 +190,24 @@ void FBitReader::SetOverflowed(int32 LengthBits)
 	ArIsError = 1;
 }
 
+void FBitReader::SerializeBitsWithOffset( void* Dest, int32 DestBit, int64 LengthBits )
+{
+	if ( IsError() || Pos+LengthBits > Num)
+	{
+		if (!IsError())
+		{
+			SetOverflowed(LengthBits);
+		}
+		return;
+	}
+
+	if (LengthBits != 0)
+	{
+		appBitsCpy((uint8*)Dest, DestBit, Buffer.GetData(), Pos, LengthBits);
+		Pos += LengthBits;
+	}
+}
+
 /*-----------------------------------------------------------------------------
 	FBitReader.
 -----------------------------------------------------------------------------*/

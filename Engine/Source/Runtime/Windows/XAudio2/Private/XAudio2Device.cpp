@@ -277,6 +277,10 @@ void FXAudio2Device::TeardownHardware()
 		DeviceProperties = nullptr;
 	}
 
+#if WITH_XMA2
+	FXMAAudioInfo::Shutdown();
+#endif
+
 #if PLATFORM_WINDOWS
 	if (bComInitialized)
 	{
@@ -589,7 +593,7 @@ void FXAudio2Device::TestDecompressOggVorbis( USoundWave* Wave )
 	if( OggInfo.ReadCompressedInfo( Wave->ResourceData, Wave->ResourceSize, &QualityInfo ) )
 	{
 		// Extract the data
-		Wave->SampleRate = QualityInfo.SampleRate;
+		Wave->SetSampleRate(QualityInfo.SampleRate);
 		Wave->NumChannels = QualityInfo.NumChannels;
 		Wave->RawPCMDataSize = QualityInfo.SampleDataSize;
 		Wave->Duration = QualityInfo.Duration;

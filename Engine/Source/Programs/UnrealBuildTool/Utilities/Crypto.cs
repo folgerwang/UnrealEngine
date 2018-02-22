@@ -110,6 +110,14 @@ namespace UnrealBuildTool
 			{
 				return bEnablePakFullAssetEncryption || bEnablePakUAssetEncryption || bEnablePakIndexEncryption || bEnablePakIniEncryption;
 			}
+
+			/// <summary>
+			/// 
+			/// </summary>
+			public void Save(FileReference InFile)
+			{
+				FileReference.WriteAllText(InFile, fastJSON.JSON.Instance.ToJSON(this, new fastJSON.JSONParameters {}));
+			}
 		}
 
 		/// <summary>
@@ -130,37 +138,37 @@ namespace UnrealBuildTool
 			}
 
 			{
-			    // Start by parsing the legacy encryption.ini settings
-			    Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Encryption, InProjectDirectory, InTargetPlatform);
-			    Ini.GetBool("Core.Encryption", "SignPak", out Settings.bEnablePakSigning);
-    
-			    string[] SigningKeyStrings = new string[3];
-			    Ini.GetString("Core.Encryption", "rsa.privateexp", out SigningKeyStrings[0]);
-			    Ini.GetString("Core.Encryption", "rsa.modulus", out SigningKeyStrings[1]);
-			    Ini.GetString("Core.Encryption", "rsa.publicexp", out SigningKeyStrings[2]);
-    
-			    if (String.IsNullOrEmpty(SigningKeyStrings[0]) || String.IsNullOrEmpty(SigningKeyStrings[1]) || String.IsNullOrEmpty(SigningKeyStrings[2]))
-			    {
-				    SigningKeyStrings = null;
-			    }
-			    else
-			    {
-				    Settings.SigningKey = new SigningKeyPair();
-				    Settings.SigningKey.PrivateKey.Exponent = ParseHexStringToByteArray(SigningKeyStrings[0]);
-				    Settings.SigningKey.PrivateKey.Modulus = ParseHexStringToByteArray(SigningKeyStrings[1]);
-				    Settings.SigningKey.PublicKey.Exponent = ParseHexStringToByteArray(SigningKeyStrings[2]);
-				    Settings.SigningKey.PublicKey.Modulus = Settings.SigningKey.PrivateKey.Modulus;
-			    }
-    
-			    Ini.GetBool("Core.Encryption", "EncryptPak", out Settings.bEnablePakIndexEncryption);
-			    Settings.bEnablePakFullAssetEncryption = false;
-			    Settings.bEnablePakUAssetEncryption = false;
-			    Settings.bEnablePakIniEncryption = Settings.bEnablePakIndexEncryption;
-    
-			    string EncryptionKeyString;
-			    Ini.GetString("Core.Encryption", "aes.key", out EncryptionKeyString);
-			    Settings.EncryptionKey = new EncryptionKey();
-			    Settings.EncryptionKey.Key = ParseAnsiStringToByteArray(EncryptionKeyString);
+				// Start by parsing the legacy encryption.ini settings
+				Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Encryption, InProjectDirectory, InTargetPlatform);
+				Ini.GetBool("Core.Encryption", "SignPak", out Settings.bEnablePakSigning);
+
+				string[] SigningKeyStrings = new string[3];
+				Ini.GetString("Core.Encryption", "rsa.privateexp", out SigningKeyStrings[0]);
+				Ini.GetString("Core.Encryption", "rsa.modulus", out SigningKeyStrings[1]);
+				Ini.GetString("Core.Encryption", "rsa.publicexp", out SigningKeyStrings[2]);
+
+				if (String.IsNullOrEmpty(SigningKeyStrings[0]) || String.IsNullOrEmpty(SigningKeyStrings[1]) || String.IsNullOrEmpty(SigningKeyStrings[2]))
+				{
+					SigningKeyStrings = null;
+				}
+				else
+				{
+					Settings.SigningKey = new SigningKeyPair();
+					Settings.SigningKey.PrivateKey.Exponent = ParseHexStringToByteArray(SigningKeyStrings[0]);
+					Settings.SigningKey.PrivateKey.Modulus = ParseHexStringToByteArray(SigningKeyStrings[1]);
+					Settings.SigningKey.PublicKey.Exponent = ParseHexStringToByteArray(SigningKeyStrings[2]);
+					Settings.SigningKey.PublicKey.Modulus = Settings.SigningKey.PrivateKey.Modulus;
+				}
+
+				Ini.GetBool("Core.Encryption", "EncryptPak", out Settings.bEnablePakIndexEncryption);
+				Settings.bEnablePakFullAssetEncryption = false;
+				Settings.bEnablePakUAssetEncryption = false;
+				Settings.bEnablePakIniEncryption = Settings.bEnablePakIndexEncryption;
+
+				string EncryptionKeyString;
+				Ini.GetString("Core.Encryption", "aes.key", out EncryptionKeyString);
+				Settings.EncryptionKey = new EncryptionKey();
+				Settings.EncryptionKey.Key = ParseAnsiStringToByteArray(EncryptionKeyString);
 			}
 
 			Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Crypto, InProjectDirectory, InTargetPlatform);

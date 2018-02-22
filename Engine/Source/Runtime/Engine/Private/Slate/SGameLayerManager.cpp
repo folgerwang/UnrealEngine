@@ -12,6 +12,7 @@
 
 #include "Engine/GameEngine.h"
 #include "Engine/UserInterfaceSettings.h"
+#include "GeneralProjectSettings.h"
 
 #include "Widgets/LayerManager/STooltipPresenter.h"
 #include "Widgets/Layout/SDPIScaler.h"
@@ -22,6 +23,8 @@
  *****************************************************************************/
 
 SGameLayerManager::SGameLayerManager()
+:	DefaultWindowTitleBarHeight(64.0f)
+,	bIsGameUsingBorderlessWindow(false)
 {
 }
 
@@ -99,11 +102,7 @@ void SGameLayerManager::Construct(const SGameLayerManager::FArguments& InArgs)
 		}
 	}
 
-	bIsWindowTitleBarVisible = false;
-
-	DefaultWindowTitleBarHeight = 64.0f;
-	DefaultWindowTitleBarContent.Mode = EWindowTitleBarMode::Overlay;
-	DefaultWindowTitleBarContent.ContentWidget =
+	DefaultTitleBarContentWidget =
 		SNew(SVerticalBox)
 		+ SVerticalBox::Slot()
 		.AutoHeight()
@@ -111,7 +110,12 @@ void SGameLayerManager::Construct(const SGameLayerManager::FArguments& InArgs)
 			SNew(SBox).HeightOverride(this, &SGameLayerManager::GetDefaultWindowTitleBarHeight)
 		];
 
-	SetDefaultWindowTitleBarContentAsCurrent();
+	TitleBarAreaOverlay->SetRequestToggleFullscreenCallback(FSimpleDelegate::CreateSP(this, &SGameLayerManager::RequestToggleFullscreen));
+	TitleBarAreaVerticalBox->SetRequestToggleFullscreenCallback(FSimpleDelegate::CreateSP(this, &SGameLayerManager::RequestToggleFullscreen));
+
+	SetWindowTitleBarState(nullptr, EWindowTitleBarMode::Overlay, false, false, false);
+
+	bIsGameUsingBorderlessWindow = GetDefault<UGeneralProjectSettings>()->bUseBorderlessWindow && PLATFORM_WINDOWS;
 }
 
 const FGeometry& SGameLayerManager::GetViewportWidgetHostGeometry() const
@@ -225,9 +229,8 @@ void SGameLayerManager::ClearWidgets()
 		PlayerLayers.Remove(LayerIt.Key());
 	}
 
-	WindowTitleBarContentStack.Empty();
-	bIsWindowTitleBarVisible = false;
-	SetDefaultWindowTitleBarContentAsCurrent();
+	WindowTitleBarStateStack.Empty();
+	SetWindowTitleBarState(nullptr, EWindowTitleBarMode::Overlay, false, false, false);
 }
 
 void SGameLayerManager::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
@@ -398,13 +401,10 @@ void SGameLayerManager::AddOrUpdatePlayerLayers(const FGeometry& AllottedGeometr
 			Size = Size * AllottedGeometry.GetLocalSize() * InverseDPIScale;
 			Position = Position * AllottedGeometry.GetLocalSize() * InverseDPIScale;
 
-			if (bIsWindowTitleBarVisible)
+			const FWindowTitleBarState& WindowTitleBarState = WindowTitleBarStateStack.Top();
+			if (WindowTitleBarState.Mode == EWindowTitleBarMode::VerticalBox && Size.Y > WindowTitleBarVerticalBox->GetDesiredSize().Y)
 			{
-				const FWindowTitleBarContent& WindowTitleBarContent = WindowTitleBarContentStack.Top();
-				if (WindowTitleBarContent.Mode == EWindowTitleBarMode::VerticalBox && Size.Y > WindowTitleBarVerticalBox->GetDesiredSize().Y)
-				{
-					Size.Y -= WindowTitleBarVerticalBox->GetDesiredSize().Y;
-				}
+				Size.Y -= WindowTitleBarVerticalBox->GetDesiredSize().Y;
 			}
 
 			PlayerLayer->Slot->Size(Size);
@@ -439,42 +439,45 @@ void SGameLayerManager::SetDefaultWindowTitleBarHeight(float Height)
 	DefaultWindowTitleBarHeight = Height;
 }
 
-void SGameLayerManager::SetWindowTitleBarContent(const TSharedPtr<SWidget>& TitleBarContent, EWindowTitleBarMode Mode)
+void SGameLayerManager::SetWindowTitleBarState(const TSharedPtr<SWidget>& TitleBarContent, EWindowTitleBarMode Mode, bool bIsTitleBarVisible, bool bWindowButtonsVisible, bool bTitleBarVisible)
 {
-	WindowTitleBarContentStack.Push(FWindowTitleBarContent(TitleBarContent, Mode));
+	WindowTitleBarStateStack.Push(FWindowTitleBarState(TitleBarContent.IsValid() ? TitleBarContent : DefaultTitleBarContentWidget, Mode, bIsTitleBarVisible, bWindowButtonsVisible, bTitleBarVisible && bIsGameUsingBorderlessWindow));
 	UpdateWindowTitleBar();
 }
 
-void SGameLayerManager::RestorePreviousWindowTitleBarContent()
+void SGameLayerManager::RestorePreviousWindowTitleBarState()
 {
-	WindowTitleBarContentStack.Pop();
-	UpdateWindowTitleBar();
-}
-
-void SGameLayerManager::SetDefaultWindowTitleBarContentAsCurrent()
-{
-	WindowTitleBarContentStack.Push(DefaultWindowTitleBarContent);
-	UpdateWindowTitleBar();
+	if (WindowTitleBarStateStack.Num() > 1)
+	{
+		WindowTitleBarStateStack.Pop();
+		UpdateWindowTitleBar();
+	}
+	else
+	{
+		UE_LOG(LogSlate, Warning, TEXT("SGameLayerManager::RestorePreviousWindowTitleBarState() called without a matching SGameLayerManager::SetWindowTitleBarState() call."));
+	}
 }
 
 void SGameLayerManager::SetWindowTitleBarVisibility(bool bIsVisible)
 {
-	bIsWindowTitleBarVisible = bIsVisible;
+	WindowTitleBarStateStack.Top().bTitleBarVisible = bIsVisible && bIsGameUsingBorderlessWindow;
 	UpdateWindowTitleBarVisibility();
 }
 
 void SGameLayerManager::UpdateWindowTitleBar()
 {
-	const FWindowTitleBarContent& WindowTitleBarContent = WindowTitleBarContentStack.Top();
-	if (WindowTitleBarContent.ContentWidget.IsValid())
+	const FWindowTitleBarState& WindowTitleBarState = WindowTitleBarStateStack.Top();
+	if (WindowTitleBarState.ContentWidget.IsValid())
 	{
-		if (WindowTitleBarContent.Mode == EWindowTitleBarMode::Overlay)
+		if (WindowTitleBarState.Mode == EWindowTitleBarMode::Overlay)
 		{
-			WindowTitleBarOverlay->SetContent(WindowTitleBarContent.ContentWidget.ToSharedRef());
+			WindowTitleBarOverlay->SetContent(WindowTitleBarState.ContentWidget.ToSharedRef());
+			TitleBarAreaOverlay->SetWindowButtonsVisibility(WindowTitleBarState.bWindowButtonsVisible);
 		}
-		else if (WindowTitleBarContent.Mode == EWindowTitleBarMode::VerticalBox)
+		else if (WindowTitleBarState.Mode == EWindowTitleBarMode::VerticalBox)
 		{
-			WindowTitleBarVerticalBox->SetContent(WindowTitleBarContent.ContentWidget.ToSharedRef());
+			WindowTitleBarVerticalBox->SetContent(WindowTitleBarState.ContentWidget.ToSharedRef());
+			TitleBarAreaVerticalBox->SetWindowButtonsVisibility(WindowTitleBarState.bWindowButtonsVisible);
 		}
 	}
 
@@ -483,7 +486,25 @@ void SGameLayerManager::UpdateWindowTitleBar()
 
 void SGameLayerManager::UpdateWindowTitleBarVisibility()
 {
-	const FWindowTitleBarContent& WindowTitleBarContent = WindowTitleBarContentStack.Top();
-	TitleBarAreaOverlay->SetVisibility(bIsWindowTitleBarVisible && WindowTitleBarContent.Mode == EWindowTitleBarMode::Overlay ? EVisibility::Visible : EVisibility::Collapsed);
-	TitleBarAreaVerticalBox->SetVisibility(bIsWindowTitleBarVisible && WindowTitleBarContent.Mode == EWindowTitleBarMode::VerticalBox ? EVisibility::Visible : EVisibility::Collapsed);
+	const FWindowTitleBarState& WindowTitleBarState = WindowTitleBarStateStack.Top();
+	const EVisibility VisibilityWhenEnabled = WindowTitleBarState.bTitleBarDragEnabled ? EVisibility::Visible : EVisibility::SelfHitTestInvisible;
+	if (WindowTitleBarState.Mode == EWindowTitleBarMode::Overlay)
+	{
+		TitleBarAreaOverlay->SetVisibility(WindowTitleBarState.bTitleBarVisible ? VisibilityWhenEnabled : EVisibility::Collapsed);
+		TitleBarAreaVerticalBox->SetVisibility(EVisibility::Collapsed);
+	}
+	else if (WindowTitleBarState.Mode == EWindowTitleBarMode::VerticalBox)
+	{
+		TitleBarAreaOverlay->SetVisibility(EVisibility::Collapsed);
+		TitleBarAreaVerticalBox->SetVisibility(WindowTitleBarState.bTitleBarVisible ? VisibilityWhenEnabled : EVisibility::Collapsed);
+	}
+}
+
+void SGameLayerManager::RequestToggleFullscreen()
+{
+	// SWindowTitleBarArea cannot access GEngine, so it'll call this when it needs to toggle fullscreen
+	if (GEngine)
+	{
+		GEngine->DeferredCommands.Add(TEXT("TOGGLE_FULLSCREEN"));
+	}
 }

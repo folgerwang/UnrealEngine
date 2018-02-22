@@ -487,6 +487,7 @@ void FExposedValueHandler::Initialize(FAnimNode_Base* AnimNode, UObject* AnimIns
 	for (FExposedValueCopyRecord& CopyRecord : CopyRecords)
 	{
 		// We do a similar thing to the above function caching process for properties here too
+// 		if (true)
 		if (CopyRecord.CachedSourceProperty == nullptr)
 		{
 			CopyRecord.CachedSourceProperty = AnimInstanceObject->GetClass()->FindPropertyByName(CopyRecord.SourcePropertyName);
@@ -507,6 +508,7 @@ void FExposedValueHandler::Initialize(FAnimNode_Base* AnimNode, UObject* AnimIns
 			{
 				void* Source = CopyRecord.CachedSourceProperty->ContainerPtrToValuePtr<uint8>(AnimInstanceObject, 0);
 				UStructProperty* SourceStructProperty = CastChecked<UStructProperty>(CopyRecord.CachedSourceProperty);
+// 				if (true)
 				if (CopyRecord.CachedSourceStructSubProperty == nullptr)
 				{
 					CopyRecord.CachedSourceStructSubProperty = SourceStructProperty->Struct->FindPropertyByName(CopyRecord.SourceSubPropertyName);

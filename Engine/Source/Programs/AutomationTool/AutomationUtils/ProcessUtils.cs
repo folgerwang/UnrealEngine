@@ -522,11 +522,17 @@ namespace AutomationTool
 				lock (ProcSyncObject)
 				{
 					bProcTerminated = (Proc == null) || Proc.HasExited;
-				}
-				if (!bProcTerminated)
-				{
-					// The process did not terminate yet but we've read all output messages, wait until the process terminates
-					Proc.WaitForExit();
+
+					if (Proc != null)
+					{
+						if (!bProcTerminated)
+						{
+							// The process did not terminate yet but we've read all output messages, wait until the process terminates
+							Proc.WaitForExit();
+						}
+
+						ExitCode = Proc.ExitCode;
+					}
 				}
 			}
 		}

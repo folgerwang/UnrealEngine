@@ -491,6 +491,10 @@ public:
 	{
 		return LowerLevel->OpenAsyncRead(Filename);
 	}
+	virtual void ThrottleAsyncPrecaches(bool bEnablePrecacheRequests) override
+	{
+		LowerLevel->ThrottleAsyncPrecaches(bEnablePrecacheRequests);
+	}
 
 	//static void CreateProfileVisualizer
 };

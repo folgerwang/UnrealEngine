@@ -61,7 +61,9 @@ bool FProjectDescriptor::Load(const FString& FileName, FText& OutFailReason)
 	FString FileContents;
 	if (!FFileHelper::LoadFileToString(FileContents, *FileName))
 	{
-		OutFailReason = FText::Format(LOCTEXT("FailedToLoadDescriptorFile", "Failed to open descriptor file '{0}'"), FText::FromString(FileName));
+		// Do not try to localize these messages, a missing project file usually indicates missing data and an
+		// access to ICU will result in failure that's harder to diagnose
+		OutFailReason = FText::FromString(FString::Printf(TEXT("Failed to open descriptor file %s"), *FileName));
 		return false;
 	}
 
@@ -70,7 +72,9 @@ bool FProjectDescriptor::Load(const FString& FileName, FText& OutFailReason)
 	TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create(FileContents);
 	if ( !FJsonSerializer::Deserialize(Reader, Object) || !Object.IsValid() )
 	{
-		OutFailReason = FText::Format(LOCTEXT("FailedToReadDescriptorFile", "Failed to read file. {0}"), FText::FromString(Reader->GetErrorMessage()));
+		// Do not try to localize these messages, a missing project file usually indicates missing data and an
+		// access to ICU will result in failure that's harder to diagnose
+		OutFailReason = FText::FromString(FString::Printf(TEXT("Failed to read file %s"), *FileName));
 		return false;
 	}
 

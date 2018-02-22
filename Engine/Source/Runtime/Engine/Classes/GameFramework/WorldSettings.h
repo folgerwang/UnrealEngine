@@ -11,6 +11,7 @@
 #include "GameFramework/DamageType.h"
 #include "GameFramework/Info.h"
 #include "Sound/AudioVolume.h"
+#include "UObject/ConstructorHelpers.h"
 #include "WorldSettings.generated.h"
 
 class UAssetUserData;
@@ -274,6 +275,15 @@ struct ENGINE_API FHierarchicalSimplification
 	UPROPERTY(Category = FHierarchicalSimplification, EditAnywhere, meta = (UIMin = "0.00001", ClampMin = "0.000001", UIMax = "1.0", ClampMax = "1.0"))
 	float TransitionScreenSize;
 
+	UPROPERTY(Category = FHierarchicalSimplification, EditAnywhere, AdvancedDisplay, meta = (UIMin = "1.0", ClampMin = "1.0", UIMax = "50000.0", editcondition="bUseOverrideDrawDistance"))
+	float OverrideDrawDistance;
+
+	UPROPERTY(Category = FHierarchicalSimplification, EditAnywhere, AdvancedDisplay, meta = (InlineEditConditionToggle))
+	bool bUseOverrideDrawDistance;
+
+	UPROPERTY(Category = FHierarchicalSimplification, EditAnywhere, AdvancedDisplay)
+	uint8 bAllowSpecificExclusion : 1;
+
 	/** If this is true, it will simplify mesh but it is slower.
 	* If false, it will just merge actors but not simplify using the lower LOD if exists.
 	* For example if you build LOD 1, it will use LOD 1 of the mesh to merge actors if exists.
@@ -308,6 +318,9 @@ struct ENGINE_API FHierarchicalSimplification
 
 	FHierarchicalSimplification()
 		: TransitionScreenSize(0.315f)
+		, OverrideDrawDistance(10000)
+		, bUseOverrideDrawDistance(false)
+		, bAllowSpecificExclusion(false)
 		, bSimplifyMesh(false)
 		, DesiredBoundRadius(2000)
 		, DesiredFillingPercentage(50)
@@ -317,6 +330,7 @@ struct ENGINE_API FHierarchicalSimplification
 		MergeSetting.bMergeMaterials = true;
 		MergeSetting.bGenerateLightMapUV = true;
 		ProxySetting.MaterialSettings.MaterialMergeType = EMaterialMergeType::MaterialMergeType_Simplygon;
+		ProxySetting.bCreateCollision = false;
 	}
 
 private:
@@ -342,11 +356,19 @@ public:
 	UHierarchicalLODSetup()
 	{
 		HierarchicalLODSetup.AddDefaulted();
+		OverrideBaseMaterial = nullptr;
 	}
 
 	/** Hierarchical LOD Setup */
 	UPROPERTY(EditAnywhere, Category = HLODSystem)
 	TArray<struct FHierarchicalSimplification> HierarchicalLODSetup;
+
+	UPROPERTY(EditAnywhere, Category = HLODSystem)
+	TSoftObjectPtr<UMaterialInterface> OverrideBaseMaterial;
+
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif // WITH_EDITOR
 };
 
 /**
@@ -536,9 +558,13 @@ class ENGINE_API AWorldSettings : public AInfo, public IInterface_AssetUserData
 	UPROPERTY(EditAnywhere, config, Category=LODSystem)
 	uint32 bEnableHierarchicalLODSystem:1;
 
-	/** If sets overrides the level settings and global project settings */
+	/** If set overrides the level settings and global project settings */
 	UPROPERTY(EditAnywhere, config, Category = LODSystem)
 	TSoftClassPtr<class UHierarchicalLODSetup> HLODSetupAsset;
+
+	/** If set overrides the project-wide base material used for Proxy Materials*/
+	UPROPERTY(EditAnywhere, config, Category = LODSystem)
+	TSoftObjectPtr<class UMaterialInterface> OverrideBaseMaterial;	
 
 protected:
 	/** Hierarchical LOD Setup */
@@ -695,6 +721,7 @@ public:
 	const TArray<struct FHierarchicalSimplification>& GetHierarchicalLODSetup() const;
 	TArray<struct FHierarchicalSimplification>& GetHierarchicalLODSetup();
 	int32 GetNumHierarchicalLODLevels() const;
+	UMaterialInterface* GetHierarchicalLODBaseMaterial() const;
 #endif // WITH EDITOR
 
 private:

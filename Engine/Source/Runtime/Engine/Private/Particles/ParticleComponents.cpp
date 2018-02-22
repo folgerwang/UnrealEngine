@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UnParticleComponent.cpp: Particle component implementation.
@@ -760,6 +760,7 @@ bool UParticleLODLevel::IsModuleEditable(UParticleModule* InModule)
 UParticleEmitter::UParticleEmitter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, QualityLevelSpawnRateScale(1.0f)
+	, DetailModeBitmask(PDM_DefaultValue)
 	, bDisabledLODsKeepEmitterAlive(false)
 	, bDisableWhenInsignficant(0)
 	, SignificanceLevel(EParticleSignificanceLevel::Critical)
@@ -947,6 +948,20 @@ void UParticleEmitter::PostLoad()
 		}
 	}
 
+	// set up DetailModeFlags from deprecated DetailMode if needed
+	if (DetailModeBitmask == PDM_DefaultValue)
+	{
+		// low = L+M+H, Medium = M+H, High = H
+		uint32 AllDetailModes = /*(1<<EParticleDetailMode::PDM_VeryLow) |*/ (1 << EParticleDetailMode::PDM_Low) | (1 << EParticleDetailMode::PDM_Medium) | (1 << EParticleDetailMode::PDM_High);
+		DetailModeBitmask = DetailMode_DEPRECATED == EDetailMode::DM_Low ? AllDetailModes
+			: DetailMode_DEPRECATED == EDetailMode::DM_Medium ? ((1 << EParticleDetailMode::PDM_Medium) | (1 << EParticleDetailMode::PDM_High))
+			: DetailMode_DEPRECATED == EDetailMode::DM_High ? (1 << EParticleDetailMode::PDM_High) : AllDetailModes;
+	}
+
+#if	WITH_EDITORONLY_DATA
+	UpdateDetailModeDisplayString();
+#endif
+
 #if WITH_EDITOR
 	if ((GIsEditor == true) && 1)//(IsRunningCommandlet() == false))
 	{
@@ -1110,6 +1125,10 @@ void UParticleEmitter::PostEditChangeProperty(FPropertyChangedEvent& PropertyCha
 
 	// Clamp the detail spawn rate scale...
 	QualityLevelSpawnRateScale = FMath::Clamp<float>(QualityLevelSpawnRateScale, 0.0f, 1.0f);
+
+#if	WITH_EDITORONLY_DATA
+	UpdateDetailModeDisplayString();
+#endif
 }
 #endif // WITH_EDITOR
 
@@ -3169,7 +3188,7 @@ UParticleSystemComponent::UParticleSystemComponent(const FObjectInitializer& Obj
 #endif // WITH_EDITORONLY_DATA
 	LastCheckedDetailMode = -1;
 	SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
-	bGenerateOverlapEvents = false;
+	SetGenerateOverlapEvents(false);
 
 	bCastVolumetricTranslucentShadow = true;
 
@@ -3755,6 +3774,8 @@ FDynamicEmitterDataBase* UParticleSystemComponent::CreateDynamicDataFromReplay( 
 						bSelected,
 						MeshEmitterInstance,
 						MeshEmitterInstance->MeshTypeData->Mesh,
+						MeshEmitterInstance->MeshTypeData->bUseStaticMeshLODs,
+						MeshEmitterInstance->MeshTypeData->LODSizeScale,
 						InFeatureLevel);
 					EmitterData = NewEmitterData;
 				}
@@ -3958,6 +3979,8 @@ FParticleDynamicData* UParticleSystemComponent::CreateDynamicData(ERHIFeatureLev
 			ParticleDynamicData->DynamicEmitterDataArray.Reset();
 			ParticleDynamicData->DynamicEmitterDataArray.Reserve(EmitterInstances.Num());
 
+			int32 NumMeshEmitterLODIndices = 0;
+
 			//QUICK_SCOPE_CYCLE_COUNTER(STAT_ParticleSystemComponent_GetDynamicData);
 			for (int32 EmitterIndex = 0; EmitterIndex < EmitterInstances.Num(); EmitterIndex++)
 			{
@@ -3981,6 +4004,11 @@ FParticleDynamicData* UParticleSystemComponent::CreateDynamicData(ERHIFeatureLev
 						}
 #endif
 						NewDynamicEmitterData = EmitterInst->GetDynamicData(bIsOwnerSeleted, InFeatureLevel);
+
+						if (SceneProxy)
+						{
+							++NumMeshEmitterLODIndices;
+						}
 					}
 					if( NewDynamicEmitterData != NULL )
 					{
@@ -3991,6 +4019,8 @@ FParticleDynamicData* UParticleSystemComponent::CreateDynamicData(ERHIFeatureLev
 						ParticleDynamicData->DynamicEmitterDataArray.Add( NewDynamicEmitterData );
 						NewDynamicEmitterData->EmitterIndex = EmitterIndex;
 
+						NewDynamicEmitterData->EmitterIndex = EmitterIndex;
+						
 						// Are we current capturing particle state?
 						if( ReplayState == PRS_Capturing )
 						{
@@ -4023,6 +4053,17 @@ FParticleDynamicData* UParticleSystemComponent::CreateDynamicData(ERHIFeatureLev
 #endif
 				}
 			}
+
+			ENQUEUE_RENDER_COMMAND(UpdateMeshEmitterLODIndicesCmd)(
+				[Proxy = SceneProxy, NumMeshEmitterLODIndices](FRHICommandList&)
+			{
+				if (Proxy)
+				{
+					FParticleSystemSceneProxy *ParticleProxy = static_cast<FParticleSystemSceneProxy*>(Proxy);
+					ParticleProxy->MeshEmitterLODIndices.Reset();
+					ParticleProxy->MeshEmitterLODIndices.AddZeroed(NumMeshEmitterLODIndices);
+				}
+			});
 		}
 	}
 
@@ -4643,7 +4684,8 @@ void UParticleSystemComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 				FParticleEmitterInstance* Instance = EmitterInstances[EmitterIndex];
 				if (Instance && Instance->SpriteTemplate)
 				{
-					if (Instance->SpriteTemplate->DetailMode > DetailModeCVar)
+					check(DetailModeCVar < NUM_DETAILMODE_FLAGS);
+					if (!(Instance->SpriteTemplate->DetailModeBitmask & (1<<DetailModeCVar)))
 					{
 						bRequiresReset = true;
 						break;
@@ -5089,6 +5131,11 @@ void UParticleSystemComponent::WaitForAsyncAndFinalize(EForceAsyncWorkCompletion
 {
 	if (AsyncWork.GetReference() && !AsyncWork->IsComplete())
 	{
+		bool bIsInGameThread = bDefinitelyGameThread || IsInGameThread();
+		if (bIsInGameThread)
+		{
+			FXAsyncBatcher.Flush();
+		}
 		double StartTime = FPlatformTime::Seconds();
 		if (bDefinitelyGameThread)
 		{
@@ -5118,7 +5165,7 @@ void UParticleSystemComponent::WaitForAsyncAndFinalize(EForceAsyncWorkCompletion
 		float ThisTime = float(FPlatformTime::Seconds() - StartTime) * 1000.0f;
 		if (Behavior != SILENT && ThisTime >= KINDA_SMALL_NUMBER)
 		{
-			if (bDefinitelyGameThread || IsInGameThread())
+			if (bIsInGameThread)
 			{
 				UE_LOG(LogParticles, Warning, TEXT("Stalled gamethread waiting for particles %5.6fms '%s' '%s'"), ThisTime, *GetFullNameSafe(this), *GetFullNameSafe(Template));
 			}
@@ -5172,8 +5219,8 @@ void UParticleSystemComponent::InitParticles()
 		{
 			UParticleEmitter* Emitter = Template->Emitters[Idx];
 			FParticleEmitterInstance* Instance = NumInstances == 0 ? NULL : EmitterInstances[Idx];
-			
-			const bool bDetailModeAllowsRendering = DetailMode <= GlobalDetailMode && Emitter->DetailMode <= GlobalDetailMode;
+			check(GlobalDetailMode < NUM_DETAILMODE_FLAGS);
+			const bool bDetailModeAllowsRendering = DetailMode <= GlobalDetailMode && (Emitter->DetailModeBitmask & (1<<GlobalDetailMode));
 			const bool bShouldCreateAndOrInit = bDetailModeAllowsRendering && Emitter->HasAnyEnabledLODs() && bCanEverRender;
 
 			if (bShouldCreateAndOrInit)

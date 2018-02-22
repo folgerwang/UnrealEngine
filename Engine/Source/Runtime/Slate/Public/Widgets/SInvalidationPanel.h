@@ -17,7 +17,7 @@ class FSlateRenderDataHandle;
 class FSlateWindowElementList;
 class SWindow;
 
-class SLATE_API SInvalidationPanel : public SCompoundWidget, public FGCObject, public ILayoutCache
+class SLATE_API SInvalidationPanel : public SCompoundWidget, public ILayoutCache
 {
 public:
 	SLATE_BEGIN_ARGS( SInvalidationPanel )
@@ -25,10 +25,14 @@ public:
 		_Visibility = EVisibility::SelfHitTestInvisible;
 		_CacheRelativeTransforms = false;
 	}
-		SLATE_DEFAULT_SLOT( FArguments, Content )
-		SLATE_ARGUMENT( bool, CacheRelativeTransforms )
+		SLATE_DEFAULT_SLOT(FArguments, Content)
+		SLATE_ARGUMENT(bool, CacheRelativeTransforms)
+#if !UE_BUILD_SHIPPING
+		SLATE_ARGUMENT(FString, DebugName)
+#endif
 	SLATE_END_ARGS()
 
+	SInvalidationPanel();
 	void Construct( const FArguments& InArgs );
 	~SInvalidationPanel();
 
@@ -41,8 +45,6 @@ public:
 	void SetCanCache(bool InCanCache);
 
 	FORCEINLINE void InvalidateCache() { bNeedsCaching = true; }
-
-	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 
 	// ILayoutCache overrides
 	virtual void InvalidateWidget(SWidget* InvalidateWidget) override;
@@ -84,7 +86,6 @@ private:
 	FORCEINLINE bool IsCachingNeeded() const { return bNeedsCaching; }
 #endif
 	
-
 	bool IsCachingNeeded(FSlateWindowElementList& OutDrawElements, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, int32 LayerId) const;
 
 private:
@@ -92,6 +93,11 @@ private:
 
 	FSimpleSlot EmptyChildSlot;
 	FVector2D CachedDesiredSize;
+
+#if SLATE_VERBOSE_NAMED_EVENTS
+	FString DebugTickName;
+	FString DebugPaintName;
+#endif
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	mutable TMap<TWeakPtr<SWidget>, double> InvalidatorWidgets;

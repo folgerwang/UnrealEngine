@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -361,7 +361,14 @@ namespace AutomationTool
 					}
 					else
 					{
-						File.Copy(SourceName, TargetName, overwrite: true);
+						if(File.Exists(SourceName))
+						{
+							File.Copy(SourceName, TargetName, overwrite: true);
+						}
+						else
+						{
+							Log.TraceWarning("Skip copying file {0} because it doesn't exist.", SourceName);
+						}
 					}
 					Retry = !File.Exists(TargetName);
 					if (!Retry)

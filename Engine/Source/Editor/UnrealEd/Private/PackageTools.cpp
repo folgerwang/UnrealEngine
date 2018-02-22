@@ -556,7 +556,7 @@ namespace PackageTools
 			// Creating a new map will unload all streaming levels for the current editor world too, so we need to make sure we're not about to try and reload those later
 			if (UWorld* EditorWorld = GEditor->GetEditorWorldContext().World())
 			{
-				for (ULevelStreaming* EditorStreamingLevel : EditorWorld->StreamingLevels)
+				for (ULevelStreaming* EditorStreamingLevel : EditorWorld->GetStreamingLevels())
 				{
 					if (EditorStreamingLevel->IsLevelLoaded())
 					{

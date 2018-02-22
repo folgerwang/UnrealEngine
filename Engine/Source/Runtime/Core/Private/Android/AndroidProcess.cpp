@@ -63,6 +63,11 @@ FRunnableThread* FAndroidPlatformProcess::CreateRunnableThread()
 	return new FRunnableThreadAndroid();
 }
 
+bool FAndroidPlatformProcess::CanLaunchURL(const TCHAR* URL)
+{
+	return URL != nullptr;
+}
+
 DECLARE_DELEGATE_OneParam(FAndroidLaunchURLDelegate, const FString&);
 
 CORE_API FAndroidLaunchURLDelegate OnAndroidLaunchURL;

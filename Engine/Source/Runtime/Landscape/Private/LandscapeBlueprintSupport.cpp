@@ -77,3 +77,15 @@ void ALandscapeProxy::SetLandscapeMaterialScalarParameterValue(FName ParameterNa
 		}			
 	}
 }
+
+void ALandscapeProxy::EditorSetLandscapeMaterial(UMaterialInterface* NewLandscapeMaterial)
+{
+#if WITH_EDITOR
+	if (!GetWorld()->IsGameWorld())
+	{
+		LandscapeMaterial = NewLandscapeMaterial;
+		FPropertyChangedEvent PropertyChangedEvent(FindFieldChecked<UProperty>(GetClass(), FName("LandscapeMaterial")));
+		PostEditChangeProperty(PropertyChangedEvent);
+	}
+#endif
+}

@@ -495,7 +495,7 @@ ULevelStreaming* UGameplayStatics::GetStreamingLevel(const UObject* WorldContext
 				SearchPackageName = TEXT("/") + SearchPackageName;
 			}
 
-			for (ULevelStreaming* LevelStreaming : World->StreamingLevels)
+			for (ULevelStreaming* LevelStreaming : World->GetStreamingLevels())
 			{
 				// We check only suffix of package name, to handle situations when packages were saved for play into a temporary folder
 				// Like Saved/Autosaves/PackageName

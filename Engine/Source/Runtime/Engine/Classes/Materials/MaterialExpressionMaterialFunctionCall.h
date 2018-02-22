@@ -83,6 +83,7 @@ class UMaterialExpressionMaterialFunctionCall : public UMaterialExpression
 	UPROPERTY(EditAnywhere, Category=MaterialExpressionMaterialFunctionCall)
 	class UMaterialFunctionInterface* MaterialFunction;
 
+#if WITH_EDITORONLY_DATA
 	/** Array of all the function inputs that this function exposes. */
 	UPROPERTY()
 	TArray<struct FFunctionExpressionInput> FunctionInputs;
@@ -90,6 +91,7 @@ class UMaterialExpressionMaterialFunctionCall : public UMaterialExpression
 	/** Array of all the function outputs that this function exposes. */
 	UPROPERTY()
 	TArray<struct FFunctionExpressionOutput> FunctionOutputs;
+#endif // WITH_EDITOR
 
 	/** Used by material parameters to split references to separate instances. */
 	UPROPERTY(Transient)
@@ -115,27 +117,21 @@ class UMaterialExpressionMaterialFunctionCall : public UMaterialExpression
 #if WITH_EDITOR
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
-#endif
 	virtual const TArray<FExpressionInput*> GetInputs() override;
 	virtual FExpressionInput* GetInput(int32 InputIndex) override;
 	virtual FName GetInputName(int32 InputIndex) const override;
 	virtual bool IsInputConnectionRequired(int32 InputIndex) const override;
-#if WITH_EDITOR
 	virtual FString GetDescription() const override;
 	virtual void GetConnectorToolTip(int32 InputIndex, int32 OutputIndex, TArray<FString>& OutToolTip) override;
 	virtual void GetExpressionToolTip(TArray<FString>& OutToolTip) override;
-#endif // WITH_EDITOR
 	virtual bool MatchesSearchQuery( const TCHAR* SearchQuery ) override;
-#if WITH_EDITOR
 	virtual bool IsResultMaterialAttributes(int32 OutputIndex) override;
 	virtual uint32 GetInputType(int32 InputIndex) override;
-#endif // WITH_EDITOR
 	//~ End UMaterialExpression Interface
 
 	/** Util to get name of a particular type, optionally with type appended in parenthesis */
 	ENGINE_API FName GetInputNameWithType(int32 InputIndex, bool bWithType) const;
 
-#if WITH_EDITOR
 	/** 
 	 * Set a new material function, given an old function so that links can be passed over if the name matches. 
 	 *
@@ -149,7 +145,6 @@ class UMaterialExpressionMaterialFunctionCall : public UMaterialExpression
 	/** */
 	UFUNCTION(BlueprintCallable, Category = "MaterialEditing")
 	ENGINE_API bool SetMaterialFunction(UMaterialFunctionInterface* NewMaterialFunction);
-#endif // WITH_EDITOR
 
 	/** 
 	 * Update FunctionInputs and FunctionOutputs from the MaterialFunction.  
@@ -159,7 +154,6 @@ class UMaterialExpressionMaterialFunctionCall : public UMaterialExpression
 
 private:
 	
-#if WITH_EDITOR
 	/** Helper that fixes up expression links where possible. */
 	void FixupReferencingExpressions(
 		const TArray<FFunctionExpressionOutput>& NewOutputs,

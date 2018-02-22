@@ -867,9 +867,9 @@ bool SetApexDestructibleAsset(UDestructibleMesh& DestructibleMesh, apex::Destruc
 	DestructibleMeshResource.LODModels.Empty();
 	new(DestructibleMeshResource.LODModels)FSkeletalMeshLODModel();
 
-	DestructibleMesh.LODInfo.Empty();
-	DestructibleMesh.LODInfo.AddZeroed();
-	DestructibleMesh.LODInfo[0].LODHysteresis = 0.02f;
+	DestructibleMesh.ResetLODInfo();
+	DestructibleMesh.AddLODInfo();
+	DestructibleMesh.GetLODInfo(0)->LODHysteresis = 0.02f;
 
 	// Create initial bounding box based on expanded version of reference pose for meshes without physics assets. Can be overridden by artist.
 	FBox BoundingBox(SkelMeshImportDataPtr->Points.GetData(), SkelMeshImportDataPtr->Points.Num());

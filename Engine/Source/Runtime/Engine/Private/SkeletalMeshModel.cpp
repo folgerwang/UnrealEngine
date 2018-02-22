@@ -5,6 +5,7 @@
 #if WITH_EDITOR
 #include "Misc/CoreStats.h"
 #include "Engine/SkeletalMesh.h"
+#include "Serialization/MemoryWriter.h"
 
 FSkeletalMeshModel::FSkeletalMeshModel()
 	: bGuidIsHash(false)	

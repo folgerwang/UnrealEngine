@@ -104,6 +104,12 @@ static TAutoConsoleVariable<float> CVarGrassDensityScale(
 	TEXT("Multiplier on all grass densities."),
 	ECVF_Scalability);
 
+static TAutoConsoleVariable<float> CVarGrassCullDistanceScale(
+	TEXT("grass.CullDistanceScale"),
+	1,
+	TEXT("Multiplier on all grass cull distances."),
+	ECVF_Scalability);
+
 static TAutoConsoleVariable<int32> CVarGrassEnable(
 	TEXT("grass.Enable"),
 	1,
@@ -135,6 +141,11 @@ static TAutoConsoleVariable<int32> CVarPrerenderGrassmaps(
 	1,
 	TEXT("1: Pre-render grass maps for all components in the editor; 0: Generate grass maps on demand while moving through the editor"));
 
+static TAutoConsoleVariable<int32> CVarDisableDynamicShadows(
+	TEXT("grass.DisableDynamicShadows"),
+	0,
+	TEXT("0: Dynamic shadows from grass follow the grass type bCastDynamicShadow flag; 1: Dynamic shadows are disabled for all grass"));
+
 DECLARE_CYCLE_STAT(TEXT("Grass Async Build Time"), STAT_FoliageGrassAsyncBuildTime, STATGROUP_Foliage);
 DECLARE_CYCLE_STAT(TEXT("Grass Start Comp"), STAT_FoliageGrassStartComp, STATGROUP_Foliage);
 DECLARE_CYCLE_STAT(TEXT("Grass End Comp"), STAT_FoliageGrassEndComp, STATGROUP_Foliage);
@@ -153,9 +164,20 @@ static void GrassCVarSinkFunction()
 		GGrassUpdateInterval = FMath::Clamp<int32>(CVarGrassTickInterval.GetValueOnGameThread(), 1, 60);
 	}
 
-	if (GrassDensityScale != CachedGrassDensityScale)
+	static float CachedGrassCullDistanceScale = 1.0f;
+	float GrassCullDistanceScale = CVarGrassCullDistanceScale.GetValueOnGameThread();
+
+	static const IConsoleVariable* DetailModeCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.DetailMode"));
+	static int32 CachedDetailMode = DetailModeCVar ? DetailModeCVar->GetInt() : 0;
+	int32 DetailMode = DetailModeCVar ? DetailModeCVar->GetInt() : 0;
+
+	if (DetailMode != CachedDetailMode || 
+		GrassDensityScale != CachedGrassDensityScale || 
+		GrassCullDistanceScale != CachedGrassCullDistanceScale)
 	{
 		CachedGrassDensityScale = GrassDensityScale;
+		CachedGrassCullDistanceScale = GrassCullDistanceScale;
+		CachedDetailMode = DetailMode;
 
 		for (auto* Landscape : TObjectRange<ALandscapeProxy>(RF_ClassDefaultObject | RF_ArchetypeObject, true, EInternalObjectFlags::PendingKill))
 		{
@@ -975,10 +997,10 @@ UMaterialExpressionLandscapeGrassOutput::UMaterialExpressionLandscapeGrassOutput
 
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.STRING_Landscape);
-#endif
 
 	// No outputs
 	Outputs.Reset();
+#endif
 
 	// Default input
 	new(GrassTypes)FGrassInput(ConstructorStatics.NAME_Grass);
@@ -1006,7 +1028,6 @@ void UMaterialExpressionLandscapeGrassOutput::GetCaption(TArray<FString>& OutCap
 {
 	OutCaptions.Add(TEXT("Grass"));
 }
-#endif // WITH_EDITOR
 
 const TArray<FExpressionInput*> UMaterialExpressionLandscapeGrassOutput::GetInputs()
 {
@@ -1027,6 +1048,7 @@ FName UMaterialExpressionLandscapeGrassOutput::GetInputName(int32 InputIndex) co
 {
 	return GrassTypes[InputIndex].Name;
 }
+#endif // WITH_EDITOR
 
 bool UMaterialExpressionLandscapeGrassOutput::NeedsLoadForClient() const
 {
@@ -1065,6 +1087,7 @@ ULandscapeGrassType::ULandscapeGrassType(const FObjectInitializer& ObjectInitial
 	PlacementJitter_DEPRECATED = 1.0f;
 	RandomRotation_DEPRECATED = true;
 	AlignToSurface_DEPRECATED = true;
+	bEnableDensityScaling = true;
 }
 
 void ULandscapeGrassType::PostLoad()
@@ -1211,21 +1234,34 @@ FArchive& operator<<(FArchive& Ar, FLandscapeComponentGrassData& Data)
 	// Each weight data array, being 1 byte will be serialized in bulk.
 	Ar << Data.WeightData;
 
-	if (Ar.IsLoading() && !GIsEditor && CVarGrassDiscardDataOnLoad.GetValueOnAnyThread())
-	{
-		//Data = FLandscapeComponentGrassData();
-		Data.WeightData.Empty();
-		Data.HeightData.Empty();
-		Data = FLandscapeComponentGrassData();
-	}
-
 	return Ar;
+}
+
+void FLandscapeComponentGrassData::ConditionalDiscardDataOnLoad()
+{
+	if (!GIsEditor && CVarGrassDiscardDataOnLoad.GetValueOnAnyThread())
+	{
+		// Remove data for grass types which have scalability enabled
+		for (auto GrassTypeIt = WeightData.CreateIterator(); GrassTypeIt; ++GrassTypeIt)
+		{
+			if (!GrassTypeIt.Key() || GrassTypeIt.Key()->bEnableDensityScaling)
+			{
+				GrassTypeIt.RemoveCurrent();
+			}
+		}
+
+		// If all grass types have been removed, discard the height data too.
+		if (WeightData.Num() == 0)
+		{
+			HeightData.Empty();
+			*this = FLandscapeComponentGrassData();
+		}
+	}
 }
 
 //
 // ALandscapeProxy grass-related functions
 //
-
 
 void ALandscapeProxy::TickGrass()
 {
@@ -1297,11 +1333,11 @@ struct FGrassBuilderBase
 
 	int32 SqrtMaxInstances;
 
-	FGrassBuilderBase(ALandscapeProxy* Landscape, ULandscapeComponent* Component, const FGrassVariety& GrassVariety, int32 SqrtSubsections = 1, int32 SubX = 0, int32 SubY = 0)
+	FGrassBuilderBase(ALandscapeProxy* Landscape, ULandscapeComponent* Component, const FGrassVariety& GrassVariety, int32 SqrtSubsections = 1, int32 SubX = 0, int32 SubY = 0, bool bEnableDensityScaling = true)
 	{
 		bHaveValidData = true;
 
-		const float DensityScale = CVarGrassDensityScale.GetValueOnAnyThread();
+		const float DensityScale = bEnableDensityScaling ? CVarGrassDensityScale.GetValueOnAnyThread() : 1.0f;
 		GrassDensity = GrassVariety.GrassDensity * DensityScale;
 
 		DrawScale = Landscape->GetRootComponent()->RelativeScale3D;
@@ -1424,7 +1460,7 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 	int32 OutOcclusionLayerNum;
 
 	FAsyncGrassBuilder(ALandscapeProxy* Landscape, ULandscapeComponent* Component, const ULandscapeGrassType* GrassType, const FGrassVariety& GrassVariety, UHierarchicalInstancedStaticMeshComponent* HierarchicalInstancedStaticMeshComponent, int32 SqrtSubsections, int32 SubX, int32 SubY, uint32 InHaltonBaseIndex)
-		: FGrassBuilderBase(Landscape, Component, GrassVariety, SqrtSubsections, SubX, SubY)
+		: FGrassBuilderBase(Landscape, Component, GrassVariety, SqrtSubsections, SubX, SubY, GrassType->bEnableDensityScaling)
 		, GrassData(Component, GrassType)
 		, Scaling(GrassVariety.Scaling)
 		, ScaleX(GrassVariety.ScaleX)
@@ -1942,8 +1978,10 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 		float DiscardGuardBand = CVarGuardBandDiscardMultiplier.GetValueOnAnyThread();
 		bool bCullSubsections = CVarCullSubsections.GetValueOnAnyThread() > 0;
 		bool bDisableGPUCull = CVarDisableGPUCull.GetValueOnAnyThread() > 0;
+		bool bDisableDynamicShadows = CVarDisableDynamicShadows.GetValueOnAnyThread() > 0;
 		int32 MaxInstancesPerComponent = FMath::Max<int32>(1024, CVarMaxInstancesPerComponent.GetValueOnAnyThread());
 		int32 MaxTasks = CVarMaxAsyncTasks.GetValueOnAnyThread();
+		const float CullDistanceScale = CVarGrassCullDistanceScale.GetValueOnAnyThread();
 
 		UWorld* World = GetWorld();
 		if (World)
@@ -2028,8 +2066,8 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 							GrassVarietyIndex++;
 							if (GrassVariety.GrassMesh && GrassVariety.GrassDensity > 0.0f && GrassVariety.EndCullDistance > 0)
 							{
-								float MustHaveDistance = GuardBand * (float)GrassVariety.EndCullDistance;
-								float DiscardDistance = DiscardGuardBand * (float)GrassVariety.EndCullDistance;
+								float MustHaveDistance = GuardBand * (float)GrassVariety.EndCullDistance * CullDistanceScale;
+								float DiscardDistance = DiscardGuardBand * (float)GrassVariety.EndCullDistance * CullDistanceScale;
 
 								bool bUseHalton = !GrassVariety.bUseGrid;
 
@@ -2173,8 +2211,6 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 										FoliageCache.CachedGrassComps.Add(NewComp);
 
 										HierarchicalInstancedStaticMeshComponent->Mobility = EComponentMobility::Static;
-										HierarchicalInstancedStaticMeshComponent->bCastStaticShadow = false;
-
 										HierarchicalInstancedStaticMeshComponent->SetStaticMesh(GrassVariety.GrassMesh);
 										HierarchicalInstancedStaticMeshComponent->MinLOD = GrassVariety.MinLOD;
 										HierarchicalInstancedStaticMeshComponent->bSelectable = false;
@@ -2187,6 +2223,9 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 										HierarchicalInstancedStaticMeshComponent->InstancingRandomSeed = FolSeed;
 										HierarchicalInstancedStaticMeshComponent->LightingChannels = GrassVariety.LightingChannels;
 										HierarchicalInstancedStaticMeshComponent->KeepInstanceBufferCPUAccess = true;
+										HierarchicalInstancedStaticMeshComponent->bCastStaticShadow = false;
+										HierarchicalInstancedStaticMeshComponent->CastShadow = GrassVariety.bCastDynamicShadow && !bDisableDynamicShadows;
+										HierarchicalInstancedStaticMeshComponent->bCastDynamicShadow = GrassVariety.bCastDynamicShadow && !bDisableDynamicShadows;
 										
 										const FMeshMapBuildData* MeshMapBuildData = Component->GetMeshMapBuildData();
 
@@ -2216,8 +2255,8 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 										}
 										else
 										{
-											HierarchicalInstancedStaticMeshComponent->InstanceStartCullDistance = GrassVariety.StartCullDistance;
-											HierarchicalInstancedStaticMeshComponent->InstanceEndCullDistance = GrassVariety.EndCullDistance;
+											HierarchicalInstancedStaticMeshComponent->InstanceStartCullDistance = GrassVariety.StartCullDistance * CullDistanceScale;
+											HierarchicalInstancedStaticMeshComponent->InstanceEndCullDistance = GrassVariety.EndCullDistance * CullDistanceScale;
 										}
 
 										//@todo - take the settings from a UFoliageType object.  For now, disable distance field lighting on grass so we don't hitch.
@@ -2392,9 +2431,9 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 					SCOPE_CYCLE_COUNTER(STAT_FoliageGrassDestoryComp);
 					if (HComponent)
 					{
-						HComponent->ClearInstances();
-						HComponent->DetachFromComponent(FDetachmentTransformRules(EDetachmentRule::KeepRelative, false));
-						HComponent->DestroyComponent();
+					HComponent->ClearInstances();
+					HComponent->DetachFromComponent(FDetachmentTransformRules(EDetachmentRule::KeepRelative, false));
+					HComponent->DestroyComponent();
 					}
 					FoliageComponents.RemoveAtSwap(Index--);
 				}

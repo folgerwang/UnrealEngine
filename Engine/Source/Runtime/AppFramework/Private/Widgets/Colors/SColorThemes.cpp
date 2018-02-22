@@ -451,7 +451,7 @@ EVisibility SThemeColorBlock::OnGetAlphaVisibility() const
 }
 
 SThemeColorBlocksBar::SThemeColorBlocksBar()
-: ColorBlocks()
+: ColorBlocks(this)
 {
 }
 

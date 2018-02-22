@@ -83,7 +83,7 @@ public:
 
 protected:
 	static FCriticalSection WebControlsCS;
-	static TMap<jlong, TWeakPtr<SAndroidWebBrowserWidget>> AllWebControls;
+	static TMap<int64, TWeakPtr<SAndroidWebBrowserWidget>> AllWebControls;
 
 	bool HandleJsDialog(TSharedPtr<IWebBrowserDialog>& Dialog);
 	int HistorySize;

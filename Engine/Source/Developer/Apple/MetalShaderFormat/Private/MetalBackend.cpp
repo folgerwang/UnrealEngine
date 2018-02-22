@@ -1522,7 +1522,7 @@ protected:
 										break;
 									}
 								}
-								ralloc_asprintf_append(buffer, "struct RealDSStageIn\n{\n%s\tpatch_control_point<PatchControlPointOut> patchControlPoints;\n};\n", hasFDSStageIn ? "\tFDSStageIn dsStageIn;\n" : "");
+								ralloc_asprintf_append(buffer, "struct RealDSStageIn\n{\n%s\tpatch_control_point<PatchControlPointOut_%u> patchControlPoints;\n};\n", hasFDSStageIn ? "\tFDSStageIn dsStageIn;\n" : "", Backend.PatchControlPointStructHash);
 							}
 
 							const char *domainString = NULL;
@@ -5331,7 +5331,10 @@ bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char*
 								Variable->name = ralloc_asprintf(ParseState, "OUT_ATTRIBUTE%d_%s", onAttribute, Variable->name);
 								Member.name = ralloc_strdup(ParseState, Variable->name);
                                 Member.semantic = ralloc_strdup(ParseState, Variable->semantic ? Variable->semantic : Variable->name);
-                                check(!Variable->type->is_array() && !Variable->type->is_record() && !Variable->type->is_matrix());
+
+								PatchControlPointStructHash = HashCombine(HashCombine(GetTypeHash(Variable->name), GetTypeHash(Variable->type)), PatchControlPointStructHash);
+
+								check(!Variable->type->is_array() && !Variable->type->is_record() && !Variable->type->is_matrix());
                                 FMetalAttribute Attr;
                                 Attr.Index = onAttribute;
                                 check((uint8)Variable->type->base_type < (uint8)EMetalComponentType::Max);
@@ -5359,7 +5362,7 @@ bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char*
 
 				if (HSOutMembers.Num())
 				{
-					auto Type = glsl_type::get_record_instance(&HSOutMembers[0], (unsigned int)HSOutMembers.Num(), "PatchControlPointOut");
+					auto Type = glsl_type::get_record_instance(&HSOutMembers[0], (unsigned int)HSOutMembers.Num(), ralloc_asprintf(ParseState, "PatchControlPointOut_%u", PatchControlPointStructHash));
 					ParseState->AddUserStruct(Type);
 					OutputType = glsl_type::get_array_instance(Type, 1000); // the size is meaningless
 
@@ -5853,6 +5856,8 @@ FMetalCodeBackend::FMetalCodeBackend(FMetalTessellationOutputs& TessOutputAttrib
 	
 	// For now only 31 typed-buffer slots are supported
 	TypedBufferFormats.SetNumZeroed(31);
+
+	PatchControlPointStructHash = 0;
 }
 
 void FMetalLanguageSpec::SetupLanguageIntrinsics(_mesa_glsl_parse_state* State, exec_list* ir)

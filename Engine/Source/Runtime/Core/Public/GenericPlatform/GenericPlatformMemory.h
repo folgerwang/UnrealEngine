@@ -17,6 +17,23 @@ struct FPlatformMemoryStats;
 /** Holds generic memory stats, internally implemented as a map. */
 struct FGenericMemoryStats;
 
+/**
+* Platform-dependent "bucket" for memory size, where Default is the normal, or possibly the largest.
+* This is generally used for texture LOD settings for how to fit in smaller memory devices
+*/
+enum class EPlatformMemorySizeBucket
+{
+	// not used with texture LODs (you can't use bigger textures than what is cooked out, which is what Default should map to)
+	Largest,
+	Larger,
+
+	// these are used by texture LODs
+	Default,
+	Smaller,
+	Smallest,
+};
+
+
 /** 
  * Struct used to hold common memory constants for all platforms.
  * These values don't change over the entire life of the executable.
@@ -106,6 +123,9 @@ struct CORE_API FGenericPlatformMemoryStats : public FPlatformMemoryConstants
 	/** Default constructor, clears all variables. */
 	FGenericPlatformMemoryStats();
 };
+
+
+
 
 struct FPlatformMemoryStats;
 
@@ -224,6 +244,8 @@ struct CORE_API FGenericPlatformMemory
 		SIZE_T			Size;
 	};
 
+
+
 	/** Initializes platform memory specific constants. */
 	static void Init();
 	
@@ -315,6 +337,11 @@ struct CORE_API FGenericPlatformMemory
 
 	/** Dumps basic platform memory statistics and allocator specific statistics into the specified output device. */
 	static void DumpPlatformAndAllocatorStats( FOutputDevice& Ar );
+
+	/**
+	 * Return which "high level", per platform, memory bucket we are in
+	 */
+	static EPlatformMemorySizeBucket GetMemorySizeBucket();
 
 	/** @name Memory functions */
 
@@ -466,9 +493,8 @@ public:
 	/**
 	* Returns true if debug memory has been assigned to the title for general use.
 	* Only applies to consoles with fixed memory and no paging.
-	* On XB1 set Debug Memory Mode to PIX_Title. On PS4 set Memory Budget Mode to LARGE.
 	*/
-	static bool IsDebugMemoryEnabled();
+	static bool IsExtraDevelopmentMemoryAvailable();
 
 	/**
 	* This function sets AllocFunction and FreeFunction and returns true, or just returns false.

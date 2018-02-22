@@ -225,13 +225,13 @@ FLightPrimitiveInteraction::FLightPrimitiveInteraction(
 		// Add the interaction to the light's interaction list.
 		PrevPrimitiveLink = PrimitiveSceneInfo->Proxy->IsMeshShapeOftenMoving() ? &LightSceneInfo->DynamicInteractionOftenMovingPrimitiveList : &LightSceneInfo->DynamicInteractionStaticPrimitiveList;
 
-		// ES2 dynamic point lights
+		// mobile movable point lights
 		if (PrimitiveSceneInfo->Scene->GetFeatureLevel() < ERHIFeatureLevel::SM4 && LightSceneInfo->Proxy->GetLightType() == LightType_Point && LightSceneInfo->Proxy->IsMovable())
 		{
 			bES2DynamicPointLight = true;
-			PrimitiveSceneInfo->NumES2DynamicPointLights++;
-			// The mobile renderer hanldes dynamic point lights as part of the base pass using the dynamic path only.
-			PrimitiveSceneInfo->Proxy->bDisableStaticPath = true;
+			PrimitiveSceneInfo->NumMobileMovablePointLights++;
+			// The mobile renderer needs to use a different shader for movable point lights, so we have to update any static meshes in drawlists
+			PrimitiveSceneInfo->BeginDeferredUpdateStaticMeshes();
 		}
 	}
 
@@ -272,14 +272,12 @@ FLightPrimitiveInteraction::~FLightPrimitiveInteraction()
 
 	FlushCachedShadowMapData();
 
-	// Track ES2 dynamic point light count
+	// Track mobile movable point light count
 	if (bES2DynamicPointLight)
 	{
-		PrimitiveSceneInfo->NumES2DynamicPointLights--;
-		if (PrimitiveSceneInfo->NumES2DynamicPointLights == 0)
-		{
-			PrimitiveSceneInfo->Proxy->bDisableStaticPath = false;
-		}
+		PrimitiveSceneInfo->NumMobileMovablePointLights--;
+		// The mobile renderer needs to use a different shader for movable point lights, so we have to update any static meshes in drawlists
+		PrimitiveSceneInfo->BeginDeferredUpdateStaticMeshes();
 	}
 
 	// Remove the interaction from the light's interaction list.

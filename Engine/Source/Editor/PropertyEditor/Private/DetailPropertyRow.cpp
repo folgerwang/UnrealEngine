@@ -121,13 +121,13 @@ IDetailPropertyRow& FDetailPropertyRow::OverrideResetToDefault(const FResetToDef
 	return *this;
 }
 
-void FDetailPropertyRow::GetDefaultWidgets( TSharedPtr<SWidget>& OutNameWidget, TSharedPtr<SWidget>& OutValueWidget ) 
+void FDetailPropertyRow::GetDefaultWidgets( TSharedPtr<SWidget>& OutNameWidget, TSharedPtr<SWidget>& OutValueWidget, bool bAddWidgetDecoration )
 {
 	FDetailWidgetRow Row;
-	GetDefaultWidgets(OutNameWidget, OutValueWidget, Row);
+	GetDefaultWidgets(OutNameWidget, OutValueWidget, Row, bAddWidgetDecoration);
 }
 
-void FDetailPropertyRow::GetDefaultWidgets( TSharedPtr<SWidget>& OutNameWidget, TSharedPtr<SWidget>& OutValueWidget, FDetailWidgetRow& Row )
+void FDetailPropertyRow::GetDefaultWidgets( TSharedPtr<SWidget>& OutNameWidget, TSharedPtr<SWidget>& OutValueWidget, FDetailWidgetRow& Row, bool bAddWidgetDecoration )
 {
 	TSharedPtr<FDetailWidgetRow> CustomTypeRow;
 	if ( CustomTypeInterface.IsValid() ) 
@@ -137,7 +137,6 @@ void FDetailPropertyRow::GetDefaultWidgets( TSharedPtr<SWidget>& OutNameWidget, 
 		CustomTypeInterface->CustomizeHeader(PropertyHandle.ToSharedRef(), *CustomTypeRow, *this);
 	}
 
-	const bool bAddWidgetDecoration = false;
 	MakeNameOrKeyWidget(Row,CustomTypeRow);
 	MakeValueWidget(Row,CustomTypeRow,bAddWidgetDecoration);
 

@@ -24,6 +24,7 @@
 DEFINE_LOG_CATEGORY_STATIC(LogPlayerCameraManager, Log, All);
 
 DECLARE_CYCLE_STAT(TEXT("ServerUpdateCamera"), STAT_ServerUpdateCamera, STATGROUP_Game);
+DECLARE_CYCLE_STAT(TEXT("Camera ProcessViewRotation"), STAT_Camera_ProcessViewRotation, STATGROUP_Game);
 
 
 //////////////////////////////////////////////////////////////////////////
@@ -126,7 +127,7 @@ void APlayerCameraManager::SetViewTarget(class AActor* NewTarget, struct FViewTa
 			}
 
 			// use last frame's POV
-			ViewTarget.POV = LastFrameCameraCache.POV;
+			ViewTarget.POV = GetLastFrameCameraCachePOV();
 			BlendParams = TransitionParams;
 			BlendTimeToGo = TransitionParams.BlendTime;
 			
@@ -768,7 +769,10 @@ void APlayerCameraManager::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void APlayerCameraManager::InitializeFor(APlayerController* PC)
 {
-	CameraCache.POV.FOV = DefaultFOV;
+	FMinimalViewInfo DefaultFOVCache = GetCameraCachePOV();
+	DefaultFOVCache.FOV = DefaultFOV;
+	SetCameraCachePOV(DefaultFOVCache);
+
 	PCOwner = PC;
 
 	SetViewTarget(PC);
@@ -784,7 +788,7 @@ void APlayerCameraManager::InitializeFor(APlayerController* PC)
 
 float APlayerCameraManager::GetFOVAngle() const
 {
-	return (LockedFOV > 0.f) ? LockedFOV : CameraCache.POV.FOV;
+	return (LockedFOV > 0.f) ? LockedFOV : GetCameraCachePOV().FOV;
 }
 
 void APlayerCameraManager::SetFOV(float NewFOV)
@@ -819,18 +823,19 @@ void APlayerCameraManager::UnlockOrthoWidth()
 
 void APlayerCameraManager::GetCameraViewPoint(FVector& OutCamLoc, FRotator& OutCamRot) const
 {
-	OutCamLoc = CameraCache.POV.Location;
-	OutCamRot = CameraCache.POV.Rotation;
+	const FMinimalViewInfo CurrentPOV = GetCameraCachePOV();
+	OutCamLoc = CurrentPOV.Location;
+	OutCamRot = CurrentPOV.Rotation;
 }
 
 FRotator APlayerCameraManager::GetCameraRotation() const
 {
-	return CameraCache.POV.Rotation;
+	return GetCameraCachePOV().Rotation;
 }
 
 FVector APlayerCameraManager::GetCameraLocation() const
 {
-	return CameraCache.POV.Location;
+	return GetCameraCachePOV().Location;
 }
 
 void APlayerCameraManager::SetDesiredColorScale(FVector NewColorScale, float InterpTime)
@@ -873,12 +878,14 @@ void APlayerCameraManager::UpdateCamera(float DeltaTime)
 		{
 			SCOPE_CYCLE_COUNTER(STAT_ServerUpdateCamera);
 
+			FMinimalViewInfo CurrentPOV = GetCameraCachePOV();
+
 			// compress the rotation down to 4 bytes
-			int32 const ShortYaw = FRotator::CompressAxisToShort(CameraCache.POV.Rotation.Yaw);
-			int32 const ShortPitch = FRotator::CompressAxisToShort(CameraCache.POV.Rotation.Pitch);
+			int32 const ShortYaw = FRotator::CompressAxisToShort(CurrentPOV.Rotation.Yaw);
+			int32 const ShortPitch = FRotator::CompressAxisToShort(CurrentPOV.Rotation.Pitch);
 			int32 const CompressedRotation = (ShortYaw << 16) | ShortPitch;
 
-			FVector ClientCameraPosition = FRepMovement::RebaseOntoZeroOrigin(CameraCache.POV.Location, this);
+			FVector ClientCameraPosition = FRepMovement::RebaseOntoZeroOrigin(CurrentPOV.Location, this);
 			PCOwner->ServerUpdateCamera(ClientCameraPosition, CompressedRotation);
 			bShouldSendClientSideCameraUpdate = false;
 		}
@@ -1044,18 +1051,22 @@ void APlayerCameraManager::FillCameraCache(const FMinimalViewInfo& NewInfo)
 	NewInfo.Rotation.DiagnosticCheckNaN(TEXT("APlayerCameraManager::FillCameraCache: NewInfo.Rotation"));
 
 	// Backup last frame results.
-	if (CameraCache.TimeStamp != GetWorld()->TimeSeconds)
+	const float CurrentCacheTime = GetCameraCacheTime();
+	const float CurrentGameTime = GetWorld()->TimeSeconds;
+	if (CurrentCacheTime != CurrentGameTime)
 	{
-		LastFrameCameraCache = CameraCache;
+		SetLastFrameCameraCachePOV(GetCameraCachePOV());
+		SetLastFrameCameraCacheTime(CurrentCacheTime);
 	}
 
-	CameraCache.TimeStamp = GetWorld()->TimeSeconds;
-	CameraCache.POV = NewInfo;
+	SetCameraCachePOV(NewInfo);
+	SetCameraCacheTime(CurrentGameTime);
 }
 
 
 void APlayerCameraManager::ProcessViewRotation(float DeltaTime, FRotator& OutViewRotation, FRotator& OutDeltaRot)
 {
+	SCOPE_CYCLE_COUNTER(STAT_Camera_ProcessViewRotation);
 	for( int32 ModifierIdx = 0; ModifierIdx < ModifierList.Num(); ModifierIdx++ )
 	{
 		if( ModifierList[ModifierIdx] != NULL && 
@@ -1108,25 +1119,32 @@ void APlayerCameraManager::LimitViewYaw(FRotator& ViewRotation, float InViewYawM
 
 void APlayerCameraManager::DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos)
 {
+	FMinimalViewInfo CurrentPOV = GetCameraCachePOV();
+
 	FDisplayDebugManager& DisplayDebugManager = Canvas->DisplayDebugManager;
 	DisplayDebugManager.SetDrawColor(FColor(255, 255, 255));
 	DisplayDebugManager.DrawString(FString::Printf(TEXT("   Camera Style:%s main ViewTarget:%s"), *CameraStyle.ToString(), *ViewTarget.Target->GetName()));
-	DisplayDebugManager.DrawString(FString::Printf(TEXT("   CamLoc:%s CamRot:%s FOV:%f"), *CameraCache.POV.Location.ToCompactString(), *CameraCache.POV.Rotation.ToCompactString(), CameraCache.POV.FOV));
-	DisplayDebugManager.DrawString(FString::Printf(TEXT("   AspectRatio: %1.3f"), CameraCache.POV.AspectRatio));
+	DisplayDebugManager.DrawString(FString::Printf(TEXT("   CamLoc:%s CamRot:%s FOV:%f"), *CurrentPOV.Location.ToCompactString(), *CurrentPOV.Rotation.ToCompactString(), CurrentPOV.FOV));
+	DisplayDebugManager.DrawString(FString::Printf(TEXT("   AspectRatio: %1.3f"), CurrentPOV.AspectRatio));
 }
 
 void APlayerCameraManager::ApplyWorldOffset(const FVector& InOffset, bool bWorldShift)
 {
 	Super::ApplyWorldOffset(InOffset, bWorldShift);
 
-	CameraCache.POV.Location+= InOffset;
-	LastFrameCameraCache.POV.Location+= InOffset;
-	
+	FMinimalViewInfo CurrentPOV = GetCameraCachePOV();
+	CurrentPOV.Location += InOffset;
+	SetCameraCachePOV(CurrentPOV);
+
+	FMinimalViewInfo LastFramePOV = GetLastFrameCameraCachePOV();
+	LastFramePOV.Location += InOffset;
+	SetLastFrameCameraCachePOV(LastFramePOV);
+
 	ViewTarget.POV.Location+= InOffset;
 	PendingViewTarget.POV.Location+= InOffset;
 
-	CameraCache.POV.Location.DiagnosticCheckNaN(TEXT("APlayerCameraManager::ApplyWorldOffset: CameraCache.POV.Location"));
-	LastFrameCameraCache.POV.Location.DiagnosticCheckNaN(TEXT("APlayerCameraManager::ApplyWorldOffset: LastFrameCameraCache.POV.Location"));
+	CurrentPOV.Location.DiagnosticCheckNaN(TEXT("APlayerCameraManager::ApplyWorldOffset: CameraCache.POV.Location"));
+	LastFramePOV.Location.DiagnosticCheckNaN(TEXT("APlayerCameraManager::ApplyWorldOffset: LastFrameCameraCache.POV.Location"));
 	ViewTarget.POV.Location.DiagnosticCheckNaN(TEXT("APlayerCameraManager::ApplyWorldOffset: ViewTarget.POV.Location"));
 	PendingViewTarget.POV.Location.DiagnosticCheckNaN(TEXT("APlayerCameraManager::ApplyWorldOffset: PendingViewTarget.POV.Location"));
 }
@@ -1335,6 +1353,31 @@ void APlayerCameraManager::SetManualCameraFade(float InFadeAmount, FLinearColor 
 	FadeTimeRemaining = 0.0f;
 }
 
+void APlayerCameraManager::SetCameraCachePOV(const FMinimalViewInfo& InPOV)
+{
+	CameraCachePrivate.POV = InPOV;
+}
+
+void APlayerCameraManager::SetLastFrameCameraCachePOV(const FMinimalViewInfo& InPOV)
+{
+	LastFrameCameraCachePrivate.POV = InPOV;
+}
+
+FMinimalViewInfo APlayerCameraManager::GetCameraCachePOV() const
+{
+	return CameraCachePrivate.POV;
+}
+
+FMinimalViewInfo APlayerCameraManager::GetLastFrameCameraCachePOV() const
+{
+	return LastFrameCameraCachePrivate.POV;
+}
+
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+APlayerCameraManager::~APlayerCameraManager()
+{
+}
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 //////////////////////////////////////////////////////////////////////////
 // FTViewTarget

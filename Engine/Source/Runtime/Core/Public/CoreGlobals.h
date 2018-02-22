@@ -297,9 +297,6 @@ extern CORE_API bool GIsInitialLoad;
 /* Whether we are using the event driven loader */
 extern CORE_API bool GEventDrivenLoaderEnabled;
 
-//@todoio put this in some kind of API
-extern CORE_API bool GPakCache_AcceptPrecacheRequests;
-
 /** true when we are retrieving VTablePtr from UClass */
 extern CORE_API bool GIsRetrievingVTablePtr;
 

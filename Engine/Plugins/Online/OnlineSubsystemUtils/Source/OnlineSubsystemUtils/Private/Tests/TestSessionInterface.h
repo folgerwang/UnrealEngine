@@ -59,9 +59,9 @@ class TestOnlineSearchSettings;
 	FOnDestroySessionCompleteDelegate OnDestroySessionCompleteDelegate;
 	/** Delegate for updating a session */
 	FOnUpdateSessionCompleteDelegate OnUpdateSessionCompleteDelegate;
-    /** Delegate for registering player(s) with a session */
+	/** Delegate for registering player(s) with a session */
 	FOnRegisterPlayersCompleteDelegate OnRegisterPlayersCompleteDelegate;
-    /** Delegate for unregistering player(s) with a session */
+	/** Delegate for unregistering player(s) with a session */
 	FOnUnregisterPlayersCompleteDelegate OnUnregisterPlayersCompleteDelegate;
 
 	/** Delegate for searching for sessions */
@@ -117,16 +117,20 @@ class TestOnlineSearchSettings;
 	 *
 	 * @param SessionName name of session to end
 	 * @param Delegate delegate to call at session end
+	 *
+	 * @return delegate handle created when assigning the passed in delegate parameter
 	 */
-	void EndExistingSession(FName SessionName, FOnEndSessionCompleteDelegate& Delegate);
+	FDelegateHandle EndExistingSession(FName SessionName, FOnEndSessionCompleteDelegate& Delegate);
 
 	/**
 	 * Destroys an existing session of a given name
 	 *
 	 * @param SessionName name of session to destroy
 	 * @param Delegate delegate to call at session destruction
+	 *
+	 * @return delegate handle created when assigning the passed in delegate parameter
 	 */
-	void DestroyExistingSession(FName SessionName, FOnDestroySessionCompleteDelegate& Delegate);
+	FDelegateHandle DestroyExistingSession(FName SessionName, FOnDestroySessionCompleteDelegate& Delegate);
 
 	/**
 	 * Join a session of a given name after potentially tearing down an existing one
@@ -139,7 +143,7 @@ class TestOnlineSearchSettings;
 
 	/**
 	 * Transition from ending a session to destroying a session
- 	 *
+	 *
 	 * @param SessionName session that just ended
 	 * @param bWasSuccessful was the end session attempt successful
 	 */
@@ -153,7 +157,7 @@ class TestOnlineSearchSettings;
 	 */
 	void OnDestroyForJoinSessionComplete(FName SessionName, bool bWasSuccessful);
 
-    /**
+	/**
 	 * Delegate used when the friends read request has completed
 	 *
 	 * @param LocalUserNum the controller number of the associated user that made the request
@@ -163,14 +167,14 @@ class TestOnlineSearchSettings;
 	 */
 	void OnReadFriendsListComplete(int32 LocalUserNum, bool bWasSuccessful, const FString& ListName, const FString& ErrorStr);
 
-    /**
-     * Delegate fired when an invite request has been accepted (via external client)
-     *
+	/**
+	 * Delegate fired when an invite request has been accepted (via external client)
+	 *
 	 * @param bWasSuccessful true if the async action completed without error, false if there was an error
 	 * @param ControllerId the controller number of the accepting user
 	 * @param UserId the user being invited
 	 * @param InviteResult the search/settings for the session we're joining via invite
-     */
+	 */
 	void OnSessionUserInviteAccepted(const bool bWasSuccessful, const int32 LocalUserNum, TSharedPtr< const FUniqueNetId > UserId, const FOnlineSessionSearchResult& SearchResult);
 
 	/**
@@ -208,7 +212,7 @@ class TestOnlineSearchSettings;
 	/**
 	 * Delegate fired when an update to an online session has completed
 	 *
- 	 * @param SessionName the name of the session this callback is for
+	 * @param SessionName the name of the session this callback is for
 	 * @param bWasSuccessful true if the async action completed without error, false if there was an error
 	 */
 	void OnUpdateSessionComplete(FName SessionName, bool bWasSuccessful);
@@ -216,8 +220,8 @@ class TestOnlineSearchSettings;
 	/**
 	 * Delegate fired when player(s) have been registered with the session
 	 *
- 	 * @param SessionName the name of the session this callback is for
-     * @param Players array of players registered with the call
+	 * @param SessionName the name of the session this callback is for
+	 * @param Players array of players registered with the call
 	 * @param bWasSuccessful true if the async action completed without error, false if there was an error
 	 */
 	void OnRegisterPlayerComplete(FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Players, bool bWasSuccessful);
@@ -225,11 +229,11 @@ class TestOnlineSearchSettings;
 	/**
 	 * Delegate fired when player(s) have been unregistered with the session
 	 *
- 	 * @param SessionName the name of the session this callback is for
-     * @param Players array of players unregistered with the call
+	 * @param SessionName the name of the session this callback is for
+	 * @param Players array of players unregistered with the call
 	 * @param bWasSuccessful true if the async action completed without error, false if there was an error
 	 */
-    void OnUnregisterPlayerComplete(FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Players, bool bWasSuccessful);
+	void OnUnregisterPlayerComplete(FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Players, bool bWasSuccessful);
 
 	/**
 	 * Delegate fired when the joining process for an online session has completed

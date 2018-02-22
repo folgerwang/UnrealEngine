@@ -240,6 +240,13 @@ public:
 	virtual void SwapPlayerControllers(APlayerController* OldPC, APlayerController* NewPC);
 
 	/**
+	 * Gets the class that should be used for spawning a player controller during seamless travel
+	 * @param PreviousPlayerController The player controller from the prior level
+	 * @return The class that should be used for spawning the player controller
+	 */
+	virtual TSubclassOf<APlayerController> GetPlayerControllerClassToSpawnForSeamlessTravel(APlayerController* PreviousPlayerController);
+
+	/**
 	 * Handles reinitializing players that remained through a seamless level transition
 	 * called from C++ for players that finished loading after the server
 	 * @param C the Controller to handle
@@ -318,16 +325,21 @@ public:
 	void K2_OnLogout(AController* ExitingController);
 
 	/**
-	 * Spawns a PlayerController at the specified location; split out from Login()/HandleSeamlessTravelPlayer() for easier overriding
+	 * Spawns the appropriate PlayerController for the given options; split out from Login() for easier overriding.
+	 * Override this to conditionally spawn specialized PlayerControllers, for instance.
 	 *
 	 * @param RemoteRole the role this controller will play remotely
-	 * @param SpawnLocation location in the world to spawn
-	 * @param SpawnRotation rotation to set relative to the world
+	 * @param Options the options string from the new player's URL
 	 *
 	 * @return PlayerController for the player, NULL if there is any reason this player shouldn't exist or due to some error
 	 */
-	virtual APlayerController* SpawnPlayerController(ENetRole InRemoteRole, FVector const& SpawnLocation, FRotator const& SpawnRotation);
+	virtual APlayerController* SpawnPlayerController(ENetRole InRemoteRole, const FString& Options);
+
+	DEPRECATED(4.20, "SpawnPlayerController with Location and Rotation is deprecated, call or override the version that takes an Option string instead")
+ 	virtual APlayerController* SpawnPlayerController(ENetRole InRemoteRole, FVector const& SpawnLocation, FRotator const& SpawnRotation);
+	DEPRECATED(4.20, "SpawnReplayPlayerController is deprecated, replay controller spawning is handled inside the new version of the SpawnPlayerController function")
 	virtual APlayerController* SpawnReplayPlayerController(ENetRole InRemoteRole, FVector const& SpawnLocation, FRotator const& SpawnRotation);
+
 
 	/** Signals that a player is ready to enter the game, which may start it up */
 	UFUNCTION(BlueprintNativeEvent, Category=Game)
@@ -534,6 +546,7 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, Category=Game, meta=(DisplayName="OnSwapPlayerControllers", ScriptName="OnSwapPlayerControllers"))
 	void K2_OnSwapPlayerControllers(APlayerController* OldPC, APlayerController* NewPC);
 
+	/** Does the work of spawning a player controller of the given class at the given transform. */
 	virtual APlayerController* SpawnPlayerControllerCommon(ENetRole InRemoteRole, FVector const& SpawnLocation, FRotator const& SpawnRotation, TSubclassOf<APlayerController> InPlayerControllerClass);
 
 public:

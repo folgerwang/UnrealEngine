@@ -113,6 +113,7 @@ UEditorExperimentalSettings::UEditorExperimentalSettings( const FObjectInitializ
 	, bEnableLocalizationDashboard(true)
 	, bUseOpenCLForConvexHullDecomp(false)
 	, bAllowPotentiallyUnsafePropertyEditing(false)
+	, bUseNewHLODPackageNamingConvention(false)
 {
 }
 
@@ -395,6 +396,14 @@ void ULevelEditorPlaySettings::PostEditChangeProperty(struct FPropertyChangedEve
 	if (BuildGameBeforeLaunch != EPlayOnBuildMode::PlayOnBuild_Always && !FSourceCodeNavigation::IsCompilerAvailable())
 	{
 		BuildGameBeforeLaunch = EPlayOnBuildMode::PlayOnBuild_Never;
+	}
+
+	if (PropertyChangedEvent.Property && PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, bOnlyLoadVisibleLevelsInPIE))
+	{
+		for (TObjectIterator<UWorld> WorldIt; WorldIt; ++WorldIt)
+		{
+			WorldIt->PopulateStreamingLevelsToConsider();
+		}
 	}
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);

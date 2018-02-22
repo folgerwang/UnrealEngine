@@ -408,6 +408,10 @@ namespace UnrealBuildTool
 			{
 				Element.SchemaTypeName = XmlSchemaType.GetBuiltInSimpleType(XmlTypeCode.Double).QualifiedName;
 			}
+			else if(Type == typeof(FileReference))
+			{
+				Element.SchemaTypeName = XmlSchemaType.GetBuiltInSimpleType(XmlTypeCode.String).QualifiedName;
+			}
 			else if(Type.IsEnum)
 			{
 				XmlSchemaSimpleTypeRestriction Restriction = new XmlSchemaSimpleTypeRestriction();

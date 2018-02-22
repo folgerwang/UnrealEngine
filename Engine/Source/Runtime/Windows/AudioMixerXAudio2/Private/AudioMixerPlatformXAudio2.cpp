@@ -24,6 +24,7 @@
 
 #include "CoreGlobals.h"
 #include "Misc/ConfigCacheIni.h"
+#include "AudioCompressionSettingsUtils.h"
 
 // Macro to check result code for XAudio2 failure, get the string version, log, and goto a cleanup
 #define XAUDIO2_CLEANUP_ON_FAIL(Result)						\

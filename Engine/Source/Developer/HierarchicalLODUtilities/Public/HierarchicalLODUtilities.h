@@ -26,9 +26,13 @@ public:
 	virtual void ExtractSubActorsFromLODActor(AActor* Actor, TArray<AActor*>& InOutActors) override;
 	virtual float CalculateScreenSizeFromDrawDistance(const float SphereRadius, const FMatrix& ProjectionMatrix, const float Distance) override;
 	virtual float CalculateDrawDistanceFromScreenSize(const float SphereRadius, const float ScreenSize, const FMatrix& ProjectionMatrix) override;
+	DEPRECATED(4.20, "This function signature is deprecated")
 	virtual UPackage* CreateOrRetrieveLevelHLODPackage(const ULevel* InLevel) override;
+	virtual UPackage* CreateOrRetrieveLevelHLODPackage(const ULevel* InLevel, const uint32 HLODLevelIndex) override;
+	DEPRECATED(4.20, "Use different signature containing BaseMaterial parameter")
 	virtual bool BuildStaticMeshForLODActor(ALODActor* LODActor, UPackage* AssetsOuter, const FHierarchicalSimplification& LODSetup) override;
-	virtual EClusterGenerationError ShouldGenerateCluster(AActor* Actor) override;
+	virtual bool BuildStaticMeshForLODActor(ALODActor* LODActor, UPackage* AssetsOuter, const FHierarchicalSimplification& LODSetup, UMaterialInterface* InBaseMaterial) override;
+	virtual EClusterGenerationError ShouldGenerateCluster(AActor* Actor, const int32 HLODLevelIndex) override;
 	virtual ALODActor* GetParentLODActor(const AActor* InActor) override;
 	virtual void DestroyCluster(ALODActor* InActor) override;
 	virtual void DestroyClusterData(ALODActor* InActor) override;

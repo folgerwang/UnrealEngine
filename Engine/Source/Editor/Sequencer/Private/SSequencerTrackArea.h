@@ -59,6 +59,10 @@ public:
 	}
 	SLATE_END_ARGS()
 
+	SSequencerTrackArea()
+		: Children(this)
+	{}
+
 	/** Construct this widget */
 	void Construct(const FArguments& InArgs, TSharedRef<FSequencerTimeSliderController> InTimeSliderController, TSharedRef<FSequencer> InSequencer);
 

@@ -125,42 +125,46 @@ void FStreamingLevelModel::OnDrop(const TSharedPtr<FLevelDragDropOp>& Op)
 {
 	TArray<ULevelStreaming*> DropStreamingLevels;
 	
-	for (auto It = Op->StreamingLevelsToDrop.CreateConstIterator(); It; ++It)
+	for (TWeakObjectPtr<ULevelStreaming>& WeakLevelStreaming : Op->StreamingLevelsToDrop)
 	{
-		if ((*It).IsValid())
+		if (ULevelStreaming* LevelStreamingToDrop = WeakLevelStreaming.Get())
 		{
-			DropStreamingLevels.AddUnique((*It).Get());
+			DropStreamingLevels.AddUnique(LevelStreamingToDrop);
 		}
 	}	
 	
 	// Prevent dropping items on itself
-	if (DropStreamingLevels.Num() && DropStreamingLevels.Find(LevelStreaming.Get()) == INDEX_NONE)
+	if (DropStreamingLevels.Num())
 	{
-		UWorld* CurrentWorld = LevelCollectionModel.GetWorld();
-		auto& WorldStreamingLevels = CurrentWorld->StreamingLevels;
-		// Remove streaming level objects from a world streaming levels list
-		for (auto It : DropStreamingLevels)
+		ULevelStreaming* StreamingLevel = LevelStreaming.Get();
+		if (DropStreamingLevels.Find(StreamingLevel) == INDEX_NONE)
 		{
-			WorldStreamingLevels.Remove(It);
-		}
-		
-		// Find a new place where to insert the in a world streaming levels list
-		// Right after the current level, or at start of the list in case if this is persistent level
-		int32 InsertIndex = WorldStreamingLevels.Find(LevelStreaming.Get());
-		if (InsertIndex == INDEX_NONE)
-		{
-			InsertIndex = 0;
-		}
-		else
-		{
-			InsertIndex++;
-		}
+			// Remove streaming level objects from a world streaming levels list
+			UWorld* CurrentWorld = LevelCollectionModel.GetWorld();
+			CurrentWorld->RemoveStreamingLevels(DropStreamingLevels);
 
-		WorldStreamingLevels.Insert(DropStreamingLevels, InsertIndex);
-		CurrentWorld->MarkPackageDirty();
-			
-		// Force levels list refresh
-		LevelCollectionModel.PopulateLevelsList();
+			TArray<ULevelStreaming*> StreamingLevels = CurrentWorld->GetStreamingLevels();
+
+			// Find a new place where to insert the in a world streaming levels list
+			// Right after the current level, or at start of the list in case if this is persistent level
+			int32 InsertIndex = StreamingLevels.Find(StreamingLevel);
+			if (InsertIndex == INDEX_NONE)
+			{
+				InsertIndex = 0;
+			}
+			else
+			{
+				InsertIndex++;
+			}
+
+			StreamingLevels.Insert(DropStreamingLevels, InsertIndex);
+			CurrentWorld->SetStreamingLevels(MoveTemp(StreamingLevels));
+
+			CurrentWorld->MarkPackageDirty();
+
+			// Force levels list refresh
+			LevelCollectionModel.PopulateLevelsList();
+		}
 	}
 }
 

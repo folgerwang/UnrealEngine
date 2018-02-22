@@ -105,18 +105,14 @@ class UMaterialExpressionMaterialAttributeLayers : public UMaterialExpression
 	virtual int32 Compile(FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 	virtual void GetExpressionToolTip(TArray<FString>& OutToolTip) override;
-#endif
 	virtual const TArray<FExpressionInput*> GetInputs()override;
 	virtual FExpressionInput* GetInput(int32 InputIndex)override;
 	virtual FName GetInputName(int32 InputIndex) const override;
 	virtual bool IsInputConnectionRequired(int32 InputIndex) const override {return false;}
-#if WITH_EDITOR
 	virtual uint32 GetInputType(int32 InputIndex) override;
 	virtual bool IsResultMaterialAttributes(int32 OutputIndex) override {return true;}
-#endif
 
 	virtual bool MatchesSearchQuery( const TCHAR* SearchQuery ) override;
-#if WITH_EDITOR
 	virtual bool CanRenameNode() const override { return true; }
 	virtual FString GetEditableName() const override;
 	virtual void SetEditableName(const FString& NewName) override;

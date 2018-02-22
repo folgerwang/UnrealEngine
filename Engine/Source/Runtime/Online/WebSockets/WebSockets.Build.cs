@@ -17,8 +17,10 @@ public class WebSockets : ModuleRules
 			bool bPlatformSupportsLibWebsockets =
 					Target.Platform == UnrealTargetPlatform.Win32 ||
 					Target.Platform == UnrealTargetPlatform.Win64 ||
+					Target.Platform == UnrealTargetPlatform.Android ||
 					Target.Platform == UnrealTargetPlatform.Mac ||
 					Target.Platform == UnrealTargetPlatform.Linux ||
+					Target.Platform == UnrealTargetPlatform.IOS ||
 					Target.Platform == UnrealTargetPlatform.PS4;
 
 			bool bPlatformSupportsXboxWebsockets = Target.Platform == UnrealTargetPlatform.XboxOne;

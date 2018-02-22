@@ -542,6 +542,8 @@ private:
 	int32							PreLoadIndex;
 	/** Current index into ObjLoaded array used to spread routing PreLoad over several frames			*/
 	int32							PreLoadSortIndex;
+	/** Current index into ObjLoaded array used to spread routing PreLoad over several frames			*/
+	int32							FinishExternalReadDependenciesIndex;
 	/** Current index into ObjLoaded array used to spread routing PostLoad over several frames			*/
 	int32							PostLoadIndex;
 	/** Current index into DeferredPostLoadObjects array used to spread routing PostLoad over several frames			*/

@@ -181,6 +181,9 @@ class GAMEPLAYABILITIES_API UGameplayCueManager : public UDataAsset
 	TArray<UGameplayCueSet*> GetGlobalCueSets();
 
 #if WITH_EDITOR
+	/** Call before cooking to add gameplay cue assets to the cook. Call after Initializing. */
+	virtual void ModifyCook(TArray<FName>& PackagesToCook, TArray<FName>& PackagesToNeverCook);
+	
 	/** Called from editor to soft load all gameplay cue notifies for the GameplayCueEditor */
 	void InitializeEditorObjectLibrary();
 

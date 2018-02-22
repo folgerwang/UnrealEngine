@@ -11,6 +11,7 @@
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/SCanvas.h"
 #include "Widgets/Layout/SBox.h"
+#include "Styling/SlateTypes.h"
 
 class FPaintArgs;
 class FSceneViewport;
@@ -41,7 +42,7 @@ UENUM()
 enum class EWindowTitleBarMode : uint8
 {
 	Overlay,
-	VerticalBox,
+	VerticalBox
 };
 
 /**
@@ -66,9 +67,8 @@ public:
 	virtual void ClearWidgets() = 0;
 
 	virtual void SetDefaultWindowTitleBarHeight(float Height) = 0;
-	virtual void SetWindowTitleBarContent(const TSharedPtr<SWidget>& TitleBarContent, EWindowTitleBarMode Mode) = 0;
-	virtual void RestorePreviousWindowTitleBarContent() = 0;
-	virtual void SetDefaultWindowTitleBarContentAsCurrent() = 0;
+	virtual void SetWindowTitleBarState(const TSharedPtr<SWidget>& TitleBarContent, EWindowTitleBarMode Mode, bool bTitleBarDragEnabled, bool bWindowButtonsVisible, bool bTitleBarVisible) = 0;
+	virtual void RestorePreviousWindowTitleBarState() = 0;
 	virtual void SetWindowTitleBarVisibility(bool bIsVisible) = 0;
 };
 
@@ -118,9 +118,8 @@ public:
 	virtual void ClearWidgets() override;
 
 	virtual void SetDefaultWindowTitleBarHeight(float Height);
-	virtual void SetWindowTitleBarContent(const TSharedPtr<SWidget>& TitleBarContent, EWindowTitleBarMode Mode);
-	virtual void RestorePreviousWindowTitleBarContent();
-	virtual void SetDefaultWindowTitleBarContentAsCurrent();
+	virtual void SetWindowTitleBarState(const TSharedPtr<SWidget>& TitleBarContent, EWindowTitleBarMode Mode, bool bTitleBarDragEnabled, bool bWindowButtonsVisible, bool bTitleBarVisible);
+	virtual void RestorePreviousWindowTitleBarState();
 	virtual void SetWindowTitleBarVisibility(bool bIsVisible);
 	// End IGameLayerManager
 
@@ -161,6 +160,7 @@ private:
 
 	void UpdateWindowTitleBar();
 	void UpdateWindowTitleBarVisibility();
+	void RequestToggleFullscreen();
 
 private:
 	FGeometry CachedGeometry;
@@ -177,18 +177,27 @@ private:
 	TSharedPtr<SBox> WindowTitleBarVerticalBox;
 	TSharedPtr<SBox> WindowTitleBarOverlay;
 
-	struct FWindowTitleBarContent
+	struct FWindowTitleBarState
 	{
 		TSharedPtr<SWidget> ContentWidget;
 		EWindowTitleBarMode Mode;
+		bool bTitleBarDragEnabled;
+		bool bWindowButtonsVisible;
+		bool bTitleBarVisible;
 
-		FWindowTitleBarContent() : ContentWidget(), Mode(EWindowTitleBarMode::Overlay) {}
-		FWindowTitleBarContent(const TSharedPtr<SWidget>& TitleBarContent, EWindowTitleBarMode InMode) : ContentWidget(TitleBarContent), Mode(InMode) {}
+		FWindowTitleBarState() : ContentWidget(), Mode(EWindowTitleBarMode::Overlay), bTitleBarDragEnabled(false), bWindowButtonsVisible(false), bTitleBarVisible(false) {}
+		FWindowTitleBarState(const TSharedPtr<SWidget>& TitleBarContent, EWindowTitleBarMode InMode, bool bInTitleBarDragEnabled, bool bInWindowButtonsVisible, bool bInTitleBarVisible)
+			: ContentWidget(TitleBarContent)
+			, Mode(InMode)
+			, bTitleBarDragEnabled(bInTitleBarDragEnabled)
+			, bWindowButtonsVisible(bInWindowButtonsVisible && (PLATFORM_WINDOWS || PLATFORM_LINUX))
+			, bTitleBarVisible(bInTitleBarVisible && PLATFORM_DESKTOP)
+		{
+		}
 	};
 
-	TArray<FWindowTitleBarContent> WindowTitleBarContentStack;
-	FWindowTitleBarContent DefaultWindowTitleBarContent;
+	TArray<FWindowTitleBarState> WindowTitleBarStateStack;
+	TSharedPtr<SWidget> DefaultTitleBarContentWidget;
 	float DefaultWindowTitleBarHeight;
-
-	bool bIsWindowTitleBarVisible;
+	bool bIsGameUsingBorderlessWindow;
 };

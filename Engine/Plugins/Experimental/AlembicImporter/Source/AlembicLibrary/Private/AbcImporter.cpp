@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
 #include "AbcImporter.h"
 
@@ -51,7 +51,6 @@ THIRD_PARTY_INCLUDES_END
 #include "AbcAssetImportData.h"
 
 #include "AssetRegistryModule.h"
-#include "AnimationUtils.h"
 
 #define LOCTEXT_NAMESPACE "AbcImporter"
 
@@ -1055,12 +1054,12 @@ TArray<UObject*> FAbcImporter::ImportAsSkeletalMesh(UObject* InParent, EObjectFl
 		check(ImportedModel->LODModels.Num() == 0);
 		ImportedModel->LODModels.Empty();
 		new(ImportedModel->LODModels)FSkeletalMeshLODModel();
-		SkeletalMesh->LODInfo.Empty();
-		SkeletalMesh->LODInfo.AddZeroed();
+		SkeletalMesh->ResetLODInfo();
+		SkeletalMesh->AddLODInfo();
 		FSkeletalMeshLODModel& LODModel = ImportedModel->LODModels[0];
 
 		const FMeshBoneInfo BoneInfo(FName(TEXT("RootBone"), FNAME_Add), TEXT("RootBone_Export"), INDEX_NONE);
-		const FTransform BoneTransform(ImportData->ArchiveBounds.GetBox().GetCenter());
+		const FTransform BoneTransform;
 		{
 			FReferenceSkeletonModifier RefSkelModifier(SkeletalMesh->RefSkeleton, SkeletalMesh->Skeleton);
 			RefSkelModifier.Add(BoneInfo, BoneTransform);
@@ -1072,9 +1071,9 @@ TArray<UObject*> FAbcImporter::ImportAsSkeletalMesh(UObject* InParent, EObjectFl
 		{
 			AbcImporterUtilities::AppendMeshSample(MergedMeshSample, Data.AverageSample);
 		}
-
+		
 		// Forced to 1
-		ImportedModel->LODModels[0].NumTexCoords = MergedMeshSample->NumUVSets;
+		LODModel.NumTexCoords = MergedMeshSample->NumUVSets;
 		SkeletalMesh->bHasVertexColors = true;
 
 		/* Bounding box according to animation */
@@ -1180,8 +1179,7 @@ TArray<UObject*> FAbcImporter::ImportAsSkeletalMesh(UObject* InParent, EObjectFl
 		}
 		
 		// Set recompute tangent flag on skeletal mesh sections
-		FSkeletalMeshModel* SkelResource = SkeletalMesh->GetImportedModel();
-		for (FSkelMeshSection& Section : SkelResource->LODModels[0].Sections)
+		for (FSkelMeshSection& Section : LODModel.Sections)
 		{
 			Section.bRecomputeTangent = true;
 		}
@@ -1193,7 +1191,6 @@ TArray<UObject*> FAbcImporter::ImportAsSkeletalMesh(UObject* InParent, EObjectFl
 		// Retrieve the name mapping container
 		const FSmartNameMapping* NameMapping = Skeleton->GetSmartNameContainer(USkeleton::AnimCurveMappingName);
 		Sequence->RawCurveData.RefreshName(NameMapping);
-		Sequence->CompressionScheme = FAnimationUtils::GetDefaultAnimationCompressionAlgorithm();
 		Sequence->MarkRawDataAsModified();
 		Sequence->PostEditChange();
 		Sequence->SetPreviewMesh(SkeletalMesh);

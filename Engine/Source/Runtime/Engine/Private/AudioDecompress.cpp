@@ -643,7 +643,8 @@ void FAsyncAudioDecompressWorker::DoWork()
 			}
 #endif
 			// Extract the data
-			Wave->SampleRate = QualityInfo.SampleRate;
+			ensureMsgf(Wave->GetSampleRateForCurrentPlatform() == QualityInfo.SampleRate, TEXT("Warning: Found sample rate mismatch."));
+			Wave->SetSampleRate(QualityInfo.SampleRate);
 			Wave->NumChannels = QualityInfo.NumChannels;
 			if (QualityInfo.Duration > 0.0f)
 			{ 

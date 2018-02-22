@@ -8,7 +8,8 @@ public class TargetPlatform : ModuleRules
 	public TargetPlatform(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PrivateDependencyModuleNames.Add("Core");
-		PublicDependencyModuleNames.Add("DesktopPlatform");
+        PublicDependencyModuleNames.Add("AudioPlatformConfiguration");
+        PublicDependencyModuleNames.Add("DesktopPlatform");
 		PublicDependencyModuleNames.Add("LauncherPlatform");
 
 		PrivateIncludePathModuleNames.Add("Engine");
@@ -56,14 +57,6 @@ public class TargetPlatform : ModuleRules
 				if (Target.Type == TargetType.Editor || Target.Type == TargetType.Program)
 				{
 					DynamicallyLoadedModuleNames.Add("AndroidTargetPlatform");
-					DynamicallyLoadedModuleNames.Add("Android_PVRTCTargetPlatform");
-					DynamicallyLoadedModuleNames.Add("Android_ATCTargetPlatform");
-					DynamicallyLoadedModuleNames.Add("Android_DXTTargetPlatform");
-					DynamicallyLoadedModuleNames.Add("Android_ETC1TargetPlatform");
-                    DynamicallyLoadedModuleNames.Add("Android_ETC1aTargetPlatform");
-                    DynamicallyLoadedModuleNames.Add("Android_ETC2TargetPlatform");
-					DynamicallyLoadedModuleNames.Add("Android_ASTCTargetPlatform");
-					DynamicallyLoadedModuleNames.Add("Android_MultiTargetPlatform");
 					DynamicallyLoadedModuleNames.Add("IOSTargetPlatform");
 					DynamicallyLoadedModuleNames.Add("TVOSTargetPlatform");
 					DynamicallyLoadedModuleNames.Add("HTML5TargetPlatform");
@@ -93,13 +86,6 @@ public class TargetPlatform : ModuleRules
 				if (Target.Type == TargetType.Editor || Target.Type == TargetType.Program)
 				{
 					DynamicallyLoadedModuleNames.Add("AndroidTargetPlatform");
-					DynamicallyLoadedModuleNames.Add("Android_MultiTargetPlatform");
-					DynamicallyLoadedModuleNames.Add("Android_PVRTCTargetPlatform");
-					DynamicallyLoadedModuleNames.Add("Android_ATCTargetPlatform");
-					DynamicallyLoadedModuleNames.Add("Android_DXTTargetPlatform");
-					DynamicallyLoadedModuleNames.Add("Android_ETC1TargetPlatform");
-                    DynamicallyLoadedModuleNames.Add("Android_ETC1aTargetPlatform");
-                    DynamicallyLoadedModuleNames.Add("Android_ETC2TargetPlatform");
 					DynamicallyLoadedModuleNames.Add("IOSTargetPlatform");
 					DynamicallyLoadedModuleNames.Add("TVOSTargetPlatform");
 					DynamicallyLoadedModuleNames.Add("HTML5TargetPlatform");
@@ -125,14 +111,6 @@ public class TargetPlatform : ModuleRules
 				if (Target.Type == TargetType.Editor || Target.Type == TargetType.Program)
 				{
 					DynamicallyLoadedModuleNames.Add("AndroidTargetPlatform");
-					DynamicallyLoadedModuleNames.Add("Android_MultiTargetPlatform");
-					DynamicallyLoadedModuleNames.Add("Android_PVRTCTargetPlatform");
-					DynamicallyLoadedModuleNames.Add("Android_ATCTargetPlatform");
-					DynamicallyLoadedModuleNames.Add("Android_DXTTargetPlatform");
-					DynamicallyLoadedModuleNames.Add("Android_ETC1TargetPlatform");
-                    DynamicallyLoadedModuleNames.Add("Android_ETC1aTargetPlatform");
-                    DynamicallyLoadedModuleNames.Add("Android_ETC2TargetPlatform");
-					DynamicallyLoadedModuleNames.Add("Android_ASTCTargetPlatform");
 					DynamicallyLoadedModuleNames.Add("HTML5TargetPlatform");
 				}
 			}

@@ -83,7 +83,7 @@ void FOnlineAsyncTaskManager::Stop(void)
 		NumOutTasks = OutQueue.Num();
 	}
 
-	UE_LOG_ONLINE(Display, TEXT("FOnlineAsyncTaskManager::Stop() ActiveTask:%p Tasks[%d/%d]"), ActiveTask, NumInTasks, NumOutTasks);
+	UE_LOG_ONLINE(VeryVerbose, TEXT("FOnlineAsyncTaskManager::Stop() ActiveTask:%p Tasks[%d/%d]"), ActiveTask, NumInTasks, NumOutTasks);
 
 	// Set the variable to requesting exit before we trigger the event
 	bRequestingExit = true;
@@ -92,7 +92,7 @@ void FOnlineAsyncTaskManager::Stop(void)
 
 void FOnlineAsyncTaskManager::Exit(void)
 {
-	UE_LOG_ONLINE(Display, TEXT("FOnlineAsyncTaskManager::Exit() started"));
+	UE_LOG_ONLINE(VeryVerbose, TEXT("FOnlineAsyncTaskManager::Exit() started"));
 
 	FPlatformProcess::ReturnSynchEventToPool(WorkEvent);
 	WorkEvent = nullptr;
@@ -100,7 +100,7 @@ void FOnlineAsyncTaskManager::Exit(void)
 	OnlineThreadId = 0;
 	InvocationCount--;
 
-	UE_LOG_ONLINE(Display, TEXT("FOnlineAsyncTaskManager::Exit() finished"));
+	UE_LOG_ONLINE(VeryVerbose, TEXT("FOnlineAsyncTaskManager::Exit() finished"));
 }
 
 void FOnlineAsyncTaskManager::AddToInQueue(FOnlineAsyncTask* NewTask)
@@ -162,6 +162,7 @@ void FOnlineAsyncTaskManager::GameTick()
 				else
 				{
 					Item = nullptr;
+					break;
 				}
 #else
 				OutQueue.RemoveAt(0);	
@@ -187,7 +188,7 @@ void FOnlineAsyncTaskManager::GameTick()
 			Item = nullptr;
 		}
 	}
-	while (Item != nullptr);
+	while (CurrentQueueSize > 1);
 
 	int32 QueueSize = 0;
 	bool bHasActiveTask = false;

@@ -65,7 +65,7 @@ FSLESSoundBuffer* FSLESSoundBuffer::CreateQueuedBuffer( FSLESAudioDevice* AudioD
 		// Keep track of associated resource name.
 		Buffer->ResourceName	= InWave->GetPathName();		
 		Buffer->NumChannels		= InWave->NumChannels;
-		Buffer->SampleRate		= InWave->SampleRate;
+		Buffer->SampleRate		= InWave->GetSampleRateForCurrentPlatform();
 
 		//Android can't handle more than 48kHz, so turn on halfrate decoding and adjust parameters
 		if (Buffer->SampleRate > 48000)
@@ -73,7 +73,7 @@ FSLESSoundBuffer* FSLESSoundBuffer::CreateQueuedBuffer( FSLESAudioDevice* AudioD
 			UE_LOG(LogAndroidAudio, Log, TEXT( "Converting %s to halfrate from %d" ), *InWave->GetName(), Buffer->SampleRate );
 			Buffer->DecompressionState->EnableHalfRate( true);
 			Buffer->SampleRate = Buffer->SampleRate / 2;
-			InWave->SampleRate = InWave->SampleRate / 2;
+			InWave->SetSampleRate(Buffer->SampleRate);
 			uint32 SampleCount = QualityInfo.SampleDataSize / (QualityInfo.NumChannels * sizeof(uint16));
 			SampleCount /= 2;
 			InWave->RawPCMDataSize = SampleCount * QualityInfo.NumChannels * sizeof(uint16);;
@@ -110,7 +110,7 @@ FSLESSoundBuffer* FSLESSoundBuffer::CreateStreamBuffer( FSLESAudioDevice* AudioD
 		// Keep track of associated resource name.
 		Buffer->ResourceName	= InWave->GetPathName();		
 		Buffer->NumChannels		= InWave->NumChannels;
-		Buffer->SampleRate		= InWave->SampleRate;
+		Buffer->SampleRate		= InWave->GetSampleRateForCurrentPlatform();
 
 		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("DEBUG: FSLESSoundBuffer::CreateStreamBuffer Buffer->SampleRate = %d"), Buffer->SampleRate);
 
@@ -120,7 +120,7 @@ FSLESSoundBuffer* FSLESSoundBuffer::CreateStreamBuffer( FSLESAudioDevice* AudioD
 			UE_LOG(LogAndroidAudio, Log, TEXT( "Converting %s to halfrate from %d" ), *InWave->GetName(), Buffer->SampleRate );
 			Buffer->DecompressionState->EnableHalfRate( true);
 			Buffer->SampleRate = Buffer->SampleRate / 2;
-			InWave->SampleRate = InWave->SampleRate / 2;
+			InWave->SetSampleRate(Buffer->SampleRate);
 			uint32 SampleCount = QualityInfo.SampleDataSize / (QualityInfo.NumChannels * sizeof(uint16));
 			SampleCount /= 2;
 			InWave->RawPCMDataSize = SampleCount * QualityInfo.NumChannels * sizeof(uint16);;
@@ -161,7 +161,7 @@ FSLESSoundBuffer* FSLESSoundBuffer::CreateNativeBuffer( FSLESAudioDevice* AudioD
 	AudioDeviceManager->TrackResource(InWave, Buffer);
 
 	Buffer->NumChannels		= InWave->NumChannels;
-	Buffer->SampleRate		= InWave->SampleRate;
+	Buffer->SampleRate		= InWave->GetSampleRateForCurrentPlatform();
 
 	// Take ownership the PCM data
 	Buffer->AudioData = InWave->RawPCMData;
@@ -193,7 +193,7 @@ FSLESSoundBuffer* FSLESSoundBuffer::CreateProceduralBuffer(FSLESAudioDevice* Aud
 	Buffer->BufferSize = 0;
 	Buffer->Format = SoundFormat_PCMRT;
 	Buffer->NumChannels = InWave->NumChannels;
-	Buffer->SampleRate = InWave->SampleRate;
+	Buffer->SampleRate = InWave->GetSampleRateForCurrentPlatform();
 	
 	InWave->RawPCMData = NULL;
 

@@ -12,18 +12,21 @@
 #include "Misc/App.h"
 #include "Misc/MonitoredProcess.h"
 #include "Logging/MessageLog.h"
+
 #if PLATFORM_WINDOWS
 #include "Windows/WindowsHWrapper.h"
 #endif
 #if WITH_ENGINE
 #include "TextureResource.h"
+#include "AudioCompressionSettings.h"
 #endif
 
 /* FIOSTargetPlatform structors
  *****************************************************************************/
 
-FIOSTargetPlatform::FIOSTargetPlatform(bool bInIsTVOS)
+FIOSTargetPlatform::FIOSTargetPlatform(bool bInIsTVOS, bool bInIsClientOnly)
 	: bIsTVOS(bInIsTVOS)
+	, bIsClientOnly(bInIsClientOnly)
 {
     if (bIsTVOS)
     {
@@ -407,6 +410,14 @@ static bool CookASTC()
 	return bCookASTCTextures;
 }
 
+static bool SupportsSoftwareOcclusion()
+{
+	// default to not support
+	int32 IntValue = 0;
+	GConfig->GetInt(TEXT("ConsoleVariables"), TEXT("r.Mobile.AllowSoftwareOcclusion"), IntValue, GEngineIni);
+	return (IntValue != 0);
+}
+
 bool FIOSTargetPlatform::SupportsFeature( ETargetPlatformFeatures Feature ) const
 {
 	switch (Feature)
@@ -421,6 +432,9 @@ bool FIOSTargetPlatform::SupportsFeature( ETargetPlatformFeatures Feature ) cons
 		case ETargetPlatformFeatures::DeferredRendering:
 		case ETargetPlatformFeatures::HighQualityLightmaps:
 			return SupportsMetalMRT();
+
+		case ETargetPlatformFeatures::SoftwareOcclusion:
+			return SupportsSoftwareOcclusion();
 
 		default:
 			break;
@@ -607,6 +621,62 @@ void FIOSTargetPlatform::GetAllWaveFormats(TArray<FName>& OutFormat) const
 {
 	static FName NAME_ADPCM(TEXT("ADPCM"));
 	OutFormat.Add(NAME_ADPCM);
+}
+
+void CachePlatformAudioCookOverrides(FPlatformAudioCookOverrides& OutOverrides)
+{
+	const TCHAR* CategoryName = TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings");
+
+	GConfig->GetBool(CategoryName, TEXT("bResampleForDevice"), OutOverrides.bResampleForDevice, GEngineIni);
+
+	GConfig->GetFloat(CategoryName, TEXT("CompressionQualityModifier"), OutOverrides.CompressionQualityModifier, GEngineIni);
+
+	//Cache sample rate map.
+	OutOverrides.PlatformSampleRates.Reset();
+
+	float RetrievedSampleRate = -1.0f;
+
+	GConfig->GetFloat(CategoryName, TEXT("MaxSampleRate"), RetrievedSampleRate, GEngineIni);
+	OutOverrides.PlatformSampleRates.Add(ESoundwaveSampleRateSettings::Max, RetrievedSampleRate);
+
+	RetrievedSampleRate = -1.0f;
+
+	GConfig->GetFloat(CategoryName, TEXT("HighSampleRate"), RetrievedSampleRate, GEngineIni);
+	OutOverrides.PlatformSampleRates.Add(ESoundwaveSampleRateSettings::High, RetrievedSampleRate);
+
+	RetrievedSampleRate = -1.0f;
+
+	GConfig->GetFloat(CategoryName, TEXT("MedSampleRate"), RetrievedSampleRate, GEngineIni);
+	OutOverrides.PlatformSampleRates.Add(ESoundwaveSampleRateSettings::Medium, RetrievedSampleRate);
+
+	RetrievedSampleRate = -1.0f;
+
+	GConfig->GetFloat(CategoryName, TEXT("LowSampleRate"), RetrievedSampleRate, GEngineIni);
+	OutOverrides.PlatformSampleRates.Add(ESoundwaveSampleRateSettings::Low, RetrievedSampleRate);
+
+	RetrievedSampleRate = -1.0f;
+
+	GConfig->GetFloat(CategoryName, TEXT("MinSampleRate"), RetrievedSampleRate, GEngineIni);
+	OutOverrides.PlatformSampleRates.Add(ESoundwaveSampleRateSettings::Min, RetrievedSampleRate);
+}
+
+FPlatformAudioCookOverrides* FIOSTargetPlatform::GetAudioCompressionSettings() const
+{
+	static FPlatformAudioCookOverrides Settings;
+
+#if !WITH_EDITOR
+	static bool bCachedPlatformSettings = false;
+
+	if (!bCachedPlatformSettings)
+	{
+		CachePlatformAudioCookOverrides(Settings);
+		bCachedPlatformSettings = true;
+	}
+#else
+	CachePlatformAudioCookOverrides(Settings);
+#endif
+
+	return &Settings;
 }
 
 #endif // WITH_ENGINE

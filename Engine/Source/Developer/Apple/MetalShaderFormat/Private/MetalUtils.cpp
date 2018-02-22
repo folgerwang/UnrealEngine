@@ -2302,6 +2302,12 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 										InnerVariable->name = ralloc_asprintf(ParseState, "OUT_ATTRIBUTE%d_%s", InnerAttribute, InnerVariable->name);
 										Member.name = ralloc_strdup(ParseState, InnerVariable->name);
 										Member.semantic = ralloc_asprintf(ParseState, "[[ attribute(%d) ]]", InnerAttribute);
+
+										if (OutputVertex == 0)
+										{
+											PatchControlPointStructHash = HashCombine(HashCombine(GetTypeHash(InnerVariable->name), GetTypeHash(InnerVariable->type)), PatchControlPointStructHash);
+										}
+
 										InnerAttribute++;
 										DSInMembers.Add(Member);
 										DSInVariables.insert(InnerVariable);
@@ -2317,7 +2323,7 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 						{
 							if(OutputVertex == 0)
 							{
-								Type = glsl_type::get_record_instance(&DSInMembers[0], (unsigned int)DSInMembers.Num(), "PatchControlPointOut");
+								Type = glsl_type::get_record_instance(&DSInMembers[0], (unsigned int)DSInMembers.Num(), ralloc_asprintf(ParseState, "PatchControlPointOut_%u", PatchControlPointStructHash));
 								ParseState->AddUserStruct(Type);
 								InType = glsl_type::get_array_instance(Type, 1000); // the size is meaningless
 							}

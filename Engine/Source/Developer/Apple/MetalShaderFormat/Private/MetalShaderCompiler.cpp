@@ -70,75 +70,86 @@ bool IsRemoteBuildingConfigured(const FShaderCompilerEnvironment* InEnvironment)
 		}
 
 		GRemoteBuildServerHost = "";
-		GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("RemoteServerName"), GRemoteBuildServerHost, GEngineIni);
-		if(GRemoteBuildServerHost.Len() == 0)
+
+		if (InEnvironment != nullptr && InEnvironment->RemoteServerData.Contains(TEXT("RemoteServerName")))
 		{
-			// check for it on the command line - meant for ShaderCompileWorker
-			if (!FParse::Value(FCommandLine::Get(), TEXT("servername"), GRemoteBuildServerHost) && GRemoteBuildServerHost.Len() == 0)
+			GRemoteBuildServerHost = InEnvironment->RemoteServerData[TEXT("RemoteServerName")];
+		}
+		if (GRemoteBuildServerHost.Len() == 0)
+		{
+			GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("RemoteServerName"), GRemoteBuildServerHost, GEngineIni);
+			if (GRemoteBuildServerHost.Len() == 0)
 			{
-				if (InEnvironment != nullptr && InEnvironment->RemoteServerData.Contains(TEXT("RemoteServerName")))
+				// check for it on the command line - meant for ShaderCompileWorker
+				if (!FParse::Value(FCommandLine::Get(), TEXT("servername"), GRemoteBuildServerHost) && GRemoteBuildServerHost.Len() == 0)
 				{
-					GRemoteBuildServerHost = InEnvironment->RemoteServerData[TEXT("RemoteServerName")];
-				}
-				if (GRemoteBuildServerHost.Len() == 0)
-				{
-					if (!GMetalLoggedRemoteCompileNotConfigured)
+					if (GRemoteBuildServerHost.Len() == 0)
 					{
-						if (!PLATFORM_MAC || UNIXLIKE_TO_MAC_REMOTE_BUILDING)
+						if (!GMetalLoggedRemoteCompileNotConfigured)
 						{
-							UE_LOG(LogMetalShaderCompiler, Warning, TEXT("Remote Building is not configured: RemoteServerName is not set."));
+							if (!PLATFORM_MAC || UNIXLIKE_TO_MAC_REMOTE_BUILDING)
+							{
+								UE_LOG(LogMetalShaderCompiler, Warning, TEXT("Remote Building is not configured: RemoteServerName is not set."));
+							}
+							GMetalLoggedRemoteCompileNotConfigured = true;
 						}
-						GMetalLoggedRemoteCompileNotConfigured = true;
+						return false;
 					}
-					return false;
 				}
 			}
 		}
 
 		GRemoteBuildServerUser = "";
-		GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("RSyncUsername"), GRemoteBuildServerUser, GEngineIni);
-
-		if(GRemoteBuildServerUser.Len() == 0)
+		if (InEnvironment != nullptr && InEnvironment->RemoteServerData.Contains(TEXT("RSyncUsername")))
 		{
-			// check for it on the command line - meant for ShaderCompileWorker
-			if (!FParse::Value(FCommandLine::Get(), TEXT("serveruser"), GRemoteBuildServerUser) && GRemoteBuildServerUser.Len() == 0)
+			GRemoteBuildServerUser = InEnvironment->RemoteServerData[TEXT("RSyncUsername")];
+		}
+
+		if (GRemoteBuildServerUser.Len() == 0)
+		{
+			GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("RSyncUsername"), GRemoteBuildServerUser, GEngineIni);
+
+			if (GRemoteBuildServerUser.Len() == 0)
 			{
-				if (InEnvironment != nullptr && InEnvironment->RemoteServerData.Contains(TEXT("RSyncUsername")))
+				// check for it on the command line - meant for ShaderCompileWorker
+				if (!FParse::Value(FCommandLine::Get(), TEXT("serveruser"), GRemoteBuildServerUser) && GRemoteBuildServerUser.Len() == 0)
 				{
-					GRemoteBuildServerUser = InEnvironment->RemoteServerData[TEXT("RSyncUsername")];
-				}
-				if (GRemoteBuildServerUser.Len() == 0)
-				{
-					if (!GMetalLoggedRemoteCompileNotConfigured)
+					if (GRemoteBuildServerUser.Len() == 0)
 					{
-						if (!PLATFORM_MAC || UNIXLIKE_TO_MAC_REMOTE_BUILDING)
+						if (!GMetalLoggedRemoteCompileNotConfigured)
 						{
-							UE_LOG(LogMetalShaderCompiler, Warning, TEXT("Remote Building is not configured: RSyncUsername is not set."));
+							if (!PLATFORM_MAC || UNIXLIKE_TO_MAC_REMOTE_BUILDING)
+							{
+								UE_LOG(LogMetalShaderCompiler, Warning, TEXT("Remote Building is not configured: RSyncUsername is not set."));
+							}
+							GMetalLoggedRemoteCompileNotConfigured = true;
 						}
-						GMetalLoggedRemoteCompileNotConfigured = true;
+						return false;
 					}
-					return false;
 				}
 			}
 		}
 
 		GRemoteBuildServerSSHKey = "";
-		GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("SSHPrivateKeyOverridePath"), GRemoteBuildServerSSHKey, GEngineIni);
-
-		if(GRemoteBuildServerSSHKey.Len() == 0)
+		if (InEnvironment != nullptr && InEnvironment->RemoteServerData.Contains(TEXT("SSHPrivateKeyOverridePath")))
 		{
-			if (!FParse::Value(FCommandLine::Get(), TEXT("serverkey"), GRemoteBuildServerSSHKey) && GRemoteBuildServerSSHKey.Len() == 0)
+			GRemoteBuildServerSSHKey = InEnvironment->RemoteServerData[TEXT("SSHPrivateKeyOverridePath")];
+		}
+		if (GRemoteBuildServerSSHKey.Len() == 0)
+		{
+			GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("SSHPrivateKeyOverridePath"), GRemoteBuildServerSSHKey, GEngineIni);
+
+			if (GRemoteBuildServerSSHKey.Len() == 0)
 			{
-				if (InEnvironment != nullptr && InEnvironment->RemoteServerData.Contains(TEXT("SSHPrivateKeyOverridePath")))
+				if (!FParse::Value(FCommandLine::Get(), TEXT("serverkey"), GRemoteBuildServerSSHKey) && GRemoteBuildServerSSHKey.Len() == 0)
 				{
-					GRemoteBuildServerSSHKey = InEnvironment->RemoteServerData[TEXT("SSHPrivateKeyOverridePath")];
-				}
-				if (GRemoteBuildServerSSHKey.Len() == 0)
-				{
-					// RemoteToolChain.cs in UBT looks in a few more places but the code in FIOSTargetSettingsCustomization::OnGenerateSSHKey() only puts the key in this location so just going with that to keep things simple
-					TCHAR Path[4096];
-					FPlatformMisc::GetEnvironmentVariable(TEXT("APPDATA"), Path, ARRAY_COUNT(Path));
-					GRemoteBuildServerSSHKey = FString::Printf(TEXT("%s\\Unreal Engine\\UnrealBuildTool\\SSHKeys\\%s\\%s\\RemoteToolChainPrivate.key"), Path, *GRemoteBuildServerHost, *GRemoteBuildServerUser);
+					if (GRemoteBuildServerSSHKey.Len() == 0)
+					{
+						// RemoteToolChain.cs in UBT looks in a few more places but the code in FIOSTargetSettingsCustomization::OnGenerateSSHKey() only puts the key in this location so just going with that to keep things simple
+						TCHAR Path[4096];
+						FPlatformMisc::GetEnvironmentVariable(TEXT("APPDATA"), Path, ARRAY_COUNT(Path));
+						GRemoteBuildServerSSHKey = FString::Printf(TEXT("%s\\Unreal Engine\\UnrealBuildTool\\SSHKeys\\%s\\%s\\RemoteToolChainPrivate.key"), Path, *GRemoteBuildServerHost, *GRemoteBuildServerUser);
+					}
 				}
 			}
 		}
@@ -2254,11 +2265,14 @@ bool StripShader_Metal(TArray<uint8>& Code, class FString const& DebugPath, bool
 			{
 				int32 ObjectSize = 0;
 				const uint8* ShaderObject = ShaderCode.FindOptionalDataAndSize('o', ObjectSize);
-				check(ShaderObject && ObjectSize);
-
-				TArray<uint8> ObjectCodeArray;
-				ObjectCodeArray.Append(ShaderObject, ObjectSize);
-				SourceCode = ObjectCodeArray;
+				
+				// If ShaderObject and ObjectSize is zero then the code has already been stripped - source code should be the byte code
+				if(ShaderObject && ObjectSize)
+				{
+					TArray<uint8> ObjectCodeArray;
+					ObjectCodeArray.Append(ShaderObject, ObjectSize);
+					SourceCode = ObjectCodeArray;
+				}
 			}
 			
 			// Strip any optional data
@@ -2346,6 +2360,14 @@ uint64 AppendShader_Metal(FName const& Format, FString const& WorkingDir, const 
 				// Copy the non-optional shader bytecode
 				int32 ObjectCodeDataSize = 0;
 				uint8 const* Object = ShaderCode.FindOptionalDataAndSize('o', ObjectCodeDataSize);
+				
+				// 'o' segment missing this is a pre stripped shader
+				if(!Object)
+				{
+					ObjectCodeDataSize = ShaderCode.GetActualShaderCodeSize() - CodeOffset;
+					Object = SourceCodePtr;
+				}
+				
 				TArrayView<const uint8> ObjectCodeArray(Object, ObjectCodeDataSize);
 				
 				// Object code segment
@@ -2588,6 +2610,19 @@ bool FinalizeLibrary_Metal(FName const& Format, FString const& WorkingDir, FStri
 		//Add our preferred archive extension
 		CompressedPath += ".tgz";
 		
+		FString ArchiveCommand = TEXT("/usr/bin/tar");
+		
+		// Iterative support for pre-stripped shaders - unpack existing tgz archive without file overwrite - if it exists in cooked dir we're in iterative mode
+		if(FPaths::FileExists(CompressedPath))
+		{
+			int32 ReturnCode = -1;
+			FString Result;
+			FString Errors;
+			
+			FString ExtractCommandParams = FString::Printf(TEXT("xopfk \"%s\" -C \"%s\""), *CompressedPath, *DebugOutputDir);
+			FPlatformProcess::ExecProcess( *ArchiveCommand, *ExtractCommandParams, &ReturnCode, &Result, &Errors );
+		}
+		
 		//Due to the limitations of the 'tar' command and running through NSTask,
 		//the most reliable way is to feed it a list of local file name (-T) with a working path set (-C)
 		//if we built the list with absolute paths without -C then we'd get the full folder structure in the archive
@@ -2627,13 +2662,12 @@ bool FinalizeLibrary_Metal(FName const& Format, FString const& WorkingDir, FStri
 			}
 		}
 		
-		//Setup the NSTask command and parameter list, Archive (-c) and Compress (-z) to target file (-f) the metal file list (-T) using a local dir in archive (-C).
-		FString ArchiveCommand = TEXT("/usr/bin/tar");
-		FString ArchiveCommandParams = FString::Printf( TEXT("czf \"%s\" -C \"%s\" -T \"%s\""), *CompressedPath, *DebugOutputDir, *FileListPath );
-		
 		int32 ReturnCode = -1;
 		FString Result;
 		FString Errors;
+		
+		//Setup the NSTask command and parameter list, Archive (-c) and Compress (-z) to target file (-f) the metal file list (-T) using a local dir in archive (-C).
+		FString ArchiveCommandParams = FString::Printf( TEXT("czf \"%s\" -C \"%s\" -T \"%s\""), *CompressedPath, *DebugOutputDir, *FileListPath );
 		
 		//Execute command, this should end up with a .tgz file in the same location at the .metallib file
 		if(!FPlatformProcess::ExecProcess( *ArchiveCommand, *ArchiveCommandParams, &ReturnCode, &Result, &Errors ) || ReturnCode != 0)

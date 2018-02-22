@@ -634,7 +634,7 @@ FTextRenderSceneProxy::FTextRenderSceneProxy( UTextRenderComponent* Component) :
 	VerticalAlignment(Component->VerticalAlignment),
 	bAlwaysRenderAsText(Component->bAlwaysRenderAsText)
 {
-	WireframeColor = FLinearColor(1.f, 0.f, 0.f);
+	SetWireframeColor(FLinearColor(1.f, 0.f, 0.f));
 	UMaterialInterface* EffectiveMaterial = nullptr;
 
 	if(Component->TextMaterial)
@@ -1047,7 +1047,7 @@ UTextRenderComponent::UTextRenderComponent(const FObjectInitializer& ObjectIniti
 		HorizontalAlignment = EHTA_Left;
 		VerticalAlignment = EVRTA_TextBottom;
 
-		bGenerateOverlapEvents = false;
+		SetGenerateOverlapEvents(false);
 
 		if(Font)
 		{

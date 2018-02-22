@@ -25,7 +25,7 @@ APaperCharacter::APaperCharacter(const FObjectInitializer& ObjectInitializer)
 		Sprite->SetupAttachment(GetCapsuleComponent());
 		static FName CollisionProfileName(TEXT("CharacterMesh"));
 		Sprite->SetCollisionProfileName(CollisionProfileName);
-		Sprite->bGenerateOverlapEvents = false;
+		Sprite->SetGenerateOverlapEvents(false);
 	}
 }
 

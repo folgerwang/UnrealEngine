@@ -82,6 +82,13 @@ struct CORE_API FWindowsPlatformMisc
 		return false;
 	}
 
+#if !UE_BUILD_SHIPPING
+	static void BeginNamedEventFrame();
+	static void BeginNamedEvent(const struct FColor& Color, const TCHAR* Text);
+	static void BeginNamedEvent(const struct FColor& Color, const ANSICHAR* Text);
+	static void EndNamedEvent();
+#endif
+
 	FORCEINLINE static void MemoryBarrier() { _mm_sfence(); }
 
 	static bool IsRemoteSession();

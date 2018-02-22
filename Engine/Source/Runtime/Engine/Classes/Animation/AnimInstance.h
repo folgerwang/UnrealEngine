@@ -909,6 +909,8 @@ public:
 
 	/** Warn if AnimNodes are not using fast path during AnimBP compilation. */
 	virtual bool PCV_ShouldWarnAboutNodesNotUsingFastPath() const { return false; }
+	virtual bool PCV_ShouldNotifyAboutNodesNotUsingFastPath() const { return false; }
+
 #endif // WITH_EDITORONLY_DATA
 
 	virtual void OnUROSkipTickAnimation() {}
@@ -1018,9 +1020,6 @@ private:
 
 	/** Material parameters that we had been changing and now need to clear */
 	TArray<FName> MaterialParamatersToClear;
-
-	//This frames marker sync data
-	FMarkerTickContext MarkerTickContext;
 
 public: 
 	/** Update all internal curves from Blended Curve */

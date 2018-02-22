@@ -27,6 +27,9 @@
 #include "Components/BrushComponent.h"
 #include "Engine/CoreSettings.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "SceneInterface.h"
+#include "Engine/NetDriver.h"
+#include "Engine/PackageMapClient.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogLevelStreaming, Log, All);
 
@@ -116,7 +119,7 @@ ULevelStreaming* FStreamLevelAction::FindAndCacheLevelStreamingObject( const FNa
 			SearchPackageName = TEXT("/") + SearchPackageName;
 		}
 
-		for (ULevelStreaming* LevelStreaming : InWorld->StreamingLevels)
+		for (ULevelStreaming* LevelStreaming : InWorld->GetStreamingLevels())
 		{
 			// We check only suffix of package name, to handle situations when packages were saved for play into a temporary folder
 			// Like Saved/Autosaves/PackageName
@@ -165,45 +168,47 @@ FString FStreamLevelAction::MakeSafeLevelName( const FName& InLevelName, UWorld*
 */
 void FStreamLevelAction::ActivateLevel( ULevelStreaming* LevelStreamingObject )
 {	
-	if( LevelStreamingObject != NULL )
+	if (LevelStreamingObject)
 	{
 		// Loading.
 		if( bLoading )
 		{
 			UE_LOG(LogStreaming, Log, TEXT("Streaming in level %s (%s)..."),*LevelStreamingObject->GetName(),*LevelStreamingObject->GetWorldAssetPackageName());
-			LevelStreamingObject->bShouldBeLoaded		= true;
-			LevelStreamingObject->bShouldBeVisible		|= bMakeVisibleAfterLoad;
+			LevelStreamingObject->SetShouldBeLoaded(true);
+			LevelStreamingObject->SetShouldBeVisible(LevelStreamingObject->GetShouldBeVisibleFlag()	|| bMakeVisibleAfterLoad);
 			LevelStreamingObject->bShouldBlockOnLoad	= bShouldBlockOnLoad;
 		}
 		// Unloading.
 		else 
 		{
 			UE_LOG(LogStreaming, Log, TEXT("Streaming out level %s (%s)..."),*LevelStreamingObject->GetName(),*LevelStreamingObject->GetWorldAssetPackageName());
-			LevelStreamingObject->bShouldBeLoaded		= false;
-			LevelStreamingObject->bShouldBeVisible		= false;
+			LevelStreamingObject->SetShouldBeLoaded(false);
+			LevelStreamingObject->SetShouldBeVisible(false);
 		}
 
-		UWorld* LevelWorld = CastChecked<UWorld>(LevelStreamingObject->GetOuter());
 		// If we have a valid world
-		if(LevelWorld)
+		if (UWorld* LevelWorld = LevelStreamingObject->GetWorld())
 		{
 			// Notify players of the change
 			for( FConstPlayerControllerIterator Iterator = LevelWorld->GetPlayerControllerIterator(); Iterator; ++Iterator )
 			{
 				APlayerController* PlayerController = Iterator->Get();
 
+				const bool bShouldBeLoaded = LevelStreamingObject->ShouldBeLoaded();
+				const bool bShouldBeVisible = LevelStreamingObject->ShouldBeVisible();
+
 				UE_LOG(LogLevel, Log, TEXT("ActivateLevel %s %i %i %i"), 
 					*LevelStreamingObject->GetWorldAssetPackageName(), 
-					LevelStreamingObject->bShouldBeLoaded, 
-					LevelStreamingObject->bShouldBeVisible, 
+					bShouldBeLoaded, 
+					bShouldBeVisible, 
 					LevelStreamingObject->bShouldBlockOnLoad );
 
 
 
 				PlayerController->LevelStreamingStatusChanged( 
 					LevelStreamingObject, 
-					LevelStreamingObject->bShouldBeLoaded, 
-					LevelStreamingObject->bShouldBeVisible,
+					bShouldBeLoaded, 
+					bShouldBeVisible,
 					LevelStreamingObject->bShouldBlockOnLoad, 
 					INDEX_NONE);
 
@@ -226,24 +231,24 @@ void FStreamLevelAction::ActivateLevel( ULevelStreaming* LevelStreamingObject )
 bool FStreamLevelAction::UpdateLevel( ULevelStreaming* LevelStreamingObject )
 {
 	// No level streaming object associated with this sequence.
-	if( LevelStreamingObject == NULL )
+	if (LevelStreamingObject == nullptr)
 	{
 		return true;
 	}
 	// Level is neither loaded nor should it be so we finished (in the sense that we have a pending GC request) unloading.
-	else if( (LevelStreamingObject->GetLoadedLevel() == NULL) && !LevelStreamingObject->bShouldBeLoaded )
+	else if ((LevelStreamingObject->GetLoadedLevel() == nullptr) && !LevelStreamingObject->ShouldBeLoaded() )
 	{
 		return true;
 	}
 	// Level shouldn't be loaded but is as background level streaming is enabled so we need to fire finished event regardless.
-	else if (LevelStreamingObject->GetLoadedLevel() && !LevelStreamingObject->bShouldBeLoaded && !GUseBackgroundLevelStreaming)
+	else if (LevelStreamingObject->GetLoadedLevel() && !LevelStreamingObject->ShouldBeLoaded() && !GUseBackgroundLevelStreaming)
 	{
 		return true;
 	}
 	// Level is both loaded and wanted so we finished loading.
-	else if(	LevelStreamingObject->GetLoadedLevel() && LevelStreamingObject->bShouldBeLoaded 
-	// Make sure we are visible if we are required to be so.
-	&&	(!bMakeVisibleAfterLoad || LevelStreamingObject->GetLoadedLevel()->bIsVisible) )
+	else if (LevelStreamingObject->GetLoadedLevel() && LevelStreamingObject->ShouldBeLoaded() 
+		// Make sure we are visible if we are required to be so.
+		&& (!bMakeVisibleAfterLoad || LevelStreamingObject->GetLoadedLevel()->bIsVisible) )
 	{
 		return true;
 	}
@@ -256,12 +261,28 @@ bool FStreamLevelAction::UpdateLevel( ULevelStreaming* LevelStreamingObject )
 	ULevelStreaming* implementation.
 -----------------------------------------------------------------------------*/
 
+ULevelStreaming::ULevelStreaming(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+	, bIsStatic(false)
+{
+# if WITH_EDITORONLY_DATA
+	bShouldBeVisibleInEditor = true;
+#endif
+	LevelColor = FLinearColor::White;
+	LevelTransform = FTransform::Identity;
+	MinTimeBetweenVolumeUnloadRequests = 2.0f;
+	bDrawOnLevelStatusMap = true;
+	LevelLODIndex = INDEX_NONE;
+	CurrentState = ECurrentState::Removed;
+}
+
 void ULevelStreaming::PostLoad()
 {
 	Super::PostLoad();
 
 	const bool PIESession = GetWorld()->WorldType == EWorldType::PIE || GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor);
 
+#if WITH_EDITOR
 	// If this streaming level was saved with a short package name, try to convert it to a long package name
 	if ( !PIESession && PackageName_DEPRECATED != NAME_None )
 	{
@@ -278,6 +299,7 @@ void ULevelStreaming::PostLoad()
 			UE_LOG(LogLevelStreaming, Display, TEXT("Invalid streaming level package name (%s). Only long package names are supported. This streaming level may not load or save properly."), *DeprecatedPackageNameString);
 		}
 	}
+#endif
 
 	if ( !PIESession && !WorldAsset.IsNull() )
 	{
@@ -300,10 +322,12 @@ void ULevelStreaming::PostLoad()
 		}
 	}
 
+#if WITH_EDITOR
 	if (GetLinkerUE4Version() < VER_UE4_LEVEL_STREAMING_DRAW_COLOR_TYPE_CHANGE)
 	{
 		LevelColor = DrawColor_DEPRECATED;
 	}
+#endif
 }
 
 UWorld* ULevelStreaming::GetWorld() const
@@ -333,6 +357,333 @@ void ULevelStreaming::Serialize( FArchive& Ar )
 	}
 }
 
+void ULevelStreaming::OnLevelAdded()
+{
+	if (LoadedLevel)
+	{
+		if (LoadedLevel->bIsVisible)
+		{
+			CurrentState = ECurrentState::LoadedVisible;
+		}
+		else
+		{
+			CurrentState = ECurrentState::LoadedNotVisible;
+		}
+	}
+	else
+	{
+		CurrentState = ECurrentState::Unloaded;
+	}
+}
+
+void ULevelStreaming::OnLevelRemoved()
+{
+	// If in one of the transitional states removing the level will be highly problematic
+	ensure(CurrentState != ECurrentState::Loading);
+	ensure(CurrentState != ECurrentState::MakingInvisible);
+	ensure(CurrentState != ECurrentState::MakingVisible);
+
+	CurrentState = ECurrentState::Removed;
+}
+
+bool ULevelStreaming::DetermineTargetState()
+{
+	FScopeCycleCounterUObject ContextScope(this);
+
+	UWorld* World = GetWorld();
+
+#if WITH_EDITOR
+	// Don't bother loading sub-levels in PIE for levels that aren't visible in editor
+	if (World->IsPlayInEditor() && GEngine->OnlyLoadEditorVisibleLevelsInPIE())
+	{
+		if (!GetShouldBeVisibleInEditor())
+		{
+			return false;
+		}
+	}
+#endif
+	
+	bool bContinueToConsider = true;
+
+	switch(CurrentState)
+	{
+	case ECurrentState::MakingVisible:
+		ensure(LoadedLevel);
+		TargetState = ETargetState::LoadedVisible;
+		break;
+
+	case ECurrentState::MakingInvisible:
+		ensure(LoadedLevel);
+		TargetState = ETargetState::LoadedNotVisible;
+		break;
+
+	case ECurrentState::Loading:
+		TargetState = ETargetState::LoadedNotVisible;
+		break;
+
+	case ECurrentState::Unloaded:
+		if (bIsRequestingUnloadAndRemoval)
+		{
+			TargetState = ETargetState::UnloadedAndRemoved;
+		}
+		else if (!GUseBackgroundLevelStreaming && !World->GetShouldForceUnloadStreamingLevels())
+		{
+			TargetState = ETargetState::LoadedNotVisible;
+		}
+		else if (!World->IsGameWorld())
+		{
+			TargetState = ETargetState::LoadedNotVisible;
+		}
+		else if (ShouldBeLoaded())
+		{
+			TargetState = ETargetState::LoadedNotVisible;
+		}
+		else
+		{
+			bContinueToConsider = false;
+		}
+		break;
+
+	case ECurrentState::LoadedNotVisible:
+		if (bIsRequestingUnloadAndRemoval)
+		{
+			TargetState = ETargetState::Unloaded;
+		}
+		else if (World->IsGameWorld() && !ShouldBeLoaded())
+		{
+			TargetState = ETargetState::Unloaded;
+		}
+		else if (ShouldBeVisible())
+		{
+			TargetState = ETargetState::LoadedVisible;
+		}
+		else if (!IsDesiredLevelLoaded())
+		{
+			TargetState = ETargetState::LoadedNotVisible;
+		}
+		else
+		{
+			bContinueToConsider = false;
+		}
+		break;
+
+	case ECurrentState::LoadedVisible:
+		if (bIsRequestingUnloadAndRemoval)
+		{
+			TargetState = ETargetState::LoadedNotVisible;
+		}
+		else if (World->IsGameWorld() && !ShouldBeLoaded())
+		{
+			TargetState = ETargetState::LoadedNotVisible;
+		}
+		else if (!ShouldBeVisible())
+		{
+			TargetState = ETargetState::LoadedNotVisible;
+		}
+		else if (!IsDesiredLevelLoaded())
+		{
+			TargetState = ETargetState::LoadedVisible;
+		}
+		else
+		{
+			bContinueToConsider = false;
+		}
+		break;
+
+	case ECurrentState::FailedToLoad:
+
+		// Anything that affects whether we might try to reload changes current state itself
+		bContinueToConsider = false;
+		break;
+
+	case ECurrentState::Removed:
+
+		// Never continue to consider a removed streaming level
+		bContinueToConsider = false;
+		break;
+
+	default:
+		ensure(false);
+	}
+
+	return bContinueToConsider;
+}
+
+void ULevelStreaming::UpdateStreamingState(bool& bOutUpdateAgain, bool& bOutRedetermineTarget)
+{
+	FScopeCycleCounterUObject ContextScope(this);
+
+	UWorld* World = GetWorld();
+
+	bOutUpdateAgain = false;
+	bOutRedetermineTarget = false;
+
+	auto UpdateStreamingState_RequestLevel = [&]()
+	{
+		if (GLevelStreamingContinuouslyIncrementalGCWhileLevelsPendingPurge)
+		{
+			// Figure out whether there are any levels we haven't collected garbage yet.
+			const bool bAreLevelsPendingPurge = FLevelStreamingGCHelper::GetNumLevelsPendingPurge() > 0;
+
+			// Request a 'soft' GC if there are levels pending purge and there are levels to be loaded. In the case of a blocking
+			// load this is going to guarantee GC firing first thing afterwards and otherwise it is going to sneak in right before
+			// kicking off the async load.
+			if (bAreLevelsPendingPurge)
+			{
+				GEngine->ForceGarbageCollection(false);
+			}
+		}
+
+		bool bBlockOnLoad = (bShouldBlockOnLoad || ShouldBeAlwaysLoaded());
+		const bool bAllowLevelLoadRequests = (bBlockOnLoad || World->AllowLevelLoadRequests());
+		bBlockOnLoad |= (!GUseBackgroundLevelStreaming || !World->IsGameWorld());
+
+		const ECurrentState PreviousState = CurrentState;
+
+		RequestLevel(World, bAllowLevelLoadRequests, (bBlockOnLoad ? ULevelStreaming::AlwaysBlock : ULevelStreaming::BlockAlwaysLoadedLevelsOnly));
+
+		if (CurrentState != ECurrentState::Loading)
+		{
+			bOutRedetermineTarget = true;
+
+			if (CurrentState != PreviousState)
+			{
+				bOutUpdateAgain = true;
+			}
+		}
+
+		if (LoadedLevel == nullptr)
+		{
+			DiscardPendingUnloadLevel(World);
+		}
+	};
+
+	switch(CurrentState)
+	{
+	case ECurrentState::MakingVisible:
+		if (ensure(LoadedLevel))
+		{
+			World->AddToWorld(LoadedLevel, LevelTransform);
+
+			if (LoadedLevel->bIsVisible)
+			{
+				// immediately discard previous level
+				DiscardPendingUnloadLevel(World);
+
+				if (World->Scene)
+				{
+					QUICK_SCOPE_CYCLE_COUNTER(STAT_UpdateLevelStreamingInner_OnLevelAddedToWorld);
+					// Notify the new level has been added after the old has been discarded
+					World->Scene->OnLevelAddedToWorld(LoadedLevel->GetOutermost()->GetFName(), World, LoadedLevel->bIsLightingScenario);
+				}
+
+				CurrentState = ECurrentState::LoadedVisible;
+				bOutUpdateAgain = true;
+				bOutRedetermineTarget = true;
+			}
+		}
+		break;
+
+	case ECurrentState::MakingInvisible:
+		if (ensure(LoadedLevel))
+		{
+			// Hide loaded level, incrementally if necessary
+			World->RemoveFromWorld(LoadedLevel, World->IsGameWorld());
+
+			// Inform the scene once we have finished making the level invisible
+			if (!LoadedLevel->bIsVisible)
+			{
+				if (World->Scene)
+				{
+					World->Scene->OnLevelRemovedFromWorld(World, LoadedLevel->bIsLightingScenario);
+				}
+
+				CurrentState = ECurrentState::LoadedNotVisible;
+				bOutUpdateAgain = true;
+				bOutRedetermineTarget = true;
+			}
+		}
+		break;
+
+	case ECurrentState::Loading:
+		// Just waiting
+		break;
+
+	case ECurrentState::Unloaded:
+		
+		switch (TargetState)
+		{
+			case ETargetState::LoadedNotVisible:
+			{
+				UpdateStreamingState_RequestLevel();
+			}
+			break;
+
+			case ETargetState::UnloadedAndRemoved:
+				World->RemoveStreamingLevel(this);
+				bOutRedetermineTarget = true;
+				break;
+
+			default:
+				ensure(false);
+		}
+		break;
+
+	case ECurrentState::LoadedNotVisible:
+		switch (TargetState)
+		{
+		case ETargetState::LoadedVisible:
+			CurrentState = ECurrentState::MakingVisible;
+			bOutUpdateAgain = true;
+			break;
+
+		case ETargetState::Unloaded:
+			DiscardPendingUnloadLevel(World);
+			ClearLoadedLevel();
+			DiscardPendingUnloadLevel(World);
+
+			bOutUpdateAgain = true;
+			bOutRedetermineTarget = true;
+			break;
+
+		case ETargetState::LoadedNotVisible:
+			UpdateStreamingState_RequestLevel();
+			break;
+
+		default:
+			ensure(false);
+		}
+
+		break;
+
+	case ECurrentState::LoadedVisible:
+		switch (TargetState)
+		{
+		case ETargetState::LoadedNotVisible:
+			CurrentState = ECurrentState::MakingInvisible;
+			bOutUpdateAgain = true;
+			break;
+
+		case ETargetState::LoadedVisible:
+			UpdateStreamingState_RequestLevel();
+			break;
+
+		default:
+			ensure(false);
+		}
+
+		break;
+
+	case ECurrentState::FailedToLoad:
+		bOutRedetermineTarget = true;
+		break;
+
+	default:
+		ensure(false);
+	}
+}
+
+
 FName ULevelStreaming::GetLODPackageName() const
 {
 	if (LODPackageNames.IsValidIndex(LevelLODIndex))
@@ -357,7 +708,7 @@ FName ULevelStreaming::GetLODPackageNameToLoad() const
 	}
 }
 
-void ULevelStreaming::SetLoadedLevel(class ULevel* Level)
+void ULevelStreaming::SetLoadedLevel(ULevel* Level)
 { 
 	// Pending level should be unloaded at this point
 	check(PendingUnloadLevel == nullptr);
@@ -371,15 +722,28 @@ void ULevelStreaming::SetLoadedLevel(class ULevel* Level)
 	// Add this level to the correct collection
 	const ELevelCollectionType CollectionType =	bIsStatic ? ELevelCollectionType::StaticLevels : ELevelCollectionType::DynamicSourceLevels;
 
-	FLevelCollection& LC = GetWorld()->FindOrAddCollectionByType(CollectionType);
+	UWorld* World = GetWorld();
+
+	FLevelCollection& LC = World->FindOrAddCollectionByType(CollectionType);
 	LC.RemoveLevel(PendingUnloadLevel);
 
-	// Remove the loaded level from its current collection, if any.
-	if (LoadedLevel && LoadedLevel->GetCachedLevelCollection())
+	if (LoadedLevel)
 	{
-		LoadedLevel->GetCachedLevelCollection()->RemoveLevel(LoadedLevel);
+		// Remove the loaded level from its current collection, if any.
+		if (LoadedLevel->GetCachedLevelCollection())
+		{
+			LoadedLevel->GetCachedLevelCollection()->RemoveLevel(LoadedLevel);
+		}
+		LC.AddLevel(LoadedLevel);
+
+		CurrentState = (LoadedLevel->bIsVisible ? ECurrentState::LoadedVisible : ECurrentState::LoadedNotVisible);
 	}
-	LC.AddLevel(LoadedLevel);
+	else
+	{
+		CurrentState = ECurrentState::Unloaded;
+	}
+
+	World->UpdateStreamingLevelShouldBeConsidered(this);
 }
 
 void ULevelStreaming::DiscardPendingUnloadLevel(UWorld* PersistentWorld)
@@ -399,20 +763,32 @@ void ULevelStreaming::DiscardPendingUnloadLevel(UWorld* PersistentWorld)
 	}
 }
 
+bool ULevelStreaming::IsDesiredLevelLoaded() const
+{
+	if (LoadedLevel)
+	{
+		const bool bIsGameWorld = GetWorld()->IsGameWorld();
+		const FName DesiredPackageName = bIsGameWorld ? GetLODPackageName() : GetWorldAssetPackageFName();
+		return (CachedLoadedLevelPackageName == DesiredPackageName);
+	}
+
+	return false;
+}
+
 bool ULevelStreaming::RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoadRequests, EReqLevelBlock BlockPolicy)
 {
 	// Quit early in case load request already issued
-	if (bHasLoadRequestPending)
+	if (CurrentState == ECurrentState::Loading)
 	{
 		return true;
 	}
 
 	// Previous attempts have failed, no reason to try again
-	if (bFailedToLoad)
+	if (CurrentState == ECurrentState::FailedToLoad)
 	{
 		return false;
 	}
-	
+
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_ULevelStreaming_RequestLevel);
 	FScopeCycleCounterUObject Context(PersistentWorld);
 
@@ -427,13 +803,13 @@ bool ULevelStreaming::RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoad
 	}
 
 	// Can not load new level now, there is still level pending unload
-	if (PendingUnloadLevel != NULL)
+	if (PendingUnloadLevel)
 	{
 		return false;
 	}
 
 	// Can not load new level now either, we're still processing visibility for this one
-	ULevel* PendingLevelVisOrInvis = (PersistentWorld->CurrentLevelPendingVisibility) ? PersistentWorld->CurrentLevelPendingVisibility : PersistentWorld->CurrentLevelPendingInvisibility;
+	ULevel* PendingLevelVisOrInvis = (PersistentWorld->GetCurrentLevelPendingVisibility() ? PersistentWorld->GetCurrentLevelPendingVisibility() : PersistentWorld->GetCurrentLevelPendingInvisibility());
     if (PendingLevelVisOrInvis && PendingLevelVisOrInvis == LoadedLevel)
     {
 		UE_LOG(LogLevelStreaming, Verbose, TEXT("Delaying load of new level %s, because %s still processing visibility request."), *DesiredPackageName.ToString(), *CachedLoadedLevelPackageName.ToString());
@@ -489,7 +865,7 @@ bool ULevelStreaming::RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoad
 	}
 
 	// Try to find the [to be] loaded package.
-	UPackage* LevelPackage = (UPackage*)StaticFindObjectFast(UPackage::StaticClass(), NULL, DesiredPackageName, 0, 0, RF_NoFlags, EInternalObjectFlags::PendingKill);
+	UPackage* LevelPackage = (UPackage*)StaticFindObjectFast(UPackage::StaticClass(), nullptr, DesiredPackageName, 0, 0, RF_NoFlags, EInternalObjectFlags::PendingKill);
 
 	// Package is already or still loaded.
 	if (LevelPackage)
@@ -555,9 +931,9 @@ bool ULevelStreaming::RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoad
 		const FName DesiredPackageNameToLoad = bIsGameWorld ? GetLODPackageNameToLoad() : PackageNameToLoad;
 		const FString PackageNameToLoadFrom = DesiredPackageNameToLoad != NAME_None ? DesiredPackageNameToLoad.ToString() : DesiredPackageName.ToString();
 
-		if (FPackageName::DoesPackageExist(PackageNameToLoadFrom, NULL, NULL))
+		if (FPackageName::DoesPackageExist(PackageNameToLoadFrom))
 		{
-			bHasLoadRequestPending = true;
+			CurrentState = ECurrentState::Loading;
 			
 			ULevel::StreamedLevelsOwningWorld.Add(DesiredPackageName, PersistentWorld);
 			UWorld::WorldTypePreLoadMap.FindOrAdd(DesiredPackageName) = PersistentWorld->WorldType;
@@ -582,7 +958,7 @@ bool ULevelStreaming::RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoad
 		else
 		{
 			UE_LOG(LogStreaming, Error,TEXT("Couldn't find file for package %s."), *PackageNameToLoadFrom);
-			bFailedToLoad = true;
+			CurrentState = ECurrentState::FailedToLoad;
 			return false;
 		}
 	}
@@ -592,7 +968,7 @@ bool ULevelStreaming::RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoad
 
 void ULevelStreaming::AsyncLevelLoadComplete(const FName& InPackageName, UPackage* InLoadedPackage, EAsyncLoadingResult::Type Result)
 {
-	bHasLoadRequestPending = false;
+	CurrentState = ECurrentState::LoadedNotVisible;
 
 	if (InLoadedPackage)
 	{
@@ -609,7 +985,7 @@ void ULevelStreaming::AsyncLevelLoadComplete(const FName& InPackageName, UPackag
 				UWorld* LevelOwningWorld = Level->OwningWorld;
 				if (LevelOwningWorld)
 				{
-					ULevel* PendingLevelVisOrInvis = (LevelOwningWorld->CurrentLevelPendingVisibility) ? LevelOwningWorld->CurrentLevelPendingVisibility : LevelOwningWorld->CurrentLevelPendingInvisibility;
+					ULevel* PendingLevelVisOrInvis = (LevelOwningWorld->GetCurrentLevelPendingVisibility() ? LevelOwningWorld->GetCurrentLevelPendingVisibility() : LevelOwningWorld->GetCurrentLevelPendingInvisibility());
 					if (PendingLevelVisOrInvis && PendingLevelVisOrInvis == LoadedLevel)
 					{
 						// We can't change current loaded level if it's still processing visibility request
@@ -750,16 +1126,15 @@ void ULevelStreaming::AsyncLevelLoadComplete(const FName& InPackageName, UPackag
 	else if (Result == EAsyncLoadingResult::Canceled)
 	{
 		// Cancel level streaming
-		bHasLoadRequestPending = false;
-		bShouldBeLoaded = false;
+		CurrentState = ECurrentState::Unloaded;
+		SetShouldBeLoaded(false);
 	}
 	else
 	{
 		UE_LOG(LogLevelStreaming, Warning, TEXT("Failed to load package '%s'"), *InPackageName.ToString() );
 		
-		bFailedToLoad = true;
- 		bHasLoadRequestPending = false;
- 		bShouldBeLoaded = false;
+		CurrentState = ECurrentState::FailedToLoad;
+ 		SetShouldBeLoaded(false);
 	}
 
 	// Clean up the world type list and owning world list now that PostLoad has occurred
@@ -795,7 +1170,38 @@ bool ULevelStreaming::IsStreamingStatePending() const
 	return false;
 }
 
-ULevelStreaming* ULevelStreaming::CreateInstance(FString InstanceUniqueName)
+void ULevelStreaming::SetIsRequestingUnloadAndRemoval(const bool bInIsRequestingUnloadAndRemoval)
+{
+	if (bInIsRequestingUnloadAndRemoval != bIsRequestingUnloadAndRemoval)
+	{
+		bIsRequestingUnloadAndRemoval = bInIsRequestingUnloadAndRemoval;
+		// Only need to do this if setting to true because if we weren't already being considered and in a transitional state
+		// we would have already been removed so it would be irrelevant
+		if (bInIsRequestingUnloadAndRemoval)
+		{
+			if (UWorld* World = GetWorld())
+			{
+				World->UpdateStreamingLevelShouldBeConsidered(this);
+			}
+		}
+	}
+}
+
+#if WITH_EDITOR
+void ULevelStreaming::SetShouldBeVisibleInEditor(const bool bInShouldBeVisibleInEditor)
+{
+	if (bInShouldBeVisibleInEditor != bShouldBeVisibleInEditor)
+	{
+		bShouldBeVisibleInEditor = bInShouldBeVisibleInEditor;
+		if (UWorld* World = GetWorld())
+		{
+			World->UpdateStreamingLevelShouldBeConsidered(this);
+		}
+	}
+}
+#endif
+
+ULevelStreaming* ULevelStreaming::CreateInstance(const FString& InstanceUniqueName)
 {
 	ULevelStreaming* StreamingLevelInstance = nullptr;
 	
@@ -808,7 +1214,7 @@ ULevelStreaming* ULevelStreaming::CreateInstance(FString InstanceUniqueName)
 		FName	InstanceUniquePackageName = FName(*(InstancePackagePath + InstanceShortPackageName));
 
 		// check if instance name is unique among existing streaming level objects
-		const bool bUniqueName = (InWorld->StreamingLevels.IndexOfByPredicate(ULevelStreaming::FPackageNameMatcher(InstanceUniquePackageName)) == INDEX_NONE);
+		const bool bUniqueName = (InWorld->GetStreamingLevels().IndexOfByPredicate(ULevelStreaming::FPackageNameMatcher(InstanceUniquePackageName)) == INDEX_NONE);
 				
 		if (bUniqueName)
 		{
@@ -817,12 +1223,12 @@ ULevelStreaming* ULevelStreaming::CreateInstance(FString InstanceUniqueName)
 			StreamingLevelInstance->PackageNameToLoad = (PackageNameToLoad == NAME_None ? GetWorldAssetPackageFName() : PackageNameToLoad);
 			// under a provided unique name
 			StreamingLevelInstance->SetWorldAssetByPackageName(InstanceUniquePackageName);
-			StreamingLevelInstance->bShouldBeLoaded = false;
-			StreamingLevelInstance->bShouldBeVisible = false;
+			StreamingLevelInstance->SetShouldBeLoaded(false);
+			StreamingLevelInstance->SetShouldBeVisible(false);
 			StreamingLevelInstance->LevelTransform = LevelTransform;
 
 			// add a new instance to streaming level list
-			InWorld->StreamingLevels.Add(StreamingLevelInstance);
+			InWorld->AddStreamingLevel(StreamingLevelInstance);
 		}
 		else
 		{
@@ -835,7 +1241,7 @@ ULevelStreaming* ULevelStreaming::CreateInstance(FString InstanceUniqueName)
 
 void ULevelStreaming::BroadcastLevelLoadedStatus(UWorld* PersistentWorld, FName LevelPackageName, bool bLoaded)
 {
-	for (ULevelStreaming* StreamingLevel : PersistentWorld->StreamingLevels)
+	for (ULevelStreaming* StreamingLevel : PersistentWorld->GetStreamingLevels())
 	{
 		if (StreamingLevel->GetWorldAssetPackageFName() == LevelPackageName)
 		{
@@ -853,7 +1259,7 @@ void ULevelStreaming::BroadcastLevelLoadedStatus(UWorld* PersistentWorld, FName 
 	
 void ULevelStreaming::BroadcastLevelVisibleStatus(UWorld* PersistentWorld, FName LevelPackageName, bool bVisible)
 {
-	for (ULevelStreaming* StreamingLevel : PersistentWorld->StreamingLevels)
+	for (ULevelStreaming* StreamingLevel : PersistentWorld->GetStreamingLevels())
 	{
 		if (StreamingLevel->GetWorldAssetPackageFName() == LevelPackageName)
 		{
@@ -871,8 +1277,21 @@ void ULevelStreaming::BroadcastLevelVisibleStatus(UWorld* PersistentWorld, FName
 
 void ULevelStreaming::SetWorldAsset(const TSoftObjectPtr<UWorld>& NewWorldAsset)
 {
-	WorldAsset = NewWorldAsset;
-	bHasCachedWorldAssetPackageFName = false;
+	if (WorldAsset != NewWorldAsset)
+	{
+		WorldAsset = NewWorldAsset;
+		bHasCachedWorldAssetPackageFName = false;
+
+		if (CurrentState == ECurrentState::FailedToLoad)
+		{
+			CurrentState = ECurrentState::Unloaded;
+		}
+
+		if (UWorld* World = GetWorld())
+		{
+			World->UpdateStreamingLevelShouldBeConsidered(this);
+		}
+	}
 }
 
 FString ULevelStreaming::GetWorldAssetPackageName() const
@@ -884,9 +1303,8 @@ FName ULevelStreaming::GetWorldAssetPackageFName() const
 {
 	if (!bHasCachedWorldAssetPackageFName)
 	{
-		ULevelStreaming* MutableThis = const_cast<ULevelStreaming*>(this);
-		MutableThis->CachedWorldAssetPackageFName = FName(*FPackageName::ObjectPathToPackageName(WorldAsset.ToString()));
-		MutableThis->bHasCachedWorldAssetPackageFName = true;
+		CachedWorldAssetPackageFName = FName(*FPackageName::ObjectPathToPackageName(WorldAsset.ToString()));
+		bHasCachedWorldAssetPackageFName = true;
 	}
 	return CachedWorldAssetPackageFName;
 }
@@ -896,7 +1314,7 @@ void ULevelStreaming::SetWorldAssetByPackageName(FName InPackageName)
 	const FString TargetWorldPackageName = InPackageName.ToString();
 	const FString TargetWorldObjectName = FPackageName::GetLongPackageAssetName(TargetWorldPackageName);
 	TSoftObjectPtr<UWorld> NewWorld;
-	NewWorld = TargetWorldPackageName + TEXT(".") + TargetWorldObjectName;
+	NewWorld = FString::Printf(TEXT("%s.%s"), *TargetWorldPackageName, *TargetWorldObjectName);
 	SetWorldAsset(NewWorld);
 }
 
@@ -940,6 +1358,41 @@ void ULevelStreaming::RenameForPIE(int32 PIEInstanceID)
 	}
 }
 
+void ULevelStreaming::SetLevelLODIndex(const int32 LODIndex)
+{
+	if (LODIndex != LevelLODIndex)
+	{
+		LevelLODIndex = LODIndex;
+
+		if (CurrentState == ECurrentState::FailedToLoad)
+		{
+			CurrentState = ECurrentState::Unloaded;
+		}
+
+		if (UWorld* World = GetWorld())
+		{
+			World->UpdateStreamingLevelShouldBeConsidered(this);
+		}
+	}
+}
+
+void ULevelStreaming::SetShouldBeVisible(const bool bInShouldBeVisible)
+{
+	if (bInShouldBeVisible != bShouldBeVisible)
+	{
+		bShouldBeVisible = bInShouldBeVisible;
+		if (UWorld* World = GetWorld())
+		{
+			World->UpdateStreamingLevelShouldBeConsidered(this);
+		}
+	}
+}
+
+void ULevelStreaming::SetShouldBeLoaded(const bool bInShouldBeLoaded)
+{
+	UE_LOG(LogStreaming, Log, TEXT("Calling SetShouldBeLoaded on an object (%s) for which it has no effect."), *GetFullName());
+}
+
 bool ULevelStreaming::ShouldBeLoaded() const
 {
 	return true;
@@ -952,11 +1405,12 @@ bool ULevelStreaming::ShouldBeVisible() const
 		// Game and play in editor viewport codepath.
 		return bShouldBeVisible && ShouldBeLoaded();
 	}
-	else
-	{
-		// Editor viewport codepath.
-		return bShouldBeVisibleInEditor;
-	}
+#if WITH_EDITORONLY_DATA
+	// Editor viewport codepath.
+	return bShouldBeVisibleInEditor;
+#else
+	return false;
+#endif
 }
 
 FBox ULevelStreaming::GetStreamingVolumeBounds()
@@ -1036,16 +1490,13 @@ void ULevelStreaming::RemoveStreamingVolumeDuplicates()
 
 #endif // WITH_EDITOR
 
-ULevelStreaming::ULevelStreaming(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-	, bIsStatic(false)
+ALevelScriptActor* ULevelStreaming::GetLevelScriptActor()
 {
-	bShouldBeVisibleInEditor = true;
-	LevelColor = FLinearColor::White;
-	LevelTransform = FTransform::Identity;
-	MinTimeBetweenVolumeUnloadRequests = 2.0f;
-	bDrawOnLevelStatusMap = true;
-	LevelLODIndex = INDEX_NONE;
+	if (LoadedLevel)
+	{
+		return LoadedLevel->GetLevelScriptActor();
+	}
+	return nullptr;
 }
 
 #if WITH_EDITOR
@@ -1058,10 +1509,7 @@ void ULevelStreaming::PostEditUndo()
 {
 	FLevelUtils::ApplyEditorTransform(this, false);
 }
-#endif // WITH_EDITOR
 
-
-#if WITH_EDITOR
 const FName& ULevelStreaming::GetFolderPath() const
 {
 	return FolderPath;
@@ -1104,22 +1552,20 @@ void ULevelStreamingKismet::PostLoad()
 	if ( GetWorld()->IsGameWorld() )
 	{
 		bShouldBeLoaded = bInitiallyLoaded;
-		bShouldBeVisible = bInitiallyVisible;
+		SetShouldBeVisible(bInitiallyVisible);
 	}
 }
 
-bool ULevelStreamingKismet::ShouldBeLoaded() const
+void ULevelStreamingKismet::SetShouldBeLoaded(const bool bInShouldBeLoaded)
 {
-	return bShouldBeLoaded;
-}
-
-ALevelScriptActor* ULevelStreaming::GetLevelScriptActor()
-{
-	if (LoadedLevel)
+	if (bInShouldBeLoaded != bShouldBeLoaded)
 	{
-		return LoadedLevel->GetLevelScriptActor();
+		bShouldBeLoaded = bInShouldBeLoaded;
+		if (UWorld* World = GetWorld())
+		{
+			World->UpdateStreamingLevelShouldBeConsidered(this);
+		}
 	}
-	return nullptr;
 }
 
 ULevelStreamingKismet* ULevelStreamingKismet::LoadLevelInstance(UObject* WorldContextObject, const FString LevelName, const FVector Location, const FRotator Rotation, bool& bOutSuccess)
@@ -1172,8 +1618,8 @@ ULevelStreamingKismet* ULevelStreamingKismet::LoadLevelInstance_Internal(UWorld*
 	ULevelStreamingKismet* StreamingLevel = NewObject<ULevelStreamingKismet>(World, ULevelStreamingKismet::StaticClass(), NAME_None, RF_Transient, NULL);
     StreamingLevel->SetWorldAssetByPackageName(FName(*UniqueLevelPackageName));
     StreamingLevel->LevelColor = FColor::MakeRandomColor();
-    StreamingLevel->bShouldBeLoaded = true;
-    StreamingLevel->bShouldBeVisible = true;
+    StreamingLevel->SetShouldBeLoaded(true);
+    StreamingLevel->SetShouldBeVisible(true);
     StreamingLevel->bShouldBlockOnLoad = false;
     StreamingLevel->bInitiallyLoaded = true;
     StreamingLevel->bInitiallyVisible = true;
@@ -1183,7 +1629,7 @@ ULevelStreamingKismet* ULevelStreamingKismet::LoadLevelInstance_Internal(UWorld*
     StreamingLevel->PackageNameToLoad = FName(*LongPackageName);
           
     // Add the new level to world.
-    World->StreamingLevels.Add(StreamingLevel);
+    World->AddStreamingLevel(StreamingLevel);
       
 	bOutSuccess = true;
     return StreamingLevel;
@@ -1196,18 +1642,12 @@ ULevelStreamingKismet* ULevelStreamingKismet::LoadLevelInstance_Internal(UWorld*
 ULevelStreamingAlwaysLoaded::ULevelStreamingAlwaysLoaded(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	bShouldBeVisible = true;
+	SetShouldBeVisible(true);
 }
 
 void ULevelStreamingAlwaysLoaded::GetPrestreamPackages(TArray<UObject*>& OutPrestream)
 {
 	OutPrestream.Add(GetLoadedLevel()); // Nulls will be ignored later
-}
-
-
-bool ULevelStreamingAlwaysLoaded::ShouldBeLoaded() const
-{
-	return true;
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -34,13 +34,18 @@ uint32 UUserWidget::bInitializingFromWidgetTree = 0;
 
 static FGeometry NullGeometry;
 static FSlateRect NullRect;
-static FSlateWindowElementList NullElementList;
 static FWidgetStyle NullStyle;
+
+FSlateWindowElementList& GetNullElementList()
+{
+	static FSlateWindowElementList NullElementList;
+	return NullElementList;
+}
 
 FPaintContext::FPaintContext()
 	: AllottedGeometry(NullGeometry)
 	, MyCullingRect(NullRect)
-	, OutDrawElements(NullElementList)
+	, OutDrawElements(GetNullElementList())
 	, LayerId(0)
 	, WidgetStyle(NullStyle)
 	, bParentEnabled(true)
@@ -193,6 +198,8 @@ bool UUserWidget::VerifyTemplateIntegrity(TArray<FText>& OutErrors)
 {
 	bool bIsTemplateSafe = true;
 
+	//TODO This method is terrible, need to serialize the object checking that way!
+
 	TArray<UObject*> ClonableSubObjectsSet;
 	ClonableSubObjectsSet.Add(this);
 	GetObjectsWithOuter(this, ClonableSubObjectsSet, true, RF_NoFlags, EInternalObjectFlags::PendingKill);
@@ -226,7 +233,7 @@ bool UUserWidget::VerifyTemplateIntegrity(TArray<FText>& OutErrors)
 						continue;
 					}
 
-					OutErrors.Add(FText::Format(LOCTEXT("TemplatingFailed", "Fast CreateWidget Warning!  This class can not be created using the fast path, because the property {0} on {1} references {2}.  Please add the 'Instanced' flag to this property."),
+					OutErrors.Add(FText::Format(LOCTEXT("TemplatingFailed", "This class can not be created using the fast path, because the property {0} on {1} references {2}.  You probably are missing 'Instanced' or the 'Transient' flag on this property in C++."),
 						FText::FromString(ObjProp->GetName()), FText::FromString(ObjProp->GetOwnerClass()->GetName()), FText::FromString(ExternalObject->GetName())));
 
 					bIsTemplateSafe = false;
@@ -238,17 +245,21 @@ bool UUserWidget::VerifyTemplateIntegrity(TArray<FText>& OutErrors)
 	// See if a matching name appeared
 	if ( UWidgetBlueprintGeneratedClass* TemplateClass = GetWidgetTreeOwningClass() )
 	{
-		TemplateClass->WidgetTree->ForEachWidgetAndDescendants([&OutErrors, &QuickLookup, &bIsTemplateSafe, TemplateClass] (UWidget* Widget) {
-			
-			if ( !QuickLookup.Contains(Widget->GetFName()) )
-			{
-				OutErrors.Add(FText::Format(LOCTEXT("MissingOriginWidgetInTemplate", "Widget '{0}' Missing From Template For {1}."),
-					FText::FromString(Widget->GetPathName(TemplateClass->WidgetTree)), FText::FromString(TemplateClass->GetName())));
 
-				bIsTemplateSafe = false;
-			}
+		if (TemplateClass->WidgetTree != nullptr)
+		{
+			TemplateClass->WidgetTree->ForEachWidgetAndDescendants([&OutErrors, &QuickLookup, &bIsTemplateSafe, TemplateClass] (UWidget* Widget) {
 
-		});
+				if ( !QuickLookup.Contains(Widget->GetFName()) )
+				{
+					OutErrors.Add(FText::Format(LOCTEXT("MissingOriginWidgetInTemplate", "Widget '{0}' Missing From Template For {1}."),
+						FText::FromString(Widget->GetPathName(TemplateClass->WidgetTree)), FText::FromString(TemplateClass->GetName())));
+
+					bIsTemplateSafe = false;
+				}
+
+			});
+		}
 	}
 
 	return VerifyTemplateIntegrity(this, OutErrors) && bIsTemplateSafe;
@@ -409,9 +420,14 @@ void UUserWidget::DuplicateAndInitializeFromWidgetTree(UWidgetTree* InWidgetTree
 	{
 		FObjectDuplicationParameters Parameters(InWidgetTree, this);
 
-		WidgetTree = Cast<UWidgetTree>(StaticDuplicateObjectEx(Parameters));
+		// Set to be transient and strip public flags
+		Parameters.FlagMask = Parameters.FlagMask & ~( RF_Public | RF_DefaultSubObject );
+		Parameters.DuplicateMode = EDuplicateMode::Normal;
 
-		// Set widget tree to be transient
+		// After cloning, only apply transient and duplicate transient to the widget tree, otherwise
+		// when we migrate objects editinlinenew properties they'll inherit transient/duptransient and fail
+		// to be saved.
+		WidgetTree = Cast<UWidgetTree>(StaticDuplicateObjectEx(Parameters));
 		WidgetTree->SetFlags(RF_Transient | RF_DuplicateTransient);
 	}
 }
@@ -1310,10 +1326,12 @@ void UUserWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 
 void UUserWidget::TickActionsAndAnimation(const FGeometry& MyGeometry, float InDeltaTime)
 {
+#if WITH_EDITOR
 	if ( IsDesignTime() )
 	{
 		return;
 	}
+#endif
 
 	// Update active movie scenes, none will be removed here, but new
 	// ones can be added during the tick, if a player ends and triggers
@@ -1341,7 +1359,7 @@ void UUserWidget::TickActionsAndAnimation(const FGeometry& MyGeometry, float InD
 	}
 
 	UWorld* World = GetWorld();
-	if ( World )
+	if (World)
 	{
 		// Update any latent actions we have for this actor
 		World->GetLatentActionManager().ProcessLatentActions(this, InDeltaTime);
@@ -1388,7 +1406,7 @@ void UUserWidget::StopListeningForInputAction( FName ActionName, TEnumAsByte< EI
 		for ( int32 ExistingIndex = InputComponent->GetNumActionBindings() - 1; ExistingIndex >= 0; --ExistingIndex )
 		{
 			const FInputActionBinding& ExistingBind = InputComponent->GetActionBinding( ExistingIndex );
-			if ( ExistingBind.ActionName == ActionName && ExistingBind.KeyEvent == EventType )
+			if ( ExistingBind.GetActionName() == ActionName && ExistingBind.KeyEvent == EventType )
 			{
 				InputComponent->RemoveActionBinding( ExistingIndex );
 			}
@@ -1421,7 +1439,7 @@ bool UUserWidget::IsListeningForInputAction( FName ActionName ) const
 		for ( int32 ExistingIndex = InputComponent->GetNumActionBindings() - 1; ExistingIndex >= 0; --ExistingIndex )
 		{
 			const FInputActionBinding& ExistingBind = InputComponent->GetActionBinding( ExistingIndex );
-			if ( ExistingBind.ActionName == ActionName )
+			if ( ExistingBind.GetActionName() == ActionName )
 			{
 				bResult = true;
 				break;
@@ -1495,12 +1513,17 @@ void UUserWidget::InitializeInputComponent()
 	}
 }
 
-void UUserWidget::NativePaint( FPaintContext& InContext ) const
+int32 UUserWidget::NativePaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
 	if ( bCanEverPaint )
 	{
-		OnPaint( InContext );
+		FPaintContext Context(AllottedGeometry, MyCullingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
+		OnPaint( Context );
+
+		return FMath::Max(LayerId, Context.MaxLayer);
 	}
+
+	return LayerId;
 }
 
 bool UUserWidget::NativeIsInteractable() const
@@ -1698,37 +1721,37 @@ void UUserWidget::NativeOnMouseCaptureLost()
 
 bool UUserWidget::ShouldSerializeWidgetTree(const ITargetPlatform* TargetPlatform) const
 {
-	if ( UWidgetBlueprintGeneratedClass* BGClass = Cast<UWidgetBlueprintGeneratedClass>(GetClass()) )
-	{
-		// Non-templateable user widgets can not preserve their hierarchy.
-		if ( !BGClass->HasTemplate() )
-		{
-			return false;
-		}
-	}
-	else
-	{
-		return false;
-	}
-
-	// Don't store it on the CDO.
-	if ( HasAllFlags(RF_ClassDefaultObject) )
+	// Never save the widget tree of something on the CDO.
+	if (HasAllFlags(RF_ClassDefaultObject))
 	{
 		return false;
 	}
 
 	// We preserve widget trees on Archetypes (that are not the CDO).
-	if ( HasAllFlags(RF_ArchetypeObject) )
+	if (HasAllFlags(RF_ArchetypeObject))
 	{
-		return true;
+		if (UWidgetBlueprintGeneratedClass* BPWidgetClass = Cast<UWidgetBlueprintGeneratedClass>(GetClass()))
+		{
+			if (BPWidgetClass->HasTemplate())
+			{
+				return true;
+			}
+		}
 	}
 
-	// We also preserve widget trees if you're a sub-object of an archetype.
-	for ( const UObjectBaseUtility* It = this; It; It = It->GetOuter() )
+	// We preserve widget trees if you're a sub-object of an archetype that is going to serialize it's
+	// widget tree.
+	for (const UObject* It = this; It; It = It->GetOuter())
 	{
-		if ( It->HasAllFlags(RF_ArchetypeObject) )
+		if (It->HasAllFlags(RF_ArchetypeObject))
 		{
-			return true;
+			if (const UUserWidget* OuterWidgetArchetype = Cast<UUserWidget>(It))
+			{
+				if (OuterWidgetArchetype->ShouldSerializeWidgetTree(TargetPlatform))
+				{
+					return true;
+				}
+			}
 		}
 	}
 
@@ -1737,6 +1760,7 @@ bool UUserWidget::ShouldSerializeWidgetTree(const ITargetPlatform* TargetPlatfor
 
 bool UUserWidget::IsAsset() const
 {
+	// This stops widget archetypes from showing up in the content browser
 	return false;
 }
 
@@ -1758,7 +1782,10 @@ void UUserWidget::PreSave(const class ITargetPlatform* TargetPlatform)
 	else
 	{
 		bCookedWidgetTree = false;
-		ensure(ShouldSerializeWidgetTree(TargetPlatform) == false);
+		if (ShouldSerializeWidgetTree(TargetPlatform))
+		{
+			UE_LOG(LogUMG, Error, TEXT("PreSave: Null Widget Tree - %s"), *GetFullName());
+		}
 	}
 
 	// Remove bindings that are no longer contained in the class.
@@ -1868,6 +1895,14 @@ UUserWidget* UUserWidget::CreateWidgetOfClass(UClass* UserWidgetClass, UGameInst
 	if ( !CreateWidgetHelpers::ValidateUserWidgetClass(UserWidgetClass) )
 	{
 		return nullptr;
+	}
+#endif
+
+#if !UE_BUILD_SHIPPING
+	// In non-shipping builds, ensure that users are allowed to dynamic construct this widget.
+	if (UWidgetBlueprintGeneratedClass* BPClass = Cast<UWidgetBlueprintGeneratedClass>(UserWidgetClass))
+	{
+		ensure(BPClass->bAllowDynamicCreation);
 	}
 #endif
 

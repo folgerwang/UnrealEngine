@@ -16,9 +16,10 @@
 #include "Stats/SlateStats.h"
 #include "Input/HittestGrid.h"
 
-DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Total Widgets"), STAT_SlateTotalWidgets, STATGROUP_Slate);
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Total Created Widgets"), STAT_SlateTotalWidgets, STATGROUP_Slate);
 DECLARE_DWORD_COUNTER_STAT(TEXT("Num Painted Widgets"), STAT_SlateNumPaintedWidgets, STATGROUP_Slate);
 DECLARE_DWORD_COUNTER_STAT(TEXT("Num Ticked Widgets"), STAT_SlateNumTickedWidgets, STATGROUP_Slate);
+DECLARE_CYCLE_STAT(TEXT("TickWidgets"), STAT_SlateTickWidgets, STATGROUP_Slate);
 
 SLATE_DECLARE_CYCLE_COUNTER(GSlateWidgetTick, "SWidget Tick");
 SLATE_DECLARE_CYCLE_COUNTER(GSlateOnPaint, "OnPaint");
@@ -101,25 +102,28 @@ SWidget::SWidget()
 	, bCanSupportFocus(true)
 	, bCanHaveChildren(true)
 	, bClippingProxy(false)
+#if SLATE_DYNAMIC_PREPASS
+	, bNeedsPrepass(true)
+	, bUpdatingDesiredSize(false)
+#endif
+	, bIsWindow(false)
 	, bToolTipForceFieldEnabled(false)
 	, bForceVolatile(false)
 	, bCachedVolatile(false)
 	, bInheritedVolatility(false)
 	, Clipping(EWidgetClipping::Inherit)
 	, CullingBoundsExtension()
+#if SLATE_DYNAMIC_PREPASS
+	, PrepassLayoutScaleMultiplier(1.0f)
+	, DesiredSize()
+#else
 	, DesiredSize(FVector2D::ZeroVector)
-#if SLATE_DEFERRED_DESIRED_SIZE
-	, DesiredSizeScaleMultiplier(0.0f)
 #endif
 	, EnabledState(true)
 	, Visibility(EVisibility::Visible)
 	, RenderOpacity(1.0f)
 	, RenderTransform()
 	, RenderTransformPivot(FVector2D::ZeroVector)
-#if SLATE_DEFERRED_DESIRED_SIZE
-	, bCachedDesiredSize(false)
-	, bUpdatingDesiredSize(false)
-#endif
 	, Cursor( TOptional<EMouseCursor::Type>() )
 	, ToolTip()
 	, LayoutCache(nullptr)	
@@ -481,19 +485,22 @@ void SWidget::TickWidgetsRecursively( const FGeometry& AllottedGeometry, const d
 
 void SWidget::SlatePrepass()
 {
+#if !SLATE_DYNAMIC_PREPASS
 	SlatePrepass( FSlateApplicationBase::Get().GetApplicationScale() );
+#endif
 }
 
-void SWidget::SlatePrepass(float LayoutScaleMultiplier)
+void SWidget::SlatePrepass(float InLayoutScaleMultiplier)
 {
-	//SLATE_CYCLE_COUNTER_SCOPE_CUSTOM_DETAILED(SLATE_STATS_DETAIL_LEVEL_MED, GSlatePrepass, GetType());
+#if SLATE_DYNAMIC_PREPASS
+	if (!bNeedsPrepass && PrepassLayoutScaleMultiplier == InLayoutScaleMultiplier)
+	{
+		return;
+	}
 
-	// TODO Figure out a better way than to just reset the pointer.  This causes problems when we prepass
-	// volatile widgets, who still need to know about their invalidation panel in case they vanish themselves.
-
-	// Reset the layout cache object each pre-pass to ensure we never access a stale layout cache object 
-	// as this widget could have been moved in and out of a panel that was invalidated between frames.
-	//LayoutCache = nullptr;
+	PrepassLayoutScaleMultiplier = InLayoutScaleMultiplier;
+	bNeedsPrepass = false;
+#endif
 
 	if ( bCanHaveChildren )
 	{
@@ -505,28 +512,121 @@ void SWidget::SlatePrepass(float LayoutScaleMultiplier)
 		{
 			const TSharedRef<SWidget>& Child = MyChildren->GetChildAt(ChildIndex);
 
+#if !SLATE_DYNAMIC_PREPASS
 			if ( Child->Visibility.Get() != EVisibility::Collapsed )
+#endif
 			{
-				const float ChildLayoutScaleMultiplier = GetRelativeLayoutScale(MyChildren->GetSlotAt(ChildIndex), LayoutScaleMultiplier);
+				const float ChildLayoutScaleMultiplier = GetRelativeLayoutScale(MyChildren->GetSlotAt(ChildIndex), InLayoutScaleMultiplier);
 				// Recur: Descend down the widget tree.
-				Child->SlatePrepass(LayoutScaleMultiplier * ChildLayoutScaleMultiplier);
+				Child->SlatePrepass(InLayoutScaleMultiplier * ChildLayoutScaleMultiplier);
 			}
 		}
 	}
 
-#if SLATE_DEFERRED_DESIRED_SIZE
-	// Invalidate this widget's desired size.
-	InvalidateDesiredSize(LayoutScaleMultiplier);
-#else
+#if !SLATE_DYNAMIC_PREPASS
 	// Cache this widget's desired size.
-	CacheDesiredSize(LayoutScaleMultiplier);
+	CacheDesiredSize(InLayoutScaleMultiplier);
 #endif
 }
 
-void SWidget::CacheDesiredSize(float LayoutScaleMultiplier)
+#if SLATE_DYNAMIC_PREPASS
+void SWidget::InvalidatePrepass()
+{
+	bNeedsPrepass = true;
+	LayoutChanged();
+}
+
+#if SLATE_LAYOUT_CHANGE
+
+FVector2D SWidget::GetDesiredSize() const
+{
+	if (IsVolatile())
+	{
+		if (!VolatileDesiredSize.IsSet() && ensureMsgf(!bUpdatingDesiredSize, TEXT("The layout is cyclically dependent.  A child widget can not ask the desired size of a parent while the parent is asking the desired size of its children.")))
+		{
+			bUpdatingDesiredSize = true;
+
+			// Cache this widget's desired size.
+			const_cast<SWidget*>(this)->CacheDesiredSize(PrepassLayoutScaleMultiplier);
+
+			bUpdatingDesiredSize = false;
+		}
+
+		return VolatileDesiredSize.GetValue();
+	}
+	else
+	{
+		if (!DesiredSize.IsSet() && ensureMsgf(!bUpdatingDesiredSize, TEXT("The layout is cyclically dependent.  A child widget can not ask the desired size of a parent while the parent is asking the desired size of its children.")))
+		{
+			bUpdatingDesiredSize = true;
+
+			// Cache this widget's desired size.
+			const_cast<SWidget*>(this)->CacheDesiredSize(PrepassLayoutScaleMultiplier);
+
+			bUpdatingDesiredSize = false;
+		}
+
+		return DesiredSize.GetValue();
+	}
+}
+
+#else
+
+FVector2D SWidget::GetDesiredSize() const
+{
+	if (!DesiredSize.IsSet() && ensureMsgf(!bUpdatingDesiredSize, TEXT("The layout is cyclically dependent.  A child widget can not ask the desired size of a parent while the parent is asking the desired size of its children.")))
+	{
+		bUpdatingDesiredSize = true;
+
+		// Cache this widget's desired size.
+		const_cast<SWidget*>(this)->CacheDesiredSize(PrepassLayoutScaleMultiplier);
+
+		bUpdatingDesiredSize = false;
+	}
+
+	return DesiredSize.GetValue();
+}
+
+#endif
+
+#endif
+
+#if SLATE_PARENT_POINTERS
+
+void SWidget::AssignParentWidget(TSharedPtr<SWidget> InParent)
+{
+	ParentWidgetPtr = InParent;
+}
+
+#endif
+
+#if SLATE_LAYOUT_CHANGE
+void SWidget::LayoutChanged()
+{
+	DesiredSize.Reset();
+
+#if SLATE_PARENT_POINTERS
+	TSharedPtr<SWidget> ParentWidget = ParentWidgetPtr.Pin();
+	if (ParentWidget.IsValid())
+	{
+		ParentWidget->ChildLayoutChanged();
+	}
+#endif
+}
+
+void SWidget::ChildLayoutChanged()
+{
+	if (DesiredSize.IsSet())
+	{
+		LayoutChanged();
+	}
+}
+#endif
+
+void SWidget::CacheDesiredSize(float InLayoutScaleMultiplier)
 {
 	// Cache this widget's desired size.
-	Advanced_SetDesiredSize(ComputeDesiredSize(LayoutScaleMultiplier));
+	Advanced_SetDesiredSize(ComputeDesiredSize(InLayoutScaleMultiplier));
 }
 
 void SWidget::CachePrepass(const TWeakPtr<ILayoutCache>& InLayoutCache)
@@ -838,6 +938,13 @@ int32 SWidget::Paint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, 
 	INC_DWORD_STAT(STAT_SlateNumPaintedWidgets);
 	SLATE_CYCLE_COUNTER_SCOPE_CUSTOM_DETAILED(SLATE_STATS_DETAIL_LEVEL_MED, GSlateOnPaint, GetType());
 
+	// TODO, Maybe we should just make Paint non-const and keep OnPaint const.
+	SWidget* MutableThis = const_cast<SWidget*>(this);
+
+#if SLATE_DYNAMIC_PREPASS
+	MutableThis->SlatePrepass(AllottedGeometry.Scale);
+#endif
+
 	// Save the current layout cache we're associated with (if any)
 	LayoutCache = Args.GetLayoutCache();
 
@@ -877,7 +984,9 @@ int32 SWidget::Paint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, 
 
 	if ( bCanTick )
 	{
-		SWidget* MutableThis = const_cast<SWidget*>(this);
+		INC_DWORD_STAT(STAT_SlateNumTickedWidgets);
+
+		SCOPE_CYCLE_COUNTER(STAT_SlateTickWidgets);
 		MutableThis->ExecuteActiveTimers( Args.GetCurrentTime(), Args.GetDeltaTime() );
 		MutableThis->Tick( CachedGeometry, Args.GetCurrentTime(), Args.GetDeltaTime() );
 	}

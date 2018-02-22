@@ -6,6 +6,9 @@ public class MaterialShaderQualitySettings : ModuleRules
 {
     public MaterialShaderQualitySettings(ReadOnlyTargetRules Target) : base(Target)
 	{
+
+        ShortName = "MSQS";
+
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{

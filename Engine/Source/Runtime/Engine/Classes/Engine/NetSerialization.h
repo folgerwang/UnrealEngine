@@ -15,6 +15,7 @@
 #include "Misc/NetworkGuid.h"
 #include "UObject/CoreNet.h"
 #include "EngineLogs.h"
+#include "Containers/ArrayView.h"
 #include "NetSerialization.generated.h"
 
 class Error;
@@ -416,6 +417,27 @@ struct FFastArraySerializer
 
 	template< typename Type, typename SerializerType >
 	static bool FastArrayDeltaSerialize( TArray<Type> &Items, FNetDeltaSerializeInfo& Parms, SerializerType& ArraySerializer );
+
+	/**
+	 * Called before removing elements and after the elements themselves are notified.  The indices are valid for this function call only!
+	 *
+	 * NOTE: intentionally not virtual; invoked via templated code, @see FExampleItemEntry
+	 */
+	FORCEINLINE void PreReplicatedRemove(const TArrayView<int32>& RemovedIndices, int32 FinalSize) { }
+
+	/**
+	 * Called after adding all new elements and after the elements themselves are notified.  The indices are valid for this function call only!
+	 *
+	 * NOTE: intentionally not virtual; invoked via templated code, @see FExampleItemEntry
+	 */
+	FORCEINLINE void PostReplicatedAdd(const TArrayView<int32>& AddedIndices, int32 FinalSize) { }
+
+	/**
+	 * Called after updating all existing elements with new data and after the elements themselves are notified. The indices are valid for this function call only!
+	 *
+	 * NOTE: intentionally not virtual; invoked via templated code, @see FExampleItemEntry
+	 */
+	FORCEINLINE void PostReplicatedChange(const TArrayView<int32>& ChangedIndices, int32 FinalSize) { }
 
 	/**
 	* Helper function for FastArrayDeltaSerialize to consolidate the logic of whether to consider writing an item in a fast TArray during network serialization.
@@ -1020,6 +1042,7 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 		// ---------------------------------------------------------
 
 		int32 PreRemoveSize = Items.Num();
+		int32 FinalSize = PreRemoveSize - DeleteIndices.Num();
 		for (int32 idx : DeleteIndices)
 		{
 			if (Items.IsValidIndex(idx))
@@ -1028,6 +1051,8 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 				Items[idx].PreReplicatedRemove(ArraySerializer);
 			}
 		}
+		ArraySerializer.PreReplicatedRemove(DeleteIndices, FinalSize);
+
 		if (PreRemoveSize != Items.Num())
 		{
 			UE_LOG( LogNetFastTArray, Error, TEXT( "Item size changed after PreReplicatedRemove! PremoveSize: %d  Item.Num: %d"), PreRemoveSize, Items.Num() );
@@ -1037,11 +1062,13 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 		{
 			Items[idx].PostReplicatedAdd(ArraySerializer);
 		}
+		ArraySerializer.PostReplicatedAdd(AddedIndices, FinalSize);
 
 		for (int32 idx : ChangedIndices)
 		{
 			Items[idx].PostReplicatedChange(ArraySerializer);
 		}	
+		ArraySerializer.PostReplicatedChange(ChangedIndices, FinalSize);
 
 		if (PreRemoveSize != Items.Num())
 		{
@@ -1340,7 +1367,8 @@ struct TStructOpsTypeTraits< FVector_NetQuantize > : public TStructOpsTypeTraits
 {
 	enum 
 	{
-		WithNetSerializer = true
+		WithNetSerializer = true,
+		WithNetSharedSerialization = true,
 	};
 };
 
@@ -1385,7 +1413,8 @@ struct TStructOpsTypeTraits< FVector_NetQuantize10 > : public TStructOpsTypeTrai
 {
 	enum 
 	{
-		WithNetSerializer = true
+		WithNetSerializer = true,
+		WithNetSharedSerialization = true,
 	};
 };
 
@@ -1430,7 +1459,8 @@ struct TStructOpsTypeTraits< FVector_NetQuantize100 > : public TStructOpsTypeTra
 {
 	enum 
 	{
-		WithNetSerializer = true
+		WithNetSerializer = true,
+		WithNetSharedSerialization = true,
 	};
 };
 
@@ -1473,7 +1503,8 @@ struct TStructOpsTypeTraits< FVector_NetQuantizeNormal > : public TStructOpsType
 {
 	enum 
 	{
-		WithNetSerializer = true
+		WithNetSerializer = true,
+		WithNetSharedSerialization = true,
 	};
 };
 

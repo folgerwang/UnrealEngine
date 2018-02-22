@@ -60,6 +60,8 @@ public partial class Project : CommandUtils
 
 		Log("********** ARCHIVE COMMAND STARTED **********");
 
+		Log("Archiving to {0}", Params.ArchiveDirectoryParam);
+
 		if (!Params.NoClient)
 		{
 			var DeployContextList = CreateDeploymentContext(Params, false, false);

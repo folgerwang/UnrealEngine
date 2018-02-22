@@ -19,7 +19,7 @@ FString FUserOnlineAccountTwitch::GetRealName() const
 FString FUserOnlineAccountTwitch::GetDisplayName(const FString& Platform) const
 {
 	FString Result;
-	GetAccountData(TEXT("displayName"), Result);
+	GetAccountData(USER_ATTR_DISPLAYNAME, Result);
 	return Result;
 }
 
@@ -54,7 +54,7 @@ bool FUserOnlineAccountTwitch::Parse(const FString& InAuthTicket, FTwitchTokenVa
 			UserId = MakeShared<FUniqueNetIdString>(ValidationResponse.UserId);
 			if (!ValidationResponse.UserName.IsEmpty())
 			{
-				SetAccountData(TEXT("displayName"), ValidationResponse.UserName);
+				SetAccountData(USER_ATTR_DISPLAYNAME, ValidationResponse.UserName);
 			}
 			AuthTicket = InAuthTicket;
 			ScopePermissions = MoveTemp(ValidationResponse.Authorization.Scopes);

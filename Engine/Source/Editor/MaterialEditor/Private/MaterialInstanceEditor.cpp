@@ -726,14 +726,14 @@ void FMaterialInstanceEditor::ToggleMobileStats()
 			UpdateContext.AddMaterial(BaseMaterial);
 			do 
 			{
-				MIC->SetFeatureLevelToCompile(ERHIFeatureLevel::ES2,bShowMobileStats);
+				MIC->SetFeatureLevelToCompile(ERHIFeatureLevel::ES3_1,bShowMobileStats);
 				if (MIC->bHasStaticPermutationResource)
 				{
 					MIC->ForceRecompileForRendering();
 				}
 				MIC = Cast<UMaterialInstanceConstant>(MIC->Parent);
 			} while (MIC);
-			BaseMaterial->SetFeatureLevelToCompile(ERHIFeatureLevel::ES2,bShowMobileStats);
+			BaseMaterial->SetFeatureLevelToCompile(ERHIFeatureLevel::ES3_1,bShowMobileStats);
 			BaseMaterial->ForceRecompileForRendering();
 		}
 	}
@@ -1226,7 +1226,7 @@ void FMaterialInstanceEditor::DrawMessages( FViewport* Viewport, FCanvas* Canvas
 		}
 		if (bShowMobileStats)
 		{
-			const FMaterialResource* MaterialResourceES2 = MaterialEditorInstance->SourceInstance->GetMaterialResource(ERHIFeatureLevel::ES2);
+			const FMaterialResource* MaterialResourceES2 = MaterialEditorInstance->SourceInstance->GetMaterialResource(ERHIFeatureLevel::ES3_1);
 			if ( BaseMaterial && MaterialResourceES2 )
 			{
 				FMaterialEditor::DrawMaterialInfoStrings( Canvas, BaseMaterial, MaterialResourceES2, MaterialResourceES2->GetCompileErrors(), DrawPositionY, true );

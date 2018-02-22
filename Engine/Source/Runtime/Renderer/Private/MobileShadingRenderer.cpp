@@ -57,6 +57,15 @@ static TAutoConsoleVariable<int32> CVarMobileForceDepthResolve(
 	TEXT("1: Depth buffer is resolved by switching out render targets and drawing with the depth texture.\n"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
+DECLARE_CYCLE_STAT(TEXT("SceneStart"), STAT_CLMM_SceneStart, STATGROUP_CommandListMarkers);
+DECLARE_CYCLE_STAT(TEXT("SceneEnd"), STAT_CLMM_SceneEnd, STATGROUP_CommandListMarkers);
+DECLARE_CYCLE_STAT(TEXT("InitVIews"), STAT_CLMM_InitVIews, STATGROUP_CommandListMarkers);
+DECLARE_CYCLE_STAT(TEXT("BasePass"), STAT_CLMM_BasePass, STATGROUP_CommandListMarkers);
+DECLARE_CYCLE_STAT(TEXT("Occlusion"), STAT_CLMM_Occlusion, STATGROUP_CommandListMarkers);
+DECLARE_CYCLE_STAT(TEXT("Post"), STAT_CLMM_Post, STATGROUP_CommandListMarkers);
+DECLARE_CYCLE_STAT(TEXT("Translency"), STAT_CLMM_Translency, STATGROUP_CommandListMarkers);
+DECLARE_CYCLE_STAT(TEXT("Shadows"), STAT_CLMM_Shadows, STATGROUP_CommandListMarkers);
+
 FMobileSceneRenderer::FMobileSceneRenderer(const FSceneViewFamily* InViewFamily,FHitProxyConsumer* HitProxyConsumer)
 	:	FSceneRenderer(InViewFamily, HitProxyConsumer)
 {
@@ -76,6 +85,8 @@ TUniformBufferRef<FMobileDirectionalLightShaderParameters>& GetNullMobileDirecti
  */
 void FMobileSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdList)
 {
+	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLMM_InitVIews));
+
 	SCOPED_DRAW_EVENT(RHICmdList, InitViews);
 
 	SCOPE_CYCLE_COUNTER(STAT_InitViewsTime);
@@ -135,14 +146,19 @@ void FMobileSceneRenderer::UpdateViewCustomData()
 */
 void FMobileSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 {
+	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLMM_SceneStart));
+
 	PrepareViewRectsForRendering();
 
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FMobileSceneRenderer_Render);
+	//FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
 
 	if(!ViewFamily.EngineShowFlags.Rendering)
 	{
 		return;
 	}
+
+	WaitOcclusionTests(RHICmdList);
 
 	const ERHIFeatureLevel::Type ViewFeatureLevel = ViewFamily.GetFeatureLevel();
 
@@ -159,8 +175,9 @@ void FMobileSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	// Find the visible primitives.
 	InitViews(RHICmdList);
 
-	if (IsRunningRHIInSeparateThread())
+	if (GRHINeedsExtraDeletionLatency || !GRHICommandList.Bypass())
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FMobileSceneRenderer_PostInitViewsFlushDel);
 		// we will probably stall on occlusion queries, so might as well have the RHI thread and GPU work while we wait.
 		// Also when doing RHI thread this is the only spot that will process pending deletes
 		FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::FlushRHIThreadFlushResources);
@@ -179,6 +196,8 @@ void FMobileSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	UpdateViewCustomData();
 
 	GRenderTargetPool.VisualizeTexture.OnStartFrame(Views[0]);
+
+	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLMM_Shadows));
 
 	RenderShadowDepthMaps(RHICmdList);
 
@@ -228,7 +247,19 @@ void FMobileSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		DrawClearQuad(RHICmdList, Views[0].BackgroundColor);
 	}
 
+
+	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLMM_BasePass));
+
 	RenderMobileBasePass(RHICmdList, ViewList);
+
+
+	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLMM_Occlusion));
+
+	// Issue occlusion queries
+	RenderOcclusion(RHICmdList);
+
+
+	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLMM_Post));
 
 	for (int32 ViewExt = 0; ViewExt < ViewFamily.ViewExtensions.Num(); ++ViewExt)
 	{
@@ -253,6 +284,7 @@ void FMobileSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		Scene->FXSystem->PostRenderOpaque(RHICmdList);
 	}
 
+	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLMM_Translency));
 	if (!View.bIsPlanarReflection)
 	{
 		RenderModulatedShadowProjections(RHICmdList);
@@ -360,7 +392,11 @@ void FMobileSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		}
 	}
 
+	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLMM_SceneEnd));
+
 	RenderFinish(RHICmdList);
+
+	FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::DispatchToRHIThread); 
 }
 
 // Perform simple upscale and/or editor primitive composite if the fully-featured post process is not in use.
@@ -426,6 +462,17 @@ void FMobileSceneRenderer::BasicPostProcess(FRHICommandListImmediate& RHICmdList
 	Context.FinalOutput.GetOutput()->RenderTargetDesc = Desc;
 
 	CompositeContext.Process(Context.FinalOutput.GetPass(), TEXT("ES2BasicPostProcess"));
+}
+
+void FMobileSceneRenderer::RenderOcclusion(FRHICommandListImmediate& RHICmdList)
+{
+	if (!DoOcclusionQueries(FeatureLevel))
+	{
+		return;
+	}
+
+	BeginOcclusionTests(RHICmdList, true);
+	FenceOcclusionTests(RHICmdList);
 }
 
 void FMobileSceneRenderer::ConditionalResolveSceneDepth(FRHICommandListImmediate& RHICmdList, const FViewInfo& View)

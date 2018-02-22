@@ -135,7 +135,7 @@ void USoundNodeWavePlayer::ParseNodes( FAudioDevice* AudioDevice, const UPTRINT 
 	}
 }
 
-float USoundNodeWavePlayer::GetDuration()
+float USoundNodeWavePlayer::GetDuration() const
 {
 	float Duration = 0.f;
 	if (SoundWave)
@@ -152,9 +152,13 @@ float USoundNodeWavePlayer::GetDuration()
 	return Duration;
 }
 
-bool USoundNodeWavePlayer::IsAllowedVirtual() const
+bool USoundNodeWavePlayer::IsVirtualizeWhenSilent() const
 {
-	return SoundWave && SoundWave->IsAllowedVirtual();
+	if (SoundWave)
+	{
+		return SoundWave->bVirtualizeWhenSilent;
+	}
+	return false;
 }
 
 #if WITH_EDITOR

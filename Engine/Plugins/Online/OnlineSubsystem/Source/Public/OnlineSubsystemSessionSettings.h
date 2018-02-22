@@ -48,6 +48,8 @@
 #define SETTING_GROUP_NAME FName(TEXT("USERGROUPNAME%s"))
 /** Information to join a third-party auxiliary session (value is FString) */
 #define SETTING_CUSTOM_JOIN_INFO FName(TEXT("CUSTOMJOININFO"))
+/** What verbosity of session updates to subscribe to (value is FString, comma-separated if multiple values needed)*/
+#define SETTING_SESSION_SUBSCRIPTION_TYPES FName(TEXT("SESSIONSUBSCRIPTIONTYPE"))
 
 // These are PS4 specific settings to be used in FOnlineSessionSettings as keys
 

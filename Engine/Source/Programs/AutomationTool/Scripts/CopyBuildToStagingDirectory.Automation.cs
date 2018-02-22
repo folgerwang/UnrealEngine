@@ -67,7 +67,7 @@ public partial class Project : CommandUtils
 	/// </summary>
 	/// <param name="Filename"></param>
 	/// <param name="ResponseFile"></param>
-	private static void WritePakResponseFile(string Filename, Dictionary<string, string> ResponseFile, bool Compressed, bool EncryptIniFiles, bool EncryptUAssetFiles, bool EncryptAllAssetFiles)
+	private static void WritePakResponseFile(string Filename, Dictionary<string, string> ResponseFile, bool Compressed, EncryptionAndSigning.CryptoSettings CryptoSettings)
 	{
 		using (var Writer = new StreamWriter(Filename, false, new System.Text.UTF8Encoding(true)))
 		{
@@ -79,7 +79,11 @@ public partial class Project : CommandUtils
 					Line += " -compress";
 				}
 
-				if (EncryptAllAssetFiles || (Path.GetExtension(Entry.Key).Contains(".uasset") && EncryptUAssetFiles) || (Path.GetExtension(Entry.Key).Contains(".ini") && EncryptIniFiles))
+				bool bEncryptFile = CryptoSettings.bEnablePakFullAssetEncryption;
+				bEncryptFile = bEncryptFile || (CryptoSettings.bEnablePakUAssetEncryption && Path.GetExtension(Entry.Key).Contains(".uasset"));
+				bEncryptFile = bEncryptFile || (CryptoSettings.bEnablePakIniEncryption && Path.GetExtension(Entry.Key).Contains(".ini"));
+
+				if (bEncryptFile)
 				{
 					Line += " -encrypt";
 				}
@@ -100,7 +104,7 @@ public partial class Project : CommandUtils
 		return Result;
 	}
 
-	static public void RunUnrealPak(Dictionary<string, string> UnrealPakResponseFile, FileReference OutputLocation, FileReference PakOrderFileLocation, string PlatformOptions, bool Compressed, bool EncryptIniFiles, bool EncryptUAssetFiles, bool EncryptAllAssetFiles, bool EncryptPakIndex, String PatchSourceContentPath, String EngineDir, String ProjectDir, String Platform)
+	static public void RunUnrealPak(Dictionary<string, string> UnrealPakResponseFile, FileReference OutputLocation, FileReference PakOrderFileLocation, string PlatformOptions, bool Compressed, EncryptionAndSigning.CryptoSettings CryptoSettings, FileReference CryptoKeysCacheFilename, String PatchSourceContentPath)
 	{
 		if (UnrealPakResponseFile.Count < 1)
 		{
@@ -108,14 +112,14 @@ public partial class Project : CommandUtils
 		}
 		string PakName = Path.GetFileNameWithoutExtension(OutputLocation.FullName);
 		string UnrealPakResponseFileName = CombinePaths(CmdEnv.LogFolder, "PakList_" + PakName + ".txt");
-		WritePakResponseFile(UnrealPakResponseFileName, UnrealPakResponseFile, Compressed, EncryptIniFiles, EncryptUAssetFiles, EncryptAllAssetFiles);
+		WritePakResponseFile(UnrealPakResponseFileName, UnrealPakResponseFile, Compressed, CryptoSettings);
 
 		var UnrealPakExe = CombinePaths(CmdEnv.LocalRoot, "Engine/Binaries/Win64/UnrealPak.exe");
 		Log("Running UnrealPak *******");
 		string CmdLine = CommandUtils.MakePathSafeToUseWithCommandLine(OutputLocation.FullName) + " -create=" + CommandUtils.MakePathSafeToUseWithCommandLine(UnrealPakResponseFileName);
 		string LogFileName = CombinePaths(CmdEnv.LogFolder, "PakLog_" + PakName + ".log");
 
-		CmdLine += String.Format(" -encryptionini -enginedir=\"{0}\" -projectdir=\"{1}\" -platform={2} -abslog=\"{3}\"", EngineDir, ProjectDir, Platform, LogFileName);
+		CmdLine += String.Format(" -abslog=\"{0}\" -cryptokeys=\"{1}\"", LogFileName, CryptoKeysCacheFilename.ToString());
 
 		if (GlobalCommandLine.Installed)
 		{
@@ -130,7 +134,7 @@ public partial class Project : CommandUtils
 		{
 			CmdLine += " -generatepatch=" + CommandUtils.MakePathSafeToUseWithCommandLine(PatchSourceContentPath) + " -tempfiles=" + CommandUtils.MakePathSafeToUseWithCommandLine(CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "TempFiles" + PakName));
 		}
-		if (EncryptPakIndex)
+		if (CryptoSettings.bEnablePakIndexEncryption)
 		{
 			CmdLine += " -encryptindex";
 		}
@@ -297,9 +301,10 @@ public partial class Project : CommandUtils
 			// Put all of the cooked dir into the staged dir
 			DirectoryReference PlatformCookDir = String.IsNullOrEmpty(Params.CookOutputDir) ? DirectoryReference.Combine(DLCRoot, "Saved", "Cooked", SC.CookPlatform) : DirectoryReference.Combine(new DirectoryReference(Params.CookOutputDir), SC.CookPlatform);
 			DirectoryReference PlatformEngineDir = DirectoryReference.Combine(PlatformCookDir, "Engine");
-			DirectoryReference PlatformMetadataDir = DirectoryReference.Combine(PlatformCookDir, SC.ShortProjectName, "Metadata");
+			SC.MetadataDir = DirectoryReference.Combine(PlatformCookDir, SC.ShortProjectName, "Metadata");
 
 			SC.StageFiles(StagedFileType.UFS, DirectoryReference.Combine(DLCRoot, "Config"), "*.ini", StageFilesSearch.AllDirectories);
+
 
 			if (Params.DLCActLikePatch)
 			{
@@ -315,7 +320,7 @@ public partial class Project : CommandUtils
 			foreach (FileReference CookedFile in CookedFiles)
 			{
 				// Skip metadata directory
-				if (CookedFile.Directory.IsUnderDirectory(PlatformMetadataDir))
+				if (CookedFile.Directory.IsUnderDirectory(SC.MetadataDir))
 				{
 					continue;
 				}
@@ -453,14 +458,15 @@ public partial class Project : CommandUtils
 				SC.StageFiles(StagedFileType.UFS, DirectoryReference.Combine(SC.LocalRoot, "Engine", "Content", "Internationalization", InternationalizationPreset), StageFilesSearch.AllDirectories, new StagedDirectoryReference("Engine/Content/Internationalization"));
 
 				// Engine ufs (content)
-				SC.StageFiles(StagedFileType.UFS, DirectoryReference.Combine(SC.LocalRoot, "Engine", "Config"), StageFilesSearch.AllDirectories); // TODO: Exclude localization data generation config files.
+				StageConfigFiles(SC, DirectoryReference.Combine(SC.LocalRoot, "Engine", "Config"));
 
 				StageLocalizationDataForTarget(SC, CulturesToStage, DirectoryReference.Combine(SC.LocalRoot, "Engine", "Content", "Localization", "Engine"));
 
 				// Game ufs (content)
 				SC.StageFile(StagedFileType.UFS, SC.RawProjectPath);
 
-				SC.StageFiles(StagedFileType.UFS, DirectoryReference.Combine(SC.ProjectRoot, "Config"), "*", StageFilesSearch.AllDirectories); // TODO: Exclude localization data generation config files.
+				StageConfigFiles(SC, DirectoryReference.Combine(SC.ProjectRoot, "Config"));
+
 
 				// Stage plugin config files
 				List<KeyValuePair<StagedFileReference, FileReference>> StagedPlugins = SC.FilesToStage.UFSFiles.Where(x => x.Value.HasExtension(".uplugin")).ToList();
@@ -520,8 +526,111 @@ public partial class Project : CommandUtils
 						StageAdditionalDirectoriesFromConfig(SC, ProjectContentRoot, StageContentRoot, PlatformGameConfig, false, "DirectoriesToAlwaysStageAsNonUFSServer");
 					}
 				}
+				
+				// START - FORTNITE_ONLY - DO NOT INTEGRATE
 
-				if (SC.StageTargetPlatform.StageMovies && !SC.DedicatedServer)
+				// START EasyAntiCheat - this can all be removed in 4.17 where stage requests from modules can be mapped to different output paths
+				// via DefaultGame.ini. That is all setup in both DefaultGame and EasyAntiCheatServer/EasyAntiCheatClient.build.cs, just reenable
+				// the staging requests there and remove this code (and verify :))
+				{
+					ProjectDescriptor Project = ProjectDescriptor.FromFile(SC.RawProjectPath);
+					bool EACEnabled = UProjectInfo.IsPluginEnabledForProject("EasyAntiCheat", Project, SC.StageTargetPlatform.PlatformType, SC.DedicatedServer ? TargetType.Server : TargetType.Client);
+
+					if (EACEnabled)
+					{
+						if (SC.DedicatedServer)
+						{
+							// Server binaries are staged from the plugin to Fortnite/Binaries/Thirdparty. The code that looks for these is in 
+							// EasyAntiCheatServer.cpp
+							string EacLibPath = "Plugins/EasyAntiCheat/SDK/server/lib";
+							if (SC.StageTargetPlatform.PlatformType == UnrealTargetPlatform.Linux)
+							{
+								EacLibPath += "/linux";
+							}
+							else
+							{
+								EacLibPath += "/windows";
+							}
+							SC.StageFiles(StagedFileType.NonUFS, DirectoryReference.Combine(SC.ProjectRoot, EacLibPath), "*", StageFilesSearch.AllDirectories, StagedDirectoryReference.Combine(SC.RelativeProjectRootForStage, "Binaries/ThirdParty/EasyAntiCheat/Server"));
+						}
+						else
+						{
+							// Server binaries are staged from the plugin to Fortnite/EasyAntiCheat. The code that looks for these is in 
+							// EasyAntiCheatClient.cpp
+
+							if (SC.StageTargetPlatform.PlatformType == UnrealTargetPlatform.Win32 ||
+								SC.StageTargetPlatform.PlatformType == UnrealTargetPlatform.Win64)
+							{
+								// Note - we put the client stuff into the root so the output path is empty
+								string EacPath = "Plugins/EasyAntiCheat/SDK/client/Bin";
+								SC.StageFiles(StagedFileType.NonUFS, DirectoryReference.Combine(SC.ProjectRoot, EacPath), "*", StageFilesSearch.AllDirectories, new StagedDirectoryReference(""));
+							}
+						}
+					}
+				}
+				
+				// END EasyAntiCheat
+
+				// START BattlEye - this can all be removed in 4.17 where stage requests from modules can be mapped to different output paths
+				// via DefaultGame.ini. That is all setup in both DefaultGame and EasyAntiCheatServer/EasyAntiCheatClient.build.cs, just reenable
+				// the staging requests there and remove this code (and verify :))
+				{
+					ProjectDescriptor Project = ProjectDescriptor.FromFile(SC.RawProjectPath);
+					bool UACEnabled = UProjectInfo.IsPluginEnabledForProject("UAC", Project, SC.StageTargetPlatform.PlatformType, SC.DedicatedServer ? TargetType.Server : TargetType.Client);
+
+					if (UACEnabled)
+					{
+						string BaseDir = "Plugins/NotForLicensees/UAC/Binaries/ThirdParty/BattlEye";
+						string RedistSource = BaseDir + "/Redist";
+
+						if (SC.DedicatedServer)
+						{
+							// Server binaries are staged from the plugin to Fortnite/Binaries/Thirdparty. The code that looks for these is in 
+							// BattlEye.cpp
+							string IncludeMatch = "*";
+
+							string ShippingRedistPath;
+							if (SC.StageTargetPlatform.PlatformType == UnrealTargetPlatform.Linux)
+							{
+								IncludeMatch = "BEServer*.so";
+								ShippingRedistPath = "Binaries/Linux/BattlEye";
+							}
+							else
+							{
+								IncludeMatch = "BEServer*.dll";
+								ShippingRedistPath = "Binaries/Win64/BattlEye";
+							}
+
+							// redist the DLL files . Note that for server we stage the BattlEye subdir with the dlls to omit the launcher. These go straight into Binaries/Win64
+							SC.StageFiles(StagedFileType.NonUFS, DirectoryReference.Combine(SC.ProjectRoot, RedistSource, "BattlEye"), IncludeMatch, StageFilesSearch.AllDirectories, StagedDirectoryReference.Combine(SC.RelativeProjectRootForStage, ShippingRedistPath));
+
+							// redist the cfg
+							SC.StageFiles(StagedFileType.NonUFS, DirectoryReference.Combine(SC.ProjectRoot, RedistSource, "BattlEye"), "*.cfg", StageFilesSearch.AllDirectories, StagedDirectoryReference.Combine(SC.RelativeProjectRootForStage, ShippingRedistPath));
+						}
+						else
+						{
+							// Client binaries are staged from the plugin to Fortnite/EasyAntiCheat. The code that looks for these is in 
+							// EasyAntiCheatClient.cpp
+
+							if (SC.StageTargetPlatform.PlatformType == UnrealTargetPlatform.Win32 ||
+								SC.StageTargetPlatform.PlatformType == UnrealTargetPlatform.Win64)
+							{
+								string IncludeMatch = "*";
+
+								// redist the public files for the real thing. Note these go straight into Binaries/Win64
+								List<FileReference> BEServerFilterStagedFiles = SC.FindFilesToStage(DirectoryReference.Combine(SC.ProjectRoot, RedistSource), IncludeMatch, StageFilesSearch.AllDirectories);
+								SC.StageFiles(StagedFileType.NonUFS, DirectoryReference.Combine(SC.ProjectRoot, RedistSource), BEServerFilterStagedFiles.Where(x => !x.GetFileName().ToLower().StartsWith("beserver")), StagedDirectoryReference.Combine(SC.RelativeProjectRootForStage.Name, "Binaries/Win64"));
+							}
+						}
+					}
+				}
+				// END BattlEyeEnabled
+
+				// Per-project, per-platform setting to skip all movies. By default this is false.
+				bool bSkipMovies = false;
+				PlatformGameConfig.GetBool("/Script/UnrealEd.ProjectPackagingSettings", "bSkipMovies", out bSkipMovies);
+
+				if (!bSkipMovies && SC.StageTargetPlatform.StageMovies && !SC.DedicatedServer)
 				{
 					// UFS is required when using a file server
 					StagedFileType MovieFileType = Params.FileServer ? StagedFileType.UFS : StagedFileType.NonUFS;
@@ -563,14 +672,14 @@ public partial class Project : CommandUtils
 					CookOutputDir = DirectoryReference.Combine(SC.ProjectRoot, "Saved", "Cooked", SC.CookPlatform);
 				}
 
-				DirectoryReference MetadataOutputDir = DirectoryReference.Combine(CookOutputDir, SC.ShortProjectName, "Metadata");
+				SC.MetadataDir = DirectoryReference.Combine(CookOutputDir, SC.ShortProjectName, "Metadata");
 
 				// Stage all the cooked data. Currently not filtering this by restricted folders, since we shouldn't mask invalid references by filtering them out.
 				List<FileReference> CookedFiles = DirectoryReference.EnumerateFiles(CookOutputDir, "*", SearchOption.AllDirectories).ToList();
 				foreach (FileReference CookedFile in CookedFiles)
 				{
 					// Skip metadata directory
-					if (CookedFile.Directory.IsUnderDirectory(MetadataOutputDir))
+					if (CookedFile.Directory.IsUnderDirectory(SC.MetadataDir))
 					{
 						continue;
 					}
@@ -608,7 +717,7 @@ public partial class Project : CommandUtils
 					FileReference ReceiptFileName = TargetReceipt.GetDefaultPath(SC.EngineRoot, "CrashReportClient", SC.StageTargetPlatform.PlatformType, UnrealTargetConfiguration.Shipping, Architecture);
 					if (!FileReference.Exists(ReceiptFileName))
 					{
-						throw new AutomationException(ExitCode.Error_MissingExecutable, "Stage Failed. Missing receipt '{0}'. Check that this target has been built.", Path.GetFileName(ReceiptFileName.FullName));
+						throw new AutomationException(ExitCode.Error_MissingExecutable, "Stage Failed. Missing receipt '{0}'. Check that this target has been built.", ReceiptFileName);
 					}
 
 					// Read the receipt for this target
@@ -750,6 +859,138 @@ public partial class Project : CommandUtils
 		}
 	}
 
+	/// <summary>
+	/// Stage the appropriate config files from the given input directory
+	/// </summary>
+	/// <param name="SC">The staging context</param>
+	/// <param name="ConfigDir">Directory containing the config files</param>
+	static void StageConfigFiles(DeploymentContext SC, DirectoryReference ConfigDir)
+	{
+		List<FileReference> ConfigFiles = SC.FindFilesToStage(ConfigDir, "*.ini", StageFilesSearch.AllDirectories);
+		foreach(FileReference ConfigFile in ConfigFiles)
+		{
+			if(ShouldStageConfigFile(SC, ConfigDir, ConfigFile))
+			{
+				CommandUtils.Log("Including config file {0}", ConfigFile);
+				SC.StageFile(StagedFileType.UFS, ConfigFile);
+			}
+			else
+			{
+				CommandUtils.Log("Excluding config file {0}", ConfigFile);
+			}
+		}
+	}
+
+	/// <summary>
+	/// Determines if an individual config file should be staged
+	/// </summary>
+	/// <param name="SC">The staging context</param>
+	/// <param name="ConfigDir">Directory containing the config files</param>
+	/// <param name="ConfigFile">The config file to check</param>
+	/// <returns>True if the file should be staged, false otherwise</returns>
+	static bool ShouldStageConfigFile(DeploymentContext SC, DirectoryReference ConfigDir, FileReference ConfigFile)
+	{
+		string NormalizedPath = ConfigFile.MakeRelativeTo(ConfigDir).ToLowerInvariant().Replace('\\', '/');
+
+		int DirectoryIdx = NormalizedPath.IndexOf('/');
+		if(DirectoryIdx == -1)
+		{
+			const string BasePrefix = "base";
+			if(NormalizedPath.StartsWith(BasePrefix))
+			{
+				return ShouldStageConfigSuffix(SC, ConfigFile, NormalizedPath.Substring(BasePrefix.Length));
+			}
+
+			const string DefaultPrefix = "default";
+			if(NormalizedPath.StartsWith(DefaultPrefix))
+			{
+				return ShouldStageConfigSuffix(SC, ConfigFile, NormalizedPath.Substring(DefaultPrefix.Length));
+			}
+
+			const string DedicatedServerPrefix = "dedicatedserver";
+			if(NormalizedPath.StartsWith(DedicatedServerPrefix))
+			{
+				return SC.DedicatedServer && ShouldStageConfigSuffix(SC, ConfigFile, NormalizedPath.Substring(DedicatedServerPrefix.Length));
+			}
+
+			if(NormalizedPath == "consolevariables.ini")
+			{
+				return SC.StageTargetConfigurations.Any(x => x != UnrealTargetConfiguration.Test && x != UnrealTargetConfiguration.Shipping);
+			}
+
+			if(NormalizedPath == "locgatherconfig.ini")
+			{
+				return false;
+			}
+		}
+		else
+		{
+			if (NormalizedPath.StartsWith("localization/"))
+			{
+				return false;
+			}
+
+			string PlatformPrefix = String.Format("{0}/{0}", NormalizedPath.Substring(0, DirectoryIdx));
+			if(NormalizedPath.StartsWith(PlatformPrefix))
+			{
+				return ShouldStageConfigSuffix(SC, ConfigFile, NormalizedPath.Substring(PlatformPrefix.Length));
+			}
+
+			string PlatformBasePrefix = String.Format("{0}/base{0}", NormalizedPath.Substring(0, DirectoryIdx));
+			if(NormalizedPath.StartsWith(PlatformBasePrefix))
+			{
+				return ShouldStageConfigSuffix(SC, ConfigFile, NormalizedPath.Substring(PlatformBasePrefix.Length));
+			}
+
+			if(NormalizedPath.EndsWith("/confidentialplatform.ini"))
+			{
+				return false;
+			}
+		}
+
+		CommandUtils.LogWarning("The config file '{0}' is not whitelisted nor blacklisted for staging. Ignoring.", ConfigFile);
+		return true;
+	}
+
+	/// <summary>
+	/// Determines if the given config file suffix ("engine", "game", etc...) should be staged for the given context.
+	/// </summary>
+	/// <param name="SC">The staging context</param>
+	/// <param name="ConfigFile">Full path to the config file</param>
+	/// <param name="InvariantSuffix">Suffix for the config file, as a lowercase invariant string</param>
+	/// <returns>True if the suffix should be staged, false otherwise</returns>
+	static bool ShouldStageConfigSuffix(DeploymentContext SC, FileReference ConfigFile, string InvariantSuffix)
+	{
+		switch(InvariantSuffix)
+		{
+			case ".ini":
+			case "compat.ini":
+			case "deviceprofiles.ini":
+			case "engine.ini":
+			case "enginechunkoverrides.ini":
+			case "game.ini":
+			case "gameplaytags.ini":
+			case "gameusersettings.ini":
+			case "hardware.ini":
+			case "input.ini":
+			case "scalability.ini":
+				return true;
+			case "crypto.ini":
+			case "editor.ini":
+			case "editorgameagnostic.ini":
+			case "editorkeybindings.ini":
+			case "editorlayout.ini":
+			case "editorperprojectusersettings.ini":
+			case "editorsettings.ini":
+			case "editorusersettings.ini":
+			case "lightmass.ini":
+				return false;
+			default:
+				CommandUtils.LogWarning("The config file '{0}' is not whitelisted nor blacklisted for staging. Including anyway.", ConfigFile);
+				return true;
+		}
+	}
+
 	static StagedFileReference ApplyDirectoryRemap(DeploymentContext SC, StagedFileReference InputFile)
 	{
 		StagedFileReference CurrentFile = InputFile;
@@ -856,7 +1097,7 @@ public partial class Project : CommandUtils
 		}
 	}
 
-	public static void CopyManifestFilesToStageDir(Dictionary<StagedFileReference, FileReference> Mapping, DirectoryReference StageDir, string ManifestName, HashSet<StagedFileReference> CRCFiles, string PlatformName)
+	public static void CopyManifestFilesToStageDir(Dictionary<StagedFileReference, FileReference> Mapping, DirectoryReference StageDir, DirectoryReference ManifestDir, string ManifestName, HashSet<StagedFileReference> CRCFiles, string PlatformName)
 	{
 		Log("Copying {0} to staging directory: {1}", ManifestName, StageDir);
 		FileReference ManifestPath = null;
@@ -864,7 +1105,7 @@ public partial class Project : CommandUtils
 		if (!String.IsNullOrEmpty(ManifestName))
 		{
 			ManifestFile = "Manifest_" + ManifestName + "_" + PlatformName + ".txt";
-			ManifestPath = FileReference.Combine(StageDir, ManifestFile);
+			ManifestPath = FileReference.Combine(ManifestDir, ManifestFile);
 			DeleteFile(ManifestPath.FullName);
 		}
 		foreach (KeyValuePair<StagedFileReference, FileReference> Pair in Mapping)
@@ -912,17 +1153,17 @@ public partial class Project : CommandUtils
 
 	public static void CopyUsingStagingManifest(ProjectParams Params, DeploymentContext SC)
 	{
-		CopyManifestFilesToStageDir(SC.FilesToStage.NonUFSFiles, SC.StageDirectory, "NonUFSFiles", SC.StageTargetPlatform.GetFilesForCRCCheck(), SC.StageTargetPlatform.PlatformType.ToString());
+		CopyManifestFilesToStageDir(SC.FilesToStage.NonUFSFiles, SC.StageDirectory, SC.DebugStageDirectory, "NonUFSFiles", SC.StageTargetPlatform.GetFilesForCRCCheck(), SC.StageTargetPlatform.PlatformType.ToString());
 
-		if (!Params.NoDebugInfo)
+		if (SC.DebugStageDirectory != null)
 		{
-			CopyManifestFilesToStageDir(SC.FilesToStage.NonUFSDebugFiles, SC.StageDirectory, "DebugFiles", SC.StageTargetPlatform.GetFilesForCRCCheck(), SC.StageTargetPlatform.PlatformType.ToString());
+			CopyManifestFilesToStageDir(SC.FilesToStage.NonUFSDebugFiles, SC.DebugStageDirectory, SC.DebugStageDirectory, "DebugFiles", SC.StageTargetPlatform.GetFilesForCRCCheck(), SC.StageTargetPlatform.PlatformType.ToString());
 		}
 
 		bool bStageUnrealFileSystemFiles = !Params.CookOnTheFly && !Params.UsePak(SC.StageTargetPlatform) && !Params.FileServer;
 		if (bStageUnrealFileSystemFiles)
 		{
-			CopyManifestFilesToStageDir(SC.FilesToStage.UFSFiles, SC.StageDirectory, "UFSFiles", SC.StageTargetPlatform.GetFilesForCRCCheck(), SC.StageTargetPlatform.PlatformType.ToString());
+			CopyManifestFilesToStageDir(SC.FilesToStage.UFSFiles, SC.StageDirectory, SC.DebugStageDirectory, "UFSFiles", SC.StageTargetPlatform.GetFilesForCRCCheck(), SC.StageTargetPlatform.PlatformType.ToString());
 		}
 	}
 
@@ -940,8 +1181,10 @@ public partial class Project : CommandUtils
 		var UnrealPakResponseFile = CreatePakResponseFileFromStagingManifest(SC);
 
         EncryptionAndSigning.CryptoSettings PakCryptoSettings = EncryptionAndSigning.ParseCryptoSettings(DirectoryReference.FromFile(Params.RawProjectPath), SC.StageTargetPlatform.IniPlatformType);
+		FileReference CryptoKeysCacheFilename = FileReference.Combine(SC.MetadataDir, "Crypto.json");
+		PakCryptoSettings.Save(CryptoKeysCacheFilename);
 
-        CreatePak(Params, SC, UnrealPakResponseFile, SC.ShortProjectName, PakCryptoSettings);
+		CreatePak(Params, SC, UnrealPakResponseFile, SC.ShortProjectName, PakCryptoSettings, CryptoKeysCacheFilename);
 	}
 
 	/// <summary>
@@ -1044,7 +1287,7 @@ public partial class Project : CommandUtils
 	/// <param name="SC"></param>
 	/// <param name="UnrealPakResponseFile"></param>
 	/// <param name="PakName"></param>
-	private static void CreatePak(ProjectParams Params, DeploymentContext SC, Dictionary<string, string> UnrealPakResponseFile, string PakName, EncryptionAndSigning.CryptoSettings CryptoSettings)
+	private static void CreatePak(ProjectParams Params, DeploymentContext SC, Dictionary<string, string> UnrealPakResponseFile, string PakName, EncryptionAndSigning.CryptoSettings CryptoSettings, FileReference CryptoKeysCacheFilename)
 	{
 		bool bShouldGeneratePatch = Params.IsGeneratingPatch && SC.StageTargetPlatform.GetPlatformPatchesWithDiffPak(Params, SC);
 
@@ -1194,16 +1437,7 @@ public partial class Project : CommandUtils
 			}
 			if (!bCopiedExistingPak)
 			{
-				String EngineDir = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "Engine");
-				String ProjectDir = CommandUtils.GetDirectoryName(Params.RawProjectPath.FullName);
-				String Platform = ConfigHierarchy.GetIniPlatformName(SC.StageTargetPlatform.IniPlatformType);
-
-				bool bEncryptIndex = Params.EncryptPakIndex || CryptoSettings.bEnablePakIndexEncryption;
-				bool bEncryptIniFiles = Params.EncryptIniFiles || CryptoSettings.bEnablePakIniEncryption;
-				bool bEncryptUAssetFiles = Params.EncryptEverything || CryptoSettings.bEnablePakUAssetEncryption;
-				bool bEncryptAllAssetFiles = Params.EncryptEverything || CryptoSettings.bEnablePakFullAssetEncryption;
-
-				RunUnrealPak(UnrealPakResponseFile, OutputLocation, PakOrderFileLocation, SC.StageTargetPlatform.GetPlatformPakCommandLine(), Params.Compressed, bEncryptIniFiles, bEncryptUAssetFiles, bEncryptAllAssetFiles, bEncryptIndex, PatchSourceContentPath, EngineDir, ProjectDir, Platform);
+				RunUnrealPak(UnrealPakResponseFile, OutputLocation, PakOrderFileLocation, SC.StageTargetPlatform.GetPlatformPakCommandLine(), Params.Compressed, CryptoSettings, CryptoKeysCacheFilename, PatchSourceContentPath);
 			}
 		}
 
@@ -1331,12 +1565,115 @@ public partial class Project : CommandUtils
 		}
 	}
 
-	/// <summary>
-	/// Creates pak files using streaming install chunk manifests.
-	/// </summary>
-	/// <param name="Params"></param>
-	/// <param name="SC"></param>
-	private static void CreatePaksUsingChunkManifests(ProjectParams Params, DeploymentContext SC)
+    /// <summary>
+    /// Creates pak files using streaming install chunk manifests.
+    /// </summary>
+    /// <param name="Params"></param>
+    /// <param name="SC"></param>
+    private static void CopyPaksFromNetwork(ProjectParams Params, DeploymentContext SC)
+    {
+        Log("Copying paks from network.");
+
+        if (!CommandUtils.P4Enabled)
+        {
+            throw new AutomationException("-PrePak requires -P4");
+        }
+        if (CommandUtils.P4Env.Changelist < 1000)
+        {
+            throw new AutomationException("-PrePak requires a CL from P4 and we have {0}", CommandUtils.P4Env.Changelist);
+        }
+
+        string BuildRoot = CombinePaths(CommandUtils.RootBuildStorageDirectory());
+        string CachePath = InternalUtils.GetEnvironmentVariable("UE-BuildCachePath", "");
+
+        string SrcBuildPath = CombinePaths(BuildRoot, Params.ShortProjectName);
+        string SrcBuildPath2 = CombinePaths(BuildRoot, Params.ShortProjectName.Replace("Game", "").Replace("game", ""));
+
+        string SrcBuildPath_Cache = CombinePaths(CachePath, Params.ShortProjectName);
+        string SrcBuildPath2_Cache = CombinePaths(CachePath, Params.ShortProjectName.Replace("Game", "").Replace("game", ""));
+
+        if (!InternalUtils.SafeDirectoryExists(SrcBuildPath))
+        {
+            if (!InternalUtils.SafeDirectoryExists(SrcBuildPath2))
+            {
+                throw new AutomationException("PrePak: Neither {0} nor {1} exists.", SrcBuildPath, SrcBuildPath2);
+            }
+            SrcBuildPath = SrcBuildPath2;
+            SrcBuildPath_Cache = SrcBuildPath2_Cache;
+        }
+        string SrcCLPath = CombinePaths(SrcBuildPath, CommandUtils.EscapePath(CommandUtils.P4Env.Branch) + "-CL-" + CommandUtils.P4Env.Changelist.ToString());
+        string SrcCLPath_Cache = CombinePaths(SrcBuildPath_Cache, CommandUtils.EscapePath(CommandUtils.P4Env.Branch) + "-CL-" + CommandUtils.P4Env.Changelist.ToString());
+        if (!InternalUtils.SafeDirectoryExists(SrcCLPath))
+        {
+            throw new AutomationException("PrePak: {0} does not exist.", SrcCLPath);
+        }
+        string PlatformPath = CombinePaths(SrcCLPath, SC.FinalCookPlatform);
+        string PlatformPath_Cache = CombinePaths(SrcCLPath_Cache, SC.FinalCookPlatform);
+        if (!InternalUtils.SafeDirectoryExists(PlatformPath))
+        {
+            throw new AutomationException("PrePak: {0} does not exist.", PlatformPath);
+        }
+        string PakPath = CombinePaths(PlatformPath, "Staged", SC.ShortProjectName, "Content", "Paks");
+        string PakPath_Cache = CombinePaths(PlatformPath_Cache, "Staged", SC.ShortProjectName, "Content", "Paks");
+        if (!InternalUtils.SafeDirectoryExists(PakPath))
+        {
+            throw new AutomationException("PrePak: {0} does not exist.", PakPath);
+        }
+
+        string DestPath = CombinePaths(SC.StageDirectory.FullName, SC.ShortProjectName, "Content", "Paks");
+
+        {
+            var PakFiles = CommandUtils.FindFiles("*.pak", false, PakPath);
+            var SigFiles = CommandUtils.FindFiles("*.sig", false, PakPath);
+
+            var Files = new List<string>();
+
+            Files.AddRange(PakFiles);
+            Files.AddRange(SigFiles);
+
+            if (Files.Count < 1)
+            {
+                throw new AutomationException("PrePak: {0} exists but does not have any paks in it.", PakPath);
+            }
+
+
+            foreach (var SrcFile in Files)
+            {
+                string DestFileName = CombinePaths(DestPath, new FileReference(SrcFile).GetFileName());
+                if (!string.IsNullOrEmpty(CachePath))
+                {
+                    string CacheSrcFile = CombinePaths(PakPath_Cache, new FileReference(SrcFile).GetFileName());
+                    try
+                    {
+                        if (InternalUtils.SafeFileExists(CacheSrcFile))
+                        {
+                            var Info = new System.IO.FileInfo(SrcFile);
+                            var InfoCache = new System.IO.FileInfo(CacheSrcFile);
+                            if (Info.Exists && InfoCache.Exists && Info.Length == InfoCache.Length)
+                            {
+                                Log("Copying from cache {0} -> {1}", CacheSrcFile, DestFileName);
+                                CopyFileIncremental(new FileReference(CacheSrcFile), new FileReference(DestFileName));
+                                continue;
+                            }
+                        }
+                    }
+                    catch (Exception)
+                    {
+
+                    }
+                }
+                Log("Copying {0} -> {1}", SrcFile, DestFileName);
+                CopyFileIncremental(new FileReference(SrcFile), new FileReference(DestFileName));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Creates pak files using streaming install chunk manifests.
+    /// </summary>
+    /// <param name="Params"></param>
+    /// <param name="SC"></param>
+    private static void CreatePaksUsingChunkManifests(ProjectParams Params, DeploymentContext SC)
 	{
 		Log("Creating pak using streaming install manifests.");
 		DumpManifest(SC, CombinePaths(CmdEnv.LogFolder, "PrePak" + (SC.DedicatedServer ? "_Server" : "")));
@@ -1405,8 +1742,10 @@ public partial class Project : CommandUtils
 
         // Parse and cache crypto settings from INI file
         EncryptionAndSigning.CryptoSettings PakCryptoSettings = EncryptionAndSigning.ParseCryptoSettings(DirectoryReference.FromFile(Params.RawProjectPath), SC.StageTargetPlatform.IniPlatformType);
+		FileReference CryptoKeysCacheFilename = FileReference.Combine(SC.MetadataDir, "Crypto.json");
+		PakCryptoSettings.Save(CryptoKeysCacheFilename);
 
-        IEnumerable<Tuple<Dictionary<string,string>, string>> PakPairs = PakResponseFiles.Zip(ChunkList, (a, b) => Tuple.Create(a, b));
+		IEnumerable<Tuple<Dictionary<string,string>, string>> PakPairs = PakResponseFiles.Zip(ChunkList, (a, b) => Tuple.Create(a, b));
 	
         System.Threading.Tasks.ParallelOptions Options = new System.Threading.Tasks.ParallelOptions();
 
@@ -1418,7 +1757,7 @@ public partial class Project : CommandUtils
 			var ChunkName = Path.GetFileNameWithoutExtension(PakPair.Item2);
             if (PakPair.Item1.Count > 0)
             {
-			    CreatePak(Params, SC, PakPair.Item1, ChunkName, PakCryptoSettings);
+			    CreatePak(Params, SC, PakPair.Item1, ChunkName, PakCryptoSettings, CryptoKeysCacheFilename);
             }
 		});
 
@@ -1484,7 +1823,13 @@ public partial class Project : CommandUtils
 
 	private static string GetTmpPackagingPath(ProjectParams Params, DeploymentContext SC)
 	{
-		return CombinePaths(Path.GetDirectoryName(Params.RawProjectPath.FullName), "Saved", "TmpPackaging", SC.FinalCookPlatform);
+		string TmpPackagingPath = CombinePaths(Path.GetDirectoryName(Params.RawProjectPath.FullName), "Saved", "TmpPackaging", SC.FinalCookPlatform);
+		if(Params.bUseExtraFlavor)
+		{
+			TmpPackagingPath = CombinePaths(TmpPackagingPath, "ExtraFlavor");
+		}
+
+		return TmpPackagingPath;
 	}
 
 	private static bool ShouldCreatePak(ProjectParams Params, DeploymentContext SC)
@@ -1571,7 +1916,11 @@ public partial class Project : CommandUtils
 	{
 		if (ShouldCreatePak(Params, SC))
 		{
-			if (SC.PlatformUsesChunkManifests && DoesChunkPakManifestExist(Params, SC))
+			if (Params.PrePak)
+			{
+				CopyPaksFromNetwork(Params, SC);
+			}
+			else if (SC.PlatformUsesChunkManifests && DoesChunkPakManifestExist(Params, SC))
 			{
 				CreatePaksUsingChunkManifests(Params, SC);
 			}
@@ -2026,7 +2375,7 @@ public partial class Project : CommandUtils
 							if (bRequireStagedFilesToExist)
 							{
 								// if we aren't collecting multiple platforms, then it is expected to exist
-								throw new AutomationException(ExitCode.Error_MissingExecutable, "Stage Failed. Missing receipt '{0}'. Check that this target has been built.", Path.GetFileName(ReceiptFileName.FullName));
+								throw new AutomationException(ExitCode.Error_MissingExecutable, "Stage Failed. Missing receipt '{0}'. Check that this target has been built.", ReceiptFileName);
 							}
 							else
 							{
@@ -2066,7 +2415,8 @@ public partial class Project : CommandUtils
 				Params.Archive,
 				Params.IsProgramTarget,
 				Params.Client,
-				Params.Manifests
+				Params.Manifests,
+				Params.SeparateDebugInfo
 				);
 			LogDeploymentContext(SC);
 
@@ -2176,4 +2526,3 @@ public partial class Project : CommandUtils
 
 	#endregion
 }
-

@@ -34,9 +34,29 @@
 	# Arxan	
 	"Warning:.*Source [cC]ode [mM]arkers will be unavailable",
 	"Warning: PDB file .* not found",
-	"Warning: guard '.*__page_permission_service' cannot be installed at specified location",
+	"Warning: guard '[^']*' cannot be installed at specified location",
 	"Warning: The object file name .* in the do_not_analyze section was not found",
+	"Warning: Code range for .* is not unique, using the first match",
 
+	# Temporary Vivox hacks
+	"warning: \\\(arm64\\\) /Users/jenkins/slave-jenkins/workspace/sdk-4.9.2-build-ios-xcode9/.*: No such file or directory",
+
+	# Tempoary IOS packaging hacks
+	"warning: no debug symbols in executable \\(-arch arm64\\)",
+
+	# Orbis-pub-cmd
+	"\\[Warn\\]\\s*Number of Warning",
+	"\\[Warn\\]\\s*Result : WARNING\\s*\$",
+	"\\[Warn\\]\\s*[0-9 :-]+ [A-Za-z ]+ Process finished with warning\\(s\\)\\.",
+	
+	# FN orbis-pub-cmd hacks
+    "\\[Warn\\]	\\(online check\\) Could not get the version info from the network\\.",
+	"\\[Warn\\]	\\(online check\\) [A-Za-z0-9. ]+ may or may not be used for master submission\\. \\(unconfirmed version\\)",
+	"\\[Warn\\]	Format of the project file is not valid\\. \\(Warning\\) \\(Chunk #\\d+ is never downloaded because no languages are assigned to it\\)",
+	"\\[Warn\\]	The following combination of Volume Type/Storage Type is exceptionally allowed\\. \\(app:bd25, remaster:bd25, remaster:bd25\\)",
+    "\\[Warn\\]	Number of Initial Chunks for Disc was changed by the patch/remaster\\. \\(Scenario #0, 0 -> 1\\) Confirm that it is intentional change\\.",
+	"\\[Warn\\]	Language Setting was changed by the patch/remaster\\. \\(Chunk #\\d+, 0x\\d+ -> 0x\\d+\\) Confirm that it is intentional change\\.",
+	
 #	".*ERROR: The process.*not found",
 #	".*ERROR: This operation returned because the timeout period expired.*",
 #	".*Sync.VerifyKnownFileInManifest: ERROR:.*",
@@ -197,6 +217,16 @@ unshift @::gMatchers, (
 		id =>				"genericMsError",
         pattern =>          q{[Ee]rror [A-Z]\d+\s:},
 		action =>           q{incValue("errors"); diagnostic("", "error", 0)},
+	},
+	{
+		id =>				"orbisPubCmdWarning",
+        pattern =>          q{\[[Ww]arn\]},
+		action =>           q{incValue("warnings"); diagnostic("", "warning", 0, forwardWhile('^\\s*\\[[Ww]arn\\]')) },
+	},
+	{
+		id =>				"orbisPubCmdError",
+        pattern =>          q{\[[Ee]rror\]},
+		action =>           q{incValue("errors"); diagnostic("", "error", 0, forwardWhile('^\\s*\\[[Ee]rror\\]')) },
 	}
 );
 

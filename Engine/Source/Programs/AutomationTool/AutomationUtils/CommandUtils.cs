@@ -2246,6 +2246,67 @@ namespace AutomationTool
 			}
 			return Files;
 		}
+
+		static public Dictionary<Version, string> GetBuildVersionPathMap(string[] BuildFolders)
+		{
+			Dictionary<Version, string> BuildVersionPaths = new Dictionary<Version, string>();
+
+			foreach (string buildFolder in BuildFolders)
+			{
+				string XboxoneReleaseVersion = Path.GetFileName(buildFolder);
+
+				// The name of all recent archived builds either start with "EA" or only contain version
+				string VersionPrefix = "EA";
+				if (XboxoneReleaseVersion.StartsWith(VersionPrefix))
+				{
+					XboxoneReleaseVersion.Substring(VersionPrefix.Length);  // Length of "EA"
+				}
+
+				Version ReleaseVersion;
+				if (Version.TryParse(XboxoneReleaseVersion, out ReleaseVersion))
+				{
+					BuildVersionPaths.Add(ReleaseVersion, buildFolder);
+				}
+			}
+
+			return BuildVersionPaths;
+		}
+
+		static public string GetPreviousXboxOneReleaseArchiveDir(string XboxOneReleasesArchiveDir)
+		{
+			var BuildFolders = Directory.GetDirectories(XboxOneReleasesArchiveDir);
+			if (BuildFolders.Length > 0)
+			{
+				Dictionary<Version, string> BuildVersionPathMap = GetBuildVersionPathMap(BuildFolders);
+				if (BuildVersionPathMap.Count > 0)
+				{
+					return BuildVersionPathMap.Where(archiveDir => DirectoryExists(CombinePaths(archiveDir.Value, "Paks"))).OrderByDescending(versionPathPair => versionPathPair.Key).First().Value;
+				}
+				else
+				{
+					throw new AutomationException(String.Format("No valid builds were found in %s", XboxOneReleasesArchiveDir));
+				}
+			}
+			else
+			{
+				throw new AutomationException(String.Format("No builds were found in %s", XboxOneReleasesArchiveDir));
+			}
+		}
+		
+		public static string FormatSizeString(long Size)
+		{
+			string[] Units = { "bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB" };
+
+			int UnitIndex = 0;
+			double AbsSize = Math.Abs(Size);
+			while (AbsSize >= 1024)
+			{
+				AbsSize /= 1024;
+				++UnitIndex;
+			}
+
+			return String.Format("{0} {1}", AbsSize.ToString("N2"), Units[UnitIndex]);
+		}
 	}
 
 	/// <summary>

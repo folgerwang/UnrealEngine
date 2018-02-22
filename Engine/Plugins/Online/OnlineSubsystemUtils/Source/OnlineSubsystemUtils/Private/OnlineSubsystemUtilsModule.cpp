@@ -5,6 +5,7 @@
 #include "Interfaces/OnlineIdentityInterface.h"
 #include "OnlineSubsystem.h"
 #include "OnlineSubsystemUtils.h"
+#include "OnlineDelegates.h"
 #include "OnlinePIESettings.h"
 
 IMPLEMENT_MODULE(FOnlineSubsystemUtilsModule, OnlineSubsystemUtils);
@@ -18,11 +19,15 @@ public:
 
 	FOnlineSubsystemUtils() 
 		: bShouldTryOnlinePIE(true)
-	{}
+	{
+	}
 
-	virtual ~FOnlineSubsystemUtils() {}
+	virtual ~FOnlineSubsystemUtils()
+	{
+		FOnlineSubsystemDelegates::OnOnlineSubsystemCreated.Remove(OnOnlineSubsystemCreatedDelegateHandle);
+	}
 
-	FName GetOnlineIdentifier(const FWorldContext& WorldContext, const FName Subsystem = NAME_None) override
+	virtual FName GetOnlineIdentifier(const FWorldContext& WorldContext, const FName Subsystem = NAME_None) const override
 	{
 #if WITH_EDITOR
 		if (WorldContext.WorldType == EWorldType::PIE)
@@ -34,7 +39,7 @@ public:
 		return Subsystem;
 	}
 
-	FName GetOnlineIdentifier(UWorld* World, const FName Subsystem = NAME_None) override
+	virtual FName GetOnlineIdentifier(UWorld* World, const FName Subsystem = NAME_None) const override
 	{
 #if WITH_EDITOR
 		if (const FWorldContext* WorldContext = GEngine->GetWorldContextFromWorld(World))
@@ -43,6 +48,42 @@ public:
 		}
 #endif
 		return Subsystem;
+	}
+
+	virtual void OnOnlineSubsystemCreated(IOnlineSubsystem* NewSubsystem)
+	{
+		if (OnExternalUIChangeDelegate.IsBound())
+		{
+			IOnlineExternalUIPtr ExternalUI = NewSubsystem->GetExternalUIInterface();
+			if (ExternalUI.IsValid())
+			{
+				ExternalUI->AddOnExternalUIChangeDelegate_Handle(OnExternalUIChangeDelegate);
+			}
+		}
+	}
+
+	virtual void SetEngineExternalUIBinding(const FOnExternalUIChangeDelegate& InOnExternalUIChangeDelegate) override
+	{
+		OnExternalUIChangeDelegate = InOnExternalUIChangeDelegate;
+
+		FOnlineSubsystemModule::FEnumerateOnlineSubsystemCb ExtDelegateCb = [this](IOnlineSubsystem* Subsystem)
+		{
+			IOnlineExternalUIPtr ExternalUI = Subsystem->GetExternalUIInterface();
+			if (ExternalUI.IsValid())
+			{
+				FDelegateHandle* ExistingDelegateHandle = ExternalUIDelegateHandles.Find(Subsystem->GetSubsystemName());
+				if (ExistingDelegateHandle && ExistingDelegateHandle->IsValid())
+				{
+					ExternalUI->ClearOnExternalUIChangeDelegate_Handle(*ExistingDelegateHandle);
+				}
+
+				FDelegateHandle DelegateHandle = ExternalUI->AddOnExternalUIChangeDelegate_Handle(OnExternalUIChangeDelegate);
+				ExternalUIDelegateHandles.Add(Subsystem->GetSubsystemName(), DelegateHandle);
+			}
+		};
+		
+		FOnlineSubsystemModule& OSS = FModuleManager::GetModuleChecked<FOnlineSubsystemModule>("OnlineSubsystem");
+		OSS.EnumerateOnlineSubsystems(ExtDelegateCb);
 	}
 
 #if WITH_EDITOR
@@ -118,17 +159,32 @@ public:
 
 private:
 
-	// If false it will not try to do online PIE at all
+	void Init()
+	{
+		FOnlineSubsystemDelegates::OnOnlineSubsystemCreated.AddRaw(this, &FOnlineSubsystemUtils::OnOnlineSubsystemCreated);
+	}
+
+	/** If false it will not try to do online PIE at all */
 	bool bShouldTryOnlinePIE;
+
+	/** Delegate set by the engine for notification of external UI operations */
+	FOnExternalUIChangeDelegate OnExternalUIChangeDelegate;
+	TMap<FName, FDelegateHandle> ExternalUIDelegateHandles;
+
+	/** Delegate binding when new online subsystems are created */
+	FDelegateHandle OnOnlineSubsystemCreatedDelegateHandle;
+
+	friend FOnlineSubsystemUtilsModule;
 };
 
 void FOnlineSubsystemUtilsModule::StartupModule()
 {
-	SubsystemUtils = new FOnlineSubsystemUtils();
+	TUniquePtr<FOnlineSubsystemUtils> TempUtils = MakeUnique<FOnlineSubsystemUtils>();
+	TempUtils->Init();
+	SubsystemUtils = MoveTemp(TempUtils);
 }
 
 void FOnlineSubsystemUtilsModule::ShutdownModule()
 {
-	delete SubsystemUtils;
-	SubsystemUtils = nullptr;
+	SubsystemUtils.Reset();
 }

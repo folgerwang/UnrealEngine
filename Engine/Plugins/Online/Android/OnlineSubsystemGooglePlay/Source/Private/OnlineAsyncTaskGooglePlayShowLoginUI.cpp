@@ -55,7 +55,7 @@ void FOnlineAsyncTaskGooglePlayShowLoginUI::Finalize()
 
 void FOnlineAsyncTaskGooglePlayShowLoginUI::TriggerDelegates()
 {
-	UE_LOG(LogOnline, Log, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI: TriggerDelegates Success: %d."), bWasSuccessful);
+	UE_LOG(LogOnline, Log, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI: TriggerDelegates Success: %d."), WasSuccessful());
 	TSharedPtr<const FUniqueNetIdString> UserId = Subsystem->GetIdentityGooglePlay()->GetCurrentUserId();
 
 	if (bWasSuccessful && !UserId.IsValid())

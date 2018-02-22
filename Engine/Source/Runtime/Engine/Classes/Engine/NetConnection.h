@@ -256,10 +256,13 @@ class UNetConnection : public UPlayer
 		Ack
 	};
 
-public:
-	// Constants.
-	enum{ MAX_CHANNELS         = 10240 };	// Maximum channels. TODO: This needs to differ per game somehow but cannot with shared executable
+	/** Returns the actor starvation map */
+	TMap<FString, TArray<float>>& GetActorsStarvedByClassTimeMap() { return ActorsStarvedByClassTimeMap; }
+	
+	/** Clears the actor starvation map */
+	void ResetActorsStarvedByClassTimeMap() { ActorsStarvedByClassTimeMap.Empty(); }
 
+public:
 	// Connection information.
 
 	EConnectionState	State;					// State this connection is in.
@@ -338,12 +341,16 @@ public:
 	int32 InBytes, OutBytes;
 	/** packets sent/received on this connection (accumulated during a StatPeriod) */
 	int32 InPackets, OutPackets;
+	/** total packets sent/received on this connection */
+	int32 InTotalPackets, OutTotalPackets;
 	/** bytes sent/received on this connection (per second) - these are from previous StatPeriod interval */
 	int32 InBytesPerSecond, OutBytesPerSecond;
 	/** packets sent/received on this connection (per second) - these are from previous StatPeriod interval */
 	int32 InPacketsPerSecond, OutPacketsPerSecond;
-	/** packets lost on this connection */
+	/** packets lost on this connection (accumulated during a StatPeriod) */
 	int32 InPacketsLost, OutPacketsLost;
+	/** total packets lost on this connection */
+	int32 InTotalPacketsLost, OutTotalPacketsLost;
 
 	// Packet.
 	FBitWriter		SendBuffer;						// Queued up bits waiting to send
@@ -358,10 +365,13 @@ public:
 	bool			bLastHasServerFrameTime;
 
 	// Channel table.
-	class UChannel*		Channels		[ MAX_CHANNELS ];
-	int32				OutReliable		[ MAX_CHANNELS ];
-	int32				InReliable		[ MAX_CHANNELS ];
-	int32				PendingOutRec	[ MAX_CHANNELS ];	// Outgoing reliable unacked data from previous (now destroyed) channel in this slot.  This contains the first chsequence not acked
+	static const int32 DEFAULT_MAX_CHANNEL_SIZE;
+
+	int32 MaxChannelSize;
+	TArray<UChannel*>	Channels;
+	TArray<int32>		OutReliable;
+	TArray<int32>		InReliable;
+	TArray<int32>		PendingOutRec;	// Outgoing reliable unacked data from previous (now destroyed) channel in this slot.  This contains the first chsequence not acked
 	TArray<int32> QueuedAcks, ResendAcks;
 
 	int32				InitOutReliable;
@@ -840,6 +850,9 @@ private:
 	 * used to make sure the client has traveled correctly, prevent replicating actors before level transitions are done, etc
 	 */
 	FName ClientWorldPackageName;
+
+	/** A map of class names to arrays of time differences between replication of actors of that class for each connection */
+	TMap<FString, TArray<float>> ActorsStarvedByClassTimeMap;
 };
 
 

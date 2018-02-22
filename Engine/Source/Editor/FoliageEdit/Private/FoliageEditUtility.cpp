@@ -135,7 +135,7 @@ void FFoliageEditUtility::MoveActorFoliageInstancesToLevel(ULevel* InTargetLevel
 
 	// Get a world context
 	UWorld* World = InTargetLevel->OwningWorld;
-	bool PromptToMoveFoliageTypeToAsset = World->StreamingLevels.Num() > 0;
+	bool PromptToMoveFoliageTypeToAsset = World->GetStreamingLevels().Num() > 0;
 	bool ShouldPopulateMeshList = false;
 
 	const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "MoveSelectedFoliageToSelectedLevel", "Move Selected Foliage to Level"), !GEditor->IsTransactionActive());

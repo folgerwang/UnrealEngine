@@ -74,6 +74,9 @@ public:
 	UPROPERTY()
 	uint8 bAllowTemplate:1;
 
+	UPROPERTY()
+	uint8 bAllowDynamicCreation:1;
+
 private:
 
 	UPROPERTY()
@@ -124,7 +127,8 @@ public:
 
 	static void InitializeWidgetStatic(UUserWidget* UserWidget
 		, const UClass* InClass
-		, bool InCanTemplate
+		, bool InHasTemplate
+		, bool InAllowDynamicCreation
 		, UWidgetTree* InWidgetTree
 		, const TArray< UWidgetAnimation* >& InAnimations
 		, const TArray< FDelegateRuntimeBinding >& InBindings);

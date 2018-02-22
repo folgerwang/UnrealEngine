@@ -441,12 +441,13 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 	// additional commands to be sent to the commandline
 	FString SessionName = InProfile->GetName().Replace(TEXT("\'"), TEXT("_")).Replace(TEXT("\'"), TEXT("_"));
 	FString SessionOwner = FString(FPlatformProcess::UserName(false)).Replace(TEXT("\'"), TEXT("_")).Replace(TEXT("\'"), TEXT("_"));;
-	FString AdditionalCommandLine = FString::Printf(TEXT(" -addcmdline=\"-SessionId=%s -SessionOwner='%s' -SessionName='%s'%s%s\""),
+	FString AdditionalCommandLine = FString::Printf(TEXT(" -addcmdline=\"-SessionId=%s -SessionOwner='%s' -SessionName='%s'%s%s %s\""),
 		*SessionId.ToString(),
 		*SessionOwner,
 		*SessionName,
 		*RoleCommands,
-		*LocalizationCommands);
+		*LocalizationCommands,
+		*InProfile->GetAdditionalCommandLineParameters());
 
 	// map list
 	FString MapList = TEXT("");
@@ -514,8 +515,15 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 			FString additionalOptions = InProfile->GetCookOptions();
 			if (!additionalOptions.IsEmpty())
 			{
-				UATCommand += TEXT(" ");
+				UATCommand += TEXT(" -additionalcookeroptions=\"");
 				UATCommand += additionalOptions;
+                UATCommand += "\"";
+			}
+
+			if (FParse::Param(FCommandLine::Get(), TEXT("fastcook")))
+			{
+				// if our editor has nomcp then pass it through the launched game
+				UATCommand += TEXT(" -fastcook");
 			}
 
 			if (InProfile->IsPackingWithUnrealPak())

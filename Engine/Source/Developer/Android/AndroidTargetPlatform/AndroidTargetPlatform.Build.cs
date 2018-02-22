@@ -16,7 +16,8 @@ public class AndroidTargetPlatform : ModuleRules
 				"TargetPlatform",
                 "DesktopPlatform",
 				"AndroidDeviceDetection",
-			}
+                "AudioPlatformConfiguration"
+            }
 		);
 
 		PublicIncludePaths.AddRange(
@@ -26,11 +27,12 @@ public class AndroidTargetPlatform : ModuleRules
 			}
 		);
 
-		if (Target.bCompileAgainstEngine)
+
+        if (Target.bCompileAgainstEngine)
 		{
 			PrivateDependencyModuleNames.Add("Engine");
-			PrivateIncludePathModuleNames.Add("TextureCompressor");		//@todo android: AndroidTargetPlatform.Build
-		}
+            PrivateIncludePathModuleNames.Add("TextureCompressor");     //@todo android: AndroidTargetPlatform.Build
+        }
 
         PublicDefinitions.Add("WITH_OGGVORBIS=1");
 

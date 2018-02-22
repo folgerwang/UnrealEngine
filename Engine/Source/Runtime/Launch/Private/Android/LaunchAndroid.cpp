@@ -10,7 +10,10 @@
 #include "Android/AndroidJNI.h"
 #include "Android/AndroidEventManager.h"
 #include "Android/AndroidInputInterface.h"
+#include <android/asset_manager.h>
+#include <android/asset_manager_jni.h>
 #include <android/log.h>
+#include <cpu-features.h>
 #include <android_native_app_glue.h>
 #include <cstdio>
 #include <sys/resource.h>
@@ -185,12 +188,38 @@ void InitHMDs()
 	}
 }
 
+extern AAssetManager * AndroidThunkCpp_GetAssetManager();
+
 static void InitCommandLine()
 {
 	static const uint32 CMD_LINE_MAX = 16384u;
 
 	// initialize the command line to an empty string
 	FCommandLine::Set(TEXT(""));
+
+	AAssetManager* AssetMgr = AndroidThunkCpp_GetAssetManager();
+	AAsset* asset = AAssetManager_open(AssetMgr, TCHAR_TO_UTF8(TEXT("UE4CommandLine.txt")), AASSET_MODE_BUFFER);
+	if (nullptr != asset)
+	{
+		const void* FileContents = AAsset_getBuffer(asset);
+		int32 FileLength = AAsset_getLength(asset);
+
+		char CommandLine[CMD_LINE_MAX];
+		FileLength = (FileLength < CMD_LINE_MAX - 1) ? FileLength : CMD_LINE_MAX - 1;
+		memcpy(CommandLine, FileContents, FileLength);
+		CommandLine[FileLength] = '\0';
+
+		AAsset_close(asset);
+
+		// chop off trailing spaces
+		while (*CommandLine && isspace(CommandLine[strlen(CommandLine) - 1]))
+		{
+			CommandLine[strlen(CommandLine) - 1] = 0;
+		}
+
+		FCommandLine::Append(UTF8_TO_TCHAR(CommandLine));
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("APK Commandline: %s"), FCommandLine::Get());
+	}
 
 	// read in the command line text file from the sdcard if it exists
 	FString CommandLineFilePath = GFilePathBase + FString("/UE4Game/") + (!FApp::IsProjectNameEmpty() ? FApp::GetProjectName() : FPlatformProcess::ExecutableName()) + FString("/UE4CommandLine.txt");
@@ -215,7 +244,11 @@ static void InitCommandLine()
 			CommandLine[strlen(CommandLine) - 1] = 0;
 		}
 
+		// initialize the command line to an empty string
+		FCommandLine::Set(TEXT(""));
+
 		FCommandLine::Append(UTF8_TO_TCHAR(CommandLine));
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Override Commandline: %s"), FCommandLine::Get());
 	}
 }
 
@@ -311,7 +344,13 @@ int32 AndroidMain(struct android_app* state)
 	IPlatformFile::GetPlatformPhysical().Initialize(nullptr, FCommandLine::Get());
 
 	// initialize the engine
-	GEngineLoop.PreInit(0, NULL, FCommandLine::Get());
+	int32 PreInitResult = GEngineLoop.PreInit(0, NULL, FCommandLine::Get());
+
+	if (PreInitResult != 0)
+	{
+		checkf(false, TEXT("Engine Preinit Failed"));
+		return PreInitResult;
+	}
 
 	// initialize HMDs
 	InitHMDs();
@@ -873,6 +912,26 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 }
 
 //Native-defined functions
+
+JNI_METHOD jint Java_com_epicgames_ue4_GameActivity_nativeGetCPUFamily(JNIEnv* jenv, jobject thiz)
+{
+	return (jint)android_getCpuFamily();
+}
+
+JNI_METHOD jboolean Java_com_epicgames_ue4_GameActivity_nativeSupportsNEON(JNIEnv* jenv, jobject thiz)
+{
+	AndroidCpuFamily Family = android_getCpuFamily();
+
+	if (Family == ANDROID_CPU_FAMILY_ARM64)
+	{
+		return JNI_TRUE;
+	}
+	if (Family == ANDROID_CPU_FAMILY_ARM)
+	{
+		return ((android_getCpuFeatures() & ANDROID_CPU_ARM_FEATURE_NEON) != 0) ? JNI_TRUE : JNI_FALSE;
+	}
+	return JNI_FALSE;
+}
 
 //This function is declared in the Java-defined class, GameActivity.java: "public native void nativeOnConfigurationChanged(boolean bPortrait);
 JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeOnConfigurationChanged(JNIEnv* jenv, jobject thiz, jboolean bPortrait)

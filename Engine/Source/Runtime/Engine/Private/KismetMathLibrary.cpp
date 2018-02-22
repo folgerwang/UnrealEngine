@@ -570,6 +570,11 @@ bool UKismetMathLibrary::NearlyEqual_TransformTransform(const FTransform& A, con
 		FTransform::AreScale3DsEqual(A, B, Scale3DTolerance);
 }
 
+float UKismetMathLibrary::Transform_Determinant(const FTransform& Transform)
+{
+	return Transform.ToMatrixWithScale().Determinant();
+}
+
 bool UKismetMathLibrary::ClassIsChildOf(TSubclassOf<class UObject> TestClass, TSubclassOf<class UObject> ParentClass)
 {
 	return ((*ParentClass != NULL) && (*TestClass != NULL)) ? (*TestClass)->IsChildOf(*ParentClass) : false;

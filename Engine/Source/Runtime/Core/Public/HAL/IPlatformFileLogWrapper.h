@@ -458,4 +458,9 @@ public:
 		//@todo no wrapped logging for async file handles (yet)
 		return Result;
 	}
+	virtual void ThrottleAsyncPrecaches(bool bEnablePrecacheRequests) override
+	{
+		LowerLevel->ThrottleAsyncPrecaches(bEnablePrecacheRequests);
+	}
+
 };

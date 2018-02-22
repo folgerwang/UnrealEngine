@@ -78,8 +78,8 @@ SMenuAnchor::FPopupPlacement::FPopupPlacement(const FGeometry& PlacementGeometry
  */
 void SMenuAnchor::Construct( const FArguments& InArgs )
 {
-	Children.Add( new FSimpleSlot() );
-	Children.Add( new FSimpleSlot() );
+	Children.Add( new FSimpleSlot(this) );
+	Children.Add( new FSimpleSlot(this) );
 	
 
 	Children[0]
@@ -613,6 +613,7 @@ SMenuAnchor::SMenuAnchor()
 	, Method()
 	, MethodInUse()
 	, LocalPopupPosition( FVector2D::ZeroVector )
+	, Children(this)
 {
 }
 

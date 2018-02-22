@@ -342,7 +342,11 @@ struct FMonitorInfo
  */
 struct FDisplayMetrics
 {
-	FDisplayMetrics() : TitleSafePaddingSize(0, 0, 0, 0), ActionSafePaddingSize(0, 0, 0, 0) { }
+	FDisplayMetrics()
+		: TitleSafePaddingSize(0, 0, 0, 0)
+		, ActionSafePaddingSize(0, 0, 0, 0)
+	{
+	}
 
 	/** Width of the primary display in pixels */
 	int32 PrimaryDisplayWidth;
@@ -359,7 +363,13 @@ struct FDisplayMetrics
 	/** Virtual display coordinate range (includes all active displays) */
 	FPlatformRect VirtualDisplayRect;
 
-	/** The safe area for all content on TVs (see http://en.wikipedia.org/wiki/Safe_area_%28television%29) - content will be inset TitleSafePaddingSize.X on left _and_ right */
+	/**
+	 * The safe area for all content on TVs (see http://en.wikipedia.org/wiki/Safe_area_%28television%29) - content will be inset 
+	 * Left - X
+	 * Top - Y
+	 * Right - Z
+	 * Bottom - W
+	 */
 	FVector4 TitleSafePaddingSize;
 
 	/** The safe area for less important spill over on TVs (see TitleSafePaddingSize) */

@@ -150,7 +150,7 @@ public:
 
 	// Returns the overall scalability level (can return -1 if the settings are custom)
 	UFUNCTION(BlueprintCallable, Category=Settings)
-	int32 GetOverallScalabilityLevel() const;
+	virtual int32 GetOverallScalabilityLevel() const;
 
 	// Returns the current resolution scale and the range
 	DEPRECATED(4.12, "Please call GetResolutionScaleInformationEx")
@@ -391,6 +391,14 @@ protected:
 	/** Desired screen height used to calculate the resolution scale when user changes display mode */
 	UPROPERTY(config)
 	int32 DesiredScreenHeight;
+
+	/** Desired screen width used to calculate the resolution scale when user changes display mode */
+	UPROPERTY(config)
+	int32 LastUserConfirmedDesiredScreenWidth;
+
+	/** Desired screen height used to calculate the resolution scale when user changes display mode */
+	UPROPERTY(config)
+	int32 LastUserConfirmedDesiredScreenHeight;
 
 	/** Result of the last benchmark; calculated resolution to use. */
 	UPROPERTY(config)

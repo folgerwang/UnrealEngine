@@ -80,7 +80,8 @@ public class Engine : ModuleRules
 				"DatabaseSupport",
 				"PacketHandler",
 				"HardwareSurvey",
-			}
+                "AudioPlatformConfiguration"
+            }
 		);
 
 		PrivateDependencyModuleNames.AddRange(
@@ -396,7 +397,14 @@ public class Engine : ModuleRules
 				"Vorbis",
 				"VorbisFile"
 				);
-		}
+
+            PrivateDependencyModuleNames.Add("AndroidRuntimeSettings");
+        }
+
+        if (Target.Platform == UnrealTargetPlatform.IOS || Target.Platform == UnrealTargetPlatform.TVOS)
+        {
+            PrivateDependencyModuleNames.Add("IOSRuntimeSettings");
+        }
 
 		if (Target.Platform == UnrealTargetPlatform.Linux)
 		{

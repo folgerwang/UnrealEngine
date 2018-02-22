@@ -14,6 +14,7 @@
 #include "Blueprint/DragDropOperation.h"
 #include "Blueprint/UserWidget.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
+#include "Slate/SGameLayerManager.h"
 #include "WidgetBlueprintLibrary.generated.h"
 
 class UFont;
@@ -322,4 +323,10 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category="Widget|Hardware Cursor", meta=( WorldContext="WorldContextObject" ))
 	static bool SetHardwareCursor(UObject* WorldContextObject, EMouseCursor::Type CursorShape, FName CursorName, FVector2D HotSpot);
+
+	UFUNCTION(BlueprintCallable, Category = "Widget|Window Title Bar")
+	static void SetWindowTitleBarState(UWidget* TitleBarContent, EWindowTitleBarMode Mode, bool bTitleBarDragEnabled, bool bWindowButtonsVisible, bool bTitleBarVisible);
+
+	UFUNCTION(BlueprintCallable, Category = "Widget|Window Title Bar")
+	static void RestorePreviousWindowTitleBarState();
 };

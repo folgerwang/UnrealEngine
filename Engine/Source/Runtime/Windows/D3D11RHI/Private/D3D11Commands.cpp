@@ -1666,6 +1666,8 @@ void FD3D11DynamicRHI::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef IndexBuff
 
 	if (NumInstances > 1 || FirstInstance != 0)
 	{
+		const uint64 TotalIndexCount = (uint64)NumInstances * (uint64)IndexCount + (uint64)StartIndex;
+		checkf(TotalIndexCount <= (uint64)0xFFFFFFFF, TEXT("Instanced Index Draw exceeds maximum d3d11 limit: Total: %llu, NumInstances: %llu, IndexCount: %llu, StartIndex: %llu, FirstInstance: %llu"), TotalIndexCount, NumInstances, IndexCount, StartIndex, FirstInstance);
 		Direct3DDeviceIMContext->DrawIndexedInstanced(IndexCount, NumInstances, StartIndex, BaseVertexIndex, FirstInstance);
 	}
 	else

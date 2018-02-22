@@ -107,7 +107,7 @@ bool FRHIResource::Bypass()
 
 DECLARE_CYCLE_STAT(TEXT("Delete Resources"), STAT_DeleteResources, STATGROUP_RHICMDLIST);
 
-void FRHIResource::FlushPendingDeletes()
+void FRHIResource::FlushPendingDeletes(bool bFlushDeferredDeletes)
 {
 	SCOPE_CYCLE_COUNTER(STAT_DeleteResources);
 
@@ -166,24 +166,39 @@ void FRHIResource::FlushPendingDeletes()
 
 	if (DeferredDeletionQueue.Num())
 	{
-		int32 DeletedBatchCount = 0;
-		while (DeletedBatchCount < DeferredDeletionQueue.Num())
+		if (bFlushDeferredDeletes)
 		{
-			ResourcesToDelete& ResourceBatch = DeferredDeletionQueue[DeletedBatchCount];
-			if (((ResourceBatch.FrameDeleted + NumFramesToExpire) < CurrentFrame) || !GIsRHIInitialized)
-			{
-				Delete(ResourceBatch.Resources);
-				++DeletedBatchCount;
-			}
-			else
-			{
-				break;
-			}
-		}
+			FRHICommandListExecutor::GetImmediateCommandList().BlockUntilGPUIdle();
 
-		if (DeletedBatchCount)
+			for (int32 Idx = 0; Idx < DeferredDeletionQueue.Num(); ++Idx)
+			{
+				ResourcesToDelete& ResourceBatch = DeferredDeletionQueue[Idx];
+				Delete(ResourceBatch.Resources);
+			}
+
+			DeferredDeletionQueue.Empty();
+		}
+		else
 		{
-			DeferredDeletionQueue.RemoveAt(0, DeletedBatchCount);
+			int32 DeletedBatchCount = 0;
+			while (DeletedBatchCount < DeferredDeletionQueue.Num())
+			{
+				ResourcesToDelete& ResourceBatch = DeferredDeletionQueue[DeletedBatchCount];
+				if (((ResourceBatch.FrameDeleted + NumFramesToExpire) < CurrentFrame) || !GIsRHIInitialized)
+				{
+					Delete(ResourceBatch.Resources);
+					++DeletedBatchCount;
+				}
+				else
+				{
+					break;
+				}
+			}
+
+			if (DeletedBatchCount)
+			{
+				DeferredDeletionQueue.RemoveAt(0, DeletedBatchCount);
+			}
 		}
 
 		++CurrentFrame;
@@ -276,10 +291,13 @@ bool GSupportsShaderFramebufferFetch = false;
 bool GSupportsShaderDepthStencilFetch = false;
 bool GSupportsTimestampRenderQueries = false;
 bool GRHISupportsGPUTimestampBubblesRemoval = false;
+bool GRHISupportsFrameCyclesBubblesRemoval = false;
 bool GHardwareHiddenSurfaceRemoval = false;
 bool GRHISupportsAsyncTextureCreation = false;
 bool GSupportsQuads = false;
 bool GSupportsGenerateMips = false;
+bool GSupportsParallelRenderingTasksWithSeparateRHIThread = true;
+bool GRHIThreadNeedsKicking = false;
 bool GSupportsVolumeTextureRendering = true;
 bool GSupportsSeparateRenderTargetBlendState = false;
 bool GSupportsDepthRenderTargetWithoutColorRenderTarget = true;
@@ -343,14 +361,19 @@ RHI_API int32 GPoolSizeVRAMPercentage = 0;
 
 RHI_API EShaderPlatform GShaderPlatformForFeatureLevel[ERHIFeatureLevel::Num] = {SP_NumPlatforms,SP_NumPlatforms,SP_NumPlatforms,SP_NumPlatforms};
 
+// simple stats about draw calls. GNum is the previous frame and 
+// GCurrent is the current frame.
+RHI_API int32 GCurrentNumDrawCallsRHI = 0;
 RHI_API int32 GNumDrawCallsRHI = 0;
+RHI_API int32 GCurrentNumPrimitivesDrawnRHI = 0;
 RHI_API int32 GNumPrimitivesDrawnRHI = 0;
 
 /** Called once per frame only from within an RHI. */
 void RHIPrivateBeginFrame()
 {
-	GNumDrawCallsRHI = 0;
-	GNumPrimitivesDrawnRHI = 0;
+	GNumDrawCallsRHI = GCurrentNumDrawCallsRHI;
+	GNumPrimitivesDrawnRHI = GCurrentNumPrimitivesDrawnRHI;
+	GCurrentNumDrawCallsRHI = GCurrentNumPrimitivesDrawnRHI = 0;
 }
 
 //
@@ -390,13 +413,29 @@ RHI_API bool GetFeatureLevelFromName(FName Name, ERHIFeatureLevel::Type& OutFeat
 RHI_API void GetFeatureLevelName(ERHIFeatureLevel::Type InFeatureLevel, FString& OutName)
 {
 	check(InFeatureLevel < ARRAY_COUNT(FeatureLevelNames));
-	FeatureLevelNames[(int32)InFeatureLevel].ToString(OutName);
+	if (InFeatureLevel < ARRAY_COUNT(FeatureLevelNames))
+	{
+		FeatureLevelNames[(int32)InFeatureLevel].ToString(OutName);
+	}
+	else
+	{
+		OutName = TEXT("InvalidFeatureLevel");
+	}	
 }
 
+static FName InvalidFeatureLevelName(TEXT("InvalidFeatureLevel"));
 RHI_API void GetFeatureLevelName(ERHIFeatureLevel::Type InFeatureLevel, FName& OutName)
 {
 	check(InFeatureLevel < ARRAY_COUNT(FeatureLevelNames));
-	OutName = FeatureLevelNames[(int32)InFeatureLevel];
+	if (InFeatureLevel < ARRAY_COUNT(FeatureLevelNames))
+	{
+		OutName = FeatureLevelNames[(int32)InFeatureLevel];
+	}
+	else
+	{
+		
+		OutName = InvalidFeatureLevelName;
+	}
 }
 
 static FName NAME_PCD3D_SM5(TEXT("PCD3D_SM5"));

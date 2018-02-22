@@ -93,6 +93,7 @@ class ENGINE_API UNavCollision : public UObject
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
 	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
+	virtual bool NeedsLoadForTargetPlatform(const class ITargetPlatform* TargetPlatform) const override;
 	//~ End UObject Interface.
 
 	FGuid GetGuid() const;

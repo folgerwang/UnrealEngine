@@ -373,8 +373,6 @@ GLuint FOpenGLDynamicRHI::GetOpenGLFramebuffer(uint32 NumSimultaneousRenderTarge
 
 void ReleaseOpenGLFramebuffers(FOpenGLDynamicRHI* Device, FTextureRHIParamRef TextureRHI)
 {
-	VERIFY_GL_SCOPE();
-
 	FOpenGLTextureBase* Texture = GetOpenGLTextureFromRHITexture(TextureRHI);
 
 	if (Texture)
@@ -406,8 +404,14 @@ void ReleaseOpenGLFramebuffers(FOpenGLDynamicRHI* Device, FTextureRHIParamRef Te
 			{
 				GLuint FramebufferToDelete = It.Value()-1;
 				check(FramebufferToDelete > 0);
-				Device->PurgeFramebufferFromCaches( FramebufferToDelete );
-				glDeleteFramebuffers( 1, &FramebufferToDelete );
+
+				RunOnGLRenderContextThread( [=]() 
+					{
+						VERIFY_GL_SCOPE();
+						Device->PurgeFramebufferFromCaches( FramebufferToDelete );
+						glDeleteFramebuffers( 1, &FramebufferToDelete );
+					});
+
 				It.RemoveCurrent();
 			}
 		}

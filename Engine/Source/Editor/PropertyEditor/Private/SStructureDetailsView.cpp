@@ -208,7 +208,7 @@ void SStructureDetailsView::SetStructureData(TSharedPtr<FStructOnScope> InStruct
 	InitParams.ArrayOffset = 0;
 	InitParams.ArrayIndex = INDEX_NONE;
 	InitParams.bAllowChildren = true;
-	InitParams.bForceHiddenPropertyVisibility = FPropertySettings::Get().ShowHiddenProperties();
+	InitParams.bForceHiddenPropertyVisibility = FPropertySettings::Get().ShowHiddenProperties() || DetailsViewArgs.bForceHiddenPropertyVisibility;
 	InitParams.bCreateCategoryNodes = false;
 
 	RootNode->InitNode(InitParams);

@@ -3315,7 +3315,7 @@ void FLightmassProcessor::ImportVolumeSamples()
 			FVector4 UnusedVolumeExtent;
 			Swarm.ReadChannel(Channel, &UnusedVolumeExtent, sizeof(UnusedVolumeExtent));
 
-			int32 NumStreamLevels = System.GetWorld()->StreamingLevels.Num();
+			int32 NumStreamLevels = System.GetWorld()->GetStreamingLevels().Num();
 			int32 NumVolumeSampleArrays;
 			Swarm.ReadChannel(Channel, &NumVolumeSampleArrays, sizeof(NumVolumeSampleArrays));
 			for (int32 ArrayIndex = 0; ArrayIndex < NumVolumeSampleArrays; ArrayIndex++)

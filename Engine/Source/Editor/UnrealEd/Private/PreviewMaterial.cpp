@@ -114,7 +114,7 @@ public:
 				}
 			}
 
-			if (bEditorStatsMaterial)
+			if (bEditorStatsMaterial || IsMobilePlatform(Platform))
 			{
 				TMap<FName, FString> ShaderTypeNamesAndDescriptions;
 				GetRepresentativeShaderTypesAndDescriptions(ShaderTypeNamesAndDescriptions);

@@ -26,6 +26,7 @@ enum class EDynamicResolutionStateEvent : uint8
 };
 
 
+/** Interface between the engine and state of dynamic resolution that can be overriden to implement a custom heurstic. */
 class ENGINE_API IDynamicResolutionState
 {
 public:
@@ -33,12 +34,6 @@ public:
 
 	/** Reset dynamic resolution's history. */
 	virtual void ResetHistory() = 0;
-
-	/** Enables/Disables dynamic resolution. */
-	virtual void SetEnabled(bool bEnable) = 0;
-
-	/** Returns whether dynamic resolution is globaly enabled. */
-	virtual bool IsEnabled() const = 0;
 
 	/** Setup a screen percentage driver for a given view family. */
 	virtual void SetupMainViewFamily(class FSceneViewFamily& ViewFamily) = 0;
@@ -50,9 +45,16 @@ public:
 	virtual float GetResolutionFractionUpperBound() const = 0;
 
 protected:
+
+	/** Enables/Disables dynamic resolution. This is only called by GEngine automatically. */
+	virtual void SetEnabled(bool bEnable) = 0;
+
+	/** Returns whether dynamic resolution is enabled for GEngine to know the EDynamicResolutionStatus. */
+	virtual bool IsEnabled() const = 0;
+
 	/** Process dynamic resolution events. UEngine::EmitDynamicResolutionEvent() guareentee to have all events being ordered. */
 	virtual void ProcessEvent(EDynamicResolutionStateEvent Event) = 0;
 
-	// Only GEngine can emit dynamic resolution event.
+	// Only GEngine can actually enable/disable and emit dynamic resolution event, to force consistency across all implementations.
 	friend class UEngine;
 };

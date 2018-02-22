@@ -69,7 +69,6 @@ DEFINE_LOG_CATEGORY(LogPlayerController);
 
 #define LOCTEXT_NAMESPACE "PlayerController"
 
-DECLARE_STATS_GROUP(TEXT("PlayerController"), STATGROUP_PlayerController, STATCAT_Advanced);
 DECLARE_CYCLE_STAT(TEXT("PC Tick Actor"), STAT_PC_TickActor, STATGROUP_PlayerController);
 DECLARE_CYCLE_STAT(TEXT("  PC Tick Input"), STAT_PC_TickInput, STATGROUP_PlayerController);
 DECLARE_CYCLE_STAT(TEXT("    PC Build Input Stack"), STAT_PC_BuildInputStack, STATGROUP_PlayerController);
@@ -249,27 +248,26 @@ void APlayerController::ClientUpdateLevelStreamingStatus_Implementation(FName Pa
 	else
 	{
 		// search for the level object by name
-		ULevelStreaming* LevelStreamingObject = NULL;
+		ULevelStreaming* LevelStreamingObject = nullptr;
 		if (World && PackageName != NAME_None)
 		{
-			for (int32 LevelIndex=0; LevelIndex < World->StreamingLevels.Num(); LevelIndex++)
+			for (ULevelStreaming* CurrentLevelStreamingObject : World->GetStreamingLevels())
 			{
-				ULevelStreaming* CurrentLevelStreamingObject = World->StreamingLevels[LevelIndex];
-				if (CurrentLevelStreamingObject != NULL && CurrentLevelStreamingObject->GetWorldAssetPackageFName() == PackageName)
+				if (CurrentLevelStreamingObject && CurrentLevelStreamingObject->GetWorldAssetPackageFName() == PackageName)
 				{
 					LevelStreamingObject = CurrentLevelStreamingObject;
-					if (LevelStreamingObject != NULL)
+					if (LevelStreamingObject)
 					{
 						// If we're unloading any levels, we need to request a one frame delay of garbage collection to make sure it happens after the level is actually unloaded
-						if (LevelStreamingObject->bShouldBeLoaded && !bNewShouldBeLoaded)
+						if (LevelStreamingObject->ShouldBeLoaded() && !bNewShouldBeLoaded)
 						{
 							GEngine->DelayGarbageCollection();
 						}
 
-						LevelStreamingObject->bShouldBeLoaded		= bNewShouldBeLoaded;
-						LevelStreamingObject->bShouldBeVisible		= bNewShouldBeVisible;
-						LevelStreamingObject->bShouldBlockOnLoad	= bNewShouldBlockOnLoad;
-						LevelStreamingObject->LevelLODIndex			= LODIndex;
+						LevelStreamingObject->SetShouldBeLoaded(bNewShouldBeLoaded);
+						LevelStreamingObject->SetShouldBeVisible(bNewShouldBeVisible);
+						LevelStreamingObject->bShouldBlockOnLoad = bNewShouldBlockOnLoad;
+						LevelStreamingObject->SetLevelLODIndex(LODIndex);
 					}
 					else
 					{
@@ -888,7 +886,7 @@ void APlayerController::GetPlayerViewPoint( FVector& out_Location, FRotator& out
 		out_Rotation = LastSpectatorSyncRotation;
 	}
 	else if (PlayerCameraManager != NULL && 
-		PlayerCameraManager->CameraCache.TimeStamp > 0.f) // Whether camera was updated at least once)
+		PlayerCameraManager->GetCameraCacheTime() > 0.f) // Whether camera was updated at least once)
 	{
 		PlayerCameraManager->GetCameraViewPoint(out_Location, out_Rotation);
 	}
@@ -1699,7 +1697,7 @@ void APlayerController::ServerUpdateCamera_Implementation(FVector_NetQuantize Ca
 #endif
 	{
 		//@TODO: CAMERA: Fat pipe
-		FMinimalViewInfo NewInfo = PlayerCameraManager->CameraCache.POV;
+		FMinimalViewInfo NewInfo = PlayerCameraManager->GetCameraCachePOV();
 		NewInfo.Location = NewPOV.Location;
 		NewInfo.Rotation = NewPOV.Rotation;
 		PlayerCameraManager->FillCameraCache(NewInfo);
@@ -2620,6 +2618,25 @@ void APlayerController::GetAudioListenerPosition(FVector& OutLocation, FVector& 
 	OutRightDir = ViewRotationMatrix.GetUnitAxis( EAxis::Y );
 }
 
+bool APlayerController::GetAudioListenerAttenuationOverridePosition(FVector& OutLocation)
+{
+	if (bOverrideAudioAttenuationListener)
+	{
+		USceneComponent* ListenerComponent = AudioListenerAttenuationComponent.Get();
+		if (ListenerComponent)
+		{
+			OutLocation = ListenerComponent->GetComponentLocation() + AudioListenerAttenuationOverride;
+		}
+		else
+		{
+			OutLocation = AudioListenerAttenuationOverride;
+		}
+		return true;
+	}
+	return false;
+}
+
+
 void APlayerController::SetAudioListenerOverride(USceneComponent* AttachedComponent, FVector Location, FRotator Rotation)
 {
 	bOverrideAudioListener = true;
@@ -2632,6 +2649,19 @@ void APlayerController::ClearAudioListenerOverride()
 {
 	bOverrideAudioListener = false;
 	AudioListenerComponent = nullptr;
+}
+
+void APlayerController::SetAudioListenerAttenuationOverride(USceneComponent* AttachToComponent, FVector AttenuationLocationOverride)
+{
+	bOverrideAudioAttenuationListener = true;
+	AudioListenerAttenuationComponent = AttachToComponent;
+	AudioListenerAttenuationOverride = AttenuationLocationOverride;
+}
+
+void APlayerController::ClearAudioListenerAttenuationOverride()
+{
+	bOverrideAudioAttenuationListener = false;
+	AudioListenerAttenuationComponent = nullptr;
 }
 
 /// @cond DOXYGEN_WARNINGS

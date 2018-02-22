@@ -1,79 +1,25 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Curl/CurlHttpManager.h"
-#include "HAL/PlatformFilemanager.h"
-#include "HAL/FileManager.h"
-#include "Misc/CommandLine.h"
-#include "Misc/FileHelper.h"
-#include "Misc/Paths.h"
-#include "Misc/ConfigCacheIni.h"
-#include "Misc/LocalTimestampDirectoryVisitor.h"
-#include "Misc/OutputDeviceRedirector.h"
-#include "Curl/CurlHttpThread.h"
-#include "Curl/CurlHttp.h"
-#include "Http.h"
-#include "Modules/ModuleManager.h"
-#include "Misc/OutputDeviceRedirector.h"
 
 #if WITH_LIBCURL
 
-#include "SocketSubsystem.h"
-#include "IPAddress.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/FileManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/FileHelper.h"
+#include "Misc/LocalTimestampDirectoryVisitor.h"
+#include "Misc/Paths.h"
 
-#if PLATFORM_WINDOWS
-#include "SslModule.h"
-#endif
+#include "Curl/CurlHttpThread.h"
+#include "Curl/CurlHttp.h"
+#include "Misc/OutputDeviceRedirector.h"
+#include "HttpModule.h"
 
-#if PLATFORM_WINDOWS
-#include "Windows/AllowWindowsPlatformTypes.h"
-
-// recreating parts of winhttp.h in here because winhttp.h and wininet.h do not play well with each other.
-#if defined(_WIN64)
-#include <pshpack8.h>
-#else
-#include <pshpack4.h>
-#endif
-
-#if defined(__cplusplus)
-extern "C" {
-#endif
-
-#if !defined(_WINHTTP_INTERNAL_)
-#define WINHTTPAPI DECLSPEC_IMPORT
-#else
-#define WINHTTPAPI
-
-#endif
-
-// WinHttpOpen dwAccessType values (also for WINHTTP_PROXY_INFO::dwAccessType)
-#define WINHTTP_ACCESS_TYPE_DEFAULT_PROXY               0
-#define WINHTTP_ACCESS_TYPE_NO_PROXY                    1
-#define WINHTTP_ACCESS_TYPE_NAMED_PROXY                 3
-#define WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY             4
-
-typedef struct
-{
-	DWORD  dwAccessType;      // see WINHTTP_ACCESS_* types below
-	LPWSTR lpszProxy;         // proxy server list
-	LPWSTR lpszProxyBypass;   // proxy bypass list
-}
-WINHTTP_PROXY_INFO, *LPWINHTTP_PROXY_INFO;
-WINHTTPAPI BOOL WINAPI WinHttpGetDefaultProxyConfiguration(WINHTTP_PROXY_INFO* pProxyInfo);
-
-typedef struct
-{
-	BOOL    fAutoDetect;
-	LPWSTR  lpszAutoConfigUrl;
-	LPWSTR  lpszProxy;
-	LPWSTR  lpszProxyBypass;
-} WINHTTP_CURRENT_USER_IE_PROXY_CONFIG;
-WINHTTPAPI BOOL WINAPI WinHttpGetIEProxyConfigForCurrentUser(WINHTTP_CURRENT_USER_IE_PROXY_CONFIG* pProxyConfig);
-
-#if defined(__cplusplus)
-}
-#endif
-
-#include "Windows/HideWindowsPlatformTypes.h"
+#if WITH_SSL
+#include "Modules/ModuleManager.h"
+#include "Ssl.h"
 #endif
 
 CURLM* FCurlHttpManager::GMultiHandle = NULL;
@@ -163,63 +109,6 @@ namespace LibCryptoMemHooks
 	}
 }
 
-bool IsUnsignedInteger(const FString& InString)
-{
-	bool bResult = true;
-	for(auto CharacterIter: InString)
-	{
-		if (!FChar::IsDigit(CharacterIter))
-		{
-			bResult = false;
-			break;
-		}
-	}
-	return bResult;
-}
-
-bool IsValidIPv4Address(const FString& InString)
-{
-	bool bResult = false;
-
-	FString Temp = InString;
-	FString AStr, BStr, CStr, DStr, PortStr;
-
-	bool bWasPatternMatched = false;
-	if (Temp.Split(TEXT("."), &AStr, &Temp))
-	{
-		if (Temp.Split(TEXT("."), &BStr, &Temp))
-		{
-			if (Temp.Split(TEXT("."), &CStr, &Temp))
-			{
-				if (Temp.Split(TEXT(":"), &DStr, &PortStr))
-				{
-					bWasPatternMatched = true;
-				}
-			}
-		}
-	}
-
-	if (bWasPatternMatched)
-	{
-		if (IsUnsignedInteger(AStr) && IsUnsignedInteger(BStr) && IsUnsignedInteger(CStr) && IsUnsignedInteger(DStr) && IsUnsignedInteger(PortStr))
-		{
-			uint32 A, B, C, D, Port;
-			Lex::FromString(A, *AStr);
-			Lex::FromString(B, *BStr);
-			Lex::FromString(C, *CStr);
-			Lex::FromString(D, *DStr);
-			Lex::FromString(Port, *PortStr);
-
-			if (A < 256 && B < 256 && C < 256 && D < 256 && Port < 65536)
-			{
-				bResult = true;
-			}
-		}
-	}
-
-	return bResult;
-}
-
 void FCurlHttpManager::InitCurl()
 {
 	if (GMultiHandle != NULL)
@@ -228,16 +117,22 @@ void FCurlHttpManager::InitCurl()
 		return;
 	}
 
+	int32 CurlInitFlags = CURL_GLOBAL_ALL;
 #if WITH_SSL
-	// Make sure ssl is loaded so that we can use the shared cert pool
-	FModuleManager::LoadModuleChecked<class FSslModule>("SSL");
+	// Make sure SSL is loaded so that we can use the shared cert pool, and to globally initialize OpenSSL if possible
+	FSslModule& SslModule = FModuleManager::LoadModuleChecked<FSslModule>("SSL");
+	if (SslModule.GetSslManager().InitializeSsl())
+	{
+		// Do not need Curl to initialize its own SSL
+		CurlInitFlags = CurlInitFlags & ~(CURL_GLOBAL_SSL);
+	}
 #endif // #if WITH_SSL
 
 	// Override libcrypt functions to initialize memory since OpenSSL triggers multiple valgrind warnings due to this.
 	// Do this before libcurl/libopenssl/libcrypto has been inited.
 	LibCryptoMemHooks::SetMemoryHooks();
 
-	CURLcode InitResult = curl_global_init_mem(CURL_GLOBAL_ALL, CurlMalloc, CurlFree, CurlRealloc, CurlStrdup, CurlCalloc);
+	CURLcode InitResult = curl_global_init_mem(CurlInitFlags, CurlMalloc, CurlFree, CurlRealloc, CurlStrdup, CurlCalloc);
 	if (InitResult == 0)
 	{
 		curl_version_info_data * VersionInfo = curl_version_info(CURLVERSION_NOW);
@@ -306,101 +201,6 @@ void FCurlHttpManager::InitCurl()
 	}
 
 	// Init curl request options
-
-	FString ProxyAddress;
-	if (FParse::Value(FCommandLine::Get(), TEXT("httpproxy="), ProxyAddress))
-	{
-		if (!ProxyAddress.IsEmpty())
-		{
-			CurlRequestOptions.bUseHttpProxy = true;
-			CurlRequestOptions.HttpProxyAddress = ProxyAddress;
-		}
-		else
-		{
-			UE_LOG(LogInit, Warning, TEXT(" Libcurl: -httpproxy has been passed as a parameter, but the address doesn't seem to be valid"));
-		}
-	}
-
-#if PLATFORM_WINDOWS
-	// Look for the default machine wide proxy setting
-	if (ProxyAddress.Len() == 0)
-	{
-		// Retrieve the default proxy configuration.
-		WINHTTP_PROXY_INFO DefaultProxyInfo;
-		memset(&DefaultProxyInfo, 0, sizeof(DefaultProxyInfo));
-		WinHttpGetDefaultProxyConfiguration(&DefaultProxyInfo);
-
-		if (DefaultProxyInfo.lpszProxy != nullptr)
-		{
-			FString TempProxy(DefaultProxyInfo.lpszProxy);
-			if (IsValidIPv4Address(TempProxy))
-			{
-				ProxyAddress = TempProxy;
-			}
-			else
-			{
-				if (TempProxy.Split(TEXT("https="), nullptr, &TempProxy))
-				{
-					TempProxy.Split(TEXT(";"), &TempProxy, nullptr);
-					if (IsValidIPv4Address(TempProxy))
-					{
-						ProxyAddress = TempProxy;
-					}
-				}
-			}
-		}
-	}
-
-	// Look for the proxy setting for the current user. Charles proxies count in here.
-	if (ProxyAddress.Len() == 0)
-	{
-		WINHTTP_CURRENT_USER_IE_PROXY_CONFIG IeProxyInfo;
-		memset(&IeProxyInfo, 0, sizeof(IeProxyInfo));
-		WinHttpGetIEProxyConfigForCurrentUser(&IeProxyInfo);
-
-		if (IeProxyInfo.lpszProxy != nullptr)
-		{
-			FString TempProxy(IeProxyInfo.lpszProxy);
-			if (IsValidIPv4Address(TempProxy))
-			{
-				ProxyAddress = TempProxy;
-			}
-			else
-			{
-				if (TempProxy.Split(TEXT("https="), nullptr, &TempProxy))
-				{
-					TempProxy.Split(TEXT(";"), &TempProxy, nullptr);
-					if (IsValidIPv4Address(TempProxy))
-					{
-						ProxyAddress = TempProxy;
-					}
-				}
-			}
-		}
-	}
-#elif PLATFORM_ANDROID
-	// Look for the default machine wide proxy setting
-	if (ProxyAddress.Len() == 0)
-	{
-		extern int32 AndroidThunkCpp_GetMetaDataInt(const FString& Key);
-		extern FString AndroidThunkCpp_GetMetaDataString(const FString& Key);
-
-		FString ProxyHost = AndroidThunkCpp_GetMetaDataString(TEXT("ue4.http.proxy.proxyHost"));
-		int32 ProxyPort = AndroidThunkCpp_GetMetaDataInt(TEXT("ue4.http.proxy.proxyPort"));
-
-		if (ProxyPort != -1 && !ProxyHost.IsEmpty())
-		{
-			ProxyAddress = FString::Printf(TEXT("%s:%d"), *ProxyHost, ProxyPort);
-		}
-	}
-#endif
-
-	if (ProxyAddress.Len() > 0)
-	{
-		CurlRequestOptions.bUseHttpProxy = true;
-		CurlRequestOptions.HttpProxyAddress = ProxyAddress;
-	}
-
 	if (FParse::Param(FCommandLine::Get(), TEXT("noreuseconn")))
 	{
 		CurlRequestOptions.bDontReuseConnections = true;
@@ -522,39 +322,10 @@ void FCurlHttpManager::InitCurl()
 		}
 	}
 
-	CurlRequestOptions.MaxHostConnections = FHttpModule::Get().GetHttpMaxConnectionsPerServer();
-	if (CurlRequestOptions.MaxHostConnections > 0)
+	int32 ConfigBufferSize = 0;
+	if (GConfig->GetInt(TEXT("HTTP.Curl"), TEXT("BufferSize"), ConfigBufferSize, GEngineIni) && ConfigBufferSize > 0)
 	{
-		const CURLMcode SetOptResult = curl_multi_setopt(GMultiHandle, CURLMOPT_MAX_HOST_CONNECTIONS, static_cast<long>(CurlRequestOptions.MaxHostConnections));
-		if (SetOptResult != CURLM_OK)
-		{
-			FUTF8ToTCHAR Converter(curl_multi_strerror(SetOptResult));
-			UE_LOG(LogHttp, Warning, TEXT("Failed to set max host connections options (%d), error %d ('%s')"),
-				CurlRequestOptions.MaxHostConnections, (int32)SetOptResult, Converter.Get());
-			CurlRequestOptions.MaxHostConnections = 0;
-		}
-	}
-	else
-	{
-		CurlRequestOptions.MaxHostConnections = 0;
-	}
-
-	TCHAR Home[256] = TEXT("");
-	if (FParse::Value(FCommandLine::Get(), TEXT("MULTIHOMEHTTP="), Home, ARRAY_COUNT(Home)))
-	{
-		ISocketSubsystem* SocketSubsystem = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM);
-		if (SocketSubsystem)
-		{
-			TSharedRef<FInternetAddr> HostAddr = SocketSubsystem->CreateInternetAddr();
-			HostAddr->SetAnyAddress();
-
-			bool bIsValid = false;
-			HostAddr->SetIp(Home, bIsValid);
-			if (bIsValid)
-			{
-				CurlRequestOptions.LocalHostAddr = FString(Home);
-			}
-		}
+		CurlRequestOptions.BufferSize = ConfigBufferSize;
 	}
 
 	// print for visibility
@@ -569,13 +340,15 @@ void FCurlHttpManager::FCurlRequestOptions::Log()
 		bVerifyPeer ? TEXT("") : TEXT("NOT ")
 		);
 
+	const FString& ProxyAddress = FHttpModule::Get().GetProxyAddress();
+	const bool bUseHttpProxy = !ProxyAddress.IsEmpty();
 	UE_LOG(LogInit, Log, TEXT(" - bUseHttpProxy = %s  - Libcurl will %suse HTTP proxy"),
 		bUseHttpProxy ? TEXT("true") : TEXT("false"),
 		bUseHttpProxy ? TEXT("") : TEXT("NOT ")
 		);	
 	if (bUseHttpProxy)
 	{
-		UE_LOG(LogInit, Log, TEXT(" - HttpProxyAddress = '%s'"), *HttpProxyAddress);
+		UE_LOG(LogInit, Log, TEXT(" - HttpProxyAddress = '%s'"), *ProxyAddress);
 	}
 
 	UE_LOG(LogInit, Log, TEXT(" - bDontReuseConnections = %s  - Libcurl will %sreuse connections"),
@@ -588,12 +361,7 @@ void FCurlHttpManager::FCurlRequestOptions::Log()
 		(CertBundlePath != nullptr) ? TEXT("set CURLOPT_CAINFO to it") : TEXT("use whatever was configured at build time.")
 		);
 
-	UE_LOG(LogInit, Log, TEXT(" - MaxHostConnections = %d  - Libcurl will %slimit the number of connections to a host"),
-		MaxHostConnections,
-		(MaxHostConnections == 0) ? TEXT("NOT ") : TEXT("")
-		);
-
-	UE_LOG(LogInit, Log, TEXT(" - LocalHostAddr = %s"), LocalHostAddr.IsEmpty() ? TEXT("Default") : *LocalHostAddr);
+	UE_LOG(LogInit, Log, TEXT(" - BufferSize = %d"), CurlRequestOptions.BufferSize);
 }
 
 
@@ -608,6 +376,12 @@ void FCurlHttpManager::ShutdownCurl()
 	curl_global_cleanup();
 
 	LibCryptoMemHooks::UnsetMemoryHooks();
+
+#if WITH_SSL
+	// Shutdown OpenSSL
+	FSslModule& SslModule = FModuleManager::LoadModuleChecked<FSslModule>("SSL");
+	SslModule.GetSslManager().ShutdownSsl();
+#endif // #if WITH_SSL
 }
 
 FHttpThread* FCurlHttpManager::CreateHttpThread()
@@ -615,4 +389,8 @@ FHttpThread* FCurlHttpManager::CreateHttpThread()
 	return new FCurlHttpThread();
 }
 
+bool FCurlHttpManager::SupportsDynamicProxy() const
+{
+	return true;
+}
 #endif //WITH_LIBCURL

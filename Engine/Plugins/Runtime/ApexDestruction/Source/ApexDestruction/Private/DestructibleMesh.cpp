@@ -49,9 +49,8 @@ void UDestructibleMesh::PostLoad()
 	const uint32 MaxGPUSkinBones = FGPUBaseSkinVertexFactory::GetMaxGPUSkinBones();
 	check(MaxGPUSkinBones <= FGPUBaseSkinVertexFactory::GHardwareMaxGPUSkinBones);
 	// if this doesn't have the right MAX GPU Bone count, recreate it. 
-	for(int32 LodIndex=0; LodIndex<LODInfo.Num(); LodIndex++)
+	for(int32 LodIndex=0; LodIndex<GetLODNum(); LodIndex++)
 	{
-		FSkeletalMeshLODInfo& ThisLODInfo = LODInfo[LodIndex];
 		FSkeletalMeshLODRenderData& ThisLODData = MeshResource->LODRenderData[LodIndex];
 
 		// Check that we list the root bone as an active bone.

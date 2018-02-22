@@ -18,7 +18,6 @@
 #include "Misc/UObjectToken.h"
 #include "PhysXPublic.h"
 #include "PhysicsEngine/PhysXSupport.h"
-#include "PhysicsSerializer.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "GameFramework/WorldSettings.h"
 #include "ComponentRecreateRenderStateContext.h"
@@ -266,6 +265,10 @@ void FStaticMeshInstanceBuffer::InitRHI()
 
 void FStaticMeshInstanceBuffer::ReleaseRHI()
 {
+	InstanceOriginSRV.SafeRelease();
+	InstanceTransformSRV.SafeRelease();
+	InstanceLightmapSRV.SafeRelease();
+
 	InstanceOriginBuffer.ReleaseRHI();
 	InstanceTransformBuffer.ReleaseRHI();
 	InstanceLightmapBuffer.ReleaseRHI();
@@ -850,7 +853,6 @@ UInstancedStaticMeshComponent::UInstancedStaticMeshComponent(const FObjectInitia
 	Mobility = EComponentMobility::Movable;
 	BodyInstance.bSimulatePhysics = false;
 
-	PhysicsSerializer = ObjectInitializer.CreateDefaultSubobject<UPhysicsSerializer>(this, TEXT("PhysicsSerializer"));
 	bDisallowMeshPaintPerInstance = true;
 }
 
@@ -1110,33 +1112,13 @@ void UInstancedStaticMeshComponent::CreateAllInstanceBodies()
 				else
 				{
 					Transforms.Add(InstanceTM);
-#if WITH_PHYSX
-					Instance->RigidActorSyncId = i + 1;
-
-					if (GetWorld()->GetPhysicsScene()->HasAsyncScene())
-					{
-						Instance->RigidActorAsyncId = Instance->RigidActorSyncId + NumBodies;
-					}
-#endif
 				}
 			}
 	    }
 
 		if (InstanceBodiesSanitized.Num() > 0 && Mobility != EComponentMobility::Movable)
 		{
-			TArray<UBodySetup*> BodySetups;
-			TArray<UPhysicalMaterial*> PhysicalMaterials;
-
-			BodySetups.Add(BodySetup);
-			TWeakObjectPtr<UPrimitiveComponent> WeakSelfPtr(this);
-			FBodyInstance::GetComplexPhysicalMaterials(&BodyInstance, WeakSelfPtr, PhysicalMaterials);
-			PhysicalMaterials.Add(FBodyInstance::GetSimplePhysicalMaterial(&BodyInstance, WeakSelfPtr, MakeWeakObjectPtr(BodySetup)));
-
-			PhysicsSerializer->CreatePhysicsData(BodySetups, PhysicalMaterials);
-			FBodyInstance::InitStaticBodies(InstanceBodiesSanitized, Transforms, BodySetup, this, GetWorld()->GetPhysicsScene(), PhysicsSerializer);
-
-			// Serialize physics data for fast path cooking
-			PhysicsSerializer->SerializePhysics(InstanceBodiesSanitized, BodySetups, PhysicalMaterials);
+			FBodyInstance::InitStaticBodies(InstanceBodiesSanitized, Transforms, BodySetup, this, GetWorld()->GetPhysicsScene());
 		}
 	}
 	else
@@ -2336,14 +2318,14 @@ void FInstancedStaticMeshVertexFactoryShaderParameters::SetMesh( FRHICommandList
 				InstancingViewZCompare.Z = FinalCull;
 				if (BatchElement.InstancedLODIndex < InstancingUserData->MeshRenderData->LODResources.Num() - 1)
 				{
-					float NextCut = ComputeBoundsDrawDistance(InstancingUserData->MeshRenderData->ScreenSize[BatchElement.InstancedLODIndex + 1], SphereRadius, View.ViewMatrices.GetProjectionMatrix()) * LODScale;
+					float NextCut = ComputeBoundsDrawDistance(InstancingUserData->MeshRenderData->ScreenSize[BatchElement.InstancedLODIndex + 1].GetValueForFeatureLevel(View.GetFeatureLevel()), SphereRadius, View.ViewMatrices.GetProjectionMatrix()) * LODScale;
 					InstancingViewZCompare.Z = FMath::Min(NextCut, FinalCull);
 				}
 
 				InstancingViewZCompare.X = MIN_flt;
 				if (BatchElement.InstancedLODIndex > FirstLOD)
 				{
-					float CurCut = ComputeBoundsDrawDistance(InstancingUserData->MeshRenderData->ScreenSize[BatchElement.InstancedLODIndex], SphereRadius, View.ViewMatrices.GetProjectionMatrix()) * LODScale;
+					float CurCut = ComputeBoundsDrawDistance(InstancingUserData->MeshRenderData->ScreenSize[BatchElement.InstancedLODIndex].GetValueForFeatureLevel(View.GetFeatureLevel()), SphereRadius, View.ViewMatrices.GetProjectionMatrix()) * LODScale;
 					if (CurCut < FinalCull)
 					{
 						InstancingViewZCompare.Y = CurCut;
@@ -2383,12 +2365,16 @@ void FInstancedStaticMeshVertexFactoryShaderParameters::SetMesh( FRHICommandList
 		FVector4 InstancingFadeOutParams(MAX_flt,0.f,1.f,1.f);
 		if (InstancingUserData)
 		{
-			InstancingFadeOutParams.X = InstancingUserData->StartCullDistance;
-			if( InstancingUserData->EndCullDistance > 0 )
+			const float MaxDrawDistanceScale = GetCachedScalabilityCVars().ViewDistanceScale;
+			const float StartDistance = InstancingUserData->StartCullDistance * MaxDrawDistanceScale;
+			const float EndDistance = InstancingUserData->EndCullDistance * MaxDrawDistanceScale;
+
+			InstancingFadeOutParams.X = StartDistance;
+			if( EndDistance > 0 )
 			{
-				if( InstancingUserData->EndCullDistance > InstancingUserData->StartCullDistance )
+				if( EndDistance > StartDistance )
 				{
-					InstancingFadeOutParams.Y = 1.f / (float)(InstancingUserData->EndCullDistance - InstancingUserData->StartCullDistance);
+					InstancingFadeOutParams.Y = 1.f / (float)(EndDistance - StartDistance);
 				}
 				else
 				{

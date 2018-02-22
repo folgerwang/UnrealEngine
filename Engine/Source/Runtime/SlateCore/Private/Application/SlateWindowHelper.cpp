@@ -93,10 +93,49 @@ bool FSlateWindowHelper::ContainsWindow( const TArray<TSharedRef<SWindow>>& Wind
 }
 
 
-bool FSlateWindowHelper::FindPathToWidget( const TArray<TSharedRef<SWindow>>& WindowsToSearch,  TSharedRef<const SWidget> InWidget, FWidgetPath& OutWidgetPath, EVisibility VisibilityFilter )
+bool FSlateWindowHelper::FindPathToWidget( const TArray<TSharedRef<SWindow>>& WindowsToSearch, TSharedRef<const SWidget> InWidget, FWidgetPath& OutWidgetPath, EVisibility VisibilityFilter )
 {
 	SCOPE_CYCLE_COUNTER(STAT_FindPathToWidget);
 
+#if SLATE_FAST_WIDGET_PATH
+	// We have to internally cast this anyway - because the constructed widget path will be of non-const widgets, so if you'll end up with
+	// a mutable copy anyway.
+	TSharedPtr<SWidget> CurWidget = ConstCastSharedRef<SWidget>(InWidget);
+	OutWidgetPath.Widgets.SetFilter(VisibilityFilter);
+	while (true)
+	{
+		EVisibility CurWidgetVisibility = CurWidget->GetVisibility();
+		if (OutWidgetPath.Widgets.Accepts(CurWidgetVisibility))
+		{
+			FArrangedWidget ArrangedWidget(CurWidget.ToSharedRef(), CurWidget->GetCachedGeometry());
+			OutWidgetPath.Widgets.AddWidget(CurWidgetVisibility, ArrangedWidget);
+
+			TSharedPtr<SWidget> CurWidgetParent = CurWidget->GetParentWidget();
+			if (!CurWidgetParent.IsValid())
+			{
+				if (CurWidget->Advanced_IsWindow())
+				{
+					OutWidgetPath.TopLevelWindow = StaticCastSharedPtr<SWindow>(CurWidget);
+					OutWidgetPath.Widgets.Reverse();
+					// The path is complete, we found the top window.
+					return true;
+				}
+
+				// This widget doesn't have a parent, abandon the tree.
+				OutWidgetPath.Widgets.Empty();
+				return false;
+			}
+
+			CurWidget = CurWidgetParent;
+		}
+		else
+		{
+			// We ran into a widget that isn't accepted.
+			OutWidgetPath.Widgets.Empty();
+			return false;
+		}
+	}
+#else
 	// Iterate over our top level windows
 	bool bFoundWidget = false;
 
@@ -127,6 +166,7 @@ bool FSlateWindowHelper::FindPathToWidget( const TArray<TSharedRef<SWindow>>& Wi
 	}
 
 	return bFoundWidget;
+#endif
 }
 
 

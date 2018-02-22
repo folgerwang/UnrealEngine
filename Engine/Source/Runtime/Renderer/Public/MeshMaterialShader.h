@@ -62,6 +62,42 @@ public:
 		uint32 DataFlags = 0
 	);
 
+	//
+	// Set shader parameters specific to PSO
+	//
+	template< typename ShaderRHIParamRef >
+	void SetPolicyParameters(
+		FRHICommandList& RHICmdList,
+		const ShaderRHIParamRef ShaderRHI,
+		const FMaterial& Material,
+		const FSceneView& View,
+		const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer,
+		ESceneRenderTargetsMode::Type TextureMode)
+	{
+		FMaterialShader::SetMaterialParameters(RHICmdList, ShaderRHI, Material, View, ViewUniformBuffer, false, TextureMode);
+	}
+
+	//
+	// Set shader parameters specific to Mesh
+	//
+	template< typename ShaderRHIParamRef >
+	void SetMeshBatchParameters(
+		FRHICommandList& RHICmdList,
+		const ShaderRHIParamRef ShaderRHI,
+		const FMaterial& Material,
+		const FSceneView& View,
+		const FVertexFactory* VertexFactory, 
+		const FMaterialRenderProxy* MaterialRenderProxy,
+		const FPrimitiveSceneProxy* Proxy,
+		const FMeshBatchElement& BatchElement, 
+		const FDrawingPolicyRenderState& DrawRenderState,
+		uint32 DataFlags = 0
+	)
+	{
+		FMaterialShader::SetMaterialProxyParameters(RHICmdList, ShaderRHI, MaterialRenderProxy, Material, View);
+		FMeshMaterialShader::SetMesh(RHICmdList, ShaderRHI, VertexFactory, View, Proxy, BatchElement, DrawRenderState, DataFlags);
+	}
+
 	/**
 	 * Retrieves the fade uniform buffer parameter from a FSceneViewState for the primitive
 	 * This code was moved from SetMesh() to work around the template first-use vs first-seen differences between MSVC and others

@@ -162,7 +162,7 @@ USkeletalMeshComponent::USkeletalMeshComponent(const FObjectInitializer& ObjectI
 	MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
 	KinematicBonesUpdateType = EKinematicBonesUpdateToPhysics::SkipSimulatingBones;
 	PhysicsTransformUpdateMode = EPhysicsTransformUpdateMode::SimulationUpatesComponentTransform;
-	bGenerateOverlapEvents = false;
+	SetGenerateOverlapEvents(false);
 	LineCheckBoundsScale = FVector(1.0f, 1.0f, 1.0f);
 
 	EndPhysicsTickFunction.TickGroup = TG_EndPhysics;
@@ -313,6 +313,17 @@ void USkeletalMeshComponent::NotifyObjectReferenceEliminated() const
 {
 	UE_LOG(LogSkeletalMesh, Error, TEXT("Garbage collector eliminated reference from skeletalmeshcomponent!  SkeletalMesh objects should not be cleaned up via MarkPendingKill().\n           SkeletalMesh=%s"),
 		*GetPathName());
+}
+
+void USkeletalMeshComponent::PostLoad()
+{
+	Super::PostLoad();
+
+	// We know for sure that an override was set if this is non-zero.
+	if(MinLodModel > 0)
+	{
+		bOverrideMinLod = true;
+	}
 }
 
 void USkeletalMeshComponent::RegisterComponentTickFunctions(bool bRegister)
@@ -491,7 +502,7 @@ void USkeletalMeshComponent::OnRegister()
 	// so we need to force initialize them before we begin to tick.
 	InitAnim(true);
 
-	if (MeshComponentUpdateFlag == EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered && !FApp::CanEverRender())
+	if (bRenderStatic || (MeshComponentUpdateFlag == EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered && !FApp::CanEverRender()))
 	{
 		SetComponentTickEnabled(false);
 	}
@@ -2038,6 +2049,8 @@ void USkeletalMeshComponent::DispatchParallelEvaluationTasks(FActorComponentTick
 {
 	if (SkeletalMesh && SkeletalMesh->RefSkeleton.GetNum() != AnimEvaluationContext.BoneSpaceTransforms.Num())
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_USkeletalMeshComponent_InitTaskArrays);
+
 		// Initialize Parallel Task arrays
 		AnimEvaluationContext.BoneSpaceTransforms.Reset();
 		AnimEvaluationContext.BoneSpaceTransforms.Append(BoneSpaceTransforms);
@@ -2307,7 +2320,15 @@ FBoxSphereBounds USkeletalMeshComponent::CalcBounds(const FTransform& LocalToWor
 	// No need to calculated that again, just use cached local bounds.
 	if (bCachedLocalBoundsUpToDate)
 	{
-		return CachedLocalBounds.TransformBy(LocalToWorld);
+		if (bIncludeComponentLocationIntoBounds)
+		{
+			const FVector ComponentLocation = GetComponentLocation();
+			return CachedLocalBounds.TransformBy(LocalToWorld) + FBoxSphereBounds(ComponentLocation, FVector(1.0f), 1.0f);
+		}
+		else
+		{
+			return CachedLocalBounds.TransformBy(LocalToWorld);
+		}
 	}
 	// Calculate new bounds
 	else
@@ -2334,7 +2355,7 @@ FBoxSphereBounds USkeletalMeshComponent::CalcBounds(const FTransform& LocalToWor
 		if (bIncludeComponentLocationIntoBounds)
 		{
 			const FVector ComponentLocation = GetComponentLocation();
-			NewBounds = NewBounds + FBoxSphereBounds(&ComponentLocation, 1);
+			NewBounds = NewBounds + FBoxSphereBounds(ComponentLocation, FVector(1.0f), 1.0f);
 		}
 
 #if WITH_APEX_CLOTHING
@@ -2481,6 +2502,24 @@ UAnimInstance* USkeletalMeshComponent::GetAnimInstance() const
 UAnimInstance* USkeletalMeshComponent::GetPostProcessInstance() const
 {
 	return PostProcessAnimInstance;
+}
+
+void USkeletalMeshComponent::ResetAnimInstanceDynamics()
+{
+	if(AnimScriptInstance)
+	{
+		AnimScriptInstance->ResetDynamics();
+	}
+
+	for(UAnimInstance* SubInstanceIter : SubInstances)
+	{
+		SubInstanceIter->ResetDynamics();
+	}
+
+	if(PostProcessAnimInstance)
+	{
+		PostProcessAnimInstance->ResetDynamics();
+	}
 }
 
 void USkeletalMeshComponent::NotifySkelControlBeyondLimit( USkelControlLookAt* LookAt ) {}
@@ -3372,6 +3411,9 @@ bool USkeletalMeshComponent::MoveComponentImpl(const FVector& Delta, const FQuat
 	bool bSuccess = Super::MoveComponentImpl(Delta, NewRotation, bSweep, OutHit, MoveFlags, Teleport);
 	if(bSuccess && Teleport == ETeleportType::TeleportPhysics)
 	{
+		// If a skeletal mesh component recieves a teleport we should reset any other dynamic simulations
+		ResetAnimInstanceDynamics();
+
 		OnSkelMeshPhysicsTeleported.Broadcast();
 	}
 

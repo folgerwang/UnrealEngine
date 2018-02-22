@@ -1188,7 +1188,7 @@ void UGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 								FVector Location;
 								FVector ProjFront;
 								FVector ProjRight;
-								PlayerController->GetAudioListenerPosition(/*out*/ Location, /*out*/ ProjFront, /*out*/ ProjRight);
+								PlayerController->GetAudioListenerPosition(/*out*/ Location, /*out*/ ProjFront, /*out*/ ProjRight);						
 
 								FTransform ListenerTransform(FRotationMatrix::MakeFromXY(ProjFront, ProjRight));
 
@@ -1204,6 +1204,16 @@ void UGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 
 								uint32 ViewportIndex = PlayerViewMap.Num() - 1;
 								AudioDevice->SetListener(MyWorld, ViewportIndex, ListenerTransform, (View->bCameraCut ? 0.f : MyWorld->GetDeltaSeconds()));
+
+								FVector OverrideAttenuation;
+								if (PlayerController->GetAudioListenerAttenuationOverridePosition(OverrideAttenuation))
+								{
+									AudioDevice->SetListenerAttenuationOverride(OverrideAttenuation);
+								}
+								else
+								{
+									AudioDevice->ClearListenerAttenuationOverride();
+								}
 							}
 						}
 						if (PassType == eSSP_LEFT_EYE)
@@ -1299,12 +1309,26 @@ void UGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 		check(ViewFamily.SupportsScreenPercentage() || ViewFamily.SecondaryViewFraction == 1.0f);
 	}
 
+	float DynamicResolutionPercentage = 100.0f;
+
 	// Setup main view family with screen percentage interface by dynamic resolution if screen percentage is supported.
 	if (ViewFamily.EngineShowFlags.ScreenPercentage && GEngine->GetDynamicResolutionState())
 	{
 		GEngine->EmitDynamicResolutionEvent(EDynamicResolutionStateEvent::BeginDynamicResolutionRendering);
 		GEngine->GetDynamicResolutionState()->SetupMainViewFamily(ViewFamily);
+
+		if (GEngine->GetDynamicResolutionStatus() == EDynamicResolutionStatus::Enabled)
+		{
+			DynamicResolutionPercentage = GEngine->GetDynamicResolutionState()->GetResolutionFractionApproximation() * 100.0f;
+		}
 	}
+
+#if CSV_PROFILER
+	if (DynamicResolutionPercentage >= 0.0f)
+	{
+		CSV_CUSTOM_STAT_GLOBAL(DynamicResolutionPercentage, DynamicResolutionPercentage, ECsvCustomStatOp::Set);
+	}
+#endif
 
 	// If a screen percentage interface was not set by dynamic resolution, then create one matching legacy behavior.
 	if (ViewFamily.GetScreenPercentageInterface() == nullptr)
@@ -3030,9 +3054,20 @@ bool UGameViewportClient::HandleScreenshotCommand( const TCHAR* Cmd, FOutputDevi
 {
 	if(Viewport)
 	{
-		const bool bShowUI = FParse::Command(&Cmd, TEXT("SHOWUI"));
-		const bool bAddFilenameSuffix = true;
-		FScreenshotRequest::RequestScreenshot( FString(), bShowUI, bAddFilenameSuffix );
+		bool bShowUI = FParse::Command(&Cmd, TEXT("SHOWUI"));
+		bool bAddFilenameSuffix = true;
+
+		// support arguments
+		FString FileName;
+		bShowUI = FParse::Param(Cmd, TEXT("showui")) || bShowUI;
+		FParse::Value(Cmd, TEXT("filename="), FileName);
+
+		if (FParse::Param(Cmd, TEXT("nosuffix")))
+		{
+			bAddFilenameSuffix = false;
+		}
+
+		FScreenshotRequest::RequestScreenshot(FileName, bShowUI, bAddFilenameSuffix );
 
 		GScreenshotResolutionX = Viewport->GetSizeXY().X;
 		GScreenshotResolutionY = Viewport->GetSizeXY().Y;

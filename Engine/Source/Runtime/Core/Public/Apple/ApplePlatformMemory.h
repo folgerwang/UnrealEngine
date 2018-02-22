@@ -68,7 +68,9 @@ struct CORE_API FApplePlatformMemory : public FGenericPlatformMemory
 	static bool PageProtect(void* const Ptr, const SIZE_T Size, const bool bCanRead, const bool bCanWrite);
 	static void* BinnedAllocFromOS( SIZE_T Size );
 	static void BinnedFreeToOS( void* Ptr, SIZE_T Size );
-	//~ End FGenericPlatformMemory Interface
+
+    static bool GetLLMAllocFunctions(void* _Nonnull (* _Nonnull &OutAllocFunction)(size_t), void(* _Nonnull &OutFreeFunction)(void*, size_t), int32& OutAlignment);
+    //~ End FGenericPlatformMemory Interface
 	
 	/** Setup the current default CFAllocator to use our malloc functions. */
 	static void ConfigureDefaultCFAllocator(void);

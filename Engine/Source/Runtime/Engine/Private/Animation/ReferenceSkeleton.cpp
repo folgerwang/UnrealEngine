@@ -324,6 +324,22 @@ void FReferenceSkeleton::EnsureParentsExistAndSort(TArray<FBoneIndexType>& InOut
 	InOutBoneUnsortedArray.Sort();
 }
 
+int32 FReferenceSkeleton::GetDirectChildBones(int32 ParentBoneIndex, TArray<int32> & Children) const
+{
+	Children.Reset();
+
+	const int32 NumBones = GetNum();
+	for (int32 ChildIndex = ParentBoneIndex + 1; ChildIndex < NumBones; ChildIndex++)
+	{
+		if (ParentBoneIndex == GetParentIndex(ChildIndex))
+		{
+			Children.Add(ChildIndex);
+		}
+	}
+
+	return Children.Num();
+}
+
 FArchive & operator<<(FArchive & Ar, FReferenceSkeleton & F)
 {
 	Ar << F.RawRefBoneInfo;

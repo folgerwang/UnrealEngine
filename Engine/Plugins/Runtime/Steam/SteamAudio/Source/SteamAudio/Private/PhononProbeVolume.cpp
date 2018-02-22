@@ -32,7 +32,7 @@ APhononProbeVolume::APhononProbeVolume(const FObjectInitializer& ObjectInitializ
 {
 	auto RootPrimitiveComponent = Cast<UPrimitiveComponent>(this->GetRootComponent());
 	RootPrimitiveComponent->BodyInstance.SetCollisionProfileName("NoCollision");
-	RootPrimitiveComponent->bGenerateOverlapEvents = false;
+	RootPrimitiveComponent->SetGenerateOverlapEvents(false);
 
 	FRotator DefaultRotation(0, 0, 0);
 	PhononProbeComponent = CreateDefaultSubobject<UPhononProbeComponent>(TEXT("PhononProbeComponent0"));

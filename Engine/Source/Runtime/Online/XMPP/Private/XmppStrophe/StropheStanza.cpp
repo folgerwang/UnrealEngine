@@ -10,7 +10,6 @@
 
 THIRD_PARTY_INCLUDES_START
 #include "strophe.h"
-#include "src/common.h"
 THIRD_PARTY_INCLUDES_END
 
 FStropheStanza::FStropheStanza(const FXmppConnectionStrophe& Connection, const FString& StanzaName /*= FString()*/)
@@ -41,7 +40,7 @@ FStropheStanza::FStropheStanza(FStropheStanza&& Other)
 	XmppStanzaPtr = Other.XmppStanzaPtr;
 
 	// Give Other a new stanza now that we stole theirs
-	Other.XmppStanzaPtr = xmpp_stanza_new(XmppStanzaPtr->ctx);
+	Other.XmppStanzaPtr = xmpp_stanza_new(xmpp_stanza_get_context(XmppStanzaPtr));
 	check(Other.XmppStanzaPtr != nullptr);
 }
 
@@ -98,7 +97,7 @@ FStropheStanza& FStropheStanza::operator=(FStropheStanza&& Other)
 		XmppStanzaPtr = Other.XmppStanzaPtr;
 
 		// Assign Other to have a new stanza instead
-		Other.XmppStanzaPtr = xmpp_stanza_new(XmppStanzaPtr->ctx);
+		Other.XmppStanzaPtr = xmpp_stanza_new(xmpp_stanza_get_context(XmppStanzaPtr));
 		check(Other.XmppStanzaPtr);
 	}
 
@@ -153,7 +152,7 @@ xmpp_stanza_t* FindStanzaByNameAndNamespace(xmpp_stanza_t* ParentStanzaPtr, cons
 		 ChildStanza != nullptr;
 		 ChildStanza = xmpp_stanza_get_next(ParentStanzaPtr))
 	{
-		const bool bIsNamedStanza = ChildStanza->type == XMPP_STANZA_TAG;
+		const bool bIsNamedStanza = xmpp_stanza_is_tag(ChildStanza) != 0;
 		if (bIsNamedStanza &&
 			ChildName == UTF8_TO_TCHAR(xmpp_stanza_get_name(ChildStanza)) &&
 			Namespace == UTF8_TO_TCHAR(xmpp_stanza_get_ns(ChildStanza)))
@@ -275,7 +274,7 @@ FString FStropheStanza::GetName() const
 
 void FStropheStanza::SetText(const FString& Text)
 {
-	FStropheStanza TextStanza(XmppStanzaPtr->ctx);
+	FStropheStanza TextStanza(xmpp_stanza_get_context(XmppStanzaPtr));
 
 	if (xmpp_stanza_set_text(TextStanza.XmppStanzaPtr, TCHAR_TO_UTF8(*Text)) == XMPP_EOK)
 	{
@@ -295,7 +294,7 @@ FString FStropheStanza::GetText() const
 	if (StanzaTextCopy != nullptr)
 	{
 		Result = UTF8_TO_TCHAR(StanzaTextCopy);
-		xmpp_free(XmppStanzaPtr->ctx, StanzaTextCopy);
+		xmpp_free(xmpp_stanza_get_context(XmppStanzaPtr), StanzaTextCopy);
 	}
 	else
 	{
@@ -386,7 +385,7 @@ TOptional<FString> FStropheStanza::GetBodyText() const
 	if (StanzaTextCopy != nullptr)
 	{
 		BodyText = UTF8_TO_TCHAR(StanzaTextCopy);
-		xmpp_free(XmppStanzaPtr->ctx, StanzaTextCopy);
+		xmpp_free(xmpp_stanza_get_context(XmppStanzaPtr), StanzaTextCopy);
 	}
 
 	return BodyText;

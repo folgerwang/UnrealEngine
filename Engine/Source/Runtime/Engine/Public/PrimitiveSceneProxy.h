@@ -187,6 +187,9 @@ public:
 	/** Gathers shadow shapes from this proxy. */
 	virtual void GetShadowShapes(TArray<FCapsuleShape>& CapsuleShapes) const {}
 
+	/** Collects occluder geometry for software occlusion culling */
+	virtual bool CollectOccluderElements(class FOccluderElementsCollector& Collector) const { return false; }
+
 	/** 
 	 * Gathers the primitive's dynamic mesh elements.  This will only be called if GetViewRelevance declares dynamic relevance.
 	 * This is called from the rendering thread for each set of views that might be rendered.  
@@ -500,9 +503,21 @@ public:
 	ENGINE_API void SetUsedMaterialForVerification(const TArray<UMaterialInterface*>& InUsedMaterialsForVerification);
 #endif
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	inline FLinearColor GetWireframeColor() const { return WireframeColor; }
 	inline FLinearColor GetLevelColor() const { return LevelColor; }
 	inline FLinearColor GetPropertyColor() const { return PropertyColor; }
+	inline void SetWireframeColor(const FLinearColor& InWireframeColor) { WireframeColor = InWireframeColor; }
+	inline void SetLevelColor(const FLinearColor& InLevelColor) { LevelColor = InLevelColor; }
+	inline void SetPropertyColor(const FLinearColor& InPropertyColor) { PropertyColor = InPropertyColor; }
+#else
+	inline FLinearColor GetWireframeColor() const { return FLinearColor::White; }
+	inline FLinearColor GetLevelColor() const { return FLinearColor::White; }
+	inline FLinearColor GetPropertyColor() const { return FLinearColor::White; }
+	inline void SetWireframeColor(const FLinearColor& InWireframeColor) {}
+	inline void SetLevelColor(const FLinearColor& InLevelColor) {}
+	inline void SetPropertyColor(const FLinearColor& InPropertyColor) {}
+#endif
 
 	/**
 	* Returns whether this proxy should be considered a "detail mesh".
@@ -696,11 +711,13 @@ protected:
 		OwnerName = InOwnerName;
 	}
 
+private:
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	FLinearColor WireframeColor;
 	FLinearColor LevelColor;
 	FLinearColor PropertyColor;
+#endif
 
-private:
 	friend class FScene;
 
 	EComponentMobility::Type Mobility;

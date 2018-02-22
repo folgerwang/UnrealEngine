@@ -142,6 +142,12 @@ public:
 	ENGINE_API void GetCopy(TArray<uint32>& OutIndices) const;
 
 	/**
+	 * Get the direct read access to index data 
+	 * Only valid if NeedsCPUAccess = true and indices are 16 bit
+	 */
+	ENGINE_API const uint16* AccessStream16() const;
+
+	/**
 	 * Retrieves an array view in to the index buffer. The array view allows code
 	 * to retrieve indices as 32-bit regardless of how they are stored internally
 	 * without a copy. The array view is valid only if:
@@ -174,6 +180,12 @@ public:
 	 */
 	void Serialize(FArchive& Ar, bool bNeedsCPUAccess);
 
+    /**
+     * Discard
+     * discards the serialized data when it is not needed
+     */
+    void Discard();
+    
 	// FRenderResource interface.
 	virtual void InitRHI() override;
 

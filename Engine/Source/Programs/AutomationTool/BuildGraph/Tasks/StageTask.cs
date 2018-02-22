@@ -161,6 +161,8 @@ namespace BuildGraph.Tasks
 				{
 					DirectoryReference.CreateDirectory(TargetFile.Directory);
 					CommandUtils.CopyFile(SourceFile.FullName, TargetFile.FullName);
+					// Force all destination files to not readonly.
+					CommandUtils.SetFileAttributes(TargetFile.FullName, ReadOnly: false);
 				}
 
 				// Add it to the list of target files

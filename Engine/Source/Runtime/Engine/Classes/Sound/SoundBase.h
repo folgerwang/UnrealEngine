@@ -56,6 +56,18 @@ public:
 	UPROPERTY()
 	uint32 bIgnoreFocus_DEPRECATED:1;
 
+	/** Whether or not to only send this audio's output to a bus. If true, will not be this sound won't be audible except through bus sends. */
+	UPROPERTY()
+	uint32 bHasDelayNode : 1;
+
+	/** Whether or not this sound has a concatenator node. If it does, we have to allow the sound to persist even though it may not have generate audible audio in a given audio thread frame. */
+	UPROPERTY()
+	uint32 bHasConcatenatorNode : 1;
+
+	/** Whether a sound has virtualize when silent enabled (i.e. for a sound cue, if any sound wave player has it enabled). */
+	UPROPERTY()
+	uint32 bHasVirtualizeWhenSilent:1;
+
 	/** If Override Concurrency is false, the sound concurrency settings to use for this sound. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency, meta = (EditCondition = "!bOverrideConcurrency"))
 	class USoundConcurrency* SoundConcurrencySettings;
@@ -74,6 +86,14 @@ public:
 	/** Duration of sound in seconds. */
 	UPROPERTY(Category=Info, AssetRegistrySearchable, VisibleAnywhere, BlueprintReadOnly)
 	float Duration;
+
+	/** The max distance of the asset, as determined by attenuation settings. */
+	UPROPERTY(Category = Info, AssetRegistrySearchable, VisibleAnywhere, BlueprintReadOnly)
+	float MaxDistance;
+
+	/** Total number of samples (in the thousands). Useful as a metric to analyze the relative size of a given sound asset in content browser. */
+	UPROPERTY(Category = Info, AssetRegistrySearchable, VisibleAnywhere, BlueprintReadOnly)
+	float TotalSamples;
 
 	/** Attenuation settings package for the sound */
 	UPROPERTY(EditAnywhere, Category=Attenuation)
@@ -130,12 +150,21 @@ public:
 	/**
 	 * Returns the farthest distance at which the sound could be heard
 	 */
-	virtual float GetMaxAudibleDistance();
+	virtual float GetMaxDistance() const;
 
 	/** 
 	 * Returns the length of the sound
 	 */
-	virtual float GetDuration();
+	virtual float GetDuration() const;
+
+	/** Returns whether or not this sound has a delay node, which means it's possible for the sound to not generate audio for a while. */
+	bool HasDelayNode() const;
+
+	/** Returns whether or not this sound has a sequencer node, which means it's possible for the owning active sound to persist even though it's not generating audio. */
+	bool HasConcatenatorNode() const;
+
+	/** Returns true if any of the sounds in the sound have "virtualize when silent" enabled. */
+	bool IsVirtualizeWhenSilent() const;
 
 	virtual float GetVolumeMultiplier();
 	virtual float GetPitchMultiplier();

@@ -150,7 +150,7 @@ private:
 
 	FLLMAllocator* Allocator;
 
-	static const int StaticArrayCapacity = 64;	// beause the default size is so large this actually saves memory
+	static const int StaticArrayCapacity = 64;	// because the default size is so large this actually saves memory
 	T StaticArray[StaticArrayCapacity];
 
 	static const int ItemsPerPage = LLM_PAGE_SIZE / sizeof(T);
@@ -381,7 +381,10 @@ public:
 		FScopeLock Lock(&CriticalSection);
 
 		int32 MapIndex = GetMapIndex(Key, KeyHash);
-		check(IsItemInUse(MapIndex));
+		if (!ensure(IsItemInUse(MapIndex)))
+		{
+			return Values();
+		}
 
 		int32 KeyIndex = Map[MapIndex];
 

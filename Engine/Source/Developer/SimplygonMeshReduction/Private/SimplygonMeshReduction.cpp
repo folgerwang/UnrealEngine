@@ -23,6 +23,7 @@
 #include "Features/IModularFeatures.h"
 #include "Rendering/SkeletalMeshModel.h"
 #include "AnimationBlueprintLibrary.h"
+#include "AnimationRuntime.h"
 
 #include "MeshMergeData.h"
 
@@ -230,13 +231,13 @@ public:
 		float &MaxDeviation, 
 		const FReferenceSkeleton& RefSkeleton, 
 		const FSkeletalMeshOptimizationSettings& Settings,
-		const TArray<FMatrix>& BoneMatrices = TArray<FMatrix>()
+		const TArray<FMatrix>& BoneMatrices
 		)
 	{
 		const bool bUsingMaxDeviation = (Settings.ReductionMethod == SMOT_MaxDeviation && Settings.MaxDeviationPercentage > 0.0f);
 		const bool bUsingReductionRatio = (Settings.ReductionMethod == SMOT_NumOfTriangles && Settings.NumOfTrianglesPercentage < 1.0f);
 		const bool bProcessGeometry = ( bUsingMaxDeviation || bUsingReductionRatio );
-		const bool bProcessBones = (Settings.BoneReductionRatio < 1.0f || Settings.MaxBonesPerVertex < MAX_TOTAL_INFLUENCES);
+		const bool bProcessBones = (Settings.MaxBonesPerVertex < MAX_TOTAL_INFLUENCES);
 		const bool bOptimizeMesh = (bProcessGeometry || bProcessBones);
 
 		// We'll need to store the max deviation after optimization if we wish to recalculate the LOD's display distance
@@ -291,15 +292,11 @@ public:
 	void Reduce(
 		USkeletalMesh* SkeletalMesh,
 		FSkeletalMeshModel* SkeletalMeshResource,
-		FSkeletalMeshLODModel* SrcModel,
-		int32 LODIndex,
-		int32 BaseLOD,
-		const FSkeletalMeshOptimizationSettings& Settings,
-		bool bCalcLODDistance
+		int32 LODIndex
 		)
 	{
 		//If the Current LOD is an import from file
-		bool OldLodWasFromFile = SkeletalMesh->LODInfo.IsValidIndex(LODIndex) && SkeletalMesh->LODInfo[LODIndex].bHasBeenSimplified == false;
+		bool OldLodWasFromFile = SkeletalMesh->IsValidLODIndex(LODIndex) && SkeletalMesh->GetLODInfo(LODIndex)->bHasBeenSimplified == false;
 
 		// Insert a new LOD model entry if needed.
 		if (LODIndex == SkeletalMeshResource->LODModels.Num())
@@ -316,12 +313,34 @@ public:
 		//delete LODModels[LODIndex]; -- keep model valid until we'll be ready to replace it; required to be able to refresh UI with mesh stats
 
 		// Copy over LOD info from LOD0 if there is no previous info.
-		if (LODIndex == SkeletalMesh->LODInfo.Num())
+		if (LODIndex == SkeletalMesh->GetLODNum())
 		{
-			FSkeletalMeshLODInfo* NewLODInfo = new(SkeletalMesh->LODInfo) FSkeletalMeshLODInfo;
-			FSkeletalMeshLODInfo& OldLODInfo = SkeletalMesh->LODInfo[BaseLOD];
-			*NewLODInfo = OldLODInfo;
+			// if there is no LOD, add one more
+			SkeletalMesh->AddLODInfo();
+		}
 
+		// get settings
+		const FSkeletalMeshOptimizationSettings& Settings = SkeletalMesh->GetLODInfo(LODIndex)->ReductionSettings;
+		
+		// select which mesh we're reducing from
+		// use BaseLOD
+		int32 BaseLOD = 0;
+		FSkeletalMeshModel* SkelResource = SkeletalMesh->GetImportedModel();
+		FSkeletalMeshLODModel* SrcModel = &SkelResource->LODModels[0];
+
+		// only allow to set BaseLOD if the LOD is less than this
+		if (Settings.BaseLOD > 0)
+		{
+			if (Settings.BaseLOD < LODIndex && SkeletalMeshResource->LODModels.IsValidIndex(Settings.BaseLOD))
+			{
+				BaseLOD = Settings.BaseLOD;
+				SrcModel = &SkeletalMeshResource->LODModels[BaseLOD];
+			}
+			else
+			{
+				// warn users
+				UE_LOG(LogSimplygon, Warning, TEXT("Building LOD %d - Invalid Base LOD entered. Using Base LOD 0"), LODIndex);
+			}
 		}
 
 		// now try bone reduction process if it's setup
@@ -337,122 +356,103 @@ public:
 			BoneNames.Add(SkeletalMesh->RefSkeleton.GetBoneName(BoneIndex));
 		}
 
-		TArray<FMatrix> MultipliedBonePoses;
-		if (SkeletalMesh->LODInfo[LODIndex].BakePose != nullptr)
+		// get the relative to ref pose matrices
+		TArray<FMatrix> RelativeToRefPoseMatrices;
+		RelativeToRefPoseMatrices.AddUninitialized(NumBones);
+		// if it has bake pose, gets ref to local matrices using bake pose
+		if (const UAnimSequence* BakePoseAnim = SkeletalMesh->GetLODInfo(LODIndex)->BakePose)
 		{
 			TArray<FTransform> BonePoses;
-			UAnimationBlueprintLibrary::GetBonePosesForFrame(SkeletalMesh->LODInfo[LODIndex].BakePose, BoneNames, 0, true, BonePoses);
-			MultipliedBonePoses.AddDefaulted(BonePoses.Num());
+			UAnimationBlueprintLibrary::GetBonePosesForFrame(BakePoseAnim, BoneNames, 0, true, BonePoses, SkeletalMesh);
+			
+			const FReferenceSkeleton& RefSkeleton = SkeletalMesh->RefSkeleton;
+			const TArray<FTransform>& RefPoseInLocal = RefSkeleton.GetRefBonePose();
 
-			TArray<FTransform> RefBonePoses = SkeletalMesh->RefSkeleton.GetRawRefBonePose();
-			TArray<FMatrix> MultipliedRefBonePoses;
-			MultipliedRefBonePoses.AddDefaulted(RefBonePoses.Num());
-			MultipliedRefBonePoses[0] = FMatrix::Identity;
-			TArray<int32> Processed;
-			Processed.SetNumZeroed(RefBonePoses.Num());
+			// get component ref pose
+			TArray<FTransform> RefPoseInCS;
+			FAnimationRuntime::FillUpComponentSpaceTransforms(RefSkeleton, RefPoseInLocal, RefPoseInCS);
 
-			for (int32 i = 1; i < RefBonePoses.Num(); i++)
+			// calculate component space bake pose
+			TArray<FMatrix> ComponentSpacePose, ComponentSpaceRefPose, AnimPoseMatrices;
+			ComponentSpacePose.AddUninitialized(NumBones);
+			ComponentSpaceRefPose.AddUninitialized(NumBones);
+			AnimPoseMatrices.AddUninitialized(NumBones);
+
+			// to avoid scale issue, we use matrices here
+			for (int32 BoneIndex = 0; BoneIndex < NumBones; ++BoneIndex)
 			{
-				const int32 BoneIndex = SkeletalMesh->RefSkeleton.FindRawBoneIndex(BoneNames[i]);
-				const int32 ParentIndex = SkeletalMesh->RefSkeleton.GetParentIndex(BoneIndex);
-				check(ParentIndex == 0 || Processed[ParentIndex] == 1);
-				MultipliedRefBonePoses[BoneIndex] = RefBonePoses[BoneIndex].ToMatrixWithScale() * MultipliedRefBonePoses[ParentIndex];
-				Processed[BoneIndex] = 1;
-			}
-			Processed.Empty();
-			Processed.SetNumZeroed(BonePoses.Num());
-			MultipliedBonePoses[0] = FMatrix::Identity;
-			for (int32 i = 1; i < BonePoses.Num(); i++)
-			{
-				const int32 BoneIndex = SkeletalMesh->RefSkeleton.FindRawBoneIndex(BoneNames[i]);
-				const int32 ParentIndex = SkeletalMesh->RefSkeleton.GetParentIndex(BoneIndex);
-				check(ParentIndex == 0 || Processed[ParentIndex] == 1);
-				MultipliedBonePoses[BoneIndex] = BonePoses[BoneIndex].ToMatrixWithScale() * MultipliedBonePoses[ParentIndex];
-				Processed[BoneIndex] = 1;
+				ComponentSpaceRefPose[BoneIndex] = RefPoseInCS[BoneIndex].ToMatrixWithScale();
+				AnimPoseMatrices[BoneIndex] = BonePoses[BoneIndex].ToMatrixWithScale();
 			}
 
 			for (int32 BoneIndex = 0; BoneIndex < NumBones; ++BoneIndex)
 			{
-				MultipliedBonePoses[BoneIndex] = MultipliedRefBonePoses[BoneIndex].Inverse() * MultipliedBonePoses[BoneIndex];
+				const int32 ParentIndex = RefSkeleton.GetParentIndex(BoneIndex);
+				if (ParentIndex != INDEX_NONE)
+				{
+					ComponentSpacePose[BoneIndex] = AnimPoseMatrices[BoneIndex] * ComponentSpacePose[ParentIndex];
+				}
+				else
+				{
+					ComponentSpacePose[BoneIndex] = AnimPoseMatrices[BoneIndex];
+				}
+			}
+
+			// calculate relative to ref pose transform and convert to matrices
+			for (int32 BoneIndex = 0; BoneIndex < NumBones; ++BoneIndex)
+			{								
+				RelativeToRefPoseMatrices[BoneIndex] = ComponentSpaceRefPose[BoneIndex].Inverse() * ComponentSpacePose[BoneIndex];
 			}
 		}
 		else
 		{
-			for (int32 Index = 0; Index < BoneNames.Num(); ++Index)
+			for (int32 Index = 0; Index < NumBones; ++Index)
 			{
-				MultipliedBonePoses.Add(FMatrix::Identity);
+				RelativeToRefPoseMatrices[Index] = FMatrix::Identity;
 			}
-		}
-		
-		// See if we'd like to remove extra bones first
-		if (MeshBoneReductionInterface->GetBoneReductionData(SkeletalMesh, LODIndex, BonesToRemove))
-		{
-			// if we do, now create new model and make a copy of SrcMesh to cut the bone count
-			FSkeletalMeshLODModel * NewSrcModel = new FSkeletalMeshLODModel();
-
-			//	Bulk data arrays need to be locked before a copy can be made.
-			SrcModel->RawPointIndices.Lock(LOCK_READ_ONLY);
-			SrcModel->LegacyRawPointIndices.Lock(LOCK_READ_ONLY);
-			*NewSrcModel = *SrcModel;
-			SrcModel->RawPointIndices.Unlock();
-			SrcModel->LegacyRawPointIndices.Unlock();
-
-			// now fix up SrcModel to NewSrcModel
-			SrcModel = NewSrcModel;
-			//todo: check - memory leak here - SrcModel is not released?
 		}
 
 		FSkeletalMeshLODModel * NewModel = new FSkeletalMeshLODModel();
 		LODModels[LODIndex] = NewModel;
 		
 		// Reduce LOD model with SrcMesh
-		if (ReduceLODModel(SrcModel, NewModel, SkeletalMesh->GetImportedBounds(), MaxDeviation, SkeletalMesh->RefSkeleton, Settings, MultipliedBonePoses))
+		if (ReduceLODModel(SrcModel, NewModel, SkeletalMesh->GetImportedBounds(), MaxDeviation, SkeletalMesh->RefSkeleton, Settings, RelativeToRefPoseMatrices))
 		{
-			if (bCalcLODDistance)
+			// See if we'd like to remove extra bones first
+			if (MeshBoneReductionInterface->GetBoneReductionData(SkeletalMesh, LODIndex, BonesToRemove))
 			{
-				ensure(LODIndex != 0);
-
-				if (LODIndex == 1)
+				// fix up chunks to remove the bones that set to be removed
+				for (int32 SectionIndex = 0; SectionIndex < NewModel->Sections.Num(); ++SectionIndex)
 				{
-					SkeletalMesh->LODInfo[LODIndex].ScreenSize = 1.f;
-				}
-				else
-				{
-					SkeletalMesh->LODInfo[LODIndex].ScreenSize = SkeletalMesh->LODInfo[LODIndex - 1].ScreenSize * 0.5;
+					MeshBoneReductionInterface->FixUpSectionBoneMaps(NewModel->Sections[SectionIndex], BonesToRemove);
 				}
 			}
 
 			if (OldLodWasFromFile)
 			{
-				SkeletalMesh->LODInfo[LODIndex].LODMaterialMap.Empty();
+				SkeletalMesh->GetLODInfo(LODIndex)->LODMaterialMap.Empty();
 			}
 
 			// If base lod has a customized LODMaterialMap and this LOD doesn't (could have if changes are applied instead of freshly generated, copy over the data into new new LOD
-			if (SkeletalMesh->LODInfo[LODIndex].LODMaterialMap.Num() == 0 && SkeletalMesh->LODInfo[BaseLOD].LODMaterialMap.Num() != 0)
+			if (SkeletalMesh->GetLODInfo(LODIndex)->LODMaterialMap.Num() == 0 && SkeletalMesh->GetLODInfo(BaseLOD)->LODMaterialMap.Num() != 0)
 			{
-				SkeletalMesh->LODInfo[LODIndex].LODMaterialMap = SkeletalMesh->LODInfo[BaseLOD].LODMaterialMap;
+				SkeletalMesh->GetLODInfo(LODIndex)->LODMaterialMap = SkeletalMesh->GetLODInfo(BaseLOD)->LODMaterialMap;
 			}
 			else
 			{
 				// Assuming the reducing step has set all material indices correctly, we double check if something went wrong
 				// make sure we don't have more materials
 				int32 TotalSectionCount = NewModel->Sections.Num();
-				if (SkeletalMesh->LODInfo[LODIndex].LODMaterialMap.Num() > TotalSectionCount)
+				if (SkeletalMesh->GetLODInfo(LODIndex)->LODMaterialMap.Num() > TotalSectionCount)
 				{
-					SkeletalMesh->LODInfo[LODIndex].LODMaterialMap = SkeletalMesh->LODInfo[BaseLOD].LODMaterialMap;
+					SkeletalMesh->GetLODInfo(LODIndex)->LODMaterialMap = SkeletalMesh->GetLODInfo(BaseLOD)->LODMaterialMap;
 					// Something went wrong during the reduce step during regenerate 					
-					check(SkeletalMesh->LODInfo[BaseLOD].LODMaterialMap.Num() == TotalSectionCount);
+					check(SkeletalMesh->GetLODInfo(BaseLOD)->LODMaterialMap.Num() == TotalSectionCount);
 				}
 			}
 
-			// fix up chunks to remove the bones that set to be removed
-			for (int32 SectionIndex = 0; SectionIndex < NewModel->Sections.Num(); ++SectionIndex)
-			{
-				MeshBoneReductionInterface->FixUpSectionBoneMaps(NewModel->Sections[SectionIndex], BonesToRemove);
-			}
-
 			// Flag this LOD as having been simplified.
-			SkeletalMesh->LODInfo[LODIndex].bHasBeenSimplified = true;
+			SkeletalMesh->GetLODInfo(LODIndex)->bHasBeenSimplified = true;
 			SkeletalMesh->bHasBeenSimplified = true;
 		}
 		else
@@ -466,58 +466,25 @@ public:
 
 			// Required bones are recalculated later on.
 			NewModel->RequiredBones.Empty();
-			SkeletalMesh->LODInfo[LODIndex].bHasBeenSimplified = false;
+			SkeletalMesh->GetLODInfo(LODIndex)->bHasBeenSimplified = false;
 		}
 
 		SkeletalMesh->CalculateRequiredBones(SkeletalMeshResource->LODModels[LODIndex], SkeletalMesh->RefSkeleton, &BonesToRemove);
-
-		if (LODIndex >= SkeletalMesh->OptimizationSettings.Num())
-		{
-			FSkeletalMeshOptimizationSettings DefaultSettings;
-			const FSkeletalMeshOptimizationSettings SettingsToCopy =
-				SkeletalMesh->OptimizationSettings.Num() ? SkeletalMesh->OptimizationSettings.Last() : DefaultSettings;
-			while (LODIndex >= SkeletalMesh->OptimizationSettings.Num())
-			{
-				SkeletalMesh->OptimizationSettings.Add(SettingsToCopy);
-			}
-		}
-		check(LODIndex < SkeletalMesh->OptimizationSettings.Num());
-		SkeletalMesh->OptimizationSettings[LODIndex] = Settings;
 	}
 
 	virtual bool ReduceSkeletalMesh(
 		USkeletalMesh* SkeletalMesh,
 		int32 LODIndex,
-		const FSkeletalMeshOptimizationSettings& Settings,
-		bool bCalcLODDistance, 
 		bool bReregisterComponent = true
 		) override
 	{
 		check( SkeletalMesh );
 		check( LODIndex >= 0 );
-		check( LODIndex <= SkeletalMesh->LODInfo.Num() );
+		check( LODIndex <= SkeletalMesh->GetLODNum() );
 
 		FSkeletalMeshModel* SkeletalMeshResource = SkeletalMesh->GetImportedModel();
 		check(SkeletalMeshResource);
 		check( LODIndex <= SkeletalMeshResource->LODModels.Num() );
-
-		FSkeletalMeshLODModel* SrcModel = &SkeletalMeshResource->LODModels[0];
-
-		int32 BaseLOD = 0;
-		// only allow to set BaseLOD if the LOD is less than this
-		if (Settings.BaseLOD> 0)
-		{
-			if (Settings.BaseLOD < LODIndex && SkeletalMeshResource->LODModels.IsValidIndex(Settings.BaseLOD))
-			{
-				BaseLOD = Settings.BaseLOD;
-				SrcModel = &SkeletalMeshResource->LODModels[BaseLOD];
-			}
-			else
-			{
-				// warn users
-				UE_LOG(LogSimplygon, Warning, TEXT("Building LOD %d - Invalid Base LOD entered. Using Base LOD 0"), LODIndex);				
-			}
-		}
 
 		if (bReregisterComponent)
 		{
@@ -525,14 +492,14 @@ public:
 			SkeletalMesh->ReleaseResources();
 			SkeletalMesh->ReleaseResourcesFence.Wait();
 
-			Reduce(SkeletalMesh, SkeletalMeshResource, SrcModel, LODIndex, BaseLOD, Settings, bCalcLODDistance);
+			Reduce(SkeletalMesh, SkeletalMeshResource, LODIndex);
 
 			SkeletalMesh->PostEditChange();
 			SkeletalMesh->InitResources();
 		}
 		else
 		{
-			Reduce(SkeletalMesh, SkeletalMeshResource, SrcModel, LODIndex, BaseLOD, Settings, bCalcLODDistance);
+			Reduce(SkeletalMesh, SkeletalMeshResource, LODIndex);
 		}
 
 		return true;
@@ -1673,11 +1640,8 @@ private:
 				FSoftSkinVertex& Vertex = Vertices[ VertexIndex ];
 				SimplygonSDK::rid VertexBoneIds[MAX_TOTAL_INFLUENCES];
 				SimplygonSDK::real VertexBoneWeights[MAX_TOTAL_INFLUENCES];
-
-				FVector WeightedVertex(EForceInit::ForceInitToZero);
-				FVector WeightedTangentX(EForceInit::ForceInitToZero);
-				FVector WeightedTangentZ(EForceInit::ForceInitToZero);
-				
+				// get blended matrix
+				FMatrix BlendedMatrix = FMatrix::Identity;  
 				uint32 TotalInfluence = 0;
 				for ( uint32 InfluenceIndex = 0; InfluenceIndex < MAX_TOTAL_INFLUENCES; ++InfluenceIndex )
 				{
@@ -1691,13 +1655,19 @@ private:
 						uint32 BoneID = BoneIDs[Section.BoneMap[ BoneIndex ] ];
 						VertexBoneIds[InfluenceIndex] = BoneID;
 						VertexBoneWeights[InfluenceIndex] = BoneInfluence / 255.0f;
-												
+
 						if (BoneMatrices.IsValidIndex(Section.BoneMap[BoneIndex]))
 						{
 							const FMatrix Matrix = BoneMatrices[Section.BoneMap[BoneIndex]];
-							WeightedVertex += (Matrix.TransformPosition(Vertex.Position) * VertexBoneWeights[InfluenceIndex]);
-							WeightedTangentX += (Matrix.TransformVector(Vertex.TangentX) * VertexBoneWeights[InfluenceIndex]);
-							WeightedTangentZ += (Matrix.TransformVector(Vertex.TangentZ) * VertexBoneWeights[InfluenceIndex]);
+							// calculate blended matrix
+							if (InfluenceIndex == 0)
+							{
+								BlendedMatrix = (Matrix * VertexBoneWeights[InfluenceIndex]);
+							}
+							else
+							{
+								BlendedMatrix += (Matrix * VertexBoneWeights[InfluenceIndex]);
+							}
 						}
 					}
 					else
@@ -1707,6 +1677,12 @@ private:
 						VertexBoneWeights[InfluenceIndex] = 0;
 					}
 				}
+				
+				// transform position
+				FVector WeightedVertex = BlendedMatrix.TransformPosition(Vertex.Position);
+				FVector WeightedTangentX = BlendedMatrix.TransformVector(Vertex.TangentX);
+				FVector WeightedTangentZ = BlendedMatrix.TransformVector(Vertex.TangentZ);
+			
 				check( TotalInfluence == 255 );
 				Vertex.TangentX = WeightedTangentX.GetSafeNormal();
 				uint8 WComponent = Vertex.TangentZ.Vector.W;
@@ -2155,7 +2131,7 @@ private:
 	void SetBoneSettings( const FSkeletalMeshOptimizationSettings& Settings, SimplygonSDK::spBoneSettings BoneSettings)
 	{
 		BoneSettings->SetBoneReductionTargets( SimplygonSDK::SG_BONEREDUCTIONTARGET_BONERATIO );
-		BoneSettings->SetBoneRatio ( Settings.BoneReductionRatio );
+		BoneSettings->SetBoneRatio ( 1.f );
 		BoneSettings->SetMaxBonePerVertex( Settings.MaxBonesPerVertex );
 	}
 

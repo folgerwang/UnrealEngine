@@ -54,38 +54,49 @@ APartyBeaconClient::APartyBeaconClient(const FObjectInitializer& ObjectInitializ
 
 void APartyBeaconClient::BeginDestroy()
 {
-	ClearTimers();
+	ClearTimers(true);
 	Super::BeginDestroy();
 }
 
-void APartyBeaconClient::ClearTimers()
+void APartyBeaconClient::ClearTimers(bool bCallFailSafeIfNeeded)
 {
+	if (bCallFailSafeIfNeeded &&
+		CancelRPCFailsafe.IsValid())
+	{
+		UE_LOG(LogBeacon, Verbose, TEXT("Clearing timers with cancel reservation in flight.  Calling Failsafe."));
+
+		UWorld* World = GetWorld();
+		FTimerManager& TM = World->GetTimerManager();
+		TM.ClearTimer(CancelRPCFailsafe);
+		OnCancelledFailsafe();
+	}
+
 	UWorld* World = GetWorld();
 	if (World)
 	{
 		if (PendingResponseTimerHandle.IsValid())
 		{
-			UE_LOG(LogBeacon, Verbose, TEXT("ClearTimers: Pending reservation response cleared."));
+			UE_LOG(LogPartyBeacon, Verbose, TEXT("ClearTimers: Pending reservation response cleared."));
 		}
 
 		if (PendingCancelResponseTimerHandle.IsValid())
 		{
-			UE_LOG(LogBeacon, Verbose, TEXT("ClearTimers: Pending cancel response cleared."));
+			UE_LOG(LogPartyBeacon, Verbose, TEXT("ClearTimers: Pending cancel response cleared."));
 		}
 
 		if (PendingReservationUpdateTimerHandle.IsValid())
 		{
-			UE_LOG(LogBeacon, Verbose, TEXT("ClearTimers: Pending reservation update cleared."));
+			UE_LOG(LogPartyBeacon, Verbose, TEXT("ClearTimers: Pending reservation update cleared."));
 		}
 
 		if (PendingReservationFullTimerHandle.IsValid())
 		{
-			UE_LOG(LogBeacon, Verbose, TEXT("ClearTimers: Pending reservation full cleared."));
+			UE_LOG(LogPartyBeacon, Verbose, TEXT("ClearTimers: Pending reservation full cleared."));
 		}
 
 		if (CancelRPCFailsafe.IsValid())
 		{
-			UE_LOG(LogBeacon, Verbose, TEXT("ClearTimers: Cancel failsafe cleared."));
+			UE_LOG(LogPartyBeacon, Verbose, TEXT("ClearTimers: Cancel failsafe cleared."));
 		}
 
 		FTimerManager& TM = World->GetTimerManager();
@@ -119,7 +130,7 @@ bool APartyBeaconClient::RequestReservation(const FString& ConnectInfoStr, const
 	}
 	else
 	{
-		UE_LOG(LogBeacon, Warning, TEXT("RequestReservation: Failure to init client beacon with %s."), *ConnectURL.ToString());
+		UE_LOG(LogPartyBeacon, Warning, TEXT("RequestReservation: Failure to init client beacon with %s."), *ConnectURL.ToString());
 		RequestType = EClientRequestType::NonePending;
 	}
 
@@ -205,7 +216,7 @@ bool APartyBeaconClient::RequestReservationUpdate(const FString& ConnectInfoStr,
 	}
 	else
 	{
-		UE_LOG(LogBeacon, Warning, TEXT("APartyBeaconClient::RequestReservationUpdate: Missing ConnectInfoStr ('%s') or SessionId ('%s')."), *ConnectInfoStr, *InSessionId);
+		UE_LOG(LogPartyBeacon, Warning, TEXT("APartyBeaconClient::RequestReservationUpdate: Missing ConnectInfoStr ('%s') or SessionId ('%s')."), *ConnectInfoStr, *InSessionId);
 	}
 
 	return bWasStarted;
@@ -241,11 +252,11 @@ void APartyBeaconClient::CancelReservation()
 		bCancelReservation = true;
 
 		// Clear out any pending response handling, only the cancel matters
-		ClearTimers();
+		ClearTimers(false);
 
 		if (bPendingReservationSent)
 		{
-			UE_LOG(LogBeacon, Verbose, TEXT("Sending cancel reservation request."));
+			UE_LOG(LogPartyBeacon, Verbose, TEXT("Sending cancel reservation request."));
 			ServerCancelReservationRequest(PendingReservation.PartyLeader);
 
 			// In case the server is loading or unresponsive (ie no host beacon)
@@ -258,13 +269,13 @@ void APartyBeaconClient::CancelReservation()
 		}
 		else
 		{
-			UE_LOG(LogBeacon, Verbose, TEXT("Reservation request never sent, no need to send cancelation request."));
+			UE_LOG(LogPartyBeacon, Verbose, TEXT("Reservation request never sent, no need to send cancelation request."));
 			OnCancelledComplete();
 		}
 	}
 	else
 	{
-		UE_LOG(LogBeacon, Verbose, TEXT("Unable to cancel reservation request with invalid party leader."));
+		UE_LOG(LogPartyBeacon, Verbose, TEXT("Unable to cancel reservation request with invalid party leader."));
 		OnCancelledComplete();
 	}
 }
@@ -275,25 +286,25 @@ void APartyBeaconClient::OnConnected()
 	{
 		if (RequestType == EClientRequestType::ExistingSessionReservation)
 		{
-			UE_LOG(LogBeacon, Verbose, TEXT("Party beacon connection established, sending join reservation request."));
+			UE_LOG(LogPartyBeacon, Verbose, TEXT("Party beacon connection established, sending join reservation request."));
 			ServerReservationRequest(DestSessionId, PendingReservation);
 			bPendingReservationSent = true;
 		}
 		else if (RequestType == EClientRequestType::ReservationUpdate)
 		{
-			UE_LOG(LogBeacon, Verbose, TEXT("Party beacon connection established, sending reservation update request."));
+			UE_LOG(LogPartyBeacon, Verbose, TEXT("Party beacon connection established, sending reservation update request."));
 			ServerUpdateReservationRequest(DestSessionId, PendingReservation);
 			bPendingReservationSent = true;
 		}
 		else
 		{
-			UE_LOG(LogBeacon, Warning, TEXT("Failed to handle reservation request type %s"), ToString(RequestType));
+			UE_LOG(LogPartyBeacon, Warning, TEXT("Failed to handle reservation request type %s"), ToString(RequestType));
 			OnFailure();
 		}
 	}
 	else
 	{
-		UE_LOG(LogBeacon, Verbose, TEXT("Reservation request previously canceled, nothing sent."));
+		UE_LOG(LogPartyBeacon, Verbose, TEXT("Reservation request previously canceled, nothing sent."));
 		OnCancelledComplete();
 	}
 }
@@ -312,7 +323,7 @@ void APartyBeaconClient::OnCancelledComplete()
 
 void APartyBeaconClient::OnFailure()
 {
-	ClearTimers();
+	ClearTimers(true);
 	RequestType = EClientRequestType::NonePending;
 	Super::OnFailure();
 }
@@ -377,7 +388,7 @@ void APartyBeaconClient::ClientReservationResponse_Implementation(EPartyReservat
 #endif
 		if (Rate > 0.0f)
 		{
-			UE_LOG(LogBeacon, Verbose, TEXT("Party beacon response received %s, waiting %fs to notify"), EPartyReservationResult::ToString(ReservationResponse), Rate);
+			UE_LOG(LogPartyBeacon, Verbose, TEXT("Party beacon response received %s, waiting %fs to notify"), EPartyReservationResult::ToString(ReservationResponse), Rate);
 
 			FTimerDelegate TimerDelegate;
 			TimerDelegate.BindLambda([this, ReservationResponse]()
@@ -394,7 +405,7 @@ void APartyBeaconClient::ClientReservationResponse_Implementation(EPartyReservat
 	}
 	else
 	{
-		UE_LOG(LogBeacon, Verbose, TEXT("Party beacon response received %s, ignored due to cancel in progress"), EPartyReservationResult::ToString(ReservationResponse));
+		UE_LOG(LogPartyBeacon, Verbose, TEXT("Party beacon response received %s, ignored due to cancel in progress"), EPartyReservationResult::ToString(ReservationResponse));
 		// Cancel RPC or failsafe timer will trigger the cancel
 	}
 }
@@ -405,13 +416,13 @@ void APartyBeaconClient::ProcessReservationResponse(EPartyReservationResult::Typ
 {
 	if (!bCancelReservation)
 	{
-		UE_LOG(LogBeacon, Verbose, TEXT("Party beacon response received %s"), EPartyReservationResult::ToString(ReservationResponse));
+		UE_LOG(LogPartyBeacon, Verbose, TEXT("Party beacon response received %s"), EPartyReservationResult::ToString(ReservationResponse));
 		ReservationRequestComplete.ExecuteIfBound(ReservationResponse);
 		RequestType = EClientRequestType::NonePending;
 	}
 	else
 	{
-		UE_LOG(LogBeacon, Verbose, TEXT("Party beacon response received %s, ignored due to cancel in progress"), EPartyReservationResult::ToString(ReservationResponse));
+		UE_LOG(LogPartyBeacon, Verbose, TEXT("Party beacon response received %s, ignored due to cancel in progress"), EPartyReservationResult::ToString(ReservationResponse));
 		// Cancel RPC or failsafe timer will trigger the cancel
 	}
 }
@@ -423,7 +434,7 @@ void APartyBeaconClient::ClientCancelReservationResponse_Implementation(EPartyRe
 	ensure(bCancelReservation);
 
 	// Clear out any pending response handling (including failsafe timer)
-	ClearTimers();
+	ClearTimers(false);
 #if !UE_BUILD_SHIPPING	
 	const float Rate = BeaconConsoleVariables::CVarDelayCancellationResponse.GetValueOnGameThread();
 #else
@@ -431,7 +442,7 @@ void APartyBeaconClient::ClientCancelReservationResponse_Implementation(EPartyRe
 #endif
 	if (Rate > 0.0f)
 	{
-		UE_LOG(LogBeacon, Verbose, TEXT("Party beacon cancellation response received %s, waiting %fs to notify"), EPartyReservationResult::ToString(ReservationResponse), Rate);
+		UE_LOG(LogPartyBeacon, Verbose, TEXT("Party beacon cancellation response received %s, waiting %fs to notify"), EPartyReservationResult::ToString(ReservationResponse), Rate);
 
 		FTimerDelegate TimerDelegate;
 		TimerDelegate.BindLambda([this, ReservationResponse]()
@@ -453,6 +464,7 @@ void APartyBeaconClient::ProcessCancelReservationResponse(EPartyReservationResul
 {
 	ensure(ReservationResponse == EPartyReservationResult::ReservationRequestCanceled || ReservationResponse == EPartyReservationResult::ReservationNotFound);
 	ensure(bCancelReservation);
+
 	OnCancelledComplete();
 }
 
@@ -469,7 +481,7 @@ void APartyBeaconClient::ClientSendReservationUpdates_Implementation(int32 NumRe
 #endif
 		if (Rate > 0.0f)
 		{
-			UE_LOG(LogBeacon, Verbose, TEXT("Party beacon reservations remaining %d, waiting %fs to notify"), NumRemainingReservations, Rate);
+			UE_LOG(LogPartyBeacon, Verbose, TEXT("Party beacon reservations remaining %d, waiting %fs to notify"), NumRemainingReservations, Rate);
 
 			FTimerDelegate TimerDelegate;
 			TimerDelegate.BindLambda([this, NumRemainingReservations]()
@@ -490,7 +502,7 @@ void APartyBeaconClient::ClientSendReservationUpdates_Implementation(int32 NumRe
 
 void APartyBeaconClient::ProcessReservationUpdate(int32 NumRemainingReservations)
 {
-	UE_LOG(LogBeacon, Verbose, TEXT("Party beacon reservations remaining %d"), NumRemainingReservations);
+	UE_LOG(LogPartyBeacon, Verbose, TEXT("Party beacon reservations remaining %d"), NumRemainingReservations);
 	ReservationCountUpdate.ExecuteIfBound(NumRemainingReservations);
 }
 
@@ -507,7 +519,7 @@ void APartyBeaconClient::ClientSendReservationFull_Implementation()
 #endif
 		if (Rate > 0.0f)
 		{
-			UE_LOG(LogBeacon, Verbose, TEXT("Party beacon reservations full, waiting %fs to notify"), Rate);
+			UE_LOG(LogPartyBeacon, Verbose, TEXT("Party beacon reservations full, waiting %fs to notify"), Rate);
 
 			FTimerDelegate TimerDelegate;
 			TimerDelegate.BindLambda([this]()
@@ -528,7 +540,7 @@ void APartyBeaconClient::ClientSendReservationFull_Implementation()
 
 void APartyBeaconClient::ProcessReservationFull()
 {
-	UE_LOG(LogBeacon, Verbose, TEXT("Party beacon reservations full"));
+	UE_LOG(LogPartyBeacon, Verbose, TEXT("Party beacon reservations full"));
 	ReservationFull.ExecuteIfBound();
 }
 

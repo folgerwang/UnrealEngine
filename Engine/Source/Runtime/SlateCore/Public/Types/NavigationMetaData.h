@@ -22,6 +22,7 @@ public:
 		for (SNavData& Rule : Rules)
 		{
 			Rule.BoundaryRule = EUINavigationRule::Escape;
+			Rule.FocusDelegate = nullptr;
 			Rule.FocusRecipient = nullptr;
 		}
 	}
@@ -68,6 +69,7 @@ public:
 	void SetNavigationExplicit(EUINavigation InNavigation, TSharedPtr<SWidget> InFocusRecipient)
 	{
 		Rules[(uint8)InNavigation].BoundaryRule = EUINavigationRule::Explicit;
+		Rules[(uint8)InNavigation].FocusDelegate = nullptr;
 		Rules[(uint8)InNavigation].FocusRecipient = InFocusRecipient;
 	}
 
@@ -75,12 +77,15 @@ public:
 	 * Set the navigation behavior for the provided navigation type to be a custom delegate
 	 * 
 	 * @param InNavigation the type of navigation to set custom
+	 * @param InCustomBoundaryRule
 	 * @param InFocusRecipient the delegate used when the system requests the destination for the custom navigation
 	 */
-	void SetNavigationCustom(EUINavigation InNavigation, FNavigationDelegate InFocusDelegate)
-	{
-		Rules[(uint8)InNavigation].BoundaryRule = EUINavigationRule::Custom;
+	void SetNavigationCustom(EUINavigation InNavigation, EUINavigationRule InCustomBoundaryRule, FNavigationDelegate InFocusDelegate)
+	{ 
+		ensure(InCustomBoundaryRule == EUINavigationRule::Custom || InCustomBoundaryRule == EUINavigationRule::CustomBoundary);
+		Rules[(uint8)InNavigation].BoundaryRule = InCustomBoundaryRule;
 		Rules[(uint8)InNavigation].FocusDelegate = InFocusDelegate;
+		Rules[(uint8)InNavigation].FocusRecipient = nullptr;
 	}
 
 	/**
@@ -91,6 +96,8 @@ public:
 	void SetNavigationWrap(EUINavigation InNavigation)
 	{
 		Rules[(uint8)InNavigation].BoundaryRule = EUINavigationRule::Wrap;
+		Rules[(uint8)InNavigation].FocusDelegate = nullptr;
+		Rules[(uint8)InNavigation].FocusRecipient = nullptr;
 	}
 
 	/**
@@ -99,6 +106,8 @@ public:
 	void SetNavigationStop(EUINavigation InNavigation)
 	{
 		Rules[(uint8)InNavigation].BoundaryRule = EUINavigationRule::Stop;
+		Rules[(uint8)InNavigation].FocusDelegate = nullptr;
+		Rules[(uint8)InNavigation].FocusRecipient = nullptr;
 	}
 
 	/**
@@ -107,6 +116,8 @@ public:
 	void SetNavigationEscape(EUINavigation InNavigation)
 	{
 		Rules[(uint8)InNavigation].BoundaryRule = EUINavigationRule::Escape;
+		Rules[(uint8)InNavigation].FocusDelegate = nullptr;
+		Rules[(uint8)InNavigation].FocusRecipient = nullptr;
 	}
 private:
 

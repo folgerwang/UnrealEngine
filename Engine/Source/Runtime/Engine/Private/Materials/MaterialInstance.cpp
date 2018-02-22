@@ -31,6 +31,9 @@
 #include "Components.h"
 #include "HAL/LowLevelMemTracker.h"
 
+DECLARE_CYCLE_STAT(TEXT("MaterialInstance CopyMatInstParams"), STAT_MaterialInstance_CopyMatInstParams, STATGROUP_Shaders);
+DECLARE_CYCLE_STAT(TEXT("MaterialInstance Serialize"), STAT_MaterialInstance_Serialize, STATGROUP_Shaders);
+
 /**
  * Cache uniform expressions for the given material.
  * @param MaterialInstance - The material instance for which to cache uniform expressions.
@@ -1439,6 +1442,8 @@ EMaterialShadingModel UMaterialInstanceDynamic::GetShadingModel() const
 
 void UMaterialInstance::CopyMaterialInstanceParameters(UMaterialInterface* Source)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MaterialInstance_CopyMatInstParams);
+
 	if(Source)
 	{
 		// First, clear out all the parameter values
@@ -2788,6 +2793,8 @@ void UMaterialInstance::Serialize(FArchive& Ar)
 {
 	LLM_SCOPE(ELLMTag::Materials);
 	SCOPED_LOADTIMER(MaterialInstanceSerializeTime);
+	SCOPE_CYCLE_COUNTER(STAT_MaterialInstance_Serialize);
+
 	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
 	Super::Serialize(Ar);
 		
@@ -3514,6 +3521,7 @@ float UMaterialInstance::GetExportResolutionScale() const
 	return 1.0f;
 }
 
+#if WITH_EDITOR
 bool UMaterialInstance::GetParameterDesc(const FMaterialParameterInfo& ParameterInfo, FString& OutDesc, const TArray<struct FStaticMaterialLayersParameter>* MaterialLayersParameters) const
 {
 	const UMaterial* BaseMaterial = GetMaterial();
@@ -3525,7 +3533,6 @@ bool UMaterialInstance::GetParameterDesc(const FMaterialParameterInfo& Parameter
 	return false;
 }
 
-#if WITH_EDITOR
 bool UMaterialInstance::GetParameterSortPriority(const FMaterialParameterInfo& ParameterInfo, int32& OutSortPriority, const TArray<struct FStaticMaterialLayersParameter>* MaterialLayersParameters) const
 {
 	const UMaterial* BaseMaterial = GetMaterial();

@@ -3,6 +3,7 @@
 #include "CommonMenuExtensionsModule.h"
 #include "BufferVisualizationMenuCommands.h"
 #include "ShowFlagMenuCommands.h"
+#include "Modules/ModuleManager.h"
 
 IMPLEMENT_MODULE(FCommonMenuExtensionsModule, CommonMenuExtensions);
 

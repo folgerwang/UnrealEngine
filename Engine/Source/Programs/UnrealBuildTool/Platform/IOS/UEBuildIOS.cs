@@ -490,12 +490,13 @@ namespace UnrealBuildTool
             Target.bCompileSimplygon = false;
             Target.bCompileSimplygonSSF = false;
 			Target.bBuildDeveloperTools = false;
+
+			Target.bDeployAfterCompile = true;
 		}
 
 		public override void ValidateTarget(TargetRules Target)
 		{
 			Target.bUsePCHFiles = false;
-			Target.bDeployAfterCompile = true;
 
 			// we assume now we are building with IOS8 or later
 			if (Target.bCompileAgainstEngine)

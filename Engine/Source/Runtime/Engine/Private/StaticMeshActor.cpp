@@ -29,7 +29,7 @@ AStaticMeshActor::AStaticMeshActor(const FObjectInitializer& ObjectInitializer)
 	StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMeshComponent0"));
 	StaticMeshComponent->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
 	StaticMeshComponent->Mobility = EComponentMobility::Static;
-	StaticMeshComponent->bGenerateOverlapEvents = false;
+	StaticMeshComponent->SetGenerateOverlapEvents(false);
 	StaticMeshComponent->bUseDefaultCollision = true;
 
 	RootComponent = StaticMeshComponent;

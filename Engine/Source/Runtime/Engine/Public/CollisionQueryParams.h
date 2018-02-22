@@ -26,7 +26,13 @@ enum class EQueryMobilityType
   * Note this will not include any queries taking a default SceneQuery param
   */
 #define FIND_UNKNOWN_SCENE_QUERIES 0
-#define SCENE_QUERY_STAT_ONLY(QueryName) QUICK_USE_CYCLE_STAT(QueryName, STATGROUP_CollisionTags)
+
+#if ENABLE_STATNAMEDEVENTS
+	#define SCENE_QUERY_STAT_ONLY(QueryName) TStatId(ANSI_TO_PROFILING(#QueryName))
+#else
+	#define SCENE_QUERY_STAT_ONLY(QueryName) QUICK_USE_CYCLE_STAT(QueryName, STATGROUP_CollisionTags)
+#endif
+
 #define SCENE_QUERY_STAT_NAME_ONLY(QueryName) [](){ static FName StaticName(#QueryName); return StaticName;}()
 #define SCENE_QUERY_STAT(QueryName) SCENE_QUERY_STAT_NAME_ONLY(QueryName), SCENE_QUERY_STAT_ONLY(QueryName)
 

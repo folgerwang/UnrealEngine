@@ -225,41 +225,45 @@ public class IOSPlatform : Platform
 		return 4;
 	}
 
-	public virtual bool PrepForUATPackageOrDeploy(UnrealTargetConfiguration Config, FileReference ProjectFile, string InProjectName, DirectoryReference InProjectDirectory, string InExecutablePath, DirectoryReference InEngineDir, bool bForDistribution, string CookFlavor, bool bIsDataDeploy, bool bCreateStubIPA)
+	public virtual bool PrepForUATPackageOrDeploy(UnrealTargetConfiguration Config, FileReference ProjectFile, string InProjectName, DirectoryReference InProjectDirectory, string InExecutablePath, DirectoryReference InEngineDir, bool bForDistribution, string CookFlavor, bool bIsDataDeploy, bool bCreateStubIPA, bool bIsUE4Game)
 	{
-		return IOSExports.PrepForUATPackageOrDeploy(Config, ProjectFile, InProjectName, InProjectDirectory, InExecutablePath, InEngineDir, bForDistribution, CookFlavor, bIsDataDeploy, bCreateStubIPA);
+		string TargetName = Path.GetFileNameWithoutExtension(InExecutablePath).Split("-".ToCharArray())[0];
+		FileReference TargetReceiptFileName;
+		if (bIsUE4Game)
+		{
+			TargetReceiptFileName = TargetReceipt.GetDefaultPath(InEngineDir, "UE4Game", UnrealTargetPlatform.IOS, Config, "");
+		}
+		else
+		{
+			TargetReceiptFileName = TargetReceipt.GetDefaultPath(InProjectDirectory, TargetName, UnrealTargetPlatform.IOS, Config, "");
+		}
+		return IOSExports.PrepForUATPackageOrDeploy(Config, ProjectFile, InProjectName, InProjectDirectory, InExecutablePath, InEngineDir, bForDistribution, CookFlavor, bIsDataDeploy, bCreateStubIPA, TargetReceiptFileName);
 	}
 
-    public virtual void GetProvisioningData(FileReference InProject, bool bDistribution, out string MobileProvision, out string SigningCertificate, out string TeamUUID, out bool bAutomaticSigning)
+	public virtual void GetProvisioningData(FileReference InProject, bool bDistribution, out string MobileProvision, out string SigningCertificate, out string TeamUUID, out bool bAutomaticSigning)
     {
 		IOSExports.GetProvisioningData(InProject, bDistribution, out MobileProvision, out SigningCertificate, out TeamUUID, out bAutomaticSigning);
     }
 
-	public virtual bool DeployGeneratePList(FileReference ProjectFile, UnrealTargetConfiguration Config, DirectoryReference ProjectDirectory, bool bIsUE4Game, string GameName, string ProjectName, DirectoryReference InEngineDir, DirectoryReference AppDirectory, out bool bSupportsPortrait, out bool bSupportsLandscape, out bool bSkipIcons)
+	public virtual bool DeployGeneratePList(FileReference ProjectFile, UnrealTargetConfiguration Config, DirectoryReference ProjectDirectory, bool bIsUE4Game, string GameName, string ProjectName, DirectoryReference InEngineDir, DirectoryReference AppDirectory, string InExecutablePath, out bool bSupportsPortrait, out bool bSupportsLandscape, out bool bSkipIcons)
 	{
-		return IOSExports.GeneratePList(ProjectFile, Config, ProjectDirectory, bIsUE4Game, GameName, ProjectName, InEngineDir, AppDirectory, out bSupportsPortrait, out bSupportsLandscape, out bSkipIcons);
+		string TargetName = Path.GetFileNameWithoutExtension(InExecutablePath).Split("-".ToCharArray())[0];
+		FileReference TargetReceiptFileName;
+		if (bIsUE4Game)
+		{
+			TargetReceiptFileName = TargetReceipt.GetDefaultPath(InEngineDir, "UE4Game", UnrealTargetPlatform.IOS, Config, "");
+		}
+		else
+		{
+			TargetReceiptFileName = TargetReceipt.GetDefaultPath(ProjectDirectory, TargetName, UnrealTargetPlatform.IOS, Config, "");
+		}
+		return IOSExports.GeneratePList(ProjectFile, Config, ProjectDirectory, bIsUE4Game, GameName, ProjectName, InEngineDir, AppDirectory, TargetReceiptFileName, out bSupportsPortrait, out bSupportsLandscape, out bSkipIcons);
 	}
 
-    protected string MakeIPAFileName( UnrealTargetConfiguration TargetConfiguration, ProjectParams Params )
+	protected string MakeIPAFileName( UnrealTargetConfiguration TargetConfiguration, ProjectParams Params, DeploymentContext SC, bool bAllowDistroPrefix )
 	{
-		string ProjectIPA = Path.Combine(Path.GetDirectoryName(Params.RawProjectPath.FullName), "Binaries", PlatformName, (Params.Distribution ? "Distro_" : "") + Params.ShortProjectName);
-		if (TargetConfiguration != UnrealTargetConfiguration.Development)
-		{
-			ProjectIPA += "-" + PlatformType.ToString() + "-" + TargetConfiguration.ToString();
-		}
-		ProjectIPA += ".ipa";
-		return ProjectIPA;
-	}
-
-	protected string MakeExeFileName( UnrealTargetConfiguration TargetConfiguration, ProjectParams Params )
-	{
-		string ProjectIPA = Path.Combine(Path.GetDirectoryName(Params.RawProjectPath.FullName), "Binaries", PlatformName, Params.ShortProjectName);
-		if (TargetConfiguration != UnrealTargetConfiguration.Development)
-		{
-			ProjectIPA += "-" + PlatformType.ToString() + "-" + TargetConfiguration.ToString();
-		}
-		ProjectIPA += ".ipa";
-		return ProjectIPA;
+		return Path.Combine(Path.GetDirectoryName(Params.RawProjectPath.FullName), "Binaries", PlatformName, 
+			((bAllowDistroPrefix && Params.Distribution) ? "Distro_" : "") + SC.StageExecutables[0] + ".ipa");
 	}
 
 	// Determine if we should code sign
@@ -328,16 +332,17 @@ public class IOSPlatform : Platform
         //   - Code here probably needs to be updated to write 0 byte files as 1 byte (difference with IPP, was required at one point when using Ionic.Zip to prevent issues on device, maybe not needed anymore?)
         if (UnrealBuildTool.BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
 		{
-            // copy in all of the artwork and plist
-            PrepForUATPackageOrDeploy(TargetConfiguration, Params.RawProjectPath,
+			// copy in all of the artwork and plist
+			PrepForUATPackageOrDeploy(TargetConfiguration, Params.RawProjectPath,
 				Params.ShortProjectName,
 				Params.RawProjectPath.Directory,
 				CombinePaths(Path.GetDirectoryName(ProjectGameExeFilename), SC.StageExecutables[0]),
 				DirectoryReference.Combine(SC.LocalRoot, "Engine"),
 				Params.Distribution, 
 				"",
-				false, 
-				false);
+				false,
+				false,
+				!SC.IsCodeBasedProject);
 
 			// figure out where to pop in the staged files
 			string AppDirectory = string.Format("{0}/Payload/{1}.app",
@@ -416,7 +421,7 @@ public class IOSPlatform : Platform
 
 		if (UnrealBuildTool.BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
 		{
-			var ProjectIPA = MakeIPAFileName(TargetConfiguration, Params);
+			var ProjectIPA = MakeIPAFileName(TargetConfiguration, Params, SC, Params.Distribution);
 			var ProjectStub = Path.GetFullPath(ProjectGameExeFilename);
 
 			// package a .ipa from the now staged directory
@@ -585,7 +590,7 @@ public class IOSPlatform : Platform
 				CodeSign(Path.GetDirectoryName(ProjectGameExeFilename), Params.IsCodeBasedProject ? Params.ShortProjectName : Path.GetFileNameWithoutExtension(ProjectGameExeFilename), Params.RawProjectPath, SC.StageTargetConfigurations[0], SC.LocalRoot.FullName, Params.ShortProjectName, Path.GetDirectoryName(Params.RawProjectPath.FullName), SC.IsCodeBasedProject, Params.Distribution, Params.Provision, Params.Certificate, Params.Team, Params.AutomaticSigning, SchemeName, SchemeConfiguration);
 
 				// now generate the ipa
-				PackageIPA(Path.GetDirectoryName(ProjectGameExeFilename), Params.IsCodeBasedProject ? Params.ShortProjectName : Path.GetFileNameWithoutExtension(ProjectGameExeFilename), Params.ShortProjectName, Path.GetDirectoryName(Params.RawProjectPath.FullName), SC.StageTargetConfigurations[0], Params.Distribution);
+				PackageIPA(Params, ProjectGameExeFilename, SC);
 			}
 		}
 
@@ -700,10 +705,16 @@ public class IOSPlatform : Platform
 		}
 	}
 
-	private void PackageIPA(string BaseDirectory, string GameName, string ProjectName, string ProjectDirectory, UnrealTargetConfiguration TargetConfig, bool Distribution = false)
+	private void PackageIPA(ProjectParams Params, string ProjectGameExeFilename, DeploymentContext SC)
 	{
+		string BaseDirectory = Path.GetDirectoryName(ProjectGameExeFilename);
+		string ExeName = Params.IsCodeBasedProject ? SC.StageExecutables[0] : Path.GetFileNameWithoutExtension(ProjectGameExeFilename);
+		string GameName = ExeName.Split("-".ToCharArray())[0];
+		string ProjectName = Params.ShortProjectName;
+		UnrealTargetConfiguration TargetConfig = SC.StageTargetConfigurations[0];
+
 		// create the ipa
-		string IPAName = CombinePaths(ProjectDirectory, "Binaries", PlatformName, (Distribution ? "Distro_" : "") + ProjectName + (TargetConfig != UnrealTargetConfiguration.Development ? ("-" + PlatformName + "-" + TargetConfig.ToString()) : "") + ".ipa");
+		string IPAName = MakeIPAFileName( TargetConfig, Params, SC, true );
 		// delete the old one
 		if (File.Exists(IPAName))
 		{
@@ -729,7 +740,7 @@ public class IOSPlatform : Platform
             Zip.AlternateEncoding = Encoding.UTF8;
 
 			// set the compression level
-			if (Distribution)
+			if (Params.Distribution)
 			{
 				Zip.CompressionLevel = CompressionLevel.BestCompression;
 			}
@@ -769,7 +780,7 @@ public class IOSPlatform : Platform
 
 				// Check to see if this 
 				bool bIsExecutable = false;
-				if (Path.GetFileNameWithoutExtension(E.FileName).Equals(GameName, StringComparison.InvariantCultureIgnoreCase))
+				if (Path.GetFileNameWithoutExtension(E.FileName).Equals(ExeName, StringComparison.InvariantCultureIgnoreCase))
 				{
 					bIsExecutable = true;
 				}
@@ -842,9 +853,12 @@ public class IOSPlatform : Platform
 			// copy the plist (only if code signing, as it's protected by the code sign blob in the executable and can't be modified independently)
 			if (GetCodeSignDesirability(Params))
 			{
+				// this would be FooClient when making a client-only build
+				string TargetName = SC.StageExecutables[0].Split("-".ToCharArray())[0];
 				DirectoryReference SourcePath = DirectoryReference.Combine((SC.IsCodeBasedProject ? SC.ProjectRoot : DirectoryReference.Combine(SC.LocalRoot, "Engine")), "Intermediate", PlatformName);
-				FileReference TargetPListFile = FileReference.Combine(SourcePath, (SC.IsCodeBasedProject ? SC.ShortProjectName : "UE4Game") + "-Info.plist");
-//				if (!File.Exists(TargetPListFile))
+				FileReference TargetPListFile = FileReference.Combine(SourcePath, (SC.IsCodeBasedProject ? TargetName : "UE4Game") + "-Info.plist");
+
+				//				if (!File.Exists(TargetPListFile))
 				{
 					// ensure the plist, entitlements, and provision files are properly copied
 					Console.WriteLine("CookPlat {0}, this {1}", GetCookPlatform(false, false), ToString());
@@ -868,10 +882,11 @@ public class IOSPlatform : Platform
 							TargetConfiguration,
                             (SC.IsCodeBasedProject ? SC.ProjectRoot : DirectoryReference.Combine(SC.LocalRoot, "Engine")),
                             !SC.IsCodeBasedProject,
-                            (SC.IsCodeBasedProject ? SC.ShortProjectName : "UE4Game"),
+                            (SC.IsCodeBasedProject ? SC.StageExecutables[0] : "UE4Game"),
                             SC.ShortProjectName, DirectoryReference.Combine(SC.LocalRoot, "Engine"),
 														DirectoryReference.Combine((SC.IsCodeBasedProject ? SC.ProjectRoot : DirectoryReference.Combine(SC.LocalRoot, "Engine")), "Binaries", PlatformName, "Payload", (SC.IsCodeBasedProject ? SC.ShortProjectName : "UE4Game") + ".app"),
-                            out bSupportsPortrait,
+							SC.StageExecutables[0],
+							out bSupportsPortrait,
                             out bSupportsLandscape,
                             out bSkipIcons);
 
@@ -910,10 +925,18 @@ public class IOSPlatform : Platform
                 }
 			}
 		}
+
+		// Per-project, per-platform setting to skip all movies. By default this is false.
+		bool bSkipMovies = false;
+		ConfigHierarchy PlatformGameIniConfig = ConfigCache.ReadHierarchy(ConfigHierarchyType.Game, DirectoryReference.FromFile(Params.RawProjectPath), SC.StageTargetPlatform.IniPlatformType);
+		PlatformGameIniConfig.GetBool("/Script/UnrealEd.ProjectPackagingSettings", "bSkipMovies", out bSkipMovies);
+
+		if (!bSkipMovies)
         {
             StageMovieFiles(DirectoryReference.Combine(SC.EngineRoot, "Content", "Movies"), SC);
 			StageMovieFiles(DirectoryReference.Combine(SC.ProjectRoot, "Content", "Movies"), SC);
         }
+
 		{
 			// Stage any *.metallib files as NonUFS.
 			// Get the final output directory for cooked data
@@ -949,16 +972,16 @@ public class IOSPlatform : Platform
 				ImageFileNames.Add("Default-IPhone6Plus-Portrait.png");
 				ImageFileNames.Add("Default-Portrait@2x.png");
 				ImageFileNames.Add("Default-Portrait-1336@2x.png");
-                ImageFileNames.Add("Default-IPhoneX-Portrait.png");
-            }
+				ImageFileNames.Add("Default-IPhoneX-Portrait.png");
+			}
 			if (bSupportsLandscape)
 			{
 				ImageFileNames.Add("Default-IPhone6-Landscape.png");
 				ImageFileNames.Add("Default-IPhone6Plus-Landscape.png");
 				ImageFileNames.Add("Default-Landscape@2x.png");
 				ImageFileNames.Add("Default-Landscape-1336@2x.png");
-                ImageFileNames.Add("Default-IPhoneX-Landscape.png");
-            }
+				ImageFileNames.Add("Default-IPhoneX-Landscape.png");
+			}
 			ImageFileNames.Add("Default@2x.png");
 			ImageFileNames.Add("Default-568h@2x.png");
 
@@ -999,7 +1022,7 @@ public class IOSPlatform : Platform
 			throw new AutomationException("iOS is currently only able to package one target configuration at a time, but StageTargetConfigurations contained {0} configurations", SC.StageTargetConfigurations.Count);
 		}
 		var TargetConfiguration = SC.StageTargetConfigurations[0];
-		var ProjectIPA = MakeIPAFileName( TargetConfiguration, Params );
+		var ProjectIPA = MakeIPAFileName( TargetConfiguration, Params, SC, true );
 
 		// verify the .ipa exists
 		if (!FileExists(ProjectIPA))
@@ -1064,7 +1087,7 @@ public class IOSPlatform : Platform
 			}
 
 			// copy in the dSYM if found
-			var ProjectExe = MakeExeFileName( TargetConfiguration, Params );
+			var ProjectExe = MakeIPAFileName( TargetConfiguration, Params, SC, false );
 			string dSYMName = (SC.IsCodeBasedProject ? Path.GetFileNameWithoutExtension(ProjectExe) : "UE4Game") + ".dSYM";
             string dSYMDestName = AppName + ".dSYM";
             string dSYMSrcPath = Path.Combine(SC.ProjectBinariesFolder.FullName, dSYMName);
@@ -1117,22 +1140,22 @@ public class IOSPlatform : Platform
 			string BundleVersion = "";
 			if (!string.IsNullOrEmpty(OldPListData))
 			{
-				// bundle identifier
-				int index = OldPListData.IndexOf("CFBundleIdentifier");
-				index = OldPListData.IndexOf("<string>", index) + 8;
-				int length = OldPListData.IndexOf("</string>", index) - index;
+			// bundle identifier
+			int index = OldPListData.IndexOf("CFBundleIdentifier");
+			index = OldPListData.IndexOf("<string>", index) + 8;
+			int length = OldPListData.IndexOf("</string>", index) - index;
 				BundleIdentifier = OldPListData.Substring(index, length);
 
-				// short version
-				index = OldPListData.IndexOf("CFBundleShortVersionString");
-				index = OldPListData.IndexOf("<string>", index) + 8;
-				length = OldPListData.IndexOf("</string>", index) - index;
+			// short version
+			index = OldPListData.IndexOf("CFBundleShortVersionString");
+			index = OldPListData.IndexOf("<string>", index) + 8;
+			length = OldPListData.IndexOf("</string>", index) - index;
 				BundleShortVersion = OldPListData.Substring(index, length);
 
-				// bundle version
-				index = OldPListData.IndexOf("CFBundleVersion");
-				index = OldPListData.IndexOf("<string>", index) + 8;
-				length = OldPListData.IndexOf("</string>", index) - index;
+			// bundle version
+			index = OldPListData.IndexOf("CFBundleVersion");
+			index = OldPListData.IndexOf("<string>", index) + 8;
+			length = OldPListData.IndexOf("</string>", index) - index;
 				BundleVersion = OldPListData.Substring(index, length);
 			}
 			else
@@ -1250,7 +1273,7 @@ public class IOSPlatform : Platform
 			throw new AutomationException("iOS cannot deploy a package made for distribution.");
 		}
 		var TargetConfiguration = SC.StageTargetConfigurations[0];
-		var ProjectIPA = MakeIPAFileName(TargetConfiguration, Params);
+		var ProjectIPA = MakeIPAFileName(TargetConfiguration, Params, SC, true);
 		var StagedIPA = SC.StageDirectory + "\\" + Path.GetFileName(ProjectIPA);
 
 		// verify the .ipa exists
@@ -1311,7 +1334,7 @@ public class IOSPlatform : Platform
 
 	public override string GetCookPlatform(bool bDedicatedServer, bool bIsClientOnly)
 	{
-		return "IOS";
+		return bIsClientOnly ? "IOSClient" : "IOS";
 	}
 
 	public override bool DeployLowerCaseFilenames()

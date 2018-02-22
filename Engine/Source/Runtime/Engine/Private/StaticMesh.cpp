@@ -45,6 +45,7 @@
 #include "RawMesh.h"
 #include "MeshUtilities.h"
 #include "DerivedDataCacheInterface.h"
+#include "PlatformInfo.h"
 #endif // #if WITH_EDITOR
 
 #include "Engine/StaticMeshSocket.h"
@@ -63,6 +64,7 @@ DECLARE_MEMORY_STAT( TEXT( "StaticMesh Vertex Memory" ), STAT_StaticMeshVertexMe
 DECLARE_MEMORY_STAT( TEXT( "StaticMesh VxColor Resource Mem" ), STAT_ResourceVertexColorMemory, STATGROUP_MemoryStaticMesh );
 DECLARE_MEMORY_STAT( TEXT( "StaticMesh Index Memory" ), STAT_StaticMeshIndexMemory, STATGROUP_MemoryStaticMesh );
 DECLARE_MEMORY_STAT( TEXT( "StaticMesh Distance Field Memory" ), STAT_StaticMeshDistanceFieldMemory, STATGROUP_MemoryStaticMesh );
+DECLARE_MEMORY_STAT( TEXT( "StaticMesh Occluder Memory" ), STAT_StaticMeshOccluderMemory, STATGROUP_MemoryStaticMesh );
 
 DECLARE_MEMORY_STAT( TEXT( "StaticMesh Total Memory" ), STAT_StaticMeshTotalMemory, STATGROUP_Memory );
 
@@ -77,12 +79,28 @@ static FAutoConsoleVariableRef CVarStaticMeshUpdateMeshLODGroupSettingsAtLoad(
 	TEXT("If set, LODGroup settings for static meshes will be applied at load time."));
 #endif
 
+static TAutoConsoleVariable<int32> CVarStripMinLodDataDuringCooking(
+	TEXT("r.StaticMesh.StripMinLodDataDuringCooking"),
+	0,
+	TEXT("If non-zero, data for Static Mesh LOD levels below MinLOD will be discarded at cook time"));
+
 int32 GForceStripMeshAdjacencyDataDuringCooking = 0;
 static FAutoConsoleVariableRef CVarForceStripMeshAdjacencyDataDuringCooking(
 	TEXT("r.ForceStripAdjacencyDataDuringCooking"),
 	GForceStripMeshAdjacencyDataDuringCooking,
 	TEXT("If set, adjacency data will be stripped for all static and skeletal meshes during cooking (acting like the target platform did not support tessellation)."));
 
+static TAutoConsoleVariable<int32> CVarSupportDepthOnlyIndexBuffers(
+	TEXT("r.SupportDepthOnlyIndexBuffers"),
+	1,
+	TEXT("Enables depth-only index buffers. Saves a little time at the expense of doubling the size of index buffers."),
+	ECVF_ReadOnly | ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<int32> CVarSupportReversedIndexBuffers(
+	TEXT("r.SupportReversedIndexBuffers"),
+	1,
+	TEXT("Enables reversed index buffers. Saves a little time at the expense of doubling the size of index buffers."),
+	ECVF_ReadOnly | ECVF_RenderThreadSafe);
 
 #if ENABLE_COOK_STATS
 namespace StaticMeshCookStats
@@ -129,6 +147,9 @@ void FStaticMeshLODResources::Serialize(FArchive& Ar, UObject* Owner, int32 Inde
 {
 	DECLARE_SCOPE_CYCLE_COUNTER( TEXT("FStaticMeshLODResources::Serialize"), STAT_StaticMeshLODResources_Serialize, STATGROUP_LoadTime );
 
+	bool bEnableDepthOnlyIndexBuffer = (CVarSupportDepthOnlyIndexBuffers.GetValueOnAnyThread() == 1);
+	bool bEnableReversedIndexBuffer = (CVarSupportReversedIndexBuffers.GetValueOnAnyThread() == 1);
+
 	// See if the mesh wants to keep resources CPU accessible
 	UStaticMesh* OwnerStaticMesh = Cast<UStaticMesh>(Owner);
 	bool bMeshCPUAcces = OwnerStaticMesh ? OwnerStaticMesh->bAllowCPUAccess : false;
@@ -147,27 +168,54 @@ void FStaticMeshLODResources::Serialize(FArchive& Ar, UObject* Owner, int32 Inde
 
 	// Defined class flags for possible stripping
 	const uint8 AdjacencyDataStripFlag = 1;
+	const uint8 MinLodDataStripFlag = 2;
+	const uint8 ReversedIndexBufferStripFlag = 4;
 
 	// Actual flags used during serialization
 	uint8 ClassDataStripFlags = 0;
 
+#if WITH_EDITOR
 	const bool bWantToStripTessellation = Ar.IsCooking() && ((GForceStripMeshAdjacencyDataDuringCooking != 0) || !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::Tessellation));
-	ClassDataStripFlags |= bWantToStripTessellation ? AdjacencyDataStripFlag : 0;
+	const bool bWantToStripLOD = Ar.IsCooking() && (CVarStripMinLodDataDuringCooking.GetValueOnAnyThread() != 0) && OwnerStaticMesh && OwnerStaticMesh->MinLOD.GetValueForPlatformGroup(Ar.CookingTarget()->GetPlatformInfo().PlatformGroupName) > Index;
+
+	ClassDataStripFlags |=	(bWantToStripTessellation ? AdjacencyDataStripFlag : 0)	|
+							(bWantToStripLOD ? MinLodDataStripFlag : 0);
+#endif
 
 	FStripDataFlags StripFlags( Ar, ClassDataStripFlags );
 
 	Ar << Sections;
 	Ar << MaxDeviation;
 
-	if( !StripFlags.IsDataStrippedForServer() )
+	if( !StripFlags.IsDataStrippedForServer() && !StripFlags.IsClassDataStripped(MinLodDataStripFlag) )
 	{
 		VertexBuffers.PositionVertexBuffer.Serialize( Ar, bNeedsCPUAccess );
 		VertexBuffers.StaticMeshVertexBuffer.Serialize( Ar, bNeedsCPUAccess );
 		VertexBuffers.ColorVertexBuffer.Serialize( Ar, bNeedsCPUAccess );
-		IndexBuffer.Serialize( Ar, bNeedsCPUAccess );
-		ReversedIndexBuffer.Serialize( Ar, bNeedsCPUAccess );
+		IndexBuffer.Serialize(Ar, bNeedsCPUAccess);
+
+		const bool bSerailizeReversedIndexBuffer = !StripFlags.IsClassDataStripped(ReversedIndexBufferStripFlag);
+		if (bSerailizeReversedIndexBuffer)
+		{
+			ReversedIndexBuffer.Serialize(Ar, bNeedsCPUAccess);
+			if (!bEnableReversedIndexBuffer)
+			{
+				ReversedIndexBuffer.Discard();
+			}
+		}
 		DepthOnlyIndexBuffer.Serialize(Ar, bNeedsCPUAccess);
-		ReversedDepthOnlyIndexBuffer.Serialize( Ar, bNeedsCPUAccess );
+		if (!bEnableDepthOnlyIndexBuffer)
+		{
+			DepthOnlyIndexBuffer.Discard();
+		}
+		if (bSerailizeReversedIndexBuffer)
+		{
+			ReversedDepthOnlyIndexBuffer.Serialize(Ar, bNeedsCPUAccess);
+			if (!bEnableReversedIndexBuffer)
+			{
+				ReversedDepthOnlyIndexBuffer.Discard();
+			}
+		}
 
 		if( !StripFlags.IsEditorDataStripped() )
 		{
@@ -182,8 +230,8 @@ void FStaticMeshLODResources::Serialize(FArchive& Ar, UObject* Owner, int32 Inde
 
 		// Needs to be done now because on cooked platform, indices are discarded after RHIInit.
 		bHasDepthOnlyIndices = DepthOnlyIndexBuffer.GetNumIndices() != 0;
-		bHasReversedIndices = ReversedIndexBuffer.GetNumIndices() != 0;
-		bHasReversedDepthOnlyIndices = ReversedDepthOnlyIndexBuffer.GetNumIndices() != 0;
+		bHasReversedIndices = bSerailizeReversedIndexBuffer && ReversedIndexBuffer.GetNumIndices() != 0;
+		bHasReversedDepthOnlyIndices = bSerailizeReversedIndexBuffer && ReversedDepthOnlyIndexBuffer.GetNumIndices() != 0;
 		DepthOnlyNumTriangles = DepthOnlyIndexBuffer.GetNumIndices() / 3;
 
 		AreaWeightedSectionSamplers.SetNum(Sections.Num());
@@ -754,8 +802,12 @@ void FStaticMeshRenderData::InitResources(ERHIFeatureLevel::Type InFeatureLevel,
 
 	for (int32 LODIndex = 0; LODIndex < LODResources.Num(); ++LODIndex)
 	{
-		LODResources[LODIndex].InitResources(Owner);
-		LODVertexFactories[LODIndex].InitResources(LODResources[LODIndex], Owner);
+		// Skip LODs that have their render data stripped
+		if (LODResources[LODIndex].VertexBuffers.StaticMeshVertexBuffer.GetNumVertices() > 0)
+		{
+			LODResources[LODIndex].InitResources(Owner);
+			LODVertexFactories[LODIndex].InitResources(LODResources[LODIndex], Owner);
+		}
 	}
 }
 
@@ -763,8 +815,11 @@ void FStaticMeshRenderData::ReleaseResources()
 {
 	for (int32 LODIndex = 0; LODIndex < LODResources.Num(); ++LODIndex)
 	{
-		LODResources[LODIndex].ReleaseResources();
-		LODVertexFactories[LODIndex].ReleaseResources();
+		if (LODResources[LODIndex].VertexBuffers.StaticMeshVertexBuffer.GetNumVertices() > 0)
+		{
+			LODResources[LODIndex].ReleaseResources();
+			LODVertexFactories[LODIndex].ReleaseResources();
+		}
 	}
 }
 
@@ -777,6 +832,83 @@ void FStaticMeshRenderData::AllocateLODResources(int32 NumLODs)
 		new(LODVertexFactories) FStaticMeshVertexFactories(ERHIFeatureLevel::Num);
 	}
 }
+
+FStaticMeshOccluderData::FStaticMeshOccluderData()
+{
+	VerticesSP = MakeShared<FOccluderVertexArray, ESPMode::ThreadSafe>();
+	IndicesSP = MakeShared<FOccluderIndexArray, ESPMode::ThreadSafe>();
+}
+
+SIZE_T FStaticMeshOccluderData::GetResourceSizeBytes() const
+{
+	return VerticesSP->GetAllocatedSize() + IndicesSP->GetAllocatedSize();
+}
+
+TUniquePtr<FStaticMeshOccluderData> FStaticMeshOccluderData::Build(UStaticMesh* Owner)
+{
+	TUniquePtr<FStaticMeshOccluderData> Result;
+#if WITH_EDITOR		
+	if (Owner->LODForOccluderMesh >= 0)
+	{
+		// TODO: Custom geometry for occluder mesh?
+		int32 LODIndex = FMath::Min(Owner->LODForOccluderMesh, Owner->RenderData->LODResources.Num()-1);
+		const FStaticMeshLODResources& LODModel = Owner->RenderData->LODResources[LODIndex];
+			
+		const FRawStaticIndexBuffer& IndexBuffer = LODModel.DepthOnlyIndexBuffer.GetNumIndices() > 0 ? LODModel.DepthOnlyIndexBuffer : LODModel.IndexBuffer;
+		int32 NumVtx = LODModel.VertexBuffers.PositionVertexBuffer.GetNumVertices();
+		int32 NumIndices = IndexBuffer.GetNumIndices();
+		
+		if (NumVtx > 0 && NumIndices > 0 && !IndexBuffer.Is32Bit())
+		{
+			Result = MakeUnique<FStaticMeshOccluderData>();
+		
+			Result->VerticesSP->SetNumUninitialized(NumVtx);
+			Result->IndicesSP->SetNumUninitialized(NumIndices);
+
+			const FVector* V0 = &LODModel.VertexBuffers.PositionVertexBuffer.VertexPosition(0);
+			const uint16* Indices = IndexBuffer.AccessStream16();
+
+			FMemory::Memcpy(Result->VerticesSP->GetData(), V0, NumVtx*sizeof(FVector));
+			FMemory::Memcpy(Result->IndicesSP->GetData(), Indices, NumIndices*sizeof(uint16));
+		}
+	}
+#endif // WITH_EDITOR
+	return Result;
+}
+
+void FStaticMeshOccluderData::SerializeCooked(FArchive& Ar, UStaticMesh* Owner)
+{
+#if WITH_EDITOR	
+	if (Ar.IsSaving())
+	{
+		bool bHasOccluderData = false;
+		if (Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::SoftwareOcclusion) && Owner->OccluderData.IsValid())
+		{
+			bHasOccluderData = true;
+		}
+		
+		Ar << bHasOccluderData;
+		
+		if (bHasOccluderData)
+		{
+			Owner->OccluderData->VerticesSP->BulkSerialize(Ar);
+			Owner->OccluderData->IndicesSP->BulkSerialize(Ar);
+		}
+	}
+	else
+#endif // WITH_EDITOR
+	{
+		bool bHasOccluderData;
+		Ar << bHasOccluderData;
+		if (bHasOccluderData)
+		{
+			Owner->OccluderData = MakeUnique<FStaticMeshOccluderData>();
+			Owner->OccluderData->VerticesSP->BulkSerialize(Ar);
+			Owner->OccluderData->IndicesSP->BulkSerialize(Ar);
+		}
+	}
+}
+
 
 #if WITH_EDITOR
 /**
@@ -831,11 +963,11 @@ void FStaticMeshRenderData::ResolveSectionInfo(UStaticMesh* Owner)
 		{
 			if (LODIndex == 0)
 			{
-				ScreenSize[LODIndex] = 1.0f;
+				ScreenSize[LODIndex].Default = 1.0f;
 			}
 			else if(LOD.MaxDeviation <= 0.0f)
 			{
-				ScreenSize[LODIndex] = FMath::Pow(AutoComputeLODPowerBase, LODIndex);
+				ScreenSize[LODIndex].Default = FMath::Pow(AutoComputeLODPowerBase, LODIndex);
 			}
 			else
 			{
@@ -854,7 +986,14 @@ void FStaticMeshRenderData::ResolveSectionInfo(UStaticMesh* Owner)
 				// for LOD1 which translates to a very small ViewDistance and a large (larger than 1) ScreenSize. This meant you could clip the camera 
 				// into the mesh but unless you were near its origin it wouldn't switch to LOD0. Adding SphereRadius to ViewDistance makes it so that 
 				// the distance is to the bounds which corrects the problem.
-				ScreenSize[LODIndex] = ComputeBoundsScreenSize(FVector::ZeroVector, Bounds.SphereRadius, FVector(0.0f, 0.0f, ViewDistance + Bounds.SphereRadius), ProjMatrix);
+				ScreenSize[LODIndex].Default = ComputeBoundsScreenSize(FVector::ZeroVector, Bounds.SphereRadius, FVector(0.0f, 0.0f, ViewDistance + Bounds.SphereRadius), ProjMatrix);
+			}
+			
+			//We must enforce screen size coherence between LOD when we autocompute the LOD screensize
+			//This case can happen if we mix auto generate LOD with custom LOD
+			if (LODIndex > 0 && ScreenSize[LODIndex].Default > ScreenSize[LODIndex - 1].Default)
+			{
+				ScreenSize[LODIndex].Default = ScreenSize[LODIndex - 1].Default / 2.0f;
 			}
 		}
 		else if (Owner->SourceModels.IsValidIndex(LODIndex))
@@ -871,12 +1010,12 @@ void FStaticMeshRenderData::ResolveSectionInfo(UStaticMesh* Owner)
 			float AutoDisplayFactor = FMath::Pow(AutoComputeLODPowerBase, LODIndex);
 
 			// Make sure this fits in with the previous LOD
-			ScreenSize[LODIndex] = FMath::Clamp(AutoDisplayFactor, 0.0f, ScreenSize[LODIndex-1] - Tolerance);
+			ScreenSize[LODIndex].Default = FMath::Clamp(AutoDisplayFactor, 0.0f, ScreenSize[LODIndex-1].Default - Tolerance);
 		}
 	}
 	for (; LODIndex < MAX_STATIC_MESH_LODS; ++LODIndex)
 	{
-		ScreenSize[LODIndex] = 0.0f;
+		ScreenSize[LODIndex].Default = 0.0f;
 	}
 }
 
@@ -1523,10 +1662,11 @@ UStaticMesh::UStaticMesh(const FObjectInitializer& ObjectInitializer)
 #if WITH_EDITORONLY_DATA
 	bAutoComputeLODScreenSize=true;
 	ImportVersion = EImportStaticMeshVersion::BeforeImportStaticMeshVersionWasAdded;
+	LODForOccluderMesh = -1;
 #endif // #if WITH_EDITORONLY_DATA
 	LightMapResolution = 4;
 	LpvBiasMultiplier = 1.0f;
-	MinLOD = 0;
+	MinLOD.Default = 0;
 
 	bSupportUniformlyDistributedSampling = false;
 }
@@ -1554,6 +1694,11 @@ void UStaticMesh::InitResources()
 		RenderData->InitResources(GetWorld() ? GetWorld()->FeatureLevel : ERHIFeatureLevel::Num, this);
 	}
 
+	if (OccluderData)
+	{
+		INC_DWORD_STAT_BY( STAT_StaticMeshOccluderMemory, OccluderData->GetResourceSizeBytes() );
+	}
+	
 #if	STATS
 	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
 		UpdateMemoryStats,
@@ -1573,6 +1718,11 @@ void UStaticMesh::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 	if (RenderData)
 	{
 		RenderData->GetResourceSizeEx(CumulativeResourceSize);
+	}
+
+	if (OccluderData)
+	{
+		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(OccluderData->GetResourceSizeBytes());
 	}
 }
 
@@ -1827,6 +1977,11 @@ void UStaticMesh::ReleaseResources()
 		RenderData->ReleaseResources();
 	}
 
+	if (OccluderData)
+	{
+		DEC_DWORD_STAT_BY( STAT_StaticMeshOccluderMemory, OccluderData->GetResourceSizeBytes() );
+	}
+	
 	// insert a fence to signal when these commands completed
 	ReleaseResourcesFence.BeginFence();
 }
@@ -2101,7 +2256,7 @@ FStaticMeshSourceModel::FStaticMeshSourceModel()
 {
 #if WITH_EDITOR
 	RawMeshBulkData = new FRawMeshBulkData();
-	ScreenSize = 0.0f;
+	ScreenSize.Default = 0.0f;
 #endif // #if WITH_EDITOR
 }
 
@@ -2207,13 +2362,13 @@ void FMeshSectionInfoMap::CopyFrom(const FMeshSectionInfoMap& Other)
 	}
 }
 
-bool FMeshSectionInfoMap::AnySectionHasCollision() const
+bool FMeshSectionInfoMap::AnySectionHasCollision(int32 LodIndex) const
 {
 	for (TMap<uint32,FMeshSectionInfo>::TConstIterator It(Map); It; ++It)
 	{
 		uint32 Key = It.Key();
-		int32 LODIndex = (int32)(Key >> 16);
-		if (LODIndex == 0 && It.Value().bEnableCollision)
+		int32 KeyLODIndex = (int32)(Key >> 16);
+		if (KeyLODIndex == LodIndex && It.Value().bEnableCollision)
 		{
 			return true;
 		}
@@ -2302,6 +2457,9 @@ void UStaticMesh::CacheDerivedData()
 
 	RenderData = MakeUnique<FStaticMeshRenderData>();
 	RenderData->Cache(this, LODSettings);
+
+	// Conditionally create occluder data
+	OccluderData = FStaticMeshOccluderData::Build(this);
 
 	// Additionally cache derived data for any other platforms we care about.
 	const TArray<ITargetPlatform*>& TargetPlatforms = TargetPlatformManager.GetActiveTargetPlatforms();
@@ -2484,6 +2642,8 @@ void UStaticMesh::Serialize(FArchive& Ar)
 		{
 			RenderData = MakeUnique<FStaticMeshRenderData>();
 			RenderData->Serialize(Ar, this, bCooked);
+			
+			FStaticMeshOccluderData::SerializeCooked(Ar, this);
 		}
 
 #if WITH_EDITOR
@@ -2491,6 +2651,8 @@ void UStaticMesh::Serialize(FArchive& Ar)
 		{
 			FStaticMeshRenderData& PlatformRenderData = GetPlatformStaticMeshRenderData(this, Ar.CookingTarget());
 			PlatformRenderData.Serialize(Ar, this, bCooked);
+			
+			FStaticMeshOccluderData::SerializeCooked(Ar, this);
 		}
 #endif
 	}
@@ -2775,6 +2937,12 @@ void UStaticMesh::PostLoad()
 	{
 		// Update any missing data when cooking.
 		UpdateUVChannelData(false);
+#if WITH_EDITOR
+		if (RenderData)
+		{
+			RenderData->ResolveSectionInfo(this);
+		}
+#endif
 	}
 
 #if WITH_EDITOR
@@ -2965,6 +3133,7 @@ bool UStaticMesh::GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionD
 
 bool UStaticMesh::ContainsPhysicsTriMeshData(bool bInUseAllTriData) const 
 {
+#if WITH_EDITORONLY_DATA
 	if(RenderData == nullptr || RenderData->LODResources.Num() == 0)
 	{
 		return false;
@@ -2976,24 +3145,21 @@ bool UStaticMesh::ContainsPhysicsTriMeshData(bool bInUseAllTriData) const
 
 	if (RenderData->LODResources[UseLODIndex].VertexBuffers.PositionVertexBuffer.GetNumVertices() > 0)
 	{
-		// In non-cooked builds we need to look at the section info map to get
-		// accurate per-section info.
-#if WITH_EDITORONLY_DATA
-		return bInUseAllTriData || SectionInfoMap.AnySectionHasCollision();
-#else
 		// Get the LOD level to use for collision
 		FStaticMeshLODResources& LOD = RenderData->LODResources[UseLODIndex];
 		for (int32 SectionIndex = 0; SectionIndex < LOD.Sections.Num(); ++SectionIndex)
 		{
 			const FStaticMeshSection& Section = LOD.Sections[SectionIndex];
-			if ((bInUseAllTriData || Section.bEnableCollision) && Section.NumTriangles > 0)
+			if ((bInUseAllTriData || SectionInfoMap.Get(UseLODIndex, SectionIndex).bEnableCollision) && Section.NumTriangles > 0)
 			{
 				return true;
 			}
 		}
-#endif
 	}
 	return false; 
+#else // #if WITH_EDITORONLY_DATA
+	return false;
+#endif // #if WITH_EDITORONLY_DATA
 }
 
 void UStaticMesh::GetMeshId(FString& OutMeshId)
@@ -3550,7 +3716,7 @@ void UStaticMesh::ConvertLegacyLODDistance()
 	if(SourceModels.Num() == 1)
 	{
 		// Only one model, 
-		SourceModels[0].ScreenSize = 1.0f;
+		SourceModels[0].ScreenSize.Default = 1.0f;
 	}
 	else
 	{
@@ -3566,8 +3732,8 @@ void UStaticMesh::ConvertLegacyLODDistance()
 
 			if(SrcModel.LODDistance_DEPRECATED == 0.0f)
 			{
-				SrcModel.ScreenSize = 1.0f;
-				RenderData->ScreenSize[ModelIndex] = SrcModel.ScreenSize;
+				SrcModel.ScreenSize.Default = 1.0f;
+				RenderData->ScreenSize[ModelIndex] = SrcModel.ScreenSize.Default;
 			}
 			else
 			{
@@ -3580,8 +3746,8 @@ void UStaticMesh::ConvertLegacyLODDistance()
 				const float ScreenRadius = ScreenMultiple * GetBounds().SphereRadius / FMath::Max(ScreenPosition.W, 1.0f);
 				const float ScreenArea = ScreenWidth * ScreenHeight;
 				const float BoundsArea = PI * ScreenRadius * ScreenRadius;
-				SrcModel.ScreenSize = FMath::Clamp(BoundsArea / ScreenArea, 0.0f, 1.0f);
-				RenderData->ScreenSize[ModelIndex] = SrcModel.ScreenSize;
+				SrcModel.ScreenSize.Default = FMath::Clamp(BoundsArea / ScreenArea, 0.0f, 1.0f);
+				RenderData->ScreenSize[ModelIndex] = SrcModel.ScreenSize.Default;
 			}
 		}
 	}
@@ -3595,7 +3761,7 @@ void UStaticMesh::ConvertLegacyLODScreenArea()
 	if (SourceModels.Num() == 1)
 	{
 		// Only one model, 
-		SourceModels[0].ScreenSize = 1.0f;
+		SourceModels[0].ScreenSize.Default = 1.0f;
 	}
 	else
 	{
@@ -3611,21 +3777,21 @@ void UStaticMesh::ConvertLegacyLODScreenArea()
 		{
 			FStaticMeshSourceModel& SrcModel = SourceModels[ModelIndex];
 
-			if (SrcModel.ScreenSize == 0.0f)
+			if (SrcModel.ScreenSize.Default == 0.0f)
 			{
-				SrcModel.ScreenSize = 1.0f;
-				RenderData->ScreenSize[ModelIndex] = SrcModel.ScreenSize;
+				SrcModel.ScreenSize.Default = 1.0f;
+				RenderData->ScreenSize[ModelIndex] = SrcModel.ScreenSize.Default;
 			}
 			else
 			{
 				// legacy transition screen size was previously a screen AREA fraction using resolution-scaled values, so we need to convert to distance first to correctly calculate the threshold
-				const float ScreenArea = SrcModel.ScreenSize * (ScreenWidth * ScreenHeight);
+				const float ScreenArea = SrcModel.ScreenSize.Default * (ScreenWidth * ScreenHeight);
 				const float ScreenRadius = FMath::Sqrt(ScreenArea / PI);
 				const float ScreenDistance = FMath::Max(ScreenWidth / 2.0f * ProjMatrix.M[0][0], ScreenHeight / 2.0f * ProjMatrix.M[1][1]) * Bounds.SphereRadius / ScreenRadius;
 
 				// Now convert using the query function
-				SrcModel.ScreenSize = ComputeBoundsScreenSize(FVector::ZeroVector, Bounds.SphereRadius, FVector(0.0f, 0.0f, ScreenDistance), ProjMatrix);
-				RenderData->ScreenSize[ModelIndex] = SrcModel.ScreenSize;
+				SrcModel.ScreenSize.Default = ComputeBoundsScreenSize(FVector::ZeroVector, Bounds.SphereRadius, FVector(0.0f, 0.0f, ScreenDistance), ProjMatrix);
+				RenderData->ScreenSize[ModelIndex] = SrcModel.ScreenSize.Default;
 			}
 		}
 	}

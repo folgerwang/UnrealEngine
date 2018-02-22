@@ -17,10 +17,12 @@
 #else
 	#include "Stats/Stats.h"
 
-	#define LLM_SUPPORTED_PLATFORM (PLATFORM_XBOXONE || PLATFORM_PS4 || PLATFORM_WINDOWS)
+	#define LLM_SUPPORTED_PLATFORM (PLATFORM_XBOXONE || PLATFORM_PS4 || PLATFORM_WINDOWS || (PLATFORM_IOS && !PLATFORM_MAC) || PLATFORM_ANDROID)
 
 	// *** enable/disable LLM here ***
-	#define ENABLE_LOW_LEVEL_MEM_TRACKER (!UE_BUILD_SHIPPING && !UE_BUILD_TEST && LLM_SUPPORTED_PLATFORM && WITH_ENGINE && 1)
+#ifndef ENABLE_LOW_LEVEL_MEM_TRACKER
+	#define ENABLE_LOW_LEVEL_MEM_TRACKER (!UE_BUILD_SHIPPING && LLM_SUPPORTED_PLATFORM && WITH_ENGINE && 1)
+#endif
 
 	// using asset tagging requires a significantly higher number of per-thread tags, so make it optional
 	// even if this is on, we still need to run with -llmtagset=assets because of the shear number of stat ids it makes
@@ -32,7 +34,9 @@
 	// then tracking will only happen through Engine::Init(), at which point it will be disabled unless the commandline tells 
 	// it to keep going (with -llm). If LLM_COMMANDLINE_ENABLES_FUNCTIONALITY is false, then tracking will be on unless the commandline
 	// disables it (with -nollm)
+#ifndef LLM_COMMANDLINE_ENABLES_FUNCTIONALITY
 	#define LLM_COMMANDLINE_ENABLES_FUNCTIONALITY 1
+#endif 
 
 	#if STATS
 		#define DECLARE_LLM_MEMORY_STAT(CounterName,StatId,GroupId) \
@@ -147,6 +151,15 @@ enum class ELLMTag : LLM_TAG_TYPE
 	StreamingManager,
 	GraphicsPlatform,
 	FileSystem,
+    Localization,
+    VertexBuffer,
+    IndexBuffer,
+    UniformBuffer,
+	AssetRegistry,
+	ConfigSystem,
+	InitUObject,
+
+	// Some quick and dirty tags that 
 
 	GenericTagCount,
 
@@ -288,6 +301,9 @@ public:
 	// we always start up running, but if the commandline disables us, we will do it later after main
 	// (can't get the commandline early enough in a cross-platform way)
 	void ProcessCommandLine(const TCHAR* CmdLine);
+	
+	// Return the total amount of memory being tracked
+	uint64 GetTotalTrackedMemory(ELLMTracker Tracker);
 
 	// this is the main entry point for the class - used to track any pointer that was allocated or freed 
 	void OnLowLevelAlloc(ELLMTracker Tracker, const void* Ptr, uint64 Size, ELLMTag DefaultTag = ELLMTag::Untagged);		// DefaultTag is used it no other tag is set
@@ -312,6 +328,9 @@ public:
 	// for some tag sets, it's really useful to reduce threads, to attribute allocations to assets, for instance
 	bool ShouldReduceThreads();
 
+    // get the top active tag for the given tracker
+    int64 GetActiveTag(ELLMTracker Tracker);
+    
 	void RegisterPlatformTag(int32 Tag, const TCHAR* Name, FName StatName, FName SummaryStatName);
 
 private:

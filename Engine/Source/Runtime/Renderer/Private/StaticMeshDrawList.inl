@@ -829,11 +829,20 @@ int32 TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleFrontToBackInner(
 	// We should have a single view's visibility data, or a stereo pair
 	check((StaticMeshVisibilityMap != nullptr && BatchVisibilityArray != nullptr) || StereoView != nullptr);
 	check((InstancedStereo != InstancedStereoPolicy::Disabled) == (StereoView != nullptr));
+	
+	if (InstancedStereo == InstancedStereoPolicy::Disabled)
+	{
+		ComputeVisiblePoliciesBounds(*StaticMeshVisibilityMap);
+	}
+	else
+	{
+		ComputeVisiblePoliciesBounds(*StereoView->LeftViewVisibilityMap);
+	}
 
 	int32 NumDraws = 0;
 	TArray<FDrawListSortKey,SceneRenderingAllocator> SortKeys;
 	const FVector ViewLocation = View.ViewLocation;
-	SortKeys.Reserve(64);
+	SortKeys.Reserve(128);
 
 	TArray<const TArray<uint64, SceneRenderingAllocator>*, SceneRenderingAllocator> ElementVisibility;
 	if (InstancedStereo != InstancedStereoPolicy::Disabled)
@@ -841,14 +850,14 @@ int32 TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleFrontToBackInner(
 		ElementVisibility.Reserve(64);
 	}
 
-	for(typename TArray<FSetElementId>::TConstIterator PolicyIt(OrderedDrawingPolicies); PolicyIt; ++PolicyIt)
+	for (typename TDrawingPolicySet::TConstIterator PolicyIt(DrawingPolicySet); PolicyIt; ++PolicyIt)
 	{
-		FDrawingPolicyLink* DrawingPolicyLink = &DrawingPolicySet[*PolicyIt];
-		FVector DrawingPolicyCenter = DrawingPolicyLink->CachedBoundingSphere.Center;
-		FPlatformMisc::Prefetch(DrawingPolicyLink->CompactElements.GetData());
-		const int32 NumElements = DrawingPolicyLink->Elements.Num();
-		FPlatformMisc::Prefetch(&DrawingPolicyLink->CompactElements.GetData()->MeshId);
-		const FElementCompact* CompactElementPtr = DrawingPolicyLink->CompactElements.GetData();
+		const FDrawingPolicyLink& DrawingPolicyLink = *PolicyIt;
+		FVector DrawingPolicyCenter = DrawingPolicyLink.CachedBoundingSphere.Center;
+		FPlatformMisc::Prefetch(DrawingPolicyLink.CompactElements.GetData());
+		const int32 NumElements = DrawingPolicyLink.Elements.Num();
+		FPlatformMisc::Prefetch(&DrawingPolicyLink.CompactElements.GetData()->MeshId);
+		const FElementCompact* CompactElementPtr = DrawingPolicyLink.CompactElements.GetData();
 		for(int32 ElementIndex = 0; ElementIndex < NumElements; ElementIndex++, CompactElementPtr++)
 		{
 			bool bIsVisible = false;
@@ -874,11 +883,12 @@ int32 TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleFrontToBackInner(
 
 			if (bIsVisible)
 			{
-				const FElement& Element = DrawingPolicyLink->Elements[ElementIndex];
+				const FElement& Element = DrawingPolicyLink.Elements[ElementIndex];
 				const FBoxSphereBounds& Bounds = Element.Bounds;
 				float DistanceSq = (Bounds.Origin - ViewLocation).SizeSquared();
 				float DrawingPolicyDistanceSq = (DrawingPolicyCenter - ViewLocation).SizeSquared();
-				SortKeys.Add(GetSortKey(Element.bBackground,Bounds.SphereRadius,DrawingPolicyDistanceSq,PolicyIt->AsInteger(),DistanceSq,ElementIndex));
+				int32 DrawingPolicyIndex = DrawingPolicyLink.SetId.AsInteger();
+				SortKeys.Add(GetSortKey(Element.bBackground,Bounds.SphereRadius,DrawingPolicyDistanceSq,DrawingPolicyIndex,DistanceSq,ElementIndex,Element.Mesh));
 			}
 		}
 	}
@@ -909,6 +919,11 @@ int32 TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleFrontToBackInner(
 		uint64 BatchElementMask = Element.Mesh->bRequiresPerElementVisibility ? (*ResolvedVisiblityArray)[Element.Mesh->BatchVisibilityId] : ((1ull << Element.Mesh->Elements.Num()) - 1);
 		DrawElement<InstancedStereoPolicy::Disabled>(RHICmdList, View, PolicyContext, DrawRenderState, Element, BatchElementMask, DrawingPolicyLink, bDrawnShared);
 		NumDraws++;
+
+		if ((NumDraws % 16) == 0)
+		{
+			RHICmdList.MaybeDispatchToRHIThread();
+		}
 	}
 	INC_DWORD_STAT_BY(STAT_StaticMeshTriangles, StatInc);
 
@@ -964,6 +979,42 @@ void TStaticMeshDrawList<DrawingPolicyType>::SortFrontToBack(FVector ViewPositio
 	}
 
 	OrderedDrawingPolicies.Sort(TCompareStaticMeshDrawList<DrawingPolicyType>(&DrawingPolicySet, ViewPosition));
+}
+
+template<typename DrawingPolicyType>
+void TStaticMeshDrawList<DrawingPolicyType>::ComputeVisiblePoliciesBounds(const TBitArray<SceneRenderingBitArrayAllocator>& VisibilityMap)
+{
+	// Cache policy link bounds
+	for (typename TDrawingPolicySet::TIterator DrawingPolicyIt(DrawingPolicySet); DrawingPolicyIt; ++DrawingPolicyIt)
+	{
+		FBoxSphereBounds AccumulatedBounds(ForceInit);
+
+		FDrawingPolicyLink& DrawingPolicyLink = *DrawingPolicyIt;
+
+		const int32 NumElements = DrawingPolicyLink.Elements.Num();
+		if (NumElements)
+		{
+			int32 ElementIndex = 0;
+			const FElementCompact* CompactElementPtr = DrawingPolicyLink.CompactElements.GetData();
+			for (; ElementIndex < NumElements; ElementIndex++, CompactElementPtr++)
+			{
+				if (VisibilityMap.AccessCorrespondingBit(FRelativeBitReference(CompactElementPtr->MeshId)))
+				{
+					AccumulatedBounds = DrawingPolicyLink.Elements[ElementIndex].Bounds;
+					break;
+				}
+			}
+
+		    for (; ElementIndex < NumElements; ElementIndex++, CompactElementPtr++)
+		    {
+			    if (VisibilityMap.AccessCorrespondingBit(FRelativeBitReference(CompactElementPtr->MeshId)))
+				{
+					AccumulatedBounds = AccumulatedBounds + DrawingPolicyLink.Elements[ElementIndex].Bounds;
+				}
+		    }
+		}
+		DrawingPolicyIt->CachedBoundingSphere = AccumulatedBounds.GetSphere();
+	}
 }
 
 template<typename DrawingPolicyType>
@@ -1032,7 +1083,8 @@ FDrawListStats TStaticMeshDrawList<DrawingPolicyType>::GetStats() const
 		{
 			CollectClosestMatchingPolicies(PolicyIt, Stats.SingleMeshPolicyMatchFailedReasons);
 			
-			auto VertexFactoryName = DrawingPolicyLink->DrawingPolicy.GetVertexFactory()->GetType()->GetFName();
+			const FVertexFactory* VertexFactory = DrawingPolicyLink->DrawingPolicy.GetVertexFactory();
+			auto VertexFactoryName = VertexFactory ? VertexFactory->GetType()->GetFName() : NAME_None;
 
 			if (Stats.SingleMeshPolicyVertexFactoryFrequency.Contains(VertexFactoryName))
 			{

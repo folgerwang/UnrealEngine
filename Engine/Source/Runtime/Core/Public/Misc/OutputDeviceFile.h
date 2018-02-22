@@ -32,7 +32,7 @@ public:
 	* @param InFilename	Filename to use, can be nullptr
 	* @param bDisableBackup If true, existing files will not be backed up
 	*/
-	FOutputDeviceFile(const TCHAR* InFilename = nullptr, bool bDisableBackup = false);
+	FOutputDeviceFile(const TCHAR* InFilename = nullptr, bool bDisableBackup = false, bool bAppendIfExists = false);
 
 	/**
 	* Destructor to perform teardown
@@ -82,6 +82,7 @@ private:
 	FArchive* WriterArchive;
 
 	TCHAR Filename[1024];
+	bool AppendIfExists;
 	bool Opened;
 	bool Dead;
 

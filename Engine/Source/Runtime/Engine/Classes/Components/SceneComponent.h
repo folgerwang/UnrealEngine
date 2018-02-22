@@ -181,6 +181,10 @@ private:
 	UPROPERTY(Transient)
 	uint8 bComponentToWorldUpdated : 1;
 
+	/** If true it indicates we don't need to call UpdateOverlaps. This is an optimization to avoid tree traversal when no attached components require UpdateOverlaps to be called.
+	* This should only be set to true as a result of UpdateOverlaps. To dirty this flag see ClearSkipUpdateOverlaps() which is expected when state affecting UpdateOverlaps changes (attachment, Collision settings, etc...) */
+	uint8 bSkipUpdateOverlaps : 1;
+
 public:
 	/** If RelativeLocation should be considered relative to the world, rather than the parent */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, ReplicatedUsing=OnRep_Transform, Category=Transform)
@@ -202,12 +206,15 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Rendering, meta=(SequencerTrackClass = "MovieSceneVisibilityTrack"))
 	uint8 bHiddenInGame:1;
 
+private:
 	/**
 	 * Whether or not the cached PhysicsVolume this component overlaps should be updated when the component is moved.
 	 * @see GetPhysicsVolume()
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category=Physics)
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintGetter=GetShouldUpdatePhysicsVolume, BlueprintSetter=SetShouldUpdatePhysicsVolume, Category=Physics)
 	uint8 bShouldUpdatePhysicsVolume:1;
+
+public:
 
 	/** If true, a change in the bounds of the component will call trigger a streaming data rebuild */
 	UPROPERTY()
@@ -218,6 +225,20 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category=Rendering)
 	uint8 bUseAttachParentBound:1;
+
+	/** Clears the skip update overlaps flag. This should be called any time a change to state would prevent the result of UpdateOverlaps. For example attachment, changing collision settings, etc... */
+	void ClearSkipUpdateOverlaps();
+
+	bool ShouldSkipUpdateOverlaps() const
+	{
+		return SkipUpdateOverlapsOptimEnabled == 1 && bSkipUpdateOverlaps;
+	}
+
+	UFUNCTION(BlueprintGetter)
+	bool GetShouldUpdatePhysicsVolume() const;
+
+	UFUNCTION(BlueprintSetter)
+	void SetShouldUpdatePhysicsVolume(bool bInShouldUpdatePhysicsVolume);
 
 protected:
 
@@ -240,6 +261,8 @@ private:
 	void AppendDescendants(TArray<USceneComponent*>& Children) const;
 
 public:
+
+	static int32 SkipUpdateOverlapsOptimEnabled;
 
 #if WITH_EDITORONLY_DATA
 	UPROPERTY()
@@ -878,6 +901,7 @@ public:
 #endif
 
 #if WITH_EDITOR
+	virtual bool NeedsLoadForTargetPlatform(const ITargetPlatform* TargetPlatform) const;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
 #endif
@@ -895,16 +919,17 @@ protected:
 	/** Check if mobility is set to non-static. If it's static we trigger a PIE warning and return true*/
 	bool CheckStaticMobilityAndWarn(const FText& ActionText) const;
 
+	virtual bool UpdateOverlapsImpl(TArray<FOverlapInfo> const* PendingOverlaps = nullptr, bool bDoNotifies = true, const TArray<FOverlapInfo>* OverlapsAtEndLocation = nullptr);
+
 private:
 
 	void PropagateTransformUpdate(bool bTransformChanged, EUpdateTransformFlags UpdateTransformFlags = EUpdateTransformFlags::None, ETeleportType Teleport = ETeleportType::None);
 	void UpdateComponentToWorldWithParent(USceneComponent* Parent, FName SocketName, EUpdateTransformFlags UpdateTransformFlags, const FQuat& RelativeRotationQuat, ETeleportType Teleport = ETeleportType::None);
 
-
 public:
 
 	/** Queries world and updates overlap tracking state for this component */
-	virtual void UpdateOverlaps(TArray<FOverlapInfo> const* PendingOverlaps=nullptr, bool bDoNotifies=true, const TArray<FOverlapInfo>* OverlapsAtEndLocation=nullptr);
+	bool UpdateOverlaps(TArray<FOverlapInfo> const* PendingOverlaps = nullptr, bool bDoNotifies = true, const TArray<FOverlapInfo>* OverlapsAtEndLocation = nullptr);
 
 	/**
 	 * Tries to move the component by a movement vector (Delta) and sets rotation to NewRotation.
@@ -1482,7 +1507,7 @@ public:
 	bool HasPendingOverlaps() const;
 
 	/**
-	* Returns true if we require bGenerateOverlapEvents on both the moving object and the overlapped object to add them to the pending overlaps list.
+	* Returns true if we require GetGenerateOverlapEvents() on both the moving object and the overlapped object to add them to the pending overlaps list.
 	* These flags will still be required when dispatching calls to UpdateOverlaps(), but this allows some custom processing of queued overlaps that would be otherwise missed along the way.
 	*/
 	bool RequiresOverlapsEventFlag() const;
@@ -1654,3 +1679,21 @@ FORCEINLINE_DEBUGGABLE void USceneComponent::BeginScopedMovementUpdate(class FSc
 	ScopedMovementStack.Push(&ScopedUpdate);
 }
 
+FORCEINLINE_DEBUGGABLE bool USceneComponent::UpdateOverlaps(TArray<FOverlapInfo> const* PendingOverlaps /* = nullptr */, bool bDoNotifies /* = true */, const TArray<FOverlapInfo>* OverlapsAtEndLocation /* = nullptr */)
+{
+	if (IsDeferringMovementUpdates())
+	{
+		GetCurrentScopedMovement()->ForceOverlapUpdate();
+	}
+	else if (!ShouldSkipUpdateOverlaps())
+	{
+		bSkipUpdateOverlaps = UpdateOverlapsImpl(PendingOverlaps, bDoNotifies, OverlapsAtEndLocation);
+	}
+
+	return bSkipUpdateOverlaps;
+}
+
+FORCEINLINE_DEBUGGABLE bool USceneComponent::GetShouldUpdatePhysicsVolume() const
+{
+	return bShouldUpdatePhysicsVolume;
+}

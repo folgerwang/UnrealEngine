@@ -725,3 +725,4 @@ private:
 
 /** Finds the FUniformBufferStruct corresponding to the given name, or NULL if not found. */
 extern RENDERCORE_API FUniformBufferStruct* FindUniformBufferStructByName(const TCHAR* StructName);
+extern RENDERCORE_API FUniformBufferStruct* FindUniformBufferStructByFName(FName StructName);

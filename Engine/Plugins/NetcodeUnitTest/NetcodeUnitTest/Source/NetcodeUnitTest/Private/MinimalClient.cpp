@@ -173,7 +173,7 @@ FOutBunch* UMinimalClient::CreateChannelBunch(EChannelType ChType, int32 ChIndex
 	{
 		if (ChIndex == INDEX_NONE)
 		{
-			for (ChIndex=0; ChIndex<ARRAY_COUNT(UnitConn->Channels); ChIndex++)
+			for (ChIndex=0; ChIndex < UnitConn->Channels.Num(); ChIndex++)
 			{
 				if (UnitConn->Channels[ChIndex] == nullptr)
 				{

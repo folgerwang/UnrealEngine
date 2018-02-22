@@ -35,9 +35,6 @@ extern CORE_API void NewReportEnsure( const TCHAR* ErrorMessage );
 #elif PLATFORM_LINUX
 extern CORE_API void NewReportEnsure( const TCHAR* ErrorMessage );
 #endif
-/** Placeholder functions for checking image integrity. May or may not be used. DO NOT DELETE! */
-extern CORE_API void CheckImageIntegrity();
-extern CORE_API void CheckImageIntegrityAtRuntime();
 
 enum class ECrashType
 {

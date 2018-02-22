@@ -248,7 +248,12 @@ void FOutputDeviceRedirector::TearDown()
 
 	for( int32 OutputDeviceIndex=0; OutputDeviceIndex<OutputDevices.Num(); OutputDeviceIndex++ )
 	{
-		OutputDevices[OutputDeviceIndex]->TearDown();
+		FOutputDevice* OutputDevice = OutputDevices[OutputDeviceIndex];
+		if (OutputDevice->CanBeUsedOnAnyThread())
+		{
+			OutputDevice->Flush();
+		}
+		OutputDevice->TearDown();
 	}
 	OutputDevices.Empty();
 }

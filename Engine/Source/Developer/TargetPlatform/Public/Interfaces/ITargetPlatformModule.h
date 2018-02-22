@@ -15,12 +15,30 @@ class ITargetPlatformModule
 {
 public:
 
+protected:
+	virtual ITargetPlatform* GetTargetPlatform()
+	{
+		return nullptr;
+	};
+	
+public:
+
 	/**
-	 * Gets the module's target platform.
+	 * Gets the module's target platforms. This should be overridden by each platform, but 
+	 * currently, we are re-using the single internal GetTargetPlatform method the old TPModules will implement
 	 *
 	 * @return The target platform.
 	 */
-	virtual ITargetPlatform* GetTargetPlatform() = 0;
+	virtual TArray<ITargetPlatform*> GetTargetPlatforms()
+	{
+		TArray<ITargetPlatform*> TargetPlatforms;
+		ITargetPlatform* TargetPlatform = GetTargetPlatform();
+		if (TargetPlatform != nullptr)
+		{
+			TargetPlatforms.Add(TargetPlatform);
+		}
+		return TargetPlatforms;
+	}
 
 public:
 

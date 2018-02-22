@@ -473,7 +473,7 @@ FString CreateUTF8LiteralString(const FString& Str)
 			case '\\': Result += TEXT("\\\\"); bPreviousCharacterWasHex = false; break;
 			case '\"': Result += TEXT("\\\""); bPreviousCharacterWasHex = false; break;
 			default:
-				if (Ch < 31 || Ch >= 128)
+				if (Ch < 31)
 				{
 					Result += FString::Printf(TEXT("\\x%02x"), (uint8)Ch);
 					bPreviousCharacterWasHex = true;

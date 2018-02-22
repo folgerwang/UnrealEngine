@@ -985,7 +985,7 @@ namespace SceneOutliner
 		PendingOperations.RemoveAt(0, End);
 		SetParentsExpansionState(ExpansionStateInfo);
 
-		if (bMadeAnySignificantChanges)
+		if (bMadeAnySignificantChanges && !SharedData->bRepresentingPlayWorld)
 		{
 			RequestSort();
 		}
@@ -2376,6 +2376,23 @@ namespace SceneOutliner
 			FSlateApplication::Get().GeneratePathToWidgetUnchecked( OutlinerTreeView.ToSharedRef(), OutlinerTreeViewWidgetPath );
 			FSlateApplication::Get().SetKeyboardFocus( OutlinerTreeViewWidgetPath, EFocusCause::SetDirectly );
 		}
+	}
+
+	FSlateBrush* SSceneOutliner::GetCachedIconForClass(FName InClassName) const
+	{ 
+		if (CachedIcons.Find(InClassName))
+		{
+			return *CachedIcons.Find(InClassName);
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
+
+	void SSceneOutliner::CacheIconForClass(FName InClassName, FSlateBrush* InSlateBrush)
+	{
+		CachedIcons.Emplace(InClassName, InSlateBrush);
 	}
 
 	bool SSceneOutliner::SupportsKeyboardFocus() const

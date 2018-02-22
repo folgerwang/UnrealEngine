@@ -217,6 +217,7 @@ public:
 #if WITH_EDITOR
 	virtual HHitProxy* CreateHitProxies(UPrimitiveComponent* Component, TArray<TRefCountPtr<HHitProxy> >& OutHitProxies) override;
 #endif
+	virtual void DrawStaticElements(FStaticPrimitiveDrawInterface* PDI) override;
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override;
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override;
 	virtual bool CanBeOccluded() const override;
@@ -282,6 +283,7 @@ protected:
 	uint32 bForceWireframe : 1;
 	uint32 bIsCPUSkinned : 1;
 	uint32 bCanHighlightSelectedSections : 1;
+	uint32 bRenderStatic:1;
 	FMaterialRelevance MaterialRelevance;
 
 	ERHIFeatureLevel::Type FeatureLevel;

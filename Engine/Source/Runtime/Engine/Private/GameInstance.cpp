@@ -98,9 +98,9 @@ void UGameInstance::Init()
 
 void UGameInstance::OnConsoleInput(const FString& Command)
 {
-#if !UE_BUILD_SHIPPING && !UE_BUILD_TEST
+#if !UE_BUILD_SHIPPING
 	UConsole* ViewportConsole = (GEngine->GameViewport != nullptr) ? GEngine->GameViewport->ViewportConsole : nullptr;
-	if (ViewportConsole)
+	if (ViewportConsole) 
 	{
 		ViewportConsole->ConsoleCommand(Command);
 	}

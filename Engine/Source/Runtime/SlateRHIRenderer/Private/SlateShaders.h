@@ -123,8 +123,7 @@ public:
 		TextureParameter.Bind( Initializer.ParameterMap, TEXT("ElementTexture"));
 		TextureParameterSampler.Bind( Initializer.ParameterMap, TEXT("ElementTextureSampler"));
 		ShaderParams.Bind( Initializer.ParameterMap, TEXT("ShaderParams"));
-		GammaValues.Bind( Initializer.ParameterMap,TEXT("GammaValues"));
-		InvertAlpha.Bind(Initializer.ParameterMap, TEXT("InvertAlpha"));
+		GammaAndAlphaValues.Bind( Initializer.ParameterMap,TEXT("GammaAndAlphaValues"));
 	}
 
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment);
@@ -155,19 +154,11 @@ public:
 	 *
 	 * @param DisplayGamma The display gamma to use
 	 */
-	void SetDisplayGamma(FRHICommandList& RHICmdList, float InDisplayGamma)
+	void SetDisplayGammaAndInvertAlpha(FRHICommandList& RHICmdList, float InDisplayGamma, float bInvertAlpha)
 	{
-		FVector2D InGammaValues( 2.2f / InDisplayGamma, 1.0f/InDisplayGamma );
+		FVector4 Values( 2.2f / InDisplayGamma, 1.0f/InDisplayGamma, bInvertAlpha, 0.0f);
 
-		SetShaderValue(RHICmdList, GetPixelShader(),GammaValues,InGammaValues);
-	}
-
-	/**
-	 * Sets if we should invert alpha of the incoming.
-	 */
-	void SetInvertAlpha(FRHICommandList& RHICmdList, bool bInvertAlpha )
-	{
-		SetShaderValue(RHICmdList, GetPixelShader(), InvertAlpha, bInvertAlpha ? 1.0f : 0.0f );
+		SetShaderValue(RHICmdList, GetPixelShader(), GammaAndAlphaValues, Values);
 	}
 
 	virtual bool Serialize( FArchive& Ar )
@@ -177,8 +168,7 @@ public:
 		Ar << TextureParameter;
 		Ar << TextureParameterSampler;
 		Ar << ShaderParams;
-		Ar << GammaValues;
-		Ar << InvertAlpha;
+		Ar << GammaAndAlphaValues;
 
 		return bShaderHasOutdatedParameters;
 	}
@@ -187,8 +177,7 @@ private:
 	FShaderResourceParameter TextureParameter;
 	FShaderResourceParameter TextureParameterSampler;
 	FShaderParameter ShaderParams;
-	FShaderParameter GammaValues;
-	FShaderParameter InvertAlpha;
+	FShaderParameter GammaAndAlphaValues;
 };
 
 /** 

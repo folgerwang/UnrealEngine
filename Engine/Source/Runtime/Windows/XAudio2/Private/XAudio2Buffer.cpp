@@ -243,7 +243,7 @@ void FXAudio2SoundBuffer::InitWaveFormatEx( uint16 Format, USoundWave* Wave, boo
 	// Setup the format structure required for XAudio2
 	PCM.PCMFormat.wFormatTag = Format;
 	PCM.PCMFormat.nChannels = Wave->NumChannels;
-	PCM.PCMFormat.nSamplesPerSec = Wave->SampleRate;
+	PCM.PCMFormat.nSamplesPerSec = Wave->GetSampleRateForCurrentPlatform();
 	PCM.PCMFormat.wBitsPerSample = 16;
 	PCM.PCMFormat.cbSize = 0;
 
@@ -260,7 +260,7 @@ void FXAudio2SoundBuffer::InitWaveFormatEx( uint16 Format, USoundWave* Wave, boo
 	}
 
 	PCM.PCMFormat.nBlockAlign = NumChannels * sizeof( int16 );
-	PCM.PCMFormat.nAvgBytesPerSec = NumChannels * sizeof( int16 ) * Wave->SampleRate;
+	PCM.PCMFormat.nAvgBytesPerSec = NumChannels * sizeof( int16 ) * Wave->GetSampleRateForCurrentPlatform();
 }
 
 void FXAudio2SoundBuffer::InitXMA2( FXAudio2Device* XAudio2Device, USoundWave* Wave, FXMAInfo* XMAInfo )
@@ -483,7 +483,7 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreateStreamingBuffer( FXAudio2Device*
 	if (Buffer->DecompressionState->StreamCompressedInfo(Wave, &QualityInfo))
 	{
 		// Refresh the wave data
-		Wave->SampleRate = QualityInfo.SampleRate;
+		Wave->SetSampleRate(QualityInfo.SampleRate);
 		Wave->NumChannels = QualityInfo.NumChannels;
 		Wave->RawPCMDataSize = QualityInfo.SampleDataSize;
 		Wave->Duration = QualityInfo.Duration;

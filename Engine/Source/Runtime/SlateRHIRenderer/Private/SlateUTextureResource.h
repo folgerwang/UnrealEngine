@@ -36,9 +36,26 @@ public:
 		return FTextureRHIRef();
 	}
 
+#if SLATE_CHECK_UOBJECT_RENDER_RESOURCES
+	void CheckIfValid() const;
+#else
+	FORCEINLINE void CheckIfValid() const { }
+#endif
+
+private:
+#if SLATE_CHECK_UOBJECT_RENDER_RESOURCES
+	void UpdateDebugName();
+#endif
+
 public:
 	/** Texture UObject.  Note: lifetime is managed externally */
 	UTexture* TextureObject;
+
+#if SLATE_CHECK_UOBJECT_RENDER_RESOURCES
+	// Used to guard against crashes when the material object is deleted.  This is expensive so we do not do it in shipping
+	TWeakObjectPtr<UTexture> ObjectWeakPtr;
+	FName DebugName;
+#endif
 };
 
 

@@ -166,12 +166,24 @@ enum class EClippingMethod : uint8
 };
 
 /**
+ * Indicates the method of clipping that should be used on the GPU.
+ */
+enum class EClippingFlags : uint8
+{
+	None		= 0,
+	/** If the clipping state is always clip, we cache it at a higher level. */
+	AlwaysClip	= 1 << 0
+};
+
+ENUM_CLASS_FLAGS(EClippingFlags)
+
+/**
  * Captures everything about a single draw calls clipping state.
  */
 class SLATECORE_API FSlateClippingState
 {
 public:
-	FSlateClippingState(bool InAlwaysClips);
+	FSlateClippingState(EClippingFlags InFlags = EClippingFlags::None);
 	
 	/** Is a point inside the clipping state? */
 	bool IsPointInside(const FVector2D& Point) const;
@@ -179,7 +191,7 @@ public:
 	FORCEINLINE void SetStateIndex(int32 InStateIndex) { StateIndex = InStateIndex; }
 	FORCEINLINE int32 GetStateIndex() const { return StateIndex; }
 
-	FORCEINLINE bool GetAlwaysClip() const { return bAlwaysClips; }
+	FORCEINLINE bool GetAlwaysClip() const { return EnumHasAllFlags(Flags, EClippingFlags::AlwaysClip); }
 
 	/**
 	 * Gets the type of clipping that is required by this clipping state.  The simpler clipping is
@@ -207,7 +219,7 @@ public:
 	bool operator==(const FSlateClippingState& Other) const
 	{
 		return StateIndex == Other.StateIndex &&
-			bAlwaysClips == Other.bAlwaysClips &&
+			Flags == Other.Flags &&
 			ScissorRect == Other.ScissorRect &&
 			StencilQuads == Other.StencilQuads;
 	}
@@ -215,8 +227,8 @@ public:
 private:
 	/** For a given frame, this is a unique index into a state array of clipping zones that have been registered for a window being drawn. */
 	int32 StateIndex;
-	/** If the clipping state is always clip, we cache it at a higher level. */
-	bool bAlwaysClips;
+	/** The specialized flags needed for this clipping state. */
+	EClippingFlags Flags;
 
 public:
 	/** If this is an axis aligned clipping state, this will be filled. */
@@ -248,6 +260,6 @@ private:
 	/** Maintains the current clipping stack, with the indexes in the array of clipping states.  Pushed and popped throughout the drawing process. */
 	TArray< int32 > ClippingStack;
 
-	/** The authoratitive list of clipping states used when rendering.  Any time a clipping state is needed, it's added here. */
+	/** The authoritative list of clipping states used when rendering.  Any time a clipping state is needed, it's added here. */
 	TArray< FSlateClippingState > ClippingStates;
 };

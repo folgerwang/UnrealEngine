@@ -8,11 +8,19 @@
 #include "EngineLogs.h"
 #include "EngineUtils.h"
 #include "Interfaces/ITargetPlatform.h"
+#include "PlatformInfo.h"
 
 #if WITH_EDITOR
 #include "Rendering/SkeletalMeshModel.h"
 #include "MeshUtilities.h"
 #endif // WITH_EDITOR
+
+int32 GStripSkeletalMeshLodsDuringCooking = 0;
+static FAutoConsoleVariableRef CVarStripSkeletalMeshLodsBelowMinLod(
+	TEXT("r.SkeletalMesh.StripMinLodDataDuringCooking"),
+	GStripSkeletalMeshLodsDuringCooking,
+	TEXT("If set will strip skeletal mesh LODs under the minimum renderable LOD for the target platform during cooking.")
+);
 
 // Serialization.
 FArchive& operator<<(FArchive& Ar, FSkelMeshRenderSection& S)
@@ -561,13 +569,31 @@ void FSkeletalMeshLODRenderData::Serialize(FArchive& Ar, UObject* Owner, int32 I
 
 	// Defined class flags for possible stripping
 	const uint8 LodAdjacencyStripFlag = 1;
+	const uint8 MinLodStripFlag = 2;
 
 	// Actual flags used during serialization
 	uint8 ClassDataStripFlags = 0;
 
+	const bool bIsCook = Ar.IsCooking();
+	const ITargetPlatform* CookTarget = Ar.CookingTarget();
+
 	extern int32 GForceStripMeshAdjacencyDataDuringCooking;
-	const bool bWantToStripTessellation = Ar.IsCooking() && ((GForceStripMeshAdjacencyDataDuringCooking != 0) || !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::Tessellation));
+	const bool bWantToStripTessellation = bIsCook && ((GForceStripMeshAdjacencyDataDuringCooking != 0) || !CookTarget->SupportsFeature(ETargetPlatformFeatures::Tessellation));
+
+	USkeletalMesh* OwnerMesh = CastChecked<USkeletalMesh>(Owner);
+	int32 MinMeshLod = 0;
+	
+#if WITH_EDITOR
+	if(bIsCook)
+	{
+		MinMeshLod = OwnerMesh ? OwnerMesh->MinLod.GetValueForPlatformGroup(CookTarget->GetPlatformInfo().PlatformGroupName) : 0;
+	}
+#endif
+
+	const bool bWantToStripBelowMinLod = bIsCook && GStripSkeletalMeshLodsDuringCooking != 0 && MinMeshLod > Idx;
+
 	ClassDataStripFlags |= bWantToStripTessellation ? LodAdjacencyStripFlag : 0;
+	ClassDataStripFlags |= bWantToStripBelowMinLod ? MinLodStripFlag : 0;
 
 	FStripDataFlags StripFlags(Ar, ClassDataStripFlags);
 
@@ -581,7 +607,7 @@ void FSkeletalMeshLODRenderData::Serialize(FArchive& Ar, UObject* Owner, int32 I
 	}
 #endif
 
-	if (StripFlags.IsDataStrippedForServer())
+	if (StripFlags.IsDataStrippedForServer() || StripFlags.IsClassDataStripped(MinLodStripFlag))
 	{
 		TArray<FSkelMeshRenderSection> DummySections;
 		Ar << DummySections;
@@ -604,7 +630,7 @@ void FSkeletalMeshLODRenderData::Serialize(FArchive& Ar, UObject* Owner, int32 I
 	Ar << RequiredBones;
 
 
-	if (!StripFlags.IsDataStrippedForServer())
+	if (!StripFlags.IsDataStrippedForServer() && !StripFlags.IsClassDataStripped(MinLodStripFlag))
 	{
 		USkeletalMesh* SkelMeshOwner = CastChecked<USkeletalMesh>(Owner);
 

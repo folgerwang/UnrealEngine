@@ -407,6 +407,7 @@ struct FCachedSystemScalabilityCVars
 {
 	bool bInitialized;
 	int32 DetailMode;
+	int32 CookOutUnusedDetailModeComponents;
 	EMaterialQualityLevel::Type MaterialQualityLevel;
 	int32 MaxShadowResolution;
 	int32 MaxCSMShadowResolution;

@@ -306,8 +306,20 @@ class PAKFILE_API FPakFile : FNoncopyable
 	FString MountPoint;
 	/** Info on all files stored in pak. */
 	TArray<FPakEntry> Files;	
-	/** Pak Index organized as a map of directories for faster Directory iteration. */
+	/** Pak Index organized as a map of directories for faster Directory iteration. Valid only when bFilenamesRemoved == false. */
 	TMap<FString, FPakDirectory> Index;
+	/** The hash to use when generating a filename hash (CRC) to avoid collisions within the hashed filename space. */
+	uint32 FilenameStartHash;
+	/** An array of 256 + 1 size that represents the starting index of the most significant byte of a hash group within the FilenameHashes array. */
+	uint32* FilenameHashesIndex;
+	/** A tightly packed array of filename hashes (CRC) of NumEntries size. */
+	uint32* FilenameHashes;
+	/** A tightly packed array, NumEntries in size, of "offsets" to the pak entry data, a byte offset from MiniPakEntries if bIsMinimal == true or an index into Files if bIsMinimal == false. */
+	uint32* FilenameHashOffsets;
+	/** Memory buffer representing the minimal file entry headers, NumEntries in size */
+	uint8* MiniPakEntries;
+	/** The number of file entries in the pak file */
+	int32 NumEntries;
 	/** Timestamp of this pak file. */
 	FDateTime Timestamp;	
 	/** TotalSize of the pak file */
@@ -316,6 +328,23 @@ class PAKFILE_API FPakFile : FNoncopyable
 	bool bSigned;
 	/** True if this pak file is valid and usable. */
 	bool bIsValid;
+	/** True if all filenames in memory for this pak file have been hashed to a 32-bit value. Wildcard traversal is impossible when true. */
+	bool bFilenamesRemoved;
+
+	static inline int32 CDECL CompareFilenameHashes(const void* Left, const void* Right)
+	{
+		const uint32* LeftHash = (const uint32*)Left;
+		const uint32* RightHash = (const uint32*)Right;
+		if (*LeftHash < *RightHash)
+		{
+			return -1;
+		}
+		if (*LeftHash > *RightHash)
+		{
+			return 1;
+		}
+		return 0;
+	}
 
 	FArchive* CreatePakReader(const TCHAR* Filename);
 	FArchive* CreatePakReader(IFileHandle& InHandle, const TCHAR* Filename);
@@ -403,22 +432,197 @@ public:
 	 * Finds an entry in the pak file matching the given filename.
 	 *
 	 * @param Filename File to find.
-	 * @return Pointer to pak file entry if the file was found, NULL otherwise.
+	 * @param OutEntry The optional address of an FPakEntry instance where the found file information should be stored. Pass NULL to only check for file existence.
+	 * @return Returns true if the file was found, false otherwise.
 	 */
-	const FPakEntry* Find(const FString& Filename) const
+	bool Find(const FString& Filename, FPakEntry* OutEntry) const
 	{		
-		const FPakEntry*const * FoundFile = NULL;
 		if (Filename.StartsWith(MountPoint))
 		{
 			FString Path(FPaths::GetPath(Filename));
-			const FPakDirectory* PakDirectory = FindDirectory(*Path);
-			if (PakDirectory != NULL)
+
+			// Handle the case where the user called FPakFile::UnloadFilenames() and the filenames
+			// were removed from memory.
+			if (bFilenamesRemoved)
 			{
-				FString RelativeFilename(Filename.Mid(Path.Len() + 1));
-				FoundFile = PakDirectory->Find(RelativeFilename);
+				// Derived from the following:
+				//     FString RelativeFilename(Filename.Mid(Path.Len() + 1));
+				//     Path = Path.Mid(MountPoint.Len()) / RelativeFilename;
+				// Hash the Path.
+				uint32 PathHash = FCrc::MemCrc32(*Path + MountPoint.Len(), (Path.Len() - MountPoint.Len()) * sizeof(TCHAR), FilenameStartHash);
+				// Hash the RelativeFilename.
+				PathHash = FCrc::MemCrc32(*Filename + Path.Len(), (Filename.Len() - Path.Len()) * sizeof(TCHAR), PathHash);
+
+				// Look it up in our sorted-by-filename-hash array.
+				uint32 PathHashMostSignificantBits = PathHash >> 24;
+				uint32 HashEntriesCount = FilenameHashesIndex[PathHashMostSignificantBits + 1] - FilenameHashesIndex[PathHashMostSignificantBits];
+				uint32* FoundHash = (uint32*)bsearch(&PathHash, FilenameHashes + FilenameHashesIndex[PathHashMostSignificantBits], HashEntriesCount, sizeof(uint32), CompareFilenameHashes);
+				if (FoundHash != NULL)
+				{
+					if (OutEntry != NULL)
+					{
+						// The user requested an FPakEntry, so grab the "offset" (which has different
+						// meaning depending on whether MiniPakEntries is valid or not.
+						uint32 MemoryOffset = FilenameHashOffsets[FoundHash - FilenameHashes];
+
+						if (MiniPakEntries != NULL)
+						{
+							// MemoryOffset is a byte offset from the start of MiniPakEntries.
+							uint8* FoundPtr = MiniPakEntries + MemoryOffset;
+
+							// Grab the big bitfield value:
+							// Bit 31 = Offset 32-bit safe?
+							// Bit 30 = Uncompressed size 32-bit safe?
+							// Bit 29 = Size 32-bit safe?
+							// Bits 28-23 = Compression method
+							// Bit 22 = Encrypted
+							// Bits 21-6 = Compression blocks count
+							// Bits 5-0 = Compression block size
+							uint32 Value = *(uint32*)FoundPtr;
+							FoundPtr += sizeof(uint32);
+
+							// Filter out the CompressionMethod.
+							OutEntry->CompressionMethod = (Value >> 23) & 0x3f;
+
+							// Test for 32-bit safe values. Grab it, or memcpy the 64-bit value
+							// to avoid alignment exceptions on platforms requiring 64-bit alignment
+							// for 64-bit variables.
+							//
+							// Read the Offset.
+							bool bIsOffset32BitSafe = (Value & (1 << 31)) != 0;
+							if (bIsOffset32BitSafe)
+							{
+								OutEntry->Offset = *(uint32*)FoundPtr;
+								FoundPtr += sizeof(uint32);
+							}
+							else
+							{
+								FMemory::Memcpy(&OutEntry->Offset, FoundPtr, sizeof(int64));
+								FoundPtr += sizeof(int64);
+							}
+
+							// Read the UncompressedSize.
+							bool bIsUncompressedSize32BitSafe = (Value & (1 << 30)) != 0;
+							if (bIsUncompressedSize32BitSafe)
+							{
+								OutEntry->UncompressedSize = *(uint32*)FoundPtr;
+								FoundPtr += sizeof(uint32);
+							}
+							else
+							{
+								FMemory::Memcpy(&OutEntry->UncompressedSize, FoundPtr, sizeof(int64));
+								FoundPtr += sizeof(int64);
+							}
+
+							// Fill in the Size.
+							if (OutEntry->CompressionMethod != COMPRESS_None)
+							{
+								// Size is only present if compression is applied.
+								bool bIsSize32BitSafe = (Value & (1 << 29)) != 0;
+								if (bIsSize32BitSafe)
+								{
+									OutEntry->Size = *(uint32*)FoundPtr;
+									FoundPtr += sizeof(uint32);
+								}
+								else
+								{
+									FMemory::Memcpy(&OutEntry->Size, FoundPtr, sizeof(int64));
+									FoundPtr += sizeof(int64);
+								}
+							}
+							else
+							{
+								// The Size is the same thing as the UncompressedSize when
+								// CompressionMethod == COMPRESS_None.
+								OutEntry->Size = OutEntry->UncompressedSize;
+							}
+
+							// Filter the encrypted flag.
+							OutEntry->bEncrypted = (Value & (1 << 22)) != 0;
+
+							// Filter the compression block size or use the UncompressedSize if less that 64k.
+							OutEntry->CompressionBlockSize = OutEntry->UncompressedSize < 65536 ? (uint32)OutEntry->UncompressedSize : ((Value & 0x3f) << 11);
+
+							// This should clear out any excess CompressionBlocks that may be valid in the user's
+							// passed in entry.
+							uint32 CompressionBlocksCount = (Value >> 6) & 0xffff;
+							OutEntry->CompressionBlocks.SetNum(CompressionBlocksCount);
+
+							// Set Verified to true to avoid have a synchronous open fail comparing FPakEntry structures.
+							OutEntry->Verified = true;
+
+							// Handle building of the CompressionBlocks array.
+							if (OutEntry->CompressionBlocks.Num() == 1)
+							{
+								// If the number of CompressionBlocks is 1, we didn't store any extra information.
+								// Derive what we can from the entry's file offset and size.
+								FPakCompressedBlock& CompressedBlock = OutEntry->CompressionBlocks[0];
+								CompressedBlock.CompressedStart = OutEntry->Offset + OutEntry->GetSerializedSize(Info.Version);
+								CompressedBlock.CompressedEnd = CompressedBlock.CompressedStart + OutEntry->Size;
+							}
+							else if (OutEntry->CompressionBlocks.Num() > 0)
+							{
+								// Get the right pointer to start copying the CompressionBlocks information from.
+								uint32* CompressionBlockSizePtr = (uint32*)FoundPtr;
+
+								// CompressedBlockOffset is the starting offset. Everything else can be derived from there.
+								int64 CompressedBlockOffset = OutEntry->Offset + OutEntry->GetSerializedSize(Info.Version);
+								for (int CompressionBlockIndex = 0; CompressionBlockIndex < OutEntry->CompressionBlocks.Num(); ++CompressionBlockIndex)
+								{
+									FPakCompressedBlock& CompressedBlock = OutEntry->CompressionBlocks[CompressionBlockIndex];
+									CompressedBlock.CompressedStart = CompressedBlockOffset;
+									CompressedBlock.CompressedEnd = CompressedBlockOffset + *CompressionBlockSizePtr++;
+									CompressedBlockOffset = CompressedBlock.CompressedEnd;
+								}
+							}
+						}
+						else
+						{
+							// MemoryOffset, in this case, is an index into the Files array.
+							const FPakEntry* FoundEntry = (const FPakEntry*)(Files.GetData() + MemoryOffset);
+							OutEntry->Offset = FoundEntry->Offset;
+							OutEntry->Size = FoundEntry->Size;
+							OutEntry->UncompressedSize = FoundEntry->UncompressedSize;
+							OutEntry->CompressionMethod = FoundEntry->CompressionMethod;
+							// NEEDED? FMemory::Memcpy(OutEntry->Hash, FoundEntry->Hash, sizeof(OutEntry->Hash));
+							OutEntry->CompressionBlocks = FoundEntry->CompressionBlocks;
+							OutEntry->CompressionBlockSize = FoundEntry->CompressionBlockSize;
+							OutEntry->bEncrypted = FoundEntry->bEncrypted;
+							OutEntry->Verified = true;		// Set Verified to true to avoid have a synchronous open fail comparing FPakEntry structures.
+						}
+					}
+
+					return true;
+				}
+			}
+			else
+			{
+				const FPakDirectory* PakDirectory = FindDirectory(*Path);
+				if (PakDirectory != NULL)
+				{
+					FString RelativeFilename(Filename.Mid(Path.Len() + 1));
+					const FPakEntry* const* FoundEntry = PakDirectory->Find(RelativeFilename);
+					if (FoundEntry != NULL)
+					{
+						if (OutEntry != NULL)
+						{
+							//*OutEntry = **FoundEntry;
+							OutEntry->Offset = (*FoundEntry)->Offset;
+							OutEntry->Size = (*FoundEntry)->Size;
+							OutEntry->UncompressedSize = (*FoundEntry)->UncompressedSize;
+							OutEntry->CompressionMethod = (*FoundEntry)->CompressionMethod;
+							FMemory::Memcpy(OutEntry->Hash, (*FoundEntry)->Hash, sizeof(OutEntry->Hash));
+							OutEntry->CompressionBlocks = (*FoundEntry)->CompressionBlocks;
+							OutEntry->CompressionBlockSize = (*FoundEntry)->CompressionBlockSize;
+							OutEntry->bEncrypted = (*FoundEntry)->bEncrypted;
+							OutEntry->Verified = true;		// Set Verified to true to avoid have a synchronous open fail comparing FPakEntry structures.
+						}
+						return true;
+					}
+				}
 			}
 		}
-		return FoundFile ? *FoundFile : NULL;
+		return false;
 	}
 
 	/**
@@ -454,6 +658,8 @@ public:
 	template <class ContainerType>
 	void FindFilesAtPath(ContainerType& OutFiles, const TCHAR* InPath, bool bIncludeFiles = true, bool bIncludeDirectories = false, bool bRecursive = false) const
 	{
+		checkf(!bFilenamesRemoved, TEXT("FPakFile::FindFilesAtPath() can only be used before FPakPlatformFile::UnloadFilenames() is called."));
+
 		// Make sure all directory names end with '/'.
 		FString Directory(InPath);
 		MakeDirectoryFromPath(Directory);
@@ -643,6 +849,27 @@ public:
 		return Timestamp;
 	}
 	
+	/**
+	 * Returns whether the pak filenames are still resident in memory.
+	 *
+	 * @return true if filenames are present, false otherwise.
+	 */
+	bool HasFilenames() const
+	{
+		return !bFilenamesRemoved;
+	}
+
+	/**
+	 * Saves memory by hashing the filenames, if possible. After this process,
+	 * wildcard scanning of pak entries can no longer be performed.
+	 *
+	 * If bShrinkPakEntries is set to true, then the entire FPakEntry array is
+	 * tightly compressed to save memory, if possible.
+	 *
+	 * @param bShrinkPakEntries Set to true to attempt to save memory by compressing pak entries in memory. Pass false to leave the data alone.
+	 */
+	void UnloadFilenames(bool bShrinkPakEntries);
+
 private:
 
 	/**
@@ -700,7 +927,7 @@ public:
 	/** Pak file that own this file data */
 	const FPakFile&		PakFile;
 	/** Pak file entry for this file. */
-	const FPakEntry&	PakEntry;
+	FPakEntry			PakEntry;
 	/** Pak file archive to read the data from. */
 	FArchive*			PakReader;
 	/** Offset to the file in pak (including the file header). */
@@ -1058,25 +1285,25 @@ public:
 	 * @param OutPakFile Optional pointer to a pak file where the filename was found.
 	 * @return Pointer to pak entry if the file was found, NULL otherwise.
 	 */
-	FORCEINLINE static const FPakEntry* FindFileInPakFiles(TArray<FPakListEntry>& Paks,const TCHAR* Filename,FPakFile** OutPakFile)
+	FORCEINLINE static bool FindFileInPakFiles(TArray<FPakListEntry>& Paks,const TCHAR* Filename,FPakFile** OutPakFile,FPakEntry* OutEntry = nullptr)
 	{
 		FString StandardFilename(Filename);
 		FPaths::MakeStandardFilename(StandardFilename);
-		const FPakEntry* FoundEntry = NULL;
 
-		for (int32 PakIndex = 0; !FoundEntry && PakIndex < Paks.Num(); PakIndex++)
+		for (int32 PakIndex = 0; PakIndex < Paks.Num(); PakIndex++)
 		{
-			FoundEntry = Paks[PakIndex].PakFile->Find(*StandardFilename);
-			if (FoundEntry != NULL)
+			bool bFoundEntry = Paks[PakIndex].PakFile->Find(*StandardFilename, OutEntry);
+			if (bFoundEntry)
 			{
 				if (OutPakFile != NULL)
 				{
 					*OutPakFile = Paks[PakIndex].PakFile;
 				}
+				return true;
 			}
 		}
 
-		return FoundEntry;
+		return false;
 	}
 
 	/**
@@ -1086,19 +1313,19 @@ public:
 	 * @param OutPakFile Optional pointer to a pak file where the filename was found.
 	 * @return Pointer to pak entry if the file was found, NULL otherwise.
 	 */
-	const FPakEntry* FindFileInPakFiles(const TCHAR* Filename, FPakFile** OutPakFile = NULL)
+	bool FindFileInPakFiles(const TCHAR* Filename, FPakFile** OutPakFile = nullptr, FPakEntry* OutEntry = nullptr)
 	{
 		TArray<FPakListEntry> Paks;
 		GetMountedPaks(Paks);
 
-		return FindFileInPakFiles(Paks, Filename, OutPakFile);
+		return FindFileInPakFiles(Paks, Filename, OutPakFile, OutEntry);
 	}
 
 	//~ Begin IPlatformFile Interface
 	virtual bool FileExists(const TCHAR* Filename) override
 	{
 		// Check pak files first.
-		if (FindFileInPakFiles(Filename) != NULL)
+		if (FindFileInPakFiles(Filename))
 		{
 			return true;
 		}
@@ -1114,10 +1341,10 @@ public:
 	virtual int64 FileSize(const TCHAR* Filename) override
 	{
 		// Check pak files first
-		const FPakEntry* FileEntry = FindFileInPakFiles(Filename);
-		if (FileEntry != NULL)
+		FPakEntry FileEntry;
+		if (FindFileInPakFiles(Filename, nullptr, &FileEntry))
 		{
-			return FileEntry->CompressionMethod != COMPRESS_None ? FileEntry->UncompressedSize : FileEntry->Size;
+			return FileEntry.CompressionMethod != COMPRESS_None ? FileEntry.UncompressedSize : FileEntry.Size;
 		}
 		// First look for the file in the user dir.
 		int64 Result = INDEX_NONE;
@@ -1131,7 +1358,7 @@ public:
 	virtual bool DeleteFile(const TCHAR* Filename) override
 	{
 		// If file exists in pak file it will never get deleted.
-		if (FindFileInPakFiles(Filename) != NULL)
+		if (FindFileInPakFiles(Filename))
 		{
 			return false;
 		}
@@ -1147,7 +1374,7 @@ public:
 	virtual bool IsReadOnly(const TCHAR* Filename) override
 	{
 		// Files in pak file are always read-only.
-		if (FindFileInPakFiles(Filename) != NULL)
+		if (FindFileInPakFiles(Filename))
 		{
 			return true;
 		}
@@ -1163,7 +1390,7 @@ public:
 	virtual bool MoveFile(const TCHAR* To, const TCHAR* From) override
 	{
 		// Files which exist in pak files can't be moved
-		if (FindFileInPakFiles(From) != NULL)
+		if (FindFileInPakFiles(From))
 		{
 			return false;
 		}
@@ -1179,7 +1406,7 @@ public:
 	virtual bool SetReadOnly(const TCHAR* Filename, bool bNewReadOnlyValue) override
 	{
 		// Files in pak file will never change their read-only flag.
-		if (FindFileInPakFiles(Filename) != NULL)
+		if (FindFileInPakFiles(Filename))
 		{
 			// This fails if soemone wants to make files from pak writable.
 			return bNewReadOnlyValue;
@@ -1197,7 +1424,7 @@ public:
 	{
 		// Check pak files first.
 		FPakFile* PakFile = NULL;
-		if (FindFileInPakFiles(Filename, &PakFile) != NULL)
+		if (FindFileInPakFiles(Filename, &PakFile))
 		{
 			return PakFile->GetTimestamp();
 		}
@@ -1244,7 +1471,7 @@ public:
 	virtual void SetTimeStamp(const TCHAR* Filename, FDateTime DateTime) override
 	{
 		// No modifications allowed on files from pak (although we could theoretically allow this one).
-		if (FindFileInPakFiles(Filename) == NULL)
+		if (!FindFileInPakFiles(Filename))
 		{
 			if (IsNonPakFilenameAllowed(Filename))
 			{
@@ -1257,7 +1484,7 @@ public:
 	{
 		// AccessTimestamp not yet supported in pak files (although it is possible).
 		FPakFile* PakFile = NULL;
-		if (FindFileInPakFiles(Filename, &PakFile) != NULL)
+		if (FindFileInPakFiles(Filename, &PakFile))
 		{
 			return PakFile->GetTimestamp();
 		}
@@ -1272,18 +1499,23 @@ public:
 
 	virtual FString GetFilenameOnDisk(const TCHAR* Filename) override
 	{
+		FPakEntry FileEntry;
 		FPakFile* PakFile = NULL;
-		auto FileEntry = FindFileInPakFiles(Filename, &PakFile);
-		if (FileEntry)
+		if (FindFileInPakFiles(Filename, &PakFile, &FileEntry))
 		{
+			checkf(PakFile->HasFilenames(), TEXT("GetFilenameOnDisk() can only be used before FPakPlatformFile::UnloadFilenames() is called."));
+
 			const FString Path(FPaths::GetPath(Filename));
 			const FPakDirectory* PakDirectory = PakFile->FindDirectory(*Path);
 			if (PakDirectory != nullptr)
 			{
-				const FString* RealFilename = PakDirectory->FindKey(const_cast<FPakEntry*>(FileEntry));
-				if (RealFilename != nullptr)
+				for (FPakDirectory::TConstIterator DirectoryIt(*PakDirectory); DirectoryIt; ++DirectoryIt)
 				{
-					return Path / *RealFilename;
+					if (DirectoryIt.Value()->Offset == FileEntry.Offset)
+					{
+						const FString& RealFilename = DirectoryIt.Key();
+						return Path / RealFilename;
+					}
 				}
 			}
 		}
@@ -1304,7 +1536,7 @@ public:
 	virtual IFileHandle* OpenWrite(const TCHAR* Filename, bool bAppend = false, bool bAllowRead = false) override
 	{
 		// No modifications allowed on pak files.
-		if (FindFileInPakFiles(Filename) != nullptr)
+		if (FindFileInPakFiles(Filename))
 		{
 			return nullptr;
 		}
@@ -1346,15 +1578,15 @@ public:
 	virtual FFileStatData GetStatData(const TCHAR* FilenameOrDirectory) override
 	{
 		// Check pak files first.
+		FPakEntry FileEntry;
 		FPakFile* PakFile = nullptr;
-		const FPakEntry* FileEntry = FindFileInPakFiles(FilenameOrDirectory, &PakFile);
-		if (FileEntry)
+		if (FindFileInPakFiles(FilenameOrDirectory, &PakFile, &FileEntry))
 		{
 			return FFileStatData(
 				PakFile->GetTimestamp(),
 				PakFile->GetTimestamp(),
 				PakFile->GetTimestamp(),
-				(FileEntry->CompressionMethod != COMPRESS_None) ? FileEntry->UncompressedSize : FileEntry->Size, 
+				(FileEntry.CompressionMethod != COMPRESS_None) ? FileEntry.UncompressedSize : FileEntry.Size, 
 				false,	// IsDirectory
 				true	// IsReadOnly
 				);
@@ -1414,7 +1646,7 @@ public:
 					// Already visited, continue iterating.
 					return true;
 				}
-				else if (FPakPlatformFile::FindFileInPakFiles(Paks, FilenameOrDirectory, NULL))
+				else if (FPakPlatformFile::FindFileInPakFiles(Paks, FilenameOrDirectory, nullptr))
 				{
 					VisitedPakFiles.Add(StandardFilename);
 				}
@@ -1518,7 +1750,7 @@ public:
 					// Already visited, continue iterating.
 					return true;
 				}
-				else if (FPakPlatformFile::FindFileInPakFiles(Paks, FilenameOrDirectory, NULL))
+				else if (FPakPlatformFile::FindFileInPakFiles(Paks, FilenameOrDirectory, nullptr))
 				{
 					VisitedPakFiles.Add(StandardFilename);
 				}
@@ -1557,10 +1789,10 @@ public:
 					int64 FileSize = -1;
 					if (!bIsDir)
 					{
-						const FPakEntry* FileEntry = FindFileInPakFiles(*Filename);
-						if (FileEntry)
+						FPakEntry FileEntry;
+						if (FindFileInPakFiles(*Filename, nullptr, &FileEntry))
 						{
-							FileSize = (FileEntry->CompressionMethod != COMPRESS_None) ? FileEntry->UncompressedSize : FileEntry->Size;
+							FileSize = (FileEntry.CompressionMethod != COMPRESS_None) ? FileEntry.UncompressedSize : FileEntry.Size;
 						}
 					}
 
@@ -1698,6 +1930,7 @@ public:
 	virtual bool CopyFile(const TCHAR* To, const TCHAR* From, EPlatformFileRead ReadFlags = EPlatformFileRead::None, EPlatformFileWrite WriteFlags = EPlatformFileWrite::None) override;
 
 	virtual IAsyncReadFileHandle* OpenAsyncRead(const TCHAR* Filename) override;
+	virtual void ThrottleAsyncPrecaches(bool bEnablePrecacheRequests) override;
 
 	/**
 	 * Converts a filename to a path inside pak file.
@@ -1716,7 +1949,7 @@ public:
 	{
 		// Check in Pak file first
 		FPakFile* Pak = NULL;
-		if (FindFileInPakFiles(Filename, &Pak) != NULL)
+		if (FindFileInPakFiles(Filename, &Pak))
 		{
 			return FString::Printf(TEXT("Pak: %s/%s"), *Pak->GetFilename(), *ConvertToPakRelativePath(Filename, Pak));
 		}
@@ -1730,7 +1963,7 @@ public:
 	{
 		// Check in Pak file first
 		FPakFile* Pak = NULL;
-		if (FindFileInPakFiles(Filename, &Pak) != NULL)
+		if (FindFileInPakFiles(Filename, &Pak))
 		{
 			return FString::Printf(TEXT("Pak: %s/%s"), *Pak->GetFilename(), *ConvertToPakRelativePath(Filename, Pak));
 		}
@@ -1743,6 +1976,8 @@ public:
 
 	// Access static delegate for loose file security
 	static FFilenameSecurityDelegate& GetFilenameSecurityDelegate();
+
+	void UnloadFilenames(bool bShrinkPakEntries = true);
 
 	// BEGIN Console commands
 #if !UE_BUILD_SHIPPING

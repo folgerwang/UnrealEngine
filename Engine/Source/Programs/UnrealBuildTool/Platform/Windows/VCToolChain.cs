@@ -1691,9 +1691,14 @@ namespace UnrealBuildTool
 			{
 				ObjectFileDirectories.Add(InputLibrary.Location.Directory);
 			}
-			foreach(string AdditionalLibrary in LinkEnvironment.AdditionalLibraries.Where(x => Path.IsPathRooted(x)))
+			foreach(string AdditionalLibrary in LinkEnvironment.AdditionalLibraries)
 			{
-				ObjectFileDirectories.Add(new FileReference(AdditionalLibrary).Directory);
+				// Need to handle import libraries that are about to be built (but may not exist yet), third party libraries with relative paths in the UE4 tree, and system libraries in the system path
+				FileReference AdditionalLibraryLocation = new FileReference(AdditionalLibrary);
+				if(Path.IsPathRooted(AdditionalLibrary) || FileReference.Exists(AdditionalLibraryLocation))
+				{
+					ObjectFileDirectories.Add(AdditionalLibraryLocation.Directory);
+				}
 			}
 			foreach(DirectoryReference LibraryPath in LinkEnvironment.LibraryPaths)
 			{

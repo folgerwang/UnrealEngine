@@ -196,6 +196,11 @@ int xmpp_stanza_release(xmpp_stanza_t * const stanza)
     return released;
 }
 
+xmpp_ctx_t *xmpp_stanza_get_context(const xmpp_stanza_t * const stanza)
+{
+	return stanza->ctx;
+}
+
 /** Determine if a stanza is a text node.
  *  
  *  @param stanza a Strophe stanza object

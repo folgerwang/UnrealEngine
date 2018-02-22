@@ -4743,6 +4743,7 @@ void FSlateEditorStyle::FStyle::SetupLevelEditorStyle()
 
 		Set( "MergeActors.MeshMergingTool", new IMAGE_BRUSH( "Icons/icon_MergeActors_MeshMerging_40x", Icon40x40 ) );
 		Set( "MergeActors.MeshProxyTool", new IMAGE_BRUSH( "Icons/icon_MergeActors_MeshProxy_40x", Icon40x40 ) );
+		Set( "MergeActors.MeshInstancingTool", new IMAGE_BRUSH( "Icons/icon_MergeActors_MeshInstancing_40x", Icon40x40 ) );
 		Set( "MergeActors.TabIcon", new IMAGE_BRUSH("Icons/Icon_MergeActors_MeshMerging_16x", Icon16x16));
 		
 		Set( "PlacementBrowser.OptionsMenu", new IMAGE_BRUSH( "Icons/icon_Blueprint_Macro_16x", Icon16x16 ) );
@@ -5035,6 +5036,7 @@ void FSlateEditorStyle::FStyle::SetupLevelEditorStyle()
 		Set( "MeshPaint.Remove", new IMAGE_BRUSH("/Icons/Edit/icon_Edit_Delete_40x", Icon20x20));
 		Set( "MeshPaint.Copy", new IMAGE_BRUSH("/Icons/Edit/icon_Edit_Copy_40x", Icon20x20));
 		Set( "MeshPaint.Paste", new IMAGE_BRUSH("/Icons/Edit/icon_Edit_Paste_40x", Icon20x20));
+		Set( "MeshPaint.Swap", new IMAGE_BRUSH("/Icons/icon_MeshPaint_Swap_16x", Icon12x12));
 	}
 
 	// News Feed
@@ -6366,11 +6368,15 @@ void FSlateEditorStyle::FStyle::SetupContentBrowserStyle()
 		Set( "ContentBrowser.SCC_CheckedOut", new IMAGE_BRUSH( "ContentBrowser/SCC_CheckedOut", Icon32x32) );
 		Set( "ContentBrowser.SCC_OpenForAdd", new IMAGE_BRUSH( "ContentBrowser/SCC_ContentAdd", Icon32x32) );
 		Set( "ContentBrowser.SCC_CheckedOutByOtherUser", new IMAGE_BRUSH( "ContentBrowser/SCC_CheckedOutByOtherUser", Icon32x32) );
+		Set( "ContentBrowser.SCC_CheckedOutByOtherUserOtherBranch", new IMAGE_BRUSH("ContentBrowser/SCC_CheckedOutByOtherUserOtherBranch", Icon32x32));
+		Set( "ContentBrowser.SCC_ModifiedOtherBranch", new IMAGE_BRUSH("ContentBrowser/SCC_ModifiedOtherBranch", Icon32x32));
 		Set( "ContentBrowser.SCC_NotAtHeadRevision", new IMAGE_BRUSH( "ContentBrowser/SCC_NotAtHeadRevision", Icon32x32) );
 		Set( "ContentBrowser.SCC_NotInDepot", new IMAGE_BRUSH( "ContentBrowser/SCC_ContentMissing", Icon32x32) );
 		Set( "ContentBrowser.SCC_CheckedOut_Small", new IMAGE_BRUSH( "ContentBrowser/SCC_CheckedOut", Icon16x16) );
 		Set( "ContentBrowser.SCC_OpenForAdd_Small", new IMAGE_BRUSH( "ContentBrowser/SCC_ContentAdd", Icon16x16) );
 		Set( "ContentBrowser.SCC_CheckedOutByOtherUser_Small", new IMAGE_BRUSH( "ContentBrowser/SCC_CheckedOutByOtherUser", Icon16x16) );
+		Set( "ContentBrowser.SCC_CheckedOutByOtherUserOtherBranch_Small", new IMAGE_BRUSH("ContentBrowser/SCC_CheckedOutByOtherUserOtherBranch", Icon16x16));
+		Set( "ContentBrowser.SCC_ModifiedOtherBranch_Small", new IMAGE_BRUSH("ContentBrowser/SCC_ModifiedOtherBranch", Icon16x16));
 		Set( "ContentBrowser.SCC_NotAtHeadRevision_Small", new IMAGE_BRUSH( "ContentBrowser/SCC_NotAtHeadRevision", Icon16x16) );
 		Set( "ContentBrowser.SCC_NotInDepot_Small", new IMAGE_BRUSH("ContentBrowser/SCC_ContentMissing", Icon16x16) );
 		Set( "ContentBrowser.ContentDirty", new IMAGE_BRUSH( "ContentBrowser/ContentDirty", Icon16x16) );
@@ -7187,6 +7193,10 @@ void FSlateEditorStyle::FStyle::SetupSourceControlStyles()
 		Set( "Perforce.OpenForAdd_Small", new IMAGE_BRUSH( "ContentBrowser/SCC_ContentAdd", Icon16x16) );
 		Set( "Perforce.CheckedOutByOtherUser", new IMAGE_BRUSH( "ContentBrowser/SCC_CheckedOutByOtherUser", Icon32x32) );
 		Set( "Perforce.CheckedOutByOtherUser_Small", new IMAGE_BRUSH( "ContentBrowser/SCC_CheckedOutByOtherUser", Icon16x16) );
+		Set( "Perforce.CheckedOutByOtherUserOtherBranch", new IMAGE_BRUSH("ContentBrowser/SCC_CheckedOutByOtherUserOtherBranch", Icon32x32));
+		Set( "Perforce.CheckedOutByOtherUserOtherBranch_Small", new IMAGE_BRUSH("ContentBrowser/SCC_CheckedOutByOtherUserOtherBranch", Icon16x16));
+		Set( "Perforce.ModifiedOtherBranch", new IMAGE_BRUSH("ContentBrowser/SCC_ModifiedOtherBranch", Icon32x32));
+		Set( "Perforce.ModifiedOtherBranch_Small", new IMAGE_BRUSH("ContentBrowser/SCC_ModifiedOtherBranch", Icon16x16));
 		Set( "Perforce.MarkedForDelete", new IMAGE_BRUSH( "ContentBrowser/SCC_MarkedForDelete", Icon32x32) );
 		Set( "Perforce.MarkedForDelete_Small", new IMAGE_BRUSH( "ContentBrowser/SCC_MarkedForDelete", Icon16x16) );
 		Set( "Perforce.NotAtHeadRevision", new IMAGE_BRUSH( "ContentBrowser/SCC_NotAtHeadRevision", Icon32x32) );
@@ -7207,6 +7217,10 @@ void FSlateEditorStyle::FStyle::SetupSourceControlStyles()
 		Set( "Subversion.OpenForAdd_Small", new IMAGE_BRUSH( "ContentBrowser/SCC_ContentAdd", Icon16x16) );
 		Set( "Subversion.CheckedOutByOtherUser", new IMAGE_BRUSH( "ContentBrowser/SCC_CheckedOutByOtherUser", Icon32x32) );
 		Set( "Subversion.CheckedOutByOtherUser_Small", new IMAGE_BRUSH( "ContentBrowser/SCC_CheckedOutByOtherUser", Icon16x16) );
+		Set( "Subversion.CheckedOutByOtherUserOtherBranch", new IMAGE_BRUSH("ContentBrowser/SCC_CheckedOutByOtherUserOtherBranch", Icon32x32));
+		Set( "Subversion.CheckedOutByOtherUserOtherBranch_Small", new IMAGE_BRUSH("ContentBrowser/SCC_CheckedOutByOtherUserOtherBranch", Icon16x16));
+		Set( "Subversion.ModifiedOtherBranch", new IMAGE_BRUSH("ContentBrowser/SCC_ModifiedOtherBranch", Icon32x32));
+		Set( "Subversion.ModifiedOtherBranch_Small", new IMAGE_BRUSH("ContentBrowser/SCC_ModifiedOtherBranch", Icon16x16));
 		Set( "Subversion.MarkedForDelete", new IMAGE_BRUSH( "ContentBrowser/SCC_MarkedForDelete", Icon32x32) );
 		Set( "Subversion.MarkedForDelete_Small", new IMAGE_BRUSH( "ContentBrowser/SCC_MarkedForDelete", Icon16x16) );
 		Set( "Subversion.NotAtHeadRevision", new IMAGE_BRUSH( "ContentBrowser/SCC_NotAtHeadRevision", Icon32x32) );

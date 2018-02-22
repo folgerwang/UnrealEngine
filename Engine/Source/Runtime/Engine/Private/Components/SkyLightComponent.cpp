@@ -44,7 +44,7 @@ FAutoConsoleCommandWithWorld CaptureConsoleCommand(
 
 void FSkyTextureCubeResource::InitRHI()
 {
-	if (GetFeatureLevel() >= ERHIFeatureLevel::SM4)
+	if (GetFeatureLevel() >= ERHIFeatureLevel::SM4 || GSupportsRenderTargetFormat_PF_FloatRGBA)
 	{
 		FRHIResourceCreateInfo CreateInfo;
 		TextureCubeRHI = RHICreateTextureCube(Size, Format, NumMips, 0, CreateInfo);
@@ -314,6 +314,27 @@ void USkyLightComponent::UpdateLimitedRenderingStateFast()
 			LightSceneProxy->VolumetricScatteringIntensity = VolumetricScatteringIntensity;
 		});
 	}
+}
+
+void USkyLightComponent::UpdateOcclusionRenderingStateFast()
+{
+	if (SceneProxy && IsOcclusionSupported())
+	{
+		ENQUEUE_UNIQUE_RENDER_COMMAND_FIVEPARAMETER(
+			FFastUpdateSkyLightOcclusionCommand,
+			FSkyLightSceneProxy*,LightSceneProxy,SceneProxy,
+			float, Contrast, Contrast,
+			float, OcclusionExponent, OcclusionExponent,
+			float, MinOcclusion, MinOcclusion,
+			FColor, OcclusionTint, OcclusionTint,
+		{
+			LightSceneProxy->Contrast = Contrast;
+			LightSceneProxy->OcclusionExponent = OcclusionExponent;
+			LightSceneProxy->MinOcclusion = MinOcclusion;
+			LightSceneProxy->OcclusionTint = OcclusionTint;
+		});
+	}
+
 }
 
 /** 
@@ -732,7 +753,7 @@ void USkyLightComponent::SetOcclusionTint(const FColor& InTint)
 		&& OcclusionTint != InTint)
 	{
 		OcclusionTint = InTint;
-		MarkRenderStateDirty();
+		UpdateOcclusionRenderingStateFast();
 	}
 }
 
@@ -742,7 +763,7 @@ void USkyLightComponent::SetOcclusionContrast(float InOcclusionContrast)
 		&& Contrast != InOcclusionContrast)
 	{
 		Contrast = InOcclusionContrast;
-		MarkRenderStateDirty();
+		UpdateOcclusionRenderingStateFast();
 	}
 }
 
@@ -752,7 +773,7 @@ void USkyLightComponent::SetOcclusionExponent(float InOcclusionExponent)
 		&& OcclusionExponent != InOcclusionExponent)
 	{
 		OcclusionExponent = InOcclusionExponent;
-		MarkRenderStateDirty();
+		UpdateOcclusionRenderingStateFast();
 	}
 }
 
@@ -763,8 +784,19 @@ void USkyLightComponent::SetMinOcclusion(float InMinOcclusion)
 		&& MinOcclusion != InMinOcclusion)
 	{
 		MinOcclusion = InMinOcclusion;
-		MarkRenderStateDirty();
+		UpdateOcclusionRenderingStateFast();
 	}
+}
+
+bool USkyLightComponent::IsOcclusionSupported() const
+{
+	FSceneInterface* LocalScene = GetScene();
+	if (LocalScene && LocalScene->GetFeatureLevel() <= ERHIFeatureLevel::ES3_1)
+	{
+		// Sky occlusion is not supported on mobile
+		return false;
+	}
+	return true;
 }
 
 void USkyLightComponent::OnVisibilityChanged()

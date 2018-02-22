@@ -304,6 +304,9 @@ public:
 	/** Returns the custom magnitude calculation class, if any, for this magnitude. Only applies to CustomMagnitudes */
 	TSubclassOf<UGameplayModMagnitudeCalculation> GetCustomMagnitudeCalculationClass() const;
 
+	/** Implementing Serialize to clear references to assets that are not needed */
+	bool Serialize(FArchive& Ar);
+
 	bool operator==(const FGameplayEffectModifierMagnitude& Other) const;
 	bool operator!=(const FGameplayEffectModifierMagnitude& Other) const;
 
@@ -338,6 +341,15 @@ protected:
 	// @hack: @todo: This is temporary to aid in post-load fix-up w/o exposing members publicly
 	friend class UGameplayEffect;
 	friend class FGameplayEffectModifierMagnitudeDetails;
+};
+
+template<>
+struct TStructOpsTypeTraits<FGameplayEffectModifierMagnitude> : public TStructOpsTypeTraitsBase2<FGameplayEffectModifierMagnitude>
+{
+	enum
+	{
+		WithSerializer = true,
+	};
 };
 
 /** 

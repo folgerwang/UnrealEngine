@@ -242,7 +242,7 @@ public:
 		return EVisibility::Visible;
 	}
 
-	const FVector2D& GetMenuOverlaySize() const 
+	FVector2D GetMenuOverlaySize() const 
 	{ 
 		return MenuOverlay.IsValid() ? MenuOverlay->GetDesiredSize() : FVector2D::ZeroVector; 
 	}

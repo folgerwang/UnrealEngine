@@ -6,11 +6,14 @@
 #include "Internationalization/TextHistory.h"
 #include "Internationalization/TextData.h"
 #include "Misc/ExpressionParser.h"
+#include "Stats/Stats.h"
 
 #define LOCTEXT_NAMESPACE "TextFormatter"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTextFormatter, Log, All);
 DEFINE_LOG_CATEGORY(LogTextFormatter);
+
+DECLARE_CYCLE_STAT(TEXT("TextFormatData Compile"), STAT_TextFormatData_Compile, STATGROUP_Text);
 
 namespace TextFormatTokens
 {
@@ -598,6 +601,8 @@ bool FTextFormatData::IsValid_NoLock() const
 
 void FTextFormatData::Compile_NoLock()
 {
+	SCOPE_CYCLE_COUNTER(STAT_TextFormatData_Compile);
+
 	LexedExpression.Reset();
 	if (SourceType == ESourceType::Text)
 	{

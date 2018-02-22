@@ -105,7 +105,10 @@ class RENDERER_API FMaterialShader : public FShader
 public:
 	static FName UniformBufferLayoutName;
 
-	FMaterialShader() : DebugUniformExpressionUBLayout(FRHIUniformBufferLayout::Zero)
+	FMaterialShader()
+#if ALLOW_SHADERMAP_DEBUG_DATA
+		: DebugUniformExpressionUBLayout(FRHIUniformBufferLayout::Zero)
+#endif
 	{
 	}
 
@@ -152,6 +155,27 @@ public:
 		bool bDeferredPass, 
 		ESceneRenderTargetsMode::Type TextureMode);
 
+
+	/** Sets pixel parameters that are material specific */
+	template< typename ShaderRHIParamRef >
+	void SetMaterialParameters(
+		FRHICommandList& RHICmdList,
+		const ShaderRHIParamRef ShaderRHI, 
+		const FMaterial& Material,
+		const FSceneView& View, 
+		const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer,
+		bool bDeferredPass, 
+		ESceneRenderTargetsMode::Type TextureMode);
+
+	/** Sets pixel parameters that are material proxy specific */
+	template< typename ShaderRHIParamRef >
+	void SetMaterialProxyParameters(
+		FRHICommandList& RHICmdList,
+		const ShaderRHIParamRef ShaderRHI, 
+		const FMaterialRenderProxy* MaterialRenderProxy, 
+		const FMaterial& Material,
+		const FSceneView& View);
+	
 	// FShader interface.
 	virtual bool Serialize(FArchive& Ar) override;
 	virtual uint32 GetAllocatedSize() const override;
@@ -183,10 +207,12 @@ private:
 	FShaderParameter InstanceOffset;
 	FShaderParameter VertexOffset;
 
+#if ALLOW_SHADERMAP_DEBUG_DATA
 	FDebugUniformExpressionSet	DebugUniformExpressionSet;
 	FRHIUniformBufferLayout		DebugUniformExpressionUBLayout;
 	FString						DebugDescription;
-
+#endif
+	
 	/** If true, cached uniform expressions are allowed. */
 	static int32 bAllowCachedUniformExpressions;
 	/** Console variable ref to toggle cached uniform expressions. */

@@ -110,7 +110,7 @@ void USoundNodeEnveloper::ParseNodes( FAudioDevice* AudioDevice, const UPTRINT N
 	Super::ParseNodes(AudioDevice, NodeWaveInstanceHash, ActiveSound, UpdatedParams, WaveInstances);
 }
 
-float USoundNodeEnveloper::GetDuration()
+float USoundNodeEnveloper::GetDuration() const
 {
 	float ChildDuration = (ChildNodes.Num() > 0 && ChildNodes[0] != NULL) ? ChildNodes[0]->GetDuration() : 0;
 

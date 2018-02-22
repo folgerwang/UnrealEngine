@@ -7,7 +7,7 @@
 #include "HAL/IConsoleManager.h"
 #include "SlateGlobals.h"
 
-DECLARE_CYCLE_STAT(TEXT("Render Glyph"), STAT_SlateRenderGlyph, STATGROUP_Slate);
+DECLARE_CYCLE_STAT(TEXT("Freetype Render Glyph"), STAT_FreetypeRenderGlyph, STATGROUP_Slate);
 
 /**
  * Method for rendering fonts with the possibility of an outline.
@@ -256,7 +256,7 @@ FFreeTypeFaceGlyphData FSlateFontRenderer::GetFontFaceForCharacter(const FFontDa
 bool FSlateFontRenderer::GetRenderData(const FShapedGlyphEntry& InShapedGlyph, const FFontOutlineSettings& InOutlineSettings, FCharacterRenderData& OutRenderData) const
 {
 #if WITH_FREETYPE
-	SCOPE_CYCLE_COUNTER(STAT_SlateRenderGlyph);
+	SCOPE_CYCLE_COUNTER(STAT_FreetypeRenderGlyph);
 
 	FFreeTypeFaceGlyphData FaceGlyphData;
 	FaceGlyphData.FaceAndMemory = InShapedGlyph.FontFaceData->FontFace.Pin();
@@ -271,7 +271,7 @@ bool FSlateFontRenderer::GetRenderData(const FShapedGlyphEntry& InShapedGlyph, c
 		check(Error == 0);
 
 		OutRenderData.Char = 0;
-		return GetRenderData(FaceGlyphData, InShapedGlyph.FontFaceData->FontScale, InOutlineSettings, OutRenderData);
+		return GetRenderDataInternal(FaceGlyphData, InShapedGlyph.FontFaceData->FontScale, InOutlineSettings, OutRenderData);
 	}
 #endif // WITH_FREETYPE
 	return false;
@@ -353,7 +353,7 @@ void RenderOutlineRows(FT_Library Library, FT_Outline* Outline, FRasterizerSpanL
 
 }
 
-bool FSlateFontRenderer::GetRenderData(const FFreeTypeFaceGlyphData& InFaceGlyphData, const float InScale, const FFontOutlineSettings& InOutlineSettings, FCharacterRenderData& OutRenderData) const
+bool FSlateFontRenderer::GetRenderDataInternal(const FFreeTypeFaceGlyphData& InFaceGlyphData, const float InScale, const FFontOutlineSettings& InOutlineSettings, FCharacterRenderData& OutRenderData) const
 {
 	FT_Face Face = InFaceGlyphData.FaceAndMemory->GetFace();
 

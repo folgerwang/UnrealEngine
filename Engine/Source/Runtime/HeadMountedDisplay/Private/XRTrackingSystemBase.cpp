@@ -5,6 +5,7 @@
 #include "Engine/Engine.h" // for FWorldContext
 #include "Engine/LocalPlayer.h"
 #include "Camera/CameraComponent.h"
+#include "GameFramework/PlayerController.h"
 
 FXRTrackingSystemBase::FXRTrackingSystemBase()
 {

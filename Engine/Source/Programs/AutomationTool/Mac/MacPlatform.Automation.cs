@@ -44,11 +44,14 @@ public class MacPlatform : Platform
 	{
 		// Files with DebugFileExtensions should always be DebugNonUFS
 		List<string> DebugExtensions = GetDebugFileExtentions();
-		foreach(FileReference InputFile in DirectoryReference.EnumerateFiles(InPath, "*", SearchOption.AllDirectories))
+		if(DirectoryExists(InPath.FullName))
 		{
-			StagedFileReference OutputFile = StagedFileReference.Combine(NewName, InputFile.MakeRelativeTo(InPath));
-			StagedFileType FileType = DebugExtensions.Any(x => InputFile.HasExtension(x))? StagedFileType.DebugNonUFS : StagedFileType.NonUFS;
-			SC.StageFile(FileType, InputFile, OutputFile);
+			foreach (FileReference InputFile in DirectoryReference.EnumerateFiles(InPath, "*", SearchOption.AllDirectories))
+			{
+				StagedFileReference OutputFile = StagedFileReference.Combine(NewName, InputFile.MakeRelativeTo(InPath));
+				StagedFileType FileType = DebugExtensions.Any(x => InputFile.HasExtension(x)) ? StagedFileType.DebugNonUFS : StagedFileType.NonUFS;
+				SC.StageFile(FileType, InputFile, OutputFile);
+			}
 		}
 	}
 

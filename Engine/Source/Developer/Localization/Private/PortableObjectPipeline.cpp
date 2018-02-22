@@ -13,68 +13,42 @@ DEFINE_LOG_CATEGORY_STATIC(LogPortableObjectPipeline, Log, All);
 
 namespace
 {
-	static const TCHAR* NewLineDelimiter = TEXT("\n");
-
-	struct FPortableObjectEntryIdentity
-	{
-		FString MsgCtxt;
-		FString MsgId;
-		FString MsgIdPlural;
-	};
-
-	bool operator==(const FPortableObjectEntryIdentity& LHS, const FPortableObjectEntryIdentity& RHS)
-	{
-		return LHS.MsgCtxt == RHS.MsgCtxt && LHS.MsgId == RHS.MsgId && LHS.MsgIdPlural == RHS.MsgIdPlural;
-	}
-
-	uint32 GetTypeHash(const FPortableObjectEntryIdentity& ID)
-	{
-		const uint32 HashA = HashCombine(GetTypeHash(ID.MsgCtxt), GetTypeHash(ID.MsgId));
-		const uint32 HashB = GetTypeHash(ID.MsgIdPlural);
-		return HashCombine(HashA, HashB);
-	}
-
-	struct FCaseSensitiveStringPair
+	struct FLocKeyPair
 	{
 	public:
-		FCaseSensitiveStringPair(FString InFirst, FString InSecond)
+		FLocKeyPair(FLocKey InFirst, FLocKey InSecond)
 			: First(MoveTemp(InFirst))
 			, Second(MoveTemp(InSecond))
 		{
 		}
 
-		FORCEINLINE bool operator==(const FCaseSensitiveStringPair& Other) const
+		FORCEINLINE bool operator==(const FLocKeyPair& Other) const
 		{
-			return First.Equals(Other.First, ESearchCase::CaseSensitive)
-				&& Second.Equals(Other.Second, ESearchCase::CaseSensitive);
+			return First == Other.First && Second == Other.Second;
 		}
 
-		FORCEINLINE bool operator!=(const FCaseSensitiveStringPair& Other) const
+		FORCEINLINE bool operator!=(const FLocKeyPair& Other) const
 		{
-			return !First.Equals(Other.First, ESearchCase::CaseSensitive)
-				|| !Second.Equals(Other.Second, ESearchCase::CaseSensitive);
+			return First != Other.First || Second != Other.Second;
 		}
 
-		friend inline uint32 GetTypeHash(const FCaseSensitiveStringPair& Id)
+		friend inline uint32 GetTypeHash(const FLocKeyPair& Id)
 		{
-			uint32 Hash = 0;
-			Hash = FCrc::StrCrc32(*Id.First, Hash);
-			Hash = FCrc::StrCrc32(*Id.Second, Hash);
-			return Hash;
+			return HashCombine(GetTypeHash(Id.First), GetTypeHash(Id.Second));
 		}
 
-		FString First;
-		FString Second;
+		FLocKey First;
+		FLocKey Second;
 	};
-	typedef TMultiMap<FCaseSensitiveStringPair, FCaseSensitiveStringPair> FCaseSensitiveStringPairMultiMap;
+	typedef TMultiMap<FLocKeyPair, FLocKeyPair> FLocKeyPairMultiMap;
 
 	struct FCollapsedData
 	{
 		/** Mapping between a collapsed namespace (First) and key (Second), to an expanded namespace (First) and key (Second) */
-		FCaseSensitiveStringPairMultiMap CollapsedNSKeyToExpandedNSKey;
+		FLocKeyPairMultiMap CollapsedNSKeyToExpandedNSKey;
 
 		/** Mapping between a collapsed namespace (First) and source string/native translation (Second), to an expanded namespace (First) and key (Second) */
-		FCaseSensitiveStringPairMultiMap CollapsedNSSourceStringToExpandedNSKey;
+		FLocKeyPairMultiMap CollapsedNSSourceStringToExpandedNSKey;
 	};
 
 	/**
@@ -95,211 +69,93 @@ namespace
 	*/
 	FString ConditionIdentityForPOMsgCtxt(const FString& Namespace, const FString& Key, const TSharedPtr<FLocMetadataObject>& KeyMetaData, const ELocalizedTextCollapseMode InTextCollapseMode)
 	{
-		const auto& EscapeMsgCtxtParticle = [](const FString& InStr) -> FString
+		auto EscapeMsgCtxtParticleInline = [](FString& InStr)
 		{
-			FString Result;
-			for (const TCHAR C : InStr)
-			{
-				switch (C)
-				{
-				case TEXT(','):		Result += TEXT("\\,");	break;
-				default:			Result += C;			break;
-				}
-			}
-			return Result;
+			InStr.ReplaceInline(TEXT(","), TEXT("\\,"), ESearchCase::CaseSensitive);
 		};
 
-		const FString EscapedNamespace = EscapeMsgCtxtParticle(Namespace);
-		const FString EscapedKey = EscapeMsgCtxtParticle(Key);
+		FString EscapedNamespace = Namespace;
+		EscapeMsgCtxtParticleInline(EscapedNamespace);
+
+		FString EscapedKey = Key;
+		EscapeMsgCtxtParticleInline(EscapedKey);
 
 		const bool bAppendKey = InTextCollapseMode != ELocalizedTextCollapseMode::IdenticalNamespaceAndSource || KeyMetaData.IsValid();
-		const FString MsgCtxt = bAppendKey ? FString::Printf(TEXT("%s,%s"), *EscapedNamespace, *EscapedKey) : EscapedNamespace;
-		return ConditionArchiveStrForPo(MsgCtxt);
+		return ConditionArchiveStrForPo(bAppendKey ? FString::Printf(TEXT("%s,%s"), *EscapedNamespace, *EscapedKey) : EscapedNamespace);
 	}
 
 	void ParsePOMsgCtxtForIdentity(const FString& MsgCtxt, FString& OutNamespace, FString& OutKey)
 	{
-		const FString ConditionedMsgCtxt = ConditionPoStringForArchive(MsgCtxt);
-
-		static const int32 OutputBufferCount = 2;
-		FString* OutputBuffers[OutputBufferCount] = { &OutNamespace, &OutKey };
-		int32 OutputBufferIndex = 0;
-
-		FString EscapeSequenceBuffer;
-
-		auto HandleEscapeSequenceBuffer = [&]()
+		auto UnescapeMsgCtxtParticleInline = [](FString& InStr)
 		{
-			// Insert unescaped sequence if needed.
-			if (!EscapeSequenceBuffer.IsEmpty())
-			{
-				bool EscapeSequenceIdentified = true;
-
-				// Identify escape sequence
-				TCHAR UnescapedCharacter = 0;
-				if (EscapeSequenceBuffer == TEXT("\\,"))
-				{
-					UnescapedCharacter = ',';
-				}
-				else
-				{
-					EscapeSequenceIdentified = false;
-				}
-
-				// If identified, append the processed sequence as the unescaped character.
-				if (EscapeSequenceIdentified)
-				{
-					*OutputBuffers[OutputBufferIndex] += UnescapedCharacter;
-				}
-				// If it was not identified, preserve the escape sequence and append it.
-				else
-				{
-					*OutputBuffers[OutputBufferIndex] += EscapeSequenceBuffer;
-				}
-				// Either way, we've appended something based on the buffer and it should be reset.
-				EscapeSequenceBuffer.Empty();
-			}
+			InStr.ReplaceInline(TEXT("\\,"), TEXT(","), ESearchCase::CaseSensitive);
 		};
 
-		for (const TCHAR C : ConditionedMsgCtxt)
+		const FString ConditionedMsgCtxt = ConditionPoStringForArchive(MsgCtxt);
+
+		// Find the unescaped comma that defines the breaking point between the namespace and the key
+		int32 CommaIndex = INDEX_NONE;
 		{
-			// If we're out of buffers, break out. The particle list is longer than expected.
-			if (OutputBufferIndex >= OutputBufferCount)
+			bool bIsEscaped = false;
+			for (int32 Index = 0; Index < ConditionedMsgCtxt.Len(); ++Index)
 			{
-				UE_LOG(LogPortableObjectPipeline, Warning, TEXT("msgctxt found in PO has too many parts: %s"), *ConditionedMsgCtxt);
-				break;
-			}
+				if (bIsEscaped)
+				{
+					// No longer escaped, and skip this character
+					bIsEscaped = false;
+					continue;
+				}
 
-			// Not in an escape sequence.
-			if (EscapeSequenceBuffer.IsEmpty())
-			{
-				// Comma marks the delimiter between namespace and key, if present.
-				if(C == TEXT(','))
+				if (ConditionedMsgCtxt[Index] == TEXT(','))
 				{
-					++OutputBufferIndex;
+					// Found the unescaped comma
+					CommaIndex = Index;
+					break;
 				}
-				// Regular character, just copy over.
-				else if (C != TEXT('\\'))
-				{
-					*OutputBuffers[OutputBufferIndex] += C;
-				}
-				// Start of an escape sequence, put in escape sequence buffer.
-				else
-				{
-					EscapeSequenceBuffer += C;
-				}
-			}
-			// If already in an escape sequence.
-			else
-			{
-				// Append to escape sequence buffer.
-				EscapeSequenceBuffer += C;
 
-				HandleEscapeSequenceBuffer();
+				if (ConditionedMsgCtxt[Index] == TEXT('\\'))
+				{
+					// Next character will be escaped
+					bIsEscaped = true;
+					continue;
+				}
 			}
 		}
-		// Catch any trailing backslashes.
-		HandleEscapeSequenceBuffer();
+
+		if (CommaIndex == INDEX_NONE)
+		{
+			OutNamespace = ConditionedMsgCtxt;
+			OutKey.Reset();
+		}
+		else
+		{
+			OutNamespace = ConditionedMsgCtxt.Mid(0, CommaIndex);
+			OutKey = ConditionedMsgCtxt.Mid(CommaIndex + 1);
+		}
+
+		UnescapeMsgCtxtParticleInline(OutNamespace);
+		UnescapeMsgCtxtParticleInline(OutKey);
 	}
 
 	FString ConditionArchiveStrForPo(const FString& InStr)
 	{
-		FString Result;
-		for (const TCHAR C : InStr)
-		{
-			switch (C)
-			{
-			case TEXT('\\'):	Result += TEXT("\\\\");	break;
-			case TEXT('"'):		Result += TEXT("\\\"");	break;
-			case TEXT('\r'):	Result += TEXT("\\r");	break;
-			case TEXT('\n'):	Result += TEXT("\\n");	break;
-			case TEXT('\t'):	Result += TEXT("\\t");	break;
-			default:			Result += C;			break;
-			}
-		}
+		FString Result = InStr;
+		Result.ReplaceInline(TEXT("\\"), TEXT("\\\\"), ESearchCase::CaseSensitive);
+		Result.ReplaceInline(TEXT("\""), TEXT("\\\""), ESearchCase::CaseSensitive);
+		Result.ReplaceInline(TEXT("\r"), TEXT("\\r"), ESearchCase::CaseSensitive);
+		Result.ReplaceInline(TEXT("\n"), TEXT("\\n"), ESearchCase::CaseSensitive);
+		Result.ReplaceInline(TEXT("\t"), TEXT("\\t"), ESearchCase::CaseSensitive);
 		return Result;
 	}
 
 	FString ConditionPoStringForArchive(const FString& InStr)
 	{
-		FString Result;
-		FString EscapeSequenceBuffer;
-
-		auto HandleEscapeSequenceBuffer = [&]()
-		{
-			// Insert unescaped sequence if needed.
-			if (!EscapeSequenceBuffer.IsEmpty())
-			{
-				bool EscapeSequenceIdentified = true;
-
-				// Identify escape sequence
-				TCHAR UnescapedCharacter = 0;
-				if (EscapeSequenceBuffer == TEXT("\\\\"))
-				{
-					UnescapedCharacter = '\\';
-				}
-				else if (EscapeSequenceBuffer == TEXT("\\\""))
-				{
-					UnescapedCharacter = '"';
-				}
-				else if (EscapeSequenceBuffer == TEXT("\\r"))
-				{
-					UnescapedCharacter = '\r';
-				}
-				else if (EscapeSequenceBuffer == TEXT("\\n"))
-				{
-					UnescapedCharacter = '\n';
-				}
-				else if (EscapeSequenceBuffer == TEXT("\\t"))
-				{
-					UnescapedCharacter = '\t';
-				}
-				else
-				{
-					EscapeSequenceIdentified = false;
-				}
-
-				// If identified, append the processed sequence as the unescaped character.
-				if (EscapeSequenceIdentified)
-				{
-					Result += UnescapedCharacter;
-				}
-				// If it was not identified, preserve the escape sequence and append it.
-				else
-				{
-					Result += EscapeSequenceBuffer;
-				}
-				// Either way, we've appended something based on the buffer and it should be reset.
-				EscapeSequenceBuffer.Empty();
-			}
-		};
-
-		for (const TCHAR C : InStr)
-		{
-			// Not in an escape sequence.
-			if (EscapeSequenceBuffer.IsEmpty())
-			{
-				// Regular character, just copy over.
-				if (C != TEXT('\\'))
-				{
-					Result += C;
-				}
-				// Start of an escape sequence, put in escape sequence buffer.
-				else
-				{
-					EscapeSequenceBuffer += C;
-				}
-			}
-			// If already in an escape sequence.
-			else
-			{
-				// Append to escape sequence buffer.
-				EscapeSequenceBuffer += C;
-
-				HandleEscapeSequenceBuffer();
-			}
-		}
-		// Catch any trailing backslashes.
-		HandleEscapeSequenceBuffer();
+		FString Result = InStr;
+		Result.ReplaceInline(TEXT("\\t"), TEXT("\t"), ESearchCase::CaseSensitive);
+		Result.ReplaceInline(TEXT("\\n"), TEXT("\n"), ESearchCase::CaseSensitive);
+		Result.ReplaceInline(TEXT("\\r"), TEXT("\r"), ESearchCase::CaseSensitive);
+		Result.ReplaceInline(TEXT("\\\""), TEXT("\""), ESearchCase::CaseSensitive);
+		Result.ReplaceInline(TEXT("\\\\"), TEXT("\\"), ESearchCase::CaseSensitive);
 		return Result;
 	}
 
@@ -308,7 +164,7 @@ namespace
 		// Source location format: /Path1/Path2/file.cpp - line 123
 		// PO Reference format: /Path1/Path2/file.cpp:123
 		// @TODO: Note, we assume the source location format here but it could be arbitrary.
-		return InSrcLocation.Replace(TEXT(" - line "), TEXT(":"));
+		return InSrcLocation.Replace(TEXT(" - line "), TEXT(":"), ESearchCase::CaseSensitive);
 	}
 
 	FString GetConditionedKeyForExtractedComment(const FString& Key)
@@ -332,7 +188,7 @@ namespace
 
 		InLocTextHelper.EnumerateSourceTexts([&](TSharedRef<FManifestEntry> InManifestEntry) -> bool
 		{
-			const FString CollapsedNamespace = InTextCollapseMode == ELocalizedTextCollapseMode::IdenticalPackageIdTextIdAndSource ? InManifestEntry->Namespace : TextNamespaceUtil::StripPackageNamespace(InManifestEntry->Namespace);
+			const FLocKey CollapsedNamespace = InTextCollapseMode == ELocalizedTextCollapseMode::IdenticalPackageIdTextIdAndSource ? InManifestEntry->Namespace : TextNamespaceUtil::StripPackageNamespace(InManifestEntry->Namespace.GetString());
 
 			for (const FManifestContext& Context : InManifestEntry->Contexts)
 			{
@@ -354,8 +210,8 @@ namespace
 						const FString Message = FLocTextHelper::SanitizeLogOutput(
 							FString::Printf(TEXT("Found previously entered localized string: %s [%s] %s %s=\"%s\" %s. It was previously \"%s\" %s in %s."),
 								*Context.SourceLocation,
-								*CollapsedNamespace,
-								*Context.Key,
+								*CollapsedNamespace.GetString(),
+								*Context.Key.GetString(),
 								*FJsonInternationalizationMetaDataSerializer::MetadataToString(Context.KeyMetadataObj),
 								*InManifestEntry->Source.Text,
 								*FJsonInternationalizationMetaDataSerializer::MetadataToString(InManifestEntry->Source.MetadataObj),
@@ -380,8 +236,8 @@ namespace
 					{
 						UE_LOG(LogPortableObjectPipeline, Error, TEXT("Could not process localized string: %s [%s] %s=\"%s\" %s."),
 							*Context.SourceLocation,
-							*CollapsedNamespace,
-							*Context.Key,
+							*CollapsedNamespace.GetString(),
+							*Context.Key.GetString(),
 							*InManifestEntry->Source.Text,
 							*FJsonInternationalizationMetaDataSerializer::MetadataToString(InManifestEntry->Source.MetadataObj)
 						);
@@ -391,19 +247,19 @@ namespace
 				if (bAddedContext)
 				{
 					// Add this collapsed namespace/key pair to our mapping so we can expand it again during import
-					OutCollapsedData.CollapsedNSKeyToExpandedNSKey.AddUnique(FCaseSensitiveStringPair(CollapsedNamespace, Context.Key), FCaseSensitiveStringPair(InManifestEntry->Namespace, Context.Key));
+					OutCollapsedData.CollapsedNSKeyToExpandedNSKey.AddUnique(FLocKeyPair(CollapsedNamespace, Context.Key), FLocKeyPair(InManifestEntry->Namespace, Context.Key));
 
 					// Add this collapsed namespace/source string pair to our mapping so we expand it again during import (also map it against any native "translation" as that's what foreign imports will use as their source for translations)
 					if (!Context.KeyMetadataObj.IsValid())
 					{
-						OutCollapsedData.CollapsedNSSourceStringToExpandedNSKey.AddUnique(FCaseSensitiveStringPair(CollapsedNamespace, InManifestEntry->Source.Text), FCaseSensitiveStringPair(InManifestEntry->Namespace, Context.Key));
+						OutCollapsedData.CollapsedNSSourceStringToExpandedNSKey.AddUnique(FLocKeyPair(CollapsedNamespace, InManifestEntry->Source.Text), FLocKeyPair(InManifestEntry->Namespace, Context.Key));
 
 						if (InLocTextHelper.HasNativeArchive())
 						{
 							TSharedPtr<FArchiveEntry> NativeTranslation = InLocTextHelper.FindTranslation(InLocTextHelper.GetNativeCulture(), InManifestEntry->Namespace, Context.Key, nullptr);
 							if (NativeTranslation.IsValid() && !NativeTranslation->Translation.Text.Equals(InManifestEntry->Source.Text))
 							{
-								OutCollapsedData.CollapsedNSSourceStringToExpandedNSKey.AddUnique(FCaseSensitiveStringPair(CollapsedNamespace, NativeTranslation->Translation.Text), FCaseSensitiveStringPair(InManifestEntry->Namespace, Context.Key));
+								OutCollapsedData.CollapsedNSSourceStringToExpandedNSKey.AddUnique(FLocKeyPair(CollapsedNamespace, NativeTranslation->Translation.Text), FLocKeyPair(InManifestEntry->Namespace, Context.Key));
 							}
 						}
 					}
@@ -416,9 +272,9 @@ namespace
 		return CollapsedManifest;
 	}
 
-	TMap<FPortableObjectEntryIdentity, TArray<FString>> ExtractPreservedPOComments(const FPortableObjectFormatDOM& InPortableObject)
+	TMap<FPortableObjectEntryKey, TArray<FString>> ExtractPreservedPOComments(const FPortableObjectFormatDOM& InPortableObject)
 	{
-		TMap<FPortableObjectEntryIdentity, TArray<FString>> POEntryToCommentMap;
+		TMap<FPortableObjectEntryKey, TArray<FString>> POEntryToCommentMap;
 		for (auto EntryPairIterator = InPortableObject.GetEntriesIterator(); EntryPairIterator; ++EntryPairIterator)
 		{
 			const TSharedPtr< FPortableObjectEntry >& Entry = EntryPairIterator->Value;
@@ -426,12 +282,12 @@ namespace
 			// Preserve only non-procedurally generated extracted comments.
 			const TArray<FString> CommentsToPreserve = Entry->ExtractedComments.FilterByPredicate([](const FString& ExtractedComment) -> bool
 			{
-				return !ExtractedComment.StartsWith("Key:") && !ExtractedComment.StartsWith("SourceLocation:") && !ExtractedComment.StartsWith("InfoMetaData:");
+				return !ExtractedComment.StartsWith(TEXT("Key:"), ESearchCase::CaseSensitive) && !ExtractedComment.StartsWith(TEXT("SourceLocation:"), ESearchCase::CaseSensitive) && !ExtractedComment.StartsWith(TEXT("InfoMetaData:"), ESearchCase::CaseSensitive);
 			});
 
 			if (CommentsToPreserve.Num())
 			{
-				POEntryToCommentMap.Add(FPortableObjectEntryIdentity{ Entry->MsgCtxt, Entry->MsgId, Entry->MsgIdPlural }, CommentsToPreserve);
+				POEntryToCommentMap.Add(FPortableObjectEntryKey(Entry->MsgId, Entry->MsgIdPlural, Entry->MsgCtxt), CommentsToPreserve);
 			}
 		}
 		return POEntryToCommentMap;
@@ -463,6 +319,12 @@ namespace
 
 	bool ImportPortableObject(FLocTextHelper& InLocTextHelper, const FString& InCulture, const FString& InPOFilePath, const FCollapsedData& InCollapsedData)
 	{
+		if (!FPaths::FileExists(InPOFilePath))
+		{
+			UE_LOG(LogPortableObjectPipeline, Warning, TEXT("Could not find file %s"), *InPOFilePath);
+			return true; // We don't fail on a missing file as the automation pipeline will always import before an export for a new language
+		}
+
 		FPortableObjectFormatDOM PortableObject;
 		if (!LoadPOFile(InPOFilePath, PortableObject))
 		{
@@ -489,7 +351,7 @@ namespace
 				const FString SourceText = ConditionPoStringForArchive(POEntry->MsgId);
 				const FString Translation = ConditionPoStringForArchive(POEntry->MsgStr[0]);
 
-				TArray<FCaseSensitiveStringPair> NamespacesAndKeys; // Namespace (First) and Key (Second)
+				TArray<FLocKeyPair> NamespacesAndKeys; // Namespace (First) and Key (Second)
 				{
 					FString ParsedNamespace;
 					FString ParsedKey;
@@ -498,12 +360,12 @@ namespace
 					if (ParsedKey.IsEmpty())
 					{
 						// Legacy non-keyed PO entry - need to look-up the expanded namespace key/pairs via the namespace and source string
-						InCollapsedData.CollapsedNSSourceStringToExpandedNSKey.MultiFind(FCaseSensitiveStringPair(ParsedNamespace, SourceText), NamespacesAndKeys);
+						InCollapsedData.CollapsedNSSourceStringToExpandedNSKey.MultiFind(FLocKeyPair(ParsedNamespace, SourceText), NamespacesAndKeys);
 					}
 					else
 					{
 						// Keyed PO entry - need to look-up the expanded namespace/key pairs via the namespace and key
-						InCollapsedData.CollapsedNSKeyToExpandedNSKey.MultiFind(FCaseSensitiveStringPair(ParsedNamespace, ParsedKey), NamespacesAndKeys);
+						InCollapsedData.CollapsedNSKeyToExpandedNSKey.MultiFind(FLocKeyPair(ParsedNamespace, ParsedKey), NamespacesAndKeys);
 					}
 				}
 
@@ -513,11 +375,11 @@ namespace
 					continue;
 				}
 
-				for (const FCaseSensitiveStringPair& NamespaceAndKey : NamespacesAndKeys)
+				for (const FLocKeyPair& NamespaceAndKey : NamespacesAndKeys)
 				{
 					// Alias for convenience of reading
-					const FString& Namespace = NamespaceAndKey.First;
-					const FString& Key = NamespaceAndKey.Second;
+					const FLocKey& Namespace = NamespaceAndKey.First;
+					const FLocKey& Key = NamespaceAndKey.Second;
 
 					// Get key metadata from the manifest, using the namespace and key.
 					const FManifestContext* ItemContext = nullptr;
@@ -576,7 +438,7 @@ namespace
 		NewPortableObject.CreateNewHeader();
 
 		// Add each manifest entry to the PO file
-		for (FManifestEntryByStringContainer::TConstIterator ManifestIterator = InCollapsedManifest->GetEntriesByKeyIterator(); ManifestIterator; ++ManifestIterator)
+		for (FManifestEntryByStringContainer::TConstIterator ManifestIterator = InCollapsedManifest->GetEntriesBySourceTextIterator(); ManifestIterator; ++ManifestIterator)
 		{
 			const TSharedRef<FManifestEntry> ManifestEntry = ManifestIterator.Value();
 
@@ -586,7 +448,7 @@ namespace
 				TSharedRef<FPortableObjectEntry> PoEntry = MakeShareable(new FPortableObjectEntry());
 
 				// For export we just use the first expanded namespace/key pair to find the current translation (they should all be identical due to how the import works)
-				const FCaseSensitiveStringPair& ExportNamespaceKeyPair = InCollapsedData.CollapsedNSKeyToExpandedNSKey.FindChecked(FCaseSensitiveStringPair(ManifestEntry->Namespace, Context.Key));
+				const FLocKeyPair& ExportNamespaceKeyPair = InCollapsedData.CollapsedNSKeyToExpandedNSKey.FindChecked(FLocKeyPair(ManifestEntry->Namespace, Context.Key));
 
 				// Find the correct translation based upon the native source text
 				FLocItem ExportedSource;
@@ -594,15 +456,15 @@ namespace
 				InLocTextHelper.GetExportText(InCulture, ExportNamespaceKeyPair.First, ExportNamespaceKeyPair.Second, Context.KeyMetadataObj, ELocTextExportSourceMethod::NativeText, ManifestEntry->Source, ExportedSource, ExportedTranslation);
 
 				PoEntry->MsgId = ConditionArchiveStrForPo(ExportedSource.Text);
-				PoEntry->MsgCtxt = ConditionIdentityForPOMsgCtxt(ManifestEntry->Namespace, Context.Key, Context.KeyMetadataObj, InTextCollapseMode);
+				PoEntry->MsgCtxt = ConditionIdentityForPOMsgCtxt(ManifestEntry->Namespace.GetString(), Context.Key.GetString(), Context.KeyMetadataObj, InTextCollapseMode);
 				PoEntry->MsgStr.Add(ConditionArchiveStrForPo(ExportedTranslation.Text));
 
 				//@TODO: We support additional metadata entries that can be translated.  How do those fit in the PO file format?  Ex: isMature
 				const FString PORefString = ConvertSrcLocationToPORef(Context.SourceLocation);
 				PoEntry->AddReference(PORefString); // Source location.
 
-				PoEntry->AddExtractedComment(FString::Printf(TEXT("Key:\t%s"), *Context.Key)); // "Notes from Programmer" in the form of the Key.
-				PoEntry->AddExtractedComment(FString::Printf(TEXT("SourceLocation:\t%s"), *PORefString)); // "Notes from Programmer" in the form of the Source Location, since this comes in handy too and OneSky doesn't properly show references, only comments.
+				PoEntry->AddExtractedComment(GetConditionedKeyForExtractedComment(Context.Key.GetString())); // "Notes from Programmer" in the form of the Key.
+				PoEntry->AddExtractedComment(GetConditionedReferenceForExtractedComment(PORefString)); // "Notes from Programmer" in the form of the Source Location, since this comes in handy too and OneSky doesn't properly show references, only comments.
 
 				TArray<FString> InfoMetaDataStrings;
 				if (Context.InfoMetadataObj.IsValid())
@@ -611,7 +473,7 @@ namespace
 					{
 						const FString KeyName = InfoMetaDataPair.Key;
 						const TSharedPtr<FLocMetadataValue> Value = InfoMetaDataPair.Value;
-						InfoMetaDataStrings.Add(FString::Printf(TEXT("InfoMetaData:\t\"%s\" : \"%s\""), *KeyName, *Value->ToString()));
+						InfoMetaDataStrings.Add(GetConditionedInfoMetaDataForExtractedComment(KeyName, Value->ToString()));
 					}
 				}
 				if (InfoMetaDataStrings.Num())
@@ -627,7 +489,7 @@ namespace
 		if (bShouldPersistComments)
 		{
 			// Preserve comments from the specified file now
-			TMap<FPortableObjectEntryIdentity, TArray<FString>> POEntryToCommentMap;
+			TMap<FPortableObjectEntryKey, TArray<FString>> POEntryToCommentMap;
 			{
 				FPortableObjectFormatDOM ExistingPortableObject;
 				if (LoadPOFile(InPOFilePath, ExistingPortableObject))

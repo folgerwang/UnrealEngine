@@ -91,17 +91,15 @@ class ENGINE_API UMaterialExpressionTextureSample : public UMaterialExpressionTe
 	//~ End UObject Interface
 
 	//~ Begin UMaterialExpression Interface
+#if WITH_EDITOR
 	virtual const TArray<FExpressionInput*> GetInputs() override;
 	virtual FExpressionInput* GetInput(int32 InputIndex) override;
 	virtual FName GetInputName(int32 InputIndex) const override;
 	virtual int32 GetWidth() const override;
 	virtual int32 GetLabelPadding() override { return 8; }
-#if WITH_EDITOR
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
-#endif // WITH_EDITOR
 	virtual bool MatchesSearchQuery( const TCHAR* SearchQuery ) override;
-#if WITH_EDITOR
 	virtual uint32 GetInputType(int32 InputIndex) override;
 #endif // WITH_EDITOR
 	//~ End UMaterialExpression Interface

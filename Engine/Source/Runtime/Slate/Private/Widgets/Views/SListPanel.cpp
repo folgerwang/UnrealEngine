@@ -7,7 +7,7 @@
 FNoChildren SListPanel::NoChildren = FNoChildren();
 
 SListPanel::SListPanel()
-	: Children()
+	: Children(this)
 {
 }
 

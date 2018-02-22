@@ -229,6 +229,9 @@ struct FLandscapeComponentGrassData
 
 	SIZE_T GetAllocatedSize() const;
 
+	// Check whether we can discard any data not needed with current scalability settings
+	void ConditionalDiscardDataOnLoad();
+
 	friend FArchive& operator<<(FArchive& Ar, FLandscapeComponentGrassData& Data);
 };
 
@@ -504,11 +507,11 @@ public:
 	void SerializeStateHashes(FArchive& Ar);
 
 	// Generates mobile platform data for this component
-	void GeneratePlatformVertexData();
+	void GeneratePlatformVertexData(const ITargetPlatform* TargetPlatform);
 	void GeneratePlatformPixelData();
 
 	/** Generate mobile data if it's missing or outdated */
-	void CheckGenerateLandscapePlatformData(bool bIsCooking);
+	void CheckGenerateLandscapePlatformData(bool bIsCooking, const ITargetPlatform* TargetPlatform);
 #endif
 
 	LANDSCAPE_API class UMaterialInstance* GetMaterialInstance(int32 InIndex, bool InDynamic = true) const;

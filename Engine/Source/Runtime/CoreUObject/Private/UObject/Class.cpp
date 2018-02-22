@@ -1917,6 +1917,12 @@ void UScriptStruct::PrepareCppStructOps()
 	{
 		UE_LOG(LogClass, Verbose, TEXT("Native struct %s has a custom net serializer."),*GetName());
 		StructFlags = EStructFlags(StructFlags | STRUCT_NetSerializeNative);
+
+		if (CppStructOps->HasNetSharedSerialization())
+		{
+			UE_LOG(LogClass, Verbose, TEXT("Native struct %s can share net serialization."),*GetName());
+			StructFlags = EStructFlags(StructFlags | STRUCT_NetSharedSerialization);
+		}
 	}
 	if (CppStructOps->HasNetDeltaSerializer())
 	{

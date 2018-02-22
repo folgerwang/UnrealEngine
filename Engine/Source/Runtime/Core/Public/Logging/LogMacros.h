@@ -90,6 +90,12 @@ private:
 #define UE_LOG_EXPAND_IS_FATAL_All(        ActiveBlock, InactiveBlock) InactiveBlock
 #define UE_LOG_EXPAND_IS_FATAL_SetColor(   ActiveBlock, InactiveBlock) InactiveBlock
 
+#if DO_CHECK
+	#define UE_LOG_SOURCE_FILE(File) File
+#else
+	#define UE_LOG_SOURCE_FILE(File) "Unknown"
+#endif
+
 #if NO_LOGGING
 
 	struct FNoLoggingCategory {};
@@ -100,9 +106,9 @@ private:
 		static_assert(TIsArrayOrRefOfType<decltype(Format), TCHAR>::Value, "Formatting string must be a TCHAR array."); \
 		if (ELogVerbosity::Verbosity == ELogVerbosity::Fatal) \
 		{ \
-			LowLevelFatalErrorHandler(__FILE__, __LINE__, Format, ##__VA_ARGS__); \
+			LowLevelFatalErrorHandler(UE_LOG_SOURCE_FILE(__FILE__), __LINE__, Format, ##__VA_ARGS__); \
 			_DebugBreakAndPromptForRemote(); \
-			FDebug::AssertFailed("", __FILE__, __LINE__, Format, ##__VA_ARGS__); \
+			FDebug::AssertFailed("", UE_LOG_SOURCE_FILE(__FILE__), __LINE__, Format, ##__VA_ARGS__); \
 			UE_LOG_EXPAND_IS_FATAL(Verbosity, CA_ASSUME(false);, PREPROCESSOR_NOTHING) \
 		} \
 	}
@@ -114,9 +120,9 @@ private:
 		{ \
 			if (Condition) \
 			{ \
-				LowLevelFatalErrorHandler(__FILE__, __LINE__, Format, ##__VA_ARGS__); \
+				LowLevelFatalErrorHandler(UE_LOG_SOURCE_FILE(__FILE__), __LINE__, Format, ##__VA_ARGS__); \
 				_DebugBreakAndPromptForRemote(); \
-				FDebug::AssertFailed("", __FILE__, __LINE__, Format, ##__VA_ARGS__); \
+				FDebug::AssertFailed("", UE_LOG_SOURCE_FILE(__FILE__), __LINE__, Format, ##__VA_ARGS__); \
 				UE_LOG_EXPAND_IS_FATAL(Verbosity, CA_ASSUME(false);, PREPROCESSOR_NOTHING) \
 			} \
 		} \
@@ -188,14 +194,16 @@ private:
 		{ \
 			UE_LOG_EXPAND_IS_FATAL(Verbosity, PREPROCESSOR_NOTHING, if (!CategoryName.IsSuppressed(ELogVerbosity::Verbosity))) \
 			{ \
-				FMsg::Logf_Internal(__FILE__, __LINE__, CategoryName.GetCategoryName(), ELogVerbosity::Verbosity, Format, ##__VA_ARGS__); \
 				UE_LOG_EXPAND_IS_FATAL(Verbosity, \
 					{ \
+						FMsg::Logf_Internal(UE_LOG_SOURCE_FILE(__FILE__), __LINE__, CategoryName.GetCategoryName(), ELogVerbosity::Verbosity, Format, ##__VA_ARGS__); \
 						_DebugBreakAndPromptForRemote(); \
-						FDebug::AssertFailed("", __FILE__, __LINE__, Format, ##__VA_ARGS__); \
+						FDebug::AssertFailed("", UE_LOG_SOURCE_FILE(__FILE__), __LINE__, Format, ##__VA_ARGS__); \
 						CA_ASSUME(false); \
 					}, \
-					PREPROCESSOR_NOTHING \
+					{ \
+						FMsg::Logf_Internal(nullptr, 0, CategoryName.GetCategoryName(), ELogVerbosity::Verbosity, Format, ##__VA_ARGS__); \
+					} \
 				) \
 			} \
 		} \
@@ -215,7 +223,7 @@ private:
 		{ \
 			if (!LogSecurity.IsSuppressed(ELogVerbosity::Warning)) \
 			{ \
-				FMsg::Logf_Internal(__FILE__, __LINE__, LogSecurity.GetCategoryName(), ELogVerbosity::Warning, TEXT("%s: %s: ") Format, *(NetConnection->RemoteAddressToString()), ToString(SecurityEventType), ##__VA_ARGS__); \
+				FMsg::Logf_Internal(UE_LOG_SOURCE_FILE(__FILE__), __LINE__, LogSecurity.GetCategoryName(), ELogVerbosity::Warning, TEXT("%s: %s: ") Format, *(NetConnection->RemoteAddressToString()), ToString(SecurityEventType), ##__VA_ARGS__); \
 			} \
 		} \
 	}
@@ -231,14 +239,16 @@ private:
 			{ \
 				if (Condition) \
 				{ \
-					FMsg::Logf_Internal(__FILE__, __LINE__, CategoryName.GetCategoryName(), ELogVerbosity::Verbosity, Format, ##__VA_ARGS__); \
 					UE_LOG_EXPAND_IS_FATAL(Verbosity, \
 						{ \
+							FMsg::Logf_Internal(UE_LOG_SOURCE_FILE(__FILE__), __LINE__, CategoryName.GetCategoryName(), ELogVerbosity::Verbosity, Format, ##__VA_ARGS__); \
 							_DebugBreakAndPromptForRemote(); \
-							FDebug::AssertFailed("", __FILE__, __LINE__, Format, ##__VA_ARGS__); \
+							FDebug::AssertFailed("", UE_LOG_SOURCE_FILE(__FILE__), __LINE__, Format, ##__VA_ARGS__); \
 							CA_ASSUME(false); \
 						}, \
-						PREPROCESSOR_NOTHING \
+						{ \
+							FMsg::Logf_Internal(nullptr, 0, CategoryName.GetCategoryName(), ELogVerbosity::Verbosity, Format, ##__VA_ARGS__); \
+						} \
 					) \
 					CA_ASSUME(true); \
 				} \
@@ -332,7 +342,7 @@ private:
 	* @param SecurityEventType, a security event type (ESecurityEvent::Type)
 	* @param Format, format text
 ***/
-#define CLOSE_CONNECTION_DUE_TO_SECURITY_VIOLATION(NetConnection, SecurityEventType, Format, ...) \
+#define CLOSE_CONNECTION_DUE_TO_SECURITY_VIOLATION_INNER(NetConnection, SecurityEventType, Format, ...) \
 { \
 	static_assert(TIsArrayOrRefOfType<decltype(Format), TCHAR>::Value, "Formatting string must be a TCHAR array."); \
 	check(NetConnection != nullptr); \
@@ -340,8 +350,15 @@ private:
 	UE_SECURITY_LOG(NetConnection, SecurityEventType, Format, ##__VA_ARGS__); \
 	UE_SECURITY_LOG(NetConnection, ESecurityEvent::Closed, TEXT("Connection closed")); \
 	NetConnection->Close(); \
-	PerfCountersIncrement(TEXT("ClosedConnectionsDueToSecurityViolations")); \
 }
+#if USE_SERVER_PERF_COUNTERS
+#define CLOSE_CONNECTION_DUE_TO_SECURITY_VIOLATION(NetConnection, SecurityEventType, Format, ...) \
+	CLOSE_CONNECTION_DUE_TO_SECURITY_VIOLATION_INNER(NetConnection, SecurityEventType, Format, ##__VA_ARGS__) \
+	PerfCountersIncrement(TEXT("ClosedConnectionsDueToSecurityViolations"));
+#else
+#define CLOSE_CONNECTION_DUE_TO_SECURITY_VIOLATION(NetConnection, SecurityEventType, Format, ...) \
+	CLOSE_CONNECTION_DUE_TO_SECURITY_VIOLATION_INNER(NetConnection, SecurityEventType, Format, ##__VA_ARGS__)
+#endif
 
 extern CORE_API int32 GEnsureOnNANDiagnostic;
 

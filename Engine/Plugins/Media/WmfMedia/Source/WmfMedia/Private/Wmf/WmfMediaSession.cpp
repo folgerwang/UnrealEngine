@@ -105,7 +105,7 @@ bool FWmfMediaSession::Initialize(bool LowLatency)
 {
 	Shutdown();
 
-	UE_LOG(LogWmfMedia, Verbose, TEXT("Session %p: Initializing media session (LowLatency: %d)"), this, LowLatency);
+	UE_LOG(LogWmfMedia, Verbose, TEXT("Session %p: Initializing (LowLatency: %d)"), this, LowLatency);
 
 	// create session attributes
 	TComPtr<IMFAttributes> Attributes;
@@ -228,7 +228,7 @@ void FWmfMediaSession::Shutdown()
 		return;
 	}
 
-	UE_LOG(LogWmfMedia, Verbose, TEXT("Session: %p: Shutting down media session"), this);
+	UE_LOG(LogWmfMedia, Verbose, TEXT("Session: %p: Shutting down"), this);
 
 	FScopeLock Lock(&CriticalSection);
 

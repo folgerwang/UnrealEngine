@@ -41,6 +41,9 @@ template<typename ShaderMetaType> class TShaderMap;
 class FPostprocessContext;
 struct FILCUpdatePrimTaskData;
 
+DECLARE_STATS_GROUP(TEXT("Command List Markers"), STATGROUP_CommandListMarkers, STATCAT_Advanced);
+
+
 /** Mobile only. Information used to determine whether static meshes will be rendered with CSM shaders or not. */
 class FMobileCSMVisibilityInfo
 {
@@ -463,6 +466,8 @@ public:
 	 * @param Bounds - The primitive's bounds.
 	 */
 	FRenderQueryRHIParamRef BatchPrimitive(const FVector& BoundsOrigin,const FVector& BoundsBoxExtent);
+
+	int32 GetQueriesNum() const { return BatchOcclusionQueries.Num(); };
 
 private:
 
@@ -1463,7 +1468,19 @@ public:
 	void PrepareViewRectsForRendering();
 
 	bool DoOcclusionQueries(ERHIFeatureLevel::Type InFeatureLevel) const;
+	/** Issues occlusion queries. */
+	void BeginOcclusionTests(FRHICommandListImmediate& RHICmdList, bool bRenderQueries);
 
+	// fences to make sure the rhi thread has digested the occlusion query renders before we attempt to read them back async
+	static FGraphEventRef OcclusionSubmittedFence[FOcclusionQueryHelpers::MaxBufferedOcclusionFrames];
+	/** Fences occlusion queries. */
+	void FenceOcclusionTests(FRHICommandListImmediate& RHICmdList);
+	/** Waits for the occlusion fence. */
+	void WaitOcclusionTests(FRHICommandListImmediate& RHICmdList);
+
+	/** bound shader state for occlusion test prims */
+	static FGlobalBoundShaderState OcclusionTestBoundShaderState;
+	
 	/**
 	* Whether or not to composite editor objects onto the scene as a post processing step
 	*
@@ -1670,6 +1687,8 @@ public:
 
 	bool RenderInverseOpacity(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
 
+	void RenderMobileBasePassDynamicData(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, bool bWireFrame, int32 FirstElement = 0, int32 AfterLastElement = MAX_int32);
+
 protected:
 	/** Finds the visible dynamic shadows for each view. */
 	void InitDynamicShadows(FRHICommandListImmediate& RHICmdList);
@@ -1682,6 +1701,9 @@ protected:
 	/** Renders the opaque base pass for mobile. */
 	void RenderMobileBasePass(FRHICommandListImmediate& RHICmdList, const TArrayView<const FViewInfo*> PassViews);
 
+	void RenderMobileEditorPrimitives(FRHICommandList& RHICmdList, const FViewInfo& View, FDrawingPolicyRenderState& DrawRenderState);
+	void RenderMobileBasePassViewParallel(const FViewInfo& View, FRHICommandListImmediate& ParentCmdList, TArray<FViewInfo>& Views);
+
 	/** Render modulated shadow projections in to the scene, loops over any unrendered shadows until all are processed.*/
 	void RenderModulatedShadowProjections(FRHICommandListImmediate& RHICmdList);
 
@@ -1690,6 +1712,9 @@ protected:
 
 	/** Resolves scene depth in case hardware does not support reading depth in the shader */
 	void ConditionalResolveSceneDepth(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
+
+	/** Issues occlusion queries */
+	void RenderOcclusion(FRHICommandListImmediate& RHICmdList);
 
 	/** Renders decals. */
 	void RenderDecals(FRHICommandListImmediate& RHICmdList);

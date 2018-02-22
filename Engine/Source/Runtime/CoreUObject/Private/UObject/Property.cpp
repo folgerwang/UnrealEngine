@@ -29,6 +29,7 @@ struct TStructOpsTypeTraits<FVector> : public TStructOpsTypeTraitsBase2<FVector>
 		WithNoInitConstructor = true,
 		WithZeroConstructor = true,
 		WithNetSerializer = true,
+		WithNetSharedSerialization = true,
 		WithSerializer = true,
 	};
 };
@@ -66,6 +67,7 @@ struct TStructOpsTypeTraits<FVector2D> : public TStructOpsTypeTraitsBase2<FVecto
 		WithNoInitConstructor = true,
 		WithZeroConstructor = true,
 		WithNetSerializer = true,
+		WithNetSharedSerialization = true,
 		WithSerializer = true,
 	};
 };
@@ -91,6 +93,7 @@ struct TStructOpsTypeTraits<FPlane> : public TStructOpsTypeTraitsBase2<FPlane>
 		WithNoInitConstructor = true,
 		WithZeroConstructor = true,
 		WithNetSerializer = true,
+		WithNetSharedSerialization = true,
 		WithSerializer = true,
 	};
 };
@@ -104,6 +107,7 @@ struct TStructOpsTypeTraits<FRotator> : public TStructOpsTypeTraitsBase2<FRotato
 		WithNoInitConstructor = true,
 		WithZeroConstructor = true,
 		WithNetSerializer = true,
+		WithNetSharedSerialization = true,
 		WithSerializer = true,
 	};
 };
@@ -194,6 +198,7 @@ struct TStructOpsTypeTraits<FQuat> : public TStructOpsTypeTraitsBase2<FQuat>
 		//quat is somewhat special in that it initialized w to one
 		WithNoInitConstructor = true,
 		WithNetSerializer = true,
+		WithNetSharedSerialization = true,
 	};
 };
 IMPLEMENT_STRUCT(Quat);
@@ -733,6 +738,11 @@ bool UProperty::NetSerializeItem( FArchive& Ar, UPackageMap* Map, void* Data, TA
 {
 	SerializeItem( Ar, Data, NULL );
 	return 1;
+}
+
+bool UProperty::SupportsNetSharedSerialization() const
+{
+	return true;
 }
 
 //

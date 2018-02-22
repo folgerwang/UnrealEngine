@@ -14,11 +14,19 @@
 #include "Delegates/Delegate.h"
 #include "Containers/Ticker.h"
 #include "Misc/ScopeLock.h"
+#include "Android/AndroidProperties.h"
+#include "Interfaces/ITargetPlatformModule.h"
+#include "Common/TargetPlatformBase.h"
+#include "Interfaces/IAndroidDeviceDetection.h"
+#include "Interfaces/IAndroidDeviceDetectionModule.h"
+#include "AndroidTargetDevice.h"
 
 #if WITH_ENGINE
 #include "Internationalization/Text.h"
 #include "StaticMeshResources.h"
 #endif // WITH_ENGINE
+
+#define LOCTEXT_NAMESPACE "FAndroidTargetPlatform" 
 
 class FTargetDeviceId;
 class IAndroidDeviceDetection;
@@ -75,16 +83,14 @@ namespace AndroidTexFormat
 /**
  * FAndroidTargetPlatform, abstraction for cooking Android platforms
  */
-template<class TPlatformProperties>
-class FAndroidTargetPlatform
-	: public TTargetPlatformBase< TPlatformProperties >
+class FAndroidTargetPlatform : public TTargetPlatformBase<FAndroidPlatformProperties>
 {
 public:
 
 	/**
 	 * Default constructor.
 	 */
-	FAndroidTargetPlatform( );
+	FAndroidTargetPlatform(bool bInIsClient);
 
 	/**
 	 * Destructor
@@ -98,9 +104,31 @@ public:
 	 *
 	 * @param Variant name.
 	 */
-	virtual FString GetAndroidVariantName( )
+	virtual FString GetAndroidVariantName() const
 	{
 		return FString();	
+	}
+
+
+	virtual FString IniPlatformName() const override
+	{
+		return "Android";
+	}
+
+	virtual FString PlatformName() const override
+	{
+		FString PlatformName = TEXT("Android");
+		FString Variant = GetAndroidVariantName();
+		if (Variant.Len() > 0)
+		{
+			PlatformName += FString(TEXT("_")) + Variant;
+		}
+		if (bIsClient)
+		{
+			PlatformName += TEXT("Client");
+		}
+
+		return PlatformName;
 	}
 
 public:
@@ -134,6 +162,11 @@ public:
 		return false;
 	}
 
+	virtual bool IsClientOnly() const override
+	{
+		return bIsClient;
+	}
+
 	virtual bool IsSdkInstalled(bool bProjectHasCode, FString& OutDocumentationPath) const override;
 
 	virtual int32 CheckRequirements(const FString& ProjectPath, bool bProjectHasCode, FString& OutTutorialPath, FString& OutDocumentationPath, FText& CustomizedLogMessage) const override;
@@ -150,11 +183,6 @@ public:
 	{
 		// most formats do support non-POT compressed textures
 		return true;
-	}
-
-	virtual FString IniPlatformName() const override
-	{
-		return "Android";
 	}
 
 #if WITH_ENGINE
@@ -179,6 +207,9 @@ public:
 
 	virtual FName GetWaveFormat( const class USoundWave* Wave ) const override;
 	virtual void GetAllWaveFormats( TArray<FName>& OutFormats) const override;
+
+	virtual FPlatformAudioCookOverrides* GetAudioCompressionSettings() const override;
+
 #endif //WITH_ENGINE
 
 	virtual bool SupportsVariants() const override;
@@ -191,6 +222,7 @@ public:
 		InBoolKeys.Add(TEXT("bBuildForArmV7")); InBoolKeys.Add(TEXT("bBuildForArm64")); InBoolKeys.Add(TEXT("bBuildForX86"));
 		InBoolKeys.Add(TEXT("bBuildForX8664")); InBoolKeys.Add(TEXT("bBuildForES2"));
 		InBoolKeys.Add(TEXT("bBuildForES31")); InBoolKeys.Add(TEXT("bBuildWithHiddenSymbolVisibility"));
+		InBoolKeys.Add(TEXT("bUseNEONForArmV7")); InBoolKeys.Add(TEXT("bSaveSymbols"));
 		InStringKeys.Add(TEXT("NDKAPILevel"));
 	}
 
@@ -230,6 +262,13 @@ protected:
 		return true;
 	}
 
+	// query for rene3ring mode support
+	bool SupportsES2() const;
+	bool SupportsES31() const;
+	bool SupportsAEP() const;
+	bool SupportsVulkan() const;
+	bool SupportsSoftwareOcclusion() const;
+
 #if WITH_ENGINE
 	// Holds the Engine INI settings (for quick access).
 	FConfigFile EngineSettings;
@@ -239,6 +278,9 @@ private:
 
 	// Handles when the ticker fires.
 	bool HandleTicker( float DeltaTime );
+
+	// true if this is a client TP
+	bool bIsClient;
 
 	// Holds a map of valid devices.
 	TMap<FString, FAndroidTargetDevicePtr> Devices;
@@ -270,4 +312,482 @@ private:
 };
 
 
-#include "AndroidTargetPlatform.inl"
+//#include "AndroidTargetPlatform.inl"
+
+
+class FAndroid_DXTTargetPlatform : public FAndroidTargetPlatform
+{
+public:
+	FAndroid_DXTTargetPlatform(bool bIsClient) : FAndroidTargetPlatform(bIsClient) {}
+
+	virtual FString GetAndroidVariantName() const override
+	{
+		return TEXT("DXT");
+	}
+
+	virtual FText DisplayName() const override
+	{
+		return LOCTEXT("Android_DXT", "Android (DXT)");
+	}
+
+	virtual bool SupportsTextureFormat(FName Format) const override
+	{
+		if (Format == AndroidTexFormat::NameDXT1 ||
+			Format == AndroidTexFormat::NameDXT5 ||
+			Format == AndroidTexFormat::NameAutoDXT)
+		{
+			return true;
+		}
+		return false;
+	}
+
+	virtual bool SupportedByExtensionsString(const FString& ExtensionsString, const int GLESVersion) const override
+	{
+		return (ExtensionsString.Contains(TEXT("GL_NV_texture_compression_s3tc")) || ExtensionsString.Contains(TEXT("GL_EXT_texture_compression_s3tc")));
+	}
+
+	virtual FText GetVariantDisplayName() const override
+	{
+		return LOCTEXT("Android_DXT_ShortName", "DXT");
+	}
+
+	virtual float GetVariantPriority() const override
+	{
+		float Priority;
+		return (GConfig->GetFloat(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("TextureFormatPriority_DXT"), Priority, GEngineIni) ?
+			Priority : 0.6f) * 10.0f + (IsClientOnly() ? 0.25f : 0.5f);
+	}
+};
+
+
+
+class FAndroid_ATCTargetPlatform : public FAndroidTargetPlatform
+{
+public:
+	FAndroid_ATCTargetPlatform(bool bIsClient) : FAndroidTargetPlatform(bIsClient) {}
+
+	virtual FString GetAndroidVariantName() const override
+	{
+		return TEXT("ATC");
+	}
+
+	virtual FText DisplayName() const override
+	{
+		return LOCTEXT("Android_ATC", "Android (ATC)");
+	}
+
+	virtual bool SupportsTextureFormat(FName Format) const override
+	{
+		if (Format == AndroidTexFormat::NameATC_RGB ||
+			Format == AndroidTexFormat::NameATC_RGBA_I ||
+			Format == AndroidTexFormat::NameAutoATC)
+		{
+			return true;
+		}
+		return false;
+	}
+
+	virtual bool SupportedByExtensionsString(const FString& ExtensionsString, const int GLESVersion) const override
+	{
+		return (ExtensionsString.Contains(TEXT("GL_ATI_texture_compression_atitc")) || ExtensionsString.Contains(TEXT("GL_AMD_compressed_ATC_texture")));
+	}
+
+	virtual FText GetVariantDisplayName() const override
+	{
+		return LOCTEXT("Android_ATC_ShortName", "ATC");
+	}
+
+	virtual float GetVariantPriority() const override
+	{
+		float Priority;
+		return (GConfig->GetFloat(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("TextureFormatPriority_ATC"), Priority, GEngineIni) ?
+			Priority : 0.5f) * 10.0f + (IsClientOnly() ? 0.25f : 0.5f);
+	}
+};
+
+
+
+class FAndroid_ASTCTargetPlatform : public FAndroidTargetPlatform
+{
+public:
+	FAndroid_ASTCTargetPlatform(bool bIsClient) : FAndroidTargetPlatform(bIsClient) {}
+
+	virtual FString GetAndroidVariantName() const override
+	{
+		return TEXT("ASTC");
+	}
+
+	virtual FText DisplayName() const override
+	{
+		return LOCTEXT("Android_ASTC", "Android (ASTC)");
+	}
+
+	virtual bool SupportsTextureFormat(FName Format) const override
+	{
+		if (Format == AndroidTexFormat::NameASTC_4x4 ||
+			Format == AndroidTexFormat::NameASTC_6x6 ||
+			Format == AndroidTexFormat::NameASTC_8x8 ||
+			Format == AndroidTexFormat::NameASTC_10x10 ||
+			Format == AndroidTexFormat::NameASTC_12x12 ||
+			Format == AndroidTexFormat::NameAutoASTC)
+		{
+			return true;
+		}
+		return false;
+	}
+
+#if WITH_ENGINE
+	virtual void GetTextureFormats(const UTexture* Texture, TArray<FName>& OutFormats) const
+	{
+		check(Texture);
+
+		// we remap some of the defaults (with PVRTC and ASTC formats)
+		static FName FormatRemap[][2] =
+		{
+			// Default format:				ASTC format:
+			{ { FName(TEXT("DXT1")) },{ FName(TEXT("ASTC_RGB")) } },
+			{ { FName(TEXT("DXT5")) },{ FName(TEXT("ASTC_RGBA")) } },
+			{ { FName(TEXT("DXT5n")) },{ FName(TEXT("ASTC_NormalAG")) } },
+			{ { FName(TEXT("BC5")) },{ FName(TEXT("ASTC_NormalRG")) } },
+			{ { FName(TEXT("BC6H")) },{ FName(TEXT("ASTC_RGB")) } },
+			{ { FName(TEXT("BC7")) },{ FName(TEXT("ASTC_RGBAuto")) } },
+			{ { FName(TEXT("AutoDXT")) },{ FName(TEXT("ASTC_RGBAuto")) } },
+		};
+
+		FName TextureFormatName = NAME_None;
+
+		// forward rendering only needs one channel for shadow maps
+		if (Texture->LODGroup == TEXTUREGROUP_Shadowmap)
+		{
+			TextureFormatName = FName(TEXT("G8"));
+		}
+
+		// if we didn't assign anything specially, then use the defaults
+		if (TextureFormatName == NAME_None)
+		{
+			TextureFormatName = GetDefaultTextureFormatName(this, Texture, EngineSettings, false);
+		}
+
+		// perform any remapping away from defaults
+		bool bFoundRemap = false;
+		for (int32 RemapIndex = 0; RemapIndex < ARRAY_COUNT(FormatRemap); ++RemapIndex)
+		{
+			if (TextureFormatName == FormatRemap[RemapIndex][0])
+			{
+				// we found a remapping
+				bFoundRemap = true;
+				OutFormats.AddUnique(FormatRemap[RemapIndex][1]);
+			}
+		}
+
+		// if we didn't already remap above, add it now
+		if (!bFoundRemap)
+		{
+			OutFormats.Add(TextureFormatName);
+		}
+	}
+
+
+	virtual void GetAllTextureFormats(TArray<FName>& OutFormats) const override
+	{
+		// we remap some of the defaults (with PVRTC and ASTC formats)
+		static FName FormatRemap[][2] =
+		{
+			// Default format:				ASTC format:
+			{ { FName(TEXT("DXT1")) },{ FName(TEXT("ASTC_RGB")) } },
+			{ { FName(TEXT("DXT5")) },{ FName(TEXT("ASTC_RGBA")) } },
+			{ { FName(TEXT("DXT5n")) },{ FName(TEXT("ASTC_NormalAG")) } },
+			{ { FName(TEXT("BC5")) },{ FName(TEXT("ASTC_NormalRG")) } },
+			{ { FName(TEXT("BC6H")) },{ FName(TEXT("ASTC_RGB")) } },
+			{ { FName(TEXT("BC7")) },{ FName(TEXT("ASTC_RGBAuto")) } },
+			{ { FName(TEXT("AutoDXT")) },{ FName(TEXT("ASTC_RGBAuto")) } },
+		};
+
+		GetAllDefaultTextureFormats(this, OutFormats, false);
+
+		for (int32 RemapIndex = 0; RemapIndex < ARRAY_COUNT(FormatRemap); ++RemapIndex)
+		{
+			OutFormats.Remove(FormatRemap[RemapIndex][0]);
+			OutFormats.AddUnique(FormatRemap[RemapIndex][1]);
+		}
+	}
+
+#endif
+
+	virtual bool SupportedByExtensionsString(const FString& ExtensionsString, const int GLESVersion) const override
+	{
+		return ExtensionsString.Contains(TEXT("GL_KHR_texture_compression_astc_ldr"));
+	}
+
+	virtual FText GetVariantDisplayName() const override
+	{
+		return LOCTEXT("Android_ASTC_ShortName", "ASTC");
+	}
+
+	virtual float GetVariantPriority() const override
+	{
+		float Priority;
+		return (GConfig->GetFloat(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("TextureFormatPriority_ASTC"), Priority, GEngineIni) ?
+			Priority : 0.9f) * 10.0f + (IsClientOnly() ? 0.25f : 0.5f);
+	}
+};
+
+
+
+class FAndroid_PVRTCTargetPlatform : public FAndroidTargetPlatform
+{
+public:
+	FAndroid_PVRTCTargetPlatform(bool bIsClient) : FAndroidTargetPlatform(bIsClient) {}
+
+	virtual FString GetAndroidVariantName() const override
+	{
+		return TEXT("PVRTC");
+	}
+
+	virtual FText DisplayName() const override
+	{
+		return LOCTEXT("Android_PVRTC", "Android (PVRTC)");
+	}
+
+	virtual bool SupportsCompressedNonPOT() const override
+	{
+		return false;
+	}
+
+	virtual bool SupportsTextureFormat(FName Format) const override
+	{
+		if (Format == AndroidTexFormat::NamePVRTC2 ||
+			Format == AndroidTexFormat::NamePVRTC4 ||
+			Format == AndroidTexFormat::NameAutoPVRTC)
+		{
+			return true;
+		}
+		return false;
+	}
+
+	virtual bool SupportedByExtensionsString(const FString& ExtensionsString, const int GLESVersion) const override
+	{
+		return ExtensionsString.Contains(TEXT("GL_IMG_texture_compression_pvrtc"));
+	}
+
+	virtual FText GetVariantDisplayName() const override
+	{
+		return LOCTEXT("Android_PVRTC_ShortName", "PVRTC");
+	}
+
+	virtual float GetVariantPriority() const override
+	{
+		float Priority;
+		return (GConfig->GetFloat(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("TextureFormatPriority_PVRTC"), Priority, GEngineIni) ?
+			Priority : 0.8f) * 10.0f + (IsClientOnly() ? 0.25f : 0.5f);
+	}
+};
+
+
+class FAndroid_ETC2TargetPlatform : public FAndroidTargetPlatform
+{
+public:
+
+	FAndroid_ETC2TargetPlatform(bool bIsClient) : FAndroidTargetPlatform(bIsClient) {}
+
+	virtual FText DisplayName() const override
+	{
+		return LOCTEXT("Android_ETC2", "Android (ETC2)");
+	}
+
+	virtual FString GetAndroidVariantName() const override
+	{
+		return TEXT("ETC2");
+	}
+
+	virtual bool SupportsTextureFormat(FName Format) const override
+	{
+		if (Format == AndroidTexFormat::NameETC2_RGB ||
+			Format == AndroidTexFormat::NameETC2_RGBA ||
+			Format == AndroidTexFormat::NameAutoETC2)
+		{
+			return true;
+		}
+
+		return false;
+	}
+
+
+	virtual bool SupportedByExtensionsString(const FString& ExtensionsString, const int GLESVersion) const override
+	{
+		return GLESVersion >= 0x30000;
+	}
+
+	virtual FText GetVariantDisplayName() const override
+	{
+		return LOCTEXT("Android_ETC2_ShortName", "ETC2");
+	}
+
+	virtual float GetVariantPriority() const override
+	{
+		float Priority;
+		return (GConfig->GetFloat(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("TextureFormatPriority_ETC2"), Priority, GEngineIni) ?
+			Priority : 0.2f) * 10.0f + (IsClientOnly() ? 0.25f : 0.5f);
+	}
+};
+
+class FAndroid_ETC1TargetPlatform : public FAndroidTargetPlatform
+{
+public:
+
+	FAndroid_ETC1TargetPlatform(bool bIsClient) : FAndroidTargetPlatform(bIsClient) {}
+
+
+	virtual FText DisplayName() const override
+	{
+		return LOCTEXT("Android_ETC1", "Android (ETC1)");
+	}
+
+	virtual FString GetAndroidVariantName() const override
+	{
+		return TEXT("ETC1");
+	}
+
+	virtual bool SupportsTextureFormat(FName Format) const override
+	{
+		if (Format == AndroidTexFormat::NameETC1 ||
+			Format == AndroidTexFormat::NameAutoETC1)
+		{
+			return true;
+		}
+
+		return false;
+	}
+
+	// End FAndroidTargetPlatform overrides
+
+	virtual bool SupportedByExtensionsString(const FString& ExtensionsString, const int GLESVersion) const override
+	{
+		return ExtensionsString.Contains(TEXT("GL_OES_compressed_ETC1_RGB8_texture"));
+	}
+
+	virtual FText GetVariantDisplayName() const override
+	{
+		return LOCTEXT("Android_ETC1_ShortName", "ETC1");
+	}
+
+	virtual float GetVariantPriority() const override
+	{
+		float Priority;
+		return (GConfig->GetFloat(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("TextureFormatPriority_ETC1"), Priority, GEngineIni) ?
+			Priority : 0.1f) * 10.0f + (IsClientOnly() ? 0.25f : 0.5f);
+	}
+};
+
+
+
+
+class FAndroid_MultiTargetPlatform : public FAndroidTargetPlatform
+{
+	TArray<ITargetPlatform*> FormatTargetPlatforms;
+	FString FormatTargetString;
+
+public:
+	FAndroid_MultiTargetPlatform(bool bIsClient) : FAndroidTargetPlatform(bIsClient) { }
+
+	// set up all of the multiple formats together into this one
+	void LoadFormats(TArray<FAndroidTargetPlatform*> SingleFormatTPs)
+	{
+		// sort formats by priority so higher priority formats are packaged (and thus used by the device) first
+		// note that we passed this by value, not ref, so we can sort it
+		SingleFormatTPs.Sort([](const FAndroidTargetPlatform& A, const FAndroidTargetPlatform& B)
+		{
+			float PriorityA = 0.f;
+			float PriorityB = 0.f;
+			FString VariantA = A.GetAndroidVariantName().Replace(TEXT("Client"), TEXT(""));
+			FString VariantB = B.GetAndroidVariantName().Replace(TEXT("Client"), TEXT(""));
+			GConfig->GetFloat(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), *(FString(TEXT("TextureFormatPriority_")) + VariantA), PriorityA, GEngineIni);
+			GConfig->GetFloat(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), *(FString(TEXT("TextureFormatPriority_")) + VariantB), PriorityB, GEngineIni);
+			return PriorityA > PriorityB;
+		});
+
+		FormatTargetPlatforms.Empty();
+		FormatTargetString = TEXT("");
+
+		TSet<FString> SeenFormats;
+
+		// Load the TargetPlatform module for each format
+		for (FAndroidTargetPlatform* SingleFormatTP : SingleFormatTPs)
+		{
+			// only use once each
+			if (SeenFormats.Contains(SingleFormatTP->GetAndroidVariantName()))
+			{
+				continue;
+			}
+			SeenFormats.Add(SingleFormatTP->GetAndroidVariantName());
+
+			bool bEnabled = false;
+			FString SettingsName = FString(TEXT("bMultiTargetFormat_")) + *SingleFormatTP->GetAndroidVariantName();
+			GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), *SettingsName, bEnabled, GEngineIni);
+			if (bEnabled)
+			{
+				if (FormatTargetPlatforms.Num())
+				{
+					FormatTargetString += TEXT(",");
+				}
+				FormatTargetString += SingleFormatTP->GetAndroidVariantName();
+				FormatTargetPlatforms.Add(SingleFormatTP);
+			}
+		}
+
+		PlatformInfo::UpdatePlatformDisplayName(TEXT("Android_Multi"), DisplayName());
+	}
+
+	virtual FString GetAndroidVariantName() const override
+	{
+		return TEXT("Multi");
+	}
+
+	virtual FText DisplayName() const override
+	{
+		return FText::Format(LOCTEXT("Android_Multi", "Android (Multi:{0})"), FText::FromString(FormatTargetString));
+	}
+
+#if WITH_ENGINE
+	virtual void GetTextureFormats(const UTexture* Texture, TArray<FName>& OutFormats) const
+	{
+		// Ask each platform variant to choose texture formats
+		for (ITargetPlatform* Platform : FormatTargetPlatforms)
+		{
+			TArray<FName> PlatformFormats;
+			Platform->GetTextureFormats(Texture, PlatformFormats);
+			for (FName Format : PlatformFormats)
+			{
+				OutFormats.AddUnique(Format);
+			}
+		}
+	}
+
+	virtual void GetAllTextureFormats(TArray<FName>& OutFormats) const override
+	{
+		// Ask each platform variant to choose texture formats
+		for (ITargetPlatform* Platform : FormatTargetPlatforms)
+		{
+			TArray<FName> PlatformFormats;
+			Platform->GetAllTextureFormats(PlatformFormats);
+			for (FName Format : PlatformFormats)
+			{
+				OutFormats.AddUnique(Format);
+			}
+		}
+	}
+#endif	
+
+	virtual FText GetVariantDisplayName() const override
+	{
+		return LOCTEXT("Android_Multi_ShortName", "Multi");
+	}
+
+	virtual float GetVariantPriority() const override
+	{
+		// lowest priority so specific variants are chosen first
+		return (IsClientOnly() ? 0.25f : 0.5f);
+	}
+};
+
+#undef LOCTEXT_NAMESPACE

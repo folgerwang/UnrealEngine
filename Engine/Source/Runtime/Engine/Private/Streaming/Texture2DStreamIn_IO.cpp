@@ -57,7 +57,7 @@ void FTexture2DStreamIn_IO::SetIOFilename(const FContext& Context)
 		}
 		else if (MipMap.BulkData.GetBulkDataSize() <= 0)
 		{
-			UE_LOG(LogTexture, Error, TEXT("Invalid bulk data size."));
+			UE_LOG(LogTexture, Error, TEXT("%s has invalid bulk data size."), *Context.Texture->GetName());
 			IOFilename.Reset();
 			break;
 		}

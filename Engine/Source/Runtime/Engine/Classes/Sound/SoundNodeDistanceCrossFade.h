@@ -105,7 +105,7 @@ public:
 	/** Ensure amount of Cross Fade inputs matches new amount of children */
 	virtual void SetChildNodes(TArray<USoundNode*>& InChildNodes) override;
 #endif //WITH_EDITOR
-	virtual float MaxAudibleDistance( float CurrentMaxDistance ) override;
+	virtual float GetMaxDistance() const override;
 	virtual int32 GetNumSounds(const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound) const;
 	//~ End USoundNode Interface. 
 

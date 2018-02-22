@@ -7,7 +7,7 @@
 #include "Misc/CoreDelegates.h"
 
 #if WITH_EDITOR
-#include "IAndroid_MultiTargetPlatformModule.h"
+#include "IAndroidTargetPlatformModule.h"
 #endif
 
 DEFINE_LOG_CATEGORY(LogAndroidRuntimeSettings);
@@ -45,58 +45,12 @@ UAndroidRuntimeSettings::UAndroidRuntimeSettings(const FObjectInitializer& Objec
 #if WITH_EDITOR
 static void InvalidateAllAndroidPlatforms()
 {
-	ITargetPlatformModule* Module = FModuleManager::GetModulePtr<IAndroid_MultiTargetPlatformModule>("AndroidTargetPlatform");
-	if (Module != nullptr)
-	{
-		FCoreDelegates::OnTargetPlatformChangedSupportedFormats.Broadcast(Module->GetTargetPlatform());
-	}
+	ITargetPlatformModule* Module = FModuleManager::GetModulePtr<IAndroidTargetPlatformModule>("AndroidTargetPlatform");
 
-	Module = FModuleManager::GetModulePtr<IAndroid_MultiTargetPlatformModule>("Android_PVRTCTargetPlatform");
-	if (Module != nullptr)
+	// call the delegate for each TP object
+	for (ITargetPlatform* TargetPlatform : Module->GetTargetPlatforms())
 	{
-		FCoreDelegates::OnTargetPlatformChangedSupportedFormats.Broadcast(Module->GetTargetPlatform());
-	}
-
-	Module = FModuleManager::GetModulePtr<IAndroid_MultiTargetPlatformModule>("Android_ATCTargetPlatform");
-	if (Module != nullptr)
-	{
-		FCoreDelegates::OnTargetPlatformChangedSupportedFormats.Broadcast(Module->GetTargetPlatform());
-	}
-
-	Module = FModuleManager::GetModulePtr<IAndroid_MultiTargetPlatformModule>("Android_DXTTargetPlatform");
-	if (Module != nullptr)
-	{
-		FCoreDelegates::OnTargetPlatformChangedSupportedFormats.Broadcast(Module->GetTargetPlatform());
-	}
-
-	Module = FModuleManager::GetModulePtr<IAndroid_MultiTargetPlatformModule>("Android_ETC1TargetPlatform");
-	if (Module != nullptr)
-	{
-		FCoreDelegates::OnTargetPlatformChangedSupportedFormats.Broadcast(Module->GetTargetPlatform());
-	}
-
-	Module = FModuleManager::GetModulePtr<IAndroid_MultiTargetPlatformModule>("Android_ETC1aTargetPlatform");
-	if (Module != nullptr)
-	{
-		FCoreDelegates::OnTargetPlatformChangedSupportedFormats.Broadcast(Module->GetTargetPlatform());
-	}
-
-	Module = FModuleManager::GetModulePtr<IAndroid_MultiTargetPlatformModule>("Android_ETC2TargetPlatform");
-	if (Module != nullptr)
-	{
-		FCoreDelegates::OnTargetPlatformChangedSupportedFormats.Broadcast(Module->GetTargetPlatform());
-	}
-
-	Module = FModuleManager::GetModulePtr<IAndroid_MultiTargetPlatformModule>("Android_ASTCTargetPlatform");
-	if (Module != nullptr)
-	{
-		FCoreDelegates::OnTargetPlatformChangedSupportedFormats.Broadcast(Module->GetTargetPlatform());
-	}
-
-	Module = FModuleManager::GetModulePtr<IAndroid_MultiTargetPlatformModule>("Android_MultiTargetPlatform");
-	if (Module != nullptr)
-	{
-		FCoreDelegates::OnTargetPlatformChangedSupportedFormats.Broadcast(Module->GetTargetPlatform());
+		FCoreDelegates::OnTargetPlatformChangedSupportedFormats.Broadcast(TargetPlatform);
 	}
 }
 
@@ -135,11 +89,11 @@ void UAndroidRuntimeSettings::PostEditChangeProperty(struct FPropertyChangedEven
 			UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UAndroidRuntimeSettings, bMultiTargetFormat_ETC1)), GetDefaultConfigFilename());
 		}
 
-		// Notify the Android_MultiTargetPlatform module if it's loaded
-		IAndroid_MultiTargetPlatformModule* Module = FModuleManager::GetModulePtr<IAndroid_MultiTargetPlatformModule>("Android_MultiTargetPlatform");
+		// Notify the AndroidTargetPlatform module if it's loaded
+		IAndroidTargetPlatformModule* Module = FModuleManager::GetModulePtr<IAndroidTargetPlatformModule>("AndroidTargetPlatform");
 		if (Module)
 		{
-			Module->NotifySelectedFormatsChanged();
+			Module->NotifyMultiSelectedFormatsChanged();
 		}
 	}
 
@@ -147,11 +101,11 @@ void UAndroidRuntimeSettings::PostEditChangeProperty(struct FPropertyChangedEven
 	{
 		UpdateSinglePropertyInConfigFile(PropertyChangedEvent.Property, GetDefaultConfigFilename());
 
-		// Notify the Android_MultiTargetPlatform module if it's loaded
-		IAndroid_MultiTargetPlatformModule* Module = FModuleManager::GetModulePtr<IAndroid_MultiTargetPlatformModule>("Android_MultiTargetPlatform");
+		// Notify the AndroidTargetPlatform module if it's loaded
+		IAndroidTargetPlatformModule* Module = FModuleManager::GetModulePtr<IAndroidTargetPlatformModule>("AndroidTargetPlatform");
 		if (Module)
 		{
-			Module->NotifySelectedFormatsChanged();
+			Module->NotifyMultiSelectedFormatsChanged();
 		}
 	}
 }

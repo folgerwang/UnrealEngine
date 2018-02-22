@@ -310,6 +310,20 @@ public:
 	}
 
 	/**
+	 * Create a paint geometry relative to this one with a given local space size and layout transform.
+	 * The paint geometry inherits the widget's render transform.
+	 *
+	 * @param LocalSize			The size of the child geometry in local space.
+	 * @param LayoutTransform	Layout transform of the paint geometry relative to this Geometry. 
+	 *
+	 * @return					The new paint geometry derived from this one.
+	 */
+	FORCEINLINE_DEBUGGABLE FPaintGeometry ToPaintGeometry(const FVector2D& InLocalSize, const FSlateLayoutTransform& InLayoutTransform, const FSlateRenderTransform& RenderTransform, const FVector2D& RenderTransformPivot = FVector2D(0.5f, 0.5)) const
+	{
+		return MakeChild(InLocalSize, InLayoutTransform, RenderTransform, RenderTransformPivot).ToPaintGeometry();
+	}
+
+	/**
 	 * Create a paint geometry with the same size as this geometry with a given layout transform.
 	 * The paint geometry inherits the widget's render transform.
 	 *

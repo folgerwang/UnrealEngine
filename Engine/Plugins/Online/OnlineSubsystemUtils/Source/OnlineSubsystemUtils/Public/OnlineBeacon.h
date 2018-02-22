@@ -13,7 +13,7 @@ class FInBunch;
 class UChannel;
 class UNetConnection;
 
-ONLINESUBSYSTEMUTILS_API DECLARE_LOG_CATEGORY_EXTERN(LogBeacon, Display, All);
+ONLINESUBSYSTEMUTILS_API DECLARE_LOG_CATEGORY_EXTERN(LogBeacon, Log, All);
 
 /** States that a beacon can be in */
 namespace EBeaconState

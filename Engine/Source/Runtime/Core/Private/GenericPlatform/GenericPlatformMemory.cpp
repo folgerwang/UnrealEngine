@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "GenericPlatform/GenericPlatformMemory.h"
+#include "HAL/LowLevelMemTracker.h"
 #include "HAL/PlatformMemory.h"
 #include "Misc/AssertionMacros.h"
 #include "Math/UnrealMathUtility.h"
@@ -15,7 +16,8 @@
 #include "GenericPlatform/GenericPlatformMemoryPoolStats.h"
 #include "HAL/MemoryMisc.h"
 #include "Misc/CoreDelegates.h"
-#include "HAL/LowLevelMemTracker.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/CommandLine.h"
 
 #if PLATFORM_LINUX || PLATFORM_MAC || PLATFORM_IOS
 	#include <sys/mman.h>
@@ -29,8 +31,12 @@
 // by not leaving holes between them (kernel will coalesce the adjoining mappings into a single one)
 #define UE4_PLATFORM_REDUCE_NUMBER_OF_MAPS					(PLATFORM_LINUX && PLATFORM_64BITS)
 
-// check bookkeeping info against the passed in parameters in Debug and Development (the latter only in games and servers)
-#define UE4_PLATFORM_SANITY_CHECK_OS_ALLOCATIONS			(UE_BUILD_DEBUG || (UE_BUILD_DEVELOPMENT && (UE_GAME || UE_SERVER)))
+#ifndef MALLOC_LEAKDETECTION
+	#define MALLOC_LEAKDETECTION 0
+#endif
+
+// check bookkeeping info against the passed in parameters in Debug and Development (the latter only in games and servers. also, only if leak detection is disabled, otherwise things are very slow)
+#define UE4_PLATFORM_SANITY_CHECK_OS_ALLOCATIONS			(UE_BUILD_DEBUG || (UE_BUILD_DEVELOPMENT && (UE_GAME || UE_SERVER) && !MALLOC_LEAKDETECTION))
 
 DEFINE_STAT(MCR_Physical);
 DEFINE_STAT(MCR_PhysicalLLM);
@@ -156,6 +162,7 @@ void FGenericPlatformMemory::OnOutOfMemory(uint64 Size, uint32 Alignment)
 	{
 		FPlatformMemory::BinnedFreeToOS(BackupOOMMemoryPool, FPlatformMemory::GetBackMemoryPoolSize());
 		UE_LOG(LogMemory, Warning, TEXT("Freeing %d bytes from backup pool to handle out of memory."), FPlatformMemory::GetBackMemoryPoolSize());
+        
 		LLM(FLowLevelMemTracker::Get().OnLowLevelFree(ELLMTracker::Default, BackupOOMMemoryPool, FPlatformMemory::GetBackMemoryPoolSize()));
 	}
 
@@ -456,6 +463,89 @@ void FGenericPlatformMemory::DumpPlatformAndAllocatorStats( class FOutputDevice&
 	GMalloc->DumpAllocatorStats( Ar );
 }
 
+EPlatformMemorySizeBucket FGenericPlatformMemory::GetMemorySizeBucket()
+{
+	static bool bCalculatedBucket = false;
+	static EPlatformMemorySizeBucket Bucket = EPlatformMemorySizeBucket::Default;
+
+	// get bucket one time
+	if (!bCalculatedBucket)
+	{
+		bCalculatedBucket = true;
+
+		// get values for this platform from it's .ini
+		int32 LargestMemoryGB=0, LargerMemoryGB=0, DefaultMemoryGB=0, SmallerMemoryGB=0;
+		GConfig->GetInt(TEXT("PlatformMemoryBuckets"), TEXT("LargestMemoryBucket_MinGB"), LargestMemoryGB, GEngineIni);
+		GConfig->GetInt(TEXT("PlatformMemoryBuckets"), TEXT("LargerMemoryBucket_MinGB"), LargerMemoryGB, GEngineIni);
+		GConfig->GetInt(TEXT("PlatformMemoryBuckets"), TEXT("DefaultMemoryBucket_MinGB"), DefaultMemoryGB, GEngineIni);
+		GConfig->GetInt(TEXT("PlatformMemoryBuckets"), TEXT("SmallerMemoryBucket_MinGB"), SmallerMemoryGB, GEngineIni);
+
+		FPlatformMemoryStats Stats = FPlatformMemory::GetStats();
+
+		// using the smaller of AddressLimit and TotalPhysical (some platforms may have AddressLimit be 
+		// basically all virtual memory possible, some could use it to restrict to 32-bit process space)
+		// @todo should we use a different stat?
+
+		uint32 TotalPhysicalGB = (Stats.TotalPhysical + 1024 * 1024 * 1024 - 1) / 1024 / 1024 / 1024;
+		uint32 AddressLimitGB = (Stats.AddressLimit + 1024 * 1024 * 1024 - 1) / 1024 / 1024 / 1024;
+		int32 CurMemoryGB = (int32)FMath::Min(TotalPhysicalGB, AddressLimitGB);
+
+		// if at least Smaller is specified, we can set the Bucket
+		if (SmallerMemoryGB > 0)
+		{
+			if (CurMemoryGB >= SmallerMemoryGB)
+			{
+				Bucket = EPlatformMemorySizeBucket::Smaller;
+			}
+			else
+			{
+				Bucket = EPlatformMemorySizeBucket::Smallest;
+			}
+		}
+		if (DefaultMemoryGB > 0 && CurMemoryGB >= DefaultMemoryGB)
+		{
+			Bucket = EPlatformMemorySizeBucket::Default;
+		}
+		if (LargerMemoryGB > 0 && CurMemoryGB >= LargerMemoryGB)
+		{
+			Bucket = EPlatformMemorySizeBucket::Larger;
+		}
+		if (LargestMemoryGB > 0 && CurMemoryGB >= LargestMemoryGB)
+		{
+			Bucket = EPlatformMemorySizeBucket::Largest;
+		}
+		
+		int32 BucketOverride = -1;
+		if (FParse::Value(FCommandLine::Get(), TEXT("MemBucket="), BucketOverride))
+		{
+			Bucket = (EPlatformMemorySizeBucket)BucketOverride;
+		}
+
+		const TCHAR* BucketName = Bucket == EPlatformMemorySizeBucket::Smallest ? TEXT("Smallest") :
+			Bucket == EPlatformMemorySizeBucket::Smaller ? TEXT("Smaller") :
+			Bucket == EPlatformMemorySizeBucket::Default ? TEXT("Default") :
+			Bucket == EPlatformMemorySizeBucket::Larger ? TEXT("Larger") :
+			TEXT("Largest");
+
+		if (BucketOverride == -1)
+		{
+			UE_LOG(LogHAL, Display, TEXT("Platform has ~ %d GB [%lld / %lld / %d], which maps to %s [LargestMinGB=%d, LargerMinGB=%d, DefaultMinGB=%d, SmallerMinGB=%d, SmallestMinGB=0)"),
+				CurMemoryGB, Stats.TotalPhysical, Stats.AddressLimit, Stats.TotalPhysicalGB, BucketName, LargestMemoryGB, LargerMemoryGB, DefaultMemoryGB, SmallerMemoryGB);
+		}
+		else
+		{
+			UE_LOG(LogHAL, Display, TEXT("Platform has ~ %d GB [%lld / %lld / %d], but commandline overrode bucket to %s"),
+				CurMemoryGB, Stats.TotalPhysical, Stats.AddressLimit, Stats.TotalPhysicalGB, BucketName);
+		}
+	}
+
+	return Bucket;
+}
+
+
+
+
+
 void FGenericPlatformMemory::MemswapGreaterThan8( void* RESTRICT Ptr1, void* RESTRICT Ptr2, SIZE_T Size )
 {
 	union PtrUnion
@@ -548,7 +638,7 @@ void FGenericPlatformMemory::InternalUpdateStats( const FPlatformMemoryStats& Me
 	// Generic method is empty. Implement at platform level.
 }
 
-bool FGenericPlatformMemory::IsDebugMemoryEnabled()
+bool FGenericPlatformMemory::IsExtraDevelopmentMemoryAvailable()
 {
 	return false;
 }

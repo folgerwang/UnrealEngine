@@ -367,6 +367,14 @@ public:
 
 	/**
 	 * Called during saving to determine the load flags to save with the object.
+	 * If false, this object will be discarded on the target platform
+	 *
+	 * @return	true if this object should be loaded on the target platform
+	 */
+	virtual bool NeedsLoadForTargetPlatform(const class ITargetPlatform* TargetPlatform) const;
+
+	/**
+	 * Called during saving to determine the load flags to save with the object.
 	 * If false, this object will still get loaded if NeedsLoadForServer/Client are true
 	 * 
 	 * @return	true if this object should always be loaded for editor game

@@ -36,7 +36,7 @@ ASequencerKeyActor::ASequencerKeyActor()
 	KeyMeshComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
 	KeyMeshComponent->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
 	
-	KeyMeshComponent->bGenerateOverlapEvents = false;
+	KeyMeshComponent->SetGenerateOverlapEvents(false);
 	KeyMeshComponent->SetCanEverAffectNavigation(false);
 	KeyMeshComponent->bCastDynamicShadow = false;
 	KeyMeshComponent->bCastStaticShadow = false;

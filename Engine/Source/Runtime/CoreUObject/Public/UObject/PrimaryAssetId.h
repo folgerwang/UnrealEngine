@@ -22,7 +22,7 @@ struct FPrimaryAssetType
 	operator const FName&() const { return Name; }
 
 	/** Returns internal Name explicitly, not normally needed */
-	FName GetName()
+	FName GetName() const
 	{
 		return Name;
 	}
@@ -117,7 +117,14 @@ struct FPrimaryAssetId
 	/** Returns string version of this identifier in Type:Name format */
 	FString ToString() const
 	{
-		return FString::Printf(TEXT("%s:%s"), *PrimaryAssetType.ToString(), *PrimaryAssetName.ToString());
+		if (IsValid())
+		{
+			return FString::Printf(TEXT("%s:%s"), *PrimaryAssetType.ToString(), *PrimaryAssetName.ToString());
+		}
+		else
+		{
+			return FString();
+		}
 	}
 
 	/** Converts from Type:Name format */

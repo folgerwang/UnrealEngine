@@ -41,6 +41,13 @@ public:
 	 */
 	virtual bool AddLoginFlow(FName OnlineIdentifier, const FOnDisplayPopup& InPopupDelegate, bool bPersistCookies = true) = 0;
 
+	/**
+	 * Has a given login flow been setup
+	 *
+	 * @return true if login flow added, false otherwise
+	 */
+	virtual bool HasLoginFlow(FName OnlineIdentifier) = 0;
+
 	/** Cancel an active login flow */
 	virtual void CancelLoginFlow() = 0;
 

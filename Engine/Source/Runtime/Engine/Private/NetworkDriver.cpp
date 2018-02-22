@@ -112,6 +112,9 @@ DEFINE_STAT(STAT_ObjPathBytes);
 DEFINE_STAT(STAT_NetGUIDInRate);
 DEFINE_STAT(STAT_NetGUIDOutRate);
 DEFINE_STAT(STAT_NetSaturated);
+DEFINE_STAT(STAT_ImportedNetGuids);
+DEFINE_STAT(STAT_PendingOuterNetGuids);
+DEFINE_STAT(STAT_UnmappedReplicators);
 
 // Voice specific stats
 DEFINE_STAT(STAT_VoiceBytesSent);
@@ -132,6 +135,7 @@ DEFINE_STAT(STAT_PacketReservedHandshake);
 #endif
 
 DECLARE_CYCLE_STAT(TEXT("NetDriver AddClientConnection"), Stat_NetDriverAddClientConnection, STATGROUP_Net);
+DECLARE_CYCLE_STAT(TEXT("NetDriver ProcessRemoteFunction"), STAT_NetProcessRemoteFunc, STATGROUP_Net);
 DECLARE_CYCLE_STAT(TEXT("Process Prioritized Actors Time"), STAT_NetProcessPrioritizedActorsTime, STATGROUP_Game);
 DECLARE_CYCLE_STAT(TEXT("NetDriver TickFlush"), STAT_NetTickFlush, STATGROUP_Game);
 DECLARE_CYCLE_STAT(TEXT("NetDriver TickFlush GatherStats"), STAT_NetTickFlushGatherStats, STATGROUP_Game);
@@ -352,6 +356,8 @@ void UNetDriver::CancelAdaptiveReplication(FNetworkObjectInfo& InNetworkActor)
 }
 
 static TAutoConsoleVariable<int32> CVarOptimizedRemapping( TEXT( "net.OptimizedRemapping" ), 1, TEXT( "Uses optimized path to remap unmapped network guids" ) );
+static TAutoConsoleVariable<int32> CVarMaxClientGuidRemaps( TEXT( "net.MaxClientGuidRemaps" ), 100, TEXT( "Max client resolves of unmapped network guids per tick" ) );
+TAutoConsoleVariable<int32> CVarFilterGuidRemapping( TEXT( "net.FilterGuidRemapping" ), 1, TEXT( "Remove destroyed and parent guids from unmapped list" ) );
 
 /** Accounts for the network time we spent in the game driver. */
 double GTickFlushGameDriverTimeSeconds = 0.0;
@@ -820,6 +826,11 @@ void UNetDriver::TickFlush(float DeltaSeconds)
 
 		// Go over recently imported network guids, and see if there are any replicators that need to map them
 		TSet< FNetworkGUID >& ImportedNetGuids = GuidCache->ImportedNetGuids;
+		TMap< FNetworkGUID, TSet< FNetworkGUID > >& PendingOuterNetGuids = GuidCache->PendingOuterNetGuids;
+
+		SET_DWORD_STAT( STAT_ImportedNetGuids, ImportedNetGuids.Num() );
+		SET_DWORD_STAT( STAT_PendingOuterNetGuids, PendingOuterNetGuids.Num() );
+		SET_DWORD_STAT( STAT_UnmappedReplicators, UnmappedReplicators.Num() );
 
 		TSet< FObjectReplicator* > ForceUpdateReplicators;
 
@@ -834,22 +845,75 @@ void UNetDriver::TickFlush(float DeltaSeconds)
 
 		if ( ImportedNetGuids.Num() || ForceUpdateReplicators.Num() )
 		{
+			int32 NumRemapTests = 0;
+			int32 MaxRemaps = IsServer() ? 0 : CVarMaxClientGuidRemaps.GetValueOnAnyThread();
+			bool bFilterGuidRemapping = (CVarFilterGuidRemapping.GetValueOnAnyThread() > 0);
+
+			TArray< FNetworkGUID > UnmappedGuids;
 			TArray< FNetworkGUID > NewlyMappedGuids;
 
 			for ( auto It = ImportedNetGuids.CreateIterator(); It; ++It )
 			{
 				const FNetworkGUID NetworkGuid = *It;
+				bool bMappedOrBroken = false;
 
 				if ( GuidCache->GetObjectFromNetGUID( NetworkGuid, false ) != nullptr )
 				{
 					NewlyMappedGuids.Add( NetworkGuid );
-					It.RemoveCurrent();
+					bMappedOrBroken = true;
 				}
 
 				if ( GuidCache->IsGUIDBroken( NetworkGuid, false ) )
 				{
-					It.RemoveCurrent();
+					bMappedOrBroken = true;
 				}
+
+				It.RemoveCurrent();
+
+				if (!bMappedOrBroken)
+				{
+					FNetworkGUID OuterGUID = GuidCache->GetOuterNetGUID(NetworkGuid);
+
+					// we're missing the outer, stop checking until we map it
+					if (bFilterGuidRemapping && OuterGUID.IsValid() && !OuterGUID.IsDefault() && !GuidCache->IsGUIDLoaded(OuterGUID) && !GuidCache->IsGUIDPending(OuterGUID))
+					{
+						UE_LOG(LogNetPackageMap, Log, TEXT("Missing outer (%s) for unmapped guid (%s), marking pending"), *GuidCache->FullNetGUIDPath(OuterGUID), *GuidCache->FullNetGUIDPath(NetworkGuid));
+
+						TSet<FNetworkGUID>& PendingGuids = PendingOuterNetGuids.FindOrAdd(OuterGUID);
+						PendingGuids.Add(NetworkGuid);
+					}
+					else
+					{
+						UnmappedGuids.Add(NetworkGuid);
+					}
+				}
+
+				++NumRemapTests;
+
+ 				if ((MaxRemaps > 0) && (NumRemapTests >= MaxRemaps))
+				{
+					break;
+				}
+			}
+
+			// attempt to resolve dependent guids next tick (outer is now mapped)
+			for ( const FNetworkGUID& NetGuid : NewlyMappedGuids )
+			{
+				TSet< FNetworkGUID >* DependentGuids = PendingOuterNetGuids.Find( NetGuid );
+				if ( DependentGuids )
+				{
+					UE_LOG(LogNetPackageMap, Log, TEXT("Newly mapped outer (%s) removing from pending"), *GuidCache->FullNetGUIDPath(NetGuid));
+
+					ImportedNetGuids.Append( *DependentGuids );
+					PendingOuterNetGuids.Remove( NetGuid );
+				}
+			}
+
+			// any tested guids that could not yet be mapped are added back to the list
+			if (UnmappedGuids.Num())
+			{
+				ImportedNetGuids.CompactStable();
+				ImportedNetGuids.Append(UnmappedGuids);
 			}
 
 			if ( NewlyMappedGuids.Num() || ForceUpdateReplicators.Num() )
@@ -1127,6 +1191,8 @@ bool UNetDriver::InitBase(bool bInitAsClient, FNetworkNotify* InNotify, const FU
 	if (!bInitAsClient)
 	{
 		ConnectionlessHandler.Reset(nullptr);
+
+		InitDestroyedStartupActors();
 	}
 
 	Notify = InNotify;
@@ -1479,8 +1545,9 @@ void UNetDriver::InternalProcessRemoteFunction
 			FNetControlMessage<NMT_Failure>::Send( Connection, ErrorMsg );
 			Connection->FlushNet( true );
 			Connection->Close();
-
+#if USE_SERVER_PERF_COUNTERS
 			PerfCountersIncrement( TEXT( "ClosedConnectionsDueToReliableBufferOverflow" ) );
+#endif
 		}
 		return;
 	}
@@ -2131,14 +2198,16 @@ bool UNetDriver::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 	}
 }
 
-FActorDestructionInfo *	CreateDestructionInfo( UNetDriver * NetDriver, AActor* ThisActor, FActorDestructionInfo *DestructionInfo )
+FActorDestructionInfo* UNetDriver::CreateDestructionInfo( UNetDriver* NetDriver, AActor* ThisActor, FActorDestructionInfo *DestructionInfo )
 {
 	if (DestructionInfo)
+	{
 		return DestructionInfo;
+	}
 
 	FNetworkGUID NetGUID = NetDriver->GuidCache->GetOrAssignNetGUID( ThisActor );
 
-	FActorDestructionInfo &NewInfo = NetDriver->DestroyedStartupOrDormantActors.FindOrAdd( NetGUID );
+	FActorDestructionInfo& NewInfo = NetDriver->DestroyedStartupOrDormantActors.FindOrAdd( NetGUID );
 	NewInfo.DestroyedPosition = ThisActor->GetActorLocation();
 	NewInfo.NetGUID = NetGUID;
 	NewInfo.Level = ThisActor->GetLevel();
@@ -3239,7 +3308,7 @@ int32 UNetDriver::ServerReplicateActors_ProcessPrioritizedActors( UNetConnection
 					else if ( Actor->NetUpdateFrequency < 1.0f )
 					{
 						UE_LOG( LogNetTraffic, Log, TEXT( "Unable to replicate %s" ), *Actor->GetName() );
-						ActorInfo->NextUpdateTime = Actor->GetWorld()->TimeSeconds + 0.2f * FMath::FRand();
+						ActorInfo->NextUpdateTime = World->TimeSeconds + 0.2f * FMath::FRand();
 					}
 				}
 
@@ -3260,8 +3329,21 @@ int32 UNetDriver::ServerReplicateActors_ProcessPrioritizedActors( UNetConnection
 							LastRelevantActors.Add( Actor );
 						}
 
+						double ChannelLastNetUpdateTime = Channel->LastUpdateTime;
+
 						if ( Channel->ReplicateActor() )
 						{
+#if USE_SERVER_PERF_COUNTERS
+							if (const FNetworkObjectInfo* const ObjectInfo = Actor->FindNetworkObjectInfo())
+							{
+								// A channel time of 0.0 means this is the first time the actor is being replicated, so we don't need to record it
+								if (ChannelLastNetUpdateTime > 0.0)
+								{
+									Connection->GetActorsStarvedByClassTimeMap().FindOrAdd(Actor->GetClass()->GetName()).Add((World->RealTimeSeconds - ChannelLastNetUpdateTime) * 1000.0f);
+								}
+							}
+#endif
+
 							ActorUpdatesThisConnectionSent++;
 							if ( DebugRelevantActors )
 							{
@@ -3726,7 +3808,9 @@ void UNetDriver::AddClientConnection(UNetConnection * NewConnection)
 
 	ClientConnections.Add(NewConnection);
 
+#if USE_SERVER_PERF_COUNTERS
 	PerfCountersIncrement(TEXT("AddedConnections"));
+#endif
 
 	// When new connections join, we need to make sure to add all fully dormant actors back to the network list, so they can get processed for the new connection
 	// They'll eventually fall back off to this list when they are dormant on the new connection
@@ -3738,6 +3822,58 @@ void UNetDriver::AddClientConnection(UNetConnection * NewConnection)
 		{
 			UE_LOG(LogNet, VeryVerbose, TEXT("Adding actor NetGUID <%s> to new connection's destroy list"), *It.Key().ToString());
 			NewConnection->DestroyedStartupOrDormantActors.Add(It.Key());
+		}
+	}
+}
+
+void UNetDriver::CreateReplicatedStaticActorDestructionInfo(UNetDriver* NetDriver, ULevel* Level, const FReplicatedStaticActorDestructionInfo& Info)
+{
+	check(NetDriver && Level);
+
+	FNetworkGUID NetGUID = NetDriver->GuidCache->AssignNewNetGUIDFromPath_Server( Info.PathName.ToString(), Info.ObjOuter.Get(), Info.ObjClass );
+
+	UE_LOG(LogNet, Log, TEXT("CreateReplicatedStaticActorDestructionInfo %s %s %s %s"), *NetDriver->GetName(), *Level->GetName(), *Info.PathName.ToString(), *NetGUID.ToString());
+
+	FActorDestructionInfo &NewInfo = NetDriver->DestroyedStartupOrDormantActors.FindOrAdd( NetGUID );
+	NewInfo.DestroyedPosition = Info.DestroyedPosition;
+	NewInfo.NetGUID = NetGUID;
+	NewInfo.Level = Level;
+	NewInfo.ObjOuter = Info.ObjOuter.Get();
+	NewInfo.PathName = Info.PathName.ToString();
+
+	// Look for renamed actor now so we can clear it after the destroy is queued
+	FName RenamedPath = NetDriver->RenamedStartupActors.FindRef(Info.PathName);
+	if (RenamedPath != NAME_None)
+	{
+		NewInfo.PathName = RenamedPath.ToString();
+	}
+
+	if (NewInfo.Level.IsValid() && !NewInfo.Level->IsPersistentLevel() )
+	{
+		NewInfo.StreamingLevelName = NewInfo.Level->GetOutermost()->GetFName();
+	}
+	else
+	{
+		NewInfo.StreamingLevelName = NAME_None;
+	}
+}
+
+void UNetDriver::InitDestroyedStartupActors()
+{
+	if (World)
+	{
+		// add startup actors destroyed before the creation of this net driver
+		for (auto LevelIt(World->GetLevelIterator()); LevelIt; ++LevelIt)
+		{
+			ULevel* Level = *LevelIt;
+			if (Level)
+			{
+				const TArray<FReplicatedStaticActorDestructionInfo>& DestroyedReplicatedStaticActors = Level->GetDestroyedReplicatedStaticActors();
+				for(const FReplicatedStaticActorDestructionInfo& Info : DestroyedReplicatedStaticActors)
+				{
+					CreateReplicatedStaticActorDestructionInfo(this, Level, Info);
+				}
+			}
 		}
 	}
 }
@@ -3844,7 +3980,7 @@ TSharedPtr<FRepLayout> UNetDriver::GetObjectClassRepLayout( UClass * Class )
 	if ( !RepLayoutPtr ) 
 	{
 		FRepLayout * RepLayout = new FRepLayout();
-		RepLayout->InitFromObjectClass( Class );
+		RepLayout->InitFromObjectClass( Class, ServerConnection );
 		RepLayoutPtr = &RepLayoutMap.Add( Class, TSharedPtr<FRepLayout>( RepLayout ) );
 	}
 
@@ -3858,7 +3994,7 @@ TSharedPtr<FRepLayout> UNetDriver::GetFunctionRepLayout( UFunction * Function )
 	if ( !RepLayoutPtr ) 
 	{
 		FRepLayout * RepLayout = new FRepLayout();
-		RepLayout->InitFromFunction( Function );
+		RepLayout->InitFromFunction( Function, ServerConnection );
 		RepLayoutPtr = &RepLayoutMap.Add( Function, TSharedPtr<FRepLayout>( RepLayout ) );
 	}
 
@@ -3872,7 +4008,7 @@ TSharedPtr<FRepLayout> UNetDriver::GetStructRepLayout( UStruct * Struct )
 	if ( !RepLayoutPtr ) 
 	{
 		FRepLayout * RepLayout = new FRepLayout();
-		RepLayout->InitFromStruct( Struct );
+		RepLayout->InitFromStruct( Struct, ServerConnection );
 		RepLayoutPtr = &RepLayoutMap.Add( Struct, TSharedPtr<FRepLayout>( RepLayout ) );
 	}
 
@@ -3923,6 +4059,81 @@ void UNetDriver::OnLevelRemovedFromWorld(class ULevel* InLevel, class UWorld* In
 					Connection->DestroyedStartupOrDormantActors.Remove(GUIDToRemove);
 				}
 			}
+		}
+	}
+}
+
+void UNetDriver::ProcessRemoteFunction(class AActor* Actor, UFunction* Function, void* Parameters, FOutParmRec* OutParms, FFrame* Stack, class UObject* SubObject )
+{
+#if !UE_BUILD_SHIPPING
+	SCOPE_CYCLE_COUNTER(STAT_NetProcessRemoteFunc);
+	SCOPE_CYCLE_UOBJECT(Function, Function);
+
+	bool bBlockSendRPC = false;
+
+	SendRPCDel.ExecuteIfBound(Actor, Function, Parameters, OutParms, Stack, SubObject, bBlockSendRPC);
+
+	if (!bBlockSendRPC)
+#endif
+	{
+		bool bIsServer = IsServer();
+
+		UNetConnection* Connection = NULL;
+		if (bIsServer)
+		{
+			if ((Function->FunctionFlags & FUNC_NetMulticast))
+			{
+				TSharedPtr<FRepLayout> RepLayout = GetFunctionRepLayout( Function );
+
+				// Multicast functions go to every client
+				TArray<UNetConnection*> UniqueRealConnections;
+				for (int32 i=0; i<ClientConnections.Num(); ++i)
+				{
+					Connection = ClientConnections[i];
+					if (Connection && Connection->ViewTarget)
+					{
+						// Only send or queue multicasts if the actor is relevant to the connection
+						FNetViewer Viewer(Connection, 0.f);
+						if (Actor->IsNetRelevantFor(Viewer.InViewer, Viewer.ViewTarget, Viewer.ViewLocation))
+						{
+							if (Connection->GetUChildConnection() != nullptr)
+							{
+								Connection = ((UChildConnection*)Connection)->Parent;
+							}
+
+							// We don't want to call this unless necessary, and it will internally handle being called multiple times before a clear
+							// Builds any shared serialization state for this rpc
+							RepLayout->BuildSharedSerializationForRPC(Parameters);
+
+							InternalProcessRemoteFunction( Actor, SubObject, Connection, Function, Parameters, OutParms, Stack, bIsServer );
+						}
+					}
+				}			
+
+				// Replicate any RPCs to the replay net driver so that they can get saved in network replays
+				UNetDriver* NetDriver = GEngine->FindNamedNetDriver(GetWorld(), NAME_DemoNetDriver);
+				if (NetDriver)
+				{
+					NetDriver->ProcessRemoteFunction(Actor, Function, Parameters, OutParms, Stack, SubObject);
+				}
+
+				// Finished sending this multicast rpc, clear any shared state
+				RepLayout->ClearSharedSerializationForRPC();
+
+				// Return here so we don't call InternalProcessRemoteFunction again at the bottom of this function
+				return;
+			}
+		}
+
+		// Send function data to remote.
+		Connection = Actor->GetNetConnection();
+		if (Connection)
+		{
+			InternalProcessRemoteFunction( Actor, SubObject, Connection, Function, Parameters, OutParms, Stack, bIsServer );
+		}
+		else
+		{
+			UE_LOG(LogNet, Warning, TEXT("UNetDriver::ProcessRemoteFunction: No owning connection for actor %s. Function %s will not be processed."), *Actor->GetName(), *Function->GetName());
 		}
 	}
 }

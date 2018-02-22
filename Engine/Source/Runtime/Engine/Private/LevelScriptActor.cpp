@@ -20,7 +20,6 @@ ALevelScriptActor::ALevelScriptActor(const FObjectInitializer& ObjectInitializer
 	bActorLabelEditable = false;
 	bEditable = false;
 #endif // WITH_EDITORONLY_DATA
-	PrimaryActorTick.bCanEverTick = true;
 
 	bCanBeDamaged = false;
 	bInputEnabled = true;

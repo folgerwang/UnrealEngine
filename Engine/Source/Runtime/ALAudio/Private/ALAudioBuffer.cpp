@@ -117,7 +117,7 @@ void FALSoundBuffer::CreateNativeBuffer(FALAudioDevice* AudioDevice, USoundWave*
 
 		Buffer->InternalFormat = AudioDevice->GetInternalFormat(Wave->NumChannels);
 		Buffer->NumChannels = Wave->NumChannels;
-		Buffer->SampleRate = Wave->SampleRate;
+		Buffer->SampleRate = Wave->GetSampleRateForCurrentPlatform();
 
 		FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
 		check(AudioDeviceManager != nullptr);

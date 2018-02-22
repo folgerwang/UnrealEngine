@@ -22,7 +22,7 @@ FOnlineSubsystemGoogle::~FOnlineSubsystemGoogle()
 
 bool FOnlineSubsystemGoogle::Init()
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSubsystemGoogle::Init()"));
+	UE_LOG(LogOnline, VeryVerbose, TEXT("FOnlineSubsystemGoogle::Init()"));
 	if (FOnlineSubsystemGoogleCommon::Init())
 	{
 		GoogleIdentity = MakeShareable(new FOnlineIdentityGoogle(this));
@@ -35,6 +35,6 @@ bool FOnlineSubsystemGoogle::Init()
 
 bool FOnlineSubsystemGoogle::Shutdown()
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSubsystemGoogle::Shutdown()"));
+	UE_LOG(LogOnline, VeryVerbose, TEXT("FOnlineSubsystemGoogle::Shutdown()"));
 	return FOnlineSubsystemGoogleCommon::Shutdown();
 }

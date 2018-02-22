@@ -121,7 +121,10 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = AITest)
 	TArray<FPendingDelayedSpawn> PendingDelayedSpawns;
 	
+	UPROPERTY(BlueprintReadOnly, Category = AITest)
 	int32 CurrentSpawnSetIndex;
+
+	UPROPERTY(BlueprintReadOnly, Category = AITest)
 	FString CurrentSpawnSetName;
 
 	/** Called when a single AI finished spawning */

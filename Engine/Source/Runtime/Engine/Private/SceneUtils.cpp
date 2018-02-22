@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SceneUtils.h"
-#include "CsvProfiler.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSceneUtils,All,All);
 
@@ -14,6 +14,8 @@ DEFINE_LOG_CATEGORY_STATIC(LogSceneUtils,All,All);
 // This presents problems for non-hierarchical stats if we're expecting them to add up
 // to the total GPU time, so we probably want this disabled
 #define GPU_STATS_CHILD_TIMES_INCLUDED 0
+
+CSV_DEFINE_CATEGORY_MODULE(ENGINE_API, GPU, true);
 
 static TAutoConsoleVariable<int> CVarGPUStatsEnabled(
 	TEXT("r.GPUStatsEnabled"),
@@ -448,8 +450,8 @@ public:
 
 			if (bCsvStatsEnabled)
 			{
-				ECsvCustomStatType CsvStatType = bIsNew ? ECsvCustomStatType::Set : ECsvCustomStatType::Accumulate;
-				FCsvProfiler::Get()->RecordCustomStat(Event->GetName(), ResultMS, CsvStatType);
+				ECsvCustomStatOp CsvStatOp = bIsNew ? ECsvCustomStatOp::Set : ECsvCustomStatOp::Accumulate;
+				FCsvProfiler::Get()->RecordCustomStat(Event->GetName(), CSV_CATEGORY_INDEX(GPU), ResultMS, CsvStatOp);
 			}
 			TotalMS += ResultMS;
 		}
@@ -461,7 +463,7 @@ public:
 #if CSV_PROFILER
 		if (bCsvStatsEnabled)
 		{
-			FCsvProfiler::Get()->RecordCustomStat(CSV_DECLARED_STAT_NAME(GPU_Total), TotalMS, ECsvCustomStatType::Set);
+			FCsvProfiler::Get()->RecordCustomStat(CSV_STAT_FNAME(Total), CSV_CATEGORY_INDEX(GPU), TotalMS, ECsvCustomStatOp::Set);
 		}
 #endif
 		return true;

@@ -130,6 +130,13 @@ inline bool RHISupportsVolumeTextures(ERHIFeatureLevel::Type FeatureLevel)
 	return FeatureLevel >= ERHIFeatureLevel::SM4;
 }
 
+inline bool RHISupports4ComponentUAVReadWrite(EShaderPlatform Platform)
+{
+	// Must match usf PLATFORM_SUPPORTS_4COMPONENT_UAV_READ_WRITE
+	// D3D11 does not support multi-component loads from a UAV: "error X3676: typed UAV loads are only allowed for single-component 32-bit element types"
+	return Platform == SP_XBOXONE_D3D12 || Platform == SP_PS4;
+}
+
 // Wrapper for GRHI## global variables, allows values to be overridden for mobile preview modes.
 template <typename TValueType>
 class TRHIGlobal
@@ -201,6 +208,9 @@ extern RHI_API bool GSupportsTimestampRenderQueries;
 /** true if RQT_AbsoluteTime is supported by RHICreateRenderQuery */
 extern RHI_API bool GRHISupportsGPUTimestampBubblesRemoval;
 
+/** true if RHIGetGPUFrameCycles removes CPu generated bubbles. */
+extern RHI_API bool GRHISupportsFrameCyclesBubblesRemoval;
+
 /** true if the GPU supports hidden surface removal in hardware. */
 extern RHI_API bool GHardwareHiddenSurfaceRemoval;
 
@@ -212,6 +222,12 @@ extern RHI_API bool GSupportsQuads;
 
 /** Does the RHI provide a custom way to generate mips? */
 extern RHI_API bool GSupportsGenerateMips;
+
+/** Temporary. When OpenGL is running in a separate thread, it cannot yet do things like initialize shaders that are first discovered in a rendering task. It is doable, it just isn't done. */
+extern RHI_API bool GSupportsParallelRenderingTasksWithSeparateRHIThread;
+
+/** If an RHI is so slow, that it is the limiting factor for the entire frame, we can kick early to try to give it as much as possible. */
+extern RHI_API bool GRHIThreadNeedsKicking;
 
 /** True if and only if the GPU support rendering to volume textures (2D Array, 3D). Some OpenGL 3.3 cards support SM4, but can't render to volume textures. */
 extern RHI_API bool GSupportsVolumeTextureRendering;
@@ -352,9 +368,15 @@ extern RHI_API int64 GTexturePoolSize;
 /** In percent. If non-zero, the texture pool size is a percentage of GTotalGraphicsMemory. */
 extern RHI_API int32 GPoolSizeVRAMPercentage;
 
-/** Some simple runtime stats, reset on every call to RHIBeginFrame. */
+/** Some simple runtime stats, reset on every call to RHIBeginFrame */
+/** Num draw calls & primitives on previous frame (accurate on any thread)*/
 extern RHI_API int32 GNumDrawCallsRHI;
 extern RHI_API int32 GNumPrimitivesDrawnRHI;
+
+/** Num draw calls and primitives this frame (only accurate on RenderThread) */
+extern RHI_API int32 GCurrentNumDrawCallsRHI;
+extern RHI_API int32 GCurrentNumPrimitivesDrawnRHI;
+
 
 /** Whether or not the RHI can handle a non-zero BaseVertexIndex - extra SetStreamSource calls will be needed if this is false */
 extern RHI_API bool GRHISupportsBaseVertexIndex;
@@ -1365,16 +1387,21 @@ DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Lines drawn"),STAT_RHILines,STATGROUP_RH
 #if STATS
 	#define RHI_DRAW_CALL_INC() \
 		INC_DWORD_STAT(STAT_RHIDrawPrimitiveCalls); \
-		FPlatformAtomics::InterlockedIncrement(&GNumDrawCallsRHI);
+		FPlatformAtomics::InterlockedIncrement(&GCurrentNumDrawCallsRHI);
 
 	#define RHI_DRAW_CALL_STATS(PrimitiveType,NumPrimitives) \
 		RHI_DRAW_CALL_INC(); \
 		INC_DWORD_STAT_BY(STAT_RHITriangles,(uint32)(PrimitiveType != PT_LineList ? (NumPrimitives) : 0)); \
 		INC_DWORD_STAT_BY(STAT_RHILines,(uint32)(PrimitiveType == PT_LineList ? (NumPrimitives) : 0)); \
-		FPlatformAtomics::InterlockedAdd(&GNumPrimitivesDrawnRHI, NumPrimitives);
+		FPlatformAtomics::InterlockedAdd(&GCurrentNumPrimitivesDrawnRHI, NumPrimitives); \
+		FPlatformAtomics::InterlockedIncrement(&GCurrentNumDrawCallsRHI);
 #else
-	#define RHI_DRAW_CALL_INC()
-	#define RHI_DRAW_CALL_STATS(PrimitiveType,NumPrimitives)
+	#define RHI_DRAW_CALL_INC() \
+		FPlatformAtomics::InterlockedIncrement(&GCurrentNumDrawCallsRHI);
+
+	#define RHI_DRAW_CALL_STATS(PrimitiveType,NumPrimitives) \
+		FPlatformAtomics::InterlockedAdd(&GCurrentNumPrimitivesDrawnRHI, NumPrimitives); \
+		FPlatformAtomics::InterlockedIncrement(&GCurrentNumDrawCallsRHI);
 #endif
 
 // RHI memory stats.

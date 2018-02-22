@@ -17,6 +17,7 @@
 #include "Widgets/SCompoundWidget.h"
 #include "Input/HittestGrid.h"
 #include "Slate/WidgetRenderer.h"
+#include "Misc/FrameValue.h"
 
 class FArrangedChildren;
 class UMaterialInstanceDynamic;
@@ -33,6 +34,9 @@ DECLARE_MULTICAST_DELEGATE( FOnRetainedModeChanged );
  */
 class UMG_API SRetainerWidget : public SCompoundWidget, public FGCObject, public ILayoutCache
 {
+public:
+	static int32 Shared_MaxRetainerWorkPerFrame;
+
 public:
 	SLATE_BEGIN_ARGS(SRetainerWidget)
 	{
@@ -143,6 +147,9 @@ private:
 	FSlateBrush DynaicBrush;
 	UMaterialInstanceDynamic* DynamicEffect;
 	FName DynamicEffectTextureParameter;
+
+	static TArray<SRetainerWidget*, TInlineAllocator<3>> Shared_WaitingToRender;
+	static TFrameValue<int32> Shared_RetainerWorkThisFrame;
 
 	mutable FCachedWidgetNode* RootCacheNode;
 	mutable TArray< FCachedWidgetNode* > NodePool;

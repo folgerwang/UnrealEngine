@@ -638,6 +638,12 @@ bool UWorld::DestroyActor( AActor* ThisActor, bool bNetForce, bool bShouldModify
 		ThisActor->SetOwner(NULL);
 	}
 
+	ULevel* const ActorLevel = ThisActor->GetLevel();
+	if (ActorLevel)
+	{
+		ActorLevel->CreateReplicatedDestructionInfo(ThisActor);
+	}
+
 	// Notify net drivers that this guy has been destroyed.
 	if (GEngine->GetWorldContextFromWorld(this))
 	{
@@ -1117,7 +1123,7 @@ bool UWorld::EncroachingBlockingGeometry(AActor* TestActor, FVector TestLocation
 }
 
 
-void UWorld::LoadSecondaryLevels(bool bForce, TSet<FString>* CookedPackages)
+void UWorld::LoadSecondaryLevels(bool bForce, TSet<FName>* FilenamesToSkip)
 {
 	check( GIsEditor );
 
@@ -1132,16 +1138,15 @@ void UWorld::LoadSecondaryLevels(bool bForce, TSet<FString>* CookedPackages)
 			ULevelStreaming* const StreamingLevel = StreamingLevels[LevelIndex];
 			if( StreamingLevel )
 			{
-				bool bAlreadyCooked = false;
+				bool bSkipFile = false;
 				// If we are cooking don't cook sub levels multiple times if they've already been cooked
 				FString PackageFilename;
 				const FString StreamingLevelWorldAssetPackageName = StreamingLevel->GetWorldAssetPackageName();
-				if (CookedPackages)
+				if (FilenamesToSkip)
 				{
 					if (FPackageName::DoesPackageExist(StreamingLevelWorldAssetPackageName, NULL, &PackageFilename))
 					{
-						PackageFilename = FPaths::ConvertRelativePathToFull(PackageFilename);
-						bAlreadyCooked |= CookedPackages->Contains( PackageFilename );
+						bSkipFile |= FilenamesToSkip->Contains( FName(*PackageFilename) );
 					}
 				}
 
@@ -1154,7 +1159,7 @@ void UWorld::LoadSecondaryLevels(bool bForce, TSet<FString>* CookedPackages)
 					bAlreadyLoaded = true;
 				}
 
-				if ( !bAlreadyCooked && !bAlreadyLoaded )
+				if ( !bSkipFile && !bAlreadyLoaded )
 				{
 					bool bLoadedLevelPackage = false;
 					const FName StreamingLevelWorldAssetPackageFName = StreamingLevel->GetWorldAssetPackageFName();
@@ -1194,7 +1199,7 @@ void UWorld::LoadSecondaryLevels(bool bForce, TSet<FString>* CookedPackages)
 							ULevel* NewLoadedLevel = LoadedWorld->PersistentLevel;
 							NewLoadedLevel->OwningWorld = this;
 
-							StreamingLevel->SetLoadedLevel(NewLoadedLevel);
+							FStreamingLevelPrivateAccessor::SetLoadedLevel(StreamingLevel, NewLoadedLevel);
 						}
 					}
 					else
@@ -1204,8 +1209,8 @@ void UWorld::LoadSecondaryLevels(bool bForce, TSet<FString>* CookedPackages)
 
 					// Remove this level object if the file couldn't be found.
 					if ( !bLoadedLevelPackage )
-					{		
-						StreamingLevels.RemoveAt( LevelIndex-- );
+					{
+						RemoveStreamingLevelAt(LevelIndex--);
 						MarkPackageDirty();
 					}
 				}
@@ -1218,11 +1223,10 @@ void UWorld::LoadSecondaryLevels(bool bForce, TSet<FString>* CookedPackages)
 ULevelStreaming* UWorld::GetLevelStreamingForPackageName(FName InPackageName)
 {
 	// iterate over each level streaming object
-	for( int32 LevelIndex=0; LevelIndex<StreamingLevels.Num(); LevelIndex++ )
+	for (ULevelStreaming* LevelStreaming : StreamingLevels)
 	{
-		ULevelStreaming* LevelStreaming = StreamingLevels[LevelIndex];
 		// see if name matches
-		if(LevelStreaming && LevelStreaming->GetWorldAssetPackageFName() == InPackageName)
+		if (LevelStreaming && LevelStreaming->GetWorldAssetPackageFName() == InPackageName)
 		{
 			// it doesn't, return this one
 			return LevelStreaming;
@@ -1230,7 +1234,7 @@ ULevelStreaming* UWorld::GetLevelStreamingForPackageName(FName InPackageName)
 	}
 
 	// failed to find one
-	return NULL;
+	return nullptr;
 }
 
 #if WITH_EDITOR
@@ -1245,15 +1249,15 @@ void UWorld::RefreshStreamingLevels( const TArray<class ULevelStreaming*>& InLev
 		FlushLevelStreaming();
 
 		// Remove all currently visible levels.
-		for( int32 LevelIndex=0; LevelIndex<InLevelsToRefresh.Num(); LevelIndex++ )
+		for (ULevelStreaming* StreamingLevel : InLevelsToRefresh)
 		{
-			ULevelStreaming* StreamingLevel = InLevelsToRefresh[LevelIndex];
 			ULevel* LoadedLevel = StreamingLevel ? StreamingLevel->GetLoadedLevel() : nullptr;
 
-			if( LoadedLevel &&
-				LoadedLevel->bIsVisible )
+			if( LoadedLevel && LoadedLevel->bIsVisible )
 			{
 				RemoveFromWorld( LoadedLevel );
+				FStreamingLevelPrivateAccessor::OnLevelAdded(StreamingLevel); // Sketchy way to get the CurrentState correctly set to LoadedNotVisible
+				StreamingLevelsToConsider.Add(StreamingLevel); // Need to ensure this level is reconsidered during the flush to get it made visible again
 			}
 		}
 

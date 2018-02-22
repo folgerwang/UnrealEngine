@@ -65,11 +65,21 @@ class ENGINE_API UMaterialInstanceDynamic : public UMaterialInstance
 
 	/**
 	 * Copies over parameters given a material interface (copy each instance following the hierarchy)
-	 * Very slow implementation, avoid using at runtime. Hopefully we can replace ity later with something like CopyInterpParameters()
-	 * The output is the object itself (this).
+	 * Very slow implementation, avoid using at runtime. Hopefully we can replace it later with something like CopyInterpParameters()
+	 * The output is the object itself (this). Copying 'quick parameters only' will result in a much
+	 * faster copy process but will only copy dynamic scalar, vector and texture parameters on clients.
+	 * @param bQuickParametersOnly Copy scalar, vector and texture parameters only. Much faster but may not include required data
 	 */
 	UFUNCTION(BlueprintCallable, meta=(DisplayName = "CopyMaterialInstanceParameters", ScriptName = "CopyMaterialInstanceParameters"), Category="Rendering|Material")
-	void K2_CopyMaterialInstanceParameters(UMaterialInterface* Source);
+	void K2_CopyMaterialInstanceParameters(UMaterialInterface* Source, bool bQuickParametersOnly = false);
+
+	/**
+	* Copies the uniform parameters (scalar, vector and texture) from a material or instance hierarchy.
+	* This will typically be faster than parsing all expressions but still slow as it must walk the full
+	* material hierarchy as each parameter may be overridden at any level in the chain.
+	* Note: This will not copy static or font parameters
+	*/
+	void CopyMaterialUniformParameters(UMaterialInterface* Source);
 
 	/**
 	 * Copies over parameters given a material instance (only copy from the instance, not following the hierarchy)

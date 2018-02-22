@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SceneRendering.cpp: Scene rendering.
@@ -42,6 +42,7 @@
 #include "DeviceProfiles/DeviceProfileManager.h"
 #include "DeviceProfiles/DeviceProfile.h"
 #include "PostProcess/PostProcessing.h"
+#include "SceneSoftwareOcclusion.h"
 
 /*-----------------------------------------------------------------------------
 	Globals
@@ -302,6 +303,8 @@ static TAutoConsoleVariable<int32> CVarTestSecondaryUpscaleOverride(
 #endif
 
 static FParallelCommandListSet* GOutstandingParallelCommandListSet = nullptr;
+FGraphEventRef FSceneRenderer::OcclusionSubmittedFence[FOcclusionQueryHelpers::MaxBufferedOcclusionFrames];
+
 
 DECLARE_CYCLE_STAT(TEXT("DeferredShadingSceneRenderer UpdateMotionBlurCache"), STAT_FDeferredShadingSceneRenderer_UpdateMotionBlurCache, STATGROUP_SceneRendering);
 
@@ -2015,8 +2018,24 @@ void FSceneRenderer::ComputeFamilySize()
 
 bool FSceneRenderer::DoOcclusionQueries(ERHIFeatureLevel::Type InFeatureLevel) const
 {
-	return !IsMobilePlatform(GShaderPlatformForFeatureLevel[InFeatureLevel])
-		&& CVarAllowOcclusionQueries.GetValueOnRenderThread() != 0;
+	static bool bOnce = false;
+	static bool bForceByCmdLine = false;
+	static bool bCmdLineShouldBeEnabledValue = false;
+	if (!bOnce)
+	{
+		bOnce = true;
+		if (FParse::Param(FCommandLine::Get(), TEXT("softwareocclusionculling")) && CVarAllowOcclusionQueries.GetValueOnRenderThread() >= 1)
+		{
+			bForceByCmdLine = true;
+			bCmdLineShouldBeEnabledValue = false;
+		}
+		else if (FParse::Param(FCommandLine::Get(), TEXT("hardwareocclusionculling")) && CVarAllowOcclusionQueries.GetValueOnRenderThread() == 0)
+		{
+			bForceByCmdLine = true;
+			bCmdLineShouldBeEnabledValue = true;
+		}
+	}
+	return bForceByCmdLine ? bCmdLineShouldBeEnabledValue : (InFeatureLevel >= ERHIFeatureLevel::ES3_1 && CVarAllowOcclusionQueries.GetValueOnRenderThread() != 0);
 }
 
 FSceneRenderer::~FSceneRenderer()
@@ -2264,6 +2283,12 @@ void FSceneRenderer::RenderFinish(FRHICommandListImmediate& RHICmdList)
 						Y += 14;
 					}
 					Canvas.Flush_RenderThread(RHICmdList);
+				}
+				
+				// Software occlusion debug draw
+				if (ViewState && ViewState->SceneSoftwareOcclusion)
+				{
+					ViewState->SceneSoftwareOcclusion->DebugDraw(RHICmdList, View, 20, 20);
 				}
 			}
 		}
@@ -2677,7 +2702,7 @@ static void ViewExtensionPreRender_RenderThread(FRHICommandListImmediate& RHICmd
 static TAutoConsoleVariable<int32> CVarDelaySceneRenderCompletion(
 	TEXT("r.DelaySceneRenderCompletion"),
 	0,
-	TEXT("Experimental option to postpone the cleanup of the scene renderer until later."),
+	TEXT("Experimental option to postpone the cleanup of the scene renderer until later. This does NOT currently work because it is possible for the scene to be modified before ~FSceneRenderer, and that assumes the scene is unchanged."),
 	ECVF_RenderThreadSafe
 );
 

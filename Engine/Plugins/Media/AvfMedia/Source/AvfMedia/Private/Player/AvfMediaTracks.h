@@ -89,13 +89,6 @@ public:
 
 	/** Reset the stream collection. */
 	void Reset();
-
-	/**
-	 * Notify tracks that playback rate was changed.
-	 *
-	 * @param Rate The new playback rate.
-	 */
-	void SetRate(float Rate);
 	
 public:
 

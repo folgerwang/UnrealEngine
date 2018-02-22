@@ -28,7 +28,7 @@ public:
 
 public:
 	/** The source object to use as the initial container to resolve the Source Property Path on. */
-	UPROPERTY()
+	UPROPERTY(Transient)
 	TWeakObjectPtr<UObject> SourceObject;
 
 	/** The property path to trace to resolve this binding on the Source Object */

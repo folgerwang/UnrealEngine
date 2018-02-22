@@ -125,8 +125,11 @@ public:
 	UPROPERTY(EditAnywhere, Category=Settings)
 	int32 MaxTransitionsPerFrame;
 
-	// Skip transition from entry state on first update?
-	// default is true, we throw away transition data on first update
+	// When the state machine becomes relevant, it is initialized into the Entry state.
+	// It then tries to take any valid transitions to possibly end up in a different state on that same frame.
+	// - if true, that new state starts full weight.
+	// - if false, a blend is created between the entry state and that new state.
+	// In either case all visited State notifications (Begin/End) will be triggered.
 	UPROPERTY(EditAnywhere, Category = Settings)
 	bool bSkipFirstUpdateTransition;
 

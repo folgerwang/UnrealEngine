@@ -295,15 +295,13 @@ protected:
 	virtual void OnComponentDestroyed(bool bDestroyingHierarchy) override;
 #endif
 
-#if WITH_EDITORONLY_DATA
-
 	/** Mesh used for debug focus plane visualization */
 	UPROPERTY(transient)
-	UStaticMesh* DebugFocusPlaneMesh;
+	UStaticMesh* FocusPlaneVisualizationMesh;
 
 	/** Material used for debug focus plane visualization */
 	UPROPERTY(transient)
-	UMaterial* DebugFocusPlaneMaterial;
+	UMaterial* FocusPlaneVisualizationMaterial;
 
 	/** Component for the debug focus plane visualization */
 	UPROPERTY(transient)
@@ -313,6 +311,7 @@ protected:
 	UPROPERTY(transient)
 	UMaterialInstanceDynamic* DebugFocusPlaneMID;
 
+#if WITH_EDITORONLY_DATA
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void ResetProxyMeshTransform() override;
 #endif
@@ -345,8 +344,9 @@ protected:
 
 	virtual void NotifyCameraCut() override;
 	
-private:
 	void RecalcDerivedData();
+
+private:
 	float GetDesiredFocusDistance(const FVector& InLocation) const;
 	float GetWorldToMetersScale() const;
 

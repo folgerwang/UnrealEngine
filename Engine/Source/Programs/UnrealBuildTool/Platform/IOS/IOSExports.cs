@@ -74,30 +74,32 @@ namespace UnrealBuildTool
 		/// <param name="CookFlavor"></param>
 		/// <param name="bIsDataDeploy"></param>
 		/// <param name="bCreateStubIPA"></param>
+		/// <param name="BuildReceiptFileName"></param>
 		/// <returns></returns>
-		public static bool PrepForUATPackageOrDeploy(UnrealTargetConfiguration Config, FileReference ProjectFile, string InProjectName, DirectoryReference InProjectDirectory, string InExecutablePath, DirectoryReference InEngineDir, bool bForDistribution, string CookFlavor, bool bIsDataDeploy, bool bCreateStubIPA)
+		public static bool PrepForUATPackageOrDeploy(UnrealTargetConfiguration Config, FileReference ProjectFile, string InProjectName, DirectoryReference InProjectDirectory, string InExecutablePath, DirectoryReference InEngineDir, bool bForDistribution, string CookFlavor, bool bIsDataDeploy, bool bCreateStubIPA, FileReference BuildReceiptFileName)
 		{
-			return new UEDeployIOS().PrepForUATPackageOrDeploy(Config, ProjectFile, InProjectName, InProjectDirectory.FullName, InExecutablePath, InEngineDir.FullName, bForDistribution, CookFlavor, bIsDataDeploy, bCreateStubIPA);
+			return new UEDeployIOS().PrepForUATPackageOrDeploy(Config, ProjectFile, InProjectName, InProjectDirectory.FullName, InExecutablePath, InEngineDir.FullName, bForDistribution, CookFlavor, bIsDataDeploy, bCreateStubIPA, BuildReceiptFileName);
 		}
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="ProjectFile"></param>
-        /// <param name="Config"></param>
-        /// <param name="ProjectDirectory"></param>
-        /// <param name="bIsUE4Game"></param>
-        /// <param name="GameName"></param>
-        /// <param name="ProjectName"></param>
-        /// <param name="InEngineDir"></param>
-        /// <param name="AppDirectory"></param>
-        /// <param name="bSupportsPortrait"></param>
-        /// <param name="bSupportsLandscape"></param>
-        /// <param name="bSkipIcons"></param>
-        /// <returns></returns>
-        public static bool GeneratePList(FileReference ProjectFile, UnrealTargetConfiguration Config, DirectoryReference ProjectDirectory, bool bIsUE4Game, string GameName, string ProjectName, DirectoryReference InEngineDir, DirectoryReference AppDirectory, out bool bSupportsPortrait, out bool bSupportsLandscape, out bool bSkipIcons)
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="ProjectFile"></param>
+		/// <param name="Config"></param>
+		/// <param name="ProjectDirectory"></param>
+		/// <param name="bIsUE4Game"></param>
+		/// <param name="GameName"></param>
+		/// <param name="ProjectName"></param>
+		/// <param name="InEngineDir"></param>
+		/// <param name="AppDirectory"></param>
+		/// <param name="BuildReceiptFileName"></param>
+		/// <param name="bSupportsPortrait"></param>
+		/// <param name="bSupportsLandscape"></param>
+		/// <param name="bSkipIcons"></param>
+		/// <returns></returns>
+		public static bool GeneratePList(FileReference ProjectFile, UnrealTargetConfiguration Config, DirectoryReference ProjectDirectory, bool bIsUE4Game, string GameName, string ProjectName, DirectoryReference InEngineDir, DirectoryReference AppDirectory, FileReference BuildReceiptFileName, out bool bSupportsPortrait, out bool bSupportsLandscape, out bool bSkipIcons)
 		{
-			return new UEDeployIOS().GeneratePList(ProjectFile, Config, ProjectDirectory.FullName, bIsUE4Game, GameName, ProjectName, InEngineDir.FullName, AppDirectory.FullName, out bSupportsPortrait, out bSupportsLandscape, out bSkipIcons);
+			return new UEDeployIOS().GeneratePList(ProjectFile, Config, ProjectDirectory.FullName, bIsUE4Game, GameName, ProjectName, InEngineDir.FullName, AppDirectory.FullName, BuildReceiptFileName, out bSupportsPortrait, out bSupportsLandscape, out bSkipIcons);
 		}
 
 		/// <summary>
@@ -116,24 +118,12 @@ namespace UnrealBuildTool
         /// <summary>
         /// 
         /// </summary>
-        public static bool SupportsIconCatalog(UnrealTargetConfiguration Config, DirectoryReference ProjectDirectory, bool bIsUE4Game, string ProjectName)
+        public static bool SupportsIconCatalog(DirectoryReference ProjectDirectory, FileReference BuildRecieptFileName)
         {
             // get the receipt
-            FileReference ReceiptFilename;
-            if (bIsUE4Game)
+            if (System.IO.File.Exists(BuildRecieptFileName.FullName))
             {
-                ReceiptFilename = TargetReceipt.GetDefaultPath(UnrealBuildTool.EngineDirectory, "UE4Game", UnrealTargetPlatform.IOS, Config, "");
-            }
-            else
-            {
-                ReceiptFilename = TargetReceipt.GetDefaultPath(ProjectDirectory, ProjectName, UnrealTargetPlatform.IOS, Config, "");
-            }
-
-            string RelativeEnginePath = UnrealBuildTool.EngineDirectory.MakeRelativeTo(DirectoryReference.GetCurrentDirectory());
-
-            if (System.IO.File.Exists(ReceiptFilename.FullName))
-            {
-                TargetReceipt Receipt = TargetReceipt.Read(ReceiptFilename, UnrealBuildTool.EngineDirectory, ProjectDirectory);
+                TargetReceipt Receipt = TargetReceipt.Read(BuildRecieptFileName, UnrealBuildTool.EngineDirectory, ProjectDirectory);
                 IEnumerable<ReceiptProperty> Results = Receipt.AdditionalProperties.Where(x => x.Name == "SDK");
 
                 if (Results.Count() > 0)

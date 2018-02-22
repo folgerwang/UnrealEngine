@@ -21,6 +21,8 @@
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
             "WhitelistPlatforms": [
+              "Android",
+              "IOS",
               "Mac",
               "Win32",
               "Win64",
@@ -29,8 +31,7 @@
               "XboxOne"
             ],
             "BlacklistPlatforms": [
-              "Android",
-              "IOS",
+              "TVOS"
             ]
 		},
 		{
@@ -38,6 +39,8 @@
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
             "WhitelistPlatforms": [
+              "Android",
+              "IOS",
               "Mac",
               "Win32",
               "Win64",
@@ -45,8 +48,7 @@
               "PS4"
             ],
             "BlacklistPlatforms": [
-              "Android",
-              "IOS",
+              "TVOS"
             ]
 		},
 		{
@@ -59,6 +61,7 @@
             "BlacklistPlatforms": [
               "Android",
               "IOS",
+              "TVOS"
             ]
 		}
 	]

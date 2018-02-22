@@ -193,6 +193,15 @@ DECLARE_MULTICAST_DELEGATE_TwoParams(FOnInviteRejected, const FUniqueNetId& /*Us
 typedef FOnInviteRejected::FDelegate FOnInviteRejectedDelegate;
 
 /**
+* Delegate called when a remote friend cancels/aborts an invite
+*
+* @param UserId id of the local user that had received the invite
+* @param FriendId friend id that canceled that invite
+*/
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnInviteAborted, const FUniqueNetId& /*UserId*/, const FUniqueNetId& /*FriendId*/);
+typedef FOnInviteAborted::FDelegate FOnInviteAbortedDelegate;
+
+/**
  * Delegate called when a remote friend removes user from friends list
  *
  * @param UserId id of the local user that had the friendship
@@ -241,6 +250,14 @@ public:
 	 * @param FriendId friend id that rejected the invite
 	 */
 	DEFINE_ONLINE_DELEGATE_TWO_PARAM(OnInviteRejected, const FUniqueNetId& /*UserId*/, const FUniqueNetId& /*FriendId*/);
+
+	/**
+	* Delegate called when a remote friend cancels/aborts an sent invite
+	*
+	* @param UserId id of the local user that had received the invite
+	* @param FriendId friend id that canceled that invite
+	*/
+	DEFINE_ONLINE_DELEGATE_TWO_PARAM(OnInviteAborted, const FUniqueNetId& /*UserId*/, const FUniqueNetId& /*FriendId*/);
 
 	/**
 	 * Delegate called when a remote friend removes user from friends list

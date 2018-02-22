@@ -42,7 +42,7 @@ void ALevelStreamingVolume::UpdateStreamingLevelsRefs()
 	UWorld* OwningWorld = GetWorld();
 	if (OwningWorld)
 	{
-		for (ULevelStreaming* LevelStreaming : OwningWorld->StreamingLevels)
+		for (ULevelStreaming* LevelStreaming : OwningWorld->GetStreamingLevels())
 		{
 			if (LevelStreaming && LevelStreaming->EditorStreamingVolumes.Find(this) != INDEX_NONE)
 			{

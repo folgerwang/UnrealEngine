@@ -70,6 +70,8 @@
 
 #include "Windows/AllowWindowsPlatformTypes.h"
 
+#include "FramePro/FrameProProfiler.h"
+
 // This might not be defined by Windows when maintaining backwards-compatibility to pre-Win8 builds
 #ifndef SM_CONVERTIBLESLATEMODE
 #define SM_CONVERTIBLESLATEMODE			0x2003
@@ -385,8 +387,26 @@ int32 FWindowsOSVersionHelper::GetOSVersions( FString& out_OSVersionLabel, FStri
 				}
 			}
 				break;
+			case 10:
+				switch (OsVersionInfo.dwMinorVersion)
+				{
+				case 0:
+					if (OsVersionInfo.wProductType == VER_NT_WORKSTATION)
+					{
+						out_OSVersionLabel = TEXT("Windows 10");
+					}
+					else
+					{
+						out_OSVersionLabel = TEXT("Windows Server Technical Preview");
+					}
+					break;
+				default:
+					ErrorCode |= (int32)ERROR_UNKNOWNVERSION;
+				}
+				break;
+
 			default:
-				ErrorCode |= ERROR_UNKNOWNVERSION;
+				ErrorCode |= (int32)ERROR_UNKNOWNVERSION;
 		}
 
 #if 0
@@ -888,6 +908,34 @@ void FWindowsPlatformMisc::SubmitErrorReport( const TCHAR* InErrorHist, EErrorRe
 bool FWindowsPlatformMisc::IsDebuggerPresent()
 {
 	return !GIgnoreDebugger && !!::IsDebuggerPresent();
+}
+
+void FWindowsPlatformMisc::BeginNamedEventFrame()
+{
+#if FRAMEPRO_ENABLED
+	FFrameProProfiler::FrameStart();
+#endif // FRAMEPRO_ENABLED
+}
+
+void FWindowsPlatformMisc::BeginNamedEvent(const struct FColor& Color, const TCHAR* Text)
+{
+#if FRAMEPRO_ENABLED
+	FFrameProProfiler::PushEvent(Text);
+#endif // FRAMEPRO_ENABLED
+}
+
+void FWindowsPlatformMisc::BeginNamedEvent(const struct FColor& Color, const ANSICHAR* Text)
+{
+#if FRAMEPRO_ENABLED
+	FFrameProProfiler::PushEvent(Text);
+#endif // FRAMEPRO_ENABLED
+}
+
+void FWindowsPlatformMisc::EndNamedEvent()
+{
+#if FRAMEPRO_ENABLED
+	FFrameProProfiler::PopEvent();
+#endif // FRAMEPRO_ENABLED
 }
 #endif // UE_BUILD_SHIPPING
 

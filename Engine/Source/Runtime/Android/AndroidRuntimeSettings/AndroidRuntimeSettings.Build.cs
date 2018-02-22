@@ -8,12 +8,14 @@ public class AndroidRuntimeSettings : ModuleRules
 	{
 		BinariesSubFolder = "Android";
 
-		PrivateDependencyModuleNames.AddRange(
+        PublicDependencyModuleNames.Add("AudioPlatformConfiguration");
+
+        PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
 				"Core",
 				"CoreUObject",
-                "Engine",
+                "Engine"
             }
 		);
 
@@ -22,10 +24,11 @@ public class AndroidRuntimeSettings : ModuleRules
             PrivateDependencyModuleNames.AddRange(
                 new string[]
 			    {
-                    "TargetPlatform",
-                    "Android_MultiTargetPlatform"
+                    "TargetPlatform"
 			    }
             );
+
+            PrivateIncludePathModuleNames.Add("AndroidTargetPlatform");
         }
 	}
 }

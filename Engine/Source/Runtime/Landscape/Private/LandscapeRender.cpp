@@ -45,6 +45,22 @@ FAutoConsoleVariableRef CVarLandscapeMeshLODBias(
 	ECVF_Scalability
 	);
 
+float GLandscapeLOD0DistributionScale = 1.f;
+FAutoConsoleVariableRef CVarLandscapeLOD0DistributionScale(
+	TEXT("r.LandscapeLOD0DistributionScale"),
+	GLandscapeLOD0DistributionScale,
+	TEXT("Multiplier for the landscape LOD0DistributionSetting property"),
+	ECVF_Scalability
+	);
+
+float GLandscapeLODDistributionScale = 1.f;
+FAutoConsoleVariableRef CVarLandscapeLODDistributionScale(
+	TEXT("r.LandscapeLODDistributionScale"),
+	GLandscapeLODDistributionScale,
+	TEXT("Multiplier for the landscape LODDistributionSetting property"),
+	ECVF_Scalability
+);
+
 float GShadowMapWorldUnitsToTexelFactor = -1.0f;
 static FAutoConsoleVariableRef CVarShadowMapWorldUnitsToTexelFactor(
 	TEXT("Landscape.ShadowMapWorldUnitsToTexelFactor"),
@@ -58,6 +74,16 @@ static FAutoConsoleVariableRef CVarAllowLandscapeShadows(
 	GAllowLandscapeShadows,
 	TEXT("Allow Landscape Shadows")
 );
+
+#if !UE_BUILD_SHIPPING
+static void OnLODDistributionScaleChanged(IConsoleVariable* CVar)
+{
+	for (auto* LandscapeComponent : TObjectRange<ULandscapeComponent>(RF_ClassDefaultObject | RF_ArchetypeObject, true, EInternalObjectFlags::PendingKill))
+	{
+		LandscapeComponent->MarkRenderStateDirty();
+	}
+}
+#endif
 
 #if WITH_EDITOR
 LANDSCAPE_API int32 GLandscapeViewMode = ELandscapeViewMode::Normal;
@@ -611,6 +637,18 @@ FLandscapeComponentSceneProxy::FLandscapeComponentSceneProxy(ULandscapeComponent
 	, LightMapResolution(InComponent->GetStaticLightMapResolution())
 #endif
 {
+#if !UE_BUILD_SHIPPING
+	{
+		static bool bStaticInit = false;
+		if (!bStaticInit)
+		{
+			bStaticInit = true;
+			CVarLandscapeLODDistributionScale->SetOnChangedCallback(FConsoleVariableDelegate::CreateStatic(&OnLODDistributionScaleChanged));
+			CVarLandscapeLOD0DistributionScale->SetOnChangedCallback(FConsoleVariableDelegate::CreateStatic(&OnLODDistributionScaleChanged));
+		}
+	}
+#endif
+
 	const auto FeatureLevel = GetScene().GetFeatureLevel();
 
 	if (FeatureLevel >= ERHIFeatureLevel::SM4)
@@ -639,7 +677,7 @@ FLandscapeComponentSceneProxy::FLandscapeComponentSceneProxy(ULandscapeComponent
 		bNeedsLevelAddedToWorldNotification = true;
 	}
 
-	LevelColor = FLinearColor(1.f, 1.f, 1.f);
+	SetLevelColor(FLinearColor(1.f, 1.f, 1.f));
 
 	if (FeatureLevel <= ERHIFeatureLevel::ES3_1)
 	{
@@ -665,13 +703,13 @@ FLandscapeComponentSceneProxy::FLandscapeComponentSceneProxy(ULandscapeComponent
 
 	LODSquaredScreenRatio.AddUninitialized(LastLOD+1);
 
-	float ScreenSizeRatioDivider =  InComponent->GetLandscapeProxy()->LOD0DistributionSetting;
+	float ScreenSizeRatioDivider =  InComponent->GetLandscapeProxy()->LOD0DistributionSetting * GLandscapeLOD0DistributionScale;
 	float CurrentScreenSizeRatio = 1.0f;
 
 	// LOD 0 handling
 	LODSquaredScreenRatio[0] = FMath::Square(CurrentScreenSizeRatio);
 	CurrentScreenSizeRatio /= ScreenSizeRatioDivider;
-	ScreenSizeRatioDivider = InComponent->GetLandscapeProxy()->LODDistributionSetting;
+	ScreenSizeRatioDivider = InComponent->GetLandscapeProxy()->LODDistributionSetting * GLandscapeLODDistributionScale;
 
 	// Other LODs
 	for (int32 LODIndex = 1; LODIndex <= LastLOD; ++LODIndex)
@@ -729,7 +767,7 @@ FLandscapeComponentSceneProxy::FLandscapeComponentSceneProxy(ULandscapeComponent
 			ULevelStreaming* LevelStreaming = FLevelUtils::FindStreamingLevel(Level);
 			if (LevelStreaming)
 			{
-				LevelColor = LevelStreaming->LevelColor;
+				SetLevelColor(LevelStreaming->LevelColor);
 			}
 		}
 	}
@@ -774,7 +812,7 @@ void FLandscapeComponentSceneProxy::CreateRenderThreadResources()
 	{
 		SharedBuffers = new FLandscapeSharedBuffers(
 			SharedBuffersKey, SubsectionSizeQuads, NumSubsections,
-			FeatureLevel, bRequiresAdjacencyInformation);
+			FeatureLevel, bRequiresAdjacencyInformation, /*NumOcclusionVertices*/ 0);
 
 		FLandscapeComponentSceneProxy::SharedBuffersMap.Add(SharedBuffersKey, SharedBuffers);
 
@@ -2334,7 +2372,7 @@ void FLandscapeComponentSceneProxy::GetDynamicMeshElements(const TArray<const FS
 						// Override the mesh's material with our material that draws the collision color
 						auto CollisionMaterialInstance = new FColoredMaterialRenderProxy(
 							GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(IsSelected(), IsHovered()),
-							WireframeColor
+							GetWireframeColor()
 							);
 						Collector.RegisterOneFrameMaterialProxy(CollisionMaterialInstance);
 
@@ -2478,6 +2516,12 @@ void FLandscapeComponentSceneProxy::GetDynamicMeshElements(const TArray<const FS
 	INC_DWORD_STAT_BY(STAT_LandscapeComponentRenderPasses, NumPasses);
 	INC_DWORD_STAT_BY(STAT_LandscapeDrawCalls, NumDrawCalls);
 	INC_DWORD_STAT_BY(STAT_LandscapeTriangles, NumTriangles * NumPasses);
+}
+
+bool FLandscapeComponentSceneProxy::CollectOccluderElements(FOccluderElementsCollector& Collector) const
+{
+	// TODO: implement
+	return false;
 }
 
 //
@@ -2738,6 +2782,45 @@ void FLandscapeSharedBuffers::CreateIndexBuffers(ERHIFeatureLevel::Type InFeatur
 	}
 }
 
+void FLandscapeSharedBuffers::CreateOccluderIndexBuffer(int32 NumOccluderVertices)
+{
+	if (NumOccluderVertices <= 0 || NumOccluderVertices > MAX_uint16)
+	{
+		return;
+	}
+
+	uint16 NumLineQuads = ((uint16)FMath::Sqrt(NumOccluderVertices) - 1);
+	uint16 NumLineVtx = NumLineQuads+1;
+	check(NumLineVtx*NumLineVtx == NumOccluderVertices);
+
+	int32 NumTris = NumLineQuads*NumLineQuads*2;
+	int32 NumIndices = NumTris*3;
+	OccluderIndicesSP = MakeShared<FOccluderIndexArray, ESPMode::ThreadSafe>();
+	OccluderIndicesSP->SetNumUninitialized(NumIndices, false);
+	
+	uint16* OcclusionIndices = OccluderIndicesSP->GetData();
+	const uint16 NumLineVtxPlusOne = NumLineVtx + 1;
+	const uint16 QuadIndices[2][3] = {{0, NumLineVtx, NumLineVtxPlusOne}, {0, NumLineVtxPlusOne, 1}};
+	uint16 QuadOffset = 0;
+	int32 Index = 0;
+	for (int32 y = 0; y < NumLineQuads; y++)
+	{
+		for (int32 x = 0; x < NumLineQuads; x++)
+		{
+			for (int32 i = 0; i < 2; i++)
+			{
+				OcclusionIndices[Index++] = QuadIndices[i][0] + QuadOffset;
+				OcclusionIndices[Index++] = QuadIndices[i][1] + QuadOffset;
+				OcclusionIndices[Index++] = QuadIndices[i][2] + QuadOffset;
+			}
+			QuadOffset++;
+		}
+		QuadOffset++;
+	}
+
+	INC_DWORD_STAT_BY(STAT_LandscapeOccluderMem, OccluderIndicesSP->GetAllocatedSize());
+}
+
 #if WITH_EDITOR
 template <typename INDEX_TYPE>
 void FLandscapeSharedBuffers::CreateGrassIndexBuffer()
@@ -2785,7 +2868,7 @@ void FLandscapeSharedBuffers::CreateGrassIndexBuffer()
 }
 #endif
 
-FLandscapeSharedBuffers::FLandscapeSharedBuffers(const int32 InSharedBuffersKey, const int32 InSubsectionSizeQuads, const int32 InNumSubsections, const ERHIFeatureLevel::Type InFeatureLevel, const bool bRequiresAdjacencyInformation)
+FLandscapeSharedBuffers::FLandscapeSharedBuffers(const int32 InSharedBuffersKey, const int32 InSubsectionSizeQuads, const int32 InNumSubsections, const ERHIFeatureLevel::Type InFeatureLevel, const bool bRequiresAdjacencyInformation, int32 NumOccluderVertices)
 	: SharedBuffersKey(InSharedBuffersKey)
 	, NumIndexBuffers(FMath::CeilLogTwo(InSubsectionSizeQuads + 1))
 	, SubsectionSizeVerts(InSubsectionSizeQuads + 1)
@@ -2830,6 +2913,8 @@ FLandscapeSharedBuffers::FLandscapeSharedBuffers(const int32 InSharedBuffersKey,
 		}
 #endif
 	}
+
+	CreateOccluderIndexBuffer(NumOccluderVertices);
 }
 
 FLandscapeSharedBuffers::~FLandscapeSharedBuffers()
@@ -2862,6 +2947,11 @@ FLandscapeSharedBuffers::~FLandscapeSharedBuffers()
 	}
 
 	delete VertexFactory;
+
+	if (OccluderIndicesSP.IsValid())
+	{
+		DEC_DWORD_STAT_BY(STAT_LandscapeOccluderMem, OccluderIndicesSP->GetAllocatedSize());
+	}
 }
 
 template<typename IndexType>
@@ -3381,7 +3471,10 @@ public:
 					}
 					else
 					{
-						UE_LOG(LogLandscape, Warning, TEXT("Shader %s unknown by landscape thumbnail material, please add to either AllowedShaderTypes or ExcludedShaderTypes"), ShaderType->GetName());
+						if (Platform == EShaderPlatform::SP_PCD3D_SM5)
+						{
+							UE_LOG(LogLandscape, Warning, TEXT("Shader %s unknown by landscape thumbnail material, please add to either AllowedShaderTypes or ExcludedShaderTypes"), ShaderType->GetName());
+						}
 						return FMaterialResource::ShouldCache(Platform, ShaderType, VertexFactoryType);
 					}
 				}
@@ -3425,6 +3518,7 @@ public:
 			FName(TEXT("TBasePassPSFSimpleNoLightmapLightingPolicy")),
 			FName(TEXT("TBasePassPSFSimpleNoLightmapLightingPolicySkylight")),
 			FName(TEXT("TBasePassVSFSimpleNoLightmapLightingPolicy")),
+			FName(TEXT("TBasePassVSFSimpleNoLightmapLightingPolicyAtmosphericFog")),
 			FName(TEXT("TDepthOnlyVS<false>")),
 			FName(TEXT("TDepthOnlyVS<true>")),
 			FName(TEXT("FDepthOnlyPS")),

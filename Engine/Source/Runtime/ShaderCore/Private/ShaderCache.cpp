@@ -719,14 +719,12 @@ FShaderCache::FShaderCache(uint32 InOptions, EShaderPlatform InShaderPlatform)
 	// We expect the RHI to be created at this point
 	CurrentShaderPlatformCache.ShaderPlatform = CurrentPlatform;
 
-	if (IsMobilePlatform(CurrentPlatform))
-	{
-		// Make sure this is disabled on mobile
-		// Mobile only needs FShaderCache::bUseShaderCaching
-		FShaderCache::bUseShaderPredraw = 0;
-		FShaderCache::bUseShaderDrawLog = 0;
-	}
-		
+    const bool bOverridesShaderDrawLog = FParse::Param( FCommandLine::Get(), TEXT( "UseShaderDrawLog" ) );
+    if (bOverridesShaderDrawLog)
+    {
+        FShaderCache::bUseShaderDrawLog = 1;
+    }
+
 	DefaultCacheState = InternalCreateOrFindCacheStateForContext(GDynamicRHI->RHIGetDefaultContext());
 			
 	// Try to load user cache, making sure that if we fail version test we still try game-content version.
@@ -1248,7 +1246,7 @@ void FShaderCache::InternalLogShader(EShaderPlatform Platform, EShaderFrequency 
 				FShaderCacheLibrary* ShaderCacheLibrary = ShaderCache->CodeCache;
 				if (ShaderCacheLibrary && !ShaderCacheLibrary->Shaders.Contains(Key))
 				{
-					Lock.RaiseLockToWrite();
+					Lock.ReleaseReadOnlyLockAndAcquireWriteLock_USE_WITH_CAUTION();
 					ShaderCacheLibrary->AddShader(Key.Frequency, Key.SHAHash, Code, UncompressedSize);
 					bSubmit = true;
 				}
@@ -1256,7 +1254,7 @@ void FShaderCache::InternalLogShader(EShaderPlatform Platform, EShaderFrequency 
 
 			if (!(Cache->Options & SCO_NoShaderPreload) && bSubmit)
 			{
-				if (Code.Num() != UncompressedSize && RHISupportsShaderCompression(ShaderCache->CurrentPlatform))
+				if (Code.Num() && Code.Num() != UncompressedSize && RHISupportsShaderCompression(ShaderCache->CurrentPlatform))
 				{
 					TArray<uint8> UncompressedCode;
 					FShaderCacheHelperUncompressCode(UncompressedSize, Code, UncompressedCode);
@@ -1990,13 +1988,13 @@ void FShaderCache::InternalLogDraw(FShaderCacheState& CacheState, uint32 Primiti
 			
 			if (DrawId < 0)
 			{
-				Lock.RaiseLockToWrite();
+				Lock.ReleaseReadOnlyLockAndAcquireWriteLock_USE_WITH_CAUTION();
 				DrawId = CurrentShaderPlatformCache.DrawStates.Add(CacheState.CurrentDrawKey);
 			}
 			
 			if (PSOId < 0)
 			{
-				Lock.RaiseLockToWrite();
+				Lock.ReleaseReadOnlyLockAndAcquireWriteLock_USE_WITH_CAUTION();
 				PSOId = ShaderPlatformPSOOnly(CurrentPlatform) ? CacheState.CurrentPSO.Index : CurrentShaderPlatformCache.PipelineStates.Add(CacheState.CurrentPSO);
 			}
 
@@ -2011,27 +2009,27 @@ void FShaderCache::InternalLogDraw(FShaderCacheState& CacheState, uint32 Primiti
 			
 			if (EntryId < 0)
 			{
-				Lock.RaiseLockToWrite();
+				Lock.ReleaseReadOnlyLockAndAcquireWriteLock_USE_WITH_CAUTION();
 				EntryId = CurrentShaderPlatformCache.PreDrawEntries.Add(Entry);
 			}
 			
 			FShaderStreamingCache* StreamCache = CurrentShaderPlatformCache.StreamingDrawStates.Find(StreamingKey);
 			if (!StreamCache)
 			{
-				Lock.RaiseLockToWrite();
+				Lock.ReleaseReadOnlyLockAndAcquireWriteLock_USE_WITH_CAUTION();
 				StreamCache = &CurrentShaderPlatformCache.StreamingDrawStates.FindOrAdd(StreamingKey);
 			}
 			
 			TSet<int32>* ShaderDrawSet = StreamCache->ShaderDrawStates.Find(CacheState.CurrentPSO.BoundShaderState);
 			if (!ShaderDrawSet)
 			{
-				Lock.RaiseLockToWrite();
+				Lock.ReleaseReadOnlyLockAndAcquireWriteLock_USE_WITH_CAUTION();
 				ShaderDrawSet = &StreamCache->ShaderDrawStates.FindOrAdd(CacheState.CurrentPSO.BoundShaderState);
 			}
 			
 			if (!ShaderDrawSet->Contains(EntryId))
 			{
-				Lock.RaiseLockToWrite();
+				Lock.ReleaseReadOnlyLockAndAcquireWriteLock_USE_WITH_CAUTION();
 				ShaderDrawSet->Add(EntryId,&bShaderDrawSetEntryExists);
 			}
 		}

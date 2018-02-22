@@ -89,10 +89,9 @@ void CreateCompFromSkeletalMesh(USkeletalMesh* SkeletalMesh, FCompMesh &CurrentD
 		{
 			//Find the LodMaterialMap, which must be use for all LOD except the base
 			TArray<int32> LODMaterialMap;
-			if(LodIndex > 0 && SkeletalMesh->LODInfo.IsValidIndex(LodIndex))
+			if(LodIndex > 0 && SkeletalMesh->IsValidLODIndex(LodIndex))
 			{
-				const FSkeletalMeshLODInfo &SkeletalMeshLODInfo = SkeletalMesh->LODInfo[LodIndex];
-				LODMaterialMap = SkeletalMeshLODInfo.LODMaterialMap;
+				LODMaterialMap = SkeletalMesh->GetLODInfo(LodIndex)->LODMaterialMap;
 			}
 
 			const FSkeletalMeshLODModel &StaticLodModel = SkeletalMesh->GetImportedModel()->LODModels[LodIndex];

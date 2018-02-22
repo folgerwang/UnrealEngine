@@ -57,6 +57,9 @@ template <class ElementType> class TLinkedList;
 
 #define USE_EDITOR_ONLY_DEFAULT_MATERIAL_FALLBACK	(WITH_EDITOR && !(UE_BUILD_SHIPPING || UE_BUILD_TEST))
 
+// disallow debug data in shipping or on non-desktop Test
+#define ALLOW_SHADERMAP_DEBUG_DATA (!(UE_BUILD_SHIPPING || (UE_BUILD_TEST && !PLATFORM_DESKTOP)))
+
 DECLARE_LOG_CATEGORY_EXTERN(LogMaterial,Log,Verbose);
 
 /** Creates a string that represents the given quality level. */
@@ -581,7 +584,7 @@ public:
 	}
 
 	/** Updates the Id's static parameter set */	
-	void UpdateParameterSet(FStaticParameterSet& StaticParameters);
+	void UpdateParameterSet(const FStaticParameterSet& StaticParameters);
 	
 	const FStaticParameterSet& GetParameterSet() const
 	{
@@ -816,10 +819,13 @@ public:
 		return sizeof(*this)
 			+ MeshShaderMaps.GetAllocatedSize()
 			+ OrderedMeshShaderMaps.GetAllocatedSize()
-			+ FriendlyName.GetAllocatedSize()
 			+ VertexFactoryMap.GetAllocatedSize()
 			+ MaterialCompilationOutput.UniformExpressionSet.GetAllocatedSize()
-			+ DebugDescription.GetAllocatedSize();
+#if ALLOW_SHADERMAP_DEBUG_DATA
+			+ FriendlyName.GetAllocatedSize()
+			+ DebugDescription.GetAllocatedSize()
+#endif
+		;
 	}
 
 	/** Returns the maximum number of texture samplers used by any shader in this shader map. */
@@ -828,11 +834,16 @@ public:
 	// Accessors.
 	ENGINE_API const FMeshMaterialShaderMap* GetMeshShaderMap(FVertexFactoryType* VertexFactoryType) const;
 	const FMaterialShaderMapId& GetShaderMapId() const { return ShaderMapId; }
-	const FString& GetFriendlyName() const { return FriendlyName; }
 	uint32 GetCompilingId() const { return CompilingId; }
 	bool IsCompilationFinalized() const { return bCompilationFinalized; }
 	bool CompiledSuccessfully() const { return bCompiledSuccessfully; }
+#if ALLOW_SHADERMAP_DEBUG_DATA
+	const FString& GetFriendlyName() const { return FriendlyName; }
 	const FString& GetDebugDescription() const { return DebugDescription; }
+#else
+	const FString& GetFriendlyName() const { static FString T; return T; }
+	const FString& GetDebugDescription() const { static FString T; return T; }
+#endif
 	bool RequiresSceneColorCopy() const { return MaterialCompilationOutput.bRequiresSceneColorCopy; }
 	bool NeedsSceneTextures() const { return MaterialCompilationOutput.bNeedsSceneTextures; }
 	bool UsesGlobalDistanceField() const { return MaterialCompilationOutput.bUsesGlobalDistanceField; }
@@ -890,8 +901,10 @@ private:
 	/** The material's mesh shader maps, indexed by VFType->GetId(), for fast lookup at runtime. */
 	TArray<FMeshMaterialShaderMap*> OrderedMeshShaderMaps;
 
+#if ALLOW_SHADERMAP_DEBUG_DATA
 	/** The material's user friendly name, typically the object name. */
 	FString FriendlyName;
+#endif
 
 	/** The static parameter set that this shader map was compiled with */
 	FMaterialShaderMapId ShaderMapId;
@@ -930,8 +943,10 @@ private:
 	/** Indicates whether the shader map should be stored in the shader cache. */
 	uint32 bIsPersistent : 1;
 
+#if ALLOW_SHADERMAP_DEBUG_DATA
 	/** Debug information about how the material shader map was compiled. */
 	FString DebugDescription;
+#endif
 
 	FShader* ProcessCompilationResultsForSingleJob(class FShaderCompileJob* SingleJob, const FShaderPipelineType* ShaderPipeline, const FSHAHash& MaterialShaderMapHash);
 
@@ -1400,6 +1415,7 @@ protected:
 
 	/** Useful for debugging. */
 	virtual FString GetBaseMaterialPathName() const { return TEXT(""); }
+	virtual FString GetDebugName() const { return GetBaseMaterialPathName(); }
 
 	void SetQualityLevelProperties(EMaterialQualityLevel::Type InQualityLevel, bool bInHasQualityLevelUsage, ERHIFeatureLevel::Type InFeatureLevel)
 	{
@@ -1420,6 +1436,8 @@ protected:
 	
 	/** Produces arrays of any shader and vertex factory type that this material is dependent on. */
 	ENGINE_API void GetDependentShaderAndVFTypes(EShaderPlatform Platform, TArray<FShaderType*>& OutShaderTypes, TArray<const FShaderPipelineType*>& OutShaderPipelineTypes, TArray<FVertexFactoryType*>& OutVFTypes) const;
+
+	bool GetLoadedCookedShaderMapId() const { return bLoadedCookedShaderMapId; }
 
 private:
 
@@ -1905,6 +1923,7 @@ protected:
 	ENGINE_API virtual bool HasMaterialAttributesConnected() const override;
 	/** Useful for debugging. */
 	ENGINE_API virtual FString GetBaseMaterialPathName() const override;
+	ENGINE_API virtual FString GetDebugName() const override;
 
 	friend class FDebugViewModeMaterialProxy; // Needed to redirect compilation
 };

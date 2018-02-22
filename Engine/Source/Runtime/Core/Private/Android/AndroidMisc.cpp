@@ -30,7 +30,9 @@
 #include "Android/AndroidStats.h"
 #include "Misc/CoreDelegates.h"
 
-#if STATS
+#include "FramePro/FrameProProfiler.h"
+
+#if STATS || ENABLE_STATNAMEDEVENTS
 int32 FAndroidMisc::TraceMarkerFileDescriptor = -1;
 #endif
 
@@ -257,7 +259,7 @@ void FAndroidMisc::PlatformInit()
 	extern void AndroidSetupDefaultThreadAffinity();
 	AndroidSetupDefaultThreadAffinity();
 
-#if STATS
+#if (STATS || ENABLE_STATNAMEDEVENTS) && !FRAMEPRO_ENABLED
 	// Setup trace file descriptor
 	TraceMarkerFileDescriptor = open("/sys/kernel/debug/tracing/trace_marker", O_WRONLY);
 	if (TraceMarkerFileDescriptor == -1)
@@ -275,7 +277,7 @@ extern void AndroidThunkCpp_DismissSplashScreen();
 
 void FAndroidMisc::PlatformTearDown()
 {
-#if STATS
+#if (STATS || ENABLE_STATNAMEDEVENTS) && !FRAMEPRO_ENABLED
 	// Tear down trace file descriptor
 	if (TraceMarkerFileDescriptor != -1)
 	{
@@ -625,6 +627,8 @@ void DefaultCrashHandler(const FAndroidCrashContext& Context)
 		const SIZE_T StackTraceSize = 65535;
 		ANSICHAR StackTrace[StackTraceSize];
 		StackTrace[0] = 0;
+
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Starting StackWalk..."));
 
 		// Walk the stack and dump it to the allocated memory.
 		FPlatformStackWalk::StackWalkAndDump(StackTrace, StackTraceSize, 0, Context.Context);
@@ -1393,9 +1397,20 @@ bool FAndroidMisc::IsDebuggerPresent()
 }
 #endif
 
-#if STATS
+#if STATS || ENABLE_STATNAMEDEVENTS
+
+void FAndroidMisc::BeginNamedEventFrame()
+{
+#if FRAMEPRO_ENABLED
+	FFrameProProfiler::FrameStart();
+#endif // FRAMEPRO_ENABLED
+}
+
 void FAndroidMisc::BeginNamedEvent(const struct FColor& Color, const TCHAR* Text)
 {
+#if FRAMEPRO_ENABLED
+	FFrameProProfiler::PushEvent(Text);
+#else
 	const int MAX_TRACE_MESSAGE_LENGTH = 256;
 
 	// not static since may be called by different threads
@@ -1411,23 +1426,43 @@ void FAndroidMisc::BeginNamedEvent(const struct FColor& Color, const TCHAR* Text
 	*WritePtr = '\0';
 
 	BeginNamedEvent(Color, TextBuffer);
+#endif // FRAMEPRO_ENABLED
 }
 
 void FAndroidMisc::BeginNamedEvent(const struct FColor& Color, const ANSICHAR* Text)
 {
+#if FRAMEPRO_ENABLED
+	FFrameProProfiler::PushEvent(Text);
+#else
 	const int MAX_TRACE_EVENT_LENGTH = 256;
 
 	ANSICHAR EventBuffer[MAX_TRACE_EVENT_LENGTH];
 	int EventLength = snprintf(EventBuffer, MAX_TRACE_EVENT_LENGTH, "B|%d|%s", getpid(), Text);
 	write(TraceMarkerFileDescriptor, EventBuffer, EventLength);
+#endif // FRAMEPRO_ENABLED
 }
 
 void FAndroidMisc::EndNamedEvent()
 {
+#if FRAMEPRO_ENABLED
+	FFrameProProfiler::PopEvent();
+#else
 	const ANSICHAR EventTerminatorChar = 'E';
 	write(TraceMarkerFileDescriptor, &EventTerminatorChar, 1);
+#endif // FRAMEPRO_ENABLED
 }
-#endif
+
+void FAndroidMisc::CustomNamedStat(const TCHAR* Text, float Value, const TCHAR* Graph, const TCHAR* Unit)
+{
+	FRAMEPRO_DYNAMIC_CUSTOM_STAT(Text, Value, Graph, Unit);
+}
+
+void FAndroidMisc::CustomNamedStat(const ANSICHAR* Text, float Value, const ANSICHAR* Graph, const ANSICHAR* Unit)
+{
+	FRAMEPRO_DYNAMIC_CUSTOM_STAT(Text, Value, Graph, Unit);
+}
+
+#endif // STATS || ENABLE_STATNAMEDEVENTS
 
 int FAndroidMisc::GetVolumeState(double* OutTimeOfChangeInSec)
 {
@@ -1552,6 +1587,11 @@ FString FAndroidMisc::GetCPUBrand()
 	return DeviceModel;
 }
 
+FString FAndroidMisc::GetPrimaryGPUBrand()
+{
+	return FAndroidMisc::GetGPUFamily();
+}
+
 void FAndroidMisc::GetOSVersions(FString& out_OSVersionLabel, FString& out_OSSubVersionLabel)
 {
 	out_OSVersionLabel = TEXT("Android");
@@ -1560,7 +1600,7 @@ void FAndroidMisc::GetOSVersions(FString& out_OSVersionLabel, FString& out_OSSub
 
 FString FAndroidMisc::GetOSVersion()
 {
-	return GetAndroidVersion();
+	return AndroidVersion;
 }
 
 bool FAndroidMisc::GetDiskTotalAndFreeSpace(const FString& InPath, uint64& TotalNumberOfBytes, uint64& NumberOfFreeBytes)

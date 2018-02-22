@@ -441,21 +441,22 @@ int32 CompileTextureSample(
 					TextureReferenceIndex,
 					AutomaticViewMipBias);
 }
-#endif
+#endif // WITH_EDITOR
 
 UMaterialExpression::UMaterialExpression(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 #if WITH_EDITORONLY_DATA
 	, GraphNode(NULL)
-#endif
+#endif // WITH_EDITORONLY_DATA
 {
-
+#if WITH_EDITORONLY_DATA
 	Outputs.Add(FExpressionOutput(TEXT("")));
 
 	bShowInputs = true;
 	bShowOutputs = true;
 	bCollapsed = true;
 	bShowMaskColorsOnPin = true;
+#endif // WITH_EDITORONLY_DATA
 }
 
 
@@ -570,7 +571,8 @@ void UMaterialExpression::CopyMaterialExpressions(const TArray<UMaterialExpressi
 		OutNewComments.Add(NewComment);
 	}
 }
-#endif
+#endif // WITH_EDITOR
+
 
 void UMaterialExpression::Serialize( FArchive& Ar )
 {
@@ -583,7 +585,7 @@ void UMaterialExpression::Serialize( FArchive& Ar )
 		FExpressionInput* Input = Inputs[InputIndex];
 		DoMaterialAttributeReorder(Input, Ar.UE4Ver());
 	}
-#endif
+#endif // WITH_EDITORONLY_DATA
 }
 
 bool UMaterialExpression::NeedsLoadForClient() const
@@ -732,9 +734,6 @@ bool UMaterialExpression::CanEditChange(const UProperty* InProperty) const
 	return bIsEditable;
 }
 
-#endif // WITH_EDITOR
-
-
 TArray<FExpressionOutput>& UMaterialExpression::GetOutputs() 
 {
 	return Outputs;
@@ -819,7 +818,6 @@ FName UMaterialExpression::GetInputName(int32 InputIndex) const
 	return NAME_None;
 }
 
-#if WITH_EDITOR
 FText UMaterialExpression::GetCreationDescription() const
 {
 	return FText::GetEmpty();
@@ -829,11 +827,9 @@ FText UMaterialExpression::GetCreationName() const
 {
 	return FText::GetEmpty();
 }
-#endif
 
 bool UMaterialExpression::IsInputConnectionRequired(int32 InputIndex) const
 {
-#if WITH_EDITOR
 	int32 Index = 0;
 	for( TFieldIterator<UStructProperty> InputIt(GetClass(), EFieldIteratorFlags::IncludeSuper,  EFieldIteratorFlags::ExcludeDeprecated) ; InputIt ; ++InputIt )
 	{
@@ -856,11 +852,9 @@ bool UMaterialExpression::IsInputConnectionRequired(int32 InputIndex) const
 			}
 		}
 	}
-#endif
 	return true;
 }
 
-#if WITH_EDITOR
 uint32 UMaterialExpression::GetInputType(int32 InputIndex)
 {
 	// different inputs should be defined by sub classed expressions
@@ -903,7 +897,6 @@ uint32 UMaterialExpression::GetOutputType(int32 OutputIndex)
 		}
 	}
 }
-#endif
 
 int32 UMaterialExpression::GetWidth() const
 {
@@ -918,7 +911,6 @@ int32 UMaterialExpression::GetHeight() const
 }
 
 
-
 bool UMaterialExpression::UsesLeftGutter() const
 {
 	return 0;
@@ -931,7 +923,6 @@ bool UMaterialExpression::UsesRightGutter() const
 	return 0;
 }
 
-#if WITH_EDITOR
 void UMaterialExpression::GetCaption(TArray<FString>& OutCaptions) const
 {
 	OutCaptions.Add(TEXT("Expression"));
@@ -993,7 +984,6 @@ int32 UMaterialExpression::CompilerError(FMaterialCompiler* Compiler, const TCHA
 	GetCaption(Captions);
 	return Compiler->Errorf(TEXT("%s> %s"), Desc.Len() > 0 ? *Desc : *Captions[0], pcMessage);
 }
-#endif // WITH_EDITOR
 
 bool UMaterialExpression::Modify( bool bAlwaysMarkDirty/*=true*/ )
 {
@@ -1013,7 +1003,6 @@ bool UMaterialExpression::MatchesSearchQuery( const TCHAR* SearchQuery )
 	return Desc.Contains(SearchQuery);
 }
 
-#if WITH_EDITOR
 void UMaterialExpression::ConnectExpression( FExpressionInput* Input, int32 OutputIndex )
 {
 	if( Input && OutputIndex >= 0 && OutputIndex < Outputs.Num() )
@@ -1049,6 +1038,7 @@ void UMaterialExpression::UpdateMaterialExpressionGuid(bool bForceGeneration, bo
 	}
 }
 
+
 void UMaterialExpression::UpdateParameterGuid(bool bForceGeneration, bool bAllowMarkingPackageDirty)
 {
 	if (bIsParameterExpression)
@@ -1072,6 +1062,7 @@ void UMaterialExpression::UpdateParameterGuid(bool bForceGeneration, bool bAllow
 }
 
 #if WITH_EDITOR
+
 void UMaterialExpression::ConnectToPreviewMaterial(UMaterial* InMaterial, int32 OutputIndex)
 {
 	if (InMaterial && OutputIndex >= 0 && OutputIndex < Outputs.Num())
@@ -1359,7 +1350,6 @@ UMaterialExpressionTextureSample::UMaterialExpressionTextureSample(const FObject
 
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Texture);
-#endif
 
 	Outputs.Reset();
 	Outputs.Add(FExpressionOutput(TEXT(""), 1, 1, 1, 1, 0));
@@ -1368,9 +1358,10 @@ UMaterialExpressionTextureSample::UMaterialExpressionTextureSample(const FObject
 	Outputs.Add(FExpressionOutput(TEXT(""), 1, 0, 0, 1, 0));
 	Outputs.Add(FExpressionOutput(TEXT(""), 1, 0, 0, 0, 1));
 
-	MipValueMode = TMVM_None;
-
 	bCollapsed = false;
+#endif // WITH_EDITORONLY_DATA
+
+	MipValueMode = TMVM_None;
 
 	ConstCoordinate = 0;
 	ConstMipValue = INDEX_NONE;
@@ -1440,7 +1431,6 @@ void UMaterialExpressionTextureSample::PostLoad()
 		TextureObject.Expression = nullptr;
 	}
 }
-#endif // WITH_EDITOR
 
 const TArray<FExpressionInput*> UMaterialExpressionTextureSample::GetInputs()
 {
@@ -1509,6 +1499,9 @@ FName UMaterialExpressionTextureSample::GetInputName(int32 InputIndex) const
 	return TEXT("");
 }
 #undef IF_INPUT_RETURN
+
+#endif // WITH_EDITOR
+
 
 /**
  * Verify that the texture and sampler type. Generates a compiler waring if 
@@ -1681,19 +1674,16 @@ int32 UMaterialExpressionTextureSample::Compile(class FMaterialCompiler* Compile
 		return CompilerError(Compiler, TEXT("Missing input texture"));
 	}
 }
-#endif // WITH_EDITOR
 
 int32 UMaterialExpressionTextureSample::GetWidth() const
 {
 	return ME_STD_THUMBNAIL_SZ+(ME_STD_BORDER*2);
 }
 
-#if WITH_EDITOR
 void UMaterialExpressionTextureSample::GetCaption(TArray<FString>& OutCaptions) const
 {
 	OutCaptions.Add(TEXT("Texture Sample"));
 }
-#endif // WITH_EDITOR
 
 bool UMaterialExpressionTextureSample::MatchesSearchQuery( const TCHAR* SearchQuery )
 {
@@ -1705,7 +1695,6 @@ bool UMaterialExpressionTextureSample::MatchesSearchQuery( const TCHAR* SearchQu
 	return Super::MatchesSearchQuery(SearchQuery);
 }
 
-#if WITH_EDITOR
 // this define is only used for the following function
 #define IF_INPUT_RETURN(Item, Type) if(!InputIndex) return Type; --InputIndex
 uint32 UMaterialExpressionTextureSample::GetInputType(int32 InputIndex)
@@ -1933,10 +1922,10 @@ UMaterialExpressionTextureObjectParameter::UMaterialExpressionTextureObjectParam
 	MenuCategories.Empty();
 	MenuCategories.Add(ConstructorStatics.NAME_Texture);
 	MenuCategories.Add(ConstructorStatics.NAME_Parameters);
-#endif
 
 	Outputs.Empty();
 	Outputs.Add(FExpressionOutput(TEXT("")));
+#endif // WITH_EDITORONLY_DATA
 }
 
 #if WITH_EDITOR
@@ -1952,13 +1941,14 @@ const TCHAR* UMaterialExpressionTextureObjectParameter::GetRequirements()
 	return TEXT("Requires valid texture");
 }
 
+#if WITH_EDITOR
+
 const TArray<FExpressionInput*> UMaterialExpressionTextureObjectParameter::GetInputs()
 {
 	// Hide the texture coordinate input
 	return TArray<FExpressionInput*>();
 }
 
-#if WITH_EDITOR
 int32 UMaterialExpressionTextureObjectParameter::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex)
 {
 	if (!Texture)
@@ -2007,12 +1997,12 @@ UMaterialExpressionTextureObject::UMaterialExpressionTextureObject(const FObject
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Texture);
 	MenuCategories.Add(ConstructorStatics.NAME_Functions);
-#endif
 
 	Outputs.Empty();
 	Outputs.Add(FExpressionOutput(TEXT("")));
 
 	bCollapsed = false;
+#endif // WITH_EDITORONLY_DATA
 }
 
 #if WITH_EDITOR
@@ -2089,13 +2079,13 @@ UMaterialExpressionTextureProperty::UMaterialExpressionTextureProperty(const FOb
 
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Constants);
-#endif
 
 	bShaderInputData = true;
 	bShowOutputNameOnPin = false;
 	
 	Outputs.Reset();
 	Outputs.Add(FExpressionOutput(TEXT("")));
+#endif // WITH_EDITORONLY_DATA
 }
 
 #if WITH_EDITOR
@@ -2227,6 +2217,7 @@ void UMaterialExpressionTextureSampleParameter2D::SetDefaultTexture()
 	Texture = LoadObject<UTexture2D>(NULL, TEXT("/Engine/EngineResources/DefaultTexture.DefaultTexture"), NULL, LOAD_None, NULL);
 }
 
+#if WITH_EDITOR
 
 bool UMaterialExpressionTextureSampleParameter::MatchesSearchQuery( const TCHAR* SearchQuery )
 {
@@ -2238,7 +2229,6 @@ bool UMaterialExpressionTextureSampleParameter::MatchesSearchQuery( const TCHAR*
 	return Super::MatchesSearchQuery(SearchQuery);
 }
 
-#if WITH_EDITOR
 FString UMaterialExpressionTextureSampleParameter::GetEditableName() const
 {
 	return ParameterName.ToString();
@@ -2661,9 +2651,9 @@ UMaterialExpressionConstant::UMaterialExpressionConstant(const FObjectInitialize
 
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Constants);
-#endif
 
 	bCollapsed = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -2706,9 +2696,9 @@ UMaterialExpressionConstant2Vector::UMaterialExpressionConstant2Vector(const FOb
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Constants);
 	MenuCategories.Add(ConstructorStatics.NAME_Vectors);
-#endif
 
 	bCollapsed = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -2751,9 +2741,9 @@ UMaterialExpressionConstant3Vector::UMaterialExpressionConstant3Vector(const FOb
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Constants);
 	MenuCategories.Add(ConstructorStatics.NAME_Vectors);
-#endif
 
 	bCollapsed = false;
+#endif
 }
 
 #if WITH_EDITOR
@@ -2796,9 +2786,9 @@ UMaterialExpressionConstant4Vector::UMaterialExpressionConstant4Vector(const FOb
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Constants);
 	MenuCategories.Add(ConstructorStatics.NAME_Vectors);
-#endif
 
 	bCollapsed = false;
+#endif
 }
 
 #if WITH_EDITOR
@@ -3084,9 +3074,9 @@ UMaterialExpressionTextureCoordinate::UMaterialExpressionTextureCoordinate(const
 
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Coordinates);
-#endif
 
 	bCollapsed = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -3363,9 +3353,10 @@ UMaterialExpressionTime::UMaterialExpressionTime(const FObjectInitializer& Objec
 
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Constants);
-#endif
 
 	bShaderInputData = true;
+#endif
+
 	Period = 0.0f;
 	bOverride_Period = false;
 }
@@ -3412,9 +3403,9 @@ UMaterialExpressionCameraVectorWS::UMaterialExpressionCameraVectorWS(const FObje
 
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Vectors);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -3448,9 +3439,9 @@ UMaterialExpressionCameraPositionWS::UMaterialExpressionCameraPositionWS(const F
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Vectors);
 	MenuCategories.Add(ConstructorStatics.NAME_Coordinates);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -3485,9 +3476,9 @@ UMaterialExpressionReflectionVectorWS::UMaterialExpressionReflectionVectorWS(con
 
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Vectors);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -3530,9 +3521,9 @@ UMaterialExpressionPanner::UMaterialExpressionPanner(const FObjectInitializer& O
 
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Coordinates);
-#endif
 
 	bCollapsed = true;
+#endif
 	ConstCoordinate = 0;
 }
 
@@ -3599,9 +3590,9 @@ UMaterialExpressionRotator::UMaterialExpressionRotator(const FObjectInitializer&
 
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Coordinates);
-#endif
 
 	bCollapsed = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -4145,9 +4136,9 @@ UMaterialExpressionBumpOffset::UMaterialExpressionBumpOffset(const FObjectInitia
 	HeightRatio = 0.05f;
 	ReferencePlane = 0.5f;
 	ConstCoordinate = 0;
+#if WITH_EDITORONLY_DATA
 	bCollapsed = false;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Utility);
 #endif
 }
@@ -4325,6 +4316,7 @@ void UMaterialExpressionMakeMaterialAttributes::GetCaption(TArray<FString>& OutC
 UMaterialExpressionBreakMaterialAttributes::UMaterialExpressionBreakMaterialAttributes(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -4334,14 +4326,13 @@ UMaterialExpressionBreakMaterialAttributes::UMaterialExpressionBreakMaterialAttr
 		{
 		}
 	};
+
 	static FConstructorStatics ConstructorStatics;
 
 	bShowOutputNameOnPin = true;
 	bShowMaskColorsOnPin = false;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_MaterialAttributes);
-#endif
 	
  	static_assert(MP_MAX == 29, 
 		"New material properties should be added to the end of the outputs for this expression. \
@@ -4373,6 +4364,7 @@ UMaterialExpressionBreakMaterialAttributes::UMaterialExpressionBreakMaterialAttr
 	}
 
 	Outputs.Add(FExpressionOutput(TEXT("PixelDepthOffset"), 1, 1, 0, 0, 0));
+#endif
 }
 
 void UMaterialExpressionBreakMaterialAttributes::Serialize(FArchive& Ar)
@@ -4381,6 +4373,7 @@ void UMaterialExpressionBreakMaterialAttributes::Serialize(FArchive& Ar)
 
 	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
 
+#if WITH_EDITOR
 	if (Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::FixedLegacyMaterialAttributeNodeTypes)
 	{
 		// Update the masks for legacy content
@@ -4410,6 +4403,7 @@ void UMaterialExpressionBreakMaterialAttributes::Serialize(FArchive& Ar)
 
 		Outputs[OutputIndex].SetMask(1, 1, 0, 0, 0); // PixelDepthOffset
 	}
+#endif // WITH_EDITOR
 }
 
 #if WITH_EDITOR
@@ -4463,7 +4457,6 @@ void UMaterialExpressionBreakMaterialAttributes::GetCaption(TArray<FString>& Out
 {
 	OutCaptions.Add(TEXT("BreakMaterialAttributes"));
 }
-#endif // WITH_EDITOR
 
 const TArray<FExpressionInput*> UMaterialExpressionBreakMaterialAttributes::GetInputs()
 {
@@ -4496,6 +4489,7 @@ bool UMaterialExpressionBreakMaterialAttributes::IsInputConnectionRequired(int32
 {
 	return true;
 }
+#endif // WITH_EDITOR
 
 // -----
 
@@ -4514,9 +4508,9 @@ UMaterialExpressionGetMaterialAttributes::UMaterialExpressionGetMaterialAttribut
 	static FConstructorStatics ConstructorStatics;
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_MaterialAttributes);
-#endif
 
 	bShowOutputNameOnPin = true;
+#endif
 
 #if WITH_EDITOR
 	// Add default output pins
@@ -4567,7 +4561,6 @@ void UMaterialExpressionGetMaterialAttributes::GetCaption(TArray<FString>& OutCa
 {
 	OutCaptions.Add(TEXT("GetMaterialAttributes"));
 }
-#endif // WITH_EDITOR
 
 const TArray<FExpressionInput*> UMaterialExpressionGetMaterialAttributes::GetInputs()
 {
@@ -4591,7 +4584,6 @@ FName UMaterialExpressionGetMaterialAttributes::GetInputName(int32 InputIndex) c
 	return NAME_None;
 }
 
-#if WITH_EDITOR
 void UMaterialExpressionGetMaterialAttributes::PreEditChange(UProperty* PropertyAboutToChange)
 {
 	// Backup attribute array so we can re-connect pins
@@ -4772,7 +4764,6 @@ void UMaterialExpressionSetMaterialAttributes::GetCaption(TArray<FString>& OutCa
 {
 	OutCaptions.Add(TEXT("SetMaterialAttributes"));
 }
-#endif
 
 const TArray<FExpressionInput*> UMaterialExpressionSetMaterialAttributes::GetInputs()
 {
@@ -4805,7 +4796,6 @@ FName UMaterialExpressionSetMaterialAttributes::GetInputName(int32 InputIndex) c
 	return Name;
 }
 
-#if WITH_EDITOR
 void UMaterialExpressionSetMaterialAttributes::PreEditChange(UProperty* PropertyAboutToChange)
 {
 	// Backup attribute array so we can re-connect pins
@@ -4895,10 +4885,10 @@ UMaterialExpressionBlendMaterialAttributes::UMaterialExpressionBlendMaterialAttr
 	static FConstructorStatics ConstructorStatics;
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_MaterialAttributes);
-#endif
 
 	Outputs.Reset();
 	Outputs.Add(FExpressionOutput(TEXT(""), 0, 0, 0, 0, 0));
+#endif
 }
 
 #if WITH_EDITOR
@@ -4948,7 +4938,6 @@ void UMaterialExpressionBlendMaterialAttributes::GetCaption(TArray<FString>& Out
 {
 	OutCaptions.Add(TEXT("BlendMaterialAttributes"));
 }
-#endif // WITH_EDITOR
 
 const TArray<FExpressionInput*> UMaterialExpressionBlendMaterialAttributes::GetInputs()
 {
@@ -4990,6 +4979,7 @@ FName UMaterialExpressionBlendMaterialAttributes::GetInputName(int32 InputIndex)
 
 	return Name;
 }
+#endif // WITH_EDITOR
 
 //
 //	UMaterialExpressionMaterialAttributeLayers
@@ -5088,10 +5078,10 @@ void UMaterialExpressionMaterialAttributeLayers::RebuildLayerGraph(bool bReportE
 						LayerCallers[CallerIndex]->FunctionInputs[0].Input = Input;
 					}
 				}
-#endif
 
 				// Recursively run through internal functions to allow connection of inputs/ouputs
 				LayerCallers[CallerIndex]->UpdateFromFunctionResource();
+#endif
 			}
 		}
 
@@ -5113,10 +5103,10 @@ void UMaterialExpressionMaterialAttributeLayers::RebuildLayerGraph(bool bReportE
 					{
 						BlendCallers[CallerIndex]->Outputs.Add(FunctionOutput.Output);
 					}
-#endif
 
 					// Recursively run through internal functions to allow connection of inputs/ouputs
 					BlendCallers[CallerIndex]->UpdateFromFunctionResource();
+#endif
 				}
 				else
 				{
@@ -5426,7 +5416,6 @@ void UMaterialExpressionMaterialAttributeLayers::GetExpressionToolTip(TArray<FSt
 {
 	ConvertToMultilineToolTip(TEXT("Evaluates the active material layer stack and outputs the merged attributes."), 40, OutToolTip);
 }
-#endif // WITH_EDITOR
 
 const TArray<FExpressionInput*> UMaterialExpressionMaterialAttributeLayers::GetInputs()
 {
@@ -5450,7 +5439,6 @@ FName UMaterialExpressionMaterialAttributeLayers::GetInputName(int32 InputIndex)
 	return NAME_None;
 }
 
-#if WITH_EDITOR
 uint32 UMaterialExpressionMaterialAttributeLayers::GetInputType(int32 InputIndex)
 {
 	return MCT_MaterialAttributes;
@@ -5478,6 +5466,7 @@ bool UMaterialExpressionMaterialAttributeLayers::IsNamedParameter(const FMateria
 	return false;
 }
 
+#if WITH_EDITOR
 bool UMaterialExpressionMaterialAttributeLayers::MatchesSearchQuery(const TCHAR* SearchQuery)
 {
 	if (ParameterName.ToString().Contains(SearchQuery))
@@ -5488,7 +5477,6 @@ bool UMaterialExpressionMaterialAttributeLayers::MatchesSearchQuery(const TCHAR*
 	return Super::MatchesSearchQuery(SearchQuery);
 }
 
-#if WITH_EDITOR
 FString UMaterialExpressionMaterialAttributeLayers::GetEditableName() const
 {
 	return ParameterName.ToString();
@@ -5859,10 +5847,12 @@ UMaterialExpressionParameter::UMaterialExpressionParameter(const FObjectInitiali
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Parameters);
 	SortPriority = 0;
-#endif
 
 	bCollapsed = false;
+#endif
 }
+
+#if WITH_EDITOR
 
 bool UMaterialExpressionParameter::MatchesSearchQuery( const TCHAR* SearchQuery )
 {
@@ -5874,7 +5864,6 @@ bool UMaterialExpressionParameter::MatchesSearchQuery( const TCHAR* SearchQuery 
 	return Super::MatchesSearchQuery(SearchQuery);
 }
 
-#if WITH_EDITOR
 FString UMaterialExpressionParameter::GetEditableName() const
 {
 	return ParameterName.ToString();
@@ -5910,12 +5899,14 @@ bool UMaterialExpressionParameter::NeedsLoadForClient() const
 UMaterialExpressionVectorParameter::UMaterialExpressionVectorParameter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	Outputs.Reset();
 	Outputs.Add(FExpressionOutput(TEXT(""), 1, 1, 1, 1, 0));
 	Outputs.Add(FExpressionOutput(TEXT(""), 1, 1, 0, 0, 0));
 	Outputs.Add(FExpressionOutput(TEXT(""), 1, 0, 1, 0, 0));
 	Outputs.Add(FExpressionOutput(TEXT(""), 1, 0, 0, 1, 0));
 	Outputs.Add(FExpressionOutput(TEXT(""), 1, 0, 0, 0, 1));
+#endif // WITH_EDITORONLY_DATA
 }
 
 #if WITH_EDITOR
@@ -5991,11 +5982,11 @@ UMaterialExpressionChannelMaskParameter::UMaterialExpressionChannelMaskParameter
 	static FConstructorStatics ConstructorStatics;
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Utility);
-#endif
 
 	Outputs.Reset();
 	Outputs.Add(FExpressionOutput(TEXT(""), 1, 1, 0, 0, 0));
 	bShowMaskColorsOnPin = false;
+#endif
 
 	// Default mask to red channel
 	DefaultValue = FLinearColor(1.0f, 0.0f, 0.0f, 0.0f);
@@ -6138,7 +6129,9 @@ void UMaterialExpressionChannelMaskParameter::GetCaption(TArray<FString>& OutCap
 UMaterialExpressionScalarParameter::UMaterialExpressionScalarParameter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	bCollapsed = true;
+#endif // WITH_EDITORONLY_DATA
 }
 
 #if WITH_EDITOR
@@ -6258,7 +6251,6 @@ void UMaterialExpressionStaticSwitchParameter::GetCaption(TArray<FString>& OutCa
 	OutCaptions.Add(FString::Printf(TEXT("Switch Param (%s)"), (DefaultValue ? TEXT("True") : TEXT("False")))); 
 	OutCaptions.Add(FString::Printf(TEXT("'%s'"), *ParameterName.ToString())); 
 }
-#endif // WITH_EDITOR
 
 FName UMaterialExpressionStaticSwitchParameter::GetInputName(int32 InputIndex) const
 {
@@ -6271,6 +6263,7 @@ FName UMaterialExpressionStaticSwitchParameter::GetInputName(int32 InputIndex) c
 		return TEXT("False");
 	}
 }
+#endif // WITH_EDITOR
 
 
 //
@@ -6279,7 +6272,9 @@ FName UMaterialExpressionStaticSwitchParameter::GetInputName(int32 InputIndex) c
 UMaterialExpressionStaticBoolParameter::UMaterialExpressionStaticBoolParameter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	bHidePreviewWindow = true;
+#endif // WITH_EDITORONLY_DATA
 }
 
 #if WITH_EDITOR
@@ -6332,6 +6327,7 @@ bool UMaterialExpressionStaticBoolParameter::SetParameterValue(FName InParameter
 UMaterialExpressionStaticBool::UMaterialExpressionStaticBool(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -6345,11 +6341,10 @@ UMaterialExpressionStaticBool::UMaterialExpressionStaticBool(const FObjectInitia
 
 	bHidePreviewWindow = true;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Functions);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -6440,7 +6435,6 @@ void UMaterialExpressionStaticSwitch::GetCaption(TArray<FString>& OutCaptions) c
 {
 	OutCaptions.Add(FString(TEXT("Switch")));
 }
-#endif // WITH_EDITOR
 
 FName UMaterialExpressionStaticSwitch::GetInputName(int32 InputIndex) const
 {
@@ -6458,7 +6452,6 @@ FName UMaterialExpressionStaticSwitch::GetInputName(int32 InputIndex) const
 	}
 }
 
-#if WITH_EDITOR
 uint32 UMaterialExpressionStaticSwitch::GetInputType(int32 InputIndex)
 {
 	if (InputIndex == 0 || InputIndex == 1)
@@ -6528,7 +6521,6 @@ void UMaterialExpressionPreviousFrameSwitch::GetExpressionToolTip(TArray<FString
 {
 	ConvertToMultilineToolTip(TEXT("Used to manually provide expressions for motion vector generation caused by changes in world position offset between frames."), 40, OutToolTip);
 }
-#endif // WITH_EDITOR
 
 FName UMaterialExpressionPreviousFrameSwitch::GetInputName(int32 InputIndex) const
 {
@@ -6542,7 +6534,6 @@ FName UMaterialExpressionPreviousFrameSwitch::GetInputName(int32 InputIndex) con
 	}
 }
 
-#if WITH_EDITOR
 uint32 UMaterialExpressionPreviousFrameSwitch::GetInputType(int32 InputIndex)
 {
 	return MCT_Unknown;
@@ -6597,7 +6588,6 @@ void UMaterialExpressionQualitySwitch::GetCaption(TArray<FString>& OutCaptions) 
 {
 	OutCaptions.Add(FString(TEXT("Quality Switch")));
 }
-#endif // WITH_EDITOR
 
 const TArray<FExpressionInput*> UMaterialExpressionQualitySwitch::GetInputs()
 {
@@ -6638,7 +6628,6 @@ bool UMaterialExpressionQualitySwitch::IsInputConnectionRequired(int32 InputInde
 	return InputIndex == 0;
 }
 
-#if WITH_EDITOR
 bool UMaterialExpressionQualitySwitch::IsResultMaterialAttributes(int32 OutputIndex)
 {
 	check(OutputIndex == 0);
@@ -6709,7 +6698,6 @@ void UMaterialExpressionFeatureLevelSwitch::GetCaption(TArray<FString>& OutCapti
 {
 	OutCaptions.Add(FString(TEXT("Feature Level Switch")));
 }
-#endif // WITH_EDITOR
 
 const TArray<FExpressionInput*> UMaterialExpressionFeatureLevelSwitch::GetInputs()
 {
@@ -6752,7 +6740,7 @@ bool UMaterialExpressionFeatureLevelSwitch::IsInputConnectionRequired(int32 Inpu
 	return InputIndex == 0;
 }
 
-#if WITH_EDITOR
+
 bool UMaterialExpressionFeatureLevelSwitch::IsResultMaterialAttributes(int32 OutputIndex)
 {
 	check(OutputIndex == 0);
@@ -6826,6 +6814,7 @@ int32 UMaterialExpressionNormalize::Compile(class FMaterialCompiler* Compiler, i
 UMaterialExpressionVertexColor::UMaterialExpressionVertexColor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -6837,9 +6826,7 @@ UMaterialExpressionVertexColor::UMaterialExpressionVertexColor(const FObjectInit
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Constants);
-#endif
 
 	Outputs.Reset();
 	Outputs.Add(FExpressionOutput(TEXT(""), 1, 1, 1, 1, 0));
@@ -6848,6 +6835,7 @@ UMaterialExpressionVertexColor::UMaterialExpressionVertexColor(const FObjectInit
 	Outputs.Add(FExpressionOutput(TEXT(""), 1, 0, 0, 1, 0));
 	Outputs.Add(FExpressionOutput(TEXT(""), 1, 0, 0, 0, 1));
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -6865,6 +6853,7 @@ void UMaterialExpressionVertexColor::GetCaption(TArray<FString>& OutCaptions) co
 UMaterialExpressionParticleColor::UMaterialExpressionParticleColor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -6878,10 +6867,8 @@ UMaterialExpressionParticleColor::UMaterialExpressionParticleColor(const FObject
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Particles);
 	MenuCategories.Add(ConstructorStatics.NAME_Constants);
-#endif
 
 	Outputs.Reset();
 	Outputs.Add(FExpressionOutput(TEXT(""), 1, 1, 1, 1, 0));
@@ -6891,6 +6878,7 @@ UMaterialExpressionParticleColor::UMaterialExpressionParticleColor(const FObject
 	Outputs.Add(FExpressionOutput(TEXT(""), 1, 0, 0, 0, 1));
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -6908,6 +6896,7 @@ void UMaterialExpressionParticleColor::GetCaption(TArray<FString>& OutCaptions) 
 UMaterialExpressionParticlePositionWS::UMaterialExpressionParticlePositionWS(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -6923,13 +6912,12 @@ UMaterialExpressionParticlePositionWS::UMaterialExpressionParticlePositionWS(con
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Particles);
 	MenuCategories.Add(ConstructorStatics.NAME_Coordinates);
 	MenuCategories.Add(ConstructorStatics.NAME_Vectors);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -6947,6 +6935,7 @@ void UMaterialExpressionParticlePositionWS::GetCaption(TArray<FString>& OutCapti
 UMaterialExpressionParticleRadius::UMaterialExpressionParticleRadius(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -6960,12 +6949,11 @@ UMaterialExpressionParticleRadius::UMaterialExpressionParticleRadius(const FObje
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Particles);
 	MenuCategories.Add(ConstructorStatics.NAME_Constants);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -6983,6 +6971,7 @@ void UMaterialExpressionParticleRadius::GetCaption(TArray<FString>& OutCaptions)
 UMaterialExpressionDynamicParameter::UMaterialExpressionDynamicParameter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -6998,6 +6987,7 @@ UMaterialExpressionDynamicParameter::UMaterialExpressionDynamicParameter(const F
 
 	bShowOutputNameOnPin = true;
 	bHidePreviewWindow = true;
+#endif // WITH_EDITORONLY_DATA
 
 	ParamNames.Add(TEXT("Param1"));
 	ParamNames.Add(TEXT("Param2"));
@@ -7007,7 +6997,6 @@ UMaterialExpressionDynamicParameter::UMaterialExpressionDynamicParameter(const F
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Particles);
 	MenuCategories.Add(ConstructorStatics.NAME_Parameters);
-#endif
 	
 	Outputs.Reset();
 	Outputs.Add(FExpressionOutput(TEXT(""), 1, 1, 0, 0, 0));
@@ -7015,9 +7004,11 @@ UMaterialExpressionDynamicParameter::UMaterialExpressionDynamicParameter(const F
 	Outputs.Add(FExpressionOutput(TEXT(""), 1, 0, 0, 1, 0));
 	Outputs.Add(FExpressionOutput(TEXT(""), 1, 0, 0, 0, 1));
 
+	bShaderInputData = true;
+#endif // WITH_EDITORONLY_DATA
+
 	DefaultValue = FLinearColor::White;
 
-	bShaderInputData = true;
 }
 
 #if WITH_EDITOR
@@ -7025,7 +7016,6 @@ int32 UMaterialExpressionDynamicParameter::Compile( FMaterialCompiler* Compiler,
 {
 	return Compiler->DynamicParameter(DefaultValue);
 }
-#endif // WITH_EDITOR
 
 TArray<FExpressionOutput>& UMaterialExpressionDynamicParameter::GetOutputs()
 {
@@ -7042,12 +7032,10 @@ int32 UMaterialExpressionDynamicParameter::GetWidth() const
 	return ME_STD_THUMBNAIL_SZ+(ME_STD_BORDER*2);
 }
 
-#if WITH_EDITOR
 void UMaterialExpressionDynamicParameter::GetCaption(TArray<FString>& OutCaptions) const
 {
 	OutCaptions.Add(TEXT("Dynamic Parameter"));
 }
-#endif // WITH_EDITOR
 
 bool UMaterialExpressionDynamicParameter::MatchesSearchQuery( const TCHAR* SearchQuery )
 {
@@ -7062,7 +7050,6 @@ bool UMaterialExpressionDynamicParameter::MatchesSearchQuery( const TCHAR* Searc
 	return Super::MatchesSearchQuery(SearchQuery);
 }
 
-#if WITH_EDITOR
 
 void UMaterialExpressionDynamicParameter::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
@@ -7166,14 +7153,12 @@ int32 UMaterialExpressionParticleSubUV::Compile(class FMaterialCompiler* Compile
 		return Compiler->Errorf(TEXT("Missing ParticleSubUV input texture"));
 	}
 }
-#endif // WITH_EDITOR
 
 int32 UMaterialExpressionParticleSubUV::GetWidth() const
 {
 	return ME_STD_THUMBNAIL_SZ+(ME_STD_BORDER*2);
 }
 
-#if WITH_EDITOR
 void UMaterialExpressionParticleSubUV::GetCaption(TArray<FString>& OutCaptions) const
 {
 	OutCaptions.Add(TEXT("Particle SubUV"));
@@ -7186,6 +7171,7 @@ void UMaterialExpressionParticleSubUV::GetCaption(TArray<FString>& OutCaptions) 
 UMaterialExpressionParticleMacroUV::UMaterialExpressionParticleMacroUV(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -7197,11 +7183,10 @@ UMaterialExpressionParticleMacroUV::UMaterialExpressionParticleMacroUV(const FOb
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Particles);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -7219,6 +7204,7 @@ void UMaterialExpressionParticleMacroUV::GetCaption(TArray<FString>& OutCaptions
 UMaterialExpressionLightVector::UMaterialExpressionLightVector(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -7230,11 +7216,10 @@ UMaterialExpressionLightVector::UMaterialExpressionLightVector(const FObjectInit
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Vectors);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -7252,6 +7237,7 @@ void UMaterialExpressionLightVector::GetCaption(TArray<FString>& OutCaptions) co
 UMaterialExpressionScreenPosition::UMaterialExpressionScreenPosition(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -7263,9 +7249,7 @@ UMaterialExpressionScreenPosition::UMaterialExpressionScreenPosition(const FObje
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Coordinates);
-#endif
 
 	bShaderInputData = true;
 	bShowOutputNameOnPin = true;
@@ -7273,6 +7257,7 @@ UMaterialExpressionScreenPosition::UMaterialExpressionScreenPosition(const FObje
 	Outputs.Reset();
 	Outputs.Add(FExpressionOutput(TEXT("ViewportUV")));
 	Outputs.Add(FExpressionOutput(TEXT("PixelPosition")));
+#endif
 }
 
 #if WITH_EDITOR
@@ -7294,6 +7279,7 @@ void UMaterialExpressionScreenPosition::GetCaption(TArray<FString>& OutCaptions)
 UMaterialExpressionViewProperty::UMaterialExpressionViewProperty(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -7305,11 +7291,7 @@ UMaterialExpressionViewProperty::UMaterialExpressionViewProperty(const FObjectIn
 	};
 	static FConstructorStatics ConstructorStatics;
 
-	Property = MEVP_FieldOfView;
-
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Constants);
-#endif
 
 	bShaderInputData = true;
 	bShowOutputNameOnPin = true;
@@ -7317,6 +7299,9 @@ UMaterialExpressionViewProperty::UMaterialExpressionViewProperty(const FObjectIn
 	Outputs.Reset();
 	Outputs.Add(FExpressionOutput(TEXT("Property")));
 	Outputs.Add(FExpressionOutput(TEXT("InvProperty")));
+#endif
+
+	Property = MEVP_FieldOfView;
 }
 
 #if WITH_EDITOR
@@ -7351,6 +7336,7 @@ void UMaterialExpressionViewProperty::GetCaption(TArray<FString>& OutCaptions) c
 UMaterialExpressionViewSize::UMaterialExpressionViewSize(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -7362,11 +7348,10 @@ UMaterialExpressionViewSize::UMaterialExpressionViewSize(const FObjectInitialize
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Coordinates);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -7384,6 +7369,7 @@ void UMaterialExpressionViewSize::GetCaption(TArray<FString>& OutCaptions) const
 UMaterialExpressionSceneTexelSize::UMaterialExpressionSceneTexelSize(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -7395,11 +7381,10 @@ UMaterialExpressionSceneTexelSize::UMaterialExpressionSceneTexelSize(const FObje
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Coordinates);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -7457,6 +7442,7 @@ void UMaterialExpressionSquareRoot::GetCaption(TArray<FString>& OutCaptions) con
 UMaterialExpressionPixelDepth::UMaterialExpressionPixelDepth(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -7468,13 +7454,12 @@ UMaterialExpressionPixelDepth::UMaterialExpressionPixelDepth(const FObjectInitia
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Depth);
-#endif
 
 	Outputs.Reset();
 	Outputs.Add(FExpressionOutput(TEXT(""), 1, 1, 0, 0, 0));
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -7498,6 +7483,7 @@ void UMaterialExpressionPixelDepth::GetCaption(TArray<FString>& OutCaptions) con
 UMaterialExpressionSceneDepth::UMaterialExpressionSceneDepth(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -7509,13 +7495,13 @@ UMaterialExpressionSceneDepth::UMaterialExpressionSceneDepth(const FObjectInitia
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Depth);
-#endif
 
 	Outputs.Reset();
 	Outputs.Add(FExpressionOutput(TEXT(""), 1, 1, 0, 0, 0));
 	bShaderInputData = true;
+#endif
+
 	ConstInput = FVector2D(0.f, 0.f);
 }
 
@@ -7566,7 +7552,6 @@ void UMaterialExpressionSceneDepth::GetCaption(TArray<FString>& OutCaptions) con
 {
 	OutCaptions.Add(TEXT("Scene Depth"));
 }
-#endif // WITH_EDITOR
 
 FName UMaterialExpressionSceneDepth::GetInputName(int32 InputIndex) const
 {
@@ -7580,6 +7565,8 @@ FName UMaterialExpressionSceneDepth::GetInputName(int32 InputIndex) const
 	return NAME_None;
 }
 
+#endif // WITH_EDITOR
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // UMaterialExpressionSceneTexture
@@ -7587,6 +7574,7 @@ FName UMaterialExpressionSceneDepth::GetInputName(int32 InputIndex) const
 UMaterialExpressionSceneTexture::UMaterialExpressionSceneTexture(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -7598,20 +7586,21 @@ UMaterialExpressionSceneTexture::UMaterialExpressionSceneTexture(const FObjectIn
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Texture);
-#endif
 
 	bShaderInputData = true;
 	bShowOutputNameOnPin = true;
+#endif
 
 	// by default faster, most lookup are read/write the same pixel so this is ralrely needed
 	bFiltered = false;
 
+#if WITH_EDITORONLY_DATA
 	Outputs.Reset();
 	Outputs.Add(FExpressionOutput(TEXT("Color"), 1, 1, 1, 1, 1));
 	Outputs.Add(FExpressionOutput(TEXT("Size")));
 	Outputs.Add(FExpressionOutput(TEXT("InvSize")));
+#endif
 }
 
 #if WITH_EDITOR
@@ -7655,6 +7644,7 @@ void UMaterialExpressionSceneTexture::GetCaption(TArray<FString>& OutCaptions) c
 UMaterialExpressionSceneColor::UMaterialExpressionSceneColor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -7666,11 +7656,10 @@ UMaterialExpressionSceneColor::UMaterialExpressionSceneColor(const FObjectInitia
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Texture);
-#endif
 
 	bShaderInputData = true;
+#endif
 	ConstInput = FVector2D(0.f, 0.f);
 }
 
@@ -7860,7 +7849,6 @@ void UMaterialExpressionLogarithm10::GetExpressionToolTip(TArray<FString>& OutTo
 {
 	ConvertToMultilineToolTip(TEXT("Returns the base-10 logarithm of the input. Input should be greater than 0."), 40, OutToolTip);
 }
-#endif // WITH_EDITOR
 
 FName UMaterialExpressionSceneColor::GetInputName(int32 InputIndex) const
 {
@@ -7873,6 +7861,7 @@ FName UMaterialExpressionSceneColor::GetInputName(int32 InputIndex) const
 	}
 	return NAME_None;
 }
+#endif // WITH_EDITOR
 
 UMaterialExpressionIf::UMaterialExpressionIf(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -8301,8 +8290,10 @@ bool UMaterialExpressionComment::Modify( bool bAlwaysMarkDirty/*=true*/ )
 {
 	bool bResult = Super::Modify(bAlwaysMarkDirty);
 
+#if WITH_EDITORONLY_DATA
 	// Don't need to update preview after changing comments
 	bNeedToUpdatePreview = false;
+#endif // WITH_EDITORONLY_DATA
 
 	return bResult;
 }
@@ -8312,7 +8303,6 @@ void UMaterialExpressionComment::GetCaption(TArray<FString>& OutCaptions) const
 {
 	OutCaptions.Add(TEXT("Comment"));
 }
-#endif // WITH_EDITOR
 
 bool UMaterialExpressionComment::MatchesSearchQuery( const TCHAR* SearchQuery )
 {
@@ -8323,6 +8313,7 @@ bool UMaterialExpressionComment::MatchesSearchQuery( const TCHAR* SearchQuery )
 
 	return Super::MatchesSearchQuery(SearchQuery);
 }
+#endif // WITH_EDITOR
 
 UMaterialExpressionFresnel::UMaterialExpressionFresnel(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -8373,6 +8364,7 @@ UMaterialExpressionFontSample
 UMaterialExpressionFontSample::UMaterialExpressionFontSample(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -8386,10 +8378,8 @@ UMaterialExpressionFontSample::UMaterialExpressionFontSample(const FObjectInitia
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Font);
 	MenuCategories.Add(ConstructorStatics.NAME_Texture);
-#endif
 
 	Outputs.Reset();
 	Outputs.Add(FExpressionOutput(TEXT(""), 1, 1, 1, 1, 0));
@@ -8399,6 +8389,7 @@ UMaterialExpressionFontSample::UMaterialExpressionFontSample(const FObjectInitia
 	Outputs.Add(FExpressionOutput(TEXT(""), 1, 0, 0, 0, 1));
 
 	bCollapsed = false;
+#endif
 }
 
 #if WITH_EDITOR
@@ -8465,19 +8456,16 @@ int32 UMaterialExpressionFontSample::Compile(class FMaterialCompiler* Compiler, 
 	}
 	return Result;
 }
-#endif // WITH_EDITOR
 
 int32 UMaterialExpressionFontSample::GetWidth() const
 {
 	return ME_STD_THUMBNAIL_SZ+(ME_STD_BORDER*2);
 }
 
-#if WITH_EDITOR
 void UMaterialExpressionFontSample::GetCaption(TArray<FString>& OutCaptions) const
 {
 	OutCaptions.Add(TEXT("Font Sample"));
 }
-#endif // WITH_EDITOR
 
 bool UMaterialExpressionFontSample::MatchesSearchQuery( const TCHAR* SearchQuery )
 {
@@ -8488,6 +8476,7 @@ bool UMaterialExpressionFontSample::MatchesSearchQuery( const TCHAR* SearchQuery
 
 	return Super::MatchesSearchQuery(SearchQuery);
 }
+#endif // WITH_EDITOR
 
 UTexture* UMaterialExpressionFontSample::GetReferencedTexture() 
 {
@@ -8610,6 +8599,8 @@ void UMaterialExpressionFontSampleParameter::SetDefaultFont()
 	GEngine->GetMediumFont();
 }
 
+#if WITH_EDITOR
+
 bool UMaterialExpressionFontSampleParameter::MatchesSearchQuery( const TCHAR* SearchQuery )
 {
 	if( ParameterName.ToString().Contains(SearchQuery) )
@@ -8620,7 +8611,6 @@ bool UMaterialExpressionFontSampleParameter::MatchesSearchQuery( const TCHAR* Se
 	return Super::MatchesSearchQuery(SearchQuery);
 }
 
-#if WITH_EDITOR
 FString UMaterialExpressionFontSampleParameter::GetEditableName() const
 {
 	return ParameterName.ToString();
@@ -8650,6 +8640,7 @@ void UMaterialExpressionFontSampleParameter::GetAllParameterInfo(TArray<FMateria
 UMaterialExpressionWorldPosition::UMaterialExpressionWorldPosition(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -8661,11 +8652,10 @@ UMaterialExpressionWorldPosition::UMaterialExpressionWorldPosition(const FObject
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Coordinates);
-#endif
 
 	bShaderInputData = true;
+#endif
 	WorldPositionShaderOffset = WPT_Default;
 }
 
@@ -8719,6 +8709,7 @@ void UMaterialExpressionWorldPosition::GetCaption(TArray<FString>& OutCaptions) 
 UMaterialExpressionObjectPositionWS::UMaterialExpressionObjectPositionWS(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -8732,12 +8723,11 @@ UMaterialExpressionObjectPositionWS::UMaterialExpressionObjectPositionWS(const F
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Vectors);
 	MenuCategories.Add(ConstructorStatics.NAME_Coordinates);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -8763,6 +8753,7 @@ void UMaterialExpressionObjectPositionWS::GetCaption(TArray<FString>& OutCaption
 UMaterialExpressionObjectRadius::UMaterialExpressionObjectRadius(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -8774,11 +8765,10 @@ UMaterialExpressionObjectRadius::UMaterialExpressionObjectRadius(const FObjectIn
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Coordinates);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -8804,6 +8794,7 @@ void UMaterialExpressionObjectRadius::GetCaption(TArray<FString>& OutCaptions) c
 UMaterialExpressionObjectBounds::UMaterialExpressionObjectBounds(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -8815,11 +8806,10 @@ UMaterialExpressionObjectBounds::UMaterialExpressionObjectBounds(const FObjectIn
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Vectors);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -8845,6 +8835,7 @@ void UMaterialExpressionObjectBounds::GetCaption(TArray<FString>& OutCaptions) c
 UMaterialExpressionDistanceCullFade::UMaterialExpressionDistanceCullFade(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -8856,11 +8847,10 @@ UMaterialExpressionDistanceCullFade::UMaterialExpressionDistanceCullFade(const F
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Constants);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -8881,6 +8871,7 @@ void UMaterialExpressionDistanceCullFade::GetCaption(TArray<FString>& OutCaption
 UMaterialExpressionActorPositionWS::UMaterialExpressionActorPositionWS(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -8894,12 +8885,11 @@ UMaterialExpressionActorPositionWS::UMaterialExpressionActorPositionWS(const FOb
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Vectors);
 	MenuCategories.Add(ConstructorStatics.NAME_Coordinates);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -9014,6 +9004,7 @@ void UMaterialExpressionConstantBiasScale::GetCaption(TArray<FString>& OutCaptio
 UMaterialExpressionCustom::UMaterialExpressionCustom(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -9024,6 +9015,7 @@ UMaterialExpressionCustom::UMaterialExpressionCustom(const FObjectInitializer& O
 		}
 	};
 	static FConstructorStatics ConstructorStatics;
+#endif // WITH_EDITORONLY_DATA
 
 	Description = TEXT("Custom");
 	Code = TEXT("1");
@@ -9037,7 +9029,9 @@ UMaterialExpressionCustom::UMaterialExpressionCustom(const FObjectInitializer& O
 	Inputs.Add(FCustomInput());
 	Inputs[0].InputName = TEXT("");
 
+#if WITH_EDITORONLY_DATA
 	bCollapsed = false;
+#endif // WITH_EDITORONLY_DATA
 }
 
 #if WITH_EDITOR
@@ -9075,7 +9069,7 @@ void UMaterialExpressionCustom::GetCaption(TArray<FString>& OutCaptions) const
 {
 	OutCaptions.Add(Description);
 }
-#endif // WITH_EDITOR
+
 
 const TArray<FExpressionInput*> UMaterialExpressionCustom::GetInputs()
 {
@@ -9105,7 +9099,6 @@ FName UMaterialExpressionCustom::GetInputName(int32 InputIndex) const
 	return NAME_None;
 }
 
-#if WITH_EDITOR
 void UMaterialExpressionCustom::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	// strip any spaces from input name
@@ -9272,6 +9265,7 @@ void UMaterialExpressionCustom::Serialize(FArchive& Ar)
 		}
 	}
 
+#if WITH_EDITORONLY_DATA
 	// If we made changes, copy the original into the description just in case
 	if (bDidUpdate)
 	{
@@ -9279,6 +9273,7 @@ void UMaterialExpressionCustom::Serialize(FArchive& Ar)
 		Desc += PreFixUp;
 		UE_LOG(LogMaterial, Log, TEXT("Uniform references updated for custom material expression %s."), *Description);
 	}
+#endif // WITH_EDITORONLY_DATA
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -9550,6 +9545,8 @@ void UMaterialFunction::PostLoad()
 #endif // #if WITH_EDITOR
 }
 
+#if WITH_EDITOR
+
 void UMaterialFunction::UpdateFromFunctionResource()
 {
 	for (int32 ExpressionIndex = 0; ExpressionIndex < FunctionExpressions.Num(); ExpressionIndex++)
@@ -9681,6 +9678,7 @@ static int32 FindOutputIndexByName(const FName& Name, const TArray<FFunctionExpr
 	}
 	return INDEX_NONE;
 }
+#endif
 
 bool UMaterialFunction::ValidateFunctionUsage(FMaterialCompiler* Compiler, const FFunctionExpressionOutput& Output)
 {
@@ -10568,6 +10566,7 @@ UMaterialFunctionInterface* SavedMaterialFunction = NULL;
 UMaterialExpressionMaterialFunctionCall::UMaterialExpressionMaterialFunctionCall(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -10582,9 +10581,7 @@ UMaterialExpressionMaterialFunctionCall::UMaterialExpressionMaterialFunctionCall
 	bShowOutputNameOnPin = true;
 	bHidePreviewWindow = true;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Functions);
-#endif
 
 	BorderColor = FColor(0, 116, 255);
 
@@ -10592,6 +10589,7 @@ UMaterialExpressionMaterialFunctionCall::UMaterialExpressionMaterialFunctionCall
 	FunctionInputs.Empty();
 	FunctionOutputs.Empty();
 	Outputs.Empty();
+#endif
 }
 
 void UMaterialExpressionMaterialFunctionCall::PostLoad()
@@ -10701,7 +10699,6 @@ void UMaterialExpressionMaterialFunctionCall::GetCaption(TArray<FString>& OutCap
 {
 	OutCaptions.Add(MaterialFunction ? MaterialFunction->GetName() : TEXT("Unspecified Function"));
 }
-#endif // WITH_EDITOR
 
 const TArray<FExpressionInput*> UMaterialExpressionMaterialFunctionCall::GetInputs()
 {
@@ -10796,7 +10793,6 @@ static FString GetInputDefaultValueString(EFunctionInputType InputType, const FV
 	return ValueString + TEXT(")");
 }
 
-#if WITH_EDITOR
 FString UMaterialExpressionMaterialFunctionCall::GetDescription() const
 {
 	FString Result = FString(*GetClass()->GetName()).Mid(FCString::Strlen(TEXT("MaterialExpression")));
@@ -10952,7 +10948,6 @@ bool UMaterialExpressionMaterialFunctionCall::SetMaterialFunctionEx(
 
 	return NewFunctionResource != NULL;
 }
-#endif // WITH_EDITOR
 
 void UMaterialExpressionMaterialFunctionCall::UpdateFromFunctionResource(bool bRecreateAndLinkNode)
 {
@@ -11007,7 +11002,6 @@ void UMaterialExpressionMaterialFunctionCall::UpdateFromFunctionResource(bool bR
 				}
 			}
 			
-#if WITH_EDITOR
 			// Fixup any references that the material or material inputs had to the function's outputs
 			FixupReferencingExpressions(FunctionOutputs, OriginalOutputs, Material->Expressions, MaterialInputs, false);
 		}
@@ -11015,11 +11009,9 @@ void UMaterialExpressionMaterialFunctionCall::UpdateFromFunctionResource(bool bR
 		{
 			// Fixup any references that the material function had to the function's outputs
 			FixupReferencingExpressions(FunctionOutputs, OriginalOutputs, Function->FunctionExpressions, MaterialInputs, false);
-#endif // WITH_EDITOR
 		}
 	}
 
-#if WITH_EDITOR
 	if (GraphNode && bRecreateAndLinkNode)
 	{
 		// Check whether number of input/outputs or transient pointers have changed
@@ -11050,10 +11042,8 @@ void UMaterialExpressionMaterialFunctionCall::UpdateFromFunctionResource(bool bR
 			CastChecked<UMaterialGraphNode>(GraphNode)->RecreateAndLinkNode();
 		}
 	}
-#endif // WITH_EDITOR
 }
 
-#if WITH_EDITOR
 /** Goes through the Inputs array and fixes up each input's OutputIndex, or breaks the connection if necessary. */
 static void FixupReferencingInputs(
 	const TArray<FFunctionExpressionOutput>& NewOutputs,
@@ -11116,7 +11106,6 @@ void UMaterialExpressionMaterialFunctionCall::FixupReferencingExpressions(
 
 	FixupReferencingInputs(NewOutputs, OriginalOutputs, MaterialInputs, this, bMatchByName);
 }
-#endif // WITH_EDITOR
 
 bool UMaterialExpressionMaterialFunctionCall::MatchesSearchQuery( const TCHAR* SearchQuery )
 {
@@ -11128,7 +11117,6 @@ bool UMaterialExpressionMaterialFunctionCall::MatchesSearchQuery( const TCHAR* S
 	return Super::MatchesSearchQuery(SearchQuery);
 }
 
-#if WITH_EDITOR
 bool UMaterialExpressionMaterialFunctionCall::IsResultMaterialAttributes(int32 OutputIndex)
 {
 	if( OutputIndex >= 0 && OutputIndex < FunctionOutputs.Num() && FunctionOutputs[OutputIndex].ExpressionOutput)
@@ -11160,6 +11148,7 @@ uint32 UMaterialExpressionMaterialFunctionCall::GetInputType(int32 InputIndex)
 UMaterialExpressionFunctionInput::UMaterialExpressionFunctionInput(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -11170,18 +11159,19 @@ UMaterialExpressionFunctionInput::UMaterialExpressionFunctionInput(const FObject
 		}
 	};
 	static FConstructorStatics ConstructorStatics;
+#endif
 
 	bCompilingFunctionPreview = true;
 	InputType = FunctionInput_Vector3;
 	InputName = TEXT("In");
-	bCollapsed = false;
 
 #if WITH_EDITORONLY_DATA
+	bCollapsed = false;
+
 	MenuCategories.Add(ConstructorStatics.NAME_Functions);
-#endif
 
 	BorderColor = FColor(185, 255, 172);
-
+#endif
 }
 
 void UMaterialExpressionFunctionInput::PostLoad()
@@ -11463,6 +11453,7 @@ uint32 UMaterialExpressionFunctionInput::GetOutputType(int32 OutputIndex)
 UMaterialExpressionFunctionOutput::UMaterialExpressionFunctionOutput(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -11475,15 +11466,17 @@ UMaterialExpressionFunctionOutput::UMaterialExpressionFunctionOutput(const FObje
 	static FConstructorStatics ConstructorStatics;
 
 	bShowOutputs = false;
+#endif
+
 	OutputName = TEXT("Result");
 
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Functions);
-#endif
 
 	BorderColor = FColor(255, 155, 0);
 
 	bCollapsed = false;
+#endif
 }
 
 void UMaterialExpressionFunctionOutput::PostLoad()
@@ -11634,6 +11627,7 @@ bool UMaterialExpressionFunctionOutput::IsResultMaterialAttributes(int32 OutputI
 UMaterialExpressionCollectionParameter::UMaterialExpressionCollectionParameter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -11645,11 +11639,10 @@ UMaterialExpressionCollectionParameter::UMaterialExpressionCollectionParameter(c
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Parameters);
-#endif
 
 	bCollapsed = false;
+#endif
 }
 
 
@@ -11745,7 +11738,6 @@ void UMaterialExpressionCollectionParameter::GetCaption(TArray<FString>& OutCapt
 		OutCaptions.Add(TEXT("Unspecified"));
 	}
 }
-#endif // WITH_EDITOR
 
 bool UMaterialExpressionCollectionParameter::MatchesSearchQuery(const TCHAR* SearchQuery)
 {
@@ -11761,6 +11753,7 @@ bool UMaterialExpressionCollectionParameter::MatchesSearchQuery(const TCHAR* Sea
 
 	return Super::MatchesSearchQuery(SearchQuery);
 }
+#endif // WITH_EDITOR
 
 //
 //	UMaterialExpressionGetSharedInput
@@ -11781,12 +11774,12 @@ UMaterialExpressionGetSharedInput::UMaterialExpressionGetSharedInput(const FObje
 
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Parameters);
-#endif
 
 	bCollapsed = true;
 
 	Outputs.Reset(1);
 	Outputs.Add(FExpressionOutput(TEXT("")));
+#endif
 }
 
 
@@ -11930,7 +11923,6 @@ void UMaterialExpressionGetSharedInput::GetEffectiveTextureData(FMaterialCompile
 	}
 #endif // WITH_EDITORONLY_DATA
 }				
-#endif // WITH_EDITOR
 
 bool UMaterialExpressionGetSharedInput::MatchesSearchQuery(const TCHAR* SearchQuery)
 {
@@ -11946,6 +11938,7 @@ bool UMaterialExpressionGetSharedInput::MatchesSearchQuery(const TCHAR* SearchQu
 
 	return Super::MatchesSearchQuery(SearchQuery);
 }
+#endif // WITH_EDITOR
 
 //
 //	UMaterialExpressionSetSharedInput
@@ -11966,12 +11959,12 @@ UMaterialExpressionSetSharedInput::UMaterialExpressionSetSharedInput(const FObje
 
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Parameters);
-#endif
 
 	bCollapsed = true;
 
 	// No outputs
 	Outputs.Reset();
+#endif
 }
 
 
@@ -12093,7 +12086,6 @@ uint32 UMaterialExpressionSetSharedInput::GetInputType(int32 InputIndex)
 	return MCT_Unknown;
 }
 
-#endif // WITH_EDITOR
 
 bool UMaterialExpressionSetSharedInput::MatchesSearchQuery(const TCHAR* SearchQuery)
 {
@@ -12114,6 +12106,7 @@ FExpressionInput* UMaterialExpressionSetSharedInput::GetInput(int32 InputIndex)
 {
 	return &Input;
 }
+#endif // WITH_EDITOR
 
 FString UMaterialExpressionSetSharedInput::GetFunctionName() const
 {
@@ -12126,6 +12119,7 @@ FString UMaterialExpressionSetSharedInput::GetFunctionName() const
 UMaterialExpressionLightmapUVs::UMaterialExpressionLightmapUVs(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -12140,14 +12134,13 @@ UMaterialExpressionLightmapUVs::UMaterialExpressionLightmapUVs(const FObjectInit
 	bShowOutputNameOnPin = true;
 	bHidePreviewWindow = true;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Coordinates);
-#endif
 
 	Outputs.Reset();
 	Outputs.Add(FExpressionOutput(TEXT(""), 1, 1, 1, 0, 0));
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -12169,6 +12162,7 @@ void UMaterialExpressionLightmapUVs::GetCaption(TArray<FString>& OutCaptions) co
 UMaterialExpressionPrecomputedAOMask::UMaterialExpressionPrecomputedAOMask(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -12183,14 +12177,13 @@ UMaterialExpressionPrecomputedAOMask::UMaterialExpressionPrecomputedAOMask(const
 	bShowOutputNameOnPin = true;
 	bHidePreviewWindow = true;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Constants);
-#endif
 
 	Outputs.Reset();
 	Outputs.Add(FExpressionOutput(TEXT("")));
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -12351,6 +12344,7 @@ void UMaterialExpressionGIReplace::GetCaption(TArray<FString>& OutCaptions) cons
 UMaterialExpressionObjectOrientation::UMaterialExpressionObjectOrientation(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -12364,12 +12358,11 @@ UMaterialExpressionObjectOrientation::UMaterialExpressionObjectOrientation(const
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Vectors);
 	MenuCategories.Add(ConstructorStatics.NAME_Coordinates);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -13152,6 +13145,7 @@ void UMaterialExpressionDistance::GetCaption(TArray<FString>& OutCaptions) const
 UMaterialExpressionTwoSidedSign::UMaterialExpressionTwoSidedSign(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -13163,11 +13157,10 @@ UMaterialExpressionTwoSidedSign::UMaterialExpressionTwoSidedSign(const FObjectIn
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Constants);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -13185,6 +13178,7 @@ void UMaterialExpressionTwoSidedSign::GetCaption(TArray<FString>& OutCaptions) c
 UMaterialExpressionVertexNormalWS::UMaterialExpressionVertexNormalWS(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -13198,12 +13192,11 @@ UMaterialExpressionVertexNormalWS::UMaterialExpressionVertexNormalWS(const FObje
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Vectors);
 	MenuCategories.Add(ConstructorStatics.NAME_Coordinates);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -13221,6 +13214,7 @@ void UMaterialExpressionVertexNormalWS::GetCaption(TArray<FString>& OutCaptions)
 UMaterialExpressionPixelNormalWS::UMaterialExpressionPixelNormalWS(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -13234,12 +13228,11 @@ UMaterialExpressionPixelNormalWS::UMaterialExpressionPixelNormalWS(const FObject
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Vectors);
 	MenuCategories.Add(ConstructorStatics.NAME_Coordinates);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -13260,6 +13253,7 @@ void UMaterialExpressionPixelNormalWS::GetCaption(TArray<FString>& OutCaptions) 
 UMaterialExpressionPerInstanceRandom::UMaterialExpressionPerInstanceRandom(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -13271,11 +13265,10 @@ UMaterialExpressionPerInstanceRandom::UMaterialExpressionPerInstanceRandom(const
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Constants);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -13296,6 +13289,7 @@ void UMaterialExpressionPerInstanceRandom::GetCaption(TArray<FString>& OutCaptio
 UMaterialExpressionPerInstanceFadeAmount::UMaterialExpressionPerInstanceFadeAmount(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -13307,11 +13301,10 @@ UMaterialExpressionPerInstanceFadeAmount::UMaterialExpressionPerInstanceFadeAmou
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Constants);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -13337,11 +13330,15 @@ UMaterialExpressionAntialiasedTextureMask::UMaterialExpressionAntialiasedTexture
 	struct FConstructorStatics
 	{
 		ConstructorHelpers::FObjectFinder<UTexture2D> DefaultTexture;
+#if WITH_EDITORONLY_DATA
 		FText NAME_Utility;
+#endif
 		FName NAME_None;
 		FConstructorStatics()
 			: DefaultTexture(TEXT("/Engine/EngineResources/DefaultTexture"))
+#if WITH_EDITORONLY_DATA
 			, NAME_Utility(LOCTEXT( "Utility", "Utility" ))
+#endif
 			, NAME_None(TEXT("None"))
 		{
 		}
@@ -13359,9 +13356,10 @@ UMaterialExpressionAntialiasedTextureMask::UMaterialExpressionAntialiasedTexture
 	ParameterName = ConstructorStatics.NAME_None;
 	Channel = TCC_Alpha;
 
+#if WITH_EDITORONLY_DATA
 	Outputs.Reset();
 	Outputs.Add(FExpressionOutput(TEXT(""), 1, 1, 0, 0, 0));
-
+#endif
 }
 
 #if WITH_EDITOR
@@ -13438,6 +13436,7 @@ void UMaterialExpressionAntialiasedTextureMask::SetDefaultTexture()
 UMaterialExpressionDecalDerivative::UMaterialExpressionDecalDerivative(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -13449,9 +13448,7 @@ UMaterialExpressionDecalDerivative::UMaterialExpressionDecalDerivative(const FOb
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Vectors);
-#endif
 
 	//bCollapsed = true;
 	bShaderInputData = true;
@@ -13460,6 +13457,7 @@ UMaterialExpressionDecalDerivative::UMaterialExpressionDecalDerivative(const FOb
 	Outputs.Reset();
 	Outputs.Add(FExpressionOutput(TEXT("DDX")));
 	Outputs.Add(FExpressionOutput(TEXT("DDY")));
+#endif
 }
 
 #if WITH_EDITOR
@@ -13480,6 +13478,7 @@ void UMaterialExpressionDecalDerivative::GetCaption(TArray<FString>& OutCaptions
 UMaterialExpressionDecalLifetimeOpacity::UMaterialExpressionDecalLifetimeOpacity(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -13491,14 +13490,13 @@ UMaterialExpressionDecalLifetimeOpacity::UMaterialExpressionDecalLifetimeOpacity
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Vectors);
-#endif
 
 	bShaderInputData = true;
 
 	Outputs.Reset();
 	Outputs.Add(FExpressionOutput(TEXT("Opacity")));
+#endif
 }
 
 #if WITH_EDITOR
@@ -13526,6 +13524,7 @@ UMaterialExpressionDecalMipmapLevel::UMaterialExpressionDecalMipmapLevel(const F
 	, ConstWidth(256.0f)
 	, ConstHeight(ConstWidth)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -13537,11 +13536,10 @@ UMaterialExpressionDecalMipmapLevel::UMaterialExpressionDecalMipmapLevel(const F
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Vectors);
-#endif
 
 	bCollapsed = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -13580,6 +13578,7 @@ void UMaterialExpressionDecalMipmapLevel::GetCaption(TArray<FString>& OutCaption
 UMaterialExpressionDepthFade::UMaterialExpressionDepthFade(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -13592,6 +13591,7 @@ UMaterialExpressionDepthFade::UMaterialExpressionDepthFade(const FObjectInitiali
 		}
 	};
 	static FConstructorStatics ConstructorStatics;
+#endif
 
 	FadeDistanceDefault = 100.0f;
 	OpacityDefault = 1.0f;
@@ -13599,9 +13599,9 @@ UMaterialExpressionDepthFade::UMaterialExpressionDepthFade(const FObjectInitiali
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Depth);
 	MenuCategories.Add(ConstructorStatics.NAME_Utility);
-#endif
 
 	bCollapsed = false;
+#endif
 }
 
 #if WITH_EDITOR
@@ -13622,6 +13622,7 @@ int32 UMaterialExpressionDepthFade::Compile(class FMaterialCompiler* Compiler, i
 UMaterialExpressionSphericalParticleOpacity::UMaterialExpressionSphericalParticleOpacity(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -13632,14 +13633,15 @@ UMaterialExpressionSphericalParticleOpacity::UMaterialExpressionSphericalParticl
 		}
 	};
 	static FConstructorStatics ConstructorStatics;
+#endif
 
 	ConstantDensity = 1;
 
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Particles);
-#endif
 
 	bCollapsed = false;
+#endif
 }
 
 #if WITH_EDITOR
@@ -13656,6 +13658,7 @@ int32 UMaterialExpressionSphericalParticleOpacity::Compile(class FMaterialCompil
 UMaterialExpressionDepthOfFieldFunction::UMaterialExpressionDepthOfFieldFunction(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -13667,11 +13670,10 @@ UMaterialExpressionDepthOfFieldFunction::UMaterialExpressionDepthOfFieldFunction
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Utility);
-#endif
 
 	bCollapsed = false;
+#endif
 }
 
 #if WITH_EDITOR
@@ -13711,6 +13713,7 @@ void UMaterialExpressionDepthOfFieldFunction::GetCaption(TArray<FString>& OutCap
 UMaterialExpressionDDX::UMaterialExpressionDDX(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -13722,11 +13725,10 @@ UMaterialExpressionDDX::UMaterialExpressionDDX(const FObjectInitializer& ObjectI
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Utility);
-#endif
 
 	bCollapsed = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -13760,6 +13762,7 @@ void UMaterialExpressionDDX::GetCaption(TArray<FString>& OutCaptions) const
 UMaterialExpressionDDY::UMaterialExpressionDDY(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -13771,11 +13774,10 @@ UMaterialExpressionDDY::UMaterialExpressionDDY(const FObjectInitializer& ObjectI
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Utility);
-#endif
 
 	bCollapsed = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -13809,6 +13811,7 @@ void UMaterialExpressionDDY::GetCaption(TArray<FString>& OutCaptions) const
 UMaterialExpressionParticleRelativeTime::UMaterialExpressionParticleRelativeTime(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -13822,12 +13825,11 @@ UMaterialExpressionParticleRelativeTime::UMaterialExpressionParticleRelativeTime
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Particles);
 	MenuCategories.Add(ConstructorStatics.NAME_Constants);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -13848,6 +13850,7 @@ void UMaterialExpressionParticleRelativeTime::GetCaption(TArray<FString>& OutCap
 UMaterialExpressionParticleMotionBlurFade::UMaterialExpressionParticleMotionBlurFade(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -13861,12 +13864,11 @@ UMaterialExpressionParticleMotionBlurFade::UMaterialExpressionParticleMotionBlur
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Particles);
 	MenuCategories.Add(ConstructorStatics.NAME_Constants);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -13887,6 +13889,7 @@ void UMaterialExpressionParticleMotionBlurFade::GetCaption(TArray<FString>& OutC
 UMaterialExpressionParticleRandom::UMaterialExpressionParticleRandom(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -13900,12 +13903,11 @@ UMaterialExpressionParticleRandom::UMaterialExpressionParticleRandom(const FObje
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Particles);
 	MenuCategories.Add(ConstructorStatics.NAME_Constants);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -13926,6 +13928,7 @@ void UMaterialExpressionParticleRandom::GetCaption(TArray<FString>& OutCaptions)
 UMaterialExpressionParticleDirection::UMaterialExpressionParticleDirection(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -13939,12 +13942,11 @@ UMaterialExpressionParticleDirection::UMaterialExpressionParticleDirection(const
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Particles);
 	MenuCategories.Add(ConstructorStatics.NAME_Constants);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -13965,6 +13967,7 @@ void UMaterialExpressionParticleDirection::GetCaption(TArray<FString>& OutCaptio
 UMaterialExpressionParticleSpeed::UMaterialExpressionParticleSpeed(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -13978,12 +13981,11 @@ UMaterialExpressionParticleSpeed::UMaterialExpressionParticleSpeed(const FObject
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Particles);
 	MenuCategories.Add(ConstructorStatics.NAME_Constants);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -14004,6 +14006,7 @@ void UMaterialExpressionParticleSpeed::GetCaption(TArray<FString>& OutCaptions) 
 UMaterialExpressionParticleSize::UMaterialExpressionParticleSize(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -14017,12 +14020,11 @@ UMaterialExpressionParticleSize::UMaterialExpressionParticleSize(const FObjectIn
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Particles);
 	MenuCategories.Add(ConstructorStatics.NAME_Constants);
-#endif
 
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -14043,6 +14045,7 @@ void UMaterialExpressionParticleSize::GetCaption(TArray<FString>& OutCaptions) c
 UMaterialExpressionAtmosphericFogColor::UMaterialExpressionAtmosphericFogColor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -14054,11 +14057,10 @@ UMaterialExpressionAtmosphericFogColor::UMaterialExpressionAtmosphericFogColor(c
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Atmosphere);
-#endif
 
 	bCollapsed = false;
+#endif
 }
 
 #if WITH_EDITOR
@@ -14191,6 +14193,7 @@ UMaterialExpressionCustomOutput::UMaterialExpressionCustomOutput(const FObjectIn
 UMaterialExpressionEyeAdaptation::UMaterialExpressionEyeAdaptation(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -14202,13 +14205,12 @@ UMaterialExpressionEyeAdaptation::UMaterialExpressionEyeAdaptation(const FObject
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Utility);
-#endif
 
 	Outputs.Reset();
 	Outputs.Add(FExpressionOutput(TEXT("EyeAdaptation")));
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -14229,6 +14231,7 @@ void UMaterialExpressionEyeAdaptation::GetCaption(TArray<FString>& OutCaptions) 
 UMaterialExpressionTangentOutput::UMaterialExpressionTangentOutput(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -14242,12 +14245,11 @@ UMaterialExpressionTangentOutput::UMaterialExpressionTangentOutput(const FObject
 	};
 	static FConstructorStatics ConstructorStatics(GetDisplayName(), GetFunctionName());
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Custom);
-#endif
 
 	// No outputs
 	Outputs.Reset();
+#endif
 }
 
 #if WITH_EDITOR
@@ -14278,6 +14280,7 @@ void UMaterialExpressionTangentOutput::GetCaption(TArray<FString>& OutCaptions) 
 UMaterialExpressionClearCoatNormalCustomOutput::UMaterialExpressionClearCoatNormalCustomOutput(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -14291,14 +14294,13 @@ UMaterialExpressionClearCoatNormalCustomOutput::UMaterialExpressionClearCoatNorm
 	};
 	static FConstructorStatics ConstructorStatics(GetDisplayName(), GetFunctionName());
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Utility);
-#endif
 
 	bCollapsed = true;
 
 	// No outputs
 	Outputs.Reset();
+#endif
 }
 
 #if WITH_EDITOR
@@ -14320,12 +14322,12 @@ void UMaterialExpressionClearCoatNormalCustomOutput::GetCaption(TArray<FString>&
 {
 	OutCaptions.Add(FString(TEXT("ClearCoatBottomNormal")));
 }
-#endif // WITH_EDITOR
 
 FExpressionInput* UMaterialExpressionClearCoatNormalCustomOutput::GetInput(int32 InputIndex)
 {
 	return &Input;
 }
+#endif // WITH_EDITOR
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -14335,6 +14337,7 @@ FExpressionInput* UMaterialExpressionClearCoatNormalCustomOutput::GetInput(int32
 UMaterialExpressionBentNormalCustomOutput::UMaterialExpressionBentNormalCustomOutput(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -14348,14 +14351,13 @@ UMaterialExpressionBentNormalCustomOutput::UMaterialExpressionBentNormalCustomOu
 	};
 	static FConstructorStatics ConstructorStatics(GetDisplayName(), GetFunctionName());
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Utility);
-#endif
 
 	bCollapsed = true;
 
 	// No outputs
 	Outputs.Reset();
+#endif
 }
 
 #if WITH_EDITOR
@@ -14377,12 +14379,12 @@ void UMaterialExpressionBentNormalCustomOutput::GetCaption(TArray<FString>& OutC
 {
 	OutCaptions.Add(FString(TEXT("BentNormal")));
 }
-#endif // WITH_EDITOR
 
 FExpressionInput* UMaterialExpressionBentNormalCustomOutput::GetInput(int32 InputIndex)
 {
 	return &Input;
 }
+#endif // WITH_EDITOR
 
 ///////////////////////////////////////////////////////////////////////////////
 // Vertex to pixel interpolated data handler
@@ -14391,6 +14393,7 @@ FExpressionInput* UMaterialExpressionBentNormalCustomOutput::GetInput(int32 Inpu
 UMaterialExpressionVertexInterpolator::UMaterialExpressionVertexInterpolator(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -14402,13 +14405,12 @@ UMaterialExpressionVertexInterpolator::UMaterialExpressionVertexInterpolator(con
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Utility);
-#endif
 
 	Outputs.Reset();
 	Outputs.Add(FExpressionOutput(TEXT("PS"), 0, 0, 0, 0, 0));
 	bShowOutputNameOnPin = true;
+#endif
 
 	InterpolatorIndex = INDEX_NONE;
 	InterpolatedType = MCT_Unknown;
@@ -14458,12 +14460,12 @@ void UMaterialExpressionVertexInterpolator::GetCaption(TArray<FString>& OutCapti
 {
 	OutCaptions.Add(FString(TEXT("VertexInterpolator")));
 }
-#endif // WITH_EDITOR
 
 FExpressionInput* UMaterialExpressionVertexInterpolator::GetInput(int32 InputIndex)
 {
 	return &Input;
 }
+#endif // WITH_EDITOR
 
 ///////////////////////////////////////////////////////////////////////////////
 // UMaterialExpressionrAtmosphericLightVector
@@ -14541,6 +14543,7 @@ void UMaterialExpressionAtmosphericLightColor::GetCaption(TArray<FString>& OutCa
 UMaterialExpressionPreSkinnedPosition::UMaterialExpressionPreSkinnedPosition(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -14552,13 +14555,12 @@ UMaterialExpressionPreSkinnedPosition::UMaterialExpressionPreSkinnedPosition(con
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Constants);
-#endif
 
 	Outputs.Reset();
 	Outputs.Add(FExpressionOutput(TEXT(""), 1, 1, 1, 1, 0));
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR
@@ -14590,6 +14592,7 @@ void UMaterialExpressionPreSkinnedPosition::GetExpressionToolTip(TArray<FString>
 UMaterialExpressionPreSkinnedNormal::UMaterialExpressionPreSkinnedNormal(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
@@ -14601,13 +14604,12 @@ UMaterialExpressionPreSkinnedNormal::UMaterialExpressionPreSkinnedNormal(const F
 	};
 	static FConstructorStatics ConstructorStatics;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Constants);
-#endif
 
 	Outputs.Reset();
 	Outputs.Add(FExpressionOutput(TEXT(""), 1, 1, 1, 1, 0));
 	bShaderInputData = true;
+#endif
 }
 
 #if WITH_EDITOR

@@ -26,6 +26,8 @@
 #if WITH_EDITOR
 #include "Editor.h"
 #include "HierarchicalLOD.h"
+#include "IMeshMergeUtilities.h"
+#include "MeshMergeModule.h"
 #endif 
 
 #define LOCTEXT_NAMESPACE "ErrorChecking"
@@ -322,6 +324,27 @@ int32 AWorldSettings::GetNumHierarchicalLODLevels() const
 
 	return  HierarchicalLODSetup.Num();
 }
+
+UMaterialInterface* AWorldSettings::GetHierarchicalLODBaseMaterial() const
+{
+	UMaterialInterface* Material = GetDefault<UHierarchicalLODSettings>()->BaseMaterial.LoadSynchronous();
+
+	if (!OverrideBaseMaterial.IsNull())
+	{
+		Material = OverrideBaseMaterial.LoadSynchronous();
+	}
+
+	if (HLODSetupAsset.LoadSynchronous())
+	{
+		if (!HLODSetupAsset->GetDefaultObject<UHierarchicalLODSetup>()->OverrideBaseMaterial.IsNull())
+		{
+			Material = HLODSetupAsset->GetDefaultObject<UHierarchicalLODSetup>()->OverrideBaseMaterial.LoadSynchronous();
+		}
+	}
+
+	return Material;
+}
+
 #endif // WITH_EDITOR
 
 void AWorldSettings::RemoveUserDataOfClass(TSubclassOf<UAssetUserData> InUserDataClass)
@@ -501,6 +524,17 @@ void AWorldSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 			GEditor->BroadcastHLODLevelsArrayChanged();
 			NumHLODLevels = HierarchicalLODSetup.Num();			
 		}
+		else if (PropertyThatChanged->GetFName() == GET_MEMBER_NAME_CHECKED(AWorldSettings, OverrideBaseMaterial))
+		{
+			if (!OverrideBaseMaterial.IsNull())
+			{
+				const IMeshMergeUtilities& Module = FModuleManager::Get().LoadModuleChecked<IMeshMergeModule>("MeshMergeUtilities").GetUtilities();
+				if (!Module.IsValidBaseMaterial(OverrideBaseMaterial.LoadSynchronous(), true))
+				{
+					OverrideBaseMaterial = LoadObject<UMaterialInterface>(NULL, TEXT("/Engine/EngineMaterials/BaseFlattenMaterial.BaseFlattenMaterial"), NULL, LOAD_None, NULL);
+				}
+			}
+		}
 	}
 
 	if (PropertyThatChanged != nullptr && GetWorld() != nullptr && GetWorld()->Scene)
@@ -511,6 +545,23 @@ void AWorldSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 
+
+void UHierarchicalLODSetup::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
+{
+	if (PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(UHierarchicalLODSetup, OverrideBaseMaterial))
+	{
+		if (!OverrideBaseMaterial.IsNull())
+		{
+			const IMeshMergeUtilities& Module = FModuleManager::Get().LoadModuleChecked<IMeshMergeModule>("MeshMergeUtilities").GetUtilities();
+			if (!Module.IsValidBaseMaterial(OverrideBaseMaterial.LoadSynchronous(), true))
+			{
+				OverrideBaseMaterial = LoadObject<UMaterialInterface>(NULL, TEXT("/Engine/EngineMaterials/BaseFlattenMaterial.BaseFlattenMaterial"), NULL, LOAD_None, NULL);
+			}
+		}
+	}
+}
+
 #endif // WITH_EDITOR
 
 #undef LOCTEXT_NAMESPACE
+

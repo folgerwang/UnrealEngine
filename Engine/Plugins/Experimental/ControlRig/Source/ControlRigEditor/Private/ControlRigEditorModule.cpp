@@ -70,11 +70,26 @@ void FControlRigEditorModule::StartupModule()
 
 	// Register details customizations for animation controller nodes
 	FPropertyEditorModule& PropertyEditorModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
-	PropertyEditorModule.RegisterCustomClassLayout(UK2Node_ControlRig::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FControlRigInputOutputDetailsCustomization::MakeInstance));
-	PropertyEditorModule.RegisterCustomPropertyTypeLayout(FUserLabeledField::StaticStruct()->GetFName(), FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FUserLabeledFieldCustomization::MakeInstance));
-	PropertyEditorModule.RegisterCustomClassLayout(UHumanRig::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FHumanRigDetails::MakeInstance));
-	PropertyEditorModule.RegisterCustomClassLayout(UMovieSceneControlRigSection::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FMovieSceneControlRigSectionDetailsCustomization::MakeInstance));
-	PropertyEditorModule.RegisterCustomClassLayout(UControlRigSequenceExporterSettings::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FControlRigSequenceExporterSettingsDetailsCustomization::MakeInstance));
+	ClassesToUnregisterOnShutdown.Reset();
+
+	// not safe to call StaticClass on shutdown, so cache name here, and shut down using that name
+	ClassesToUnregisterOnShutdown.Add(UK2Node_ControlRig::StaticClass()->GetFName());
+	PropertyEditorModule.RegisterCustomClassLayout(ClassesToUnregisterOnShutdown.Last(), FOnGetDetailCustomizationInstance::CreateStatic(&FControlRigInputOutputDetailsCustomization::MakeInstance));
+
+	ClassesToUnregisterOnShutdown.Add(UHumanRig::StaticClass()->GetFName());
+	PropertyEditorModule.RegisterCustomClassLayout(ClassesToUnregisterOnShutdown.Last(), FOnGetDetailCustomizationInstance::CreateStatic(&FHumanRigDetails::MakeInstance));
+
+	ClassesToUnregisterOnShutdown.Add(UMovieSceneControlRigSection::StaticClass()->GetFName());
+	PropertyEditorModule.RegisterCustomClassLayout(ClassesToUnregisterOnShutdown.Last(), FOnGetDetailCustomizationInstance::CreateStatic(&FMovieSceneControlRigSectionDetailsCustomization::MakeInstance));
+
+	ClassesToUnregisterOnShutdown.Add(UControlRigSequenceExporterSettings::StaticClass()->GetFName());
+	PropertyEditorModule.RegisterCustomClassLayout(ClassesToUnregisterOnShutdown.Last(), FOnGetDetailCustomizationInstance::CreateStatic(&FControlRigSequenceExporterSettingsDetailsCustomization::MakeInstance));
+
+	// same as ClassesToUnregisterOnShutdown but for properties
+	PropertiesToUnregisterOnShutdown.Reset();
+
+	PropertiesToUnregisterOnShutdown.Add(FUserLabeledField::StaticStruct()->GetFName());
+	PropertyEditorModule.RegisterCustomPropertyTypeLayout(PropertiesToUnregisterOnShutdown.Last(), FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FUserLabeledFieldCustomization::MakeInstance));
 
 	// Register blueprint compiler
 	IKismetCompilerInterface& KismetCompilerModule = FModuleManager::LoadModuleChecked<IKismetCompilerInterface>("KismetCompiler");
@@ -285,10 +300,15 @@ void FControlRigEditorModule::ShutdownModule()
 	FPropertyEditorModule* PropertyEditorModule = FModuleManager::GetModulePtr<FPropertyEditorModule>("PropertyEditor");
 	if (PropertyEditorModule)
 	{
-		PropertyEditorModule->UnregisterCustomClassLayout(UK2Node_ControlRig::StaticClass()->GetFName());
-		PropertyEditorModule->UnregisterCustomClassLayout(FUserLabeledField::StaticStruct()->GetFName());
-		PropertyEditorModule->UnregisterCustomClassLayout(UHumanRig::StaticClass()->GetFName());
-		PropertyEditorModule->UnregisterCustomClassLayout(UMovieSceneControlRigSection::StaticClass()->GetFName());
+		for (int32 Index = 0; Index < ClassesToUnregisterOnShutdown.Num(); ++Index)
+		{
+			PropertyEditorModule->UnregisterCustomClassLayout(ClassesToUnregisterOnShutdown[Index]);
+		}
+
+		for (int32 Index = 0; Index < PropertiesToUnregisterOnShutdown.Num(); ++Index)
+		{
+			PropertyEditorModule->UnregisterCustomPropertyTypeLayout(PropertiesToUnregisterOnShutdown[Index]);
+		}
 	}
 
 	IKismetCompilerInterface* KismetCompilerModule = FModuleManager::GetModulePtr<IKismetCompilerInterface>("KismetCompiler");

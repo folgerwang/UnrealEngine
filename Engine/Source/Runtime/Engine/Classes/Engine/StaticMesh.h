@@ -18,6 +18,7 @@
 #include "Engine/MeshMerging.h"
 #include "Templates/UniquePtr.h"
 #include "StaticMeshResources.h"
+#include "PerPlatformProperties.h"
 #include "StaticMesh.generated.h"
 
 class FSpeedTreeWind;
@@ -172,7 +173,7 @@ struct FStaticMeshSourceModel
 	 * sphere of the model. i.e. 0.5 means half the screen's maximum dimension.
 	 */
 	UPROPERTY(EditAnywhere, Category=ReductionSettings)
-	float ScreenSize;
+	FPerPlatformFloat ScreenSize;
 
 	/** Default constructor. */
 	ENGINE_API FStaticMeshSourceModel();
@@ -263,8 +264,8 @@ struct FMeshSectionInfoMap
 	/** Copies per-section settings from the specified section info map. */
 	ENGINE_API void CopyFrom(const FMeshSectionInfoMap& Other);
 
-	/** Returns true if any section has collision enabled. */
-	bool AnySectionHasCollision() const;
+	/** Returns true if any section of the specified LOD has collision enabled. */
+	bool AnySectionHasCollision(int32 LodIndex) const;
 };
 
 USTRUCT()
@@ -424,6 +425,9 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 	/** Pointer to the data used to render this static mesh. */
 	TUniquePtr<class FStaticMeshRenderData> RenderData;
 
+	/** Pointer to the occluder data used to rasterize this static mesh for software occlusion. */
+	TUniquePtr<class FStaticMeshOccluderData> OccluderData;
+
 #if WITH_EDITORONLY_DATA
 	static const float MinimumAutoLODPixelError;
 
@@ -481,7 +485,7 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 
 	/** Minimum LOD to use for rendering.  This is the default setting for the mesh and can be overridden by component settings. */
 	UPROPERTY()
-	int32 MinLOD;
+	FPerPlatformInt MinLOD;
 
 	/** Materials used by this static mesh. Individual sections index in to this array. */
 	UPROPERTY()
@@ -520,7 +524,7 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 	 *	Sometimes it can be desirable to use a lower poly representation for collision to reduce memory usage, improve performance and behaviour.
 	 *	Collision representation does not change based on distance to camera.
 	 */
-	UPROPERTY(EditAnywhere, Category = StaticMesh, meta=(DisplayName="LOD For Collision"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = StaticMesh, meta=(DisplayName="LOD For Collision"))
 	int32 LODForCollision;
 
 	/** If true, strips unwanted complex collision data aka kDOP tree when cooking for consoles.
@@ -585,6 +589,13 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 	/** If the user has modified collision in any way or has custom collision imported. Used for determining if to auto generate collision on import */
 	UPROPERTY(EditAnywhere, Category = Collision)
 	bool bCustomizedCollision;
+
+	/** 
+	 *	Specifies which mesh LOD to use as occluder geometry for software occlusion
+	 *  Set to -1 to not use this mesh as occluder 
+	 */
+	UPROPERTY(EditAnywhere, Category=StaticMesh, AdvancedDisplay, meta=(DisplayName="LOD For Occluder Mesh"))
+	int32 LODForOccluderMesh;
 
 #endif // WITH_EDITORONLY_DATA
 

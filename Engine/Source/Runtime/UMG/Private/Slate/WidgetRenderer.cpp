@@ -193,6 +193,7 @@ void FWidgetRenderer::DrawWindow(
 		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(FWidgetRenderer_DrawWindow,
 			FRenderThreadContext, InContext, Context,
 			{
+				QUICK_SCOPE_CYCLE_COUNTER(Stat_Slate_WidgetRendererRenderThread);
 				InContext.Renderer->DrawWindowToTarget_RenderThread(RHICmdList, InContext.RenderTargetResource, *InContext.DrawBuffer, InContext.bClearTarget);
 			});
 	}

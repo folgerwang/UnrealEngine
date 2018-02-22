@@ -28,7 +28,7 @@ FPaperTileMapRenderSceneProxy::FPaperTileMapRenderSceneProxy(const UPaperTileMap
 {
 	check(InComponent);
 
-	WireframeColor = InComponent->GetWireframeColor();
+	SetWireframeColor(InComponent->GetWireframeColor());
 	TileMap = InComponent->TileMap;
 	Material = InComponent->GetMaterial(0);
 	if (Material == nullptr)
@@ -258,7 +258,7 @@ void FPaperTileMapRenderSceneProxy::GetDynamicMeshElements(const TArray<const FS
 
 							auto CollisionMaterialInstance = new FColoredMaterialRenderProxy(
 								LevelColorationMaterial->GetRenderProxy(IsSelected(), IsHovered()),
-								WireframeColor
+								GetWireframeColor()
 								);
 
 							// Draw the static mesh's body setup.
@@ -340,7 +340,7 @@ void FPaperTileMapRenderSceneProxy::GetDynamicMeshElements(const TArray<const FS
 				else if (View->Family->EngineShowFlags.Grid && bShowOutlineWhenUnselected)
 				{
 					// Draw a layer rectangle even when not selected, so you can see where the tile map is in the editor
-					DrawBoundsForLayer(PDI, WireframeColor, /*LayerIndex=*/ (OnlyLayerIndex != INDEX_NONE) ? OnlyLayerIndex : 0);
+					DrawBoundsForLayer(PDI, GetWireframeColor(), /*LayerIndex=*/ (OnlyLayerIndex != INDEX_NONE) ? OnlyLayerIndex : 0);
 				}
 #endif
 			}

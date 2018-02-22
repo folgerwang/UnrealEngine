@@ -622,8 +622,8 @@ protected:
 			ITargetPlatformModule* Module = FModuleManager::LoadModulePtr<ITargetPlatformModule>(Modules[Index]);
 			if (Module)
 			{
-				ITargetPlatform* Platform = Module->GetTargetPlatform();
-				if (Platform != nullptr)
+				TArray<ITargetPlatform*> TargetPlatforms = Module->GetTargetPlatforms();
+				for (ITargetPlatform* Platform : TargetPlatforms) 
 				{
 					// would like to move this check to GetActiveTargetPlatforms, but too many things cache this result
 					// this setup will become faster after TTP 341897 is complete.
@@ -648,10 +648,6 @@ RETRY_SETUPANDVALIDATE:
 						}
 						UE_LOG(LogTemp, Display, TEXT("Failed to SetupAndValidateAutoSDK for platform %s"), *Modules[Index].ToString());
 					}
-				}
-				else
-				{
-					UE_LOG(LogTemp, Display, TEXT("Failed to get target platform %s"), *Modules[Index].ToString());
 				}
 			}
 		}

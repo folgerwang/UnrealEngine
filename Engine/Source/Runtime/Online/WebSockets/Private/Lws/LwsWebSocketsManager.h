@@ -73,6 +73,8 @@ private:
 	/** Callback on events for a libwebsockets connection */
 	int CallbackWrapper(lws* Connection, lws_callback_reasons Reason, void* UserData, void* Data, size_t Length);
 
+	/** OpenSSL context */
+	SSL_CTX* SslContext;
 	/** libwebsockets context */
 	lws_context* LwsContext;
 	/** array of protocols that we have registered with libwebsockets */

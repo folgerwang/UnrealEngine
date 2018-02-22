@@ -4,7 +4,7 @@
 
 #include "CoreTypes.h"
 #include "Misc/AssertionMacros.h"
-#include "Serialization/Archive.h"
+#include "Serialization/BitArchive.h"
 #include "Containers/Array.h"
 #include "Math/UnrealMathUtility.h"
 
@@ -15,7 +15,7 @@
 //
 // Writes bitstreams.
 //
-struct CORE_API FBitWriter : public FArchive
+struct CORE_API FBitWriter : public FBitArchive
 {
 	friend struct FBitWriterMark;
 
@@ -29,6 +29,8 @@ public:
 	FBitWriter( int64 InMaxBits, bool AllowResize = false );
 
 	void SerializeBits( void* Src, int64 LengthBits );
+
+	virtual void SerializeBitsWithOffset( void* Src, int32 SourceBit, int64 LengthBits ) override;
 
 	/**
 	 * Serializes a compressed integer - Value must be < Max

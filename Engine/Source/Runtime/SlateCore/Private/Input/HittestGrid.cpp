@@ -95,8 +95,6 @@ struct FHittestGrid::FGridTestingParams
 	bool bTestWidgetIsInteractive;
 };
 
-
-
 FHittestGrid::FHittestGrid()
 : WidgetsCachedThisFrame()
 {
@@ -218,6 +216,9 @@ TArray<FWidgetAndPointer> FHittestGrid::GetBubblePath(FVector2D DesktopSpaceCoor
 
 void FHittestGrid::ClearGridForNewFrame(const FSlateRect& HittestArea)
 {
+#if SLATE_VERBOSE_NAMED_EVENTS
+	FScopedNamedEvent ClearHTGEvent(FColor::Magenta, "FHittestGrid::ClearGridForNewFrame");
+#endif
 	//LogGrid();
 
 	GridOrigin = HittestArea.GetTopLeft();
@@ -682,7 +683,7 @@ FHittestGrid::FIndexAndDistance FHittestGrid::GetHitIndexFromCellIndex(const FGr
 
 			check(WidgetsCachedThisFrame.IsValidIndex(WidgetIndex));
 
-			const FHittestGrid::FCachedWidget& TestCandidate = WidgetsCachedThisFrame[WidgetIndex];
+			const FCachedWidget& TestCandidate = WidgetsCachedThisFrame[WidgetIndex];
 
 			// When performing a point hittest, accept all hittestable widgets.
 			// When performing a hittest with a radius, only grab interactive widgets.
@@ -736,7 +737,7 @@ TArray<FWidgetAndPointer> FHittestGrid::GetBubblePathFromHitIndex(const int32 Hi
 		do
 		{
 			check(CurWidgetIndex < WidgetsCachedThisFrame.Num());
-			const FHittestGrid::FCachedWidget& CurCachedWidget = WidgetsCachedThisFrame[CurWidgetIndex];
+			const FCachedWidget& CurCachedWidget = WidgetsCachedThisFrame[CurWidgetIndex];
 			const TSharedPtr<SWidget> CachedWidgetPtr = CurCachedWidget.WidgetPtr.Pin();
 
 

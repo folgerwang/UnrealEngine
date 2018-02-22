@@ -14,6 +14,7 @@
 #include "Logging/LogSuppressionInterface.h"
 #include "Engine/CurveTable.h"
 #include "Engine/DataTable.h"
+#include "Curves/CurveFloat.h"
 
 DEFINE_LOG_CATEGORY(LogHotfixManager);
 
@@ -381,39 +382,61 @@ void UOnlineHotfixManager::BuildHotfixFileListDeltas()
 	RemovedHotfixFileList.Empty();
 	ChangedHotfixFileList.Empty();
 	// Go through the current list and see if it's changed from the previous attempt
-	for (auto& CurrentHeader : HotfixFileList)
+	TSet<FString> DirtyIniCategories;
+	for (const FCloudFileHeader& CurrentHeader : HotfixFileList)
 	{
-		bool bFoundMatch = false;
-		for (auto& LastHeader : LastHotfixFileList)
-		{
-			if (LastHeader == CurrentHeader)
-			{
-				bFoundMatch = true;
-				break;
-			}
-		}
+		bool bFoundMatch = LastHotfixFileList.Contains(CurrentHeader);
 		if (!bFoundMatch)
 		{
-			// We're different so add to the process list
+			// All NEW or CHANGED ini files will be added to the process list
 			ChangedHotfixFileList.Add(CurrentHeader);
+
+			if (CurrentHeader.FileName.EndsWith(TEXT(".INI"), ESearchCase::IgnoreCase))
+			{
+				// Make sure that ALL INIs of this "category" get marked for inclusion below
+				DirtyIniCategories.Add(GetStrippedConfigFileName(CurrentHeader.FileName));
+			}
 		}
 	}
 	// Find any files that have been removed from the set of hotfix files
-	for (auto& LastHeader : LastHotfixFileList)
+	for (const FCloudFileHeader& LastHeader : LastHotfixFileList)
 	{
-		bool bFoundMatch = false;
-		for (auto& CurrentHeader : HotfixFileList)
-		{
-			if (LastHeader.FileName == CurrentHeader.FileName)
+		bool bFoundMatch = HotfixFileList.ContainsByPredicate(
+			[&LastHeader](const FCloudFileHeader& CurrentHeader)
 			{
-				bFoundMatch = true;
-				break;
-			}
-		}
+				return LastHeader.FileName == CurrentHeader.FileName;
+			});
 		if (!bFoundMatch)
 		{
 			// We've been removed so add to the removed list
 			RemovedHotfixFileList.Add(LastHeader);
+
+			if (LastHeader.FileName.EndsWith(TEXT(".INI"), ESearchCase::IgnoreCase))
+			{
+				// Make sure that ALL INIs of this "category" get marked for inclusion below
+				DirtyIniCategories.Add(GetStrippedConfigFileName(LastHeader.FileName));
+			}
+		}
+	}
+
+	// Apply all hotfix files for each ini file if the category has been marked dirty
+	// For example, if DefaultGame.ini has changed, also consider XboxOne_Game.ini changed
+	// This is necessary because we revert the ini file to the pre-hotfix state
+	if (DirtyIniCategories.Num() > 0)
+	{
+		for (const FCloudFileHeader& CurrentHeader : HotfixFileList)
+		{
+			if (CurrentHeader.FileName.EndsWith(TEXT(".INI"), ESearchCase::IgnoreCase))
+			{
+				for (const FString& StrippedIniName : DirtyIniCategories)
+				{
+					if (CurrentHeader.FileName.EndsWith(StrippedIniName, ESearchCase::IgnoreCase))
+					{
+						// Be sure to include any ini in a "dirty" category that remains in the latest HotfixFileList
+						ChangedHotfixFileList.AddUnique(CurrentHeader);
+					}
+				}
+			}
 		}
 	}
 }
@@ -961,9 +984,16 @@ void UOnlineHotfixManager::OnReadFileProgress(const FString& FileName, uint64 By
 
 UOnlineHotfixManager::FConfigFileBackup& UOnlineHotfixManager::BackupIniFile(const FString& IniName, const FConfigFile* ConfigFile)
 {
+	FString BackupIniName = GetConfigFileNamePath(GetStrippedConfigFileName(IniName));
+	if (FConfigFileBackup* Backup = IniBackups.FindByPredicate([&BackupIniName](const FConfigFileBackup& Entry){ return Entry.IniName == BackupIniName; }))
+	{
+		// Only store one copy of each ini file, consisting of the original state
+		return *Backup;
+	}
+
 	int32 AddAt = IniBackups.AddDefaulted();
 	FConfigFileBackup& NewBackup = IniBackups[AddAt];
-	NewBackup.IniName = GetConfigFileNamePath(GetStrippedConfigFileName(IniName));
+	NewBackup.IniName = BackupIniName;
 	NewBackup.ConfigData = *ConfigFile;
 	// There's a lack of deep copy related to the SourceConfigFile so null it out
 	NewBackup.ConfigData.SourceConfigFile = nullptr;
@@ -1078,8 +1108,9 @@ void UOnlineHotfixManager::PatchAssetsFromIniFiles()
 			TArray<UClass*> PatchableAssetClasses;
 			{
 				// These are the asset types we support patching right now
-				PatchableAssetClasses.Add( UCurveTable::StaticClass() );
-				PatchableAssetClasses.Add( UDataTable::StaticClass() );
+				PatchableAssetClasses.Add(UCurveTable::StaticClass());
+				PatchableAssetClasses.Add(UDataTable::StaticClass());
+				PatchableAssetClasses.Add(UCurveFloat::StaticClass());
 			}
 
 			// Make sure the entry has a valid class name that we supprt
@@ -1093,96 +1124,84 @@ void UOnlineHotfixManager::PatchAssetsFromIniFiles()
 				}
 			}
 
-			if( AssetClass != nullptr )
+			if (AssetClass != nullptr)
 			{
-				const TCHAR* ValueChars = *It.Value().GetValue();
+				TArray<FString> ProblemStrings;
 
-				// Expecting an opening paren from the config system
-				if( ValueChars != nullptr && *( ValueChars++ ) == L'(' )
+				FString DataLine(*It.Value().GetValue());
+
+				if (!DataLine.IsEmpty())
 				{
-					FString AssetPath;
-					int32 NumCharsRead = 0;
-					if( FParse::QuotedString( ValueChars, /* Out */ AssetPath, /* Out */ &NumCharsRead ) && !AssetPath.IsEmpty() )
+					TArray<FString> Tokens;
+					DataLine.ParseIntoArray(Tokens, TEXT(";"));
+					if (Tokens.Num() == 3 || Tokens.Num() == 5)
 					{
-						// Skip past what we read out of the buffer
-						ValueChars += NumCharsRead;
+						const FString& AssetPath(Tokens[0]);
+						const FString& HotfixType(Tokens[1]);
 
 						// Find or load the asset
-						UObject* Asset = StaticLoadObject( AssetClass, nullptr, *AssetPath );
-						if( Asset != nullptr )
+						UObject* Asset = StaticLoadObject(AssetClass, nullptr, *AssetPath);
+						if (Asset != nullptr)
 						{
-							TArray<FString> ProblemStrings;
+							const FString RowUpdate(TEXT("RowUpdate"));
+							const FString TableUpdate(TEXT("TableUpdate"));
 
-							// Expecting a comma from config system
-							FParse::Next( &ValueChars );	// Skip whitespace
-							if( *( ValueChars++ ) == L',' )
+							if (HotfixType == RowUpdate && Tokens.Num() == 5)
 							{
+								// The hotfix line should be
+								//	+DataTable=<data table path>;RowUpdate;<row name>;<column name>;<new value>
+								//	+CurveTable=<curve table path>;RowUpdate;<row name>;<column name>;<new value>
+								//	+CurveFloat=<curve float path>;RowUpdate;None;<column name>;<new value>
+								HotfixRowUpdate(Asset, AssetPath, Tokens[2], Tokens[3], Tokens[4], ProblemStrings);
+							}
+							else if (HotfixType == TableUpdate && Tokens.Num() == 3)
+							{
+								// The hotfix line should be
+								//	+DataTable=<data table path>;TableUpdate;"<json data>"
+								//	+CurveTable=<curve table path>;TableUpdate;"<json data>"
+								
+								// We have to read json data as quoted string because tokenizing it creates extra unwanted characters.
 								FString JsonData;
-								if( FParse::QuotedString( ValueChars, /* Out */ JsonData, /* Out */ &NumCharsRead ) && !JsonData.IsEmpty() )
+								if (FParse::QuotedString(*Tokens[2], JsonData))
 								{
-									// Skip past what we read out of the buffer
-									ValueChars += NumCharsRead;
-
-									// OK, here we go!  Let's import over the object in place.
-									UCurveTable* CurveTable = Cast<UCurveTable>( Asset );
-									UDataTable* DataTable = Cast<UDataTable>( Asset );
-									if( CurveTable != nullptr )
-									{
-										ProblemStrings.Append( CurveTable->CreateTableFromJSONString( JsonData ) );
-									}
-									else if( DataTable != nullptr )
-									{
-										ProblemStrings.Append( DataTable->CreateTableFromJSONString( JsonData ) );
-									}
-									else
-									{
-										// A supported asset type was added but no handling code for patching the asset was included
-										check( 0 );
-									}
+									HotfixTableUpdate(Asset, AssetPath, JsonData, ProblemStrings);
 								}
 								else
 								{
-									ProblemStrings.Add( TEXT( "Couldn't parse a quoted Json string with the asset's new content." ) );
+									ProblemStrings.Add(TEXT("Json data wasn't able to be parsed as a quoted string. Check that we have opening and closing quotes around the json data."));
 								}
 							}
 							else
 							{
-								ProblemStrings.Add( TEXT( "Was expecting a ',' before the quoted Json data." ) );
-							}
-
-							if( ProblemStrings.Num() > 0 )
-							{
-								for( const FString& ProblemString : ProblemStrings )
-								{
-									UE_LOG( LogHotfixManager, Error, TEXT( "%s: %s" ), *Asset->GetPathName(), *ProblemString );
-								}
-							}
-							else
-							{
-								// We'll keep a reference to the successfully patched asset.  We want to make sure our changes survive throughout
-								// this session, so we reference it to prevent it from being evicted from memory.  It's OK if we end up re-patching
-								// the same asset multiple times per session.
-								AssetsHotfixedFromIniFiles.Add( Asset );
+								ProblemStrings.Add(TEXT("Expected a hotfix type of RowUpdate with 5 tokens or TableUpdate with 3 tokens."));
 							}
 						}
 						else
 						{
-							UE_LOG( LogHotfixManager, Error, TEXT( "Couldn't find or load asset '%s' (class '%s').  This asset will not be patched.  Double check that your asset type and path string is correct." ), *AssetPath, *AssetClass->GetPathName() );
+							const FString Problem(FString::Printf(TEXT("Couldn't find or load asset '%s' (class '%s').  This asset will not be patched.  Double check that your asset type and path string is correct."), *AssetPath, *AssetClass->GetPathName()));
+							ProblemStrings.Add(Problem);
+						}
+
+						if (ProblemStrings.Num() > 0)
+						{
+							for (const FString& ProblemString : ProblemStrings)
+							{
+								UE_LOG(LogHotfixManager, Error, TEXT("%s: %s"), *GetPathNameSafe(Asset), *ProblemString);
+							}
+						}
+						else
+						{
+							// We'll keep a reference to the successfully patched asset.  We want to make sure our changes survive throughout
+							// this session, so we reference it to prevent it from being evicted from memory.  It's OK if we end up re-patching
+							// the same asset multiple times per session.
+							AssetsHotfixedFromIniFiles.Add(Asset);
 						}
 					}
 					else
 					{
-						UE_LOG( LogHotfixManager, Error, TEXT( "Entry for asset type '%s' was missing an 'Asset=' field.  This entry was skipped." ), *AssetClass->GetPathName() );
+						UE_LOG(LogHotfixManager, Error, TEXT("Wasn't able to parse the data with semicolon separated values. Expecting 3 or 5 arguments."));
 					}
 				}
-				else
-				{
-					UE_LOG( LogHotfixManager, Error, TEXT( "Malformed string when reading entry for asset type '%s'.  This entry was skipped." ), *It.Key().ToString() );
-				}
-			}
-			else
-			{
-				UE_LOG( LogHotfixManager, Error, TEXT( "Couldn't recognize the asset type name '%s' for entry.  This entry was skipped." ), *It.Key().ToString() );
 			}
 		}
 	}
@@ -1201,6 +1220,218 @@ void UOnlineHotfixManager::PatchAssetsFromIniFiles()
 	}
 }
 
+
+void UOnlineHotfixManager::HotfixRowUpdate(UObject* Asset, const FString& AssetPath, const FString& RowName, const FString& ColumnName, const FString& NewValue, TArray<FString>& ProblemStrings)
+{
+	if (AssetPath.IsEmpty())
+	{
+		ProblemStrings.Add(TEXT("The table's path is empty. We cannot continue the hotfix."));
+		return;
+	}
+	if (RowName.IsEmpty())
+	{
+		ProblemStrings.Add(TEXT("The row name is empty. We cannot continue the hotfix."));
+		return;
+	}
+	if (ColumnName.IsEmpty())
+	{
+		ProblemStrings.Add(TEXT("The column name is empty. We cannot continue the hotfix."));
+		return;
+	}
+	if (NewValue.IsEmpty())
+	{
+		ProblemStrings.Add(TEXT("The new value is empty. We cannot continue the hotfix."));
+		return;
+	}
+
+	UDataTable* DataTable = Cast<UDataTable>(Asset);
+	UCurveTable* CurveTable = Cast<UCurveTable>(Asset);
+	UCurveFloat* CurveFloat = Cast<UCurveFloat>(Asset);
+	if (DataTable != nullptr)
+	{
+		// Edit the row with the new value.
+		UProperty* DataTableRowProperty = DataTable->RowStruct->FindPropertyByName(FName(*ColumnName));
+		if (DataTableRowProperty)
+		{
+			UNumericProperty* NumProp = Cast<UNumericProperty>(DataTableRowProperty);
+			if (NumProp)
+			{
+				if (NewValue.IsNumeric())
+				{
+					// Get the row data by name.
+					static const FString Context = FString(TEXT("UOnlineHotfixManager::PatchAssetsFromIniFiles"));
+					FTableRowBase* DataTableRow = DataTable->FindRow<FTableRowBase>(FName(*RowName), Context);
+
+					if (DataTableRow)
+					{
+						void* RowData = NumProp->ContainerPtrToValuePtr<void>(DataTableRow, 0);
+
+						if (RowData)
+						{
+							if (NumProp->IsInteger())
+							{
+								const int64 OldPropertyValue = NumProp->GetSignedIntPropertyValue(RowData);
+								const int64 NewPropertyValue = FCString::Atoi(*NewValue);
+								NumProp->SetIntPropertyValue(RowData, NewPropertyValue);
+								UE_LOG(LogHotfixManager, Display, TEXT("Data table %s row %s updated column %s from %i to %i."), *AssetPath, *RowName, *ColumnName, OldPropertyValue, NewPropertyValue);
+							}
+							else
+							{
+								const double OldPropertyValue = NumProp->GetFloatingPointPropertyValue(RowData);
+								const double NewPropertyValue = FCString::Atod(*NewValue);
+								NumProp->SetFloatingPointPropertyValue(RowData, NewPropertyValue);
+								UE_LOG(LogHotfixManager, Display, TEXT("Data table %s row %s updated column %s from %.2f to %.2f."), *AssetPath, *RowName, *ColumnName, OldPropertyValue, NewPropertyValue);
+							}
+						}
+						else
+						{
+							const FString Problem(FString::Printf(TEXT("The data table row data for row %s was not found."), *RowName));
+							ProblemStrings.Add(Problem);
+						}
+					}
+					else
+					{
+						const FString Problem(FString::Printf(TEXT("The data table row %s was not found."), *RowName));
+						ProblemStrings.Add(Problem);
+					}
+				}
+				else
+				{
+					const FString Problem(FString::Printf(TEXT("The new value %s is not a number when it should be."), *NewValue));
+					ProblemStrings.Add(Problem);
+				}
+			}
+			else
+			{
+				const FString Problem(FString::Printf(TEXT("The data table row property named %s is not a numeric property and it should be."), *ColumnName));
+				ProblemStrings.Add(Problem);
+			}
+		}
+		else
+		{
+			const FString Problem(FString::Printf(TEXT("Couldn't find the data table property named %s. Check the spelling."), *ColumnName));
+			ProblemStrings.Add(Problem);
+		}
+	}
+	else if (CurveTable)
+	{
+		if (ColumnName.IsNumeric())
+		{
+			// Get the row data by name.
+			static const FString Context = FString(TEXT("UOnlineHotfixManager::PatchAssetsFromIniFiles"));
+			FRichCurve* CurveTableRow = CurveTable->FindCurve(FName(*RowName), Context);
+			
+			if (CurveTableRow)
+			{
+				// Edit the row with the new value.
+				const float KeyTime = FCString::Atof(*ColumnName);
+				FKeyHandle Key = CurveTableRow->FindKey(KeyTime);
+				if (CurveTableRow->IsKeyHandleValid(Key))
+				{
+					if (NewValue.IsNumeric())
+					{
+						const float OldPropertyValue = CurveTableRow->GetKeyValue(Key);
+						const float NewPropertyValue = FCString::Atof(*NewValue);
+						CurveTableRow->SetKeyValue(Key, NewPropertyValue);
+
+						UE_LOG(LogHotfixManager, Display, TEXT("Curve table %s row %s updated column %s from %.2f to %.2f."), *AssetPath, *RowName, *ColumnName, OldPropertyValue, NewPropertyValue);
+					}
+					else
+					{
+						const FString Problem(FString::Printf(TEXT("The new value %s is not a number when it should be."), *NewValue));
+						ProblemStrings.Add(Problem);
+					}
+				}
+				else
+				{
+					const FString Problem(FString::Printf(TEXT("The column name %s isn't a valid key into the curve table."), *ColumnName));
+					ProblemStrings.Add(Problem);
+				}
+			}
+			else
+			{
+				const FString Problem(FString::Printf(TEXT("The curve table row for row name %s was not found."), *RowName));
+				ProblemStrings.Add(Problem);
+			}
+		}
+		else
+		{
+			const FString Problem(FString::Printf(TEXT("The column name %s is not a number when it should be."), *ColumnName));
+			ProblemStrings.Add(Problem);
+		}
+	}
+	else if (CurveFloat)
+	{
+		if (ColumnName.IsNumeric())
+		{
+			// Edit the curve with the new value.
+			const float KeyTime = FCString::Atof(*ColumnName);
+			FKeyHandle Key = CurveFloat->FloatCurve.FindKey(KeyTime);
+			if (CurveFloat->FloatCurve.IsKeyHandleValid(Key))
+			{
+				if (NewValue.IsNumeric())
+				{
+					const float OldPropertyValue = CurveFloat->FloatCurve.GetKeyValue(Key);
+					const float NewPropertyValue = FCString::Atof(*NewValue);
+					CurveFloat->FloatCurve.SetKeyValue(Key, NewPropertyValue);
+
+					UE_LOG(LogHotfixManager, Display, TEXT("Curve float %s updated column %s from %.2f to %.2f."), *AssetPath, *ColumnName, OldPropertyValue, NewPropertyValue);
+				}
+				else
+				{
+					const FString Problem(FString::Printf(TEXT("The new value %s is not a number when it should be."), *NewValue));
+					ProblemStrings.Add(Problem);
+				}
+			}
+			else
+			{
+				const FString Problem(FString::Printf(TEXT("The column name %s isn't a valid key into the curve float."), *ColumnName));
+				ProblemStrings.Add(Problem);
+			}
+		}
+		else
+		{
+			const FString Problem(FString::Printf(TEXT("The column name %s is not a number when it should be."), *ColumnName));
+			ProblemStrings.Add(Problem);
+		}
+	}
+	else
+	{
+		ProblemStrings.Add(TEXT("The Asset isn't a Data Table, Curve Table, or Curve Float."));
+	}
+}
+
+void UOnlineHotfixManager::HotfixTableUpdate(UObject* Asset, const FString& AssetPath, const FString& JsonData, TArray<FString>& ProblemStrings)
+{
+	if (AssetPath.IsEmpty())
+	{
+		ProblemStrings.Add(TEXT("The table's path is empty. We cannot continue the hotfix."));
+		return;
+	}
+	if (JsonData.IsEmpty())
+	{
+		ProblemStrings.Add(TEXT("The JSON data is empty. We cannot continue the hotfix."));
+		return;
+	}
+
+	// Let's import over the object in place.
+	UCurveTable* CurveTable = Cast<UCurveTable>(Asset);
+	UDataTable* DataTable = Cast<UDataTable>(Asset);
+	if (CurveTable != nullptr)
+	{
+		ProblemStrings.Append(CurveTable->CreateTableFromJSONString(JsonData));
+		UE_LOG(LogHotfixManager, Display, TEXT("Curve table %s updated."), *AssetPath);
+	}
+	else if (DataTable != nullptr)
+	{
+		ProblemStrings.Append(DataTable->CreateTableFromJSONString(JsonData));
+		UE_LOG(LogHotfixManager, Display, TEXT("Data table %s updated."), *AssetPath);
+	}
+	else
+	{
+		ProblemStrings.Add(TEXT("We can't do a table update on this asset (for example, Curve Float cannot be table updated)."));
+	}
+}
 
 struct FHotfixManagerExec :
 	public FSelfRegisteringExec

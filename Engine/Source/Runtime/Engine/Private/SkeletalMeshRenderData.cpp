@@ -81,7 +81,7 @@ void FSkeletalMeshRenderData::Cache(USkeletalMesh* Owner)
 			Serialize(Ar, Owner);
 
 			int32 T1 = FPlatformTime::Cycles();
-			UE_LOG(LogSkeletalMesh, Log, TEXT("Skeletal Mesh found in DDC [%fms] %s"), FPlatformTime::ToMilliseconds(T1 - T0), *Owner->GetPathName());
+			UE_LOG(LogSkeletalMesh, Verbose, TEXT("Skeletal Mesh found in DDC [%fms] %s"), FPlatformTime::ToMilliseconds(T1 - T0), *Owner->GetPathName());
 		}
 		else
 		{
@@ -144,7 +144,12 @@ void FSkeletalMeshRenderData::InitResources(bool bNeedsVertexColors, TArray<UMor
 		// initialize resources for each lod
 		for (int32 LODIndex = 0; LODIndex < LODRenderData.Num(); LODIndex++)
 		{
-			LODRenderData[LODIndex].InitResources(bNeedsVertexColors, LODIndex, InMorphTargets);
+			FSkeletalMeshLODRenderData& RenderData = LODRenderData[LODIndex];
+
+			if(RenderData.GetNumVertices() > 0)
+			{
+				RenderData.InitResources(bNeedsVertexColors, LODIndex, InMorphTargets);
+			}
 		}
 		bInitialized = true;
 	}

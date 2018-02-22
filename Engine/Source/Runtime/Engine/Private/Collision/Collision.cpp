@@ -672,12 +672,12 @@ namespace CollisionResponseConsoleCommands
 			UObject* BOwner = B.GetOuter();
 			if (AOwner && BOwner)
 			{
-				// For overlaps, sort first by bGenerateOverlapEvents
+				// For overlaps, sort first by GetGenerateOverlapEvents()
 				if (RequiredResponse == ECollisionResponse::ECR_Overlap)
 				{
-					if (A.bGenerateOverlapEvents != B.bGenerateOverlapEvents)
+					if (A.GetGenerateOverlapEvents() != B.GetGenerateOverlapEvents())
 					{
-						return A.bGenerateOverlapEvents;
+						return A.GetGenerateOverlapEvents();
 					}
 				}
 
@@ -945,7 +945,7 @@ namespace CollisionResponseConsoleCommands
 					if (RequiredResponse == ECollisionResponse::ECR_Overlap)
 					{
 						UE_LOG(LogCollisionCommands, Log, TEXT("%3d, %-14s, %-*s, %-*s, %-*s, %s"),
-							   Index, Comp->bGenerateOverlapEvents ? TEXT("true"):TEXT("false"), MaxNameWidth, *PathName, MaxChannelWidth, *ChannelDisplayName, MaxProfileWidth, *OtherProfileName, Outer->GetOuter() ? *GetPathNameSafe(Outer->GetOuter()) : *GetPathNameSafe(Outer));
+							   Index, Comp->GetGenerateOverlapEvents() ? TEXT("true"):TEXT("false"), MaxNameWidth, *PathName, MaxChannelWidth, *ChannelDisplayName, MaxProfileWidth, *OtherProfileName, Outer->GetOuter() ? *GetPathNameSafe(Outer->GetOuter()) : *GetPathNameSafe(Outer));
 					}
 					else
 					{

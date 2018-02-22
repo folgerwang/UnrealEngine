@@ -326,13 +326,16 @@ void SScaleBox::RefreshSafeZoneScale()
 			TSharedPtr<ISlateViewport> ViewportInterface = GameViewport->GetViewportInterface().Pin();
 			if (ViewportInterface.IsValid())
 			{
-				FIntPoint ViewportSize = ViewportInterface->GetSize();
+				const FIntPoint ViewportSize = ViewportInterface->GetSize();
 
 				FDisplayMetrics Metrics;
 				FSlateApplication::Get().GetDisplayMetrics(Metrics);
 
-				// Safe zones are uniform, so the axis we check is irrelevant
-				ScaleDownBy = (Metrics.TitleSafePaddingSize.X + Metrics.TitleSafePaddingSize.Z) / (float)ViewportSize.X;
+				const float SafeZoneScaleX = (Metrics.TitleSafePaddingSize.X + Metrics.TitleSafePaddingSize.Z) / (float)ViewportSize.X;
+				const float SafeZoneScaleY = (Metrics.TitleSafePaddingSize.Y + Metrics.TitleSafePaddingSize.W) / (float)ViewportSize.Y;
+
+				// In order to deal with non-uniform safe-zones we take the largest scale as the amount to scale down by.
+				ScaleDownBy = FMath::Max(SafeZoneScaleX, SafeZoneScaleY);
 			}
 		}
 	}

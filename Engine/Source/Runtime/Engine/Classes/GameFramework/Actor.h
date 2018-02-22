@@ -222,8 +222,12 @@ public:
 	uint8 bIgnoresOriginShifting:1;
 
 	/** If true, and if World setting has bEnableHierarchicalLOD equal to true, then it will generate LODActor from groups of clustered Actor */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=LOD, meta=(DisplayName="Include Actor for HLOD Mesh generation"))
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=LOD, meta=(DisplayName="Include Actor for HLOD Mesh generation"))
 	uint8 bEnableAutoLODGeneration:1;
+
+	/** Whether this actor is editor-only. Use with care, as if this actor is referenced by anything else that reference will be NULL in cooked builds */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Cooking)
+	uint8 bIsEditorOnlyActor:1;
 
 	/** Indicates the actor was pulled through a seamless travel.  */
 	UPROPERTY()
@@ -1464,7 +1468,9 @@ public:
 	virtual void PostRename( UObject* OldOuter, const FName OldName ) override;
 	virtual bool CanBeInCluster() const override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
+	virtual bool IsEditorOnly() const override;
 #if WITH_EDITOR
+	virtual bool NeedsLoadForTargetPlatform(const ITargetPlatform* TargetPlatform) const;
 	virtual void PreEditChange(UProperty* PropertyThatWillChange) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PreEditUndo() override;
@@ -2138,6 +2144,9 @@ public:
 
 	/** Ensure that all the components in the Components array are registered */
 	virtual void RegisterAllComponents();
+
+	/** Called before all the components in the Components array are registered */
+	virtual void PreRegisterAllComponents();
 
 	/** Called after all the components in the Components array are registered */
 	virtual void PostRegisterAllComponents();

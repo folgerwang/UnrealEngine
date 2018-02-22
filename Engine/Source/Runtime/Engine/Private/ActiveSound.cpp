@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ActiveSound.h"
 #include "EngineDefines.h"
@@ -56,10 +56,12 @@ FActiveSound::FActiveSound()
 	, bUpdatePlayPercentage(false)
 	, bUpdateSingleEnvelopeValue(false)
 	, bUpdateMultiEnvelopeValue(false)
+	, bIsPlayingAudio(false)
 	, UserIndex(0)
 	, bIsOccluded(false)
 	, bAsyncOcclusionPending(false)
 	, PlaybackTime(0.f)
+	, MinCurrentPitch(1.0f)
 	, RequestedStartTime(0.f)
 	, CurrentAdjustVolumeMultiplier(1.f)
 	, TargetAdjustVolumeMultiplier(1.f)
@@ -356,6 +358,12 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 {
 	check(AudioDevice);
 
+	// Reset whether or not the active sound is playing audio.
+	bIsPlayingAudio = false;
+
+	// Reset the active sound's min current pitch value. This is updated as sounds try to play and determine their pitch values.
+	MinCurrentPitch = 1.0f;
+
 	// Early outs.
 	if (Sound == nullptr || !Sound->IsPlayable())
 	{
@@ -403,7 +411,9 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 	{
 		// The apparent max distance factors the actual max distance of the sound scaled with the distance scale due to focus effects
 		float ApparentMaxDistance = MaxDistance * FocusDistanceScale;
-		if (!FAudioDevice::LocationIsAudible(Transform.GetLocation(), ClosestListenerPtr->Transform, ApparentMaxDistance))
+
+		// Check if we're out of range of being audible, and early return if there's no chance of making sounds
+		if (!Sound->IsVirtualizeWhenSilent() && !AudioDevice->LocationIsAudible(ClosestListenerPtr->Transform.GetLocation(), ApparentMaxDistance))
 		{
 			return;
 		}
@@ -465,7 +475,8 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 		LastLocation = ParseParams.Transform.GetTranslation();
 	}
 
-	TArray<FWaveInstance*> ThisSoundsWaveInstances;
+	static TArray<FWaveInstance*> ThisSoundsWaveInstances;
+	ThisSoundsWaveInstances.Reset();
 
 	// Recurse nodes, have SoundWave's create new wave instances and update bFinished unless we finished fading out.
 	bFinished = true;
@@ -490,6 +501,12 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 		}
 
 		Sound->Parse(AudioDevice, 0, *this, ParseParams, ThisSoundsWaveInstances);
+
+		// Track this active sound's min pitch value. This is used to scale it's possible duration value.
+		if (ParseParams.Pitch < MinCurrentPitch)
+		{
+			MinCurrentPitch = ParseParams.Pitch;
+		}
 	}
 
 	if (bFinished)
@@ -1028,7 +1045,7 @@ void FActiveSound::CollectAttenuationShapesForVisualization(TMultiMap<EAttenuati
 		SoundCue->RecursiveFindAttenuation( SoundCue->FirstNode, AttenuationNodes );
 		for (int32 NodeIndex = 0; NodeIndex < AttenuationNodes.Num(); ++NodeIndex)
 		{
-			FSoundAttenuationSettings* AttenuationSettingsToApply = AttenuationNodes[NodeIndex]->GetAttenuationSettingsToApply();
+			const FSoundAttenuationSettings* AttenuationSettingsToApply = AttenuationNodes[NodeIndex]->GetAttenuationSettingsToApply();
 			if (AttenuationSettingsToApply)
 			{
 				AttenuationSettingsToApply->CollectAttenuationShapesForVisualization(ShapeDetailsMap);

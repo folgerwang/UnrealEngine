@@ -2755,7 +2755,7 @@ void AInstancedFoliageActor::PostLoad()
 	{
 		for (auto& MeshPair : FoliageMeshes)
 		{
-			if (MeshPair.Value->Component != nullptr)
+			if (MeshPair.Value->Component != nullptr && (!MeshPair.Key || MeshPair.Key->bEnableDensityScaling))
 			{
 				MeshPair.Value->Component->ConditionalPostLoad();
 				MeshPair.Value->Component->DestroyComponent();
@@ -3199,6 +3199,9 @@ float AInstancedFoliageActor::InternalTakeRadialDamage(float Damage, struct FRad
 UFoliageInstancedStaticMeshComponent::UFoliageInstancedStaticMeshComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
+	bEnableAutoLODGeneration = false;
+#endif
 }
 
 void UFoliageInstancedStaticMeshComponent::ReceiveComponentDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)

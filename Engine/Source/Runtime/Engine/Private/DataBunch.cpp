@@ -50,7 +50,24 @@ FInBunch::FInBunch( UNetConnection* InConnection, uint8* Src, int64 CountBits )
 FInBunch::FInBunch( FInBunch &InBunch, bool CopyBuffer )
 {
 	// Copy fields
-	FMemory::Memcpy(&PacketId,&InBunch.PacketId,sizeof(FInBunch) - sizeof(FNetBitReader));
+//	FMemory::Memcpy(&PacketId,&InBunch.PacketId,sizeof(FInBunch) - sizeof(FNetBitReader));
+
+	// This is portable
+	PacketId =	InBunch.PacketId;
+	Next =	InBunch.Next;
+	Connection = InBunch.Connection;
+	ChIndex = InBunch.ChIndex;
+	ChType = InBunch.ChType;
+	ChSequence = InBunch.ChSequence;
+	bOpen =	InBunch.bOpen;
+	bDormant = InBunch.bDormant;
+	bIsReplicationPaused = InBunch.bIsReplicationPaused;
+	bReliable =	InBunch.bReliable;
+	bPartial = InBunch.bPartial;
+	bPartialInitial = InBunch.bPartialInitial;
+	bPartialFinal =	InBunch.bPartialFinal;
+	bHasPackageMapExports = InBunch.bHasPackageMapExports;
+	bHasMustBeMappedGUIDs =	InBunch.bHasMustBeMappedGUIDs;
 
 	// Copy network version info
 	ArEngineNetVer = InBunch.ArEngineNetVer;

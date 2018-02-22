@@ -1879,18 +1879,18 @@ void FShaderCompilingManager::ProcessCompiledShaderMaps(
 #if USE_EDITOR_ONLY_DEFAULT_MATERIAL_FALLBACK
 								if (!Material->IsEditorOnlyDefaultMaterial())
 								{
-									UE_LOG(LogShaderCompilers, Error,TEXT("Failed to compile default material %s!"), *Material->GetBaseMaterialPathName());
+									UE_LOG(LogShaderCompilers, Error,TEXT("Failed to compile default material %s!"), *Material->GetDebugName());
 								}
 								else
 #endif
 								{
 									// Assert if a default material could not be compiled, since there will be nothing for other failed materials to fall back on.
-									UE_LOG(LogShaderCompilers, Fatal,TEXT("Failed to compile default material %s!"), *Material->GetBaseMaterialPathName());
+									UE_LOG(LogShaderCompilers, Fatal,TEXT("Failed to compile default material %s!"), *Material->GetDebugName());
 								}
 							}
 
-							UE_ASSET_LOG(LogShaderCompilers, Warning, *Material->GetBaseMaterialPathName(), TEXT("Failed to compile Material for platform %s, Default Material will be used in game."),
-								*LegacyShaderPlatformToShaderFormat(ShaderMap->GetShaderPlatform()).ToString());
+							UE_LOG(LogShaderCompilers, Warning, TEXT("Failed to compile Material %s for platform %s, Default Material will be used in game."),
+								*Material->GetDebugName(), *LegacyShaderPlatformToShaderFormat(ShaderMap->GetShaderPlatform()).ToString());
 
 							for (int32 ErrorIndex = 0; ErrorIndex < Errors.Num(); ErrorIndex++)
 							{
@@ -1918,7 +1918,7 @@ void FShaderCompilingManager::ProcessCompiledShaderMaps(
 							if (GShowShaderWarnings && Errors.Num() > 0)
 							{
 								UE_LOG(LogShaderCompilers, Warning, TEXT("Warnings while compiling Material %s for platform %s:"),
-									*Material->GetBaseMaterialPathName(),
+									*Material->GetDebugName(),
 									*LegacyShaderPlatformToShaderFormat(ShaderMap->GetShaderPlatform()).ToString());
 								for (int32 ErrorIndex = 0; ErrorIndex < Errors.Num(); ErrorIndex++)
 								{

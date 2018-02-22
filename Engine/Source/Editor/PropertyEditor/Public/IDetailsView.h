@@ -88,7 +88,8 @@ struct FDetailsViewArgs
 	uint32 bAllowMultipleTopLevelObjects : 1;
 	/** If false, the details panel's scrollbar will always be hidden. Useful when embedding details panels in widgets that either grow to accommodate them, or with scrollbars of their own. */
 	uint32 bShowScrollBar : 1;
-
+	/** If true, all properties will be visible, not just those with CPF_Edit */
+	uint32 bForceHiddenPropertyVisibility : 1;
 public:
 	/** Default constructor */
 	FDetailsViewArgs( const bool InUpdateFromSelection = false
@@ -118,6 +119,7 @@ public:
 		, bAllowFavoriteSystem(true)
 		, bAllowMultipleTopLevelObjects(false)
 		, bShowScrollBar(true)
+		, bForceHiddenPropertyVisibility(false)
 	{
 	}
 };

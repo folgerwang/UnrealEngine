@@ -16,9 +16,9 @@
 class TestOnlineGameSettings : public FOnlineSessionSettings
 {
  public:
- 	TestOnlineGameSettings(bool bTestingLAN = false, bool bTestingPresence = false, const FOnlineSessionSettings& SettingsOverride = FOnlineSessionSettings())
+	TestOnlineGameSettings(bool bTestingLAN = false, bool bTestingPresence = false, const FOnlineSessionSettings& SettingsOverride = FOnlineSessionSettings())
 	{
- 		NumPublicConnections = 10;
+		NumPublicConnections = 10;
 		NumPrivateConnections = 0;
 		bIsLANMatch = bTestingLAN;
 		bShouldAdvertise = true;
@@ -46,12 +46,12 @@ class TestOnlineGameSettings : public FOnlineSessionSettings
 				HostSetting->Data = Setting.Data;
 			}
 		}
- 	}
- 	
- 	virtual ~TestOnlineGameSettings()
- 	{
+	}
+	
+	virtual ~TestOnlineGameSettings()
+	{
  
- 	}
+	}
 
 	void AddWorldSettings(UWorld* InWorld)
 	{
@@ -243,13 +243,14 @@ void FTestSessionInterface::OnEndForJoinSessionComplete(FName SessionName, bool 
 {
 	UE_LOG(LogOnline, Verbose, TEXT("OnEndForJoinSessionComplete %s bSuccess: %d"), *SessionName.ToString(), bWasSuccessful);
 	SessionInt->ClearOnEndSessionCompleteDelegate_Handle(OnEndForJoinSessionCompleteDelegateHandle);
-	DestroyExistingSession(SessionName, OnDestroyForJoinSessionCompleteDelegate);
+	OnDestroyForJoinSessionCompleteDelegateHandle = DestroyExistingSession(SessionName, OnDestroyForJoinSessionCompleteDelegate);
 }
 
-void FTestSessionInterface::EndExistingSession(FName SessionName, FOnEndSessionCompleteDelegate& Delegate)
+FDelegateHandle FTestSessionInterface::EndExistingSession(FName SessionName, FOnEndSessionCompleteDelegate& Delegate)
 {
-	SessionInt->AddOnEndSessionCompleteDelegate_Handle(Delegate);
+	FDelegateHandle DelegateHandle = SessionInt->AddOnEndSessionCompleteDelegate_Handle(Delegate);
 	SessionInt->EndSession(SessionName);
+	return DelegateHandle;
 }
 
 void FTestSessionInterface::OnDestroyForJoinSessionComplete(FName SessionName, bool bWasSuccessful)
@@ -259,10 +260,11 @@ void FTestSessionInterface::OnDestroyForJoinSessionComplete(FName SessionName, b
 	JoinSession(0, SessionName, CachedSessionResult);
 }
 
-void FTestSessionInterface::DestroyExistingSession(FName SessionName, FOnDestroySessionCompleteDelegate& Delegate)
+FDelegateHandle FTestSessionInterface::DestroyExistingSession(FName SessionName, FOnDestroySessionCompleteDelegate& Delegate)
 {
-	SessionInt->AddOnDestroySessionCompleteDelegate_Handle(Delegate);
+	FDelegateHandle DelegateHandle = SessionInt->AddOnDestroySessionCompleteDelegate_Handle(Delegate);
 	SessionInt->DestroySession(SessionName);
+	return DelegateHandle;
 }
 
 void FTestSessionInterface::OnRegisterPlayerComplete(FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Players, bool bWasSuccessful)
@@ -284,7 +286,7 @@ void FTestSessionInterface::JoinSession(int32 ControllerId, FName SessionName, c
 	if (SessionState != EOnlineSessionState::NoSession)
 	{
 		CachedSessionResult = SearchResult;
-		EndExistingSession(SessionName, OnEndForJoinSessionCompleteDelegate);
+		OnEndForJoinSessionCompleteDelegateHandle = EndExistingSession(SessionName, OnEndForJoinSessionCompleteDelegate);
 	}
 	else
 	{
@@ -556,12 +558,12 @@ bool FTestSessionInterface::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevic
 		}
 		else if (FParse::Command(&Cmd, TEXT("END")))
 		{
-			EndExistingSession(SessionName, OnEndSessionCompleteDelegate);
+			OnEndSessionCompleteDelegateHandle = EndExistingSession(SessionName, OnEndSessionCompleteDelegate);
 			bWasHandled = true;
 		}
 		else if (FParse::Command(&Cmd, TEXT("DESTROY")))
 		{
-			DestroyExistingSession(SessionName, OnDestroySessionCompleteDelegate);
+			OnDestroySessionCompleteDelegateHandle = DestroyExistingSession(SessionName, OnDestroySessionCompleteDelegate);
 			bWasHandled = true;
 		}
 		else if (FParse::Command(&Cmd, TEXT("REGISTER")))

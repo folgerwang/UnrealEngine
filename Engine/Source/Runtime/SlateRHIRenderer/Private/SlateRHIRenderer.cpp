@@ -440,7 +440,7 @@ void FSlateRHIRenderer::OnWindowDestroyed( const TSharedRef<SWindow>& InWindow )
 
 		// Need to flush rendering commands as the viewport may be in use by the render thread
 		// and the rendering resources must be released on the render thread before the viewport can be deleted
-		FlushRenderingCommands();
+		FlushRenderingCommands(true /* bFlushDeferredDeletes */);
 	
 		delete *ViewportInfoPtr;
 	}
@@ -608,6 +608,7 @@ static FAutoConsoleVariableRef CVarSlateWireframe(TEXT("Slate.ShowWireFrame"), S
 /** Draws windows from a FSlateDrawBuffer on the render thread */
 void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmdList, FViewportInfo& ViewportInfo, FSlateWindowElementList& WindowElementList, bool bLockToVsync, bool bClear)
 {
+	static uint32 LastTimestamp = FPlatformTime::Cycles();
 	{
 		SCOPED_DRAW_EVENT(RHICmdList, SlateUI);
 
@@ -761,8 +762,8 @@ void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmd
 
 			FSlateBackBuffer BackBufferTarget( BackBuffer, FIntPoint( ViewportWidth, ViewportHeight ) );
 
-				FSlateRenderingOptions DrawOptions(ViewMatrix * ViewportInfo.ProjectionMatrix);
-				DrawOptions.bWireFrame = !!SlateWireFrame;
+			FSlateRenderingOptions DrawOptions(ViewMatrix * ViewportInfo.ProjectionMatrix);
+			DrawOptions.bWireFrame = !!SlateWireFrame;
 
 			RenderingPolicy->DrawElements
 			(
@@ -771,7 +772,6 @@ void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmd
 					BackBuffer,
 					ViewportInfo.DepthStencil,
 					BatchData.GetRenderBatches(),
-					BatchData.GetRenderClipStates(),
 					DrawOptions
 			);
 		}
@@ -897,7 +897,6 @@ void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmd
 	GSwapBufferTime		= EndTime - StartTime;
 	SET_CYCLE_COUNTER(STAT_PresentTime, GSwapBufferTime);
 
-	static uint32 LastTimestamp	= 0;
 	uint32 ThreadTime	= EndTime - LastTimestamp;
 	LastTimestamp		= EndTime;
 
@@ -966,7 +965,7 @@ void FSlateRHIRenderer::DrawWindows_Private( FSlateDrawBuffer& WindowDrawBuffer 
 	const TSharedRef<FSlateFontCache> FontCache = SlateFontServices->GetFontCache();
 
 	// Iterate through each element list and set up an RHI window for it if needed
-	TArray<TSharedPtr<FSlateWindowElementList>>& WindowElementLists = WindowDrawBuffer.GetWindowElementLists();
+	const TArray<TSharedRef<FSlateWindowElementList>>& WindowElementLists = WindowDrawBuffer.GetWindowElementLists();
 	for( int32 ListIndex = 0; ListIndex < WindowElementLists.Num(); ++ListIndex )
 	{
 		FSlateWindowElementList& ElementList = *WindowElementLists[ListIndex];

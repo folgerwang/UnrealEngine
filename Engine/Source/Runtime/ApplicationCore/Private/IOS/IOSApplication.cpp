@@ -108,6 +108,11 @@ FPlatformRect FIOSApplication::GetWorkArea( const FPlatformRect& CurrentWindow )
 	return FIOSWindow::GetScreenRect();
 }
 
+static TAutoConsoleVariable<float> CVarSafeZone_Landscape_Left(TEXT("SafeZone.Landscape.Left"), -1.0f, TEXT("Safe Zone - Landscape - Left"));
+static TAutoConsoleVariable<float> CVarSafeZone_Landscape_Top(TEXT("SafeZone.Landscape.Top"), -1.0f, TEXT("Safe Zone - Landscape - Top"));
+static TAutoConsoleVariable<float> CVarSafeZone_Landscape_Right(TEXT("SafeZone.Landscape.Right"), -1.0f, TEXT("Safe Zone - Landscape - Right"));
+static TAutoConsoleVariable<float> CVarSafeZone_Landscape_Bottom(TEXT("SafeZone.Landscape.Bottom"), -1.0f, TEXT("Safe Zone - Landscape - Bottom"));
+
 void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 {
 	// Get screen rect
@@ -118,19 +123,46 @@ void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 	OutDisplayMetrics.PrimaryDisplayWidth = OutDisplayMetrics.PrimaryDisplayWorkAreaRect.Right - OutDisplayMetrics.PrimaryDisplayWorkAreaRect.Left;
 	OutDisplayMetrics.PrimaryDisplayHeight = OutDisplayMetrics.PrimaryDisplayWorkAreaRect.Bottom - OutDisplayMetrics.PrimaryDisplayWorkAreaRect.Top;
 
-	static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.MobileContentScaleFactor"));
-	float RequestedContentScaleFactor = CVar->GetFloat();
-
-#ifdef __IPHONE_11_0
-	if ([[[[UIApplication sharedApplication] delegate] window] respondsToSelector : @selector(safeAreaInsets)] == YES)
+#if !PLATFORM_TVOS
+	if (@available(iOS 11, *))
 	{
-		UIEdgeInsets insets = [[[[UIApplication sharedApplication] delegate] window] safeAreaInsets];
+		const float RequestedContentScaleFactor = [[IOSAppDelegate GetDelegate].IOSView contentScaleFactor];
 
-		// Apply the debug safe zones
-		OutDisplayMetrics.TitleSafePaddingSize.X = insets.left * RequestedContentScaleFactor;
-		OutDisplayMetrics.TitleSafePaddingSize.Z = insets.right * RequestedContentScaleFactor;
-		OutDisplayMetrics.TitleSafePaddingSize.Y = insets.top * RequestedContentScaleFactor;
-		OutDisplayMetrics.TitleSafePaddingSize.W = insets.bottom * RequestedContentScaleFactor;
+		UIEdgeInsets Insets = [[[[UIApplication sharedApplication] delegate] window] safeAreaInsets];
+		UIInterfaceOrientation Orientation = [[UIApplication sharedApplication] statusBarOrientation];
+		
+		//we need to set these according to the orientation
+		TAutoConsoleVariable<float>* CVar_Left = nullptr;
+		TAutoConsoleVariable<float>* CVar_Top = &CVarSafeZone_Landscape_Top;
+		TAutoConsoleVariable<float>* CVar_Right = nullptr;
+		TAutoConsoleVariable<float>* CVar_Bottom = &CVarSafeZone_Landscape_Bottom;
+
+		//making an assumption that the "normal" landscape mode is Landscape right
+		if (Orientation == UIInterfaceOrientationLandscapeLeft)
+		{
+			CVar_Left = &CVarSafeZone_Landscape_Left;
+			CVar_Right = &CVarSafeZone_Landscape_Right;
+		}
+		else if (Orientation == UIInterfaceOrientationLandscapeRight)
+		{
+			CVar_Left = &CVarSafeZone_Landscape_Right;
+			CVar_Right = &CVarSafeZone_Landscape_Left;
+		}
+
+		// of the CVars are set, use their values. If not, use what comes from iOS
+		const float Inset_Left = (!CVar_Left || CVar_Left->AsVariable()->GetFloat() < 0.0f) ? Insets.left : CVar_Left->AsVariable()->GetFloat();
+		const float Inset_Top = (!CVar_Top || CVar_Top->AsVariable()->GetFloat() < 0.0f) ? Insets.top : CVar_Top->AsVariable()->GetFloat();
+		const float Inset_Right = (!CVar_Right || CVar_Right->AsVariable()->GetFloat() < 0.0f) ? Insets.right : CVar_Right->AsVariable()->GetFloat();
+		const float Inset_Bottom = (!CVar_Bottom || CVar_Bottom->AsVariable()->GetFloat() < 0.0f) ? Insets.bottom : CVar_Bottom->AsVariable()->GetFloat();
+
+		//setup the asymmetrical padding
+		OutDisplayMetrics.TitleSafePaddingSize.X = Inset_Left;
+		OutDisplayMetrics.TitleSafePaddingSize.Y = Inset_Top;
+		OutDisplayMetrics.TitleSafePaddingSize.Z = Inset_Right;
+		OutDisplayMetrics.TitleSafePaddingSize.W = Inset_Bottom;
+
+		//scale the thing
+		OutDisplayMetrics.TitleSafePaddingSize *= RequestedContentScaleFactor;
 	}
 	else
 #endif

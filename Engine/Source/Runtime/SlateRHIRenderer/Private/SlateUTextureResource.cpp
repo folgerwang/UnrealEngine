@@ -5,6 +5,10 @@
 FSlateBaseUTextureResource::FSlateBaseUTextureResource(UTexture* InTexture)
 	: TextureObject(InTexture)
 {
+#if SLATE_CHECK_UOBJECT_RENDER_RESOURCES
+	ObjectWeakPtr = InTexture;
+	UpdateDebugName();
+#endif
 }
 
 FSlateBaseUTextureResource::~FSlateBaseUTextureResource()
@@ -25,6 +29,29 @@ ESlateShaderResource::Type FSlateBaseUTextureResource::GetType() const
 {
 	return ESlateShaderResource::TextureObject;
 }
+
+#if SLATE_CHECK_UOBJECT_RENDER_RESOURCES
+void FSlateBaseUTextureResource::UpdateDebugName()
+{
+	if (TextureObject)
+	{
+		DebugName = TextureObject->GetFName();
+	}
+	else
+	{
+		DebugName = NAME_None;
+	}
+}
+
+void FSlateBaseUTextureResource::CheckIfValid() const
+{
+	// pending kill objects may still be rendered for a frame so it is valid for the check to pass
+	const bool bEvenIfPendingKill = true;
+	// This test needs to be thread safe.  It doesnt give us as many chances to trap bugs here but it is still useful
+	const bool bThreadSafe = true;
+	checkf(ObjectWeakPtr.IsValid(bEvenIfPendingKill, bThreadSafe), TEXT("Texture %s has become invalid.  This means the resource was garbage collected while slate was using it"), *DebugName.ToString());
+}
+#endif
 
 
 TSharedPtr<FSlateUTextureResource> FSlateUTextureResource::NullResource = MakeShareable( new FSlateUTextureResource(nullptr) );

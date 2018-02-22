@@ -46,9 +46,9 @@ class UMaterialExpressionSetSharedInput : public UMaterialExpressionCustomOutput
 	virtual bool AllowMultipleCustomOutputs() { return true; }
 	virtual bool NeedsCustomOutputDefines() { return false; }
 	virtual bool ShouldCompileBeforeAttributes() { return true; }
-#endif
 	virtual bool MatchesSearchQuery( const TCHAR* SearchQuery ) override;
 
 	virtual FExpressionInput* GetInput(int32 InputIndex) override;
+#endif
 	virtual FString GetFunctionName() const override;
 };

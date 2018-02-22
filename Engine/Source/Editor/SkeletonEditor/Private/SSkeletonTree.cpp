@@ -1037,7 +1037,7 @@ void SSkeletonTree::RemoveFromLOD(int32 LODIndex, bool bIncludeSelected, bool bI
 			}
 		}
 
-		int32 TotalLOD = PreviewMeshComponent->SkeletalMesh->LODInfo.Num();
+		int32 TotalLOD = PreviewMeshComponent->SkeletalMesh->GetLODNum();
 		IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities");
 
 		if (bIncludeBelowLODs)

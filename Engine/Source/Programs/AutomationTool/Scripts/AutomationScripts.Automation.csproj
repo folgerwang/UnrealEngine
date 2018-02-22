@@ -88,6 +88,7 @@
     <Compile Include="GenerateDSYM.Automation.cs" />
     <Compile Include="InstalledBuild.cs" />
     <Compile Include="ListThirdPartySoftware.Automation.cs" />
+    <Compile Include="RebuildHLODCommand.Automation.cs" />
     <Compile Include="RebuildLightMapsCommand.Automation.cs" />
     <Compile Include="ReplaceAssetsUsingManifest.cs" />
     <Compile Include="ResavePackagesCommand.Automation.cs" />

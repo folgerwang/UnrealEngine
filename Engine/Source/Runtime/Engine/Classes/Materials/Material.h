@@ -503,7 +503,7 @@ public:
 	int32 NumCustomizedUVs;
 
 	/** Sets the lighting mode that will be used on this material if it is translucent. */
-	UPROPERTY(EditAnywhere, Category=Translucency, meta=(DisplayName = "Lighting Mode"))
+	UPROPERTY(EditAnywhere, AssetRegistrySearchable, Category=Translucency, meta=(DisplayName = "Lighting Mode"))
 	TEnumAsByte<enum ETranslucencyLightingMode> TranslucencyLightingMode;
 
 	/** 
@@ -910,7 +910,6 @@ public:
 	ENGINE_API virtual UMaterial* GetMaterial() override;
 	ENGINE_API virtual const UMaterial* GetMaterial() const override;
 	ENGINE_API virtual const UMaterial* GetMaterial_Concurrent(TMicRecursionGuard& RecursionGuard) const override;
-	ENGINE_API virtual bool GetParameterDesc(const FMaterialParameterInfo& ParameterInfo, FString& OutDesc, const TArray<struct FStaticMaterialLayersParameter>* MaterialLayersParameters = nullptr) const override;
 	ENGINE_API virtual bool GetScalarParameterValue(const FMaterialParameterInfo& ParameterInfo,float& OutValue, bool bOveriddenOnly = false) const override;
 	ENGINE_API virtual bool GetScalarParameterSliderMinMax(const FMaterialParameterInfo& ParameterInfo, float& OutMinSlider, float& OutMaxSlider) const override;
 	ENGINE_API virtual bool GetVectorParameterValue(const FMaterialParameterInfo& ParameterInfo,FLinearColor& OutValue, bool bOveriddenOnly = false) const override;
@@ -937,6 +936,7 @@ public:
 	ENGINE_API virtual bool GetMaterialLayersParameterValue(const FMaterialParameterInfo& ParameterInfo, FMaterialLayersFunctions& OutLayers, FGuid& OutExpressionGuid) const override;
 	ENGINE_API virtual bool UpdateLightmassTextureTracking() override;
 #if WITH_EDITOR
+	ENGINE_API virtual bool GetParameterDesc(const FMaterialParameterInfo& ParameterInfo, FString& OutDesc, const TArray<struct FStaticMaterialLayersParameter>* MaterialLayersParameters = nullptr) const override;
 	ENGINE_API virtual bool GetParameterSortPriority(const FMaterialParameterInfo& ParameterInfo, int32& OutSortPriority, const TArray<struct FStaticMaterialLayersParameter>* MaterialLayersParameters = nullptr) const override;
 	ENGINE_API virtual bool GetGroupSortPriority(const FString& InGroupName, int32& OutSortPriority) const override;
 	ENGINE_API virtual bool GetTexturesInPropertyChain(EMaterialProperty InProperty, TArray<UTexture*>& OutTextures, 
@@ -1404,11 +1404,13 @@ private:
 	 */
 	ENGINE_API virtual void FlushResourceShaderMaps();
 
-	/** 
+#if WITH_EDITOR
+	/**
 	 * Rebuild the MaterialFunctionInfos array with the current state of the material's function dependencies,
 	 * And updates any function call nodes in this material so their inputs and outputs stay valid.
 	 */
 	void RebuildMaterialFunctionInfo();
+#endif // WITH_EDITOR
 
 	/** 
 	 * Rebuild the MaterialParameterCollectionInfos array with the current state of the material's parameter collection dependencies.

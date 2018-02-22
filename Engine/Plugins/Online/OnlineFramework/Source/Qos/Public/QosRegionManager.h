@@ -199,9 +199,16 @@ public:
 	 * 
 	 * Clients pull this value from the settings (or command line) and do a ping test to determine if the setting is viable.
 	 *
-	 * @return the default region identifier
+	 * @return the current region identifier
 	 */
 	FString GetRegionId() const;
+
+	/**
+	 * Get the region ID with the current best ping time, checking ini and commandline overrides.
+	 * 
+	 * @return the default region identifier
+	 */
+	FString GetBestRegion() const;
 
 	/**
 	 * Get the list of regions that the client can choose from (returned from search and must meet min ping requirements)
@@ -221,6 +228,9 @@ public:
 	 * @param bForce if true then use selected region even if QoS eval has not completed successfully
 	 */
 	bool SetSelectedRegion(const FString& RegionId, bool bForce=false);
+
+	/** Clear the region to nothing, used for logging out */
+	void ClearSelectedRegion();
 
 	/**
 	 * Force the selected region creating a fake RegionOption if necessary

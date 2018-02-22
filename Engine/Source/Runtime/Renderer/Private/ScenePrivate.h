@@ -40,6 +40,7 @@
 #include "BasePassRendering.h"
 #include "MobileBasePassRendering.h"
 #include "VolumeRendering.h"
+#include "SceneSoftwareOcclusion.h"
 
 /** Factor by which to grow occlusion tests **/
 #define OCCLUSION_SLOP (1.0f)
@@ -128,7 +129,7 @@ public:
 	/** Destructor. Note that the query should have been released already. */
 	~FPrimitiveOcclusionHistory()
 	{
-//		check( !IsValidRef(PendingOcclusionQuery) );
+		//		check( !IsValidRef(PendingOcclusionQuery) );
 	}
 
 	template<class TOcclusionQueryPool> // here we use a template just to allow this to be inlined without sorting out the header order
@@ -273,10 +274,10 @@ public:
 
 	/** Frame number when last updated */
 	uint32 FrameNumber;
-	
+
 	/** Time when fade will be finished. */
 	float EndTime;
-	
+
 	/** Currently visible? */
 	bool bIsVisible;
 
@@ -321,7 +322,7 @@ public:
 	float CachedMaxOcclusionDistance;
 	float CachedGlobalDistanceFieldViewDistance;
 	uint32 CacheMostlyStaticSeparately;
-	
+
 	FGlobalDistanceFieldCacheTypeState Cache[GDF_Num];
 };
 
@@ -421,24 +422,37 @@ public:
 
 	bool IsNodeFading(const int32 PrimIndex) const
 	{
-		checkSlow(PrimitiveFadingLODMap.IsValidIndex(PrimIndex));
+		checkSlow(IsValidPrimitiveIndex(PrimIndex));
 		return PrimitiveFadingLODMap[PrimIndex];
 	}
 
 	bool IsNodeFadingOut(const int32 PrimIndex) const
 	{
-		checkSlow(PrimitiveFadingOutLODMap.IsValidIndex(PrimIndex));
+		checkSlow(IsValidPrimitiveIndex(PrimIndex));
 		return PrimitiveFadingOutLODMap[PrimIndex];
 	}
 
-	bool IsNodeHidden(const int32 PrimIndex) const
+	bool IsNodeForcedVisible(const int32 PrimIndex) const
 	{
-		return HiddenChildPrimitiveMap.IsValidIndex(PrimIndex) && HiddenChildPrimitiveMap[PrimIndex];
+		checkSlow(IsValidPrimitiveIndex(PrimIndex));
+		return  ForcedVisiblePrimitiveMap[PrimIndex];
+	}
+
+	bool IsNodeForcedHidden(const int32 PrimIndex) const
+	{
+		checkSlow(IsValidPrimitiveIndex(PrimIndex));
+		return ForcedHiddenPrimitiveMap[PrimIndex];
+	}
+
+	bool IsValidPrimitiveIndex(const int32 PrimIndex) const
+	{
+		return ForcedHiddenPrimitiveMap.IsValidIndex(PrimIndex);
 	}
 
 	TBitArray<>	PrimitiveFadingLODMap;
 	TBitArray<>	PrimitiveFadingOutLODMap;
-	TBitArray<>	HiddenChildPrimitiveMap;
+	TBitArray<>	ForcedVisiblePrimitiveMap;
+	TBitArray<>	ForcedHiddenPrimitiveMap;
 	float		TemporalLODSyncTime;
 	uint16		UpdateCount;
 };
@@ -571,7 +585,11 @@ public:
 	FHLODVisibilityState HLODVisibilityState;
 	TMap<FPrimitiveComponentId, FHLODSceneNodeVisibilityState> HLODSceneNodeVisibilityStates;
 
+	// Software occlusion data
+	TUniquePtr<FSceneSoftwareOcclusion> SceneSoftwareOcclusion;
+
 private:
+	void ConditionallyAllocateSceneSoftwareOcclusion(ERHIFeatureLevel::Type InFeatureLevel);
 
 	/** The current frame PreExposure */
 	float PreExposure;
@@ -646,7 +664,7 @@ private:
 
 	// counts up by one each frame, warped in 0..7 range, ResetViewState() puts it back to 0
 	uint32 FrameIndexMod8;
-	
+
 	// counts up by one each frame, warped in 0..3 range, ResetViewState() puts it back to 0
 	int32 DistanceFieldTemporalSampleIndex;
 
@@ -809,7 +827,7 @@ public:
 		}
 
 		TemporalAASampleCount = FMath::Min(SampleCount, (uint32)255);
-		
+
 		if (!Family.bWorldIsPaused)
 		{
 			TemporalAASampleIndex++;
@@ -959,7 +977,7 @@ public:
 	{
 		bValidTonemappingLUT = bValid;
 	}
-	
+
 
 	// Returns a reference to the render target used for the LUT.  Allocated on the first request.
 	FSceneRenderTargetItem& GetTonemappingLUTRenderTarget(FRHICommandList& RHICmdList, const int32 LUTSize, const bool bUseVolumeLUT, const bool bNeedUAV)
@@ -986,7 +1004,7 @@ public:
 			}
 
 			Desc.DebugName = TEXT("CombineLUTs");
-			
+
 			GRenderTargetPool.FindFreeElement(RHICmdList, Desc, CombinedLUTRenderTarget, Desc.DebugName);
 		}
 
@@ -996,7 +1014,7 @@ public:
 
 	const FTextureRHIRef* GetTonemappingLUTTexture() const {
 		const FTextureRHIRef* ShaderResourceTexture = NULL;
-	
+
 		if (CombinedLUTRenderTarget.IsValid()) {
 			ShaderResourceTexture = &CombinedLUTRenderTarget->GetRenderTargetItem().ShaderResourceTexture;
 		}
@@ -1067,7 +1085,7 @@ public:
 
 	// FSceneViewStateInterface
 	RENDERER_API virtual void Destroy() override;
-	
+
 	virtual FSceneViewState* GetConcreteViewState() override
 	{
 		return this;
@@ -1077,7 +1095,7 @@ public:
 	{
 
 		Collector.AddReferencedObjects(MIDPool);
-	
+
 		if (BloomFFTKernel.Physical)
 		{
 			Collector.AddReferencedObject(BloomFFTKernel.Physical);
@@ -1095,13 +1113,14 @@ public:
 		}
 
 		UpdatePreExposure(View);
+		ConditionallyAllocateSceneSoftwareOcclusion(View.GetFeatureLevel());
 	}
 
 	// needed for GetReusableMID()
 	virtual void OnStartPostProcessing(FSceneView& CurrentView) override
 	{
 		check(IsInGameThread());
-		
+
 		// Needs to be done once for all viewstates.  If multiple FSceneViews are sharing the same ViewState, this will cause problems.
 		// Sharing should be illegal right now though.
 		MIDUsedCount = 0;
@@ -1295,7 +1314,7 @@ public:
 class FReflectionEnvironmentSceneData
 {
 public:
-	
+
 	/** 
 	 * Set to true for one frame whenever RegisteredReflectionCaptures or the transforms of any registered reflection proxy has changed,
 	 * Which allows one frame to update cached proxy associations.
@@ -1713,7 +1732,7 @@ private:
 		TArray<FFloat16Color>& Texture0Data,
 		TArray<FFloat16Color>& Texture1Data,
 		TArray<FFloat16Color>& Texture2Data		
-		);
+	);
 
 	/** Helper that calculates an effective world position min and size given a bounds. */
 	void CalculateBlockPositionAndSize(const FBoxSphereBounds& Bounds, int32 TexelSize, FVector& OutMin, FVector& OutSize) const;
@@ -1797,7 +1816,6 @@ public:
 	FLODSceneTree(FScene* InScene)
 		: Scene(InScene)
 		, LastHLODDistanceScale(-1.0f)
-		, LastHLODDistanceOverride(0.0f)
 	{
 	}
 
@@ -1836,7 +1854,7 @@ public:
 	void RemoveChildNode(FPrimitiveComponentId NodeId, FPrimitiveSceneInfo* ChildSceneInfo);
 
 	void UpdateNodeSceneInfo(FPrimitiveComponentId NodeId, FPrimitiveSceneInfo* SceneInfo);
-	void UpdateAndApplyVisibilityStates(FViewInfo& View);
+	void UpdateVisibilityStates(FViewInfo& View);
 
 	bool IsActive() const { return (SceneNodes.Num() > 0); }
 
@@ -1845,7 +1863,6 @@ private:
 	void ResetHLODDistanceScaleApplication()
 	{
 		LastHLODDistanceScale = -1.0f;
-		LastHLODDistanceOverride = 0.0f;
 	}
 
 	/** Scene this Tree belong to */
@@ -1857,12 +1874,9 @@ private:
 	/** Transition distance scaling */
 	float LastHLODDistanceScale;
 
-	/** The last setting we saw for global distance override */
-	float LastHLODDistanceOverride;
-
 	/** Recursive state updates */
-	void ApplyNodeFadingToChildren(FSceneViewState* ViewState, FLODSceneNode& Node, FSceneBitArray& VisibilityFlags, const bool bIsFading, const bool bIsFadingOut);
-	void UpdateNodeChildrenVisibility(FSceneViewState* ViewState, FLODSceneNode& Node, FSceneBitArray& VisibilityFlags, bool bIsVisible = false, bool bRecursive = true);
+	void ApplyNodeFadingToChildren(FSceneViewState* ViewState, FLODSceneNode& Node, const bool bIsFading, const bool bIsFadingOut);
+	void HideNodeChildren(FSceneViewState* ViewState, FLODSceneNode& Node);
 };
 
 typedef TMap<FMaterial*, FMaterialShaderMap*> FMaterialsToUpdateMap;
@@ -1883,25 +1897,25 @@ public:
 };
 
 #if WITH_EDITOR
-	class FPixelInspectorData
-	{
-	public:
-		FPixelInspectorData();
+class FPixelInspectorData
+{
+public:
+	FPixelInspectorData();
 
-		void InitializeBuffers(FRenderTarget* BufferFinalColor, FRenderTarget* BufferSceneColor, FRenderTarget* BufferDepth, FRenderTarget* BufferHDR, FRenderTarget* BufferA, FRenderTarget* BufferBCDE, int32 bufferIndex);
+	void InitializeBuffers(FRenderTarget* BufferFinalColor, FRenderTarget* BufferSceneColor, FRenderTarget* BufferDepth, FRenderTarget* BufferHDR, FRenderTarget* BufferA, FRenderTarget* BufferBCDE, int32 bufferIndex);
 
-		bool AddPixelInspectorRequest(FPixelInspectorRequest *PixelInspectorRequest);
+	bool AddPixelInspectorRequest(FPixelInspectorRequest *PixelInspectorRequest);
 
-		//Hold the buffer array
-		TMap<FVector2D, FPixelInspectorRequest *> Requests;
+	//Hold the buffer array
+	TMap<FVector2D, FPixelInspectorRequest *> Requests;
 
-		FRenderTarget* RenderTargetBufferDepth[2];
-		FRenderTarget* RenderTargetBufferFinalColor[2];
-		FRenderTarget* RenderTargetBufferHDR[2];
-		FRenderTarget* RenderTargetBufferSceneColor[2];
-		FRenderTarget* RenderTargetBufferA[2];
-		FRenderTarget* RenderTargetBufferBCDE[2];
-	};
+	FRenderTarget* RenderTargetBufferDepth[2];
+	FRenderTarget* RenderTargetBufferFinalColor[2];
+	FRenderTarget* RenderTargetBufferHDR[2];
+	FRenderTarget* RenderTargetBufferSceneColor[2];
+	FRenderTarget* RenderTargetBufferA[2];
+	FRenderTarget* RenderTargetBufferBCDE[2];
+};
 #endif //WITH_EDITOR
 
 /** 
@@ -1954,16 +1968,16 @@ public:
 	TStaticMeshDrawList<TBasePassDrawingPolicy<LightMapPolicyType> >& GetBasePassDrawList(EBasePassDrawListType DrawType);
 
 	/** Mobile base pass draw lists */
-	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<FUniformLightMapPolicy, 0> > MobileBasePassUniformLightMapPolicyDrawList[EBasePass_MAX];
-	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<FUniformLightMapPolicy, 0> > MobileBasePassUniformLightMapPolicyDrawListWithCSM[EBasePass_MAX];
+	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<FUniformLightMapPolicy> > MobileBasePassUniformLightMapPolicyDrawList[EBasePass_MAX];
+	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<FUniformLightMapPolicy> > MobileBasePassUniformLightMapPolicyDrawListWithCSM[EBasePass_MAX];
 
 
 	/** Maps a light-map type to the appropriate base pass draw list. */
 	template<typename LightMapPolicyType>
-	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<LightMapPolicyType,0> >& GetMobileBasePassDrawList(EBasePassDrawListType DrawType);
+	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<LightMapPolicyType> >& GetMobileBasePassDrawList(EBasePassDrawListType DrawType);
 
 	template<typename LightMapPolicyType>
-	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<LightMapPolicyType, 0> >& GetMobileBasePassCSMDrawList(EBasePassDrawListType DrawType);
+	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<LightMapPolicyType> >& GetMobileBasePassCSMDrawList(EBasePassDrawListType DrawType);
 
 #if WITH_EDITOR
 	/** Draw list to use for selected static meshes in the editor only */
@@ -2066,7 +2080,7 @@ public:
 
 	/** Distance field object scene data. */
 	FDistanceFieldSceneData DistanceFieldSceneData;
-	
+
 	/** Map from light id to the cached shadowmap data for that light. */
 	TMap<int32, FCachedShadowMapData> CachedShadowMaps;
 
@@ -2246,7 +2260,7 @@ public:
 	const class FPlanarReflectionSceneProxy* FindClosestPlanarReflection(const FBoxSphereBounds& Bounds) const;
 
 	void FindClosestReflectionCaptures(FVector Position, const FReflectionCaptureProxy* (&SortedByDistanceOUT)[FPrimitiveSceneInfo::MaxCachedReflectionCaptureProxies]) const;
-	
+
 	/** 
 	 * Gets the scene's cubemap array and index into that array for the given reflection proxy. 
 	 * If the proxy was not found in the scene's reflection state, the outputs are not written to.
@@ -2326,26 +2340,25 @@ public:
 
 	bool ShouldRenderSkylightInBasePass(EBlendMode BlendMode) const
 	{
-		return ShouldRenderSkylightInBasePass_Internal(BlendMode) && (ReadOnlyCVARCache.bEnableStationarySkylight || IsSimpleForwardShadingEnabled(GetShaderPlatform()));
-	}
+		bool bRenderSkyLight = SkyLight && !SkyLight->bHasStaticLighting;
 
-	bool ShouldRenderSkylightInBasePass_Internal(EBlendMode BlendMode) const
-	{
 		if (IsTranslucentBlendMode(BlendMode))
 		{
-			//both stationary and movable skylights are applied during actual translucency render
-			return SkyLight && !SkyLight->bHasStaticLighting;
+			// Both stationary and movable skylights are applied in base pass for translucent materials
+			bRenderSkyLight = bRenderSkyLight
+				&& (ReadOnlyCVARCache.bEnableStationarySkylight || !SkyLight->bWantsStaticShadowing);
 		}
 		else
 		{
-			const bool bRenderSkylight = SkyLight
-				&& !SkyLight->bHasStaticLighting
-				// The deferred shading renderer does movable skylight diffuse in a later deferred pass, not in the base pass
-				// bWantsStaticShadowing means 'stationary skylight'
-				&& (SkyLight->bWantsStaticShadowing || IsAnyForwardShadingEnabled(GetShaderPlatform()));
-
-			return bRenderSkylight;
+			// For opaque materials, stationary skylight is applied in base pass but movable skylight
+			// is applied in a separate render pass (bWantssStaticShadowing means stationary skylight)
+			bRenderSkyLight = bRenderSkyLight && ReadOnlyCVARCache.bEnableStationarySkylight
+				&& (SkyLight->bWantsStaticShadowing
+					|| (!SkyLight->bWantsStaticShadowing
+					&& (IsAnyForwardShadingEnabled(GetShaderPlatform()) || IsMobilePlatform(GetShaderPlatform()))));
 		}
+
+		return bRenderSkyLight;
 	}
 
 	virtual TArray<FPrimitiveComponentId> GetScenePrimitiveComponentIds() const override

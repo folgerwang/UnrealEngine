@@ -5,6 +5,7 @@
 #include "HAL/ThreadingBase.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/Parse.h"
+#include "Misc/CommandLine.h"
 
 // Collection of events listening for this trigger.
 static TArray<FEvent*> ListeningEvents;
@@ -77,6 +78,12 @@ static NSMutableSet<FIOSFramePacerHandler>* Handlers = [NSMutableSet new];
 
 -(void)signal:(id)param
 {
+	// during shutdown, this can cause crashes (only non-backgrounding apps do this)
+	if (GIsRequestingExit)
+	{
+		return;
+	};
+
 	{
 		FScopeLock Lock(&HandlersMutex);
 		for (FIOSFramePacerHandler Handler in Handlers)
@@ -120,12 +127,19 @@ bool FIOSPlatformRHIFramePacer::IsEnabled()
 
 		uint32 FrameRateLock = 60;
 		FParse::Value(*FrameRateLockAsEnum, TEXT("PUFRL_"), FrameRateLock);
-		if (FrameRateLock == 0)
-		{
-			FrameRateLock = 60;
-		}
 
-		if (!bIsRHIFramePacerEnabled)
+        const bool bOverridesFrameRate = FParse::Value( FCommandLine::Get(), TEXT( "FrameRateLock=" ), FrameRateLockAsEnum );
+        if (bOverridesFrameRate)
+        {
+            FParse::Value(*FrameRateLockAsEnum, TEXT("PUFRL_"), FrameRateLock);
+        }
+        
+        if (FrameRateLock == 0)
+        {
+            FrameRateLock = 60;
+        }
+
+        if (!bIsRHIFramePacerEnabled)
 		{
 			check((IOSDisplayConstants::MaxRefreshRate % FrameRateLock) == 0);
 			FrameInterval = IOSDisplayConstants::MaxRefreshRate / FrameRateLock;

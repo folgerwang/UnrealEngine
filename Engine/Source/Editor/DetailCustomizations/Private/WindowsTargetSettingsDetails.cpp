@@ -143,7 +143,7 @@ static FString GetSplashFilename(EImageScope::Type Scope, bool bIsEditorSplash)
 /* Helper function used to generate filenames for icons */
 static FString GetIconFilename(EImageScope::Type Scope)
 {
-	const FString& PlatformName = FModuleManager::GetModuleChecked<ITargetPlatformModule>("WindowsTargetPlatform").GetTargetPlatform()->PlatformName();
+	const FString& PlatformName = FModuleManager::GetModuleChecked<ITargetPlatformModule>("WindowsTargetPlatform").GetTargetPlatforms()[0]->PlatformName();
 
 	if (Scope == EImageScope::Engine)
 	{
@@ -481,7 +481,8 @@ void FTargetShaderFormatsPropertyDetails::CreateTargetShaderFormatsPropertyView(
 	DetailBuilder->HideProperty(TargetShaderFormatsPropertyHandle);
 
 	// List of supported RHI's and selected targets
-	ITargetPlatform* WindowsTargetPlatform = FModuleManager::GetModuleChecked<ITargetPlatformModule>("WindowsTargetPlatform").GetTargetPlatform();
+	// @todo targetplatform: This [0] will probably always work, all of the windows TPs should return the same GetAllPossibleShaderFormats()
+	ITargetPlatform* WindowsTargetPlatform = FModuleManager::GetModuleChecked<ITargetPlatformModule>("WindowsTargetPlatform").GetTargetPlatforms()[0];
 	TArray<FName> ShaderFormats;
 	WindowsTargetPlatform->GetAllPossibleShaderFormats(ShaderFormats);
 

@@ -139,10 +139,6 @@ struct FInputActionKeyMapping
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Input")
 	FName ActionName;
 
-	/** Key to bind it to. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Input")
-	FKey Key;
-
 	/** true if one of the Shift keys must be down when the KeyEvent is received to be acknowledged */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Input")
 	uint8 bShift:1;
@@ -158,6 +154,10 @@ struct FInputActionKeyMapping
 	/** true if one of the Cmd keys must be down when the KeyEvent is received to be acknowledged */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Input")
 	uint8 bCmd:1;
+
+	/** Key to bind it to. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Input")
+	FKey Key;
 
 	bool operator==(const FInputActionKeyMapping& Other) const
 	{
@@ -185,11 +185,11 @@ struct FInputActionKeyMapping
 
 	FInputActionKeyMapping(const FName InActionName = NAME_None, const FKey InKey = EKeys::Invalid, const bool bInShift = false, const bool bInCtrl = false, const bool bInAlt = false, const bool bInCmd = false)
 		: ActionName(InActionName)
-		, Key(InKey)
 		, bShift(bInShift)
 		, bCtrl(bInCtrl)
 		, bAlt(bInAlt)
 		, bCmd(bInCmd)
+		, Key(InKey)
 	{}
 };
 
@@ -207,13 +207,13 @@ struct FInputAxisKeyMapping
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Input")
 	FName AxisName;
 
-	/** Key to bind it to. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Input")
-	FKey Key;
-
 	/** Multiplier to use for the mapping when accumulating the axis value */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Input")
 	float Scale;
+
+	/** Key to bind it to. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Input")
+	FKey Key;
 
 	bool operator==(const FInputAxisKeyMapping& Other) const
 	{
@@ -246,8 +246,8 @@ struct FInputAxisKeyMapping
 
 	FInputAxisKeyMapping(const FName InAxisName = NAME_None, const FKey InKey = EKeys::Invalid, const float InScale = 1.f)
 		: AxisName(InAxisName)
-		, Key(InKey)
 		, Scale(InScale)
+		, Key(InKey)
 	{}
 };
 
@@ -397,6 +397,8 @@ private:
 	/** The current game view of each key */
 	TMap<FKey,FKeyState> KeyStateMap;
 
+	uint32 KeyMapBuildIndex;
+
 	uint8 bKeyMapsBuilt:1;
 
 public:
@@ -413,7 +415,7 @@ public:
 	void FlushPressedActionBindingKeys(FName ActionName);
 
 	/** Handles a key input event.  Returns true if there is an action that handles the specified key. */
-	bool InputKey(FKey Key, enum EInputEvent Event, float AmountDepressed, bool bGamepad);
+	virtual bool InputKey(FKey Key, enum EInputEvent Event, float AmountDepressed, bool bGamepad);
 
 	/** Handles an axis input event.  Returns true if a legacy key bind handled the input, otherwise false. */
 	bool InputAxis(FKey Key, float Delta, float DeltaTime, int32 NumSamples, bool bGamepad);
@@ -496,6 +498,8 @@ public:
 	/** @return true if cmd key is pressed */
 	bool IsCmdPressed() const;
 
+	uint32 GetKeyMapBuildIndex() const { return KeyMapBuildIndex; }
+
 #if !UE_BUILD_SHIPPING
 	/**
 	 * Exec handler
@@ -539,7 +543,7 @@ private:
 	 * @param Event - types of event, includes IE_Pressed
 	 * @return true if just pressed
 	 */
-	bool KeyEventOccurred(FKey Key, EInputEvent Event, TArray<uint32>& EventIndices) const;
+	bool KeyEventOccurred(FKey Key, EInputEvent Event, TArray<uint32>& EventIndices, const FKeyState* KeyState = nullptr) const;
 
 	/* Collects the chords and the delegates they invoke for an action binding
 	 * @param ActionBinding - the action to determine whether it occurred
@@ -556,7 +560,7 @@ private:
 	 * @param FoundChords - the list of chord/delegate pairs to add to
 	 * @param KeysToConsume - array to collect the keys associated with this binding that should be consumed
 	 */
-	void GetChordsForKeyMapping(const FInputActionKeyMapping& KeyMapping, const FInputActionBinding& ActionBinding, const bool bGamePaused, TArray<FDelegateDispatchDetails>& FoundChords, TArray<FKey>& KeysToConsume);
+	void GetChordsForKeyMapping(const FInputActionKeyMapping& KeyMapping, const FInputActionBinding& ActionBinding, const bool bGamePaused, TArray<FDelegateDispatchDetails>& FoundChords, TArray<FKey>& KeysToConsume, const FKeyState* KeyState = nullptr);
 
 	/* Collects the chords and the delegates they invoke for a key binding
 	 * @param KeyBinding - the key to determine whether it occurred
@@ -564,7 +568,7 @@ private:
 	 * @param FoundChords - the list of chord/delegate pairs to add to
 	 * @param KeysToConsume - array to collect the keys associated with this binding that should be consumed
 	 */
-	void GetChordForKey(const FInputKeyBinding& KeyBinding, const bool bGamePaused, TArray<struct FDelegateDispatchDetails>& FoundChords, TArray<FKey>& KeysToConsume);
+	void GetChordForKey(const FInputKeyBinding& KeyBinding, const bool bGamePaused, TArray<struct FDelegateDispatchDetails>& FoundChords, TArray<FKey>& KeysToConsume, const FKeyState* KeyState = nullptr);
 
 	/* Returns the summed values of all the components of this axis this frame
 	 * @param AxisBinding - the action to determine if it ocurred
@@ -587,7 +591,7 @@ private:
 	void ConsumeKey(FKey Key);
 
 	/** @return true if InKey is being consumed */
-	bool IsKeyConsumed(FKey Key) const;
+	bool IsKeyConsumed(FKey Key, const FKeyState* KeyState = nullptr) const;
 
 protected:
 

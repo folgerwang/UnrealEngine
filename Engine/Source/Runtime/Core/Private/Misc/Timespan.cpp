@@ -106,8 +106,9 @@ bool FTimespan::Parse(const FString& TimespanString, FTimespan& OutTimespan)
 	// @todo gmp: implement stricter FTimespan parsing; this implementation is too forgiving
 
 	// get string tokens
-	const bool HasFractional = TimespanString.Contains(TEXT("."));
-	FString TokenString = (HasFractional) ? TimespanString.Replace(TEXT("."), TEXT(":")) : TimespanString;
+	const bool HasFractional = TimespanString.Contains(TEXT(".")) || TimespanString.Contains(TEXT(","));
+	FString TokenString = TimespanString;
+	TokenString.ReplaceInline(TEXT("."), TEXT(":"));
 	TokenString.ReplaceInline(TEXT(","), TEXT(":"));
 
 	const bool Negative = TokenString.StartsWith(TEXT("-"));

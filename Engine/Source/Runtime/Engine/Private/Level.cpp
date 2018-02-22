@@ -406,6 +406,35 @@ void ULevel::Serialize( FArchive& Ar )
 	}
 }
 
+void ULevel::CreateReplicatedDestructionInfo(AActor* const Actor)
+{
+	if (Actor == nullptr)
+	{
+		return;
+	}
+	
+	// mimic the checks the package map will do before assigning a guid
+	const bool bIsActorStatic = Actor->IsFullNameStableForNetworking() && Actor->IsSupportedForNetworking();
+	const bool bActorHasRole = Actor->GetRemoteRole() != ROLE_None;
+	const bool bShouldCreateDestructionInfo = bIsActorStatic && bActorHasRole;
+
+	if (bShouldCreateDestructionInfo)
+	{
+		FReplicatedStaticActorDestructionInfo NewInfo;
+		NewInfo.PathName = Actor->GetFName();
+		NewInfo.DestroyedPosition = Actor->GetActorLocation();
+		NewInfo.ObjOuter = Actor->GetOuter();
+		NewInfo.ObjClass = Actor->GetClass();
+
+		DestroyedReplicatedStaticActors.Add(NewInfo);
+	}
+}
+
+const TArray<FReplicatedStaticActorDestructionInfo>& ULevel::GetDestroyedReplicatedStaticActors() const
+{
+	return DestroyedReplicatedStaticActors;
+}
+
 bool ULevel::IsNetActor(const AActor* Actor)
 {
 	if (Actor == nullptr)
@@ -911,6 +940,11 @@ void ULevel::IncrementalUpdateComponents(int32 NumComponentsToUpdate, bool bReru
 #if PERF_TRACK_DETAILED_ASYNC_STATS
 			FScopeCycleCounterUObject ContextScope(Actor);
 #endif
+			if (!bHasCurrentActorCalledPreRegister)
+			{
+				Actor->PreRegisterAllComponents();
+				bHasCurrentActorCalledPreRegister = true;
+			}
 			bAllComponentsRegistered = Actor->IncrementalRegisterComponents(NumComponentsToUpdate);
 		}
 
@@ -918,6 +952,7 @@ void ULevel::IncrementalUpdateComponents(int32 NumComponentsToUpdate, bool bReru
 		{	
 			// All components have been registered fro this actor, move to a next one
 			CurrentActorIndexForUpdateComponents++;
+			bHasCurrentActorCalledPreRegister = false;
 		}
 
 		// If we do an incremental registration return to outer loop after each processed actor 
@@ -932,6 +967,7 @@ void ULevel::IncrementalUpdateComponents(int32 NumComponentsToUpdate, bool bReru
 	if (CurrentActorIndexForUpdateComponents == Actors.Num())
 	{
 		CurrentActorIndexForUpdateComponents	= 0;
+		bHasCurrentActorCalledPreRegister		= false;
 		bAreComponentsCurrentlyRegistered		= true;
 		
 		CreateCluster();
@@ -1372,13 +1408,11 @@ void ULevel::PostEditUndo()
 		}
 		else
 		{
-			const int32 NumStreamingLevels = OwningWorld->StreamingLevels.Num();
-			for (int i = 0; i < NumStreamingLevels; ++i)
+			for (const ULevelStreaming* StreamedLevel : OwningWorld->GetStreamingLevels())
 			{
-				const ULevelStreaming* StreamedLevel = OwningWorld->StreamingLevels[i];
 				if (StreamedLevel && StreamedLevel->GetLoadedLevel() == this)
 				{
-					bIsStreamingLevelVisible = FLevelUtils::IsLevelVisible(StreamedLevel);
+					bIsStreamingLevelVisible = FLevelUtils::IsStreamingLevelVisibleInEditor(StreamedLevel);
 					break;
 				}
 			}
@@ -2201,12 +2235,12 @@ void ULevel::RemoveUserDataOfClass(TSubclassOf<UAssetUserData> InUserDataClass)
 
 bool ULevel::HasVisibilityRequestPending() const
 {
-	return (OwningWorld && this == OwningWorld->CurrentLevelPendingVisibility);
+	return (OwningWorld && this == OwningWorld->GetCurrentLevelPendingVisibility());
 }
 
 bool ULevel::HasVisibilityChangeRequestPending() const
 {
-	return (OwningWorld && ( this == OwningWorld->CurrentLevelPendingVisibility || this == OwningWorld->CurrentLevelPendingInvisibility ) );
+	return (OwningWorld && ( this == OwningWorld->GetCurrentLevelPendingVisibility() || this == OwningWorld->GetCurrentLevelPendingInvisibility() ) );
 }
 
 

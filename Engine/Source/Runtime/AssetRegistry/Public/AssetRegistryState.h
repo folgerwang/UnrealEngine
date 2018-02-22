@@ -33,6 +33,12 @@ struct FAssetRegistrySerializationOptions
 	/** True if we want to only write out asset data if it has valid tags. This saves memory by not saving data for things like textures */
 	bool bFilterAssetDataWithNoTags;
 
+	/** True if we also want to filter out dependency data for assets that have no tags. Only filters if bFilterAssetDataWithNoTags is also true */
+	bool bFilterDependenciesWithNoTags;
+
+	/** Filter out searchable names from dependency data */
+	bool bFilterSearchableNames;
+
 	/** The map of classname to tag set of tags that are allowed in cooked builds. This is either a whitelist or blacklist depending on bUseAssetRegistryTagsWhitelistInsteadOfBlacklist */
 	TMap<FName, TSet<FName>> CookFilterlistTagsByClass;
 
@@ -44,13 +50,23 @@ struct FAssetRegistrySerializationOptions
 		, bSerializePackageData(false)
 		, bUseAssetRegistryTagsWhitelistInsteadOfBlacklist(false)
 		, bFilterAssetDataWithNoTags(false)
+		, bFilterDependenciesWithNoTags(false)
+		, bFilterSearchableNames(false)
 	{}
 
 	/** Options used to read/write the DevelopmentAssetRegistry, which includes all data */
 	void ModifyForDevelopment()
 	{
 		bSerializeAssetRegistry = bSerializeDependencies = bSerializeSearchableNameDependencies = bSerializeManageDependencies = bSerializePackageData = true;
+		DisableFilters();
+	}
+
+	/** Disable all filters */
+	void DisableFilters()
+	{
 		bFilterAssetDataWithNoTags = false;
+		bFilterDependenciesWithNoTags = false;
+		bFilterSearchableNames = false;
 	}
 };
 
@@ -203,7 +219,7 @@ public:
 	void UpdateAssetData(FAssetData* AssetData, const FAssetData& NewAssetData);
 
 	/** Removes the asset data from the lookup maps */
-	bool RemoveAssetData(FAssetData* AssetData);
+	bool RemoveAssetData(FAssetData* AssetData, bool bRemoveDependencyData = true);
 
 	/** Resets to default state */
 	void Reset();
@@ -219,9 +235,9 @@ public:
 	 * Prunes an asset cache, this removes asset data, nodes, and package data that isn't needed. 
 	 * @param RequiredPackages If set, only these packages will be maintained. If empty it will keep all unless filtered by other parameters
 	 * @param RemovePackages These packages will be removed from the current set
-	 * @param bFilterAssetDataWithNoTags If true, any AssetData with no Tags will be removed
+	 * @param Options Serialization options to read filter info from
 	 */
-	void PruneAssetData(const TSet<FName>& RequiredPackages, const TSet<FName>& RemovePackages, bool bFilterAssetDataWithNoTags = false);
+	void PruneAssetData(const TSet<FName>& RequiredPackages, const TSet<FName>& RemovePackages, const FAssetRegistrySerializationOptions& Options);
 
 	/** Serialize the registry to/from a file, skipping editor only data */
 	bool Serialize(FArchive& Ar, FAssetRegistrySerializationOptions& Options);

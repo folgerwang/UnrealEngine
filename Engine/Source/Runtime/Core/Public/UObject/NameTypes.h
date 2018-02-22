@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -1200,7 +1200,6 @@ private:
 
 	/** Singleton to retrieve the critical section. */
 	static FCriticalSection* GetCriticalSection();
-
 };
 
 template<> struct TIsZeroConstructType<class FName> { enum { Value = true }; };

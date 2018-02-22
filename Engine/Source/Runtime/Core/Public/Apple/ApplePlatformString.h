@@ -84,7 +84,8 @@ struct FApplePlatformString : public FStandardPlatformString
 	{
 		const SIZE_T Length = wcslen( TChar );
 		CFStringRef String = CFStringCreateWithBytes( kCFAllocatorDefault, ( const uint8 *)TChar, Length * sizeof( TCHAR ), kCFStringEncodingUTF32LE, false );
-		check(String);
+		// we are getting some crashes on strings that aren't converting - so, instead of crashing, print them out instead
+		ensureMsgf(String, TEXT("Failed to allocated CFString for '%s' -- Length id %d"), TChar ? TChar : TEXT("nullptr"), Length);
 		return String;
 	}
 

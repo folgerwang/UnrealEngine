@@ -130,8 +130,6 @@ public:
 
 private:
 
-	// fences to make sure the rhi thread has digested the occlusion query renders before we attempt to read them back async
-	static FGraphEventRef OcclusionSubmittedFence[FOcclusionQueryHelpers::MaxBufferedOcclusionFrames];
 	static FGraphEventRef TranslucencyTimestampQuerySubmittedFence[FOcclusionQueryHelpers::MaxBufferedOcclusionFrames + 1];
 
 	/** Creates a per object projected shadow for the given interaction. */
@@ -185,9 +183,6 @@ private:
 	 * @return true if depth is cleared
 	 */
 	bool RenderPrePassHMD(FRHICommandListImmediate& RHICmdList);
-
-	/** Issues occlusion queries. */
-	void BeginOcclusionTests(FRHICommandListImmediate& RHICmdList, bool bRenderQueries);
 
 	/** Renders the scene's fogging. */
 	bool RenderFog(FRHICommandListImmediate& RHICmdList, const FLightShaftsOutput& LightShaftsOutput);
@@ -463,8 +458,6 @@ private:
 
 	friend class FTranslucentPrimSet;
 };
-
-DECLARE_STATS_GROUP(TEXT("Command List Markers"), STATGROUP_CommandListMarkers, STATCAT_Advanced);
 
 DECLARE_CYCLE_STAT_EXTERN(TEXT("PrePass"), STAT_CLM_PrePass, STATGROUP_CommandListMarkers, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("DeferredShadingSceneRenderer AsyncSortBasePassStaticData"), STAT_FDeferredShadingSceneRenderer_AsyncSortBasePassStaticData, STATGROUP_SceneRendering, );

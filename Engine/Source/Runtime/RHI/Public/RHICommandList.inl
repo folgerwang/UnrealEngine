@@ -112,6 +112,7 @@ FORCEINLINE_DEBUGGABLE void FRHICommandListImmediate::ImmediateFlush(EImmediateF
 		}
 		break;
 	case EImmediateFlushType::FlushRHIThreadFlushResources:
+	case EImmediateFlushType::FlushRHIThreadFlushResourcesFlushDeferredDeletes:
 		{
 			if (HasCommands())
 			{
@@ -121,7 +122,7 @@ FORCEINLINE_DEBUGGABLE void FRHICommandListImmediate::ImmediateFlush(EImmediateF
 			WaitForRHIThreadTasks();
 			WaitForTasks(true); // these are already done, but this resets the outstanding array
 			PipelineStateCache::FlushResources();
-			FRHIResource::FlushPendingDeletes();
+			FRHIResource::FlushPendingDeletes(FlushType == EImmediateFlushType::FlushRHIThreadFlushResourcesFlushDeferredDeletes);
 		}
 		break;
 	default:

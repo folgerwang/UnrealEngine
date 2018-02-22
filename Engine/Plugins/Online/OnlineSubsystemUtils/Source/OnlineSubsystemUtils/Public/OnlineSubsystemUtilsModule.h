@@ -19,7 +19,7 @@ public:
 	virtual ~FOnlineSubsystemUtilsModule() {}
 
 	/** @return the singleton utility interface */
-	IOnlineSubsystemUtils* GetUtils() const { return SubsystemUtils; }
+	IOnlineSubsystemUtils* GetUtils() const { return SubsystemUtils.Get(); }
 
 	// IModuleInterface
 	virtual void StartupModule() override;
@@ -38,7 +38,8 @@ public:
 
 private:
 
-	IOnlineSubsystemUtils* SubsystemUtils;
+	/** Online subsystem utilities singleton */
+	TUniquePtr<IOnlineSubsystemUtils> SubsystemUtils;
 };
 
 

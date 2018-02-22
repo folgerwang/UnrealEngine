@@ -381,8 +381,9 @@ bool FXAudio2SoundSource::CreateSource( void )
 
 	NumSends++;
 
-	const bool bIsReverbDisabled = GetDefault<UAudioSettings>()->bDisableMasterReverb;
-	if( bReverbApplied && !bIsReverbDisabled)
+	// Jira FORT-64095: This audio setting is fundamentally incompatible with the "Disable Master Reverb" checkbox in Audio Settings. 
+	//const bool bIsReverbDisabled =  GetDefault<UAudioSettings>()->bDisableMasterReverb;
+	if(bReverbApplied)
 	{
 		Destinations[NumSends].pOutputVoice = Effects->ReverbEffectVoice;
 		NumSends++;
@@ -745,10 +746,7 @@ void FXAudio2SoundSource::GetMonoChannelVolumes(float ChannelVolumes[CHANNEL_MAT
 		ChannelVolumes[CHANNELOUT_LEFTSURROUND] = AttenuatedVolume;
 		ChannelVolumes[CHANNELOUT_RIGHTSURROUND] = AttenuatedVolume;
 
-		if (bReverbApplied)
-		{
-			ChannelVolumes[CHANNELOUT_REVERB] = AttenuatedVolume;
-		}
+		ChannelVolumes[CHANNELOUT_REVERB] = AttenuatedVolume * WaveInstance->ManualReverbSendLevel;
 
 		ChannelVolumes[CHANNELOUT_RADIO] = 0.0f;
 
@@ -812,10 +810,7 @@ void FXAudio2SoundSource::GetStereoChannelVolumes(float ChannelVolumes[CHANNEL_M
 			ChannelVolumes[CHANNELOUT_LEFTSURROUND + Offset] = AttenuatedVolume;
 			ChannelVolumes[CHANNELOUT_RIGHTSURROUND + Offset] = AttenuatedVolume;
 
-			if (bReverbApplied)
-			{
-				ChannelVolumes[CHANNELOUT_REVERB + Offset] = AttenuatedVolume;
-			}
+			ChannelVolumes[CHANNELOUT_REVERB + Offset] = AttenuatedVolume * WaveInstance->ManualReverbSendLevel;
 
 			ChannelVolumes[CHANNELOUT_RADIO + Offset] = 0.0f;
 
@@ -838,11 +833,11 @@ void FXAudio2SoundSource::GetStereoChannelVolumes(float ChannelVolumes[CHANNEL_M
 
 		// Compute the speaker mappings for the left channel
 		float* ChannelMap = ChannelVolumes;
-		AudioDevice->DeviceProperties->SpatializationHelper.CalculateDolbySurroundRate(SpatializationParams.ListenerOrientation.GetForwardVector(), SpatializationParams.ListenerPosition, SpatializationParams.LeftChannelPosition, SpatializationParams.NormalizedOmniRadius, ChannelMap);
-		
+		AudioDevice->DeviceProperties->SpatializationHelper.CalculateDolbySurroundRate(FVector::UpVector, FVector::ZeroVector, SpatializationParams.LeftChannelPosition, SpatializationParams.NormalizedOmniRadius, ChannelMap);
+
 		// Now compute the speaker mappings for the right channel
 		ChannelMap = &ChannelVolumes[CHANNELOUT_COUNT];
-		AudioDevice->DeviceProperties->SpatializationHelper.CalculateDolbySurroundRate(SpatializationParams.ListenerOrientation.GetForwardVector(), SpatializationParams.ListenerPosition, SpatializationParams.RightChannelPosition, SpatializationParams.NormalizedOmniRadius, ChannelMap);
+		AudioDevice->DeviceProperties->SpatializationHelper.CalculateDolbySurroundRate(FVector::UpVector, FVector::ZeroVector, SpatializationParams.RightChannelPosition, SpatializationParams.NormalizedOmniRadius, ChannelMap);
 	}
 	else
 	{
@@ -860,10 +855,7 @@ void FXAudio2SoundSource::GetStereoChannelVolumes(float ChannelVolumes[CHANNEL_M
 			ChannelVolumes[CHANNELOUT_LOWFREQUENCY] = AttenuatedVolume * LFEBleed * 0.5f;
 		}
 
-		if (bReverbApplied)
-		{
-			ChannelVolumes[CHANNELOUT_REVERB] = AttenuatedVolume;
-		}
+		ChannelVolumes[CHANNELOUT_REVERB] = AttenuatedVolume * WaveInstance->ManualReverbSendLevel;
 
 		// Handle radio distortion if the sound can handle it. 
 		ChannelVolumes[CHANNELOUT_RADIO] = 0.0f;
@@ -1095,7 +1087,7 @@ void FXAudio2SoundSource::RouteMonoToReverb(float ChannelVolumes[CHANNEL_MATRIX_
 		float SpatialisationMatrix[2] =
 		{
 			ChannelVolumes[CHANNELOUT_REVERB],
-			ChannelVolumes[CHANNELOUT_REVERB],
+			ChannelVolumes[CHANNELOUT_REVERB]
 		};
 
 		// Update the dry output to the mastering voice
@@ -1108,8 +1100,10 @@ void FXAudio2SoundSource::RouteStereoToReverb(float ChannelVolumes[CHANNEL_MATRI
 {
 	float SpatialisationMatrix[4] =
 	{
-		ChannelVolumes[CHANNELOUT_REVERB], 0.0f,
-		0.0f, ChannelVolumes[CHANNELOUT_REVERB]
+		ChannelVolumes[CHANNELOUT_REVERB],
+		0.0f,
+		0.0f,
+		ChannelVolumes[CHANNELOUT_REVERB]
 	};
 
 	// Stereo sounds map 2 channels to 6 speakers

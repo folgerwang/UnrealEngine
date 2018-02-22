@@ -2134,7 +2134,7 @@ ULandscapeHeightfieldCollisionComponent::ULandscapeHeightfieldCollisionComponent
 	: Super(ObjectInitializer)
 {
 	SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
-	bGenerateOverlapEvents = false;
+	SetGenerateOverlapEvents(false);
 	CastShadow = false;
 	bUseAsOccluder = true;
 	bAllowCullDistanceVolume = false;

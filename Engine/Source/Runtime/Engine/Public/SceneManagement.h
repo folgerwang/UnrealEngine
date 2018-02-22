@@ -1533,6 +1533,27 @@ public:
 		) = 0;
 };
 
+
+
+/** 
+ * Convenience typedefs for a software occlusion mesh elements
+ */
+typedef TArray<FVector> FOccluderVertexArray;
+typedef TArray<uint16> FOccluderIndexArray;
+typedef TSharedPtr<FOccluderVertexArray, ESPMode::ThreadSafe> FOccluderVertexArraySP;
+typedef TSharedPtr<FOccluderIndexArray, ESPMode::ThreadSafe> FOccluderIndexArraySP;
+
+/**
+ * An interface used to collect primitive occluder geometry.
+ */
+class FOccluderElementsCollector
+{
+public:
+	virtual ~FOccluderElementsCollector() {};
+	virtual void AddElements(const FOccluderVertexArraySP& Vertices, const FOccluderIndexArraySP& Indices, const FMatrix& LocalToWorld)
+	{}
+};
+
 /** Primitive draw interface implementation used to store primitives requested to be drawn when gathering dynamic mesh elements. */
 class ENGINE_API FSimpleElementCollector : public FPrimitiveDrawInterface
 {
@@ -2516,14 +2537,7 @@ extern ENGINE_API void InitializeSharedSamplerStates();
 */
 struct FReadOnlyCVARCache
 {
-	static const FReadOnlyCVARCache& Get()
-	{
-		if (!Singleton)
-		{
-			Singleton = new FReadOnlyCVARCache();
-		}
-		return *Singleton;
-	}
+	static ENGINE_API const FReadOnlyCVARCache& Get();
 
 	bool bEnablePointLightShadows;
 	bool bEnableStationarySkylight;
@@ -2537,8 +2551,8 @@ struct FReadOnlyCVARCache
 	bool bMobileAllowDistanceFieldShadows;
 	bool bMobileEnableStaticAndCSMShadowReceivers;
 	int32 NumMobileMovablePointLights;
+	bool bMobileMovablePointLightsUseStaticBranch;
 
-private:
-	FReadOnlyCVARCache();
-	static FReadOnlyCVARCache* Singleton;
+	bool bInitialized;
+	void Init();
 };

@@ -118,6 +118,8 @@ struct FTextureBuildSettings
 	float CompositePower;
 	/** The source texture's final LOD bias (i.e. includes LODGroup based biases) */
 	uint32 LODBias;
+	/** The source texture's final LOD bias (i.e. includes LODGroup based biases). This allows cinematic mips as well. */
+	uint32 LODBiasWithCinematicMips;
 	/** The texture's top mip size without LODBias applied, should be moved into a separate struct together with bImageHasAlphaChannel */
 	mutable FIntPoint TopMipSize;
 	/** Can the texture be streamed */
@@ -161,6 +163,7 @@ struct FTextureBuildSettings
 		, CompositeTextureMode(0 /*CTM_Disabled*/)
 		, CompositePower(1.0f)
 		, LODBias(0)
+		, LODBiasWithCinematicMips(0)
 		, TopMipSize(0, 0)
 		, bStreamable(false)
 		, bChromaKeyTexture(false)

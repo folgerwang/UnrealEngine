@@ -202,8 +202,7 @@ void FDynamicResourceMap::RemoveExpiredMaterialResources(TArray< TSharedPtr<FSla
 }
 
 FSlateRHIResourceManager::FSlateRHIResourceManager()
-	: CurrentAccessedUObject(nullptr)
-	, BadResourceTexture(nullptr)
+	: BadResourceTexture(nullptr)
 {
 	FCoreDelegates::OnPreExit.AddRaw( this, &FSlateRHIResourceManager::OnAppExit );
 
@@ -298,14 +297,6 @@ void FSlateRHIResourceManager::Tick(float DeltaSeconds)
 					}
 				}
 			});
-	}
-}
-
-void FSlateRHIResourceManager::AddReferencedObjects(FReferenceCollector& Collector)
-{
-	for ( TSet<UObject*>* AccessedUObjects : AllAccessedUObject )
-	{
-		Collector.AddReferencedObjects(*AccessedUObjects);
 	}
 }
 
@@ -659,8 +650,6 @@ TSharedPtr<FSlateUTextureResource> FSlateRHIResourceManager::MakeDynamicUTexture
 		}
 
 		TextureResource->Proxy->ActualSize = FIntPoint(InTextureObject->GetSurfaceWidth(), InTextureObject->GetSurfaceHeight());
-
-		checkSlow(!GetAccessedUObjects().Contains(InTextureObject));
 	}
 	else
 	{
@@ -699,7 +688,6 @@ FSlateShaderResourceProxy* FSlateRHIResourceManager::FindOrCreateDynamicTextureR
 				if ( TextureResource.IsValid() && TextureResource->TextureObject && TextureResource->TextureObject->Resource )
 				{
 					TextureResource->UpdateRenderResource(TextureObject->Resource);
-					GetAccessedUObjects().Add(TextureResource->TextureObject);
 					return TextureResource->Proxy;
 				}
 			}
@@ -717,8 +705,6 @@ FSlateShaderResourceProxy* FSlateRHIResourceManager::FindOrCreateDynamicTextureR
 					}
 
 					FSlateShaderResourceProxy* AtlasedProxy = AtlasResource->FindOrCreateAtlasedProxy(ResourceObject, AtlasData);
-
-					GetAccessedUObjects().Add(ResourceObject);
 
 					return AtlasedProxy;
 				}
@@ -800,8 +786,6 @@ FSlateMaterialResource* FSlateRHIResourceManager::GetMaterialResource(const UObj
 		MaterialResource->UpdateMaterial( *Material, ImageSize, TextureMask );
 	}
 
-	GetAccessedUObjects().Add(const_cast<UMaterialInterface*>( Material ));
-
 	return MaterialResource.Get();
 }
 
@@ -839,7 +823,6 @@ void FSlateRHIResourceManager::ReleaseDynamicResource( const FSlateBrush& InBrus
 			if(TextureResource.IsValid())
 			{
 				//remove it from the accessed textures
-				GetAccessedUObjects().Remove(TextureResource->TextureObject);
 				DynamicResourceMap.RemoveUTextureResource(TextureResource->TextureObject);
 
 				UTextureFreeList.Add(TextureResource);
@@ -906,52 +889,7 @@ void FSlateRHIResourceManager::BeginReleasingAccessedResources(bool bImmediately
 	{
 		DynamicResourceMap.RemoveExpiredTextureResources(UTextureFreeList);
 		DynamicResourceMap.RemoveExpiredMaterialResources(MaterialResourceFreeList);
-
-		if ( CurrentAccessedUObject )
-		{
-			DirtyAccessedObjectSets.Enqueue(CurrentAccessedUObject);
-
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(UpdateSlateUTextureResource,
-				FSlateRHIResourceManager*, InManager, this,
-				{
-					TSet<UObject*>* Objects = nullptr;
-					InManager->DirtyAccessedObjectSets.Dequeue(Objects);
-					InManager->CleanAccessedObjectSets.Enqueue(Objects);
-				});
-
-			CurrentAccessedUObject = nullptr;
-		}
-
-		if ( bImmediatelyFlush )
-		{
-			// Release all accessed object sets, we only manipulate the set on the main
-			// thread, so this is fine.
-			for ( TSet<UObject*>* AccessedUObjects : AllAccessedUObject )
-			{
-				AccessedUObjects->Empty();
-			}
-		}
 	}
-}
-
-TSet<UObject*>& FSlateRHIResourceManager::GetAccessedUObjects()
-{
-	// If the current CurrentAccessedUObject is nullptr, that means we need a fresh
-	// one from the clean queue, or we need to create one.
-	if ( CurrentAccessedUObject == nullptr )
-	{
-		if ( CleanAccessedObjectSets.Dequeue(CurrentAccessedUObject) )
-		{
-			CurrentAccessedUObject->Empty();
-		}
-		else
-		{
-			AllAccessedUObject.Add(new TSet<UObject*>());
-			CurrentAccessedUObject = AllAccessedUObject.Last();
-		}
-	}
-
-	return *CurrentAccessedUObject;
 }
 
 void FSlateRHIResourceManager::UpdateTextureAtlases()
@@ -1129,23 +1067,6 @@ void FSlateRHIResourceManager::DeleteResources()
 	SET_DWORD_STAT(STAT_SlateNumNonAtlasedTextures, 0);
 	SET_DWORD_STAT(STAT_SlateNumTextureAtlases, 0);
 	SET_DWORD_STAT(STAT_SlateNumDynamicTextures, 0);
-
-	// Verify rendering commands were flushed by ensuring there's nothing left to be processed
-	// in the dirty queue, they should all be in clean.
-	check(DirtyAccessedObjectSets.IsEmpty());
-
-	// Remove everything from the clean set.
-	TSet<UObject*>* DummyObjects;
-	while ( CleanAccessedObjectSets.Dequeue(DummyObjects) ) { }
-
-	// Release all accessed object sets.
-	for ( TSet<UObject*>* AccessedUObjects : AllAccessedUObject )
-	{
-		AccessedUObjects->Empty();
-		delete AccessedUObjects;
-	}
-
-	AllAccessedUObject.Empty();
 
 	DynamicResourceMap.Empty();
 	TextureAtlases.Empty();

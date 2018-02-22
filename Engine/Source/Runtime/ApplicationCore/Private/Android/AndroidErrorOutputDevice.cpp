@@ -47,5 +47,6 @@ void FAndroidErrorOutputDevice::HandleError()
 #if !NO_LOGGING
 	FDebug::LogFormattedMessageWithCallstack(LogAndroid.GetCategoryName(), __FILE__, __LINE__, TEXT("=== Critical error: ==="), GErrorHist, ELogVerbosity::Error);
 #endif
+	
 	GLog->PanicFlushThreadedLogs();
 }

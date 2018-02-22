@@ -14,8 +14,8 @@
 #include "Engine/LevelStreaming.h"
 #include "LevelStreamingKismet.generated.h"
 
-UCLASS(MinimalAPI, BlueprintType)
-class ULevelStreamingKismet : public ULevelStreaming
+UCLASS(BlueprintType)
+class ENGINE_API ULevelStreamingKismet : public ULevelStreaming
 {
 	GENERATED_UCLASS_BODY()
 
@@ -42,24 +42,32 @@ class ULevelStreamingKismet : public ULevelStreaming
  	* @return Streaming level object for a level instance
  	*/ 
  	UFUNCTION(BlueprintCallable, Category = LevelStreaming, meta=(WorldContext="WorldContextObject"))
- 	static ENGINE_API ULevelStreamingKismet* LoadLevelInstance(UObject* WorldContextObject, FString LevelName, FVector Location, FRotator Rotation, bool& bOutSuccess);
+ 	static ULevelStreamingKismet* LoadLevelInstance(UObject* WorldContextObject, FString LevelName, FVector Location, FRotator Rotation, bool& bOutSuccess);
 
  	UFUNCTION(BlueprintCallable, Category = LevelStreaming, meta=(DisplayName = "Load Level Instance", WorldContext="WorldContextObject"))
- 	static ENGINE_API ULevelStreamingKismet* LoadLevelInstanceBySoftObjectPtr(UObject* WorldContextObject, TSoftObjectPtr<UWorld> Level, FVector Location, FRotator Rotation, bool& bOutSuccess);
+ 	static ULevelStreamingKismet* LoadLevelInstanceBySoftObjectPtr(UObject* WorldContextObject, TSoftObjectPtr<UWorld> Level, FVector Location, FRotator Rotation, bool& bOutSuccess);
  	
 	//~ Begin UObject Interface
 	virtual void PostLoad() override;
 	//~ End UObject Interface
 
 	//~ Begin ULevelStreaming Interface
-	virtual bool ShouldBeLoaded() const override;
+	virtual bool ShouldBeLoaded() const override { return bShouldBeLoaded; }
 	//~ End ULevelStreaming Interface
 
+	UFUNCTION(BlueprintSetter)
+	virtual void SetShouldBeLoaded(bool bShouldBeLoaded) override;
+
 private:
+
+	/** Whether the level should be loaded																						*/
+	UPROPERTY(Category=LevelStreaming, BlueprintSetter=SetShouldBeLoaded)
+	uint32 bShouldBeLoaded:1;
+
 	// Counter used by LoadLevelInstance to create unique level names
 	static int32 UniqueLevelInstanceId;
 
- 	static ENGINE_API ULevelStreamingKismet* LoadLevelInstance_Internal(UWorld* World, const FString& LongPackageName, FVector Location, FRotator Rotation, bool& bOutSuccess);
+ 	static ULevelStreamingKismet* LoadLevelInstance_Internal(UWorld* World, const FString& LongPackageName, FVector Location, FRotator Rotation, bool& bOutSuccess);
 
 };
 

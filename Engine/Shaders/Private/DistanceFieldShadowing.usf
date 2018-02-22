@@ -11,20 +11,15 @@
 
 uint ObjectBoundingGeometryIndexCount;
 
-float4 FetchObjectDataFloat4(uint SourceIndex)
-{
-	return float4(ObjectData[4 * SourceIndex + 0], ObjectData[4 * SourceIndex + 1], ObjectData[4 * SourceIndex + 2], ObjectData[4 * SourceIndex + 3]);
-}
-
 void CopyCulledObjectData(uint DestIndex, uint SourceIndex)
 {
-	RWCulledObjectBounds[DestIndex] = float4(ObjectBounds[4 * SourceIndex + 0], ObjectBounds[4 * SourceIndex + 1], ObjectBounds[4 * SourceIndex + 2], ObjectBounds[4 * SourceIndex + 3]);
+	RWCulledObjectBounds[DestIndex] = LoadFloat4(SceneObjectBounds, SourceIndex);
 
 	UNROLL
 	for (uint VectorIndex = 0; VectorIndex < CULLED_OBJECT_DATA_STRIDE; VectorIndex++)
 	{
 		// Note: only copying the first CULLED_OBJECT_DATA_STRIDE of the original object data
-		RWCulledObjectData[DestIndex * CULLED_OBJECT_DATA_STRIDE + VectorIndex] = FetchObjectDataFloat4(SourceIndex * OBJECT_DATA_STRIDE + VectorIndex);
+		RWCulledObjectData[DestIndex * CULLED_OBJECT_DATA_STRIDE + VectorIndex] = LoadFloat4(SceneObjectData, SourceIndex * OBJECT_DATA_STRIDE + VectorIndex);
 	}
 
 	float3 LocalVolumeBoundsMin;
@@ -44,10 +39,10 @@ void CopyCulledObjectData(uint DestIndex, uint SourceIndex)
 	float3 MinViewSpacePosition = float3(2000000, 2000000, 2000000);
 	float3 MaxViewSpacePosition = float3(-2000000, -2000000, -2000000);
 
-	float4 M0 = FetchObjectDataFloat4(SourceIndex * OBJECT_DATA_STRIDE + 11);
-	float4 M1 = FetchObjectDataFloat4(SourceIndex * OBJECT_DATA_STRIDE + 12);
-	float4 M2 = FetchObjectDataFloat4(SourceIndex * OBJECT_DATA_STRIDE + 13);
-	float4 M3 = FetchObjectDataFloat4(SourceIndex * OBJECT_DATA_STRIDE + 14);
+	float4 M0 = LoadFloat4(SceneObjectData, SourceIndex * OBJECT_DATA_STRIDE + 11);
+	float4 M1 = LoadFloat4(SceneObjectData, SourceIndex * OBJECT_DATA_STRIDE + 12);
+	float4 M2 = LoadFloat4(SceneObjectData, SourceIndex * OBJECT_DATA_STRIDE + 13);
+	float4 M3 = LoadFloat4(SceneObjectData, SourceIndex * OBJECT_DATA_STRIDE + 14);
 
 	float4x4 LocalToWorld = float4x4(M0, M1, M2, M3);
 
@@ -119,15 +114,23 @@ void CullObjectsForShadowCS(
 
 	if (ObjectIndex < NumSceneObjects)
 	{
-		float4 ObjectBoundingSphere = float4(ObjectBounds[4 * SourceIndex + 0], ObjectBounds[4 * SourceIndex + 1], ObjectBounds[4 * SourceIndex + 2], ObjectBounds[4 * SourceIndex + 3]);
+		float4 ObjectBoundingSphere = LoadFloat4(SceneObjectBounds, SourceIndex);
 	
 		if (ShadowBoundingSphere.w == 0 && ShadowConvexHullIntersectSphere(ObjectBoundingSphere.xyz, ObjectBoundingSphere.w)
 			|| ShadowBoundingSphere.w > 0 && dot(ShadowBoundingSphere.xyz - ObjectBoundingSphere.xyz, ShadowBoundingSphere.xyz - ObjectBoundingSphere.xyz) < Square(ShadowBoundingSphere.w + ObjectBoundingSphere.w))
 		{
-			uint DestIndex;
-			InterlockedAdd(RWObjectIndirectArguments[1], 1U, DestIndex);
-			CopyCulledObjectData(DestIndex, SourceIndex);
-		}
+			// Assume ObjectBoundingSphere is located at (0, 0, 0) in local space
+            float ViewDist2 = length2(ObjectBoundingSphere.xyz - View.WorldViewOrigin);
+            float2 MinMaxDrawDist2 = LoadGlobalObjectMinMaxDrawDistance2(SourceIndex);
+
+            if ((MinMaxDrawDist2.x < 0.0001 || ViewDist2 > MinMaxDrawDist2.x)
+                && (MinMaxDrawDist2.y < 0.0001 || ViewDist2 < MinMaxDrawDist2.y))
+            {
+                uint DestIndex;
+                InterlockedAdd(RWObjectIndirectArguments[1], 1U, DestIndex);
+                CopyCulledObjectData(DestIndex, SourceIndex);
+            }
+        }
 	}
 
 #else
@@ -149,20 +152,32 @@ void CullObjectsForShadowCS(
 #endif
 }
 
-RWBuffer<uint> RWShadowTileHeadDataUnpacked;
-RWBuffer<uint> RWShadowTileArrayData;
+RWBuffer<uint> RWNextStartOffset;
+RWBuffer<uint> RWShadowTileStartOffsets;
 
-[numthreads(THREADGROUP_SIZEX, THREADGROUP_SIZEY, 1)]
-void ClearTilesCS(
-	uint3 GroupId : SV_GroupID,
-	uint3 DispatchThreadId : SV_DispatchThreadID,
-    uint3 GroupThreadId : SV_GroupThreadID) 
+#ifndef COMPUTE_START_OFFSET_GROUP_SIZE
+#define COMPUTE_START_OFFSET_GROUP_SIZE 1
+#endif
+
+[numthreads(COMPUTE_START_OFFSET_GROUP_SIZE, COMPUTE_START_OFFSET_GROUP_SIZE, 1)]
+void ComputeCulledTilesStartOffsetCS(
+	uint3 DispatchThreadId : SV_DispatchThreadID)
 {
-    uint TileIndex = DispatchThreadId.y * ShadowTileListGroupSize.x + DispatchThreadId.x;
-	
-	RWShadowTileHeadDataUnpacked[TileIndex * 2 + 0] = TileIndex;
-	RWShadowTileHeadDataUnpacked[TileIndex * 2 + 1] = 0;
+	uint2 TileCoordinate = DispatchThreadId.xy;
+
+	if (all(TileCoordinate < ShadowTileListGroupSize))
+	{
+		uint TileIndex = DispatchThreadId.y * ShadowTileListGroupSize.x + DispatchThreadId.x;
+		uint NumIntersectingObjects = ShadowTileNumCulledObjects[TileIndex];
+
+		uint TileStartOffset;
+		InterlockedAdd(RWNextStartOffset[0], NumIntersectingObjects, TileStartOffset);
+		RWShadowTileStartOffsets[TileIndex] = TileStartOffset;
+	}
 }
+
+RWBuffer<uint> RWShadowTileNumCulledObjects;
+RWBuffer<uint> RWShadowTileArrayData;
 
 struct FShadowObjectCullVertexOutput
 {
@@ -198,6 +213,20 @@ void ShadowObjectCullVS(
 	Output.PositionAndRadius = ObjectPositionAndRadius;
 	Output.ObjectIndex = ObjectIndex;
 } 
+
+void HandleShadowTileObjectIntersection(uint TileIndex, uint ObjectIndex)
+{
+	#if SCATTER_CULLING_COUNT_PASS
+		InterlockedAdd(RWShadowTileNumCulledObjects[TileIndex], 1U);
+	#else
+		uint ArrayIndex;
+		InterlockedAdd(RWShadowTileNumCulledObjects[TileIndex], 1U, ArrayIndex);
+
+		uint StartOffset = ShadowTileStartOffsets[TileIndex];
+		uint DataIndex = (ArrayIndex + StartOffset);
+		RWShadowTileArrayData[DataIndex * SHADOW_TILE_ARRAY_DATA_STRIDE] = ObjectIndex;
+	#endif
+}
 
 /** Intersects a single object with the tile and adds to the intersection list if needed. */
 void ShadowObjectCullPS(
@@ -268,27 +297,13 @@ void ShadowObjectCullPS(
 		// Separating axis test on the OBB
 		if (all(MinProjections < 1) && all(MaxProjections > -1))
 		{
-			uint ArrayIndex;
-			InterlockedAdd(RWShadowTileHeadDataUnpacked[TileIndex * 2 + 1], 1U, ArrayIndex);
-
-			if (ArrayIndex < ShadowMaxObjectsPerTile)
-			{
-				uint DataIndex = (ArrayIndex * (uint)(ShadowTileListGroupSize.x * ShadowTileListGroupSize.y + .5f) + TileIndex);
-				RWShadowTileArrayData[DataIndex * SHADOW_TILE_ARRAY_DATA_STRIDE] = Input.ObjectIndex;
-			}
+			HandleShadowTileObjectIntersection(TileIndex, Input.ObjectIndex);
 		}
 	}
 	
 #else
 	{
-		uint ArrayIndex;
-		InterlockedAdd(RWShadowTileHeadDataUnpacked[TileIndex * 2 + 1], 1U, ArrayIndex);
-
-		if (ArrayIndex < ShadowMaxObjectsPerTile)
-		{
-			uint DataIndex = (ArrayIndex * (uint)(ShadowTileListGroupSize.x * ShadowTileListGroupSize.y + .5f) + TileIndex);
-			RWShadowTileArrayData[DataIndex * SHADOW_TILE_ARRAY_DATA_STRIDE] = Input.ObjectIndex;
-		}
+		HandleShadowTileObjectIntersection(TileIndex, Input.ObjectIndex);
 	}
 #endif
 }
@@ -597,7 +612,7 @@ void DistanceFieldShadowingCS(
 
 #else
 	//Result = bTileShouldComputeShadowing;
-	Result = NumIntersectingObjects / 5000.0f;
+	Result = NumIntersectingObjects / 500.0f;
 #endif
 
 	RWShadowFactors[DispatchThreadId.xy] = float2(Result, SceneDepth);

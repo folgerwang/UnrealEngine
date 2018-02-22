@@ -60,7 +60,7 @@ bool FALSoundSource::Init( FWaveInstance* InWaveInstance )
 
 	// Failed to initialize source.
 	UE_LOG(LogALAudio, Warning, TEXT("Failed to initialize sound source with WaveInstance '%s'."), *InWaveInstance->WaveData->GetName());
-	UE_LOG(LogALAudio, Warning, TEXT("  SampleRate %d"), InWaveInstance->WaveData->SampleRate);
+	UE_LOG(LogALAudio, Warning, TEXT("  SampleRate %d"), InWaveInstance->WaveData->GetSampleRateForCurrentPlatform());
 	UE_LOG(LogALAudio, Warning, TEXT("  Channels %d"), InWaveInstance->WaveData->NumChannels);
 	return false;
 }

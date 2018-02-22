@@ -12,9 +12,16 @@
 #include "Misc/CommandLine.h"
 #include "HAL/IConsoleManager.h"
 
+double FScopedLoadTimeAccumulatorTimer::DummyTimer = 0.0;
+
+FScopedLoadTimeAccumulatorTimer::FScopedLoadTimeAccumulatorTimer(const FName& InTimerName, const FName& InInstanceName)
+	: FScopedDurationTimer(FLoadTimeTracker::Get().IsAccumulating() ? FLoadTimeTracker::Get().GetScopeTimeAccumulator(InTimerName, InInstanceName) : DummyTimer)
+{}
+
 FLoadTimeTracker::FLoadTimeTracker()
 {
 	ResetRawLoadTimes();
+	bAccumulating = false;
 }
 
 void FLoadTimeTracker::ReportScopeTime(double ScopeTime, const FName ScopeLabel)
@@ -24,6 +31,14 @@ void FLoadTimeTracker::ReportScopeTime(double ScopeTime, const FName ScopeLabel)
 	LoadTimes.Add(ScopeTime);
 }
 
+double& FLoadTimeTracker::GetScopeTimeAccumulator(const FName& ScopeLabel, const FName& ScopeInstance)
+{
+	check(IsInGameThread());
+	FAccumulatorTracker& Tracker = AccumulatedTimeInfo.FindOrAdd(ScopeLabel);
+	FTimeAndCount& TimeAndCount = Tracker.TimeInfo.FindOrAdd(ScopeInstance);
+	TimeAndCount.Count++;
+	return TimeAndCount.Time;
+}
 
 void FLoadTimeTracker::DumpHighLevelLoadTimes() const
 {
@@ -222,6 +237,43 @@ void FLoadTimeTracker::ResetRawLoadTimes()
 
 }
 
+void FLoadTimeTracker::StartAccumulatedLoadTimes()
+{
+	bAccumulating = true;
+	AccumulatedTimeInfo.Empty();
+}
+
+void FLoadTimeTracker::StopAccumulatedLoadTimes()
+{
+	bAccumulating = false;
+
+	UE_LOG(LogLoad, Log, TEXT("------------- Accumulated Load times -------------"));
+	
+	for(auto Itr0 = AccumulatedTimeInfo.CreateConstIterator(); Itr0; ++Itr0)
+	{
+		double TotalTime = 0.0;
+		uint64 TotalCount = 0;
+
+		const FString KeyName = Itr0.Key().ToString();
+		UE_LOG(LogLoad, Log, TEXT("------------- %s Times ------------"), *KeyName);
+		UE_LOG(LogLoad, Log, TEXT("Name Time Count"));
+
+		for(auto Itr1 = Itr0.Value().TimeInfo.CreateConstIterator(); Itr1; ++Itr1)
+		{
+			const FString InstanceName = Itr1.Key().ToString();
+			const double& LoadTime = Itr1.Value().Time;
+			const uint64& Count = Itr1.Value().Count;
+
+			TotalTime += LoadTime;
+			TotalCount += Count;
+			UE_LOG(LogLoad, Log, TEXT("%s %f %llu"), *InstanceName, LoadTime, Count);
+		}
+
+		UE_LOG(LogLoad, Log, TEXT("Total%s %f %llu"), *KeyName, TotalTime, TotalCount);
+		UE_LOG(LogLoad, Log, TEXT("------------------------------------"));
+	}
+}
+
 static FAutoConsoleCommand LoadTimerDumpCmd(
 	TEXT("LoadTimes.DumpTracking"),
 	TEXT("Dump high level load times being tracked"),
@@ -231,4 +283,22 @@ static FAutoConsoleCommand LoadTimerDumpLowCmd(
 	TEXT("LoadTimes.DumpTrackingLow"),
 	TEXT("Dump low level load times being tracked"),
 	FConsoleCommandDelegate::CreateStatic(&FLoadTimeTracker::DumpRawLoadTimesStatic)
+	);
+
+static FAutoConsoleCommand LoadTimerResetCmd(
+	TEXT("LoadTimes.ResetTracking"),
+	TEXT("Reset load time tracking"),
+	FConsoleCommandDelegate::CreateStatic(&FLoadTimeTracker::ResetRawLoadTimesStatic)
+	);
+
+static FAutoConsoleCommand AccumulatorTimerStartCmd(
+	TEXT("LoadTimes.StartAccumulating"),
+	TEXT("Starts capturing fine-grained accumulated load time data"),
+	FConsoleCommandDelegate::CreateStatic(&FLoadTimeTracker::StartAccumulatedLoadTimesStatic)
+	);
+
+static FAutoConsoleCommand AccumulatorTimerStopCmd(
+	TEXT("LoadTimes.StopAccumulating"),
+	TEXT("Stops capturing fine-grained accumulated load time data and dump the results"),
+	FConsoleCommandDelegate::CreateStatic(&FLoadTimeTracker::StopAccumulatedLoadTimesStatic)
 	);

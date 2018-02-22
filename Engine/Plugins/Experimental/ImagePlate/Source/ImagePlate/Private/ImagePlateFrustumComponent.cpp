@@ -105,7 +105,7 @@ UImagePlateFrustumComponent::UImagePlateFrustumComponent(const FObjectInitialize
 	bUseEditorCompositing = true;
 	bHiddenInGame = true;
 	SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
-	bGenerateOverlapEvents = false;
+	SetGenerateOverlapEvents(false);
 }
 
 FPrimitiveSceneProxy* UImagePlateFrustumComponent::CreateSceneProxy()

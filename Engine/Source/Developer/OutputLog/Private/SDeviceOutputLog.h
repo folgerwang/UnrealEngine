@@ -15,7 +15,6 @@ class SComboButton;
 struct FTargetDeviceEntry
 {
 	FTargetDeviceId			DeviceId;
-	FString					DeviceName;
 	const FSlateBrush*		DeviceIconBrush;
 	ITargetDeviceWeakPtr	DeviceWeakPtr;
 };

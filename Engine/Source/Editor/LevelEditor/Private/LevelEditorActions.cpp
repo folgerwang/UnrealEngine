@@ -396,7 +396,7 @@ void FLevelEditorActionCallbacks::SaveCurrentAs()
 	
 	UClass* CurrentStreamingLevelClass = ULevelStreamingKismet::StaticClass();
 
-	for (ULevelStreaming* StreamingLevel : World->StreamingLevels)
+	for (ULevelStreaming* StreamingLevel : World->GetStreamingLevels())
 	{
 		if (StreamingLevel->GetLoadedLevel() == CurrentLevel)
 		{

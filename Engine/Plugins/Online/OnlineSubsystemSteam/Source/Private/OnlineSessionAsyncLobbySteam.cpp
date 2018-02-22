@@ -420,7 +420,7 @@ bool FillMembersFromLobbyData(FUniqueNetIdSteam& LobbyId, FNamedOnlineSession& S
  */
 FString FOnlineAsyncTaskSteamCreateLobby::ToString() const
 {
-	return FString::Printf(TEXT("FOnlineAsyncTaskSteamCreateLobby bWasSuccessful: %d LobbyId: %llu LobbyType: %d Result: %s"), bWasSuccessful, CallbackResults.m_ulSteamIDLobby, (int32)LobbyType, *SteamResultString(CallbackResults.m_eResult));
+	return FString::Printf(TEXT("FOnlineAsyncTaskSteamCreateLobby bWasSuccessful: %d LobbyId: %llu LobbyType: %d Result: %s"), WasSuccessful(), CallbackResults.m_ulSteamIDLobby, (int32)LobbyType, *SteamResultString(CallbackResults.m_eResult));
 }
 
 /**
@@ -550,7 +550,7 @@ void FOnlineAsyncTaskSteamCreateLobby::TriggerDelegates()
 FString FOnlineAsyncTaskSteamJoinLobby::ToString() const
 {
 	return FString::Printf(TEXT("FOnlineAsyncTaskSteamJoinLobby bWasSuccessful: %d Session: %s LobbyId: %s Result: %s"), 
-		bWasSuccessful, 
+		WasSuccessful(),
 		*SessionName.ToString(), 
 		*LobbyId.ToDebugString(),
 		*SteamChatRoomEnterResponseString((EChatRoomEnterResponse)CallbackResults.m_EChatRoomEnterResponse));
@@ -562,7 +562,7 @@ FString FOnlineAsyncTaskSteamJoinLobby::ToString() const
 FString FOnlineAsyncTaskSteamUpdateLobby::ToString() const
 {
 	return FString::Printf(TEXT("FOnlineAsyncTaskSteamUpdateLobby bWasSuccessful: %d Session: %s"),
-		bWasSuccessful, 
+		WasSuccessful(),
 		*SessionName.ToString());
 }
 
@@ -758,7 +758,7 @@ void FOnlineAsyncTaskSteamJoinLobby::TriggerDelegates()
  */
 FString FOnlineAsyncTaskSteamLeaveLobby::ToString() const
 {
-	return FString::Printf(TEXT("FOnlineAsyncTaskSteamLeaveLobby bWasSuccessful: %d SessionName: %s LobbyId: %s"), bWasSuccessful, *SessionName.ToString(), *LobbyId.ToDebugString());
+	return FString::Printf(TEXT("FOnlineAsyncTaskSteamLeaveLobby bWasSuccessful: %d SessionName: %s LobbyId: %s"), WasSuccessful(), *SessionName.ToString(), *LobbyId.ToDebugString());
 }
 
 /**
@@ -1067,7 +1067,7 @@ void FOnlineAsyncTaskSteamFindLobbiesBase::Finalize()
 */
 FString FOnlineAsyncTaskSteamFindLobbies::ToString() const
 {
-	return FString::Printf(TEXT("FOnlineAsyncTaskSteamFindLobbiesForFindSessions bWasSuccessful: %d NumResults: %d"), bWasSuccessful, CallbackResults.m_nLobbiesMatching);
+	return FString::Printf(TEXT("FOnlineAsyncTaskSteamFindLobbiesForFindSessions bWasSuccessful: %d NumResults: %d"), WasSuccessful(), CallbackResults.m_nLobbiesMatching);
 }
 
 /**
@@ -1087,7 +1087,7 @@ void FOnlineAsyncTaskSteamFindLobbies::TriggerDelegates()
 */
 FString FOnlineAsyncTaskSteamFindLobbiesForInviteSession::ToString() const
 {
-	return FString::Printf(TEXT("FOnlineAsyncTaskSteamFindLobbiesForInviteSession bWasSuccessful: %d Lobby ID: %llu"), bWasSuccessful, LobbyIDs[0].ConvertToUint64());
+	return FString::Printf(TEXT("FOnlineAsyncTaskSteamFindLobbiesForInviteSession bWasSuccessful: %d Lobby ID: %llu"), WasSuccessful(), LobbyIDs[0].ConvertToUint64());
 }
 
 /**
@@ -1111,7 +1111,7 @@ void FOnlineAsyncTaskSteamFindLobbiesForInviteSession::TriggerDelegates()
 */
 FString FOnlineAsyncTaskSteamFindLobbiesForFriendSession::ToString() const
 {
-	return FString::Printf(TEXT("FOnlineAsyncTaskSteamFindLobbiesForFriendSession bWasSuccessful: %d Lobby ID: %llu"), bWasSuccessful, LobbyIDs[0].ConvertToUint64());
+	return FString::Printf(TEXT("FOnlineAsyncTaskSteamFindLobbiesForFriendSession bWasSuccessful: %d Lobby ID: %llu"), WasSuccessful(), LobbyIDs[0].ConvertToUint64());
 }
 
 /**

@@ -135,7 +135,7 @@ private:
 	/**
 	 * Internal, shared implementation of GetRenderData
 	 */
-	bool GetRenderData(const FFreeTypeFaceGlyphData& InFaceGlyphData, const float InScale, const FFontOutlineSettings& InOutlineSettings, FCharacterRenderData& OutRenderData) const;
+	bool GetRenderDataInternal(const FFreeTypeFaceGlyphData& InFaceGlyphData, const float InScale, const FFontOutlineSettings& InOutlineSettings, FCharacterRenderData& OutRenderData) const;
 
 	/** 
 	 * Gets or loads a FreeType font face 

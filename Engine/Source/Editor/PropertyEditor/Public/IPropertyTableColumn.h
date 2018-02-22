@@ -47,7 +47,9 @@ public:
 	virtual void SetFrozen( bool IsFrozen ) = 0;
 
 	virtual bool CanSortBy() const = 0;
-	virtual void Sort( TArray< TSharedRef< class IPropertyTableRow > >& Rows, const EColumnSortMode::Type SortMode ) = 0;
+	virtual void Sort( TArray< TSharedRef< class IPropertyTableRow > >& Rows, const EColumnSortMode::Type PrimarySortMode, const TSharedPtr<IPropertyTableColumn>& SecondarySortColumn, const EColumnSortMode::Type SecondarySortMode ) = 0;
+
+	virtual TSharedPtr<struct FCompareRowByColumnBase> GetPropertySorter(UProperty* Property, EColumnSortMode::Type SortMode) = 0;
 
 	/**
 	 * Tick the property column each frame

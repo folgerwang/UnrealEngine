@@ -556,20 +556,35 @@ protected:
 
 FPerformanceTrackingChart::FPerformanceTrackingChart(const FDateTime& InStartTime, const FString& InChartLabel)
 	: ChartLabel(InChartLabel)
-	, NumFramesBound_GameThread(0)
-	, NumFramesBound_RenderThread(0)
-	, NumFramesBound_GPU(0)
-	, TotalFramesBoundTime_GameThread(0.0)
-	, TotalFramesBoundTime_RenderThread(0.0)
-	, TotalFramesBoundTime_GPU(0.0)
-	, TotalFrameTime_GameThread(0.0)
-	, TotalFrameTime_RenderThread(0.0)
-	, TotalFrameTime_GPU(0.0)
-	, TotalGameThreadBoundHitchCount(0)
-	, TotalRenderThreadBoundHitchCount(0)
-	, TotalGPUBoundHitchCount(0)
-	, CaptureStartTime(InStartTime)
-	, AccumulatedChartTime(0.0){
+{
+	Reset(InStartTime);
+}
+
+// Discard all accumulated data
+void FPerformanceTrackingChart::Reset(const FDateTime& InStartTime)
+{
+	CaptureStartTime = InStartTime;
+
+	NumFramesBound_GameThread = 0;
+	NumFramesBound_RenderThread = 0;
+	NumFramesBound_GPU = 0;
+	TotalFramesBoundTime_GameThread = 0.0;
+	TotalFramesBoundTime_RenderThread = 0.0;
+	TotalFramesBoundTime_GPU = 0.0;
+	TotalFrameTime_GameThread = 0.0;
+	TotalFrameTime_RenderThread = 0.0;
+	TotalFrameTime_GPU = 0.0;
+	TotalGameThreadBoundHitchCount = 0;
+	TotalRenderThreadBoundHitchCount = 0;
+	TotalGPUBoundHitchCount = 0;
+	MaxDrawCalls = 0;
+	MinDrawCalls = INT_MAX;
+	TotalDrawCalls = 0;
+	MaxDrawnPrimitives = 0;
+	MinDrawnPrimitives = INT_MAX;
+	TotalDrawnPrimitives = 0;
+	AccumulatedChartTime = 0.0;
+
 	{
 		const double FPSThresholds[] = { 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0, 110.0, 120.0 };
 
@@ -639,6 +654,16 @@ void FPerformanceTrackingChart::ProcessFrame(const FFrameData& FrameData)
 	TotalFrameTime_GameThread += FrameData.GameThreadTimeSeconds;
 	TotalFrameTime_RenderThread += FrameData.RenderThreadTimeSeconds;
 	TotalFrameTime_GPU += FrameData.GPUTimeSeconds;
+
+	// Track draw calls
+	MaxDrawCalls = FMath::Max(MaxDrawCalls, GNumDrawCallsRHI);
+	MinDrawCalls = FMath::Min(MinDrawCalls, GNumDrawCallsRHI);
+	TotalDrawCalls += GNumDrawCallsRHI;
+
+	// Track primitives
+	MaxDrawnPrimitives = FMath::Max(MaxDrawnPrimitives, GNumPrimitivesDrawnRHI);
+	MinDrawnPrimitives = FMath::Min(MinDrawnPrimitives, GNumPrimitivesDrawnRHI);
+	TotalDrawnPrimitives += GNumPrimitivesDrawnRHI;
 
 	// Handle hitching
 	if (FrameData.HitchStatus != EFrameHitchType::NoHitch)
@@ -774,6 +799,10 @@ void FPerformanceTrackingChart::DumpChartToAnalyticsParams(const FString& InMapN
 			InParamArray.Add(FAnalyticsEventAttribute(TEXT("GPUDriverVerI"), GRHIAdapterInternalDriverVersion));
 			GRHIAdapterUserDriverVersion.TrimStartAndEndInline();
 			InParamArray.Add(FAnalyticsEventAttribute(TEXT("GPUDriverVerU"), GRHIAdapterUserDriverVersion));
+
+			FString FeatureLevelName;
+			GetFeatureLevelName(GMaxRHIFeatureLevel, FeatureLevelName);
+			InParamArray.Add(FAnalyticsEventAttribute(TEXT("RHIFeatureLevel"), FeatureLevelName));
 
 			// Benchmark results
 			InParamArray.Add(FAnalyticsEventAttribute(TEXT("CPUBM"), UserSettingsObj->GetLastCPUBenchmarkResult()));
@@ -1193,6 +1222,11 @@ void UEngine::TickPerformanceMonitoring(float DeltaSeconds)
 {
 	LLM_SCOPE(ELLMTag::Stats);
 
+#if !UE_BUILD_SHIPPING
+	FPlatformMisc::CustomNamedStat("NumDrawCallsRHI", (float)GNumDrawCallsRHI, "Rendering", "Count");
+	FPlatformMisc::CustomNamedStat("NumPrimitivesDrawnRHI", (float)GNumPrimitivesDrawnRHI, "Rendering", "Count");
+#endif // !UE_BUILD_SHIPPING
+
 	if (ActivePerformanceDataConsumers.Num() > 0)
 	{
 		const IPerformanceDataConsumer::FFrameData FrameData = GPerformanceTrackingSystem.AnalyzeFrame(DeltaSeconds);
@@ -1328,11 +1362,13 @@ L"\n"
 L"<TD CLASS=\"columnSeparator\"><DIV>&nbsp;</DIV></TD>\n"
 L"\n"
 L"<TD CLASS=\"rowHeaderSummary\"><DIV>avg FPS</DIV></TD>\n"
+L"<TD CLASS=\"rowHeaderSummary\"><DIV>% over 20 FPS</DIV></TD>\n"
 L"<TD CLASS=\"rowHeaderSummary\"><DIV>% over 30 FPS</DIV></TD>\n"
 L"<TD CLASS=\"rowHeaderSummary\"><DIV>% over 60 FPS</DIV></TD>\n"
 L"<TD CLASS=\"rowHeaderSummary\"><DIV>% over 120 FPS</DIV></TD>\n"
 L"\n"
 L"<TD CLASS=\"rowHeaderSummary\"><DIV>Hitches/Min</DIV></TD>\n"
+L"<TD CLASS=\"rowHeaderSummary\"><DIV>% Missed VSync 20</DIV></TD>\n"
 L"<TD CLASS=\"rowHeaderSummary\"><DIV>% Missed VSync 30</DIV></TD>\n"
 L"<TD CLASS=\"rowHeaderSummary\"><DIV>% Missed VSync 60</DIV></TD>\n"
 L"<TD CLASS=\"rowHeaderSummary\"><DIV>% Missed VSync 120</DIV></TD>\n"
@@ -1426,11 +1462,13 @@ L"<TD CLASS=\"rowEntrySettingsFX\"><DIV>TOKEN_SETTINGS_FX</DIV></TD>\n"
 L"<TD CLASS=\"columnSeparator\"><DIV>&nbsp;</DIV></TD>\n"
 L"\n"
 L"<TD CLASS=\"rowEntrySummary\"><DIV>TOKEN_AVG_FPS</DIV></TD>\n"
+L"<TD CLASS=\"rowEntrySummary\"><DIV>TOKEN_PCT_ABOVE_20</DIV></TD>\n"
 L"<TD CLASS=\"rowEntrySummary\"><DIV>TOKEN_PCT_ABOVE_30</DIV></TD>\n"
 L"<TD CLASS=\"rowEntrySummary\"><DIV>TOKEN_PCT_ABOVE_60</DIV></TD>\n"
 L"<TD CLASS=\"rowEntrySummary\"><DIV>TOKEN_PCT_ABOVE_120</DIV></TD>\n"
 L"\n"
 L"<TD CLASS=\"rowEntrySummary\"><DIV>TOKEN_HITCHES_PER_MIN</DIV></TD>\n"
+L"<TD CLASS=\"rowEntrySummary\"><DIV>TOKEN_MVP_20</DIV></TD>\n"
 L"<TD CLASS=\"rowEntrySummary\"><DIV>TOKEN_MVP_30</DIV></TD>\n"
 L"<TD CLASS=\"rowEntrySummary\"><DIV>TOKEN_MVP_60</DIV></TD>\n"
 L"<TD CLASS=\"rowEntrySummary\"><DIV>TOKEN_MVP_120</DIV></TD>\n"

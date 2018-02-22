@@ -9,6 +9,7 @@
 #include "UObject/Linker.h"
 #include "UObject/Class.h"
 #include "UObject/Package.h"
+#include "Modules/ModuleManager.h"
 
 //////////////////////////////////////////////////////////////////////////
 

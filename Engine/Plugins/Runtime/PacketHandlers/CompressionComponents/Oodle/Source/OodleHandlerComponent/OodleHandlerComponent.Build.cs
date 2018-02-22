@@ -58,8 +58,20 @@ public class OodleHandlerComponent : ModuleRules
             "Plugins", "Runtime", "PacketHandlers", "CompressionComponents", "Oodle", "Source", "ThirdParty", "NotForLicensees",
             "Oodle", "255", "Mac", "lib");
         }
+		else if (Target.Platform == UnrealTargetPlatform.Android)
+		{
+			OodleNotForLicenseesLibDir = System.IO.Path.Combine(Target.UEThirdPartySourceDirectory, "..", "..",
+			"Plugins", "Runtime", "PacketHandlers", "CompressionComponents", "Oodle", "Source", "ThirdParty", "NotForLicensees",
+			"Oodle", "255", "Android", "lib");
+		}
+		else if (Target.Platform == UnrealTargetPlatform.IOS)
+		{
+			OodleNotForLicenseesLibDir = System.IO.Path.Combine(Target.UEThirdPartySourceDirectory, "..", "..",
+			"Plugins", "Runtime", "PacketHandlers", "CompressionComponents", "Oodle", "Source", "ThirdParty", "NotForLicensees",
+			"Oodle", "255", "IOS", "lib");
+		}
 
-        if (OodleNotForLicenseesLibDir.Length > 0)
+		if (OodleNotForLicenseesLibDir.Length > 0)
 		{
 			try
 			{

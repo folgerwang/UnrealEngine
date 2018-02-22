@@ -6,6 +6,13 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
 #include "Engine/EngineTypes.h"
+
+#if WITH_ENGINE
+#include "AudioCompressionSettings.h"
+#else
+struct FPlatformRuntimeAudioCompressionOverrides;
+#endif
+
 #include "AndroidRuntimeSettings.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAndroidRuntimeSettings, Log, All);
@@ -347,6 +354,10 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = AdvancedBuild, meta = (DisplayName = "Build with hidden symbol visibility in shipping config. [Experimental]"))
 	bool bBuildWithHiddenSymbolVisibility;
 
+	// Always save .so file with symbols allowing use of addr2line on raw callstack addresses.
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = AdvancedBuild, meta = (DisplayName = "Always save a copy of the libUE4.so with symbols. [Experimental]"))
+	bool bSaveSymbols;
+
 	// If selected, the checked architectures will be split into separate .apk files [CURRENTLY FOR FULL SOURCE GAMES ONLY]
 	// @todo android fat binary: Currently, there isn't much utility in merging multiple .so's into a single .apk except for debugging,
 	// but we can't properly handle multiple GPU architectures in a single .apk, so we are disabling the feature for now
@@ -433,6 +444,34 @@ public:
 	/** Which of the currently enabled occlusion plugins to use on Windows. */
 	UPROPERTY(config, EditAnywhere, Category = "Audio")
 	FString OcclusionPlugin;
+
+	/** Various overrides for how this platform should handle compression and decompression */
+	UPROPERTY(config, EditAnywhere, Category = "Audio")
+	FPlatformRuntimeAudioCompressionOverrides CompressionOverrides;
+
+	UPROPERTY(config, EditAnywhere, Category = "Audio|CookOverrides")
+	bool bResampleForDevice;
+
+	// Mapping of which sample rates are used for each sample rate quality for a specific platform.
+
+	UPROPERTY(config, EditAnywhere, Category = "Audio|CookOverrides|ResamplingQuality", meta = (DisplayName = "Max"))
+	float MaxSampleRate;
+
+	UPROPERTY(config, EditAnywhere, Category = "Audio|CookOverrides|ResamplingQuality", meta = (DisplayName = "High"))
+	float HighSampleRate;
+
+	UPROPERTY(config, EditAnywhere, Category = "Audio|CookOverrides|ResamplingQuality", meta = (DisplayName = "Medium"))
+	float MedSampleRate;
+
+	UPROPERTY(config, EditAnywhere, Category = "Audio|CookOverrides|ResamplingQuality", meta = (DisplayName = "Low"))
+	float LowSampleRate;
+
+	UPROPERTY(config, EditAnywhere, Category = "Audio|CookOverrides|ResamplingQuality", meta = (DisplayName = "Min"))
+	float MinSampleRate;
+
+	// Scales all compression qualities when cooking to this platform. For example, 0.5 will halve all compression qualities, and 1.0 will leave them unchanged.
+	UPROPERTY(config, EditAnywhere, Category = "Audio|CookOverrides")
+	float CompressionQualityModifier;
 
 	// Several Android graphics debuggers require configuration changes to be made to your application in order to operate. Choosing an option from this menu will configure your project to work with that graphics debugger. 
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = GraphicsDebugger)

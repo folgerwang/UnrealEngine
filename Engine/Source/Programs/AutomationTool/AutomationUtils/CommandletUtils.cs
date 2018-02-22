@@ -131,6 +131,17 @@ namespace AutomationTool
 			RunCommandlet(ProjectName, UE4Exe, "ResavePackages", String.Format("-buildtexturestreaming -buildlighting -MapsOnly -ProjectOnly -AllowCommandletRendering -SkipSkinVerify {0} {1}", MapsToRebuildLighting, Parameters));
 		}
 
+        public static void RebuildHLODCommandlet(FileReference ProjectName, string UE4Exe = "UE4Editor-Cmd.exe", string[] Maps = null, string Parameters = "")
+        {
+            string MapsToRebuildHLODs = "";
+            if (!IsNullOrEmpty(Maps))
+            {
+                MapsToRebuildHLODs = "-Map=" + CombineCommandletParams(Maps).Trim();
+            }
+
+            RunCommandlet(ProjectName, UE4Exe, "ResavePackages", String.Format("-BuildHLOD -ProjectOnly -AllowCommandletRendering -SkipSkinVerify {0} {1}", MapsToRebuildHLODs, Parameters));
+        }
+
         /// <summary>
         /// Runs RebuildLightMaps commandlet.
         /// </summary>

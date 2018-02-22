@@ -17,11 +17,13 @@
 #include "Misc/MessageDialog.h"
 #include "Misc/CoreDelegates.h"
 #include "Misc/OutputDeviceRedirector.h"
+#include "Misc/OutputDeviceFile.h"
 #include "Templates/ScopedPointer.h"
 #include "Windows/WindowsPlatformStackWalk.h"
 #include "Windows/WindowsHWrapper.h"
 #include "Windows/AllowWindowsPlatformTypes.h"
 #include "Templates/UniquePtr.h"
+#include "Misc/OutputDeviceArchiveWrapper.h"
 
 #include <strsafe.h>
 #include <dbghelp.h>
@@ -151,35 +153,45 @@ int32 ReportCrashUsingCrashReportClient(FWindowsPlatformCrashContext& InContext,
 
 			// Copy log
 			const FString LogSrcAbsolute = FPlatformOutputDevices::GetAbsoluteLogFilename();
+			FString LogFilename = FPaths::GetCleanFilename(LogSrcAbsolute);
+			const FString LogDstAbsolute = FPaths::Combine(*CrashFolderAbsolute, *LogFilename);
 
 			// Flush out the log
 			GLog->Flush();
 
 			// If we have a memory only log, make sure it's dumped to file before we attach it to the report
-			bool bHasLogFile = !FPlatformOutputDevices::GetLog()->IsMemoryOnly();
 #if !NO_LOGGING
-			if (!bHasLogFile)
+			bool bMemoryOnly = FPlatformOutputDevices::GetLog()->IsMemoryOnly();
+			bool bBacklogEnabled = FOutputDeviceRedirector::Get()->IsBacklogEnabled();
+
+			if (bMemoryOnly || bBacklogEnabled)
 			{
-				FArchive* LogFile = IFileManager::Get().CreateFileWriter(*LogSrcAbsolute, FILEWRITE_AllowRead);
+				FArchive* LogFile = IFileManager::Get().CreateFileWriter(*LogDstAbsolute, FILEWRITE_AllowRead);
 				if (LogFile)
 				{
-					FPlatformOutputDevices::GetLog()->Dump(*LogFile);
+					if (bMemoryOnly)
+					{
+						FPlatformOutputDevices::GetLog()->Dump(*LogFile);
+					}
+					else
+					{
+						FOutputDeviceArchiveWrapper Wrapper(LogFile);
+						GLog->SerializeBacklog(&Wrapper);
+					}
+
 					LogFile->Flush();
 					delete LogFile;
-					bHasLogFile = true;
 				}
 			}
-#endif
-			if (bHasLogFile)
+			else
 			{
-				FString LogFilename = FPaths::GetCleanFilename(LogSrcAbsolute);
-				const FString LogDstAbsolute = FPaths::Combine(*CrashFolderAbsolute, *LogFilename);
 				const bool bReplace = true;
 				const bool bEvenIfReadOnly = false;
 				const bool bAttributes = false;
 				FCopyProgress* const CopyProgress = nullptr;
 				static_cast<void>(IFileManager::Get().Copy(*LogDstAbsolute, *LogSrcAbsolute, bReplace, bEvenIfReadOnly, bAttributes, CopyProgress, FILEREAD_AllowWrite, FILEWRITE_AllowRead));	// best effort, so don't care about result: couldn't copy -> tough, no log
 			}
+#endif // !NO_LOGGING
 
 			// If present, include the crash report config file to pass config values to the CRC
 			const TCHAR* CrashConfigSrcPath = FWindowsPlatformCrashContext::GetCrashConfigFilePath();

@@ -472,13 +472,13 @@ public:
 						// Make a material for drawing solid collision stuff
 						auto SolidMaterialInstance = new FColoredMaterialRenderProxy(
 							GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(IsSelected(), IsHovered()),
-							WireframeColor
+							GetWireframeColor()
 							);
 
 						Collector.RegisterOneFrameMaterialProxy(SolidMaterialInstance);
 
 						FTransform GeomTransform(GetLocalToWorld());
-						InBodySetup->AggGeom.GetAggGeom(GeomTransform, WireframeColor.ToFColor(true), SolidMaterialInstance, false, true, UseEditorDepthTest(), ViewIndex, Collector);
+						InBodySetup->AggGeom.GetAggGeom(GeomTransform, GetWireframeColor().ToFColor(true), SolidMaterialInstance, false, true, UseEditorDepthTest(), ViewIndex, Collector);
 					}
 					// wireframe
 					else
@@ -594,7 +594,7 @@ UWidgetComponent::UWidgetComponent( const FObjectInitializer& PCIP )
 	MaskedMaterial_OneSided = MaskedMaterial_OneSided_Finder.Object;
 
 	LastLocalHitLocation = FVector2D::ZeroVector;
-	//bGenerateOverlapEvents = false;
+	//SetGenerateOverlapEvents(false);
 	bUseEditorCompositing = false;
 
 	Space = EWidgetSpace::World;

@@ -171,26 +171,23 @@ public:
 		return FString();
 	}
 
-	/**
-	* Friend function for using FUniqueNetIdWrapper as a hashable key
-	*/
 	friend inline uint32 GetTypeHash(FUniqueNetId const& Value)
 	{
-		// Reinterpret the first four bytes into a hash.
-		if (Value.GetSize() >= 4)
+		const int32 Size = Value.GetSize();
+		if (Size < sizeof(uint32))
 		{
-			return (*((uint32*)Value.GetBytes()));
+			// Grab 1 byte worth of data as 32bit
+			return GetTypeHash((uint32)(*Value.GetBytes()));
+		}
+		else if (Size < sizeof(uint64))
+		{
+			// Grab 4 bytes worth of data
+			return GetTypeHash(*((uint32*)Value.GetBytes()));
 		}
 		else
 		{
-			uint32 Hash = 0;
-			const uint8* InID = Value.GetBytes();
-			for (int32 ByteIndex = 0; ByteIndex < Value.GetSize(); ByteIndex++)
-			{
-				Hash |= InID[ByteIndex] << (8 * ByteIndex);
-			}
-
-			return Hash;
+			// Grab 8 bytes worth of data
+			return GetTypeHash(*((uint64*)Value.GetBytes()));
 		}
 	}
 
@@ -257,7 +254,7 @@ public:
 	}
 
 	/** Convert this value to a string with additional information */
-	virtual FString ToDebugString() const
+	FString ToDebugString() const
 	{
 		return IsValid() ? UniqueNetId->ToDebugString() : TEXT("INVALID");
 	}
@@ -273,7 +270,7 @@ public:
 	 *
 	 * @param InUniqueNetId id to associate
 	 */
-	void SetUniqueNetId(const TSharedPtr<const FUniqueNetId>& InUniqueNetId)
+	virtual void SetUniqueNetId(const TSharedPtr<const FUniqueNetId>& InUniqueNetId)
 	{
 		UniqueNetId = InUniqueNetId;
 	}
@@ -322,3 +319,14 @@ protected:
 	// Actual unique id
 	TSharedPtr<const FUniqueNetId> UniqueNetId;
 };
+
+template <typename ValueType>
+struct FUniqueNetIdKeyFuncs : public TDefaultMapKeyFuncs<TSharedRef<const FUniqueNetId>, ValueType, false>
+{
+	static FORCEINLINE TSharedRef<const FUniqueNetId>	GetSetKey(TPair<TSharedRef<const FUniqueNetId>, ValueType> const& Element) { return Element.Key; }
+	static FORCEINLINE uint32							GetKeyHash(TSharedRef<const FUniqueNetId> const& Key) {	return GetTypeHash(*Key); }
+	static FORCEINLINE bool								Matches(TSharedRef<const FUniqueNetId> const& A, TSharedRef<const FUniqueNetId> const& B) { return (A == B) || (*A == *B); }
+};
+
+template <typename ValueType>
+using TUniqueNetIdMap = TMap<TSharedRef<const FUniqueNetId>, ValueType, FDefaultSetAllocator, FUniqueNetIdKeyFuncs<ValueType>>;

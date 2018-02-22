@@ -41,6 +41,7 @@
 #include "LandscapeHeightfieldCollisionComponent.h"
 #include "IMeshReductionManagerModule.h"
 #include "LayoutUV.h"
+#include "Components/InstancedStaticMeshComponent.h"
 
 //DECLARE_LOG_CATEGORY_CLASS(LogMeshMerging, Verbose, All);
 
@@ -148,6 +149,20 @@ void FMeshMergeHelpers::ExtractSections(const UStaticMesh* StaticMesh, int32 LOD
 	}
 }
 
+void FMeshMergeHelpers::ExpandInstances(const UInstancedStaticMeshComponent* InInstancedStaticMeshComponent, FRawMesh& InOutRawMesh, TArray<FSectionInfo>& InOutSections)
+{
+	FRawMesh CombinedRawMesh;
+
+	for(const FInstancedStaticMeshInstanceData& InstanceData : InInstancedStaticMeshComponent->PerInstanceSMData)
+	{
+		FRawMesh InstanceRawMesh = InOutRawMesh;
+		FMeshMergeHelpers::TransformRawMeshVertexData(FTransform(InstanceData.Transform), InstanceRawMesh);
+		FMeshMergeHelpers::AppendRawMesh(CombinedRawMesh, InstanceRawMesh);
+	}
+
+	InOutRawMesh = CombinedRawMesh;
+}
+
 void FMeshMergeHelpers::RetrieveMesh(const UStaticMeshComponent* StaticMeshComponent, int32 LODIndex, FRawMesh& RawMesh, bool bPropagateVertexColours)
 {
 	const UStaticMesh* StaticMesh = StaticMeshComponent->GetStaticMesh();
@@ -211,7 +226,7 @@ void FMeshMergeHelpers::RetrieveMesh(USkeletalMeshComponent* SkeletalMeshCompone
 	FSkeletalMeshModel* Resource = SkeletalMeshComponent->SkeletalMesh->GetImportedModel();
 	if (Resource->LODModels.IsValidIndex(LODIndex))
 	{
-		FSkeletalMeshLODInfo& SrcLODInfo = SkeletalMeshComponent->SkeletalMesh->LODInfo[LODIndex];
+		FSkeletalMeshLODInfo& SrcLODInfo = *(SkeletalMeshComponent->SkeletalMesh->GetLODInfo(LODIndex));
 
 		// Get the CPU skinned verts for this LOD
 		TArray<FFinalSkinVertex> FinalVertices;
@@ -1010,4 +1025,150 @@ bool FMeshMergeHelpers::IsLandscapeHit(const FVector& RayOrigin, const FVector& 
 	}
 
 	return bHitLandscape;
+}
+
+void FMeshMergeHelpers::AppendRawMesh(FRawMesh& InTarget, const FRawMesh& InSource)
+{
+	const int32 MaxSmoothingMask = [InTarget]() -> int32
+	{
+		int32 Max = 0;
+		for (const int32 Value : InTarget.FaceSmoothingMasks)
+		{
+			Max = FMath::Max(Max, Value);
+		}
+		return Max;
+	}();
+
+	InTarget.FaceMaterialIndices.Append(InSource.FaceMaterialIndices);
+	
+	const int32 FaceOffset = InTarget.FaceSmoothingMasks.Num();
+	InTarget.FaceSmoothingMasks.Append(InSource.FaceSmoothingMasks);
+
+	for (int32 Index = FaceOffset; Index < InTarget.FaceSmoothingMasks.Num(); ++Index)
+	{
+		InTarget.FaceSmoothingMasks[Index] += FaceOffset;
+	}
+
+	const int32 VertexOffset = InTarget.VertexPositions.Num();
+	InTarget.VertexPositions.Append(InSource.VertexPositions);
+	const int32 IndexOffset = InTarget.WedgeIndices.Num();
+	InTarget.WedgeIndices.Append(InSource.WedgeIndices);
+	for (int32 Index = IndexOffset; Index < InTarget.WedgeIndices.Num(); ++Index)
+	{
+		InTarget.WedgeIndices[Index] += VertexOffset;
+	}
+
+	InTarget.WedgeTangentX.Append(InSource.WedgeTangentX);
+	InTarget.WedgeTangentY.Append(InSource.WedgeTangentY);
+	InTarget.WedgeTangentZ.Append(InSource.WedgeTangentZ);
+	
+	// Check whether or not we have pad the wedge colors 
+	const int32 NumTotalColors = InTarget.WedgeColors.Num() + InSource.WedgeColors.Num();
+	if (NumTotalColors < InTarget.WedgeTangentZ.Num() && (InSource.WedgeColors.Num() || InTarget.WedgeColors.Num()) )
+	{
+		InTarget.WedgeColors.AddZeroed(InTarget.WedgeTangentZ.Num() - NumTotalColors);
+	}
+	
+	InTarget.WedgeColors.Append(InSource.WedgeColors);
+
+	for (int32 i = 0; i < MAX_MESH_TEXTURE_COORDS; ++i)
+	{
+		const int32 NumTotalUVs = InTarget.WedgeTexCoords[i].Num() + InSource.WedgeTexCoords[i].Num();
+
+		// Check whether or not we have pad the UVs
+		if ( NumTotalUVs < InTarget.WedgeTangentZ.Num() && (InSource.WedgeTexCoords[i].Num() || InTarget.WedgeTexCoords[i].Num()) )
+		{
+			InTarget.WedgeTexCoords[i].AddZeroed(InTarget.WedgeTangentZ.Num() - NumTotalUVs);
+		}
+		
+		InTarget.WedgeTexCoords[i].Append(InSource.WedgeTexCoords[i]);
+	}
+
+	checkf(InTarget.IsValidOrFixable(), TEXT("RawMesh became corrupt after appending InSource"));
+}
+
+
+void FMeshMergeHelpers::MergeImpostersToRawMesh(TArray<const UStaticMeshComponent*> ImposterComponents, FRawMesh& InRawMesh, const FVector& InPivot, int32 InBaseMaterialIndex, TArray<UMaterialInterface*>& OutImposterMaterials)
+{
+	// TODO decide whether we want this to be user specified or derived from the RawMesh
+	/*const int32 UVOneIndex = [RawMesh, Data]() -> int32
+	{
+		int32 ChannelIndex = 0;
+		for (; ChannelIndex < MAX_MESH_TEXTURE_COORDS; ++ChannelIndex)
+		{
+			if (RawMesh.WedgeTexCoords[ChannelIndex].Num() == 0)
+			{
+				break;
+			}
+		}
+
+		int32 MaxUVChannel = ChannelIndex;
+		for (const UStaticMeshComponent* Component : ImposterComponents)
+		{
+			MaxUVChannel = FMath::Max(MaxUVChannel, Component->GetStaticMesh()->RenderData->LODResources[Component->GetStaticMesh()->GetNumLODs() - 1].GetNumTexCoords());
+		}
+
+		return MaxUVChannel;
+	}();*/
+
+	const int32 UVOneIndex = 2; // if this is changed back to being dynamic, renable the if statement below
+
+	// Ensure there are enough UV channels available to store the imposter data
+	//if (UVOneIndex != INDEX_NONE && UVOneIndex < (MAX_MESH_TEXTURE_COORDS - 2))
+	{
+		for (const UStaticMeshComponent* Component : ImposterComponents)
+		{
+			// Retrieve imposter LOD mesh and material			
+			const int32 LODIndex = Component->GetStaticMesh()->GetNumLODs() - 1;
+
+			// Retrieve mesh data in FRawMesh form
+			FRawMesh ImposterMesh;
+			FMeshMergeHelpers::RetrieveMesh(Component, LODIndex, ImposterMesh, false);
+
+			// Retrieve the sections, we're expect 1 for imposter meshes
+			TArray<FSectionInfo> Sections;
+			FMeshMergeHelpers::ExtractSections(Component, LODIndex, Sections);
+
+			// Generate a map of section to material index remaps
+			TMap<int32, int32> Remaps;
+			for (FSectionInfo& Info : Sections)
+			{
+				const int32 MaterialIndex = OutImposterMaterials.AddUnique(Info.Material);
+				// Offsetting material index by InBaseMaterialIndex
+				Remaps.Add(Info.MaterialIndex, MaterialIndex + InBaseMaterialIndex);
+			}
+
+			// Apply material remapping
+			for (int32& Index : ImposterMesh.FaceMaterialIndices)
+			{
+				Index = Remaps[Index];
+			}
+
+			// Imposter magic, we're storing the actor world position and X scale spread across two UV channels
+			const int32 UVTwoIndex = UVOneIndex + 1;
+			const int32 NumIndices = ImposterMesh.WedgeIndices.Num();
+			ImposterMesh.WedgeTexCoords[UVOneIndex].SetNumZeroed(NumIndices);
+			ImposterMesh.WedgeTexCoords[UVTwoIndex].SetNumZeroed(NumIndices);
+
+			const FTransform& ActorToWorld = Component->GetOwner()->GetActorTransform();
+			const FVector ActorPosition = ActorToWorld.TransformPosition(FVector::ZeroVector) - InPivot;
+			for (int32 Index = 0; Index < NumIndices; ++Index)
+			{
+				const int32& VertexIndex = ImposterMesh.WedgeIndices[Index];
+
+				const FVector& WedgePosition = ImposterMesh.VertexPositions[VertexIndex];
+
+				FVector2D& UVOne = ImposterMesh.WedgeTexCoords[UVOneIndex][Index];
+				FVector2D& UVTwo = ImposterMesh.WedgeTexCoords[UVTwoIndex][Index];
+					
+				UVOne.X = ActorPosition.X;
+				UVOne.Y = ActorPosition.Y;
+
+				UVTwo.X = ActorPosition.Z;
+				UVTwo.Y = ActorToWorld.GetScale3D().X;
+			}
+
+			FMeshMergeHelpers::AppendRawMesh(InRawMesh, ImposterMesh);
+		}
+	}
 }

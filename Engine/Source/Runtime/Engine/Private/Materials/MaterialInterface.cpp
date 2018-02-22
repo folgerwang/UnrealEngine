@@ -302,10 +302,12 @@ bool UMaterialInterface::GetRefractionSettings(float& OutBiasValue) const
 	return false;
 }
 
+#if WITH_EDITOR
 bool UMaterialInterface::GetParameterDesc(const FMaterialParameterInfo& ParameterInfo, FString& OutDesc, const TArray<struct FStaticMaterialLayersParameter>* MaterialLayersParameters) const
 {
 	return false;
 }
+#endif // WITH_EDITOR
 bool UMaterialInterface::GetGroupName(const FMaterialParameterInfo& ParameterInfo, FName& OutDesc) const
 {
 	return false;

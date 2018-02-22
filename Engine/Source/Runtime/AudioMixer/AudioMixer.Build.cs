@@ -36,12 +36,15 @@ namespace UnrealBuildTool.Rules
 			if ((Target.Platform == UnrealTargetPlatform.Win64) ||
 				(Target.Platform == UnrealTargetPlatform.Win32))
 			{
-				AddEngineThirdPartyPrivateStaticDependencies(Target,
+                PublicIncludePathModuleNames.Add("UELibSampleRate");
+
+                AddEngineThirdPartyPrivateStaticDependencies(Target,
 					"UEOgg",
 					"Vorbis",
 					"VorbisFile",
-					"libOpus"
-					);
+					"libOpus",
+                    "UELibSampleRate"
+                    );
 			}
 
 			// TODO test this for HTML5 !

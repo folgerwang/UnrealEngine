@@ -46,6 +46,8 @@ FCurlHttpRequest::FCurlHttpRequest()
 	curl_easy_setopt(EasyHandle, CURLOPT_DEBUGFUNCTION, StaticDebugCallback);
 	curl_easy_setopt(EasyHandle, CURLOPT_VERBOSE, 1L);
 
+	curl_easy_setopt(EasyHandle, CURLOPT_BUFFERSIZE, FCurlHttpManager::CurlRequestOptions.BufferSize);
+
 	curl_easy_setopt(EasyHandle, CURLOPT_SHARE, FCurlHttpManager::GShareHandle);
 
 	curl_easy_setopt(EasyHandle, CURLOPT_USE_SSL, CURLUSESSL_ALL);
@@ -69,10 +71,11 @@ FCurlHttpRequest::FCurlHttpRequest()
 	// associate with this just in case
 	curl_easy_setopt(EasyHandle, CURLOPT_PRIVATE, this);
 
-	if (FCurlHttpManager::CurlRequestOptions.bUseHttpProxy)
+	const FString& ProxyAddress = FHttpModule::Get().GetProxyAddress();
+	if (!ProxyAddress.IsEmpty())
 	{
 		// guaranteed to be valid at this point
-		curl_easy_setopt(EasyHandle, CURLOPT_PROXY, TCHAR_TO_ANSI(*FCurlHttpManager::CurlRequestOptions.HttpProxyAddress));
+		curl_easy_setopt(EasyHandle, CURLOPT_PROXY, TCHAR_TO_ANSI(*ProxyAddress));
 	}
 
 	if (FCurlHttpManager::CurlRequestOptions.bDontReuseConnections)
@@ -344,7 +347,7 @@ size_t FCurlHttpRequest::ReceiveResponseBodyCallback(void* Ptr, size_t SizeInBlo
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FCurlHttpRequest_ReceiveResponseBodyCallback);
 	check(Response.IsValid());
-
+	  
 	TimeSinceLastResponse = 0.0f;
 	if (Response.IsValid())
 	{
@@ -362,7 +365,7 @@ size_t FCurlHttpRequest::ReceiveResponseBodyCallback(void* Ptr, size_t SizeInBlo
 			Response->Payload.AddUninitialized(SizeToDownload);
 
 			// save
-			FMemory::Memcpy(static_cast< uint8* >(Response->Payload.GetData()) + Response->TotalBytesRead.GetValue(), Ptr, SizeToDownload);
+			FMemory::Memcpy(static_cast<uint8*>(Response->Payload.GetData()) + Response->TotalBytesRead.GetValue(), Ptr, SizeToDownload);
 			Response->TotalBytesRead.Add(SizeToDownload);
 
 			return SizeToDownload;
@@ -552,12 +555,6 @@ bool FCurlHttpRequest::SetupRequest()
 	}	
 
 	curl_easy_setopt(EasyHandle, CURLOPT_URL, TCHAR_TO_ANSI(*URL));
-
-	if (!FCurlHttpManager::CurlRequestOptions.LocalHostAddr.IsEmpty())
-	{
-		// Set the local address to use for making these requests
-		CURLcode ErrCode = curl_easy_setopt(EasyHandle, CURLOPT_INTERFACE, TCHAR_TO_ANSI(*FCurlHttpManager::CurlRequestOptions.LocalHostAddr));
-	}
 
 	// set up verb (note that Verb is expected to be uppercase only)
 	if (Verb == TEXT("POST"))

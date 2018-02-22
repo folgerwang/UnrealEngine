@@ -116,7 +116,7 @@ ULineBatchComponent::ULineBatchComponent(const FObjectInitializer& ObjectInitial
 	SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 
 	bUseEditorCompositing = true;
-	bGenerateOverlapEvents = false;
+	SetGenerateOverlapEvents(false);
 	bCalculateAccurateBounds = true;
 }
 

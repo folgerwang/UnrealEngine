@@ -217,6 +217,10 @@ void TMetalBaseShader<BaseResourceType, ShaderType>::Init(const TArray<uint8>& I
 	
     SourceLen = Header.SourceLen;
     SourceCRC = Header.SourceCRC;
+	
+	// If this triggers than a level above us has failed to provide valid shader data and the cook is probably bogus
+	UE_CLOG(Header.SourceLen == 0 || Header.SourceCRC == 0, LogMetal, Fatal, TEXT("Invalid Shader Bytecode provided."));
+	
     bTessFunctionConstants = Header.bTessFunctionConstants;
     bDeviceFunctionConstants = Header.bDeviceFunctionConstants;
 

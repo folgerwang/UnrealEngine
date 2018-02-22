@@ -1127,7 +1127,7 @@ void UPartyGameState::OnUpdatePartyConfigComplete(const FUniqueNetId& LocalUserI
 	}
 }
 
-bool UPartyGameState::IsLocalPartyLeader()
+bool UPartyGameState::IsLocalPartyLeader() const
 {
 	if (ensure(OwningUserId.IsValid()))
 	{

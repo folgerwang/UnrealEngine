@@ -60,6 +60,8 @@ TAutoConsoleVariable<int32> CVarNetPartialBunchReliableThreshold(
 	0,
 	TEXT("If a bunch is broken up into this many partial bunches are more, we will send it reliable even if the original bunch was not reliable. Partial bunches are atonmic and must all make it over to be used"));
 
+extern TAutoConsoleVariable<int32> CVarFilterGuidRemapping;
+
 /*-----------------------------------------------------------------------------
 	UChannel implementation.
 -----------------------------------------------------------------------------*/
@@ -1232,7 +1234,7 @@ void UControlChannel::ReceivedBunch( FInBunch& Bunch )
 					UE_LOG(LogNet, Log, TEXT("Server connection received: %s"), FNetControlMessageInfo::GetName(MessageType));
 
 					// Check if Channel index provided by client is valid and within range of channel on server
-					if (ChannelIndex >= 0 && ChannelIndex < ARRAY_COUNT(Connection->Channels))
+					if (ChannelIndex >= 0 && ChannelIndex < Connection->Channels.Num())
 					{
 						// Get the actor channel that the client provided as having failed
 						UActorChannel* ActorChan = Cast<UActorChannel>(Connection->Channels[ChannelIndex]);
@@ -1278,7 +1280,6 @@ void UControlChannel::ReceivedBunch( FInBunch& Bunch )
 			// the most common Notify handlers do not support subclasses by default and so we redirect the game specific messaging to the GameInstance instead
 			uint8 MessageByte;
 			FString MessageStr;
-
 			if (FNetControlMessage<NMT_GameSpecific>::Receive(Bunch, MessageByte, MessageStr))
 			{
 				if (Connection->Driver->World != NULL && Connection->Driver->World->GetGameInstance() != NULL)
@@ -1298,7 +1299,6 @@ void UControlChannel::ReceivedBunch( FInBunch& Bunch )
 		else if(MessageType == NMT_SecurityViolation)
 		{
 			FString DebugMessage;
-
 			if (FNetControlMessage<NMT_SecurityViolation>::Receive(Bunch, DebugMessage))
 			{
 				UE_SECURITY_LOG(Connection, ESecurityEvent::Closed, TEXT("%s"), *DebugMessage);
@@ -1548,14 +1548,22 @@ void UActorChannel::Close()
 
 	UChannel::Close();
 
-	if (Actor != NULL)
+	if (Actor != nullptr)
 	{
 		bool bKeepReplicators = false;		// If we keep replicators around, we can use them to determine if the actor changed since it went dormant
 
 		if ( Dormant )
 		{
-			check( Actor->NetDormancy > DORM_Awake ); // Dormancy should have been canceled if game code changed NetDormancy
-			Connection->Driver->GetNetworkObjectList().MarkDormant(Actor, Connection, Connection->Driver->ClientConnections.Num(), Connection->Driver->NetDriverName);
+			if (Connection && Connection->Driver)
+			{
+				if (!Connection->Driver->IsServer())
+				{
+					Actor->NetDormancy = DORM_DormantAll;
+				}
+
+				check( Actor->NetDormancy > DORM_Awake ); // Dormancy should have been canceled if game code changed NetDormancy
+				Connection->Driver->GetNetworkObjectList().MarkDormant(Actor, Connection, Connection->Driver->ClientConnections.Num(), Connection->Driver->NetDriverName);
+			}
 
 			// Validation checking
 			static const auto ValidateCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("net.DormancyValidate"));
@@ -1566,9 +1574,12 @@ void UActorChannel::Close()
 		}
 
 		// SetClosingFlag() might have already done this, but we need to make sure as that won't get called if the connection itself has already been closed
-		Connection->ActorChannels.Remove( Actor );
+		if (Connection)
+		{
+			Connection->ActorChannels.Remove( Actor );
+		}
 
-		Actor = NULL;
+		Actor = nullptr;
 		CleanupReplicators( bKeepReplicators );
 	}
 }
@@ -1627,7 +1638,7 @@ void UActorChannel::MoveMappedObjectToUnmapped( const UObject* Object )
 
 	// Find all replicators that are referencing this object, and make sure to mark the references as unmapped
 	// This is so when/if this object is instantiated again (using same network guid), we can re-establish the old references
-	FNetworkGUID NetGuid = Driver->GuidCache->NetGUIDLookup.FindRef( MakeWeakObjectPtr( const_cast<UObject*>( Object ) ) );
+	FNetworkGUID NetGuid = Driver->GuidCache->NetGUIDLookup.FindRef( const_cast<UObject*>(Object) );
 
 	if ( NetGuid.IsValid() )
 	{
@@ -1682,6 +1693,15 @@ void UActorChannel::DestroyActorAndComponents()
 
 		Actor->PreDestroyFromReplication();
 		Actor->Destroy( true );
+	}
+
+	if (CVarFilterGuidRemapping.GetValueOnAnyThread() > 0)
+	{
+		// Remove this actor's NetGUID from the list of unmapped values, it will be added back if it replicates again
+		if (ActorNetGUID.IsValid() && Connection != nullptr && Connection->Driver != nullptr && Connection->Driver->GuidCache.IsValid())
+		{
+			Connection->Driver->GuidCache->ImportedNetGuids.Remove(ActorNetGUID);
+		}
 	}
 }
 
@@ -1754,6 +1774,8 @@ bool UActorChannel::CleanUp( const bool bForDestroy )
 			}
 			else if (Dormant && !Actor->bTearOff)
 			{
+				Actor->NetDormancy = DORM_DormantAll;
+
 				Connection->Driver->GetNetworkObjectList().MarkDormant(Actor, Connection, 1, Connection->Driver->NetDriverName);
 				bWasDormant = true;
 			}
@@ -1893,23 +1915,49 @@ void UActorChannel::SetChannelActor( AActor* InActor )
 		Connection->PendingOutRec[ChIndex] = 0;
 	}
 
+	if (Actor)
+	{
+		// Add to map.
+		Connection->ActorChannels.Add( Actor, this );
 
-	// Add to map.
-	Connection->ActorChannels.Add( Actor, this );
+		check( !ReplicationMap.Contains( Actor ) );
 
-	check( !ReplicationMap.Contains( Actor ) );
+		// Create the actor replicator, and store a quick access pointer to it
+		ActorReplicator = &FindOrCreateReplicator( Actor ).Get();
 
-	// Create the actor replicator, and store a quick access pointer to it
-	ActorReplicator = &FindOrCreateReplicator( Actor ).Get();
-
-	// Remove from connection's dormancy lists
-	Connection->Driver->GetNetworkObjectList().MarkActive(Actor, Connection, Connection->Driver->NetDriverName);
-	Connection->Driver->GetNetworkObjectList().ClearRecentlyDormantConnection(Actor, Connection, Connection->Driver->NetDriverName);
+		// Remove from connection's dormancy lists
+		Connection->Driver->GetNetworkObjectList().MarkActive(Actor, Connection, Connection->Driver->NetDriverName);
+		Connection->Driver->GetNetworkObjectList().ClearRecentlyDormantConnection(Actor, Connection, Connection->Driver->NetDriverName);
+	}
 }
 
 void UActorChannel::NotifyActorChannelOpen(AActor* InActor, FInBunch& InBunch)
 {
 	Actor->OnActorChannelOpen(InBunch, Connection);
+
+	if (Connection && Connection->Driver && !Connection->Driver->IsServer())
+	{
+		if (Actor->NetDormancy > DORM_Awake)
+		{
+			Actor->NetDormancy = DORM_Awake;
+
+			// if recording on client, make sure the actor is marked active
+			if (Connection->Driver->World && Connection->Driver->World->IsRecordingClientReplay())
+			{
+				UDemoNetDriver* DemoDriver = Connection->Driver->World->DemoNetDriver;
+				if (DemoDriver)
+				{
+					DemoDriver->GetNetworkObjectList().FindOrAdd(Actor, DemoDriver->NetDriverName);
+
+					if (DemoDriver->ClientConnections.Num() > 0)
+					{
+						DemoDriver->GetNetworkObjectList().MarkActive(Actor, DemoDriver->ClientConnections[0], DemoDriver->NetDriverName);
+						DemoDriver->GetNetworkObjectList().ClearRecentlyDormantConnection(Actor, DemoDriver->ClientConnections[0], DemoDriver->NetDriverName);
+					}
+				}
+			}
+		}
+	}
 }
 
 void UActorChannel::SetChannelActorForDestroy( FActorDestructionInfo *DestructInfo )
@@ -2176,15 +2224,22 @@ void UActorChannel::ProcessBunch( FInBunch & Bunch )
 		// We are unsynchronized. Instead of crashing, let's try to recover.
 		if (NewChannelActor == NULL || NewChannelActor->IsPendingKill())
 		{
-			check( !bSpawnedNewActor );
-
-#if !UE_BUILD_SHIPPING
-			if (!bBlockChannelFailure)
-#endif
+			// got a redundant destruction info, possible when streaming
+			if (!bSpawnedNewActor && Bunch.bReliable && Bunch.bClose && Bunch.AtEnd())
 			{
-				UE_LOG(LogNet, Warning, TEXT("UActorChannel::ProcessBunch: SerializeNewActor failed to find/spawn actor. Actor: %s, Channel: %i"), NewChannelActor ? *NewChannelActor->GetFullName() : TEXT( "NULL" ), ChIndex);
+				// Do not log during replay, since this is a valid case
+				UDemoNetDriver* DemoNetDriver = Cast<UDemoNetDriver>(Connection->Driver);
+				if (DemoNetDriver == nullptr)
+				{
+					UE_LOG(LogNet, Log, TEXT("UActorChannel::ProcessBunch: SerializeNewActor received close bunch for destroyed actor. Actor: %s, Channel: %i"), *GetFullNameSafe(NewChannelActor), ChIndex);
+				}
+
+				SetChannelActor(nullptr);
+				return;
 			}
 
+			check( !bSpawnedNewActor );
+			UE_LOG(LogNet, Warning, TEXT("UActorChannel::ProcessBunch: SerializeNewActor failed to find/spawn actor. Actor: %s, Channel: %i"), *GetFullNameSafe(NewChannelActor), ChIndex);
 			Broken = 1;
 
 			if (!Connection->InternalAck

@@ -8,6 +8,7 @@
 #include "HAL/PlatformMemory.h"
 #include "HAL/PlatformMath.h"
 #include "HAL/UnrealMemory.h"
+#include "HAL/LowLevelMemTracker.h"
 #include "Templates/AlignmentTemplates.h"
 
 #include <stdlib.h>
@@ -183,8 +184,17 @@ void FApplePlatformMemory::ConfigureDefaultCFAllocator(void)
 
 void FApplePlatformMemory::Init()
 {
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+    FPlatformMemoryStats Stats = FApplePlatformMemory::GetStats();
+    uint64 ProgramSize = Stats.UsedPhysical;
+#endif
+    
 	FGenericPlatformMemory::Init();
-	
+    
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+    FLowLevelMemTracker::Get().SetProgramSize(ProgramSize);
+#endif
+    
 	const FPlatformMemoryConstants& MemoryConstants = FPlatformMemory::GetConstants();
 	UE_LOG(LogInit, Log, TEXT("Memory total: Physical=%.1fGB (%dGB approx) Pagefile=%.1fGB Virtual=%.1fGB"),
 		   float(MemoryConstants.TotalPhysical/1024.0/1024.0/1024.0),
@@ -305,7 +315,6 @@ const FPlatformMemoryConstants& FApplePlatformMemory::GetConstants()
 		MemoryConstants.PageSize = (uint32)PageSize;
 		MemoryConstants.OsAllocationGranularity = (uint32)PageSize;
 		MemoryConstants.BinnedPageSize = FMath::Max((SIZE_T)65536, (SIZE_T)PageSize);
-		
 		MemoryConstants.TotalPhysicalGB = (MemoryConstants.TotalPhysical + 1024 * 1024 * 1024 - 1) / 1024 / 1024 / 1024;
 	}
 	
@@ -340,7 +349,9 @@ void* FApplePlatformMemory::BinnedAllocFromOS( SIZE_T Size )
 #if USE_MALLOC_BINNED2
     return FGenericPlatformMemory::BinnedAllocFromOS(Size);
 #else
-    return mmap(nullptr, Size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+    void* Ptr = mmap(nullptr, Size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+    LLM(FLowLevelMemTracker::Get().OnLowLevelAlloc(ELLMTracker::Platform, Ptr, Size));
+    return Ptr;
 #endif // USE_MALLOC_BINNED2
 }
 
@@ -350,6 +361,7 @@ void FApplePlatformMemory::BinnedFreeToOS( void* Ptr, SIZE_T Size )
 #if USE_MALLOC_BINNED2
     return FGenericPlatformMemory::BinnedFreeToOS(Ptr, Size);
 #else
+    LLM(FLowLevelMemTracker::Get().OnLowLevelFree(ELLMTracker::Platform, Ptr, 0));
     if (munmap(Ptr, Size) != 0)
     {
         const int ErrNo = errno;
@@ -357,6 +369,54 @@ void FApplePlatformMemory::BinnedFreeToOS( void* Ptr, SIZE_T Size )
                ErrNo, StringCast< TCHAR >(strerror(ErrNo)).Get());
     }
 #endif // USE_MALLOC_BINNED2
+}
+
+/**
+ * LLM uses these low level functions (LLMAlloc and LLMFree) to allocate memory. It grabs
+ * the function pointers by calling FPlatformMemory::GetLLMAllocFunctions. If these functions
+ * are not implemented GetLLMAllocFunctions should return false and LLM will be disabled.
+ */
+
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+
+int64 LLMMallocTotal = 0;
+
+void* LLMAlloc(size_t Size)
+{
+    void* Ptr = mmap(nullptr, Size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+
+    LLMMallocTotal += Size;
+    
+    return Ptr;
+}
+
+void LLMFree(void* Addr, size_t Size)
+{
+    LLMMallocTotal -= Size;
+    if (Addr != nullptr && munmap(Addr, Size) != 0)
+    {
+        const int ErrNo = errno;
+        UE_LOG(LogHAL, Fatal, TEXT("munmap(addr=%p, len=%llu) failed with errno = %d (%s)"), Addr, Size,
+               ErrNo, StringCast< TCHAR >(strerror(ErrNo)).Get());
+    }
+}
+
+#endif
+
+bool FApplePlatformMemory::GetLLMAllocFunctions(void*_Nonnull(*_Nonnull&OutAllocFunction)(size_t), void(*_Nonnull&OutFreeFunction)(void*, size_t), int32& OutAlignment)
+{
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+    // Get page size.
+    vm_size_t PageSize;
+    host_page_size(mach_host_self(), &PageSize);
+
+    OutAllocFunction = LLMAlloc;
+    OutFreeFunction = LLMFree;
+    OutAlignment = PageSize;
+    return true;
+#else
+    return false;
+#endif
 }
 
 NS_ASSUME_NONNULL_END

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -162,6 +162,11 @@ public class DeploymentContext //: ProjectParams
 	public DirectoryReference StageDirectory;
 
 	/// <summary>
+	/// Directory to put all of the debug files in: d:\stagedir\WindowsNoEditor
+	/// </summary>
+	public DirectoryReference DebugStageDirectory;
+
+	/// <summary>
 	/// Directory name for staged projects
 	/// </summary>
 	public StagedDirectoryReference RelativeProjectRootForStage;
@@ -185,6 +190,11 @@ public class DeploymentContext //: ProjectParams
 	/// This is the project root that we are going to run from. Many cases.
 	/// </summary>
 	public DirectoryReference RuntimeProjectRootDir;
+
+	/// <summary>
+	/// The directory containing the metadata from the cooker
+	/// </summary>
+	public DirectoryReference MetadataDir;
 
 	/// <summary>
 	/// List of executables we are going to stage
@@ -296,7 +306,8 @@ public class DeploymentContext //: ProjectParams
 		bool InArchive,
 		bool InProgram,
 		bool IsClientInsteadOfNoEditor,
-        bool InForceChunkManifests
+        bool InForceChunkManifests,
+		bool InSeparateDebugStageDirectory
 		)
 	{
 		bStageCrashReporter = InStageCrashReporter;
@@ -344,6 +355,7 @@ public class DeploymentContext //: ProjectParams
 		if (BaseStageDirectory != null)
 		{
 			StageDirectory = DirectoryReference.Combine(BaseStageDirectory, FinalCookPlatform);
+			DebugStageDirectory = InSeparateDebugStageDirectory? DirectoryReference.Combine(BaseStageDirectory, FinalCookPlatform + "Debug") : StageDirectory;
 		}
 
 		if(BaseArchiveDirectory != null)

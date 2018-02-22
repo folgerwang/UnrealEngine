@@ -14,6 +14,7 @@
 #include "Framework/Commands/InputChord.h"
 #include "Framework/Commands/InputBindingManager.h"
 #include "Classes/EditorStyleSettings.h"
+#include "Modules/ModuleManager.h"
 #include "Editor.h"
 
 // Automation

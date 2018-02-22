@@ -2,6 +2,7 @@
 
 #include "MetalRHIPrivate.h"
 
+#include "HAL/LowLevelMemTracker.h"
 #include "MetalHeap.h"
 #include "MetalContext.h"
 #include "MetalProfiler.h"
@@ -79,7 +80,11 @@ enum FMetalResouceType
 {
 	FMetalResouceTypeInvalid = 0,
 	FMetalResouceTypeBuffer = 1,
-	FMetalResouceTypeTexture = 2
+    FMetalResouceTypeVertex = 2,
+    FMetalResouceTypeIndex = 3,
+    FMetalResouceTypeUniform = 4,
+	FMetalResouceTypeTexture = 5,
+    FMetalResouceTypeRenderTarget = 6
 };
 
 /** The bucket sizes */
@@ -298,19 +303,40 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalResourceData)
 	switch(self->type)
 	{
 		case FMetalResouceTypeBuffer:
+        case FMetalResouceTypeVertex:
+        case FMetalResouceTypeIndex:
+        case FMetalResouceTypeUniform:
 		{
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+            ELLMTag Tag = ELLMTag::RHIMisc;
+            switch (self->type)
+            {
+                case FMetalResouceTypeVertex:
+                    Tag = ELLMTag::VertexBuffer;
+                    break;
+                case FMetalResouceTypeIndex:
+                    Tag = ELLMTag::IndexBuffer;
+                    break;
+                case FMetalResouceTypeUniform:
+                    Tag = ELLMTag::UniformBuffer;
+                    break;
+            }
+#endif
 			DEC_DWORD_STAT(STAT_MetalBufferCount);
 			DEC_MEMORY_STAT_BY(STAT_MetalPooledBufferMem, self->size);
 			DEC_DWORD_STAT(STAT_MetalPooledBufferCount);
 			DEC_MEMORY_STAT_BY(STAT_MetalFreePooledBufferMem, self->size);
 			INC_DWORD_STAT(STAT_MetalBufferNativeFreed);
 			INC_DWORD_STAT_BY(STAT_MetalBufferNativeMemFreed, self->size);
+            LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(Tag, 0 - self->size, ELLMTracker::Default);
+            LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::GraphicsPlatform, 0 - self->size, ELLMTracker::Platform);
 			break;
 		}
 		case FMetalResouceTypeTexture:
+        case FMetalResouceTypeRenderTarget:
 		{
 			DEC_DWORD_STAT(STAT_MetalTextureCount);
-#if STATS
+
 			switch (self->mode)
 			{
 				case FMetalHeap::EMetalHeapStorageGPUCached:
@@ -318,6 +344,8 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalResourceData)
 				{
 					DEC_DWORD_STAT(STAT_MetalPrivateTextureCount);
 					DEC_MEMORY_STAT_BY(STAT_MetalPrivateTextureMem, self->size);
+                    LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(self->type == FMetalResouceTypeRenderTarget ? ELLMTag::RenderTargets : ELLMTag::Textures, 0 - self->size, ELLMTracker::Default);
+                    LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::GraphicsPlatform, 0 - self->size, ELLMTracker::Platform);
 					break;
 				}
 				case FMetalHeap::EMetalHeapStorageCPUCached:
@@ -327,6 +355,8 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalResourceData)
 				{
 					DEC_DWORD_STAT(STAT_MetalManagedTextureCount);
 					DEC_MEMORY_STAT_BY(STAT_MetalManagedTextureMem, self->size);
+                    LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(self->type == FMetalResouceTypeRenderTarget ? ELLMTag::RenderTargets : ELLMTag::Textures, 0 - self->size, ELLMTracker::Default);
+                    LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::GraphicsPlatform, 0 - self->size, ELLMTracker::Platform);
 					break;
 				}
 				default:
@@ -335,7 +365,6 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalResourceData)
 					break;
 				}
 			}
-#endif
 			break;
 		}
 		default:
@@ -437,6 +466,27 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMTLHeap)
 {
 	FScopeLock Lock(PoolMutex);
 	
+    // get the top tag
+    FMetalResouceType ResourceType = FMetalResouceTypeBuffer;
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+    ELLMTag Tag = (ELLMTag)FLowLevelMemTracker::Get().GetActiveTag(ELLMTracker::Default);
+    switch(Tag)
+    {
+        case ELLMTag::VertexBuffer:
+            ResourceType = FMetalResouceTypeVertex;
+            break;
+        case ELLMTag::IndexBuffer:
+            ResourceType = FMetalResouceTypeIndex;
+            break;
+        case ELLMTag::UniformBuffer:
+            ResourceType = FMetalResouceTypeUniform;
+            break;
+        default:
+            Tag = ELLMTag::RHIMisc;
+            break;
+    }
+#endif
+    
 	NSObject<MTLBuffer>* Buffer = nil;
 
 	uint32 Index = GetHeapBucketIndex(length);
@@ -456,6 +506,8 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMTLHeap)
 		INC_MEMORY_STAT_BY(STAT_MetalFreePooledBufferMem, Size);
 		INC_DWORD_STAT(STAT_MetalBufferNativeAlloctations);
 		INC_DWORD_STAT_BY(STAT_MetalBufferNativeMemAlloc, Size);
+        LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(Tag, Size, ELLMTracker::Default);
+        LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::GraphicsPlatform, Size, ELLMTracker::Platform);
 	}
 	if (Buffer.resourceData == nil)
 	{
@@ -463,7 +515,7 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMTLHeap)
 	}
 	Buffer.resourceData.resource = Buffer;
 	Buffer.resourceData.heap = self;
-	Buffer.resourceData->type = FMetalResouceTypeBuffer;
+	Buffer.resourceData->type = ResourceType;
 	FPlatformAtomics::InterlockedExchange(&Buffer.resourceData->aliased, 0);
 	Buffer.resourceData->size = Buffer.length;
 	Buffer.resourceData->timestamp = mach_absolute_time();
@@ -489,7 +541,9 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMTLHeap)
 {
 	FScopeLock Lock(PoolMutex);
 	
-	FMetalTextureDesc CacheDesc;
+    FMetalHeap::EMetalHeapTextureUsage Usage = FMetalHeap::TextureDescToIndex(desc);
+
+    FMetalTextureDesc CacheDesc;
 	CacheDesc.textureType = desc.textureType;
 	CacheDesc.pixelFormat = desc.pixelFormat;
 	CacheDesc.width = desc.width;
@@ -527,13 +581,14 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMTLHeap)
 		Tex = (NSObject<MTLTexture>*)[device newTextureWithDescriptor:desc];
 		TRACK_OBJECT(STAT_MetalTextureCount, Tex);
 		
-#if STATS
 		switch (desc.storageMode)
 		{
 			case MTLStorageModePrivate:
 			{
 				INC_DWORD_STAT(STAT_MetalPrivateTextureCount);
 				INC_MEMORY_STAT_BY(STAT_MetalPrivateTextureMem, TextureSizeAndAlignForDescriptor(desc).size);
+                LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(Usage == FMetalHeap::EMetalHeapTextureUsageRenderTarget ? ELLMTag::RenderTargets : ELLMTag::Textures, TextureSizeAndAlignForDescriptor(desc).size, ELLMTracker::Default);
+                LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::GraphicsPlatform, TextureSizeAndAlignForDescriptor(desc).size, ELLMTracker::Platform);
 				break;
 			}
 			case MTLStorageModeShared:
@@ -543,6 +598,8 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMTLHeap)
 			{
 				INC_DWORD_STAT(STAT_MetalManagedTextureCount);
 				INC_MEMORY_STAT_BY(STAT_MetalManagedTextureMem, TextureSizeAndAlignForDescriptor(desc).size);
+                LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(Usage == FMetalHeap::EMetalHeapTextureUsageRenderTarget ? ELLMTag::RenderTargets : ELLMTag::Textures, TextureSizeAndAlignForDescriptor(desc).size, ELLMTracker::Default);
+                LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::GraphicsPlatform, TextureSizeAndAlignForDescriptor(desc).size, ELLMTracker::Platform);
 				break;
 			}
 			default:
@@ -551,7 +608,6 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMTLHeap)
 				break;
 			}
 		}
-#endif
 	}
 	if (Tex.resourceData == nil)
 	{
@@ -559,7 +615,8 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMTLHeap)
 	}
 	Tex.resourceData.resource = Tex;
 	Tex.resourceData.heap = self;
-	Tex.resourceData->type = FMetalResouceTypeTexture;
+    Tex.resourceData->usage = FMetalHeap::TextureDescToIndex(desc);
+    Tex.resourceData->type = Tex.resourceData->usage == FMetalHeap::EMetalHeapTextureUsageRenderTarget ? FMetalResouceTypeRenderTarget: FMetalResouceTypeTexture;
 	FPlatformAtomics::InterlockedExchange(&Tex.resourceData->aliased, 0);
 	Tex.resourceData->size = TextureSizeAndAlignForDescriptor(desc).size;
 	Tex.resourceData->timestamp = mach_absolute_time();
@@ -776,11 +833,15 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMTLHeap)
 			switch([self metalType])
 			{
 				case FMetalResouceTypeBuffer:
+                case FMetalResouceTypeVertex:
+                case FMetalResouceTypeIndex:
+                case FMetalResouceTypeUniform:
 				{
 					[heap aliasBuffer:(id<MTLBuffer>)self];
 					break;
 				}
 				case FMetalResouceTypeTexture:
+                case FMetalResouceTypeRenderTarget:
 				{
 					[heap aliasTexture:(id<MTLTexture>)self];
 					break;
@@ -1037,12 +1098,48 @@ id<MTLBuffer> FMetalHeap::CreateBuffer(uint32 Size, MTLResourceOptions Options)
 		
 	INC_FLOAT_STAT_BY(STAT_MetalHeapBufferAllocMemory, ((float)Size / 1024.f / 1024.f));
 	
+    FMetalResouceType ResourceType = FMetalResouceTypeBuffer;
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+        ELLMTag Tag = (ELLMTag)FLowLevelMemTracker::Get().GetActiveTag(ELLMTracker::Default);
+        switch(Tag)
+        {
+            case ELLMTag::VertexBuffer:
+                ResourceType = FMetalResouceTypeVertex;
+                break;
+            case ELLMTag::IndexBuffer:
+                ResourceType = FMetalResouceTypeIndex;
+                break;
+            case ELLMTag::UniformBuffer:
+                ResourceType = FMetalResouceTypeUniform;
+                break;
+            default:
+                Tag = ELLMTag::RHIMisc;
+                break;
+        }
+#endif
 	NSObject<MTLBuffer>* TBuffer = (NSObject<MTLBuffer>*)Buffer;
 	if (TBuffer.resourceData != nil)
 	{
 		check(TBuffer.resourceData->size >= Buffer.length);
-		check(TBuffer.resourceData->type == FMetalResouceTypeBuffer);
+		check(TBuffer.resourceData->type == FMetalResouceTypeBuffer || TBuffer.resourceData->type == FMetalResouceTypeVertex || TBuffer.resourceData->type == FMetalResouceTypeIndex || TBuffer.resourceData->type == FMetalResouceTypeUniform);
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+        ELLMTag OldTag = ELLMTag::RHIMisc;
+        switch (TBuffer.resourceData->type)
+        {
+            case FMetalResouceTypeVertex:
+                OldTag = ELLMTag::VertexBuffer;
+                break;
+            case FMetalResouceTypeIndex:
+                OldTag = ELLMTag::IndexBuffer;
+                break;
+            case FMetalResouceTypeUniform:
+                OldTag = ELLMTag::UniformBuffer;
+                break;
+        }
+#endif
 		check(TBuffer.resourceData.resource == Buffer);
+        LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(OldTag, 0 - Buffer.length, ELLMTracker::Default);
+        LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(Tag, Buffer.length, ELLMTracker::Default);
 		TBuffer.resourceData->owner = nullptr;
 		FPlatformAtomics::InterlockedExchange(&TBuffer.resourceData->aliased, 0);
 	}
@@ -1051,7 +1148,7 @@ id<MTLBuffer> FMetalHeap::CreateBuffer(uint32 Size, MTLResourceOptions Options)
 		TBuffer.resourceData = [[[FMetalResourceData alloc] init] autorelease];
 		TBuffer.resourceData.resource = Buffer;
 		TBuffer.resourceData.heap = nil;
-		TBuffer.resourceData->type = FMetalResouceTypeBuffer;
+		TBuffer.resourceData->type = ResourceType;
 		TBuffer.resourceData->size = Buffer.length;
 		TBuffer.resourceData->timestamp = mach_absolute_time();
 		TBuffer.resourceData->mode = Storage;
@@ -1061,6 +1158,8 @@ id<MTLBuffer> FMetalHeap::CreateBuffer(uint32 Size, MTLResourceOptions Options)
 		TRACK_OBJECT(STAT_MetalBufferCount, Buffer);
 		INC_DWORD_STAT(STAT_MetalPooledBufferCount);
 		INC_MEMORY_STAT_BY(STAT_MetalPooledBufferMem, Buffer.length);
+        LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(Tag, Buffer.length, ELLMTracker::Default);
+        LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::GraphicsPlatform, Buffer.length, ELLMTracker::Platform);
 		INC_MEMORY_STAT_BY(STAT_MetalFreePooledBufferMem, Buffer.length);
 		INC_DWORD_STAT(STAT_MetalBufferNativeAlloctations);
 		INC_DWORD_STAT_BY(STAT_MetalBufferNativeMemAlloc, Buffer.length);
@@ -1209,8 +1308,11 @@ id<MTLTexture> FMetalHeap::CreateTexture(id<MTLHeap> Heap, MTLTextureDescriptor*
 	if (TTexture.resourceData != nil)
 	{
 		check(TTexture.resourceData->size == TextureSizeAndAlignForDescriptor(Desc).size);
-		check(TTexture.resourceData->type == FMetalResouceTypeTexture);
+		check(TTexture.resourceData->type == FMetalResouceTypeTexture || TTexture.resourceData->type == FMetalResouceTypeRenderTarget);
 		check(TTexture.resourceData.resource == Tex);
+        LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(TTexture.resourceData->type == FMetalResouceTypeRenderTarget ? ELLMTag::RenderTargets : ELLMTag::Textures, 0 - TTexture.resourceData->size, ELLMTracker::Default);
+        TTexture.resourceData->type = Usage == EMetalHeapTextureUsageRenderTarget ? FMetalResouceTypeRenderTarget : FMetalResouceTypeTexture;
+        LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(TTexture.resourceData->type == FMetalResouceTypeRenderTarget ? ELLMTag::RenderTargets : ELLMTag::Textures, TTexture.resourceData->size, ELLMTracker::Default);
 		TTexture.resourceData->owner = Surface;
 		FPlatformAtomics::InterlockedExchange(&TTexture.resourceData->aliased, 0);
 	}
@@ -1219,7 +1321,7 @@ id<MTLTexture> FMetalHeap::CreateTexture(id<MTLHeap> Heap, MTLTextureDescriptor*
 		TTexture.resourceData = [[[FMetalResourceData alloc] init] autorelease];
 		TTexture.resourceData.resource = Tex;
 		TTexture.resourceData.heap = nil;
-		TTexture.resourceData->type = FMetalResouceTypeTexture;
+        TTexture.resourceData->type = Usage == EMetalHeapTextureUsageRenderTarget ? FMetalResouceTypeRenderTarget : FMetalResouceTypeTexture;
 		TTexture.resourceData->size = TextureSizeAndAlignForDescriptor(Desc).size;
 		TTexture.resourceData->timestamp = mach_absolute_time();
 		TTexture.resourceData->mode = Storage;
@@ -1227,13 +1329,15 @@ id<MTLTexture> FMetalHeap::CreateTexture(id<MTLHeap> Heap, MTLTextureDescriptor*
 		TTexture.resourceData->owner = Surface;
 		FPlatformAtomics::InterlockedExchange(&TTexture.resourceData->aliased, 0);
 		TRACK_OBJECT(STAT_MetalTextureCount, Tex);
-#if STATS
+
 		switch (Desc.storageMode)
 		{
 			case MTLStorageModePrivate:
 			{
 				INC_DWORD_STAT(STAT_MetalPrivateTextureCount);
 				INC_MEMORY_STAT_BY(STAT_MetalPrivateTextureMem, TTexture.resourceData->size);
+                LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(Usage == EMetalHeapTextureUsageRenderTarget ? ELLMTag::RenderTargets : ELLMTag::Textures, TTexture.resourceData->size, ELLMTracker::Default);
+                LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::GraphicsPlatform, TTexture.resourceData->size, ELLMTracker::Platform);
 				break;
 			}
 			case MTLStorageModeShared:
@@ -1243,6 +1347,8 @@ id<MTLTexture> FMetalHeap::CreateTexture(id<MTLHeap> Heap, MTLTextureDescriptor*
 			{
 				INC_DWORD_STAT(STAT_MetalManagedTextureCount);
 				INC_MEMORY_STAT_BY(STAT_MetalManagedTextureMem, TTexture.resourceData->size);
+                LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(Usage == EMetalHeapTextureUsageRenderTarget ? ELLMTag::RenderTargets : ELLMTag::Textures, TTexture.resourceData->size, ELLMTracker::Default);
+                LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::GraphicsPlatform, TTexture.resourceData->size, ELLMTracker::Platform);
 				break;
 			}
 			default:
@@ -1251,7 +1357,6 @@ id<MTLTexture> FMetalHeap::CreateTexture(id<MTLHeap> Heap, MTLTextureDescriptor*
 				break;
 			}
 		}
-#endif
 	}
 	
 #if STATS
@@ -1660,3 +1765,4 @@ FMetalHeap::EMetalHeapTextureUsage FMetalHeap::TextureDescToIndex(MTLTextureDesc
 		return EMetalHeapTextureUsageRenderTarget;
 	}
 }
+

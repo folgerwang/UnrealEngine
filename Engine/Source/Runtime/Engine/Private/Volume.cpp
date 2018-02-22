@@ -22,7 +22,7 @@ AVolume::AVolume(const FObjectInitializer& ObjectInitializer)
 	GetBrushComponent()->AlwaysLoadOnServer = true;
 	static FName CollisionProfileName(TEXT("OverlapAll"));
 	GetBrushComponent()->SetCollisionProfileName(CollisionProfileName);
-	GetBrushComponent()->bGenerateOverlapEvents = true;
+	GetBrushComponent()->SetGenerateOverlapEvents(true);
 	bReplicateMovement = false;
 #if WITH_EDITORONLY_DATA
 	bActorLabelEditable = true;

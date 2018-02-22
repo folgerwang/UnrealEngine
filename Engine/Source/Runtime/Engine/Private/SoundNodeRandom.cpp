@@ -3,6 +3,7 @@
 
 #include "Sound/SoundNodeRandom.h"
 #include "ActiveSound.h"
+#include "AudioCompressionSettingsUtils.h"
 
 #if WITH_EDITOR
 	#include "Editor.h"
@@ -49,20 +50,38 @@ void USoundNodeRandom::FixHasBeenUsedArray()
 void USoundNodeRandom::PostLoad()
 {
 	Super::PostLoad();
-	if (!GIsEditor && PreselectAtLevelLoad > 0)
-	{
-		while (ChildNodes.Num() > PreselectAtLevelLoad)
-		{
-			RemoveChildNode(FMath::Rand() % ChildNodes.Num());
-		}
-	}
-#if WITH_EDITOR
-	else if (GEditor != nullptr && (GEditor->bIsSimulatingInEditor || GEditor->PlayWorld != NULL))
-	{
-		UpdatePIEHiddenNodes();
-	}
-#endif //WITH_EDITOR
 
+	// get a per-platform override
+	if (!bShouldExcludeFromBranchCulling)
+	{
+		int32 AmountOfBranchesToPreselect = 0;
+		int32 PlatformOverride = FPlatformCompressionUtilities::GetMaxPreloadedBranchesForCurrentPlatform();
+		if (PreselectAtLevelLoad > 0 && PlatformOverride > 0)
+		{
+			// If we have to decide between the two, use the minimum of either:
+			AmountOfBranchesToPreselect = FMath::Min(PreselectAtLevelLoad, PlatformOverride);
+		}
+		else
+		{
+			AmountOfBranchesToPreselect = PlatformOverride;
+		}
+
+		if (!GIsEditor && AmountOfBranchesToPreselect > 0)
+		{
+			// Cull branches from the end:
+			int32 LastIndex = ChildNodes.Num() - 1;
+			while (ChildNodes.Num() > AmountOfBranchesToPreselect)
+			{
+				RemoveChildNode(LastIndex--);
+			}
+		}
+#if WITH_EDITOR
+		else if (GEditor != nullptr && (GEditor->bIsSimulatingInEditor || GEditor->PlayWorld != NULL))
+		{
+			UpdatePIEHiddenNodes();
+		}
+#endif //WITH_EDITOR
+	}
 	FixWeightsArray();
 	FixHasBeenUsedArray();
 }

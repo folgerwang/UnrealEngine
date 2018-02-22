@@ -99,14 +99,6 @@ FAutoConsoleVariableRef CVarAOJitterConeDirections(
 	ECVF_RenderThreadSafe
 	);
 
-int32 GMaxDistanceFieldObjectsPerCullTile = 512;
-FAutoConsoleVariableRef CVarMaxDistanceFieldObjectsPerCullTile(
-	TEXT("r.AOMaxObjectsPerCullTile"),
-	GMaxDistanceFieldObjectsPerCullTile,
-	TEXT("Determines how much memory should be allocated in distance field object culling data structures.  Too much = memory waste, too little = flickering due to buffer overflow."),
-	ECVF_RenderThreadSafe | ECVF_ReadOnly
-	);
-
 TGlobalResource<FTemporaryIrradianceCacheResources> GTemporaryIrradianceCacheResources;
 
 int32 GDistanceFieldAOTileSizeX = 16;
@@ -400,7 +392,12 @@ void ComputeDistanceFieldNormal(FRHICommandListImmediate& RHICmdList, const TArr
 	}
 	else
 	{
-		SetRenderTarget(RHICmdList, DistanceFieldNormal.TargetableTexture, NULL, true);
+		SetRenderTarget(RHICmdList,
+			DistanceFieldNormal.TargetableTexture,
+			NULL,
+			ESimpleRenderTargetMode::EClearColorExistingDepth,
+			FExclusiveDepthStencil::DepthNop_StencilNop,
+			true);
 		FGraphicsPipelineStateInitializer GraphicsPSOInit;
 		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 

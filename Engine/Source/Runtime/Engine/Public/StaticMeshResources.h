@@ -34,12 +34,16 @@
 #include "Rendering/StaticMeshVertexDataInterface.h"
 #include "Templates/UniquePtr.h"
 #include "WeightedRandomSampler.h"
+#include "PerPlatformProperties.h"
 
 class FDistanceFieldVolumeData;
 class UBodySetup;
 
 /** The maximum number of static mesh LODs allowed. */
 #define MAX_STATIC_MESH_LODS 8
+
+/** Whether FStaticMeshSceneProxy should to store data and enable codepaths needed for debug rendering */
+#define STATICMESH_ENABLE_DEBUG_RENDERING (!(UE_BUILD_SHIPPING || UE_BUILD_TEST) || WITH_EDITOR)
 
 struct FStaticMaterial;
 
@@ -360,7 +364,7 @@ public:
 	TIndirectArray<FStaticMeshVertexFactories> LODVertexFactories;
 
 	/** Screen size to switch LODs */
-	float ScreenSize[MAX_STATIC_MESH_LODS];
+	FPerPlatformFloat ScreenSize[MAX_STATIC_MESH_LODS];
 
 	/** Bounds of the renderable mesh. */
 	FBoxSphereBounds Bounds;
@@ -413,15 +417,35 @@ public:
 
 	void BuildAreaWeighedSamplingData();
 
+#if WITH_EDITOR
+	/** Resolve all per-section settings. */
+	ENGINE_API void ResolveSectionInfo(UStaticMesh* Owner);
+#endif // #if WITH_EDITORONLY_DATA
+
 private:
 #if WITH_EDITORONLY_DATA
 	/** Allow the editor to explicitly update section information. */
 	friend class FLevelOfDetailSettingsLayout;
 #endif // #if WITH_EDITORONLY_DATA
-#if WITH_EDITOR
-	/** Resolve all per-section settings. */
-	ENGINE_API void ResolveSectionInfo(UStaticMesh* Owner);
-#endif // #if WITH_EDITORONLY_DATA
+};
+
+/**
+ * This geometry is used to rasterize mesh for software occlusion
+ * Generated only for platforms that support ETargetPlatformFeatures::SoftwareOcclusion
+ */
+class FStaticMeshOccluderData
+{
+public:
+	FStaticMeshOccluderData();
+
+	FOccluderVertexArraySP VerticesSP;
+	FOccluderIndexArraySP IndicesSP;
+
+	SIZE_T GetResourceSizeBytes() const;
+
+	static TUniquePtr<FStaticMeshOccluderData> Build(UStaticMesh* Owner);
+	/** Serialization. */
+	static void SerializeCooked(FArchive& Ar, UStaticMesh* Owner);
 };
 
 /**
@@ -524,6 +548,8 @@ public:
 		bool bAllowPreCulledIndices,
 		FMeshBatch& OutMeshBatch) const;
 
+	virtual bool CollectOccluderElements(class FOccluderElementsCollector& Collector) const override;
+
 	/** Sets up a wireframe FMeshBatch for a specific LOD. */
 	virtual bool GetWireframeMeshElement(int32 LODIndex, int32 BatchIndex, const FMaterialRenderProxy* WireframeRenderProxy, uint8 InDepthPriorityGroup, bool bAllowPreCulledIndices, FMeshBatch& OutMeshBatch) const;
 
@@ -540,7 +566,6 @@ public:
 	virtual HHitProxy* CreateHitProxies(UPrimitiveComponent* Component, TArray<TRefCountPtr<HHitProxy> >& OutHitProxies) override;
 #endif
 	virtual void DrawStaticElements(FStaticPrimitiveDrawInterface* PDI) override;
-	virtual void OnTransformChanged() override;
 	virtual int32 GetLOD(const FSceneView* View) const override;
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override;
 	virtual bool CanBeOccluded() const override;
@@ -564,7 +589,7 @@ public:
 	virtual bool GetMaterialTextureScales(int32 LODIndex, int32 SectionIndex, const FMaterialRenderProxy* MaterialRenderProxy, FVector4* OneOverScales, FIntVector4* UVChannelIndices) const override;
 #endif
 
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if STATICMESH_ENABLE_DEBUG_RENDERING
 	virtual int32 GetLightMapResolution() const override { return LightMapResolution; }
 #endif
 
@@ -580,8 +605,8 @@ protected:
 			/** Default constructor. */
 			FSectionInfo()
 				: Material(NULL)
-				, bSelected(false)
 #if WITH_EDITOR
+				, bSelected(false)
 				, HitProxy(NULL)
 #endif
 				, FirstPreCulledIndex(0)
@@ -591,10 +616,10 @@ protected:
 			/** The material with which to render this section. */
 			UMaterialInterface* Material;
 
+#if WITH_EDITOR
 			/** True if this section should be rendered as selected (editor only). */
 			bool bSelected;
 
-#if WITH_EDITOR
 			/** The editor needs to be able to individual sub-mesh hit detection, so we store a hit proxy on each mesh. */
 			HHitProxy* HitProxy;
 #endif
@@ -631,17 +656,13 @@ protected:
 		bool bUsesMeshModifyingMaterials;
 	};
 
-	AActor* Owner;
-	const UStaticMesh* StaticMesh;
-	UBodySetup* BodySetup;
 	FStaticMeshRenderData* RenderData;
+
+	FStaticMeshOccluderData* OccluderData;
 
 	TIndirectArray<FLODInfo> LODs;
 
 	const FDistanceFieldVolumeData* DistanceFieldData;	
-
-	/** Hierarchical LOD Index used for rendering */
-	uint8 HierarchicalLODIndex;
 
 	/**
 	 * The forcedLOD set in the static mesh editor, copied from the mesh component
@@ -651,16 +672,13 @@ protected:
 	/** Minimum LOD index to use.  Clamped to valid range [0, NumLODs - 1]. */
 	int32 ClampedMinLOD;
 
-	FVector TotalScale3D;
-
 	uint32 bCastShadow : 1;
-	ECollisionTraceFlag		CollisionTraceFlag;
+
+	/** This primitive has culling reversed */
+	uint32 bReverseCulling : 1;
 
 	/** The view relevance for all the static mesh's materials. */
 	FMaterialRelevance MaterialRelevance;
-
-	/** Collision Response of this component**/
-	FCollisionResponseContainer CollisionResponse;
 
 #if WITH_EDITORONLY_DATA
 	/** The component streaming distance multiplier */
@@ -676,18 +694,28 @@ protected:
 	int32 MaterialIndexPreview;
 #endif
 
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if STATICMESH_ENABLE_DEBUG_RENDERING
+private:
+	AActor* Owner;
+	const UStaticMesh* StaticMesh;
+	/** Hierarchical LOD Index used for rendering */
+	uint8 HierarchicalLODIndex;
 	/** LightMap resolution used for VMI_LightmapDensity */
 	int32 LightMapResolution;
-#endif
-
-#if !(UE_BUILD_SHIPPING)
+	/** Body setup for collision debug rendering */
+	UBodySetup* BodySetup;
+	/** Collision trace flags */
+	ECollisionTraceFlag		CollisionTraceFlag;
+	/** Collision Response of this component */
+	FCollisionResponseContainer CollisionResponse;
 	/** LOD used for collision */
 	int32 LODForCollision;
 	/** Draw mesh collision if used for complex collision */
 	uint32 bDrawMeshCollisionIfComplex : 1;
 	/** Draw mesh collision if used for simple collision */
 	uint32 bDrawMeshCollisionIfSimple : 1;
+
+public:
 #endif
 
 	/**

@@ -182,9 +182,9 @@ bool FSlateClippingZone::IsPointInside(const FVector2D& Point) const
 
 //-------------------------------------------------------------------
 
-FSlateClippingState::FSlateClippingState(bool InbAlwaysClips)
+FSlateClippingState::FSlateClippingState(EClippingFlags InFlags /*= EClippingFlags::None*/)
 	: StateIndex(INDEX_NONE)
-	, bAlwaysClips(InbAlwaysClips)
+	, Flags(InFlags)
 {
 }
 
@@ -215,7 +215,7 @@ FSlateClippingManager::FSlateClippingManager()
 
 int32 FSlateClippingManager::PushClip(const FSlateClippingZone& InClipRect)
 {
-	FSlateClippingState NewClippingState(InClipRect.GetAlwaysClip());
+	FSlateClippingState NewClippingState(InClipRect.GetAlwaysClip() ? EClippingFlags::AlwaysClip : EClippingFlags::None);
 
 	const FSlateClippingState* PreviousClippingState = nullptr;
 
