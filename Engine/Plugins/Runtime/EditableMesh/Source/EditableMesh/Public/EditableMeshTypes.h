@@ -364,13 +364,6 @@ struct FMeshElementAttributeValue
 
 	/** Accessors for known types. There will be a runtime error if the attribute value is not of the specified type. */
 	template <typename T> T GetValue() const;
-	template <> FVector4 GetValue<FVector4>() const { check( Type == EMeshElementAttributeType::FVector4 ); return Value_FVector4; }
-	template <> FVector GetValue<FVector>() const { check( Type == EMeshElementAttributeType::FVector ); return Value_FVector; }
-	template <> FVector2D GetValue<FVector2D>() const { check( Type == EMeshElementAttributeType::FVector2D ); return Value_FVector2D; }
-	template <> float GetValue<float>() const { check( Type == EMeshElementAttributeType::Float ); return Value_Float; }
-	template <> int GetValue<int>() const { check( Type == EMeshElementAttributeType::Int ); return Value_Int; }
-	template <> bool GetValue<bool>() const { check( Type == EMeshElementAttributeType::Bool ); return Value_Bool; }
-	template <> FName GetValue<FName>() const { check( Type == EMeshElementAttributeType::FName ); return Value_FName; }
 
 	/**
 	 * Calls the specified polymorphic lambda, with this attribute value as its passed-in parameter.
@@ -469,6 +462,16 @@ private:
 	bool Value_Bool;
 	FName Value_FName;
 };
+
+/** Implementations of accessors for known types. These must be defined outside the class definition. */
+template <> inline FVector4 FMeshElementAttributeValue::GetValue<FVector4>() const { check( Type == EMeshElementAttributeType::FVector4 ); return Value_FVector4; }
+template <> inline FVector FMeshElementAttributeValue::GetValue<FVector>() const { check( Type == EMeshElementAttributeType::FVector ); return Value_FVector; }
+template <> inline FVector2D FMeshElementAttributeValue::GetValue<FVector2D>() const { check( Type == EMeshElementAttributeType::FVector2D ); return Value_FVector2D; }
+template <> inline float FMeshElementAttributeValue::GetValue<float>() const { check( Type == EMeshElementAttributeType::Float ); return Value_Float; }
+template <> inline int FMeshElementAttributeValue::GetValue<int>() const { check( Type == EMeshElementAttributeType::Int ); return Value_Int; }
+template <> inline bool FMeshElementAttributeValue::GetValue<bool>() const { check( Type == EMeshElementAttributeType::Bool ); return Value_Bool; }
+template <> inline FName FMeshElementAttributeValue::GetValue<FName>() const { check( Type == EMeshElementAttributeType::FName ); return Value_FName; }
+
 
 
 USTRUCT( BlueprintType )
