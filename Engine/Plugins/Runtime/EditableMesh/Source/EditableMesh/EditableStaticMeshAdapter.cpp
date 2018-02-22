@@ -440,7 +440,9 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 	EditableMesh->GenerateTangentsAndNormals();
 #endif
 
+#if EDITABLE_MESH_USE_OPENSUBDIV
 	EditableMesh->RefreshOpenSubdiv();
+#endif
 	EditableMesh->RebuildOctree();
 }
 

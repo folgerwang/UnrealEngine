@@ -16,6 +16,8 @@
 // OpenSubdiv support
 // =========================================================
 
+#if EDITABLE_MESH_USE_OPENSUBDIV
+
 #if defined(_MSC_VER)
 	#pragma warning(push)
 	#pragma warning(disable:4191)		// Disable warning C4191: 'type cast' : unsafe conversion
@@ -38,6 +40,10 @@
 #if defined(_MSC_VER)
 	#pragma warning(pop)
 #endif
+
+#endif
+
+// =========================================================
 
 DEFINE_LOG_CATEGORY( LogEditableMesh );
 
@@ -361,7 +367,9 @@ void UEditableMesh::PostLoad()
 {
 	Super::PostLoad();
 
+#if EDITABLE_MESH_USE_OPENSUBDIV
 	RefreshOpenSubdiv();
+#endif
 	RebuildOctree();
 	RebuildRenderMesh();
 }
@@ -668,6 +676,7 @@ void UEditableMesh::EndModification( const bool bFromUndo )
 
 		if( CurrentModificationType == EMeshModificationType::Final || !bFromUndo )
 		{
+#if EDITABLE_MESH_USE_OPENSUBDIV
 			// Update subdivision limit surface
 			if( CurrentToplogyChange == EMeshTopologyChange::TopologyChange )
 			{
@@ -679,6 +688,7 @@ void UEditableMesh::EndModification( const bool bFromUndo )
 				// No topology change, so we can ask OpenSubdiv to quickly generate new limit surface geometry
 				GenerateOpenSubdivLimitSurfaceData();
 			}
+#endif
 		}
 
 		// Every so often, compact the data.
@@ -1813,6 +1823,7 @@ FVector UEditableMesh::ComputePolygonNormal( const FPolygonID PolygonID ) const
 }
 
 
+#if EDITABLE_MESH_USE_OPENSUBDIV
 void UEditableMesh::RefreshOpenSubdiv()
 {
 	OsdTopologyRefiner.Reset();
@@ -1972,6 +1983,7 @@ void UEditableMesh::RefreshOpenSubdiv()
 
 	GenerateOpenSubdivLimitSurfaceData();
 }
+#endif
 
 
 const FSubdivisionLimitData& UEditableMesh::GetSubdivisionLimitData() const
@@ -1980,6 +1992,7 @@ const FSubdivisionLimitData& UEditableMesh::GetSubdivisionLimitData() const
 }
 
 
+#if EDITABLE_MESH_USE_OPENSUBDIV
 void UEditableMesh::GenerateOpenSubdivLimitSurfaceData()
 {
 	SubdivisionLimitData = FSubdivisionLimitData();
@@ -2452,6 +2465,7 @@ void UEditableMesh::GenerateOpenSubdivLimitSurfaceData()
 		}
 	}
 }
+#endif
 
 
 void UEditableMesh::RetriangulatePolygons()
@@ -2655,6 +2669,7 @@ bool UEditableMesh::ComputeBarycentricWeightForPointOnPolygon( const FPolygonID 
 
 void UEditableMesh::SetSubdivisionCount( const int32 NewSubdivisionCount )
 {
+#if EDITABLE_MESH_USE_OPENSUBDIV
 	// @todo mesheditor subdiv: Really, instead of a custom FChange type for this type of change, we could create a change that
 	// represents a property (or set of properties) being changed, and use Unreal reflection to update it.  This would be
 	// reusable for future properties.
@@ -2678,6 +2693,7 @@ void UEditableMesh::SetSubdivisionCount( const int32 NewSubdivisionCount )
 	}
 
 	AddUndo( MakeUnique<FSetSubdivisionCountChange>( MoveTemp( RevertInput ) ) );
+#endif
 }
 
 

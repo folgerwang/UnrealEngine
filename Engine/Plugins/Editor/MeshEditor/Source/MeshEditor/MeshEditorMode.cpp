@@ -654,6 +654,7 @@ void FMeshEditorMode::BindCommands()
 	RegisterAnyElementCommand( MeshEditorAnyElementCommands.DeleteMeshElement, FExecuteAction::CreateLambda( [this] { DeleteSelectedMeshElement(); } ) );
 
 	// Register commands which work even without a selected element, as long as at least one mesh is selected
+#if EDITABLE_MESH_USE_OPENSUBDIV
 	RegisterCommonCommand( MeshEditorCommonCommands.AddSubdivisionLevel, FExecuteAction::CreateLambda( [this] { AddOrRemoveSubdivisionLevel( true ); } ) );
 	RegisterCommonCommand( MeshEditorCommonCommands.RemoveSubdivisionLevel, 
 		FExecuteAction::CreateLambda( [this] { AddOrRemoveSubdivisionLevel( false ); } ),
@@ -673,6 +674,7 @@ void FMeshEditorMode::BindCommands()
 			}
 		) 
 	);
+#endif
 
 	// @todo mesheditor: support EUserInterfaceActionType::ToggleButton actions in the UI, and extend RegisterCommand to allow
 	// a delegate returning check state.
@@ -1862,6 +1864,7 @@ bool FMeshEditorMode::DeleteSelectedMeshElement()
 }
 
 
+#if EDITABLE_MESH_USE_OPENSUBDIV
 void FMeshEditorMode::AddOrRemoveSubdivisionLevel( const bool bShouldAdd )
 {
 	if( ActiveAction == NAME_None )
@@ -1899,6 +1902,7 @@ void FMeshEditorMode::AddOrRemoveSubdivisionLevel( const bool bShouldAdd )
 		}
 	}
 }
+#endif
 
 
 void FMeshEditorMode::FrameSelectedElements( FEditorViewportClient* ViewportClient )
@@ -4909,6 +4913,7 @@ void FMeshEditorMode::OnActorSelectionChanged( const TArray<UObject*>& NewSelect
 
 void FMeshEditorMode::MakeVRRadialMenuActionsMenu(FMenuBuilder& MenuBuilder, TSharedPtr<FUICommandList> CommandList, class UVREditorMode* VRMode, float& RadiusOverride)
 {
+#if EDITABLE_MESH_USE_OPENSUBDIV
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("AddSubdivision", "Add SubD"),
 		FText(),
@@ -4931,6 +4936,7 @@ void FMeshEditorMode::MakeVRRadialMenuActionsMenu(FMenuBuilder& MenuBuilder, TSh
 		NAME_None,
 		EUserInterfaceActionType::ToggleButton
 		);
+#endif
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("EditInstance", "Edit Instance"),
 		FText(),

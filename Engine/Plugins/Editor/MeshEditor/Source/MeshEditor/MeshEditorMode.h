@@ -285,8 +285,10 @@ protected:
 	/** Deletes selected polygons, or polygons partly defined by selected elements; returns whether successful */
 	bool DeleteSelectedMeshElement();
 
+#if EDITABLE_MESH_USE_OPENSUBDIV
 	/** Adds or removes a subdivision level for selected meshes */
 	void AddOrRemoveSubdivisionLevel( const bool bShouldAdd );
+#endif
 
 	/** Moves the viewport camera to frame the currently selected elements */
 	void FrameSelectedElements( FEditorViewportClient* ViewportClient );

@@ -22,8 +22,16 @@ EDITABLEMESH_API DECLARE_LOG_CATEGORY_EXTERN( LogEditableMesh, Log, All );
 #endif
 
 
-// @todo mesheditor: Comment these classes and enums!
+// Specify which platforms currently support OpenSubdiv
+#if PLATFORM_WINDOWS
+#define EDITABLE_MESH_USE_OPENSUBDIV 1
+#else
+#define EDITABLE_MESH_USE_OPENSUBDIV 0
+#endif
 
+
+// @todo mesheditor: Comment these classes and enums!
+#if EDITABLE_MESH_USE_OPENSUBDIV
 namespace OpenSubdiv
 {
 	namespace v3_2_0
@@ -34,6 +42,7 @@ namespace OpenSubdiv
 		}
 	}
 }
+#endif
 
 
 UENUM( BlueprintType )
@@ -473,13 +482,17 @@ protected:
 public:
 	// @todo mesheditor: temporarily changed access to public so the adapter can call it when building the editable mesh from the source static mesh. Think about this some more.
 	/** Refreshes the entire OpenSubdiv state for this mesh and generates subdivision geometry (if the mesh is configured to have subdivision levels) */
+#if EDITABLE_MESH_USE_OPENSUBDIV
 	void RefreshOpenSubdiv();
+#endif
 
 protected:
 
+#if EDITABLE_MESH_USE_OPENSUBDIV
 	/** Generates new limit surface data and caches it (if the mesh is configured to have subdivision levels).  This can be used to update the
 	    limit surface after a non-topology-effective edit has happened */
 	void GenerateOpenSubdivLimitSurfaceData();
+#endif
 
 
 private:
@@ -537,10 +550,6 @@ public:
 	UPROPERTY( BlueprintReadOnly, Category="Editable Mesh" )
 	int32 TextureCoordinateCount;
 
-	/** How many levels to subdivide this mesh.  Zero will turn off subdivisions */
-	UPROPERTY( BlueprintReadOnly, Category="Editable Mesh" ) 
-	int32 SubdivisionCount;
-
 	/** List of polygons which need their tangent basis recalculating (and consequently their associated vertex instances) */
 	TSet<FPolygonID> PolygonsPendingNewTangentBasis;
 
@@ -566,6 +575,11 @@ public:
 	/** Data will be compacted after this many topology modifying actions. */
 	static const int32 CompactFrequency = 50;
 
+	/** How many levels to subdivide this mesh.  Zero will turn off subdivisions */
+	UPROPERTY( BlueprintReadOnly, Category="Editable Mesh" ) 
+	int32 SubdivisionCount;
+
+#if EDITABLE_MESH_USE_OPENSUBDIV
 	/** OpenSubdiv topology refiner object.  This is generated for meshes that have subdivision levels, and reused to generate new limit surfaces 
 	    when geometry is moved.  When the mesh's topology changes, this object is regenerated from scratch. */
 	TSharedPtr<OpenSubdiv::v3_2_0::Far::TopologyRefiner> OsdTopologyRefiner;
@@ -585,6 +599,7 @@ public:
 		int const* ValueIndices;
 	};
 	TArray<FOsdFVarChannel> OsdFVarChannels;
+#endif
 
 	/** The resulting limit surface geometry after GenerateOpenSubdivLimitSurfaceData() is called */
 	FSubdivisionLimitData SubdivisionLimitData;
