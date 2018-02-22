@@ -22,7 +22,7 @@ public class OpenSubdiv : ModuleRules
                 {
                     case WindowsCompiler.VisualStudio2017:
                     case WindowsCompiler.VisualStudio2015:
-						LibFolder = "/libVS2015";
+						LibFolder = "/lib/Win64/VS2015";
 						break;
                 }
             }
@@ -33,9 +33,25 @@ public class OpenSubdiv : ModuleRules
                 string ConfigFolder = bDebug ? "/Debug" : "/RelWithDebInfo";
 
                 PublicLibraryPaths.Add(OpenSubdivPath + LibFolder + ConfigFolder);
-
                 PublicAdditionalLibraries.Add("osdCPU.lib");
             }
         }
-	}
+		else if (Target.Platform == UnrealTargetPlatform.Mac)
+        {
+			// @todo: build Mac libraries
+//            string LibFolder = "/lib/Mac";
+//            string ConfigFolder = bDebug ? "" : "";
+//
+//            PublicLibraryPaths.Add(OpenSubdivPath + LibFolder + ConfigFolder);
+//            PublicAdditionalLibraries.Add("libosdCPU.a");
+        }
+		else if (Target.Platform == UnrealTargetPlatform.Linux)
+        {
+			// @todo: build Linux libraries
+//            string LibFolder = "/lib/Linux/" + Target.Architecture;
+//
+//            PublicLibraryPaths.Add(OpenSubdivPath + LibFolder);
+//            PublicAdditionalLibraries.Add("libosdCPU.a");
+        }
+    }
 }
