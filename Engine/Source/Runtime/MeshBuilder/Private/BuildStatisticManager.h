@@ -23,8 +23,8 @@ namespace BuildStatisticManager
 	{
 	public:
 		FBuildStatisticScope(const FString& InTimerDescription, FStatisticData& InStatisticData)
-			: StatisticData(InStatisticData)
-			, TimerDescription(InTimerDescription)
+			: TimerDescription(InTimerDescription)
+			, StatisticData(InStatisticData)
 		{
 			StartTime = FPlatformTime::Cycles();
 		}
@@ -36,8 +36,8 @@ namespace BuildStatisticManager
 			UE_LOG(LogMeshDescriptionBuildStatistic, Log, TEXT("%s: %f seconds - Counter: %d - Total Time: %f"), *TimerDescription, ScopeTime, StatisticData.Counter, StatisticData.TotalTime);
 		}
 	private:
-		int32 StartTime;
 		FString TimerDescription;
+		int32 StartTime;
 		FStatisticData& StatisticData;
 	};
 }

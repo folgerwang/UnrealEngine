@@ -6,7 +6,7 @@
 #include "Framework/Commands/UICommandInfo.h"
 #include "EditableMesh.h"
 #include "MeshElement.h"
-#include "Framework/Multibox/MultiBoxBuilder.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "MeshEditorMode"
