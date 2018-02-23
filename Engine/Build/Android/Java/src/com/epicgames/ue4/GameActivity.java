@@ -200,29 +200,7 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 	private int noActionAnimID = -1;
 
 	// Console
-	/*
 	private static final String CONSOLE_SPINNER_ITEMS[] = {"Common Console Commands", "stat FPS", "stat Anim","stat OpenGLRHI","stat VulkanRHI","stat DumpEvents","stat DumpFrame",
-		"stat DumpHitches","stat Engine","stat Game","stat Grouped","stat Hitches","stat InitViews","stat LightRendering",
-		"stat Memory","stat Particles","stat SceneRendering","stat SceneUpdate","stat ShadowRendering","stat Slow",
-		"stat Streaming","stat StreamingDetails","stat Unit","stat UnitGraph", "stat StartFile", "stat StopFile", "GameVer", "show PostProcessing", "stat AndroidCPU"};
-	*/		
-
-	// FORTNITE SPECIFIC DO NOT MERGE TO ENGINE PLS
-	private static final String CONSOLE_SPINNER_ITEMS[] = {"Common Console Commands", 
-		"mms flush",
-		"cheat givewood 999",
-		"giveathenafullkit",
-		"cheat startaircraft",
-		"cheat pausesafezone",
-		"cheat spawnsupplydrop",
-		"fort.autoFireDelay 0.15",
-		"fort.autoFireDelay 0",
-		"fort.autoFireRequiresTargeting 0",
-		"fort.autoFireRequiresTargeting 1",
-		"fort.SoundTrackingEnabled 1",
-		"fort.InteractionTraceEnabled 0",
-		"fort.InteractionTraceEnabled 1",
-		"stat FPS", "stat Anim","stat OpenGLRHI","stat VulkanRHI","stat DumpEvents","stat DumpFrame",
 		"stat DumpHitches","stat Engine","stat Game","stat Grouped","stat Hitches","stat InitViews","stat LightRendering",
 		"stat Memory","stat Particles","stat SceneRendering","stat SceneUpdate","stat ShadowRendering","stat Slow",
 		"stat Streaming","stat StreamingDetails","stat Unit","stat UnitGraph", "stat StartFile", "stat StopFile", "GameVer", "show PostProcessing", "stat AndroidCPU"};
