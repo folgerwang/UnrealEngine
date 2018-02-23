@@ -24,8 +24,8 @@
 
 #define LOCTEXT_NAMESPACE "BlutilityContentBrowserExtensions"
 
-FContentBrowserMenuExtender_SelectedAssets ContentBrowserExtenderDelegate;
-FDelegateHandle ContentBrowserExtenderDelegateHandle;
+static FContentBrowserMenuExtender_SelectedAssets ContentBrowserExtenderDelegate;
+static FDelegateHandle ContentBrowserExtenderDelegateHandle;
 
 class FBlutilityContentBrowserExtensions_Impl
 {
