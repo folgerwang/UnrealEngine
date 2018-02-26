@@ -8,7 +8,6 @@
 #include "MeshDescription.h"
 #include "MeshAttributes.h"
 #include "RawMesh.h"
-#include "LayoutUV.h"
 
 
 FMeshBuilder::FMeshBuilder()
