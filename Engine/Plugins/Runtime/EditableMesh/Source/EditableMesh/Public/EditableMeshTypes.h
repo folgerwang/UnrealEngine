@@ -348,7 +348,7 @@ struct FMeshElementAttributeValue
 
 	/** Define constructors */
 	FMeshElementAttributeValue() : Type( EMeshElementAttributeType::None ) {}
-	explicit FMeshElementAttributeValue( const FVector4 Value ) : Type( EMeshElementAttributeType::FVector4 ), Value_FVector4( Value ) {}
+	explicit FMeshElementAttributeValue( const FVector4& Value ) : Type( EMeshElementAttributeType::FVector4 ), Value_FVector4( Value ) {}
 	explicit FMeshElementAttributeValue( const FVector Value ) : Type( EMeshElementAttributeType::FVector ), Value_FVector( Value ) {}
 	explicit FMeshElementAttributeValue( const FVector2D Value ) : Type( EMeshElementAttributeType::FVector2D ), Value_FVector2D( Value ) {}
 	explicit FMeshElementAttributeValue( const float Value ) : Type( EMeshElementAttributeType::Float ), Value_Float( Value ) {}

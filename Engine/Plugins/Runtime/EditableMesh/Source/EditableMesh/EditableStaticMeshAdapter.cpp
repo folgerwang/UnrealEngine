@@ -489,7 +489,15 @@ bool UEditableStaticMeshAdapter::FindOrAddMaterial(UMaterialInterface* Material,
 			Counter++;
 		}
 	}
-	MaterialIndex  = StaticMesh->StaticMaterials.Add(FStaticMaterial(Material, MaterialName, MaterialName));
+
+	MaterialIndex  = StaticMesh->StaticMaterials.Add(FStaticMaterial(
+		Material,
+		MaterialName,
+#if WITH_EDITOR
+		MaterialName
+#endif
+	));
+
 	ImportedMaterialName = MaterialName;
 	return true;
 }
