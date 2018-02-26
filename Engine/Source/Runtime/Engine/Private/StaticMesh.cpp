@@ -2559,7 +2559,6 @@ public:
 		MeshDescriptionContent.AddZeroed(LodNumber);
 		for (int32 LodIndex = 0; LodIndex < LodNumber; ++LodIndex)
 		{
-			StaticMesh->SourceModels[LodIndex];
 			FStaticMeshSourceModel& SourceModel = StaticMesh->SourceModels[LodIndex];
 			MeshDescriptionTable[LodIndex] = SourceModel.OriginalMeshDescription != nullptr;
 			if (MeshDescriptionTable[LodIndex])

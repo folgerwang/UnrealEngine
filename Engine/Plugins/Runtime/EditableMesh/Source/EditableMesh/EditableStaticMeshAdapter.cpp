@@ -1116,6 +1116,12 @@ void UEditableStaticMeshAdapter::UpdateCollision()
 
 	UBodySetup* BodySetup = StaticMesh->BodySetup;
 
+	// Return of body setup creation failed
+	if( !BodySetup )
+	{
+		return;
+	}
+
 	// NOTE: We don't bother calling Modify() on the BodySetup as EndModification() will rebuild this guy after every undo
 	// BodySetup->Modify();
 

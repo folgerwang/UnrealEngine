@@ -7161,17 +7161,17 @@ void UEditableMesh::WeldVertices( const TArray<FVertexID>& VertexIDsToWeld, FVer
 	// This function takes a list of perimeter vertices and a list of vertices to be welded as input.
 	// It returns a tuple stating whether the result is valid, and the [first, last) range of vertices to be welded.
 	// (It will be invalid if there is more than one contiguous run of vertices to weld.)
-	auto GetPerimeterVertexRangeToWeld = []( const TArray<FVertexID>& PolygonVertexIDs, const TArray<FVertexID>& VertexIDsToWeld )
+	auto GetPerimeterVertexRangeToWeld = []( const TArray<FVertexID>& PolygonVertexIDs, const TArray<FVertexID>& VerticesToWeld )
 	{
 		bool bValid = true;
 		int32 StartIndex = INDEX_NONE;
 		int32 EndIndex = INDEX_NONE;
 
 		const int32 NumPolygonVertices = PolygonVertexIDs.Num();
-		bool bPrevVertexNeedsWelding = VertexIDsToWeld.Contains( PolygonVertexIDs[ NumPolygonVertices - 1 ] );
+		bool bPrevVertexNeedsWelding = VerticesToWeld.Contains( PolygonVertexIDs[ NumPolygonVertices - 1 ] );
 		for( int32 Index = 0; Index < NumPolygonVertices; ++Index )
 		{
-			const bool bThisVertexNeedsWelding = VertexIDsToWeld.Contains( PolygonVertexIDs[ Index ] );
+			const bool bThisVertexNeedsWelding = VerticesToWeld.Contains( PolygonVertexIDs[ Index ] );
 			if( !bPrevVertexNeedsWelding && bThisVertexNeedsWelding )
 			{
 				// Transition from 'doesn't need welding' to 'needs welding'
