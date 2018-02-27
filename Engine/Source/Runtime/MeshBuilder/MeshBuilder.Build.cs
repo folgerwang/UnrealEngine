@@ -17,18 +17,25 @@ namespace UnrealBuildTool.Rules
                     "Engine",
                     "RenderCore",
                     "MeshDescription",
-                    "MeshDescriptionOperations",
-                    "MeshReductionInterface",
-                    "RenderCore",
-                    "RawMesh"
+                    "RenderCore"
                 }
 			);
 
-            AddEngineThirdPartyPrivateStaticDependencies(Target, "nvTriStrip");
-            AddEngineThirdPartyPrivateStaticDependencies(Target, "ForsythTriOptimizer");
-            AddEngineThirdPartyPrivateStaticDependencies(Target, "nvTessLib");
-            AddEngineThirdPartyPrivateStaticDependencies(Target, "QuadricMeshReduction");
-
+            if (Target.bBuildEditor)
+            {
+                PrivateDependencyModuleNames.AddRange(
+                    new string[]
+                    {
+                        "MeshDescriptionOperations",
+                        "MeshReductionInterface",
+                        "RawMesh"
+                    }
+                );
+				AddEngineThirdPartyPrivateStaticDependencies(Target, "nvTriStrip");
+            	AddEngineThirdPartyPrivateStaticDependencies(Target, "ForsythTriOptimizer");
+	            AddEngineThirdPartyPrivateStaticDependencies(Target, "nvTessLib");
+                AddEngineThirdPartyPrivateStaticDependencies(Target, "QuadricMeshReduction");
+            }
             if (Target.bCompileSimplygon == true)
             {
                 AddEngineThirdPartyPrivateDynamicDependencies(Target, "SimplygonMeshReduction");

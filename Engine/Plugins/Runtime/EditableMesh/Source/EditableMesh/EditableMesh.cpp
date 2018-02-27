@@ -5379,7 +5379,7 @@ void UEditableMesh::ExtrudePolygons( const TArray<FPolygonID>& PolygonIDs, const
 						// would avoid the problem where extruding two polygons that are connected only by a vertex are not extruded
 						// separately.
 						const bool bVertexIsSharedByAnEdgeOfAnotherSelectedPolygon = false;
-						if( ExtrudedEdgeVertexIDPtr != nullptr && !bVertexIsSharedByAnEdgeOfAnotherSelectedPolygon )
+						if( ExtrudedEdgeVertexIDPtr != nullptr)// && !bVertexIsSharedByAnEdgeOfAnotherSelectedPolygon )
 						{
 							ExtrudedEdgeVertexIDs[ EdgeVertexNumber ] = *ExtrudedEdgeVertexIDPtr;
 						}

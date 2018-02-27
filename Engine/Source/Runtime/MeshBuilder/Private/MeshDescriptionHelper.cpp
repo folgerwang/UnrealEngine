@@ -130,12 +130,15 @@ UMeshDescription* FMeshDescriptionHelper::GetRenderMeshDescription(UObject* Owne
 			VertexInstanceUVs.SetNumIndices(BuildSettings->DstLightmapIndex + 1);
 			BuildSettings->DstLightmapIndex = NumIndices;
 		}
-
 		FMeshDescriptionOperations::CreateLightMapUVLayout(RenderMeshDescription,
 			BuildSettings->SrcLightmapIndex,
 			BuildSettings->DstLightmapIndex,
 			BuildSettings->MinLightmapResolution,
+#if WITH_EDITORONLY_DATA
 			(FMeshDescriptionOperations::ELightmapUVVersion)(StaticMesh->LightmapUVVersion),
+#else
+			FMeshDescriptionOperations::ELightmapUVVersion::SmallChartPacking,
+#endif
 			OverlappingCorners);
 	}
 
