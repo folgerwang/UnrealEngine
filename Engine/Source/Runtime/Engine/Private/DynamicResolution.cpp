@@ -14,6 +14,7 @@ Renderer.cpp: Renderer module implementation.
 #include "RHI.h"
 #include "RHICommandList.h"
 #include "DynamicRHI.h"
+#include "UnrealEngine.h"
 
 
 static TAutoConsoleVariable<float> CVarDynamicResMinSP(
@@ -784,6 +785,17 @@ public:
 
 
 	// Implements IDynamicResolutionState
+
+	virtual bool IsSupported() const override
+	{
+		// No VR platforms are officially supporting dynamic resolution with Engine default's dynamic resolution state.
+		const bool bIsStereo = GEngine->StereoRenderingDevice.IsValid() ? GEngine->StereoRenderingDevice->IsStereoEnabled() : false;
+		if (bIsStereo)
+		{
+			return false;
+		}
+		return GRHISupportsDynamicResolution;
+	}
 
 	virtual void ResetHistory() override
 	{

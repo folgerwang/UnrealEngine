@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
 #include "RequiredProgramMainCPPInclude.h"
 #include "Misc/CommandLine.h"
@@ -73,6 +73,8 @@ FDelegateHandle ConnectionStatusChangedHandle;
 MCallbackIdArray myCallbackIds;
 
 MSpace::Space G_TransformSpace = MSpace::kTransform;
+
+bool bUEInitialized = false;
 
 // Execute the python command to refresh our UI
 void RefreshUI()
@@ -237,7 +239,7 @@ struct FLiveLinkStreamedJointHeirarchySubject : IStreamedEntity
 	{}
 
 	virtual bool ShouldDisplayInUI() const { return true; }
-	virtual MString GetDisplayText() const { return MString(*SubjectName.ToString()) + " (" + RootDagPath.fullPathName() + ")"; }
+	virtual MString GetDisplayText() const { return MString("Character: ") + MString(*SubjectName.ToString()) + " ( " + RootDagPath.fullPathName() + " )"; }
 
 	virtual bool ValidateSubject() const
 	{
@@ -404,19 +406,61 @@ private:
 	TArray<FStreamHierarchy> JointsToStream;
 };
 
-struct FLiveLinkStreamedActiveCamera : public IStreamedEntity
+struct FLiveLinkBaseCameraStreamedSubject : public IStreamedEntity
 {
 public:
+	FLiveLinkBaseCameraStreamedSubject(FName InSubjectName) : SubjectName(InSubjectName) {}
+
+	virtual bool ValidateSubject() const { return true; }
+
+	virtual void RebuildSubjectData()
+	{
+		LiveLinkProvider->UpdateSubject(SubjectName, ActiveCameraBoneNames, ActiveCameraBoneParents);
+	}
+
+	void StreamCamera(MDagPath CameraPath, double StreamTime, int32 FrameNumber)
+	{
+		MStatus Status;
+		bool bIsValid = CameraPath.isValid(&Status);
+
+		if (bIsValid && Status == MStatus::kSuccess)
+		{
+			MFnCamera C(CameraPath);
+
+			MPoint EyeLocation = C.eyePoint(MSpace::kWorld);
+
+			MMatrix CameraTransformMatrix;
+			SetMatrixRow(CameraTransformMatrix[0], C.rightDirection(MSpace::kWorld));
+			SetMatrixRow(CameraTransformMatrix[1], C.viewDirection(MSpace::kWorld));
+			SetMatrixRow(CameraTransformMatrix[2], C.upDirection(MSpace::kWorld));
+			SetMatrixRow(CameraTransformMatrix[3], EyeLocation);
+
+			TArray<FTransform> CameraTransform = { BuildUETransformFromMayaTransform(CameraTransformMatrix) };
+			// Convert Maya Camera orientation to Unreal
+			CameraTransform[0].SetRotation(CameraTransform[0].GetRotation() * FRotator(0.f, -90.f, 0.f).Quaternion());
+			TArray<FLiveLinkCurveElement> Curves;
+
+			LiveLinkProvider->UpdateSubjectFrame(SubjectName, CameraTransform, Curves, StreamTime, FrameNumber);
+		}
+	}
+
+protected:
+	FName  SubjectName;
+	static TArray<FName> ActiveCameraBoneNames;
+	static TArray<int32> ActiveCameraBoneParents;
+};
+
+TArray<FName> FLiveLinkBaseCameraStreamedSubject::ActiveCameraBoneNames = { FName("root") };
+TArray<int32> FLiveLinkBaseCameraStreamedSubject::ActiveCameraBoneParents = { -1 };
+
+struct FLiveLinkStreamedActiveCamera : public FLiveLinkBaseCameraStreamedSubject
+{
+public:
+	FLiveLinkStreamedActiveCamera() : FLiveLinkBaseCameraStreamedSubject(ActiveCameraName) {}
+
 	MDagPath CurrentActiveCameraDag;
 
 	virtual MString GetDisplayText() const { return MString(); }
-
-	virtual bool ValidateSubject() const { return true; }
-	
-	virtual void RebuildSubjectData()
-	{
-		LiveLinkProvider->UpdateSubject(ActiveCameraName, ActiveCameraBoneNames, ActiveCameraBoneParents);
-	}
 
 	virtual void OnStream(double StreamTime, int32 FrameNumber)
 	{
@@ -430,49 +474,75 @@ public:
 				CurrentActiveCameraDag = CameraDag;
 			}
 		}
-		
-		
-		MGlobal::displayInfo(MString("Active View Camera: ") + CurrentActiveCameraDag.fullPathName());
-	
-		bool bIsValid = CurrentActiveCameraDag.isValid(&Status);
 
-		if(bIsValid && Status == MStatus::kSuccess)
-		{
-			MFnCamera C(CurrentActiveCameraDag);
-
-			MPoint EyeLocation = C.eyePoint(MSpace::kWorld);
-			MGlobal::displayInfo(MString("Test Eye: ") + EyeLocation.x + MString(",") + EyeLocation.y + MString(",") + EyeLocation.z);
-
-			MGlobal::displayInfo(MString("Test2: ") + C.horizontalFieldOfView() + MString(",") + C.verticalFieldOfView());
-
-			MMatrix CameraTransformMatrix;
-			SetMatrixRow(CameraTransformMatrix[0], C.rightDirection(MSpace::kWorld));
-			SetMatrixRow(CameraTransformMatrix[1], C.viewDirection(MSpace::kWorld));
-			SetMatrixRow(CameraTransformMatrix[2], C.upDirection(MSpace::kWorld));
-			SetMatrixRow(CameraTransformMatrix[3], EyeLocation);
-
-			OutputRotation(CameraTransformMatrix);
-
-			TArray<FTransform> CameraTransform = { BuildUETransformFromMayaTransform(CameraTransformMatrix) };
-			// Convert Maya Camera orientation to Unreal
-			CameraTransform[0].SetRotation(CameraTransform[0].GetRotation() * FRotator(0.f, -90.f, 0.f).Quaternion());
-			TArray<FLiveLinkCurveElement> Curves;
-
-			LiveLinkProvider->UpdateSubjectFrame(ActiveCameraName, CameraTransform, Curves, StreamTime, FrameNumber);
-		}
+		StreamCamera(CurrentActiveCameraDag, StreamTime, FrameNumber);
 	}
 
 private:
 	static FName ActiveCameraName;
-	static TArray<FName> ActiveCameraBoneNames;
-	static TArray<int32> ActiveCameraBoneParents;
+};
+
+struct FLiveLinkStreamedCameraSubject : FLiveLinkBaseCameraStreamedSubject
+{
+public:
+	FLiveLinkStreamedCameraSubject(FName InSubjectName, MDagPath InDagPath) : FLiveLinkBaseCameraStreamedSubject(InSubjectName), CameraPath(InDagPath) {}
+
+	virtual bool ShouldDisplayInUI() const { return true; }
+	virtual MString GetDisplayText() const { return MString("Camera: ") + *SubjectName.ToString() + " ( " + CameraPath.fullPathName() + " )"; }
+
+	virtual void OnStream(double StreamTime, int32 FrameNumber)
+	{
+		StreamCamera(CameraPath, StreamTime, FrameNumber);
+	}
+
+private:
+	MDagPath CameraPath;
 };
 
 FName FLiveLinkStreamedActiveCamera::ActiveCameraName("EditorActiveCamera");
-TArray<FName> FLiveLinkStreamedActiveCamera::ActiveCameraBoneNames = { FName("root") };
-TArray<int32> FLiveLinkStreamedActiveCamera::ActiveCameraBoneParents = { -1 };
 
+struct FLiveLinkStreamedPropSubject : IStreamedEntity
+{
+public:
+	FLiveLinkStreamedPropSubject(FName InSubjectName, MDagPath InRootPath)
+		: SubjectName(InSubjectName)
+		, RootDagPath(InRootPath)
+	{}
 
+	virtual bool ShouldDisplayInUI() const { return true; }
+	virtual MString GetDisplayText() const { return MString("Prop: ") + MString(*SubjectName.ToString()) + " ( " + RootDagPath.fullPathName() + " )"; }
+
+	virtual bool ValidateSubject() const {return true;}
+
+	virtual void RebuildSubjectData()
+	{
+		LiveLinkProvider->UpdateSubject(SubjectName, PropBoneNames, PropBoneParents);
+	}
+
+	virtual void OnStream(double StreamTime, int32 FrameNumber)
+	{
+		MFnTransform TransformNode(RootDagPath);
+
+		MMatrix Transform = TransformNode.transformation().asMatrix();
+
+		TArray<FTransform> UETransforms = { BuildUETransformFromMayaTransform(Transform) };
+		// Convert Maya Camera orientation to Unreal
+		TArray<FLiveLinkCurveElement> Curves;
+
+		LiveLinkProvider->UpdateSubjectFrame(SubjectName, UETransforms, Curves, StreamTime, FrameNumber);
+	}
+
+private:
+	FName SubjectName;
+	MDagPath RootDagPath;
+
+	static TArray<FName> PropBoneNames;
+	static TArray<int32> PropBoneParents;
+
+};
+
+TArray<FName> FLiveLinkStreamedPropSubject::PropBoneNames = { FName("root") };
+TArray<int32> FLiveLinkStreamedPropSubject::PropBoneParents = { -1 };
 
 class FLiveLinkStreamedSubjectManager
 {
@@ -523,6 +593,16 @@ public:
 	void AddJointHeirarchySubject(FName SubjectName, MDagPath RootPath)
 	{
 		AddSubjectOfType<FLiveLinkStreamedJointHeirarchySubject>(SubjectName, RootPath);
+	}
+
+	void AddCameraSubject(FName SubjectName, MDagPath RootPath)
+	{
+		AddSubjectOfType<FLiveLinkStreamedCameraSubject>(SubjectName, RootPath);
+	}
+
+	void AddPropSubject(FName SubjectName, MDagPath RootPath)
+	{
+		AddSubjectOfType<FLiveLinkStreamedPropSubject>(SubjectName, RootPath);
 	}
 
 	void RemoveSubject(MString SubjectToRemove)
@@ -618,6 +698,20 @@ public:
 				MDagPath Path;
 				JointObject.getPath(Path);
 				LiveLinkStreamManager->AddJointHeirarchySubject(SubjectFName, Path);
+			}
+			else if (obj.hasFn(MFn::kCamera))
+			{
+				MFnCamera CameraObject(obj);
+				MDagPath Path;
+				CameraObject.getPath(Path);
+				LiveLinkStreamManager->AddCameraSubject(SubjectFName, Path);
+			}
+			else if(obj.hasFn(MFn::kTransform))
+			{
+				MFnTransform TransformNode(obj);
+				MDagPath Path;
+				TransformNode.getPath(Path);
+				LiveLinkStreamManager->AddPropSubject(SubjectFName, Path);
 			}
 		}
 
@@ -824,47 +918,46 @@ void OnInterval(float elapsedTime, float lastTime, void* clientData)
 	RefreshViewportCallbacks();
 
 	OnConnectionStatusChanged();
+
+	FTicker::GetCoreTicker().Tick(elapsedTime);
 }
 
 /**
- * This function is called by Maya when the plugin becomes loaded 
- *
- * @param	MayaPluginObject	The Maya object that represents our plugin
- *
- * @return	MS::kSuccess if everything went OK and the plugin is ready to use
- */
-DLLEXPORT MStatus initializePlugin( MObject MayaPluginObject )
+* This function is called by Maya when the plugin becomes loaded
+*
+* @param	MayaPluginObject	The Maya object that represents our plugin
+*
+* @return	MS::kSuccess if everything went OK and the plugin is ready to use
+*/
+DLLEXPORT MStatus initializePlugin(MObject MayaPluginObject)
 {
-	MStringArray names;
-
-	MEventMessage::getEventNames(names);
-	
-	for (uint i = 0; i < names.length(); ++i)
+	if(!bUEInitialized)
 	{
-		MGlobal::displayInfo(names[i]);
+		GEngineLoop.PreInit(TEXT("MayaLiveLinkPlugin -Messaging"));
+		ProcessNewlyLoadedUObjects();
+		// Tell the module manager is may now process newly-loaded UObjects when new C++ modules are loaded
+		FModuleManager::Get().StartProcessingNewlyLoadedObjects();
+
+		FModuleManager::Get().LoadModule(TEXT("UdpMessaging"));
+
+		GLog->TearDown(); //clean up existing output devices
+		GLog->AddOutputDevice(new FMayaOutputDevice()); //Add Maya output device
+
+		bUEInitialized = true; // Dont redo this part if someone unloads and reloads our plugin
 	}
 
-	GEngineLoop.PreInit(TEXT("MayaLiveLinkPlugin -Messaging"));
-	ProcessNewlyLoadedUObjects();
-	// Tell the module manager is may now process newly-loaded UObjects when new C++ modules are loaded
-	FModuleManager::Get().StartProcessingNewlyLoadedObjects();
-
 	// Tell Maya about our plugin
-	MFnPlugin MayaPlugin( 
-		MayaPluginObject, 
-		"MayaLiveLinkPlugin",	// @todo: Put the vendor name here.  It shows up in the "Info" dialog in Maya's Plugin Manager
-		"v1.0" );			// @todo: Put version string for your plugin here
-
-	// ... do stuff here ...
-
-	FModuleManager::Get().LoadModule(TEXT("UdpMessaging"));
-	//FModuleManager::Get().LoadModule(TEXT("LiveLink"));
-
-	GLog->TearDown(); //clean up existing output devices
-	GLog->AddOutputDevice(new FMayaOutputDevice()); //Add Maya output device
+	MFnPlugin MayaPlugin(
+		MayaPluginObject,
+		"MayaLiveLinkPlugin",
+		"v1.0");
 
 	LiveLinkProvider = ILiveLinkProvider::CreateLiveLinkProvider(TEXT("Maya Live Link"));
 	ConnectionStatusChangedHandle = LiveLinkProvider->RegisterConnStatusChangedHandle(FLiveLinkProviderConnectionStatusChanged::FDelegate::CreateStatic(&OnConnectionStatusChanged));
+
+	// We do not tick the core engine but we need to tick the ticker to make sure the message bus endpoint in LiveLinkProvider is
+	// up to date
+	FTicker::GetCoreTicker().Tick(1.f);
 
 	LiveLinkStreamManager = MakeShareable(new FLiveLinkStreamedSubjectManager());
 
@@ -886,15 +979,13 @@ DLLEXPORT MStatus initializePlugin( MObject MayaPluginObject )
 	MCallbackId timerCallback = MTimerMessage::addTimerCallback(5.f, (MMessage::MElapsedTimeFunction)OnInterval);
 	myCallbackIds.append(timerCallback);
 
-	UE_LOG(LogBlankMayaPlugin, Display, TEXT("MayaLiveLinkPlugin initialized"));
-
 	MayaPlugin.registerCommand(LiveLinkSubjectsCommandName, LiveLinkSubjectsCommand::creator);
 	MayaPlugin.registerCommand(LiveLinkAddSubjectCommandName, LiveLinkAddSubjectCommand::creator);
 	MayaPlugin.registerCommand(LiveLinkRemoveSubjectCommandName, LiveLinkRemoveSubjectCommand::creator);
 	MayaPlugin.registerCommand(LiveLinkConnectionStatusCommandName, LiveLinkConnectionStatusCommand::creator);
 
 	// Print to Maya's output window, too!
-	MGlobal::displayInfo(MString("MayaLiveLinkPlugin initialized"));
+	UE_LOG(LogBlankMayaPlugin, Display, TEXT("MayaLiveLinkPlugin initialized"));
 
 	RefreshViewportCallbacks();
 
@@ -904,16 +995,16 @@ DLLEXPORT MStatus initializePlugin( MObject MayaPluginObject )
 
 
 /**
- * Called by Maya either at shutdown, or when the user opts to unload the plugin through the Plugin Manager 
- *
- * @param	MayaPluginObject	The Maya object that represents our plugin
- *
- * @return	MS::kSuccess if everything went OK and the plugin was fully shut down
- */
-DLLEXPORT MStatus uninitializePlugin( MObject MayaPluginObject )
+* Called by Maya either at shutdown, or when the user opts to unload the plugin through the Plugin Manager
+*
+* @param	MayaPluginObject	The Maya object that represents our plugin
+*
+* @return	MS::kSuccess if everything went OK and the plugin was fully shut down
+*/
+DLLEXPORT MStatus uninitializePlugin(MObject MayaPluginObject)
 {
 	// Get the plugin API for the plugin object
-	MFnPlugin MayaPlugin( MayaPluginObject );
+	MFnPlugin MayaPlugin(MayaPluginObject);
 
 	// ... do stuff here ...
 
@@ -933,6 +1024,9 @@ DLLEXPORT MStatus uninitializePlugin( MObject MayaPluginObject )
 		LiveLinkProvider->UnregisterConnStatusChangedHandle(ConnectionStatusChangedHandle);
 		ConnectionStatusChangedHandle.Reset();
 	}
+
+	FTicker::GetCoreTicker().Tick(1.f);
+
 	LiveLinkProvider = nullptr;
 
 	const MStatus MayaStatusResult = MS::kSuccess;

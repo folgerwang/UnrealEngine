@@ -432,7 +432,7 @@ public:
 
 	bool NeedsDeclaration() const { return bNeedsDeclaration; }
 	bool SupportsManualVertexFetch(ERHIFeatureLevel::Type InFeatureLevel) const 
-	{
+	{ 
 		check(InFeatureLevel != ERHIFeatureLevel::Num);
 		return bSupportsManualVertexFetch && InFeatureLevel > ERHIFeatureLevel::ES3_1 && !IsMobileOpenGlPlatform(GMaxRHIShaderPlatform) && (!IsMetalPlatform(GMaxRHIShaderPlatform) || (!IsMobilePlatform(GMaxRHIShaderPlatform) != 0 && RHIGetShaderLanguageVersion(GMaxRHIShaderPlatform) >= 2));
 	}

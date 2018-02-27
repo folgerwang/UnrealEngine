@@ -153,6 +153,7 @@ public class IOSPlatform : Platform
 
 	private string PlatformName = null;
 	private string SDKName = null;
+	private UnrealTargetPlatform Platform;
 
 	public IOSPlatform()
 		:this(UnrealTargetPlatform.IOS)
@@ -163,6 +164,7 @@ public class IOSPlatform : Platform
 		:base(TargetPlatform)
 	{
 		PlatformName = TargetPlatform.ToString();
+		Platform = TargetPlatform;
 		SDKName = (TargetPlatform == UnrealTargetPlatform.TVOS) ? "appletvos" : "iphoneos";
 	}
 
@@ -302,8 +304,8 @@ public class IOSPlatform : Platform
 
 		// ensure the ue4game binary exists, if applicable
 #if !PLATFORM_MAC
-		string ProjectGameExeFilename = Params.GetProjectExeForPlatform(UnrealTargetPlatform.IOS).ToString();
-		string FullExePath = CombinePaths(Path.GetDirectoryName(ProjectGameExeFilename), SC.StageExecutables[0] + (UnrealBuildTool.BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac ? ".stub" : ""));
+		string ProjectGameExeFilename = Params.GetProjectExeForPlatform(Platform).ToString();
+		string FullExePath = CombinePaths(Path.GetDirectoryName(ProjectGameExeFilename), (Params.Distribution ? "Distro_" : "") + SC.StageExecutables[0] + (UnrealBuildTool.BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac ? ".stub" : ""));
 		if (!SC.IsCodeBasedProject && !FileExists_NoExceptions(FullExePath))
 		{
 			LogError("Failed to find game binary " + FullExePath);
@@ -1364,8 +1366,7 @@ public class IOSPlatform : Platform
 	{
 		return new StagedFileReference("cookeddata/" + Dest.Name);
 	}
-	
-    public override List<string> GetDebugFileExtentions()
+    public override List<string> GetDebugFileExtensions()
     {
         return new List<string> { ".dsym", ".udebugsymbols" };
     }

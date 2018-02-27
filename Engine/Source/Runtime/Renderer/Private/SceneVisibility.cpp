@@ -165,7 +165,7 @@ static TAutoConsoleVariable<int32> CVarParallelInitViews(
 	ECVF_RenderThreadSafe
 	);          
 
-static TAutoConsoleVariable<int32> CVarParallelViewsCustomDataUpdate(
+static TAutoConsoleVariable<int32> CVarParallelPostInitViewCustomData(
 	TEXT("r.ParallelViewsCustomDataUpdate"),
 #if WITH_EDITOR
 	0,
@@ -1715,7 +1715,6 @@ struct FRelevancePacket
 		// using a local counter to reduce memory traffic
 		int32 NumVisibleStaticMeshElements = 0;
 		FViewInfo& WriteView = const_cast<FViewInfo&>(View);
-		FFrozenSceneViewMatricesGuard FrozenMatricesGuard(WriteView);
 		const FSceneViewState* ViewState = (FSceneViewState*)View.State;
 
 		const bool bHLODActive = Scene->SceneLODHierarchy.IsActive();
@@ -1728,16 +1727,16 @@ struct FRelevancePacket
 			const FPrimitiveBounds& Bounds = Scene->PrimitiveBounds[PrimitiveIndex];
 			const FPrimitiveViewRelevance& ViewRelevance = View.PrimitiveViewRelevanceMap[PrimitiveIndex];
 
-			float MeshScreenRadiusSquared = 0;
+			float MeshScreenSizeSquared = 0;
 			FLODMask LODToRender;
 
 			if (PrimitiveSceneInfo->bIsUsingCustomLODRules)
 			{
-				LODToRender = PrimitiveSceneInfo->Proxy->GetCustomLOD(View, ViewData.LODScale, ViewData.ForcedLODLevel, MeshScreenRadiusSquared);
+				LODToRender = PrimitiveSceneInfo->Proxy->GetCustomLOD(View, ViewData.LODScale, ViewData.ForcedLODLevel, MeshScreenSizeSquared);
 			}
 			else
 			{
-				LODToRender = ComputeLODForMeshes(PrimitiveSceneInfo->StaticMeshes, View, Bounds.BoxSphereBounds.Origin, Bounds.BoxSphereBounds.SphereRadius, ViewData.ForcedLODLevel, MeshScreenRadiusSquared, ViewData.LODScale);
+				LODToRender = ComputeLODForMeshes(PrimitiveSceneInfo->StaticMeshes, View, Bounds.BoxSphereBounds.Origin, Bounds.BoxSphereBounds.SphereRadius, ViewData.ForcedLODLevel, MeshScreenSizeSquared, ViewData.LODScale);
 			}
 
 			PrimitivesLODMask.AddPrim(FRelevancePacket::FPrimitiveLODMask(PrimitiveIndex, LODToRender));
@@ -1746,7 +1745,7 @@ struct FRelevancePacket
 
 			if (OutHasViewCustomDataMasks[PrimitiveIndex] != 0) // Has a relevance for this view
 			{
-				UserViewCustomData = PrimitiveSceneInfo->Proxy->InitViewCustomData(View, ViewData.LODScale, PrimitiveCustomDataMemStack, true, &LODToRender, MeshScreenRadiusSquared);
+				UserViewCustomData = PrimitiveSceneInfo->Proxy->InitViewCustomData(View, ViewData.LODScale, PrimitiveCustomDataMemStack, true, &LODToRender, MeshScreenSizeSquared);
 
 				if (UserViewCustomData != nullptr)
 				{
@@ -1913,6 +1912,7 @@ static void ComputeAndMarkRelevanceForViewParallel(
 {
 	check(OutHasDynamicMeshElementsMasks.Num() == Scene->Primitives.Num());
 
+	FFrozenSceneViewMatricesGuard FrozenMatricesGuard(View);
 	const FMarkRelevantStaticMeshesForViewData ViewData(View);
 
 	int32 NumMesh = View.StaticMeshVisibilityMap.Num();
@@ -3125,7 +3125,7 @@ bool FDeferredShadingSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdLi
 		InitViewsPossiblyAfterPrepass(RHICmdList, ILCTaskData, SortEvents, UpdateViewCustomDataEvents);
 	}
 
-	UpdateViewCustomData(UpdateViewCustomDataEvents);
+	PostInitViewCustomData(UpdateViewCustomDataEvents);
 
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_InitViews_InitRHIResources);
@@ -3138,6 +3138,12 @@ bool FDeferredShadingSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdLi
 
 			// Possible stencil dither optimization approach
 			View.bAllowStencilDither = bDitheredLODTransitionsUseStencil;
+
+			// Set the pre-exposure before initializing the constant buffers.
+			if (View.ViewState)
+			{
+				View.ViewState->UpdatePreExposure(View);
+			}
 
 			// Initialize the view's RHI resources.
 			View.InitRHIResources();
@@ -3154,15 +3160,15 @@ bool FDeferredShadingSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdLi
 	return bDoInitViewAftersPrepass;
 }
 
-class FUpdateViewCustomDataTask
+class FPostInitViewCustomDataTask
 {
 private:
 	FViewInfo* ViewInfo;
-	int32 PrimitiveStartIndex;
-	int32 PrimitiveCount;	
+	const int32 PrimitiveStartIndex;
+	const int32 PrimitiveCount;
 
 public:
-	FUpdateViewCustomDataTask(FViewInfo* InViewInfo, int32 InPrimitiveStartIndex, int32 InPrimitiveCount)
+	FPostInitViewCustomDataTask(FViewInfo* InViewInfo, int32 InPrimitiveStartIndex, int32 InPrimitiveCount)
 		: ViewInfo(InViewInfo)
 		, PrimitiveStartIndex(InPrimitiveStartIndex)
 		, PrimitiveCount(InPrimitiveCount)
@@ -3170,7 +3176,7 @@ public:
 
 	FORCEINLINE TStatId GetStatId() const
 	{
-		RETURN_QUICK_DECLARE_CYCLE_STAT(FUpdateViewCustomDataTask, STATGROUP_TaskGraphTasks);
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FPostInitViewCustomDataTask, STATGROUP_TaskGraphTasks);
 	}
 
 	ENamedThreads::Type GetDesiredThread()
@@ -3184,51 +3190,60 @@ public:
 	{
 		for (int32 i = PrimitiveStartIndex; i < PrimitiveStartIndex + PrimitiveCount; ++i)
 		{
-			check(ViewInfo->PrimitivesWithCustomData.IsValidIndex(i));
-			check(ViewInfo->UpdatedPrimitivesWithCustomData.IsValidIndex(i));
-
-			if (!ViewInfo->UpdatedPrimitivesWithCustomData[i])
+			if (ViewInfo->PrimitivesWithCustomData.IsValidIndex(i))
 			{
-				const FPrimitiveSceneInfo* PrimitiveSceneInfo = ViewInfo->PrimitivesWithCustomData[i];
-				check(PrimitiveSceneInfo != nullptr);
+				check(ViewInfo->UpdatedPrimitivesWithCustomData.IsValidIndex(i));
 
-				PrimitiveSceneInfo->Proxy->UpdateViewCustomData(*ViewInfo, ViewInfo->GetCustomData(PrimitiveSceneInfo->GetIndex()));
-				ViewInfo->UpdatedPrimitivesWithCustomData[i] = true;
+				if (!ViewInfo->UpdatedPrimitivesWithCustomData[i])
+				{
+					const FPrimitiveSceneInfo* PrimitiveSceneInfo = ViewInfo->PrimitivesWithCustomData[i];
+					check(PrimitiveSceneInfo != nullptr);
+
+					PrimitiveSceneInfo->Proxy->PostInitViewCustomData(*ViewInfo, ViewInfo->GetCustomData(PrimitiveSceneInfo->GetIndex()));
+					ViewInfo->UpdatedPrimitivesWithCustomData[i] = true;
+				}
 			}
 		}
 	}
 };
 
-void FDeferredShadingSceneRenderer::UpdateViewCustomData(FGraphEventArray& OutUpdateEvents)
+void FDeferredShadingSceneRenderer::PostInitViewCustomData(FGraphEventArray& OutUpdateEvents)
 {
-	if (FApp::ShouldUseThreadingForPerformance() && CVarParallelViewsCustomDataUpdate.GetValueOnRenderThread() > 0)
+	if (FApp::ShouldUseThreadingForPerformance() && CVarParallelPostInitViewCustomData.GetValueOnRenderThread() > 0)
 	{
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_UpdateViewCustomData_AsyncTask);
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_PostInitViewCustomData_AsyncTask);
 
-		const int32 BatchSize = 100;
-
+		const int32 MaxPrimitiveUpdateTaskCount = 10;
+		const int32 MinPrimitiveCountByTask = 100;
+		
 		for (FViewInfo& ViewInfo : Views)
 		{
-			int32 UpdateCountLeft = ViewInfo.PrimitivesWithCustomData.Num();
-			int32 StartIndex = 0;
-			int32 CurrentBatchSize = BatchSize;
-
-			while (UpdateCountLeft > 0)
+			if (ViewInfo.PrimitivesWithCustomData.Num() > 0)
 			{
-				if (UpdateCountLeft - CurrentBatchSize < 0)
-				{
-					CurrentBatchSize = UpdateCountLeft;
-				}
+				const int32 BatchSize = FMath::Max(FMath::Max(FMath::RoundToInt((float)ViewInfo.PrimitivesWithCustomData.Num() / (float)MaxPrimitiveUpdateTaskCount), 1), MinPrimitiveCountByTask);
 
-				OutUpdateEvents.Add(TGraphTask<FUpdateViewCustomDataTask>::CreateTask(nullptr, ENamedThreads::GetRenderThread()).ConstructAndDispatchWhenReady(&ViewInfo, StartIndex, CurrentBatchSize));
-				StartIndex += CurrentBatchSize;
-				UpdateCountLeft -= CurrentBatchSize;
+				int32 UpdateCountLeft = ViewInfo.PrimitivesWithCustomData.Num();
+				int32 StartIndex = 0;
+				int32 CurrentBatchSize = BatchSize;
+
+				while (UpdateCountLeft > 0)
+				{
+					if (UpdateCountLeft - CurrentBatchSize < 0)
+					{
+						CurrentBatchSize = UpdateCountLeft;
+					}
+
+					OutUpdateEvents.Add(TGraphTask<FPostInitViewCustomDataTask>::CreateTask(nullptr, ENamedThreads::GetRenderThread()).ConstructAndDispatchWhenReady(&ViewInfo, StartIndex, CurrentBatchSize));
+
+					StartIndex += CurrentBatchSize;
+					UpdateCountLeft -= CurrentBatchSize;
+				}
 			}
 		}
 	}
 	else
 	{
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_UpdateViewCustomData);
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_PostInitViewCustomData);
 
 		for (FViewInfo& ViewInfo : Views)
 		{
@@ -3236,7 +3251,7 @@ void FDeferredShadingSceneRenderer::UpdateViewCustomData(FGraphEventArray& OutUp
 			{
 				if (!ViewInfo.UpdatedPrimitivesWithCustomData[PrimitiveSceneInfo->GetIndex()])
 				{
-					PrimitiveSceneInfo->Proxy->UpdateViewCustomData(ViewInfo, ViewInfo.GetCustomData(PrimitiveSceneInfo->GetIndex()));
+					PrimitiveSceneInfo->Proxy->PostInitViewCustomData(ViewInfo, ViewInfo.GetCustomData(PrimitiveSceneInfo->GetIndex()));
 					ViewInfo.UpdatedPrimitivesWithCustomData[PrimitiveSceneInfo->GetIndex()] = true;
 				}
 			}

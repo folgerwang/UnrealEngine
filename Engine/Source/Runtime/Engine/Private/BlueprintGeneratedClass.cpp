@@ -59,6 +59,11 @@ void UBlueprintGeneratedClass::PostLoad()
 {
 	Super::PostLoad();
 
+	if(GetAuthoritativeClass()!= this)
+	{
+		return;
+	}
+
 	UObject* ClassCDO = ClassDefaultObject;
 
 	// Go through the CDO of the class, and make sure we don't have any legacy components that aren't instanced hanging on.
@@ -799,7 +804,7 @@ UObject* UBlueprintGeneratedClass::FindArchetype(UClass* ArchetypeClass, const F
 		}
 	}
 
-
+	ensure(!Archetype || ArchetypeClass->IsChildOf(Archetype->GetClass()));
 	return Archetype;
 }
 
@@ -1176,9 +1181,6 @@ void UBlueprintGeneratedClass::CheckAndApplyComponentTemplateOverrides(AActor* A
 									NativizedComponentSubobjectInstance->Serialize(OverrideDataLoader);
 								}
 							}
-
-							// There can only be a single match, so we can stop searching now.
-							break;
 						}
 					}
 				}

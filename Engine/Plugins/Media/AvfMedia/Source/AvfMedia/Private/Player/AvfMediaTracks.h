@@ -89,7 +89,6 @@ public:
 
 	/** Reset the stream collection. */
 	void Reset();
-	
 public:
 
 	//~ IMediaTracks interface

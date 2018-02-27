@@ -61,7 +61,7 @@ DEFINE_STAT(STAT_LandscapeDynamicDrawTime);
 DEFINE_STAT(STAT_LandscapeStaticDrawLODTime);
 DEFINE_STAT(STAT_LandscapeVFDrawTimeVS);
 DEFINE_STAT(STAT_LandscapeInitViewCustomData);
-DEFINE_STAT(STAT_LandscapeUpdateViewCustomData);
+DEFINE_STAT(STAT_LandscapePostInitViewCustomData);
 DEFINE_STAT(STAT_LandscapeComputeCustomMeshBatchLOD);
 DEFINE_STAT(STAT_LandscapeComputeCustomShadowMeshBatchLOD);
 DEFINE_STAT(STAT_LandscapeVFDrawTimePS);
@@ -491,7 +491,7 @@ FString ULandscapeComponent::GetLayerAllocationKey(UMaterialInterface* Landscape
 void ULandscapeComponent::GetLayerDebugColorKey(int32& R, int32& G, int32& B) const
 {
 	ULandscapeInfo* Info = GetLandscapeInfo();
-	if (ensure(Info))
+	if (Info != nullptr)
 	{
 		R = INDEX_NONE, G = INDEX_NONE, B = INDEX_NONE;
 
@@ -754,8 +754,6 @@ ALandscapeProxy::ALandscapeProxy(const FObjectInitializer& ObjectInitializer)
 	ComponentScreenSizeToUseSubSections = 0.65f;
 	UseTessellationComponentScreenSizeFalloff = true;
 	TessellationComponentScreenSizeFalloff = 0.75f;
-	IncludeTessellationInShadowLOD = false;
-	RestrictTessellationToShadowCascade = 0;
 	LOD0DistributionSetting = 1.75f;
 	LODDistributionSetting = 2.0f;
 	bCastStaticShadow = true;
@@ -1691,8 +1689,6 @@ void ALandscapeProxy::GetSharedProperties(ALandscapeProxy* Landscape)
 		ComponentScreenSizeToUseSubSections = Landscape->ComponentScreenSizeToUseSubSections;
 		UseTessellationComponentScreenSizeFalloff = Landscape->UseTessellationComponentScreenSizeFalloff;
 		TessellationComponentScreenSizeFalloff = Landscape->TessellationComponentScreenSizeFalloff;
-		IncludeTessellationInShadowLOD = Landscape->IncludeTessellationInShadowLOD;
-		RestrictTessellationToShadowCascade = Landscape->RestrictTessellationToShadowCascade;
 		LODDistributionSetting = Landscape->LODDistributionSetting;
 		LOD0DistributionSetting = Landscape->LOD0DistributionSetting;
 		OccluderGeometryLOD = Landscape->OccluderGeometryLOD;
@@ -1759,18 +1755,6 @@ void ALandscapeProxy::ConditionalAssignCommonProperties(ALandscape* Landscape)
 		bUpdated = true;
 	}
 	
-	if (IncludeTessellationInShadowLOD != Landscape->IncludeTessellationInShadowLOD)
-	{
-		IncludeTessellationInShadowLOD = Landscape->IncludeTessellationInShadowLOD;
-		bUpdated = true;
-	}
-
-	if (RestrictTessellationToShadowCascade != Landscape->RestrictTessellationToShadowCascade)
-	{
-		RestrictTessellationToShadowCascade = Landscape->RestrictTessellationToShadowCascade;
-		bUpdated = true;
-	}	
-
 	if (LODDistributionSetting != Landscape->LODDistributionSetting)
 	{
 		LODDistributionSetting = Landscape->LODDistributionSetting;

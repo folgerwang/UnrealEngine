@@ -119,7 +119,7 @@ bool FIOSTargetPlatform::IsSdkInstalled(bool bProjectHasCode, FString& OutTutori
 		FPlatformProcess::Sleep(0.01f);
 	}
 	int RetCode = IPPProcess->GetReturnCode();
-	UE_LOG(LogTemp, Display, TEXT("%s"), *OutputMessage);
+//	UE_LOG(LogTemp, Display, TEXT("%s"), *OutputMessage);
 
 	bool biOSSDKInstalled = IFileManager::Get().DirectoryExists(*OutputMessage);
 #else
@@ -213,6 +213,10 @@ int32 FIOSTargetPlatform::CheckRequirements(const FString& ProjectPath, bool bPr
 	}
 
 #endif
+	if (bIsTVOS)
+	{
+		CommandLine += " -tvos";
+	}
 	TSharedPtr<FMonitoredProcess> IPPProcess = MakeShareable(new FMonitoredProcess(CmdExe, CommandLine, true));
 	OutputMessage = TEXT("");
 	IPPProcess->OnOutput().BindStatic(&OnOutput);
@@ -222,7 +226,7 @@ int32 FIOSTargetPlatform::CheckRequirements(const FString& ProjectPath, bool bPr
 		FPlatformProcess::Sleep(0.01f);
 	}
 	int RetCode = IPPProcess->GetReturnCode();
-    UE_LOG(LogTemp, Display, TEXT("%s"), *OutputMessage);
+//	UE_LOG(LogTemp, Display, TEXT("%s"), *OutputMessage);
 	if (RetCode == 14)
 	{
 		OutTutorialPath = FString("/Engine/Tutorial/Mobile/CreatingInfoPlist.CreatingInfoPlist");

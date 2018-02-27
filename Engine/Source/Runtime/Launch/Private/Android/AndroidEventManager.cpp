@@ -73,6 +73,9 @@ void FAppEventManager::Tick()
 				}
 				else
 				{
+				{
+					bCreateWindow = false;
+				}
 					if (GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice() && GEngine->XRSystem->GetHMDDevice()->IsHMDConnected())
 					{
 						// delay the destruction until after the renderer teardown on Gear VR

@@ -213,7 +213,16 @@ namespace UnrealBuildTool
 				Modules.UnionWith(DynamicallyLoadedModules);
 			}
 			return Modules;
-		}
+        }
+
+  		/// <summary>
+		/// Returns a list of this module's frameworks.
+		/// </summary>
+		/// <returns>A List containing the frameworks this module requires.</returns>
+        public List<string> GetPublicFrameworks()
+        {
+            return new List<string>(PublicFrameworks);
+        }
 
 		/// <summary>
 		/// Returns a list of this module's immediate dependencies.

@@ -69,6 +69,7 @@ public:
 	FShaderParameter ScreenPosToHistoryBufferUV;
 	FShaderParameter HistoryBufferUVMinMax;
 	FShaderParameter MaxViewportUVAndSvPositionToViewportUV;
+	FShaderParameter OneOverHistoryPreExposure;
 
 	void Bind(const FShaderParameterMap& ParameterMap)
 	{
@@ -83,12 +84,13 @@ public:
 		ScreenPosToHistoryBufferUV.Bind(ParameterMap, TEXT("ScreenPosToHistoryBufferUV"));
 		HistoryBufferUVMinMax.Bind(ParameterMap, TEXT("HistoryBufferUVMinMax"));
 		MaxViewportUVAndSvPositionToViewportUV.Bind(ParameterMap, TEXT("MaxViewportUVAndSvPositionToViewportUV"));
+		OneOverHistoryPreExposure.Bind(ParameterMap, TEXT("OneOverHistoryPreExposure"));
 	}
 
 	void Serialize(FArchive& Ar)
 	{
 		Ar << PostprocessParameter << DeferredParameters ;
-		Ar << SampleWeights << PlusWeights << DitherScale << VelocityScaling << CurrentFrameWeight << ScreenPosAbsMax << ScreenPosToHistoryBufferUV << HistoryBufferUVMinMax << MaxViewportUVAndSvPositionToViewportUV;
+		Ar << SampleWeights << PlusWeights << DitherScale << VelocityScaling << CurrentFrameWeight << ScreenPosAbsMax << ScreenPosToHistoryBufferUV << HistoryBufferUVMinMax << MaxViewportUVAndSvPositionToViewportUV << OneOverHistoryPreExposure;
 	}
 
 	template <typename TRHICmdList, typename TShaderRHIParamRef>
@@ -211,6 +213,9 @@ public:
 
 			SetShaderValue(RHICmdList, ShaderRHI, MaxViewportUVAndSvPositionToViewportUV, MaxViewportUVAndSvPositionToViewportUVValue);
 		}
+
+		const float OneOverHistoryPreExposureValue = 1.f / FMath::Max<float>(SMALL_NUMBER, InputHistory.IsValid() ? InputHistory.SceneColorPreExposure : Context.View.PreExposure);
+		SetShaderValue(RHICmdList, ShaderRHI, OneOverHistoryPreExposure, OneOverHistoryPreExposureValue);
 	}
 };
 
@@ -769,7 +774,7 @@ FRCPassPostProcessTemporalAA::FRCPassPostProcessTemporalAA(
 	}
 }
 
-DECLARE_GPU_STAT(TAA)
+DECLARE_GPU_STAT(TemporalAA); 
 
 void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Context)
 {
@@ -792,7 +797,7 @@ void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Conte
 	FIntRect SrcRect = Context.View.ViewRect;
 	FIntRect DestRect = SrcRect;
 
-	SCOPED_GPU_STAT(Context.RHICmdList, TAA);
+	SCOPED_GPU_STAT(Context.RHICmdList, TemporalAA);
 	if (bIsComputePass)
 	{
 		const TCHAR* PassName = TEXT("AA");

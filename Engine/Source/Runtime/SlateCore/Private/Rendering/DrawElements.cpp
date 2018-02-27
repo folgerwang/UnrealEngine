@@ -729,11 +729,10 @@ void FSlateBatchData::CreateRenderBatches(FElementBatchMap& LayerToElementBatche
 	uint32 VertexOffset = 0;
 	uint32 IndexOffset = 0;
 
-	FPlatformMisc::BeginNamedEvent(FColor::Magenta, "SlateRT::CreateRenderBatches");
-
-	Merge(LayerToElementBatches, VertexOffset, IndexOffset);
-
-	FPlatformMisc::EndNamedEvent();
+	{
+		SCOPED_NAMED_EVENT_TEXT("SlateRT::CreateRenderBatches", FColor::Magenta);
+		Merge(LayerToElementBatches, VertexOffset, IndexOffset);
+	}
 
 	// 
 	if ( RenderDataHandle.IsValid() )
@@ -1102,9 +1101,11 @@ void FSlateWindowElementList::BeginLogicalLayer(const TSharedPtr<FSlateDrawLayer
 	// Don't attempt to begin logical layers inside a cached view of the data.
 	checkSlow(!IsCachedRenderDataInUse());
 
-	//FPlatformMisc::BeginNamedEvent(FColor::Orange, "FindLayer");
-	TSharedPtr<FSlateDrawLayer> Layer = DrawLayers.FindRef(LayerHandle);
-	//FPlatformMisc::EndNamedEvent();
+	TSharedPtr<FSlateDrawLayer> Layer;
+	{
+		//SCOPED_NAMED_EVENT(FindLayer, FColor::Orange);
+		Layer = DrawLayers.FindRef(LayerHandle);
+	}
 
 	if ( !Layer.IsValid() )
 	{
@@ -1117,14 +1118,12 @@ void FSlateWindowElementList::BeginLogicalLayer(const TSharedPtr<FSlateDrawLayer
 			Layer = MakeShareable(new FSlateDrawLayer());
 		}
 
-		//FPlatformMisc::BeginNamedEvent(FColor::Orange, "AddLayer");
+		//SCOPED_NAMED_EVENT(AddLayer, FColor::Orange);
 		DrawLayers.Add(LayerHandle, Layer);
-		//FPlatformMisc::EndNamedEvent();
 	}
 
-	//FPlatformMisc::BeginNamedEvent(FColor::Orange, "PushLayer");
+	//SCOPED_NAMED_EVENT(PushLayer, FColor::Orange);
 	DrawStack.Push(Layer.Get());
-	//FPlatformMisc::EndNamedEvent();
 }
 
 void FSlateWindowElementList::EndLogicalLayer()

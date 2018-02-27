@@ -956,15 +956,23 @@ struct FFoliageRenderInstanceParams
 	{
 		if (bNeedsSingleLODRuns)
 		{
-			AddRun(SingleLODRuns[bOverestimate ? MaxLod : MinLod], FirstInstance, LastInstance);
-			TotalSingleLODInstances[bOverestimate ? MaxLod : MinLod] += 1 + LastInstance - FirstInstance;
+			int32 CurrentLOD = bOverestimate ? MaxLod : MinLod;
+
+			if (CurrentLOD < MAX_STATIC_MESH_LODS)
+			{
+				AddRun(SingleLODRuns[CurrentLOD], FirstInstance, LastInstance);
+				TotalSingleLODInstances[CurrentLOD] += 1 + LastInstance - FirstInstance;
+			}
 		}
 		if (bNeedsMultipleLODRuns)
 		{
 			for (int32 Lod = MinLod; Lod <= MaxLod; Lod++)
 			{
-				TotalMultipleLODInstances[Lod] += 1 + LastInstance - FirstInstance;
-				AddRun(MultipleLODRuns[Lod], FirstInstance, LastInstance);
+				if (Lod < MAX_STATIC_MESH_LODS)
+				{
+					TotalMultipleLODInstances[Lod] += 1 + LastInstance - FirstInstance;
+					AddRun(MultipleLODRuns[Lod], FirstInstance, LastInstance);
+				}
 			}
 		}
 	}
@@ -1881,7 +1889,11 @@ void UHierarchicalInstancedStaticMeshComponent::RemoveInstanceInternal(int32 Ins
 	// Remove the instance
 	PerInstanceSMData.RemoveAtSwap(InstanceIndex);
 	InstanceReorderTable.RemoveAtSwap(InstanceIndex);
-	UnbuiltInstanceIndexList.RemoveSwap(InstanceIndex);
+
+	if (UnbuiltInstanceIndexList.IsValidIndex(InstanceIndex))
+	{
+		UnbuiltInstanceIndexList.RemoveAtSwap(InstanceIndex);
+	}
 
 #if WITH_EDITOR
 	if (SelectedInstances.Num())

@@ -941,7 +941,7 @@ void FRenderCommandFence::BeginFence(bool bSyncToRHIAndGPU)
 			check(CVarVsync != nullptr);
 
 			if ( GTSyncType == 0 || CVarVsync->GetInt() == 0 )
-			{
+		{
 				bSyncToRHIAndGPU = false;
 			}
 		}
@@ -956,18 +956,18 @@ void FRenderCommandFence::BeginFence(bool bSyncToRHIAndGPU)
 				FSyncFrameCommand,
 				FGraphEventRef, CompletionEvent, CompletionEvent,
 				int32, GTSyncType, GTSyncType,
+			{
+				if (GRHIThread_InternalUseOnly)
 				{
-					if (GRHIThread_InternalUseOnly)
-					{
-						new (RHICmdList.AllocCommand<FRHISyncFrameCommand>()) FRHISyncFrameCommand(CompletionEvent, GTSyncType);
-						RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
-					}
-					else
-					{
-						FRHISyncFrameCommand Command(CompletionEvent, GTSyncType);
-						Command.Execute(RHICmdList);
-					}
-				});
+					new (RHICmdList.AllocCommand<FRHISyncFrameCommand>()) FRHISyncFrameCommand(CompletionEvent, GTSyncType);
+					RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
+				}
+				else
+				{
+					FRHISyncFrameCommand Command(CompletionEvent, GTSyncType);
+					Command.Execute(RHICmdList);
+				}
+			});
 		}
 		else
 		{

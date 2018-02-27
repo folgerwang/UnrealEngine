@@ -265,12 +265,14 @@ void AHUD::DrawSafeZoneOverlay()
 
 		const FMargin SafeMargin =
 #if PLATFORM_IOS
-			// Hack: This is a temp solution to support iPhoneX safeArea. TitleSafePaddingSize and ActionSafePaddingSize should be FVector4 and use them separately. 
-			FMargin(Metrics.TitleSafePaddingSize.X, Metrics.ActionSafePaddingSize.X, Metrics.TitleSafePaddingSize.Y, Metrics.ActionSafePaddingSize.Y);
+			// FVector4(X,Y,Z,W) being used like FMargin(left, top, right, bottom)
+			(DebugSafeZoneMode == 1)
+			? FMargin(Metrics.TitleSafePaddingSize.X, Metrics.TitleSafePaddingSize.Y, Metrics.TitleSafePaddingSize.Z, Metrics.TitleSafePaddingSize.W)
+			: FMargin(Metrics.ActionSafePaddingSize.X, Metrics.ActionSafePaddingSize.Y, Metrics.ActionSafePaddingSize.Z, Metrics.ActionSafePaddingSize.W);
 #else
 			(DebugSafeZoneMode == 1) ?
-			FMargin(Metrics.TitleSafePaddingSize.X, Metrics.TitleSafePaddingSize.Y, Metrics.TitleSafePaddingSize.Z, Metrics.TitleSafePaddingSize.W) :
-			FMargin(Metrics.ActionSafePaddingSize.X, Metrics.ActionSafePaddingSize.Y, Metrics.ActionSafePaddingSize.Z, Metrics.ActionSafePaddingSize.W);
+			FMargin(Metrics.TitleSafePaddingSize.X, Metrics.TitleSafePaddingSize.Y) :
+			FMargin(Metrics.ActionSafePaddingSize.X, Metrics.ActionSafePaddingSize.Y);
 #endif
 
 		const float UnsafeZoneAlpha = GSafeZoneVisualizationAlphaCVar.GetValueOnGameThread();
@@ -593,7 +595,7 @@ void AHUD::NextDebugTarget()
 		}
 	}
 
-	CurrentTargetIndex = (CurrentTargetIndex + 1) % Targets.Num();
+	CurrentTargetIndex = Targets.Num() > 0 ? (CurrentTargetIndex + 1) % Targets.Num() : INDEX_NONE;
 	if (Targets.IsValidIndex(CurrentTargetIndex))
 	{
 		ShowDebugTargetActor = Targets[CurrentTargetIndex];

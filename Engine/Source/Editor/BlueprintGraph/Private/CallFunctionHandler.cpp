@@ -407,6 +407,15 @@ void FKCHandler_CallFunction::CreateFunctionCallStatement(FKismetFunctionContext
 				}
 
 				AdditionalCompiledStatementHandling(Context, Node, Statement);
+
+				if(Statement.Type == KCST_CallFunction && Function->HasAnyFunctionFlags(FUNC_Delegate))
+				{
+					CompilerContext.MessageLog.Error(*LOCTEXT("CallingDelegate_Error", "@@ is trying to call a delegate function - delegates cannot be called directly").ToString(), Node);
+					// Sanitize the statement, this would have ideally been detected earlier but we need
+					// to run AdditionalCompiledStatementHandling to satisify the DelegateNodeHandler
+					// implementation:
+					Statement.Type = KCST_CallDelegate;
+				}
 			}
 
 			// Create the exit from this node if there is one

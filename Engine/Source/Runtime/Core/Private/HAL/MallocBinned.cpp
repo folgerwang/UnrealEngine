@@ -174,7 +174,7 @@ struct FMallocBinned::Private
 		uint64 IndirectPoolBlockSizeBytes = Allocator.IndirectPoolBlockSize * sizeof(FPoolInfo);
 
 		checkSlow(IndirectPoolBlockSizeBytes <= Allocator.PageSize);
-        LLM_PLATFORM_SCOPE(ELLMTag::SmallBinnedAllocation);
+        LLM_PLATFORM_SCOPE(ELLMTag::FMalloc);
 		FPoolInfo* Indirect = (FPoolInfo*)FPlatformMemory::BinnedAllocFromOS(IndirectPoolBlockSizeBytes);
 		if( !Indirect )
 		{
@@ -198,7 +198,7 @@ struct FMallocBinned::Private
 		if (!Allocator.HashBuckets)
 		{
 			// Init tables.
-            LLM_PLATFORM_SCOPE(ELLMTag::SmallBinnedAllocation);
+            LLM_PLATFORM_SCOPE(ELLMTag::FMalloc);
 			Allocator.HashBuckets = (PoolHashBucket*)FPlatformMemory::BinnedAllocFromOS(Align(Allocator.MaxHashBuckets * sizeof(PoolHashBucket), Allocator.PageSize));
 
 			for (uint32 i = 0; i < Allocator.MaxHashBuckets; ++i) 
@@ -314,7 +314,7 @@ struct FMallocBinned::Private
 		{
 			const uint32 PageSize = Allocator.PageSize;
 
-            LLM_PLATFORM_SCOPE(ELLMTag::SmallBinnedAllocation);
+            LLM_PLATFORM_SCOPE(ELLMTag::FMalloc);
 			Allocator.HashBucketFreeList = (PoolHashBucket*)FPlatformMemory::BinnedAllocFromOS(PageSize);
 			BINNED_PEAK_STATCOUNTER(Allocator.OsPeak,    BINNED_ADD_STATCOUNTER(Allocator.OsCurrent,    PageSize));
 			BINNED_PEAK_STATCOUNTER(Allocator.WastePeak, BINNED_ADD_STATCOUNTER(Allocator.WasteCurrent, PageSize));
@@ -638,7 +638,7 @@ struct FMallocBinned::Private
 		return Ptr;
 #else
 		(void)OutActualSize;
-        LLM_PLATFORM_SCOPE(ELLMTag::SmallBinnedAllocation);
+        LLM_PLATFORM_SCOPE(ELLMTag::FMalloc);
 		return FPlatformMemory::BinnedAllocFromOS(NewSize);
 #endif
 	}

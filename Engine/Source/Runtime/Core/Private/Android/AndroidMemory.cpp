@@ -350,7 +350,7 @@ void* FAndroidPlatformMemory::BinnedAllocFromOS(SIZE_T Size)
 
 void FAndroidPlatformMemory::BinnedFreeToOS(void* Ptr, SIZE_T Size)
 {
-	LLM(FLowLevelMemTracker::Get().OnLowLevelFree(ELLMTracker::Platform, Ptr, 0));
+	LLM(FLowLevelMemTracker::Get().OnLowLevelFree(ELLMTracker::Platform, Ptr));
 	if (munmap(Ptr, Size) != 0)
 	{
 		const int ErrNo = errno;

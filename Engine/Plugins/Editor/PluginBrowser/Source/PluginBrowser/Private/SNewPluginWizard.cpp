@@ -743,7 +743,7 @@ FReply SNewPluginWizard::OnCreatePluginClicked()
 	if (bSucceeded && bHasModules)
 	{
 		FString ProjectFileName = FPaths::GetProjectFilePath();
-		FString Arguments = FString::Printf(TEXT("%sEditor %s %s -EditorRecompile -Module %s -Project=\"%s\" -Progress -NoHotReloadFromIDE"), *FPaths::GetBaseFilename(ProjectFileName), FModuleManager::Get().GetUBTConfiguration(), FPlatformMisc::GetUBTPlatform(), *PluginModuleName, *ProjectFileName);
+		FString Arguments = FString::Printf(TEXT("%sEditor %s %s -EditorRecompile -Module=%s -Project=\"%s\" -Progress -NoHotReloadFromIDE"), *FPaths::GetBaseFilename(ProjectFileName), FModuleManager::Get().GetUBTConfiguration(), FPlatformMisc::GetUBTPlatform(), *PluginModuleName, *ProjectFileName);
 		if (!FDesktopPlatformModule::Get()->RunUnrealBuildTool(LOCTEXT("Compiling", "Compiling..."), FPaths::RootDir(), Arguments, GWarn))
 		{
 			PopErrorNotification(LOCTEXT("FailedToCompile", "Failed to compile source code."));
@@ -843,6 +843,7 @@ FReply SNewPluginWizard::OnCreatePluginClicked()
 	}
 	else
 	{
+		DeletePluginDirectory(*PluginFolder);
 		return FReply::Unhandled();
 	}
 }
@@ -902,7 +903,7 @@ void SNewPluginWizard::PopErrorNotification(const FText& ErrorMessage)
 
 	// Create and display a notification about the failure
 	FNotificationInfo Info(ErrorMessage);
-	Info.ExpireDuration = 10.0f;
+	Info.ExpireDuration = 2.0f;
 
 	TSharedPtr<SNotificationItem> Notification = FSlateNotificationManager::Get().AddNotification(Info);
 	if (Notification.IsValid())

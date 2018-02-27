@@ -11,11 +11,6 @@
 #include "Misc/ScopeLock.h"
 #include "HAL/IConsoleManager.h"
 
-static TAutoConsoleVariable<float> CVarIOSSafeZoneMarginLeft(TEXT("IOSSafeZoneMarginLeft"), 0.f, TEXT("IOS SafeZone Margin Left"), ECVF_Scalability);
-static TAutoConsoleVariable<float> CVarIOSSafeZoneMarginTop(TEXT("IOSSafeZoneMarginTop"), 0.f, TEXT("IOS SafeZone Margin Top"), ECVF_Scalability);
-static TAutoConsoleVariable<float> CVarIOSSafeZoneMarginRight(TEXT("IOSSafeAoneMarginRight"), 0.f, TEXT("IOS SafeZone Margin Right"), ECVF_Scalability);
-static TAutoConsoleVariable<float> CVarIOSSafeZoneMarginBottom(TEXT("IOSSafeZoneMarginBottom"), 0.f, TEXT("IOS SafeZone Margin Bottom"), ECVF_Scalability);
-
 FCriticalSection FIOSApplication::CriticalSection;
 bool FIOSApplication::bOrientationChanged = false;
 

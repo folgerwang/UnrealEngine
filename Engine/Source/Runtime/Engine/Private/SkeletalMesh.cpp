@@ -978,7 +978,7 @@ void USkeletalMesh::Serialize( FArchive& Ar )
 						{
 							FString FeatureLevelName;
 							GetFeatureLevelName(FeatureLevelType, FeatureLevelName);
-							UE_LOG(LogSkeletalMesh, Error, TEXT("Skeletal mesh %s has a LOD section with %d bones and the maximum supported number for feature level %s is %d.\n!This mesh will not be instantiated on the specified platform!"),
+							UE_LOG(LogSkeletalMesh, Warning, TEXT("Skeletal mesh %s has a LOD section with %d bones and the maximum supported number for feature level %s is %d.\n!This mesh will not be rendered on the specified platform!"),
 								*GetFullName(), MaxBonesPerChunk, *FeatureLevelName, MaxNrBones);
 						}
 					}
@@ -2242,55 +2242,7 @@ void USkeletalMesh::RemoveMeshSection(int32 InLodIndex, int32 InSectionIndex)
 	Modify();
 	PreEditChange(nullptr);
 
-	// Prepare reregister context to unregister all users
-	TArray<UActorComponent*> Components;
-	for(TObjectIterator<USkeletalMeshComponent> It; It; ++It)
-	{
-		USkeletalMeshComponent* MeshComponent = *It;
-		if(MeshComponent && !MeshComponent->IsTemplate() && MeshComponent->SkeletalMesh == this)
-		{
-			Components.Add(MeshComponent);
-		}
-	}
-	FMultiComponentReregisterContext ReregisterContext(Components);
-
-	// Begin section removal
-	const uint32 NumVertsToRemove = SectionToRemove.GetNumVertices();
-	const uint32 BaseVertToRemove = SectionToRemove.BaseVertexIndex;
-	const uint32 NumIndicesToRemove = SectionToRemove.NumTriangles * 3;
-	const uint32 BaseIndexToRemove = SectionToRemove.BaseIndex;
-
-	// Strip indices
-	LodModel.IndexBuffer.RemoveAt(BaseIndexToRemove, NumIndicesToRemove);
-
-	// Fixup indices above base vert
-	for(uint32& Index : LodModel.IndexBuffer)
-	{
-		if(Index >= BaseVertToRemove)
-		{
-			Index -= NumVertsToRemove;
-		}
-	}
-
-	// Push back to lod model
-	LodModel.Sections.RemoveAt(InSectionIndex);
-	LodModel.NumVertices -= NumVertsToRemove;
-
-	// Fixup anything needing section indices
-	for(FSkelMeshSection& Section : LodModel.Sections)
-	{
-		// Removed indices, rebase further sections
-		if(Section.BaseIndex > BaseIndexToRemove)
-		{
-			Section.BaseIndex -= NumIndicesToRemove;
-		}
-
-		// Remove verts, rebase further sections
-		if(Section.BaseVertexIndex > BaseVertToRemove)
-		{
-			Section.BaseVertexIndex -= NumVertsToRemove;
-		}
-	}
+	SectionToRemove.bDisabled = true;
 
 	PostEditChange();
 }
@@ -3471,7 +3423,7 @@ void FSkeletalMeshSceneProxy::GetMeshElementsConditionallySelectable(const TArra
 			
 #endif
 			// If hidden skip the draw
-			if (MeshObject->IsMaterialHidden(LODIndex, SectionElementInfo.UseMaterialIndex))
+			if (MeshObject->IsMaterialHidden(LODIndex, SectionElementInfo.UseMaterialIndex) || Section.bDisabled)
 			{
 				continue;
 			}

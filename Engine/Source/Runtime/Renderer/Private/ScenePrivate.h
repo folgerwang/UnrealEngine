@@ -588,6 +588,8 @@ public:
 	// Software occlusion data
 	TUniquePtr<FSceneSoftwareOcclusion> SceneSoftwareOcclusion;
 
+	void UpdatePreExposure(FViewInfo& View);
+
 private:
 	void ConditionallyAllocateSceneSoftwareOcclusion(ERHIFeatureLevel::Type InFeatureLevel);
 
@@ -640,8 +642,6 @@ private:
 		TRefCountPtr<IPooledRenderTarget> PooledRenderTarget[2];
 		TRefCountPtr<IPooledRenderTarget> StagingBuffers[NUM_STAGING_BUFFERS];
 	} EyeAdaptationRTManager;
-
-	void UpdatePreExposure(FViewInfo& View);
 
 	// eye adaptation is only valid after it has been computed, not on allocation of the RT
 	bool bValidEyeAdaptation;
@@ -1111,8 +1111,6 @@ public:
 		{
 			SetupLightPropagationVolume(View, ViewFamily);
 		}
-
-		UpdatePreExposure(View);
 		ConditionallyAllocateSceneSoftwareOcclusion(View.GetFeatureLevel());
 	}
 

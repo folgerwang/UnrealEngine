@@ -18,6 +18,7 @@
 #include "Stats/Stats.h"
 #include "Serialization/Archive.h"
 #include "Misc/FileHelper.h"
+#include "Misc/SecureHash.h"
 #include "HAL/FileManager.h"
 #include "HAL/PlatformFilemanager.h"
 #include "Interfaces/IAndroidDeviceDetectionModule.h"
@@ -364,7 +365,7 @@ bool FAndroidTargetPlatform::SupportsFeature( ETargetPlatformFeatures Feature ) 
 		case ETargetPlatformFeatures::Tessellation:
 		case ETargetPlatformFeatures::DeferredRendering:
 			return SupportsAEP();
-
+			
 		case ETargetPlatformFeatures::SoftwareOcclusion:
 			return SupportsSoftwareOcclusion();
 			

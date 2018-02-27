@@ -571,6 +571,11 @@ void FSequencer::FocusSequenceInstance(UMovieSceneSubSection& InSubSection)
 	ResetPerMovieSceneData();
 	SequencerWidget->UpdateBreadcrumbs();
 
+	if (!State.FindSequence(SequenceID))
+	{
+		State.AssignSequence(SequenceID, *GetFocusedMovieSceneSequence(), *this);
+	}
+
 	OnActivateSequenceEvent.Broadcast(ActiveTemplateIDs.Top());
 
 	bNeedsEvaluate = true;
@@ -2486,10 +2491,15 @@ void FSequencer::AddReferencedObjects( FReferenceCollector& Collector )
 
 	if (RootTemplateInstance.IsValid())
 	{
+		const FMovieSceneSequenceHierarchy& Hierarchy = RootTemplateInstance.GetHierarchy();
+
 		// Sequencer references all active sub sequences
 		for (FMovieSceneSequenceIDRef SequenceID : RootTemplateInstance.GetThisFrameMetaData().ActiveSequences)
 		{
-			if (UMovieSceneSequence* Sequence = RootTemplateInstance.GetSequence(SequenceID))
+			const FMovieSceneSubSequenceData* SubData  = Hierarchy.FindSubData(SequenceID);
+			UMovieSceneSequence*              Sequence = SubData ? SubData->GetLoadedSequence() : nullptr;
+
+			if (Sequence)
 			{
 				Collector.AddReferencedObject(Sequence);
 			}
@@ -5162,12 +5172,12 @@ void FSequencer::PasteCopiedTracks()
 			}
 		}
 
-		// Fix possessable bindings
+		// Fix possessable actor bindings
 		for (auto PossessableGuid : PossessableGuids)
 		{
 			FMovieScenePossessable* Possessable = MovieScene->FindPossessable(PossessableGuid);
 			UWorld* PlaybackContext = Cast<UWorld>(GetPlaybackContext());
-			if (PlaybackContext)
+			if (Possessable && PlaybackContext)
 			{
 				for ( TActorIterator<AActor> ActorItr( PlaybackContext ); ActorItr; ++ActorItr )
 				{
@@ -5184,11 +5194,41 @@ void FSequencer::PasteCopiedTracks()
 				}
 			}
 		}
-		
+
 		OnMovieSceneBindingsPastedDelegate.Broadcast(BindingsPasted);
 
-		NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemsChanged);
+		// Refresh all immediately so that spawned actors will be generated immediately
+		NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::RefreshAllImmediately);
 
+		// Fix possessable component bindings
+		for (auto PossessableGuid : PossessableGuids)
+		{
+			// If a possessable guid does not have any bound objects, they might be 
+			// possessable components for spawnables, so they need to be remapped
+			if (FindBoundObjects(PossessableGuid, ActiveTemplateIDs.Top()).Num() == 0)
+			{
+				FMovieScenePossessable* Possessable = MovieScene->FindPossessable(PossessableGuid);
+				if (Possessable)
+				{
+					FGuid ParentGuid = Possessable->GetParent();
+					for (TWeakObjectPtr<> WeakObject : FindBoundObjects(ParentGuid, ActiveTemplateIDs.Top()))
+					{
+						if (AActor* SpawnedActor = Cast<AActor>(WeakObject.Get()))
+						{
+							for (UActorComponent* Component : SpawnedActor->GetComponents())
+							{
+								if (Component->GetName() == Possessable->GetName())
+								{
+									OwnerSequence->BindPossessableObject( PossessableGuid, *Component, SpawnedActor );
+									break;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		
 		return;
 	}
 

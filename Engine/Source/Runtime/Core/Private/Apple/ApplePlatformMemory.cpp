@@ -361,7 +361,7 @@ void FApplePlatformMemory::BinnedFreeToOS( void* Ptr, SIZE_T Size )
 #if USE_MALLOC_BINNED2
     return FGenericPlatformMemory::BinnedFreeToOS(Ptr, Size);
 #else
-    LLM(FLowLevelMemTracker::Get().OnLowLevelFree(ELLMTracker::Platform, Ptr, 0));
+    LLM(FLowLevelMemTracker::Get().OnLowLevelFree(ELLMTracker::Platform, Ptr));
     if (munmap(Ptr, Size) != 0)
     {
         const int ErrNo = errno;

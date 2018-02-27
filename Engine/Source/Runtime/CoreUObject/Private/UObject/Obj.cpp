@@ -2957,7 +2957,7 @@ void ParseFunctionFlags(uint32 Flags, TArray<const TCHAR*>& Results)
 }
 
 
-TArray<const TCHAR*> ParsePropertyFlags(uint64 Flags)
+COREUOBJECT_API TArray<const TCHAR*> ParsePropertyFlags(uint64 Flags)
 {
 	TArray<const TCHAR*> Results;
 

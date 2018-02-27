@@ -202,7 +202,7 @@
 #include "Materials/MaterialExpressionClearCoatNormalCustomOutput.h"
 #include "Materials/MaterialExpressionAtmosphericLightVector.h"
 #include "Materials/MaterialExpressionAtmosphericLightColor.h"
-
+#include "Materials/MaterialExpressionMaterialLayerOutput.h"
 #include "EditorSupportDelegates.h"
 #include "MaterialCompiler.h"
 #if WITH_EDITOR
@@ -5453,10 +5453,8 @@ bool UMaterialExpressionMaterialAttributeLayers::IsNamedParameter(const FMateria
 		OutLayers.Blends = GetBlends();
 		OutLayers.LayerStates = GetLayerStates();
 #if WITH_EDITOR
-		OutLayers.InstanceLayers = GetInstanceLayers();
-		OutLayers.InstanceBlends = GetInstanceBlends();
-		OutLayers.FilterLayers = GetFilterLayers();
-		OutLayers.FilterBlends = GetFilterBlends();
+		OutLayers.RestrictToLayerRelatives = GetShouldFilterLayers();
+		OutLayers.RestrictToBlendRelatives = GetShouldFilterBlends();
 		OutLayers.LayerNames = GetLayerNames();
 #endif
 		OutExpressionGuid = ExpressionGUID;
@@ -9725,7 +9723,7 @@ bool UMaterialFunction::ValidateFunctionUsage(FMaterialCompiler* Compiler, const
 	}
 	else if (GetMaterialFunctionUsage() == EMaterialFunctionUsage::MaterialLayerBlend)
 	{
-		// Material layer blends must have a two MA inputs and single MA output only
+		// Material layer blends can have up to two MA inputs and single MA output only
 		for (UMaterialExpression* Expression : FunctionExpressions)
 		{
 			if (UMaterialExpressionFunctionInput* InputExpression = Cast<UMaterialExpressionFunctionInput>(Expression))
@@ -9753,9 +9751,9 @@ bool UMaterialFunction::ValidateFunctionUsage(FMaterialCompiler* Compiler, const
 			}
 		}
 
-		if (NumInputs < 2 || NumOutputs < 1)
+		if (NumOutputs < 1)
 		{
-			Compiler->Errorf(TEXT("Layer blend graphs require two material attributes inputs and a single output."));
+			Compiler->Errorf(TEXT("Layer blend graphs can have up to two material attributes inputs and a single output."));
 			bHasValidOutput = false;
 		}
 	}
@@ -10583,8 +10581,6 @@ UMaterialExpressionMaterialFunctionCall::UMaterialExpressionMaterialFunctionCall
 
 	MenuCategories.Add(ConstructorStatics.NAME_Functions);
 
-	BorderColor = FColor(0, 116, 255);
-
 	// Function calls created without a function should be pinless by default
 	FunctionInputs.Empty();
 	FunctionOutputs.Empty();
@@ -11169,8 +11165,6 @@ UMaterialExpressionFunctionInput::UMaterialExpressionFunctionInput(const FObject
 	bCollapsed = false;
 
 	MenuCategories.Add(ConstructorStatics.NAME_Functions);
-
-	BorderColor = FColor(185, 255, 172);
 #endif
 }
 
@@ -11472,9 +11466,6 @@ UMaterialExpressionFunctionOutput::UMaterialExpressionFunctionOutput(const FObje
 
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Functions);
-
-	BorderColor = FColor(255, 155, 0);
-
 	bCollapsed = false;
 #endif
 }
@@ -11620,6 +11611,16 @@ bool UMaterialExpressionFunctionOutput::IsResultMaterialAttributes(int32 OutputI
 	}
 }
 #endif // WITH_EDITOR
+
+///////////////////////////////////////////////////////////////////////////////
+// UMaterialExpressionMaterialLayerOutput
+///////////////////////////////////////////////////////////////////////////////
+UMaterialExpressionMaterialLayerOutput::UMaterialExpressionMaterialLayerOutput(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	OutputName = TEXT("Material Attributes");
+}
+
 
 //
 //	UMaterialExpressionCollectionParameter

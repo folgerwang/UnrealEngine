@@ -57,6 +57,7 @@
 #include "ComponentRecreateRenderStateContext.h"
 #include "Framework/Application/HardwareCursor.h"
 #include "DynamicResolutionState.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 
 #define LOCTEXT_NAMESPACE "GameViewport"
 
@@ -1188,7 +1189,7 @@ void UGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 								FVector Location;
 								FVector ProjFront;
 								FVector ProjRight;
-								PlayerController->GetAudioListenerPosition(/*out*/ Location, /*out*/ ProjFront, /*out*/ ProjRight);						
+								PlayerController->GetAudioListenerPosition(/*out*/ Location, /*out*/ ProjFront, /*out*/ ProjRight);
 
 								FTransform ListenerTransform(FRotationMatrix::MakeFromXY(ProjFront, ProjRight));
 

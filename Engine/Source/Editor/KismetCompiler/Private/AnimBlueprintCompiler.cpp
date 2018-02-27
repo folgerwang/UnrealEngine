@@ -107,6 +107,15 @@ FAnimBlueprintCompilerContext::FAnimBlueprintCompilerContext(UAnimBlueprint* Sou
 	, AnimBlueprint(SourceSketch)
 	, bIsDerivedAnimBlueprint(false)
 {
+	// Make sure the skeleton has finished preloading
+	if (AnimBlueprint->TargetSkeleton != nullptr)
+	{
+		if (FLinkerLoad* Linker = AnimBlueprint->TargetSkeleton->GetLinker())
+		{
+			Linker->Preload(AnimBlueprint->TargetSkeleton);
+		}
+	}
+
 	if (AnimBlueprint->HasAnyFlags(RF_NeedPostLoad))
 	{
 		//Compilation during loading .. need to verify node guids as some anim blueprints have duplicated guids
@@ -154,14 +163,6 @@ FAnimBlueprintCompilerContext::FAnimBlueprintCompilerContext(UAnimBlueprint* Sou
 		if(bNodeGuidsRegenerated)
 		{
 			UE_LOG(LogAnimation, Warning, TEXT("Animation Blueprint %s has nodes with invalid node guids that have been regenerated. This blueprint will not cook deterministically until it is resaved."), *AnimBlueprint->GetPathName());
-		}
-	}
-	// Make sure the skeleton has finished preloading
-	if (AnimBlueprint->TargetSkeleton != nullptr)
-	{
-		if (FLinkerLoad* Linker = AnimBlueprint->TargetSkeleton->GetLinker())
-		{
-			Linker->Preload(AnimBlueprint->TargetSkeleton);
 		}
 	}
 

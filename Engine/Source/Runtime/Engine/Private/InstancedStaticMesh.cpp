@@ -999,6 +999,16 @@ void UInstancedStaticMeshComponent::ApplyComponentInstanceData(FInstancedStaticM
 #endif
 }
 
+void UInstancedStaticMeshComponent::OnRegister()
+{
+	Super::OnRegister();
+
+	if (FApp::CanEverRender() && !HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))
+	{
+		InitPerInstanceRenderData(PerInstanceSMData.Num() > 0);
+	}
+}
+
 FPrimitiveSceneProxy* UInstancedStaticMeshComponent::CreateSceneProxy()
 {
 	ProxySize = 0;
@@ -1515,10 +1525,21 @@ int32 UInstancedStaticMeshComponent::AddInstanceInternal(int32 InstanceIndex, FI
 	if (!InstanceReorderTable.Contains(InstanceIndex))
 	{
 		InstanceReorderTable.Add(InstanceIndex);
+
+		if (PerInstanceRenderData.IsValid())
+		{
+			PerInstanceRenderData->UpdateInstanceData(this, InstanceIndex, UpdateInstanceCount, true, true);
+		}
 	}
 	else
 	{
+		// During reorder, we have to update the new instance with RandomStream update then update all reorded instance without this setting
 		InstanceReorderTable.Insert(InstanceIndex, InstanceIndex);
+
+		if (PerInstanceRenderData.IsValid())
+		{
+			PerInstanceRenderData->UpdateInstanceData(this, InstanceIndex, UpdateInstanceCount, true, true);
+		}
 
 		for (int32 i = InstanceIndex + 1; i < InstanceReorderTable.Num(); ++i)
 		{
@@ -1526,11 +1547,11 @@ int32 UInstancedStaticMeshComponent::AddInstanceInternal(int32 InstanceIndex, FI
 		}
 
 		UpdateInstanceCount = InstanceReorderTable.Num() - InstanceIndex;
-	}
 
-	if (PerInstanceRenderData.IsValid())
-	{
-		PerInstanceRenderData->UpdateInstanceData(this, InstanceIndex, UpdateInstanceCount, true, true);
+		if (PerInstanceRenderData.IsValid())
+		{
+			PerInstanceRenderData->UpdateInstanceData(this, InstanceIndex, UpdateInstanceCount, true, false);
+		}
 	}
 
 	PartialNavigationUpdate(InstanceIndex);
@@ -1592,6 +1613,12 @@ bool UInstancedStaticMeshComponent::RemoveInstanceInternal(int32 InstanceIndex, 
 		InstanceReorderTable.RemoveAt(InstanceIndex);
 	}
 
+	// remove instance
+	if (!InstanceAlreadyRemoved && PerInstanceSMData.IsValidIndex(InstanceIndex))
+	{
+		PerInstanceSMData.RemoveAt(InstanceIndex);
+	}
+
 	if (ReorderInstances)
 	{
 		for (int32 i = InstanceIndex; i < InstanceReorderTable.Num(); ++i)
@@ -1603,12 +1630,6 @@ bool UInstancedStaticMeshComponent::RemoveInstanceInternal(int32 InstanceIndex, 
 		{
 			PerInstanceRenderData->UpdateInstanceData(this, InstanceIndex, PerInstanceRenderData->InstanceBuffer.GetNumInstances() - InstanceIndex);
 		}
-	}
-
-	// remove instance
-	if (!InstanceAlreadyRemoved && PerInstanceSMData.IsValidIndex(InstanceIndex))
-	{
-		PerInstanceSMData.RemoveAt(InstanceIndex);
 	}
 
 #if WITH_EDITOR
@@ -1637,7 +1658,7 @@ bool UInstancedStaticMeshComponent::RemoveInstanceInternal(int32 InstanceIndex, 
 
 bool UInstancedStaticMeshComponent::RemoveInstance(int32 InstanceIndex)
 {
-	return RemoveInstanceInternal(InstanceIndex, false, false);
+	return RemoveInstanceInternal(InstanceIndex, true, false);
 }
 
 bool UInstancedStaticMeshComponent::GetInstanceTransform(int32 InstanceIndex, FTransform& OutInstanceTransform, bool bWorldSpace) const
@@ -2143,7 +2164,7 @@ void UInstancedStaticMeshComponent::PostEditChangeChainProperty(FPropertyChanged
 				int32 AddedAtIndex = PropertyChangedEvent.GetArrayIndex(PropertyChangedEvent.Property->GetFName().ToString());
 				check(AddedAtIndex != INDEX_NONE);
 
-				AddInstanceInternal(AddedAtIndex, &PerInstanceSMData[AddedAtIndex], FTransform::Identity);
+				AddInstanceInternal(AddedAtIndex, &PerInstanceSMData[AddedAtIndex], PropertyChangedEvent.ChangeType == EPropertyChangeType::ArrayAdd ? FTransform::Identity : FTransform(PerInstanceSMData[AddedAtIndex].Transform));
 
 				// added via the property editor, so we will want to interactively work with instances
 				bHasPerInstanceHitProxies = true;
@@ -2234,7 +2255,10 @@ void UInstancedStaticMeshComponent::ClearInstanceSelection()
 	int32 InstanceCount = SelectedInstances.Num();
 	SelectedInstances.Empty();
 
-	PerInstanceRenderData->UpdateInstanceData(this, 0, InstanceCount);
+	if (PerInstanceRenderData.IsValid())
+	{
+		PerInstanceRenderData->UpdateInstanceData(this, 0, InstanceCount);
+	}
 #endif
 }
 

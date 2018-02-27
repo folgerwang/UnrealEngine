@@ -70,6 +70,12 @@ void FTextureInstanceState::RemoveBounds(int32 BoundsIndex)
 		BoundsToUnpack[BoundsToUnpackIndex] = INDEX_NONE;
 	}
 
+	// If the BoundsIndex is out of range, the next code will crash.	
+	if (!ensure(Bounds4Components.IsValidIndex(BoundsIndex)))
+	{
+		return;
+	}
+
 	// If note all indices were freed
 	if (1 + FreeBoundIndices.Num() != Bounds4.Num() * 4)
 	{

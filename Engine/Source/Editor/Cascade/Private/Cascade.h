@@ -46,6 +46,7 @@ struct FParticleEmitterThumbnail
 };
 
 typedef TMap<TWeakObjectPtr<UParticleEmitter>, FParticleEmitterThumbnail> FParticleEmitterThumbnailMap;
+
 /*-----------------------------------------------------------------------------
    FCascade
 -----------------------------------------------------------------------------*/
@@ -226,6 +227,7 @@ public:
 	static void OnComponentActivationChange(UParticleSystemComponent* PSC, bool bActivated);
 
 	FParticleEmitterThumbnailMap& GetEmitterToThumbnailMap() { return EmitterToThumbnailMap; }
+
 private:
 	//~ Begin FEditorUndoClient Interface
 	virtual void PostUndo(bool bSuccess) override;

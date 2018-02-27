@@ -859,6 +859,7 @@ void FOpenGLDynamicRHI::RHISetShaderResourceViewParameter(FPixelShaderRHIParamRe
 		LimitMip = SRV->LimitMip;
 		UpdateSRV(SRV);
 	}
+	ensureMsgf((int32)TextureIndex < FOpenGL::GetMaxTextureImageUnits(), TEXT("Using more pixel textures (%d) than allowed (%d)!"), TextureIndex, FOpenGL::GetMaxTextureImageUnits());
 	InternalSetShaderTexture(NULL, SRV, FOpenGL::GetFirstPixelTextureUnit() + TextureIndex, Target, Resource, 0, LimitMip);
 	RHISetShaderSampler(PixelShaderRHI,TextureIndex,PointSamplerState);
 	
@@ -882,6 +883,7 @@ void FOpenGLDynamicRHI::RHISetShaderResourceViewParameter(FVertexShaderRHIParamR
 		LimitMip = SRV->LimitMip;
 		UpdateSRV(SRV);
 	}
+	ensureMsgf((int32)TextureIndex < FOpenGL::GetMaxVertexTextureImageUnits(), TEXT("Using more vertex texture units (%d) than allowed (%d)!"), TextureIndex, FOpenGL::GetMaxVertexTextureImageUnits());
 	InternalSetShaderTexture(NULL, SRV, FOpenGL::GetFirstVertexTextureUnit() + TextureIndex, Target, Resource, 0, LimitMip);
 	RHISetShaderSampler(VertexShaderRHI,TextureIndex,PointSamplerState);
 	
@@ -904,6 +906,7 @@ void FOpenGLDynamicRHI::RHISetShaderResourceViewParameter(FComputeShaderRHIParam
 		LimitMip = SRV->LimitMip;
 		UpdateSRV(SRV);
 	}
+	ensureMsgf((int32)TextureIndex < FOpenGL::GetMaxComputeTextureImageUnits(), TEXT("Using more compute texture units (%d) than allowed (%d)!"), TextureIndex, FOpenGL::GetMaxComputeTextureImageUnits());
 	InternalSetShaderTexture(NULL, SRV, FOpenGL::GetFirstComputeTextureUnit() + TextureIndex, Target, Resource, 0, LimitMip);
 	RHISetShaderSampler(ComputeShaderRHI,TextureIndex,PointSamplerState);
 	
@@ -928,6 +931,7 @@ void FOpenGLDynamicRHI::RHISetShaderResourceViewParameter(FHullShaderRHIParamRef
 		LimitMip = SRV->LimitMip;
 		UpdateSRV(SRV);
 	}
+	ensureMsgf((int32)TextureIndex < FOpenGL::GetMaxHullTextureImageUnits(), TEXT("Using more hull texture units (%d) than allowed (%d)!"), TextureIndex, FOpenGL::GetMaxHullTextureImageUnits());
 	InternalSetShaderTexture(NULL, SRV, FOpenGL::GetFirstHullTextureUnit() + TextureIndex, Target, Resource, 0, LimitMip);
 	
 	FShaderCache::SetSRV(FShaderCache::GetDefaultCacheState(), SF_Hull, TextureIndex, SRVRHI);
@@ -951,6 +955,7 @@ void FOpenGLDynamicRHI::RHISetShaderResourceViewParameter(FDomainShaderRHIParamR
 		LimitMip = SRV->LimitMip;
 		UpdateSRV(SRV);
 	}
+	ensureMsgf((int32)TextureIndex < FOpenGL::GetMaxDomainTextureImageUnits(), TEXT("Using more domain texture units (%d) than allowed (%d)!"), TextureIndex, FOpenGL::GetMaxDomainTextureImageUnits());
 	InternalSetShaderTexture(NULL, SRV, FOpenGL::GetFirstDomainTextureUnit() + TextureIndex, Target, Resource, 0, LimitMip);
 	
 	FShaderCache::SetSRV(FShaderCache::GetDefaultCacheState(), SF_Domain, TextureIndex, SRVRHI);
@@ -973,6 +978,7 @@ void FOpenGLDynamicRHI::RHISetShaderResourceViewParameter(FGeometryShaderRHIPara
 		LimitMip = SRV->LimitMip;
 		UpdateSRV(SRV);
 	}
+	ensureMsgf((int32)TextureIndex < FOpenGL::GetMaxGeometryTextureImageUnits(), TEXT("Using more geometry texture units (%d) than allowed (%d)!"), TextureIndex, FOpenGL::GetMaxGeometryTextureImageUnits());
 	InternalSetShaderTexture(NULL, SRV, FOpenGL::GetFirstGeometryTextureUnit() + TextureIndex, Target, Resource, 0, LimitMip);
 	RHISetShaderSampler(GeometryShaderRHI,TextureIndex,PointSamplerState);
 	
@@ -985,6 +991,7 @@ void FOpenGLDynamicRHI::RHISetShaderTexture(FVertexShaderRHIParamRef VertexShade
 
 	VERIFY_GL_SCOPE();
 	FOpenGLTextureBase* NewTexture = GetOpenGLTextureFromRHITexture(NewTextureRHI);
+	ensureMsgf((int32)TextureIndex < FOpenGL::GetMaxVertexTextureImageUnits(), TEXT("Using more vertex texture units (%d) than allowed (%d)!"), TextureIndex, FOpenGL::GetMaxVertexTextureImageUnits());
 	if (NewTexture)
 	{
 		InternalSetShaderTexture(NewTexture, nullptr, FOpenGL::GetFirstVertexTextureUnit() + TextureIndex, NewTexture->Target, NewTexture->Resource, NewTextureRHI->GetNumMips(), -1);
@@ -1004,6 +1011,7 @@ void FOpenGLDynamicRHI::RHISetShaderTexture(FHullShaderRHIParamRef HullShaderRHI
 	check(GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM5);
 	VERIFY_GL_SCOPE();
 	FOpenGLTextureBase* NewTexture = GetOpenGLTextureFromRHITexture(NewTextureRHI);
+	ensureMsgf((int32)TextureIndex < FOpenGL::GetMaxHullTextureImageUnits(), TEXT("Using more hull texture units (%d) than allowed (%d)!"), TextureIndex, FOpenGL::GetMaxHullTextureImageUnits());
 	if (NewTexture)
 	{
 		InternalSetShaderTexture(NewTexture, nullptr, FOpenGL::GetFirstHullTextureUnit() + TextureIndex, NewTexture->Target, NewTexture->Resource, NewTextureRHI->GetNumMips(), -1);
@@ -1023,6 +1031,7 @@ void FOpenGLDynamicRHI::RHISetShaderTexture(FDomainShaderRHIParamRef DomainShade
 	check(GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM5);
 	VERIFY_GL_SCOPE();
 	FOpenGLTextureBase* NewTexture = GetOpenGLTextureFromRHITexture(NewTextureRHI);
+	ensureMsgf((int32)TextureIndex < FOpenGL::GetMaxDomainTextureImageUnits(), TEXT("Using more domain texture units (%d) than allowed (%d)!"), TextureIndex, FOpenGL::GetMaxDomainTextureImageUnits());
 	if (NewTexture)
 	{
 		InternalSetShaderTexture(NewTexture, nullptr, FOpenGL::GetFirstDomainTextureUnit() + TextureIndex, NewTexture->Target, NewTexture->Resource, NewTextureRHI->GetNumMips(), -1);
@@ -1041,6 +1050,7 @@ void FOpenGLDynamicRHI::RHISetShaderTexture(FGeometryShaderRHIParamRef GeometryS
 
 	VERIFY_GL_SCOPE();
 	FOpenGLTextureBase* NewTexture = GetOpenGLTextureFromRHITexture(NewTextureRHI);
+	ensureMsgf((int32)TextureIndex < FOpenGL::GetMaxGeometryTextureImageUnits(), TEXT("Using more geometry texture units (%d) than allowed (%d)!"), TextureIndex, FOpenGL::GetMaxGeometryTextureImageUnits());
 	if (NewTexture)
 	{
 		InternalSetShaderTexture(NewTexture, nullptr, FOpenGL::GetFirstGeometryTextureUnit() + TextureIndex, NewTexture->Target, NewTexture->Resource, NewTextureRHI->GetNumMips(), -1);
@@ -1059,6 +1069,7 @@ void FOpenGLDynamicRHI::RHISetShaderTexture(FPixelShaderRHIParamRef PixelShaderR
 
 	VERIFY_GL_SCOPE();
 	FOpenGLTextureBase* NewTexture = GetOpenGLTextureFromRHITexture(NewTextureRHI);
+	ensureMsgf((int32)TextureIndex < FOpenGL::GetMaxTextureImageUnits(), TEXT("Using more pixel texture units (%d) than allowed (%d)!"), TextureIndex, FOpenGL::GetMaxTextureImageUnits());
 	if (NewTexture)
 	{
 		InternalSetShaderTexture(NewTexture, nullptr, FOpenGL::GetFirstPixelTextureUnit() + TextureIndex, NewTexture->Target, NewTexture->Resource, NewTextureRHI->GetNumMips(), -1);
@@ -1121,6 +1132,7 @@ void FOpenGLDynamicRHI::RHISetShaderTexture(FComputeShaderRHIParamRef ComputeSha
 	check(GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM5);
 	VERIFY_GL_SCOPE();
 	FOpenGLTextureBase* NewTexture = GetOpenGLTextureFromRHITexture(NewTextureRHI);
+	ensureMsgf((int32)TextureIndex < FOpenGL::GetMaxComputeTextureImageUnits(), TEXT("Using more compute texture units (%d) than allowed (%d)!"), TextureIndex, FOpenGL::GetMaxComputeTextureImageUnits());
 	if (NewTexture)
 	{
 		InternalSetShaderTexture(NewTexture, nullptr, FOpenGL::GetFirstComputeTextureUnit() + TextureIndex, NewTexture->Target, NewTexture->Resource, NewTextureRHI->GetNumMips(), -1);
@@ -2399,9 +2411,20 @@ template <> FORCEINLINE uint32 GetFirstTextureUnit<SF_Geometry>() { return FOpen
 template <> FORCEINLINE uint32 GetFirstTextureUnit<SF_Compute>() { return FOpenGL::GetFirstComputeTextureUnit(); }
 
 template <EShaderFrequency Frequency>
+uint32 GetNumTextureUnits();
+
+template <> FORCEINLINE uint32 GetNumTextureUnits<SF_Vertex>() { return FOpenGL::GetMaxVertexTextureImageUnits(); }
+template <> FORCEINLINE uint32 GetNumTextureUnits<SF_Hull>() { return FOpenGL::GetMaxHullTextureImageUnits(); }
+template <> FORCEINLINE uint32 GetNumTextureUnits<SF_Domain>() { return FOpenGL::GetMaxDomainTextureImageUnits(); }
+template <> FORCEINLINE uint32 GetNumTextureUnits<SF_Pixel>() { return FOpenGL::GetMaxTextureImageUnits(); }
+template <> FORCEINLINE uint32 GetNumTextureUnits<SF_Geometry>() { return FOpenGL::GetMaxGeometryTextureImageUnits(); }
+template <> FORCEINLINE uint32 GetNumTextureUnits<SF_Compute>() { return FOpenGL::GetMaxComputeTextureImageUnits(); }
+
+template <EShaderFrequency Frequency>
 FORCEINLINE void SetResource(FOpenGLDynamicRHI* RESTRICT OpenGLRHI, uint32 BindIndex, FRHITexture* RESTRICT TextureRHI, float CurrentTime)
 {
 	FOpenGLTextureBase* Texture = GetOpenGLTextureFromRHITexture(TextureRHI);
+	ensureMsgf(BindIndex < GetNumTextureUnits<Frequency>(), TEXT("Using more %s texture units (%d) than allowed (%d) on a shader unit!"), GetShaderFrequencyString(Frequency, false), BindIndex, GetNumTextureUnits<Frequency>());
 	if (Texture)
 	{
 		TextureRHI->SetLastRenderTime(CurrentTime);
@@ -2426,6 +2449,7 @@ FORCEINLINE void SetResource(FOpenGLDynamicRHI* RESTRICT OpenGLRHI, uint32 BindI
 template <EShaderFrequency Frequency>
 FORCEINLINE void SetResource(FOpenGLDynamicRHI* RESTRICT OpenGLRHI, uint32 BindIndex, FOpenGLShaderResourceView* RESTRICT SRV, float CurrentTime)
 {
+	ensureMsgf(BindIndex < GetNumTextureUnits<Frequency>(), TEXT("Using more %s texture units (%d) than allowed (%d) on a shader unit!"), GetShaderFrequencyString(Frequency, false), BindIndex, GetNumTextureUnits<Frequency>());
 	OpenGLRHI->InternalSetShaderTexture(NULL, SRV, GetFirstTextureUnit<Frequency>() + BindIndex, SRV->Target, SRV->Resource, 0, SRV->LimitMip);
 	SetResource<Frequency>(OpenGLRHI,BindIndex,OpenGLRHI->GetPointSamplerState(), CurrentTime);
 	

@@ -974,7 +974,7 @@ public:
 	FMobileCSMVisibilityInfo MobileCSMVisibilityInfo;
 
 	// Primitive CustomData
-	TArray<const FPrimitiveSceneInfo*, SceneRenderingAllocator> PrimitivesWithCustomData;	// Size == Amount of Primitive With Custom View Data
+	TArray<const FPrimitiveSceneInfo*, SceneRenderingAllocator> PrimitivesWithCustomData;	// Size == Amount of Primitive With Custom Data
 	FSceneBitArray UpdatedPrimitivesWithCustomData;
 	TArray<FMemStackBase, SceneRenderingAllocator> PrimitiveCustomDataMemStack; // Size == 1 global stack + 1 per visibility thread (if multithread)
 
@@ -1738,7 +1738,7 @@ protected:
 	bool RenderInverseOpacityDynamic(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState);
 
 	/** Will update the view custom data. */
-	void UpdateViewCustomData();
+	void PostInitViewCustomData();
 	
 private:
 

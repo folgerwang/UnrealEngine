@@ -233,7 +233,9 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
             // free any autoreleased objects every once in awhile to keep memory use down (strings, splash screens, etc)
             if (((GFrameCounter) & 31) == 0)
             {
-                [AutoreleasePool release];
+				// If you crash upon release, turn on Zombie Objects (Edit Scheme... | Diagnostics | Zombie Objects)
+				// This will list the last object sent the release message, which will help identify the double free
+				[AutoreleasePool release];
                 AutoreleasePool = [[NSAutoreleasePool alloc] init];
             }
         }
@@ -886,7 +888,9 @@ bool GIsSuspended = 0;
 			}
 		}
     }
-    
+
+	FCoreDelegates::ApplicationWillDeactivateDelegate.Broadcast();
+
 	[self ToggleSuspend:true];
 	[self ToggleAudioSession:false];
 }
@@ -897,6 +901,7 @@ bool GIsSuspended = 0;
 	 Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later. 
 	 If your application supports background execution, this method is called instead of applicationWillTerminate: when the user quits.
 	 */
+
     FCoreDelegates::ApplicationWillEnterBackgroundDelegate.Broadcast();
 }
 
@@ -905,6 +910,7 @@ bool GIsSuspended = 0;
 	/*
 	 Called as part of the transition from the background to the inactive state; here you can undo many of the changes made on entering the background.
 	 */
+
     FCoreDelegates::ApplicationHasEnteredForegroundDelegate.Broadcast();
 }
 
@@ -915,6 +921,8 @@ bool GIsSuspended = 0;
 	 */
     [self ToggleSuspend:false];
 	[self ToggleAudioSession:true];
+
+	FCoreDelegates::ApplicationHasReactivatedDelegate.Broadcast();
 
     if (bEngineInit)
     {

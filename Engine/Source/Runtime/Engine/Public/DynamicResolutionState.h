@@ -35,6 +35,13 @@ public:
 	/** Reset dynamic resolution's history. */
 	virtual void ResetHistory() = 0;
 
+	/** Returns whether dynamic resolution is supported on this platform.
+	 *
+	 * Using dynamic resolution on unsupported platforms is extremely dangerous for gameplay
+	 * experience, since it may have a bug dropping resolution or frame rate more than it should.
+	 */
+	virtual bool IsSupported() const = 0;
+
 	/** Setup a screen percentage driver for a given view family. */
 	virtual void SetupMainViewFamily(class FSceneViewFamily& ViewFamily) = 0;
 

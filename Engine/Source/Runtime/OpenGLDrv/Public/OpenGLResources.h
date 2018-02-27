@@ -638,7 +638,7 @@ public:
 		}
 
 #if ENABLE_LOW_LEVEL_MEM_TRACKER
-		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::VertexBuffer, InSize, ELLMTracker::Platform);
+		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::VertexBuffer, InSize, ELLMTracker::Platform, ELLMAllocType::None);
 #endif
 	}
 
@@ -650,7 +650,7 @@ public:
 		}
 
 #if ENABLE_LOW_LEVEL_MEM_TRACKER
-		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::VertexBuffer, -(int64)GetSize(), ELLMTracker::Platform);
+		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::VertexBuffer, -(int64)GetSize(), ELLMTracker::Platform, ELLMAllocType::None);
 #endif
 	}
 
@@ -747,14 +747,14 @@ public:
 	FOpenGLBaseIndexBuffer(uint32 InStride,uint32 InSize,uint32 InUsage): FRHIIndexBuffer(InStride,InSize,InUsage)
 	{
 #if ENABLE_LOW_LEVEL_MEM_TRACKER
-		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::IndexBuffer, InSize, ELLMTracker::Platform);
+		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::IndexBuffer, InSize, ELLMTracker::Platform, ELLMAllocType::None);
 #endif
 	}
 
 	~FOpenGLBaseIndexBuffer(void)
 	{
 #if ENABLE_LOW_LEVEL_MEM_TRACKER
-		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::IndexBuffer, -(int64)GetSize(), ELLMTracker::Platform);
+		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::IndexBuffer, -(int64)GetSize(), ELLMTracker::Platform, ELLMAllocType::None);
 #endif
 	}
 

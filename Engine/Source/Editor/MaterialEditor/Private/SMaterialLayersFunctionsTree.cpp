@@ -66,6 +66,36 @@ public:
 		}
 	}
 
+	bool GetFilterState(SMaterialLayersFunctionsInstanceTree* InTree, TSharedPtr<FStackSortedData> InStackData) const
+	{
+		if (InStackData->ParameterInfo.Association == EMaterialParameterAssociation::LayerParameter)
+		{
+			return InTree->FunctionInstance->RestrictToLayerRelatives[InStackData->ParameterInfo.Index];
+		}
+		if (InStackData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter)
+		{
+			return InTree->FunctionInstance->RestrictToBlendRelatives[InStackData->ParameterInfo.Index];
+		}
+		return false;
+	}
+
+	void FilterClicked(const ECheckBoxState NewCheckedState, SMaterialLayersFunctionsInstanceTree* InTree, TSharedPtr<FStackSortedData> InStackData)
+	{
+		if (InStackData->ParameterInfo.Association == EMaterialParameterAssociation::LayerParameter)
+		{
+			InTree->FunctionInstance->RestrictToLayerRelatives[InStackData->ParameterInfo.Index] = !InTree->FunctionInstance->RestrictToLayerRelatives[InStackData->ParameterInfo.Index];
+		}
+		if (InStackData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter)
+		{
+			InTree->FunctionInstance->RestrictToBlendRelatives[InStackData->ParameterInfo.Index] = !InTree->FunctionInstance->RestrictToBlendRelatives[InStackData->ParameterInfo.Index];
+		}
+	}
+
+	ECheckBoxState GetFilterChecked(SMaterialLayersFunctionsInstanceTree* InTree, TSharedPtr<FStackSortedData> InStackData) const
+	{
+		return GetFilterState(InTree, InStackData) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+	}
+
 	/**
 	* Construct the widget
 	*
@@ -185,6 +215,9 @@ public:
 			LeftSideWidget = SNew(STextBlock)
 				.Text(NameOverride)
 				.TextStyle(FEditorStyle::Get(), "TinyText");
+			const int32 LayerStateIndex = StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter ? StackParameterData->ParameterInfo.Index + 1 : StackParameterData->ParameterInfo.Index;
+			LeftSideWidget->SetEnabled(InArgs._InTree->FunctionInstance->LayerStates[LayerStateIndex]);
+			RightSideWidget->SetEnabled(InArgs._InTree->FunctionInstance->LayerStates[LayerStateIndex]);
 		}
 // END GROUP
 
@@ -213,13 +246,9 @@ public:
 
 
 			TAttribute<bool> IsParamEnabled = TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateStatic(&FMaterialPropertyHelpers::IsOverriddenExpression, StackParameterData->Parameter));
-			FIsResetToDefaultVisible IsFilterResetVisible = FIsResetToDefaultVisible::CreateStatic(&FMaterialPropertyHelpers::ShouldLayerAssetShowResetToDefault, StackParameterData, EStackAssetType::Filter, MaterialEditorInstance->Parent);
-			FResetToDefaultHandler ResetFilterHandler = FResetToDefaultHandler::CreateSP(InArgs._InTree, &SMaterialLayersFunctionsInstanceTree::ResetFilterToDefault, StackParameterData);
-			FResetToDefaultOverride ResetFilterOverride = FResetToDefaultOverride::Create(IsFilterResetVisible, ResetFilterHandler);
-
-			FIsResetToDefaultVisible IsInstanceResetVisible = FIsResetToDefaultVisible::CreateStatic(&FMaterialPropertyHelpers::ShouldLayerAssetShowResetToDefault, StackParameterData, EStackAssetType::Instance, MaterialEditorInstance->Parent);
-			FResetToDefaultHandler ResetInstanceHandler = FResetToDefaultHandler::CreateSP(InArgs._InTree, &SMaterialLayersFunctionsInstanceTree::ResetInstanceToDefault, StackParameterData);
-			FResetToDefaultOverride ResetInstanceOverride = FResetToDefaultOverride::Create(IsInstanceResetVisible, ResetInstanceHandler);
+			FIsResetToDefaultVisible IsAssetResetVisible = FIsResetToDefaultVisible::CreateStatic(&FMaterialPropertyHelpers::ShouldLayerAssetShowResetToDefault, StackParameterData, MaterialEditorInstance->Parent);
+			FResetToDefaultHandler ResetAssetHandler = FResetToDefaultHandler::CreateSP(InArgs._InTree, &SMaterialLayersFunctionsInstanceTree::ResetAssetToDefault, StackParameterData);
+			FResetToDefaultOverride ResetAssetOverride = FResetToDefaultOverride::Create(IsAssetResetVisible, ResetAssetHandler);
 
 			IDetailTreeNode& Node = *StackParameterData->ParameterNode;
 			FNodeWidgets NodeWidgets = Node.CreateNodeWidgets();
@@ -228,74 +257,53 @@ public:
 
 			StackParameterData->ParameterHandle->MarkResetToDefaultCustomized(false);
 
-			FString FilterPath;
-			if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter && Tree->FunctionInstance->FilterBlends.IsValidIndex(StackParameterData->ParameterInfo.Index))
-			{
-				FilterPath = Tree->FunctionInstance->FilterBlends[StackParameterData->ParameterInfo.Index]->GetPathName();
-			}
-			else if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::LayerParameter && Tree->FunctionInstance->FilterLayers.IsValidIndex(StackParameterData->ParameterInfo.Index))
-			{
-				FilterPath = Tree->FunctionInstance->FilterLayers[StackParameterData->ParameterInfo.Index]->GetPathName();
-			}
-
-			FString InstancePath;
-			if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter && Tree->FunctionInstance->InstanceBlends.IsValidIndex(StackParameterData->ParameterInfo.Index))
-			{
-				InstancePath = Tree->FunctionInstance->InstanceBlends[StackParameterData->ParameterInfo.Index]->GetPathName();
-			}
-			else if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::LayerParameter && Tree->FunctionInstance->InstanceLayers.IsValidIndex(StackParameterData->ParameterInfo.Index))
-			{
-				InstancePath = Tree->FunctionInstance->InstanceLayers[StackParameterData->ParameterInfo.Index]->GetPathName();
-			}
-
 			EMaterialParameterAssociation InAssociation = StackParameterData->ParameterInfo.Association;
 
-			FOnShouldFilterAsset FilterFilter = FOnShouldFilterAsset::CreateStatic(&FMaterialPropertyHelpers::FilterAssetFilters, InAssociation);
-			FOnShouldFilterAsset InstanceFilter = FOnShouldFilterAsset::CreateStatic(&FMaterialPropertyHelpers::FilterAssetInstances, Tree->FunctionInstance, InAssociation, StackParameterData->ParameterInfo.Index);
+			FOnShouldFilterAsset AssetFilter = FOnShouldFilterAsset::CreateStatic(&FMaterialPropertyHelpers::FilterLayerAssets, Tree->FunctionInstance, InAssociation, StackParameterData->ParameterInfo.Index);
 
-			FOnSetObject FilterAssetChanged = FOnSetObject::CreateSP(Tree, &SMaterialLayersFunctionsInstanceTree::RefreshOnAssetChange, StackParameterData->ParameterInfo.Index, InAssociation, true);
-			FOnSetObject AssetChanged = FOnSetObject::CreateSP(Tree, &SMaterialLayersFunctionsInstanceTree::RefreshOnAssetChange, StackParameterData->ParameterInfo.Index, InAssociation, false);
+			FOnSetObject AssetChanged = FOnSetObject::CreateSP(Tree, &SMaterialLayersFunctionsInstanceTree::RefreshOnAssetChange, StackParameterData->ParameterInfo.Index, InAssociation);
 
-
-			RightSideWidget = SNew(SVerticalBox)
-				+ SVerticalBox::Slot()
-				.Padding(5.0f)
-				.AutoHeight()
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-				.AutoWidth()
-				.VAlign(VAlign_Center)
-				[
-					ParentTextBlock
-				]
-			+ SHorizontalBox::Slot()
-				.FillWidth(1.0f)
-				[
-					SNew(SObjectPropertyEntryBox)
-					.AllowedClass(UMaterialFunction::StaticClass())
-				.ObjectPath(FilterPath)
-				.OnShouldFilterAsset(FilterFilter)
-				.OnObjectChanged(FilterAssetChanged)
-				.CustomResetToDefault(ResetFilterOverride)
-				]
-				]
-			+ SVerticalBox::Slot()
-				.AutoHeight()
+			RightSideWidget = SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.FillWidth(1.0)
 				[
 					SNew(SObjectPropertyEntryBox)
 					.AllowedClass(UMaterialFunctionInterface::StaticClass())
-				.ObjectPath(InstancePath)
-				.ThumbnailPool(Tree->GetTreeThumbnailPool())
-				.OnShouldFilterAsset(InstanceFilter)
-				.OnObjectChanged(AssetChanged)
-				.CustomResetToDefault(ResetInstanceOverride)
-				.DisplayCompactSize(true)
-				.ThumbnailSizeOverride(ThumbnailOverride)
-				];
+					.ObjectPath(this, &SMaterialLayersFunctionsInstanceTreeItem::GetInstancePath, Tree)
+					.ThumbnailPool(Tree->GetTreeThumbnailPool())
+					.OnShouldFilterAsset(AssetFilter)
+					.OnObjectChanged(AssetChanged)
+					.CustomResetToDefault(ResetAssetOverride)
+					.DisplayCompactSize(true)
+					.ThumbnailSizeOverride(ThumbnailOverride)
+					.NewAssetFactories(FMaterialPropertyHelpers::GetAssetFactories(InAssociation))
+				]
+				+ SHorizontalBox::Slot()
+				.Padding(0.0f, 2.0f, 0.0f, 0.0f)
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				[
+					SNew(SCheckBox)
+					.Type(ESlateCheckBoxType::ToggleButton)
+					.Style(&FCoreStyle::Get().GetWidgetStyle< FCheckBoxStyle >("ToggleButtonCheckbox"))
+					.OnCheckStateChanged(this, &SMaterialLayersFunctionsInstanceTreeItem::FilterClicked, InArgs._InTree, StackParameterData)
+					.IsChecked(this, &SMaterialLayersFunctionsInstanceTreeItem::GetFilterChecked, InArgs._InTree, StackParameterData)
+					.ToolTipText(LOCTEXT("FilterLayerAssets", "Filter asset picker to only show related layers or blends. \nStaying within the inheritance hierarchy can improve instruction count."))
+					.Content()
+					[
+						SNew(STextBlock)
+						.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
+						.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.10"))
+						.Text(FText::FromString(FString(TEXT("\xf0b0"))) /*fa-filter*/)
+					]
+				]
+			;
 
-
-			RightSideWidget->SetEnabled(FMaterialPropertyHelpers::IsOverriddenExpression(InArgs._InTree->FunctionParameter));
+			
+			const int32 LayerStateIndex = InAssociation == EMaterialParameterAssociation::BlendParameter ? StackParameterData->ParameterInfo.Index + 1 : StackParameterData->ParameterInfo.Index;
+			const bool bEnabled = FMaterialPropertyHelpers::IsOverriddenExpression(StackParameterData->Parameter) && InArgs._InTree->FunctionInstance->LayerStates[LayerStateIndex];
+			LeftSideWidget->SetEnabled(InArgs._InTree->FunctionInstance->LayerStates[LayerStateIndex]);
+			RightSideWidget->SetEnabled(bEnabled);
 
 
 		}
@@ -467,7 +475,11 @@ public:
 			FNodeWidgets NodeWidgets = Node.CreateNodeWidgets();
 			LeftSideWidget = NodeWidgets.NameWidget.ToSharedRef();
 			RightSideWidget = NodeWidgets.ValueWidget.ToSharedRef();
-		
+
+			const int32 LayerStateIndex = StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter ? StackParameterData->ParameterInfo.Index + 1 : StackParameterData->ParameterInfo.Index;
+			const bool bEnabled = FMaterialPropertyHelpers::IsOverriddenExpression(StackParameterData->Parameter) && InArgs._InTree->FunctionInstance->LayerStates[LayerStateIndex];
+			LeftSideWidget->SetEnabled(InArgs._InTree->FunctionInstance->LayerStates[LayerStateIndex]);
+			RightSideWidget->SetEnabled(bEnabled);
 		}
 // END PROPERTY
 
@@ -477,6 +489,11 @@ public:
 			FNodeWidgets NodeWidgets = StackParameterData->ParameterNode->CreateNodeWidgets();
 			LeftSideWidget = NodeWidgets.NameWidget.ToSharedRef();
 			RightSideWidget = NodeWidgets.ValueWidget.ToSharedRef();
+
+			const int32 LayerStateIndex = StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter ? StackParameterData->ParameterInfo.Index + 1 : StackParameterData->ParameterInfo.Index;
+			const bool bEnabled = FMaterialPropertyHelpers::IsOverriddenExpression(StackParameterData->Parameter) && InArgs._InTree->FunctionInstance->LayerStates[LayerStateIndex];
+			LeftSideWidget->SetEnabled(InArgs._InTree->FunctionInstance->LayerStates[LayerStateIndex]);
+			RightSideWidget->SetEnabled(bEnabled);
 		}
 // END PROPERTY CHILD
 
@@ -593,6 +610,20 @@ public:
 	TSharedPtr<FStackSortedData> StackParameterData;
 
 	UMaterialEditorInstanceConstant* MaterialEditorInstance;
+
+	FString GetInstancePath(SMaterialLayersFunctionsInstanceTree* InTree) const
+	{
+		FString InstancePath;
+		if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter && InTree->FunctionInstance->Blends.IsValidIndex(StackParameterData->ParameterInfo.Index))
+		{
+			InstancePath = InTree->FunctionInstance->Blends[StackParameterData->ParameterInfo.Index]->GetPathName();
+		}
+		else if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::LayerParameter && InTree->FunctionInstance->Layers.IsValidIndex(StackParameterData->ParameterInfo.Index))
+		{
+			InstancePath = InTree->FunctionInstance->Layers[StackParameterData->ParameterInfo.Index]->GetPathName();
+		}
+		return InstancePath;
+	}
 };
 
 
@@ -602,6 +633,27 @@ void SMaterialLayersFunctionsInstanceTree::Construct(const FArguments& InArgs)
 	MaterialEditorInstance = InArgs._InMaterialEditorInstance;
 	Wrapper = InArgs._InWrapper;
 	CreateGroupsWidget();
+
+#ifdef WITH_EDITOR
+	//Fixup for adding new bool arrays to the class
+	if (FunctionInstance)
+	{
+		if (FunctionInstance->Layers.Num() != FunctionInstance->RestrictToLayerRelatives.Num())
+		{
+			for (int32 LayerIt = 0; LayerIt < FunctionInstance->Layers.Num() - FunctionInstance->RestrictToLayerRelatives.Num(); LayerIt++)
+			{
+				FunctionInstance->RestrictToLayerRelatives.Add(false);
+			}
+		}
+		if (FunctionInstance->Blends.Num() != FunctionInstance->RestrictToBlendRelatives.Num())
+		{
+			for (int32 BlendIt = 0; BlendIt < FunctionInstance->Blends.Num() - FunctionInstance->RestrictToBlendRelatives.Num(); BlendIt++)
+			{
+				FunctionInstance->RestrictToBlendRelatives.Add(false);
+			}
+		}
+	}
+#endif
 
 	STreeView<TSharedPtr<FStackSortedData>>::Construct(
 		STreeView::FArguments()
@@ -667,24 +719,16 @@ void SMaterialLayersFunctionsInstanceTree::SetParentsExpansionState()
 	}
 }
 
-void SMaterialLayersFunctionsInstanceTree::RefreshOnAssetChange(const struct FAssetData& InAssetData, int32 Index, EMaterialParameterAssociation MaterialType, const bool bIsFilterField)
+void SMaterialLayersFunctionsInstanceTree::RefreshOnAssetChange(const struct FAssetData& InAssetData, int32 Index, EMaterialParameterAssociation MaterialType)
 {
-	FMaterialPropertyHelpers::OnMaterialLayerAssetChanged(InAssetData, Index, MaterialType, FunctionInstanceHandle, FunctionInstance, bIsFilterField);
+	FMaterialPropertyHelpers::OnMaterialLayerAssetChanged(InAssetData, Index, MaterialType, FunctionInstanceHandle, FunctionInstance);
 	CreateGroupsWidget();
 	RequestTreeRefresh();
 }
 
-
-void SMaterialLayersFunctionsInstanceTree::ResetFilterToDefault(TSharedPtr<IPropertyHandle> InHandle, TSharedPtr<FStackSortedData> InData)
+void SMaterialLayersFunctionsInstanceTree::ResetAssetToDefault(TSharedPtr<IPropertyHandle> InHandle, TSharedPtr<FStackSortedData> InData)
 {
-	FMaterialPropertyHelpers::ResetLayerFilterAssetToDefault(FunctionInstanceHandle.ToSharedRef(), InData->Parameter, InData->ParameterInfo.Association, InData->ParameterInfo.Index, MaterialEditorInstance);	
-	CreateGroupsWidget();
-	RequestTreeRefresh();
-}
-
-void SMaterialLayersFunctionsInstanceTree::ResetInstanceToDefault(TSharedPtr<IPropertyHandle> InHandle, TSharedPtr<FStackSortedData> InData)
-{
-	FMaterialPropertyHelpers::ResetLayerInstanceAssetToDefault(FunctionInstanceHandle.ToSharedRef(), InData->Parameter, InData->ParameterInfo.Association, InData->ParameterInfo.Index, MaterialEditorInstance);
+	FMaterialPropertyHelpers::ResetLayerAssetToDefault(FunctionInstanceHandle.ToSharedRef(), InData->Parameter, InData->ParameterInfo.Association, InData->ParameterInfo.Index, MaterialEditorInstance);
 	CreateGroupsWidget();
 	RequestTreeRefresh();
 }
@@ -943,6 +987,7 @@ void SMaterialLayersFunctionsInstanceTree::ShowSubParameters(TSharedPtr<FStackSo
 					ParamChildProperty->ParameterHandle = ParamChildProperty->ParameterNode->CreatePropertyHandle();
 					ParamChildProperty->ParameterInfo.Index = Parameter->ParameterInfo.Index;
 					ParamChildProperty->ParameterInfo.Association = Parameter->ParameterInfo.Association;
+					ParamChildProperty->Parameter = ChildProperty->Parameter;
 					ChildProperty->Children.Add(ParamChildProperty);
 				}
 			}
@@ -1211,56 +1256,14 @@ public:
 
 			StackParameterData->ParameterHandle->MarkResetToDefaultCustomized(false);
 
-			FString FilterPath;
-			if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter && Tree->FunctionInstance->FilterBlends.IsValidIndex(StackParameterData->ParameterInfo.Index))
-			{
-				FilterPath = Tree->FunctionInstance->FilterBlends[StackParameterData->ParameterInfo.Index]->GetPathName();
-			}
-			else if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::LayerParameter && Tree->FunctionInstance->FilterLayers.IsValidIndex(StackParameterData->ParameterInfo.Index))
-			{
-				FilterPath = Tree->FunctionInstance->FilterLayers[StackParameterData->ParameterInfo.Index]->GetPathName();
-			}
-
-			FString InstancePath;
-			if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter && Tree->FunctionInstance->InstanceBlends.IsValidIndex(StackParameterData->ParameterInfo.Index))
-			{
-				InstancePath = Tree->FunctionInstance->InstanceBlends[StackParameterData->ParameterInfo.Index]->GetPathName();
-			}
-			else if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::LayerParameter && Tree->FunctionInstance->InstanceLayers.IsValidIndex(StackParameterData->ParameterInfo.Index))
-			{
-				InstancePath = Tree->FunctionInstance->InstanceLayers[StackParameterData->ParameterInfo.Index]->GetPathName();
-			}
-
 			EMaterialParameterAssociation InAssociation = StackParameterData->ParameterInfo.Association;
 
-			RightSideWidget = SNew(SVerticalBox)
-				+ SVerticalBox::Slot()
-				.AutoHeight()
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					[
-						ParentTextBlock
-					]
-					+ SHorizontalBox::Slot()
-					.FillWidth(1.0f)
-					[
-						SNew(SObjectPropertyEntryBox)
-						.AllowedClass(UMaterialFunction::StaticClass())
-						.ObjectPath(FilterPath)
-					]
-				]
-				+ SVerticalBox::Slot()
-				.AutoHeight()
-				[
+			RightSideWidget = 
 					SNew(SObjectPropertyEntryBox)
 					.AllowedClass(UMaterialFunctionInterface::StaticClass())
-					.ObjectPath(InstancePath)
+					.ObjectPath(this, &SMaterialLayersFunctionsMaterialTreeItem::GetInstancePath, Tree)
 					.ThumbnailPool(Tree->GetTreeThumbnailPool())
-					.DisplayCompactSize(true)
-				];
+					.DisplayCompactSize(true);
 		}
 	// END ASSET
 
@@ -1552,6 +1555,20 @@ public:
 			.ShowSelection(false),
 			InOwnerTableView
 		);
+	}
+
+	FString GetInstancePath(SMaterialLayersFunctionsMaterialTree* Tree) const
+	{
+		FString InstancePath;
+		if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter && Tree->FunctionInstance->Blends.IsValidIndex(StackParameterData->ParameterInfo.Index))
+		{
+			InstancePath = Tree->FunctionInstance->Blends[StackParameterData->ParameterInfo.Index]->GetPathName();
+		}
+		else if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::LayerParameter && Tree->FunctionInstance->Layers.IsValidIndex(StackParameterData->ParameterInfo.Index))
+		{
+			InstancePath = Tree->FunctionInstance->Layers[StackParameterData->ParameterInfo.Index]->GetPathName();
+		}			
+		return InstancePath;
 	}
 
 	// Block double click expansion

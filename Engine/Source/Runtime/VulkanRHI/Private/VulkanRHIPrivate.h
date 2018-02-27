@@ -11,48 +11,13 @@
 #include "Misc/ScopeLock.h"
 #include "RHI.h"
 #include "RenderUtils.h"
+
+// let the platform set up the headers and some defines
+#include "VulkanPlatform.h"
+
+// the configuration will set up anyhting not set up by the platform
 #include "VulkanConfiguration.h"
 
-#if PLATFORM_WINDOWS
-#include "Windows/WindowsHWrapper.h"
-#endif
-
-#ifndef VK_PROTOTYPES
-#define VK_PROTOTYPES	1
-#endif
-
-#if PLATFORM_WINDOWS
-	#define VK_USE_PLATFORM_WIN32_KHR 1
-	#define VK_USE_PLATFORM_WIN32_KHX 1
-#endif
-#if PLATFORM_ANDROID
-	#define VK_USE_PLATFORM_ANDROID_KHR 1
-#endif
-
-#if PLATFORM_ANDROID
-	#define VULKAN_COMMANDWRAPPERS_ENABLE VULKAN_ENABLE_DUMP_LAYER
-	#define VULKAN_DYNAMICALLYLOADED 1
-#elif PLATFORM_LINUX
-	#define VULKAN_COMMANDWRAPPERS_ENABLE 1
-	#define VULKAN_DYNAMICALLYLOADED 1
-#else
-	#define VULKAN_COMMANDWRAPPERS_ENABLE 1
-	#define VULKAN_DYNAMICALLYLOADED 0
-#endif
-
-#if PLATFORM_WINDOWS
-#include "Windows/AllowWindowsPlatformTypes.h"
-#endif
-
-#if VULKAN_DYNAMICALLYLOADED
-	#include "VulkanLoader.h"
-#else
-	#include <vulkan.h>
-#endif
-
-#if PLATFORM_WINDOWS
-#include "Windows/HideWindowsPlatformTypes.h"
-#endif
 
 #if VULKAN_COMMANDWRAPPERS_ENABLE
 	#if VULKAN_DYNAMICALLYLOADED
@@ -429,6 +394,8 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("UAV Update Time"), STAT_VulkanUAVUpdateTime, STA
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Deletion Queue"), STAT_VulkanDeletionQueue, STATGROUP_VulkanRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Queue Submit"), STAT_VulkanQueueSubmit, STATGROUP_VulkanRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Queue Present"), STAT_VulkanQueuePresent, STATGROUP_VulkanRHI, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("DS Allocator"), STAT_VulkanDescriptorSetAllocator, STATGROUP_VulkanRHI, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Queries"), STAT_VulkanNumQueries, STATGROUP_VulkanRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Wait For Query"), STAT_VulkanWaitQuery, STATGROUP_VulkanRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Wait For Fence"), STAT_VulkanWaitFence, STATGROUP_VulkanRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Reset Queries"), STAT_VulkanResetQuery, STATGROUP_VulkanRHI, );
@@ -436,7 +403,7 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("Wait For Swapchain"), STAT_VulkanWaitSwapchain, 
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Acquire Backbuffer"), STAT_VulkanAcquireBackBuffer, STATGROUP_VulkanRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Staging Buffer Mgmt"), STAT_VulkanStagingBuffer, STATGROUP_VulkanRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("VkCreateDescriptorPool"), STAT_VulkanVkCreateDescriptorPool, STATGROUP_VulkanRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num DescSet Pools"), STAT_VulkanDescriptorPools, STATGROUP_VulkanRHI, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num DescSet Pools"), STAT_VulkanNumDescPools, STATGROUP_VulkanRHI, );
 #if VULKAN_ENABLE_AGGRESSIVE_STATS
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Update DescriptorSets"), STAT_VulkanUpdateDescriptorSets, STATGROUP_VulkanRHI, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Num Desc Sets Updated"), STAT_VulkanNumDescSets, STATGROUP_VulkanRHI, );
@@ -445,6 +412,7 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("Set unif Buffer"), STAT_VulkanSetUniformBufferTi
 DECLARE_CYCLE_STAT_EXTERN(TEXT("VkUpdate DS"), STAT_VulkanVkUpdateDS, STATGROUP_VulkanRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Bind Vertex Streams"), STAT_VulkanBindVertexStreamsTime, STATGROUP_VulkanRHI, );
 #endif
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num Desc Sets"), STAT_VulkanNumDescSetsTotal, STATGROUP_VulkanRHI, );
 
 namespace VulkanRHI
 {
@@ -788,3 +756,4 @@ namespace FRCLog
 
 #define SUPPORTS_MAINTENANCE_LAYER							VK_KHR_maintenance1
 
+//extern uint32 GVulkanRHIFrameNumber;

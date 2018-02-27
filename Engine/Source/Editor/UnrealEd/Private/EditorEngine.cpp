@@ -877,12 +877,18 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 	{
 		FTextLocalizationManager::Get().PushAutoEnableGameLocalizationPreview();
 		FTextLocalizationManager::Get().EnableGameLocalizationPreview();
+
+		// Always make sure dynamic resolution starts with a clean history.
+		GEngine->GetDynamicResolutionState()->ResetHistory();
 	});
 
 	FEditorDelegates::EndPIE.AddLambda([](bool)
 	{
 		FTextLocalizationManager::Get().PopAutoEnableGameLocalizationPreview();
 		FTextLocalizationManager::Get().DisableGameLocalizationPreview();
+
+		// Always resume the dynamic resolution state to ensure it is same state as in game builds when starting PIE.
+		GEngine->ResumeDynamicResolution();
 	});
 
 	// Initialize vanilla status before other systems that consume its status are started inside InitEditor()
@@ -1588,6 +1594,8 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 		UReflectionCaptureComponent::UpdateReflectionCaptureContents(EditorContext.World());
 	}
 
+	EmitDynamicResolutionEvent(EDynamicResolutionStateEvent::BeginFrame);
+
 	// if we have the side-by-side world for "Play From Here", tick it unless we are ensuring slate is responsive
 	if( FSlateThrottleManager::Get().IsAllowingExpensiveTasks() )
 	{
@@ -1616,17 +1624,6 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 			UWorld* OldGWorld = NULL;
 			// Use the PlayWorld as the GWorld, because who knows what will happen in the Tick.
 			OldGWorld = SetPlayInEditorWorld( PlayWorld );
-
-			// Begin's dynamic resolution frame before any ticking of the world.
-			// Notes:
-			//  - We don't support dynamic resolution for multiple-world PIE, since the dynamic resolution state assume only
-			//	  one world ticking as we do in game builds.
-			//  - We don't support dynamic resolution in simulate because only implemented in FGameViewportClient and must remain so.
-			//	- We don't emit Begin frame when the world is paused.
-			if (LocalPieContextPtrs.Num() == 1 && PieContext.GameViewport && !PieContext.GameViewport->IsSimulateInEditorViewport() && PlayWorld->IsCameraMoveable())
-			{
-				EmitDynamicResolutionEvent(EDynamicResolutionStateEvent::BeginFrame);
-			}
 
 			// Transfer debug references to ensure debugging ref's are valid for this tick in case of multiple game instances.
 			if (OldGWorld && OldGWorld != PlayWorld)

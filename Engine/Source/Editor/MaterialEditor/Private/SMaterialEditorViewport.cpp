@@ -155,24 +155,31 @@ bool FMaterialEditorViewportClient::InputAxis(FViewport* InViewport, int32 Contr
 
 FLinearColor FMaterialEditorViewportClient::GetBackgroundColor() const
 {
-	FLinearColor BackgroundColor = FLinearColor::Black;
-	if( MaterialEditorPtr.IsValid() )
+	if (AdvancedPreviewScene != nullptr)
 	{
-		UMaterialInterface* MaterialInterface = MaterialEditorPtr.Pin()->GetMaterialInterface();
-		if(MaterialInterface)
+		return AdvancedPreviewScene->GetBackgroundColor();
+	}
+	else
+	{
+		FLinearColor BackgroundColor = FLinearColor::Black;
+		if (MaterialEditorPtr.IsValid())
 		{
-			const EBlendMode PreviewBlendMode = (EBlendMode)MaterialInterface->GetBlendMode();
-			if(PreviewBlendMode == BLEND_Modulate)
+			UMaterialInterface* MaterialInterface = MaterialEditorPtr.Pin()->GetMaterialInterface();
+			if (MaterialInterface)
 			{
-				BackgroundColor = FLinearColor::White;
-			}
-			else if(PreviewBlendMode == BLEND_Translucent || PreviewBlendMode == BLEND_AlphaComposite)
-			{
-				BackgroundColor = FColor(64, 64, 64);
+				const EBlendMode PreviewBlendMode = (EBlendMode)MaterialInterface->GetBlendMode();
+				if (PreviewBlendMode == BLEND_Modulate)
+				{
+					BackgroundColor = FLinearColor::White;
+				}
+				else if (PreviewBlendMode == BLEND_Translucent || PreviewBlendMode == BLEND_AlphaComposite)
+				{
+					BackgroundColor = FColor(64, 64, 64);
+				}
 			}
 		}
+		return BackgroundColor;
 	}
-	return BackgroundColor;
 }
 
 void FMaterialEditorViewportClient::SetShowGrid(bool bShowGrid)
@@ -229,7 +236,7 @@ void SMaterialEditor3DPreviewViewport::Construct(const FArguments& InArgs)
 	AdvancedPreviewScene = MakeShareable(new FAdvancedPreviewScene(FPreviewScene::ConstructionValues()));
 
 	bShowGrid = false;
-	bShowBackground = false;
+
 	PreviewPrimType = TPT_None;
 
 	SEditorViewport::Construct( SEditorViewport::FArguments() );
@@ -284,15 +291,17 @@ void SMaterialEditor3DPreviewViewport::RefreshViewport()
 	}
 	SceneViewport->InvalidateDisplay();
 
-	if (EditorViewportClient.IsValid())
+	if (EditorViewportClient.IsValid() && AdvancedPreviewScene.IsValid())
 	{
 		UAssetViewerSettings* Settings = UAssetViewerSettings::Get();
 		const int32 ProfileIndex = AdvancedPreviewScene->GetCurrentProfileIndex();
-		if (Settings->Profiles.IsValidIndex(ProfileIndex) &&
-			Settings->Profiles[ProfileIndex].bRotateLightingRig
-			&& !EditorViewportClient->IsRealtime())
+		if (Settings->Profiles.IsValidIndex(ProfileIndex))
 		{
-			EditorViewportClient->SetRealtime(true);
+			AdvancedPreviewScene->UpdateScene(Settings->Profiles[ProfileIndex]);
+			if(Settings->Profiles[ProfileIndex].bRotateLightingRig && !EditorViewportClient->IsRealtime())
+			{
+				EditorViewportClient->SetRealtime(true);
+			}
 		}
 	}
 }
@@ -607,14 +616,24 @@ bool SMaterialEditor3DPreviewViewport::IsTogglePreviewGridChecked() const
 
 void SMaterialEditor3DPreviewViewport::TogglePreviewBackground()
 {
-	bShowBackground = !bShowBackground;
-	// @todo DB: Set the background mesh for the preview viewport.
+	UAssetViewerSettings* Settings = UAssetViewerSettings::Get();
+	const int32 ProfileIndex = AdvancedPreviewScene->GetCurrentProfileIndex();
+	if (Settings->Profiles.IsValidIndex(ProfileIndex))
+	{
+		Settings->Profiles[ProfileIndex].bShowEnvironment = !Settings->Profiles[ProfileIndex].bShowEnvironment;
+	}
 	RefreshViewport();
 }
 
 bool SMaterialEditor3DPreviewViewport::IsTogglePreviewBackgroundChecked() const
 {
-	return bShowBackground;
+	UAssetViewerSettings* Settings = UAssetViewerSettings::Get();
+	const int32 ProfileIndex = AdvancedPreviewScene->GetCurrentProfileIndex();
+	if (Settings->Profiles.IsValidIndex(ProfileIndex))
+	{
+		return Settings->Profiles[ProfileIndex].bShowEnvironment;
+	}
+	return false;
 }
 
 

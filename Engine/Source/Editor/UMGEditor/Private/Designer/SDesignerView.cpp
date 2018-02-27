@@ -2029,14 +2029,16 @@ void SDesignerView::DrawSafeZone(const FOnPaintHandlerParams& PaintArgs)
 			FDisplayMetrics Metrics;
 			FSlateApplication::Get().GetDisplayMetrics(Metrics);
 
-			const FMargin DebugSafeMargin =
+			const FMargin DebugSafeMargin = 
 #if PLATFORM_IOS
-				// Hack: This is a temp solution to support iPhoneX safeArea. TitleSafePaddingSize and ActionSafePaddingSize should be FVector4 and use them separately. 
-				FMargin(Metrics.TitleSafePaddingSize.X, Metrics.ActionSafePaddingSize.X, Metrics.TitleSafePaddingSize.Y, Metrics.ActionSafePaddingSize.Y);
+				// FVector4(X,Y,Z,W) being used like FMargin(left, top, right, bottom)
+				( DebugSafeZoneMode == 1 )
+				? FMargin(Metrics.TitleSafePaddingSize.X, Metrics.TitleSafePaddingSize.Y, Metrics.TitleSafePaddingSize.Z, Metrics.TitleSafePaddingSize.W)
+				: FMargin(Metrics.ActionSafePaddingSize.X, Metrics.ActionSafePaddingSize.Y, Metrics.ActionSafePaddingSize.Z, Metrics.ActionSafePaddingSize.W);
 #else
-				(DebugSafeZoneMode == 1) ?
-				FMargin(Metrics.TitleSafePaddingSize.X, Metrics.TitleSafePaddingSize.Y, Metrics.TitleSafePaddingSize.Z, Metrics.TitleSafePaddingSize.W) :
-				FMargin(Metrics.ActionSafePaddingSize.X, Metrics.ActionSafePaddingSize.Y, Metrics.ActionSafePaddingSize.Z, Metrics.ActionSafePaddingSize.W);
+				( DebugSafeZoneMode == 1 ) ?
+				FMargin(Metrics.TitleSafePaddingSize.X, Metrics.TitleSafePaddingSize.Y) :
+				FMargin(Metrics.ActionSafePaddingSize.X, Metrics.ActionSafePaddingSize.Y);
 #endif
 
 			float PaddingRatio = DebugSafeMargin.Left / ( Metrics.PrimaryDisplayWidth * 0.5 );

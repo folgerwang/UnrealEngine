@@ -1229,7 +1229,7 @@ void FActiveSound::ApplyAttenuation(FSoundParseParameters& ParseParams, const FL
 			{
 				for (UOcclusionPluginSourceSettingsBase* SettingsBase : Settings->PluginSettings.OcclusionPluginSettingsArray)
 				{
-					if (SettingsBase->IsA(PluginClass))
+					if (SettingsBase != nullptr && SettingsBase->IsA(PluginClass))
 					{
 						ParseParams.OcclusionPluginSettings = SettingsBase;
 						break;
@@ -1274,7 +1274,7 @@ void FActiveSound::ApplyAttenuation(FSoundParseParameters& ParseParams, const FL
 		{
 			for (UReverbPluginSourceSettingsBase* SettingsBase : Settings->PluginSettings.ReverbPluginSettingsArray)
 			{
-				if (SettingsBase->IsA(PluginClass))
+				if (SettingsBase != nullptr && SettingsBase->IsA(PluginClass))
 				{
 					ParseParams.ReverbPluginSettings = SettingsBase;
 					break;

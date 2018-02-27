@@ -114,7 +114,7 @@ bool IsGPUSkinCacheAvailable()
 
 static inline bool DoesPlatformSupportGPUSkinCache(EShaderPlatform Platform)
 {
-	return Platform == SP_PCD3D_SM5 || Platform == SP_METAL_SM5 || Platform == SP_METAL_SM5_NOTESS || Platform == SP_METAL_MRT_MAC || Platform == SP_METAL_MRT || Platform == SP_VULKAN_SM5;
+	return Platform == SP_PCD3D_SM5 || Platform == SP_METAL_SM5 || Platform == SP_METAL_SM5_NOTESS || Platform == SP_METAL_MRT_MAC || Platform == SP_METAL_MRT || Platform == SP_VULKAN_SM5 || Platform == SP_OPENGL_SM5;
 }
 
 // We don't have it always enabled as it's not clear if this has a performance cost
@@ -312,7 +312,7 @@ public:
 			// see GPU code "check(MorphStride == sizeof(float) * 6);"
 			check(MorphStride == sizeof(float) * 6);
 
-			Data.MorphBufferOffset = (MorphStride * Section->BaseVertexIndex) / sizeof(float);
+			Data.MorphBufferOffset = Section->BaseVertexIndex;
 		}
 
 		//INC_DWORD_STAT(STAT_GPUSkinCache_TotalNumChunks);
@@ -1060,7 +1060,7 @@ void FGPUSkinCache::ProcessEntry(FRHICommandListImmediate& RHICmdList, FGPUBaseS
 		// see GPU code "check(MorphStride == sizeof(float) * 6);"
 		check(MorphStride == sizeof(float) * 6);
 
-		InOutEntry->DispatchData[Section].MorphBufferOffset = (MorphStride * BatchElement.BaseVertexIndex) / sizeof(float);
+		InOutEntry->DispatchData[Section].MorphBufferOffset = BatchElement.BaseVertexIndex;
 
 		// weight buffer
 		FSkinWeightVertexBuffer* WeightBuffer = Skin->GetSkinWeightVertexBuffer(LODIndex);

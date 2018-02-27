@@ -1588,7 +1588,7 @@ public:
 	{
 		#if !UE_SERVER
 			bIsDynamicResolutionPaused = false;
-			EnableDynamicResolutionStateIfPossible();
+			UpdateDynamicResolutionStatus();
 		#endif // !UE_SERVER
 	}
 
@@ -1627,7 +1627,7 @@ public:
 	{
 		#if !UE_SERVER
 			bDynamicResolutionEnableUserSetting = Enable;
-			EnableDynamicResolutionStateIfPossible();
+			UpdateDynamicResolutionStatus();
 		#endif
 	}
 
@@ -1649,8 +1649,11 @@ private:
 		/** Game user setting for dynamic resolution that has been committed. */
 		bool bDynamicResolutionEnableUserSetting;
 
-		/** Enabled dynamic resolution state if all conditions are met. */
-		void EnableDynamicResolutionStateIfPossible();
+		/** Returns whether should be enabled or not. */
+		bool ShouldEnableDynamicResolutionState() const;
+
+		/** Enable/Disable dynamic resolution state according to ShouldEnableDynamicResolutionState(). */
+		void UpdateDynamicResolutionStatus();
 	#endif
 
 protected:
