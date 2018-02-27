@@ -23,7 +23,7 @@ EDITABLEMESH_API DECLARE_LOG_CATEGORY_EXTERN( LogEditableMesh, Log, All );
 
 
 // Specify which platforms currently support OpenSubdiv
-#if PLATFORM_WINDOWS
+#if PLATFORM_WINDOWS && PLATFORM_64BITS
 #define EDITABLE_MESH_USE_OPENSUBDIV 1
 #else
 #define EDITABLE_MESH_USE_OPENSUBDIV 0
