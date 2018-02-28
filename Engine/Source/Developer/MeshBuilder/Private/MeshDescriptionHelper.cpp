@@ -134,11 +134,7 @@ UMeshDescription* FMeshDescriptionHelper::GetRenderMeshDescription(UObject* Owne
 			BuildSettings->SrcLightmapIndex,
 			BuildSettings->DstLightmapIndex,
 			BuildSettings->MinLightmapResolution,
-#if WITH_EDITORONLY_DATA
 			(FMeshDescriptionOperations::ELightmapUVVersion)(StaticMesh->LightmapUVVersion),
-#else
-			FMeshDescriptionOperations::ELightmapUVVersion::SmallChartPacking,
-#endif
 			OverlappingCorners);
 	}
 

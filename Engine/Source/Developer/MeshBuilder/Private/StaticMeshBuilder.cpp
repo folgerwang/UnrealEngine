@@ -15,7 +15,6 @@
 
 DEFINE_LOG_CATEGORY(LogStaticMeshBuilder);
 
-#if WITH_EDITOR
 //////////////////////////////////////////////////////////////////////////
 //Local functions definition
 bool IsOrphanedVertex(const class UMeshDescription *MeshDescription, const FVertexID VertexID);
@@ -632,4 +631,3 @@ void BuildAllBufferOptimizations(FStaticMeshLODResources& StaticMeshLOD, const F
 		StaticMeshLOD.AdjacencyIndexBuffer.SetIndices(AdjacencyIndices, IndexBufferStride);
 	}
 }
-#endif //WITH_EDITOR

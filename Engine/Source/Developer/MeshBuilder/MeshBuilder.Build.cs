@@ -2,6 +2,7 @@
 
 namespace UnrealBuildTool.Rules
 {
+    //MeshBuilder module is a editor module
 	public class MeshBuilder : ModuleRules
 	{
 		public MeshBuilder(ReadOnlyTargetRules Target) : base(Target)
@@ -17,25 +18,18 @@ namespace UnrealBuildTool.Rules
                     "Engine",
                     "RenderCore",
                     "MeshDescription",
-                    "RenderCore"
+                    "RenderCore",
+                    "MeshDescriptionOperations",
+                    "MeshReductionInterface",
+                    "RawMesh"
                 }
 			);
 
-            if (Target.bBuildEditor)
-            {
-                PrivateDependencyModuleNames.AddRange(
-                    new string[]
-                    {
-                        "MeshDescriptionOperations",
-                        "MeshReductionInterface",
-                        "RawMesh"
-                    }
-                );
-				AddEngineThirdPartyPrivateStaticDependencies(Target, "nvTriStrip");
-            	AddEngineThirdPartyPrivateStaticDependencies(Target, "ForsythTriOptimizer");
-	            AddEngineThirdPartyPrivateStaticDependencies(Target, "nvTessLib");
-                AddEngineThirdPartyPrivateStaticDependencies(Target, "QuadricMeshReduction");
-            }
+			AddEngineThirdPartyPrivateStaticDependencies(Target, "nvTriStrip");
+            AddEngineThirdPartyPrivateStaticDependencies(Target, "ForsythTriOptimizer");
+	        AddEngineThirdPartyPrivateStaticDependencies(Target, "nvTessLib");
+            AddEngineThirdPartyPrivateStaticDependencies(Target, "QuadricMeshReduction");
+
             if (Target.bCompileSimplygon == true)
             {
                 AddEngineThirdPartyPrivateDynamicDependencies(Target, "SimplygonMeshReduction");

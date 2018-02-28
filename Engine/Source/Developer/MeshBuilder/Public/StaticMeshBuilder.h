@@ -9,7 +9,6 @@ DECLARE_LOG_CATEGORY_EXTERN(LogStaticMeshBuilder, Log, All);
 
 class MESHBUILDER_API FStaticMeshBuilder : public FMeshBuilder
 {
-#if WITH_EDITOR
 public:
 	FStaticMeshBuilder();
 
@@ -23,6 +22,5 @@ private:
 
 	/** Used to refresh all components in the scene that may be using a mesh we're editing */
 	TSharedPtr<class FStaticMeshComponentRecreateRenderStateContext> RecreateRenderStateContext;
-#endif //WITH_EDITOR
 };
 
