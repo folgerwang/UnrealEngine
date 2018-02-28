@@ -7,7 +7,7 @@
 #include "GoogleARCorePassthroughCameraRenderer.h"
 
 #if PLATFORM_ANDROID
-#include "AndroidApplication.h"
+#include "Android/AndroidApplication.h"
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #endif
