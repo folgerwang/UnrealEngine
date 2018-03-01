@@ -869,9 +869,14 @@ public partial class Project : CommandUtils
 		List<FileReference> ConfigFiles = SC.FindFilesToStage(ConfigDir, "*.ini", StageFilesSearch.AllDirectories);
 		foreach(FileReference ConfigFile in ConfigFiles)
 		{
-			if(ShouldStageConfigFile(SC, ConfigDir, ConfigFile))
+			Nullable<bool> ShouldStage = ShouldStageConfigFile(SC, ConfigDir, ConfigFile);
+			if(ShouldStage == null)
 			{
-				CommandUtils.Log("Including config file {0}", ConfigFile);
+				CommandUtils.LogWarning("The config file '{0}' will be staged, but is not whitelisted or blacklisted. Add +WhitelistConfigFiles={0} or +BlacklistConfigFiles={0} to the [Staging] section of DefaultGame.ini", SC.GetStagedFileLocation(ConfigFile));
+			}
+
+			if(ShouldStage ?? true)
+			{
 				SC.StageFile(StagedFileType.UFS, ConfigFile);
 			}
 			else
@@ -888,8 +893,18 @@ public partial class Project : CommandUtils
 	/// <param name="ConfigDir">Directory containing the config files</param>
 	/// <param name="ConfigFile">The config file to check</param>
 	/// <returns>True if the file should be staged, false otherwise</returns>
-	static bool ShouldStageConfigFile(DeploymentContext SC, DirectoryReference ConfigDir, FileReference ConfigFile)
+	static Nullable<bool> ShouldStageConfigFile(DeploymentContext SC, DirectoryReference ConfigDir, FileReference ConfigFile)
 	{
+		StagedFileReference StagedConfigFile = SC.GetStagedFileLocation(ConfigFile);
+		if(SC.WhitelistConfigFiles.Contains(StagedConfigFile))
+		{
+			return true;
+		}
+		if(SC.BlacklistConfigFiles.Contains(StagedConfigFile))
+		{
+			return false;
+		}
+
 		string NormalizedPath = ConfigFile.MakeRelativeTo(ConfigDir).ToLowerInvariant().Replace('\\', '/');
 
 		int DirectoryIdx = NormalizedPath.IndexOf('/');
@@ -910,7 +925,7 @@ public partial class Project : CommandUtils
 			const string DedicatedServerPrefix = "dedicatedserver";
 			if(NormalizedPath.StartsWith(DedicatedServerPrefix))
 			{
-				return SC.DedicatedServer && ShouldStageConfigSuffix(SC, ConfigFile, NormalizedPath.Substring(DedicatedServerPrefix.Length));
+				return SC.DedicatedServer? ShouldStageConfigSuffix(SC, ConfigFile, NormalizedPath.Substring(DedicatedServerPrefix.Length)) : false;
 			}
 
 			if(NormalizedPath == "consolevariables.ini")
@@ -947,9 +962,7 @@ public partial class Project : CommandUtils
 				return false;
 			}
 		}
-
-		CommandUtils.LogWarning("The config file '{0}' is not whitelisted nor blacklisted for staging. Ignoring.", ConfigFile);
-		return true;
+		return null;
 	}
 
 	/// <summary>
@@ -958,8 +971,8 @@ public partial class Project : CommandUtils
 	/// <param name="SC">The staging context</param>
 	/// <param name="ConfigFile">Full path to the config file</param>
 	/// <param name="InvariantSuffix">Suffix for the config file, as a lowercase invariant string</param>
-	/// <returns>True if the suffix should be staged, false otherwise</returns>
-	static bool ShouldStageConfigSuffix(DeploymentContext SC, FileReference ConfigFile, string InvariantSuffix)
+	/// <returns>True if the suffix should be staged, false if not, null if unknown</returns>
+	static Nullable<bool> ShouldStageConfigSuffix(DeploymentContext SC, FileReference ConfigFile, string InvariantSuffix)
 	{
 		switch(InvariantSuffix)
 		{
@@ -986,8 +999,7 @@ public partial class Project : CommandUtils
 			case "lightmass.ini":
 				return false;
 			default:
-				CommandUtils.LogWarning("The config file '{0}' is not whitelisted nor blacklisted for staging. Including anyway.", ConfigFile);
-				return true;
+				return null;
 		}
 	}
 

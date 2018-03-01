@@ -232,6 +232,18 @@ public class DeploymentContext //: ProjectParams
 	public List<Tuple<StagedDirectoryReference, StagedDirectoryReference>> RemapDirectories = new List<Tuple<StagedDirectoryReference, StagedDirectoryReference>>();
 
 	/// <summary>
+	/// Set of config files which are whitelisted to be staged. By default, we warn for config files which are not well known to prevent internal data (eg. editor/server settings)
+	/// leaking in packaged builds. This list is read from the +WhitelistConfigFiles=... array in the [Staging] section of *Game.ini files.
+	/// </summary>
+	public HashSet<StagedFileReference> WhitelistConfigFiles = new HashSet<StagedFileReference>();
+
+	/// <summary>
+	/// Set of config files which are blacklisted from staging. By default, we warn for config files which are not well known to prevent internal data (eg. editor/server settings)
+	/// leaking in packaged builds. This list is read from the +BlacklistConfigFiles=... array in the [Staging] section of *Game.ini files.
+	/// </summary>
+	public HashSet<StagedFileReference> BlacklistConfigFiles = new HashSet<StagedFileReference>();
+
+	/// <summary>
 	///  Directory to archive all of the files in: d:\archivedir\WindowsNoEditor
 	/// </summary>
 	public DirectoryReference ArchiveDirectory;
@@ -431,6 +443,10 @@ public class DeploymentContext //: ProjectParams
 			}
 		}
 
+		// Read the list of files which are whitelisted to be staged
+		ReadConfigFileList(GameConfig, "Staging", "WhitelistConfigFiles", WhitelistConfigFiles);
+		ReadConfigFileList(GameConfig, "Staging", "BlacklistConfigFiles", BlacklistConfigFiles);
+
         // If we were configured to use manifests across the whole project, then this platform should use manifests.
         // Otherwise, read whether we are generating chunks from the ProjectPackagingSettings ini.
         if (InForceChunkManifests)
@@ -448,6 +464,25 @@ public class DeploymentContext //: ProjectParams
             }
         }
     }
+
+	/// <summary>
+	/// Read a list of whitelisted or blacklisted config files names from a config file
+	/// </summary>
+	/// <param name="Config">The config hierarchy to read from</param>
+	/// <param name="SectionName">The section name</param>
+	/// <param name="KeyName">The key name to read from</param>
+	/// <param name="ConfigFiles">Receives a list of config file paths</param>
+	private static void ReadConfigFileList(ConfigHierarchy Config, string SectionName, string KeyName, HashSet<StagedFileReference> ConfigFiles)
+	{
+		List<string> ConfigFileNames;
+		if(Config.GetArray(SectionName, KeyName, out ConfigFileNames))
+		{
+			foreach(string ConfigFileName in ConfigFileNames)
+			{
+				ConfigFiles.Add(new StagedFileReference(ConfigFileName));
+			}
+		}
+	}
 
 	/// <summary>
 	/// Finds files to stage under a given base directory.
@@ -502,11 +537,11 @@ public class DeploymentContext //: ProjectParams
 	}
 
 	/// <summary>
-	/// Stage a single file to its default location
+	/// Gets the default location to stage an input file
 	/// </summary>
-	/// <param name="FileType">The type of file being staged</param>
-	/// <param name="InputFile">Path to the file</param>
-	public void StageFile(StagedFileType FileType, FileReference InputFile)
+	/// <param name="InputFile">Location of the file in the file system</param>
+	/// <returns>Staged file location</returns>
+	public StagedFileReference GetStagedFileLocation(FileReference InputFile)
 	{
 		StagedFileReference OutputFile;
 		if(InputFile.IsUnderDirectory(ProjectRoot))
@@ -535,6 +570,17 @@ public class DeploymentContext //: ProjectParams
         {
 			throw new AutomationException("Can't deploy {0} because it doesn't start with {1} or {2}", InputFile, ProjectRoot, LocalRoot);
 		}
+		return OutputFile;
+	}
+
+	/// <summary>
+	/// Stage a single file to its default location
+	/// </summary>
+	/// <param name="FileType">The type of file being staged</param>
+	/// <param name="InputFile">Path to the file</param>
+	public void StageFile(StagedFileType FileType, FileReference InputFile)
+	{
+		StagedFileReference OutputFile = GetStagedFileLocation(InputFile);
 		StageFile(FileType, InputFile, OutputFile);
 	}
 
