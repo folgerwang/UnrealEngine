@@ -553,7 +553,7 @@ private:
 				}
 				else
 				{
-					UE_LOG( LogMeshDescription, Log, TEXT( "Found attribute '%s' OK" ), *RegisteredAttribute.Name.ToString() );
+//					UE_LOG( LogMeshDescription, Log, TEXT( "Found attribute '%s' OK" ), *RegisteredAttribute.Name.ToString() );
 					check( AttributeIndicesArray->GetArrayForIndex( 0 ).Num() == AttributesMap.NumElements );
 				}
 			}
