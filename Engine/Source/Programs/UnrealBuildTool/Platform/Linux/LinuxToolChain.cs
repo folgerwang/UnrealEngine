@@ -863,9 +863,9 @@ namespace UnrealBuildTool
 				PCHArguments += string.Format(" -include \"{0}\"", CompileEnvironment.PrecompiledHeaderFile.AbsolutePath.Replace(PrecompiledFileExtension, "").Replace('\\', '/'));
 			}
 
-			foreach(FileReference ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
+			foreach(FileItem ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
 			{
-				PCHArguments += String.Format(" -include \"{0}\"", ForceIncludeFile.FullName.Replace('\\', '/'));
+				PCHArguments += String.Format(" -include \"{0}\"", ForceIncludeFile.Location.FullName.Replace('\\', '/'));
 			}
 
 			// Add include paths to the argument list.
@@ -889,6 +889,8 @@ namespace UnrealBuildTool
 			foreach (FileItem SourceFile in InputFiles)
 			{
 				Action CompileAction = ActionGraph.Add(ActionType.Compile);
+				CompileAction.PrerequisiteItems.AddRange(CompileEnvironment.ForceIncludeFiles);
+
 				string FileArguments = "";
 				string Extension = Path.GetExtension(SourceFile.AbsolutePath).ToUpperInvariant();
 

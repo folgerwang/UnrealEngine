@@ -1248,9 +1248,9 @@ namespace UnrealBuildTool
 						PCHArguments += string.Format(" -include \"{0}\"", InlineArchName(BasePCHName, Arch, GPUArchitecture));
 					}
 
-					foreach(FileReference ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
+					foreach(FileItem ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
 					{
-						PCHArguments += string.Format(" -include \"{0}\"", ForceIncludeFile.FullName);
+						PCHArguments += string.Format(" -include \"{0}\"", ForceIncludeFile.Location);
 					}
 
 					// Add include paths to the argument list (filtered by architecture)
@@ -1272,6 +1272,8 @@ namespace UnrealBuildTool
 					foreach (FileItem SourceFile in InputFiles)
 					{
 						Action CompileAction = ActionGraph.Add(ActionType.Compile);
+						CompileAction.PrerequisiteItems.AddRange(CompileEnvironment.ForceIncludeFiles);
+
 						string FileArguments = "";
 						bool bIsPlainCFile = Path.GetExtension(SourceFile.AbsolutePath).ToUpperInvariant() == ".C";
 						bool bDisableShadowWarning = false;

@@ -1201,9 +1201,9 @@ namespace UnrealBuildTool
 					CompileAction.StatusDescription = Path.GetFileName(SourceFile.AbsolutePath);
 				}
 
-				foreach(FileReference ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
+				foreach(FileItem ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
 				{
-					FileArguments.Add(String.Format("/FI\"{0}\"", ForceIncludeFile.FullName));
+					FileArguments.Add(String.Format("/FI\"{0}\"", ForceIncludeFile.Location));
 				}
 
 				if (bEmitsObjectFile)
@@ -1294,6 +1294,7 @@ namespace UnrealBuildTool
 
 				CompileAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
 				CompileAction.CommandPath = EnvVars.CompilerPath.FullName;
+				CompileAction.PrerequisiteItems.AddRange(CompileEnvironment.ForceIncludeFiles);
 
 				string[] AdditionalArguments = String.IsNullOrEmpty(CompileEnvironment.AdditionalArguments)? new string[0] : new string[] { CompileEnvironment.AdditionalArguments };
 
@@ -1360,6 +1361,7 @@ namespace UnrealBuildTool
 				CompileAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
 				CompileAction.CommandPath = EnvVars.ResourceCompilerPath.FullName;
 				CompileAction.StatusDescription = Path.GetFileName(RCFile.AbsolutePath);
+				CompileAction.PrerequisiteItems.AddRange(CompileEnvironment.ForceIncludeFiles);
 
 				// Resource tool can run remotely if possible
 				CompileAction.bCanExecuteRemotely = true;

@@ -443,15 +443,16 @@ namespace UnrealBuildTool
 			}
 
 			// Force include all the requested headers
-			foreach(FileReference ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
+			foreach(FileItem ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
 			{
-				Arguments += String.Format(" -include \"{0}\"", ForceIncludeFile.FullName);
+				Arguments += String.Format(" -include \"{0}\"", ForceIncludeFile.Location);
 			}
 
 			foreach (FileItem SourceFile in InputFiles)
 			{
 				Action CompileAction = ActionGraph.Add(ActionType.Compile);
 				CompileAction.CommandDescription = "Compile";
+				CompileAction.PrerequisiteItems.AddRange(CompileEnvironment.ForceIncludeFiles);
 //				CompileAction.bPrintDebugInfo = true;
 
 				bool bIsPlainCFile = Path.GetExtension(SourceFile.AbsolutePath).ToUpperInvariant() == ".C";
