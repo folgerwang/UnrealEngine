@@ -300,9 +300,10 @@ UStaticMesh* FUSDStaticMeshImporter::ImportStaticMesh(FUsdImportContext& ImportC
 			if (!NewMesh->SourceModels.IsValidIndex(LODIndex))
 			{
 				// Add one LOD 
-				NewMesh->SourceModels.AddDefaulted();
+				NewMesh->AddSourceModel();
 			}
 
+			
 			FStaticMeshSourceModel& SrcModel = NewMesh->SourceModels[LODIndex];
 
 			RawTriangles.CompactMaterialIndices();

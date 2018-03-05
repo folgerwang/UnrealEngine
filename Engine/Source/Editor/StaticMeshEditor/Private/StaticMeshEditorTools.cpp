@@ -3390,7 +3390,7 @@ void FLevelOfDetailSettingsLayout::ApplyChanges()
 	}
 	while (StaticMesh->SourceModels.Num() < LODCount)
 	{
-		new(StaticMesh->SourceModels) FStaticMeshSourceModel();
+		StaticMesh->AddSourceModel();
 	}
 	check(StaticMesh->SourceModels.Num() == LODCount);
 

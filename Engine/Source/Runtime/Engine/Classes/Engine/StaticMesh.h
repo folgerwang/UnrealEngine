@@ -153,7 +153,14 @@ struct FStaticMeshSourceModel
 #if WITH_EDITOR
 	/** Imported raw mesh data. Optional for all but the first LOD. */
 	class FRawMeshBulkData* RawMeshBulkData;
-
+	
+	/*
+	 * The staticmesh owner of this source model. We need the SM to be able to convert between MeshDesription and RawMesh.
+	 * RawMesh use int32 material index and MeshDescription use FName material slot name.
+	 * This memeber is fill in the PostLoad of the static mesh.
+	 * TODO: Remove this member when FRawMesh will be remove.
+	 */
+	class UStaticMesh* StaticMeshOwner;
 	/*
 	 * Accessor to Load and save the raw mesh or the mesh description depending on the editor settings.
 	 * Temporary until we deprecate the RawMesh. It use UEditorExperimentalSettings::bUseMeshDescription to know which structure we use to save/load the data.
@@ -161,7 +168,7 @@ struct FStaticMeshSourceModel
 	 */
 	ENGINE_API bool IsRawMeshEmpty() const;
 	ENGINE_API void LoadRawMesh(struct FRawMesh& OutRawMesh) const;
-	ENGINE_API void SaveRawMesh(struct FRawMesh& InRawMesh);
+	ENGINE_API void SaveRawMesh(struct FRawMesh& InRawMesh, bool bConvertToMeshdescription = true);
 
 #endif // #if WITH_EDITOR
 
@@ -703,6 +710,9 @@ public:
 
 	FOnExtendedBoundsChanged& GetOnExtendedBoundsChanged() { return OnExtendedBoundsChanged; }
 	FOnMeshChanged& GetOnMeshChanged() { return OnMeshChanged; }
+
+	//SourceModels API
+	ENGINE_API FStaticMeshSourceModel& AddSourceModel();
 #endif // WITH_EDITOR
 
 	ENGINE_API virtual void Serialize(FArchive& Ar) override;

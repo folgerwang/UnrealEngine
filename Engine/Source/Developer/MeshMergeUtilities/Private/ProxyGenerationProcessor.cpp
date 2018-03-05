@@ -173,14 +173,14 @@ void FProxyGenerationProcessor::ProcessJob(const FGuid& JobGuid, FProxyGeneratio
 	StaticMesh->LightMapResolution = Data->MergeData->InProxySettings.LightMapResolution;
 	StaticMesh->LightMapCoordinateIndex = 1;
 
-	FStaticMeshSourceModel* SrcModel = new (StaticMesh->SourceModels) FStaticMeshSourceModel();
+	FStaticMeshSourceModel& SrcModel = StaticMesh->AddSourceModel();
 	/*Don't allow the engine to recalculate normals*/
-	SrcModel->BuildSettings.bRecomputeNormals = false;
-	SrcModel->BuildSettings.bRecomputeTangents = false;
-	SrcModel->BuildSettings.bRemoveDegenerates = true;
-	SrcModel->BuildSettings.bUseHighPrecisionTangentBasis = false;
-	SrcModel->BuildSettings.bUseFullPrecisionUVs = false;
-	SrcModel->SaveRawMesh(Data->RawMesh);
+	SrcModel.BuildSettings.bRecomputeNormals = false;
+	SrcModel.BuildSettings.bRecomputeTangents = false;
+	SrcModel.BuildSettings.bRemoveDegenerates = true;
+	SrcModel.BuildSettings.bUseHighPrecisionTangentBasis = false;
+	SrcModel.BuildSettings.bUseFullPrecisionUVs = false;
+	SrcModel.SaveRawMesh(Data->RawMesh);
 
 	//Assign the proxy material to the static mesh
 	StaticMesh->StaticMaterials.Add(FStaticMaterial(ProxyMaterial));

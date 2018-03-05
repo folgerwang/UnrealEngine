@@ -2019,6 +2019,14 @@ void UStaticMesh::BroadcastNavCollisionChange()
 		}
 	}
 }
+
+FStaticMeshSourceModel& UStaticMesh::AddSourceModel()
+{
+	int32 LodModelIndex = SourceModels.AddDefaulted();
+	SourceModels[LodModelIndex].StaticMeshOwner = this;
+	return SourceModels[LodModelIndex];
+}
+
 #endif // WITH_EDITOR
 
 void UStaticMesh::BeginDestroy()
@@ -2150,6 +2158,7 @@ FStaticMeshSourceModel::FStaticMeshSourceModel()
 	RawMeshBulkData = new FRawMeshBulkData();
 	ScreenSize = 0.0f;
 	OriginalMeshDescription = nullptr;
+	StaticMeshOwner = nullptr;
 #endif // #if WITH_EDITOR
 }
 
@@ -2162,6 +2171,7 @@ FStaticMeshSourceModel::~FStaticMeshSourceModel()
 		RawMeshBulkData = NULL;
 	}
 	OriginalMeshDescription = nullptr;
+	StaticMeshOwner = nullptr;
 #endif // #if WITH_EDITOR
 }
 
@@ -2175,7 +2185,13 @@ void FStaticMeshSourceModel::LoadRawMesh(FRawMesh& OutRawMesh) const
 {
 	if (RawMeshBulkData->IsEmpty() && OriginalMeshDescription != nullptr)
 	{
-		FMeshDescriptionOperations::ConverToRawMesh(OriginalMeshDescription, OutRawMesh);
+		TMap<FName, int32> MaterialMap;
+		check(StaticMeshOwner != nullptr);
+		for (int32 MaterialIndex = 0; MaterialIndex < StaticMeshOwner->StaticMaterials.Num(); ++MaterialIndex)
+		{
+			MaterialMap.Add(StaticMeshOwner->StaticMaterials[MaterialIndex].ImportedMaterialSlotName, MaterialIndex);
+		}
+		FMeshDescriptionOperations::ConverToRawMesh(OriginalMeshDescription, OutRawMesh, MaterialMap);
 	}
 	else
 	{
@@ -2183,7 +2199,7 @@ void FStaticMeshSourceModel::LoadRawMesh(FRawMesh& OutRawMesh) const
 	}
 }
 
-void FStaticMeshSourceModel::SaveRawMesh(FRawMesh& InRawMesh)
+void FStaticMeshSourceModel::SaveRawMesh(FRawMesh& InRawMesh, bool bConvertToMeshdescription /*= true*/)
 {
 	if (!InRawMesh.IsValid())
 	{
@@ -2191,9 +2207,15 @@ void FStaticMeshSourceModel::SaveRawMesh(FRawMesh& InRawMesh)
 	}
 	//Save both format
 	RawMeshBulkData->SaveRawMesh(InRawMesh);
-	if (OriginalMeshDescription != nullptr)
+	if (bConvertToMeshdescription && OriginalMeshDescription != nullptr)
 	{
-		FMeshDescriptionOperations::ConverFromRawMesh(InRawMesh, OriginalMeshDescription);
+		TMap<int32, FName> MaterialMap;
+		check(StaticMeshOwner != nullptr);
+		for (int32 MaterialIndex = 0; MaterialIndex < StaticMeshOwner->StaticMaterials.Num(); ++MaterialIndex)
+		{
+			MaterialMap.Add(MaterialIndex, StaticMeshOwner->StaticMaterials[MaterialIndex].ImportedMaterialSlotName);
+		}
+		FMeshDescriptionOperations::ConverFromRawMesh(InRawMesh, OriginalMeshDescription, MaterialMap);
 	}
 }
 
@@ -2391,7 +2413,12 @@ UMeshDescription* UStaticMesh::GetOriginalMeshDescription(int32 LodIndex)
 			SourceModels[LodIndex].OriginalMeshDescription = NewObject<UMeshDescription>(this, NAME_None);
 			FRawMesh LodRawMesh;
 			SourceModels[LodIndex].LoadRawMesh(LodRawMesh);
-			FMeshDescriptionOperations::ConverFromRawMesh(LodRawMesh, SourceModels[LodIndex].OriginalMeshDescription);
+			TMap<int32, FName> MaterialMap;
+			for (int32 MaterialIndex = 0; MaterialIndex < StaticMaterials.Num(); ++MaterialIndex)
+			{
+				MaterialMap.Add(MaterialIndex, StaticMaterials[MaterialIndex].ImportedMaterialSlotName);
+			}
+			FMeshDescriptionOperations::ConverFromRawMesh(LodRawMesh, SourceModels[LodIndex].OriginalMeshDescription, MaterialMap);
 		}
 		return SourceModels[LodIndex].OriginalMeshDescription;
 	}
@@ -2406,8 +2433,13 @@ void UStaticMesh::SetOriginalMeshDescription(int32 LodIndex, class UMeshDescript
 	if (MeshDescription != nullptr)
 	{
 		FRawMesh TempRawMesh;
+		TMap<FName, int32> MaterialMap;
+		for (int32 MaterialIndex = 0; MaterialIndex < StaticMaterials.Num(); ++MaterialIndex)
+		{
+			MaterialMap.Add(StaticMaterials[MaterialIndex].ImportedMaterialSlotName, MaterialIndex);
+		}
 		//Convert RawMesh to meshdescription
-		FMeshDescriptionOperations::ConverToRawMesh(MeshDescription, TempRawMesh);
+		FMeshDescriptionOperations::ConverToRawMesh(MeshDescription, TempRawMesh, MaterialMap);
 		SourceModels[LodIndex].RawMeshBulkData->SaveRawMesh(TempRawMesh);
 	}
 	else
@@ -2659,7 +2691,12 @@ void UStaticMesh::CacheMeshData()
 				//The original mesh description is null we must create one
 				SourceModel.OriginalMeshDescription = NewObject<UMeshDescription>(this, NAME_None);
 				//Convert the raw mesh to mesh description and save the mesh description in the ddc
-				FMeshDescriptionOperations::ConverFromRawMesh(TempRawMesh, SourceModel.OriginalMeshDescription);
+				TMap<int32, FName> MaterialMap;
+				for (int32 MaterialIndex = 0; MaterialIndex < StaticMaterials.Num(); ++MaterialIndex)
+				{
+					MaterialMap.Add(MaterialIndex, StaticMaterials[MaterialIndex].ImportedMaterialSlotName);
+				}
+				FMeshDescriptionOperations::ConverFromRawMesh(TempRawMesh, SourceModel.OriginalMeshDescription, MaterialMap);
 			}
 		}
 	}
@@ -3027,6 +3064,15 @@ void UStaticMesh::PostLoad()
 		if (DistanceFieldReplacementMesh)
 		{
 			DistanceFieldReplacementMesh->ConditionalPostLoad();
+		}
+		
+		//TODO remove this code when FRawMesh will be removed
+		//Fill the static mesh owner
+		int32 NumLODs = SourceModels.Num();
+		for (int32 LODIndex = 0; LODIndex < NumLODs; ++LODIndex)
+		{
+			FStaticMeshSourceModel& SrcModel = SourceModels[LODIndex];
+			SrcModel.StaticMeshOwner = this;
 		}
 	}
 

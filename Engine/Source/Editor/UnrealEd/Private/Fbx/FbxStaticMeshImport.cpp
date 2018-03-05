@@ -1603,7 +1603,7 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 	if (StaticMesh->SourceModels.Num() < LODIndex+1)
 	{
 		// Add one LOD 
-		new(StaticMesh->SourceModels) FStaticMeshSourceModel();
+		StaticMesh->AddSourceModel();
 		
 		if (StaticMesh->SourceModels.Num() < LODIndex+1)
 		{
@@ -1661,15 +1661,10 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 		}
 	}
 
-	if (GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription)
-	{
-		// SetOriginalMeshDescription will generate the rawmesh data
-		StaticMesh->SetOriginalMeshDescription(LODIndex, MeshDescription);
-	}
-	else
+	if (!GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription)
 	{
 		// Store the new raw mesh.
-		SrcModel.SaveRawMesh(NewRawMesh);
+		SrcModel.SaveRawMesh(NewRawMesh, false);
 	}
 
 	if (bBuildStatus)
@@ -1838,7 +1833,7 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 					}
 				}
 
-				SrcModel.SaveRawMesh(LocalRawMesh);
+				SrcModel.SaveRawMesh(LocalRawMesh, false);
 			}
 
 			// Setup per-section info and the materials array.
@@ -1893,6 +1888,8 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 
 			FRawMesh LocalRawMesh;
 			SrcModel.RawMeshBulkData->LoadRawMesh(LocalRawMesh);
+			//This create the MeshDescription
+			SrcModel.SaveRawMesh(LocalRawMesh);
 		}
 		else
 		{
@@ -1950,7 +1947,7 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 			int32 NumLODs = LODGroup.GetDefaultNumLODs();
 			while (StaticMesh->SourceModels.Num() < NumLODs)
 			{
-				new (StaticMesh->SourceModels) FStaticMeshSourceModel();
+				StaticMesh->AddSourceModel();
 			}
 			for (int32 ModelLODIndex = 0; ModelLODIndex < NumLODs; ++ModelLODIndex)
 			{
@@ -2295,7 +2292,7 @@ void UnFbx::FFbxImporter::PostImportStaticMesh(UStaticMesh* StaticMesh, TArray<F
 			//Add missing LODs
 			while (StaticMesh->SourceModels.Num() < LODCount)
 			{
-				FStaticMeshSourceModel* SrcModel = new(StaticMesh->SourceModels) FStaticMeshSourceModel();
+				StaticMesh->AddSourceModel();
 			}
 		}
 	}

@@ -311,6 +311,41 @@ void MeshDescriptionNumberArrayCompare(const FString& ConversionName, const FStr
 	}
 }
 
+template<typename U, typename V>
+void MeshDescriptionNumberFNameCompare(const FString& ConversionName, const FString& AssetName, FAutomationTestExecutionInfo& ExecutionInfo, bool& bIsSame, const U& ElementIterator, const FString& VectorArrayName, const TPolygonGroupAttributeArray<FName>& ReferenceArray, const TPolygonGroupAttributeArray<FName>& ResultArray)
+{
+	if (ReferenceArray.Num() != ResultArray.Num())
+	{
+		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion %s is not lossless, %s count is different. %s count expected [%d] result [%d]"),
+			*AssetName,
+			*ConversionName,
+			*VectorArrayName,
+			*VectorArrayName,
+			ReferenceArray.Num(),
+			ResultArray.Num())));
+		bIsSame = false;
+	}
+	else
+	{
+		for (V ElementID : ElementIterator.GetElementIDs())
+		{
+			if (ReferenceArray[ElementID] != ResultArray[ElementID])
+			{
+				ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, FString::Printf(TEXT("The %s conversion %s is not lossless, %s array is different. Array index [%d] expected %s [%s] result [%s]"),
+					*AssetName,
+					*ConversionName,
+					*VectorArrayName,
+					ElementID.GetValue(),
+					*VectorArrayName,
+					*ReferenceArray[ElementID].ToString(),
+					*ResultArray[ElementID].ToString())));
+				bIsSame = false;
+				break;
+			}
+		}
+	}
+}
+
 bool FMeshDescriptionTest::CompareMeshDescription(const FString& AssetName, FAutomationTestExecutionInfo& ExecutionInfo, const UMeshDescription* ReferenceMeshDescription, const UMeshDescription* MeshDescription) const
 {
 	//////////////////////////////////////////////////////////////////////////
@@ -325,7 +360,7 @@ bool FMeshDescriptionTest::CompareMeshDescription(const FString& AssetName, FAut
 
 	const TEdgeAttributeArray<bool>& ReferenceEdgeHardnesses = ReferenceMeshDescription->EdgeAttributes().GetAttributes<bool>(MeshAttribute::Edge::IsHard);
 
-	const TPolygonGroupAttributeArray<int>& ReferencePolygonGroupMaterialIndex = ReferenceMeshDescription->PolygonGroupAttributes().GetAttributes<int>(MeshAttribute::PolygonGroup::MaterialIndex);
+	const TPolygonGroupAttributeArray<FName>& ReferencePolygonGroupMaterialName = ReferenceMeshDescription->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
 
 
 	//////////////////////////////////////////////////////////////////////////
@@ -340,7 +375,7 @@ bool FMeshDescriptionTest::CompareMeshDescription(const FString& AssetName, FAut
 
 	const TEdgeAttributeArray<bool>& ResultEdgeHardnesses = MeshDescription->EdgeAttributes().GetAttributes<bool>(MeshAttribute::Edge::IsHard);
 
-	const TPolygonGroupAttributeArray<int>& ResultPolygonGroupMaterialIndex = MeshDescription->PolygonGroupAttributes().GetAttributes<int>(MeshAttribute::PolygonGroup::MaterialIndex);
+	const TPolygonGroupAttributeArray<FName>& ResultPolygonGroupMaterialName = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
 
 	
 	//////////////////////////////////////////////////////////////////////////
@@ -418,7 +453,7 @@ bool FMeshDescriptionTest::CompareMeshDescription(const FString& AssetName, FAut
 	}
 
 	//Polygon group ID
-	MeshDescriptionNumberArrayCompare<TPolygonGroupAttributeArray<int>, FPolygonGroupArray, FPolygonGroupID>(ConversionName, AssetName, ExecutionInfo, bAllSame, ReferenceMeshDescription->PolygonGroups(), TEXT("vertex instance binormals"), ReferencePolygonGroupMaterialIndex, ResultPolygonGroupMaterialIndex);
+	MeshDescriptionNumberFNameCompare<FPolygonGroupArray, FPolygonGroupID>(ConversionName, AssetName, ExecutionInfo, bAllSame, ReferenceMeshDescription->PolygonGroups(), TEXT("PolygonGroup Material Name"), ReferencePolygonGroupMaterialName, ResultPolygonGroupMaterialName);
 
 	return bAllSame;
 }
@@ -453,6 +488,14 @@ bool FMeshDescriptionTest::ConversionTest(FAutomationTestExecutionInfo& Executio
 
 		if (AssetMesh != nullptr)
 		{
+			TMap<FName, int32> MaterialMap;
+			TMap<int32, FName> MaterialMapInverse;
+			for (int32 MaterialIndex = 0; MaterialIndex < AssetMesh->StaticMaterials.Num(); ++MaterialIndex)
+			{
+				MaterialMap.Add(AssetMesh->StaticMaterials[MaterialIndex].ImportedMaterialSlotName, MaterialIndex);
+				MaterialMapInverse.Add(MaterialIndex, AssetMesh->StaticMaterials[MaterialIndex].ImportedMaterialSlotName);
+			}
+
 			//MeshDescription to RawMesh to MeshDescription
 			for(int32 LodIndex = 0; LodIndex < AssetMesh->SourceModels.Num(); ++LodIndex)
 			{
@@ -466,9 +509,9 @@ bool FMeshDescriptionTest::ConversionTest(FAutomationTestExecutionInfo& Executio
 				UMeshDescription* ResultAssetMesh = DuplicateObject<UMeshDescription>(ReferenceAssetMesh, GetTransientPackage(), NAME_None);
 				//Convert MeshDescription to FRawMesh
 				FRawMesh RawMesh;
-				FMeshDescriptionOperations::ConverToRawMesh(ResultAssetMesh, RawMesh);
+				FMeshDescriptionOperations::ConverToRawMesh(ResultAssetMesh, RawMesh, MaterialMap);
 				//Convert back the FRawmesh
-				FMeshDescriptionOperations::ConverFromRawMesh(RawMesh, ResultAssetMesh);
+				FMeshDescriptionOperations::ConverFromRawMesh(RawMesh, ResultAssetMesh, MaterialMapInverse);
 				if (!CompareMeshDescription(AssetName, ExecutionInfo, ReferenceAssetMesh, ResultAssetMesh))
 				{
 					bAllSame = false;
@@ -492,9 +535,9 @@ bool FMeshDescriptionTest::ConversionTest(FAutomationTestExecutionInfo& Executio
 				AssetMesh->SourceModels[LodIndex].LoadRawMesh(ResultRawMesh);
 				//Create a temporary Mesh Description
 				UMeshDescription* MeshDescription = NewObject<UMeshDescription>(GetTransientPackage(), NAME_None, RF_Standalone);
-				FMeshDescriptionOperations::ConverFromRawMesh(ResultRawMesh, MeshDescription);
+				FMeshDescriptionOperations::ConverFromRawMesh(ResultRawMesh, MeshDescription, MaterialMapInverse);
 				//Convert back the FRawmesh
-				FMeshDescriptionOperations::ConverToRawMesh(MeshDescription, ResultRawMesh);
+				FMeshDescriptionOperations::ConverToRawMesh(MeshDescription, ResultRawMesh, MaterialMap);
 				if (!CompareRawMesh(AssetName, ExecutionInfo, ReferenceRawMesh, ResultRawMesh))
 				{
 					bAllSame = false;

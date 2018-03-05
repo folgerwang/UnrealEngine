@@ -585,7 +585,7 @@ UStaticMesh* CreateStaticMesh(UMeshDescription* MeshDescription, TArray<FStaticM
 	auto StaticMesh = NewObject<UStaticMesh>(InOuter, InName, RF_Public | RF_Standalone);
 
 	// Add one LOD for the base mesh
-	FStaticMeshSourceModel* SrcModel = new(StaticMesh->SourceModels) FStaticMeshSourceModel();
+	FStaticMeshSourceModel& SrcModel = StaticMesh->AddSourceModel();
 	StaticMesh->SetOriginalMeshDescription(StaticMesh->SourceModels.Num() - 1, MeshDescription);
 	StaticMesh->StaticMaterials = Materials;
 
@@ -619,8 +619,8 @@ UStaticMesh* CreateStaticMesh(struct FRawMesh& RawMesh,TArray<FStaticMaterial>& 
 	auto StaticMesh = NewObject<UStaticMesh>(InOuter, InName, RF_Public | RF_Standalone);
 
 	// Add one LOD for the base mesh
-	FStaticMeshSourceModel* SrcModel = new(StaticMesh->SourceModels) FStaticMeshSourceModel();
-	SrcModel->SaveRawMesh(RawMesh);
+	FStaticMeshSourceModel& SrcModel = StaticMesh->AddSourceModel();
+	SrcModel.SaveRawMesh(RawMesh);
 	StaticMesh->StaticMaterials = Materials;
 
 	int32 NumSections = StaticMesh->StaticMaterials.Num();
@@ -736,7 +736,7 @@ void GetBrushMesh(ABrush* Brush, UModel* Model, UMeshDescription* MeshDescriptio
 
 		// Find a material index for this polygon.
 		UMaterialInterface*	Material = Polygon.Material;
-		int32 MaterialIndex = OutMaterials.AddUnique(FStaticMaterial(Material));
+		int32 MaterialIndex = OutMaterials.AddUnique(FStaticMaterial(Material, Material->GetFName(), Material->GetFName()));
 		FPolygonGroupID CurrentPolygonGroupID = FPolygonGroupID::Invalid;
 		for (const FPolygonGroupID& PolygonGroupID : MeshDescription->PolygonGroups().GetElementIDs())
 		{
@@ -750,6 +750,7 @@ void GetBrushMesh(ABrush* Brush, UModel* Model, UMeshDescription* MeshDescriptio
 		{
 			CurrentPolygonGroupID = MeshDescription->CreatePolygonGroup();
 			PolygonGroupMaterialIndex[CurrentPolygonGroupID] = MaterialIndex;
+			PolygonGroupImportedMaterialSlotNames[CurrentPolygonGroupID] = Material->GetFName();
 		}
 
 		// Cache the texture coordinate system for this polygon.
@@ -1301,7 +1302,7 @@ void RestoreExistingMeshSettings(ExistingStaticMeshData* ExistingMesh, UStaticMe
 		{
 			if (NewMesh->SourceModels.Num() <= i)
 			{
-				new (NewMesh->SourceModels) FStaticMeshSourceModel();
+				NewMesh->AddSourceModel();
 			}
 
 			NewMesh->SourceModels[i].ReductionSettings = ExistingMesh->ExistingLODData[i].ExistingReductionSettings;
@@ -1633,18 +1634,18 @@ void RestoreExistingMeshData(ExistingStaticMeshData* ExistingMeshDataPtr, UStati
 
 	for(int32 i=NumCommonLODs; i < ExistingMeshDataPtr->ExistingLODData.Num(); ++i)
 	{
-		FStaticMeshSourceModel* SrcModel = new(NewMesh->SourceModels) FStaticMeshSourceModel();
+		FStaticMeshSourceModel& SrcModel = NewMesh->AddSourceModel();
 		if (ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription != nullptr)
 		{
-			SrcModel->OriginalMeshDescription = ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription;
+			SrcModel.OriginalMeshDescription = ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription;
 		}
 		if (ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh.IsValidOrFixable())
 		{
-			SrcModel->RawMeshBulkData->SaveRawMesh(ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh);
+			SrcModel.RawMeshBulkData->SaveRawMesh(ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh);
 		}
-		SrcModel->BuildSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings;
-		SrcModel->ReductionSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings;
-		SrcModel->ScreenSize = ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize;
+		SrcModel.BuildSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings;
+		SrcModel.ReductionSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings;
+		SrcModel.ScreenSize = ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize;
 	}
 
 	// Restore the section info
