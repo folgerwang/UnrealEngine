@@ -2340,13 +2340,12 @@ bool FMeshEditorMode::AssignMaterialToSelectedPolygons( UMaterialInterface* Sele
 				// further details if there is more than one polygon group which matches the material.
 				FPolygonGroupID PolygonGroupToAssign = FPolygonGroupID::Invalid;
 
-				const TPolygonGroupAttributeArray<int>& PolygonGroupMaterialIndexes = MeshDescription->PolygonGroupAttributes().GetAttributes<int>(MeshAttribute::PolygonGroup::MaterialIndex);
 				const TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotName = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
 
 				for( const FPolygonGroupID PolygonGroupID : MeshDescription->PolygonGroups().GetElementIDs() )
 				{
-					int32 PolygonGroupMaterialIndex = PolygonGroupMaterialIndexes[PolygonGroupID];
-					if(MaterialIndex == PolygonGroupMaterialIndex)
+					FName PolygonGroupMaterialName = PolygonGroupImportedMaterialSlotName[PolygonGroupID];
+					if(ImportedMaterialName == PolygonGroupMaterialName)
 					{
 						// We only expect to find one polygon group containing this material at the moment.
 						// We need to provide a way of distinguishing different polygon groups with the same material.
@@ -2365,7 +2364,6 @@ bool FMeshEditorMode::AssignMaterialToSelectedPolygons( UMaterialInterface* Sele
 					
 					FPolygonGroupToCreate& PolygonGroupToCreate = PolygonGroupsToCreate.Last();
 					PolygonGroupToCreate.PolygonGroupAttributes.Attributes.Emplace(MeshAttribute::PolygonGroup::ImportedMaterialSlotName, 0, FMeshElementAttributeValue(ImportedMaterialName));
-					PolygonGroupToCreate.PolygonGroupAttributes.Attributes.Emplace(MeshAttribute::PolygonGroup::MaterialIndex, 0, FMeshElementAttributeValue(MaterialIndex));
 					static TArray<FPolygonGroupID> NewPolygonGroupIDs;
 					EditableMesh->CreatePolygonGroups( PolygonGroupsToCreate, NewPolygonGroupIDs);
 					PolygonGroupToAssign = NewPolygonGroupIDs[ 0 ];

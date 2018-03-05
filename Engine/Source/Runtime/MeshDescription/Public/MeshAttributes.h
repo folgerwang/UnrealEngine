@@ -40,10 +40,8 @@ namespace MeshAttribute
 
 	namespace PolygonGroup
 	{
-		extern MESHDESCRIPTION_API const FName MaterialSlotName;
 		extern MESHDESCRIPTION_API const FName ImportedMaterialSlotName;
 		extern MESHDESCRIPTION_API const FName EnableCollision;
 		extern MESHDESCRIPTION_API const FName CastShadow;
-		extern MESHDESCRIPTION_API const FName MaterialIndex;
 	}
 }

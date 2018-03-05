@@ -21,10 +21,8 @@ namespace MeshAttribute
 	const FName Polygon::Binormal( "Binormal" );
 	const FName Polygon::Center( "Center" );
 
-	const FName PolygonGroup::MaterialSlotName( "MaterialSlotName" );
 	const FName PolygonGroup::ImportedMaterialSlotName( "ImportedMaterialSlotName" );
 	const FName PolygonGroup::EnableCollision( "EnableCollision" );
 	const FName PolygonGroup::CastShadow( "CastShadow" );
-	const FName PolygonGroup::MaterialIndex( "MaterialIndex" );
 }
 

@@ -717,7 +717,6 @@ void GetBrushMesh(ABrush* Brush, UModel* Model, UMeshDescription* MeshDescriptio
 	TEdgeAttributeArray<bool>& EdgeHardnesses = MeshDescription->EdgeAttributes().GetAttributes<bool>(MeshAttribute::Edge::IsHard);
 	TEdgeAttributeArray<float>& EdgeCreaseSharpnesses = MeshDescription->EdgeAttributes().GetAttributes<float>(MeshAttribute::Edge::CreaseSharpness);
 	TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
-	TPolygonGroupAttributeArray<int>& PolygonGroupMaterialIndex = MeshDescription->PolygonGroupAttributes().GetAttributes<int>(MeshAttribute::PolygonGroup::MaterialIndex);
 	
 	//Make sure we have one UVChannel
 	VertexInstanceUVs.SetNumIndices(1);
@@ -740,7 +739,7 @@ void GetBrushMesh(ABrush* Brush, UModel* Model, UMeshDescription* MeshDescriptio
 		FPolygonGroupID CurrentPolygonGroupID = FPolygonGroupID::Invalid;
 		for (const FPolygonGroupID& PolygonGroupID : MeshDescription->PolygonGroups().GetElementIDs())
 		{
-			if (MaterialIndex == PolygonGroupMaterialIndex[PolygonGroupID])
+			if (Material->GetFName() == PolygonGroupImportedMaterialSlotNames[PolygonGroupID])
 			{
 				CurrentPolygonGroupID = PolygonGroupID;
 				break;
@@ -749,7 +748,6 @@ void GetBrushMesh(ABrush* Brush, UModel* Model, UMeshDescription* MeshDescriptio
 		if (CurrentPolygonGroupID == FPolygonGroupID::Invalid)
 		{
 			CurrentPolygonGroupID = MeshDescription->CreatePolygonGroup();
-			PolygonGroupMaterialIndex[CurrentPolygonGroupID] = MaterialIndex;
 			PolygonGroupImportedMaterialSlotNames[CurrentPolygonGroupID] = Material->GetFName();
 		}
 

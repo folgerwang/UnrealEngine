@@ -104,8 +104,6 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 
 				TEdgeAttributeArray<bool>& EdgeHardnesses = MeshDescription->EdgeAttributes().GetAttributes<bool>( MeshAttribute::Edge::IsHard );
 
-				TPolygonGroupAttributeArray<int>& PolygonGroupMaterialIndexes = MeshDescription->PolygonGroupAttributes().GetAttributes<int>(MeshAttribute::PolygonGroup::MaterialIndex);
-				TPolygonGroupAttributeArray<FName>& PolygonGroupMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>( MeshAttribute::PolygonGroup::MaterialSlotName );
 				TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>( MeshAttribute::PolygonGroup::ImportedMaterialSlotName );
 				TPolygonGroupAttributeArray<bool>& PolygonGroupCollision = MeshDescription->PolygonGroupAttributes().GetAttributes<bool>( MeshAttribute::PolygonGroup::EnableCollision );
 				TPolygonGroupAttributeArray<bool>& PolygonGroupCastShadow = MeshDescription->PolygonGroupAttributes().GetAttributes<bool>( MeshAttribute::PolygonGroup::CastShadow );
@@ -276,8 +274,6 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 
 					// Create a new polygon group
 					const FPolygonGroupID NewPolygonGroupID = MeshDescription->CreatePolygonGroup();
-					PolygonGroupMaterialIndexes[NewPolygonGroupID] = RenderingSection.MaterialIndex;
-					PolygonGroupMaterialSlotNames[ NewPolygonGroupID ] = StaticMaterial.MaterialSlotName;
 					PolygonGroupImportedMaterialSlotNames[ NewPolygonGroupID ] = StaticMaterial.ImportedMaterialSlotName;
 					PolygonGroupCollision[ NewPolygonGroupID ] = RenderingSection.bEnableCollision;
 					PolygonGroupCastShadow[ NewPolygonGroupID ] = RenderingSection.bCastShadow;
@@ -1713,8 +1709,6 @@ void UEditableStaticMeshAdapter::OnCreatePolygonGroups( const UEditableMesh* Edi
 	UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 	check( MeshDescription );
 
-	TPolygonGroupAttributeArray<int>& PolygonGroupMaterialIndexes = MeshDescription->PolygonGroupAttributes().GetAttributes<int>(MeshAttribute::PolygonGroup::MaterialIndex);
-	const TPolygonGroupAttributeArray<FName>& PolygonGroupMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>( MeshAttribute::PolygonGroup::MaterialSlotName );
 	const TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>( MeshAttribute::PolygonGroup::ImportedMaterialSlotName );
 	const TPolygonGroupAttributeArray<bool>& PolygonGroupCollision = MeshDescription->PolygonGroupAttributes().GetAttributes<bool>( MeshAttribute::PolygonGroup::EnableCollision );
 	const TPolygonGroupAttributeArray<bool>& PolygonGroupCastShadow = MeshDescription->PolygonGroupAttributes().GetAttributes<bool>( MeshAttribute::PolygonGroup::CastShadow );
@@ -1727,12 +1721,14 @@ void UEditableStaticMeshAdapter::OnCreatePolygonGroups( const UEditableMesh* Edi
 			//Verify the meshdescription new polygon group data is correct, The attribute must match the static mesh material slot array
 			//The staticmesh material slot entry was create before executing this function
 			bool bFoundMaterial = false;
+			int32 PolygonGroupMaterialIndex = INDEX_NONE;
 			for (int32 MaterialIndex = 0; MaterialIndex < StaticMesh->StaticMaterials.Num(); ++MaterialIndex)
 			{
 				if (PolygonGroupImportedMaterialSlotNames[PolygonGroupID] == StaticMesh->StaticMaterials[MaterialIndex].ImportedMaterialSlotName)
 				{
+					PolygonGroupMaterialIndex = MaterialIndex;
 					bFoundMaterial = true;
-					check(PolygonGroupMaterialIndexes[PolygonGroupID] == MaterialIndex);
+					break;
 				}
 			}
 			check(bFoundMaterial);
@@ -1768,7 +1764,7 @@ void UEditableStaticMeshAdapter::OnCreatePolygonGroups( const UEditableMesh* Edi
 			StaticMeshSection.MaxVertexIndex = 0;
 			StaticMeshSection.bEnableCollision = PolygonGroupCollision[ PolygonGroupID ];
 			StaticMeshSection.bCastShadow = PolygonGroupCastShadow[ PolygonGroupID ];
-			StaticMeshSection.MaterialIndex = PolygonGroupMaterialIndexes[ PolygonGroupID ];
+			StaticMeshSection.MaterialIndex = PolygonGroupMaterialIndex;
 		}
 
 		// Insert the rendering polygon group for keeping track of these index buffer properties
@@ -1790,21 +1786,25 @@ void UEditableStaticMeshAdapter::OnSetPolygonGroupAttribute( const UEditableMesh
 	FStaticMeshSection& StaticMeshSection = StaticMeshLOD.Sections[ RenderingPolygonGroup.RenderingSectionIndex ];
 
 	
-	const TPolygonGroupAttributeArray<int>& PolygonGroupMaterialIndexes = MeshDescription->PolygonGroupAttributes().GetAttributes<int>(MeshAttribute::PolygonGroup::MaterialIndex);
-	const TPolygonGroupAttributeArray<FName>& PolygonGroupMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>( MeshAttribute::PolygonGroup::MaterialSlotName );
 	const TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>( MeshAttribute::PolygonGroup::ImportedMaterialSlotName );
 	
-	const int32 MaterialIndex = PolygonGroupMaterialIndexes[PolygonGroupID];
-
-	if (Attribute.AttributeName == MeshAttribute::PolygonGroup::MaterialIndex)
+	bool bFoundMaterial = false;
+	int32 PolygonGroupMaterialIndex = INDEX_NONE;
+	for (int32 MaterialIndex = 0; MaterialIndex < StaticMesh->StaticMaterials.Num(); ++MaterialIndex)
 	{
-		StaticMeshSection.MaterialIndex = MaterialIndex;
+		if (PolygonGroupImportedMaterialSlotNames[PolygonGroupID] == StaticMesh->StaticMaterials[MaterialIndex].ImportedMaterialSlotName)
+		{
+			PolygonGroupMaterialIndex = MaterialIndex;
+			bFoundMaterial = true;
+			break;
+		}
 	}
-	else if ( Attribute.AttributeName == MeshAttribute::PolygonGroup::MaterialSlotName ||
-		Attribute.AttributeName == MeshAttribute::PolygonGroup::ImportedMaterialSlotName )
+	check(bFoundMaterial);
+
+	const int32 MaterialIndex = PolygonGroupMaterialIndex;
+
+	if ( Attribute.AttributeName == MeshAttribute::PolygonGroup::ImportedMaterialSlotName )
 	{
-		
-		StaticMesh->StaticMaterials[MaterialIndex].MaterialSlotName = PolygonGroupMaterialSlotNames[PolygonGroupID];
 		StaticMesh->StaticMaterials[MaterialIndex].ImportedMaterialSlotName = PolygonGroupImportedMaterialSlotNames[PolygonGroupID];
 	}
 	else if( Attribute.AttributeName == MeshAttribute::PolygonGroup::CastShadow )
@@ -1820,17 +1820,17 @@ void UEditableStaticMeshAdapter::OnSetPolygonGroupAttribute( const UEditableMesh
 
 void UEditableStaticMeshAdapter::OnDeletePolygonGroups( const UEditableMesh* EditableMesh, const TArray<FPolygonGroupID>& PolygonGroupIDs )
 {
-	const TPolygonGroupAttributeArray<FName>& PolygonGroupMaterialSlotNames = EditableMesh->GetMeshDescription()->PolygonGroupAttributes().GetAttributes<FName>( MeshAttribute::PolygonGroup::MaterialSlotName );
+	const TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = EditableMesh->GetMeshDescription()->PolygonGroupAttributes().GetAttributes<FName>( MeshAttribute::PolygonGroup::ImportedMaterialSlotName );
 
 	for( const FPolygonGroupID PolygonGroupID : PolygonGroupIDs )
 	{
 		FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[ PolygonGroupID ];
 
-		const FName SlotName = PolygonGroupMaterialSlotNames[ PolygonGroupID ];
+		const FName SlotName = PolygonGroupImportedMaterialSlotNames[ PolygonGroupID ];
 
 		// Remove material slot associated with section
 		const int32 MaterialIndex = StaticMesh->StaticMaterials.IndexOfByPredicate(
-			[ &SlotName ]( const FStaticMaterial& StaticMaterial ) { return StaticMaterial.MaterialSlotName == SlotName; }
+			[ &SlotName ]( const FStaticMaterial& StaticMaterial ) { return StaticMaterial.ImportedMaterialSlotName == SlotName; }
 		);
 		StaticMesh->StaticMaterials.RemoveAt( MaterialIndex );
 
