@@ -173,6 +173,9 @@ class ENGINE_API APlayerCameraManager : public AActor
 {
 	GENERATED_UCLASS_BODY()
 
+	// destructor for handling property deprecation, please remove after all deprecated properties are gone
+	virtual ~APlayerCameraManager();
+
 	/** PlayerController that owns this Camera actor */
 	UPROPERTY(transient)
 	class APlayerController* PCOwner;
@@ -232,10 +235,12 @@ public:
 	float ColorScaleInterpStartTime;
 
 	/** Cached camera properties. */
+	DEPRECATED(4.19, "This property is now deprecated, please use GetCameraCachePOV and SetCameraCachePOV functions instead.")
 	UPROPERTY(transient)
 	struct FCameraCacheEntry CameraCache;
 
 	/** Cached camera properties, one frame old. */
+	DEPRECATED(4.19, "This property is now deprecated, please use GetLastFrameCameraCachePOV and SetLastFrameCameraCachePOV functions instead.")
 	UPROPERTY(transient)
 	struct FCameraCacheEntry LastFrameCameraCache;
 
@@ -252,6 +257,15 @@ public:
 
 	/** Current view target transition blend parameters. */
 	struct FViewTargetTransitionParams BlendParams;
+
+private:
+	/** Cached camera properties. */
+	UPROPERTY(transient)
+	struct FCameraCacheEntry CameraCachePrivate;
+
+	/** Cached camera properties, one frame old. */
+	UPROPERTY(transient)
+	struct FCameraCacheEntry LastFrameCameraCachePrivate;
 
 protected:
 	/** List of active camera modifier instances that have a chance to update the final camera POV */
@@ -284,7 +298,31 @@ public:
 	/** Time remaining in camera fade (when bEnableFading == true) */
 	float FadeTimeRemaining;
 
+	/** Sets value of CameraCachePrivate.POV */
+	virtual void SetCameraCachePOV(const FMinimalViewInfo& InPOV);
+	
+	/** Sets value of LastFrameCameraCachePrivate.POV */
+	virtual void SetLastFrameCameraCachePOV(const FMinimalViewInfo& InPOV);
+
+	/** Gets value of CameraCachePrivate.POV */
+	virtual FMinimalViewInfo GetCameraCachePOV() const;
+
+	/** Gets value of LastFrameCameraCachePrivate.POV */
+	virtual FMinimalViewInfo GetLastFrameCameraCachePOV() const;
+
+	/** Get value of CameraCachePrivate.Time  */
+	float GetCameraCacheTime() const { return CameraCachePrivate.TimeStamp; }
+
+	/** Get value of LastFrameCameraCachePrivate.Time  */
+	float GetLastFrameCameraCacheTime() const { return LastFrameCameraCachePrivate.TimeStamp; }
+
 protected:
+	/** Get value of CameraCachePrivate.Time  */
+	void SetCameraCacheTime(float InTime) { CameraCachePrivate.TimeStamp = InTime; }
+
+	/** Get value of LastFrameCameraCachePrivate.Time  */
+	void SetLastFrameCameraCacheTime(float InTime) { LastFrameCameraCachePrivate.TimeStamp = InTime; }
+
 	// "Lens" effects (e.g. blood, dirt on camera)
 	/** CameraBlood emitter attached to this camera */
 	UPROPERTY(transient)

@@ -11,17 +11,17 @@
 #include "Framework/Text/SlateTextRun.h"
 #include "Framework/Text/SlatePasswordRun.h"
 
-TSharedRef< FSlateTextLayout > FSlateTextLayout::Create(FTextBlockStyle InDefaultTextStyle)
+TSharedRef< FSlateTextLayout > FSlateTextLayout::Create(SWidget* InOwner, FTextBlockStyle InDefaultTextStyle)
 {
-	TSharedRef< FSlateTextLayout > Layout = MakeShareable( new FSlateTextLayout(MoveTemp(InDefaultTextStyle)) );
+	TSharedRef< FSlateTextLayout > Layout = MakeShareable( new FSlateTextLayout(InOwner, MoveTemp(InDefaultTextStyle)) );
 	Layout->AggregateChildren();
 
 	return Layout;
 }
 
-FSlateTextLayout::FSlateTextLayout(FTextBlockStyle InDefaultTextStyle)
+FSlateTextLayout::FSlateTextLayout(SWidget* InOwner, FTextBlockStyle InDefaultTextStyle)
 	: DefaultTextStyle(MoveTemp(InDefaultTextStyle))
-	, Children()
+	, Children(InOwner, false)
 	, bIsPassword(false)
 	, LocalizedFallbackFontRevision(0)
 {

@@ -565,6 +565,9 @@ public:
 	 */
 	ENGINE_API virtual bool InitListen(class FNetworkNotify* InNotify, FURL& ListenURL, bool bReuseAddressAndPort, FString& Error) PURE_VIRTUAL( UNetDriver::InitListen, return true;);
 
+	/** Initialize the list of destroyed net startup actors from the current World */
+	ENGINE_API virtual void InitDestroyedStartupActors();
+
 	/**
 	 * Initialize a PacketHandler for serverside net drivers, for handling connectionless packets
 	 * NOTE: Only triggered by net driver subclasses that support it - from within InitListen.
@@ -619,7 +622,7 @@ public:
 	 * @param Stack stack frame the UFunction is called in
 	 * @param SubObject optional: sub object to actually call function on
 	 */
-	ENGINE_API virtual void ProcessRemoteFunction(class AActor* Actor, class UFunction* Function, void* Parameters, struct FOutParmRec* OutParms, struct FFrame* Stack, class UObject* SubObject = NULL ) PURE_VIRTUAL(UNetDriver::ProcessRemoteFunction,);
+	ENGINE_API virtual void ProcessRemoteFunction(class AActor* Actor, class UFunction* Function, void* Parameters, struct FOutParmRec* OutParms, struct FFrame* Stack, class UObject* SubObject = nullptr );
 
 	/** handle time update */
 	ENGINE_API virtual void TickDispatch( float DeltaTime );
@@ -854,6 +857,10 @@ protected:
 	FDelegateHandle OnLevelRemovedFromWorldHandle;
 
 private:
+	FActorDestructionInfo* CreateDestructionInfo(UNetDriver* NetDriver, AActor* ThisActor, FActorDestructionInfo *DestructionInfo);
+
+	void CreateReplicatedStaticActorDestructionInfo(UNetDriver* NetDriver, ULevel* Level, const FReplicatedStaticActorDestructionInfo& Info);
+
 
 	/** Stores the list of objects to replicate into the replay stream. This should be a TUniquePtr, but it appears the generated.cpp file needs the full definition of the pointed-to type. */
 	TSharedPtr<FNetworkObjectList> NetworkObjects;

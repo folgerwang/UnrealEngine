@@ -326,12 +326,8 @@ bool FArchiveStackTrace::LoadPackageIntoMemory(const TCHAR* InFilename, FPackage
 
 void FArchiveStackTrace::CompareWithInternal(const FPackageData& SourcePackage, const FPackageData& DestPackage, const TCHAR* AssetFilename, const TCHAR* CallstackCutoffText, const int32 MaxDiffsToLog, int32& InOutDiffsLogged, FArchiveDiffStats& OutStats)
 {
-#if NO_LOGGING
-	const int32 Indent = 0;
-#else
+#if !NO_LOGGING
 	const int32 Indent = FOutputDeviceHelper::FormatLogLine(ELogVerbosity::Warning, LogArchiveDiff.GetCategoryName(), TEXT(""), GPrintLogTimes).Len();
-#endif
-
 	const TCHAR* CALLSTACK_LINE_TERMINATOR = TEXT("\n"); // because LINE_TERMINATOR doesn't work well wit EC
 	const int64 SourceSize = SourcePackage.Size - SourcePackage.StartOffset;
 	const int64 DestSize = DestPackage.Size - DestPackage.StartOffset;
@@ -400,6 +396,7 @@ void FArchiveStackTrace::CompareWithInternal(const FPackageData& SourcePackage, 
 	{
 		UE_LOG(LogArchiveDiff, Warning, TEXT("%s: %lld difference(s) not logged."), AssetFilename, NumDiffsLocal - NumDiffsLoggedLocal);
 	}
+#endif
 }
 
 void FArchiveStackTrace::CompareWith(const TCHAR* InFilename, const int64 TotalHeaderSize, const TCHAR* CallstackCutoffText, const int32 MaxDiffsToLog, FArchiveDiffStats& OutStats)

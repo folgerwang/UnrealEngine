@@ -59,7 +59,7 @@ AVREditorRadialFloatingUI::AVREditorRadialFloatingUI()
 		WindowMeshComponent->SetRelativeRotation(FRotator(-90.0f, 0.0f, 0.0f).Quaternion());
 		WindowMeshComponent->SetRelativeScale3D(FVector(2.5f));
 
-		WindowMeshComponent->bGenerateOverlapEvents = false;
+		WindowMeshComponent->SetGenerateOverlapEvents(false);
 		WindowMeshComponent->SetCanEverAffectNavigation(false);
 		WindowMeshComponent->bCastDynamicShadow = false;
 		WindowMeshComponent->bCastStaticShadow = false;
@@ -80,7 +80,7 @@ AVREditorRadialFloatingUI::AVREditorRadialFloatingUI()
 		UMaterialInstanceDynamic* ArrowMaterial = Cast<UMaterialInstanceDynamic>(ArrowMeshComponent->GetMaterial(0));
 		ArrowAlpha = 0.0f;
 		ArrowMaterial->SetScalarParameterValue("Alpha", ArrowAlpha);
-		ArrowMeshComponent->bGenerateOverlapEvents = false;
+		ArrowMeshComponent->SetGenerateOverlapEvents(false);
 		ArrowMeshComponent->SetCanEverAffectNavigation(false);
 		ArrowMeshComponent->bCastDynamicShadow = false;
 		ArrowMeshComponent->bCastStaticShadow = false;
@@ -94,7 +94,7 @@ AVREditorRadialFloatingUI::AVREditorRadialFloatingUI()
 		CentralWidgetComponent->SetupAttachment(RootComponent);
 		CentralWidgetComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 		CentralWidgetComponent->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
-		CentralWidgetComponent->bGenerateOverlapEvents = false;
+		CentralWidgetComponent->SetGenerateOverlapEvents(false);
 		CentralWidgetComponent->SetCanEverAffectNavigation(false);
 		CentralWidgetComponent->bCastDynamicShadow = false;
 		CentralWidgetComponent->bCastStaticShadow = false;

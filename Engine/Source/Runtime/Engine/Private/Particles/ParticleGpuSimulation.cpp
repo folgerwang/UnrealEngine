@@ -47,7 +47,7 @@
 #include "PipelineStateCache.h"
 
 DECLARE_CYCLE_STAT(TEXT("GPUSpriteEmitterInstance Init GT"), STAT_GPUSpriteEmitterInstance_Init, STATGROUP_Particles);
-DECLARE_GPU_STAT_NAMED(ParticleSimulation, TEXT("Particle Simulation RT"));
+DECLARE_GPU_STAT_NAMED(ParticleSimulation, TEXT("Particle Simulation"));
 
 /*------------------------------------------------------------------------------
 	Constants to tune memory and performance for GPU particle simulation.
@@ -296,7 +296,7 @@ public:
 
 		const uint32 ExtraFlags = CVarGPUParticleAFRReinject.GetValueOnRenderThread() == 1 ? TexCreate_AFRManual : 0;
 
-		FRHIResourceCreateInfo CreateInfo(FClearValueBinding::None);
+		FRHIResourceCreateInfo CreateInfo(FClearValueBinding::Transparent);
 		RHICreateTargetableShaderResource2D(
 			SizeX,
 			SizeY,
@@ -311,7 +311,14 @@ public:
 			);
 
 		static FName AttributesTextureName(TEXT("ParticleAttributes"));	
-		TextureTargetRHI->SetName(AttributesTextureName);		
+		TextureTargetRHI->SetName(AttributesTextureName);	
+		
+		{
+			FRHIRenderTargetView View(TextureTargetRHI, ERenderTargetLoadAction::EClear);
+			FRHIDepthRenderTargetView Depth;
+			FRHISetRenderTargetsInfo RenderInfo(1, &View, Depth);
+			FRHICommandListExecutor::GetImmediateCommandList().SetRenderTargetsAndClear(RenderInfo);
+		}
 	}
 
 	/**
@@ -2895,7 +2902,7 @@ public:
 	{		
 	}
 
-	virtual FParticleVertexFactoryBase *CreateVertexFactory(ERHIFeatureLevel::Type InFeatureLevel) override
+	virtual FParticleVertexFactoryBase *CreateVertexFactory(ERHIFeatureLevel::Type InFeatureLevel, const FParticleSystemSceneProxy *InOwnerProxy) override
 	{
 		FGPUSpriteVertexFactory *VertexFactory = new FGPUSpriteVertexFactory(InFeatureLevel);
 		VertexFactory->InitResource();

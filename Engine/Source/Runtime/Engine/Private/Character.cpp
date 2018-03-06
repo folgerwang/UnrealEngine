@@ -53,7 +53,7 @@ ACharacter::ACharacter(const FObjectInitializer& ObjectInitializer)
 	CapsuleComponent->SetCollisionProfileName(UCollisionProfile::Pawn_ProfileName);
 
 	CapsuleComponent->CanCharacterStepUpOn = ECB_No;
-	CapsuleComponent->bShouldUpdatePhysicsVolume = true;
+	CapsuleComponent->SetShouldUpdatePhysicsVolume(true);
 	CapsuleComponent->bCheckAsyncSceneOnMove = false;
 	CapsuleComponent->SetCanEverAffectNavigation(false);
 	CapsuleComponent->bDynamicObstacle = true;
@@ -101,7 +101,7 @@ ACharacter::ACharacter(const FObjectInitializer& ObjectInitializer)
 		Mesh->SetupAttachment(CapsuleComponent);
 		static FName MeshCollisionProfileName(TEXT("CharacterMesh"));
 		Mesh->SetCollisionProfileName(MeshCollisionProfileName);
-		Mesh->bGenerateOverlapEvents = false;
+		Mesh->SetGenerateOverlapEvents(false);
 		Mesh->SetCanEverAffectNavigation(false);
 	}
 
@@ -598,23 +598,18 @@ namespace MovementBaseUtility
 			if (BoneName != NAME_None)
 			{
 				bool bFoundBone = false;
-				const USkinnedMeshComponent* SkinnedBase = Cast<USkinnedMeshComponent>(MovementBase);
-				if (SkinnedBase)
+				if (MovementBase)
 				{
 					// Check if this socket or bone exists (DoesSocketExist checks for either, as does requesting the transform).
-					if (SkinnedBase->DoesSocketExist(BoneName))
+					if (MovementBase->DoesSocketExist(BoneName))
 					{
-						SkinnedBase->GetSocketWorldLocationAndRotation(BoneName, OutLocation, OutQuat);
+						MovementBase->GetSocketWorldLocationAndRotation(BoneName, OutLocation, OutQuat);
 						bFoundBone = true;
 					}
 					else
 					{
-						UE_LOG(LogCharacter, Warning, TEXT("GetMovementBaseTransform(): Invalid bone or socket '%s' for SkinnedMeshComponent base %s"), *BoneName.ToString(), *GetPathNameSafe(MovementBase));
+						UE_LOG(LogCharacter, Warning, TEXT("GetMovementBaseTransform(): Invalid bone or socket '%s' for PrimitiveComponent base %s"), *BoneName.ToString(), *GetPathNameSafe(MovementBase));
 					}
-				}
-				else
-				{
-					UE_LOG(LogCharacter, Warning, TEXT("GetMovementBaseTransform(): Requested bone or socket '%s' for non-SkinnedMeshComponent base %s, this is not supported"), *BoneName.ToString(), *GetPathNameSafe(MovementBase));
 				}
 
 				if (!bFoundBone)
@@ -850,6 +845,18 @@ void ACharacter::TornOff()
 }
 
 
+void ACharacter::NotifyActorBeginOverlap(AActor* OtherActor)
+{
+	NumActorOverlapEventsCounter++;
+	Super::NotifyActorBeginOverlap(OtherActor);
+}
+
+void ACharacter::NotifyActorEndOverlap(AActor* OtherActor)
+{
+	NumActorOverlapEventsCounter++;
+	Super::NotifyActorEndOverlap(OtherActor);
+}
+
 void ACharacter::BaseChange()
 {
 	if (CharacterMovement && CharacterMovement->MovementMode != MOVE_None)
@@ -1082,9 +1089,11 @@ void ACharacter::OnRep_ReplicatedBasedMovement()
 			// Relative location, relative rotation
 			NewRotation = (FRotationMatrix(ReplicatedBasedMovement.Rotation) * FQuatRotationMatrix(CharacterMovement->OldBaseQuat)).Rotator();
 			
-			// TODO: need a better way to not assume we only use Yaw.
-			NewRotation.Pitch = 0.f;
-			NewRotation.Roll = 0.f;
+			if (CharacterMovement->ShouldRemainVertical())
+			{
+				NewRotation.Pitch = 0.f;
+				NewRotation.Roll = 0.f;
+			}
 		}
 		else
 		{

@@ -405,7 +405,7 @@ void UEditorEngine::EndPlayMap()
 	}
 
 	EditorWorld->bAllowAudioPlayback = true;
-	EditorWorld = NULL;
+	EditorWorld = nullptr;
 
 	// mark everything contained in the PIE worlds to be deleted
 	for (UWorld* World : WorldsBeingCleanedUp)
@@ -429,10 +429,10 @@ void UEditorEngine::EndPlayMap()
 			}
 		}
 
-		for (ULevelStreaming* LevelStreaming : World->StreamingLevels)
+		for (ULevelStreaming* LevelStreaming : World->GetStreamingLevels())
 		{
 			// If an unloaded levelstreaming still has a loaded level we need to mark its objects to be deleted as well
-			if ((!LevelStreaming->bShouldBeLoaded || !LevelStreaming->bShouldBeVisible) && LevelStreaming->GetLoadedLevel())
+			if (LevelStreaming->GetLoadedLevel() && (!LevelStreaming->ShouldBeLoaded() || !LevelStreaming->ShouldBeVisible()))
 			{
 				CastChecked<UWorld>(LevelStreaming->GetLoadedLevel()->GetOuter())->MarkObjectsPendingKill();
 			}
@@ -676,13 +676,13 @@ void UEditorEngine::TeardownPlaySession(FWorldContext& PieWorldContext)
 
 	// Clean up all streaming levels
 	PlayWorld->bIsLevelStreamingFrozen = false;
-	PlayWorld->bShouldForceUnloadStreamingLevels = true;
+	PlayWorld->SetShouldForceUnloadStreamingLevels(true);
 	PlayWorld->FlushLevelStreaming();
 
 	// cleanup refs to any duplicated streaming levels
-	for ( int32 LevelIndex=0; LevelIndex<PlayWorld->StreamingLevels.Num(); LevelIndex++ )
+	for ( int32 LevelIndex=0; LevelIndex<PlayWorld->GetStreamingLevels().Num(); LevelIndex++ )
 	{
-		ULevelStreaming* StreamingLevel = PlayWorld->StreamingLevels[LevelIndex];
+		ULevelStreaming* StreamingLevel = PlayWorld->GetStreamingLevels()[LevelIndex];
 		if( StreamingLevel != NULL )
 		{
 			const ULevel* PlayWorldLevel = StreamingLevel->GetLoadedLevel();
@@ -692,9 +692,9 @@ void UEditorEngine::TeardownPlaySession(FWorldContext& PieWorldContext)
 				if( World != NULL )
 				{
 					// Attempt to move blueprint debugging references back to the editor world
-					if( EditorWorld != NULL && EditorWorld->StreamingLevels.IsValidIndex(LevelIndex) )
+					if( EditorWorld != NULL && EditorWorld->GetStreamingLevels().IsValidIndex(LevelIndex) )
 					{
-						const ULevel* EditorWorldLevel = EditorWorld->StreamingLevels[LevelIndex]->GetLoadedLevel();
+						const ULevel* EditorWorldLevel = EditorWorld->GetStreamingLevels()[LevelIndex]->GetLoadedLevel();
 						if ( EditorWorldLevel != NULL )
 						{
 							UWorld* SublevelEditorWorld  = Cast<UWorld>(EditorWorldLevel->GetOuter());
@@ -3616,7 +3616,7 @@ UWorld* UEditorEngine::CreatePIEWorldByDuplication(FWorldContext &WorldContext, 
 
 		// Prepare string asset references for fixup
 		FSoftObjectPath::AddPIEPackageName(FName(*PlayWorldMapName));
-		for (ULevelStreaming* StreamingLevel : InWorld->StreamingLevels)
+		for (ULevelStreaming* StreamingLevel : InWorld->GetStreamingLevels())
 		{
 			if ( StreamingLevel )
 			{

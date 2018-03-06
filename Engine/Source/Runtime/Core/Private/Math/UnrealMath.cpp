@@ -75,9 +75,19 @@ bool FRotator::NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSucc
 
 void FRotator::SerializeCompressed( FArchive& Ar )
 {
-	uint8 BytePitch = FRotator::CompressAxisToByte(Pitch);
-	uint8 ByteYaw = FRotator::CompressAxisToByte(Yaw);
-	uint8 ByteRoll = FRotator::CompressAxisToByte(Roll);
+	const bool bArLoading = Ar.IsLoading();
+	
+	uint8 BytePitch = 0;
+	uint8 ByteYaw = 0;
+	uint8 ByteRoll = 0;
+	
+	// If saving, we need to compress before writing. If loading we'll just serialize in the data so no need to compress.
+	if( !bArLoading )
+	{
+		BytePitch = FRotator::CompressAxisToByte(Pitch);
+		ByteYaw = FRotator::CompressAxisToByte(Yaw);
+		ByteRoll = FRotator::CompressAxisToByte(Roll);
+	}
 
 	uint8 B = (BytePitch!=0);
 	Ar.SerializeBits( &B, 1 );
@@ -112,7 +122,7 @@ void FRotator::SerializeCompressed( FArchive& Ar )
 		ByteRoll = 0;
 	}
 	
-	if( Ar.IsLoading() )
+	if( bArLoading )
 	{
 		Pitch = FRotator::DecompressAxisFromByte(BytePitch);
 		Yaw	= FRotator::DecompressAxisFromByte(ByteYaw);
@@ -122,9 +132,19 @@ void FRotator::SerializeCompressed( FArchive& Ar )
 
 void FRotator::SerializeCompressedShort( FArchive& Ar )
 {
-	uint16 ShortPitch = FRotator::CompressAxisToShort(Pitch);
-	uint16 ShortYaw = FRotator::CompressAxisToShort(Yaw);
-	uint16 ShortRoll = FRotator::CompressAxisToShort(Roll);
+	const bool bArLoading = Ar.IsLoading();
+
+	uint16 ShortPitch = 0;
+	uint16 ShortYaw = 0;
+	uint16 ShortRoll = 0;
+
+	// If saving, we need to compress before writing. If loading we'll just serialize in the data so no need to compress.
+	if( !bArLoading )
+	{
+		ShortPitch = FRotator::CompressAxisToShort(Pitch);
+		ShortYaw = FRotator::CompressAxisToShort(Yaw);
+		ShortRoll = FRotator::CompressAxisToShort(Roll);
+	}
 
 	uint8 B = (ShortPitch!=0);
 	Ar.SerializeBits( &B, 1 );
@@ -159,7 +179,7 @@ void FRotator::SerializeCompressedShort( FArchive& Ar )
 		ShortRoll = 0;
 	}
 
-	if( Ar.IsLoading() )
+	if( bArLoading )
 	{
 		Pitch = FRotator::DecompressAxisFromShort(ShortPitch);
 		Yaw	= FRotator::DecompressAxisFromShort(ShortYaw);
@@ -373,7 +393,7 @@ FRotator FRotator::GetInverse() const
 
 FQuat FRotator::Quaternion() const
 {
-	SCOPE_CYCLE_COUNTER(STAT_MathConvertRotatorToQuat);
+	//SCOPE_CYCLE_COUNTER(STAT_MathConvertRotatorToQuat);
 
 	DiagnosticCheckNaN();
 

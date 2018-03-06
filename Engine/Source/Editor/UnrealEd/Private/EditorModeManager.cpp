@@ -1037,15 +1037,11 @@ void FEditorModeTools::SetBookmark( uint32 InIndex, FEditorViewportClient* InVie
 
 			// Keep a record of which levels were hidden so that we can restore these with the bookmark
 			CurBookMark->HiddenLevels.Empty();
-			for ( int32 LevelIndex = 0 ; LevelIndex < World->StreamingLevels.Num() ; ++LevelIndex )
+			for ( ULevelStreaming* StreamingLevel: World->GetStreamingLevels())
 			{
-				ULevelStreaming* StreamingLevel = World->StreamingLevels[LevelIndex];
-				if ( StreamingLevel )
+				if ( StreamingLevel && !StreamingLevel->GetShouldBeVisibleInEditor())
 				{
-					if( !StreamingLevel->bShouldBeVisibleInEditor )
-					{
-						CurBookMark->HiddenLevels.Add( StreamingLevel->GetFullName() );
-					}
+					CurBookMark->HiddenLevels.Add( StreamingLevel->GetFullName() );
 				}
 			}
 		}

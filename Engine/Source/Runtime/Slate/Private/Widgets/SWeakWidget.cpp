@@ -6,7 +6,7 @@
 
 
 SWeakWidget::SWeakWidget()
-	: WeakChild()
+	: WeakChild(this)
 { }
 
 

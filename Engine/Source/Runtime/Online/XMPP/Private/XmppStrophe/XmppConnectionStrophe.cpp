@@ -229,17 +229,17 @@ void FXmppConnectionStrophe::StopXmppThread()
 	StropheThread.Reset();
 }
 
-void FXmppConnectionStrophe::ReceiveConnectionStateChange(FStropheConnectionEvent StateChange)
+void FXmppConnectionStrophe::ReceiveConnectionStateChange(EStropheConnectionEvent StateChange)
 {
 	EXmppLoginStatus::Type NewLoginStatus = EXmppLoginStatus::LoggedOut;
 	switch (StateChange)
 	{
-	case FStropheConnectionEvent::Connect:
-	case FStropheConnectionEvent::RawConnect:
+	case EStropheConnectionEvent::Connect:
+	case EStropheConnectionEvent::RawConnect:
 		NewLoginStatus = EXmppLoginStatus::LoggedIn;
 		break;
-	case FStropheConnectionEvent::Disconnect:
-	case FStropheConnectionEvent::Fail:
+	case EStropheConnectionEvent::Disconnect:
+	case EStropheConnectionEvent::Fail:
 		NewLoginStatus = EXmppLoginStatus::LoggedOut;
 		RequestLogout = true;
 		break;
@@ -250,7 +250,7 @@ void FXmppConnectionStrophe::ReceiveConnectionStateChange(FStropheConnectionEven
 	QueueNewLoginStatus(NewLoginStatus);
 }
 
-void FXmppConnectionStrophe::ReceiveConnectionError(const FStropheError& Error, FStropheConnectionEvent Event)
+void FXmppConnectionStrophe::ReceiveConnectionError(const FStropheError& Error, EStropheConnectionEvent Event)
 {
 	UE_LOG(LogXmpp, Error, TEXT("Received Strophe XMPP Stanza %s with error %s"), *Error.GetStanza().GetName(), *Error.GetErrorString());
 }

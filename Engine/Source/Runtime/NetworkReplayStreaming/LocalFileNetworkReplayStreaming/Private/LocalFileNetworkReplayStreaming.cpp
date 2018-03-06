@@ -23,7 +23,7 @@ namespace LocalFileReplay
 		return FPaths::Combine(*GetDemoPath(), *StreamName) + TEXT(".replay");
 	}
 
-	// Returns a name formatted as "demoX", where X is 0-9.
+	// Returns a name formatted as "demoX", where X is between 1 and MAX_DEMOS, inclusive.
 	// Returns the first value that doesn't yet exist, or if they all exist, returns the oldest one
 	// (it will be overwritten).
 	FString GetAutomaticDemoName()
@@ -33,9 +33,10 @@ namespace LocalFileReplay
 
 		const int MAX_DEMOS = 10;
 
-		for (int32 i = 0; i < MAX_DEMOS; i++)
+		// Start at 1 instead of 0, only for slightly more user-friendly file names.
+		for (int32 i = 1; i <= MAX_DEMOS; i++)
 		{
-			const FString DemoName = FString::Printf(TEXT("demo%i"), i + 1);
+			const FString DemoName = FString::Printf(TEXT("demo%i"), i);
 			const FString FullDemoName = LocalFileReplay::GetDemoFullFilename(DemoName);
 
 			FDateTime DateTime = IFileManager::Get().GetTimeStamp(*FullDemoName);

@@ -87,8 +87,16 @@ private:
 	/** Callback for determining whether a platform menu entry is checked. */
 	ECheckBoxState HandleUATIsChecked() const;
 
+	/** Callback for retrieving the current command line params for the profile */
+	FText GetCommandLineText() const;
+
+	/** Callback for changing the additional command line params */
+	void HandleCommandLineTextBoxChanged(const FText& InText);
+
 private:
 
 	/** Holds a pointer to the data model. */
 	TSharedPtr<FProjectLauncherModel> Model;
+
+	TSharedPtr<class SEditableTextBox> CommandLineTextBox;
 };

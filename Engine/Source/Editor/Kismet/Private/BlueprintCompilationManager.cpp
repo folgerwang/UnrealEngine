@@ -89,7 +89,7 @@ struct FBlueprintCompilationManagerImpl : public FGCObject
 
 	void QueueForCompilation(const FBPCompileRequest& CompileJob);
 	void CompileSynchronouslyImpl(const FBPCompileRequest& Request);
-	void FlushCompilationQueueImpl(TArray<UObject*>* ObjLoaded, bool bSuppressBroadcastCompiled, TArray<UBlueprint*>* BlueprintsCompiled);
+	void FlushCompilationQueueImpl(TArray<UObject*>* ObjLoaded, bool bSuppressBroadcastCompiled, TArray<UBlueprint*>* BlueprintsCompiled, TArray<UBlueprint*>* BlueprintsCompiledOrSkeletonCompiled);
 	void FlushReinstancingQueueImpl();
 	bool HasBlueprintsToCompile() const;
 	bool IsGeneratedClassLayoutReady() const;
@@ -196,7 +196,8 @@ void FBlueprintCompilationManagerImpl::CompileSynchronouslyImpl(const FBPCompile
 	// did this after GC and we want to match the old behavior:
 	const bool bSuppressBroadcastCompiled = true;
 	TArray<UBlueprint*> CompiledBlueprints;
-	FlushCompilationQueueImpl(nullptr, bSuppressBroadcastCompiled, &CompiledBlueprints);
+	TArray<UBlueprint*> SkeletonCompiledBlueprints;
+	FlushCompilationQueueImpl(nullptr, bSuppressBroadcastCompiled, &CompiledBlueprints, &SkeletonCompiledBlueprints);
 	FlushReinstancingQueueImpl();
 	
 	if (FBlueprintEditorUtils::IsLevelScriptBlueprint(Request.BPToCompile))
@@ -224,9 +225,14 @@ void FBlueprintCompilationManagerImpl::CompileSynchronouslyImpl(const FBPCompile
 		CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
 	}
 	
+	for(UBlueprint* BP : SkeletonCompiledBlueprints)
+	{
+		BP->BroadcastChanged();
+	}
+
 	if (!bBatchCompile)
 	{
-		for(UBlueprint* BP : CompiledBlueprints)
+		for(UBlueprint* BP : SkeletonCompiledBlueprints)
 		{
 			BP->BroadcastCompiled();
 		}
@@ -327,7 +333,7 @@ struct FReinstancingJob
 	TSharedPtr<FKismetCompilerContext> Compiler;
 };
 	
-void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*>* ObjLoaded, bool bSuppressBroadcastCompiled, TArray<UBlueprint*>* BlueprintsCompiled)
+void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*>* ObjLoaded, bool bSuppressBroadcastCompiled, TArray<UBlueprint*>* BlueprintsCompiled, TArray<UBlueprint*>* BlueprintsCompiledOrSkeletonCompiled)
 {
 	TGuardValue<bool> GuardTemplateNameFlag(GCompilingBlueprint, true);
 	ensure(bGeneratedClassLayoutReady);
@@ -575,6 +581,11 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*
 		
 				if(CompilerData.ShouldRegenerateSkeleton())
 				{
+					if(BlueprintsCompiledOrSkeletonCompiled)
+					{
+						BlueprintsCompiledOrSkeletonCompiled->Add(BP);
+					}
+
 					BP->SkeletonGeneratedClass = FastGenerateSkeletonClass(BP, *(CompilerData.Compiler) );
 					UBlueprintGeneratedClass* AuthoritativeClass = Cast<UBlueprintGeneratedClass>(BP->GeneratedClass);
 					if(AuthoritativeClass && bSkipUnneededDependencyCompilation)
@@ -956,18 +967,6 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*
 
 				TArray<UBlueprint*> DependentBPs;
 				FBlueprintEditorUtils::GetDependentBlueprints(BP, DependentBPs);
-
-				// refresh each dependent blueprint
-				for (UBlueprint* Dependent : DependentBPs)
-				{
-					if(!BP->bIsRegeneratingOnLoad)
-					{
-						// Some logic (e.g. UObject::ProcessInternal) uses this flag to suppress warnings:
-						TGuardValue<bool> ReinstancingGuard(GIsReinstancing, true);
-						// for non-interface changes, nodes with an external dependency have already been refreshed, and it is now safe to send a change notification event
-						Dependent->BroadcastChanged();
-					}
-				}
 				
 				UBlueprint::ValidateGeneratedClass(BP->GeneratedClass);
 			}
@@ -1069,7 +1068,7 @@ void FBlueprintCompilationManagerImpl::FlushReinstancingQueueImpl()
 		FScopedDurationTimer ReinstTimer(GTimeReinstancing);
 		
 		TGuardValue<bool> ReinstancingGuard(GIsReinstancing, true);
-		FBlueprintCompileReinstancer::BatchReplaceInstancesOfClass(ClassesToReinstance);
+		FBlueprintCompileReinstancer::BatchReplaceInstancesOfClass(ClassesToReinstance, true);
 
 		ClassesToReinstance.Empty();
 	}
@@ -1437,11 +1436,24 @@ void FBlueprintCompilationManagerImpl::ReinstanceBatch(TArray<FReinstancingJob>&
 					{
 						UObject** NewSubobject = NewNameMap.Find(OldSubobject.Key);
 						OldArchetypeToNewArchetype.Add(OldSubobject.Value, NewSubobject ? *NewSubobject : nullptr );
+						if(NewSubobject)
+						{
+							FLinkerLoad::PRIVATE_PatchNewObjectIntoExport(OldSubobject.Value, *NewSubobject);
+						}
+						else
+						{
+							// an object was not recreated, this can be because we are running without GEditor (-game or -server) and
+							// the old subobject was an editor only subobject (CreateEditorOnlyDefaultSubobject):
+							OldSubobject.Value->RemoveFromRoot();
+							OldSubobject.Value->MarkPendingKill();
+						}
 					}
 					
 				}
 
 				ArchetypeReferencers.Add(NewArchetype);
+
+				FLinkerLoad::PRIVATE_PatchNewObjectIntoExport(Archetype, NewArchetype);
 
 				Archetype->RemoveFromRoot();
 				Archetype->MarkPendingKill();
@@ -1715,7 +1727,7 @@ UClass* FBlueprintCompilationManagerImpl::FastGenerateSkeletonClass(UBlueprint* 
 
 
 	// helpers:
-	const auto AddFunctionForGraphs = [Schema, &MessageLog, ParentClass, Ret, BP, MakeFunction](const TCHAR* FunctionNamePostfix, const TArray<UEdGraph*>& Graphs, UField**& InCurrentFieldStorageLocation, bool bIsStaticFunction)
+	const auto AddFunctionForGraphs = [Schema, &MessageLog, ParentClass, Ret, BP, MakeFunction](const TCHAR* FunctionNamePostfix, const TArray<UEdGraph*>& Graphs, UField**& InCurrentFieldStorageLocation, bool bIsStaticFunction, bool bAreDelegateGraphs)
 	{
 		for( const UEdGraph* Graph : Graphs )
 		{
@@ -1742,6 +1754,11 @@ UClass* FBlueprintCompilationManagerImpl::FastGenerateSkeletonClass(UBlueprint* 
 
 				if(NewFunction)
 				{
+					if(bAreDelegateGraphs)
+					{
+						NewFunction->FunctionFlags |= FUNC_Delegate;
+					}
+
 					// locals:
 					for( const FBPVariableDescription& BPVD : EntryNode->LocalVariables )
 					{
@@ -1832,7 +1849,7 @@ UClass* FBlueprintCompilationManagerImpl::FastGenerateSkeletonClass(UBlueprint* 
 	}
 
 	// link in delegate signatures, variables will reference these 
-	AddFunctionForGraphs(HEADER_GENERATED_DELEGATE_SIGNATURE_SUFFIX, BP->DelegateSignatureGraphs, CurrentFieldStorageLocation, false);
+	AddFunctionForGraphs(HEADER_GENERATED_DELEGATE_SIGNATURE_SUFFIX, BP->DelegateSignatureGraphs, CurrentFieldStorageLocation, false, true);
 
 	// handle event entry ponts (mostly custom events) - this replaces
 	// the skeleton compile pass CreateFunctionStubForEvent call:
@@ -1890,7 +1907,7 @@ UClass* FBlueprintCompilationManagerImpl::FastGenerateSkeletonClass(UBlueprint* 
 		Iter = Iter->Next;
 	}
 	
-	AddFunctionForGraphs(TEXT(""), BP->FunctionGraphs, CurrentFieldStorageLocation, BPTYPE_FunctionLibrary == BP->BlueprintType);
+	AddFunctionForGraphs(TEXT(""), BP->FunctionGraphs, CurrentFieldStorageLocation, BPTYPE_FunctionLibrary == BP->BlueprintType, false);
 
 	// Add interface functions, often these are added by normal detection of implemented functions, but they won't be
 	// if the interface is added but the function is not implemented:
@@ -1909,7 +1926,7 @@ UClass* FBlueprintCompilationManagerImpl::FastGenerateSkeletonClass(UBlueprint* 
 				}
 			}
 
-			AddFunctionForGraphs(TEXT(""), BPID.Graphs, CurrentFieldStorageLocation, BPTYPE_FunctionLibrary == BP->BlueprintType);
+			AddFunctionForGraphs(TEXT(""), BPID.Graphs, CurrentFieldStorageLocation, BPTYPE_FunctionLibrary == BP->BlueprintType, false);
 
 			for (TFieldIterator<UFunction> FunctionIt(InterfaceClass, EFieldIteratorFlags::ExcludeSuper); FunctionIt; ++FunctionIt)
 			{
@@ -2112,7 +2129,7 @@ void FBlueprintCompilationManager::FlushCompilationQueue(TArray<UObject*>* ObjLo
 {
 	if(BPCMImpl)
 	{
-		BPCMImpl->FlushCompilationQueueImpl(ObjLoaded, false, nullptr);
+		BPCMImpl->FlushCompilationQueueImpl(ObjLoaded, false, nullptr, nullptr);
 
 		// We can't support save on compile or keeping old CDOs from GCing when reinstancing is deferred:
 		BPCMImpl->CompiledBlueprintsToSave.Empty();
@@ -2124,7 +2141,7 @@ void FBlueprintCompilationManager::FlushCompilationQueueAndReinstance()
 {
 	if(BPCMImpl)
 	{
-		BPCMImpl->FlushCompilationQueueImpl(nullptr, false, nullptr);
+		BPCMImpl->FlushCompilationQueueImpl(nullptr, false, nullptr, nullptr);
 		BPCMImpl->FlushReinstancingQueueImpl();
 
 		BPCMImpl->OldCDOs.Empty();

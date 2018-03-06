@@ -4,6 +4,7 @@
 #include "AudioMixerSource.h"
 #include "AudioMixerSubmix.h"
 #include "AudioMixerSourceVoice.h"
+#include "AudioPluginUtilities.h"
 #include "UObject/UObjectHash.h"
 #include "AudioMixerEffectsManager.h"
 #include "SubmixEffects/AudioMixerSubmixEffectReverb.h"

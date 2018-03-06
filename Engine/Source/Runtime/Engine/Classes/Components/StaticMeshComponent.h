@@ -287,6 +287,12 @@ public:
 	uint8 bDisplayVertexColors:1;
 #endif
 
+	/**
+	 * Controls whether the static mesh component's backface culling should be reversed
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Lighting)
+	uint8 bReverseCulling : 1;
+
 	/** Light map resolution to use on this component, used if bOverrideLightMapRes is true and there is a valid StaticMesh. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Lighting, meta=(ClampMax = 4096, editcondition="bOverrideLightMapRes") )
 	int32 OverriddenLightMapRes;
@@ -361,6 +367,12 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category="Components|StaticMesh")
 	void GetLocalBounds(FVector& Min, FVector& Max) const;
+
+	/** 
+	 * Set forced reverse culling
+	 */
+	UFUNCTION(BlueprintCallable, Category="Rendering|Lighting")
+	void SetReverseCulling(bool ReverseCulling);
 
 	virtual void SetCollisionProfileName(FName InCollisionProfileName) override;
 

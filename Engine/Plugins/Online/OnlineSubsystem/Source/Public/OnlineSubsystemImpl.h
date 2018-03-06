@@ -112,7 +112,7 @@ public:
 	 * @param RedactFields - The fields we want to specifically omit (optional, only supports EJson::String), if nothing specified everything is redacted
 	 * @return the modified version of the response string
 	 */
-	FString FilterResponseStr(const FString& ResponseStr, const TArray<FString>& RedactFields = TArray<FString>());
+	static FString FilterResponseStr(const FString& ResponseStr, const TArray<FString>& RedactFields = TArray<FString>());
 
 	/**
 	 * Queue a delegate to be executed on the next tick

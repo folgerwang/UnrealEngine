@@ -21,14 +21,14 @@ namespace AutomationTool
 			set;
 		}
 
-		/// <summary>
+        /// <summary>
 		/// Stores the final log filename. The build system uses this to display the network path that the log will be copied to once builds complete.
-		/// </summary>
+        /// </summary>
 		public static string FinalLogFileName
-		{
+        {
 			get;
 			set;
-		}
+        }
 
         /// <summary>
         /// Creates the TraceListener used for file logging.
@@ -40,7 +40,7 @@ namespace AutomationTool
         {
 			int NumAttempts = 0;
 			for(;;)
-			{
+            {
                 try
                 {
                     // We do not need to set AutoFlush on the StreamWriter because we set Trace.AutoFlush, which calls it for us.
@@ -61,11 +61,11 @@ namespace AutomationTool
                 catch (Exception Ex)
                 {
 					if(NumAttempts >= 10)
-					{
+                    {
 						throw new AutomationException(Ex, "Unable to create log file after {0} attempts.", NumAttempts);
 					}
+                    }
                 }
-			}
         }
 
         /// <summary>

@@ -30,6 +30,9 @@
 #include "UObject/UObjectThreadContext.h"
 #include "Engine/SCS_Node.h"
 #include "EngineGlobals.h"
+#include "DeviceProfiles/DeviceProfileManager.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "DeviceProfiles/DeviceProfile.h"
 
 #define LOCTEXT_NAMESPACE "SceneComponent"
 
@@ -417,6 +420,71 @@ static void UpdateAttachedIsEditorOnly(USceneComponent* ComponentThatChanged)
 		Info.bUseThrobber = true;
 		FSlateNotificationManager::Get().AddNotification(Info);
 	}
+}
+
+static bool SceneComponentNeedsLoadForTarget(USceneComponent const* SceneComponentObject, const ITargetPlatform* TargetPlatform)
+{
+	if(UDeviceProfile* DeviceProfile = UDeviceProfileManager::Get().FindProfile(TargetPlatform->IniPlatformName()))
+	{
+		// get local scalability CVars that could cull this actor
+		int32 CVarCullBasedOnDetailLevel;
+		if(DeviceProfile->GetConsolidatedCVarValue(TEXT("r.CookOutUnusedDetailModeComponents"), CVarCullBasedOnDetailLevel) && CVarCullBasedOnDetailLevel == 1)
+		{
+			int32 CVarDetailMode;
+			if(DeviceProfile->GetConsolidatedCVarValue(TEXT("r.DetailMode"), CVarDetailMode))
+			{
+				// Check component's detail mode.
+				// If e.g. the component's detail mode is High and the platform detail is Medium,
+				// then we should cull it.
+				if((int32)SceneComponentObject->DetailMode > CVarDetailMode)
+				{
+					return false;
+				}
+			}
+		}
+	}
+
+	return true;
+}
+
+static bool CheckDescendantsAreAlsoCulledForTarget(USceneComponent const* SceneComponentObject, const ITargetPlatform* TargetPlatform)
+{
+	if (!ensure(SceneComponentObject != nullptr))
+	{
+		return 0;
+	}
+
+	TArray<USceneComponent*> AttachedChildren = SceneComponentObject->GetAttachChildren();
+
+	for (USceneComponent* ChildSceneComponent : AttachedChildren)
+	{
+		if (SceneComponentNeedsLoadForTarget(ChildSceneComponent, TargetPlatform))
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool USceneComponent::NeedsLoadForTargetPlatform(const ITargetPlatform* TargetPlatform) const
+{
+	if(!SceneComponentNeedsLoadForTarget(this, TargetPlatform))
+	{
+		// Also check whether any of our children are culled.
+		bool bDescendantsCulled = CheckDescendantsAreAlsoCulledForTarget(this, TargetPlatform);
+
+		// Child not culled, so warn
+		if(!bDescendantsCulled)
+		{
+			UE_LOG(LogSceneComponent, Warning, TEXT("Component %s not cooked out for client because descendants were not also cooked out."), *GetName());
+			return true;
+		}
+
+		return false;
+	}
+
+	return true;
 }
 
 void USceneComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
@@ -1759,6 +1827,11 @@ bool USceneComponent::AttachToComponent(USceneComponent* Parent, const FAttachme
 		int32 LastAttachIndex = INDEX_NONE;
 		Parent->GetAttachChildren().Find(this, LastAttachIndex);
 
+		if (!ShouldSkipUpdateOverlaps())	//if we can't skip UpdateOverlaps, make sure the parent doesn't either
+		{
+			Parent->ClearSkipUpdateOverlaps();
+		}
+
 		FDetachmentTransformRules DetachmentRules(AttachmentRules, true);
 
 		// Make sure we are detached
@@ -1776,7 +1849,6 @@ bool USceneComponent::AttachToComponent(USceneComponent* Parent, const FAttachme
 		
 		// Restore detachment update overlaps flag.
 		bDisableDetachmentUpdateOverlaps = bSavedDisableDetachmentUpdateOverlaps;
-
 		{
 			//This code requires some explaining. Inside the editor we allow user to attach physically simulated objects to other objects. This is done for convenience so that users can group things together in hierarchy.
 			//At runtime we must not attach physically simulated objects as it will cause double transform updates, and you should just use a physical constraint if attachment is the desired behavior.
@@ -2648,16 +2720,12 @@ bool USceneComponent::InternalSetWorldLocationAndRotation(FVector NewLocation, c
 	return false;
 }
 
-void USceneComponent::UpdateOverlaps(TArray<FOverlapInfo> const* PendingOverlaps, bool bDoNotifies, const TArray<FOverlapInfo>* OverlapsAtEndLocation)
+bool USceneComponent::UpdateOverlapsImpl(TArray<FOverlapInfo> const* PendingOverlaps, bool bDoNotifies, const TArray<FOverlapInfo>* OverlapsAtEndLocation)
 {
 	SCOPE_CYCLE_COUNTER(STAT_UpdateOverlaps); 
 
-	if (IsDeferringMovementUpdates())
-	{
-		GetCurrentScopedMovement()->ForceOverlapUpdate();
-		return;
-	}
-	
+	bool bCanSkipUpdateOverlaps = true;
+
 	// SceneComponent has no physical representation, so no overlaps to test for/
 	// But, we need to test down the attachment chain since there might be PrimitiveComponents below.
 	TInlineComponentArray<USceneComponent*> AttachedChildren;
@@ -2667,14 +2735,17 @@ void USceneComponent::UpdateOverlaps(TArray<FOverlapInfo> const* PendingOverlaps
 		if (ChildComponent)
 		{
 			// Do not pass on OverlapsAtEndLocation, it only applied to this component.
-			ChildComponent->UpdateOverlaps(nullptr, bDoNotifies);
+			bCanSkipUpdateOverlaps &= ChildComponent->UpdateOverlaps(nullptr, bDoNotifies);
 		}
 	}
 
 	if (bShouldUpdatePhysicsVolume)
 	{
 		UpdatePhysicsVolume(bDoNotifies);
+		bCanSkipUpdateOverlaps = false;
 	}
+
+	return bCanSkipUpdateOverlaps;
 }
 
 bool USceneComponent::CheckStaticMobilityAndWarn(const FText& ActionText) const
@@ -3444,6 +3515,30 @@ bool FScopedMovementUpdate::SetWorldLocationAndRotation(FVector NewLocation, con
 	return false;
 }
 
+void USceneComponent::ClearSkipUpdateOverlaps()
+{
+	if (ShouldSkipUpdateOverlaps())
+	{
+		bSkipUpdateOverlaps = false;
+		if (GetAttachParent())
+		{
+			GetAttachParent()->ClearSkipUpdateOverlaps();
+		}
+	}
+}
+
+void USceneComponent::SetShouldUpdatePhysicsVolume(bool bInShouldUpdatePhysicsVolume)
+{
+	if (bInShouldUpdatePhysicsVolume)
+	{
+		ClearSkipUpdateOverlaps();
+	}
+
+	bShouldUpdatePhysicsVolume = bInShouldUpdatePhysicsVolume;
+}
+
+int USceneComponent::SkipUpdateOverlapsOptimEnabled = 1;
+static FAutoConsoleVariableRef CVarSkipUpdateOverlapsOptimEnabled(TEXT("p.SkipUpdateOverlapsOptimEnabled"), USceneComponent::SkipUpdateOverlapsOptimEnabled, TEXT("If enabled, we cache whether we need to call UpdateOverlaps on certain components"));
 
 #if WITH_EDITOR
 const int32 USceneComponent::GetNumUncachedStaticLightingInteractions() const

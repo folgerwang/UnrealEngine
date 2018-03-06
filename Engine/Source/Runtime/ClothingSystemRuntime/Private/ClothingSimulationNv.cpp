@@ -121,9 +121,31 @@ void FClothingSimulationNv::CreateActor(USkeletalMeshComponent* InOwnerComponent
 		MeshDesc.triangles.data = Tris.GetData();
 		MeshDesc.triangles.count = Tris.Num();
 		MeshDesc.triangles.stride = Tris.GetTypeSize();
-		MeshDesc.invMasses.data = InvMasses.GetData();
-		MeshDesc.invMasses.count = InvMasses.Num();
-		MeshDesc.invMasses.stride = InvMasses.GetTypeSize();
+
+		// Only set up inverse masses here if we aren't completely skinned, otherwise we will fail
+		// constraint creation
+		bool bHasValidMasses = false;
+		for(const float& InvMass : InvMasses)
+		{
+			if(InvMass > 0.0f)
+			{
+				bHasValidMasses = true;
+				break;
+			}
+		}
+
+		if(bHasValidMasses)
+		{
+			MeshDesc.invMasses.data = InvMasses.GetData();
+			MeshDesc.invMasses.count = InvMasses.Num();
+			MeshDesc.invMasses.stride = InvMasses.GetTypeSize();
+		}
+		else
+		{
+			MeshDesc.invMasses.data = nullptr;
+			MeshDesc.invMasses.count = 0;
+			MeshDesc.invMasses.stride = 0;
+		}
 
 		// NvCloth works better with quad meshes, so we need to build one from our triangle data
 		FClothingSystemRuntimeModule& ClothingModule = FModuleManager::Get().LoadModuleChecked<FClothingSystemRuntimeModule>("ClothingSystemRuntime");
@@ -450,6 +472,18 @@ void FClothingSimulationNv::Simulate(IClothingSimulationContext* InContext)
 {
 	FClothingSimulationContextNv* NvContext = (FClothingSimulationContextNv*)InContext;
 
+	if(NvContext->BoneTransforms.Num() == 0)
+	{
+		// We shouldn't hit this case, the context should have been created by this simulation and should only ever be destroyed by this simulation
+		// Similarly skeletal mesh components should always have at least a root bone transform. However there have been rare cases of empty
+		// transforms lists, we try to catch that here to provide more information
+
+		ensureMsgf(false, TEXT("Invalid context passed to clothing simulation, BoneTransforms has zero entries."));
+
+		// Don't perform simulation
+		return;
+	}
+
 	UpdateLod(NvContext->PredictedLod, NvContext->ComponentToWorld, NvContext->BoneTransforms);
 
 	// Pre-sim work
@@ -733,6 +767,17 @@ void FClothingSimulationNv::GetSimulationData(TMap<int32, FClothSimulData>& OutD
 
 		{
 			NvClothSupport::ClothParticleScopeLock ParticleLock(Actor.LodData[CurrentClothingLod].Cloth);
+
+			const TArray<FTransform>& ReadTransformArray = InOverrideComponent ? InOverrideComponent->GetComponentSpaceTransforms() : InOwnerComponent->GetComponentSpaceTransforms();
+
+			if(!ReadTransformArray.IsValidIndex(Asset->ReferenceBoneIndex))
+			{
+				ensureMsgf(false, TEXT("Failed to write back clothing simulation data for component % as bone transforms are invalid."), *InOwnerComponent->GetName());
+
+				ClothData.Reset();
+
+				return;
+			}
 
 			FTransform RootBoneTransform = InOverrideComponent ? InOverrideComponent->GetComponentSpaceTransforms()[Asset->ReferenceBoneIndex] : InOwnerComponent->GetComponentSpaceTransforms()[Asset->ReferenceBoneIndex];
 			RootBoneTransform.SetScale3D(FVector(1.0f));

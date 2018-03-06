@@ -97,6 +97,12 @@ public partial class Project : CommandUtils
 
 		// Additional compile arguments
 		string AdditionalArgs = "";
+
+		if (string.IsNullOrEmpty(Params.UbtArgs) == false)
+		{
+			AdditionalArgs += " " + Params.UbtArgs;
+		}
+
 		if (Params.MapFile)
 		{
 			AdditionalArgs += " -mapfile";

@@ -48,6 +48,11 @@ public:
 	FOnlineAccountCredentials()
 	{
 	}
+
+	FString ToDebugString() const
+	{
+		return FString::Printf(TEXT("{Id: %s, Token: %s, Type: %s}"), *Id, *Token, *Type);
+	}
 };
 
 namespace EUserPrivileges

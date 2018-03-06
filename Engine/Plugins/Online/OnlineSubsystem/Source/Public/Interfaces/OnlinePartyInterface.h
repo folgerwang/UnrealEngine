@@ -108,6 +108,14 @@ public:
 	}
 
 	/**
+	* Returns true if there are any dirty keys
+	*/
+	bool HasDirtyKeys() const
+	{
+		return DirtyKeys.Num() > 0;
+	}
+
+	/**
 	 * Clear the attributes map
 	 */
 	void ClearAttributes()
@@ -286,11 +294,6 @@ public:
 	virtual const FString& GetBuildId() const = 0;
 
 	/**
-	 * @return client specify key-value data
-	 */
-	virtual const FOnlinePartyData& GetClientData() const = 0;
-
-	/**
 	 * @return whether or not the join info can be used to join
 	 */
 	virtual bool CanJoin() const = 0;
@@ -436,8 +439,6 @@ struct ONLINESUBSYSTEM_API FPartyConfiguration : public TSharedFromThis<FPartyCo
 	FString Description;
 	/** Human readable password for party. */
 	FString Password;
-	/** clients can add whatever data they want for configuration options */
-	FOnlinePartyData ClientConfigData;
 };
 
 enum class EPartyState
@@ -891,7 +892,7 @@ public:
 	 *
 	 * @return true if task was started
 	 */
-	virtual bool SendInvitation(const FUniqueNetId& LocalUserId, const FOnlinePartyId& PartyId, const FPartyInvitationRecipient& Recipient, const FOnlinePartyData& ClientData = FOnlinePartyData(), const FOnSendPartyInvitationComplete& Delegate = FOnSendPartyInvitationComplete()) = 0;
+	virtual bool SendInvitation(const FUniqueNetId& LocalUserId, const FOnlinePartyId& PartyId, const FPartyInvitationRecipient& Recipient, const FOnSendPartyInvitationComplete& Delegate = FOnSendPartyInvitationComplete()) = 0;
 
 	/**
 	 * Accept an invite to a party. NOTE this does not initiate a join.

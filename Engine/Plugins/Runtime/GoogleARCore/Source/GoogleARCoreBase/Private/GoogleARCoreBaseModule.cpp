@@ -7,14 +7,10 @@
 #include "Features/IModularFeature.h"
 
 #include "GoogleARCoreMotionController.h"
-#include "GoogleARCoreHMD.h"
-#include "GoogleARCoreCameraManager.h"
-
+#include "GoogleARCoreXRTrackingSystem.h"
 #include "GoogleARCoreDevice.h"
-#include "GoogleARCoreMotionManager.h"
 
-
-#define LOCTEXT_NAMESPACE "Tango"
+#define LOCTEXT_NAMESPACE "GoogleARCore"
 
 class FGoogleARCoreBaseModule : public IGoogleARCoreBaseModule
 {
@@ -55,26 +51,26 @@ IMPLEMENT_MODULE(FGoogleARCoreBaseModule, GoogleARCoreBase)
 
 TSharedPtr< class IXRTrackingSystem, ESPMode::ThreadSafe > FGoogleARCoreBaseModule::CreateTrackingSystem()
 {
-	auto HMD = NewARSystem<FGoogleARCoreHMD>();
-	return HMD;
+	TSharedPtr<FGoogleARCoreXRTrackingSystem, ESPMode::ThreadSafe> ARCoreSystem = NewARSystem<FGoogleARCoreXRTrackingSystem>();
+	FGoogleARCoreDevice::GetInstance()->SetARSystem(ARCoreSystem);
+	return ARCoreSystem;
 }
 
 void FGoogleARCoreBaseModule::StartupModule()
 {
 	ensureMsgf(FModuleManager::Get().LoadModule("AugmentedReality"), TEXT("ARCore depends on the AugmentedReality module.") );
 	
-
 	// Register editor settings:
-    ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
-    if (SettingsModule != nullptr)
-    {
-        SettingsModule->RegisterSettings("Project", "Plugins", "GoogleARCore",
-        LOCTEXT("GoogleARCoreSetting", "GoogleARCore"),
-        LOCTEXT("GoogleARCoreSettingDescription", "Settings of the GoogleARCore plugin"),
-        GetMutableDefault<UGoogleARCoreEditorSettings>());
-    }
+	ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
+	if (SettingsModule != nullptr)
+	{
+		SettingsModule->RegisterSettings("Project", "Plugins", "GoogleARCore",
+			LOCTEXT("GoogleARCoreSetting", "GoogleARCore"),
+			LOCTEXT("GoogleARCoreSettingDescription", "Settings of the GoogleARCore plugin"),
+			GetMutableDefault<UGoogleARCoreEditorSettings>());
+	}
 
-	// Complete Tango setup.
+	// Complete ARCore setup.
 	FGoogleARCoreDevice::GetInstance()->OnModuleLoaded();
 
 	// Register VR-like controller interface.
@@ -94,7 +90,7 @@ void FGoogleARCoreBaseModule::ShutdownModule()
 	// Unregister VR-like controller interface.
 	ControllerInstance.UnregisterController();
 
-	// Complete Tango teardown.
+	// Complete ARCore teardown.
 	FGoogleARCoreDevice::GetInstance()->OnModuleUnloaded();
 
 	// Unregister editor settings.
@@ -102,6 +98,6 @@ void FGoogleARCoreBaseModule::ShutdownModule()
 
 	if (SettingsModule != nullptr)
 	{
-		SettingsModule->UnregisterSettings( "Project", "Plugins", "Tango");
+		SettingsModule->UnregisterSettings("Project", "Plugins", "GoogleARCore");
 	}
 }

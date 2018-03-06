@@ -297,13 +297,11 @@ void FLightmapResRatioAdjustSettings::AddRequiredLevels( AdjustLevels InLevelOpt
 				OutLevels.AddUnique(InWorld->PersistentLevel);
 
 				// Add secondary levels.
-				for (int32 LevelIndex = 0; LevelIndex < InWorld->StreamingLevels.Num(); ++LevelIndex)
+				for (ULevelStreaming* StreamingLevel : InWorld->GetStreamingLevels())
 				{
-					ULevelStreaming* StreamingLevel = InWorld->StreamingLevels[LevelIndex];
-					if ( StreamingLevel != NULL )
+					if (StreamingLevel)
 					{
-						ULevel* Level = StreamingLevel->GetLoadedLevel();
-						if ( Level != NULL )
+						if (ULevel* Level = StreamingLevel->GetLoadedLevel())
 						{
 							OutLevels.AddUnique(Level);
 						}

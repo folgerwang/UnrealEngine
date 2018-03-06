@@ -160,13 +160,11 @@ bool FEditorBuildUtils::EditorAutomatedBuildAndSubmit( const FEditorAutomatedBui
 		}
 		
 		// Try to save each streaming level (if they should be submitted)
-		for ( TArray<ULevelStreaming*>::TIterator LevelIter( GWorld->StreamingLevels ); LevelIter; ++LevelIter )
+		for (ULevelStreaming* CurStreamingLevel : GWorld->GetStreamingLevels())
 		{
-			ULevelStreaming* CurStreamingLevel = *LevelIter;
-			if ( CurStreamingLevel != NULL )
-			{
-				ULevel* Level = CurStreamingLevel->GetLoadedLevel();
-				if ( Level != NULL )
+			if (CurStreamingLevel)
+			{			
+				if (ULevel* Level = CurStreamingLevel->GetLoadedLevel())
 				{
 					CurOutermostPkg = Level->GetOutermost();
 					if ( PackagesToSubmit.Contains( CurOutermostPkg ) && !FEditorFileUtils::SaveLevel( Level ) )
@@ -716,12 +714,11 @@ bool FEditorBuildUtils::PrepForAutomatedBuild( const FEditorAutomatedBuildSettin
 			EditorLevelUtils::SetLevelVisibility( GWorld->PersistentLevel, true, false );
 			bVisibilityToggled = true;
 		}
-		for ( TArray<ULevelStreaming*>::TConstIterator LevelIter( GWorld->StreamingLevels ); LevelIter; ++LevelIter )
+		for (ULevelStreaming* CurStreamingLevel : GWorld->GetStreamingLevels())
 		{
-			ULevelStreaming* CurStreamingLevel = *LevelIter;
-			if ( CurStreamingLevel && !FLevelUtils::IsLevelVisible( CurStreamingLevel ) )
+			if ( CurStreamingLevel && !FLevelUtils::IsStreamingLevelVisibleInEditor( CurStreamingLevel ) )
 			{
-				CurStreamingLevel->bShouldBeVisibleInEditor = true;
+				CurStreamingLevel->SetShouldBeVisibleInEditor(true);
 				bVisibilityToggled = true;
 			}
 		}

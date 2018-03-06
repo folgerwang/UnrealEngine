@@ -69,6 +69,13 @@ struct FStreamingTexture
 	void CancelPendingMipChangeRequest();
 	void StreamWantedMips(FStreamingManagerTexture& Manager);
 
+	// Cache meta data (e.g. WantedMips) for StreamWantedMipsUsingCachedData to use later on
+	void CacheStreamingMetaData();
+
+	// Stream using the meta data produced by last run of FAsyncTextureStreamingTask.
+	// This allows streaming to happen in parallel with the async update task
+	void StreamWantedMipsUsingCachedData(FStreamingManagerTexture& Manager);
+
 	FORCEINLINE int32 GetPerfectWantedMips() const { return FMath::Max<int32>(VisibleWantedMips,  HiddenWantedMips); }
 
 	// Whether this texture can be affected by Global Bias and Budget Bias per texture.
@@ -193,4 +200,14 @@ struct FStreamingTexture
 
 	/** A persistent bias applied to this texture. Increase whenever the streamer needs to make sacrifices to fit in budget */
 	int32			BudgetMipBias;
+
+	/****************************************************************
+	* Data cached to allow streaming to run in parallel with meta data update
+	****************************************************************/
+	uint32 bCachedForceFullyLoadHeuristic : 1;
+	int32 CachedWantedMips;
+	int32 CachedVisibleWantedMips;
+
+private:
+	FORCEINLINE void StreamWantedMips_Internal(FStreamingManagerTexture& Manager, bool bUseCachedData);
 };

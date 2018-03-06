@@ -34,7 +34,7 @@ bool FSocketBSDIPv6::Connect(const FInternetAddr& Addr)
 	ESocketErrors Error = SocketSubsystem->TranslateErrorCode(Return);
 
 	// "would block" is not an error
-	return ((Error == SE_NO_ERROR) || (Error == SE_EWOULDBLOCK));
+	return ((Error == SE_NO_ERROR) || (Error == SE_EWOULDBLOCK) || (Error == SE_EINPROGRESS));
 }
 
 

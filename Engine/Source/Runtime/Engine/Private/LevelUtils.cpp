@@ -60,9 +60,8 @@ ULevelStreaming* FLevelUtils::FindStreamingLevel(const ULevel* Level)
 
 	if (Level && Level->OwningWorld)
 	{
-		for( int32 LevelIndex = 0 ; LevelIndex < Level->OwningWorld->StreamingLevels.Num() ; ++LevelIndex )
+		for (ULevelStreaming* CurStreamingLevel : Level->OwningWorld->GetStreamingLevels())
 		{
-			ULevelStreaming* CurStreamingLevel = Level->OwningWorld->StreamingLevels[ LevelIndex ];
 			if( CurStreamingLevel && CurStreamingLevel->GetLoadedLevel() == Level )
 			{
 				MatchingLevel = CurStreamingLevel;
@@ -86,9 +85,8 @@ ULevelStreaming* FLevelUtils::FindStreamingLevel(UWorld* InWorld, const TCHAR* I
 	ULevelStreaming* MatchingLevel = NULL;
 	if( InWorld)
 	{
-		for( int32 LevelIndex = 0 ; LevelIndex< InWorld->StreamingLevels.Num() ; ++LevelIndex )
+		for (ULevelStreaming* CurStreamingLevel : InWorld->GetStreamingLevels())
 		{
-			ULevelStreaming* CurStreamingLevel = InWorld->StreamingLevels[ LevelIndex ];
 			if( CurStreamingLevel && CurStreamingLevel->GetWorldAssetPackageFName() == PackageName )
 			{
 				MatchingLevel = CurStreamingLevel;
@@ -111,10 +109,10 @@ ULevelStreaming* FLevelUtils::FindStreamingLevel(UWorld* InWorld, const TCHAR* I
  * @param	Level		The level to query.
  * @return				true if the level is locked, false otherwise.
  */
+#if WITH_EDITOR
 bool FLevelUtils::IsLevelLocked(ULevel* Level)
 {
-//We should not check file status on disk if we are not running the editor
-#if WITH_EDITOR
+	//We should not check file status on disk if we are not running the editor
 	// Don't permit spawning in read only levels if they are locked
 	if ( GIsEditor && !GIsEditorLoadingPackage )
 	{
@@ -150,7 +148,6 @@ bool FLevelUtils::IsLevelLocked(ULevel* Level)
 			}
 		}
 	}
-#endif //#if WITH_EDITOR
 
 	// PIE levels and transient move levels are usually never locked.
 	if ( Level->RootPackageHasAnyFlags(PKG_PlayInEditor) || Level->GetName() == TEXT("TransLevelMoveBuffer") )
@@ -202,6 +199,7 @@ void FLevelUtils::ToggleLevelLock(ULevel* Level)
 		Level->bLocked = !Level->bLocked;	
 	}
 }
+#endif //#if WITH_EDITOR
 
 /////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -269,16 +267,18 @@ void FLevelUtils::MarkLevelForUnloading(ULevel* Level)
 //
 /////////////////////////////////////////////////////////////////////////////////////////
 
+#if WITH_EDITORONLY_DATA
 /**
  * Returns true if the specified level is visible in the editor, false otherwise.
  *
  * @param	StreamingLevel		The level to query.
  */
-bool FLevelUtils::IsLevelVisible(const ULevelStreaming* StreamingLevel)
+bool FLevelUtils::IsStreamingLevelVisibleInEditor(const ULevelStreaming* StreamingLevel)
 {
-	const bool bVisible = StreamingLevel && StreamingLevel->bShouldBeVisibleInEditor;
+	const bool bVisible = StreamingLevel && StreamingLevel->GetShouldBeVisibleInEditor();
 	return bVisible;
 }
+#endif
 
 /**
  * Returns true if the specified level is visible in the editor, false otherwise.

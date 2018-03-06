@@ -231,9 +231,18 @@ void FMaterialResource::GetShaderMapId(EShaderPlatform Platform, FMaterialShader
 	{
 		MaterialInstance->GetBasePropertyOverridesHash(OutId.BasePropertyOverridesHash);
 
-		FStaticParameterSet CompositedStaticParameters;
-		MaterialInstance->GetStaticParameterValues(CompositedStaticParameters);
-		OutId.UpdateParameterSet(CompositedStaticParameters);
+#if !WITH_EDITOR
+		if (FMaterial::GetLoadedCookedShaderMapId() && MaterialInstance->bHasStaticPermutationResource)
+		{
+			OutId.UpdateParameterSet(MaterialInstance->GetStaticParameters());
+		}
+		else
+#endif
+		{
+			FStaticParameterSet CompositedStaticParameters;
+			MaterialInstance->GetStaticParameterValues(CompositedStaticParameters);
+			OutId.UpdateParameterSet(CompositedStaticParameters);		
+		}
 	}
 }
 
@@ -2173,6 +2182,7 @@ bool UMaterial::GetGroupName(const FMaterialParameterInfo& ParameterInfo, FName&
 	return false;
 }
 
+#if WITH_EDITOR
 bool UMaterial::GetParameterDesc(const FMaterialParameterInfo& ParameterInfo, FString& OutDesc, const TArray<FStaticMaterialLayersParameter>* MaterialLayersParameters) const
 {
 	for (const UMaterialExpression* Expression : Expressions)
@@ -2255,6 +2265,7 @@ bool UMaterial::GetParameterDesc(const FMaterialParameterInfo& ParameterInfo, FS
 
 	return false;
 }
+#endif // WITH_EDITOR
 
 bool UMaterial::GetScalarParameterValue(const FMaterialParameterInfo& ParameterInfo, float& OutValue, bool bOveriddenOnly) const
 {
@@ -3093,6 +3104,8 @@ void UMaterial::FlushResourceShaderMaps()
 	}
 }
 
+#if WITH_EDITOR
+
 void UMaterial::RebuildMaterialFunctionInfo()
 {	
 	MaterialFunctionInfos.Empty();
@@ -3150,6 +3163,8 @@ void UMaterial::RebuildMaterialFunctionInfo()
 		}
 	}
 }
+
+#endif // WITH_EDITOR
 
 void UMaterial::RebuildMaterialParameterCollectionInfo()
 {
@@ -3322,6 +3337,7 @@ bool UMaterial::AttemptInsertNewGroupName(const FString & InNewName)
 
 void UMaterial::RebuildExpressionTextureReferences()
 {
+#if WITH_EDITOR
 	// Note: builds without editor only data will have an incorrect shader map id due to skipping this
 	// That's ok, FMaterial::CacheShaders handles this 
 	if (FPlatformProperties::HasEditorOnlyData())
@@ -3332,6 +3348,7 @@ void UMaterial::RebuildExpressionTextureReferences()
 		RebuildMaterialParameterCollectionInfo();
 		RebuildMaterialSharedInputCollectionInfo();
 	}
+#endif // WITH_EDITOR
 
 	ExpressionTextureReferences.Empty();
 	AppendReferencedTextures(ExpressionTextureReferences);

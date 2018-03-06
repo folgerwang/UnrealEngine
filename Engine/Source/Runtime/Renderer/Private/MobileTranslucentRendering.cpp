@@ -158,10 +158,9 @@ public:
 	}
 
 	/** Draws the translucent mesh with a specific light-map type, and fog volume type */
-	template<int32 NumDynamicPointLights>
 	void Process(
 		FRHICommandList& RHICmdList, 
-		const FProcessBasePassMeshParameters& Parameters,
+		const FMobileProcessBasePassMeshParameters& Parameters,
 		const FUniformLightMapPolicy& LightMapPolicy,
 		const typename FUniformLightMapPolicy::ElementDataType& LightMapElementData
 		)
@@ -169,11 +168,12 @@ public:
 		const bool bIsLitMaterial = Parameters.ShadingModel != MSM_Unlit;
 		const FScene* Scene = Parameters.PrimitiveSceneProxy ? Parameters.PrimitiveSceneProxy->GetPrimitiveSceneInfo()->Scene : NULL;
 
-		TMobileBasePassDrawingPolicy<FUniformLightMapPolicy, NumDynamicPointLights> DrawingPolicy(
+		TMobileBasePassDrawingPolicy<FUniformLightMapPolicy> DrawingPolicy(
 			Parameters.Mesh.VertexFactory,
 			Parameters.Mesh.MaterialRenderProxy,
 			*Parameters.Material,
 			LightMapPolicy,
+			Parameters.NumMovablePointLights,
 			Parameters.BlendMode,
 			Parameters.TextureMode,
 			Parameters.ShadingModel != MSM_Unlit && Scene && Scene->ShouldRenderSkylightInBasePass(Parameters.BlendMode),
@@ -184,7 +184,7 @@ public:
 
 		DrawingPolicy.SetupPipelineState(DrawRenderState, View);
 		CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderState, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
-		DrawingPolicy.SetSharedState(RHICmdList, DrawRenderState, &View, typename TMobileBasePassDrawingPolicy<FUniformLightMapPolicy, NumDynamicPointLights>::ContextDataType());
+		DrawingPolicy.SetSharedState(RHICmdList, DrawRenderState, &View, typename TMobileBasePassDrawingPolicy<FUniformLightMapPolicy>::ContextDataType());
 
 		if (Parameters.bUseMobileMultiViewMask)
 		{
@@ -204,8 +204,8 @@ public:
 				Parameters.Mesh,
 				BatchElementIndex,
 				DrawRenderState,
-				typename TMobileBasePassDrawingPolicy<FUniformLightMapPolicy, NumDynamicPointLights>::ElementDataType(LightMapElementData),
-				typename TMobileBasePassDrawingPolicy<FUniformLightMapPolicy, NumDynamicPointLights>::ContextDataType()
+				typename TMobileBasePassDrawingPolicy<FUniformLightMapPolicy>::ElementDataType(LightMapElementData),
+				typename TMobileBasePassDrawingPolicy<FUniformLightMapPolicy>::ContextDataType()
 				);
 			DrawingPolicy.DrawMesh(RHICmdList, View, Parameters.Mesh, BatchElementIndex);
 		}
@@ -244,9 +244,9 @@ bool FMobileTranslucencyDrawingPolicyFactory::DrawDynamicMesh(
 			DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 		}
 
-		ProcessMobileBasePassMesh<FDrawMobileTranslucentMeshAction, 0>(
+		ProcessMobileBasePassMesh<FDrawMobileTranslucentMeshAction>(
 			RHICmdList,
-			FProcessBasePassMeshParameters(
+			FMobileProcessBasePassMeshParameters(
 				Mesh,
 				Material,
 				PrimitiveSceneProxy,
@@ -393,6 +393,7 @@ public:
 
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
+		FMeshMaterialShader::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("OUTPUT_GAMMA_SPACE"), IsMobileHDR() == false);
 	}
 
@@ -435,6 +436,7 @@ public:
 
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
+		FMeshMaterialShader::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("MOBILE_FORCE_DEPTH_TEXTURE_READS"), 1u);
 	}
 

@@ -11,6 +11,11 @@ public:
 	{
 		return *dynamic_cast<const IMeshMergeUtilities*>(&Utilities);
 	}
+
+	virtual IMeshMergeUtilities& GetUtilities() override
+	{
+		return Utilities;
+	}
 protected:
 	FMeshMergeUtilities Utilities;
 };

@@ -9,6 +9,8 @@
 #include "Input/Reply.h"
 #include "Widgets/SWidget.h"
 #include "Components/Widget.h"
+#include "UObject/ScriptInterface.h"
+#include "Slate/SlateTextureAtlasInterface.h"
 #include "Image.generated.h"
 
 class SImage;
@@ -77,6 +79,10 @@ public:
 	/**  */
 	UFUNCTION(BlueprintCallable, Category="Appearance")
 	void SetBrushFromTexture(UTexture2D* Texture, bool bMatchSize = false);
+
+	/**  */
+	UFUNCTION(BlueprintCallable, Category="Appearance")
+	void SetBrushFromAtlasInterface(TScriptInterface<ISlateTextureAtlasInterface> AtlasRegion, bool bMatchSize = false);
 
 	/**  */
 	UFUNCTION(BlueprintCallable, Category = "Appearance")

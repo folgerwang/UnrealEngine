@@ -431,6 +431,8 @@
 			<Compile Target="BootstrapPackagedGame" Configuration="Shipping" Platform="Win64" Tag="#Build Tools Win64"/>
 			<Compile Target="BuildPatchTool" Configuration="Shipping" Platform="Win64" Tag="#Build Tools Win64"/>
 
+			<Tag Files="Engine/Binaries/Win64/XGEControlWorker.exe" With="#Build Tools Win64"/>
+
 			<Do If="$(EmbedSrcSrvInfo)">
 				<!-- Embed source info into the PDB files. Should be done from this machine to ensure that paths are correct. -->
 				<Log Message="Embedding source file information into PDB files..."/>
@@ -473,7 +475,7 @@
 		<Node Name="Make Feature Packs" Requires="Update Version Files">
 			<!--Delete any pre-existing feature packs-->
 			<Delete Files="FeaturePacks/..."/>
-			<ForEach Name="TemplateName" Values="FP_FirstPerson;FP_FirstPersonBP;TP_2DSideScroller;TP_2DSideScrollerBP;TP_Flying;TP_FlyingBP;TP_Puzzle;TP_PuzzleBP;TP_Rolling;TP_RollingBP;TP_SideScroller;TP_SideScrollerBP;TP_ThirdPerson;TP_ThirdPersonBP;TP_TopDown;TP_TopDownBP;TP_TwinStick;TP_TwinStickBP;TP_Vehicle;TP_VehicleAdv;TP_VehicleAdvBP;TP_VehicleBP;TP_VirtualRealityBP">
+			<ForEach Name="TemplateName" Values="FP_FirstPerson;FP_FirstPersonBP;TP_2DSideScroller;TP_2DSideScrollerBP;TP_Flying;TP_FlyingBP;TP_HandheldARBP;TP_Puzzle;TP_PuzzleBP;TP_Rolling;TP_RollingBP;TP_SideScroller;TP_SideScrollerBP;TP_ThirdPerson;TP_ThirdPersonBP;TP_TopDown;TP_TopDownBP;TP_TwinStick;TP_TwinStickBP;TP_Vehicle;TP_VehicleAdv;TP_VehicleAdvBP;TP_VehicleBP;TP_VirtualRealityBP">
 				<PakFile Output="FeaturePacks/$(TemplateName).upack" Files="" ResponseFile="Templates/$(TemplateName)/contents.txt"/>
 			</ForEach>
 			<ForEach Name="SampleName" Values="MobileStarterContent;StarterContent">

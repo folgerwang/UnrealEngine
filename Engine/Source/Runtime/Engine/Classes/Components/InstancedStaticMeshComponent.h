@@ -203,6 +203,7 @@ class ENGINE_API UInstancedStaticMeshComponent : public UStaticMeshComponent
 
 	virtual void PostLoad() override;
 	virtual void OnComponentCreated() override;
+	virtual void OnRegister() override;
 
 public:
 	/** Render data will be initialized on PostLoad or on demand. Released on the rendering thread. */
@@ -217,10 +218,6 @@ public:
 #endif
 	/** Physics representation of the instance bodies. */
 	TArray<FBodyInstance*> InstanceBodies;
-
-	/** Serialization of all the InstanceBodies. Helps speed up physics creation time. */
-	UPROPERTY()
-		class UPhysicsSerializer* PhysicsSerializer;
 
 	//~ Begin UActorComponent Interface
 	virtual FActorComponentInstanceData* GetComponentInstanceData() const override;

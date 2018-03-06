@@ -467,7 +467,7 @@ ExistingSkelMeshData* SaveExistingSkelMeshData(USkeletalMesh* ExistingSkelMesh, 
 	struct ExistingSkelMeshData* ExistingMeshDataPtr = NULL;
 	if(ExistingSkelMesh)
 	{
-		bool ReimportSpecificLOD = (ReimportLODIndex > 0) && ExistingSkelMesh->LODInfo.Num() > ReimportLODIndex;
+		bool ReimportSpecificLOD = (ReimportLODIndex > 0) && ExistingSkelMesh->GetLODNum() > ReimportLODIndex;
 
 		ExistingMeshDataPtr = new ExistingSkelMeshData();
 		
@@ -505,13 +505,13 @@ ExistingSkelMeshData* SaveExistingSkelMeshData(USkeletalMesh* ExistingSkelMesh, 
 		ExistingMeshDataPtr->ExistingRetargetBasePose = ExistingSkelMesh->RetargetBasePose;
 
 		if( ImportedResource->LODModels.Num() > 0 &&
-			ExistingSkelMesh->LODInfo.Num() == ImportedResource->LODModels.Num() )
+			ExistingSkelMesh->GetLODNum() == ImportedResource->LODModels.Num() )
 		{
 			// Remove the zero'th LOD (ie: the LOD being reimported).
 			if (!ReimportSpecificLOD)
 			{
 				ImportedResource->LODModels.RemoveAt(0);
-				ExistingSkelMesh->LODInfo.RemoveAt(0);
+				ExistingSkelMesh->RemoveLODInfo(0);
 			}
 
 			// Copy off the remaining LODs.
@@ -528,7 +528,7 @@ ExistingSkelMeshData* SaveExistingSkelMeshData(USkeletalMesh* ExistingSkelMesh, 
 				LODModel.LegacyRawPointIndices.Unlock();
 			}
 
-			ExistingMeshDataPtr->ExistingLODInfo = ExistingSkelMesh->LODInfo;
+			ExistingMeshDataPtr->ExistingLODInfo = ExistingSkelMesh->GetLODInfoArray();
 			ExistingMeshDataPtr->ExistingRefSkeleton = ExistingSkelMesh->RefSkeleton;
 		
 		}
@@ -548,6 +548,8 @@ ExistingSkelMeshData* SaveExistingSkelMeshData(USkeletalMesh* ExistingSkelMesh, 
 		ExistingMeshDataPtr->ExistingShadowPhysicsAsset = ExistingSkelMesh->ShadowPhysicsAsset;
 
 		ExistingMeshDataPtr->ExistingSkeleton = ExistingSkelMesh->Skeleton;
+
+		ExistingMeshDataPtr->ExistingLODSettings = ExistingSkelMesh->LODSettings;
 
 		ExistingSkelMesh->ExportMirrorTable(ExistingMeshDataPtr->ExistingMirrorTable);
 
@@ -615,9 +617,9 @@ void TryRegenerateLODs(ExistingSkelMeshData* MeshData, USkeletalMesh* SkeletalMe
 				// reset material maps, it won't work anyway. 
 				LODInfo.LODMaterialMap.Empty();
 				// add LOD info back
-				SkeletalMesh->LODInfo.Add(LODInfo);
+				SkeletalMesh->AddLODInfo(LODInfo);
 				// force it to regen
-				FLODUtilities::SimplifySkeletalMeshLOD(UpdateContext, LODInfo.ReductionSettings, LODIndex, false);
+				FLODUtilities::SimplifySkeletalMeshLOD(UpdateContext, LODIndex, false);
 			}
 		}
 		else
@@ -737,6 +739,13 @@ void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* 
 			}
 			SkeletalMesh->Materials[CopyIndex] = MeshData->ExistingMaterials[CopyIndex];
 		}
+	}
+
+	SkeletalMesh->LODSettings = MeshData->ExistingLODSettings;
+	// ensure LOD 0 contains correct setting 
+	if (SkeletalMesh->LODSettings && SkeletalMesh->GetLODInfoArray().Num() > 0)
+	{
+		SkeletalMesh->LODSettings->SetLODSettingsToMesh(SkeletalMesh, 0);
 	}
 
 	//Do everything we need for base LOD re-import
@@ -864,7 +873,7 @@ void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* 
 					{
 						FSkeletalMeshLODModel* NewLODModel = new(SkeletalMesh->GetImportedModel()->LODModels) FSkeletalMeshLODModel(LODModel);
 
-						SkeletalMesh->LODInfo.Add(LODInfo);
+						SkeletalMesh->AddLODInfo(LODInfo);
 					}
 				}
 			}

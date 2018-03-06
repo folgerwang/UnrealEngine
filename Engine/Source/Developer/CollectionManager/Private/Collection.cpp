@@ -13,6 +13,7 @@
 #include "ISourceControlProvider.h"
 #include "ISourceControlModule.h"
 #include "Misc/TextFilterExpressionEvaluator.h"
+#include "Misc/EngineBuildSettings.h"
 
 #define LOCTEXT_NAMESPACE "CollectionManager"
 
@@ -963,6 +964,12 @@ bool FCollection::CheckinCollection(FText& OutError)
 		{
 			ChangelistDescBuilder.AppendLineFormat(LOCTEXT("CollectionUpgradedDesc", "Upgraded collection '{0}' (was version {1}, now version {2})"), CollectionNameText, FText::AsNumber(FileVersion), FText::AsNumber(ECollectionVersion::CurrentVersion));
 		}
+	}
+
+	if (FEngineBuildSettings::IsInternalBuild())
+	{
+		ChangelistDescBuilder.AppendLine(FString(TEXT("#robomerge #deadend")));
+		ChangelistDescBuilder.AppendLine(FString(TEXT("#jira none")));
 	}
 
 	FText ChangelistDesc = ChangelistDescBuilder.ToText();

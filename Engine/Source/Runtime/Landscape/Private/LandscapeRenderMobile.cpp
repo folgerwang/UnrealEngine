@@ -236,10 +236,33 @@ void FLandscapeVertexBufferMobile::InitRHI()
 struct FLandscapeMobileRenderData
 {
 	FLandscapeVertexBufferMobile* VertexBuffer;
+	FOccluderVertexArraySP OccluderVerticesSP;
 
-	FLandscapeMobileRenderData(TArray<uint8> InVertexData)
-	:	VertexBuffer(new FLandscapeVertexBufferMobile(MoveTemp(InVertexData)))
-	{}
+	FLandscapeMobileRenderData(const TArray<uint8>& InPlatformData)
+	{
+		FMemoryReader MemAr(InPlatformData);
+		{
+			int32 NumMobileVertices;
+			TArray<uint8> MobileVerticesData;
+
+			MemAr << NumMobileVertices;
+			MobileVerticesData.SetNumUninitialized(NumMobileVertices*sizeof(FLandscapeMobileVertex));
+			MemAr.Serialize(MobileVerticesData.GetData(), MobileVerticesData.Num());
+
+			VertexBuffer = new FLandscapeVertexBufferMobile(MoveTemp(MobileVerticesData));
+		}
+		
+		int32 NumOccluderVertices;
+		MemAr << NumOccluderVertices;
+		if (NumOccluderVertices > 0)
+		{
+			OccluderVerticesSP = MakeShared<FOccluderVertexArray, ESPMode::ThreadSafe>();
+			OccluderVerticesSP->SetNumUninitialized(NumOccluderVertices);
+			MemAr.Serialize(OccluderVerticesSP->GetData(), NumOccluderVertices*sizeof(FVector));
+
+			INC_DWORD_STAT_BY(STAT_LandscapeOccluderMem, OccluderVerticesSP->GetAllocatedSize());
+		}
+	}
 
 	~FLandscapeMobileRenderData()
 	{
@@ -260,6 +283,11 @@ struct FLandscapeMobileRenderData
 					});
 			}
 		}
+
+		if (OccluderVerticesSP.IsValid())
+		{
+			DEC_DWORD_STAT_BY(STAT_LandscapeOccluderMem, OccluderVerticesSP->GetAllocatedSize());
+		}
 	}
 };
 
@@ -277,6 +305,17 @@ FLandscapeComponentSceneProxyMobile::FLandscapeComponentSceneProxyMobile(ULandsc
 	NormalmapTexture = InComponent->MobileWeightNormalmapTexture;
 
 	BlendableLayerMask = InComponent->MobileBlendableLayerMask;
+}
+
+bool FLandscapeComponentSceneProxyMobile::CollectOccluderElements(FOccluderElementsCollector& Collector) const
+{
+	if (MobileRenderData->OccluderVerticesSP.IsValid() && SharedBuffers->OccluderIndicesSP.IsValid())
+	{
+		Collector.AddElements(MobileRenderData->OccluderVerticesSP, SharedBuffers->OccluderIndicesSP, GetLocalToWorld());
+		return true;
+	}
+
+	return false;
 }
 
 FLandscapeComponentSceneProxyMobile::~FLandscapeComponentSceneProxyMobile()
@@ -306,9 +345,11 @@ void FLandscapeComponentSceneProxyMobile::CreateRenderThreadResources()
 	SharedBuffers = FLandscapeComponentSceneProxy::SharedBuffersMap.FindRef(SharedBuffersKey);
 	if (SharedBuffers == nullptr)
 	{
+		int32 NumOcclusionVertices = MobileRenderData->OccluderVerticesSP.IsValid() ? MobileRenderData->OccluderVerticesSP->Num() : 0;
+				
 		SharedBuffers = new FLandscapeSharedBuffers(
 			SharedBuffersKey, SubsectionSizeQuads, NumSubsections,
-			GetScene().GetFeatureLevel(), false);
+			GetScene().GetFeatureLevel(), false, NumOcclusionVertices);
 
 		FLandscapeComponentSceneProxy::SharedBuffersMap.Add(SharedBuffersKey, SharedBuffers);
 	}

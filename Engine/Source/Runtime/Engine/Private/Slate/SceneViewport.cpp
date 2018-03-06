@@ -382,11 +382,15 @@ void FSceneViewport::OnDrawViewport( const FGeometry& AllottedGeometry, const FS
 		FMath::RoundToInt( CanvasMinY + AllottedGeometry.GetLocalSize().Y * AllottedGeometry.Scale ) );
 
 
-	DebugCanvasDrawer->BeginRenderingCanvas( CanvasRect );
+	if(DebugCanvasDrawer->GetGameThreadDebugCanvas() && DebugCanvasDrawer->GetGameThreadDebugCanvas()->HasBatchesToRender())
+	{
+		DebugCanvasDrawer->BeginRenderingCanvas(CanvasRect);
 
-	// Draw above everything else
-	uint32 MaxLayer = MAX_uint32;
-	FSlateDrawElement::MakeCustom( OutDrawElements, MAX_uint32, DebugCanvasDrawer );
+
+		// Draw above everything else
+		uint32 MaxLayer = MAX_uint32;
+		FSlateDrawElement::MakeCustom(OutDrawElements, MAX_uint32, DebugCanvasDrawer);
+	}
 
 }
 
@@ -1100,6 +1104,11 @@ FReply FSceneViewport::OnViewportActivated(const FWindowActivateEvent& InActivat
 		FScopedConditionalWorldSwitcher WorldSwitcher(ViewportClient);
 		ViewportClient->Activated(this, InActivateEvent);
 		
+		// Determine if we're in permanent capture mode.  This cannot be cached as part of bShouldCaptureMouseOnActivate because it could change between window activate and deactivate
+		const bool bPermanentCapture =
+			(ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CapturePermanently) ||
+			(ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CapturePermanently_IncludingInitialMouseDown);
+
 		// If we are activating and had Mouse Capture on deactivate then we should get focus again
 		// It's important to note in the case of:
 		//    InActivateEvent.ActivationType == FWindowActivateEvent::EA_ActivateByMouse
@@ -1108,7 +1117,7 @@ FReply FSceneViewport::OnViewportActivated(const FWindowActivateEvent& InActivat
 		//    - the user clicked on the application header
 		//    - the user clicked on some UI
 		//    - the user clicked in our window but not an area our viewport covers.
-		if (InActivateEvent.GetActivationType() == FWindowActivateEvent::EA_Activate && bShouldCaptureMouseOnActivate)
+		if (InActivateEvent.GetActivationType() == FWindowActivateEvent::EA_Activate && (bShouldCaptureMouseOnActivate || bPermanentCapture))
 		{
 			return AcquireFocusAndCapture(GetSizeXY() / 2);
 		}

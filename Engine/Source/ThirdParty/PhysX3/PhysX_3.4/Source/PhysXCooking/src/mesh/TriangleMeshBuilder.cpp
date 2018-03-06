@@ -889,7 +889,7 @@ bool TriangleMeshBuilder::save(PxOutputStream& stream, bool platformMismatch, co
 
 	bool force32 = (params.meshPreprocessParams & PxMeshPreprocessingFlag::eFORCE_32BIT_INDICES);
 	if (maxIndex <= 0xFFFF && !force32)
-		serialFlags |= (maxIndex <= 0xFF ? Gu::IMSF_8BIT_INDICES : Gu::IMSF_16BIT_INDICES);
+		serialFlags |= (/*maxIndex <= 0xFF ? Gu::IMSF_8BIT_INDICES : */Gu::IMSF_16BIT_INDICES);
 	writeDword(serialFlags, platformMismatch, stream);
 
 	// Export mesh

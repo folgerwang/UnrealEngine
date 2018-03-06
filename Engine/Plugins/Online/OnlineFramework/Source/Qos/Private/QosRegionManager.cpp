@@ -42,6 +42,10 @@ UQosRegionManager::UQosRegionManager(const FObjectInitializer& ObjectInitializer
 
 	// get a forced region id from the command line as an override
 	bRegionForcedViaCommandline = FParse::Value(FCommandLine::Get(), TEXT("McpRegion="), ForceRegionId);
+	if (!ForceRegionId.IsEmpty())
+	{
+		ForceRegionId.ToUpperInline();
+	}
 }
 
 void UQosRegionManager::PostReloadConfig(UProperty* PropertyThatWasLoaded)
@@ -141,16 +145,6 @@ void UQosRegionManager::BeginQosEvaluation(UWorld* World, const TSharedPtr<IAnal
 {
 	check(World);
 
-	// no point doing the qos tests at all if we're forcing this
-	if (!ForceRegionId.IsEmpty())
-	{
-		World->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateLambda([OnComplete]()
-		{
-			OnComplete.ExecuteIfBound();
-		}));
-		return;
-	}
-
 	// There are valid cached results, use them
 	if ((RegionOptions.Num() > 0) &&
 		(QosEvalResult == EQosCompletionResult::Success) &&
@@ -246,16 +240,70 @@ FString UQosRegionManager::GetRegionId() const
 	if (SelectedRegionId.IsEmpty())
 	{
 		// Always set some kind of region, empty implies "wildcard" to the matchmaking code
-		UE_LOG(LogQos, Verbose, TEXT("No region found, returning NO_REGION"));
+		UE_LOG(LogQos, Verbose, TEXT("No region currently set."));
 		return NO_REGION;
 	}
 
 	return SelectedRegionId;
 }
 
+FString UQosRegionManager::GetBestRegion() const
+{
+	if (!ForceRegionId.IsEmpty())
+	{
+		return ForceRegionId;
+	}
+
+	FString BestRegionId;
+
+	// try to select the lowest ping
+	int32 BestPing = INT_MAX;
+	const TArray<FQosRegionInfo>& LocalRegionOptions = GetRegionOptions();
+	for (const FQosRegionInfo& Region : LocalRegionOptions)
+	{
+		bool bValidResults = (Region.Result == EQosRegionResult::Success) || (Region.Result == EQosRegionResult::Incomplete);
+		if (Region.IsUsable() && bValidResults &&
+			!Region.Region.bBeta && Region.AvgPingMs < BestPing)
+		{
+			BestPing = Region.AvgPingMs;
+			BestRegionId = Region.Region.RegionId;
+		}
+	}
+
+	return BestRegionId;
+}
+
 const TArray<FQosRegionInfo>& UQosRegionManager::GetRegionOptions() const
 {
-	return RegionOptions;
+	if (ForceRegionId.IsEmpty())
+	{
+		return RegionOptions;
+	}
+
+	static TArray<FQosRegionInfo> ForcedRegionOptions;
+	ForcedRegionOptions.Empty(1);
+	for (const FQosRegionInfo& RegionOption : RegionOptions)
+	{
+		if (RegionOption.Region.RegionId == ForceRegionId)
+		{
+			ForcedRegionOptions.Add(RegionOption);
+		}
+	}
+#if !UE_BUILD_SHIPPING
+	if (ForcedRegionOptions.Num() == 0)
+	{
+		FQosRegionInfo FakeRegionInfo;
+		FakeRegionInfo.Region.DisplayName =	NSLOCTEXT("MMRegion", "DevRegion", "Development");
+		FakeRegionInfo.Region.RegionId = ForceRegionId;
+		FakeRegionInfo.Region.bEnabled = true;
+		FakeRegionInfo.Region.bVisible = true;
+		FakeRegionInfo.Region.bBeta = false;
+		FakeRegionInfo.Result = EQosRegionResult::Success;
+		FakeRegionInfo.AvgPingMs = 0;
+		ForcedRegionOptions.Add(FakeRegionInfo);
+	}
+#endif
+	return ForcedRegionOptions;
 }
 
 void UQosRegionManager::ForceSelectRegion(const FString& InRegionId)
@@ -263,23 +311,13 @@ void UQosRegionManager::ForceSelectRegion(const FString& InRegionId)
 	if (!bRegionForcedViaCommandline)
 	{
 		QosEvalResult = EQosCompletionResult::Success;
-		ForceRegionId.Empty(); // remove any override (not typically used)
+		ForceRegionId = InRegionId.ToUpper();
 
 		// make sure we can select this region
-		FString RegionId = InRegionId.ToUpper();
-		if (!SetSelectedRegion(RegionId, true))
+		if (!SetSelectedRegion(ForceRegionId, true))
 		{
-			// if not, add a fake entry and try again
-			FQosRegionInfo RegionInfo;
-			RegionInfo.Region.DisplayName = NSLOCTEXT("MMRegion", "Dev", "Development");
-			RegionInfo.Region.RegionId = RegionId;
-			RegionInfo.Region.bEnabled = true;
-			RegionInfo.Region.bVisible = true;
-			RegionInfo.Region.bBeta = false;
-			RegionInfo.Result = EQosRegionResult::Success;
-			RegionInfo.AvgPingMs = 0;
-			RegionOptions.Add(RegionInfo);
-			verify(SetSelectedRegion(RegionId));
+			UE_LOG(LogQos, Log, TEXT("Failed to force set region id %s"), *ForceRegionId);
+			ForceRegionId.Empty();
 		}
 	}
 	else
@@ -295,19 +333,7 @@ void UQosRegionManager::TrySetDefaultRegion()
 		// Try to set a default region if one hasn't already been selected
 		if (!SetSelectedRegion(GetRegionId()))
 		{
-			// try to select the lowest ping
-			int32 BestPing = INT_MAX;
-			FString BestRegionId;
-			for (const FQosRegionInfo& Region : RegionOptions)
-			{
-				bool bValidResults = (Region.Result == EQosRegionResult::Success) || (Region.Result == EQosRegionResult::Incomplete);
-				if (Region.IsUsable() && bValidResults &&
-					!Region.Region.bBeta && Region.AvgPingMs < BestPing)
-				{
-					BestPing = Region.AvgPingMs;
-					BestRegionId = Region.Region.RegionId;
-				}
-			}
+			FString BestRegionId = GetBestRegion();
 			if (!SetSelectedRegion(BestRegionId))
 			{
 				UE_LOG(LogQos, Warning, TEXT("Unable to set a good region!"));
@@ -320,7 +346,8 @@ void UQosRegionManager::TrySetDefaultRegion()
 
 bool UQosRegionManager::IsUsableRegion(const FString& InRegionId) const
 {
-	for (const FQosRegionInfo& RegionInfo : RegionOptions)
+	const TArray<FQosRegionInfo>& LocalRegionOptions = GetRegionOptions();
+	for (const FQosRegionInfo& RegionInfo : LocalRegionOptions)
 	{
 		if (RegionInfo.Region.RegionId == InRegionId)
 		{
@@ -328,6 +355,7 @@ bool UQosRegionManager::IsUsableRegion(const FString& InRegionId) const
 		}
 	}
 
+	UE_LOG(LogQos, Log, TEXT("IsUsableRegion: failed to find region id %s"), *InRegionId);
 	return false;
 }
 
@@ -338,7 +366,9 @@ bool UQosRegionManager::SetSelectedRegion(const FString& InRegionId, bool bForce
 	{
 		// make sure it's in the option list
 		FString RegionId = InRegionId.ToUpper();
-		for (const FQosRegionInfo& RegionInfo : RegionOptions)
+
+		const TArray<FQosRegionInfo>& LocalRegionOptions = GetRegionOptions();
+		for (const FQosRegionInfo& RegionInfo : LocalRegionOptions)
 		{
 			if (RegionInfo.Region.RegionId == RegionId)
 			{
@@ -355,8 +385,22 @@ bool UQosRegionManager::SetSelectedRegion(const FString& InRegionId, bool bForce
 		}
 	}
 
-	// can't select a region not in the options list
+	// can't select a region not in the options list (NONE is special, it means pick best)
+	if (!InRegionId.IsEmpty() && (InRegionId != NO_REGION))
+	{
+		UE_LOG(LogQos, Log, TEXT("SetSelectedRegion: failed to find region id %s"), *InRegionId);
+	}
 	return false;
+}
+
+void UQosRegionManager::ClearSelectedRegion()
+{ 
+	// Do not default to NO_REGION
+	SelectedRegionId.Empty();
+	if (!bRegionForcedViaCommandline)
+	{
+		ForceRegionId.Empty();
+	}
 }
 
 bool UQosRegionManager::AllRegionsFound() const
@@ -370,6 +414,7 @@ bool UQosRegionManager::AllRegionsFound() const
 		}
 	}
 
+	// Look at real region options here
 	if (NumRegions == RegionOptions.Num())
 	{
 		for (const FQosRegionInfo& Region : RegionOptions)
@@ -397,6 +442,7 @@ void UQosRegionManager::DumpRegionStats()
 		UE_LOG(LogQos, Display, TEXT("Forced: %s "), *ForceRegionId);
 	}
 	
+	// Look at real region options here
 	UE_LOG(LogQos, Display, TEXT("Overall Result: %s"), ToString(QosEvalResult));
 	for (const FQosRegionInfo& Region : RegionOptions)
 	{

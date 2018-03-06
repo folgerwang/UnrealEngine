@@ -21,9 +21,9 @@ class UMaterialExpressionParticleSubUV : public UMaterialExpressionTextureSample
 #if WITH_EDITOR
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
-#endif
 	virtual int32 GetWidth() const override;	
 	virtual int32 GetLabelPadding() override { return 8; }
+#endif
 	//~ End UMaterialExpression Interface
 };
 

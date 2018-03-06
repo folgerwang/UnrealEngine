@@ -2,19 +2,12 @@
 
 #pragma once
 
-#include "Containers/Array.h"
-
-struct x509_st;
-typedef struct x509_st X509;
-
 struct ssl_ctx_st;
 typedef struct ssl_ctx_st SSL_CTX;
 
 class ISslCertificateManager
 {
 public:
-	//virtual const TArray<X509*>& GetCertificateArray() = 0;
+	virtual ~ISslCertificateManager() {}
 	virtual void AddCertificatesToSslContext(SSL_CTX* SslContextPtr) = 0;
-	virtual ~ISslCertificateManager()
-	{}
 };

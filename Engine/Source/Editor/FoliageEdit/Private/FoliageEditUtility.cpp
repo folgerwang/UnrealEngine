@@ -97,6 +97,11 @@ void FFoliageEditUtility::ReplaceFoliageTypeObject(UWorld* InWorld, UFoliageType
 				// Old component needs to go
 				if (OldMeshInfo->Component != nullptr)
 				{
+					if (OldMeshInfo->Component->GetStaticMesh() != nullptr)
+					{
+						OldMeshInfo->Component->GetStaticMesh()->GetOnExtendedBoundsChanged().RemoveAll(&(*OldMeshInfo));
+					}
+
 					OldMeshInfo->Component->ClearInstances();
 					OldMeshInfo->Component->SetFlags(RF_Transactional);
 					OldMeshInfo->Component->Modify();
@@ -135,7 +140,7 @@ void FFoliageEditUtility::MoveActorFoliageInstancesToLevel(ULevel* InTargetLevel
 
 	// Get a world context
 	UWorld* World = InTargetLevel->OwningWorld;
-	bool PromptToMoveFoliageTypeToAsset = World->StreamingLevels.Num() > 0;
+	bool PromptToMoveFoliageTypeToAsset = World->GetStreamingLevels().Num() > 0;
 	bool ShouldPopulateMeshList = false;
 
 	const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "MoveSelectedFoliageToSelectedLevel", "Move Selected Foliage to Level"), !GEditor->IsTransactionActive());

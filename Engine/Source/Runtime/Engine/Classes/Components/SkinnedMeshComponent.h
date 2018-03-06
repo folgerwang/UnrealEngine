@@ -209,6 +209,9 @@ class ENGINE_API USkinnedMeshComponent : public UMeshComponent
 	{ 
 		return (MasterPoseComponent.IsValid()? MasterPoseComponent->CurrentBoneTransformRevisionNumber : CurrentBoneTransformRevisionNumber);  
 	}
+
+	/* this update renderer with new revision number twice so to clear bone velocity for motion blur or temporal AA */
+	void ClearMotionVector();
 	
 private:
 	/** Temporary array of of component-space bone matrices, update each frame and used for rendering the mesh. */
@@ -308,6 +311,10 @@ public:
 	/** If 0, auto-select LOD level. if >0, force to (ForcedLodModel-1). */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=LOD)
 	int32 ForcedLodModel;
+
+	/** Whether we should use the min lod specified in MinLodModel for this component instead of the min lod in the mesh */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = LOD)
+	bool bOverrideMinLod;
 
 	/**
 	 * This is the min LOD that this component will use.  (e.g. if set to 2 then only 2+ LOD Models will be used.) This is useful to set on
@@ -439,6 +446,12 @@ public:
 	 * @todo: turn this into a console command. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Optimization)
 	uint8 bDisplayDebugUpdateRateOptimizations:1;
+
+	/**
+	 *	If true, render as static in reference pose.
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Optimization)
+	uint8 bRenderStatic:1;
 
 protected:
 	/** Are we using double buffered ComponentSpaceTransforms */
@@ -607,7 +620,7 @@ public:
 	virtual bool DoesSocketExist(FName InSocketName) const override;
 	virtual bool HasAnySockets() const override;
 	virtual void QuerySupportedSockets(TArray<FComponentSocketDescription>& OutSockets) const override;
-	virtual void UpdateOverlaps(TArray<FOverlapInfo> const* PendingOverlaps=NULL, bool bDoNotifies=true, const TArray<FOverlapInfo>* OverlapsAtEndLocation=NULL) override;
+	virtual bool UpdateOverlapsImpl(TArray<FOverlapInfo> const* PendingOverlaps=NULL, bool bDoNotifies=true, const TArray<FOverlapInfo>* OverlapsAtEndLocation=NULL) override;
 	//~ End USceneComponent Interface
 
 	//~ Begin UPrimitiveComponent Interface
@@ -1148,6 +1161,14 @@ public:
 	/** Returns whether a specific material section is currently hidden on this component (by using ShowMaterialSection) */
 	UFUNCTION(BlueprintCallable, Category = "Components|SkinnedMesh")
 	bool IsMaterialSectionShown(int32 MaterialID, int32 LODIndex);
+
+	/**
+	 * Set whether this skinned mesh should be rendered as static mesh in a reference pose
+	 *
+	 * @param	whether this skinned mesh should be rendered as static
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Components|SkinnedMesh")
+	void SetRenderStatic(bool bNewValue);
 
 	/** 
 	 * Return PhysicsAsset for this SkeletalMeshComponent

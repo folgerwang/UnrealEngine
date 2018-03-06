@@ -68,6 +68,8 @@ DEFINE_STAT(STAT_MeshParticles);
 DEFINE_STAT(STAT_MeshRenderingTime);
 DEFINE_STAT(STAT_MeshTickTime);
 
+DEFINE_STAT(STAT_MeshParticlePolys);
+
 /** GPU Particle stats. */
 
 DEFINE_STAT(STAT_GPUSpriteParticles);
@@ -3563,6 +3565,8 @@ FDynamicEmitterDataBase* FParticleMeshEmitterInstance::GetDynamicData(bool bSele
 		bSelected,
 		this,
 		MeshTypeData->Mesh,
+		MeshTypeData->bUseStaticMeshLODs,
+		MeshTypeData->LODSizeScale,
 		InFeatureLevel
 		);
 

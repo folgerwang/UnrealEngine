@@ -859,7 +859,7 @@ public:
 
 	/** Are we currently playing any animations? */
 	UFUNCTION(BlueprintCallable, Category="User Interface|Animation")
-	bool IsPlayingAnimation() const { return ActiveSequencePlayers.Num() > 0; }
+	FORCEINLINE bool IsPlayingAnimation() const { return ActiveSequencePlayers.Num() > 0; }
 
 #if WITH_EDITOR
 	//~ Begin UWidget Interface
@@ -1002,7 +1002,15 @@ protected:
 	virtual void NativeDestruct();
 
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime);
-	virtual void NativePaint( FPaintContext& InContext ) const;
+
+	DEPRECATED(2.20, "Please override the other version of NativePaint that accepts all the parameters, not just the paint context.")
+	virtual void NativePaint(FPaintContext& InContext) const { }
+
+	/**
+	 * Native implemented paint function for the Widget
+	 * Returns the maximum LayerID painted on
+	 */
+	virtual int32 NativePaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const;
 
 	virtual bool NativeIsInteractable() const;
 	virtual bool NativeSupportsKeyboardFocus() const;

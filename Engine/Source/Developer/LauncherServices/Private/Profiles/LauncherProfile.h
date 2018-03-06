@@ -40,7 +40,8 @@ enum ELauncherVersion
 	LAUNCHERSERVICES_ADDARCHIVE = 23,
 	LAUNCHERSERVICES_ADDEDENCRYPTINIFILES = 24,
 	LAUNCHERSERVICES_ADDEDMULTILEVELPATCHING = 25,
-	
+	LAUNCHERSERVICES_ADDEDADDITIONALCOMMANDLINE = 26,
+
 	//ADD NEW STUFF HERE
 
 
@@ -665,6 +666,11 @@ public:
 		return BuildUAT;
 	}
 
+	virtual FString GetAdditionalCommandLineParameters() const override
+	{
+		return AdditionalCommandLineParameters;
+	}
+
 	virtual bool IsCookingIncrementally( ) const override
 	{
 		if ( CookMode != ELauncherProfileCookModes::DoNotCook )
@@ -1047,6 +1053,7 @@ public:
 		Writer.WriteValue("HttpChunkDataReleaseName", HttpChunkDataReleaseName);
 		Writer.WriteValue("Archive", bArchive);
 		Writer.WriteValue("ArchiveDirectory", ArchiveDir);
+		Writer.WriteValue("AdditionalCommandLineParameters", AdditionalCommandLineParameters);
 
 		// serialize the default launch role
 		DefaultLaunchRole->Save(Writer, TEXT("DefaultRole"));
@@ -1693,6 +1700,15 @@ public:
 			ArchiveDir = TEXT("");
 		}
 
+		if (Version >= LAUNCHERSERVICES_ADDEDADDITIONALCOMMANDLINE)
+		{
+			AdditionalCommandLineParameters = Object.GetStringField("AdditionalCommandLineParameters");
+		}
+		else
+		{
+			AdditionalCommandLineParameters = TEXT("");
+		}
+
 		// load the default launch role
 		TSharedPtr<FJsonObject> Role = Object.GetObjectField("DefaultRole");
 		DefaultLaunchRole->Load(*(Role.Get()));
@@ -1726,6 +1742,7 @@ public:
 	virtual void SetDefaults( ) override
 	{
 		ProjectSpecified = false;
+		AdditionalCommandLineParameters = FString();
 
 		// default project settings
 		if (FPaths::IsProjectFilePathSet())
@@ -1861,6 +1878,16 @@ public:
 		if (BuildUAT != Build)
 		{
 			BuildUAT = Build;
+
+			Validate();
+		}
+	}
+
+	virtual void SetAdditionalCommandLineParameters(const FString& Params) override
+	{
+		if (AdditionalCommandLineParameters != Params)
+		{
+			AdditionalCommandLineParameters = Params;
 
 			Validate();
 		}
@@ -2700,6 +2727,9 @@ private:
 
 	// Profile is for an internal project
 	bool bNotForLicensees;
+
+	// Additional command line parameters to set for the application when it launches
+	FString AdditionalCommandLineParameters;
 
 private:
 

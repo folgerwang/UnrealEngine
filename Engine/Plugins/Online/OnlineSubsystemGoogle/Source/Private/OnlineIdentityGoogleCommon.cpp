@@ -1,7 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineIdentityGoogleCommon.h"
+#if USES_RESTFUL_GOOGLE
+#include "OnlineIdentityGoogleRest.h"
+#else
 #include "OnlineIdentityGoogle.h"
+#endif
 #include "OnlineSubsystemGooglePrivate.h"
 #include "OnlineSubsystemGoogleTypes.h"
 #include "OnlineSubsystemGoogle.h"
@@ -509,7 +513,7 @@ FPlatformUserId FOnlineIdentityGoogleCommon::GetPlatformUserIdFromUniqueNetId(co
 
 FString FOnlineIdentityGoogleCommon::GetAuthType() const
 {
-	return TEXT("Google");
+	return AUTH_TYPE_GOOGLE;
 }
 
 void FOnlineIdentityGoogleCommon::RevokeAuthToken(const FUniqueNetId& UserId, const FOnRevokeAuthTokenCompleteDelegate& Delegate)

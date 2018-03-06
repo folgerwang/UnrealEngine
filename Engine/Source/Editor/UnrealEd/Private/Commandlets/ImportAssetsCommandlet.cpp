@@ -17,6 +17,7 @@
 #include "FileHelpers.h"
 #include "Misc/FeedbackContext.h"
 #include "HAL/PlatformFilemanager.h"
+#include "GameFramework/WorldSettings.h"
 
 static void PrintUsage()
 {

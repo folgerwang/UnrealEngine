@@ -229,6 +229,11 @@ public:
 		OutFormats.Add(NAME_OPUS);
 	}
 
+	virtual FPlatformAudioCookOverrides* GetAudioCompressionSettings() const override
+	{
+		return nullptr;
+	}
+
 #endif //WITH_ENGINE
 
 	virtual bool SupportsVariants() const override

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
 #include "Sound/SoundCue.h"
 #include "Misc/App.h"
@@ -18,6 +18,7 @@
 #include "Sound/SoundNodeQualityLevel.h"
 #include "Sound/SoundNodeSoundClass.h"
 #include "GameFramework/GameUserSettings.h"
+#include "AudioCompressionSettingsUtils.h"
 #if WITH_EDITOR
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "SoundCueGraph/SoundCueGraphNode.h"
@@ -52,6 +53,8 @@ void USoundCue::PostInitProperties()
 	{
 		CreateGraph();
 	}
+
+	CacheAggregateValues();
 }
 
 
@@ -65,13 +68,37 @@ void USoundCue::AddReferencedObjects(UObject* InThis, FReferenceCollector& Colle
 }
 #endif // WITH_EDITOR
 
+void USoundCue::CacheAggregateValues()
+{
+	if (FirstNode)
+	{
+		if (Duration == 0.0f)
+		{
+			Duration = FirstNode->GetDuration();
+		}
+
+		if (MaxDistance == 0.0f)
+		{
+			MaxDistance = FirstNode->GetMaxDistance();
+			// If no sound cue nodes overrode the max distance, we need to check the base attenuation
+			if (MaxDistance == 0.0f)
+			{
+				MaxDistance = USoundBase::GetMaxDistance();
+			}
+		}
+
+		bHasDelayNode = FirstNode->HasDelayNode();
+		bHasConcatenatorNode = FirstNode->HasConcatenatorNode();
+		bHasVirtualizeWhenSilent = FirstNode->IsVirtualizeWhenSilent();
+	}
+}
 
 void USoundCue::Serialize(FArchive& Ar)
 {
 	// Always force the duration to be updated when we are saving or cooking
 	if (Ar.IsSaving() || Ar.IsCooking())
 	{
-		Duration = (FirstNode ? FirstNode->GetDuration() : 0.f);
+		CacheAggregateValues();
 	}
 
 	Super::Serialize(Ar);
@@ -128,7 +155,7 @@ void USoundCue::PostLoad()
 		OnPostEngineInitHandle = FCoreDelegates::OnPostEngineInit.AddUObject(this, &USoundCue::OnPostEngineInit);
 	}
 
-	CacheNodeState();
+	CacheAggregateValues();
 }
 
 void USoundCue::OnPostEngineInit()
@@ -143,7 +170,12 @@ void USoundCue::EvaluateNodes(bool bAddToRoot)
 {
 	if (CachedQualityLevel == -1)
 	{
-		CachedQualityLevel = GEngine->GetGameUserSettings()->GetAudioQualityLevel();
+		// Use per-platform quality index override if one exists, otherwise use the quality level from the game settings.
+		CachedQualityLevel = FPlatformCompressionUtilities::GetQualityIndexOverrideForCurrentPlatform();
+		if (CachedQualityLevel < 0)
+		{
+			CachedQualityLevel = GEngine->GetGameUserSettings()->GetAudioQualityLevel();
+		}
 	}
 
 	TArray<USoundNode*> NodesToEvaluate;
@@ -155,6 +187,7 @@ void USoundCue::EvaluateNodes(bool bAddToRoot)
 		{
 			if (USoundNodeAssetReferencer* AssetReferencerNode = Cast<USoundNodeAssetReferencer>(SoundNode))
 			{
+				AssetReferencerNode->ConditionalPostLoad();
 				AssetReferencerNode->LoadAsset(bAddToRoot);
 			}
 			else if (USoundNodeQualityLevel* QualityLevelNode = Cast<USoundNodeQualityLevel>(SoundNode))
@@ -190,8 +223,6 @@ void USoundCue::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyCha
 			}
 		}
 	}
-
-	CacheNodeState();
 }
 #endif
 
@@ -328,74 +359,13 @@ int32 USoundCue::GetResourceSizeForFormat(FName Format)
 	return ResourceSize;
 }
 
-float USoundCue::GetMaxAudibleDistance()
+float USoundCue::GetMaxDistance() const
 {
-	// Always recalc the max audible distance when in the editor as it could change
-	if ((GIsEditor && !FApp::IsGame()))
-	{
-		CacheNodeState();
-	}
-
-	return MaxAudibleDistance;
+	return MaxDistance;
 }
 
-void USoundCue::CacheNodeState()
+float USoundCue::GetDuration() const
 {
-	// Reset the cached values in case they changed.
-	bHasAttenuationNode = false;
-	bHasVirtualizedSoundWaves = false;
-	MaxAudibleDistance = 0.0f;
-
-	if (FirstNode)
-	{
-		// Search through this sound cue's nodes and find if any sound wave is allowed to be virtualized.
-		// if any of them are virtualized, then this sound cue is treated as being allowed to be virtualized.
-		TArray<USoundNode*> SoundNodes;
-		FirstNode->GetAllNodes(SoundNodes);
-
-		for (int32 i = 0; i < SoundNodes.Num(); ++i)
-		{
-			if (SoundNodes[i]->IsAllowedVirtual())
-			{
-				bHasVirtualizedSoundWaves = true;
-			}
-
-			if (SoundNodes[i]->IsA(USoundNodeAttenuation::StaticClass()))
-			{
-				bHasAttenuationNode = true;
-			}
-
-			MaxAudibleDistance = SoundNodes[i]->MaxAudibleDistance(MaxAudibleDistance);
-
-			if (MaxAudibleDistance < SMALL_NUMBER)
-			{
-				MaxAudibleDistance = WORLD_MAX;
-			}
-		}
-	}
-}
-
-bool USoundCue::IsAllowedVirtual() const
-{
-	return bHasVirtualizedSoundWaves;
-}
-
-bool USoundCue::HasAttenuationNode() const
-{
-	return bHasAttenuationNode;
-}
-
-float USoundCue::GetDuration()
-{
-	// Always recalc the duration when in the editor as it could change
-	if( GIsEditor || ( Duration < SMALL_NUMBER ) )
-	{
-		if( FirstNode )
-		{
-			Duration = FirstNode->GetDuration();
-		}
-	}
-
 	return Duration;
 }
 
@@ -510,10 +480,11 @@ void USoundCue::SetupSoundNode(USoundNode* InSoundNode, bool bSelectNewNode/* = 
 void USoundCue::LinkGraphNodesFromSoundNodes()
 {
 	USoundCue::GetSoundCueAudioEditor()->LinkGraphNodesFromSoundNodes(this);
-	}
+	CacheAggregateValues();
+}
 
 void USoundCue::CompileSoundNodesFromGraphNodes()
-	{
+{
 	USoundCue::GetSoundCueAudioEditor()->CompileSoundNodesFromGraphNodes(this);
 }
 

@@ -571,9 +571,9 @@ void ApplyTemporalAA(
 	TRefCountPtr<IPooledRenderTarget>& HistoryOutput)
 {
 	if (View.AntiAliasingMethod == AAM_TemporalAA
-		&& HistoryState && HistoryState->IsValid())
+		&& HistoryState)
 	{
-		if (!View.bCameraCut)
+		if (HistoryState->IsValid() && !View.bCameraCut)
 		{
 			FMemMark Mark(FMemStack::Get());
 			FRenderingCompositePassContext CompositeContext(RHICmdList, View);

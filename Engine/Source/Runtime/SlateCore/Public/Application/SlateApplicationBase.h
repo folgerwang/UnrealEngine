@@ -530,6 +530,5 @@ protected:
 
 	// Gets set when Slate goes to sleep and cleared when active.
 	bool bIsSlateAsleep;
-
 };
 

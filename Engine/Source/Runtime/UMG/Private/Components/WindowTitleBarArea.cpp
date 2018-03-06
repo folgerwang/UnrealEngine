@@ -52,7 +52,7 @@ TSharedRef<SWidget> UWindowTitleBarArea::RebuildWidget()
 		WindowActionNotificationHandle.Reset();
 	}
 
-	MyWindowTitleBarArea->SetOnDoubleClickCallback(BIND_UOBJECT_DELEGATE(FSimpleDelegate, HandleMouseButtonDoubleClick));
+	MyWindowTitleBarArea->SetRequestToggleFullscreenCallback(BIND_UOBJECT_DELEGATE(FSimpleDelegate, RequestToggleFullscreen));
 
 	if (GetChildrenCount() > 0)
 	{
@@ -63,6 +63,8 @@ TSharedRef<SWidget> UWindowTitleBarArea::RebuildWidget()
 	{
 		MyWindowTitleBarArea->SetGameWindow(GEngine->GameViewport->GetWindow());
 	}
+
+	MyWindowTitleBarArea->SetWindowButtonsVisibility(bWindowButtonsEnabled);
 
 	return MyWindowTitleBarArea.ToSharedRef();
 }
@@ -147,9 +149,9 @@ bool UWindowTitleBarArea::HandleWindowAction(const TSharedRef<FGenericWindow>& P
 	return false;
 }
 
-void UWindowTitleBarArea::HandleMouseButtonDoubleClick()
+void UWindowTitleBarArea::RequestToggleFullscreen()
 {
-	// This is only called in fullscreen mode when user double clicks the title bar.
+	// This is only called in fullscreen mode when user double clicks the title bar or clicks the restore button.
 	if (GEngine)
 	{
 		GEngine->DeferredCommands.Add(TEXT("TOGGLE_FULLSCREEN"));

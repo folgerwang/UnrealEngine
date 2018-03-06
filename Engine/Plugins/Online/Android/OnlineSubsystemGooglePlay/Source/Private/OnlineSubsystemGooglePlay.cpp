@@ -199,7 +199,7 @@ bool FOnlineSubsystemGooglePlay::Tick(float DeltaTime)
 
 bool FOnlineSubsystemGooglePlay::Shutdown() 
 {
-	UE_LOG(LogOnline, Log, TEXT("FOnlineSubsystemGooglePlay::Shutdown()"));
+	UE_LOG(LogOnline, VeryVerbose, TEXT("FOnlineSubsystemGooglePlay::Shutdown()"));
 
 	FOnlineSubsystemImpl::Shutdown();
 

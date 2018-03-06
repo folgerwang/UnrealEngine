@@ -522,11 +522,17 @@ namespace AutomationTool
 				lock (ProcSyncObject)
 				{
 					bProcTerminated = (Proc == null) || Proc.HasExited;
-				}
-				if (!bProcTerminated)
-				{
-					// The process did not terminate yet but we've read all output messages, wait until the process terminates
-					Proc.WaitForExit();
+
+					if (Proc != null)
+					{
+						if (!bProcTerminated)
+						{
+							// The process did not terminate yet but we've read all output messages, wait until the process terminates
+							Proc.WaitForExit();
+						}
+
+						ExitCode = Proc.ExitCode;
+					}
 				}
 			}
 		}
@@ -1029,7 +1035,7 @@ namespace AutomationTool
 				EnvironmentVars.Add(AutomationTool.EnvVarNames.LocalRoot, ""); // if we don't clear this out, it will think it is a build machine; it will rederive everything
 			}
 
-			IProcessResult Result = Run(CmdEnv.UATExe, CommandLine, null, ERunOptions.Default | ERunOptions.NoStdOutCapture, EnvironmentVars, Identifier: Identifier);
+			IProcessResult Result = Run(CmdEnv.UATExe, CommandLine, null, ERunOptions.Default, EnvironmentVars, Identifier: Identifier);
 			if (Result.ExitCode != 0)
 			{
 				throw new CommandFailedException(String.Format("Recursive UAT command failed (exit code {0})", Result.ExitCode));

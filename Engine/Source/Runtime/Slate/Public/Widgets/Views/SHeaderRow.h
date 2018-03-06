@@ -20,6 +20,7 @@ namespace EColumnSortPriority
 {
 	enum Type
 	{
+		None,
 		Primary = 0,
 		Secondary = 1,
 		Max,

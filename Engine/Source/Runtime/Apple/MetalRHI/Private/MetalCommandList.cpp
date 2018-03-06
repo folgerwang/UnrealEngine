@@ -13,6 +13,10 @@
 
 #pragma mark - Public C++ Boilerplate -
 
+#if PLATFORM_IOS
+extern bool GIsSuspended;
+#endif
+
 FMetalCommandList::FMetalCommandList(FMetalCommandQueue& InCommandQueue, bool const bInImmediate)
 : CommandQueue(InCommandQueue)
 , SubmittedBuffers(!bInImmediate ? [NSMutableArray<id<MTLCommandBuffer>> new] : nil)
@@ -61,7 +65,11 @@ static void ReportMetalCommandBufferFailure(id <MTLCommandBuffer> CompletedBuffe
 		UE_LOG(LogMetal, Warning, TEXT("%s"), *FString(Desc));
 	}
 	
-    if (bDoCheck)
+    if (bDoCheck
+#if PLATFORM_IOS
+        && !GIsSuspended && !GIsRenderingThreadSuspended
+#endif
+        )
     {
 		UE_LOG(LogMetal, Fatal, TEXT("Command Buffer %s Failed with %s Error! Error Domain: %s Code: %d Description %s %s %s"), *LabelString, ErrorType, *DomainString, Code, *ErrorString, *FailureString, *RecoveryString);
     }
@@ -74,7 +82,7 @@ static __attribute__ ((optnone)) void MetalCommandBufferFailureInternal(id <MTLC
 
 static __attribute__ ((optnone)) void MetalCommandBufferFailureTimeout(id <MTLCommandBuffer> CompletedBuffer)
 {
-	ReportMetalCommandBufferFailure(CompletedBuffer, TEXT("Timeout"), PLATFORM_IOS);
+    ReportMetalCommandBufferFailure(CompletedBuffer, TEXT("Timeout"), PLATFORM_IOS);
 }
 
 static __attribute__ ((optnone)) void MetalCommandBufferFailurePageFault(id <MTLCommandBuffer> CompletedBuffer)
@@ -89,7 +97,8 @@ static __attribute__ ((optnone)) void MetalCommandBufferFailureBlacklisted(id <M
 
 static __attribute__ ((optnone)) void MetalCommandBufferFailureNotPermitted(id <MTLCommandBuffer> CompletedBuffer)
 {
-	ReportMetalCommandBufferFailure(CompletedBuffer, TEXT("NotPermitted"));
+	// when iOS goes into the background, it can get a delayed NotPermitted error, so we can't crash in this case, just allow it to not be submitted
+	ReportMetalCommandBufferFailure(CompletedBuffer, TEXT("NotPermitted"), !PLATFORM_IOS);
 }
 
 static __attribute__ ((optnone)) void MetalCommandBufferFailureOutOfMemory(id <MTLCommandBuffer> CompletedBuffer)

@@ -352,14 +352,14 @@ bool FJsonInternationalizationManifestSerializer::JsonObjToManifest( TSharedRef<
 void FJsonInternationalizationManifestSerializer::GenerateStructuredData( TSharedRef< const FInternationalizationManifest > InManifest, TSharedPtr< FStructuredEntry > RootElement )
 {
 	//Loop through all the unstructured manifest entries and build up our structured hierarchy
-	for( FManifestEntryByStringContainer::TConstIterator It( InManifest->GetEntriesByKeyIterator() ); It; ++It )
+	for( FManifestEntryByStringContainer::TConstIterator It( InManifest->GetEntriesBySourceTextIterator() ); It; ++It )
 	{
 		const TSharedRef< FManifestEntry > UnstructuredManifestEntry = It.Value();
 
 		TArray< FString > NamespaceTokens;
 
 		// Tokenize the namespace by using '.' as a delimiter
-		int32 NamespaceTokenCount = UnstructuredManifestEntry->Namespace.ParseIntoArray( NamespaceTokens, *NAMESPACE_DELIMITER, true );
+		int32 NamespaceTokenCount = UnstructuredManifestEntry->Namespace.GetString().ParseIntoArray( NamespaceTokens, *NAMESPACE_DELIMITER, true );
 
 		TSharedPtr< FStructuredEntry > StructuredManifestEntry = RootElement;
 		//Loop through all the namespace tokens and find the appropriate structured entry, if it does not exist add it.  At the end StructuredManifestEntry
@@ -468,7 +468,7 @@ void FJsonInternationalizationManifestSerializer::StructuredDataToJsonObj( TShar
 			ProcessedText.ReplaceInline( *FPaths::RootDir(), TEXT("/"));
 
 			TSharedPtr<FJsonObject> KeyNode = MakeShareable( new FJsonObject );
-			KeyNode->SetStringField( TAG_KEY, AContext.Key );
+			KeyNode->SetStringField( TAG_KEY, AContext.Key.GetString() );
 			KeyNode->SetStringField( TAG_PATH, ProcessedText );
 
 			// We only add the optional field if it is true, it is assumed to be false otherwise.

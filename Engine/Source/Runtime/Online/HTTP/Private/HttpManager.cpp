@@ -179,3 +179,8 @@ void FHttpManager::DumpRequests(FOutputDevice& Ar) const
 			*Request->GetVerb(), *Request->GetURL(), EHttpRequestStatus::ToString(Request->GetStatus()));
 	}
 }
+
+bool FHttpManager::SupportsDynamicProxy() const
+{
+	return false;
+}

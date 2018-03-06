@@ -14,6 +14,9 @@
 #include "Materials/MaterialLayersFunctions.h"
 #include "UObject/RenderingObjectVersion.h"
 
+// @TODO: Remove this. Temporary flag for toggling experimental material layers functionality
+bool AreNewMaterialLayersEnabled();
+
 /**
  */
 class FMaterialUniformExpressionConstant: public FMaterialUniformExpression
@@ -144,8 +147,15 @@ public:
 		{
 			const bool bOveriddenParameterOnly = ParameterInfo.Association == EMaterialParameterAssociation::GlobalParameter;
 			
-			UMaterialInterface* Interface = Context.Material.GetMaterialInterface();
-			if (!Interface || !Interface->GetVectorParameterDefaultValue(ParameterInfo, OutValue, bOveriddenParameterOnly))
+			if (AreNewMaterialLayersEnabled())
+			{
+				UMaterialInterface* Interface = Context.Material.GetMaterialInterface();
+				if (!Interface || !Interface->GetVectorParameterDefaultValue(ParameterInfo, OutValue, bOveriddenParameterOnly))
+				{
+					GetDefaultValue(OutValue);
+				}
+			}
+			else
 			{
 				GetDefaultValue(OutValue);
 			}
@@ -225,8 +235,15 @@ public:
 		{
 			const bool bOveriddenParameterOnly = ParameterInfo.Association == EMaterialParameterAssociation::GlobalParameter;
 			
-			UMaterialInterface* Interface = Context.Material.GetMaterialInterface();
-			if (!Interface || !Interface->GetScalarParameterDefaultValue(ParameterInfo, OutValue.A, bOveriddenParameterOnly))
+			if (AreNewMaterialLayersEnabled())
+			{
+				UMaterialInterface* Interface = Context.Material.GetMaterialInterface();
+				if (!Interface || !Interface->GetScalarParameterDefaultValue(ParameterInfo, OutValue.A, bOveriddenParameterOnly))
+				{
+					GetDefaultValue(OutValue.A);
+				}
+			}
+			else
 			{
 				GetDefaultValue(OutValue.A);
 			}
@@ -334,8 +351,15 @@ public:
 			{
 				UTexture* Value = nullptr;
 
-				UMaterialInterface* Interface = Context.Material.GetMaterialInterface();
-				if (!Interface || !Interface->GetTextureParameterDefaultValue(ParameterInfo, Value))
+				if (AreNewMaterialLayersEnabled())
+				{
+					UMaterialInterface* Interface = Context.Material.GetMaterialInterface();
+					if (!Interface || !Interface->GetTextureParameterDefaultValue(ParameterInfo, Value))
+					{
+						Value = GetIndexedTexture(Material, TextureIndex);
+					}
+				}
+				else
 				{
 					Value = GetIndexedTexture(Material, TextureIndex);
 				}

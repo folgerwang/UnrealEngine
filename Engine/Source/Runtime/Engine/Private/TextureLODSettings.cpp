@@ -5,6 +5,47 @@
 
 void FTextureLODGroup::SetupGroup()
 {
+	// editor would never want to use smaller mips based on memory (could affect cooking, etc!)
+	if (!GIsEditor)
+	{
+		// setup 
+		switch (FPlatformMemory::GetMemorySizeBucket())
+		{
+			case EPlatformMemorySizeBucket::Smallest:
+				// use Smallest values, if they exist, or Smaller, if not
+				if (LODBias_Smallest > 0)
+				{
+					LODBias = LODBias_Smallest;
+				}
+				else if (LODBias_Smaller > 0)
+				{
+					LODBias = LODBias_Smaller;
+				}
+				if (MaxLODSize_Smallest > 0)
+				{
+					MaxLODSize = MaxLODSize_Smallest;
+				}
+				else if (MaxLODSize_Smaller > 0)
+				{
+					MaxLODSize = MaxLODSize_Smaller;
+				}
+				break;
+			case EPlatformMemorySizeBucket::Smaller:
+				// use Smaller values if they exist
+				if (LODBias_Smaller > 0)
+				{
+					LODBias = LODBias_Smaller;
+				}
+				if (MaxLODSize_Smaller > 0)
+				{
+					MaxLODSize = MaxLODSize_Smaller;
+				}
+				break;
+			default:
+				break;
+		}
+	}
+
 	MinLODMipCount = FMath::CeilLogTwo(MinLODSize);
 	MaxLODMipCount = FMath::CeilLogTwo(MaxLODSize);
 
@@ -69,13 +110,17 @@ int32 UTextureLODSettings::CalculateLODBias(const UTexture* Texture, bool bIncCi
 {	
 	check( Texture );
 	TextureMipGenSettings MipGenSetting = TMGS_MAX;
+	int32 TextureMaxSize = 0;
+
 #if WITH_EDITORONLY_DATA
 	MipGenSetting = Texture->MipGenSettings;
+	TextureMaxSize = Texture->MaxTextureSize;
 #endif // #if WITH_EDITORONLY_DATA
-	return CalculateLODBias(Texture->GetSurfaceWidth(), Texture->GetSurfaceHeight(), Texture->LODGroup, Texture->LODBias, bIncCinematicMips ? Texture->NumCinematicMipLevels : 0, MipGenSetting);
+
+	return CalculateLODBias(Texture->GetSurfaceWidth(), Texture->GetSurfaceHeight(), TextureMaxSize, Texture->LODGroup, Texture->LODBias, bIncCinematicMips ? Texture->NumCinematicMipLevels : 0, MipGenSetting);
 }
 
-int32 UTextureLODSettings::CalculateLODBias(int32 Width, int32 Height, int32 LODGroup, int32 LODBias, int32 NumCinematicMipLevels, TextureMipGenSettings InMipGenSetting) const
+int32 UTextureLODSettings::CalculateLODBias(int32 Width, int32 Height, int32 MaxSize, int32 LODGroup, int32 LODBias, int32 NumCinematicMipLevels, TextureMipGenSettings InMipGenSetting) const
 {	
 	// Find LOD group.
 	const FTextureLODGroup& LODGroupInfo = TextureLODGroups[LODGroup];
@@ -88,7 +133,12 @@ int32 UTextureLODSettings::CalculateLODBias(int32 Width, int32 Height, int32 LOD
 	}
 
 	// Calculate maximum number of miplevels.
-	int32 TextureMaxLOD	= FMath::CeilLogTwo( FMath::TruncToInt( FMath::Max( Width, Height ) ) );
+	if (MaxSize > 0)
+	{
+		Width = FMath::Min(Width, MaxSize);
+		Height = FMath::Min(Height, MaxSize);
+	}
+	int32 TextureMaxLOD	= FMath::CeilLogTwo( FMath::Max( Width, Height ) );
 
 	// Calculate LOD bias.
 	int32 UsedLODBias	= NumCinematicMipLevels;
@@ -178,82 +228,7 @@ void UTextureLODSettings::GetMipGenSettings(const UTexture& Texture, TextureMipG
 }
 #endif // #if WITH_EDITORONLY_DATA
 
-/**
- * Will return the LODBias for a passed in LODGroup
- *
- * @param	InLODGroup		The LOD Group ID 
- * @return	LODBias
- */
-int32 UTextureLODSettings::GetTextureLODGroupLODBias(int32 InLODGroup) const
-{
-	int32 Retval = 0;
 
-	const FTextureLODGroup& LODGroup = TextureLODGroups[InLODGroup]; 
-
-	Retval = LODGroup.LODBias;
-
-	return Retval;
-}
-
-
-
-/**
- * Returns the LODGroup setting for number of streaming mip-levels.
- * -1 means that all mip-levels are allowed to stream.
- *
- * @param	InLODGroup		The LOD Group ID 
- * @return	Number of streaming mip-levels for textures in the specified LODGroup
- */
-int32 UTextureLODSettings::GetMinLODMipCount(int32 InLODGroup) const
-{
-	int32 Retval = 0;
-
-	const FTextureLODGroup& LODGroup = TextureLODGroups[InLODGroup]; 
-
-	Retval = LODGroup.MinLODMipCount;
-
-	return Retval;
-}
-
-
-
-
-/**
- * Returns the LODGroup setting for number of streaming mip-levels.
- * -1 means that all mip-levels are allowed to stream.
- *
- * @param	InLODGroup		The LOD Group ID 
- * @return	Number of streaming mip-levels for textures in the specified LODGroup
- */
-int32 UTextureLODSettings::GetMaxLODMipCount(int32 InLODGroup) const
-{
-	int32 Retval = 0;
-
-	const FTextureLODGroup& LODGroup = TextureLODGroups[InLODGroup]; 
-
-	Retval = LODGroup.MaxLODMipCount;
-
-	return Retval;
-}
-
-
-/**
- * Returns the LODGroup setting for number of streaming mip-levels.
- * -1 means that all mip-levels are allowed to stream.
- *
- * @param	InLODGroup		The LOD Group ID 
- * @return	Number of streaming mip-levels for textures in the specified LODGroup
- */
-int32 UTextureLODSettings::GetNumStreamedMips(int32 InLODGroup) const
-{
-	int32 Retval = 0;
-
-	const FTextureLODGroup& LODGroup = TextureLODGroups[InLODGroup]; 
-
-	Retval = LODGroup.NumStreamedMips;
-
-	return Retval;
-}
 
 /**
  * Returns the LODGroup mip gen settings

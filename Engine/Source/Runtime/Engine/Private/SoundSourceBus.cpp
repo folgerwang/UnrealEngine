@@ -58,7 +58,7 @@ bool USoundSourceBus::IsPlayable() const
 	return true;
 }
 
-float USoundSourceBus::GetDuration()
+float USoundSourceBus::GetDuration() const
 {
 	return (SourceBusDuration > 0.0f) ? SourceBusDuration : INDEFINITELY_LOOPING_DURATION;
 }

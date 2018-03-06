@@ -165,12 +165,12 @@ public:
 		return TEXT("FOnlineFriendsSteam::ReadFriendsList() async task completed successfully");
 	}
 
-	virtual bool IsDone(void) override
+	virtual bool IsDone(void) const override
 	{
 		return true;
 	}
 
-	virtual bool WasSuccessful(void) override
+	virtual bool WasSuccessful(void) const override
 	{
 		return true;
 	}

@@ -217,7 +217,7 @@ TSharedRef<SWidget> FAssetViewItemHelper::CreateListTileItemContents(T* const In
 		[
 			SNew(SThumbnailEditModeTools, InTileOrListItem->AssetThumbnail)
 			.SmallView(!InTileOrListItem->CanDisplayPrimitiveTools())
-			.Visibility(InTileOrListItem, &T::GetThumbnailEditModeUIVisibility, InTileOrListItem->AssetThumbnail->GetAssetData().GetFullName())
+			.Visibility(InTileOrListItem, &T::GetThumbnailEditModeUIVisibility)
 		];
 	}
 
@@ -647,10 +647,9 @@ const FSlateBrush* SAssetViewItem::GetDirtyImage() const
 	return IsDirty() ? AssetDirtyBrush : NULL;
 }
 
-EVisibility SAssetViewItem::GetThumbnailEditModeUIVisibility(FString AssetDataFullName) const
+EVisibility SAssetViewItem::GetThumbnailEditModeUIVisibility() const
 {
-	return !IsFolder() && ThumbnailEditMode.Get() && !ThumbnailTools::AssetHasCustomCreatedThumbnail(AssetDataFullName) 
-		== true ? EVisibility::Visible : EVisibility::Collapsed;
+	return !IsFolder() && ThumbnailEditMode.Get() ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
@@ -896,13 +895,10 @@ FText SAssetViewItem::GetCheckedOutByOtherText() const
 		const FAssetData& AssetData = StaticCastSharedPtr<FAssetViewAsset>(AssetItem)->Data;
 		ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
 		FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(SourceControlHelpers::PackageFilename(AssetData.PackageName.ToString()), EStateCacheUsage::Use);
-		FString UserWhichHasPackageCheckedOut;
-		if (SourceControlState.IsValid() && SourceControlState->IsCheckedOutOther(&UserWhichHasPackageCheckedOut) )
+		FString UserWhichHasPackageCheckedOut;		
+		if (SourceControlState.IsValid() && ( SourceControlState->IsCheckedOutOther(&UserWhichHasPackageCheckedOut) || SourceControlState->IsCheckedOutOrModifiedInOtherBranch()))
 		{
-			if ( !UserWhichHasPackageCheckedOut.IsEmpty() )
-			{
-				return SourceControlState->GetDisplayTooltip();
-			}
+			return SourceControlState->GetDisplayTooltip();
 		}
 	}
 

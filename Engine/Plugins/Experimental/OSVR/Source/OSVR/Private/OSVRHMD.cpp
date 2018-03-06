@@ -24,6 +24,7 @@
 #include "Dom/JsonObject.h"
 #include "Serialization/JsonSerializer.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/WorldSettings.h"
 #include "Engine/GameEngine.h"
 #include "UnrealEngine.h"
 

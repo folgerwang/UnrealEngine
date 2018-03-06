@@ -4,6 +4,7 @@
 #include "PerforceSourceControlPrivate.h"
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
+#include "Misc/EngineVersion.h"
 #include "Modules/ModuleManager.h"
 #include "SourceControlOperations.h"
 #include "PerforceSourceControlRevision.h"
@@ -37,6 +38,28 @@ struct FRemoveRedundantErrors
 	/** The filter string we try to identify in the reported error */
 	FString Filter;
 };
+
+struct FBranchModification
+{
+	FBranchModification(const FString& InBranchName, const FString& InFileName, const FString& InAction, int32 InChangeList, int64 InModTime )
+		: BranchName(InBranchName)
+		, FileName(InFileName)
+		, Action(InAction)
+		, ChangeList(InChangeList)
+		, ModTime(InModTime)
+	{
+	}
+
+	FString BranchName;
+	FString FileName;
+	FString Action;
+	int32 ChangeList;
+	int64 ModTime;
+
+	FString OtherUserCheckedOut;
+	TArray<FString> CheckedOutBranches;
+};
+
 
 /** 
  * Remove redundant errors (that contain a particular string) and also
@@ -552,8 +575,145 @@ bool FPerforceSyncWorker::UpdateStates() const
 	return UpdateCachedStates(OutResults);
 }
 
-static void ParseUpdateStatusResults(const FP4RecordSet& InRecords, const TArray<FText>& ErrorMessages, TArray<FPerforceSourceControlState>& OutStates)
+static void ParseBranchModificationResults(const FP4RecordSet& InRecords, const TArray<FText>& ErrorMessages, const FString& ContentRoot, TMap<FString, FBranchModification>& BranchModifications)
 {
+
+	for (int32 Index = 0; Index < InRecords.Num(); ++Index)
+	{
+		const FP4Record& ClientRecord = InRecords[Index];
+		FString DepotFileName = ClientRecord(TEXT("depotFile"));
+		FString ClientFileName = ClientRecord(TEXT("clientFile"));
+		FString HeadAction = ClientRecord(TEXT("headAction"));
+		int64 HeadModTime = FCString::Atoi64(*ClientRecord(TEXT("headModTime")));
+		int64 HeadTime = FCString::Atoi64(*ClientRecord(TEXT("headTime")));
+		int32 HeadChange = FCString::Atoi(*ClientRecord(TEXT("headChange")));
+
+		// Filter out add modifications as these can be the result of generating a missing uasset from source content
+		// and in the case where there are 2 competing adds, this is a conflict state
+		if (HeadAction == TEXT("add"))
+		{
+			continue;
+		}
+
+		// Get the content filename and add to branch states
+		FString CurrentBranch(TEXT("*CurrentBranch"));
+		FString Branch, BranchFile;
+		if (DepotFileName.Split(ContentRoot, &Branch, &BranchFile))
+		{
+			// Sanitize names
+			Branch.RemoveFromEnd(FString(TEXT("/")));
+			BranchFile.RemoveFromStart(FString(TEXT("/")));
+		}
+
+		if (!Branch.Len() || !BranchFile.Len())
+		{
+			continue;
+		}
+
+		if (ClientFileName.Len())
+		{
+			Branch = CurrentBranch;
+		}
+
+		// In the case of delete, P4 stores 0 for modification time, so use the HeadTime of the CL
+		if (!HeadModTime)
+		{
+			HeadModTime = HeadTime;
+		}
+
+		// Check for modification in another branch
+		if (BranchModifications.Contains(BranchFile))
+		{
+			FBranchModification& BranchModification = BranchModifications[BranchFile];
+
+			// Never overwrite a current branch modification with the same from a different branch
+			if (BranchModification.ModTime == HeadModTime)
+			{
+				if (BranchModification.BranchName == CurrentBranch && Branch != CurrentBranch)
+				{
+					continue;
+				}
+			}
+
+			//  We want latest modification, <= so we catch the actual edit CL in the revision list
+			if (BranchModification.ModTime <= HeadModTime)
+			{
+				BranchModification.ModTime = HeadModTime;
+				BranchModification.BranchName = Branch;
+				BranchModification.Action = HeadAction;
+				BranchModification.ChangeList = HeadChange;
+			}
+		}
+		else
+		{
+			BranchModifications.Add(BranchFile, FBranchModification(Branch, BranchFile, HeadAction, HeadChange, HeadModTime));
+		}
+	}
+
+}
+
+static void ParseUpdateStatusResults(const FP4RecordSet& InRecords, const TArray<FText>& ErrorMessages, TArray<FPerforceSourceControlState>& OutStates, const FString& ContentRoot, TMap<FString, FBranchModification>& BranchModifications)
+{
+	// Build up a map of any other branch states	
+	for (int32 Index = 0; Index < InRecords.Num(); ++Index)
+	{
+		const FP4Record& ClientRecord = InRecords[Index];
+		FString FileName = ClientRecord(TEXT("clientFile"));
+
+		if (FileName.Len())
+		{
+			// Local workspace file, we're only interested in other branches here
+			continue;
+		}
+
+		// Get the content filename and add to branch states
+		FString DepotFileName = ClientRecord(TEXT("depotFile"));
+		FString OtherOpen = ClientRecord(TEXT("otherOpen"));
+
+		FString Branch;
+
+		if (DepotFileName.Split(ContentRoot, &Branch, &FileName))
+		{
+			// Sanitize
+			Branch.RemoveFromEnd(FString(TEXT("/")));
+			FileName.RemoveFromStart(FString(TEXT("/")));
+
+			// Add to branch modifications if not currently recorded
+			if (FileName.Len() && !BranchModifications.Contains(FileName))
+			{
+				BranchModifications.Add(FileName, FBranchModification(Branch, FileName, FString(TEXT("none")), 0, 0));
+			}
+		}
+
+		if (!FileName.Len())
+		{
+			// There was a problem getting the filename
+			continue;
+		}
+
+		// Store checkout information to branch state
+		FBranchModification& BranchModification = BranchModifications[FileName];
+	
+		if (OtherOpen.Len())
+		{
+			BranchModification.CheckedOutBranches.AddUnique(Branch);
+
+			int32 OtherOpenNum = FCString::Atoi(*OtherOpen);
+			for (int32 OpenIdx = 0; OpenIdx < OtherOpenNum; ++OpenIdx)
+			{
+				const FString OtherOpenRecordKey = FString::Printf(TEXT("otherOpen%d"), OpenIdx);
+				const FString OtherOpenRecordValue = ClientRecord(OtherOpenRecordKey);
+
+				BranchModification.OtherUserCheckedOut += OtherOpenRecordValue;
+				if (OpenIdx < OtherOpenNum - 1)
+				{
+					BranchModification.OtherUserCheckedOut += TEXT(", ");
+				}
+			}
+		}
+
+	}
+
 	// Iterate over each record found as a result of the command, parsing it for relevant information
 	for (int32 Index = 0; Index < InRecords.Num(); ++Index)
 	{
@@ -569,8 +729,15 @@ static void ParseUpdateStatusResults(const FP4RecordSet& InRecords, const TArray
 		FString HeadType = ClientRecord(TEXT("headType"));
 		const bool bUnresolved = ClientRecord.Contains(TEXT("unresolved"));
 
+		if (!FileName.Len())
+		{
+			// From another branch and already encoded in the branch state map
+			continue;
+		}
+
 		FString FullPath(FileName);
 		FPaths::NormalizeFilename(FullPath);
+
 		OutStates.Add(FPerforceSourceControlState(FullPath));
 		FPerforceSourceControlState& State = OutStates.Last();
 		State.DepotFilename = DepotFileName;
@@ -611,12 +778,53 @@ static void ParseUpdateStatusResults(const FP4RecordSet& InRecords, const TArray
 				}
 			}
 
+			// Add to the checked out branches
+			State.CheckedOutBranches.AddUnique(FEngineVersion::Current().GetBranch());
+				
 			State.State = EPerforceState::CheckedOutOther;
 		}
 		//file has been previously deleted, ok to add again
 		else if (HeadAction.Len() > 0 && HeadAction == TEXT("delete")) 
 		{
 			State.State = EPerforceState::NotInDepot;
+		}
+
+		// If checked out or modified in another branch, setup state
+		FString BranchFile;
+		FileName.Replace(TEXT("\\"), TEXT("/")).Split(ContentRoot, nullptr, &BranchFile);
+		BranchFile.RemoveFromStart(TEXT("/"));
+
+		State.HeadBranch = TEXT("*CurrentBranch");
+		State.HeadAction = HeadAction;
+		State.HeadModTime = FCString::Atoi64(*ClientRecord(TEXT("headModTime")));
+		State.HeadChangeList = FCString::Atoi(*ClientRecord(TEXT("headChange")));
+
+		if (BranchModifications.Contains(BranchFile))
+		{
+			const FBranchModification& BranchModification = BranchModifications[BranchFile];
+
+			if (BranchModification.BranchName.Len())
+			{
+				// If the branch modification change is more recent record it
+				if (BranchModification.ModTime > State.HeadModTime)
+				{
+					State.HeadBranch = BranchModification.BranchName;
+					State.HeadAction = BranchModification.Action;
+					State.HeadModTime = BranchModification.ModTime;
+					State.HeadChangeList = BranchModification.ChangeList;
+				}
+			}
+			
+			// Setup other branch check outs
+			if (BranchModification.CheckedOutBranches.Num())
+			{
+				State.OtherUserBranchCheckedOuts += BranchModification.OtherUserCheckedOut;
+
+				for (auto& OtherBranch : BranchModification.CheckedOutBranches)
+				{
+					State.CheckedOutBranches.AddUnique(OtherBranch);
+				}
+			}
 		}
 		
 		if (HeadRev.Len() > 0 && HaveRev.Len() > 0)
@@ -917,21 +1125,57 @@ bool FPerforceUpdateStatusWorker::Execute(FPerforceSourceControlCommand& InComma
 			// We want to include integration record information:
 			Parameters.Add(TEXT("-Or"));
 
+			// Get the branches of interest for status updates
+			const FString& ContentRoot = InCommand.ContentRoot;
+			const TArray<FString>& StatusBranches = InCommand.StatusBranchNames;
+			
 			// Mandatory parameters (the list of files to stat):
-			for (FString& File : InCommand.Files)
+			for (FString File : InCommand.Files)
 			{
 				if (IFileManager::Get().DirectoryExists(*File))
 				{
 					// If the file is a directory, do a recursive fstat on the contents
 					File /= TEXT("...");
 				}
+				else
+				{
+					for (auto& Branch : StatusBranches )
+					{
+						// Check the status branch for updates
+						FString BranchFile;
+						if (File.Split(ContentRoot, nullptr, &BranchFile))
+						{
+							TArray<FStringFormatArg> Args = { Branch, ContentRoot, BranchFile };							
+							Parameters.Add(FString::Format(TEXT("{0}/{1}{2}"), Args));
+						}
+					}
+				}
 
 				Parameters.Add(File);
 			}
 
+			// Initially successful
+			InCommand.bCommandSuccessful = true;
+
+			// Parse branch modifications
+			TMap<FString, FBranchModification> BranchModifications;
+			if (StatusBranches.Num())
+			{
+				// Get all revisions to check for modifications on other branches			
+				TArray<FString> RevisionParameters = Parameters;
+				// Sort by head revision
+				RevisionParameters.Insert(TEXT("-Sr"), 0);
+				// Note: -Of suppresses open[...], so must be generated in a separate query
+				RevisionParameters.Insert(TEXT("-Of"), 0);
+
+				FP4RecordSet RevisionRecords;
+				InCommand.bCommandSuccessful &= Connection.RunCommand(TEXT("fstat"), RevisionParameters, RevisionRecords, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
+				ParseBranchModificationResults(RevisionRecords, InCommand.ErrorMessages, ContentRoot, BranchModifications);
+			}			
+			
 			FP4RecordSet Records;
-			InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("fstat"), Parameters, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
-			ParseUpdateStatusResults(Records, InCommand.ErrorMessages, OutStates);
+			InCommand.bCommandSuccessful &= Connection.RunCommand(TEXT("fstat"), Parameters, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
+			ParseUpdateStatusResults(Records, InCommand.ErrorMessages, OutStates, ContentRoot, BranchModifications);
 			RemoveRedundantErrors(InCommand, TEXT(" - no such file(s)."));
 			RemoveRedundantErrors(InCommand, TEXT("' is not under client's root '"));
 		}

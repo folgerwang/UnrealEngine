@@ -18,6 +18,7 @@ import java.text.DecimalFormat;
 import android.annotation.TargetApi;
 
 import android.app.NativeActivity;
+import android.app.ActivityManager;
 import android.os.Bundle;
 import android.util.Log;
 
@@ -168,6 +169,15 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 	static boolean first_acceleration_sample = true;
 	static final float SampleDecayRate = 0.85f;
 	public static Logger Log = new Logger("UE4");
+
+	// From cpufeatures.h AndroidCpuFamily enum
+	private static final int ANDROID_CPU_FAMILY_UNKNOWN = 0;
+	private static final int ANDROID_CPU_FAMILY_ARM = 1;
+	private static final int ANDROID_CPU_FAMILY_X86 = 2;
+	private static final int ANDROID_CPU_FAMILY_MIPS = 3;
+	private static final int ANDROID_CPU_FAMILY_ARM64 = 4;
+	private static final int ANDROID_CPU_FAMILY_X86_64 = 5;
+	private static final int ANDROID_CPU_FAMILY_MIPS64 = 6;
 	
 	public static final int DOWNLOAD_ACTIVITY_ID = 80001; // so we can identify the activity later
 	public static final int DOWNLOAD_NO_RETURN_CODE = 0; // we didn't get a return code - will need to log and debug as this shouldn't happen
@@ -194,6 +204,7 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		"stat DumpHitches","stat Engine","stat Game","stat Grouped","stat Hitches","stat InitViews","stat LightRendering",
 		"stat Memory","stat Particles","stat SceneRendering","stat SceneUpdate","stat ShadowRendering","stat Slow",
 		"stat Streaming","stat StreamingDetails","stat Unit","stat UnitGraph", "stat StartFile", "stat StopFile", "GameVer", "show PostProcessing", "stat AndroidCPU"};
+
 	AlertDialog consoleAlert;
 	LinearLayout consoleAlertLayout;
 	Spinner consoleSpinner;
@@ -267,6 +278,14 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 
 	/** Flag to ensure we have finished startup before allowing nativeOnActivityResult to get called */
 	private boolean InitCompletedOK = false;
+
+	/** Flag to force game to end with error on resume */
+	private boolean bForceGameEndWithError = false;
+
+	/** Text to show the error state for bForceGameEndWithError */
+	private String ForceExitCaption = "";
+	private String ForceExitMessage = "";
+	private String ForceExitButtonText = "";
 	
 	private boolean ShouldHideUI = false;
 
@@ -633,6 +652,7 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		appPackageName = getPackageName();
 		String ProjectName = getPackageName();
 		ProjectName = ProjectName.substring(ProjectName.lastIndexOf('.') + 1);
+		String AppType = "";
 		try {
 			ApplicationInfo ai = getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA);
 			Bundle bundle = ai.metaData;
@@ -675,6 +695,17 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 			else
 			{
 				Log.debug( "Did not find ProjectName, using package name = " + ProjectName);
+			}
+			
+			// Get the application type from AndroidManifest.xml
+			if (bundle.containsKey("com.epicgames.ue4.GameActivity.AppType"))
+			{
+				AppType = bundle.getString("com.epicgames.ue4.GameActivity.AppType");
+				Log.debug( "Found AppType = " + AppType);
+			}
+			else
+			{
+				Log.debug( "Did not find AppType, using default application type");
 			}
 			
 			if (bundle.containsKey("com.epicgames.ue4.GameActivity.bHasOBBFiles"))
@@ -761,7 +792,7 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		{
 			int Version = getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
 			int PatchVersion = 0;
-			nativeSetObbInfo(ProjectName, getApplicationContext().getPackageName(), Version, PatchVersion);
+			nativeSetObbInfo(ProjectName, getApplicationContext().getPackageName(), Version, PatchVersion, AppType);
 		}
 		catch (Exception e)
 		{
@@ -1117,6 +1148,40 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 	public void onResume()
 	{
 		super.onResume();
+
+		if (bForceGameEndWithError)
+		{
+			_activity.runOnUiThread(new Runnable()
+			{
+				@Override
+				public void run()
+				{
+					AlertDialog.Builder Builder = new AlertDialog.Builder(_activity);
+					Builder.setTitle(ForceExitCaption);
+					Builder.setMessage(ForceExitMessage);
+					Builder.setPositiveButton("Exit", null);
+
+					AlertDialog.Builder dialog = new AlertDialog.Builder(_activity);
+					dialog.setCancelable(false);
+					dialog.setTitle(ForceExitCaption);
+					dialog.setMessage(ForceExitMessage);
+					dialog.setPositiveButton(ForceExitButtonText, new DialogInterface.OnClickListener() {
+						@Override
+						public void onClick(DialogInterface dialog, int id) {
+							dialog.dismiss();
+							System.exit(0);
+						}
+					});
+
+					final AlertDialog alert = dialog.create();
+					alert.show();
+					return;
+				}
+			});
+
+			return;
+		}
+
 		sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_GAME);
 		sensorManager.registerListener(this, magnetometer, SensorManager.SENSOR_DELAY_GAME);
 		sensorManager.registerListener(this, gyroscope, SensorManager.SENSOR_DELAY_GAME);
@@ -2673,6 +2738,30 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 			return VulkanLevel;
 		}
 		else
+		if (key.equals("ue4.getUsedMemory"))
+		{
+			int ProcessMemory = 0;
+
+			ActivityManager activityManager = (ActivityManager)_activity.getSystemService(Context.ACTIVITY_SERVICE);
+			int pid = android.os.Process.myPid();
+			int pids[] = new int[] { pid };
+			android.os.Debug.MemoryInfo[] memoryInfo = activityManager.getProcessMemoryInfo(pids);
+			if (memoryInfo.length > 0)
+			{
+				ProcessMemory = memoryInfo[0].dalvikPss + memoryInfo[0].nativePss + memoryInfo[0].otherPss;
+
+				if (Build.VERSION.SDK_INT >= 23)
+				{
+					Map<String, String> memstats = memoryInfo[0].getMemoryStats();
+					if (memstats.containsKey("summary.total-pss") && memstats.containsKey("summary.system"))
+					{
+						ProcessMemory = Integer.parseInt(memstats.get("summary.total-pss")) - Integer.parseInt(memstats.get("summary.system"));
+					}
+				}
+			}
+			return ProcessMemory;
+		}
+		else
 		if (key.equals("audiomanager.framesPerBuffer"))
 		{
 			AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
@@ -3043,6 +3132,33 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 						nativeVirtualKeyboardChanged(message);
 					}
 				}
+				downgradeEasyCorrectionSpans();
+			}
+
+			/**
+			 * Downgrades to simple suggestions all the easy correction spans that are not a spell check
+			 * span.
+			 */
+			private void downgradeEasyCorrectionSpans() 
+			{
+				CharSequence text = newVirtualKeyboardInput.getText();
+				if(android.os.Build.VERSION.SDK_INT >= 14) 
+				{
+					if (text instanceof android.text.Spannable) 
+					{
+						android.text.Spannable spannable = (android.text.Spannable) text;
+						android.text.style.SuggestionSpan[] suggestionSpans = spannable.getSpans(0, spannable.length(), android.text.style.SuggestionSpan.class);
+						for (int i = 0; i < suggestionSpans.length; i++) 
+						{
+							int flags = suggestionSpans[i].getFlags();
+							if ((flags & android.text.style.SuggestionSpan.FLAG_EASY_CORRECT) != 0 && (flags & android.text.style.SuggestionSpan.FLAG_MISSPELLED) == 0) 
+							{
+								flags &= ~android.text.style.SuggestionSpan.FLAG_EASY_CORRECT;
+								suggestionSpans[i].setFlags(flags);
+							}
+						}
+					}
+				}
 			}
 		});
 		
@@ -3071,10 +3187,13 @@ public class GameActivity extends NativeActivity implements SurfaceHolder.Callba
 		return false;
 	}
 
+	public native int nativeGetCPUFamily();
+	public native boolean nativeSupportsNEON();
+
 	public native boolean nativeIsShippingBuild();
 	public native void nativeSetGlobalActivity(boolean bUseExternalFilesDir, boolean bOBBInAPK, String APKPath);
 	public native void nativeSetWindowInfo(boolean bIsPortrait, int DepthBufferPreference);
-	public native void nativeSetObbInfo(String ProjectName, String PackageName, int Version, int PatchVersion);
+	public native void nativeSetObbInfo(String ProjectName, String PackageName, int Version, int PatchVersion, String AppType);
 	public native void nativeSetAndroidVersionInformation( String AndroidVersion, String PhoneMake, String PhoneModel, String OSLanguage );
 
 	public native void nativeSetSurfaceViewInfo(int width, int height);

@@ -27,6 +27,5 @@ public:
 
 	virtual float GetCurrentDistance(FAudioDevice* AudioDevice, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams) const override;
 	virtual bool AllowCrossfading(FActiveSound& ActiveSound) const override;
-	virtual float MaxAudibleDistance(float CurrentMaxDistance) override;
 
 };

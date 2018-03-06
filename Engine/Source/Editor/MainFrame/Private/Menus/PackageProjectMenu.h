@@ -152,6 +152,10 @@ protected:
 	{
 		for (const PlatformInfo::FPlatformInfo* SubPlatformInfo : SubPlatformInfos)
 		{
+			if (SubPlatformInfo->PlatformType != PlatformInfo::EPlatformType::Game)
+			{
+				continue;
+			}
 			AddPlatformToMenu(MenuBuilder, *SubPlatformInfo);
 		}
 	}

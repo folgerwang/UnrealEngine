@@ -151,6 +151,9 @@ FReply FProceduralMeshComponentDetails::ClickedOnConvertToStaticMesh()
 					RawMesh.WedgeTangentZ.Add(TangentZ);
 
 					RawMesh.WedgeTexCoords[0].Add(ProcVertex.UV0);
+					RawMesh.WedgeTexCoords[1].Add(ProcVertex.UV1);
+					RawMesh.WedgeTexCoords[2].Add(ProcVertex.UV2);
+					RawMesh.WedgeTexCoords[3].Add(ProcVertex.UV3);
 					RawMesh.WedgeColors.Add(ProcVertex.Color);
 				}
 

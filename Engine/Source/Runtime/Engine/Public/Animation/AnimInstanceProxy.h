@@ -781,6 +781,10 @@ private:
 	/** Cached SkeletalMeshComponent Owner Transform */
 	FTransform SkelMeshCompOwnerTransform;
 
+	/** During animation update and eval, records the number of frames we will skip due to URO */
+	int16 NumUroSkippedFrames_Update;
+	int16 NumUroSkippedFrames_Eval;
+
 protected:
 
 	/** When RequiredBones mapping has changed, AnimNodes need to update their bones caches. */

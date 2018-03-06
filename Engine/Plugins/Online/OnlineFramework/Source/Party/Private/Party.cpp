@@ -1508,6 +1508,8 @@ void UParty::AddPendingPartyJoin(const FUniqueNetId& LocalUserId, TSharedRef<con
 
 void UParty::ClearPendingPartyJoin()
 {
+	UE_LOG(LogParty, Log, TEXT("[UParty::ClearPendingPartyJoin] Clearing pending party join: HadPendingInvite=[%s]"), HasPendingPartyJoin() ? TEXT("true") : TEXT("false"));
+
 	PendingPartyJoin.Reset();
 }
 

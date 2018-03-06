@@ -435,12 +435,12 @@ public:
 	 * @param StructValue	Location in memory of Struct or Object
 	 * @param AssetBundle	Bundle that will be filled out
 	 */
-	virtual void InitializeAssetBundlesFromMetadata(const UStruct* Struct, const void* StructValue, FAssetBundleData& AssetBundle) const;
+	virtual void InitializeAssetBundlesFromMetadata(const UStruct* Struct, const void* StructValue, FAssetBundleData& AssetBundle, FName DebugName = NAME_None) const;
 
 	/** UObject wrapper */
 	virtual void InitializeAssetBundlesFromMetadata(const UObject* Object, FAssetBundleData& AssetBundle) const
 	{
-		InitializeAssetBundlesFromMetadata(Object->GetClass(), Object, AssetBundle);
+		InitializeAssetBundlesFromMetadata(Object->GetClass(), Object, AssetBundle, Object->GetFName());
 	}
 
 #endif

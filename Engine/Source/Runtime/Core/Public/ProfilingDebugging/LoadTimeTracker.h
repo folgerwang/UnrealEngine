@@ -31,6 +31,9 @@ public:
 	/** Adds a scoped time for a given label.  Records each instance individually */
 	void ReportScopeTime(double ScopeTime, const FName ScopeLabel);
 
+	/** Gets/adds a scoped time for a given label and instance. Records each instance individually */
+	double& GetScopeTimeAccumulator(const FName& ScopeLabel, const FName& ScopeInstance);
+
 	/** Prints out total time and individual times */
 	void DumpHighLevelLoadTimes() const;
 
@@ -55,6 +58,27 @@ public:
 	}
 
 	void ResetRawLoadTimes();
+
+	static void ResetRawLoadTimesStatic()
+	{
+		Get().ResetRawLoadTimes();
+	}
+
+	void StartAccumulatedLoadTimes();
+
+	static void StartAccumulatedLoadTimesStatic()
+	{
+		Get().StartAccumulatedLoadTimes();
+	}
+
+	void StopAccumulatedLoadTimes();
+
+	static void StopAccumulatedLoadTimesStatic()
+	{
+		Get().StopAccumulatedLoadTimes();
+	}
+
+	bool IsAccumulating() { return bAccumulating; }
 
 #if ENABLE_LOADTIME_RAW_TIMINGS
 
@@ -140,14 +164,47 @@ public:
 
 private:
 	TMap<FName, TArray<double>> TimeInfo;
+
+	/** Track a time and count for a stat */
+	struct FTimeAndCount
+	{
+		double Time;
+		uint64 Count;
+	};
+
+	/** An accumulated stat group, with time and count for each instance */
+	struct FAccumulatorTracker
+	{
+		TMap<FName, FTimeAndCount> TimeInfo;
+	};
+
+	/** Map to track accumulated timings */
+	TMap<FName, FAccumulatorTracker> AccumulatedTimeInfo;
+
+	/** We dont normally track accumulated load time info, only when this flag is true */
+	bool bAccumulating;
 private:
 	FLoadTimeTracker();
+};
+
+/** Scoped helper class for tracking accumulated object times */
+struct CORE_API FScopedLoadTimeAccumulatorTimer : public FScopedDurationTimer
+{
+	static double DummyTimer;
+
+	FScopedLoadTimeAccumulatorTimer(const FName& InTimerName, const FName& InInstanceName);
 };
 
 #if ENABLE_LOADTIME_TRACKING
 #define ACCUM_LOADTIME(TimerName, Time) FLoadTimeTracker::Get().ReportScopeTime(Time, FName(TimerName));
 #else
 #define ACCUM_LOADTIME(TimerName, Time)
+#endif
+
+#if ENABLE_LOADTIME_TRACKING
+#define SCOPED_ACCUM_LOADTIME(TimerName, InstanceName) FScopedLoadTimeAccumulatorTimer AccumulatorTimer_##TimerName(FName(#TimerName), FName(InstanceName));
+#else
+#define SCOPED_ACCUM_LOADTIME(TimerName, InstanceName)
 #endif
 
 #if ENABLE_LOADTIME_RAW_TIMINGS

@@ -74,7 +74,7 @@ UObjectBase::UObjectBase( EObjectFlags InFlags )
 ,	InternalIndex		(INDEX_NONE)
 ,	ClassPrivate		(nullptr)
 ,	OuterPrivate		(nullptr)
-#if ENABLE_STATNAMEDEVENTS
+#if ENABLE_STATNAMEDEVENTS_UOBJECT
 , StatIDStringStorage(nullptr)
 #endif
 {}
@@ -92,7 +92,7 @@ UObjectBase::UObjectBase(UClass* InClass, EObjectFlags InFlags, EInternalObjectF
 ,	InternalIndex		(INDEX_NONE)
 ,	ClassPrivate		(InClass)
 ,	OuterPrivate		(InOuter)
-#if ENABLE_STATNAMEDEVENTS
+#if ENABLE_STATNAMEDEVENTS_UOBJECT
 , StatIDStringStorage(nullptr)
 #endif
 {
@@ -116,13 +116,13 @@ UObjectBase::~UObjectBase()
 		GUObjectArray.FreeUObjectIndex(this);
 	}
 
-#if ENABLE_STATNAMEDEVENTS
+#if ENABLE_STATNAMEDEVENTS_UOBJECT
 	delete[] StatIDStringStorage;
 	StatIDStringStorage = nullptr;
 #endif
 }
 
-#if STATS || ENABLE_STATNAMEDEVENTS
+#if STATS || ENABLE_STATNAMEDEVENTS_UOBJECT
 
 void UObjectBase::CreateStatID() const
 {

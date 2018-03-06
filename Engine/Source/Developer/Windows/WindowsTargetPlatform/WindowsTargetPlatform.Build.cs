@@ -6,7 +6,7 @@ public class WindowsTargetPlatform : ModuleRules
 {
 	public WindowsTargetPlatform(ReadOnlyTargetRules Target) : base(Target)
 	{
-		PrivateDependencyModuleNames.AddRange(
+        PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"Core",
 				"CoreUObject",

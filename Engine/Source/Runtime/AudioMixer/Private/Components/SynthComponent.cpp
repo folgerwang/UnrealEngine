@@ -18,7 +18,8 @@ void USynthSound::Init(USynthComponent* InSynthComponent, const int32 InNumChann
 	NumSamplesToGeneratePerCallback = InCallbackSize;
 	// Turn off async generation in old audio engine on mac.
 #if PLATFORM_MAC
-	if (!InSynthComponent->GetAudioDevice()->IsAudioMixerEnabled())
+	const FAudioDevice* AudioDevice = InSynthComponent->GetAudioDevice();
+	if (AudioDevice && !AudioDevice->IsAudioMixerEnabled())
 	{
 		bCanProcessAsync = false;
 	}
@@ -231,8 +232,8 @@ void USynthComponent::CreateAudioComponent()
 			AudioComponent->OnAudioSingleEnvelopeValueNative.AddUObject(this, &USynthComponent::OnAudioComponentEnvelopeValue);
 
 			// Set defaults to be the same as audio component defaults
-			EnvelopeFollowerAttackTime = AudioComponent->EnvelopeFollowerAttackTime;
-			EnvelopeFollowerReleaseTime = AudioComponent->EnvelopeFollowerReleaseTime;
+			AudioComponent->EnvelopeFollowerAttackTime = EnvelopeFollowerAttackTime;
+			AudioComponent->EnvelopeFollowerReleaseTime = EnvelopeFollowerReleaseTime;
 
 			Initialize();
 

@@ -69,6 +69,14 @@ public:
 		, Right(InRight)
 		, Bottom(InBottom)
 	{ }
+
+	/** Construct a Margin where the margins are coming from a FVector4 */
+	FMargin(const FVector4& InVector)
+		: Left(InVector.X)
+		, Top(InVector.Y)
+		, Right(InVector.Z)
+		, Bottom(InVector.W)
+	{ }
 	
 public:
 
@@ -162,6 +170,7 @@ public:
 	}
 };
 
+template <> struct TIsPODType<FMargin> { enum { Value = true }; };
 
 template<>
 inline float FMargin::GetTotalSpaceAlong<Orient_Horizontal>( ) const { return Left + Right; }

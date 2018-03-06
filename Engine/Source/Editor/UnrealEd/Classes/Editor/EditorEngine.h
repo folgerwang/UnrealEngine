@@ -1942,11 +1942,12 @@ public:
 	 * Copies selected actors to the clipboard.  Supports copying actors from multiple levels.
 	 * NOTE: Doesn't support copying prefab instance actors!
 	 *
-	 * @param InWorld		World to get the selected actors from
-	 * @param bShouldCut If true, deletes the selected actors after copying them to the clipboard
-	 * @param bShouldCut If true, this cut is part of a move and the actors will be immediately pasted
+	 * @param InWorld				World to get the selected actors from
+	 * @param bShouldCut			If true, deletes the selected actors after copying them to the clipboard
+	 * @param bIsMove				If true, this cut is part of a move and the actors will be immediately pasted
+	 * @param bWarnAboutReferences	Whether or not to show a modal warning about referenced actors that may no longer function after being moved
 	 */
-	void CopySelectedActorsToClipboard( UWorld* InWorld, const bool bShouldCut, const bool bIsMove = false );
+	void CopySelectedActorsToClipboard( UWorld* InWorld, const bool bShouldCut, const bool bIsMove = false, bool bWarnAboutReferences = true);
 
 	/**
 	 * Checks to see whether it's possible to perform a paste operation.

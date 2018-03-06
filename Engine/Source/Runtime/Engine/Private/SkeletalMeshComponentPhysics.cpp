@@ -518,6 +518,14 @@ int32 USkeletalMeshComponent::FindRootBodyIndex() const
 	return RootBodyIndex;
 }
 
+static int32 bAllowNotForDedServerPhysicsAssets = 1;
+static FAutoConsoleVariableRef CVarAllowCachedOverlaps(
+	TEXT("p.AllowNotForDedServerPhysicsAssets"),
+	bAllowNotForDedServerPhysicsAssets,
+	TEXT("Allow 'Not For Dedicated Server' flag on PhysicsAssets\n")
+	TEXT("0: ignore flag, 1: obey flag (default)"),
+	ECVF_Default);
+
 void USkeletalMeshComponent::InitArticulated(FPhysScene* PhysScene)
 {
 	SCOPE_CYCLE_COUNTER(STAT_InitArticulated);
@@ -532,6 +540,14 @@ void USkeletalMeshComponent::InitArticulated(FPhysScene* PhysScene)
 	if(Bodies.Num() > 0)
 	{
 		UE_LOG(LogSkeletalMesh, Log, TEXT("USkeletalMeshComponent::InitArticulated : Bodies already created (%s) - call TermArticulated first."), *GetPathName());
+		return;
+	}
+
+	// Skip if not desired on dedicated server
+	UWorld* World = GetWorld();
+	if (PhysicsAsset->bNotForDedicatedServer && World && (World->GetNetMode() == NM_DedicatedServer) && bAllowNotForDedServerPhysicsAssets)
+	{
+		UE_LOG(LogSkeletalMesh, Log, TEXT("Skipping PhysicsAsset creation on dedicated server (%s : %s) %s"), *GetNameSafe(GetOuter()), *GetName(), *PhysicsAsset->GetName());
 		return;
 	}
 
@@ -1244,16 +1260,22 @@ void USkeletalMeshComponent::OnUpdateTransform(EUpdateTransformFlags UpdateTrans
 #endif
 	}
 
+	// Pass teleports on to anything in the animation tree that might be interested (e.g. AnimDynamics, RigidBody Node, etc.)
+	if(Teleport == ETeleportType::TeleportPhysics)
+	{
+		ResetAnimInstanceDynamics();
+	}
+
 	if(ClothingSimulation && ClothingSimulation->ShouldSimulate())
 	{
 		UpdateClothTransform(Teleport);
 	}
 }
 
-void USkeletalMeshComponent::UpdateOverlaps(TArray<FOverlapInfo> const* PendingOverlaps, bool bDoNotifies, const TArray<FOverlapInfo>* OverlapsAtEndLocation)
+bool USkeletalMeshComponent::UpdateOverlapsImpl(TArray<FOverlapInfo> const* PendingOverlaps, bool bDoNotifies, const TArray<FOverlapInfo>* OverlapsAtEndLocation)
 {
 	// Parent class (USkinnedMeshComponent) routes only to children, but we really do want to test our own bodies for overlaps.
-	UPrimitiveComponent::UpdateOverlaps(PendingOverlaps, bDoNotifies, OverlapsAtEndLocation);
+	return UPrimitiveComponent::UpdateOverlapsImpl(PendingOverlaps, bDoNotifies, OverlapsAtEndLocation);
 }
 
 bool USkeletalMeshComponent::ShouldCreatePhysicsState() const

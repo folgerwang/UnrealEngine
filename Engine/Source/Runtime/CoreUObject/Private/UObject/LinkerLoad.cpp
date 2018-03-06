@@ -3640,8 +3640,27 @@ UObject* FLinkerLoad::CreateExport( int32 Index )
 			// Remove RF_MarkAsNative;
 			Export.ObjectFlags = EObjectFlags(Export.ObjectFlags & ~RF_MarkAsNative);
 		}
+		
+		// Find or create the object's Outer.
+		UObject* ThisParent = NULL;
+		if( !Export.OuterIndex.IsNull() )
+		{
+			ThisParent = IndexToObject(Export.OuterIndex);
+		}
+		else if( Export.bForcedExport )
+		{
+			// Create the forced export in the TopLevel instead of LinkerRoot. Please note that CreatePackage
+			// will find and return an existing object if one exists and only create a new one if there doesn't.
+			Export.Object = CreatePackage( NULL, *Export.ObjectName.ToString() );
+			check(Export.Object);
+			FUObjectThreadContext::Get().ForcedExportCount++;
+		}
+		else
+		{
+			ThisParent = LinkerRoot;
+		}
 
-		if ( !LoadClass->HasAnyClassFlags(CLASS_Intrinsic) )
+		if ( !LoadClass->HasAnyClassFlags(CLASS_Intrinsic) || Cast<ULinkerPlaceholderExportObject>(ThisParent))
 		{
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 			if (LoadClass->HasAnyFlags(RF_NeedLoad))
@@ -3650,7 +3669,7 @@ UObject* FLinkerLoad::CreateExport( int32 Index )
 			}
 			else if ((Export.Object == nullptr) && !(Export.ObjectFlags & RF_ClassDefaultObject))
 			{
-				bool const bExportWasDeferred = DeferExportCreation(Index);
+				bool const bExportWasDeferred = DeferExportCreation(Index, ThisParent);
 				if (bExportWasDeferred)
 				{
 #if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
@@ -3711,26 +3730,6 @@ UObject* FLinkerLoad::CreateExport( int32 Index )
 			Arguments.Add(TEXT("ClassName"), FText::FromString(LoadClass->GetPathName()));
 			//@todo - should this actually be an assertion?
 			LoadErrors.Warning(FText::Format(LOCTEXT("LoadingTransientInstance", "Attempting to load an instance of a transient class from disk - Package:'{PackageName}'  Object:'{ObjectName}'  Class:'{ClassName}'"), Arguments));
-		}
-
-		
-		// Find or create the object's Outer.
-		UObject* ThisParent = NULL;
-		if( !Export.OuterIndex.IsNull() )
-		{
-			ThisParent = IndexToObject(Export.OuterIndex);
-		}
-		else if( Export.bForcedExport )
-		{
-			// Create the forced export in the TopLevel instead of LinkerRoot. Please note that CreatePackage
-			// will find and return an existing object if one exists and only create a new one if there doesn't.
-			Export.Object = CreatePackage( NULL, *Export.ObjectName.ToString() );
-			check(Export.Object);
-			FUObjectThreadContext::Get().ForcedExportCount++;
-		}
-		else
-		{
-			ThisParent = LinkerRoot;
 		}
 
 		// If loading the object's Outer caused the object to be loaded or if it was a forced export package created
@@ -4992,6 +4991,7 @@ bool FLinkerLoad::FinishExternalReadDependencies(double InTimeLimit)
 {
 	double LocalStartTime = FPlatformTime::Seconds();
 	double RemainingTime = InTimeLimit;
+	const int32 Granularity = 5;
 	
 	while (ExternalReadDependencies.Num())
 	{
@@ -5007,16 +5007,17 @@ bool FLinkerLoad::FinishExternalReadDependencies(double InTimeLimit)
 		}
 
 		// Update remaining time
-		if (RemainingTime > 0.0)
+		if (InTimeLimit > 0.0 && (ExternalReadDependencies.Num() % Granularity) == 0)
 		{
-			RemainingTime-= (FPlatformTime::Seconds() - LocalStartTime);
+			RemainingTime = InTimeLimit - (FPlatformTime::Seconds() - LocalStartTime);
 			if (RemainingTime <= 0.0)
 			{
 				return false;
 			}
 		}
 	}
-	return true;
+
+	return (ExternalReadDependencies.Num() == 0);
 }
 
 #if WITH_EDITORONLY_DATA

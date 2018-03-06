@@ -9,13 +9,22 @@ public class Expat : ModuleRules
 	{
 		Type = ModuleType.External;
 
-		string ExpatPackagePath = Target.UEThirdPartySourceDirectory + "Expat";
+		string ExpatPackagePath = Path.Combine(Target.UEThirdPartySourceDirectory, "Expat", "expat-2.2.0");
+
+		if (Target.Platform != UnrealTargetPlatform.XboxOne &&
+			Target.Platform != UnrealTargetPlatform.Android &&
+			Target.Platform != UnrealTargetPlatform.IOS)
+		{
+			throw new BuildException("Unexpectedly pulled in Expat module. You may need to update Expat.build.cs for platform support");
+		}
+
+		string IncludePath = Path.Combine(ExpatPackagePath, "lib");
+		PublicSystemIncludePaths.Add(IncludePath);
+
+		string ConfigName = (Target.Configuration == UnrealTargetConfiguration.Debug && Target.bDebugBuildsActuallyUseDebugCRT) ? "Debug" : "Release";
 
 		if (Target.Platform == UnrealTargetPlatform.XboxOne)
 		{
-			string IncludePath = Path.Combine(ExpatPackagePath, "expat-2.2.0/lib");
-			PublicSystemIncludePaths.Add(IncludePath);
-
 			// Use reflection to allow type not to exist if console code is not present
 			string ToolchainName = "VS";
 			System.Type XboxOnePlatformType = System.Type.GetType("UnrealBuildTool.XboxOnePlatform,UnrealBuildTool");
@@ -25,10 +34,21 @@ public class Expat : ModuleRules
 				ToolchainName += VersionName.ToString();
 			}
 
-			string ConfigPath = (Target.Configuration == UnrealTargetConfiguration.Debug && Target.bDebugBuildsActuallyUseDebugCRT) ? "Debug" : "Release";
-			string LibraryPath = Path.Combine(ExpatPackagePath, "expat-2.2.0", "XboxOne", ToolchainName, ConfigPath);
-
+			string LibraryPath = Path.Combine(ExpatPackagePath, "XboxOne", ToolchainName, ConfigName);
 			PublicAdditionalLibraries.Add(Path.Combine(LibraryPath, "expat.lib"));
 		}
-    }
+		else if (Target.Platform == UnrealTargetPlatform.Android)
+		{
+			string LibraryPath = Path.Combine(ExpatPackagePath, "Android", ConfigName);
+			PublicLibraryPaths.Add(Path.Combine(LibraryPath, "armv7"));
+			PublicLibraryPaths.Add(Path.Combine(LibraryPath, "arm64"));
+
+			PublicAdditionalLibraries.Add("expat");
+		}
+		else if (Target.Platform == UnrealTargetPlatform.IOS)
+		{
+			PublicAdditionalLibraries.Add(Path.Combine(ExpatPackagePath, "IOS", ConfigName, "libexpat.a"));
+			PublicAdditionalShadowFiles.Add(Path.Combine(ExpatPackagePath, "IOS", ConfigName, "libexpat.a"));
+		}
+	}
 }

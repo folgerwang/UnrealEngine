@@ -378,6 +378,13 @@ void FColorVertexBuffer::InitRHI()
 	}
 }
 
+void FColorVertexBuffer::ReleaseRHI()
+{
+	ColorComponentsSRV.SafeRelease();
+
+	FVertexBuffer::ReleaseRHI();
+}
+
 void FColorVertexBuffer::AllocateData( bool bNeedsCPUAccess /*= true*/ )
 {
 	// @todo replace all this. VertexData should be TUniquePtr<FColorVertexData>

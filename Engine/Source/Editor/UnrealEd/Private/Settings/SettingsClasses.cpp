@@ -113,6 +113,7 @@ UEditorExperimentalSettings::UEditorExperimentalSettings( const FObjectInitializ
 	, bEnableLocalizationDashboard(true)
 	, bUseOpenCLForConvexHullDecomp(false)
 	, bAllowPotentiallyUnsafePropertyEditing(false)
+	, bUseNewHLODPackageNamingConvention(false)
 {
 }
 
@@ -397,6 +398,14 @@ void ULevelEditorPlaySettings::PostEditChangeProperty(struct FPropertyChangedEve
 		BuildGameBeforeLaunch = EPlayOnBuildMode::PlayOnBuild_Never;
 	}
 
+	if (PropertyChangedEvent.Property && PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, bOnlyLoadVisibleLevelsInPIE))
+	{
+		for (TObjectIterator<UWorld> WorldIt; WorldIt; ++WorldIt)
+		{
+			WorldIt->PopulateStreamingLevelsToConsider();
+		}
+	}
+
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 
@@ -578,6 +587,15 @@ void UProjectPackagingSettings::PostEditChangeProperty( FPropertyChangedEvent& P
 		FString Path = StagingDirectory.Path;
 		FPaths::MakePathRelativeTo(Path, FPlatformProcess::BaseDir());
 		StagingDirectory.Path = Path;
+	}
+	else if (Name == FName(TEXT("ForDistribution")))
+	{
+		if (ForDistribution && BuildConfiguration != EProjectPackagingBuildConfigurations::PPBC_Shipping && BuildConfiguration != EProjectPackagingBuildConfigurations::PPBC_ShippingClient)
+		{
+			BuildConfiguration = EProjectPackagingBuildConfigurations::PPBC_Shipping;
+			// force serialization for "Build COnfiguration"
+			UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UProjectPackagingSettings, BuildConfiguration)), GetDefaultConfigFilename());
+		}
 	}
 	else if (Name == FName(TEXT("bGenerateChunks")))
 	{

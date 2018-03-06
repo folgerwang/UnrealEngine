@@ -234,6 +234,32 @@ public:
 		HttpThreadIdleMinimumSleepTimeInSeconds = InHttpThreadIdleMinimumSleepTimeInSeconds;
 	}
 
+	/**
+	 * @returns The current proxy address.
+	 */
+	inline const FString& GetProxyAddress()
+	{
+		return ProxyAddress;
+	}
+
+	/**
+	 * Setter for the proxy address.
+	 * @param InProxyAddress - New proxy address to use.
+	 */
+	inline void SetProxyAddress(const FString& InProxyAddress)
+	{
+		ProxyAddress = InProxyAddress;
+	}
+
+	/**
+	 * Method to check dynamic proxy setting support.
+	 * @returns Whether this http implementation supports dynamic proxy setting.
+	 */
+	inline bool SupportsDynamicProxy() const
+	{
+		return bSupportsDynamicProxy;
+	}
+
 private:
 
 	// IModuleInterface
@@ -292,4 +318,8 @@ private:
 	bool bUseNullHttp;
 	/** singleton for the module while loaded and available */
 	static FHttpModule* Singleton;
+	/** The address to use for proxy, in format IPADDRESS:PORT */
+	FString ProxyAddress;
+	/** Whether or not the http implementation we are using supports dynamic proxy setting. */
+	bool bSupportsDynamicProxy;
 };

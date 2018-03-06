@@ -33,5 +33,5 @@ uint32 ULocalizedOverlaysFactoryNew::GetMenuCategories() const
 
 bool ULocalizedOverlaysFactoryNew::ShouldShowInNewMenu() const
 {
-	return true;
+	return false;// true;
 }

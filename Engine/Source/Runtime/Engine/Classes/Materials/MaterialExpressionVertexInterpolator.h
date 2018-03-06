@@ -19,11 +19,12 @@ class UMaterialExpressionVertexInterpolator : public UMaterialExpressionCustomOu
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 	virtual uint32 GetInputType(int32 InputIndex) override { return MCT_Float4; }
 	virtual bool HasCustomSourceOutput() override { return true; }
-#endif
 
 	virtual FExpressionInput* GetInput(int32 InputIndex) override;
-	virtual FString GetFunctionName() const override { return TEXT("VertexInterpolator"); }
 	virtual FName GetInputName(int32 InputIndex) const override { return TEXT("VS"); }
+#endif
+
+	virtual FString GetFunctionName() const override { return TEXT("VertexInterpolator"); }
 
 	int32				InterpolatorIndex;
 	EMaterialValueType	InterpolatedType;

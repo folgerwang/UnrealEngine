@@ -114,8 +114,8 @@ public:
 	virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const override;
 	virtual FVector2D ComputeDesiredSize(float LayoutScale) const override;
 
-	static void SetSafeZoneScale(float InScale);
-	static float GetSafeZoneScale();
+	static void SetGlobalSafeZoneScale(float InScale);
+	static float GetGlobalSafeZoneScale();
 
 private:
 
@@ -139,5 +139,4 @@ private:
 	FMargin SafeMargin;
 
 	FDelegateHandle OnSafeFrameChangedHandle;
-	static float SafeZoneScale;
 };

@@ -877,12 +877,18 @@ void UEditorEngine::Init(IEngineLoop* InEngineLoop)
 	{
 		FTextLocalizationManager::Get().PushAutoEnableGameLocalizationPreview();
 		FTextLocalizationManager::Get().EnableGameLocalizationPreview();
+
+		// Always make sure dynamic resolution starts with a clean history.
+		GEngine->GetDynamicResolutionState()->ResetHistory();
 	});
 
 	FEditorDelegates::EndPIE.AddLambda([](bool)
 	{
 		FTextLocalizationManager::Get().PopAutoEnableGameLocalizationPreview();
 		FTextLocalizationManager::Get().DisableGameLocalizationPreview();
+
+		// Always resume the dynamic resolution state to ensure it is same state as in game builds when starting PIE.
+		GEngine->ResumeDynamicResolution();
 	});
 
 	// Initialize vanilla status before other systems that consume its status are started inside InitEditor()
@@ -1495,9 +1501,8 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 				// Iterate over streaming levels and compute whether the ViewLocation is in their associated volumes.
 				TMap<ALevelStreamingVolume*, bool> VolumeMap;
 
-				for( int32 LevelIndex = 0 ; LevelIndex < EditorContext.World()->StreamingLevels.Num() ; ++LevelIndex )
+				for (ULevelStreaming* StreamingLevel : EditorContext.World()->GetStreamingLevels())
 				{
-					ULevelStreaming* StreamingLevel = EditorContext.World()->StreamingLevels[LevelIndex];
 					if( StreamingLevel )
 					{
 						// Assume the streaming level is invisible until we find otherwise.
@@ -1541,9 +1546,9 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 						}
 
 						// Set the streaming level visibility status if we encountered at least one volume.
-						if ( bFoundValidVolume && StreamingLevel->bShouldBeVisibleInEditor != bStreamingLevelShouldBeVisible )
+						if ( bFoundValidVolume && StreamingLevel->GetShouldBeVisibleInEditor() != bStreamingLevelShouldBeVisible )
 						{
-							StreamingLevel->bShouldBeVisibleInEditor = bStreamingLevelShouldBeVisible;
+							StreamingLevel->SetShouldBeVisibleInEditor(bStreamingLevelShouldBeVisible);
 							bProcessViewer = true;
 						}
 					}
@@ -1589,6 +1594,8 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 		UReflectionCaptureComponent::UpdateReflectionCaptureContents(EditorContext.World());
 	}
 
+	EmitDynamicResolutionEvent(EDynamicResolutionStateEvent::BeginFrame);
+
 	// if we have the side-by-side world for "Play From Here", tick it unless we are ensuring slate is responsive
 	if( FSlateThrottleManager::Get().IsAllowingExpensiveTasks() )
 	{
@@ -1617,17 +1624,6 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 			UWorld* OldGWorld = NULL;
 			// Use the PlayWorld as the GWorld, because who knows what will happen in the Tick.
 			OldGWorld = SetPlayInEditorWorld( PlayWorld );
-
-			// Begin's dynamic resolution frame before any ticking of the world.
-			// Notes:
-			//  - We don't support dynamic resolution for multiple-world PIE, since the dynamic resolution state assume only
-			//	  one world ticking as we do in game builds.
-			//  - We don't support dynamic resolution in simulate because only implemented in FGameViewportClient and must remain so.
-			//	- We don't emit Begin frame when the world is paused.
-			if (LocalPieContextPtrs.Num() == 1 && PieContext.GameViewport && !PieContext.GameViewport->IsSimulateInEditorViewport() && PlayWorld->IsCameraMoveable())
-			{
-				EmitDynamicResolutionEvent(EDynamicResolutionStateEvent::BeginFrame);
-			}
 
 			// Transfer debug references to ensure debugging ref's are valid for this tick in case of multiple game instances.
 			if (OldGWorld && OldGWorld != PlayWorld)
@@ -2310,6 +2306,7 @@ UAudioComponent* UEditorEngine::ResetPreviewAudioComponent( USoundBase* Sound, U
 		{
 			PreviewSoundCue->FirstNode = SoundNode;
 			PreviewAudioComponent->Sound = PreviewSoundCue;
+			PreviewSoundCue->CacheAggregateValues();
 		}
 	}
 
@@ -2401,12 +2398,11 @@ void UEditorEngine::CloseEditedWorldAssets(UWorld* InWorld)
 
 	ClosingWorlds.Add(InWorld);
 
-	for (int32 Index = 0; Index < InWorld->StreamingLevels.Num(); ++Index)
+	for (ULevelStreaming* LevelStreaming : InWorld->GetStreamingLevels())
 	{
-		ULevelStreaming* LevelStreaming = InWorld->StreamingLevels[Index];
-		if (LevelStreaming && LevelStreaming->LoadedLevel)
+		if (LevelStreaming && LevelStreaming->GetLoadedLevel())
 		{
-			ClosingWorlds.Add(CastChecked<UWorld>(LevelStreaming->LoadedLevel->GetOuter()));
+			ClosingWorlds.Add(LevelStreaming->GetWorld());
 		}
 	}
 
@@ -2505,10 +2501,9 @@ bool UEditorEngine::WarnAboutHiddenLevels( UWorld* InWorld, bool bIncludePersist
 
 	// Make a list of all hidden streaming levels.
 	TArray< ULevelStreaming* > HiddenLevels;
-	for( int32 LevelIndex = 0 ; LevelIndex< InWorld->StreamingLevels.Num() ; ++LevelIndex )
+	for (ULevelStreaming* StreamingLevel : InWorld->GetStreamingLevels())
 	{
-		ULevelStreaming* StreamingLevel = InWorld->StreamingLevels[ LevelIndex ];
-		if( StreamingLevel && !FLevelUtils::IsLevelVisible( StreamingLevel ) )
+		if( StreamingLevel && !FLevelUtils::IsStreamingLevelVisibleInEditor( StreamingLevel ) )
 		{
 			HiddenLevels.Add( StreamingLevel );
 		}
@@ -2557,7 +2552,7 @@ bool UEditorEngine::WarnAboutHiddenLevels( UWorld* InWorld, bool bIncludePersist
 			// so would be much more inefficient, resulting in several calls to UpdateLevelStreaming
 			for( int32 HiddenLevelIdx = 0; HiddenLevelIdx < HiddenLevels.Num(); ++HiddenLevelIdx )
 			{
-				HiddenLevels[ HiddenLevelIdx ]->bShouldBeVisibleInEditor = true;
+				HiddenLevels[ HiddenLevelIdx ]->SetShouldBeVisibleInEditor(true);
 			}
 
 			InWorld->FlushLevelStreaming();
@@ -6125,14 +6120,16 @@ bool UEditorEngine::ShouldThrottleCPUUsage() const
 		// Check if we should throttle due to all windows being minimized
 		if ( !bShouldThrottle )
 		{
-			return bShouldThrottle = AreAllWindowsHidden();
+			 bShouldThrottle = AreAllWindowsHidden();
 		}
-	}
 
-	// Don't throttle during amortized export, greatly increases export time
-	if (IsLightingBuildCurrentlyExporting())
-	{
-		return false;
+		static const FName AssetRegistryName(TEXT("AssetRegistry"));
+		FAssetRegistryModule* AssetRegistryModule = FModuleManager::GetModulePtr<FAssetRegistryModule>(AssetRegistryName);
+		// Don't throttle during amortized export, greatly increases export time
+		if (IsLightingBuildCurrentlyExporting() || GShaderCompilingManager->IsCompiling() || (AssetRegistryModule && AssetRegistryModule->Get().IsLoadingAssets()))
+		{
+			bShouldThrottle = false;
+		}
 	}
 
 	return bShouldThrottle && !IsRunningCommandlet();

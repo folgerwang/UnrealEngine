@@ -173,15 +173,58 @@ bool FHttpRetrySystem::FManager::HasTimedOut(const FHttpRetryRequestEntry& HttpR
 
 float FHttpRetrySystem::FManager::GetLockoutPeriodSeconds(const FHttpRetryRequestEntry& HttpRetryRequestEntry)
 {
-    float lockoutTime = 0.0f;
+	float LockoutPeriod = 0.0f;
 
-    if(HttpRetryRequestEntry.CurrentRetryCount >= 1)
-    {
-        lockoutTime = 5.0f + 5.0f * ((HttpRetryRequestEntry.CurrentRetryCount - 1) >> 1);
-        lockoutTime = lockoutTime > 30.0f ? 30.0f : lockoutTime;
-    }
+	// Check if there was a Retry-After header
+	FHttpResponsePtr Response = HttpRetryRequestEntry.Request->GetResponse();
+	if (Response.IsValid())
+	{
+		int32 ResponseCode = Response->GetResponseCode();
+		if (ResponseCode == EHttpResponseCodes::TooManyRequests || ResponseCode == EHttpResponseCodes::ServiceUnavail)
+		{
+			FString RetryAfter = Response->GetHeader(TEXT("Retry-After"));
+			if (!RetryAfter.IsEmpty())
+			{
+				if (RetryAfter.IsNumeric())
+				{
+					// seconds
+					LockoutPeriod = FCString::Atof(*RetryAfter);
+				}
+				else
+				{
+					// http date
+					FDateTime UTCServerTime;
+					if (FDateTime::ParseHttpDate(RetryAfter, UTCServerTime))
+					{
+						const FDateTime UTCNow = FDateTime::UtcNow();
+						LockoutPeriod = (UTCServerTime - UTCNow).GetTotalSeconds();
+					}
+				}
+			}
+			else
+			{
+				FString RateLimitReset = Response->GetHeader(TEXT("X-Rate-Limit-Reset"));
+				if (!RateLimitReset.IsEmpty())
+				{
+					// UTC seconds
+					const FDateTime UTCServerTime = FDateTime::FromUnixTimestamp(FCString::Atoi64(*RateLimitReset));
+					const FDateTime UTCNow = FDateTime::UtcNow();
+					LockoutPeriod = (UTCServerTime - UTCNow).GetTotalSeconds();
+				}
+			}
+		}
+	}
 
-    return lockoutTime;
+	if (HttpRetryRequestEntry.CurrentRetryCount >= 1)
+	{
+		if (LockoutPeriod <= 0.0f)
+		{
+			LockoutPeriod = 5.0f + 5.0f * ((HttpRetryRequestEntry.CurrentRetryCount - 1) >> 1);
+			LockoutPeriod = LockoutPeriod > 30.0f ? 30.0f : LockoutPeriod;
+		}
+	}
+
+	return LockoutPeriod;
 }
 
 static FRandomStream temp(4435261);
@@ -290,15 +333,17 @@ bool FHttpRetrySystem::FManager::Update(uint32* FileCount, uint32* FailingCount,
 
 						if (forceFail || (bShouldRetry && bCanRetry))
 						{
-							float lockoutPeriod = GetLockoutPeriodSeconds(HttpRetryRequestEntry);
+							float LockoutPeriod = GetLockoutPeriodSeconds(HttpRetryRequestEntry);
 
-							if (lockoutPeriod > 0.0f)
+							if (LockoutPeriod > 0.0f)
 							{
-								UE_LOG(LogHttp, Warning, TEXT("Lockout of %fs on %s"), lockoutPeriod, *(HttpRetryRequest->GetURL()));
+								UE_LOG(LogHttp, Warning, TEXT("Lockout of %fs on %s"), LockoutPeriod, *(HttpRetryRequest->GetURL()));
 							}
 
-							HttpRetryRequestEntry.LockoutEndTimeAbsoluteSeconds = NowAbsoluteSeconds + lockoutPeriod;
+							HttpRetryRequestEntry.LockoutEndTimeAbsoluteSeconds = NowAbsoluteSeconds + LockoutPeriod;
 							HttpRetryRequest->Status = FHttpRetrySystem::FRequest::EStatus::ProcessingLockout;
+							
+							HttpRetryRequest->OnRequestWillRetry().ExecuteIfBound(HttpRetryRequest, HttpRetryRequest->GetResponse(), LockoutPeriod);
 						}
 						else
 						{

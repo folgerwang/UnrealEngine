@@ -55,15 +55,23 @@ public:
 	/**
 	 * Moves the specified list of actors to the specified streaming level. The new actors will be selected
 	 *
-	 * @param	ActorsToMove		List of actors to move
-	 * @param	DestStreamingLevel	The destination streaming level of the current world to move the actors to
-	 * @return						The number of actors that were successfully moved to the new level
+	 * @param	ActorsToMove			List of actors to move
+	 * @param	DestStreamingLevel		The destination streaming level of the current world to move the actors to
+	 * @param	bWarnAboutReferences	Whether or not to show a modal warning about referenced actors that may no longer function after being moved
+	 * @return							The number of actors that were successfully moved to the new level
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | Level Creation")
-	static UNREALED_API int32 MoveActorsToLevel(const TArray<AActor*>& ActorsToMove, ULevelStreaming* DestStreamingLevel);
+	static UNREALED_API int32 MoveActorsToLevel(const TArray<AActor*>& ActorsToMove, ULevelStreaming* DestStreamingLevel, bool bWarnAboutReferences = true);
 
+	/**
+	 * Moves the currently selected actors to the specified streaming level. The new actors will be selected
+	 *
+	 * @param	DestStreamingLevel		The destination streaming level of the current world to move the actors to
+	 * @param	bWarnAboutReferences	Whether or not to show a modal warning about referenced actors that may no longer function after being moved
+	 * @return							The number of actors that were successfully moved to the new level
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | Level Creation")
-	static UNREALED_API int32 MoveSelectedActorsToLevel(ULevelStreaming* DestLevel);
+	static UNREALED_API int32 MoveSelectedActorsToLevel(ULevelStreaming* DestLevel, bool bWarnAboutReferences = true);
 
 	
 	/**
@@ -75,9 +83,9 @@ public:
 	static UNREALED_API void MakeLevelCurrent(ULevel* InLevel);
 
 	
-	static UNREALED_API int32 MoveActorsToLevel(const TArray<AActor*>& ActorsToMove, ULevel* DestLevel);
+	static UNREALED_API int32 MoveActorsToLevel(const TArray<AActor*>& ActorsToMove, ULevel* DestLevel, bool bWarnAboutReferences = true);
 
-	static UNREALED_API int32 MoveSelectedActorsToLevel(ULevel* DestLevel);
+	static UNREALED_API int32 MoveSelectedActorsToLevel(ULevel* DestLevel, bool bWarnAboutReferences = true);
 
 	/**
 	 * Creates a new streaming level and adds it to a world

@@ -39,6 +39,11 @@ namespace UnrealBuildTool
 		static private bool? bIsEngineInstalled;
 
 		/// <summary>
+		/// Whether we're running with enterprise installed
+		/// </summary>
+		static private bool? bIsEnterpriseInstalled;
+
+		/// <summary>
 		/// Whether we're running with an installed project
 		/// </summary>
 		static private bool? bIsProjectInstalled;
@@ -201,6 +206,19 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Returns true if UnrealBuildTool is running using installed Enterprise components
+		/// </summary>
+		/// <returns>True if running using installed Enterprise components</returns>
+		static public bool IsEnterpriseInstalled()
+		{
+			if(!bIsEnterpriseInstalled.HasValue)
+			{
+				bIsEnterpriseInstalled = FileReference.Exists(FileReference.Combine(EnterpriseDirectory, "Build", "InstalledBuild.txt"));
+			}
+			return bIsEnterpriseInstalled.Value;
+		}
+
+		/// <summary>
 		/// Returns true if UnrealBuildTool is running using an installed project (ie. a mod kit)
 		/// </summary>
 		/// <returns>True if running using an installed project</returns>
@@ -267,6 +285,22 @@ namespace UnrealBuildTool
 			// Enterprise modules are considered as engine modules
 			return InDirectory.IsUnderDirectory( UnrealBuildTool.EngineDirectory ) || InDirectory.IsUnderDirectory( UnrealBuildTool.EnterpriseSourceDirectory ) ||
 				InDirectory.IsUnderDirectory( DirectoryReference.Combine( UnrealBuildTool.EnterpriseDirectory, "Plugins" ) );
+		}
+
+		/// <summary>
+		/// Determines whether a directory is part of an installed directory
+		/// </summary>
+		/// <param name="InDirectory"></param>
+		/// <returns>true if the directory is under an installed directory, false if not</returns>
+		static public bool IsUnderAnInstalledDirectory(DirectoryReference InDirectory)
+		{
+			// Enterprise modules are considered as engine modules
+			bool bIsUnderEngine = InDirectory.IsUnderDirectory( UnrealBuildTool.EngineDirectory );
+
+			bool bIsUnderEnterprise = InDirectory.IsUnderDirectory( UnrealBuildTool.EnterpriseSourceDirectory ) ||
+				InDirectory.IsUnderDirectory( DirectoryReference.Combine( UnrealBuildTool.EnterpriseDirectory, "Plugins" ) );
+
+			return (IsEngineInstalled() && bIsUnderEngine) || (IsEnterpriseInstalled() && bIsUnderEnterprise);
 		}
 
 		public static void RegisterAllUBTClasses(SDKOutputLevel OutputLevel, bool bValidatingPlatforms)
@@ -392,10 +426,12 @@ namespace UnrealBuildTool
 
 			// Initialize the log system, buffering the output until we can create the log file
 			StartupTraceListener StartupListener = new StartupTraceListener();
+			bool bLogProgramNameWithSeverity = Arguments.Any(x => x.Equals("-FromMsBuild", StringComparison.InvariantCultureIgnoreCase));
 			Log.InitLogging(
                 bLogTimestamps: Arguments.Any(x => x.Equals("-Timestamps", StringComparison.InvariantCultureIgnoreCase)),
 				InLogLevel: LogLevel,
                 bLogSeverity: true,
+				bLogProgramNameWithSeverity: bLogProgramNameWithSeverity, 
                 bLogSources: true,
 				bLogSourcesToConsole: false,
                 bColorConsoleOutput: true,
@@ -776,7 +812,7 @@ namespace UnrealBuildTool
 						{
 							//ConfigName = Arg;
 						}
-						else if (LowercaseArg == "-modulewithsuffix")
+						else if (LowercaseArg.StartsWith("-modulewithsuffix="))
 						{
 							bSpecificModulesOnly = true;
 							continue;
@@ -1244,6 +1280,11 @@ namespace UnrealBuildTool
 					{
 						HotReload = EHotReload.FromEditor;
 					}
+
+					if (HotReload != EHotReload.Disabled && BuildConfiguration.bCleanProject)
+					{
+						throw new BuildException("Unable to clean target while hot-reloading. Close the editor and try again.");
+					}
 				}
 				TargetDescriptor HotReloadTargetDesc = (HotReload != EHotReload.Disabled) ? TargetDescs[0] : null;
 
@@ -1638,8 +1679,8 @@ namespace UnrealBuildTool
 							// Make sure any old DLL files from in-engine recompiles aren't lying around.  Must be called after the action graph is finalized.
 							ActionGraph.DeleteStaleHotReloadDLLs();
 
-							foreach (UEBuildTarget Target in Targets)
-							{
+								foreach (UEBuildTarget Target in Targets)
+								{
 								UEBuildPlatform.GetBuildPlatform(Target.Platform).PreBuildSync();
 							}
 
@@ -1854,7 +1895,7 @@ namespace UnrealBuildTool
 				{
 					throw new BuildException("Unknown editor filename for this platform");
 				}
-
+					
 				BuildHostPlatform.ProcessInfo[] Processes = BuildHostPlatform.Current.GetProcesses();
 				string EditorRunsDir = Path.Combine(UnrealBuildTool.EngineDirectory.FullName, "Intermediate", "EditorRuns");
 
@@ -1931,7 +1972,7 @@ namespace UnrealBuildTool
 			Exception CaughtException;
 
 			public CppIncludeBackgroundThread(Dictionary<UEBuildTarget, List<FileItem>> TargetToOutdatedPrerequisitesMap, Dictionary<UEBuildTarget, CPPHeaders> TargetToHeaders)
-			{
+		{
 				BackgroundThread = new Thread(() => Run(TargetToOutdatedPrerequisitesMap, TargetToHeaders));
 				BackgroundThread.Start();
 			}
@@ -1964,7 +2005,7 @@ namespace UnrealBuildTool
 							Headers.FindAndCacheAllIncludedFiles(PrerequisiteItem, PrerequisiteItem.CachedIncludePaths, bOnlyCachedDependencies: false);
 						}
 					}
-				}
+		}
 				catch(Exception Ex)
 				{
 					CaughtException = Ex;

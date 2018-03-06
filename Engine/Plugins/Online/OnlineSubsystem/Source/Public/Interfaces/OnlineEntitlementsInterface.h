@@ -30,6 +30,12 @@ struct FOnlineEntitlement
 	int32 RemainingCount;
 	/** Number of prior uses for a consumable */
 	int32 ConsumedCount;
+	/** When the entitlement started */
+	FString StartDate;
+	/** When the entitlement will expire */
+	FString EndDate;
+	/** Current Status of the entitlement e.g. Active, Subscribe, Expire ... */
+	FString Status;
 
 	FOnlineEntitlement()
 		: bIsConsumable(false)

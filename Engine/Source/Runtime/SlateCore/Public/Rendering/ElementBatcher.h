@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Rendering/RenderingCommon.h"
+#include "Layout/Clipping.h"
 
 class FSlateBatchData;
 class FSlateDrawElement;
@@ -13,6 +14,11 @@ class FSlateRenderingPolicy;
 class FSlateShaderResource;
 class FSlateWindowElementList;
 struct FShaderParams;
+
+class FSlateDrawBox;
+class FSlateDrawText;
+class FSlateDrawShapedText;
+class FSlateDrawLines;
 
 /**
  * A class which batches Slate elements for rendering
@@ -45,9 +51,20 @@ public:
 	void ResetBatches();
 
 private:
-	void AddElements(const TArray<FSlateDrawElement>& DrawElements, const FVector2D& ViewportSize);
+	void AddElementsInternal(const TArray<FSlateDrawElement>& DrawElements, const FVector2D& ViewportSize);
+
+	void BatchBoxElements();
+	void BatchBorderElements();
+	void BatchTextElements();
+	void BatchShapedTextElements();
+	void BatchLineElements();
 	
-	FColor PackVertexColor(const FLinearColor& InLinearColor);
+	FORCEINLINE FColor PackVertexColor(const FLinearColor& InLinearColor)
+	{
+		//NOTE: Using pow(x,2) instead of a full sRGB conversion has been tried, but it ended up
+		// causing too much loss of data in the lower levels of black.
+		return InLinearColor.ToFColor(bSRGBVertexColor);
+	}
 
 	/** 
 	 * Creates vertices necessary to draw a Quad element 
@@ -59,19 +76,19 @@ private:
 	 * Creates vertices necessary to draw a 3x3 element
 	 */
 	template<ESlateVertexRounding Rounding>
-	void AddBoxElement( const FSlateDrawElement& DrawElement );
+	void AddBoxElement( const FSlateDrawBox& DrawElement );
 
 	/** 
 	 * Creates vertices necessary to draw a string (one quad per character)
 	 */
 	template<ESlateVertexRounding Rounding>
-	void AddTextElement( const FSlateDrawElement& DrawElement );
+	void AddTextElement( const FSlateDrawText& DrawElement );
 
 	/** 
 	 * Creates vertices necessary to draw a shaped glyph sequence (one quad per glyph)
 	 */
 	template<ESlateVertexRounding Rounding>
-	void AddShapedTextElement( const FSlateDrawElement& DrawElement );
+	void AddShapedTextElement( const FSlateDrawShapedText& DrawElement );
 
 	/** 
 	 * Creates vertices necessary to draw a gradient box (horizontal or vertical)
@@ -89,7 +106,7 @@ private:
 	 * Creates vertices necessary to draw a series of attached line segments
 	 */
 	template<ESlateVertexRounding Rounding>
-	void AddLineElement( const FSlateDrawElement& DrawElement );
+	void AddLineElement( const FSlateDrawLines& DrawElement );
 	
 	/** 
 	 * Creates vertices necessary to draw a viewport (just a textured quad)
@@ -101,7 +118,7 @@ private:
 	 * Creates vertices necessary to draw a border element
 	 */
 	template<ESlateVertexRounding Rounding>
-	void AddBorderElement( const FSlateDrawElement& DrawElement );
+	void AddBorderElement( const FSlateDrawBox& DrawElement );
 
 	/**
 	 * Batches a custom slate drawing element
@@ -151,6 +168,9 @@ private:
 
 	/** The draw layer currently being accumulated */
 	FSlateDrawLayer* DrawLayer;
+
+	/** The draw layer currently being accumulated */
+	const TArray<FSlateClippingState>* ClippingStates;
 
 	/** Rendering policy we were created from */
 	FSlateRenderingPolicy* RenderingPolicy;

@@ -777,18 +777,7 @@ void USkeleton::RefreshAllRetargetSources()
 
 int32 USkeleton::GetChildBones(int32 ParentBoneIndex, TArray<int32> & Children) const
 {
-	Children.Empty();
-
-	const int32 NumBones = ReferenceSkeleton.GetNum();
-	for(int32 ChildIndex=ParentBoneIndex+1; ChildIndex<NumBones; ChildIndex++)
-	{
-		if ( ParentBoneIndex == ReferenceSkeleton.GetParentIndex(ChildIndex) )
-		{
-			Children.Add(ChildIndex);
-		}
-	}
-
-	return Children.Num();
+	return ReferenceSkeleton.GetDirectChildBones(ParentBoneIndex, Children);
 }
 
 void USkeleton::CollectAnimationNotifies()

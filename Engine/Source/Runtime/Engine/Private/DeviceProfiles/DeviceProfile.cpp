@@ -6,6 +6,7 @@
 #include "UObject/UnrealType.h"
 #include "UObject/UObjectHash.h"
 #include "UObject/UObjectIterator.h"
+#include "HAL/IConsoleManager.h"
 
 UDeviceProfile::UDeviceProfile(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -109,6 +110,12 @@ void UDeviceProfile::ValidateTextureLODGroups()
 
 #if WITH_EDITOR
 
+void UDeviceProfile::HandleCVarsChanged()
+{
+	OnCVarsUpdated().ExecuteIfBound();
+	ConsolidatedCVars.Reset();
+}
+
 void UDeviceProfile::PostEditChangeProperty( FPropertyChangedEvent& PropertyChangedEvent )
 {
 	Super::PostEditChangeProperty( PropertyChangedEvent );
@@ -178,11 +185,11 @@ void UDeviceProfile::PostEditChangeProperty( FPropertyChangedEvent& PropertyChan
 				}
 			}
 		}
-		OnCVarsUpdated().ExecuteIfBound();
+		HandleCVarsChanged();
 	}
 	else if(PropertyChangedEvent.Property->GetFName() == TEXT("CVars"))
 	{
-		OnCVarsUpdated().ExecuteIfBound();
+		HandleCVarsChanged();
 	}
 }
 
@@ -202,14 +209,14 @@ bool UDeviceProfile::ModifyCVarValue(const FString& ChangeCVarName, const FStrin
 		check(CVarName == ChangeCVarName);
 		CVars[Index] = FString::Printf(TEXT("%s=%s"), *CVarName, *NewCVarValue);
 
-		OnCVarsUpdated().ExecuteIfBound();
+		HandleCVarsChanged();
 		return true;
 	}
 	else if(bAddIfNonExistant)
 	{
 		CVars.Add(FString::Printf(TEXT("%s=%s"), *ChangeCVarName, *NewCVarValue));
 		
-		OnCVarsUpdated().ExecuteIfBound();
+		HandleCVarsChanged();
 		return true;
 	}
 
@@ -235,6 +242,104 @@ FString UDeviceProfile::GetCVarValue(const FString& CVarName)
 	{
 		return FString();
 	}
+}
+
+bool UDeviceProfile::GetConsolidatedCVarValue(const TCHAR* CVarName, FString& OutString, bool bCheckDefaults /*=false*/) const
+{
+	const FString* FoundValue = GetConsolidatedCVars().Find(CVarName);
+	if(FoundValue)
+	{
+		OutString = *FoundValue;
+		return true;
+	}
+	
+	if(bCheckDefaults)
+	{
+		if(IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(CVarName))
+		{
+			OutString = CVar->GetString();
+			return true;
+		}
+	}
+
+	OutString.Empty();
+	return false;
+}
+
+bool UDeviceProfile::GetConsolidatedCVarValue(const TCHAR* CVarName, int32& OutValue, bool bCheckDefaults /*=false*/) const
+{
+	FString StringValue;
+	if(GetConsolidatedCVarValue(CVarName, StringValue))
+	{
+		OutValue = FCString::Atoi(*StringValue);
+		return true;
+	}
+
+	if(bCheckDefaults)
+	{
+		if(IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(CVarName))
+		{
+			OutValue = CVar->GetInt();
+			return true;
+		}
+	}
+
+	OutValue = 0;
+	return false;
+}
+
+bool UDeviceProfile::GetConsolidatedCVarValue(const TCHAR* CVarName, float& OutValue, bool bCheckDefaults /*=false*/) const
+{
+	FString StringValue;
+	if(GetConsolidatedCVarValue(CVarName, StringValue))
+	{
+		OutValue = FCString::Atof(*StringValue);
+		return true;
+	}
+
+	if(bCheckDefaults)
+	{
+		if(IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(CVarName))
+		{
+			OutValue = CVar->GetFloat();
+			return true;
+		}
+	}
+
+	OutValue = 0.0f;
+	return false;
+}
+
+const TMap<FString, FString>& UDeviceProfile::GetConsolidatedCVars() const
+{
+	// Helper function to add a profile's CVars to the consolidated map
+	auto BuildCVarMap = [](const UDeviceProfile* InProfile, TMap<FString, FString>& InOutMap)
+	{
+		for (const auto& CurrentCVar : InProfile->CVars)
+		{
+			FString CVarKey, CVarValue;
+			if (CurrentCVar.Split(TEXT("="), &CVarKey, &CVarValue))
+			{
+				InOutMap.Add(CVarKey, CVarValue);
+			}
+		}
+	};
+
+	// First build our own CVar map
+	if(ConsolidatedCVars.Num() == 0)
+	{
+		BuildCVarMap(this, ConsolidatedCVars);
+
+		// Iteratively build the parent tree
+		const UDeviceProfile* ParentProfile = Cast<UDeviceProfile>(Parent);
+		while (ParentProfile)
+		{
+			BuildCVarMap(ParentProfile, ConsolidatedCVars);
+			ParentProfile = Cast<UDeviceProfile>(ParentProfile->Parent);
+		}
+	}
+
+	return ConsolidatedCVars;
 }
 
 #endif

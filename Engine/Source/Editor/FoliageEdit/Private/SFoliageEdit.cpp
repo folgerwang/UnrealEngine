@@ -26,6 +26,7 @@
 #include "SFoliagePalette.h"
 #include "Widgets/Layout/SHeader.h"
 #include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Notifications/SErrorText.h"
 
 #define LOCTEXT_NAMESPACE "FoliageEd_Mode"
 
@@ -45,9 +46,20 @@ void SFoliageEdit::Construct(const FArguments& InArgs)
 
 	const FText BlankText = LOCTEXT("Blank", "");
 
-	this->ChildSlot
+	ChildSlot
 	[
 		SNew(SVerticalBox)
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(0, 0, 0, 5)
+		[
+			SAssignNew(ErrorText, SErrorText)
+		]
+		+ SVerticalBox::Slot()
+		.Padding(0)
+		[
+			SNew(SVerticalBox)
+			.IsEnabled(this, &SFoliageEdit::IsFoliageEditorEnabled)
 
 		+ SVerticalBox::Slot()
 		.AutoHeight()
@@ -480,6 +492,7 @@ void SFoliageEdit::Construct(const FArguments& InArgs)
 			SAssignNew(FoliagePalette, SFoliagePalette)
 			.FoliageEdMode(FoliageEditMode)
 		]
+		]
 	];
 
 	RefreshFullList();
@@ -494,6 +507,28 @@ void SFoliageEdit::RefreshFullList()
 void SFoliageEdit::NotifyFoliageTypeMeshChanged(UFoliageType* FoliageType)
 {
 	FoliagePalette->UpdateThumbnailForType(FoliageType);
+}
+
+bool SFoliageEdit::IsFoliageEditorEnabled() const
+{
+	ErrorText->SetError(GetFoliageEditorErrorText());
+
+	return FoliageEditMode->IsEditingEnabled();
+}
+
+FText SFoliageEdit::GetFoliageEditorErrorText() const
+{
+	EFoliageEditingState EditState = FoliageEditMode->GetEditingState();
+
+	switch (EditState)
+	{
+		case EFoliageEditingState::SIEWorld: return LOCTEXT("IsSimulatingError_edit", "Can't edit foliage while simulating!");
+		case EFoliageEditingState::PIEWorld: return LOCTEXT("IsPIEError_edit", "Can't edit foliage in PIE!");
+		case EFoliageEditingState::Enabled: return FText::GetEmpty();
+		default: checkNoEntry();
+	}
+
+	return FText::GetEmpty();
 }
 
 TSharedRef<SWidget> SFoliageEdit::BuildToolBar()

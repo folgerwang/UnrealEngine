@@ -21,6 +21,7 @@
 #include "EngineAnalytics.h"
 #include "AnalyticsEventAttribute.h"
 #include "Interfaces/IAnalyticsProvider.h"
+#include "AudioPluginUtilities.h"
 
 DEFINE_LOG_CATEGORY(LogAudio);
 

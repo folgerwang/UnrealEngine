@@ -40,6 +40,8 @@ static TAutoConsoleVariable<int32> CVarTickAllOpenChannels( TEXT( "net.TickAllOp
 
 static TAutoConsoleVariable<int32> CVarRandomizeSequence(TEXT("net.RandomizeSequence"), 1, TEXT("Randomize initial packet sequence"));
 
+static TAutoConsoleVariable<int32> CVarMaxChannelSize(TEXT("net.MaxChannelSize"), UNetConnection::DEFAULT_MAX_CHANNEL_SIZE, TEXT("The maximum number of channels."));
+
 #if !UE_BUILD_SHIPPING
 static TAutoConsoleVariable<int32> CVarForceNetFlush(TEXT("net.ForceNetFlush"), 0, TEXT("Immediately flush send buffer when written to (helps trace packet writes - WARNING: May be unstable)."));
 #endif
@@ -48,6 +50,7 @@ DECLARE_CYCLE_STAT(TEXT("NetConnection SendAcks"), Stat_NetConnectionSendAck, ST
 DECLARE_CYCLE_STAT(TEXT("NetConnection Tick"), Stat_NetConnectionTick, STATGROUP_Net);
 DECLARE_CYCLE_STAT(TEXT("NetConnection ReceivedNak"), Stat_NetConnectionReceivedNak, STATGROUP_Net);
 
+const int32 UNetConnection::DEFAULT_MAX_CHANNEL_SIZE = 32767;
 /*-----------------------------------------------------------------------------
 	UNetConnection implementation.
 -----------------------------------------------------------------------------*/
@@ -95,11 +98,14 @@ UNetConnection::UNetConnection(const FObjectInitializer& ObjectInitializer)
 ,	OutBytes			( 0 )
 ,	InPackets			( 0 )
 ,	OutPackets			( 0 )
+,	InTotalPackets		( 0 )
+,	OutTotalPackets		( 0 )
 ,	InBytesPerSecond	( 0 )
 ,	OutBytesPerSecond	( 0 )
 ,	InPacketsPerSecond	( 0 )
 ,	OutPacketsPerSecond	( 0 )
-
+,	InTotalPacketsLost ( 0 )
+,	OutTotalPacketsLost ( 0 )
 ,	SendBuffer			( 0 )
 ,	InPacketId			( -1 )
 ,	OutPacketId			( 0 ) // must be initialized as OutAckPacketId + 1 so loss of first packet can be detected
@@ -116,6 +122,17 @@ UNetConnection::UNetConnection(const FObjectInitializer& ObjectInitializer)
 ,	PlayerOnlinePlatformName( NAME_None )
 ,	ClientWorldPackageName( NAME_None )
 {
+	MaxChannelSize = CVarMaxChannelSize.GetValueOnAnyThread();
+	if (MaxChannelSize <= 0)
+	{
+		UE_LOG(LogNet, Warning, TEXT("CVarMaxChannelSize of %d is less than or equal to 0, using the default number of channels."), MaxChannelSize);
+		MaxChannelSize = DEFAULT_MAX_CHANNEL_SIZE;
+	}
+
+	Channels.AddDefaulted(MaxChannelSize);
+	OutReliable.AddDefaulted(MaxChannelSize);
+	InReliable.AddDefaulted(MaxChannelSize);
+	PendingOutRec.AddDefaulted(MaxChannelSize);
 }
 
 /**
@@ -139,8 +156,8 @@ void UNetConnection::InitBase(UNetDriver* InDriver,class FSocket* InSocket, cons
 	// Stats
 	StatUpdateTime			= Driver->Time;
 	LastReceiveTime			= Driver->Time;
-	LastReceiveRealtime		= 0.0;			// These are set to 0 and initialized on our first tick to delay with scenarios where
-	LastGoodPacketRealtime	= 0.0;			// notable time may elapse between now and then
+	LastReceiveRealtime		= 0.0;			// These are set to 0 and initialized on our first tick to deal with scenarios where
+	LastGoodPacketRealtime	= 0.0;			// notable time may elapse between init and first use
 	LastTime				= 0.0;
 	LastSendTime			= Driver->Time;
 	LastTickTime			= Driver->Time;
@@ -308,17 +325,10 @@ void UNetConnection::InitSequence(int32 IncomingSequence, int32 OutgoingSequence
 		InitInReliable = IncomingSequence & (MAX_CHSEQUENCE - 1);
 		InitOutReliable = OutgoingSequence & (MAX_CHSEQUENCE - 1);
 
+		InReliable.Init(InitInReliable, InReliable.Num());
+		OutReliable.Init(InitOutReliable, OutReliable.Num());
+
 		UE_LOG(LogNet, Verbose, TEXT("InitSequence: IncomingSequence: %i, OutgoingSequence: %i, InitInReliable: %i, InitOutReliable: %i"), IncomingSequence, OutgoingSequence, InitInReliable, InitOutReliable);
-
-		for (int32 i=0; i<ARRAY_COUNT(InReliable); i++)
-		{
-			InReliable[i] = InitInReliable;
-		}
-
-		for (int32 i=0; i<ARRAY_COUNT(OutReliable); i++)
-		{
-			OutReliable[i] = InitOutReliable;
-		}
 	}
 }
 
@@ -407,9 +417,9 @@ void UNetConnection::Serialize( FArchive& Ar )
 {
 	UObject::Serialize( Ar );
 	Ar << PackageMap;
-	for( int32 i=0; i<MAX_CHANNELS; i++ )
+	for (UChannel* Channel : Channels)
 	{
-		Ar << Channels[i];
+		Ar << Channel;
 	}
 
 	if (Ar.IsCountingMemory())
@@ -592,9 +602,9 @@ void UNetConnection::AddReferencedObjects(UObject* InThis, FReferenceCollector& 
 	UNetConnection* This = CastChecked<UNetConnection>(InThis);
 
 	// Let GC know that we're referencing some UChannel objects
-	for( int32 ChIndex=0; ChIndex < MAX_CHANNELS; ++ChIndex )
+	for (UChannel* Channel : This->Channels)
 	{
-		Collector.AddReferencedObject( This->Channels[ChIndex], This );
+		Collector.AddReferencedObject( Channel, This );
 	}
 
 	// Let GC know that we're referencing some UActorChannel objects
@@ -725,7 +735,7 @@ void UNetConnection::UpdateLevelVisibility(const FName& PackageName, bool bIsVis
 		{
 			static bool IsInLevelList(UWorld* World, FName InPackageName)
 			{
-				for (ULevelStreaming* StreamingLevel : World->StreamingLevels)
+				for (ULevelStreaming* StreamingLevel : World->GetStreamingLevels())
 				{
 					if (StreamingLevel && (StreamingLevel->GetWorldAssetPackageFName() == InPackageName ))
 					{
@@ -898,6 +908,7 @@ void UNetConnection::ReceivedRawPacket( void* InData, int32 Count )
 	int32 PacketBytes = Count + PacketOverhead;
 	InBytes += PacketBytes;
 	++InPackets;
+	++InTotalPackets;
 	Driver->InBytes += PacketBytes;
 	Driver->InPackets++;
 
@@ -1066,6 +1077,7 @@ void UNetConnection::FlushNet(bool bIgnoreSimulation)
 
 		OutPacketId++;
 		++OutPackets;
+		++OutTotalPackets;
 		Driver->OutPackets++;
 
 		//Record the packet time to the histogram
@@ -1156,6 +1168,7 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 		}
 
 		InPacketsLost += PacketsLost;
+		InTotalPacketsLost += PacketsLost;
 		Driver->InPacketsLost += PacketsLost;
 		InPacketId = PacketId;
 	}
@@ -1232,7 +1245,7 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 			// Resend any old reliable packets that the receiver hasn't acknowledged.
 			if( AckPacketId>OutAckPacketId )
 			{
-				for (int32 NakPacketId = OutAckPacketId + 1; NakPacketId<AckPacketId; NakPacketId++, OutPacketsLost++, Driver->OutPacketsLost++)
+				for (int32 NakPacketId = OutAckPacketId + 1; NakPacketId<AckPacketId; NakPacketId++, OutPacketsLost++, OutTotalPacketsLost++, Driver->OutPacketsLost++)
 				{
 					UE_LOG(LogNetTraffic, Verbose, TEXT("   Received virtual nak %i (%.1f)"), NakPacketId, (Reader.GetPosBits()-StartPos)/8.f );
 					ReceivedNak( NakPacketId );
@@ -1331,7 +1344,26 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 			Bunch.bDormant				= Bunch.bClose ? Reader.ReadBit() : 0;
 			Bunch.bIsReplicationPaused  = Reader.ReadBit();
 			Bunch.bReliable				= Reader.ReadBit();
-			Bunch.ChIndex				= Reader.ReadInt( MAX_CHANNELS );
+
+			if (Bunch.EngineNetVer() < HISTORY_MAX_ACTOR_CHANNELS_CUSTOMIZATION)
+			{
+				static const int OLD_MAX_ACTOR_CHANNELS = 10240;
+				Bunch.ChIndex = Reader.ReadInt(OLD_MAX_ACTOR_CHANNELS);
+			}
+			else
+			{
+				uint32 ChIndex;
+				Reader.SerializeIntPacked(ChIndex);
+
+				if (ChIndex >= (uint32)MaxChannelSize)
+				{
+					CLOSE_CONNECTION_DUE_TO_SECURITY_VIOLATION(this, ESecurityEvent::Malformed_Packet, TEXT("Bunch channel index exceeds channel limit"));
+					return;
+				}
+
+				Bunch.ChIndex = ChIndex;
+			}
+
 			Bunch.bHasPackageMapExports	= Reader.ReadBit();
 			Bunch.bHasMustBeMappedGUIDs	= Reader.ReadBit();
 			Bunch.bPartial				= Reader.ReadBit();
@@ -1757,7 +1789,10 @@ int32 UNetConnection::SendRawBunch( FOutBunch& Bunch, bool InAllowMerge )
 	}
 	SendBunchHeader.WriteBit( Bunch.bIsReplicationPaused );
 	SendBunchHeader.WriteBit( Bunch.bReliable );
-	SendBunchHeader.WriteIntWrapped(Bunch.ChIndex, MAX_CHANNELS);
+
+	uint32 ChIndex = Bunch.ChIndex;
+	SendBunchHeader.SerializeIntPacked(ChIndex); 
+
 	SendBunchHeader.WriteBit( Bunch.bHasPackageMapExports );
 	SendBunchHeader.WriteBit( Bunch.bHasMustBeMappedGUIDs );
 	SendBunchHeader.WriteBit( Bunch.bPartial );
@@ -1837,23 +1872,25 @@ UChannel* UNetConnection::CreateChannel( EChannelType ChType, bool bOpenedLocall
 		}
 
 		// Search the channel array for an available location
-		for( ChIndex=FirstChannel; ChIndex<MAX_CHANNELS; ChIndex++ )
+		for( ChIndex=FirstChannel; ChIndex < Channels.Num(); ChIndex++ )
 		{
 			if( !Channels[ChIndex] )
 			{
 				break;
 			}
 		}
+		
 		// Fail to create if the channel array is full
-		if( ChIndex==MAX_CHANNELS )
+		if( ChIndex == Channels.Num() )
 		{
+			UE_LOG(LogNetTraffic, Warning, TEXT("No free channel could be found in the channel list (current limit is %d channels). Consider increasing the max channels allowed using CVarMaxChannelSize."), MaxChannelSize);
 			return NULL;
 		}
 	}
 
 	// Make sure channel is valid.
-	check(ChIndex<MAX_CHANNELS);
-	check(Channels[ChIndex]==NULL);
+	check(ChIndex < Channels.Num());
+	check(Channels[ChIndex] == NULL);
 
 	// Create channel.
 	UChannel* Channel = NewObject<UChannel>(GetTransientPackage(), Driver->ChannelClasses[ChType]);
@@ -1952,7 +1989,7 @@ void UNetConnection::Tick()
 		LastReceiveRealtime = CurrentRealtimeSeconds;
 		LastGoodPacketRealtime = CurrentRealtimeSeconds;
 	}
-	
+
 	FrameTime = CurrentRealtimeSeconds - LastTime;
 	LastTime = CurrentRealtimeSeconds;
 	CumulativeTime += FrameTime;
@@ -2053,7 +2090,9 @@ void UNetConnection::Tick()
 		}
 
 		Close();
+#if USE_SERVER_PERF_COUNTERS
 		PerfCountersIncrement(TEXT("TimedoutConnections"));
+#endif
 
 		if (Driver == NULL)
 		{
@@ -2245,13 +2284,12 @@ void UNetConnection::HandleClientPlayer( APlayerController *PC, UNetConnection* 
 	// if we have already loaded some sublevels, tell the server about them
 	{
 		TArray<FUpdateLevelVisibilityLevelInfo> LevelVisibilities;
-		for (int32 i = 0; i < World->StreamingLevels.Num(); ++i)
+		for (ULevelStreaming* LevelStreaming : World->GetStreamingLevels())
 		{
-			ULevelStreaming* LevelStreaming = World->StreamingLevels[i];
-			if (LevelStreaming != NULL)
+			if (LevelStreaming)
 			{
 				const ULevel* Level = LevelStreaming->GetLoadedLevel();
-				if ( Level != NULL && Level->bIsVisible && !Level->bClientOnlyVisible )
+				if ( Level && Level->bIsVisible && !Level->bClientOnlyVisible )
 				{
 					FUpdateLevelVisibilityLevelInfo& LevelVisibility = *new( LevelVisibilities ) FUpdateLevelVisibilityLevelInfo();
 					LevelVisibility.PackageName = PC->NetworkRemapPath(Level->GetOutermost()->GetFName(), false);
@@ -2580,7 +2618,9 @@ bool UNetConnection::TrackLogsPerSecond()
 			UE_LOG( LogNet, Warning, TEXT( "UNetConnection::TrackLogsPerSecond instant FAILED. LogsPerSecond: %f, RemoteAddr: %s" ), (float)LogsPerSecond, *LowLevelGetRemoteAddress() );
 			Close();		// Close the connection
 
+#if USE_SERVER_PERF_COUNTERS
 			PerfCountersIncrement(TEXT("ClosedConnectionsDueToMaxBadRPCsLimit"));
+#endif
 			return false;
 		}
 
@@ -2598,7 +2638,9 @@ bool UNetConnection::TrackLogsPerSecond()
 				UE_LOG( LogNet, Warning, TEXT( "UNetConnection::TrackLogsPerSecond: LogSustainedCount > MAX_SUSTAINED_COUNT. LogsPerSecond: %f, RemoteAddr: %s" ), (float)LogsPerSecond, *LowLevelGetRemoteAddress() );
 				Close();		// Close the connection
 
+#if USE_SERVER_PERF_COUNTERS
 				PerfCountersIncrement(TEXT("ClosedConnectionsDueToMaxBadRPCsLimit"));
+#endif
 				return false;
 			}
 		}

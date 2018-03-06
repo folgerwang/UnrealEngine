@@ -77,7 +77,7 @@ extern RENDERCORE_API void AdvanceFrameRenderPrerequisite();
 /**
  * Waits for the rendering thread to finish executing all pending rendering commands.  Should only be used from the game thread.
  */
-extern RENDERCORE_API void FlushRenderingCommands();
+extern RENDERCORE_API void FlushRenderingCommands(bool bFlushDeferredDeletes = false);
 
 extern RENDERCORE_API void FlushPendingDeleteRHIResources_GameThread();
 extern RENDERCORE_API void FlushPendingDeleteRHIResources_RenderThread();
@@ -244,7 +244,9 @@ FORCEINLINE_DEBUGGABLE void EnqueueUniqueRenderCommand(LAMBDA&& Lambda)
 #if 0 // UE_SERVER && UE_BUILD_DEBUG
 	UE_LOG(LogRHI, Warning, TEXT("Render command '%s' is being executed on a dedicated server."), TSTR::TStr())
 #endif
-	if (IsInRenderingThread())
+	// always use a new task for devices that have GUseThreadedRendering=false
+	// even when the call is from the rendering thread
+	if (GUseThreadedRendering && IsInRenderingThread())
 	{
 		FRHICommandListImmediate& RHICmdList = GetImmediateCommandList_ForRenderCommand();
 		Lambda(RHICmdList);

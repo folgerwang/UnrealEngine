@@ -6,7 +6,22 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "Components/ActorComponent.h"
+#include "Misc/CoreDelegates.h"
 #include "ApplicationLifecycleComponent.generated.h"
+
+// A parallel enum to the temperature change severity enum in CoreDelegates
+// Note if you change this, then you must change the one in CoreDelegates
+UENUM(BlueprintType)
+enum class ETemperatureSeverityType : uint8
+{
+	Good,
+	Bad,
+	Serious,
+	Critical,
+
+	NumSeverities,
+};
+static_assert((int)ETemperatureSeverityType::NumSeverities == (int)FCoreDelegates::ETemperatureSeverity::NumSeverities, "TemperatureSeverity enums are out of sync");
 
 /** Component to handle receiving notifications from the OS about application state (activated, suspended, termination, etc). */
 UCLASS(ClassGroup=Utility, HideCategories=(Activation, "Components|Activation", Collision), meta=(BlueprintSpawnableComponent))
@@ -15,6 +30,7 @@ class ENGINE_API UApplicationLifecycleComponent : public UActorComponent
 	GENERATED_UCLASS_BODY()
 
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FApplicationLifetimeDelegate);
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTemperatureChangeDelegate , ETemperatureSeverityType, Severity);
 
 	// This is called when the application is about to be deactivated (e.g., due to a phone call or SMS or the sleep button). 
 	// The game should be paused if possible, etc... 
@@ -42,6 +58,10 @@ class ENGINE_API UApplicationLifecycleComponent : public UActorComponent
 	UPROPERTY(BlueprintAssignable)
 	FApplicationLifetimeDelegate ApplicationWillTerminateDelegate;
 
+	// Called when temperature level has changed, and receives the severity 
+	UPROPERTY(BlueprintAssignable)
+	FOnTemperatureChangeDelegate OnTemperatureChangeDelegate;
+
 public:
 	void OnRegister() override;
 	void OnUnregister() override;
@@ -53,6 +73,7 @@ private:
 	void ApplicationWillEnterBackgroundDelegate_Handler() { ApplicationWillEnterBackgroundDelegate.Broadcast(); }
 	void ApplicationHasEnteredForegroundDelegate_Handler() { ApplicationHasEnteredForegroundDelegate.Broadcast(); }
 	void ApplicationWillTerminateDelegate_Handler() { ApplicationWillTerminateDelegate.Broadcast(); }
+	void OnTemperatureChangeDelegate_Handler(FCoreDelegates::ETemperatureSeverity Severity) { OnTemperatureChangeDelegate.Broadcast((ETemperatureSeverityType)Severity); }
 };
 
 

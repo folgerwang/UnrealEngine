@@ -2128,7 +2128,12 @@ public:
 		!! ServerData.CurrentClientTimeStamp can be reset !!
 		@returns true if TimeStamp is valid, or false if it has expired. */
 	virtual bool VerifyClientTimeStamp(float TimeStamp, FNetworkPredictionData_Server_Character & ServerData);
+
 protected:
+
+	/** Clock time on the server of the last timestamp reset. */
+	float LastTimeStampResetServerTime;
+
 	/** Internal const check for client timestamp validity without side-effects. 
 	  * @see VerifyClientTimeStamp */
 	bool IsClientTimeStampValid(float TimeStamp, const FNetworkPredictionData_Server_Character& ServerData, bool& bTimeStampResetDetected) const;
@@ -2437,6 +2442,8 @@ public:
 	float StartCapsuleHalfHeight;
 	TWeakObjectPtr<UPrimitiveComponent> StartBase;
 	FName StartBoneName;
+	uint32 StartActorOverlapCounter;
+	uint32 StartComponentOverlapCounter;
 
 	// Information after the move has been performed
 	FVector SavedLocation;
@@ -2446,6 +2453,8 @@ public:
 	FRotator SavedControlRotation;
 	TWeakObjectPtr<UPrimitiveComponent> EndBase;
 	FName EndBoneName;
+	uint32 EndActorOverlapCounter;
+	uint32 EndComponentOverlapCounter;
 
 	FVector Acceleration;
 

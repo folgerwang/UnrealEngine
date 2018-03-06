@@ -81,7 +81,7 @@ void FSlate3DRenderer::DrawWindow_GameThread(FSlateDrawBuffer& DrawBuffer)
 
 	const TSharedRef<FSlateFontCache> FontCache = SlateFontServices->GetGameThreadFontCache();
 
-	TArray<TSharedPtr<FSlateWindowElementList>>& WindowElementLists = DrawBuffer.GetWindowElementLists();
+	const TArray<TSharedRef<FSlateWindowElementList>>& WindowElementLists = DrawBuffer.GetWindowElementLists();
 
 	for ( int32 WindowIndex = 0; WindowIndex < WindowElementLists.Num(); WindowIndex++ )
 	{
@@ -124,7 +124,7 @@ void FSlate3DRenderer::DrawWindowToTarget_RenderThread( FRHICommandListImmediate
 
 	checkSlow( RenderTargetResource );
 
-	TArray< TSharedPtr<FSlateWindowElementList> >& WindowsToDraw = WindowDrawBuffer.GetWindowElementLists();
+	const TArray<TSharedRef<FSlateWindowElementList>>& WindowsToDraw = WindowDrawBuffer.GetWindowElementLists();
 
 	// Enqueue a command to unlock the draw buffer after all windows have been drawn
 	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(SlateBeginDrawingWindowsCommand,
@@ -145,7 +145,7 @@ void FSlate3DRenderer::DrawWindowToTarget_RenderThread( FRHICommandListImmediate
 
 	for ( int32 WindowIndex = 0; WindowIndex < WindowsToDraw.Num(); WindowIndex++ )
 	{
-		FSlateWindowElementList& WindowElementList = *WindowsToDraw[WindowIndex].Get();
+		FSlateWindowElementList& WindowElementList = *WindowsToDraw[WindowIndex];
 
 		FSlateBatchData& BatchData = WindowElementList.GetBatchData();
 		FElementBatchMap& RootBatchMap = WindowElementList.GetRootDrawLayer().GetElementBatchMap();
@@ -192,7 +192,6 @@ void FSlate3DRenderer::DrawWindowToTarget_RenderThread( FRHICommandListImmediate
 				ColorTarget,
 				DepthStencil,
 				BatchData.GetRenderBatches(),
-				BatchData.GetRenderClipStates(),
 				DrawOptions
 			);
 		}

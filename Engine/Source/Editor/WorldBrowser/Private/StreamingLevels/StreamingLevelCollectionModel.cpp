@@ -72,10 +72,9 @@ void FStreamingLevelCollectionModel::OnLevelsCollectionChanged()
 	AllLevelsMap.Add(PersistentLevelModel->GetLongPackageName(), PersistentLevelModel);
 		
 	// Add models for each streaming level in the world
-	for (auto It = CurrentWorld->StreamingLevels.CreateConstIterator(); It; ++It)
+	for (ULevelStreaming* StreamingLevel : CurrentWorld->GetStreamingLevels())
 	{
-		ULevelStreaming* StreamingLevel = (*It);
-		if (StreamingLevel != nullptr)
+		if (StreamingLevel)
 		{
 			TSharedPtr<FStreamingLevelModel> LevelModel = MakeShareable(new FStreamingLevelModel(*this, StreamingLevel));
 			AllLevelsList.Add(LevelModel);

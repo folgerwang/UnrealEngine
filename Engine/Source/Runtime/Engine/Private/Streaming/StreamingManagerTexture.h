@@ -257,6 +257,11 @@ protected:
 	 */
 	void	SyncStates(bool bCompleteFullUpdateCycle);
 
+	// Called on game thread when no new elements are added to the StreamingTextures array and
+	// the elements in the array are not removed or reordered. This runs in parrallel with the
+	// async update task so the streaming meta data in each FStreamingTexture can change
+	void ProcessPendingMipCopyRequests();
+
 	/** Next sync, dump texture group stats. */
 	bool	bTriggerDumpTextureGroupStats;
 
@@ -282,6 +287,25 @@ protected:
 
 	/** The list of indices with null texture in StreamingTextures. */
 	TArray<int32>	RemovedTextureIndices;
+
+	// Represent a pending request to stream in/out mips to/from GPU for a 2D texture
+	struct FPendingMipCopyRequest
+	{
+		const UTexture2D* Texture;
+		// Used to find the corresponding FStreamingTexture in the StreamingTextures array
+		int32 CachedIdx;
+
+		FPendingMipCopyRequest() = default;
+
+		FPendingMipCopyRequest(const UTexture2D* InTexture, int32 InCachedIdx)
+			: Texture(InTexture)
+			, CachedIdx(InCachedIdx)
+		{}
+	};
+	TArray<FPendingMipCopyRequest> PendingMipCopyRequests;
+
+	// The index of the next FPendingMipCopyRequest to process so the requests can be amortized accross multiple frames
+	int32 CurrentPendingMipCopyRequestIdx;
 
 	/** Level data */
 	TIndirectArray<FLevelTextureManager> LevelTextureManagers;

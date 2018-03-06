@@ -13,6 +13,18 @@
 #include "ExternalTexture.h"
 #include "Misc/UObjectToken.h"
 
+static TAutoConsoleVariable<int32> CVarSupportMaterialLayers(
+	TEXT("r.SupportMaterialLayers"),
+	0,
+	TEXT("Support new material layering in 4.19. This also requires the experimental feature 'MaterialLayeringEnabled' to be turned on. Disabling it reduces some overhead in place to support the experimental feature."),
+	ECVF_ReadOnly | ECVF_RenderThreadSafe);
+
+// @TODO: Remove this. Temporary flag for toggling experimental material layers functionality
+bool AreNewMaterialLayersEnabled()
+{
+	return (CVarSupportMaterialLayers.GetValueOnRenderThread() == 1);
+}
+
 TLinkedList<FMaterialUniformExpressionType*>*& FMaterialUniformExpressionType::GetTypeList()
 {
 	static TLinkedList<FMaterialUniformExpressionType*>* TypeList = NULL;
@@ -494,10 +506,10 @@ FUniformBufferRHIRef FUniformExpressionSet::CreateUniformBuffer(const FMaterialR
 			}
 			else
 			{
-				check(GWhiteTexture->TextureRHI);
-				*ResourceTable++ = GWhiteTexture->TextureRHI;
-				check(GWhiteTexture->SamplerStateRHI);
-				*ResourceTable++ = GWhiteTexture->SamplerStateRHI;
+				check(GBlackTexture->TextureRHI);
+				*ResourceTable++ = GBlackTexture->TextureRHI;
+				check(GBlackTexture->SamplerStateRHI);
+				*ResourceTable++ = GBlackTexture->SamplerStateRHI;
 			}
 		}
 

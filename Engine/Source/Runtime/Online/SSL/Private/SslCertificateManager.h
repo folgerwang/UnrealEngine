@@ -8,10 +8,12 @@
 
 #include "Interfaces/ISslCertificateManager.h"
 
+struct x509_st;
+typedef struct x509_st X509;
+
 class FSslCertificateManager : public ISslCertificateManager
 {
 public:
-	//virtual const TArray<X509*>& GetCertificateArray() override; 
 	virtual void AddCertificatesToSslContext(SSL_CTX* SslContextPtr) override;
 
 	void BuildRootCertificateArray();

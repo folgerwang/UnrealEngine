@@ -22,6 +22,8 @@ using namespace ImmediatePhysics;
 
 #define LOCTEXT_NAMESPACE "ImmediatePhysics"
 
+TAutoConsoleVariable<int32> CVarEnableRigidBodyNode(TEXT("p.RigidBodyNode"), 1, TEXT("Enables/disables rigid body node updates and evaluations"));
+
 FAnimNode_RigidBody::FAnimNode_RigidBody():
 	QueryParams(NAME_None, FCollisionQueryParams::GetUnknownStatId())
 {
@@ -201,10 +203,17 @@ void FAnimNode_RigidBody::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseC
 	SCOPE_CYCLE_COUNTER(STAT_ImmediateEvaluateSkeletalControl);
 	//FPlatformMisc::BeginNamedEvent(FColor::Magenta, "FAnimNode_Ragdoll::EvaluateSkeletalControl_AnyThread");
 
+	// Update our eval counter, and decide whether we need to reset simulated bodies, if our anim instance hasn't updated in a while.
+	if(EvalCounter.HasEverBeenUpdated() && !EvalCounter.WasSynchronizedLastFrame(Output.AnimInstanceProxy->GetEvaluationCounter()))
+	{
+		bResetSimulated = true;
+	}
+	EvalCounter.SynchronizeWith(Output.AnimInstanceProxy->GetEvaluationCounter());
+
 	const float DeltaSeconds = AccumulatedDeltaTime;
 	AccumulatedDeltaTime = 0.f;
 
-	if (PhysicsSimulation)
+	if (CVarEnableRigidBodyNode.GetValueOnAnyThread() != 0 && PhysicsSimulation)	
 	{
 		const FBoneContainer& BoneContainer = Output.Pose.GetPose().GetBoneContainer();
 		const FTransform CompWorldSpaceTM = Output.AnimInstanceProxy->GetComponentTransform();
@@ -660,10 +669,27 @@ void FAnimNode_RigidBody::UpdateWorldForces(const FTransform& ComponentToWorld, 
 	}
 }
 
+bool FAnimNode_RigidBody::NeedsDynamicReset() const
+{
+	return true;
+}
+
+void FAnimNode_RigidBody::ResetDynamics()
+{
+	// This will be picked up next evaluate and reset our simulation
+	bResetSimulated = true;
+}
+
 DECLARE_CYCLE_STAT(TEXT("RigidBody_PreUpdate"), STAT_RigidBody_PreUpdate, STATGROUP_Anim);
 
 void FAnimNode_RigidBody::PreUpdate(const UAnimInstance* InAnimInstance)
 {
+	// Don't update geometry if RBN is disabled
+	if(CVarEnableRigidBodyNode.GetValueOnAnyThread() == 0)
+	{
+		return;
+	}
+
 	SCOPE_CYCLE_COUNTER(STAT_RigidBody_PreUpdate);
 
 	UWorld* World = InAnimInstance->GetWorld();
@@ -695,6 +721,12 @@ DECLARE_CYCLE_STAT(TEXT("RigidBody_Update"), STAT_RigidBody_Update, STATGROUP_An
 
 void FAnimNode_RigidBody::UpdateInternal(const FAnimationUpdateContext& Context)
 {
+	// Avoid this work if RBN is disabled, as the results would be discarded
+	if(CVarEnableRigidBodyNode.GetValueOnAnyThread() == 0)
+	{
+		return;
+	}
+
 	SCOPE_CYCLE_COUNTER(STAT_RigidBody_PreUpdate);
 
 	// Accumulate deltatime elapsed during update. To be used during evaluation.

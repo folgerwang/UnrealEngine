@@ -74,13 +74,13 @@ void FIOSPlatformTextField::ShowVirtualKeyboard(bool bShow, int32 UserIndex, TSh
 	}
 	else
 	{
-		if(TextField == nullptr)
-		{
-			TextField = [SlateTextField alloc];
-		}
-		
 		if(bShow)
 		{
+			if (TextField == nullptr)
+			{
+				TextField = [[SlateTextField alloc] init];
+			}
+
 			// these functions must be run on the main thread
 			dispatch_async(dispatch_get_main_queue(),^ {
 				[TextField show: TextEntryWidget];
@@ -88,7 +88,12 @@ void FIOSPlatformTextField::ShowVirtualKeyboard(bool bShow, int32 UserIndex, TSh
 		}
         else
         {
-            [TextField hide];
+			if (TextField != nullptr)
+			{
+				dispatch_async(dispatch_get_main_queue(), ^{
+					[TextField hide];
+				});
+			}
         }
 	}
 #endif

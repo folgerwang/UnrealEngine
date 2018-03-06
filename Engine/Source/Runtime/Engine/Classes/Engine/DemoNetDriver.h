@@ -44,7 +44,7 @@ public:
 
 	virtual void	StartTask() = 0;
 	virtual bool	Tick() = 0;
-	virtual FString	GetName() = 0;
+	virtual FName	GetName() const = 0;
 
 	UDemoNetDriver* Driver;
 };
@@ -76,20 +76,21 @@ struct FPlaybackPacket
 
 enum ENetworkVersionHistory
 {
-	HISTORY_INITIAL							= 1,
+	HISTORY_REPLAY_INITIAL					= 1,
 	HISTORY_SAVE_ABS_TIME_MS				= 2,			// We now save the abs demo time in ms for each frame (solves accumulation errors)
 	HISTORY_INCREASE_BUFFER					= 3,			// Increased buffer size of packets, which invalidates old replays
 	HISTORY_SAVE_ENGINE_VERSION				= 4,			// Now saving engine net version + InternalProtocolVersion
 	HISTORY_EXTRA_VERSION					= 5,			// We now save engine/game protocol version, checksum, and changelist
 	HISTORY_MULTIPLE_LEVELS					= 6,			// Replays support seamless travel between levels
-	HISTORY_MULTIPLE_LEVELS_TIME_CHANGES	= 7,				// Save out the time that level changes happen
-	HISTORY_DELETED_STARTUP_ACTORS			= 8				// Save DeletedNetStartupActors inside checkpoints
+	HISTORY_MULTIPLE_LEVELS_TIME_CHANGES	= 7,			// Save out the time that level changes happen
+	HISTORY_DELETED_STARTUP_ACTORS			= 8,			// Save DeletedNetStartupActors inside checkpoints
+	HISTORY_HEADER_FLAGS					= 9				// Save out enum flags with demo header
 };
 
 static const uint32 MIN_SUPPORTED_VERSION = HISTORY_EXTRA_VERSION;
 
 static const uint32 NETWORK_DEMO_MAGIC				= 0x2CF5A13D;
-static const uint32 NETWORK_DEMO_VERSION			= HISTORY_DELETED_STARTUP_ACTORS;
+static const uint32 NETWORK_DEMO_VERSION			= HISTORY_HEADER_FLAGS;
 static const uint32 MIN_NETWORK_DEMO_VERSION		= HISTORY_EXTRA_VERSION;
 
 static const uint32 NETWORK_DEMO_METADATA_MAGIC		= 0x3D06B24E;
@@ -123,6 +124,14 @@ struct FLevelNameAndTime
 	}
 };
 
+enum class EReplayHeaderFlags : uint32
+{
+	None				= 0,
+	ClientRecorded		= ( 1 << 0 ),
+};
+
+ENUM_CLASS_FLAGS(EReplayHeaderFlags)
+
 struct FNetworkDemoHeader
 {
 	uint32	Magic;									// Magic to ensure we're opening the right file.
@@ -131,6 +140,7 @@ struct FNetworkDemoHeader
 	uint32	EngineNetworkProtocolVersion;			// Version of the engine internal network format
 	uint32	GameNetworkProtocolVersion;				// Version of the game internal network format
 	uint32	Changelist;								// Engine changelist built from
+	EReplayHeaderFlags HeaderFlags;					// Replay flags
 	TArray<FLevelNameAndTime> LevelNamesAndTimes;	// Name and time changes of levels loaded for demo
 	TArray<FString> GameSpecificData;				// Area for subclasses to write stuff
 
@@ -140,7 +150,8 @@ struct FNetworkDemoHeader
 		NetworkChecksum( FNetworkVersion::GetLocalNetworkVersion() ),
 		EngineNetworkProtocolVersion( FNetworkVersion::GetEngineNetworkProtocolVersion() ),
 		GameNetworkProtocolVersion( FNetworkVersion::GetGameNetworkProtocolVersion() ),
-		Changelist( FEngineVersion::Current().GetChangelist() )
+		Changelist( FEngineVersion::Current().GetChangelist() ),
+		HeaderFlags( EReplayHeaderFlags::None )
 	{
 	}
 
@@ -190,6 +201,11 @@ struct FNetworkDemoHeader
 		else
 		{
 			Ar << Header.LevelNamesAndTimes;
+		}
+
+		if (Header.Version >= HISTORY_HEADER_FLAGS)
+		{
+			Ar << Header.HeaderFlags;
 		}
 
 		Ar << Header.GameSpecificData;
@@ -296,6 +312,8 @@ class ENGINE_API UDemoNetDriver : public UNetDriver
 	FOnDemoFinishPlaybackDelegate OnDemoFinishPlaybackDelegate;
 
 	bool		IsLoadingCheckpoint() const { return bIsLoadingCheckpoint; }
+	
+	bool		IsPlayingClientReplay() const;
 
 	/** ExternalDataToObjectMap is used to map a FNetworkGUID to the proper FReplayExternalDataArray */
 	TMap< FNetworkGUID, FReplayExternalDataArray > ExternalDataToObjectMap;
@@ -485,10 +503,10 @@ public:
 	void ReplayStreamingReady( bool bSuccess, bool bRecord );
 
 	void AddReplayTask( FQueuedReplayTask* NewTask );
-	bool IsAnyTaskPending();
+	bool IsAnyTaskPending() const;
 	void ClearReplayTasks();
 	bool ProcessReplayTasks();
-	bool IsNamedTaskInQueue( const FString& Name );
+	bool IsNamedTaskInQueue( const FName& Name ) const;
 
 	/** If a channel is associated with Actor, adds the channel's GUID to the list of GUIDs excluded from queuing bunches during scrubbing. */
 	void AddNonQueuedActorForScrubbing(AActor const* Actor);
@@ -538,6 +556,8 @@ protected:
 	void ProcessSeamlessTravel(int32 LevelIndex);
 
 	bool ReadPlaybackDemoHeader(FString& Error);
+
+	bool DemoReplicateActor(AActor* Actor, UNetConnection* Connection, bool bMustReplicate);
 
 	TArray<FQueuedDemoPacket> QueuedPacketsBeforeTravel;
 

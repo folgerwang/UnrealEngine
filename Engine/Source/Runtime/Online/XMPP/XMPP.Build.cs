@@ -37,7 +37,9 @@ public class XMPP : ModuleRules
 			PublicDefinitions.Add("WITH_XMPP_JINGLE=0");
 		}
 		
-		if (Target.Platform == UnrealTargetPlatform.XboxOne)
+		if (Target.Platform == UnrealTargetPlatform.XboxOne ||
+			Target.Platform == UnrealTargetPlatform.Android ||
+			Target.Platform == UnrealTargetPlatform.IOS )
 		{
 			AddEngineThirdPartyPrivateStaticDependencies(Target, "libstrophe");
 		}

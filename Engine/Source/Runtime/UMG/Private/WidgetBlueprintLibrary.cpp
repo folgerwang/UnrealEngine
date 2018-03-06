@@ -19,6 +19,7 @@
 #include "EngineGlobals.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
 #include "Engine/Engine.h"
+#include "Engine/GameEngine.h"
 
 //For PIE error messages
 
@@ -616,6 +617,32 @@ bool UWidgetBlueprintLibrary::SetHardwareCursor(UObject* WorldContextObject, EMo
 	}
 
 	return false;
+}
+
+void UWidgetBlueprintLibrary::SetWindowTitleBarState(UWidget* TitleBarContent, EWindowTitleBarMode Mode, bool bTitleBarDragEnabled, bool bWindowButtonsVisible, bool bTitleBarVisible)
+{
+	UGameEngine* GameEngine = Cast<UGameEngine>(GEngine);
+	if (GameEngine != nullptr && GameEngine->GameViewport)
+	{
+		TSharedPtr<IGameLayerManager> LayerManager = GameEngine->GameViewport->GetGameLayerManager();
+		if (LayerManager.IsValid())
+		{
+			LayerManager->SetWindowTitleBarState(TitleBarContent ? TitleBarContent->GetCachedWidget() : nullptr, Mode, bTitleBarDragEnabled, bWindowButtonsVisible, bTitleBarVisible);
+		}
+	}
+}
+
+void UWidgetBlueprintLibrary::RestorePreviousWindowTitleBarState()
+{
+	UGameEngine* GameEngine = Cast<UGameEngine>(GEngine);
+	if (GameEngine != nullptr && GameEngine->GameViewport)
+	{
+		TSharedPtr<IGameLayerManager> LayerManager = GameEngine->GameViewport->GetGameLayerManager();
+		if (LayerManager.IsValid())
+		{
+			LayerManager->RestorePreviousWindowTitleBarState();
+		}
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

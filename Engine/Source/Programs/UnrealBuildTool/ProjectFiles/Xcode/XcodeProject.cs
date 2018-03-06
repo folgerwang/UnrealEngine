@@ -877,9 +877,19 @@ namespace UnrealBuildTool
 						}
 						if (bCreateIOSInfoPlist)
 						{
+							// get the receipt
+							FileReference ReceiptFilename;
+							if (bIsUE4Game)
+							{
+								ReceiptFilename = TargetReceipt.GetDefaultPath(UnrealBuildTool.EngineDirectory, "UE4Game", UnrealTargetPlatform.IOS, Config.BuildConfig, "");
+							}
+							else
+							{
+								ReceiptFilename = TargetReceipt.GetDefaultPath(ProjectPath, GameName, UnrealTargetPlatform.IOS, Config.BuildConfig, "");
+							}
 							Directory.CreateDirectory(Path.GetDirectoryName(IOSInfoPlistPath));
                             bool bSupportPortrait, bSupportLandscape, bSkipIcons;
-							UEDeployIOS.GenerateIOSPList(ProjectFile, Config.BuildConfig, ProjectPath.FullName, bIsUE4Game, GameName, Config.BuildTarget, EngineDir.FullName, ProjectPath + "/Binaries/IOS/Payload", out bSupportPortrait, out bSupportLandscape, out bSkipIcons);
+							UEDeployIOS.GenerateIOSPList(ProjectFile, Config.BuildConfig, ProjectPath.FullName, bIsUE4Game, GameName, Config.BuildTarget, EngineDir.FullName, ProjectPath + "/Binaries/IOS/Payload", ReceiptFilename, out bSupportPortrait, out bSupportLandscape, out bSkipIcons);
 						}
 						if (bCreateTVOSInfoPlist)
 						{
@@ -1155,6 +1165,25 @@ namespace UnrealBuildTool
 
 		private void WriteSchemeFile(string TargetName, string TargetGuid, string BuildTargetGuid, string IndexTargetGuid, bool bHasEditorConfiguration, string GameProjectPath)
 		{
+			DirectoryReference SchemesDir = new DirectoryReference(ProjectFilePath.FullName + "/xcshareddata/xcschemes");
+			if (!DirectoryReference.Exists(SchemesDir))
+			{
+				DirectoryReference.CreateDirectory(SchemesDir);
+			}
+
+			string SchemeFilePath = SchemesDir + "/" + TargetName + ".xcscheme";
+			string OldCommandLineArguments = null;
+			if (File.Exists(SchemeFilePath))
+			{
+				string OldContents = File.ReadAllText(SchemeFilePath);
+				int OldCommandLineArgumentsStart = OldContents.IndexOf("<CommandLineArguments>") + "<CommandLineArguments>".Length;
+				int OldCommandLineArgumentsEnd = OldContents.IndexOf("</CommandLineArguments>");
+				if (OldCommandLineArgumentsStart != -1 && OldCommandLineArgumentsEnd != -1)
+				{
+					OldCommandLineArguments = OldContents.Substring(OldCommandLineArgumentsStart, OldCommandLineArgumentsEnd - OldCommandLineArgumentsStart);
+				}
+			}
+
 			string DefaultConfiguration = bHasEditorConfiguration && !XcodeProjectFileGenerator.bGeneratingRunIOSProject && !XcodeProjectFileGenerator.bGeneratingRunTVOSProject ? "Development Editor" : "Development";
 
 			StringBuilder Content = new StringBuilder();
@@ -1222,29 +1251,36 @@ namespace UnrealBuildTool
 			Content.Append("               ReferencedContainer = \"container:" + TargetName + ".xcodeproj\">" + ProjectFileGenerator.NewLine);
 			Content.Append("            </BuildableReference>" + ProjectFileGenerator.NewLine);
 			Content.Append("      </BuildableProductRunnable>" + ProjectFileGenerator.NewLine);
-			if (bHasEditorConfiguration && TargetName != "UE4")
+			if (string.IsNullOrEmpty(OldCommandLineArguments))
 			{
-				Content.Append("      <CommandLineArguments>" + ProjectFileGenerator.NewLine);
-				if (IsForeignProject)
+				if (bHasEditorConfiguration && TargetName != "UE4")
 				{
+					Content.Append("      <CommandLineArguments>" + ProjectFileGenerator.NewLine);
+					if (IsForeignProject)
+					{
+						Content.Append("         <CommandLineArgument" + ProjectFileGenerator.NewLine);
+						Content.Append("            argument = \"&quot;" + GameProjectPath + "&quot;\"" + ProjectFileGenerator.NewLine);
+						Content.Append("            isEnabled = \"YES\">" + ProjectFileGenerator.NewLine);
+						Content.Append("         </CommandLineArgument>" + ProjectFileGenerator.NewLine);
+					}
+					else
+					{
+						Content.Append("         <CommandLineArgument" + ProjectFileGenerator.NewLine);
+						Content.Append("            argument = \"" + TargetName + "\"" + ProjectFileGenerator.NewLine);
+						Content.Append("            isEnabled = \"YES\">" + ProjectFileGenerator.NewLine);
+						Content.Append("         </CommandLineArgument>" + ProjectFileGenerator.NewLine);
+					}
+					// Always add a configuration argument
 					Content.Append("         <CommandLineArgument" + ProjectFileGenerator.NewLine);
-					Content.Append("            argument = \"&quot;" + GameProjectPath + "&quot;\"" + ProjectFileGenerator.NewLine);
+					Content.Append("            argument = \"-RunConfig=$(Configuration)\"" + ProjectFileGenerator.NewLine);
 					Content.Append("            isEnabled = \"YES\">" + ProjectFileGenerator.NewLine);
 					Content.Append("         </CommandLineArgument>" + ProjectFileGenerator.NewLine);
+					Content.Append("      </CommandLineArguments>" + ProjectFileGenerator.NewLine);
 				}
-				else
-				{
-					Content.Append("         <CommandLineArgument" + ProjectFileGenerator.NewLine);
-					Content.Append("            argument = \"" + TargetName + "\"" + ProjectFileGenerator.NewLine);
-					Content.Append("            isEnabled = \"YES\">" + ProjectFileGenerator.NewLine);
-					Content.Append("         </CommandLineArgument>" + ProjectFileGenerator.NewLine);
-				}
-				// Always add a configuration argument
-				Content.Append("         <CommandLineArgument" + ProjectFileGenerator.NewLine);
-				Content.Append("            argument = \"-RunConfig=$(Configuration)\"" + ProjectFileGenerator.NewLine);
-				Content.Append("            isEnabled = \"YES\">" + ProjectFileGenerator.NewLine);
-				Content.Append("         </CommandLineArgument>" + ProjectFileGenerator.NewLine);
-				Content.Append("      </CommandLineArguments>" + ProjectFileGenerator.NewLine);
+			}
+			else
+			{
+				Content.Append("      <CommandLineArguments>" + OldCommandLineArguments + "</CommandLineArguments>");
 			}
 			Content.Append("      <AdditionalOptions>" + ProjectFileGenerator.NewLine);
 			Content.Append("      </AdditionalOptions>" + ProjectFileGenerator.NewLine);
@@ -1275,13 +1311,7 @@ namespace UnrealBuildTool
 			Content.Append("   </ArchiveAction>" + ProjectFileGenerator.NewLine);
 			Content.Append("</Scheme>" + ProjectFileGenerator.NewLine);
 
-			DirectoryReference SchemesDir = new DirectoryReference(ProjectFilePath.FullName + "/xcshareddata/xcschemes");
-			if (!DirectoryReference.Exists(SchemesDir))
-			{
-				DirectoryReference.CreateDirectory(SchemesDir);
-			}
 
-			string SchemeFilePath = SchemesDir + "/" + TargetName + ".xcscheme";
 			File.WriteAllText(SchemeFilePath, Content.ToString(), new UTF8Encoding());
 
 			Content.Clear();

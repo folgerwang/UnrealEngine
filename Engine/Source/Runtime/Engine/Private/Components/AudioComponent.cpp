@@ -11,6 +11,9 @@
 #include "Components/BillboardComponent.h"
 #include "UObject/FrameworkObjectVersion.h"
 
+DECLARE_CYCLE_STAT(TEXT("AudioComponent Play"), STAT_AudioComp_Play, STATGROUP_Audio);
+
+
 /*-----------------------------------------------------------------------------
 UAudioComponent implementation.
 -----------------------------------------------------------------------------*/
@@ -277,6 +280,8 @@ void UAudioComponent::Play(float StartTime)
 
 void UAudioComponent::PlayInternal(const float StartTime, const float FadeInDuration, const float FadeVolumeLevel)
 {
+	SCOPE_CYCLE_COUNTER(STAT_AudioComp_Play);
+
 	UWorld* World = GetWorld();
 
 	UE_LOG(LogAudio, Verbose, TEXT("%g: Playing AudioComponent : '%s' with Sound: '%s'"), World ? World->GetAudioTimeSeconds() : 0.0f, *GetFullName(), Sound ? *Sound->GetName() : TEXT("nullptr"));

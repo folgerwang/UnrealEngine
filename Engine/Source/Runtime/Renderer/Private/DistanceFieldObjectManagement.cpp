@@ -43,6 +43,26 @@ int32 FDistanceFieldCulledObjectBuffers::ObjectBoxBoundsStride = 5;
 // In float4's.  Must match corresponding usf definition
 int32 UploadObjectDataStride = 1 + FDistanceFieldObjectBuffers::ObjectDataStride;
 
+void FDistanceFieldObjectBuffers::Initialize()
+{
+	if (MaxObjects > 0)
+	{
+		const uint32 BufferFlags = BUF_ShaderResource;
+		
+		uint32 NumComponents = 4;
+		EPixelFormat BufferFormat = PF_R32_FLOAT;
+
+		if (RHISupports4ComponentUAVReadWrite(GMaxRHIShaderPlatform))
+		{
+			NumComponents = 1;
+			BufferFormat = PF_A32B32G32R32F;
+		}
+
+		Bounds.Initialize(GPixelFormats[BufferFormat].BlockBytes, NumComponents * MaxObjects, BufferFormat, 0, TEXT("FDistanceFieldObjectBuffers::Bounds"));
+		Data.Initialize(GPixelFormats[BufferFormat].BlockBytes, NumComponents * MaxObjects * ObjectDataStride, BufferFormat, 0, TEXT("FDistanceFieldObjectBuffers::Data"));
+	}
+}
+
 class FDistanceFieldUploadDataResource : public FRenderResource
 {
 public:
@@ -763,6 +783,7 @@ void ProcessPrimitiveUpdate(
 	int32 OriginalNumObjects,
 	FVector InvTextureDim,
 	bool bPrepareForDistanceFieldGI, 
+	bool bAnyViewEnabledDistanceCulling,
 	TArray<FMatrix>& ObjectLocalToWorldTransforms,
 	TArray<uint32>& UploadObjectIndices,
 	TArray<FVector4>& UploadObjectData)
@@ -897,9 +918,28 @@ void ProcessPrimitiveUpdate(
 					// UVAdd
 					UploadObjectData.Add(FVector4(FVector(BlockMin) * InvTextureDim + .5f * UVScale, SelfShadowBias));
 
-					// DistanceFieldMAD
+					// xy - DistanceFieldMAD
+					// zw - MinDrawDistance^2, MaxDrawDistance^2
 					// [0, 1] -> [MinVolumeDistance, MaxVolumeDistance]
-					UploadObjectData.Add(FVector4(DistanceMinMax.Y - DistanceMinMax.X, DistanceMinMax.X, 0, 0));
+					const int32 PrimIdx = PrimitiveSceneInfo->GetIndex();
+					const FPrimitiveBounds& PrimBounds = Scene->PrimitiveBounds[PrimIdx];
+					float MinDrawDist2 = PrimBounds.MinDrawDistanceSq;
+					// For IEEE compatible machines, float operations goes to inf if overflow
+					// In this case, it will effectively disable max draw distance culling
+					float MaxDrawDist = FMath::Max(PrimBounds.MaxCullDistance, 0.f) * GetCachedScalabilityCVars().ViewDistanceScale;
+#if WITH_EDITOR
+					if (!bAnyViewEnabledDistanceCulling)
+					{
+						MinDrawDist2 = 0.f;
+						MaxDrawDist = 0.f;
+					}
+#endif
+					UploadObjectData.Add(
+						FVector4(
+							DistanceMinMax.Y - DistanceMinMax.X,
+							DistanceMinMax.X,
+							MinDrawDist2,
+							MaxDrawDist * MaxDrawDist));
 
 					UploadObjectData.Add(*(FVector4*)&UniformScaleVolumeToWorld.M[0]);
 					UploadObjectData.Add(*(FVector4*)&UniformScaleVolumeToWorld.M[1]);
@@ -1122,6 +1162,18 @@ void FDeferredShadingSceneRenderer::UpdateGlobalDistanceFieldObjectBuffers(FRHIC
 				}
 			}
 
+			bool bAnyViewEnabledDistanceCulling = !WITH_EDITOR;
+#if WITH_EDITOR
+			for (const FViewInfo& ViewInfo : Views)
+			{
+				if (!ViewInfo.Family->EngineShowFlags.DistanceCulledPrimitives)
+				{
+					bAnyViewEnabledDistanceCulling = true;
+					break;
+				}
+			}
+#endif
+
 			for (int32 UploadPrimitiveIndex = 0; UploadPrimitiveIndex < DistanceFieldSceneData.PendingAddOperations.Num(); UploadPrimitiveIndex++)
 			{
 				FPrimitiveSceneInfo* PrimitiveSceneInfo = DistanceFieldSceneData.PendingAddOperations[UploadPrimitiveIndex];
@@ -1134,6 +1186,7 @@ void FDeferredShadingSceneRenderer::UpdateGlobalDistanceFieldObjectBuffers(FRHIC
 					OriginalNumObjects, 
 					InvTextureDim, 
 					bPrepareForDistanceFieldGI, 
+					bAnyViewEnabledDistanceCulling,
 					ObjectLocalToWorldTransforms, 
 					UploadObjectIndices, 
 					UploadObjectData);
@@ -1151,6 +1204,7 @@ void FDeferredShadingSceneRenderer::UpdateGlobalDistanceFieldObjectBuffers(FRHIC
 					OriginalNumObjects, 
 					InvTextureDim, 
 					bPrepareForDistanceFieldGI, 
+					bAnyViewEnabledDistanceCulling,
 					ObjectLocalToWorldTransforms, 
 					UploadObjectIndices, 
 					UploadObjectData);

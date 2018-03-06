@@ -36,8 +36,6 @@
 	#include "Collision/CollisionConversions.h"
 #endif // WITH_PHYSX
 
-#include "PhysicsSerializer.h"
-
 #define LOCTEXT_NAMESPACE "BodyInstance"
 
 #include "Components/ModelComponent.h"
@@ -464,9 +462,6 @@ FBodyInstance::FBodyInstance()
 	, bLockXRotation(false)
 	, bLockYRotation(false)
 	, bLockZRotation(false)
-#if WITH_PHYSX
-	, bWokenExternally(false)
-#endif // WITH_PHYSX
 	, bUseAsyncScene(false)
 	, bOverrideMaxDepenetrationVelocity(false)
 	, bOverrideWalkableSlopeOnInstance(false)
@@ -490,13 +485,8 @@ FBodyInstance::FBodyInstance()
 	, RigidActorSync(nullptr)
 	, RigidActorAsync(nullptr)
 	, BodyAggregate(nullptr)
-	, RigidActorSyncId(PX_SERIAL_OBJECT_ID_INVALID)
-	, RigidActorAsyncId(PX_SERIAL_OBJECT_ID_INVALID)
 #endif // WITH_PHYSX
 	, VelocitySolverIterationCount(1)
-#if WITH_PHYSX
-	, InitialLinearVelocity(0.0f)
-#endif
 {
 	MaxAngularVelocity = UPhysicsSettings::Get()->MaxAngularVelocity;
 }
@@ -1193,20 +1183,17 @@ TAutoConsoleVariable<int32> CDisableQueryOnlyActors(TEXT("p.DisableQueryOnlyActo
 template <bool bCompileStatic>
 struct FInitBodiesHelper
 {
-	FInitBodiesHelper( TArray<FBodyInstance*>& InBodies, TArray<FTransform>& InTransforms, class UBodySetup* InBodySetup, class UPrimitiveComponent* InPrimitiveComp, class FPhysScene* InInRBScene, const FBodyInstance::FInitBodySpawnParams& InSpawnParams, FBodyInstance::PhysXAggregateType InInAggregate = NULL, UPhysicsSerializer* InPhysicsSerializer = nullptr)
+	FInitBodiesHelper( TArray<FBodyInstance*>& InBodies, TArray<FTransform>& InTransforms, class UBodySetup* InBodySetup, class UPrimitiveComponent* InPrimitiveComp, class FPhysScene* InInRBScene, const FBodyInstance::FInitBodySpawnParams& InSpawnParams, FBodyInstance::PhysXAggregateType InInAggregate = NULL)
 	: Bodies(InBodies)
 	, Transforms(InTransforms)
 	, BodySetup(InBodySetup)
 	, PrimitiveComp(InPrimitiveComp)
 	, PhysScene(InInRBScene)
 	, InAggregate(InInAggregate)
-	, PhysicsSerializer(InPhysicsSerializer)
 	, DebugName(TEXT(""))
 	, InstanceBlendWeight(-1.f)
 	, bInstanceSimulatePhysics(false)
-	, bComponentAwake(false)
 	, SkelMeshComp(nullptr)
-	, InitialLinVel(EForceInit::ForceInitToZero)
 	, SpawnParams(InSpawnParams)
 	{
 		//Compute all the needed constants
@@ -1220,10 +1207,6 @@ struct FInitBodiesHelper
 			GetSimulatingAndBlendWeight(SkelMeshComp, BodySetup, InstanceBlendWeight, bInstanceSimulatePhysics);
 		}
 		
-
-		const AActor* OwningActor = PrimitiveComp ? PrimitiveComp->GetOwner() : nullptr;
-		InitialLinVel = GetInitialLinearVelocity(OwningActor, bComponentAwake);
-
 		if(PhysScene)
 		{
 			PSyncScene = PhysScene->GetPhysXScene(PST_Sync);
@@ -1250,7 +1233,6 @@ struct FInitBodiesHelper
 	class UPrimitiveComponent* PrimitiveComp;
 	class FPhysScene* PhysScene;
 	FBodyInstance::PhysXAggregateType InAggregate;
-	UPhysicsSerializer* PhysicsSerializer;
 
 	FString DebugName;
 	TSharedPtr<TArray<ANSICHAR>> PhysXName;
@@ -1259,24 +1241,13 @@ struct FInitBodiesHelper
 	bool bStatic;
 	float InstanceBlendWeight;
 	bool bInstanceSimulatePhysics;
-	bool bComponentAwake;
 
 	const USkeletalMeshComponent* SkelMeshComp;
-	FVector InitialLinVel;
 
 	const FBodyInstance::FInitBodySpawnParams& SpawnParams;
 
 	PxScene* PSyncScene;
 	PxScene* PAsyncScene;
-
-	bool GetBinaryData_PhysX_AssumesLocked(FBodyInstance* Instance) const
-	{
-		Instance->RigidActorSync = PhysicsSerializer->GetRigidActor(Instance->RigidActorSyncId);
-		Instance->RigidActorAsync = PhysicsSerializer->GetRigidActor(Instance->RigidActorAsyncId);
-
-		return Instance->RigidActorSync || Instance->RigidActorAsync;
-	}
-
 
 	physx::PxRigidActor* CreateActor_PhysX_AssumesLocked(FBodyInstance* Instance, const PxTransform& PTransform) const
 	{
@@ -1483,47 +1454,37 @@ struct FInitBodiesHelper
 
 			static FName PhysicsFormatName(FPlatformProperties::GetPhysicsFormat());
 
-			physx::PxRigidActor* PNewDynamic = nullptr;
-			bool bFoundBinaryData = false;
-			if (PhysicsSerializer)
+			physx::PxRigidActor* PNewDynamic = CreateActor_PhysX_AssumesLocked(Instance, U2PTransform(Transform));
+			const bool bInitFail = CreateShapes_PhysX_AssumesLocked(Instance, PNewDynamic, SpawnParams.bKinematicTargetsUpdateSQ);
+			if (bInitFail)
 			{
-				bFoundBinaryData = GetBinaryData_PhysX_AssumesLocked(Instance);
-			}
-
-			if (!bFoundBinaryData)
-			{
-				PNewDynamic = CreateActor_PhysX_AssumesLocked(Instance, U2PTransform(Transform));
-				const bool bInitFail = CreateShapes_PhysX_AssumesLocked(Instance, PNewDynamic, SpawnParams.bKinematicTargetsUpdateSQ);
-
-				if (bInitFail)
-				{
 #if WITH_EDITOR
-					//In the editor we may have ended up here because of world trace ignoring our EnableCollision. Since we can't get at the data in that function we check for it here
-					if(!PrimitiveComp || PrimitiveComp->IsCollisionEnabled())
+				//In the editor we may have ended up here because of world trace ignoring our EnableCollision. Since we can't get at the data in that function we check for it here
+				if(!PrimitiveComp || PrimitiveComp->IsCollisionEnabled())
 #endif
-					{
-						UE_LOG(LogPhysics, Log, TEXT("Init Instance %d of Primitive Component %s failed. Does it have collision data available?"), BodyIdx, *PrimitiveComp->GetReadableName());
-					}
-
-					if (Instance->RigidActorSync)
-					{
-						Instance->RigidActorSync->release();
-						Instance->RigidActorSync = nullptr;
-					}
-
-					if (Instance->RigidActorAsync)
-					{
-						Instance->RigidActorAsync->release();
-						Instance->RigidActorAsync = nullptr;
-					}
-
-					Instance->OwnerComponent = nullptr;
-					Instance->BodySetup = nullptr;
-					Instance->ExternalCollisionProfileBodySetup = nullptr;
-
-					continue;
+				{
+					UE_LOG(LogPhysics, Log, TEXT("Init Instance %d of Primitive Component %s failed. Does it have collision data available?"), BodyIdx, *PrimitiveComp->GetReadableName());
 				}
+
+				if (Instance->RigidActorSync)
+				{
+					Instance->RigidActorSync->release();
+					Instance->RigidActorSync = nullptr;
+				}
+
+				if (Instance->RigidActorAsync)
+				{
+					Instance->RigidActorAsync->release();
+					Instance->RigidActorAsync = nullptr;
+				}
+
+				Instance->OwnerComponent = nullptr;
+				Instance->BodySetup = nullptr;
+				Instance->ExternalCollisionProfileBodySetup = nullptr;
+
+				continue;
 			}
+
 
 			if (Instance->RigidActorSync)
 			{
@@ -1596,10 +1557,7 @@ struct FInitBodiesHelper
 
 				Instance->SceneIndexSync = PhysScene->PhysXSceneIndex[PST_Sync];
 				Instance->SceneIndexAsync = PAsyncScene ? PhysScene->PhysXSceneIndex[PST_Async] : 0;
-			}
-			
-			Instance->InitialLinearVelocity = InitialLinVel;
-			Instance->bWokenExternally = bComponentAwake;
+			}	
 		}
 
 		return true;
@@ -2259,6 +2217,22 @@ void FBodyInstance::SetMassOverride(float MassInKG, bool bNewOverrideMass)
 {
 	bOverrideMass = bNewOverrideMass;
 	MassInKgOverride = MassInKG;
+}
+
+bool FBodyInstance::GetRigidBodyState(FRigidBodyState& OutState)
+{
+	if (IsInstanceSimulatingPhysics())
+	{
+		FTransform BodyTM = GetUnrealWorldTransform();
+		OutState.Position = BodyTM.GetTranslation();
+		OutState.Quaternion = BodyTM.GetRotation();
+		OutState.LinVel = GetUnrealWorldVelocity();
+		OutState.AngVel = FMath::RadiansToDegrees(GetUnrealWorldAngularVelocityInRadians());
+		OutState.Flags = (IsInstanceAwake() ? ERigidBodyFlags::None : ERigidBodyFlags::Sleeping);
+		return true;
+	}
+
+	return false;
 }
 
 bool FBodyInstance::UpdateBodyScale(const FVector& InScale3D, bool bForceUpdate)
@@ -3216,9 +3190,6 @@ void FBodyInstance::GetComplexPhysicalMaterials(TArray<UPhysicalMaterial*>& Phys
 
 void FBodyInstance::GetComplexPhysicalMaterials(const FBodyInstance*, TWeakObjectPtr<UPrimitiveComponent> OwnerComp, TArray<UPhysicalMaterial*>& OutPhysicalMaterials)
 {
-	//NOTE: Binary serialization of physics objects depends on this logic being the same between runs.
-	//      If you make any changes to the returned object update the GUID of the physx binary serializer (FDerivedDataPhysXBinarySerializer)
-
 	check(GEngine->DefaultPhysMaterial != NULL);
 	// See if the Material has a PhysicalMaterial
 	UPrimitiveComponent* PrimComp = OwnerComp.Get();
@@ -4398,13 +4369,6 @@ void FBodyInstance::LoadProfileData(bool bVerifyProfile)
 	}
 }
 
-SIZE_T FBodyInstance::GetBodyInstanceResourceSize(EResourceSizeMode::Type Mode) const
-{
-	FResourceSizeEx ResSize = FResourceSizeEx(Mode);
-	GetBodyInstanceResourceSizeEx(ResSize);
-	return ResSize.GetTotalMemoryBytes();
-}
-
 void FBodyInstance::GetBodyInstanceResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) const
 {
 #if WITH_PHYSX
@@ -4622,9 +4586,15 @@ void FBodyInstance::InitDynamicProperties_AssumesLocked()
 #endif
 		}
 
+		UPrimitiveComponent* OwnerComponentInst = OwnerComponent.Get();
+		const AActor* OwningActor = OwnerComponentInst ? OwnerComponentInst->GetOwner() : nullptr;
+
+		bool bComponentAwake = false;
+		FVector InitialLinVel = GetInitialLinearVelocity(OwningActor, bComponentAwake);
+
 		if (ShouldInstanceSimulatingPhysics())
 		{
-			RigidActor->setLinearVelocity(U2PVector(InitialLinearVelocity));
+			RigidActor->setLinearVelocity(U2PVector(InitialLinVel));
 		}
 
 		float SleepEnergyThresh = RigidActor->getSleepThreshold();
@@ -4641,7 +4611,7 @@ void FBodyInstance::InitDynamicProperties_AssumesLocked()
 		CreateDOFLock();
 		if(!IsRigidBodyKinematic_AssumesLocked(RigidActor))
 		{
-			if(!bStartAwake && !bWokenExternally)
+			if(!bStartAwake && !bComponentAwake)
 			{
 				RigidActor->setWakeCounter(0.f);
 				RigidActor->putToSleep();
@@ -4772,7 +4742,7 @@ void FBodyInstance::GetFilterData_AssumesLocked(FShapeData& ShapeData, bool bFor
 }
 #endif // WITH_PHYSX
 
-void FBodyInstance::InitStaticBodies(const TArray<FBodyInstance*>& Bodies, const TArray<FTransform>& Transforms, class UBodySetup* BodySetup, class UPrimitiveComponent* PrimitiveComp, class FPhysScene* InRBScene, UPhysicsSerializer* PhysicsSerializer)
+void FBodyInstance::InitStaticBodies(const TArray<FBodyInstance*>& Bodies, const TArray<FTransform>& Transforms, class UBodySetup* BodySetup, class UPrimitiveComponent* PrimitiveComp, class FPhysScene* InRBScene)
 {
 	SCOPE_CYCLE_COUNTER(STAT_StaticInitBodies);
 
@@ -4790,7 +4760,7 @@ void FBodyInstance::InitStaticBodies(const TArray<FBodyInstance*>& Bodies, const
 	TransformsStatic = Transforms;
 
 #if WITH_PHYSX
-	FInitBodiesHelper<true> InitBodiesHelper(BodiesStatic, TransformsStatic, BodySetup, PrimitiveComp, InRBScene, FInitBodySpawnParams(PrimitiveComp), nullptr, PhysicsSerializer);
+	FInitBodiesHelper<true> InitBodiesHelper(BodiesStatic, TransformsStatic, BodySetup, PrimitiveComp, InRBScene, FInitBodySpawnParams(PrimitiveComp), nullptr);
 	InitBodiesHelper.InitBodies();
 #endif // WITH_PHYSX
 

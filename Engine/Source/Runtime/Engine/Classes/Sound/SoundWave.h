@@ -15,12 +15,13 @@
 #include "Serialization/BulkData.h"
 #include "Sound/SoundGroups.h"
 #include "AudioMixerTypes.h"
-
+#include "AudioCompressionSettings.h"
 #include "SoundWave.generated.h"
 
 class ITargetPlatform;
 struct FActiveSound;
 struct FSoundParseParameters;
+struct FPlatformAudioCookOverrides;
 
 UENUM()
 enum EDecompressionType
@@ -111,7 +112,7 @@ struct FStreamedAudioPlatformData
 	void Serialize(FArchive& Ar, class USoundWave* Owner);
 
 #if WITH_EDITORONLY_DATA
-	void Cache(class USoundWave& InSoundWave, FName AudioFormatName, uint32 InFlags);
+	void Cache(class USoundWave& InSoundWave, const FPlatformAudioCookOverrides* CompressionOverrides, FName AudioFormatName, uint32 InFlags);
 	void FinishCache();
 	bool IsFinishedCache() const;
 	ENGINE_API bool TryInlineChunkData();
@@ -128,6 +129,10 @@ class ENGINE_API USoundWave : public USoundBase
 	/** Platform agnostic compression quality. 1..100 with 1 being best compression and 100 being best quality. */
 	UPROPERTY(EditAnywhere, Category=Compression, meta=(ClampMin = "1", ClampMax = "100"), AssetRegistrySearchable)
 	int32 CompressionQuality;
+
+	/** Quality of sample rate conversion for platforms that opt into resampling during cook. */
+	UPROPERTY(EditAnywhere, Category = Quality)
+	ESoundwaveSampleRateSettings SampleRateQuality;
 
 	/** If set, when played directly (not through a sound cue) the wave will be played looping. */
 	UPROPERTY(EditAnywhere, Category=SoundWave, AssetRegistrySearchable)
@@ -199,10 +204,6 @@ class ENGINE_API USoundWave : public USoundBase
 	UPROPERTY(Category=Info, AssetRegistrySearchable, VisibleAnywhere)
 	int32 NumChannels;
 
-	/** Cached sample rate for displaying in the tools */
-	UPROPERTY(Category=Info, AssetRegistrySearchable, VisibleAnywhere)
-	int32 SampleRate;
-
 #if WITH_EDITORONLY_DATA
 	/** Offsets into the bulk data for the source wav data */
 	UPROPERTY()
@@ -258,6 +259,19 @@ protected:
 	/** Hold a reference to our internal curve so we can switch back to it if we want to */
 	UPROPERTY()
 	class UCurveTable* InternalCurves;
+
+protected:
+
+	/** Cached sample rate for displaying in the tools */
+	UPROPERTY(Category = Info, AssetRegistrySearchable, VisibleAnywhere)
+	int32 SampleRate;
+
+private:
+
+	/**
+	* helper function for getting the cached name of the current platform.
+	*/
+	static ITargetPlatform* GetRunningPlatform();
 
 public:	
 	/** Async worker that decompresses the audio data on a different thread */
@@ -320,11 +334,18 @@ public:
 	//~ Begin USoundBase Interface.
 	virtual bool IsPlayable() const override;
 	virtual void Parse( class FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances ) override;
-	virtual float GetMaxAudibleDistance() override;
-	virtual float GetDuration() override;
+	virtual float GetDuration() const override;
 	virtual float GetSubtitlePriority() const override;
 	virtual bool IsAllowedVirtual() const override;
 	//~ End USoundBase Interface.
+
+	/**
+	* Overwrite sample rate. Used for procedural soundwaves, as well as sound waves that are resampled on compress/decompress.
+	*/
+	void SetSampleRate(uint32 InSampleRate)
+	{
+		SampleRate = InSampleRate;
+	}
 
 	/**
 	 *	@param		Format		Format to check
@@ -386,24 +407,27 @@ public:
 	 * Gets the compressed data size from derived data cache for the specified format
 	 * 
 	 * @param Format	format of compressed data
+	 * @param CompressionOverrides Optional argument for compression overrides.
 	 * @return			compressed data size, or zero if it could not be obtained
 	 */ 
-	int32 GetCompressedDataSize(FName Format)
+	int32 GetCompressedDataSize(FName Format, const FPlatformAudioCookOverrides* CompressionOverrides = GetPlatformCompressionOverridesForCurrentPlatform())
 	{
-		FByteBulkData* Data = GetCompressedData(Format);
+		FByteBulkData* Data = GetCompressedData(Format, CompressionOverrides);
 		return Data ? Data->GetBulkDataSize() : 0;
 	}
 
-	virtual bool HasCompressedData(FName Format) const;
+	virtual bool HasCompressedData(FName Format, ITargetPlatform* TargetPlatform = GetRunningPlatform()) const;
 
 	/** 
 	 * Gets the compressed data from derived data cache for the specified platform
 	 * Warning, the returned pointer isn't valid after we add new formats
 	 * 
 	 * @param Format	format of compressed data
+	 * @param PlatformName optional name of platform we are getting compressed data for.
+	 * @param CompressionOverrides optional platform compression overrides
 	 * @return	compressed data, if it could be obtained
 	 */ 
-	virtual FByteBulkData* GetCompressedData(FName Format);
+	virtual FByteBulkData* GetCompressedData(FName Format, const FPlatformAudioCookOverrides* CompressionOverrides = GetPlatformCompressionOverridesForCurrentPlatform());
 
 	/** 
 	 * Change the guid and flush all compressed data
@@ -449,9 +473,29 @@ public:
 	 */
 	void SerializeCookedPlatformData(class FArchive& Ar);
 
+	/*
+	* Returns a sample rate if there is a specific sample rate override for this platform, -1.0 otherwise.
+	*/
+	float GetSampleRateForCurrentPlatform();
+
+	/**
+	* Return the platform compression overrides set for the current platform.
+	*/
+	static const FPlatformAudioCookOverrides* GetPlatformCompressionOverridesForCurrentPlatform();
+
+	/*
+	* Returns a sample rate if there is a specific sample rate override for this platform, -1.0 otherwise.
+	*/
+	float GetSampleRateForCompressionOverrides(const FPlatformAudioCookOverrides* CompressionOverrides);
+
 #if WITH_EDITORONLY_DATA
 	
 #if WITH_EDITOR
+	/*
+	* Returns a sample rate if there is a specific sample rate override for this platform, -1.0 otherwise.
+	*/
+	float GetSampleRateForTargetPlatform(const ITargetPlatform* TargetPlatform);
+	
 	/**
 	 * Begins caching platform data in the background for the platform requested
 	 */
@@ -511,6 +555,13 @@ private:
 
 	ESoundWaveResourceState ResourceState;
 
+#if !WITH_EDITOR
+	// This is set to false on initialization, then set to true on non-editor platforms when we cache appropriate sample rate.
+	bool bCachedSampleRateFromPlatformSettings;
+
+	// This is the sample rate gotten from platform settings.
+	float CachedSampleRateOverride;
+#endif // !WITH_EDITOR
 };
 
 

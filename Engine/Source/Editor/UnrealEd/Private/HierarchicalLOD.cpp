@@ -21,11 +21,13 @@
 #include "HierarchicalLODUtilitiesModule.h"
 #include "../Classes/Editor/EditorEngine.h"
 #include "UnrealEdGlobals.h"
+
+#include "IMeshMergeUtilities.h"
+#include "MeshMergeModule.h"
 #endif // WITH_EDITOR
 
 
 #include "HierarchicalLODVolume.h"
-
 
 DEFINE_LOG_CATEGORY_STATIC(LogLODGenerator, Warning, All);
 
@@ -34,8 +36,24 @@ DEFINE_LOG_CATEGORY_STATIC(LogLODGenerator, Warning, All);
 #define METER_TO_CM		100.0f
 
 UHierarchicalLODSettings::UHierarchicalLODSettings(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer), bForceSettingsInAllMaps(false)
+	: Super(ObjectInitializer), bForceSettingsInAllMaps(false), bInvalidateHLODClusters(true), bDeleteHLODAssets(true), BaseMaterial(nullptr)
 {	
+	BaseMaterial = ConstructorHelpers::FObjectFinder<UMaterialInterface>(TEXT("/Engine/EngineMaterials/BaseFlattenMaterial")).Object;
+}
+
+void UHierarchicalLODSettings::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
+{
+	if (PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(UHierarchicalLODSettings, BaseMaterial))
+	{
+		if (!BaseMaterial.IsNull())
+		{
+			const IMeshMergeUtilities& Module = FModuleManager::Get().LoadModuleChecked<IMeshMergeModule>("MeshMergeUtilities").GetUtilities();
+			if (!Module.IsValidBaseMaterial(BaseMaterial.LoadSynchronous(), true))
+			{
+				BaseMaterial = LoadObject<UMaterialInterface>(NULL, TEXT("/Engine/EngineMaterials/BaseFlattenMaterial.BaseFlattenMaterial"), NULL, LOAD_None, NULL);
+			}
+		}
+	}
 }
 
 FHierarchicalLODBuilder::FHierarchicalLODBuilder(UWorld* InWorld)
@@ -137,24 +155,55 @@ void FHierarchicalLODBuilder::BuildClusters(ULevel* InLevel, const bool bCreateM
 		{
 			Clusters.Empty();
 
-			FLODCluster LevelCluster;
+			ALODActor* PreviousLevelActor = nullptr;
 
 			TArray<AActor*> GenerationActors;
-			for (int32 ActorId = 0; ActorId < InLevel->Actors.Num(); ++ActorId)
-			{
-				AActor* Actor = InLevel->Actors[ActorId];
-				if (ShouldGenerateCluster(Actor, !bCreateMeshes))
-				{
-					FLODCluster ActorCluster(Actor);
-					ValidStaticMeshActorsInLevel.Add(Actor);
 
-					LevelCluster += ActorCluster;
+			for (int32 LODId = 0; LODId < TotalNumLOD; ++LODId)
+			{
+				FLODCluster LevelCluster;
+
+				if (PreviousLevelActor == nullptr)
+				{					
+					for (int32 ActorId = 0; ActorId < InLevel->Actors.Num(); ++ActorId)
+					{
+						AActor* Actor = InLevel->Actors[ActorId];
+						if (ShouldGenerateCluster(Actor, !bCreateMeshes, LODId))
+						{
+							FLODCluster ActorCluster(Actor);
+							ValidStaticMeshActorsInLevel.Add(Actor);
+
+							LevelCluster += ActorCluster;
+						}
+						else
+						{
+							GenerationActors.Add(Actor);
+						}
+					}
 				}
-			}
+				else
+				{
+					LevelCluster += PreviousLevelActor;
+					// Make sure we take into account previously excluded actors, could be caused by specifically disabled inclusion in previos HLOD level(s)
+					for (int32 ActorIndex = 0; ActorIndex < GenerationActors.Num(); ++ActorIndex)
+					{
+						AActor* Actor = GenerationActors[ActorIndex];
+						if (ShouldGenerateCluster(Actor, !bCreateMeshes, LODId))
+						{
+							FLODCluster ActorCluster(Actor);
+							ValidStaticMeshActorsInLevel.Add(Actor);
+							LevelCluster += ActorCluster;
+							GenerationActors.Remove(Actor);
+							--ActorIndex;
+						}
+					}
+				}
 
-			if (LevelCluster.IsValid())
-			{
-				ALODActor* LODActor = LevelCluster.BuildActor(InLevel, 0, bCreateMeshes);
+				if (LevelCluster.IsValid())
+				{
+					ALODActor* LODActor = LevelCluster.BuildActor(InLevel, LODId, bCreateMeshes);
+					PreviousLevelActor = LODActor;
+				}
 			}
 		}
 		else
@@ -231,7 +280,7 @@ void FHierarchicalLODBuilder::InitializeClusters(ULevel* InLevel, const int32 LO
 			for (int32 ActorId = 0; ActorId < InLevel->Actors.Num(); ++ActorId)
 			{
 				AActor* Actor = InLevel->Actors[ActorId];
-				if (ShouldGenerateCluster(Actor, bPreviewBuild))
+				if (ShouldGenerateCluster(Actor, bPreviewBuild, LODIdx))
 				{
 					// Check whether or not this actor falls within a HierarchicalLODVolume, if so add to the Volume's cluster and exclude from normal process
 					bool bAdded = bVolumesOnly;
@@ -291,16 +340,25 @@ void FHierarchicalLODBuilder::InitializeClusters(ULevel* InLevel, const int32 LO
 			// first we generate graph with 2 pair nodes
 			// this is very expensive when we have so many actors
 			// so we'll need to optimize later @todo
-			for (int32 ActorId = 0; ActorId < Actors.Num(); ++ActorId)
+			const int32 NumActors = Actors.Num();
+			if(NumActors == 1)
 			{
-				AActor* Actor1 = (Actors[ActorId]);
-				for (int32 SubActorId = ActorId + 1; SubActorId < Actors.Num(); ++SubActorId)
+				// Only one actor means a simple one-to-one relationship
+				Clusters.Add(FLODCluster(Actors[0]));
+			}
+			else
+			{
+				for (int32 ActorId = 0; ActorId < NumActors; ++ActorId)
 				{
-					AActor* Actor2 = Actors[SubActorId];
+					AActor* Actor1 = (Actors[ActorId]);
+					for (int32 SubActorId = ActorId + 1; SubActorId < Actors.Num(); ++SubActorId)
+					{
+						AActor* Actor2 = Actors[SubActorId];
 
-					// create new cluster
-					FLODCluster NewClusterCandidate = FLODCluster(Actor1, Actor2);
-					Clusters.Add(NewClusterCandidate);
+						// create new cluster
+						FLODCluster NewClusterCandidate = FLODCluster(Actor1, Actor2);
+						Clusters.Add(NewClusterCandidate);
+					}
 				}
 			}
 
@@ -352,7 +410,7 @@ void FHierarchicalLODBuilder::HandleHLODVolumes(ULevel* InLevel)
 	}
 }
 
-bool FHierarchicalLODBuilder::ShouldGenerateCluster(AActor* Actor, const bool bPreviewBuild)
+bool FHierarchicalLODBuilder::ShouldGenerateCluster(AActor* Actor, const bool bPreviewBuild, const int32 HLODLevelIndex)
 {
 	if (!Actor)
 	{
@@ -401,16 +459,8 @@ bool FHierarchicalLODBuilder::ShouldGenerateCluster(AActor* Actor, const bool bP
 	}	
 
 	// for now only consider staticmesh - I don't think skel mesh would work with simplygon merge right now @fixme
-	TInlineComponentArray<UStaticMeshComponent*> Components;
-	for (UActorComponent* Component : Actor->GetComponents())
-	{
-		UStaticMeshComponent* SMComponent = Cast<UStaticMeshComponent>(Component);
-		// TODO: support instanced static meshes
-		if (SMComponent && !Component->IsA<UInstancedStaticMeshComponent>())
-		{
-			Components.Add(SMComponent);
-		}
-	}
+	TArray<UStaticMeshComponent*> Components;
+	Actor->GetComponents<UStaticMeshComponent>(Components);
 
 	int32 ValidComponentCount = 0;
 	// now make sure you check parent primitive, so that we don't build for the actor that already has built. 
@@ -434,7 +484,7 @@ bool FHierarchicalLODBuilder::ShouldGenerateCluster(AActor* Actor, const bool bP
 			}
 
 			// see if we should generate it
-			if (Component->ShouldGenerateAutoLOD())
+			if (Component->ShouldGenerateAutoLOD(HLODLevelIndex))
 			{
 				++ValidComponentCount;
 				break;
@@ -509,7 +559,7 @@ void FHierarchicalLODBuilder::BuildMeshesForLODActors(bool bForceAll)
 		SlowTask.MakeDialog();
 
 		const TArray<FHierarchicalSimplification>& BuildLODLevelSettings = LevelIter->GetWorldSettings()->GetHierarchicalLODSetup();
-
+		UMaterialInterface* BaseMaterial = LevelIter->GetWorldSettings()->GetHierarchicalLODBaseMaterial();
 		TArray<TArray<ALODActor*>> LODLevelActors;
 		LODLevelActors.AddDefaulted(BuildLODLevelSettings.Num());
 
@@ -539,21 +589,21 @@ void FHierarchicalLODBuilder::BuildMeshesForLODActors(bool bForceAll)
 			bool bBuildSuccesfull = true;
 			if (NumLODActors)
 			{
-				// Only create the outer package if we are going to save something to it (otherwise we end up with an empty HLOD folder)
-				UPackage* AssetsOuter = Utilities->CreateOrRetrieveLevelHLODPackage(LevelIter);
-				checkf(AssetsOuter != nullptr, TEXT("Failed to created outer for generated HLOD assets"));
+				// Only create the outer package if we are going to save something to it (otherwise we end up with an empty HLOD folder)				
 				const int32 NumLODLevels = LODLevelActors.Num();
-
 				LevelIter->MarkPackageDirty();
 
 				for (int32 LODIndex = 0; LODIndex < NumLODLevels; ++LODIndex)
 				{
+					UPackage* AssetsOuter = Utilities->CreateOrRetrieveLevelHLODPackage(LevelIter, LODIndex);
+					checkf(AssetsOuter != nullptr, TEXT("Failed to created outer for generated HLOD assets"));
+
 					int32 CurrentLODLevel = LODIndex;
 					int32 LODActorIndex = 0;
 					TArray<ALODActor*>& LODLevel = LODLevelActors[CurrentLODLevel];
 					for (ALODActor* Actor : LODLevel)
 					{
-						bBuildSuccesfull &= Utilities->BuildStaticMeshForLODActor(Actor, AssetsOuter, BuildLODLevelSettings[CurrentLODLevel]);
+						bBuildSuccesfull &= Utilities->BuildStaticMeshForLODActor(Actor, AssetsOuter, BuildLODLevelSettings[CurrentLODLevel], BaseMaterial);
 						SlowTask.EnterProgressFrame(100.0f / (float)NumLODActors, FText::Format(LOCTEXT("HierarchicalLOD_BuildLODActorMeshesProgress", "Building LODActor Mesh {1} of {2} (LOD Level {0})"), FText::AsNumber(LODIndex + 1), FText::AsNumber(LODActorIndex), FText::AsNumber(LODLevelActors[CurrentLODLevel].Num())));
 						++LODActorIndex;
 					}
@@ -595,12 +645,13 @@ void FHierarchicalLODBuilder::DeleteLODActors(ULevel* InLevel, const bool bPrevi
 void FHierarchicalLODBuilder::BuildMeshForLODActor(ALODActor* LODActor, const uint32 LODLevel)
 {
 	const TArray<FHierarchicalSimplification>& BuildLODLevelSettings = LODActor->GetLevel()->GetWorldSettings()->GetHierarchicalLODSetup();
+	UMaterialInterface* BaseMaterial = LODActor->GetLevel()->GetWorldSettings()->GetHierarchicalLODBaseMaterial();
 	
 	FHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<FHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
 	IHierarchicalLODUtilities* Utilities = Module.GetUtilities();
 
-	UPackage* AssetsOuter = Utilities->CreateOrRetrieveLevelHLODPackage(LODActor->GetLevel());
-	const bool bResult = Utilities->BuildStaticMeshForLODActor(LODActor, AssetsOuter, BuildLODLevelSettings[LODLevel]);
+	UPackage* AssetsOuter = Utilities->CreateOrRetrieveLevelHLODPackage(LODActor->GetLevel(), LODLevel);
+	const bool bResult = Utilities->BuildStaticMeshForLODActor(LODActor, AssetsOuter, BuildLODLevelSettings[LODLevel], BaseMaterial);
 
 	if (bResult == false)
 	{

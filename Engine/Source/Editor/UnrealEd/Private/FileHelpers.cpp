@@ -223,6 +223,75 @@ static bool InInterpEditMode()
 }
 
 /**
+* Prompts user with a confirmation dialog if there are checkouts or modifications in other branches
+*
+* @return true if checkout should proceed
+*/
+static bool ConfirmPackageBranchCheckOutStatus(const TArray<UPackage*>& PackagesToCheckOut)
+{
+	for (auto& CurPackage : PackagesToCheckOut)
+	{
+		ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+		FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(CurPackage, EStateCacheUsage::Use);
+
+		// If checked out or modified in another branch, warn about possible loss of changes and confirm checkout
+		if (SourceControlState.IsValid() && SourceControlState->IsCheckedOutOrModifiedInOtherBranch())
+		{
+			int32 HeadCL;
+			FString HeadBranch, HeadAction;
+			FNumberFormattingOptions NoCommas;
+			NoCommas.UseGrouping = false;
+
+			const FString& CurrentBranch = FEngineVersion::Current().GetBranch();
+
+			SourceControlState->GetOtherBranchHeadModification(HeadBranch, HeadAction, HeadCL);
+
+			FText InfoText;
+
+			if (SourceControlState->IsModifiedInOtherBranch())
+			{
+				int32 CurrentBranchIdx = SourceControlProvider.GetStateBranchIndex(CurrentBranch);
+				int32 HeadBranchIdx = SourceControlProvider.GetStateBranchIndex(HeadBranch);
+				{
+					if (CurrentBranchIdx != INDEX_NONE && HeadBranchIdx != INDEX_NONE)
+					{
+						// modified
+						if (CurrentBranchIdx < HeadBranchIdx)
+						{
+							InfoText = LOCTEXT("WarningModifiedOtherBranchHigher", "Modified in higher branch, consider waiting for package to be merged down.");
+						}
+						else
+						{
+							InfoText = LOCTEXT("WarningModifiedOtherBranchLower", "Modified in lower branch, keep track of your work. You may need to redo it during the merge.");
+						}
+					}
+				}
+			}
+			else
+			{
+				// checked out
+
+				FString Username;
+				if (!SourceControlState->GetOtherUserBranchCheckedOuts().Split(TEXT("@"), &Username, nullptr))
+				{
+					Username = SourceControlState->GetOtherUserBranchCheckedOuts();
+				}
+
+				InfoText = FText::Format(LOCTEXT("WarningCheckedOutOtherBranchHigher", "Please ask if {0}'s change can wait."), FText::FromString(Username));
+
+			}
+
+			const FText Message = SourceControlState->IsModifiedInOtherBranch() ? FText::Format(LOCTEXT("WarningModifiedOtherBranch", "WARNING: Packages modified in {0} CL {1}\n\n{2}\n\nCheck out packages anyway?"), FText::FromString(HeadBranch), FText::AsNumber(HeadCL, &NoCommas), InfoText)
+				: FText::Format(LOCTEXT("WarningCheckedOutOtherBranch", "WARNING: Packages checked out in {0}\n\n{1}\n\nCheck out packages anyway?"), FText::FromString(SourceControlState->GetOtherUserBranchCheckedOuts()), InfoText);
+
+			return OpenMsgDlgInt(EAppMsgType::YesNo, Message, SourceControlState->IsModifiedInOtherBranch() ? FText::FromString("Package Branch Modifications") : FText::FromString("Package Branch Checkouts")) == EAppReturnType::Yes;
+		}
+	}
+
+	return true;
+}
+
+/**
  * Maps loaded level packages to the package filenames.
  */
 static TMap<FName, FString> LevelFilenames;
@@ -845,10 +914,9 @@ static bool SaveAsImplementation( UWorld* InWorld, const FString& DefaultFilenam
 						bool bAnythingToRename = false;
 						{
 							// Check for contained streaming levels
-							for( int32 CurStreamingLevelIndex = 0; CurStreamingLevelIndex < InWorld->StreamingLevels.Num(); ++CurStreamingLevelIndex )
+							for (ULevelStreaming* CurStreamingLevel : InWorld->GetStreamingLevels())
 							{
-								ULevelStreaming* CurStreamingLevel = InWorld->StreamingLevels[ CurStreamingLevelIndex ];
-								if( CurStreamingLevel != NULL )
+								if (CurStreamingLevel)
 								{
 									// Update the package name
 									FString PackageNameToRename = CurStreamingLevel->GetWorldAssetPackageName();
@@ -883,10 +951,9 @@ static bool SaveAsImplementation( UWorld* InWorld, const FString& DefaultFilenam
 					if( DlgResult == EAppReturnType::Yes )	// Yes?
 					{
 						// Update streaming level names
-						for( int32 CurStreamingLevelIndex = 0; CurStreamingLevelIndex < InWorld->StreamingLevels.Num(); ++CurStreamingLevelIndex )
+						for (ULevelStreaming* CurStreamingLevel : InWorld->GetStreamingLevels())
 						{
-							ULevelStreaming* CurStreamingLevel = InWorld->StreamingLevels[ CurStreamingLevelIndex ];
-							if( CurStreamingLevel != NULL )
+							if (CurStreamingLevel)
 							{
 								// Update the package name
 								FString PackageNameToRename = CurStreamingLevel->GetWorldAssetPackageName();
@@ -1199,6 +1266,7 @@ bool FEditorFileUtils::AddCheckoutPackageItems(bool bCheckDirty, TArray<UPackage
 
 	bool bPackagesAdded = false;
 	bool bShowWarning = false;
+	bool bOtherBranchWarning = false;
 	bool bHavePackageToCheckOut = false;
 
 	if (OutPackagesNotNeedingCheckout)
@@ -1263,7 +1331,18 @@ bool FEditorFileUtils::AddCheckoutPackageItems(bool bCheckDirty, TArray<UPackage
 				// Provided it's not in the list to not prompt any more, add it to the dialog
 				if (!PackagesNotToPromptAnyMore.Contains(CurPackage->GetName()))
 				{
-					const FText Tooltip = SourceControlState.IsValid() ? SourceControlState->GetDisplayTooltip() : NSLOCTEXT("PackagesDialogModule", "Dlg_NotCheckedOutTip", "Not checked out");
+					FText Tooltip = NSLOCTEXT("PackagesDialogModule", "Dlg_NotCheckedOutTip", "Not checked out");
+
+					if (SourceControlState.IsValid())
+					{
+						if (SourceControlState->IsCheckedOutOrModifiedInOtherBranch())
+						{
+							bShowWarning = true;
+							bOtherBranchWarning = true;
+						}						
+
+						Tooltip = SourceControlState->GetDisplayTooltip();
+					}
 
 					bHavePackageToCheckOut = true;
 					//Add this package to the dialog if its not checked out, in the source control depot, dirty(if we are checking), and read only
@@ -1303,8 +1382,16 @@ bool FEditorFileUtils::AddCheckoutPackageItems(bool bCheckDirty, TArray<UPackage
 	{
 		if (bShowWarning)
 		{
-			CheckoutPackagesDialogModule.SetWarning(
-				NSLOCTEXT("PackagesDialogModule", "CheckoutPackagesWarnMessage", "Warning: There are modified assets which you will not be able to check out as they are locked or not at the head revision. You may lose your changes if you continue, as you will be unable to submit them to source control."));
+			if (!bOtherBranchWarning)
+			{
+				CheckoutPackagesDialogModule.SetWarning(
+					NSLOCTEXT("PackagesDialogModule", "CheckoutPackagesWarnMessage", "Warning: There are modified assets which you will not be able to check out as they are locked or not at the head revision. You may lose your changes if you continue, as you will be unable to submit them to source control."));
+			}
+			else
+			{
+				CheckoutPackagesDialogModule.SetWarning(
+					NSLOCTEXT("PackagesDialogModule", "CheckoutPackagesOtherBranchWarnMessage", "Warning: There are assets checked out or modified in another branch.  If you check out files in the current branch, you may lose your changes."));
+			}
 		}
 		else
 		{
@@ -1520,6 +1607,12 @@ ECommandResult::Type FEditorFileUtils::CheckoutPackages(const TArray<UPackage*>&
 	
 	if(CheckOutResult != ECommandResult::Cancelled)
 	{
+		// If any packages are checked out or modified in another branch, prompt for confirmation
+		if (!ConfirmPackageBranchCheckOutStatus(PkgsToCheckOut))
+		{
+			return ECommandResult::Cancelled;
+		}
+
 		// Assemble a final list of packages to check out
 		for( auto PkgsToCheckOutIter = PkgsToCheckOut.CreateConstIterator(); PkgsToCheckOutIter; ++PkgsToCheckOutIter )
 		{
@@ -1833,11 +1926,10 @@ void FEditorFileUtils::OpenLevelPickingDialog(const FOnLevelsChosen& OnLevelsCho
 				const FAssetData& FirstAssetData = SelectedLevels[0];
 				
 				// Convert from package name to filename. Add a trailing slash to prevent an invalid conversion when an asset is in a root folder (e.g. /Game)
-				const FString FilesystemPathWithTrailingSlash = FPackageName::LongPackageNameToFilename(FirstAssetData.PackagePath.ToString() + TEXT("/"));
+				FString FilesystemPath = FPackageName::LongPackageNameToFilename(FirstAssetData.PackagePath.ToString() + TEXT("/"));;
 
 				// Remove the slash if needed
-				FString FilesystemPath = FilesystemPathWithTrailingSlash;
-				if ( FilesystemPath.EndsWith(TEXT("/")) )
+				if ( FilesystemPath.EndsWith(TEXT("/"), ESearchCase::CaseSensitive) )
 				{
 					FilesystemPath = FilesystemPath.LeftChop(1);
 				}
@@ -2034,12 +2126,11 @@ bool FEditorFileUtils::LoadMap()
 		return false;
 	}
 
-	bool bResult = false;
 	static bool bIsDialogOpen = false;
 
 	struct FLocal
 	{
-		static void HandleLevelsChosen(const TArray<FAssetData>& SelectedAssets, bool* OutResult)
+		static void HandleLevelsChosen(const TArray<FAssetData>& SelectedAssets)
 		{
 			bIsDialogOpen = false;
 
@@ -2055,7 +2146,6 @@ bool FEditorFileUtils::LoadMap()
 					bool bSaveContentPackages = true;
 					if (FEditorFileUtils::SaveDirtyPackages(bPromptUserToSave, bSaveMapPackages, bSaveContentPackages) == false)
 					{
-						*OutResult = false;
 						return;
 					}
 				}
@@ -2063,7 +2153,7 @@ bool FEditorFileUtils::LoadMap()
 				const FString FileToOpen = FPackageName::LongPackageNameToFilename(AssetData.PackageName.ToString(), FPackageName::GetMapPackageExtension());
 				const bool bLoadAsTemplate = false;
 				const bool bShowProgress = true;
-				*OutResult = FEditorFileUtils::LoadMap(FileToOpen, bLoadAsTemplate, bShowProgress);
+				FEditorFileUtils::LoadMap(FileToOpen, bLoadAsTemplate, bShowProgress);
 			}
 		}
 
@@ -2077,12 +2167,12 @@ bool FEditorFileUtils::LoadMap()
 	{
 		bIsDialogOpen = true;
 		const bool bAllowMultipleSelection = false;
-		OpenLevelPickingDialog(FOnLevelsChosen::CreateStatic(&FLocal::HandleLevelsChosen, &bResult),
+		OpenLevelPickingDialog(FOnLevelsChosen::CreateStatic(&FLocal::HandleLevelsChosen),
 								FOnLevelPickingCancelled::CreateStatic(&FLocal::HandleDialogCancelled),
 								bAllowMultipleSelection);
 	}
 
-	return bResult;
+	return false; // TODO: Because OpenLevelPickingDialog is not modal, this always returned false. UE-55083 tracks making this return a proper value again.
 }
 
 static void NotifyBSPNeedsRebuild(const FString& PackageName)

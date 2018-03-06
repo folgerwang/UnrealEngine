@@ -65,6 +65,11 @@ public:
 		return 0 != (Value & VIS_Visible);
 	}
 
+	static FORCEINLINE bool DoesVisibilityPassFilter(const EVisibility InVisibility, const EVisibility InVisibilityFilter)
+	{
+		return 0 != (InVisibility.Value & InVisibilityFilter.Value);
+	}
+
 	FString ToString() const;
 
 private:

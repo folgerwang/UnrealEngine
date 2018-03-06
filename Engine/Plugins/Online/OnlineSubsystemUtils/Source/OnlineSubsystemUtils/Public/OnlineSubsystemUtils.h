@@ -11,6 +11,7 @@
 #include "Online.h"
 #include "EngineGlobals.h"
 #include "VoipListenerSynthComponent.h"
+#include "Features/IModularFeatures.h"
 
 #ifdef ONLINESUBSYSTEMUTILS_API
 
@@ -37,12 +38,34 @@ ONLINESUBSYSTEMUTILS_API int32 GetPortFromNetDriver(FName InstanceName);
 
 ONLINESUBSYSTEMUTILS_API int32 GetClientPeerIp(FName InstanceName, const FUniqueNetId& UserId);
 
+#if WITH_ENGINE
+/**
+ * Get a 64bit bit base id for a chat room 
+ * <32bit IP Addr> | <EmptySpace> | <24bit ProcessId>
+ *
+ * @param World world for context
+ *
+ * @return 64bit base id for a voice chat room
+ */
+ONLINESUBSYSTEMUTILS_API uint64 GetBaseVoiceChatTeamId(UWorld* World);
+/**
+ * Get a 64bit bit final id for a chat room 
+ * <32bit IP Addr> | <8bit team index> | <24bit ProcessId>
+ *
+ * @param VoiceChatIdBase previously retrieved base id
+ * @param TeamIndex index for a given team needing a voice chat id
+ *
+ * @return 64bit id for a voice chat room
+ */
+ONLINESUBSYSTEMUTILS_API uint64 GetVoiceChatTeamId(uint64 VoiceChatIdBase, uint8 TeamIndex);
+#endif
+
 #endif
 
 /**
  * Interface class for various online utility functions
  */
-class IOnlineSubsystemUtils
+class IOnlineSubsystemUtils 
 {
 protected:
 	/** Hidden on purpose */
@@ -59,7 +82,7 @@ public:
 	 * @param Subsystem the name of the subsystem
 	 * @return an FName of format Subsystem:Context_Id in PlayInEditor or Subsystem everywhere else
 	 */
-	virtual FName GetOnlineIdentifier(const FWorldContext& WorldContext, const FName Subsystem = NAME_None) = 0;
+	virtual FName GetOnlineIdentifier(const FWorldContext& WorldContext, const FName Subsystem = NAME_None) const = 0;
 
 	/**
 	 * Gets an FName that uniquely identifies an instance of OSS
@@ -68,7 +91,15 @@ public:
 	 * @param Subsystem the name of the subsystem
 	 * @return an FName of format Subsystem:Context_Id in PlayInEditor or Subsystem everywhere else
 	 */
-	virtual FName GetOnlineIdentifier(UWorld* World, const FName Subsystem = NAME_None) = 0;
+	virtual FName GetOnlineIdentifier(UWorld* World, const FName Subsystem = NAME_None) const = 0;
+
+	/**
+	 * Bind a notification delegate when any subsystem external UI is opened/closed
+	 * *NOTE* there is only meant to be one delegate needed for this, game code should bind manually
+	 *
+	 * @param OnExternalUIChangeDelegate delegate fired when the external UI is opened/closed
+	 */
+	virtual void SetEngineExternalUIBinding(const FOnExternalUIChangeDelegate& OnExternalUIChangeDelegate) = 0;
 
 #if WITH_EDITOR
 	/**
@@ -109,6 +140,22 @@ namespace Online
 		}
 
 		return nullptr;
+	}
+
+	/**
+	 * Wrapper for IModularFeatures::IsModularFeatureAvailable and IModularFeatures::GetModularFeature
+	 * @param Type name of the modular feature
+	 * @return pointer to the modular feature if it is available
+	 */
+	template< typename TModularFeature >
+	inline TModularFeature* GetModularFeature( const FName Type )
+	{
+		TModularFeature* Feature = nullptr;
+		if (IModularFeatures::Get().IsModularFeatureAvailable(Type))
+		{
+			Feature = &IModularFeatures::Get().GetModularFeature<TModularFeature>(Type);
+		}
+		return Feature;
 	}
 
 	/** 

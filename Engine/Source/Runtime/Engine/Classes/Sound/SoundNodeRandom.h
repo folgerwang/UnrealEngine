@@ -31,6 +31,12 @@ class USoundNodeRandom : public USoundNode
 	UPROPERTY(EditAnywhere, Category=Random)
 	int32 PreselectAtLevelLoad;
 
+	/** If set to true, this random node will not be culled on load for platforms with a maximum amount of preloaded random branches
+	*   set in project settings
+	*/
+	UPROPERTY(EditAnywhere, Category = Random)
+	uint8 bShouldExcludeFromBranchCulling : 1;
+
 	/** 
 	 * Determines whether or not this SoundNodeRandom should randomize with or without
 	 * replacement.  

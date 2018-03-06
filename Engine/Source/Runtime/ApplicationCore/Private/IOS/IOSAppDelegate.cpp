@@ -173,8 +173,9 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
 	//}
 
 	// check to see if we are using the network file system, if so, disable the idle timer
-	FString HostIP;
-	if (FParse::Value(FCommandLine::Get(), TEXT("-FileHostIP="), HostIP))
+    // DO NOT MERGE TO MAIN - temporarily turn off the idle timer to see if some backgrounding issues are reduced
+//	FString HostIP;
+//	if (FParse::Value(FCommandLine::Get(), TEXT("-FileHostIP="), HostIP))
 	{
 		[UIApplication sharedApplication].idleTimerDisabled = YES;
 	}
@@ -232,7 +233,9 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
             // free any autoreleased objects every once in awhile to keep memory use down (strings, splash screens, etc)
             if (((GFrameCounter) & 31) == 0)
             {
-                [AutoreleasePool release];
+				// If you crash upon release, turn on Zombie Objects (Edit Scheme... | Diagnostics | Zombie Objects)
+				// This will list the last object sent the release message, which will help identify the double free
+				[AutoreleasePool release];
                 AutoreleasePool = [[NSAutoreleasePool alloc] init];
             }
         }
@@ -527,10 +530,12 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
 	return (IOSAppDelegate*)[UIApplication sharedApplication].delegate;
 }
 
+bool GIsSuspended = 0;
 - (void)ToggleSuspend:(bool)bSuspend
 {
     self.bHasSuspended = !bSuspend;
     self.bIsSuspended = bSuspend;
+    GIsSuspended = self.bIsSuspended;
 
 	if (bSuspend)
 	{
@@ -759,6 +764,26 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
 		[self.ConsoleHistoryValues addObjectsFromArray:SavedHistory];
 	}
 	self.ConsoleHistoryValuesIndex = -1;
+
+	if (@available(iOS 11, *))
+	{
+		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(temperatureChanged:) name:NSProcessInfoThermalStateDidChangeNotification object:nil];
+
+		FCoreDelegates::OnGetOnScreenMessages.AddLambda(
+			[](TMultiMap<FCoreDelegates::EOnScreenMessageSeverity, FText >& OutMessages)
+			{
+				switch ([[NSProcessInfo processInfo] thermalState])
+				{
+					case NSProcessInfoThermalStateNominal:	OutMessages.Add(FCoreDelegates::EOnScreenMessageSeverity::Info, FText::FromString(TEXT("Thermals are Nominal"))); break;
+					case NSProcessInfoThermalStateFair:		OutMessages.Add(FCoreDelegates::EOnScreenMessageSeverity::Info, FText::FromString(TEXT("Thermals are Fair"))); break;
+					case NSProcessInfoThermalStateSerious:	OutMessages.Add(FCoreDelegates::EOnScreenMessageSeverity::Warning, FText::FromString(TEXT("Thermals are Serious"))); break;
+					case NSProcessInfoThermalStateCritical:	OutMessages.Add(FCoreDelegates::EOnScreenMessageSeverity::Error, FText::FromString(TEXT("Thermals are Critical"))); break;
+				}
+
+			});
+	}
+
+
 #endif
 
 	[self InitializeAudioSession];
@@ -782,6 +807,9 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
 		FFunctionGraphTask::CreateAndDispatchWhenReady([orientation]()
 		{
 			FCoreDelegates::ApplicationReceivedScreenOrientationChangedNotificationDelegate.Broadcast((int32)orientation);
+
+			//we also want to fire off the safe frame event
+			FCoreDelegates::OnSafeFrameChangedEvent.Broadcast();
 		}, TStatId(), NULL, ENamedThreads::GameThread);
 	}
 #endif
@@ -860,7 +888,9 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
 			}
 		}
     }
-    
+
+	FCoreDelegates::ApplicationWillDeactivateDelegate.Broadcast();
+
 	[self ToggleSuspend:true];
 	[self ToggleAudioSession:false];
 }
@@ -871,6 +901,7 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
 	 Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later. 
 	 If your application supports background execution, this method is called instead of applicationWillTerminate: when the user quits.
 	 */
+
     FCoreDelegates::ApplicationWillEnterBackgroundDelegate.Broadcast();
 }
 
@@ -879,6 +910,7 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
 	/*
 	 Called as part of the transition from the background to the inactive state; here you can undo many of the changes made on entering the background.
 	 */
+
     FCoreDelegates::ApplicationHasEnteredForegroundDelegate.Broadcast();
 }
 
@@ -889,6 +921,8 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
 	 */
     [self ToggleSuspend:false];
 	[self ToggleAudioSession:true];
+
+	FCoreDelegates::ApplicationHasReactivatedDelegate.Broadcast();
 
     if (bEngineInit)
     {
@@ -1089,10 +1123,10 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
  * @param Controller The Controller object to animate off the screen
  * @param bShouldAnimate YES to slide down, NO to hide immediately
  */
--(void)HideController:(UIViewController*)Controller Animated:(BOOL)bShouldAnimate
+-(void)HideController:(UIViewController*)Controller Animated : (BOOL)bShouldAnimate
 {
-    // slide it off
-    [Controller dismissViewControllerAnimated : bShouldAnimate completion : nil];
+	// slide it off
+	[Controller dismissViewControllerAnimated : bShouldAnimate completion : nil];
 
 	// stop drawing the 3D world for faster UI speed
 	//FViewport::SetGameRenderingEnabled(true);
@@ -1126,19 +1160,19 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
 	GameCenterDisplay.viewState = GKGameCenterViewControllerStateLeaderboards;
 #endif
 #ifdef __IPHONE_7_0
-    if ([GameCenterDisplay respondsToSelector:@selector(leaderboardIdentifier)] == YES)
-    {
+	if ([GameCenterDisplay respondsToSelector : @selector(leaderboardIdentifier)] == YES)
+	{
 #if !PLATFORM_TVOS // @todo tvos: Why not??
-        GameCenterDisplay.leaderboardIdentifier = Category;
+		GameCenterDisplay.leaderboardIdentifier = Category;
 #endif
-    }
-    else
+	}
+	else
 #endif
-    {
+	{
 #if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_7_0
-        GameCenterDisplay.leaderboardCategory = Category;
+		GameCenterDisplay.leaderboardCategory = Category;
 #endif
-    }
+	}
 	GameCenterDisplay.gameCenterDelegate = self;
 
 	// show it 
@@ -1167,8 +1201,8 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
 CORE_API bool IOSShowLeaderboardUI(const FString& CategoryName)
 {
 	// route the function to iOS thread, passing the category string along as the object
-	NSString* CategoryToShow = [NSString stringWithFString:CategoryName];
-	[[IOSAppDelegate GetDelegate] performSelectorOnMainThread:@selector(ShowLeaderboard:) withObject:CategoryToShow waitUntilDone : NO];
+	NSString* CategoryToShow = [NSString stringWithFString : CategoryName];
+	[[IOSAppDelegate GetDelegate] performSelectorOnMainThread:@selector(ShowLeaderboard : ) withObject:CategoryToShow waitUntilDone : NO];
 
 	return true;
 }
@@ -1178,11 +1212,30 @@ CORE_API bool IOSShowLeaderboardUI(const FString& CategoryName)
 */
 CORE_API bool IOSShowAchievementsUI()
 {
-	
+
 	// route the function to iOS thread
 	[[IOSAppDelegate GetDelegate] performSelectorOnMainThread:@selector(ShowAchievements) withObject:nil waitUntilDone : NO];
 
 	return true;
+}
+
+
+-(void)temperatureChanged:(NSNotification *)notification
+{
+	if (@available(iOS 11, *))
+	{
+		// send game callback with new temperature severity
+		FCoreDelegates::ETemperatureSeverity Severity;
+		switch ([[NSProcessInfo processInfo] thermalState])
+		{
+			case NSProcessInfoThermalStateNominal:	Severity = FCoreDelegates::ETemperatureSeverity::Good; break;
+			case NSProcessInfoThermalStateFair:		Severity = FCoreDelegates::ETemperatureSeverity::Bad; break;
+			case NSProcessInfoThermalStateSerious:	Severity = FCoreDelegates::ETemperatureSeverity::Serious; break;
+			case NSProcessInfoThermalStateCritical:	Severity = FCoreDelegates::ETemperatureSeverity::Critical; break;
+		}
+
+		FCoreDelegates::OnTemperatureChange.Broadcast(Severity);
+	}
 }
 
 -(UIWindow*)window

@@ -350,6 +350,9 @@ void FGenericCrashContext::SerializeContentToBuffer() const
 	AddPlatformSpecificProperties();
 	EndSection( *PlatformPropertiesTag );
 
+	// Writing out the list of plugin JSON descriptors causes us to run out of memory
+	// in GMallocCrash on console, so enable this only for desktop platforms.
+#if PLATFORM_DESKTOP
 	if(NCachedCrashContextProperties::EnabledPluginsList.Num() > 0)
 	{
 		BeginSection(*EnabledPluginsTag);
@@ -361,6 +364,7 @@ void FGenericCrashContext::SerializeContentToBuffer() const
 
 		EndSection(*EnabledPluginsTag);
 	}
+#endif // PLATFORM_DESKTOP
 
 	AddFooter();
 }

@@ -682,8 +682,8 @@ static uint32 TonemapperGenerateBitmaskMobile(const FViewInfo* RESTRICT View, bo
 		Bitmask += (View->bLightShaftUse)		? TonemapperLightShafts : 0;
 	}
 
-	// Mobile is not supporting grain quantization and grain jitter currently.
-	Bitmask &= ~(TonemapperGrainQuantization | TonemapperGrainJitter);
+	// Mobile is not currently supporting these.
+	Bitmask &= ~(TonemapperGrainQuantization | TonemapperGrainJitter | TonemapperSharpen);
 	return Bitmask;
 }
 

@@ -383,13 +383,9 @@ public:
 	UPROPERTY(EditAnywhere, Category = Tessellation, meta=(editcondition= UseTessellationComponentScreenSizeFalloff, ClampMin = "0.01", ClampMax = "1.0", UIMin = "0.01", UIMax = "1.0", DisplayName = "Tessellation Component Screen Size Falloff"))
 	float TessellationComponentScreenSizeFalloff;
 
-	/** Tell if we should include tessellation into the whole scene cascade shadow LOD. */
-	UPROPERTY(EditAnywhere, Category = Tessellation, meta = (DisplayName = "Include Tessellation In Shadow LOD"))
-	bool IncludeTessellationInShadowLOD;
-
-	/** Tell if we want to restrict the tessellation to whole scene shadow lod on cascade specified or lower. -1 == do not restrict tessellation to the specified shadow cascade. */
-	UPROPERTY(EditAnywhere, Category = Tessellation, meta = (DisplayName = "Restrict Tessellation to Shadow Cascade", ClampMin = "-1", ClampMax = "10", UIMin = "-1", UIMax = "10"))
-	int32 RestrictTessellationToShadowCascade;
+	/** Landscape LOD to use as an occluder geometry for software occlusion */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=LOD)
+	int32 OccluderGeometryLOD;
 
 #if WITH_EDITORONLY_DATA
 	/** LOD level to use when exporting the landscape to obj or FBX */
@@ -422,7 +418,7 @@ public:
 	float StreamingDistanceMultiplier;
 
 	/** Combined material used to render the landscape */
-	UPROPERTY(EditAnywhere, Category=Landscape)
+	UPROPERTY(EditAnywhere, BlueprintSetter=EditorSetLandscapeMaterial, Category=Landscape)
 	UMaterialInterface* LandscapeMaterial;
 
 	/** Material used to render landscape components with holes. If not set, LandscapeMaterial will be used (blend mode will be overridden to Masked if it is set to Opaque) */
@@ -622,6 +618,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Rendering")
 	virtual void ChangeTessellationComponentScreenSizeFalloff(float InUseTessellationComponentScreenSizeFalloff);
 
+	/* Setter for LandscapeMaterial. Has no effect outside the editor. */
+	UFUNCTION(BlueprintSetter)
+	void EditorSetLandscapeMaterial(UMaterialInterface* NewLandscapeMaterial);
+
 	// Editor-time blueprint functions
 
 	/** Deform landscape using a given spline
@@ -796,7 +796,9 @@ public:
 	*/
 	LANDSCAPE_API bool ExportToRawMesh(int32 InExportLOD, FRawMesh& OutRawMesh, const FBoxSphereBounds& InBounds ) const;
 
-
+	/** Generate platform data if it's missing or outdated */
+	LANDSCAPE_API void CheckGenerateLandscapePlatformData(bool bIsCooking, const ITargetPlatform* TargetPlatform);
+	
 	/** @return Current size of bounding rectangle in quads space */
 	LANDSCAPE_API FIntRect GetBoundingRect() const;
 

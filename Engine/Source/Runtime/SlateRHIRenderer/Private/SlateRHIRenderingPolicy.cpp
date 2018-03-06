@@ -34,7 +34,9 @@ DECLARE_DWORD_COUNTER_STAT(TEXT("Num Layers"), STAT_SlateNumLayers, STATGROUP_Sl
 DECLARE_DWORD_COUNTER_STAT(TEXT("Num Batches"), STAT_SlateNumBatches, STATGROUP_Slate);
 DECLARE_DWORD_COUNTER_STAT(TEXT("Num Vertices"), STAT_SlateVertexCount, STATGROUP_Slate);
 
-DECLARE_CYCLE_STAT(TEXT("Slate RT: Draw Call"), STAT_SlateRTDrawCall, STATGROUP_Slate);
+DECLARE_CYCLE_STAT(TEXT("Slate RT: Texture Draw Call"), STAT_SlateRTTextureDrawCall, STATGROUP_Slate);
+DECLARE_CYCLE_STAT(TEXT("Slate RT: Material Draw Call"), STAT_SlateRTMaterialDrawCall, STATGROUP_Slate);
+DECLARE_CYCLE_STAT(TEXT("Slate RT: Scissor Draw Call"), STAT_SlateRTStencilDrawCall, STATGROUP_Slate);
 DECLARE_CYCLE_STAT(TEXT("Slate RT: Custom Draw"), STAT_SlateRTCustomDraw, STATGROUP_Slate);
 
 DECLARE_DWORD_COUNTER_STAT(TEXT("Clips (Scissor)"), STAT_SlateScissorClips, STATGROUP_Slate);
@@ -46,6 +48,11 @@ int32 SlateEnableDrawEvents = 1;
 int32 SlateEnableDrawEvents = 0;
 #endif
 static FAutoConsoleVariableRef CVarSlateEnableDrawEvents(TEXT("Slate.EnableDrawEvents"), SlateEnableDrawEvents, TEXT("."), ECVF_Default);
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+int32 BatchToDraw = -1;
+static FAutoConsoleVariableRef CVarSlateDrawBatchNum(TEXT("Slate.DrawBatchNum"), BatchToDraw, TEXT("."), ECVF_Default);
+#endif
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	#define SLATE_DRAW_EVENT(RHICmdList, EventName) SCOPED_CONDITIONAL_DRAW_EVENT(RHICmdList, EventName, SlateEnableDrawEvents);
@@ -66,6 +73,7 @@ FSlateRHIRenderingPolicy::FSlateRHIRenderingPolicy(TSharedRef<FSlateFontServices
 	, ResourceManager(InResourceManager)
 	, bGammaCorrect(true)
 	, InitialBufferSizeOverride(InitialBufferSize)
+	, LastDeviceProfile(nullptr)
 {
 	InitResources();
 }
@@ -270,24 +278,291 @@ static FSceneView* CreateSceneView( FSceneViewFamilyContext* ViewFamilyContext, 
 
 static const FName RendererModuleName("Renderer");
 
+static void UpdateScissorRect(
+	FRHICommandList& RHICmdList, 
+#if STATS
+	int32& ScissorClips, 
+	int32& StencilClips,
+#endif
+	uint32& StencilRef, 
+	uint32& MaskingID,
+	FSlateBackBuffer& BackBuffer,
+	const FSlateRenderBatch& RenderBatch, 
+	FTexture2DRHIRef& ColorTarget,
+	FTexture2DRHIRef& DepthStencilTarget,
+	TOptional<FSlateClippingState>& LastClippingState,
+	const FVector2D& ViewTranslation2D, 
+	bool bSwitchVerticalAxis,
+	FGraphicsPipelineStateInitializer& InGraphicsPSOInit,
+	const FMatrix& ViewProjection, 
+	bool bForceStateChange)
+{
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_Slate_UpdateScissorRect);
+
+	if (RenderBatch.ClippingState != LastClippingState || bForceStateChange)
+	{
+		if (RenderBatch.ClippingState.IsSet())
+		{
+			const FSlateClippingState& ClipState = RenderBatch.ClippingState.GetValue();
+			if (ClipState.ScissorRect.IsSet())
+			{
+#if STATS
+				ScissorClips++;
+#endif
+
+				const FSlateClippingZone& ScissorRect = ClipState.ScissorRect.GetValue();
+
+				const FVector2D TopLeft = ScissorRect.TopLeft + ViewTranslation2D;
+				const FVector2D BottomRight = ScissorRect.BottomRight + ViewTranslation2D;
+
+				if (bSwitchVerticalAxis)
+				{
+					const FIntPoint ViewSize = BackBuffer.GetSizeXY();
+					const int32 MinY = (ViewSize.Y - BottomRight.Y);
+					const int32 MaxY = (ViewSize.Y - TopLeft.Y);
+					RHICmdList.SetScissorRect(true, TopLeft.X, MinY, BottomRight.X, MaxY);
+				}
+				else
+				{
+					RHICmdList.SetScissorRect(true, TopLeft.X, TopLeft.Y, BottomRight.X, BottomRight.Y);
+				}
+
+				// Disable depth/stencil testing by default
+				InGraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+				StencilRef = 0;
+			}
+			else
+			{
+#if STATS
+				StencilClips++;
+#endif
+
+				SLATE_DRAW_EVENT(RHICmdList, StencilClipping);
+
+				check(ClipState.StencilQuads.Num() > 0);
+
+				const TArray<FSlateClippingZone>& StencilQuads = ClipState.StencilQuads;
+
+				// We're going to overflow the masking ID this time, we need to reset the MaskingID to 0.
+				// this will cause us to clear the stencil buffer so that we can begin fresh.
+				if ((MaskingID + StencilQuads.Num()) > 255)
+				{
+					MaskingID = 0;
+				}
+
+				// We only clear the stencil the first time, and if some how the user draws more than 255 masking quads
+				// in a single frame.
+				bool bClearStencil = false;
+				if (MaskingID == 0)
+				{
+					bClearStencil = true;
+
+					// We don't want there to be any scissor rect when we clear the stencil
+					RHICmdList.SetScissorRect(false, 0, 0, 0, 0);
+				}
+				else
+				{
+					// There might be some large - useless stencils, especially in the first couple of stencils if large
+					// widgets that clip also contain render targets, so, by setting the scissor to the AABB of the final
+					// stencil, we can cut out a lot of work that can't possibly be useful.
+					//
+					// NOTE - We also round it, because if we don't it can over-eagerly slice off pixels it shouldn't.
+					const FSlateClippingZone& MaskQuad = StencilQuads.Last();
+					const FSlateRect LastStencilBoundingBox = MaskQuad.GetBoundingBox().Round();
+
+					const FVector2D TopLeft = LastStencilBoundingBox.GetTopLeft() + ViewTranslation2D;
+					const FVector2D BottomRight = LastStencilBoundingBox.GetBottomRight() + ViewTranslation2D;
+
+					if (bSwitchVerticalAxis)
+					{
+						const FIntPoint ViewSize = BackBuffer.GetSizeXY();
+						const int32 MinY = (ViewSize.Y - BottomRight.Y);
+						const int32 MaxY = (ViewSize.Y - TopLeft.Y);
+						RHICmdList.SetScissorRect(true, TopLeft.X, MinY, BottomRight.X, MaxY);
+					}
+					else
+					{
+						RHICmdList.SetScissorRect(true, TopLeft.X, TopLeft.Y, BottomRight.X, BottomRight.Y);
+					}
+				}
+
+				// Don't bother setting the render targets unless we actually need to clear them.
+				if (bClearStencil || bForceStateChange)
+				{
+					// Clear current stencil buffer, we use ELoad/EStore, because we need to keep the stencil around.
+					FRHIRenderTargetView ColorView(ColorTarget, ERenderTargetLoadAction::ELoad);
+					FRHIDepthRenderTargetView DepthStencilView(DepthStencilTarget, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::ENoAction, bClearStencil ? ERenderTargetLoadAction::EClear : ERenderTargetLoadAction::ELoad, ERenderTargetStoreAction::EStore);
+					FRHISetRenderTargetsInfo CurrentRTInfo(1, &ColorView, DepthStencilView);
+					RHICmdList.SetRenderTargetsAndClear(CurrentRTInfo);
+				}
+
+				// Start by setting up the stenciling states so that we can write representations of the clipping zones into the stencil buffer only.
+				{
+					FGraphicsPipelineStateInitializer WriteMaskPSOInit;
+					RHICmdList.ApplyCachedRenderTargets(WriteMaskPSOInit);
+					WriteMaskPSOInit.BlendState = TStaticBlendStateWriteMask<CW_NONE>::GetRHI();
+					WriteMaskPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+					WriteMaskPSOInit.DepthStencilState =
+						TStaticDepthStencilState<
+						/*bEnableDepthWrite*/ false
+						, /*DepthTest*/ CF_Always
+						, /*bEnableFrontFaceStencil*/ true
+						, /*FrontFaceStencilTest*/ CF_Always
+						, /*FrontFaceStencilFailStencilOp*/ SO_Keep
+						, /*FrontFaceDepthFailStencilOp*/ SO_Keep
+						, /*FrontFacePassStencilOp*/ SO_Replace
+						, /*bEnableBackFaceStencil*/ true
+						, /*BackFaceStencilTest*/ CF_Always
+						, /*BackFaceStencilFailStencilOp*/ SO_Keep
+						, /*BackFaceDepthFailStencilOp*/ SO_Keep
+						, /*BackFacePassStencilOp*/ SO_Replace
+						, /*StencilReadMask*/ 0xFF
+						, /*StencilWriteMask*/ 0xFF>::GetRHI();
+
+					TShaderMap<FGlobalShaderType>* MaxFeatureLevelShaderMap = GetGlobalShaderMap(GMaxRHIFeatureLevel);
+
+					// Set the new shaders
+					TShaderMapRef<FSlateMaskingVS> VertexShader(MaxFeatureLevelShaderMap);
+					TShaderMapRef<FSlateMaskingPS> PixelShader(MaxFeatureLevelShaderMap);
+
+					WriteMaskPSOInit.BoundShaderState.VertexDeclarationRHI = GSlateMaskingVertexDeclaration.VertexDeclarationRHI;
+					WriteMaskPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+					WriteMaskPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+					WriteMaskPSOInit.PrimitiveType = PT_TriangleStrip;
+
+					SetGraphicsPipelineState(RHICmdList, WriteMaskPSOInit);
+
+					VertexShader->SetViewProjection(RHICmdList, ViewProjection);
+					VertexShader->SetVerticalAxisMultiplier(RHICmdList, bSwitchVerticalAxis ? -1.0f : 1.0f);
+
+					// Draw the first stencil using SO_Replace, so that we stomp any pixel with a MaskingID + 1.
+					{
+						const FSlateClippingZone& MaskQuad = StencilQuads[0];
+
+						RHICmdList.SetStencilRef(MaskingID + 1);
+
+						SCOPE_CYCLE_COUNTER(STAT_SlateRTStencilDrawCall);
+
+						//TODO Slate If we ever decided to add masking with a texture, we could do that here.
+						FVector2D Vertices[4];
+						Vertices[0].Set(MaskQuad.TopLeft.X, MaskQuad.TopLeft.Y);
+						Vertices[1].Set(MaskQuad.TopRight.X, MaskQuad.TopRight.Y);
+						Vertices[2].Set(MaskQuad.BottomLeft.X, MaskQuad.BottomLeft.Y);
+						Vertices[3].Set(MaskQuad.BottomRight.X, MaskQuad.BottomRight.Y);
+						DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 2, Vertices, sizeof(Vertices[0]));
+					}
+
+					// Now setup the pipeline to use SO_SaturatedIncrement, since we've established the initial
+					// stencil with SO_Replace, we can safely use SO_SaturatedIncrement, to build up the stencil
+					// to the required mask of MaskingID + StencilQuads.Num(), thereby ensuring only the union of
+					// all stencils will render pixels.
+					{
+						WriteMaskPSOInit.DepthStencilState =
+							TStaticDepthStencilState<
+							/*bEnableDepthWrite*/ false
+							, /*DepthTest*/ CF_Always
+							, /*bEnableFrontFaceStencil*/ true
+							, /*FrontFaceStencilTest*/ CF_Always
+							, /*FrontFaceStencilFailStencilOp*/ SO_Keep
+							, /*FrontFaceDepthFailStencilOp*/ SO_Keep
+							, /*FrontFacePassStencilOp*/ SO_SaturatedIncrement
+							, /*bEnableBackFaceStencil*/ true
+							, /*BackFaceStencilTest*/ CF_Always
+							, /*BackFaceStencilFailStencilOp*/ SO_Keep
+							, /*BackFaceDepthFailStencilOp*/ SO_Keep
+							, /*BackFacePassStencilOp*/ SO_SaturatedIncrement
+							, /*StencilReadMask*/ 0xFF
+							, /*StencilWriteMask*/ 0xFF>::GetRHI();
+
+
+						SetGraphicsPipelineState(RHICmdList, WriteMaskPSOInit);
+					}
+				}
+
+				MaskingID += StencilQuads.Num();
+
+				// Next write the number of quads representing the number of clipping zones have on top of each other.
+				for (int32 MaskIndex = 1; MaskIndex < StencilQuads.Num(); MaskIndex++)
+				{
+					const FSlateClippingZone& MaskQuad = StencilQuads[MaskIndex];
+
+					SCOPE_CYCLE_COUNTER(STAT_SlateRTStencilDrawCall);
+					//TODO Slate If we ever decided to add masking with a texture, we could do that here.
+					FVector2D Vertices[4];
+					Vertices[0].Set(MaskQuad.TopLeft.X, MaskQuad.TopLeft.Y);
+					Vertices[1].Set(MaskQuad.TopRight.X, MaskQuad.TopRight.Y);
+					Vertices[2].Set(MaskQuad.BottomLeft.X, MaskQuad.BottomLeft.Y);
+					Vertices[3].Set(MaskQuad.BottomRight.X, MaskQuad.BottomRight.Y);
+					DrawPrimitiveUP(RHICmdList, PT_TriangleStrip, 2, Vertices, sizeof(Vertices[0]));
+				}
+
+				// Setup the stenciling state to be read only now, disable depth writes, and restore the color buffer
+				// because we're about to go back to rendering widgets "normally", but with the added effect that now
+				// we have the stencil buffer bound with a bunch of clipping zones rendered into it.
+				{
+					FDepthStencilStateRHIParamRef DSMaskRead =
+						TStaticDepthStencilState<
+						/*bEnableDepthWrite*/ false
+						, /*DepthTest*/ CF_Always
+						, /*bEnableFrontFaceStencil*/ true
+						, /*FrontFaceStencilTest*/ CF_Equal
+						, /*FrontFaceStencilFailStencilOp*/ SO_Keep
+						, /*FrontFaceDepthFailStencilOp*/ SO_Keep
+						, /*FrontFacePassStencilOp*/ SO_Keep
+						, /*bEnableBackFaceStencil*/ true
+						, /*BackFaceStencilTest*/ CF_Equal
+						, /*BackFaceStencilFailStencilOp*/ SO_Keep
+						, /*BackFaceDepthFailStencilOp*/ SO_Keep
+						, /*BackFacePassStencilOp*/ SO_Keep
+						, /*StencilReadMask*/ 0xFF
+						, /*StencilWriteMask*/ 0xFF>::GetRHI();
+
+					InGraphicsPSOInit.DepthStencilState = DSMaskRead;
+
+					// We set a StencilRef equal to the number of stenciling/clipping masks,
+					// so unless the pixel we're rendering two is on top of a stencil pixel with the same number
+					// it's going to get rejected, thereby clipping everything except for the cross-section of
+					// all the stenciling quads.
+					StencilRef = MaskingID;
+				}
+			}
+
+			RHICmdList.ApplyCachedRenderTargets(InGraphicsPSOInit);
+		}
+		else
+		{
+			RHICmdList.SetScissorRect(false, 0, 0, 0, 0);
+
+			// Disable depth/stencil testing
+			InGraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+			StencilRef = 0;
+		}
+
+		LastClippingState = RenderBatch.ClippingState;
+	}
+}
+
 void FSlateRHIRenderingPolicy::DrawElements(
 	FRHICommandListImmediate& RHICmdList,
 	FSlateBackBuffer& BackBuffer,
 	FTexture2DRHIRef& ColorTarget,
 	FTexture2DRHIRef& DepthStencilTarget,
 	const TArray<FSlateRenderBatch>& RenderBatches, 
-	const TArray<FSlateClippingState> RenderClipStates,
 	const FSlateRenderingOptions& Options)
 {
 	// Should only be called by the rendering thread
 	check(IsInRenderingThread());
 
-	TArray<FTextureLODGroup> TextureLODGroups;
+	// Cache the TextureLODGroups so that we can look them up for texture filtering.
 	if (UDeviceProfileManager::DeviceProfileManagerSingleton)
 	{
 		if (UDeviceProfile* Profile = UDeviceProfileManager::Get().GetActiveProfile())
 		{
-			TextureLODGroups = Profile->GetTextureLODSettings()->TextureLODGroups;
+			if (Profile != LastDeviceProfile)
+			{
+				TextureLODGroups = Profile->GetTextureLODSettings()->TextureLODGroups;
+				LastDeviceProfile = Profile;
+			}
 		}
 	}
 
@@ -314,9 +589,12 @@ void FSlateRHIRenderingPolicy::DrawElements(
 	SceneViews.SetNum(NumScenes);
 	TArray<FSceneViewFamilyContext*, TInlineAllocator<3> > SceneViewFamilyContexts;
 	SceneViewFamilyContexts.SetNum(NumScenes);
-	for (int32 i = 0; i < ResourceManager->GetSceneCount(); i++)
+
 	{
-		SceneViewFamilyContexts[i] = new  FSceneViewFamilyContext
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_Slate_CreateScenes);
+		for (int32 i = 0; i < ResourceManager->GetSceneCount(); i++)
+		{
+			SceneViewFamilyContexts[i] = new  FSceneViewFamilyContext
 			(
 				FSceneViewFamily::ConstructionValues
 				(
@@ -328,10 +606,10 @@ void FSlateRHIRenderingPolicy::DrawElements(
 				.SetGammaCorrection(DisplayGamma)
 				.SetRealtimeUpdate(true)
 			);
-		SceneViews[i] = CreateSceneView(SceneViewFamilyContexts[i], BackBuffer, Options.ViewProjectionMatrix);
-	}
+			SceneViews[i] = CreateSceneView(SceneViewFamilyContexts[i], BackBuffer, Options.ViewProjectionMatrix);
+		}
 
-	SceneViewFamilyContexts[NumScenes-1] = new FSceneViewFamilyContext
+		SceneViewFamilyContexts[NumScenes-1] = new FSceneViewFamilyContext
 		(
 			FSceneViewFamily::ConstructionValues
 			(
@@ -343,7 +621,8 @@ void FSlateRHIRenderingPolicy::DrawElements(
 			.SetGammaCorrection(DisplayGamma)
 			.SetRealtimeUpdate(true)
 		);
-	SceneViews[NumScenes-1] = CreateSceneView(SceneViewFamilyContexts[NumScenes-1], BackBuffer, Options.ViewProjectionMatrix);
+		SceneViews[NumScenes-1] = CreateSceneView(SceneViewFamilyContexts[NumScenes-1], BackBuffer, Options.ViewProjectionMatrix);
+	}
 
 	TShaderMapRef<FSlateElementVS> GlobalVertexShader(GetGlobalShaderMap(GMaxRHIFeatureLevel));
 
@@ -368,7 +647,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 	const bool bSwitchVerticalAxis = Options.bAllowSwitchVerticalAxis && RHINeedsToSwitchVerticalAxis(GShaderPlatformForFeatureLevel[GMaxRHIFeatureLevel]);
 
 	// This variable tracks the last clipping state, so that if multiple batches have the same clipping state, we don't have to do any work.
-	int32 LastClippingIndex = -1;
+	TOptional<FSlateClippingState> LastClippingState;
 	// This is the stenciling ref variable we set any time we draw, so that any stencil comparisons use the right mask id.
 	uint32 StencilRef = 0;
 	// This is an accumulating maskID that we use to track the between batch usage of the stencil buffer, when at 0, or over 255
@@ -390,6 +669,16 @@ void FSlateRHIRenderingPolicy::DrawElements(
 
 		const FSlateRenderBatch& RenderBatch = RenderBatches[BatchIndex];
 		const FSlateRenderDataHandle* RenderHandle = RenderBatch.CachedRenderHandle.Get();
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		if(BatchIndex != RenderBatches.Num() - 1)
+		{
+			if (BatchToDraw != -1 && BatchToDraw != BatchIndex)
+			{
+				continue;
+			}
+		}
+#endif
 
 		if ( RenderHandle != LastHandle )
 		{
@@ -422,251 +711,6 @@ void FSlateRHIRenderingPolicy::DrawElements(
 		const ESlateShader::Type ShaderType = RenderBatch.ShaderType;
 		const FShaderParams& ShaderParams = RenderBatch.ShaderParams;
 
-		auto UpdateScissorRect = [
-				&ScissorClips, &StencilClips,
-				&StencilRef, &MaskingID, 
-				&BackBuffer, &RenderBatch, 
-				&ColorTarget, &DepthStencilTarget, 
-				&RenderClipStates, &LastClippingIndex, 
-				&ViewTranslation2D, &bSwitchVerticalAxis
-				](FRHICommandListImmediate& InRHICmdList, FGraphicsPipelineStateInitializer& InGraphicsPSOInit, const FMatrix& ViewProjection, bool bForceStateChange)
-		{
-			if ( RenderBatch.ClippingIndex != LastClippingIndex || bForceStateChange )
-			{
-				if ( RenderBatch.ClippingIndex != -1 )
-				{
-					const FSlateClippingState& ClipState = RenderClipStates[RenderBatch.ClippingIndex];
-					if ( ClipState.ScissorRect.IsSet() )
-					{
-						ScissorClips++;
-
-						const FSlateClippingZone& ScissorRect = ClipState.ScissorRect.GetValue();
-
-						const FVector2D TopLeft = ScissorRect.TopLeft + ViewTranslation2D;
-						const FVector2D BottomRight = ScissorRect.BottomRight + ViewTranslation2D;
-
-						if (bSwitchVerticalAxis)
-						{
-							const FIntPoint ViewSize = BackBuffer.GetSizeXY();
-							const int32 MinY = (ViewSize.Y - BottomRight.Y);
-							const int32 MaxY = (ViewSize.Y - TopLeft.Y);
-							InRHICmdList.SetScissorRect(true, TopLeft.X, MinY, BottomRight.X, MaxY);
-						}
-						else
-						{
-							InRHICmdList.SetScissorRect(true, TopLeft.X, TopLeft.Y, BottomRight.X, BottomRight.Y);
-						}
-						
-						// Disable depth/stencil testing by default
-						InGraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-						StencilRef = 0;
-					}
-					else
-					{
-						StencilClips++;
-
-						SLATE_DRAW_EVENT(InRHICmdList, StencilClipping);
-
-						check(ClipState.StencilQuads.Num() > 0);
-
-						const TArray<FSlateClippingZone>& StencilQuads = ClipState.StencilQuads;
-
-						// We're going to overflow the masking ID this time, we need to reset the MaskingID to 0.
-						// this will cause us to clear the stencil buffer so that we can begin fresh.
-						if ((MaskingID + StencilQuads.Num()) > 255)
-						{
-							MaskingID = 0;
-						}
-
-						// We only clear the stencil the first time, and if some how the user draws more than 255 masking quads
-						// in a single frame.
-						bool bClearStencil = false;
-						if (MaskingID == 0)
-						{
-							bClearStencil = true;
-
-							// We don't want there to be any scissor rect when we clear the stencil
-							InRHICmdList.SetScissorRect(false, 0, 0, 0, 0);
-						}
-						else
-						{
-							// There might be some large - useless stencils, especially in the first couple of stencils if large
-							// widgets that clip also contain render targets, so, by setting the scissor to the AABB of the final
-							// stencil, we can cut out a lot of work that can't possibly be useful.
-							//
-							// NOTE - We also round it, because if we don't it can over-eagerly slice off pixels it shouldn't.
-							const FSlateClippingZone& MaskQuad = StencilQuads.Last();
-							const FSlateRect LastStencilBoundingBox = MaskQuad.GetBoundingBox().Round();
-
-							const FVector2D TopLeft = LastStencilBoundingBox.GetTopLeft() + ViewTranslation2D;
-							const FVector2D BottomRight = LastStencilBoundingBox.GetBottomRight() + ViewTranslation2D;
-
-							if (bSwitchVerticalAxis)
-							{
-								const FIntPoint ViewSize = BackBuffer.GetSizeXY();
-								const int32 MinY = (ViewSize.Y - BottomRight.Y);
-								const int32 MaxY = (ViewSize.Y - TopLeft.Y);
-								InRHICmdList.SetScissorRect(true, TopLeft.X, MinY, BottomRight.X, MaxY);
-							}
-							else
-							{
-								InRHICmdList.SetScissorRect(true, TopLeft.X, TopLeft.Y, BottomRight.X, BottomRight.Y);
-							}
-						}
-
-						// Don't bother setting the render targets unless we actually need to clear them.
-						if (bClearStencil || bForceStateChange)
-						{
-							// Clear current stencil buffer, we use ELoad/EStore, because we need to keep the stencil around.
-							FRHIRenderTargetView ColorView(ColorTarget, ERenderTargetLoadAction::ELoad);
-							FRHIDepthRenderTargetView DepthStencilView(DepthStencilTarget, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::ENoAction, bClearStencil ? ERenderTargetLoadAction::EClear : ERenderTargetLoadAction::ELoad, ERenderTargetStoreAction::EStore);
-							FRHISetRenderTargetsInfo CurrentRTInfo(1, &ColorView, DepthStencilView);
-							InRHICmdList.SetRenderTargetsAndClear(CurrentRTInfo);
-							InRHICmdList.ApplyCachedRenderTargets(InGraphicsPSOInit);
-						}
-						
-						// Start by setting up the stenciling states so that we can write representations of the clipping zones into the stencil buffer only.
-						{
-							FGraphicsPipelineStateInitializer WriteMaskPSOInit;
-							InRHICmdList.ApplyCachedRenderTargets(WriteMaskPSOInit);
-							WriteMaskPSOInit.BlendState = TStaticBlendStateWriteMask<CW_NONE>::GetRHI();
-							WriteMaskPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-							WriteMaskPSOInit.DepthStencilState =
-								TStaticDepthStencilState<
-								/*bEnableDepthWrite*/ false
-								, /*DepthTest*/ CF_Always
-								, /*bEnableFrontFaceStencil*/ true
-								, /*FrontFaceStencilTest*/ CF_Always
-								, /*FrontFaceStencilFailStencilOp*/ SO_Keep
-								, /*FrontFaceDepthFailStencilOp*/ SO_Keep
-								, /*FrontFacePassStencilOp*/ SO_Replace
-								, /*bEnableBackFaceStencil*/ true
-								, /*BackFaceStencilTest*/ CF_Always
-								, /*BackFaceStencilFailStencilOp*/ SO_Keep
-								, /*BackFaceDepthFailStencilOp*/ SO_Keep
-								, /*BackFacePassStencilOp*/ SO_Replace
-								, /*StencilReadMask*/ 0xFF
-								, /*StencilWriteMask*/ 0xFF>::GetRHI();
-
-							TShaderMap<FGlobalShaderType>* MaxFeatureLevelShaderMap = GetGlobalShaderMap(GMaxRHIFeatureLevel);
-
-							// Set the new shaders
-							TShaderMapRef<FSlateMaskingVS> VertexShader(MaxFeatureLevelShaderMap);
-							TShaderMapRef<FSlateMaskingPS> PixelShader(MaxFeatureLevelShaderMap);
-
-							WriteMaskPSOInit.BoundShaderState.VertexDeclarationRHI = GSlateMaskingVertexDeclaration.VertexDeclarationRHI;
-							WriteMaskPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-							WriteMaskPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-							WriteMaskPSOInit.PrimitiveType = PT_TriangleStrip;
-
-							FLocalGraphicsPipelineState MaskingGraphicsReplacePSO = InRHICmdList.BuildLocalGraphicsPipelineState(WriteMaskPSOInit);
-							InRHICmdList.SetLocalGraphicsPipelineState(MaskingGraphicsReplacePSO);
-
-							VertexShader->SetViewProjection(InRHICmdList, ViewProjection);
-							VertexShader->SetVerticalAxisMultiplier(InRHICmdList, bSwitchVerticalAxis ? -1.0f : 1.0f);
-
-							// Draw the first stencil using SO_Replace, so that we stomp any pixel with a MaskingID + 1.
-							{
-								const FSlateClippingZone& MaskQuad = StencilQuads[0];
-
-								InRHICmdList.SetStencilRef(MaskingID + 1);
-
-								//TODO Slate If we ever decided to add masking with a texture, we could do that here.
-								FVector2D Vertices[4];
-								Vertices[0].Set(MaskQuad.TopLeft.X, MaskQuad.TopLeft.Y);
-								Vertices[1].Set(MaskQuad.TopRight.X, MaskQuad.TopRight.Y);
-								Vertices[2].Set(MaskQuad.BottomLeft.X, MaskQuad.BottomLeft.Y);
-								Vertices[3].Set(MaskQuad.BottomRight.X, MaskQuad.BottomRight.Y);
-								DrawPrimitiveUP(InRHICmdList, PT_TriangleStrip, 2, Vertices, sizeof(Vertices[0]));
-							}
-
-							// Now setup the pipeline to use SO_SaturatedIncrement, since we've established the initial
-							// stencil with SO_Replace, we can safely use SO_SaturatedIncrement, to build up the stencil
-							// to the required mask of MaskingID + StencilQuads.Num(), thereby ensuring only the union of
-							// all stencils will render pixels.
-							{
-								WriteMaskPSOInit.DepthStencilState =
-									TStaticDepthStencilState<
-									/*bEnableDepthWrite*/ false
-									, /*DepthTest*/ CF_Always
-									, /*bEnableFrontFaceStencil*/ true
-									, /*FrontFaceStencilTest*/ CF_Always
-									, /*FrontFaceStencilFailStencilOp*/ SO_Keep
-									, /*FrontFaceDepthFailStencilOp*/ SO_Keep
-									, /*FrontFacePassStencilOp*/ SO_SaturatedIncrement
-									, /*bEnableBackFaceStencil*/ true
-									, /*BackFaceStencilTest*/ CF_Always
-									, /*BackFaceStencilFailStencilOp*/ SO_Keep
-									, /*BackFaceDepthFailStencilOp*/ SO_Keep
-									, /*BackFacePassStencilOp*/ SO_SaturatedIncrement
-									, /*StencilReadMask*/ 0xFF
-									, /*StencilWriteMask*/ 0xFF>::GetRHI();
-
-								FLocalGraphicsPipelineState MaskingGraphicsIncrementPSO = InRHICmdList.BuildLocalGraphicsPipelineState(WriteMaskPSOInit);
-								InRHICmdList.SetLocalGraphicsPipelineState(MaskingGraphicsIncrementPSO);
-							}
-						}
-
-						MaskingID += StencilQuads.Num();
-
-						// Next write the number of quads representing the number of clipping zones have on top of each other.
-						for (int32 MaskIndex = 1; MaskIndex < StencilQuads.Num(); MaskIndex++)
-						{
-							const FSlateClippingZone& MaskQuad = StencilQuads[MaskIndex];
-
-							//TODO Slate If we ever decided to add masking with a texture, we could do that here.
-							FVector2D Vertices[4];
-							Vertices[0].Set(MaskQuad.TopLeft.X, MaskQuad.TopLeft.Y);
-							Vertices[1].Set(MaskQuad.TopRight.X, MaskQuad.TopRight.Y);
-							Vertices[2].Set(MaskQuad.BottomLeft.X, MaskQuad.BottomLeft.Y);
-							Vertices[3].Set(MaskQuad.BottomRight.X, MaskQuad.BottomRight.Y);
-							DrawPrimitiveUP(InRHICmdList, PT_TriangleStrip, 2, Vertices, sizeof(Vertices[0]));
-						}
-
-						// Setup the stenciling state to be read only now, disable depth writes, and restore the color buffer
-						// because we're about to go back to rendering widgets "normally", but with the added effect that now
-						// we have the stencil buffer bound with a bunch of clipping zones rendered into it.
-						{
-							FDepthStencilStateRHIParamRef DSMaskRead =
-								TStaticDepthStencilState<
-								/*bEnableDepthWrite*/ false
-								, /*DepthTest*/ CF_Always
-								, /*bEnableFrontFaceStencil*/ true
-								, /*FrontFaceStencilTest*/ CF_Equal
-								, /*FrontFaceStencilFailStencilOp*/ SO_Keep
-								, /*FrontFaceDepthFailStencilOp*/ SO_Keep
-								, /*FrontFacePassStencilOp*/ SO_Keep
-								, /*bEnableBackFaceStencil*/ true
-								, /*BackFaceStencilTest*/ CF_Equal
-								, /*BackFaceStencilFailStencilOp*/ SO_Keep
-								, /*BackFaceDepthFailStencilOp*/ SO_Keep
-								, /*BackFacePassStencilOp*/ SO_Keep
-								, /*StencilReadMask*/ 0xFF
-								, /*StencilWriteMask*/ 0xFF>::GetRHI();
-
-							InGraphicsPSOInit.DepthStencilState = DSMaskRead;
-
-							// We set a StencilRef equal to the number of stenciling/clipping masks,
-							// so unless the pixel we're rendering two is on top of a stencil pixel with the same number
-							// it's going to get rejected, thereby clipping everything except for the cross-section of
-							// all the stenciling quads.
-							StencilRef = MaskingID;
-						}
-					}
-				}
-				else
-				{
-					InRHICmdList.SetScissorRect(false, 0, 0, 0, 0);
-
-					// Disable depth/stencil testing
-					InGraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-					StencilRef = 0;
-				}
-
-				LastClippingIndex = RenderBatch.ClippingIndex;
-			}
-		};
-
 		if ( EnumHasAllFlags(DrawFlags, ESlateBatchDrawFlag::Wireframe) )
 		{
 			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Wireframe, CM_None, false>::GetRHI();
@@ -681,7 +725,24 @@ void FSlateRHIRenderingPolicy::DrawElements(
 			FMatrix DynamicOffset = FTranslationMatrix::Make(FVector(RenderBatch.DynamicOffset.X, RenderBatch.DynamicOffset.Y, 0));
 			const FMatrix ViewProjection = DynamicOffset * Options.ViewProjectionMatrix;
 
-			UpdateScissorRect(RHICmdList, GraphicsPSOInit, ViewProjection, false);
+			UpdateScissorRect(
+				RHICmdList, 
+#if STATS
+				ScissorClips, 
+				StencilClips,
+#endif
+				StencilRef,
+				MaskingID,
+				BackBuffer,
+				RenderBatch,
+				ColorTarget,
+				DepthStencilTarget,
+				LastClippingState,
+				ViewTranslation2D,
+				bSwitchVerticalAxis,
+				GraphicsPSOInit, 
+				ViewProjection,
+				false);
 
 			const uint32 PrimitiveCount = RenderBatch.DrawPrimitiveType == ESlateDrawPrimitive::LineList ? RenderBatch.NumIndices / 2 : RenderBatch.NumIndices / 3; 
 
@@ -751,9 +812,6 @@ void FSlateRHIRenderingPolicy::DrawElements(
 
 				RHICmdList.SetStencilRef(StencilRef);
 
-				GlobalVertexShader->SetViewProjection(RHICmdList, ViewProjection);
-				GlobalVertexShader->SetVerticalAxisMultiplier(RHICmdList, bSwitchVerticalAxis ? -1.0f : 1.0f);
-
 #if WITH_SLATE_VISUALIZERS
 				if (CVarShowSlateBatching.GetValueOnRenderThread() != 0)
 				{
@@ -771,11 +829,13 @@ void FSlateRHIRenderingPolicy::DrawElements(
 					{
 						FSlateBaseUTextureResource* TextureObjectResource = (FSlateBaseUTextureResource*)ShaderResource;
 
+						TextureObjectResource->CheckIfValid();
+
 						TextureRHI = TextureObjectResource->AccessRHIResource();
 
 						if (UTexture* TextureObj = TextureObjectResource->TextureObject)
 						{
-							Filter = GetSamplerFilter(TextureLODGroups, TextureObj);
+							Filter = GetSamplerFilter(TextureObj);
 						}
 					}
 					else
@@ -871,24 +931,32 @@ void FSlateRHIRenderingPolicy::DrawElements(
 					}
 				}
                 
-				PixelShader->SetTexture(RHICmdList, TextureRHI, SamplerState);
-				PixelShader->SetShaderParams(RHICmdList, ShaderParams.PixelParams);
-				PixelShader->SetDisplayGamma(RHICmdList, EnumHasAllFlags(DrawFlags, ESlateBatchDrawFlag::NoGamma ) ? 1.0f : DisplayGamma);
-				PixelShader->SetInvertAlpha(RHICmdList, EnumHasAllFlags(DrawEffects, ESlateDrawEffect::InvertAlpha ) ? true : false );
-
-				SCOPE_CYCLE_COUNTER(STAT_SlateRTDrawCall);
-
-				// for RHIs that can't handle VertexOffset, we need to offset the stream source each time
-				if (!GRHISupportsBaseVertexIndex && !bAbsoluteIndices)
 				{
-					RHICmdList.SetStreamSource(0, VertexBuffer->VertexBufferRHI, RenderBatch.VertexOffset * sizeof(FSlateVertex));
-					RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), 0, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, RenderBatch.InstanceCount);
+					QUICK_SCOPE_CYCLE_COUNTER(Slate_SetTextureShaderParams);
+
+					GlobalVertexShader->SetViewProjection(RHICmdList, ViewProjection);
+					GlobalVertexShader->SetVerticalAxisMultiplier(RHICmdList, bSwitchVerticalAxis ? -1.0f : 1.0f);
+
+					PixelShader->SetTexture(RHICmdList, TextureRHI, SamplerState);
+					PixelShader->SetShaderParams(RHICmdList, ShaderParams.PixelParams);
+					PixelShader->SetDisplayGammaAndInvertAlpha(RHICmdList, EnumHasAllFlags(DrawFlags, ESlateBatchDrawFlag::NoGamma) ? 1.0f : DisplayGamma, EnumHasAllFlags(DrawEffects, ESlateDrawEffect::InvertAlpha) ? 1.0f : 0.0f);
 				}
-				else
+
 				{
-					uint32 VertexOffset = bAbsoluteIndices ? 0 : RenderBatch.VertexOffset; 
-					RHICmdList.SetStreamSource(0, VertexBuffer->VertexBufferRHI, 0);
-					RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), VertexOffset, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, RenderBatch.InstanceCount);
+					SCOPE_CYCLE_COUNTER(STAT_SlateRTTextureDrawCall);
+
+					// for RHIs that can't handle VertexOffset, we need to offset the stream source each time
+					if (!GRHISupportsBaseVertexIndex && !bAbsoluteIndices)
+					{
+						RHICmdList.SetStreamSource(0, VertexBuffer->VertexBufferRHI, RenderBatch.VertexOffset * sizeof(FSlateVertex));
+						RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), 0, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, RenderBatch.InstanceCount);
+					}
+					else
+					{
+						uint32 VertexOffset = bAbsoluteIndices ? 0 : RenderBatch.VertexOffset;
+						RHICmdList.SetStreamSource(0, VertexBuffer->VertexBufferRHI, 0);
+						RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), VertexOffset, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, RenderBatch.InstanceCount);
+					}
 				}
 			}
 			else if (GEngine && ShaderResource && ShaderResource->GetType() == ESlateShaderResource::Material && ShaderType != ESlateShader::PostProcess)
@@ -931,13 +999,8 @@ void FSlateRHIRenderingPolicy::DrawElements(
 				FSlateMaterialResource* MaterialShaderResource = (FSlateMaterialResource*)ShaderResource;
 				if (MaterialShaderResource->GetMaterialObject() != nullptr)
 				{
-#if !UE_BUILD_SHIPPING
-					// pending kill objects may still be rendered for a frame so it is valid for the check to pass
-					const bool bEvenIfPendingKill = true;
-					// This test needs to be thread safe.  It doesnt give us as many chances to trap bugs here but it is still useful
-					const bool bThreadSafe = true;
-					checkf(MaterialShaderResource->MaterialObjectWeakPtr.IsValid(bEvenIfPendingKill, bThreadSafe), TEXT("Material %s has become invalid.  This means the resource was garbage collected while slate was using it"), *MaterialShaderResource->MaterialName.ToString());
-#endif
+					MaterialShaderResource->CheckIfValid();
+
 					FMaterialRenderProxy* MaterialRenderProxy = MaterialShaderResource->GetRenderProxy();
 
 					const FMaterial* Material = MaterialRenderProxy->GetMaterial(ActiveSceneView.GetFeatureLevel());
@@ -986,84 +1049,70 @@ void FSlateRHIRenderingPolicy::DrawElements(
 							GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(PixelShader);
 							GraphicsPSOInit.PrimitiveType = GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType);
 
-							FLocalGraphicsPipelineState BaseGraphicsPSO = RHICmdList.BuildLocalGraphicsPipelineState(GraphicsPSOInit);
-							RHICmdList.SetLocalGraphicsPipelineState(BaseGraphicsPSO);
+							SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
 							RHICmdList.SetStencilRef(StencilRef);
 
-							VertexShader->SetViewProjection(RHICmdList, ViewProjection);
-							VertexShader->SetVerticalAxisMultiplier(RHICmdList, bSwitchVerticalAxis ? -1.0f : 1.0f);
-							VertexShader->SetMaterialShaderParameters(RHICmdList, ActiveSceneView, MaterialRenderProxy, Material);
-
-							PixelShader->SetParameters(RHICmdList, ActiveSceneView, MaterialRenderProxy, Material, ShaderParams.PixelParams);
-							PixelShader->SetDisplayGamma(RHICmdList, EnumHasAllFlags(DrawFlags, ESlateBatchDrawFlag::NoGamma) ? 1.0f : DisplayGamma);
-
-							if (MaskResource)
 							{
-								FTexture2DRHIRef TextureRHI;
-								TextureRHI = ((TSlateTexture<FTexture2DRHIRef>*)MaskResource)->GetTypedResource();
+								QUICK_SCOPE_CYCLE_COUNTER(Slate_SetMaterialShaderParams);
+								VertexShader->SetViewProjection(RHICmdList, ViewProjection);
+								VertexShader->SetVerticalAxisMultiplier(RHICmdList, bSwitchVerticalAxis ? -1.0f : 1.0f);
+								VertexShader->SetMaterialShaderParameters(RHICmdList, ActiveSceneView, MaterialRenderProxy, Material);
 
-								PixelShader->SetAdditionalTexture(RHICmdList, TextureRHI, BilinearClamp);
+								PixelShader->SetParameters(RHICmdList, ActiveSceneView, MaterialRenderProxy, Material, ShaderParams.PixelParams);
+								PixelShader->SetDisplayGamma(RHICmdList, EnumHasAllFlags(DrawFlags, ESlateBatchDrawFlag::NoGamma) ? 1.0f : DisplayGamma);
+
+								if (MaskResource)
+								{
+									FTexture2DRHIRef TextureRHI;
+									TextureRHI = ((TSlateTexture<FTexture2DRHIRef>*)MaskResource)->GetTypedResource();
+
+									PixelShader->SetAdditionalTexture(RHICmdList, TextureRHI, BilinearClamp);
+								}
 							}
 						}
-
-						if (bUseInstancing)
+						
 						{
-							uint32 InstanceCount = RenderBatch.InstanceCount;
-
-							if (GRHISupportsInstancing)
+							SCOPE_CYCLE_COUNTER(STAT_SlateRTMaterialDrawCall);
+							if (bUseInstancing)
 							{
-								FSlateUpdatableInstanceBuffer* InstanceBuffer = (FSlateUpdatableInstanceBuffer*)RenderBatch.InstanceData;
-								InstanceBuffer->BindStreamSource(RHICmdList, 1, RenderBatch.InstanceOffset);
+								uint32 InstanceCount = RenderBatch.InstanceCount;
+
+								if (GRHISupportsInstancing)
+								{
+									FSlateUpdatableInstanceBuffer* InstanceBuffer = (FSlateUpdatableInstanceBuffer*)RenderBatch.InstanceData;
+									InstanceBuffer->BindStreamSource(RHICmdList, 1, RenderBatch.InstanceOffset);
+
+									// for RHIs that can't handle VertexOffset, we need to offset the stream source each time
+									if (!GRHISupportsBaseVertexIndex && !bAbsoluteIndices)
+									{
+										RHICmdList.SetStreamSource(0, VertexBuffer->VertexBufferRHI, RenderBatch.VertexOffset * sizeof(FSlateVertex));
+										RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), 0, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, InstanceCount);
+									}
+									else
+									{
+										uint32 VertexOffset = bAbsoluteIndices ? 0 : RenderBatch.VertexOffset;
+										RHICmdList.SetStreamSource(0, VertexBuffer->VertexBufferRHI, 0);
+										RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), VertexOffset, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, InstanceCount);
+									}
+								}
+							}
+							else
+							{
+								RHICmdList.SetStreamSource(1, nullptr, 0);
 
 								// for RHIs that can't handle VertexOffset, we need to offset the stream source each time
 								if (!GRHISupportsBaseVertexIndex && !bAbsoluteIndices)
 								{
 									RHICmdList.SetStreamSource(0, VertexBuffer->VertexBufferRHI, RenderBatch.VertexOffset * sizeof(FSlateVertex));
-									RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), 0, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, InstanceCount);
+									RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), 0, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, 1);
 								}
 								else
 								{
-									uint32 VertexOffset = bAbsoluteIndices ? 0 : RenderBatch.VertexOffset; 
+									uint32 VertexOffset = bAbsoluteIndices ? 0 : RenderBatch.VertexOffset;
 									RHICmdList.SetStreamSource(0, VertexBuffer->VertexBufferRHI, 0);
-									RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), VertexOffset, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, InstanceCount);
+									RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), VertexOffset, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, 1);
 								}
-							}
-							//else
-							//{
-							//	for ( uint32 InstanceIndex = 0; InstanceIndex < InstanceCount; InstanceIndex++ )
-							//	{
-							//		FSlateUpdatableInstanceBuffer* InstanceBuffer = (FSlateUpdatableInstanceBuffer*)RenderBatch.InstanceData;
-							//		InstanceBuffer->BindStreamSource(RHICmdList, 1, RenderBatch.InstanceOffset + InstanceIndex);
-
-							//		// for RHIs that can't handle VertexOffset, we need to offset the stream source each time
-							//		if ( !GRHISupportsBaseVertexIndex )
-							//		{
-							//			RHICmdList.SetStreamSource(0, VertexBuffer->VertexBufferRHI, RenderBatch.VertexOffset * sizeof(FSlateVertex));
-							//			RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), 0, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, 1);
-							//		}
-							//		else
-							//		{
-							//			RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), RenderBatch.VertexOffset, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, 1);
-							//		}
-							//	}
-							//}
-						}
-						else
-						{
-							RHICmdList.SetStreamSource(1, nullptr, 0);
-
-							// for RHIs that can't handle VertexOffset, we need to offset the stream source each time
-							if ( !GRHISupportsBaseVertexIndex && !bAbsoluteIndices)
-							{
-								RHICmdList.SetStreamSource(0, VertexBuffer->VertexBufferRHI, RenderBatch.VertexOffset * sizeof(FSlateVertex));
-								RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), 0, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, 1);
-							}
-							else
-							{
-								uint32 VertexOffset = bAbsoluteIndices ? 0 : RenderBatch.VertexOffset; 
-								RHICmdList.SetStreamSource(0, VertexBuffer->VertexBufferRHI, 0);
-								RHICmdList.DrawIndexedPrimitive(IndexBuffer->IndexBufferRHI, GetRHIPrimitiveType(RenderBatch.DrawPrimitiveType), VertexOffset, 0, RenderBatch.NumVertices, RenderBatch.IndexOffset, PrimitiveCount, 1);
 							}
 						}
 					}
@@ -1081,8 +1130,25 @@ void FSlateRHIRenderingPolicy::DrawElements(
 				RectParams.DestRect = FSlateRect(QuadPositionData.X, QuadPositionData.Y, QuadPositionData.Z, QuadPositionData.W);
 				RectParams.SourceTextureSize = BackBuffer.GetSizeXY();
 
-				RectParams.RestoreStateFunc = [&](FRHICommandListImmediate& InRHICmdList, FGraphicsPipelineStateInitializer& InGraphicsPSOInit) {
-					UpdateScissorRect(InRHICmdList, InGraphicsPSOInit, Options.ViewProjectionMatrix, true);
+				RectParams.RestoreStateFunc = [&](FRHICommandListImmediate&InRHICmdList, FGraphicsPipelineStateInitializer& InGraphicsPSOInit) {
+					UpdateScissorRect(
+						InRHICmdList,
+#if STATS
+						ScissorClips,
+						StencilClips,
+#endif
+						StencilRef,
+						MaskingID,
+						BackBuffer,
+						RenderBatch,
+						ColorTarget,
+						DepthStencilTarget,
+						LastClippingState,
+						ViewTranslation2D,
+						bSwitchVerticalAxis,
+						GraphicsPSOInit,
+						Options.ViewProjectionMatrix,
+						true);
 				};
 
 				RectParams.RestoreStateFuncPostPipelineState = [&]() {
@@ -1106,7 +1172,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 
 				// Disable scissor rect. A previous draw element may have had one
 				RHICmdList.SetScissorRect(false, 0, 0, 0, 0);
-				LastClippingIndex = -1;
+				LastClippingState.Reset();
 
 				// This element is custom and has no Slate geometry.  Tell it to render itself now
 				CustomDrawer->DrawRenderThread(RHICmdList, &BackBuffer.GetRenderTargetTexture());
@@ -1135,7 +1201,7 @@ void FSlateRHIRenderingPolicy::DrawElements(
 	INC_DWORD_STAT_BY(STAT_SlateStencilClips, StencilClips);
 }
 
-ETextureSamplerFilter FSlateRHIRenderingPolicy::GetSamplerFilter(const TArray<FTextureLODGroup>& TextureLODGroups, const UTexture* Texture) const
+ETextureSamplerFilter FSlateRHIRenderingPolicy::GetSamplerFilter(const UTexture* Texture) const
 {
 	// Default to point filtering.
 	ETextureSamplerFilter Filter = ETextureSamplerFilter::Point;
@@ -1161,6 +1227,7 @@ ETextureSamplerFilter FSlateRHIRenderingPolicy::GetSamplerFilter(const TArray<FT
 FSlateElementPS* FSlateRHIRenderingPolicy::GetTexturePixelShader( TShaderMap<FGlobalShaderType>* ShaderMap, ESlateShader::Type ShaderType, ESlateDrawEffect DrawEffects )
 {
 	FSlateElementPS* PixelShader = nullptr;
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_Slate_GetTexturePixelShader);
 
 #if WITH_SLATE_VISUALIZERS
 	if ( CVarShowSlateOverdraw.GetValueOnRenderThread() != 0 )

@@ -44,6 +44,8 @@ FBitWriter::FBitWriter(void)
 	, AllowResize(false)
 	, bAllowOverflow(false)
 {
+	ArIsPersistent = ArIsSaving = 1;
+
 	// This class is exclusively used by the netcode
 	ArIsNetArchive = true;
 }
@@ -57,6 +59,9 @@ void FBitWriter::Reset(void)
 	Num = 0;
 	FMemory::Memzero(Buffer.GetData(), Buffer.Num());
 	ArIsPersistent = ArIsSaving = 1;
+
+	// This class is exclusively used by the netcode
+	ArIsNetArchive = true;
 }
 
 void FBitWriter::SerializeBits( void* Src, int64 LengthBits )
@@ -83,6 +88,19 @@ void FBitWriter::SerializeBits( void* Src, int64 LengthBits )
 		SetOverflowed(LengthBits);
 	}
 }
+void FBitWriter::SerializeBitsWithOffset( void* Src, int32 SourceBit, int64 LengthBits )
+{
+	if( AllowAppend(LengthBits) )
+	{
+		appBitsCpy(Buffer.GetData(), Num, (uint8*)Src, SourceBit, LengthBits);
+		Num += LengthBits;
+	}
+	else
+	{
+		SetOverflowed(LengthBits);
+	}
+}
+
 void FBitWriter::Serialize( void* Src, int64 LengthBytes )
 {
 	//warning: Copied and pasted from FBitWriter::SerializeBits

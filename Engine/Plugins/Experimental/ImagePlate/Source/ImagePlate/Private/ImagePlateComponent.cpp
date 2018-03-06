@@ -121,7 +121,7 @@ namespace
 				if ( LevelStreaming )
 				{
 					// Selection takes priority over level coloration.
-					LevelColor = LevelStreaming->LevelColor;
+					SetLevelColor(LevelStreaming->LevelColor);
 				}
 			}
 
@@ -133,7 +133,7 @@ namespace
 
 			FColor NewPropertyColor;
 			GEngine->GetPropertyColorationColor(InComponent, NewPropertyColor);
-			PropertyColor = NewPropertyColor;
+			SetPropertyColor(NewPropertyColor);
 		}
 
 		~FImagePlateSceneProxy()

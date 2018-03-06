@@ -27,22 +27,24 @@ struct FKShapeElem
 	GENERATED_USTRUCT_BODY()
 
 	FKShapeElem()
-	: ShapeType(EAggCollisionShape::Unknown)
+	: RestOffset(0.f)
+	, ShapeType(EAggCollisionShape::Unknown)
 #if WITH_PHYSX
 	, UserData(this)
 #endif
-	
 	{}
 
 	FKShapeElem(EAggCollisionShape::Type InShapeType)
-	: ShapeType(InShapeType)
+	: RestOffset(0.f)
+	, ShapeType(InShapeType)
 #if WITH_PHYSX
 	, UserData(this)
 #endif
 	{}
 
 	FKShapeElem(const FKShapeElem& Copy)
-	: ShapeType(Copy.ShapeType)
+	: RestOffset(Copy.RestOffset)
+	, ShapeType(Copy.ShapeType)
 #if WITH_PHYSX
 	, UserData(this)
 #endif
@@ -77,6 +79,10 @@ struct FKShapeElem
 	/** Set the user-defined name for this shape */
 	ENGINE_API void SetName(const FString& InName) { Name = InName; }
 #endif
+
+	/** Offset used when generating contact points. This allows you to smooth out the minkowski sum by radius R. Useful for making objects slide smoothly on top of iregularities  */
+	UPROPERTY(Category = Shape, EditAnywhere)
+	float RestOffset;
 
 protected:
 	/** Helper function to safely clone instances of this shape element */

@@ -79,6 +79,9 @@ private:
 	// cached copy of the active target platforms (if any)
 	const TArray<ITargetPlatform*> ActiveTargetPlatforms;
 
+	/** OpenSSL context */
+	SSL_CTX* SslContext;
+
 	// libwebsocket context. All access to the library happens via this context.
 	struct lws_context *Context;
 

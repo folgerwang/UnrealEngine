@@ -5,6 +5,7 @@
 =============================================================================*/
 
 #include "CoreMinimal.h"
+#include "Misc/CoreMisc.h"
 #include "Misc/FeedbackContext.h"
 #include "Engine/EngineTypes.h"
 #include "Model.h"
@@ -25,6 +26,9 @@
 
 #include "Materials/MaterialInterface.h"
 #include "Materials/Material.h"
+#include "PerPlatformProperties.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#include "Interfaces/ITargetPlatform.h"
 #include "Settings/EditorExperimentalSettings.h"
 #include "MeshDescription.h"
 #include "MeshAttributes.h"
@@ -1070,7 +1074,7 @@ struct ExistingLODMeshData
 	FRawMesh					ExistingRawMesh;
 	UMeshDescription*			ExistingMeshDescription;
 	TArray<FStaticMaterial>		ExistingMaterials;
-	float						ExistingScreenSize;
+	FPerPlatformFloat			ExistingScreenSize;
 };
 
 struct ExistingStaticMeshData
@@ -1225,7 +1229,7 @@ ExistingStaticMeshData* SaveExistingStaticMeshData(UStaticMesh* ExistingMesh, Un
 
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings = ExistingMesh->SourceModels[i].BuildSettings;
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings = ExistingMesh->SourceModels[i].ReductionSettings;
-			ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize = ExistingMesh->SourceModels[i].ScreenSize;
+			ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize = ExistingMesh->SourceModels[i].ScreenSize.Default;
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription = ExistingMesh->SourceModels[i].OriginalMeshDescription;
 			ExistingMesh->SourceModels[i].RawMeshBulkData->LoadRawMesh(ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh);
 		}
@@ -1294,6 +1298,14 @@ void RestoreExistingMeshSettings(ExistingStaticMeshData* ExistingMesh, UStaticMe
 		if (CurrentNumLods > ExistingNumLods)
 		{
 			NewMesh->SourceModels.RemoveAt(ExistingNumLods, CurrentNumLods - ExistingNumLods);
+		}
+		//Create only the LOD Group we need, extra LOD will be put back when calling RestoreExistingMeshData later in the re import process
+		if (NewMesh->LODGroup != NAME_None)
+		{
+			ITargetPlatform* CurrentPlatform = GetTargetPlatformManagerRef().GetRunningTargetPlatform();
+			check(CurrentPlatform);
+			const FStaticMeshLODGroup& LODGroup = CurrentPlatform->GetStaticMeshLODSettings().GetLODGroup(NewMesh->LODGroup);
+			ExistingNumLods = FMath::Min(ExistingNumLods, LODGroup.GetDefaultNumLODs());
 		}
 
 		for (int32 i = 0; i < ExistingNumLods; i++)
@@ -1627,7 +1639,7 @@ void RestoreExistingMeshData(ExistingStaticMeshData* ExistingMeshDataPtr, UStati
 	{
 		NewMesh->SourceModels[i].BuildSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings;
 		NewMesh->SourceModels[i].ReductionSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings;
-		NewMesh->SourceModels[i].ScreenSize = ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize;			
+		NewMesh->SourceModels[i].ScreenSize = ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize;
 	}
 
 	for(int32 i=NumCommonLODs; i < ExistingMeshDataPtr->ExistingLODData.Num(); ++i)

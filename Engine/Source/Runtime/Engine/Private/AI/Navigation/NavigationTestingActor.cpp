@@ -57,7 +57,7 @@ ANavigationTestingActor::ANavigationTestingActor(const FObjectInitializer& Objec
 	CapsuleComponent->InitCapsuleSize(NavAgentProps.AgentRadius, NavAgentProps.AgentHeight / 2);
 	CapsuleComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 	CapsuleComponent->CanCharacterStepUpOn = ECB_No;
-	CapsuleComponent->bShouldUpdatePhysicsVolume = true;
+	CapsuleComponent->SetShouldUpdatePhysicsVolume(true);
 	CapsuleComponent->SetCanEverAffectNavigation(false);
 
 	RootComponent = CapsuleComponent;

@@ -21,7 +21,21 @@ typedef FOnQueryUserInfoComplete::FDelegate FOnQueryUserInfoCompleteDelegate;
 struct FExternalIdQueryOptions
 {
 	FExternalIdQueryOptions()
-	: bLookupByDisplayName(false) {}
+		: bLookupByDisplayName(false)
+	{
+	}
+
+	FExternalIdQueryOptions(const FString& InAuthType, const bool bInLookupByDisplayName)
+		: AuthType(InAuthType)
+		, bLookupByDisplayName(bInLookupByDisplayName)
+	{
+	}
+
+	FExternalIdQueryOptions(FString&& InAuthType, const bool bInLookupByDisplayName)
+		: AuthType(MoveTemp(InAuthType))
+		, bLookupByDisplayName(bInLookupByDisplayName)
+	{
+	}
 
 	FString AuthType;
 	bool bLookupByDisplayName; // Lookup by external display name as opposed to external id

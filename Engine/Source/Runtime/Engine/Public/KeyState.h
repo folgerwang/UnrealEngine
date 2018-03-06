@@ -21,13 +21,16 @@ struct FKeyState
 	float LastUpDownTransitionTime;
 
 	/** True if this key is "down", false otherwise. */
-	uint32 bDown:1;
+	uint8 bDown:1;
 
 	/** Queued state information.  This data is updated or flushed once player input is processed. */
-	uint32 bDownPrevious:1;
+	uint8 bDownPrevious:1;
 
 	/** True if this key has been "consumed" by an InputComponent and should be ignored for further components during this update. */
-	uint32 bConsumed:1;
+	uint8 bConsumed:1;
+
+	/** How many samples contributed to RawValueAccumulator. Used for smoothing operations, e.g. mouse */
+	uint8 SampleCountAccumulator;
 
 	/** How many of each event type had been received when input was last processed. */
 	TArray<uint32> EventCounts[IE_MAX];
@@ -38,9 +41,6 @@ struct FKeyState
 	/** Used to accumulate input values during the frame and flushed after processing. */
 	FVector RawValueAccumulator;
 
-	/** How many samples contributed to RawValueAccumulator. Used for smoothing operations, e.g. mouse */
-	uint8 SampleCountAccumulator;
-
 	FKeyState()
 		: RawValue(0.f, 0.f, 0.f)
 		, Value(0.f, 0.f, 0.f)
@@ -48,8 +48,8 @@ struct FKeyState
 		, bDown(false)
 		, bDownPrevious(false)
 		, bConsumed(false)
-		, RawValueAccumulator(0.f, 0.f, 0.f)
 		, SampleCountAccumulator(0)
+		, RawValueAccumulator(0.f, 0.f, 0.f)
 	{
 	}
 };

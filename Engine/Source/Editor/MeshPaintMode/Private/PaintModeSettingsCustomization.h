@@ -47,10 +47,8 @@ protected:
 
 	/** Callback for when texture weight type changed so we can update restrictions */
 	void OnTextureWeightTypeChanged(TSharedRef<IPropertyHandle> WeightTypeProperty, TSharedRef<IPropertyHandle> PaintWeightProperty, TSharedRef<IPropertyHandle> EraseWeightProperty);
+	FReply OnSwapColorsClicked();
 protected:
-	/** Cached instance of paint mode settings */
-	UPaintModeSettings* Settings;
-
 	/** Cached instance of vertex paint settings */
 	FVertexPaintSettings* PaintSettings;	
 

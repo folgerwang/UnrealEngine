@@ -54,7 +54,7 @@ AVREditorDockableWindow::AVREditorDockableWindow() :
 		SelectionBarMeshComponent->SetMobility( EComponentMobility::Movable );
 		SelectionBarMeshComponent->SetupAttachment( RootComponent );
 
-		SelectionBarMeshComponent->bGenerateOverlapEvents = false;
+		SelectionBarMeshComponent->SetGenerateOverlapEvents(false);
 		SelectionBarMeshComponent->SetCanEverAffectNavigation( false );
 		SelectionBarMeshComponent->bCastDynamicShadow = false;
 		SelectionBarMeshComponent->bCastStaticShadow = false;
@@ -78,7 +78,7 @@ AVREditorDockableWindow::AVREditorDockableWindow() :
 		CloseButtonMeshComponent->SetMobility( EComponentMobility::Movable );
 		CloseButtonMeshComponent->SetupAttachment( RootComponent );
 
-		CloseButtonMeshComponent->bGenerateOverlapEvents = false;
+		CloseButtonMeshComponent->SetGenerateOverlapEvents(false);
 		CloseButtonMeshComponent->SetCanEverAffectNavigation( false );
 		CloseButtonMeshComponent->bCastDynamicShadow = false;
 		CloseButtonMeshComponent->bCastStaticShadow = false;

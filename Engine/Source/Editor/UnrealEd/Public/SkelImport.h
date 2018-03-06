@@ -231,6 +231,7 @@ struct ExistingSkelMeshData
 	UPhysicsAsset*							ExistingShadowPhysicsAsset;
 	USkeleton*								ExistingSkeleton;
 	TArray<FTransform>						ExistingRetargetBasePose;
+	USkeletalMeshLODSettings*				ExistingLODSettings;
 
 	bool									bExistingUseFullPrecisionUVs;
 

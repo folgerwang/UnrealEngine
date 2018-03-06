@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreTypes.h"
+#include "Logging/LogVerbosity.h"
 #include "UObject/NameTypes.h"
 
 /** Base class for all log categories. **/

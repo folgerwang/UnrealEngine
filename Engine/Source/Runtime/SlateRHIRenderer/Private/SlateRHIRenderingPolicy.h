@@ -19,6 +19,7 @@ class FSlateFontServices;
 class FSlateRHIResourceManager;
 class FSlatePostProcessor;
 class ILayoutCache;
+class UDeviceProfile;
 
 struct FSlateRenderingOptions
 {
@@ -46,7 +47,7 @@ public:
 
 	void ReleaseCachingResourcesFor(FRHICommandListImmediate& RHICmdList, const ILayoutCache* Cacher);
 
-	void DrawElements(FRHICommandListImmediate& RHICmdList, class FSlateBackBuffer& BackBuffer, FTexture2DRHIRef& ColorTarget, FTexture2DRHIRef& DepthStencilTarget, const TArray<FSlateRenderBatch>& RenderBatches, const TArray<FSlateClippingState> RenderClipStates, const FSlateRenderingOptions& Options);
+	void DrawElements(FRHICommandListImmediate& RHICmdList, class FSlateBackBuffer& BackBuffer, FTexture2DRHIRef& ColorTarget, FTexture2DRHIRef& DepthStencilTarget, const TArray<FSlateRenderBatch>& RenderBatches, const FSlateRenderingOptions& Options);
 
 	virtual TSharedRef<FSlateShaderResourceManager> GetResourceManager() const override { return ResourceManager; }
 	virtual bool IsVertexColorInLinearSpace() const override { return false; }
@@ -68,7 +69,7 @@ protected:
 	void UpdateVertexAndIndexBuffers(FRHICommandListImmediate& RHICmdList, FSlateBatchData& BatchData, TSlateElementVertexBuffer<FSlateVertex>& VertexBuffer, FSlateElementIndexBuffer& IndexBuffer);
 
 private:
-	ETextureSamplerFilter GetSamplerFilter(const TArray<FTextureLODGroup>& TextureLODGroups, const UTexture* Texture) const;
+	ETextureSamplerFilter GetSamplerFilter(const UTexture* Texture) const;
 
 	/**
 	 * Returns the pixel shader that should be used for the specified ShaderType and DrawEffects
@@ -97,4 +98,8 @@ private:
 	bool bGammaCorrect;
 
 	TOptional<int32> InitialBufferSizeOverride;
+
+	TArray<FTextureLODGroup> TextureLODGroups;
+
+	UDeviceProfile* LastDeviceProfile;
 };

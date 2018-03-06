@@ -45,6 +45,8 @@
 // ES3.0+ devices support seamless cubemap filtering, averaging edges will produce artifacts on those devices
 #define MOBILE_AVERAGE_CUBEMAP_EDGES 0 
 
+DEFINE_LOG_CATEGORY_STATIC(LogReflectionCaptureComponent, Log, All);
+
 /** 
  * Size of all reflection captures.
  * Reflection capture derived data versions must be changed if modifying this
@@ -800,6 +802,9 @@ void UReflectionCaptureComponent::PostInitProperties()
 
 	// Gets overwritten with saved value (if being loaded from disk)
 	FPlatformMisc::CreateGuid(MapBuildDataId);
+#if WITH_EDITOR
+	bMapBuildDataIdLoaded = false;
+#endif
 
 	if (!HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))
 	{
@@ -900,9 +905,26 @@ void UReflectionCaptureComponent::Serialize(FArchive& Ar)
 {
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("UReflectionCaptureComponent::Serialize"), STAT_ReflectionCaptureComponent_Serialize, STATGROUP_LoadTime);
 
+#if WITH_EDITOR
+	FGuid OldMapBuildDataId = MapBuildDataId;
+#endif
+
 	Super::Serialize(Ar);
 
 	SerializeLegacyData(Ar);
+
+#if WITH_EDITOR
+	// Check to see if we overwrote the MapBuildDataId with a loaded one
+	if (Ar.IsLoading())
+	{
+		bMapBuildDataIdLoaded = OldMapBuildDataId != MapBuildDataId;
+	}
+	else
+	{
+		// If we're cooking, display a deterministic cook warning if we didn't overwrite the generated GUID at load time
+		UE_CLOG(Ar.IsCooking() && !GetOutermost()->HasAnyPackageFlags(PKG_CompiledIn) && !bMapBuildDataIdLoaded, LogReflectionCaptureComponent, Warning, TEXT("%s contains a legacy UReflectionCaptureComponent and is being non-deterministically cooked - please resave the asset and recook."), *GetOutermost()->GetName());
+	}
+#endif
 }
 
 FReflectionCaptureProxy* UReflectionCaptureComponent::CreateSceneProxy()

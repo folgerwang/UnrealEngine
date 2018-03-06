@@ -48,6 +48,8 @@
 #include "SMaterialLayersFunctionsTree.h"
 #include "Materials/MaterialFunctionMaterialLayer.h"
 #include "Materials/MaterialFunctionMaterialLayerBlend.h"
+#include "Factories/MaterialFunctionMaterialLayerFactory.h"
+#include "Factories/MaterialFunctionMaterialLayerBlendFactory.h"
 
 #define LOCTEXT_NAMESPACE "MaterialPropertyHelper"
 
@@ -64,7 +66,7 @@ EVisibility FMaterialPropertyHelpers::ShouldShowExpression(UDEditorParameterValu
 	return (bShowHidden || MaterialEditorInstance->VisibleExpressions.Contains(Parameter->ParameterInfo))? EVisibility::Visible: EVisibility::Collapsed;
 }
 
-void FMaterialPropertyHelpers::OnMaterialLayerAssetChanged(const struct FAssetData& InAssetData, int32 Index, EMaterialParameterAssociation MaterialType, TSharedPtr<class IPropertyHandle> InHandle, FMaterialLayersFunctions* InMaterialFunction, const bool bIsFilterField)
+void FMaterialPropertyHelpers::OnMaterialLayerAssetChanged(const struct FAssetData& InAssetData, int32 Index, EMaterialParameterAssociation MaterialType, TSharedPtr<class IPropertyHandle> InHandle, FMaterialLayersFunctions* InMaterialFunction)
 {
 	const FScopedTransaction Transaction(LOCTEXT("SetLayerorBlendAsset", "Set Layer or Blend Asset"));
 	InHandle->NotifyPreChange();
@@ -77,57 +79,25 @@ void FMaterialPropertyHelpers::OnMaterialLayerAssetChanged(const struct FAssetDa
 		{
 		case EMaterialParameterAssociation::LayerParameter:
 		{
-			if (Cast<UMaterialFunction>(InAssetData.GetAsset()))
+			if (Cast<UMaterialFunctionInterface>(InAssetData.GetAsset()))
 			{
-				InMaterialFunction->FilterLayers[Index] = Cast<UMaterialFunctionInterface>(InAssetData.GetAsset());
-				InMaterialFunction->Layers[Index] = InMaterialFunction->FilterLayers[Index];
-				InMaterialFunction->InstanceLayers[Index] = InMaterialFunction->FilterLayers[Index];
-			}
-			else if (Cast<UMaterialFunctionInstance>(InAssetData.GetAsset()))
-			{
-				InMaterialFunction->InstanceLayers[Index] = Cast<UMaterialFunctionInterface>(InAssetData.GetAsset());
-				InMaterialFunction->FilterLayers[Index] = InMaterialFunction->InstanceLayers[Index]->GetBaseFunction();
-				InMaterialFunction->Layers[Index] = InMaterialFunction->InstanceLayers[Index];
+				InMaterialFunction->Layers[Index] = Cast<UMaterialFunctionInterface>(InAssetData.GetAsset());
 			}
 			else
 			{
-				if (bIsFilterField)
-				{
-					InMaterialFunction->FilterLayers[Index] = nullptr;
-				}
-				else
-				{
-					InMaterialFunction->InstanceLayers[Index] = nullptr;
-					InMaterialFunction->Layers[Index] = nullptr;
-				}
+				InMaterialFunction->Layers[Index] = nullptr;
 			}
 		}
 		break;
 		case EMaterialParameterAssociation::BlendParameter:
 		{
-			if (Cast<UMaterialFunction>(InAssetData.GetAsset()))
+			if (Cast<UMaterialFunctionInterface>(InAssetData.GetAsset()))
 			{
-				InMaterialFunction->FilterBlends[Index] = Cast<UMaterialFunctionInterface>(InAssetData.GetAsset());
-				InMaterialFunction->Blends[Index] = InMaterialFunction->FilterBlends[Index];
-				InMaterialFunction->InstanceBlends[Index] = InMaterialFunction->FilterBlends[Index];
-			}
-			else if (Cast<UMaterialFunctionInstance>(InAssetData.GetAsset()))
-			{
-				InMaterialFunction->InstanceBlends[Index] = Cast<UMaterialFunctionInterface>(InAssetData.GetAsset());
-				InMaterialFunction->FilterBlends[Index] = InMaterialFunction->InstanceBlends[Index]->GetBaseFunction();
-				InMaterialFunction->Blends[Index] = InMaterialFunction->InstanceBlends[Index];
+				InMaterialFunction->Blends[Index] = Cast<UMaterialFunctionInterface>(InAssetData.GetAsset());
 			}
 			else
 			{
-				if (bIsFilterField)
-				{
-					InMaterialFunction->FilterBlends[Index] = nullptr;
-				}
-				else
-				{
-					InMaterialFunction->InstanceBlends[Index] = nullptr;
-					InMaterialFunction->Blends[Index] = nullptr;
-				}
+				InMaterialFunction->Blends[Index] = nullptr;
 			}
 		}
 		break;
@@ -139,94 +109,73 @@ void FMaterialPropertyHelpers::OnMaterialLayerAssetChanged(const struct FAssetDa
 	InHandle->NotifyPostChange();
 }
 
-bool FMaterialPropertyHelpers::FilterAssetFilters(const struct FAssetData& InAssetData, EMaterialParameterAssociation MaterialType)
+bool FMaterialPropertyHelpers::FilterLayerAssets(const struct FAssetData& InAssetData, FMaterialLayersFunctions* LayerFunction, EMaterialParameterAssociation MaterialType, int32 Index)
 {
 	bool ShouldAssetBeFilteredOut = false;
 	const FName FilterTag = FName(TEXT("MaterialFunctionUsage"));
+	const FName BaseTag = FName(TEXT("Base"));
 	const FString* MaterialFunctionUsage = InAssetData.TagsAndValues.Find(FilterTag);
+	FName BaseClassName;
+	FName InstanceClassName;
 
 	FString CompareString;
 	if (MaterialFunctionUsage)
 	{
-		switch (MaterialType)
-		{
-		case EMaterialParameterAssociation::LayerParameter:
-		{
-			CompareString = "MaterialLayer";
-		}
-		break;
-		case EMaterialParameterAssociation::BlendParameter:
-		{
-			CompareString = "MaterialLayerBlend";
-		}
-		break;
-		default:
-			break;
-		}
+		FString* Base = const_cast<FString*>(InAssetData.TagsAndValues.Find(BaseTag));
 
-		if (*MaterialFunctionUsage != CompareString)
-		{
-
-			ShouldAssetBeFilteredOut = true;
-		}
-	}
-	else
-	{
-		ShouldAssetBeFilteredOut = true;
-	}
-	return ShouldAssetBeFilteredOut;
-}
-
-bool FMaterialPropertyHelpers::FilterAssetInstances(const struct FAssetData& InAssetData, FMaterialLayersFunctions* LayerFunction, EMaterialParameterAssociation MaterialType, int32 Index)
-{
-	bool ShouldAssetBeFilteredOut = false;
-	const FName FilterTag = FName(TEXT("MaterialFunctionUsage"));
-	const FName ParentTag = FName(TEXT("Parent"));
-	const FString* MaterialFunctionUsage = InAssetData.TagsAndValues.Find(FilterTag);
-
-	FString CompareString;
-	if (MaterialFunctionUsage)
-	{
-		FString* Parent = const_cast<FString*>(InAssetData.TagsAndValues.Find(ParentTag));
-
-		FString ParentString;
+		FString BaseString;
 		FString DiscardString;
 		FString CleanString;
-		if (Parent != nullptr)
+		if (Base != nullptr)
 		{
-			ParentString = *Parent;
-			ParentString.Split(".", &DiscardString, &CleanString);
+			BaseString = *Base;
+			BaseString.Split(".", &DiscardString, &CleanString);
 			CleanString.Split("'", &CleanString, &DiscardString);
 		}
-
+		else
+		{
+			CleanString = InAssetData.AssetName.ToString();
+		}
 
 		FString LeftPath;
 		FString RightPath;
-
+		bool bShouldFilter = false;
 		switch (MaterialType)
 		{
 		case EMaterialParameterAssociation::LayerParameter:
 		{
 			CompareString = "MaterialLayer";
-			if (LayerFunction->FilterLayers[Index] != nullptr)
+			if (LayerFunction->Layers[Index] != nullptr)
 			{
-				FString PathName = LayerFunction->FilterLayers[Index]->GetPathName();
-				PathName.Split(".", &LeftPath, &RightPath);
+				RightPath = LayerFunction->Layers[Index]->GetBaseFunction()->GetFName().ToString();
+				if (RightPath.IsEmpty())
+				{
+					RightPath = LayerFunction->Layers[Index]->GetFName().ToString();
+				}
 			}
+			bShouldFilter = LayerFunction->RestrictToLayerRelatives[Index];
+			BaseClassName = UMaterialFunctionMaterialLayer::StaticClass()->GetFName();
+			InstanceClassName = UMaterialFunctionMaterialLayerInstance::StaticClass()->GetFName();
 		}
 		break;
 		case EMaterialParameterAssociation::BlendParameter:
 		{
 			CompareString = "MaterialLayerBlend";
-			if (LayerFunction->FilterBlends[Index] != nullptr)
+			if (LayerFunction->Blends[Index] != nullptr)
 			{
-				FString PathName = LayerFunction->FilterBlends[Index]->GetPathName();
-				PathName.Split(".", &LeftPath, &RightPath);
+				RightPath = LayerFunction->Blends[Index]->GetBaseFunction()->GetFName().ToString();
+				if (RightPath.IsEmpty())
+				{
+					RightPath = LayerFunction->Blends[Index]->GetFName().ToString();
+				}
 			}
+			bShouldFilter = LayerFunction->RestrictToBlendRelatives[Index];
+			BaseClassName = UMaterialFunctionMaterialLayerBlend::StaticClass()->GetFName();
+			InstanceClassName = UMaterialFunctionMaterialLayerBlendInstance::StaticClass()->GetFName();
 		}
 		break;
 		default:
-			break;
+		break;
 		}
 
 		if (*MaterialFunctionUsage != CompareString)
@@ -236,12 +185,8 @@ bool FMaterialPropertyHelpers::FilterAssetInstances(const struct FAssetData& InA
 		}
 		else
 		{
-			bool bSameParent = CleanString == RightPath;
-			if (!RightPath.IsEmpty() && InAssetData.AssetClass == UMaterialFunction::StaticClass()->GetFName() && InAssetData.AssetName.ToString() != RightPath)
-			{
-				ShouldAssetBeFilteredOut = true;
-			}
-			if (!RightPath.IsEmpty() && !bSameParent && InAssetData.AssetClass == UMaterialFunctionInstance::StaticClass()->GetFName())
+			bool bSameBase = CleanString == RightPath;
+			if (!RightPath.IsEmpty() && !bSameBase && bShouldFilter)
 			{
 				ShouldAssetBeFilteredOut = true;
 			}
@@ -623,63 +568,7 @@ void FMaterialPropertyHelpers::ResetToDefault(TSharedPtr<IPropertyHandle> Proper
 	}
 }
 
-void FMaterialPropertyHelpers::ResetLayerFilterAssetToDefault(TSharedPtr<IPropertyHandle> PropertyHandle, class UDEditorParameterValue* InParameter, TEnumAsByte<EMaterialParameterAssociation> InAssociation, int32 Index, UMaterialEditorInstanceConstant* MaterialEditorInstance)
-{
-	const FScopedTransaction Transaction(LOCTEXT("ResetToDefault", "Reset To Default"));
-	InParameter->Modify();
-
-	const FMaterialParameterInfo& ParameterInfo = InParameter->ParameterInfo;
-	UDEditorMaterialLayersParameterValue* LayersParam = Cast<UDEditorMaterialLayersParameterValue>(InParameter);
-
-	if (LayersParam)
-	{
-		FMaterialLayersFunctions LayersValue;
-		FGuid TempGuid(0, 0, 0, 0);
-		if (MaterialEditorInstance->Parent->GetMaterialLayersParameterValue(ParameterInfo, LayersValue, TempGuid))
-		{
-			FMaterialLayersFunctions StoredValue = LayersParam->ParameterValue;
-			if (InAssociation == EMaterialParameterAssociation::BlendParameter)
-			{
-				if (Index < LayersValue.FilterBlends.Num())
-				{
-					StoredValue.FilterBlends[Index] = LayersValue.FilterBlends[Index];
-					StoredValue.Blends[Index] = LayersValue.FilterBlends[Index];
-					StoredValue.InstanceBlends[Index] = LayersValue.FilterBlends[Index];
-				}
-				else
-				{
-					StoredValue.FilterBlends[Index] = nullptr;
-					StoredValue.Blends[Index] = nullptr;
-					StoredValue.InstanceBlends[Index] = nullptr;
-				}
-			}
-			if (InAssociation == EMaterialParameterAssociation::LayerParameter)
-			{
-				if (Index < LayersValue.FilterLayers.Num())
-				{
-					StoredValue.FilterLayers[Index] = LayersValue.FilterLayers[Index];
-					StoredValue.Layers[Index] = LayersValue.FilterLayers[Index];
-					StoredValue.InstanceLayers[Index] = LayersValue.FilterLayers[Index];
-				}
-				else
-				{
-					StoredValue.FilterLayers[Index] = nullptr;
-					StoredValue.Layers[Index] = nullptr;
-					StoredValue.InstanceLayers[Index] = nullptr;
-				}
-			}
-			LayersParam->ParameterValue = StoredValue;
-			LayersParam->ParameterValue.UpdateStaticPermutationString();
-		}
-	}
-
-	FPropertyChangedEvent OverrideEvent(NULL);
-	MaterialEditorInstance->PostEditChangeProperty(OverrideEvent);
-	FEditorSupportDelegates::RedrawAllViewports.Broadcast();
-	FEditorSupportDelegates::UpdateUI.Broadcast();
-}
-
-void FMaterialPropertyHelpers::ResetLayerInstanceAssetToDefault(TSharedPtr<IPropertyHandle> PropertyHandle,  class UDEditorParameterValue* InParameter, TEnumAsByte<EMaterialParameterAssociation> InAssociation, int32 Index, UMaterialEditorInstanceConstant* MaterialEditorInstance)
+void FMaterialPropertyHelpers::ResetLayerAssetToDefault(TSharedPtr<IPropertyHandle> PropertyHandle,  class UDEditorParameterValue* InParameter, TEnumAsByte<EMaterialParameterAssociation> InAssociation, int32 Index, UMaterialEditorInstanceConstant* MaterialEditorInstance)
 {
 	
 	const FScopedTransaction Transaction(LOCTEXT("ResetToDefault", "Reset To Default"));
@@ -697,50 +586,24 @@ void FMaterialPropertyHelpers::ResetLayerInstanceAssetToDefault(TSharedPtr<IProp
 			FMaterialLayersFunctions StoredValue = LayersParam->ParameterValue;
 			if (InAssociation == EMaterialParameterAssociation::BlendParameter)
 			{
-				if (Index < LayersValue.InstanceBlends.Num())
+				if (Index < LayersValue.Blends.Num())
 				{
-					StoredValue.InstanceBlends[Index] = LayersValue.InstanceBlends[Index];
-					// Reset the filter if it is incompatible with the reset instance
-					if ((Cast<UMaterialFunctionInstance>(StoredValue.InstanceBlends[Index]) && Cast<UMaterialFunctionInstance>(StoredValue.InstanceBlends[Index])->Parent != StoredValue.FilterBlends[Index])
-						|| (Cast<UMaterialFunction>(StoredValue.InstanceBlends[Index]) && Cast<UMaterialFunction>(StoredValue.InstanceBlends[Index]) != StoredValue.FilterBlends[Index]))
-					{
-						StoredValue.FilterBlends[Index] = LayersValue.FilterBlends[Index];
-					}
+					StoredValue.Blends[Index] = LayersValue.Blends[Index];
 				}
 				else
 				{
-					StoredValue.FilterBlends[Index] = nullptr;
 					StoredValue.Blends[Index] = nullptr;
-					StoredValue.InstanceBlends[Index] = nullptr;
-				}
-				// If resetting to the parent didn't null out the instance, make sure the blend is the same as the instance
-				if (StoredValue.InstanceBlends[Index] != nullptr)
-				{
-					StoredValue.Blends[Index] = StoredValue.InstanceBlends[Index];
 				}
 			}
 			else if (InAssociation == EMaterialParameterAssociation::LayerParameter)
 			{
 				if (Index < LayersValue.Layers.Num())
 				{
-					StoredValue.InstanceLayers[Index] = LayersValue.InstanceLayers[Index];
-					// Reset the filter if it is incompatible with the reset instance
-					if ((Cast<UMaterialFunctionInstance>(StoredValue.InstanceLayers[Index]) && Cast<UMaterialFunctionInstance>(StoredValue.InstanceLayers[Index])->Parent != StoredValue.FilterLayers[Index])
-						|| (Cast<UMaterialFunction>(StoredValue.InstanceLayers[Index]) && Cast<UMaterialFunction>(StoredValue.InstanceLayers[Index]) != StoredValue.FilterLayers[Index]))
-					{
-						StoredValue.FilterLayers[Index] = LayersValue.FilterLayers[Index];
-					}
+					StoredValue.Layers[Index] = LayersValue.Layers[Index];
 				}
 				else
 				{
-					StoredValue.FilterLayers[Index] = nullptr;
 					StoredValue.Layers[Index] = nullptr;
-					StoredValue.InstanceLayers[Index] = nullptr;
-				}
-				// If resetting to the parent didn't null out the instance, make sure the layer is the same as the instance
-				if (StoredValue.InstanceLayers[Index] != nullptr)
-				{
-					StoredValue.Layers[Index] = StoredValue.InstanceLayers[Index];
 				}
 			}
 			LayersParam->ParameterValue = StoredValue;
@@ -755,7 +618,7 @@ void FMaterialPropertyHelpers::ResetLayerInstanceAssetToDefault(TSharedPtr<IProp
 	
 }
 
-bool FMaterialPropertyHelpers::ShouldLayerAssetShowResetToDefault(TSharedPtr<IPropertyHandle> PropertyHandle, TSharedPtr<FStackSortedData> InParameterData, EStackAssetType StackAssetType, UMaterialInterface* InMaterial)
+bool FMaterialPropertyHelpers::ShouldLayerAssetShowResetToDefault(TSharedPtr<IPropertyHandle> PropertyHandle, TSharedPtr<FStackSortedData> InParameterData, UMaterialInterface* InMaterial)
 {
 	if (!InParameterData->Parameter)
 	{
@@ -777,30 +640,14 @@ bool FMaterialPropertyHelpers::ShouldLayerAssetShowResetToDefault(TSharedPtr<IPr
 			FMaterialLayersFunctions StoredValue = LayersParam->ParameterValue;
 			if (InParameterData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter)
 			{
-				if (StackAssetType == EStackAssetType::Filter)
-				{
-					StoredAssets = StoredValue.FilterBlends;
-					ParentAssets = LayersValue.FilterBlends;
-				}
-				else if(StackAssetType == EStackAssetType::Instance)
-				{
-					StoredAssets = StoredValue.InstanceBlends;
-					ParentAssets = LayersValue.InstanceBlends;
-				}
+				StoredAssets = StoredValue.Blends;
+				ParentAssets = LayersValue.Blends;
 	
 			}
 			else if (InParameterData->ParameterInfo.Association == EMaterialParameterAssociation::LayerParameter)
 			{
-				if (StackAssetType == EStackAssetType::Filter)
-				{
-					StoredAssets = StoredValue.FilterLayers;
-					ParentAssets = LayersValue.FilterLayers;
-				}
-				else if (StackAssetType == EStackAssetType::Instance)
-				{
-					StoredAssets = StoredValue.InstanceLayers;
-					ParentAssets = LayersValue.InstanceLayers;
-				}
+				StoredAssets = StoredValue.Layers;
+				ParentAssets = LayersValue.Layers;
 			}
 
 			// Compare to the parent MaterialFunctionInterface array
@@ -1032,6 +879,30 @@ void FMaterialPropertyHelpers::SetVectorChannelMaskValue(const FString& StringVa
 
 		PropertyHandle->NotifyPostChange();
 	}
+}
+
+TArray<UFactory*> FMaterialPropertyHelpers::GetAssetFactories(EMaterialParameterAssociation AssetType)
+{
+	TArray<UFactory*> NewAssetFactories;
+	switch (AssetType)
+	{
+	case LayerParameter:
+	{
+	//	NewAssetFactories.Add(NewObject<UMaterialFunctionMaterialLayerFactory>());
+		break;
+	}
+	case BlendParameter:
+	{
+	//	NewAssetFactories.Add(NewObject<UMaterialFunctionMaterialLayerBlendFactory>());
+		break;
+	}
+	case GlobalParameter:
+		break;
+	default:
+		break;
+	}
+	
+	return NewAssetFactories;
 }
 
 #undef LOCTEXT_NAMESPACE

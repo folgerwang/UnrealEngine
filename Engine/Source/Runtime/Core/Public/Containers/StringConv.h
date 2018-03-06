@@ -553,7 +553,7 @@ private:
 		while (Source < SourceEnd && DestLen > 0)
 		{
 			// Read our codepoint, advancing the source pointer
-			uint32 Codepoint = CodepointFromUtf8(Source, Source - SourceEnd);
+			uint32 Codepoint = CodepointFromUtf8(Source, SourceEnd - Source);
 
 			// We want to write out two chars
 			if (UE4StringConv_Private::IsEncodedSurrogate(Codepoint))

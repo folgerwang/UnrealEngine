@@ -207,4 +207,24 @@ void FClothingSimulationBase::FillContext(USkeletalMeshComponent* InComponent, f
 	}
 
 	BaseContext->WorldGravity = FVector(0.0f, 0.0f, GravityStrength);
+
+	// Checking the component here to track rare issue leading to invalid contexts
+	if(InComponent->IsPendingKill())
+	{
+		AActor* CompOwner = InComponent->GetOwner();
+		ensureMsgf(false, TEXT("Attempting to fill a clothing simulation context for a PendingKill skeletal mesh component (Comp: %s, Actor: %s). Pending kill skeletal mesh components should be unregistered before marked pending kill."), *InComponent->GetName(), CompOwner ? *CompOwner->GetName() : TEXT("None"));
+
+		// Make sure we clear this out to skip any attempted simulations
+		BaseContext->BoneTransforms.Reset();
+	}
+
+	if(BaseContext->BoneTransforms.Num() == 0)
+	{
+		AActor* CompOwner = InComponent->GetOwner();
+		USkinnedMeshComponent* Master = InComponent->MasterPoseComponent.Get();
+		ensureMsgf(false, TEXT("Attempting to fill a clothing simulation context for a skeletal mesh component that has zero bones (Comp: %s, Master: %s, Actor: %s)."), *InComponent->GetName(), Master ? *Master->GetName() : TEXT("None"), CompOwner ? *CompOwner->GetName() : TEXT("None"));
+
+		// Make sure we clear this out to skip any attempted simulations
+		BaseContext->BoneTransforms.Reset();
+	}
 }

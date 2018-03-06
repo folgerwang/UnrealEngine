@@ -47,6 +47,10 @@ namespace UnrealBuildTool
 			{
 				SharedArguments.Add(String.Format("/D \"{0}\"", Definition));
 			}
+			foreach(FileItem ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
+			{
+				SharedArguments.Add(String.Format("/FI\"{0}\"", ForceIncludeFile.Location));
+			}
 
 			// Get the path to PVS studio
 			FileReference AnalyzerFile = new FileReference(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "PVS-Studio", "x64", "PVS-Studio.exe"));
@@ -78,6 +82,7 @@ namespace UnrealBuildTool
 				PreprocessAction.CommandPath = EnvVars.CompilerPath.FullName;
 				PreprocessAction.WorkingDirectory = UnrealBuildTool.EngineSourceDirectory.FullName;
 				PreprocessAction.CommandArguments = " @\"" + ResponseFileItem.AbsolutePath + "\"";
+				PreprocessAction.PrerequisiteItems.AddRange(CompileEnvironment.ForceIncludeFiles);
 				PreprocessAction.PrerequisiteItems.Add(SourceFile);
 				PreprocessAction.PrerequisiteItems.Add(ResponseFileItem);
 				PreprocessAction.ProducedItems.Add(PreprocessedFileItem);

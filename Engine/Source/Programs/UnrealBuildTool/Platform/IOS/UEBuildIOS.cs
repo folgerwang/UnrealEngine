@@ -490,12 +490,13 @@ namespace UnrealBuildTool
             Target.bCompileSimplygon = false;
             Target.bCompileSimplygonSSF = false;
 			Target.bBuildDeveloperTools = false;
+
+			Target.bDeployAfterCompile = true;
 		}
 
 		public override void ValidateTarget(TargetRules Target)
 		{
 			Target.bUsePCHFiles = false;
-			Target.bDeployAfterCompile = true;
 
 			// we assume now we are building with IOS8 or later
 			if (Target.bCompileAgainstEngine)
@@ -776,7 +777,7 @@ namespace UnrealBuildTool
 			CompileEnvironment.Definitions.Add("USE_NULL_RHI=0");
 			CompileEnvironment.Definitions.Add("REQUIRES_ALIGNED_INT_ACCESS");
 
-			IOSProjectSettings ProjectSettings = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.IOS)).ReadProjectSettings(Target.ProjectFile);
+			IOSProjectSettings ProjectSettings = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(Target.Platform)).ReadProjectSettings(Target.ProjectFile);
 			if (ProjectSettings.bNotificationsEnabled)
 			{
 				CompileEnvironment.Definitions.Add("NOTIFICATIONS_ENABLED=1");

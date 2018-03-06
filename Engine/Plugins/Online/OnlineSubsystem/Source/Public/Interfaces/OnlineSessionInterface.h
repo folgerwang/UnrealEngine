@@ -667,7 +667,7 @@ public:
 	 * @param UserId the user being invited
 	 * @param InviteResult the search/settings for the session we're joining via invite
 	 */
-	DEFINE_ONLINE_DELEGATE_FOUR_PARAM(OnSessionUserInviteAccepted, const bool, const int32, TSharedPtr<const FUniqueNetId>, const FOnlineSessionSearchResult&);
+	DEFINE_ONLINE_DELEGATE_FOUR_PARAM(OnSessionUserInviteAccepted, const bool /*bWasSuccessful*/, const int32 /*ControllerId*/, TSharedPtr<const FUniqueNetId> /*UserId*/, const FOnlineSessionSearchResult& /*InviteResult*/);
 
 	/**
 	 * Called when a user receives a session invitation. Allows the game code to decide

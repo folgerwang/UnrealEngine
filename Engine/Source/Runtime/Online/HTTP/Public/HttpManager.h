@@ -97,6 +97,13 @@ public:
 	 */
 	void DumpRequests(FOutputDevice& Ar) const;
 
+	/**
+	 * Method to check dynamic proxy setting support.
+	 *
+	 * @returns Whether this http implementation supports dynamic proxy setting.
+	 */
+	virtual bool SupportsDynamicProxy() const;
+
 protected:
 	/** 
 	 * Create HTTP thread object

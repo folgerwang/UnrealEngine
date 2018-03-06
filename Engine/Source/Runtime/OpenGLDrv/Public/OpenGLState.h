@@ -68,6 +68,7 @@ class FOpenGLSamplerState : public FRHISamplerState
 public:
 	GLuint Resource;
 	FOpenGLSamplerStateData Data;
+	FOpenGLAssertRHIThreadFence CreationFence;
 
 	~FOpenGLSamplerState();
 };

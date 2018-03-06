@@ -79,7 +79,7 @@ public:
 		check(!MarkedForDelete);
 	}
 
-	static void FlushPendingDeletes();
+	static void FlushPendingDeletes(bool bFlushDeferredDeletes = false);
 
 	FORCEINLINE static bool PlatformNeedsExtraDeletionLatency()
 	{

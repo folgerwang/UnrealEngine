@@ -262,10 +262,12 @@ struct FMovieSceneEvaluationField
 	/**
 	 * Access this field's signature
 	 */
+#if WITH_EDITORONLY_DATA
 	const FGuid& GetSignature() const
 	{
 		return Signature;
 	}
+#endif
 
 	/**
 	 * Access this field's size
@@ -306,9 +308,11 @@ struct FMovieSceneEvaluationField
 	}
 
 private:
+#if WITH_EDITORONLY_DATA
 	/** Signature that uniquely identifies any state this field can be in - regenerated on mutation */
 	UPROPERTY()
 	FGuid Signature;
+#endif
 
 	/** Ranges stored separately for fast (cache efficient) lookup. Each index has a corresponding entry in FMovieSceneEvaluationField::Groups. */
 	UPROPERTY()

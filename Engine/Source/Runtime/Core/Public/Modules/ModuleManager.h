@@ -760,56 +760,53 @@ class FDefaultGameModuleImpl
 #endif
 
 /**
+ * Macro for passing a list argument to a macro
+ */
+#define UE_LIST_ARGUMENT(...) __VA_ARGS__
+
+/**
  * Macro for registering signing keys for a project.
  */
-#ifdef UE_SIGNING_KEY_EXPONENT
-	#define IMPLEMENT_SIGNING_KEY_REGISTRATION() \
-		struct FSigningKeyRegistration \
+#define UE_REGISTER_SIGNING_KEY(ExponentValue, ModulusValue) \
+	struct FSigningKeyRegistration \
+	{ \
+		FSigningKeyRegistration() \
 		{ \
-			FSigningKeyRegistration() \
+			extern void RegisterSigningKeyCallback(void (*)(unsigned char OutExponent[64], unsigned char OutModulus[64])); \
+			RegisterSigningKeyCallback(&Callback); \
+		} \
+		static void Callback(unsigned char OutExponent[64], unsigned char OutModulus[64]) \
+		{ \
+			const unsigned char Exponent[64] = { ExponentValue }; \
+			const unsigned char Modulus[64] = { ModulusValue }; \
+			for(int ByteIdx = 0; ByteIdx < 64; ByteIdx++) \
 			{ \
-				extern void RegisterSigningKeyCallback(void (*)(unsigned char OutExponent[64], unsigned char OutModulus[64])); \
-				RegisterSigningKeyCallback(&Callback); \
+				OutExponent[ByteIdx] = Exponent[ByteIdx]; \
+				OutModulus[ByteIdx] = Modulus[ByteIdx]; \
 			} \
-			static void Callback(unsigned char OutExponent[64], unsigned char OutModulus[64]) \
-			{ \
-				const unsigned char Exponent[64] = { UE_SIGNING_KEY_EXPONENT }; \
-				const unsigned char Modulus[64] = { UE_SIGNING_KEY_MODULUS }; \
-				for(int ByteIdx = 0; ByteIdx < 64; ByteIdx++) \
-				{ \
-					OutExponent[ByteIdx] = Exponent[ByteIdx]; \
-					OutModulus[ByteIdx] = Modulus[ByteIdx]; \
-				} \
-			} \
-		} GSigningKeyRegistration;
-#else
-	#define IMPLEMENT_SIGNING_KEY_REGISTRATION()
-#endif
+		} \
+	} GSigningKeyRegistration;
 
 /**
  * Macro for registering encryption key for a project.
  */
-#ifdef UE_ENCRYPTION_KEY
-	#define IMPLEMENT_ENCRYPTION_KEY_REGISTRATION() \
-		struct FEncryptionKeyRegistration \
+#define UE_REGISTER_ENCRYPTION_KEY(...) \
+	struct FEncryptionKeyRegistration \
+	{ \
+		FEncryptionKeyRegistration() \
 		{ \
-			FEncryptionKeyRegistration() \
+			extern void RegisterEncryptionKeyCallback(void (*)(unsigned char OutKey[32])); \
+			RegisterEncryptionKeyCallback(&Callback); \
+		} \
+		static void Callback(unsigned char OutKey[32]) \
+		{ \
+			const unsigned char Key[32] = { __VA_ARGS__ }; \
+			for(int ByteIdx = 0; ByteIdx < 32; ByteIdx++) \
 			{ \
-				extern void RegisterEncryptionKeyCallback(void (*)(unsigned char OutKey[32])); \
-				RegisterEncryptionKeyCallback(&Callback); \
+				OutKey[ByteIdx] = Key[ByteIdx]; \
 			} \
-			static void Callback(unsigned char OutKey[32]) \
-			{ \
-				const unsigned char Key[32] = { UE_ENCRYPTION_KEY }; \
-				for(int ByteIdx = 0; ByteIdx < 32; ByteIdx++) \
-				{ \
-					OutKey[ByteIdx] = Key[ByteIdx]; \
-				} \
-			} \
-		} GEncryptionKeyRegistration;
-#else
-	#define IMPLEMENT_ENCRYPTION_KEY_REGISTRATION()
-#endif
+		} \
+	} GEncryptionKeyRegistration;
 
 /**
  * Macro for declaring the GIsDebugGame variable for monolithic development builds. NB: This define, and the UE_BUILD_DEVELOPMENT_WITH_DEBUGGAME defines like it, should NEVER be 

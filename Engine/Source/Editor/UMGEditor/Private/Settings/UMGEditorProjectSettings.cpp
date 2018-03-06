@@ -7,6 +7,7 @@ UUMGEditorProjectSettings::UUMGEditorProjectSettings()
 	bShowWidgetsFromEngineContent = false;
 	bShowWidgetsFromDeveloperContent = true;
 	bCookSlowConstructionWidgetTree = true;
+	bWidgetSupportsDynamicCreation = true;
 }
 
 #if WITH_EDITOR

@@ -118,7 +118,7 @@ namespace FbxMeshUtils
 			ImportOptions->bImportMaterials = false;
 			ImportOptions->bImportTextures = false;
 		}
-
+		ImportOptions->bAutoComputeLodDistances = true; //Setting auto compute distance to true will avoid changing the staticmesh flag
 		if ( !FFbxImporter->ImportFromFile( *Filename, FPaths::GetExtension( Filename ), true ) )
 		{
 			// Log the error message and fail the import.
@@ -358,7 +358,7 @@ namespace FbxMeshUtils
 				if (MaxLODLevel == 0)
 				{
 					bUseLODs = false;
-					MaxLODLevel = SelectedSkelMesh->LODInfo.Num();
+					MaxLODLevel = SelectedSkelMesh->GetLODNum();
 				}
 
 				// Create LOD dropdown strings
@@ -371,7 +371,7 @@ namespace FbxMeshUtils
 
 
 				int32 SelectedLOD = LODLevel;
-				if (SelectedLOD > SelectedSkelMesh->LODInfo.Num())
+				if (SelectedLOD > SelectedSkelMesh->GetLODNum())
 				{
 					// Make sure they don't manage to select a bad LOD index
 					FFbxImporter->AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(LOCTEXT("FBXImport_InvalidLODIdx", "Invalid mesh LOD index {0}, no prior LOD index exists"), FText::AsNumber(SelectedLOD))), FFbxErrors::Generic_Mesh_LOD_InvalidIndex);
@@ -428,7 +428,7 @@ namespace FbxMeshUtils
 					}
 					
 					ExistingSkelMeshData* SkelMeshDataPtr = nullptr;
-					if (SelectedSkelMesh->LODInfo.Num() > LODLevel)
+					if (SelectedSkelMesh->GetLODNum() > LODLevel)
 					{
 						SelectedSkelMesh->PreEditChange(NULL);
 						SkelMeshDataPtr = SaveExistingSkelMeshData(SelectedSkelMesh, true, SelectedLOD);
@@ -498,7 +498,7 @@ namespace FbxMeshUtils
 					{
 						bSuccess = true;
 						// Set LOD source filename
-						SelectedSkelMesh->LODInfo[SelectedLOD].SourceImportFilename = Filename;
+						SelectedSkelMesh->GetLODInfo(SelectedLOD)->SourceImportFilename = Filename;
 
 						// Notification of success
 						FNotificationInfo NotificationInfo(FText::GetEmpty());
@@ -613,10 +613,9 @@ namespace FbxMeshUtils
 
 		if(SkeletalMesh)
 		{
-			if(SkeletalMesh->LODInfo.IsValidIndex(LODLevel))
+			if(SkeletalMesh->IsValidLODIndex(LODLevel))
 			{
-				FSkeletalMeshLODInfo& SkelLodInfo = SkeletalMesh->LODInfo[LODLevel];
-				FilenameToImport = SkelLodInfo.SourceImportFilename;
+				FilenameToImport = SkeletalMesh->GetLODInfo(LODLevel)->SourceImportFilename;
 			}
 		}
 

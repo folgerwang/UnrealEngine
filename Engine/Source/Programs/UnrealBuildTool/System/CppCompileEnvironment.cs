@@ -277,7 +277,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// List of header files to force include
 		/// </summary>
-		public List<FileReference> ForceIncludeFiles = new List<FileReference>();
+		public List<FileItem> ForceIncludeFiles = new List<FileItem>();
 
 		/// <summary>
 		/// The C++ preprocessor definitions to use.

@@ -13,44 +13,55 @@
 #define IMAGE_BRUSH( RelativePath, ... ) FSlateImageBrush(FPaths::EngineContentDir() / TEXT("Slate") / RelativePath + TEXT(".png"), __VA_ARGS__)
 #define BOX_BRUSH( RelativePath, ... ) FSlateBoxBrush(FPaths::EngineContentDir() / TEXT("Slate") / RelativePath + TEXT(".png"), __VA_ARGS__)
 
+FButtonStyle SWindowTitleBarArea::MinimizeButtonStyle;
+FButtonStyle SWindowTitleBarArea::MaximizeButtonStyle;
+FButtonStyle SWindowTitleBarArea::RestoreButtonStyle;
+FButtonStyle SWindowTitleBarArea::CloseButtonStyle;
+
 SWindowTitleBarArea::SWindowTitleBarArea()
-: ChildSlot()
-, bIsMinimizeButtonEnabled(true)
-, bIsMaximizeRestoreButtonEnabled(true)
-, bIsCloseButtonEnabled(true)
+	: ChildSlot(this)
+	, bIsMinimizeButtonEnabled(true)
+	, bIsMaximizeRestoreButtonEnabled(true)
+	, bIsCloseButtonEnabled(true)
 {
 	bCanTick = false;
 	bCanSupportFocus = false;
 
-	const FButtonStyle ButtonStyle = FButtonStyle()
-		.SetNormal(BOX_BRUSH("Common/Button", FVector2D(32, 32), 8.0f / 32.0f))
-		.SetHovered(BOX_BRUSH("Common/Button_Hovered", FVector2D(32, 32), 8.0f / 32.0f))
-		.SetPressed(BOX_BRUSH("Common/Button_Pressed", FVector2D(32, 32), 8.0f / 32.0f))
-		.SetNormalPadding(FMargin(2, 2, 2, 2))
-		.SetPressedPadding(FMargin(2, 3, 2, 1));
+	static bool bButtonsStyleInitialized = false;
+	if (!bButtonsStyleInitialized)
+	{
+		const FButtonStyle ButtonStyle = FButtonStyle()
+			.SetNormal(BOX_BRUSH("Common/Button", FVector2D(32, 32), 8.0f / 32.0f))
+			.SetHovered(BOX_BRUSH("Common/Button_Hovered", FVector2D(32, 32), 8.0f / 32.0f))
+			.SetPressed(BOX_BRUSH("Common/Button_Pressed", FVector2D(32, 32), 8.0f / 32.0f))
+			.SetNormalPadding(FMargin(2, 2, 2, 2))
+			.SetPressedPadding(FMargin(2, 3, 2, 1));
 
-	MinimizeButtonStyle = FButtonStyle(ButtonStyle)
-		.SetNormal(IMAGE_BRUSH("Common/Window/WindowButton_Minimize_Normal", FVector2D(27.0f, 18.0f)))
-		.SetHovered(IMAGE_BRUSH("Common/Window/WindowButton_Minimize_Hovered", FVector2D(27.0f, 18.0f)))
-		.SetPressed(IMAGE_BRUSH("Common/Window/WindowButton_Minimize_Pressed", FVector2D(27.0f, 18.0f)))
-		.SetDisabled(IMAGE_BRUSH("Common/Window/WindowButton_Minimize_Disabled", FVector2D(27.0f, 18.0f)));
+		MinimizeButtonStyle = FButtonStyle(ButtonStyle)
+			.SetNormal(IMAGE_BRUSH("Common/Window/WindowButton_Minimize_Normal", FVector2D(27.0f, 18.0f)))
+			.SetHovered(IMAGE_BRUSH("Common/Window/WindowButton_Minimize_Hovered", FVector2D(27.0f, 18.0f)))
+			.SetPressed(IMAGE_BRUSH("Common/Window/WindowButton_Minimize_Pressed", FVector2D(27.0f, 18.0f)))
+			.SetDisabled(IMAGE_BRUSH("Common/Window/WindowButton_Minimize_Disabled", FVector2D(27.0f, 18.0f)));
 
-	MaximizeButtonStyle = FButtonStyle(ButtonStyle)
-		.SetNormal(IMAGE_BRUSH("Common/Window/WindowButton_Maximize_Normal", FVector2D(23.0f, 18.0f)))
-		.SetHovered(IMAGE_BRUSH("Common/Window/WindowButton_Maximize_Hovered", FVector2D(23.0f, 18.0f)))
-		.SetPressed(IMAGE_BRUSH("Common/Window/WindowButton_Maximize_Pressed", FVector2D(23.0f, 18.0f)))
-		.SetDisabled(IMAGE_BRUSH("Common/Window/WindowButton_Maximize_Disabled", FVector2D(27.0f, 18.0f)));
+		MaximizeButtonStyle = FButtonStyle(ButtonStyle)
+			.SetNormal(IMAGE_BRUSH("Common/Window/WindowButton_Maximize_Normal", FVector2D(23.0f, 18.0f)))
+			.SetHovered(IMAGE_BRUSH("Common/Window/WindowButton_Maximize_Hovered", FVector2D(23.0f, 18.0f)))
+			.SetPressed(IMAGE_BRUSH("Common/Window/WindowButton_Maximize_Pressed", FVector2D(23.0f, 18.0f)))
+			.SetDisabled(IMAGE_BRUSH("Common/Window/WindowButton_Maximize_Disabled", FVector2D(27.0f, 18.0f)));
 
-	RestoreButtonStyle = FButtonStyle(ButtonStyle)
-		.SetNormal(IMAGE_BRUSH("Common/Window/WindowButton_Restore_Normal", FVector2D(23.0f, 18)))
-		.SetHovered(IMAGE_BRUSH("Common/Window/WindowButton_Restore_Hovered", FVector2D(23.0f, 18)))
-		.SetPressed(IMAGE_BRUSH("Common/Window/WindowButton_Restore_Pressed", FVector2D(23.0f, 18)))
-		.SetDisabled(IMAGE_BRUSH("Common/Window/WindowButton_Maximize_Disabled", FVector2D(27.0f, 18.0f)));
+		RestoreButtonStyle = FButtonStyle(ButtonStyle)
+			.SetNormal(IMAGE_BRUSH("Common/Window/WindowButton_Restore_Normal", FVector2D(23.0f, 18)))
+			.SetHovered(IMAGE_BRUSH("Common/Window/WindowButton_Restore_Hovered", FVector2D(23.0f, 18)))
+			.SetPressed(IMAGE_BRUSH("Common/Window/WindowButton_Restore_Pressed", FVector2D(23.0f, 18)))
+			.SetDisabled(IMAGE_BRUSH("Common/Window/WindowButton_Maximize_Disabled", FVector2D(27.0f, 18.0f)));
 
-	CloseButtonStyle = FButtonStyle(ButtonStyle)
-		.SetNormal(IMAGE_BRUSH("Common/Window/WindowButton_Close_Normal", FVector2D(44.0f, 18.0f)))
-		.SetHovered(IMAGE_BRUSH("Common/Window/WindowButton_Close_Hovered", FVector2D(44.0f, 18.0f)))
-		.SetPressed(IMAGE_BRUSH("Common/Window/WindowButton_Close_Pressed", FVector2D(44.0f, 18.0f)));
+		CloseButtonStyle = FButtonStyle(ButtonStyle)
+			.SetNormal(IMAGE_BRUSH("Common/Window/WindowButton_Close_Normal", FVector2D(44.0f, 18.0f)))
+			.SetHovered(IMAGE_BRUSH("Common/Window/WindowButton_Close_Hovered", FVector2D(44.0f, 18.0f)))
+			.SetPressed(IMAGE_BRUSH("Common/Window/WindowButton_Close_Pressed", FVector2D(44.0f, 18.0f)));
+
+		bButtonsStyleInitialized = true;
+	}
 }
 
 void SWindowTitleBarArea::Construct( const FArguments& InArgs )
@@ -149,9 +160,9 @@ void SWindowTitleBarArea::Construct( const FArguments& InArgs )
 		]
 	];
 
-	WindowButtonsBox->SetVisibility(EVisibility::Collapsed);
+	SetWindowButtonsVisibility(false);
 
-	OnDoubleClick = InArgs._OnDoubleClick;
+	RequestToggleFullscreen = InArgs._RequestToggleFullscreen;
 }
 
 void SWindowTitleBarArea::SetContent(const TSharedRef< SWidget >& InContent)
@@ -236,9 +247,9 @@ FReply SWindowTitleBarArea::OnMouseButtonDoubleClick(const FGeometry& MyGeometry
 	// Handle double click here in fullscreen mode only. In windowed mode double click is handled via window actions.
 	if (GameWindow.IsValid() && GameWindow->GetWindowMode() != EWindowMode::Windowed)
 	{
-		if (OnDoubleClick.IsBound())
+		if (RequestToggleFullscreen.IsBound())
 		{
-			OnDoubleClick.Execute();
+			RequestToggleFullscreen.Execute();
 			return FReply::Handled();
 		}
 	}
@@ -280,7 +291,11 @@ FReply SWindowTitleBarArea::MaximizeRestoreButton_OnClicked()
 
 		if (NativeWindow.IsValid())
 		{
-			if (NativeWindow->IsMaximized())
+			if (NativeWindow->GetWindowMode() != EWindowMode::Windowed && RequestToggleFullscreen.IsBound())
+			{
+				RequestToggleFullscreen.Execute();
+			}
+			else if (NativeWindow->IsMaximized())
 			{
 				NativeWindow->Restore();
 			}
@@ -340,7 +355,7 @@ const FSlateBrush* SWindowTitleBarArea::GetMaximizeRestoreImage() const
 
 	TSharedPtr<FGenericWindow> NativeWindow = GameWindow->GetNativeWindow();
 
-	if (NativeWindow.IsValid() && NativeWindow->IsMaximized())
+	if (NativeWindow.IsValid() && (NativeWindow->IsMaximized() || NativeWindow->GetWindowMode() != EWindowMode::Windowed))
 	{
 		if (!bIsMaximizeRestoreButtonEnabled || !GameWindow->HasMaximizeBox())
 		{

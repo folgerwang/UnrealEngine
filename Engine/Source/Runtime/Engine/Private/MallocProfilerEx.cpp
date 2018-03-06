@@ -52,13 +52,12 @@ void FMallocProfilerEx::WriteLoadedLevels( UWorld* InWorld )
 		BufferedFileWriter << MapNameIndex;
 
 		// Write out all of the fully loaded levels.
-		for (int32 LevelIndex = 0; LevelIndex < InWorld->StreamingLevels.Num(); LevelIndex++)
+		for (ULevelStreaming* LevelStreaming : InWorld->GetStreamingLevels())
 		{
-			ULevelStreaming* LevelStreaming = InWorld->StreamingLevels[LevelIndex];
-			if ((LevelStreaming != NULL)
+			if ((LevelStreaming != nullptr)
 				&& (LevelStreaming->GetWorldAssetPackageFName() != NAME_None)
 				&& (LevelStreaming->GetWorldAssetPackageFName() != InWorld->GetOutermost()->GetFName())
-				&& (LevelStreaming->GetLoadedLevel() != NULL))
+				&& (LevelStreaming->GetLoadedLevel() != nullptr))
 			{
 				NumLoadedLevels++;
 

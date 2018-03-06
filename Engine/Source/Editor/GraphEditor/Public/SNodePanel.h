@@ -573,6 +573,7 @@ public:
 		: BorderImage( FCoreStyle::Get().GetBrush( "NoBorder" ) )
 		, BorderBackgroundColor( FEditorStyle::GetColor("Graph.ForegroundColor"))
 		, DesiredSizeScale(FVector2D(1,1))
+		, Children(this)
 		{
 		}
 

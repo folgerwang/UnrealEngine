@@ -134,6 +134,11 @@ bool FLoginFlowManager::AddLoginFlow(FName OnlineIdentifier, const FOnDisplayPop
 	return bSuccess;
 }
 
+bool FLoginFlowManager::HasLoginFlow(FName OnlineIdentifier)
+{
+	return OnlineSubsystemsMap.Find(OnlineIdentifier) != nullptr;
+}
+
 void FLoginFlowManager::OnLoginFlowStarted(const FString& RequestedURL, const FOnLoginRedirectURL& OnRedirectURL, const FOnLoginFlowComplete& OnLoginFlowComplete, bool& bOutShouldContinueLogin, FName InOnlineIdentifier)
 {
 	bOutShouldContinueLogin = false;
@@ -158,7 +163,7 @@ void FLoginFlowManager::OnLoginFlowStarted(const FString& RequestedURL, const FO
 		bOutShouldContinueLogin = true;
 
 		// save the pending order for reference later
-		PendingLogin = MakeShareable(new FLoginFlowProperties());
+		PendingLogin = MakeUnique<FLoginFlowProperties>();
 		PendingLogin->InstanceId = FGuid::NewGuid().ToString();
 		PendingLogin->OnRedirectURL = OnRedirectURL;
 		PendingLogin->OnComplete = OnLoginFlowComplete;

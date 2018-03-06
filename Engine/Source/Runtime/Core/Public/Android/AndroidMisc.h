@@ -86,6 +86,7 @@ public:
 	static FString GetUniqueAdvertisingId();
 	static FString GetCPUVendor();
 	static FString GetCPUBrand();
+	static FString GetPrimaryGPUBrand();
 	static void GetOSVersions(FString& out_OSVersionLabel, FString& out_OSSubVersionLabel);
 	static bool GetDiskTotalAndFreeSpace(const FString& InPath, uint64& TotalNumberOfBytes, uint64& NumberOfFreeBytes);
 	
@@ -181,20 +182,16 @@ public:
 	}
 
 
-#if STATS
-	/**
-	* Platform specific function for adding a named event that can be viewed in PIX
-	*/
+#if STATS || ENABLE_STATNAMEDEVENTS
+	static void BeginNamedEventFrame();
 	static void BeginNamedEvent(const struct FColor& Color, const TCHAR* Text);
 	static void BeginNamedEvent(const struct FColor& Color, const ANSICHAR* Text);
-
-	/**
-	* Platform specific function for closing a named event that can be viewed in PIX
-	*/
 	static void EndNamedEvent();
+	static void CustomNamedStat(const TCHAR* Text, float Value, const TCHAR* Graph, const TCHAR* Unit);
+	static void CustomNamedStat(const ANSICHAR* Text, float Value, const ANSICHAR* Graph, const ANSICHAR* Unit);
 #endif
 
-#if STATS
+#if (STATS || ENABLE_STATNAMEDEVENTS)
 	static int32 TraceMarkerFileDescriptor;
 #endif
 	

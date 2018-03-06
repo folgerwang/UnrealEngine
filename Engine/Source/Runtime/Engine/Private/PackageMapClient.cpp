@@ -21,6 +21,7 @@
 #include "ProfilingDebugging/ScopedTimers.h"
 #include "GameFramework/GameStateBase.h"
 #include "HAL/LowLevelMemTracker.h"
+#include "Engine/DemoNetDriver.h"
 
 #if WITH_EDITOR
 #include "UObject/ObjectRedirector.h"
@@ -42,6 +43,7 @@ static const int INTERNAL_LOAD_OBJECT_RECURSION_LIMIT = 16;
 static TAutoConsoleVariable<int32> CVarAllowAsyncLoading( TEXT( "net.AllowAsyncLoading" ), 0, TEXT( "Allow async loading" ) );
 static TAutoConsoleVariable<int32> CVarIgnoreNetworkChecksumMismatch( TEXT( "net.IgnoreNetworkChecksumMismatch" ), 0, TEXT( "" ) );
 extern FAutoConsoleVariableRef CVarEnableMultiplayerWorldOriginRebasing;
+extern TAutoConsoleVariable<int32> CVarFilterGuidRemapping;
 
 void BroadcastNetFailure(UNetDriver* Driver, ENetworkFailure::Type FailureType, const FString& ErrorStr)
 {
@@ -275,9 +277,13 @@ bool UPackageMapClient::SerializeNewActor(FArchive& Ar, class UActorChannel *Cha
 		return false;
 	}
 
-	if ( GuidCache.IsValid() )
+	bool bFilterGuidRemapping = (CVarFilterGuidRemapping.GetValueOnAnyThread() > 0);
+	if (!bFilterGuidRemapping)
 	{
-		GuidCache->ImportedNetGuids.Add( NetGUID );
+		if ( GuidCache.IsValid() )
+		{
+			GuidCache->ImportedNetGuids.Add( NetGUID );
+		}
 	}
 
 	Channel->ActorNetGUID = NetGUID;
@@ -302,6 +308,15 @@ bool UPackageMapClient::SerializeNewActor(FArchive& Ar, class UActorChannel *Cha
 
 		UE_LOG( LogNetPackageMap, Log, TEXT( "UPackageMapClient::SerializeNewActor:  Skipping full read because we are deleting dynamic actor: %s" ), Actor ? *Actor->GetName() : TEXT( "NULL" ) );
 		return false;		// This doesn't mean an error. This just simply means we didn't spawn an actor.
+	}
+
+	if (bFilterGuidRemapping)
+	{
+		// Do not mark guid as imported until we know we aren't deleting it
+		if ( GuidCache.IsValid() )
+		{
+			GuidCache->ImportedNetGuids.Add( NetGUID );
+		}
 	}
 
 	if ( NetGUID.IsDynamic() )
@@ -477,7 +492,21 @@ bool UPackageMapClient::SerializeNewActor(FArchive& Ar, class UActorChannel *Cha
 	}
 	else if ( Ar.IsLoading() && Actor == NULL )
 	{
-		UE_LOG( LogNetPackageMap, Warning, TEXT( "SerializeNewActor: Static actor failed to load: FullNetGuidPath: %s, Channel: %d" ), *GuidCache->FullNetGUIDPath( NetGUID ), Channel->ChIndex );
+		// Do not log a warning during replay, since this is a valid case
+		UDemoNetDriver* DemoNetDriver = Cast<UDemoNetDriver>(Connection->Driver);
+		if (DemoNetDriver == nullptr)
+		{
+			UE_LOG( LogNetPackageMap, Warning, TEXT( "SerializeNewActor: Static actor failed to load: FullNetGuidPath: %s, Channel: %d" ), *GuidCache->FullNetGUIDPath( NetGUID ), Channel->ChIndex );
+		}
+
+		if (bFilterGuidRemapping)
+		{
+			// Do not attempt to resolve this missing actor
+			if ( GuidCache.IsValid() )
+			{
+				GuidCache->ImportedNetGuids.Remove( NetGUID );
+			}
+		}
 	}
 
 	UE_LOG( LogNetPackageMap, Log, TEXT( "SerializeNewActor END: Finished Serializing. Actor: %s, FullNetGUIDPath: %s, Channel: %d, IsLoading: %i, IsDynamic: %i" ), Actor ? *Actor->GetName() : TEXT("NULL"), *GuidCache->FullNetGUIDPath( NetGUID ), Channel->ChIndex, (int)Ar.IsLoading(), (int)NetGUID.IsDynamic() );
@@ -1712,7 +1741,7 @@ void UPackageMapClient::LogDebugInfo( FOutputDevice & Ar )
 		}
 
 		UObject *Obj = It.Key().Get();
-		FString Str = FString::Printf(TEXT("%s [%s] [%s] - %s"), *NetGUID.ToString(), *Status, NetGUID.IsDynamic() ? TEXT("Dynamic") : TEXT("Static") , Obj ? *Obj->GetPathName() : TEXT("NULL"));
+		FString Str = FString::Printf(TEXT("%s [%s] [%s] - %s"), *NetGUID.ToString(), *Status, NetGUID.IsDynamic() ? TEXT("Dynamic") : TEXT("Static") , Obj ? *Obj->GetFullName() : TEXT("NULL"));
 		Ar.Logf(TEXT("%s"), *Str);
 		UE_LOG(LogNetPackageMap, Log, TEXT("%s"), *Str);
 	}
@@ -2087,6 +2116,25 @@ FNetworkGUID FNetGUIDCache::AssignNewNetGUID_Server( const UObject* Object )
 	return NewNetGuid;
 }
 
+FNetworkGUID FNetGUIDCache::AssignNewNetGUIDFromPath_Server( const FString& PathName, const UObject* ObjOuter, const UClass* ObjClass )
+{
+	if ( !IsNetGUIDAuthority() )
+	{
+		return FNetworkGUID::GetDefault();
+	}
+
+	FNetworkGUID OuterGUID = GetOrAssignNetGUID( ObjOuter );
+
+	// Generate new NetGUID and assign it
+	const FNetworkGUID NewNetGuid( ALLOC_NEW_NET_GUID( 1 ) );
+
+	uint32 NetworkChecksum = GetClassNetworkChecksum( ObjClass );
+
+	RegisterNetGUIDFromPath_Server( NewNetGuid, PathName, OuterGUID, NetworkChecksum, true, true );
+
+	return NewNetGuid;
+}
+
 void FNetGUIDCache::RegisterNetGUID_Internal( const FNetworkGUID& NetGUID, const FNetGuidCacheObject& CacheObject )
 {
 	LLM_SCOPE(ELLMTag::Networking);
@@ -2258,6 +2306,61 @@ void FNetGUIDCache::RegisterNetGUIDFromPath_Client( const FNetworkGUID& NetGUID,
 		}
 
 		if (bPathnameMismatch || bOuterMismatch || bNetGuidMismatch)
+		{
+			BroadcastNetFailure(Driver, ENetworkFailure::NetGuidMismatch, ErrorStr);
+		}
+
+		return;
+	}
+
+	// Register a new guid with this path
+	FNetGuidCacheObject CacheObject;
+
+	CacheObject.PathName			= FName( *PathName );
+	CacheObject.OuterGUID			= OuterGUID;
+	CacheObject.NetworkChecksum		= NetworkChecksum;
+	CacheObject.bNoLoad				= bNoLoad;
+	CacheObject.bIgnoreWhenMissing	= bIgnoreWhenMissing;
+
+	RegisterNetGUID_Internal( NetGUID, CacheObject );
+}
+
+/**
+*	Associates a net guid with a path, that can be loaded or found later
+*  This function is only called on the server
+*/
+void FNetGUIDCache::RegisterNetGUIDFromPath_Server( const FNetworkGUID& NetGUID, const FString& PathName, const FNetworkGUID& OuterGUID, const uint32 NetworkChecksum, const bool bNoLoad, const bool bIgnoreWhenMissing )
+{
+	check( IsNetGUIDAuthority() );		// Server never calls this locally
+	check( !NetGUID.IsDefault() );
+
+	UE_LOG( LogNetPackageMap, Log, TEXT( "RegisterNetGUIDFromPath_Server: NetGUID: %s, PathName: %s, OuterGUID: %s" ), *NetGUID.ToString(), *PathName, *OuterGUID.ToString() );
+
+	const FNetGuidCacheObject* ExistingCacheObjectPtr = ObjectLookup.Find( NetGUID );
+
+	// If we find this guid, make sure nothing changes
+	if ( ExistingCacheObjectPtr != nullptr )
+	{
+		FString ErrorStr;
+		bool bPathnameMismatch = false;
+		bool bOuterMismatch = false;
+
+		if ( ExistingCacheObjectPtr->PathName.ToString() != PathName )
+		{
+			UE_LOG( LogNetPackageMap, Warning, TEXT( "FNetGUIDCache::RegisterNetGUIDFromPath_Server: Path mismatch. Path: %s, Expected: %s, NetGUID: %s" ), *PathName, *ExistingCacheObjectPtr->PathName.ToString(), *NetGUID.ToString() );
+
+			ErrorStr = FString::Printf(TEXT("Path mismatch. Path: %s, Expected: %s, NetGUID: %s"), *PathName, *ExistingCacheObjectPtr->PathName.ToString(), *NetGUID.ToString());
+			bPathnameMismatch = true;
+		}
+
+		if ( ExistingCacheObjectPtr->OuterGUID != OuterGUID )
+		{
+			UE_LOG( LogNetPackageMap, Warning, TEXT( "FNetGUIDCache::RegisterNetGUIDFromPath_Server: Outer mismatch. Path: %s, Outer: %s, Expected: %s, NetGUID: %s" ), *PathName, *OuterGUID.ToString(), *ExistingCacheObjectPtr->OuterGUID.ToString(), *NetGUID.ToString() );
+			ErrorStr = FString::Printf(TEXT("Outer mismatch. Path: %s, Outer: %s, Expected: %s, NetGUID: %s"), *PathName, *OuterGUID.ToString(), *ExistingCacheObjectPtr->OuterGUID.ToString(), *NetGUID.ToString());
+			bOuterMismatch = true;
+		}
+
+		if (bPathnameMismatch || bOuterMismatch)
 		{
 			BroadcastNetFailure(Driver, ENetworkFailure::NetGuidMismatch, ErrorStr);
 		}
@@ -2717,6 +2820,45 @@ bool FNetGUIDCache::IsGUIDNoLoad( const FNetworkGUID& NetGUID ) const
 	}
 
 	return CacheObjectPtr->bNoLoad;
+}
+
+bool FNetGUIDCache::IsGUIDPending( const FNetworkGUID& NetGUID ) const
+{
+	if ( !NetGUID.IsValid() )
+	{
+		return false;
+	}
+
+	if ( NetGUID.IsDefault() )
+	{
+		return false;
+	}
+
+	const FNetGuidCacheObject* const CacheObjectPtr = ObjectLookup.Find( NetGUID );
+
+	if ( CacheObjectPtr == nullptr )
+	{
+		return false;
+	}
+
+	return CacheObjectPtr->bIsPending;
+}
+
+FNetworkGUID FNetGUIDCache::GetOuterNetGUID( const FNetworkGUID& NetGUID ) const
+{
+	FNetworkGUID OuterGUID;
+
+	if ( NetGUID.IsValid() && !NetGUID.IsDefault() )
+	{
+		const FNetGuidCacheObject* const CacheObjectPtr = ObjectLookup.Find( NetGUID );
+
+		if ( CacheObjectPtr != nullptr)
+		{
+			OuterGUID = CacheObjectPtr->OuterGUID;
+		}
+	}
+
+	return OuterGUID;
 }
 
 FString FNetGUIDCache::FullNetGUIDPath( const FNetworkGUID& NetGUID ) const

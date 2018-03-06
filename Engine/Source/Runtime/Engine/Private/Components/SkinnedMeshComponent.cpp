@@ -14,6 +14,7 @@
 #include "SkeletalRenderPublic.h"
 #include "SkeletalRenderCPUSkin.h"
 #include "SkeletalRenderGPUSkin.h"
+#include "SkeletalRenderStatic.h"
 #include "Animation/AnimStats.h"
 #include "Engine/SkeletalMeshSocket.h"
 #include "PhysicsEngine/PhysicsAsset.h"
@@ -494,7 +495,12 @@ void USkinnedMeshComponent::CreateRenderState_Concurrent()
 
 			// Also check if skeletal mesh has too many bones/chunk for GPU skinning.
 			const bool bIsCPUSkinned = SkelMeshRenderData->RequiresCPUSkinning(SceneFeatureLevel) || ShouldCPUSkin();
-			if(bIsCPUSkinned)
+			if (bRenderStatic)
+			{
+				// GPU skin vertex buffer + LocalVertexFactory
+				MeshObject = ::new FSkeletalMeshObjectStatic(this, SkelMeshRenderData, SceneFeatureLevel); 
+			}
+			else if(bIsCPUSkinned)
 			{
 				MeshObject = ::new FSkeletalMeshObjectCPUSkin(this, SkelMeshRenderData, SceneFeatureLevel);
 			}
@@ -516,22 +522,22 @@ void USkinnedMeshComponent::CreateRenderState_Concurrent()
 
 		if(MeshObject)
 		{
-			// Identify current LOD
-			const int32 UseLOD = FMath::Clamp(PredictedLODLevel, 0, MeshObject->GetSkeletalMeshRenderData().LODRenderData.Num()-1);
+			// Calculate new lod level
+			UpdateLODStatus();
 
 			// If we have a valid LOD, set up required data, during reimport we may try to create data before we have all the LODs
 			// imported, in that case we skip until we have all the LODs
-			if(SkeletalMesh->LODInfo.IsValidIndex(UseLOD))
+			if(SkeletalMesh->IsValidLODIndex(PredictedLODLevel))
 			{
 				const bool bMorphTargetsAllowed = CVarEnableMorphTargets.GetValueOnAnyThread(true) != 0;
 
 				// Are morph targets disabled for this LOD?
-				if(SkeletalMesh->LODInfo[UseLOD].bHasBeenSimplified || bDisableMorphTarget || !bMorphTargetsAllowed)
+				if(bDisableMorphTarget || !bMorphTargetsAllowed)
 				{
 					ActiveMorphTargets.Empty();
 				}
 
-				MeshObject->Update(UseLOD, this, ActiveMorphTargets, MorphTargetWeights, true);  // send to rendering thread
+				MeshObject->Update(PredictedLODLevel, this, ActiveMorphTargets, MorphTargetWeights, true);  // send to rendering thread
 			}
 		}
 
@@ -589,16 +595,17 @@ void USkinnedMeshComponent::SendRenderDynamicData_Concurrent()
 	{
 		SCOPE_CYCLE_COUNTER(STAT_MeshObjectUpdate);
 
-		int32 UseLOD = PredictedLODLevel;
+		const int32 UseLOD = PredictedLODLevel;
 
 		const bool bMorphTargetsAllowed = CVarEnableMorphTargets.GetValueOnAnyThread(true) != 0;
 
 		// Are morph targets disabled for this LOD?
-		if (SkeletalMesh->LODInfo[UseLOD].bHasBeenSimplified || bDisableMorphTarget || !bMorphTargetsAllowed)
+		if (bDisableMorphTarget || !bMorphTargetsAllowed)
 		{
 			ActiveMorphTargets.Empty();
 		}
 
+		check (UseLOD < MeshObject->GetSkeletalMeshRenderData().LODRenderData.Num());
 		MeshObject->Update(UseLOD,this,ActiveMorphTargets, MorphTargetWeights, false);  // send to rendering thread
 		MeshObject->bHasBeenUpdatedAtLeastOnce = true;
 		
@@ -606,6 +613,24 @@ void USkinnedMeshComponent::SendRenderDynamicData_Concurrent()
 		UpdateMorphMaterialUsageOnProxy();
 	}
 
+}
+
+void USkinnedMeshComponent::ClearMotionVector()
+{
+	const int32 UseLOD = PredictedLODLevel;
+
+	if (MeshObject)
+	{
+		// rendering bone velocity is updated by revision number
+		// if you have situation where you want to clear the bone velocity (that causes temporal AA or motion blur)
+		// use this function to clear it
+		// this function updates renderer twice using increasing of revision number, so that renderer updates previous/new transform correctly
+		++CurrentBoneTransformRevisionNumber;
+		MeshObject->Update(UseLOD, this, ActiveMorphTargets, MorphTargetWeights, false);  // send to rendering thread
+
+		++CurrentBoneTransformRevisionNumber;
+		MeshObject->Update(UseLOD, this, ActiveMorphTargets, MorphTargetWeights, false);  // send to rendering thread
+	}
 }
 
 #if WITH_EDITOR
@@ -651,10 +676,10 @@ void USkinnedMeshComponent::InitLODInfos()
 {
 	if (SkeletalMesh != NULL)
 	{
-		if (SkeletalMesh->LODInfo.Num() != LODInfo.Num())
+		if (SkeletalMesh->GetLODNum() != LODInfo.Num())
 		{
-			LODInfo.Empty(SkeletalMesh->LODInfo.Num());
-			for (int32 Idx=0; Idx < SkeletalMesh->LODInfo.Num(); Idx++)
+			LODInfo.Empty(SkeletalMesh->GetLODNum());
+			for (int32 Idx=0; Idx < SkeletalMesh->GetLODNum(); Idx++)
 			{
 				new(LODInfo) FSkelMeshComponentLODInfo();
 			}
@@ -1218,7 +1243,6 @@ void USkinnedMeshComponent::SetSkeletalMesh(USkeletalMesh* InSkelMesh, bool bRei
 		{
 			AllocateTransformData();
 			UpdateMasterBoneMap();
-			UpdateLODStatus();
 			InvalidateCachedBounds();
 			// clear morphtarget cache
 			ActiveMorphTargets.Empty();			
@@ -1226,6 +1250,12 @@ void USkinnedMeshComponent::SetSkeletalMesh(USkeletalMesh* InSkelMesh, bool bRei
 		}
 	}
 	
+	if (IsRegistered())
+	{
+		// We do this after the FRenderStateRecreator has gone as
+		// UpdateLODStatus needs a valid MeshObject
+		UpdateLODStatus(); 
+	}
 	
 	// Notify the streaming system. Don't use Update(), because this may be the first time the mesh has been set
 	// and the component may have to be added to the streaming system for the first time.
@@ -1764,11 +1794,11 @@ void USkinnedMeshComponent::QuerySupportedSockets(TArray<FComponentSocketDescrip
 	}
 }
 
-void USkinnedMeshComponent::UpdateOverlaps(TArray<FOverlapInfo> const* PendingOverlaps, bool bDoNotifies, const TArray<FOverlapInfo>* OverlapsAtEndLocation)
+bool USkinnedMeshComponent::UpdateOverlapsImpl(TArray<FOverlapInfo> const* PendingOverlaps, bool bDoNotifies, const TArray<FOverlapInfo>* OverlapsAtEndLocation)
 {
 	// we don't support overlap test on destructible or physics asset
 	// so use SceneComponent::UpdateOverlaps to handle children
-	USceneComponent::UpdateOverlaps(PendingOverlaps, bDoNotifies, OverlapsAtEndLocation);
+	return USceneComponent::UpdateOverlapsImpl(PendingOverlaps, bDoNotifies, OverlapsAtEndLocation);
 }
 
 void USkinnedMeshComponent::TransformToBoneSpace(FName BoneName, FVector InPosition, FRotator InRotation, FVector& OutPosition, FRotator& OutRotation) const
@@ -1890,7 +1920,7 @@ void USkinnedMeshComponent::ShowMaterialSection(int32 MaterialID, bool bShow, in
 	InitLODInfos();
 	if (LODInfo.IsValidIndex(LODIndex))
 	{
-		const FSkeletalMeshLODInfo& SkelLODInfo = SkeletalMesh->LODInfo[LODIndex];
+		const FSkeletalMeshLODInfo& SkelLODInfo = *SkeletalMesh->GetLODInfo(LODIndex);
 		FSkelMeshComponentLODInfo& SkelCompLODInfo = LODInfo[LODIndex];
 		TArray<bool>& HiddenMaterials = SkelCompLODInfo.HiddenMaterials;
 	
@@ -2405,16 +2435,30 @@ bool USkinnedMeshComponent::UpdateLODStatus()
 
 	if (SkeletalMesh != nullptr)
 	{
+		int32 MinLodIndex = 0;
+		if(FSceneInterface* Scene = GetScene())
+		{
+			const ERHIFeatureLevel::Type SceneFeatureLevel = GetScene()->GetFeatureLevel();
+			MinLodIndex = bOverrideMinLod ? MinLodModel : SkeletalMesh->MinLod.GetValueForFeatureLevel(SceneFeatureLevel);
+		}
+		else
+		{
+			// No scene, can't reliably get per-platform Min LOD, get default
+			MinLodIndex = bOverrideMinLod ? MinLodModel : SkeletalMesh->MinLod.Default;
+		}
+
 		int32 MaxLODIndex = 0;
 		if (MeshObject)
 		{
 			MaxLODIndex = MeshObject->GetSkeletalMeshRenderData().LODRenderData.Num() - 1;
+			// want to make sure MinLOD stays within the valid range
+			MinLodIndex = FMath::Clamp(MinLodIndex, 0, MaxLODIndex);
 		}
 
 		// Support forcing to a particular LOD.
 		if (ForcedLodModel > 0)
 		{
-			PredictedLODLevel = FMath::Clamp(ForcedLodModel - 1, 0, MaxLODIndex);
+			PredictedLODLevel = FMath::Clamp(ForcedLodModel - 1, MinLodIndex, MaxLODIndex);
 		}
 		else
 		{
@@ -2443,9 +2487,16 @@ bool USkinnedMeshComponent::UpdateLODStatus()
 			}
 
 			// now check to see if we have a MinLODLevel and apply it
-			if ((MinLodModel > 0) && (MinLodModel <= MaxLODIndex))
+			if ((MinLodIndex > 0))
 			{
-				PredictedLODLevel = FMath::Clamp(PredictedLODLevel, MinLodModel, MaxLODIndex);
+				if(MinLodIndex <= MaxLODIndex)
+				{
+					PredictedLODLevel = FMath::Clamp(PredictedLODLevel, MinLodIndex, MaxLODIndex);
+				}
+				else
+				{
+					PredictedLODLevel = MaxLODIndex;
+				}
 			}
 		}
 	}
@@ -2971,6 +3022,15 @@ void USkinnedMeshComponent::RefreshUpdateRateParams()
 	AnimUpdateRateParams = FAnimUpdateRateManager::GetUpdateRateParameters(this);
 }
 
+void USkinnedMeshComponent::SetRenderStatic(bool bNewValue)
+{
+	if (bRenderStatic != bNewValue)
+	{
+		bRenderStatic = bNewValue;
+		MarkRenderStateDirty();
+	}
+}
+
 void FAnimUpdateRateParameters::SetTrailMode(float DeltaTime, uint8 UpdateRateShift, int32 NewUpdateRate, int32 NewEvaluationRate, bool bNewInterpSkippedFrames)
 {
 	OptimizeMode = TrailMode;
@@ -3081,7 +3141,6 @@ float FAnimUpdateRateParameters::GetRootMotionInterp() const
 	}
 	return 1.f;
 }
-
 /** Simple, CPU evaluation of a vertex's skinned position helper function */
 template <bool bExtraBoneInfluencesT, bool bCachedMatrices>
 FVector GetTypedSkinnedVertexPosition(

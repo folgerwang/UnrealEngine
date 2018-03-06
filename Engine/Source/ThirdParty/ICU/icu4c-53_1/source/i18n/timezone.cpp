@@ -475,6 +475,50 @@ static void U_CALLCONV initDefault()
 
     uprv_tzset(); // Initialize tz... system data
 
+#if U_PLATFORM == U_PF_DURANGO
+	{
+		// create a simple time zone from info returned from GetTimeZoneInformation
+		// the Windows logic for detecting timezone name in uprv_tzname(0) doesn't work on Xbox
+		TIME_ZONE_INFORMATION apiTZI;
+		uprv_memset(&apiTZI, 0, sizeof(apiTZI));
+		GetTimeZoneInformation(&apiTZI);
+
+		rawOffset = -apiTZI.Bias * U_MILLIS_PER_MINUTE;
+		UnicodeString hostStrID(apiTZI.StandardName);
+		if (apiTZI.DaylightBias == 0)
+		{
+			DEFAULT_ZONE = new SimpleTimeZone(rawOffset, hostStrID);
+		}
+		else
+		{
+			int32_t savingsStartTime = apiTZI.DaylightDate.wHour * U_MILLIS_PER_HOUR
+				+ apiTZI.DaylightDate.wMinute * U_MILLIS_PER_MINUTE
+				+ apiTZI.DaylightDate.wSecond * U_MILLIS_PER_SECOND
+				+ apiTZI.DaylightDate.wMilliseconds;
+			int32_t savingsEndTime = apiTZI.StandardDate.wHour * U_MILLIS_PER_HOUR
+				+ apiTZI.StandardDate.wMinute * U_MILLIS_PER_MINUTE
+				+ apiTZI.StandardDate.wSecond * U_MILLIS_PER_SECOND
+				+ apiTZI.StandardDate.wMilliseconds;
+
+			UErrorCode result = U_ZERO_ERROR;
+			DEFAULT_ZONE = new SimpleTimeZone(rawOffset, hostStrID,
+				apiTZI.DaylightDate.wMonth, apiTZI.DaylightDate.wDay,
+				apiTZI.DaylightDate.wDayOfWeek, savingsStartTime,
+				apiTZI.StandardDate.wMonth, apiTZI.StandardDate.wDay,
+				apiTZI.StandardDate.wDayOfWeek, savingsEndTime,
+				-apiTZI.DaylightBias * U_MILLIS_PER_MINUTE, result);
+
+			if (U_FAILURE(result))
+			{
+				// just use it without DST info
+				delete DEFAULT_ZONE;
+				DEFAULT_ZONE = new SimpleTimeZone(rawOffset, hostStrID);
+			}
+		}
+		return;
+	}
+#endif
+
     // Get the timezone ID from the host.  This function should do
     // any required host-specific remapping; e.g., on Windows this
     // function maps the Date and Time control panel setting to an

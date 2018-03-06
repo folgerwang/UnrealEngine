@@ -27,18 +27,16 @@ void FOnlinePartyData::ToJsonFull(FString& JsonString) const
 
 	// iterate over key/val attrs and convert each entry to a json string
 	TSharedRef<FJsonObject> JsonObject(new FJsonObject());
-	TArray<TSharedPtr<FJsonValue> > JsonProperties;
+	TSharedRef<FJsonObject> JsonProperties = MakeShared<FJsonObject>();
 	for (auto Iterator : KeyValAttrs)
 	{
 		const FString& PropertyName = Iterator.Key;
 		const FVariantData& PropertyValue = Iterator.Value;
 
-		TSharedRef<FJsonObject> PropertyJson = PropertyValue.ToJson();
-		PropertyJson->SetStringField(TEXT("Name"), *PropertyName);
-		JsonProperties.Add(MakeShareable(new FJsonValueObject(PropertyJson)));
+		PropertyValue.AddToJsonObject(JsonProperties, PropertyName);
 	}
 	JsonObject->SetNumberField(TEXT("Rev"), RevisionCount);
-	JsonObject->SetArrayField(TEXT("Attrs"), JsonProperties);
+	JsonObject->SetObjectField(TEXT("Attrs"), JsonProperties);
 
 	auto JsonWriter = TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR> >::Create(&JsonString);
 	FJsonSerializer::Serialize(JsonObject, JsonWriter);
@@ -51,18 +49,16 @@ void FOnlinePartyData::ToJsonDirty(FString& JsonString) const
 
 	// iterate over key/val attrs and convert each entry to a json string
 	TSharedRef<FJsonObject> JsonObject(new FJsonObject());
-	TArray<TSharedPtr<FJsonValue> > JsonProperties;
+	TSharedRef<FJsonObject> JsonProperties = MakeShared<FJsonObject>();
 	for (auto& PropertyName : DirtyKeys)
 	{
 		const FVariantData* PropertyValue = KeyValAttrs.Find(PropertyName);
 		check(PropertyValue);
 
-		TSharedRef<FJsonObject> PropertyJson = PropertyValue->ToJson();
-		PropertyJson->SetStringField(TEXT("Name"), *PropertyName);
-		JsonProperties.Add(MakeShareable(new FJsonValueObject(PropertyJson)));
+		PropertyValue->AddToJsonObject(JsonProperties, PropertyName);
 	}
 	JsonObject->SetNumberField(TEXT("Rev"), RevisionCount);
-	JsonObject->SetArrayField(TEXT("Attrs"), JsonProperties);
+	JsonObject->SetObjectField(TEXT("Attrs"), JsonProperties);
 
 	auto JsonWriter = TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR> >::Create(&JsonString);
 	FJsonSerializer::Serialize(JsonObject, JsonWriter);
@@ -77,24 +73,16 @@ void FOnlinePartyData::FromJson(const FString& JsonString)
 	if (FJsonSerializer::Deserialize(JsonReader, JsonObject) &&
 		JsonObject.IsValid())
 	{
-		if (JsonObject->HasTypedField<EJson::Array>(TEXT("Attrs")))
+		if (JsonObject->HasTypedField<EJson::Object>(TEXT("Attrs")))
 		{
-			const TArray<TSharedPtr<FJsonValue> >& JsonProperties = JsonObject->GetArrayField(TEXT("Attrs"));
-			for (auto JsonPropertyValue : JsonProperties)
+			const TSharedPtr<FJsonObject>& JsonProperties = JsonObject->GetObjectField(TEXT("Attrs"));
+			for (auto& JsonProperty : JsonProperties->Values)
 			{
-				TSharedPtr<FJsonObject> JsonPropertyObject = JsonPropertyValue->AsObject();
-				if (JsonPropertyObject.IsValid())
+				FString PropertyName;
+				FVariantData PropertyData;
+				if (PropertyData.FromJsonValue(JsonProperty.Key, JsonProperty.Value.ToSharedRef(), PropertyName))
 				{
-					FString PropertyName;
-					if (JsonPropertyObject->TryGetStringField(TEXT("Name"), PropertyName) &&
-						!PropertyName.IsEmpty())
-					{
-						FVariantData PropertyData;
-						if (PropertyData.FromJson(JsonPropertyObject.ToSharedRef()))
-						{
-							KeyValAttrs.Add(PropertyName, PropertyData);
-						}
-					}
+					KeyValAttrs.Add(PropertyName, PropertyData);
 				}
 			}
 		}
@@ -114,7 +102,7 @@ void FOnlinePartyData::FromJson(const FString& JsonString)
 bool FPartyConfiguration::operator==(const FPartyConfiguration& Other) const
 {
 	return JoinRequestAction == Other.JoinRequestAction &&
-		PresencePermissions == Other.PresencePermissions && 
+		PresencePermissions == Other.PresencePermissions &&
 		InvitePermissions == Other.InvitePermissions &&
 		bChatEnabled == Other.bChatEnabled &&
 		bIsAcceptingMembers == Other.bIsAcceptingMembers &&
@@ -122,8 +110,7 @@ bool FPartyConfiguration::operator==(const FPartyConfiguration& Other) const
 		MaxMembers == Other.MaxMembers &&
 		Nickname == Other.Nickname &&
 		Description == Other.Description &&
-		Password == Other.Password &&
-		ClientConfigData == Other.ClientConfigData;
+		Password == Other.Password;
 }
 
 bool FPartyConfiguration::operator!=(const FPartyConfiguration& Other) const

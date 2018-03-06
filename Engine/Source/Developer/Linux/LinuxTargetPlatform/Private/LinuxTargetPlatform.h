@@ -13,7 +13,9 @@
 #include "Interfaces/ITargetPlatform.h"
 #include "Common/TargetPlatformBase.h"
 
+
 #if WITH_ENGINE
+#include "AudioCompressionSettings.h"
 #include "Sound/SoundWave.h"
 #include "StaticMeshResources.h"
 #endif // WITH_ENGINE
@@ -310,6 +312,12 @@ public:
 		static FName NAME_OGG(TEXT("OGG"));
 		OutFormats.Add(NAME_OGG);
 	}
+
+	virtual FPlatformAudioCookOverrides* GetAudioCompressionSettings() const override
+	{
+		return nullptr;
+	}
+
 #endif //WITH_ENGINE
 
 	virtual bool SupportsVariants() const override

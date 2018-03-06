@@ -95,14 +95,8 @@ public:
 
 	/** 
 	 * Returns the maximum distance this sound can be heard from.
-	 *
-	 * @param	CurrentMaxDistance	The max audible distance of all parent nodes
-	 * @return	float of the greater of this node's max audible distance and its parent node's max audible distance
 	 */
-	virtual float MaxAudibleDistance( float CurrentMaxDistance ) 
-	{ 
-		return( CurrentMaxDistance ); 
-	}
+	virtual float GetMaxDistance() const;
 
 	/** Returns if this node has been set to be allowed virtual. Only the sound node wave player implements this. */
 	virtual bool IsAllowedVirtual() const
@@ -113,9 +107,18 @@ public:
 	/** 
 	 * Returns the maximum duration this sound node will play for. 
 	 *
-	 * @return	float of number of seconds this sound will play for. INDEFINITELY_LOOPING_DURATION means forever.
+	 * @return	float of number of seconds this sound will play for. INDEFINITELY_LOOPING_DURATION means its looping.
 	 */
-	virtual float GetDuration( void );
+	virtual float GetDuration() const;
+
+	/** Returns whether the sound cue has a delay node. */
+	virtual bool HasDelayNode() const;
+
+	/** Returns whether the sound has a sequencer node. */
+	virtual bool HasConcatenatorNode() const;
+
+	/** Returns true if the sound node is virtualize when silent. */
+	virtual bool IsVirtualizeWhenSilent() const;
 
 	virtual void ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const struct FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances );
 

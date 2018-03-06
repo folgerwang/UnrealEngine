@@ -1161,13 +1161,15 @@ namespace AutomationTool
 		/// <param name="Client">Workspace (can be null, in which case the environment variable default will be used)</param>
 		/// <param name="ServerAndPort">Server:Port (can be null, in which case the environment variable default will be used)</param>
 		/// <param name="P4LogPath">Log filename (can be null, in which case CmdEnv.LogFolder/p4.log will be used)</param>
-		public P4Connection(string User, string Client, string ServerAndPort = null, string P4LogPath = null)
+		/// <param name="AdditionalOpts">Additional global options to include on every p4 command line</param>
+		public P4Connection(string User, string Client, string ServerAndPort = null, string P4LogPath = null, string AdditionalOpts = null)
 		{
 			var UserOpts = String.IsNullOrEmpty(User) ? "" : ("-u" + User + " ");
 			var ClientOpts = String.IsNullOrEmpty(Client) ? "" : ("-c" + Client + " ");
-			var ServerOpts = String.IsNullOrEmpty(ServerAndPort) ? "" : ("-p" + ServerAndPort + " ");			
-			GlobalOptions = UserOpts + ClientOpts + ServerOpts;
-            GlobalOptionsWithoutClient = UserOpts + ServerOpts;
+			var ServerOpts = String.IsNullOrEmpty(ServerAndPort) ? "" : ("-p" + ServerAndPort + " ");
+			AdditionalOpts = String.IsNullOrEmpty(AdditionalOpts) ? "" : AdditionalOpts + " ";
+			GlobalOptions = UserOpts + ClientOpts + ServerOpts + AdditionalOpts;
+            GlobalOptionsWithoutClient = UserOpts + ServerOpts + AdditionalOpts;
 
 			if (P4LogPath == null)
 			{
@@ -1687,10 +1689,10 @@ namespace AutomationTool
 		/// <param name="DescribeRecord">Describe record for the given changelist.</param>
 		/// <param name="AllowSpew"></param>
 		/// <returns>True if everything went okay</returns>
-        public bool DescribeChangelist(int Changelist, out DescribeRecord DescribeRecord, bool AllowSpew = true)
+        public bool DescribeChangelist(int Changelist, out DescribeRecord DescribeRecord, bool AllowSpew = true, bool bShelvedFiles = false)
         {
 			List<DescribeRecord> DescribeRecords;
-			if(!DescribeChangelists(new List<int>{ Changelist }, out DescribeRecords, AllowSpew))
+			if(!DescribeChangelists(new List<int>{ Changelist }, out DescribeRecords, AllowSpew, bShelvedFiles))
 			{
 				DescribeRecord = null;
 				return false;
@@ -1713,8 +1715,9 @@ namespace AutomationTool
 		/// <param name="Changelists">List of changelist numbers to query full descriptions for</param>
 		/// <param name="DescribeRecords">List of records we found.  One for each changelist number.  These will be sorted from oldest to newest.</param>
 		/// <param name="AllowSpew"></param>
+		/// <param name="bShelvedFiles">Whether to display shelved files</param>
 		/// <returns>True if everything went okay</returns>
-        public bool DescribeChangelists(List<int> Changelists, out List<DescribeRecord> DescribeRecords, bool AllowSpew = true)
+        public bool DescribeChangelists(List<int> Changelists, out List<DescribeRecord> DescribeRecords, bool AllowSpew = true, bool bShelvedFiles = false)
         {
 			DescribeRecords = new List<DescribeRecord>();
             try
@@ -1731,7 +1734,11 @@ namespace AutomationTool
 
 				string Output;
 				string CommandLine = "-s";		// Don't automatically diff the files
-				
+				if(bShelvedFiles)
+				{
+					CommandLine += " -S";
+				}
+
 				// Add changelists to the command-line
 				foreach( var Changelist in Changelists )
 				{
@@ -1826,7 +1833,7 @@ namespace AutomationTool
 
 						Line = Lines[ LineIndex ];
 
-						string MatchAffectedFiles = "Affected files";
+						string MatchAffectedFiles = bShelvedFiles? "Shelved files" : "Affected files";
 						int AffectedFilesAt = Line.IndexOf(MatchAffectedFiles);
 						if( AffectedFilesAt == 0 )
 						{
@@ -2929,7 +2936,7 @@ namespace AutomationTool
 					for(; LineIdx < Lines.Count && Lines[LineIdx].Length > 0; LineIdx++)
 					{
 						const string DepotFilePrefix = "... depotFile ";
-						if(Lines[LineIdx].StartsWith(DepotFilePrefix) && Lines[LineIdx].Substring(DepotFilePrefix.Length) != DepotFile)
+						if(Lines[LineIdx].StartsWith(DepotFilePrefix) && !Lines[LineIdx].Substring(DepotFilePrefix.Length).Equals(DepotFile, StringComparison.InvariantCultureIgnoreCase))
 						{
 							throw new AutomationException("Expected file record for '{0}'; received output '{1}'", DepotFile, Lines[LineIdx]);
 						}

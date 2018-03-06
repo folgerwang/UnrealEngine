@@ -125,13 +125,23 @@ public:
 	 * and we need to undo the root desktop translation to get into window space.
 	 * If you find yourself wanting to use this function, ask someone if there's a better way.
 	 * 
-	 * @param LayoutTransform	An additional layout transform to append to this paint geoemtry.
+	 * @param LayoutTransform	An additional layout transform to append to this paint geometry.
 	 */
 	void AppendTransform(const FSlateLayoutTransform& LayoutTransform)
 	{
 		AccumulatedRenderTransform = ::Concatenate(AccumulatedRenderTransform, LayoutTransform);
 		DrawPosition = TransformPoint(LayoutTransform, DrawPosition);
 		DrawScale = ::Concatenate(LayoutTransform.GetScale(), DrawScale);
+	}
+
+	/**
+	 * Special case method to replace the render transform on a paint geometry.
+	 * 
+	 * @param RenderTransform	An additional layout transform to append to this paint geometry.
+	 */
+	void SetRenderTransform(const FSlateRenderTransform& RenderTransform)
+	{
+		AccumulatedRenderTransform = RenderTransform;
 	}
 };
 

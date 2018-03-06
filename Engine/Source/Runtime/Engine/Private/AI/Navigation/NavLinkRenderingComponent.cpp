@@ -31,7 +31,7 @@ UNavLinkRenderingComponent::UNavLinkRenderingComponent(const FObjectInitializer&
 
 	bIsEditorOnly = true;
 
-	bGenerateOverlapEvents = false;
+	SetGenerateOverlapEvents(false);
 }
 
 FBoxSphereBounds UNavLinkRenderingComponent::CalcBounds(const FTransform& InLocalToWorld) const

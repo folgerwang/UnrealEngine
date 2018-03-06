@@ -9,6 +9,9 @@
 
 #include "OodleTrainerCommandlet.generated.h"
 
+// don't compile this in for non-editor
+#define USE_OODLE_TRAINER_COMMANDLET (HAS_OODLE_SDK && WITH_EDITOR)
+
 /**
  * Commandlet for processing UE4 packet captures, through Oodle's training API, for generating compressed state dictionaries.
  *
@@ -65,7 +68,7 @@ class UOodleTrainerCommandlet : public UCommandlet
 public:
 	virtual int32 Main(const FString& Params) override;
 
-#if HAS_OODLE_SDK
+#if USE_OODLE_TRAINER_COMMANDLET
 	/**
 	 * Handles the 'enable' command, which enables the Oodle packet handler component
 	 *
@@ -158,7 +161,7 @@ private:
 };
 
 
-#if HAS_OODLE_SDK && (!UE_BUILD_SHIPPING || OODLE_DEV_SHIPPING)
+#if USE_OODLE_TRAINER_COMMANDLET && (!UE_BUILD_SHIPPING || OODLE_DEV_SHIPPING)
 /**
  * FOodleDictionaryGenerator
  *

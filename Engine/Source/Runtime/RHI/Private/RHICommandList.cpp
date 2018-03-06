@@ -121,6 +121,7 @@ RHI_API FRHICommandListExecutor GRHICommandList;
 static FGraphEventArray AllOutstandingTasks;
 static FGraphEventArray WaitOutstandingTasks;
 static FGraphEventRef RHIThreadTask;
+static FGraphEventRef PrevRHIThreadTask;
 static FGraphEventRef RenderThreadSublistDispatchTask;
 static FGraphEventRef RHIThreadBufferLockFence;
 
@@ -385,6 +386,7 @@ public:
 		{
 			Prereq.Add(RHIThreadTask);
 		}
+		PrevRHIThreadTask = RHIThreadTask;
 		RHIThreadTask = TGraphTask<FExecuteRHIThreadTask>::CreateTask(&Prereq, CurrentThread).ConstructAndDispatchWhenReady(RHICmdList);
 	}
 };
@@ -414,11 +416,14 @@ void FRHICommandListExecutor::ExecuteInner(FRHICommandListBase& CmdList)
 				if (bAsyncSubmit && RHIThreadTask.GetReference() && RHIThreadTask->IsComplete())
 			{
 				RHIThreadTask = nullptr;
+				PrevRHIThreadTask = nullptr;
+
 			}
 			}
 			if (!bAsyncSubmit && RHIThreadTask.GetReference() && RHIThreadTask->IsComplete())
 			{
 				RHIThreadTask = nullptr;
+				PrevRHIThreadTask = nullptr;
 			}
 		}
 		if (CVarRHICmdUseThread.GetValueOnRenderThread() > 0 && bIsInRenderingThread && !bIsInGameThread)
@@ -458,6 +463,7 @@ void FRHICommandListExecutor::ExecuteInner(FRHICommandListBase& CmdList)
 				{
 					Prereq.Add(RHIThreadTask);
 				}
+				PrevRHIThreadTask = RHIThreadTask;
 				RHIThreadTask = TGraphTask<FExecuteRHIThreadTask>::CreateTask(&Prereq, ENamedThreads::GetRenderThread()).ConstructAndDispatchWhenReady(SwapCmdList);
 			}
 			if (CVarRHICmdForceRHIFlush.GetValueOnRenderThread() > 0 )
@@ -478,6 +484,7 @@ void FRHICommandListExecutor::ExecuteInner(FRHICommandListBase& CmdList)
 					if (RHIThreadTask.GetReference() && RHIThreadTask->IsComplete())
 					{
 						RHIThreadTask = nullptr;
+						PrevRHIThreadTask = nullptr;
 					}
 				}
 			}
@@ -517,6 +524,7 @@ void FRHICommandListExecutor::ExecuteInner(FRHICommandListBase& CmdList)
 				if (RHIThreadTask.GetReference() && RHIThreadTask->IsComplete())
 				{
 					RHIThreadTask = nullptr;
+					PrevRHIThreadTask = nullptr;
 				}
 			}
 		}
@@ -621,17 +629,17 @@ void FRHICommandListExecutor::LatchBypass()
 		bLatchedBypass = NewBypass;
 	}
 #endif
-	if (!bLatchedBypass)
+	if (bLatchedBypass || (!GSupportsParallelRenderingTasksWithSeparateRHIThread && IsRunningRHIInSeparateThread()))
+	{
+		bLatchedUseParallelAlgorithms = false;
+	}
+	else
 	{
 		bLatchedUseParallelAlgorithms = FApp::ShouldUseThreadingForPerformance() 
 #if CAN_TOGGLE_COMMAND_LIST_BYPASS
 			&& (CVarRHICmdUseParallelAlgorithms.GetValueOnAnyThread() >= 1)
 #endif
 			;
-	}
-	else
-	{
-		bLatchedUseParallelAlgorithms = false;
 	}
 }
 
@@ -661,6 +669,7 @@ bool FRHICommandListExecutor::IsRHIThreadActive()
 	if (RHIThreadTask.GetReference() && RHIThreadTask->IsComplete())
 	{
 		RHIThreadTask = nullptr;
+		PrevRHIThreadTask = nullptr;
 	}
 	return !!RHIThreadTask.GetReference();
 }
@@ -808,6 +817,14 @@ void FRHICommandListBase::Reset()
 	ExecuteStat = TStatId();
 }
 
+
+void FRHICommandListBase::MaybeDispatchToRHIThreadInner()
+{
+	if (!PrevRHIThreadTask.GetReference() || PrevRHIThreadTask->IsComplete())
+	{
+		FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
+	}
+}
 
 DECLARE_CYCLE_STAT(TEXT("Parallel Async Chain Translate"), STAT_ParallelChainTranslate, STATGROUP_RHICMDLIST);
 
@@ -1829,6 +1846,7 @@ bool FRHICommandListImmediate::StallRHIThread()
 			if (RHIThreadTask.GetReference() && RHIThreadTask->IsComplete())
 			{
 				RHIThreadTask = nullptr;
+				PrevRHIThreadTask = nullptr;
 			}
 			if (!RHIThreadTask.GetReference())
 			{
@@ -1912,6 +1930,7 @@ void FRHICommandListBase::WaitForRHIThreadTasks()
 	if (RHIThreadTask.GetReference() && RHIThreadTask->IsComplete())
 	{
 		RHIThreadTask = nullptr;
+		PrevRHIThreadTask = nullptr;
 	}
 	while (RHIThreadTask.GetReference())
 	{
@@ -1933,6 +1952,7 @@ void FRHICommandListBase::WaitForRHIThreadTasks()
 		if (RHIThreadTask.GetReference() && RHIThreadTask->IsComplete())
 		{
 			RHIThreadTask = nullptr;
+			PrevRHIThreadTask = nullptr;
 		}
 	}
 }
@@ -2111,59 +2131,7 @@ struct FRHICommandUpdateIndexBuffer final : public FRHICommand<FRHICommandUpdate
 	}
 };
 
-static struct FLockTracker
-{
-	struct FLockParams
-	{
-		void* RHIBuffer;
-		void* Buffer;
-		uint32 BufferSize;
-		uint32 Offset;
-		EResourceLockMode LockMode;
-
-		FORCEINLINE_DEBUGGABLE FLockParams(void* InRHIBuffer, void* InBuffer, uint32 InOffset, uint32 InBufferSize, EResourceLockMode InLockMode)
-			: RHIBuffer(InRHIBuffer)
-			, Buffer(InBuffer)
-			, BufferSize(InBufferSize)
-			, Offset(InOffset)
-			, LockMode(InLockMode)
-		{
-		}
-	};
-	TArray<FLockParams, TInlineAllocator<16> > OutstandingLocks;
-	uint32 TotalMemoryOutstanding;
-
-	FLockTracker()
-	{
-		TotalMemoryOutstanding = 0;
-	}
-
-	FORCEINLINE_DEBUGGABLE void Lock(void* RHIBuffer, void* Buffer, uint32 Offset, uint32 SizeRHI, EResourceLockMode LockMode)
-	{
-#if DO_CHECK
-		for (auto& Parms : OutstandingLocks)
-		{
-			check(Parms.RHIBuffer != RHIBuffer);
-		}
-#endif
-		OutstandingLocks.Add(FLockParams(RHIBuffer, Buffer, Offset, SizeRHI, LockMode));
-		TotalMemoryOutstanding += SizeRHI;
-	}
-	FORCEINLINE_DEBUGGABLE FLockParams Unlock(void* RHIBuffer)
-	{
-		for (int32 Index = 0; Index < OutstandingLocks.Num(); Index++)
-		{
-			if (OutstandingLocks[Index].RHIBuffer == RHIBuffer)
-			{
-				FLockParams Result = OutstandingLocks[Index];
-				OutstandingLocks.RemoveAtSwap(Index, 1, false);
-				return Result;
-			}
-		}
-		check(!"Mismatched RHI buffer locks.");
-		return FLockParams(nullptr, nullptr, 0, 0, RLM_WriteOnly);
-	}
-} GLockTracker;
+static FLockTracker GLockTracker;
 
 
 void* FDynamicRHI::LockVertexBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, FVertexBufferRHIParamRef VertexBuffer, uint32 Offset, uint32 SizeRHI, EResourceLockMode LockMode)
@@ -2542,6 +2510,26 @@ FRenderQueryRHIRef FDynamicRHI::RHICreateRenderQuery_RenderThread(class FRHIComm
 	return GDynamicRHI->RHICreateRenderQuery(QueryType);
 }
 
+void* FDynamicRHI::RHILockTextureCubeFace_RenderThread(class FRHICommandListImmediate& RHICmdList, FTextureCubeRHIParamRef Texture, uint32 FaceIndex, uint32 ArrayIndex, uint32 MipIndex, EResourceLockMode LockMode, uint32& DestStride, bool bLockWithinMiptail)
+{
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_LockTextureCubeFace_Flush);
+	RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+	return GDynamicRHI->RHILockTextureCubeFace(Texture, FaceIndex, ArrayIndex, MipIndex, LockMode, DestStride, bLockWithinMiptail);
+}
+
+void FDynamicRHI::RHIUnlockTextureCubeFace_RenderThread(class FRHICommandListImmediate& RHICmdList, FTextureCubeRHIParamRef Texture, uint32 FaceIndex, uint32 ArrayIndex, uint32 MipIndex, bool bLockWithinMiptail)
+{
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_UnlockTextureCubeFace_Flush);
+	RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+	GDynamicRHI->RHIUnlockTextureCubeFace(Texture, FaceIndex, ArrayIndex, MipIndex, bLockWithinMiptail);
+}
+
+void FDynamicRHI::RHIReadSurfaceFloatData_RenderThread(class FRHICommandListImmediate& RHICmdList, FTextureRHIParamRef Texture, FIntRect Rect, TArray<FFloat16Color>& OutData, ECubeFace CubeFace, int32 ArrayIndex, int32 MipIndex)
+{
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_ReadSurfaceFloatData_Flush);
+	RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+	GDynamicRHI->RHIReadSurfaceFloatData(Texture, Rect, OutData, CubeFace, ArrayIndex, MipIndex);
+}
 
 
 void FRHICommandListImmediate::UpdateTextureReference(FTextureReferenceRHIParamRef TextureRef, FTextureRHIParamRef NewTexture)

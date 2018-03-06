@@ -187,6 +187,9 @@ public:
 	/** Gathers shadow shapes from this proxy. */
 	virtual void GetShadowShapes(TArray<FCapsuleShape>& CapsuleShapes) const {}
 
+	/** Collects occluder geometry for software occlusion culling */
+	virtual bool CollectOccluderElements(class FOccluderElementsCollector& Collector) const { return false; }
+
 	/** 
 	 * Gathers the primitive's dynamic mesh elements.  This will only be called if GetViewRelevance declares dynamic relevance.
 	 * This is called from the rendering thread for each set of views that might be rendered.  
@@ -500,9 +503,21 @@ public:
 	ENGINE_API void SetUsedMaterialForVerification(const TArray<UMaterialInterface*>& InUsedMaterialsForVerification);
 #endif
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	inline FLinearColor GetWireframeColor() const { return WireframeColor; }
 	inline FLinearColor GetLevelColor() const { return LevelColor; }
 	inline FLinearColor GetPropertyColor() const { return PropertyColor; }
+	inline void SetWireframeColor(const FLinearColor& InWireframeColor) { WireframeColor = InWireframeColor; }
+	inline void SetLevelColor(const FLinearColor& InLevelColor) { LevelColor = InLevelColor; }
+	inline void SetPropertyColor(const FLinearColor& InPropertyColor) { PropertyColor = InPropertyColor; }
+#else
+	inline FLinearColor GetWireframeColor() const { return FLinearColor::White; }
+	inline FLinearColor GetLevelColor() const { return FLinearColor::White; }
+	inline FLinearColor GetPropertyColor() const { return FLinearColor::White; }
+	inline void SetWireframeColor(const FLinearColor& InWireframeColor) {}
+	inline void SetLevelColor(const FLinearColor& InLevelColor) {}
+	inline void SetPropertyColor(const FLinearColor& InPropertyColor) {}
+#endif
 
 	/**
 	* Returns whether this proxy should be considered a "detail mesh".
@@ -646,9 +661,9 @@ public:
   	 * @param InCustomDataMemStack - MemStack to allocate the custom data
    	 * @param InIsStaticRelevant - Tell us if it was called in a static of dynamic relevancy context
    	 * @param InVisiblePrimitiveLODMask - Calculated LODMask for visibile primitive in static relevancy
-   	 * @param InMeshBatchScreenRadiusSquared - Computed mesh batch screen size, passed to prevent recalculation
+   	 * @param InMeshScreenSizeSquared - Computed mesh batch screen size, passed to prevent recalculation
 	 */
-	ENGINE_API virtual void* InitViewCustomData(const FSceneView& InView, float InViewLODScale, FMemStackBase& InCustomDataMemStack, bool InIsStaticRelevant = false, const struct FLODMask* InVisiblePrimitiveLODMask = nullptr, float InMeshBatchScreenRadiusSquared = -1.0f) { return nullptr; }
+	ENGINE_API virtual void* InitViewCustomData(const FSceneView& InView, float InViewLODScale, FMemStackBase& InCustomDataMemStack, bool InIsStaticRelevant = false, const struct FLODMask* InVisiblePrimitiveLODMask = nullptr, float InMeshScreenSizeSquared = -1.0f) { return nullptr; }
 	
 	/**
 	 * Called during post visibility and shadow setup, just before the frame is rendered. It can be used to update custom data that had a dependency between them.
@@ -657,7 +672,7 @@ public:
 	 * @param InView - Current View
  	 * @param InViewCustomData - Custom data to update
 	 */	
-	ENGINE_API virtual void UpdateViewCustomData(const FSceneView& InView, void* InViewCustomData) { }
+	ENGINE_API virtual void PostInitViewCustomData(const FSceneView& InView, void* InViewCustomData) { }
 
 	/** Tell us if we should rely on the default LOD computing rules or not.*/
 	ENGINE_API virtual bool IsUsingCustomLODRules() const { return false; }
@@ -668,9 +683,9 @@ public:
   	 * @param InView - Current View
  	 * @param InViewLODScale - View LOD scale	 
   	 * @param InForcedLODLevel - Engine Forced LOD value
-   	 * @param OutScreenRadiusSquared - Computed screen size from the function
+   	 * @param OutScreenSizeSquared - Computed screen size from the function
 	 */
-	ENGINE_API virtual struct FLODMask GetCustomLOD(const FSceneView& InView, float InViewLODScale, int32 InForcedLODLevel, float& OutScreenRadiusSquared) const;
+	ENGINE_API virtual struct FLODMask GetCustomLOD(const FSceneView& InView, float InViewLODScale, int32 InForcedLODLevel, float& OutScreenSizeSquared) const;
 
 	/** Tell us if we should rely on the default shadow LOD computing rules or not for generating whole scene shadow.*/
 	ENGINE_API virtual bool IsUsingCustomWholeSceneShadowLODRules() const { return false; }
@@ -696,11 +711,13 @@ protected:
 		OwnerName = InOwnerName;
 	}
 
+private:
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	FLinearColor WireframeColor;
 	FLinearColor LevelColor;
 	FLinearColor PropertyColor;
+#endif
 
-private:
 	friend class FScene;
 
 	EComponentMobility::Type Mobility;

@@ -125,6 +125,20 @@ public:
 	}
 
 	/**
+	* Register branches to query for state in addition to the current branch
+	* @param	BranchNames			Names of the branches to query
+	* @param	ContentRoot			Path to the content root for branch mapping
+	*/
+	virtual void RegisterStateBranches(const TArray<FString>& BranchNames, const FString& ContentRoot) = 0;
+	
+	/**
+	*Gets the state index of the specified branch, higher index branches are generally closer to releases
+	* @param	BranchName			Names of the branches to query
+	* @return	the index of the specified branch
+	*/
+	virtual int32 GetStateBranchIndex(const FString& BranchName) const = 0;
+
+	/**
 	 * Get the state of each of the passed-in files. State may be cached for faster queries. Note states can be NULL!
 	 * @param	InFiles				The files to retrieve state for.
 	 * @param	OutState			The states of the files. This will be empty if the operation fails. Note states can be NULL!

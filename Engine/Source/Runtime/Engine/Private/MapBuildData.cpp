@@ -403,7 +403,7 @@ void UMapBuildDataRegistry::PostLoad()
 				CaptureBuildData.EncodedHDRCapturedData.Empty();
 			}
 
-			check(CaptureBuildData.FullHDRCapturedData.Num() > 0 || CaptureBuildData.EncodedHDRCapturedData.Num() > 0);
+			check(CaptureBuildData.FullHDRCapturedData.Num() > 0 || CaptureBuildData.EncodedHDRCapturedData.Num() > 0 || FApp::CanEverRender() == false);
 		}
 	}
 }

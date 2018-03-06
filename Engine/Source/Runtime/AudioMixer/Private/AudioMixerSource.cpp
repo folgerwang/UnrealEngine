@@ -258,7 +258,7 @@ namespace Audio
 			SetReverbApplied(true);
 
 			// Update the buffer sample rate to the wave instance sample rate in case it was serialized incorrectly
-			MixerBuffer->InitSampleRate(InWaveInstance->WaveData->SampleRate);
+			MixerBuffer->InitSampleRate(InWaveInstance->WaveData->GetSampleRateForCurrentPlatform());
 
 			if (MixerSourceVoice->Init(InitParams))
 			{
@@ -518,7 +518,7 @@ namespace Audio
 
 	float FMixerSource::GetPlaybackPercent() const
 	{
-		if (NumTotalFrames > 0)
+		if (MixerSourceVoice && NumTotalFrames > 0)
 		{
 			int64 NumFrames = MixerSourceVoice->GetNumFramesPlayed();
 			AUDIO_MIXER_CHECK(NumTotalFrames > 0);

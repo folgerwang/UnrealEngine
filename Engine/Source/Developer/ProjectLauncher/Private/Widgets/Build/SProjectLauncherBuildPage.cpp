@@ -9,6 +9,7 @@
 #include "Widgets/Input/SCheckBox.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SEditableTextBox.h"
 
 #include "Widgets/Cook/SProjectLauncherCookedPlatforms.h"
 #include "Widgets/Layout/SExpandableArea.h"
@@ -131,6 +132,25 @@ void SProjectLauncherBuildPage::Construct(const FArguments& InArgs, const TShare
 									SNew(STextBlock)
 										.Text(LOCTEXT("UATCheckBoxText", "Build UAT"))
 								]
+						]
+
+						+ SVerticalBox::Slot()
+						.AutoHeight()
+						.Padding(0.0f, 8.0f, 0.0f, 0.0f)
+						[
+							SNew(SProjectLauncherFormLabel)
+							.LabelText(LOCTEXT("CommandLineTextBoxLabel", "Additional Command Line Parameters:"))
+							.ToolTipText(LOCTEXT("CommandLineTextBoxToolTip", "Parameters specified here will be passed to the app on launch"))
+						]
+
+						+ SVerticalBox::Slot()
+						.AutoHeight()
+						.Padding(0.0f, 4.0f, 0.0f, 0.0f)
+						[
+							// Additional launch parameters
+							SAssignNew(CommandLineTextBox, SEditableTextBox)
+							.Text(this, &SProjectLauncherBuildPage::GetCommandLineText)
+							.OnTextChanged(this, &SProjectLauncherBuildPage::HandleCommandLineTextBoxChanged)
 						]
 				   ]
             ]
@@ -347,5 +367,27 @@ ECheckBoxState SProjectLauncherBuildPage::HandleUATIsChecked() const
 	return ECheckBoxState::Unchecked;
 }
 
+void SProjectLauncherBuildPage::HandleCommandLineTextBoxChanged(const FText& InText)
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	if (SelectedProfile.IsValid())
+	{
+		SelectedProfile->SetAdditionalCommandLineParameters(InText.ToString());
+	}
+}
+
+FText SProjectLauncherBuildPage::GetCommandLineText() const
+{
+	FString CommandLine;
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	if (SelectedProfile.IsValid())
+	{
+		CommandLine = SelectedProfile->GetAdditionalCommandLineParameters();
+	}
+
+	return FText::FromString(CommandLine);
+}
 
 #undef LOCTEXT_NAMESPACE

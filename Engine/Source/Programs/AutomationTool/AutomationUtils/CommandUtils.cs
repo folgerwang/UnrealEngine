@@ -636,49 +636,29 @@ namespace AutomationTool
 		}
 
 		/// <summary>
-		/// Creates a directory(or directories).
-		/// If the creation of the directory fails, this function throws an Exception.
+		/// Creates a directory. Throws an exception on failure.
 		/// </summary>
-        /// <param name="Directories">Directories</param>
+        /// <param name="DirectoryName">Name of the directory to create</param>
         public static void CreateDirectory(string DirectoryName)
 		{
-			var NormalizedDirectory = ConvertSeparators(PathSeparator.Default, DirectoryName);
-			if (!InternalUtils.SafeCreateDirectory(NormalizedDirectory))
+			string NormalizedDirectory = ConvertSeparators(PathSeparator.Default, DirectoryName);
+			try
 			{
-				throw new AutomationException(String.Format("Failed to create directory '{0}'", NormalizedDirectory));
+				Directory.CreateDirectory(DirectoryName);
+			}
+			catch (Exception Ex)
+			{
+				throw new AutomationException(Ex, "Failed to create directory '{0}'", NormalizedDirectory);
 			}
 		}
 
-        /// <summary>
-        /// Creates a directory(or directories).
-        /// If the creation of the directory fails, this function throws an Exception.
-        /// </summary>
-        /// <param name="bQuiet">When true, logging is suppressed.</param>
-        /// <param name="Directories">Directories</param>
-        public static void CreateDirectory(bool bQuiet, string DirectoryName)
-        {
-            var NormalizedDirectory = ConvertSeparators(PathSeparator.Default, DirectoryName);
-            if (!InternalUtils.SafeCreateDirectory(NormalizedDirectory, bQuiet))
-            {
-                throw new AutomationException(String.Format("Failed to create directory '{0}'", NormalizedDirectory));
-            }
-        }
-
 		/// <summary>
-		/// Creates a directory (or directories).
-		/// If the creation of the directory fails, this function prints a warning.
+		/// Creates a directory. Throws an exception on failure.
 		/// </summary>
-        /// <param name="Directories">Directories</param>
-        public static bool CreateDirectory_NoExceptions(string DirectoryName)
+        /// <param name="Location">Name of the directory to create</param>
+        public static void CreateDirectory(DirectoryReference Location)
 		{
-			bool Result = true;
-			var NormalizedDirectory = ConvertSeparators(PathSeparator.Default, DirectoryName);
-			if (!InternalUtils.SafeCreateDirectory(NormalizedDirectory))
-			{
-				LogWarning("Failed to create directory '{0}'", NormalizedDirectory);
-				Result = false;
-			}
-			return Result;
+			CreateDirectory(Location.FullName);
 		}
 
 		/// <summary>
@@ -2246,6 +2226,67 @@ namespace AutomationTool
 			}
 			return Files;
 		}
+
+		static public Dictionary<Version, string> GetBuildVersionPathMap(string[] BuildFolders)
+		{
+			Dictionary<Version, string> BuildVersionPaths = new Dictionary<Version, string>();
+
+			foreach (string buildFolder in BuildFolders)
+			{
+				string XboxoneReleaseVersion = Path.GetFileName(buildFolder);
+
+				// The name of all recent archived builds either start with "EA" or only contain version
+				string VersionPrefix = "EA";
+				if (XboxoneReleaseVersion.StartsWith(VersionPrefix))
+				{
+					XboxoneReleaseVersion.Substring(VersionPrefix.Length);  // Length of "EA"
+				}
+
+				Version ReleaseVersion;
+				if (Version.TryParse(XboxoneReleaseVersion, out ReleaseVersion))
+				{
+					BuildVersionPaths.Add(ReleaseVersion, buildFolder);
+				}
+			}
+
+			return BuildVersionPaths;
+		}
+
+		static public string GetPreviousXboxOneReleaseArchiveDir(string XboxOneReleasesArchiveDir)
+		{
+			var BuildFolders = Directory.GetDirectories(XboxOneReleasesArchiveDir);
+			if (BuildFolders.Length > 0)
+			{
+				Dictionary<Version, string> BuildVersionPathMap = GetBuildVersionPathMap(BuildFolders);
+				if (BuildVersionPathMap.Count > 0)
+				{
+					return BuildVersionPathMap.Where(archiveDir => DirectoryExists(CombinePaths(archiveDir.Value, "Paks"))).OrderByDescending(versionPathPair => versionPathPair.Key).First().Value;
+				}
+				else
+				{
+					throw new AutomationException(String.Format("No valid builds were found in %s", XboxOneReleasesArchiveDir));
+				}
+			}
+			else
+			{
+				throw new AutomationException(String.Format("No builds were found in %s", XboxOneReleasesArchiveDir));
+			}
+		}
+		
+		public static string FormatSizeString(long Size)
+		{
+			string[] Units = { "bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB" };
+
+			int UnitIndex = 0;
+			double AbsSize = Math.Abs(Size);
+			while (AbsSize >= 1024)
+			{
+				AbsSize /= 1024;
+				++UnitIndex;
+			}
+
+			return String.Format("{0} {1}", AbsSize.ToString("N2"), Units[UnitIndex]);
+		}
 	}
 
 	/// <summary>
@@ -2844,13 +2885,14 @@ namespace AutomationTool
 			List<string> FinalFiles = new List<string>();
 			foreach (string Filename in Files.Select(x => x.FullName))
 			{
-				// Make sure the file isn't read-only
 				FileInfo TargetFileInfo = new FileInfo(Filename);
 
 				// Executable extensions
 				List<string> Extensions = new List<string>();
 				Extensions.Add(".dll");
 				Extensions.Add(".exe");
+				Extensions.Add(".msi");
+				Extensions.Add(".dle");
 
 				bool IsExecutable = bIgnoreExtension;
 
@@ -2858,6 +2900,8 @@ namespace AutomationTool
 				{
 					if (TargetFileInfo.FullName.EndsWith(Ext, StringComparison.InvariantCultureIgnoreCase))
 					{
+						// force file writable
+						TargetFileInfo.IsReadOnly = false;
 						IsExecutable = true;
 						break;
 					}

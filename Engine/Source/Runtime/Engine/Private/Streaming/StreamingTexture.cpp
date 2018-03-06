@@ -332,18 +332,40 @@ void FStreamingTexture::CancelPendingMipChangeRequest()
 
 void FStreamingTexture::StreamWantedMips(FStreamingManagerTexture& Manager)
 {
-	if (Texture && WantedMips != ResidentMips)
+	StreamWantedMips_Internal(Manager, false);
+}
+
+void FStreamingTexture::CacheStreamingMetaData()
+{
+	bCachedForceFullyLoadHeuristic = bForceFullyLoadHeuristic;
+	CachedWantedMips = WantedMips;
+	CachedVisibleWantedMips = VisibleWantedMips;
+}
+
+void FStreamingTexture::StreamWantedMipsUsingCachedData(FStreamingManagerTexture& Manager)
+{
+	StreamWantedMips_Internal(Manager, true);
+}
+
+void FStreamingTexture::StreamWantedMips_Internal(FStreamingManagerTexture& Manager, bool bUseCachedData)
+{
+	const int32 LocalWantedMips = bUseCachedData ? CachedWantedMips : WantedMips;
+	const int32 LocalVisibleWantedMips = bUseCachedData ? CachedVisibleWantedMips : VisibleWantedMips;
+	const uint32 bLocalForceFullyLoadHeuristic = bUseCachedData ? bCachedForceFullyLoadHeuristic : bForceFullyLoadHeuristic;
+
+	if (Texture && LocalWantedMips != ResidentMips)
 	{
-		const bool bShouldPrioritizeAsyncIORequest = (bForceFullyLoadHeuristic || bIsTerrainTexture || bIsCharacterTexture) && WantedMips <= VisibleWantedMips;
-		if (WantedMips < ResidentMips)
+		const bool bShouldPrioritizeAsyncIORequest = (bLocalForceFullyLoadHeuristic || bIsTerrainTexture || bIsCharacterTexture)
+			&& LocalWantedMips <= LocalVisibleWantedMips;
+		if (LocalWantedMips < ResidentMips)
 		{
-			Texture->StreamOut(WantedMips);
+			Texture->StreamOut(LocalWantedMips);
 		}
 		else // WantedMips > ResidentMips
 		{
-			Texture->StreamIn(WantedMips, bShouldPrioritizeAsyncIORequest);
+			Texture->StreamIn(LocalWantedMips, bShouldPrioritizeAsyncIORequest);
 		}
 		UpdateStreamingStatus(false);
-		TrackTextureEvent( this, Texture, bForceFullyLoadHeuristic != 0, &Manager );
+		TrackTextureEvent(this, Texture, bLocalForceFullyLoadHeuristic != 0, &Manager);
 	}
 }

@@ -82,8 +82,8 @@ struct ENGINE_API FMaterialLayersFunctions
 #if WITH_EDITOR
 		FText LayerName = FText(LOCTEXT("Background", "Background"));
 		LayerNames.Add(LayerName);
-		FilterLayers.AddDefaulted();
-		InstanceLayers.AddDefaulted();
+		RestrictToLayerRelatives.Push(false);
+		RestrictToBlendRelatives.Push(false);
 #endif
 		LayerStates.Push(true);
 
@@ -100,20 +100,15 @@ struct ENGINE_API FMaterialLayersFunctions
 	TArray<FText> LayerNames;
 
 	UPROPERTY()
-	TArray<class UMaterialFunctionInterface*> FilterLayers;
+	TArray<bool> RestrictToLayerRelatives;
 
 	UPROPERTY()
-	TArray<class UMaterialFunctionInterface*> FilterBlends;
-
-	UPROPERTY()
-	TArray<class UMaterialFunctionInterface*> InstanceLayers;
-
-	UPROPERTY()
-	TArray<class UMaterialFunctionInterface*> InstanceBlends;
+	TArray<bool> RestrictToBlendRelatives;
 #endif
 
 	UPROPERTY()
 	TArray<bool> LayerStates;
+
 
 	UPROPERTY()
 	FString KeyString;
@@ -123,12 +118,10 @@ struct ENGINE_API FMaterialLayersFunctions
 		Layers.AddDefaulted();
 		Blends.AddDefaulted();
 #if WITH_EDITOR
-		FilterLayers.AddDefaulted();
-		FilterBlends.AddDefaulted();
-		InstanceLayers.AddDefaulted();
-		InstanceBlends.AddDefaulted();
 		FText LayerName = FText::Format(LOCTEXT("LayerPrefix", "Layer {0}"), Layers.Num()-1);
 		LayerNames.Add(LayerName);
+		RestrictToLayerRelatives.Push(false);
+		RestrictToBlendRelatives.Push(false);
 #endif
 		LayerStates.Push(true);
 		KeyString = GetStaticPermutationString();
@@ -141,13 +134,11 @@ struct ENGINE_API FMaterialLayersFunctions
 		Blends.RemoveAt(Index-1);
 		LayerStates.RemoveAt(Index);
 #if WITH_EDITOR
-		FilterLayers.RemoveAt(Index);
-		FilterBlends.RemoveAt(Index - 1);
-		InstanceLayers.RemoveAt(Index);
-		InstanceBlends.RemoveAt(Index - 1);
 		LayerNames.RemoveAt(Index);
-		KeyString = GetStaticPermutationString();
+		RestrictToLayerRelatives.RemoveAt(Index);
+		RestrictToBlendRelatives.RemoveAt(Index);
 #endif
+		KeyString = GetStaticPermutationString();
 	}
 
 	void ToggleBlendedLayerVisibility(int32 Index)

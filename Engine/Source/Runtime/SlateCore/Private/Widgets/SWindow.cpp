@@ -48,7 +48,7 @@ public:
 	SLATE_END_ARGS()
 
 	SPopupLayer()
-	: Children()
+		: Children(this)
 	{}
 
 	void Construct( const FArguments& InArgs, const TSharedRef<SWindow>& InWindow )
@@ -225,6 +225,7 @@ void SWindow::Construct(const FArguments& InArgs)
 	this->bDragAnywhere = InArgs._bDragAnywhere;
 	this->TransparencySupport = InArgs._SupportsTransparency.Value;
 	this->Opacity = InArgs._InitialOpacity;
+	this->bIsWindow = true;
 	this->bInitiallyMaximized = InArgs._IsInitiallyMaximized;
 	this->bInitiallyMinimized = InArgs._IsInitiallyMinimized;
 	this->SizingRule = InArgs._SizingRule;
@@ -262,7 +263,7 @@ void SWindow::Construct(const FArguments& InArgs)
 	FDisplayMetrics DisplayMetrics;
 	FSlateApplicationBase::Get().GetDisplayMetrics( DisplayMetrics );
 	const FPlatformRect& VirtualDisplayRect = DisplayMetrics.VirtualDisplayRect;
-	FPlatformRect PrimaryDisplayRect = DisplayMetrics.GetMonitorWorkAreaFromPoint(WindowPosition);
+	FPlatformRect PrimaryDisplayRect = AutoCenterRule == EAutoCenter::PrimaryWorkArea ? DisplayMetrics.PrimaryDisplayWorkAreaRect : DisplayMetrics.GetMonitorWorkAreaFromPoint(WindowPosition);
 
 	if (PrimaryDisplayRect == FPlatformRect(0, 0, 0, 0))
 	{

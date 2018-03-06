@@ -24,7 +24,7 @@
 #include <jni.h>
 
 FCriticalSection SAndroidWebBrowserWidget::WebControlsCS;
-TMap<jlong, TWeakPtr<SAndroidWebBrowserWidget>> SAndroidWebBrowserWidget::AllWebControls;
+TMap<int64, TWeakPtr<SAndroidWebBrowserWidget>> SAndroidWebBrowserWidget::AllWebControls;
 
 TSharedPtr<SAndroidWebBrowserWidget> SAndroidWebBrowserWidget::GetWidgetPtr(JNIEnv* JEnv, jobject Jobj)
 {
@@ -93,14 +93,14 @@ SAndroidWebBrowserWidget::~SAndroidWebBrowserWidget()
 	}
 
 	FScopeLock L(&WebControlsCS);
-	AllWebControls.Remove(reinterpret_cast<jlong>(this));
+	AllWebControls.Remove(reinterpret_cast<int64>(this));
 }
 
 void SAndroidWebBrowserWidget::Construct(const FArguments& Args)
 {
 	{
 		FScopeLock L(&WebControlsCS);
-		AllWebControls.Add(reinterpret_cast<jlong>(this), StaticCastSharedRef<SAndroidWebBrowserWidget>(AsShared()));
+		AllWebControls.Add(reinterpret_cast<int64>(this), StaticCastSharedRef<SAndroidWebBrowserWidget>(AsShared()));
 	}
 
 	IsAndroid3DBrowser = true;

@@ -322,7 +322,8 @@ public:
 
 		for (int32 Index = 0; Index < ExcludedDueToDensityScaling.Num(); ++Index)
 		{
-			if (!ExcludedDueToDensityScaling[Index])
+			// don't add indices that are bigger than the original size, or many bad things will happen later!
+			if (!ExcludedDueToDensityScaling[Index] && Index < OriginalNum)
 			{
 				SortIndex.Add(Index);
 			}
@@ -955,15 +956,23 @@ struct FFoliageRenderInstanceParams
 	{
 		if (bNeedsSingleLODRuns)
 		{
-			AddRun(SingleLODRuns[bOverestimate ? MaxLod : MinLod], FirstInstance, LastInstance);
-			TotalSingleLODInstances[bOverestimate ? MaxLod : MinLod] += 1 + LastInstance - FirstInstance;
+			int32 CurrentLOD = bOverestimate ? MaxLod : MinLod;
+
+			if (CurrentLOD < MAX_STATIC_MESH_LODS)
+			{
+				AddRun(SingleLODRuns[CurrentLOD], FirstInstance, LastInstance);
+				TotalSingleLODInstances[CurrentLOD] += 1 + LastInstance - FirstInstance;
+			}
 		}
 		if (bNeedsMultipleLODRuns)
 		{
 			for (int32 Lod = MinLod; Lod <= MaxLod; Lod++)
 			{
-				TotalMultipleLODInstances[Lod] += 1 + LastInstance - FirstInstance;
-				AddRun(MultipleLODRuns[Lod], FirstInstance, LastInstance);
+				if (Lod < MAX_STATIC_MESH_LODS)
+				{
+					TotalMultipleLODInstances[Lod] += 1 + LastInstance - FirstInstance;
+					AddRun(MultipleLODRuns[Lod], FirstInstance, LastInstance);
+				}
 			}
 		}
 	}
@@ -1203,7 +1212,7 @@ void FHierarchicalStaticMeshSceneProxy::FillDynamicMeshElements(FMeshElementColl
 
 	for (int32 LODIndex = FirstLOD; LODIndex < LastLODPlusOne; LODIndex++)
 	{
-		const FStaticMeshLODResources& LODModel = StaticMesh->RenderData->LODResources[LODIndex];
+		const FStaticMeshLODResources& LODModel = RenderData->LODResources[LODIndex];
 
 		for (int32 SelectionGroupIndex = 0; SelectionGroupIndex < ElementParams.NumSelectionGroups; SelectionGroupIndex++)
 		{
@@ -1513,7 +1522,7 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 
 				for (int32 LODIndex = 1; LODIndex < InstanceParams.LODs; LODIndex++)
 				{
-					float Distance = ComputeBoundsDrawDistance(RenderData->ScreenSize[LODIndex], SphereRadius, View->ViewMatrices.GetProjectionMatrix()) * LODScale;
+					float Distance = ComputeBoundsDrawDistance(RenderData->ScreenSize[LODIndex].GetValueForFeatureLevel(View->GetFeatureLevel()), SphereRadius, View->ViewMatrices.GetProjectionMatrix()) * LODScale;
 					InstanceParams.LODPlanesMin[LODIndex - 1] = Distance - LODRandom;
 					InstanceParams.LODPlanesMax[LODIndex - 1] = Distance;
 				}
@@ -1679,7 +1688,7 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 
 						for (int32 LODIndex = 1; LODIndex < NumLODs; LODIndex++)
 						{
-							float Distance = ComputeBoundsDrawDistance(RenderData->ScreenSize[LODIndex], SphereRadius, View->ViewMatrices.GetProjectionMatrix()) * LODScale;
+							float Distance = ComputeBoundsDrawDistance(RenderData->ScreenSize[LODIndex].GetValueForFeatureLevel(View->GetFeatureLevel()), SphereRadius, View->ViewMatrices.GetProjectionMatrix()) * LODScale;
 							LODPlanesMin[LODIndex - 1] = Distance - LODRandom;
 							LODPlanesMax[LODIndex - 1] = Distance;
 						}
@@ -1880,7 +1889,11 @@ void UHierarchicalInstancedStaticMeshComponent::RemoveInstanceInternal(int32 Ins
 	// Remove the instance
 	PerInstanceSMData.RemoveAtSwap(InstanceIndex);
 	InstanceReorderTable.RemoveAtSwap(InstanceIndex);
-	UnbuiltInstanceIndexList.RemoveSwap(InstanceIndex);
+
+	if (UnbuiltInstanceIndexList.IsValidIndex(InstanceIndex))
+	{
+		UnbuiltInstanceIndexList.RemoveAtSwap(InstanceIndex);
+	}
 
 #if WITH_EDITOR
 	if (SelectedInstances.Num())

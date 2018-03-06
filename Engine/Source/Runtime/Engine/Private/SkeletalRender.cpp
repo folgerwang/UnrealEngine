@@ -36,7 +36,7 @@ FSkeletalMeshObject::FSkeletalMeshObject(USkinnedMeshComponent* InMeshComponent,
 ,	SelectedEditorMaterial(InMeshComponent->GetSelectedEditorMaterial())
 #endif	
 ,	SkeletalMeshRenderData(InSkelMeshRenderData)
-,	SkeletalMeshLODInfo(InMeshComponent->SkeletalMesh->LODInfo)
+,	SkeletalMeshLODInfo(InMeshComponent->SkeletalMesh->GetLODInfoArray())
 ,	SkinCacheEntry(nullptr)
 ,	LastFrameNumber(0)
 ,	bUsePerBoneMotionBlur(InMeshComponent->bPerBoneMotionBlur)
@@ -173,6 +173,15 @@ void FSkeletalMeshObject::InitLODInfos(const USkinnedMeshComponent* SkelComponen
 			MeshLODInfo.HiddenMaterials = Info.HiddenMaterials;
 		}		
 	}
+}
+
+float FSkeletalMeshObject::GetScreenSize(int32 LODIndex) const
+{
+	if (SkeletalMeshLODInfo.IsValidIndex(LODIndex))
+	{
+		return SkeletalMeshLODInfo[LODIndex].ScreenSize;
+	}
+	return 0.f;
 }
 
 /*-----------------------------------------------------------------------------

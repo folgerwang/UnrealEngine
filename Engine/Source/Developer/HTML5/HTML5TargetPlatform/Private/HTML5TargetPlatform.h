@@ -94,6 +94,8 @@ public:
 
 	virtual FName GetWaveFormat( const class USoundWave* Wave ) const override;
 	virtual void GetAllWaveFormats(TArray<FName>& OutFormats) const override;
+
+	virtual FPlatformAudioCookOverrides* GetAudioCompressionSettings() const override;
 #endif // WITH_ENGINE
 
 	DECLARE_DERIVED_EVENT(FHTML5TargetPlatform, ITargetPlatform::FOnTargetDeviceDiscovered, FOnTargetDeviceDiscovered);

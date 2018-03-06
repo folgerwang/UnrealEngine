@@ -117,7 +117,7 @@ namespace SavePackageStats
 		ADD_COOK_STAT(MBWritten);
 
 		AddStat(TEXT("Package.Save"), StatsList);
-
+		
 		StatsList.Empty(15);
 		ADD_COOK_STAT(NumberOfDifferentPackages);
 		ADD_COOK_STAT(DifferentPackagesSizeMB);
@@ -776,7 +776,7 @@ static void ConditionallyExcludeObjectForTarget(UObject* Obj, EObjectMark Exclud
 
 	UObject* ObjOuter = Obj->GetOuter();
 	UClass* ObjClass = Obj->GetClass();
-	
+
 	if (bIsCooking && TargetPlatform)
 	{
 		// Check for nativization replacement
@@ -840,6 +840,11 @@ static void ConditionallyExcludeObjectForTarget(UObject* Obj, EObjectMark Exclud
 		if (!(NewMarks & OBJECTMARK_NotForServer) && !Obj->NeedsLoadForServer())
 		{
 			NewMarks = (EObjectMark)(NewMarks | OBJECTMARK_NotForServer);
+		}
+
+		if (!(NewMarks & OBJECTMARK_NotForServer) && !(NewMarks & OBJECTMARK_NotForClient) && TargetPlatform && !Obj->NeedsLoadForTargetPlatform(TargetPlatform))
+		{
+			NewMarks = (EObjectMark)(NewMarks | OBJECTMARK_NotForClient | OBJECTMARK_NotForServer);
 		}
 	}
 
@@ -3212,10 +3217,15 @@ struct FEDLCookChecker : public TThreadSingleton<FEDLCookChecker>
 
 	FEDLCookChecker()
 	{
-		bIsActive = IsEventDrivenLoaderEnabledInCookedBuilds();
+		SetActiveIfNeeded();
 
 		FScopeLock CookCheckerInstanceLock(&CookCheckerInstanceCritical);
 		CookCheckerInstances.Add(this);
+	}
+
+	void SetActiveIfNeeded()
+	{
+		bIsActive = IsEventDrivenLoaderEnabledInCookedBuilds() && !FParse::Param(FCommandLine::Get(), TEXT("DisableEDLCookChecker"));
 	}
 
 	void Reset()
@@ -3268,7 +3278,7 @@ struct FEDLCookChecker : public TThreadSingleton<FEDLCookChecker>
 		for (FEDLCookChecker* Checker : CookCheckerInstances)
 		{
 			Checker->Reset();
-			Checker->bIsActive = IsEventDrivenLoaderEnabledInCookedBuilds();
+			Checker->SetActiveIfNeeded();
 		}
 	}
 
@@ -3399,7 +3409,19 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 				if (bDiffing)
 				{
 					GConfig->GetInt(TEXT("CookSettings"), TEXT("MaxDiffsToLog"), MaxDiffsToLog, GEditorIni);
+					// Command line override for MaxDiffsToLog
+					FParse::Value(FCommandLine::Get(), TEXT("MaxDiffstoLog="), MaxDiffsToLog);
+
 					GConfig->GetBool(TEXT("CookSettings"), TEXT("IgnoreHeaderDiffs"), bIgnoreHeaderDiffs, GEditorIni);
+					// Command line override for IgnoreHeaderDiffs
+					if (bIgnoreHeaderDiffs)
+					{						
+						bIgnoreHeaderDiffs = !FParse::Param(FCommandLine::Get(), TEXT("HeaderDiffs"));
+					}
+					else
+					{
+						bIgnoreHeaderDiffs = FParse::Param(FCommandLine::Get(), TEXT("IgnoreHeaderDiffs"));
+					}
 				}
 			}
 		} DiffSettings((SaveFlags & (SAVE_DiffCallstack | SAVE_DiffOnly)) != 0);
@@ -3635,6 +3657,12 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 			}
 #endif // USE_STABLE_LOCALIZATION_KEYS
 
+			if (InOuter->WorldTileInfo.IsValid())
+			{
+				// collect custom version from wc tile info
+				ExportTaggerArchive << *(InOuter->WorldTileInfo);
+			}
+
 			{
 				check(!IsGarbageCollecting());
 				// set GIsSavingPackage here as it is now illegal to create any new object references; they potentially wouldn't be saved correctly								
@@ -3807,7 +3835,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 					// Exports got filtered out already if they're not for this platform
 					if (TagExpObjects.Num() == 0)
 					{
-						UE_CLOG(!(SaveFlags & SAVE_NoError), LogSavePackage, Display, TEXT("No exports found (or all exports are editor-only) for %s. Package will not be saved."), *BaseFilename);
+						UE_CLOG(!(SaveFlags & SAVE_NoError), LogSavePackage, Verbose, TEXT("No exports found (or all exports are editor-only) for %s. Package will not be saved."), *BaseFilename);
 						return ESavePackageResult::ContainsEditorOnlyData;
 					}
 
@@ -4225,7 +4253,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 #if WITH_EDITOR
 					FArchiveStackTraceIgnoreScope IgnoreSummaryDiffsScope(DiffSettings.bIgnoreHeaderDiffs);
 #endif // WITH_EDITOR
-					*Linker << Linker->Summary;
+				*Linker << Linker->Summary;
 				}
 				int32 OffsetAfterPackageFileSummary = Linker->Tell();
 		
@@ -4667,8 +4695,8 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 				int32 OffsetAfterImportMap = Linker->Tell();
 
 
-				if ( EndSavingIfCancelled( Linker, TempFilename ) ) 
-				{ 
+				if (EndSavingIfCancelled(Linker, TempFilename))
+				{
 					return ESavePackageResult::Canceled;
 				}
 				SlowTask.EnterProgressFrame();
@@ -4688,8 +4716,8 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 				int32 OffsetAfterExportMap = Linker->Tell();
 
 
-				if ( EndSavingIfCancelled( Linker, TempFilename ) ) 
-				{ 
+				if (EndSavingIfCancelled(Linker, TempFilename))
+				{
 					return ESavePackageResult::Canceled;
 				}
 				SlowTask.EnterProgressFrame();
@@ -5396,7 +5424,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 					}
 				}
 
-				check( Linker->Tell() == OffsetAfterImportMap );
+				check(Linker->Tell() == OffsetAfterImportMap);
 
 				// Save the export map.
 				Linker->Seek(Linker->Summary.ExportOffset);
@@ -5410,10 +5438,10 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 						*Linker << Linker->ExportMap[i];
 					}
 				}
-				check( Linker->Tell() == OffsetAfterExportMap );
+				check(Linker->Tell() == OffsetAfterExportMap);
 
-				if ( EndSavingIfCancelled( Linker, TempFilename ) ) 
-				{ 
+				if (EndSavingIfCancelled(Linker, TempFilename))
+				{
 					return ESavePackageResult::Canceled;
 				}
 				SlowTask.EnterProgressFrame();
@@ -5460,7 +5488,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 					Linker->Detach();
 				}
 				UNCLOCK_CYCLES(Time);
-				UE_CLOG(!(SaveFlags & (SAVE_DiffCallstack | SAVE_DiffOnly)), LogSavePackage, Log,  TEXT("Save=%.2fms"), FPlatformTime::ToMilliseconds(Time) );
+				UE_CLOG(!(SaveFlags & (SAVE_DiffCallstack | SAVE_DiffOnly)), LogSavePackage, Verbose,  TEXT("Save=%.2fms"), FPlatformTime::ToMilliseconds(Time) );
 		
 				if ( EndSavingIfCancelled( Linker, TempFilename ) ) 
 				{ 
@@ -5473,7 +5501,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 					// Compress the temporarily file to destination.
 					if (bSaveAsync)
 					{
-						UE_CLOG(!(SaveFlags & (SAVE_DiffCallstack | SAVE_DiffOnly)), LogSavePackage, Log, TEXT("Async saving from memory to '%s'"), *NewPath);
+						UE_CLOG(!(SaveFlags & (SAVE_DiffCallstack | SAVE_DiffOnly)), LogSavePackage, Verbose, TEXT("Async saving from memory to '%s'"), *NewPath);
 
 #if WITH_EDITOR
 						if (SaveFlags & SAVE_DiffCallstack)
@@ -5614,17 +5642,17 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 			// attached in PreSaveRoot.
 			// If we are saving concurrently, this should be called after UPackage::Save.
 			// Also if we're trying to diff the package and gathering callstacks, Presave has already been done
-			if( Base && !bSavingConcurrent && !(SaveFlags & SAVE_DiffCallstack) )
+			if (Base && !bSavingConcurrent && !(SaveFlags & SAVE_DiffCallstack))
 			{
-				Base->PostSaveRoot( bCleanupIsRequired );
+				Base->PostSaveRoot(bCleanupIsRequired);
 			}
 
 			SlowTask.EnterProgressFrame();
-			
+
 #if WITH_EDITOR
-			if ( !bSavingConcurrent )
+			if (!bSavingConcurrent)
 			{
-				for ( int CachedObjectIndex = 0; CachedObjectIndex < CachedObjects.Num(); ++CachedObjectIndex )
+				for (int CachedObjectIndex = 0; CachedObjectIndex < CachedObjects.Num(); ++CachedObjectIndex)
 				{
 					CachedObjects[CachedObjectIndex]->ClearCachedCookedPlatformData(TargetPlatform);
 				}
@@ -5632,7 +5660,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 #endif
 
 		}
-		if( Success == true )
+		if (Success == true)
 		{
 			// Package has been save, so unmark NewlyCreated flag.
 			InOuter->ClearPackageFlags(PKG_NewlyCreated);
@@ -5644,7 +5672,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 		// We're done!
 		SlowTask.EnterProgressFrame();
 
-		UE_CLOG(!(SaveFlags & (SAVE_DiffCallstack | SAVE_DiffOnly)), LogSavePackage, Display, TEXT("Finished SavePackage %s"), Filename);
+		UE_CLOG(!(SaveFlags & (SAVE_DiffCallstack | SAVE_DiffOnly)), LogSavePackage, Verbose, TEXT("Finished SavePackage %s"), Filename);
 
 		if (Success)
 		{

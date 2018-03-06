@@ -385,7 +385,7 @@ void UProceduralMeshComponent::PostLoad()
 	}
 }
 
-void UProceduralMeshComponent::CreateMeshSection_LinearColor(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, const TArray<FLinearColor>& VertexColors, const TArray<FProcMeshTangent>& Tangents, bool bCreateCollision)
+void UProceduralMeshComponent::CreateMeshSection_LinearColor(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, const TArray<FLinearColor>& VertexColors, const TArray<FProcMeshTangent>& Tangents, bool bCreateCollision)
 {
 	// Convert FLinearColors to FColors
 	TArray<FColor> Colors;
@@ -399,10 +399,10 @@ void UProceduralMeshComponent::CreateMeshSection_LinearColor(int32 SectionIndex,
 		}
 	}
 
-	CreateMeshSection(SectionIndex, Vertices, Triangles, Normals, UV0, Colors, Tangents, bCreateCollision);
+	CreateMeshSection(SectionIndex, Vertices, Triangles, Normals, UV0, UV1, UV2, UV3, Colors, Tangents, bCreateCollision);
 }
 
-void UProceduralMeshComponent::CreateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, const TArray<FColor>& VertexColors, const TArray<FProcMeshTangent>& Tangents, bool bCreateCollision)
+void UProceduralMeshComponent::CreateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, const TArray<FColor>& VertexColors, const TArray<FProcMeshTangent>& Tangents, bool bCreateCollision)
 {
 	SCOPE_CYCLE_COUNTER(STAT_ProcMesh_CreateMeshSection);
 
@@ -427,6 +427,9 @@ void UProceduralMeshComponent::CreateMeshSection(int32 SectionIndex, const TArra
 		Vertex.Position = Vertices[VertIdx];
 		Vertex.Normal = (Normals.Num() == NumVerts) ? Normals[VertIdx] : FVector(0.f, 0.f, 1.f);
 		Vertex.UV0 = (UV0.Num() == NumVerts) ? UV0[VertIdx] : FVector2D(0.f, 0.f);
+		Vertex.UV1 = (UV1.Num() == NumVerts) ? UV1[VertIdx] : FVector2D(0.f, 0.f);
+		Vertex.UV2 = (UV2.Num() == NumVerts) ? UV2[VertIdx] : FVector2D(0.f, 0.f);
+		Vertex.UV3 = (UV3.Num() == NumVerts) ? UV3[VertIdx] : FVector2D(0.f, 0.f);
 		Vertex.Color = (VertexColors.Num() == NumVerts) ? VertexColors[VertIdx] : FColor(255, 255, 255);
 		Vertex.Tangent = (Tangents.Num() == NumVerts) ? Tangents[VertIdx] : FProcMeshTangent();
 
@@ -452,7 +455,7 @@ void UProceduralMeshComponent::CreateMeshSection(int32 SectionIndex, const TArra
 	MarkRenderStateDirty(); // New section requires recreating scene proxy
 }
 
-void UProceduralMeshComponent::UpdateMeshSection_LinearColor(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, const TArray<FLinearColor>& VertexColors, const TArray<FProcMeshTangent>& Tangents)
+void UProceduralMeshComponent::UpdateMeshSection_LinearColor(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, const TArray<FLinearColor>& VertexColors, const TArray<FProcMeshTangent>& Tangents)
 {
 	// Convert FLinearColors to FColors
 	TArray<FColor> Colors;
@@ -466,10 +469,10 @@ void UProceduralMeshComponent::UpdateMeshSection_LinearColor(int32 SectionIndex,
 		}
 	}
 
-	UpdateMeshSection(SectionIndex, Vertices, Normals, UV0, Colors, Tangents);
+	UpdateMeshSection(SectionIndex, Vertices, Normals, UV0, UV1, UV2, UV3, Colors, Tangents);
 }
 
-void UProceduralMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, const TArray<FColor>& VertexColors, const TArray<FProcMeshTangent>& Tangents)
+void UProceduralMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, const TArray<FColor>& VertexColors, const TArray<FProcMeshTangent>& Tangents)
 {
 	SCOPE_CYCLE_COUNTER(STAT_ProcMesh_UpdateSectionGT);
 
@@ -511,10 +514,25 @@ void UProceduralMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArra
 				ModifyVert.Tangent = Tangents[VertIdx];
 			}
 
-			// UV data
+			// UV0 data
 			if (UV0.Num() == NumVerts)
 			{
 				ModifyVert.UV0 = UV0[VertIdx];
+			}
+			// UV1 data
+			if (UV1.Num() == NumVerts)
+			{
+				ModifyVert.UV1 = UV1[VertIdx];
+			}
+			// UV2 data
+			if (UV2.Num() == NumVerts)
+			{
+				ModifyVert.UV2 = UV2[VertIdx];
+			}
+			// UV3 data
+			if (UV3.Num() == NumVerts)
+			{
+				ModifyVert.UV3 = UV3[VertIdx];
 			}
 
 			// Color data

@@ -178,7 +178,7 @@ void FLinuxCursor::SetCustomShape( SDL_HCursor CursorHandle )
 
 FVector2D FLinuxCursor::GetPosition() const
 {
-	if (!bPositionCacheIsValid)
+	if (FApp::CanEverRender() && !bPositionCacheIsValid)
 	{
 		SDL_GetGlobalMouseState(&CachedGlobalXPosition, &CachedGlobalYPosition);
 		bPositionCacheIsValid = true;

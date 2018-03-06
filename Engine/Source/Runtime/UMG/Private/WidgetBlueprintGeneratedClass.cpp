@@ -41,6 +41,7 @@ namespace
 
 UWidgetBlueprintGeneratedClass::UWidgetBlueprintGeneratedClass(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, bAllowDynamicCreation(true)
 	, bTemplateInitialized(false)
 {
 #if WITH_EDITORONLY_DATA
@@ -98,7 +99,8 @@ void UWidgetBlueprintGeneratedClass::InitializeBindingsStatic(UUserWidget* UserW
 
 void UWidgetBlueprintGeneratedClass::InitializeWidgetStatic(UUserWidget* UserWidget
 	, const UClass* InClass
-	, bool InCanTemplate
+	, bool InHasTemplate
+	, bool InAllowDynamicCreation
 	, UWidgetTree* InWidgetTree
 	, const TArray< UWidgetAnimation* >& InAnimations
 	, const TArray< FDelegateRuntimeBinding >& InBindings)
@@ -125,8 +127,10 @@ void UWidgetBlueprintGeneratedClass::InitializeWidgetStatic(UUserWidget* UserWid
 #else
 		// If we can be templated, we need to go ahead and initialize all the user widgets under us, since we're
 		// an already expanded tree.
-		check(InCanTemplate);
 		check(ClonedTree);
+		// Either we have a template and permit fast creation, or we don't have a template and don't allow dynamic creation
+		// and this is some widget with a cooked widget tree nested inside some other template.
+		check((InHasTemplate && InAllowDynamicCreation) || (!InHasTemplate && !InAllowDynamicCreation))
 
 		// TODO NDarnell This initialization can be made faster if part of storing the template data is some kind of
 		// acceleration structure that could be the all the userwidgets we need to initialize bindings for...etc.
@@ -239,7 +243,7 @@ void UWidgetBlueprintGeneratedClass::InitializeWidgetStatic(UUserWidget* UserWid
 
 void UWidgetBlueprintGeneratedClass::InitializeWidget(UUserWidget* UserWidget) const
 {
-	InitializeWidgetStatic(UserWidget, this, HasTemplate(), WidgetTree, Animations, Bindings);
+	InitializeWidgetStatic(UserWidget, this, HasTemplate(), bAllowDynamicCreation, WidgetTree, Animations, Bindings);
 }
 
 UObject* UWidgetBlueprintGeneratedClass::CreateDefaultObject()
@@ -319,7 +323,7 @@ bool UWidgetBlueprintGeneratedClass::NeedsLoadForServer() const
 
 bool UWidgetBlueprintGeneratedClass::HasTemplate() const
 {
-	return bValidTemplate;
+	return bValidTemplate && bAllowDynamicCreation;
 }
 
 void UWidgetBlueprintGeneratedClass::SetTemplate(UUserWidget* InTemplate)
@@ -459,7 +463,7 @@ void UWidgetBlueprintGeneratedClass::InitializeTemplate(const ITargetPlatform* T
 
 	if ( TargetPlatform && TargetPlatform->RequiresCookedData() )
 	{
-		bool bCanTemplate = bAllowTemplate;
+		bool bCanTemplate = bAllowTemplate && bAllowDynamicCreation;
 
 		if ( bCanTemplate )
 		{
@@ -497,21 +501,27 @@ void UWidgetBlueprintGeneratedClass::InitializeTemplate(const ITargetPlatform* T
 			UUserWidget* WidgetTemplate = NewObject<UUserWidget>(WidgetTemplatePackage, this, TEXT("WidgetArchetype"), EObjectFlags(RF_Public | RF_Standalone | RF_ArchetypeObject));
 			WidgetTemplate->TemplateInit();
 
-			this->SetTemplate(WidgetTemplate);
+			SetTemplate(WidgetTemplate);
 
-			UE_LOG(LogUMG, Display, TEXT("Widget Class %s - Template Initialized."), *GetName());
+			UE_LOG(LogUMG, Verbose, TEXT("Widget Class %s - Template Initialized."), *GetName());
+		}
+		else if (bAllowDynamicCreation == false)
+		{
+			UE_LOG(LogUMG, Display, TEXT("Widget Class %s - Not Allowed To Create Template"), *GetName());
+
+			SetTemplate(nullptr);
 		}
 		else if ( bAllowTemplate == false )
 		{
 			UE_LOG(LogUMG, Display, TEXT("Widget Class %s - Not Allowed To Create Template"), *GetName());
 
-			this->SetTemplate(nullptr);
+			SetTemplate(nullptr);
 		}
 		else
 		{
 			UE_LOG(LogUMG, Warning, TEXT("Widget Class %s - Failed To Create Template"), *GetName());
 
-			this->SetTemplate(nullptr);
+			SetTemplate(nullptr);
 		}
 	}
 #endif

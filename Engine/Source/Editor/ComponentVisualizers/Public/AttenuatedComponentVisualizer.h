@@ -8,7 +8,7 @@
 #include "SceneManagement.h"
 
 template<class T>
-class COMPONENTVISUALIZERS_API TAttenuatedComponentVisualizer : public FComponentVisualizer
+class TAttenuatedComponentVisualizer : public FComponentVisualizer
 {
 public:
 	//~ Begin FComponentVisualizer Interface

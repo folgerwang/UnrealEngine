@@ -139,5 +139,6 @@ bool FMaterialQualityOverrides::HasAnyOverridesSet() const
 		|| bForceDisableLMDirectionality != DefaultOverrides.bForceDisableLMDirectionality
 		|| bForceFullyRough != DefaultOverrides.bForceFullyRough
 		|| bForceNonMetal != DefaultOverrides.bForceNonMetal
-		|| bForceLQReflections != DefaultOverrides.bForceLQReflections;
+		|| bForceLQReflections != DefaultOverrides.bForceLQReflections
+		|| bDisableMaterialNormalCalculation != DefaultOverrides.bDisableMaterialNormalCalculation;
 }

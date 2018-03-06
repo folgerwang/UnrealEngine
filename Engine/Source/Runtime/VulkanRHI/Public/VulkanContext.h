@@ -13,6 +13,7 @@ class FVulkanCommandBufferManager;
 class FVulkanPendingGfxState;
 class FVulkanPendingComputeState;
 class FVulkanQueue;
+class FVulkanOcclusionQueryPool;
 
 class FVulkanCommandListContext : public IRHICommandContext
 {
@@ -183,7 +184,7 @@ public:
 	
 	inline FVulkanGPUProfiler& GetGPUProfiler() { return GpuProfiler; }
 	inline FVulkanDevice* GetDevice() const { return Device; }
-	void EndRenderQueryInternal(FVulkanCmdBuffer* CmdBuffer, FVulkanRenderQuery* Query);
+	void EndRenderQueryInternal(FVulkanCmdBuffer* CmdBuffer, FOLDVulkanRenderQuery* Query);
 
 	inline VkImageLayout FindLayout(VkImage Image)
 	{
@@ -233,7 +234,12 @@ protected:
 	FVulkanCommandBufferManager* CommandBufferManager;
 
 #if !VULKAN_USE_PER_PIPELINE_DESCRIPTOR_POOLS
+#if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
+	typedef TArray<FOLDVulkanDescriptorPool*> FDescriptorPoolArray;
+	TMap<uint32, FDescriptorPoolArray> DescriptorPools;
+#else
 	TArray<FOLDVulkanDescriptorPool*> DescriptorPools;
+#endif
 #endif
 
 	struct FTransitionState
@@ -336,7 +342,7 @@ protected:
 		{
 		}
 
-		void AddToResetList(FVulkanQueryPool* Pool, int32 QueryIndex)
+		void AddToResetList(FOLDVulkanQueryPool* Pool, int32 QueryIndex)
 		{
 			TArray<uint64>& ListPerPool = ResetList.FindOrAdd(Pool);
 			int32 Word = QueryIndex / 64;
@@ -359,10 +365,10 @@ protected:
 			}
 		}
 
-		TMap<FVulkanQueryPool*, TArray<uint64>> ResetList;
+		TMap<FOLDVulkanQueryPool*, TArray<uint64>> ResetList;
 	};
 	FOcclusionQueryData CurrentOcclusionQueryData;
-	void AdvanceQuery(FVulkanRenderQuery* Query);
+	void AdvanceQuery(FOLDVulkanRenderQuery* Query);
 
 	// List of UAVs which need setting for pixel shaders. D3D treats UAVs like rendertargets so the RHI doesn't make SetUAV calls at the right time
 	struct FPendingPixelUAV

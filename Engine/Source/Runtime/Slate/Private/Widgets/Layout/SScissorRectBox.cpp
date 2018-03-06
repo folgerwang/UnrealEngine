@@ -12,6 +12,7 @@ namespace Slate
 }
 
 SScissorRectBox::SScissorRectBox()
+	: ChildSlot(this)
 {
 }
 

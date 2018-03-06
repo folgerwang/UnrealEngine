@@ -34,13 +34,28 @@ void StropheLogger(void* const UnusedContextPtr,
 	}
 }
 
+static void* StropheAlloc(const size_t Size, void* const Userdata)
+{
+	return FMemory::Malloc(Size);
+}
+
+static void StropheFree(void* Ptr, void* const Userdata)
+{
+	FMemory::Free(Ptr);
+}
+
+static void* StropheRealloc(void* Ptr, const size_t Size, void* const Userdata)
+{
+	return FMemory::Realloc(Ptr, Size);
+}
+
 FStropheContext::FStropheContext()
 	: XmppContextPtr(nullptr)
 {
-	const xmpp_mem_t* const MemoryAllocatorOptions = nullptr;
+	static const xmpp_mem_t MemoryAllocatorOptions = { StropheAlloc, StropheFree, StropheRealloc, nullptr };
 	static const xmpp_log_t LoggingOptions = {StropheLogger, nullptr};
 
-	XmppContextPtr = xmpp_ctx_new(MemoryAllocatorOptions, &LoggingOptions);
+	XmppContextPtr = xmpp_ctx_new(&MemoryAllocatorOptions, &LoggingOptions);
 	check(XmppContextPtr != nullptr);
 }
 

@@ -240,12 +240,8 @@ bool FXmppModule::HandleXmppCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 			{
 				if (Connection->Messages().IsValid())
 				{
-					FXmppMessage Message;
-					Message.FromJid.Id = UserName;
-					Message.ToJid.Id = Recipient;
-					Message.Type = TEXT("test");
-					Message.Payload = Payload;
-					Connection->Messages()->SendMessage(Recipient, Message);
+					FXmppUserJid RecipientId(Recipient, Connection->GetServer().Domain);
+					Connection->Messages()->SendMessage(RecipientId, TEXT("test"), Payload, false);
 				}
 			}
 		}
@@ -272,11 +268,8 @@ bool FXmppModule::HandleXmppCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 			{
 				if (Connection->PrivateChat().IsValid())
 				{
-					FXmppChatMessage ChatMessage;
-					ChatMessage.FromJid.Id = UserName;
-					ChatMessage.ToJid.Id = Recipient;
-					ChatMessage.Body = Body;
-					Connection->PrivateChat()->SendChat(Recipient, ChatMessage);
+					FXmppUserJid RecipientId(Recipient, Connection->GetServer().Domain);
+					Connection->PrivateChat()->SendChat(RecipientId, Body);
 				}
 			}
 		}

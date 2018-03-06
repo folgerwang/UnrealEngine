@@ -138,6 +138,30 @@ void UImage::SetBrushFromTexture(UTexture2D* Texture, bool bMatchSize)
 	}
 }
 
+void UImage::SetBrushFromAtlasInterface(TScriptInterface<ISlateTextureAtlasInterface> AtlasRegion, bool bMatchSize)
+{
+	Brush.SetResourceObject(AtlasRegion.GetObject());
+
+	if (bMatchSize)
+	{
+		if (AtlasRegion)
+		{
+			FSlateAtlasData AtlasData = AtlasRegion->GetSlateAtlasData();
+			Brush.ImageSize = AtlasData.GetSourceDimensions();
+		}
+		else
+		{
+			Brush.ImageSize = FVector2D(0, 0);
+		}
+	}
+
+	if (MyImage.IsValid())
+	{
+		MyImage->SetImage(&Brush);
+		MyImage->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+	}
+}
+
 void UImage::SetBrushFromTextureDynamic(UTexture2DDynamic* Texture, bool bMatchSize)
 {
 	Brush.SetResourceObject(Texture);

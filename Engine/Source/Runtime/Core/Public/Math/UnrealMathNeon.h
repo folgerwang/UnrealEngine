@@ -534,6 +534,31 @@ FORCEINLINE VectorRegister VectorBitwiseXor(const VectorRegister& Vec1, const Ve
 */
 #define VectorShuffle( Vec1, Vec2, X, Y, Z, W )	__builtin_shufflevector(Vec1, Vec2, X, Y, Z, W)
 
+
+/**
+* Creates a vector by combining two high components from each vector
+*
+* @param Vec1		Source vector1
+* @param Vec2		Source vector2
+* @return			The combined vector
+*/
+FORCEINLINE VectorRegister VectorCombineHigh(const VectorRegister& Vec1, const VectorRegister& Vec2 )
+{
+	return vcombine_f32(vget_high_f32(Vec1), vget_high_f32(Vec2));
+}
+
+/**
+* Creates a vector by combining two low components from each vector
+*
+* @param Vec1		Source vector1
+* @param Vec2		Source vector2
+* @return			The combined vector
+*/
+FORCEINLINE VectorRegister VectorCombineLow(const VectorRegister& Vec1, const VectorRegister& Vec2 )
+{
+	return vcombine_f32(vget_low_f32(Vec1), vget_low_f32(Vec2));
+}
+
 /**
  * Calculates the cross product of two vectors (XYZ components). W is set to 0.
  *
@@ -1338,7 +1363,7 @@ FORCEINLINE VectorRegisterInt VectorIntSelect(const VectorRegisterInt& Mask, con
 * @param Vec	Vector to store
 * @param Ptr	Aligned Memory pointer
 */
-#define VectorIntStoreAligned( Vec, Ptr )			vst1q_s32( (VectorRegisterInt*)(Ptr), Vec )
+#define VectorIntStoreAligned( Vec, Ptr )			vst1q_s32( (int32*)(Ptr), Vec )
 
 /**
 * Loads 4 int32s from aligned memory.

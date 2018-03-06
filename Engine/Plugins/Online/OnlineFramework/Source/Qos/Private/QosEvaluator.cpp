@@ -203,7 +203,7 @@ void UQosEvaluator::PingRegionServers(const FQosParams& InParams, const FOnQosSe
 						}
 					};
 
-					UE_LOG(LogQos, Verbose, TEXT("Pinging [%s] %s"), *RegionId, *Address);
+					UE_LOG(LogQos, VeryVerbose, TEXT("Pinging [%s] %s"), *RegionId, *Address);
 					FUDPPing::UDPEcho(Address, InParams.Timeout, CompletionDelegate);
 					ServerIdx = (ServerIdx + 1) % NumServers;
 					bDidNothing = false;
@@ -574,7 +574,7 @@ void UQosEvaluator::OnPingResultComplete(const FString& RegionId, int32 NumTests
 	{
 		if (Region.Region.RegionId == RegionId)
 		{
-			UE_LOG(LogQos, Verbose, TEXT("Ping Complete [%s] %s: %d"), *RegionId, *Result.ResolvedAddress, (int32)(Result.Time * 1000.0f));
+			UE_LOG(LogQos, VeryVerbose, TEXT("Ping Complete [%s] %s: %d"), *RegionId, *Result.ResolvedAddress, (int32)(Result.Time * 1000.0f));
 
 			const bool bSuccess = (Result.Status == EIcmpResponseStatus::Success);
 			int32 PingInMs = bSuccess ? (int32)(Result.Time * 1000.0f) : UNREACHABLE_PING;

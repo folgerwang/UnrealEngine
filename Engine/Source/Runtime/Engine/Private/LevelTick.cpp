@@ -54,10 +54,13 @@
 
 #include "InGamePerformanceTracker.h"
 #include "Streaming/TextureStreamingHelpers.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 
 #if WITH_EDITOR
 	#include "Editor.h"
 #endif
+
+CSV_DECLARE_CATEGORY_MODULE_EXTERN(CORE_API, Basic);
 
 // this will log out all of the objects that were ticked in the FDetailedTickStats struct so you can isolate what is expensive
 #define LOG_DETAILED_DUMPSTATS 0
@@ -574,7 +577,7 @@ void UWorld::ProcessLevelStreamingVolumes(FVector* OverrideViewLocation)
 	for (FConstPlayerControllerIterator Iterator = GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
 		APlayerController* PlayerActor = Iterator->Get();
-		if (PlayerActor->bIsUsingStreamingVolumes)
+		if (PlayerActor && PlayerActor->bIsUsingStreamingVolumes)
 		{
 			bStreamingVolumesAreRelevant = true;
 			break;
@@ -616,7 +619,7 @@ void UWorld::ProcessLevelStreamingVolumes(FVector* OverrideViewLocation)
 		for( FConstPlayerControllerIterator Iterator = GetPlayerControllerIterator(); Iterator; ++Iterator )
 		{
 			APlayerController* PlayerActor = Iterator->Get();
-			if (PlayerActor->bIsUsingStreamingVolumes)
+			if (PlayerActor && PlayerActor->bIsUsingStreamingVolumes)
 			{
 				FVector ViewLocation(0,0,0);
 				// let the caller override the location to check for volumes
@@ -708,18 +711,18 @@ void UWorld::ProcessLevelStreamingVolumes(FVector* OverrideViewLocation)
 			FVisibleLevelStreamingSettings* NewStreamingSettings= VisibleLevelStreamingObjects.Find( LevelStreamingObject );
 			bool bShouldAffectLoading							= LevelStreamingObjectsWithVolumesOtherThanBlockingLoad.Find( LevelStreamingObject ) != NULL;
 			bool bShouldBeLoaded								= (NewStreamingSettings != NULL);
-			bool bOriginalShouldBeLoaded						= LevelStreamingObject->bShouldBeLoaded;
-			bool bOriginalShouldBeVisible						= LevelStreamingObject->bShouldBeVisible;
+			bool bOriginalShouldBeLoaded						= LevelStreamingObject->ShouldBeLoaded();
+			bool bOriginalShouldBeVisible						= LevelStreamingObject->ShouldBeVisible();
 			bool bOriginalShouldBlockOnLoad						= LevelStreamingObject->bShouldBlockOnLoad;
-			int32 bOriginalLODIndex								= LevelStreamingObject->LevelLODIndex;
+			int32 OriginalLODIndex								= LevelStreamingObject->GetLevelLODIndex();
 
 			if( bShouldBeLoaded || bShouldAffectLoading )
 			{
 				if( bShouldBeLoaded )
 				{
 					// Loading.
-					LevelStreamingObject->bShouldBeLoaded		= true;
-					LevelStreamingObject->bShouldBeVisible		= NewStreamingSettings->ShouldBeVisible( bOriginalShouldBeVisible );
+					LevelStreamingObject->SetShouldBeLoaded(true);
+					LevelStreamingObject->SetShouldBeVisible(NewStreamingSettings->ShouldBeVisible(bOriginalShouldBeVisible));
 					LevelStreamingObject->bShouldBlockOnLoad	= NewStreamingSettings->ShouldBlockOnLoad();
 				}
 				// Prevent unload request flood.  The additional check ensures that unload requests can still be issued in the first UnloadCooldownTime seconds of play.
@@ -731,26 +734,31 @@ void UWorld::ProcessLevelStreamingVolumes(FVector* OverrideViewLocation)
 					if( GetPlayerControllerIterator() )
 					{
 						LevelStreamingObject->LastVolumeUnloadRequestTime	= TimeSeconds;
-						LevelStreamingObject->bShouldBeLoaded				= false;
-						LevelStreamingObject->bShouldBeVisible				= false;						
+						LevelStreamingObject->SetShouldBeLoaded(false);
+						LevelStreamingObject->SetShouldBeVisible(false);
 					}
 				}
-			
+
+				const bool bNewShouldBeLoaded = LevelStreamingObject->ShouldBeLoaded();
+				const bool bNewShouldBeVisible = LevelStreamingObject->ShouldBeVisible();
+
 				// Notify players of the change.
-				if( bOriginalShouldBeLoaded		!= LevelStreamingObject->bShouldBeLoaded
-				||	bOriginalShouldBeVisible	!= LevelStreamingObject->bShouldBeVisible 
+				if( bOriginalShouldBeLoaded		!= bNewShouldBeLoaded
+				||	bOriginalShouldBeVisible	!= bNewShouldBeVisible
 				||	bOriginalShouldBlockOnLoad	!= LevelStreamingObject->bShouldBlockOnLoad
-				||  bOriginalLODIndex			!= LevelStreamingObject->LevelLODIndex)
+				||  OriginalLODIndex			!= LevelStreamingObject->GetLevelLODIndex())
 				{
 					for( FConstPlayerControllerIterator Iterator = GetPlayerControllerIterator(); Iterator; ++Iterator )
 					{
-						APlayerController* PlayerController = Iterator->Get();
-						PlayerController->LevelStreamingStatusChanged( 
-								LevelStreamingObject, 
-								LevelStreamingObject->bShouldBeLoaded, 
-								LevelStreamingObject->bShouldBeVisible,
-								LevelStreamingObject->bShouldBlockOnLoad,
-								LevelStreamingObject->LevelLODIndex);
+						if (APlayerController* PlayerController = Iterator->Get())
+						{
+							PlayerController->LevelStreamingStatusChanged( 
+									LevelStreamingObject, 
+									bNewShouldBeLoaded, 
+									bNewShouldBeVisible,
+									LevelStreamingObject->bShouldBlockOnLoad,
+									LevelStreamingObject->GetLevelLODIndex());
+						}
 					}
 				}
 			}
@@ -1258,6 +1266,8 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 	SCOPE_TIME_GUARD(TEXT("UWorld::Tick"));
 
 	SCOPED_NAMED_EVENT(UWorld_Tick, FColor::Orange);
+	CSV_SCOPED_TIMING_STAT(Basic, UWorld_Tick);
+
 	if (GIntraFrameDebuggingGameThread)
 	{
 		return;
@@ -1308,6 +1318,7 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 	bool bIsPaused = IsPaused();
 
 	{
+		CSV_SCOPED_TIMING_STAT(Basic, NetWorldTickTime);
 		SCOPE_CYCLE_COUNTER(STAT_NetWorldTickTime);
 		SCOPE_TIME_GUARD(TEXT("UWorld::Tick - NetTick"));
 		LLM_SCOPE(ELLMTag::Networking);
@@ -1572,13 +1583,14 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 	// Update net and flush networking.
     // Tick all net drivers
 	{
+		CSV_SCOPED_TIMING_STAT(Basic, NetBroadcastTickTime);
 		SCOPE_CYCLE_COUNTER(STAT_NetBroadcastTickTime);
 		BroadcastTickFlush(RealDeltaSeconds); // note: undilated time is being used here
 	}
 	
      // PostTick all net drivers
 	{
-		SCOPE_CYCLE_COUNTER(STAT_NetBroadcastPostTickTime);
+		CSV_SCOPED_TIMING_STAT(Basic, NetBroadcastPostTickTime);
 		BroadcastPostTickFlush(RealDeltaSeconds); // note: undilated time is being used here
 	}
 

@@ -83,6 +83,7 @@ public:
 
 	virtual void RegisterPlayer(UWorld* World, FName SessionName, const FUniqueNetId& UniqueId, bool bWasInvited) override;
 	virtual void UnregisterPlayer(UWorld* World, FName SessionName, const FUniqueNetId& UniqueId) override;
+	virtual void UnregisterPlayers(UWorld* World, FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Players) override;
 
 	virtual bool GetResolvedConnectString(UWorld* World, FName SessionName, FString& URL) override;
 

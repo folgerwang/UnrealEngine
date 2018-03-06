@@ -96,7 +96,6 @@ extern PFNGLBEGINQUERYEXTPROC 			glBeginQueryEXT;
 extern PFNGLENDQUERYEXTPROC 			glEndQueryEXT;
 extern PFNGLQUERYCOUNTEREXTPROC			glQueryCounterEXT;
 extern PFNGLGETQUERYIVEXTPROC 			glGetQueryivEXT;  
-extern PFNGLGETQUERYOBJECTIVEXTPROC 	glGetQueryObjectivEXT;
 extern PFNGLGETQUERYOBJECTUIVEXTPROC 	glGetQueryObjectuivEXT;
 extern PFNGLGETQUERYOBJECTUI64VEXTPROC	glGetQueryObjectui64vEXT;
 extern PFNGLMAPBUFFEROESPROC			glMapBufferOESa;
@@ -145,10 +144,16 @@ extern PFNGLBINDBUFFERRANGEPROC			glBindBufferRange;
 extern PFNGLBINDBUFFERBASEPROC			glBindBufferBase;
 extern PFNGLGETUNIFORMBLOCKINDEXPROC	glGetUniformBlockIndex;
 extern PFNGLUNIFORMBLOCKBINDINGPROC		glUniformBlockBinding;
+extern PFNGLBLITFRAMEBUFFERPROC			glBlitFramebuffer;
 
 extern PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVRPROC glFramebufferTextureMultiviewOVR;
 extern PFNGLFRAMEBUFFERTEXTUREMULTISAMPLEMULTIVIEWOVRPROC glFramebufferTextureMultisampleMultiviewOVR;
 extern PFNGLVERTEXATTRIBIPOINTERPROC	glVertexAttribIPointer;
+
+extern PFNGLGENSAMPLERSPROC				glGenSamplers;
+extern PFNGLDELETESAMPLERSPROC			glDeleteSamplers;
+extern PFNGLSAMPLERPARAMETERIPROC		glSamplerParameteri;
+extern PFNGLBINDSAMPLERPROC				glBindSampler;
 
 #include "OpenGLES2.h"
 
@@ -195,19 +200,18 @@ struct FAndroidOpenGL : public FOpenGLES2
 		glQueryCounterEXT(QueryID, GL_TIMESTAMP_EXT);
 	}
 
-	static FORCEINLINE void GetQueryObject(GLuint QueryId, EQueryMode QueryMode, GLuint *OutResult)
+	static FORCEINLINE void GenQueries(GLsizei NumQueries, GLuint* QueryIDs)
 	{
-		GLenum QueryName = (QueryMode == QM_Result) ? GL_QUERY_RESULT_EXT : GL_QUERY_RESULT_AVAILABLE_EXT;
-		glGetQueryObjectuivEXT(QueryId, QueryName, OutResult);
+		*(char*)3 = 0; // this is virtualized and should not be called
 	}
 
-	static FORCEINLINE void GetQueryObject(GLuint QueryId, EQueryMode QueryMode, GLuint64* OutResult)
-	{
-		GLenum QueryName = (QueryMode == QM_Result) ? GL_QUERY_RESULT_EXT : GL_QUERY_RESULT_AVAILABLE_EXT;
-		GLuint64 Result = 0;
-		glGetQueryObjectui64vEXT(QueryId, QueryName, &Result);
-		*OutResult = Result;
-	}
+	static void GetQueryObject(GLuint QueryId, EQueryMode QueryMode, GLuint *OutResult);
+
+	static void GetQueryObject(GLuint QueryId, EQueryMode QueryMode, GLuint64* OutResult);
+
+	static void BeginQuery(GLenum QueryType, GLuint QueryId);
+
+	static void EndQuery(GLenum QueryType);
 
 	static FORCEINLINE void DeleteSync(UGLsync Sync)
 	{
@@ -266,7 +270,7 @@ struct FAndroidOpenGL : public FOpenGLES2
 				|| (SupportsMultipleRenderTargets() && Attachment >= GL_COLOR_ATTACHMENT0 && Attachment <= GL_COLOR_ATTACHMENT7));
 
 		glFramebufferTexture2D(Target, Attachment, TexTarget, Texture, Level);
-		VERIFY_GL(FramebufferTexture_2D)
+		VERIFY_GL(FramebufferTexture_2D);
 	}
 	
 	// Required:
@@ -276,6 +280,11 @@ struct FAndroidOpenGL : public FOpenGLES2
 		{
 			glBlitFramebufferNV(SrcX0, SrcY0, SrcX1, SrcY1, DstX0, DstY0, DstX1, DstY1, Mask, Filter);
 		}
+		else if (IsES31Usable())
+		{
+			glBlitFramebuffer(SrcX0, SrcY0, SrcX1, SrcY1, DstX0, DstY0, DstX1, DstY1, Mask, Filter);
+		}
+		
 	}
 
 	static FORCEINLINE bool TexStorage2D(GLenum Target, GLint Levels, GLint InternalFormat, GLsizei Width, GLsizei Height, GLenum Format, GLenum Type, uint32 Flags)
@@ -301,13 +310,13 @@ struct FAndroidOpenGL : public FOpenGLES2
 			case GL_RGB_INTEGER:
 			case GL_RGBA_INTEGER:
 				bValidFormat = false;
-			break;
+				break;
 		}
 
 		if (bES30Support && (bValidFormat || (bUseHalfFloatTexStorage && Type == GetTextureHalfFloatPixelType() && (Flags & TexCreate_RenderTargetable) != 0)))
 		{
 			glTexStorage2D(Target, Levels, InternalFormat, Width, Height);
-			VERIFY_GL(glTexStorage2D)
+			VERIFY_GL(glTexStorage2D);
 			return true;
 		}
 
@@ -352,7 +361,7 @@ struct FAndroidOpenGL : public FOpenGLES2
 				NULL
 				);
 
-			VERIFY_GL(TexImage_3D)
+			VERIFY_GL(TexImage_3D);
 		}
 	}
 	
@@ -375,7 +384,7 @@ struct FAndroidOpenGL : public FOpenGLES2
 	{
 		glCopyTexSubImage3D(Target, Level, XOffset, YOffset, ZOffset, X, Y, Width, Height);
 	}
-
+	
 	static FORCEINLINE void CopyImageSubData(GLuint SrcName, GLenum SrcTarget, GLint SrcLevel, GLint SrcX, GLint SrcY, GLint SrcZ, GLuint DstName, GLenum DstTarget, GLint DstLevel, GLint DstX, GLint DstY, GLint DstZ, GLsizei Width, GLsizei Height, GLsizei Depth)
 	{
 		check(bSupportsCopyImage);
@@ -473,6 +482,26 @@ struct FAndroidOpenGL : public FOpenGLES2
 		}
 	}
 
+	static FORCEINLINE void GenSamplers(GLsizei Count, GLuint* Samplers)
+	{
+		glGenSamplers(Count, Samplers);
+	}
+
+	static FORCEINLINE void DeleteSamplers(GLsizei Count, GLuint* Samplers)
+	{
+		glDeleteSamplers(Count, Samplers);
+	}
+
+	static FORCEINLINE void SetSamplerParameter(GLuint Sampler, GLenum Parameter, GLint Value)
+	{
+		glSamplerParameteri(Sampler, Parameter, Value);
+	}
+
+	static FORCEINLINE void BindSampler(GLuint Unit, GLuint Sampler)
+	{
+		glBindSampler(Unit, Sampler);
+	}
+
 	// Adreno doesn't support HALF_FLOAT
 	static FORCEINLINE int32 GetReadHalfFloatPixelsEnum()				{ return GL_FLOAT; }
 
@@ -500,10 +529,13 @@ struct FAndroidOpenGL : public FOpenGLES2
 	static FORCEINLINE bool SupportsTexture3D()							{ return bES30Support; }
 	static FORCEINLINE bool SupportsMobileMultiView()					{ return bSupportsMobileMultiView; }
 	static FORCEINLINE bool SupportsImageExternal()						{ return bSupportsImageExternal; }
+	static FORCEINLINE bool SupportsSamplerObjects()					{ return IsES31Usable(); }
 	static FORCEINLINE bool UseES30ShadingLanguage()
 	{
 		return bUseES30ShadingLanguage;
 	}
+
+	static FORCEINLINE bool SupportsBlitFramebuffer() { return FOpenGLES2::SupportsBlitFramebuffer() || IsES31Usable(); }
 
 	enum class EImageExternalType : uint8
 	{

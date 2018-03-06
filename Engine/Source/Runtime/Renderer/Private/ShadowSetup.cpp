@@ -792,16 +792,16 @@ bool FProjectedShadowInfo::ShouldDrawStaticMeshes(FViewInfo& InCurrentView, bool
 		if (InCurrentView.PrimitivesLODMask[PrimitiveId].ContainsLOD(MAX_int8)) // only calculate it if it's not set
 		{
 			FLODMask ViewLODToRender;
-			float MeshScreenRadiusSquared = 0;
+			float MeshScreenSizeSquared = 0;
 
 			if (InPrimitiveSceneInfo->bIsUsingCustomLODRules)
 			{
-				ViewLODToRender = InPrimitiveSceneInfo->Proxy->GetCustomLOD(InCurrentView, InCurrentView.LODDistanceFactor, ForcedLOD, MeshScreenRadiusSquared);
+				ViewLODToRender = InPrimitiveSceneInfo->Proxy->GetCustomLOD(InCurrentView, InCurrentView.LODDistanceFactor, ForcedLOD, MeshScreenSizeSquared);
 			}
 			else
 			{
 				const FBoxSphereBounds& Bounds = InPrimitiveSceneInfo->Proxy->GetBounds();
-				ViewLODToRender = ComputeLODForMeshes(InPrimitiveSceneInfo->StaticMeshes, InCurrentView, Bounds.Origin, Bounds.SphereRadius, ForcedLOD, MeshScreenRadiusSquared, InCurrentView.LODDistanceFactor);
+				ViewLODToRender = ComputeLODForMeshes(InPrimitiveSceneInfo->StaticMeshes, InCurrentView, Bounds.Origin, Bounds.SphereRadius, ForcedLOD, MeshScreenSizeSquared, InCurrentView.LODDistanceFactor);
 			}	
 
 			InCurrentView.PrimitivesLODMask[PrimitiveId] = ViewLODToRender;
@@ -811,7 +811,7 @@ bool FProjectedShadowInfo::ShouldDrawStaticMeshes(FViewInfo& InCurrentView, bool
 			{
 				if (InCurrentView.GetCustomData(InPrimitiveSceneInfo->GetIndex()) == nullptr)
 				{
-					InCurrentView.SetCustomData(InPrimitiveSceneInfo, InPrimitiveSceneInfo->Proxy->InitViewCustomData(InCurrentView, InCurrentView.LODDistanceFactor, InCurrentView.GetCustomDataGlobalMemStack(), true, &ViewLODToRender, MeshScreenRadiusSquared));
+					InCurrentView.SetCustomData(InPrimitiveSceneInfo, InPrimitiveSceneInfo->Proxy->InitViewCustomData(InCurrentView, InCurrentView.LODDistanceFactor, InCurrentView.GetCustomDataGlobalMemStack(), true, &ViewLODToRender, MeshScreenSizeSquared));
 				}
 			}
 		}
@@ -963,7 +963,9 @@ void FProjectedShadowInfo::AddSubjectPrimitive(FPrimitiveSceneInfo* PrimitiveSce
 				}
 
 				// Respect HLOD visibility which can hide child LOD primitives
-				if (CurrentView.ViewState && CurrentView.ViewState->HLODVisibilityState.IsNodeHidden(PrimitiveId))
+				if (CurrentView.ViewState &&
+					CurrentView.ViewState->HLODVisibilityState.IsValidPrimitiveIndex(PrimitiveId) &&
+					CurrentView.ViewState->HLODVisibilityState.IsNodeForcedHidden(PrimitiveId))
 				{
 					continue;
 				}
@@ -1229,11 +1231,15 @@ void FProjectedShadowInfo::GatherDynamicMeshElementsArray(
 		{
 			Renderer.MeshCollector.SetPrimitive(PrimitiveSceneInfo->Proxy, PrimitiveSceneInfo->DefaultDynamicHitProxyId);
 
-			if (ViewRelevance.bUseCustomViewData)
+			if (ViewRelevance.bUseCustomViewData && DependentView != nullptr)
 			{
-				if (FoundView->GetCustomData(PrimitiveSceneInfo->GetIndex()) == nullptr)
+				if (DependentView->GetCustomData(PrimitiveSceneInfo->GetIndex()) == nullptr)
 				{
-					FoundView->SetCustomData(PrimitiveSceneInfo, PrimitiveSceneInfo->Proxy->InitViewCustomData(*FoundView, FoundView->LODDistanceFactor, FoundView->GetCustomDataGlobalMemStack()));
+					void* CustomData = PrimitiveSceneInfo->Proxy->InitViewCustomData(*DependentView, DependentView->LODDistanceFactor, DependentView->GetCustomDataGlobalMemStack());
+					DependentView->SetCustomData(PrimitiveSceneInfo, CustomData);
+
+					// This is required as GetDynamicMeshElements will received ReusedViewsArray which contains only FoundView
+					FoundView->SetCustomData(PrimitiveSceneInfo, CustomData);
 				}
 			}
 
@@ -1481,7 +1487,7 @@ void FSceneRenderer::CreatePerObjectProjectedShadow(
 	bool bOpaqueRelevance = false;
 	bool bTranslucentRelevance = false;
 	bool bTranslucentShadowIsVisibleThisFrame = false;
-	int32 NumBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames();
+	int32 NumBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames(FeatureLevel);
 
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{
@@ -1950,16 +1956,15 @@ void ComputeWholeSceneShadowCacheModes(
 #if DO_CHECK
 								checkf(ExistingShadowMapSize.X > 0 && ExistingShadowMapSize.Y > 0,
 									TEXT("%d, %d"), ExistingShadowMapSize.X, ExistingShadowMapSize.Y);
-								checkf(ActualDesiredResolution < VecExistingSize.X || ActualDesiredResolution < VecExistingSize.Y,
-									TEXT("%f, %s, %s"), ActualDesiredResolution, *VecExistingSize.ToString(),
-									LightSceneInfo->Proxy->GetLightType() == LightType_Point ? TEXT("Point") : TEXT("Spot"));
 #endif
 								FVector2D DropRatio = (VecExistingSize - VecDesiredSize) / (VecExistingSize - VecNewSize);
 								float MaxDropRatio = FMath::Max(
 									InOutShadowMapSize.X < ExistingShadowMapSize.X ? DropRatio.X : 0.f,
 									InOutShadowMapSize.Y < ExistingShadowMapSize.Y ? DropRatio.Y : 0.f);
 
-								bRejectedByGuardBand = MaxDropRatio < 0.5f;
+								// MaxDropRatio <= 0 can happen when max shadow map resolution is lowered (for example,
+								// by changing quality settings). In that case, just let it happen.
+								bRejectedByGuardBand = MaxDropRatio > 0.f && MaxDropRatio < 0.5f;
 							}
 
 							if (bOverBudget || bRejectedByGuardBand)
@@ -2314,7 +2319,7 @@ void FSceneRenderer::CreateWholeSceneProjectedShadow(
 void FSceneRenderer::InitProjectedShadowVisibility(FRHICommandListImmediate& RHICmdList)
 {
 	SCOPE_CYCLE_COUNTER(STAT_InitProjectedShadowVisibility);
-	int32 NumBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames();
+	int32 NumBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames(FeatureLevel);
 
 	// Initialize the views' ProjectedShadowVisibilityMaps and remove shadows without subjects.
 	for(TSparseArray<FLightSceneInfoCompact>::TConstIterator LightIt(Scene->Lights);LightIt;++LightIt)
@@ -2744,7 +2749,7 @@ struct FGatherShadowPrimitivesPacket
 				static auto* CVarMobileEnableMovableLightCSMShaderCulling = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.EnableMovableLightCSMShaderCulling"));
 				static auto* CVarMobileCSMShaderCullingMethod = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.Shadow.CSMShaderCullingMethod"));
 				uint32 MobileCSMCullingMode = CVarMobileCSMShaderCullingMethod->GetValueOnRenderThread()  & 0xF;
-				bRecordShadowSubjectsForMobile =
+				bRecordShadowSubjectsForMobile = 
 					(MobileCSMCullingMode == 2 || MobileCSMCullingMode == 3)
 					&& ((CVarMobileEnableMovableLightCSMShaderCulling->GetValueOnRenderThread() && ProjectedShadowInfo->GetLightSceneInfo().Proxy->IsMovable() && ProjectedShadowInfo->GetLightSceneInfo().ShouldRenderViewIndependentWholeSceneShadows())
 						|| (CVarMobileEnableStaticAndCSMShadowReceivers->GetValueOnRenderThread() && ProjectedShadowInfo->GetLightSceneInfo().Proxy->UseCSMForDynamicObjects()));

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	SceneRendering.cpp: Scene rendering.
@@ -42,6 +42,7 @@
 #include "DeviceProfiles/DeviceProfileManager.h"
 #include "DeviceProfiles/DeviceProfile.h"
 #include "PostProcess/PostProcessing.h"
+#include "SceneSoftwareOcclusion.h"
 
 /*-----------------------------------------------------------------------------
 	Globals
@@ -302,6 +303,8 @@ static TAutoConsoleVariable<int32> CVarTestSecondaryUpscaleOverride(
 #endif
 
 static FParallelCommandListSet* GOutstandingParallelCommandListSet = nullptr;
+FGraphEventRef FSceneRenderer::OcclusionSubmittedFence[FOcclusionQueryHelpers::MaxBufferedOcclusionFrames];
+
 
 DECLARE_CYCLE_STAT(TEXT("DeferredShadingSceneRenderer UpdateMotionBlurCache"), STAT_FDeferredShadingSceneRenderer_UpdateMotionBlurCache, STATGROUP_SceneRendering);
 
@@ -1520,9 +1523,10 @@ FSceneRenderTargetItem* FViewInfo::GetTonemappingLUTRenderTarget(FRHICommandList
 
 void FViewInfo::SetCustomData(const FPrimitiveSceneInfo* InPrimitiveSceneInfo, void* InCustomData)
 {
-	if (InCustomData != nullptr)
+	check(InPrimitiveSceneInfo != nullptr);
+
+	if (InCustomData != nullptr && PrimitivesCustomData[InPrimitiveSceneInfo->GetIndex()] != InCustomData)
 	{
-		check(InPrimitiveSceneInfo != nullptr);
 		check(PrimitivesCustomData.IsValidIndex(InPrimitiveSceneInfo->GetIndex()));
 		PrimitivesCustomData[InPrimitiveSceneInfo->GetIndex()] = InCustomData;
 
@@ -1917,6 +1921,11 @@ void FSceneRenderer::PrepareViewRectsForRendering()
 		check(View.VerifyMembersChecks());
 
 		OutputViewSizes.Add(ViewSize);
+
+		if (GEngine && GEngine->StereoRenderingDevice.IsValid())
+		{
+			GEngine->StereoRenderingDevice->SetFinalViewRect(View.StereoPass, View.ViewRect);
+		}
 	}
 
 	#if !UE_BUILD_SHIPPING
@@ -2000,8 +2009,8 @@ void FSceneRenderer::ComputeFamilySize()
 
 		if (!IStereoRendering::IsAnAdditionalView(View.StereoPass))
 		{
-			InstancedStereoWidth = FPlatformMath::Max(InstancedStereoWidth, static_cast<uint32>(View.ViewRect.Max.X));
-		}
+		InstancedStereoWidth = FPlatformMath::Max(InstancedStereoWidth, static_cast<uint32>(View.ViewRect.Max.X));
+	}
 	}
 
 	// We render to the actual position of the viewports so with black borders we need the max.
@@ -2015,8 +2024,24 @@ void FSceneRenderer::ComputeFamilySize()
 
 bool FSceneRenderer::DoOcclusionQueries(ERHIFeatureLevel::Type InFeatureLevel) const
 {
-	return !IsMobilePlatform(GShaderPlatformForFeatureLevel[InFeatureLevel])
-		&& CVarAllowOcclusionQueries.GetValueOnRenderThread() != 0;
+	static bool bOnce = false;
+	static bool bForceByCmdLine = false;
+	static bool bCmdLineShouldBeEnabledValue = false;
+	if (!bOnce)
+	{
+		bOnce = true;
+		if (FParse::Param(FCommandLine::Get(), TEXT("softwareocclusionculling")) && CVarAllowOcclusionQueries.GetValueOnRenderThread() >= 1)
+		{
+			bForceByCmdLine = true;
+			bCmdLineShouldBeEnabledValue = false;
+		}
+		else if (FParse::Param(FCommandLine::Get(), TEXT("hardwareocclusionculling")) && CVarAllowOcclusionQueries.GetValueOnRenderThread() == 0)
+		{
+			bForceByCmdLine = true;
+			bCmdLineShouldBeEnabledValue = true;
+		}
+	}
+	return bForceByCmdLine ? bCmdLineShouldBeEnabledValue : (InFeatureLevel >= ERHIFeatureLevel::ES3_1 && CVarAllowOcclusionQueries.GetValueOnRenderThread() != 0);
 }
 
 FSceneRenderer::~FSceneRenderer()
@@ -2265,6 +2290,12 @@ void FSceneRenderer::RenderFinish(FRHICommandListImmediate& RHICmdList)
 					}
 					Canvas.Flush_RenderThread(RHICmdList);
 				}
+				
+				// Software occlusion debug draw
+				if (ViewState && ViewState->SceneSoftwareOcclusion)
+				{
+					ViewState->SceneSoftwareOcclusion->DebugDraw(RHICmdList, View, 20, 20);
+				}
 			}
 		}
 	}
@@ -2432,16 +2463,16 @@ void FSceneRenderer::RenderCustomDepthPass(FRHICommandListImmediate& RHICmdList)
 				DrawRenderState.SetBlendState(TStaticBlendState<>::GetRHI());
 
 				const bool bWriteCustomStencilValues = SceneContext.IsCustomDepthPassWritingStencil();
-
+    
 				if (!bWriteCustomStencilValues)
 				{
 					DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual>::GetRHI());
 				}
-
+    
 				if ((CVarCustomDepthTemporalAAJitter.GetValueOnRenderThread() == 0) && (View.AntiAliasingMethod == AAM_TemporalAA))
 				{
 					FBox VolumeBounds[TVC_MAX];
-
+    
 					FViewMatrices ModifiedViewMatricies = View.ViewMatrices;
 					ModifiedViewMatricies.HackRemoveTemporalAAProjectionJitter();
 					FViewUniformShaderParameters OverriddenViewUniformShaderParameters;
@@ -2677,7 +2708,7 @@ static void ViewExtensionPreRender_RenderThread(FRHICommandListImmediate& RHICmd
 static TAutoConsoleVariable<int32> CVarDelaySceneRenderCompletion(
 	TEXT("r.DelaySceneRenderCompletion"),
 	0,
-	TEXT("Experimental option to postpone the cleanup of the scene renderer until later."),
+	TEXT("Experimental option to postpone the cleanup of the scene renderer until later. This does NOT currently work because it is possible for the scene to be modified before ~FSceneRenderer, and that assumes the scene is unchanged."),
 	ECVF_RenderThreadSafe
 );
 
@@ -2774,8 +2805,8 @@ static void RenderViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, 
 		}
 		else
 		{
-			FSceneRenderer::WaitForTasksClearSnapshotsAndDeleteSceneRenderer(RHICmdList, SceneRenderer);
-		}
+		FSceneRenderer::WaitForTasksClearSnapshotsAndDeleteSceneRenderer(RHICmdList, SceneRenderer);
+	}
 	}
 
 #if STATS
@@ -2822,7 +2853,7 @@ void OnChangeSimpleForwardShading(IConsoleVariable* Var)
 	if( !bWasIgnored )
 	{
 		// Propagate cvar change to static draw lists
-		FGlobalComponentRecreateRenderStateContext Context;
+	FGlobalComponentRecreateRenderStateContext Context;
 	}
 	}
 
@@ -3352,37 +3383,37 @@ void FSceneRenderer::ResolveSceneColor(FRHICommandList& RHICmdList)
 				}
 				else
 				{
-					if (CurrentNumSamples == 2)
-					{
-						TShaderMapRef<FHdrCustomResolve2xPS> PixelShader(ShaderMap);
-						GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+				if (CurrentNumSamples == 2)
+				{
+					TShaderMapRef<FHdrCustomResolve2xPS> PixelShader(ShaderMap);
+					GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
 
-						SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-						PixelShader->SetParameters(RHICmdList, CurrentSceneColor->GetRenderTargetItem().TargetableTexture);
-					}
-					else if (CurrentNumSamples == 4)
-					{
-						TShaderMapRef<FHdrCustomResolve4xPS> PixelShader(ShaderMap);
-						GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-
-						SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-						PixelShader->SetParameters(RHICmdList, CurrentSceneColor->GetRenderTargetItem().TargetableTexture);
-					}
-					else if (CurrentNumSamples == 8)
-					{
-						TShaderMapRef<FHdrCustomResolve8xPS> PixelShader(ShaderMap);
-						GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-
-						SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-						PixelShader->SetParameters(RHICmdList, CurrentSceneColor->GetRenderTargetItem().TargetableTexture);
-					}
-					else
-					{
-						// Everything other than 2,4,8 samples is not implemented.
-						check(0);
-						break;
-					}
+					SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+					PixelShader->SetParameters(RHICmdList, CurrentSceneColor->GetRenderTargetItem().TargetableTexture);
 				}
+				else if (CurrentNumSamples == 4)
+				{
+					TShaderMapRef<FHdrCustomResolve4xPS> PixelShader(ShaderMap);
+					GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+
+					SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+					PixelShader->SetParameters(RHICmdList, CurrentSceneColor->GetRenderTargetItem().TargetableTexture);
+				}
+				else if (CurrentNumSamples == 8)
+				{
+					TShaderMapRef<FHdrCustomResolve8xPS> PixelShader(ShaderMap);
+					GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+
+					SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+					PixelShader->SetParameters(RHICmdList, CurrentSceneColor->GetRenderTargetItem().TargetableTexture);
+				}
+				else
+				{
+					// Everything other than 2,4,8 samples is not implemented.
+					check(0);
+						break;
+				}
+			}
 
 				RHICmdList.DrawPrimitive(PT_TriangleList, 0, 1, 1);
 			}

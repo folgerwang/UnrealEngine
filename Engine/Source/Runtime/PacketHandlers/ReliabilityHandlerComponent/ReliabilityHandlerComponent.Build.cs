@@ -7,6 +7,7 @@ public class ReliabilityHandlerComponent : ModuleRules
 {
     public ReliabilityHandlerComponent(ReadOnlyTargetRules Target) : base(Target)
     {
+        ShortName = "ReliableHComp";
         PublicDependencyModuleNames.AddRange(
             new string[] {
 				"Core",

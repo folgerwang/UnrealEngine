@@ -59,6 +59,7 @@
 #include "INetworkFileSystemModule.h"
 #include "PlatformInfo.h"
 #include "Serialization/ArchiveStackTrace.h"
+#include "DistanceFieldAtlas.h"
 
 #include "AssetRegistryModule.h"
 #include "AssetRegistryState.h"
@@ -2422,10 +2423,12 @@ void UCookOnTheFlyServer::PostLoadPackageFixup(UPackage* Package)
 		{
 			GIsCookerLoadingPackage = true;
 			// TArray<FString> PreviouslyCookedPackages;
-			if (World->StreamingLevels.Num())
+			if (World->GetStreamingLevels().Num())
 			{
+				TSet<FName> NeverCookPackageNames;
+				NeverCookPackageList.GetNames(NeverCookPackageNames);
 				//World->LoadSecondaryLevels(true, &PreviouslyCookedPackages);
-				World->LoadSecondaryLevels(true, NULL);
+				World->LoadSecondaryLevels(true, &NeverCookPackageNames);
 			}
 			GIsCookerLoadingPackage = false;
 			TArray<FString> NewPackagesToCook;
@@ -3661,32 +3664,6 @@ void GetAdditionalCurrentIniVersionStrings( const ITargetPlatform* TargetPlatfor
 			IniVersionMap.Add(*RValue, FString::Printf(TEXT("%d"), CVar->GetValueOnGameThread()));
 		}
 	}
-
-
-	// these settings are covered by the general search through accessed ini settings 
-	/*const UTextureLODSettings& LodSettings = TargetPlatform->GetTextureLODSettings();
-
-	UEnum* TextureGroupEnum = FindObject<UEnum>(NULL, TEXT("Engine.TextureGroup"));
-	UEnum* TextureMipGenSettingsEnum = FindObject<UEnum>(NULL, TEXT("Engine.TextureMipGenSettings"));
-
-	for (int I = 0; I < TextureGroup::TEXTUREGROUP_MAX; ++I)
-	{
-		FString TextureGroupString = TextureGroupEnum->GetNameStringByValue(I);
-		const TextureMipGenSettings& MipGenSettings = LodSettings.GetTextureMipGenSettings((TextureGroup)(I));
-		FString MipGenVersionString = FString::Printf(TEXT("TextureLODGroupMipGenSettings:%s#%s"), *TextureGroupString, *TextureMipGenSettingsEnum->GetNameStringByIndex((int32)(MipGenSettings)));
-		//IniVersionStrings.Emplace(MoveTemp(MipGenVersionString));
-		IniVersionMap.Add(FString::Printf(TEXT("TextureLODGroupMipGenSettings:%s"), *TextureGroupString), *TextureMipGenSettingsEnum->GetNameStringByIndex((int32)(MipGenSettings)));
-
-		const int32 MinMipCount = LodSettings.GetMinLODMipCount((TextureGroup)(I));
-		// FString MinMipVersionString = FString::Printf(TEXT("TextureLODGroupMinMipCount:%s#%d"), *TextureGroupEnum->GetNameStringByIndex(I), MinMipCount);
-		//IniVersionStrings.Emplace(MoveTemp(MinMipVersionString));
-		IniVersionMap.Add(FString::Printf(TEXT("TextureLODGroupMinMipCount:%s"), *TextureGroupString), FString::Printf(TEXT("%d"), MinMipCount));
-
-		const int32 MaxMipCount = LodSettings.GetMaxLODMipCount((TextureGroup)(I));
-		// FString MaxMipVersionString = FString::Printf(TEXT("TextureLODGroupMaxMipCount:%s#%d"), *TextureGroupEnum->GetNameStringByIndex(I), MaxMipCount);
-		//IniVersionStrings.Emplace(MoveTemp(MaxMipVersionString));
-		IniVersionMap.Add(FString::Printf(TEXT("TextureLODGroupMaxMipCount:%s"), *TextureGroupString), FString::Printf(TEXT("%d"), MaxMipCount));
-	}*/
 
 	// save off the ddc version numbers also
 	ITargetPlatformManagerModule* TPM = GetTargetPlatformManager();
@@ -5395,11 +5372,13 @@ void UCookOnTheFlyServer::CookByTheBookFinished()
 				
 				TArray<FName> ShaderFormats;
 				TargetPlatform->GetAllTargetedShaderFormats(ShaderFormats);
-				
-                bShaderLibrarySaved = FShaderCodeLibrary::SaveShaderCode(ShaderCodeDir, DebugShaderCodeDir, ShaderFormats);
-				if(!bShaderLibrarySaved)
+				if (ShaderFormats.Num() > 0)
 				{
-					LogCookerMessage(FString::Printf(TEXT("Shared Material Shader Code Library failed for %s."),*TargetPlatformNameString), EMessageSeverity::Error);
+					bShaderLibrarySaved = FShaderCodeLibrary::SaveShaderCode(ShaderCodeDir, DebugShaderCodeDir, ShaderFormats);
+					if(!bShaderLibrarySaved)
+					{
+						LogCookerMessage(FString::Printf(TEXT("Shared Material Shader Code Library failed for %s."),*TargetPlatformNameString), EMessageSeverity::Error);
+					}
 				}
 			}
 		}
@@ -5454,9 +5433,9 @@ void UCookOnTheFlyServer::CookByTheBookFinished()
 		const FString& SandboxRegistryFilename = GetSandboxAssetRegistryFilename();
 
 		ITargetPlatformManagerModule& TPM = GetTargetPlatformManagerRef();
-		if (bCacheShaderLibraries && PackagingSettings->bShareMaterialShaderCode && bShaderLibrarySaved)
+		if (bCacheShaderLibraries && PackagingSettings->bShareMaterialShaderCode)
 		{
-			if (PackagingSettings->bSharedMaterialNativeLibraries)
+			if (PackagingSettings->bSharedMaterialNativeLibraries && bShaderLibrarySaved)
 			{
 				for (const FName& TargetPlatformName : CookByTheBookOptions->TargetPlatformNames)
 				{
@@ -5503,8 +5482,11 @@ void UCookOnTheFlyServer::CookByTheBookFinished()
 				// ignore any packages which failed to cook
 				CookedPackages.GetCookedFilesForPlatform(PlatformName, IgnorePackageFilenames, true, false);
 
+				bool bForceNoFilterAssetsFromAssetRegistry = false;
+
 				if (IsCookingDLC())
 				{
+					bForceNoFilterAssetsFromAssetRegistry = true;
 					// remove the previous release cooked packages from the new asset registry, add to ignore list
 					SCOPE_TIMER(RemovingOldManifestEntries);
 					
@@ -5549,10 +5531,19 @@ void UCookOnTheFlyServer::CookByTheBookFinished()
 					SCOPE_TIMER(SaveManifests);
 					// Always try to save the manifests, this is required to make the asset registry work, but doesn't necessarily write a file
 					Generator.SaveManifests(SandboxFile.Get());
+
+					int64 ExtraFlavorChunkSize;
+					if (FParse::Value(FCommandLine::Get(), TEXT("ExtraFlavorChunkSize="), ExtraFlavorChunkSize))
+					{
+						if (ExtraFlavorChunkSize > 0)
+						{
+							Generator.SaveManifests(SandboxFile.Get(), ExtraFlavorChunkSize);
+						}
+					}
 				}
 				{
 					SCOPE_TIMER(SaveRealAssetRegistry);
-					Generator.SaveAssetRegistry(SandboxRegistryFilename);
+					Generator.SaveAssetRegistry(SandboxRegistryFilename, true, bForceNoFilterAssetsFromAssetRegistry);
 				}
 				{
 					SCOPE_TIMER(WriteCookerOpenOrder);
@@ -5966,11 +5957,17 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 
 		for ( const FName& PlatformName : TargetPlatformNames )
 		{
-			FString OriginalSandboxRegistryFilename = GetReleaseVersionAssetRegistryPath(BasedOnReleaseVersion, PlatformName ) / GetAssetRegistryFilename();
+			FString OriginalSandboxRegistryFilename = GetReleaseVersionAssetRegistryPath(BasedOnReleaseVersion, PlatformName ) / TEXT("Metadata") / GetDevelopmentAssetRegistryFilename();
 
 			TArray<FName> PackageList;
 			// if this check fails probably because the asset registry can't be found or read
 			bool bSucceeded = GetAllPackageFilenamesFromAssetRegistry(OriginalSandboxRegistryFilename, PackageList);
+			if (!bSucceeded)
+			{
+				OriginalSandboxRegistryFilename = GetReleaseVersionAssetRegistryPath(BasedOnReleaseVersion, PlatformName) / GetAssetRegistryFilename();
+				bSucceeded = GetAllPackageFilenamesFromAssetRegistry(OriginalSandboxRegistryFilename, PackageList);
+			}
+
 			if (!bSucceeded)
 			{
 				using namespace PlatformInfo;
@@ -6768,7 +6765,7 @@ uint32 UCookOnTheFlyServer::FullLoadAndSave(uint32& CookedPackageCount)
 		}
 	}
 
-	const bool bSaveConcurrent = !FParse::Param(FCommandLine::Get(), TEXT("NoConcurrentSave"));
+	const bool bSaveConcurrent = FParse::Param(FCommandLine::Get(), TEXT("ConcurrentSave"));
 	uint32 SaveFlags = SAVE_KeepGUID | SAVE_Async | (IsCookFlagSet(ECookInitializationFlags::Unversioned) ? SAVE_Unversioned : 0);
 	if (bSaveConcurrent)
 	{
@@ -6970,10 +6967,18 @@ uint32 UCookOnTheFlyServer::FullLoadAndSave(uint32& CookedPackageCount)
 	ProcessedPackages.Empty();
 
 	// Wait for all shaders to finish compiling
+	if (GShaderCompilingManager)
 	{
 		UE_LOG(LogCook, Display, TEXT("Waiting for shader compilation..."));
 		SCOPE_TIMER(FullLoadAndSave_WaitForShaderCompilation);
 		GShaderCompilingManager->FinishAllCompilation();
+	}
+
+	if (GDistanceFieldAsyncQueue)
+	{
+		UE_LOG(LogCook, Display, TEXT("Waiting for distance field async operations..."));
+		SCOPE_TIMER(FullLoadAndSave_WaitForDistanceField);
+		GDistanceFieldAsyncQueue->BlockUntilAllBuildsComplete();
 	}
 
 	// Wait for all platform data to be loaded

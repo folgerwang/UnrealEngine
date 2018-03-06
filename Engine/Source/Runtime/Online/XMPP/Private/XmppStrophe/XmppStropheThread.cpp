@@ -57,7 +57,7 @@ uint32 FXmppStropheThread::Run()
 		{
 			bConnectRequest = false;
 
-			if (StropheConnection.GetConnectionState() == FStropheConnectionState::Disconnected)
+			if (StropheConnection.GetConnectionState() == EStropheConnectionState::Disconnected)
 			{
 				ConnectionManager.QueueNewLoginStatus(EXmppLoginStatus::ProcessingLogin);
 				if (!StropheConnection.Connect(ServerConfiguration.ServerAddr, ServerConfiguration.ServerPort, ConnectionManager))
@@ -70,7 +70,7 @@ uint32 FXmppStropheThread::Run()
 		{
 			bDisconnectRequest = false;
 
-			if (StropheConnection.GetConnectionState() != FStropheConnectionState::Disconnected)
+			if (StropheConnection.GetConnectionState() != EStropheConnectionState::Disconnected)
 			{
 				ConnectionManager.QueueNewLoginStatus(EXmppLoginStatus::ProcessingLogout);
 				StropheConnection.Disconnect();
@@ -95,7 +95,7 @@ void FXmppStropheThread::Stop()
 
 void FXmppStropheThread::Exit()
 {
-	if (StropheConnection.GetConnectionState() == FStropheConnectionState::Connected)
+	if (StropheConnection.GetConnectionState() == EStropheConnectionState::Connected)
 	{
 		StropheConnection.Disconnect();
 	}
@@ -105,7 +105,7 @@ void FXmppStropheThread::Exit()
 void FXmppStropheThread::SendQueuedStanza()
 {
 	// Send all our queued stanzas
-	while (!StanzaSendQueue.IsEmpty() && StropheConnection.GetConnectionState() == FStropheConnectionState::Connected)
+	while (!StanzaSendQueue.IsEmpty() && StropheConnection.GetConnectionState() == EStropheConnectionState::Connected)
 	{
 		TUniquePtr<FStropheStanza> StanzaPtr;
 		if (StanzaSendQueue.Dequeue(StanzaPtr))

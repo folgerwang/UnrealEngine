@@ -470,7 +470,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="InPath">The path to be collapsed</param>
 		/// <returns>true if the path could be collapsed, false otherwise.</returns>
-		static string CollapseRelativeDirectories(string InPath)
+		public static string CollapseRelativeDirectories(string InPath)
 		{
 			string LocalString = InPath;
 			bool bHadBackSlashes = false;

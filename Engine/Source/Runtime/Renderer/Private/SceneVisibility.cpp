@@ -31,6 +31,8 @@
 #include "FXSystem.h"
 #include "PostProcess/PostProcessing.h"
 #include "SceneView.h"
+#include "SceneSoftwareOcclusion.h"
+#include "Engine/LODActor.h"
 
 /*------------------------------------------------------------------------------
 	Globals
@@ -101,32 +103,20 @@ static FAutoConsoleVariableRef CVarAllowSubPrimitiveQueries(
 	ECVF_RenderThreadSafe
 	);
 
+static int32 GOcclusionQueriesLimit = 0;
+static FAutoConsoleVariableRef CVarOcclusionQueriesLimit(
+	TEXT("r.OcclusionQueriesLimit"),
+	GOcclusionQueriesLimit,
+	TEXT("Limit number of occlusion queries per frame, (0 no limit)"),
+	ECVF_RenderThreadSafe
+	);
+
 static TAutoConsoleVariable<float> CVarStaticMeshLODDistanceScale(
 	TEXT("r.StaticMeshLODDistanceScale"),
 	1.0f,
 	TEXT("Scale factor for the distance used in computing discrete LOD for static meshes. (defaults to 1)\n")
 	TEXT("(higher values make LODs transition earlier, e.g., 2 is twice as fast / half the distance)"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
-
-static TAutoConsoleVariable<float> CVarHLODDistanceScale(
-	TEXT("r.HLOD.DistanceScale"),
-	1.0f,
-	TEXT("Scale factor for the distance used in computing discrete HLOD for transition for static meshes. (defaults to 1)\n")
-	TEXT("(higher values make HLODs transition farther away, e.g., 2 is twice the distance)"),
-	ECVF_Scalability | ECVF_RenderThreadSafe);
-
-static TAutoConsoleVariable<float> CVarHLODDistanceOverride(
-	TEXT("r.HLOD.DistanceOverride"),
-	0.0f,
-	TEXT("If non-zero, overrides the distance that HLOD transitions will take place for all objects.\n"),
-	ECVF_Scalability | ECVF_RenderThreadSafe);
-
-static FAutoConsoleVariable CVarHLODMaxDrawDistanceScaleForChildren(
-	TEXT( "r.HLOD.MaxDrawDistanceScaleForChildren" ),
-	2.0f,
-	TEXT( "When set to zero, HLOD will use the furthest possible max draw distance for child actors, guaranteeing a seamless transition but at the cost of extra visibility check render thread time.  When set to anything greater than zero, this sets how far we should scale the original actor's draw distance to increase the likelyhood of a seamless transition, but may not always match up." ),
-	ECVF_RenderThreadSafe
-);
 
 static int32 GOcclusionCullParallelPrimFetch = 0;
 static FAutoConsoleVariableRef CVarOcclusionCullParallelPrimFetch(
@@ -175,7 +165,7 @@ static TAutoConsoleVariable<int32> CVarParallelInitViews(
 	ECVF_RenderThreadSafe
 	);          
 
-static TAutoConsoleVariable<int32> CVarParallelViewsCustomDataUpdate(
+static TAutoConsoleVariable<int32> CVarParallelPostInitViewCustomData(
 	TEXT("r.ParallelViewsCustomDataUpdate"),
 #if WITH_EDITOR
 	0,
@@ -194,6 +184,10 @@ static FAutoConsoleVariableRef CVarLightMaxDrawDistanceScale(
 	TEXT("Scale applied to the MaxDrawDistance of lights.  Useful for fading out local lights more aggressively on some platforms."),
 	ECVF_Scalability | ECVF_RenderThreadSafe
 );
+
+
+DECLARE_CYCLE_STAT(TEXT("Occlusion Readback"), STAT_CLMM_OcclusionReadback, STATGROUP_CommandListMarkers);
+DECLARE_CYCLE_STAT(TEXT("After Occlusion Readback"), STAT_CLMM_AfterOcclusionReadback, STATGROUP_CommandListMarkers);
 
 /*------------------------------------------------------------------------------
 	Visibility determination.
@@ -330,8 +324,10 @@ static int32 FrustumCull(const FScene* Scene, FViewInfo& View)
 
 	FThreadSafeCounter NumCulledPrimitives;
 	float MaxDrawDistanceScale = GetCachedScalabilityCVars().ViewDistanceScale;
-	const float MaxDrawDistanceScaleForHLODChildren = CVarHLODMaxDrawDistanceScaleForChildren->GetFloat();
 
+	FSceneViewState* ViewState = (FSceneViewState*)View.State;
+	const bool bHLODActive = Scene->SceneLODHierarchy.IsActive();
+	const FHLODVisibilityState* const HLODState = bHLODActive && ViewState ? &ViewState->HLODVisibilityState : nullptr;
 
 	//Primitives per ParallelFor task
 	//Using async FrustumCull. Thanks Yager! See https://udn.unrealengine.com/questions/252385/performance-of-frustumcull.html
@@ -343,7 +339,7 @@ static int32 FrustumCull(const FScene* Scene, FViewInfo& View)
 	const int32 NumTasks = FMath::DivideAndRoundUp(BitArrayWords, FrustumCullNumWordsPerTask);
 
 	ParallelFor(NumTasks, 
-		[&NumCulledPrimitives, Scene, &View, MaxDrawDistanceScale, MaxDrawDistanceScaleForHLODChildren](int32 TaskIndex)
+		[&NumCulledPrimitives, Scene, &View, MaxDrawDistanceScale, HLODState](int32 TaskIndex)
 		{
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_FrustumCull_Loop);
 			const int32 BitArrayNumInner = View.PrimitiveVisibilityMap.Num();
@@ -374,7 +370,9 @@ static int32 FrustumCull(const FScene* Scene, FViewInfo& View)
 						VisibilityId = Scene->PrimitiveVisibilityIds[Index].ByteIndex;
 					}
 
-					float MaxDrawDistance = Bounds.MaxCullDistance * MaxDrawDistanceScale;
+					// Preserve infinite draw distance
+					float MaxDrawDistance = Bounds.MaxCullDistance < FLT_MAX ? Bounds.MaxCullDistance * MaxDrawDistanceScale : FLT_MAX; 
+					float MinDrawDistanceSq = Bounds.MinDrawDistanceSq;
 
 					// If cull distance is disabled, always show the primitive (except foliage)
 					if (View.Family->EngineShowFlags.DistanceCulledPrimitives
@@ -383,8 +381,19 @@ static int32 FrustumCull(const FScene* Scene, FViewInfo& View)
 						MaxDrawDistance = FLT_MAX;
 					}
 
+					// Fading HLODs and their children must be visible, objects hidden by HLODs can be culled
+					if (HLODState && HLODState->IsNodeForcedVisible(Index))
+					{
+						MaxDrawDistance = FLT_MAX;
+						MinDrawDistanceSq = 0.f;
+					}
+					else if (HLODState && HLODState->IsNodeForcedHidden(Index))
+					{
+						MaxDrawDistance = 0.f;
+					}
+
 					if (DistanceSquared > FMath::Square(MaxDrawDistance + FadeRadius) ||
-						(DistanceSquared < Bounds.MinDrawDistanceSq) ||
+						(DistanceSquared < MinDrawDistanceSq) ||
 						(UseCustomCulling && !View.CustomVisibilityQuery->IsVisible(VisibilityId, FBoxSphereBounds(Bounds.BoxSphereBounds.Origin, Bounds.BoxSphereBounds.BoxExtent, Bounds.BoxSphereBounds.SphereRadius))) ||
 						(bAlsoUseSphereTest && View.ViewFrustum.IntersectSphere(Bounds.BoxSphereBounds.Origin, Bounds.BoxSphereBounds.SphereRadius) == false) ||
 						View.ViewFrustum.IntersectBox(Bounds.BoxSphereBounds.Origin, Bounds.BoxSphereBounds.BoxExtent) == false ||
@@ -600,7 +609,7 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 	const bool bHZBOcclusion		= Params.bHZBOcclusion;
 
 	FSceneViewState* ViewState = (FSceneViewState*)View.State;
-	const int32 NumBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames();
+	const int32 NumBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames(Scene->GetFeatureLevel());
 	const bool bClearQueries = !View.Family->EngineShowFlags.HitProxies;
 	const float CurrentRealTime = View.Family->CurrentRealTime;
 	uint32 OcclusionFrameCounter = ViewState->OcclusionFrameCounter;
@@ -858,7 +867,18 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 						bAllowBoundsTest = OcclusionBounds.SphereRadius < HALF_WORLD_MAX;
 					}
 
-					if (bAllowBoundsTest)
+					// if we can't submit more queries this frame threat primitive as unoccluded
+					bool bQueriesOnLimit = true;
+					if (false && GOcclusionQueriesLimit > 0)
+					{
+						int32 NumQueries = View.GroupedOcclusionQueries.GetQueriesNum() + View.IndividualOcclusionQueries.GetQueriesNum();
+						if (NumQueries >= GOcclusionQueriesLimit)
+						{
+							bQueriesOnLimit = false;
+						}
+					}
+
+					if (bAllowBoundsTest && bQueriesOnLimit)
 					{
 						if (bHZBOcclusion)
 						{
@@ -942,18 +962,18 @@ static void FetchVisibilityForPrimitives_Range(FVisForPrimParams& Params)
 
 			if (bSubQueries)
 			{
-				SubIsOccluded.Add(bIsOccluded);
-				if (!bIsOccluded)
-				{
-					bAllSubOccluded = false;
-					if (bOcclusionStateIsDefinite)
+					SubIsOccluded.Add(bIsOccluded);
+					if (!bIsOccluded)
 					{
-						if (PrimitiveOcclusionHistory)
+						bAllSubOccluded = false;
+						if (bOcclusionStateIsDefinite)
 						{
-							PrimitiveOcclusionHistory->LastVisibleTime = CurrentRealTime;
+							if (PrimitiveOcclusionHistory)
+							{
+								PrimitiveOcclusionHistory->LastVisibleTime = CurrentRealTime;
+							}
 						}
 					}
-				}
 
 				if (bIsOccluded || !bOcclusionStateIsDefinite)
 				{
@@ -1147,7 +1167,7 @@ static int32 FetchVisibilityForPrimitives(const FScene* Scene, FViewInfo& View, 
 			StartIndex += NumToProcess;
 		}
 
-		const int32 NumBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames();
+		const int32 NumBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames(Scene->GetFeatureLevel());
 		uint32 OcclusionFrameCounter = ViewState->OcclusionFrameCounter;
 		TSet<FPrimitiveOcclusionHistory, FPrimitiveOcclusionHistoryKeyFuncs>& ViewPrimitiveOcclusionHistory = ViewState->PrimitiveOcclusionHistorySet;
 		FRenderQueryPool& OcclusionQueryPool = ViewState->OcclusionQueryPool;
@@ -1267,6 +1287,7 @@ static int32 FetchVisibilityForPrimitives(const FScene* Scene, FViewInfo& View, 
 static int32 OcclusionCull(FRHICommandListImmediate& RHICmdList, const FScene* Scene, FViewInfo& View)
 {
 	SCOPE_CYCLE_COUNTER(STAT_OcclusionCull);	
+	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLMM_OcclusionReadback));
 
 	// INITVIEWS_TODO: This could be more efficient if broken up in to separate concerns:
 	// - What is occluded?
@@ -1311,7 +1332,7 @@ static int32 OcclusionCull(FRHICommandListImmediate& RHICmdList, const FScene* S
 	float CurrentRealTime = View.Family->CurrentRealTime;
 	if (ViewState)
 	{
-		if (Scene->GetFeatureLevel() >= ERHIFeatureLevel::SM4)
+		if (Scene->GetFeatureLevel() >= ERHIFeatureLevel::ES3_1)
 		{
 			bool bSubmitQueries = !View.bDisableQuerySubmissions;
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -1348,7 +1369,7 @@ static int32 OcclusionCull(FRHICommandListImmediate& RHICmdList, const FScene* S
 			}
 		}
 	}
-
+	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLMM_AfterOcclusionReadback));
 	return NumOccludedPrimitives;
 }
 
@@ -1694,10 +1715,10 @@ struct FRelevancePacket
 		// using a local counter to reduce memory traffic
 		int32 NumVisibleStaticMeshElements = 0;
 		FViewInfo& WriteView = const_cast<FViewInfo&>(View);
-		FFrozenSceneViewMatricesGuard FrozenMatricesGuard(WriteView);
 		const FSceneViewState* ViewState = (FSceneViewState*)View.State;
 
 		const bool bHLODActive = Scene->SceneLODHierarchy.IsActive();
+		const FHLODVisibilityState* const HLODState = bHLODActive && ViewState ? &ViewState->HLODVisibilityState : nullptr;
 
 		for (int32 StaticPrimIndex = 0, Num = RelevantStaticPrimitives.NumPrims; StaticPrimIndex < Num; ++StaticPrimIndex)
 		{
@@ -1706,16 +1727,16 @@ struct FRelevancePacket
 			const FPrimitiveBounds& Bounds = Scene->PrimitiveBounds[PrimitiveIndex];
 			const FPrimitiveViewRelevance& ViewRelevance = View.PrimitiveViewRelevanceMap[PrimitiveIndex];
 
-			float MeshScreenRadiusSquared = 0;
+			float MeshScreenSizeSquared = 0;
 			FLODMask LODToRender;
 
 			if (PrimitiveSceneInfo->bIsUsingCustomLODRules)
 			{
-				LODToRender = PrimitiveSceneInfo->Proxy->GetCustomLOD(View, ViewData.LODScale, ViewData.ForcedLODLevel, MeshScreenRadiusSquared);
+				LODToRender = PrimitiveSceneInfo->Proxy->GetCustomLOD(View, ViewData.LODScale, ViewData.ForcedLODLevel, MeshScreenSizeSquared);
 			}
 			else
 			{
-				LODToRender = ComputeLODForMeshes(PrimitiveSceneInfo->StaticMeshes, View, Bounds.BoxSphereBounds.Origin, Bounds.BoxSphereBounds.SphereRadius, ViewData.ForcedLODLevel, MeshScreenRadiusSquared, ViewData.LODScale);
+				LODToRender = ComputeLODForMeshes(PrimitiveSceneInfo->StaticMeshes, View, Bounds.BoxSphereBounds.Origin, Bounds.BoxSphereBounds.SphereRadius, ViewData.ForcedLODLevel, MeshScreenSizeSquared, ViewData.LODScale);
 			}
 
 			PrimitivesLODMask.AddPrim(FRelevancePacket::FPrimitiveLODMask(PrimitiveIndex, LODToRender));
@@ -1724,7 +1745,7 @@ struct FRelevancePacket
 
 			if (OutHasViewCustomDataMasks[PrimitiveIndex] != 0) // Has a relevance for this view
 			{
-				UserViewCustomData = PrimitiveSceneInfo->Proxy->InitViewCustomData(View, ViewData.LODScale, PrimitiveCustomDataMemStack, true, &LODToRender, MeshScreenRadiusSquared);
+				UserViewCustomData = PrimitiveSceneInfo->Proxy->InitViewCustomData(View, ViewData.LODScale, PrimitiveCustomDataMemStack, true, &LODToRender, MeshScreenSizeSquared);
 
 				if (UserViewCustomData != nullptr)
 				{
@@ -1732,8 +1753,8 @@ struct FRelevancePacket
 				}
 			}
 
-			const bool bIsHLODFading = bHLODActive && ViewState && ViewState->HLODVisibilityState.IsNodeFading(PrimitiveIndex);
-			const bool bIsHLODFadingOut = bHLODActive && ViewState && ViewState->HLODVisibilityState.IsNodeFadingOut(PrimitiveIndex);
+			const bool bIsHLODFading = HLODState ? HLODState->IsNodeFading(PrimitiveIndex) : false;
+			const bool bIsHLODFadingOut = HLODState ? HLODState->IsNodeFadingOut(PrimitiveIndex) : false;
 			const bool bIsLODDithered = LODToRender.IsDithered();
 
 			float DistanceSquared = (Bounds.BoxSphereBounds.Origin - ViewData.ViewOrigin).SizeSquared();
@@ -1891,6 +1912,7 @@ static void ComputeAndMarkRelevanceForViewParallel(
 {
 	check(OutHasDynamicMeshElementsMasks.Num() == Scene->Primitives.Num());
 
+	FFrozenSceneViewMatricesGuard FrozenMatricesGuard(View);
 	const FMarkRelevantStaticMeshesForViewData ViewData(View);
 
 	int32 NumMesh = View.StaticMeshVisibilityMap.Num();
@@ -2510,12 +2532,12 @@ void FSceneRenderer::PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdLis
 					//     shader does.  The correct fix would be to disable the effect when we don't need it and to properly mark
 					//     the uber-postprocessing effect as the last effect in the chain.
 
-					View.bPrevTransformsReset = true;
+					View.bPrevTransformsReset				= true;
 				}
 				else
 				{
 					View.PrevViewInfo = ViewState->PrevFrameViewInfo;
-				}
+						}
 
 				// we don't use DeltaTime as it can be 0 (in editor) and is computed by subtracting floats (loses precision over time)
 				// Clamp DeltaWorldTime to reasonable values for the purposes of motion blur, things like TimeDilation can make it very small
@@ -2703,6 +2725,14 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList)
 		// Most views use standard frustum culling.
 		if (bNeedsFrustumCulling)
 		{
+			// Update HLOD transition/visibility states to allow use during distance culling
+			FLODSceneTree& HLODTree = Scene->SceneLODHierarchy;
+			if (HLODTree.IsActive())
+			{
+				QUICK_SCOPE_CYCLE_COUNTER(STAT_ViewVisibilityTime_HLODUpdate);
+				HLODTree.UpdateVisibilityStates(View);
+			}
+
 			int32 NumCulledPrimitivesForView;
 			if (View.CustomVisibilityQuery && View.CustomVisibilityQuery->Prepare())
 			{
@@ -2788,15 +2818,13 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList)
 			STAT(NumOccludedPrimitives += NumOccludedPrimitivesInView);
 		}
 
-		// visibility test is done, so now build the hidden flags based on visibility set up
-		FLODSceneTree& HLODTree = Scene->SceneLODHierarchy;
-
-		if (HLODTree.IsActive())
+		if (ViewState && ViewState->SceneSoftwareOcclusion && !View.Family->EngineShowFlags.Wireframe)
 		{
-			QUICK_SCOPE_CYCLE_COUNTER(STAT_ViewVisibilityTime_HLOD);
-			HLODTree.UpdateAndApplyVisibilityStates(View);
+			SCOPE_CYCLE_COUNTER(STAT_SoftwareOcclusionCull)
+			int32 NumOccludedPrimitivesInView = ViewState->SceneSoftwareOcclusion->Process(RHICmdList, Scene, View);
+			STAT(NumOccludedPrimitives += NumOccludedPrimitivesInView);
 		}
-
+		
 		MarkAllPrimitivesForReflectionProxyUpdate(Scene);
 		{
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_ViewVisibilityTime_ConditionalMarkStaticMeshElementsForUpdate);
@@ -3097,7 +3125,7 @@ bool FDeferredShadingSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdLi
 		InitViewsPossiblyAfterPrepass(RHICmdList, ILCTaskData, SortEvents, UpdateViewCustomDataEvents);
 	}
 
-	UpdateViewCustomData(UpdateViewCustomDataEvents);
+	PostInitViewCustomData(UpdateViewCustomDataEvents);
 
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_InitViews_InitRHIResources);
@@ -3110,6 +3138,12 @@ bool FDeferredShadingSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdLi
 
 			// Possible stencil dither optimization approach
 			View.bAllowStencilDither = bDitheredLODTransitionsUseStencil;
+
+			// Set the pre-exposure before initializing the constant buffers.
+			if (View.ViewState)
+			{
+				View.ViewState->UpdatePreExposure(View);
+			}
 
 			// Initialize the view's RHI resources.
 			View.InitRHIResources();
@@ -3126,15 +3160,15 @@ bool FDeferredShadingSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdLi
 	return bDoInitViewAftersPrepass;
 }
 
-class FUpdateViewCustomDataTask
+class FPostInitViewCustomDataTask
 {
 private:
 	FViewInfo* ViewInfo;
-	int32 PrimitiveStartIndex;
-	int32 PrimitiveCount;	
+	const int32 PrimitiveStartIndex;
+	const int32 PrimitiveCount;
 
 public:
-	FUpdateViewCustomDataTask(FViewInfo* InViewInfo, int32 InPrimitiveStartIndex, int32 InPrimitiveCount)
+	FPostInitViewCustomDataTask(FViewInfo* InViewInfo, int32 InPrimitiveStartIndex, int32 InPrimitiveCount)
 		: ViewInfo(InViewInfo)
 		, PrimitiveStartIndex(InPrimitiveStartIndex)
 		, PrimitiveCount(InPrimitiveCount)
@@ -3142,7 +3176,7 @@ public:
 
 	FORCEINLINE TStatId GetStatId() const
 	{
-		RETURN_QUICK_DECLARE_CYCLE_STAT(FUpdateViewCustomDataTask, STATGROUP_TaskGraphTasks);
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FPostInitViewCustomDataTask, STATGROUP_TaskGraphTasks);
 	}
 
 	ENamedThreads::Type GetDesiredThread()
@@ -3156,51 +3190,60 @@ public:
 	{
 		for (int32 i = PrimitiveStartIndex; i < PrimitiveStartIndex + PrimitiveCount; ++i)
 		{
-			check(ViewInfo->PrimitivesWithCustomData.IsValidIndex(i));
-			check(ViewInfo->UpdatedPrimitivesWithCustomData.IsValidIndex(i));
-
-			if (!ViewInfo->UpdatedPrimitivesWithCustomData[i])
+			if (ViewInfo->PrimitivesWithCustomData.IsValidIndex(i))
 			{
-				const FPrimitiveSceneInfo* PrimitiveSceneInfo = ViewInfo->PrimitivesWithCustomData[i];
-				check(PrimitiveSceneInfo != nullptr);
+				check(ViewInfo->UpdatedPrimitivesWithCustomData.IsValidIndex(i));
 
-				PrimitiveSceneInfo->Proxy->UpdateViewCustomData(*ViewInfo, ViewInfo->GetCustomData(PrimitiveSceneInfo->GetIndex()));
-				ViewInfo->UpdatedPrimitivesWithCustomData[i] = true;
+				if (!ViewInfo->UpdatedPrimitivesWithCustomData[i])
+				{
+					const FPrimitiveSceneInfo* PrimitiveSceneInfo = ViewInfo->PrimitivesWithCustomData[i];
+					check(PrimitiveSceneInfo != nullptr);
+
+					PrimitiveSceneInfo->Proxy->PostInitViewCustomData(*ViewInfo, ViewInfo->GetCustomData(PrimitiveSceneInfo->GetIndex()));
+					ViewInfo->UpdatedPrimitivesWithCustomData[i] = true;
+				}
 			}
 		}
 	}
 };
 
-void FDeferredShadingSceneRenderer::UpdateViewCustomData(FGraphEventArray& OutUpdateEvents)
+void FDeferredShadingSceneRenderer::PostInitViewCustomData(FGraphEventArray& OutUpdateEvents)
 {
-	if (FApp::ShouldUseThreadingForPerformance() && CVarParallelViewsCustomDataUpdate.GetValueOnRenderThread() > 0)
+	if (FApp::ShouldUseThreadingForPerformance() && CVarParallelPostInitViewCustomData.GetValueOnRenderThread() > 0)
 	{
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_UpdateViewCustomData_AsyncTask);
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_PostInitViewCustomData_AsyncTask);
 
-		const int32 BatchSize = 100;
-
+		const int32 MaxPrimitiveUpdateTaskCount = 10;
+		const int32 MinPrimitiveCountByTask = 100;
+		
 		for (FViewInfo& ViewInfo : Views)
 		{
-			int32 UpdateCountLeft = ViewInfo.PrimitivesWithCustomData.Num();
-			int32 StartIndex = 0;
-			int32 CurrentBatchSize = BatchSize;
-
-			while (UpdateCountLeft > 0)
+			if (ViewInfo.PrimitivesWithCustomData.Num() > 0)
 			{
-				if (UpdateCountLeft - CurrentBatchSize < 0)
-				{
-					CurrentBatchSize = UpdateCountLeft;
-				}
+				const int32 BatchSize = FMath::Max(FMath::Max(FMath::RoundToInt((float)ViewInfo.PrimitivesWithCustomData.Num() / (float)MaxPrimitiveUpdateTaskCount), 1), MinPrimitiveCountByTask);
 
-				OutUpdateEvents.Add(TGraphTask<FUpdateViewCustomDataTask>::CreateTask(nullptr, ENamedThreads::GetRenderThread()).ConstructAndDispatchWhenReady(&ViewInfo, StartIndex, CurrentBatchSize));
-				StartIndex += CurrentBatchSize;
-				UpdateCountLeft -= CurrentBatchSize;
+				int32 UpdateCountLeft = ViewInfo.PrimitivesWithCustomData.Num();
+				int32 StartIndex = 0;
+				int32 CurrentBatchSize = BatchSize;
+
+				while (UpdateCountLeft > 0)
+				{
+					if (UpdateCountLeft - CurrentBatchSize < 0)
+					{
+						CurrentBatchSize = UpdateCountLeft;
+					}
+
+					OutUpdateEvents.Add(TGraphTask<FPostInitViewCustomDataTask>::CreateTask(nullptr, ENamedThreads::GetRenderThread()).ConstructAndDispatchWhenReady(&ViewInfo, StartIndex, CurrentBatchSize));
+
+					StartIndex += CurrentBatchSize;
+					UpdateCountLeft -= CurrentBatchSize;
+				}
 			}
 		}
 	}
 	else
 	{
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_UpdateViewCustomData);
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_PostInitViewCustomData);
 
 		for (FViewInfo& ViewInfo : Views)
 		{
@@ -3208,7 +3251,7 @@ void FDeferredShadingSceneRenderer::UpdateViewCustomData(FGraphEventArray& OutUp
 			{
 				if (!ViewInfo.UpdatedPrimitivesWithCustomData[PrimitiveSceneInfo->GetIndex()])
 				{
-					PrimitiveSceneInfo->Proxy->UpdateViewCustomData(ViewInfo, ViewInfo.GetCustomData(PrimitiveSceneInfo->GetIndex()));
+					PrimitiveSceneInfo->Proxy->PostInitViewCustomData(ViewInfo, ViewInfo.GetCustomData(PrimitiveSceneInfo->GetIndex()));
 					ViewInfo.UpdatedPrimitivesWithCustomData[PrimitiveSceneInfo->GetIndex()] = true;
 				}
 			}
@@ -3275,7 +3318,7 @@ void FLODSceneTree::AddChildNode(const FPrimitiveComponentId NodeId, FPrimitiveS
 			int32 ParentIndex = Scene->PrimitiveComponentIds.Find(NodeId);
 			if(Scene->Primitives.IsValidIndex(ParentIndex))
 			{
-				Node->SceneInfo = Scene->Primitives[ParentIndex];
+				Node->SceneInfo = Scene->Primitives[ParentIndex];				
 			}
 			//new nodes that will need distance scale, reset since we don't keep stateful data about this per node.
 			ResetHLODDistanceScaleApplication();
@@ -3312,7 +3355,7 @@ void FLODSceneTree::UpdateNodeSceneInfo(FPrimitiveComponentId NodeId, FPrimitive
 	}
 }
 
-void FLODSceneTree::UpdateAndApplyVisibilityStates(FViewInfo& View)
+void FLODSceneTree::UpdateVisibilityStates(FViewInfo& View)
 {
 	if (FSceneViewState* ViewState = (FSceneViewState*)View.State)
 	{
@@ -3325,7 +3368,7 @@ void FLODSceneTree::UpdateAndApplyVisibilityStates(FViewInfo& View)
 #endif
 
 		const float HLODDistanceScale = FMath::Max(0.0f, CVarHLODDistanceScale.GetValueOnRenderThread());
-		const float HLODDistanceOverride = FMath::Max( 0.0f, CVarHLODDistanceOverride.GetValueOnRenderThread() );
+		const bool bUpdateHLODOverrides = LastHLODDistanceScale != HLODDistanceScale;
 
 		// Per-frame initialization
 		FHLODVisibilityState& HLODState = ViewState->HLODVisibilityState;
@@ -3333,8 +3376,8 @@ void FLODSceneTree::UpdateAndApplyVisibilityStates(FViewInfo& View)
 
 		HLODState.PrimitiveFadingLODMap.Init(false, View.PrimitiveVisibilityMap.Num());
 		HLODState.PrimitiveFadingOutLODMap.Init(false, View.PrimitiveVisibilityMap.Num());
-		HLODState.HiddenChildPrimitiveMap.Init(false, View.PrimitiveVisibilityMap.Num());
-		FSceneBitArray& VisibilityFlags = View.PrimitiveVisibilityMap;
+		HLODState.ForcedVisiblePrimitiveMap.Init(false, View.PrimitiveVisibilityMap.Num());
+		HLODState.ForcedHiddenPrimitiveMap.Init(false, View.PrimitiveVisibilityMap.Num());
 		TArray<FPrimitiveViewRelevance, SceneRenderingAllocator>& RelevanceMap = View.PrimitiveViewRelevanceMap;
 
 		int32 UpdateCount = ++HLODState.UpdateCount;
@@ -3367,101 +3410,75 @@ void FLODSceneTree::UpdateAndApplyVisibilityStates(FViewInfo& View)
 				continue;
 			}
 
-			const int32 NodeIndex = Node.SceneInfo->GetIndex();
-			bool bIsVisible = VisibilityFlags[NodeIndex];
+			const int32 NodeIndex = Node.SceneInfo->GetIndex();	
 
 			FPrimitiveBounds& Bounds = Scene->PrimitiveBounds[NodeIndex];
+			const bool bForcedIntoView = FMath::IsNearlyZero(Bounds.MinDrawDistanceSq);
 			{
-				if (LastHLODDistanceScale != HLODDistanceScale ||
-					LastHLODDistanceOverride != HLODDistanceOverride)
+				if (bUpdateHLODOverrides)
 				{
 					// Determine desired HLOD state
 					float MinDrawDistance = Scene->Primitives[NodeIndex]->Proxy->GetMinDrawDistance();
-					const bool bIsOverridingHLODDistance = HLODDistanceOverride != 0.0f;
-					if( bIsOverridingHLODDistance )
-					{
-						MinDrawDistance = HLODDistanceOverride;
-					}
 					const float AdjustedMinDrawDist = MinDrawDistance * HLODDistanceScale;
 					Bounds.MinDrawDistanceSq = AdjustedMinDrawDist * AdjustedMinDrawDist;
 				}
 			}
 
-			const float DistanceSquared = Bounds.BoxSphereBounds.ComputeSquaredDistanceFromBoxToPoint( View.ViewMatrices.GetViewOrigin() );
+			const float DistanceSquared = (Bounds.BoxSphereBounds.Origin - View.ViewMatrices.GetViewOrigin()).SizeSquared();
 			const bool bIsInDrawRange = DistanceSquared >= Bounds.MinDrawDistanceSq;
 
 			const bool bWasFadingPreUpdate = !!NodeVisibility.bIsFading;
-
-			// Fade when HLODs change threshold on-screen, else snap
-			// TODO: This logic can still be improved to clear state and
-			//       transitions when off-screen, but needs better detection
-			const bool bChangedRange = bIsInDrawRange != !!NodeVisibility.bWasVisible;
-			const bool bIsOnScreen = bIsVisible || NodeVisibility.bWasVisible;
+			const bool bIsDitheredTransition = NodeMeshes[0].bDitheredLODTransition;
 
 			// Update fading state
-			if (NodeMeshes[0].bDitheredLODTransition)
-			{
+			if (bIsDitheredTransition && !bForcedIntoView)
+			{		
 				// Update with syncs
 				if (bSyncFrame)
 				{
+					// Fade when HLODs change threshold
+					const bool bChangedRange = bIsInDrawRange != !!NodeVisibility.bWasVisible;
+
 					if (NodeVisibility.bIsFading)
 					{
 						NodeVisibility.bIsFading = false;
 					}
-					else if (bChangedRange && bIsOnScreen)
+					else if (bChangedRange )
 					{
-						NodeVisibility.bIsFading = true;	
+						NodeVisibility.bIsFading = true;
 					}
 
 					NodeVisibility.bWasVisible = NodeVisibility.bIsVisible;
 					NodeVisibility.bIsVisible = bIsInDrawRange;
-				}
-
-				// Flag as fading or freeze visibility if waiting for a fade
-				if (NodeVisibility.bIsFading)
-				{
-					HLODState.PrimitiveFadingLODMap[NodeIndex] = true;
-					HLODState.PrimitiveFadingOutLODMap[NodeIndex] = !NodeVisibility.bIsVisible;
-				}
-				else if (bChangedRange && bIsOnScreen)
-				{
-					VisibilityFlags[NodeIndex] = !!NodeVisibility.bWasVisible;
-					bIsVisible = !!NodeVisibility.bWasVisible;
-				}
-				else if (!bIsInDrawRange)
-				{
-					VisibilityFlags[NodeIndex] = false;
-					bIsVisible = false;
 				}
 			}
 			else
 			{
 				// Instant transitions without dithering
 				NodeVisibility.bWasVisible = NodeVisibility.bIsVisible;
-				NodeVisibility.bIsVisible = bIsInDrawRange;
+				NodeVisibility.bIsVisible = bIsInDrawRange || bForcedIntoView;
 				NodeVisibility.bIsFading = false;
-
-				VisibilityFlags[ NodeIndex ] = NodeVisibility.bIsVisible;
-				bIsVisible = NodeVisibility.bIsVisible;
-
-				// For instant HLOD->LOD swaps immediate children can be occlusion culled so we force their visibility
-				if (NodeVisibility.bWasVisible && !NodeVisibility.bIsVisible && bChangedRange)
-				{
-					bool bVisible = true;
-					bool bRecursive = false;
-					UpdateNodeChildrenVisibility(ViewState, Node, VisibilityFlags, bVisible, bRecursive);
-				}
 			}
 
 			if (NodeVisibility.bIsFading)
 			{
 				// Fade until state back in sync
-				ApplyNodeFadingToChildren(ViewState, Node, VisibilityFlags, true, !!NodeVisibility.bIsVisible);
+				HLODState.PrimitiveFadingLODMap[NodeIndex] = true;
+				HLODState.PrimitiveFadingOutLODMap[NodeIndex] = !NodeVisibility.bIsVisible;
+				HLODState.ForcedVisiblePrimitiveMap[NodeIndex] = true;
+
+				ApplyNodeFadingToChildren(ViewState, Node, true, !!NodeVisibility.bIsVisible);
 			}
-			else if (bIsVisible)
+			else if (NodeVisibility.bIsVisible)
 			{
 				// If stable and visible, override hierarchy visibility
-				UpdateNodeChildrenVisibility(ViewState, Node, VisibilityFlags);
+				HLODState.ForcedVisiblePrimitiveMap[NodeIndex] = true;
+				HideNodeChildren(ViewState, Node);
+			}
+			else
+			{
+				// Not visible and waiting for a transition to fade, keep HLOD hidden
+				HLODState.ForcedHiddenPrimitiveMap[NodeIndex] = true;
 			}
 
 			// Flush cached lighting data when changing visible contents
@@ -3484,11 +3501,10 @@ void FLODSceneTree::UpdateAndApplyVisibilityStates(FViewInfo& View)
 			}
 		}
 		LastHLODDistanceScale = HLODDistanceScale;
-		LastHLODDistanceOverride = HLODDistanceOverride;
 	}	
 }
 
-void FLODSceneTree::ApplyNodeFadingToChildren(FSceneViewState* ViewState, FLODSceneNode& Node, FSceneBitArray& VisibilityFlags, const bool bIsFading, const bool bIsFadingOut)
+void FLODSceneTree::ApplyNodeFadingToChildren(FSceneViewState* ViewState, FLODSceneNode& Node, const bool bIsFading, const bool bIsFadingOut)
 {
 	checkSlow(ViewState);
 
@@ -3500,28 +3516,29 @@ void FLODSceneTree::ApplyNodeFadingToChildren(FSceneViewState* ViewState, FLODSc
 		NodeVisibility.UpdateCount = HLODState.UpdateCount;
 
 		// Force visibility during fades
-		const int32 NodeIndex = Node.SceneInfo->GetIndex();
-		VisibilityFlags[NodeIndex] = true;
-
 		for (const auto& Child : Node.ChildrenSceneInfos)
 		{
 			const int32 ChildIndex = Child->GetIndex();
 
 			HLODState.PrimitiveFadingLODMap[ChildIndex] = bIsFading;
 			HLODState.PrimitiveFadingOutLODMap[ChildIndex] = bIsFadingOut;
-			HLODState.HiddenChildPrimitiveMap[ChildIndex] = false;
-			VisibilityFlags[ChildIndex] = true;
+			HLODState.ForcedHiddenPrimitiveMap[ChildIndex] = false;
+
+			if (bIsFading)
+			{
+				HLODState.ForcedVisiblePrimitiveMap[ChildIndex] = true;
+			}
 
 			// Fading only occurs at the adjacent hierarchy level, below should be hidden
 			if (FLODSceneNode* ChildNode = SceneNodes.Find(Child->PrimitiveComponentId))
 			{
-				UpdateNodeChildrenVisibility(ViewState, *ChildNode, VisibilityFlags);
+				HideNodeChildren(ViewState, *ChildNode);
 			}
 		}
 	}
 }
 
-void FLODSceneTree::UpdateNodeChildrenVisibility(FSceneViewState* ViewState, FLODSceneNode& Node, FSceneBitArray& VisibilityFlags, bool bIsVisible /*= false*/, bool bRecursive /*= true*/)
+void FLODSceneTree::HideNodeChildren(FSceneViewState* ViewState, FLODSceneNode& Node)
 {
 	checkSlow(ViewState);
 	FHLODVisibilityState& HLODState = ViewState->HLODVisibilityState;
@@ -3535,15 +3552,11 @@ void FLODSceneTree::UpdateNodeChildrenVisibility(FSceneViewState* ViewState, FLO
 		for (const auto& Child : Node.ChildrenSceneInfos)
 		{
 			const int32 ChildIndex = Child->GetIndex();
-			HLODState.HiddenChildPrimitiveMap[ChildIndex] = !bIsVisible;
-			VisibilityFlags[ChildIndex] = bIsVisible;
+			HLODState.ForcedHiddenPrimitiveMap[ChildIndex] = true;
 
-			if (bRecursive)
-			{
 				if (FLODSceneNode* ChildNode = SceneNodes.Find(Child->PrimitiveComponentId))
 				{
-					UpdateNodeChildrenVisibility(ViewState, *ChildNode, VisibilityFlags);
-				}
+				HideNodeChildren(ViewState, *ChildNode);
 			}
 		}
 	}

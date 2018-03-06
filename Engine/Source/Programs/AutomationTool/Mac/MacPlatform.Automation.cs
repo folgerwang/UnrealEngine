@@ -43,12 +43,15 @@ public class MacPlatform : Platform
 	private void StageAppBundle(DeploymentContext SC, DirectoryReference InPath, StagedDirectoryReference NewName)
 	{
 		// Files with DebugFileExtensions should always be DebugNonUFS
-		List<string> DebugExtensions = GetDebugFileExtentions();
-		foreach(FileReference InputFile in DirectoryReference.EnumerateFiles(InPath, "*", SearchOption.AllDirectories))
+		List<string> DebugExtensions = GetDebugFileExtensions();
+		if(DirectoryExists(InPath.FullName))
 		{
-			StagedFileReference OutputFile = StagedFileReference.Combine(NewName, InputFile.MakeRelativeTo(InPath));
-			StagedFileType FileType = DebugExtensions.Any(x => InputFile.HasExtension(x))? StagedFileType.DebugNonUFS : StagedFileType.NonUFS;
-			SC.StageFile(FileType, InputFile, OutputFile);
+			foreach (FileReference InputFile in DirectoryReference.EnumerateFiles(InPath, "*", SearchOption.AllDirectories))
+			{
+				StagedFileReference OutputFile = StagedFileReference.Combine(NewName, InputFile.MakeRelativeTo(InPath));
+				StagedFileType FileType = DebugExtensions.Any(x => InputFile.HasExtension(x)) ? StagedFileType.DebugNonUFS : StagedFileType.NonUFS;
+				SC.StageFile(FileType, InputFile, OutputFile);
+			}
 		}
 	}
 
@@ -416,7 +419,7 @@ public class MacPlatform : Platform
 		bool bUseManifest = !bIsBuildingRemotely || AddArgs.IndexOf("-CopyAppBundleBackToDevice", StringComparison.InvariantCultureIgnoreCase) > 0;
 		return bUseManifest;
 	}
-	public override List<string> GetDebugFileExtentions()
+	public override List<string> GetDebugFileExtensions()
 	{
 		return new List<string> { ".dSYM" };
 	}

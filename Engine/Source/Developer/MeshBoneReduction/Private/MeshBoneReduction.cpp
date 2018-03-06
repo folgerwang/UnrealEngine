@@ -56,12 +56,12 @@ public:
 			return false;
 		}
 
-		if (!SkeletalMesh->LODInfo.IsValidIndex(DesiredLOD))
+		if (!SkeletalMesh->IsValidLODIndex(DesiredLOD))
 		{
 			return false;
 		}
 
-		const TArray<FMeshBoneInfo> & RefBoneInfo = SkeletalMesh->RefSkeleton.GetRefBoneInfo();
+		const TArray<FMeshBoneInfo> & RefBoneInfo = SkeletalMesh->RefSkeleton.GetRawRefBoneInfo();
 		TArray<FBoneIndexType> BoneIndicesToRemove;
 
 		// originally this code was accumulating from LOD 0->DesiredLOd, but that should be done outside of tool if they want to
@@ -77,7 +77,8 @@ public:
 				else
 				{
 					TArray<FName> RetrievedNames;
-					for (const FBoneReference& BoneReference : SkeletalMesh->LODInfo[DesiredLOD].BonesToRemove)
+					const FSkeletalMeshLODInfo* LODInfo = SkeletalMesh->GetLODInfo(DesiredLOD);
+					for (const FBoneReference& BoneReference : LODInfo->BonesToRemove)
 					{
 						RetrievedNames.AddUnique(BoneReference.BoneName);
 					}
@@ -92,7 +93,7 @@ public:
 			{
 				if (BonesToRemoveSetting[Index] != NAME_None)
 				{
-					int32 BoneIndex = SkeletalMesh->RefSkeleton.FindBoneIndex(BonesToRemoveSetting[Index]);
+					int32 BoneIndex = SkeletalMesh->RefSkeleton.FindRawBoneIndex(BonesToRemoveSetting[Index]);
 
 					// we don't allow root to be removed
 					if (BoneIndex > 0)
@@ -254,21 +255,21 @@ public:
 
 	void RetrieveBoneMatrices(USkeletalMesh* SkeletalMesh, const int32 LODIndex, TArray<FBoneIndexType>& BonesToRemove, TArray<FMatrix>& InOutMatrices)
 	{
-		if (!SkeletalMesh->LODInfo.IsValidIndex(LODIndex))
+		if (!SkeletalMesh->IsValidLODIndex(LODIndex))
 		{
 			return;
 		}
 
 		// Retrieve all bone names in skeleton
 		TArray<FName> BoneNames;
-		const int32 NumBones = SkeletalMesh->RefSkeleton.GetNum();
+		const int32 NumBones = SkeletalMesh->RefSkeleton.GetRawBoneNum();
 		for (int32 BoneIndex = 0; BoneIndex < NumBones; ++BoneIndex)
 		{
 			BoneNames.Add(SkeletalMesh->RefSkeleton.GetBoneName(BoneIndex));
 		}
 				
 		TArray<FMatrix> MultipliedBonePoses;
-		const UAnimSequence* BakePose = SkeletalMesh->LODInfo[LODIndex].BakePose;
+		const UAnimSequence* BakePose = SkeletalMesh->GetLODInfo(LODIndex)->BakePose;
 		if (BakePose)
 		{
 			// Retrieve posed bone transforms
@@ -380,10 +381,10 @@ public:
 
 			TArray<FBoneIndexType> BoneIndices;
 			TArray<FMatrix> RemovedBoneMatrices;
-			const bool bBakePoseToRemovedInfluences = (SkeletalMesh->LODInfo[DesiredLOD].BakePose != nullptr);
+			const bool bBakePoseToRemovedInfluences = (SkeletalMesh->GetLODInfo(DesiredLOD)->BakePose != nullptr);
 			if (bBakePoseToRemovedInfluences)
 			{
-				for (const FBoneReference& BoneReference : SkeletalMesh->LODInfo[DesiredLOD].BonesToRemove)
+				for (const FBoneReference& BoneReference : SkeletalMesh->GetLODInfo(DesiredLOD)->BonesToRemove)
 				{
 					int32 BoneIndex = SkeletalMesh->RefSkeleton.FindRawBoneIndex(BoneReference.BoneName);
 					if (BoneIndex != INDEX_NONE)

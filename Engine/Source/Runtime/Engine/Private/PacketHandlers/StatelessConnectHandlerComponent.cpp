@@ -579,10 +579,12 @@ void StatelessConnectHandlerComponent::IncomingConnectionless(FString Address, F
 				// Challenge response
 				else if (Driver != nullptr)
 				{
+					// NOTE: Allow CookieDelta to be 0.f, as it is possible for a server to send a challenge and receive a response,
+					//			during the same tick
 					bool bChallengeSuccess = false;
 					float CookieDelta = Driver->Time - Timestamp;
 					float SecretDelta = Timestamp - LastSecretUpdateTimestamp;
-					bool bValidCookieLifetime = CookieDelta > 0.0 && (MAX_COOKIE_LIFETIME - CookieDelta) > 0.f;
+					bool bValidCookieLifetime = CookieDelta >= 0.0 && (MAX_COOKIE_LIFETIME - CookieDelta) > 0.f;
 					bool bValidSecretIdTimestamp = (SecretId == ActiveSecret) ? (SecretDelta >= 0.f) : (SecretDelta <= 0.f);
 
 					if (bValidCookieLifetime && bValidSecretIdTimestamp)

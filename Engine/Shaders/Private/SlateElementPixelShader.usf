@@ -5,15 +5,10 @@
 #include "GammaCorrectionCommon.ush"
 #include "SlateShaderCommon.ush"
 
-/** Display gamma x:gamma curve adjustment, y:inverse gamma (1/GEngine->DisplayGamma) */
-half2 GammaValues;
+/** Display gamma x:gamma curve adjustment, y:inverse gamma (1/GEngine->DisplayGamma), z:InvertAlpha */
+half4 GammaAndAlphaValues;
 /** Per element params */
 float4 ShaderParams;
-
-#if !USE_MATERIALS
-/** Per element option to invert the alpha, mostly only useful when dealing with data coming from the scene renderer, which writes out inverse opacity. */
-half InvertAlpha;
-#endif
 
 /** Texture for the element */
 Texture2D ElementTexture;
@@ -24,9 +19,9 @@ half3 GammaCorrect(half3 InColor)
 	half3 CorrectedColor = InColor;
 
 #if SOURCE_IN_LINEAR_SPACE
-	FLATTEN if( GammaValues.y != 1.0f )
+	FLATTEN if( GammaAndAlphaValues.y != 1.0f )
 	{
-		CorrectedColor = ApplyGammaCorrection(CorrectedColor, GammaValues.x);
+		CorrectedColor = ApplyGammaCorrection(CorrectedColor, GammaAndAlphaValues.x);
 	}
 #endif
 
@@ -305,7 +300,7 @@ half4 Main( VertexToPixelInterpolants VIn ) : SV_Target0
 #if !USE_MATERIALS
     // Deal with cases where the incoming alpha is inverted like if you're dealing with render targets coming
     // from the scene renderer.
-    OutColor.a = lerp(OutColor.a, 1 - OutColor.a, InvertAlpha);
+    OutColor.a = lerp(OutColor.a, 1 - OutColor.a, GammaAndAlphaValues.z);
 #endif
     
 	return OutColor;

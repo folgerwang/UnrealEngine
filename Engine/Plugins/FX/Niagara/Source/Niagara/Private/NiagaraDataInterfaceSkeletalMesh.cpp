@@ -33,7 +33,7 @@ void FSkeletalMeshSamplingRegionAreaWeightedSampler::Init(FNDISkeletalMesh_Insta
 float FSkeletalMeshSamplingRegionAreaWeightedSampler::GetWeights(TArray<float>& OutWeights)
 {
 	check(Owner && Owner->Mesh);
-	check(Owner->Mesh->LODInfo.IsValidIndex(Owner->GetLODIndex()));
+	check(Owner->Mesh->IsValidLODIndex(Owner->GetLODIndex()));
 
 	float Total = 0.0f;
 	int32 NumUsedRegions = Owner->SamplingRegionIndices.Num();
@@ -402,14 +402,14 @@ bool FNDISkeletalMesh_InstanceData::Init(UNiagaraDataInterfaceSkeletalMesh* Inte
 		//If we have no regions, sample the whole mesh at the specified LOD.
 		if (LODIndex == INDEX_NONE)
 		{
-			LODIndex = Mesh->LODInfo.Num() - 1;
+			LODIndex = Mesh->GetLODNum() - 1;
 		}
 		else
 		{
-			LODIndex = FMath::Clamp(Interface->WholeMeshLOD, 0, Mesh->LODInfo.Num() - 1);
+			LODIndex = FMath::Clamp(Interface->WholeMeshLOD, 0, Mesh->GetLODNum() - 1);
 		}
 
-		if (!Mesh->LODInfo[LODIndex].bAllowCPUAccess)
+		if (!Mesh->GetLODInfo(LODIndex)->bAllowCPUAccess)
 		{
 			UE_LOG(LogNiagara, Warning, TEXT("Skeletal Mesh Data Interface is trying to spawn from a whole mesh that does not allow CPU Access.\nInterface: %s\nMesh: %s\nLOD: %d"),
 				*Interface->GetFullName(),
@@ -819,8 +819,8 @@ struct TAreaWeightingModeBinder
 		else
 		{
 			int32 LODIndex = InstData->GetLODIndex();
-			check(InstData->Mesh->LODInfo[LODIndex].bAllowCPUAccess);
-			bAreaWeighting = InstData->Mesh->LODInfo[LODIndex].bSupportUniformlyDistributedSampling;
+			check(InstData->Mesh->GetLODInfo(LODIndex)->bAllowCPUAccess);
+			bAreaWeighting = InstData->Mesh->GetLODInfo(LODIndex)->bSupportUniformlyDistributedSampling;
 		}
 
 		if (bAreaWeighting)

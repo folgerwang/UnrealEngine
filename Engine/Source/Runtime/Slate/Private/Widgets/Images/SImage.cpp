@@ -52,28 +52,28 @@ FVector2D SImage::ComputeDesiredSize( float ) const
 
 void SImage::SetColorAndOpacity( const TAttribute<FSlateColor>& InColorAndOpacity )
 {
-	if ( !ColorAndOpacity.IdenticalTo(InColorAndOpacity) )
+	if (!ColorAndOpacity.IdenticalTo(InColorAndOpacity))
 	{
 		ColorAndOpacity = InColorAndOpacity;
-		Invalidate(EInvalidateWidget::Layout);
+		Invalidate(EInvalidateWidget::PaintAndVolatility);
 	}
 }
 
 void SImage::SetColorAndOpacity( FLinearColor InColorAndOpacity )
 {
-	if ( ColorAndOpacity.IsBound() || ColorAndOpacity.Get() != InColorAndOpacity )
+	if (!ColorAndOpacity.IdenticalTo(InColorAndOpacity))
 	{
 		ColorAndOpacity = InColorAndOpacity;
-		Invalidate(EInvalidateWidget::Layout);
+		Invalidate(EInvalidateWidget::PaintAndVolatility);
 	}
 }
 
 void SImage::SetImage(TAttribute<const FSlateBrush*> InImage)
 {
-	if (Image.IsBound() || InImage.IsBound() || (Image.Get() != InImage.Get()))
+	if (!Image.IdenticalTo(InImage))
 	{
 		Image = InImage;
-		Invalidate(EInvalidateWidget::Layout);
+		Invalidate(EInvalidateWidget::LayoutAndVolatility);
 	}
 }
 

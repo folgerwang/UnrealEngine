@@ -9,6 +9,8 @@
 #include "GameFramework/OnlineReplStructs.h"
 #include "PartyBeaconState.generated.h"
 
+ONLINESUBSYSTEMUTILS_API DECLARE_LOG_CATEGORY_EXTERN(LogPartyBeacon, Log, All);
+
 /** The result code that will be returned during party reservation */
 UENUM()
 namespace EPartyReservationResult
@@ -214,6 +216,7 @@ struct ONLINESUBSYSTEMUTILS_API FPartyReservation
 
 	/** Dump this reservation to log */
 	void Dump() const;
+	void DumpUniqueIdsOnly() const;
 
 	/**
 	 * Checks if a player from a different reservation can migrate to this reservation

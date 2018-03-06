@@ -36,10 +36,8 @@ class UMaterialExpressionChannelMaskParameter : public UMaterialExpressionVector
 
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
-#endif
 	
 	virtual bool IsInputConnectionRequired(int32 InputIndex) const override {return true;}
-#if WITH_EDITOR
 	virtual uint32 GetInputType(int32 InputIndex) override {return MCT_Float4;}
 #endif
 

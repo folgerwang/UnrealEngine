@@ -35,10 +35,14 @@ bool CacheShadowDepthsFromPrimitivesUsingWPO()
 }
 
 FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponent, FName InResourceName)
-:	WireframeColor(FLinearColor::White)
+:
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	WireframeColor(FLinearColor::White)
 ,	LevelColor(FLinearColor::White)
 ,	PropertyColor(FLinearColor::White)
-,	Mobility(InComponent->Mobility)
+,	
+#endif
+	Mobility(InComponent->Mobility)
 ,	LightmapType(InComponent->LightmapType)
 ,	DrawInGame(InComponent->IsVisible())
 ,	DrawInEditor(InComponent->bVisible)
@@ -791,7 +795,7 @@ bool FPrimitiveSceneProxy::GetMaterialTextureScales(int32 LODIndex, int32 Sectio
 
 #endif // WITH_EDITORONLY_DATA
 
-FLODMask FPrimitiveSceneProxy::GetCustomLOD(const FSceneView& InView, float InViewLODScale, int32 InForcedLODLevel, float& OutScreenRadiusSquared) const
+FLODMask FPrimitiveSceneProxy::GetCustomLOD(const FSceneView& InView, float InViewLODScale, int32 InForcedLODLevel, float& OutScreenSizeSquared) const
 {
 	return FLODMask();
 }

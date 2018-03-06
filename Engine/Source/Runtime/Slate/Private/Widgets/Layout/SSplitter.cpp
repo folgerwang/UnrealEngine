@@ -438,7 +438,7 @@ EOrientation SSplitter::GetOrientation() const
 
 
 SSplitter::SSplitter()
-	: Children()
+	: Children(this)
 	, HoveredHandleIndex( INDEX_NONE )
 	, bIsResizing( false )
 	, Orientation( Orient_Horizontal )
@@ -686,7 +686,7 @@ int32 SSplitter::GetHandleBeingResizedFromMousePosition( float InPhysicalSplitte
 ********************************************************************/
 
 SSplitter2x2::SSplitter2x2()
-: Children()
+: Children(this)
 {
 }
 

@@ -269,6 +269,8 @@ ECommandResult::Type FPerforceSourceControlProvider::Execute( const TSharedRef<I
 		FPerforceSourceControlCommand* Command = new FPerforceSourceControlCommand(InOperation, Worker.ToSharedRef());
 		Command->bAutoDelete = false;
 		Command->Files = AbsoluteFiles;
+		Command->StatusBranchNames = StatusBranchNames;
+		Command->ContentRoot = ContentRoot;
 		Command->OperationCompleteDelegate = InOperationCompleteDelegate;
 		return ExecuteSynchronousCommand(*Command, InOperation->GetInProgressString(), true);
 	}
@@ -277,6 +279,8 @@ ECommandResult::Type FPerforceSourceControlProvider::Execute( const TSharedRef<I
 		FPerforceSourceControlCommand* Command = new FPerforceSourceControlCommand(InOperation, Worker.ToSharedRef());
 		Command->bAutoDelete = true;
 		Command->Files = AbsoluteFiles;
+		Command->StatusBranchNames = StatusBranchNames;
+		Command->ContentRoot = ContentRoot;
 		Command->OperationCompleteDelegate = InOperationCompleteDelegate;
 		return IssueCommand(*Command, false);
 	}
@@ -559,6 +563,17 @@ ECommandResult::Type FPerforceSourceControlProvider::IssueCommand(FPerforceSourc
 
 		return Result;
 	}
+}
+
+void FPerforceSourceControlProvider::RegisterStateBranches(const TArray<FString>& BranchNames, const FString& ContentRootIn)
+{
+	StatusBranchNames = BranchNames;
+	ContentRoot = ContentRootIn;
+}
+
+int32 FPerforceSourceControlProvider::GetStateBranchIndex(const FString& BranchName) const
+{
+	return StatusBranchNames.IndexOfByKey(BranchName);
 }
 
 #undef LOCTEXT_NAMESPACE

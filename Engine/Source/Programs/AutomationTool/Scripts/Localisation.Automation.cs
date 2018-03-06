@@ -174,8 +174,8 @@ class Localise : BuildCommand
 			ProcessLocalizationProjects(LocalizationBatch, PendingChangeList, UEProjectRoot, UEProjectName, LocalizationProviderName, LocalizationSteps, AdditionalCommandletArguments);
 		}
 
-		// Submit that single changelist now
-		if (P4Enabled && AllowSubmit)
+		// Clean-up the changelist so it only contains the changed files, and then submit it (if we were asked to)
+		if (P4Enabled)
 		{
 			// Revert any PO files that haven't changed aside from their header
 			{
@@ -211,8 +211,12 @@ class Localise : BuildCommand
 			// Revert any other unchanged files
 			P4.RevertUnchanged(PendingChangeList);
 
-			int SubmittedChangeList;
-			P4.Submit(PendingChangeList, out SubmittedChangeList);
+			// Submit that single changelist now
+			if (AllowSubmit)
+			{
+				int SubmittedChangeList;
+				P4.Submit(PendingChangeList, out SubmittedChangeList);
+			}
 		}
 	}
 
@@ -268,20 +272,28 @@ class Localise : BuildCommand
 		{
 			EditorArguments = String.Format("-SCCProvider={0}", "None");
 		}
+		if (IsBuildMachine)
+		{
+			EditorArguments += " -BuildMachine";
+		}
 		EditorArguments += " -Unattended";
 
 		// Execute commandlet for each config in each project.
 		bool bLocCommandletFailed = false;
 		foreach (var ProjectInfo in ProjectInfos)
 		{
+			var LocalizationConfigFiles = new List<string>();
 			foreach (var LocalizationStep in ProjectInfo.LocalizationSteps)
 			{
-				if (!LocalizationSteps.Contains(LocalizationStep.Name))
+				if (LocalizationSteps.Contains(LocalizationStep.Name))
 				{
-					continue;
+					LocalizationConfigFiles.Add(LocalizationStep.LocalizationConfigFile);
 				}
+			}
 
-				var CommandletArguments = String.Format("-config=\"{0}\"", LocalizationStep.LocalizationConfigFile);
+			if (LocalizationConfigFiles.Count > 0)
+			{
+				var CommandletArguments = String.Format("-config=\"{0}\"", String.Join(";", LocalizationConfigFiles));
 
 				if (!String.IsNullOrEmpty(AdditionalCommandletArguments))
 				{

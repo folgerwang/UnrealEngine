@@ -220,6 +220,13 @@
       </ItemGroup>
     </When>
   </Choose>
+  <Choose>
+    <When Condition="Exists('Platform\Android\NoRedist\AndroidToolChainInternal.cs')">
+      <ItemGroup>
+        <Compile Include="Platform\Android\NoRedist\AndroidToolChainInternal.cs" />
+      </ItemGroup>
+    </When>
+  </Choose>
   <ItemGroup>
     <Compile Include="ToolChain\RemoteExports.cs" />
     <Compile Include="UnrealBuildTool.cs" />
@@ -237,6 +244,13 @@
         <Compile Include="Platform\IOS\IOSToolChain.cs" />
         <Compile Include="Platform\IOS\UEBuildIOS.cs" />
         <Compile Include="Platform\IOS\UEDeployIOS.cs" />
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="Exists('Platform\IOS\NoRedist\IOSToolChainInternal.cs')">
+      <ItemGroup>
+        <Compile Include="Platform\IOS\NoRedist\IOSToolChainInternal.cs" />
       </ItemGroup>
     </When>
   </Choose>

@@ -36,11 +36,19 @@ static bool IsRetainedRenderingEnabled()
 
 #endif
 
+//---------------------------------------------------
+
+
+TArray<SRetainerWidget*, TInlineAllocator<3>> SRetainerWidget::Shared_WaitingToRender;
+int32 SRetainerWidget::Shared_MaxRetainerWorkPerFrame(0);
+TFrameValue<int32> SRetainerWidget::Shared_RetainerWorkThisFrame(0);
+
 
 //---------------------------------------------------
 
 SRetainerWidget::SRetainerWidget()
 	: CachedWindowToDesktopTransform(0, 0)
+	, EmptyChildSlot(this)
 	, DynamicEffect(nullptr)
 {
 }
@@ -53,6 +61,8 @@ SRetainerWidget::~SRetainerWidget()
 		OnRetainerModeChangedDelegate.RemoveAll( this );
 #endif
 	}
+
+	Shared_WaitingToRender.Remove(this);
 }
 
 void SRetainerWidget::UpdateWidgetRenderer()
@@ -281,20 +291,6 @@ void SRetainerWidget::RequestRender()
 
 bool SRetainerWidget::PaintRetainedContent(const FPaintArgs& Args)
 {
-	// In order to get material parameter collections to function properly, we need the current world's Scene
-	// properly propagated through to any widgets that depend on that functionality. The SceneViewport and RetainerWidget the 
-	// only location where this information exists in Slate, so we push the current scene onto the current
-	// Slate application so that we can leverage it in later calls.
-	UWorld* TickWorld = OuterWorld.Get();
-	if (TickWorld && TickWorld->Scene && IsInGameThread())
-	{
-		FSlateApplication::Get().GetRenderer()->RegisterCurrentScene(TickWorld->Scene);
-	}
-	else if (IsInGameThread())
-	{
-		FSlateApplication::Get().GetRenderer()->RegisterCurrentScene(nullptr);
-	}
-
 	if (RenderOnPhase)
 	{
 		if (LastTickedFrame != GFrameCounter && (GFrameCounter % PhaseCount) == Phase)
@@ -303,9 +299,35 @@ bool SRetainerWidget::PaintRetainedContent(const FPaintArgs& Args)
 		}
 	}
 
+	if (Shared_MaxRetainerWorkPerFrame > 0)
+	{
+		if (Shared_RetainerWorkThisFrame.TryGetValue(0) > Shared_MaxRetainerWorkPerFrame)
+		{
+			Shared_WaitingToRender.AddUnique(this);
+			return false;
+		}
+	}
+
 	SCOPE_CYCLE_COUNTER( STAT_SlateRetainerWidgetTick );
 	if ( bRenderRequested )
 	{
+		// In order to get material parameter collections to function properly, we need the current world's Scene
+		// properly propagated through to any widgets that depend on that functionality. The SceneViewport and RetainerWidget the 
+		// only location where this information exists in Slate, so we push the current scene onto the current
+		// Slate application so that we can leverage it in later calls.
+		UWorld* TickWorld = OuterWorld.Get();
+		if (TickWorld && TickWorld->Scene && IsInGameThread())
+		{
+			FSlateApplication::Get().GetRenderer()->RegisterCurrentScene(TickWorld->Scene);
+		}
+		else if (IsInGameThread())
+		{
+			FSlateApplication::Get().GetRenderer()->RegisterCurrentScene(nullptr);
+		}
+
+		// Update the number of retainers we've drawn this frame.
+		Shared_RetainerWorkThisFrame = Shared_RetainerWorkThisFrame.TryGetValue(0) + 1;
+
 		LastTickedFrame = GFrameCounter;
 		const double TimeSinceLastDraw = FApp::GetCurrentTime() - LastDrawTime;
 
@@ -336,6 +358,7 @@ bool SRetainerWidget::PaintRetainedContent(const FPaintArgs& Args)
 				{
 					const bool bForceLinearGamma = false;
 					RenderTarget->InitCustomFormat(RenderTargetWidth, RenderTargetHeight, PF_B8G8R8A8, bForceLinearGamma);
+					RenderTarget->UpdateResourceImmediate();
 				}
 
 				const float Scale = CachedAllottedGeometry.Scale;
@@ -366,6 +389,7 @@ bool SRetainerWidget::PaintRetainedContent(const FPaintArgs& Args)
 					TimeSinceLastDraw);
 
 				bRenderRequested = false;
+				Shared_WaitingToRender.Remove(this);
 
 				LastDrawTime = FApp::GetCurrentTime();
 

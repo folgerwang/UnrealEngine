@@ -96,7 +96,7 @@ FPrimitiveSceneInfo::FPrimitiveSceneInfo(UPrimitiveComponent* InComponent,FScene
 	LastRenderTime(-FLT_MAX),
 	LastVisibilityChangeTime(0.0f),
 	Scene(InScene),
-	NumES2DynamicPointLights(0),
+	NumMobileMovablePointLights(0),
 	bIsUsingCustomLODRules(Proxy->IsUsingCustomLODRules()),
 	bIsUsingCustomWholeSceneShadowLODRules(Proxy->IsUsingCustomWholeSceneShadowLODRules()),
 	PackedIndex(INDEX_NONE),
@@ -228,22 +228,6 @@ void FPrimitiveSceneInfo::AddToScene(FRHICommandListImmediate& RHICmdList, bool 
 	PrimitiveBounds.MinDrawDistanceSq = FMath::Square(Proxy->GetMinDrawDistance());
 	PrimitiveBounds.MaxDrawDistance = Proxy->GetMaxDrawDistance();
 	PrimitiveBounds.MaxCullDistance = PrimitiveBounds.MaxDrawDistance;
-
-	if (LODParentComponentId.IsValid())
-	{
-		static auto CVarChild = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HLOD.MaxDrawDistanceScaleForChildren"));
-		const float MaxDrawDistanceScaleForHLODChildren = CVarChild->GetFloat();
-		const bool bUseMaxDrawDistanceMultiplier = MaxDrawDistanceScaleForHLODChildren != 0.0f;
-		if (bUseMaxDrawDistanceMultiplier)
-		{
-			PrimitiveBounds.MaxCullDistance *= MaxDrawDistanceScaleForHLODChildren;
-		}
-		else
-		{
-			PrimitiveBounds.MaxCullDistance = FLT_MAX;
-		}
-	}
-
 
 	Scene->PrimitiveFlagsCompact[PackedIndex] = FPrimitiveFlagsCompact(Proxy);
 
@@ -682,3 +666,25 @@ void FPrimitiveSceneInfo::ClearPrecomputedLightingBuffer(bool bSingleFrameOnly)
 	}
 }
 
+void FPrimitiveSceneInfo::GetStaticMeshesLODRange(int8& OutMinLOD, int8& OutMaxLOD) const
+{
+	OutMinLOD = MAX_int8;
+	OutMaxLOD = 0;
+
+	for (int32 MeshIndex = 0; MeshIndex < StaticMeshes.Num(); ++MeshIndex)
+	{
+		const FMeshBatch&  Mesh = StaticMeshes[MeshIndex];
+		OutMinLOD = FMath::Min(OutMinLOD, Mesh.LODIndex);
+		OutMaxLOD = FMath::Max(OutMaxLOD, Mesh.LODIndex);
+	}
+}
+
+const FMeshBatch* FPrimitiveSceneInfo::GetMeshBatch(int8 InLODIndex) const
+{
+	if (StaticMeshes.IsValidIndex(InLODIndex))
+	{
+		return &StaticMeshes[InLODIndex];
+	}
+
+	return nullptr;
+}

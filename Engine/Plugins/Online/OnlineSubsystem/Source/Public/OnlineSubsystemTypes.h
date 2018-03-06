@@ -1084,6 +1084,14 @@ struct FCloudFile
 };
 
 /**
+ * User attribution constants for GetUserAttribute()
+ */
+#define USER_ATTR_REALNAME TEXT("realName")
+#define USER_ATTR_DISPLAYNAME TEXT("displayName")
+#define USER_ATTR_ID TEXT("id")
+#define USER_ATTR_EMAIL TEXT("email")
+
+/**
  * Base for all online user info
  */
 class FOnlineUser
@@ -1111,6 +1119,12 @@ public:
 	 */
 	virtual bool GetUserAttribute(const FString& AttrName, FString& OutAttrValue) const = 0;
 };
+
+/**
+ * Auth attribution constants for GetAuthAttribute()
+ */
+#define AUTH_ATTR_REFRESH_TOKEN TEXT("refresh_token")
+#define AUTH_ATTR_ID_TOKEN TEXT("id_token")
 
 /**
  * User account information returned via IOnlineIdentity interface
@@ -1189,7 +1203,7 @@ namespace EInviteStatus
 class FOnlineFriend : public FOnlineUser
 {
 public:
-	
+
 	/**
 	 * @return the current invite status of a friend wrt to user that queried
 	 */

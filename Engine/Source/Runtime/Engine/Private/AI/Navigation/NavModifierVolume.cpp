@@ -18,7 +18,7 @@ ANavModifierVolume::ANavModifierVolume(const FObjectInitializer& ObjectInitializ
 {
 	if (GetBrushComponent())
 	{
-		GetBrushComponent()->bGenerateOverlapEvents = false;
+		GetBrushComponent()->SetGenerateOverlapEvents(false);
 		GetBrushComponent()->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 	}
 }

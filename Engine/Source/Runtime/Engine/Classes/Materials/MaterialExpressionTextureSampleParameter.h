@@ -38,9 +38,7 @@ class ENGINE_API UMaterialExpressionTextureSampleParameter : public UMaterialExp
 #if WITH_EDITOR
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
-#endif
 	virtual bool MatchesSearchQuery(const TCHAR* SearchQuery) override;
-#if WITH_EDITOR
 	virtual bool CanRenameNode() const override { return true; }
 	virtual FString GetEditableName() const override;
 	virtual void SetEditableName(const FString& NewName) override;

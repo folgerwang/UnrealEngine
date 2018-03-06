@@ -357,7 +357,7 @@ struct PrimitiveStatsGenerator
 						if (!bNotUnique)
 						{
 							const SIZE_T HeightmapResourceSize = CurrentComponent->HeightmapTexture->GetResourceSizeBytes(EResourceSizeMode::EstimatedTotal);
-							NewStatsEntry->ResourceSize += HeightmapResourceSize;
+							NewStatsEntry->ResourceSize += (float)HeightmapResourceSize / 1024.0f;
 						}
 						if (CurrentComponent->XYOffsetmapTexture)
 						{
@@ -365,7 +365,7 @@ struct PrimitiveStatsGenerator
 							if (!bNotUnique)
 							{
 								const SIZE_T OffsetmapResourceSize = CurrentComponent->XYOffsetmapTexture->GetResourceSizeBytes(EResourceSizeMode::EstimatedTotal);
-								NewStatsEntry->ResourceSize += OffsetmapResourceSize;
+								NewStatsEntry->ResourceSize += (float)OffsetmapResourceSize / 1024.f;
 							}
 						}
 
@@ -375,7 +375,7 @@ struct PrimitiveStatsGenerator
 							if (!bNotUnique)
 							{
 								const SIZE_T WeightmapResourceSize = (*ItWeightmaps)->GetResourceSizeBytes(EResourceSizeMode::EstimatedTotal);
-								NewStatsEntry->ResourceSize += WeightmapResourceSize;
+								NewStatsEntry->ResourceSize += (float)WeightmapResourceSize / 1024.f;
 							}
 						}
 					}
@@ -438,21 +438,19 @@ void FPrimitiveStatsPage::Generate( TArray< TWeakObjectPtr<UObject> >& OutObject
 
 		case PrimitiveObjectSets_AllObjects:
 		{
-			if (GWorld != NULL)
+			if (UWorld* World = GWorld)
 			{
 				TArray<ULevel*> Levels;
 
 				// Add main level.
-				Levels.AddUnique(GWorld->PersistentLevel);
+				Levels.AddUnique(World->PersistentLevel);
 
 				// Add secondary levels.
-				for (int32 LevelIndex = 0; LevelIndex < GWorld->StreamingLevels.Num(); ++LevelIndex)
+				for (ULevelStreaming* StreamingLevel : World->GetStreamingLevels())
 				{
-					ULevelStreaming* StreamingLevel = GWorld->StreamingLevels[LevelIndex];
-					if (StreamingLevel != nullptr)
+					if (StreamingLevel)
 					{
-						ULevel* Level = StreamingLevel->GetLoadedLevel();
-						if (Level != nullptr)
+						if (ULevel* Level = StreamingLevel->GetLoadedLevel())
 						{
 							Levels.AddUnique(Level);
 						}

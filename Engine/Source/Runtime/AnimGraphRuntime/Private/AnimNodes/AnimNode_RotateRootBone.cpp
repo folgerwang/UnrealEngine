@@ -28,13 +28,16 @@ void FAnimNode_RotateRootBone::Evaluate_AnyThread(FPoseContext& Output)
 	// Evaluate the input
 	BasePose.Evaluate(Output);
 
-	checkSlow(!FMath::IsNaN(Yaw) && FMath::IsFinite(Yaw));
-	checkSlow(!FMath::IsNaN(Pitch) && FMath::IsFinite(Pitch));
+	const float ActualPitch = PitchScaleBiasClamp.ApplyTo(Pitch);
+	const float ActualYaw = YawScaleBiasClamp.ApplyTo(Yaw);
 
-	if (!FMath::IsNearlyZero(Pitch, KINDA_SMALL_NUMBER) || !FMath::IsNearlyZero(Yaw, KINDA_SMALL_NUMBER))
+	checkSlow(!FMath::IsNaN(ActualYaw) && FMath::IsFinite(ActualYaw));
+	checkSlow(!FMath::IsNaN(ActualPitch) && FMath::IsFinite(ActualPitch));
+
+	if (!FMath::IsNearlyZero(ActualPitch, KINDA_SMALL_NUMBER) || !FMath::IsNearlyZero(ActualYaw, KINDA_SMALL_NUMBER))
 	{
 		// Build our desired rotation
-		const FRotator DeltaRotation(Pitch, Yaw, 0.f);
+		const FRotator DeltaRotation(ActualPitch, ActualYaw, 0.f);
 		const FQuat DeltaQuat(DeltaRotation);
 		const FQuat MeshToComponentQuat(MeshToComponent);
 
@@ -53,7 +56,10 @@ void FAnimNode_RotateRootBone::GatherDebugData(FNodeDebugData& DebugData)
 {
 	FString DebugLine = DebugData.GetNodeName(this);
 	
-	DebugLine += FString::Printf(TEXT("(Pitch: %.2f Yaw: %.2f)"), Pitch, Yaw);
+	const float ActualPitch = PitchScaleBiasClamp.ApplyTo(Pitch);
+	const float ActualYaw = YawScaleBiasClamp.ApplyTo(Yaw);
+
+	DebugLine += FString::Printf(TEXT("Pitch(%.2f) Yaw(%.2f)"), ActualPitch, ActualYaw);
 	DebugData.AddDebugItem(DebugLine);
 
 	BasePose.GatherDebugData(DebugData);

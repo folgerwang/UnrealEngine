@@ -319,7 +319,7 @@ TArray<FSubLevelStatus> GetSubLevelsStatus( UWorld* World )
 	TArray<FSubLevelStatus> Result;
 	FWorldContext &Context = GEngine->GetWorldContextFromWorldChecked(World);
 
-	Result.Reserve(World->StreamingLevels.Num() + 1);
+	Result.Reserve(World->GetStreamingLevels().Num() + 1);
 	
 	// Add persistent level
 	{
@@ -331,24 +331,21 @@ TArray<FSubLevelStatus> GetSubLevelsStatus( UWorld* World )
 	}
 	
 	// Iterate over the world info's level streaming objects to find and see whether levels are loaded, visible or neither.
-	for( int32 LevelIndex=0; LevelIndex < World->StreamingLevels.Num(); LevelIndex++ )
+	for (ULevelStreaming* LevelStreaming : World->GetStreamingLevels())
 	{
-		ULevelStreaming* LevelStreaming = World->StreamingLevels[LevelIndex];
-
 		if( LevelStreaming 
 			&&  !LevelStreaming->GetWorldAsset().IsNull()
 			&&	LevelStreaming->GetWorldAsset() != World )
 		{
-			ULevel* Level = LevelStreaming->GetLoadedLevel();
 			FSubLevelStatus LevelStatus = {};
 			LevelStatus.PackageName = LevelStreaming->GetWorldAssetPackageFName();
-			LevelStatus.LODIndex	= LevelStreaming->LevelLODIndex;
+			LevelStatus.LODIndex	= LevelStreaming->GetLevelLODIndex();
 
-			if( Level != NULL )
+			if (ULevel* Level = LevelStreaming->GetLoadedLevel())
 			{
 				if( World->ContainsLevel( Level ) == true )
 				{
-					if( World->CurrentLevelPendingVisibility == Level )
+					if( World->GetCurrentLevelPendingVisibility() == Level )
 					{
 						LevelStatus.StreamingStatus = LEVEL_MakingVisible;
 					}
@@ -365,8 +362,8 @@ TArray<FSubLevelStatus> GetSubLevelsStatus( UWorld* World )
 			else
 			{
 				// See whether the level's world object is still around.
-				UPackage* LevelPackage	= FindObjectFast<UPackage>(NULL, LevelStatus.PackageName);
-				UWorld*	  LevelWorld	= NULL;
+				UPackage* LevelPackage	= FindObjectFast<UPackage>(nullptr, LevelStatus.PackageName);
+				UWorld*	  LevelWorld	= nullptr;
 				if( LevelPackage )
 				{
 					LevelWorld = UWorld::FindWorldInPackage(LevelPackage);
@@ -376,7 +373,7 @@ TArray<FSubLevelStatus> GetSubLevelsStatus( UWorld* World )
 				{
 					LevelStatus.StreamingStatus = LEVEL_UnloadedButStillAround;
 				}
-				else if( LevelStreaming->bHasLoadRequestPending )
+				else if( LevelStreaming->HasLoadRequestPending() )
 				{
 					LevelStatus.StreamingStatus = LEVEL_Loading;
 				}
@@ -408,24 +405,24 @@ TArray<FSubLevelStatus> GetSubLevelsStatus( UWorld* World )
 	{
 		APlayerController* PlayerController = Iterator->Get();
 
-		if( PlayerController->GetPawn() != NULL )
+		if (APawn* PCPawn = PlayerController->GetPawn())
 		{
 			// need to do a trace down here
 			//TraceActor = Trace( out_HitLocation, out_HitNormal, TraceDest, TraceStart, false, TraceExtent, HitInfo, true );
 			FHitResult Hit(1.f);
 
 			// this will not work for flying around :-(
-			PlayerController->GetWorld()->LineTraceSingleByObjectType(Hit,PlayerController->GetPawn()->GetActorLocation(), (PlayerController->GetPawn()->GetActorLocation()-FVector(0.f, 0.f, 256.f)), FCollisionObjectQueryParams(ECC_WorldStatic), FCollisionQueryParams(SCENE_QUERY_STAT(FindLevel), true, PlayerController->GetPawn()));
+			PlayerController->GetWorld()->LineTraceSingleByObjectType(Hit, PCPawn->GetActorLocation(), (PCPawn->GetActorLocation()-FVector(0.f, 0.f, 256.f)), FCollisionObjectQueryParams(ECC_WorldStatic), FCollisionQueryParams(SCENE_QUERY_STAT(FindLevel), true, PCPawn));
 
-			ULevel* LevelPlayerIsIn = NULL;
+			ULevel* LevelPlayerIsIn = nullptr;
 
-			if( Hit.GetActor() != NULL )
+			if (AActor* HitActor = Hit.GetActor())
 			{
-				LevelPlayerIsIn = Hit.GetActor()->GetLevel();
+				LevelPlayerIsIn = HitActor->GetLevel();
 			}
-			else if( Hit.Component != NULL )
+			else if (UPrimitiveComponent* HitComponent = Hit.Component.Get())
 			{
-				LevelPlayerIsIn = Hit.Component->GetComponentLevel();
+				LevelPlayerIsIn = HitComponent->GetComponentLevel();
 			}
 
 			if (LevelPlayerIsIn)

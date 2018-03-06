@@ -292,9 +292,10 @@ struct FOutputDeviceFile::FCategoryInclusionInternal
  * @param InFilename		Filename to use, can be NULL
  * @param bInDisableBackup	If true, existing files will not be backed up
  */
-FOutputDeviceFile::FOutputDeviceFile( const TCHAR* InFilename, bool bInDisableBackup  )
+FOutputDeviceFile::FOutputDeviceFile( const TCHAR* InFilename, bool bInDisableBackup, bool bInAppendIfExists)
 : AsyncWriter(nullptr)
 , WriterArchive(nullptr)
+, AppendIfExists(bInAppendIfExists)
 , Opened(false)
 , Dead(false)
 , CategoryInclusionInternal(nullptr)
@@ -398,7 +399,7 @@ void FOutputDeviceFile::WriteByteOrderMarkToArchive(EByteOrderMark ByteOrderMark
 
 bool FOutputDeviceFile::CreateWriter(uint32 MaxAttempts)
 {
-	uint32 WriteFlags = FILEWRITE_AllowRead | (Opened ? FILEWRITE_Append : 0);
+	uint32 WriteFlags = FILEWRITE_AllowRead | ((Opened || AppendIfExists) ? FILEWRITE_Append : 0);
 
 	// Open log file.
 	FArchive* Ar = IFileManager::Get().CreateFileWriter(Filename, WriteFlags);

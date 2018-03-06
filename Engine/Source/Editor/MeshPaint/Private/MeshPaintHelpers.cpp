@@ -846,10 +846,10 @@ void MeshPaintHelpers::FillVertexColors(UMeshComponent* MeshComponent, const FCo
 			// allocated, and potentially accessing the UStaticMesh.
 			Mesh->ReleaseResourcesFence.Wait();
 
-			if (Mesh->LODInfo.Num() > 0)
+			if (Mesh->GetLODNum() > 0)
 			{
 				RecreateRenderStateContext = MakeUnique<FSkinnedMeshComponentRecreateRenderStateContext>(Mesh);
-				const int32 NumLods = Mesh->LODInfo.Num();
+				const int32 NumLods = Mesh->GetLODNum();
 				for (int32 LODIndex = 0; LODIndex < NumLods; ++LODIndex)
 				{
 					MeshPaintHelpers::SetColorDataForLOD(Mesh, LODIndex, FillColor, MaskColor);
@@ -897,9 +897,9 @@ void MeshPaintHelpers::SetColorDataForLOD(USkeletalMesh* SkeletalMesh, int32 LOD
 		ApplyFillWithMask(LODModel.Sections[SectionIndex].SoftVertices[SectionVertexIndex].Color, MaskColor, FillColor);
 	}
 
-	if (!SkeletalMesh->LODInfo[LODIndex].bHasPerLODVertexColors)
+	if (!SkeletalMesh->GetLODInfo(LODIndex)->bHasPerLODVertexColors)
 	{
-		SkeletalMesh->LODInfo[LODIndex].bHasPerLODVertexColors = true;
+		SkeletalMesh->GetLODInfo(LODIndex)->bHasPerLODVertexColors = true;
 	}
 }
 
@@ -1268,7 +1268,7 @@ int32 MeshPaintHelpers::GetNumberOfLODs(const UMeshComponent* MeshComponent)
 		const USkeletalMesh* SkeletalMesh = SkeletalMeshComponent->SkeletalMesh;
 		if (SkeletalMesh != nullptr)
 		{
-			NumLODs = SkeletalMesh->LODInfo.Num();
+			NumLODs = SkeletalMesh->GetLODNum();
 		}
 	}
 
@@ -1325,7 +1325,8 @@ bool MeshPaintHelpers::DoesMeshComponentContainPerLODColors(const UMeshComponent
 		USkeletalMesh* SkeletalMesh = SkeletalMeshComponent->SkeletalMesh;
 		if (SkeletalMesh)
 		{
-			for ( const FSkeletalMeshLODInfo& Info : SkeletalMesh->LODInfo )
+			const TArray<FSkeletalMeshLODInfo>& LODInfo = SkeletalMesh->GetLODInfoArray();
+			for ( const FSkeletalMeshLODInfo& Info : LODInfo )
 			{
 				if (Info.bHasPerLODVertexColors)
 				{
@@ -1712,7 +1713,7 @@ void MeshPaintHelpers::ApplyVertexColorsToAllLODs(IMeshPaintGeometryAdapter& Geo
 					// Do something
 					FSkeletalMeshLODRenderData& ApplyLOD = Resource->LODRenderData[LODIndex];
 					FBox CombinedBounds = BaseBounds;
-					Mesh->LODInfo[LODIndex].bHasPerLODVertexColors = false;
+					Mesh->GetLODInfo(LODIndex)->bHasPerLODVertexColors = false;
 
 					if (!ApplyLOD.StaticVertexBuffers.ColorVertexBuffer.IsInitialized())
 					{

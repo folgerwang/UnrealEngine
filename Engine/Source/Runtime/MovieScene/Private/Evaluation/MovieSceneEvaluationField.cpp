@@ -53,7 +53,9 @@ void FMovieSceneEvaluationField::Invalidate(TRange<float> Range)
 		Groups.RemoveAt(OverlappingRange.GetLowerBoundValue(), OverlappingRange.Size<int32>(), false);
 		MetaData.RemoveAt(OverlappingRange.GetLowerBoundValue(), OverlappingRange.Size<int32>(), false);
 
+#if WITH_EDITORONLY_DATA
 		Signature = FGuid::NewGuid();
+#endif
 	}
 }
 
@@ -96,7 +98,9 @@ int32 FMovieSceneEvaluationField::Insert(TRange<float> InRange, FMovieSceneEvalu
 	MetaData.Insert(MoveTemp(InMetaData), InsertIndex);
 	Groups.Insert(MoveTemp(InGroup), InsertIndex);
 
+#if WITH_EDITORONLY_DATA
 	Signature = FGuid::NewGuid();
+#endif
 
 	return InsertIndex;
 }
@@ -109,7 +113,9 @@ void FMovieSceneEvaluationField::Add(TRange<float> InRange, FMovieSceneEvaluatio
 		MetaData.Add(MoveTemp(InMetaData));
 		Groups.Add(MoveTemp(InGroup));
 
+#if WITH_EDITORONLY_DATA
 		Signature = FGuid::NewGuid();
+#endif
 	}
 }
 

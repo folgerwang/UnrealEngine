@@ -70,7 +70,7 @@ public:
 	TArray<FTransform> FKLegBoneTransforms;
 
 public:
-	void InitializeTransforms(USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases);
+	void InitializeTransforms(FAnimInstanceProxy* MyAnimInstanceProxy, FCSPose<FCompactPose>& MeshBases);
 
 	FAnimLegIKData()
 		: IKFootBoneIndex(INDEX_NONE)
@@ -115,15 +115,16 @@ private:
 	float MaximumReach;
 	int32 NumLinks;
 	bool bEnableRotationLimit;
-	USkeletalMeshComponent* SkelMeshComp;
+	FAnimInstanceProxy* MyAnimInstanceProxy;
 
 public:
 	FIKChain()
 		: bInitialized(false)
 		, MaximumReach(0.f)
+		, MyAnimInstanceProxy(nullptr)
 	{}
 
-	void InitializeFromLegData(const FAnimLegIKData& InLegData, USkeletalMeshComponent* InSkelMeshComp);
+	void InitializeFromLegData(const FAnimLegIKData& InLegData, FAnimInstanceProxy* InAnimInstanceProxy);
 	void ReachTarget(const FVector& InTargetLocation, float InReachPrecision, int32 InMaxIterations);
 
 	float GetMaximumReach() const
@@ -164,19 +165,22 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_LegIK : public FAnimNode_SkeletalControlBa
 	UPROPERTY(Transient)
 	TArray<FAnimLegIKData> LegsData;
 
+	FAnimInstanceProxy* MyAnimInstanceProxy;
+
 public:
 	// FAnimNode_Base interface
 	virtual void GatherDebugData(FNodeDebugData& DebugData) override;
 	// End of FAnimNode_Base interface
 
 	// FAnimNode_SkeletalControlBase interface
+	virtual void Initialize_AnyThread(const FAnimationInitializeContext& Context) override;
 	virtual void EvaluateSkeletalControl_AnyThread(FComponentSpacePoseContext& Output, TArray<FBoneTransform>& OutBoneTransforms) override;
 	virtual bool IsValidToEvaluate(const USkeleton* Skeleton, const FBoneContainer& RequiredBones) override;
 	// End of FAnimNode_SkeletalControlBase interface
 
-	void OrientLegTowardsIK(FAnimLegIKData& InLegData, USkeletalMeshComponent* SkelComp);
-	void DoLegReachIK(FAnimLegIKData& InLegData, USkeletalMeshComponent* SkelComp);
-	void AdjustKneeTwist(FAnimLegIKData& InLegData, USkeletalMeshComponent* SkelComp);
+	void OrientLegTowardsIK(FAnimLegIKData& InLegData);
+	void DoLegReachIK(FAnimLegIKData& InLegData);
+	void AdjustKneeTwist(FAnimLegIKData& InLegData);
 
 private:
 	// FAnimNode_SkeletalControlBase interface

@@ -112,7 +112,7 @@ namespace Audio
 				SampleBuffer.NumSamples = SoundWave->RawPCMDataSize / sizeof(int16);
 				SampleBuffer.NumChannels = SoundWave->NumChannels;
 				SampleBuffer.NumFrames = SampleBuffer.NumSamples / SoundWave->NumChannels;
-				SampleBuffer.SampleRate = SoundWave->SampleRate;
+				SampleBuffer.SampleRate = SoundWave->GetSampleRateForCurrentPlatform();
 				SampleBuffer.SampleDuration = (float)SampleBuffer.NumFrames / SampleBuffer.SampleRate;
 
 				return true;

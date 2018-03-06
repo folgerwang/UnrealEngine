@@ -23,7 +23,6 @@
 #include "Engine/PendingNetGame.h"
 #include "Engine/LatentActionManager.h"
 #include "Engine/GameInstance.h"
-#include "Engine/DemoNetDriver.h"
 
 #include "World.generated.h"
 
@@ -44,6 +43,7 @@ class FWorldInGamePerformanceTrackers;
 class IInterface_PostProcessVolume;
 class UAISystemBase;
 class UCanvas;
+class UDemoNetDriver;
 class UGameViewportClient;
 class ULevelStreaming;
 class ULocalPlayer;
@@ -789,14 +789,75 @@ class ENGINE_API UWorld final : public UObject, public FNetworkNotify
 	UPROPERTY(Transient)
 	TArray<UObject*>							PerModuleDataObjects;
 
+private:
 	/** Level collection. ULevels are referenced by FName (Package name) to avoid serialized references. Also contains offsets in world units */
 	UPROPERTY(Transient)
-	TArray<class ULevelStreaming*>				StreamingLevels;
+	TArray<ULevelStreaming*> StreamingLevels;
+
+	/** This is the list of streaming levels that are actively being considered for what their state should be. It will be a subset of StreamingLevels */
+	UPROPERTY(Transient, DuplicateTransient)
+	TSet<ULevelStreaming*> StreamingLevelsToConsider;
+
+public:
+
+	/** Return a const version of the streaming levels array */
+	const TArray<ULevelStreaming*>& GetStreamingLevels() const { return StreamingLevels; }
+
+	bool IsStreamingLevelBeingConsidered(ULevelStreaming* StreamingLevel) const { return StreamingLevelsToConsider.Contains(StreamingLevel); }
+
+	/** Returns the level, if any, in the process of being made visible */
+	ULevel* GetCurrentLevelPendingVisibility() const { return CurrentLevelPendingVisibility; }
+
+	/** Returns the level, if any, in the process of being made invisible */
+	ULevel* GetCurrentLevelPendingInvisibility() const { return CurrentLevelPendingInvisibility; }
+
+	/** Add a streaming level to the list of streamed levels to consider. */
+	void AddStreamingLevel(ULevelStreaming* StreamingLevelToAdd);
+
+	/** Add multiple streaming levels to the list of streamed levels to consider.  */
+	void AddStreamingLevels(TArrayView<ULevelStreaming* const> StreamingLevelsToAdd);
+
+	/** Add a streaming level to the list of streamed levels to consider. If this streaming level is in the array already then it won't be added again. */
+	void AddUniqueStreamingLevel(ULevelStreaming* StreamingLevelToAdd);
+
+	/** Add multiple streaming levels to the list of streamed levels to consider.  If any of these streaming levels are in the array already then they won't be added again.  */
+	void AddUniqueStreamingLevels(TArrayView<ULevelStreaming* const> StreamingLevelsToAdd);
+
+	/** Replace the streaming levels array */
+	void SetStreamingLevels(TArray<ULevelStreaming*>&& StreamingLevels);
+
+	/** Replace the streaming levels array */
+	void SetStreamingLevels(TArrayView<ULevelStreaming* const> StreamingLevels);
+
+	/** Remove a streaming level to the list of streamed levels to consider.
+	 *  Returns true if the specified level was in the streaming levels list.
+	 */
+	bool RemoveStreamingLevel(ULevelStreaming* StreamingLevelToRemove);
+
+	/** Remove a streaming level to the list of streamed levels to consider.
+	*  Returns true if the specified index was a valid index for removal.
+	*/
+	bool RemoveStreamingLevelAt(int32 IndexToRemove);
+
+	/** Remove multiple streaming levels to the list of streamed levels to consider. 
+	 * Returns a count of how many of the specified levels were in the streaming levels list
+	 */
+	int32 RemoveStreamingLevels(TArrayView<ULevelStreaming* const> StreamingLevelsToRemove);
+
+	/** Reset the streaming levels array */
+	void ClearStreamingLevels();
+
+	/** Inform the world that a streaming level has had a potentially state changing modification made to it so that it needs to be in the StreamingLevelsToConsider list. */
+	void UpdateStreamingLevelShouldBeConsidered(ULevelStreaming* StreamingLevelToConsider);
+
+	/** Examine all streaming levels and determine which ones should be considered. */
+	void PopulateStreamingLevelsToConsider();
 
 	/** Prefix we used to rename streaming levels, non empty in PIE and standalone preview */
 	UPROPERTY()
 	FString										StreamingLevelsPrefix;
-	
+
+private:
 	/** Pointer to the current level in the queue to be made visible, NULL if none are pending.					*/
 	UPROPERTY(Transient)
 	class ULevel*								CurrentLevelPendingVisibility;
@@ -804,7 +865,8 @@ class ENGINE_API UWorld final : public UObject, public FNetworkNotify
 	/** Pointer to the current level in the queue to be made invisible, NULL if none are pending.					*/
 	UPROPERTY(Transient)
 	class ULevel*								CurrentLevelPendingInvisibility;
-	
+
+public:
 	/** Fake NetDriver for capturing network traffic to record demos															*/
 	UPROPERTY()
 	class UDemoNetDriver*						DemoNetDriver;
@@ -1122,11 +1184,20 @@ public:
 	/** Is level streaming currently frozen?																					*/
 	bool										bIsLevelStreamingFrozen;
 
+private:
 	/** Is forcibly unloading streaming levels?																					*/
 	bool										bShouldForceUnloadStreamingLevels;
 
 	/** Is forcibly making streaming levels visible?																			*/
 	bool										bShouldForceVisibleStreamingLevels;
+
+public:
+
+	bool GetShouldForceUnloadStreamingLevels() const { return bShouldForceUnloadStreamingLevels; }
+	void SetShouldForceUnloadStreamingLevels(bool bInShouldForceUnloadStreamingLevels);
+
+	bool GetShouldForceVisibleStreamingLevels() const { return bShouldForceVisibleStreamingLevels; }
+	void SetShouldForceVisibleStreamingLevels(bool bInShouldForceVisibleStreamingLevels);
 
 	/** True we want to execute a call to UpdateCulledTriggerVolumes during Tick */
 	bool										bDoDelayedUpdateCullDistanceVolumes;
@@ -2218,9 +2289,6 @@ public:
 	 */
 	void UpdateLevelStreaming();
 
-private:
-	void UpdateLevelStreamingInner( ULevelStreaming* StreamingLevel );
-
 public:
 	/**
 	 * Flushes level streaming in blocking fashion and returns when all levels are loaded/ visible/ hidden
@@ -2623,7 +2691,7 @@ public:
 	void DestroyDemoNetDriver();
 
 	/** Returns true if we are currently playing a replay */
-	bool IsPlayingReplay() const { return (DemoNetDriver ? DemoNetDriver->IsPlaying() : false); }
+	bool IsPlayingReplay() const;
 
 	// Start listening for connections.
 	bool Listen( FURL& InURL );
@@ -3034,7 +3102,7 @@ public:
 	 *
 	 * @param bForce	If true, load the levels even is a commandlet
 	 */
-	void LoadSecondaryLevels(bool bForce = false, TSet<FString>* CookedPackages = NULL);
+	void LoadSecondaryLevels(bool bForce = false, TSet<FName>* FilenamesToSkip = NULL);
 
 	/** Utility for returning the ULevelStreaming object for a particular sub-level, specified by package name */
 	ULevelStreaming* GetLevelStreamingForPackageName(FName PackageName);

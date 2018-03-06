@@ -39,12 +39,12 @@ enum EOutputFormat
 const FLightSceneInfo* GetSceneMobileDirectionalLights(FScene const* Scene, uint32 LightChannel);
 
 /* Info for dynamic point lights rendered in base pass */
-class FMobileBasePassDynamicPointLightInfo
+class FMobileBasePassMovablePointLightInfo
 {
 public:
-	FMobileBasePassDynamicPointLightInfo(const FPrimitiveSceneProxy* InSceneProxy);
+	FMobileBasePassMovablePointLightInfo(const FPrimitiveSceneProxy* InSceneProxy);
 
-	int32 NumDynamicPointLights;
+	int32 NumMovablePointLights;
 	FVector4 LightPositionAndInvRadius[MAX_BASEPASS_DYNAMIC_POINT_LIGHTS];
 	FVector4 LightColorAndFalloffExponent[MAX_BASEPASS_DYNAMIC_POINT_LIGHTS];
 };
@@ -95,17 +95,16 @@ public:
 		return bShaderHasOutdatedParameters;
 	}
 
+	// Set parameters specific to PSO
 	void SetParameters(
 		FRHICommandList& RHICmdList,
-		const FMaterialRenderProxy* MaterialRenderProxy,
-		const FVertexFactory* VertexFactory,
 		const FMaterial& InMaterialResource,
 		const FSceneView& View,
 		ESceneRenderTargetsMode::Type TextureMode
 		)
 	{
 		HeightFogParameters.Set(RHICmdList, GetVertexShader(), &View);
-		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(),MaterialRenderProxy,InMaterialResource,View,View.ViewUniformBuffer,TextureMode);
+		FMeshMaterialShader::SetPolicyParameters(RHICmdList, GetVertexShader(), InMaterialResource, View, View.ViewUniformBuffer, TextureMode);
 
 		if (MobileMultiViewMaskParameter.IsBound())
 		{
@@ -122,9 +121,18 @@ public:
 		}
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState)
+	// Set parameters specific to mesh
+	void SetMesh(
+		FRHICommandList& RHICmdList,
+		const FMaterial& InMaterialResource,
+		const FSceneView& View,
+		const FVertexFactory* InVertexFactory, 
+		const FMaterialRenderProxy* InMaterialRenderProxy,
+		const FPrimitiveSceneProxy* Proxy,
+		const FMeshBatchElement& BatchElement, 
+		const FDrawingPolicyRenderState& DrawRenderState)
 	{
-		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(),VertexFactory,View,Proxy,BatchElement,DrawRenderState);
+		FMeshMaterialShader::SetMeshBatchParameters(RHICmdList, GetVertexShader(), InMaterialResource, View, InVertexFactory, InMaterialRenderProxy, Proxy, BatchElement, DrawRenderState);
 	}
 
 private:
@@ -183,44 +191,25 @@ public:
 };
 
 
+void GetSkyTextureParams(FPrimitiveSceneInfo* PrimitiveSceneInfo, float& AverageBrightnessOUT, FTexture*& ReflectionTextureOUT);
+
 /**
  * The base type for pixel shaders that render the emissive color, and light-mapped/ambient lighting of a mesh.
  */
 
-template<typename PixelParametersType, int32 NumDynamicPointLights>
+template<typename PixelParametersType>
 class TMobileBasePassPSPolicyParamType : public FMeshMaterialShader, public PixelParametersType
 {
 public:
 
 	static bool ShouldCompilePermutation(EShaderPlatform Platform,const FMaterial* Material,const FVertexFactoryType* VertexFactoryType)
 	{
-		// We compile the point light shader combinations based on the project settings
-		static auto* MobileDynamicPointLightsUseStaticBranchCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileDynamicPointLightsUseStaticBranch"));
-		static auto* MobileNumDynamicPointLightsCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileNumDynamicPointLights"));
-		const bool bMobileDynamicPointLightsUseStaticBranch = (MobileDynamicPointLightsUseStaticBranchCVar->GetValueOnAnyThread() == 1);
-		const int32 MobileNumDynamicPointLights = MobileNumDynamicPointLightsCVar->GetValueOnAnyThread();
-		const bool bIsUnlit = Material->GetShadingModel() == MSM_Unlit;
-
-		return IsMobilePlatform(Platform) &&
-			(NumDynamicPointLights == 0 ||
-			(!bIsUnlit && NumDynamicPointLights == INT32_MAX && bMobileDynamicPointLightsUseStaticBranch && MobileNumDynamicPointLights > 0) ||	// single shader for variable number of point lights
-			(!bIsUnlit && NumDynamicPointLights <= MobileNumDynamicPointLights && !bMobileDynamicPointLightsUseStaticBranch));					// unique 1...N point light shaders
+		return IsMobilePlatform(Platform);
 	}
 
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		FMeshMaterialShader::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
-		if (NumDynamicPointLights == INT32_MAX)
-		{
-			OutEnvironment.SetDefine(TEXT("MAX_DYNAMIC_POINT_LIGHTS"), (uint32)MAX_BASEPASS_DYNAMIC_POINT_LIGHTS);
-			OutEnvironment.SetDefine(TEXT("VARIABLE_NUM_DYNAMIC_POINT_LIGHTS"), (uint32)1);
-		}
-		else
-		{
-			OutEnvironment.SetDefine(TEXT("MAX_DYNAMIC_POINT_LIGHTS"), (uint32)NumDynamicPointLights);
-			OutEnvironment.SetDefine(TEXT("VARIABLE_NUM_DYNAMIC_POINT_LIGHTS"), (uint32)0);
-			OutEnvironment.SetDefine(TEXT("NUM_DYNAMIC_POINT_LIGHTS"), (uint32)NumDynamicPointLights);
-		}
 		// Modify compilation environment depending upon material shader quality level settings.
 		ModifyCompilationEnvironmentForQualityLevel(Platform, Material->GetQualityLevel(), OutEnvironment);
 	}
@@ -235,27 +224,47 @@ public:
 		InvReflectionCubemapAverageBrightness.Bind(Initializer.ParameterMap, TEXT("InvReflectionCubemapAverageBrightness"));
 		LightPositionAndInvRadiusParameter.Bind(Initializer.ParameterMap, TEXT("LightPositionAndInvRadius"));
 		LightColorAndFalloffExponentParameter.Bind(Initializer.ParameterMap, TEXT("LightColorAndFalloffExponent"));
-		if (NumDynamicPointLights == INT32_MAX)
-		{
 			NumDynamicPointLightsParameter.Bind(Initializer.ParameterMap, TEXT("NumDynamicPointLights"));
-		}
-
 		ReflectionPositionsAndRadii.Bind(Initializer.ParameterMap, TEXT("ReflectionPositionsAndRadii"));
 		ReflectionCubemap1.Bind(Initializer.ParameterMap, TEXT("ReflectionCubemap1"));
 		ReflectionSampler1.Bind(Initializer.ParameterMap, TEXT("ReflectionCubemapSampler1"));
 		ReflectionCubemap2.Bind(Initializer.ParameterMap, TEXT("ReflectionCubemap2"));
 		ReflectionSampler2.Bind(Initializer.ParameterMap, TEXT("ReflectionCubemapSampler2"));
 
+		UsingSkyReflectionParam.Bind(Initializer.ParameterMap, TEXT("UsingSkyReflection"));
+
+		CSMDebugHintParams.Bind(Initializer.ParameterMap, TEXT("CSMDebugHint"));
+
 		PlanarReflectionParams.Bind(Initializer.ParameterMap);
 	}
 	TMobileBasePassPSPolicyParamType() {}
 
-	void SetParameters(FRHICommandList& RHICmdList, const FMaterialRenderProxy* MaterialRenderProxy, const FMaterial& MaterialResource, const FViewInfo* View, ESceneRenderTargetsMode::Type TextureMode)
+	void SetParameters(FRHICommandList& RHICmdList, const FMaterialRenderProxy* InMaterialRenderProxy, const FMaterial& MaterialResource, const FViewInfo* View, ESceneRenderTargetsMode::Type TextureMode)
 	{
-		FMeshMaterialShader::SetParameters(RHICmdList, GetPixelShader(),MaterialRenderProxy,MaterialResource,*View,View->ViewUniformBuffer,TextureMode);
+		FMeshMaterialShader::SetParameters(RHICmdList, GetPixelShader(),InMaterialRenderProxy,MaterialResource,*View,View->ViewUniformBuffer,TextureMode);
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState)
+	// Set parameters specific to PSO
+	void SetParameters(
+		FRHICommandList& RHICmdList, 
+		const FMaterial& MaterialResource, 
+		const FSceneView& View, 
+		ESceneRenderTargetsMode::Type TextureMode)
+	{
+		FMeshMaterialShader::SetPolicyParameters(RHICmdList, GetPixelShader(), MaterialResource, View, View.ViewUniformBuffer, TextureMode);
+	}
+
+	// Set parameters specific to Mesh
+	void SetMesh(
+		FRHICommandList& RHICmdList, 
+		const FMaterial& InMaterialResource,
+		const FSceneView& View,
+		const FVertexFactory* InVertexFactory, 
+		const FMaterialRenderProxy* InMaterialRenderProxy,
+		const FPrimitiveSceneProxy* Proxy,
+		const FMeshBatchElement& BatchElement, 
+		const FDrawingPolicyRenderState& DrawRenderState,
+		int32 NumMovablePointLights)
 	{
 		FRHIPixelShader* PixelShader = GetPixelShader();
 		FPrimitiveSceneInfo* PrimitiveSceneInfo = Proxy ? Proxy->GetPrimitiveSceneInfo() : NULL;
@@ -309,6 +318,7 @@ public:
 		{
 			FTexture* ReflectionTexture = GBlackTextureCube;
 			float AverageBrightness = 1.0f;
+			float UsingSkyReflection = 0.0f;
 
 			if (PrimitiveSceneInfo 
 				&& PrimitiveSceneInfo->CachedReflectionCaptureProxy
@@ -318,30 +328,46 @@ public:
 				AverageBrightness = PrimitiveSceneInfo->CachedReflectionCaptureProxy->EncodedHDRAverageBrightness;
 				ReflectionTexture = PrimitiveSceneInfo->CachedReflectionCaptureProxy->EncodedHDRCubemap;
 			}
+			else if (PrimitiveSceneInfo)
+			{
+				// If no environment map is available attempt to use sky light's texture.
+				GetSkyTextureParams(PrimitiveSceneInfo, AverageBrightness, ReflectionTexture);
+				// Disable shader's RGBM decoding and allow sky light tinting of this envmap.
+				UsingSkyReflection = 1.0f;
+			}
 
 			// Set the reflection cubemap
 			SetTextureParameter(RHICmdList, PixelShader, ReflectionCubemap, ReflectionSampler, ReflectionTexture);
 			SetShaderValue(RHICmdList, PixelShader, InvReflectionCubemapAverageBrightness, FVector(1.0f / AverageBrightness, 0, 0));
+			SetShaderValue(RHICmdList, PixelShader, UsingSkyReflectionParam, UsingSkyReflection);
 		}
 
-		if (NumDynamicPointLights > 0)
+		if (NumMovablePointLights > 0)
 		{
-			FMobileBasePassDynamicPointLightInfo LightInfo(Proxy);
+			FMobileBasePassMovablePointLightInfo LightInfo(Proxy);
 
-			if (NumDynamicPointLights == INT32_MAX)
+			if (NumMovablePointLights == INT32_MAX)
 			{
-				SetShaderValue(RHICmdList, PixelShader, NumDynamicPointLightsParameter, LightInfo.NumDynamicPointLights);
+				SetShaderValue(RHICmdList, PixelShader, NumDynamicPointLightsParameter, LightInfo.NumMovablePointLights);
 			}
 
 			// Set dynamic point lights
-			SetShaderValueArray(RHICmdList, PixelShader, LightPositionAndInvRadiusParameter, LightInfo.LightPositionAndInvRadius, LightInfo.NumDynamicPointLights);
-			SetShaderValueArray(RHICmdList, PixelShader, LightColorAndFalloffExponentParameter, LightInfo.LightColorAndFalloffExponent, LightInfo.NumDynamicPointLights);
+			SetShaderValueArray(RHICmdList, PixelShader, LightPositionAndInvRadiusParameter, LightInfo.LightPositionAndInvRadius, LightInfo.NumMovablePointLights);
+			SetShaderValueArray(RHICmdList, PixelShader, LightColorAndFalloffExponentParameter, LightInfo.LightColorAndFalloffExponent, LightInfo.NumMovablePointLights);
+		}
+
+		if (CSMDebugHintParams.IsBound())
+		{
+			static const auto CVarsCSMDebugHint = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.Mobile.Shadow.CSMDebugHint"));
+			
+			float CSMDebugValue = CVarsCSMDebugHint->GetValueOnRenderThread();
+			SetShaderValue(RHICmdList, PixelShader, CSMDebugHintParams, CSMDebugValue);
 		}
 
 		const FPlanarReflectionSceneProxy* CachedPlanarReflectionProxy = PrimitiveSceneInfo ? PrimitiveSceneInfo->CachedPlanarReflectionProxy : nullptr;
 		PlanarReflectionParams.SetParameters(RHICmdList, PixelShader, View, CachedPlanarReflectionProxy );
 
-		FMeshMaterialShader::SetMesh(RHICmdList, PixelShader,VertexFactory,View,Proxy,BatchElement,DrawRenderState);		
+		FMeshMaterialShader::SetMeshBatchParameters(RHICmdList, PixelShader, InMaterialResource, View, InVertexFactory, InMaterialRenderProxy, Proxy, BatchElement, DrawRenderState);
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
@@ -353,17 +379,16 @@ public:
 		Ar << InvReflectionCubemapAverageBrightness;
 		Ar << LightPositionAndInvRadiusParameter;
 		Ar << LightColorAndFalloffExponentParameter;
-		if (NumDynamicPointLights == INT32_MAX)
-		{
-			Ar << NumDynamicPointLightsParameter;
-		}
-
+		Ar << NumDynamicPointLightsParameter;
+		Ar << UsingSkyReflectionParam;
 		Ar << ReflectionCubemap1;
 		Ar << ReflectionCubemap2;
 		Ar << ReflectionPositionsAndRadii;
 		Ar << ReflectionSampler1;
 		Ar << ReflectionSampler2;
 		Ar << PlanarReflectionParams;
+
+		Ar << CSMDebugHintParams;
 
 		return bShaderHasOutdatedParameters;
 	}
@@ -376,6 +401,7 @@ private:
 	FShaderResourceParameter ReflectionSampler;
 	FShaderParameter InvReflectionCubemapAverageBrightness;
 	FShaderParameter LightPositionAndInvRadiusParameter;
+	FShaderParameter UsingSkyReflectionParam;
 	FShaderParameter LightColorAndFalloffExponentParameter;
 	FShaderParameter NumDynamicPointLightsParameter;
 
@@ -388,12 +414,14 @@ private:
 	FShaderParameter ReflectionPositionsAndRadii;
 	//////////////////////////////////////////////////////////////////////////
 	FPlanarReflectionParameters PlanarReflectionParams;
+
+	FShaderParameter CSMDebugHintParams;
 };
 
-template<typename LightMapPolicyType, int32 NumDynamicPointLights>
-class TMobileBasePassPSBaseType : public TMobileBasePassPSPolicyParamType<typename LightMapPolicyType::PixelParametersType, NumDynamicPointLights>
+template<typename LightMapPolicyType>
+class TMobileBasePassPSBaseType : public TMobileBasePassPSPolicyParamType<typename LightMapPolicyType::PixelParametersType>
 {
-	typedef TMobileBasePassPSPolicyParamType<typename LightMapPolicyType::PixelParametersType, NumDynamicPointLights> Super;
+	typedef TMobileBasePassPSPolicyParamType<typename LightMapPolicyType::PixelParametersType> Super;
 
 public:
 
@@ -414,30 +442,54 @@ public:
 	TMobileBasePassPSBaseType() {}
 };
 
-template< typename LightMapPolicyType, EOutputFormat OutputFormat, bool bEnableSkyLight, int32 NumDynamicPointLights>
-class TMobileBasePassPS : public TMobileBasePassPSBaseType<LightMapPolicyType, NumDynamicPointLights>
+template< typename LightMapPolicyType, EOutputFormat OutputFormat, bool bEnableSkyLight, int32 NumMovablePointLights>
+class TMobileBasePassPS : public TMobileBasePassPSBaseType<LightMapPolicyType>
 {
 	DECLARE_SHADER_TYPE(TMobileBasePassPS,MeshMaterial);
 public:
 
 	static bool ShouldCompilePermutation(EShaderPlatform Platform, const FMaterial* Material, const FVertexFactoryType* VertexFactoryType)
 	{		
-		// Only compile skylight version for lit materials on ES2 (Metal) or higher
-		const bool bShouldCacheBySkylight = !bEnableSkyLight || (Material->GetShadingModel() != MSM_Unlit);
+		// We compile the point light shader combinations based on the project settings
+		static auto* MobileDynamicPointLightsUseStaticBranchCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileDynamicPointLightsUseStaticBranch"));
+		static auto* MobileNumDynamicPointLightsCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileNumDynamicPointLights"));
+		const bool bMobileDynamicPointLightsUseStaticBranch = (MobileDynamicPointLightsUseStaticBranchCVar->GetValueOnAnyThread() == 1);
+		const int32 MobileNumDynamicPointLights = MobileNumDynamicPointLightsCVar->GetValueOnAnyThread();
+		const bool bIsUnlit = Material->GetShadingModel() == MSM_Unlit;
 
-		return TMobileBasePassPSBaseType<LightMapPolicyType, NumDynamicPointLights>::ShouldCompilePermutation(Platform, Material, VertexFactoryType) && ShouldCacheShaderByPlatformAndOutputFormat(Platform, OutputFormat) && bShouldCacheBySkylight;
+
+		// Only compile skylight version for lit materials on ES2 (Metal) or higher
+		const bool bShouldCacheBySkylight = !bEnableSkyLight || !bIsUnlit;
+
+		const bool bShouldCacheByNumDynamicPointLights =
+			(NumMovablePointLights == 0 ||
+			(!bIsUnlit && NumMovablePointLights == INT32_MAX && bMobileDynamicPointLightsUseStaticBranch && MobileNumDynamicPointLights > 0) ||	// single shader for variable number of point lights
+				(!bIsUnlit && NumMovablePointLights <= MobileNumDynamicPointLights && !bMobileDynamicPointLightsUseStaticBranch));				// unique 1...N point light shaders
+
+		return TMobileBasePassPSBaseType<LightMapPolicyType>::ShouldCompilePermutation(Platform, Material, VertexFactoryType) && ShouldCacheShaderByPlatformAndOutputFormat(Platform, OutputFormat) && bShouldCacheBySkylight && bShouldCacheByNumDynamicPointLights;
 	}
 	
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{		
-		TMobileBasePassPSBaseType<LightMapPolicyType, NumDynamicPointLights>::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+		TMobileBasePassPSBaseType<LightMapPolicyType>::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("ENABLE_SKY_LIGHT"), bEnableSkyLight);
 		OutEnvironment.SetDefine(TEXT("OUTPUT_GAMMA_SPACE"), OutputFormat == LDR_GAMMA_32);
+		if (NumMovablePointLights == INT32_MAX)
+		{
+			OutEnvironment.SetDefine(TEXT("MAX_DYNAMIC_POINT_LIGHTS"), (uint32)MAX_BASEPASS_DYNAMIC_POINT_LIGHTS);
+			OutEnvironment.SetDefine(TEXT("VARIABLE_NUM_DYNAMIC_POINT_LIGHTS"), (uint32)1);
+		}
+		else
+		{
+			OutEnvironment.SetDefine(TEXT("MAX_DYNAMIC_POINT_LIGHTS"), (uint32)NumMovablePointLights);
+			OutEnvironment.SetDefine(TEXT("VARIABLE_NUM_DYNAMIC_POINT_LIGHTS"), (uint32)0);
+			OutEnvironment.SetDefine(TEXT("NUM_DYNAMIC_POINT_LIGHTS"), (uint32)NumMovablePointLights);
+		}
 	}
 	
 	/** Initialization constructor. */
 	TMobileBasePassPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
-		TMobileBasePassPSBaseType<LightMapPolicyType, NumDynamicPointLights>(Initializer)
+		TMobileBasePassPSBaseType<LightMapPolicyType>(Initializer)
 	{}
 
 	/** Default constructor. */
@@ -448,7 +500,7 @@ public:
  * Get shader templates allowing to redirect between compatible shaders.
  */
 
-template <typename LightMapPolicyType, int32 NumDynamicPointLights>
+template <typename LightMapPolicyType, int32 NumMovablePointLights>
 struct GetMobileBasePassShaders
 {
 	GetMobileBasePassShaders(
@@ -457,7 +509,7 @@ struct GetMobileBasePassShaders
 	LightMapPolicyType LightMapPolicy, 
 	bool bEnableSkyLight,
 	TMobileBasePassVSPolicyParamType<typename LightMapPolicyType::VertexParametersType>*& VertexShader,
-	TMobileBasePassPSPolicyParamType<typename LightMapPolicyType::PixelParametersType, NumDynamicPointLights>*& PixelShader
+	TMobileBasePassPSPolicyParamType<typename LightMapPolicyType::PixelParametersType>*& PixelShader
 	)
 	{
 		if (IsMobileHDR())
@@ -466,11 +518,11 @@ struct GetMobileBasePassShaders
 
 			if (bEnableSkyLight)
 			{
-				PixelShader = Material.GetShader< TMobileBasePassPS<LightMapPolicyType, HDR_LINEAR_64, true, NumDynamicPointLights> >(VertexFactoryType);
+				PixelShader = Material.GetShader< TMobileBasePassPS<LightMapPolicyType, HDR_LINEAR_64, true, NumMovablePointLights> >(VertexFactoryType);
 			}
 			else
 			{
-				PixelShader = Material.GetShader< TMobileBasePassPS<LightMapPolicyType, HDR_LINEAR_64, false, NumDynamicPointLights> >(VertexFactoryType);
+				PixelShader = Material.GetShader< TMobileBasePassPS<LightMapPolicyType, HDR_LINEAR_64, false, NumMovablePointLights> >(VertexFactoryType);
 			}
 		}
 		else
@@ -479,19 +531,19 @@ struct GetMobileBasePassShaders
 
 			if (bEnableSkyLight)
 			{
-				PixelShader = Material.GetShader< TMobileBasePassPS<LightMapPolicyType, LDR_GAMMA_32, true, NumDynamicPointLights> >(VertexFactoryType);
+				PixelShader = Material.GetShader< TMobileBasePassPS<LightMapPolicyType, LDR_GAMMA_32, true, NumMovablePointLights> >(VertexFactoryType);
 			}
 			else
 			{
-				PixelShader = Material.GetShader< TMobileBasePassPS<LightMapPolicyType, LDR_GAMMA_32, false, NumDynamicPointLights> >(VertexFactoryType);
+				PixelShader = Material.GetShader< TMobileBasePassPS<LightMapPolicyType, LDR_GAMMA_32, false, NumMovablePointLights> >(VertexFactoryType);
 			}			
 		}
 	}
 };
 
 // Only using a struct/class allows partial specialisation here
-template <int32 NumDynamicPointLights>
-struct GetMobileBasePassShaders<FUniformLightMapPolicy, NumDynamicPointLights>
+template <int32 NumMovablePointLights>
+struct GetMobileBasePassShaders<FUniformLightMapPolicy, NumMovablePointLights>
 {
 	GetMobileBasePassShaders(
 		const FMaterial& Material, 
@@ -499,17 +551,17 @@ struct GetMobileBasePassShaders<FUniformLightMapPolicy, NumDynamicPointLights>
 		FUniformLightMapPolicy LightMapPolicy, 
 		bool bEnableSkyLight,
 		TMobileBasePassVSPolicyParamType<typename FUniformLightMapPolicy::VertexParametersType>*& VertexShader,
-		TMobileBasePassPSPolicyParamType<typename FUniformLightMapPolicy::PixelParametersType, NumDynamicPointLights>*& PixelShader
+		TMobileBasePassPSPolicyParamType<typename FUniformLightMapPolicy::PixelParametersType>*& PixelShader
 		);
 };
 
-template <ELightMapPolicyType Policy, int32 NumDynamicPointLights>
+template <ELightMapPolicyType Policy, int32 NumMovablePointLights>
 void GetUniformMobileBasePassShaders(
 	const FMaterial& Material, 
 	FVertexFactoryType* VertexFactoryType, 
 	bool bEnableSkyLight,
 	TMobileBasePassVSPolicyParamType<FUniformLightMapPolicyShaderParametersType>*& VertexShader,
-	TMobileBasePassPSPolicyParamType<FUniformLightMapPolicyShaderParametersType, NumDynamicPointLights>*& PixelShader
+	TMobileBasePassPSPolicyParamType<FUniformLightMapPolicyShaderParametersType>*& PixelShader
 	)
 {
 	if (IsMobileHDR())
@@ -518,11 +570,11 @@ void GetUniformMobileBasePassShaders(
 
 		if (bEnableSkyLight)
 		{
-			PixelShader = Material.GetShader< TMobileBasePassPS<TUniformLightMapPolicy<Policy>, HDR_LINEAR_64, true, NumDynamicPointLights> >(VertexFactoryType);
+			PixelShader = Material.GetShader< TMobileBasePassPS<TUniformLightMapPolicy<Policy>, HDR_LINEAR_64, true, NumMovablePointLights> >(VertexFactoryType);
 		}
 		else
 		{
-			PixelShader = Material.GetShader< TMobileBasePassPS<TUniformLightMapPolicy<Policy>, HDR_LINEAR_64, false, NumDynamicPointLights> >(VertexFactoryType);
+			PixelShader = Material.GetShader< TMobileBasePassPS<TUniformLightMapPolicy<Policy>, HDR_LINEAR_64, false, NumMovablePointLights> >(VertexFactoryType);
 		}	
 	}
 	else
@@ -531,64 +583,64 @@ void GetUniformMobileBasePassShaders(
 
 		if (bEnableSkyLight)
 		{
-			PixelShader = Material.GetShader< TMobileBasePassPS<TUniformLightMapPolicy<Policy>, LDR_GAMMA_32, true, NumDynamicPointLights> >(VertexFactoryType);
+			PixelShader = Material.GetShader< TMobileBasePassPS<TUniformLightMapPolicy<Policy>, LDR_GAMMA_32, true, NumMovablePointLights> >(VertexFactoryType);
 		}
 		else
 		{
-			PixelShader = Material.GetShader< TMobileBasePassPS<TUniformLightMapPolicy<Policy>, LDR_GAMMA_32, false, NumDynamicPointLights> >(VertexFactoryType);
+			PixelShader = Material.GetShader< TMobileBasePassPS<TUniformLightMapPolicy<Policy>, LDR_GAMMA_32, false, NumMovablePointLights> >(VertexFactoryType);
 		}			
 	}
 }
 
-template <int32 NumDynamicPointLights>
-GetMobileBasePassShaders<FUniformLightMapPolicy, NumDynamicPointLights>::GetMobileBasePassShaders(
+template <int32 NumMovablePointLights>
+GetMobileBasePassShaders<FUniformLightMapPolicy, NumMovablePointLights>::GetMobileBasePassShaders(
 	const FMaterial& Material, 
 	FVertexFactoryType* VertexFactoryType, 
 	FUniformLightMapPolicy LightMapPolicy, 
 	bool bEnableSkyLight,
 	TMobileBasePassVSPolicyParamType<FUniformLightMapPolicyShaderParametersType>*& VertexShader,
-	TMobileBasePassPSPolicyParamType<FUniformLightMapPolicyShaderParametersType, NumDynamicPointLights>*& PixelShader
+	TMobileBasePassPSPolicyParamType<FUniformLightMapPolicyShaderParametersType>*& PixelShader
 	)
 {
 	switch (LightMapPolicy.GetIndirectPolicy())
 	{
 	case LMP_LQ_LIGHTMAP:
-		GetUniformMobileBasePassShaders<LMP_LQ_LIGHTMAP, NumDynamicPointLights>(Material, VertexFactoryType, bEnableSkyLight, VertexShader, PixelShader);
+		GetUniformMobileBasePassShaders<LMP_LQ_LIGHTMAP, NumMovablePointLights>(Material, VertexFactoryType, bEnableSkyLight, VertexShader, PixelShader);
 		break;
 	case LMP_MOBILE_DISTANCE_FIELD_SHADOWS_AND_LQ_LIGHTMAP:
-			GetUniformMobileBasePassShaders<LMP_MOBILE_DISTANCE_FIELD_SHADOWS_AND_LQ_LIGHTMAP, NumDynamicPointLights>(Material, VertexFactoryType, bEnableSkyLight, VertexShader, PixelShader);
+			GetUniformMobileBasePassShaders<LMP_MOBILE_DISTANCE_FIELD_SHADOWS_AND_LQ_LIGHTMAP, NumMovablePointLights>(Material, VertexFactoryType, bEnableSkyLight, VertexShader, PixelShader);
 		break;
 	case LMP_MOBILE_DISTANCE_FIELD_SHADOWS_LIGHTMAP_AND_CSM:
-			GetUniformMobileBasePassShaders<LMP_MOBILE_DISTANCE_FIELD_SHADOWS_LIGHTMAP_AND_CSM, NumDynamicPointLights>(Material, VertexFactoryType, bEnableSkyLight, VertexShader, PixelShader);
+			GetUniformMobileBasePassShaders<LMP_MOBILE_DISTANCE_FIELD_SHADOWS_LIGHTMAP_AND_CSM, NumMovablePointLights>(Material, VertexFactoryType, bEnableSkyLight, VertexShader, PixelShader);
 			break;
 	case LMP_MOBILE_DIRECTIONAL_LIGHT_AND_SH_INDIRECT:
-			GetUniformMobileBasePassShaders<LMP_MOBILE_DIRECTIONAL_LIGHT_AND_SH_INDIRECT, NumDynamicPointLights>(Material, VertexFactoryType, bEnableSkyLight, VertexShader, PixelShader);
+			GetUniformMobileBasePassShaders<LMP_MOBILE_DIRECTIONAL_LIGHT_AND_SH_INDIRECT, NumMovablePointLights>(Material, VertexFactoryType, bEnableSkyLight, VertexShader, PixelShader);
 		break;
 	case LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT_AND_SH_INDIRECT:
-			GetUniformMobileBasePassShaders<LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT_AND_SH_INDIRECT, NumDynamicPointLights>(Material, VertexFactoryType, bEnableSkyLight, VertexShader, PixelShader);
+			GetUniformMobileBasePassShaders<LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT_AND_SH_INDIRECT, NumMovablePointLights>(Material, VertexFactoryType, bEnableSkyLight, VertexShader, PixelShader);
 		break;
 	case LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT_CSM_AND_SH_INDIRECT:
-			GetUniformMobileBasePassShaders<LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT_CSM_AND_SH_INDIRECT, NumDynamicPointLights>(Material, VertexFactoryType, bEnableSkyLight, VertexShader, PixelShader);
+			GetUniformMobileBasePassShaders<LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT_CSM_AND_SH_INDIRECT, NumMovablePointLights>(Material, VertexFactoryType, bEnableSkyLight, VertexShader, PixelShader);
 		break;
 	case LMP_MOBILE_DIRECTIONAL_LIGHT_CSM_AND_SH_INDIRECT:
-			GetUniformMobileBasePassShaders<LMP_MOBILE_DIRECTIONAL_LIGHT_CSM_AND_SH_INDIRECT, NumDynamicPointLights>(Material, VertexFactoryType, bEnableSkyLight, VertexShader, PixelShader);
+			GetUniformMobileBasePassShaders<LMP_MOBILE_DIRECTIONAL_LIGHT_CSM_AND_SH_INDIRECT, NumMovablePointLights>(Material, VertexFactoryType, bEnableSkyLight, VertexShader, PixelShader);
 		break;
 	case LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT:
-			GetUniformMobileBasePassShaders<LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT, NumDynamicPointLights>(Material, VertexFactoryType, bEnableSkyLight, VertexShader, PixelShader);
+			GetUniformMobileBasePassShaders<LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT, NumMovablePointLights>(Material, VertexFactoryType, bEnableSkyLight, VertexShader, PixelShader);
 		break;
 	case LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT_CSM:
-			GetUniformMobileBasePassShaders<LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT_CSM, NumDynamicPointLights>(Material, VertexFactoryType, bEnableSkyLight, VertexShader, PixelShader);
+			GetUniformMobileBasePassShaders<LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT_CSM, NumMovablePointLights>(Material, VertexFactoryType, bEnableSkyLight, VertexShader, PixelShader);
 		break;
 	case LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT_WITH_LIGHTMAP:
-			GetUniformMobileBasePassShaders<LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT_WITH_LIGHTMAP, NumDynamicPointLights>(Material, VertexFactoryType, bEnableSkyLight, VertexShader, PixelShader);
+			GetUniformMobileBasePassShaders<LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT_WITH_LIGHTMAP, NumMovablePointLights>(Material, VertexFactoryType, bEnableSkyLight, VertexShader, PixelShader);
 		break;
 	case LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT_CSM_WITH_LIGHTMAP:
-			GetUniformMobileBasePassShaders<LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT_CSM_WITH_LIGHTMAP, NumDynamicPointLights>(Material, VertexFactoryType, bEnableSkyLight, VertexShader, PixelShader);
+			GetUniformMobileBasePassShaders<LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT_CSM_WITH_LIGHTMAP, NumMovablePointLights>(Material, VertexFactoryType, bEnableSkyLight, VertexShader, PixelShader);
 		break;
 	default:										
 		check(false);
 	case LMP_NO_LIGHTMAP:
-		GetUniformMobileBasePassShaders<LMP_NO_LIGHTMAP, NumDynamicPointLights>(Material, VertexFactoryType, bEnableSkyLight, VertexShader, PixelShader);
+		GetUniformMobileBasePassShaders<LMP_NO_LIGHTMAP, NumMovablePointLights>(Material, VertexFactoryType, bEnableSkyLight, VertexShader, PixelShader);
 		break;
 	}
 }
@@ -596,7 +648,7 @@ GetMobileBasePassShaders<FUniformLightMapPolicy, NumDynamicPointLights>::GetMobi
 /**
  * Draws the emissive color and the light-map of a mesh.
  */
-template<typename LightMapPolicyType, int32 NumDynamicPointLights>
+template<typename LightMapPolicyType>
 class TMobileBasePassDrawingPolicy : public FMeshDrawingPolicy
 {
 public:
@@ -625,6 +677,7 @@ public:
 		const FMaterialRenderProxy* InMaterialRenderProxy,
 		const FMaterial& InMaterialResource,
 		LightMapPolicyType InLightMapPolicy,
+		int32 InNumMovablePointLights,
 		EBlendMode InBlendMode,
 		ESceneRenderTargetsMode::Type InSceneTextureMode,
 		bool bInEnableSkyLight,
@@ -633,20 +686,80 @@ public:
 		ERHIFeatureLevel::Type FeatureLevel,
 		bool bInEnableReceiveDecalOutput = false
 		):
-		FMeshDrawingPolicy(InVertexFactory,InMaterialRenderProxy,InMaterialResource, InOverrideSettings, InDebugViewShaderMode),
+		FMeshDrawingPolicy(nullptr,nullptr,InMaterialResource, InOverrideSettings, InDebugViewShaderMode),
+		VertexDeclaration(InVertexFactory->GetDeclaration()),
 		LightMapPolicy(InLightMapPolicy),
+		NumMovablePointLights(InNumMovablePointLights),
 		BlendMode(InBlendMode),
 		SceneTextureMode(InSceneTextureMode),
 		bEnableReceiveDecalOutput(bInEnableReceiveDecalOutput)
 	{
-		GetMobileBasePassShaders<LightMapPolicyType, NumDynamicPointLights>(
+		static_assert(MAX_BASEPASS_DYNAMIC_POINT_LIGHTS == 4, "If you change MAX_BASEPASS_DYNAMIC_POINT_LIGHTS, you need to change the switch statement below");
+
+		switch (NumMovablePointLights)
+		{
+		case INT32_MAX:
+			GetMobileBasePassShaders<LightMapPolicyType, INT32_MAX>(
+				InMaterialResource,
+				InVertexFactory->GetType(),
+				InLightMapPolicy,
+				bInEnableSkyLight,
+				VertexShader,
+				PixelShader
+				);
+			break;
+		case 1:
+			GetMobileBasePassShaders<LightMapPolicyType, 1>(
 					InMaterialResource, 
-					VertexFactory->GetType(), 
+					InVertexFactory->GetType(), 
 					InLightMapPolicy, 
 					bInEnableSkyLight, 
 					VertexShader,
 					PixelShader
 					);
+			break;
+		case 2:
+			GetMobileBasePassShaders<LightMapPolicyType, 2>(
+				InMaterialResource,
+				InVertexFactory->GetType(),
+				InLightMapPolicy,
+				bInEnableSkyLight,
+				VertexShader,
+				PixelShader
+				);
+			break;
+		case 3:
+			GetMobileBasePassShaders<LightMapPolicyType, 3>(
+				InMaterialResource,
+				InVertexFactory->GetType(),
+				InLightMapPolicy,
+				bInEnableSkyLight,
+				VertexShader,
+				PixelShader
+				);
+			break;
+		case 4:
+			GetMobileBasePassShaders<LightMapPolicyType, 4>(
+				InMaterialResource,
+				InVertexFactory->GetType(),
+				InLightMapPolicy,
+				bInEnableSkyLight,
+				VertexShader,
+				PixelShader
+				);
+			break;
+		case 0:
+		default:
+			GetMobileBasePassShaders<LightMapPolicyType, 0>(
+				InMaterialResource,
+				InVertexFactory->GetType(),
+				InLightMapPolicy,
+				bInEnableSkyLight,
+				VertexShader,
+				PixelShader
+				);
+			break;
+		}
 
 		BaseVertexShader = VertexShader;
 	}
@@ -656,14 +769,34 @@ public:
 	FDrawingPolicyMatchResult Matches(const TMobileBasePassDrawingPolicy& Other, bool bForReals = false) const
 	{
 		DRAWING_POLICY_MATCH_BEGIN
-			DRAWING_POLICY_MATCH(FMeshDrawingPolicy::Matches(Other, bForReals)) &&
+			DRAWING_POLICY_MATCH(MaterialResource == Other.MaterialResource) &&
+			DRAWING_POLICY_MATCH(VertexDeclaration == Other.VertexDeclaration) &&
+			DRAWING_POLICY_MATCH(bIsDitheredLODTransitionMaterial == Other.bIsDitheredLODTransitionMaterial) &&
+			DRAWING_POLICY_MATCH(bUsePositionOnlyVS == Other.bUsePositionOnlyVS) &&
+			DRAWING_POLICY_MATCH(MeshFillMode == Other.MeshFillMode) &&
+			DRAWING_POLICY_MATCH(MeshCullMode == Other.MeshCullMode) &&
+			DRAWING_POLICY_MATCH(MeshPrimitiveType == Other.MeshPrimitiveType) &&
 			DRAWING_POLICY_MATCH(VertexShader == Other.VertexShader) &&
 			DRAWING_POLICY_MATCH(PixelShader == Other.PixelShader) &&
 			DRAWING_POLICY_MATCH(LightMapPolicy == Other.LightMapPolicy) &&
+			DRAWING_POLICY_MATCH(NumMovablePointLights == Other.NumMovablePointLights) &&
 			DRAWING_POLICY_MATCH(SceneTextureMode == Other.SceneTextureMode) &&
 			DRAWING_POLICY_MATCH(bEnableReceiveDecalOutput == Other.bEnableReceiveDecalOutput) &&
 			DRAWING_POLICY_MATCH(UseDebugViewPS() == Other.UseDebugViewPS());
-		DRAWING_POLICY_MATCH_END
+		DRAWING_POLICY_MATCH_END 
+	}
+
+	uint32 GetTypeHash() const
+	{
+		return PointerHash(VertexDeclaration, PointerHash(MaterialResource));
+	}
+
+	friend int32 CompareDrawingPolicy(const TMobileBasePassDrawingPolicy& A,const TMobileBasePassDrawingPolicy& B)
+	{
+		COMPAREDRAWINGPOLICYMEMBERS(MaterialResource);
+		COMPAREDRAWINGPOLICYMEMBERS(SceneTextureMode);
+		COMPAREDRAWINGPOLICYMEMBERS(NumMovablePointLights);
+		return CompareDrawingPolicy(A.LightMapPolicy,B.LightMapPolicy);
 	}
 
 	void SetMobileMultiViewMask(FRHICommandList& RHICmdList, const int32 EyeIndex)
@@ -758,18 +891,12 @@ public:
 
 	void SetSharedState(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FViewInfo* View, const ContextDataType PolicyContext) const
 	{
-		VertexShader->SetParameters(RHICmdList, MaterialRenderProxy, VertexFactory, *MaterialResource, *View, SceneTextureMode);
+		VertexShader->SetParameters(RHICmdList, *MaterialResource, *View, SceneTextureMode);
 
-		if (UseDebugViewPS())
+		if (!UseDebugViewPS())
 		{
-			FDebugViewMode::GetPSInterface(View->ShaderMap, MaterialResource, GetDebugViewShaderMode())->SetParameters(RHICmdList, VertexShader, PixelShader, MaterialRenderProxy, *MaterialResource, *View);
+			PixelShader->SetParameters(RHICmdList, *MaterialResource, *View, SceneTextureMode);
 		}
-		else
-		{
-			PixelShader->SetParameters(RHICmdList, MaterialRenderProxy, *MaterialResource, View, SceneTextureMode);
-		}
-		// Set the light-map policy.
-		LightMapPolicy.Set(RHICmdList, VertexShader, !UseDebugViewPS() ? PixelShader : nullptr, VertexShader, PixelShader, VertexFactory, MaterialRenderProxy, View);		
 	}
 
 	/** 
@@ -787,7 +914,7 @@ public:
 		}
 
 		return FBoundShaderStateInput(
-			FMeshDrawingPolicy::GetVertexDeclaration(), 
+			VertexDeclaration, 
 			VertexShader->GetVertexShader(),
 			FHullShaderRHIRef(), 
 			FDomainShaderRHIRef(), 
@@ -806,6 +933,12 @@ public:
 		const ContextDataType PolicyContext
 		) const
 	{
+		const FMaterialRenderProxy* MeshMaterialRenderProxy = Mesh.MaterialRenderProxy;
+		const FVertexFactory* MeshVertexFactory = Mesh.VertexFactory;
+
+		// Set the light-map policy. (sets vertex factory)
+		LightMapPolicy.Set(RHICmdList, VertexShader, !UseDebugViewPS() ? PixelShader : nullptr, VertexShader, PixelShader, MeshVertexFactory, MeshMaterialRenderProxy, &View);		
+						
 		// Set the light-map policy's mesh-specific settings.
 		LightMapPolicy.SetMesh(
 			RHICmdList, 
@@ -815,22 +948,23 @@ public:
 			!UseDebugViewPS() ? PixelShader : nullptr,
 			VertexShader,
 			PixelShader,
-			VertexFactory,
-			MaterialRenderProxy,
+			MeshVertexFactory,
+			MeshMaterialRenderProxy,
 			ElementData.LightMapElementData);
 
 		const FMeshBatchElement& BatchElement = Mesh.Elements[BatchElementIndex];
-		VertexShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement,DrawRenderState);
+		VertexShader->SetMesh(RHICmdList, *MaterialResource, View, MeshVertexFactory, MeshMaterialRenderProxy, PrimitiveSceneProxy, BatchElement, DrawRenderState);
 
 		if (UseDebugViewPS())
 		{
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-			FDebugViewMode::GetPSInterface(GetGlobalShaderMap(View.FeatureLevel), MaterialResource, GetDebugViewShaderMode())->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, Mesh.VisualizeLODIndex, BatchElement, DrawRenderState);
+			FDebugViewMode::GetPSInterface(View.ShaderMap, MaterialResource, GetDebugViewShaderMode())->SetParameters(RHICmdList, VertexShader, PixelShader, MeshMaterialRenderProxy, *MaterialResource, View);
+			FDebugViewMode::GetPSInterface(View.ShaderMap, MaterialResource, GetDebugViewShaderMode())->SetMesh(RHICmdList, MeshVertexFactory, View, PrimitiveSceneProxy, Mesh.VisualizeLODIndex, BatchElement, DrawRenderState);
 #endif
 		}
 		else
 		{
-			PixelShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement,DrawRenderState);
+			PixelShader->SetMesh(RHICmdList, *MaterialResource, View, MeshVertexFactory, MeshMaterialRenderProxy, PrimitiveSceneProxy, BatchElement, DrawRenderState, NumMovablePointLights);
 		}
 
 		if (bEnableReceiveDecalOutput && View.bSceneHasDecals)
@@ -848,22 +982,13 @@ public:
 		}
 	}
 
-	friend int32 CompareDrawingPolicy(const TMobileBasePassDrawingPolicy& A,const TMobileBasePassDrawingPolicy& B)
-	{
-		COMPAREDRAWINGPOLICYMEMBERS(VertexShader);
-		COMPAREDRAWINGPOLICYMEMBERS(PixelShader);
-		COMPAREDRAWINGPOLICYMEMBERS(VertexFactory);
-		COMPAREDRAWINGPOLICYMEMBERS(MaterialRenderProxy);
-		COMPAREDRAWINGPOLICYMEMBERS(SceneTextureMode);
-
-		return CompareDrawingPolicy(A.LightMapPolicy,B.LightMapPolicy);
-	}
-
 protected:
-	TMobileBasePassVSPolicyParamType<typename LightMapPolicyType::VertexParametersType>* VertexShader;
-	TMobileBasePassPSPolicyParamType<typename LightMapPolicyType::PixelParametersType, NumDynamicPointLights>* PixelShader;
+	TMobileBasePassVSPolicyParamType<FUniformLightMapPolicyShaderParametersType>* VertexShader;
+	TMobileBasePassPSPolicyParamType<FUniformLightMapPolicyShaderParametersType>* PixelShader;
 
+	FVertexDeclarationRHIRef VertexDeclaration;
 	LightMapPolicyType LightMapPolicy;
+	int32 NumMovablePointLights;
 	EBlendMode BlendMode;
 	ESceneRenderTargetsMode::Type SceneTextureMode;
 	uint32 bEnableReceiveDecalOutput : 1;
@@ -897,27 +1022,99 @@ public:
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		FHitProxyId HitProxyId
 		);
-
-private:
-	// templated version of DrawDynamicMesh on number of point lights
-	template<int32 NumDynamicPointLights>
-	static void DrawDynamicMeshTempl(
-		FRHICommandList& RHICmdList,
-		const FViewInfo& View,
-		ContextType DrawingContext,
-		const FDrawingPolicyRenderState& DrawRenderState,
-		const FMeshBatch& Mesh,
-		const FMaterial* Material,
-		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
-		FHitProxyId HitProxyId
-		);
 };
 
+
+/** The parameters used to process a mobile base pass mesh. */
+class FMobileProcessBasePassMeshParameters
+{
+public:
+	const FMeshBatch& Mesh;
+	const uint64 BatchElementMask;
+	const FMaterial* Material;
+	const FPrimitiveSceneProxy* PrimitiveSceneProxy;
+	int32 NumMovablePointLights;
+	EBlendMode BlendMode;
+	EMaterialShadingModel ShadingModel;
+	const bool bAllowFog;
+	ESceneRenderTargetsMode::Type TextureMode;
+	ERHIFeatureLevel::Type FeatureLevel;
+	const bool bIsInstancedStereo;
+	const bool bUseMobileMultiViewMask;
+
+	/** Initialization constructor. */
+	FMobileProcessBasePassMeshParameters(
+		const FMeshBatch& InMesh,
+		const FMaterial* InMaterial,
+		const FPrimitiveSceneProxy* InPrimitiveSceneProxy,
+		bool InbAllowFog,
+		ESceneRenderTargetsMode::Type InTextureMode,
+		ERHIFeatureLevel::Type InFeatureLevel,
+		const bool InbIsInstancedStereo = false,
+		const bool InbUseMobileMultiViewMask = false
+	) :
+		Mesh(InMesh),
+		BatchElementMask(Mesh.Elements.Num() == 1 ? 1 : (1 << Mesh.Elements.Num()) - 1), // 1 bit set for each mesh element
+		Material(InMaterial),
+		PrimitiveSceneProxy(InPrimitiveSceneProxy),
+		NumMovablePointLights(CalcNumMovablePointLights(InMaterial, InPrimitiveSceneProxy)),
+		BlendMode(InMaterial->GetBlendMode()),
+		ShadingModel(InMaterial->GetShadingModel()),
+		bAllowFog(InbAllowFog),
+		TextureMode(InTextureMode),
+		FeatureLevel(InFeatureLevel),
+		bIsInstancedStereo(InbIsInstancedStereo),
+		bUseMobileMultiViewMask(InbUseMobileMultiViewMask)
+	{
+	}
+
+	/** Initialization constructor. */
+	FMobileProcessBasePassMeshParameters(
+		const FMeshBatch& InMesh,
+		const uint64& InBatchElementMask,
+		const FMaterial* InMaterial,
+		const FPrimitiveSceneProxy* InPrimitiveSceneProxy,
+		bool InbAllowFog,
+		ESceneRenderTargetsMode::Type InTextureMode,
+		ERHIFeatureLevel::Type InFeatureLevel,
+		bool InbIsInstancedStereo = false,
+		bool InbUseMobileMultiViewMask = false
+	) :
+		Mesh(InMesh),
+		BatchElementMask(InBatchElementMask),
+		Material(InMaterial),
+		PrimitiveSceneProxy(InPrimitiveSceneProxy),
+		NumMovablePointLights(CalcNumMovablePointLights(InMaterial, InPrimitiveSceneProxy)),
+		BlendMode(InMaterial->GetBlendMode()),
+		ShadingModel(InMaterial->GetShadingModel()),
+		bAllowFog(InbAllowFog),
+		TextureMode(InTextureMode),
+		FeatureLevel(InFeatureLevel),
+		bIsInstancedStereo(InbIsInstancedStereo),
+		bUseMobileMultiViewMask(InbUseMobileMultiViewMask)
+	{
+	}
+
+private:
+	static int32 CalcNumMovablePointLights(const FMaterial* InMaterial, const FPrimitiveSceneProxy* InPrimitiveSceneProxy)
+	{
+		const FReadOnlyCVARCache& ReadOnlyCVARCache = FReadOnlyCVARCache::Get();
+		const bool bIsUnlit = InMaterial->GetShadingModel() == MSM_Unlit;
+		int32 OutNumMovablePointLights = (InPrimitiveSceneProxy && !bIsUnlit) ? FMath::Min<int32>(InPrimitiveSceneProxy->GetPrimitiveSceneInfo()->NumMobileMovablePointLights, ReadOnlyCVARCache.NumMobileMovablePointLights) : 0;
+		if (OutNumMovablePointLights > 0 && ReadOnlyCVARCache.bMobileMovablePointLightsUseStaticBranch)
+		{
+			OutNumMovablePointLights = INT32_MAX;
+		}
+		return OutNumMovablePointLights;
+	}
+};
+
+
 /** Processes a base pass mesh using an unknown light map policy, and unknown fog density policy. */
-template<typename ProcessActionType, int32 NumDynamicPointLights>
+template<typename ProcessActionType>
 void ProcessMobileBasePassMesh(
 	FRHICommandList& RHICmdList,
-	const FProcessBasePassMeshParameters& Parameters,
+	const FMobileProcessBasePassMeshParameters& Parameters,
 	ProcessActionType&& Action
 	)
 {
@@ -960,33 +1157,33 @@ void ProcessMobileBasePassMesh(
 				// final determination of whether CSMs are rendered can be view dependent, thus we always need to clear the CSMs even if we're not going to render to them based on the condition below.
 				if (MobileDirectionalLight->ShouldRenderViewIndependentWholeSceneShadows())
 				{
-					Action.template Process<NumDynamicPointLights>(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT_CSM_WITH_LIGHTMAP), Parameters.Mesh.LCI);
+					Action.Process(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT_CSM_WITH_LIGHTMAP), Parameters.Mesh.LCI);
 				}
 				else
 				{
-					Action.template Process<NumDynamicPointLights>(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT_WITH_LIGHTMAP), Parameters.Mesh.LCI);
+					Action.Process(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT_WITH_LIGHTMAP), Parameters.Mesh.LCI);
 				}
 			}
 			else if (bUseStaticAndCSM)
 			{
 				if (ShadowMapInteraction.GetType() == SMIT_Texture && MobileDirectionalLight->ShouldRenderViewIndependentWholeSceneShadows() && ReadOnlyCVARCache.bMobileAllowDistanceFieldShadows)
 				{
-					Action.template Process<NumDynamicPointLights>(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_MOBILE_DISTANCE_FIELD_SHADOWS_LIGHTMAP_AND_CSM), Parameters.Mesh.LCI);
+					Action.Process(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_MOBILE_DISTANCE_FIELD_SHADOWS_LIGHTMAP_AND_CSM), Parameters.Mesh.LCI);
 				}
 				else
 				{
-					Action.template Process<NumDynamicPointLights>(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_LQ_LIGHTMAP), Parameters.Mesh.LCI);
+					Action.Process(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_LQ_LIGHTMAP), Parameters.Mesh.LCI);
 				}
 			}
 			else
 			{
 				if (ShadowMapInteraction.GetType() == SMIT_Texture && ReadOnlyCVARCache.bMobileAllowDistanceFieldShadows)
 				{
-					Action.template Process<NumDynamicPointLights>(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_MOBILE_DISTANCE_FIELD_SHADOWS_AND_LQ_LIGHTMAP), Parameters.Mesh.LCI);
+					Action.Process(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_MOBILE_DISTANCE_FIELD_SHADOWS_AND_LQ_LIGHTMAP), Parameters.Mesh.LCI);
 				}
 				else
 				{
-					Action.template Process<NumDynamicPointLights>(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_LQ_LIGHTMAP), Parameters.Mesh.LCI);
+					Action.Process(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_LQ_LIGHTMAP), Parameters.Mesh.LCI);
 				}
 			}
 
@@ -1002,22 +1199,22 @@ void ProcessMobileBasePassMesh(
 			{
 				if (MobileDirectionalLight && MobileDirectionalLight->ShouldRenderViewIndependentWholeSceneShadows() && bMovableWithCSM)
 				{
-					Action.template Process<NumDynamicPointLights>(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT_CSM_AND_SH_INDIRECT), Parameters.Mesh.LCI);
+					Action.Process(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT_CSM_AND_SH_INDIRECT), Parameters.Mesh.LCI);
 				}
 				else
 				{
-					Action.template Process<NumDynamicPointLights>(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT_AND_SH_INDIRECT), Parameters.Mesh.LCI);
+					Action.Process(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT_AND_SH_INDIRECT), Parameters.Mesh.LCI);
 				}
 			}
 			else
 			{
 				if (bUseStaticAndCSM)
 				{
-					Action.template Process<NumDynamicPointLights>(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_MOBILE_DIRECTIONAL_LIGHT_CSM_AND_SH_INDIRECT), Parameters.Mesh.LCI);
+					Action.Process(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_MOBILE_DIRECTIONAL_LIGHT_CSM_AND_SH_INDIRECT), Parameters.Mesh.LCI);
 				}
 				else
 				{
-					Action.template Process<NumDynamicPointLights>(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_MOBILE_DIRECTIONAL_LIGHT_AND_SH_INDIRECT), Parameters.Mesh.LCI);
+					Action.Process(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_MOBILE_DIRECTIONAL_LIGHT_AND_SH_INDIRECT), Parameters.Mesh.LCI);
 				}
 			}
 
@@ -1029,11 +1226,11 @@ void ProcessMobileBasePassMesh(
 			// final determination of whether CSMs are rendered can be view dependent, thus we always need to clear the CSMs even if we're not going to render to them based on the condition below.
 			if (MobileDirectionalLight && bMovableWithCSM)
 			{
-				Action.template Process<NumDynamicPointLights>(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT_CSM), Parameters.Mesh.LCI);
+				Action.Process(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT_CSM), Parameters.Mesh.LCI);
 			}
 			else
 			{
-				Action.template Process<NumDynamicPointLights>(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT), Parameters.Mesh.LCI);
+				Action.Process(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_MOBILE_MOVABLE_DIRECTIONAL_LIGHT), Parameters.Mesh.LCI);
 			}
 
 			// Exit to avoid NoLightmapPolicy
@@ -1041,6 +1238,6 @@ void ProcessMobileBasePassMesh(
 		}
 	}
 
-	// Default to NoLightmapPolicy
-	Action.template Process<0>(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_NO_LIGHTMAP), Parameters.Mesh.LCI);
+	// Unlit uses NoLightmapPolicy with 0 point lights
+	Action.Process(RHICmdList, Parameters, FUniformLightMapPolicy(LMP_NO_LIGHTMAP), Parameters.Mesh.LCI);
 }

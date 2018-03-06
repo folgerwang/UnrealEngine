@@ -51,6 +51,7 @@ namespace AutomationTool
                 bLogTimestamps: CommandUtils.ParseParam(Arguments, "-Timestamps"),
 				InLogLevel: LogLevel,
                 bLogSeverity: true,
+				bLogProgramNameWithSeverity: false,
                 bLogSources: true,
 				bLogSourcesToConsole: false,
                 bColorConsoleOutput: true,

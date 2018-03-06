@@ -825,7 +825,8 @@ void SDetailsView::PostSetObject()
 	InitParams.bAllowChildren = true;
 	InitParams.bForceHiddenPropertyVisibility = 
 		FPropertySettings::Get().ShowHiddenProperties() || 
-		( GetDefault<UEditorStyleSettings>()->bShowHiddenPropertiesWhilePlaying && bAnyPIEObjects );
+		( GetDefault<UEditorStyleSettings>()->bShowHiddenPropertiesWhilePlaying && bAnyPIEObjects ) ||
+		DetailsViewArgs.bForceHiddenPropertyVisibility;
 
 	switch ( DetailsViewArgs.DefaultsOnlyVisibility )
 	{

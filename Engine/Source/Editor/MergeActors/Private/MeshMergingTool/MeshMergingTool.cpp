@@ -114,7 +114,7 @@ bool FMeshMergingTool::RunMerge(const FString& PackageName)
 		UWorld* World = ComponentsToMerge[0]->GetWorld();	
 		checkf(World != nullptr, TEXT("Invalid World retrieved from Mesh components"));
 		const float ScreenAreaSize = TNumericLimits<float>::Max();
-		MeshUtilities.MergeComponentsToStaticMesh(ComponentsToMerge, World, SettingsObject->Settings, nullptr, PackageName, AssetsToSync, MergedActorLocation, ScreenAreaSize, true);
+		MeshUtilities.MergeComponentsToStaticMesh(ComponentsToMerge, World, SettingsObject->Settings, nullptr, nullptr, PackageName, AssetsToSync, MergedActorLocation, ScreenAreaSize, true);
 	}
 
 	if (AssetsToSync.Num())

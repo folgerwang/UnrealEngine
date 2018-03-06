@@ -518,10 +518,9 @@ bool FStaticLightingSystem::BeginLightmassProcess()
 			}
 		}
 
-		for( int32 LevelIndex = 0 ; LevelIndex < World->StreamingLevels.Num() ; ++LevelIndex )
+		for (ULevelStreaming* CurStreamingLevel : World->GetStreamingLevels())
 		{
-			ULevelStreaming* CurStreamingLevel = World->StreamingLevels[ LevelIndex ];
-			if (CurStreamingLevel && CurStreamingLevel->GetLoadedLevel() && !CurStreamingLevel->bShouldBeVisibleInEditor)
+			if (CurStreamingLevel && CurStreamingLevel->GetLoadedLevel() && !CurStreamingLevel->GetShouldBeVisibleInEditor())
 			{
 				if (SkippedLevels.Len() > 0)
 				{

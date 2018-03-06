@@ -46,7 +46,7 @@ FColor FMaterialBakingHelpers::BoxBlurSample(TArray<FColor>& InBMP, int32 X, int
 	return CombinedColor.ToFColor(false);
 }
 
-void FMaterialBakingHelpers::PerformUVBorderSmear(TArray<FColor>& InOutPixels, int32 ImageWidth, int32 ImageHeight, bool bIsNormalMap)
+void FMaterialBakingHelpers::PerformUVBorderSmear(TArray<FColor>& InOutPixels, int32 ImageWidth, int32 ImageHeight, bool bIsNormalMap, int32 MaxIterations)
 {
 	// This is ONLY possible because this is never called from multiple threads
 	static TArray<FColor> Swap;
@@ -59,7 +59,7 @@ void FMaterialBakingHelpers::PerformUVBorderSmear(TArray<FColor>& InOutPixels, i
 	TArray<FColor>* Current = &InOutPixels;
 	TArray<FColor>* Scratch = &Swap;
 
-	const int32 MaxIterations = 32;
+	MaxIterations = MaxIterations < 1 ? FMath::Max(ImageWidth, ImageHeight) : MaxIterations;
 	const int32 NumThreads = [&]()
 	{
 		return FPlatformProcess::SupportsMultithreading() ? FPlatformMisc::NumberOfCores() : 1;

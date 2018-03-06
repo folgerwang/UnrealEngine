@@ -174,7 +174,7 @@ int64 FAssetRegistryGenerator::GetMaxChunkSizePerPlatform(const ITargetPlatform*
 	return -1;
 }
 
-bool FAssetRegistryGenerator::GenerateStreamingInstallManifest()
+bool FAssetRegistryGenerator::GenerateStreamingInstallManifest(int64 InExtraFlavorChunkSize)
 {
 	const FString Platform = TargetPlatform->PlatformName();
 
@@ -182,6 +182,12 @@ bool FAssetRegistryGenerator::GenerateStreamingInstallManifest()
 	FString TmpPackagingDir = GetTempPackagingDirectoryForPlatform(Platform);
 
 	int64 MaxChunkSize = GetMaxChunkSizePerPlatform( TargetPlatform );
+
+	if (InExtraFlavorChunkSize > 0)
+	{
+		TmpPackagingDir /= TEXT("ExtraFlavor");
+		MaxChunkSize = InExtraFlavorChunkSize;
+	}
 
 	if (!IFileManager::Get().MakeDirectory(*TmpPackagingDir, true))
 	{
@@ -375,14 +381,14 @@ bool FAssetRegistryGenerator::LoadPreviousAssetRegistry(const FString& Filename)
 	return false;
 }
 
-bool FAssetRegistryGenerator::SaveManifests(FSandboxPlatformFile* InSandboxFile)
+bool FAssetRegistryGenerator::SaveManifests(FSandboxPlatformFile* InSandboxFile, int64 InExtraFlavorChunkSize)
 {
 	// Always do package dependency work, is required to modify asset registry
 	FixupPackageDependenciesForChunks(InSandboxFile);
 
 	if (bGenerateChunks)
 	{	
-		if (!GenerateStreamingInstallManifest())
+		if (!GenerateStreamingInstallManifest(InExtraFlavorChunkSize))
 		{
 			return false;
 		}
@@ -544,15 +550,23 @@ void FAssetRegistryGenerator::ComputePackageDifferences(TSet<FName>& ModifiedPac
 
 void FAssetRegistryGenerator::BuildChunkManifest(const TSet<FName>& InCookedPackages, const TSet<FName>& InDevelopmentOnlyPackages, FSandboxPlatformFile* InSandboxFile, bool bGenerateStreamingInstallManifest)
 {
-	// If we were asked to generate a streaming install manifest explicitly we will generate chunks.
+	// If we were asked to generate a streaming install manifest explicitly and we did not have bGenerateNoChunks set, we will generate chunks.
 	// Otherwise, we will defer to the config settings for the platform.
-	if (bGenerateStreamingInstallManifest)
+	const UProjectPackagingSettings* PackagingSettings = Cast<UProjectPackagingSettings>(UProjectPackagingSettings::StaticClass()->GetDefaultObject());
+	if (PackagingSettings->bGenerateNoChunks)
 	{
-		bGenerateChunks = true;
+		bGenerateChunks = false;
 	}
 	else
 	{
-		bGenerateChunks = ShouldPlatformGenerateStreamingInstallManifest(TargetPlatform);
+		if (bGenerateStreamingInstallManifest)
+		{
+			bGenerateChunks = true;
+		}
+		else
+		{
+			bGenerateChunks = ShouldPlatformGenerateStreamingInstallManifest(TargetPlatform);
+		}
 	}
 
 	CookedPackages = InCookedPackages;
@@ -563,7 +577,10 @@ void FAssetRegistryGenerator::BuildChunkManifest(const TSet<FName>& InCookedPack
 	AllPackages.Append(DevelopmentOnlyPackages);
 
 	// Prune our asset registry to cooked + dev only list
-	State.PruneAssetData(AllPackages, TSet<FName>());
+	FAssetRegistrySerializationOptions DevelopmentSaveOptions;
+	AssetRegistry.InitializeSerializationOptions(DevelopmentSaveOptions, TargetPlatform->IniPlatformName());
+	DevelopmentSaveOptions.ModifyForDevelopment();
+	State.PruneAssetData(AllPackages, TSet<FName>(), DevelopmentSaveOptions);
 
 	// Mark development only packages as explicitly -1 size to indicate it was not cooked
 	for (FName DevelopmentOnlyPackage : DevelopmentOnlyPackages)
@@ -713,7 +730,7 @@ void FAssetRegistryGenerator::AddAssetToFileOrderRecursive(const FName& InPackag
 	}
 }
 
-bool FAssetRegistryGenerator::SaveAssetRegistry(const FString& SandboxPath, bool bSerializeDevelopmentAssetRegistry)
+bool FAssetRegistryGenerator::SaveAssetRegistry(const FString& SandboxPath, bool bSerializeDevelopmentAssetRegistry, bool bForceNoFilter)
 {
 	UE_LOG(LogAssetRegistryGenerator, Display, TEXT("Saving asset registry."));
 	const TMap<FName, const FAssetData*>& ObjectToDataMap = State.GetObjectPathToAssetDataMap();
@@ -726,6 +743,12 @@ bool FAssetRegistryGenerator::SaveAssetRegistry(const FString& SandboxPath, bool
 	// Write runtime registry, this can be excluded per game/platform
 	FAssetRegistrySerializationOptions SaveOptions;
 	AssetRegistry.InitializeSerializationOptions(SaveOptions, TargetPlatform->IniPlatformName());
+
+	if (bForceNoFilter)
+	{
+		DevelopmentSaveOptions.DisableFilters();
+		SaveOptions.DisableFilters();
+	}
 
 	// Flush the asset registry and make sure the asset data is in sync, as it may have been updated during cook
 	AssetRegistry.Tick(-1.0f);
@@ -756,7 +779,7 @@ bool FAssetRegistryGenerator::SaveAssetRegistry(const FString& SandboxPath, bool
 	if (SaveOptions.bSerializeAssetRegistry)
 	{
 		// Prune out the development only packages
-		State.PruneAssetData(CookedPackages, TSet<FName>(), SaveOptions.bFilterAssetDataWithNoTags);
+		State.PruneAssetData(CookedPackages, TSet<FName>(), SaveOptions);
 
 		// Create runtime registry data
 		FArrayWriter SerializedAssetRegistry;

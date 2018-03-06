@@ -432,6 +432,7 @@ public:
 	DECLARE_PROPERTY_ACCESSOR( UObject* )
 	DECLARE_PROPERTY_ACCESSOR( const UObject* )
 	DECLARE_PROPERTY_ACCESSOR( FAssetData )
+	virtual FPropertyAccess::Result GetValueData(void*& OutAddress) const override;
 
 	/** IPropertyHandle interface */
 	virtual bool IsValidHandle() const override;

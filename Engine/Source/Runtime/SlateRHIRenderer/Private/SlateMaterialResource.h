@@ -31,13 +31,22 @@ public:
 	const UMaterialInterface* GetMaterialObject() const { return MaterialObject; }
 
 	FSlateShaderResource* GetTextureMaskResource() const { return TextureMaskResource; }
+
+#if SLATE_CHECK_UOBJECT_RENDER_RESOURCES
+	void CheckIfValid() const;
+#else
+	FORCEINLINE void CheckIfValid() const { }
+#endif
+
 public:
 	const class UMaterialInterface* MaterialObject;
-#if !UE_BUILD_SHIPPING
+
+#if SLATE_CHECK_UOBJECT_RENDER_RESOURCES
 	// Used to guard against crashes when the material object is deleted.  This is expensive so we do not do it in shipping
 	TWeakObjectPtr<const UMaterialInterface> MaterialObjectWeakPtr;
 	FName MaterialName;
 #endif
+
 	/** Slate proxy used for batching the material */
 	FSlateShaderResourceProxy* SlateProxy;
 
@@ -46,7 +55,7 @@ public:
 	uint32 Height;
 
 private:
-#if !UE_BUILD_SHIPPING
+#if SLATE_CHECK_UOBJECT_RENDER_RESOURCES
 	void UpdateMaterialName();
 #endif
 };

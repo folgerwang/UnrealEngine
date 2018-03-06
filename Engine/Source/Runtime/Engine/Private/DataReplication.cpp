@@ -35,7 +35,7 @@ public:
 
 	FNetSerializeCB( UNetDriver * InNetDriver ) : Driver( InNetDriver ) { }
 
-	virtual void NetSerializeStruct( UScriptStruct* Struct, FArchive& Ar, UPackageMap* Map, void* Data, bool& bHasUnmapped )
+	virtual void NetSerializeStruct( UScriptStruct* Struct, FBitArchive& Ar, UPackageMap* Map, void* Data, bool& bHasUnmapped )
 	{
 		if (Struct->StructFlags & STRUCT_NetSerializeNative)
 		{
@@ -1118,6 +1118,8 @@ void FObjectReplicator::ReplicateCustomDeltaProperties( FNetBitWriter & Bunch, F
 	// Make sure net field export group is registered
 	FNetFieldExportGroup* NetFieldExportGroup = OwningChannel->GetOrCreateNetFieldExportGroupForClassNetCache( Object );
 
+	FNetBitWriter TempBitWriter( OwningChannel->Connection->PackageMap, 0 );
+
 	// Replicate those properties.
 	for ( int32 i = 0; i < LifetimeCustomDeltaProperties.Num(); i++ )
 	{
@@ -1145,7 +1147,7 @@ void FObjectReplicator::ReplicateCustomDeltaProperties( FNetBitWriter & Bunch, F
 		// If this is a dynamic array, we do the delta here
 		TSharedPtr<INetDeltaBaseState> NewState;
 
-		FNetBitWriter TempBitWriter( OwningChannel->Connection->PackageMap, 0 );
+		TempBitWriter.Reset();
 
 		if ( Connection->bResendAllDataSinceOpen )
 		{

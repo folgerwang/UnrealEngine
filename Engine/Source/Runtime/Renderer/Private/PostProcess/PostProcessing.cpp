@@ -196,6 +196,12 @@ TAutoConsoleVariable<int32> CVarHalfResFFTBloom(
 	TEXT(" 1: Half-resolution convoltuion that excludes the center of the kernel.\n"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
+TAutoConsoleVariable<int32> CVarPostProcessingDisableMaterials(
+	TEXT("r.PostProcessing.DisableMaterials"),
+	0,
+	TEXT(" Allows to disable post process materials. \n"),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
+
 IMPLEMENT_SHADER_TYPE(,FPostProcessVS,TEXT("/Engine/Private/PostProcessBloom.usf"),TEXT("MainPostprocessCommonVS"),SF_Vertex);
 
 static bool HasPostProcessMaterial(FPostprocessContext& Context, EBlendableLocation InLocation);
@@ -1025,7 +1031,8 @@ static FRenderingCompositeOutputRef AddPostProcessMaterialChain(
 {
 	if( !Context.View.Family->EngineShowFlags.PostProcessing ||
 		!Context.View.Family->EngineShowFlags.PostProcessMaterial ||
-		Context.View.Family->EngineShowFlags.VisualizeShadingModels)		// we should add more
+		Context.View.Family->EngineShowFlags.VisualizeShadingModels || 
+		CVarPostProcessingDisableMaterials.GetValueOnRenderThread() != 0)		// we should add more
 	{
 		return Context.FinalOutput;
 	}

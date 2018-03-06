@@ -171,17 +171,21 @@ public:
 	bool			IsNetGUIDAuthority() const;
 	FNetworkGUID	GetOrAssignNetGUID( const UObject* Object, const TWeakObjectPtr<UObject>* WeakObjectPtr=nullptr /** Optional: pass in existing weakptr to prevent this function from constructing one internally */ );
 	FNetworkGUID	GetNetGUID( const UObject* Object ) const;
+	FNetworkGUID	GetOuterNetGUID( const FNetworkGUID& NetGUID ) const;
 	FNetworkGUID	AssignNewNetGUID_Server( const UObject* Object );
+	FNetworkGUID	AssignNewNetGUIDFromPath_Server( const FString& PathName, const UObject* ObjOuter, const UClass* ObjClass );
 	void			RegisterNetGUID_Internal( const FNetworkGUID& NetGUID, const FNetGuidCacheObject& CacheObject );
 	void			RegisterNetGUID_Server( const FNetworkGUID& NetGUID, const UObject* Object );
 	void			RegisterNetGUID_Client( const FNetworkGUID& NetGUID, const UObject* Object );
 	void			RegisterNetGUIDFromPath_Client( const FNetworkGUID& NetGUID, const FString& PathName, const FNetworkGUID& OuterGUID, const uint32 NetworkChecksum, const bool bNoLoad, const bool bIgnoreWhenMissing );
+	void			RegisterNetGUIDFromPath_Server( const FNetworkGUID& NetGUID, const FString& PathName, const FNetworkGUID& OuterGUID, const uint32 NetworkChecksum, const bool bNoLoad, const bool bIgnoreWhenMissing );
 	UObject *		GetObjectFromNetGUID( const FNetworkGUID& NetGUID, const bool bIgnoreMustBeMapped );
 	bool			ShouldIgnoreWhenMissing( const FNetworkGUID& NetGUID ) const;
 	bool			IsGUIDRegistered( const FNetworkGUID& NetGUID ) const;
 	bool			IsGUIDLoaded( const FNetworkGUID& NetGUID ) const;
 	bool			IsGUIDBroken( const FNetworkGUID& NetGUID, const bool bMustBeRegistered ) const;
 	bool			IsGUIDNoLoad( const FNetworkGUID& NetGUID ) const;
+	bool			IsGUIDPending( const FNetworkGUID& NetGUID ) const;
 	FString			FullNetGUIDPath( const FNetworkGUID& NetGUID ) const;
 	void			GenerateFullNetGUIDPath_r( const FNetworkGUID& NetGUID, FString& FullPath ) const;
 	bool			ShouldIgnorePackageMismatch() const;
@@ -199,6 +203,7 @@ public:
 	int32											UniqueNetIDs[2];
 
 	TSet< FNetworkGUID >							ImportedNetGuids;
+	TMap< FNetworkGUID, TSet< FNetworkGUID > >		PendingOuterNetGuids;
 
 	bool											IsExportingNetGUIDBunch;
 

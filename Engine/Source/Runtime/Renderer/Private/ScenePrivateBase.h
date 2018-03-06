@@ -37,11 +37,11 @@ public:
 
 	enum
 	{
-		MaxBufferedOcclusionFrames = 2
+		MaxBufferedOcclusionFrames = 3
 	};
 
 	// get the system-wide number of frames of buffered occlusion queries.
-	static int32 GetNumBufferedFrames();
+	static int32 GetNumBufferedFrames(ERHIFeatureLevel::Type FeatureLevel);
 
 	// get the index of the oldest query based on the current frame and number of buffered frames.
 	static uint32 GetQueryLookupIndex(int32 CurrentFrame, int32 NumBufferedFrames)

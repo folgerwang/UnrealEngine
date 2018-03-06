@@ -10,6 +10,9 @@
 #include "Components/LineBatchComponent.h"
 #include "Logging/MessageLog.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "DrawDebugHelpers.h"
+#include "PhysicsReplication.h"
+#include "PhysicsPublic.h"
 
 //////////////// PRIMITIVECOMPONENT ///////////////
 
@@ -26,140 +29,30 @@ DECLARE_CYCLE_STAT(TEXT("PrimComp SetCollisionProfileName"), STAT_PrimComp_SetCo
 	#define WarnInvalidPhysicsOperations(Text, BodyInstance, BoneName)
 #endif
 
-
-bool UPrimitiveComponent::ApplyRigidBodyState(const FRigidBodyState& NewState, const FRigidBodyErrorCorrection& ErrorCorrection, FVector& OutDeltaPos, FName BoneName)
+void UPrimitiveComponent::SetRigidBodyReplicatedTarget(FRigidBodyState& UpdatedState, FName BoneName)
 {
-	bool bRestoredState = true;
-
-	FBodyInstance* BI = GetBodyInstance(BoneName);
-	if (BI && BI->IsInstanceSimulatingPhysics())
+	if (UWorld* World = GetWorld())
 	{
-		// failure cases
-		const float QuatSizeSqr = NewState.Quaternion.SizeSquared();
-		if (QuatSizeSqr < KINDA_SMALL_NUMBER)
+		if (FPhysScene* PhysScene = World->GetPhysicsScene())
 		{
-			UE_LOG(LogPhysics, Warning, TEXT("Invalid zero quaternion set for body. (%s:%s)"), *GetName(), *BoneName.ToString());
-			return bRestoredState;
-		}
-		else if (FMath::Abs(QuatSizeSqr - 1.f) > KINDA_SMALL_NUMBER)
-		{
-			UE_LOG(LogPhysics, Warning, TEXT("Quaternion (%f %f %f %f) with non-unit magnitude detected. (%s:%s)"), 
-				NewState.Quaternion.X, NewState.Quaternion.Y, NewState.Quaternion.Z, NewState.Quaternion.W, *GetName(), *BoneName.ToString() );
-			return bRestoredState;
-		}
-
-		FRigidBodyState CurrentState;
-		GetRigidBodyState(CurrentState, BoneName);
-
-		const bool bShouldSleep = (NewState.Flags & ERigidBodyFlags::Sleeping) != 0;
-
-		/////// POSITION CORRECTION ///////
-
-		// Find out how much of a correction we are making
-		const FVector DeltaPos = NewState.Position - CurrentState.Position;
-		const float DeltaMagSq = DeltaPos.SizeSquared();
-		const float BodyLinearSpeedSq = CurrentState.LinVel.SizeSquared();
-
-		// Snap position by default (big correction, or we are moving too slowly)
-		FVector UpdatedPos = NewState.Position;
-		FVector FixLinVel = FVector::ZeroVector;
-
-		// If its a small correction and velocity is above threshold, only make a partial correction, 
-		// and calculate a velocity that would fix it over 'fixTime'.
-		if (DeltaMagSq < ErrorCorrection.LinearDeltaThresholdSq  &&
-			BodyLinearSpeedSq >= ErrorCorrection.BodySpeedThresholdSq)
-		{
-			UpdatedPos = FMath::Lerp(CurrentState.Position, NewState.Position, ErrorCorrection.LinearInterpAlpha);
-			FixLinVel = (NewState.Position - UpdatedPos) * ErrorCorrection.LinearRecipFixTime;
-		}
-
-		// Get the linear correction
-		OutDeltaPos = UpdatedPos - CurrentState.Position;
-
-		/////// ORIENTATION CORRECTION ///////
-		// Get quaternion that takes us from old to new
-		const FQuat InvCurrentQuat = CurrentState.Quaternion.Inverse();
-		const FQuat DeltaQuat = NewState.Quaternion * InvCurrentQuat;
-
-		FVector DeltaAxis;
-		float DeltaAng;	// radians
-		DeltaQuat.ToAxisAndAngle(DeltaAxis, DeltaAng);
-		DeltaAng = FMath::UnwindRadians(DeltaAng);
-
-		// Snap rotation by default (big correction, or we are moving too slowly)
-		FQuat UpdatedQuat = NewState.Quaternion;
-		FVector FixAngVel = FVector::ZeroVector; // degrees per second
-		
-		// If the error is small, and we are moving, try to move smoothly to it
-		if (FMath::Abs(DeltaAng) < ErrorCorrection.AngularDeltaThreshold )
-		{
-			UpdatedQuat = FMath::Lerp(CurrentState.Quaternion, NewState.Quaternion, ErrorCorrection.AngularInterpAlpha);
-			FixAngVel = DeltaAxis.GetSafeNormal() * FMath::RadiansToDegrees(DeltaAng) * (1.f - ErrorCorrection.AngularInterpAlpha) * ErrorCorrection.AngularRecipFixTime;
-		}
-
-		/////// BODY UPDATE ///////
-		BI->SetBodyTransform(FTransform(UpdatedQuat, UpdatedPos), ETeleportType::TeleportPhysics);
-		BI->SetLinearVelocity(NewState.LinVel + FixLinVel, false);
-		BI->SetAngularVelocityInRadians(FMath::DegreesToRadians(NewState.AngVel + FixAngVel), false);
-
-		// state is restored when no velocity corrections are required
-		bRestoredState = (FixLinVel.SizeSquared() < KINDA_SMALL_NUMBER) && (FixAngVel.SizeSquared() < KINDA_SMALL_NUMBER);
-	
-		/////// SLEEP UPDATE ///////
-		const bool bIsAwake = BI->IsInstanceAwake();
-		if (bIsAwake && (bShouldSleep && bRestoredState))
-		{
-			BI->PutInstanceToSleep();
-		}
-		else if (!bIsAwake)
-		{
-			BI->WakeInstance();
+			if (FPhysicsReplication* PhysicsReplication = PhysScene->GetPhysicsReplication())
+			{
+				FBodyInstance* BI = GetBodyInstance(BoneName);
+				if (BI && BI->IsInstanceSimulatingPhysics())
+				{
+					PhysicsReplication->SetReplicatedTarget(BI, UpdatedState);
+				}
+			}
 		}
 	}
-
-	return bRestoredState;
-}
-
-bool UPrimitiveComponent::ConditionalApplyRigidBodyState(FRigidBodyState& UpdatedState, const FRigidBodyErrorCorrection& ErrorCorrection, FVector& OutDeltaPos, FName BoneName)
-{
-	bool bUpdated = false;
-
-	// force update if simulation is sleeping on server
-	if ((UpdatedState.Flags & ERigidBodyFlags::Sleeping) && RigidBodyIsAwake(BoneName))
-	{
-		UpdatedState.Flags |= ERigidBodyFlags::NeedsUpdate;	
-	}
-
-	if (UpdatedState.Flags & ERigidBodyFlags::NeedsUpdate)
-	{
-		const bool bRestoredState = ApplyRigidBodyState(UpdatedState, ErrorCorrection, OutDeltaPos, BoneName);
-		if (bRestoredState)
-		{
-			UpdatedState.Flags &= ~ERigidBodyFlags::NeedsUpdate;
-		}
-
-		bUpdated = true;
-
-		// Need to update the component to match new position.
-		// TODO: Only call this if OutDeltaPos is non-zero? May not capture rotations.
-		SyncComponentToRBPhysics();
-	}
-
-	return bUpdated;
 }
 
 bool UPrimitiveComponent::GetRigidBodyState(FRigidBodyState& OutState, FName BoneName)
 {
 	FBodyInstance* BI = GetBodyInstance(BoneName);
-	if (BI && BI->IsInstanceSimulatingPhysics())
+	if (BI)
 	{
-		FTransform BodyTM = BI->GetUnrealWorldTransform();
-		OutState.Position = BodyTM.GetTranslation();
-		OutState.Quaternion = BodyTM.GetRotation();
-		OutState.LinVel = BI->GetUnrealWorldVelocity();
-		OutState.AngVel = FMath::RadiansToDegrees(BI->GetUnrealWorldAngularVelocityInRadians());
-		OutState.Flags = (BI->IsInstanceAwake() ? ERigidBodyFlags::None : ERigidBodyFlags::Sleeping);
-		return true;
+		return BI->GetRigidBodyState(OutState);
 	}
 
 	return false;
@@ -1042,9 +935,14 @@ void UPrimitiveComponent::OnActorEnableCollisionChanged()
 
 void UPrimitiveComponent::OnComponentCollisionSettingsChanged()
 {
-	if (!IsTemplate() && IsRegistered())			// not for CDOs
+	if (IsRegistered() && !IsTemplate())			// not for CDOs
 	{
 		// changing collision settings could affect touching status, need to update
+		if (IsQueryCollisionEnabled())	//if we have query collision we may now care about overlaps so clear cache
+		{
+			ClearSkipUpdateOverlaps();
+		}
+
 		UpdateOverlaps();
 
 		// update navigation data if needed

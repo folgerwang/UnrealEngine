@@ -8,6 +8,8 @@
 
 #include "LobbyBeaconHost.generated.h"
 
+LOBBY_API DECLARE_LOG_CATEGORY_EXTERN(LogLobbyBeacon, Log, All);
+
 class ALobbyBeaconClient;
 class ALobbyBeaconPlayerState;
 class ALobbyBeaconState;

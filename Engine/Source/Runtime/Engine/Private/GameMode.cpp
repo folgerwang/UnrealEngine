@@ -410,22 +410,15 @@ void AGameMode::HandleSeamlessTravelPlayer(AController*& C)
 	UE_LOG(LogGameMode, Log, TEXT(">> GameMode::HandleSeamlessTravelPlayer: %s "), *C->GetName());
 
 	APlayerController* PC = Cast<APlayerController>(C);
-	if (PC != nullptr && PC->GetClass() != PlayerControllerClass)
+
+	UClass* PCClassToSpawn = GetPlayerControllerClassToSpawnForSeamlessTravel(PC);
+
+	if (PC && PC->GetClass() != PCClassToSpawn)
 	{
 		if (PC->Player != nullptr)
 		{
-			// we need to spawn a new PlayerController to replace the old one
-			APlayerController* NewPC = nullptr;
-			if (PC->PlayerState && PC->PlayerState->bOnlySpectator && ReplaySpectatorPlayerControllerClass != nullptr)
-			{
-				NewPC = SpawnReplayPlayerController(PC->IsLocalPlayerController() ? ROLE_SimulatedProxy : ROLE_AutonomousProxy, PC->GetFocalLocation(), PC->GetControlRotation());
-			}
-			else
-			{
-				// We need to spawn a new PlayerController to replace the old one
-				NewPC = SpawnPlayerController(PC->IsLocalPlayerController() ? ROLE_SimulatedProxy : ROLE_AutonomousProxy, PC->GetFocalLocation(), PC->GetControlRotation());
-			}
-
+			// We need to spawn a new PlayerController to replace the old one
+			APlayerController* const NewPC = SpawnPlayerControllerCommon(PC->IsLocalPlayerController() ? ROLE_SimulatedProxy : ROLE_AutonomousProxy, PC->GetFocalLocation(), PC->GetControlRotation(), PCClassToSpawn);
 			if (NewPC == nullptr)
 			{
 				UE_LOG(LogGameMode, Warning, TEXT("Failed to spawn new PlayerController for %s (old class %s)"), *PC->GetHumanReadableName(), *PC->GetClass()->GetName());

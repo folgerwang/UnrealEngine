@@ -16,6 +16,7 @@
 #include "Misc/Guid.h"
 #include "Misc/OutputDeviceRedirector.h"
 #include "Misc/OutputDeviceError.h"
+#include "Misc/OutputDeviceArchiveWrapper.h"
 #include "Containers/Ticker.h"
 #include "Misc/FeedbackContext.h"
 #include "Misc/App.h"
@@ -377,7 +378,42 @@ void FLinuxCrashContext::GenerateCrashInfoAndLaunchReporter(bool bReportingNonCr
 		FString LogExtension = FPaths::GetExtension(LogSrcAbsolute, true);
 		FString LogDstAbsolute = FPaths::Combine(*CrashInfoAbsolute, *LogFilename);
 		FPaths::NormalizeDirectoryName(LogDstAbsolute);
-		static_cast<void>(IFileManager::Get().Copy(*LogDstAbsolute, *LogSrcAbsolute));	// best effort, so don't care about result: couldn't copy -> tough, no log
+
+		// Flush out the log
+		GLog->Flush();
+
+#if !NO_LOGGING
+		bool bMemoryOnly = FPlatformOutputDevices::GetLog()->IsMemoryOnly();
+		bool bBacklogEnabled = FOutputDeviceRedirector::Get()->IsBacklogEnabled();
+
+		if (bMemoryOnly || bBacklogEnabled)
+		{
+			FArchive* LogFile = IFileManager::Get().CreateFileWriter(*LogDstAbsolute, FILEWRITE_AllowRead);
+			if (LogFile)
+			{
+				if (bMemoryOnly)
+				{
+					FPlatformOutputDevices::GetLog()->Dump(*LogFile);
+				}
+				else
+				{
+					FOutputDeviceArchiveWrapper Wrapper(LogFile);
+					GLog->SerializeBacklog(&Wrapper);
+				}
+
+				LogFile->Flush();
+				delete LogFile;
+			}
+		}
+		else
+		{
+			const bool bReplace = true;
+			const bool bEvenIfReadOnly = false;
+			const bool bAttributes = false;
+			FCopyProgress* const CopyProgress = nullptr;
+			static_cast<void>(IFileManager::Get().Copy(*LogDstAbsolute, *LogSrcAbsolute, bReplace, bEvenIfReadOnly, bAttributes, CopyProgress, FILEREAD_AllowWrite, FILEWRITE_AllowRead));	// best effort, so don't care about result: couldn't copy -> tough, no log
+		}
+#endif // !NO_LOGGING
 
 		// If present, include the crash report config file to pass config values to the CRC
 		const TCHAR* CrashConfigFilePath = GetCrashConfigFilePath();

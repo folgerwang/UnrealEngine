@@ -998,8 +998,6 @@ public:
 		AOParameters.Bind(Initializer.ParameterMap);
 		ScreenGridParameters.Bind(Initializer.ParameterMap);
 		SurfelParameters.Bind(Initializer.ParameterMap);
-		TileHeadDataUnpacked.Bind(Initializer.ParameterMap, TEXT("TileHeadDataUnpacked"));
-		TileArrayData.Bind(Initializer.ParameterMap, TEXT("TileArrayData"));
 		TileConeDepthRanges.Bind(Initializer.ParameterMap, TEXT("TileConeDepthRanges"));
 		TileListGroupSize.Bind(Initializer.ParameterMap, TEXT("TileListGroupSize"));
 		VPLGatherRadius.Bind(Initializer.ParameterMap, TEXT("VPLGatherRadius"));
@@ -1060,8 +1058,6 @@ public:
 		Ar << AOParameters;
 		Ar << ScreenGridParameters;
 		Ar << SurfelParameters;
-		Ar << TileHeadDataUnpacked;
-		Ar << TileArrayData;
 		Ar << TileConeDepthRanges;
 		Ar << TileListGroupSize;
 		Ar << VPLGatherRadius;
@@ -1077,8 +1073,6 @@ private:
 	FAOParameters AOParameters;
 	FScreenGridParameters ScreenGridParameters;
 	FSurfelBufferParameters SurfelParameters;
-	FShaderResourceParameter TileHeadDataUnpacked;
-	FShaderResourceParameter TileArrayData;
 	FShaderResourceParameter TileConeDepthRanges;
 	FShaderParameter TileListGroupSize;
 	FShaderParameter VPLGatherRadius;

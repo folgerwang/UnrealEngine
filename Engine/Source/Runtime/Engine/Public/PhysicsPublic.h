@@ -277,6 +277,16 @@ public:
 };
 #endif // WITH PHYSX
 
+class FPhysicsReplication;
+
+/** Interface for the creation of customized physics replication.*/
+class IPhysicsReplicationFactory
+{
+public:
+	virtual FPhysicsReplication* Create(FPhysScene* OwningPhysScene) = 0;
+	virtual void Destroy(FPhysicsReplication* PhysicsReplication) = 0;
+};
+
 
 /** Container object for a physics engine 'scene'. */
 
@@ -314,11 +324,15 @@ private:
 	/** World that owns this physics scene */
 	UWorld*							OwningWorld;
 
+	/** Replication manager that updates physics bodies towards replicated physics state */
+	FPhysicsReplication*			PhysicsReplication;
+
 public:
 	//Owning world is made private so that any code which depends on setting an owning world can update
 	void SetOwningWorld(UWorld* InOwningWorld);
 	UWorld* GetOwningWorld(){ return OwningWorld; }
 	const UWorld* GetOwningWorld() const { return OwningWorld; }
+	FPhysicsReplication* GetPhysicsReplication() { return PhysicsReplication; }
 
 	/** These indices are used to get the actual PxScene or ApexScene from the GPhysXSceneMap. */
 	int16								PhysXSceneIndex[PST_MAX];
@@ -475,6 +489,10 @@ public:
 	ENGINE_API physx::PxScene*					GetPhysXScene(uint32 SceneType) const;
 
 #endif	// WITH_PHYSX
+
+	/** Static factory used to override the physics replication manager from other modules. This is useful for custom game logic.
+	If not set it defaults to using FPhysicsReplication. */
+	ENGINE_API static TSharedPtr<IPhysicsReplicationFactory> PhysicsReplicationFactory;
 
 #if WITH_APEX
 	/** Utility for looking up the ApexScene of the given EPhysicsSceneType associated with this FPhysScene.  SceneType must be in the range [0,PST_MAX). */
@@ -752,7 +770,7 @@ namespace PhysDLLHelper
 /**
  *	Load the required modules for PhysX
  */
-ENGINE_API void LoadPhysXModules(bool bLoadCooking);
+ENGINE_API bool LoadPhysXModules(bool bLoadCooking);
 
 
 #if WITH_APEX
@@ -766,7 +784,7 @@ ENGINE_API void LoadPhysXModules(bool bLoadCooking);
 void UnloadPhysXModules();
 }
 
-ENGINE_API void	InitGamePhys();
+ENGINE_API bool	InitGamePhys();
 ENGINE_API void	TermGamePhys();
 
 bool	ExecPhysCommands(const TCHAR* Cmd, FOutputDevice* Ar, UWorld* InWorld);

@@ -27,6 +27,9 @@ void FCachedWidgetNode::RecordHittestGeometry(FHittestGrid& Grid, int32 LastHitt
 {
 	if ( RecordedVisibility.AreChildrenHitTestVisible() )
 	{
+#if SLATE_VERBOSE_NAMED_EVENTS
+		FScopedNamedEvent RecordHitTestEvent(FColor::Yellow, TEXT("Slate::RecordHitTestGeometry"));
+#endif
 		TSharedPtr<SWidget> SafeWidget = Widget.Pin();
 		if ( SafeWidget.IsValid() )
 		{

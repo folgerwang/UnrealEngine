@@ -372,7 +372,9 @@ void FIOSDeviceHelper::Initialize(bool bIsTVOS)
 		// kick off a thread to query for connected devices
 		QueryTask = new FDeviceQueryTask();
 		QueryTask->OnDeviceNotification().AddStatic(FIOSDeviceHelper::DeviceCallback);
-		QueryThread = FRunnableThread::Create(QueryTask, TEXT("FIOSDeviceHelper.QueryTask"), 128 * 1024, TPri_Normal);
+
+		static int32 QueryTaskCount = 1;
+		QueryThread = FRunnableThread::Create(QueryTask, *FString::Printf(TEXT("FIOSDeviceHelper.QueryTask_%d"), QueryTaskCount++), 128 * 1024, TPri_Normal);
 	}
 }
 

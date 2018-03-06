@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "BuildVersion.h"
+#include "Modules/BuildVersion.h"
 
 /**
  * Stores a record of a built target, with all metadata that other tools may need to know about the build.

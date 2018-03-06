@@ -22,6 +22,16 @@
 #endif
 #include "SceneUtils.h"
 
+// Create any resources that are required by internal ogl rhi functions.
+void FOpenGLDynamicRHI::SetupRecursiveResources()
+{
+	auto ShaderMap = GetGlobalShaderMap(GMaxRHIFeatureLevel);
+	{
+		TShaderMapRef<FNULLPS> PixelShader(ShaderMap);
+		PixelShader->GetPixelShader();
+	}
+}
+
 const uint32 SizeOfFloat4 = 16;
 const uint32 NumFloatsInFloat4 = 4;
 
@@ -171,6 +181,7 @@ static bool VerifyCompiledShader(GLuint Shader, const ANSICHAR* GlslCode )
 
 static bool VerifyProgramPipeline(GLuint Program)
 {
+	VERIFY_GL_SCOPE();
 	bool bOK = true;
 	// Don't try and validate SSOs here - the draw state matters to SSOs and it definitely can't be guaranteed to be valid at this stage
 	if ( FOpenGL::SupportsSeparateShaderObjects() )
@@ -449,6 +460,7 @@ static void BindShaderLocations(GLenum TypeEnum, GLuint Resource, uint16 InOutMa
 // Helper to compile a shader and return success, logging errors if necessary.
 GLint CompileCurrentShader(const GLuint Resource, const FAnsiCharArray& GlslCode)
 {
+	VERIFY_GL_SCOPE();
 	const ANSICHAR * GlslCodeString = GlslCode.GetData();
 	int32 GlslCodeLength = GlslCode.Num() - 1;
 
@@ -722,6 +734,10 @@ void OPENGLDRV_API GLSLToDeviceCompatibleGLSL(FAnsiCharArray& GlslCodeOriginal, 
 	}
 #endif
 
+	FAnsiCharArray GlslCodeAfterExtensions;
+	const ANSICHAR* GlslPlaceHolderAfterExtensions = "// end extensions";
+	bool bGlslCodeHasExtensions = CStringCountOccurances(GlslCodeOriginal, GlslPlaceHolderAfterExtensions) == 1;
+	
 	bool bNeedsExtDrawInstancedDefine = false;
 	if (Capabilities.TargetPlatform == EOpenGLShaderTargetPlatform::OGLSTP_Android || Capabilities.TargetPlatform == EOpenGLShaderTargetPlatform::OGLSTP_HTML5)
 	{
@@ -854,6 +870,17 @@ void OPENGLDRV_API GLSLToDeviceCompatibleGLSL(FAnsiCharArray& GlslCodeOriginal, 
 		{
 			AppendCString(GlslCode, "#define INTERFACE_LOCATION(Pos) \n");
 			AppendCString(GlslCode, "#define INTERFACE_BLOCK(Pos, Interp, Modifiers, Semantic, PreType, PostType) Modifiers Semantic { Interp PreType PostType; }\n");
+		}
+	}
+
+	if (Capabilities.TargetPlatform == EOpenGLShaderTargetPlatform::OGLSTP_Desktop)
+	{
+		// If we're running <= featurelevel es3.1 shaders then enable this extension which adds support for uintBitsToFloat etc.
+		if ((FCStringAnsi::Strstr(GlslCode.GetData(), "#version 150") != nullptr))
+		{
+			AppendCString(GlslCode, "\n\n");
+			AppendCString(GlslCode, "#extension GL_ARB_gpu_shader5 : enable\n");
+			AppendCString(GlslCode, "\n\n");
 		}
 	}
 
@@ -1006,7 +1033,7 @@ void OPENGLDRV_API GLSLToDeviceCompatibleGLSL(FAnsiCharArray& GlslCodeOriginal, 
 
 						if (!bIsMediumPrecision)
 						{
-							AppendCString(GlslCode,
+							AppendCString(GlslCodeAfterExtensions,
 								"highp float round(highp float value)\n"
 								"{\n"
 								"	return floor(value + 0.5);\n"
@@ -1027,7 +1054,7 @@ void OPENGLDRV_API GLSLToDeviceCompatibleGLSL(FAnsiCharArray& GlslCodeOriginal, 
 						}
 						else
 						{
-							AppendCString(GlslCode,
+							AppendCString(GlslCodeAfterExtensions,
 								"mediump float round(mediump float value)\n"
 								"{\n"
 								"	return floor(value + 0.5);\n"
@@ -1045,6 +1072,13 @@ void OPENGLDRV_API GLSLToDeviceCompatibleGLSL(FAnsiCharArray& GlslCodeOriginal, 
 								"	return floor(value + vec4(0.5, 0.5, 0.5, 0.5));\n"
 								"}\n"
 							);
+						}
+
+						if (!bGlslCodeHasExtensions)
+						{
+							// the initial code has no #extension chunk. append the code to the current position
+							AppendCString(GlslCode, GlslCodeAfterExtensions.GetData());
+							GlslCodeAfterExtensions.Empty();
 						}
 					}
 
@@ -1092,6 +1126,13 @@ void OPENGLDRV_API GLSLToDeviceCompatibleGLSL(FAnsiCharArray& GlslCodeOriginal, 
 	// shader source.
 	AppendCString(GlslCode, "\n\n");
 	AppendCString(GlslCode, GlslCodeOriginal.GetData());
+
+	if (bGlslCodeHasExtensions && GlslCodeAfterExtensions.Num() > 0)
+	{
+		// the initial code has an #extension chunk. replace the placeholder line
+		ReplaceCString(GlslCode, GlslPlaceHolderAfterExtensions, GlslCodeAfterExtensions.GetData());
+	}
+
 }
 
 /**
@@ -1162,7 +1203,7 @@ void FOpenGLDynamicRHI::BindUniformBufferBase(FOpenGLContextState& ContextState,
 {
 	SCOPE_CYCLE_COUNTER_DETAILED(STAT_OpenGLUniformBindTime);
 	VERIFY_GL_SCOPE();
-	checkSlow(IsInRenderingThread());
+	checkSlow(IsInRenderingThread() || IsInRHIThread());
 	for (int32 BufferIndex = 0; BufferIndex < NumUniformBuffers; ++BufferIndex)
 	{
 		GLuint Buffer = 0;
@@ -2335,7 +2376,7 @@ static void BindShaderStage(FOpenGLLinkedProgramConfiguration::ShaderInfo& Shade
 
 // ============================================================================================================================
 
-FBoundShaderStateRHIRef FOpenGLDynamicRHI::RHICreateBoundShaderState(
+FBoundShaderStateRHIRef FOpenGLDynamicRHI::RHICreateBoundShaderState_OnThisThread(
 	FVertexDeclarationRHIParamRef VertexDeclarationRHI, 
 	FVertexShaderRHIParamRef VertexShaderRHI, 
 	FHullShaderRHIParamRef HullShaderRHI,
@@ -2344,7 +2385,7 @@ FBoundShaderStateRHIRef FOpenGLDynamicRHI::RHICreateBoundShaderState(
 	FGeometryShaderRHIParamRef GeometryShaderRHI
 	)
 { 
-	check(IsInRenderingThread());
+	check(IsInRenderingThread() || IsInRHIThread());
 
 	VERIFY_GL_SCOPE();
 

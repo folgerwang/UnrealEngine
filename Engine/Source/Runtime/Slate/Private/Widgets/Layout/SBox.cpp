@@ -6,7 +6,7 @@
 #include "Layout/LayoutUtils.h"
 
 SBox::SBox()
-: ChildSlot()
+: ChildSlot(this)
 {
 	bCanTick = false;
 	bCanSupportFocus = false;
@@ -55,53 +55,91 @@ void SBox::SetVAlign(EVerticalAlignment VAlign)
 
 void SBox::SetPadding(const TAttribute<FMargin>& InPadding)
 {
-	ChildSlot.SlotPadding = InPadding;
+	if (!ChildSlot.SlotPadding.IdenticalTo(InPadding))
+	{
+		ChildSlot.SlotPadding = InPadding;
+		Invalidate(EInvalidateWidget::LayoutAndVolatility);
+	}
 }
 
 void SBox::SetWidthOverride(TAttribute<FOptionalSize> InWidthOverride)
 {
-	if (WidthOverride.Get().Get() != InWidthOverride.Get().Get())
+	if (!WidthOverride.IdenticalTo(InWidthOverride))
 	{
 		WidthOverride = InWidthOverride;
-
-		Invalidate(EInvalidateWidget::Layout);
+		Invalidate(EInvalidateWidget::LayoutAndVolatility);
 	}
 }
 
 void SBox::SetHeightOverride(TAttribute<FOptionalSize> InHeightOverride)
 {
-	if (HeightOverride.Get().Get() != InHeightOverride.Get().Get())
+	if (!HeightOverride.IdenticalTo(InHeightOverride))
 	{
 		HeightOverride = InHeightOverride;
-
-		Invalidate(EInvalidateWidget::Layout);
+		Invalidate(EInvalidateWidget::LayoutAndVolatility);
 	}
 }
 
 void SBox::SetMinDesiredWidth(TAttribute<FOptionalSize> InMinDesiredWidth)
 {
-	MinDesiredWidth = InMinDesiredWidth;
+	if (!MinDesiredWidth.IdenticalTo(InMinDesiredWidth))
+	{
+		MinDesiredWidth = InMinDesiredWidth;
+		Invalidate(EInvalidateWidget::LayoutAndVolatility);
+	}
 }
 
 void SBox::SetMinDesiredHeight(TAttribute<FOptionalSize> InMinDesiredHeight)
 {
-	MinDesiredHeight = InMinDesiredHeight;
+	if (!MinDesiredHeight.IdenticalTo(InMinDesiredHeight))
+	{
+		MinDesiredHeight = InMinDesiredHeight;
+		Invalidate(EInvalidateWidget::LayoutAndVolatility);
+	}
 }
 
 void SBox::SetMaxDesiredWidth(TAttribute<FOptionalSize> InMaxDesiredWidth)
 {
-	MaxDesiredWidth = InMaxDesiredWidth;
+	if (!MaxDesiredWidth.IdenticalTo(InMaxDesiredWidth))
+	{
+		MaxDesiredWidth = InMaxDesiredWidth;
+		Invalidate(EInvalidateWidget::LayoutAndVolatility);
+	}
 }
 
 void SBox::SetMaxDesiredHeight(TAttribute<FOptionalSize> InMaxDesiredHeight)
 {
-	MaxDesiredHeight = InMaxDesiredHeight;
+	if (!MaxDesiredHeight.IdenticalTo(InMaxDesiredHeight))
+	{
+		MaxDesiredHeight = InMaxDesiredHeight;
+		Invalidate(EInvalidateWidget::LayoutAndVolatility);
+	}
 }
 
 void SBox::SetMaxAspectRatio(TAttribute<FOptionalSize> InMaxAspectRatio)
 {
-	MaxAspectRatio = InMaxAspectRatio;
+	if (!MaxAspectRatio.IdenticalTo(InMaxAspectRatio))
+	{
+		MaxAspectRatio = InMaxAspectRatio;
+		Invalidate(EInvalidateWidget::LayoutAndVolatility);
+	}
 }
+
+#if SLATE_LAYOUT_CHANGE
+
+void SBox::ChildLayoutChanged()
+{
+	if (WidthOverride.IsSet() && HeightOverride.IsSet())
+	{
+		// Done.  We don't need to notify anyone else that our desired size has changed.
+	}
+	else
+	{
+		SPanel::ChildLayoutChanged();
+	}
+}
+
+#endif
 
 FVector2D SBox::ComputeDesiredSize( float ) const
 {
@@ -109,45 +147,61 @@ FVector2D SBox::ComputeDesiredSize( float ) const
 
 	if ( ChildVisibility != EVisibility::Collapsed )
 	{
-		// If the user specified a fixed width or height, those values override the Box's content.
-		const FVector2D& UnmodifiedChildDesiredSize = ChildSlot.GetWidget()->GetDesiredSize() + ChildSlot.SlotPadding.Get().GetDesiredSize();
 		const FOptionalSize CurrentWidthOverride = WidthOverride.Get();
 		const FOptionalSize CurrentHeightOverride = HeightOverride.Get();
-		const FOptionalSize CurrentMinDesiredWidth = MinDesiredWidth.Get();
-		const FOptionalSize CurrentMinDesiredHeight = MinDesiredHeight.Get();
-		const FOptionalSize CurrentMaxDesiredWidth = MaxDesiredWidth.Get();
-		const FOptionalSize CurrentMaxDesiredHeight = MaxDesiredHeight.Get();
-
-		float CurrentWidth = UnmodifiedChildDesiredSize.X;
-		float CurrentHeight = UnmodifiedChildDesiredSize.Y;
-
-		if ( CurrentMinDesiredWidth.IsSet() )
-		{
-			CurrentWidth = FMath::Max(CurrentWidth, CurrentMinDesiredWidth.Get());
-		}
-
-		if ( CurrentMaxDesiredWidth.IsSet() )
-		{
-			CurrentWidth = FMath::Min(CurrentWidth, CurrentMaxDesiredWidth.Get());
-		}
-
-		if ( CurrentMinDesiredHeight.IsSet() )
-		{
-			CurrentHeight = FMath::Max(CurrentHeight, CurrentMinDesiredHeight.Get());
-		}
-
-		if ( CurrentMaxDesiredHeight.IsSet() )
-		{
-			CurrentHeight = FMath::Min(CurrentHeight, CurrentMaxDesiredHeight.Get());
-		}
 
 		return FVector2D(
-			( CurrentWidthOverride.IsSet() ) ? CurrentWidthOverride.Get() : CurrentWidth,
-			( CurrentHeightOverride.IsSet() ) ? CurrentHeightOverride.Get() : CurrentHeight
+			( CurrentWidthOverride.IsSet() ) ? CurrentWidthOverride.Get() : ComputeDesiredWidth(),
+			( CurrentHeightOverride.IsSet() ) ? CurrentHeightOverride.Get() : ComputeDesiredHeight()
 		);
 	}
 	
 	return FVector2D::ZeroVector;
+}
+
+float SBox::ComputeDesiredWidth() const
+{
+	// If the user specified a fixed width or height, those values override the Box's content.
+	const FVector2D& UnmodifiedChildDesiredSize = ChildSlot.GetWidget()->GetDesiredSize() + ChildSlot.SlotPadding.Get().GetDesiredSize();
+	const FOptionalSize CurrentMinDesiredWidth = MinDesiredWidth.Get();
+	const FOptionalSize CurrentMaxDesiredWidth = MaxDesiredWidth.Get();
+
+	float CurrentWidth = UnmodifiedChildDesiredSize.X;
+
+	if (CurrentMinDesiredWidth.IsSet())
+	{
+		CurrentWidth = FMath::Max(CurrentWidth, CurrentMinDesiredWidth.Get());
+	}
+
+	if (CurrentMaxDesiredWidth.IsSet())
+	{
+		CurrentWidth = FMath::Min(CurrentWidth, CurrentMaxDesiredWidth.Get());
+	}
+
+	return CurrentWidth;
+}
+
+float SBox::ComputeDesiredHeight() const
+{
+	// If the user specified a fixed width or height, those values override the Box's content.
+	const FVector2D& UnmodifiedChildDesiredSize = ChildSlot.GetWidget()->GetDesiredSize() + ChildSlot.SlotPadding.Get().GetDesiredSize();
+
+	const FOptionalSize CurrentMinDesiredHeight = MinDesiredHeight.Get();
+	const FOptionalSize CurrentMaxDesiredHeight = MaxDesiredHeight.Get();
+
+	float CurrentHeight = UnmodifiedChildDesiredSize.Y;
+
+	if (CurrentMinDesiredHeight.IsSet())
+	{
+		CurrentHeight = FMath::Max(CurrentHeight, CurrentMinDesiredHeight.Get());
+	}
+
+	if (CurrentMaxDesiredHeight.IsSet())
+	{
+		CurrentHeight = FMath::Min(CurrentHeight, CurrentMaxDesiredHeight.Get());
+	}
+
+	return CurrentHeight;
 }
 
 void SBox::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const

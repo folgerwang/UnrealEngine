@@ -328,13 +328,13 @@ int32 UFixConflictingLocalizationKeysCommandlet::Main(const FString& Params)
 	// Build up a list of conflicting texts from the manifest (mimicking the 4.15 collapsing behavior)
 	TArray<FString> ConflictingSources;
 	{
-		TMap<FString, FLocItem, FDefaultSetAllocator, FLocKeyMapFuncs<FLocItem>> NsKeyToSourceString;
+		TMap<FLocKey, FLocItem> NsKeyToSourceString;
 
 		LocTextHelper.EnumerateSourceTexts([&NsKeyToSourceString, &ConflictingSources](TSharedRef<FManifestEntry> InManifestEntry) -> bool
 		{
 			for (const FManifestContext& Context : InManifestEntry->Contexts)
 			{
-				const FString NsKey = FString::Printf(TEXT("%s:%s"), *TextNamespaceUtil::StripPackageNamespace(InManifestEntry->Namespace), *Context.Key);
+				const FLocKey NsKey = FString::Printf(TEXT("%s:%s"), *TextNamespaceUtil::StripPackageNamespace(InManifestEntry->Namespace.GetString()), *Context.Key.GetString());
 
 				const FLocItem* ExistingSourceItem = NsKeyToSourceString.Find(NsKey);
 				if (ExistingSourceItem)

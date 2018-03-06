@@ -131,6 +131,17 @@ namespace AutomationTool
 			RunCommandlet(ProjectName, UE4Exe, "ResavePackages", String.Format("-buildtexturestreaming -buildlighting -MapsOnly -ProjectOnly -AllowCommandletRendering -SkipSkinVerify {0} {1}", MapsToRebuildLighting, Parameters));
 		}
 
+        public static void RebuildHLODCommandlet(FileReference ProjectName, string UE4Exe = "UE4Editor-Cmd.exe", string[] Maps = null, string Parameters = "")
+        {
+            string MapsToRebuildHLODs = "";
+            if (!IsNullOrEmpty(Maps))
+            {
+                MapsToRebuildHLODs = "-Map=" + CombineCommandletParams(Maps).Trim();
+            }
+
+            RunCommandlet(ProjectName, UE4Exe, "ResavePackages", String.Format("-BuildHLOD -ProjectOnly -AllowCommandletRendering -SkipSkinVerify {0} {1}", MapsToRebuildHLODs, Parameters));
+        }
+
         /// <summary>
         /// Runs RebuildLightMaps commandlet.
         /// </summary>
@@ -170,7 +181,7 @@ namespace AutomationTool
             {
                 throw new AutomationException("GenerateDistillFileSets should have a full path and file for {0}.", ManifestFile);
             }
-            CreateDirectory_NoExceptions(Dir);
+            CreateDirectory(Dir);
             if (FileExists_NoExceptions(ManifestFile))
             {
                 DeleteFile(ManifestFile);

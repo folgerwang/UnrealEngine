@@ -124,7 +124,7 @@ public class DownloaderActivity extends Activity implements IDownloaderClient {
     boolean expansionFilesDelivered() {
 		
         for (OBBData.XAPKFile xf : OBBData.xAPKS) {
-            String fileName = Helpers.getExpansionAPKFileName(this, xf.mIsMain, xf.mFileVersion);
+            String fileName = Helpers.getExpansionAPKFileName(this, xf.mIsMain, xf.mFileVersion, OBBData.AppType);
 			GameActivity.Log.debug("Checking for file : " + fileName);
 			String fileForNewFile = Helpers.generateSaveFileName(this, fileName);
 			String fileForDevFile = Helpers.generateSaveFileNameDevelopment(this, fileName);
@@ -138,7 +138,7 @@ public class DownloaderActivity extends Activity implements IDownloaderClient {
 	
 	boolean onlySingleExpansionFileFound() {
 		for (OBBData.XAPKFile xf : OBBData.xAPKS) {
-            String fileName = Helpers.getExpansionAPKFileName(this, xf.mIsMain, xf.mFileVersion);
+            String fileName = Helpers.getExpansionAPKFileName(this, xf.mIsMain, xf.mFileVersion, OBBData.AppType);
 			GameActivity.Log.debug("Checking for file : " + fileName);
 			String fileForNewFile = Helpers.generateSaveFileName(this, fileName);
 			String fileForDevFile = Helpers.generateSaveFileNameDevelopment(this, fileName);
@@ -188,7 +188,7 @@ public class DownloaderActivity extends Activity implements IDownloaderClient {
 		}
 		
 		for (OBBData.XAPKFile xf : OBBData.xAPKS) {
-            String fileName = Helpers.getExpansionAPKFileName(this, xf.mIsMain, xf.mFileVersion);
+            String fileName = Helpers.getExpansionAPKFileName(this, xf.mIsMain, xf.mFileVersion, OBBData.AppType);
 			String fileForNewFile = Helpers.generateSaveFileName(this, fileName);
 			String fileForDevFile = Helpers.generateSaveFileNameDevelopment(this, fileName);
 			// check to see if time/data on files match cached version
@@ -208,7 +208,7 @@ public class DownloaderActivity extends Activity implements IDownloaderClient {
 	static private void RemoveOBBFile(int OBBToDelete) {
 		
 		for (OBBData.XAPKFile xf : OBBData.xAPKS) {
-		    String fileName = Helpers.getExpansionAPKFileName(DownloaderActivity._download, xf.mIsMain, xf.mFileVersion);
+		    String fileName = Helpers.getExpansionAPKFileName(DownloaderActivity._download, xf.mIsMain, xf.mFileVersion, OBBData.AppType);
 			switch(OBBToDelete)
 			{
 			case 0:
@@ -278,7 +278,7 @@ public class DownloaderActivity extends Activity implements IDownloaderClient {
                 for (OBBData.XAPKFile xf : OBBData.xAPKS) {
                     String fileName = Helpers.getExpansionAPKFileName(
                             DownloaderActivity.this,
-                            xf.mIsMain, xf.mFileVersion);
+                            xf.mIsMain, xf.mFileVersion, OBBData.AppType);
 					boolean normalFile = Helpers.doesFileExist(DownloaderActivity.this, fileName, xf.mFileSize, false);
 					boolean devFile = Helpers.doesFileExistDev(DownloaderActivity.this, fileName, xf.mFileSize, false);
 							
@@ -399,7 +399,7 @@ public class DownloaderActivity extends Activity implements IDownloaderClient {
 					
 										
 						for (OBBData.XAPKFile xf : OBBData.xAPKS) {
-							String fileName = Helpers.getExpansionAPKFileName(DownloaderActivity.this, xf.mIsMain, xf.mFileVersion);
+							String fileName = Helpers.getExpansionAPKFileName(DownloaderActivity.this, xf.mIsMain, xf.mFileVersion, OBBData.AppType);
 							String fileForNewFile = Helpers.generateSaveFileName(DownloaderActivity.this, fileName);
 							String fileForDevFile = Helpers.generateSaveFileNameDevelopment(DownloaderActivity.this, fileName);
 														

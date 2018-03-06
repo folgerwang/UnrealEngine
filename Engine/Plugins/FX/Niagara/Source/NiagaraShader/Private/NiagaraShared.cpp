@@ -16,6 +16,7 @@
 #include "ShaderCompiler.h"
 #include "NiagaraShaderCompilationManager.h"
 #include "RendererInterface.h"
+#include "Modules/ModuleManager.h"
 
 #if WITH_EDITOR
 	NIAGARASHADER_API FNiagaraCompilationQueue* FNiagaraCompilationQueue::Singleton = nullptr;

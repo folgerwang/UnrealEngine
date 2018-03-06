@@ -66,14 +66,6 @@ namespace PluginSystemDefs
 			}
 		} while (SearchStr != nullptr);
 
-#if IS_PROGRAM
-		// For programs that have the project dir set, look for plugins under the project directory
-		const FProjectDescriptor *Project = IProjectManager::Get().GetCurrentProject();
-		if (Project != nullptr)
-		{
-			PluginPathsOut.Add(FPaths::GetPath(FPaths::GetProjectFilePath()) / TEXT("Plugins"));
-		}
-#endif
 		return PluginCount;
 	}
 }
@@ -236,7 +228,11 @@ void FPluginManager::ReadAllPlugins(TMap<FString, TSharedRef<FPlugin>>& Plugins,
 		// assume that the game plugin version is preferred.
 		if (Project != nullptr)
 		{
+#if IS_PROGRAM
+			ReadPluginsInDirectory(FPaths::GetPath(FPaths::GetProjectFilePath()) / TEXT("Plugins"), EPluginType::Project, Plugins);
+#else
 			ReadPluginsInDirectory(FPaths::ProjectPluginsDir(), EPluginType::Project, Plugins);
+#endif
 		}
 	}
 	else
@@ -295,8 +291,8 @@ void FPluginManager::ReadAllPlugins(TMap<FString, TSharedRef<FPlugin>>& Plugins,
 			ReadPluginsInDirectory(Dir, EPluginType::External, Plugins);
 		}
 
-		// For enterprise projects, add plugins in EnterprisePluginsDir
-		if (Project->bIsEnterpriseProject)
+		// Add plugins from FPaths::EnterprisePluginsDir if it exists
+		if (FPaths::DirectoryExists(FPaths::EnterprisePluginsDir()))
 		{
 			ReadPluginsInDirectory(FPaths::EnterprisePluginsDir(), EPluginType::Enterprise, Plugins);
 		}
@@ -579,6 +575,8 @@ bool FPluginManager::ConfigureEnabledPlugins()
 						FConfigFile* FoundConfig = GConfig->Find(PluginConfigFilename, false);
 						if (FoundConfig != nullptr)
 						{
+							UE_LOG(LogPluginManager, Log, TEXT("Found config from plugin[%s] %s"), *Plugin.GetName(), *PluginConfigFilename);
+
 							FString PluginConfigContent;
 							if (FFileHelper::LoadFileToString(PluginConfigContent, *FPaths::Combine(PluginConfigDir, ConfigFile)))
 							{
@@ -719,6 +717,12 @@ bool FPluginManager::ConfigureEnabledPlugin(const FPluginReferenceDescriptor& Fi
 				continue;
 			}
 #endif
+
+			// Skip loading Enterprise plugins when project is not an Enterprise project
+			if (Plugin.Type == EPluginType::Enterprise && !IProjectManager::Get().IsEnterpriseProject())
+			{
+				continue;
+			}
 
 #if !IS_MONOLITHIC
 			// Mount the binaries directory, and check the modules are valid

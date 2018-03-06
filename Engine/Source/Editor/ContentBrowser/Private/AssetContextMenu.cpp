@@ -67,6 +67,7 @@
 #include "ContentBrowserCommands.h"
 
 #include "PackageHelperFunctions.h"
+#include "EngineUtils.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 
@@ -360,7 +361,7 @@ void FAssetContextMenu::MakeAssetActionsSubMenu(FMenuBuilder& MenuBuilder)
 
 	// Capture Thumbnail
 	FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools");
-	if (SelectedAssets.Num() == 1)
+	if (SelectedAssets.Num() == 1 && AssetToolsModule.Get().AssetUsesGenericThumbnail(SelectedAssets[0]))
 	{
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("CaptureThumbnail", "Capture Thumbnail"),
@@ -1590,18 +1591,29 @@ struct WorldReferenceGenerator : public FFindReferencedAssets
 		FFindAssetsArchive(World, WorldReferencer->AssetList, &ReferenceGraph, MaxRecursionDepth, bIncludeClasses, bIncludeDefaults, bReverseReferenceGraph);
 
 		// Also include all the streaming levels in the results
-		for (int32 LevelIndex = 0; LevelIndex < World->StreamingLevels.Num(); ++LevelIndex)
+		for (ULevelStreaming* StreamingLevel : World->GetStreamingLevels())
 		{
-			ULevelStreaming* StreamingLevel = World->StreamingLevels[LevelIndex];
-			if( StreamingLevel != NULL )
+			if (StreamingLevel)
 			{
-				ULevel* Level = StreamingLevel->GetLoadedLevel();
-				if( Level != NULL )
+				if (ULevel* Level = StreamingLevel->GetLoadedLevel())
 				{
 					// Generate the reference graph for each streamed in level
 					FReferencedAssets* LevelReferencer = new(Referencers) FReferencedAssets(Level);			
 					FFindAssetsArchive(Level, LevelReferencer->AssetList, &ReferenceGraph, MaxRecursionDepth, bIncludeClasses, bIncludeDefaults, bReverseReferenceGraph);
 				}
+			}
+		}
+
+		TArray<UObject*> ReferencedObjects;
+		// Special case for blueprints
+		for (AActor* Actor : FActorRange(World))
+		{
+			ReferencedObjects.Reset();
+			Actor->GetReferencedContentObjects(ReferencedObjects);
+			for(UObject* Reference : ReferencedObjects)
+			{
+				TSet<UObject*>& Objects = ReferenceGraph.FindOrAdd(Reference);
+				Objects.Add(Actor);
 			}
 		}
 	}
@@ -1615,7 +1627,7 @@ struct WorldReferenceGenerator : public FFindReferencedAssets
 		}
 	}
 
-	void Generate( const UObject* AssetToFind, TArray< TWeakObjectPtr<const UObject> >& OutObjects )
+	void Generate( const UObject* AssetToFind, TSet<const UObject*>& OutObjects )
 	{
 		// Don't examine visited objects
 		if (!AssetToFind->HasAnyMarks(OBJECTMARK_TagExp))
@@ -1632,7 +1644,7 @@ struct WorldReferenceGenerator : public FFindReferencedAssets
 			return;
 		}
 
-		// Transverse the reference graph looking for actor objects
+		// Traverse the reference graph looking for actor objects
 		TSet<UObject*>* ReferencingObjects = ReferenceGraph.Find(AssetToFind);
 		if (ReferencingObjects)
 		{
@@ -1662,17 +1674,17 @@ void FAssetContextMenu::ExecuteFindAssetInWorld()
 
 		CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
 
-		TArray< TWeakObjectPtr<const UObject> > OutObjects;
+		TSet<const UObject*> OutObjects;
 		WorldReferenceGenerator ObjRefGenerator;
 
 		SlowTask.EnterProgressFrame();
 		ObjRefGenerator.BuildReferencingData();
 
-		for (int32 AssetIdx = 0; AssetIdx < AssetsToFind.Num(); ++AssetIdx)
+		for (UObject* AssetToFind : AssetsToFind)
 		{
 			SlowTask.EnterProgressFrame();
 			ObjRefGenerator.MarkAllObjects();
-			ObjRefGenerator.Generate(AssetsToFind[AssetIdx], OutObjects);
+			ObjRefGenerator.Generate(AssetToFind, OutObjects);
 		}
 
 		SlowTask.EnterProgressFrame();
@@ -1683,9 +1695,9 @@ void FAssetContextMenu::ExecuteFindAssetInWorld()
 			const bool Notify = false;
 
 			// Select referencing actors
-			for (int32 ActorIdx = 0; ActorIdx < OutObjects.Num(); ++ActorIdx)
+			for (const UObject* Object : OutObjects)
 			{
-				GEditor->SelectActor(const_cast<AActor*>(CastChecked<AActor>(OutObjects[ActorIdx].Get())), InSelected, Notify);
+				GEditor->SelectActor(const_cast<AActor*>(CastChecked<AActor>(Object)), InSelected, Notify);
 			}
 
 			GEditor->NoteSelectionChange();

@@ -1,7 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineIdentityFacebookCommon.h"
+#if USES_RESTFUL_FACEBOOK
+#include "OnlineIdentityFacebookRest.h"
+#else // USES_RESTFUL_FACEBOOK
 #include "OnlineIdentityFacebook.h"
+#endif // USES_RESTFUL_FACEBOOK
 #include "OnlineSubsystemFacebookPrivate.h"
 #include "OnlineSubsystemFacebookTypes.h"
 #include "HttpModule.h"
@@ -308,6 +312,6 @@ FPlatformUserId FOnlineIdentityFacebookCommon::GetPlatformUserIdFromUniqueNetId(
 
 FString FOnlineIdentityFacebookCommon::GetAuthType() const
 {
-	return TEXT("facebook");
+	return AUTH_TYPE_FACEBOOK;
 }
 

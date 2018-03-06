@@ -114,7 +114,7 @@ public:
 	 */
 	FString ToString() const override
 	{
-		return FString::Printf(TEXT("FOnlineAsyncTaskSteamRequestUserStats bWasSuccessful: %d UserId: %s"), bWasSuccessful, *UserId.ToDebugString());
+		return FString::Printf(TEXT("FOnlineAsyncTaskSteamRequestUserStats bWasSuccessful: %d UserId: %s"), WasSuccessful(), *UserId.ToDebugString());
 	}
 
 	/**
@@ -235,7 +235,7 @@ public:
 	 */
 	FString ToString() const override
 	{
-		return FString::Printf(TEXT("FOnlineAsyncTaskSteamUpdateStats bWasSuccessful: %d User: %s"), bWasSuccessful, *UserId.ToDebugString());
+		return FString::Printf(TEXT("FOnlineAsyncTaskSteamUpdateStats bWasSuccessful: %d User: %s"), WasSuccessful(), *UserId.ToDebugString());
 	}
 
 	/**
@@ -371,7 +371,7 @@ public:
 	 */
 	FString ToString() const override
 	{
-		return FString::Printf(TEXT("FOnlineAsyncTaskSteamRetrieveStats bWasSuccessful: %d UserId: %s"), bWasSuccessful, *UserId.ToDebugString());
+		return FString::Printf(TEXT("FOnlineAsyncTaskSteamRetrieveStats bWasSuccessful: %d UserId: %s"), WasSuccessful(), *UserId.ToDebugString());
 	}
 
 	/**
@@ -551,7 +551,7 @@ public:
 	 */
 	FString ToString() const override
 	{
-		return FString::Printf(TEXT("FOnlineAsyncTaskSteamGetAchievements bWasSuccessful: %d UserId: %s"), bWasSuccessful, *UserId.ToDebugString());
+		return FString::Printf(TEXT("FOnlineAsyncTaskSteamGetAchievements bWasSuccessful: %d UserId: %s"), WasSuccessful(), *UserId.ToDebugString());
 	}
 
 	/**
@@ -697,7 +697,7 @@ public:
 	 */
 	FString ToString() const override
 	{
-		return FString::Printf(TEXT("FOnlineAsyncTaskSteamRetrieveLeaderboard bWasSuccessful: %d"), bWasSuccessful);
+		return FString::Printf(TEXT("FOnlineAsyncTaskSteamRetrieveLeaderboard bWasSuccessful: %d"), WasSuccessful());
 	}
 
 	/**
@@ -806,7 +806,7 @@ public:
 	 */
 	FString ToString() const override
 	{
-		return FString::Printf(TEXT("FOnlineAsyncTaskSteamRetrieveLeaderboardEntries bWasSuccessful: %d"), bWasSuccessful);
+		return FString::Printf(TEXT("FOnlineAsyncTaskSteamRetrieveLeaderboardEntries bWasSuccessful: %d"), WasSuccessful());
 	}
 
 	/**
@@ -978,7 +978,7 @@ public:
 	 */
 	virtual FString ToString() const override
 	{
-		return FString::Printf(TEXT("FOnlineAsyncTaskSteamUpdateLeaderboard bWasSuccessful: %d Leaderboard: %s Score: %d"), bWasSuccessful, *LeaderboardName.ToString(), NewScore);
+		return FString::Printf(TEXT("FOnlineAsyncTaskSteamUpdateLeaderboard bWasSuccessful: %d Leaderboard: %s Score: %d"), WasSuccessful(), *LeaderboardName.ToString(), NewScore);
 	}
 
 	/**
@@ -1125,7 +1125,7 @@ public:
 	 */
 	FString ToString() const override
 	{
-		return FString::Printf(TEXT("FOnlineAsyncTaskSteamStoreStats SessionName: %s bWasSuccessful: %d"), *SessionName.ToString(), bWasSuccessful);
+		return FString::Printf(TEXT("FOnlineAsyncTaskSteamStoreStats SessionName: %s bWasSuccessful: %d"), *SessionName.ToString(), WasSuccessful());
 	}
 
 	/**

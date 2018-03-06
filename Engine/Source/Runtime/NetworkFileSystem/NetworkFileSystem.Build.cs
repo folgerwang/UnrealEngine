@@ -40,6 +40,7 @@ namespace UnrealBuildTool.Rules
 			{
 				AddEngineThirdPartyPrivateStaticDependencies(Target, "OpenSSL", "libWebSockets", "zlib");
 				PublicDefinitions.Add("ENABLE_HTTP_FOR_NFS=1");
+				PrivateDependencyModuleNames.Add("SSL");
 			}
 			else
 			{

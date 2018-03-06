@@ -120,6 +120,7 @@ class ENGINE_API AGameSession : public AInfo
 	 * @param UniqueId id of the player to unregister
 	 */
 	virtual void UnregisterPlayer(FName InSessionName, const FUniqueNetIdRepl& UniqueId);
+	virtual void UnregisterPlayers(FName InSessionName, const TArray< TSharedRef<const FUniqueNetId> >& Players);
 	
 	/**
 	 * Unregister a player from the online service session

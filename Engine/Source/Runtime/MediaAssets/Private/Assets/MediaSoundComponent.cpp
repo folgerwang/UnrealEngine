@@ -2,13 +2,23 @@
 
 #include "MediaSoundComponent.h"
 
+#include "Components/BillboardComponent.h"
+#include "Engine/Texture2D.h"
 #include "IMediaAudioSample.h"
 #include "IMediaPlayer.h"
 #include "MediaAudioResampler.h"
 #include "Misc/ScopeLock.h"
+#include "Sound/AudioSettings.h"
+#include "UObject/UObjectGlobals.h"
 
 #include "MediaPlayer.h"
 #include "MediaPlayerFacade.h"
+
+
+/* Static initialization
+ *****************************************************************************/
+
+USoundClass* UMediaSoundComponent::DefaultMediaSoundClassObject = nullptr;
 
 
 /* UMediaSoundComponent structors
@@ -27,6 +37,11 @@ UMediaSoundComponent::UMediaSoundComponent(const FObjectInitializer& ObjectIniti
 #if PLATFORM_MAC
 	PreferredBufferLength = 2048; // increase buffer callback size on macOS to prevent underruns
 #endif
+
+#if WITH_EDITORONLY_DATA
+	bVisualizeComponent = true;
+#endif
+
 }
 
 
@@ -38,6 +53,21 @@ UMediaSoundComponent::~UMediaSoundComponent()
 
 /* UMediaSoundComponent interface
  *****************************************************************************/
+
+bool UMediaSoundComponent::BP_GetAttenuationSettingsToApply(FSoundAttenuationSettings& OutAttenuationSettings)
+{
+	const FSoundAttenuationSettings* SelectedAttenuationSettings = GetSelectedAttenuationSettings();
+
+	if (SelectedAttenuationSettings == nullptr)
+	{
+		return false;
+	}
+
+	OutAttenuationSettings = *SelectedAttenuationSettings;
+
+	return true;
+}
+
 
 void UMediaSoundComponent::SetMediaPlayer(UMediaPlayer* NewMediaPlayer)
 {
@@ -51,6 +81,8 @@ void UMediaSoundComponent::UpdatePlayer()
 	{
 		CachedRate = 0.0f;
 		CachedTime = FTimespan::Zero();
+
+		FScopeLock Lock(&CriticalSection);
 		SampleQueue.Reset();
 
 		return;
@@ -61,27 +93,61 @@ void UMediaSoundComponent::UpdatePlayer()
 
 	if (PlayerFacade != CurrentPlayerFacade)
 	{
+		const auto NewSampleQueue = MakeShared<FMediaAudioSampleQueue, ESPMode::ThreadSafe>();
+		PlayerFacade->AddAudioSampleSink(NewSampleQueue);
 		{
-			const auto NewSampleQueue = MakeShared<FMediaAudioSampleQueue, ESPMode::ThreadSafe>();
-
 			FScopeLock Lock(&CriticalSection);
 			SampleQueue = NewSampleQueue;
 		}
 
-		PlayerFacade->AddAudioSampleSink(SampleQueue.ToSharedRef());
 		CurrentPlayerFacade = PlayerFacade;
 	}
 
 	// caching play rate and time for audio thread (eventual consistency is sufficient)
 	CachedRate = PlayerFacade->GetRate();
 	CachedTime = PlayerFacade->GetTime();
+}
 
-	check(SampleQueue.IsValid());
+
+/* TAttenuatedComponentVisualizer interface
+ *****************************************************************************/
+
+void UMediaSoundComponent::CollectAttenuationShapesForVisualization(TMultiMap<EAttenuationShape::Type, FBaseAttenuationSettings::AttenuationShapeDetails>& ShapeDetailsMap) const
+{
+	const FSoundAttenuationSettings* SelectedAttenuationSettings = GetSelectedAttenuationSettings();
+
+	if (SelectedAttenuationSettings != nullptr)
+	{
+		SelectedAttenuationSettings->CollectAttenuationShapesForVisualization(ShapeDetailsMap);
+	}
 }
 
 
 /* UActorComponent interface
  *****************************************************************************/
+
+void UMediaSoundComponent::OnRegister()
+{
+	Super::OnRegister();
+
+#if WITH_EDITORONLY_DATA
+	if (SpriteComponent != nullptr)
+	{
+		SpriteComponent->SpriteInfo.Category = TEXT("Sounds");
+		SpriteComponent->SpriteInfo.DisplayName = NSLOCTEXT("SpriteCategory", "Sounds", "Sounds");
+
+		if (bAutoActivate)
+		{
+			SpriteComponent->SetSprite(LoadObject<UTexture2D>(nullptr, TEXT("/Engine/EditorResources/AudioIcons/S_AudioComponent_AutoActivate.S_AudioComponent_AutoActivate")));
+		}
+		else
+		{
+			SpriteComponent->SetSprite(LoadObject<UTexture2D>(nullptr, TEXT("/Engine/EditorResources/AudioIcons/S_AudioComponent.S_AudioComponent")));
+		}
+	}
+#endif
+}
+
 
 void UMediaSoundComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
@@ -118,6 +184,27 @@ void UMediaSoundComponent::Deactivate()
 
 /* UObject interface
  *****************************************************************************/
+
+void UMediaSoundComponent::PostInitProperties()
+{
+	Super::PostInitProperties();
+
+	if (UMediaSoundComponent::DefaultMediaSoundClassObject == nullptr)
+	{
+		const FSoftObjectPath DefaultMediaSoundClassName = GetDefault<UAudioSettings>()->DefaultMediaSoundClassName;
+		if (DefaultMediaSoundClassName.IsValid())
+		{
+			UMediaSoundComponent::DefaultMediaSoundClassObject = LoadObject<USoundClass>(nullptr, *DefaultMediaSoundClassName.ToString());
+		}
+	}
+
+	// We have a different default sound class object for media sound components
+	if (SoundClass == USoundBase::DefaultSoundClassObject || SoundClass == nullptr)
+	{
+		SoundClass = UMediaSoundComponent::DefaultMediaSoundClassObject;
+	}
+}
+
 
 void UMediaSoundComponent::PostLoad()
 {
@@ -193,4 +280,23 @@ void UMediaSoundComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 	{
 		Resampler->Flush();
 	}
+}
+
+
+/* UMediaSoundComponent implementation
+ *****************************************************************************/
+
+const FSoundAttenuationSettings* UMediaSoundComponent::GetSelectedAttenuationSettings() const
+{
+	if (bOverrideAttenuation)
+	{
+		return &AttenuationOverrides;
+	}
+	
+	if (AttenuationSettings != nullptr)
+	{
+		return &AttenuationSettings->Attenuation;
+	}
+
+	return nullptr;
 }

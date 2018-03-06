@@ -9,6 +9,7 @@
 #include "HAL/IConsoleManager.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Layout/WidgetCaching.h"
+#include "Types/ReflectionMetadata.h"
 
 //DECLARE_CYCLE_STAT(TEXT("Invalidation Time"), STAT_InvalidationTime, STATGROUP_Slate);
 DECLARE_DWORD_COUNTER_STAT(TEXT("Num Cached Elements"), STAT_SlateNumCachedElements, STATGROUP_Slate);
@@ -70,6 +71,11 @@ static bool ShouldCacheRenderData()
 	return WITH_ENGINE && CacheRenderData != 0;
 }
 
+SInvalidationPanel::SInvalidationPanel()
+	: EmptyChildSlot(this)
+{
+}
+
 void SInvalidationPanel::Construct( const FArguments& InArgs )
 {
 	FSlateApplicationBase::Get().OnGlobalInvalidate().AddSP( this, &SInvalidationPanel::OnGlobalInvalidate );
@@ -91,6 +97,11 @@ void SInvalidationPanel::Construct( const FArguments& InArgs )
 	bCacheRelativeTransforms = InArgs._CacheRelativeTransforms;
 
 	bCacheRenderData = ShouldCacheRenderData();
+
+#if SLATE_VERBOSE_NAMED_EVENTS
+	DebugTickName = InArgs._DebugName + TEXT("_Tick");
+	DebugPaintName = InArgs._DebugName + TEXT("_Paint");
+#endif
 }
 
 SInvalidationPanel::~SInvalidationPanel()
@@ -158,19 +169,8 @@ bool SInvalidationPanel::IsCachingNeeded(FSlateWindowElementList& OutDrawElement
 		return true;
 	}
 
-	if (LastClippingIndex != OutDrawElements.GetClippingIndex())
-	{
-		return true;
-	}
-
 	TOptional<FSlateClippingState> ClippingState = OutDrawElements.GetClippingState();
 	if (LastClippingState != ClippingState)
-	{
-		return true;
-	}
-
-	int32 ClippingStateCount = OutDrawElements.GetClippingManager().GetClippingStates().Num();
-	if (LastClippingStateOffset != ClippingStateCount)
 	{
 		return true;
 	}
@@ -184,7 +184,7 @@ bool SInvalidationPanel::IsCachingNeeded(FSlateWindowElementList& OutDrawElement
 			return true;
 		}
 	}
-		
+	
 	return false;
 }
 
@@ -197,6 +197,10 @@ void SInvalidationPanel::SetCanCache(bool InCanCache)
 
 void SInvalidationPanel::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
+#if SLATE_VERBOSE_NAMED_EVENTS
+	FScopedNamedEvent Event(FColor::Blue, *DebugTickName);
+#endif
+
 	SCOPE_CYCLE_COUNTER(STAT_SlateInvalidationTick);
 
 	if ( GetCanCache() )
@@ -232,11 +236,6 @@ FChildren* SInvalidationPanel::GetChildren()
 	{
 		return &EmptyChildSlot;
 	}
-}
-
-void SInvalidationPanel::AddReferencedObjects(FReferenceCollector& Collector)
-{
-	Collector.AddReferencedObjects(CachedResources);
 }
 
 void SInvalidationPanel::InvalidateWidget(SWidget* InvalidateWidget)
@@ -276,116 +275,122 @@ void SInvalidationPanel::OnGlobalInvalidate()
 
 int32 SInvalidationPanel::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
+#if SLATE_VERBOSE_NAMED_EVENTS
+	FScopedNamedEvent Event(FColor::Purple, *DebugPaintName);
+#endif
 	SCOPE_CYCLE_COUNTER(STAT_SlateInvalidationPaint);
 
 	if ( GetCanCache() )
 	{
-		//SCOPE_CYCLE_COUNTER(STAT_InvalidationTime);
-
-		//FPlatformMisc::BeginNamedEvent(FColor::Magenta, "Slate::InvalidationPanel::Paint");
-
 		const bool bWasCachingNeeded = IsCachingNeeded() || IsCachingNeeded(OutDrawElements, AllottedGeometry, MyCullingRect, LayerId);
 
 		if ( bWasCachingNeeded )
 		{
-			//FPlatformMisc::BeginNamedEvent(FColor::Red, "Slate::Invalidation");
-
-			SInvalidationPanel* MutableThis = const_cast<SInvalidationPanel*>( this );
-			TSharedRef<SInvalidationPanel> SharedMutableThis = SharedThis(MutableThis);
-
-			// Always set the caching flag to false first, during the paint / tick pass we may change something
-			// to volatile and need to re-cache.
-			bNeedsCaching = false;
-
-			// Mark that we're in the process of invalidating.
-			bIsInvalidating = true;
-
-			CachedWindowElements = FSlateApplication::Get().GetCachableElementList(OutDrawElements.GetWindow(), this);
-
-			// Reset the render data handle in case it was in use, and we're not overriding it this frame.
-			CachedRenderData.Reset();
-
-			// Reset the cached node pool index so that we effectively reset the pool.
-			LastUsedCachedNodeIndex = 0;
-
-			RootCacheNode = CreateCacheNode();
-			RootCacheNode->Initialize(Args, SharedMutableThis, AllottedGeometry);
-
-			//TODO: When SWidget::Paint is called don't drag self if volatile, and we're doing a cache pass.
-			CachedMaxChildLayer = SCompoundWidget::OnPaint(
-				Args.EnableCaching(SharedMutableThis, RootCacheNode, true, false),
-				AllottedGeometry,
-				MyCullingRect,
-				*CachedWindowElements.Get(),
-				LayerId,
-				InWidgetStyle,
-				bParentEnabled);
-
 			{
-				CachedResources.Reset();
+#if SLATE_VERBOSE_NAMED_EVENTS
+				FScopedNamedEvent CacheEvent(FColor::Red, *(DebugPaintName + "_Invalidation"));
+#endif
+				SInvalidationPanel* MutableThis = const_cast<SInvalidationPanel*>(this);
+				TSharedRef<SInvalidationPanel> SharedMutableThis = SharedThis(MutableThis);
 
-				const TArray<FSlateDrawElement>& CachedElements = CachedWindowElements->GetDrawElements();
-				const int32 CachedElementCount = CachedElements.Num();
-				for ( int32 Index = 0; Index < CachedElementCount; Index++ )
+				// Always set the caching flag to false first, during the paint / tick pass we may change something
+				// to volatile and need to re-cache.
+				bNeedsCaching = false;
+
+				// Mark that we're in the process of invalidating.
+				bIsInvalidating = true;
+
+				CachedWindowElements = FSlateApplication::Get().GetCachableElementList(OutDrawElements.GetWindow(), this);
+
+				// Reset the render data handle in case it was in use, and we're not overriding it this frame.
+				CachedRenderData.Reset();
+
+				// Reset the cached node pool index so that we effectively reset the pool.
+				LastUsedCachedNodeIndex = 0;
+
+				RootCacheNode = CreateCacheNode();
+				RootCacheNode->Initialize(Args, SharedMutableThis, AllottedGeometry);
+
+				//TODO: When SWidget::Paint is called don't drag self if volatile, and we're doing a cache pass.
+				CachedMaxChildLayer = SCompoundWidget::OnPaint(
+					Args.EnableCaching(SharedMutableThis, RootCacheNode, true, false),
+					AllottedGeometry,
+					MyCullingRect,
+					*CachedWindowElements.Get(),
+					LayerId,
+					InWidgetStyle,
+					bParentEnabled);
+
 				{
-					const FSlateDrawElement& LocalElement = CachedElements[Index];
-					if ( const FSlateBrush* BrushResource = LocalElement.GetDataPayload().BrushResource )
+					// @TODO - fixme!
+					// This fixes a minor leak, but causes a GPU hang. 
+					// Possibly caused by non-threadsafe access of this array when the loading screen is visible
+					//CachedResources.Reset();
+
+					const TArray<FSlateDrawElement>& CachedElements = CachedWindowElements->GetDrawElements();
+					const int32 CachedElementCount = CachedElements.Num();
+					for (int32 Index = 0; Index < CachedElementCount; Index++)
 					{
-						if ( UObject* ResourceObject = BrushResource->GetResourceObject() )
+						const FSlateDrawElement& LocalElement = CachedElements[Index];
+						if (const FSlateBrush* BrushResource = LocalElement.GetDataPayload().BrushResource)
 						{
-							CachedResources.Add(ResourceObject);
+							if (UObject* ResourceObject = BrushResource->GetResourceObject())
+							{
+								CachedResources.Add(ResourceObject);
+							}
 						}
 					}
 				}
-			}
 
-			if ( bCacheRelativeTransforms )
-			{
-				CachedAbsolutePosition = AllottedGeometry.GetAccumulatedRenderTransform().GetTranslation();
-			}
-
-			LastClippingStateOffset = OutDrawElements.GetClippingManager().GetClippingStates().Num();
-			LastClippingIndex = OutDrawElements.GetClippingIndex();
-			LastClippingState = OutDrawElements.GetClippingState();
-
-			const int32 ClippingStateOffset = OutDrawElements.GetClippingManager().MergeClippingStates(CachedWindowElements->GetClippingManager().GetClippingStates());
-
-			TArray<FSlateDrawElement>& CachedElements = CachedWindowElements->GetDrawElements();
-			for (int32 Index = 0; Index < CachedElements.Num(); Index++)
-			{
-				FSlateDrawElement& CachedElement = CachedElements[Index];
-				if (CachedElement.GetClippingIndex() == -1)
+				if (bCacheRelativeTransforms)
 				{
-					CachedElement.SetClippingIndex(LastClippingIndex);
+					CachedAbsolutePosition = AllottedGeometry.GetAccumulatedRenderTransform().GetTranslation();
 				}
-				else
+
+				LastClippingStateOffset = OutDrawElements.GetClippingManager().GetClippingStates().Num();
+				LastClippingIndex = OutDrawElements.GetClippingIndex();
+				LastClippingState = OutDrawElements.GetClippingState();
+
+				const int32 ClippingStateOffset = OutDrawElements.GetClippingManager().MergeClippingStates(CachedWindowElements->GetClippingManager().GetClippingStates());
+
+				TArray<FSlateDrawElement>& CachedElements = CachedWindowElements->GetDrawElements();
+				for (int32 Index = 0; Index < CachedElements.Num(); Index++)
 				{
-					CachedElement.SetClippingIndex(ClippingStateOffset + CachedElement.GetClippingIndex());
+					FSlateDrawElement& CachedElement = CachedElements[Index];
+					if (CachedElement.GetClippingIndex() == -1)
+					{
+						CachedElement.SetClippingIndex(LastClippingIndex);
+					}
+					else
+					{
+						CachedElement.SetClippingIndex(ClippingStateOffset + CachedElement.GetClippingIndex());
+					}
 				}
+
+				if (bCacheRenderData)
+				{
+					CachedRenderData = CachedWindowElements->CacheRenderData(this);
+				}
+
+				LastHitTestIndex = Args.GetLastHitTestIndex();
+
+				LastAllottedGeometry = AllottedGeometry;
+				LastClipRectSize = MyCullingRect.GetSize().RoundToVector();
+				LastLayerId = LayerId;
+
+				if (bCacheRelativeTransforms)
+				{
+					LastClippingIntersectionSize = AllottedGeometry.GetLayoutBoundingRect().IntersectionWith(MyCullingRect).GetSize();
+				}
+
+				bIsInvalidating = false;
 			}
-
-			if (bCacheRenderData)
-			{
-				CachedRenderData = CachedWindowElements->CacheRenderData(this);
-			}
-
-			LastHitTestIndex = Args.GetLastHitTestIndex();
-
-			LastAllottedGeometry = AllottedGeometry;
-			LastClipRectSize = MyCullingRect.GetSize().RoundToVector();
-			LastLayerId = LayerId;
-
-			if (bCacheRelativeTransforms)
-			{
-				LastClippingIntersectionSize = AllottedGeometry.GetLayoutBoundingRect().IntersectionWith(MyCullingRect).GetSize();
-			}
-
-			bIsInvalidating = false;
-
-			//FPlatformMisc::EndNamedEvent();
 		}
 		else
 		{
+#if SLATE_VERBOSE_NAMED_EVENTS
+			FScopedNamedEvent MergeClipEvent(FColor::Magenta, TEXT("SInvalidationPanel::MergeClippingStates"));
+#endif
 			OutDrawElements.GetClippingManager().MergeClippingStates(CachedWindowElements->GetClippingManager().GetClippingStates());
 		}
 
@@ -395,40 +400,43 @@ int32 SInvalidationPanel::OnPaint( const FPaintArgs& Args, const FGeometry& Allo
 			AbsoluteDeltaPosition = AllottedGeometry.GetAccumulatedRenderTransform().GetTranslation() - CachedAbsolutePosition;
 		}
 
-		//FPlatformMisc::BeginNamedEvent(FColor::Yellow, "Slate::RecordHitTestGeometry");
-		
-
-
-		// The hit test grid is actually populated during the initial cache phase, so don't bother
-		// recording the hit test geometry on the same frame that we regenerate the cache.
-		if ( bWasCachingNeeded == false )
+		// Record Hit Test Geometry
 		{
-			INC_DWORD_STAT_BY(STAT_SlateNumCachedElements, CachedWindowElements->GetDrawElements().Num());
 
-			RootCacheNode->RecordHittestGeometry(Args.GetGrid(), Args.GetLastHitTestIndex(), LayerId, AbsoluteDeltaPosition);
+			// The hit test grid is actually populated during the initial cache phase, so don't bother
+			// recording the hit test geometry on the same frame that we regenerate the cache.
+			if (bWasCachingNeeded == false)
+			{
+				INC_DWORD_STAT_BY(STAT_SlateNumCachedElements, CachedWindowElements->GetDrawElements().Num());
+
+				RootCacheNode->RecordHittestGeometry(Args.GetGrid(), Args.GetLastHitTestIndex(), LayerId, AbsoluteDeltaPosition);
+			}
+			else
+			{
+				INC_DWORD_STAT_BY(STAT_SlateNumInvalidatedElements, CachedWindowElements->GetDrawElements().Num());
+			}
 		}
-		else
-		{
-			INC_DWORD_STAT_BY(STAT_SlateNumInvalidatedElements, CachedWindowElements->GetDrawElements().Num());
-		}
-		//FPlatformMisc::EndNamedEvent();
 
 		int32 OutMaxChildLayer = CachedMaxChildLayer;
 
-		if (bCacheRenderData)
 		{
-			FSlateDrawElement::MakeCachedBuffer(OutDrawElements, LayerId, CachedRenderData, AbsoluteDeltaPosition);
-		}
-		else
-		{
-			OutDrawElements.MergeElementList(CachedWindowElements.Get(), AbsoluteDeltaPosition);
+			if (bCacheRenderData)
+			{
+				FSlateDrawElement::MakeCachedBuffer(OutDrawElements, LayerId, CachedRenderData, AbsoluteDeltaPosition);
+				OutDrawElements.MergeResources(CachedResources);
+			}
+			else
+			{
+				OutDrawElements.MergeElementList(CachedWindowElements.Get(), AbsoluteDeltaPosition);
+			}
 		}
 
 		// Paint the volatile elements
 		if ( CachedWindowElements.IsValid() )
 		{
-			//FPlatformMisc::BeginNamedEvent(FColor::Red, *FReflectionMetaData::GetWidgetDebugInfo(this));
-
+#if SLATE_VERBOSE_NAMED_EVENTS
+			FScopedNamedEvent PaintVolatileEvent(FColor::Cyan, TEXT("Paint Volatile Widgets"));
+#endif
 			const TArray<TSharedPtr<FSlateWindowElementList::FVolatilePaint>>& VolatileElements = CachedWindowElements->GetVolatileElements();
 			INC_DWORD_STAT_BY(STAT_SlateNumVolatileWidgets, VolatileElements.Num());
 			
@@ -443,8 +451,6 @@ int32 SInvalidationPanel::OnPaint( const FPaintArgs& Args, const FGeometry& Allo
 			}
 			
 			OutMaxChildLayer = FMath::Max(OutMaxChildLayer, VolatileLayerId);
-
-			//FPlatformMisc::EndNamedEvent();
 		}
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -543,12 +549,13 @@ int32 SInvalidationPanel::OnPaint( const FPaintArgs& Args, const FGeometry& Allo
 
 #endif
 
-		//FPlatformMisc::EndNamedEvent();
-
 		return OutMaxChildLayer;
 	}
 	else
 	{
+#if SLATE_VERBOSE_NAMED_EVENTS
+		FScopedNamedEvent UncachedPaintEvent(FColor::Emerald, TEXT("SInvalidationPanel Uncached"));
+#endif
 		return SCompoundWidget::OnPaint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
 	}
 }

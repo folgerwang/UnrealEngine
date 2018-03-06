@@ -15,6 +15,7 @@
 #include "EdGraph/EdGraph.h"
 #include "Engine/Breakpoint.h"
 #include "Components/TimelineComponent.h"
+#include "Modules/ModuleManager.h"
 
 #if WITH_EDITOR
 #include "Blueprint/BlueprintSupport.h"

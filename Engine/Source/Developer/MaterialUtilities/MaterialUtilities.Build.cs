@@ -17,14 +17,14 @@ public class MaterialUtilities : ModuleRules
                 "RHI",
                 "Landscape",
                 "UnrealEd",
-                "ShaderCore"
+                "ShaderCore",
+                "MaterialBaking",
             }
 		);
 
         DynamicallyLoadedModuleNames.AddRange(
             new string[] {
                 "MeshMergeUtilities",
-                "MaterialBaking",
             }
         );
 
@@ -38,7 +38,6 @@ public class MaterialUtilities : ModuleRules
             new string[] {
                 "Landscape",
                 "MeshMergeUtilities",
-                "MaterialBaking",
             }
         );
 

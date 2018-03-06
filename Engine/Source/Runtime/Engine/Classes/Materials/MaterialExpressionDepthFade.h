@@ -33,6 +33,7 @@ class UMaterialExpressionDepthFade : public UMaterialExpression
 	UPROPERTY(EditAnywhere, Category=MaterialExpressionDepthFade, meta=(OverridingInputProperty = "FadeDistance"))
 	float FadeDistanceDefault;
 
+#if WITH_EDITOR
 
 	//~ Begin UMaterialExpression Interface
 	virtual FName GetInputName(int32 InputIndex) const override
@@ -46,7 +47,6 @@ class UMaterialExpressionDepthFade : public UMaterialExpression
 			return Super::GetInputName(InputIndex);
 		}
 	}
-#if WITH_EDITOR
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override
 	{

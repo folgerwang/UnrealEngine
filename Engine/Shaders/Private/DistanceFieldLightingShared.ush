@@ -58,71 +58,114 @@ uint GetCulledNumObjects()
 
 uint NumSceneObjects;
 
+#if PLATFORM_SUPPORTS_4COMPONENT_UAV_READ_WRITE
+
+Buffer<float4> SceneObjectBounds;
+Buffer<float4> SceneObjectData;
+
+float4 LoadFloat4(Buffer<float4> InBuffer, uint VectorIndex)
+{
+	return InBuffer[VectorIndex];
+}
+
+
+RWBuffer<float4> RWSceneObjectBounds;
+RWBuffer<float4> RWSceneObjectData;
+
+float4 LoadFloat4(RWBuffer<float4> InBuffer, uint VectorIndex)
+{
+	return InBuffer[VectorIndex];
+}
+
+void WriteFloat4(RWBuffer<float4> InBuffer, uint VectorIndex, float4 Value)
+{
+	InBuffer[VectorIndex] = Value;
+}
+
+#else
+
 // Have to make these R32F with 4x the reads and writes because of the horrible D3D11 limitation
 // "error X3676: typed UAV loads are only allowed for single-component 32-bit element types"
-Buffer<float> ObjectBounds;
-Buffer<float> ObjectData;
+Buffer<float> SceneObjectBounds;
+Buffer<float> SceneObjectData;
 
-RWBuffer<float> RWObjectBounds;
-RWBuffer<float> RWObjectData;
+float4 LoadFloat4(Buffer<float> InBuffer, uint VectorIndex)
+{
+	uint BaseVectorIndex = VectorIndex * 4;
+	return float4(InBuffer[BaseVectorIndex + 0], InBuffer[BaseVectorIndex + 1], InBuffer[BaseVectorIndex + 2], InBuffer[BaseVectorIndex + 3]);
+}
+
+RWBuffer<float> RWSceneObjectBounds;
+RWBuffer<float> RWSceneObjectData;
+
+float4 LoadFloat4(RWBuffer<float> InBuffer, uint VectorIndex)
+{
+	uint BaseVectorIndex = VectorIndex * 4;
+	return float4(InBuffer[BaseVectorIndex + 0], InBuffer[BaseVectorIndex + 1], InBuffer[BaseVectorIndex + 2], InBuffer[BaseVectorIndex + 3]);
+}
+
+void WriteFloat4(RWBuffer<float> InBuffer, uint VectorIndex, float4 Value)
+{
+	uint BaseVectorIndex = VectorIndex * 4;
+	InBuffer[BaseVectorIndex + 0] = Value.x;
+	InBuffer[BaseVectorIndex + 1] = Value.y;
+	InBuffer[BaseVectorIndex + 2] = Value.z;
+	InBuffer[BaseVectorIndex + 3] = Value.w;
+}
+
+#endif
+
+
 
 float4 LoadGlobalObjectPositionAndRadius(uint ObjectIndex)
 {
-	uint VectorIndex = ObjectIndex * 4;
-	return float4(ObjectBounds[VectorIndex + 0], ObjectBounds[VectorIndex + 1], ObjectBounds[VectorIndex + 2], ObjectBounds[VectorIndex + 3]);
+	return LoadFloat4(SceneObjectBounds, ObjectIndex);
 }
 
 float4x4 LoadGlobalObjectWorldToVolume(uint ObjectIndex)
 {
-	uint VectorIndex = (ObjectIndex * OBJECT_DATA_STRIDE + 0) * 4;
-	float4 M0 = float4(ObjectData[VectorIndex + 0], ObjectData[VectorIndex + 1], ObjectData[VectorIndex + 2], ObjectData[VectorIndex + 3]);
-	VectorIndex = (ObjectIndex * OBJECT_DATA_STRIDE + 1) * 4;
-	float4 M1 = float4(ObjectData[VectorIndex + 0], ObjectData[VectorIndex + 1], ObjectData[VectorIndex + 2], ObjectData[VectorIndex + 3]);
-	VectorIndex = (ObjectIndex * OBJECT_DATA_STRIDE + 2) * 4;
-	float4 M2 = float4(ObjectData[VectorIndex + 0], ObjectData[VectorIndex + 1], ObjectData[VectorIndex + 2], ObjectData[VectorIndex + 3]);
-	VectorIndex = (ObjectIndex * OBJECT_DATA_STRIDE + 3) * 4;
-	float4 M3 = float4(ObjectData[VectorIndex + 0], ObjectData[VectorIndex + 1], ObjectData[VectorIndex + 2], ObjectData[VectorIndex + 3]);
-
+	float4 M0 = LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 0);
+	float4 M1 = LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 1);
+	float4 M2 = LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 2);
+	float4 M3 = LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 3);
 	return float4x4(M0, M1, M2, M3);
 }
  
 float3 LoadGlobalObjectLocalPositionExtent(uint ObjectIndex)
 {
-	uint VectorIndex = (ObjectIndex * OBJECT_DATA_STRIDE + 4) * 4;
-	return float3(ObjectData[VectorIndex + 0], ObjectData[VectorIndex + 1], ObjectData[VectorIndex + 2]);
+	return LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 4).xyz;
 }
 
 float4 LoadGlobalObjectUVScale(uint ObjectIndex)
 {
-	uint VectorIndex = (ObjectIndex * OBJECT_DATA_STRIDE + 5) * 4;
-	return float4(ObjectData[VectorIndex + 0], ObjectData[VectorIndex + 1], ObjectData[VectorIndex + 2], ObjectData[VectorIndex + 3]);
+	return LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 5);
 }
 
 float3 LoadGlobalObjectUVAdd(uint ObjectIndex)
 {
-	uint VectorIndex = (ObjectIndex * OBJECT_DATA_STRIDE + 6) * 4;
-	return float3(ObjectData[VectorIndex + 0], ObjectData[VectorIndex + 1], ObjectData[VectorIndex + 2]);
+	return LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 6).xyz;
 }
 
 float2 LoadGlobalObjectDistanceFieldMAD(uint ObjectIndex)
 {
-	uint VectorIndex = (ObjectIndex * OBJECT_DATA_STRIDE + 7) * 4;
-	return float2(ObjectData[VectorIndex + 0], ObjectData[VectorIndex + 1]);
+	return LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 7).xy;
+}
+
+float2 LoadGlobalObjectMinMaxDrawDistance2(uint ObjectIndex)
+{
+    return LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 7).zw;
 }
 
 void LoadGlobalObjectLocalVolumeBoundsMinMax(uint ObjectIndex, out float3 LocalVolumeBoundsMin, out float3 LocalVolumeBoundsMax)
 {
-	uint VectorIndex = 4 * (ObjectIndex * OBJECT_DATA_STRIDE + 16);
-	LocalVolumeBoundsMin = float3(ObjectData[VectorIndex + 0], ObjectData[VectorIndex + 1], ObjectData[VectorIndex + 2]);
-
-	VectorIndex = 4 * (ObjectIndex * OBJECT_DATA_STRIDE + 17);
-	LocalVolumeBoundsMax = float3(ObjectData[VectorIndex + 0], ObjectData[VectorIndex + 1], ObjectData[VectorIndex + 2]);
+	LocalVolumeBoundsMin = LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 16).xyz;
+	LocalVolumeBoundsMax = LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 17).xyz;
 }
 
 uint LoadGlobalObjectOftenMoving(uint ObjectIndex)
 {
-	uint VectorIndex = (ObjectIndex * OBJECT_DATA_STRIDE + 17) * 4;
-	return ObjectData[VectorIndex + 3] > 0.0f ? 1 : 0;
+	float WComponent = LoadFloat4(SceneObjectData, ObjectIndex * OBJECT_DATA_STRIDE + 17).w;
+	return WComponent > 0.0f ? 1 : 0;
 }
 
 // In float4's.  Must match equivalent C++ variables.

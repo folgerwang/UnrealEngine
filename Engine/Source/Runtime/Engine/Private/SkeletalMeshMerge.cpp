@@ -274,7 +274,7 @@ void FSkeletalMeshMerge::GenerateNewSectionArray( TArray<FNewSectionInfo>& NewSe
 			FSkeletalMeshRenderData* SrcResource = SrcMesh->GetResourceForRendering();
 			int32 SourceLODIdx = FMath::Min(LODIdx, SrcResource->LODRenderData.Num()-1);
 			FSkeletalMeshLODRenderData& SrcLODData = SrcResource->LODRenderData[SourceLODIdx];
-			FSkeletalMeshLODInfo& SrcLODInfo = SrcMesh->LODInfo[SourceLODIdx];
+			FSkeletalMeshLODInfo& SrcLODInfo = *(SrcMesh->GetLODInfo(SourceLODIdx));
 
 			// iterate over each section of this LOD
 			for( int32 SectionIdx=0; SectionIdx < SrcLODData.RenderSections.Num(); SectionIdx++ )
@@ -432,7 +432,7 @@ void FSkeletalMeshMerge::GenerateLODModel( int32 LODIdx )
 
 	FSkeletalMeshLODRenderData& MergeLODData = *new(MergeResource->LODRenderData) FSkeletalMeshLODRenderData;
 	// add the new LOD info entry
-	FSkeletalMeshLODInfo& MergeLODInfo = *new(MergeMesh->LODInfo) FSkeletalMeshLODInfo;
+	FSkeletalMeshLODInfo& MergeLODInfo = MergeMesh->AddLODInfo();
 	MergeLODInfo.ScreenSize = MergeLODInfo.LODHysteresis = MAX_FLT;
 
 	// generate an array with info about new sections that need to be created
@@ -535,7 +535,7 @@ void FSkeletalMeshMerge::GenerateLODModel( int32 LODIdx )
 			}
 
 			// get the source skel LOD info from this merge entry
-			const FSkeletalMeshLODInfo& SrcLODInfo = MergeSectionInfo.SkelMesh->LODInfo[SourceLODIdx];
+			const FSkeletalMeshLODInfo& SrcLODInfo = *(MergeSectionInfo.SkelMesh->GetLODInfo(SourceLODIdx));
 
 			// keep track of the lowest LOD displayfactor and hysterisis
 			MergeLODInfo.ScreenSize = FMath::Min<float>(MergeLODInfo.ScreenSize, SrcLODInfo.ScreenSize);
@@ -792,7 +792,7 @@ int32 FSkeletalMeshMerge::CalculateLodCount(const TArray<USkeletalMesh*>& Source
 
 		if (SourceMesh)
 		{
-			LodCount = FMath::Min<int32>(LodCount, SourceMesh->LODInfo.Num());
+			LodCount = FMath::Min<int32>(LodCount, SourceMesh->GetLODNum());
 		}
 	}
 
@@ -932,7 +932,7 @@ void FSkeletalMeshMerge::ReleaseResources(int32 Slack)
 		Resource->LODRenderData.Empty(Slack);
 	}
 
-	MergeMesh->LODInfo.Empty(Slack);
+	MergeMesh->ResetLODInfo();
 	MergeMesh->Materials.Empty();
 }
 

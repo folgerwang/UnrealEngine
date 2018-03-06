@@ -134,9 +134,9 @@ public:
 				);
 
 			// If it was set by an ini that has to be hand edited, it is not an issue if a lower priority system tried and failed to set it afterwards
-			const bool bIntentionallyIgnored = (OldPri & (ECVF_SetByConsoleVariablesIni | ECVF_SetByCommandline | ECVF_SetBySystemSettingsIni)) != 0;
+			const bool bIntentionallyIgnored = (OldPri == ECVF_SetByConsoleVariablesIni || OldPri == ECVF_SetByCommandline || OldPri == ECVF_SetBySystemSettingsIni);
 
-			if (bIntentionallyIgnored)
+			if ( bIntentionallyIgnored )
 			{
 				UE_LOG(LogConsoleManager, Verbose, TEXT("%s"), *Message);
 			}
@@ -1865,6 +1865,12 @@ static TAutoConsoleVariable<int32> CVarMobileEnableMovableLightCSMShaderCulling(
 	TEXT("1: Primitives lit by movable directional light render with the CSM shader when determined to be within CSM range. (default)"),
 	ECVF_RenderThreadSafe | ECVF_ReadOnly);
 
+static TAutoConsoleVariable<float> CVarsCSMDebugHint(
+	TEXT("r.Mobile.Shadow.CSMDebugHint"),
+	0.0f,
+	TEXT(""),
+	ECVF_RenderThreadSafe | ECVF_ReadOnly);
+
 static TAutoConsoleVariable<int32> CVarMobileAllowDistanceFieldShadows(
 	TEXT("r.Mobile.AllowDistanceFieldShadows"),
 	1,
@@ -2340,6 +2346,14 @@ static TAutoConsoleVariable<int32> CVarDetailMode(
 	TEXT(" 2: high, show all objects (default)"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
+static TAutoConsoleVariable<int32> CVarCookOutUnusedDetailModeComponents(
+	TEXT("r.CookOutUnusedDetailModeComponents"),
+	0,
+	TEXT("If set, components which are not relevant for the current detail mode will be cooked out.\n")
+	TEXT(" 0: keep components even if not relevant for the current detail mode.\n")
+	TEXT(" 1: cook out components not relevant for the current detail mode.\n"),
+	ECVF_RenderThreadSafe);
+
 static TAutoConsoleVariable<int32> CVarDBuffer(
 	TEXT("r.DBuffer"),
 	1,
@@ -2431,6 +2445,14 @@ static TAutoConsoleVariable<int32> CVarDisableOpenGLES31Support(
 	TEXT("Disable support for OpenGLES 3.1 API. (Android Only)\n")
 	TEXT("  0 = OpenGLES 3.1 API will be used (providing device and project supports it) [default]\n")
 	TEXT("  1 = OpenGLES 3.1 will be disabled, OpenGL ES2 fall back will be used."),
+	ECVF_ReadOnly);
+
+static TAutoConsoleVariable<int32> CVarDisableOpenGLTextureStreamingSupport(
+	TEXT("r.OpenGL.DisableTextureStreamingSupport"),
+	0,
+	TEXT("Disable support for texture streaming on OpenGL.\n")
+	TEXT("  0 = Texture streaming will be used if device supports it [default]\n")
+	TEXT("  1 = Texture streaming will be disabled."),
 	ECVF_ReadOnly);
 
 static TAutoConsoleVariable<int32> CVarAndroidOverrideExternalTextureSupport(

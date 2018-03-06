@@ -6,6 +6,7 @@
 
 #include "MetalRHIPrivate.h"
 #include "MetalProfiler.h"
+#include "HAL/LowLevelMemTracker.h"
 
 #define NUM_POOL_BUCKETS 18
 
@@ -163,6 +164,8 @@ void AddNewlyFreedBufferToUniformBufferPool(id<MTLBuffer> Buffer, uint32 Offset,
 
 id<MTLBuffer> SuballocateUB(uint32 Size, uint32& OutOffset)
 {
+    LLM_SCOPE(ELLMTag::UniformBuffer);
+    
 	// No space was found to use, create a new Pool buffer
 	id<MTLBuffer> Buffer = [GetMetalDeviceContext().GetDevice() newBufferWithLength:Size options:GetMetalDeviceContext().GetCommandQueue().GetCompatibleResourceOptions(BUFFER_CACHE_MODE|MTLResourceHazardTrackingModeUntracked|BUFFER_MANAGED_MEM)];
 	TRACK_OBJECT(STAT_MetalBufferCount, Buffer);

@@ -6,6 +6,7 @@
 #include "OnlineSubsystemUtils.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Engine/NetConnection.h"
+#include "OnlineSubsystemNames.h"
 
 UOnlineEngineInterfaceImpl::UOnlineEngineInterfaceImpl(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -331,6 +332,15 @@ void UOnlineEngineInterfaceImpl::UnregisterPlayer(UWorld* World, FName SessionNa
 	}
 }
 
+void UOnlineEngineInterfaceImpl::UnregisterPlayers(UWorld* World, FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Players)
+{
+	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(World);
+	if (SessionInt.IsValid())
+	{
+		SessionInt->UnregisterPlayers(SessionName, Players);
+	}
+}
+
 bool UOnlineEngineInterfaceImpl::GetResolvedConnectString(UWorld* World, FName SessionName, FString& URL)
 {
 	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(World);
@@ -505,31 +515,12 @@ bool UOnlineEngineInterfaceImpl::CloseWebURL()
 
 void UOnlineEngineInterfaceImpl::BindToExternalUIOpening(const FOnlineExternalUIChanged& Delegate)
 {
-	IOnlineSubsystem* SubSystem = IOnlineSubsystem::IsLoaded() ? IOnlineSubsystem::Get() : nullptr;
-	if (SubSystem != nullptr)
+	IOnlineSubsystemUtils* Utils = Online::GetUtils();
+	if (Utils)
 	{
-		IOnlineExternalUIPtr ExternalUI = SubSystem->GetExternalUIInterface();
-		if (ExternalUI.IsValid())
-		{
-			FOnExternalUIChangeDelegate OnExternalUIChangeDelegate;
-			OnExternalUIChangeDelegate.BindUObject(this, &ThisClass::OnExternalUIChange, Delegate);
-
-			ExternalUI->AddOnExternalUIChangeDelegate_Handle(OnExternalUIChangeDelegate);
-		}
-	}
-
-	IOnlineSubsystem* PlatformSubSystem = IOnlineSubsystem::GetByPlatform();
-	if (PlatformSubSystem != nullptr &&
-		SubSystem != PlatformSubSystem)
-	{
-		IOnlineExternalUIPtr ExternalUI = PlatformSubSystem->GetExternalUIInterface();
-		if (ExternalUI.IsValid())
-		{
-			FOnExternalUIChangeDelegate OnExternalUIChangeDelegate;
-			OnExternalUIChangeDelegate.BindUObject(this, &ThisClass::OnExternalUIChange, Delegate);
-
-			ExternalUI->AddOnExternalUIChangeDelegate_Handle(OnExternalUIChangeDelegate);
-		}
+		FOnExternalUIChangeDelegate OnExternalUIChangeDelegate;
+		OnExternalUIChangeDelegate.BindUObject(this, &ThisClass::OnExternalUIChange, Delegate);
+		Utils->SetEngineExternalUIBinding(OnExternalUIChangeDelegate);
 	}
 }
 

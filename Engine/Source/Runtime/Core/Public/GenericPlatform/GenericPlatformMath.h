@@ -427,6 +427,11 @@ struct FGenericPlatformMath
 		return 1 << CeilLogTwo(Arg);
 	}
 
+	static FORCEINLINE uint64 RoundUpToPowerOfTwo64(uint64 V)
+	{
+		return uint64(1) << CeilLogTwo64(V);
+	}
+
 	/** Spreads bits to every other. */
 	static FORCEINLINE uint32 MortonCode2( uint32 x )
 	{

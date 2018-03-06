@@ -227,6 +227,7 @@ const FPlatformMemoryConstants& FWindowsPlatformMemory::GetConstants()
 		MemoryConstants.BinnedPageSize = SystemInfo.dwAllocationGranularity;	// Use this so we get larger 64KiB pages, instead of 4KiB
 		MemoryConstants.OsAllocationGranularity = SystemInfo.dwAllocationGranularity;	// VirtualAlloc cannot allocate memory less than that
 		MemoryConstants.PageSize = SystemInfo.dwPageSize;
+		MemoryConstants.AddressLimit = FPlatformMath::RoundUpToPowerOfTwo64(MemoryConstants.TotalPhysical);
 
 		MemoryConstants.TotalPhysicalGB = (MemoryConstants.TotalPhysical + 1024 * 1024 * 1024 - 1) / 1024 / 1024 / 1024;
 	}
@@ -265,7 +266,7 @@ void* FWindowsPlatformMemory::BinnedAllocFromOS( SIZE_T Size )
 
 void FWindowsPlatformMemory::BinnedFreeToOS( void* Ptr, SIZE_T Size )
 {
-	LLM(FLowLevelMemTracker::Get().OnLowLevelFree(ELLMTracker::Platform, Ptr, Size));
+	LLM(FLowLevelMemTracker::Get().OnLowLevelFree(ELLMTracker::Platform, Ptr));
 
 	CA_SUPPRESS(6001)
 	// Windows maintains the size of allocation internally, so Size is unused
@@ -438,18 +439,16 @@ void LLMFree(void* Addr, size_t Size)
 	LLMMallocTotal -= AlignedSize;
 }
 
-#endif
 
 bool FWindowsPlatformMemory::GetLLMAllocFunctions(void*(*&OutAllocFunction)(size_t), void(*&OutFreeFunction)(void*, size_t), int32& OutAlignment)
 {
-#if ENABLE_LOW_LEVEL_MEM_TRACKER
 	OutAllocFunction = LLMAlloc;
 	OutFreeFunction = LLMFree;
 	OutAlignment = LLMPageSize;
+
 	return true;
-#else
-	return false;
-#endif
 }
+
+#endif // ENABLE_LOW_LEVEL_MEM_TRACKER
 
 #include "Windows/HideWindowsPlatformTypes.h"

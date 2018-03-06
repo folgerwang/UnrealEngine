@@ -30,6 +30,7 @@
 #include "PhysicsEngine/PhysicsSettings.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "PhysicsEngine/ConstraintInstance.h"
+#include "PhysicsReplication.h"
 
 /** Physics stats **/
 
@@ -402,6 +403,8 @@ TSharedPtr<ISimEventCallbackFactory> FPhysScene::SimEventCallbackFactory;
 
 #endif // WITH_PHYSX
 
+TSharedPtr<IPhysicsReplicationFactory> FPhysScene::PhysicsReplicationFactory;
+
 static void StaticSetPhysXTreeRebuildRate(const TArray<FString>& Args, UWorld* World)
 {
 	if (Args.Num() > 0)
@@ -460,6 +463,9 @@ FPhysScene::FPhysScene()
 		FrameTimeSmoothingFactor[SceneType] = FMath::Clamp<float>(FrameTimeSmoothingFactor[SceneType], 0.f, 1.f);
 	}
 
+	// Create replication manager
+	PhysicsReplication = PhysicsReplicationFactory.IsValid() ? PhysicsReplicationFactory->Create(this) : new FPhysicsReplication(this);
+
 	if (!bAsyncSceneEnabled)
 	{
 		PhysXSceneIndex[PST_Async] = 0;
@@ -505,6 +511,16 @@ FPhysScene::~FPhysScene()
 	FCoreUObjectDelegates::GetPreGarbageCollectDelegate().Remove(PreGarbageCollectDelegateHandle);
 	// Make sure no scenes are left simulating (no-ops if not simulating)
 	WaitPhysScenes();
+
+	if (IPhysicsReplicationFactory* RawReplicationFactory = PhysicsReplicationFactory.Get())
+	{
+		RawReplicationFactory->Destroy(PhysicsReplication);
+	}
+	else
+	{
+		delete PhysicsReplication;
+	}
+
 	// Loop through scene types to get all scenes
 	for (uint32 SceneType = 0; SceneType < NumPhysScenes; ++SceneType)
 	{
@@ -1080,6 +1096,11 @@ void FPhysScene::TickPhysScene(uint32 SceneType, FGraphEventRef& InOutCompletion
 	if (ApexScene && UseDelta > 0.f)
 #endif
 	{
+		if (PhysicsReplication)
+		{
+			PhysicsReplication->Tick(AveragedFrameTime[SceneType]);
+		}
+
 		if(IsSubstepping(SceneType)) //we don't bother sub-stepping cloth
 		{
 			bTaskOutstanding = SubstepSimulation(SceneType, InOutCompletionEvent);
@@ -1930,8 +1951,6 @@ void FPhysScene::InitPhysScene(uint32 SceneType)
 
 	// Create sim event callback
 	SimEventCallback[SceneType] = SimEventCallbackFactory.IsValid() ? SimEventCallbackFactory->Create(this, SceneType) : new FPhysXSimEventCallback(this, SceneType);
-
-
 
 	// Include scene descriptor in loop, so that we might vary it with scene type
 	PxSceneDesc PSceneDesc(GPhysXSDK->getTolerancesScale());

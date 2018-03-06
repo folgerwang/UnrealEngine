@@ -136,8 +136,8 @@ public:
 	 */
 	FInputEvent()
 		: ModifierKeys(FModifierKeysState())
-		, UserIndex(0)
 		, bIsRepeat(false)
+		, UserIndex(0)
 		, EventPath(nullptr)
 	{ }
 
@@ -149,8 +149,8 @@ public:
 	 */
 	FInputEvent(const FModifierKeysState& InModifierKeys, const int32 InUserIndex, const bool bInIsRepeat)
 		: ModifierKeys(InModifierKeys)
-		, UserIndex(InUserIndex)
 		, bIsRepeat(bInIsRepeat)
+		, UserIndex(InUserIndex)
 		, EventPath(nullptr)
 	{ }
 
@@ -337,11 +337,11 @@ protected:
 	// State of modifier keys when this event happened.
 	FModifierKeysState ModifierKeys;
 
-	// The index of the user that caused the event.
-	uint32 UserIndex;
-
 	// True if this key was auto-repeated.
 	bool bIsRepeat;
+
+	// The index of the user that caused the event.
+	uint32 UserIndex;
 
 	// Events are sent along paths. See (GetEventPath).
 	const FWidgetPath* EventPath;

@@ -832,8 +832,6 @@ public:
 	virtual bool ReduceSkeletalMesh(
 		USkeletalMesh* SkeletalMesh,
 		int32 LODIndex,
-		const FSkeletalMeshOptimizationSettings& Settings,
-		bool bCalcLODDistance,
 		bool bReregisterComponent = true
 		) override
 	{

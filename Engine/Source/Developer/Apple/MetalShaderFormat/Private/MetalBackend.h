@@ -133,6 +133,7 @@ struct FMetalCodeBackend : public FCodeBackend
 	bool bIsTessellationVSHS = false;
 	unsigned int inputcontrolpoints = 0;
 	unsigned int patchesPerThreadgroup = 0;
+	uint32 PatchControlPointStructHash;
 };
 
 struct FShaderCompilerEnvironment;

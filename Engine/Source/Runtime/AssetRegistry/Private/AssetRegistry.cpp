@@ -9,6 +9,7 @@
 #include "UObject/UObjectHash.h"
 #include "UObject/UObjectIterator.h"
 #include "UObject/MetaData.h"
+#include "UObject/CoreRedirects.h"
 #include "AssetRegistryPrivate.h"
 #include "ARFilter.h"
 #include "DependsNode.h"
@@ -95,8 +96,7 @@ UAssetRegistryImpl::UAssetRegistryImpl(const FObjectInitializer& ObjectInitializ
 			// serialize the data with the memory reader (will convert FStrings to FNames, etc)
 			Serialize(SerializedAssetData);
 		}
-
-		TArray<TSharedRef<IPlugin>> ContentPlugins = IPluginManager::Get().GetEnabledPlugins();
+		TArray<TSharedRef<IPlugin>> ContentPlugins = IPluginManager::Get().GetEnabledPluginsWithContent();
 		for (TSharedRef<IPlugin> ContentPlugin : ContentPlugins)
 		{
 			if (ContentPlugin->CanContainContent())
@@ -162,6 +162,70 @@ UAssetRegistryImpl::UAssetRegistryImpl(const FObjectInitializer& ObjectInitializ
 
 	// If we were called before engine has fully initialized, refresh classes on initialize. If not this won't do anything as it already happened
 	FCoreDelegates::OnPostEngineInit.AddUObject(this, &UAssetRegistryImpl::RefreshNativeClasses);
+
+	InitRedirectors();
+}
+
+void UAssetRegistryImpl::InitRedirectors()
+{
+	// plugins can't initialize redirectors in the editor, it will mess up the saving of content.
+	if ( GIsEditor )
+	{
+		return;
+	}
+
+	TArray<TSharedRef<IPlugin>> EnabledPlugins = IPluginManager::Get().GetEnabledPlugins();
+	for (TSharedRef<IPlugin> Plugin : EnabledPlugins)
+	{
+		FString PluginConfigFilename = FString::Printf(TEXT("%s%s/%s.ini"), *FPaths::GeneratedConfigDir(), ANSI_TO_TCHAR(FPlatformProperties::PlatformName()), *Plugin->GetName() );
+		
+		bool bShouldRemap = false;
+		
+		if ( !GConfig->GetBool(TEXT("PluginSettings"), TEXT("RemapPluginContentToGame"), bShouldRemap, PluginConfigFilename) )
+		{
+			continue;
+		}
+
+		if (!bShouldRemap)
+		{
+			continue;
+		}
+
+		// if we are -game in editor build we might need to initialize the asset registry manually for this plugin
+		if (!FPlatformProperties::RequiresCookedData() && IsRunningGame())
+		{
+			TArray<FString> PathsToSearch;
+			
+			FString RootPackageName = FString::Printf(TEXT("/%s/"), *Plugin->GetName());
+			PathsToSearch.Add(RootPackageName);
+
+			const bool bForceRescan = false;
+			ScanPathsAndFilesSynchronous(PathsToSearch, TArray<FString>(), bForceRescan, EAssetDataCacheMode::UseModularCache);
+		}
+		
+		FName PluginPackageName = FName(*FString::Printf(TEXT("/%s/"), *Plugin->GetName()));
+		TArray<FAssetData> AssetList;
+		GetAssetsByPath(PluginPackageName, AssetList, true, false);
+
+		TArray<FCoreRedirect> PackageRedirects;
+
+		for ( const FAssetData& Asset : AssetList )
+		{
+			FString NewPackageNameString = Asset.PackageName.ToString();
+			FString RootPackageName = FString::Printf(TEXT("/%s/"), *Plugin->GetName());
+
+			FString OriginalPackageNameString = NewPackageNameString.Replace(*RootPackageName, TEXT("/Game/"));
+
+
+			PackageRedirects.Add( FCoreRedirect(ECoreRedirectFlags::Type_Package, OriginalPackageNameString, NewPackageNameString) );
+
+		}
+
+
+		FCoreRedirects::AddRedirectList(PackageRedirects, Plugin->GetName() );
+	}
+
+	
 }
 
 void UAssetRegistryImpl::InitializeSerializationOptions(FAssetRegistrySerializationOptions& Options, const FString& PlatformIniName) const
@@ -177,7 +241,9 @@ void UAssetRegistryImpl::InitializeSerializationOptions(FAssetRegistrySerializat
 	PlatformEngineIni.GetBool(TEXT("AssetRegistry"), TEXT("bSerializePackageData"), Options.bSerializePackageData);
 	PlatformEngineIni.GetBool(TEXT("AssetRegistry"), TEXT("bUseAssetRegistryTagsWhitelistInsteadOfBlacklist"), Options.bUseAssetRegistryTagsWhitelistInsteadOfBlacklist);
 	PlatformEngineIni.GetBool(TEXT("AssetRegistry"), TEXT("bFilterAssetDataWithNoTags"), Options.bFilterAssetDataWithNoTags);
-
+	PlatformEngineIni.GetBool(TEXT("AssetRegistry"), TEXT("bFilterDependenciesWithNoTags"), Options.bFilterDependenciesWithNoTags);
+	PlatformEngineIni.GetBool(TEXT("AssetRegistry"), TEXT("bFilterSearchableNames"), Options.bFilterSearchableNames);
+		
 	TArray<FString> FilterlistItems;
 	if (Options.bUseAssetRegistryTagsWhitelistInsteadOfBlacklist)
 	{
@@ -1432,16 +1498,22 @@ uint32 UAssetRegistryImpl::GetAllocatedSize(bool bLogDetailed) const
 {
 	uint32 StateSize = State.GetAllocatedSize(bLogDetailed);
 
-	uint32 StaticSize = sizeof(UAssetRegistryImpl) + CachedEmptyPackages.GetAllocatedSize() + CachedInheritanceMap.GetAllocatedSize() + EditSearchableNameDelegates.GetAllocatedSize() + ClassGeneratorNames.GetAllocatedSize() + SerializationOptions.CookFilterlistTagsByClass.GetAllocatedSize();
+	uint32 StaticSize = sizeof(UAssetRegistryImpl) + CachedEmptyPackages.GetAllocatedSize() + CachedInheritanceMap.GetAllocatedSize() + EditSearchableNameDelegates.GetAllocatedSize() + ClassGeneratorNames.GetAllocatedSize() + OnDirectoryChangedDelegateHandles.GetAllocatedSize();
 	uint32 SearchSize = BackgroundAssetResults.GetAllocatedSize() + BackgroundPathResults.GetAllocatedSize() + BackgroundDependencyResults.GetAllocatedSize() + BackgroundCookedPackageNamesWithoutAssetDataResults.GetAllocatedSize() + SynchronouslyScannedPathsAndFiles.GetAllocatedSize() + CachedPathTree.GetAllocatedSize();
+
+	StaticSize += SerializationOptions.CookFilterlistTagsByClass.GetAllocatedSize();
+	for (const TPair<FName, TSet<FName>>& Pair : SerializationOptions.CookFilterlistTagsByClass)
+	{
+		StaticSize += Pair.Value.GetAllocatedSize();
+	}
 
 	if (bLogDetailed)
 	{
 		UE_LOG(LogAssetRegistry, Log, TEXT("AssetRegistry Static Size: %dk"), StaticSize / 1024);
 		UE_LOG(LogAssetRegistry, Log, TEXT("AssetRegistry Search Size: %dk"), SearchSize / 1024);
 	}
-
-	return StaticSize + StaticSize + SearchSize;
+	
+	return StateSize + StaticSize + SearchSize;
 }
 
 void UAssetRegistryImpl::LoadPackageRegistryData(FArchive& Ar, TArray<FAssetData*> &AssetDataList) const

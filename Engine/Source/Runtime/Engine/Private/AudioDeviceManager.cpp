@@ -20,6 +20,14 @@ static const uint32 AUDIO_DEVICE_DEFAULT_ALLOWED_DEVICE_COUNT = 2;
 // The max number of audio devices allowed
 static const uint32 AUDIO_DEVICE_MAX_DEVICE_COUNT = 8;
 
+static int32 GCVarEnableAudioThreadWait = 0;
+TAutoConsoleVariable<int32> CVarEnableAudioThreadWait(
+	TEXT("AudioThread.EnableAudioThreadWait"),
+	GCVarEnableAudioThreadWait,
+	TEXT("Enables waiting on the audio thread to finish its commands.\n")
+	TEXT("0: Not Enabled, 1: Enabled"),
+	ECVF_Default);
+
 FAudioDeviceManager::FCreateAudioDeviceResults::FCreateAudioDeviceResults()
 	: Handle(INDEX_NONE)
 	, bNewDevice(false)
@@ -285,7 +293,10 @@ FAudioDevice* FAudioDeviceManager::GetActiveAudioDevice()
 void FAudioDeviceManager::UpdateActiveAudioDevices(bool bGameTicking)
 {
 	// Before we kick off the next update make sure that we've finished the previous frame's update (this should be extremely rare)
-	SyncFence.Wait();
+	if (GCVarEnableAudioThreadWait)
+	{
+		SyncFence.Wait();
+	}
 
 	for (FAudioDevice* AudioDevice : Devices)
 	{
@@ -295,7 +306,10 @@ void FAudioDeviceManager::UpdateActiveAudioDevices(bool bGameTicking)
 		}
 	}
 
-	SyncFence.BeginFence();
+	if (GCVarEnableAudioThreadWait)
+	{
+		SyncFence.BeginFence();
+	}
 }
 
 void FAudioDeviceManager::AddReferencedObjects(FReferenceCollector& Collector)

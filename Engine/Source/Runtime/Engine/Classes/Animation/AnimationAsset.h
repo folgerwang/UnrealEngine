@@ -286,8 +286,16 @@ public:
 class FMarkerTickContext
 {
 public:
-	FMarkerTickContext(const TArray<FName>& ValidMarkerNames) : ValidMarkers(ValidMarkerNames) {}
-	FMarkerTickContext() {}
+
+	static const TArray<FName> DefaultMarkerNames;
+
+	FMarkerTickContext(const TArray<FName>& ValidMarkerNames) 
+		: ValidMarkers(&ValidMarkerNames) 
+	{}
+
+	FMarkerTickContext() 
+		: ValidMarkers(&DefaultMarkerNames) 
+	{}
 
 	void SetMarkerSyncStartPosition(const FMarkerSyncAnimPosition& SyncPosition)
 	{
@@ -311,7 +319,7 @@ public:
 
 	const TArray<FName>& GetValidMarkerNames() const
 	{
-		return ValidMarkers;
+		return *ValidMarkers;
 	}
 
 	bool IsMarkerSyncStartValid() const
@@ -323,8 +331,8 @@ public:
 	{
 		// does it have proper end position
 		return MarkerSyncEndPostion.IsValid();
-		
 	}
+
 	TArray<FPassedMarker> MarkersPassedThisTick;
 
 	/** Debug output function */
@@ -332,7 +340,7 @@ public:
 	{
 		FString MarkerString;
 
-		for (const auto& ValidMarker : ValidMarkers)
+		for (const auto& ValidMarker : *ValidMarkers)
 		{
 			MarkerString.Append(FString::Printf(TEXT("%s,"), *ValidMarker.ToString()));
 		}
@@ -348,9 +356,8 @@ private:
 	// Structure representing our sync position based on markers after tick
 	FMarkerSyncAnimPosition MarkerSyncEndPostion;
 
-
 	// Valid marker names for this sync group
-	TArray<FName> ValidMarkers;
+	const TArray<FName>* ValidMarkers;
 };
 
 
@@ -620,7 +627,7 @@ public:
 		, bOnlyOneAnimationInGroup(bInOnlyOneAnimationInGroup)
 	{
 	}
-	
+
 	// Are we the leader of our sync group (or ungrouped)?
 	bool IsLeader() const
 	{

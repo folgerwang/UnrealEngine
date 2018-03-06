@@ -282,7 +282,7 @@ public:
 	 */
 	static FSlateApplication& Get()
 	{
-		check( IsInGameThread() || IsInSlateThread() );
+		check( IsInGameThread() || IsInSlateThread() || IsInAsyncLoadingThread() );
 		return *CurrentApplication;
 	}
 
@@ -681,7 +681,7 @@ public:
 	 * @param  OutWidgetPath  The generated widget path
 	 * @param  VisibilityFilter	Widgets must have this type of visibility to be included the path
 	 */
-	bool GeneratePathToWidgetUnchecked( TSharedRef< const SWidget > InWidget, FWidgetPath& OutWidgetPath, EVisibility VisibilityFilter = EVisibility::Visible ) const;
+	bool GeneratePathToWidgetUnchecked( TSharedRef<const SWidget> InWidget, FWidgetPath& OutWidgetPath, EVisibility VisibilityFilter = EVisibility::Visible ) const;
 	
 	/**
 	 * @todo slate: Remove this method or make it private.
@@ -692,7 +692,7 @@ public:
 	 * @param  OutWidgetPath  The generated widget path
 	 * @param  VisibilityFilter	Widgets must have this type of visibility to be included the path
 	 */
-	void GeneratePathToWidgetChecked( TSharedRef< const SWidget > InWidget, FWidgetPath& OutWidgetPath, EVisibility VisibilityFilter = EVisibility::Visible ) const;
+	void GeneratePathToWidgetChecked( TSharedRef<const SWidget> InWidget, FWidgetPath& OutWidgetPath, EVisibility VisibilityFilter = EVisibility::Visible ) const;
 	
 	/**
 	 * Finds the window that the provided widget resides in
@@ -700,7 +700,7 @@ public:
 	 * @param InWidget		The widget to find the window for
 	 * @return The window where the widget resides, or null if the widget wasn't found.  Remember, a widget might not be found simply because its parent decided not to report the widget in ArrangeChildren.
 	 */
-	TSharedPtr<SWindow> FindWidgetWindow( TSharedRef< const SWidget > InWidget ) const;
+	TSharedPtr<SWindow> FindWidgetWindow( TSharedRef<const SWidget> InWidget ) const;
 
 	/**
 	 * Finds the window that the provided widget resides in
@@ -709,7 +709,7 @@ public:
 	 * @param OutWidgetPath Full widget path generated 
 	 * @return The window where the widget resides, or null if the widget wasn't found.  Remember, a widget might not be found simply because its parent decided not to report the widget in ArrangeChildren.
 	 */
-	TSharedPtr<SWindow> FindWidgetWindow( TSharedRef< const SWidget > InWidget, FWidgetPath& OutWidgetPath) const;
+	TSharedPtr<SWindow> FindWidgetWindow( TSharedRef<const SWidget> InWidget, FWidgetPath& OutWidgetPath) const;
 
 	/**
 	 * @return True if the application is currently routing high precision mouse movement events (OS specific)

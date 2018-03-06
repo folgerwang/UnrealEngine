@@ -24,12 +24,16 @@ FName FMaterialShader::UniformBufferLayoutName(TEXT("Material"));
 
 FMaterialShader::FMaterialShader(const FMaterialShaderType::CompiledShaderInitializerType& Initializer)
 :	FShader(Initializer)
+#if ALLOW_SHADERMAP_DEBUG_DATA
 ,	DebugUniformExpressionSet(Initializer.UniformExpressionSet)
 ,	DebugUniformExpressionUBLayout(FRHIUniformBufferLayout::Zero)
 ,	DebugDescription(Initializer.DebugDescription)
+#endif
 {
+#if ALLOW_SHADERMAP_DEBUG_DATA
 	check(!DebugDescription.IsEmpty());
 	DebugUniformExpressionUBLayout.CopyFrom(Initializer.UniformExpressionSet.GetUniformBufferStruct().GetLayout());
+#endif
 
 	// Bind the material uniform buffer parameter.
 	MaterialUniformBuffer.Bind(Initializer.ParameterMap,TEXT("Material"));
@@ -152,6 +156,10 @@ void FMaterialShader::VerifyExpressionAndShaderMaps(const FMaterialRenderProxy* 
 	}
 	if (bUniformExpressionSetMismatch)
 	{
+		FString DebugDesc;
+#if ALLOW_SHADERMAP_DEBUG_DATA
+		DebugDesc = DebugDescription;
+#endif
 		UE_LOG(
 			LogShaders,
 			Fatal,
@@ -163,7 +171,7 @@ void FMaterialShader::VerifyExpressionAndShaderMaps(const FMaterialRenderProxy* 
 			GetType()->GetName(),
 			*MaterialRenderProxy->GetFriendlyName(),
 			*Material.GetFriendlyName(),
-			*DebugDescription,
+			*DebugDesc,
 			*Material.GetRenderingThreadShaderMap()->GetDebugDescription(),
 			DebugUniformExpressionSet.NumVectorExpressions,
 			DebugUniformExpressionSet.NumScalarExpressions,
@@ -184,19 +192,53 @@ void FMaterialShader::VerifyExpressionAndShaderMaps(const FMaterialRenderProxy* 
 }
 #endif
 
-template<typename ShaderRHIParamRef>
-void FMaterialShader::SetParameters(
+
+template< typename ShaderRHIParamRef >
+void FMaterialShader::SetMaterialParameters(
 	FRHICommandList& RHICmdList,
-	const ShaderRHIParamRef ShaderRHI,
-	const FMaterialRenderProxy* MaterialRenderProxy,
+	const ShaderRHIParamRef ShaderRHI, 
 	const FMaterial& Material,
-	const FSceneView& View,
+	const FSceneView& View, 
 	const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer,
-	bool bDeferredPass,
+	bool bDeferredPass, 
 	ESceneRenderTargetsMode::Type TextureMode)
+
 {
 	SetViewParameters(RHICmdList, ShaderRHI, View, ViewUniformBuffer);
 
+	DeferredParameters.Set(RHICmdList, ShaderRHI, View, Material.GetMaterialDomain(), TextureMode);
+
+	if (View.GetFeatureLevel() >= ERHIFeatureLevel::SM4)
+	{
+		// for copied scene color
+		if(SceneColorCopyTexture.IsBound())
+		{
+			SetTextureParameter(
+				RHICmdList,
+				ShaderRHI,
+				SceneColorCopyTexture,
+				SceneColorCopyTextureSampler,
+				TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(),
+				FSceneRenderTargets::Get(RHICmdList).GetLightAttenuationTexture());
+		}
+	}
+
+	//Use of the eye adaptation texture here is experimental and potentially dangerous as it can introduce a feedback loop. May be removed.
+	if(EyeAdaptation.IsBound())
+	{
+		FTextureRHIRef& EyeAdaptationTex = GetEyeAdaptation(RHICmdList, View);
+		SetTextureParameter(RHICmdList, ShaderRHI, EyeAdaptation, EyeAdaptationTex);
+	}
+}
+
+template< typename ShaderRHIParamRef >
+void FMaterialShader::SetMaterialProxyParameters(
+	FRHICommandList& RHICmdList,
+	const ShaderRHIParamRef ShaderRHI, 
+	const FMaterialRenderProxy* MaterialRenderProxy, 
+	const FMaterial& Material,
+	const FSceneView& View)
+{
 	// If the material has cached uniform expressions for selection or hover
 	// and that is being overridden by show flags in the editor, recache
 	// expressions for this draw call.
@@ -371,35 +413,25 @@ void FMaterialShader::SetParameters(
 		}
 	}
 
-	// If there is no scene, then FSceneRenderTargets::CurrentShadingPath won't be set (see FSceneRenderTargets::Allocate()) and binding the scene textures will crash.
-	DeferredParameters.Set(RHICmdList, ShaderRHI, View, Material.GetMaterialDomain(), View.Family->Scene ? TextureMode : ESceneRenderTargetsMode::InvalidScene);
-
-	if (FeatureLevel >= ERHIFeatureLevel::SM4)
-	{
-		// for copied scene color
-		if(SceneColorCopyTexture.IsBound())
-		{
-			SetTextureParameter(
-				RHICmdList,
-				ShaderRHI,
-				SceneColorCopyTexture,
-				SceneColorCopyTextureSampler,
-				TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(),
-				FSceneRenderTargets::Get(RHICmdList).GetLightAttenuationTexture());
-		}
-	}
-
-	//Use of the eye adaptation texture here is experimental and potentially dangerous as it can introduce a feedback loop. May be removed.
-	if(EyeAdaptation.IsBound())
-	{
-		FTextureRHIRef& EyeAdaptationTex = GetEyeAdaptation(RHICmdList, View);
-		SetTextureParameter(RHICmdList, ShaderRHI, EyeAdaptation, EyeAdaptationTex);
-	}
-
 	if (bUniformExpressionCacheNeedsDelete)
 	{
 		delete UniformExpressionCache;
 	}
+}
+
+template<typename ShaderRHIParamRef>
+void FMaterialShader::SetParameters(
+	FRHICommandList& RHICmdList,
+	const ShaderRHIParamRef ShaderRHI,
+	const FMaterialRenderProxy* MaterialRenderProxy,
+	const FMaterial& Material,
+	const FSceneView& View,
+	const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer,
+	bool bDeferredPass,
+	ESceneRenderTargetsMode::Type TextureMode)
+{
+	SetMaterialParameters(RHICmdList, ShaderRHI, Material, View, ViewUniformBuffer, bDeferredPass, TextureMode);
+	SetMaterialProxyParameters(RHICmdList, ShaderRHI, MaterialRenderProxy, Material, View);
 }
 
 // Doxygen struggles to parse these explicit specializations. Just ignore them for now.
@@ -452,16 +484,17 @@ bool FMaterialShader::Serialize(FArchive& Ar)
 	Ar << DeferredParameters;
 	Ar << SceneColorCopyTexture;
 	Ar << SceneColorCopyTextureSampler;
+
+#if ALLOW_SHADERMAP_DEBUG_DATA
 	Ar << DebugUniformExpressionSet;
 	if (Ar.IsLoading())
 	{
 		FName LayoutName;
 		Ar << LayoutName;
-		FRHIUniformBufferLayout Layout(LayoutName);
-		Ar << Layout.ConstantBufferSize;
-		Ar << Layout.ResourceOffset;
-		Ar << Layout.Resources;
-		DebugUniformExpressionUBLayout.CopyFrom(Layout);
+		DebugUniformExpressionUBLayout = FRHIUniformBufferLayout(LayoutName);
+		Ar << DebugUniformExpressionUBLayout.ConstantBufferSize;
+		Ar << DebugUniformExpressionUBLayout.ResourceOffset;
+		Ar << DebugUniformExpressionUBLayout.Resources;
 	}
 	else
 	{
@@ -472,6 +505,21 @@ bool FMaterialShader::Serialize(FArchive& Ar)
 		Ar << DebugUniformExpressionUBLayout.Resources;
 	}
 	Ar << DebugDescription;
+#else
+	FDebugUniformExpressionSet TempExpressionSet;
+	FName TempName;
+	uint32 TempInt;
+	TArray<uint8> TempResources;
+	FString TempString;
+
+	Ar << TempExpressionSet;
+	Ar << TempName;
+	Ar << TempInt;
+	Ar << TempInt;
+	Ar << TempResources;
+	Ar << TempString;
+#endif
+
 	Ar << EyeAdaptation;
 
 	Ar << PerFrameScalarExpressions;
@@ -490,7 +538,10 @@ uint32 FMaterialShader::GetAllocatedSize() const
 {
 	return FShader::GetAllocatedSize()
 		+ ParameterCollectionUniformBuffers.GetAllocatedSize()
-		+ DebugDescription.GetAllocatedSize();
+#if ALLOW_SHADERMAP_DEBUG_DATA
+		+ DebugDescription.GetAllocatedSize()
+#endif
+	;
 }
 
 

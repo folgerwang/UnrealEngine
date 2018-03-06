@@ -341,18 +341,26 @@ namespace IncludeTool
 			{
 				// Raw token string until the end of the current line
 				StringBuilder Builder = new StringBuilder();
-				Builder.Append(Character);
-				for(;;)
+				if(Character == '\n')
 				{
-					Character = Text[LineIdx, ColumnIdx];
-					if(Character == '\n')
-					{
-						break;
-					}
+					LineIdx = StartLineIdx;
+					ColumnIdx = StartColumnIdx;
+				}
+				else
+				{
 					Builder.Append(Character);
-					if(!Text.MoveNext(ref LineIdx, ref ColumnIdx))
+					for(;;)
 					{
-						break;
+						Character = Text[LineIdx, ColumnIdx];
+						if(Character == '\n')
+						{
+							break;
+						}
+						Builder.Append(Character);
+						if(!Text.MoveNext(ref LineIdx, ref ColumnIdx))
+						{
+							break;
+						}
 					}
 				}
 				Result = new Token(Builder.ToString().TrimEnd(), TokenType.StringOfTokens, Flags);

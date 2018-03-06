@@ -219,7 +219,7 @@ void AActor::PostNetReceivePhysicState()
 		ReplicatedMovement.CopyTo(NewState, this);
 
 		FVector DeltaPos(FVector::ZeroVector);
-		RootPrimComp->ConditionalApplyRigidBodyState(NewState, GEngine->PhysicErrorCorrection, DeltaPos);
+		RootPrimComp->SetRigidBodyReplicatedTarget(NewState);
 	}
 }
 

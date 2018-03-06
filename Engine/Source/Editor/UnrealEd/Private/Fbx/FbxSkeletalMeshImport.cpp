@@ -1524,12 +1524,9 @@ USkeletalMesh* UnFbx::FFbxImporter::ImportSkeletalMesh(FImportSkeletalMeshArgs &
 	ImportedResource->LODModels.Empty();
 	new(ImportedResource->LODModels)FSkeletalMeshLODModel();
 
-	SkeletalMesh->LODInfo.Empty();
-	SkeletalMesh->LODInfo.AddZeroed();
-	SkeletalMesh->LODInfo[0].LODHysteresis = 0.02f;
-	FSkeletalMeshOptimizationSettings Settings;
-	// set default reduction settings values
-	SkeletalMesh->LODInfo[0].ReductionSettings = Settings;
+	SkeletalMesh->ResetLODInfo();
+	FSkeletalMeshLODInfo& NewLODInfo = SkeletalMesh->AddLODInfo();
+	NewLODInfo.LODHysteresis = 0.02f;
 
 	SkeletalMesh->SetImportedBounds(FBoxSphereBounds(BoundingBox));
 
@@ -1573,7 +1570,7 @@ USkeletalMesh* UnFbx::FFbxImporter::ImportSkeletalMesh(FImportSkeletalMeshArgs &
 		{
 			EMessageSeverity::Type MessageSeverity = bBuildSuccess ? EMessageSeverity::Warning : EMessageSeverity::Error;
 
-			for(int32 MessageIdx = 0; MessageIdx<WarningMessages.Num(); ++MessageIdx)
+			for(int32 MessageIdx = 0; MessageIdx<WarningMessages.Num(); ++MessageIdx)	
 			{
 				AddTokenizedErrorMessage(FTokenizedMessage::Create(MessageSeverity, WarningMessages[MessageIdx]), WarningNames[MessageIdx]);
 			}
@@ -1598,9 +1595,9 @@ USkeletalMesh* UnFbx::FFbxImporter::ImportSkeletalMesh(FImportSkeletalMeshArgs &
 		}
 		if (ImportSkeletalMeshArgs.ImportMeshSectionsData)
 		{
-			if (SkeletalMesh->LODInfo[0].LODMaterialMap.Num() >= NumSections)
+			if (NewLODInfo.LODMaterialMap.Num() >= NumSections)
 			{
-				for (int32 SectionMaterialIndex : SkeletalMesh->LODInfo[0].LODMaterialMap)
+				for (int32 SectionMaterialIndex : SkeletalMesh->GetLODInfo(0)->LODMaterialMap)
 				{
 					ImportSkeletalMeshArgs.ImportMeshSectionsData->SectionOriginalMaterialName.Add(SkeletalMesh->Materials[SectionMaterialIndex].ImportedMaterialSlotName);
 				}
@@ -1827,7 +1824,7 @@ void UnFbx::FFbxImporter::UpdateSkeletalMeshImportData(USkeletalMesh *SkeletalMe
 		ImportData->ImportMaterialOriginalNameData.Empty();
 		if (ImportMaterialOriginalNameData && ImportMeshLodData)
 		{
-			if (SpecificLod == INDEX_NONE && ImportMeshLodData->Num() == SkeletalMesh->LODInfo.Num())
+			if (SpecificLod == INDEX_NONE && ImportMeshLodData->Num() == SkeletalMesh->GetLODNum())
 			{
 				//Copy the material array
 				ImportData->ImportMaterialOriginalNameData = (*ImportMaterialOriginalNameData);
@@ -1893,7 +1890,7 @@ void UnFbx::FFbxImporter::UpdateSkeletalMeshImportData(USkeletalMesh *SkeletalMe
 			for (int32 LODResoureceIndex = 0; LODResoureceIndex < ImportedResource->LODModels.Num(); ++LODResoureceIndex)
 			{
 				ImportData->ImportMeshLodData.AddZeroed();
-				const FSkeletalMeshLODInfo& LODInfo = SkeletalMesh->LODInfo[LODResoureceIndex];
+				const FSkeletalMeshLODInfo& LODInfo = *(SkeletalMesh->GetLODInfo(LODResoureceIndex));
 				const FSkeletalMeshLODModel& LODModel = ImportedResource->LODModels[LODResoureceIndex];
 				int32 NumSections = LODModel.Sections.Num();
 				for (int32 SectionIndex = 0; SectionIndex < NumSections; ++SectionIndex)
@@ -2109,7 +2106,7 @@ USkeletalMesh* UnFbx::FFbxImporter::ReimportSkeletalMesh(USkeletalMesh* Mesh, UF
 		ImportOptions->bImportAnimations = false;
 		// check if there is LODGroup for this skeletal mesh
 		int32 MaxLODLevel = 1;
-		int32 NumPrevLODs = Mesh->LODInfo.Num();
+		int32 NumPrevLODs = Mesh->GetLODNum();
 
 		for (int32 j = 0; j < (*FbxNodes).Num(); j++)
 		{
@@ -3252,7 +3249,7 @@ void UnFbx::FFbxImporter::InsertNewLODToBaseSkeletalMesh(USkeletalMesh* InSkelet
 	TArray<FName> ExistingMeshSectionSlotNames;
 	TArray<FName> OriginalImportMeshSectionSlotNames;
 	UFbxSkeletalMeshImportData* ImportData = nullptr;
-	bool HasReimportData = (TemplateImportData != nullptr && DesiredLOD != 0 && BaseSkeletalMesh->LODInfo.Num() > DesiredLOD);
+	bool HasReimportData = (TemplateImportData != nullptr && DesiredLOD != 0 && BaseSkeletalMesh->GetLODNum() > DesiredLOD);
 	if (HasReimportData)
 	{
 		ImportData = UFbxSkeletalMeshImportData::GetImportDataForSkeletalMesh(BaseSkeletalMesh, TemplateImportData);
@@ -3260,7 +3257,7 @@ void UnFbx::FFbxImporter::InsertNewLODToBaseSkeletalMesh(USkeletalMesh* InSkelet
 		if (HasReimportData)
 		{
 			const FImportMeshLodSectionsData& OriginalImportMeshLodSectionsData = ImportData->ImportMeshLodData[DesiredLOD];
-			const FSkeletalMeshLODInfo &ExistingSkelMeshLodInfo = BaseSkeletalMesh->LODInfo[DesiredLOD];
+			const FSkeletalMeshLODInfo &ExistingSkelMeshLodInfo = *(BaseSkeletalMesh->GetLODInfo(DesiredLOD));
 			//Restore the section changes from the old import data
 			for (int32 SectionIndex = 0; SectionIndex < ExistingSkelMeshLodInfo.LODMaterialMap.Num(); SectionIndex++)
 			{
@@ -3284,17 +3281,18 @@ void UnFbx::FFbxImporter::InsertNewLODToBaseSkeletalMesh(USkeletalMesh* InSkelet
 		new(DestImportedResource->LODModels)FSkeletalMeshLODModel();
 
 		// Add element to LODInfo array.
-		BaseSkeletalMesh->LODInfo.AddZeroed();
-		check(BaseSkeletalMesh->LODInfo.Num() == DestImportedResource->LODModels.Num());
-		BaseSkeletalMesh->LODInfo[DesiredLOD] = InSkeletalMesh->LODInfo[0];
+		BaseSkeletalMesh->AddLODInfo();
+		check(BaseSkeletalMesh->GetLODNum() == DestImportedResource->LODModels.Num());
+		// AddLODInfo will create new one based on setting data
+		// don't have to copy zero base LOD info back again
 
 		// Set LOD Model's DisplayFactor
 		// if this LOD is newly added, then set DisplayFactor
-		BaseSkeletalMesh->LODInfo[DesiredLOD].ScreenSize = 1.0f / (DestImportedResource->LODModels.Num() * DesiredLOD);
+		BaseSkeletalMesh->GetLODInfo(DesiredLOD)->ScreenSize = 1.0f / (DestImportedResource->LODModels.Num() * DesiredLOD);
 	}
 
 	// Set up LODMaterialMap to number of materials in new mesh.
-	FSkeletalMeshLODInfo& LODInfo = BaseSkeletalMesh->LODInfo[DesiredLOD];
+	FSkeletalMeshLODInfo& LODInfo = *(BaseSkeletalMesh->GetLODInfo(DesiredLOD));
 	
 	LODInfo.LODMaterialMap.Empty();
 	// Now set up the material mapping array.
@@ -3346,9 +3344,9 @@ void UnFbx::FFbxImporter::InsertNewLODToBaseSkeletalMesh(USkeletalMesh* InSkelet
 	LODInfo.bHasBeenSimplified = false;
 
 	//Set back the user data
-	if (HasReimportData && BaseSkeletalMesh->LODInfo.Num() > DesiredLOD)
+	if (HasReimportData && BaseSkeletalMesh->GetLODNum() > DesiredLOD)
 	{
-		FSkeletalMeshLODInfo &NewSkelMeshLodInfo = BaseSkeletalMesh->LODInfo[DesiredLOD];
+		FSkeletalMeshLODInfo &NewSkelMeshLodInfo = *(BaseSkeletalMesh->GetLODInfo(DesiredLOD));
 		//Restore the section changes from the old import data
 		for (int32 SectionIndex = 0; SectionIndex < NewLODModel.Sections.Num(); SectionIndex++)
 		{

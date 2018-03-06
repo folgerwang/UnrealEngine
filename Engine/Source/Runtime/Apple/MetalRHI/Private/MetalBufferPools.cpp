@@ -85,6 +85,7 @@ void FRingBuffer::Shrink()
 	{
 		UE_LOG(LogMetal, Verbose, TEXT("Shrinking RingBuffer from %u to %u as max. usage is %u at frame %lld]"), (uint32)Buffer->Buffer.length, ThreeQuarterSize, FrameMax, GFrameNumberRenderThread);
 		
+		SafeReleaseMetalResource(Buffer->Buffer);
 		TSharedPtr<FMetalRingBuffer, ESPMode::ThreadSafe> NewBuffer = MakeShared<FMetalRingBuffer, ESPMode::ThreadSafe>();
 		NewBuffer->Buffer = [GetMetalDeviceContext().GetDevice() newBufferWithLength:ThreeQuarterSize options:((MTLResourceOptions)BUFFER_CACHE_MODE|Options)];
 		TRACK_OBJECT(STAT_MetalBufferCount, NewBuffer->Buffer);

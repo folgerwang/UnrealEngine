@@ -54,11 +54,14 @@
 #include "AssetRegistryModule.h"
 #include "DynamicResolutionProxy.h"
 #include "DynamicResolutionState.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 
 #if WITH_EDITOR
 #include "PIEPreviewDeviceProfileSelectorModule.h"
 #include "IPIEPreviewDeviceModule.h"
 #endif
+
+CSV_DECLARE_CATEGORY_MODULE_EXTERN(CORE_API, Basic);
 
 ENGINE_API bool GDisallowNetworkTravel = false;
 
@@ -425,7 +428,7 @@ TSharedRef<SWindow> UGameEngine::CreateGameWindow()
 	const FText WindowTitleVar = FText::Format( FText::FromString(TEXT("{0} {1} {2}")), WindowTitleComponent, WindowDebugInfoComponent, FGlobalTabmanager::Get()->GetApplicationTitle() );
 	const FText WindowTitle = FText::Format(WindowTitleVar, Args);
 	const bool bShouldPreserveAspectRatio = GetDefault<UGeneralProjectSettings>()->bShouldWindowPreserveAspectRatio;
-	const bool bUseBorderlessWindow = GetDefault<UGeneralProjectSettings>()->bUseBorderlessWindow;
+	const bool bUseBorderlessWindow = GetDefault<UGeneralProjectSettings>()->bUseBorderlessWindow && PLATFORM_WINDOWS;
 	const bool bAllowWindowResize = GetDefault<UGeneralProjectSettings>()->bAllowWindowResize;
 	const bool bAllowClose = GetDefault<UGeneralProjectSettings>()->bAllowClose;
 	const bool bAllowMaximize = GetDefault<UGeneralProjectSettings>()->bAllowMaximize;
@@ -572,6 +575,7 @@ void UGameEngine::OnGameWindowMoved( const TSharedRef<SWindow>& WindowBeingMoved
 void UGameEngine::RedrawViewports( bool bShouldPresent /*= true*/ )
 {
 	SCOPE_CYCLE_COUNTER(STAT_RedrawViewports);
+	CSV_SCOPED_TIMING_STAT(Basic, RedrawViewports);
 
 	if ( GameViewport != NULL )
 	{
@@ -636,10 +640,13 @@ UEngine::UEngine(const FObjectInitializer& ObjectInitializer)
 
 	#if !UE_SERVER
 	{
+		bIsDynamicResolutionPaused = false;
+		bDynamicResolutionEnableUserSetting = false;
 		LastDynamicResolutionEvent = EDynamicResolutionStateEvent::EndFrame;
+
 		if (!IsRunningDedicatedServer() && !IsRunningCommandlet())
 		{
-			NextDynamicResolutionState = FDynamicResolutionHeuristicProxy::CreateDefaultState();
+			DynamicResolutionState = NextDynamicResolutionState = FDynamicResolutionHeuristicProxy::CreateDefaultState();
 		}
 	}
 	#endif
@@ -876,7 +883,7 @@ bool UGameEngine::NetworkRemapPath(UNetDriver* Driver, FString& Str, bool bReadi
 		return true;
 	}
 
-	for (ULevelStreaming* StreamingLevel : World->StreamingLevels)
+	for (ULevelStreaming* StreamingLevel : World->GetStreamingLevels())
 	{
 		if (StreamingLevel != nullptr)
 		{

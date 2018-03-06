@@ -80,6 +80,10 @@ public:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Physics)
 	uint8 bUseAsyncScene:1;
 
+	/** If true, we skip instancing bodies for this PhysicsAsset on dedicated servers */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Physics)
+	uint8 bNotForDedicatedServer:1;
+
 	/** This caches the BodySetup Index by BodyName to speed up FindBodyIndex */
 	TMap<FName, int32>					BodySetupIndexMap;
 

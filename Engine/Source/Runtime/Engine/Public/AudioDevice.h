@@ -489,6 +489,8 @@ private:
 	void GetSoundClassInfo(TMap<FName, FAudioClassInfo>& AudioClassInfos);
 #endif
 
+	void UpdateAudioPluginSettingsObjectCache();
+
 public:
 
 	/**
@@ -620,6 +622,12 @@ public:
 	 * @param   DeltaSeconds		The amount of time over which velocity should be calculated.  If 0, then velocity will not be calculated.
 	 */
 	void SetListener(UWorld* World, int32 InListenerIndex, const FTransform& ListenerTransform, float InDeltaSeconds);
+
+	/** Sets an override for the listener to do attenuation calculations. */
+	void SetListenerAttenuationOverride(const FVector AttenuationPosition);
+
+	/** Removes a listener attenuation override. */
+	void ClearListenerAttenuationOverride();
 
 	const TArray<FListener>& GetListeners() const { check(IsInAudioThread()); return Listeners; }
 
@@ -806,7 +814,7 @@ public:
 	/**
 	* Checks to see if a coordinate is within a distance of the given listener
 	*/
-	static bool LocationIsAudible(const FVector& Location, const FTransform& ListenerTransform, const float MaxDistance);
+	bool LocationIsAudible(const FVector& Location, const FTransform& ListenerTransform, const float MaxDistance) const;
 
 	/**
 	 * Sets the Sound Mix that should be active by default
@@ -1321,6 +1329,12 @@ private:
 	/** Processes the set of pending sounds that need to be stopped */ 
 	void ProcessingPendingActiveSoundStops(bool bForceDelete = false);
 
+	/** Processes any pending active sounds. */
+	void ProcessPendingNewActiveSounds();
+
+	/** Adds new active sound on the audio thread */
+	void AddNewActiveSoundInternal(FActiveSound* NewActiveSound);
+
 	/** Check whether we should use attenuation settings */
 	bool ShouldUseAttenuation(const UWorld* World) const;
 
@@ -1462,6 +1476,13 @@ private:
 protected:
 	// Audio thread representation of listeners
 	TArray<FListener> Listeners;
+
+	// A listener attenuation override to use for distance and attenuation calculations
+	FVector ListenerAttenuationOverride;
+
+	// Whether or not to use the listener attenuation override
+	bool bUseListenerAttenuationOverride;
+
 	TArray<FSoundSource*> Sources;
 	TArray<FSoundSource*> FreeSources;
 
@@ -1482,6 +1503,9 @@ private:
 
 	/** Map of sound mix sound class overrides. Will override any sound class effects for any sound mixes */
 	TMap<USoundMix*, FSoundMixClassOverrideMap> SoundMixClassEffectOverrides;
+
+	/** Cached array of plugin settings objects currently loaded. This is stored so we can add it in AddReferencedObjects. */
+	TArray<UObject*> PluginSettingsObjects;
 
 protected:
 	/** Interface to audio effects processing */
@@ -1578,6 +1602,12 @@ private:
 	/** Set of sounds which will be stopped next audio frame update */
 	TSet<FActiveSound*> PendingSoundsToStop;
 
+	/** Pending active sounds waiting to be added. */
+	TQueue<FActiveSound*> PendingAddedActiveSounds;
+
+	/** Max number of active sounds to add per frame. */
+	int32 MaxActiveSoundsAddedPerFrame;
+
 	/** A set of sounds which need to be deleted but weren't able to be deleted due to pending async operations */
 	TArray<FActiveSound*> PendingSoundsToDelete;
 
@@ -1595,6 +1625,15 @@ private:
 
 	/** Inverse listener transformation, used for spatialization */
 	FMatrix InverseListenerTransform;
+
+	/** A count of the number of one-shot active sounds. */
+	uint32 OneShotCount;
+
+	/** The max number of one shot active sounds. */
+	uint32 MaxOneShotActiveSounds;
+
+	/** Threshold priority for allowing oneshot active sounds through the max oneshot active sound limit. */
+	float OneShotPriorityCullThreshold;
 };
 
 

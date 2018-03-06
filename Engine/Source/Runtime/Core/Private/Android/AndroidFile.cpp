@@ -25,8 +25,18 @@ DEFINE_LOG_CATEGORY_STATIC(LogAndroidFile, Log, All);
 #define LOG_ANDROID_FILE_MANIFEST 0
 
 // Support 64 bit file access.
-#define UE_ANDROID_FILE_64 0
-// #define UE_ANDROID_FILE_64 1
+//#define UE_ANDROID_FILE_64 0
+#define UE_ANDROID_FILE_64 1
+
+#if UE_ANDROID_FILE_64
+	#define __lseek(_fd, _offset, _whence)			lseek64(_fd, _offset, _whence)
+	#define __pread(_fd, _buf, _count, _offset)		pread64(_fd, _buf, _count, _offset)
+	#define __pwrite(_fd, _buf, _count, _offset)	pwrite64(_fd, _buf, _count, _offset)
+#else
+	#define __lseek(_fd, _offset, _whence)			lseek(_fd, _offset, _whence)
+	#define __pread(_fd, _buf, _count, _offset)		pread(_fd, _buf, _count, _offset)
+	#define __pwrite(_fd, _buf, _count, _offset)	pwrite(_fd, _buf, _count, _offset)
+#endif
 
 // make an FTimeSpan object that represents the "epoch" for time_t (from a stat struct)
 const FDateTime AndroidEpoch(1970, 1, 1);
@@ -62,6 +72,7 @@ FString GAndroidProjectName;
 FString GPackageName;
 int32 GAndroidPackageVersion = 0;
 int32 GAndroidPackagePatchVersion = 0;
+FString GAndroidAppType;
 
 // External File Path base - setup during load
 FString GFilePathBase;
@@ -82,7 +93,7 @@ extern jobject AndroidJNI_GetJavaAssetManager();
 extern AAssetManager * AndroidThunkCpp_GetAssetManager();
 
 //This function is declared in the Java-defined class, GameActivity.java: "public native void nativeSetObbInfo(String PackageName, int Version, int PatchVersion);"
-JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeSetObbInfo(JNIEnv* jenv, jobject thiz, jstring ProjectName, jstring PackageName, jint Version, jint PatchVersion)
+JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeSetObbInfo(JNIEnv* jenv, jobject thiz, jstring ProjectName, jstring PackageName, jint Version, jint PatchVersion, jstring AppType)
 {
 	const char* JavaProjectChars = jenv->GetStringUTFChars(ProjectName, 0);
 	GAndroidProjectName = UTF8_TO_TCHAR(JavaProjectChars);
@@ -90,10 +101,13 @@ JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeSetObbInfo(JNIEnv* jen
 	GPackageName = UTF8_TO_TCHAR(JavaPackageChars);
 	GAndroidPackageVersion = Version;
 	GAndroidPackagePatchVersion = PatchVersion;
+	const char* JavaAppTypeChars = jenv->GetStringUTFChars(AppType, 0);
+	GAndroidAppType = UTF8_TO_TCHAR(JavaAppTypeChars);
 
 	//Release the strings
 	jenv->ReleaseStringUTFChars(ProjectName, JavaProjectChars);
 	jenv->ReleaseStringUTFChars(PackageName, JavaPackageChars);
+	jenv->ReleaseStringUTFChars(PackageName, JavaAppTypeChars);
 }
 
 // Constructs the base path for any files which are not in OBB/pak data
@@ -204,13 +218,8 @@ public:
 		, Start(0), Length(0), CurrentOffset(0)
 	{
 		CheckValid();
-#if UE_ANDROID_FILE_64
-		Length = lseek64(File->Handle, 0, SEEK_END);
-		lseek64(File->Handle, 0, SEEK_SET);
-#else
-		Length = lseek(File->Handle, 0, SEEK_END);
-		lseek(File->Handle, 0, SEEK_SET);
-#endif
+		Length = __lseek(File->Handle, 0, SEEK_END);
+		__lseek(File->Handle, 0, SEEK_SET);
 		LogInfo();
 	}
 
@@ -219,7 +228,7 @@ public:
 		: File(MakeShareable(new FileReference(path, asset)))
 		, Start(0), Length(0), CurrentOffset(0)
 	{
-#if UE_ANDROID_FILE_64
+#if UE_ANDROID_FILE_64 && PLATFORM_32BITS
 		File->Handle = AAsset_openFileDescriptor64(File->Asset, &Start, &Length);
 #else
 		off_t OutStart = Start;
@@ -282,7 +291,7 @@ public:
 
 			int64 ThisSize = FMath::Min<int64>(READWRITE_SIZE, BytesToRead);
 			
-			ThisSize = pread(File->Handle, Destination, ThisSize, CurrentOffset);
+			ThisSize = __pread(File->Handle, Destination, ThisSize, CurrentOffset);
 #if LOG_ANDROID_FILE
 			FPlatformMisc::LowLevelOutputDebugStringf(
 				TEXT("(%d/%d) FFileHandleAndroid:Read => Path = %s, ThisSize = %d, destination = %X"),
@@ -320,7 +329,7 @@ public:
 			check(BytesToWrite >= 0);
 			int64 ThisSize = FMath::Min<int64>(READWRITE_SIZE, BytesToWrite);
 			check(Source);
-			if (pwrite(File->Handle, Source, ThisSize, CurrentOffset) != ThisSize)
+			if (__pwrite(File->Handle, Source, ThisSize, CurrentOffset) != ThisSize)
 			{
 				bSuccess = false;
 				break;
@@ -946,8 +955,9 @@ public:
 			// See <http://developer.android.com/google/play/expansion-files.html>
 			FString OBBDir1 = GOBBFilePathBase + FString(TEXT("/Android/obb/") + GPackageName);
 			FString OBBDir2 = GOBBFilePathBase + FString(TEXT("/obb/") + GPackageName);
-			FString MainOBBName = FString::Printf(TEXT("main.%d.%s.obb"), GAndroidPackageVersion, *GPackageName);
-			FString PatchOBBName = FString::Printf(TEXT("patch.%d.%s.obb"), GAndroidPackageVersion, *GPackageName);
+			FString Period = GAndroidAppType.IsEmpty() ? TEXT("") : TEXT(".");
+			FString MainOBBName = FString::Printf(TEXT("main.%d.%s.%s%sobb"), GAndroidPackageVersion, *GPackageName, *GAndroidAppType, *Period);
+			FString PatchOBBName = FString::Printf(TEXT("patch.%d.%s.%s%sobb"), GAndroidPackageVersion, *GPackageName, *GAndroidAppType, *Period);
 			if (FileExists(*(OBBDir1 / MainOBBName), true))
 			{
 				MountOBB(*(OBBDir1 / MainOBBName));

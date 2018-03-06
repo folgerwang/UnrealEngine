@@ -24,8 +24,8 @@ class UMaterialExpressionTextureObjectParameter : public UMaterialExpressionText
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual int32 CompilePreview(class FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual uint32 GetOutputType(int32 InputIndex) override {return MCT_Texture;}
-#endif
 	virtual const TArray<FExpressionInput*> GetInputs() override;
+#endif
 	//~ End UMaterialExpression Interface
 
 	//~ Begin UMaterialExpressionTextureSampleParameter Interface

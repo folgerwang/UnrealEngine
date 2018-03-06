@@ -65,7 +65,7 @@ AFloatingText::AFloatingText()
 		
 		FirstLineComponent->SetCollisionEnabled( ECollisionEnabled::NoCollision );
 
-		FirstLineComponent->bGenerateOverlapEvents = false;
+		FirstLineComponent->SetGenerateOverlapEvents(false);
 		FirstLineComponent->SetCanEverAffectNavigation( false );
 		FirstLineComponent->bCastDynamicShadow = bAllowTextLighting;
 		FirstLineComponent->bCastStaticShadow = false;
@@ -83,7 +83,7 @@ AFloatingText::AFloatingText()
 
 		JointSphereComponent->SetCollisionEnabled( ECollisionEnabled::NoCollision );
 
-		JointSphereComponent->bGenerateOverlapEvents = false;
+		JointSphereComponent->SetGenerateOverlapEvents(false);
 		JointSphereComponent->SetCanEverAffectNavigation( false );
 		JointSphereComponent->bCastDynamicShadow = bAllowTextLighting;
 		JointSphereComponent->bCastStaticShadow = false;
@@ -102,7 +102,7 @@ AFloatingText::AFloatingText()
 
 		SecondLineComponent->SetCollisionEnabled( ECollisionEnabled::NoCollision );
 
-		SecondLineComponent->bGenerateOverlapEvents = false;
+		SecondLineComponent->SetGenerateOverlapEvents(false);
 		SecondLineComponent->SetCanEverAffectNavigation( false );
 		SecondLineComponent->bCastDynamicShadow = bAllowTextLighting;
 		SecondLineComponent->bCastStaticShadow = false;
@@ -139,7 +139,7 @@ AFloatingText::AFloatingText()
 
 		TextComponent->SetCollisionProfileName( UCollisionProfile::NoCollision_ProfileName );
 
-		TextComponent->bGenerateOverlapEvents = false;
+		TextComponent->SetGenerateOverlapEvents(false);
 		TextComponent->SetCanEverAffectNavigation( false );
 		TextComponent->bCastDynamicShadow = bAllowTextLighting;
 		TextComponent->bCastStaticShadow = false;

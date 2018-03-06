@@ -156,14 +156,21 @@ protected:
 
 private:
 
+	/** Holds the desired widget index */
+	TAttribute<int32> WidgetIndex;
+
+	// Holds the collection of widgets.
+	TPanelChildren<FSlot> AllChildren;
+
 	/** Required to implement GetChildren() in a way that can dynamically return the currently active child. */
 	class SLATE_API FOneDynamicChild
 		: public FChildren
 	{
 	public:
 
-		FOneDynamicChild( TPanelChildren<FSlot>* InAllChildren = nullptr, const TAttribute<int32>* InWidgetIndex = nullptr )
-			: AllChildren( InAllChildren )
+		FOneDynamicChild(SWidget* InOwner, TPanelChildren<FSlot>* InAllChildren, const TAttribute<int32>* InWidgetIndex )
+			: FChildren(InOwner)
+			, AllChildren( InAllChildren )
 			, WidgetIndex( InWidgetIndex )
 		{ }
 		
@@ -181,10 +188,4 @@ private:
 		const TAttribute<int32>* WidgetIndex;
 
 	} OneDynamicChild;
-
-	/** Holds the desired widget index */
-	TAttribute<int32> WidgetIndex;
-
-	// Holds the collection of widgets.
-	TPanelChildren<FSlot> AllChildren;
 };

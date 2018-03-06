@@ -31,16 +31,6 @@ CORE_API TCHAR MiniDumpFilenameW[1024] = TEXT("");
 volatile int32 GCrashType = 0;
 bool GEnsureShowsCRC = false;
 
-void CheckImageIntegrity()
-{
-	FPlatformMisc::MemoryBarrier();
-}
-
-void CheckImageIntegrityAtRuntime()
-{
-	FPlatformMisc::MemoryBarrier();
-}
-
 void SetCrashType(ECrashType InCrashType)
 {
 	GCrashType = (int32)InCrashType;

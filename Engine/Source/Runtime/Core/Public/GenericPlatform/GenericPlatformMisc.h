@@ -458,15 +458,24 @@ struct CORE_API FGenericPlatformMisc
 public:
 
 	/**
-	 * Platform specific function for adding a named event that can be viewed in PIX
+	 * Platform specific function for adding a named event that can be viewed in external tool
 	 */
 	static void BeginNamedEvent(const struct FColor& Color, const TCHAR* Text);
 	static void BeginNamedEvent(const struct FColor& Color, const ANSICHAR* Text);
 
 	/**
-	 * Platform specific function for closing a named event that can be viewed in PIX
+	 * Platform specific function for closing a named event that can be viewed in external tool
 	 */
 	static void EndNamedEvent();
+
+	/** Platform specific function for adding a named custom stat that can be viewed in external tool */
+	static void CustomNamedStat(const TCHAR* Text, float Value, const TCHAR* Graph, const TCHAR* Unit) {}
+	static void CustomNamedStat(const ANSICHAR* Text, float Value, const ANSICHAR* Graph, const ANSICHAR* Unit) {}
+
+	/** Indicates the start of a frame for named events */
+	FORCEINLINE static void BeginNamedEventFrame()
+	{
+	}
 
     /**
 	* Platform specific function for initializing storage of tagged memory buffers
@@ -1060,6 +1069,14 @@ public:
 	}
 
 #if !UE_BUILD_SHIPPING
+	/** 
+	 * Returns any platform specific warning messages we want printed on screen
+	 */
+	static bool GetPlatformScreenWarnings(TArray<FText>& PlatformScreenWarnings)
+	{
+		return false;
+	}
+
 protected:
 	/** Whether the user should be prompted to allow for a remote debugger to be attached */
 	static bool bShouldPromptForRemoteDebugging;

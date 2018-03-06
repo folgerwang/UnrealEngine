@@ -10,7 +10,7 @@ UDrawSphereComponent::UDrawSphereComponent(const FObjectInitializer& ObjectIniti
 
 	bHiddenInGame = true;
 	bUseEditorCompositing = true;
-	bGenerateOverlapEvents = false;
+	SetGenerateOverlapEvents(false);
 }
 
 #if WITH_EDITOR

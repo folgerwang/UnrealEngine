@@ -11,6 +11,7 @@
 #include "UObject/PackageFileSummary.h"
 #include "UObject/Linker.h"
 #include "Templates/UniquePtr.h"
+#include "UObject/AthenaObjectVersion.h"
 
 FArchive& operator<<( FArchive& Ar, FWorldTileLayer& D )
 {
@@ -44,13 +45,27 @@ FArchive& operator<<( FArchive& Ar, FWorldTileLODInfo& D )
 FArchive& operator<<( FArchive& Ar, FWorldTileInfo& D )
 {
 	// Serialized with FPackageFileSummary
-	Ar << D.Position << D.Bounds  << D.Layer;
+	Ar.UsingCustomVersion(FAthenaObjectVersion::GUID);
+
+	if (Ar.IsLoading() && Ar.CustomVer(FAthenaObjectVersion::GUID) < FAthenaObjectVersion::WorldCompositionTile3DOffset)
+	{
+		FIntPoint Position2D;
+		Ar << Position2D;
+		D.Position = FIntVector(Position2D.X, Position2D.Y, 0);
+	}
+	else
+	{
+		Ar << D.Position;
+	}
+
+	Ar << D.Bounds;
+	Ar << D.Layer;
 	
 	if (Ar.UE4Ver() >= VER_UE4_WORLD_LEVEL_INFO_UPDATED)
 	{
 		Ar << D.bHideInTileView << D.ParentTilePackageName;
 	}
-
+	
 	if (Ar.UE4Ver() >= VER_UE4_WORLD_LEVEL_INFO_LOD_LIST)
 	{
 		Ar << D.LODList;
@@ -103,7 +118,8 @@ bool FWorldTileInfo::Read(const FString& InPackageFileName, FWorldTileInfo& OutI
 		FileReader->SetUE4Ver(FileSummary.GetFileVersionUE4());
 		FileReader->SetEngineVer(FileSummary.SavedByEngineVersion);
 		FileReader->SetLicenseeUE4Ver(FileSummary.GetFileVersionLicenseeUE4());
-
+		FileReader->SetCustomVersions(FileSummary.GetCustomVersionContainer());
+		
 		// Load the structure
 		*FileReader << OutInfo;
 	}

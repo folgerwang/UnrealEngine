@@ -3434,10 +3434,9 @@ ALandscape* FEdModeLandscape::ChangeComponentSetting(int32 NumComponentsX, int32
 			Landscape->ComponentScreenSizeToUseSubSections = OldLandscapeProxy->ComponentScreenSizeToUseSubSections;
 			Landscape->UseTessellationComponentScreenSizeFalloff = OldLandscapeProxy->UseTessellationComponentScreenSizeFalloff;
 			Landscape->TessellationComponentScreenSizeFalloff = OldLandscapeProxy->TessellationComponentScreenSizeFalloff;
-			Landscape->IncludeTessellationInShadowLOD = OldLandscapeProxy->IncludeTessellationInShadowLOD;
-			Landscape->RestrictTessellationToShadowCascade = OldLandscapeProxy->RestrictTessellationToShadowCascade;			
 			Landscape->LODDistributionSetting = OldLandscapeProxy->LODDistributionSetting;
 			Landscape->LOD0DistributionSetting = OldLandscapeProxy->LOD0DistributionSetting;
+			Landscape->OccluderGeometryLOD = OldLandscapeProxy->OccluderGeometryLOD;
 			Landscape->ExportLOD = OldLandscapeProxy->ExportLOD;
 			Landscape->StaticLightingLOD = OldLandscapeProxy->StaticLightingLOD;
 			Landscape->NegativeZBoundsExtension = OldLandscapeProxy->NegativeZBoundsExtension;

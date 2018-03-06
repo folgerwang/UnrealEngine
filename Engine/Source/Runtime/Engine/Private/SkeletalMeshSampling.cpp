@@ -21,7 +21,7 @@ void FSkeletalMeshAreaWeightedTriangleSampler::Init(USkeletalMesh* InOwner, int3
 {
 	Owner = InOwner;
 	check(InOwner);
-	check(InOwner->LODInfo.IsValidIndex(InLODIndex));
+	check(InOwner->IsValidLODIndex(InLODIndex));
 
 	LODIndex = InLODIndex;
 	TriangleIndices = InTriangleIndices;
@@ -266,11 +266,11 @@ FORCEINLINE_DEBUGGABLE void GetRegionValidTris(USkeletalMesh* SkeletalMesh, FSke
 void FSkeletalMeshSamplingInfo::BuildWholeMesh(USkeletalMesh* SkeletalMesh)
 {
 	//Build data for the whole mesh at each LOD.
-	BuiltData.WholeMeshBuiltData.Reset(SkeletalMesh->LODInfo.Num());
-	BuiltData.WholeMeshBuiltData.SetNum(SkeletalMesh->LODInfo.Num());
-	for (int32 LODIndex = 0; LODIndex < SkeletalMesh->LODInfo.Num(); ++LODIndex)
+	BuiltData.WholeMeshBuiltData.Reset(SkeletalMesh->GetLODNum());
+	BuiltData.WholeMeshBuiltData.SetNum(SkeletalMesh->GetLODNum());
+	for (int32 LODIndex = 0; LODIndex < SkeletalMesh->GetLODNum(); ++LODIndex)
 	{
-		FSkeletalMeshLODInfo& LODInfo = SkeletalMesh->LODInfo[LODIndex];
+		FSkeletalMeshLODInfo& LODInfo = *SkeletalMesh->GetLODInfo(LODIndex);
 		FSkeletalMeshSamplingLODBuiltData& WholeMeshBuiltData = BuiltData.WholeMeshBuiltData[LODIndex];
 
 		if (LODInfo.bSupportUniformlyDistributedSampling)
@@ -290,7 +290,7 @@ void FSkeletalMeshSamplingInfo::BuildRegions(USkeletalMesh* SkeletalMesh)
 		FSkeletalMeshSamplingRegion& Region = Regions[RegionIndex];
 		FSkeletalMeshSamplingRegionBuiltData& RegionBuiltData = BuiltData.RegionBuiltData[RegionIndex];
 		int32 LODIndex = Region.LODIndex;
-		if (!SkeletalMesh->LODInfo.IsValidIndex(LODIndex))
+		if (!SkeletalMesh->IsValidLODIndex(LODIndex))
 		{
 			continue;
 		}
@@ -325,8 +325,8 @@ void FSkeletalMeshSamplingInfo::BuildRegions(USkeletalMesh* SkeletalMesh)
 
 bool FSkeletalMeshSamplingInfo::IsSamplingEnabled(const USkeletalMesh* OwnerMesh, int32 LODIndex)const
 {
-	check(OwnerMesh && OwnerMesh->LODInfo.IsValidIndex(LODIndex));
-	if (OwnerMesh->LODInfo[LODIndex].bAllowCPUAccess)
+	check(OwnerMesh && OwnerMesh->IsValidLODIndex(LODIndex));
+	if (OwnerMesh->GetLODInfo(LODIndex)->bAllowCPUAccess)
 	{
 		return true;
 	}

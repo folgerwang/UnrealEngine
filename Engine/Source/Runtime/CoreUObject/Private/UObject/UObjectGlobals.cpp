@@ -322,7 +322,10 @@ UObject* StaticFindObject( UClass* ObjectClass, UObject* InObjectPackage, const 
 	}
 	else
 	{
-		ObjectName = FName(OrigInName, FNAME_Add);
+		FString InName = OrigInName;
+		ConstructorHelpers::StripObjectClass(InName);
+
+		ObjectName = FName(*InName, FNAME_Add);
 	}
 
 	return StaticFindObjectFast(ObjectClass, ObjectPackage, ObjectName, ExactClass, bAnyPackage);
@@ -1590,16 +1593,23 @@ void EndLoad()
 			{
 				// set this so that we can perform certain operations in which are only safe once all objects have been de-serialized.
 				TGuardValue<bool> GuardIsRoutingPostLoad(FUObjectThreadContext::Get().IsRoutingPostLoad, true);
-
+				FLinkerLoad* VisitedLinkerLoad = nullptr;
 				// Postload objects.
 				for (int32 i = 0; i < ObjLoaded.Num(); i++)
 				{
-
 					UObject* Obj = ObjLoaded[i];
 					check(Obj);
 #if WITH_EDITOR
 					SlowTask.EnterProgressFrame(1, FText::Format(NSLOCTEXT("Core", "FinalizingUObject", "Finalizing load of {0}"), FText::FromString(Obj->GetName())));
 #endif
+					
+					FLinkerLoad* LinkerLoad = Obj->GetLinker();
+					if (LinkerLoad && LinkerLoad != VisitedLinkerLoad)
+					{
+						LinkerLoad->FinishExternalReadDependencies(0.0);
+						VisitedLinkerLoad = LinkerLoad;
+					}
+					
 					Obj->ConditionalPostLoad();
 				}
 			}
@@ -2398,16 +2408,23 @@ UObject* StaticAllocateObject
 				// Begin the asynchronous object cleanup.
 				Obj->ConditionalBeginDestroy();
 
+				bool bPrinted = false;
+				double StallStart = 0.0;
 				// Wait for the object's asynchronous cleanup to finish.
 				while (!Obj->IsReadyForFinishDestroy()) 
 				{
 					// If we're not in the editor, and aren't doing something specifically destructive like reconstructing blueprints, this is fatal
-					if (!GIsEditor && FApp::IsGame() && !GIsReconstructingBlueprintInstances)
+					if (!bPrinted && !GIsEditor && FApp::IsGame() && !GIsReconstructingBlueprintInstances)
 					{
-						// Switching to warning, investigate why level duplication triggers this
-						UE_LOG(LogUObjectGlobals, Warning, TEXT("Gamethread hitch waiting for resource cleanup on a UObject (%s) overwrite. Fix the higher level code so that this does not happen."), *OldName );
+						StallStart = FPlatformTime::Seconds();
+						bPrinted = true;
 					}
 					FPlatformProcess::Sleep(0);
+				}
+				if (bPrinted)
+				{
+					float ThisTime = FPlatformTime::Seconds() - StallStart;
+					UE_LOG(LogUObjectGlobals, Warning, TEXT("Gamethread hitch waiting for resource cleanup on a UObject (%s) overwrite took %6.2fms. Fix the higher level code so that this does not happen."), *OldName, ThisTime * 1000.0f);
 				}
 				// Finish destroying the object.
 				Obj->ConditionalFinishDestroy();

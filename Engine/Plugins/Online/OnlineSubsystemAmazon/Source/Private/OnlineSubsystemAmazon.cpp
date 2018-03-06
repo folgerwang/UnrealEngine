@@ -93,7 +93,7 @@ bool FOnlineSubsystemAmazon::Init()
 
 bool FOnlineSubsystemAmazon::Shutdown()
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSubsystemAmazon::Shutdown()"));
+	UE_LOG(LogOnline, VeryVerbose, TEXT("FOnlineSubsystemAmazon::Shutdown()"));
 	IdentityInterface = NULL;
 	FOnlineSubsystemImpl::Shutdown();
 	return true;

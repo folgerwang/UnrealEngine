@@ -6,8 +6,14 @@
 #include "Misc/ConfigCacheIni.h"
 #include "OnlineSubsystem.h"
 #include "OnlineSubsystemImpl.h"
+#include "OnlineDelegates.h"
 
 IMPLEMENT_MODULE( FOnlineSubsystemModule, OnlineSubsystem );
+
+/**
+ * OnlineDelegates.h static declarations
+ */
+FOnlineSubsystemDelegates::FOnOnlineSubsystemCreated FOnlineSubsystemDelegates::OnOnlineSubsystemCreated;
 
 /** Helper function to turn the friendly subsystem name into the module name */
 static inline FName GetOnlineModuleName(const FString& SubsystemName)
@@ -175,6 +181,17 @@ void FOnlineSubsystemModule::UnregisterPlatformService(const FName FactoryName)
 	}
 }
 
+void FOnlineSubsystemModule::EnumerateOnlineSubsystems(FEnumerateOnlineSubsystemCb& EnumCb)
+{
+	for (TPair<FName, IOnlineSubsystemPtr>& OnlineSubsystem : OnlineSubsystems)
+	{
+		if (OnlineSubsystem.Value.IsValid())
+		{
+			EnumCb(OnlineSubsystem.Value.Get());
+		}
+	}
+}
+
 FName FOnlineSubsystemModule::ParseOnlineSubsystemName(const FName& FullName, FName& SubsystemName, FName& InstanceName) const
 {
 #if !(UE_GAME || UE_SERVER)
@@ -252,6 +269,7 @@ IOnlineSubsystem* FOnlineSubsystemModule::GetOnlineSubsystem(const FName InSubsy
 					{
 						OnlineSubsystems.Add(KeyName, NewSubsystemInstance);
 						OnlineSubsystem = OnlineSubsystems.Find(KeyName);
+						FOnlineSubsystemDelegates::OnOnlineSubsystemCreated.Broadcast(NewSubsystemInstance.Get());
 					}
 					else
 					{

@@ -39,10 +39,13 @@
 #include "Async/TaskGraphInterfaces.h"
 #include "Blueprint/BlueprintSupport.h"
 #include "HAL/LowLevelMemTracker.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 
 #define FIND_MEMORY_STOMPS (1 && (PLATFORM_WINDOWS || PLATFORM_LINUX) && !WITH_EDITORONLY_DATA)
 
 DEFINE_LOG_CATEGORY(LogLoadingDev);
+
+CSV_DECLARE_CATEGORY_MODULE_EXTERN(CORE_API, Basic);
 
 //#pragma clang optimize off
 
@@ -82,6 +85,17 @@ DECLARE_CYCLE_STAT(TEXT("Flush Async Loading GT"), STAT_FAsyncPackage_FlushAsync
 
 DECLARE_FLOAT_ACCUMULATOR_STAT( TEXT( "Async loading block time" ), STAT_AsyncIO_AsyncLoadingBlockingTime, STATGROUP_AsyncIO );
 DECLARE_FLOAT_ACCUMULATOR_STAT( TEXT( "Async package precache wait time" ), STAT_AsyncIO_AsyncPackagePrecacheWaitTime, STATGROUP_AsyncIO );
+
+/** Helper function for profiling load times */
+static FName StaticGetNativeClassName(UClass* InClass)
+{
+	while(InClass && !InClass->HasAnyClassFlags(CLASS_Native))
+	{
+		InClass = InClass->GetSuperClass();
+	}
+
+	return InClass ? InClass->GetFName() : NAME_None;
+}
 
 /** Returns true if we're inside a FGCScopeLock */
 bool IsGarbageCollectionLocked();
@@ -158,6 +172,13 @@ static FAutoConsoleVariableRef CVar_MaxReadyRequestsToStallMB(
 	TEXT("s.MaxReadyRequestsToStallMB"),
 	GMaxReadyRequestsToStallMB,
 	TEXT("Controls the maximum amount memory for unhandled IO requests before we stall the pak precacher to let the CPU catch up (in megabytes).")
+);
+
+int32 GMaxIncomingRequestsToStall = 100;
+static FAutoConsoleVariableRef CVar_MaxIncomingRequestsToStall(
+	TEXT("s.MaxIncomingRequestsToStall"),
+	GMaxIncomingRequestsToStall,
+	TEXT("Controls the maximum number of unhandled IO requests before we stall the pak precacher to let the CPU catch up.")
 );
 
 int32 GProcessPrestreamingRequests = 0;
@@ -1404,11 +1425,16 @@ struct FPrecacheCallbackHandler
 	TSet<FWeakAsyncPackagePtr> WaitingSummaries;
 
 	int64 UnprocessedMemUsed;
+	bool bPrecacheRequestsEnabled;
+	bool bStalledOnMemory;
 
 	FPrecacheCallbackHandler()
 		: bFireIncomingEvent(false)
 		, PermanentIncomingEvent(nullptr)
 		, UnprocessedMemUsed(0)
+		, bPrecacheRequestsEnabled(true)
+		, bStalledOnMemory(false)
+
 	{
 		PrecacheCallBack =
 			[this](bool bWasCanceled, IAsyncReadRequest* Request)
@@ -1443,12 +1469,12 @@ struct FPrecacheCallbackHandler
 			bFireIncomingEvent = false; // only trigger once
 			PermanentIncomingEvent->Trigger();
 		}
-		else if (Incoming.Num() > 100)
+		else 
 		{
-			if (GPakCache_AcceptPrecacheRequests)
+			if (Incoming.Num() == GMaxIncomingRequestsToStall)
 			{
-				UE_LOG(LogStreaming, Log, TEXT("Throttling off (async)"));
-				GPakCache_AcceptPrecacheRequests = false;
+				UE_LOG(LogStreaming, Log, TEXT("Throttling off (incoming >= %d)"), GMaxIncomingRequestsToStall);
+				FPlatformFileManager::Get().GetPlatformFile().ThrottleAsyncPrecaches(false);
 			}
 		}
 	}
@@ -1490,7 +1516,7 @@ struct FPrecacheCallbackHandler
 		}
 		if (LocalIncoming.Num())
 		{
-			CheckThottleIOState();
+			CheckThottleIOState(LocalIncoming.Num() >= GMaxIncomingRequestsToStall);
 		}
 		return LocalIncoming.Num() || LocalIncomingSummaries.Num();
 	}
@@ -1552,17 +1578,41 @@ struct FPrecacheCallbackHandler
 		WaitingSummaries.Add(FWeakAsyncPackagePtr(Package));
 	}
 
-	void CheckThottleIOState()
+	void CheckThottleIOState(bool bMaybeWasStalledOnIncoming = false)
 	{
-		if (GPakCache_AcceptPrecacheRequests && UnprocessedMemUsed > GMaxReadyRequestsToStallMB * 1024 * 1024)
+		if (UnprocessedMemUsed <= GMaxReadyRequestsToStallMB * 1024 * 1024 * 9 / 10)
 		{
-			UE_LOG(LogStreaming, Log, TEXT("Throttling off pak precacher to save memory while CPU catches up."));
-			GPakCache_AcceptPrecacheRequests = false;
+			if (bStalledOnMemory)
+			{
+				if (!bPrecacheRequestsEnabled)
+				{
+					UE_LOG(LogStreaming, Log, TEXT("Throttling on (mem < %dMB)"), GMaxReadyRequestsToStallMB * 9 / 10);
+					FPlatformFileManager::Get().GetPlatformFile().ThrottleAsyncPrecaches(true);
+					bPrecacheRequestsEnabled = true;
+					bMaybeWasStalledOnIncoming = false; // we don't need to handle this anymore, we just turned it on
+				}
+			}
+			bStalledOnMemory = false;
 		}
-		else if (!GPakCache_AcceptPrecacheRequests && UnprocessedMemUsed <= GMaxReadyRequestsToStallMB * 1024 * 1024)
+		else if (UnprocessedMemUsed > GMaxReadyRequestsToStallMB * 1024 * 1024)
 		{
-			UE_LOG(LogStreaming, Log, TEXT("Resuming pak precacher."));
-			GPakCache_AcceptPrecacheRequests = true;
+			if (!bStalledOnMemory)
+			{
+				if (bPrecacheRequestsEnabled)
+				{
+					UE_LOG(LogStreaming, Log, TEXT("Throttling off (mem > %dMB)"), GMaxReadyRequestsToStallMB);
+					FPlatformFileManager::Get().GetPlatformFile().ThrottleAsyncPrecaches(false);
+					bPrecacheRequestsEnabled = false;
+				}
+			}
+			bStalledOnMemory = true;
+		}
+
+		if (bPrecacheRequestsEnabled && bMaybeWasStalledOnIncoming)
+		{
+			// we have to force a potentially redundant unstall just to make sure that the incoming stall is cleared now
+			UE_LOG(LogStreaming, Log, TEXT("Throttling on (incoming grabbed)"));
+			FPlatformFileManager::Get().GetPlatformFile().ThrottleAsyncPrecaches(true);
 		}
 	}
 
@@ -3063,6 +3113,8 @@ void FAsyncPackage::EventDrivenCreateExport(int32 LocalExportIndex)
 	{
 		if (!Linker->FilterExport(Export)) // for some acceptable position, it was not "not for" 
 		{
+			SCOPED_ACCUM_LOADTIME(Construction, StaticGetNativeClassName(CastEventDrivenIndexToObject<UClass>(Export.ClassIndex, false)));
+
 			if (Linker->GetFArchiveAsync2Loader())
 			{
 				Linker->GetFArchiveAsync2Loader()->LogItem(TEXT("EventDrivenCreateExport"), Export.SerialOffset, Export.SerialSize);
@@ -3447,11 +3499,12 @@ void FAsyncPackage::EventDrivenSerializeExport(int32 LocalExportIndex)
 
 		if (Object->HasAnyFlags(RF_ClassDefaultObject))
 		{
-
+			SCOPED_ACCUM_LOADTIME(Serialize, StaticGetNativeClassName(Object->GetClass()));
 			Object->GetClass()->SerializeDefaultObject(Object, *Linker);
 		}
 		else
 		{
+			SCOPED_ACCUM_LOADTIME(Serialize, StaticGetNativeClassName(Object->GetClass()));
 			Object->Serialize(*Linker);
 		}
 		check(Linker->TemplateForGetArchetypeFromLoader == Template);
@@ -3648,7 +3701,7 @@ void FAsyncPackage::MakeNextPrecacheRequestCurrent()
 	FArchiveAsync2* FAA2 = Linker->GetFArchiveAsync2Loader();
 	check(FAA2);
 	bool bReady = FAA2->PrecacheForEvent(CurrentBlockOffset, CurrentBlockBytes);
-	UE_CLOG(!bReady, LogStreaming, Warning, TEXT("Preache request should have been hot %s."), *Linker->Filename);
+	UE_CLOG(!bReady, LogStreaming, Warning, TEXT("Precache request should have been hot %s."), *Linker->Filename);
 	for (int32 Index = Req.FirstExportCovered; Index <= Req.LastExportCovered; Index++)
 	{
 		verify(ExportIndexToPrecacheRequest.Remove(Index) == 1);
@@ -5160,6 +5213,7 @@ FAsyncPackage::FAsyncPackage(const FAsyncPackageDesc& InDesc)
 , ExportIndex(0)
 , PreLoadIndex(0)
 , PreLoadSortIndex(0)
+, FinishExternalReadDependenciesIndex(0)
 , PostLoadIndex(0)
 , DeferredPostLoadIndex(0)
 , DeferredFinalizeIndex(0)
@@ -6214,23 +6268,43 @@ EAsyncPackageState::Type FAsyncPackage::PreLoadObjects()
 
 EAsyncPackageState::Type FAsyncPackage::FinishExternalReadDependencies()
 {
-	if (!IsTimeLimitExceeded())
-{
-		double CurrentTime = FPlatformTime::Seconds();
-		double RemainingTimeLimit = TimeLimit - (CurrentTime - TickStartTime);
-
-		if (!bUseTimeLimit || RemainingTimeLimit > 0.0)
+	if (IsTimeLimitExceeded())
 	{
-			if (Linker->FinishExternalReadDependencies(bUseTimeLimit ? RemainingTimeLimit : 0.0))
-		{
-				return EAsyncPackageState::Complete;
-			}
-		}
+		return EAsyncPackageState::TimeOut;
 	}
 
 	LastTypeOfWorkPerformed = TEXT("ExternalReadDependencies");
-
-	return EAsyncPackageState::TimeOut;
+	
+	double RemainingTime = FMath::Max<double>(MIN_REMAIN_TIME, TimeLimit - (FPlatformTime::Seconds() - TickStartTime));
+		
+	FLinkerLoad* VisitedLinkerLoad = nullptr;
+	while (FinishExternalReadDependenciesIndex < PackageObjLoaded.Num())
+	{
+		UObject* Obj = PackageObjLoaded[FinishExternalReadDependenciesIndex];
+		FLinkerLoad* LinkerLoad = Obj ? Obj->GetLinker() : nullptr;
+		if (LinkerLoad && LinkerLoad != VisitedLinkerLoad)
+		{
+			if (!LinkerLoad->FinishExternalReadDependencies(bUseTimeLimit ? RemainingTime : 0.0))
+			{
+				return EAsyncPackageState::TimeOut;
+			}
+					
+			VisitedLinkerLoad = LinkerLoad;
+					
+			// Update remaining time 
+			if (bUseTimeLimit)
+			{
+				RemainingTime = TimeLimit - (FPlatformTime::Seconds() - TickStartTime);
+				if (RemainingTime <= 0.0)
+				{
+					return EAsyncPackageState::TimeOut;
+				}
+			}
+		}
+		FinishExternalReadDependenciesIndex++;
+	}
+		
+	return EAsyncPackageState::Complete;
 }
 
 /**
@@ -6273,6 +6347,8 @@ EAsyncPackageState::Type FAsyncPackage::PostLoadObjects()
 		{
 			if (!FAsyncLoadingThread::Get().IsMultithreaded() || Object->IsPostLoadThreadSafe())
 			{
+				SCOPED_ACCUM_LOADTIME(PostLoad, StaticGetNativeClassName(Object->GetClass()));
+
 				FScopeCycleCounterUObject ConstructorScope(Object, GET_STATID(STAT_FAsyncPackage_PostLoadObjects));
 
 				// We want this check only with EDL enabled
@@ -6548,6 +6624,7 @@ EAsyncPackageState::Type FAsyncPackage::FinishObjects()
 	PreLoadIndex = 0;
 	PreLoadSortIndex = 0;
 	PostLoadIndex = 0;
+	FinishExternalReadDependenciesIndex = 0;
 
 	// Keep the linkers to close until we finish loading and it's safe to close them too
 	DelayedLinkerClosePackages = MoveTemp(FUObjectThreadContext::Get().DelayedLinkerClosePackages);
@@ -6660,6 +6737,7 @@ void FAsyncPackage::Cancel()
 	}
 	PreLoadIndex = 0;
 	PreLoadSortIndex = 0;
+	FinishExternalReadDependenciesIndex = 0;
 }
 
 void FAsyncPackage::AddCompletionCallback(TUniquePtr<FLoadPackageAsyncDelegate>&& Callback, bool bInternal)
@@ -6791,7 +6869,10 @@ bool IsInAsyncLoadingThreadCoreUObjectInternal()
 
 void FlushAsyncLoading(int32 PackageID /* = INDEX_NONE */)
 {
+#if defined(WITH_CODE_GUARD_HANDLER) && WITH_CODE_GUARD_HANDLER
+	void CheckImageIntegrityAtRuntime();
 	CheckImageIntegrityAtRuntime();
+#endif
 
 	checkf(IsInGameThread(), TEXT("Unable to FlushAsyncLoading from any thread other than the game thread."));
 
@@ -6893,6 +6974,7 @@ int32 GetNumAsyncPackages()
 EAsyncPackageState::Type ProcessAsyncLoading(bool bUseTimeLimit, bool bUseFullTimeLimit, float TimeLimit)
 {
 	SCOPE_CYCLE_COUNTER(STAT_AsyncLoadingTime);
+	CSV_SCOPED_TIMING_STAT(Basic, AsyncLoadingTime);
 
 	{
 		SCOPE_CYCLE_COUNTER(STAT_FAsyncPackage_TickAsyncLoadingGameThread);

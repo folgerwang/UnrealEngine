@@ -342,9 +342,7 @@ void FUnrealEdMisc::OnInit()
 		{
 			if (!bMapLoaded && GEditor)
 			{
-				const FString StartupMap = GetDefault<UGameMapsSettings>()->EditorStartupMap.ToString();
-
-				if ((StartupMap.Len() > 0) && (GetDefault<UEditorLoadingSavingSettings>()->LoadLevelAtStartup != ELoadLevelAtStartup::None))
+				if (GetDefault<UEditorLoadingSavingSettings>()->LoadLevelAtStartup != ELoadLevelAtStartup::None)
 				{
 					FEditorFileUtils::LoadDefaultMapAtStartup();
 					BeginPerformanceSurvey();
@@ -751,7 +749,7 @@ bool FUnrealEdMisc::EnableWorldComposition(UWorld* InWorld, bool bEnable)
 		}
 			
 		// All existing sub-levels on this map should be removed
-		int32 NumExistingSublevels = InWorld->StreamingLevels.Num();
+		int32 NumExistingSublevels = InWorld->GetStreamingLevels().Num();
 		if (NumExistingSublevels > 0)
 		{
 			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("EnableWorldCompositionExistingSublevels_Message", "World Composition cannot be enabled because there are already sub-levels manually added to the persistent level. World Composition uses auto-discovery so you must first remove any manually added sub-levels from the Levels window"));

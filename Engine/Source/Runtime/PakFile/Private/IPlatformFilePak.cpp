@@ -7,6 +7,7 @@
 #include "Async/AsyncWork.h"
 #include "Serialization/MemoryReader.h"
 #include "HAL/IConsoleManager.h"
+#include "HAL/LowLevelMemTracker.h"
 #include "Misc/CoreDelegates.h"
 #include "Misc/App.h"
 #include "Modules/ModuleManager.h"
@@ -976,7 +977,8 @@ class FPakPrecacher
 	uint64 LoadSize;
 	FEncryptionKey EncryptionKey;
 	bool bSigned;
-
+	bool bAcceptPrecacheRequests;
+	FCriticalSection AcceptPrecacheRequestsScopeLock;
 public:
 
 	static void Init(IPlatformFile* InLowerLevel, const FEncryptionKey& InEncryptionKey)
@@ -1007,6 +1009,7 @@ public:
 					}
 				}
 				delete PakPrecacherSingleton;
+				PakPrecacherSingleton = nullptr;
 			}
 		}
 		check(!PakPrecacherSingleton);
@@ -1030,6 +1033,7 @@ public:
 		, LoadSize(0)
 		, EncryptionKey(InEncryptionKey)
 		, bSigned(!InEncryptionKey.Exponent.IsZero() && !InEncryptionKey.Modulus.IsZero())
+		, bAcceptPrecacheRequests(true)
 	{
 		check(LowerLevel && FPlatformProcess::SupportsMultithreading());
 		GPakCache_MaxRequestsToLowerLevel = FMath::Max(FMath::Min(FPlatformMisc::NumberOfIOWorkerThreadsToSpawn(), GPakCache_MaxRequestsToLowerLevel), 1);
@@ -1047,7 +1051,7 @@ public:
 
 	bool HasEnoughRoomForPrecache()
 	{
-		return GPakCache_AcceptPrecacheRequests;
+		return bAcceptPrecacheRequests;
 	}
 
 	uint16* RegisterPakFile(FName File, int64 PakFileSize)
@@ -2161,6 +2165,28 @@ public:
 		return true;
 	}
 
+	void ThrottleAsyncPrecaches(bool bEnablePrecacheRequests)
+	{
+		bool bStartNewRequests = false;
+		{
+			FScopeLock Lock(&AcceptPrecacheRequestsScopeLock);
+			if (bAcceptPrecacheRequests != bEnablePrecacheRequests)
+			{
+				bAcceptPrecacheRequests = bEnablePrecacheRequests;
+				if (bAcceptPrecacheRequests)
+				{
+					bStartNewRequests = true;
+				}
+			}
+		}
+
+		if (bStartNewRequests)
+		{
+			FScopeLock Lock(&CachedFilesScopeLock);
+			StartNextRequest();
+		}
+	}
+
 	bool GetCompletedRequest(IPakRequestor* Owner, uint8* UserSuppliedMemory)
 	{
 		check(Owner);
@@ -2998,7 +3024,7 @@ class FPakAsyncReadFileHandle final : public IAsyncReadFileHandle
 	int64 OffsetInPak;
 	int64 CompressedFileSize;
 	int64 UncompressedFileSize;
-	const FPakEntry* FileEntry;
+	FPakEntry FileEntry;
 	TSet<FPakProcessedReadRequest*> LiveRequests;
 	TArray<FCachedAsyncBlock*> Blocks;
 	FAsyncFileCallBack ReadCallbackFunction;
@@ -3022,20 +3048,20 @@ public:
 	FPakAsyncReadFileHandle(const FPakEntry* InFileEntry, FPakFile* InPakFile, const TCHAR* Filename)
 		: PakFile(InPakFile->GetFilenameName())
 		, PakFileSize(InPakFile->TotalSize())
-		, FileEntry(InFileEntry)
+		, FileEntry(*InFileEntry)
 		, NumLiveRawRequests(0)
 	{
-		OffsetInPak = FileEntry->Offset + FileEntry->GetSerializedSize(InPakFile->GetInfo().Version);
-		UncompressedFileSize = FileEntry->UncompressedSize;
-		CompressedFileSize = FileEntry->UncompressedSize;
-		if (FileEntry->CompressionMethod != COMPRESS_None && UncompressedFileSize)
+		OffsetInPak = FileEntry.Offset + FileEntry.GetSerializedSize(InPakFile->GetInfo().Version);
+		UncompressedFileSize = FileEntry.UncompressedSize;
+		CompressedFileSize = FileEntry.UncompressedSize;
+		if (FileEntry.CompressionMethod != COMPRESS_None && UncompressedFileSize)
 		{
-			check(FileEntry->CompressionBlocks.Num());
-			CompressedFileSize = FileEntry->CompressionBlocks.Last().CompressedEnd - OffsetInPak;
+			check(FileEntry.CompressionBlocks.Num());
+			CompressedFileSize = FileEntry.CompressionBlocks.Last().CompressedEnd - OffsetInPak;
 			check(CompressedFileSize > 0);
-			const int32 CompressionBlockSize = FileEntry->CompressionBlockSize;
-			check((UncompressedFileSize + CompressionBlockSize - 1) / CompressionBlockSize == FileEntry->CompressionBlocks.Num());
-			Blocks.AddDefaulted(FileEntry->CompressionBlocks.Num());
+			const int32 CompressionBlockSize = FileEntry.CompressionBlockSize;
+			check((UncompressedFileSize + CompressionBlockSize - 1) / CompressionBlockSize == FileEntry.CompressionBlocks.Num());
+			Blocks.AddDefaulted(FileEntry.CompressionBlocks.Num());
 		}
 		UE_LOG(LogPakFile, Verbose, TEXT("FPakPlatformFile::OpenAsyncRead[%016llX, %016llX) %s"), OffsetInPak, OffsetInPak + CompressedFileSize, Filename);
 		check(PakFileSize > 0 && OffsetInPak + CompressedFileSize <= PakFileSize && OffsetInPak >= 0);
@@ -3073,12 +3099,12 @@ public:
 			BytesToRead = UncompressedFileSize - Offset;
 		}
 		check(Offset + BytesToRead <= UncompressedFileSize && Offset >= 0);
-		if (FileEntry->CompressionMethod == COMPRESS_None)
+		if (FileEntry.CompressionMethod == COMPRESS_None)
 		{
 			check(Offset + BytesToRead + OffsetInPak <= PakFileSize);
 			check(!Blocks.Num());
 
-			if (FileEntry->bEncrypted)
+			if (FileEntry.bEncrypted)
 			{
 				return new FPakEncryptedReadRequest(PakFile, PakFileSize, CompleteCallback, OffsetInPak, Offset, BytesToRead, Priority, UserSuppliedMemory);
 			}
@@ -3092,8 +3118,8 @@ public:
 		{
 			FScopeLock ScopedLock(&CriticalSection);
 			check(Blocks.Num());
-			int32 FirstBlock = Offset / FileEntry->CompressionBlockSize;
-			int32 LastBlock = (Offset + BytesToRead - 1) / FileEntry->CompressionBlockSize;
+			int32 FirstBlock = Offset / FileEntry.CompressionBlockSize;
+			int32 LastBlock = (Offset + BytesToRead - 1) / FileEntry.CompressionBlockSize;
 
 			check(FirstBlock >= 0 && FirstBlock < Blocks.Num() && LastBlock >= 0 && LastBlock < Blocks.Num() && FirstBlock <= LastBlock);
 
@@ -3129,13 +3155,13 @@ public:
 		FCachedAsyncBlock& Block = GetBlock(BlockIndex);
 		Block.bInFlight = true;
 		check(!Block.RawRequest && !Block.Processed && !Block.Raw && !Block.CPUWorkGraphEvent.GetReference() && !Block.ProcessedSize && !Block.RawSize && !Block.bCPUWorkIsComplete);
-		Block.RawSize = FileEntry->CompressionBlocks[BlockIndex].CompressedEnd - FileEntry->CompressionBlocks[BlockIndex].CompressedStart;
-		if (FileEntry->bEncrypted)
+		Block.RawSize = FileEntry.CompressionBlocks[BlockIndex].CompressedEnd - FileEntry.CompressionBlocks[BlockIndex].CompressedStart;
+		if (FileEntry.bEncrypted)
 		{
 			Block.RawSize = Align(Block.RawSize, FAES::AESBlockSize);
 		}
 		NumLiveRawRequests++;
-		Block.RawRequest = new FPakReadRequest(PakFile, PakFileSize, &ReadCallbackFunction, FileEntry->CompressionBlocks[BlockIndex].CompressedStart, Block.RawSize, Priority, nullptr, true, &Block);
+		Block.RawRequest = new FPakReadRequest(PakFile, PakFileSize, &ReadCallbackFunction, FileEntry.CompressionBlocks[BlockIndex].CompressedStart, Block.RawSize, Priority, nullptr, true, &Block);
 	}
 	void RawReadCallback(bool bWasCancelled, IAsyncReadRequest* InRequest)
 	{
@@ -3163,13 +3189,13 @@ public:
 		else
 		{
 			check(Block.Raw);
-			Block.ProcessedSize = FileEntry->CompressionBlockSize;
+			Block.ProcessedSize = FileEntry.CompressionBlockSize;
 			if (Block.BlockIndex == Blocks.Num() - 1)
 			{
-				Block.ProcessedSize = FileEntry->UncompressedSize % FileEntry->CompressionBlockSize;
+				Block.ProcessedSize = FileEntry.UncompressedSize % FileEntry.CompressionBlockSize;
 				if (!Block.ProcessedSize)
 				{
-					Block.ProcessedSize = FileEntry->CompressionBlockSize; // last block was a full block
+					Block.ProcessedSize = FileEntry.CompressionBlockSize; // last block was a full block
 				}
 			}
 			check(Block.ProcessedSize && !Block.bCPUWorkIsComplete);
@@ -3185,7 +3211,7 @@ public:
 		{
 			check(Block.Raw && Block.RawSize && !Block.Processed);
 
-			if (FileEntry->bEncrypted)
+			if (FileEntry.bEncrypted)
 			{
 				INC_DWORD_STAT(STAT_PakCache_CompressedDecrypts);
 				DecryptData(Block.Raw, Align(Block.RawSize, FAES::AESBlockSize));
@@ -3194,7 +3220,7 @@ public:
 			check(Block.ProcessedSize > 0);
 			INC_MEMORY_STAT_BY(STAT_AsyncFileMemory, Block.ProcessedSize);
 			Output = (uint8*)FMemory::Malloc(Block.ProcessedSize);
-			FCompression::UncompressMemory((ECompressionFlags)FileEntry->CompressionMethod, Output, Block.ProcessedSize, Block.Raw, Block.RawSize, false, FPlatformMisc::GetPlatformCompression()->GetCompressionBitWindow());
+			FCompression::UncompressMemory((ECompressionFlags)FileEntry.CompressionMethod, Output, Block.ProcessedSize, Block.Raw, Block.RawSize, false, FPlatformMisc::GetPlatformCompression()->GetCompressionBitWindow());
 			FMemory::Free(Block.Raw);
 			Block.Raw = nullptr;
 			check(Block.RawSize > 0);
@@ -3223,7 +3249,7 @@ public:
 				TArray<FPakProcessedReadRequest*, TInlineAllocator<4> > CompletedRequests;
 				for (FPakProcessedReadRequest* Req : LiveRequests)
 				{
-					if (Req->CheckCompletion(*FileEntry, Block.BlockIndex, Blocks))
+					if (Req->CheckCompletion(FileEntry, Block.BlockIndex, Blocks))
 					{
 						CompletedRequests.Add(Req);
 					}
@@ -3290,8 +3316,8 @@ public:
 		FScopeLock ScopedLock(&CriticalSection);
 		check(LiveRequests.Contains(Req));
 		LiveRequests.Remove(Req);
-		int32 FirstBlock = Offset / FileEntry->CompressionBlockSize;
-		int32 LastBlock = (Offset + BytesToRead - 1) / FileEntry->CompressionBlockSize;
+		int32 FirstBlock = Offset / FileEntry.CompressionBlockSize;
+		int32 LastBlock = (Offset + BytesToRead - 1) / FileEntry.CompressionBlockSize;
 		check(FirstBlock >= 0 && FirstBlock < Blocks.Num() && LastBlock >= 0 && LastBlock < Blocks.Num() && FirstBlock <= LastBlock);
 
 		for (int32 BlockIndex = FirstBlock; BlockIndex <= LastBlock; BlockIndex++)
@@ -3317,8 +3343,8 @@ public:
 	{
 		FScopeLock ScopedLock(&CriticalSection);
 		check(LiveRequests.Contains(Req));
-		int32 FirstBlock = Offset / FileEntry->CompressionBlockSize;
-		int32 LastBlock = (Offset + BytesToRead - 1) / FileEntry->CompressionBlockSize;
+		int32 FirstBlock = Offset / FileEntry.CompressionBlockSize;
+		int32 LastBlock = (Offset + BytesToRead - 1) / FileEntry.CompressionBlockSize;
 		check(FirstBlock >= 0 && FirstBlock < Blocks.Num() && LastBlock >= 0 && LastBlock < Blocks.Num() && FirstBlock <= LastBlock);
 
 		for (int32 BlockIndex = FirstBlock; BlockIndex <= LastBlock; BlockIndex++)
@@ -3354,15 +3380,15 @@ public:
 	void GatherResults(uint8* Memory, int64 Offset, int64 BytesToRead)
 	{
 		// no lock here, I don't think it is needed because we have a ref count.
-		int32 FirstBlock = Offset / FileEntry->CompressionBlockSize;
-		int32 LastBlock = (Offset + BytesToRead - 1) / FileEntry->CompressionBlockSize;
+		int32 FirstBlock = Offset / FileEntry.CompressionBlockSize;
+		int32 LastBlock = (Offset + BytesToRead - 1) / FileEntry.CompressionBlockSize;
 		check(FirstBlock >= 0 && FirstBlock < Blocks.Num() && LastBlock >= 0 && LastBlock < Blocks.Num() && FirstBlock <= LastBlock);
 
 		for (int32 BlockIndex = FirstBlock; BlockIndex <= LastBlock; BlockIndex++)
 		{
 			FCachedAsyncBlock& Block = GetBlock(BlockIndex);
 			check(Block.RefCount > 0 && Block.Processed && Block.ProcessedSize);
-			int64 BlockStart = int64(BlockIndex) * int64(FileEntry->CompressionBlockSize);
+			int64 BlockStart = int64(BlockIndex) * int64(FileEntry.CompressionBlockSize);
 			int64 BlockEnd = BlockStart + Block.ProcessedSize;
 
 			int64 SrcOffset = 0;
@@ -3472,21 +3498,33 @@ IAsyncReadFileHandle* FPakPlatformFile::OpenAsyncRead(const TCHAR* Filename)
 #if USE_PAK_PRECACHE
 	if (FPlatformProcess::SupportsMultithreading() && GPakCache_Enable > 0)
 	{
+		FPakEntry FileEntry;
 		FPakFile* PakFile = NULL;
-		const FPakEntry* FileEntry = FindFileInPakFiles(Filename, &PakFile);
-		if (FileEntry && PakFile && PakFile->GetFilenameName() != NAME_None)
+		bool bFoundEntry = FindFileInPakFiles(Filename, &PakFile, &FileEntry);
+		if (bFoundEntry && PakFile && PakFile->GetFilenameName() != NAME_None)
 		{
 #if PAK_TRACKER
 			TrackPak(Filename, FileEntry);
 #endif
 			
-			return new FPakAsyncReadFileHandle(FileEntry, PakFile, Filename);
+			return new FPakAsyncReadFileHandle(&FileEntry, PakFile, Filename);
 		}
 	}
 #endif
 
 	return IPlatformFile::OpenAsyncRead(Filename);
 }
+
+void FPakPlatformFile::ThrottleAsyncPrecaches(bool bEnablePrecacheRequests)
+{
+#if USE_PAK_PRECACHE
+	if (FPlatformProcess::SupportsMultithreading() && GPakCache_Enable > 0)
+	{
+		FPakPrecacher::Get().ThrottleAsyncPrecaches(bEnablePrecacheRequests);
+	}
+#endif
+}
+
 
 /**
  * Class to handle correctly reading from a compressed file within a compressed package
@@ -3591,7 +3629,7 @@ public:
 	/** Pak file that own this file data */
 	const FPakFile&		PakFile;
 	/** Pak file entry for this file. */
-	const FPakEntry&	PakEntry;
+	FPakEntry			PakEntry;
 	/** Pak file archive to read the data from. */
 	FArchive*			PakReader;
 
@@ -3733,9 +3771,15 @@ bool FPakPlatformFile::IsNonPakFilenameAllowed(const FString& InFilename)
 FPakFile::FPakFile(const TCHAR* Filename, bool bIsSigned)
 	: PakFilename(Filename)
 	, PakFilenameName(Filename)
+	, FilenameHashesIndex(nullptr)
+	, FilenameHashes(nullptr)
+	, FilenameHashOffsets(nullptr)
+	, MiniPakEntries(nullptr)
+	, NumEntries(0)
 	, CachedTotalSize(0)
 	, bSigned(bIsSigned)
 	, bIsValid(false)
+	, bFilenamesRemoved(false)
 {
 	FArchive* Reader = GetSharedReader(NULL);
 	if (Reader)
@@ -3749,9 +3793,15 @@ FPakFile::FPakFile(const TCHAR* Filename, bool bIsSigned)
 FPakFile::FPakFile(IPlatformFile* LowerLevel, const TCHAR* Filename, bool bIsSigned)
 	: PakFilename(Filename)
 	, PakFilenameName(Filename)
+	, FilenameHashesIndex(nullptr)
+	, FilenameHashes(nullptr)
+	, FilenameHashOffsets(nullptr)
+	, MiniPakEntries(nullptr)
+	, NumEntries(0)
 	, CachedTotalSize(0)
 	, bSigned(bIsSigned)
 	, bIsValid(false)
+	, bFilenamesRemoved(false)
 {
 	FArchive* Reader = GetSharedReader(LowerLevel);
 	if (Reader)
@@ -3763,8 +3813,14 @@ FPakFile::FPakFile(IPlatformFile* LowerLevel, const TCHAR* Filename, bool bIsSig
 
 #if WITH_EDITOR
 FPakFile::FPakFile(FArchive* Archive)
-	: bSigned(false)
+	: FilenameHashesIndex(nullptr)
+	, FilenameHashes(nullptr)
+	, FilenameHashOffsets(nullptr)
+	, MiniPakEntries(nullptr)
+	, NumEntries(0)
+	, bSigned(false)
 	, bIsValid(false)
+	, bFilenamesRemoved(false)
 {
 	Initialize(Archive);
 }
@@ -3772,6 +3828,10 @@ FPakFile::FPakFile(FArchive* Archive)
 
 FPakFile::~FPakFile()
 {
+	delete[] MiniPakEntries;
+	delete[] FilenameHashOffsets;
+	delete[] FilenameHashes;
+	delete[] FilenameHashesIndex;
 }
 
 FArchive* FPakFile::CreatePakReader(const TCHAR* Filename)
@@ -3790,7 +3850,11 @@ FArchive* FPakFile::SetupSignedPakReader(FArchive* ReaderArchive, const TCHAR* F
 {
 	if (FPlatformProperties::RequiresCookedData())
 	{
-		if (bSigned || FParse::Param(FCommandLine::Get(), TEXT("signedpak")) || FParse::Param(FCommandLine::Get(), TEXT("signed")))
+		bool bShouldCheckSignature = bSigned || FParse::Param(FCommandLine::Get(), TEXT("signedpak")) || FParse::Param(FCommandLine::Get(), TEXT("signed"));
+#if !UE_BUILD_SHIPPING
+		bShouldCheckSignature &= !FParse::Param(FCommandLine::Get(), TEXT("FileOpenLog"));
+#endif
+		if (bShouldCheckSignature)
 		{
 			if (!Decryptor)
 			{
@@ -3815,12 +3879,15 @@ void FPakFile::Initialize(FArchive* Reader)
 	}
 	else
 	{
+        LLM_SCOPE(ELLMTag::FileSystem);
 		// Serialize trailer and check if everything is as expected.
 		Reader->Seek(CachedTotalSize - Info.GetSerializedSize());
 		Info.Serialize(*Reader);
 		UE_CLOG(Info.Magic != FPakInfo::PakFile_Magic, LogPakFile, Fatal, TEXT("Trailing magic number (%ud) in '%s' is different than the expected one. Verify your installation."), Info.Magic, *PakFilename);
 		UE_CLOG(!(Info.Version >= FPakInfo::PakFile_Version_Initial && Info.Version <= FPakInfo::PakFile_Version_Latest), LogPakFile, Fatal, TEXT("Invalid pak file version (%d) in '%s'. Verify your installation."), Info.Version, *PakFilename);
 		UE_CLOG((Info.bEncryptedIndex == 1) && (!FCoreDelegates::GetPakEncryptionKeyDelegate().IsBound()), LogPakFile, Fatal, TEXT("Index of pak file '%s' is encrypted, but this executable doesn't have any valid decryption keys"), *PakFilename);
+		UE_CLOG(!(Info.IndexOffset >= 0 && Info.IndexOffset < CachedTotalSize), LogPakFile, Fatal, TEXT("Index offset for pak file '%s' is invalid (%lld)"), *PakFilename, Info.IndexOffset);
+		UE_CLOG(!((Info.IndexOffset + Info.IndexSize) >= 0 && (Info.IndexOffset + Info.IndexSize) <= CachedTotalSize), LogPakFile, Fatal, TEXT("Index end offset for pak file '%s' is invalid (%lld)"), *PakFilename, Info.IndexOffset + Info.IndexSize);
 
 		LoadIndex(Reader);
 		// LoadIndex should crash in case of an error, so just assume everything is ok if we got here.
@@ -3859,11 +3926,29 @@ void FPakFile::LoadIndex(FArchive* Reader)
 		FSHA1::HashBuffer(IndexData.GetData(), IndexData.Num(), IndexHash);
 		if (FMemory::Memcmp(IndexHash, Info.IndexHash, sizeof(IndexHash)) != 0)
 		{
+			FString StoredIndexHash, ComputedIndexHash;
+			StoredIndexHash = TEXT("0x");
+			ComputedIndexHash = TEXT("0x");
+
+			for (int64 ByteIndex = 0; ByteIndex < 20; ++ByteIndex)
+			{
+				StoredIndexHash += FString::Printf(TEXT("%02X"), Info.IndexHash[ByteIndex]);
+				ComputedIndexHash += FString::Printf(TEXT("%02X"), IndexHash[ByteIndex]);
+			}
+
+			UE_LOG(LogPakFile, Log, TEXT("Corrupt pak index detected!"));
+			UE_LOG(LogPakFile, Log, TEXT(" Filename: %s"), *PakFilename);
+			UE_LOG(LogPakFile, Log, TEXT(" Encrypted: %d"), Info.bEncryptedIndex);
+			UE_LOG(LogPakFile, Log, TEXT(" Total Size: %d"), Reader->TotalSize());
+			UE_LOG(LogPakFile, Log, TEXT(" Index Offset: %d"), Info.IndexOffset);
+			UE_LOG(LogPakFile, Log, TEXT(" Index Size: %d"), Info.IndexSize);
+			UE_LOG(LogPakFile, Log, TEXT(" Stored Index Hash: %s"), *StoredIndexHash);
+			UE_LOG(LogPakFile, Log, TEXT(" Computed Index Hash: %s"), *ComputedIndexHash);
 			UE_LOG(LogPakFile, Fatal, TEXT("Corrupted index in pak file (CRC mismatch)."));
 		}
 
 		// Read the default mount point and all entries.
-		int32 NumEntries = 0;
+		NumEntries = 0;
 		IndexReader << MountPoint;
 		IndexReader << NumEntries;
 
@@ -3964,6 +4049,349 @@ bool FPakFile::Check()
 	}
 
 	return ErrorCount == 0;
+}
+
+struct FMiniFileEntry
+{
+	uint32 FilenameHash;
+	FPakEntry* Entry;
+};
+
+static inline int32 CDECL CompareFMiniFileEntry(const void* Left, const void* Right)
+{
+	const FMiniFileEntry* LeftEntry = (const FMiniFileEntry*)Left;
+	const FMiniFileEntry* RightEntry = (const FMiniFileEntry*)Right;
+	if (LeftEntry->FilenameHash < RightEntry->FilenameHash)
+	{
+		return -1;
+	}
+	if (LeftEntry->FilenameHash > RightEntry->FilenameHash)
+	{
+		return 1;
+	}
+	return 0;
+}
+
+void FPakFile::UnloadFilenames(bool bShrinkPakEntries)
+{
+	// If the process has already been done (regardless of what bShrinkPakEntries was
+	// passed in as the first time), get out of here.
+	if (bFilenamesRemoved)
+	{
+		return;
+	}
+
+	LLM_SCOPE(ELLMTag::FileSystem);
+
+	// Variables for the filename hashing and collision detection.
+	int NumRetries = 0;
+	const int MAX_RETRIES = 10;
+	bool bHasCollision;
+	FilenameStartHash = 0;
+
+	// Allocate the temporary array for hashing filenames. The Memset is to, hopefully,
+	// silence the Visual Studio static analyzer.
+	FMiniFileEntry* MiniFileEntries = new FMiniFileEntry[NumEntries];
+	FMemory::Memset(MiniFileEntries, 0, NumEntries * sizeof(FMiniFileEntry));
+
+	do
+	{
+		// No collisions yet for this pass.
+		bHasCollision = false;
+
+		// Build the list of hashes from the Index based on the starting hash.
+		int32 EntryIndex = 0;
+		for (TMap<FString, FPakDirectory>::TConstIterator It(Index); It; ++It)
+		{
+			for (FPakDirectory::TConstIterator DirectoryIt(It.Value()); DirectoryIt; ++DirectoryIt)
+			{
+				FString FinalFilename = It.Key() / DirectoryIt.Key();
+				uint32 FilenameHash = FCrc::MemCrc32(*FinalFilename, FinalFilename.Len() * sizeof(TCHAR), FilenameStartHash);
+				MiniFileEntries[EntryIndex].FilenameHash = FilenameHash;
+				MiniFileEntries[EntryIndex].Entry = DirectoryIt.Value();
+				++EntryIndex;
+			}
+		}
+
+		// Sort the list to make hash collision detection easy.
+		qsort(MiniFileEntries, NumEntries, sizeof(FMiniFileEntry), CompareFMiniFileEntry);
+
+		// Scan the sorted list of hashes for a collision.
+		for (EntryIndex = 1; EntryIndex < NumEntries; ++EntryIndex)
+		{
+			if (MiniFileEntries[EntryIndex].FilenameHash == MiniFileEntries[EntryIndex - 1].FilenameHash)
+			{
+				bHasCollision = true;
+				//FPlatformMisc::LowLevelOutputDebugString(*(FString("Hash collision - ") + FString::FormatAsNumber(FilenameStartHash) + TEXT(" - ")
+						//+ FString::FormatAsNumber(MiniFileEntries[EntryIndex].Crc) + TEXT(" - ")
+						//+ FString::FormatAsNumber(MiniFileEntries[EntryIndex - 1].Crc)));
+				++FilenameStartHash;
+				++NumRetries;
+				break;
+			}
+		}
+	} while (bHasCollision && NumRetries < MAX_RETRIES);
+
+	// Filenames can only be unloaded if we found a collision-free starting hash
+	// within the maximum number of retries.
+	if (NumRetries >= MAX_RETRIES)
+	{
+//		FPlatformMisc::LowLevelOutputDebugString(TEXT("Can't unload pak filenames due to hash collision..."));
+		delete[] MiniFileEntries;
+		return;
+	}
+
+	// Whether shrinking the pak entries or not, these same data buffers need to be allocated.
+	FilenameHashes = new uint32[NumEntries];
+	FilenameHashOffsets = new uint32[NumEntries];
+	int32 LastHashMostSignificantBits = -1;
+
+	// FilenameHashesIndex provides small 'arenas' of binary searchable filename hashes.
+	// The most significant bits (MSB) of the hash, 8 in this case, are used to index into
+	// the FilenameHashesIndex to get the start and end indices within FilenameHashes for the
+	// search.
+	//
+	// An example array looks like this:
+	//
+	//     0   - 0       << No entries in the 0-1 MSB range.
+	//     1   - 0       << Entry index 0 begins the 1-2 MSB range.
+	//     2   - 103     << Entry index 103 begins the 2-3 MSB range. The 3 MSB range is 103 also, so there are no entries.
+	//     3   - 103
+	//     4   - 331
+	//     5   - 629
+	//     ...
+	//     256 - 55331   << A value representing NumEntries
+	const int MAX_FILENAME_HASHES_INDEX_SIZE = 257;
+	FilenameHashesIndex = new uint32[MAX_FILENAME_HASHES_INDEX_SIZE];
+
+	// Transfer the sorted hashes to FilenameHashes.
+	for (int32 EntryIndex = 0; EntryIndex < NumEntries; EntryIndex++)
+	{
+		// If a new index entry is needed as a result of crossing over into a larger hash group
+		// as specified through the 8 most significant bits of the hash, store the entry index.
+		uint32 FilenameHash = MiniFileEntries[EntryIndex].FilenameHash;
+		int32 HashMostSignificantBits = FilenameHash >> 24;
+		if (HashMostSignificantBits != LastHashMostSignificantBits)
+		{
+			for (int32 BitsIndex = LastHashMostSignificantBits + 1; BitsIndex <= HashMostSignificantBits; ++BitsIndex)
+			{
+				FilenameHashesIndex[BitsIndex] = EntryIndex;
+			}
+			LastHashMostSignificantBits = HashMostSignificantBits;
+		}
+
+		FilenameHashes[EntryIndex] = FilenameHash;
+	}
+
+	// Fill out the array to the end.
+	for (int32 BitsIndex = LastHashMostSignificantBits + 1; BitsIndex < MAX_FILENAME_HASHES_INDEX_SIZE; ++BitsIndex)
+	{
+		FilenameHashesIndex[BitsIndex] = NumEntries;
+	}
+
+	// Clear out the Index. We no longer need it.
+	Index.Empty(0);
+	bFilenamesRemoved = true;
+
+	// The user requested shrinking of the FPakEntry data structures into something smaller
+	// in memory.
+	if (bShrinkPakEntries)
+	{
+		int TotalSizeOfCompressedEntries = 0;
+
+		// Determine any scenario where it is not possible to shrink the memory.
+		bool Is32BitSafe = CachedTotalSize < MAX_uint32;
+
+		// Wander every file entry.
+		bool bIsPossibleToShrink = true;
+		for (int32 EntryIndex = 0; EntryIndex < NumEntries; ++EntryIndex)
+		{
+			FPakEntry& Entry = *MiniFileEntries[EntryIndex].Entry;
+
+			bool bIsOffset32BitSafe = Entry.Offset <= MAX_uint32;
+			bool bIsSize32BitSafe = Entry.Size <= MAX_uint32;
+			bool bIsUncompressedSize32BitSafe = Entry.UncompressedSize <= MAX_uint32;
+
+			// This data fits into a bitfield (described below), and the data has
+			// to fit within a certain range of bits.
+			if (Entry.CompressionMethod >= (1 << 6))
+			{
+				bIsPossibleToShrink = false;
+				break;
+			}
+			if (Entry.CompressionBlocks.Num() >= (1 << 16))
+			{
+				bIsPossibleToShrink = false;
+				break;
+			}
+			if (Entry.CompressionMethod != COMPRESS_None)
+			{
+				if (Entry.CompressionBlockSize != Entry.UncompressedSize && ((Entry.CompressionBlockSize >> 11) > 0x3f))
+				{
+					bIsPossibleToShrink = false;
+					break;
+				}
+				if (Entry.CompressionBlocks.Num() > 0 && (Entry.Offset + Entry.GetSerializedSize(Info.Version) != Entry.CompressionBlocks[0].CompressedStart))
+				{
+					bIsPossibleToShrink = false;
+					break;
+				}
+				if (Entry.CompressionBlocks.Num() == 1 && (Entry.Offset + Entry.GetSerializedSize(Info.Version) + Entry.Size != Entry.CompressionBlocks[0].CompressedEnd))
+				{
+					bIsPossibleToShrink = false;
+					break;
+				}
+				if (Entry.CompressionBlocks.Num() > 1)
+				{
+					for (int i = 1; i < Entry.CompressionBlocks.Num(); ++i)
+					{
+						if (Entry.CompressionBlocks[i].CompressedStart != Entry.CompressionBlocks[i - 1].CompressedEnd)
+						{
+							bIsPossibleToShrink = false;
+							break;
+						}
+					}
+
+					if (!bIsPossibleToShrink)
+					{
+						break;
+					}
+				}
+			}
+
+			TotalSizeOfCompressedEntries += sizeof(uint32)
+					+ (bIsOffset32BitSafe ? sizeof(uint32) : sizeof(uint64))
+					+ (bIsUncompressedSize32BitSafe ? sizeof(uint32) : sizeof(uint64));
+			if (Entry.CompressionMethod != COMPRESS_None)
+			{
+				TotalSizeOfCompressedEntries +=
+						(bIsSize32BitSafe ? sizeof(uint32) : sizeof(uint64));
+				if (Entry.CompressionBlocks.Num() > 1)
+				{
+					TotalSizeOfCompressedEntries += Entry.CompressionBlocks.Num() * sizeof(uint32);
+				}
+			}
+		}
+
+		if (bIsPossibleToShrink)
+		{
+			// Allocate the buffer to hold onto all of the bit-encoded compressed FPakEntry structures.
+			MiniPakEntries = new uint8[TotalSizeOfCompressedEntries];
+
+			// Walk all of the file entries.
+			uint8* CurrentEntryPtr = MiniPakEntries;
+			for (int32 EntryIndex = 0; EntryIndex < NumEntries; EntryIndex++)
+			{
+				// Assign the proper offset for this entry into the bit-encoded memory structures.
+				FilenameHashOffsets[EntryIndex] = CurrentEntryPtr - MiniPakEntries;
+
+				// Begin building the compressed memory structure.
+				//
+				// The general data format for a bit-encoded entry is this:
+				//
+				//     uint32 - Flags
+				//                Bit 31 = Offset 32-bit safe?
+				//                Bit 30 = Uncompressed size 32-bit safe?
+				//                Bit 29 = Size 32-bit safe?
+				//                Bits 28-23 = Compression method
+				//                Bit 22 = Encrypted
+				//                Bits 21-6 = Compression blocks count
+				//                Bits 5-0 = Compression block size
+				//     uint32/uint64 - Offset (either 32-bit or 64-bit depending on bIsOffset32BitSafe)
+				//     uint32/uint64 - Uncompressed Size (either 32-bit or 64-bit depending on bIsUncompressedSize32BitSafe)
+				//
+				//   If the CompressionMethod != COMPRESS_None:
+				//     uint32/uint64 - Size (either 32-bit or 64-bit depending on bIsSize32BitSafe)
+				//
+				//     If the Compression blocks count is more than 1, then an array of Compression block sizes follows of:
+				//         uint32    - Number of bytes in this Compression block.
+				//
+				FPakEntry* FullEntry = MiniFileEntries[EntryIndex].Entry;
+				bool bIsOffset32BitSafe = FullEntry->Offset <= MAX_uint32;
+				bool bIsSize32BitSafe = FullEntry->Size <= MAX_uint32;
+				bool bIsUncompressedSize32BitSafe = FullEntry->UncompressedSize <= MAX_uint32;
+
+				// Build the Flags field.
+				*(uint32*)CurrentEntryPtr =
+						  (bIsOffset32BitSafe ? (1 << 31) : 0)
+						| (bIsUncompressedSize32BitSafe ? (1 << 30) : 0)
+						| (bIsSize32BitSafe ? (1 << 29) : 0)
+						| (FullEntry->CompressionMethod << 23)
+						| (FullEntry->bEncrypted ? (1 << 22) : 0)
+						| (FullEntry->CompressionBlocks.Num() << 6)
+						| (FullEntry->CompressionBlockSize >> 11)
+				;
+				CurrentEntryPtr += sizeof(uint32);
+
+				// Build the Offset field.
+				if (bIsOffset32BitSafe)
+				{
+					*(uint32*)CurrentEntryPtr = (uint32)FullEntry->Offset;
+					CurrentEntryPtr += sizeof(uint32);
+				}
+				else
+				{
+					FMemory::Memcpy(CurrentEntryPtr, &FullEntry->Offset, sizeof(int64));
+					CurrentEntryPtr += sizeof(int64);
+				}
+
+				// Build the Uncompressed Size field.
+				if (bIsUncompressedSize32BitSafe)
+				{
+					*(uint32*)CurrentEntryPtr = (uint32)FullEntry->UncompressedSize;
+					CurrentEntryPtr += sizeof(uint32);
+				}
+				else
+				{
+					FMemory::Memcpy(CurrentEntryPtr, &FullEntry->UncompressedSize, sizeof(int64));
+					CurrentEntryPtr += sizeof(int64);
+				}
+
+				// Any additional data is for compressed file data.
+				if (FullEntry->CompressionMethod != COMPRESS_None)
+				{
+					// Build the Compressed Size field.
+					if (bIsSize32BitSafe)
+					{
+						*(uint32*)CurrentEntryPtr = (uint32)FullEntry->Size;
+						CurrentEntryPtr += sizeof(uint32);
+					}
+					else
+					{
+						FMemory::Memcpy(CurrentEntryPtr, &FullEntry->Size, sizeof(int64));
+						CurrentEntryPtr += sizeof(int64);
+					}
+
+					// Build the Compression Blocks array.
+					if (FullEntry->CompressionBlocks.Num() > 1)
+					{
+						for (int CompressionBlockIndex = 0; CompressionBlockIndex < FullEntry->CompressionBlocks.Num(); ++CompressionBlockIndex)
+						{
+							*(uint32*)CurrentEntryPtr = FullEntry->CompressionBlocks[CompressionBlockIndex].CompressedEnd - FullEntry->CompressionBlocks[CompressionBlockIndex].CompressedStart;
+							CurrentEntryPtr += sizeof(uint32);
+						}
+					}
+				}
+			}
+			check(CurrentEntryPtr == MiniPakEntries + TotalSizeOfCompressedEntries);
+
+			// Clear out the Files data, because we compressed it, and we don't need the wasted
+			// space of the original anymore.
+			Files.Empty(0);
+
+			delete[] MiniFileEntries;
+			return;
+		}
+	}
+
+	// Walk all of the file entries.
+	for (int32 EntryIndex = 0; EntryIndex < NumEntries; EntryIndex++)
+	{
+		// Assign the proper index for this entry into the offsets array.
+		FilenameHashOffsets[EntryIndex] = MiniFileEntries[EntryIndex].Entry - Files.GetData();
+	}
+
+	delete[] MiniFileEntries;
 }
 
 #if DO_CHECK
@@ -4354,8 +4782,9 @@ bool FPakPlatformFile::Initialize(IPlatformFile* Inner, const TCHAR* CmdLine)
 
 void FPakPlatformFile::InitializeNewAsyncIO()
 {
-#if USE_PAK_PRECACHE 
-	if (!WITH_EDITOR && FPlatformProcess::SupportsMultithreading() &&  !FParse::Param(FCommandLine::Get(), TEXT("FileOpenLog")))
+#if USE_PAK_PRECACHE
+#if !WITH_EDITOR
+	if (FPlatformProcess::SupportsMultithreading() &&  !FParse::Param(FCommandLine::Get(), TEXT("FileOpenLog")))
 	{
 		FEncryptionKey DecryptionKey;
 		GetPakSigningKeys(DecryptionKey);
@@ -4363,6 +4792,7 @@ void FPakPlatformFile::InitializeNewAsyncIO()
 		FPakPrecacher::Init(LowerLevel, DecryptionKey);
 	}
 	else
+#endif
 	{
 		UE_CLOG(FParse::Param(FCommandLine::Get(), TEXT("FileOpenLog")), LogPakFile, Display, TEXT("Disabled pak precacher to get an accurate load order. This should only be used to collect gameopenorder.log, as it is quite slow."));
 		GPakCache_Enable = 0;
@@ -4390,17 +4820,22 @@ bool FPakPlatformFile::Mount(const TCHAR* InPakFilename, uint32 PakOrder, const 
 				// Default to version 1 for single patch system
 				uint32 ChunkVersionNumber = 1;
 				FString StrippedPakFilename = PakFilename.LeftChop(6);
-				int32 VersionStartIndex = PakFilename.Find("_", ESearchCase::CaseSensitive, ESearchDir::FromEnd);
-				if (VersionStartIndex != INDEX_NONE)
+				int32 VersionEndIndex = PakFilename.Find("_", ESearchCase::CaseSensitive, ESearchDir::FromEnd);
+				if (VersionEndIndex != INDEX_NONE && VersionEndIndex > 0)
 				{
-					FString VersionString = PakFilename.RightChop(VersionStartIndex);
-					if (VersionString.IsNumeric())
+					int32 VersionStartIndex = PakFilename.Find("_", ESearchCase::CaseSensitive, ESearchDir::FromEnd, VersionEndIndex-1);
+					if (VersionStartIndex != INDEX_NONE)
 					{
-						int32 ChunkVersionSigned = FCString::Atoi(*VersionString);
-						if (ChunkVersionSigned >= 1)
+						VersionStartIndex++;
+						FString VersionString = PakFilename.Mid(VersionStartIndex, VersionEndIndex - VersionStartIndex);
+						if (VersionString.IsNumeric())
 						{
-							// Increment by one so that the first patch file still gets more priority than the base pak file
-							ChunkVersionNumber = (uint32)ChunkVersionSigned + 1;
+							int32 ChunkVersionSigned = FCString::Atoi(*VersionString);
+							if (ChunkVersionSigned >= 1)
+							{
+								// Increment by one so that the first patch file still gets more priority than the base pak file
+								ChunkVersionNumber = (uint32)ChunkVersionSigned + 1;
+							}
 						}
 					}
 				}
@@ -4516,14 +4951,14 @@ IFileHandle* FPakPlatformFile::OpenRead(const TCHAR* Filename, bool bAllowWrite)
 {
 	IFileHandle* Result = NULL;
 	FPakFile* PakFile = NULL;
-	const FPakEntry* FileEntry = FindFileInPakFiles(Filename, &PakFile);	
-	if (FileEntry != NULL)
+	FPakEntry FileEntry;
+	if (FindFileInPakFiles(Filename, &PakFile, &FileEntry))
 	{
 #if PAK_TRACKER
 		TrackPak(Filename, FileEntry);
 #endif
 		
-		Result = CreatePakFileHandle(Filename, PakFile, FileEntry);
+		Result = CreatePakFileHandle(Filename, PakFile, &FileEntry);
 	}
 	else
 	{
@@ -4559,14 +4994,14 @@ bool FPakPlatformFile::BufferedCopyFile(IFileHandle& Dest, IFileHandle& Source, 
 bool FPakPlatformFile::CopyFile(const TCHAR* To, const TCHAR* From, EPlatformFileRead ReadFlags, EPlatformFileWrite WriteFlags)
 {
 	bool Result = false;
+	FPakEntry FileEntry;
 	FPakFile* PakFile = NULL;
-	const FPakEntry* FileEntry = FindFileInPakFiles(From, &PakFile);	
-	if (FileEntry != NULL)
+	if (FindFileInPakFiles(From, &PakFile, &FileEntry))
 	{
 		// Copy from pak to LowerLevel->
 		// Create handles both files.
 		TUniquePtr<IFileHandle> DestHandle(LowerLevel->OpenWrite(To, false, (WriteFlags & EPlatformFileWrite::AllowRead) != EPlatformFileWrite::None));
-		TUniquePtr<IFileHandle> SourceHandle(CreatePakFileHandle(From, PakFile, FileEntry));
+		TUniquePtr<IFileHandle> SourceHandle(CreatePakFileHandle(From, PakFile, &FileEntry));
 
 		if (DestHandle && SourceHandle)
 		{
@@ -4581,6 +5016,21 @@ bool FPakPlatformFile::CopyFile(const TCHAR* To, const TCHAR* From, EPlatformFil
 		Result = LowerLevel->CopyFile(To, From, ReadFlags, WriteFlags);
 	}
 	return Result;
+}
+
+/**
+ * When filenames are no longer needed for purposes of wildcard operations
+ * within the pak directory structure, UnloadPakEntryFilenames() will
+ * remove them all from memory.
+ */
+void FPakPlatformFile::UnloadFilenames(bool bShrinkPakEntries)
+{
+	TArray<FPakListEntry> Paks;
+	GetMountedPaks(Paks);
+	for (auto Pak : Paks)
+	{
+		Pak.PakFile->UnloadFilenames(bShrinkPakEntries);
+	}
 }
 
 /**

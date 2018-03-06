@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections;
@@ -161,18 +161,21 @@ namespace UnrealBuildTool
 			#pragma warning disable CS1591
 			#endif
 
+			[Obsolete("LinkEnvironmentConfiguration.bHasExports is deprecated in the 4.19 release. Modify TargetRules.bHasExports instead.")]
 			public bool bHasExports
 			{
 				get { return Inner.bHasExports; }
 				set { Inner.bHasExports = value; }
 			}
 
+			[Obsolete("LinkEnvironmentConfiguration.bIsBuildingConsoleApplication is deprecated in the 4.19 release. Modify TargetRules.bIsBuildingConsoleApplication instead.")]
 			public bool bIsBuildingConsoleApplication
 			{
 				get { return Inner.bIsBuildingConsoleApplication; }
 				set { Inner.bIsBuildingConsoleApplication = value; }
 			}
 
+			[Obsolete("LinkEnvironmentConfiguration.bDisableSymbolCache is deprecated in the 4.19 release. Modify TargetRules.bDisableSymbolCache instead.")]
 			public bool bDisableSymbolCache
 			{
 				get { return Inner.bDisableSymbolCache; }
@@ -212,11 +215,13 @@ namespace UnrealBuildTool
 			#pragma warning disable CS1591
 			#endif
 
+			[Obsolete("CPPEnvironmentConfiguration.bEnableOSX109Support is deprecated in the 4.19 release. Modify TargetRules.GlobalDefinitions instead.")]
 			public List<string> Definitions
 			{
 				get { return Inner.GlobalDefinitions; }
 			}
 
+			[Obsolete("CPPEnvironmentConfiguration.bEnableOSX109Support is deprecated in the 4.19 release. Modify TargetRules.bEnableOSX109Support directly instead.")]
 			public bool bEnableOSX109Support
 			{
 				get { return Inner.bEnableOSX109Support; }
@@ -899,6 +904,7 @@ namespace UnrealBuildTool
 		/// Whether to deploy the executable after compilation on platforms that require deployment.
 		/// </summary>
 		[CommandLine("-Deploy")]
+		[CommandLine("-SkipDeploy", Value = "false")]
 		public bool bDeployAfterCompile = false;
 
 		/// <summary>
@@ -958,6 +964,12 @@ namespace UnrealBuildTool
 		[CommandLine("-HideSymbolsByDefault")]
 		public bool bHideSymbolsByDefault;
 
+		/// <summary>
+		/// Allows overriding the toolchain to be created for this target. This must match the name of a class declared in the UnrealBuildTool assembly.
+		/// </summary>
+		[CommandLine("-ToolChain")]
+		public string ToolChainName = null;
+
         /// <summary>
         /// Whether to load generated ini files in cooked build
         /// </summary>
@@ -1003,6 +1015,15 @@ namespace UnrealBuildTool
 		/// Macros to define across all macros in the project.
 		/// </summary>
 		public List<string> ProjectDefinitions = new List<string>();
+
+		/// <summary>
+		/// Wrapper around GlobalDefinitions for people just stripping CPPEnvironmentConfiguration from variable names due to deprecation in 4.18.
+		/// </summary>
+		[Obsolete("Definitions is deprecated in the 4.19 release. Use GlobalDefinitions instead.")]
+		public List<string> Definitions
+		{
+			get { return GlobalDefinitions; }
+		}
 
 		/// <summary>
 		/// Specifies the name of the launch module. For modular builds, this is the module that is compiled into the target's executable.
@@ -1135,13 +1156,31 @@ namespace UnrealBuildTool
 			EncryptionAndSigning.CryptoSettings CryptoSettings = EncryptionAndSigning.ParseCryptoSettings(DirectoryReference.FromFile(ProjectFile), Platform);
 			if (CryptoSettings.IsAnyEncryptionEnabled())
 			{
-				ProjectDefinitions.Add("UE_ENCRYPTION_KEY=" + String.Join(",", CryptoSettings.EncryptionKey.Key.Select(x => String.Format("0x{0:X2}", x))));
+				ProjectDefinitions.Add(String.Format("IMPLEMENT_ENCRYPTION_KEY_REGISTRATION()=UE_REGISTER_ENCRYPTION_KEY({0})", FormatHexBytes(CryptoSettings.EncryptionKey.Key)));
 			}
+			else
+			{
+				ProjectDefinitions.Add("IMPLEMENT_ENCRYPTION_KEY_REGISTRATION()=");
+			}
+
 			if (CryptoSettings.bEnablePakSigning)
 			{
-				ProjectDefinitions.Add("UE_SIGNING_KEY_EXPONENT=" + String.Join(",", CryptoSettings.SigningKey.PublicKey.Exponent.Select(x => String.Format("0x{0:X2}", x))));
-				ProjectDefinitions.Add("UE_SIGNING_KEY_MODULUS=" + String.Join(",", CryptoSettings.SigningKey.PublicKey.Modulus.Select(x => String.Format("0x{0:X2}", x))));
+				ProjectDefinitions.Add(String.Format("IMPLEMENT_SIGNING_KEY_REGISTRATION()=UE_REGISTER_SIGNING_KEY(UE_LIST_ARGUMENT({0}), UE_LIST_ARGUMENT({1}))", FormatHexBytes(CryptoSettings.SigningKey.PublicKey.Exponent), FormatHexBytes(CryptoSettings.SigningKey.PublicKey.Modulus)));
 			}
+			else
+			{
+				ProjectDefinitions.Add("IMPLEMENT_SIGNING_KEY_REGISTRATION()=");
+			}
+		}
+
+		/// <summary>
+		/// Formats an array of bytes as a sequence of values
+		/// </summary>
+		/// <param name="Data">The data to convert into a string</param>
+		/// <returns>List of hexadecimal bytes</returns>
+		private static string FormatHexBytes(byte[] Data)
+		{
+			return String.Join(",", Data.Select(x => String.Format("0x{0:X2}", x)));
 		}
 
 		/// <summary>
@@ -1274,6 +1313,7 @@ namespace UnrealBuildTool
 		/// <param name="Target">The target information - such as platform and configuration</param>
 		/// <param name="OutLinkEnvironmentConfiguration">Output link environment settings</param>
 		/// <param name="OutCPPEnvironmentConfiguration">Output compile environment settings</param>
+		[ObsoleteOverride("SetupGlobalEnvironment() has been deprecated in the 4.19 release. Please set options from the constructor instead.")]
 		public virtual void SetupGlobalEnvironment(
 			TargetInfo Target,
 			ref LinkEnvironmentConfiguration OutLinkEnvironmentConfiguration,
@@ -1894,6 +1934,11 @@ namespace UnrealBuildTool
 		public bool bHideSymbolsByDefault
 		{
 			get { return Inner.bHideSymbolsByDefault; }
+		}
+
+		public string ToolChainName
+		{
+			get { return Inner.ToolChainName; }
 		}
 
 		public bool bLegacyPublicIncludePaths

@@ -359,7 +359,7 @@ struct FTexturePlatformData
 		uint32 InFlags,
 		class ITextureCompressorModule* Compressor);
 	void FinishCache();
-	ENGINE_API bool TryInlineMipData();
+	ENGINE_API bool TryInlineMipData(int32 FirstMipToLoad = 0);
 	bool AreDerivedMipsAvailable() const;
 #endif
 

@@ -14,7 +14,7 @@ class FXmppUserJid;
 typedef struct _xmpp_conn_t xmpp_conn_t;
 typedef struct _xmpp_ctx_t xmpp_ctx_t;
 
-enum class FStropheConnectionState : uint8
+enum class EStropheConnectionState : uint8
 {
 	Unknown,
 	Disconnected,
@@ -22,7 +22,7 @@ enum class FStropheConnectionState : uint8
 	Connected
 };
 
-enum class FStropheConnectionEvent : uint8
+enum class EStropheConnectionEvent : uint8
 {
 	Connect,
 	RawConnect,
@@ -79,7 +79,7 @@ public:
 	xmpp_ctx_t* GetContextPtr() const { return Context.GetContextPtr(); }
 
 	/** Get our current connection state */
-	FStropheConnectionState GetConnectionState() const;
+	EStropheConnectionState GetConnectionState() const;
 
 protected:
 	FStropheContext& Context;

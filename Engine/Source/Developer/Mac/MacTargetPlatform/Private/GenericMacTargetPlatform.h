@@ -12,7 +12,9 @@
 #include "Misc/ConfigCacheIni.h"
 #include "LocalMacTargetDevice.h"
 
+
 #if WITH_ENGINE
+#include "AudioCompressionSettings.h"
 #include "Sound/SoundWave.h"
 #include "TextureResource.h"
 #include "StaticMeshResources.h"
@@ -212,6 +214,12 @@ return TSuper::SupportsFeature(Feature);
 		OutFormats.Add(NAME_OGG);
 		OutFormats.Add(NAME_OPUS);
 	}
+
+	virtual FPlatformAudioCookOverrides* GetAudioCompressionSettings() const override
+	{
+		return nullptr;
+	}
+
 #endif //WITH_ENGINE
 
 

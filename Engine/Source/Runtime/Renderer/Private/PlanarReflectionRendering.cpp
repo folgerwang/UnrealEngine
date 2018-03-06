@@ -221,7 +221,7 @@ static void UpdatePlanarReflectionContents_RenderThread(
 				FIndividualOcclusionHistory& OcclusionHistory = ViewState->PlanarReflectionOcclusionHistories.FindOrAdd(SceneProxy->PlanarReflectionId);
 
 				// +1 to buffered frames because the query is submitted late into the main frame, but read at the beginning of a reflection capture frame
-				const int32 NumBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames() + 1;
+				const int32 NumBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames(SceneRenderer->FeatureLevel) + 1;
 				// +1 to frame counter because we are operating before the main view's InitViews, which is where OcclusionFrameCounter is incremented
 				uint32 OcclusionFrameCounter = ViewState->OcclusionFrameCounter + 1;
 				FRenderQueryRHIRef& PastQuery = OcclusionHistory.GetPastQuery(OcclusionFrameCounter, NumBufferedFrames);

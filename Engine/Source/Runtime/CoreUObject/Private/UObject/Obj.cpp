@@ -637,6 +637,11 @@ void UObject::UpdateClassesExcludedFromDedicatedClient(const TArray<FString>& In
 	GDedicatedClientExclusionList.UpdateExclusionList(InClassNames, InModulesNames);
 }
 
+bool UObject::NeedsLoadForTargetPlatform(const class ITargetPlatform* TargetPlatform) const
+{
+	return true;
+}
+
 bool UObject::CanCreateInCurrentContext(UObject* Template)
 {
 	check(Template);
@@ -2952,7 +2957,7 @@ void ParseFunctionFlags(uint32 Flags, TArray<const TCHAR*>& Results)
 }
 
 
-TArray<const TCHAR*> ParsePropertyFlags(uint64 Flags)
+COREUOBJECT_API TArray<const TCHAR*> ParsePropertyFlags(uint64 Flags)
 {
 	TArray<const TCHAR*> Results;
 
@@ -4084,6 +4089,8 @@ void PreInitUObject()
 
 void InitUObject()
 {
+	LLM_SCOPE(ELLMTag::InitUObject);
+
 	// Initialize redirects map
 	for (const TPair<FString,FConfigFile>& It : *GConfig)
 	{

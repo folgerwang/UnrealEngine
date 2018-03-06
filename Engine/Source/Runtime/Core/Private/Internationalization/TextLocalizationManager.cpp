@@ -4,6 +4,7 @@
 #include "Internationalization/TextLocalizationResource.h"
 #include "GenericPlatform/GenericPlatformFile.h"
 #include "HAL/FileManager.h"
+#include "HAL/LowLevelMemTracker.h"
 #include "Misc/Parse.h"
 #include "Templates/ScopedPointer.h"
 #include "Misc/ScopeLock.h"
@@ -658,7 +659,7 @@ void FTextLocalizationManager::RefreshResources()
 
 void FTextLocalizationManager::OnCultureChanged()
 {
-	if (!bIsInitialized)
+    if (!bIsInitialized)
 	{
 		// Ignore culture changes while the text localization manager is still being initialized
 		// The correct data will be loaded by EndInitTextLocalization
@@ -673,6 +674,8 @@ void FTextLocalizationManager::OnCultureChanged()
 
 void FTextLocalizationManager::LoadLocalizationResourcesForCulture(const FString& CultureName, const bool ShouldLoadEditor, const bool ShouldLoadGame, const bool ShouldLoadNative)
 {
+    LLM_SCOPE(ELLMTag::Localization);
+    
 	const FCulturePtr Culture = FInternationalization::Get().GetCulture(CultureName);
 
 	// Can't load localization resources for a culture that doesn't exist, early-out.

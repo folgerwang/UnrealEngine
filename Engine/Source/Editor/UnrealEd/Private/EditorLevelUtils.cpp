@@ -55,12 +55,12 @@ DEFINE_LOG_CATEGORY(LogLevelTools);
 #define LOCTEXT_NAMESPACE "EditorLevelUtils"
 
 
-int32 UEditorLevelUtils::MoveActorsToLevel(const TArray<AActor*>& ActorsToMove, ULevelStreaming* DestStreamingLevel)
+int32 UEditorLevelUtils::MoveActorsToLevel(const TArray<AActor *>& ActorsToMove, ULevelStreaming* DestStreamingLevel, bool bWarnAboutReferences)
 {
-	return MoveActorsToLevel(ActorsToMove, DestStreamingLevel ? DestStreamingLevel->GetLoadedLevel() : nullptr);
+	return MoveActorsToLevel(ActorsToMove, DestStreamingLevel ? DestStreamingLevel->GetLoadedLevel() : nullptr, bWarnAboutReferences);
 }
 
-int32 UEditorLevelUtils::MoveActorsToLevel(const TArray<AActor*>& ActorsToMove, ULevel* DestLevel)
+int32 UEditorLevelUtils::MoveActorsToLevel(const TArray<AActor*>& ActorsToMove, ULevel* DestLevel, bool bWarnAboutReferences)
 {
 	int32 NumMovedActors = 0;
 
@@ -134,8 +134,10 @@ int32 UEditorLevelUtils::MoveActorsToLevel(const TArray<AActor*>& ActorsToMove, 
 				// Cache the old level
 				ULevel* OldCurrentLevel = OwningWorld->GetCurrentLevel();
 
-				// Copy the actors we have selected to the clipboard
-				GEditor->CopySelectedActorsToClipboard(OwningWorld, true, true);
+				// We are moving the actors so cut them to remove them from the existing level
+				const bool bShoudCut = true;
+				const bool bIsMove = true;
+				GEditor->CopySelectedActorsToClipboard(OwningWorld, bShoudCut, bIsMove, bWarnAboutReferences);
 
 				// Set the new level and force it visible while we do the paste
 				OwningWorld->SetCurrentLevel(DestLevel);
@@ -145,8 +147,10 @@ int32 UEditorLevelUtils::MoveActorsToLevel(const TArray<AActor*>& ActorsToMove, 
 					UEditorLevelUtils::SetLevelVisibility(DestLevel, true, false);
 				}
 
-				// Paste the actors into the new level
-				GEditor->edactPasteSelected(OwningWorld, false, false, false);
+				const bool bDuplicate = false;
+				const bool bOffsetLocations = false;
+				const bool bWarnIfHidden = false;
+				GEditor->edactPasteSelected(OwningWorld, bDuplicate, bOffsetLocations, bWarnIfHidden);
 
 				// Build a remapping of old to new names so we can do a fixup
 				for (FSelectionIterator It(GEditor->GetSelectedActorIterator()); It; ++It)
@@ -233,13 +237,13 @@ int32 UEditorLevelUtils::MoveActorsToLevel(const TArray<AActor*>& ActorsToMove, 
 	return NumMovedActors;
 }
 
-int32 UEditorLevelUtils::MoveSelectedActorsToLevel(ULevelStreaming* DestStreamingLevel)
+int32 UEditorLevelUtils::MoveSelectedActorsToLevel(ULevelStreaming* DestStreamingLevel, bool bWarnAboutReferences)
 {
 	ensureAsRuntimeWarning(DestStreamingLevel != nullptr);
-	return DestStreamingLevel ? MoveSelectedActorsToLevel(DestStreamingLevel->GetLoadedLevel()) : 0;
+	return DestStreamingLevel ? MoveSelectedActorsToLevel(DestStreamingLevel->GetLoadedLevel(), bWarnAboutReferences) : 0;
 }
 
-int32 UEditorLevelUtils::MoveSelectedActorsToLevel(ULevel* DestLevel)
+int32 UEditorLevelUtils::MoveSelectedActorsToLevel(ULevel* DestLevel, bool bWarnAboutReferences)
 {
 	if (ensureAsRuntimeWarning(DestLevel != nullptr))
 	{
@@ -252,7 +256,7 @@ int32 UEditorLevelUtils::MoveSelectedActorsToLevel(ULevel* DestLevel)
 			}
 		}
 
-		return MoveActorsToLevel(ActorsToMove, DestLevel);
+		return MoveActorsToLevel(ActorsToMove, DestLevel, bWarnAboutReferences);
 	}
 
 	return 0;
@@ -346,7 +350,7 @@ ULevelStreaming* UEditorLevelUtils::AddLevelToWorld(UWorld* InWorld, const TCHAR
 		StreamingLevel->LevelColor = FLinearColor::MakeRandomColor();
 
 		// Add the new level to world.
-		InWorld->StreamingLevels.Add(StreamingLevel);
+		InWorld->AddStreamingLevel(StreamingLevel);
 
 		// Refresh just the newly created level.
 		TArray<ULevelStreaming*> LevelsForRefresh;
@@ -399,7 +403,7 @@ ULevelStreaming* UEditorLevelUtils::SetStreamingClassForLevel(ULevelStreaming* I
 	check(Level->OwningWorld);
 	UWorld* World = Level->OwningWorld;
 
-	World->StreamingLevels.Remove(InLevel);
+	World->RemoveStreamingLevel(InLevel);
 
 	// re-add the level with the desired streaming class
 	AddLevelToWorld(World, *(CachedPackageName.ToString()), LevelStreamingClass);
@@ -479,9 +483,8 @@ bool UEditorLevelUtils::PrivateRemoveInvalidLevelFromWorld(ULevelStreaming* InLe
 		InLevelStreaming->Modify();
 
 		// Disassociate the level from the volume.
-		for (auto VolIter = InLevelStreaming->EditorStreamingVolumes.CreateIterator(); VolIter; VolIter++)
+		for (ALevelStreamingVolume* LevelStreamingVolume : InLevelStreaming->EditorStreamingVolumes)
 		{
-			ALevelStreamingVolume* LevelStreamingVolume = *VolIter;
 			if (LevelStreamingVolume)
 			{
 				LevelStreamingVolume->Modify();
@@ -492,10 +495,9 @@ bool UEditorLevelUtils::PrivateRemoveInvalidLevelFromWorld(ULevelStreaming* InLe
 		// Disassociate the volumes from the level.
 		InLevelStreaming->EditorStreamingVolumes.Empty();
 
-		UWorld* OwningWorld = Cast<UWorld>(InLevelStreaming->GetOuter());
-		if (OwningWorld != NULL)
+		if (UWorld* OwningWorld = Cast<UWorld>(InLevelStreaming->GetOuter()))
 		{
-			OwningWorld->StreamingLevels.Remove(InLevelStreaming);
+			OwningWorld->RemoveStreamingLevel(InLevelStreaming);
 			OwningWorld->RefreshStreamingLevels();
 			bRemovedLevelStreaming = true;
 		}
@@ -664,9 +666,9 @@ bool UEditorLevelUtils::PrivateRemoveLevelFromWorld(ULevel* InLevel)
 
 	int32 StreamingLevelIndex = INDEX_NONE;
 
-	for (int32 LevelIndex = 0; LevelIndex < InLevel->OwningWorld->StreamingLevels.Num(); ++LevelIndex)
+	for (int32 LevelIndex = 0; LevelIndex < InLevel->OwningWorld->GetStreamingLevels().Num(); ++LevelIndex)
 	{
-		ULevelStreaming* StreamingLevel = InLevel->OwningWorld->StreamingLevels[LevelIndex];
+		ULevelStreaming* StreamingLevel = InLevel->OwningWorld->GetStreamingLevels()[LevelIndex];
 		if (StreamingLevel && StreamingLevel->GetLoadedLevel() == InLevel)
 		{
 			StreamingLevelIndex = LevelIndex;
@@ -676,8 +678,9 @@ bool UEditorLevelUtils::PrivateRemoveLevelFromWorld(ULevel* InLevel)
 
 	if (StreamingLevelIndex != INDEX_NONE)
 	{
-		InLevel->OwningWorld->StreamingLevels[StreamingLevelIndex]->MarkPendingKill();
-		InLevel->OwningWorld->StreamingLevels.RemoveAt(StreamingLevelIndex);
+		ULevelStreaming* StreamingLevel = InLevel->OwningWorld->GetStreamingLevels()[StreamingLevelIndex];
+		StreamingLevel->MarkPendingKill();
+		InLevel->OwningWorld->RemoveStreamingLevel(StreamingLevel);
 		InLevel->OwningWorld->RefreshStreamingLevels();
 	}
 	else if (InLevel->bIsVisible)
@@ -923,7 +926,7 @@ void UEditorLevelUtils::SetLevelVisibility(ULevel* Level, bool bShouldBeVisible,
 			}
 
 			// Set the visibility state for this streaming level.  
-			StreamingLevel->bShouldBeVisibleInEditor = bShouldBeVisible;
+			StreamingLevel->SetShouldBeVisibleInEditor(bShouldBeVisible);
 		}
 
 		if (!bShouldBeVisible && GEditor->Layers.IsValid())
@@ -1069,14 +1072,13 @@ void UEditorLevelUtils::GetWorlds(UWorld* InWorld, TArray<UWorld*>& OutWorlds, b
 	}
 
 	// Iterate over the world's level array to find referenced levels ("worlds"). We don't 
-	for (int32 LevelIndex = 0; LevelIndex < InWorld->StreamingLevels.Num(); ++LevelIndex)
+	for (ULevelStreaming* StreamingLevel : InWorld->GetStreamingLevels())
 	{
-		ULevelStreaming* StreamingLevel = InWorld->StreamingLevels[LevelIndex];
 		if (StreamingLevel)
 		{
 			// If we asked for only sub-levels that are editor-visible, then limit our results appropriately
 			bool bShouldAlwaysBeLoaded = false; // Cast< ULevelStreamingAlwaysLoaded >( StreamingLevel ) != NULL;
-			if (!bOnlyEditorVisible || bShouldAlwaysBeLoaded || StreamingLevel->bShouldBeVisibleInEditor)
+			if (!bOnlyEditorVisible || bShouldAlwaysBeLoaded || StreamingLevel->GetShouldBeVisibleInEditor())
 			{
 				const ULevel* Level = StreamingLevel->GetLoadedLevel();
 

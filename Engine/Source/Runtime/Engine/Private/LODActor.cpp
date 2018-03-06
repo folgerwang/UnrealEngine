@@ -16,12 +16,13 @@
 #include "StaticMeshResources.h"
 #include "EngineUtils.h"
 #include "UObject/FrameworkObjectVersion.h"
+#include "UObject/AthenaObjectVersion.h"
 
 #if WITH_EDITOR
 #include "Editor.h"
-
 #include "HierarchicalLODUtilitiesModule.h"
 #include "ObjectTools.h"
+#include "HierarchicalLOD.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "LODActor"
@@ -38,6 +39,26 @@ static FAutoConsoleVariableRef CVarMaximumAllowedHLODLevel(
 	TEXT("2+: Allow up to the Nth level of HLOD clusters to be shown"),
 	ECVF_Scalability);
 
+static TAutoConsoleVariable<float> CVarHLODDitherPauseTime(
+	TEXT("r.HLOD.DitherPauseTime"),
+	0.5f,
+	TEXT("HLOD dither pause time in seconds\n"),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
+
+ENGINE_API TAutoConsoleVariable<float> CVarHLODDistanceScale(
+	TEXT("r.HLOD.DistanceScale"),
+	1.0f,
+	TEXT("Scale factor for the distance used in computing discrete HLOD for transition for static meshes. (defaults to 1)\n")
+	TEXT("(higher values make HLODs transition farther away, e.g., 2 is twice the distance)"),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
+
+ENGINE_API TAutoConsoleVariable<FString> CVarHLODDistanceOverride(
+	TEXT("r.HLOD.DistanceOverride"),
+	"0.0",
+	TEXT("If non-zero, overrides the distance that HLOD transitions will take place for all objects at the HLOD level index, formatting is as follows:\n\tr.HLOD.DistanceOverride 5000, 10000, 20000 this would result in HLOD levels 0, 1 and 2 transitioning at respectively 5000, 1000 and 20000.\n"),
+	ECVF_Scalability);
+
+ENGINE_API TArray<float> ALODActor::HLODDistances;
 
 #if !(UE_BUILD_SHIPPING)
 static void HLODConsoleCommand(const TArray<FString>& Args, UWorld* World)
@@ -159,6 +180,10 @@ ALODActor::ALODActor(const FObjectInitializer& ObjectInitializer)
 	bool bCastsStaticShadow = false;
 	bool bCastsDynamicShadow = false;
 
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = false;
+	PrimaryActorTick.bAllowTickOnDedicatedServer = false;
+
 #if WITH_EDITORONLY_DATA
 	
 	bListedInSceneOutliner = false;
@@ -174,13 +199,16 @@ ALODActor::ALODActor(const FObjectInitializer& ObjectInitializer)
 	StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMeshComponent0"));
 	StaticMeshComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 	StaticMeshComponent->Mobility = EComponentMobility::Static;
-	StaticMeshComponent->bGenerateOverlapEvents = false;
+	StaticMeshComponent->SetGenerateOverlapEvents(false);
 	StaticMeshComponent->CastShadow = bCastsShadow;
 	StaticMeshComponent->bCastStaticShadow = bCastsStaticShadow;
 	StaticMeshComponent->bCastDynamicShadow = bCastsDynamicShadow;
 	StaticMeshComponent->bAllowCullDistanceVolume = false;
-
+	StaticMeshComponent->bNeverDistanceCull = true;
+	bNeedsDrawDistanceReset = false;
+	ResetDrawDistanceTime = 0.0f;
 	RootComponent = StaticMeshComponent;	
+	CachedNumHLODLevels = 1;
 }
 
 FString ALODActor::GetDetailedInfoInternal() const
@@ -219,7 +247,128 @@ void ALODActor::PostLoad()
 			TransitionScreenSize = ComputeBoundsScreenSize(FVector::ZeroVector, Bounds.SphereRadius, FVector(0.0f, 0.0f, ScreenDistance), ProjMatrix);
 		}
 	}
+
+	CachedNumHLODLevels = GetLevel()->GetWorldSettings()->GetNumHierarchicalLODLevels();
+
+	if (bDirty)
+	{
+		// Temporarily disabling this warning while it is being worked on as it is spamming cook logs and happens even for minor changes.
+		/*
+		FFormatNamedArguments Arguments;
+		Arguments.Add(TEXT("ActorName"), FText::FromString(GetName()));
+		FMessageLog("MapCheck").Warning()
+			->AddToken(FUObjectToken::Create(this))
+			->AddToken(FTextToken::Create(FText::Format(LOCTEXT("ALODActor_PostRegisterAllComponents", "HLOD Cluster {ActorName} is out of date."), Arguments)));
+
+		// Show MapCheck window
+		FMessageLog("MapCheck").Open(EMessageSeverity::Warning);
+		*/
+	}
 #endif
+
+	ParseOverrideDistancesCVar();
+	UpdateOverrideTransitionDistance();
+}
+
+void ALODActor::UpdateOverrideTransitionDistance()
+{
+	const int32 NumDistances = ALODActor::HLODDistances.Num();
+	// Determine correct distance index to apply to ensure combinations of different levels will work			
+	const int32 DistanceIndex = [&]()
+	{
+		if (CachedNumHLODLevels == NumDistances)
+		{
+			return LODLevel - 1;
+		}
+		else if (CachedNumHLODLevels < NumDistances)
+		{
+			return (LODLevel + (NumDistances - CachedNumHLODLevels)) - 1;
+		}
+		else
+		{
+			// We've reached the end of the array, change nothing
+			return (int32)INDEX_NONE;
+		}
+	}();
+
+	if (DistanceIndex != INDEX_NONE)
+	{
+		StaticMeshComponent->MinDrawDistance = (!HLODDistances.IsValidIndex(DistanceIndex) || FMath::IsNearlyZero(HLODDistances[DistanceIndex])) ? LODDrawDistance : ALODActor::HLODDistances[DistanceIndex];
+		StaticMeshComponent->MarkRenderStateDirty();
+	}
+}
+
+void ALODActor::ParseOverrideDistancesCVar()
+{
+	// Parse HLOD override distance cvar into array
+	const FString DistanceOverrideValues = CVarHLODDistanceOverride.GetValueOnAnyThread();
+	TArray<FString> Distances;
+	DistanceOverrideValues.ParseIntoArray(/*out*/ Distances, TEXT(","), /*bCullEmpty=*/ false);
+	HLODDistances.Empty(Distances.Num());
+
+	for (const FString& DistanceString : Distances)
+	{
+		const float DistanceForThisLevel = FCString::Atof(*DistanceString);
+		HLODDistances.Add(DistanceForThisLevel);
+	}	
+}
+
+void ALODActor::Tick(float DeltaSeconds)
+{
+	AActor::Tick(DeltaSeconds);
+	if (bNeedsDrawDistanceReset)
+	{		
+		if (ResetDrawDistanceTime > CVarHLODDitherPauseTime.GetValueOnAnyThread())
+		{
+			const int32 NumDistances = ALODActor::HLODDistances.Num();
+			const int32 DistanceIndex = [&]()
+	        {
+		        if (CachedNumHLODLevels <= NumDistances)
+		        {
+			    	return (LODLevel + (NumDistances - CachedNumHLODLevels)) - 1;
+		        }
+		        else
+		        {
+			        // We've reached the end of the array, change nothing
+			        return (int32)INDEX_NONE;
+		        }
+	        }();
+
+
+			const float HLODDistanceOverride = (!ALODActor::HLODDistances.IsValidIndex(DistanceIndex)) ? 0.0f : ALODActor::HLODDistances[DistanceIndex];
+			// Determine desired HLOD state
+			float MinDrawDistance = LODDrawDistance;
+			const bool bIsOverridingHLODDistance = HLODDistanceOverride != 0.0f;
+			if (bIsOverridingHLODDistance)
+			{
+				MinDrawDistance = HLODDistanceOverride;
+			}
+			const float AdjustedMinDrawDist = MinDrawDistance * CVarHLODDistanceScale.GetValueOnAnyThread();
+
+			StaticMeshComponent->MinDrawDistance = AdjustedMinDrawDist;
+			StaticMeshComponent->MarkRenderStateDirty();
+			bNeedsDrawDistanceReset = false;
+			ResetDrawDistanceTime = 0.0f;
+			PrimaryActorTick.SetTickFunctionEnable(false);
+		}
+		else
+        {
+			ResetDrawDistanceTime += DeltaSeconds;
+        }
+	}
+}
+
+void ALODActor::PauseDitherTransition()
+{
+	StaticMeshComponent->MinDrawDistance = 0.0f;
+	StaticMeshComponent->MarkRenderStateDirty();
+	bNeedsDrawDistanceReset = true;
+	ResetDrawDistanceTime = 0.0f;
+}
+
+void ALODActor::StartDitherTransition()
+{
+	PrimaryActorTick.SetTickFunctionEnable(true);
 }
 
 void ALODActor::UpdateRegistrationToMatchMaximumLODLevel()
@@ -258,14 +407,23 @@ void ALODActor::PostRegisterAllComponents()
 	bHasActorTriedToRegisterComponents = true;
 
 #if WITH_EDITOR
-	// Clean up sub actor if assets were delete manually
-	CleanSubActorArray();
+	if(!GetWorld()->IsPlayInEditor())
+	{
+		// Clean up sub actor if assets were delete manually
+		CleanSubActorArray();
 
-	// Clean up sub objects if assets were delete manually
-	CleanSubObjectsArray();
+		// Clean up sub objects if assets were delete manually
+		CleanSubObjectsArray();
 
-	UpdateSubActorLODParents();	
+		UpdateSubActorLODParents();
+	}
 #endif
+}
+
+void ALODActor::SetDrawDistance(float InDistance)
+{
+	LODDrawDistance = InDistance;
+	StaticMeshComponent->MinDrawDistance = LODDrawDistance;
 }
 
 #if WITH_EDITOR
@@ -535,22 +693,24 @@ void ALODActor::SetIsDirty(const bool bNewState)
 				LODParentActor->SetIsDirty(true);
 			}
 		}
-
-		// Set static mesh to null
-		StaticMeshComponent->SetStaticMesh(nullptr);
-#if WITH_EDITOR
-		// Broadcast actor marked dirty event
-		if (GEditor)
+		if (GetDefault<UHierarchicalLODSettings>()->bInvalidateHLODClusters)
 		{
-			GEditor->BroadcastHLODActorMarkedDirty(this);
+			// Set static mesh to null
+			StaticMeshComponent->SetStaticMesh(nullptr);
+			// Broadcast actor marked dirty event
+			if (GEditor)
+			{
+				GEditor->BroadcastHLODActorMarkedDirty(this);
+			}
+			PreviousSubObjects.Append(SubObjects);
+			SubObjects.Empty();
 		}
-		PreviousSubObjects.Append(SubObjects);
-		SubObjects.Empty();
-#endif // WITH_EDITOR
 	}	
 	else
 	{
 		UpdateSubActorLODParents();
+		// Deal with the case where the UObjects are being reused
+		PreviousSubObjects.RemoveAll([this](UObject* InObject) -> bool { return SubObjects.Contains(InObject); });
 	}
 }
 
@@ -558,7 +718,7 @@ const bool ALODActor::HasValidSubActors() const
 {
 	int32 NumMeshes = 0;
 
-	// Make sure there are at least two meshes in the subactors
+	// Make sure there is at least one mesh in the subactors
 	for (AActor* SubActor : SubActors)
 	{
 		if (SubActor)
@@ -572,7 +732,7 @@ const bool ALODActor::HasValidSubActors() const
 
 			for (UStaticMeshComponent* Component : Components)
 			{
-				if (!Component->bHiddenInGame && Component->ShouldGenerateAutoLOD())
+				if (!Component->bHiddenInGame && Component->ShouldGenerateAutoLOD(LODLevel - 1))
 				{
 					++NumMeshes;
 				}
@@ -581,14 +741,14 @@ const bool ALODActor::HasValidSubActors() const
 			NumMeshes += Components.Num();
 #endif
 
-			if (NumMeshes > 1)
+			if (NumMeshes > 0)
 			{
 				break;
 			}
 		}
 	}
 
-	return NumMeshes > 1;
+	return NumMeshes > 0;
 }
 
 const bool ALODActor::HasAnySubActors() const
@@ -776,6 +936,41 @@ void ALODActor::OnCVarsChanged()
 			Actor->UpdateRegistrationToMatchMaximumLODLevel();
 		}
 	}
+	
+	static TArray<float> CachedDistances = HLODDistances;
+	ParseOverrideDistancesCVar();
+
+	const bool bInvalidatedCachedValues = [&]() -> bool
+	{
+		for (int32 Index = 0; Index < CachedDistances.Num(); ++Index)
+		{
+			const float CachedDistance = CachedDistances[Index];
+			if (HLODDistances.IsValidIndex(Index))
+			{
+				const float NewDistance = HLODDistances[Index];
+				if (NewDistance != CachedDistance)
+				{
+					return true;
+				}
+			}
+			else
+			{
+				return true;
+			}
+		}
+
+		return CachedDistances.Num() != HLODDistances.Num();
+	}();
+
+	if (bInvalidatedCachedValues)
+	{
+		CachedDistances = HLODDistances;
+		const int32 NumDistances = CachedDistances.Num();
+		for (ALODActor* Actor : TObjectRange<ALODActor>(RF_ClassDefaultObject | RF_ArchetypeObject, true, EInternalObjectFlags::PendingKill))
+		{
+			Actor->UpdateOverrideTransitionDistance();
+		}
+	}
 }
 
 #if WITH_EDITOR
@@ -784,14 +979,24 @@ void ALODActor::Serialize(FArchive& Ar)
 	Super::Serialize(Ar);
 
 	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
+	Ar.UsingCustomVersion(FAthenaObjectVersion::GUID);
 
 	bRequiresLODScreenSizeConversion = Ar.CustomVer(FFrameworkObjectVersion::GUID) < FFrameworkObjectVersion::LODsUseResolutionIndependentScreenSize;
+
+	if (Ar.CustomVer(FAthenaObjectVersion::GUID) < FAthenaObjectVersion::CullDistanceRefactor_NeverCullALODActorsByDefault)
+	{
+		if (UStaticMeshComponent* SMComponent = GetStaticMeshComponent())
+		{	
+			SMComponent->LDMaxDrawDistance = 0.f;
+			SMComponent->bNeverDistanceCull = true;
+		}
+	}
 }
 
 void ALODActor::PreSave(const class ITargetPlatform* TargetPlatform)
 {
-	AActor::PreSave(TargetPlatform);
-	if (PreviousSubObjects.Num())
+	AActor::PreSave(TargetPlatform);	
+	if (PreviousSubObjects.Num() && GetDefault<UHierarchicalLODSettings>()->bDeleteHLODAssets)
 	{
 		PreviousSubObjects.RemoveAll([](const UObject* Object) -> bool { return Object == nullptr; });
 		ObjectTools::DeleteObjectsUnchecked(PreviousSubObjects);
@@ -814,6 +1019,5 @@ void ALODActor::BeginDestroy()
 		PreviousSubObjects.Empty();
 	}
 }
-
 #endif
 #undef LOCTEXT_NAMESPACE

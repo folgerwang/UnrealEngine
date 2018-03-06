@@ -574,15 +574,24 @@ void UUnrealEdEngine::OnSourceControlStateUpdated(const FSourceControlOperationR
 				{
 					if (SourceControlState->CanCheckout())
 					{
-						if (Settings->bAutomaticallyCheckoutOnAssetModification)
+						// If this package is checked out or modified in another branch
+						if (SourceControlState->IsCheckedOutOrModifiedInOtherBranch())
 						{
-							PackagesToAutomaticallyCheckOut.Add(PackagePtr);
-							FilesToAutomaticallyCheckOut.Add(SourceControlHelpers::PackageFilename(Package));
+							PackageToNotifyState.Add(PackagePtr, NS_PendingWarning);
+							bShowPackageNotification = true;
 						}
 						else
 						{
-							PackageToNotifyState.Add(PackagePtr, NS_PendingPrompt);
-							bShowPackageNotification = true;
+							if (Settings->bAutomaticallyCheckoutOnAssetModification)
+							{
+								PackagesToAutomaticallyCheckOut.Add(PackagePtr);
+								FilesToAutomaticallyCheckOut.Add(SourceControlHelpers::PackageFilename(Package));
+							}
+							else
+							{
+								PackageToNotifyState.Add(PackagePtr, NS_PendingPrompt);
+								bShowPackageNotification = true;
+							}
 						}
 					}
 					else if (!SourceControlState->IsCurrent() || SourceControlState->IsCheckedOutOther())

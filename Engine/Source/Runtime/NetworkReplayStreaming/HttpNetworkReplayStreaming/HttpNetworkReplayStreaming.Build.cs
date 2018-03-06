@@ -6,7 +6,9 @@ namespace UnrealBuildTool.Rules
     {
         public HttpNetworkReplayStreaming(ReadOnlyTargetRules Target) : base(Target)
         {
-			PrivateDependencyModuleNames.AddRange(
+            ShortName = "HttpReplayStreaming";
+
+            PrivateDependencyModuleNames.AddRange(
                 new string[]
 				{
 					"Core",

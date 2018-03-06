@@ -46,6 +46,10 @@ public:
 		SLATE_ATTRIBUTE( TRange<float>, ViewRange )
 	SLATE_END_ARGS()
 
+	SSequencerDebugVisualizer()
+		: Children(this)
+	{}
+
 	void Construct(const FArguments& InArgs, TSharedRef<FSequencer> InSequencer);
 
 protected:

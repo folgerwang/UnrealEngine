@@ -101,4 +101,11 @@ public:
 
 	/**Potential error message storage*/
 	TArray< FText > ErrorMessages;
+
+	/** Branch names for status queries */
+	TArray< FString > StatusBranchNames;
+
+	/** Content root for branch mapping */
+	FString ContentRoot;
+
 };

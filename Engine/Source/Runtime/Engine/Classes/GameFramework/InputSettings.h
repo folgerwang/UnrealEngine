@@ -27,22 +27,50 @@ class ENGINE_API UInputSettings
 	TArray<struct FInputAxisConfigEntry> AxisConfig;
 
 	UPROPERTY(config, EditAnywhere, Category="Bindings", AdvancedDisplay)
-	uint32 bAltEnterTogglesFullscreen:1;
+	uint8 bAltEnterTogglesFullscreen:1;
 
 	UPROPERTY(config, EditAnywhere, Category = "Bindings", AdvancedDisplay)
-	uint32 bF11TogglesFullscreen : 1;
+	uint8 bF11TogglesFullscreen : 1;
 
 	// Allow mouse to be used for touch
 	UPROPERTY(config, EditAnywhere, Category="MouseProperties")
-	uint32 bUseMouseForTouch:1;
+	uint8 bUseMouseForTouch:1;
 
 	// Mouse smoothing control
 	UPROPERTY(config, EditAnywhere, Category="MouseProperties", AdvancedDisplay)
-	uint32 bEnableMouseSmoothing:1;
+	uint8 bEnableMouseSmoothing:1;
 
 	// Scale the mouse based on the player camera manager's field of view
 	UPROPERTY(config, EditAnywhere, Category="MouseProperties", AdvancedDisplay)
-	uint32 bEnableFOVScaling:1;
+	uint8 bEnableFOVScaling:1;
+
+	/** Controls if the viewport will capture the mouse on Launch of the application */
+	UPROPERTY(config, EditAnywhere, Category = "ViewportProperties")
+	uint8 bCaptureMouseOnLaunch:1;
+
+	/** The default mouse lock state when the viewport acquires capture */
+	UPROPERTY(config)
+	uint8 bDefaultViewportMouseLock_DEPRECATED:1;
+
+	/** Should the touch input interface be shown always, or only when the platform has a touch screen? */
+	UPROPERTY(config, EditAnywhere, Category="Mobile")
+	uint8 bAlwaysShowTouchInterface:1;
+
+	/** Whether or not to show the console on 4 finger tap, on mobile platforms */
+	UPROPERTY(config, EditAnywhere, Category="Mobile")
+	uint8 bShowConsoleOnFourFingerTap:1;
+
+	/** Whether or not to use the gesture recognition system to convert touches in to gestures that can be bound and queried */
+	UPROPERTY(config, EditAnywhere, Category = "Mobile")
+	uint8 bEnableGestureRecognizer:1;
+
+	/** The default mouse capture mode for the game viewport */
+	UPROPERTY(config, EditAnywhere, Category = "ViewportProperties")
+	EMouseCaptureMode DefaultViewportMouseCaptureMode;
+
+	/** The default mouse lock state behavior when the viewport acquires capture */
+	UPROPERTY(config, EditAnywhere, Category = "ViewportProperties")
+	EMouseLockMode DefaultViewportMouseLockMode;
 
 	// The scaling value to multiply the field of view by
 	UPROPERTY(config, EditAnywhere, Category="MouseProperties", AdvancedDisplay, meta=(editcondition="bEnableFOVScaling"))
@@ -52,22 +80,6 @@ class ENGINE_API UInputSettings
 	UPROPERTY(config, EditAnywhere, Category="MouseProperties", AdvancedDisplay)
 	float DoubleClickTime;
 
-	/** Controls if the viewport will capture the mouse on Launch of the application */
-	UPROPERTY(config, EditAnywhere, Category = "ViewportProperties")
-	bool bCaptureMouseOnLaunch;
-	
-	/** The default mouse capture mode for the game viewport */
-	UPROPERTY(config, EditAnywhere, Category = "ViewportProperties")
-	EMouseCaptureMode DefaultViewportMouseCaptureMode;
-
-	/** The default mouse lock state when the viewport acquires capture */
-	UPROPERTY(config)
-	bool bDefaultViewportMouseLock_DEPRECATED;
-
-	/** The default mouse lock state behavior when the viewport acquires capture */
-	UPROPERTY(config, EditAnywhere, Category = "ViewportProperties")
-	EMouseLockMode DefaultViewportMouseLockMode;
-
 	/** List of Action Mappings */
 	UPROPERTY(config, EditAnywhere, Category="Bindings")
 	TArray<struct FInputActionKeyMapping> ActionMappings;
@@ -75,14 +87,6 @@ class ENGINE_API UInputSettings
 	/** List of Axis Mappings */
 	UPROPERTY(config, EditAnywhere, Category="Bindings")
 	TArray<struct FInputAxisKeyMapping> AxisMappings;
-
-	/** Should the touch input interface be shown always, or only when the platform has a touch screen? */
-	UPROPERTY(config, EditAnywhere, Category="Mobile")
-	bool bAlwaysShowTouchInterface;
-
-	/** Whether or not to show the console on 4 finger tap, on mobile platforms */
-	UPROPERTY(config, EditAnywhere, Category="Mobile")
-	bool bShowConsoleOnFourFingerTap;
 
 	/** The default on-screen touch input interface for the game (can be null to disable the onscreen interface) */
 	UPROPERTY(config, EditAnywhere, Category="Mobile", meta=(AllowedClasses="TouchInterface"))

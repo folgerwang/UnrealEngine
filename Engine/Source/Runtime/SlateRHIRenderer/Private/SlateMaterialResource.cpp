@@ -14,7 +14,7 @@ FSlateMaterialResource::FSlateMaterialResource(const UMaterialInterface& InMater
 	SlateProxy->ActualSize = InImageSize.IntPoint();
 	SlateProxy->Resource = this;
 
-#if !UE_BUILD_SHIPPING
+#if SLATE_CHECK_UOBJECT_RENDER_RESOURCES
 	MaterialObjectWeakPtr = MaterialObject; 
 	UpdateMaterialName();
 #endif
@@ -32,7 +32,7 @@ void FSlateMaterialResource::UpdateMaterial(const UMaterialInterface& InMaterial
 {
 	MaterialObject = &InMaterialResource;
 
-#if !UE_BUILD_SHIPPING
+#if SLATE_CHECK_UOBJECT_RENDER_RESOURCES
 	MaterialObjectWeakPtr = MaterialObject;
 	UpdateMaterialName();
 #endif
@@ -55,7 +55,7 @@ void FSlateMaterialResource::ResetMaterial()
 {
 	MaterialObject = nullptr;
 
-#if !UE_BUILD_SHIPPING
+#if SLATE_CHECK_UOBJECT_RENDER_RESOURCES
 	MaterialObjectWeakPtr = nullptr;
 	UpdateMaterialName();
 #endif
@@ -70,7 +70,7 @@ void FSlateMaterialResource::ResetMaterial()
 	Height = 0;
 }
 
-#if !UE_BUILD_SHIPPING
+#if SLATE_CHECK_UOBJECT_RENDER_RESOURCES
 void FSlateMaterialResource::UpdateMaterialName()
 {
 	const UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(MaterialObject);
@@ -87,5 +87,14 @@ void FSlateMaterialResource::UpdateMaterialName()
 	{
 		MaterialName = NAME_None;
 	}
+}
+
+void FSlateMaterialResource::CheckIfValid() const
+{
+	// pending kill objects may still be rendered for a frame so it is valid for the check to pass
+	const bool bEvenIfPendingKill = true;
+	// This test needs to be thread safe.  It doesnt give us as many chances to trap bugs here but it is still useful
+	const bool bThreadSafe = true;
+	checkf(MaterialObjectWeakPtr.IsValid(bEvenIfPendingKill, bThreadSafe), TEXT("Material %s has become invalid.  This means the resource was garbage collected while slate was using it"), *MaterialName.ToString());
 }
 #endif

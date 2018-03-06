@@ -250,6 +250,11 @@ void FClassNetCacheMgr::ClearClassNetCache()
 
 bool UPackageMap::SerializeName(FArchive& Ar, FName& InName)
 {
+	return StaticSerializeName(Ar, InName);
+}
+
+bool UPackageMap::StaticSerializeName(FArchive& Ar, FName& InName)
+{
 	if (Ar.IsLoading())
 	{
 		uint8 bHardcoded = 0;
@@ -342,7 +347,15 @@ FNetBitWriter::FNetBitWriter( UPackageMap * InPackageMap, int64 InMaxBits )
 
 FArchive& FNetBitWriter::operator<<( class FName& N )
 {
-	PackageMap->SerializeName( *this, N );
+	if (PackageMap)
+	{
+		PackageMap->SerializeName(*this, N);
+	}
+	else
+	{
+		UPackageMap::StaticSerializeName(*this, N);
+	}
+
 	return *this;
 }
 
@@ -389,7 +402,15 @@ FArchive& FNetBitReader::operator<<( UObject*& Object )
 
 FArchive& FNetBitReader::operator<<( class FName& N )
 {
-	PackageMap->SerializeName( *this, N );
+	if (PackageMap)
+	{
+		PackageMap->SerializeName(*this, N);
+	}
+	else
+	{
+		UPackageMap::StaticSerializeName(*this, N);
+	}
+
 	return *this;
 }
 

@@ -219,6 +219,21 @@ void xmpp_conn_set_keepalive(xmpp_conn_t * const conn, int timeout, int interval
     }
 }
 
+int xmpp_conn_is_connecting(xmpp_conn_t * const conn)
+{
+	return conn->state == XMPP_STATE_CONNECTING ? 1 : 0;
+}
+
+int xmpp_conn_is_connected(xmpp_conn_t * const conn)
+{
+	return conn->state == XMPP_STATE_CONNECTED ? 1 : 0;
+}
+
+int xmpp_conn_is_disconnected(xmpp_conn_t * const conn)
+{
+	return conn->state == XMPP_STATE_DISCONNECTED ? 1 : 0;
+}
+
 /** Release a Strophe connection object.
  *  Decrement the reference count by one for a connection, freeing the
  *  connection object if the count reaches 0.

@@ -1263,7 +1263,7 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 		{
 			World->LoadSecondaryLevels(true, NULL);
 
-			for (ULevelStreaming* NextStreamingLevel : World->StreamingLevels)
+			for (ULevelStreaming* NextStreamingLevel : World->GetStreamingLevels())
 			{
 				CheckOutLevelFile(NextStreamingLevel->GetLoadedLevel());
 
@@ -1283,8 +1283,8 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 					}
 				}
 
-				NextStreamingLevel->bShouldBeVisible = true;
-				NextStreamingLevel->bShouldBeLoaded = true;
+				NextStreamingLevel->SetShouldBeVisible(true);
+				NextStreamingLevel->SetShouldBeLoaded(true);
 			}
 		}
 
@@ -1365,25 +1365,30 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 					// Only meshes for clusters that are in a visible level
 					if (Level->bIsVisible)
 					{
-						UPackage* HLODPackage = Utilities->CreateOrRetrieveLevelHLODPackage(Level);
-						FString HLODDataFilename;
-						if (FPackageName::TryConvertLongPackageNameToFilename(HLODPackage->GetName(), HLODDataFilename, FPackageName::GetAssetPackageExtension()))
-						{
-							if (IFileManager::Get().FileExists(*HLODDataFilename))
-							{
-								if (CheckoutFile(HLODDataFilename, true))
-								{
-									SublevelFilenames.Add(HLODDataFilename);
-								}
+						const int32 NumHLODLevels = Level->GetWorldSettings()->GetNumHierarchicalLODLevels();
 
-								SavePackageHelper(HLODPackage, HLODDataFilename);
-							}
-							else
+						for (int32 HLODIndex = 0; HLODIndex < NumHLODLevels; ++HLODIndex)
+						{
+							UPackage* HLODPackage = Utilities->CreateOrRetrieveLevelHLODPackage(Level, HLODIndex);
+							FString HLODDataFilename;
+							if (FPackageName::TryConvertLongPackageNameToFilename(HLODPackage->GetName(), HLODDataFilename, FPackageName::GetAssetPackageExtension()))
 							{
-								SavePackageHelper(HLODPackage, HLODDataFilename);
-								if (CheckoutFile(HLODDataFilename, true))
+								if (IFileManager::Get().FileExists(*HLODDataFilename))
 								{
-									SublevelFilenames.Add(HLODDataFilename);
+									if (CheckoutFile(HLODDataFilename, true))
+									{
+										SublevelFilenames.Add(HLODDataFilename);
+									}
+
+									SavePackageHelper(HLODPackage, HLODDataFilename);
+								}
+								else
+								{
+									SavePackageHelper(HLODPackage, HLODDataFilename);
+									if (CheckoutFile(HLODDataFilename, true))
+									{
+										SublevelFilenames.Add(HLODDataFilename);
+									}
 								}
 							}
 						}
@@ -1452,7 +1457,7 @@ void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World,
 			// If everything is a success, resave the levels.
 			if( bShouldProceedWithRebuild )
 			{
-				for (ULevelStreaming* NextStreamingLevel : World->StreamingLevels)
+				for (ULevelStreaming* NextStreamingLevel : World->GetStreamingLevels())
 				{
 					FString StreamingLevelPackageFilename;
 					const FString StreamingLevelWorldAssetPackageName = NextStreamingLevel->GetWorldAssetPackageName();
@@ -1938,12 +1943,11 @@ int32 UWrangleContentCommandlet::Main( const FString& Params )
 					// add any sublevels of this world to the list of levels to load
 					for (TObjectIterator<UWorld> WorldIt; WorldIt; ++WorldIt)
 					{
-						UWorld*		World = *WorldIt;
+						UWorld*	World = *WorldIt;
 						// iterate over streaming level objects loading the levels.
-						for( int32 LevelIndex=0; LevelIndex<World->StreamingLevels.Num(); LevelIndex++ )
+						for (ULevelStreaming* StreamingLevel : World->GetStreamingLevels())
 						{
-							ULevelStreaming* StreamingLevel = World->StreamingLevels[LevelIndex];
-							if( StreamingLevel )
+							if (StreamingLevel)
 							{
 								FString SubLevelName = StreamingLevel->GetWorldAssetPackageName();
 								// add this sublevel's package to the list of packages to load if it's not already in the master list of packages

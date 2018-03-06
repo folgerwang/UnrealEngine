@@ -686,7 +686,7 @@ bool FMaterialShaderMapId::operator==(const FMaterialShaderMapId& ReferenceSet) 
 	return true;
 }
 
-void FMaterialShaderMapId::UpdateParameterSet(FStaticParameterSet& StaticParameters)
+void FMaterialShaderMapId::UpdateParameterSet(const FStaticParameterSet& StaticParameters)
 {
 	ParameterSet = StaticParameters;
 
@@ -1378,14 +1378,16 @@ void FMaterialShaderMap::Compile(
 			// Setup the material compilation environment.
 			Material->SetupMaterialEnvironment(InPlatform, InMaterialCompilationOutput.UniformExpressionSet, *MaterialEnvironment);
   
-			// Store the material name for debugging purposes.
-			// Note: Material instances with static parameters will have the same FriendlyName for their shader maps!
-			FriendlyName = Material->GetFriendlyName();
 			MaterialCompilationOutput = InMaterialCompilationOutput;
 			ShaderMapId = InShaderMapId;
 			Platform = InPlatform;
 			bIsPersistent = Material->IsPersistent();
-		  
+
+#if ALLOW_SHADERMAP_DEBUG_DATA
+			// Store the material name for debugging purposes.
+			// Note: Material instances with static parameters will have the same FriendlyName for their shader maps!
+			FriendlyName = Material->GetFriendlyName();
+
 			// Log debug information about the material being compiled.
 			const FString MaterialUsage = Material->GetMaterialUsageDescription();
 			DebugDescription = FString::Printf(
@@ -1431,7 +1433,8 @@ void FMaterialShaderMap::Compile(
 			);
   
 			UE_LOG(LogShaders, Warning, TEXT("	%s"), *DebugDescription);
-  
+#endif
+
 			uint32 NumShaders = 0;
 			uint32 NumVertexFactories = 0;
 			TArray<FShaderCommonCompileJob*> NewJobs;
@@ -1584,7 +1587,13 @@ void FMaterialShaderMap::Compile(
 			{
 				TArray<int32> CurrentShaderMapId;
 				CurrentShaderMapId.Add(CompilingId);
-				GShaderCompilingManager->FinishCompilation(*FriendlyName, CurrentShaderMapId);
+				GShaderCompilingManager->FinishCompilation(
+#if ALLOW_SHADERMAP_DEBUG_DATA
+				   *FriendlyName,
+#else
+				   nullptr,
+#endif
+				   CurrentShaderMapId);
 			}
 		}
 	}
@@ -1618,7 +1627,12 @@ FShader* FMaterialShaderMap::ProcessCompilationResultsForSingleJob(FShaderCompil
 		check(MeshShaderMap);
 		FMeshMaterialShaderType* MeshMaterialShaderType = CurrentJob.ShaderType->GetMeshMaterialShaderType();
 		check(MeshMaterialShaderType);
-		Shader = MeshMaterialShaderType->FinishCompileShader(MaterialCompilationOutput.UniformExpressionSet, MaterialShaderMapHash, CurrentJob, ShaderPipeline, FriendlyName);
+		Shader = MeshMaterialShaderType->FinishCompileShader(MaterialCompilationOutput.UniformExpressionSet, MaterialShaderMapHash, CurrentJob, ShaderPipeline,
+#if ALLOW_SHADERMAP_DEBUG_DATA
+			FriendlyName);
+#else
+			FString());
+#endif
 		check(Shader);
 		if (!ShaderPipeline)
 		{
@@ -1630,7 +1644,13 @@ FShader* FMaterialShaderMap::ProcessCompilationResultsForSingleJob(FShaderCompil
 	{
 		FMaterialShaderType* MaterialShaderType = CurrentJob.ShaderType->GetMaterialShaderType();
 		check(MaterialShaderType);
-		Shader = MaterialShaderType->FinishCompileShader(MaterialCompilationOutput.UniformExpressionSet, MaterialShaderMapHash, CurrentJob, ShaderPipeline, FriendlyName);
+		Shader = MaterialShaderType->FinishCompileShader(MaterialCompilationOutput.UniformExpressionSet, MaterialShaderMapHash, CurrentJob, ShaderPipeline,
+#if ALLOW_SHADERMAP_DEBUG_DATA
+			FriendlyName);
+#else
+			FString());
+#endif
+
 		check(Shader);
 		if (!ShaderPipeline)
 		{
@@ -2214,11 +2234,20 @@ void FMaterialShaderMap::Serialize(FArchive& Ar, bool bInlineShaderResources)
 	Ar << TempPlatform;
 	Platform = (EShaderPlatform)TempPlatform;
 
+#if ALLOW_SHADERMAP_DEBUG_DATA
 	Ar << FriendlyName;
+#else
+	FString TempString;
+	Ar << TempString;
+#endif
 
 	MaterialCompilationOutput.Serialize(Ar);
 
+#if ALLOW_SHADERMAP_DEBUG_DATA
 	Ar << DebugDescription;
+#else
+	Ar << TempString;
+#endif
 
 	if (Ar.IsSaving())
 	{

@@ -26,6 +26,14 @@ FAutoConsoleVariableRef CVarAOScatterTileCulling(
 	ECVF_RenderThreadSafe
 	);
 
+int32 GAverageDistanceFieldObjectsPerCullTile = 512;
+FAutoConsoleVariableRef CVarMaxDistanceFieldObjectsPerCullTile(
+	TEXT("r.AOAverageObjectsPerCullTile"),
+	GAverageDistanceFieldObjectsPerCullTile,
+	TEXT("Determines how much memory should be allocated in distance field object culling data structures.  Too much = memory waste, too little = flickering due to buffer overflow."),
+	ECVF_RenderThreadSafe | ECVF_ReadOnly
+	);
+
 class FCircleVertexBuffer : public FVertexBuffer
 {
 public:
@@ -88,7 +96,7 @@ void FTileIntersectionResources::InitDynamicRHI()
 	const bool b16BitCulledTileIndexBuffer = bAllow16BitIndices && b16BitObjectIndices && TileDimensions.X * TileDimensions.Y < (1 << 16);
 	CulledTileDataArray.Initialize(
 		b16BitCulledTileIndexBuffer ? sizeof(uint16) : sizeof(uint32), 
-		GMaxDistanceFieldObjectsPerCullTile * TileDimensions.X * TileDimensions.Y * CulledTileDataStride, 
+		GAverageDistanceFieldObjectsPerCullTile * TileDimensions.X * TileDimensions.Y * CulledTileDataStride, 
 		b16BitCulledTileIndexBuffer ? PF_R16_UINT : PF_R32_UINT, 
 		BUF_Static | FastVRamFlag, 
 		TEXT("CulledTileDataArray"));

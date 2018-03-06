@@ -129,6 +129,10 @@ class ENGINE_API UPhysicsSettings : public UDeveloperSettings
 	UPROPERTY(config, EditAnywhere, Category = Simulation)
 	bool bEnable2DPhysics;
 
+	/** Error correction data for replicating simulated physics (rigid bodies) */
+	UPROPERTY(config, EditAnywhere, Category = Replication)
+	FRigidBodyErrorCorrection PhysicErrorCorrection;
+
 	UPROPERTY(config)
 	TEnumAsByte<ESettingsLockedAxis::Type> LockedAxis_DEPRECATED;
 

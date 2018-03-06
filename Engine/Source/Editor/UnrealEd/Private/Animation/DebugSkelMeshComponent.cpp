@@ -848,7 +848,7 @@ FDebugSkelMeshSceneProxy::FDebugSkelMeshSceneProxy(const UDebugSkelMeshComponent
 	FSkeletalMeshSceneProxy(InComponent, InSkelMeshRenderData)
 {
 	DynamicData = nullptr;
-	WireframeColor = FLinearColor(InWireframeOverlayColor);
+	SetWireframeColor(FLinearColor(InWireframeOverlayColor));
 
 	if(GEngine->ClothPaintMaterial)
 	{

@@ -150,6 +150,7 @@ static GLenum TranslateBlendFactor(EBlendFactor BlendFactor)
 
 FOpenGLSamplerState::~FOpenGLSamplerState()
 {
+	CreationFence.WaitFence();
 	VERIFY_GL_SCOPE();
 	FOpenGL::DeleteSamplers(1,&Resource);
 }
@@ -165,8 +166,6 @@ FSamplerStateRHIRef FOpenGLDynamicRHI::RHICreateSamplerState(const FSamplerState
 
 	// Create a new one
 	CalculateSizeOfSamplerStateInitializer();
-
-	VERIFY_GL_SCOPE();
 
 	FOpenGLSamplerState* SamplerState = new FOpenGLSamplerState;
 
@@ -224,33 +223,44 @@ FSamplerStateRHIRef FOpenGLDynamicRHI::RHICreateSamplerState(const FSamplerState
 		SamplerState->Data.CompareMode = GL_NONE;
 	}
 
-	if( FOpenGL::SupportsSamplerObjects() )
+	if (FOpenGL::SupportsSamplerObjects())
 	{
-		FOpenGL::GenSamplers( 1, &SamplerState->Resource );
+		SamplerState->CreationFence.Reset();
+		SamplerState->Resource = 0;
 
-		FOpenGL::SetSamplerParameter( SamplerState->Resource, GL_TEXTURE_WRAP_S, SamplerState->Data.WrapS );
-		FOpenGL::SetSamplerParameter( SamplerState->Resource, GL_TEXTURE_WRAP_T, SamplerState->Data.WrapT );
-		if( FOpenGL::SupportsTexture3D() )
+		auto CreateGLSamplerState = [SamplerState]()
 		{
-			FOpenGL::SetSamplerParameter( SamplerState->Resource, GL_TEXTURE_WRAP_R, SamplerState->Data.WrapR );
-		}
-		if( FOpenGL::SupportsTextureLODBias() )
-		{
-			FOpenGL::SetSamplerParameter( SamplerState->Resource, GL_TEXTURE_LOD_BIAS, SamplerState->Data.LODBias );
-		}
+			VERIFY_GL_SCOPE();
+			FOpenGL::GenSamplers( 1, &SamplerState->Resource);
 
-		FOpenGL::SetSamplerParameter( SamplerState->Resource, GL_TEXTURE_MIN_FILTER, SamplerState->Data.MinFilter );
-		FOpenGL::SetSamplerParameter( SamplerState->Resource, GL_TEXTURE_MAG_FILTER, SamplerState->Data.MagFilter );
-		if( FOpenGL::SupportsTextureFilterAnisotropic() )
-		{
-			FOpenGL::SetSamplerParameter( SamplerState->Resource, GL_TEXTURE_MAX_ANISOTROPY_EXT, SamplerState->Data.MaxAnisotropy );
-		}
+			FOpenGL::SetSamplerParameter(SamplerState->Resource, GL_TEXTURE_WRAP_S, SamplerState->Data.WrapS);
+			FOpenGL::SetSamplerParameter(SamplerState->Resource, GL_TEXTURE_WRAP_T, SamplerState->Data.WrapT);
+			if (FOpenGL::SupportsTexture3D())
+			{
+				FOpenGL::SetSamplerParameter(SamplerState->Resource, GL_TEXTURE_WRAP_R, SamplerState->Data.WrapR);
+			}
+			if (FOpenGL::SupportsTextureLODBias())
+			{
+				FOpenGL::SetSamplerParameter(SamplerState->Resource, GL_TEXTURE_LOD_BIAS, SamplerState->Data.LODBias);
+			}
 
-		if( FOpenGL::SupportsTextureCompare() )
-		{
-			FOpenGL::SetSamplerParameter( SamplerState->Resource, GL_TEXTURE_COMPARE_MODE, SamplerState->Data.CompareMode );
-			FOpenGL::SetSamplerParameter( SamplerState->Resource, GL_TEXTURE_COMPARE_FUNC, SamplerState->Data.CompareFunc );
-		}
+			FOpenGL::SetSamplerParameter(SamplerState->Resource, GL_TEXTURE_MIN_FILTER, SamplerState->Data.MinFilter);
+			FOpenGL::SetSamplerParameter(SamplerState->Resource, GL_TEXTURE_MAG_FILTER, SamplerState->Data.MagFilter);
+			if (FOpenGL::SupportsTextureFilterAnisotropic())
+			{
+				FOpenGL::SetSamplerParameter(SamplerState->Resource, GL_TEXTURE_MAX_ANISOTROPY_EXT, SamplerState->Data.MaxAnisotropy);
+			}
+
+			if (FOpenGL::SupportsTextureCompare())
+			{
+				FOpenGL::SetSamplerParameter(SamplerState->Resource, GL_TEXTURE_COMPARE_MODE, SamplerState->Data.CompareMode);
+				FOpenGL::SetSamplerParameter(SamplerState->Resource, GL_TEXTURE_COMPARE_FUNC, SamplerState->Data.CompareFunc);
+			}
+			SamplerState->CreationFence.WriteAssertFence();
+		};
+
+		RunOnGLRenderContextThread(MoveTemp(CreateGLSamplerState));
+		SamplerState->CreationFence.SetRHIThreadFence();
 	}
 	else
 	{

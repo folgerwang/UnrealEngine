@@ -44,29 +44,20 @@ class UMaterialExpressionMaterialAttributeLayers : public UMaterialExpression
 	}
 
 #if WITH_EDITOR
-	const TArray<UMaterialFunctionInterface*>& GetInstanceLayers() const
-	{
-		return ParamLayers ? ParamLayers->InstanceLayers : DefaultLayers.InstanceLayers;
-	}
-
-	const TArray<UMaterialFunctionInterface*>& GetInstanceBlends() const
-	{
-		return ParamLayers ? ParamLayers->InstanceBlends : DefaultLayers.InstanceBlends;
-	}
-
-	const TArray<UMaterialFunctionInterface*>& GetFilterLayers() const
-	{
-		return ParamLayers ? ParamLayers->FilterLayers : DefaultLayers.FilterLayers;
-	}
-
-	const TArray<UMaterialFunctionInterface*>& GetFilterBlends() const
-	{
-		return ParamLayers ? ParamLayers->FilterBlends : DefaultLayers.FilterBlends;
-	}
 
 	const TArray<FText>& GetLayerNames() const
 	{
 		return ParamLayers ? ParamLayers->LayerNames : DefaultLayers.LayerNames;
+	}
+
+	const TArray<bool>& GetShouldFilterLayers() const
+	{
+		return ParamLayers ? ParamLayers->RestrictToLayerRelatives : DefaultLayers.RestrictToLayerRelatives;
+	}
+
+	const TArray<bool>& GetShouldFilterBlends() const
+	{
+		return ParamLayers ? ParamLayers->RestrictToBlendRelatives : DefaultLayers.RestrictToBlendRelatives;
 	}
 #endif
 
@@ -105,18 +96,14 @@ class UMaterialExpressionMaterialAttributeLayers : public UMaterialExpression
 	virtual int32 Compile(FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 	virtual void GetExpressionToolTip(TArray<FString>& OutToolTip) override;
-#endif
 	virtual const TArray<FExpressionInput*> GetInputs()override;
 	virtual FExpressionInput* GetInput(int32 InputIndex)override;
 	virtual FName GetInputName(int32 InputIndex) const override;
 	virtual bool IsInputConnectionRequired(int32 InputIndex) const override {return false;}
-#if WITH_EDITOR
 	virtual uint32 GetInputType(int32 InputIndex) override;
 	virtual bool IsResultMaterialAttributes(int32 OutputIndex) override {return true;}
-#endif
 
 	virtual bool MatchesSearchQuery( const TCHAR* SearchQuery ) override;
-#if WITH_EDITOR
 	virtual bool CanRenameNode() const override { return true; }
 	virtual FString GetEditableName() const override;
 	virtual void SetEditableName(const FString& NewName) override;

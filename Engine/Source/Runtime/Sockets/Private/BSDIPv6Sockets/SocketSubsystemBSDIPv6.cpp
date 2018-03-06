@@ -183,6 +183,7 @@ ESocketErrors FSocketSubsystemBSDIPv6::TranslateErrorCode(int32 Code)
 #if !PLATFORM_HAS_NO_EPROCLIM
 	case EPROCLIM: return SE_EPROCLIM;
 #endif
+    case EPIPE: return SE_ECONNRESET; // for when backgrounding with an open pipe to a server
 	case HOST_NOT_FOUND: return SE_HOST_NOT_FOUND;
 	case TRY_AGAIN: return SE_TRY_AGAIN;
 	case NO_RECOVERY: return SE_NO_RECOVERY;
@@ -191,9 +192,9 @@ ESocketErrors FSocketSubsystemBSDIPv6::TranslateErrorCode(int32 Code)
 	}
 #endif
 
-	UE_LOG(LogSockets, Warning, TEXT("Unhandled socket error!"));
-	check(0);
-	return SE_NO_ERROR;
+    UE_LOG(LogSockets, Warning, TEXT("Unhandled socket error! Error Code: %d. Returning SE_EINVAL!"), Code);
+    ensure(0);
+    return SE_EINVAL;
 }
 
 #endif

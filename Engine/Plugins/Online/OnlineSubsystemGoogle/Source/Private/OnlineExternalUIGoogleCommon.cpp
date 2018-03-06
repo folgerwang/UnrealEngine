@@ -2,7 +2,11 @@
 
 #include "OnlineExternalUIGoogleCommon.h"
 #include "OnlineSubsystemGoogle.h"
+#if USES_RESTFUL_GOOGLE
+#include "OnlineIdentityGoogleRest.h"
+#else
 #include "OnlineIdentityGoogle.h"
+#endif
 
 bool FOnlineExternalUIGoogleCommon::ShowLoginUI(const int ControllerIndex, bool bShowOnlineOnly, bool bShowSkipButton, const FOnLoginUIClosedDelegate& Delegate)
 {

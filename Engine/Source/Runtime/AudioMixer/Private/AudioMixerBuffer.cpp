@@ -13,7 +13,7 @@ namespace Audio
 		, DecompressionState(nullptr)
 		, SoundWaveProcedural(nullptr)
 		, BufferType(InBufferType)
-		, SampleRate(InWave->SampleRate)
+		, SampleRate(InWave->GetSampleRateForCurrentPlatform())
 		, BitsPerSample(16) // TODO: support more bits, currently hard-coded to 16
 		, Data(nullptr)
 		, DataSize(0)
@@ -337,7 +337,7 @@ namespace Audio
 		if (Buffer->DecompressionState->StreamCompressedInfo(InWave, &QualityInfo))
 		{
 			// Refresh the wave data
-			InWave->SampleRate = QualityInfo.SampleRate;
+			InWave->SetSampleRate(QualityInfo.SampleRate);
 			InWave->NumChannels = QualityInfo.NumChannels;
 			InWave->RawPCMDataSize = QualityInfo.SampleDataSize;
 			InWave->Duration = QualityInfo.Duration;

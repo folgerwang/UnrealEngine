@@ -26,6 +26,7 @@
 #include "UObject/EditorObjectVersion.h"
 #include "WidgetGraphSchema.h"
 #include "WidgetBlueprintCompiler.h"
+#include "UMGEditorProjectSettings.h"
 
 #if WITH_EDITOR
 #include "Interfaces/ITargetPlatform.h"
@@ -513,6 +514,7 @@ bool FWidgetAnimation_DEPRECATED::SerializeFromMismatchedTag(struct FPropertyTag
 
 UWidgetBlueprint::UWidgetBlueprint(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, SupportDynamicCreation(EWidgetSupportsDynamicCreation::Default)
 {
 	WidgetTree = CreateDefaultSubobject<UWidgetTree>(TEXT("WidgetTree"));
 	WidgetTree->SetFlags(RF_Transactional);
@@ -793,6 +795,20 @@ void UWidgetBlueprint::ForEachSourceWidgetImpl (TFunctionRef<void(UWidget*)> Fn)
 			}
 		}
 	);
+}
+
+bool UWidgetBlueprint::WidgetSupportsDynamicCreation() const
+{
+	switch (SupportDynamicCreation)
+	{
+	case EWidgetSupportsDynamicCreation::Yes:
+		return true;
+	case EWidgetSupportsDynamicCreation::No:
+		return false;
+	case EWidgetSupportsDynamicCreation::Default:
+	default:
+		return GetDefault<UUMGEditorProjectSettings>()->bWidgetSupportsDynamicCreation;
+	}
 }
 
 #undef LOCTEXT_NAMESPACE 

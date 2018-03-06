@@ -31,8 +31,8 @@ bool FTextLocalizationResourceGenerator::GenerateLocRes(const FLocTextHelper& In
 			InLocTextHelper.GetRuntimeText(InCultureToGenerate, InManifestEntry->Namespace, Context.Key, Context.KeyMetadataObj, ELocTextExportSourceMethod::NativeText, InManifestEntry->Source, TranslationText, bSkipSourceCheck);
 
 			// Add this entry to the LocRes
-			FTextLocalizationResource::FKeysTable& KeyTable = OutLocRes.Namespaces.FindOrAdd(*InManifestEntry->Namespace);
-			FTextLocalizationResource::FEntryArray& EntryArray = KeyTable.FindOrAdd(*Context.Key);
+			FTextLocalizationResource::FKeysTable& KeyTable = OutLocRes.Namespaces.FindOrAdd(InManifestEntry->Namespace.GetString());
+			FTextLocalizationResource::FEntryArray& EntryArray = KeyTable.FindOrAdd(Context.Key.GetString());
 			FTextLocalizationResource::FEntry& NewEntry = EntryArray[EntryArray.AddDefaulted()];
 			NewEntry.LocResID = InLocResID;
 			NewEntry.SourceStringHash = FCrc::StrCrc32(*InManifestEntry->Source.Text);

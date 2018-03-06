@@ -197,7 +197,7 @@ namespace IncludeTool
 			{
 				return true;
 			}
-			if(NormalizedPath.EndsWith("/recastmesh.cpp") || NormalizedPath.EndsWith("/recastfilter.cpp") || NormalizedPath.EndsWith("/recastcontour.cpp"))
+			if(NormalizedPath.EndsWith("/recastmesh.cpp") || NormalizedPath.EndsWith("/recastfilter.cpp") || NormalizedPath.EndsWith("/recastcontour.cpp") || NormalizedPath.EndsWith("/framepro.h") || NormalizedPath.EndsWith("/framepro.cpp"))
 			{
 				return true;
 			}
@@ -260,6 +260,7 @@ namespace IncludeTool
 			"/Engine/Plugins/Online/OnlineSubsystem/Source/Public/OnlineSubsystemPackage.h",
 			"/Engine/Plugins/Online/OnlineSubsystemNull/Source/Public/OnlineSubsystemNullPackage.h",
 			"/Engine/Plugins/Online/NotForLicensees/OnlineSubsystemMcp/Source/Public/OnlineSubsystemMcpPackage.h",
+			"/Engine/Plugins/OnlineGameplayFramework/Source/McpProfileSys/Public/McpProfileSysPackage.h",
 			"/Engine/Plugins/Online/NotForLicensees/OnlineSubsystemTencent/Source/Public/OnlineSubsystemTencentPackage.h",
 			"/Engine/Plugins/Online/OnlineSubsystemSteam/Source/Public/OnlineSubsystemSteamPackage.h",
 			"/Engine/Plugins/Online/OnlineSubsystemAmazon/Source/Public/OnlineSubsystemAmazonPackage.h",
@@ -287,7 +288,8 @@ namespace IncludeTool
             "/FortniteGame/Plugins/Online/OnlineSubsystem/Source/Public/OnlineSubsystemPackage.h",
             "/FortniteGame/Plugins/Online/NotForLicensees/OnlineSubsystemMcp/Source/Public/OnlineSubsystemMcpPackage.h",
 			"/FortniteGame/Plugins/Online/OnlineSubsystemNull/Source/Public/OnlineSubsystemNullPackage.h",
-			"/FortniteGame/Plugins/Online/OnlineSubsystemUtils/Source/OnlineSubsystemUtils/Public/OnlineSubsystemUtilsPackage.h"
+			"/FortniteGame/Plugins/Online/OnlineSubsystemUtils/Source/OnlineSubsystemUtils/Public/OnlineSubsystemUtilsPackage.h",
+			"/FortniteGame/Plugins/OnlineGameplayFramework/Source/McpProfileSys/Public/McpProfileSysPackage.h"
         };
 
 		/// <summary>

@@ -78,7 +78,7 @@ public:
 	 */
 	virtual FString ToString() const override
 	{
-		return FString::Printf(TEXT("FOnlineAsyncTaskSteamEndSession bWasSuccessful: %d SessionName: %s"), bWasSuccessful, *SessionName.ToString());
+		return FString::Printf(TEXT("FOnlineAsyncTaskSteamEndSession bWasSuccessful: %d SessionName: %s"), WasSuccessful(), *SessionName.ToString());
 	}
 
 	/**
@@ -146,7 +146,7 @@ public:
 	 */
 	virtual FString ToString() const override
 	{
-		return FString::Printf(TEXT("FOnlineAsyncTaskSteamDestroySession bWasSuccessful: %d SessionName: %s"), bWasSuccessful, *SessionName.ToString());
+		return FString::Printf(TEXT("FOnlineAsyncTaskSteamDestroySession bWasSuccessful: %d SessionName: %s"), WasSuccessful(), *SessionName.ToString());
 	}
 
 	/**

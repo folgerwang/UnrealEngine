@@ -1211,6 +1211,9 @@ void FPropertyValueImpl::AddChild()
 			// we don't want the objects to be marked dirty)
 			bool bNotifiedPreChange = false;
 
+			// If we added a new Map entry we need to rebuild children
+			bool bAddedMapEntry = false;
+
 			TArray< TMap<FString, int32> > ArrayIndicesPerObject;
 			TArray< TMap<UObject*, bool> > PropagationResultPerObject;
 
@@ -1283,6 +1286,7 @@ void FPropertyValueImpl::AddChild()
 						MapHelper.Rehash();
 
 						uint8* PairPtr = MapHelper.GetPairPtr(Index);
+						bAddedMapEntry = true;
 					}
 
 					ArrayIndicesPerObject[i].Add(NodeProperty->GetName(), Index);
@@ -1303,6 +1307,11 @@ void FPropertyValueImpl::AddChild()
 			{
 				PropertyNodePin->FixPropertiesInEvent(ChangeEvent);
 				PropertyUtilities.Pin()->NotifyFinishedChangingProperties(ChangeEvent);
+			}
+
+			if (bAddedMapEntry)
+			{
+				PropertyNodePin->RebuildChildren();
 			}
 		}
 	}
@@ -2279,7 +2288,12 @@ FPropertyHandleBase::FPropertyHandleBase( TSharedPtr<FPropertyNode> PropertyNode
 {
 
 }
- 
+
+FPropertyAccess::Result FPropertyHandleBase::GetValueData(void*& OutAddress) const
+{
+	return Implementation->GetValueData(OutAddress);
+}
+
 bool FPropertyHandleBase::IsValidHandle() const
 {
 	return Implementation->HasValidPropertyNode();

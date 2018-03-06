@@ -93,6 +93,7 @@ DEFINE_STAT(STAT_StaticRelevance);
 DEFINE_STAT(STAT_ViewRelevance);
 DEFINE_STAT(STAT_ComputeViewRelevance);
 DEFINE_STAT(STAT_OcclusionCull);
+DEFINE_STAT(STAT_SoftwareOcclusionCull);
 DEFINE_STAT(STAT_UpdatePrimitiveFading);
 DEFINE_STAT(STAT_FrustumCull);
 DEFINE_STAT(STAT_DecompressPrecomputedOcclusion);
@@ -249,6 +250,11 @@ FUniformBufferStruct* FindUniformBufferStructByName(const TCHAR* StructName)
 	FName FindByName(StructName, FNAME_Find);
 	FUniformBufferStruct* FoundStruct = FUniformBufferStruct::GetNameStructMap().FindRef(FindByName);
 	return FoundStruct;
+}
+
+FUniformBufferStruct* FindUniformBufferStructByFName(FName StructName)
+{
+	return FUniformBufferStruct::GetNameStructMap().FindRef(StructName);
 }
 
 // Can be optimized to avoid the virtual function call but it's compiled out for final release anyway

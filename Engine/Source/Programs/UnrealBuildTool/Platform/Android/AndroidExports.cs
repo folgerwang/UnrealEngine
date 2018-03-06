@@ -35,9 +35,8 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// 
 		/// </summary>
-		/// <param name="bDisallowPackagingDataInApk"></param>
 		/// <returns></returns>
-		bool PackageDataInsideApk(bool bDisallowPackagingDataInApk);
+		bool GetPackageDataInsideApk();
 
 		/// <summary>
 		/// 
@@ -80,10 +79,11 @@ namespace UnrealBuildTool
 		/// 
 		/// </summary>
 		/// <param name="ProjectFile"></param>
+		/// <param name="InForcePackageData"></param>
 		/// <returns></returns>
-		public static IAndroidDeploy CreateDeploymentHandler(FileReference ProjectFile)
+		public static IAndroidDeploy CreateDeploymentHandler(FileReference ProjectFile, bool InForcePackageData)
 		{
-			return new UEDeployAndroid(ProjectFile);
+			return new UEDeployAndroid(ProjectFile, InForcePackageData);
 		}
 
 		/// <summary>

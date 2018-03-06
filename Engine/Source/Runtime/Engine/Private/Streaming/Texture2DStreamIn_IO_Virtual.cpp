@@ -42,7 +42,10 @@ void FTexture2DStreamIn_IO_Virtual::Finalize(const FContext& Context)
 
 	ClearIORequests(Context);
 	DoUnlockNewMips(Context);
-	RHIVirtualTextureSetFirstMipVisible(IntermediateTextureRHI, PendingFirstMip);
+	if (IntermediateTextureRHI)
+	{
+		RHIVirtualTextureSetFirstMipVisible(IntermediateTextureRHI, PendingFirstMip);
+	}
 	DoFinishUpdate(Context);
 }
 
@@ -66,6 +69,9 @@ void FTexture2DStreamIn_IO_Virtual::Cancel(const FContext& Context)
 	check(Context.CurrentThread == TT_Render);
 
 	DoUnlockNewMips(Context);
-	RHIVirtualTextureSetFirstMipInMemory(IntermediateTextureRHI, Context.Resource->GetCurrentFirstMip());
+	if (IntermediateTextureRHI)
+	{
+		RHIVirtualTextureSetFirstMipInMemory(IntermediateTextureRHI, Context.Resource->GetCurrentFirstMip());
+	}
 	DoFinishUpdate(Context);
 }

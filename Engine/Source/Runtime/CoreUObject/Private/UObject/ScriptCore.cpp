@@ -28,6 +28,7 @@
 #include "UObject/ScriptMacros.h"
 #include "Misc/HotReloadInterface.h"
 #include "UObject/UObjectThreadContext.h"
+#include "HAL/IConsoleManager.h"
 
 DEFINE_LOG_CATEGORY(LogScriptFrame);
 DEFINE_LOG_CATEGORY_STATIC(LogScriptCore, Log, All);
@@ -40,6 +41,14 @@ DECLARE_CYCLE_STAT(TEXT("Blueprint Time"), STAT_BlueprintTime, STATGROUP_Game);
 DEFINE_STAT(STAT_ScriptVmTime_Total);
 DEFINE_STAT(STAT_ScriptNativeTime_Total);
 #endif //TOTAL_OVERHEAD_SCRIPT_STATS
+
+static int32 GVerboseScriptStats = 0;
+static FAutoConsoleVariableRef CVarVerboseScriptStats(
+	TEXT("bp.VerboseStats"),
+	GVerboseScriptStats,
+	TEXT("Create additional stats for Blueprint execution.\n"),
+	ECVF_Default
+);
 
 /*-----------------------------------------------------------------------------
 	Globals.
@@ -175,6 +184,9 @@ void FBlueprintCoreDelegates::SetScriptMaximumLoopIterations( const int32 Maximu
 	}
 }
 
+// This is meant to be called from the immediate mode, and for confusing reasons the optimized code isn't always safe in that case
+PRAGMA_DISABLE_OPTIMIZATION
+
 void PrintScriptCallStackImpl()
 {
 #if DO_BLUEPRINT_GUARD
@@ -191,6 +203,8 @@ void PrintScriptCallStackImpl()
 	}
 #endif
 }
+
+PRAGMA_ENABLE_OPTIMIZATION
 
 extern CORE_API void (*GPrintScriptCallStackFn)();
 
@@ -680,7 +694,6 @@ DEFINE_FUNCTION(UObject::execCallMathFunction)
 	UObject* NewContext = Function->GetOuterUClass()->GetDefaultObject(false);
 	checkSlow(NewContext);
 	{
-		FScopeCycleCounterUObject ContextScope(Stack.Object);
 		FScopeCycleCounterUObject FunctionScope(Function);
 
 		// CurrentNativeFunction is used so far only by FLuaContext::InvokeScriptFunction
@@ -701,7 +714,7 @@ void UObject::CallFunction( FFrame& Stack, RESULT_DECL, UFunction* Function )
 #endif // PER_FUNCTION_SCRIPT_STATS
 
 #if STATS || ENABLE_STATNAMEDEVENTS
-	const bool bShouldTrackObject = Stats::IsThreadCollectingData();
+	const bool bShouldTrackObject = GVerboseScriptStats && Stats::IsThreadCollectingData();
 	FScopeCycleCounterUObject ContextScope(bShouldTrackObject ? this : nullptr);
 #endif
 
@@ -752,9 +765,7 @@ void UObject::CallFunction( FFrame& Stack, RESULT_DECL, UFunction* Function )
 			}
 
 			// Call regular native function.
-			FScopeCycleCounterUObject NativeContextScope(Stack.Object);
-			FScopeCycleCounterUObject NativeFunctionScope(Function);
-
+			FScopeCycleCounterUObject NativeContextScope(GVerboseScriptStats ? Stack.Object : nullptr);
 			Function->Invoke(this, Stack, RESULT_PARAM);
 		}
 		else
@@ -923,16 +934,6 @@ DEFINE_FUNCTION(UObject::ProcessInternal)
 	}
 
 	UFunction* Function = (UFunction*)Stack.Node;
-
-#if PER_FUNCTION_SCRIPT_STATS
-	const bool bShouldTrackFunction = Stats::IsThreadCollectingData();
-	FScopeCycleCounterUObject FunctionScope(bShouldTrackFunction ? Function : nullptr);
-#endif // PER_FUNCTION_SCRIPT_STATS
-
-#if STATS || ENABLE_STATNAMEDEVENTS
-	const bool bShouldTrackObject = Stats::IsThreadCollectingData();
-	FScopeCycleCounterUObject ContextScope(bShouldTrackObject ? P_THIS : nullptr);
-#endif
 
 	int32 FunctionCallspace = P_THIS->GetFunctionCallspace(Function, Stack.Locals, NULL);
 	if (FunctionCallspace & FunctionCallspace::Remote)
@@ -1232,7 +1233,7 @@ void UObject::ProcessEvent( UFunction* Function, void* Parms )
 #endif // PER_FUNCTION_SCRIPT_STATS
 
 #if STATS || ENABLE_STATNAMEDEVENTS
-	const bool bShouldTrackObject = Stats::IsThreadCollectingData();
+	const bool bShouldTrackObject = GVerboseScriptStats && Stats::IsThreadCollectingData();
 	FScopeCycleCounterUObject ContextScope(bShouldTrackObject ? this : nullptr);
 #endif
 

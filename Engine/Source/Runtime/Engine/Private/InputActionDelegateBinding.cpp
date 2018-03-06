@@ -27,7 +27,7 @@ void UInputActionDelegateBinding::BindToInputComponent(UInputComponent* InputCom
 			for (int32 ExistingIndex = InputComponent->GetNumActionBindings() - 1; ExistingIndex >= 0; --ExistingIndex)
 			{
 				const FInputActionBinding& ExistingBind = InputComponent->GetActionBinding(ExistingIndex);
-				if (ExistingBind.ActionName == AB.ActionName && ExistingBind.KeyEvent == AB.KeyEvent)
+				if (ExistingBind.GetActionName() == AB.GetActionName() && ExistingBind.KeyEvent == AB.KeyEvent)
 				{
 					InputComponent->RemoveActionBinding(ExistingIndex);
 				}

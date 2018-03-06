@@ -10,7 +10,7 @@
  *****************************************************************************/
 
 SConstraintCanvas::SConstraintCanvas()
-: Children()
+	: Children(this)
 {
 	bCanTick = false;
 	bCanSupportFocus = false;
@@ -178,7 +178,10 @@ void SConstraintCanvas::ArrangeLayeredChildren(const FGeometry& AllottedGeometry
 					bNewLayer = false;
 					if (CurSlot.ZOrder > LastZOrder + DELTA)
 					{
-						bNewLayer = true;
+						if (ArrangedChildLayers.Num() > 0)
+						{
+							bNewLayer = true;
+						}
 						LastZOrder = CurSlot.ZOrder;
 					}
 
@@ -191,7 +194,7 @@ void SConstraintCanvas::ArrangeLayeredChildren(const FGeometry& AllottedGeometry
 
 int32 SConstraintCanvas::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
-	//FPlatformMisc::BeginNamedEvent(FColor::Orange, "SConstraintCanvas");
+	SCOPED_NAMED_EVENT_TEXT("SConstraintCanvas", FColor::Orange);
 
 	FArrangedChildren ArrangedChildren(EVisibility::Visible);
 	FArrangedChildLayers ChildLayers;
@@ -202,7 +205,7 @@ int32 SConstraintCanvas::OnPaint( const FPaintArgs& Args, const FGeometry& Allot
 	// Because we paint multiple children, we must track the maximum layer id that they produced in case one of our parents
 	// wants to an overlay for all of its contents.
 	int32 MaxLayerId = LayerId;
-	int32 ChildLayerId = LayerId + 1;
+	int32 ChildLayerId = LayerId;
 
 	const FPaintArgs NewArgs = Args.WithNewParent(this);
 
@@ -220,8 +223,6 @@ int32 SConstraintCanvas::OnPaint( const FPaintArgs& Args, const FGeometry& Allot
 			MaxLayerId = FMath::Max(MaxLayerId, CurWidgetsMaxLayerId);
 		}
 	}
-
-	//FPlatformMisc::EndNamedEvent();
 
 	return MaxLayerId;
 }

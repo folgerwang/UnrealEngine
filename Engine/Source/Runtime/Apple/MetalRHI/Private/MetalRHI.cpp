@@ -340,7 +340,16 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 			   GPoolSizeVRAMPercentage,
 			   MemoryStats.TotalGraphicsMemory);
 	}
-		
+	else
+	{
+		static const auto CVarStreamingTexturePoolSize = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Streaming.PoolSize"));
+		GTexturePoolSize = (int64)CVarStreamingTexturePoolSize->GetValueOnAnyThread() * 1024 * 1024;
+
+		UE_LOG(LogRHI,Log,TEXT("Texture pool is %llu MB (of %llu MB total graphics mem)"),
+			   GTexturePoolSize / 1024 / 1024,
+			   MemoryStats.TotalGraphicsMemory);
+	}
+
 	GRHISupportsRHIThread = false;
 	if (GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM5)
 	{
@@ -789,7 +798,7 @@ void FMetalDynamicRHI::Init()
 void FMetalRHIImmediateCommandContext::RHIBeginFrame()
 {
 	@autoreleasepool {
-	// @todo zebra: GPUProfilingData, GNumDrawCallsRHI, GNumPrimitivesDrawnRHI
+        RHIPrivateBeginFrame();
 #if ENABLE_METAL_GPUPROFILE
 	Profiler->BeginFrame();
 #endif

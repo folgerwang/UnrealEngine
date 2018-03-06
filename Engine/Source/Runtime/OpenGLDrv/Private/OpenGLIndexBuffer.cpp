@@ -10,8 +10,6 @@
 
 FIndexBufferRHIRef FOpenGLDynamicRHI::RHICreateIndexBuffer(uint32 Stride,uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo)
 {
-	VERIFY_GL_SCOPE();
-
 	const void *Data = NULL;
 
 	// If a resource array was provided for the resource, create the resource pre-populated
@@ -22,7 +20,18 @@ FIndexBufferRHIRef FOpenGLDynamicRHI::RHICreateIndexBuffer(uint32 Stride,uint32 
 	}
 
 	TRefCountPtr<FOpenGLIndexBuffer> IndexBuffer = new FOpenGLIndexBuffer(Stride, Size, InUsage, Data);
+
+	if (CreateInfo.ResourceArray)
+	{
+		CreateInfo.ResourceArray->Discard();
+	}
+
 	return IndexBuffer.GetReference();
+}
+
+FIndexBufferRHIRef FOpenGLDynamicRHI::CreateIndexBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo)
+{
+	return this->RHICreateIndexBuffer(Stride, Size, InUsage, CreateInfo);
 }
 
 void* FOpenGLDynamicRHI::RHILockIndexBuffer(FIndexBufferRHIParamRef IndexBufferRHI,uint32 Offset,uint32 Size,EResourceLockMode LockMode)

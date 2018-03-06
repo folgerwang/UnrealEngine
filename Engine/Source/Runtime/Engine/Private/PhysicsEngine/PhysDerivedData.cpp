@@ -202,41 +202,5 @@ bool FDerivedDataPhysXCooker::BuildTriMesh( TArray<uint8>& OutData,  const FTriM
 	return !bError;	//use error instead of bResult because we do not warn if the trimesh data is simply empty, and in that case we don't consider it to be a failure
 }
 
-FDerivedDataPhysXBinarySerializer::FDerivedDataPhysXBinarySerializer(FName InFormat, const TArray<FBodyInstance*>& InBodies, const TArray<class UBodySetup*>& InBodySetups, const TArray<class UPhysicalMaterial*>& InPhysicalMaterials, const FGuid& InGuid)
-: Bodies(InBodies)
-, BodySetups(InBodySetups)
-, PhysicalMaterials(InPhysicalMaterials)
-, Format(InFormat)
-, DataGuid(InGuid)
-{
-	InitSerializer();
-}
-
-bool FDerivedDataPhysXBinarySerializer::Build(TArray<uint8>& OutData)
-{
-	FMemoryWriter Ar(OutData);
-	
-	//do not serialize anything before the physx data. This is important because physx requires specific alignment. For that to work the physx data must come first in the archive
-	SerializeRigidActors(OutData);
-	
-	// Whatever got cached return true. We want to cache 'failure' too.
-	return true;
-}
-
-void FDerivedDataPhysXBinarySerializer::SerializeRigidActors(TArray<uint8>& OutData)
-{
-	Serializer->SerializeActors(Format, Bodies, BodySetups, PhysicalMaterials, OutData);
-}
-
-void FDerivedDataPhysXBinarySerializer::InitSerializer()
-{
-	// static here as an optimization
-	static ITargetPlatformManagerModule* TPM = GetTargetPlatformManager();
-	if (TPM)
-	{
-		Serializer = TPM->FindPhysXCooking(Format);
-	}
-}
-
 
 #endif	//WITH_PHYSX && WITH_EDITOR

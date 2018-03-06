@@ -24,6 +24,7 @@ public:
 
 	//~ Begin ILoginFlowManager interface
 	virtual bool AddLoginFlow(FName OnlineIdentifier, const FOnDisplayPopup& InPopupDelegate, bool bPersistCookies) override;
+	virtual bool HasLoginFlow(FName OnlineIdentifier) override;
 	virtual void CancelLoginFlow() override;
 	virtual void Reset() override;
 	//~ End ILoginFlowManager interface
@@ -66,6 +67,6 @@ private:
 	/** Is there a login attempt in progress */
 	bool bLoginFlowInProgress;
 	/** Properties related to the current login attempt */
-	TSharedPtr<FLoginFlowProperties> PendingLogin;
+	TUniquePtr<FLoginFlowProperties> PendingLogin;
 };
 

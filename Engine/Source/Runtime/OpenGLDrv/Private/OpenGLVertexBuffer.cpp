@@ -173,8 +173,6 @@ void BeginFrame_VertexBufferCleanup()
 
 FVertexBufferRHIRef FOpenGLDynamicRHI::RHICreateVertexBuffer(uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo)
 {
-	VERIFY_GL_SCOPE();
-
 	const void *Data = NULL;
 
 	// If a resource array was provided for the resource, create the resource pre-populated
@@ -185,6 +183,12 @@ FVertexBufferRHIRef FOpenGLDynamicRHI::RHICreateVertexBuffer(uint32 Size, uint32
 	}
 
 	TRefCountPtr<FOpenGLVertexBuffer> VertexBuffer = new FOpenGLVertexBuffer(0, Size, InUsage, Data);
+
+	if (CreateInfo.ResourceArray)
+	{
+		CreateInfo.ResourceArray->Discard();
+	}
+	
 	return VertexBuffer.GetReference();
 }
 

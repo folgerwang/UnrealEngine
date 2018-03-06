@@ -38,6 +38,7 @@ public:
 	///////////////////////////////////////////////////////////////////////////
 	// Locking/unlocking levels for edit.
 
+#if WITH_EDITOR
 	/**
 	 * Returns true if the specified level is locked for edit, false otherwise.
 	 *
@@ -53,6 +54,7 @@ public:
 	 * @param	Level		The level to modify.
 	 */
 	static void ToggleLevelLock(ULevel* Level);
+#endif
 
 	///////////////////////////////////////////////////////////////////////////
 	// Controls whether the level is loaded in editor.
@@ -87,7 +89,12 @@ public:
 	 *
 	 * @param	StreamingLevel		The level to query.
 	 */
-	static bool IsLevelVisible(const ULevelStreaming* StreamingLevel);
+#if WITH_EDITORONLY_DATA
+	static bool IsStreamingLevelVisibleInEditor(const ULevelStreaming* StreamingLevel);
+
+	DEPRECATED(4.20, "Use IsStreamingLevelVisibleInEditor instead.")
+	static bool IsLevelVisible(const ULevelStreaming* StreamingLevel) { return IsStreamingLevelVisibleInEditor(StreamingLevel); }
+#endif
 
 	/**
 	 * Returns true if the specified level is visible in the editor, false otherwise.

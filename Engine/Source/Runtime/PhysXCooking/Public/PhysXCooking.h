@@ -37,8 +37,6 @@ public:
 	virtual bool CookHeightField(FName Format, FIntPoint HFSize, const void* Samples, uint32 SamplesStride, TArray<uint8>& OutBuffer) const override;
 	virtual bool CreateHeightField(FName Format, FIntPoint HFSize, const void* Samples, uint32 SamplesStride, physx::PxHeightField*& OutHeightField) const override;
 	
-	virtual bool SerializeActors(FName Format, const TArray<FBodyInstance*>& Bodies, const TArray<UBodySetup*>& BodySetups, const TArray<UPhysicalMaterial*>& PhysicalMaterials, TArray<uint8>& OutBuffer) const override;
-
 private:
 
 	template <bool bUseBuffer>

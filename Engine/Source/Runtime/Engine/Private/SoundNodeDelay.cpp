@@ -67,15 +67,15 @@ void USoundNodeDelay::ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeW
 	}
 }
 
-float USoundNodeDelay::GetDuration()
+float USoundNodeDelay::GetDuration() const
 {
 	// Get length of child node.
 	float ChildDuration = 0.0f;
-	if( ChildNodes[ 0 ] )
+	if (ChildNodes[0])
 	{
-		ChildDuration = ChildNodes[ 0 ]->GetDuration();
+		ChildDuration = ChildNodes[0]->GetDuration();
 	}
 
 	// And return the two together.
-	return( ChildDuration + DelayMax );
+	return ChildDuration + DelayMax;
 }

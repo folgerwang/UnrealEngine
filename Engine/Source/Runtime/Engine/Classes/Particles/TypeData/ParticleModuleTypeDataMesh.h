@@ -66,6 +66,15 @@ class UParticleModuleTypeDataMesh : public UParticleModuleTypeDataBase
 	UPROPERTY(EditAnywhere, Category=Mesh)
 	class UStaticMesh* Mesh;
 
+	/** use the static mesh's LOD setup and switch LODs based on largest particle's screen size*/
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	bool bUseStaticMeshLODs;
+
+	/** use the static mesh's LOD setup and switch LODs based on largest particle's screen size*/
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	float LODSizeScale;
+
+
 	/** If true, has the meshes cast shadows */
 	UPROPERTY()
 	uint32 CastShadows:1;

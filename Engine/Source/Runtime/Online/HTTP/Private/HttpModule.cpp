@@ -7,6 +7,7 @@
 #include "Http.h"
 #include "NullHttp.h"
 #include "HttpTests.h"
+#include "Misc/CommandLine.h"
 
 DEFINE_LOG_CATEGORY(LogHttp);
 
@@ -57,6 +58,18 @@ void FHttpModule::StartupModule()
 	HttpThreadIdleMinimumSleepTimeInSeconds = 0.0f;
 	GConfig->GetFloat(TEXT("HTTP"), TEXT("HttpThreadIdleMinimumSleepTimeInSeconds"), HttpThreadIdleMinimumSleepTimeInSeconds, GEngineIni);
 
+	if (!FParse::Value(FCommandLine::Get(), TEXT("httpproxy="), ProxyAddress))
+	{
+		if (!GConfig->GetString(TEXT("HTTP"), TEXT("HttpProxyAddress"), ProxyAddress, GEngineIni))
+		{
+			if (TOptional<FString> OperatingSystemProxyAddress = FPlatformHttp::GetOperatingSystemProxyAddress())
+			{
+				ProxyAddress = MoveTemp(OperatingSystemProxyAddress.GetValue());
+			}
+		}
+	}
+
+	// Initialize FPlatformHttp after we have read config values
 	FPlatformHttp::Init();
 
 	HttpManager = FPlatformHttp::CreatePlatformHttpManager();
@@ -66,6 +79,8 @@ void FHttpModule::StartupModule()
 		HttpManager = new FHttpManager();
 	}
 	HttpManager->Initialize();
+
+	bSupportsDynamicProxy = HttpManager->SupportsDynamicProxy();
 }
 
 void FHttpModule::PostLoadCallback()
@@ -170,4 +185,3 @@ TSharedRef<IHttpRequest> FHttpModule::CreateRequest()
 		return TSharedRef<IHttpRequest>(FPlatformHttp::ConstructRequest());
 	}
 }
-

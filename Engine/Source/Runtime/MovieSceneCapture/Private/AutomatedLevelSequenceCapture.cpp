@@ -13,6 +13,7 @@
 #include "EngineUtils.h"
 #include "Sections/MovieSceneCinematicShotSection.h"
 #include "TimerManager.h"
+#include "GameFramework/PlayerController.h"
 
 UAutomatedLevelSequenceCapture::UAutomatedLevelSequenceCapture(const FObjectInitializer& Init)
 	: Super(Init)
@@ -417,8 +418,8 @@ void UAutomatedLevelSequenceCapture::EnableCinematicMode()
 	{
 		for (FConstPlayerControllerIterator Iterator = Viewport.Pin()->GetClient()->GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			APlayerController *PC = Iterator->Get();
-			if (PC->IsLocalController())
+			APlayerController* PC = Iterator->Get();
+			if (PC && PC->IsLocalController())
 			{
 				PC->SetCinematicMode(true, !GetSettings().bShowPlayer, !GetSettings().bShowHUD, !GetSettings().bAllowMovement, !GetSettings().bAllowTurning);
 			}

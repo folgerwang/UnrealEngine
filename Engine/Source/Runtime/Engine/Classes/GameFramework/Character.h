@@ -500,6 +500,9 @@ public:
     UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category=Character)
     int32 JumpCurrentCount;
 
+	/** Incremented every time there is an Actor overlap event (start or stop) on this actor. */
+	uint32 NumActorOverlapEventsCounter;
+
 	//~ Begin AActor Interface.
 	virtual void BeginPlay() override;
 	virtual void ClearCrossLevelReferences() override;
@@ -510,6 +513,8 @@ public:
 	virtual void GetSimpleCollisionCylinder(float& CollisionRadius, float& CollisionHalfHeight) const override;
 	virtual UActorComponent* FindComponentByClass(const TSubclassOf<UActorComponent> ComponentClass) const override;
 	virtual void TornOff() override;
+	virtual void NotifyActorBeginOverlap(AActor* OtherActor);
+	virtual void NotifyActorEndOverlap(AActor* OtherActor);
 	//~ End AActor Interface
 
 	template<class T>

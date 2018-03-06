@@ -519,8 +519,8 @@ enum EMovementMode
 
 	/** 
 	 * Simplified walking on navigation data (e.g. navmesh). 
-	 * If bGenerateOverlapEvents is true, then we will perform sweeps with each navmesh move.
-	 * If bGenerateOverlapEvents is false then movement is cheaper but characters can overlap other objects without some extra process to repel/resolve their collisions.
+	 * If GetGenerateOverlapEvents() is true, then we will perform sweeps with each navmesh move.
+	 * If GetGenerateOverlapEvents() is false then movement is cheaper but characters can overlap other objects without some extra process to repel/resolve their collisions.
 	 */
 	MOVE_NavWalking	UMETA(DisplayName="Navmesh Walking"),
 
@@ -1189,31 +1189,31 @@ struct FRigidBodyErrorCorrection
 	GENERATED_USTRUCT_BODY()
 
 	/** max squared position difference to perform velocity adjustment */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Replication")
 	float LinearDeltaThresholdSq;
 
 	/** strength of snapping to desired linear velocity */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = "Replication")
 	float LinearInterpAlpha;
 
 	/** inverted duration after which linear velocity adjustment will fix error */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = "Replication")
 	float LinearRecipFixTime;
 
 	/** max squared angle difference (in radians) to perform velocity adjustment */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = "Replication")
 	float AngularDeltaThreshold;
 
 	/** strength of snapping to desired angular velocity */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = "Replication")
 	float AngularInterpAlpha;
 
 	/** inverted duration after which angular velocity adjustment will fix error */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = "Replication")
 	float AngularRecipFixTime;
 
 	/** min squared body speed to perform velocity adjustment */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = "Replication")
 	float BodySpeedThresholdSq;
 
 	FRigidBodyErrorCorrection()
@@ -3251,6 +3251,7 @@ struct TStructOpsTypeTraits<FRepMovement> : public TStructOpsTypeTraitsBase2<FRe
 	enum 
 	{
 		WithNetSerializer = true,
+		WithNetSharedSerialization = true,
 	};
 };
 

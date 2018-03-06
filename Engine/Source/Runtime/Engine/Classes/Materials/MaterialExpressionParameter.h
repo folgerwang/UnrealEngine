@@ -34,10 +34,11 @@ class UMaterialExpressionParameter : public UMaterialExpression
 	int32 SortPriority;
 #endif
 
+#if WITH_EDITOR
+
 	//~ Begin UMaterialExpression Interface
 	virtual bool MatchesSearchQuery( const TCHAR* SearchQuery ) override;
 
-#if WITH_EDITOR
 	virtual bool CanRenameNode() const override { return true; }
 	virtual FString GetEditableName() const override;
 	virtual void SetEditableName(const FString& NewName) override;

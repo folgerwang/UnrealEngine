@@ -13,6 +13,17 @@
 #include "DerivedDataCacheInterface.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "ProfilingDebugging/CookStats.h"
+#include "Interfaces/ITargetPlatform.h"
+#if WITH_EDITOR
+#include "DeviceProfiles/DeviceProfile.h"
+#include "DeviceProfiles/DeviceProfileManager.h"
+#endif // WITH_EDITOR
+
+static TAutoConsoleVariable<int32> CVarNavCollisionAvailable(
+	TEXT("ai.NavCollisionAvailable"),
+	1,
+	TEXT("If set to 0 NavCollision won't be cooked and will be unavailable at runtime.\n"),
+	/*ECVF_ReadOnly | */ECVF_Scalability);
 
 #if ENABLE_COOK_STATS
 namespace NavCollisionCookStats
@@ -478,13 +489,13 @@ FByteBulkData* UNavCollision::GetCookedData(FName Format)
 	const bool bUseConvexCollision = bGatherConvexGeometry || (BoxCollision.Num() > 0) || (CylinderCollision.Num() > 0);
 	if (IsTemplate() || !bUseConvexCollision)
 	{
-		return NULL;
+		return nullptr;
 	}
 	
 	bool bContainedData = CookedFormatData.Contains(Format);
 	FByteBulkData* Result = &CookedFormatData.GetFormat(Format);
 
-	if (!bContainedData)
+	if (!bContainedData && CVarNavCollisionAvailable.GetValueOnAnyThread() != 0)
 	{
 		if (FPlatformProperties::RequiresCookedData())
 		{
@@ -511,8 +522,8 @@ FByteBulkData* UNavCollision::GetCookedData(FName Format)
 		}
 	}
 
-	check(Result);
-	return Result->GetBulkDataSize() > 0 ? Result : NULL; // we don't return empty bulk data...but we save it to avoid thrashing the DDC
+	UE_CLOG(!Result, LogNavigation, Error, TEXT("Failed to read CoockedDataFormat for %s."), *GetPathName());
+	return (Result && Result->GetBulkDataSize() > 0) ? Result : nullptr; // we don't return empty bulk data...but we save it to avoid thrashing the DDC
 }
 
 void UNavCollision::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
@@ -524,6 +535,23 @@ void UNavCollision::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 		const FByteBulkData& FmtData = CookedFormatData.GetFormat(NAVCOLLISION_FORMAT);
 		CumulativeResourceSize.AddDedicatedSystemMemoryBytes(FmtData.GetElementSize() * FmtData.GetElementCount());
 	}
+}
+
+bool UNavCollision::NeedsLoadForTargetPlatform(const class ITargetPlatform* TargetPlatform) const
+{
+#if WITH_EDITOR
+	const UDeviceProfile* DeviceProfile = UDeviceProfileManager::Get().FindProfile(TargetPlatform->IniPlatformName());
+	if (DeviceProfile)
+	{
+		int32 CVarNavCollisionAvailableVal = 1;
+		if (DeviceProfile->GetConsolidatedCVarValue(TEXT("ai.NavCollisionAvailable"), CVarNavCollisionAvailableVal))
+		{
+			return CVarNavCollisionAvailableVal != 0;
+		}
+	}
+#endif // WITH_EDITOR
+
+	return true;
 }
 
 void UNavCollision::CopyUserSettings(const UNavCollision& OtherData)

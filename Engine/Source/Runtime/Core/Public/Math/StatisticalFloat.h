@@ -7,18 +7,19 @@
 #include "Math/UnrealMathUtility.h"
 
 // Used to measure a distribution
-struct FStatisticalFloat
+template <typename T>
+struct FStatisticalValue
 {
 public:
-	FStatisticalFloat()
-		: MinValue(0.0)
-		, MaxValue(0.0)
-		, Accumulator(0.0)
-		, NumSamples(0)
+	FStatisticalValue()
+		: MinValue()
+		, MaxValue()
+		, Accumulator()
+		, NumSamples()
 	{
 	}
 
-	void AddSample(double Value)
+	void AddSample(T Value)
 	{
 		if (NumSamples == 0)
 		{
@@ -33,19 +34,19 @@ public:
 		++NumSamples;
 	}
 
-	double GetMinValue() const
+	T GetMinValue() const
 	{
 		return MinValue;
 	}
 
-	double GetMaxValue() const
+	T GetMaxValue() const
 	{
 		return MaxValue;
 	}
 
-	double GetAvgValue() const
+	T GetAvgValue() const
 	{
-		return Accumulator / (double)NumSamples;
+		return (NumSamples > 0) ? (Accumulator / (double)NumSamples) : T();
 	}
 
 	int32 GetCount() const
@@ -54,8 +55,10 @@ public:
 	}
 
 private:
-	double MinValue;
-	double MaxValue;
-	double Accumulator;
+	T MinValue;
+	T MaxValue;
+	T Accumulator;
 	int32 NumSamples;
 };
+
+typedef FStatisticalValue<double> FStatisticalFloat;

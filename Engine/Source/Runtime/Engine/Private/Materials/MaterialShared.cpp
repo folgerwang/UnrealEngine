@@ -852,6 +852,15 @@ bool FMaterialResource::HasVertexPositionOffsetConnected() const { return HasMat
 bool FMaterialResource::HasPixelDepthOffsetConnected() const { return HasMaterialAttributesConnected() || (!Material->bUseMaterialAttributes && Material->PixelDepthOffset.IsConnected()); }
 bool FMaterialResource::HasMaterialAttributesConnected() const { return Material->bUseMaterialAttributes && Material->MaterialAttributes.IsConnected(); }
 FString FMaterialResource::GetBaseMaterialPathName() const { return Material->GetPathName(); }
+FString FMaterialResource::GetDebugName() const
+{
+	if (MaterialInstance)
+	{
+		return FString::Printf(TEXT("%s (MI:%s)"), *GetBaseMaterialPathName(), *MaterialInstance->GetName());
+	}
+	
+	return GetBaseMaterialPathName();
+}
 
 bool FMaterialResource::IsUsedWithSkeletalMesh() const
 {
@@ -1245,8 +1254,8 @@ void FMaterialResource::GetRepresentativeShaderTypesAndDescriptions(TMap<FName, 
 		if (GetShadingModel() == MSM_Unlit)
 		{
 			//unlit materials are never lightmapped
-			static FName Name_HDRLinear64 = TEXT("TBasePassForForwardShadingPSFNoLightMapPolicy0HDRLinear64");
-			static FName Name_LDRGamma32 = TEXT("TBasePassForForwardShadingPSFNoLightMapPolicy0LDRGamma32");
+			static FName Name_HDRLinear64 = TEXT("TMobileBasePassPSFNoLightMapPolicy0HDRLinear64");
+			static FName Name_LDRGamma32 =	TEXT("TMobileBasePassPSFNoLightMapPolicy0LDRGamma32");
 			const FName TBasePassForForwardShadingPSFNoLightMapPolicy0Name = bMobileHDR ? Name_HDRLinear64 : Name_LDRGamma32;
 			ShaderTypeNamesAndDescriptions.Add(TBasePassForForwardShadingPSFNoLightMapPolicy0Name, FString::Printf(TEXT("Mobile base pass shader without light map%s"), DescSuffix));
 		}
@@ -1256,31 +1265,31 @@ void FMaterialResource::GetRepresentativeShaderTypesAndDescriptions(TMap<FName, 
 			{
 				//lit materials are usually lightmapped
 				{
-					static FName Name_HDRLinear64 = TEXT("TBasePassForForwardShadingPSTLightMapPolicy0LQHDRLinear64");
-					static FName Name_LDRGamma32 = TEXT("TBasePassForForwardShadingPSTLightMapPolicy0LQLDRGamma32");
+					static FName Name_HDRLinear64 = TEXT("TMobileBasePassPSTLightMapPolicyLQ0HDRLinear64");
+					static FName Name_LDRGamma32 =	TEXT("TMobileBasePassPSTLightMapPolicyLQ0LDRGamma32");
 					static FName TSlateMaterialShaderVStrueName = bMobileHDR ? Name_HDRLinear64 : Name_LDRGamma32;
 					ShaderTypeNamesAndDescriptions.Add(TSlateMaterialShaderVStrueName, FString::Printf(TEXT("Mobile base pass shader with static lighting%s"), DescSuffix));
 				}
 
 				// + distance field shadows
 				{
-					static FName Name_HDRLinear64 = TEXT("TBasePassForForwardShadingPSTDistanceFieldShadowsAndLightMapPolicy0LQHDRLinear64");
-					static FName Name_LDRGamma32 = TEXT("TBasePassForForwardShadingPSTDistanceFieldShadowsAndLightMapPolicy0LQLDRGamma32");
+					static FName Name_HDRLinear64 = TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsAndLQLightMapPolicy0HDRLinear64");
+					static FName Name_LDRGamma32 =	TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsAndLQLightMapPolicy0LDRGamma32");
 					static FName TBasePassForForwardShadingPSTDistanceFieldShadowsAndLightMapPolicy0LQName = bMobileHDR ? Name_HDRLinear64 : Name_LDRGamma32;
 					ShaderTypeNamesAndDescriptions.Add(TBasePassForForwardShadingPSTDistanceFieldShadowsAndLightMapPolicy0LQName, FString::Printf(TEXT("Mobile base pass shader with distance field shadows%s"), DescSuffix));
 				}
 			}
 
 			//also show a dynamically lit shader
-			static FName Name_HDRLinear64 = TEXT("TBasePassForForwardShadingPSFSimpleDirectionalLightAndSHIndirectPolicy0HDRLinear64");
-			static FName Name_LDRGamma32 = TEXT("TBasePassForForwardShadingPSFSimpleDirectionalLightAndSHIndirectPolicy0LDRGamma32");
+			static FName Name_HDRLinear64 = TEXT("TMobileBasePassPSFMobileMovableDirectionalLightCSMLightingPolicy0HDRLinear64");
+			static FName Name_LDRGamma32 =	TEXT("TMobileBasePassPSFMobileMovableDirectionalLightCSMLightingPolicy0LDRGamma32");
 			const FName TBasePassForForwardShadingPSFSimpleDirectionalLightAndSHIndirectPolicy0Name = bMobileHDR ? Name_HDRLinear64 : Name_LDRGamma32;
 			ShaderTypeNamesAndDescriptions.Add(TBasePassForForwardShadingPSFSimpleDirectionalLightAndSHIndirectPolicy0Name, FString::Printf(TEXT("Mobile base pass shader with only dynamic lighting%s"), DescSuffix));
 		}
 
 		{
-			static FName Name_HDRLinear64 = TEXT("TBasePassForForwardShadingVSFNoLightMapPolicyHDRLinear64");
-			static FName Name_LDRGamma32 = TEXT("TBasePassForForwardShadingVSFNoLightMapPolicyLDRGamma32");
+			static FName Name_HDRLinear64 = TEXT("TMobileBasePassVSFNoLightMapPolicyHDRLinear64");
+			static FName Name_LDRGamma32 =	TEXT("TMobileBasePassVSFNoLightMapPolicyLDRGamma32");
 			const FName TBasePassForForwardShadingVSFNoLightMapPolicyName = bMobileHDR ? Name_HDRLinear64 : Name_LDRGamma32;
 			ShaderTypeNamesAndDescriptions.Add(TBasePassForForwardShadingVSFNoLightMapPolicyName, FString::Printf(TEXT("Mobile base pass vertex shader%s"), DescSuffix));
 		}
@@ -1752,7 +1761,7 @@ bool FMaterial::CacheShaders(const FMaterialShaderMapId& ShaderMapId, EShaderPla
 			{
 				ShaderMapCondition = TEXT("Missing");
 			}
-			UE_LOG(LogMaterial, Log, TEXT("%s cached shader map for material %s, compiling. %s"),ShaderMapCondition,*GetFriendlyName(), IsSpecialEngineMaterial() ? TEXT("Is special engine material.") : TEXT("") );
+			UE_LOG(LogMaterial, Display, TEXT("%s cached shader map for material %s, compiling. %s"),ShaderMapCondition,*GetFriendlyName(), IsSpecialEngineMaterial() ? TEXT("Is special engine material.") : TEXT("") );
 
 			// If there's no cached shader map for this material, compile a new one.
 			// This is just kicking off the async compile, GameThreadShaderMap will not be complete yet

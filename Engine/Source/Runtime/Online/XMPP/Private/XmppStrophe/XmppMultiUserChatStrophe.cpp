@@ -645,7 +645,6 @@ bool FXmppMultiUserChatStrophe::SendChat(const FXmppRoomId& RoomId, const FStrin
 		MessageStanza.SetId(FGuid::NewGuid().ToString());
 		MessageStanza.SetType(Strophe::ST_GROUPCHAT);
 		MessageStanza.SetTo(RoomPtr->GetRoomJid().GetBareId());
-		MessageStanza.SetFrom(ConnectionManager.GetUserJid());
 		MessageStanza.AddBodyWithText(MsgBody);
 	}
 
@@ -1189,17 +1188,17 @@ void FXmppMultiUserChatStrophe::HandleExitRoomComplete(FXmppRoomStrophe& Room, F
 {
 	UE_LOG(LogXmpp, Verbose, TEXT("MUC: HandleExitRoomComplete: Room: %s User: %s"), *Room.GetRoomId(), *MemberPresence.GetNickName());
 
-	if (Room.Status == ERoomStatusStrophe::ExitPending)
-	{
-		OnXmppRoomExitCompleteDelegate.Broadcast(ConnectionManager.AsShared(), true, Room.GetRoomId(), FString());
-	}
-	else if (Room.Status == ERoomStatusStrophe::CreatePending)
+	if (Room.Status == ERoomStatusStrophe::CreatePending)
 	{
 		OnXmppRoomCreateCompleteDelegate.Broadcast(ConnectionManager.AsShared(), false, Room.GetRoomId(), TEXT("Failed to configure room"));
 	}
 	else
 	{
-		UE_LOG(LogXmpp, Warning, TEXT("MUC: Unexpected room exit complete; in state %s"), Lex::ToString(Room.Status));
+		if (Room.Status != ERoomStatusStrophe::ExitPending)
+		{
+			UE_LOG(LogXmpp, Verbose, TEXT("MUC: Server initiated room exit complete; in state %s"), Lex::ToString(Room.Status));
+		}
+		OnXmppRoomExitCompleteDelegate.Broadcast(ConnectionManager.AsShared(), true, Room.GetRoomId(), FString());
 	}
 
 	// Do not use Room after this

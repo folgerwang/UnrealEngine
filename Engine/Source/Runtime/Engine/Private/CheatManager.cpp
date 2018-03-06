@@ -37,6 +37,8 @@
 #include "Components/BrushComponent.h"
 #include "GameFramework/PlayerState.h"
 #include "GameFramework/InputSettings.h"
+#include "Misc/CoreDelegates.h"
+#include "Engine/NetConnection.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogCheatManager, Log, All);
 
@@ -505,22 +507,23 @@ void UCheatManager::ViewClass( TSubclassOf<AActor> DesiredClass )
 
 void UCheatManager::SetLevelStreamingStatus(FName PackageName, bool bShouldBeLoaded, bool bShouldBeVisible)
 {
+	UWorld* World = GetWorld();
 	if (PackageName != NAME_All)
 	{
-		for( FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator )
+		for( FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator )
 		{
 			(*Iterator)->ClientUpdateLevelStreamingStatus((*Iterator)->NetworkRemapPath(PackageName, false), bShouldBeLoaded, bShouldBeVisible, false, INDEX_NONE );
 		}
 	}
 	else
 	{
-		for( FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator )
+		for( FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator )
 		{
 			TArray<FUpdateLevelStreamingLevelStatus> LevelStatuses;
-			for (int32 i = 0; i < GetWorld()->StreamingLevels.Num(); i++)
+			for (ULevelStreaming* StreamingLevel : World->GetStreamingLevels())
 			{
 				FUpdateLevelStreamingLevelStatus& LevelStatus = *new( LevelStatuses ) FUpdateLevelStreamingLevelStatus();
-				LevelStatus.PackageName = (*Iterator)->NetworkRemapPath(GetWorld()->StreamingLevels[ i ]->GetWorldAssetPackageFName(), false);
+				LevelStatus.PackageName = (*Iterator)->NetworkRemapPath(StreamingLevel->GetWorldAssetPackageFName(), false);
 				LevelStatus.bNewShouldBeLoaded = bShouldBeLoaded;
 				LevelStatus.bNewShouldBeVisible = bShouldBeVisible;
 				LevelStatus.bNewShouldBlockOnLoad = false;
@@ -1281,6 +1284,11 @@ void UCheatManager::ToggleServerStatReplicatorUpdateStatNet()
 	{
 		ServerStatReplicator->bUpdateStatNet = !ServerStatReplicator->bUpdateStatNet;
 	}
+}
+
+void UCheatManager::UpdateSafeArea()
+{
+	FCoreDelegates::OnSafeFrameChangedEvent.Broadcast();
 }
 
 #undef LOCTEXT_NAMESPACE

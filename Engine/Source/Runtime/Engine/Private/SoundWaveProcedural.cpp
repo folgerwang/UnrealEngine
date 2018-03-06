@@ -169,12 +169,12 @@ bool USoundWaveProcedural::IsReadyForFinishDestroy()
 	return bIsReadyForDestroy;
 }
 
-bool USoundWaveProcedural::HasCompressedData(FName Format) const
+bool USoundWaveProcedural::HasCompressedData(FName Format, ITargetPlatform* TargetPlatform) const
 {
 	return false;
 }
 
-FByteBulkData* USoundWaveProcedural::GetCompressedData(FName Format)
+FByteBulkData* USoundWaveProcedural::GetCompressedData(FName Format, const FPlatformAudioCookOverrides* CompressionOverrides)
 {
 	// SoundWaveProcedural does not have compressed data and should generally not be asked about it
 	return nullptr;

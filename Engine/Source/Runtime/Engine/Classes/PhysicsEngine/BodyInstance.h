@@ -70,15 +70,6 @@ typedef TArray<physx::PxShape*, TInlineAllocator<NumInlinedPxShapeElements>> FIn
 
 ENGINE_API int32 FillInlinePxShapeArray_AssumesLocked(FInlinePxShapeArray& Array, const physx::PxRigidActor& RigidActor);
 
-/** Helper to fill FInlinePxShapeArray from a PxRigidActor. Returns number of shapes added. */
-DEPRECATED(4.16, "Please call FillInlinePxShapeArray_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
-inline int32 FillInlinePxShapeArray(FInlinePxShapeArray& Array, const physx::PxRigidActor& RigidActor)
-{
-	return FillInlinePxShapeArray_AssumesLocked(Array, RigidActor);
-}
-
-
-
 #endif // WITH_PHYSX
 
 UENUM(BlueprintType)
@@ -341,9 +332,6 @@ public:
 	UPROPERTY(EditAnywhere, Category = Physics, meta = (editcondition = "bSimulatePhysics", InlineEditConditionToggle))
 	uint8 bOverrideMaxAngularVelocity : 1;
 
-	/** When initializing dynamic instances their component or velocity can override the bStartAwake flag */
-	uint8 bWokenExternally : 1;
-
 	/**
 	* If true, this body will be put into the asynchronous physics scene. If false, it will be put into the synchronous physics scene.
 	* If the body is static, it will be placed into both scenes regardless of the value of bUseAsyncScene.
@@ -381,6 +369,8 @@ public:
 
 	/** Sets the mass override */
 	void SetMassOverride(float MassInKG, bool bNewOverrideMass = true);
+
+	bool GetRigidBodyState(FRigidBodyState& OutState);
 
 	/** 'Drag' force added to reduce linear movement */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Physics)
@@ -483,21 +473,9 @@ public:
 	TSharedPtr<TArray<ANSICHAR>> CharDebugName;
 #endif	//WITH_PHYSX
 
-	/** Internal use. Physics-engine id of the actor used during serialization. Needs to be outside the ifdef for serialization purposes*/
-	UPROPERTY()
-	uint64 RigidActorSyncId;
-
-	/** Internal use. Physics-engine id of the actor used during serialization.  Needs to be outside the ifdef for serialization purposes*/
-	UPROPERTY()
-	uint64 RigidActorAsyncId;
-
 	/** This physics body's solver iteration count for velocity. Increasing this will be more CPU intensive, but better stabilized. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics)
 	int32 VelocitySolverIterationCount;
-
-	/** Per instance data used to initialize dynamic instances */
-	/** Initial physx velocity to apply to dynamic instances */
-	FVector InitialLinearVelocity;
 
 	/** PrimitiveComponent containing this body.   */
 	TWeakObjectPtr<class UPrimitiveComponent> OwnerComponent;
@@ -573,9 +551,8 @@ public:
 	 *	@param BodySetup
 	 *	@param PrimitiveComp
 	 *	@param InRBScene
-	 *  @param PhysicsSerializer
 	 */
-	static void InitStaticBodies(const TArray<FBodyInstance*>& Bodies, const TArray<FTransform>& Transforms, UBodySetup* BodySetup, class UPrimitiveComponent* PrimitiveComp, class FPhysScene* InRBScene, class UPhysicsSerializer* PhysicsSerializer);
+	static void InitStaticBodies(const TArray<FBodyInstance*>& Bodies, const TArray<FTransform>& Transforms, UBodySetup* BodySetup, class UPrimitiveComponent* PrimitiveComp, class FPhysScene* InRBScene);
 
 	/** Obtains the appropriate PhysX scene lock for READING and executes the passed in lambda. */
 	void ExecuteOnPhysicsReadOnly(TFunctionRef<void()> Func) const;
@@ -760,21 +737,7 @@ public:
 	void AddForceAtPosition(const FVector& Force, const FVector& Position, bool bAllowSubstepping = true, bool bIsLocalForce = false);
 
 	/** Add a torque to this body */
-	DEPRECATED(4.18, "Use AddTorqueInRadians instead.")
-	inline void AddTorque(const FVector& Torque, bool bAllowSubstepping = true, bool bAccelChange = false)
-	{
-		AddTorqueInRadians(Torque, bAllowSubstepping, bAccelChange);
-	}
-
-	/** Add a torque to this body */
 	void AddTorqueInRadians(const FVector& Torque, bool bAllowSubstepping = true, bool bAccelChange = false);
-
-	/** Add a rotational impulse to this body */
-	DEPRECATED(4.18, "Use AddAngularImpulseInRadians instead.")
-	inline void AddAngularImpulse(const FVector& Impulse, bool bVelChange)
-	{
-		AddAngularImpulseInRadians(Impulse, bVelChange);
-	}
 
 	/** Add a rotational impulse to this body */
 	void AddAngularImpulseInRadians(const FVector& Impulse, bool bVelChange);
@@ -787,31 +750,10 @@ public:
 	void SetLinearVelocity(const FVector& NewVel, bool bAddToCurrent);
 
 	/** Set the angular velocity of this body */
-	DEPRECATED(4.18, "Use SetAngularVelocityInRadians instead - be sure to convert NewAngVel to radians first.")
-	inline void SetAngularVelocity(const FVector& NewAngVel, bool bAddToCurrent)
-	{
-		SetAngularVelocityInRadians(FMath::DegreesToRadians(NewAngVel), bAddToCurrent);
-	}
-
-	/** Set the angular velocity of this body */
 	void SetAngularVelocityInRadians(const FVector& NewAngVel, bool bAddToCurrent);
 
 	/** Set the maximum angular velocity of this body */
-	DEPRECATED(4.18, "Use SetMaxAngularVelocityInRadians instead - be sure to convert NewMaxAngVel to radians first.")
-	inline void SetMaxAngularVelocity(float NewMaxAngVel, bool bAddToCurrent, bool bUpdateOverrideMaxAngularVelocity = true)
-	{
-		SetMaxAngularVelocityInRadians(FMath::DegreesToRadians(NewMaxAngVel), bAddToCurrent, bUpdateOverrideMaxAngularVelocity);
-	}
-
-	/** Set the maximum angular velocity of this body */
 	void SetMaxAngularVelocityInRadians(float NewMaxAngVel, bool bAddToCurrent, bool bUpdateOverrideMaxAngularVelocity = true);
-
-	/** Get the maximum angular velocity of this body */
-	DEPRECATED(4.18, "Use GetMaxAngularVelocityInRadians instead - be sure to convert the return value to degrees if required.")
-	inline float GetMaxAngularVelocity() const
-	{
-		return FMath::RadiansToDegrees(GetMaxAngularVelocityInRadians());
-	}
 
 	/** Get the maximum angular velocity of this body */
 	float GetMaxAngularVelocityInRadians() const;
@@ -854,21 +796,7 @@ public:
 	FVector GetUnrealWorldVelocity_AssumesLocked() const;
 
 	/** Get current angular velocity in world space from physics body. */
-	DEPRECATED(4.18, "Use GetUnrealWorldAngularVelocityInRadians instead - be sure to convert the return value to degrees if required.")
-	inline FVector GetUnrealWorldAngularVelocity() const
-	{
-		return FMath::RadiansToDegrees(GetUnrealWorldAngularVelocityInRadians());
-	}
-
-	/** Get current angular velocity in world space from physics body. */
 	FVector GetUnrealWorldAngularVelocityInRadians() const;
-
-	/** Get current angular velocity in world space from physics body. */
-	DEPRECATED(4.18, "Use GetUnrealWorldAngularVelocityInRadians_AssumesLocked instead - be sure to convert the return value to degrees if required.")
-	inline FVector GetUnrealWorldAngularVelocity_AssumesLocked() const
-	{
-		return FMath::DegreesToRadians(GetUnrealWorldAngularVelocityInRadians_AssumesLocked());
-	}
 
 	/** Get current angular velocity in world space from physics body. */
 	FVector GetUnrealWorldAngularVelocityInRadians_AssumesLocked() const;
@@ -1094,8 +1022,6 @@ public:
 	/** 
 	 * Returns memory used by resources allocated for this body instance ( ex. Physx resources )
 	 **/
-	DEPRECATED(4.14, "GetBodyInstanceResourceSize is deprecated. Please use GetBodyInstanceResourceSizeEx instead.")
-	SIZE_T GetBodyInstanceResourceSize(EResourceSizeMode::Type Mode) const;
 	void GetBodyInstanceResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) const;
 
 	/**
@@ -1161,7 +1087,6 @@ private:
 	
 	friend struct FInitBodiesHelper<true>;
 	friend struct FInitBodiesHelper<false>;
-	friend class FDerivedDataPhysXBinarySerializer;
 	friend class FBodyInstanceCustomizationHelper;
 	friend class FFoliageTypeCustomizationHelpers;
 

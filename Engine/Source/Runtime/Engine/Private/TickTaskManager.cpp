@@ -81,9 +81,8 @@ FAutoConsoleTaskPriority CPrio_DispatchTaskPriority(
 FAutoConsoleTaskPriority CPrio_CleanupTaskPriority(
 	TEXT("TaskGraph.TaskPriorities.TickCleanupTaskPriority"),
 	TEXT("Task and thread priority for tick cleanup."),
-	ENamedThreads::BackgroundThreadPriority, // if we have background priority task threads, then use them...
-	ENamedThreads::HighTaskPriority, // .. at high task priority
-	ENamedThreads::NormalTaskPriority // if we don't have background threads, then use normal priority threads at normal task priority instead
+	ENamedThreads::NormalThreadPriority, 
+	ENamedThreads::NormalTaskPriority	
 	);
 
 FAutoConsoleTaskPriority CPrio_NormalAsyncTickTaskPriority(
@@ -539,7 +538,7 @@ public:
 				if (TickCompletionEvents[Block].Num())
 				{
 					FTaskGraphInterface::Get().WaitUntilTasksComplete(TickCompletionEvents[Block], ENamedThreads::GameThread);
-					if (SingleThreadedMode() || Block == TG_NewlySpawned || CVarAllowAsyncTickCleanup.GetValueOnGameThread() == 0)
+					if (SingleThreadedMode() || Block == TG_NewlySpawned || CVarAllowAsyncTickCleanup.GetValueOnGameThread() == 0 || TickCompletionEvents[Block].Num() < 50)
 					{
 						ResetTickGroup(Block);
 					}
@@ -1361,8 +1360,8 @@ public:
 
 		int32 NumWorkerThread = 0;
 		bool bConcurrentQueue = false;
-#if !PLATFORM_WINDOWS
-		// the windows scheduler will hang for seconds trying to do this algorithm, threads starve even though other threads are calling sleep(0)
+#if !PLATFORM_WINDOWS && !PLATFORM_ANDROID
+		// some schedulers will hang for seconds trying to do this algorithm, threads starve even though other threads are calling sleep(0)
 		if (!FTickTaskSequencer::SingleThreadedMode())
 		{
 			bConcurrentQueue = !!CVarAllowConcurrentQueue.GetValueOnGameThread();

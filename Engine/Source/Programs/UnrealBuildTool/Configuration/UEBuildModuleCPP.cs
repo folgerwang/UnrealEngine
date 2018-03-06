@@ -541,6 +541,8 @@ namespace UnrealBuildTool
 						PrecompiledHeaderInstance Instance = FindOrCreateSharedPCH(ToolChain, Template, ModuleCompileEnvironment.bOptimizeCode, ModuleCompileEnvironment.bUseRTTI, ActionGraph);
 
 						FileReference PrivateDefinitionsFile = FileReference.Combine(IntermediateDirectory, String.Format("Definitions.{0}.h", Name));
+
+						FileItem PrivateDefinitionsFileItem;
 						using (StringWriter Writer = new StringWriter())
 						{
 							// Remove the module _API definition for cases where there are circular dependencies between the shared PCH module and modules using it
@@ -555,12 +557,12 @@ namespace UnrealBuildTool
 							}
 
 							WriteDefinitions(CompileEnvironment.Definitions, Writer);
-							FileItem.CreateIntermediateTextFile(PrivateDefinitionsFile, Writer.ToString());
+							PrivateDefinitionsFileItem = FileItem.CreateIntermediateTextFile(PrivateDefinitionsFile, Writer.ToString());
 						}
 
 						CompileEnvironment = new CppCompileEnvironment(CompileEnvironment);
 						CompileEnvironment.Definitions.Clear();
-						CompileEnvironment.ForceIncludeFiles.Add(PrivateDefinitionsFile);
+						CompileEnvironment.ForceIncludeFiles.Add(PrivateDefinitionsFileItem);
 						CompileEnvironment.PrecompiledHeaderAction = PrecompiledHeaderAction.Include;
 						CompileEnvironment.PrecompiledHeaderIncludeFilename = Instance.HeaderFile.Location;
 						CompileEnvironment.PrecompiledHeaderFile = Instance.Output.PrecompiledHeaderFile;
@@ -583,6 +585,9 @@ namespace UnrealBuildTool
 					LinkInputFiles.AddRange(Instance.Output.ObjectFiles);
 				}
 			}
+
+			// Write all the definitions to a separate file
+			CreateHeaderForDefinitions(CompileEnvironment, IntermediateDirectory, null);
 
 			// Compile CPP files
 			List<FileItem> CPPFilesToCompile = SourceFilesToBuild.CPPFiles;
@@ -825,6 +830,9 @@ namespace UnrealBuildTool
 				}
 				AdaptiveUnityEnvironment.PrecompiledHeaderAction = PrecompiledHeaderAction.None;
 
+				// Write all the definitions out to a separate file
+				CreateHeaderForDefinitions(AdaptiveUnityEnvironment, IntermediateDirectory, "Adaptive");
+
 				// Compile the files
 				CPPOutput AdaptiveOutput = ToolChain.CompileCPPFiles(AdaptiveUnityEnvironment, AdaptiveFiles, IntermediateDirectory, Name, ActionGraph);
 
@@ -834,6 +842,38 @@ namespace UnrealBuildTool
 			}
 
 			return OutputFiles;
+		}
+
+		/// <summary>
+		/// Creates a header file containing all the preprocessor definitions for a compile environment, and force-include it. We allow a more flexible syntax for preprocessor definitions than
+		/// is typically allowed on the command line (allowing function macros or double-quote characters, for example). Ensuring all definitions are specified in a header files ensures consistent
+		/// behavior.
+		/// </summary>
+		/// <param name="CompileEnvironment">The compile environment</param>
+		/// <param name="IntermediateDirectory">Directory to create the intermediate file</param>
+		/// <param name="HeaderSuffix">Suffix for the included file</param>
+		static void CreateHeaderForDefinitions(CppCompileEnvironment CompileEnvironment, DirectoryReference IntermediateDirectory, string HeaderSuffix)
+		{
+			if(CompileEnvironment.Definitions.Count > 0)
+			{
+				StringBuilder PrivateDefinitionsName = new StringBuilder("Definitions");
+				if(!String.IsNullOrEmpty(HeaderSuffix))
+				{
+					PrivateDefinitionsName.Append('.');
+					PrivateDefinitionsName.Append(HeaderSuffix);
+				}
+				PrivateDefinitionsName.Append(".h");
+
+				FileReference PrivateDefinitionsFile = FileReference.Combine(IntermediateDirectory, PrivateDefinitionsName.ToString());
+				using (StringWriter Writer = new StringWriter())
+				{
+					WriteDefinitions(CompileEnvironment.Definitions, Writer);
+					CompileEnvironment.Definitions.Clear();
+
+					FileItem PrivateDefinitionsFileItem = FileItem.CreateIntermediateTextFile(PrivateDefinitionsFile, Writer.ToString());
+					CompileEnvironment.ForceIncludeFiles.Add(PrivateDefinitionsFileItem);
+				}
+			}
 		}
 
 		/// <summary>
@@ -1133,8 +1173,7 @@ namespace UnrealBuildTool
 			// Override compile environment
 			Result.bFasterWithoutUnity = Rules.bFasterWithoutUnity;
 			Result.bOptimizeCode = ShouldEnableOptimization(Rules.OptimizeCode, Target.Configuration, Rules.bTreatAsEngineModule);
-			Result.bUseRTTI = Rules.bUseRTTI || Target.bForceEnableRTTI;
-			Result.bUseInlining = Target.bUseInlining;
+			Result.bUseRTTI |= Rules.bUseRTTI;
 			Result.bUseAVX = Rules.bUseAVX;
 			Result.bEnableBufferSecurityChecks = Rules.bEnableBufferSecurityChecks;
 			Result.MinSourceFilesForUnityBuildOverride = Rules.MinSourceFilesForUnityBuildOverride;
@@ -1144,7 +1183,6 @@ namespace UnrealBuildTool
 			Result.bEnableObjCExceptions |= Rules.bEnableObjCExceptions;
 			Result.bEnableShadowVariableWarnings = Rules.bEnableShadowVariableWarnings;
 			Result.bEnableUndefinedIdentifierWarnings = Rules.bEnableUndefinedIdentifierWarnings;
-			Result.bUseStaticCRT = Target.bUseStaticCRT;
 
 			// Set the macro used to check whether monolithic headers can be used
 			if (Rules.bTreatAsEngineModule && (!Rules.bEnforceIWYU || !Target.bEnforceIWYU))
@@ -1178,7 +1216,8 @@ namespace UnrealBuildTool
 			// For game modules, set the define for the project name. This will be used by the IMPLEMENT_PRIMARY_GAME_MODULE macro.
 			if (!Rules.bTreatAsEngineModule)
 			{
-				if (Target.ProjectFile != null)
+				// Make sure we don't set any define for a non-engine module that's under the engine directory (eg. UE4Game)
+				if (Target.ProjectFile != null && RulesFile.IsUnderDirectory(Target.ProjectFile.Directory))
 				{
 					string ProjectName = Target.ProjectFile.GetFileNameWithoutExtension();
 					Result.Definitions.Add(String.Format("UE_PROJECT_NAME={0}", ProjectName));
@@ -1224,7 +1263,6 @@ namespace UnrealBuildTool
 			// Override compile environment
 			CompileEnvironment.bIsBuildingDLL = !Target.ShouldCompileMonolithic();
 			CompileEnvironment.bIsBuildingLibrary = false;
-			CompileEnvironment.bUseStaticCRT = (Target.Rules != null && Target.Rules.bUseStaticCRT);
 
 			// Add a macro for when we're compiling an engine module, to enable additional compiler diagnostics through code.
 			if (Rules.bTreatAsEngineModule)

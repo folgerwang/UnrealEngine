@@ -83,6 +83,7 @@ public:
 				AddColumn( 
 					SHeaderRow::Column( ColumnId )
 					.SortMode( TableRef, &IPropertyTable::GetColumnSortMode, Column )
+					.SortPriority( TableRef, &IPropertyTable::GetColumnSortPriority, Column)
 					.OnSort( TableRef, &IPropertyTable::SortByColumnWithId )
 					.MenuContent()
 					[
@@ -97,17 +98,20 @@ public:
 			else
 			{
 				TAttribute< EColumnSortMode::Type > SortMode = EColumnSortMode::None;
+				TAttribute< EColumnSortPriority::Type > SortPriority = EColumnSortPriority::Max;
 				FOnSortModeChanged OnSort;
 
 				if ( Column->CanSortBy() )
 				{
 					SortMode = TAttribute< EColumnSortMode::Type >::Create( TAttribute< EColumnSortMode::Type >::FGetter::CreateSP( TableRef, &IPropertyTable::GetColumnSortMode, Column ) );
+					SortPriority = TAttribute< EColumnSortPriority::Type >::Create(TAttribute< EColumnSortPriority::Type >::FGetter::CreateSP(TableRef, &IPropertyTable::GetColumnSortPriority, Column ) );
 					OnSort = FOnSortModeChanged::CreateSP( TableRef, &IPropertyTable::SortByColumnWithId );
 				}
 
 				AddColumn(
 					SHeaderRow::Column( ColumnId )
 					.SortMode( SortMode )
+					.SortPriority( SortPriority )
 					.OnSort( OnSort )
 					.MenuContent()
 					[

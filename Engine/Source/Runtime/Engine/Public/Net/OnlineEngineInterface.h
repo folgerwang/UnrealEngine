@@ -104,6 +104,7 @@ public:
 	virtual void RegisterPlayer(UWorld* World, FName SessionName, const FUniqueNetId& UniqueId, bool bWasInvited) {}
 	/** Unregister a given player from the online session */
 	virtual void UnregisterPlayer(UWorld* World, FName SessionName, const FUniqueNetId& UniqueId) {}
+	virtual void UnregisterPlayers(UWorld* World, FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Players) {}
 	/** @return true if there is a valid URL that can been used to connect to a given session, false otherwise */
 	virtual bool GetResolvedConnectString(UWorld* World, FName SessionName, FString& URL) { return false; }
 

@@ -46,6 +46,12 @@ FString FQosInterface::GetRegionId() const
 	return RegionManager->GetRegionId();
 }
 
+FString FQosInterface::GetBestRegion() const
+{
+	check(RegionManager);
+	return RegionManager->GetBestRegion();
+}
+
 bool FQosInterface::AllRegionsFound() const
 {
 	check(RegionManager);
@@ -74,6 +80,12 @@ bool FQosInterface::SetSelectedRegion(const FString& InRegionId)
 {
 	check(RegionManager);
 	return RegionManager->SetSelectedRegion(InRegionId);
+}
+
+void FQosInterface::ClearSelectedRegion()
+{
+	check(RegionManager);
+	RegionManager->ClearSelectedRegion();
 }
 
 void FQosInterface::DumpRegionStats()

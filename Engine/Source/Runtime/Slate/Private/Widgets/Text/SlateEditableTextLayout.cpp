@@ -70,7 +70,10 @@ FSlateEditableTextLayout::FSlateEditableTextLayout(ISlateEditableTextWidget& InO
 	CreateSlateTextLayout = InCreateSlateTextLayout;
 	if (!CreateSlateTextLayout.IsBound())
 	{
-		CreateSlateTextLayout.BindStatic(&FSlateTextLayout::Create);
+		SWidget* OwnerWidgetPtr = &InOwnerWidget.GetSlateWidget().Get();
+		CreateSlateTextLayout.BindLambda([OwnerWidgetPtr](FTextBlockStyle InDefaultTextStyle) {
+			return FSlateTextLayout::Create(OwnerWidgetPtr, MoveTemp(InDefaultTextStyle));
+		});
 	}
 
 	OwnerWidget = &InOwnerWidget;
@@ -267,7 +270,7 @@ void FSlateEditableTextLayout::SetHintText(const TAttribute<FText>& InHintText)
 	if (HintText.IsBound() || !HintText.Get(FText::GetEmpty()).IsEmpty())
 	{
 		HintTextStyle = TextStyle;
-		HintTextLayout = MakeUnique<FSlateTextBlockLayout>(HintTextStyle, TextLayout->GetTextShapingMethod(), TextLayout->GetTextFlowDirection(), CreateSlateTextLayout, HintMarshaller.ToSharedRef(), nullptr);
+		HintTextLayout = MakeUnique<FSlateTextBlockLayout>(OwnerWidget->GetSlateWidgetPtr().Get(), HintTextStyle, TextLayout->GetTextShapingMethod(), TextLayout->GetTextFlowDirection(), CreateSlateTextLayout, HintMarshaller.ToSharedRef(), nullptr);
 		HintTextLayout->SetDebugSourceInfo(DebugSourceInfo);
 	}
 	else

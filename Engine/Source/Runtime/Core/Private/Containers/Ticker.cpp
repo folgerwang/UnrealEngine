@@ -24,6 +24,19 @@ FDelegateHandle FTicker::AddTicker(const FTickerDelegate& InDelegate, float InDe
 	return InDelegate.GetHandle();
 }
 
+
+FDelegateHandle FTicker::AddTicker(const TCHAR* InName, float InDelay, TFunction<bool(float)> Function)
+{
+	// todo - use InName for profiling. Added in sig to be forward looking..
+
+	FTickerDelegate Delegate = FTickerDelegate::CreateLambda(Function);
+
+	// We can add elements safely even during tick.
+	Elements.Emplace(CurrentTime + InDelay, InDelay, Delegate);
+
+	return Delegate.GetHandle();
+}
+
 void FTicker::RemoveTicker(FDelegateHandle Handle)
 {
 	// must remove the handle from both arrays because we could be in the middle of a tick, 

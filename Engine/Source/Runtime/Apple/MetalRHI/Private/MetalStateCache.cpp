@@ -306,7 +306,7 @@ bool FMetalStateCache::SetRenderTargetsInfo(FRHISetRenderTargetsInfo const& InRe
 		TRACK_OBJECT(STAT_MetalRenderPassDescriptorCount, RenderPass);
 	
 		// if we need to do queries, write to the supplied query buffer
-		if (IsFeatureLevelSupported(GMaxRHIShaderPlatform, ERHIFeatureLevel::SM4))
+		if (IsFeatureLevelSupported(GMaxRHIShaderPlatform, ERHIFeatureLevel::ES3_1))
 		{
 			VisibilityResults = QueryBuffer;
 			RenderPass.visibilityResultBuffer = QueryBuffer;

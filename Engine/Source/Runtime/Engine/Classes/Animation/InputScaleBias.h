@@ -29,3 +29,36 @@ public:
 	float ApplyTo(float Value) const;
 };
 
+USTRUCT(BlueprintType)
+struct ENGINE_API FInputScaleBiasClamp
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
+	float Scale;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
+	float Bias;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
+	bool bClampResult;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
+	float ClampMin;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
+	float ClampMax;
+
+public:
+	FInputScaleBiasClamp()
+		: Scale(1.0f)
+		, Bias(0.0f)
+		, bClampResult(false)
+		, ClampMin(0.f)
+		, ClampMax(1.f)
+	{
+	}
+
+	// Apply scale, bias, and clamp to value
+	float ApplyTo(float Value) const;
+};

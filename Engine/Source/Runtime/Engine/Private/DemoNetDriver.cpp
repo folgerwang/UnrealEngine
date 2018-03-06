@@ -65,6 +65,13 @@ static TAutoConsoleVariable<int32> CVarDemoForceFailure( TEXT( "demo.ForceFailur
 
 static const int32 MAX_DEMO_READ_WRITE_BUFFER = 1024 * 2;
 
+namespace ReplayTaskNames
+{
+	static FName SkipTimeInSecondsTask(TEXT("SkipTimeInSecondsTask"));
+	static FName JumpToLiveReplayTask(TEXT("JumpToLiveReplayTask"));
+	static FName GotoTimeInSecondsTask(TEXT("GotoTimeInSecondsTask"));
+};
+
 #define DEMO_CHECKSUMS 0		// When setting this to 1, this will invalidate all demos, you will need to re-record and playback
 
 // RAII object to swap the Role and RemoteRole of an actor within a scope. Used for recording replays on a client.
@@ -148,9 +155,9 @@ public:
 		return false;
 	}
 
-	virtual FString GetName() override
+	virtual FName GetName() const override
 	{
-		return TEXT( "FJumpToLiveReplayTask" );
+		return ReplayTaskNames::JumpToLiveReplayTask;
 	}
 
 	uint32	InitialTotalDemoTime;		// Initial total demo time. This is used to wait until we get a more updated time so we jump to the most recent end time
@@ -206,9 +213,9 @@ public:
 		return false;
 	}
 
-	virtual FString GetName() override
+	virtual FName GetName() const override
 	{
-		return TEXT( "FGotoTimeInSecondsTask" );
+		return ReplayTaskNames::GotoTimeInSecondsTask;
 	}
 
 	void CheckpointReady( const bool bSuccess, const int64 SkipExtraTimeInMS )
@@ -264,9 +271,9 @@ public:
 		return true;
 	}
 
-	virtual FString GetName() override
+	virtual FName GetName() const override
 	{
-		return TEXT( "FSkipTimeInSecondsTask" );
+		return ReplayTaskNames::SkipTimeInSecondsTask;
 	}
 
 	float SecondsToSkip;
@@ -287,7 +294,7 @@ UDemoNetDriver::UDemoNetDriver(const FObjectInitializer& ObjectInitializer)
 
 void UDemoNetDriver::AddReplayTask( FQueuedReplayTask* NewTask )
 {
-	UE_LOG( LogDemo, Verbose, TEXT( "UDemoNetDriver::AddReplayTask. Name: %s" ), *NewTask->GetName() );
+	UE_LOG( LogDemo, Verbose, TEXT( "UDemoNetDriver::AddReplayTask. Name: %s" ), *NewTask->GetName().ToString() );
 
 	QueuedReplayTasks.Add( TSharedPtr< FQueuedReplayTask >( NewTask ) );
 
@@ -298,7 +305,7 @@ void UDemoNetDriver::AddReplayTask( FQueuedReplayTask* NewTask )
 	}
 }
 
-bool UDemoNetDriver::IsAnyTaskPending()
+bool UDemoNetDriver::IsAnyTaskPending() const
 {
 	return ( QueuedReplayTasks.Num() > 0 ) || ActiveReplayTask.IsValid();
 }
@@ -324,7 +331,7 @@ bool UDemoNetDriver::ProcessReplayTasks()
 		LocalActiveTask = ActiveReplayTask;
 		QueuedReplayTasks.RemoveAt( 0 );
 
-		UE_LOG( LogDemo, Verbose, TEXT( "UDemoNetDriver::ProcessReplayTasks. Name: %s" ), *ActiveReplayTask->GetName() );
+		UE_LOG( LogDemo, Verbose, TEXT( "UDemoNetDriver::ProcessReplayTasks. Name: %s" ), *ActiveReplayTask->GetName().ToString() );
 
 		// Start the task
 		ActiveReplayTask->StartTask();
@@ -346,7 +353,7 @@ bool UDemoNetDriver::ProcessReplayTasks()
 	return true;	// No tasks to process
 }
 
-bool UDemoNetDriver::IsNamedTaskInQueue( const FString& Name )
+bool UDemoNetDriver::IsNamedTaskInQueue( const FName& Name ) const
 {
 	if ( ActiveReplayTask.IsValid() && ActiveReplayTask->GetName() == Name )
 	{
@@ -647,7 +654,8 @@ bool UDemoNetDriver::InitListen( FNetworkNotify* InNotify, FURL& ListenURL, bool
 	UDemoNetConnection* Connection = NewObject<UDemoNetConnection>();
 	Connection->InitConnection( this, USOCK_Open, ListenURL, 1000000 );
 	Connection->InitSendBuffer();
-	ClientConnections.Add( Connection );
+
+	AddClientConnection( Connection );
 
 	const TCHAR* FriendlyNameOption = ListenURL.GetOption( TEXT("DemoFriendlyName="), nullptr );
 
@@ -729,6 +737,11 @@ bool UDemoNetDriver::WriteNetworkDemoHeader(FString& Error)
 	DemoHeader.LevelNamesAndTimes = LevelNamesAndTimes;
 
 	WriteGameSpecificDemoHeader(DemoHeader.GameSpecificData);
+
+	if (World && World->IsRecordingClientReplay())
+	{
+		DemoHeader.HeaderFlags |= EReplayHeaderFlags::ClientRecorded;
+	}
 
 	// Write the header
 	(*FileAr) << DemoHeader;
@@ -911,11 +924,9 @@ void UDemoNetDriver::TickDispatch( float DeltaSeconds )
 	}
 
 	// Wait until all levels are streamed in
-	for ( int32 i = 0; i < World->StreamingLevels.Num(); ++i )
+	for (ULevelStreaming* StreamingLevel : World->GetStreamingLevels())
 	{
-		ULevelStreaming * StreamingLevel = World->StreamingLevels[i];
-
-		if ( StreamingLevel != NULL && StreamingLevel->ShouldBeLoaded() && (!StreamingLevel->IsLevelLoaded() || !StreamingLevel->GetLoadedLevel()->GetOutermost()->IsFullyLoaded() || !StreamingLevel->IsLevelVisible() ) )
+		if ( StreamingLevel && StreamingLevel->ShouldBeLoaded() && (!StreamingLevel->IsLevelLoaded() || !StreamingLevel->GetLoadedLevel()->GetOutermost()->IsFullyLoaded() || !StreamingLevel->IsLevelVisible() ) )
 		{
 			// Abort, we have more streaming levels to load
 			return;
@@ -1042,7 +1053,7 @@ void UDemoNetDriver::StopDemo()
 Demo Recording tick.
 -----------------------------------------------------------------------------*/
 
-static bool DemoReplicateActor( AActor* Actor, UNetConnection* Connection, APlayerController* SpectatorController, bool bMustReplicate )
+bool UDemoNetDriver::DemoReplicateActor(AActor* Actor, UNetConnection* Connection, bool bMustReplicate)
 {
 	if ( Actor->NetDormancy == DORM_Initial && Actor->IsNetStartupActor() )
 	{
@@ -1105,12 +1116,9 @@ static void SerializeGuidCache( TSharedPtr< class FNetGUIDCache > GuidCache, FAr
 
 	for ( auto It = GuidCache->ObjectLookup.CreateIterator(); It; ++It )
 	{
-		if ( It.Value().Object == NULL )
-		{
-			continue;
-		}
+		FNetGuidCacheObject& CacheObject = It.Value();
 
-		if ( !It.Value().Object->IsNameStableForNetworking() )
+		if ( CacheObject.Object == NULL || !CacheObject.Object->IsNameStableForNetworking() )
 		{
 			continue;
 		}
@@ -1124,27 +1132,25 @@ static void SerializeGuidCache( TSharedPtr< class FNetGUIDCache > GuidCache, FAr
 
 	for ( auto It = GuidCache->ObjectLookup.CreateIterator(); It; ++It )
 	{
-		if ( It.Value().Object == NULL )
+		FNetworkGUID& NetworkGUID = It.Key();
+		FNetGuidCacheObject& CacheObject = It.Value();
+
+		if ( CacheObject.Object == NULL || !CacheObject.Object->IsNameStableForNetworking() )
 		{
 			continue;
 		}
 
-		if ( !It.Value().Object->IsNameStableForNetworking() )
-		{
-			continue;
-		}
+		FString PathName = CacheObject.Object->GetName();
 
-		FString PathName = It.Value().Object->GetName();
-
-		*CheckpointArchive << It.Key();
-		*CheckpointArchive << It.Value().OuterGUID;
+		*CheckpointArchive << NetworkGUID;
+		*CheckpointArchive << CacheObject.OuterGUID;
 		*CheckpointArchive << PathName;
-		*CheckpointArchive << It.Value().NetworkChecksum;
+		*CheckpointArchive << CacheObject.NetworkChecksum;
 
 		uint8 Flags = 0;
 		
-		Flags |= It.Value().bNoLoad ? ( 1 << 0 ) : 0;
-		Flags |= It.Value().bIgnoreWhenMissing ? ( 1 << 1 ) : 0;
+		Flags |= CacheObject.bNoLoad ? ( 1 << 0 ) : 0;
+		Flags |= CacheObject.bIgnoreWhenMissing ? ( 1 << 1 ) : 0;
 
 		*CheckpointArchive << Flags;
 	}
@@ -1272,7 +1278,7 @@ void UDemoNetDriver::TickCheckpoint()
 		if ( ActorChannel )
 		{
 			Actor->CallPreReplication( this );
-			DemoReplicateActor( Actor, ClientConnections[0], SpectatorController, true );
+			DemoReplicateActor( Actor, ClientConnections[0], true );
 
 			const double CheckpointTime = FPlatformTime::Seconds();
 
@@ -1470,18 +1476,18 @@ void UDemoNetDriver::TickDemoRecord( float DeltaSeconds )
 	}
 
 	// Mark any new streaming levels, so that they are saved out this frame
-	for ( int32 i = 0; i < World->StreamingLevels.Num(); ++i )
+	for (ULevelStreaming* StreamingLevel : World->GetStreamingLevels())
 	{
-		ULevelStreaming * StreamingLevel = World->StreamingLevels[i];
-
 		if ( StreamingLevel == nullptr || !StreamingLevel->ShouldBeLoaded() || StreamingLevel->ShouldBeAlwaysLoaded() )
 		{
 			continue;
 		}
 
-		if ( !UniqueStreamingLevels.Contains( StreamingLevel ) )
+		TWeakObjectPtr<UObject> WeakStreamingLevel;
+		WeakStreamingLevel = StreamingLevel;
+		if ( !UniqueStreamingLevels.Contains( WeakStreamingLevel ) )
 		{
-			UniqueStreamingLevels.Add( StreamingLevel );
+			UniqueStreamingLevels.Add( WeakStreamingLevel );
 			NewStreamingLevelsThisFrame.Add( StreamingLevel );
 		}
 	}
@@ -1641,6 +1647,15 @@ void UDemoNetDriver::TickDemoRecord( float DeltaSeconds )
 			}
 		}
 
+		// Also add destroyed actors that the client may not have a channel for
+		for ( auto It = ClientConnections[0]->DestroyedStartupOrDormantActors.CreateIterator(); It; ++It )
+		{
+			FActorDestructionInfo& DInfo = DestroyedStartupOrDormantActors.FindChecked( *It );
+			FActorPriority Priority;
+			Priority.DestructionInfo = &DInfo;
+			PrioritizedActors.Add(Priority);
+		}
+
 		for ( AActor* Actor : ActorsToRemove )
 		{
 			GetNetworkObjectList().Remove( Actor );
@@ -1658,93 +1673,118 @@ void UDemoNetDriver::TickDemoRecord( float DeltaSeconds )
 	for ( const FActorPriority& ActorPriority : PrioritizedActors )
 	{
 		FNetworkObjectInfo* ActorInfo = ActorPriority.ActorInfo;
-		AActor* Actor = ActorInfo->Actor;
-		
-		const double ActorStartTimeSeconds = FPlatformTime::Seconds();
+		FActorDestructionInfo* DestructionInfo = ActorPriority.DestructionInfo;
 
-		// Use NetUpdateFrequency for this actor, but clamp it to RECORD_HZ.
-		const float ClampedNetUpdateFrequency = FMath::Clamp(Actor->NetUpdateFrequency, MIN_RECORD_HZ, MAX_RECORD_HZ);
-		const double NetUpdateDelay = 1.0 / ClampedNetUpdateFrequency;
+		const double RecordStartTimeSeconds = FPlatformTime::Seconds();
 
-		// Set defaults if this actor is replicating for first time
-		if ( ActorInfo->LastNetReplicateTime == 0 )
+		// Deletion entry
+		if (ActorInfo == nullptr && DestructionInfo != nullptr)
 		{
-			ActorInfo->LastNetReplicateTime		= DemoCurrentTime;
-			ActorInfo->OptimalNetUpdateDelta	= NetUpdateDelay;
+			UActorChannel* Channel = (UActorChannel*)ClientConnections[0]->CreateChannel( CHTYPE_Actor, 1 );
+			if ( Channel )
+			{
+				UE_LOG( LogDemo, Verbose, TEXT( "TickDemoRecord creating destroy channel for NetGUID <%s,%s> Priority: %d" ), *DestructionInfo->NetGUID.ToString(), *DestructionInfo->PathName, ActorPriority.Priority );
+
+				// Send a close bunch on the new channel
+				Channel->SetChannelActorForDestroy( DestructionInfo );
+
+				// Remove from connection's to-be-destroyed list (close bunch is reliable, so it will make it there)
+				ClientConnections[0]->DestroyedStartupOrDormantActors.Remove( DestructionInfo->NetGUID );
+			}
+		}
+		else if (ActorInfo != nullptr && DestructionInfo == nullptr)
+		{
+			AActor* Actor = ActorInfo->Actor;
+
+			// Use NetUpdateFrequency for this actor, but clamp it to RECORD_HZ.
+			const float ClampedNetUpdateFrequency = FMath::Clamp(Actor->NetUpdateFrequency, MIN_RECORD_HZ, MAX_RECORD_HZ);
+			const double NetUpdateDelay = 1.0 / ClampedNetUpdateFrequency;
+
+			// Set defaults if this actor is replicating for first time
+			if ( ActorInfo->LastNetReplicateTime == 0 )
+			{
+				ActorInfo->LastNetReplicateTime		= DemoCurrentTime;
+				ActorInfo->OptimalNetUpdateDelta	= NetUpdateDelay;
+			}
+
+			const float LastReplicateDelta = static_cast<float>( DemoCurrentTime - ActorInfo->LastNetReplicateTime );
+
+			if ( Actor->MinNetUpdateFrequency == 0.0f )
+			{
+				Actor->MinNetUpdateFrequency = 2.0f;
+			}
+
+			// Calculate min delta (max rate actor will update), and max delta (slowest rate actor will update)
+			const float MinOptimalDelta = NetUpdateDelay;										// Don't go faster than NetUpdateFrequency
+			const float MaxOptimalDelta = FMath::Max( 1.0f / Actor->MinNetUpdateFrequency, MinOptimalDelta );	// Don't go slower than MinNetUpdateFrequency (or NetUpdateFrequency if it's slower)
+
+			const float ScaleDownStartTime = 2.0f;
+			const float ScaleDownTimeRange = 5.0f;				
+
+			if ( LastReplicateDelta > ScaleDownStartTime )
+			{
+				// Interpolate between MinOptimalDelta/MaxOptimalDelta based on how long it's been since this actor actually sent anything
+				const float Alpha = FMath::Clamp( ( LastReplicateDelta - ScaleDownStartTime ) / ScaleDownTimeRange, 0.0f, 1.0f );
+				ActorInfo->OptimalNetUpdateDelta = FMath::Lerp( MinOptimalDelta, MaxOptimalDelta, Alpha );
+			}
+
+			const double NextUpdateDelta = bUseAdapativeNetFrequency ? ActorInfo->OptimalNetUpdateDelta : NetUpdateDelay;
+
+			// Account for being fractionally into the next frame
+			// But don't be more than a fraction of a frame behind either (we don't want to do catch-up frames when there is a long delay)
+			const double ExtraTime = DemoCurrentTime - ActorInfo->NextUpdateTime;
+			const double ClampedExtraTime = FMath::Clamp(ExtraTime, 0.0, NetUpdateDelay);
+
+			// Try to spread the updates across multiple frames to smooth out spikes.
+			ActorInfo->NextUpdateTime = ( DemoCurrentTime + NextUpdateDelta - ClampedExtraTime + ( ( FMath::SRand() - 0.5 ) * ServerTickTime ) );
+
+			Actor->CallPreReplication( this );
+
+			const bool bDidReplicateActor = DemoReplicateActor( Actor, ClientConnections[0], false );
+
+			if ( bDidReplicateActor && Actor->NetDormancy == DORM_DormantAll )
+			{
+				// If we've replicated this object at least once, and it wants to go dormant, make it dormant now
+				ActorsToGoDormant.Add( Actor );
+			}
+
+			TSharedPtr<FRepChangedPropertyTracker> PropertyTracker = FindOrCreateRepChangedPropertyTracker( Actor );
+
+			if ( !GuidCache->NetGUIDLookup.Contains( Actor ) )
+			{
+				// Clear external data if the actor has never replicated yet (and doesn't have a net guid)
+				PropertyTracker->ExternalData.Empty();
+				PropertyTracker->ExternalDataNumBits = 0;
+			}
+
+			const bool bUpdatedExternalData = PropertyTracker->ExternalData.Num() > 0;
+
+			if ( bDidReplicateActor || bUpdatedExternalData )
+			{
+				// Choose an optimal time, we choose 70% of the actual rate to allow frequency to go up if needed
+				ActorInfo->OptimalNetUpdateDelta = FMath::Clamp( LastReplicateDelta * 0.7f, MinOptimalDelta, MaxOptimalDelta );
+				ActorInfo->LastNetReplicateTime = DemoCurrentTime;
+			}
+		}
+		else
+		{
+			UE_LOG(LogDemo, Warning, TEXT( "TickDemoRecord: prioritized actor entry should have either an actor or a destruction info" ));
 		}
 
-		const float LastReplicateDelta = static_cast<float>( DemoCurrentTime - ActorInfo->LastNetReplicateTime );
-
-		if ( Actor->MinNetUpdateFrequency == 0.0f )
-		{
-			Actor->MinNetUpdateFrequency = 2.0f;
-		}
-
-		// Calculate min delta (max rate actor will update), and max delta (slowest rate actor will update)
-		const float MinOptimalDelta = NetUpdateDelay;										// Don't go faster than NetUpdateFrequency
-		const float MaxOptimalDelta = FMath::Max( 1.0f / Actor->MinNetUpdateFrequency, MinOptimalDelta );	// Don't go slower than MinNetUpdateFrequency (or NetUpdateFrequency if it's slower)
-
-		const float ScaleDownStartTime = 2.0f;
-		const float ScaleDownTimeRange = 5.0f;				
-
-		if ( LastReplicateDelta > ScaleDownStartTime )
-		{
-			// Interpolate between MinOptimalDelta/MaxOptimalDelta based on how long it's been since this actor actually sent anything
-			const float Alpha = FMath::Clamp( ( LastReplicateDelta - ScaleDownStartTime ) / ScaleDownTimeRange, 0.0f, 1.0f );
-			ActorInfo->OptimalNetUpdateDelta = FMath::Lerp( MinOptimalDelta, MaxOptimalDelta, Alpha );
-		}
-
-		const double NextUpdateDelta = bUseAdapativeNetFrequency ? ActorInfo->OptimalNetUpdateDelta : NetUpdateDelay;
-
-		// Account for being fractionally into the next frame
-		// But don't be more than a fraction of a frame behind either (we don't want to do catch-up frames when there is a long delay)
-		const double ExtraTime = DemoCurrentTime - ActorInfo->NextUpdateTime;
-		const double ClampedExtraTime = FMath::Clamp(ExtraTime, 0.0, NetUpdateDelay);
-
-		// Try to spread the updates across multiple frames to smooth out spikes.
-		ActorInfo->NextUpdateTime = ( DemoCurrentTime + NextUpdateDelta - ClampedExtraTime + ( ( FMath::SRand() - 0.5 ) * ServerTickTime ) );
-
-		Actor->CallPreReplication( this );
-
-		const bool bDidReplicateActor = DemoReplicateActor( Actor, ClientConnections[0], SpectatorController, false );
-
-		if ( bDidReplicateActor && Actor->NetDormancy == DORM_DormantAll )
-		{
-			// If we've replicated this object at least once, and it wants to go dormant, make it dormant now
-			ActorsToGoDormant.Add( Actor );
-		}
-
-		TSharedPtr<FRepChangedPropertyTracker> PropertyTracker = FindOrCreateRepChangedPropertyTracker( Actor );
-
-		if ( !GuidCache->NetGUIDLookup.Contains( Actor ) )
-		{
-			// Clear external data if the actor has never replicated yet (and doesn't have a net guid)
-			PropertyTracker->ExternalData.Empty();
-			PropertyTracker->ExternalDataNumBits = 0;
-		}
-
-		const bool bUpdatedExternalData = PropertyTracker->ExternalData.Num() > 0;
-
-		if ( bDidReplicateActor || bUpdatedExternalData )
-		{
-			// Choose an optimal time, we choose 70% of the actual rate to allow frequency to go up if needed
-			ActorInfo->OptimalNetUpdateDelta = FMath::Clamp( LastReplicateDelta * 0.7f, MinOptimalDelta, MaxOptimalDelta );
-			ActorInfo->LastNetReplicateTime = DemoCurrentTime;
-		}
+		const double RecordEndTimeSeconds = FPlatformTime::Seconds();
 
 		// Make sure we're under the desired recording time quota, if any.
 		if ( MaxDesiredRecordTimeMS > 0.0f )
 		{
-			const double ActorEndTimeSeconds = FPlatformTime::Seconds();
-			const double ActorTimeMS = ( ActorEndTimeSeconds - ActorStartTimeSeconds ) * 1000.0;
+			const double RecordTimeMS = ( RecordEndTimeSeconds - RecordStartTimeSeconds ) * 1000.0;
 				
-			if ( ActorTimeMS > (MaxDesiredRecordTimeMS * 0.95f ) )
+			if ( (ActorInfo && ActorInfo->Actor) && (RecordTimeMS > (MaxDesiredRecordTimeMS * 0.95f )) )
 			{
 				UE_LOG(LogDemo, Verbose, TEXT("Actor %s took more than 95%% of maximum desired recording time. Actor: %.3fms. Max: %.3fms."),
-					*Actor->GetName(), ActorTimeMS, MaxDesiredRecordTimeMS);
+					*ActorInfo->Actor->GetName(), RecordTimeMS, MaxDesiredRecordTimeMS);
 			}
 
-			const double TotalRecordTimeMS = ( ActorEndTimeSeconds - ReplicationStartTimeSeconds ) * 1000.0;
+			const double TotalRecordTimeMS = ( RecordEndTimeSeconds - ReplicationStartTimeSeconds ) * 1000.0;
 			
 			if ( TotalRecordTimeMS > MaxDesiredRecordTimeMS )
 			{
@@ -1882,10 +1922,10 @@ bool UDemoNetDriver::ReadDemoFrameIntoPlaybackPackets( FArchive& Ar )
 		// Don't add if already exists
 		bool bFound = false;
 
-		for ( int32 j = 0; j < World->StreamingLevels.Num(); j++ )
+		for (ULevelStreaming* StreamingLevel : World->GetStreamingLevels())
 		{
-			FString SrcPackageName			= World->StreamingLevels[j]->GetWorldAssetPackageName();
-			FString SrcPackageNameToLoad	= World->StreamingLevels[j]->PackageNameToLoad.ToString();
+			FString SrcPackageName			= StreamingLevel->GetWorldAssetPackageName();
+			FString SrcPackageNameToLoad	= StreamingLevel->PackageNameToLoad.ToString();
 
 			if ( SrcPackageName == PackageName && SrcPackageNameToLoad == PackageNameToLoad )
 			{
@@ -1899,10 +1939,10 @@ bool UDemoNetDriver::ReadDemoFrameIntoPlaybackPackets( FArchive& Ar )
 			continue;
 		}
 
-		ULevelStreamingKismet* StreamingLevel = NewObject<ULevelStreamingKismet>( GetWorld(), NAME_None, RF_NoFlags, NULL );
+		ULevelStreamingKismet* StreamingLevel = NewObject<ULevelStreamingKismet>( World, NAME_None, RF_NoFlags, nullptr );
 
-		StreamingLevel->bShouldBeLoaded		= true;
-		StreamingLevel->bShouldBeVisible	= true;
+		StreamingLevel->SetShouldBeLoaded(true);
+		StreamingLevel->SetShouldBeVisible(true);
 		StreamingLevel->bShouldBlockOnLoad	= false;
 		StreamingLevel->bInitiallyLoaded	= true;
 		StreamingLevel->bInitiallyVisible	= true;
@@ -1911,7 +1951,7 @@ bool UDemoNetDriver::ReadDemoFrameIntoPlaybackPackets( FArchive& Ar )
 		StreamingLevel->PackageNameToLoad = FName( *PackageNameToLoad );
 		StreamingLevel->SetWorldAssetByPackageName( FName( *PackageName ) );
 
-		GetWorld()->StreamingLevels.Add( StreamingLevel );
+		World->AddStreamingLevel(StreamingLevel);
 
 		UE_LOG( LogDemo, Log, TEXT( "ReadDemoFrameIntoPlaybackPackets: Loading streamingLevel: %s, %s" ), *PackageName, *PackageNameToLoad );
 	}
@@ -2189,14 +2229,17 @@ void UDemoNetDriver::WriteDemoFrameFromQueuedDemoPackets( FArchive& Ar, TArray<F
 	uint32 NumStreamingLevels = NewStreamingLevelsThisFrame.Num();
 	Ar.SerializeIntPacked( NumStreamingLevels );
 
-	for ( int32 i = 0; i < NewStreamingLevelsThisFrame.Num(); i++ )
+	for ( uint32 i = 0; i < NumStreamingLevels; i++ )
 	{
-		FString PackageName = World->StreamingLevels[i]->GetWorldAssetPackageName();
-		FString PackageNameToLoad = World->StreamingLevels[i]->PackageNameToLoad.ToString();
+		ULevelStreaming* StreamingLevel = World->GetStreamingLevels()[i];
+
+		// TODO: StreamingLevel could be null, but since we've already written out the integer count, skipping entries could cause an issue, so leaving as is for now
+		FString PackageName = StreamingLevel->GetWorldAssetPackageName();
+		FString PackageNameToLoad = StreamingLevel->PackageNameToLoad.ToString();
 
 		Ar << PackageName;
 		Ar << PackageNameToLoad;
-		Ar << World->StreamingLevels[i]->LevelTransform;
+		Ar << StreamingLevel->LevelTransform;
 
 		UE_LOG( LogDemo, Log, TEXT( "WriteDemoFrameFromQueuedDemoPackets: StreamingLevel: %s, %s" ), *PackageName, *PackageNameToLoad );
 	}
@@ -2231,7 +2274,7 @@ void UDemoNetDriver::WritePacket( FArchive& Ar, uint8* Data, int32 Count )
 
 void UDemoNetDriver::SkipTime(const float InTimeToSkip)
 {
-	if ( IsNamedTaskInQueue( TEXT( "FSkipTimeInSecondsTask" ) ) )
+	if ( IsNamedTaskInQueue( ReplayTaskNames::SkipTimeInSecondsTask ) )
 	{
 		return;		// Don't allow time skipping if we already are
 	}
@@ -2257,7 +2300,7 @@ void UDemoNetDriver::GotoTimeInSeconds(const float TimeInSeconds, const FOnGotoT
 {
 	OnGotoTimeDelegate_Transient = InOnGotoTimeDelegate;
 
-	if ( IsNamedTaskInQueue( TEXT( "FGotoTimeInSecondsTask" ) ) || bIsFastForwarding )
+	if ( IsNamedTaskInQueue( ReplayTaskNames::GotoTimeInSecondsTask ) || bIsFastForwarding )
 	{
 		NotifyGotoTimeFinished(false);
 		return;		// Don't allow scrubbing if we already are
@@ -2575,10 +2618,9 @@ void UDemoNetDriver::ReplayStreamingReady( bool bSuccess, bool bRecord )
 
 	if ( !bSuccess )
 	{
-		UE_LOG( LogDemo, Warning, TEXT( "UDemoNetConnection::ReplayStreamingReady: Failed." ) );
-
 		StopDemo();
 
+		UE_LOG(LogDemo, Warning, TEXT("UDemoNetConnection::ReplayStreamingReady: Failed. %s"), bRecord ? TEXT("") : EDemoPlayFailure::ToString(EDemoPlayFailure::DemoNotFound));
 		if ( !bRecord )
 		{
 			GetWorld()->GetGameInstance()->HandleDemoPlaybackFailure( EDemoPlayFailure::DemoNotFound, FString( EDemoPlayFailure::ToString( EDemoPlayFailure::DemoNotFound ) ) );
@@ -2720,7 +2762,7 @@ bool UDemoNetDriver::LoadCheckpoint( FArchive* GotoCheckpointArchive, int64 Goto
 		ConnectURL.Map = DemoURL.Map;
 		ServerConnection->InitConnection(this, USOCK_Pending, ConnectURL, 1000000);
 
-		CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
+		GEngine->ForceGarbageCollection();
 
 		ProcessSeamlessTravel(LevelForCheckpoint);
 		CurrentLevelIndex = LevelForCheckpoint;
@@ -2863,12 +2905,7 @@ bool UDemoNetDriver::LoadCheckpoint( FArchive* GotoCheckpointArchive, int64 Goto
 	// Optionally collect garbage after the old actors and connection are cleaned up - there could be a lot of pending-kill objects at this point.
 	if (CVarDemoLoadCheckpointGarbageCollect.GetValueOnGameThread() != 0)
 	{
-		const double GCStartTimeSeconds = FPlatformTime::Seconds();
-		CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
-		const double GCEndTimeSeconds = FPlatformTime::Seconds();
-
-		UE_LOG(LogDemo, Verbose, TEXT("UDemoNetDriver::LoadCheckpoint: garbage collection for scrub took %.3fms."),
-			(GCEndTimeSeconds - GCStartTimeSeconds) * 1000.0);
+		GEngine->ForceGarbageCollection();
 	}
 
 	FURL ConnectURL;
@@ -3287,10 +3324,17 @@ TSharedPtr<FObjectReplicator> UDemoNetConnection::CreateReplicatorForNewActorCha
 
 		// Need to swap roles for the startup actor since in the CDO they aren't swapped, and the CDO just
 		// overwrote the actor state.
-		if (Actor->Role == ROLE_Authority)
+		if (Actor && (Actor->Role == ROLE_Authority))
 		{
 			Actor->SwapRolesForReplay();
 		}
+	}
+
+	// Handle rewinding initially dormant startup actors that were changed on the client
+	const bool bIsInitialDormantStartupActor = NetDriver && NetDriver->IsPlayingClientReplay() && Actor && (Actor->NetDormancy == DORM_Initial) && Actor->IsNetStartupActor();
+	if (bIsInitialDormantStartupActor)
+	{
+		NetDriver->QueueNetStartupActorForRollbackViaDeletion(Actor);
 	}
 
 	return NewReplicator;
@@ -3306,6 +3350,11 @@ void UDemoNetConnection::FlushDormancy( class AActor* Actor )
 bool UDemoNetDriver::IsLevelInitializedForActor( const AActor* InActor, const UNetConnection* InConnection ) const
 {
 	return ( DemoFrameNum > 2 || Super::IsLevelInitializedForActor( InActor, InConnection ) );
+}
+
+bool UDemoNetDriver::IsPlayingClientReplay() const
+{
+	return IsPlaying() && ((PlaybackDemoHeader.HeaderFlags & EReplayHeaderFlags::ClientRecorded) != EReplayHeaderFlags::None);
 }
 
 void UDemoNetDriver::NotifyGotoTimeFinished(bool bWasSuccessful)

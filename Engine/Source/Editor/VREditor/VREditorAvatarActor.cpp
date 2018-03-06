@@ -199,7 +199,7 @@ void AVREditorAvatarActor::Init( UVREditorMode* InVRMode  )
 		UserScaleIndicatorText->SetCollisionProfileName( UCollisionProfile::NoCollision_ProfileName );
 		UserScaleIndicatorText->bSelectable = false;
 
-		UserScaleIndicatorText->bGenerateOverlapEvents = false;
+		UserScaleIndicatorText->SetGenerateOverlapEvents(false);
 		UserScaleIndicatorText->SetCanEverAffectNavigation( false );
 		UserScaleIndicatorText->bCastDynamicShadow = false;
 		UserScaleIndicatorText->bCastStaticShadow = false;

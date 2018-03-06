@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Misc/Attribute.h"
+#include "Misc/FrameValue.h"
 #include "Stats/Stats.h"
 #include "Styling/SlateColor.h"
 #include "Layout/SlateRect.h"
@@ -107,21 +108,38 @@ public:
 /**
  * The different types of invalidation that are possible for a widget.
  */
-enum class EInvalidateWidget
+enum class EInvalidateWidget : uint8
 {
+	/** Not actually used, but defining it. */
+	None = 0,
 	/**
-	 * Use Layout invalidation if you're changing a normal property involving painting or sizing.
+	 * Use Layout invalidation sizing.
 	 */
-	Layout,
+	Layout = 1 << 0,
+	/**
+	 * Use when the painting of widget has been altered, but nothing affecting sizing.
+	 */
+	Paint = 1 << 1,
+	/**
+	 * Use if just the volatility of the widget has been adjusted.
+	 */
+	Volatility = 1 << 2,
+	/**
+	 * Use Paint invalidation if you're changing a normal property involving painting or sizing.
+	 * Additionally if the property that was changed affects Volatility in anyway, it's important
+	 * that you invalidate volatility so that it can be recalculated and cached.
+	 */
+	PaintAndVolatility = Paint | Volatility,
 	/**
 	 * Use Layout invalidation if you're changing a normal property involving painting or sizing.
 	 * Additionally if the property that was changed affects Volatility in anyway, it's important
 	 * that you invalidate volatility so that it can be recalculated and cached.
 	 */
-	LayoutAndVolatility
+	LayoutAndVolatility = Layout | Volatility,
+	All = Layout | Paint | Volatility
 };
 
-
+ENUM_CLASS_FLAGS(EInvalidateWidget)
 
 /**
  * An ILayoutCache implementor is responsible for caching a the hierarchy of widgets it is drawing.
@@ -623,48 +641,50 @@ public:
 	public:
 	
 	/** DEPRECATED version of SlatePrepass that assumes no scaling beyond AppScale*/
+	//DEPRECATED(4.20, "SlatePrepass requires a layout scale to be accurate.")
 	void SlatePrepass();
 
 	/**
-	 * Descends to leafmost widgets in the hierarchy and gathers desired sizes on the way up.
+	 * Descends to leaf-most widgets in the hierarchy and gathers desired sizes on the way up.
 	 * i.e. Caches the desired size of all of this widget's children recursively, then caches desired size for itself.
 	 */
 	void SlatePrepass(float LayoutScaleMultiplier);
 
-#if SLATE_DEFERRED_DESIRED_SIZE
-	private:
-	FORCEINLINE void InvalidateDesiredSize(float LayoutScaleMultiplier)
-	{
-		bCachedDesiredSize = false;
-		DesiredSizeScaleMultiplier = LayoutScaleMultiplier;
-	}
-
+#if SLATE_DYNAMIC_PREPASS
 	public:
+	void InvalidatePrepass();
+
 	/** @return the DesiredSize that was computed the last time CacheDesiredSize() was called. */
-	FORCEINLINE const FVector2D& GetDesiredSize() const
-	{
-		if ( !bCachedDesiredSize && ensureMsgf(!bUpdatingDesiredSize, TEXT("The layout is cyclically dependent.  A child widget can not ask the desired size of a parent while the parent is asking the desired size of its children.")) )
-		{
-			bUpdatingDesiredSize = true;
+	FVector2D GetDesiredSize() const;
 
-			// Cache this widget's desired size.
-			const_cast<SWidget*>(this)->CacheDesiredSize(DesiredSizeScaleMultiplier);
-
-			bUpdatingDesiredSize = false;
-		}
-
-		return DesiredSize;
-	}
 #else
 	public:
-	FORCEINLINE const FVector2D& GetDesiredSize() const { return DesiredSize; }
+	FORCEINLINE void InvalidatePrepass() { }
+	FORCEINLINE FVector2D GetDesiredSize() const { return DesiredSize; }
+#endif
+
+#if SLATE_PARENT_POINTERS
+	public:
+	void AssignParentWidget(TSharedPtr<SWidget> InParent);
+
+	FORCEINLINE TSharedPtr<SWidget> GetParentWidget() const { return ParentWidgetPtr.Pin(); }
+#endif
+
+#if SLATE_LAYOUT_CHANGE
+	public:
+		void LayoutChanged();
+		virtual void ChildLayoutChanged();
+#else
+	public:
+		FORCEINLINE void LayoutChanged() { }
+		FORCEINLINE void ChildLayoutChanged() { }
 #endif
 
 	/**
 	 * The system calls this method. It performs a breadth-first traversal of every visible widget and asks
 	 * each widget to cache how big it needs to be in order to present all of its content.
 	 */
-	protected: virtual void CacheDesiredSize(float);
+	protected: virtual void CacheDesiredSize(float InLayoutScaleMultiplier);
 	
 	/**
 	 * Explicitly set the desired size. This is highly advanced functionality that is meant
@@ -672,9 +692,17 @@ public:
 	 */
 	protected: void Advanced_SetDesiredSize(const FVector2D& InDesiredSize)
 	{
+#if SLATE_LAYOUT_CHANGE
+		if (IsVolatile())
+		{
+			VolatileDesiredSize = InDesiredSize;
+		}
+		else
+		{
+			DesiredSize = InDesiredSize;
+		}
+#else
 		DesiredSize = InDesiredSize;
-#if SLATE_DEFERRED_DESIRED_SIZE
-		bCachedDesiredSize = true;
 #endif
 	}
 
@@ -922,12 +950,14 @@ public:
 	FORCEINLINE void Invalidate(EInvalidateWidget Invalidate)
 	{
 		const bool bWasVolatile = IsVolatileIndirectly() || IsVolatile();
-		const bool bVolatilityChanged = Invalidate == EInvalidateWidget::LayoutAndVolatility ? Advanced_InvalidateVolatility() : false;
+		const bool bVolatilityChanged = EnumHasAnyFlags(Invalidate, EInvalidateWidget::Volatility) ? Advanced_InvalidateVolatility() : false;
 
 		if ( bWasVolatile == false || bVolatilityChanged )
 		{
 			Advanced_ForceInvalidateLayout();
 		}
+
+		LayoutChanged();
 	}
 
 	/**
@@ -1175,6 +1205,9 @@ public:
 	 */
 	const FGeometry& GetCachedGeometry() const { return CachedGeometry; }
 
+	/** Is this widget derivative of SWindow */
+	FORCEINLINE bool Advanced_IsWindow() const { return bIsWindow; }
+
 protected:
 
 	/**
@@ -1361,13 +1394,18 @@ protected:
 	  */
 	uint8 bClippingProxy : 1;
 
-#if SLATE_DEFERRED_DESIRED_SIZE
-	/** Has the desired size of the widget been cached? */
-	uint8 bCachedDesiredSize : 1;
+#if SLATE_DYNAMIC_PREPASS
+	/** Are we currently updating the desired size? */
+	uint8 bNeedsPrepass : 1;
 
 	/** Are we currently updating the desired size? */
 	mutable uint8 bUpdatingDesiredSize : 1;
 #endif
+
+	/**
+	* Is this widget a Window?  This should only be used by SWindow derived widgets.
+	*/
+	uint8 bIsWindow : 1;
 
 private:
 
@@ -1402,12 +1440,30 @@ protected:
 
 private:
 
+#if SLATE_DYNAMIC_PREPASS
+	float PrepassLayoutScaleMultiplier;
+
+#if SLATE_LAYOUT_CHANGE
+	/** Stores the ideal size this widget wants to be. */
+	TOptional<FVector2D> DesiredSize;
+	TFrameValue<FVector2D> VolatileDesiredSize;
+#else
+	/**
+	* Stores the ideal size this widget wants to be.
+	* This member is intentionally private, because only the very base class (Widget) can write DesiredSize.
+	* See CacheDesiredSize(), ComputeDesiredSize()
+	*/
+	TFrameValue<FVector2D> DesiredSize;
+#endif
+
+#else
 	/**
 	 * Stores the ideal size this widget wants to be.
 	 * This member is intentionally private, because only the very base class (Widget) can write DesiredSize.
 	 * See CacheDesiredSize(), ComputeDesiredSize()
 	 */
 	FVector2D DesiredSize;
+#endif
 
 	/**
 	 * Stores the cached Tick Geometry of the widget.  This information can and will be outdated, that's the
@@ -1419,10 +1475,6 @@ private:
 private:
 	/** The list of active timer handles for this widget. */
 	TArray<TSharedRef<FActiveTimerHandle>> ActiveTimers;
-
-#if SLATE_DEFERRED_DESIRED_SIZE
-	float DesiredSizeScaleMultiplier;
-#endif
 
 protected:
 
@@ -1470,10 +1522,13 @@ private:
 	/** The current layout cache that may need to invalidated by changes to this widget. */
 	mutable TWeakPtr<ILayoutCache> LayoutCache;
 
+#if SLATE_PARENT_POINTERS
+	TWeakPtr<SWidget> ParentWidgetPtr;
+#endif
+
 private:
 	// Events
 	TMap<FName, FPointerEventHandler> PointerEvents;
-
 
 	FNoReplyPointerEventHandler MouseEnterHandler;
 	FSimpleNoReplyPointerEventHandler MouseLeaveHandler;

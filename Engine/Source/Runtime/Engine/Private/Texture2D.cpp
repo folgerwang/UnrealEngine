@@ -1011,7 +1011,7 @@ int32 UTexture2D::Blueprint_GetSizeX() const
 	if (!GetSizeX())
 	{
 		const UTextureLODSettings* LODSettings = UDeviceProfileManager::Get().GetActiveProfile()->GetTextureLODSettings();
-		const int32 CookedLODBias = LODSettings->CalculateLODBias(Source.SizeX, Source.SizeY, LODGroup, LODBias, 0, MipGenSettings);
+		const int32 CookedLODBias = LODSettings->CalculateLODBias(Source.SizeX, Source.SizeY, MaxTextureSize, LODGroup, LODBias, 0, MipGenSettings);
 		return FMath::Max<int32>(Source.SizeX >> CookedLODBias, 1);
 	}
 #endif
@@ -1026,7 +1026,7 @@ int32 UTexture2D::Blueprint_GetSizeY() const
 	if (!GetSizeY())
 	{
 		const UTextureLODSettings* LODSettings = UDeviceProfileManager::Get().GetActiveProfile()->GetTextureLODSettings();
-		const int32 CookedLODBias = LODSettings->CalculateLODBias(Source.SizeX, Source.SizeY, LODGroup, LODBias, 0, MipGenSettings);
+		const int32 CookedLODBias = LODSettings->CalculateLODBias(Source.SizeX, Source.SizeY, MaxTextureSize, LODGroup, LODBias, 0, MipGenSettings);
 		return FMath::Max<int32>(Source.SizeY >> CookedLODBias, 1);
 	}
 #endif

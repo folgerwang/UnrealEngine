@@ -32,7 +32,7 @@ public:
 	// Game Thread
 
 	// IXmppChat
-	virtual bool SendChat(const FString& RecipientId, const FXmppChatMessage& Chat) override;
+	virtual bool SendChat(const FXmppUserJid& RecipientId, const FString& Message) override;
 	virtual FOnXmppChatReceived& OnReceiveChat() override { return OnChatReceivedDelegate; }
 
 	// FTickerObjectBase

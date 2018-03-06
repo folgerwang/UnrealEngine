@@ -239,6 +239,13 @@ public:
 		return FeatureLevel;
 	}
 
+	/**
+	 * Returns the display factor for the given LOD level
+	 *
+	 * @Param LODIndex - The LOD to get the display factor for
+	 */
+	float GetScreenSize(int32 LODIndex) const;
+
 protected:
 	/** The skeletal mesh resource with which to render. */
 	FSkeletalMeshRenderData* SkeletalMeshRenderData;

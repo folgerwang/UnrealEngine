@@ -317,7 +317,8 @@ void FWidgetBlueprintCompiler::CopyTermDefaultsToDefaultObject(UObject* DefaultO
 	if ( DefaultWidget )
 	{
 		//TODO Once we handle multiple derived blueprint classes, we need to check parent versions of the class.
-		if ( const UFunction* ReceiveTickEvent = FKismetCompilerUtilities::FindOverriddenImplementableEvent(GET_FUNCTION_NAME_CHECKED(UUserWidget, Tick), NewWidgetBlueprintClass) )
+		const UFunction* ReceiveTickEvent = FKismetCompilerUtilities::FindOverriddenImplementableEvent(GET_FUNCTION_NAME_CHECKED(UUserWidget, Tick), NewWidgetBlueprintClass);
+		if (ReceiveTickEvent)
 		{
 			DefaultWidget->bCanEverTick = true;
 		}
@@ -353,6 +354,13 @@ bool FWidgetBlueprintCompiler::CanAllowTemplate(FCompilerResultsLog& MessageLog,
 	{
 		MessageLog.Error(*LOCTEXT("NoWidgetBlueprint", "No Widget Blueprint Found.").ToString());
 
+		return false;
+	}
+
+	// This widget never dynamically constructed, it's stored as part of another widget hierarchy exclusively
+	// so there's no reason to maintain a fast construction template separately for it.
+	if (!WidgetBP->WidgetSupportsDynamicCreation())
+	{
 		return false;
 	}
 
@@ -529,6 +537,7 @@ void FWidgetBlueprintCompiler::PostCompile()
 
 	UWidgetBlueprint* WidgetBP = WidgetBlueprint();
 
+	WidgetClass->bAllowDynamicCreation = WidgetBP->WidgetSupportsDynamicCreation();
 	WidgetClass->bAllowTemplate = CanAllowTemplate(MessageLog, NewWidgetBlueprintClass);
 
 	if ( WidgetClass->bAllowTemplate )

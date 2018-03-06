@@ -5,7 +5,9 @@
 
 
 SWidgetSwitcher::SWidgetSwitcher()
-	: AllChildren()
+	: WidgetIndex()
+	, AllChildren(this)
+	, OneDynamicChild(this, &AllChildren, &WidgetIndex)
 { }
 
 
@@ -34,8 +36,6 @@ SWidgetSwitcher::FSlot& SWidgetSwitcher::AddSlot( int32 SlotIndex )
 
 void SWidgetSwitcher::Construct( const FArguments& InArgs )
 {
-	OneDynamicChild = FOneDynamicChild( &AllChildren, &WidgetIndex );
-
 	for (int32 Index = 0; Index < InArgs.Slots.Num(); ++Index)
 	{
 		AllChildren.Add(InArgs.Slots[Index]);
@@ -95,6 +95,12 @@ int32 SWidgetSwitcher::RemoveSlot( TSharedRef<SWidget> WidgetToRemove )
 			if (!WidgetIndex.IsBound())
 			{
 				int32 ActiveWidgetIndex = WidgetIndex.Get();
+
+				if (SlotIndex == ActiveWidgetIndex)
+				{
+					Invalidate(EInvalidateWidget::LayoutAndVolatility);
+				}
+
 				if (ActiveWidgetIndex > 0 && ActiveWidgetIndex >= SlotIndex)
 				{
 					WidgetIndex = ActiveWidgetIndex - 1;

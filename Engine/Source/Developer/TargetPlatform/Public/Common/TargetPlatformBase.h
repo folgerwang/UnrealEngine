@@ -75,7 +75,7 @@ public:
 
 	virtual float GetVariantPriority() const override
 	{
-		return 0.0f;
+		return IsClientOnly() ? 0.0f : 0.2f;
 	}
 
 	virtual bool SendLowerCaseFilePaths() const override

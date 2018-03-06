@@ -133,16 +133,16 @@ public:
 	bool IsInLayersList(const TArray<FWorldTileLayer>& InLayerList) const;
 	
 	/** @return Level position in shifted space */
-	FVector2D GetLevelCurrentPosition() const;
+	FVector GetLevelCurrentPosition() const;
 
 	/** @return Level relative position */
-	FIntPoint GetRelativeLevelPosition() const;
+	FIntVector GetRelativeLevelPosition() const;
 	
 	/** @return Level absolute position in non shifted space */
-	FIntPoint GetAbsoluteLevelPosition() const;
+	FIntVector GetAbsoluteLevelPosition() const;
 	
 	/** @return Calculates Level absolute position in non shifted space based on relative position */
-	FIntPoint CalcAbsoluteLevelPosition() const;
+	FIntVector CalcAbsoluteLevelPosition() const;
 		
 	/** @return ULevel bounding box in shifted space*/
 	FBox GetLevelBounds() const override;
@@ -151,7 +151,7 @@ public:
 	FVector2D GetLandscapeComponentSize() const;
 
 	/** Translate level center to new position */
-	void SetLevelPosition(const FIntPoint& InPosition);
+	void SetLevelPosition(const FIntVector& InPosition);
 
 	/** Recursively sort all children by name */
 	void SortRecursive();
@@ -160,10 +160,13 @@ public:
 	 *	@return associated streaming level object for this tile
 	 *	Creates a new object in case it does not exists in a persistent world
 	 */
-	ULevelStreaming* GetAssosiatedStreamingLevel();
+	ULevelStreaming* GetAssociatedStreamingLevel();
+
+	DEPRECATED(4.20, "Call GetAssociatedStreamingLevel instead")
+	ULevelStreaming* GetAssosiatedStreamingLevel() { return GetAssociatedStreamingLevel(); }
 
 	/**  */
-	bool CreateAdjacentLandscapeProxy(ALandscapeProxy* SourceLandscape, FIntPoint SourceTileOffset, FWorldTileModel::EWorldDirections InWhere);
+	bool CreateAdjacentLandscapeProxy(ALandscapeProxy* SourceLandscape, const FIntVector& SourceTileOffset, FWorldTileModel::EWorldDirections InWhere);
 
 	/**  */
 	ALandscapeProxy* ImportLandscapeTile(const FLandscapeImportSettings& Settings);

@@ -99,7 +99,7 @@ void PacketHandler::Initialize(Handler::Mode InMode, uint32 InMaxPacketBits, boo
 
 	// Add encryption component, if configured.
 	FString EncryptionComponentName;
-	if (GConfig->GetString(TEXT("PacketHandlerComponents"), TEXT("EncryptionComponent"), EncryptionComponentName, GEngineIni))
+	if (GConfig->GetString(TEXT("PacketHandlerComponents"), TEXT("EncryptionComponent"), EncryptionComponentName, GEngineIni) && !EncryptionComponentName.IsEmpty())
 	{
 		static IConsoleVariable* const AllowEncryptionCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("net.AllowEncryption"));
 		if (AllowEncryptionCVar == nullptr || AllowEncryptionCVar->GetInt() != 0)

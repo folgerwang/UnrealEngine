@@ -33,7 +33,7 @@ bool FOnlineSubsystemFacebook::Init()
 
 bool FOnlineSubsystemFacebook::Shutdown()
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSubsystemFacebook::Shutdown()"));
+	UE_LOG(LogOnline, VeryVerbose, TEXT("FOnlineSubsystemFacebook::Shutdown()"));
 	return FOnlineSubsystemFacebookCommon::Shutdown();
 }
 

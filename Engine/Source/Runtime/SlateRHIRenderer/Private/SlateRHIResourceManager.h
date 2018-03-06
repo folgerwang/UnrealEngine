@@ -125,7 +125,7 @@ struct FCachedRenderBuffers
 /**
  * Stores a mapping of texture names to their RHI texture resource               
  */
-class FSlateRHIResourceManager : public ISlateAtlasProvider, public ISlateRenderDataManager, public FSlateShaderResourceManager, public FTickableGameObject, public FGCObject
+class FSlateRHIResourceManager : public ISlateAtlasProvider, public ISlateRenderDataManager, public FSlateShaderResourceManager, public FTickableGameObject
 {
 public:
 	FSlateRHIResourceManager();
@@ -146,9 +146,6 @@ public:
 	virtual bool IsTickableInEditor() const override { return true; }
 	virtual TStatId GetStatId() const override { RETURN_QUICK_DECLARE_CYCLE_STAT(FSlateRHIResourceManager, STATGROUP_Tickables); }
 	virtual void Tick(float DeltaSeconds) override;
-
-	/** FGCObject interface */
-	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 
 	/**
 	 * Loads and creates rendering resources for all used textures.  
@@ -262,10 +259,6 @@ private:
 	void ReleaseCachedRenderData(FRHICommandListImmediate& RHICmdList, const FSlateRenderDataHandle* RenderHandle, const ILayoutCache* LayoutCacher);
 
 private:
-	/**
-	 * Gets the current accessed UObject tracking set.
-	 */
-	TSet<UObject*>& GetAccessedUObjects();
 
 	/**
 	 * Deletes resources created by the manager
@@ -314,26 +307,6 @@ private:
 private:
 	/** Map of all active dynamic resources being used by brushes */
 	FDynamicResourceMap DynamicResourceMap;
-	/**
-	 * All sets of accessed UObjects.  We have to track multiple sets, because a single set
-	 * needs to follow the set of objects through the renderer safely.  So we round robin
-	 * the buffers.
-	 */
-	TArray< TSet<UObject*>* > AllAccessedUObject;
-	/**
-	 * Tracks a pointer to the current accessed UObject set we're builing this frame, 
-	 * don't use this directly, use GetAccessedUObjects().
-	 */
-	TSet<UObject*>* CurrentAccessedUObject;
-	/**
-	 * Used accessed UObject sets are added to this queue from the Game Thread.
-	 * The RenderThread moves them onto the CleanAccessedObjectSets queue.
-	 */
-	TQueue< TSet<UObject*>* > DirtyAccessedObjectSets;
-	/**
-	 * The RenderThread moves previously dirty UObject sets onto this queue.
-	 */
-	TQueue< TSet<UObject*>* > CleanAccessedObjectSets;
 	/** List of old utexture resources that are free to use as new resources */
 	TArray< TSharedPtr<FSlateUTextureResource> > UTextureFreeList;
 	/** List of old dynamic resources that are free to use as new resources */

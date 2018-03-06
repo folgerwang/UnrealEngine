@@ -32,7 +32,8 @@ public:
 	// Game Thread
 
 	// IXmppMessages
-	virtual bool SendMessage(const FString& RecipientId, const FXmppMessage& Message) override;
+	virtual bool SendMessage(const FXmppUserJid& RecipientId, const FString& Type, const FString& Payload, bool bPayloadIsSerializedJson = false) override;
+	virtual bool SendMessage(const FXmppUserJid& RecipientId, const FString& Type, const TSharedRef<class FJsonObject>& Payload) override;
 	virtual FOnXmppMessageReceived& OnReceiveMessage() override { return OnMessageReceivedDelegate; }
 
 	// FTickerObjectBase

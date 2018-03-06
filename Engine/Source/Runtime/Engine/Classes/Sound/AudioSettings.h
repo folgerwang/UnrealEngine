@@ -83,16 +83,20 @@ class ENGINE_API UAudioSettings : public UDeveloperSettings
 	UPROPERTY(config, EditAnywhere, Category="Audio", meta=(AllowedClasses="SoundClass", DisplayName="Default Sound Class"))
 	FSoftObjectPath DefaultSoundClassName;
 
+	/** The SoundClass assigned to media player assets */
+	UPROPERTY(config, EditAnywhere, Category = "Audio", meta = (AllowedClasses = "SoundClass", DisplayName = "Default Media Sound Class"))
+	FSoftObjectPath DefaultMediaSoundClassName;
+
 	/** The SoundConcurrency assigned to newly created sounds */
 	UPROPERTY(config, EditAnywhere, Category = "Audio", meta = (AllowedClasses = "SoundConcurrency", DisplayName = "Default Sound Concurrency"))
 	FSoftObjectPath DefaultSoundConcurrencyName;
 
-	/** The SoundMix to use as base when no other system has specified a Base SoundMix */
+	/** The SoundMix to use as base when no other system has speciicefied a Base SoundMix */
 	UPROPERTY(config, EditAnywhere, Category="Audio", meta=(AllowedClasses="SoundMix"))
 	FSoftObjectPath DefaultBaseSoundMix;
 	
 	/** Sound class to be used for the VOIP audio component */
-	UPROPERTY(config, EditAnywhere, Category="Audio", meta=(AllowedClasses="SoundClass"))
+	UPROPERTY(config, EditAnywhere, Category="Audio", meta=(AllowedClasses="SoundClass", DisplayName = "VOIP Sound Class"))
 	FSoftObjectPath VoiPSoundClass;
 
 	/** Sample rate used for voice over IP. VOIP audio is resampled to the application's sample rate on the receiver side. */
@@ -104,11 +108,8 @@ class ENGINE_API UAudioSettings : public UDeveloperSettings
 	float VoipBufferingDelay;
 
 	/** The amount of audio to send to reverb submixes if no reverb send is setup for the source through attenuation settings. Only used in audio mixer. */
-	UPROPERTY(config, EditAnywhere, Category = "Audio", AdvancedDisplay, meta = (ClampMin = 0.0, ClampMax = 1.0))
+	UPROPERTY(config, EditAnywhere, Category = "Audio", AdvancedDisplay)
 	float DefaultReverbSendLevel;
-
-	UPROPERTY(config, EditAnywhere, Category="Audio", AdvancedDisplay, meta=(ClampMin=0.1,ClampMax=1.5))
-	float LowPassFilterResonance;
 
 	/** How many streaming sounds can be played at the same time (if more are played they will be sorted by priority) */
 	UPROPERTY(config, EditAnywhere, Category="Audio", meta=(ClampMin=0))
@@ -118,20 +119,21 @@ class ENGINE_API UAudioSettings : public UDeveloperSettings
 	TArray<FAudioQualitySettings> QualityLevels;
 
 	/** Allows sounds to play at 0 volume. */
-	UPROPERTY(config, EditAnywhere, Category = "Quality")
+	UPROPERTY(config, EditAnywhere, Category = "Quality", AdvancedDisplay)
 	uint32 bAllowVirtualizedSounds:1;
 
 	/** Disables master EQ effect in the audio DSP graph. */
-	UPROPERTY(config, EditAnywhere, Category = "Quality")
+	UPROPERTY(config, EditAnywhere, Category = "Quality", AdvancedDisplay)
 	uint32 bDisableMasterEQ : 1;
 
-	/** Disables master reverb effect in the audio DSP graph. */
-	UPROPERTY(config, EditAnywhere, Category = "Quality")
-	uint32 bDisableMasterReverb : 1;
 
 	/** Enables the surround sound spatialization calculations to include the center channel. */
-	UPROPERTY(config, EditAnywhere, Category = "Quality")
+	UPROPERTY(config, EditAnywhere, Category = "Quality", AdvancedDisplay)
 	uint32 bAllowCenterChannel3DPanning : 1;
+
+	/** The max number of active sounds allowed. Used to cull numbers of active sounds, which reduces CPU cost of audio thread. */
+	UPROPERTY(config, EditAnywhere, Category = "Quality", AdvancedDisplay)
+	uint32 MaxOneShotActiveSoundCount;
 
 	/**
 	 * The format string to use when generating the filename for contexts within dialogue waves. This must generate unique names for your project.

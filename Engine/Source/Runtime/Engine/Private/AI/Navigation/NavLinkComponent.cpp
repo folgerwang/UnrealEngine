@@ -11,7 +11,7 @@ UNavLinkComponent::UNavLinkComponent(const FObjectInitializer& ObjectInitializer
 {
 	Mobility = EComponentMobility::Stationary;
 	BodyInstance.SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
-	bGenerateOverlapEvents = false;
+	SetGenerateOverlapEvents(false);
 
 	bHasCustomNavigableGeometry = EHasCustomNavigableGeometry::EvenIfNotCollidable;
 	bCanEverAffectNavigation = true;

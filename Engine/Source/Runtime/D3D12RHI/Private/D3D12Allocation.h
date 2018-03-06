@@ -497,7 +497,6 @@ public:
 		, Head(BufferSize)
 		, Tail(0)
 		, LastFence(0)
-		, OutstandingAllocs(0)
 		, Fence(nullptr)
 	{}
 
@@ -509,7 +508,7 @@ public:
 		Head = Size;
 		Tail = 0;
 		LastFence = 0;
-		OutstandingAllocs = 0;
+		OutstandingAllocs.Empty();
 	}
 
 	inline void SetFence(FD3D12Fence* InFence)
@@ -520,10 +519,65 @@ public:
 
 	inline const uint64 GetSpaceLeft() const { return Head - Tail; }
 
+	void GetOverwritableBlocks(uint64& Block1Start, uint64& Block1Size, uint64& Block2Start, uint64& Block2Size) const
+	{
+		check(Head >= Tail);
+		check(Size >= Head - Tail);
+		uint64 Used = Size - (Head - Tail);
+
+		if (Used == Size)
+		{
+			Block1Start = 0;
+			Block1Size = 0;
+
+			Block2Start = 0;
+			Block2Size = 0;
+		}
+		else
+		{
+			uint64 PhysicalTail = Tail % Size;
+
+			if (PhysicalTail <= Used)
+			{
+				// there is only one block, it starts at PhysicalTail
+				Block1Start = 0;
+				Block1Size = 0;
+
+				Block2Start = PhysicalTail;
+				Block2Size = Size - Used;
+			}
+			else
+			{
+				Block1Start = 0;
+				Block1Size = PhysicalTail - Used;
+
+				Block2Start = PhysicalTail;
+				Block2Size = Size - PhysicalTail;
+			}
+		}
+	}
+
 	inline uint64 Allocate(uint64 Count)
 	{
+		{
+			const uint64 LastCompletedFence = Fence->GetCachedLastCompletedFence();
+			// If progress has been made since we were here last
+			if (LastCompletedFence > LastFence)
+			{
+				LastFence = LastCompletedFence;
+
+				for (auto It = OutstandingAllocs.CreateIterator(); It; ++It)
+				{
+					if (It.Key() < LastCompletedFence)
+					{
+						Head += It.Value();
+						It.RemoveCurrent();
+					}
+				}
+			}
+		}
+
 		uint64 ReturnValue = FailedReturnValue;
-		const uint64 LastCompletedFence = Fence->GetCachedLastCompletedFence();
 
 		uint64 PhysicalTail = Tail % Size;
 
@@ -539,19 +593,11 @@ public:
 			PhysicalTail = Tail % Size;
 		}
 
-		// If progress has been made since we were here last
-		if (LastCompletedFence > LastFence)
-		{
-			LastFence = LastCompletedFence;
-			Head += OutstandingAllocs; // Deallocate completed blocks
-			OutstandingAllocs = 0;
-		}
-
 		if (Tail + Count < Head)
 		{
 			ReturnValue = PhysicalTail;
 			Tail += Count;
-			OutstandingAllocs += Count;
+			OutstandingAllocs.FindOrAdd(Fence->GetCurrentFence()) += Count;
 		}
 
 		return ReturnValue;
@@ -563,7 +609,8 @@ private:
 	uint64 Head;
 	uint64 Tail;
 	uint64 LastFence;
-	uint64 OutstandingAllocs;
+
+	TMap<uint64, uint64, TInlineSetAllocator<16> > OutstandingAllocs;
 };
 
 class FD3D12FastConstantAllocator : public FD3D12DeviceChild, public FD3D12MultiNodeGPUObject

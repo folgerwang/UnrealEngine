@@ -414,4 +414,6 @@ void FAudioCommandFence::Wait(bool bProcessGameThreadTasks) const
 		FPlatformProcess::ReturnSynchEventToPool(Event);
 		Event = nullptr;
 	}
+	
 }
+
