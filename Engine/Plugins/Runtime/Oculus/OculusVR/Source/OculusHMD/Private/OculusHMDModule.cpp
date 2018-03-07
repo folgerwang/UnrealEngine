@@ -5,6 +5,10 @@
 #include "OculusHMDPrivateRHI.h"
 #include "Containers/StringConv.h"
 #include "Misc/EngineVersion.h"
+#if PLATFORM_ANDROID
+#include "Android/AndroidApplication.h"
+#endif
+
 
 //-------------------------------------------------------------------------------------------------
 // FOculusHMDModule
@@ -82,7 +86,13 @@ bool FOculusHMDModule::PreInit()
 			}
 #endif
 			// Initialize OVRPlugin
-			if (OVRP_FAILURE(ovrp_PreInitialize2()))
+#if PLATFORM_ANDROID
+			void* activity = (void*) FAndroidApplication::GetGameActivityThis();
+#else
+			void* activity = nullptr;
+#endif
+
+			if (OVRP_FAILURE(ovrp_PreInitialize3(activity)))
 			{
 				UE_LOG(LogHMD, Log, TEXT("Failed initializing OVRPlugin %s"), TEXT(OVRP_VERSION_STR));
 				return false;

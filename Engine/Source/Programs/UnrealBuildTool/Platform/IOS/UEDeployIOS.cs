@@ -1058,7 +1058,7 @@ Console.WriteLine("1 GameName: {0}, ProjectName: {1}", GameName, (InTarget.Proje
 			else
 			{
                 // @todo tvos merge: This used to copy the bundle back - where did that code go? It needs to be fixed up for TVOS directories
-				bool bSupportPortrait, bSupportLandscape, bSkipIcons;
+                bool bSupportPortrait, bSupportLandscape, bSkipIcons;
 				GeneratePList(InTarget.ProjectFile, InTarget.Configuration, ProjectDirectory, bIsUE4Game, GameName, (InTarget.ProjectFile == null) ? "" : Path.GetFileNameWithoutExtension(InTarget.ProjectFile.FullName), "../../Engine", "", InTarget.BuildReceiptFileName, out bSupportPortrait, out bSupportLandscape, out bSkipIcons);
 			}
 			return true;

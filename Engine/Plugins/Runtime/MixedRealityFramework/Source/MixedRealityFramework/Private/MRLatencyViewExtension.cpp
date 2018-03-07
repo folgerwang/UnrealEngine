@@ -5,6 +5,7 @@
 #include "MixedRealityCaptureComponent.h"
 #include "HAL/IConsoleManager.h" // for TAutoConsoleVariable<>
 #include "RenderingThread.h" // for ENQUEUE_RENDER_COMMAND
+#include "MotionControllerComponent.h"
 
 namespace MRLatencyViewExtension_Impl
 {
@@ -17,6 +18,7 @@ namespace MRLatencyViewExtension_Impl
 		ECVF_Default);
 
 	static uint32 GetDesiredDelay(TWeakObjectPtr<UMixedRealityCaptureComponent> Target);
+	static UMotionControllerComponent* GetPairedTracker(TWeakObjectPtr<UMixedRealityCaptureComponent> Target);
 }
 
 //------------------------------------------------------------------------------
@@ -28,6 +30,16 @@ static uint32 MRLatencyViewExtension_Impl::GetDesiredDelay(TWeakObjectPtr<UMixed
 		DesiredDelay = Target->TrackingLatency;
 	}
 	return DesiredDelay;
+}
+
+static UMotionControllerComponent* MRLatencyViewExtension_Impl::GetPairedTracker(TWeakObjectPtr<UMixedRealityCaptureComponent> Target)
+{
+	UMotionControllerComponent* PairedTracker = nullptr;
+	if (Target.IsValid())
+	{
+		PairedTracker = Cast<UMotionControllerComponent>(Target->GetAttachParent());
+	}
+	return PairedTracker;
 }
 
 /* FMRLatencyViewExtension
@@ -46,6 +58,34 @@ bool FMRLatencyViewExtension::SetupPreCapture(FSceneInterface* Scene)
 	const bool bSimulateLatency = (CachedRenderDelay > 0);
 	if (bSimulateLatency)
 	{
+		if (Owner.IsValid())
+		{
+			CachedOwnerTransform = Owner->GetComponentToWorld();
+			if (UMotionControllerComponent* PairedTracker = MRLatencyViewExtension_Impl::GetPairedTracker(Owner))
+			{
+				FTransform OriginTransform = FTransform::Identity;
+				if (USceneComponent* VROrigin = PairedTracker->GetAttachParent())
+				{
+					OriginTransform = VROrigin->GetComponentToWorld();
+				}
+
+				FTransform DelayTransform;
+				if (FindDelayTransform(PairedTracker, CachedRenderDelay, DelayTransform))
+				{
+					const FTransform RelativeTransform = Owner->GetRelativeTransform();
+
+					// Replace the parent MotionControllerComponent's transform with a delayed one (to 
+					// simulate latency so the video feed better matches up with the virtual camera position)
+					//
+					// @TODO : this breaks down if any of the transform components are absolute, or 
+					//         if something is attached to a socket (see: UpdateComponentToWorldWithParent)
+					const FTransform NewComponentToWorldTransform = RelativeTransform * DelayTransform * OriginTransform;
+
+					Owner->SetComponentToWorld(NewComponentToWorldTransform);
+				}
+			}
+		}
+
 		TSharedPtr<FMRLatencyViewExtension, ESPMode::ThreadSafe> ThisPtr = SharedThis(this);
 		ENQUEUE_RENDER_COMMAND(PreMRCaptureCommand)(
 			[ThisPtr, Scene](FRHICommandListImmediate& /*RHICmdList*/)
@@ -70,6 +110,11 @@ void FMRLatencyViewExtension::SetupPostCapture(FSceneInterface* Scene)
 				ThisPtr->Restore_RenderThread(Scene);
 			}
 		);
+
+		if (Owner.IsValid())
+		{
+			Owner->SetComponentToWorld(CachedOwnerTransform);
+		}
 	}
 }
 
@@ -82,6 +127,14 @@ uint32 FMRLatencyViewExtension::GetDesiredDelay() const
 		DesiredDelay = Owner->TrackingLatency;
 	}
 	return DesiredDelay;
+}
+
+void FMRLatencyViewExtension::GetExemptTargets(TArray<USceneComponent*>& ExemptTargets) const
+{
+// 	if (UMotionControllerComponent* PairedTracker = MRLatencyViewExtension_Impl::GetPairedTracker(Owner))
+// 	{
+// 		ExemptTargets.Add(PairedTracker);
+// 	}
 }
 
 //------------------------------------------------------------------------------

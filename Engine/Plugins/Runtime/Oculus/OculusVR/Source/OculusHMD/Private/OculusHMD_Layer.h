@@ -43,6 +43,7 @@ public:
 	const IStereoLayers::FLayerDesc& GetDesc() const { return Desc; }
 	void SetEyeLayerDesc(const ovrpLayerDesc_EyeFov& InEyeLayerDesc, const ovrpRecti InViewportRect[ovrpEye_Count]);
 	const FTextureSetProxyPtr& GetTextureSetProxy() const { return TextureSetProxy; }
+	const FTextureSetProxyPtr& GetRightTextureSetProxy() const { return RightTextureSetProxy; }
 	const FTextureSetProxyPtr& GetDepthTextureSetProxy() const { return DepthTextureSetProxy; }
 	void MarkTextureForUpdate() { bUpdateTexture = true; }
 	bool NeedsPokeAHole() { return (Desc.Flags & IStereoLayers::LAYER_FLAG_SUPPORT_DEPTH) != 0; }

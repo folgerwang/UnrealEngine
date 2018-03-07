@@ -2405,7 +2405,7 @@ void UEditorEngine::PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor )
 	{
 		// Only spawning 1 PIE instance under this process, only set the PIEInstance value if we're not connecting to another local instance of the game, otherwise it will run the wrong streaming levels
 		PIEInstance = ( !CanRunUnderOneProcess && PlayNetMode == EPlayNetMode::PIE_Client ) ? INDEX_NONE : 0;
-		UGameInstance* const GameInstance = CreatePIEGameInstance(PIEInstance, bInSimulateInEditor, bAnyBlueprintErrors, bStartInSpectatorMode, false, PIEStartTime);
+		UGameInstance* const GameInstance = CreatePIEGameInstance(PIEInstance, bInSimulateInEditor, bAnyBlueprintErrors, bStartInSpectatorMode, false, bUseVRPreviewForPlayWorld, PIEStartTime);
 
 		if (!PlayInSettings->EnableGameSound)
 		{
@@ -2497,7 +2497,6 @@ void UEditorEngine::SpawnIntraProcessPIEWorlds(bool bAnyBlueprintErrors, bool bS
 	int32 NextY = 0;
 	SettingsIndex = 1;
 	int32 ClientNum = 0;
-
 	PIEInstance = 1;
 	const bool WillAutoConnectToServer = [&PlayInSettings]{ bool AutoConnectToServer(false); return (PlayInSettings->GetAutoConnectToServer(AutoConnectToServer) && AutoConnectToServer); }();
 	const bool CanPlayNetDedicated = [&PlayInSettings]{ bool PlayNetDedicated(false); return (PlayInSettings->GetPlayNetDedicated(PlayNetDedicated) && PlayNetDedicated); }();
@@ -2512,8 +2511,8 @@ void UEditorEngine::SpawnIntraProcessPIEWorlds(bool bAnyBlueprintErrors, bool bS
 			ClientNum++;
 			GetMultipleInstancePositions(SettingsIndex++, NextX, NextY);
 		}
-
-		UGameInstance* const ServerGameInstance = CreatePIEGameInstance(PIEInstance, bInSimulateInEditor, bAnyBlueprintErrors, bStartInSpectatorMode, CanPlayNetDedicated, PIEStartTime);
+        
+		UGameInstance* const ServerGameInstance = CreatePIEGameInstance(PIEInstance, bInSimulateInEditor, bAnyBlueprintErrors, bStartInSpectatorMode, CanPlayNetDedicated, (ClientNum == 0 && bUseVRPreviewForPlayWorld), PIEStartTime);
 		if (ServerGameInstance)
 		{
 			ServerPrefix = ServerGameInstance->GetWorldContext()->PIEPrefix;
@@ -2549,7 +2548,7 @@ void UEditorEngine::SpawnIntraProcessPIEWorlds(bool bAnyBlueprintErrors, bool bS
 			GetMultipleInstancePositions(SettingsIndex++, NextX, NextY);
 		}
 
-		UGameInstance* const ClientGameInstance = CreatePIEGameInstance(PIEInstance, bInSimulateInEditor, bAnyBlueprintErrors, bStartInSpectatorMode, false, PIEStartTime);
+		UGameInstance* const ClientGameInstance = CreatePIEGameInstance(PIEInstance, bInSimulateInEditor, bAnyBlueprintErrors, bStartInSpectatorMode, false, (ClientNum == 0 && bUseVRPreviewForPlayWorld), PIEStartTime);
 		if (!ClientGameInstance)
 		{
 			// Failed, abort
@@ -2576,7 +2575,7 @@ bool UEditorEngine::CreatePIEWorldFromLogin(FWorldContext& PieWorldContext, EPla
 	
 	const bool CanPlayNetDedicated = [&PlayInSettings]{ bool PlayNetDedicated(false); return (PlayInSettings->GetPlayNetDedicated(PlayNetDedicated) && PlayNetDedicated); }();
 	const bool ActAsClient = PlayNetMode == EPlayNetMode::PIE_Client || PlayNetMode == EPlayNetMode::PIE_Standalone;
-	UGameInstance* const GameInstance = CreatePIEGameInstance(PieWorldContext.PIEInstance, false, DataStruct.bAnyBlueprintErrors, DataStruct.bStartInSpectatorMode, ActAsClient ? false : CanPlayNetDedicated, DataStruct.PIEStartTime);
+	UGameInstance* const GameInstance = CreatePIEGameInstance(PieWorldContext.PIEInstance, false, DataStruct.bAnyBlueprintErrors, DataStruct.bStartInSpectatorMode, ActAsClient ? false : CanPlayNetDedicated, false, DataStruct.PIEStartTime);
 	
 	// Restore window settings
 	GetMultipleInstancePositions(0, DataStruct.NextX, DataStruct.NextY);	// restore cached settings
@@ -2848,7 +2847,7 @@ void UEditorEngine::RequestLateJoin()
 	{
 		GetMultipleInstancePositions(SettingsIndex++, NextX, NextY);
 
-		UGameInstance* const ClientGameInstance = CreatePIEGameInstance(PIEInstance, false, false, bStartLateJoinersInSpectatorMode, false, PIEStartTime);
+		UGameInstance* const ClientGameInstance = CreatePIEGameInstance(PIEInstance, false, false, bStartLateJoinersInSpectatorMode, false, false, PIEStartTime);
 		if (!ClientGameInstance)
 		{
 			// Failed, abort
@@ -2861,13 +2860,11 @@ void UEditorEngine::RequestLateJoin()
 	GetMultipleInstancePositions(0, NextX, NextY);
 }
 
-UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bInSimulateInEditor, bool bAnyBlueprintErrors, bool bStartInSpectatorMode, bool bRunAsDedicated, float PIEStartTime)
+UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bInSimulateInEditor, bool bAnyBlueprintErrors, bool bStartInSpectatorMode, bool bRunAsDedicated, bool bPlayStereoscopic, float PIEStartTime)
 {
 	const FString WorldPackageName = EditorWorld->GetOutermost()->GetName();
 	
-	const bool bUseVRPreview = bUseVRPreviewForPlayWorld && (InPIEInstance >= 0 && InPIEInstance <= 1);
-
-	// Start a new PIE log page
+		// Start a new PIE log page
 	{
 		FFormatNamedArguments Arguments;
 		Arguments.Add(TEXT("Package"), FText::FromString(FPackageName::GetLongPackageAssetName(WorldPackageName)));
@@ -3083,7 +3080,7 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bI
 				bool bUseOSWndBorder = false;
 				bool bRenderDirectlyToWindow = false;
 				bool bEnableStereoRendering = false;
-				if (bUseVRPreview)	// @todo vreditor: Is not having an OS window border a problem?  We could spawn a dedicated VR window if so.  What about true fullscreen in VR?
+				if (bPlayStereoscopic)	// @todo vreditor: Is not having an OS window border a problem?  We could spawn a dedicated VR window if so.  What about true fullscreen in VR?
 				{
 					// modify window and viewport properties for VR.
 					bUseOSWndBorder = true;
@@ -3164,7 +3161,7 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bI
 
 				ViewportClient->SetViewportOverlayWidget( PieWindow, ViewportOverlayWidgetRef );
 				ViewportClient->SetGameLayerManager(GameLayerManagerRef);
-				bool bShouldMinimizeRootWindow = bUseVRPreview && GEngine->XRSystem.IsValid() && GetDefault<ULevelEditorPlaySettings>()->ShouldMinimizeEditorOnVRPIE;
+				bool bShouldMinimizeRootWindow = bPlayStereoscopic && GEngine->XRSystem.IsValid() && GetDefault<ULevelEditorPlaySettings>()->ShouldMinimizeEditorOnVRPIE;
 				// Set up a notification when the window is closed so we can clean up PIE
 				{
 					struct FLocal
@@ -3217,7 +3214,7 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bI
 				// Create a new viewport that the viewport widget will use to render the game
 				SlatePlayInEditorSession.SlatePlayInEditorWindowViewport = MakeShareable( new FSceneViewport( ViewportClient, PieViewportWidget ) );
 
-				const bool bShouldGameGetMouseControl = GetDefault<ULevelEditorPlaySettings>()->GameGetsMouseControl || (bUseVRPreview && GEngine->XRSystem.IsValid());
+				const bool bShouldGameGetMouseControl = GetDefault<ULevelEditorPlaySettings>()->GameGetsMouseControl || (bPlayStereoscopic && GEngine->XRSystem.IsValid());
 				SlatePlayInEditorSession.SlatePlayInEditorWindowViewport->SetPlayInEditorGetsMouseControl(bShouldGameGetMouseControl);
 				PieViewportWidget->SetViewportInterface( SlatePlayInEditorSession.SlatePlayInEditorWindowViewport.ToSharedRef() );
 				
@@ -3237,7 +3234,7 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bI
 				// Change the system resolution to match our window, to make sure game and slate window are kept syncronised
 				FSystemResolution::RequestResolutionChange(NewWindowWidth, NewWindowHeight, EWindowMode::Windowed);
 
-				if (bUseVRPreview)
+				if (bPlayStereoscopic)
 				{
 					GEngine->StereoRenderingDevice->EnableStereo(true);
 

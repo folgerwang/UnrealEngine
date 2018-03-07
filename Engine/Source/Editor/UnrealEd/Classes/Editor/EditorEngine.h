@@ -1765,7 +1765,7 @@ public:
 	 */
 	virtual void PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor );
 
-	virtual UGameInstance* CreatePIEGameInstance(int32 InPIEInstance, bool bInSimulateInEditor, bool bAnyBlueprintErrors, bool bStartInSpectatorMode, bool bPlayNetDedicated, float PIEStartTime);
+	virtual UGameInstance* CreatePIEGameInstance(int32 InPIEInstance, bool bInSimulateInEditor, bool bAnyBlueprintErrors, bool bStartInSpectatorMode, bool bPlayNetDedicated, bool bPlayStereoscopic, float PIEStartTime);
 
 	/**
 	 * Kills the Play From Here session

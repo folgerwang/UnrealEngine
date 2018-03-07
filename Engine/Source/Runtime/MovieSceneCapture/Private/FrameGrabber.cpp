@@ -278,7 +278,7 @@ FFrameGrabber::FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint Desi
 
 FFrameGrabber::~FFrameGrabber()
 {
-	if (OnWindowRendered.IsValid())
+    if (OnWindowRendered.IsValid() && FSlateApplication::IsInitialized())
 	{
 		FSlateApplication::Get().GetRenderer()->OnSlateWindowRendered().Remove(OnWindowRendered);
 	}
@@ -332,7 +332,10 @@ void FFrameGrabber::Shutdown()
 		Surface.Surface.BlockUntilAvailable();
 	}
 
-	FSlateApplication::Get().GetRenderer()->OnSlateWindowRendered().Remove(OnWindowRendered);
+    if (FSlateApplication::IsInitialized())
+    {
+        FSlateApplication::Get().GetRenderer()->OnSlateWindowRendered().Remove(OnWindowRendered);
+    }
 	OnWindowRendered = FDelegateHandle();
 }
 

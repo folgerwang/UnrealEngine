@@ -28,7 +28,7 @@ limitations under the License.
 #endif
 
 #define OVRP_MAJOR_VERSION 1
-#define OVRP_MINOR_VERSION 21
+#define OVRP_MINOR_VERSION 22
 #define OVRP_PATCH_VERSION 0
 
 #define OVRP_VERSION OVRP_MAJOR_VERSION, OVRP_MINOR_VERSION, OVRP_PATCH_VERSION
@@ -103,7 +103,21 @@ typedef enum {
   ovrpInitializeFlag_SupportsVRToggle = (1 << 1),
   /// Supports Life Cycle Focus (Dash)
   ovrpInitializeFlag_FocusAware = (1 << 2),
+  /// Turn off Legacy Core Affinity Patch
+  /// Background: Some legacy unity versions set thread affinities wrong on newer hardware like Oculus Go
+  /// We need patch it in the runtime for published legacy apps.
+  /// This flag will be passed from fixed Unity versions explicitly, so we can skip the runtime patch mechanism since we already have proper fixes.
+  ovrpInitializeFlag_NoLegacyCoreAffinityPatch = (1 << 3),
 } ovrpInitializeFlags;
+
+
+/// Thread Performance
+typedef enum {
+  ovrpThreadPef_DeadLine_Normal = 0,
+  ovrpThreadPef_DeadLine_Hard = 1,
+  ovrpThreadPef_DeadLine_Soft = 2,
+  ovrpThreadPef_EnumSize = 0x7fffffff
+} ovrpThreadPerf;
 
 /// Identifies an eye in a stereo pair.
 typedef enum {

@@ -12,16 +12,16 @@
 class FHDRLoadHelper
 {
 public:
-	FHDRLoadHelper(const uint8* Buffer, uint32 BufferLength);
+	ENGINE_API FHDRLoadHelper(const uint8* Buffer, uint32 BufferLength);
 
-	bool IsValid() const;
+	ENGINE_API bool IsValid() const;
 
-	uint32 GetWidth() const;
+	ENGINE_API uint32 GetWidth() const;
 
-	uint32 GetHeight() const;
+	ENGINE_API uint32 GetHeight() const;
 
 	/** @param OutDDSFile order in bytes: RGBE */
-	void ExtractDDSInRGBE(TArray<uint8>& OutDDSFile) const;
+	ENGINE_API void ExtractDDSInRGBE(TArray<uint8>& OutDDSFile) const;
 
 private:
 	/** 0 if not valid */

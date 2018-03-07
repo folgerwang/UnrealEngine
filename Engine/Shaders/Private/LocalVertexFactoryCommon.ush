@@ -106,6 +106,9 @@ void SetTangents(inout FVertexFactoryInterpolantsVSToPS Interpolants, float3 InT
 {
 	Interpolants.TangentToWorld0 = float4(InTangentToWorld0,0);
 	Interpolants.TangentToWorld2 = float4(InTangentToWorld2,InTangentToWorldSign);
+#if USE_WORLDVERTEXNORMAL_CENTER_INTERPOLATION
+	Interpolants.TangentToWorld2_Center = Interpolants.TangentToWorld2;
+#endif
 }
 
 

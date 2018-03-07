@@ -313,8 +313,12 @@ MaterialFloat4 Texture2DSampleBicubic( Texture2D Tex, SamplerState Sampler, floa
 	return OutColor;
 }
 
-	// TANGENTTOWORLD0 is the first row of the tangent to world matrix, w might be needed for padding and is not used yet.
-	// TANGENTTOWORLD2 is the last row of the tangent to world matrix, determinant of tangent basis in w
+// TANGENTTOWORLD0 is the first row of the tangent to world matrix, w might be needed for padding and is not used yet.
+// TANGENTTOWORLD2 is the last row of the tangent to world matrix, determinant of tangent basis in w
+	
+// Helper macro to determine whether we need to separately interpolate the world vertex normal to the pixel center.
+// Currently only curvature-to-roughness needs this interpolation, so disable it when it's not used to save on interpolants.
+#define USE_WORLDVERTEXNORMAL_CENTER_INTERPOLATION	(FEATURE_LEVEL >= FEATURE_LEVEL_SM5 && MATERIAL_NORMAL_CURVATURE_TO_ROUGHNESS)
 
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
 
@@ -323,9 +327,14 @@ MaterialFloat4 Texture2DSampleBicubic( Texture2D Tex, SamplerState Sampler, floa
 
 	// _centroid is needed to get better quality with MSAA
 
-	// The D3D shader compiler combines _centroid and non controid. Using float3 would results in a internal
+	// The D3D shader compiler combines _centroid and non centroid. Using float3 would result in a internal
 	// shader compiler error. This block is using float4 to prevent that.
+#if USE_WORLDVERTEXNORMAL_CENTER_INTERPOLATION
+	#define TANGENTTOWORLD_INTERPOLATOR_BLOCK	float4 TangentToWorld0 : TEXCOORD10_centroid; float4	TangentToWorld2	: TEXCOORD11_centroid; \
+		float4	TangentToWorld2_Center	: TEXCOORD15;
+#else
 	#define TANGENTTOWORLD_INTERPOLATOR_BLOCK	float4 TangentToWorld0 : TEXCOORD10_centroid; float4	TangentToWorld2	: TEXCOORD11_centroid;
+#endif
 
 #else
 

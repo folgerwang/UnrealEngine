@@ -141,7 +141,7 @@ public:
 			ResolutionFraction = FMath::Max(
 				float(Settings->EyeRenderViewport[0].Width()) / float(Settings->EyeMaxRenderViewport[0].Width()),
 				float(Settings->EyeRenderViewport[0].Height()) / float(Settings->EyeMaxRenderViewport[0].Height()));
-				
+
 			// Clamp resolution fraction to what the renderer can do.
 			ResolutionFraction = FMath::Clamp(
 				ResolutionFraction,
@@ -182,6 +182,7 @@ private:
 
 } // namespace
 
+#define OCULUS_PAUSED_IDLE_FPS 10
 
 namespace OculusHMD
 {
@@ -795,13 +796,18 @@ namespace OculusHMD
 				bool bPrevPause = Settings->Flags.bPauseRendering;
 				Settings->Flags.bPauseRendering = !bAppHasVRFocus;
 
+				if (Settings->Flags.bPauseRendering && (GEngine->GetMaxFPS() != OCULUS_PAUSED_IDLE_FPS))
+				{
+					GEngine->SetMaxFPS(OCULUS_PAUSED_IDLE_FPS);
+				}
+
 				if (bPrevPause != Settings->Flags.bPauseRendering)
 				{
 					APlayerController* const PC = GEngine->GetFirstLocalPlayerController(InWorldContext.World());
 					if (Settings->Flags.bPauseRendering)
 					{
 						// focus is lost
-						GEngine->SetMaxFPS(10);
+						GEngine->SetMaxFPS(OCULUS_PAUSED_IDLE_FPS);
 
 						if (!FCoreDelegates::ApplicationWillEnterBackgroundDelegate.IsBound())
 						{
@@ -892,11 +898,9 @@ namespace OculusHMD
 
 		if (GIsRequestingExit)
 		{
-			// need to shutdown HMD here, otherwise the whole shutdown process may take forever.
 			PreShutdown();
-			GEngine->ShutdownHMD();
-			// note, 'this' may become invalid after ShutdownHMD
 		}
+
 		return retval;
 	}
 
@@ -1370,8 +1374,8 @@ namespace OculusHMD
 	}
 
 
-	FVector2D FOculusHMD::GetEyeCenterPoint_RenderThread(EStereoscopicPass StereoPassType) const 
-	{ 
+	FVector2D FOculusHMD::GetEyeCenterPoint_RenderThread(EStereoscopicPass StereoPassType) const
+	{
 		CheckInRenderThread();
 
 		check(IsStereoEnabled());
@@ -1382,7 +1386,7 @@ namespace OculusHMD
 
 		//0,0,1 is the straight ahead point, wherever it maps to is the center of the projection plane in -1..1 coordinates.  -1,-1 is bottom left.
 		const FVector4 ScreenCenter = StereoProjectionMatrix.TransformPosition(FVector(0.0f, 0.0f, 1.0f));
-		//transform into 0-1 screen coordinates 0,0 is top left.  
+		//transform into 0-1 screen coordinates 0,0 is top left.
 		const FVector2D CenterPoint(0.5f + (ScreenCenter.X / 2.0f), 0.5f - (ScreenCenter.Y / 2.0f) );
 
 		return CenterPoint;
@@ -1737,6 +1741,75 @@ namespace OculusHMD
 		}
 	}
 
+	void FOculusHMD::GetAllocatedTexture(uint32 LayerId, FTextureRHIRef &Texture, FTextureRHIRef &LeftTexture)
+	{
+		Texture = LeftTexture = nullptr;
+		FLayerPtr* LayerFound = nullptr;
+
+		if (IsInGameThread())
+		{
+			LayerFound = LayerMap.Find(LayerId);
+		}
+		else if (IsInRenderingThread())
+		{
+			for (int32 LayerIndex = 0; LayerIndex < Layers_RenderThread.Num(); LayerIndex++)
+			{
+				if (Layers_RenderThread[LayerIndex]->GetId() == LayerId)
+				{
+					LayerFound = &Layers_RenderThread[LayerIndex];
+				}
+			}
+		}
+		else if (IsInRHIThread())
+		{
+			for (int32 LayerIndex = 0; LayerIndex < Layers_RHIThread.Num(); LayerIndex++)
+			{
+				if (Layers_RHIThread[LayerIndex]->GetId() == LayerId)
+				{
+					LayerFound = &Layers_RHIThread[LayerIndex];
+				}
+			}
+		}
+		else
+		{
+			return;
+		}
+
+		if (LayerFound && (*LayerFound)->GetTextureSetProxy().IsValid())
+		{
+			bool bRightTexture = (*LayerFound)->GetRightTextureSetProxy().IsValid();
+			switch ((*LayerFound)->GetDesc().ShapeType)
+			{
+			case IStereoLayers::CubemapLayer:
+				if (bRightTexture)
+				{
+					Texture = (*LayerFound)->GetRightTextureSetProxy()->GetTextureCube();
+					LeftTexture = (*LayerFound)->GetTextureSetProxy()->GetTextureCube();
+				}
+				else
+				{
+					Texture = LeftTexture = (*LayerFound)->GetTextureSetProxy()->GetTextureCube();
+				}				break;
+
+			case IStereoLayers::CylinderLayer:
+			case IStereoLayers::QuadLayer:
+				if (bRightTexture)
+				{
+					Texture = (*LayerFound)->GetRightTextureSetProxy()->GetTexture2D();
+					LeftTexture = (*LayerFound)->GetTextureSetProxy()->GetTexture2D();
+				}
+				else
+				{
+					Texture = LeftTexture = (*LayerFound)->GetTextureSetProxy()->GetTexture2D();
+				}
+				break;
+
+			default:
+				break;
+			}
+		}
+	}
+
 	IStereoLayers::FLayerDesc FOculusHMD::GetDebugCanvasLayerDesc(FTextureRHIRef Texture)
 	{
 		IStereoLayers::FLayerDesc StereoLayerDesc;
@@ -1747,7 +1820,7 @@ namespace OculusHMD
 		StereoLayerDesc.QuadSize = FVector2D(180.f, 180.f);
 		StereoLayerDesc.PositionType = IStereoLayers::ELayerType::FaceLocked;
 		StereoLayerDesc.ShapeType = IStereoLayers::ELayerShape::CylinderLayer;
-		StereoLayerDesc.Texture = Texture;
+		StereoLayerDesc.LayerSize = Texture->GetTexture2D()->GetSizeXY();
 		StereoLayerDesc.Flags = IStereoLayers::ELayerFlags::LAYER_FLAG_TEX_CONTINUOUS_UPDATE;
 		StereoLayerDesc.Flags |= IStereoLayers::ELayerFlags::LAYER_FLAG_QUAD_PRESERVE_TEX_RATIO;
 #if PLATFORM_ANDROID
@@ -1843,8 +1916,8 @@ namespace OculusHMD
 			DrawClearQuad(RHICmdList, FLinearColor::Black);
 		}
 	#endif
-#else 
-		// ensure we have attached JNI to this thread - this has to happen persistently as the JNI could detach if the app loses focus 
+#else
+		// ensure we have attached JNI to this thread - this has to happen persistently as the JNI could detach if the app loses focus
 		FAndroidApplication::GetJavaEnv();
 #endif
 
@@ -2199,11 +2272,14 @@ void FOculusHMD::RenderPokeAHole(FRHICommandListImmediate& RHICmdList, FSceneVie
 				initializeFlags |= ovrpInitializeFlag_FocusAware;
 			}
 
-			if (OVRP_FAILURE(ovrp_Initialize4(
+			if (OVRP_FAILURE(ovrp_Initialize5(
 				CustomPresent->GetRenderAPI(),
 				logCallback,
 				activity,
 				CustomPresent->GetOvrpInstance(),
+				CustomPresent->GetOvrpPhysicalDevice(),
+				CustomPresent->GetOvrpDevice(),
+				CustomPresent->GetOvrpCommandQueue(),
 				initializeFlags,
 				{ OVRP_VERSION })))
 			{

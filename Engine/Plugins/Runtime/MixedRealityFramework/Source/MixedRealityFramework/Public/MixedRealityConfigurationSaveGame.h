@@ -4,10 +4,11 @@
 
 #include "GameFramework/SaveGame.h"
 #include "Math/Color.h" // for FLinearColor
-#include "MixedRealityCaptureComponent.h" // for FChromaKeyParams
 #include "MixedRealityCaptureDevice.h" // for FMRCaptureDeviceIndex
-#include "LensDistortionAPI.h" // for FLensDistortionCameraModel
+#include "MixedRealityLensDistortion.h"
 #include "MixedRealityConfigurationSaveGame.generated.h"
+
+class UMaterialInstanceDynamic;
 
 USTRUCT(BlueprintType)
 struct FMRLensCalibrationData
@@ -18,7 +19,7 @@ struct FMRLensCalibrationData
 	float FOV = 90.f;
 
 	UPROPERTY(BlueprintReadWrite, Category = Data)
-	FLensDistortionCameraModel DistortionParameters;
+	FMRLensDistortion DistortionParameters;
 };
 
 USTRUCT(BlueprintType)
@@ -30,7 +31,7 @@ struct FMRAlignmentSaveData
 	FVector CameraOrigin = FVector::ZeroVector;
 
 	UPROPERTY(BlueprintReadWrite, Category = Data)
-	FVector LookAtDir = FVector::ForwardVector;	
+	FRotator Orientation = FRotator::ZeroRotator;
 
 	UPROPERTY(BlueprintReadWrite, Category = Data)
 	FName TrackingAttachmentId;
@@ -46,6 +47,49 @@ struct FGarbageMatteSaveData
 };
 
 USTRUCT(BlueprintType)
+struct FChromaKeyParams
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+
+	UPROPERTY(BlueprintReadWrite, Category = ChromaKeying)
+	FLinearColor ChromaColor = FLinearColor(0.122f, 0.765f, 0.261, 1.f);
+
+	/*
+	 * Colors matching the chroma color up to this tolerance level will be completely
+	 * cut out. The higher the value the more that is cut out. A value of zero
+	 * means that the chroma color has to be an exact match for the pixel to be
+	 * completely transparent.
+	 */
+	UPROPERTY(BlueprintReadWrite, Category = ChromaKeying)
+	float ChromaClipThreshold = 0.26f;
+
+	/*
+	 * Colors that differ from the chroma color beyond this tolerance level will
+	 * be fully opaque. The higher the number, the more transparency gradient there
+	 * will be along edges. This is expected to be greater than the 'Chroma Clip
+	 * Threshold' param. If this matches the 'Chroma Clip Threshold' then there will
+	 * be no transparency gradient (what isn't clipped will be fully opaque).
+	 */
+	UPROPERTY(BlueprintReadWrite, Category = ChromaKeying)
+	float ChromaToleranceCap = 0.53f;
+
+	/*
+	 * An exponent param that governs how soft/hard the semi-translucent edges are.
+	 * Larger numbers will cause the translucency to fall off faster, shrinking
+	 * the silhouette and smoothing it out. Larger numbers can also be used to hide
+	 * splotchy artifacts. Values under 1 will cause the transparent edges to
+	 * increase in harshness (approaching on opaque).
+	 */
+	UPROPERTY(BlueprintReadWrite, Category = ChromaKeying)
+	float EdgeSoftness = 10.f;
+
+public:
+	void ApplyToMaterial(UMaterialInstanceDynamic* Material) const;
+};
+
+USTRUCT(BlueprintType)
 struct FMRCompositingSaveData
 {
 	GENERATED_USTRUCT_BODY()
@@ -58,6 +102,9 @@ struct FMRCompositingSaveData
 
 	UPROPERTY(BlueprintReadWrite, Category = Data)
 	float DepthOffset = 0.0f;
+
+	UPROPERTY(BlueprintReadWrite, Category = Data)
+	int32 TrackingLatency = 0;
 };
 
 UCLASS(BlueprintType, Blueprintable, config = Engine)

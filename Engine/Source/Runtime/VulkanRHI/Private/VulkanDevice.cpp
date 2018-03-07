@@ -506,12 +506,15 @@ bool FVulkanDevice::QueryGPU(int32 DeviceIndex)
 {
 	bool bDiscrete = false;
 
+	FMemory::Memzero(GpuProps);
 #if VULKAN_ENABLE_DESKTOP_HMD_SUPPORT
 	if (GetOptionalExtensions().HasKHRGetPhysicalDeviceProperties2)
 	{
 		VkPhysicalDeviceProperties2KHR GpuProps2;
+		FMemory::Memzero(GpuProps2);
 		GpuProps2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR;
 		GpuProps2.pNext = &GpuIdProps;
+		FMemory::Memzero(GpuIdProps);
 		GpuIdProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES_KHR;
 		GpuIdProps.pNext = nullptr;
 		VulkanRHI::vkGetPhysicalDeviceProperties2KHR(Gpu, &GpuProps2);

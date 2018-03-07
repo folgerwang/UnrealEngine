@@ -11,6 +11,8 @@ class UPrimitiveComponent;
 class AActor;
 enum class EControllerHand : uint8;
 
+DECLARE_DELEGATE_OneParam(FXRComponentLoadComplete, UPrimitiveComponent*);
+
 class HEADMOUNTEDDISPLAY_API IXRSystemAssets : public IModularFeature, public IXRSystemIdentifier
 {
 public:
@@ -60,14 +62,17 @@ public:
 	 * a component that needs to be attached and registered by the caller.
 	 *
 	 * NOTE: Resource loads for this component may be asynchronous. The 
-	 * component can be attached and registered immediately, but there may be a 
-	 * delay before it renders properly.
+	 *       component can be attached and registered immediately, but there may 
+	 *       be a delay before it renders properly. To make the operation 
+	 *       synchronous use the bForceSynchronous param.
 	 *
-	 * @param  DeviceId		Uniquely identifies the XR device you want to render.
-	 * @param  Owner		The actor which this component will be attached to.
-	 * @param  Flags		Object creation flags to spawn the component with.
+	 * @param  DeviceId				Uniquely identifies the XR device you want to render.
+	 * @param  Owner				The actor which this component will be attached to.
+	 * @param  Flags				Object creation flags to spawn the component with.
+	 * @param  bForceSynchronous	Forces the any associated resource loads to complete before returning. 
+	 * @param  OnLoadComplete		Model load callback, useful for when the load is asynchronous - should be triggered for synchronous loads as well.
 	 *
 	 * @return A valid component pointer if the method succeeded, otherwise null.
 	 */
-	virtual UPrimitiveComponent* CreateRenderComponent(const int32 DeviceId, AActor* Owner, EObjectFlags Flags) = 0;
+	virtual UPrimitiveComponent* CreateRenderComponent(const int32 DeviceId, AActor* Owner, EObjectFlags Flags, const bool bForceSynchronous = false, const FXRComponentLoadComplete& OnLoadComplete = FXRComponentLoadComplete()) = 0;
 };

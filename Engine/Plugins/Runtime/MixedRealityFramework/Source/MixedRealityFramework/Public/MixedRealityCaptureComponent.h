@@ -8,6 +8,8 @@
 #include "MixedRealityCaptureDevice.h"
 #include "Delegates/Delegate.h"
 #include "Templates/SubclassOf.h"
+#include "MixedRealityConfigurationSaveGame.h"
+#include "MixedRealityLensDistortion.h"
 #include "MixedRealityCaptureComponent.generated.h"
 
 class UMediaPlayer;
@@ -22,54 +24,9 @@ class UMixedRealityGarbageMatteCaptureComponent;
 class UTextureRenderTarget2D;
 class FMRLatencyViewExtension;
 class UMixedRealityCalibrationData;
+class AMixedRealityGarbageMatteActor;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogMixedReality, Log, All);
-
-/**
- *	
- */
-USTRUCT(BlueprintType)
-struct FChromaKeyParams
-{
-	GENERATED_USTRUCT_BODY()
-
-public:
-
-	UPROPERTY(BlueprintReadWrite, Category = ChromaKeying)
-	FLinearColor ChromaColor = FLinearColor(0.122f, 0.765f, 0.261, 1.f);
-
-	/* 
-	 * Colors matching the chroma color up to this tolerance level will be completely 
-	 * cut out. The higher the value the more that is cut out. A value of zero 
-	 * means that the chroma color has to be an exact match for the pixel to be 
-	 * completely transparent. 
-	 */
-	UPROPERTY(BlueprintReadWrite, Category = ChromaKeying)
-	float ChromaClipThreshold = 0.26f;
-
-	/* 
-	 * Colors that differ from the chroma color beyond this tolerance level will 
-	 * be fully opaque. The higher the number, the more transparency gradient there 
-	 * will be along edges. This is expected to be greater than the 'Chroma Clip 
-	 * Threshold' param. If this matches the 'Chroma Clip Threshold' then there will 
-	 * be no transparency gradient (what isn't clipped will be fully opaque).
-	 */
-	UPROPERTY(BlueprintReadWrite, Category = ChromaKeying)
-	float ChromaToleranceCap = 0.53f;
-
-	/*
-	 * An exponent param that governs how soft/hard the semi-translucent edges are. 
-	 * Larger numbers will cause the translucency to fall off faster, shrinking 
-	 * the silhouette and smoothing it out. Larger numbers can also be used to hide 
-	 * splotchy artifacts. Values under 1 will cause the transparent edges to 
-	 * increase in harshness (approaching on opaque).
-	 */
-	UPROPERTY(BlueprintReadWrite, Category = ChromaKeying)
-	float EdgeSoftness = 10.f;
-
-public:
-	void ApplyToMaterial(UMaterialInstanceDynamic* Material) const;
-};
 
 /**
  *	
@@ -83,27 +40,42 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=VideoCapture)
 	UMediaPlayer* MediaSource;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, BlueprintSetter=SetVidProjectionMat, Category=VideoCapture)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, BlueprintSetter=SetVidProjectionMat, Category=Composition)
 	UMaterialInterface* VideoProcessingMaterial;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, BlueprintSetter=SetChromaSettings, Category=VideoCapture)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, BlueprintSetter=SetChromaSettings, Category=Composition)
 	FChromaKeyParams ChromaKeySettings;
 
-	UPROPERTY(BlueprintReadWrite, BlueprintSetter=SetCaptureDevice, Category=VideoCapture)
+	UPROPERTY(BlueprintReadWrite, BlueprintSetter=SetCaptureDevice, Category=Composition)
 	FMRCaptureDeviceIndex CaptureFeedRef;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, BlueprintSetter=SetLensDistortionParameters, Category=VideoCapture)
+	FMRLensDistortion LensDistortionParameters;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, BlueprintSetter = SetLensDistortionCropping, Category = VideoCapture)
+	float LensDistortionCropping;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Tracking)
 	FName TrackingSourceName;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = SceneCapture)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Composition)
 	UTextureRenderTarget2D* GarbageMatteCaptureTextureTarget;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = SceneCapture)
-	UStaticMesh* GarbageMatteMesh;
-
 	/** Millisecond delay to apply to motion controller components when rendering to the capture view (to better align with latent camera feeds) */
-	UPROPERTY(BlueprintReadWrite, BlueprintSetter=SetTrackingDelay, Category=Tracking, meta=(ClampMin="0", UIMin="0"))
+	UPROPERTY(BlueprintReadWrite, Config, BlueprintSetter=SetTrackingDelay, Category=Composition, meta=(ClampMin="0", UIMin="0"))
 	int32 TrackingLatency;
+
+	/** Determines if this component should attempt to load the default MR calibration file on initialization */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Config, Category=Calibration)
+	bool bAutoLoadConfiguration;
+
+	/** Depth offset (in UE units) for the card that the camera feed is projected onto. By default the card is aligned with the HMD. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Config, BlueprintSetter=SetProjectionDepthOffset, Category=Composition)
+	float ProjectionDepthOffset;
+
+	/** Enabled by default, the projection plane tracks with the HMD to simulate the depth of the player. Disable to keep the projection plane from moving. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Config, BlueprintSetter=SetEnableProjectionDepthTracking, Category=Tracking)
+	bool bProjectionDepthTracking;
 
 public:
 	//~ UObject interface
@@ -160,29 +132,12 @@ public:
 	void ApplyCalibrationData(UMixedRealityCalibrationData* ConfigData);
 
 	/**
-	* Set an external garbage matte actor to be used instead of the mixed reality component's
-	* normal configuration save game based actor.  This is used during garbage matte setup to
-	* preview the garbage mask in realtime.
+	 * Set an external garbage matte actor to be used instead of the mixed reality component's
+	 * normal configuration save game based actor.  This is used during garbage matte setup to
+	 * preview the garbage mask in realtime.
 	*/
-	UFUNCTION(BlueprintCallable, Category = "MixedReality|Calibration")
-	void SetExternalGarbageMatteActor(AActor* Actor);
-
-	/**
-	* Clear the external garbage matte actor so that the mixed reality component goes
-	* back to its normal behavior where it uses a garbage matte actor spawned based on 
-	* the mixed reality configuration save file information.
-	*/
-	UFUNCTION(BlueprintCallable, Category = "MixedReality|Calibration")
-	void ClearExternalGarbageMatteActor();
-
-	/**
-	* Set color parameter in the mixed reality material with which pixels will be max combined
-	* so that they are obviously visible while setting up the garbage mattes and green screen.
-	*
-	* @param NewColor			(in) The color used.
-	*/
-	UFUNCTION(BlueprintCallable, Category = "MixedReality|Calibration")
-	void SetUnmaskedPixelHighlightColor(const FLinearColor& NewColor);
+	UFUNCTION(BlueprintCallable, Category = "MixedReality|GarbageMatting")
+	bool SetGarbageMatteActor(AMixedRealityGarbageMatteActor* Actor);
 
 	UFUNCTION(BlueprintSetter)
 	void SetVidProjectionMat(UMaterialInterface* NewMaterial);
@@ -200,7 +155,16 @@ public:
 	void SetCaptureDevice(const FMRCaptureDeviceIndex& FeedRef);
 
 	UFUNCTION(BlueprintSetter)
+	void SetLensDistortionParameters(const FMRLensDistortion& ModelRef);
+
+	UFUNCTION(BlueprintSetter)
+	void SetLensDistortionCropping(float Alpha);
+
+	UFUNCTION(BlueprintSetter)
 	void SetTrackingDelay(int32 DelayMS);
+
+	UFUNCTION(BlueprintSetter)
+	void SetProjectionDepthOffset(float DepthOffset);
 
 	UFUNCTION(BlueprintPure, Category = "MixedReality|Projection", meta=(DisplayName="GetProjectionActor"))
 	AActor* GetProjectionActor_K2() const;
@@ -210,8 +174,14 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = VideoCapture)
 	FMRCaptureFeedOpenedDelegate OnCaptureSourceOpened;
 
-public:
+	/** 
+	 * Enabled by default, the projection plane tracks with the HMD to simulate 
+	 * the depth of the player. Disable to keep the projection plane from moving.
+	 */
+	UFUNCTION(BlueprintSetter)
+	void SetEnableProjectionDepthTracking(bool bEnable = true);
 
+public:
 	/**
 	 *
 	 */
@@ -222,12 +192,17 @@ public:
 	 */
 	void RefreshDevicePairing();
 
+
 private:
 	UFUNCTION() // needs to be a UFunction for binding purposes
 	void OnVideoFeedOpened(const FMRCaptureDeviceIndex& FeedRef);
 
 	void  RefreshProjectionDimensions();
 	float GetDesiredAspectRatio() const;
+
+	void UpdateUVLookupTexture();
+
+	void ApplyUVTextureToMaterial(class UMaterialInstanceDynamic* MID) const;
 
 private:
 #if WITH_EDITORONLY_DATA
@@ -246,6 +221,9 @@ private:
 
 	UPROPERTY(Transient)
 	UMixedRealityGarbageMatteCaptureComponent* GarbageMatteCaptureComponent;
+
+	UPROPERTY(Transient)
+	UTexture2D* UndistortionUVMap;
 
 	TSharedPtr<FMRLatencyViewExtension, ESPMode::ThreadSafe> ViewExtension;
 };

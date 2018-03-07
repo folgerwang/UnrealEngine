@@ -23,6 +23,7 @@ public:
 public:
 	/** FMotionDelayClient interface */
 	virtual uint32 GetDesiredDelay() const override;
+	virtual void GetExemptTargets(TArray<USceneComponent*>& ExemptTargets) const override;
 
 public:
 	/** ISceneViewExtension interface */
@@ -32,4 +33,5 @@ public:
 private:
 	TWeakObjectPtr<UMixedRealityCaptureComponent> Owner;
 	uint32 CachedRenderDelay = 0;
+	FTransform CachedOwnerTransform;
 };

@@ -21,7 +21,7 @@ public class OpenCV : ModuleRules
 
             string BinaryPath = Path.GetFullPath(Path.Combine(ModuleDirectory, "../../../Binaries/ThirdParty", PlatformDir));
 
-            string LibName = "opencv_world331";
+			string LibName = "opencv_world331";
 
 			if (Target.Configuration == UnrealTargetConfiguration.Debug &&
 				Target.bDebugBuildsActuallyUseDebugCRT)
@@ -32,8 +32,10 @@ public class OpenCV : ModuleRules
 			PublicAdditionalLibraries.Add(LibName + ".lib");
 			string DLLName = LibName + ".dll";
 			PublicDelayLoadDLLs.Add(DLLName);
-            RuntimeDependencies.Add(Path.Combine(BinaryPath, DLLName));
+			RuntimeDependencies.Add(Path.Combine(BinaryPath, DLLName));
 			PublicDefinitions.Add("WITH_OPENCV=1");
+			PublicDefinitions.Add("OPENCV_PLATFORM_PATH=Binaries/ThirdParty/" + PlatformDir);
+			PublicDefinitions.Add("OPENCV_DLL_NAME=" + DLLName);
 		}
 		else // unsupported platform
 		{

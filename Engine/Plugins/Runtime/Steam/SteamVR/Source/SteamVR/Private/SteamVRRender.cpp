@@ -87,6 +87,11 @@ bool FSteamVRHMD::BridgeBaseImpl::NeedsNativePresent()
     return true;
 }
 
+bool FSteamVRHMD::BridgeBaseImpl::NeedsPostPresentHandoff() const
+{
+	return bUseExplicitTimingMode || (CUsePostPresentHandoff.GetValueOnRenderThread() == 1);
+}
+
 #if PLATFORM_WINDOWS
 
 FSteamVRHMD::D3D11Bridge::D3D11Bridge(FSteamVRHMD* plugin):
@@ -179,8 +184,9 @@ bool FSteamVRHMD::D3D11Bridge::Present(int& SyncInterval)
 
 void FSteamVRHMD::D3D11Bridge::PostPresent()
 {
-	if (CUsePostPresentHandoff.GetValueOnRenderThread() == 1)
+	if (NeedsPostPresentHandoff())
 	{
+		check(!IsRunningRHIInSeparateThread() || IsInRHIThread());
 		Plugin->VRCompositor->PostPresentHandoff();
 	}
 }
@@ -192,6 +198,7 @@ FSteamVRHMD::VulkanBridge::VulkanBridge(FSteamVRHMD* plugin):
 	RenderTargetTexture(0)
 {
 	bInitialized = true;
+	bUseExplicitTimingMode = true;
 }
 
 void FSteamVRHMD::VulkanBridge::BeginRendering()
@@ -277,8 +284,9 @@ bool FSteamVRHMD::VulkanBridge::Present(int& SyncInterval)
 
 void FSteamVRHMD::VulkanBridge::PostPresent()
 {
-	if (CUsePostPresentHandoff.GetValueOnRenderThread() == 1)
+	if (NeedsPostPresentHandoff())
 	{
+		check(!IsRunningRHIInSeparateThread() || IsInRHIThread());
 		Plugin->VRCompositor->PostPresentHandoff();
 	}
 }
@@ -366,8 +374,9 @@ bool FSteamVRHMD::OpenGLBridge::Present(int& SyncInterval)
 
 void FSteamVRHMD::OpenGLBridge::PostPresent()
 {
-	if (CUsePostPresentHandoff.GetValueOnRenderThread() == 1)
+	if (NeedsPostPresentHandoff())
 	{
+		check(!IsRunningRHIInSeparateThread() || IsInRHIThread());
 		Plugin->VRCompositor->PostPresentHandoff();
 	}
 }
@@ -455,8 +464,9 @@ bool FSteamVRHMD::MetalBridge::Present(int& SyncInterval)
 
 void FSteamVRHMD::MetalBridge::PostPresent()
 {
-	if (CUsePostPresentHandoff.GetValueOnRenderThread() == 1)
+	if (NeedsPostPresentHandoff())
 	{
+		check(!IsRunningRHIInSeparateThread() || IsInRHIThread());
 		Plugin->VRCompositor->PostPresentHandoff();
 	}
 }

@@ -455,7 +455,7 @@ void UOculusFunctionLibrary::GetGPUUtilization(bool& IsGPUAvailable, float& GPUU
 
 			ovrp_GetGPUUtilLevel(&GPUUtilization);
 		}
-}
+	}
 #endif // OCULUS_HMD_SUPPORTED_PLATFORMS
 }
 

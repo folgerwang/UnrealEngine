@@ -149,7 +149,7 @@ void FLayer::Initialize_RenderThread(FCustomPresent* CustomPresent, FRHICommandL
 	{
 		// OvrpLayerDesc and OvrpViewportRects already initialized, as this is the eyeFOV layer. The only necessary modification is to take into account MSAA level, that can only be accurately determined on the RT.
 	}
-	else if (Desc.Texture.IsValid())
+	else
 	{
 		if (Desc.UVRect.Min.Y == 1.0f)
 		{
@@ -157,24 +157,31 @@ void FLayer::Initialize_RenderThread(FCustomPresent* CustomPresent, FRHICommandL
 			Desc.UVRect.Min.Y = 0.0f;
 		}
 
-		FRHITexture2D* Texture2D = Desc.Texture->GetTexture2D();
-		FRHITextureCube* TextureCube = Desc.Texture->GetTextureCube();
+		uint32 SizeX = 0, SizeY = 0;
 
-		uint32 SizeX, SizeY;
+		if (Desc.Texture.IsValid())
+		{
+			FRHITexture2D* Texture2D = Desc.Texture->GetTexture2D();
+			FRHITextureCube* TextureCube = Desc.Texture->GetTextureCube();
 
-		if(Texture2D)
-		{
-			SizeX = Texture2D->GetSizeX();
-			SizeY = Texture2D->GetSizeY();
-		}
-		else if(TextureCube)
-		{
-			SizeX = SizeY = TextureCube->GetSize();
+			if (Texture2D)
+			{
+				SizeX = Texture2D->GetSizeX();
+				SizeY = Texture2D->GetSizeY();
+			}
+			else if (TextureCube)
+			{
+				SizeX = SizeY = TextureCube->GetSize();
+			}
 		}
 		else
 		{
-			return;
+			SizeX = Desc.LayerSize.X;
+			SizeY = Desc.LayerSize.Y;
 		}
+
+		if (SizeX == 0 || SizeY == 0)
+			return;
 
 		ovrpShape Shape;
 		
@@ -196,7 +203,7 @@ void FLayer::Initialize_RenderThread(FCustomPresent* CustomPresent, FRHICommandL
 			return;
 		}
 
-		EPixelFormat Format = CustomPresent->GetPixelFormat(Desc.Texture->GetFormat());
+		EPixelFormat Format = Desc.Texture.IsValid() ? CustomPresent->GetPixelFormat(Desc.Texture->GetFormat()) : CustomPresent->GetDefaultPixelFormat();
 #if PLATFORM_ANDROID
 		uint32 NumMips = 1;
 #else
@@ -228,10 +235,6 @@ void FLayer::Initialize_RenderThread(FCustomPresent* CustomPresent, FRHICommandL
 			ViewportRect.Size.w = (int)(Desc.UVRect.Max.X * SizeX + 0.5f) - ViewportRect.Pos.x;
 			ViewportRect.Size.h = (int)(Desc.UVRect.Max.Y * SizeY + 0.5f) - ViewportRect.Pos.y;
 		}
-	}
-	else
-	{
-		return;
 	}
 	
 	// Reuse/Create texture set
@@ -340,11 +343,9 @@ void FLayer::Initialize_RenderThread(FCustomPresent* CustomPresent, FRHICommandL
 
 			uint32 ColorTexCreateFlags = TexCreate_ShaderResource | TexCreate_RenderTargetable;
 			uint32 DepthTexCreateFlags = TexCreate_ShaderResource | TexCreate_DepthStencilTargetable;
-#if PLATFORM_ANDROID
+
 			FClearValueBinding ColorTextureBinding = FClearValueBinding();
-#else
-			FClearValueBinding ColorTextureBinding = FClearValueBinding::Black;
-#endif
+
 			FClearValueBinding DepthTextureBinding = SceneContext.GetDefaultDepthClear();
 
 			TextureSetProxy = CustomPresent->CreateTextureSetProxy_RenderThread(SizeX, SizeY, ColorFormat, ColorTextureBinding, NumMips, NumSamples, NumSamplesTileMem, ResourceType, ColorTextures, ColorTexCreateFlags);
@@ -368,7 +369,7 @@ void FLayer::Initialize_RenderThread(FCustomPresent* CustomPresent, FRHICommandL
 		bUpdateTexture = true;
 	}
 
-	if (Desc.Flags & IStereoLayers::LAYER_FLAG_TEX_CONTINUOUS_UPDATE)
+	if (Desc.Flags & IStereoLayers::LAYER_FLAG_TEX_CONTINUOUS_UPDATE && Desc.Texture.IsValid())
 	{
 		bUpdateTexture = true;
 	}

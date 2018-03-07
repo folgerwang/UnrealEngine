@@ -8,4 +8,5 @@ UMixedRealityFrameworkSettings::UMixedRealityFrameworkSettings(const FObjectInit
 	, DesiredCaptureResolution(1080)
 	, DesiredCaptureDeviceTrackIndex(INDEX_NONE)
 	, DesiredCaptureDeviceFormatIndex(INDEX_NONE)
+	, CalibratedFOVOverride(90.f)
 {}

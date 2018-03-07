@@ -232,14 +232,19 @@ public:
 	
 	uint64 GetGraphicsAdapterLuid() override
 	{
-#if PLATFORM_MAC
-		
-		id<MTLDevice> SelectedDevice = nil;
-		
+#if PLATFORM_MAC	
 		// @TODO  currently, for mac, GetGraphicsAdapterLuid() is used to return a device index (how the function 
 		//        "GetGraphicsAdapter" used to work), not a ID... eventually we want the HMD module to return the 
 		//        MTLDevice's registryID, but we cannot fully handle that until we drop support for 10.12
 		//  NOTE: this is why we  use -1 as a sentinel value representing "no device" (instead of 0, which is used in the LUID case)
+
+		const uint32 NoDevice = (uint32)-1;
+		id<MTLDevice> SelectedDevice = nil;
+#else
+		const uint32 NoDevice = 0;
+		uint64 SelectedDevice = NoDevice;
+#endif
+		
 		{
 			// HACK:  Temporarily stand up the VRSystem to get a graphics adapter.  We're pretty sure we're going to use SteamVR if we get in here, but not guaranteed
 			vr::EVRInitError VRInitErr = vr::VRInitError_None;
@@ -248,24 +253,49 @@ public:
 			if ((TempVRSystem == nullptr) || (VRInitErr != vr::VRInitError_None))
 			{
 				UE_LOG(LogHMD, Log, TEXT("Failed to initialize OpenVR with code %d"), (int32)VRInitErr);
-				return (uint64)-1;
+				return NoDevice;
 			}
 			
 			// Make sure that the version of the HMD we're compiled against is correct.  This will fill out the proper vtable!
 			TempVRSystem = (vr::IVRSystem*)(*FSteamVRHMD::VRGetGenericInterfaceFn)(vr::IVRSystem_Version, &VRInitErr);
 			if ((TempVRSystem == nullptr) || (VRInitErr != vr::VRInitError_None))
 			{
-				return (uint64)-1;
+				return NoDevice;
 			}
 			
-			TempVRSystem->GetOutputDevice((uint64_t*)((void*)&SelectedDevice), vr::TextureType_IOSurface);
+			vr::ETextureType TextureType = vr::ETextureType::TextureType_OpenGL;
+#if PLATFORM_MAC
+            TextureType = vr::ETextureType::TextureType_IOSurface;
+#else
+			if (IsPCPlatform(GMaxRHIShaderPlatform))
+			{
+				if (IsVulkanPlatform(GMaxRHIShaderPlatform))
+				{
+					TextureType = vr::ETextureType::TextureType_Vulkan;
+				}
+				else if (IsOpenGLPlatform(GMaxRHIShaderPlatform))
+				{
+					TextureType = vr::ETextureType::TextureType_OpenGL;
+				}
+#if PLATFORM_WINDOWS
+				else
+				{
+					TextureType = vr::ETextureType::TextureType_DirectX;
+				}
+#endif
+			}
+#endif
+
+			TempVRSystem->GetOutputDevice((uint64_t*)((void*)&SelectedDevice), TextureType);
 			
 			vr::VR_Shutdown();
 		}
 
+
+#if PLATFORM_MAC
 		if(SelectedDevice == nil)
 		{
-			return (uint64)-1;
+			return NoDevice;
 		}
 
 		TArray<FMacPlatformMisc::FGPUDescriptor> const& GPUs = FPlatformMisc::GetGPUDescriptors();
@@ -301,8 +331,8 @@ public:
 		}
 		return (uint64)DeviceIndex;
 #else
-		return 0;
-#endif
+		return SelectedDevice;
+#endif //PLATFORM_MAC
 	}
 
 	virtual TSharedPtr< IHeadMountedDisplayVulkanExtensions, ESPMode::ThreadSafe > GetVulkanExtensions() override
@@ -1365,11 +1395,31 @@ void FSteamVRHMD::OnBeginRendering_GameThread()
 	SpectatorScreenController->BeginRenderViewFamily();
 }
 
-void FSteamVRHMD::OnBeginRendering_RenderThread(FRHICommandListImmediate& /* unused */, FSceneViewFamily& ViewFamily)
+struct FRHICommandExecute_BeginRendering final : public FRHICommand<FRHICommandExecute_BeginRendering>
+{
+	FSteamVRHMD::BridgeBaseImpl *pBridge;
+	FRHICommandExecute_BeginRendering(FSteamVRHMD::BridgeBaseImpl* pInBridge)
+		: pBridge(pInBridge)
+	{
+	}
+	
+	void Execute(FRHICommandListBase& /* unused */)
+	{
+		check(pBridge->IsUsingExplicitTimingMode());
+		pBridge->BeginRendering_RHI();
+	}
+};
+
+void FSteamVRHMD::OnBeginRendering_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& ViewFamily)
 {
 	check(IsInRenderingThread());
 	UpdatePoses();
 
+	if(pBridge && pBridge->IsUsingExplicitTimingMode())
+	{
+		new (RHICmdList.AllocCommand<FRHICommandExecute_BeginRendering>()) FRHICommandExecute_BeginRendering(GetActiveRHIBridgeImpl());
+	}
+	
 	GetActiveRHIBridgeImpl()->BeginRendering();
 
 	check(SpectatorScreenController);
@@ -1587,6 +1637,11 @@ bool FSteamVRHMD::Startup()
 			ensure( pBridge != nullptr );
 		}
 #endif
+
+		if(pBridge->IsUsingExplicitTimingMode())
+		{
+			VRCompositor->SetExplicitTimingMode(vr::EVRCompositorTimingMode::VRCompositorTimingMode_Explicit_ApplicationPerformsPostPresentHandoff);
+		}
 
 		LoadFromIni();
 

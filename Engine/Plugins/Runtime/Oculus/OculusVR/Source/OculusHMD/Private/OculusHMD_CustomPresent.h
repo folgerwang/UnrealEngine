@@ -55,6 +55,7 @@ public:
 	FTexture2DRHIRef GetMirrorTexture() { return MirrorTextureRHI; }
 
 	virtual void* GetOvrpInstance() const { return nullptr; }
+	virtual void* GetOvrpPhysicalDevice() const { return nullptr; }
 	virtual void* GetOvrpDevice() const { return nullptr; }
 	virtual void* GetOvrpCommandQueue() const { return nullptr; }
 	EPixelFormat GetPixelFormat(EPixelFormat InFormat) const;

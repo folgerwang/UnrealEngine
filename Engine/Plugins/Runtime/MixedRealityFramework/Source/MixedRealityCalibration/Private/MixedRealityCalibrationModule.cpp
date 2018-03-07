@@ -2,7 +2,28 @@
 
 #include "IMixedRealityCalibrationModule.h"
 #include "Modules/ModuleManager.h" // for IMPLEMENT_MODULE()
+#include "HAL/PlatformProcess.h"
 
+class FMixedRealityCalibrationModule : public IMixedRealityCalibrationModule
+{
+public:
+	FMixedRealityCalibrationModule();
 
+public:
+	//~ IModuleInterface interface
+	virtual void StartupModule() override;
+	virtual void ShutdownModule() override;
+};
 
-IMPLEMENT_MODULE(IMixedRealityCalibrationModule, MixedRealityFramework);
+FMixedRealityCalibrationModule::FMixedRealityCalibrationModule()
+{}
+
+void FMixedRealityCalibrationModule::StartupModule()
+{
+}
+
+void FMixedRealityCalibrationModule::ShutdownModule()
+{
+}
+
+IMPLEMENT_MODULE(FMixedRealityCalibrationModule, MixedRealityCalibration);

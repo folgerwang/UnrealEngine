@@ -1581,7 +1581,7 @@ bool UGameplayStatics::SaveGameToMemory(USaveGame* SaveGameObject, TArray<uint8>
 	CustomVersions.Serialize(MemoryWriter, CustomVersionFormat);
 
 	// Write the class name so we know what class to load to
-	FString SaveGameClassName = SaveGameObject->GetClass()->GetName();
+	FString SaveGameClassName = SaveGameObject->GetClass()->GetPathName();
 	MemoryWriter << SaveGameClassName;
 
 	// Then save the object state, replacing object refs and names with strings
@@ -1636,7 +1636,7 @@ bool UGameplayStatics::SaveGameToSlot(USaveGame* SaveGameObject, const FString& 
 		CustomVersions.Serialize(MemoryWriter, CustomVersionFormat);
 
 		// Write the class name so we know what class to load to
-		FString SaveGameClassName = SaveGameObject->GetClass()->GetName();
+		FString SaveGameClassName = SaveGameObject->GetClass()->GetPathName();
 		MemoryWriter << SaveGameClassName;
 
 		// Then save the object state, replacing object refs and names with strings

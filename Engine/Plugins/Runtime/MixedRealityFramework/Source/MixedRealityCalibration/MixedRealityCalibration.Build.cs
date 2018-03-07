@@ -31,8 +31,9 @@ public class MixedRealityCalibration : ModuleRules
 				"MixedRealityFramework",
 				"MediaAssets",
 				"InputCore",
-				"OpenCV"
-			}
-		);
+                "OpenCVHelper",
+                "OpenCV"
+            }
+        );
 	}
 }
