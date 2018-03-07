@@ -15,6 +15,7 @@
 
 class UEditableMeshAdapter;
 
+#define EDITABLE_MESH_DEBUG_LOG
 #ifdef EDITABLE_MESH_DEBUG_LOG
 EDITABLEMESH_API DECLARE_LOG_CATEGORY_EXTERN( LogEditableMesh, All, All );
 #else

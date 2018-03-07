@@ -1103,6 +1103,11 @@ void FMeshEditorMode::RollbackPreviewChanges()
 {
 	// NOTE: We iterate backwards here, because changes were added to our array in the order they originally
 	// happened.  But we'll need to apply their revert in the opposite order.
+	if( PreviewRevertChanges.Num() > 0 )
+	{
+		UE_LOG( LogEditableMesh, Verbose, TEXT( "------- ROLLING BACK PREVIEW CHANGE -------" ) );
+	}
+
 	for( int32 ChangeIndex = PreviewRevertChanges.Num() - 1; ChangeIndex >= 0; --ChangeIndex )
 	{
 		TTuple<UObject*, TUniquePtr<FChange>>& ObjectAndPreviewRevertChange = PreviewRevertChanges[ ChangeIndex ];
@@ -1120,15 +1125,21 @@ void FMeshEditorMode::RollbackPreviewChanges()
 //		PreviewRevertChange->PrintToLog( *GWarn );
 //		GWarn->Logf( TEXT( "---------- End (Object:%s) ----------" ), *Object->GetName() );
 
-		UE_LOG( LogEditableMesh, Verbose, TEXT( "------- ROLLING BACK PREVIEW CHANGE -------" ) );
+		UE_LOG( LogEditableMesh, Verbose, TEXT( "------- Transaction start -------" ) );
 		TUniquePtr<FChange> UnusedChangeToUndoRevert = PreviewRevertChange->Execute( Object );
-		UE_LOG( LogEditableMesh, Verbose, TEXT( "------- END ROLL BACK PREVIEW CHANGE -------" ) );
+		UE_LOG( LogEditableMesh, Verbose, TEXT( "------- Transaction end -------" ) );
 
 		// @todo mesheditor debug
 //		GWarn->Logf( TEXT( "-----(Here's what the Redo looks like)-----" ) );
 //		UnusedChangeToUndoRevert->PrintToLog( *GWarn );
 //		GWarn->Logf( TEXT( "-------------------------------------------" ) );
 	}
+
+	if( PreviewRevertChanges.Num() > 0 )
+	{
+		UE_LOG( LogEditableMesh, Verbose, TEXT( "------- END ROLL BACK PREVIEW CHANGE -------" ) );
+	}
+
 	PreviewRevertChanges.Reset();
 }
 
