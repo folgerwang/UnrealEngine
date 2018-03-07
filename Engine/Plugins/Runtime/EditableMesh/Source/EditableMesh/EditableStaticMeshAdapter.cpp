@@ -839,18 +839,9 @@ void UEditableStaticMeshAdapter::OnStartModification( const UEditableMesh* Edita
 {
 	// @todo mesheditor undo: We're not using traditional transactions to undo mesh changes yet, but we still want to dirty the mesh package
 	// Also, should we even need the Initializing type? Should we not wait for the first modification before dirtying the package?
-	if( 0 )
-	{
-		this->SetFlags( RF_Transactional );
-		this->Modify();
 
-		StaticMesh->SetFlags( RF_Transactional );
-		StaticMesh->Modify();
-	}
-	else
-	{
-		StaticMesh->MarkPackageDirty();
-	}
+	StaticMesh->SetFlags( RF_Transactional );
+	StaticMesh->Modify();
 }
 
 

@@ -712,7 +712,7 @@ void UEditableMesh::EndModification( const bool bFromUndo )
 			!bFromUndo &&
 			bAllowCompact )
 		{
-			if( ++PendingCompactCounter == CompactFrequency )
+			if( false )//++PendingCompactCounter == CompactFrequency )
 			{
 				PendingCompactCounter = 0;
 				Compact();

@@ -2328,23 +2328,23 @@ bool FMeshEditorMode::AssignMaterialToSelectedPolygons( UMaterialInterface* Sele
 		{
 			UEditableMesh* EditableMesh = MeshAndPolygons.Key;
 
-			int32 MaterialIndex = INDEX_NONE;
-			FName ImportedMaterialName = NAME_None;
-			//We should be able to add a material at least one adapter must succeed
-			check(EditableMesh->FindOrAddMaterial(SelectedMaterial, MaterialIndex, ImportedMaterialName));
-
-			const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
-
-			UPrimitiveComponent* Component = nullptr;
-			for( const FMeshElement& PolygonElement : MeshAndPolygons.Value )
-			{
-				Component = PolygonElement.Component.Get();
-				break;
-			}
-			check( Component != nullptr );
-
 			EditableMesh->StartModification( EMeshModificationType::Final, EMeshTopologyChange::TopologyChange );
 			{
+				int32 MaterialIndex = INDEX_NONE;
+				FName ImportedMaterialName = NAME_None;
+				//We should be able to add a material at least one adapter must succeed
+				check(EditableMesh->FindOrAddMaterial(SelectedMaterial, MaterialIndex, ImportedMaterialName));
+
+				const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+
+				UPrimitiveComponent* Component = nullptr;
+				for( const FMeshElement& PolygonElement : MeshAndPolygons.Value )
+				{
+					Component = PolygonElement.Component.Get();
+					break;
+				}
+				check( Component != nullptr );
+
 				// See if there's a polygon group using this material, and if not create one.
 				// @todo mesheditor: This currently imposes the limitation that each polygon group has a unique material.
 				// Eventually we will need to be able to specify PolygonGroup properties in the editor, and ask the user for
@@ -2368,7 +2368,6 @@ bool FMeshEditorMode::AssignMaterialToSelectedPolygons( UMaterialInterface* Sele
 				// If we didn't find the material being used anywhere, create a new polygon group
 				if( PolygonGroupToAssign == FPolygonGroupID::Invalid )
 				{
-
 					static TArray<FPolygonGroupToCreate> PolygonGroupsToCreate;
 					PolygonGroupsToCreate.Reset( 1 );
 					PolygonGroupsToCreate.Emplace();
