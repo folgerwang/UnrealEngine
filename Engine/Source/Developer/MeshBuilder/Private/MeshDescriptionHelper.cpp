@@ -19,6 +19,7 @@
 #include "RawMesh.h"
 #include "BuildStatisticManager.h"
 #include "MeshDescriptionOperations.h"
+#include "Modules/ModuleManager.h"
 
 //Enable all check
 //#define ENABLE_NTB_CHECK
