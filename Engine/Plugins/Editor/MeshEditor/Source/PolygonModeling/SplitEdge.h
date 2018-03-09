@@ -15,12 +15,10 @@ class USplitEdgeCommand : public UMeshEditorEditCommand
 protected:
 
 	USplitEdgeCommand()
-	  : SplitEdgeMeshesAndEdgesToSplit(),
-	    SplitEdgeSplitList()
 	{
 		UndoText = NSLOCTEXT( "MeshEditor", "UndoSplitEdge", "Split Edge" );
-		bNeedsHoverLocation = false;
-		bNeedsDraggingInitiated = true;
+		bNeedsHoverLocation = true;
+		bNeedsDraggingInitiated = false;
 	}
 
 	// Overrides
@@ -29,15 +27,5 @@ protected:
 		return EEditableMeshElementType::Edge;
 	}
 	virtual void RegisterUICommand( class FBindingContext* BindingContext ) override;
-	virtual bool TryStartingToDrag( IMeshEditorModeEditingContract& MeshEditorMode, class UViewportInteractor* ViewportInteractor ) override;
 	virtual void ApplyDuringDrag( IMeshEditorModeEditingContract& MeshEditorMode, class UViewportInteractor* ViewportInteractor ) override;
-
-protected:
-
-	/** When splitting an edge and dragging a vertex, this is the list of edges that will be split */
-	TMap< class UEditableMesh*, TArray< FMeshElement > > SplitEdgeMeshesAndEdgesToSplit;
-
-	/** When splitting an edge and dragging a vertex, this is the list of split positions along those edges */
-	TArray<float> SplitEdgeSplitList;
-
 };

@@ -19,43 +19,13 @@ void USplitEdgeCommand::RegisterUICommand( FBindingContext* BindingContext )
 }
 
 
-bool USplitEdgeCommand::TryStartingToDrag( IMeshEditorModeEditingContract& MeshEditorMode, UViewportInteractor* ViewportInteractor )
-{
-	bool bHaveEdge = false;
-
-	// Figure out what to split
-	MeshEditorMode.GetSelectedMeshesAndEdges( /* Out */ SplitEdgeMeshesAndEdgesToSplit );
-
-	SplitEdgeSplitList.Reset();
-
-	if( SplitEdgeMeshesAndEdgesToSplit.Num() > 0 )
-	{
-		for( auto& MeshAndEdges : SplitEdgeMeshesAndEdgesToSplit )
-		{
-			UEditableMesh* EditableMesh = MeshAndEdges.Key;
-			const TArray<FMeshElement>& EdgeElements = MeshAndEdges.Value;
-
-			// Figure out where to split
-			FEdgeID ClosestEdgeID = FEdgeID::Invalid;
-			float Split = 0.0f;
-			const bool bFoundSplit = MeshEditorMode.FindEdgeSplitUnderInteractor( ViewportInteractor, EditableMesh, EdgeElements, /* Out */ ClosestEdgeID, /* Out */ Split );
-
-			if( bFoundSplit )
-			{
-				SplitEdgeSplitList.Add( Split );
-				bHaveEdge = true;
-				break;
-			}
-		}
-	}
-
-	return bHaveEdge;
-}
-
-
 void USplitEdgeCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& MeshEditorMode, UViewportInteractor* ViewportInteractor )
 {
-	if( SplitEdgeMeshesAndEdgesToSplit.Num() > 0 && SplitEdgeSplitList.Num() > 0 )
+	// Figure out what to split
+	static TMap< class UEditableMesh*, TArray< FMeshElement > > SplitEdgeMeshesAndEdgesToSplit;
+	MeshEditorMode.GetSelectedMeshesAndEdges( /* Out */ SplitEdgeMeshesAndEdgesToSplit );
+
+	if( SplitEdgeMeshesAndEdgesToSplit.Num() > 0 )
 	{
 		MeshEditorMode.DeselectAllMeshElements();
 
@@ -69,29 +39,41 @@ void USplitEdgeCommand::ApplyDuringDrag( IMeshEditorModeEditingContract& MeshEdi
 
 			const TArray<FMeshElement>& EdgeElements = MeshAndEdges.Value;
 
-			for( const FMeshElement& EdgeElement : EdgeElements )
+			// Figure out where to split
+			FEdgeID ClosestEdgeID = FEdgeID::Invalid;
+			float Split = 0.0f;
+			const bool bFoundSplit = MeshEditorMode.FindEdgeSplitUnderInteractor( ViewportInteractor, EditableMesh, EdgeElements, /* Out */ ClosestEdgeID, /* Out */ Split );
+
+			if( bFoundSplit )
 			{
-				const FEdgeID EdgeID( EdgeElement.ElementAddress.ElementID );
-
-				static TArray<FVertexID> NewVertexIDs;
-				NewVertexIDs.Reset();
-
-				EditableMesh->SplitEdge( EdgeID, SplitEdgeSplitList, /* Out */ NewVertexIDs );
-
-				// Select all of the new vertices that were created by splitting the edge
+				for( const FMeshElement& EdgeElement : EdgeElements )
 				{
-					for( const FVertexID NewVertexID : NewVertexIDs )
-					{
-						FMeshElement MeshElementToSelect;
-						{
-							MeshElementToSelect.Component = EdgeElement.Component;
-							MeshElementToSelect.ElementAddress.SubMeshAddress = EdgeElement.ElementAddress.SubMeshAddress;
-							MeshElementToSelect.ElementAddress.ElementType = EEditableMeshElementType::Vertex;
-							MeshElementToSelect.ElementAddress.ElementID = NewVertexID;
-						}
+					const FEdgeID EdgeID( EdgeElement.ElementAddress.ElementID );
 
-						// Queue selection of this new element.  We don't want it to be part of the current action.
-						MeshElementsToSelect.Add( MeshElementToSelect );
+					static TArray<FVertexID> NewVertexIDs;
+					NewVertexIDs.Reset();
+
+					static TArray<float> Splits;	// @todo mesheditor edgeloop: Add support for inserting multiple splits at once!
+					Splits.Reset();
+					Splits.Add( Split );
+
+					EditableMesh->SplitEdge( EdgeID, Splits, /* Out */ NewVertexIDs );
+
+					// Select all of the new vertices that were created by splitting the edge
+					{
+						for( const FVertexID NewVertexID : NewVertexIDs )
+						{
+							FMeshElement MeshElementToSelect;
+							{
+								MeshElementToSelect.Component = EdgeElement.Component;
+								MeshElementToSelect.ElementAddress.SubMeshAddress = EdgeElement.ElementAddress.SubMeshAddress;
+								MeshElementToSelect.ElementAddress.ElementType = EEditableMeshElementType::Vertex;
+								MeshElementToSelect.ElementAddress.ElementID = NewVertexID;
+							}
+
+							// Queue selection of this new element.  We don't want it to be part of the current action.
+							MeshElementsToSelect.Add( MeshElementToSelect );
+						}
 					}
 				}
 			}
