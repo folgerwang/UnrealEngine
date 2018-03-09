@@ -14,7 +14,19 @@
 // @todo mesheditor: Move elsewhere
 namespace LogHelpers
 {
-	template<typename ArrayType>
+	template <typename ElementType, typename TEnableIf<!TIsArithmetic<ElementType>::Value, int>::Type = 0>
+	inline FString ElementToString( const ElementType& Element )
+	{
+		return Element.ToString();
+	}
+
+	template <typename ElementType, typename TEnableIf<TIsArithmetic<ElementType>::Value, int>::Type = 0>
+	inline FString ElementToString( const ElementType& Element )
+	{
+		return Lex::ToString( Element );
+	}
+
+	template <typename ArrayType>
 	inline FString ArrayToString( const TArray<ArrayType>& Array )
 	{
 		FString String;
@@ -30,36 +42,12 @@ namespace LogHelpers
 				{
 					String.Append( TEXT( ", " ) );
 				}
-				String.Append( Element.ToString() );
+				String.Append( ElementToString( Element ) );
 			}
 			String = TEXT( "[" ) + String + TEXT( "]" );
 		}
 		return String;
 	}
-
-	template<>
-	inline FString ArrayToString<int32>( const TArray<int32>& Array )
-	{
-		FString String;
-		if( Array.Num() == 0 )
-		{
-			String = TEXT( "Empty" );
-		}
-		else
-		{
-			for( const int32& Element : Array )
-			{
-				if( !String.IsEmpty() )
-				{
-					String.Append( TEXT( ", " ) );
-				}
-				String.Append( FString::FormatAsNumber( Element ) );
-			}
-			String = TEXT( "[" ) + String + TEXT( "]" );
-		}
-		return String;
-	}
-
 
 	template<typename ArrayType>
 	inline FString ArrayToString( const TArray<TArray<ArrayType>>& Array )
@@ -798,7 +786,13 @@ struct FVertexPair
 	{
 	}
 
-	// @todo mesheditor: Do we need a ToString() function?  Would it ever be called?
+	FString ToString() const
+	{
+		return FString::Printf(
+			TEXT( "VertexID0:%s, VertexID1:%s" ),
+			*VertexID0.ToString(),
+			*VertexID1.ToString() );
+	}
 };
 
 
@@ -823,7 +817,13 @@ struct FPolygonToSplit
 	{
 	}
 
-	// @todo mesheditor: Do we need a ToString() function?  Would it ever be called?
+	FString ToString() const
+	{
+		return FString::Printf(
+			TEXT( "PolygonID:%s, VertexPairsToSplitAt:%s" ),
+			*PolygonID.ToString(),
+			*LogHelpers::ArrayToString( VertexPairsToSplitAt ) );
+	}
 };
 
 
