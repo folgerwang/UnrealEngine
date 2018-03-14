@@ -10,7 +10,7 @@ public class RemoteSession : ModuleRules
 		
 		PublicIncludePaths.AddRange(
 			new string[] {
-				".."
+				System.IO.Path.Combine(ModuleDirectory, "..")
 				// ... add public include paths required here ...
 			}
 		);
