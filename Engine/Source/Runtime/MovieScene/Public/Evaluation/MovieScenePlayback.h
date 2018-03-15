@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "MovieSceneFwd.h"
+#include "FrameTime.h"
 #include "Evaluation/MovieSceneSequenceTransform.h"
 
 
@@ -20,24 +21,42 @@ struct MOVIESCENE_API FMovieSceneEvaluationRange
 	/**
 	 * Construct this range from a single fixed time
 	 */
-	FMovieSceneEvaluationRange(float InTime);
+	FMovieSceneEvaluationRange(FFrameTime InTime, FFrameRate InFrameRate);
 
 	/**
 	 * Construct this range from a raw range and a direction
 	 */
-	FMovieSceneEvaluationRange(TRange<float> InRange, EPlayDirection InDirection);
+	FMovieSceneEvaluationRange(TRange<FFrameTime> InRange, FFrameRate InFrameRate, EPlayDirection InDirection);
 
 	/**
 	 * Construct this range from 2 times, and whether the range should include the previous time or not
 	 */
-	FMovieSceneEvaluationRange(float InCurrentTime, float InPreviousTime, bool bInclusivePreviousTime = false);
+	FMovieSceneEvaluationRange(FFrameTime InCurrentTime, FFrameTime InPreviousTime, FFrameRate InFrameRate, bool bInclusivePreviousTime = false);
+
+	/**
+	 * Convert a frame time range to a frame number range comprising all the frame numbers traversed in the range
+	 */
+	static TRange<FFrameNumber> TimeRangeToNumberRange(const TRange<FFrameTime>& InFrameTimeRange);
+
+	/**
+	 * Convert a frame number range to a frame time range
+	 */
+	static TRange<FFrameTime> NumberRangeToTimeRange(const TRange<FFrameNumber>& InFrameTimeRange);
 
 	/**
 	 * Get the range that we should be evaluating
 	 */
-	FORCEINLINE TRange<float> GetRange() const
+	FORCEINLINE TRange<FFrameTime> GetRange() const
 	{
 		return EvaluationRange;
+	}
+
+	/**
+	 * Get the range of frame numbers traversed over this evaluation range, not including partial frames
+	 */
+	FORCEINLINE TRange<FFrameNumber> GetFrameNumberRange() const
+	{
+		return TimeRangeToNumberRange(EvaluationRange);
 	}
 
 	/**
@@ -51,9 +70,9 @@ struct MOVIESCENE_API FMovieSceneEvaluationRange
 	/**
 	 * Get the current time of evaluation.
 	 */
-	FORCEINLINE float GetTime() const
+	FORCEINLINE FFrameTime GetTime() const
 	{
-		if (TimeOverride != TNumericLimits<float>::Lowest())
+		if (TimeOverride != TNumericLimits<int32>::Lowest())
 		{
 			return TimeOverride;
 		}
@@ -64,15 +83,15 @@ struct MOVIESCENE_API FMovieSceneEvaluationRange
 	/**
 	 * Get the absolute amount of time that has passed since the last update (will always be >= 0)
 	 */
-	FORCEINLINE float GetDelta() const
+	FORCEINLINE FFrameTime GetDelta() const
 	{
-		return EvaluationRange.Size<float>();
+		return EvaluationRange.Size<FFrameTime>();
 	}
 
 	/**
 	 * Get the previous time of evaluation. Should not generally be used. Prefer GetRange instead.
 	 */
-	FORCEINLINE float GetPreviousTime() const
+	FORCEINLINE FFrameTime GetPreviousTime() const
 	{
 		return Direction == EPlayDirection::Forwards ? EvaluationRange.GetLowerBoundValue() : EvaluationRange.GetUpperBoundValue();
 	}
@@ -80,21 +99,33 @@ struct MOVIESCENE_API FMovieSceneEvaluationRange
 	/**
 	 * Override the time that we're actually evaluating at
 	 */
-	FORCEINLINE void OverrideTime(float InTimeOverride)
+	FORCEINLINE void OverrideTime(FFrameNumber InTimeOverride)
 	{
 		TimeOverride = InTimeOverride;
+	}
+
+	/**
+	 * Get the framerate that this context's times are in
+	 * @return The framerate that all times are relative to
+	 */
+	FORCEINLINE FFrameRate GetFrameRate() const
+	{
+		return CurrentFrameRate;
 	}
 
 protected:
 
 	/** The range to evaluate */
-	TRange<float> EvaluationRange;
+	TRange<FFrameTime> EvaluationRange;
+
+	/** The framerate of the current sequence. */
+	FFrameRate CurrentFrameRate;
 
 	/** Whether to evaluate the range forwards, or backwards */
 	EPlayDirection Direction;
 
 	/** Overridden current time (doesn't manipulate the actual evaluated range) */
-	float TimeOverride;
+	FFrameNumber TimeOverride;
 };
 
 /** MovieScene evaluation context. Should remain bitwise copyable, and contain no external state since this has the potential to be used on a thread */
@@ -106,7 +137,7 @@ struct FMovieSceneContext : FMovieSceneEvaluationRange
 	FMovieSceneContext(FMovieSceneEvaluationRange InRange)
 		: FMovieSceneEvaluationRange(InRange)
 		, Status(EMovieScenePlayerStatus::Stopped)
-		, PrePostRollStartEndTime(TNumericLimits<float>::Lowest())
+		, PrePostRollStartEndTime(TNumericLimits<int32>::Lowest())
 		, HierarchicalBias(0)
 		, bHasJumped(false)
 		, bSilent(false)
@@ -122,7 +153,7 @@ struct FMovieSceneContext : FMovieSceneEvaluationRange
 	FMovieSceneContext(FMovieSceneEvaluationRange InRange, EMovieScenePlayerStatus::Type InStatus)
 		: FMovieSceneEvaluationRange(InRange)
 		, Status(InStatus)
-		, PrePostRollStartEndTime(TNumericLimits<float>::Lowest())
+		, PrePostRollStartEndTime(TNumericLimits<int32>::Lowest())
 		, HierarchicalBias(0)
 		, bHasJumped(false)
 		, bSilent(false)
@@ -207,21 +238,22 @@ public:
 	/**
 	 * Clamp the current evaluation range to the specified range (in the current transform space)
 	 */
-	FMovieSceneContext Clamp(TRange<float> NewRange) const
+	FMovieSceneContext Clamp(TRange<FFrameTime> NewRange) const
 	{
 		FMovieSceneContext NewContext = *this;
-		NewContext.EvaluationRange = NewRange;
+		NewContext.EvaluationRange = TRange<FFrameTime>::Intersection(NewRange, NewContext.EvaluationRange);
 		return NewContext;
 	}
 
 	/**
 	 * Transform this context to a different sub sequence space
 	 */
-	FMovieSceneContext Transform(const FMovieSceneSequenceTransform& InTransform) const
+	FMovieSceneContext Transform(const FMovieSceneSequenceTransform& InTransform, FFrameRate NewFrameRate) const
 	{
 		FMovieSceneContext NewContext = *this;
 		NewContext.EvaluationRange = EvaluationRange * InTransform;
 		NewContext.RootToSequenceTransform = NewContext.RootToSequenceTransform * InTransform;
+		NewContext.CurrentFrameRate = NewFrameRate;
 		return NewContext;
 	}
 
@@ -285,9 +317,9 @@ public:
 	 * Access the time at which preroll will stop, and evaluation will commence
 	 * @note: Only valid to call when HasPreRollEndTime() is true
 	 */
-	float GetPreRollEndTime() const
+	FFrameNumber GetPreRollEndFrame() const
 	{
-		checkf(bHasPreRollEndTime, TEXT("It's invalid to call GetPreRollEndTime() without first checking HasPreRollEndTime()"));
+		checkf(bHasPreRollEndTime, TEXT("It's invalid to call GetPreRollEndFrame() without first checking HasPreRollEndTime()"));
 		return PrePostRollStartEndTime;
 	}
 
@@ -295,9 +327,9 @@ public:
 	 * Access the time at which post roll started (or in other terms: when evaluation stopped)
 	 * @note: Only valid to call when HasPostRollStartTime() is true
 	 */
-	float GetPostRollStartTime() const
+	FFrameNumber GetPostRollStartFrame() const
 	{
-		checkf(bHasPostRollStartTime, TEXT("It's invalid to call GetPostRollStartTime() without first checking HasPostRollStartTime()"));
+		checkf(bHasPostRollStartTime, TEXT("It's invalid to call GetPostRollStartFrame() without first checking HasPostRollStartTime()"));
 		return PrePostRollStartEndTime;
 	}
 
@@ -307,9 +339,9 @@ public:
 	 * @param InLeadingRange			The leading (preroll) range in front of the outer section, in the current transformation's time space
 	 * @param InTrailingRange			The trailing (postroll) range at the end of the outer section, in the current transformation's time space
 	 */
-	void ReportOuterSectionRanges(TRange<float> InLeadingRange, TRange<float> InTrailingRange)
+	void ReportOuterSectionRanges(TRange<FFrameNumber> InLeadingRange, TRange<FFrameNumber> InTrailingRange)
 	{
-		const float Now = GetTime();
+		const FFrameNumber Now = GetTime().FrameNumber;
 		if (InLeadingRange.Contains(Now) && InLeadingRange.HasUpperBound())
 		{
 			PrePostRollStartEndTime = InLeadingRange.GetUpperBoundValue();
@@ -327,7 +359,7 @@ public:
 		else
 		{
 			bHasPreRollEndTime = bHasPostRollStartTime = false;
-			PrePostRollStartEndTime = TNumericLimits<float>::Lowest();
+			PrePostRollStartEndTime = FFrameNumber(TNumericLimits<int32>::Lowest());
 		}
 	}
 
@@ -339,8 +371,8 @@ protected:
 	/** The current playback status */
 	EMovieScenePlayerStatus::Type Status;
 
-	/** When bHasPreRollEndTime or bHasPostRollStartTime is true, this defines either the time at which 'real' evaluation commences, or finished */
-	float PrePostRollStartEndTime;
+	/** When bHasPreRollEndTime or bHasPostRollStartTime is true, this defines either the frame at which 'real' evaluation commences, or finished */
+	FFrameNumber PrePostRollStartEndTime;
 
 	/** Hierachical bias. Higher bias should take precedence. */
 	int32 HierarchicalBias;
@@ -369,49 +401,116 @@ protected:
 /** Helper class designed to abstract the complexity of calculating evaluation ranges for previous times and fixed time intervals */
 struct MOVIESCENE_API FMovieScenePlaybackPosition
 {
+	FMovieScenePlaybackPosition()
+		: InputRate(0,0), OutputRate(0,0), EvaluationType(EMovieSceneEvaluationType::WithSubFrames)
+	{}
+
+	/**
+	 * @return Whether we are evaluating with sub frames, or frame-locked
+	 */
+	FORCEINLINE EMovieSceneEvaluationType GetEvaluationType() const
+	{
+		return EvaluationType;
+	}
+
+	/**
+	 * @return The input frame rate that all frame times provided to this class will be interpreted as
+	 */
+	FORCEINLINE FFrameRate GetInputRate() const
+	{
+		return InputRate;
+	}
+
+	/**
+	 * @return The output frame rate that all frame times returned from this class will be interpreted as
+	 */
+	FORCEINLINE FFrameRate GetOutputRate() const
+	{
+		return OutputRate;
+	}
+
+public:
+
+	/**
+	 * Assign the input and output rates that frame times should be interpreted as.
+	 *
+	 * @param InInputRate           The framerate to interpret any frame time provided to this class
+	 * @param InOutputRate          The framerate to use when returning any frame range from this class
+	 * @param InputEvaluationType   Whether we're using frame-locked or sub-frame evaluation
+	 */
+	void SetTimeBase(FFrameRate InInputRate, FFrameRate InOutputRate, EMovieSceneEvaluationType InputEvaluationType);
+
 	/**
 	 * Reset this position to the specified time.
 	 * @note Future calls to 'PlayTo' will include this time in its resulting evaluation range
 	 */
-	void Reset(float StartPos);
+	void Reset(FFrameTime StartPos);
 
 	/**
-	 * Jump to the specified time.
-	 * @note Will reset previous play position. Any subsequent call to 'PlayTo' will include NewPosition.
-	 * @return A range encompassing only the specified time.
+	 * Get the last position that was set, in InputRate space
 	 */
-	FMovieSceneEvaluationRange JumpTo(float NewPosition, TOptional<float> FixedInterval);
+	FFrameTime GetCurrentPosition() const { return CurrentPosition; }
+
+	/**
+	 * Get the last actual time that was evaluated during playback, in InputRate space.
+	 */
+	TOptional<FFrameTime> GetLastPlayEvalPostition() const { return PreviousPlayEvalPosition; }
+
+public:
+
+	/**
+	 * Jump to the specified input time.
+	 * @note Will reset previous play position. Any subsequent call to 'PlayTo' will include NewPosition.
+	 *
+	 * @param NewPosition         The new frame time to set, in InputRate space
+	 * @return A range encompassing only the specified time, in OutputRate space.
+	 */
+	FMovieSceneEvaluationRange JumpTo(FFrameTime NewPosition);
 
 	/**
 	 * Play from the previously evaluated play time, to the specified time
-	 * @return An evaluation range from the previously evaluated time, to the specified time
+	 *
+	 * @param NewPosition         The new frame time to set, in InputRate space
+	 * @return An evaluation range from the previously evaluated time to the specified time, in OutputRate space.
 	 */
-	FMovieSceneEvaluationRange PlayTo(float NewPosition, TOptional<float> FixedInterval);
+	FMovieSceneEvaluationRange PlayTo(FFrameTime NewPosition);
 
 	/**
-	 * Get a range that encompasses the last evaluated range
-	 * @return An optional evaluation range
+	 * Get a range that encompasses the last evaluated range in OutputRate space.
+	 * @return An optional evaluation range in OutputRate space.
 	 */
 	TOptional<FMovieSceneEvaluationRange> GetLastRange() const;
 
 	/**
-	 * Get the last position that was set
+	 * Get a range encompassing only the current time, if available (in OutputRate space)
+	 * @return An optional evaluation range in OutputRate space.
 	 */
-	TOptional<float> GetPreviousPosition() const { return PreviousPosition; }
-
-	/**
-	 * Get the last actual time that was evaluated during playback
-	 */
-	TOptional<float> GetLastPlayEvalPostition() const { return PreviousPlayEvalPosition; }
-
+	FMovieSceneEvaluationRange GetCurrentPositionAsRange() const;
 
 private:
-	/** The previous *actual* time position set. Never rounded to a fixed interval. */
-	TOptional<float> PreviousPosition;
 
-	/** The previous evaluated position when playing, potentially rounded to a frame interval. */
-	TOptional<float> PreviousPlayEvalPosition;
+	/**
+	 * Check this class's invariants
+	 */
+	void CheckInvariants() const;
 
-	/** The previously evaluated range, if available */
+private:
+
+	/** The framerate to be used when interpreting frame time values provided to this class (i.e. moviescene playback frame rate) */
+	FFrameRate InputRate;
+
+	/** The framerate to be used when returning frame time values from this class (i.e. moviescene frame resolution) */
+	FFrameRate OutputRate;
+
+	/** The type of evaluation to use */
+	EMovieSceneEvaluationType EvaluationType;
+
+	/** The current time position set, in 'InputRate' time-space. */
+	FFrameTime CurrentPosition;
+
+	/** The previously evaluated position when playing, in 'InputRate' time-space. */
+	TOptional<FFrameTime> PreviousPlayEvalPosition;
+
+	/** The previously evaluated range if available, in 'OutputRate' time-space */
 	TOptional<FMovieSceneEvaluationRange> LastRange;
 };

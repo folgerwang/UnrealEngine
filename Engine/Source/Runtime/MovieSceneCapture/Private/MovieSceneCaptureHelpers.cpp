@@ -11,6 +11,8 @@
 #include "Sections/MovieSceneCinematicShotSection.h"
 #include "Tracks/MovieSceneCinematicShotTrack.h"
 #include "AssetRegistryModule.h"
+#include "FrameRate.h"
+#include "MovieSceneTimeHelpers.h"
 
 /* MovieSceneCaptureHelpers
  *****************************************************************************/
@@ -35,69 +37,70 @@ struct FShotData
 		ET_None
 	};
 
-	FShotData(const FString& InElementName, const FString& InElementPath, ETrackType InTrackType, EEditType InEditType, float InSourceInTime, float InSourceOutTime, float InEditInTime, float InEditOutTime, bool bInWithinPlaybackRange) : 
+	FShotData(const FString& InElementName, const FString& InElementPath, ETrackType InTrackType, EEditType InEditType, FFrameNumber InSourceInFrame, FFrameNumber InSourceOutFrame, FFrameNumber InEditInFrame, FFrameNumber InEditOutFrame, bool bInWithinPlaybackRange) : 
 		  ElementName(InElementName)
 		, ElementPath(InElementPath)
 		, TrackType(InTrackType)
 		, EditType(InEditType)
-		, SourceInTime(InSourceInTime)
-		, SourceOutTime(InSourceOutTime)
-		, EditInTime(InEditInTime)
-		, EditOutTime(InEditOutTime)
+		, SourceInFrame(InSourceInFrame)
+		, SourceOutFrame(InSourceOutFrame)
+		, EditInFrame(InEditInFrame)
+		, EditOutFrame(InEditOutFrame)
 		, bWithinPlaybackRange(bInWithinPlaybackRange) {}
 
-	bool operator<(const FShotData& Other) const { return EditInTime < Other.EditInTime; }
+	bool operator<(const FShotData& Other) const { return EditInFrame < Other.EditInFrame; }
 
 	FString ElementName;
 	FString ElementPath;
 	ETrackType TrackType;
 	EEditType EditType;
-	float SourceInTime;
-	float SourceOutTime;
-	float EditInTime;
-	float EditOutTime;
+	FFrameNumber SourceInFrame;
+	FFrameNumber SourceOutFrame;
+	FFrameNumber EditInFrame;
+	FFrameNumber EditOutFrame;
 	bool bWithinPlaybackRange;
 };
 
-void SMPTEToTime(FString SMPTE, float FrameRate, float& OutTime)
+FFrameNumber SMPTEToFrame(FString SMPTE, FFrameRate FrameRate)
 {
 	TArray<FString> OutArray;
 	SMPTE.ParseIntoArray(OutArray, TEXT(":"));
 	
 	if (OutArray.Num() == 4)
 	{
-		float Hours = FCString::Atof(*OutArray[0]);
-		float Minutes = FCString::Atof(*OutArray[1]);
-		float Seconds = FCString::Atof(*OutArray[2]);
-		float Frames = FCString::Atof(*OutArray[3]);
+		const int64 Hours   = FCString::Atoi(*OutArray[0]);
+		const int64 Minutes = FCString::Atoi(*OutArray[1]);
+		const int64 Seconds = FCString::Atoi(*OutArray[2]);
+		const int32 Frames  = FCString::Atoi(*OutArray[3]);
 
-		OutTime = Hours * 3600.f + Minutes * 60.f  + Seconds + (Frames / FrameRate);
+		int64 TotalSeconds = int64(Seconds) + Minutes*60 + Hours*3600;
+
+		// @todo sequencer-timecode Redo this to take FTimeCode structs and consolidate duplication.
+		return Frames + int32(TotalSeconds * FrameRate.Denominator / FrameRate.Numerator);
 	}
 	// The edl is in frames
 	else
 	{
-		float Frames = FCString::Atof(*SMPTE);
-		OutTime = Frames / FrameRate;
+		return FCString::Atoi(*SMPTE);
 	}
 }
 
-FString TimeToSMPTE(float InTime, float FrameRate)
+FString TimeToSMPTE(FFrameNumber InTime, FFrameRate FrameRate)
 {
-	float Hours, Minutes, Seconds, Frames;
-	Frames = 0.5f + FrameRate * (InTime - FMath::FloorToInt(InTime));
+	// Divide by the framerate to get into seconds
+	const int64 TotalSeconds = int64(InTime.Value) * FrameRate.Denominator / FrameRate.Numerator;
+	const int32 MaxFrame     = FrameRate.Numerator / FrameRate.Denominator;
 
-	Hours = FMath::FloorToInt(InTime / (60.f * 60.f));
-	InTime -= Hours * 60.f * 60.f;
-	Minutes = FMath::FloorToInt(InTime / 60.f);
-	InTime -= Minutes * 60.f;
-	Seconds = InTime;
+	int32 Hours   =  (TotalSeconds       ) / 3600;
+	int32 Minutes =  (TotalSeconds % 3600) / 60;
+	int32 Seconds =  (TotalSeconds % 60  );
 
-	FString OutputString = FString::Printf(TEXT("%02d:%02d:%02d:%02d"), (int)Hours, (int)Minutes, (int)Seconds, (int)Frames);
+	FString OutputString = FString::Printf(TEXT("%02d:%02d:%02d:%02d"), Hours, Minutes, Seconds, InTime.Value % MaxFrame);
 
 	return OutputString;
 }
 
-void ParseFromEDL(const FString& InputString, float FrameRate, TArray<FShotData>& OutShotData)
+void ParseFromEDL(const FString& InputString, FFrameRate FrameRate, TArray<FShotData>& OutShotData)
 {
 	TArray<FString> InputLines;
 	InputString.ParseIntoArray(InputLines, TEXT("\n"));
@@ -108,10 +111,11 @@ void ParseFromEDL(const FString& InputString, float FrameRate, TArray<FShotData>
 	FString ReelName;
 	FShotData::ETrackType TrackType = FShotData::ETrackType::TT_None;
 	FShotData::EEditType EditType = FShotData::EEditType::ET_None;
-	float SourceInTime = 0.f;
-	float SourceOutTime = 0.f;
-	float EditInTime = 0.f;
-	float EditOutTime = 0.f;
+
+	FFrameNumber SourceInFrame  = 0;
+	FFrameNumber SourceOutFrame = 0;
+	FFrameNumber EditInFrame    = 0;
+	FFrameNumber EditOutFrame   = 0;
 
 	for (FString InputLine : InputLines)
 	{
@@ -165,10 +169,10 @@ void ParseFromEDL(const FString& InputString, float FrameRate, TArray<FShotData>
 				if (TrackType != FShotData::ETrackType::TT_None &&
 					EditType != FShotData::EEditType::ET_None)
 				{
-					SMPTEToTime(InputChars[4], FrameRate, SourceInTime);
-					SMPTEToTime(InputChars[5], FrameRate, SourceOutTime);
-					SMPTEToTime(InputChars[6], FrameRate, EditInTime);
-					SMPTEToTime(InputChars[7], FrameRate, EditOutTime);
+					SourceInFrame  = SMPTEToFrame(InputChars[4], FrameRate);
+					SourceOutFrame = SMPTEToFrame(InputChars[5], FrameRate);
+					EditInFrame    = SMPTEToFrame(InputChars[6], FrameRate);
+					EditOutFrame   = SMPTEToFrame(InputChars[7], FrameRate);
 
 					bFoundEventLine = true;
 					continue; // Go to the next line
@@ -195,7 +199,7 @@ void ParseFromEDL(const FString& InputString, float FrameRate, TArray<FShotData>
 				FString ElementPath = ElementName;
 
 				// If everything checks out add to OutShotData
-				OutShotData.Add(FShotData(ElementName, ElementPath, TrackType, EditType, SourceInTime, SourceOutTime, EditInTime, EditOutTime, true));
+				OutShotData.Add(FShotData(ElementName, ElementPath, TrackType, EditType, SourceInFrame, SourceOutFrame, EditInFrame, EditOutFrame, true));
 				bFoundEventLine = false; // Reset and go to next line to look for element line
 				continue;
 			}
@@ -203,7 +207,7 @@ void ParseFromEDL(const FString& InputString, float FrameRate, TArray<FShotData>
 	}
 }
 
-void FormatForEDL(FString& OutputString, const FString& SequenceName, float FrameRate, const TArray<FShotData>& InShotData)
+void FormatForEDL(FString& OutputString, const FString& SequenceName, FFrameRate FrameRate, const TArray<FShotData>& InShotData)
 {
 	OutputString += TEXT("TITLE: ") + SequenceName + TEXT("\n");
 	OutputString += TEXT("FCM: NON-DROP FRAME\n\n");
@@ -213,16 +217,16 @@ void FormatForEDL(FString& OutputString, const FString& SequenceName, float Fram
 	FString SourceSMPTEIn, SourceSMPTEOut, EditSMPTEIn, EditSMPTEOut;
 
 	// Insert blank if doesn't start at 0.
-	if (InShotData[0].EditInTime != 0)
+	if (InShotData[0].EditInFrame != 0)
 	{
 		EventName = FString::Printf(TEXT("%03d"), ++EventIndex);
 		TypeName = TEXT("V");
 		EditName = TEXT("C");
 
-		SourceSMPTEIn = TimeToSMPTE(0.f, FrameRate);
-		SourceSMPTEOut = TimeToSMPTE(InShotData[0].EditInTime, FrameRate);
-		EditSMPTEIn = TimeToSMPTE(0.f, FrameRate);
-		EditSMPTEOut = TimeToSMPTE(InShotData[0].EditInTime, FrameRate);
+		SourceSMPTEIn  = TimeToSMPTE(0, FrameRate);
+		SourceSMPTEOut = TimeToSMPTE(InShotData[0].EditInFrame, FrameRate);
+		EditSMPTEIn    = TimeToSMPTE(0, FrameRate);
+		EditSMPTEOut   = TimeToSMPTE(InShotData[0].EditInFrame, FrameRate);
 
 		OutputString += EventName + TEXT(" ") + TEXT("BL ") + TypeName + TEXT(" ") + EditName + TEXT(" ");
 		OutputString += SourceSMPTEIn + TEXT(" ") + SourceSMPTEOut + TEXT(" ") + EditSMPTEIn + TEXT(" ") + EditSMPTEOut + TEXT("\n\n");
@@ -268,10 +272,10 @@ void FormatForEDL(FString& OutputString, const FString& SequenceName, float Fram
 			EditName = TEXT("K");
 		}
 
-		SourceSMPTEIn = TimeToSMPTE(InShotData[ShotIndex].SourceInTime, FrameRate);
-		SourceSMPTEOut = TimeToSMPTE(InShotData[ShotIndex].SourceOutTime, FrameRate);
-		EditSMPTEIn = TimeToSMPTE(InShotData[ShotIndex].EditInTime, FrameRate);
-		EditSMPTEOut = TimeToSMPTE(InShotData[ShotIndex].EditOutTime, FrameRate);
+		SourceSMPTEIn  = TimeToSMPTE(InShotData[ShotIndex].SourceInFrame, FrameRate);
+		SourceSMPTEOut = TimeToSMPTE(InShotData[ShotIndex].SourceOutFrame, FrameRate);
+		EditSMPTEIn    = TimeToSMPTE(InShotData[ShotIndex].EditInFrame, FrameRate);
+		EditSMPTEOut   = TimeToSMPTE(InShotData[ShotIndex].EditOutFrame, FrameRate);
 
 		OutputString += EventName + TEXT(" ") + TEXT("AX ") + TypeName + TEXT(" ") + EditName + TEXT(" ");
 		OutputString += SourceSMPTEIn + TEXT(" ") + SourceSMPTEOut + TEXT(" ") + EditSMPTEIn + TEXT(" ") + EditSMPTEOut + TEXT("\n");
@@ -279,7 +283,7 @@ void FormatForEDL(FString& OutputString, const FString& SequenceName, float Fram
 	}
 }
 
-void FormatForRV(FString& OutputString, const FString& SequenceName, float FrameRate, const TArray<FShotData>& InShotData)
+void FormatForRV(FString& OutputString, const FString& SequenceName, FFrameRate FrameRate, const TArray<FShotData>& InShotData)
 {
 	// Header
 	OutputString += TEXT("GTOa (3)\n\n");
@@ -287,7 +291,7 @@ void FormatForRV(FString& OutputString, const FString& SequenceName, float Frame
 	OutputString += TEXT("{\n");
 	OutputString += TEXT("\tsession\n");
 	OutputString += TEXT("\t{\n");
-	OutputString += TEXT("\t\tfloat fps = ") + FString::Printf(TEXT("%f"), FrameRate) + TEXT("\n");
+	OutputString += TEXT("\t\tfloat fps = ") + FString::Printf(TEXT("%f"), FrameRate.AsDecimal()) + TEXT("\n");
 	OutputString += TEXT("\t\tint realtime = 1\n");
 	OutputString += TEXT("\t}\n\n");
 	OutputString += TEXT("\twriter\n");
@@ -307,8 +311,8 @@ void FormatForRV(FString& OutputString, const FString& SequenceName, float Frame
 
 		FString SourceName = FString::Printf(TEXT("sourceGroup%06d"), EventIndex);
 
-		int32 SourceInFrame = FMath::RoundToInt(InShotData[EventIndex].SourceInTime * FrameRate);
-		int32 SourceOutFrame = FMath::RoundToInt(InShotData[EventIndex].SourceOutTime * FrameRate);
+		FFrameNumber SourceInFrame  = InShotData[EventIndex].SourceInFrame;
+		FFrameNumber SourceOutFrame = InShotData[EventIndex].SourceOutFrame;
 
 		OutputString += SourceName + TEXT(" : RVSourceGroup (1)\n");
 		OutputString += TEXT("{\n");
@@ -322,8 +326,8 @@ void FormatForRV(FString& OutputString, const FString& SequenceName, float Frame
 		OutputString += TEXT("{\n");
 		OutputString += TEXT("\tcut\n");
 		OutputString += TEXT("\t{\n");
-		OutputString += TEXT("\t\tint in = ") + FString::FromInt(SourceInFrame) + TEXT("\n");
-		OutputString += TEXT("\t\tint out = ") + FString::FromInt(SourceOutFrame) + TEXT("\n");
+		OutputString += TEXT("\t\tint in = ") + FString::FromInt(SourceInFrame.Value) + TEXT("\n");
+		OutputString += TEXT("\t\tint out = ") + FString::FromInt(SourceOutFrame.Value) + TEXT("\n");
 		OutputString += TEXT("\t}\n\n");
 
 		OutputString += TEXT("\tgroup\n");
@@ -340,9 +344,9 @@ void FormatForRV(FString& OutputString, const FString& SequenceName, float Frame
 	}
 }
 
-void FormatForRVBat(FString& OutputString, const FString& SequenceName, float FrameRate, const TArray<FShotData>& InShotData)
+void FormatForRVBat(FString& OutputString, const FString& SequenceName, FFrameRate FrameRate, const TArray<FShotData>& InShotData)
 {
-	OutputString += TEXT("rv -nomb -fullscreen -noBorders -fps " + FString::Printf(TEXT("%f"), FrameRate));
+	OutputString += TEXT("rv -nomb -fullscreen -noBorders -fps ") + FString::Printf(TEXT("%f"), FrameRate.AsInterval());
 	for (int32 EventIndex = 0; EventIndex < InShotData.Num(); ++EventIndex)
 	{
 		if (InShotData[EventIndex].bWithinPlaybackRange)
@@ -353,7 +357,7 @@ void FormatForRVBat(FString& OutputString, const FString& SequenceName, float Fr
 }
 
 
-bool MovieSceneCaptureHelpers::ImportEDL(UMovieScene* InMovieScene, float InFrameRate, FString InFilename)
+bool MovieSceneCaptureHelpers::ImportEDL(UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InFilename)
 {
 	FString InputString;
 	if (!FFileHelper::LoadFileToString(InputString, *InFilename))
@@ -413,16 +417,15 @@ bool MovieSceneCaptureHelpers::ImportEDL(UMovieScene* InMovieScene, float InFram
 				}
 
 				CinematicShotTrack->Modify();
-				ShotSection = Cast<UMovieSceneCinematicShotSection>(CinematicShotTrack->AddSequence(SequenceToAdd, ShotData.EditInTime, ShotData.EditOutTime - ShotData.EditInTime));
+				ShotSection = Cast<UMovieSceneCinematicShotSection>(CinematicShotTrack->AddSequence(SequenceToAdd, ShotData.EditInFrame, (ShotData.EditOutFrame - ShotData.EditInFrame).Value));
 			}
 
 			// Conform this shot section
 			if (ShotSection)
 			{
 				ShotSection->Modify();
-				ShotSection->Parameters.StartOffset = ShotData.SourceInTime;
-				ShotSection->SetStartTime(ShotData.EditInTime);
-				ShotSection->SetEndTime(ShotData.EditOutTime);
+				ShotSection->Parameters.SetStartFrameOffset(ShotData.SourceInFrame.Value);
+				ShotSection->SetRange(TRange<FFrameNumber>(ShotData.EditInFrame, ShotData.EditOutFrame));
 			}
 		}
 	}
@@ -430,7 +433,7 @@ bool MovieSceneCaptureHelpers::ImportEDL(UMovieScene* InMovieScene, float InFram
 	return true;
 }
 
-bool MovieSceneCaptureHelpers::ExportEDL(const UMovieScene* InMovieScene, float InFrameRate, FString InSaveFilename, const int32 InHandleFrames)
+bool MovieSceneCaptureHelpers::ExportEDL(const UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InSaveFilename, const int32 InHandleFrames)
 {
 	FString SequenceName = InMovieScene->GetOuter()->GetName();
 	FString SaveBasename = FPaths::GetPath(InSaveFilename) / FPaths::GetBaseFilename(InSaveFilename);
@@ -445,20 +448,19 @@ bool MovieSceneCaptureHelpers::ExportEDL(const UMovieScene* InMovieScene, float 
 
 	TArray<FShotData> ShotDataArray;
 
-	float EditTime = 0.f;
-
-	for (auto MasterTrack : InMovieScene->GetMasterTracks())
+	for (UMovieSceneTrack* MasterTrack : InMovieScene->GetMasterTracks())
 	{
-		TRange<float> PlaybackRange = InMovieScene->GetPlaybackRange();
+		// @todo: sequencer-timecode: deal with framerate differences??
+		TRange<FFrameNumber> PlaybackRange = InMovieScene->GetPlaybackRange();
 		if (MasterTrack->IsA(UMovieSceneCinematicShotTrack::StaticClass()))
 		{
 			UMovieSceneCinematicShotTrack* CinematicShotTrack = Cast<UMovieSceneCinematicShotTrack>(MasterTrack);
 
-			for (auto ShotSection : CinematicShotTrack->GetAllSections())
+			for (UMovieSceneSection* ShotSection : CinematicShotTrack->GetAllSections())
 			{
 				UMovieSceneCinematicShotSection* CinematicShotSection = Cast<UMovieSceneCinematicShotSection>(ShotSection);
 
-				if ( CinematicShotSection->GetSequence() == nullptr )
+				if ( CinematicShotSection->GetSequence() == nullptr || !CinematicShotSection->HasStartFrame() || !CinematicShotSection->HasEndFrame() )
 				{
 					// If the shot doesn't have a valid sequence skip it.  This is currently the case for filler sections.
 					// TODO: Handle this properly in the edl output.
@@ -468,12 +470,11 @@ bool MovieSceneCaptureHelpers::ExportEDL(const UMovieScene* InMovieScene, float 
 				FString ShotName = CinematicShotSection->GetShotDisplayName();
 				FString ShotPath = CinematicShotSection->GetSequence()->GetMovieScene()->GetOuter()->GetPathName();
 
-				float HandleFrameTime = (float)InHandleFrames / (float)InFrameRate;
-				float SourceInTime = HandleFrameTime;
-				float SourceOutTime = SourceInTime + CinematicShotSection->GetTimeSize();
-				
-				float EditInTime = CinematicShotSection->GetStartTime();
-				float EditOutTime = CinematicShotSection->GetEndTime();
+				FFrameNumber SourceInFrame  = InHandleFrames;
+				FFrameNumber SourceOutFrame = InHandleFrames + MovieScene::DiscreteSize(CinematicShotSection->GetRange());
+
+				FFrameNumber EditInFrame    = CinematicShotSection->GetInclusiveStartFrame();
+				FFrameNumber EditOutFrame   = CinematicShotSection->GetExclusiveEndFrame();
 
 				//@todo can't assume avi's written out
 				ShotName += ".avi";
@@ -481,13 +482,12 @@ bool MovieSceneCaptureHelpers::ExportEDL(const UMovieScene* InMovieScene, float 
 				//@todo shotpath should really be moviefile path
 				ShotPath = ShotName;
 
-				TRange<float> EditRange(EditInTime, EditOutTime);
-				TRange<float> Intersection = TRange<float>::Intersection(PlaybackRange, EditRange);
-				
-				bool bWithinPlaybackRange = Intersection.Size<float>() > (1.0f / (float)InFrameRate);
+				TRange<FFrameNumber> EditRange    = TRange<FFrameNumber>(EditInFrame, EditOutFrame);
+				TRange<FFrameNumber> Intersection = TRange<FFrameNumber>::Intersection(PlaybackRange, EditRange);
 
-				ShotDataArray.Add(FShotData(ShotName, ShotPath, FShotData::ETrackType::TT_Video, FShotData::EEditType::ET_Cut, SourceInTime, SourceOutTime, EditInTime, EditOutTime, bWithinPlaybackRange));
-				EditTime = EditOutTime;
+				bool bWithinPlaybackRange = EditRange.Overlaps(PlaybackRange);
+
+				ShotDataArray.Add(FShotData(ShotName, ShotPath, FShotData::ETrackType::TT_Video, FShotData::EEditType::ET_Cut, SourceInFrame, SourceOutFrame, EditInFrame, EditOutFrame, bWithinPlaybackRange));
 			}
 		}
 		else if (MasterTrack->IsA(UMovieSceneAudioTrack::StaticClass()))

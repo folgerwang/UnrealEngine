@@ -29,6 +29,13 @@
 #include "SequencerUtilities.h"
 #include "Styling/SlateIconFinder.h"
 #include "ScopedTransaction.h"
+#include "SequencerDisplayNodeDragDropOp.h"
+#include "SequencerFolderNode.h"
+#include "SequencerNodeSortingMethods.h"
+#include "DisplayNodes/SequencerFolderNode.h"
+#include "MovieSceneSequence.h"
+#include "MovieScene.h"
+#include "MovieSceneFolder.h"
 
 #include "Tracks/MovieSceneSpawnTrack.h"
 #include "Sections/MovieSceneSpawnSection.h"
@@ -215,6 +222,8 @@ void FSequencerObjectBindingNode::BuildContextMenu(FMenuBuilder& MenuBuilder)
 		);
 	}
 	MenuBuilder.EndSection();
+
+	GetSequencer().BuildCustomContextMenuForGuid(MenuBuilder, ObjectBinding);
 
 	FSequencerDisplayNode::BuildContextMenu(MenuBuilder);
 }
@@ -425,6 +434,161 @@ bool FSequencerObjectBindingNode::CanDrag() const
 {
 	TSharedPtr<FSequencerDisplayNode> ParentSeqNode = GetParent();
 	return ParentSeqNode.IsValid() == false || ParentSeqNode->GetType() != ESequencerNode::Object;
+}
+
+TOptional<EItemDropZone> FSequencerObjectBindingNode::CanDrop(FSequencerDisplayNodeDragDropOp& DragDropOp, EItemDropZone ItemDropZone) const
+{
+	DragDropOp.ResetToDefaultToolTip();
+
+	// Prevent taking any parent that's part of the dragged node hierarchy from being put inside a child of itself
+	// This is done first before the other checks so that the UI stays consistent as you move between them, otherwise
+	// when you are above/below a node it reports this error, but if you were on top of a node it would do the standard
+	// no-drag-drop due to OntoItem being blocked. 
+	TSharedPtr<FSequencerDisplayNode> CurrentNode = SharedThis((FSequencerDisplayNode*)this);
+	while (CurrentNode.IsValid())
+	{
+		if (DragDropOp.GetDraggedNodes().Contains(CurrentNode))
+		{
+			DragDropOp.CurrentHoverText = NSLOCTEXT("SequencerFolderNode", "ParentIntoChildDragErrorFormat", "Can't drag a parent node into one of it's children.");
+			return TOptional<EItemDropZone>();
+		}
+		CurrentNode = CurrentNode->GetParent();
+	}
+
+	// Override Onto and Below to be Above to smooth out the UI changes as you scroll over many items.
+	// This removes a confusing "above" -> "blocked" -> "above/below" transition.
+	if (ItemDropZone == EItemDropZone::OntoItem || ItemDropZone == EItemDropZone::BelowItem)
+	{
+		ItemDropZone = EItemDropZone::AboveItem;
+	}
+
+	if (GetParent().IsValid() && GetParent()->GetType() != ESequencerNode::Folder)
+	{
+		// Object Binding Nodes can have other binding nodes as their parents and we
+		// don't allow re-arranging tracks within a binding node.
+		return TOptional<EItemDropZone>();
+	}
+
+	for (TSharedRef<FSequencerDisplayNode> Node : DragDropOp.GetDraggedNodes())
+	{
+		bool bValidType = Node->GetType() == ESequencerNode::Folder || Node->GetType() == ESequencerNode::Object || Node->GetType() == ESequencerNode::Track;
+		if (!bValidType)
+		{
+			return TOptional<EItemDropZone>();
+		}
+
+		TSharedPtr<FSequencerDisplayNode> ParentSeqNode = Node->GetParent();
+
+		if (ParentSeqNode.IsValid())
+		{
+			if (ParentSeqNode->GetType() != ESequencerNode::Folder)
+			{
+				// If we have a parent who is not a folder (ie: The node is a component track on an actor) then it can't be rearranged.
+				return TOptional<EItemDropZone>();
+			}
+		}
+	}
+
+	TArray<UMovieSceneFolder*> AdjacentFolders;
+	if (GetParent().IsValid())
+	{
+		// We are either trying to drop adjacent to ourself (when nestled), or as a child of ourself, so we add either our siblings or our children
+		// to the list of possibly conflicting names.
+		for (TSharedRef <FSequencerDisplayNode> Child : GetParent()->GetChildNodes())
+		{
+			if (Child->GetType() == ESequencerNode::Folder)
+			{
+				TSharedRef<FSequencerFolderNode> FolderNode = StaticCastSharedRef<FSequencerFolderNode>(Child);
+				AdjacentFolders.Add(&FolderNode->GetFolder());
+			}
+		}
+	}
+	else
+	{
+		// If this folder has no parent then this is a root level folder, so we need to check the Movie Scene's child list for conflicting children names.
+		UMovieScene* FocusedMovieScene = GetSequencer().GetFocusedMovieSceneSequence()->GetMovieScene();
+		AdjacentFolders.Append(FocusedMovieScene->GetRootFolders());
+	}
+
+	// Check each node we're dragging to see if any of them have a name conflict - if so, block the whole drag/drop operation.
+	for (TSharedRef<FSequencerDisplayNode> DraggedNode : DragDropOp.GetDraggedNodes())
+	{
+		if (DraggedNode->GetType() == ESequencerNode::Folder)
+		{
+			TSharedRef<FSequencerFolderNode> DraggedFolder = StaticCastSharedRef<FSequencerFolderNode>(DraggedNode);
+
+			// Name Conflicts are only an issue on folders.
+			bool bHasNameConflict = false;
+			for (UMovieSceneFolder* Folder : AdjacentFolders)
+			{
+				// We don't allow a folder with the same name to become a sibling, but we need to not check the dragged node if it is already at that
+				// hierarchy depth so that we can rearrange them by triggering EItemDropZone::AboveItem / EItemDropZone::BelowItem on the same hierarchy.
+				if (&DraggedFolder->GetFolder() != Folder && DraggedFolder->GetFolder().GetFolderName() == Folder->GetFolderName())
+				{
+					bHasNameConflict = true;
+					break;
+				}
+			}
+
+			if (bHasNameConflict)
+			{
+				DragDropOp.CurrentHoverText = FText::Format(
+					NSLOCTEXT("SequencerFolderNode", "DuplicateFolderDragErrorFormat", "Folder with name '{0}' already exists."),
+					FText::FromName(DraggedFolder->GetFolder().GetFolderName()));
+
+				return TOptional<EItemDropZone>();
+			}
+		}
+	}
+
+	// The dragged nodes were either all in folders, or all at the sequencer root.
+	return ItemDropZone;
+}
+
+void FSequencerObjectBindingNode::Drop(const TArray<TSharedRef<FSequencerDisplayNode>>& DraggedNodes, EItemDropZone ItemDropZone)
+{
+	const FScopedTransaction Transaction(NSLOCTEXT("SequencerObjectBindingNode", "MoveItems", "Move items."));
+	for (TSharedRef<FSequencerDisplayNode> DraggedNode : DraggedNodes)
+	{
+		TSharedPtr<FSequencerDisplayNode> DraggedSeqNodeParent = DraggedNode->GetParent();
+
+		if (GetParent().IsValid())
+		{
+			// If the object is coming from the root or it's coming from another folder then we can allow it to move adjacent to us.
+			if (!DraggedSeqNodeParent.IsValid() || (DraggedSeqNodeParent.IsValid() && DraggedSeqNodeParent->GetType() == ESequencerNode::Folder))
+			{
+				checkf(GetParent()->GetType() == ESequencerNode::Folder, TEXT("Cannot reorder when parent is not a folder."));
+				TSharedPtr<FSequencerFolderNode> ParentFolder = StaticCastSharedPtr<FSequencerFolderNode>(GetParent());
+
+				// Let the folder we're going into remove us from our old parent and put us as a child of it first.
+				ParentFolder->MoveDisplayNodeToFolder(DraggedNode);
+			}
+		}
+		else
+		{
+			// We're at root and they're placing above or below us
+			ParentTree.MoveDisplayNodeToRoot(DraggedNode);
+		}
+	}
+
+	if (DraggedNodes.Num() > 0)
+	{
+		if (GetParent().IsValid())
+		{
+			checkf(GetParent()->GetType() == ESequencerNode::Folder, TEXT("Cannot reorder when parent is not a folder."));
+			TSharedPtr<FSequencerFolderNode> ParentFolder = StaticCastSharedPtr<FSequencerFolderNode>(GetParent());
+
+			// Sort our dragged nodes relative to our siblings.
+			SortAndSetSortingOrder(DraggedNodes, ParentFolder->GetChildNodes(), ItemDropZone, FDisplayNodeTreePositionSorter(), SharedThis(this));
+		}
+		else
+		{
+			// We're at root and they're placing above or below us
+			SortAndSetSortingOrder(DraggedNodes, GetSequencer().GetNodeTree()->GetRootNodes(), ItemDropZone, FDisplayNodeTreePositionSorter(), SharedThis(this));
+		}
+	}
+
+	ParentTree.GetSequencer().NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemsChanged);
 }
 
 
@@ -719,5 +883,43 @@ void FSequencerObjectBindingNode::HandlePropertyMenuItemExecute(FPropertyPath Pr
 	Sequencer.KeyProperty(KeyPropertyParams);
 }
 
+int32 FSequencerObjectBindingNode::GetSortingOrder() const
+{
+	UMovieScene* MovieScene = GetSequencer().GetFocusedMovieSceneSequence()->GetMovieScene();
+	const FMovieSceneBinding* MovieSceneBinding = MovieScene->GetBindings().FindByPredicate([&](FMovieSceneBinding& Binding)
+	{
+		return Binding.GetObjectGuid() == ObjectBinding;
+	});
+
+	if (MovieSceneBinding)
+	{
+		return MovieSceneBinding->GetSortingOrder();
+	}
+
+	return 0;
+}
+
+void FSequencerObjectBindingNode::SetSortingOrder(const int32 InSortingOrder)
+{
+	UMovieScene* MovieScene = GetSequencer().GetFocusedMovieSceneSequence()->GetMovieScene();
+
+	FMovieSceneBinding* MovieSceneBinding = (FMovieSceneBinding*) MovieScene->GetBindings().FindByPredicate([&](FMovieSceneBinding& Binding)
+	{
+		return Binding.GetObjectGuid() == ObjectBinding;
+	});
+
+	if (MovieSceneBinding)
+	{
+		MovieSceneBinding->SetSortingOrder(InSortingOrder);
+	}
+}
+
+void FSequencerObjectBindingNode::ModifyAndSetSortingOrder(const int32 InSortingOrder)
+{
+	UMovieScene* MovieScene = GetSequencer().GetFocusedMovieSceneSequence()->GetMovieScene();
+
+	MovieScene->Modify();
+	SetSortingOrder(InSortingOrder);
+}
 
 #undef LOCTEXT_NAMESPACE

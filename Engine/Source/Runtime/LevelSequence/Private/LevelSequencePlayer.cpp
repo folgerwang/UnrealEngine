@@ -99,7 +99,10 @@ void ULevelSequencePlayer::OnStopped()
 		{
 			for (UActorComponent* Component : Actor->GetComponents())
 			{
-				Component->PrimaryComponentTick.RemovePrerequisite(LevelSequenceActor, LevelSequenceActor->PrimaryActorTick);
+				if (Component)
+				{
+					Component->PrimaryComponentTick.RemovePrerequisite(LevelSequenceActor, LevelSequenceActor->PrimaryActorTick);
+				}
 			}
 
 			Actor->PrimaryActorTick.RemovePrerequisite(LevelSequenceActor, LevelSequenceActor->PrimaryActorTick);
@@ -140,7 +143,11 @@ void ULevelSequencePlayer::UpdateCameraCut(UObject* CameraObject, UObject* Unloc
 	}
 
 	UCameraComponent* CameraComponent = MovieSceneHelpers::CameraComponentFromRuntimeObject(CameraObject);
-	
+	if (CameraComponent && CameraComponent->GetOwner() != CameraObject)
+	{
+		CameraObject = CameraComponent->GetOwner();
+	}
+
 	CachedCameraComponent = CameraComponent;
 
 	if (CameraObject == ViewTarget)
@@ -217,7 +224,10 @@ void ULevelSequencePlayer::NotifyBindingUpdate(const FGuid& InGuid, FMovieSceneS
 		{
 			for (UActorComponent* Component : Actor->GetComponents())
 			{
-				Component->PrimaryComponentTick.AddPrerequisite(LevelSequenceActor, LevelSequenceActor->PrimaryActorTick);
+				if (Component)
+				{
+					Component->PrimaryComponentTick.AddPrerequisite(LevelSequenceActor, LevelSequenceActor->PrimaryActorTick);
+				}
 			}
 
 			Actor->PrimaryActorTick.AddPrerequisite(LevelSequenceActor, LevelSequenceActor->PrimaryActorTick);
@@ -272,18 +282,19 @@ void ULevelSequencePlayer::TakeFrameSnapshot(FLevelSequencePlayerSnapshot& OutSn
 		return;
 	}
 
-	const float StartTimeWithoutWarmupFrames = SnapshotOffsetTime.IsSet() ? StartTime + SnapshotOffsetTime.GetValue() : StartTime;
-
-	// Use the actual last evaluation time as per the play position, which accounts for fixed time step offsetting
-	const float CurrentTime = PlayPosition.GetLastPlayEvalPostition().Get(StartTimeWithoutWarmupFrames + TimeCursorPosition);
+	// In Play Rate Resolution
+	const FFrameTime StartTimeWithoutWarmupFrames = SnapshotOffsetTime.IsSet() ? StartTime + SnapshotOffsetTime.GetValue() : StartTime;
+	const FFrameTime CurrentPlayTime = PlayPosition.GetCurrentPosition();
+	// In Playback Resolution
+	const FFrameTime CurrentSequenceTime		  = ConvertFrameTime(CurrentPlayTime, PlayPosition.GetInputRate(), PlayPosition.GetOutputRate());
 
 	OutSnapshot.Settings = SnapshotSettings;
 
-	OutSnapshot.MasterTime = CurrentTime;
+	OutSnapshot.MasterTime = FQualifiedFrameTime(CurrentPlayTime, PlayPosition.GetInputRate());
 	OutSnapshot.MasterName = Sequence->GetName();
 
 	OutSnapshot.CurrentShotName = OutSnapshot.MasterName;
-	OutSnapshot.CurrentShotLocalTime = CurrentTime;
+	OutSnapshot.CurrentShotLocalTime = FQualifiedFrameTime(CurrentPlayTime, PlayPosition.GetInputRate());
 	OutSnapshot.CameraComponent = CachedCameraComponent.IsValid() ? CachedCameraComponent.Get() : nullptr;
 	OutSnapshot.ShotID = MovieSceneSequenceID::Invalid;
 
@@ -301,8 +312,8 @@ void ULevelSequencePlayer::TakeFrameSnapshot(FLevelSequencePlayerSnapshot& OutSn
 			// It's unfortunate that we have to copy the logic of UMovieSceneCinematicShotTrack::GetRowCompilerRules() to some degree here, but there's no better way atm
 			bool bThisShotIsActive = Section->IsActive();
 
-			TRange<float> SectionRange = Section->GetRange();
-			bThisShotIsActive = bThisShotIsActive && SectionRange.Contains(CurrentTime);
+			TRange<FFrameNumber> SectionRange = Section->GetRange();
+			bThisShotIsActive = bThisShotIsActive && SectionRange.Contains(CurrentSequenceTime.FrameNumber);
 
 			if (bThisShotIsActive && ActiveShot)
 			{
@@ -313,7 +324,7 @@ void ULevelSequencePlayer::TakeFrameSnapshot(FLevelSequencePlayerSnapshot& OutSn
 				else if (Section->GetRowIndex() == ActiveShot->GetRowIndex())
 				{
 					// On the same row - latest start wins
-					bThisShotIsActive = TRangeBound<float>::MaxLower(SectionRange.GetLowerBound(), ActiveShot->GetRange().GetLowerBound()) == SectionRange.GetLowerBound();
+					bThisShotIsActive = TRangeBound<FFrameNumber>::MaxLower(SectionRange.GetLowerBound(), ActiveShot->GetRange().GetLowerBound()) == SectionRange.GetLowerBound();
 				}
 				else
 				{
@@ -330,14 +341,12 @@ void ULevelSequencePlayer::TakeFrameSnapshot(FLevelSequencePlayerSnapshot& OutSn
 		if (ActiveShot)
 		{
 			// Assume that shots with no sequence start at 0.
-			const float ShotLowerBound = ActiveShot->GetSequence() 
-				? ActiveShot->GetSequence()->GetMovieScene()->GetPlaybackRange().GetLowerBoundValue() 
-				: 0;
-			const float ShotOffset = ActiveShot->Parameters.StartOffset + ShotLowerBound - ActiveShot->GetPreRollTime();
-			const float ShotPosition = ShotOffset + (CurrentTime - (ActiveShot->GetStartTime() - ActiveShot->GetPreRollTime())) / ActiveShot->Parameters.TimeScale;
+			FMovieSceneSequenceTransform OuterToInnerTransform = ActiveShot->OuterToInnerTransform();
+			UMovieSceneSequence*         InnerSequence         = ActiveShot->GetSequence();
+			FFrameRate                   InnerFrameRate        = InnerSequence ? InnerSequence->GetMovieScene()->GetPlaybackFrameRate() : PlayPosition.GetInputRate();
 
-			OutSnapshot.CurrentShotName = ActiveShot->GetShotDisplayName();
-			OutSnapshot.CurrentShotLocalTime = ShotPosition;
+			OutSnapshot.CurrentShotName      = ActiveShot->GetShotDisplayName();
+			OutSnapshot.CurrentShotLocalTime = FQualifiedFrameTime(CurrentPlayTime * OuterToInnerTransform, InnerFrameRate);
 			OutSnapshot.ShotID = ActiveShot->GetSequenceID();
 		}
 	}

@@ -13,7 +13,7 @@
 
 
 FMovieSceneEvaluationTreeRangeIterator::FMovieSceneEvaluationTreeRangeIterator(const FMovieSceneEvaluationTree& InTree)
-	: CurrentRange(TRange<float>::All()), CurrentNodeHandle(FMovieSceneEvaluationTreeNodeHandle::Root()), Tree(InTree)
+	: CurrentRange(TRange<FFrameNumber>::All()), CurrentNodeHandle(FMovieSceneEvaluationTreeNodeHandle::Root()), Tree(InTree)
 {
 	// Compute the starting range by inspecting the front of the tree
 	const FMovieSceneEvaluationTreeNode* CurrentNode = &Tree.GetRootNode();
@@ -36,18 +36,18 @@ FMovieSceneEvaluationTreeRangeIterator::FMovieSceneEvaluationTreeRangeIterator(c
 	}
 
 	// The upper bound is either the current node's upper bound (if it has no children), or the inverse of its first child's lower bound
-	TRangeBound<float> TrailingBound = Children.Num() ? TRangeBound<float>::FlipInclusion(Children[0].Range.GetLowerBound()) : CurrentNode->Range.GetUpperBound();
-	CurrentRange = TRange<float>(TRangeBound<float>::Open(), TrailingBound);
+	TRangeBound<FFrameNumber> TrailingBound = Children.Num() ? TRangeBound<FFrameNumber>::FlipInclusion(Children[0].Range.GetLowerBound()) : CurrentNode->Range.GetUpperBound();
+	CurrentRange = TRange<FFrameNumber>(TRangeBound<FFrameNumber>::Open(), TrailingBound);
 }
 
-FMovieSceneEvaluationTreeRangeIterator::FMovieSceneEvaluationTreeRangeIterator(const FMovieSceneEvaluationTree& InTree, TRangeBound<float> StartingBound)
+FMovieSceneEvaluationTreeRangeIterator::FMovieSceneEvaluationTreeRangeIterator(const FMovieSceneEvaluationTree& InTree, TRangeBound<FFrameNumber> StartingBound)
 	: CurrentNodeHandle(FMovieSceneEvaluationTreeNodeHandle::Root()), Tree(InTree)
 {
 	auto GetLowerBound = [](const FMovieSceneEvaluationTreeNode& In) {
 		return In.Range.GetLowerBound();
 	};
 
-	TRange<float> CompareRange(StartingBound, TRangeBound<float>::Open());
+	TRange<FFrameNumber> CompareRange(StartingBound, TRangeBound<FFrameNumber>::Open());
 
 	for (;;)
 	{
@@ -75,9 +75,9 @@ FMovieSceneEvaluationTreeRangeIterator::FMovieSceneEvaluationTreeRangeIterator(c
 		else
 		{
 			// We're at some empty space between children
-			CurrentRange = TRange<float>(
-				Children.IsValidIndex(ChildIndex-1) ? TRangeBound<float>::FlipInclusion(Children[ChildIndex-1].Range.GetUpperBound()) : CurrentRange.GetLowerBound(),
-				Children.IsValidIndex(ChildIndex) ? TRangeBound<float>::FlipInclusion(Children[ChildIndex].Range.GetLowerBound()) : CurrentRange.GetUpperBound()
+			CurrentRange = TRange<FFrameNumber>(
+				Children.IsValidIndex(ChildIndex-1) ? TRangeBound<FFrameNumber>::FlipInclusion(Children[ChildIndex-1].Range.GetUpperBound()) : CurrentRange.GetLowerBound(),
+				Children.IsValidIndex(ChildIndex)   ? TRangeBound<FFrameNumber>::FlipInclusion(Children[ChildIndex].Range.GetLowerBound())   : CurrentRange.GetUpperBound()
 			);
 
 			break;
@@ -103,7 +103,7 @@ void FMovieSceneEvaluationTreeRangeIterator::Iter(bool bForwards)
 		return;
 	}
 
-	TRangeBound<float> NewLeadingBound = CurrentRange.IsEmpty() ? TRangeBound<float>::Open() : TRangeBound<float>::FlipInclusion(GetTrailingBound(bForwards, CurrentRange));
+	TRangeBound<FFrameNumber> NewLeadingBound = CurrentRange.IsEmpty() ? TRangeBound<FFrameNumber>::Open() : TRangeBound<FFrameNumber>::FlipInclusion(GetTrailingBound(bForwards, CurrentRange));
 
 	// Iterate into children when possible (where the leading bound matches the current new leading bound)
 	FMovieSceneEvaluationTreeNodeHandle NextChildHandle = FindNextChild(CurrentNodeHandle, NewLeadingBound, bForwards);
@@ -115,20 +115,20 @@ void FMovieSceneEvaluationTreeRangeIterator::Iter(bool bForwards)
 
 	// The new traililng bound is either the trailing bound of the whole node, or the inverse of the leading bound of the next child (which will only be valid if it's not the same as the leading bound).
 	// The latter means this is space in-between child nodes
-	TRangeBound<float> NewTrailingBound = GetTrailingBound(bForwards, Tree.GetNode(CurrentNodeHandle).Range);
+	TRangeBound<FFrameNumber> NewTrailingBound = GetTrailingBound(bForwards, Tree.GetNode(CurrentNodeHandle).Range);
 	if (NextChildHandle.IsValid())
 	{
 		const FMovieSceneEvaluationTreeNode& NextChildNode = Tree.GetNode(NextChildHandle);
 		if (!CompareBound(bForwards, NextChildNode.Range, NewLeadingBound))
 		{
-			NewTrailingBound = TRangeBound<float>::FlipInclusion(GetLeadingBound(bForwards, NextChildNode.Range));
+			NewTrailingBound = TRangeBound<FFrameNumber>::FlipInclusion(GetLeadingBound(bForwards, NextChildNode.Range));
 		}
 	}
 
-	CurrentRange = TRange<float>(bForwards ? NewLeadingBound : NewTrailingBound, bForwards ? NewTrailingBound : NewLeadingBound);
+	CurrentRange = TRange<FFrameNumber>(bForwards ? NewLeadingBound : NewTrailingBound, bForwards ? NewTrailingBound : NewLeadingBound);
 }
 
-FMovieSceneEvaluationTreeNodeHandle FMovieSceneEvaluationTreeRangeIterator::FindNextChild(FMovieSceneEvaluationTreeNodeHandle ParentNodeHandle, TRangeBound<float> PredicateBound, bool bForwards)
+FMovieSceneEvaluationTreeNodeHandle FMovieSceneEvaluationTreeRangeIterator::FindNextChild(FMovieSceneEvaluationTreeNodeHandle ParentNodeHandle, TRangeBound<FFrameNumber> PredicateBound, bool bForwards)
 {
 	auto GetLowerBound = [](const FMovieSceneEvaluationTreeNode& In) {
 		return In.Range.GetLowerBound();
@@ -166,17 +166,17 @@ TArrayView<FMovieSceneEvaluationTreeNode> FMovieSceneEvaluationTree::GetChildren
 	return InNode.ChildrenID.IsValid() ? ChildNodes.Get(InNode.ChildrenID) : TArrayView<FMovieSceneEvaluationTreeNode>();
 }
 
-FMovieSceneEvaluationTreeRangeIterator FMovieSceneEvaluationTree::IterateFromTime(float InTime) const
+FMovieSceneEvaluationTreeRangeIterator FMovieSceneEvaluationTree::IterateFromTime(FFrameNumber InTime) const
 {
-	return IterateFromLowerBound(TRangeBound<float>::Inclusive(InTime));
+	return IterateFromLowerBound(TRangeBound<FFrameNumber>::Inclusive(InTime));
 }
 
-FMovieSceneEvaluationTreeRangeIterator FMovieSceneEvaluationTree::IterateFromLowerBound(TRangeBound<float> InStartingLowerBound) const
+FMovieSceneEvaluationTreeRangeIterator FMovieSceneEvaluationTree::IterateFromLowerBound(TRangeBound<FFrameNumber> InStartingLowerBound) const
 {
 	return FMovieSceneEvaluationTreeRangeIterator(*this, InStartingLowerBound);
 }
 
-void FMovieSceneEvaluationTree::InsertNewChild(TRange<float> InEffectiveRange, const IMovieSceneEvaluationTreeNodeOperator& InOperator, int32 InsertIndex, FMovieSceneEvaluationTreeNodeHandle InParent)
+void FMovieSceneEvaluationTree::InsertNewChild(TRange<FFrameNumber> InEffectiveRange, const IMovieSceneEvaluationTreeNodeOperator& InOperator, int32 InsertIndex, FMovieSceneEvaluationTreeNodeHandle InParent)
 {
 	// Check if this parent node has any 
 	FEvaluationTreeEntryHandle ChildID = GetNode(InParent).ChildrenID;
@@ -205,7 +205,7 @@ void FMovieSceneEvaluationTree::InsertNewChild(TRange<float> InEffectiveRange, c
 	ChildNodes.Insert(ChildID, InsertIndex, MoveTemp(NewChildNode));
 }
 
-void FMovieSceneEvaluationTree::AddTimeRange(TRange<float> InTimeRange)
+void FMovieSceneEvaluationTree::AddTimeRange(TRange<FFrameNumber> InTimeRange)
 {
 	struct FNullOp : IMovieSceneEvaluationTreeNodeOperator
 	{
@@ -215,7 +215,7 @@ void FMovieSceneEvaluationTree::AddTimeRange(TRange<float> InTimeRange)
 	AddTimeRange(InTimeRange, FNullOp(), FMovieSceneEvaluationTreeNodeHandle::Root());
 }
 
-void FMovieSceneEvaluationTree::AddTimeRange(TRange<float> InTimeRange, const IMovieSceneEvaluationTreeNodeOperator& InOperator, FMovieSceneEvaluationTreeNodeHandle InParent)
+void FMovieSceneEvaluationTree::AddTimeRange(TRange<FFrameNumber> InTimeRange, const IMovieSceneEvaluationTreeNodeOperator& InOperator, FMovieSceneEvaluationTreeNodeHandle InParent)
 {
 	// Take a temporary copy of the node as the container may be reallocated in this function
 	FMovieSceneEvaluationTreeNode ThisNode = GetNode(InParent);
@@ -233,13 +233,13 @@ void FMovieSceneEvaluationTree::AddTimeRange(TRange<float> InTimeRange, const IM
 	else if (!ThisNode.ChildrenID.IsValid())
 	{
 		// We have no child nodes yet, so just add the intersection as a child at the start
-		TRange<float> Intersection = TRange<float>::Intersection(ThisNode.Range, InTimeRange);
+		TRange<FFrameNumber> Intersection = TRange<FFrameNumber>::Intersection(ThisNode.Range, InTimeRange);
 		InsertNewChild(Intersection, InOperator, 0, InParent);
 	}
 	else
 	{
 		// It must be a sub-division of this range, find the intersection and add new children as necessary
-		TRangeBound<float> LastBound = ThisNode.Range.GetLowerBound();
+		TRangeBound<FFrameNumber> LastBound = ThisNode.Range.GetLowerBound();
 
 		// Iterate all existing children, adding new children for gaps that the new section intersects
 		int32 ChildIndex = 0;
@@ -249,8 +249,8 @@ void FMovieSceneEvaluationTree::AddTimeRange(TRange<float> InTimeRange, const IM
 
 			if (!ChildNode.Range.GetLowerBound().IsOpen())
 			{
-				TRange<float> PrecedingSpace(LastBound, TRangeBound<float>::FlipInclusion(ChildNode.Range.GetLowerBound()));
-				TRange<float> PrecedingIntersection = TRange<float>::Intersection(PrecedingSpace, InTimeRange);
+				TRange<FFrameNumber> PrecedingSpace(LastBound, TRangeBound<FFrameNumber>::FlipInclusion(ChildNode.Range.GetLowerBound()));
+				TRange<FFrameNumber> PrecedingIntersection = TRange<FFrameNumber>::Intersection(PrecedingSpace, InTimeRange);
 
 				if (!PrecedingIntersection.IsEmpty())
 				{
@@ -267,15 +267,15 @@ void FMovieSceneEvaluationTree::AddTimeRange(TRange<float> InTimeRange, const IM
 				// Find the node again since InsertNewChild may have re-allocated the nodes
 				AddTimeRange(InTimeRange, InOperator, FMovieSceneEvaluationTreeNodeHandle(ThisNode.ChildrenID, ChildIndex));
 			}
-			LastBound = TRangeBound<float>::FlipInclusion(ChildNode.Range.GetUpperBound());
+			LastBound = TRangeBound<FFrameNumber>::FlipInclusion(ChildNode.Range.GetUpperBound());
 			ChildIndex++;
 		}
 
 		// If the last child didn't fully fill this parent node range, add a new one for this new section
 		if (!LastBound.IsOpen())
 		{
-			TRange<float> ProceedingSpace(LastBound, ThisNode.Range.GetUpperBound());
-			TRange<float> ProceedingIntersection = TRange<float>::Intersection(ProceedingSpace, InTimeRange);
+			TRange<FFrameNumber> ProceedingSpace(LastBound, ThisNode.Range.GetUpperBound());
+			TRange<FFrameNumber> ProceedingIntersection = TRange<FFrameNumber>::Intersection(ProceedingSpace, InTimeRange);
 
 			if (!ProceedingIntersection.IsEmpty())
 			{

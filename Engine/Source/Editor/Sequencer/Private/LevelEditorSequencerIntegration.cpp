@@ -88,6 +88,31 @@ public:
 		return false;
 	}
 
+	virtual bool IsPropertyAnimated(const IPropertyHandle& PropertyHandle, UObject *ParentObject) const
+	{
+		
+		for (const TWeakPtr<ISequencer>& WeakSequencer : Sequencers)
+		{
+			TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
+			if (Sequencer.IsValid() && Sequencer->GetFocusedMovieSceneSequence())
+			{
+				FGuid ObjectHandle = Sequencer->GetHandleToObject(ParentObject);
+				if (ObjectHandle.IsValid()) 
+				{
+					UMovieScene* MovieScene = Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene();
+					UProperty* Property = PropertyHandle.GetProperty();
+					TSharedRef<FPropertyPath> PropertyPath = FPropertyPath::CreateEmpty();
+					PropertyPath->AddProperty(FPropertyInfo(Property));
+					FName PropertyName(*PropertyPath->ToString(TEXT(".")));
+					TSubclassOf<UMovieSceneTrack> TrackClass; //use empty @todo find way to get the UMovieSceneTrack from the Property type.
+					return MovieScene->FindTrack(TrackClass, ObjectHandle, PropertyName) != nullptr;
+				}
+				
+				return false;
+			}
+		}
+		return false;
+	}
 	virtual void OnKeyPropertyClicked(const IPropertyHandle& KeyedPropertyHandle)
 	{
 		TArray<UObject*> Objects;
@@ -185,12 +210,6 @@ void FLevelEditorSequencerIntegration::Initialize()
 	}
 
 	{
-		// Hook into the editor's mechanism for checking whether we need live capture of PIE/SIE actor state
-		FDelegateHandle Handle = GEditor->GetActorRecordingState().AddRaw(this, &FLevelEditorSequencerIntegration::GetActorRecordingState);
-		AcquiredResources.Add([=]{ GEditor->GetActorRecordingState().Remove(Handle); });
-	}
-
-	{
 		FDelegateHandle Handle = FCoreDelegates::OnActorLabelChanged.AddRaw(this, &FLevelEditorSequencerIntegration::OnActorLabelChanged);
 		AcquiredResources.Add([=]{ FCoreDelegates::OnActorLabelChanged.Remove(Handle); });
 	}
@@ -231,19 +250,6 @@ void FLevelEditorSequencerIntegration::Initialize()
 			}
 		);
 	}
-}
-
-void FLevelEditorSequencerIntegration::GetActorRecordingState( bool& bIsRecording ) const
-{
-	IterateAllSequencers(
-		[&](FSequencer& In, const FLevelEditorSequencerIntegrationOptions& Options)
-		{
-			if (In.IsRecordingLive())
-			{
-				bIsRecording = true;
-			}
-		}
-	);
 }
 
 void RenameSpawnableRecursive(FSequencer* Sequencer, FMovieSceneSequenceIDRef SequenceID, AActor* ChangedActor)
@@ -998,7 +1004,7 @@ public:
 		TSharedPtr<FSequencer> Sequencer = WeakSequencer.Pin();
 		if (Sequencer.IsValid())
 		{
-			Sequencer->GetSettings()->SetShowViewportTransportControls(!Sequencer->GetSettings()->GetShowViewportTransportControls());
+			Sequencer->GetSequencerSettings()->SetShowViewportTransportControls(!Sequencer->GetSequencerSettings()->GetShowViewportTransportControls());
 		}
 		return FReply::Handled();
 	}
@@ -1012,7 +1018,7 @@ public:
 		return (
 				Sequencer.IsValid() &&
 				ViewportClient &&
-				Sequencer->GetSettings()->GetShowViewportTransportControls() &&
+				Sequencer->GetSequencerSettings()->GetShowViewportTransportControls() &&
 				ViewportClient->ViewportType == LVT_Perspective &&
 				ViewportClient->AllowsCinematicPreview()
 			) ? EVisibility::Visible : EVisibility::Collapsed;
@@ -1078,7 +1084,7 @@ void FLevelEditorSequencerIntegration::SetViewportTransportControlsVisibility(bo
 	IterateAllSequencers(
 		[=](FSequencer& In, const FLevelEditorSequencerIntegrationOptions& Options)
 		{
-			In.GetSettings()->SetShowViewportTransportControls(bVisible);
+			In.GetSequencerSettings()->SetShowViewportTransportControls(bVisible);
 		}
 	);
 }
@@ -1090,7 +1096,7 @@ bool FLevelEditorSequencerIntegration::GetViewportTransportControlsVisibility() 
 	IterateAllSequencers(
 		[&](FSequencer& In, const FLevelEditorSequencerIntegrationOptions& Options)
 		{
-			if (In.GetSettings()->GetShowViewportTransportControls())
+			if (In.GetSequencerSettings()->GetShowViewportTransportControls())
 			{
 				bVisible = true;
 			}
@@ -1173,7 +1179,7 @@ void FLevelEditorSequencerIntegration::ActivateRealtimeViewports()
 		TSharedPtr<FSequencer> Pinned = SequencerAndOptions.Sequencer.Pin();
 		if (Pinned.IsValid())
 		{
-			if (!Pinned.Get()->GetSettings()->ShouldActivateRealtimeViewports())
+			if (!Pinned.Get()->GetSequencerSettings()->ShouldActivateRealtimeViewports())
 			{
 				return;
 			}

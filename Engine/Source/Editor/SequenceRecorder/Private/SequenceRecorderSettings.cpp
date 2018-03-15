@@ -16,11 +16,9 @@ USequenceRecorderSettings::USequenceRecorderSettings(const FObjectInitializer& O
 	bImmersiveMode = false;
 	SequenceLength = FAnimationRecordingSettings::DefaultMaximumLength;
 	RecordingDelay = 4.0f;
-	SequenceName = TEXT("RecordedSequence");
 	AnimationSubDirectory = TEXT("Animations");
 	AudioSubDirectory = TEXT("Audio");
 	AudioGain = 0.0f;
-	SequenceRecordingBasePath.Path = TEXT("/Game/Cinematics/Sequences");
 	bRecordNearbySpawnedActors = true;
 	NearbyActorRecordingProximity = 5000.0f;
 	bRecordWorldSettingsActor = true;
@@ -39,13 +37,4 @@ void USequenceRecorderSettings::PostEditChangeChainProperty(struct FPropertyChan
 	Super::PostEditChangeChainProperty(PropertyChangedEvent);
 
 	SaveConfig();
-
-	if (PropertyChangedEvent.Property)
-	{
-		if (PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USequenceRecorderSettings, SequenceName) ||
-			PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USequenceRecorderSettings, SequenceRecordingBasePath))
-		{
-			FSequenceRecorder::Get().RefreshNextSequence();
-		}
-	}
 }

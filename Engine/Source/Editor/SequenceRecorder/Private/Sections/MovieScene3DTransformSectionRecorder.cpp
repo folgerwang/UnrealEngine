@@ -8,6 +8,8 @@
 #include "Tracks/MovieScene3DTransformTrack.h"
 #include "SequenceRecorder.h"
 #include "SequenceRecorderSettings.h"
+#include "Algo/Transform.h"
+#include "Channels/MovieSceneChannelProxy.h"
 
 TSharedPtr<IMovieSceneSectionRecorder> FMovieScene3DTransformSectionRecorderFactory::CreateSectionRecorder(const FActorRecordingSettings& InActorRecordingSettings) const
 {
@@ -45,7 +47,8 @@ void FMovieScene3DTransformSectionRecorder::CreateSection(UObject* InObjectToRec
 	ObjectToRecord = InObjectToRecord;
 	Guid = InGuid;
 	bWasAttached = false;
-		
+	RecordingStartTime = Time;
+
 	MovieScene = InMovieScene;
 	MovieSceneTrack = InMovieScene->AddTrack<UMovieScene3DTransformTrack>(Guid);
 	if(MovieSceneTrack.IsValid())
@@ -54,40 +57,50 @@ void FMovieScene3DTransformSectionRecorder::CreateSection(UObject* InObjectToRec
 
 		MovieSceneTrack->AddSection(*MovieSceneSection);
 
-		const bool bUnwindRotation = false;
-
 		DefaultTransform = FTransform::Identity;
 		GetTransformToRecord(DefaultTransform);
+
+		FVector Translation   = DefaultTransform.GetTranslation();
 		FVector EulerRotation = DefaultTransform.GetRotation().Rotator().Euler();
+		FVector Scale         = DefaultTransform.GetScale3D();
 
-		MovieSceneSection->SetDefault(FTransformKey(EKey3DTransformChannel::Translation, EAxis::X, DefaultTransform.GetTranslation().X, bUnwindRotation));
-		MovieSceneSection->SetDefault(FTransformKey(EKey3DTransformChannel::Translation, EAxis::Y, DefaultTransform.GetTranslation().Y, bUnwindRotation));
-		MovieSceneSection->SetDefault(FTransformKey(EKey3DTransformChannel::Translation, EAxis::Z, DefaultTransform.GetTranslation().Z, bUnwindRotation));
+		TArrayView<FMovieSceneFloatChannel*> FloatChannels = MovieSceneSection->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
+		FloatChannels[0]->SetDefault(Translation.X);
+		FloatChannels[1]->SetDefault(Translation.Y);
+		FloatChannels[2]->SetDefault(Translation.Z);
+		FloatChannels[3]->SetDefault(EulerRotation.X);
+		FloatChannels[4]->SetDefault(EulerRotation.Y);
+		FloatChannels[5]->SetDefault(EulerRotation.Z);
+		FloatChannels[6]->SetDefault(Scale.X);
+		FloatChannels[7]->SetDefault(Scale.Y);
+		FloatChannels[8]->SetDefault(Scale.Z);
 
-		MovieSceneSection->SetDefault(FTransformKey(EKey3DTransformChannel::Rotation, EAxis::X, EulerRotation.X, bUnwindRotation));
-		MovieSceneSection->SetDefault(FTransformKey(EKey3DTransformChannel::Rotation, EAxis::Y, EulerRotation.Y, bUnwindRotation));
-		MovieSceneSection->SetDefault(FTransformKey(EKey3DTransformChannel::Rotation, EAxis::Z, EulerRotation.Z, bUnwindRotation));
-
-		MovieSceneSection->SetDefault(FTransformKey(EKey3DTransformChannel::Scale, EAxis::X, DefaultTransform.GetScale3D().X, bUnwindRotation));
-		MovieSceneSection->SetDefault(FTransformKey(EKey3DTransformChannel::Scale, EAxis::Y, DefaultTransform.GetScale3D().Y, bUnwindRotation));
-		MovieSceneSection->SetDefault(FTransformKey(EKey3DTransformChannel::Scale, EAxis::Z, DefaultTransform.GetScale3D().Z, bUnwindRotation));
-
-		MovieSceneSection->SetStartTime(Time);
-		MovieSceneSection->SetIsInfinite(true);
+		MovieSceneSection->SetRange(TRange<FFrameNumber>::All());
 	}
 }
 
 void FMovieScene3DTransformSectionRecorder::FinalizeSection()
 {
+	bool bWasRecording = bRecording;
+	bRecording = false;
+
 	FScopedSlowTask SlowTask(4.0f, NSLOCTEXT("SequenceRecorder", "ProcessingTransforms", "Processing Transforms"));
 
-	bRecording = false;
+	check (	BufferedTransforms.Times.Num() == BufferedTransforms.LocationX.Num());	
+	check (	BufferedTransforms.Times.Num() == BufferedTransforms.LocationY.Num());
+	check (	BufferedTransforms.Times.Num() == BufferedTransforms.LocationZ.Num());
+	check (	BufferedTransforms.Times.Num() == BufferedTransforms.RotationX.Num());
+	check (	BufferedTransforms.Times.Num() == BufferedTransforms.RotationY.Num());
+	check (	BufferedTransforms.Times.Num() == BufferedTransforms.RotationZ.Num());
+	check (	BufferedTransforms.Times.Num() == BufferedTransforms.ScaleX.Num());
+	check (	BufferedTransforms.Times.Num() == BufferedTransforms.ScaleY.Num());
+	check (	BufferedTransforms.Times.Num() == BufferedTransforms.ScaleZ.Num());
 
 	// if we have a valid animation recorder, we need to build our transforms from the animation
 	// so we properly synchronize our keyframes
-	if(AnimRecorder.IsValid())
+	if(AnimRecorder.IsValid() && bWasRecording)
 	{
-		check(BufferedTransforms.Num() == 0);
+		check(BufferedTransforms.Times.Num() == 0);
 
 		UAnimSequence* AnimSequence = AnimRecorder->GetAnimSequence();
 		USkeletalMeshComponent* SkeletalMeshComponent = AnimRecorder->GetSkeletalMeshComponent();
@@ -118,7 +131,8 @@ void FMovieScene3DTransformSectionRecorder::FinalizeSection()
 
 				check(RootIndex != INDEX_NONE);
 
-				const float StartTime = MovieSceneSection->GetStartTime();
+				FFrameRate FrameResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+				const FFrameNumber StartTime = (RecordingStartTime * FrameResolution).FloorToFrame();
 
 				// we may need to offset the transform here if the animation was not recorded on the root component
 				FTransform InvComponentTransform = AnimRecorder->GetComponentTransform().Inverse();
@@ -155,7 +169,8 @@ void FMovieScene3DTransformSectionRecorder::FinalizeSection()
 						Transform.SetScale3D(RawTrack.ScaleKeys[0]);
 					}
 
-					BufferedTransforms.Add(FBufferedTransformKey(InvComponentTransform * Transform, StartTime + AnimSequence->GetTimeAtFrame(KeyIndex)));
+					FFrameNumber AnimationFrame = (AnimSequence->GetTimeAtFrame(KeyIndex) * FrameResolution).FloorToFrame();
+					BufferedTransforms.Add(InvComponentTransform * Transform, StartTime + AnimationFrame);
 				}
 			}
 		}
@@ -168,98 +183,90 @@ void FMovieScene3DTransformSectionRecorder::FinalizeSection()
 	// - Net quantize may use quaternions.
 	// - Scene components cache transforms as quaternions.
 	// - Gameplay is free to clamp/fmod rotations as it sees fit.
-	int32 TransformCount = BufferedTransforms.Num();
+	int32 TransformCount = BufferedTransforms.Times.Num();
 	for(int32 TransformIndex = 0; TransformIndex < TransformCount - 1; TransformIndex++)
 	{
-		FRotator& Rotator = BufferedTransforms[TransformIndex].WoundRotation;
-		FRotator& NextRotator = BufferedTransforms[TransformIndex + 1].WoundRotation;
-
-		FMath::WindRelativeAnglesDegrees(Rotator.Pitch, NextRotator.Pitch);
-		FMath::WindRelativeAnglesDegrees(Rotator.Yaw, NextRotator.Yaw);
-		FMath::WindRelativeAnglesDegrees(Rotator.Roll, NextRotator.Roll);
+		FMath::WindRelativeAnglesDegrees(BufferedTransforms.RotationZ[TransformIndex], BufferedTransforms.RotationZ[TransformIndex+1]);
+		FMath::WindRelativeAnglesDegrees(BufferedTransforms.RotationY[TransformIndex], BufferedTransforms.RotationY[TransformIndex+1]);
+		FMath::WindRelativeAnglesDegrees(BufferedTransforms.RotationX[TransformIndex], BufferedTransforms.RotationX[TransformIndex+1]);
 	}
 
 	SlowTask.EnterProgressFrame();
 
-	// never unwind rotations
-	const bool bUnwindRotation = false;
 	// If we are syncing to an animation, use linear interpolation to avoid foot sliding etc. 
 	// Otherwise use cubic for better quality (much better for projectiles etc.)
-	const EMovieSceneKeyInterpolation Interpolation = AnimRecorder.IsValid() ? EMovieSceneKeyInterpolation::Linear : EMovieSceneKeyInterpolation::Auto;
+
+	// @todo: sequencer-timecode: this was previously never actually used - should it be??
+	const ERichCurveInterpMode Interpolation = AnimRecorder.IsValid() ? RCIM_Linear : RCIM_Cubic;
 
 	// add buffered transforms
-	TArray<FRichCurveKey> TranslationXKeys; TranslationXKeys.SetNum(BufferedTransforms.Num());
-	TArray<FRichCurveKey> TranslationYKeys; TranslationYKeys.SetNum(BufferedTransforms.Num());
-	TArray<FRichCurveKey> TranslationZKeys; TranslationZKeys.SetNum(BufferedTransforms.Num());
-	TArray<FRichCurveKey> RotationXKeys; RotationXKeys.SetNum(BufferedTransforms.Num());
-	TArray<FRichCurveKey> RotationYKeys; RotationYKeys.SetNum(BufferedTransforms.Num());
-	TArray<FRichCurveKey> RotationZKeys; RotationZKeys.SetNum(BufferedTransforms.Num());
-	TArray<FRichCurveKey> ScaleXKeys; ScaleXKeys.SetNum(BufferedTransforms.Num());
-	TArray<FRichCurveKey> ScaleYKeys; ScaleYKeys.SetNum(BufferedTransforms.Num());
-	TArray<FRichCurveKey> ScaleZKeys; ScaleZKeys.SetNum(BufferedTransforms.Num());
+	TArrayView<FMovieSceneFloatChannel*> FloatChannels = MovieSceneSection->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
 
-	int32 Index = 0;
-	for(const FBufferedTransformKey& BufferedTransform : BufferedTransforms)
+	auto Transformation = [Interpolation](float In)
 	{
-		const FVector Translation = BufferedTransform.Transform.GetTranslation();
-		const FVector Rotation = BufferedTransform.WoundRotation.Euler();
-		const FVector Scale = BufferedTransform.Transform.GetScale3D();
+		FMovieSceneFloatValue NewValue(In);
+		NewValue.InterpMode = Interpolation;
+		return NewValue;
+	};
+	TArray<FMovieSceneFloatValue> FloatValues;
 
-		TranslationXKeys[Index] = FRichCurveKey(BufferedTransform.KeyTime, Translation.X);
-		TranslationYKeys[Index] = FRichCurveKey(BufferedTransform.KeyTime, Translation.Y);
-		TranslationZKeys[Index] = FRichCurveKey(BufferedTransform.KeyTime, Translation.Z);
+	FloatValues.Reset(BufferedTransforms.LocationX.Num());
+	Algo::Transform(BufferedTransforms.LocationX, FloatValues, Transformation);
+	FloatChannels[0]->Set(BufferedTransforms.Times, MoveTemp(FloatValues));
 
-		RotationXKeys[Index] = FRichCurveKey(BufferedTransform.KeyTime, Rotation.X);
-		RotationYKeys[Index] = FRichCurveKey(BufferedTransform.KeyTime, Rotation.Y);
-		RotationZKeys[Index] = FRichCurveKey(BufferedTransform.KeyTime, Rotation.Z);
+	FloatValues.Reset(BufferedTransforms.LocationY.Num());
+	Algo::Transform(BufferedTransforms.LocationY, FloatValues, Transformation);
+	FloatChannels[1]->Set(BufferedTransforms.Times, MoveTemp(FloatValues));
 
-		ScaleXKeys[Index] = FRichCurveKey(BufferedTransform.KeyTime, Scale.X);
-		ScaleYKeys[Index] = FRichCurveKey(BufferedTransform.KeyTime, Scale.Y);
-		ScaleZKeys[Index] = FRichCurveKey(BufferedTransform.KeyTime, Scale.Z);
+	FloatValues.Reset(BufferedTransforms.LocationZ.Num());
+	Algo::Transform(BufferedTransforms.LocationZ, FloatValues, Transformation);
+	FloatChannels[2]->Set(BufferedTransforms.Times, MoveTemp(FloatValues));
 
-		++Index;
-	}
-	
-	MovieSceneSection->GetTranslationCurve(EAxis::X).SetKeys(TranslationXKeys);
-	MovieSceneSection->GetTranslationCurve(EAxis::Y).SetKeys(TranslationYKeys);
-	MovieSceneSection->GetTranslationCurve(EAxis::Z).SetKeys(TranslationZKeys);
-	MovieSceneSection->GetRotationCurve(EAxis::X).SetKeys(RotationXKeys);
-	MovieSceneSection->GetRotationCurve(EAxis::Y).SetKeys(RotationYKeys);
-	MovieSceneSection->GetRotationCurve(EAxis::Z).SetKeys(RotationZKeys);
-	MovieSceneSection->GetScaleCurve(EAxis::X).SetKeys(ScaleXKeys);
-	MovieSceneSection->GetScaleCurve(EAxis::Y).SetKeys(ScaleYKeys);
-	MovieSceneSection->GetScaleCurve(EAxis::Z).SetKeys(ScaleZKeys);
+	FloatValues.Reset(BufferedTransforms.RotationX.Num());
+	Algo::Transform(BufferedTransforms.RotationX, FloatValues, Transformation);
+	FloatChannels[3]->Set(BufferedTransforms.Times, MoveTemp(FloatValues));
+
+	FloatValues.Reset(BufferedTransforms.RotationY.Num());
+	Algo::Transform(BufferedTransforms.RotationY, FloatValues, Transformation);
+	FloatChannels[4]->Set(BufferedTransforms.Times, MoveTemp(FloatValues));
+
+	FloatValues.Reset(BufferedTransforms.RotationZ.Num());
+	Algo::Transform(BufferedTransforms.RotationZ, FloatValues, Transformation);
+	FloatChannels[5]->Set(BufferedTransforms.Times, MoveTemp(FloatValues));
+
+	FloatValues.Reset(BufferedTransforms.ScaleX.Num());
+	Algo::Transform(BufferedTransforms.ScaleX, FloatValues, Transformation);
+	FloatChannels[6]->Set(BufferedTransforms.Times, MoveTemp(FloatValues));
+
+	FloatValues.Reset(BufferedTransforms.ScaleY.Num());
+	Algo::Transform(BufferedTransforms.ScaleY, FloatValues, Transformation);
+	FloatChannels[7]->Set(BufferedTransforms.Times, MoveTemp(FloatValues));
+
+	FloatValues.Reset(BufferedTransforms.ScaleZ.Num());
+	Algo::Transform(BufferedTransforms.ScaleZ, FloatValues, Transformation);
+	FloatChannels[8]->Set(BufferedTransforms.Times, MoveTemp(FloatValues));
 
 	FTransform FirstTransform = FTransform::Identity;
-	if (BufferedTransforms.Num())
+	if (BufferedTransforms.Times.Num())
 	{
-		FirstTransform = BufferedTransforms[0].Transform;
+		FirstTransform.SetTranslation(FVector(BufferedTransforms.LocationX[0], BufferedTransforms.LocationY[0], BufferedTransforms.LocationZ[0]));
+		FirstTransform.SetRotation(FQuat(FRotator(BufferedTransforms.RotationX[0], BufferedTransforms.RotationY[0], BufferedTransforms.RotationZ[0])));
+		FirstTransform.SetScale3D(FVector(BufferedTransforms.ScaleX[0], BufferedTransforms.ScaleY[0], BufferedTransforms.ScaleZ[0]));
 	}
 
-	BufferedTransforms.Empty();
+	BufferedTransforms = FBufferedTransformKeys();
 
 	SlowTask.EnterProgressFrame();
 
 	// now remove linear keys
-	const TPair<FRichCurve*, float> CurvesAndTolerances[] =
-	{
-		TPair<FRichCurve*, float>(&MovieSceneSection->GetTranslationCurve(EAxis::X), KINDA_SMALL_NUMBER),
-		TPair<FRichCurve*, float>(&MovieSceneSection->GetTranslationCurve(EAxis::Y), KINDA_SMALL_NUMBER),
-		TPair<FRichCurve*, float>(&MovieSceneSection->GetTranslationCurve(EAxis::Z), KINDA_SMALL_NUMBER),
-		TPair<FRichCurve*, float>(&MovieSceneSection->GetRotationCurve(EAxis::X), KINDA_SMALL_NUMBER),
-		TPair<FRichCurve*, float>(&MovieSceneSection->GetRotationCurve(EAxis::Y), KINDA_SMALL_NUMBER),
-		TPair<FRichCurve*, float>(&MovieSceneSection->GetRotationCurve(EAxis::Z), KINDA_SMALL_NUMBER),
-		TPair<FRichCurve*, float>(&MovieSceneSection->GetScaleCurve(EAxis::X), KINDA_SMALL_NUMBER),
-		TPair<FRichCurve*, float>(&MovieSceneSection->GetScaleCurve(EAxis::Y), KINDA_SMALL_NUMBER),
-		TPair<FRichCurve*, float>(&MovieSceneSection->GetScaleCurve(EAxis::Z), KINDA_SMALL_NUMBER),
-	};
-
 	const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
-	if (Settings->bReduceKeys) 
+	if (Settings->bReduceKeys)
 	{
-		for (const TPair<FRichCurve*, float>& CurveAndTolerance : CurvesAndTolerances)
+		FKeyDataOptimizationParams Params;
+
+		for (FMovieSceneFloatChannel* Channel : FloatChannels)
 		{
-			CurveAndTolerance.Key->RemoveRedundantKeys(CurveAndTolerance.Value);
+			MovieScene::Optimize(Channel, Params);
 		}
 	}
 
@@ -267,16 +274,24 @@ void FMovieScene3DTransformSectionRecorder::FinalizeSection()
 	// transform tracks. Without this track, relative transforms would accumulate.
 	if(!bWasAttached)
 	{
-		// now we have reduced our keys, if we dont have any, remove the section as it is redundant
-		if( MovieSceneSection->GetTranslationCurve(EAxis::X).GetNumKeys() == 0 && 
-			MovieSceneSection->GetTranslationCurve(EAxis::Y).GetNumKeys() == 0 &&
-			MovieSceneSection->GetTranslationCurve(EAxis::Z).GetNumKeys() == 0 &&
-			MovieSceneSection->GetRotationCurve(EAxis::X).GetNumKeys() == 0 &&
-			MovieSceneSection->GetRotationCurve(EAxis::Y).GetNumKeys() == 0 &&
-			MovieSceneSection->GetRotationCurve(EAxis::Z).GetNumKeys() == 0 &&
-			MovieSceneSection->GetScaleCurve(EAxis::X).GetNumKeys() == 0 &&
-			MovieSceneSection->GetScaleCurve(EAxis::Y).GetNumKeys() == 0 &&
-			MovieSceneSection->GetScaleCurve(EAxis::Z).GetNumKeys() == 0)
+		bool bCanRemoveTrack = true;
+		for (FMovieSceneFloatChannel* Channel : MovieSceneSection->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>())
+		{
+			if (Channel)
+			{
+				int32 NumKeys = Channel->GetTimes().Num();
+				if (NumKeys == 1)
+				{
+					*Channel = FMovieSceneFloatChannel();
+				}
+				else if (NumKeys > 1)
+				{
+					bCanRemoveTrack = false;
+				}
+			}
+		}
+
+		if (bCanRemoveTrack)
 		{
 			if(DefaultTransform.Equals(FTransform::Identity))
 			{
@@ -311,7 +326,8 @@ void FMovieScene3DTransformSectionRecorder::Record(float CurrentTime)
 			}
 		}
 
-		MovieSceneSection->SetEndTime(CurrentTime);
+		FFrameRate   FrameResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		FFrameNumber CurrentFrame    = (CurrentTime * FrameResolution).FloorToFrame();
 
 		if(bRecording)
 		{
@@ -321,7 +337,7 @@ void FMovieScene3DTransformSectionRecorder::Record(float CurrentTime)
 				FTransform TransformToRecord;
 				if (GetTransformToRecord(TransformToRecord))
 				{
-					BufferedTransforms.Add(FBufferedTransformKey(TransformToRecord, CurrentTime));
+					BufferedTransforms.Add(TransformToRecord, CurrentFrame);
 				}
 			}
 		}

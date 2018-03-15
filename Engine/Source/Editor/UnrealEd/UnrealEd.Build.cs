@@ -105,6 +105,7 @@ public class UnrealEd : ModuleRules
 				"AppFramework",
 				"BlueprintGraph",
 				"CinematicCamera",
+				"CurveEditor",
 				"DesktopPlatform",
 				"LauncherPlatform",
 				"EditorStyle",

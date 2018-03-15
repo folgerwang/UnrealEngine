@@ -89,10 +89,10 @@ FKeyPropertyParams::FKeyPropertyParams(TArray<UObject*> InObjectsToKey, const IP
 {
 }
 
-FPropertyChangedParams::FPropertyChangedParams(TArray<UObject*> InObjectsThatChanged, const FPropertyPath& InPropertyPath, FName InStructPropertyNameToKey, ESequencerKeyMode InKeyMode)
+FPropertyChangedParams::FPropertyChangedParams(TArray<UObject*> InObjectsThatChanged, const FPropertyPath& InPropertyPath, const FPropertyPath& InStructPathToKey, ESequencerKeyMode InKeyMode)
 	: ObjectsThatChanged(InObjectsThatChanged)
 	, PropertyPath(InPropertyPath)
-	, StructPropertyNameToKey(InStructPropertyNameToKey)
+	, StructPathToKey(InStructPathToKey)
 	, KeyMode(InKeyMode)
 {
 }

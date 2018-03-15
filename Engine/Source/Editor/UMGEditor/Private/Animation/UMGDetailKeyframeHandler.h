@@ -19,6 +19,8 @@ public:
 
 	virtual void OnKeyPropertyClicked(const IPropertyHandle& KeyedPropertyHandle) override;
 
+	virtual bool IsPropertyAnimated(const class IPropertyHandle& PropertyHandle, UObject *ParentObject) const override;
+
 private:
 	TWeakPtr<class FWidgetBlueprintEditor> BlueprintEditor;
 };

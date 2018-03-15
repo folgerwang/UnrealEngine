@@ -7,6 +7,7 @@
 #include "UObject/UnrealType.h"
 #include "UObject/ObjectKey.h"
 #include "Curves/KeyHandle.h"
+#include "FrameNumber.h"
 
 class AActor;
 class UCameraComponent;
@@ -20,22 +21,12 @@ class MOVIESCENE_API MovieSceneHelpers
 public:
 
 	/**
-	 * Gets the sections that were traversed over between the current time and the previous time, including overlapping sections
-	 */
-	static TArray<UMovieSceneSection*> GetAllTraversedSections( const TArray<UMovieSceneSection*>& Sections, float CurrentTime, float PreviousTime );
-
-	/**
-	 * Gets the sections that were traversed over between the current time and the previous time, excluding overlapping sections (highest wins)
-	 */
-	static TArray<UMovieSceneSection*> GetTraversedSections( const TArray<UMovieSceneSection*>& Sections, float CurrentTime, float PreviousTime );
-
-	/**
 	 * Finds a section that exists at a given time
 	 *
 	 * @param Time	The time to find a section at
 	 * @return The found section or null
 	 */
-	static UMovieSceneSection* FindSectionAtTime( const TArray<UMovieSceneSection*>& Sections, float Time );
+	static UMovieSceneSection* FindSectionAtTime( const TArray<UMovieSceneSection*>& Sections, FFrameNumber Time );
 
 	/**
 	 * Finds the nearest section to the given time
@@ -43,7 +34,7 @@ public:
 	 * @param Time	The time to find a section at
 	 * @return The found section or null
 	 */
-	static UMovieSceneSection* FindNearestSectionAtTime( const TArray<UMovieSceneSection*>& Sections, float Time );
+	static UMovieSceneSection* FindNearestSectionAtTime( const TArray<UMovieSceneSection*>& Sections, FFrameNumber Time );
 
 	/*
 	 * Fix up consecutive sections so that there are no gaps
@@ -91,30 +82,26 @@ public:
 	 */
 	static void SetRuntimeObjectMobility(UObject* Object, EComponentMobility::Type ComponentMobility = EComponentMobility::Movable);
 
-	/*
-	 * Set the key interpolation
-	 *
-	 * @param InCurve The curve that contains the key handle to set
-	 * @param InKeyHandle The key handle to set
-	 * @param InInterpolation The interpolation to set
-	 */
-	static void SetKeyInterpolation(FRichCurve& InCurve, FKeyHandle InKeyHandle, EMovieSceneKeyInterpolation InKeyInterpolation);
-
 	/**
 	 * Sort predicate that sorts lower bounds of a range
 	 */
-	static bool SortLowerBounds(TRangeBound<float> A, TRangeBound<float> B)
+	static bool SortLowerBounds(TRangeBound<FFrameNumber> A, TRangeBound<FFrameNumber> B)
 	{
-		return TRangeBound<float>::MinLower(A, B) == A && A != B;
+		return TRangeBound<FFrameNumber>::MinLower(A, B) == A && A != B;
 	}
 
 	/**
 	 * Sort predicate that sorts upper bounds of a range
 	 */
-	static bool SortUpperBounds(TRangeBound<float> A, TRangeBound<float> B)
+	static bool SortUpperBounds(TRangeBound<FFrameNumber> A, TRangeBound<FFrameNumber> B)
 	{
-		return TRangeBound<float>::MinUpper(A, B) == A && A != B;
+		return TRangeBound<FFrameNumber>::MinUpper(A, B) == A && A != B;
 	}
+
+	/**
+	 * Sort predicate that sorts overlapping sections by row primarily, then by overlap priority
+	 */
+	static bool SortOverlappingSections(const UMovieSceneSection* A, const UMovieSceneSection* B);
 };
 
 /**
@@ -188,6 +175,21 @@ public:
 
 		const ValueType* Val = PropAndFunction.GetPropertyAddress<ValueType>();
 		return Val ? *Val : ValueType();
+	}
+
+	/**
+	 * Optionally gets the current value of a property on an object
+	 *
+	 * @param Object	The object to get the property from
+	 * @return (Optional) The current value of the property on the object
+	 */
+	template <typename ValueType>
+	TOptional<ValueType> GetOptionalValue(const UObject& Object)
+	{
+		FPropertyAndFunction PropAndFunction = FindOrAdd(Object);
+
+		const ValueType* Val = PropAndFunction.GetPropertyAddress<ValueType>();
+		return Val ? *Val : TOptional<ValueType>();
 	}
 
 	/**

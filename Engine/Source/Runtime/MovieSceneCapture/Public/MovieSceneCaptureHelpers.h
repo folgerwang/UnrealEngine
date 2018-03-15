@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 
+struct FFrameRate;
+struct FFrameNumber;
 class UMovieScene;
 
 class MOVIESCENECAPTURE_API MovieSceneCaptureHelpers
@@ -18,7 +20,7 @@ public:
 	 * @param InFilename The filename to import
 	 * @return Whether the import was successful
 	 */
-	static bool ImportEDL(UMovieScene* InMovieScene, float InFrameRate, FString InFilename);
+	static bool ImportEDL(UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InFilename);
 
 	/**
 	 * Export EDL
@@ -29,5 +31,5 @@ public:
 	 * @param InHandleFrames The number of handle frames to include for each shot.
 	 * @return Whether the export was successful
 	 */
-	static bool ExportEDL(const UMovieScene* InMovieScene, float InFrameRate, FString InSaveFilename, int32 InHandleFrames);
+	static bool ExportEDL(const UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InSaveFilename, int32 InHandleFrames);
 };

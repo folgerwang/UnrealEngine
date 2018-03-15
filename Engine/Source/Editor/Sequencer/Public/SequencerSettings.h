@@ -6,12 +6,27 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
 #include "UObject/Package.h"
+#include "FrameNumberDisplayFormat.h"
 #include "SequencerSettings.generated.h"
 
 struct FPropertyChangedEvent;
 enum class EAutoChangeMode : uint8;
 enum class EAllowEditsMode : uint8;
 enum class EMovieSceneKeyInterpolation : uint8;
+
+
+
+/** Defines visibility states for the curves in the curve editor. */
+UENUM()
+enum class ECurveEditorCurveVisibility : uint8
+{
+	/** All curves should be visible. */
+	AllCurves,
+	/** Only curves from selected nodes should be visible. */
+	SelectedCurves,
+	/** Only curves which have keyframes should be visible. */
+	AnimatedCurves
+};
 
 UENUM()
 enum ESequencerSpawnPosition
@@ -44,28 +59,6 @@ enum ESequencerLoopMode
 
 	/** Loop Selection Range. */
 	SLM_LoopSelectionRange UMETA(DisplayName="Loop Selection Range"),
-};
-
-UENUM()
-enum ESequencerTimeSnapInterval
-{
-	STSI_0_001		UMETA(DisplayName="0.001s"),
-	STSI_0_01		UMETA(DisplayName="0.01s"),
-	STSI_0_1		UMETA(DisplayName="0.1s"),
-	STSI_1			UMETA(DisplayName="1s"),
-	STSI_10			UMETA(DisplayName="10s"),
-	STSI_100		UMETA(DisplayName="100s"),
-	STSI_15Fps		UMETA(DisplayName="15 fps"),
-	STSI_24Fps		UMETA(DisplayName="24 fps (film)"),
-	STSI_25Fps		UMETA(DisplayName="25 fps (PAL/25)"),
-	STSI_29_97Fps	UMETA(DisplayName="29.97 fps (NTSC/30)"),
-	STSI_30Fps		UMETA(DisplayName="30 fps"),
-	STSI_48Fps		UMETA(DisplayName="48 fps"),
-	STSI_50Fps		UMETA(DisplayName="50 fps (PAL/50)"),
-	STSI_59_94Fps	UMETA(DisplayName="59.94 fps (NTSC/60)"),
-	STSI_60Fps		UMETA(DisplayName="60 fps"),
-	STSI_120Fps		UMETA(DisplayName="120 fps"),
-	STSI_Custom		UMETA(DisplayName="Custom")
 };
 
 /** Empty class used to house multiple named USequencerSettings */
@@ -112,7 +105,7 @@ public:
 	DECLARE_MULTICAST_DELEGATE( FOnEvaluateSubSequencesInIsolationChanged );
 	DECLARE_MULTICAST_DELEGATE( FOnShowSelectedNodesOnlyChanged );
 	DECLARE_MULTICAST_DELEGATE_OneParam( FOnAllowEditsModeChanged, EAllowEditsMode );
-	DECLARE_MULTICAST_DELEGATE_OneParam( FOnLockPlaybackToAudioClockChanged, bool );
+	DECLARE_MULTICAST_DELEGATE( FOnCurveEditorCurveVisibilityChanged );
 
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 
@@ -153,11 +146,6 @@ public:
 	/** Set whether to create spawnable cameras. */
 	void SetCreateSpawnableCameras(bool bInCreateSpawnableCameras);
 
-	/** Gets whether or not to show frame numbers. */
-	bool GetShowFrameNumbers() const;
-	/** Sets whether or not to show frame numbers. */
-	void SetShowFrameNumbers(bool InbShowFrameNumbers);
-
 	/** Gets whether or not to show the time range slider. */
 	bool GetShowRangeSlider() const;
 	/** Sets whether or not to show frame numbers. */
@@ -167,14 +155,6 @@ public:
 	bool GetIsSnapEnabled() const;
 	/** Sets whether or not snapping is enabled. */
 	void SetIsSnapEnabled(bool InbIsSnapEnabled);
-
-	/** Gets the time in seconds used for interval snapping. */
-	float GetTimeSnapInterval() const;
-
-	/** Gets the custom time in seconds used for interval snapping. */
-	float GetCustomTimeSnapInterval() const;
-	/** Sets the custom time in seconds used for interval snapping. */
-	void SetCustomTimeSnapInterval(float InCustomTimeSnapInterval);
 
 	/** Gets whether or not to snap key times to the interval. */
 	bool GetSnapKeyTimesToInterval() const;
@@ -251,11 +231,6 @@ public:
 	bool GetAutoScrollEnabled() const;
 	/** Sets whether or not auto-scroll is enabled. */
 	void SetAutoScrollEnabled(bool bInAutoScrollEnabled);
-
-	/** Gets whether or not to show curve tool tips in the curve editor. */
-	bool GetShowCurveEditorCurveToolTips() const;
-	/** Sets whether or not to show curve tool tips in the curve editor. */
-	void SetShowCurveEditorCurveToolTips(bool InbShowCurveEditorCurveToolTips);
 	
 	/** Gets whether or not to link the curve editor time range. */
 	bool GetLinkCurveEditorTimeRange() const;
@@ -342,11 +317,6 @@ public:
 	/** Snaps a time value in seconds to the currently selected interval. */
 	float SnapTimeToInterval(float InTimeValue) const;
 
-	/** @return true we're locking playback to the audio clock */
-	bool ShouldLockPlaybackToAudioClock() const;
-	/** Toggle whether to lock playback to the audio clock */
-	void SetLockPlaybackToAudioClock(bool bInLockPlaybackToAudioClock);
-
 	/** Check whether to show pre and post roll in sequencer */
 	bool ShouldShowPrePostRoll() const;
 	/** Toggle whether to show pre and post roll in sequencer */
@@ -354,9 +324,17 @@ public:
 
 	uint32 GetTrajectoryPathCap() const { return TrajectoryPathCap; }
 
-	/** Gets the multicast delegate which is invoked whenevcer the bLockPlaybackToAudioClock setting is changed. */
-	FOnLockPlaybackToAudioClockChanged& GetOnLockPlaybackToAudioClockChanged() { return OnLockPlaybackToAudioClockChanged; }
+	/** Gets the current curve visibility. */
+	ECurveEditorCurveVisibility GetCurveVisibility() const;
+	/** Sets the current curve visibility. */
+	void SetCurveVisibility(ECurveEditorCurveVisibility InCurveVisibility);
 
+	FOnCurveEditorCurveVisibilityChanged& GetOnCurveEditorCurveVisibilityChanged();
+
+	/** What format should we display the UI controls in when representing time in a sequence? */
+	EFrameNumberDisplayFormats GetTimeDisplayFormat() const { return FrameNumberDisplayFormat; }
+	/** Sets the time display format to the specified type. */
+	void SetTimeDisplayFormat(EFrameNumberDisplayFormats InFormat);
 protected:
 
 	/** The auto change mode (auto-key, auto-track or none). */
@@ -391,10 +369,6 @@ protected:
 	UPROPERTY( config, EditAnywhere, Category=General )
 	bool bCreateSpawnableCameras;
 
-	/** Show frame numbers or time in the timeline. */
-	UPROPERTY( config, EditAnywhere, Category=Timeline )
-	bool bShowFrameNumbers;
-
 	/** Show the in/out range in the timeline with respect to the start/end range. */
 	UPROPERTY( config, EditAnywhere, Category=Timeline )
 	bool bShowRangeSlider;
@@ -402,14 +376,6 @@ protected:
 	/** Enable or disable snapping in the timeline. */
 	UPROPERTY( config, EditAnywhere, Category=Snapping )
 	bool bIsSnapEnabled;
-
-	/** The time snap interval mode */
-	UPROPERTY( config, EditAnywhere, Category=Snapping )
-	TEnumAsByte<ESequencerTimeSnapInterval> TimeSnapIntervalMode;
-
-	/** The custom time snapping interval in the timeline. Used if the time snap interval mode is set to Custom */
-	UPROPERTY( config, EditAnywhere, Category=Snapping )
-	float CustomTimeSnapInterval;
 
 	/** Enable or disable snapping keys to the time snapping interval. */
 	UPROPERTY( config, EditAnywhere, Category=Snapping )
@@ -470,10 +436,6 @@ protected:
 	UPROPERTY( config, EditAnywhere, Category=Timeline )
 	bool bAutoScrollEnabled;
 
-	/** Enable or disable curve editor tooltips. */
-	UPROPERTY( config, EditAnywhere, Category=CurveEditor )
-	bool bShowCurveEditorCurveToolTips;
-
 	/** Enable or disable linking the curve editor time range to the sequencer timeline's time range. */
 	UPROPERTY( config, EditAnywhere, Category=CurveEditor )
 	bool bLinkCurveEditorTimeRange;
@@ -514,10 +476,6 @@ protected:
 	UPROPERTY( config )
 	bool bShowViewportTransportControls;
 
-	/** When enabled, sequencer playback will be locked to the engine's audio clock */
-	UPROPERTY(config, EditAnywhere, Category=Playback)
-	bool bLockPlaybackToAudioClock;
-
 	/** When enabled, sequencer is able to possess viewports that represent PIE worlds */
 	UPROPERTY(config, EditAnywhere, Category=General)
 	bool bAllowPossessionOfPIEViewports;
@@ -546,7 +504,14 @@ protected:
 	UPROPERTY(config, EditAnywhere, Category=General)
 	uint32 TrajectoryPathCap;
 
-	FOnLockPlaybackToAudioClockChanged OnLockPlaybackToAudioClockChanged;
+	/** What format do we display time in to the user? */	
+	UPROPERTY(config, EditAnywhere, Category=General)
+	EFrameNumberDisplayFormats FrameNumberDisplayFormat;
+
+	/** Specifies which curves to show in the curve editor */
+	UPROPERTY(config, EditAnywhere, Category=General)
+	ECurveEditorCurveVisibility CurveVisibility;
+	FOnCurveEditorCurveVisibilityChanged OnCurveEditorCurveVisibilityChanged;
 	FOnEvaluateSubSequencesInIsolationChanged OnEvaluateSubSequencesInIsolationChangedEvent;
 	FOnShowSelectedNodesOnlyChanged OnShowSelectedNodesOnlyChangedEvent;
 	FOnAllowEditsModeChanged OnAllowEditsModeChangedEvent;

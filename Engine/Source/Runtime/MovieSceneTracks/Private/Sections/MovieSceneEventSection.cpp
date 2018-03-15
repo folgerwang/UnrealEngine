@@ -5,10 +5,11 @@
 #include "IMovieScenePlayer.h"
 #include "UObject/ReleaseObjectVersion.h"
 #include "UObject/LinkerLoad.h"
+#include "MovieSceneFwd.h"
+#include "Channels/MovieSceneChannelProxy.h"
 #include "Serialization/MemoryArchive.h"
 #include "Engine/UserDefinedStruct.h"
-
-#include "Curves/KeyFrameAlgorithms.h"
+#include "MovieSceneFrameMigration.h"
 
 /* Custom version specifically for event parameter struct serialization (serialized into FMovieSceneEventParameters::StructBytes) */
 namespace EEventParameterVersion
@@ -84,7 +85,7 @@ public:
 	 * @param StructPtr 	The struct representing the type of Source
 	 * @param Source 		Source pointer to the instance of the payload to write
 	 */
-	void Write(UStruct* StructPtr, uint8* Source)
+	void Write(UScriptStruct* StructPtr, uint8* Source)
 	{
 		FArchive& Ar = *this;
 
@@ -154,7 +155,7 @@ public:
 	 * @param StructPtr 	The struct representing the type of Dest
 	 * @param Dest 			Destination instance to receive the deserialized data
 	 */
-	void Read(UStruct* StructPtr, uint8* Dest)
+	void Read(UScriptStruct* StructPtr, uint8* Dest)
 	{
 		bool bHasCustomVersion = false;
 		// Optionally deserialize the custom version header, provided it was serialized
@@ -221,11 +222,42 @@ private:
 	const TArray<uint8>& Bytes;
 };
 
+bool operator==(const FMovieSceneEventParameters& A, const FMovieSceneEventParameters& B)
+{
+	UScriptStruct* StructA = A.GetStructType();
+	UScriptStruct* StructB = B.GetStructType();
+
+	if (StructA != StructB)
+	{
+		return false;
+	}
+
+	if (!StructA)
+	{
+		return true;
+	}
+
+	FStructOnScope StructContainerA(StructA);
+	A.GetInstance(StructContainerA);
+	uint8* InstA = StructContainerA.GetStructMemory();
+
+	FStructOnScope StructContainerB(StructB);
+	B.GetInstance(StructContainerB);
+	uint8* InstB = StructContainerB.GetStructMemory();
+
+	return InstA ? StructA->CompareScriptStruct(InstA, InstB, 0) : InstB == nullptr;
+}
+
+bool operator!=(const FMovieSceneEventParameters& A, const FMovieSceneEventParameters& B)
+{
+	return !(A == B);
+}
+
 void FMovieSceneEventParameters::OverwriteWith(uint8* InstancePtr)
 {
 	check(InstancePtr);
 
-	if (UStruct* StructPtr = GetStructType())
+	if (UScriptStruct* StructPtr = GetStructType())
 	{
 		FEventParameterWriter(StructBytes).Write(StructPtr, InstancePtr);
 	}
@@ -237,7 +269,7 @@ void FMovieSceneEventParameters::OverwriteWith(uint8* InstancePtr)
 
 void FMovieSceneEventParameters::GetInstance(FStructOnScope& OutStruct) const
 {
-	UStruct* StructPtr = GetStructType();
+	UScriptStruct* StructPtr = GetStructType();
 	OutStruct.Initialize(StructPtr);
 
 #if WITH_EDITOR
@@ -261,7 +293,7 @@ bool FMovieSceneEventParameters::Serialize(FArchive& Ar)
 
 	if (Ar.IsLoading() && Ar.CustomVer(FReleaseObjectVersion::GUID) < FReleaseObjectVersion::EventSectionParameterStringAssetRef)
 	{
-		UStruct* StructPtr = nullptr;
+		UScriptStruct* StructPtr = nullptr;
 		Ar << StructPtr;
 		StructType = StructPtr;
 	}
@@ -275,73 +307,71 @@ bool FMovieSceneEventParameters::Serialize(FArchive& Ar)
 	return true;
 }
 
+uint32 FMovieSceneEventSectionData::GetChannelID()
+{
+	static uint32 ID = FMovieSceneChannelEntry::RegisterNewID();
+	return ID;
+}
+
+void FMovieSceneEventSectionData::PostSerialize(const FArchive& Ar)
+{
+#if WITH_EDITORONLY_DATA
+	
+	if (KeyTimes_DEPRECATED.Num())
+	{
+		FFrameRate LegacyFrameRate = GetLegacyConversionFrameRate();
+
+		TArray<FEventPayload> OldValues = KeyValues;
+		Times.Reset(KeyTimes_DEPRECATED.Num());
+		KeyValues.Reset(KeyTimes_DEPRECATED.Num());
+		for (int32 Index = 0; Index < KeyTimes_DEPRECATED.Num(); ++Index)
+		{
+			FFrameNumber KeyTime = UpgradeLegacyMovieSceneTime(nullptr, LegacyFrameRate, KeyTimes_DEPRECATED[Index]);
+			ConvertInsertAndSort<FEventPayload>(Index, KeyTime, OldValues[Index], Times, KeyValues);
+		}
+		KeyTimes_DEPRECATED.Empty();
+	}
+#endif
+}
+
 /* UMovieSceneSection structors
  *****************************************************************************/
 
 UMovieSceneEventSection::UMovieSceneEventSection()
-#if WITH_EDITORONLY_DATA
-	: CurveInterface(TCurveInterface<FEventPayload, float>(&EventData.KeyTimes, &EventData.KeyValues, &EventData.KeyHandles))
-#else
-	: CurveInterface(TCurveInterface<FEventPayload, float>(&EventData.KeyTimes, &EventData.KeyValues))
-#endif
 {
-	SetIsInfinite(true);
+#if WITH_EDITORONLY_DATA
+	bIsInfinite_DEPRECATED = true;
+#endif
+	bSupportsInfiniteRange = true;
+	SetRange(TRange<FFrameNumber>::All());
+
+#if WITH_EDITOR
+
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(EventData, FMovieSceneChannelEditorData());
+
+#else
+
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(EventData);
+
+#endif
 }
 
 void UMovieSceneEventSection::PostLoad()
 {
-	for (FNameCurveKey EventKey : Events_DEPRECATED.GetKeys())
-	{
-		EventData.KeyTimes.Add(EventKey.Time);
-		EventData.KeyValues.Add(FEventPayload(EventKey.Value));
-	}
-
 	if (Events_DEPRECATED.GetKeys().Num())
 	{
+		TMovieSceneChannel<FEventPayload> Channel = EventData.GetInterface();
+
+		FFrameRate LegacyFrameRate = GetLegacyConversionFrameRate();
+
+		for (FNameCurveKey EventKey : Events_DEPRECATED.GetKeys())
+		{
+			FFrameNumber KeyTime = UpgradeLegacyMovieSceneTime(this, LegacyFrameRate, EventKey.Time);
+			Channel.AddKey(KeyTime, FEventPayload(EventKey.Value));
+		}
+
 		MarkAsChanged();
 	}
 
 	Super::PostLoad();
-}
-
-/* UMovieSceneSection overrides
- *****************************************************************************/
-
-void UMovieSceneEventSection::DilateSection(float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles)
-{
-	Super::DilateSection(DilationFactor, Origin, KeyHandles);
-
-	KeyFrameAlgorithms::Scale(CurveInterface.GetValue(), Origin, DilationFactor, KeyHandles);
-}
-
-
-void UMovieSceneEventSection::GetKeyHandles(TSet<FKeyHandle>& KeyHandles, TRange<float> TimeRange) const
-{
-	for (auto It(CurveInterface->IterateKeys()); It; ++It)
-	{
-		if (TimeRange.Contains(*It))
-		{
-			KeyHandles.Add(It.GetKeyHandle());
-		}
-	}
-}
-
-
-void UMovieSceneEventSection::MoveSection(float DeltaPosition, TSet<FKeyHandle>& KeyHandles)
-{
-	Super::MoveSection(DeltaPosition, KeyHandles);
-
-	KeyFrameAlgorithms::Translate(CurveInterface.GetValue(), DeltaPosition, KeyHandles);
-}
-
-
-TOptional<float> UMovieSceneEventSection::GetKeyTime( FKeyHandle KeyHandle ) const
-{
-	return CurveInterface->GetKeyTime(KeyHandle);
-}
-
-
-void UMovieSceneEventSection::SetKeyTime( FKeyHandle KeyHandle, float Time )
-{
-	CurveInterface->SetKeyTime(KeyHandle, Time);
 }

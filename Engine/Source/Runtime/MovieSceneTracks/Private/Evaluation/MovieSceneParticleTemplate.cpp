@@ -22,12 +22,6 @@ static UParticleSystemComponent* GetParticleSystemComponentFromObject(UObject* O
 	}
 }
 
-struct FParticleKeyState : IPersistentEvaluationData
-{
-	FKeyHandle LastKeyHandle;
-	FKeyHandle InvalidKeyHandle;
-};
-
 /** A movie scene pre-animated token that stores a pre-animated active state */
 struct FActivePreAnimatedToken : IMovieScenePreAnimatedToken
 {
@@ -73,20 +67,14 @@ private:
 struct FParticleTrackExecutionToken
 	: IMovieSceneExecutionToken
 {
-	FParticleTrackExecutionToken(EParticleKey::Type InParticleKey, TOptional<FKeyHandle> InKeyHandle = TOptional<FKeyHandle>())
-		: ParticleKey(InParticleKey), KeyHandle(InKeyHandle)
-	{
-	}
+	FParticleTrackExecutionToken(EParticleKey InParticleKey)
+		: ParticleKey(InParticleKey)
+	{}
 
 	/** Execute this token, operating on all objects referenced by 'Operand' */
 	virtual void Execute(const FMovieSceneContext& Context, const FMovieSceneEvaluationOperand& Operand, FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player) override
 	{
 		MOVIESCENE_DETAILED_SCOPE_CYCLE_COUNTER(MovieSceneEval_ParticleTrack_TokenExecute)
-		
-		if (KeyHandle.IsSet())
-		{
-			PersistentData.GetOrAddSectionData<FParticleKeyState>().LastKeyHandle = KeyHandle.GetValue();
-		}
 
 		for (TWeakObjectPtr<> Object : Player.FindBoundObjects(Operand))
 		{
@@ -117,34 +105,37 @@ struct FParticleTrackExecutionToken
 		}
 	}
 
-	EParticleKey::Type ParticleKey;
+	EParticleKey ParticleKey;
 	TOptional<FKeyHandle> KeyHandle;
 };
 
 FMovieSceneParticleSectionTemplate::FMovieSceneParticleSectionTemplate(const UMovieSceneParticleSection& Section)
-	: ParticleKeys(Section.GetParticleCurve())
+	: ParticleKeys(Section.ParticleKeys)
 {
 }
 
 void FMovieSceneParticleSectionTemplate::Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 {
-	const bool bPlaying = Context.GetDirection() == EPlayDirection::Forwards && Context.GetRange().Size<float>() >= 0.f && Context.GetStatus() == EMovieScenePlayerStatus::Playing;
-
-	const FParticleKeyState* SectionData = PersistentData.FindSectionData<FParticleKeyState>();
+	const bool bPlaying = Context.GetDirection() == EPlayDirection::Forwards && Context.GetRange().Size<FFrameTime>() >= FFrameTime(0) && Context.GetStatus() == EMovieScenePlayerStatus::Playing;
 
 	if (!bPlaying)
 	{
-		ExecutionTokens.Add(FParticleTrackExecutionToken(EParticleKey::Deactivate, SectionData ? SectionData->InvalidKeyHandle : TOptional<FKeyHandle>()));
+		ExecutionTokens.Add(FParticleTrackExecutionToken(EParticleKey::Deactivate));
 	}
 	else
 	{
-		FKeyHandle PreviousHandle = ParticleKeys.FindKeyBeforeOrAt(Context.GetTime());
-		if (ParticleKeys.IsKeyHandleValid(PreviousHandle) && (!SectionData || SectionData->LastKeyHandle != PreviousHandle))
-		{
-			FParticleTrackExecutionToken NewToken(
-				(EParticleKey::Type)ParticleKeys.GetKey(PreviousHandle).Value,
-				PreviousHandle);
+		TRange<FFrameNumber> PlaybackRange = Context.GetFrameNumberRange();
 
+		TMovieSceneChannel<const uint8> ChannelInterface = ParticleKeys.GetInterface();
+
+		// Find the index of the key handle that exists before this time
+		TArrayView<const FFrameNumber> Times = ChannelInterface.GetTimes();
+		TArrayView<const uint8>        Values = ChannelInterface.GetValues();
+
+		const int32 LastKeyIndex = Algo::UpperBound(Times, PlaybackRange.GetUpperBoundValue())-1;
+		if (LastKeyIndex >= 0 && PlaybackRange.Contains(Times[LastKeyIndex]))
+		{
+			FParticleTrackExecutionToken NewToken((EParticleKey)Values[LastKeyIndex]);
 			ExecutionTokens.Add(MoveTemp(NewToken));
 		}
 	}

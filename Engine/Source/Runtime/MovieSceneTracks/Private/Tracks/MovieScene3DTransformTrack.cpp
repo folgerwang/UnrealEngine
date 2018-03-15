@@ -1,11 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Tracks/MovieScene3DTransformTrack.h"
-#include "MovieSceneCommonHelpers.h"
 #include "Sections/MovieScene3DTransformSection.h"
 #include "Compilation/MovieSceneTemplateInterrogation.h"
 #include "Compilation/MovieSceneSegmentCompiler.h"
 #include "Evaluation/MovieSceneEvaluationTrack.h"
+#include "Channels/MovieSceneChannelProxy.h"
 #include "Algo/BinarySearch.h"
 
 UMovieScene3DTransformTrack::UMovieScene3DTransformTrack( const FObjectInitializer& ObjectInitializer )
@@ -23,85 +23,127 @@ UMovieScene3DTransformTrack::UMovieScene3DTransformTrack( const FObjectInitializ
 	EvalOptions.bEvaluateNearestSection_DEPRECATED = EvalOptions.bCanEvaluateNearestSection = true;
 }
 
-TArray<FTrajectoryKey> UMovieScene3DTransformTrack::GetTrajectoryData(float Time, int32 MaxNumDataPoints) const
+UMovieSceneSection* UMovieScene3DTransformTrack::CreateNewSection()
+{
+	return NewObject<UMovieSceneSection>(this, UMovieScene3DTransformSection::StaticClass(), NAME_None, RF_Transactional);
+}
+
+FMovieSceneInterrogationKey UMovieScene3DTransformTrack::GetInterrogationKey()
+{
+	static FMovieSceneAnimTypeID TypeID = FMovieSceneAnimTypeID::Unique();
+	return TypeID;
+}
+
+
+#if WITH_EDITOR
+
+uint32 GetDistanceFromTo(FFrameNumber TestValue, FFrameNumber TargetValue)
+{
+	static const int32 MaxInt = TNumericLimits<int32>::Max();
+	if (TestValue == TargetValue)
+	{
+		return 0;
+	}
+	else if (TestValue > TargetValue)
+	{
+		return (uint32(TestValue.Value + MaxInt) - uint32(TargetValue.Value + MaxInt));
+	}
+	else
+	{
+		return (uint32(TargetValue.Value + MaxInt) - uint32(TestValue.Value + MaxInt));
+	}
+}
+
+TArray<FTrajectoryKey> UMovieScene3DTransformTrack::GetTrajectoryData(FFrameNumber Time, int32 MaxNumDataPoints) const
 {
 	struct FCurveKeyIterator
 	{
-		FCurveKeyIterator(UMovieScene3DTransformSection* InSection, EMovieSceneTransformChannel InType, const FRichCurve& InCurve, float StartTime)
-			: Section(InSection), Type(InType), SortedKeys(InCurve.GetConstRefOfKeys()), SectionRange(InSection->IsInfinite() ? TRange<float>::All() : InSection->GetRange())
+		FCurveKeyIterator(UMovieScene3DTransformSection* InSection, FMovieSceneFloatChannel* InChannel, FName InChannelName, FFrameNumber StartTime)
+			: Section(InSection), Channel(InChannel->GetInterface()), ChannelName(InChannelName), SectionRange(InSection->GetRange()), CurrentIndex(INDEX_NONE)
 		{
-			CurrentIndex = Algo::LowerBoundBy(SortedKeys, StartTime, &FRichCurveKey::Time, TLess<>());
+			TArrayView<const FFrameNumber> Times = Channel.GetTimes();
+			CurrentIndex = Algo::LowerBound(Times, StartTime);
 
 			bIsLowerBound = false;
-			bIsUpperBound = !SortedKeys.IsValidIndex(CurrentIndex) && SectionRange.GetUpperBound().IsClosed();
+			bIsUpperBound = CurrentIndex == Times.Num() && SectionRange.GetUpperBound().IsClosed();
+		}
+
+		bool IsValid() const
+		{
+			return Channel.GetTimes().IsValidIndex(CurrentIndex);
+		}
+
+		FFrameNumber GetCurrentKeyTime() const
+		{
+			return Channel.GetTimes()[CurrentIndex];
 		}
 
 		FCurveKeyIterator& operator--()
 		{
+			TArrayView<const FFrameNumber> Times = Channel.GetTimes();
+
 			if (bIsLowerBound)
 			{
 				bIsLowerBound = false;
-				CurrentIndex = -1;
+				CurrentIndex = INDEX_NONE;
 			}
 			else
 			{
 				if (bIsUpperBound)
 				{
 					bIsUpperBound = false;
-					CurrentIndex = Algo::LowerBoundBy(SortedKeys, SectionRange.GetUpperBoundValue(), &FRichCurveKey::Time, TLess<>()) - 1;
+					CurrentIndex = Algo::LowerBound(Times, SectionRange.GetUpperBoundValue()) - 1;
 				}
 				else
 				{
 					--CurrentIndex;
 				}
 
-				bIsLowerBound = SectionRange.GetLowerBound().IsClosed() && (!SortedKeys.IsValidIndex(CurrentIndex) || !SectionRange.Contains(SortedKeys[CurrentIndex].Time) );
+				bIsLowerBound = SectionRange.GetLowerBound().IsClosed() && (!Times.IsValidIndex(CurrentIndex) || !SectionRange.Contains(Channel.GetTimes()[CurrentIndex]) );
 			}
 			return *this;
 		}
 
 		FCurveKeyIterator& operator++()
 		{
+			TArrayView<const FFrameNumber> Times = Channel.GetTimes();
+
 			if (bIsUpperBound)
 			{
 				bIsUpperBound = false;
-				CurrentIndex = -1;
+				CurrentIndex = INDEX_NONE;
 			}
 			else
 			{
 				if (bIsLowerBound)
 				{
 					bIsLowerBound = false;
-					CurrentIndex = Algo::UpperBoundBy(SortedKeys, SectionRange.GetLowerBoundValue(), &FRichCurveKey::Time, TLess<>());
+					CurrentIndex = Algo::UpperBound(Times, SectionRange.GetLowerBoundValue());
 				}
 				else 
 				{
 					++CurrentIndex;
 				}
 
-				bIsUpperBound = SectionRange.GetUpperBound().IsClosed() && (!SortedKeys.IsValidIndex(CurrentIndex) || !SectionRange.Contains(SortedKeys[CurrentIndex].Time) );
+				bIsUpperBound = SectionRange.GetUpperBound().IsClosed() && (!Times.IsValidIndex(CurrentIndex) || !SectionRange.Contains(Times[CurrentIndex]) );
 			}
 			return *this;
 		}
 
 		explicit operator bool() const
 		{
-			return ( bIsLowerBound || bIsUpperBound ) || ( SortedKeys.IsValidIndex(CurrentIndex) && SectionRange.Contains(SortedKeys[CurrentIndex].Time) );
+			TArrayView<const FFrameNumber> Times = Channel.GetTimes();
+			return ( bIsLowerBound || bIsUpperBound ) || ( Times.IsValidIndex(CurrentIndex) && SectionRange.Contains(Times[CurrentIndex]) );
 		}
 
-		float GetTime() const
+		FFrameNumber GetTime() const
 		{
-			return bIsLowerBound ? SectionRange.GetLowerBoundValue() : bIsUpperBound ? SectionRange.GetUpperBoundValue() : SortedKeys[CurrentIndex].Time;
+			return bIsLowerBound ? SectionRange.GetLowerBoundValue() : bIsUpperBound ? SectionRange.GetUpperBoundValue() : Channel.GetTimes()[CurrentIndex];
 		}
 
 		ERichCurveInterpMode GetInterpMode() const
 		{
-			return ( bIsLowerBound || bIsUpperBound ) ? RCIM_None : SortedKeys[CurrentIndex].InterpMode.GetValue();
-		}
-
-		EMovieSceneTransformChannel GetType() const
-		{
-			return Type;
+			return ( bIsLowerBound || bIsUpperBound ) ? RCIM_None : Channel.GetValues()[CurrentIndex].InterpMode.GetValue();
 		}
 
 		UMovieScene3DTransformSection* GetSection() const
@@ -109,11 +151,21 @@ TArray<FTrajectoryKey> UMovieScene3DTransformTrack::GetTrajectoryData(float Time
 			return Section;
 		}
 
+		FName GetChannelName() const
+		{
+			return ChannelName;
+		}
+
+		TOptional<FKeyHandle> GetKeyHandle()
+		{
+			return CurrentIndex == INDEX_NONE ? TOptional<FKeyHandle>() : Channel.GetHandle(CurrentIndex);
+		}
+
 	private:
 		UMovieScene3DTransformSection* Section;
-		EMovieSceneTransformChannel Type;
-		const TArray<FRichCurveKey>& SortedKeys;
-		TRange<float> SectionRange;
+		TMovieSceneChannel<FMovieSceneFloatValue> Channel;
+		FName ChannelName;
+		TRange<FFrameNumber> SectionRange;
 		int32 CurrentIndex;
 		bool bIsUpperBound, bIsLowerBound;
 	};
@@ -126,49 +178,47 @@ TArray<FTrajectoryKey> UMovieScene3DTransformTrack::GetTrajectoryData(float Time
 		UMovieScene3DTransformSection* TransformSection = Cast<UMovieScene3DTransformSection>(Section);
 		if (TransformSection)
 		{
+			TArrayView<FMovieSceneFloatChannel*>           FloatChannels = TransformSection->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
+			TArrayView<const FMovieSceneChannelEditorData> EditorData    = TransformSection->GetChannelProxy().GetEditorData<FMovieSceneFloatChannel>();
+
 			EMovieSceneTransformChannel Mask = TransformSection->GetMask().GetChannels();
 			if (EnumHasAnyFlags(Mask, EMovieSceneTransformChannel::TranslationX))
 			{
-				ForwardIters.Emplace(TransformSection, EMovieSceneTransformChannel::TranslationX, TransformSection->GetTranslationCurve(EAxis::X), Time);
-				BackwardIters.Emplace(TransformSection, EMovieSceneTransformChannel::TranslationX, TransformSection->GetTranslationCurve(EAxis::X), Time);
+				ForwardIters.Emplace(TransformSection, FloatChannels[0], EditorData[0].Name, Time);
+				BackwardIters.Emplace(TransformSection, FloatChannels[0], EditorData[0].Name, Time);
 			}
 			if (EnumHasAnyFlags(Mask, EMovieSceneTransformChannel::TranslationY))
 			{
-				ForwardIters.Emplace(TransformSection, EMovieSceneTransformChannel::TranslationY, TransformSection->GetTranslationCurve(EAxis::Y), Time);
-				BackwardIters.Emplace(TransformSection, EMovieSceneTransformChannel::TranslationY, TransformSection->GetTranslationCurve(EAxis::Y), Time);
+				ForwardIters.Emplace(TransformSection, FloatChannels[1], EditorData[1].Name, Time);
+				BackwardIters.Emplace(TransformSection, FloatChannels[1], EditorData[1].Name, Time);
 			}
 			if (EnumHasAnyFlags(Mask, EMovieSceneTransformChannel::TranslationZ))
 			{
-				ForwardIters.Emplace(TransformSection, EMovieSceneTransformChannel::TranslationZ, TransformSection->GetTranslationCurve(EAxis::Z), Time);
-				BackwardIters.Emplace(TransformSection, EMovieSceneTransformChannel::TranslationZ, TransformSection->GetTranslationCurve(EAxis::Z), Time);
+				ForwardIters.Emplace(TransformSection, FloatChannels[2], EditorData[2].Name, Time);
+				BackwardIters.Emplace(TransformSection, FloatChannels[2], EditorData[2].Name, Time);
 			}
 			if (EnumHasAnyFlags(Mask, EMovieSceneTransformChannel::RotationX))
 			{
-				ForwardIters.Emplace(TransformSection, EMovieSceneTransformChannel::RotationX, TransformSection->GetRotationCurve(EAxis::X), Time);
-				BackwardIters.Emplace(TransformSection, EMovieSceneTransformChannel::RotationX, TransformSection->GetRotationCurve(EAxis::X), Time);
+				ForwardIters.Emplace(TransformSection, FloatChannels[3], EditorData[3].Name, Time);
+				BackwardIters.Emplace(TransformSection, FloatChannels[3], EditorData[3].Name, Time);
 			}
 			if (EnumHasAnyFlags(Mask, EMovieSceneTransformChannel::RotationY))
 			{
-				ForwardIters.Emplace(TransformSection, EMovieSceneTransformChannel::RotationY, TransformSection->GetRotationCurve(EAxis::Y), Time);
-				BackwardIters.Emplace(TransformSection, EMovieSceneTransformChannel::RotationY, TransformSection->GetRotationCurve(EAxis::Y), Time);
+				ForwardIters.Emplace(TransformSection, FloatChannels[4], EditorData[4].Name, Time);
+				BackwardIters.Emplace(TransformSection, FloatChannels[4], EditorData[4].Name, Time);
 			}
 			if (EnumHasAnyFlags(Mask, EMovieSceneTransformChannel::RotationZ))
 			{
-				ForwardIters.Emplace(TransformSection, EMovieSceneTransformChannel::RotationZ, TransformSection->GetRotationCurve(EAxis::Z), Time);
-				BackwardIters.Emplace(TransformSection, EMovieSceneTransformChannel::RotationZ, TransformSection->GetRotationCurve(EAxis::Z), Time);
+				ForwardIters.Emplace(TransformSection, FloatChannels[5], EditorData[5].Name, Time);
+				BackwardIters.Emplace(TransformSection, FloatChannels[5], EditorData[5].Name, Time);
 			}
 		}
 	}
 
 	auto HasAnyValidIterators = [](const FCurveKeyIterator& It)
 	{
-		return It;
+		return bool(It);
 	};
-
-	for (FCurveKeyIterator& Bck : BackwardIters)
-	{
-		--Bck;
-	}
 
 	TArray<FTrajectoryKey> Result;
 	while (ForwardIters.ContainsByPredicate(HasAnyValidIterators) || BackwardIters.ContainsByPredicate(HasAnyValidIterators))
@@ -178,41 +228,52 @@ TArray<FTrajectoryKey> UMovieScene3DTransformTrack::GetTrajectoryData(float Time
 			break;
 		}
 
-		FTrajectoryKey& NewKey = Result[Result.Emplace(TNumericLimits<float>::Max())];
+		uint32 ClosestDistance = -1;
+		TOptional<FFrameNumber> ClosestTime;
 
 		// Find the closest key time
 		for (const FCurveKeyIterator& Fwd : ForwardIters)
 		{
-			if (Fwd && ( FMath::Abs(Time - Fwd.GetTime()) < FMath::Abs(Time - NewKey.Time) ) )
+			if (Fwd && ( !ClosestTime.IsSet() || GetDistanceFromTo(Fwd.GetTime(), Time) < ClosestDistance ) )
 			{
-				NewKey.Time = Fwd.GetTime();
+				ClosestTime = Fwd.GetTime();
+				ClosestDistance = GetDistanceFromTo(Fwd.GetTime(), Time);
 			}
 		}
 		for (const FCurveKeyIterator& Bck : BackwardIters)
 		{
-			if (Bck && ( FMath::Abs(Time - Bck.GetTime()) < FMath::Abs(Time - NewKey.Time) ) )
+			if (Bck && ( !ClosestTime.IsSet() || GetDistanceFromTo(Bck.GetTime(), Time) < ClosestDistance ) )
 			{
-				NewKey.Time = Bck.GetTime();
+				ClosestTime = Bck.GetTime();
+				ClosestDistance = GetDistanceFromTo(Bck.GetTime(), Time);
 			}
 		}
 
+		
+		FTrajectoryKey& NewKey = Result[Result.Emplace(ClosestTime.GetValue())];
 		for (FCurveKeyIterator& Fwd : ForwardIters)
 		{
-			if (Fwd && FMath::IsNearlyEqual(Fwd.GetTime(), NewKey.Time))
+			if (Fwd && Fwd.GetTime() == NewKey.Time)
 			{
-				// Add this key to the trajectory key
-				NewKey.KeyData.Emplace(Fwd.GetSection(), Fwd.GetInterpMode(), Fwd.GetType());
+				if (Fwd.IsValid())
+				{
+					// Add this key to the trajectory key
+					NewKey.KeyData.Emplace(Fwd.GetSection(), Fwd.GetKeyHandle(), Fwd.GetInterpMode(), Fwd.GetChannelName());
+				}
 				// Move onto the next key in this curve
 				++Fwd;
 			}
 		}
-
+		
 		for (FCurveKeyIterator& Bck : BackwardIters)
 		{
-			if (Bck && FMath::IsNearlyEqual(Bck.GetTime(), NewKey.Time))
+			if (Bck && Bck.GetTime() == NewKey.Time)
 			{
-				// Add this key to the trajectory key
-				NewKey.KeyData.Emplace(Bck.GetSection(), Bck.GetInterpMode(), Bck.GetType());
+				if (Bck.IsValid())
+				{
+					// Add this key to the trajectory key
+					NewKey.KeyData.Emplace(Bck.GetSection(), Bck.GetKeyHandle(), Bck.GetInterpMode(), Bck.GetChannelName());
+				}
 				// Move onto the next key in this curve
 				--Bck;
 			}
@@ -229,13 +290,4 @@ TArray<FTrajectoryKey> UMovieScene3DTransformTrack::GetTrajectoryData(float Time
 	return Result;
 }
 
-UMovieSceneSection* UMovieScene3DTransformTrack::CreateNewSection()
-{
-	return NewObject<UMovieSceneSection>(this, UMovieScene3DTransformSection::StaticClass(), NAME_None, RF_Transactional);
-}
-
-FMovieSceneInterrogationKey UMovieScene3DTransformTrack::GetInterrogationKey()
-{
-	static FMovieSceneAnimTypeID TypeID = FMovieSceneAnimTypeID::Unique();
-	return TypeID;
-}
+#endif	// WITH_EDITOR

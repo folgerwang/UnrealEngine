@@ -4,6 +4,23 @@
 #include "Sound/SoundBase.h"
 #include "Evaluation/MovieSceneAudioTemplate.h"
 #include "UObject/SequencerObjectVersion.h"
+#include "Channels/MovieSceneChannelProxy.h"
+#include "MovieScene.h"
+
+#if WITH_EDITOR
+
+struct FAudioChannelEditorData
+{
+	FAudioChannelEditorData()
+	{
+		Data[0].SetIdentifiers("Volume", NSLOCTEXT("MovieSceneAudioSection", "SoundVolumeText", "Volume"));
+		Data[1].SetIdentifiers("Pitch", NSLOCTEXT("MovieSceneAudioSection", "PitchText", "Pitch"));
+	}
+
+	FMovieSceneChannelEditorData Data[2];
+};
+
+#endif // WITH_EDITOR
 
 UMovieSceneAudioSection::UMovieSceneAudioSection( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )
@@ -13,8 +30,6 @@ UMovieSceneAudioSection::UMovieSceneAudioSection( const FObjectInitializer& Obje
 	AudioStartTime_DEPRECATED = 0.f;
 	AudioDilationFactor_DEPRECATED = 1.f;
 	AudioVolume_DEPRECATED = 1.f;
-	SoundVolume.SetDefaultValue(1.f);
-	PitchMultiplier.SetDefaultValue(1.f);
 	bSuppressSubtitles = false;
 	bOverrideAttenuation = false;
 
@@ -22,6 +37,27 @@ UMovieSceneAudioSection::UMovieSceneAudioSection( const FObjectInitializer& Obje
 		(GetLinkerCustomVersion(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::WhenFinishedDefaultsToProjectDefault ? 
 			EMovieSceneCompletionMode::RestoreState : 
 			EMovieSceneCompletionMode::ProjectDefault);
+
+	SoundVolume.SetDefault(1.f);
+	PitchMultiplier.SetDefault(1.f);
+
+	// Set up the channel proxy
+	FMovieSceneChannelData Channels;
+
+#if WITH_EDITOR
+
+	static const FAudioChannelEditorData EditorData;
+	Channels.Add(SoundVolume,     EditorData.Data[0], TMovieSceneExternalValue<float>());
+	Channels.Add(PitchMultiplier, EditorData.Data[1], TMovieSceneExternalValue<float>());
+
+#else
+
+	Channels.Add(SoundVolume);
+	Channels.Add(PitchMultiplier);
+
+#endif
+
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(MoveTemp(Channels));
 }
 
 FMovieSceneEvalTemplatePtr UMovieSceneAudioSection::GenerateTemplate() const
@@ -29,22 +65,9 @@ FMovieSceneEvalTemplatePtr UMovieSceneAudioSection::GenerateTemplate() const
 	return FMovieSceneAudioSectionTemplate(*this);
 }
 
-TRange<float> UMovieSceneAudioSection::GetAudioRange() const
+TOptional<FFrameTime> UMovieSceneAudioSection::GetOffsetTime() const
 {
-	if (!Sound)
-	{
-		return TRange<float>::Empty();
-	}
-
-	float AudioRangeStartTime = GetStartTime();
-	if (StartOffset < 0)
-	{
-		AudioRangeStartTime += FMath::Abs(StartOffset);
-	}
-
-	float AudioRangeEndTime = FMath::Min(AudioRangeStartTime + Sound->GetDuration() * PitchMultiplier.GetDefaultValue(), GetEndTime());
-
-	return TRange<float>(AudioRangeStartTime, AudioRangeEndTime);
+	return TOptional<FFrameTime>(StartOffset * GetTypedOuter<UMovieScene>()->GetFrameResolution());
 }
 
 void UMovieSceneAudioSection::PostLoad()
@@ -53,14 +76,14 @@ void UMovieSceneAudioSection::PostLoad()
 
 	if (AudioDilationFactor_DEPRECATED != FLT_MAX)
 	{
-		PitchMultiplier.SetDefaultValue(AudioDilationFactor_DEPRECATED);
+		PitchMultiplier.SetDefault(AudioDilationFactor_DEPRECATED);
 
 		AudioDilationFactor_DEPRECATED = FLT_MAX;
 	}
 
 	if (AudioVolume_DEPRECATED != FLT_MAX)
 	{
-		SoundVolume.SetDefaultValue(AudioVolume_DEPRECATED);
+		SoundVolume.SetDefault(AudioVolume_DEPRECATED);
 
 		AudioVolume_DEPRECATED = FLT_MAX;
 	}
@@ -69,35 +92,18 @@ void UMovieSceneAudioSection::PostLoad()
 	{
 		// Previously, start time in relation to the sequence. Start time was used to calculate the offset into the 
 		// clip at the start of the section evaluation as such: Section Start Time - Start Time. 
-		if (AudioStartTime_DEPRECATED != 0.f)
+		if (AudioStartTime_DEPRECATED != 0.f && HasStartFrame())
 		{
-			StartOffset = GetStartTime() - AudioStartTime_DEPRECATED;
+			StartOffset = GetInclusiveStartFrame() / GetTypedOuter<UMovieScene>()->GetFrameResolution() - AudioStartTime_DEPRECATED;
 		}
 		AudioStartTime_DEPRECATED = FLT_MAX;
 	}
 }
 
-void UMovieSceneAudioSection::MoveSection( float DeltaTime, TSet<FKeyHandle>& KeyHandles )
+
+UMovieSceneSection* UMovieSceneAudioSection::SplitSection(FFrameNumber SplitTime)
 {
-	Super::MoveSection(DeltaTime, KeyHandles);
-
-	SoundVolume.ShiftCurve(DeltaTime, KeyHandles);
-	PitchMultiplier.ShiftCurve(DeltaTime, KeyHandles);
-}
-
-
-void UMovieSceneAudioSection::DilateSection( float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles )
-{
-	Super::DilateSection(DilationFactor, Origin, KeyHandles);
-
-	SoundVolume.ScaleCurve(Origin, DilationFactor, KeyHandles);
-	PitchMultiplier.ScaleCurve(Origin, DilationFactor, KeyHandles);
-}
-
-
-UMovieSceneSection* UMovieSceneAudioSection::SplitSection(float SplitTime)
-{
-	float NewOffset = StartOffset + (SplitTime - GetStartTime());
+	const float NewOffset = HasStartFrame() ? StartOffset + (SplitTime - GetInclusiveStartFrame()) / GetTypedOuter<UMovieScene>()->GetFrameResolution() : 0;
 
 	UMovieSceneSection* NewSection = Super::SplitSection(SplitTime);
 	if (NewSection != nullptr)
@@ -106,39 +112,4 @@ UMovieSceneSection* UMovieSceneAudioSection::SplitSection(float SplitTime)
 		NewAudioSection->StartOffset = NewOffset;
 	}
 	return NewSection;
-}
-
-void UMovieSceneAudioSection::GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const
-{
-	if (!TimeRange.Overlaps(GetRange()))
-	{
-		return;
-	}
-
-	for (auto It(SoundVolume.GetKeyHandleIterator()); It; ++It)
-	{
-		float Time = SoundVolume.GetKeyTime(It.Key());
-		if (TimeRange.Contains(Time))
-		{
-			OutKeyHandles.Add(It.Key());
-		}
-	}
-
-	for (auto It(PitchMultiplier.GetKeyHandleIterator()); It; ++It)
-	{
-		float Time = PitchMultiplier.GetKeyTime(It.Key());
-		if (TimeRange.Contains(Time))
-		{
-			OutKeyHandles.Add(It.Key());
-		}
-	}
-}
-
-
-void UMovieSceneAudioSection::GetSnapTimes(TArray<float>& OutSnapTimes, bool bGetSectionBorders) const
-{
-	Super::GetSnapTimes(OutSnapTimes, bGetSectionBorders);
-
-	// @todo Sequencer handle snapping for time dilation
-	// @todo Don't add redundant times (can't use AddUnique due to floating point equality issues)
 }

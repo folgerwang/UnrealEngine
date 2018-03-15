@@ -90,6 +90,11 @@ struct FDetailsViewArgs
 	uint32 bShowScrollBar : 1;
 	/** If true, all properties will be visible, not just those with CPF_Edit */
 	uint32 bForceHiddenPropertyVisibility : 1;
+	/** True if you want to show the 'Show Only Keyable Properties'. Only valid in conjunction with bShowOptions */
+	uint32 bShowKeyablePropertiesOption : 1;
+	/** True if you want to show the 'Show Only Animated Properties'. Only valid in conjunction with bShowOptions */
+	uint32 bShowAnimatedPropertiesOption: 1;
+
 public:
 	/** Default constructor */
 	FDetailsViewArgs( const bool InUpdateFromSelection = false
@@ -120,6 +125,8 @@ public:
 		, bAllowMultipleTopLevelObjects(false)
 		, bShowScrollBar(true)
 		, bForceHiddenPropertyVisibility(false)
+		, bShowKeyablePropertiesOption(true)
+		, bShowAnimatedPropertiesOption(true)
 	{
 	}
 };

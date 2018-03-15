@@ -5,6 +5,7 @@
 #include "Evaluation/MovieScenePropertyTemplate.h"
 #include "Evaluation/Blending/MovieSceneMultiChannelBlending.h"
 #include "ComposurePostMoves.h"
+#include "Channels/MovieSceneFloatChannel.h"
 #include "MovieSceneComposurePostMoveSettingsSectionTemplate.generated.h"
 
 class UMovieSceneComposurePostMoveSettingsSection;
@@ -25,16 +26,16 @@ private:
 	virtual void Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const override;
 
 	UPROPERTY()
-	FRichCurve Pivot[2];
+	FMovieSceneFloatChannel Pivot[2];
 
 	UPROPERTY()
-	FRichCurve Translation[2];
+	FMovieSceneFloatChannel Translation[2];
 
 	UPROPERTY()
-	FRichCurve RotationAngle;
+	FMovieSceneFloatChannel RotationAngle;
 
 	UPROPERTY()
-	FRichCurve Scale;
+	FMovieSceneFloatChannel Scale;
 
 	UPROPERTY()
 	EMovieSceneBlendType BlendType;

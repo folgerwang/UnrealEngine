@@ -177,6 +177,11 @@ bool FXGEControllerModule::IsSupported()
 
 #if PLATFORM_WINDOWS
 
+	if (!FPlatformProcess::SupportsMultithreading())
+	{
+		return false; // current implementation requires worker threads
+	}
+
 	// Check the command line to see if the XGE controller has been enabled/disabled.
 	// This overrides the value of the console variable.
 	if (FParse::Param(FCommandLine::Get(), TEXT("xgecontroller")))

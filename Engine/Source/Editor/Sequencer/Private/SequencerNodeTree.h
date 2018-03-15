@@ -110,12 +110,18 @@ public:
 	 */
 	FOnUpdated& OnUpdated() { return OnUpdatedDelegate; }
 
+	/** Make the contents of the given node have the root as their parent again instead of their current parent. */
+	void MoveDisplayNodeToRoot(TSharedRef<FSequencerDisplayNode>& Node);
+
+	/** Sorts all nodes and their descendants by category then alphabetically.*/
+	void SortAllNodesAndDescendants();
+
 private:
 	/**
 	 * Finds or adds a type editor for the track
 	 *
 	 * @param Track	The type to find an editor for
-	 * @rerturn The editor for the type
+	 * @return The editor for the type
 	 */
 	TSharedRef<ISequencerTrackEditor> FindOrAddTypeEditor( UMovieSceneTrack& Track );
 
@@ -133,6 +139,11 @@ private:
 	 * @param ObjectBinding Object binding ID that the track operates on
 	 */
 	void MakeSectionInterfaces( TSharedRef<FSequencerTrackNode> TrackNode, const FGuid& ObjectBinding );
+
+	/*
+	 * Helper function that creates object binding nodes along with their tracks. 
+	 */
+	void AddObjectBindingAndTracks(const FMovieSceneBinding& ObjectBinding, TMap<FGuid, const FMovieSceneBinding*>& GuidToBindingMap, TArray< TSharedRef<FSequencerObjectBindingNode> >& OutNodeList);
 
 	/**
 	 * Creates a new object binding node and any parent binding nodes.

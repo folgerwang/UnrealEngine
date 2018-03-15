@@ -10,29 +10,35 @@
 #include "Templates/SharedPointer.h"
 #include "Misc/Optional.h"
 #include "IKeyArea.h"
-
-/** Key information that has been cached to avoid expensive operations */
-struct FSequencerCachedKey
-{
-	/** The key handle */
-	FKeyHandle Handle;
-	/** The local time of the key */
-	float Time;
-};
+#include "FrameRate.h"
 
 /** Simple structure that caches the sorted key times for a given key area */
 struct FSequencerCachedKeys
 {
 	/** Update this cache to store key times and handles from the specified key area */
-	void Update(TSharedRef<IKeyArea> KeyArea);
+	void Update(TSharedRef<IKeyArea> KeyArea, FFrameRate SourceResolution);
 
 	/** Get an view of the cached array for keys that fall within the specified range */
-	TArrayView<const FSequencerCachedKey> GetKeysInRange(TRange<float> Range) const;
+	void GetKeysInRange(const TRange<double>& Range, TArrayView<const double>* OutTimes, TArrayView<const FKeyHandle>* OutHandles) const;
+
+	/** Get the key area this cache was generated for, or nullptr if the cache has never been updated */
+	TSharedPtr<IKeyArea> GetKeyArea() const
+	{
+		return KeyArea;
+	}
 
 private:
 	/** Cached key information */
-	TOptional<TArray<FSequencerCachedKey>> CachedKeys;
+	TArray<double> CachedKeyTimes;
+	TArray<FKeyHandle> CachedKeyHandles;
+
 	/** The guid with which the above array was generated */
 	FGuid CachedSignature;
+
+	/** The frame resolution of the sequence that this cache was generated with */
+	FFrameRate CachedFrameResolution;
+
+	/** The key area this cache is for */
+	TSharedPtr<IKeyArea> KeyArea;
 };
 

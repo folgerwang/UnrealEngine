@@ -6,6 +6,7 @@
 
 class FSceneViewport;
 struct FCaptureProtocolInitSettings;
+struct FFrameRate;
 struct FFrameMetrics;
 struct ICaptureProtocolHost;
 
@@ -116,7 +117,7 @@ struct ICaptureProtocolHost
 	virtual void EnsureFileWritable(const FString& File) const = 0;
 
 	/** Get the capture frequency */
-	virtual float GetCaptureFrequency() const = 0;
+	virtual FFrameRate GetCaptureFrameRate() const = 0;
 
 	/** Access the host's capture strategy */
 	virtual const ICaptureStrategy& GetCaptureStrategy() const = 0;

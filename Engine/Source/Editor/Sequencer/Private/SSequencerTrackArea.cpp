@@ -15,6 +15,7 @@
 #include "Tools/SequencerEditTool_Selection.h"
 #include "ISequencerTrackEditor.h"
 #include "DisplayNodes/SequencerTrackNode.h"
+#include "DisplayNodes/SequencerObjectBindingNode.h"
 
 FTrackAreaSlot::FTrackAreaSlot(const TSharedPtr<SSequencerTrackLane>& InSlotContent)
 {
@@ -441,11 +442,11 @@ void SSequencerTrackArea::Tick( const FGeometry& AllottedGeometry, const double 
 	{
 		// Zoom by the difference in horizontal size
 		const float Difference = Size.X - SizeLastFrame->X;
-		TRange<float> OldRange = TimeSliderController->GetViewRange().GetAnimationTarget();
+		TRange<double> OldRange = TimeSliderController->GetViewRange().GetAnimationTarget();
 
 		TimeSliderController->SetViewRange(
 			OldRange.GetLowerBoundValue(),
-			OldRange.GetUpperBoundValue() + (Difference * OldRange.Size<float>() / SizeLastFrame->X),
+			OldRange.GetUpperBoundValue() + (Difference * OldRange.Size<double>() / SizeLastFrame->X),
 			EViewRangeInterpolation::Immediate
 		);
 	}
@@ -486,16 +487,23 @@ FReply SSequencerTrackArea::OnDragOver(const FGeometry& MyGeometry, const FDragD
 
 	if (DroppedNode.IsValid() && DroppedNode.Pin()->GetType() == ESequencerNode::Track && Sequencer.IsValid())
 	{
-		TSharedPtr<FSequencerDisplayNode> DisplayNode = DroppedNode.Pin();
+		TSharedPtr<FSequencerTrackNode> TrackNode = StaticCastSharedPtr<FSequencerTrackNode>(DroppedNode.Pin());
+		UMovieSceneTrack* Track = TrackNode->GetTrack();
+		int32 RowIndex = TrackNode->GetSubTrackMode() == FSequencerTrackNode::ESubTrackMode::SubTrack ? TrackNode->GetRowIndex() : 0;
 
-		UMovieSceneTrack* Track = (StaticCastSharedPtr<FSequencerTrackNode>(DroppedNode.Pin()))->GetTrack();
+		FGuid ObjectBinding;
+		TSharedPtr<FSequencerObjectBindingNode> ObjectBindingNode = TrackNode->FindParentObjectBindingNode();
+		if (ObjectBindingNode.IsValid())
+		{
+			ObjectBinding = ObjectBindingNode->GetObjectBinding();
+		}
 
 		// give track editors a chance to accept the drag event
 		auto TrackEditors = Sequencer.Pin()->GetTrackEditors();
 
 		for (const auto& TrackEditor : TrackEditors)
 		{
-			if (TrackEditor->OnAllowDrop(DragDropEvent, Track))
+			if (TrackEditor->OnAllowDrop(DragDropEvent, Track, RowIndex, ObjectBinding))
 			{
 				bAllowDrop = true;
 				return FReply::Handled();
@@ -515,18 +523,27 @@ FReply SSequencerTrackArea::OnDrop(const FGeometry& MyGeometry, const FDragDropE
 
 	if (DroppedNode.IsValid() && DroppedNode.Pin()->GetType() == ESequencerNode::Track && Sequencer.IsValid())
 	{
-		UMovieSceneTrack* Track = (StaticCastSharedPtr<FSequencerTrackNode>(DroppedNode.Pin()))->GetTrack();
+		TSharedPtr<FSequencerTrackNode> TrackNode = StaticCastSharedPtr<FSequencerTrackNode>(DroppedNode.Pin());
+		UMovieSceneTrack* Track = TrackNode->GetTrack();
+		int32 RowIndex = TrackNode->GetSubTrackMode() == FSequencerTrackNode::ESubTrackMode::SubTrack ? TrackNode->GetRowIndex() : 0;
+
+		FGuid ObjectBinding;
+		TSharedPtr<FSequencerObjectBindingNode> ObjectBindingNode = TrackNode->FindParentObjectBindingNode();
+		if (ObjectBindingNode.IsValid())
+		{
+			ObjectBinding = ObjectBindingNode->GetObjectBinding();
+		}
 
 		// give track editors a chance to process the drag event
 		auto TrackEditors = Sequencer.Pin()->GetTrackEditors();
 
 		for (const auto& TrackEditor : TrackEditors)
 		{
-			if (TrackEditor->OnAllowDrop(DragDropEvent, Track))
+			if (TrackEditor->OnAllowDrop(DragDropEvent, Track, RowIndex, ObjectBinding))
 			{
 				DroppedNode.Reset();
 
-				return TrackEditor->OnDrop(DragDropEvent, Track);
+				return TrackEditor->OnDrop(DragDropEvent, Track, RowIndex, ObjectBinding);
 			}
 		}
 	}

@@ -253,14 +253,6 @@ public:
 	 */
 	MOVIESCENE_API bool FixRowIndices();
 
-	/**
-	 * @return Whether or not this track's section bounds should be added to the play range
-	 */
-	virtual bool AddsSectionBoundsToPlayRange() const
-	{
-		return false;
-	}
-
 public:
 
 	/**
@@ -289,7 +281,8 @@ public:
 	 * 
 	 * @return The range of time boundaries.
 	 */
-	virtual TRange<float> GetSectionBoundaries() const PURE_VIRTUAL(UMovieSceneTrack::GetSectionBoundaries, return TRange<float>::Empty(););
+	DEPRECATED(4.20, "This function is no longer used.")
+	virtual TRange<FFrameNumber> GetSectionBoundaries() const PURE_VIRTUAL(UMovieSceneTrack::GetSectionBoundaries, return TRange<FFrameNumber>::Empty(););
 
 	/**
 	 * Checks to see if the section is in this track.
@@ -345,12 +338,33 @@ public:
 		TrackTint = InTrackTint;
 	}
 
+	/**
+	* Get this folder's desired sorting order
+	*/
+	int32 GetSortingOrder() const
+	{
+		return SortingOrder;
+	}
+
+	/**
+	* Set this folder's desired sorting order.
+	*
+	* @param InSortingOrder The higher the value the further down the list the folder will be.
+	*/
+	void SetSortingOrder(const int32 InSortingOrder)
+	{
+		SortingOrder = InSortingOrder;
+	}
+
 protected:
 
 	/** This track's tint color */
 	UPROPERTY(EditAnywhere, Category=General, DisplayName=Color)
 	FColor TrackTint;
 
+	/** This folder's desired sorting order */
+	UPROPERTY()
+	int32 SortingOrder;
 public:
 #endif
 

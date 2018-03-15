@@ -30,6 +30,9 @@ struct CORE_API FSequencerObjectVersion
 		// When finished now defaults to project default
 		WhenFinishedDefaultsToProjectDefault,
 
+		// When finished now defaults to project default
+		FloatToIntConversion,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

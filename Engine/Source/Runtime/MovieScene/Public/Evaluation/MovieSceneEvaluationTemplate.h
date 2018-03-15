@@ -9,6 +9,7 @@
 #include "Misc/Guid.h"
 #include "UObject/Class.h"
 #include "MovieSceneTrack.h"
+#include "MovieSceneFrameMigration.h"
 #include "Evaluation/MovieSceneTrackIdentifier.h"
 #include "Evaluation/MovieSceneEvaluationField.h"
 #include "Containers/ArrayView.h"
@@ -58,7 +59,7 @@ public:
 
 	/** Map of sub section ranges that exist in a template */
 	UPROPERTY()
-	TMap<FGuid, FFloatRange> SubSectionRanges;
+	TMap<FGuid, FMovieSceneFrameRange> SubSectionRanges;
 };
 template<> struct TStructOpsTypeTraits<FMovieSceneTemplateGenerationLedger> : public TStructOpsTypeTraitsBase2<FMovieSceneTemplateGenerationLedger> { enum { WithCopy = true }; };
 
@@ -195,7 +196,7 @@ public:
 	/**
 	 * Add a new sub section
 	 */
-	MOVIESCENE_API void AddSubSectionRange(UMovieSceneSubSection& InSubSection, const FGuid& InObjectBindingId, const TRange<float>& InRange, ESectionEvaluationFlags InFlags);
+	MOVIESCENE_API void AddSubSectionRange(UMovieSceneSubSection& InSubSection, const FGuid& InObjectBindingId, const TRange<FFrameNumber>& InRange, ESectionEvaluationFlags InFlags);
 
 	/**
 	 * Add a new track for the specified identifier
@@ -291,6 +292,10 @@ public:
 
 	UPROPERTY()
 	FGuid SequenceSignature;
+
+	/** Signature that is re-generated every time this template is re-generated through FMovieSceneEvaluationTemplateGenerator */
+	UPROPERTY()
+	FGuid TemplateSignature;
 
 private:
 

@@ -213,7 +213,7 @@ public:
 	template<typename Predicate>
 	FORCEINLINE bool ContainsByPredicate(Predicate Pred) const
 	{
-		for (const auto& Entry : LookupSet)
+		for (const FCacheEntry* Entry : LookupSet)
 		{
 			if (Pred(Entry->Key, Entry->Value))
 			{
@@ -234,7 +234,7 @@ public:
 	{
 		check(InMaxNumElements >= 0);
 
-		for (auto& Entry : LookupSet)
+		for (FCacheEntry* Entry : LookupSet)
 		{
 			delete Entry;
 		}
@@ -258,7 +258,7 @@ public:
 	{
 		TArray<ValueType> Result;
 
-		for (const auto& Entry : LookupSet)
+		for (const FCacheEntry* Entry : LookupSet)
 		{
 			if (Pred(Entry->Key, Entry->Value))
 			{
@@ -319,7 +319,7 @@ public:
 	template<typename Predicate>
 	const ValueType* FindByPredicate(Predicate Pred) const
 	{
-		for (const auto& Entry : LookupSet)
+		for (const FCacheEntry* Entry : LookupSet)
 		{
 			if (Pred(Entry->Key, Entry->Value))
 			{
@@ -338,7 +338,7 @@ public:
 	 */
 	void GetKeys(TArray<KeyType>& OutKeys) const
 	{
-		for (const auto& Entry : LookupSet)
+		for (const FCacheEntry* Entry : LookupSet)
 		{
 			OutKeys.Add(Entry->Key);
 		}
@@ -394,7 +394,7 @@ public:
 	{
 		int32 NumRemoved = 0;
 
-		for (const auto& Entry : LookupSet)
+		for (const FCacheEntry* Entry : LookupSet)
 		{
 			if (Pred(Entry->Key, Entry->Value))
 			{
@@ -539,7 +539,8 @@ public:
 		FORCEINLINE void RemoveCurrentAndIncrement()
 		{
 			check(Cache != nullptr);
-			auto MoreRecentEntry = this->GetCurrentEntry();
+
+			FCacheEntry* MoreRecentEntry = this->GetCurrentEntry();
 			this->Increment();
 			Cache->Remove(MoreRecentEntry);
 		}

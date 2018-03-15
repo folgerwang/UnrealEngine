@@ -133,7 +133,12 @@ public:
 	static void OnInitializeSequence(UActorSequence* Sequence)
 	{
 		auto* ProjectSettings = GetDefault<UMovieSceneToolsProjectSettings>();
-		Sequence->GetMovieScene()->SetPlaybackRange(ProjectSettings->DefaultStartTime, ProjectSettings->DefaultStartTime + ProjectSettings->DefaultDuration);
+		UMovieScene* MovieScene = Sequence->GetMovieScene();
+		
+		FFrameNumber StartFrame = (ProjectSettings->DefaultStartTime * MovieScene->GetFrameResolution()).RoundToFrame();
+		int32        Duration   = (ProjectSettings->DefaultDuration * MovieScene->GetFrameResolution()).RoundToFrame().Value;
+
+		MovieScene->SetPlaybackRange(StartFrame, Duration);
 	}
 
 	/** Register details view customizations. */

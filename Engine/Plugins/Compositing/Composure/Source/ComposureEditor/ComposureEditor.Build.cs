@@ -25,6 +25,7 @@ namespace UnrealBuildTool.Rules
 				"Sequencer",
 				"Slate",
 				"SlateCore",
+				"TimeManagement",
 				"DesktopWidgets",
 				"EditorStyle",
 				"UnrealEd"

@@ -1,11 +1,12 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SVisualLoggerTimeSlider.h"
+#include "VisualLoggerTimeSliderController.h"
 
 #define LOCTEXT_NAMESPACE "STimeSlider"
 
 
-void SVisualLoggerTimeSlider::Construct( const SVisualLoggerTimeSlider::FArguments& InArgs, TSharedRef<ITimeSliderController> InTimeSliderController )
+void SVisualLoggerTimeSlider::Construct( const SVisualLoggerTimeSlider::FArguments& InArgs, TSharedRef<FVisualLoggerTimeSliderController> InTimeSliderController )
 {
 	TimeSliderController = InTimeSliderController;
 	bMirrorLabels = InArgs._MirrorLabels;

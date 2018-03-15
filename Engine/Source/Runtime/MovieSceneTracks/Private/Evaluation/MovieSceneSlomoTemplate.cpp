@@ -101,14 +101,14 @@ struct FSlomoExecutionToken : IMovieSceneExecutionToken, FSlomoTrackToken
 };
 
 FMovieSceneSlomoSectionTemplate::FMovieSceneSlomoSectionTemplate(const UMovieSceneSlomoSection& Section)
-	: SlomoCurve(Section.GetFloatCurve())
+	: SlomoCurve(Section.GetChannel())
 {
 }
 
 void FMovieSceneSlomoSectionTemplate::Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 {
-	float SlomoValue = SlomoCurve.Eval(Context.GetTime());
-	if (SlomoValue >= 0.f)
+	float SlomoValue = 1.f;
+	if (SlomoCurve.Evaluate(Context.GetTime(), SlomoValue) && SlomoValue >= 0.f)
 	{
 		ExecutionTokens.Add(FSlomoExecutionToken(SlomoValue));
 	}

@@ -13,6 +13,7 @@
 #include "SequencerSectionPainter.h"
 #include "EditorStyleSet.h"
 #include "MovieSceneToolHelpers.h"
+#include "MovieSceneTimeHelpers.h"
 
 
 #define LOCTEXT_NAMESPACE "FCinematicShotSection"
@@ -22,11 +23,21 @@
  *****************************************************************************/
 
 FCinematicShotSection::FCinematicSectionCache::FCinematicSectionCache(UMovieSceneCinematicShotSection* Section)
-	: ActualStartTime(0.f), TimeScale(0.f)
+	: InnerFrameRate(1, 1)
+	, InnerFrameOffset(0)
+	, SectionStartFrame(0)
+	, TimeScale(1.f)
 {
 	if (Section)
 	{
-		ActualStartTime = Section->GetStartTime() - Section->Parameters.StartOffset;
+		UMovieSceneSequence* InnerSequence = Section->GetSequence();
+		if (InnerSequence)
+		{
+			InnerFrameRate = InnerSequence->GetMovieScene()->GetFrameResolution();
+		}
+
+		InnerFrameOffset = Section->Parameters.GetStartFrameOffset();
+		SectionStartFrame = Section->HasStartFrame() ? Section->GetInclusiveStartFrame() : 0;
 		TimeScale = Section->Parameters.TimeScale;
 	}
 }
@@ -37,8 +48,8 @@ FCinematicShotSection::FCinematicShotSection(TSharedPtr<ISequencer> InSequencer,
 	, SectionObject(*CastChecked<UMovieSceneCinematicShotSection>(&InSection))
 	, Sequencer(InSequencer)
 	, CinematicShotTrackEditor(InCinematicShotTrackEditor)
-	, InitialStartOffsetDuringResize(0.f)
-	, InitialStartTimeDuringResize(0.f)
+	, InitialStartOffsetDuringResize(0)
+	, InitialStartTimeDuringResize(0)
 	, ThumbnailCacheData(&SectionObject)
 {
 	AdditionalDrawEffect = ESlateDrawEffect::NoGamma;
@@ -59,29 +70,33 @@ FMargin FCinematicShotSection::GetContentPadding() const
 	return FMargin(8.f, 15.f);
 }
 
-void FCinematicShotSection::SetSingleTime(float GlobalTime)
+void FCinematicShotSection::SetSingleTime(double GlobalTime)
 {
-	SectionObject.SetThumbnailReferenceOffset(GlobalTime - SectionObject.GetStartTime());
+	double ReferenceOffsetSeconds = SectionObject.HasStartFrame() ? SectionObject.GetInclusiveStartFrame() / SectionObject.GetTypedOuter<UMovieScene>()->GetFrameResolution() : 0;
+	SectionObject.SetThumbnailReferenceOffset(GlobalTime - ReferenceOffsetSeconds);
 }
 
 void FCinematicShotSection::BeginResizeSection()
 {
-	InitialStartOffsetDuringResize = SectionObject.Parameters.StartOffset;
-	InitialStartTimeDuringResize = SectionObject.GetStartTime();
+	InitialStartOffsetDuringResize = SectionObject.Parameters.GetStartFrameOffset();
+	InitialStartTimeDuringResize = SectionObject.HasStartFrame() ? SectionObject.GetInclusiveStartFrame() : 0;
 }
 
-void FCinematicShotSection::ResizeSection(ESequencerSectionResizeMode ResizeMode, float ResizeTime)
+void FCinematicShotSection::ResizeSection(ESequencerSectionResizeMode ResizeMode, FFrameNumber ResizeTime)
 {
+	UMovieSceneSequence* InnerSequence = SectionObject.GetSequence();
+
 	// Adjust the start offset when resizing from the beginning
-	if (ResizeMode == SSRM_LeadingEdge)
+	if (ResizeMode == SSRM_LeadingEdge && InnerSequence)
 	{
-		float StartOffset = (ResizeTime - InitialStartTimeDuringResize) / SectionObject.Parameters.TimeScale;
-		StartOffset += InitialStartOffsetDuringResize;
+		const FFrameRate    OuterFrameRate   = SectionObject.GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		const FFrameRate    InnerFrameRate   = InnerSequence->GetMovieScene()->GetFrameResolution();
+		const FFrameNumber  ResizeDifference = ResizeTime - InitialStartTimeDuringResize;
+		const FFrameTime    InnerFrameTime   = ConvertFrameTime(ResizeDifference, OuterFrameRate, InnerFrameRate);
+		const int32         NewStartOffset   = FFrameTime::FromDecimal(InnerFrameTime.AsDecimal() * SectionObject.Parameters.TimeScale).FrameNumber.Value;
 
 		// Ensure start offset is not less than 0
-		StartOffset = FMath::Max(StartOffset, 0.f);
-
-		SectionObject.Parameters.StartOffset = StartOffset;
+		SectionObject.Parameters.SetStartFrameOffset(FMath::Max(NewStartOffset, 0));
 	}
 
 	FViewportThumbnailSection::ResizeSection(ResizeMode, ResizeTime);
@@ -92,15 +107,21 @@ void FCinematicShotSection::BeginSlipSection()
 	BeginResizeSection();
 }
 
-void FCinematicShotSection::SlipSection(float SlipTime)
+void FCinematicShotSection::SlipSection(double SlipTime)
 {
-	float StartOffset = (SlipTime - InitialStartTimeDuringResize) / SectionObject.Parameters.TimeScale;
-	StartOffset += InitialStartOffsetDuringResize;
+	UMovieSceneSequence* InnerSequence = SectionObject.GetSequence();
 
-	// Ensure start offset is not less than 0
-	StartOffset = FMath::Max(StartOffset, 0.f);
+	// Adjust the start offset when resizing from the beginning
+	if (InnerSequence)
+	{
+		const FFrameRate    OuterFrameRate   = SectionObject.GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		const FFrameRate    InnerFrameRate   = InnerSequence->GetMovieScene()->GetFrameResolution();
+		const double        ResizeDifference = SlipTime - InitialStartTimeDuringResize / OuterFrameRate;
+		const int32         NewStartOffset   = ( (ResizeDifference * SectionObject.Parameters.TimeScale) * InnerFrameRate ).FrameNumber.Value;
 
-	SectionObject.Parameters.StartOffset = StartOffset;
+		// Ensure start offset is not less than 0
+		SectionObject.Parameters.SetStartFrameOffset(FMath::Max(NewStartOffset, 0));
+	}
 
 	FViewportThumbnailSection::SlipSection(SlipTime);
 }
@@ -116,13 +137,14 @@ void FCinematicShotSection::Tick(const FGeometry& AllottedGeometry, const FGeome
 	ThumbnailCacheData = NewCacheData;
 
 	// Update single reference frame settings
-	if (GetDefault<UMovieSceneUserThumbnailSettings>()->bDrawSingleThumbnails)
+	if (GetDefault<UMovieSceneUserThumbnailSettings>()->bDrawSingleThumbnails && SectionObject.HasStartFrame())
 	{
-		ThumbnailCache.SetSingleReferenceFrame(SectionObject.GetStartTime() + SectionObject.GetThumbnailReferenceOffset());
+		double ReferenceTime = SectionObject.GetInclusiveStartFrame() / SectionObject.GetTypedOuter<UMovieScene>()->GetFrameResolution() + SectionObject.GetThumbnailReferenceOffset();
+		ThumbnailCache.SetSingleReferenceFrame(ReferenceTime);
 	}
 	else
 	{
-		ThumbnailCache.SetSingleReferenceFrame(TOptional<float>());
+		ThumbnailCache.SetSingleReferenceFrame(TOptional<double>());
 	}
 
 	FViewportThumbnailSection::Tick(AllottedGeometry, ClippedGeometry, InCurrentTime, InDeltaTime);
@@ -152,60 +174,59 @@ int32 FCinematicShotSection::OnPaintSection(FSequencerSectionPainter& InPainter)
 		InPainter.bParentEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect
 	);
 
-	const float SectionSize = SectionObject.GetTimeSize();
+	TRange<FFrameNumber> SectionRange = SectionObject.GetRange();
+	if (SectionRange.GetLowerBound().IsOpen() || SectionRange.GetUpperBound().IsOpen())
+	{
+		return InPainter.LayerId;
+	}
 
-	if (SectionSize <= 0.0f)
+	const FFrameNumber SectionStartFrame = SectionObject.GetInclusiveStartFrame();
+	const FFrameNumber SectionEndFrame   = SectionObject.GetExclusiveEndFrame();
+	const int32        SectionSize       = MovieScene::DiscreteSize(SectionRange);
+
+	if (SectionSize <= 0)
 	{
 		return InPainter.LayerId;
 	}
 
 	FViewportThumbnailSection::OnPaintSection(InPainter);
 
-	const float DrawScale = InPainter.SectionGeometry.Size.X / SectionSize;
-		
-	UMovieScene* MovieScene = nullptr;
-	FFloatRange PlaybackRange;
-	if(SectionObject.GetSequence() != nullptr)
+	UMovieSceneSequence* InnerSequence = SectionObject.GetSequence();
+	if (!InnerSequence)
 	{
-		MovieScene = SectionObject.GetSequence()->GetMovieScene();
-		PlaybackRange = MovieScene->GetPlaybackRange();
-	}
-	else
-	{
-		UMovieSceneTrack* MovieSceneTrack = CastChecked<UMovieSceneTrack>(SectionObject.GetOuter());
-		MovieScene = CastChecked<UMovieScene>(MovieSceneTrack->GetOuter());
-		PlaybackRange = MovieScene->GetPlaybackRange();
+		return InPainter.LayerId;
 	}
 
-	// add box for the working size
-	const float StartOffset = 1.0f/SectionObject.Parameters.TimeScale * SectionObject.Parameters.StartOffset;
-	const float WorkingStart = -1.0f/SectionObject.Parameters.TimeScale * PlaybackRange.GetLowerBoundValue() - StartOffset;
-	const float WorkingSize = 1.0f/SectionObject.Parameters.TimeScale * (MovieScene != nullptr ? MovieScene->GetEditorData().WorkingRange.Size<float>() : 1.0f);
+	const float PixelsPerFrame = InPainter.SectionGeometry.Size.X / float(SectionSize);
 
-	// add dark tint for left out-of-bounds & working range
-	if (StartOffset < 0.0f)
+	UMovieScene*         MovieScene    = InnerSequence->GetMovieScene();
+	TRange<FFrameNumber> PlaybackRange = MovieScene->GetPlaybackRange();
+
+	FMovieSceneSequenceTransform InnerToOuterTransform = SectionObject.OuterToInnerTransform().Inverse();
+
+	const FFrameNumber PlaybackStart = (MovieScene::DiscreteInclusiveLower(PlaybackRange) * InnerToOuterTransform).FloorToFrame();
+	if (SectionRange.Contains(PlaybackStart))
 	{
+		const int32 StartOffset = (PlaybackStart-SectionStartFrame).Value;
+		// add dark tint for left out-of-bounds
 		FSlateDrawElement::MakeBox(
 			InPainter.DrawElements,
 			InPainter.LayerId++,
 			InPainter.SectionGeometry.ToPaintGeometry(
 				FVector2D(0.0f, 0.f),
-				FVector2D(-StartOffset * DrawScale, InPainter.SectionGeometry.Size.Y)
+				FVector2D(StartOffset * PixelsPerFrame, InPainter.SectionGeometry.Size.Y)
 			),
 			FEditorStyle::GetBrush("WhiteBrush"),
 			ESlateDrawEffect::None,
 			FLinearColor::Black.CopyWithNewOpacity(0.5f)
 		);
-	}
 
-	// add green line for playback start
-	if (StartOffset < 0)
-	{
+		// add green line for playback start
 		FSlateDrawElement::MakeBox(
 			InPainter.DrawElements,
 			InPainter.LayerId++,
 			InPainter.SectionGeometry.ToPaintGeometry(
-				FVector2D(-StartOffset * DrawScale, 0.f),
+				FVector2D(StartOffset * PixelsPerFrame, 0.f),
 				FVector2D(1.0f, InPainter.SectionGeometry.Size.Y)
 			),
 			FEditorStyle::GetBrush("WhiteBrush"),
@@ -214,32 +235,30 @@ int32 FCinematicShotSection::OnPaintSection(FSequencerSectionPainter& InPainter)
 		);
 	}
 
-	// add dark tint for right out-of-bounds & working range
-	const float PlaybackEnd = 1.0f/SectionObject.Parameters.TimeScale * PlaybackRange.Size<float>() - StartOffset;
-
-	if (PlaybackEnd < SectionSize)
+	const FFrameNumber PlaybackEnd = (MovieScene::DiscreteExclusiveUpper(PlaybackRange) * InnerToOuterTransform).FloorToFrame();
+	if (SectionRange.Contains(PlaybackEnd))
 	{
+		// add dark tint for right out-of-bounds
+		const int32 EndOffset = (PlaybackEnd-SectionStartFrame).Value;
 		FSlateDrawElement::MakeBox(
 			InPainter.DrawElements,
 			InPainter.LayerId++,
 			InPainter.SectionGeometry.ToPaintGeometry(
-				FVector2D(PlaybackEnd * DrawScale, 0.f),
-				FVector2D((SectionSize - PlaybackEnd) * DrawScale, InPainter.SectionGeometry.Size.Y)
+				FVector2D(EndOffset * PixelsPerFrame, 0.f),
+				FVector2D((SectionSize - EndOffset) * PixelsPerFrame, InPainter.SectionGeometry.Size.Y)
 			),
 			FEditorStyle::GetBrush("WhiteBrush"),
 			ESlateDrawEffect::None,
 			FLinearColor::Black.CopyWithNewOpacity(0.5f)
 		);
-	}
 
-	// add red line for playback end
-	if (PlaybackEnd <= SectionSize)
-	{
+
+		// add red line for playback end
 		FSlateDrawElement::MakeBox(
 			InPainter.DrawElements,
 			InPainter.LayerId++,
 			InPainter.SectionGeometry.ToPaintGeometry(
-				FVector2D(PlaybackEnd * DrawScale, 0.f),
+				FVector2D(EndOffset * PixelsPerFrame, 0.f),
 				FVector2D(1.0f, InPainter.SectionGeometry.Size.Y)
 			),
 			FEditorStyle::GetBrush("WhiteBrush"),

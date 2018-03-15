@@ -16,6 +16,9 @@
 #include "EditorModeManager.h"
 #include "Widgets/Layout/SExpandableArea.h"
 #include "Widgets/Layout/SScrollBox.h"
+#include "MovieSceneSequence.h"
+#include "MovieScene.h"
+
 
 #define LOCTEXT_NAMESPACE "ControlRigRootCustomization"
 
@@ -151,6 +154,26 @@ bool SControlRigEditModeTools::IsPropertyKeyingEnabled() const
 		return true;
 	}
 
+	return false;
+}
+
+bool SControlRigEditModeTools::IsPropertyAnimated(const IPropertyHandle& PropertyHandle, UObject *ParentObject) const
+{
+	TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
+	if (Sequencer.IsValid() && Sequencer->GetFocusedMovieSceneSequence())
+	{
+		FGuid ObjectHandle = Sequencer->GetHandleToObject(ParentObject);
+		if (ObjectHandle.IsValid()) 
+		{
+			UMovieScene* MovieScene = Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene();
+			UProperty* Property = PropertyHandle.GetProperty();
+			TSharedRef<FPropertyPath> PropertyPath = FPropertyPath::CreateEmpty();
+			PropertyPath->AddProperty(FPropertyInfo(Property));
+			FName PropertyName(*PropertyPath->ToString(TEXT(".")));
+			TSubclassOf<UMovieSceneTrack> TrackClass; //use empty @todo find way to get the UMovieSceneTrack from the Property type.
+			return MovieScene->FindTrack(TrackClass, ObjectHandle, PropertyName) != nullptr;
+		}
+	}
 	return false;
 }
 

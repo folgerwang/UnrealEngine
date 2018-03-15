@@ -3,6 +3,7 @@
 #include "MovieSceneParticleTrackSectionRecorder.h"
 #include "Tracks/MovieSceneParticleTrack.h"
 #include "MovieScene.h"
+#include "Channels/MovieSceneChannelProxy.h"
 
 TSharedPtr<IMovieSceneSectionRecorder> FMovieSceneParticleTrackSectionRecorderFactory::CreateSectionRecorder(const struct FActorRecordingSettings& InActorRecordingSettings) const
 {
@@ -35,7 +36,9 @@ void FMovieSceneParticleTrackSectionRecorder::CreateSection(UObject* InObjectToR
 
 		ParticleTrack->AddSection(*MovieSceneSection);
 
-		MovieSceneSection->SetStartTime(Time);
+		FFrameRate FrameResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		FFrameNumber CurrentFrame = (Time * FrameResolution).FloorToFrame();
+		MovieSceneSection->SetRange(TRange<FFrameNumber>::Inclusive(CurrentFrame, CurrentFrame));
 
 		bWasTriggered = false;
 
@@ -56,9 +59,12 @@ void FMovieSceneParticleTrackSectionRecorder::Record(float CurrentTime)
 {
 	if(SystemToRecord.IsValid())
 	{
-		MovieSceneSection->SetEndTime(CurrentTime);
+		FFrameRate   FrameResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		FFrameNumber KeyTime         = (CurrentTime * FrameResolution).FloorToFrame();
 
-		EParticleKey::Type NewState = EParticleKey::Deactivate;
+		MovieSceneSection->ExpandToFrame(KeyTime);
+
+		EParticleKey NewState = EParticleKey::Deactivate;
 		if(SystemToRecord->IsRegistered() && SystemToRecord->IsActive() && !SystemToRecord->bWasDeactivated)
 		{
 			if(bWasTriggered)
@@ -78,7 +84,11 @@ void FMovieSceneParticleTrackSectionRecorder::Record(float CurrentTime)
 
 		if(NewState != PreviousState)
 		{
-			MovieSceneSection->AddKey(CurrentTime, NewState);
+			FMovieSceneParticleChannel* Channel = MovieSceneSection->GetChannelProxy().GetChannel<FMovieSceneParticleChannel>(0);
+			if (ensure(Channel))
+			{
+				Channel->GetInterface().AddKey(KeyTime, (uint8)NewState);
+			}
 		}
 
 		if(NewState == EParticleKey::Trigger)

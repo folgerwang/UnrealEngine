@@ -161,7 +161,7 @@ void FMovieSceneEvaluationTrack::DefineAsSingleTemplate(FMovieSceneEvalTemplateP
 	ChildTemplates.Add(MoveTemp(InTemplate));
 
 	FSectionEvaluationData EvalData(0);
-	Segments.Add(FMovieSceneSegment(TRange<float>::All(), TArrayView<FSectionEvaluationData>(&EvalData, 1)));
+	Segments.Add(FMovieSceneSegment(TRange<FFrameNumber>::All(), TArrayView<FSectionEvaluationData>(&EvalData, 1)));
 }
 
 int32 FMovieSceneEvaluationTrack::AddChildTemplate(FMovieSceneEvalTemplatePtr&& InTemplate)
@@ -259,7 +259,7 @@ FMovieSceneSegmentIdentifier FMovieSceneEvaluationTrack::CompileSegment(FMovieSc
 	return Segments.Add(MoveTemp(NewSegment));
 }
 
-FMovieSceneSegmentIdentifier FMovieSceneEvaluationTrack::FindFirstSegment(TRange<float> InLocalRange)
+FMovieSceneSegmentIdentifier FMovieSceneEvaluationTrack::FindFirstSegment(TRange<FFrameNumber> InLocalRange)
 {
 	// Binary search for an existing compiled segment in the sorted array
 	auto GetLowerBound = [](const FMovieSceneSegment& In) {
@@ -281,7 +281,7 @@ FMovieSceneSegmentIdentifier FMovieSceneEvaluationTrack::FindFirstSegment(TRange
 	return FMovieSceneSegmentIdentifier();
 }
 
-TArray<FMovieSceneSegmentIdentifier> FMovieSceneEvaluationTrack::GetSegmentsInRange(TRange<float> InLocalRange)
+TArray<FMovieSceneSegmentIdentifier> FMovieSceneEvaluationTrack::GetSegmentsInRange(TRange<FFrameNumber> InLocalRange)
 {
 	TArray<FMovieSceneSegmentIdentifier> SegmentsInRange;
 
@@ -302,7 +302,7 @@ TArray<FMovieSceneSegmentIdentifier> FMovieSceneEvaluationTrack::GetSegmentsInRa
 					break;
 				}
 
-				InLocalRange = TRange<float>(TRangeBound<float>::FlipInclusion(NodeAtTime.Range().GetUpperBound()), InLocalRange.GetUpperBound());
+				InLocalRange.SetLowerBound(TRangeBound<FFrameNumber>::FlipInclusion(NodeAtTime.Range().GetUpperBound()));
 				continue;
 			}
 		}
@@ -313,15 +313,15 @@ TArray<FMovieSceneSegmentIdentifier> FMovieSceneEvaluationTrack::GetSegmentsInRa
 			break;
 		}
 
-		InLocalRange = TRange<float>(TRangeBound<float>::FlipInclusion(Segments[SegmentID].Range.GetUpperBound()), InLocalRange.GetUpperBound());
+		InLocalRange.SetLowerBound(TRangeBound<FFrameNumber>::FlipInclusion(Segments[SegmentID].Range.GetUpperBound()));
 	}
 
 	return SegmentsInRange;
 }
 
-FMovieSceneSegmentIdentifier FMovieSceneEvaluationTrack::GetSegmentFromTime(float InTime)
+FMovieSceneSegmentIdentifier FMovieSceneEvaluationTrack::GetSegmentFromTime(FFrameNumber InTime)
 {
-	FMovieSceneSegmentIdentifier Existing = FindFirstSegment(TRange<float>::Inclusive(InTime, InTime));
+	FMovieSceneSegmentIdentifier Existing = FindFirstSegment(TRange<FFrameNumber>::Inclusive(InTime, InTime));
 	if (Existing.IsValid())
 	{
 		return Existing;
@@ -346,7 +346,7 @@ FMovieSceneSegmentIdentifier FMovieSceneEvaluationTrack::GetSegmentFromIterator(
 	return CompileSegment(Iterator);
 }
 
-TRange<float> FMovieSceneEvaluationTrack::GetUniqueRangeFromLowerBound(TRangeBound<float> InLowerBound) const
+TRange<FFrameNumber> FMovieSceneEvaluationTrack::GetUniqueRangeFromLowerBound(TRangeBound<FFrameNumber> InLowerBound) const
 {
 	return EvaluationTree.Tree.IterateFromLowerBound(InLowerBound).Range();
 }
@@ -459,9 +459,10 @@ void FMovieSceneEvaluationTrack::EvaluateStatic(FMovieSceneSegmentIdentifier Seg
 
 namespace
 {
-	bool IntersectSegmentRanges(const FMovieSceneSegment& Segment, TRange<float> TraversedRange, TMap<int32, TRange<float>>& ImplToAccumulatedRange)
+
+	bool IntersectSegmentRanges(const FMovieSceneSegment& Segment, TRange<FFrameNumber> TraversedRange, TMap<int32, TRange<FFrameNumber>>& ImplToAccumulatedRange)
 	{
-		TRange<float> Intersection = TRange<float>::Intersection(Segment.Range, TraversedRange);
+		TRange<FFrameNumber> Intersection = TRange<FFrameNumber>::Intersection(Segment.Range, TraversedRange);
 		if (Intersection.IsEmpty())
 		{
 			return false;
@@ -469,21 +470,21 @@ namespace
 
 		for (const FSectionEvaluationData& EvalData : Segment.Impls)
 		{
-			TRange<float>* AccumulatedRange = ImplToAccumulatedRange.Find(EvalData.ImplIndex);
+			TRange<FFrameNumber>* AccumulatedRange = ImplToAccumulatedRange.Find(EvalData.ImplIndex);
 			if (!AccumulatedRange)
 			{
 				ImplToAccumulatedRange.Add(EvalData.ImplIndex, Intersection);
 			}
 			else
 			{
-				*AccumulatedRange = TRange<float>::Hull(*AccumulatedRange, Intersection);
+				*AccumulatedRange = TRange<FFrameNumber>::Hull(*AccumulatedRange, Intersection);
 			}
 		}
 
 		return true;
 	}
 
-	void GatherSweptSegments(TRange<float> TraversedRange, int32 CurrentSegmentIndex, TArrayView<const FMovieSceneSegment> Segments, TMap<int32, TRange<float>>& ImplToAccumulatedRange)
+	void GatherSweptSegments(TRange<FFrameNumber> TraversedRange, int32 CurrentSegmentIndex, TArrayView<const FMovieSceneSegment> Segments, TMap<int32, TRange<FFrameNumber>>& ImplToAccumulatedRange)
 	{
 		// Search backwards from the current segment for any segments intersecting the traversed range
 		{
@@ -505,7 +506,7 @@ namespace
 void FMovieSceneEvaluationTrack::EvaluateSwept(FMovieSceneSegmentIdentifier SegmentID, const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 {
 	// Accumulate the relevant ranges that each section intersects with the evaluated range
-	TMap<int32, TRange<float>> ImplToAccumulatedRange;
+	TMap<int32, TRange<FFrameNumber>> ImplToAccumulatedRange;
 
 	int32 SortedIndex = Segments.GetSortedIndex(SegmentID);
 	if (SortedIndex == INDEX_NONE)
@@ -513,12 +514,12 @@ void FMovieSceneEvaluationTrack::EvaluateSwept(FMovieSceneSegmentIdentifier Segm
 		return;
 	}
 
-	GatherSweptSegments(Context.GetRange(), SortedIndex, Segments.GetSorted(), ImplToAccumulatedRange);
+	GatherSweptSegments(Context.GetFrameNumberRange(), SortedIndex, Segments.GetSorted(), ImplToAccumulatedRange);
 
 	for (auto& Pair : ImplToAccumulatedRange)
 	{
 		const int32 SectionIndex = Pair.Key;
-		TRange<float> EvaluationRange = Pair.Value;
+		TRange<FFrameTime> ClampRange = FMovieSceneEvaluationRange::NumberRangeToTimeRange(Pair.Value);
 		const FMovieSceneEvalTemplate& Template = GetChildTemplate(SectionIndex);
 
 		PersistentData.DeriveSectionKey(SectionIndex);
@@ -527,7 +528,7 @@ void FMovieSceneEvaluationTrack::EvaluateSwept(FMovieSceneSegmentIdentifier Segm
 		
 		Template.EvaluateSwept(
 			Operand,
-			Context.Clamp(EvaluationRange),
+			Context.Clamp(ClampRange),
 			PersistentData,
 			ExecutionTokens);
 	}
@@ -540,7 +541,7 @@ void FMovieSceneEvaluationTrack::Interrogate(const FMovieSceneContext& Context, 
 		return;
 	}
 
-	FMovieSceneSegmentIdentifier SegmentID = GetSegmentFromTime(Context.GetTime());
+	FMovieSceneSegmentIdentifier SegmentID = GetSegmentFromTime(Context.GetTime().FrameNumber);
 	if (!SegmentID.IsValid())
 	{
 		return;
@@ -556,9 +557,9 @@ void FMovieSceneEvaluationTrack::Interrogate(const FMovieSceneContext& Context, 
 	else
 	{
 		// Accumulate the relevant ranges that each section intersects with the evaluated range
-		TMap<int32, TRange<float>> ImplToAccumulatedRange;
+		TMap<int32, TRange<FFrameNumber>> ImplToAccumulatedRange;
 
-		GatherSweptSegments(Context.GetRange(), Segments.GetSortedIndex(SegmentID), Segments.GetSorted(), ImplToAccumulatedRange);
+		GatherSweptSegments(Context.GetFrameNumberRange(), Segments.GetSortedIndex(SegmentID), Segments.GetSorted(), ImplToAccumulatedRange);
 		for (auto& Pair : ImplToAccumulatedRange)
 		{
 			GetChildTemplate(Pair.Key).Interrogate(Context, Pair.Value, Container, BindingOverride);

@@ -10,6 +10,8 @@
 #include "SequencerHotspots.h"
 #include "ScopedTransaction.h"
 #include "Tools/SequencerSnapField.h"
+#include "Channels/MovieSceneChannelHandle.h"
+
 
 class FSequencer;
 class FSlateWindowElementList;
@@ -80,6 +82,31 @@ private:
 	/** The sections we are interacting with */
 	TArray<FSectionHandle> Sections;
 
+	/********************************************************/
+	struct FPreDragChannelData
+	{
+		/** The ID of the type of the channel, for use with ISequencerModule::FindChannelInterface */
+		uint32 ChannelType;
+		/** Weak handle to the type-erased channel ptr */
+		TMovieSceneChannelHandle<void> Channel;
+
+		/** Array of all the handles in the section at the start of the drag */
+		TArray<FKeyHandle> Handles;
+		/** Array of all the above handle's times, one per index of Handles */
+		TArray<FFrameNumber> FrameNumbers;
+	};
+
+	struct FPreDragSectionData
+	{
+		/** Pointer to the movie section, this section is only valid during a drag operation*/
+		UMovieSceneSection * MovieSection;
+		/** The initial range of the section before it was resized */
+		TRange<FFrameNumber> InitialRange;
+		/** Array of all the channels in the section before it was resized */
+		TArray<FPreDragChannelData> Channels;
+	};
+	TArray<FPreDragSectionData> PreDragSectionData;
+
 	/** true if dragging  the end of the section, false if dragging the start */
 	bool bDraggingByEnd;
 
@@ -87,13 +114,10 @@ private:
 	bool bIsSlipping;
 
 	/** Time where the mouse is pressed */
-	float MouseDownTime;
+	FFrameTime MouseDownTime;
 
 	/** The section start or end times when the mouse is pressed */
-	TMap<TWeakObjectPtr<UMovieSceneSection>, float> SectionInitTimes;
-
-	/** The exact key handles that we're dragging */
-	TSet<FKeyHandle> DraggedKeyHandles;
+	TMap<TWeakObjectPtr<UMovieSceneSection>, FFrameNumber> SectionInitTimes;
 
 	/** Optional snap field to use when dragging */
 	TOptional<FSequencerSnapField> SnapField;
@@ -126,11 +150,8 @@ private:
 	/** The sections we are interacting with */
 	TArray<FSectionHandle> Sections;
 
-	/** The exact key handles that we're dragging */
-	TSet<FKeyHandle> DraggedKeyHandles;
-
 	/** Array of desired offsets relative to the mouse position. Representes a contiguous array of start/end times directly corresponding to Sections array */
-	struct FRelativeOffset { float StartTime, EndTime; };
+	struct FRelativeOffset { FFrameTime StartTime, EndTime; };
 
 	TArray<FRelativeOffset> RelativeOffsets;
 
@@ -170,8 +191,11 @@ protected:
 	/** The selected keys being moved. */
 	const TSet<FSequencerSelectedKey>& SelectedKeys;
 
+	/** Sequential copy of the above set used during drag */
+	TArray<FSequencerSelectedKey> SelectedKeyArray;
+
 	/** Map of relative offsets from the original mouse position */
-	TMap<FSequencerSelectedKey, float> RelativeOffsets;
+	TArray<FFrameTime> RelativeOffsets;
 
 	/** Snap field used to assist in snapping calculations */
 	TOptional<FSequencerSnapField> SnapField;
@@ -227,10 +251,10 @@ private:
 	bool bEaseIn;
 
 	/** Time where the mouse is pressed */
-	float MouseDownTime;
+	FFrameTime MouseDownTime;
 
 	/** The section ease in/out when the mouse was pressed */
-	TOptional<float> InitValue;
+	TOptional<int32> InitValue;
 
 	/** Optional snap field to use when dragging */
 	TOptional<FSequencerSnapField> SnapField;

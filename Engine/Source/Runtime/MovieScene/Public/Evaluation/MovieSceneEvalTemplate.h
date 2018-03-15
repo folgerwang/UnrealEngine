@@ -135,7 +135,7 @@ public:
 	 * @param Container				Container to populate with the desired output from this track
 	 * @param BindingOverride		Optional binding to specify the object that is being animated by this track
 	 */
-	virtual void Interrogate(const FMovieSceneContext& Context, TRange<float> SweptRange, FMovieSceneInterrogationData& Container, UObject* BindingOverride) const
+	virtual void Interrogate(const FMovieSceneContext& Context, TRange<FFrameNumber> SweptRange, FMovieSceneInterrogationData& Container, UObject* BindingOverride) const
 	{
 	}
 
@@ -166,7 +166,7 @@ protected:
 	/**
 	 * Evaluate this template's easing functions based on the specified time
 	 */
-	MOVIESCENE_API float EvaluateEasing(float CurrentTime) const;
+	MOVIESCENE_API float EvaluateEasing(FFrameTime CurrentTime) const;
 
 	/**
 	 * Enum evaluation flag structure defining which functions are to be called in implementations of this struct
@@ -228,6 +228,10 @@ struct FMovieSceneEvalTemplatePtr
 			void* Allocation = Reserve(StructOps.GetSize(), StructOps.GetAlignment());
 			StructOps.Construct(Allocation);
 			StructOps.Copy(Allocation, &RHS.GetValue(), 1);
+		}
+		else
+		{
+			Reset();
 		}
 
 		return *this;

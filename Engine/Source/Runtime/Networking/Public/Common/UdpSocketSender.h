@@ -3,11 +3,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "HAL/Runnable.h"
 #include "Containers/Queue.h"
-#include "Interfaces/IPv4/IPv4Endpoint.h"
+#include "HAL/Runnable.h"
 #include "HAL/RunnableThread.h"
+#include "Misc/SingleThreadRunnable.h"
 #include "Sockets.h"
+
+#include "Interfaces/IPv4/IPv4Endpoint.h"
 
 /**
  * Asynchronously sends data to an UDP socket.
@@ -16,6 +18,7 @@
  */
 class FUdpSocketSender
 	: public FRunnable
+	, private FSingleThreadRunnable
 {
 	// Structure for outbound packets.
 	struct FPacket
@@ -138,7 +141,12 @@ public:
 
 public:
 
-	// FRunnable interface
+	//~ FRunnable interface
+
+	virtual FSingleThreadRunnable* GetSingleThreadInterface() override
+	{
+		return this;
+	}
 
 	virtual bool Init() override
 	{
@@ -149,23 +157,11 @@ public:
 	{
 		while (!Stopping)
 		{
-			while (!SendQueue.IsEmpty())
+			if (!Update(WaitTime))
 			{
-				if (Socket->Wait(ESocketWaitConditions::WaitForWrite, WaitTime))
-				{
-					FPacket Packet;
-					int32 Sent = 0;
+				Stopping = true;
 
-					SendQueue.Dequeue(Packet);
-					Socket->SendTo(Packet.Data->GetData(), Packet.Data->Num(), Sent, *Packet.Recipient.ToInternetAddr());
-					
-					if (Sent != Packet.Data->Num())
-					{
-						Stopping = true;
-
-						return 0;
-					}
-				}
+				return 0;
 			}
 
 			WorkEvent->Wait(WaitTime);
@@ -182,29 +178,70 @@ public:
 
 	virtual void Exit() override { }
 
+protected:
+
+	/**
+	 * Update this socket sender.
+	 *
+	 * @param Time to wait for the socket.
+	 * @return true on success, false otherwise.
+	 */
+	bool Update(const FTimespan& SocketWaitTime)
+	{
+		while (!SendQueue.IsEmpty())
+		{
+			if (!Socket->Wait(ESocketWaitConditions::WaitForWrite, SocketWaitTime))
+			{
+				break;
+			}
+
+			FPacket Packet;
+			int32 Sent = 0;
+
+			SendQueue.Dequeue(Packet);
+			Socket->SendTo(Packet.Data->GetData(), Packet.Data->Num(), Sent, *Packet.Recipient.ToInternetAddr());
+
+			if (Sent != Packet.Data->Num())
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+protected:
+
+	//~ FSingleThreadRunnable interface
+
+	virtual void Tick() override
+	{
+		Update(FTimespan::Zero());
+	}
+
 private:
 
-	/** Holds the send queue. */
+	/** The send queue. */
 	TQueue<FPacket, EQueueMode::Mpsc> SendQueue;
 
-	/** Holds the send rate. */
+	/** The send rate. */
 	uint32 SendRate;
 
-	/** Holds the network socket. */
+	/** The network socket. */
 	FSocket* Socket;
 
-	/** Holds a flag indicating that the thread is stopping. */
+	/** Flag indicating that the thread is stopping. */
 	bool Stopping;
 
-	/** Holds the thread object. */
+	/** The thread object. */
 	FRunnableThread* Thread;
 
-	/** Holds the current throughput. */
+	/** The current throughput. */
 	uint32 Throughput;
 
-	/** Holds the amount of time to wait for inbound packets. */
+	/** The amount of time to wait for inbound packets. */
 	FTimespan WaitTime;
 
-	/** Holds an event signaling that inbound messages need to be processed. */
+	/** An event signaling that inbound messages need to be processed. */
 	FEvent* WorkEvent;
 };

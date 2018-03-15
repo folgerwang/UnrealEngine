@@ -33,15 +33,3 @@ FMovieSceneEvalTemplatePtr UMovieSceneLevelVisibilitySection::GenerateTemplate()
 {
 	return FMovieSceneLevelVisibilitySectionTemplate(*this);
 }
-
-
-TOptional<float> UMovieSceneLevelVisibilitySection::GetKeyTime(FKeyHandle KeyHandle) const
-{
-	return TOptional<float>();
-}
-
-
-void UMovieSceneLevelVisibilitySection::SetKeyTime(FKeyHandle KeyHandle, float Time)
-{
-	// do nothing
-}

@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
+#include "FrameTime.h"
 #include "MovieSceneSequenceTransform.generated.h"
 
 /**
@@ -26,7 +27,7 @@ struct FMovieSceneSequenceTransform
 	 */
 	FMovieSceneSequenceTransform()
 		: TimeScale(1.f)
-		, Offset(0.f)
+		, Offset(0)
 	{}
 
 	/**
@@ -35,7 +36,7 @@ struct FMovieSceneSequenceTransform
 	 * @param InOffset 			The offset to translate by
 	 * @param InTimeScale 		The timescale. For instance, if a sequence is playing twice as fast, pass 2.f
 	 */
-	FMovieSceneSequenceTransform(float InOffset, float InTimeScale = 1.f)
+	FMovieSceneSequenceTransform(FFrameTime InOffset, float InTimeScale = 1.f)
 		: TimeScale(InTimeScale)
 		, Offset(InOffset)
 	{}
@@ -45,16 +46,17 @@ struct FMovieSceneSequenceTransform
 	 */
 	FMovieSceneSequenceTransform Inverse() const
 	{
-		return FMovieSceneSequenceTransform(-Offset/TimeScale, 1.f/TimeScale);
+		const FFrameTime NewOffset = -Offset/TimeScale;
+		return FMovieSceneSequenceTransform(NewOffset, 1.f/TimeScale);
 	}
 
 	/** The sequence's time scale (or play rate) */
 	UPROPERTY()
 	float TimeScale;
 
-	/** Scalar time offset applied before the scale */
+	/** Scalar frame offset applied before the scale */
 	UPROPERTY()
-	float Offset;
+	FFrameTime Offset;
 };
 
 /**
@@ -63,8 +65,14 @@ struct FMovieSceneSequenceTransform
  * @param InTime 			The time to transform
  * @param RHS 				The transform
  */
-inline float operator*(float InTime, const FMovieSceneSequenceTransform& RHS)
+inline FFrameTime operator*(FFrameTime InTime, const FMovieSceneSequenceTransform& RHS)
 {
+	// Avoid floating point conversion when in the same time-space
+	if (RHS.TimeScale == 1.f)
+	{
+		return InTime + RHS.Offset;
+	}
+
 	return RHS.Offset + InTime * RHS.TimeScale;
 }
 
@@ -74,7 +82,7 @@ inline float operator*(float InTime, const FMovieSceneSequenceTransform& RHS)
  * @param InTime 			The time to transform
  * @param RHS 				The transform
  */
-inline float& operator*=(float& InTime, const FMovieSceneSequenceTransform& RHS)
+inline FFrameTime& operator*=(FFrameTime& InTime, const FMovieSceneSequenceTransform& RHS)
 {
 	InTime = InTime * RHS;
 	return InTime;
@@ -89,23 +97,44 @@ inline float& operator*=(float& InTime, const FMovieSceneSequenceTransform& RHS)
 template<typename T>
 TRange<T> operator*(const TRange<T>& LHS, const FMovieSceneSequenceTransform& RHS)
 {
-	TRangeBound<float> SourceLower = LHS.GetLowerBound();
-	TRangeBound<float> TransformedLower =
+	TRangeBound<T> SourceLower = LHS.GetLowerBound();
+	TRangeBound<T> TransformedLower =
 		SourceLower.IsOpen() ? 
-			TRangeBound<float>() : 
+			TRangeBound<T>() : 
 			SourceLower.IsInclusive() ?
-				TRangeBound<float>::Inclusive(SourceLower.GetValue() * RHS) :
-				TRangeBound<float>::Exclusive(SourceLower.GetValue() * RHS);
+				TRangeBound<T>::Inclusive(SourceLower.GetValue() * RHS) :
+				TRangeBound<T>::Exclusive(SourceLower.GetValue() * RHS);
 
-	TRangeBound<float> SourceUpper = LHS.GetUpperBound();
-	TRangeBound<float> TransformedUpper =
+	TRangeBound<T> SourceUpper = LHS.GetUpperBound();
+	TRangeBound<T> TransformedUpper =
 		SourceUpper.IsOpen() ? 
-			TRangeBound<float>() : 
+			TRangeBound<T>() : 
 			SourceUpper.IsInclusive() ?
-				TRangeBound<float>::Inclusive(SourceUpper.GetValue() * RHS) :
-				TRangeBound<float>::Exclusive(SourceUpper.GetValue() * RHS);
+				TRangeBound<T>::Inclusive(SourceUpper.GetValue() * RHS) :
+				TRangeBound<T>::Exclusive(SourceUpper.GetValue() * RHS);
 
-	return TRange<float>(TransformedLower, TransformedUpper);
+	return TRange<T>(TransformedLower, TransformedUpper);
+}
+
+inline TRange<FFrameNumber> operator*(const TRange<FFrameNumber>& LHS, const FMovieSceneSequenceTransform& RHS)
+{
+	TRangeBound<FFrameNumber> SourceLower = LHS.GetLowerBound();
+	TRangeBound<FFrameNumber> TransformedLower =
+		SourceLower.IsOpen() ? 
+			TRangeBound<FFrameNumber>() : 
+			SourceLower.IsInclusive() ?
+				TRangeBound<FFrameNumber>::Inclusive((SourceLower.GetValue() * RHS).FloorToFrame()) :
+				TRangeBound<FFrameNumber>::Exclusive((SourceLower.GetValue() * RHS).FloorToFrame());
+
+	TRangeBound<FFrameNumber> SourceUpper = LHS.GetUpperBound();
+	TRangeBound<FFrameNumber> TransformedUpper =
+		SourceUpper.IsOpen() ? 
+			TRangeBound<FFrameNumber>() : 
+			SourceUpper.IsInclusive() ?
+				TRangeBound<FFrameNumber>::Inclusive((SourceUpper.GetValue() * RHS).FloorToFrame()) :
+				TRangeBound<FFrameNumber>::Exclusive((SourceUpper.GetValue() * RHS).FloorToFrame());
+
+	return TRange<FFrameNumber>(TransformedLower, TransformedUpper);
 }
 
 /**
@@ -132,8 +161,9 @@ inline FMovieSceneSequenceTransform operator*(const FMovieSceneSequenceTransform
 	// | TimeScaleA	, OffsetA	|	.	| TimeScaleB, OffsetB	|
 	// | 0			, 1			|		| 0			, 1			|
 
+	const FFrameTime ScaledOffsetRHS = LHS.TimeScale == 1.f ? RHS.Offset : RHS.Offset*LHS.TimeScale;
 	return FMovieSceneSequenceTransform(
-		RHS.Offset*LHS.TimeScale + LHS.Offset,		// New Offset
-		LHS.TimeScale * RHS.TimeScale				// New TimeScale
+		LHS.Offset + ScaledOffsetRHS,		// New Offset
+		LHS.TimeScale * RHS.TimeScale		// New TimeScale
 		);
 }

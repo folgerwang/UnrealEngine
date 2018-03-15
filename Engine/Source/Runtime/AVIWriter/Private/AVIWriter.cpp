@@ -353,8 +353,10 @@ public:
 			FString Directory = Options.OutputFilename;
 			FString Ext = FPaths::GetExtension(Directory, true);
 
+			int32 FPS = FMath::RoundToInt(double(Options.CaptureFramerateNumerator) / Options.CaptureFramerateDenominator);
+
 			// Keep 3 seconds worth of frames in memory
-			CapturedFrames.Reset(new FCapturedFrames(Directory.LeftChop(Ext.Len()) + TEXT("_tmp"), Options.CaptureFPS * 3));
+			CapturedFrames.Reset(new FCapturedFrames(Directory.LeftChop(Ext.Len()) + TEXT("_tmp"), FPS * 3));
 
 			hr = Control->Run();
 
@@ -485,9 +487,11 @@ public:
 			FString Directory = Options.OutputFilename;
 			FString Ext = FPaths::GetExtension(Directory, true);
 
+			int32 FPS = FMath::RoundToInt(double(Options.CaptureFramerateNumerator) / Options.CaptureFramerateDenominator);
+
 			// Keep 3 seconds worth of frames in memory
-			CapturedFrames.Reset(new FCapturedFrames(Directory.LeftChop(Ext.Len()) + TEXT("_tmp"), Options.CaptureFPS * 3));
-			
+			CapturedFrames.Reset(new FCapturedFrames(Directory.LeftChop(Ext.Len()) + TEXT("_tmp"), FPS * 3));
+
 			bCapturing = true;
 			ThreadTaskFuture = Async<void>(EAsyncExecution::Thread, [this]{	TaskThread(); });
 		}
@@ -542,8 +546,7 @@ public:
 				void* Data = CVPixelBufferGetBaseAddress(PixelBuffer);
 				FMemory::Memcpy(Data, CurrentFrame.FrameData.GetData(), CurrentFrame.FrameData.Num()*sizeof(FColor));
 				CVPixelBufferUnlockBaseAddress(PixelBuffer, 0);
-				
-				CMTime PresentTime = CurrentFrame.FrameIndex > 0 ? CMTimeMake(CurrentFrame.FrameIndex, Options.CaptureFPS) : kCMTimeZero;
+				CMTime PresentTime = CurrentFrame.FrameIndex > 0 ? CMTimeMake(CurrentFrame.FrameIndex * Options.CaptureFramerateDenominator, Options.CaptureFramerateNumerator) : kCMTimeZero;
 				BOOL OK = [AVFPixelBufferAdaptorRef appendPixelBuffer:PixelBuffer withPresentationTime:PresentTime];
 				check(OK);
 				
@@ -788,7 +791,7 @@ void FAVIWriter::Update(double FrameTimeSeconds, TArray<FColor> FrameData)
 {
 	if (bCapturing && FrameData.Num())
 	{
-		double FrameLength = 1.0 / Options.CaptureFPS;
+		double FrameLength = double(Options.CaptureFramerateDenominator) / Options.CaptureFramerateNumerator;
 		double FrameStart = FrameNumber * FrameLength;
 		FCapturedFrame Frame(FrameStart, FrameStart + FrameLength, FrameNumber, MoveTemp(FrameData));
 

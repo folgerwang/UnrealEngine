@@ -27,16 +27,5 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 bool FMovieSceneAdditiveCameraTrackBlender::SortByStartTime(const FMovieSceneSectionData& A, const FMovieSceneSectionData& B)
 {
-	if (A.Section->IsInfinite())
-	{
-		return true;
-	}
-	else if (B.Section->IsInfinite())
-	{
-		return false;
-	}
-	else
-	{
-		return A.Section->GetStartTime() < B.Section->GetStartTime();
-	}
+	return TRangeBound<FFrameNumber>::MinLower(A.Section->GetRange().GetLowerBound(), B.Section->GetRange().GetLowerBound()) == A.Section->GetRange().GetLowerBound();
 }

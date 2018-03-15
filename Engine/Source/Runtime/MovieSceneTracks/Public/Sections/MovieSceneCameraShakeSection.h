@@ -50,7 +50,7 @@ public:
 	virtual FMovieSceneEvalTemplatePtr GenerateTemplate() const override;
 	virtual void PostLoad() override;
 	
-	UPROPERTY(EditAnywhere, Category="Cmaera Shake", meta=(ShowOnlyInnerProperties))
+	UPROPERTY(EditAnywhere, Category="Camera Shake", meta=(ShowOnlyInnerProperties))
 	FMovieSceneCameraShakeSectionData ShakeData;
 
 public:

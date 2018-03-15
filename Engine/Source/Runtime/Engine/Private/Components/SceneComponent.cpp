@@ -36,7 +36,6 @@
 
 #define LOCTEXT_NAMESPACE "SceneComponent"
 
-
 namespace SceneComponentStatics
 {
 	static const FName DefaultSceneRootVariableName(TEXT("DefaultSceneRoot"));
@@ -1243,6 +1242,18 @@ void USceneComponent::SetRelativeLocationAndRotation(FVector NewLocation, FRotat
 	}
 }
 
+void USceneComponent::SetRelativeRotationExact(FRotator NewRotation, bool bSweep, FHitResult* OutSweepHitResult, ETeleportType Teleport)
+{
+	if (!NewRotation.Equals(RelativeRotation, SCENECOMPONENT_ROTATOR_TOLERANCE))
+	{
+		// We know the rotations are different, don't bother with the cache.
+		const FQuat NewQuat = NewRotation.Quaternion();
+     	SetRelativeLocationAndRotation(RelativeLocation, NewQuat, bSweep, OutSweepHitResult, Teleport);
+		RelativeRotation = NewRotation;
+		
+	}
+}
+
 void USceneComponent::SetRelativeRotation(FRotator NewRotation, bool bSweep, FHitResult* OutSweepHitResult, ETeleportType Teleport)
 {
 	if (!NewRotation.Equals(RelativeRotation, SCENECOMPONENT_ROTATOR_TOLERANCE))
@@ -1373,7 +1384,7 @@ void USceneComponent::SetWorldLocation(FVector NewLocation, bool bSweep, FHitRes
 	SetRelativeLocation(NewRelLocation, bSweep, OutSweepHitResult, Teleport);
 }
 
-void USceneComponent::SetWorldRotation(const FQuat& NewRotation, bool bSweep, FHitResult* OutSweepHitResult, ETeleportType Teleport)
+FQuat USceneComponent::GetRelativeRotationFromWorld(const FQuat & NewRotation)
 {
 	FQuat NewRelRotation = NewRotation;
 
@@ -1384,7 +1395,7 @@ void USceneComponent::SetWorldRotation(const FQuat& NewRotation, bool bSweep, FH
 		// in order to support mirroring, you'll have to use FTransform.GetRelativeTransform
 		// because negative SCALE should flip the rotation
 		if (FTransform::AnyHasNegativeScale(RelativeScale3D, ParentToWorld.GetScale3D()))
-		{	
+		{
 			FTransform NewTransform = GetComponentTransform();
 			// set new desired rotation
 			NewTransform.SetRotation(NewRotation);
@@ -1397,10 +1408,15 @@ void USceneComponent::SetWorldRotation(const FQuat& NewRotation, bool bSweep, FH
 			const FQuat ParentToWorldQuat = ParentToWorld.GetRotation();
 			// Quat multiplication works reverse way, make sure you do Parent(-1) * World = Local, not World*Parent(-) = Local (the way matrix does)
 			const FQuat NewRelQuat = ParentToWorldQuat.Inverse() * NewRotation;
-			NewRelRotation = NewRelQuat;		
+			NewRelRotation = NewRelQuat;
 		}
 	}
+	return NewRelRotation;
+}
 
+void USceneComponent::SetWorldRotation(const FQuat& NewRotation, bool bSweep, FHitResult* OutSweepHitResult, ETeleportType Teleport)
+{
+	FQuat NewRelRotation = GetRelativeRotationFromWorld(NewRotation);
 	SetRelativeRotation(NewRelRotation, bSweep, OutSweepHitResult, Teleport);
 }
 
@@ -1416,7 +1432,6 @@ void USceneComponent::SetWorldRotation(FRotator NewRotation, bool bSweep, FHitRe
 		SetWorldRotation(NewRotation.Quaternion(), bSweep, OutSweepHitResult, Teleport);
 	}
 }
-
 
 void USceneComponent::SetWorldScale3D(FVector NewScale)
 {
@@ -2684,7 +2699,9 @@ bool USceneComponent::InternalSetWorldLocationAndRotation(FVector NewLocation, c
 	}
 
 	const FRotator NewRelativeRotation = RelativeRotationCache.QuatToRotator_ReadOnly(NewRotationQuat);
-	if (!NewLocation.Equals(RelativeLocation) || !NewRelativeRotation.Equals(RelativeRotation))
+	bool bDiffLocation = !NewLocation.Equals(RelativeLocation);
+	bool bDiffRotation = !NewRelativeRotation.Equals(RelativeRotation);
+	if (bDiffLocation || bDiffRotation)
 	{
 		RelativeLocation = NewLocation;
 
@@ -2695,8 +2712,11 @@ bool USceneComponent::InternalSetWorldLocationAndRotation(FVector NewLocation, c
 		// it is required to generate that same ComponentToWorld otherwise the FComponentInstanceDataCache
 		// might fail to apply to the relevant component. In order to have the exact same transform
 		// we must enforce the quaternion to come from the rotator (as in load)
-		RelativeRotation = NewRelativeRotation;
-		RelativeRotationCache.RotatorToQuat(NewRelativeRotation);
+		if (bDiffRotation)
+		{
+			RelativeRotation = NewRelativeRotation;
+			RelativeRotationCache.RotatorToQuat(NewRelativeRotation);
+		}
 
 #if ENABLE_NAN_DIAGNOSTIC
 		if (RelativeRotation.ContainsNaN())

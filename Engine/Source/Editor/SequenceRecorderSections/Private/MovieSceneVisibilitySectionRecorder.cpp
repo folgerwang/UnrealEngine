@@ -8,6 +8,8 @@
 #include "Tracks/MovieSceneVisibilityTrack.h"
 #include "MovieScene.h"
 #include "ActorRecordingSettings.h"
+#include "Channels/MovieSceneChannelProxy.h"
+#include "MovieSceneTimeHelpers.h"
 
 static const FName ActorVisibilityTrackName = TEXT("bHidden");
 static const FName ComponentVisibilityTrackName = TEXT("bHiddenInGame");
@@ -51,7 +53,11 @@ void FMovieSceneVisibilitySectionRecorder::CreateSection(UObject* InObjectToReco
 
 		VisibilityTrack->AddSection(*MovieSceneSection);
 
-		MovieSceneSection->SetDefault(false);
+		FMovieSceneBoolChannel* Channel = MovieSceneSection->GetChannelProxy().GetChannel<FMovieSceneBoolChannel>(0);
+		if (ensure(Channel))
+		{
+			Channel->SetDefault(false);
+		}
 
 		bWasVisible = false;
 		if(SceneComponent)
@@ -63,17 +69,24 @@ void FMovieSceneVisibilitySectionRecorder::CreateSection(UObject* InObjectToReco
 			bWasVisible = !Actor->bHidden;
 		}
 
-		// if time is not at the very start of the movie scene, make sure 
-		// we are hidden by default as the track will extrapolate backwards and show 
-		// objects that shouldnt be visible.
-		if (Time != MovieScene->GetPlaybackRange().GetLowerBoundValue())
+		FFrameRate   FrameResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		FFrameNumber CurrentFrame    = (Time * FrameResolution).FloorToFrame();
+
+		if (ensure(Channel))
 		{
-			MovieSceneSection->AddKey(MovieScene->GetPlaybackRange().GetLowerBoundValue(), false, EMovieSceneKeyInterpolation::Break);
+			// if time is not at the very start of the movie scene, make sure 
+			// we are hidden by default as the track will extrapolate backwards and show 
+			// objects that shouldnt be visible.
+			FFrameNumber LowerBoundValue = MovieScene->GetPlaybackRange().GetLowerBoundValue();
+			if (CurrentFrame != LowerBoundValue)
+			{
+				Channel->GetInterface().AddKey(LowerBoundValue, false);
+			}
+
+			Channel->GetInterface().AddKey(CurrentFrame, bWasVisible);
 		}
 
-		MovieSceneSection->AddKey(Time, bWasVisible, EMovieSceneKeyInterpolation::Break);
-
-		MovieSceneSection->SetStartTime(Time);
+		MovieSceneSection->SetRange(TRange<FFrameNumber>::Inclusive(CurrentFrame, CurrentFrame));
 	}
 }
 
@@ -85,7 +98,10 @@ void FMovieSceneVisibilitySectionRecorder::Record(float CurrentTime)
 {
 	if(ObjectToRecord.IsValid())
 	{
-		MovieSceneSection->SetEndTime(CurrentTime);
+		FFrameRate   FrameResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		FFrameNumber CurrentFrame    = (CurrentTime * FrameResolution).FloorToFrame();
+
+		MovieSceneSection->ExpandToFrame(CurrentFrame);
 
 		bool bVisible = false;
 		if(USceneComponent* SceneComponent = Cast<USceneComponent>(ObjectToRecord.Get()))
@@ -99,7 +115,11 @@ void FMovieSceneVisibilitySectionRecorder::Record(float CurrentTime)
 
 		if(bVisible != bWasVisible)
 		{
-			MovieSceneSection->AddKey(CurrentTime, bVisible, EMovieSceneKeyInterpolation::Break);
+			FMovieSceneBoolChannel* Channel = MovieSceneSection->GetChannelProxy().GetChannel<FMovieSceneBoolChannel>(0);
+			if (ensure(Channel))
+			{
+				Channel->GetInterface().AddKey(CurrentFrame, bVisible);
+			}
 		}
 		bWasVisible = bVisible;
 	}

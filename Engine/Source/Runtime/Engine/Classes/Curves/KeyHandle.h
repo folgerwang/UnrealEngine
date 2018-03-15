@@ -14,6 +14,8 @@ struct FKeyHandle
 {
 	ENGINE_API FKeyHandle();
 
+	static ENGINE_API FKeyHandle Invalid();
+
 	bool operator ==(const FKeyHandle& Other) const
 	{
 		return Index == Other.Index;
@@ -23,7 +25,12 @@ struct FKeyHandle
 	{
 		return Index != Other.Index;
 	}
-	
+
+	friend bool operator<(FKeyHandle A, FKeyHandle B)
+	{
+		return A.Index < B.Index;
+	}
+
 	friend uint32 GetTypeHash(const FKeyHandle& Handle)
 	{
 		return GetTypeHash(Handle.Index);
@@ -36,6 +43,9 @@ struct FKeyHandle
 	}
 
 private:
+
+	/** Private constructor from a specific index - only for use in FKeyHandle::Invalid to avoid allocating new handles unnecessarily */
+	explicit FKeyHandle(uint32 SpecificIndex);
 
 	uint32 Index;
 };

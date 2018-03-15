@@ -3,22 +3,30 @@
 #include "MovieSceneSection.h"
 #include "MovieSceneTrack.h"
 #include "MovieSceneCommonHelpers.h"
+#include "MovieSceneTimeHelpers.h"
 #include "Evaluation/MovieSceneEvalTemplate.h"
 #include "Generators/MovieSceneEasingCurves.h"
-
+#include "Channels/MovieSceneChannelProxy.h"
+#include "Containers/ArrayView.h"
+#include "UObject/SequencerObjectVersion.h"
 
 UMovieSceneSection::UMovieSceneSection(const FObjectInitializer& ObjectInitializer)
 	: Super( ObjectInitializer )
-	, StartTime(0.0f)
-	, EndTime(0.0f)
+	, PreRollFrames(0)
+	, PostRollFrames(0)
 	, RowIndex(0)
 	, OverlapPriority(0)
 	, bIsActive(true)
 	, bIsLocked(false)
-	, bIsInfinite(false)
-	, PreRollTime(0)
-	, PostRollTime(0)
+	, StartTime_DEPRECATED(0.f)
+	, EndTime_DEPRECATED(0.f)
+	, PreRollTime_DEPRECATED(0.f)
+	, PostRollTime_DEPRECATED(0.f)
+	, bIsInfinite_DEPRECATED(0)
+	, bSupportsInfiniteRange(false)
 {
+	SectionRange.Value = TRange<FFrameNumber>(0);
+
 	UMovieSceneBuiltInEasingFunction* DefaultEaseIn = ObjectInitializer.CreateDefaultSubobject<UMovieSceneBuiltInEasingFunction>(this, "EaseInFunction");
 	DefaultEaseIn->SetFlags(RF_Public); //@todo Need to be marked public. GLEO occurs when transform sections are added to actor sequence blueprints. Are these not being duplicated properly?
 	DefaultEaseIn->Type = EMovieSceneBuiltInEasing::CubicInOut;
@@ -40,8 +48,141 @@ void UMovieSceneSection::PostInitProperties()
 	}
 	
 	Super::PostInitProperties();
+
+	// Set up a default channel proxy if this class hasn't done so already
+	if (!HasAnyFlags(RF_ClassDefaultObject) && !ChannelProxy.IsValid())
+	{
+		ChannelProxy = MakeShared<FMovieSceneChannelProxy>();
+	}
 }
 
+void UMovieSceneSection::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	Ar.UsingCustomVersion(FSequencerObjectVersion::GUID);
+
+	if (Ar.CustomVer(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::FloatToIntConversion)
+	{
+		const FFrameRate LegacyFrameRate = GetLegacyConversionFrameRate();
+
+		if (bIsInfinite_DEPRECATED)
+		{
+			SectionRange = TRange<FFrameNumber>::All();
+		}
+		else
+		{
+			FFrameNumber StartFrame = UpgradeLegacyMovieSceneTime(this, LegacyFrameRate, StartTime_DEPRECATED);
+			FFrameNumber LastFrame  = UpgradeLegacyMovieSceneTime(this, LegacyFrameRate, EndTime_DEPRECATED);
+
+			// Exclusive upper bound so we want the upper bound to be exclusively the next frame after LastFrame
+			SectionRange = TRange<FFrameNumber>(StartFrame, LastFrame + 1);
+		}
+
+		// All these times are offsets from the start/end time so it's highly unlikely that they'll be out-of bounds
+		PreRollFrames                = LegacyFrameRate.AsFrameNumber(PreRollTime_DEPRECATED).Value;
+		PostRollFrames               = LegacyFrameRate.AsFrameNumber(PostRollTime_DEPRECATED).Value;
+#if WITH_EDITORONLY_DATA
+		Easing.AutoEaseInDuration    = (Easing.AutoEaseInTime_DEPRECATED * LegacyFrameRate).RoundToFrame().Value;
+		Easing.AutoEaseOutDuration   = (Easing.AutoEaseOutTime_DEPRECATED * LegacyFrameRate).RoundToFrame().Value;
+		Easing.ManualEaseInDuration  = (Easing.ManualEaseInTime_DEPRECATED * LegacyFrameRate).RoundToFrame().Value;
+		Easing.ManualEaseOutDuration = (Easing.ManualEaseOutTime_DEPRECATED * LegacyFrameRate).RoundToFrame().Value;
+#endif
+	}
+}
+
+void UMovieSceneSection::SetStartFrame(TRangeBound<FFrameNumber> NewStartFrame)
+{
+	if (TryModify())
+	{
+		bool bIsValidStartFrame = ensureMsgf(SectionRange.Value.GetUpperBound().IsOpen() || NewStartFrame.IsOpen() || SectionRange.Value.GetUpperBound().GetValue() >= NewStartFrame.GetValue(),
+			TEXT("Invalid start frame specified; will be clamped to current end frame."));
+
+		if (bIsValidStartFrame)
+		{
+			SectionRange.Value.SetLowerBound(NewStartFrame);
+		}
+		else
+		{
+			SectionRange.Value.SetLowerBound(TRangeBound<FFrameNumber>::FlipInclusion(SectionRange.Value.GetUpperBound()));
+		}
+	}
+}
+
+void UMovieSceneSection::SetEndFrame(TRangeBound<FFrameNumber> NewEndFrame)
+{
+	if (TryModify())
+	{
+		bool bIsValidEndFrame = ensureMsgf(SectionRange.Value.GetLowerBound().IsOpen() || NewEndFrame.IsOpen() || SectionRange.Value.GetLowerBound().GetValue() <= NewEndFrame.GetValue(),
+			TEXT("Invalid end frame specified; will be clamped to current start frame."));
+
+		if (bIsValidEndFrame)
+		{
+			SectionRange.Value.SetUpperBound(NewEndFrame);
+		}
+		else
+		{
+			SectionRange.Value.SetUpperBound(TRangeBound<FFrameNumber>::FlipInclusion(SectionRange.Value.GetLowerBound()));
+		}
+	}
+}
+
+FMovieSceneChannelProxy& UMovieSceneSection::GetChannelProxy() const
+{
+	FMovieSceneChannelProxy* Proxy = ChannelProxy.Get();
+	check(Proxy);
+	return *Proxy;
+}
+
+TSharedPtr<FStructOnScope> UMovieSceneSection::GetKeyStruct(TArrayView<const FKeyHandle> KeyHandles)
+{
+	return nullptr;
+}
+
+void UMovieSceneSection::MoveSection(FFrameNumber DeltaFrame)
+{
+	if (TryModify())
+	{
+		TRange<FFrameNumber> NewRange = SectionRange.Value;
+		if (SectionRange.Value.GetLowerBound().IsClosed())
+		{
+			SectionRange.Value.SetLowerBoundValue(SectionRange.Value.GetLowerBoundValue() + DeltaFrame);
+		}
+		if (SectionRange.Value.GetUpperBound().IsClosed())
+		{
+			SectionRange.Value.SetUpperBoundValue(SectionRange.Value.GetUpperBoundValue() + DeltaFrame);
+		}
+
+		if (ChannelProxy.IsValid())
+		{
+			for (const FMovieSceneChannelEntry& Entry : ChannelProxy->GetAllEntries())
+			{
+				Entry.GetBatchChannelInterface().Offset_Batch(Entry.GetChannels(), DeltaFrame);
+			}
+		}
+	}
+}
+
+
+TRange<FFrameNumber> UMovieSceneSection::ComputeEffectiveRange() const
+{
+	if (!SectionRange.Value.GetLowerBound().IsOpen() && !SectionRange.Value.GetUpperBound().IsOpen())
+	{
+		return GetRange();
+	}
+
+	TRange<FFrameNumber> EffectiveRange = TRange<FFrameNumber>::Empty();
+
+	if (ChannelProxy.IsValid())
+	{
+		for (const FMovieSceneChannelEntry& Entry : ChannelProxy->GetAllEntries())
+		{
+			EffectiveRange = TRange<FFrameNumber>::Hull(EffectiveRange, Entry.GetBatchChannelInterface().ComputeEffectiveRange_Batch(Entry.GetChannels()));
+		}
+	}
+
+	return TRange<FFrameNumber>::Intersection(EffectiveRange, SectionRange.Value);
+}
 
 FMovieSceneBlendTypeField UMovieSceneSection::GetSupportedBlendTypes() const
 {
@@ -71,7 +212,7 @@ void UMovieSceneSection::GetOverlappingSections(TArray<UMovieSceneSection*>& Out
 		return;
 	}
 
-	TRange<float> ThisRange = GetRange();
+	TRange<FFrameNumber> ThisRange = GetRange();
 	for (UMovieSceneSection* Section : Track->GetAllSections())
 	{
 		if (!Section || (!bIncludeThis && Section == this))
@@ -92,19 +233,38 @@ void UMovieSceneSection::GetOverlappingSections(TArray<UMovieSceneSection*>& Out
 }
 
 
-const UMovieSceneSection* UMovieSceneSection::OverlapsWithSections(const TArray<UMovieSceneSection*>& Sections, int32 TrackDelta, float TimeDelta) const
+const UMovieSceneSection* UMovieSceneSection::OverlapsWithSections(const TArray<UMovieSceneSection*>& Sections, int32 TrackDelta, int32 TimeDelta) const
 {
 	// Check overlaps with exclusive ranges so that sections can butt up against each other
 	int32 NewTrackIndex = RowIndex + TrackDelta;
-	TRange<float> NewSectionRange = TRange<float>(TRange<float>::BoundsType::Exclusive(StartTime + TimeDelta), TRange<float>::BoundsType::Exclusive(EndTime + TimeDelta));
+
+	// @todo: sequencer-timecode: is this correct? it seems like we should just use the section's ranges directly rather than fiddling with the bounds
+	// TRange<FFrameNumber> NewSectionRange;
+	// if (SectionRange.GetLowerBound().IsClosed())
+	// {
+	// 	NewSectionRange = TRange<FFrameNumber>(
+	// 		TRangeBound<FFrameNumber>::Exclusive(SectionRange.GetLowerBoundValue() + TimeDelta),
+	// 		NewSectionRange.GetUpperBound()
+	// 		);
+	// }
+
+	// if (SectionRange.GetUpperBound().IsClosed())
+	// {
+	// 	NewSectionRange = TRange<FFrameNumber>(
+	// 		NewSectionRange.GetLowerBound(),
+	// 		TRangeBound<FFrameNumber>::Exclusive(SectionRange.GetUpperBoundValue() + TimeDelta)
+	// 		);
+	// }
+
+	TRange<FFrameNumber> ThisRange = SectionRange.Value;
 
 	for (const auto Section : Sections)
 	{
 		check(Section);
 		if ((this != Section) && (Section->GetRowIndex() == NewTrackIndex))
 		{
-			TRange<float> ExclusiveSectionRange = TRange<float>(TRange<float>::BoundsType::Exclusive(Section->GetRange().GetLowerBoundValue()), TRange<float>::BoundsType::Exclusive(Section->GetRange().GetUpperBoundValue()));
-			if (NewSectionRange.Overlaps(ExclusiveSectionRange))
+			//TRange<float> ExclusiveSectionRange = TRange<float>(TRange<float>::BoundsType::Exclusive(Section->GetRange().GetLowerBoundValue()), TRange<float>::BoundsType::Exclusive(Section->GetRange().GetUpperBoundValue()));
+			if (ThisRange.Overlaps(Section->GetRange()))
 			{
 				return Section;
 			}
@@ -115,12 +275,12 @@ const UMovieSceneSection* UMovieSceneSection::OverlapsWithSections(const TArray<
 }
 
 
-void UMovieSceneSection::InitialPlacement(const TArray<UMovieSceneSection*>& Sections, float InStartTime, float InEndTime, bool bAllowMultipleRows)
+void UMovieSceneSection::InitialPlacement(const TArray<UMovieSceneSection*>& Sections, FFrameNumber InStartTime, int32 Duration, bool bAllowMultipleRows)
 {
-	check(StartTime <= EndTime);
+	check(Duration >= 0);
 
-	StartTime = InStartTime;
-	EndTime = InEndTime;
+	// Inclusive lower, exclusive upper bounds
+	SectionRange = TRange<FFrameNumber>(InStartTime, InStartTime + Duration);
 	RowIndex = 0;
 
 	for (UMovieSceneSection* OtherSection : Sections)
@@ -140,14 +300,21 @@ void UMovieSceneSection::InitialPlacement(const TArray<UMovieSceneSection*>& Sec
 		for (;;)
 		{
 			const UMovieSceneSection* OverlappedSection = OverlapsWithSections(Sections);
-
 			if (OverlappedSection == nullptr)
 			{
 				break;
 			}
 
-			TSet<FKeyHandle> KeyHandles;
-			MoveSection(OverlappedSection->GetEndTime() - StartTime, KeyHandles);
+			TRange<FFrameNumber> OtherRange = OverlappedSection->GetRange();
+			if (OtherRange.GetUpperBound().IsClosed())
+			{
+				MoveSection(OtherRange.GetUpperBoundValue() - InStartTime);
+			}
+			else
+			{
+				++OverlapPriority;
+				break;
+			}
 		}
 	}
 
@@ -158,10 +325,51 @@ void UMovieSceneSection::InitialPlacement(const TArray<UMovieSceneSection*>& Sec
 	}
 }
 
-
-UMovieSceneSection* UMovieSceneSection::SplitSection(float SplitTime)
+void UMovieSceneSection::InitialPlacementOnRow(const TArray<UMovieSceneSection*>& Sections, FFrameNumber InStartTime, int32 Duration, int32 InRowIndex)
 {
-	if (!IsTimeWithinSection(SplitTime))
+	check(Duration >= 0);
+
+	// Inclusive lower, exclusive upper bounds
+	SectionRange = TRange<FFrameNumber>(InStartTime, InStartTime + Duration);
+	RowIndex = InRowIndex;
+
+	// If no given row index, put it on the next available row
+	if (RowIndex == INDEX_NONE)
+	{
+		RowIndex = 0;
+		while (OverlapsWithSections(Sections) != nullptr)
+		{
+			++RowIndex;
+		}
+	}
+
+	for (UMovieSceneSection* OtherSection : Sections)
+	{
+		OverlapPriority = FMath::Max(OtherSection->GetOverlapPriority()+1, OverlapPriority);
+	}
+
+	// If this overlaps with any sections, move out all the sections that are beyond this row
+	if (OverlapsWithSections(Sections))
+	{
+		for (UMovieSceneSection* OtherSection : Sections)
+		{
+			if (OtherSection != nullptr && OtherSection != this && OtherSection->GetRowIndex() >= RowIndex)
+			{
+				OtherSection->SetRowIndex(OtherSection->GetRowIndex()+1);
+			}
+		}
+	}
+
+	UMovieSceneTrack* Track = GetTypedOuter<UMovieSceneTrack>();
+	if (Track)
+	{
+		Track->UpdateEasing();
+	}
+}
+
+UMovieSceneSection* UMovieSceneSection::SplitSection(FFrameNumber SplitTime)
+{
+	if (!SectionRange.Value.Contains(SplitTime))
 	{
 		return nullptr;
 	}
@@ -170,10 +378,12 @@ UMovieSceneSection* UMovieSceneSection::SplitSection(float SplitTime)
 
 	if (TryModify())
 	{
-		float SectionEndTime = GetEndTime();
-				
+		TRange<FFrameNumber> StartingRange  = SectionRange.Value;
+		TRange<FFrameNumber> LeftHandRange  = TRange<FFrameNumber>(StartingRange.GetLowerBound(), TRangeBound<FFrameNumber>::Exclusive(SplitTime));
+		TRange<FFrameNumber> RightHandRange = TRange<FFrameNumber>(TRangeBound<FFrameNumber>::Inclusive(SplitTime), StartingRange.GetUpperBound());
+
 		// Trim off the right
-		SetEndTime(SplitTime);
+		SectionRange = LeftHandRange;
 
 		// Create a new section
 		UMovieSceneTrack* Track = CastChecked<UMovieSceneTrack>(GetOuter());
@@ -182,8 +392,7 @@ UMovieSceneSection* UMovieSceneSection::SplitSection(float SplitTime)
 		UMovieSceneSection* NewSection = DuplicateObject<UMovieSceneSection>(this, Track);
 		check(NewSection);
 
-		NewSection->SetStartTime(SplitTime);
-		NewSection->SetEndTime(SectionEndTime);
+		NewSection->SetRange(RightHandRange);
 		Track->AddSection(*NewSection);
 
 		return NewSection;
@@ -193,49 +402,22 @@ UMovieSceneSection* UMovieSceneSection::SplitSection(float SplitTime)
 }
 
 
-void UMovieSceneSection::TrimSection(float TrimTime, bool bTrimLeft)
+void UMovieSceneSection::TrimSection(FFrameNumber TrimTime, bool bTrimLeft)
 {
-	if (IsTimeWithinSection(TrimTime))
+	if (SectionRange.Value.Contains(TrimTime))
 	{
 		SetFlags(RF_Transactional);
 		if (TryModify())
 		{
 			if (bTrimLeft)
 			{
-				SetStartTime(TrimTime);
+				SectionRange.Value.SetLowerBound(TRangeBound<FFrameNumber>::Inclusive(TrimTime));
 			}
 			else
 			{
-				SetEndTime(TrimTime);
+				SectionRange.Value.SetUpperBound(TRangeBound<FFrameNumber>::Exclusive(TrimTime));
 			}
 		}
-	}
-}
-
-
-void UMovieSceneSection::AddKeyToCurve(FRichCurve& InCurve, float Time, float Value, EMovieSceneKeyInterpolation Interpolation, const bool bUnwindRotation)
-{
-	if (IsTimeWithinSection(Time))
-	{
-		if (TryModify())
-		{
-			FKeyHandle ExistingKeyHandle = InCurve.FindKey(Time);
-			FKeyHandle NewKeyHandle = InCurve.UpdateOrAddKey(Time, Value, bUnwindRotation);
-
-			if (!InCurve.IsKeyHandleValid(ExistingKeyHandle) && InCurve.IsKeyHandleValid(NewKeyHandle))
-			{
-				MovieSceneHelpers::SetKeyInterpolation(InCurve, NewKeyHandle, Interpolation);
-			}
-		}
-	}
-}
-
-
-void UMovieSceneSection::SetCurveDefault(FRichCurve& InCurve, float Value)
-{
-	if (InCurve.GetDefaultValue() != Value && TryModify())
-	{
-		InCurve.SetDefaultValue(Value);
 	}
 }
 
@@ -246,45 +428,47 @@ FMovieSceneEvalTemplatePtr UMovieSceneSection::GenerateTemplate() const
 }
 
 
-float UMovieSceneSection::EvaluateEasing(float InTime) const
+float UMovieSceneSection::EvaluateEasing(FFrameTime InTime) const
 {
-	TRange<float> CurrentRange = GetRange();
-
 	float EaseInValue = 1.f;
 	float EaseOutValue = 1.f;
 
-	if (!CurrentRange.GetLowerBound().IsOpen() && Easing.GetEaseInTime() > 0.f && Easing.EaseIn.GetObject())
+	if (HasStartFrame() && Easing.GetEaseInDuration() > 0 && Easing.EaseIn.GetObject())
 	{
-		float EaseInTime = (InTime - CurrentRange.GetLowerBoundValue()) / Easing.GetEaseInTime();
-		if (EaseInTime <= 0.f)
+		const int32  EaseFrame    = (InTime.FrameNumber - GetInclusiveStartFrame()).Value;
+		const double EaseInInterp = (double(EaseFrame) + InTime.GetSubFrame()) / Easing.GetEaseInDuration();
+
+		if (EaseInInterp <= 0.0)
 		{
-			EaseInValue = 0.f;
+			EaseInValue = 0.0;
 		}
-		else if (EaseInTime >= 1.f)
+		else if (EaseInInterp >= 1.0)
 		{
-			EaseInValue = 1.f;
+			EaseInValue = 1.0;
 		}
 		else
 		{
-			EaseInValue = IMovieSceneEasingFunction::EvaluateWith(Easing.EaseIn, EaseInTime);
+			EaseInValue = IMovieSceneEasingFunction::EvaluateWith(Easing.EaseIn, EaseInInterp);
 		}
 	}
 
 
-	if (!CurrentRange.GetUpperBound().IsOpen() && Easing.GetEaseOutTime() > 0.f && Easing.EaseOut.GetObject())
+	if (HasEndFrame() && Easing.GetEaseOutDuration() > 0 && Easing.EaseOut.GetObject())
 	{
-		float EaseOutTime = (InTime - (CurrentRange.GetUpperBoundValue() - Easing.GetEaseOutTime())) / Easing.GetEaseOutTime();
-		if (EaseOutTime <= 0.f)
+		const int32  EaseFrame     = (InTime.FrameNumber - GetExclusiveEndFrame() + Easing.GetEaseOutDuration()).Value;
+		const double EaseOutInterp = (double(EaseFrame) + InTime.GetSubFrame()) / Easing.GetEaseOutDuration();
+
+		if (EaseOutInterp <= 0.0)
 		{
-			EaseOutValue = 1.f;
+			EaseOutValue = 1.0;
 		}
-		else if (EaseOutTime >= 1.f)
+		else if (EaseOutInterp >= 1.0)
 		{
-			EaseOutValue = 0.f;
+			EaseOutValue = 0.0;
 		}
 		else
 		{
-			EaseOutValue = 1.f - IMovieSceneEasingFunction::EvaluateWith(Easing.EaseOut, EaseOutTime);
+			EaseOutValue = 1.f - IMovieSceneEasingFunction::EvaluateWith(Easing.EaseOut, EaseOutInterp);
 		}
 	}
 
@@ -292,51 +476,61 @@ float UMovieSceneSection::EvaluateEasing(float InTime) const
 }
 
 
-void UMovieSceneSection::EvaluateEasing(float InTime, TOptional<float>& OutEaseInValue, TOptional<float>& OutEaseOutValue, float* OutEaseInInterp, float* OutEaseOutInterp) const
+void UMovieSceneSection::EvaluateEasing(FFrameTime InTime, TOptional<float>& OutEaseInValue, TOptional<float>& OutEaseOutValue, float* OutEaseInInterp, float* OutEaseOutInterp) const
 {
-	TRange<float> CurrentRange = GetRange();
-
-	if (!CurrentRange.GetLowerBound().IsOpen() && Easing.EaseIn.GetObject() && GetEaseInRange().Contains(InTime))
+	if (HasStartFrame() && Easing.EaseIn.GetObject() && GetEaseInRange().Contains(InTime.FrameNumber))
 	{
-		float EaseInTime = (InTime - CurrentRange.GetLowerBoundValue()) / Easing.GetEaseInTime();
-		OutEaseInValue = IMovieSceneEasingFunction::EvaluateWith(Easing.EaseIn, EaseInTime);
+		const int32  EaseFrame    = (InTime.FrameNumber - GetInclusiveStartFrame()).Value;
+		const double EaseInInterp = (double(EaseFrame) + InTime.GetSubFrame()) / Easing.GetEaseInDuration();
+
+		OutEaseInValue = IMovieSceneEasingFunction::EvaluateWith(Easing.EaseIn, EaseInInterp);
 
 		if (OutEaseInInterp)
 		{
-			*OutEaseInInterp = EaseInTime;
+			*OutEaseInInterp = EaseInInterp;
 		}
 	}
 
-	if (!CurrentRange.GetUpperBound().IsOpen() && Easing.EaseOut.GetObject() && GetEaseOutRange().Contains(InTime))
+	if (HasEndFrame() && Easing.EaseOut.GetObject() && GetEaseOutRange().Contains(InTime.FrameNumber))
 	{
-		float EaseOutTime = (InTime - (CurrentRange.GetUpperBoundValue() - Easing.GetEaseOutTime())) / Easing.GetEaseOutTime();
-		OutEaseOutValue = 1.f - IMovieSceneEasingFunction::EvaluateWith(Easing.EaseOut, EaseOutTime);
+		const int32  EaseFrame     = (InTime.FrameNumber - GetExclusiveEndFrame() + Easing.GetEaseOutDuration()).Value;
+		const double EaseOutInterp = (double(EaseFrame) + InTime.GetSubFrame()) / Easing.GetEaseOutDuration();
+
+		OutEaseOutValue = 1.f - IMovieSceneEasingFunction::EvaluateWith(Easing.EaseOut, EaseOutInterp);
 
 		if (OutEaseOutInterp)
 		{
-			*OutEaseOutInterp = EaseOutTime;
+			*OutEaseOutInterp = EaseOutInterp;
 		}
 	}
 }
 
 
-TRange<float> UMovieSceneSection::GetEaseInRange() const
+TRange<FFrameNumber> UMovieSceneSection::GetEaseInRange() const
 {
-	const float MaxTime = FMath::Min(GetStartTime() + Easing.GetEaseInTime(), GetEndTime());
-	if (!bIsInfinite && Easing.GetEaseInTime() > 0.f)
+	if (HasStartFrame() && Easing.GetEaseInDuration() > 0)
 	{
-		return TRange<float>(GetStartTime(), TRangeBound<float>::Inclusive(MaxTime));
+		TRangeBound<FFrameNumber> LowerBound = TRangeBound<FFrameNumber>::Inclusive(GetInclusiveStartFrame());
+		TRangeBound<FFrameNumber> UpperBound = TRangeBound<FFrameNumber>::Exclusive(GetInclusiveStartFrame() + Easing.GetEaseInDuration());
+
+		UpperBound = TRangeBound<FFrameNumber>::MinUpper(UpperBound, SectionRange.Value.GetUpperBound());
+		return TRange<FFrameNumber>(LowerBound, UpperBound);
 	}
-	return TRange<float>::Empty();
+
+	return TRange<FFrameNumber>::Empty();
 }
 
 
-TRange<float> UMovieSceneSection::GetEaseOutRange() const
+TRange<FFrameNumber> UMovieSceneSection::GetEaseOutRange() const
 {
-	const float MinTime = FMath::Max(GetEndTime() - Easing.GetEaseOutTime(), GetStartTime());
-	if (!bIsInfinite && Easing.GetEaseOutTime() > 0.f)
+	if (HasEndFrame() && Easing.GetEaseOutDuration() > 0)
 	{
-		return TRange<float>(MinTime, TRangeBound<float>::Inclusive(GetEndTime()));
+		TRangeBound<FFrameNumber> UpperBound = TRangeBound<FFrameNumber>::Exclusive(GetExclusiveEndFrame());
+		TRangeBound<FFrameNumber> LowerBound = TRangeBound<FFrameNumber>::Inclusive(GetExclusiveEndFrame() - Easing.GetEaseOutDuration());
+
+		LowerBound = TRangeBound<FFrameNumber>::MaxLower(LowerBound, SectionRange.Value.GetLowerBound());
+		return TRange<FFrameNumber>(LowerBound, UpperBound);
 	}
-	return TRange<float>::Empty();
+
+	return TRange<FFrameNumber>::Empty();
 }

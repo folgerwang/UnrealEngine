@@ -24,9 +24,11 @@ namespace UnrealBuildTool.Rules
 					"CoreUObject",
 					"Engine",
 					"ImageWrapper",
+					"MediaAssets",
 					"RenderCore",
 					"RHI",
 					"ShaderCore",
+					"TimeManagement",
 				}
 			);
 

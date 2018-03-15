@@ -9,6 +9,7 @@
 #include "Misc/ConfigCacheIni.h"
 #include "ISequencerModule.h"
 #include "ISettingsModule.h"
+#include "SequencerChannelInterface.h"
 #include "SequencerSettings.h"
 
 #include "AssetTypeActions/AssetTypeActions_NiagaraSystem.h"
@@ -56,6 +57,7 @@
 #include "NiagaraSystemViewModel.h"
 #include "NiagaraEmitterViewModel.h"
 #include "TNiagaraGraphPinEditableName.h"
+#include "MovieSceneNiagaraEmitterSection.h"
 #include "UObject/Class.h"
 #include "NiagaraScriptMergeManager.h"
 #include "NiagaraEmitter.h"
@@ -247,6 +249,8 @@ void FNiagaraEditorModule::StartupModule()
 	// Register sequencer track editor
 	ISequencerModule &SequencerModule = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer");
 	CreateEmitterTrackEditorHandle = SequencerModule.RegisterTrackEditor(FOnCreateTrackEditor::CreateStatic(&FNiagaraEmitterTrackEditor::CreateTrackEditor));
+
+	SequencerModule.RegisterChannelInterface<FMovieSceneNiagaraEmitterChannel>();
 
 	// Register the shader queue processor (for cooking)
 	INiagaraModule& NiagaraModule = FModuleManager::LoadModuleChecked<INiagaraModule>("Niagara");

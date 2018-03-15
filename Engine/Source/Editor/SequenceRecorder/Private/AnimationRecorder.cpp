@@ -510,7 +510,11 @@ void FAnimationRecorder::UpdateRecord(USkeletalMeshComponent* Component, float D
 				BlendedCurve = AnimCurves;
 			}
 
-			Record(Component, BlendedComponentToWorld, BlendedSpaceBases, BlendedCurve, FramesRecorded + 1);
+			if (!Record(Component, BlendedComponentToWorld, BlendedSpaceBases, BlendedCurve, FramesRecorded + 1))
+			{
+				StopRecord(true);
+				return;
+			}
 			++FramesRecorded;
 		}
 	}
@@ -528,7 +532,7 @@ void FAnimationRecorder::UpdateRecord(USkeletalMeshComponent* Component, float D
 	}
 }
 
-void FAnimationRecorder::Record(USkeletalMeshComponent* Component, FTransform const& ComponentToWorld, const TArray<FTransform>& SpacesBases, const FBlendedHeapCurve& AnimationCurves, int32 FrameToAdd)
+bool FAnimationRecorder::Record(USkeletalMeshComponent* Component, FTransform const& ComponentToWorld, const TArray<FTransform>& SpacesBases, const FBlendedHeapCurve& AnimationCurves, int32 FrameToAdd)
 {
 	if (ensure(AnimationObject))
 	{
@@ -611,7 +615,11 @@ void FAnimationRecorder::Record(USkeletalMeshComponent* Component, FTransform co
 				RawTrack.ScaleKeys.Add(LocalTransform.GetScale3D());
 
 				// verification
-				check (FrameToAdd == RawTrack.PosKeys.Num()-1);
+				if (FrameToAdd != RawTrack.PosKeys.Num()-1)
+				{
+					UE_LOG(LogAnimation, Warning, TEXT("Mismatch in animation frames. Trying to record frame: %d, but only: %d frame(s) exist. Changing skeleton while recording is not supported."), FrameToAdd, RawTrack.PosKeys.Num());
+					return false;
+				}
 			}
 		}
 
@@ -631,6 +639,8 @@ void FAnimationRecorder::Record(USkeletalMeshComponent* Component, FTransform co
 
 		LastFrame = FrameToAdd;
 	}
+
+	return true;
 }
 
 void FAnimationRecorder::RecordNotifies(USkeletalMeshComponent* Component, const TArray<FAnimNotifyEventReference>& AnimNotifies, float DeltaTime, float RecordTime)

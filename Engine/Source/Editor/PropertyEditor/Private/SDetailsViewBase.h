@@ -44,9 +44,11 @@ struct FDetailFilter
 		, bShowAllAdvanced(false)
 		, bShowOnlyDiffering(false)
 		, bShowAllChildrenIfCategoryMatches(true)
+		, bShowKeyable(false)
+		, bShowAnimated(false)
 	{}
 
-	bool IsEmptyFilter() const { return FilterStrings.Num() == 0 && bShowOnlyModifiedProperties == false && bShowAllAdvanced == false && bShowOnlyDiffering == false && bShowAllChildrenIfCategoryMatches == false; }
+	bool IsEmptyFilter() const { return FilterStrings.Num() == 0 && bShowOnlyModifiedProperties == false && bShowAllAdvanced == false && bShowOnlyDiffering == false && bShowAllChildrenIfCategoryMatches == false && bShowKeyable == false && bShowAnimated == false; }
 
 	/** Any user search terms that items must match */
 	TArray<FString> FilterStrings;
@@ -58,6 +60,10 @@ struct FDetailFilter
 	bool bShowOnlyDiffering;
 	/** If we should show all the children if their category name matches the search */
 	bool bShowAllChildrenIfCategoryMatches;
+	/** If we should only show keyable properties */
+	bool bShowKeyable;
+	/** If we should only show animated properties */
+	bool bShowAnimated;
 	TSet<FPropertyPath> WhitelistedProperties;
 };
 
@@ -270,6 +276,12 @@ protected:
 
 	/** @return true if show all advanced is checked */
 	bool IsShowAllChildrenIfCategoryMatchesChecked() const { return CurrentFilter.bShowAllChildrenIfCategoryMatches; }
+	
+	/** @return true if show keyable is checked */
+	bool IsShowKeyableChecked() const { return CurrentFilter.bShowKeyable; }
+	
+	/** @return true if show animated is checked */
+	bool IsShowAnimatedChecked() const { return CurrentFilter.bShowAnimated; }
 
 	/** Called when show only modified is clicked */
 	void OnShowOnlyModifiedClicked();
@@ -282,6 +294,12 @@ protected:
 
 	/** Called when show all children if category matches is clicked */
 	void OnShowAllChildrenIfCategoryMatchesClicked();
+
+	/** Called when show keyable is clicked */
+	void OnShowKeyableClicked();
+	
+	/** Calledw when show animated is clicked */
+	void OnShowAnimatedClicked();
 
 	/**
 	* Updates the details with the passed in filter

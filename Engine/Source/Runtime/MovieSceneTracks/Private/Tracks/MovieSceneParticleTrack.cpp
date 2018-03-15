@@ -53,26 +53,14 @@ bool UMovieSceneParticleTrack::IsEmpty() const
 }
 
 
-TRange<float> UMovieSceneParticleTrack::GetSectionBoundaries() const
-{
-	TArray< TRange<float> > Bounds;
-	for (int32 i = 0; i < ParticleSections.Num(); ++i)
-	{
-		Bounds.Add(ParticleSections[i]->GetRange());
-	}
-	return TRange<float>::Hull(Bounds);
-}
-
-
-void UMovieSceneParticleTrack::AddNewSection( float SectionTime )
+void UMovieSceneParticleTrack::AddNewSection( FFrameNumber SectionTime )
 {
 	if ( MovieSceneHelpers::FindSectionAtTime( ParticleSections, SectionTime ) == nullptr )
 	{
 		UMovieSceneParticleSection* NewSection = Cast<UMovieSceneParticleSection>( CreateNewSection() );
-		NewSection->SetStartTime( SectionTime );
-		NewSection->SetEndTime( SectionTime );
-		NewSection->SetStartTime( SectionTime );
-		NewSection->SetEndTime( SectionTime );
+
+		NewSection->SetRange(TRange<FFrameNumber>::Inclusive(SectionTime, SectionTime));
+
 		ParticleSections.Add(NewSection);
 	}
 }

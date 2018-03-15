@@ -7,5 +7,5 @@
 
 namespace Lex
 {
-	MOVIESCENE_API FString ToString(const TRange<float>& InRange);
+	MOVIESCENE_API FString ToString(const TRange<FFrameNumber>& InRange);
 }

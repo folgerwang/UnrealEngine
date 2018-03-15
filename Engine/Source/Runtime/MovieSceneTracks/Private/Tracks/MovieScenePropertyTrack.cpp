@@ -1,7 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Tracks/MovieScenePropertyTrack.h"
-
+#include "MovieSceneCommonHelpers.h"
+#include "Algo/Sort.h"
 
 UMovieScenePropertyTrack::UMovieScenePropertyTrack(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -85,23 +86,44 @@ bool UMovieScenePropertyTrack::IsEmpty() const
 	return Sections.Num() == 0;
 }
 
-
-UMovieSceneSection* UMovieScenePropertyTrack::FindOrAddSection(float Time, bool& bSectionAdded)
+UMovieSceneSection* UMovieScenePropertyTrack::FindSection(FFrameNumber Time)
 {
-	bSectionAdded = false;
+	TArray<UMovieSceneSection*, TInlineAllocator<4>> OverlappingSections;
+
+	for (UMovieSceneSection* Section : Sections)
+	{
+		if (Section->GetRange().Contains(Time))
+		{
+			OverlappingSections.Add(Section);
+		}
+	}
+
+	Algo::Sort(OverlappingSections, MovieSceneHelpers::SortOverlappingSections);
+
+	if (OverlappingSections.Num())
+	{
+		return OverlappingSections[0];
+	}
+
+	return nullptr;
+}
+
+
+UMovieSceneSection* UMovieScenePropertyTrack::FindOrExtendSection(FFrameNumber Time)
+{
+	UMovieSceneSection* FoundSection = FindSection(Time);
+	if (FoundSection)
+	{
+		return FoundSection;
+	}
 
 	// Find a spot for the section so that they are sorted by start time
 	for(int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex)
 	{
 		UMovieSceneSection* Section = Sections[SectionIndex];
 
-		if(Section->IsTimeWithinSection(Time))
-		{
-			return Section;
-		}
-
 		// Check if there are no more sections that would overlap the time 
-		if(!Sections.IsValidIndex(SectionIndex+1) || Sections[SectionIndex+1]->GetStartTime() > Time)
+		if(!Sections.IsValidIndex(SectionIndex+1) || (Sections[SectionIndex+1]->HasEndFrame() && Sections[SectionIndex+1]->GetExclusiveEndFrame() > Time))
 		{
 			// No sections overlap the time
 		
@@ -110,34 +132,46 @@ UMovieSceneSection* UMovieScenePropertyTrack::FindOrAddSection(float Time, bool&
 				// Append and grow the previous section
 				UMovieSceneSection* PreviousSection = Sections[ SectionIndex ? SectionIndex-1 : 0 ];
 		
-				PreviousSection->SetEndTime(Time);
+				PreviousSection->SetEndFrame(Time);
 				return PreviousSection;
 			}
 			else if(Sections.IsValidIndex(SectionIndex+1))
 			{
 				// Prepend and grow the next section because there are no sections before this one
 				UMovieSceneSection* NextSection = Sections[SectionIndex+1];
-				NextSection->SetStartTime(Time);
+				NextSection->SetStartFrame(Time);
 				return NextSection;
 			}	
 			else
 			{
 				// SectionIndex == 0 
 				UMovieSceneSection* PreviousSection = Sections[0];
-				if(PreviousSection->GetEndTime() < Time)
+				if(PreviousSection->HasEndFrame() && PreviousSection->GetExclusiveEndFrame() < Time)
 				{
 					// Append and grow the section
-					PreviousSection->SetEndTime(Time);
+					PreviousSection->SetEndFrame(Time);
 				}
 				else
 				{
 					// Prepend and grow the section
-					PreviousSection->SetStartTime(Time);
+					PreviousSection->SetStartFrame(Time);
 				}
 				return PreviousSection;
 			}
 		}
+	}
 
+	return nullptr;
+}
+
+UMovieSceneSection* UMovieScenePropertyTrack::FindOrAddSection(FFrameNumber Time, bool& bSectionAdded)
+{
+	bSectionAdded = false;
+
+	UMovieSceneSection* FoundSection = FindSection(Time);
+	if (FoundSection)
+	{
+		return FoundSection;
 	}
 
 	check(Sections.Num() == 0);
@@ -145,25 +179,11 @@ UMovieSceneSection* UMovieScenePropertyTrack::FindOrAddSection(float Time, bool&
 	// Add a new section that starts and ends at the same time
 	UMovieSceneSection* NewSection = CreateNewSection();
 	NewSection->SetFlags(RF_Transactional);
-	NewSection->SetStartTime(Time);
-	NewSection->SetEndTime(Time);
+	NewSection->SetRange(TRange<FFrameNumber>::Inclusive(Time, Time));
 
 	Sections.Add(NewSection);
 	
 	bSectionAdded = true;
 
 	return NewSection;
-}
-
-
-TRange<float> UMovieScenePropertyTrack::GetSectionBoundaries() const
-{
-	TArray< TRange<float> > Bounds;
-
-	for (int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex)
-	{
-		Bounds.Add(Sections[SectionIndex]->GetRange());
-	}
-
-	return TRange<float>::Hull(Bounds);
 }

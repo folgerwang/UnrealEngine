@@ -87,7 +87,7 @@ public:
 	 * @param	Sequencer		The sequencer this spawnable was just created by
 	 * @param	Settings		The settings for this sequencer
 	 */
-	virtual void SetupDefaultsForSpawnable(UObject* SpawnedObject, const FGuid& Guid, const FTransformData& TransformData, TSharedRef<ISequencer> Sequencer, USequencerSettings* Settings) {}
+	virtual void SetupDefaultsForSpawnable(UObject* SpawnedObject, const FGuid& Guid, const TOptional<FTransformData>& TransformData, TSharedRef<ISequencer> Sequencer, USequencerSettings* Settings) {}
 
 	/*
  	 * Whether this spawner can set up defaults

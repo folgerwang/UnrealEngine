@@ -14,6 +14,8 @@ class ALevelSequenceActor;
 class ISequenceAudioRecorder;
 class UCanvas;
 class UTexture;
+class ASequenceRecorderGroup;
+class USequenceRecorderActorGroup;
 
 struct FSequenceRecorder
 {
@@ -77,7 +79,7 @@ public:
 
 	void ResetQueuedRecordingsDirty() { bQueuedRecordingsDirty = false; }
 
-	bool IsRecording() const { return CurrentSequence.IsValid(); }
+	bool IsRecording() const;
 
 	/** Draw the countdown to the screen */
 	void DrawDebug(UCanvas* InCanvas, APlayerController* InPlayerController);
@@ -87,6 +89,23 @@ public:
 
 	/** Handle actors being de-spawned */
 	void HandleActorDespawned(AActor* Actor);
+
+	TWeakObjectPtr<USequenceRecorderActorGroup> GetRecordingGroup() const
+	{
+		return CurrentRecorderGroup;
+	}
+
+	TWeakObjectPtr<ASequenceRecorderGroup> GetRecordingGroupActor();
+
+	void AddRecordingGroup();
+	void RemoveCurrentRecordingGroup();
+	void DuplicateRecordingGroup();
+	void LoadRecordingGroup(const FName Name);
+
+	TArray<FName> GetRecordingGroupNames() const;
+
+	FString GetSequenceRecordingBasePath() const;
+	FString GetSequenceRecordingName() const;
 
 	/** Get the built-in animation factory (as this uses special case handling) */
 	const FMovieSceneAnimationSectionRecorderFactory& GetAnimationRecorderFactory() const
@@ -134,6 +153,12 @@ private:
 
 	/** World we are recording a replay for, if any */
 	TLazyObjectPtr<class UWorld> CurrentReplayWorld;
+
+	/** Recorder Group that our actor recordings go into.  */
+	TWeakObjectPtr<USequenceRecorderActorGroup> CurrentRecorderGroup;
+
+	/** Cached actor for this level who holds the recording group. */
+	TWeakObjectPtr<ASequenceRecorderGroup> CachedRecordingActor;
 
 	TArray<class UActorRecording*> QueuedRecordings;
 

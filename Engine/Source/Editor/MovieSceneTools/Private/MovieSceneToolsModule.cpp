@@ -46,6 +46,11 @@
 #include "IMovieSceneTools.h"
 #include "MovieSceneToolsProjectSettings.h"
 
+#include "ISequencerChannelInterface.h"
+#include "SequencerChannelInterface.h"
+#include "Channels/BuiltInChannelEditors.h"
+#include "Sections/MovieSceneEventSection.h"
+
 
 #define LOCTEXT_NAMESPACE "FMovieSceneToolsModule"
 
@@ -113,6 +118,15 @@ public:
 		PropertyModule.RegisterCustomClassLayout("MovieSceneToolsProjectSettings", FOnGetDetailCustomizationInstance::CreateStatic(&FMovieSceneToolsProjectSettingsCustomization::MakeInstance));
 		PropertyModule.RegisterCustomClassLayout("MovieSceneBuiltInEasingFunction", FOnGetDetailCustomizationInstance::CreateLambda(&MakeShared<FMovieSceneBuiltInEasingFunctionCustomization>));
 		PropertyModule.RegisterCustomPropertyTypeLayout("MovieSceneObjectBindingID", FOnGetPropertyTypeCustomizationInstance::CreateLambda(&MakeShared<FMovieSceneObjectBindingIDCustomization>));
+
+		SequencerModule.RegisterChannelInterface<FMovieSceneBoolChannel>();
+		SequencerModule.RegisterChannelInterface<FMovieSceneByteChannel>();
+		SequencerModule.RegisterChannelInterface<FMovieSceneIntegerChannel>();
+		SequencerModule.RegisterChannelInterface<FMovieSceneFloatChannel>();
+		SequencerModule.RegisterChannelInterface<FMovieSceneStringChannel>();
+		SequencerModule.RegisterChannelInterface<FMovieSceneParticleChannel>();
+		SequencerModule.RegisterChannelInterface<FMovieSceneActorReferenceData>();
+		SequencerModule.RegisterChannelInterface<FMovieSceneEventSectionData>();
 	}
 
 	virtual void ShutdownModule() override
@@ -181,11 +195,11 @@ public:
 		DefineImplicitConversion<uint8, int32>();
 		DefineImplicitConversion<uint8, bool>();
 
-		DefineExplicitConversion<int32, FRichCurveKey>([](const int32& In) -> FRichCurveKey { return FRichCurveKey(0.f, In);	});
-		DefineExplicitConversion<uint8, FRichCurveKey>([](const uint8& In) -> FRichCurveKey { return FRichCurveKey(0.f, In);	});
-		DefineExplicitConversion<FRichCurveKey, int32>([](const FRichCurveKey& In) -> int32 { return In.Value; 					});
-		DefineExplicitConversion<FRichCurveKey, uint8>([](const FRichCurveKey& In) -> uint8 { return In.Value; 					});
-		DefineExplicitConversion<FRichCurveKey, bool>([](const FRichCurveKey& In) -> bool	{ return !!In.Value; 				});
+		DefineExplicitConversion<int32, FMovieSceneFloatValue>([](const int32& In) -> FMovieSceneFloatValue { return FMovieSceneFloatValue(In);	});
+		DefineExplicitConversion<uint8, FMovieSceneFloatValue>([](const uint8& In) -> FMovieSceneFloatValue { return FMovieSceneFloatValue(In);	});
+		DefineExplicitConversion<FMovieSceneFloatValue, int32>([](const FMovieSceneFloatValue& In) -> int32 { return In.Value; 					});
+		DefineExplicitConversion<FMovieSceneFloatValue, uint8>([](const FMovieSceneFloatValue& In) -> uint8 { return In.Value; 					});
+		DefineExplicitConversion<FMovieSceneFloatValue, bool>([](const FMovieSceneFloatValue& In) -> bool	{ return !!In.Value; 				});
 
 		FSequencerClipboardReconciler::AddTrackAlias("Location.X", "R");
 		FSequencerClipboardReconciler::AddTrackAlias("Location.Y", "G");

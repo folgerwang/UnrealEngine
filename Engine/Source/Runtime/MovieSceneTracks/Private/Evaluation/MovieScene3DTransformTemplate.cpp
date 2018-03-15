@@ -7,6 +7,7 @@
 #include "MovieSceneCommonHelpers.h"
 #include "Evaluation/MovieSceneEvaluation.h"
 #include "IMovieScenePlayer.h"
+#include "Channels/MovieSceneChannelProxy.h"
 #include "Evaluation/Blending/BlendableTokenStack.h"
 #include "Evaluation/Blending/MovieSceneBlendingActuatorID.h"
 #include "Tracks/IMovieSceneTransformOrigin.h"
@@ -84,7 +85,7 @@ struct FComponentTransformActuator : TMovieSceneBlendingActuator<F3DTransformTra
 
 			SceneComponent->SetMobility(EComponentMobility::Movable);
 
-			InFinalValue.Apply(*SceneComponent, Context.GetDelta());
+			InFinalValue.Apply(*SceneComponent, Context.GetDelta() / Context.GetFrameRate());
 		}
 	}
 
@@ -171,9 +172,11 @@ void FMovieSceneComponentTransformSectionTemplate::Evaluate(const FMovieSceneEva
 
 	// Add the blendable to the accumulator
 	float Weight = EvaluateEasing(Context.GetTime());
-	if (EnumHasAllFlags(TemplateData.Mask.GetChannels(), EMovieSceneTransformChannel::Weight) && TemplateData.ManualWeight.HasAnyData())
+	if (EnumHasAllFlags(TemplateData.Mask.GetChannels(), EMovieSceneTransformChannel::Weight))
 	{
-		Weight *= TemplateData.ManualWeight.Eval(Context.GetTime());
+		float ManualWeight = 1.f;
+		TemplateData.ManualWeight.Evaluate(Context.GetTime(), ManualWeight);
+		Weight *= ManualWeight;
 	}
 
 	ExecutionTokens.BlendToken(ActuatorTypeID, TBlendableToken<F3DTransformTrackToken>(TransformValue, TemplateData.BlendType, Weight));
@@ -198,9 +201,11 @@ void FMovieSceneComponentTransformSectionTemplate::Interrogate(const FMovieScene
 
 	// Add the blendable to the accumulator
 	float Weight = EvaluateEasing(Context.GetTime());
-	if (EnumHasAllFlags(TemplateData.Mask.GetChannels(), EMovieSceneTransformChannel::Weight) && TemplateData.ManualWeight.HasAnyData())
+	if (EnumHasAllFlags(TemplateData.Mask.GetChannels(), EMovieSceneTransformChannel::Weight))
 	{
-		Weight *= TemplateData.ManualWeight.Eval(Context.GetTime());
+		float ManualWeight = 1.f;
+		TemplateData.ManualWeight.Evaluate(Context.GetTime(), ManualWeight);
+		Weight *= ManualWeight;
 	}
 
 	Container.GetAccumulator().BlendToken(FMovieSceneEvaluationOperand(), ActuatorTypeID, FMovieSceneEvaluationScope(), Context, TBlendableToken<F3DTransformTrackToken>(TransformValue, TemplateData.BlendType, Weight));
@@ -211,33 +216,35 @@ FMovieScene3DTransformTemplateData::FMovieScene3DTransformTemplateData(const UMo
 	, Mask(Section.GetMask())
 {
 	EMovieSceneTransformChannel MaskChannels = Mask.GetChannels();
+	TArrayView<FMovieSceneFloatChannel*> FloatChannels = Section.GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
 
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::TranslationX))	TranslationCurve[0]	= Section.GetTranslationCurve(EAxis::X);
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::TranslationY))	TranslationCurve[1]	= Section.GetTranslationCurve(EAxis::Y);
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::TranslationZ))	TranslationCurve[2]	= Section.GetTranslationCurve(EAxis::Z);
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::TranslationX))	TranslationCurve[0]	= *FloatChannels[0];
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::TranslationY))	TranslationCurve[1]	= *FloatChannels[1];
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::TranslationZ))	TranslationCurve[2]	= *FloatChannels[2];
 
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::RotationX))		RotationCurve[0]	= Section.GetRotationCurve(EAxis::X);
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::RotationY))		RotationCurve[1]	= Section.GetRotationCurve(EAxis::Y);
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::RotationZ))		RotationCurve[2]	= Section.GetRotationCurve(EAxis::Z);
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::RotationX))		RotationCurve[0]	= *FloatChannels[3];
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::RotationY))		RotationCurve[1]	= *FloatChannels[4];
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::RotationZ))		RotationCurve[2]	= *FloatChannels[5];
 
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::ScaleX))			ScaleCurve[0]		= Section.GetScaleCurve(EAxis::X);
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::ScaleY))			ScaleCurve[1]		= Section.GetScaleCurve(EAxis::Y);
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::ScaleZ))			ScaleCurve[2]		= Section.GetScaleCurve(EAxis::Z);
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::ScaleX))			ScaleCurve[0]		= *FloatChannels[6];
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::ScaleY))			ScaleCurve[1]		= *FloatChannels[7];
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::ScaleZ))			ScaleCurve[2]		= *FloatChannels[8];
 
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::Weight))			ManualWeight		= Section.GetManualWeightCurve();
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::Weight))			ManualWeight		= *FloatChannels[9];
 }
 
-MovieScene::TMultiChannelValue<float, 9> FMovieScene3DTransformTemplateData::Evaluate(float Time) const
+MovieScene::TMultiChannelValue<float, 9> FMovieScene3DTransformTemplateData::Evaluate(FFrameTime Time) const
 {
 	MovieScene::TMultiChannelValue<float, 9> AnimatedData;
 
 	EMovieSceneTransformChannel ChannelMask = Mask.GetChannels();
 
-	auto EvalChannel = [&AnimatedData, Time, ChannelMask](uint8 ChanneIndex, EMovieSceneTransformChannel Channel, const FRichCurve& Curve)
+	auto EvalChannel = [&AnimatedData, Time, ChannelMask](uint8 ChanneIndex, EMovieSceneTransformChannel ChannelType, const FMovieSceneFloatChannel& Channel)
 	{
-		if (EnumHasAllFlags(ChannelMask, Channel) && Curve.HasAnyData())
+		float Value = 0.f;
+		if (EnumHasAllFlags(ChannelMask, ChannelType) && Channel.Evaluate(Time, Value))
 		{
-			AnimatedData.Set(ChanneIndex, Curve.Eval(Time));
+			AnimatedData.Set(ChanneIndex, Value);
 		}
 	};
 

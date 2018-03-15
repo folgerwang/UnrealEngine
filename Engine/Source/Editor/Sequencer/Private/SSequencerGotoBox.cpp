@@ -6,16 +6,20 @@
 #include "Framework/Application/SlateApplication.h"
 #include "EditorStyleSet.h"
 #include "Widgets/Input/SNumericEntryBox.h"
-
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SSpacer.h"
 
 #define LOCTEXT_NAMESPACE "Sequencer"
 
 
-void SSequencerGotoBox::Construct(const FArguments& InArgs, const TSharedRef<FSequencer>& InSequencer, USequencerSettings& InSettings, const TSharedRef<INumericTypeInterface<float>>& InNumericTypeInterface)
+void SSequencerGotoBox::Construct(const FArguments& InArgs, const TSharedRef<FSequencer>& InSequencer, USequencerSettings& InSettings, const TSharedRef<INumericTypeInterface<double>>& InNumericTypeInterface)
 {
 	SequencerPtr = InSequencer;
 	Settings = &InSettings;
 	NumericTypeInterface = InNumericTypeInterface;
+
+	const FDockTabStyle* GenericTabStyle = &FCoreStyle::Get().GetWidgetStyle<FDockTabStyle>("Docking.Tab");
+	const FButtonStyle* const CloseButtonStyle = &GenericTabStyle->CloseButtonStyle;
 
 	ChildSlot
 	[
@@ -34,16 +38,32 @@ void SSequencerGotoBox::Construct(const FArguments& InArgs, const TSharedRef<FSe
 							.Text(LOCTEXT("GotoLabel", "Go to:"))
 					]
 
+				 + SHorizontalBox::Slot()
+				 	.Padding(6.0f, 0.0f, 0.0f, 0.0f)
+				 	.AutoWidth()
+				 	[
+				 		 SAssignNew(EntryBox, SNumericEntryBox<double>)
+				 		 	.MinDesiredValueWidth(64.0f)
+				 		 	.OnValueCommitted(this, &SSequencerGotoBox::HandleEntryBoxValueCommitted)
+				 		 	.TypeInterface(NumericTypeInterface)
+				 		 	.Value_Lambda([this](){ return SequencerPtr.Pin()->GetLocalTime().Time.GetFrame().Value; })
+				 	]
+
 				+ SHorizontalBox::Slot()
-					.Padding(6.0f, 0.0f, 0.0f, 0.0f)
-					.AutoWidth()
+				.Padding(3.0f, 0.0f, 0.0f, 0.0f)
+				.AutoWidth()
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				[
+					SNew(SButton)
+					.ButtonStyle( CloseButtonStyle )
+					.OnClicked( this, &SSequencerGotoBox::OnCloseButtonClicked )
+					.ContentPadding( 0 )
 					[
-						SAssignNew(EntryBox, SNumericEntryBox<float>)
-							.MinDesiredValueWidth(64.0f)
-							.OnValueCommitted(this, &SSequencerGotoBox::HandleEntryBoxValueCommitted)
-							.TypeInterface(NumericTypeInterface)
-							.Value_Lambda([this](){ return SequencerPtr.Pin()->GetLocalTime(); })
+						SNew(SSpacer)
+						.Size( CloseButtonStyle->Normal.ImageSize )
 					]
+				]
 			]
 	];
 }
@@ -67,7 +87,7 @@ void SSequencerGotoBox::ToggleVisibility()
 }
 
 
-void SSequencerGotoBox::HandleEntryBoxValueCommitted(float Value, ETextCommit::Type CommitType)
+void SSequencerGotoBox::HandleEntryBoxValueCommitted(double Value, ETextCommit::Type CommitType)
 {
 	if (CommitType != ETextCommit::OnEnter)
 	{
@@ -78,18 +98,27 @@ void SSequencerGotoBox::HandleEntryBoxValueCommitted(float Value, ETextCommit::T
 
 	TSharedPtr<FSequencer> Sequencer = SequencerPtr.Pin();
 
-	// scroll view range if new value is not visible
+	// scroll view range if new value is not visible. 
 	const FAnimatedRange ViewRange = Sequencer->GetViewRange();
 
-	if (!ViewRange.Contains(Value))
+	// View range is in seconds, so we need to convert from frame numbers back into seconds.
+	FFrameTime ValueAsFrameTime = FFrameTime::FromDecimal(Value);
+	double ValueAsSeconds = Sequencer->GetFocusedFrameResolution().AsSeconds(ValueAsFrameTime);
+
+	if (!ViewRange.Contains(ValueAsSeconds))
 	{
-		const float HalfViewWidth = 0.5f * ViewRange.Size<float>();
-		const TRange<float> NewRange = TRange<float>(Value - HalfViewWidth, Value + HalfViewWidth);
+		const double HalfViewWidth = 0.5 * ViewRange.Size<double>();
+		const TRange<double> NewRange = TRange<double>(ValueAsSeconds - HalfViewWidth, ValueAsSeconds + HalfViewWidth);
 		Sequencer->SetViewRange(NewRange);
 	}
-
-	Sequencer->SetLocalTimeDirectly(Value);
+	Sequencer->SetLocalTimeDirectly(ValueAsFrameTime);
 }
 
+FReply SSequencerGotoBox::OnCloseButtonClicked()
+{
+	ToggleVisibility();
+
+	return FReply::Handled();
+}
 
 #undef LOCTEXT_NAMESPACE

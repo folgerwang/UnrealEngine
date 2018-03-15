@@ -31,8 +31,10 @@
 #include "AssetRegistryModule.h"
 #include "MatineeImportTools.h"
 #include "Matinee/InterpTrackSound.h"
-#include "FloatCurveKeyArea.h"
 #include "ISectionLayoutBuilder.h"
+
+#include "DragAndDrop/AssetDragDropOp.h"
+#include "QualifiedFrameTime.h"
 
 
 #define LOCTEXT_NAMESPACE "FAudioTrackEditor"
@@ -297,6 +299,8 @@ void FAudioThumbnail::GenerateWaveformPreview(TArray<uint8>& OutData, TRange<flo
 		FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
 		if (AudioDevice)
 		{
+			AudioDevice->StopAllSounds(true);
+
 			EDecompressionType DecompressionType =  SoundWave->DecompressionType;
 			SoundWave->DecompressionType = DTYPE_Native;
 
@@ -315,22 +319,26 @@ void FAudioThumbnail::GenerateWaveformPreview(TArray<uint8>& OutData, TRange<flo
 	const int32 LookupDataSize = SoundWave->RawPCMDataSize;
 	const int32 LookupSize = LookupDataSize * sizeof(uint8) / sizeof(int16);
 
-	if (!LookupData)
+	if (!LookupData || !AudioSection->HasStartFrame() || !AudioSection->HasEndFrame())
 	{
 		return;
 	}
 
-	// @todo Sequencer This fixes looping drawing by pretending we are only dealing with a SoundWave
-	TRange<float> AudioTrueRange = TRange<float>(
-		AudioSection->GetStartTime() - AudioSection->GetStartOffset(),
-		AudioSection->GetStartTime() - AudioSection->GetStartOffset() + DeriveUnloopedDuration(AudioSection) * AudioSection->GetPitchMultiplierCurve().GetDefaultValue());
-	float TrueRangeSize = AudioTrueRange.Size<float>();
+	FFrameRate FrameRate            = AudioSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	float      PitchMultiplierValue = AudioSection->GetPitchMultiplierChannel().GetDefault().Get(1.f);
+	double     SectionStartTime     = AudioSection->GetInclusiveStartFrame() / FrameRate;
 
+	// @todo Sequencer This fixes looping drawing by pretending we are only dealing with a SoundWave
+	TRange<double> AudioTrueRange = TRange<double>(
+		SectionStartTime - AudioSection->GetStartOffset(),
+		SectionStartTime - AudioSection->GetStartOffset() + DeriveUnloopedDuration(AudioSection) * PitchMultiplierValue);
+
+	float TrueRangeSize = AudioTrueRange.Size<float>();
 	float DrawRangeSize = DrawRange.Size<float>();
 
 	const int32 MaxAmplitude = NumChannels == 1 ? GetSize().Y : GetSize().Y / 2;
 
-	int32 DrawOffsetPx = FMath::Max(FMath::RoundToInt((DrawRange.GetLowerBoundValue() - AudioSection->GetRange().GetLowerBoundValue()) / DisplayScale), 0);
+	int32 DrawOffsetPx = FMath::Max(FMath::RoundToInt((DrawRange.GetLowerBoundValue() - SectionStartTime) / DisplayScale), 0);
 
 
 	// In order to prevent flickering waveforms when moving the display position/range around, we have to lock our sample position and spline segments to the view range
@@ -646,17 +654,6 @@ float FAudioSection::GetSectionHeight() const
 	return Section.GetTypedOuter<UMovieSceneAudioTrack>()->GetRowHeight();
 }
 
-void FAudioSection::GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const
-{
-	UMovieSceneAudioSection* AudioSection = Cast<UMovieSceneAudioSection>( &Section );
-
-	SoundVolumeArea = MakeShareable( new FFloatCurveKeyArea( &AudioSection->GetSoundVolumeCurve(), AudioSection ) ) ;
-	PitchMultiplierArea = MakeShareable( new FFloatCurveKeyArea( &AudioSection->GetPitchMultiplierCurve(), AudioSection ) );
-
-	LayoutBuilder.AddKeyArea( "Volume", NSLOCTEXT( "FAudioSection", "SoundVolumeArea", "Volume" ), SoundVolumeArea.ToSharedRef() );
-	LayoutBuilder.AddKeyArea( "Pitch Multiplier", NSLOCTEXT( "FAudioSection", "PitchMultiplierArea", "Pitch Multiplier" ), PitchMultiplierArea.ToSharedRef() );
-}
-
 int32 FAudioSection::OnPaintSection( FSequencerSectionPainter& Painter ) const
 {
 	int32 LayerId = Painter.PaintSectionBackground();
@@ -697,11 +694,12 @@ void FAudioSection::Tick( const FGeometry& AllottedGeometry, const FGeometry& Pa
 		const float LeftMostVisiblePixel = FMath::Max(ParentRect.Left, 0.f);
 		const float RightMostVisiblePixel = FMath::Min(ParentRect.Right, AllottedGeometry.GetLocalSize().X);
 
-		FTimeToPixel TimeToPixelConverter( AllottedGeometry, TRange<float>( AudioSection->GetStartTime(), AudioSection->GetEndTime() ) );
+		FFrameRate   FrameResolution = AudioSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		FTimeToPixel TimeToPixel( AllottedGeometry, AudioSection->GetRange() / FrameResolution, FrameResolution );
 
 		TRange<float> DrawRange = TRange<float>(
-			TimeToPixelConverter.PixelToTime(LeftMostVisiblePixel),
-			TimeToPixelConverter.PixelToTime(RightMostVisiblePixel)
+			TimeToPixel.PixelToSeconds(LeftMostVisiblePixel),
+			TimeToPixel.PixelToSeconds(RightMostVisiblePixel)
 			);
 
 		// generate texture x offset and x size
@@ -740,18 +738,18 @@ void FAudioSection::BeginSlipSection()
 {
 	UMovieSceneAudioSection* AudioSection = Cast<UMovieSceneAudioSection>(&Section);
 	InitialStartOffsetDuringResize = AudioSection->GetStartOffset();
-	InitialStartTimeDuringResize = AudioSection->GetStartTime();
+	InitialStartTimeDuringResize   = FFrameNumber(AudioSection->HasStartFrame() ? AudioSection->GetInclusiveStartFrame() : 0) / AudioSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
 }
 
-void FAudioSection::SlipSection(float SlipTime)
+void FAudioSection::SlipSection(double SlipTime)
 {
 	UMovieSceneAudioSection* AudioSection = Cast<UMovieSceneAudioSection>(&Section);
 
-	float StartOffset = (SlipTime - InitialStartTimeDuringResize);
+	double StartOffset = (SlipTime - InitialStartTimeDuringResize);
 	StartOffset += InitialStartOffsetDuringResize;
 
 	// Ensure start offset is not less than 0
-	StartOffset = FMath::Max(StartOffset, 0.f);
+	StartOffset = FMath::Max(StartOffset, 0.0);
 
 	AudioSection->SetStartOffset(StartOffset);
 
@@ -882,6 +880,66 @@ void FAudioTrackEditor::Resize(float NewSize, UMovieSceneTrack* InTrack)
 	}
 }
 
+bool FAudioTrackEditor::OnAllowDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track, int32 RowIndex, const FGuid& TargetObjectGuid)
+{
+	if (!Track->IsA(UMovieSceneAudioTrack::StaticClass()))
+	{
+		return false;
+	}
+
+	TSharedPtr<FDragDropOperation> Operation = DragDropEvent.GetOperation();
+
+	if (!Operation.IsValid() || !Operation->IsOfType<FAssetDragDropOp>() )
+	{
+		return false;
+	}
+	
+	TSharedPtr<FAssetDragDropOp> DragDropOp = StaticCastSharedPtr<FAssetDragDropOp>( Operation );
+
+	for (const FAssetData& AssetData : DragDropOp->GetAssets())
+	{
+		if (Cast<USoundBase>(AssetData.GetAsset()))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+
+FReply FAudioTrackEditor::OnDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track, int32 RowIndex, const FGuid& TargetObjectGuid)
+{
+	if (!Track->IsA(UMovieSceneAudioTrack::StaticClass()))
+	{
+		return FReply::Unhandled();
+	}
+
+	TSharedPtr<FDragDropOperation> Operation = DragDropEvent.GetOperation();
+
+	if (!Operation.IsValid() || !Operation->IsOfType<FAssetDragDropOp>() )
+	{
+		return FReply::Unhandled();
+	}
+	
+	TSharedPtr<FAssetDragDropOp> DragDropOp = StaticCastSharedPtr<FAssetDragDropOp>( Operation );
+
+	bool bAnyDropped = false;
+	for (const FAssetData& AssetData : DragDropOp->GetAssets())
+	{
+		USoundBase* Sound = Cast<USoundBase>(AssetData.GetAsset());
+
+		if (Sound)
+		{
+			AnimatablePropertyChanged( FOnKeyProperty::CreateRaw(this, &FAudioTrackEditor::AddNewMasterSound, Sound, RowIndex));
+
+			bAnyDropped = true;
+		}
+	}
+
+	return bAnyDropped ? FReply::Handled() : FReply::Unhandled();
+}
+
 TSharedRef<ISequencerSection> FAudioTrackEditor::MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding )
 {
 	check( SupportsType( SectionObject.GetOuter()->GetClass() ) );
@@ -908,6 +966,8 @@ bool FAudioTrackEditor::HandleAssetAdded(UObject* Asset, const FGuid& TargetObje
 	{
 		auto Sound = Cast<USoundBase>(Asset);
 		
+		const FScopedTransaction Transaction(LOCTEXT("AddAudio_Transaction", "Add Audio"));
+
 		if (TargetObjectGuid.IsValid())
 		{
 			TArray<TWeakObjectPtr<>> OutObjects;
@@ -920,7 +980,8 @@ bool FAudioTrackEditor::HandleAssetAdded(UObject* Asset, const FGuid& TargetObje
 		}
 		else
 		{
-			AnimatablePropertyChanged( FOnKeyProperty::CreateRaw(this, &FAudioTrackEditor::AddNewMasterSound, Sound));
+			int32 RowIndex = INDEX_NONE;
+			AnimatablePropertyChanged( FOnKeyProperty::CreateRaw(this, &FAudioTrackEditor::AddNewMasterSound, Sound, RowIndex));
 		}
 
 		return true;
@@ -929,15 +990,20 @@ bool FAudioTrackEditor::HandleAssetAdded(UObject* Asset, const FGuid& TargetObje
 }
 
 
-FKeyPropertyResult FAudioTrackEditor::AddNewMasterSound( float KeyTime, USoundBase* Sound )
+FKeyPropertyResult FAudioTrackEditor::AddNewMasterSound( FFrameNumber KeyTime, USoundBase* Sound, int32 RowIndex )
 {
 	FKeyPropertyResult KeyPropertyResult;
 
+	UMovieScene* FocusedMovieScene = GetFocusedMovieScene();
+	FocusedMovieScene->Modify();
+
 	FFindOrCreateMasterTrackResult<UMovieSceneAudioTrack> TrackResult = FindOrCreateMasterTrack<UMovieSceneAudioTrack>();
 	UMovieSceneTrack* Track = TrackResult.Track;
+	Track->Modify();
 
 	auto AudioTrack = Cast<UMovieSceneAudioTrack>(Track);
-	AudioTrack->AddNewSound( Sound, KeyTime );
+	UMovieSceneSection* NewSection = AudioTrack->AddNewSoundOnRow( Sound, KeyTime, RowIndex );
+
 	if (TrackResult.bWasCreated)
 	{
 		AudioTrack->SetDisplayName(LOCTEXT("AudioTrackName", "Audio"));
@@ -945,11 +1011,15 @@ FKeyPropertyResult FAudioTrackEditor::AddNewMasterSound( float KeyTime, USoundBa
 
 	KeyPropertyResult.bTrackModified = true;
 
+	GetSequencer()->EmptySelection();
+	GetSequencer()->SelectSection(NewSection);
+	GetSequencer()->ThrobSectionSelection();
+
 	return KeyPropertyResult;
 }
 
 
-FKeyPropertyResult FAudioTrackEditor::AddNewAttachedSound( float KeyTime, USoundBase* Sound, TArray<TWeakObjectPtr<UObject>> ObjectsToAttachTo )
+FKeyPropertyResult FAudioTrackEditor::AddNewAttachedSound( FFrameNumber KeyTime, USoundBase* Sound, TArray<TWeakObjectPtr<UObject>> ObjectsToAttachTo )
 {
 	FKeyPropertyResult KeyPropertyResult;
 
@@ -970,9 +1040,14 @@ FKeyPropertyResult FAudioTrackEditor::AddNewAttachedSound( float KeyTime, USound
 			if (ensure(Track))
 			{
 				auto AudioTrack = Cast<UMovieSceneAudioTrack>(Track);
-				AudioTrack->AddNewSound(Sound, KeyTime);
-				AudioTrack->SetDisplayName(LOCTEXT("AudioTrackName", "Audio"));
+				AudioTrack->Modify();
+				UMovieSceneSection* NewSection = AudioTrack->AddNewSound(Sound, KeyTime);
+				AudioTrack->SetDisplayName(LOCTEXT("AudioTrackName", "Audio"));				
 				KeyPropertyResult.bTrackModified = true;
+
+				GetSequencer()->EmptySelection();
+				GetSequencer()->SelectSection(NewSection);
+				GetSequencer()->ThrobSectionSelection();
 			}
 		}
 	}
@@ -1000,6 +1075,11 @@ void FAudioTrackEditor::HandleAddAudioTrackMenuEntryExecute()
 	ensure(NewTrack);
 
 	NewTrack->SetDisplayName(LOCTEXT("AudioTrackName", "Audio"));
+
+	if (GetSequencer().IsValid())
+	{
+		GetSequencer()->OnAddTrack(NewTrack);
+	}
 
 	GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
 }
@@ -1056,8 +1136,12 @@ void FAudioTrackEditor::OnAudioAssetSelected(const FAssetData& AssetData, UMovie
 			auto AudioTrack = Cast<UMovieSceneAudioTrack>(Track);
 			AudioTrack->Modify();
 
-			float KeyTime = GetSequencer()->GetLocalTime();
-			AudioTrack->AddNewSound( NewSound, KeyTime );
+			FFrameTime KeyTime = GetSequencer()->GetLocalTime().Time;
+			UMovieSceneSection* NewSection = AudioTrack->AddNewSound( NewSound, KeyTime.FrameNumber );				
+
+			GetSequencer()->EmptySelection();
+			GetSequencer()->SelectSection(NewSection);
+			GetSequencer()->ThrobSectionSelection();
 
 			GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
 		}

@@ -43,7 +43,7 @@ class SSequencerDebugVisualizer : public SPanel
 {
 public:
 	SLATE_BEGIN_ARGS(SSequencerDebugVisualizer){}
-		SLATE_ATTRIBUTE( TRange<float>, ViewRange )
+		SLATE_ATTRIBUTE( TRange<double>, ViewRange )
 	SLATE_END_ARGS()
 
 	SSequencerDebugVisualizer()
@@ -67,7 +67,7 @@ protected:
 
 	FGeometry GetSegmentGeometry(const FGeometry& AllottedGeometry, const SSequencerDebugSlot& Slot, const FTimeToPixel& TimeToPixelConverter) const;
 
-	EVisibility GetSegmentVisibility(TRange<float> Range) const;
+	EVisibility GetSegmentVisibility(TRange<double> Range) const;
 
 	TSharedRef<SWidget> GetTooltipForSegment(int32 SegmentIndex) const;
 
@@ -78,7 +78,7 @@ protected:
 private:
 
 	/** The current view range */
-	TAttribute<TRange<float>> ViewRange;
+	TAttribute<TRange<double>> ViewRange;
 
 	/** All the widgets in the panel */
 	TSlotlessChildren<SSequencerDebugSlot> Children;

@@ -114,7 +114,7 @@ struct FMovieSceneTrackSegmentBlender
 	 *
 	 * @return An optional new segment to define
 	 */
-	virtual TOptional<FMovieSceneSegment> InsertEmptySpace(const TRange<float>& Range, const FMovieSceneSegment* PreviousSegment, const FMovieSceneSegment* NextSegment) const
+	virtual TOptional<FMovieSceneSegment> InsertEmptySpace(const TRange<FFrameNumber>& Range, const FMovieSceneSegment* PreviousSegment, const FMovieSceneSegment* NextSegment) const
 	{
 		return TOptional<FMovieSceneSegment>();
 	}

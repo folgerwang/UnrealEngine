@@ -33,6 +33,7 @@ public class MovieSceneTools : ModuleRules
 			new string[] {
                 "ActorPickerMode",
                 "CinematicCamera",
+                "CurveEditor",
                 "DesktopPlatform",
 				"LevelSequence",
 				"MovieScene",

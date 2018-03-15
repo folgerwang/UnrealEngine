@@ -283,15 +283,23 @@ struct FMath : public FPlatformMath
 
 	/** Divides two integers and rounds up */
 	template <class T>
-	static FORCEINLINE T DivideAndRoundUp(T Dividend,T Divisor)
+	static FORCEINLINE T DivideAndRoundUp(T Dividend, T Divisor)
 	{
 		return (Dividend + Divisor - 1) / Divisor;
 	}
 
+	/** Divides two integers and rounds down */
 	template <class T>
-	static FORCEINLINE T DivideAndRoundDown(T Dividend,T Divisor)
+	static FORCEINLINE T DivideAndRoundDown(T Dividend, T Divisor)
 	{
 		return Dividend / Divisor;
+	}
+
+	/** Divides two integers and rounds to nearest */
+	template <class T>
+	static FORCEINLINE T DivideAndRoundNearest(T Dividend, T Divisor)
+	{
+		return (Dividend > 0) ? 1 + ((Dividend - 1) / Divisor) : (Dividend / Divisor);
 	}
 
 	/**

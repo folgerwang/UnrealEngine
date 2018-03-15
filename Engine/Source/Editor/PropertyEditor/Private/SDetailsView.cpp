@@ -87,7 +87,36 @@ void SDetailsView::Construct(const FArguments& InArgs)
 				EUserInterfaceActionType::ToggleButton
 			);
 		}
-
+		if (DetailsViewArgs.bShowKeyablePropertiesOption)
+		{
+			DetailViewOptions.AddMenuEntry(
+				LOCTEXT("ShowOnlyKeyable", "Show Only Keyable Properties"),
+				LOCTEXT("ShowOnlyKeyable_ToolTip", "Displays only properties which are keyable"),
+				FSlateIcon(),
+				FUIAction(
+					FExecuteAction::CreateSP(this, &SDetailsView::OnShowKeyableClicked),
+					FCanExecuteAction(),
+					FIsActionChecked::CreateSP(this, &SDetailsView::IsShowKeyableChecked)
+				),
+				NAME_None,
+				EUserInterfaceActionType::ToggleButton
+			);
+		}
+		if (DetailsViewArgs.bShowAnimatedPropertiesOption)
+		{
+			DetailViewOptions.AddMenuEntry(
+				LOCTEXT("ShowAnimated", "Show Only Animated Properties"),
+				LOCTEXT("ShowAnimated_ToolTip", "Displays only properties which are animated (have tracks)"),
+				FSlateIcon(),
+				FUIAction(
+					FExecuteAction::CreateSP(this, &SDetailsView::OnShowAnimatedClicked),
+					FCanExecuteAction(),
+					FIsActionChecked::CreateSP(this, &SDetailsView::IsShowAnimatedChecked)
+				),
+				NAME_None,
+				EUserInterfaceActionType::ToggleButton
+			);
+		}
 		DetailViewOptions.AddMenuEntry(
 			LOCTEXT("ShowAllAdvanced", "Show All Advanced Details"),
 			LOCTEXT("ShowAllAdvanced_ToolTip", "Shows all advanced detail sections in each category"),

@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "Curves/RichCurve.h"
+#include "Channels/MovieSceneFloatChannel.h"
 #include "Evaluation/MovieSceneEvalTemplate.h"
 #include "Evaluation/MovieScenePropertyTemplate.h"
 #include "Evaluation/Blending/MovieSceneMultiChannelBlending.h"
@@ -32,19 +32,19 @@ private:
 
 	/** Translation curves */
 	UPROPERTY()
-	FRichCurve Translation[2];
+	FMovieSceneFloatChannel Translation[2];
 	
 	/** Rotation curve */
 	UPROPERTY()
-	FRichCurve Rotation;
+	FMovieSceneFloatChannel Rotation;
 
 	/** Scale curves */
 	UPROPERTY()
-	FRichCurve Scale[2];
+	FMovieSceneFloatChannel Scale[2];
 
 	/** Shear curve */
 	UPROPERTY()
-	FRichCurve Shear[2];
+	FMovieSceneFloatChannel Shear[2];
 
 	/** Blending method */
 	UPROPERTY()

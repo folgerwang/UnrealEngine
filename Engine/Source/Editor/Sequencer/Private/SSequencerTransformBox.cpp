@@ -10,22 +10,14 @@
 
 #define LOCTEXT_NAMESPACE "Sequencer"
 
-void SSequencerTransformBox::Construct(const FArguments& InArgs, const TSharedRef<FSequencer>& InSequencer, USequencerSettings& InSettings, const TSharedRef<INumericTypeInterface<float>>& InNumericTypeInterface)
+void SSequencerTransformBox::Construct(const FArguments& InArgs, const TSharedRef<FSequencer>& InSequencer, USequencerSettings& InSettings, const TSharedRef<INumericTypeInterface<double>>& InNumericTypeInterface)
 {
 	SequencerPtr = InSequencer;
 	Settings = &InSettings;
 	NumericTypeInterface = InNumericTypeInterface;
 	
-	DeltaTime = 1.f;
+	DeltaTime = FFrameNumber(0);
 	ScaleFactor = 1.f;
-
-	// Initialize to 10 frames if showing frame numbers
-	float TimeSnapInterval = SequencerPtr.Pin()->GetFixedFrameInterval();
-	if (SequencerSnapValues::IsTimeSnapIntervalFrameRate(TimeSnapInterval))
-	{	
-		float FrameRate = 1.0f / TimeSnapInterval;
-		DeltaTime = SequencerHelpers::FrameToTime(10, FrameRate);
-	}
 
 	const FDockTabStyle* GenericTabStyle = &FCoreStyle::Get().GetWidgetStyle<FDockTabStyle>("Docking.Tab");
 	const FButtonStyle* const CloseButtonStyle = &GenericTabStyle->CloseButtonStyle;
@@ -61,12 +53,13 @@ void SSequencerTransformBox::Construct(const FArguments& InArgs, const TSharedRe
 					.Padding(6.0f, 0.0f, 0.0f, 0.0f)
 					.AutoWidth()
 					[
-						SAssignNew(EntryBox, SNumericEntryBox<float>)
-							.MinDesiredValueWidth(32.0f)
-							.TypeInterface(NumericTypeInterface)
-							.ToolTipText(LOCTEXT("Delta_Tooltip", "The amount to offset the keys/sections by"))
-							.OnValueCommitted(this, &SSequencerTransformBox::OnDeltaChanged)
-							.Value_Lambda([this](){ return DeltaTime; })
+						SAssignNew(OffsetEntryBox, SNumericEntryBox<double>)
+						.MinDesiredValueWidth(32.0f)
+						.TypeInterface(NumericTypeInterface)
+						.ToolTipText(LOCTEXT("TransformDelta_Tooltip", "The amount to offset the selected keys/sections by"))
+						.OnValueCommitted(this, &SSequencerTransformBox::OnDeltaCommitted)
+						.OnValueChanged(this, &SSequencerTransformBox::OnDeltaChanged)
+						.Value_Lambda([this](){ return DeltaTime.Value; })
 					]
 
 				+ SHorizontalBox::Slot()
@@ -92,10 +85,11 @@ void SSequencerTransformBox::Construct(const FArguments& InArgs, const TSharedRe
 					.Padding(6.0f, 0.0f, 0.0f, 0.0f)
 					.AutoWidth()
 					[
-						SAssignNew(EntryBox, SNumericEntryBox<float>)
-							.MinDesiredValueWidth(32.0f)
-							.ToolTipText(LOCTEXT("Scale_Tooltip", "The amount to scale the keys/section by (about the local time)"))
-							.OnValueCommitted(this, &SSequencerTransformBox::OnScaleChanged)
+						 SAssignNew(ScaleEntryBox, SNumericEntryBox<float>)
+						 	.MinDesiredValueWidth(32.0f)
+						 	.ToolTipText(LOCTEXT("TransformScale_Tooltip", "The amount to scale the selected keys/section by (about the local time)"))
+						 	.OnValueCommitted(this, &SSequencerTransformBox::OnScaleCommitted)
+							.OnValueChanged(this, &SSequencerTransformBox::OnScaleChanged)
 							.Value_Lambda([this](){ return ScaleFactor; })
 					]
 
@@ -136,33 +130,33 @@ void SSequencerTransformBox::ToggleVisibility()
 	{
 		Border->SetVisibility(EVisibility::Visible);
 		LastFocusedWidget = SlateApplication.GetUserFocusedWidget(0);
-		SlateApplication.SetAllUserFocus(EntryBox, EFocusCause::Navigation);
+		SlateApplication.SetAllUserFocus(OffsetEntryBox, EFocusCause::Navigation);
 	}
 }
 
-void SSequencerTransformBox::OnDeltaChanged(float Value, ETextCommit::Type CommitType)
+void SSequencerTransformBox::OnDeltaCommitted(double Value, ETextCommit::Type CommitType)
 {
-	if (CommitType != ETextCommit::OnEnter)
-	{
-		return;
-	}
-
-	DeltaTime = Value;
+	OnDeltaChanged(Value);
 }
 
-void SSequencerTransformBox::OnScaleChanged(float Value, ETextCommit::Type CommitType)
+void SSequencerTransformBox::OnDeltaChanged(double Value)
 {
-	if (CommitType != ETextCommit::OnEnter)
-	{
-		return;
-	}
+	DeltaTime = FFrameTime::FromDecimal(Value).GetFrame();
+}
 
+void SSequencerTransformBox::OnScaleCommitted(float Value, ETextCommit::Type CommitType)
+{
+	OnScaleChanged(Value);
+}
+
+void SSequencerTransformBox::OnScaleChanged(float Value)
+{
 	ScaleFactor = Value;
 }
 
 FReply SSequencerTransformBox::OnPlusButtonClicked()
 {
-	if (DeltaTime != 0.f)
+	if (DeltaTime != 0)
 	{
 		TSharedPtr<FSequencer> Sequencer = SequencerPtr.Pin();
 
@@ -174,7 +168,7 @@ FReply SSequencerTransformBox::OnPlusButtonClicked()
 
 FReply SSequencerTransformBox::OnMinusButtonClicked()
 {
-	if (DeltaTime != 0.f)
+	if (DeltaTime != 0)
 	{
 		TSharedPtr<FSequencer> Sequencer = SequencerPtr.Pin();
 	

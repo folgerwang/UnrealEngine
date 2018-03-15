@@ -7,11 +7,13 @@
 #include "MovieSceneSequenceID.h"
 #include "Evaluation/MovieSceneEvaluationKey.h"
 #include "Evaluation/MovieSceneSegment.h"
+#include "MovieSceneFrameMigration.h"
 #include "Evaluation/MovieSceneTrackIdentifier.h"
 #include "MovieSceneEvaluationField.generated.h"
 
+struct FFrameNumber;
 struct FMovieSceneSequenceHierarchy;
-
+struct IMovieSceneSequenceTemplateStore;
 class UMovieSceneSequence;
 
 /** A pointer to a track held within an evaluation template */
@@ -189,11 +191,12 @@ struct FMovieSceneEvaluationMetaData
 	 *
 	 * @param RootSequence				The sequence that corresponds to this meta-data's root sequence
 	 * @param RootHierarchy				The hierarchy that corresponds to this meta-data's root sequence
+	 * @param TemplateStore				The template store used to retrieve templates for sub sequences
 	 * @param OutSubRangeToInvalidate	(Optional) A range to fill with a range to invalidate in the sequence's evaluation field (in root space)
 	 *
 	 * @return true if the meta-data needs re-generating, false otherwise
 	 */
-	bool IsDirty(UMovieSceneSequence& RootSequence, const FMovieSceneSequenceHierarchy& RootHierarchy, TRange<float>* OutSubRangeToInvalidate = nullptr) const;
+	bool IsDirty(UMovieSceneSequence& RootSequence, const FMovieSceneSequenceHierarchy& RootHierarchy, IMovieSceneSequenceTemplateStore& TemplateStore, TRange<FFrameNumber>* OutSubRangeToInvalidate = nullptr) const;
 
 	/** Array of sequences that are active in this time range. */
 	UPROPERTY()
@@ -203,9 +206,9 @@ struct FMovieSceneEvaluationMetaData
 	UPROPERTY()
 	TArray<FMovieSceneOrderedEvaluationKey> ActiveEntities;
 
-	/** Map of sub sequence IDs to signatures that this meta data was generated with (not including root. */
+	/** Map of sub sequence IDs to FMovieSceneEvaluationTemplate::TemplateSignature that this meta data was generated with (not including root). */
 	UPROPERTY()
-	TMap<FMovieSceneSequenceID, FGuid> SubSequenceSignatures;
+	TMap<FMovieSceneSequenceID, FGuid> SubTemplateSignatures;
 };
 
 /**
@@ -222,7 +225,7 @@ struct FMovieSceneEvaluationField
 	 * @param Time			The time at which to seach
 	 * @return The index within Ranges, Groups and MetaData that the current time resides, or INDEX_NONE if there is nothing to do at the requested time
 	 */
-	MOVIESCENE_API int32 GetSegmentFromTime(float Time) const;
+	MOVIESCENE_API int32 GetSegmentFromTime(FFrameNumber Time) const;
 
 	/**
 	 * Deduce the indices into Ranges and Groups that overlap with the specified time range
@@ -230,7 +233,7 @@ struct FMovieSceneEvaluationField
 	 * @param Range			The range to overlap with our field
 	 * @return A range of indices into Ranges and Groups that overlap with the requested range
 	 */
-	MOVIESCENE_API TRange<int32> OverlapRange(TRange<float> Range) const;
+	MOVIESCENE_API TRange<int32> OverlapRange(TRange<FFrameNumber> Range) const;
 
 	/**
 	 * Invalidate a range in this field
@@ -238,17 +241,18 @@ struct FMovieSceneEvaluationField
 	 * @param Range			The range to overlap with our field
 	 * @return A range of indices into Ranges and Groups that overlap with the requested range
 	 */
-	MOVIESCENE_API void Invalidate(TRange<float> Range);
+	MOVIESCENE_API void Invalidate(TRange<FFrameNumber> Range);
 
 	/**
 	 * Insert a new range into this field
 	 *
-	 * @param InRange		The range to add
+	 * @param InsertTime	The time at which to insert the range
+	 * @param InRange		The total range to insert to the field. Will potentially be intersected with preexisting adjacent ranges
 	 * @param InGroup		The group defining what should happen at this time
 	 * @param InMetaData	The meta-data defining efficient access to what happens in this frame
 	 * @return The index the entries were inserted at
 	 */
-	MOVIESCENE_API int32 Insert(TRange<float> InRange, FMovieSceneEvaluationGroup&& InGroup, FMovieSceneEvaluationMetaData&& InMetaData);
+	MOVIESCENE_API int32 Insert(FFrameNumber InsertTime, TRange<FFrameNumber> InRange, FMovieSceneEvaluationGroup&& InGroup, FMovieSceneEvaluationMetaData&& InMetaData);
 
 	/**
 	 * Add the specified data to this field, assuming the specified range lies after any other entries
@@ -257,7 +261,7 @@ struct FMovieSceneEvaluationField
 	 * @param InGroup		The group defining what should happen at this time
 	 * @param InMetaData	The meta-data defining efficient access to what happens in this frame
 	 */
-	MOVIESCENE_API void Add(TRange<float> InRange, FMovieSceneEvaluationGroup&& InGroup, FMovieSceneEvaluationMetaData&& InMetaData);
+	MOVIESCENE_API void Add(TRange<FFrameNumber> InRange, FMovieSceneEvaluationGroup&& InGroup, FMovieSceneEvaluationMetaData&& InMetaData);
 
 	/**
 	 * Access this field's signature
@@ -282,9 +286,9 @@ struct FMovieSceneEvaluationField
 	 * @param Index 	The valid index within the ranges to lookup
 	 * @return The range
 	 */
-	const TRange<float>& GetRange(int32 Index) const
+	const TRange<FFrameNumber>& GetRange(int32 Index) const
 	{
-		return Ranges[Index];
+		return Ranges[Index].Value;
 	}
 
 	/**
@@ -316,7 +320,7 @@ private:
 
 	/** Ranges stored separately for fast (cache efficient) lookup. Each index has a corresponding entry in FMovieSceneEvaluationField::Groups. */
 	UPROPERTY()
-	TArray<FFloatRange> Ranges;
+	TArray<FMovieSceneFrameRange> Ranges;
 
 	/** Groups that store segment pointers for each of the above ranges. Each index has a corresponding entry in FMovieSceneEvaluationField::Ranges. */
 	UPROPERTY()

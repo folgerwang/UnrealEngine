@@ -17,7 +17,7 @@
 class ULevelSequence;
 class UMovieScene;
 
-UCLASS(MinimalAPI, Transient)
+UCLASS(MinimalAPI)
 class UActorRecording : public UObject
 {
 	GENERATED_UCLASS_BODY()
@@ -85,7 +85,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Actor Recording")
 	FActorRecordingSettings ActorSettings;
 
-	/** Whether this recording is active and to be recorded when the 'Record' button is pressed. */
+	/** Whether this actor is active and to be recorded when the 'Record' button is pressed. */
 	UPROPERTY(EditAnywhere, Category = "Actor Recording")
 	bool bActive;
 

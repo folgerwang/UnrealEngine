@@ -48,13 +48,6 @@ const TArray<UMovieSceneSection*>& UMovieSceneNiagaraEmitterTrack::GetAllSection
 	return Sections;
 }
 
-TRange<float> UMovieSceneNiagaraEmitterTrack::GetSectionBoundaries() const
-{
-	return Sections.Num() == 1
-		? Sections[0]->GetRange()
-		: TRange<float>(0, 0);
-}
-
 FName UMovieSceneNiagaraEmitterTrack::GetTrackName() const
 {
 	TSharedPtr<FNiagaraEmitterHandleViewModel> EmitterHandleViewModelPinned = EmitterHandleViewModel.Pin();

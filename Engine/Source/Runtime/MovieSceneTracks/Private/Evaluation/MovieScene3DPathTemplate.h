@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "Misc/Guid.h"
-#include "Curves/RichCurve.h"
+#include "Channels/MovieSceneFloatChannel.h"
 #include "Evaluation/MovieSceneEvalTemplate.h"
 #include "Sections/MovieScene3DPathSection.h"
 #include "MovieSceneObjectBindingID.h"
@@ -25,7 +25,7 @@ struct FMovieScene3DPathSectionTemplate : public FMovieSceneEvalTemplate
 
 	/** The timing curve */
 	UPROPERTY()
-	FRichCurve TimingCurve;
+	FMovieSceneFloatChannel TimingCurve;
 
 	/** Front Axis */
 	UPROPERTY()

@@ -23,6 +23,18 @@
 #include "SequenceRecorderSettings.h"
 #include "SequenceRecorder.h"
 #include "SDropTarget.h"
+#include "EditorFontGlyphs.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Framework/Application/SlateApplication.h"
+#include "SequenceRecorderActorGroup.h"
+#include "ISinglePropertyView.h"
+#include "ActorGroupDetailsCustomization.h"
+#include "EditorSupportDelegates.h"
+#include "Editor.h"
+#include "LevelEditor.h"
+
 
 #define LOCTEXT_NAMESPACE "SequenceRecorder"
 
@@ -175,7 +187,13 @@ void SSequenceRecorder::Construct(const FArguments& Args)
 
 	ActorRecordingDetailsView = PropertyEditorModule.CreateDetailView( DetailsViewArgs );
 	SequenceRecordingDetailsView = PropertyEditorModule.CreateDetailView( DetailsViewArgs );
+	RecordingGroupDetailsView = PropertyEditorModule.CreateDetailView( DetailsViewArgs );
+
+	TWeakPtr<SSequenceRecorder> WeakPtr = SharedThis(this);
+	RecordingGroupDetailsView->RegisterInstancedCustomPropertyLayout(USequenceRecorderActorGroup::StaticClass(), FOnGetDetailCustomizationInstance::CreateStatic(&FActorGroupDetailsCustomization::MakeInstance, WeakPtr));
+
 	SequenceRecordingDetailsView->SetObject(GetMutableDefault<USequenceRecorderSettings>());
+	RecordingGroupDetailsView->SetObject(GetMutableDefault<USequenceRecorderActorGroup>());
 
 	FToolBarBuilder ToolBarBuilder(CommandList, FMultiBoxCustomization::None);
 
@@ -282,6 +300,10 @@ void SSequenceRecorder::Construct(const FArguments& Args)
 				SNew(SVerticalBox)
 				.IsEnabled_Lambda([]() { return !FSequenceRecorder::Get().IsRecording(); })
 				+SVerticalBox::Slot()
+				[
+					RecordingGroupDetailsView.ToSharedRef()
+				]
+				+SVerticalBox::Slot()
 				.AutoHeight()
 				[
 					SequenceRecordingDetailsView.ToSharedRef()
@@ -299,6 +321,38 @@ void SSequenceRecorder::Construct(const FArguments& Args)
 	if (!ActiveTimerHandle.IsValid())
 	{
 		ActiveTimerHandle = RegisterActiveTimer(0.1f, FWidgetActiveTimerDelegate::CreateSP(this, &SSequenceRecorder::HandleRefreshItems));
+	}
+
+#if WITH_EDITOR
+	FEditorSupportDelegates::PrepareToCleanseEditorObject.AddRaw(this, &SSequenceRecorder::HandleMapUnload);
+#endif
+}
+
+SSequenceRecorder::~SSequenceRecorder()
+{
+#if WITH_EDITOR
+	FEditorSupportDelegates::PrepareToCleanseEditorObject.RemoveAll(this);
+#endif
+}
+
+void SSequenceRecorder::HandleMapUnload(UObject* Object)
+{
+	UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
+	if (EditorWorld == Object)
+	{
+		// When a map object is about to be GC'd we want to make sure the UI releases all references
+		// to anything that is owned by the scene.
+		ActorRecordingDetailsView->SetObject(nullptr);
+
+		// Force the list view to rebuild after clearing it's data source. This clears the list view's
+		// widget children. The ListView should only contain TWeakObjectPtrs but it's holding a hard
+		// reference anyways that's causes a gc leak on map change.
+		FSequenceRecorder::Get().ClearQueuedRecordings();
+		ListView->RebuildList();
+
+		// We also want to construct a new mutable default so it resets the recording paths to the
+		// default paths for the new map.
+		RecordingGroupDetailsView->SetObject(GetMutableDefault<USequenceRecorderActorGroup>());
 	}
 }
 
@@ -332,6 +386,25 @@ void SSequenceRecorder::BindCommands()
 		FExecuteAction::CreateSP(this, &SSequenceRecorder::HandleRemoveAllRecordings),
 		FCanExecuteAction::CreateSP(this, &SSequenceRecorder::CanRemoveAllRecordings)
 		);
+
+	CommandList->MapAction(FSequenceRecorderCommands::Get().AddRecordingGroup,
+		FExecuteAction::CreateSP(this, &SSequenceRecorder::HandleAddRecordingGroup),
+		FCanExecuteAction::CreateSP(this, &SSequenceRecorder::CanAddRecordingGroup)
+	);
+
+	CommandList->MapAction(FSequenceRecorderCommands::Get().RemoveRecordingGroup,
+		FExecuteAction::CreateSP(this, &SSequenceRecorder::HandleRemoveRecordingGroup),
+		FCanExecuteAction::CreateSP(this, &SSequenceRecorder::CanRemoveRecordingGroup)
+	);
+
+	CommandList->MapAction(FSequenceRecorderCommands::Get().DuplicateRecordingGroup,
+		FExecuteAction::CreateSP(this, &SSequenceRecorder::HandleDuplicateRecordingGroup),
+		FCanExecuteAction::CreateSP(this, &SSequenceRecorder::CanDuplicateRecordingGroup)
+	);
+
+	// Append to level editor module so that shortcuts are accessible in level editor
+	FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
+	LevelEditorModule.GetGlobalLevelEditorActions()->Append(CommandList.ToSharedRef());
 }
 
 TSharedRef<ITableRow> SSequenceRecorder::MakeListViewWidget(UActorRecording* Recording, const TSharedRef<STableViewBase>& OwnerTable) const
@@ -402,6 +475,14 @@ void SSequenceRecorder::HandleRemoveRecording()
 	{
 		FSequenceRecorder::Get().RemoveQueuedRecording(SelectedRecording);
 
+		// Remove the recording from the current group here. We can't use the
+		// FSequenceRecorder function as they are called when switching groups,
+		// and not just when the user removes items.
+		if (FSequenceRecorder::Get().GetRecordingGroup().IsValid())
+		{
+			FSequenceRecorder::Get().GetRecordingGroup()->RecordedActors.Remove(SelectedRecording);
+		}
+
 		TArray<TWeakObjectPtr<UObject>> SelectedObjects = ActorRecordingDetailsView->GetSelectedObjects();
 		if(SelectedObjects.Num() > 0 && SelectedObjects[0].Get() == SelectedRecording)
 		{
@@ -418,6 +499,10 @@ bool SSequenceRecorder::CanRemoveRecording() const
 void SSequenceRecorder::HandleRemoveAllRecordings()
 {
 	FSequenceRecorder::Get().ClearQueuedRecordings();
+	if (FSequenceRecorder::Get().GetRecordingGroup().IsValid())
+	{
+		FSequenceRecorder::Get().GetRecordingGroup()->RecordedActors.Empty();
+	}
 	ActorRecordingDetailsView->SetObject(nullptr);
 }
 
@@ -431,11 +516,85 @@ EActiveTimerReturnType SSequenceRecorder::HandleRefreshItems(double InCurrentTim
 	if(FSequenceRecorder::Get().AreQueuedRecordingsDirty())
 	{
 		ListView->RequestListRefresh();
-
 		FSequenceRecorder::Get().ResetQueuedRecordingsDirty();
 	}
 
 	return EActiveTimerReturnType::Continue;
+}
+
+void SSequenceRecorder::HandleAddRecordingGroup()
+{
+	FSequenceRecorder::Get().AddRecordingGroup();
+	check(FSequenceRecorder::Get().GetRecordingGroup().IsValid());
+	RecordingGroupDetailsView->SetObject(FSequenceRecorder::Get().GetRecordingGroup().Get());
+}
+
+bool SSequenceRecorder::CanAddRecordingGroup() const
+{
+	return !FSequenceRecorder::Get().IsRecording();
+}
+
+void SSequenceRecorder::HandleLoadRecordingActorGroup(FName Name)
+{
+	FSequenceRecorder::Get().LoadRecordingGroup(Name);
+
+	// Bind our details view to the newly loaded group.
+	if (FSequenceRecorder::Get().GetRecordingGroup().IsValid())
+	{
+		RecordingGroupDetailsView->SetObject(FSequenceRecorder::Get().GetRecordingGroup().Get());
+	}
+	else
+	{
+		// If they've loaded the "None" profile we create a new default as well to reset the paths.
+		RecordingGroupDetailsView->SetObject(GetMutableDefault<USequenceRecorderActorGroup>());
+	}
+}
+
+void SSequenceRecorder::HandleRemoveRecordingGroup()
+{
+	FSequenceRecorder::Get().RemoveCurrentRecordingGroup();
+
+	// See if there's any recordings left, if so we'll load the last one, otherwise we need to load
+	// a default so that the UI is still visible.
+	TArray<FName> RecordingProfiles = FSequenceRecorder::Get().GetRecordingGroupNames();
+	if (RecordingProfiles.Num() > 0)
+	{
+		FSequenceRecorder::Get().LoadRecordingGroup(RecordingProfiles[RecordingProfiles.Num() - 1]);
+		check(FSequenceRecorder::Get().GetRecordingGroup().Get());
+
+		RecordingGroupDetailsView->SetObject(FSequenceRecorder::Get().GetRecordingGroup().Get());
+	}
+	else
+	{
+		RecordingGroupDetailsView->SetObject(GetMutableDefault<USequenceRecorderActorGroup>());
+	}
+}
+
+bool SSequenceRecorder::CanRemoveRecordingGroup() const
+{
+	TWeakObjectPtr<USequenceRecorderActorGroup> RecordingGroup = FSequenceRecorder::Get().GetRecordingGroup();
+	if (RecordingGroup.IsValid())
+	{
+		return RecordingGroup->GroupName != NAME_None;
+	}
+
+	return false;
+}
+
+void SSequenceRecorder::HandleDuplicateRecordingGroup()
+{
+	FSequenceRecorder::Get().DuplicateRecordingGroup();
+}
+
+bool SSequenceRecorder::CanDuplicateRecordingGroup() const
+{
+	TWeakObjectPtr<USequenceRecorderActorGroup> RecordingGroup = FSequenceRecorder::Get().GetRecordingGroup();
+	if (RecordingGroup.IsValid())
+	{
+		return RecordingGroup->GroupName != NAME_None;
+	}
+
+	return false;
 }
 
 TOptional<float> SSequenceRecorder::GetDelayPercent() const

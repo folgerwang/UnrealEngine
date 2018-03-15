@@ -130,9 +130,18 @@ bool FRichCurveKey::operator!=(const FRichCurveKey& Other) const
 FKeyHandle::FKeyHandle()
 {
 	static uint32 LastKeyHandleIndex = 1;
-	check(LastKeyHandleIndex != 0); // check in the unlikely event that this overflows
-
 	Index = ++LastKeyHandleIndex;
+
+	check(LastKeyHandleIndex != 0); // check in the unlikely event that this overflows
+}
+
+FKeyHandle::FKeyHandle(uint32 SpecificIndex)
+	: Index(SpecificIndex)
+{}
+
+FKeyHandle FKeyHandle::Invalid()
+{
+	return FKeyHandle(0);
 }
 
 
@@ -888,11 +897,11 @@ void FRichCurve::RemoveRedundantKeys(float Tolerance, float FirstKeyTime, float 
 	{
 		const float CurrentKeyTime = Keys[KeyIndex].Time;
 
-		if (CurrentKeyTime < FirstKeyTime)
+		if (CurrentKeyTime <= FirstKeyTime)
 		{
 			StartKey = KeyIndex;
 		}
-		if (CurrentKeyTime > LastKeyTime)
+		if (CurrentKeyTime >= LastKeyTime)
 		{
 			EndKey = KeyIndex;
 			break;

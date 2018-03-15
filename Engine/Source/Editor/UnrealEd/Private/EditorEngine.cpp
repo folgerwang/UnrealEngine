@@ -1661,32 +1661,6 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 
 				FKismetDebugUtilities::NotifyDebuggerOfStartOfGameFrame(PieContext.World());
 
-				static TArray< TWeakObjectPtr<AActor> > RecordedActors;
-				RecordedActors.Reset();
-
-				// Check to see if we want to use sequencer's live recording feature
-				bool bIsRecordingActive = false;
-				GetActorRecordingStateEvent.Broadcast( bIsRecordingActive );
-				if( bIsRecordingActive )
-				{
-					// @todo sequencer livecapture: How do we capture the destruction of actors? (needs to hide the spawned puppet actor, or destroy it)
-					// @todo sequencer livecapture: Actor parenting state is not captured or retained on puppets
-					// @todo sequencer livecapture: Needs to capture state besides transforms (animation, audio, property changes, etc.)
-
-					// @todo sequencer livecapture: Hacky test code for sequencer live capture feature
-					for( FActorIterator ActorIter( PlayWorld ); ActorIter; ++ActorIter )
-					{
-						AActor* Actor = *ActorIter;
-
-						// @todo sequencer livecapture: Restrict to certain actor types for now, just for testing
-						if( Actor->IsA(ASkeletalMeshActor::StaticClass()) || (Actor->IsA(AStaticMeshActor::StaticClass()) && Actor->IsRootComponentMovable()) )
-						{
-							GEditor->BroadcastBeginObjectMovement( *Actor );
-							RecordedActors.Add( Actor );
-						}
-					}				
-				}
-
 				// tick the level
 				PieContext.World()->Tick( LEVELTICK_All, DeltaSeconds );
 				bAWorldTicked = true;
@@ -1697,18 +1671,6 @@ void UEditorEngine::Tick( float DeltaSeconds, bool bIdleMode )
 					// Update sky light first because sky diffuse will be visible in reflection capture indirect specular
 					USkyLightComponent::UpdateSkyCaptureContents(PlayWorld);
 					UReflectionCaptureComponent::UpdateReflectionCaptureContents(PlayWorld);
-				}
-
-				if( bIsRecordingActive )
-				{
-					for( auto RecordedActorIter( RecordedActors.CreateIterator() ); RecordedActorIter; ++RecordedActorIter )
-					{
-						AActor* Actor = RecordedActorIter->Get();
-						if( Actor != NULL )
-						{
-							GEditor->BroadcastEndObjectMovement( *Actor );
-						}
-					}				
 				}
 
 				FKismetDebugUtilities::NotifyDebuggerOfEndOfGameFrame(PieContext.World());
@@ -2767,17 +2729,22 @@ void UEditorEngine::ApplyDeltaToComponent(USceneComponent* InComponent,
 		{
 			if ( bDelta )
 			{
-				const FQuat ActorQ = InComponent->RelativeRotation.Quaternion();
+				const FRotator Rot = InComponent->RelativeRotation;
+				FRotator ActorRotWind, ActorRotRem;
+				Rot.GetWindingAndRemainder(ActorRotWind, ActorRotRem);
+				const FQuat ActorQ = ActorRotRem.Quaternion();
 				const FQuat DeltaQ = InDeltaRot.Quaternion();
 				const FQuat ResultQ = DeltaQ * ActorQ;
 
-				const FRotator NewActorRot = FRotator( ResultQ );
-
-				InComponent->SetRelativeRotation(NewActorRot);
+				FRotator NewActorRotRem = FRotator(ResultQ);
+				ActorRotRem.SetClosestToMe(NewActorRotRem);
+				FRotator DeltaRot = NewActorRotRem - ActorRotRem;
+				DeltaRot.Normalize();
+				InComponent->SetRelativeRotationExact(Rot + DeltaRot);
 			}
 			else
 			{
-				InComponent->SetRelativeRotation( InDeltaRot );
+				InComponent->SetRelativeRotationExact( InDeltaRot );
 			}
 
 			if ( bDelta )

@@ -32,19 +32,6 @@ const TArray<UMovieSceneSection*>& UMovieSceneEventTrack::GetAllSections() const
 }
 
 
-TRange<float> UMovieSceneEventTrack::GetSectionBoundaries() const
-{
-	TRange<float> SectionBoundaries = TRange<float>::Empty();
-
-	for (auto& Section : Sections)
-	{
-		SectionBoundaries = TRange<float>::Hull(SectionBoundaries, Section->GetRange());
-	}
-
-	return SectionBoundaries;
-}
-
-
 bool UMovieSceneEventTrack::HasSection(const UMovieSceneSection& Section) const
 {
 	return Sections.Contains(&Section);

@@ -67,7 +67,7 @@ private:
 
 	bool bWasTriggered;
 
-	EParticleKey::Type PreviousState;
+	EParticleKey PreviousState;
 
 	TWeakObjectPtr<UMovieSceneParticleTrackSectionRecorder> DelegateProxy;
 };

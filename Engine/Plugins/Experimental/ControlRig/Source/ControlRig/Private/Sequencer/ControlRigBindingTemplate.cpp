@@ -264,17 +264,24 @@ void FControlRigBindingTemplate::Evaluate(const FMovieSceneEvaluationOperand& Op
 
 	const FMovieSceneControlRigInstanceData* InstanceData = PersistentData.FindInstanceData<FMovieSceneControlRigInstanceData>();
 
-	const float Time = Context.GetTime();
-	const float Weight = InstanceData ? InstanceData->Weight.Eval(Time) : 1.f;
+	const FFrameTime Time = Context.GetTime();
+	float Weight = 1.f;
+	if (InstanceData)
+	{
+		InstanceData->Weight.Evaluate(Time, Weight);
+	}
+
+	bool bSpawned = true;
+	Curve.Evaluate(Time, bSpawned);
 
 	if (InstanceData && InstanceData->Operand.ObjectBindingID.IsValid())
 	{
-		ExecutionTokens.Add(FBindControlRigObjectToken(Weight, Curve.Evaluate(Time) != 0));
+		ExecutionTokens.Add(FBindControlRigObjectToken(Weight, bSpawned));
 	}
 #if WITH_EDITORONLY_DATA
 	else if (ObjectBinding.IsValid())
 	{
-		ExecutionTokens.Add(FBindControlRigObjectToken(Weight, Curve.Evaluate(Time) != 0, ObjectBinding));
+		ExecutionTokens.Add(FBindControlRigObjectToken(Weight, bSpawned, ObjectBinding));
 	}
 #endif
 }

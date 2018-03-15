@@ -31,6 +31,8 @@
 #include "Tracks/MovieSceneAudioTrack.h"
 #include "Sections/MovieSceneAudioSection.h"
 #include "Sound/SoundWave.h"
+#include "SequenceRecorderActorGroup.h"
+#include "MovieSceneTimeHelpers.h"
 
 #define LOCTEXT_NAMESPACE "SequenceRecorder"
 
@@ -143,10 +145,6 @@ void FSequenceRecorder::AddNewQueuedRecordingsForSelectedActors()
 				bAnySelectedActorsAdded = true;
 			}
 		}
-		else
-		{
-			bAnySelectedActorsAdded = true;
-		}
 	}
 
 	if (!bAnySelectedActorsAdded)
@@ -159,7 +157,7 @@ UActorRecording* FSequenceRecorder::AddNewQueuedRecording(AActor* Actor, UAnimSe
 {
 	const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
 
-	UActorRecording* ActorRecording = NewObject<UActorRecording>();
+	UActorRecording* ActorRecording = NewObject<UActorRecording>(CurrentRecorderGroup.IsValid() ? CurrentRecorderGroup.Get() : (UObject*)GetTransientPackage());
 	ActorRecording->AddToRoot();
 	ActorRecording->SetActorToRecord(Actor);
 	ActorRecording->TargetAnimation = AnimSequence;
@@ -179,6 +177,10 @@ UActorRecording* FSequenceRecorder::AddNewQueuedRecording(AActor* Actor, UAnimSe
 	}
 
 	QueuedRecordings.Add(ActorRecording);
+	if (CurrentRecorderGroup.IsValid() && !CurrentRecorderGroup->RecordedActors.Contains(ActorRecording))
+	{
+		CurrentRecorderGroup->RecordedActors.Add(ActorRecording);
+	}
 
 	bQueuedRecordingsDirty = true;
 
@@ -238,6 +240,18 @@ bool FSequenceRecorder::HasQueuedRecordings() const
 	return QueuedRecordings.Num() > 0;
 }
 
+bool FSequenceRecorder::IsRecording() const
+{
+	for(UActorRecording* Recording : QueuedRecordings)
+	{
+		if (Recording->IsRecording())
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 
 void FSequenceRecorder::Tick(float DeltaSeconds)
 {
@@ -277,7 +291,7 @@ void FSequenceRecorder::Tick(float DeltaSeconds)
 		}
 	}
 
-	if(Settings->bCreateLevelSequence && CurrentSequence.IsValid())
+	if (IsRecording())
 	{
 		CurrentTime += DeltaSeconds;
 
@@ -364,14 +378,19 @@ void FSequenceRecorder::DrawDebug(UCanvas* InCanvas, APlayerController* InPlayer
 
 	if(bCountingDown || IsRecording())
 	{
+		const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
+	
 		FText LabelText;
-		if(IsRecording())
+		if (Settings->bCreateLevelSequence)
 		{
-			LabelText = FText::Format(LOCTEXT("RecordingIndicatorFormat", "{0}"), FText::FromName(CurrentSequence.Get()->GetFName()));
-		}
-		else
-		{
-			LabelText = FText::Format(LOCTEXT("RecordingIndicatorPending", "Pending recording: {0}"), FText::FromString(NextSequenceName));
+			if (CurrentSequence.IsValid())
+			{
+				LabelText = FText::Format(LOCTEXT("RecordingIndicatorFormat", "{0}"), FText::FromName(CurrentSequence.Get()->GetFName()));
+			}
+			else
+			{
+				LabelText = FText::Format(LOCTEXT("RecordingIndicatorPending", "Pending recording: {0}"), FText::FromString(NextSequenceName));
+			}
 		}
 
 
@@ -441,7 +460,7 @@ bool FSequenceRecorder::StartRecording(const FString& InPathToRecordTo, const FS
 	}
 	else
 	{
-		PathToRecordTo = Settings->SequenceRecordingBasePath.Path;
+		PathToRecordTo = GetSequenceRecordingBasePath();
 	}
 
 	if(InSequenceName.Len() > 0)
@@ -450,7 +469,7 @@ bool FSequenceRecorder::StartRecording(const FString& InPathToRecordTo, const FS
 	}
 	else
 	{
-		SequenceName = Settings->SequenceName.Len() > 0 ? Settings->SequenceName : TEXT("RecordedSequence");
+		SequenceName = GetSequenceRecordingName().Len() > 0 ? GetSequenceRecordingName() : TEXT("RecordedSequence");
 	}
 
 	CurrentTime = 0.0f;
@@ -560,7 +579,7 @@ bool FSequenceRecorder::StartRecordingInternal(UWorld* World)
 				if (DupActorToTrigger->SequencePlayer)
 				{
 					DupActorToTrigger->SequencePlayer->SetDisableCameraCuts(true);
-					DupActorToTrigger->SequencePlayer->SetPlaybackPosition(0.f);
+					DupActorToTrigger->SequencePlayer->JumpToFrame(0);
 					DupActorToTrigger->SequencePlayer->Play();
 				}
 				else
@@ -660,7 +679,7 @@ bool FSequenceRecorder::StartRecordingInternal(UWorld* World)
 			if (LevelSequence)
 			{
 				FDirectoryPath AudioDirectory;
-				AudioDirectory.Path = Settings->SequenceRecordingBasePath.Path;
+				AudioDirectory.Path = GetSequenceRecordingBasePath();
 				if (Settings->AudioSubDirectory.Len())
 				{
 					AudioDirectory.Path /= Settings->AudioSubDirectory;
@@ -715,6 +734,8 @@ bool FSequenceRecorder::StopRecording()
 {
 	if (!IsRecording())
 	{
+		CurrentDelay = 0.0f;
+	
 		return false;
 	}
 
@@ -771,10 +792,11 @@ bool FSequenceRecorder::StopRecording()
 
 			UMovieSceneAudioSection* NewAudioSection = NewObject<UMovieSceneAudioSection>(AudioTrack, UMovieSceneAudioSection::StaticClass());
 
+			FFrameRate FrameResolution = AudioTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+
 			NewAudioSection->SetRowIndex(RowIndex + 1);
 			NewAudioSection->SetSound(RecordedAudio);
-			NewAudioSection->SetStartTime(0);
-			NewAudioSection->SetEndTime(RecordedAudio->GetDuration());
+			NewAudioSection->SetRange(TRange<FFrameNumber>(FFrameNumber(0), (RecordedAudio->GetDuration() * FrameResolution).CeilToFrame()));
 
 			AudioTrack->AddSection(*NewAudioSection);
 		}
@@ -918,24 +940,29 @@ void FSequenceRecorder::UpdateSequencePlaybackRange()
 		UMovieScene* MovieScene = CurrentSequence->GetMovieScene();
 		if(MovieScene)
 		{
-			float MaxRange = 0.0f;
-			float MinRange = 0.0f;
+			TRange<FFrameNumber> PlayRange = TRange<FFrameNumber>::Empty();
 
 			TArray<UMovieSceneSection*> MovieSceneSections = MovieScene->GetAllSections();
 			for(UMovieSceneSection* Section : MovieSceneSections)
 			{
-				MaxRange = FMath::Max(MaxRange, Section->GetEndTime());
-				MinRange = FMath::Min(MinRange, Section->GetStartTime());
+				TRange<FFrameNumber> SectionRange = Section->GetRange();
+				if (SectionRange.GetLowerBound().IsClosed() && SectionRange.GetUpperBound().IsClosed())
+				{
+					PlayRange = TRange<FFrameNumber>::Hull(PlayRange, SectionRange);
+				}
 			}
 
-			MovieScene->SetPlaybackRange(MinRange, MaxRange);
+			MovieScene->SetPlaybackRange(PlayRange);
 
 			// Initialize the working and view range with a little bit more space
-			const float OutputViewSize = MaxRange - MinRange;
-			const float OutputChange = OutputViewSize * 0.1f;
+			FFrameRate  FrameResolution = MovieScene->GetFrameResolution();
+			const double OutputViewSize = PlayRange.Size<FFrameNumber>() / FrameResolution;
+			const double OutputChange   = OutputViewSize * 0.1;
 
-			MovieScene->SetWorkingRange(MinRange - OutputChange, MaxRange + OutputChange);
-			MovieScene->SetViewRange(MinRange - OutputChange, MaxRange + OutputChange);
+			TRange<double> NewRange = MovieScene::ExpandRange(PlayRange / FrameResolution, OutputChange);
+			FMovieSceneEditorData& EditorData = MovieScene->GetEditorData();
+			EditorData.ViewStart = EditorData.WorkStart = NewRange.GetLowerBoundValue();
+			EditorData.ViewEnd   = EditorData.WorkEnd   = NewRange.GetUpperBoundValue();
 		}
 	}
 }
@@ -1029,14 +1056,191 @@ void FSequenceRecorder::HandleActorDespawned(AActor* Actor)
 
 void FSequenceRecorder::RefreshNextSequence()
 {
-	const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
-	if (SequenceName.IsEmpty())
-	{
-		SequenceName = Settings->SequenceName.Len() > 0 ? Settings->SequenceName : TEXT("RecordedSequence");
-	}
+	SequenceName = GetSequenceRecordingName().Len() > 0 ? GetSequenceRecordingName() : TEXT("RecordedSequence");
 
 	// Cache the name of the next sequence we will try to record to
-	NextSequenceName = SequenceRecorderUtils::MakeNewAssetName<ULevelSequence>(Settings->SequenceRecordingBasePath.Path, SequenceName);
+	NextSequenceName = SequenceRecorderUtils::MakeNewAssetName<ULevelSequence>(GetSequenceRecordingBasePath(), SequenceName);
 }
 
+TWeakObjectPtr<ASequenceRecorderGroup> FSequenceRecorder::GetRecordingGroupActor()
+{
+	if (CachedRecordingActor.IsValid())
+	{
+		return CachedRecordingActor;
+	}
+
+	// Check the map for one
+	UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
+	ASequenceRecorderGroup* GroupActor = nullptr;
+
+	if (EditorWorld && EditorWorld->PersistentLevel)
+	{
+		for (int32 ActorIndex = 0; ActorIndex < EditorWorld->PersistentLevel->Actors.Num(); ++ActorIndex)
+		{
+			AActor* Actor = EditorWorld->PersistentLevel->Actors[ActorIndex];
+			GroupActor = Cast<ASequenceRecorderGroup>(Actor);
+			if (GroupActor)
+			{
+				// We want to find the first actor
+				break;
+			}
+		}
+	}
+
+	// We may not have one, or we may be in a situation where we can't safely create
+	// an actor, calling functions should expect this to possibly be null.
+	CachedRecordingActor = GroupActor;
+	return CachedRecordingActor;
+}
+
+void FSequenceRecorder::AddRecordingGroup()
+{
+	TWeakObjectPtr<ASequenceRecorderGroup> GroupActor = GetRecordingGroupActor();
+	UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
+
+	// There may not be a group actor in the level yet, so we'll spawn a new one.
+	if (!GroupActor.IsValid())
+	{
+		GroupActor = (ASequenceRecorderGroup*)GEditor->AddActor(EditorWorld->PersistentLevel, ASequenceRecorderGroup::StaticClass(), FTransform::Identity);
+		CachedRecordingActor = GroupActor;
+	}
+
+	// Now add a new actor group to this actor
+	check(GroupActor.IsValid());
+	USequenceRecorderActorGroup* ActorGroup = NewObject<USequenceRecorderActorGroup>(GroupActor.Get());
+	ActorGroup->GroupName = FName(*FGuid::NewGuid().ToString());
+	GroupActor->ActorGroups.Add(ActorGroup);
+
+	// Remove the existing queued recordings which marks us as dirty so the UI will refresh too.
+	ClearQueuedRecordings();
+
+	// And then select our new object by default
+	CurrentRecorderGroup = ActorGroup;
+}
+
+void FSequenceRecorder::RemoveCurrentRecordingGroup()
+{
+	if (!GetRecordingGroup().IsValid())
+	{
+		return;
+	}
+
+	ClearQueuedRecordings();
+	TWeakObjectPtr<ASequenceRecorderGroup> GroupActor = GetRecordingGroupActor();
+	if (GroupActor.IsValid())
+	{
+		GroupActor->ActorGroups.Remove(GetRecordingGroup().Get());
+	}
+}
+
+void FSequenceRecorder::DuplicateRecordingGroup()
+{
+	check(GetRecordingGroup().IsValid());
+	check(GetRecordingGroupActor().IsValid());
+
+	USequenceRecorderActorGroup* DuplicatedGroup = DuplicateObject<USequenceRecorderActorGroup>(GetRecordingGroup().Get(), GetRecordingGroupActor().Get());
+	DuplicatedGroup->GroupName = FName(*FGuid::NewGuid().ToString());
+	GetRecordingGroupActor().Get()->ActorGroups.Add(DuplicatedGroup);
+
+	// We'll invoke the standard load function so that it triggers everything to clear/update correctly.
+	LoadRecordingGroup(DuplicatedGroup->GroupName);
+}
+
+TArray<FName> FSequenceRecorder::GetRecordingGroupNames() const
+{
+	TArray<FName> GroupNames;
+	UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
+	if (EditorWorld && EditorWorld->PersistentLevel)
+	{
+		for (int32 ActorIndex = 0; ActorIndex < EditorWorld->PersistentLevel->Actors.Num(); ++ActorIndex)
+		{
+			AActor* Actor = EditorWorld->PersistentLevel->Actors[ActorIndex];
+			ASequenceRecorderGroup* GroupActor = Cast<ASequenceRecorderGroup>(Actor);
+			if (GroupActor)
+			{
+				for (USequenceRecorderActorGroup* ActorGroup : GroupActor->ActorGroups)
+				{
+					GroupNames.Add(ActorGroup->GroupName);
+				}
+
+				// We only examine the first actor group in the map as it should contain all of our groups.
+				break;
+			}
+		}
+	}
+
+	return GroupNames;
+}
+
+void FSequenceRecorder::LoadRecordingGroup(const FName Name)
+{
+	TWeakObjectPtr<ASequenceRecorderGroup> GroupActor = nullptr;
+	UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
+
+	if (EditorWorld && EditorWorld->PersistentLevel)
+	{
+		for (int32 ActorIndex = 0; ActorIndex < EditorWorld->PersistentLevel->Actors.Num(); ++ActorIndex)
+		{
+			AActor* Actor = EditorWorld->PersistentLevel->Actors[ActorIndex];
+			GroupActor = Cast<ASequenceRecorderGroup>(Actor);
+			if (GroupActor.IsValid())
+			{
+				// We only examine the first actor group in the map
+				break;
+			}
+		}
+	}
+
+	if (GroupActor.IsValid())
+	{
+		// Remove the existing queued recordings to mark us as dirty (this causes the UI to refresh)
+		ClearQueuedRecordings();
+
+		TWeakObjectPtr<USequenceRecorderActorGroup> ActorGroup = GroupActor->FindActorGroup(Name);
+		if (ActorGroup.IsValid())
+		{
+			CurrentRecorderGroup = ActorGroup;
+			for (UActorRecording* ActorRecording : ActorGroup->RecordedActors)
+			{
+				if (ActorRecording != nullptr)
+				{
+					ActorRecording->AddToRoot();
+					QueuedRecordings.Add(ActorRecording);
+				}
+			}
+			RefreshNextSequence();
+			return;
+		}
+	}
+
+	// We either don't have a group actor or we can't find a group by that name, clear anything we have loaded.
+	// This lets the UI handle switching back to profile "None".
+	RefreshNextSequence();
+	ClearQueuedRecordings();
+	CurrentRecorderGroup = nullptr;
+}
+
+FString FSequenceRecorder::GetSequenceRecordingBasePath() const
+{
+	TWeakObjectPtr<USequenceRecorderActorGroup> RecordingGroup = GetRecordingGroup();
+	if (RecordingGroup.IsValid())
+	{
+		return RecordingGroup->SequenceRecordingBasePath.Path;
+	}
+
+	// If no profile is loaded, we just return the default.
+	return GetDefault<USequenceRecorderActorGroup>()->SequenceRecordingBasePath.Path;
+}
+
+FString FSequenceRecorder::GetSequenceRecordingName() const
+{
+	TWeakObjectPtr<USequenceRecorderActorGroup> RecordingGroup = GetRecordingGroup();
+	if (RecordingGroup.IsValid())
+	{
+		return RecordingGroup->SequenceName;
+	}
+
+	// If no profile is loaded, just return the default value.
+	return GetDefault<USequenceRecorderActorGroup>()->SequenceName;
+}
 #undef LOCTEXT_NAMESPACE

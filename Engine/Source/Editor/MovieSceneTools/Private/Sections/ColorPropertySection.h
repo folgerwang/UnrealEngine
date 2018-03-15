@@ -2,10 +2,12 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
-#include "Misc/Guid.h"
-#include "PropertySection.h"
+#include "ISequencerSection.h"
+#include "MovieSceneCommonHelpers.h"
 
+struct  FTimeToPixel;
+
+class ISequencer;
 class FSequencerSectionPainter;
 class UMovieSceneColorSection;
 
@@ -13,42 +15,37 @@ class UMovieSceneColorSection;
 * A color section implementation
 */
 class FColorPropertySection
-	: public FPropertySection
+	: public FSequencerSection
 {
 public:
 
 	/**
 	* Creates a new color property section.
 	*
-	* @param InSequencer The sequencer which is controlling this property section.
-	* @param InObjectBinding The object binding for the object which owns the property that this section is animating.
-	* @param InPropertyName The name of the property which is animated by this section.
-	* @param InPropertyPath A string representing the path to the property which is animated by this section.
 	* @param InSectionObject The section object which is being displayed and edited.
-	* @param InDisplayName A display name for the section being displayed and edited.
+	* @param InObjectBindingID The ID of the object this section is bound to
+	* @param InSequencer The sequencer this section is for
 	*/
-	FColorPropertySection(ISequencer* InSequencer, FGuid InObjectBinding, FName InPropertyName, const FString& InPropertyPath, UMovieSceneSection& InSectionObject, const FText& InDisplayName)
-		: FPropertySection(InSequencer, InObjectBinding, InPropertyName, InPropertyPath, InSectionObject, InDisplayName)
-	{
-	}
+	FColorPropertySection(UMovieSceneSection& InSectionObject, const FGuid& InObjectBindingID, TWeakPtr<ISequencer> InSequencer);
 
-public:
+private:
 
-	// FPropertySection interface
-
-	virtual void GenerateSectionLayout(class ISectionLayoutBuilder& LayoutBuilder) const override;
 	virtual int32 OnPaintSection(FSequencerSectionPainter& Painter) const override;
 
-protected:
-
 	/** Consolidate color curves for all track sections. */
-	void ConsolidateColorCurves(TArray< TKeyValuePair<float, FLinearColor> >& OutColorKeys, const UMovieSceneColorSection* Section) const;
-	
-	/** Gets current value of the property being edited as a linear color. */
-	TOptional<FLinearColor> GetPropertyValueAsLinearColor() const;
+	void ConsolidateColorCurves(TArray< TTuple<float, FLinearColor> >& OutColorKeys, const UMovieSceneColorSection* Section, const FTimeToPixel& TimeConverter) const;
 
-	TOptional<float> GetColorRedValue() const;
-	TOptional<float> GetColorGreenValue() const;
-	TOptional<float> GetColorBlueValue() const;
-	TOptional<float> GetColorAlphaValue() const;
+	/** Get the current value of the object's property as a linear color */
+	FLinearColor GetPropertyValueAsLinearColor() const;
+
+private:
+
+	/** The bound objects ID */
+	FGuid ObjectBindingID;
+
+	/** Weak pointer to the sequencer this section is for */
+	TWeakPtr<ISequencer> WeakSequencer;
+
+	/** Property bindings used for retrieving object properties */
+	mutable TOptional<FTrackInstancePropertyBindings> PropertyBindings;
 };

@@ -51,6 +51,9 @@ void SKeyAreaEditorSwitcher::Rebuild()
 		return;
 	}
 
+	TSharedPtr<FSequencerObjectBindingNode> ParentObjectBinding = KeyAreaNode->FindParentObjectBindingNode();
+	FGuid ObjectBindingID = ParentObjectBinding.IsValid() ? ParentObjectBinding->GetObjectBinding() : FGuid();
+
 	for (int32 Index = 0; Index < KeyAreaNode->GetAllKeyAreas().Num(); ++Index)
 	{
 		TSharedRef<IKeyArea> KeyArea = KeyAreaNode->GetAllKeyAreas()[Index];
@@ -65,7 +68,7 @@ void SKeyAreaEditorSwitcher::Rebuild()
 				.HAlign(HAlign_Left)
 				.Visibility(this, &SKeyAreaEditorSwitcher::GetWidgetVisibility, Index)
 				[
-					KeyArea->CreateKeyEditor(&KeyAreaNode->GetSequencer())
+					KeyArea->CreateKeyEditor(KeyAreaNode->GetSequencer().AsShared(), ObjectBindingID)
 				]
 			];
 		}
@@ -93,5 +96,5 @@ void SKeyAreaEditorSwitcher::Tick( const FGeometry& AllottedGeometry, const doub
 		AllSections.Add(KeyArea->GetOwningSection());
 	}
 
-	VisibleIndex = SequencerHelpers::GetSectionFromTime(AllSections, KeyAreaNode->GetSequencer().GetLocalTime());
+	VisibleIndex = SequencerHelpers::GetSectionFromTime(AllSections, KeyAreaNode->GetSequencer().GetLocalTime().Time.FrameNumber);
 }

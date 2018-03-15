@@ -11,4 +11,6 @@ UMovieSceneSpawnSection::UMovieSceneSpawnSection(const FObjectInitializer& Init)
 		(GetLinkerCustomVersion(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::WhenFinishedDefaultsToProjectDefault ? 
 			EMovieSceneCompletionMode::RestoreState : 
 			EMovieSceneCompletionMode::ProjectDefault);
+
+	BoolCurve.SetDefault(true);
 }

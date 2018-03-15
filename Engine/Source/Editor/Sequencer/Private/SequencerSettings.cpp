@@ -15,11 +15,8 @@ USequencerSettings::USequencerSettings( const FObjectInitializer& ObjectInitiali
 	bAutoSetTrackDefaults = false;
 	SpawnPosition = SSP_Origin;
 	bCreateSpawnableCameras = true;
-	bShowFrameNumbers = true;
 	bShowRangeSlider = false;
 	bIsSnapEnabled = true;
-	TimeSnapIntervalMode = ESequencerTimeSnapInterval::STSI_Custom;
-	CustomTimeSnapInterval = .05f;
 	bSnapKeyTimesToInterval = true;
 	bSnapKeyTimesToKeys = true;
 	bSnapSectionTimesToInterval = true;
@@ -35,7 +32,6 @@ USequencerSettings::USequencerSettings( const FObjectInitializer& ObjectInitiali
 	bRewindOnRecord = true;
 	ZoomPosition = ESequencerZoomPosition::SZP_CurrentTime;
 	bAutoScrollEnabled = false;
-	bShowCurveEditorCurveToolTips = true;
 	bLinkCurveEditorTimeRange = false;
 	LoopMode = ESequencerLoopMode::SLM_NoLoop;
 	bKeepCursorInPlayRangeWhileScrubbing = false;
@@ -46,23 +42,18 @@ USequencerSettings::USequencerSettings( const FObjectInitializer& ObjectInitiali
 	bInfiniteKeyAreas = false;
 	bShowChannelColors = false;
 	bShowViewportTransportControls = true;
-	bLockPlaybackToAudioClock = false;
 	bAllowPossessionOfPIEViewports = false;
 	bActivateRealtimeViewports = true;
 	bEvaluateSubSequencesInIsolation = false;
-	bRerunConstructionScripts = false;
+	bRerunConstructionScripts = true;
 	bVisualizePreAndPostRoll = true;
 	TrajectoryPathCap = 250;
+	CurveVisibility = ECurveEditorCurveVisibility::SelectedCurves;
+	FrameNumberDisplayFormat = EFrameNumberDisplayFormats::Seconds;
 }
 
 void USequencerSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
-	FName PropertyName = (PropertyChangedEvent.Property != nullptr) ? PropertyChangedEvent.Property->GetFName() : NAME_None;
-	if (PropertyName == GET_MEMBER_NAME_CHECKED(USequencerSettings, bLockPlaybackToAudioClock))
-	{
-		OnLockPlaybackToAudioClockChanged.Broadcast(bLockPlaybackToAudioClock);
-	}
-
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 
@@ -166,20 +157,6 @@ void USequencerSettings::SetCreateSpawnableCameras(bool bInCreateSpawnableCamera
 	}
 }
 
-bool USequencerSettings::GetShowFrameNumbers() const
-{
-	return bShowFrameNumbers;
-}
-
-void USequencerSettings::SetShowFrameNumbers(bool InbShowFrameNumbers)
-{
-	if ( bShowFrameNumbers != InbShowFrameNumbers )
-	{
-		bShowFrameNumbers = InbShowFrameNumbers;
-		SaveConfig();
-	}
-}
-
 bool USequencerSettings::GetShowRangeSlider() const
 {
 	return bShowRangeSlider;
@@ -204,62 +181,6 @@ void USequencerSettings::SetIsSnapEnabled(bool InbIsSnapEnabled)
 	if ( bIsSnapEnabled != InbIsSnapEnabled )
 	{
 		bIsSnapEnabled = InbIsSnapEnabled;
-		SaveConfig();
-	}
-}
-
-float USequencerSettings::GetTimeSnapInterval() const
-{
-	switch (TimeSnapIntervalMode)
-	{
-	case STSI_0_001:
-		return 0.001f;
-	case STSI_0_01:
-		return 0.01f;
-	case STSI_0_1:
-		return 0.1f;
-	case STSI_1:
-		return 1.0f;
-	case STSI_10:
-		return 10.0f;
-	case STSI_100:
-		return 100.0f;
-	case STSI_15Fps:
-		return 1 / 15.0f;
-	case STSI_24Fps:
-		return 1 / 24.0f;
-	case STSI_25Fps:
-		return 1 / 25.0f;
-	case STSI_29_97Fps:
-		return 1 / 29.97f;
-	case STSI_30Fps:
-		return 1 / 30.0f;
-	case STSI_48Fps:
-		return 1 / 48.0f;
-	case STSI_50Fps:
-		return 1 / 50.0f;
-	case STSI_59_94Fps:
-		return 1 / 59.94f;
-	case STSI_60Fps:
-		return 1 / 60.0f;
-	case STSI_120Fps:
-		return 1 / 120.0f;
-	default:
-		return CustomTimeSnapInterval;
-	}
-	return CustomTimeSnapInterval;
-}
-
-float USequencerSettings::GetCustomTimeSnapInterval() const
-{
-	return CustomTimeSnapInterval;
-}
-
-void USequencerSettings::SetCustomTimeSnapInterval(float InCustomTimeSnapInterval)
-{
-	if ( CustomTimeSnapInterval != InCustomTimeSnapInterval )
-	{
-		CustomTimeSnapInterval = InCustomTimeSnapInterval;
 		SaveConfig();
 	}
 }
@@ -532,20 +453,6 @@ void USequencerSettings::SetKeepPlayRangeInSectionBounds(bool bInKeepPlayRangeIn
 	}
 }
 
-bool USequencerSettings::GetShowCurveEditorCurveToolTips() const
-{
-	return bShowCurveEditorCurveToolTips;
-}
-
-void USequencerSettings::SetShowCurveEditorCurveToolTips(bool InbShowCurveEditorCurveToolTips)
-{
-	if (bShowCurveEditorCurveToolTips != InbShowCurveEditorCurveToolTips)
-	{
-		bShowCurveEditorCurveToolTips = InbShowCurveEditorCurveToolTips;
-		SaveConfig();
-	}
-}
-
 
 bool USequencerSettings::GetLinkCurveEditorTimeRange() const
 {
@@ -663,21 +570,6 @@ void USequencerSettings::SetActivateRealtimeViewports(bool bInActivateRealtimeVi
 	}
 }
 
-bool USequencerSettings::ShouldLockPlaybackToAudioClock() const
-{
-	return bLockPlaybackToAudioClock;
-}
-
-void USequencerSettings::SetLockPlaybackToAudioClock(bool bInLockPlaybackToAudioClock)
-{
-	if (bLockPlaybackToAudioClock != bInLockPlaybackToAudioClock)
-	{
-		bLockPlaybackToAudioClock = bInLockPlaybackToAudioClock;
-		OnLockPlaybackToAudioClockChanged.Broadcast(bLockPlaybackToAudioClock);
-		SaveConfig();
-	}
-}
-
 bool USequencerSettings::GetAutoSetTrackDefaults() const
 {
 	return bAutoSetTrackDefaults;
@@ -746,6 +638,35 @@ void USequencerSettings::SetShouldShowPrePostRoll(bool bInVisualizePreAndPostRol
 	if (bInVisualizePreAndPostRoll != bVisualizePreAndPostRoll)
 	{
 		bVisualizePreAndPostRoll = bInVisualizePreAndPostRoll;
+		SaveConfig();
+	}
+}
+
+ECurveEditorCurveVisibility USequencerSettings::GetCurveVisibility() const
+{
+	return CurveVisibility;
+}
+
+void USequencerSettings::SetCurveVisibility(ECurveEditorCurveVisibility InCurveVisibility)
+{
+	if (CurveVisibility != InCurveVisibility)
+	{
+		CurveVisibility = InCurveVisibility;
+		OnCurveEditorCurveVisibilityChanged.Broadcast();
+		SaveConfig();
+	}
+}
+
+USequencerSettings::FOnCurveEditorCurveVisibilityChanged& USequencerSettings::GetOnCurveEditorCurveVisibilityChanged()
+{
+	return OnCurveEditorCurveVisibilityChanged;
+}
+
+void USequencerSettings::SetTimeDisplayFormat(EFrameNumberDisplayFormats InFormat)
+{
+	if (InFormat != FrameNumberDisplayFormat)
+	{
+		FrameNumberDisplayFormat = InFormat;
 		SaveConfig();
 	}
 }

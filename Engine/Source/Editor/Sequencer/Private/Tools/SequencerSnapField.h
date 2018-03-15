@@ -18,7 +18,7 @@ struct FSequencerSnapPoint
 	ESnapType Type;
 
 	/** The time of the snap */
-	float Time;
+	FFrameNumber Time;
 };
 
 /** Interface that defines how to construct an FSequencerSnapField */
@@ -45,9 +45,9 @@ public:
 	struct FSnapResult
 	{
 		/** The time before it was snapped */
-		float Original;
+		FFrameNumber Original;
 		/** The time after it was snapped */
-		float Snapped;
+		FFrameNumber Snapped;
 	};
 
 	/** Construction from a sequencer and a snap canidate implementation. Optionally provide an entity mask to completely ignore some entity types */
@@ -58,10 +58,10 @@ public:
 	FSequencerSnapField& operator=(FSequencerSnapField&& In) { SortedSnaps = MoveTemp(In.SortedSnaps); return *this; }
 	
 	/** Snap the specified time to this field with the given threshold */
-	TOptional<float> Snap(float InTime, float Threshold) const;
+	TOptional<FFrameNumber> Snap(FFrameNumber InTime, int32 Threshold) const;
 
 	/** Snap the specified times to this field with the given threshold. Will return the closest snap value of the entire intersection. */
-	TOptional<FSnapResult> Snap(const TArray<float>& InTimes, float Threshold) const;
+	TOptional<FSnapResult> Snap(const TArray<FFrameNumber>& InTimes, int32 Threshold) const;
 
 private:
 	/** Array of snap points, approximately grouped, and sorted in ascending order by time */

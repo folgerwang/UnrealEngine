@@ -1,3 +1,4 @@
+
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "STimeRange.h"
@@ -7,89 +8,104 @@
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Input/SSpinBox.h"
 #include "EditorStyleSet.h"
+#include "QualifiedFrameTime.h"
+#include "MovieSceneTimeHelpers.h"
 
 #define LOCTEXT_NAMESPACE "STimeRange"
 
-void STimeRange::Construct( const STimeRange::FArguments& InArgs, TSharedRef<ITimeSliderController> InTimeSliderController, TSharedRef<INumericTypeInterface<float>> NumericTypeInterface )
+void STimeRange::Construct( const STimeRange::FArguments& InArgs, TSharedRef<ITimeSliderController> InTimeSliderController, TSharedRef<INumericTypeInterface<double>> NumericTypeInterface )
 {
 	TimeSliderController = InTimeSliderController;
-	ShowFrameNumbers = InArgs._ShowFrameNumbers;
 
 	TSharedRef<SWidget> WorkingRangeStart = SNullWidget::NullWidget, WorkingRangeEnd = SNullWidget::NullWidget;
 	if (InArgs._ShowWorkingRange)
 	{
-		WorkingRangeStart = SNew(SSpinBox<float>)
+		WorkingRangeStart = SNew(SSpinBox<double>)
 		.Value(this, &STimeRange::WorkingStartTime)
 		.ToolTipText(LOCTEXT("WorkingRangeStart", "Working Range Start"))
-		.OnValueCommitted( this, &STimeRange::OnWorkingStartTimeCommitted )
-		.OnValueChanged( this, &STimeRange::OnWorkingStartTimeChanged )
-		.MinValue(TOptional<float>())
+		.OnValueCommitted(this, &STimeRange::OnWorkingStartTimeCommitted)
+		.OnValueChanged(this, &STimeRange::OnWorkingStartTimeChanged)
+		.MinValue(TOptional<double>())
 		.MaxValue(this, &STimeRange::MaxWorkingStartTime)
 		.Style(&FEditorStyle::Get().GetWidgetStyle<FSpinBoxStyle>("Sequencer.HyperlinkSpinBox"))
 		.TypeInterface(NumericTypeInterface)
-		.ClearKeyboardFocusOnCommit(true);
+		.ClearKeyboardFocusOnCommit(true)
+		.Delta(this, &STimeRange::GetSpinboxDelta)
+		.LinearDeltaSensitivity(25);
 
-		WorkingRangeEnd = SNew(SSpinBox<float>)
+		WorkingRangeEnd = SNew(SSpinBox<double>)
 		.Value(this, &STimeRange::WorkingEndTime)
 		.ToolTipText(LOCTEXT("WorkingRangeEnd", "Working Range End"))
 		.OnValueCommitted( this, &STimeRange::OnWorkingEndTimeCommitted )
 		.OnValueChanged( this, &STimeRange::OnWorkingEndTimeChanged )
 		.MinValue(this, &STimeRange::MinWorkingEndTime)
-		.MaxValue(TOptional<float>())
+		.MaxValue(TOptional<double>())
 		.Style(&FEditorStyle::Get().GetWidgetStyle<FSpinBoxStyle>("Sequencer.HyperlinkSpinBox"))
 		.TypeInterface(NumericTypeInterface)
-		.ClearKeyboardFocusOnCommit(true);
+		.ClearKeyboardFocusOnCommit(true)
+		.Delta(this, &STimeRange::GetSpinboxDelta)
+		.LinearDeltaSensitivity(25);
 	}
 
 	TSharedRef<SWidget> ViewRangeStart = SNullWidget::NullWidget, ViewRangeEnd = SNullWidget::NullWidget;
 	if (InArgs._ShowViewRange)
 	{
-		ViewRangeStart = SNew(SSpinBox<float>)
+		ViewRangeStart = SNew(SSpinBox<double>)
 		.Value(this, &STimeRange::ViewStartTime)
 		.ToolTipText(ViewStartTimeTooltip())
 		.OnValueCommitted( this, &STimeRange::OnViewStartTimeCommitted )
 		.OnValueChanged( this, &STimeRange::OnViewStartTimeChanged )
-		.MinValue(TOptional<float>())
+		.MinValue(TOptional<double>())
 		.MaxValue(this, &STimeRange::MaxViewStartTime)
 		.Style(&FEditorStyle::Get().GetWidgetStyle<FSpinBoxStyle>("Sequencer.HyperlinkSpinBox"))
 		.TypeInterface(NumericTypeInterface)
-		.ClearKeyboardFocusOnCommit(true);
+		.ClearKeyboardFocusOnCommit(true)
+		.Delta(this, &STimeRange::GetSpinboxDelta)
+		.LinearDeltaSensitivity(25);
 
-		ViewRangeEnd = SNew(SSpinBox<float>)
+
+		ViewRangeEnd = SNew(SSpinBox<double>)
 		.Value(this, &STimeRange::ViewEndTime)
 		.ToolTipText(ViewEndTimeTooltip())
 		.OnValueCommitted( this, &STimeRange::OnViewEndTimeCommitted )
 		.OnValueChanged( this, &STimeRange::OnViewEndTimeChanged )
 		.MinValue(this, &STimeRange::MinViewEndTime)
-		.MaxValue(TOptional<float>())
+		.MaxValue(TOptional<double>())
 		.Style(&FEditorStyle::Get().GetWidgetStyle<FSpinBoxStyle>("Sequencer.HyperlinkSpinBox"))
 		.TypeInterface(NumericTypeInterface)
-		.ClearKeyboardFocusOnCommit(true);
+		.ClearKeyboardFocusOnCommit(true)
+		.Delta(this, &STimeRange::GetSpinboxDelta)
+		.LinearDeltaSensitivity(25);
 	}
 
 	TSharedRef<SWidget> PlaybackRangeStart = SNullWidget::NullWidget, PlaybackRangeEnd = SNullWidget::NullWidget;
 	{
-		PlaybackRangeStart = SNew(SSpinBox<float>)
+		PlaybackRangeStart = SNew(SSpinBox<double>)
 		.Value(this, &STimeRange::PlayStartTime)
 		.ToolTipText(PlayStartTimeTooltip())
-		.OnValueCommitted( this, &STimeRange::OnPlayStartTimeCommitted )
-		.OnValueChanged( this, &STimeRange::OnPlayStartTimeChanged )
-		.MinValue(this, &STimeRange::MinPlayStartTime)
-		.MaxValue(this, &STimeRange::MaxPlayStartTime)
+		.OnValueCommitted(this, &STimeRange::OnPlayStartTimeCommitted)
+		.OnValueChanged(this, &STimeRange::OnPlayStartTimeChanged)
+		.MinValue(TOptional<double>())
+		.MaxValue(TOptional<double>())
 		.Style(&FEditorStyle::Get().GetWidgetStyle<FSpinBoxStyle>("Sequencer.HyperlinkSpinBox"))
 		.TypeInterface(NumericTypeInterface)
-		.ClearKeyboardFocusOnCommit(true);
+		.ClearKeyboardFocusOnCommit(true)
+		.Delta(this, &STimeRange::GetSpinboxDelta)
+		.LinearDeltaSensitivity(25);
 
-		PlaybackRangeEnd = SNew(SSpinBox<float>)
+
+		PlaybackRangeEnd = SNew(SSpinBox<double>)
 		.Value(this, &STimeRange::PlayEndTime)
 		.ToolTipText(PlayEndTimeTooltip())
 		.OnValueCommitted( this, &STimeRange::OnPlayEndTimeCommitted )
 		.OnValueChanged( this, &STimeRange::OnPlayEndTimeChanged )
-		.MinValue(this, &STimeRange::MinPlayEndTime)
-		.MaxValue(this, &STimeRange::MaxPlayEndTime)
+		.MinValue(TOptional<double>())
+		.MaxValue(TOptional<double>())
 		.Style(&FEditorStyle::Get().GetWidgetStyle<FSpinBoxStyle>("Sequencer.HyperlinkSpinBox"))
 		.TypeInterface(NumericTypeInterface)
-		.ClearKeyboardFocusOnCommit(true);
+		.ClearKeyboardFocusOnCommit(true)
+		.Delta(this, &STimeRange::GetSpinboxDelta)
+		.LinearDeltaSensitivity(25);
 	}
 
 	this->ChildSlot
@@ -104,7 +120,7 @@ void STimeRange::Construct( const STimeRange::FArguments& InArgs, TSharedRef<ITi
 		[
 			SNew(SBox)
 			.Visibility(InArgs._ShowWorkingRange ? EVisibility::Visible : EVisibility::Collapsed)
-			.WidthOverride(48)
+			.MinDesiredWidth(64)
 			.HAlign(HAlign_Center)
 			[
 				WorkingRangeStart
@@ -117,7 +133,7 @@ void STimeRange::Construct( const STimeRange::FArguments& InArgs, TSharedRef<ITi
 		.Padding(2.f)
 		[
 			SNew(SBox)
-			.WidthOverride(48)
+			.MinDesiredWidth(64)
 			.HAlign(HAlign_Center)
 			.Visibility(InArgs._ShowPlaybackRange ? EVisibility::Visible : EVisibility::Collapsed)
 			[
@@ -138,7 +154,7 @@ void STimeRange::Construct( const STimeRange::FArguments& InArgs, TSharedRef<ITi
 		[
 			SNew(SBox)
 			.Visibility(InArgs._ShowViewRange ? EVisibility::Visible : EVisibility::Collapsed)
-			.WidthOverride(48)
+			.MinDesiredWidth(64)
 			.HAlign(HAlign_Center)
 			[
 				ViewRangeStart
@@ -160,7 +176,7 @@ void STimeRange::Construct( const STimeRange::FArguments& InArgs, TSharedRef<ITi
 		[
 			SNew(SBox)
 			.Visibility(InArgs._ShowViewRange ? EVisibility::Visible : EVisibility::Collapsed)
-			.WidthOverride(48)
+			.MinDesiredWidth(64)
 			.HAlign(HAlign_Center)
 			[
 				ViewRangeEnd
@@ -173,7 +189,7 @@ void STimeRange::Construct( const STimeRange::FArguments& InArgs, TSharedRef<ITi
 		.Padding(2.f)
 		[
 			SNew(SBox)
-			.WidthOverride(48)
+			.MinDesiredWidth(64)
 			.HAlign(HAlign_Center)
 			.Visibility(InArgs._ShowPlaybackRange ? EVisibility::Visible : EVisibility::Collapsed)
 			[
@@ -193,7 +209,7 @@ void STimeRange::Construct( const STimeRange::FArguments& InArgs, TSharedRef<ITi
 		.Padding(2.f)
 		[
 			SNew(SBox)
-			.WidthOverride(48)
+			.MinDesiredWidth(64)
 			.HAlign(HAlign_Center)
 			.Visibility(InArgs._ShowWorkingRange ? EVisibility::Visible : EVisibility::Collapsed)
 			[
@@ -203,234 +219,280 @@ void STimeRange::Construct( const STimeRange::FArguments& InArgs, TSharedRef<ITi
 	];
 }
 
-float STimeRange::WorkingStartTime() const
+double STimeRange::WorkingStartTime() const
 {
-	return TimeSliderController.IsValid() ? TimeSliderController.Get()->GetClampRange().GetLowerBoundValue() : 0.f;
+	FFrameRate Rate = TimeSliderController->GetFrameResolution();
+	FFrameTime Time = TimeSliderController->GetClampRange().GetLowerBoundValue() * Rate;
+	return Time.GetFrame().Value;
 }
 
-float STimeRange::WorkingEndTime() const
+double STimeRange::WorkingEndTime() const
 {
-	return TimeSliderController.IsValid() ? TimeSliderController.Get()->GetClampRange().GetUpperBoundValue() : 0.f;
+	FFrameRate Rate = TimeSliderController->GetFrameResolution();
+	FFrameTime Time = TimeSliderController->GetClampRange().GetUpperBoundValue() * Rate;
+	return Time.GetFrame().Value;
 }
 
-float STimeRange::ViewStartTime() const
+double STimeRange::ViewStartTime() const
 {
-	return TimeSliderController.IsValid() ? TimeSliderController.Get()->GetViewRange().GetLowerBoundValue() : 0.f;
+	FFrameRate FrameResolution = TimeSliderController->GetFrameResolution();
+
+	// View range is in seconds so we convert it to frame resolution
+	FFrameTime Time = TimeSliderController->GetViewRange().GetLowerBoundValue() * FrameResolution;
+	return Time.GetFrame().Value;
 }
 
-float STimeRange::ViewEndTime() const
+double STimeRange::ViewEndTime() const
 {
-	return TimeSliderController.IsValid() ? TimeSliderController.Get()->GetViewRange().GetUpperBoundValue() : 0.f;
+	FFrameRate FrameResolution = TimeSliderController->GetFrameResolution();
+
+	// View range is in seconds so we convert it to frame resolution
+	FFrameTime Time = TimeSliderController->GetViewRange().GetUpperBoundValue() * FrameResolution;
+	return Time.GetFrame().Value;
 }
 
-float STimeRange::PlayStartTime() const
+double STimeRange::GetSpinboxDelta() const
 {
-	return TimeSliderController.IsValid() ? TimeSliderController.Get()->GetPlayRange().GetLowerBoundValue() : 0.f;
+	return TimeSliderController->GetFrameResolution().AsDecimal() * TimeSliderController->GetPlayRate().AsInterval();
 }
 
-float STimeRange::PlayEndTime() const
+double STimeRange::PlayStartTime() const
 {
-	return TimeSliderController.IsValid() ? TimeSliderController.Get()->GetPlayRange().GetUpperBoundValue() : 0.f;
+	FFrameNumber LowerBound = MovieScene::DiscreteInclusiveLower(TimeSliderController->GetPlayRange());
+	return LowerBound.Value; 
 }
 
-TOptional<float> STimeRange::MaxViewStartTime() const
+double STimeRange::PlayEndTime() const
+{
+	FFrameNumber UpperBound = MovieScene::DiscreteExclusiveUpper(TimeSliderController->GetPlayRange());
+	return UpperBound.Value;
+}
+
+TOptional<double> STimeRange::MaxViewStartTime() const
 {
 	return ViewEndTime();
 }
 
-TOptional<float> STimeRange::MinViewEndTime() const
+TOptional<double> STimeRange::MinViewEndTime() const
 {
 	return ViewStartTime();
 }
 
-TOptional<float> STimeRange::MinPlayStartTime() const
+TOptional<double> STimeRange::MinPlayStartTime() const
 {
 	return WorkingStartTime();
 }
 
-TOptional<float> STimeRange::MaxPlayStartTime() const
+TOptional<double> STimeRange::MaxPlayStartTime() const
 {
 	return PlayEndTime();
 }
 
-TOptional<float> STimeRange::MinPlayEndTime() const
+TOptional<double> STimeRange::MinPlayEndTime() const
 {
 	return PlayStartTime();
 }
 
-TOptional<float> STimeRange::MaxPlayEndTime() const
+TOptional<double> STimeRange::MaxPlayEndTime() const
 {
 	return WorkingEndTime();
 }
 
-TOptional<float> STimeRange::MaxWorkingStartTime() const
+TOptional<double> STimeRange::MaxWorkingStartTime() const
 {
 	return ViewEndTime();
 }
 
-TOptional<float> STimeRange::MinWorkingEndTime() const
+TOptional<double> STimeRange::MinWorkingEndTime() const
 {
 	return ViewStartTime();
 }
 
-void STimeRange::OnWorkingStartTimeCommitted(float NewValue, ETextCommit::Type InTextCommit)
+void STimeRange::OnWorkingStartTimeCommitted(double NewValue, ETextCommit::Type InTextCommit)
 {
 	OnWorkingStartTimeChanged(NewValue);
 }
 
-void STimeRange::OnWorkingEndTimeCommitted(float NewValue, ETextCommit::Type InTextCommit)
+void STimeRange::OnWorkingEndTimeCommitted(double NewValue, ETextCommit::Type InTextCommit)
 {
 	OnWorkingEndTimeChanged(NewValue);
 }
 
-void STimeRange::OnViewStartTimeCommitted(float NewValue, ETextCommit::Type InTextCommit)
+void STimeRange::OnViewStartTimeCommitted(double NewValue, ETextCommit::Type InTextCommit)
 {
 	OnViewStartTimeChanged(NewValue);
 }
 
-void STimeRange::OnViewEndTimeCommitted(float NewValue, ETextCommit::Type InTextCommit)
+void STimeRange::OnViewEndTimeCommitted(double NewValue, ETextCommit::Type InTextCommit)
 {
 	OnViewEndTimeChanged(NewValue);
 }
 
-void STimeRange::OnPlayStartTimeCommitted(float NewValue, ETextCommit::Type InTextCommit)
+void STimeRange::OnPlayStartTimeCommitted(double NewValue, ETextCommit::Type InTextCommit)
 {
 	OnPlayStartTimeChanged(NewValue);
 }
 
-void STimeRange::OnPlayEndTimeCommitted(float NewValue, ETextCommit::Type InTextCommit)
+void STimeRange::OnPlayEndTimeCommitted(double NewValue, ETextCommit::Type InTextCommit)
 {
 	OnPlayEndTimeChanged(NewValue);
 }
 
-void STimeRange::OnWorkingStartTimeChanged(float NewValue)
+void STimeRange::OnWorkingStartTimeChanged(double NewValue)
 {
-	if (auto* Controller = TimeSliderController.Get())
-	{
-		Controller->SetClampRange(NewValue, Controller->GetClampRange().GetUpperBoundValue());
+	FFrameRate PlayRate = TimeSliderController->GetPlayRate();
+	FFrameRate FrameResolution = TimeSliderController->GetFrameResolution();
+	double Time = FrameResolution.AsSeconds(FFrameTime::FromDecimal(NewValue));
 
-		if (NewValue > Controller->GetViewRange().GetLowerBoundValue())
-		{
-			Controller->SetViewRange(NewValue, Controller->GetViewRange().GetUpperBoundValue(), EViewRangeInterpolation::Immediate);
-		}
+	// Clamp range is in seconds
+	TimeSliderController->SetClampRange(Time, TimeSliderController->GetClampRange().GetUpperBoundValue());
+
+	if (Time > TimeSliderController->GetViewRange().GetLowerBoundValue())
+	{
+		TimeSliderController->SetViewRange(Time, TimeSliderController->GetViewRange().GetUpperBoundValue(), EViewRangeInterpolation::Immediate);
 	}
 }
 
-void STimeRange::OnWorkingEndTimeChanged(float NewValue)
+void STimeRange::OnWorkingEndTimeChanged(double NewValue)
 {
-	if (auto* Controller = TimeSliderController.Get())
-	{
-		Controller->SetClampRange(Controller->GetClampRange().GetLowerBoundValue(), NewValue);
+	FFrameRate PlayRate = TimeSliderController->GetPlayRate();
+	FFrameRate FrameResolution = TimeSliderController->GetFrameResolution();
+	double Time = FrameResolution.AsSeconds(FFrameTime::FromDecimal(NewValue));
 
-		if (NewValue < Controller->GetViewRange().GetUpperBoundValue())
-		{
-			Controller->SetViewRange(Controller->GetViewRange().GetLowerBoundValue(), NewValue, EViewRangeInterpolation::Immediate);
-		}
+	// Clamp range is in seconds
+	TimeSliderController->SetClampRange(TimeSliderController->GetClampRange().GetLowerBoundValue(), Time);
+
+	if (Time < TimeSliderController->GetViewRange().GetUpperBoundValue())
+	{
+		TimeSliderController->SetViewRange(TimeSliderController->GetViewRange().GetLowerBoundValue(), Time, EViewRangeInterpolation::Immediate);
 	}
 }
 
-void STimeRange::OnViewStartTimeChanged(float NewValue)
+void STimeRange::OnViewStartTimeChanged(double NewValue)
 {
-	if (auto* Controller = TimeSliderController.Get())
-	{
-		if (NewValue < TimeSliderController.Get()->GetClampRange().GetLowerBoundValue())
-		{
-			Controller->SetClampRange(NewValue, Controller->GetClampRange().GetUpperBoundValue());
-		}
+	FFrameRate FrameResolution = TimeSliderController->GetFrameResolution();
+	double Time = FrameResolution.AsSeconds(FFrameTime::FromDecimal(NewValue));
 
-		Controller->SetViewRange(NewValue, Controller->GetViewRange().GetUpperBoundValue(), EViewRangeInterpolation::Immediate);
+	if (Time < TimeSliderController.Get()->GetClampRange().GetLowerBoundValue())
+	{
+		TimeSliderController->SetClampRange(Time, TimeSliderController->GetClampRange().GetUpperBoundValue());
 	}
+
+	TimeSliderController->SetViewRange(Time, TimeSliderController->GetViewRange().GetUpperBoundValue(), EViewRangeInterpolation::Immediate);
 }
 
-void STimeRange::OnViewEndTimeChanged(float NewValue)
+void STimeRange::OnViewEndTimeChanged(double NewValue)
 {
-	if (auto* Controller = TimeSliderController.Get())
-	{
-		if (NewValue > Controller->GetClampRange().GetUpperBoundValue())
-		{
-			Controller->SetClampRange(Controller->GetClampRange().GetLowerBoundValue(), NewValue);
-		}
+	FFrameRate FrameResolution = TimeSliderController->GetFrameResolution();
+	double Time = FrameResolution.AsSeconds(FFrameTime::FromDecimal(NewValue));
 
-		Controller->SetViewRange(Controller->GetViewRange().GetLowerBoundValue(), NewValue, EViewRangeInterpolation::Immediate);
+	if (Time > TimeSliderController->GetClampRange().GetUpperBoundValue())
+	{
+		TimeSliderController->SetClampRange(TimeSliderController->GetClampRange().GetLowerBoundValue(), Time);
 	}
+
+	TimeSliderController->SetViewRange(TimeSliderController->GetViewRange().GetLowerBoundValue(), Time, EViewRangeInterpolation::Immediate);
 }
 
-void STimeRange::OnPlayStartTimeChanged(float NewValue)
+void STimeRange::OnPlayStartTimeChanged(double NewValue)
 {
-	if (auto* Controller = TimeSliderController.Get())
-	{
-		if (NewValue < TimeSliderController.Get()->GetClampRange().GetLowerBoundValue())
-		{
-			Controller->SetClampRange(NewValue, Controller->GetClampRange().GetUpperBoundValue());
-		}
+	// We can't use the UI control to clamp the value to a Min/Max due to needing an unlimited-range spinbox for
+	// UI adjustment to work in reasonable deltas, so instead we clamp it here.
+	NewValue = FMath::Clamp(NewValue, MinPlayStartTime().GetValue(), MaxPlayStartTime().GetValue());
 
-		Controller->SetPlayRange(NewValue, Controller->GetPlayRange().GetUpperBoundValue());
+	FFrameRate FrameResolution = TimeSliderController->GetFrameResolution();
+	FFrameTime Time = FFrameTime::FromDecimal(NewValue);
+	double     TimeInSeconds = FrameResolution.AsSeconds(Time);
+
+	if (TimeInSeconds < TimeSliderController.Get()->GetClampRange().GetLowerBoundValue())
+	{
+		TimeSliderController->SetClampRange(TimeInSeconds, TimeSliderController->GetClampRange().GetLowerBoundValue());
 	}
+
+	FFrameNumber PlayDuration = MovieScene::DiscreteExclusiveUpper(TimeSliderController->GetPlayRange()) - Time.FrameNumber;
+	TimeSliderController->SetPlayRange(Time.FrameNumber, PlayDuration.Value);
 }
 
-void STimeRange::OnPlayEndTimeChanged(float NewValue)
+void STimeRange::OnPlayEndTimeChanged(double NewValue)
 {
-	if (auto* Controller = TimeSliderController.Get())
-	{
-		if (NewValue > Controller->GetClampRange().GetUpperBoundValue())
-		{
-			Controller->SetClampRange(Controller->GetClampRange().GetLowerBoundValue(), NewValue);
-		}
+	// We can't use the UI control to clamp the value to a Min/Max due to needing an unlimited-range spinbox for
+	// UI adjustment to work in reasonable deltas, so instead we clamp it here.
+	NewValue = FMath::Clamp(NewValue, MinPlayEndTime().GetValue(), MaxPlayEndTime().GetValue());
 
-		Controller->SetPlayRange(Controller->GetPlayRange().GetLowerBoundValue(), NewValue);
+	FFrameRate FrameResolution = TimeSliderController->GetFrameResolution();
+	FFrameTime Time = FFrameTime::FromDecimal(NewValue);
+	double     TimeInSeconds = FrameResolution.AsSeconds(Time);
+
+	if (TimeInSeconds > TimeSliderController->GetClampRange().GetUpperBoundValue())
+	{
+		TimeSliderController->SetClampRange(TimeSliderController->GetClampRange().GetLowerBoundValue(), TimeInSeconds);
 	}
+
+	FFrameNumber StartFrame   = MovieScene::DiscreteInclusiveLower(TimeSliderController->GetPlayRange());
+	int32        PlayDuration = (Time.FrameNumber - StartFrame).Value;
+
+	TimeSliderController->SetPlayRange(StartFrame, PlayDuration);
 }
 
 FText STimeRange::PlayStartTimeTooltip() const
 {
-	bool bShowFrameNumbers = ShowFrameNumbers.IsBound() ? ShowFrameNumbers.Get() : false;
-	if (bShowFrameNumbers)
-	{
-		return LOCTEXT("PlayStartFrameTooltip", "In Frame");
-	}
-	else
-	{
-		return LOCTEXT("PlayStartTimeTooltip", "In Time");
-	}
+	// @todo sequencer-timecode We need a NumericTypeInterface independent way to get the current type of display.
+	// bool bShowFrameNumbers = ShowFrameNumbers.IsBound() ? ShowFrameNumbers.Get() : false;
+	// if (bShowFrameNumbers)
+	// {
+	// 	return LOCTEXT("PlayStartFrameTooltip", "In Frame");
+	// }
+	// else
+	// {
+	// 	return LOCTEXT("PlayStartTimeTooltip", "In Time");
+	// }
+	return LOCTEXT("PlayStartTimeTooltip", "In Time");
 }
 
 FText STimeRange::PlayEndTimeTooltip() const
 {
-	bool bShowFrameNumbers = ShowFrameNumbers.IsBound() ? ShowFrameNumbers.Get() : false;
-	if (bShowFrameNumbers)
-	{
-		return LOCTEXT("PlayEndFrameTooltip", "Out Frame");
-	}
-	else
-	{
-		return LOCTEXT("PlayEndTimeTooltip", "Out Time");
-	}
+	// @todo sequencer-timecode We need a NumericTypeInterface independent way to get the current type of display.
+	// bool bShowFrameNumbers = ShowFrameNumbers.IsBound() ? ShowFrameNumbers.Get() : false;
+	// if (bShowFrameNumbers)
+	// {
+	// 	return LOCTEXT("PlayEndFrameTooltip", "Out Frame");
+	// }
+	// else
+	// {
+	// 	return LOCTEXT("PlayEndTimeTooltip", "Out Time");
+	// }
+	return LOCTEXT("PlayEndTimeTooltip", "Out Time");
 }
 
 FText STimeRange::ViewStartTimeTooltip() const
 {
-	bool bShowFrameNumbers = ShowFrameNumbers.IsBound() ? ShowFrameNumbers.Get() : false;
-	if (bShowFrameNumbers)
-	{
-		return LOCTEXT("ViewStartFrameTooltip", "View Range Start Frame");
-	}
-	else
-	{
-		return LOCTEXT("ViewStartTimeTooltip", "View Range Start Time");
-	}
+	// @todo sequencer-timecode We need a NumericTypeInterface independent way to get the current type of display.
+	// bool bShowFrameNumbers = ShowFrameNumbers.IsBound() ? ShowFrameNumbers.Get() : false;
+	// if (bShowFrameNumbers)
+	// {
+	// 	return LOCTEXT("ViewStartFrameTooltip", "View Range Start Frame");
+	// }
+	// else
+	// {
+	// 	return LOCTEXT("ViewStartTimeTooltip", "View Range Start Time");
+	// }
+	return LOCTEXT("ViewStartTimeTooltip", "View Range Start Time");
+
 }
 
 FText STimeRange::ViewEndTimeTooltip() const
 {
-	bool bShowFrameNumbers = ShowFrameNumbers.IsBound() ? ShowFrameNumbers.Get() : false;
-	if (bShowFrameNumbers)
-	{
-		return LOCTEXT("ViewEndFrameTooltip", "View Range End Frame");
-	}
-	else
-	{
-		return LOCTEXT("ViewEndTimeTooltip", "View Range End Time");
-	}
+	// @todo sequencer-timecode We need a NumericTypeInterface independent way to get the current type of display.
+	// bool bShowFrameNumbers = ShowFrameNumbers.IsBound() ? ShowFrameNumbers.Get() : false;
+	// if (bShowFrameNumbers)
+	// {
+	// 	return LOCTEXT("ViewEndFrameTooltip", "View Range End Frame");
+	// }
+	// else
+	// {
+	// 	return LOCTEXT("ViewEndTimeTooltip", "View Range End Time");
+	// }
+	return LOCTEXT("ViewEndTimeTooltip", "View Range End Time");
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -6,7 +6,7 @@
 #include "EditorStyleSet.h"
 #include "UObject/Package.h"
 #include "Tracks/MovieSceneEventTrack.h"
-#include "Sections/EventTrackSection.h"
+#include "ISequencerSection.h"
 #include "MovieSceneObjectBindingIDPicker.h"
 #include "IDetailCustomization.h"
 #include "PropertyEditorModule.h"
@@ -116,12 +116,6 @@ void FEventTrackEditor::BuildTrackContextMenu(FMenuBuilder& MenuBuilder, UMovieS
 }
 
 
-TSharedRef<ISequencerSection> FEventTrackEditor::MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding)
-{
-	return MakeShareable(new FEventTrackSection(SectionObject, GetSequencer()));
-}
-
-
 bool FEventTrackEditor::SupportsType(TSubclassOf<UMovieSceneTrack> Type) const
 {
 	return (Type == UMovieSceneEventTrack::StaticClass());
@@ -164,6 +158,11 @@ void FEventTrackEditor::HandleAddEventTrackMenuEntryExecute()
 
 	NewTrack->AddSection(*NewSection);
 	NewTrack->SetDisplayName(LOCTEXT("TrackName", "Events"));
+
+	if (GetSequencer().IsValid())
+	{
+		GetSequencer()->OnAddTrack(NewTrack);
+	}
 
 	GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
 }

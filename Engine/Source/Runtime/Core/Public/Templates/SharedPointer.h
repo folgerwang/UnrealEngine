@@ -522,7 +522,11 @@ struct FMakeReferenceTo<void>
 {
 	typedef void Type;
 };
-
+template<>
+struct FMakeReferenceTo<const void>
+{
+	typedef void Type;
+};
 
 /**
  * TSharedPtr is a non-intrusive reference-counted authoritative object pointer.  This shared pointer

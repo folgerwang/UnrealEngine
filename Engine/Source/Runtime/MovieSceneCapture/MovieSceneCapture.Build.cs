@@ -21,6 +21,7 @@ public class MovieSceneCapture : ModuleRules
 		PublicDependencyModuleNames.AddRange(
 			new string[] {
 				"LevelSequence",
+				"TimeManagement",
 			}
 		);
 

@@ -19,7 +19,7 @@ struct FSlateBrush;
 struct FSequencerOverlapRange
 {
 	/** The range for the overlap */
-	TRange<float> Range;
+	TRange<FFrameNumber> Range;
 	/** The sections that occupy this range, sorted by overlap priority */
 	TArray<FSectionHandle> Sections;
 };
@@ -149,9 +149,14 @@ public:
 	virtual void SetDisplayName(const FText& NewDisplayName) override;
 	virtual const FSlateBrush* GetIconBrush() const override;
 	virtual bool CanDrag() const override;
+	virtual TOptional<EItemDropZone> CanDrop(FSequencerDisplayNodeDragDropOp& DragDropOp, EItemDropZone ItemDropZone) const override;
+	virtual void Drop(const TArray<TSharedRef<FSequencerDisplayNode>>& DraggedNodes, EItemDropZone ItemDropZone) override;
 	virtual bool IsResizable() const override;
 	virtual void Resize(float NewSize) override;
-	
+	virtual int32 GetSortingOrder() const override;
+	virtual void SetSortingOrder(const int32 InSortingOrder) override;
+	virtual void ModifyAndSetSortingOrder(const int32 InSortingOrder) override;
+
 private:
 
 	FReply CreateNewSection() const;

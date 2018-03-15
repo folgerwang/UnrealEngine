@@ -37,6 +37,8 @@ UWidgetAnimation* UWidgetAnimation::GetNullAnimation()
 		NullAnimation->AddToRoot();
 		NullAnimation->MovieScene = NewObject<UMovieScene>(NullAnimation, FName("No Animation"));
 		NullAnimation->MovieScene->AddToRoot();
+
+		NullAnimation->MovieScene->SetPlaybackFrameRate(FFrameRate(20, 1));
 	}
 
 	return NullAnimation;
@@ -47,13 +49,13 @@ UWidgetAnimation* UWidgetAnimation::GetNullAnimation()
 
 float UWidgetAnimation::GetStartTime() const
 {
-	return MovieScene->GetPlaybackRange().GetLowerBoundValue();
+	return MovieScene->GetPlaybackRange().GetLowerBoundValue() / MovieScene->GetFrameResolution();
 }
 
 
 float UWidgetAnimation::GetEndTime() const
 {
-	return MovieScene->GetPlaybackRange().GetUpperBoundValue();
+	return MovieScene->GetPlaybackRange().GetUpperBoundValue() / MovieScene->GetFrameResolution();
 }
 
 

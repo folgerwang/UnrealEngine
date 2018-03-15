@@ -9,6 +9,7 @@
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SCompoundWidget.h"
 #include "LevelEditorViewport.h"
+#include "FrameRate.h"
 
 class FLevelSequenceEditorToolkit;
 class FLevelViewportLayout;
@@ -20,6 +21,8 @@ class SCinematicPreviewViewport;
 class SCinematicTransportRange;
 class SEditorViewport;
 class SLevelViewport;
+
+struct FQualifiedFrameTime;
 struct FTypeInterfaceProxy;
 
 /** Overridden level viewport client for this viewport */
@@ -45,12 +48,17 @@ struct FUIData
 	FText Lens;
 	/** The name of the current shot's filmback */
 	FText Filmback;
-	/** The text that represents the current frame */
-	FText Frame;
+	/** The text that represents the current playback time relative to the currently evaluated sequence. */
+	FText LocalPlaybackTime;
 	/** The text that represents the master start frame */
 	FText MasterStartText;
 	/** The text that represents the master end frame */
 	FText MasterEndText;
+
+	/** The frame resolution of the master */
+	FFrameRate OuterResolution;
+	/** The play rate of the master */
+	FFrameRate OuterPlayRate;
 };
 
 
@@ -114,15 +122,15 @@ private:
 
 private:
 
-	TOptional<float> GetMinTime() const;
+	TOptional<double> GetMinTime() const;
+			  
+	TOptional<double> GetMaxTime() const;
 
-	TOptional<float> GetMaxTime() const;
+	void OnTimeCommitted(double Value, ETextCommit::Type);
 
-	void OnTimeCommitted(float Value, ETextCommit::Type);
+	void SetTime(double Value);
 
-	void SetTime(float Value);
-
-	float GetTime() const;
+	double GetTime() const;
 
 private:
 	

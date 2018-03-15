@@ -19,11 +19,6 @@
 			"Name" : "ImagePlate",
 			"Type" : "Runtime",
 			"LoadingPhase" : "Default"
-		},
-		{
-			"Name" : "ImagePlateEditor",
-			"Type" : "Editor",
-			"LoadingPhase" : "Default"
 		}
 	]
 }

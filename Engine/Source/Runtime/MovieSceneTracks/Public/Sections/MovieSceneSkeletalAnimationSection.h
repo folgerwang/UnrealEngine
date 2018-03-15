@@ -4,9 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "Curves/KeyHandle.h"
 #include "MovieSceneSection.h"
 #include "Animation/AnimSequenceBase.h"
+#include "Channels/MovieSceneFloatChannel.h"
 #include "MovieSceneSkeletalAnimationSection.generated.h"
 
 USTRUCT()
@@ -48,7 +48,7 @@ struct FMovieSceneSkeletalAnimationParams
 
 	/** The weight curve for this animation section */
 	UPROPERTY( EditAnywhere, Category = "Animation" )
-	FRichCurve Weight;	
+	FMovieSceneFloatChannel Weight;
 };
 
 /**
@@ -65,23 +65,18 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Animation", meta=(ShowOnlyInnerProperties))
 	FMovieSceneSkeletalAnimationParams Params;
 
-public:
+protected:
 
-	//~ MovieSceneSection interface
-
-	virtual void MoveSection( float DeltaPosition, TSet<FKeyHandle>& KeyHandles ) override;
-	virtual void DilateSection( float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles  ) override;
-	virtual UMovieSceneSection* SplitSection(float SplitTime) override;
-	virtual void GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const override;
-	virtual void GetSnapTimes(TArray<float>& OutSnapTimes, bool bGetSectionBorders) const override;
-	virtual TOptional<float> GetOffsetTime() const override { return TOptional<float>(Params.StartOffset); }
-	virtual TOptional<float> GetKeyTime( FKeyHandle KeyHandle ) const override { return TOptional<float>(); }
-	virtual void SetKeyTime( FKeyHandle KeyHandle, float Time ) override { }
+	//~ UMovieSceneSection interface
+	virtual UMovieSceneSection* SplitSection(FFrameNumber SplitTime) override;
+	virtual void GetSnapTimes(TArray<FFrameNumber>& OutSnapTimes, bool bGetSectionBorders) const override;
+	virtual TOptional<FFrameTime> GetOffsetTime() const override;
 	virtual FMovieSceneEvalTemplatePtr GenerateTemplate() const override;
 
 	/** ~UObject interface */
 	virtual void PostLoad() override;
 	virtual void Serialize(FArchive& Ar) override;
+
 private:
 
 	//~ UObject interface

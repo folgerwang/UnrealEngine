@@ -629,7 +629,7 @@ void SNiagaraSpreadsheetView::HandleTimeChange()
 					}
 				}
 
-				float LocalCaptureTime = SystemViewModel->GetSequencer()->GetLocalTime();
+				FQualifiedFrameTime LocalCaptureTime = SystemViewModel->GetSequencer()->GetLocalTime();
 
 				if (FoundScript && FoundScript->GetDebuggerInfo().bRequestDebugFrame == false && CaptureData[i].LastReadWriteId != FoundScript->GetDebuggerInfo().DebugFrameLastWriteId)
 				{
@@ -638,7 +638,7 @@ void SNiagaraSpreadsheetView::HandleTimeChange()
 					CaptureData[i].InputParams = FoundScript->GetDebuggerInfo().DebugParameters;
 					CaptureData[i].DataSet->Tick(ENiagaraSimTarget::CPUSim); // Force a buffer swap, from here out we read from PrevData.
 
-					CaptureData[i].LastCaptureTime = LocalCaptureTime;
+					CaptureData[i].LastCaptureTime = LocalCaptureTime.AsSeconds();
 					ensure(CaptureData[i].LastCaptureTime == CaptureData[i].TargetCaptureTime);
 					CaptureData[i].LastCaptureHandleId = SelectedEmitterHandles[0]->GetId();
 
@@ -685,7 +685,7 @@ bool SNiagaraSpreadsheetView::IsPausedAtRightTimeOnRightHandle() const
 	if (SelectedEmitterHandles.Num() == 1)
 	{
 		return SystemViewModel->GetSequencer()->GetPlaybackStatus() == EMovieScenePlayerStatus::Stopped &&
-			CaptureData[(int32)TabState].LastCaptureTime == SystemViewModel->GetSequencer()->GetLocalTime() &&
+			CaptureData[(int32)TabState].LastCaptureTime == SystemViewModel->GetSequencer()->GetLocalTime().AsSeconds() &&
 			CaptureData[(int32)TabState].LastCaptureHandleId == SelectedEmitterHandles[0]->GetId();
 	}
 	return false;
@@ -989,8 +989,9 @@ void SNiagaraSpreadsheetView::ResetColumns(EUITab Tab)
 
 FReply SNiagaraSpreadsheetView::OnCaptureRequestPressed()
 {
-	float LocalTime = SystemViewModel->GetSequencer()->GetLocalTime();
-	float SnapInterval = SystemViewModel->GetSequencer()->GetSequencerSettings()->GetTimeSnapInterval();
+	FFrameRate FrameResolution = SystemViewModel->GetSequencer()->GetFocusedFrameResolution();
+	float LocalTime = SystemViewModel->GetSequencer()->GetLocalTime().AsSeconds();
+	float SnapInterval = SystemViewModel->GetSequencer()->GetFocusedPlayRate().AsInterval();
 	float TargetCaptureTime = LocalTime + SnapInterval;
 
 	TArray<TSharedRef<FNiagaraEmitterHandleViewModel>> SelectedEmitterHandles;
@@ -1021,18 +1022,18 @@ FReply SNiagaraSpreadsheetView::OnCaptureRequestPressed()
 			FoundScript->GetDebuggerInfo().bRequestDebugFrame = true;
 			CaptureData[(int32)i].bAwaitingFrame = true;
 
-			CaptureData[(int32)i].TargetCaptureTime = TargetCaptureTime;			
+			CaptureData[(int32)i].TargetCaptureTime = TargetCaptureTime;
 		}
 	}
 
 	if (SystemViewModel->GetSequencer()->GetPlaybackStatus() == EMovieScenePlayerStatus::Stopped)
 	{
-		SystemViewModel->GetSequencer()->SetLocalTime(TargetCaptureTime, STM_None);
+		SystemViewModel->GetSequencer()->SetLocalTime(TargetCaptureTime * FrameResolution, STM_None);
 	}
 	else
 	{
 		SystemViewModel->GetSequencer()->SetPlaybackStatus(EMovieScenePlayerStatus::Stopped);
-		SystemViewModel->GetSequencer()->SetLocalTime(TargetCaptureTime, STM_None);
+		SystemViewModel->GetSequencer()->SetLocalTime(TargetCaptureTime * FrameResolution, STM_None);
 	}
 
 	return FReply::Handled();

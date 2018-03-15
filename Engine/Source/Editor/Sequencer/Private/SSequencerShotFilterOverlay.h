@@ -22,7 +22,7 @@ class SSequencerShotFilterOverlay
 {
 public:
 	SLATE_BEGIN_ARGS(SSequencerShotFilterOverlay) { }
-		SLATE_ATTRIBUTE(TRange<float>, ViewRange)
+		SLATE_ATTRIBUTE(TRange<double>, ViewRange)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs, TSharedRef<FSequencer> InSequencer);
@@ -45,7 +45,7 @@ protected:
 private:
 
 	/** The current minimum view range */
-	TAttribute<TRange<float>> ViewRange;
+	TAttribute<TRange<double>> ViewRange;
 
 	/** The main sequencer interface */
 	TWeakPtr<FSequencer> Sequencer;

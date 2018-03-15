@@ -31,6 +31,7 @@
 #include "Math/NumericLimits.h"
 #include "NiagaraComponent.h"
 #include "MovieSceneFolder.h"
+#include "Channels/MovieSceneChannelProxy.h"
 
 DECLARE_CYCLE_STAT(TEXT("Niagara - SystemViewModel - CompileSystem"), STAT_NiagaraEditor_SystemViewModel_CompileSystem, STATGROUP_NiagaraEditor);
 
@@ -687,11 +688,9 @@ void FNiagaraSystemViewModel::RefreshSequencerTracks()
 	}
 
 	// Expand the view range to show all emitters.
-	TRange<float> CurrentViewRange = NiagaraSequence->GetMovieScene()->GetEditorData().ViewRange;
-	float NewMinViewRange = FMath::Min(MinEmitterTime, CurrentViewRange.GetLowerBoundValue());
-	float NewMaxViewRange = FMath::Max(MaxEmitterTime, CurrentViewRange.GetUpperBoundValue());
-
-	NiagaraSequence->GetMovieScene()->GetEditorData().ViewRange = TRange<float>(NewMinViewRange, NewMaxViewRange);
+	FMovieSceneEditorData& EditorData = NiagaraSequence->GetMovieScene()->GetEditorData();
+	EditorData.ViewStart = FMath::Min<double>(MinEmitterTime, EditorData.ViewStart);
+	EditorData.ViewEnd   = FMath::Max<double>(MaxEmitterTime, EditorData.ViewEnd);
 
 	Sequencer->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemsChanged);
 	Sequencer->SetGlobalTime(0);
@@ -745,24 +744,29 @@ void FNiagaraSystemViewModel::RefreshSequencerTrack(UMovieSceneNiagaraEmitterTra
 				EndTime = EmitterHandleViewModel->GetEmitterViewModel()->GetEndTime();
 			}
 
+			FFrameRate FrameResolution = EmitterSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+
 			EmitterSection->SetEmitterHandle(EmitterHandleViewModel.ToSharedRef());
 			EmitterSection->SetIsActive(EmitterHandleViewModel->GetIsEnabled());
-			EmitterSection->SetStartTime(StartTime);
-			EmitterSection->SetEndTime(EndTime);
-			EmitterSection->SetIsInfinite(bIsInfinite);
+			if (bIsInfinite)
+			{
+				EmitterSection->SetRange(TRange<FFrameNumber>((StartTime * FrameResolution).FloorToFrame(), (EndTime * FrameResolution).FloorToFrame()));
+			}
+			else
+			{
+				EmitterSection->SetRange(TRange<FFrameNumber>::All());
+			}
 
-// 			TSharedPtr<FBurstCurve> BurstCurve = EmitterSection->GetBurstCurve();
-// 			if (BurstCurve.IsValid())
+			TMovieSceneChannel<FMovieSceneBurstKey> Channel = EmitterSection->GetChannelProxy().GetChannel<FMovieSceneNiagaraEmitterChannel>(0)->GetInterface();
+
+// 			Channel.Reset();
+// 			for (const FNiagaraEmitterBurst& Burst : Emitter->Bursts)
 // 			{
-// 				BurstCurve->Reset();
-// 				for (const FNiagaraEmitterBurst& Burst : Emitter->Bursts)
-// 				{
-// 					FMovieSceneBurstKey BurstKey;
-// 					BurstKey.TimeRange = Burst.TimeRange;
-// 					BurstKey.SpawnMinimum = Burst.SpawnMinimum;
-// 					BurstKey.SpawnMaximum = Burst.SpawnMaximum;
-// 					BurstCurve->AddKeyValue(Burst.Time, BurstKey);
-// 				}
+// 				FMovieSceneBurstKey BurstKey;
+// 				BurstKey.TimeRange = Burst.TimeRange;
+// 				BurstKey.SpawnMinimum = Burst.SpawnMinimum;
+// 				BurstKey.SpawnMaximum = Burst.SpawnMaximum;
+// 				Channel.AddKey(Burst.Time, BurstKey);
 // 			}
 		}
 	}
@@ -772,15 +776,20 @@ void FNiagaraSystemViewModel::SetupSequencer()
 {
 	NiagaraSequence = NewObject<UNiagaraSequence>(GetTransientPackage());
 	UMovieScene* MovieScene = NewObject<UMovieScene>(NiagaraSequence, FName("Niagara System MovieScene"), RF_Transactional);
-	MovieScene->SetPlaybackRange(SequencerDefaultPlaybackRange.GetLowerBoundValue(), SequencerDefaultPlaybackRange.GetUpperBoundValue());
-	MovieScene->GetEditorData().ViewRange = SequencerDefaultViewRange;
-	MovieScene->GetEditorData().WorkingRange = SequencerDefaultPlaybackRange;
 
 	NiagaraSequence->Initialize(this, MovieScene);
 
+	FFrameTime StartTime = SequencerDefaultPlaybackRange.GetLowerBoundValue() * MovieScene->GetFrameResolution();
+	int32      Duration  = (SequencerDefaultPlaybackRange.Size<float>() * MovieScene->GetFrameResolution()).FrameNumber.Value;
+
+	MovieScene->SetPlaybackRange(StartTime.RoundToFrame(), Duration);
+
+	FMovieSceneEditorData& EditorData = NiagaraSequence->GetMovieScene()->GetEditorData();
+	EditorData.ViewStart = EditorData.WorkStart = SequencerDefaultViewRange.GetLowerBoundValue();
+	EditorData.ViewEnd   = EditorData.WorkEnd   = SequencerDefaultViewRange.GetUpperBoundValue();
+
 	FSequencerViewParams ViewParams(TEXT("NiagaraSequencerSettings"));
 	{
-		ViewParams.InitialScrubPosition = 0;
 		ViewParams.UniqueName = "NiagaraSequenceEditor";
 		ViewParams.OnGetAddMenuContent = OnGetSequencerAddMenuContent;
 	}
@@ -807,7 +816,7 @@ void FNiagaraSystemViewModel::SetupSequencer()
 
 void FNiagaraSystemViewModel::ResetSystem()
 {
-	Sequencer->SetGlobalTime(0.0f);
+	Sequencer->SetGlobalTime(0);
 	Sequencer->SetPlaybackStatus(EMovieScenePlayerStatus::Playing);
 	
 	for (TObjectIterator<UNiagaraComponent> ComponentIt; ComponentIt; ++ComponentIt)
@@ -838,7 +847,7 @@ void FNiagaraSystemViewModel::ReInitializeSystemInstances()
 {
 	if (Sequencer.IsValid() && Sequencer->GetPlaybackStatus() == EMovieScenePlayerStatus::Playing)
 	{
-		Sequencer->SetGlobalTime(0.0f);
+		Sequencer->SetGlobalTime(0);
 	}
 
 	for (TObjectIterator<UNiagaraComponent> ComponentIt; ComponentIt; ++ComponentIt)
@@ -1075,39 +1084,37 @@ void FNiagaraSystemViewModel::SequencerDataChanged(EMovieSceneDataChangeType Dat
 			EmitterHandleViewModel->SetIsEnabled(EmitterSection->IsActive());
 
 			TSharedPtr<FNiagaraEmitterViewModel> EmitterViewModel = EmitterTrack->GetEmitterHandle()->GetEmitterViewModel();
-			if (EmitterSection->IsInfinite() == false)
-			{
-				EmitterViewModel->SetStartTime(EmitterSection->GetStartTime());
-				EmitterViewModel->SetEndTime(EmitterSection->GetEndTime());
-			}
 
-			TSharedPtr<FBurstCurve> BurstCurve = EmitterSection->GetBurstCurve();
-			if (BurstCurve.IsValid())
+			// @todo: sequencer-timecode: these don't seem to actually do anything???
+			// if (EmitterSection->GetRange() != TRange<FFrameNumber>::All())
+			// {
+			// 	EmitterViewModel->SetStartTime(EmitterSection->GetStartTime());
+			// 	EmitterViewModel->SetEndTime(EmitterSection->GetEndTime());
+			// }
+
+			const FMovieSceneNiagaraEmitterChannel* Channel = EmitterSection->GetChannelProxy().GetChannel<FMovieSceneNiagaraEmitterChannel>(0);
+
+			TArrayView<const FFrameNumber>        Times  = Channel->GetTimes();
+			TArrayView<const FMovieSceneBurstKey> Values = Channel->GetValues();
+
+// 			UNiagaraEmitter* Emitter = EmitterViewModel->GetEmitter();
+// 			if (Emitter)
+// 			{
+// 				Emitter->Bursts.Empty();
+// 			}
+
+			FFrameRate FrameResolution = EmitterSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+			for (int32 Index = 0; Index < Times.Num(); ++Index)
 			{
-				UNiagaraEmitter* Emitter = EmitterViewModel->GetEmitter();
+				FNiagaraEmitterBurst Burst;
+				Burst.Time = Times[Index] / FrameResolution;
+				Burst.TimeRange    = Values[Index].TimeRange / FrameResolution;
+				Burst.SpawnMinimum = Values[Index].SpawnMinimum;
+				Burst.SpawnMaximum = Values[Index].SpawnMaximum;
 // 				if (Emitter)
 // 				{
-// 					Emitter->Bursts.Empty();
+// 					Emitter->Bursts.Add(Burst);
 // 				}
-				TArray<FKeyHandle> KeyHandles;
-				for (TKeyTimeIterator<float> KeyIterator = BurstCurve->IterateKeys(); KeyIterator; ++KeyIterator)
-				{
-					KeyHandles.Add(KeyIterator.GetKeyHandle());
-				}
-
-				for (const FKeyHandle& KeyHandle : KeyHandles)
-				{
-					auto Key = BurstCurve->GetKey(KeyHandle).GetValue();
-					FNiagaraEmitterBurst Burst;
-					Burst.Time = Key.Time;
-					Burst.TimeRange = Key.Value.TimeRange;
-					Burst.SpawnMinimum = Key.Value.SpawnMinimum;
-					Burst.SpawnMaximum = Key.Value.SpawnMaximum;
-// 					if (Emitter)
-// 					{
-// 						Emitter->Bursts.Add(Burst);
-// 					}
-				}
 			}
 		}
 	}
@@ -1169,7 +1176,7 @@ void FNiagaraSystemViewModel::SequencerTimeChanged()
 		return;
 	}
 	EMovieScenePlayerStatus::Type CurrentStatus = Sequencer->GetPlaybackStatus();
-	float CurrentSequencerTime = Sequencer->GetGlobalTime();
+	float CurrentSequencerTime = Sequencer->GetGlobalTime().AsSeconds();
 	if (SystemInstance != nullptr)
 	{
 		// Avoid reentrancy if we're setting the time directly.

@@ -55,11 +55,8 @@ public:
 		CameraBindingID = InCameraBindingID;
 	}
 
+	//~ UMovieSceneSection interface
 	virtual FMovieSceneEvalTemplatePtr GenerateTemplate() const override;
-
-	// UMovieSceneSection interface
-	virtual TOptional<float> GetKeyTime(FKeyHandle KeyHandle) const override { return TOptional<float>(); }
-	virtual void SetKeyTime(FKeyHandle KeyHandle, float Time) override { }
 	virtual void OnBindingsUpdated(const TMap<FGuid, FGuid>& OldGuidToNewGuidMap) override;
 
 	/** ~UObject interface */

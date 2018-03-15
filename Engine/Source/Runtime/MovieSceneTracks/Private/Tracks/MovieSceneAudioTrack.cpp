@@ -68,17 +68,6 @@ bool UMovieSceneAudioTrack::IsEmpty() const
 	return AudioSections.Num() == 0;
 }
 
-
-TRange<float> UMovieSceneAudioTrack::GetSectionBoundaries() const
-{
-	TArray< TRange<float> > Bounds;
-	for (int32 i = 0; i < AudioSections.Num(); ++i)
-	{
-		Bounds.Add(AudioSections[i]->GetRange());
-	}
-	return TRange<float>::Hull(Bounds);
-}
-
 float UMovieSceneAudioTrack::GetSoundDuration(USoundBase* Sound)
 {
 	USoundWave* SoundWave = nullptr;
@@ -109,26 +98,31 @@ float UMovieSceneAudioTrack::GetSoundDuration(USoundBase* Sound)
 	return Duration == INDEFINITELY_LOOPING_DURATION ? SoundWave->Duration : Duration;
 }
 
-void UMovieSceneAudioTrack::AddNewSound(USoundBase* Sound, float Time)
+UMovieSceneSection* UMovieSceneAudioTrack::AddNewSoundOnRow(USoundBase* Sound, FFrameNumber Time, int32 RowIndex)
 {
 	check(Sound);
 	
+	FFrameRate FrameRate = GetTypedOuter<UMovieScene>()->GetFrameResolution();
+
 	// determine initial duration
 	// @todo Once we have infinite sections, we can remove this
-	float DurationToUse = 1.f; // if all else fails, use 1 second duration
+	// @todo ^^ Why? Infinte sections would mean there's no starting time?
+	FFrameTime DurationToUse = 1.f * FrameRate; // if all else fails, use 1 second duration
 
 	float SoundDuration = GetSoundDuration(Sound);
 	if (SoundDuration != INDEFINITELY_LOOPING_DURATION)
 	{
-		DurationToUse = SoundDuration;
+		DurationToUse = SoundDuration * FrameRate;
 	}
 
 	// add the section
 	UMovieSceneAudioSection* NewSection = NewObject<UMovieSceneAudioSection>(this);
-	NewSection->InitialPlacement( AudioSections, Time, Time + DurationToUse, SupportsMultipleRows() );
+	NewSection->InitialPlacementOnRow( AudioSections, Time, DurationToUse.FrameNumber.Value, RowIndex );
 	NewSection->SetSound(Sound);
 
 	AudioSections.Add(NewSection);
+
+	return NewSection;
 }
 
 

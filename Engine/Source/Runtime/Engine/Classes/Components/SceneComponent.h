@@ -339,6 +339,26 @@ protected:
 	virtual void PostRepNotifies() override;
 
 public:
+
+	/**  Convenience function to get the relative rotation from the passed in world rotation*/
+	/* @param WorldRotation  World rotation that we want to convert to relative to the components parent*/
+	/* @return Returns the relative rotation*/
+	FQuat GetRelativeRotationFromWorld(const FQuat & WorldRotation);
+
+	/**
+	* Set the rotation of the component relative to its parent and force RelativeRotation to be equal to new rotation.
+	* This allows us to set and save Rotators with angles out side the normalized range, Note that doing so may break the 
+	* RotatorCache so use with care.
+	* @param NewRotation		New rotation of the component relative to its parent. We will force RelativeRotation to this value.
+	* @param SweepHitResult	Hit result from any impact if sweep is true.
+	* @param bSweep			Whether we sweep to the destination (currently not supported for rotation).
+	* @param bTeleport			Whether we teleport the physics state (if physics collision is enabled for this object).
+	*							If true, physics velocity for this object is unchanged (so ragdoll parts are not affected by change in location).
+	*							If false, physics velocity is updated based on the change in position (affecting ragdoll parts).
+	*/
+	void SetRelativeRotationExact(FRotator NewRotation, bool bSweep = false, FHitResult* OutSweepHitResult = nullptr, ETeleportType Teleport = ETeleportType::None);
+
+public:
 	/**
 	 * Set the location of the component relative to its parent
 	 * @param NewLocation		New location of the component relative to its parent.		

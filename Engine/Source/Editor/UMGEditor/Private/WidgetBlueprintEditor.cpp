@@ -65,12 +65,6 @@ FWidgetBlueprintEditor::FWidgetBlueprintEditor()
 			FAssetEditorExtender::CreateRaw(this, &FWidgetBlueprintEditor::GetAddTrackSequencerExtender));
 		SequencerAddTrackExtenderHandle = SequencerModule.GetAddTrackMenuExtensibilityManager()->GetExtenderDelegates()[NewIndex].GetHandle();
 	}
-
-	{
-		int32 NewIndex = SequencerModule.GetObjectBindingContextMenuExtensibilityManager()->GetExtenderDelegates().Add(
-			FAssetEditorExtender::CreateRaw(this, &FWidgetBlueprintEditor::GetObjectBindingContextMenuExtender));
-		SequencerObjectBindingExtenderHandle = SequencerModule.GetObjectBindingContextMenuExtensibilityManager()->GetExtenderDelegates()[NewIndex].GetHandle();
-	}
 }
 
 FWidgetBlueprintEditor::~FWidgetBlueprintEditor()
@@ -98,10 +92,6 @@ FWidgetBlueprintEditor::~FWidgetBlueprintEditor()
 		return SequencerAddTrackExtenderHandle == Extender.GetHandle();
 	});
 
-	SequencerModule.GetObjectBindingContextMenuExtensibilityManager()->GetExtenderDelegates().RemoveAll([this](const FAssetEditorExtender& Extender)
-	{
-		return SequencerObjectBindingExtenderHandle == Extender.GetHandle();
-	});
 }
 
 void FWidgetBlueprintEditor::InitWidgetBlueprintEditor(const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, const TArray<UBlueprint*>& InBlueprints, bool bShouldOpenInDefaultsMode)
@@ -678,20 +668,25 @@ TSharedPtr<ISequencer>& FWidgetBlueprintEditor::GetSequencer()
 {
 	if(!Sequencer.IsValid())
 	{
-		const float InTime = 0.f;
+		const float InTime  = 0.f;
 		const float OutTime = 5.0f;
 
 		FSequencerViewParams ViewParams(TEXT("UMGSequencerSettings"));
 		{
-			ViewParams.InitialScrubPosition = 0;
 			ViewParams.OnGetAddMenuContent = FOnGetAddMenuContent::CreateSP(this, &FWidgetBlueprintEditor::OnGetAnimationAddMenuContent);
+		    ViewParams.OnBuildCustomContextMenuForGuid = FOnBuildCustomContextMenuForGuid::CreateSP(this, &FWidgetBlueprintEditor::OnBuildCustomContextMenuForGuid);
 		}
 
 		FSequencerInitParams SequencerInitParams;
 		{
 			UWidgetAnimation* NullAnimation = UWidgetAnimation::GetNullAnimation();
-			NullAnimation->MovieScene->SetPlaybackRange(InTime, OutTime);
-			NullAnimation->MovieScene->GetEditorData().WorkingRange = TRange<float>(InTime, OutTime);
+			FFrameRate FrameResolution = NullAnimation->MovieScene->GetFrameResolution();
+			FFrameNumber StartFrame = (InTime  * FrameResolution).FloorToFrame();
+			FFrameNumber EndFrame   = (OutTime * FrameResolution).CeilToFrame();
+			NullAnimation->MovieScene->SetPlaybackRange(StartFrame, (EndFrame-StartFrame).Value);
+			FMovieSceneEditorData& EditorData = NullAnimation->MovieScene->GetEditorData();
+			EditorData.WorkStart = InTime;
+			EditorData.WorkEnd   = OutTime;
 
 			SequencerInitParams.ViewParams = ViewParams;
 			SequencerInitParams.RootSequence = NullAnimation;
@@ -1103,16 +1098,40 @@ TSharedRef<FExtender> FWidgetBlueprintEditor::GetAddTrackSequencerExtender( cons
 	return AddTrackMenuExtender;
 }
 
-TSharedRef<FExtender> FWidgetBlueprintEditor::GetObjectBindingContextMenuExtender(const TSharedRef<FUICommandList> CommandList, const TArray<UObject*> ContextSensitiveObjects)
+void FWidgetBlueprintEditor::OnBuildCustomContextMenuForGuid(FMenuBuilder& MenuBuilder, FGuid ObjectBinding)
 {
-	TSharedRef<FExtender> ObjectBindingMenuExtender(new FExtender());
+	if (CurrentAnimation.IsValid())
+	{
+		FWidgetReference SelectedWidget;
+		if (SelectedWidgets.Num() == 1)
+		{
+			for (FWidgetReference Widget : SelectedWidgets)
+			{
+				SelectedWidget = Widget;
+			}
+		}
+		if (SelectedWidget.IsValid())
+		{
+			//need to make sure it's a widget, if not bound assume it is.
+			UWidget* BoundWidget = nullptr;
+			bool bNotBound = true;
+			for (TWeakObjectPtr<> WeakObjectPtr : GetSequencer()->FindObjectsInCurrentSequence(ObjectBinding))
+			{
+				BoundWidget = Cast<UWidget>(WeakObjectPtr.Get());
+				bNotBound = false;
+				break;
+			}
+			if (bNotBound || (BoundWidget && SelectedWidget.GetPreview()->GetTypedOuter<UWidgetTree>() == BoundWidget->GetTypedOuter<UWidgetTree>()) )
+			{
+				FUIAction ReplaceWithMenuAction(FExecuteAction::CreateRaw(this, &FWidgetBlueprintEditor::ReplaceTrackWithSelectedWidget, SelectedWidget, (UWidget*)nullptr, ObjectBinding));
 
-	ObjectBindingMenuExtender->AddMenuExtension(
-		"Edit",
-		EExtensionHook::First,
-		CommandList,
-		FMenuExtensionDelegate::CreateRaw(this, &FWidgetBlueprintEditor::ExtendSequencerObjectBindingMenu, ContextSensitiveObjects));
-	return ObjectBindingMenuExtender;
+				FText ReplaceWithLabel = FText::Format(LOCTEXT("ReplaceObject", "Replace with {0}"), FText::FromString(SelectedWidget.GetPreview()->GetName()));
+				FText ReplaceWithToolTip = FText::Format(LOCTEXT("ReplaceObjectToolTip", "Replace the bound widget in this animation with {0}"), FText::FromString(SelectedWidget.GetPreview()->GetName()));
+				MenuBuilder.AddMenuSeparator();
+				MenuBuilder.AddMenuEntry(ReplaceWithLabel, ReplaceWithToolTip, FSlateIcon(), ReplaceWithMenuAction);
+			}
+		}
+	}
 }
 
 void FWidgetBlueprintEditor::ExtendSequencerAddTrackMenu( FMenuBuilder& AddTrackMenuBuilder, const TArray<UObject*> ContextObjects )
@@ -1162,7 +1181,7 @@ void FWidgetBlueprintEditor::ExtendSequencerAddTrackMenu( FMenuBuilder& AddTrack
 	}
 }
 
-void FWidgetBlueprintEditor::ReplaceTrackWithSelectedWidget(FWidgetReference SelectedWidget, UWidget* BoundWidget)
+void FWidgetBlueprintEditor::ReplaceTrackWithSelectedWidget(FWidgetReference SelectedWidget, UWidget* BoundWidget, FGuid ObjectId)
 {
 	const FScopedTransaction Transaction( LOCTEXT( "ReplaceTrackWithSelectedWidget", "Replace Track with Selected Widget" ) );
 
@@ -1170,8 +1189,6 @@ void FWidgetBlueprintEditor::ReplaceTrackWithSelectedWidget(FWidgetReference Sel
 	UMovieScene* MovieScene = WidgetAnimation->GetMovieScene();
 	UWidget* PreviewWidget = SelectedWidget.GetPreview();
 	UWidget* TemplateWidget = SelectedWidget.GetTemplate();
-	FGuid ObjectId = BoundWidget ? Sequencer->FindObjectId(*BoundWidget, MovieSceneSequenceID::Root) : FGuid();
-
 	// Try find if the SelectedWidget is already bound, if so return
 	FGuid SelectedWidgetId = Sequencer->FindObjectId(*PreviewWidget, MovieSceneSequenceID::Root);
 	if (SelectedWidgetId.IsValid())
@@ -1207,7 +1224,7 @@ void FWidgetBlueprintEditor::ReplaceTrackWithSelectedWidget(FWidgetReference Sel
 						if (!SelectedWidget.GetTemplate()->FindFunction(FunctionName))
 						{
 							// Exists a track that's not compatible 
-							FNotificationInfo Info(LOCTEXT("IncompatibleTrackToReplaceWith", "Selected Widget doesn't match to a Property this track is bound to"));
+							FNotificationInfo Info(FText::Format(LOCTEXT("IncompatibleTrackToReplaceWith", "Selected Widget doesn't match to a Property '{0}' this track is bound to"), FText::FromString(PropertyName)));
 							Info.FadeInDuration = 0.1f;
 							Info.FadeOutDuration = 0.5f;
 							Info.ExpireDuration = 2.5f;
@@ -1260,6 +1277,7 @@ void FWidgetBlueprintEditor::ReplaceTrackWithSelectedWidget(FWidgetReference Sel
 	Sequencer->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemsChanged);
 }
 
+
 void FWidgetBlueprintEditor::ExtendSequencerObjectBindingMenu(FMenuBuilder& ObjectBindingMenuBuilder, const TArray<UObject*> ContextObjects)
 {
 	FWidgetReference SelectedWidget;
@@ -1275,7 +1293,8 @@ void FWidgetBlueprintEditor::ExtendSequencerObjectBindingMenu(FMenuBuilder& Obje
 		UWidget* BoundWidget = Cast<UWidget>(ContextObjects[0]);
 		if (BoundWidget && SelectedWidget.GetPreview()->GetTypedOuter<UWidgetTree>() == BoundWidget->GetTypedOuter<UWidgetTree>() )
 		{
-			FUIAction ReplaceWithMenuAction(FExecuteAction::CreateRaw(this, &FWidgetBlueprintEditor::ReplaceTrackWithSelectedWidget, SelectedWidget, BoundWidget));
+			FGuid ObjectId = Sequencer->FindObjectId(*BoundWidget, MovieSceneSequenceID::Root);
+			FUIAction ReplaceWithMenuAction(FExecuteAction::CreateRaw(this, &FWidgetBlueprintEditor::ReplaceTrackWithSelectedWidget, SelectedWidget, BoundWidget, ObjectId));
 
 			FText ReplaceWithLabel = FText::Format(LOCTEXT("ReplaceObject", "Replace with {0}"), FText::FromString(SelectedWidget.GetPreview()->GetName()));
 			FText ReplaceWithToolTip = FText::Format(LOCTEXT("ReplaceObjectToolTip", "Replace the bound widget in this animation with {0}"), FText::FromString(SelectedWidget.GetPreview()->GetName()));

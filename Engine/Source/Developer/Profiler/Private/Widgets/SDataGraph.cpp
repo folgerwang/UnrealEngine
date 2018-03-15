@@ -1137,10 +1137,8 @@ void SDataGraph::OnMouseLeave( const FPointerEvent& MouseEvent )
 
 FReply SDataGraph::OnMouseWheel( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	// 2^ 3=8
-	// 2^11=2048
 	MouseWheelAcc += MouseEvent.GetWheelDelta() * 0.25f;
-	MouseWheelAcc = FMath::Clamp( MouseWheelAcc, 3.0f, 11.0f );
+	MouseWheelAcc = FMath::Clamp( MouseWheelAcc, 3.0f, 13.0f ); // 2^3=8, 2^13=8192
 
 	ScaleY = FMath::Pow( 2.0f, MouseWheelAcc );
 

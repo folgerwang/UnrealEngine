@@ -35,17 +35,15 @@ public:
 			.MirrorLabels(bMirrorLabels);
 	}
 
-	TSharedRef<SWidget> CreateTimeRangeSlider( const TSharedRef<class ITimeSliderController>& InController, const TAttribute<float>& InTimeSnapIntervalDelegate ) override
+	TSharedRef<SWidget> CreateTimeRangeSlider( const TSharedRef<class ITimeSliderController>& InController ) override
 	{
-		return SNew( STimeRangeSlider, InController )
-			.TimeSnapInterval( InTimeSnapIntervalDelegate );
+		return SNew( STimeRangeSlider, InController );
 	}
 
 	TSharedRef<ITimeSlider> CreateTimeRange(const FTimeRangeArgs& InArgs, const TSharedRef<SWidget>& Content) override
 	{
 		return SNew( STimeRange, InArgs.Controller, InArgs.NumericTypeInterface)
 		.Visibility(InArgs.VisibilityDelegate)
-		.ShowFrameNumbers(InArgs.ShowFrameNumbersDelegate)
 		.ShowWorkingRange(!!(InArgs.ShowRanges & EShowRange::WorkingRange))
 		.ShowViewRange(!!(InArgs.ShowRanges & EShowRange::ViewRange))
 		.ShowPlaybackRange(!!(InArgs.ShowRanges & EShowRange::PlaybackRange))

@@ -32,7 +32,7 @@ public:
 
 	/** Frame number to start capturing.  The frame number range depends on whether the bUseRelativeFrameNumbers option is enabled. */
 	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay, meta=(EditCondition="bUseCustomStartFrame"))
-	int32 StartFrame;
+	FFrameNumber StartFrame;
 
 	/** When enabled, the EndFrame setting will override the default ending frame number */
 	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay)
@@ -40,7 +40,7 @@ public:
 
 	/** Frame number to end capturing.  The frame number range depends on whether the bUseRelativeFrameNumbers option is enabled. */
 	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay, meta=(EditCondition="bUseCustomEndFrame"))
-	int32 EndFrame;
+	FFrameNumber EndFrame;
 
 	/** The number of extra frames to play before the sequence's start frame, to "warm up" the animation.  This is useful if your
 	    animation contains particles or other runtime effects that are spawned into the scene earlier than your capture start frame */
@@ -50,6 +50,10 @@ public:
 	/** The number of seconds to wait (in real-time) before we start playing back the warm up frames.  Useful for allowing post processing effects to settle down before capturing the animation. */
 	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay, meta=(Units=Seconds, ClampMin=0))
 	float DelayBeforeWarmUp;
+
+	/** The number of seconds to wait (in real-time) at shot boundaries.  Useful for allowing post processing effects to settle down before capturing the animation. */
+	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay, meta=(Units=Seconds, ClampMin=0))
+	float DelayBeforeShotWarmUp;
 
 	UPROPERTY(EditAnywhere, Category=CaptureSettings, AdvancedDisplay, meta=(EditInline))
 	ULevelSequenceBurnInOptions* BurnInOptions;
@@ -69,7 +73,7 @@ public:
 	virtual void Close() override;
 
 	/** Override the render frames with the given start/end frames. Restore the values when done rendering. */
-	void SetFrameOverrides(int32 InStartFrame, int32 InEndFrame);
+	void SetFrameOverrides(FFrameNumber InStartFrame, FFrameNumber InEndFrame);
 
 protected:
 
@@ -87,7 +91,7 @@ private:
 	void UpdateFrameState();
 
 	/** Called when the level sequence has updated the world */
-	void SequenceUpdated(const UMovieSceneSequencePlayer& Player, float CurrentTime, float PreviousTime);
+	void SequenceUpdated(const UMovieSceneSequencePlayer& Player, FFrameTime CurrentTime, FFrameTime PreviousTime);
 
 	/** Called to set up the player's playback range */
 	void SetupFrameRange();
@@ -109,7 +113,7 @@ private:
 	bool InitializeShots();
 
 	/** Set up the current shot to be recorded, ie. expand playback range to the section range */
-	bool SetupShot(float& StartTime, float& EndTime);
+	bool SetupShot(FFrameNumber& StartTime, FFrameNumber& EndTime);
 
 	/** Restore any modification to shots */
 	void RestoreShots();
@@ -161,25 +165,25 @@ private:
 
 	struct FCinematicShotCache
 	{
-		FCinematicShotCache(bool bInActive, bool bInLocked, const TRange<float>& InShotRange, const TRange<float>& InMovieSceneRange) : 
+		FCinematicShotCache(bool bInActive, bool bInLocked, const TRange<FFrameNumber>& InShotRange, const TRange<FFrameNumber>& InMovieSceneRange) : 
 			  bActive(bInActive)
 			, bLocked(bInLocked)
 			, ShotRange(InShotRange)
 			, MovieSceneRange(InMovieSceneRange)
 		{
-		};
+		}
 
 		bool bActive;
 		bool bLocked;
-		TRange<float> ShotRange;
-		TRange<float> MovieSceneRange;
+		TRange<FFrameNumber> ShotRange;
+		TRange<FFrameNumber> MovieSceneRange;
 	};
 
 	TArray<FCinematicShotCache> CachedShotStates;
-	TRange<float> CachedPlaybackRange;
+	TRange<FFrameNumber> CachedPlaybackRange;
 
-	TOptional<int32> CachedStartFrame;
-	TOptional<int32> CachedEndFrame;
+	TOptional<FFrameNumber> CachedStartFrame;
+	TOptional<FFrameNumber> CachedEndFrame;
 	TOptional<bool> bCachedUseCustomStartFrame;
 	TOptional<bool> bCachedUseCustomEndFrame;
 #endif

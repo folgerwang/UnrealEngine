@@ -13,6 +13,7 @@ namespace UnrealBuildTool.Rules
 					"Engine",
 					"MovieScene",
 					"MovieSceneTracks",
+					"TimeManagement",
 				});
 
 			PrivateDependencyModuleNames.AddRange(

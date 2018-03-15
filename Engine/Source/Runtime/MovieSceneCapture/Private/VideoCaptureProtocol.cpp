@@ -4,6 +4,7 @@
 #include "HAL/FileManager.h"
 #include "Misc/CommandLine.h"
 #include "Templates/Casts.h"
+#include "FrameRate.h"
 
 bool FVideoCaptureProtocol::Initialize(const FCaptureProtocolInitSettings& InSettings, const ICaptureProtocolHost& Host)
 {
@@ -43,7 +44,8 @@ void FVideoCaptureProtocol::ConditionallyCreateWriter(const ICaptureProtocolHost
 
 	FAVIWriterOptions Options;
 	Options.OutputFilename = MoveTemp(VideoFilename);
-	Options.CaptureFPS = Host.GetCaptureFrequency();
+	Options.CaptureFramerateNumerator = Host.GetCaptureFrameRate().Numerator;
+	Options.CaptureFramerateDenominator = Host.GetCaptureFrameRate().Denominator;
 	Options.CodecName = CaptureSettings->VideoCodec;
 	Options.bSynchronizeFrames = Host.GetCaptureStrategy().ShouldSynchronizeFrames();
 	Options.Width = InitSettings->DesiredSize.X;

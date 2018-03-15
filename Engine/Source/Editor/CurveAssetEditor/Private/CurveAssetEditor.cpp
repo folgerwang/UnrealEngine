@@ -10,7 +10,7 @@
 #include "CurveAssetEditorModule.h"
 
 #include "SCurveEditor.h"
-#include "RichCurveEditorCommands.h"
+#include "CurveEditorCommands.h"
 //#include "Toolkits/IToolkitHost.h"
 #include "Widgets/Docking/SDockTab.h"
 #include "Widgets/Input/SNumericDropDown.h"
@@ -185,19 +185,19 @@ TSharedPtr<FExtender> FCurveAssetEditor::GetToolbarExtender()
 		{
 			ToolbarBuilder.BeginSection("Curve");
 			{
-				ToolbarBuilder.AddToolBarButton(FRichCurveEditorCommands::Get().ZoomToFitHorizontal);
-				ToolbarBuilder.AddToolBarButton(FRichCurveEditorCommands::Get().ZoomToFitVertical);
-				ToolbarBuilder.AddToolBarButton(FRichCurveEditorCommands::Get().ZoomToFit);
+				ToolbarBuilder.AddToolBarButton(FCurveEditorCommands::Get().ZoomToFitHorizontal);
+				ToolbarBuilder.AddToolBarButton(FCurveEditorCommands::Get().ZoomToFitVertical);
+				ToolbarBuilder.AddToolBarButton(FCurveEditorCommands::Get().ZoomToFit);
 			}
 			ToolbarBuilder.EndSection();
 
 			ToolbarBuilder.BeginSection("Interpolation");
 			{
-				ToolbarBuilder.AddToolBarButton(FRichCurveEditorCommands::Get().InterpolationCubicAuto);
-				ToolbarBuilder.AddToolBarButton(FRichCurveEditorCommands::Get().InterpolationCubicUser);
-				ToolbarBuilder.AddToolBarButton(FRichCurveEditorCommands::Get().InterpolationCubicBreak);
-				ToolbarBuilder.AddToolBarButton(FRichCurveEditorCommands::Get().InterpolationLinear);
-				ToolbarBuilder.AddToolBarButton(FRichCurveEditorCommands::Get().InterpolationConstant);
+				ToolbarBuilder.AddToolBarButton(FCurveEditorCommands::Get().InterpolationCubicAuto);
+				ToolbarBuilder.AddToolBarButton(FCurveEditorCommands::Get().InterpolationCubicUser);
+				ToolbarBuilder.AddToolBarButton(FCurveEditorCommands::Get().InterpolationCubicBreak);
+				ToolbarBuilder.AddToolBarButton(FCurveEditorCommands::Get().InterpolationLinear);
+				ToolbarBuilder.AddToolBarButton(FCurveEditorCommands::Get().InterpolationConstant);
 			}
 			ToolbarBuilder.EndSection();
 
@@ -211,9 +211,9 @@ TSharedPtr<FExtender> FCurveAssetEditor::GetToolbarExtender()
 
 			ToolbarBuilder.BeginSection("Snap");
 			{
-				ToolbarBuilder.AddToolBarButton(FRichCurveEditorCommands::Get().ToggleInputSnapping);
+				ToolbarBuilder.AddToolBarButton(FCurveEditorCommands::Get().ToggleInputSnapping);
 				ToolbarBuilder.AddWidget(InputSnapWidget);
-				ToolbarBuilder.AddToolBarButton(FRichCurveEditorCommands::Get().ToggleOutputSnapping);
+				ToolbarBuilder.AddToolBarButton(FCurveEditorCommands::Get().ToggleOutputSnapping);
 				ToolbarBuilder.AddWidget(OutputSnapWidget);
 			}
 			ToolbarBuilder.EndSection();
@@ -271,11 +271,11 @@ TSharedRef<SWidget> FCurveAssetEditor::MakeCurveEditorCurveOptionsMenu()
 		{
 			MenuBuilder.BeginSection( "Pre-Infinity Extrapolation", LOCTEXT( "CurveEditorMenuPreInfinityExtrapHeader", "Extrapolation" ) );
 			{
-				MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().SetPreInfinityExtrapCycle);
-				MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().SetPreInfinityExtrapCycleWithOffset);
-				MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().SetPreInfinityExtrapOscillate);
-				MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().SetPreInfinityExtrapLinear);
-				MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().SetPreInfinityExtrapConstant);
+				MenuBuilder.AddMenuEntry( FCurveEditorCommands::Get().SetPreInfinityExtrapCycle);
+				MenuBuilder.AddMenuEntry( FCurveEditorCommands::Get().SetPreInfinityExtrapCycleWithOffset);
+				MenuBuilder.AddMenuEntry( FCurveEditorCommands::Get().SetPreInfinityExtrapOscillate);
+				MenuBuilder.AddMenuEntry( FCurveEditorCommands::Get().SetPreInfinityExtrapLinear);
+				MenuBuilder.AddMenuEntry( FCurveEditorCommands::Get().SetPreInfinityExtrapConstant);
 			}
 			MenuBuilder.EndSection();
 		}
@@ -284,11 +284,11 @@ TSharedRef<SWidget> FCurveAssetEditor::MakeCurveEditorCurveOptionsMenu()
 		{
 			MenuBuilder.BeginSection( "Post-Infinity Extrapolation", LOCTEXT( "CurveEditorMenuPostInfinityExtrapHeader", "Extrapolation" ) );
 			{
-				MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().SetPostInfinityExtrapCycle);
-				MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().SetPostInfinityExtrapCycleWithOffset);
-				MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().SetPostInfinityExtrapOscillate);
-				MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().SetPostInfinityExtrapLinear);
-				MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().SetPostInfinityExtrapConstant);
+				MenuBuilder.AddMenuEntry( FCurveEditorCommands::Get().SetPostInfinityExtrapCycle);
+				MenuBuilder.AddMenuEntry( FCurveEditorCommands::Get().SetPostInfinityExtrapCycleWithOffset);
+				MenuBuilder.AddMenuEntry( FCurveEditorCommands::Get().SetPostInfinityExtrapOscillate);
+				MenuBuilder.AddMenuEntry( FCurveEditorCommands::Get().SetPostInfinityExtrapLinear);
+				MenuBuilder.AddMenuEntry( FCurveEditorCommands::Get().SetPostInfinityExtrapConstant);
 			}
 			MenuBuilder.EndSection();
 		}
@@ -296,8 +296,8 @@ TSharedRef<SWidget> FCurveAssetEditor::MakeCurveEditorCurveOptionsMenu()
 
 	FMenuBuilder MenuBuilder( true, TrackWidget->GetCommands());
 
-	MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().BakeCurve);
-	MenuBuilder.AddMenuEntry( FRichCurveEditorCommands::Get().ReduceCurve);
+	MenuBuilder.AddMenuEntry( FCurveEditorCommands::Get().BakeCurve);
+	MenuBuilder.AddMenuEntry( FCurveEditorCommands::Get().ReduceCurve);
 
 	MenuBuilder.AddSubMenu(
 		LOCTEXT( "PreInfinitySubMenu", "Pre-Infinity" ),

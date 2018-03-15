@@ -98,8 +98,8 @@ void FSequencerUtilities::PopulateMenu_CreateNewSection(FMenuBuilder& MenuBuilde
 			return;
 		}
 
-		const float StartAtTime = Sequencer->GetLocalTime();
-		TRange<float> VisibleRange = Sequencer->GetViewRange();
+		FQualifiedFrameTime CurrentTime = Sequencer->GetLocalTime();
+		TRange<double> VisibleRange = Sequencer->GetViewRange();
 
 		FScopedTransaction Transaction(LOCTEXT("AddSectionTransactionText", "Add Section"));
 		if (UMovieSceneSection* NewSection = Track->CreateNewSection())
@@ -112,10 +112,9 @@ void FSequencerUtilities::PopulateMenu_CreateNewSection(FMenuBuilder& MenuBuilde
 
 			Track->Modify();
 
-			NewSection->SetIsInfinite(false);
-			NewSection->SetStartTime(StartAtTime);
+			int32 DurationFrames = ( (VisibleRange.Size<double>() * 0.75) * CurrentTime.Rate ).FloorToFrame().Value;
+			NewSection->SetRange(TRange<FFrameNumber>(CurrentTime.Time.FrameNumber, CurrentTime.Time.FrameNumber + DurationFrames));
 			NewSection->SetOverlapPriority(OverlapPriority);
-			NewSection->SetEndTime(VisibleRange.GetUpperBoundValue() - (VisibleRange.GetUpperBoundValue() - StartAtTime)*0.25f);
 			NewSection->SetRowIndex(RowIndex);
 			NewSection->SetBlendType(BlendType);
 

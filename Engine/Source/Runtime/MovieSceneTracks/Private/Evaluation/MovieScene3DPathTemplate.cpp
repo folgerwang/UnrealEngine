@@ -128,9 +128,12 @@ struct F3DPathExecutionToken
 		FMovieSceneSequenceID SequenceID = Operand.SequenceID;
 		if (PathBindingID.GetSequenceID().IsValid())
 		{
-			// Ensure that this ID is resolvable from the root, based on the current local sequence ID
-			FMovieSceneObjectBindingID RootBindingID = PathBindingID.ResolveLocalToRoot(SequenceID, Player.GetEvaluationTemplate().GetHierarchy());
-			SequenceID = RootBindingID.GetSequenceID();
+			if (const FMovieSceneSubSequenceData* SubData = Player.GetEvaluationTemplate().GetHierarchy().FindSubData(SequenceID))
+			{
+				// Ensure that this ID is resolvable from the root, based on the current local sequence ID
+				FMovieSceneObjectBindingID RootBindingID = PathBindingID.ResolveLocalToRoot(SequenceID, Player.GetEvaluationTemplate().GetHierarchy());
+				SequenceID = RootBindingID.GetSequenceID();
+			}
 		}
 
 		// If the transform is set, otherwise use the bound actor's transform
@@ -187,7 +190,7 @@ struct F3DPathExecutionToken
 
 FMovieScene3DPathSectionTemplate::FMovieScene3DPathSectionTemplate(const UMovieScene3DPathSection& Section)
 	: PathBindingID(Section.GetConstraintBindingID())
-	, TimingCurve(Section.GetTimingCurve())
+	, TimingCurve(Section.GetTimingChannel())
 	, FrontAxisEnum(Section.GetFrontAxisEnum())
 	, UpAxisEnum(Section.GetUpAxisEnum())
 	, bFollow(Section.GetFollow())
@@ -199,8 +202,10 @@ FMovieScene3DPathSectionTemplate::FMovieScene3DPathSectionTemplate(const UMovieS
 void FMovieScene3DPathSectionTemplate::Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 {
 	MOVIESCENE_DETAILED_SCOPE_CYCLE_COUNTER(MovieSceneEval_PathTrack_Evaluate)
-		
-	float Timing = TimingCurve.Eval(Context.GetTime());
 
-	ExecutionTokens.Add(F3DPathExecutionToken(PathBindingID, Timing, FrontAxisEnum, UpAxisEnum, bFollow, bReverse, bForceUpright));
+	float Timing = 0.f;
+	if (TimingCurve.Evaluate(Context.GetTime(), Timing))
+	{
+		ExecutionTokens.Add(F3DPathExecutionToken(PathBindingID, Timing, FrontAxisEnum, UpAxisEnum, bFollow, bReverse, bForceUpright));
+	}
 }

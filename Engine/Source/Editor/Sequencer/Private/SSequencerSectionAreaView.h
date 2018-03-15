@@ -23,9 +23,9 @@ class SSequencerSectionAreaView : public SPanel
 {
 public:
 	SLATE_BEGIN_ARGS( SSequencerSectionAreaView )
-	{}		
+	{}
 		/** The view range of the section area */
-		SLATE_ATTRIBUTE( TRange<float>, ViewRange )
+		SLATE_ATTRIBUTE( TRange<double>, ViewRange )
 	SLATE_END_ARGS()
 
 	SSequencerSectionAreaView()
@@ -71,7 +71,7 @@ private:
 	/** The node containing the sections we are viewing/manipulating */
 	TSharedPtr<FSequencerTrackNode> SectionAreaNode;
 	/** The current view range */
-	TAttribute< TRange<float> > ViewRange;
+	TAttribute< TRange<double> > ViewRange;
 	/** All the widgets in the panel */
 	TSlotlessChildren<SSequencerSection> Children;
 };

@@ -8,12 +8,12 @@
 
 /** A property track editor for FComposurePostMoveSettings properties. */
 class FComposurePostMoveSettingsPropertyTrackEditor
-	: public FPropertyTrackEditor<UMovieSceneComposurePostMoveSettingsTrack, UMovieSceneComposurePostMoveSettingsSection, FComposurePostMoveSettingsKey>
+	: public FPropertyTrackEditor<UMovieSceneComposurePostMoveSettingsTrack>
 {
 public:
 
 	FComposurePostMoveSettingsPropertyTrackEditor(TSharedRef<ISequencer> InSequencer)
-		: FPropertyTrackEditor<UMovieSceneComposurePostMoveSettingsTrack, UMovieSceneComposurePostMoveSettingsSection, FComposurePostMoveSettingsKey>(InSequencer, GetAnimatedPropertyTypes())
+		: FPropertyTrackEditor(InSequencer, GetAnimatedPropertyTypes())
 	{
 	}
 
@@ -24,10 +24,6 @@ public:
 	* @return The new instance of this class
 	*/
 	static TSharedRef<ISequencerTrackEditor> CreateTrackEditor(TSharedRef<ISequencer> OwningSequencer);
-
-	//~ ISequencerTrackEditor Interface
-
-	virtual TSharedRef<ISequencerSection> MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding) override;
 
 	//~ FMovieSceneTrackEditor interface
 
@@ -45,7 +41,7 @@ protected:
 
 	//~ FPropertyTrackEditor interface
 
-	virtual void GenerateKeysFromPropertyChanged(const FPropertyChangedParams& PropertyChangedParams, TArray<FComposurePostMoveSettingsKey>& NewGeneratedKeys, TArray<FComposurePostMoveSettingsKey>& DefaultGeneratedKeys) override;
+	virtual void GenerateKeysFromPropertyChanged(const FPropertyChangedParams& PropertyChangedParams, FGeneratedTrackKeys& OutGeneratedKeys) override;
 
 private:
 
@@ -53,7 +49,7 @@ private:
 	void ShowImportPostMoveSettingsDialog(UMovieSceneComposurePostMoveSettingsTrack* PostMoveSettingsTrack);
 
 	/** Imports post move settings from an external file to the specified track with the specified settings. */
-	void ImportPostMoveSettings(FString ImportFilePath, float FrameInterval, int32 StartFrame, UMovieSceneComposurePostMoveSettingsTrack* PostMoveSettingsTrack);
+	void ImportPostMoveSettings(FString ImportFilePath, FFrameRate FrameRate, FFrameNumber StartFrame, UMovieSceneComposurePostMoveSettingsTrack* PostMoveSettingsTrack);
 	
 	/** Handles closing the import settings dialog when the import it canceled. */
 	void ImportCanceled();

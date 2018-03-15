@@ -4,48 +4,42 @@
 #include "NiagaraEmitter.h"
 #include "NiagaraEmitterHandleViewModel.h"
 #include "NiagaraEmitterViewModel.h"
+#include "Algo/BinarySearch.h"
+#include "Channels/MovieSceneChannelProxy.h"
 
 #define LOCTEXT_NAMESPACE "MovieSceneNiagaraEmitterSection"
+
+uint32 FMovieSceneNiagaraEmitterChannel::GetChannelID()
+{
+	static uint32 ID = FMovieSceneChannelEntry::RegisterNewID();
+	return ID;
+}
+
+bool FMovieSceneNiagaraEmitterChannel::Evaluate(FFrameTime InTime, FMovieSceneBurstKey& OutValue) const
+{
+	if (Times.Num())
+	{
+		const int32 Index = FMath::Max(0, Algo::UpperBound(Times, InTime.FrameNumber)-1);
+		OutValue = Values[Index];
+		return true;
+	}
+
+	return false;
+}
 
 UMovieSceneNiagaraEmitterSection::UMovieSceneNiagaraEmitterSection(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	BurstCurve = MakeShareable(new FBurstCurve(&Times, &BurstKeys));
-}
+#if WITH_EDITOR
 
-TOptional<float> UMovieSceneNiagaraEmitterSection::GetKeyTime(FKeyHandle KeyHandle) const
-{
-	TOptional<float> Time;
-	if (BurstCurve.IsValid())
-	{
-		auto Key = BurstCurve->GetKey(KeyHandle);
-		Time = Key.IsSet()
-			? TOptional<float>(Key->Time)
-			: TOptional<float>();
-	}
-	return Time;
-}
+	static const FMovieSceneChannelEditorData EditorData;
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(Channel, EditorData);
 
-void UMovieSceneNiagaraEmitterSection::SetKeyTime(FKeyHandle KeyHandle, float Time)
-{
-	if (BurstCurve.IsValid())
-	{
-		BurstCurve->SetKeyTime(KeyHandle, Time);
-	}
-}
+#else
 
-void UMovieSceneNiagaraEmitterSection::GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const
-{
-	if (BurstCurve.IsValid())
-	{
-		for (TKeyTimeIterator<float> KeyIterator = BurstCurve->IterateKeys(); KeyIterator; ++KeyIterator)
-		{
-			if (TimeRange.Contains(*KeyIterator))
-			{
-				OutKeyHandles.Add(KeyIterator.GetKeyHandle());
-			}
-		}
-	}
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(Channel);
+
+#endif
 }
 
 TSharedPtr<FNiagaraEmitterHandleViewModel> UMovieSceneNiagaraEmitterSection::GetEmitterHandle()
@@ -56,11 +50,6 @@ TSharedPtr<FNiagaraEmitterHandleViewModel> UMovieSceneNiagaraEmitterSection::Get
 void UMovieSceneNiagaraEmitterSection::SetEmitterHandle(TSharedRef<FNiagaraEmitterHandleViewModel> InEmitterHandleViewModel)
 {
 	EmitterHandleViewModel = InEmitterHandleViewModel;
-}
-
-TSharedPtr<FBurstCurve> UMovieSceneNiagaraEmitterSection::GetBurstCurve()
-{
-	return BurstCurve;
 }
 
 #undef LOCTEXT_NAMESPACE // MovieSceneNiagaraEmitterSection

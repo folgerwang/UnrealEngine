@@ -9,12 +9,12 @@
 
 namespace MovieSceneSegmentCompiler
 {
-	static TOptional<FMovieSceneSegment> EvaluateNearestSegment(const TRange<float>& Range, const FMovieSceneSegment* PreviousSegment, const FMovieSceneSegment* NextSegment)
+	static TOptional<FMovieSceneSegment> EvaluateNearestSegment(const TRange<FFrameNumber>& Range, const FMovieSceneSegment* PreviousSegment, const FMovieSceneSegment* NextSegment)
 	{
 		if (PreviousSegment)
 		{
 			// There is a preceeding segment
-			float PreviousSegmentRangeBound = PreviousSegment->Range.GetUpperBoundValue();
+			FFrameNumber PreviousSegmentRangeBound = PreviousSegment->Range.GetUpperBoundValue();
 
 			FMovieSceneSegment EmptySpace(Range);
 			for (FSectionEvaluationData Data : PreviousSegment->Impls)
@@ -26,7 +26,7 @@ namespace MovieSceneSegmentCompiler
 		else if (NextSegment)
 		{
 			// Before any sections
-			float NextSegmentRangeBound = NextSegment->Range.GetLowerBoundValue();
+			FFrameNumber NextSegmentRangeBound = NextSegment->Range.GetLowerBoundValue();
 
 			FMovieSceneSegment EmptySpace(Range);
 			for (FSectionEvaluationData Data : NextSegment->Impls)
@@ -127,7 +127,7 @@ struct FEvaluateNearestSegmentBlender : FMovieSceneTrackSegmentBlender
 		bCanFillEmptySpace = true;
 	}
 
-	virtual TOptional<FMovieSceneSegment> InsertEmptySpace(const TRange<float>& Range, const FMovieSceneSegment* PreviousSegment, const FMovieSceneSegment* NextSegment) const
+	virtual TOptional<FMovieSceneSegment> InsertEmptySpace(const TRange<FFrameNumber>& Range, const FMovieSceneSegment* PreviousSegment, const FMovieSceneSegment* NextSegment) const
 	{
 		return MovieSceneSegmentCompiler::EvaluateNearestSegment(Range, PreviousSegment, NextSegment);
 	}

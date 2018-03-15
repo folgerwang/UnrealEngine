@@ -8,7 +8,6 @@
 #include "Stats/Stats.h"
 #include "Math/RandomStream.h"
 #include "UObject/PropertyPortFlags.h"
-
 DEFINE_LOG_CATEGORY(LogUnrealMath);
 
 /**
@@ -580,14 +579,14 @@ FRotator FQuat::Rotator() const
 	if (SingularityTest < -SINGULARITY_THRESHOLD)
 	{
 		RotatorFromQuat.Pitch = -90.f;
-		RotatorFromQuat.Yaw = FMath::Atan2(YawY, YawX) * RAD_TO_DEG;
-		RotatorFromQuat.Roll = FRotator::NormalizeAxis(-RotatorFromQuat.Yaw - (2.f * FMath::Atan2(X, W) * RAD_TO_DEG));
+		RotatorFromQuat.Yaw = -2.0f * FMath::Atan2(X, W) * RAD_TO_DEG;
+		RotatorFromQuat.Roll = 0.0f;
 	}
 	else if (SingularityTest > SINGULARITY_THRESHOLD)
 	{
 		RotatorFromQuat.Pitch = 90.f;
-		RotatorFromQuat.Yaw = FMath::Atan2(YawY, YawX) * RAD_TO_DEG;
-		RotatorFromQuat.Roll = FRotator::NormalizeAxis(RotatorFromQuat.Yaw - (2.f * FMath::Atan2(X, W) * RAD_TO_DEG));
+		RotatorFromQuat.Yaw = 2.0f * FMath::Atan2(X, W) * RAD_TO_DEG;
+		RotatorFromQuat.Roll = 0.0f;
 	}
 	else
 	{

@@ -21,7 +21,7 @@ class UMovieSceneControlRigTrack
 public:
 
 	/** Adds a new animation to this track */
-	virtual void AddNewControlRig(float KeyTime, UControlRigSequence* InSequence);
+	virtual void AddNewControlRig(FFrameNumber KeyTime, UControlRigSequence* InSequence);
 
 public:
 

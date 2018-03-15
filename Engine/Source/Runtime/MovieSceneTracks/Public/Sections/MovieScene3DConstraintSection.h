@@ -44,8 +44,6 @@ public:
 
 	//~ UMovieSceneSection interface
 
-	virtual TOptional<float> GetKeyTime(FKeyHandle KeyHandle) const override;
-	virtual void SetKeyTime(FKeyHandle KeyHandle, float Time) override;
 	virtual void OnBindingsUpdated(const TMap<FGuid, FGuid>& OldGuidToNewGuidMap) override;
 	
 	/** ~UObject interface */

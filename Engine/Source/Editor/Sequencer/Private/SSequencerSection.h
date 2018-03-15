@@ -51,19 +51,20 @@ private:
 	 *
 	 * @param MousePosition		The current screen space position of the mouse
 	 * @param AllottedGeometry	The geometry of the mouse event
+	 * @param OutKeys			Array to populate with the keys that are under the mouse
 	 * @return The key that is under the mouse.  Invalid if there is no key under the mouse
 	 */
-	FSequencerSelectedKey GetKeyUnderMouse( const FVector2D& MousePosition, const FGeometry& AllottedGeometry ) const;
+	void GetKeysUnderMouse( const FVector2D& MousePosition, const FGeometry& AllottedGeometry, TArray<FSequencerSelectedKey>& OutKeys ) const;
 
 	/**
 	 * Creates a key at the mouse position
 	 *
 	 * @param MousePosition		The current screen space position of the mouse
 	 * @param AllottedGeometry	The geometry of the mouse event
-	 * @param InPressedKey      Key if pressed
-	 * @return The newly created key
+	 * @param InPressedKeys     Keys if pressed
+	 * @param OutKeys			Array to populate with the new keys
 	 */
-	FSequencerSelectedKey CreateKeyUnderMouse( const FVector2D& MousePosition, const FGeometry& AllottedGeometry, FSequencerSelectedKey InPressedKey );
+	void CreateKeysUnderMouse( const FVector2D& MousePosition, const FGeometry& AllottedGeometry, TArrayView<const FSequencerSelectedKey> InPressedKeys, TArray<FSequencerSelectedKey>& OutKeys );
 
 	/**
 	 * Checks for user interaction (via the mouse) with the left and right edge of a section
@@ -118,11 +119,17 @@ private:
 
 public:
 
-	/** Indicate that the current key selection should throb the specified number of times. A single throb takes 0.2s. */
-	static void ThrobSelection(int32 ThrobCount = 1);
+	/** Indicate that the current section selection should throb the specified number of times. A single throb takes 0.2s. */
+	static void ThrobSectionSelection(int32 ThrobCount = 1);
 
-	/** Get a value between 0 and 1 that indicicates the amount of throb-scale to apply to the currently selected keys */
-	static float GetSelectionThrobValue();
+	/** Indicate that the current key selection should throb the specified number of times. A single throb takes 0.2s. */
+	static void ThrobKeySelection(int32 ThrobCount = 1);
+
+	/** Get a value between 0 and 1 that indicates the amount of throb-scale to apply to the currently selected sections */
+	static float GetSectionSelectionThrobValue();
+
+	/** Get a value between 0 and 1 that indicates the amount of throb-scale to apply to the currently selected keys */
+	static float GetKeySelectionThrobValue();
 
 	/**
 	 * Check to see whether the specified section is highlighted
@@ -140,8 +147,10 @@ private:
 	int32 SectionIndex;
 	/** Cached parent geometry to pass down to any section interfaces that need it during tick */
 	FGeometry ParentGeometry;
+	/** The end time for a throbbing animation for selected sections */
+	static double SectionSelectionThrobEndTime;
 	/** The end time for a throbbing animation for selected keys */
-	static double SelectionThrobEndTime;
+	static double KeySelectionThrobEndTime;
 	/** Handle offset amount in pixels */
 	float HandleOffsetPx;
 	/** Array of segments that define other sections that reside below this one */
@@ -150,8 +159,18 @@ private:
 	TArray<FSequencerOverlapRange> UnderlappingEasingSegments;
 	/** The signature of the track last time the overlapping segments were updated */
 	FGuid CachedTrackSignature;
+
+	/** Key funcs for looking up a set of cached keys by its layout element */
+	struct FLayoutElementKeyFuncs : BaseKeyFuncs<TArray<FSequencerCachedKeys, TInlineAllocator<1>>, FSectionLayoutElement>
+	{
+		enum { bAllowDuplicateKeys = false };
+
+		static const FSectionLayoutElement& GetSetKey(const TPair<FSectionLayoutElement, TArray<FSequencerCachedKeys, TInlineAllocator<1>>>& Element);
+		static bool Matches(const FSectionLayoutElement& A, const FSectionLayoutElement& B);
+		static uint32 GetKeyHash(const FSectionLayoutElement& Key);
+	};
 	/** Cache of key area positions */
-	TMap<TSharedPtr<IKeyArea>, FSequencerCachedKeys> CachedKeyAreaPositions;
+	TMap<FSectionLayoutElement, TArray<FSequencerCachedKeys, TInlineAllocator<1>>, FDefaultSetAllocator, FLayoutElementKeyFuncs> CachedKeyAreaPositions;
 
 	friend struct FSequencerSectionPainterImpl;
 };

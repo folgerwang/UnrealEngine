@@ -8,6 +8,7 @@
 #include "Blueprint/UserWidget.h"
 #include "IMovieScenePlayer.h"
 #include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
+#include "QualifiedFrameTime.h"
 #include "UMGSequencePlayer.generated.h"
 
 class UWidgetAnimation;
@@ -39,7 +40,10 @@ public:
 	void Reverse();
 
 	/** Gets the current time position in the player (in seconds). */
-	double GetTimeCursorPosition() const { return TimeCursorPosition; }
+	DEPRECATED(4.20, "Please use GetCurrentTime instead.")
+	double GetTimeCursorPosition() const { return GetCurrentTime().AsSeconds(); }
+
+	FQualifiedFrameTime GetCurrentTime() const { return FQualifiedFrameTime(TimeCursorPosition, AnimationResolution); }
 
 	/** @return The current animation being played */
 	const UWidgetAnimation* GetAnimation() const { return Animation; }
@@ -68,7 +72,7 @@ public:
 
 private:
 	/** Internal play function with a verbose parameter set */
-	void PlayInternal(double StartAtTime, double EndAtTime, double SubAnimStartTime, double SubAnimEndTime, int32 InNumLoopsToPlay, EUMGSequencePlayMode::Type InPlayMode, float InPlaybackSpeed);
+	void PlayInternal(double StartAtTime, double EndAtTime, int32 InNumLoopsToPlay, EUMGSequencePlayMode::Type InPlayMode, float InPlaybackSpeed);
 
 	/** Apply any latent actions which may have accumulated while the sequence was being evaluated */
 	void ApplyLatentActions();
@@ -82,20 +86,19 @@ private:
 
 	FMovieSceneRootEvaluationTemplateInstance RootTemplateInstance;
 
-	/** Time range of the animation */
-	TRange<float> TimeRange;
+	/** The resolution at which all FFrameNumbers are stored */
+	FFrameRate AnimationResolution;
 
-	/** The current time cursor position within the sequence (in seconds) */
-	double TimeCursorPosition;
+	FFrameNumber AbsolutePlaybackStart;
 
-	/** The time the animation should end, only effects the last loop (in seconds) */
-	double EndTime;
+	/** The current time cursor position within the sequence, between 0 and Duration */
+	FFrameTime TimeCursorPosition;
 
-	/** The offset from 0 to the start of the animation (in seconds) */
-	double AnimationStartOffset;
+	/** The duration of the sequence */
+	int32 Duration;
 
-	/** Time range of the current play of the animation */
-	TRange<double> CurrentPlayRange;
+	/** Time at which to end the animation after looping */
+	FFrameTime EndTime;
 
 	/** Status of the player (e.g play, stopped) */
 	EMovieScenePlayerStatus::Type PlayerStatus;

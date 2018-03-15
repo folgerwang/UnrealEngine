@@ -187,36 +187,36 @@ void FMovieSceneEventSectionTemplate::EvaluateSwept(const FMovieSceneEvaluationO
 
 	TArray<FMovieSceneEventData> Events;
 
-	TRange<float> SweptRange = Context.GetRange();
+	TRange<FFrameNumber>            SweptRange = Context.GetFrameNumberRange();
 
-	const TArray<float>& KeyTimes = EventData.KeyTimes;
-	const TArray<FEventPayload>& KeyValues = EventData.KeyValues;
+	TArrayView<const FFrameNumber>  KeyTimes   = EventData.GetKeyTimes();
+	TArrayView<const FEventPayload> KeyValues  = EventData.GetKeyValues();
 
 	const int32 First = bBackwards ? KeyTimes.Num() - 1 : 0;
 	const int32 Last = bBackwards ? 0 : KeyTimes.Num() - 1;
 	const int32 Inc = bBackwards ? -1 : 1;
 
-	const float Position = Context.GetTime() * Context.GetRootToSequenceTransform().Inverse();
+	const float PositionInSeconds = Context.GetTime() * Context.GetRootToSequenceTransform().Inverse() / Context.GetFrameRate();
 
 	if (bBackwards)
 	{
 		// Trigger events backwards
 		for (int32 KeyIndex = KeyTimes.Num() - 1; KeyIndex >= 0; --KeyIndex)
 		{
-			float Time = KeyTimes[KeyIndex];
+			FFrameNumber Time = KeyTimes[KeyIndex];
 			if (SweptRange.Contains(Time))
 			{
-				Events.Add(FMovieSceneEventData(KeyValues[KeyIndex], Position));
+				Events.Add(FMovieSceneEventData(KeyValues[KeyIndex], PositionInSeconds));
 			}
 		}
 	}
 	// Trigger events forwards
 	else for (int32 KeyIndex = 0; KeyIndex < KeyTimes.Num(); ++KeyIndex)
 	{
-		float Time = KeyTimes[KeyIndex];
+		FFrameNumber Time = KeyTimes[KeyIndex];
 		if (SweptRange.Contains(Time))
 		{
-			Events.Add(FMovieSceneEventData(KeyValues[KeyIndex], Position));
+			Events.Add(FMovieSceneEventData(KeyValues[KeyIndex], PositionInSeconds));
 		}
 	}
 

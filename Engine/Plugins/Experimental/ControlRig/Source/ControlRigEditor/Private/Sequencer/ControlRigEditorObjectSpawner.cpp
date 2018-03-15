@@ -61,7 +61,7 @@ TValueOrError<FNewSpawnable, FText> FControlRigEditorObjectSpawner::CreateNewSpa
 	return MakeError(FText());
 }
 
-void FControlRigEditorObjectSpawner::SetupDefaultsForSpawnable(UObject* SpawnedObject, const FGuid& Guid, const FTransformData& TransformData, TSharedRef<ISequencer> Sequencer, USequencerSettings* Settings)
+void FControlRigEditorObjectSpawner::SetupDefaultsForSpawnable(UObject* SpawnedObject, const FGuid& Guid, const TOptional<FTransformData>& TransformData, TSharedRef<ISequencer> Sequencer, USequencerSettings* Settings)
 {
 	UMovieScene* OwnerMovieScene = Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene();
 
@@ -75,8 +75,11 @@ void FControlRigEditorObjectSpawner::SetupDefaultsForSpawnable(UObject* SpawnedO
 	if (BindingTrack)
 	{
 		UMovieSceneSpawnSection* SpawnSection = Cast<UMovieSceneSpawnSection>(BindingTrack->CreateNewSection());
-		SpawnSection->SetDefault(true);
-		SpawnSection->SetIsInfinite(Sequencer->GetInfiniteKeyAreas());
+		SpawnSection->GetChannel().SetDefault(1);
+		if (Sequencer->GetInfiniteKeyAreas())
+		{
+			SpawnSection->SetRange(TRange<FFrameNumber>::All());
+		}
 		BindingTrack->AddSection(*SpawnSection);
 		BindingTrack->SetObjectId(Guid);
 	}

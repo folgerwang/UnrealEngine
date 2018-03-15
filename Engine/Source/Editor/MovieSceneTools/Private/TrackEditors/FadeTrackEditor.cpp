@@ -6,7 +6,7 @@
 #include "EditorStyleSet.h"
 #include "Tracks/MovieSceneFadeTrack.h"
 #include "Sections/MovieSceneFadeSection.h"
-#include "Sections/FloatPropertySection.h"
+#include "ISequencerSection.h"
 #include "CommonMovieSceneTools.h"
 
 #define LOCTEXT_NAMESPACE "FFadeTrackEditor"
@@ -15,15 +15,12 @@
  * Class for fade sections handles drawing of fade gradient
  */
 class FFadeSection
-	: public FFloatPropertySection
+	: public FSequencerSection
 {
 public:
 
 	/** Constructor. */
-	FFadeSection(UMovieSceneSection& InSectionObject, const FText& SectionName) : FFloatPropertySection(InSectionObject, SectionName) {}
-
-	/** Virtual destructor. */
-	virtual ~FFadeSection() {}
+	FFadeSection(UMovieSceneSection& InSectionObject) : FSequencerSection(InSectionObject) {}
 
 public:
 
@@ -33,64 +30,42 @@ public:
 
 		const ESlateDrawEffect DrawEffects = Painter.bParentEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect;
 
-		const UMovieSceneFadeSection* FadeSection = Cast<const UMovieSceneFadeSection>( &SectionObject );
+		FVector2D GradientSize = FVector2D( Painter.SectionGeometry.Size.X - 2.f, Painter.SectionGeometry.Size.Y - 3.0f );
+		FPaintGeometry PaintGeometry = Painter.SectionGeometry.ToPaintGeometry( FVector2D( 1.f, 3.f ), GradientSize );
 
-		const FTimeToPixel& TimeConverter = Painter.GetTimeConverter();
+		const UMovieSceneFadeSection* FadeSection = Cast<const UMovieSceneFadeSection>( WeakSection.Get() );
 
-		const float StartTime = TimeConverter.PixelToTime(0.f);
-		const float EndTime = TimeConverter.PixelToTime(Painter.SectionGeometry.GetLocalSize().X);
-		const float SectionDuration = EndTime - StartTime;
+		FTimeToPixel TimeConverter    = Painter.GetTimeConverter();
+		FFrameRate   FrameResolution  = TimeConverter.GetFrameResolution();
 
-		if ( !FMath::IsNearlyZero( SectionDuration ) )
+		const double HalfFrameTime    = FFrameTime(0, 0.5f) / FrameResolution;
+		const double StartTimeSeconds = TimeConverter.PixelToSeconds(1.f) - HalfFrameTime;
+		const double EndTimeSeconds   = TimeConverter.PixelToSeconds(Painter.SectionGeometry.GetLocalSize().X-2.f) - HalfFrameTime;
+		const double TimeThreshold    = FMath::Max(0.0001, TimeConverter.PixelToSeconds(5) - TimeConverter.PixelToSeconds(0));
+		const double DurationSeconds  = EndTimeSeconds - StartTimeSeconds;
+
+		TArray<TTuple<double, double>> CurvePoints;
+		FadeSection->GetChannel().PopulateCurvePoints(StartTimeSeconds, EndTimeSeconds, TimeThreshold, 0.1f, FrameResolution, CurvePoints);
+
+		TArray<FSlateGradientStop> GradientStops;
+		for (TTuple<double, double> Vector : CurvePoints)
 		{
-			FVector2D GradientSize = FVector2D( Painter.SectionGeometry.Size.X - 2.f, Painter.SectionGeometry.Size.Y - 3.0f );
+			GradientStops.Add( FSlateGradientStop(
+				FVector2D( (Vector.Get<0>() - StartTimeSeconds) / DurationSeconds * Painter.SectionGeometry.Size.X, 0 ),
+				FadeSection->FadeColor.CopyWithNewOpacity(Vector.Get<1>()) )
+			);
+		}
 
-			FPaintGeometry PaintGeometry = Painter.SectionGeometry.ToPaintGeometry( FVector2D( 1.f, 3.f ), GradientSize );
-
-			TArray<FSlateGradientStop> GradientStops;
-
-			TArray< TKeyValuePair<float, FLinearColor> > FadeKeys;
-
-			TArray<float> TimesWithKeys;
-			for ( auto It( FadeSection->GetFloatCurve().GetKeyIterator() ); It; ++It )
-			{
-				float Time = It->Time;
-				TimesWithKeys.Add(Time);
-			}
-
-			// Enforce at least one key for the default value
-			if (TimesWithKeys.Num() == 0)
-			{
-				TimesWithKeys.Add(0);
-			}
-
-			for (auto Time : TimesWithKeys)
-			{
-				float Value = FadeSection->Eval(Time, 0.f);
-			
-				FLinearColor Color = FadeSection->FadeColor;
-				Color.A = Value*255.f;
-
-				float TimeFraction = (Time - StartTime) / SectionDuration;
-
-				if (TimeFraction > 0)
-				{
-					GradientStops.Add( FSlateGradientStop( FVector2D( TimeFraction * Painter.SectionGeometry.Size.X, 0 ),
-						Color ) );
-				}
-			}
-
-			if ( GradientStops.Num() > 0 )
-			{
-				FSlateDrawElement::MakeGradient(
-					Painter.DrawElements,
-					Painter.LayerId + 1,
-					PaintGeometry,
-					GradientStops,
-					Orient_Vertical,
-					DrawEffects
-					);
-			}
+		if ( GradientStops.Num() > 0 )
+		{
+			FSlateDrawElement::MakeGradient(
+				Painter.DrawElements,
+				Painter.LayerId + 1,
+				PaintGeometry,
+				GradientStops,
+				Orient_Vertical,
+				DrawEffects
+				);
 		}
 
 		return LayerId + 1;
@@ -119,7 +94,7 @@ FFadeTrackEditor::FFadeTrackEditor(TSharedRef<ISequencer> InSequencer)
 
 TSharedRef<ISequencerSection> FFadeTrackEditor::MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding)
 {
-	return MakeShareable(new FFadeSection(SectionObject, Track.GetDisplayName()));
+	return MakeShareable(new FFadeSection(SectionObject));
 }
 
 void FFadeTrackEditor::BuildAddTrackMenu(FMenuBuilder& MenuBuilder)
@@ -129,7 +104,8 @@ void FFadeTrackEditor::BuildAddTrackMenu(FMenuBuilder& MenuBuilder)
 		LOCTEXT("AddFadeTrackTooltip", "Adds a new track that controls the fade of the sequence."),
 		FSlateIcon(FEditorStyle::GetStyleSetName(), "Sequencer.Tracks.Fade"),
 		FUIAction(
-			FExecuteAction::CreateRaw(this, &FFadeTrackEditor::HandleAddFadeTrackMenuEntryExecute)
+			FExecuteAction::CreateRaw(this, &FFadeTrackEditor::HandleAddFadeTrackMenuEntryExecute),
+			FCanExecuteAction::CreateRaw(this, &FFadeTrackEditor::HandleAddFadeTrackMenuEntryCanExecute)
 		)
 	);
 }
@@ -180,9 +156,18 @@ void FFadeTrackEditor::HandleAddFadeTrackMenuEntryExecute()
 	check(NewSection);
 
 	FadeTrack->AddSection(*NewSection);
-
+	if (GetSequencer().IsValid())
+	{
+		GetSequencer()->OnAddTrack(FadeTrack);
+	}
 	GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
 }
 
+bool FFadeTrackEditor::HandleAddFadeTrackMenuEntryCanExecute() const
+{
+	UMovieScene* FocusedMovieScene = GetFocusedMovieScene();
+	
+	return ((FocusedMovieScene != nullptr) && (FocusedMovieScene->FindMasterTrack<UMovieSceneFadeTrack>() == nullptr));
+}
 
 #undef LOCTEXT_NAMESPACE

@@ -47,4 +47,5 @@ private:
 
 	/** Callback for executing the "Add Slomo Track" menu entry. */
 	void HandleAddSlomoTrackMenuEntryExecute();
+	bool HandleAddSlomoTrackMenuEntryCanExecute() const;
 };

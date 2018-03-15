@@ -20,6 +20,7 @@ public class MovieSceneTracks : ModuleRules
 				"CoreUObject",
 				"Engine",
 				"MovieScene",
+				"TimeManagement",
 			}
 		);
 
