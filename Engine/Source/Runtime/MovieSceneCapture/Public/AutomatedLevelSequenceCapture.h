@@ -31,16 +31,16 @@ public:
 	bool bUseCustomStartFrame;
 
 	/** Frame number to start capturing.  The frame number range depends on whether the bUseRelativeFrameNumbers option is enabled. */
-	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay, meta=(EditCondition="bUseCustomStartFrame"))
-	FFrameNumber StartFrame;
+	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay, meta=(EditCondition="bUseCustomStartFrame", DisplayName="Start Frame"))
+	FFrameNumber CustomStartFrame;
 
 	/** When enabled, the EndFrame setting will override the default ending frame number */
 	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay)
 	bool bUseCustomEndFrame;
 
 	/** Frame number to end capturing.  The frame number range depends on whether the bUseRelativeFrameNumbers option is enabled. */
-	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay, meta=(EditCondition="bUseCustomEndFrame"))
-	FFrameNumber EndFrame;
+	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay, meta=(EditCondition="bUseCustomEndFrame", DisplayName="End Frame"))
+	FFrameNumber CustomEndFrame;
 
 	/** The number of extra frames to play before the sequence's start frame, to "warm up" the animation.  This is useful if your
 	    animation contains particles or other runtime effects that are spawned into the scene earlier than your capture start frame */

@@ -2173,12 +2173,12 @@ void FSequencer::RenderMovieInternal(TRange<FFrameNumber> Range, bool bSetFrameO
 	{
 		if (!MovieSceneCapture->bUseCustomStartFrame)
 		{
-			MovieSceneCapture->StartFrame = RoundedStartFrame;
+			MovieSceneCapture->CustomStartFrame = RoundedStartFrame;
 		}
 
 		if (!MovieSceneCapture->bUseCustomEndFrame)
 		{
-			MovieSceneCapture->EndFrame = RoundedEndFrame;
+			MovieSceneCapture->CustomEndFrame = RoundedEndFrame;
 		}
 	}
 

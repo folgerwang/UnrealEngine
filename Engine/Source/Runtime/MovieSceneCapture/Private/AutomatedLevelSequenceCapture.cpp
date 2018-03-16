@@ -77,9 +77,9 @@ UAutomatedLevelSequenceCapture::UAutomatedLevelSequenceCapture(const FObjectInit
 	}
 #else
 	bUseCustomStartFrame = false;
-	StartFrame = 0;
+	CustomStartFrame = 0;
 	bUseCustomEndFrame = false;
-	EndFrame = 1;
+	CustomEndFrame = 1;
 	WarmUpFrameCount = 0;
 	DelayBeforeWarmUp = 0.0f;
 	DelayBeforeShotWarmUp = 0.0f;
@@ -131,14 +131,14 @@ void UAutomatedLevelSequenceCapture::Initialize(TSharedPtr<FSceneViewport> InVie
 		if( FParse::Value( FCommandLine::Get(), TEXT( "-MovieStartFrame=" ), StartFrameOverride ) )
 		{
 			bUseCustomStartFrame = true;
-			StartFrame = StartFrameOverride;
+			CustomStartFrame = StartFrameOverride;
 		}
 
 		int32 EndFrameOverride;
 		if( FParse::Value( FCommandLine::Get(), TEXT( "-MovieEndFrame=" ), EndFrameOverride ) )
 		{
 			bUseCustomEndFrame = true;
-			EndFrame = EndFrameOverride;
+			CustomEndFrame = EndFrameOverride;
 		}
 
 		int32 WarmUpFrameCountOverride;
@@ -435,7 +435,7 @@ void UAutomatedLevelSequenceCapture::SetupFrameRange()
 
 				if( bUseCustomStartFrame )
 				{
-					PlaybackStartFrame = Settings.bUseRelativeFrameNumbers ? ( PlaybackStartFrame + StartFrame ) : StartFrame;
+					PlaybackStartFrame = Settings.bUseRelativeFrameNumbers ? ( PlaybackStartFrame + CustomStartFrame ) : CustomStartFrame;
 				}
 
 				if( !Settings.bUseRelativeFrameNumbers )
@@ -448,7 +448,7 @@ void UAutomatedLevelSequenceCapture::SetupFrameRange()
 
 				if( bUseCustomEndFrame )
 				{
-				 	PlaybackEndFrame = FMath::Max( PlaybackStartFrame, Settings.bUseRelativeFrameNumbers ? ( PlaybackEndFrame + EndFrame ) : EndFrame );
+				 	PlaybackEndFrame = FMath::Max( PlaybackStartFrame, Settings.bUseRelativeFrameNumbers ? ( PlaybackEndFrame + CustomEndFrame ) : CustomEndFrame );
 				}
 
 				RemainingWarmUpFrames = FMath::Max( WarmUpFrameCount, 0 );
@@ -664,8 +664,8 @@ void UAutomatedLevelSequenceCapture::LoadFromConfig()
 
 void UAutomatedLevelSequenceCapture::SaveToConfig()
 {
-	FFrameNumber CurrentStartFrame = StartFrame;
-	FFrameNumber CurrentEndFrame = EndFrame;
+	FFrameNumber CurrentStartFrame = CustomStartFrame;
+	FFrameNumber CurrentEndFrame = CustomEndFrame;
 	bool bRestoreFrameOverrides = RestoreFrameOverrides();
 
 	BurnInOptions->SaveConfig();
@@ -694,13 +694,13 @@ bool UAutomatedLevelSequenceCapture::RestoreFrameOverrides()
 	bool bAnySet = CachedStartFrame.IsSet() || CachedEndFrame.IsSet() || bCachedUseCustomStartFrame.IsSet() || bCachedUseCustomEndFrame.IsSet();
 	if (CachedStartFrame.IsSet())
 	{
-		StartFrame = CachedStartFrame.GetValue();
+		CustomStartFrame = CachedStartFrame.GetValue();
 		CachedStartFrame.Reset();
 	}
 
 	if (CachedEndFrame.IsSet())
 	{
-		EndFrame = CachedEndFrame.GetValue();
+		CustomEndFrame = CachedEndFrame.GetValue();
 		CachedEndFrame.Reset();
 	}
 
@@ -721,13 +721,13 @@ bool UAutomatedLevelSequenceCapture::RestoreFrameOverrides()
 
 void UAutomatedLevelSequenceCapture::SetFrameOverrides(FFrameNumber InStartFrame, FFrameNumber InEndFrame)
 {
-	CachedStartFrame = StartFrame;
-	CachedEndFrame = EndFrame;
+	CachedStartFrame = CustomStartFrame;
+	CachedEndFrame = CustomEndFrame;
 	bCachedUseCustomStartFrame = bUseCustomStartFrame;
 	bCachedUseCustomEndFrame = bUseCustomEndFrame;
 
-	StartFrame = InStartFrame;
-	EndFrame = InEndFrame;
+	CustomStartFrame = InStartFrame;
+	CustomEndFrame = InEndFrame;
 	bUseCustomStartFrame = true;
 	bUseCustomEndFrame = true;
 }
