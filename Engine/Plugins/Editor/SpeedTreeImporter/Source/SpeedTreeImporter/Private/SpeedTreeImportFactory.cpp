@@ -2109,14 +2109,14 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 
 			for (uint32 VertexIndex = 0; VertexIndex < LOD.Vertices().Count(); ++VertexIndex)
 			{
-				const SpeedTree8::SVertex& Vertex = LOD.Vertices()[VertexIndex];
+				const SpeedTree8::SVertex& Vertex = LOD.Vertices()[VertexIndex]; //-V758
 				FVector vPosition = FVector(Vertex.m_vAnchor.x, Vertex.m_vAnchor.y, Vertex.m_vAnchor.z) + FVector(Vertex.m_vOffset.x, Vertex.m_vOffset.y, Vertex.m_vOffset.z);
 				RawMesh.VertexPositions.Add(vPosition);
 			}
 
 			for (uint32 DrawCallIndex = 0; DrawCallIndex < LOD.DrawCalls().Count(); ++DrawCallIndex)
 			{
-				const SpeedTree8::SDrawCall& DrawCall = LOD.DrawCalls()[DrawCallIndex];
+				const SpeedTree8::SDrawCall& DrawCall = LOD.DrawCalls()[DrawCallIndex]; //-V758
 
 				// find correct material/geometry combo
 				FIntPoint MaterialKey(DrawCall.m_uiMaterialIndex, DrawCall.m_eWindGeometryType);
@@ -2159,7 +2159,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 						int32 VertexIndex = LOD.Indices()[DrawCall.m_uiIndexStart + TriangleIndex * 3 + (2 - Corner)];
 						RawMesh.WedgeIndices.Add(VertexIndex);
 
-						const SpeedTree8::SVertex& Vertex = LOD.Vertices()[VertexIndex];
+						const SpeedTree8::SVertex& Vertex = LOD.Vertices()[VertexIndex]; //-V758
 
 						// tangents
 						RawMesh.WedgeTangentX.Add(FVector(Vertex.m_vTangent.x, Vertex.m_vTangent.y, Vertex.m_vTangent.z));

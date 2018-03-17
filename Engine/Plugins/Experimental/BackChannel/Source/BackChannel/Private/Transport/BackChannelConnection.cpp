@@ -189,12 +189,12 @@ bool FBackChannelConnection::Listen(const int16 Port)
                 int32 ReceiveBufferSize = 2 * 1024 * 1024;
                 int32 SendBufferSize = ReceiveBufferSize;
                 
-                if (ReceiveBufferSize > 0)
+                if (ReceiveBufferSize > 0) //-V547
                 {
                     NewSocket->SetReceiveBufferSize(ReceiveBufferSize, OutNewSize);
                 }
                 
-                if (SendBufferSize > 0)
+                if (SendBufferSize > 0) //-V547
                 {
                     NewSocket->SetSendBufferSize(SendBufferSize, OutNewSize);
                 }

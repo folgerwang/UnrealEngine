@@ -602,7 +602,7 @@ ShaderType* CompileOpenGLShader(const TArray<uint8>& InShaderCode)
 			CompileStatus = CompileCurrentShader(Resource, GlslCode);
 		}
 
-		if ( CompileStatus == GL_TRUE )
+		if ( CompileStatus == GL_TRUE ) //-V547
 		{
 			if (Capabilities.bSupportsSeparateShaderObjects)
 			{

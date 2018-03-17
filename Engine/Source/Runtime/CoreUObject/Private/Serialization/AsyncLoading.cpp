@@ -5542,7 +5542,7 @@ EAsyncPackageState::Type FAsyncPackage::TickAsyncPackage(bool InbUseTimeLimit, b
 		if (!GEventDrivenLoaderEnabled)
 		{
 			// Create raw linker. Needs to be async created via ticking before it can be used.
-			if (LoadingState == EAsyncPackageState::Complete)
+			if (LoadingState == EAsyncPackageState::Complete) //-V547
 			{
 				SCOPED_LOADTIMER(Package_CreateLinker);
 				LoadingState = CreateLinker();

@@ -1138,7 +1138,7 @@ const TCHAR* UProperty::ImportSingleProperty( const TCHAR* Str, void* DestData, 
 						Str = Result;
 					}
 				}
-				else if(ArrayOp == ADO_Remove)
+				else
 				{
 					int32 Size = ArrayProperty->Inner->ElementSize;
 

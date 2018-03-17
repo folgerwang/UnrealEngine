@@ -1293,8 +1293,8 @@ namespace
 		const uint32 YThreadCount = FCopyWindowCS::YThreadCount();
 
 		// Number of thread groups
-		const uint32 XGroups = ( DstExtent.X / XThreadCount ) + ( (DstExtent.X % XThreadCount == 0) ? 0 : 1 );
-		const uint32 YGroups = ( DstExtent.Y / YThreadCount ) + ( (DstExtent.Y % YThreadCount == 0) ? 0 : 1 );
+		const uint32 XGroups = ( DstExtent.X / XThreadCount ) + ( (DstExtent.X % XThreadCount == 0) ? 0 : 1 ); //-V547
+		const uint32 YGroups = ( DstExtent.Y / YThreadCount ) + ( (DstExtent.Y % YThreadCount == 0) ? 0 : 1 ); //-V547
 
 		const FGPUFFTShaderContext::ShaderMapType& ShaderMap = Context.GetShaderMap();
 		FRHICommandListImmediate& RHICmdList = Context.GetRHICmdList();

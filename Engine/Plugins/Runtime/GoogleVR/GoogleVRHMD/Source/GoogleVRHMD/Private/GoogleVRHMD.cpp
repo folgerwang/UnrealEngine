@@ -930,8 +930,7 @@ void FGoogleVRHMD::SetNumOfDistortionPoints(int32 XPoints, int32 YPoints)
 #if !GOOGLEVRHMD_SUPPORTED_PLATFORMS
 	XPoints = 40;
 	YPoints = 40;
-#endif
-
+#else
 	// clamp values
 	if (XPoints < 2)
 	{
@@ -950,6 +949,7 @@ void FGoogleVRHMD::SetNumOfDistortionPoints(int32 XPoints, int32 YPoints)
 	{
 		YPoints = 200;
 	}
+#endif
 
 	// calculate our values
 	DistortionPointsX = XPoints;
