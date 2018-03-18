@@ -256,7 +256,7 @@ public:
 			ObjectType* NewObject = pfnCreationCore(GetDevice(1 << i));
 
 			// For AFR link up the resources so they can be implicitly destroyed
-			if (i > 0)
+			if (i > 0) //-V547
 			{
 				Previous->SetNextObject(NewObject);
 			}

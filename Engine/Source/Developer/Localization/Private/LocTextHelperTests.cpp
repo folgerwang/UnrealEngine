@@ -179,7 +179,7 @@ bool FLocTextHelperTest::RunTest(const FString& Parameters)
 			return true;
 		}, true);
 
-		if (NumTestEntries != EnumeratedCount)
+		if (NumTestEntries != EnumeratedCount) //-V547
 		{
 			AddError(FString::Printf(TEXT("Failed to enumerate the expected number of translations for '%s'. Expected: %d. Actual: %d."), *InCultureName, NumTestEntries, EnumeratedCount));
 		}

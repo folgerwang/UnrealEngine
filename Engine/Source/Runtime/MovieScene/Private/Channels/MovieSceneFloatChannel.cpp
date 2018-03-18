@@ -513,7 +513,7 @@ FKeyHandle AddKeyToChannel(FMovieSceneFloatChannel* Channel, FFrameNumber InFram
 	int32 ExistingIndex = ChannelInterface.FindKey(InFrameNumber);
 	if (ExistingIndex != INDEX_NONE)
 	{
-		FMovieSceneFloatValue& Value = ChannelInterface.GetValues()[ExistingIndex];
+		FMovieSceneFloatValue& Value = ChannelInterface.GetValues()[ExistingIndex]; //-V758
 		Value.Value = InValue;
 		switch (Interpolation)
 		{

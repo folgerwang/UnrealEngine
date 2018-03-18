@@ -184,7 +184,7 @@ namespace GameProjectAutomationUtils
 						OutCreatedProjects++;
 						
 						// Now remove the files we just created (if required)
-						if(bRemoveCreatedProjects == true)						
+						if(bRemoveCreatedProjects == true) //-V547
 						{
 							FString RootFolder = FPaths::GetPath(DesiredProjectFilename);
 							GameProjectUtils::DeleteCreatedFiles(RootFolder, CreatedFiles);

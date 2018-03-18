@@ -2294,7 +2294,7 @@ namespace SceneOutliner
 
 		if ( !IsFilterActive() )
 		{
-			if (SelectedActorCount == 0)
+			if (SelectedActorCount == 0) //-V547
 			{
 				return FText::Format( LOCTEXT("ShowingAllActorsFmt", "{0} actors"), FText::AsNumber( TotalActorCount ) );
 			}
@@ -2307,7 +2307,7 @@ namespace SceneOutliner
 		{
 			return FText::Format( LOCTEXT("ShowingNoActorsFmt", "No matching actors ({0} total)"), FText::AsNumber( TotalActorCount ) );
 		}
-		else if (SelectedActorCount != 0)
+		else if (SelectedActorCount != 0) //-V547
 		{
 			return FText::Format( LOCTEXT("ShowingOnlySomeActorsSelectedFmt", "Showing {0} of {1} actors ({2} selected)"), FText::AsNumber( FilteredActorCount ), FText::AsNumber( TotalActorCount ), FText::AsNumber( SelectedActorCount ) );
 		}

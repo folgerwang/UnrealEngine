@@ -2159,7 +2159,7 @@ const TCHAR* UScriptStruct::ImportText(const TCHAR* InBuffer, void* Value, UObje
 	}
 	else
 	{
-		ErrorText->Logf(TEXT("%sImportText (%s): Missing opening parenthesis: %s"), ErrorCount++ > 0 ? LINE_TERMINATOR : TEXT(""), *StructName, InBuffer);
+		ErrorText->Logf(TEXT("%sImportText (%s): Missing opening parenthesis: %s"), ErrorCount++ > 0 ? LINE_TERMINATOR : TEXT(""), *StructName, InBuffer); //-V547
 		return nullptr;
 	}
 	return Buffer;
