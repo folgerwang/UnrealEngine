@@ -500,7 +500,7 @@ void FBlueprintNativeCodeGenModule::GenerateSingleAsset(UField* ForConversion, c
 	{
 		if (!FFileHelper::SaveStringToFile(*CppSource, *ConversionRecord.GeneratedCppPath, ForcedEncoding()))
 		{
-			bSuccess &= false;
+			bSuccess = false;
 			ConversionRecord.GeneratedCppPath.Empty();
 		}
 		CppSource->Empty(CppSource->Len());
@@ -514,7 +514,7 @@ void FBlueprintNativeCodeGenModule::GenerateSingleAsset(UField* ForConversion, c
 	{
 		if (!FFileHelper::SaveStringToFile(*HeaderSource, *ConversionRecord.GeneratedHeaderPath, ForcedEncoding()))
 		{
-			bSuccess &= false;
+			bSuccess = false;
 			ConversionRecord.GeneratedHeaderPath.Empty();
 		}
 		HeaderSource->Empty(HeaderSource->Len());

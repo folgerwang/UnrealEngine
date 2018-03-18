@@ -460,7 +460,7 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 					}
 					return true;
 				}
-				else if(FilterType == EFilterType::Class)
+				else
 				{
 					UClass* FoundClass = FindObject<UClass>(ANY_PACKAGE, *SpecifierStr);
 					if(FoundClass != nullptr)

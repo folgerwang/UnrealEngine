@@ -2041,7 +2041,7 @@ void FFbxExporter::ExportAnimatedVector(FbxAnimCurve* FbxCurve, const char* Chan
 
 			// Setup tangents for bezier curves. Avoid this for keys created from baking 
 			// transforms since there is no tangent info created for these types of keys. 
-			if( Interpolation == FbxAnimCurveDef::eInterpolationCubic )
+			if( Interpolation == FbxAnimCurveDef::eInterpolationCubic ) //-V547
 			{
 				float OutTangentValue = (CurveIndex == 0) ? Key.LeaveTangent.X : (CurveIndex == 1) ? Key.LeaveTangent.Y : Key.LeaveTangent.Z;
 				float OutTangentX = (KeyIndex < KeyCount - 1) ? (KeyTimes[KeyIndex + 1] - KeyTime) / 3.0f : 0.333f;

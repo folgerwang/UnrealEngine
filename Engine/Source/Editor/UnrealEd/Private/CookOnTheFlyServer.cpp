@@ -3188,7 +3188,7 @@ void UCookOnTheFlyServer::SaveCookedPackage(UPackage* Package, uint32 SaveFlags,
 			if (bCookPackage == true)
 			{
 				bool bPackageFullyLoaded = false;
-				if (bPackageFullyLoaded == false)
+				if (bPackageFullyLoaded == false) //-V547
 				{
 					SCOPE_TIMER(LoadPackage);
 
@@ -5244,7 +5244,7 @@ void UCookOnTheFlyServer::SaveGlobalShaderMapFiles(const TArray<ITargetPlatform*
 
 		RecompileShadersForRemote
 			(RecompileData.PlatformName, 
-			RecompileData.ShaderPlatform == -1 ? SP_NumPlatforms : (EShaderPlatform)RecompileData.ShaderPlatform,
+			RecompileData.ShaderPlatform == -1 ? SP_NumPlatforms : (EShaderPlatform)RecompileData.ShaderPlatform, //-V547
 			OutputDir, 
 			RecompileData.MaterialsToLoad, 
 			RecompileData.SerializedShaderResources, 

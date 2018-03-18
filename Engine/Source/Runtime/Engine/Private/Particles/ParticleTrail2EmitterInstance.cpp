@@ -3360,7 +3360,7 @@ float FParticleAnimTrailEmitterInstance::Spawn(float DeltaTime)
 	//@todo. Support multiple trails per emitter
 	// Find the start particle of the current trail...
 	int32 StartIndex = -1;
-	if (TrailIdx != INDEX_NONE)
+	if (TrailIdx != INDEX_NONE) //-V547
 	{
 		FBaseParticle* Particle = nullptr;
 		FAnimTrailTypeDataPayload* TrailData = nullptr;

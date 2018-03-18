@@ -84,20 +84,16 @@ public:
 	{
 		if ( Verbosity == ELogVerbosity::Error || Verbosity == ELogVerbosity::Warning )
 		{
-			EMessageSeverity::Type Severity = EMessageSeverity::Info;
+			EMessageSeverity::Type Severity;
 			if ( Verbosity == ELogVerbosity::Error )
 			{
 				Severity = EMessageSeverity::Error;
 			}
-			else if ( Verbosity == ELogVerbosity::Warning )
+			else
 			{
 				Severity = EMessageSeverity::Warning;
 			}
-			
-			if ( ensure(Severity != EMessageSeverity::Info) )
-			{
-				ErrorMessages.Add(FTokenizedMessage::Create(Severity, FText::FromName(InData)));
-			}
+			ErrorMessages.Add(FTokenizedMessage::Create(Severity, FText::FromName(InData)));
 		}
 	}
 

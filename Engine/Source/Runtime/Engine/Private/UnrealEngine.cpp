@@ -14415,7 +14415,7 @@ static void PakFileTest(const TArray<FString>& Args)
 							}
 							else
 							{
-								while (!CallbackCalled)
+								while (!CallbackCalled) //-V654
 								{
 									FPlatformProcess::SleepNoStats(0);
 								}

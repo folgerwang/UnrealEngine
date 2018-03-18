@@ -6689,7 +6689,7 @@ void UInterpTrackDirector::PreviewUpdateTrack(float NewPosition, UInterpTrackIns
 	AMatineeActor* MatineeActor = CastChecked<AMatineeActor>( GrInst->GetOuter() );
 
 	// Update the camera actor as the track is scrubbed
-	const bool TrackOrGroupSelected = ( IsSelected() | DirGroup->IsSelected() );
+	const bool TrackOrGroupSelected = ( IsSelected() || DirGroup->IsSelected() ); 
 	if ( UpdatePreviewCamera( MatineeActor, TrackOrGroupSelected ) )
 	{
 		// Refresh the selected group actor (deselect previous actors, otherwise we'll have multiple cameras selected)

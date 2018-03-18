@@ -515,7 +515,7 @@ bool UFactory::ImportUntypedBulkDataFromText(const TCHAR*& Buffer, FUntypedBulkD
 								ParseStr +=2;
 							}
 							Value = FParse::HexDigit(ParseStr[0]) * 16 + FParse::HexDigit(ParseStr[1]);
-							*BulkDataPointer = (uint8)Value;
+							*BulkDataPointer = (uint8)Value; //-V522
 							BulkDataPointer++;
 							ParseStr += 2;
 							ParseStr++;

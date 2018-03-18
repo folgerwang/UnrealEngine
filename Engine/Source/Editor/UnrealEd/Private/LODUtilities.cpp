@@ -303,7 +303,7 @@ void ProjectTargetOnBase(const TArray<FSoftSkinVertex>& BaseVertices, const TArr
 					//We should always have a match
 					if (!bEnsureMsgDone)
 					{
-						ensureMsgf(FoundIndexMatch != INDEX_NONE, TEXT("Reduce LOD vertex should always have a valid matched triangle in the BaseLOD."));
+						ensureMsgf(FoundIndexMatch != INDEX_NONE, TEXT("Reduce LOD vertex should always have a valid matched triangle in the BaseLOD.")); //-V547
 						bEnsureMsgDone = true;
 					}
 					continue;

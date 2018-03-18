@@ -1848,7 +1848,7 @@ static dtStatus removeVertex(dtTileCacheLogContext* ctx, dtTileCachePolyMesh& me
 	
 	// Merge polygons.
 	int maxVertsPerPoly = MAX_VERTS_PER_POLY;
-	if (maxVertsPerPoly > 3)
+	if (maxVertsPerPoly > 3) //-V547
 	{
 		for (;;)
 		{
@@ -2046,7 +2046,7 @@ dtStatus dtBuildTileCachePolyMesh(dtTileCacheAlloc* alloc,
 		
 		// Merge polygons.
 		int maxVertsPerPoly =MAX_VERTS_PER_POLY ;
-		if (maxVertsPerPoly > 3)
+		if (maxVertsPerPoly > 3) //-V547
 		{
 			for(;;)
 			{

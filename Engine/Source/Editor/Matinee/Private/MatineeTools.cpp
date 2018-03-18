@@ -3240,7 +3240,7 @@ void FMatinee::UpdatePreviewCamera( UInterpTrack* AssociatedTrack ) const
 	{
 		// If the track selection state has changed, update our camera actor
 		UInterpGroupDirector* DirGroup = CastChecked<UInterpGroupDirector>( DirTrack->GetOuter() );
-		const bool TrackOrGroupSelected = ( DirTrack->IsSelected() | DirGroup->IsSelected() );
+		const bool TrackOrGroupSelected = ( DirTrack->IsSelected() | DirGroup->IsSelected() ); //-V792
 		DirTrack->UpdatePreviewCamera( MatineeActor, TrackOrGroupSelected );
 	}
 }
