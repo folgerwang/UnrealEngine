@@ -530,16 +530,13 @@ public:
 			switch (StackParameterData->ParameterInfo.Association)
 			{
 			case EMaterialParameterAssociation::LayerParameter:
-			{
 				StackBrush = const_cast<FSlateBrush*>(FEditorStyle::GetBrush("MaterialInstanceEditor.StackBody"));
 				break;
-			}
 			case EMaterialParameterAssociation::BlendParameter:
-			{
 				StackBrush = const_cast<FSlateBrush*>(FEditorStyle::GetBrush("MaterialInstanceEditor.StackBodyBlend"));
 				break;
-			}
 			default:
+				StackBrush = nullptr;
 				break;
 			}
 			WrapperWidget->AddSlot()

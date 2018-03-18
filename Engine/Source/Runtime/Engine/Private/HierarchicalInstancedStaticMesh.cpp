@@ -1583,7 +1583,7 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 					SCOPE_CYCLE_COUNTER(STAT_FoliageTraversalTime);
 
 					// validate that the bounding box is layed out correctly in memory
-					check(&((const FVector4*)&ClusterTree[0].BoundMin)[1] == (const FVector4*)&ClusterTree[0].BoundMax);
+					check((const FVector4*)&ClusterTree[0].BoundMin + 1 == (const FVector4*)&ClusterTree[0].BoundMax);
 					//check(UPTRINT(&ClusterTree[0].BoundMin) % 16 == 0);
 					//check(UPTRINT(&ClusterTree[0].BoundMax) % 16 == 0);
 

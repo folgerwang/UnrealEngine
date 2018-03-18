@@ -1377,7 +1377,7 @@ void UCharacterMovementComponent::SimulatedTick(float DeltaSeconds)
 				const FRotator OldRotation = OldRotationQuat.Rotator();
 				const FRotator NewRotation = UpdatedComponent->GetComponentRotation();
 				const FVector NewLocation = UpdatedComponent->GetComponentLocation();
-				DrawDebugCoordinateSystem(GetWorld(), CharacterOwner->GetMesh()->GetComponentLocation() + FVector(0,0,1), NewRotation, 50.f, false);
+				DrawDebugCoordinateSystem(GetWorld(), CharacterOwner->GetMesh()->GetComponentLocation() + FVector(0,0,1), NewRotation, 50.f, false); //-V595
 				DrawDebugLine(GetWorld(), OldLocation, NewLocation, FColor::Red, true, 10.f);
 
 				UE_LOG(LogRootMotion, Log,  TEXT("UCharacterMovementComponent::SimulatedTick DeltaMovement Translation: %s, Rotation: %s, MovementBase: %s"), //-V595
