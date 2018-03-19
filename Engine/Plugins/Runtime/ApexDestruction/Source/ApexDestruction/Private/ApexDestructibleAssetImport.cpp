@@ -830,6 +830,12 @@ bool SetApexDestructibleAsset(UDestructibleMesh& DestructibleMesh, apex::Destruc
 	bool bHaveNormals, bHaveTangents;
 	if (!FillSkelMeshImporterFromApexDestructibleAsset(*SkelMeshImportDataPtr, ApexDestructibleAsset, bHaveNormals, bHaveTangents))
 	{
+		if (ExistDestMeshDataPtr)
+		{
+			RestoreExistingDestMeshData(ExistDestMeshDataPtr, &DestructibleMesh);
+			delete ExistDestMeshDataPtr;
+			ExistDestMeshDataPtr = NULL;
+		}
 		return false;
 	}
 
@@ -910,6 +916,10 @@ bool SetApexDestructibleAsset(UDestructibleMesh& DestructibleMesh, apex::Destruc
 		if (!MeshUtilities.BuildSkeletalMesh(DestructibleMeshResource.LODModels[0], DestructibleMesh.RefSkeleton, LODInfluences,LODWedges,LODFaces,LODPoints,LODPointToRawMap,BuildOptions))
 		{
 			DestructibleMesh.MarkPendingKill();
+
+			delete ExistDestMeshDataPtr;
+			ExistDestMeshDataPtr = NULL;
+
 			return false;
 		}
 
