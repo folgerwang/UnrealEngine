@@ -1145,7 +1145,7 @@ void FNetworkPlatformFile::EnsureFileIsLocal(const FString& Filename)
 	}
 	if (FinishedAsyncWriteUnsolicitedFiles)
 	{
-		if (bIncrimentedPackageWaits == false && FinishedAsyncNetworkReadUnsolicitedFiles->Get() == 0)
+		if (bIncrimentedPackageWaits == false && FinishedAsyncNetworkReadUnsolicitedFiles->Get() == 0) //-V522
 		{
 			++UnsolicitedPackageWaits;
 		}

@@ -439,6 +439,7 @@ bool FOnlineVoiceSteam::MuteRemoteTalker(uint8 LocalUserNum, const FUniqueNetId&
 			SystemMuteList.AddUnique((const FUniqueNetIdSteam&)PlayerId);
 			// Should update MuteList after going up to the server and coming back down
 			ProcessMuteChangeNotification();
+			Return = S_OK;
 		}
 		else
 		{
@@ -481,6 +482,7 @@ bool FOnlineVoiceSteam::UnmuteRemoteTalker(uint8 LocalUserNum, const FUniqueNetI
 			SystemMuteList.RemoveSingleSwap((const FUniqueNetIdSteam&)PlayerId);
 			// Should update MuteList after going up to the server and coming back down
 			ProcessMuteChangeNotification();
+			Return = S_OK;
 		}
 		else
 		{
@@ -501,6 +503,7 @@ bool FOnlineVoiceSteam::UnmuteRemoteTalker(uint8 LocalUserNum, const FUniqueNetI
 						MuteList.RemoveSingleSwap((const FUniqueNetIdSteam&)PlayerId);
 						UE_LOG(LogVoice, Log, TEXT("Unmuting remote talker (%s)"), *PlayerId.ToDebugString());
 					}
+					Return = S_OK;
 				}
 				else
 				{

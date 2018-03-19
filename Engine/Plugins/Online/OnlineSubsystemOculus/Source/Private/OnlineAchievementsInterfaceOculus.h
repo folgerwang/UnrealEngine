@@ -105,7 +105,7 @@ public:
 	/**
 	* Default destructor
 	*/
-	virtual ~FOnlineAchievementsOculus() = default;
+	virtual ~FOnlineAchievementsOculus();
 
 	// Begin IOnlineAchievements interface
 	virtual void WriteAchievements(const FUniqueNetId& PlayerId, FOnlineAchievementsWriteRef& WriteObject, const FOnAchievementsWrittenDelegate& Delegate = FOnAchievementsWrittenDelegate()) override;

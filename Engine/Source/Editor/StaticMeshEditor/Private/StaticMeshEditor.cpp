@@ -1156,9 +1156,9 @@ TSharedRef<SWidget> FStaticMeshEditor::GenerateUVChannelComboList()
 
 void FStaticMeshEditor::UpdateLODStats(int32 CurrentLOD) 
 {
-	NumTriangles[CurrentLOD] = 0;
-	NumVertices[CurrentLOD] = 0;
-	NumUVChannels[CurrentLOD] = 0;
+	NumTriangles[CurrentLOD] = 0; //-V781
+	NumVertices[CurrentLOD] = 0; //-V781
+	NumUVChannels[CurrentLOD] = 0; //-V781
 	int32 NumLODLevels = 0;
 
 	if( StaticMesh->RenderData )
