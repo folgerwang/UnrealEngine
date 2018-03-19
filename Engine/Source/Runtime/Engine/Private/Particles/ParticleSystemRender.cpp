@@ -5975,7 +5975,7 @@ int32 FDynamicRibbonEmitterData::FillVertexData(struct FAsyncBufferFillData& Dat
 				FLinearColor CurrColor = PackingParticle->Color;
 
 				FVector PrevPosition = PrevParticle->Location; //-V522
-				FVector PrevTangent = PrevTrailPayload->Tangent;
+				FVector PrevTangent = PrevTrailPayload->Tangent; //-V522
 				FVector PrevUp = PrevWorkingUp;
 				FLinearColor PrevColor = PrevParticle->Color;
 				float PrevSize = PrevParticle->Size.X * Source.Scale.X;

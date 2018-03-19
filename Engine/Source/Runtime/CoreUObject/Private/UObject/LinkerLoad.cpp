@@ -2197,7 +2197,7 @@ FLinkerLoad::EVerifyResult FLinkerLoad::VerifyImport(int32 ImportIndex)
 		VerifyImportInner(ImportIndex, WarningAppend);
 
 		// if the redirector wasn't found, then it truly doesn't exist
-		if (Import.SourceIndex == INDEX_NONE)
+		if (Import.SourceIndex == INDEX_NONE) //-V547
 		{
 			Result = VERIFY_Failed;
 		}
@@ -2262,7 +2262,7 @@ FLinkerLoad::EVerifyResult FLinkerLoad::VerifyImport(int32 ImportIndex)
 		Import.ClassPackage = OriginalImport.ClassPackage;
 
 		// if nothing above failed, then we are good to go
-		if (Result != VERIFY_Failed)
+		if (Result != VERIFY_Failed) //-V547
 		{
 			// we update the runtime information (SourceIndex, SourceLinker) to point to the object the redirector pointed to
 			Import.SourceIndex = Import.XObject->GetLinkerIndex();
