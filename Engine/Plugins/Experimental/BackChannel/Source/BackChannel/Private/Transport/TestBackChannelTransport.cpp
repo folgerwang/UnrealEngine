@@ -8,7 +8,7 @@
 
 PRAGMA_DISABLE_OPTIMIZATION
 
-#if WITH_DEV_AUTOMATION_TESTS && 1
+#if WITH_DEV_AUTOMATION_TESTS && 0
 
 class FBackChannelTestTransport : public FAutomationTestBase
 {
