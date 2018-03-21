@@ -481,65 +481,74 @@ void FMeshDescriptionOperations::CreatePolygonNTB(UMeshDescription* MeshDescript
 
 	for (const FPolygonID PolygonID : MeshDescription->Polygons().GetElementIDs())
 	{
-		FVector TangentX(0.0f);
-		FVector TangentY(0.0f);
-		FVector TangentZ(0.0f);
-
 		if (!PolygonNormals[PolygonID].IsNearlyZero())
 		{
 			//By pass normal calculation if its already done
 			continue;
 		}
 		const TArray<FMeshTriangle>& MeshTriangles = MeshDescription->GetPolygonTriangles(PolygonID);
-
-		//We need only the first triangle since all triangle of a polygon must have the same normals (planar polygon)
-		const FMeshTriangle& MeshTriangle = MeshTriangles[0];
-		int32 UVIndex = 0;
-
-		FVector P[3];
-		FVector2D UVs[3];
-
-		for (int32 i = 0; i < 3; ++i)
+		FVector TangentX(0.0f);
+		FVector TangentY(0.0f);
+		FVector TangentZ(0.0f);
+		for (const FMeshTriangle& MeshTriangle : MeshTriangles)
 		{
-			const FVertexInstanceID VertexInstanceID = MeshTriangle.GetVertexInstanceID(i);
-			UVs[i] = VertexUVs[VertexInstanceID];
-			P[i] = VertexPositions[MeshDescription->GetVertexInstanceVertex(VertexInstanceID)];
+			int32 UVIndex = 0;
+
+			FVector P[3];
+			FVector2D UVs[3];
+
+			for (int32 i = 0; i < 3; ++i)
+			{
+				const FVertexInstanceID VertexInstanceID = MeshTriangle.GetVertexInstanceID(i);
+				UVs[i] = VertexUVs[VertexInstanceID];
+				P[i] = VertexPositions[MeshDescription->GetVertexInstanceVertex(VertexInstanceID)];
+			}
+
+			const FVector Normal = ((P[1] - P[2]) ^ (P[0] - P[2])).GetSafeNormal(ComparisonThreshold);
+			//Check for degenerated polygons, avoid NAN
+			if (!Normal.IsNearlyZero(ComparisonThreshold))
+			{
+				FMatrix	ParameterToLocal(
+					FPlane(P[1].X - P[0].X, P[1].Y - P[0].Y, P[1].Z - P[0].Z, 0),
+					FPlane(P[2].X - P[0].X, P[2].Y - P[0].Y, P[2].Z - P[0].Z, 0),
+					FPlane(P[0].X, P[0].Y, P[0].Z, 0),
+					FPlane(0, 0, 0, 1)
+				);
+
+				FMatrix ParameterToTexture(
+					FPlane(UVs[1].X - UVs[0].X, UVs[1].Y - UVs[0].Y, 0, 0),
+					FPlane(UVs[2].X - UVs[0].X, UVs[2].Y - UVs[0].Y, 0, 0),
+					FPlane(UVs[0].X, UVs[0].Y, 1, 0),
+					FPlane(0, 0, 0, 1)
+				);
+
+				// Use InverseSlow to catch singular matrices.  Inverse can miss this sometimes.
+				const FMatrix TextureToLocal = ParameterToTexture.Inverse() * ParameterToLocal;
+
+				FVector TmpTangentX(0.0f);
+				FVector TmpTangentY(0.0f);
+				FVector TmpTangentZ(0.0f);
+				TmpTangentX = TextureToLocal.TransformVector(FVector(1, 0, 0)).GetSafeNormal();
+				TmpTangentY = TextureToLocal.TransformVector(FVector(0, 1, 0)).GetSafeNormal();
+				TmpTangentZ = Normal;
+				FVector::CreateOrthonormalBasis(TmpTangentX, TmpTangentY, TmpTangentZ);
+				TangentX += TmpTangentX;
+				TangentY += TmpTangentY;
+				TangentZ += TmpTangentZ;
+			}
+			else
+			{
+				DegeneratePolygons.AddUnique(PolygonID);
+			}
 		}
 
-		const FVector Normal = ((P[1] - P[2]) ^ (P[0] - P[2])).GetSafeNormal(ComparisonThreshold);
-		//Check for degenerated polygons, avoid NAN
-		if (!Normal.IsNearlyZero(ComparisonThreshold))
-		{
-			FMatrix	ParameterToLocal(
-				FPlane(P[1].X - P[0].X, P[1].Y - P[0].Y, P[1].Z - P[0].Z, 0),
-				FPlane(P[2].X - P[0].X, P[2].Y - P[0].Y, P[2].Z - P[0].Z, 0),
-				FPlane(P[0].X, P[0].Y, P[0].Z, 0),
-				FPlane(0, 0, 0, 1)
-			);
-
-			FMatrix ParameterToTexture(
-				FPlane(UVs[1].X - UVs[0].X, UVs[1].Y - UVs[0].Y, 0, 0),
-				FPlane(UVs[2].X - UVs[0].X, UVs[2].Y - UVs[0].Y, 0, 0),
-				FPlane(UVs[0].X, UVs[0].Y, 1, 0),
-				FPlane(0, 0, 0, 1)
-			);
-
-			// Use InverseSlow to catch singular matrices.  Inverse can miss this sometimes.
-			const FMatrix TextureToLocal = ParameterToTexture.Inverse() * ParameterToLocal;
-
-			TangentX = TextureToLocal.TransformVector(FVector(1, 0, 0)).GetSafeNormal();
-			TangentY = TextureToLocal.TransformVector(FVector(0, 1, 0)).GetSafeNormal();
-			TangentZ = Normal;
-			FVector::CreateOrthonormalBasis(TangentX, TangentY, TangentZ);
-		}
-		else
-		{
-			DegeneratePolygons.Add(PolygonID);
-		}
-
+		TangentX.Normalize();
+		TangentY.Normalize();
+		TangentZ.Normalize();
 		PolygonTangents[PolygonID] = TangentX;
 		PolygonBinormals[PolygonID] = TangentY;
 		PolygonNormals[PolygonID] = TangentZ;
+		
 	}
 
 	//Delete the degenerated polygons. The array is fill only if the remove degenerated option is turn on.
@@ -824,13 +833,16 @@ namespace MeshDescriptionMikktSpaceInterface
 	int MikkGetNumVertsOfFace(const SMikkTSpaceContext* Context, const int FaceIdx)
 	{
 		// All of our meshes are triangles.
-		return 3;
+		UMeshDescription *MeshDescription = (UMeshDescription*)(Context->m_pUserData);
+		const FMeshPolygon& Polygon = MeshDescription->GetPolygon(FPolygonID(FaceIdx));
+		return Polygon.PerimeterContour.VertexInstanceIDs.Num();
 	}
 
 	void MikkGetPosition(const SMikkTSpaceContext* Context, float Position[3], const int FaceIdx, const int VertIdx)
 	{
 		UMeshDescription *MeshDescription = (UMeshDescription*)(Context->m_pUserData);
-		const FVertexInstanceID VertexInstanceID(FaceIdx * 3 + VertIdx);
+		const FMeshPolygon& Polygon = MeshDescription->GetPolygon(FPolygonID(FaceIdx));
+		const FVertexInstanceID VertexInstanceID = Polygon.PerimeterContour.VertexInstanceIDs[VertIdx];
 		const FVertexID VertexID = MeshDescription->GetVertexInstanceVertex(VertexInstanceID);
 		const FVector& VertexPosition = MeshDescription->VertexAttributes().GetAttribute<FVector>(VertexID, MeshAttribute::Vertex::Position);
 		Position[0] = VertexPosition.X;
@@ -841,7 +853,8 @@ namespace MeshDescriptionMikktSpaceInterface
 	void MikkGetNormal(const SMikkTSpaceContext* Context, float Normal[3], const int FaceIdx, const int VertIdx)
 	{
 		UMeshDescription *MeshDescription = (UMeshDescription*)(Context->m_pUserData);
-		const FVertexInstanceID VertexInstanceID(FaceIdx * 3 + VertIdx);
+		const FMeshPolygon& Polygon = MeshDescription->GetPolygon(FPolygonID(FaceIdx));
+		const FVertexInstanceID VertexInstanceID = Polygon.PerimeterContour.VertexInstanceIDs[VertIdx];
 		const FVector& VertexNormal = MeshDescription->VertexInstanceAttributes().GetAttribute<FVector>(VertexInstanceID, MeshAttribute::VertexInstance::Normal);
 		Normal[0] = VertexNormal.X;
 		Normal[1] = VertexNormal.Y;
@@ -851,7 +864,8 @@ namespace MeshDescriptionMikktSpaceInterface
 	void MikkSetTSpaceBasic(const SMikkTSpaceContext* Context, const float Tangent[3], const float BitangentSign, const int FaceIdx, const int VertIdx)
 	{
 		UMeshDescription *MeshDescription = (UMeshDescription*)(Context->m_pUserData);
-		const FVertexInstanceID VertexInstanceID(FaceIdx * 3 + VertIdx);
+		const FMeshPolygon& Polygon = MeshDescription->GetPolygon(FPolygonID(FaceIdx));
+		const FVertexInstanceID VertexInstanceID = Polygon.PerimeterContour.VertexInstanceIDs[VertIdx];
 		const FVector VertexTangent(Tangent[0], Tangent[1], Tangent[2]);
 		MeshDescription->VertexInstanceAttributes().SetAttribute<FVector>(VertexInstanceID, MeshAttribute::VertexInstance::Tangent, 0, VertexTangent);
 		MeshDescription->VertexInstanceAttributes().SetAttribute<float>(VertexInstanceID, MeshAttribute::VertexInstance::BinormalSign, 0, -BitangentSign);
@@ -860,7 +874,8 @@ namespace MeshDescriptionMikktSpaceInterface
 	void MikkGetTexCoord(const SMikkTSpaceContext* Context, float UV[2], const int FaceIdx, const int VertIdx)
 	{
 		UMeshDescription *MeshDescription = (UMeshDescription*)(Context->m_pUserData);
-		const FVertexInstanceID VertexInstanceID(FaceIdx * 3 + VertIdx);
+		const FMeshPolygon& Polygon = MeshDescription->GetPolygon(FPolygonID(FaceIdx));
+		const FVertexInstanceID VertexInstanceID = Polygon.PerimeterContour.VertexInstanceIDs[VertIdx];
 		const FVector2D& TexCoord = MeshDescription->VertexInstanceAttributes().GetAttribute<FVector2D>(VertexInstanceID, MeshAttribute::VertexInstance::TextureCoordinate, 0);
 		UV[0] = TexCoord.X;
 		UV[1] = TexCoord.Y;

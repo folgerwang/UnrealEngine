@@ -928,20 +928,10 @@ UStaticMesh* CreateStaticMeshFromBrush(UObject* Outer,FName Name,ABrush* Brush,U
 {
 	GWarn->BeginSlowTask( NSLOCTEXT("UnrealEd", "CreatingStaticMeshE", "Creating static mesh..."), true );
 	UStaticMesh* StaticMesh = nullptr;
-	if (GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription)
-	{
-		UMeshDescription* MeshDescription = NewObject<UMeshDescription>(Outer);
-		TArray<FStaticMaterial> Materials;
-		GetBrushMesh(Brush, Model, MeshDescription, Materials);
-		StaticMesh = CreateStaticMesh(MeshDescription, Materials, Outer, Name);
-	}
-	else
-	{
-		FRawMesh RawMesh;
-		TArray<FStaticMaterial> Materials;
-		GetBrushMesh(Brush, Model, RawMesh, Materials);
-		StaticMesh = CreateStaticMesh(RawMesh, Materials, Outer, Name);
-	}
+	UMeshDescription* MeshDescription = NewObject<UMeshDescription>(Outer);
+	TArray<FStaticMaterial> Materials;
+	GetBrushMesh(Brush, Model, MeshDescription, Materials);
+	StaticMesh = CreateStaticMesh(MeshDescription, Materials, Outer, Name);
 	GWarn->EndSlowTask();
 
 	return StaticMesh;

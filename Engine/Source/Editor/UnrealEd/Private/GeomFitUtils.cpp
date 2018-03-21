@@ -219,19 +219,9 @@ void ComputeBoundingBox(UStaticMesh* StaticMesh, FVector& Center, FVector& Exten
 	// Calculate bounding Box.
 	
 	FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[0];
-	if (GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription)
-	{
-		UMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(0);
-		FVector unitVec = FVector(1.f);
-		CalcBoundingBox(MeshDescription, Center, Extents, unitVec);
-	}
-	else
-	{
-		FRawMesh RawMesh;
-		SrcModel.LoadRawMesh(RawMesh);
-		FVector unitVec = FVector(1.f);
-		CalcBoundingBox(RawMesh, Center, Extents, unitVec);
-	}
+	UMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(0);
+	FVector unitVec = FVector(1.f);
+	CalcBoundingBox(MeshDescription, Center, Extents, unitVec);
 }
 
 int32 GenerateBoxAsSimpleCollision(UStaticMesh* StaticMesh)
@@ -250,17 +240,8 @@ int32 GenerateBoxAsSimpleCollision(UStaticMesh* StaticMesh)
 	
 	FVector unitVec = bs->BuildScale3D;
 	FVector Center, Extents;
-	if (GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription)
-	{
-		MeshDescription = StaticMesh->GetMeshDescription(0);
-		CalcBoundingBox(MeshDescription, Center, Extents, unitVec);
-	}
-	else
-	{
-		SrcModel.LoadRawMesh(RawMesh);
-		CalcBoundingBox(RawMesh, Center, Extents, unitVec);
-	}
-
+	MeshDescription = StaticMesh->GetMeshDescription(0);
+	CalcBoundingBox(MeshDescription, Center, Extents, unitVec);
 	bs->Modify();
 
 	// Create new GUID
@@ -561,20 +542,9 @@ int32 GenerateSphereAsSimpleCollision(UStaticMesh* StaticMesh)
 	FVector unitVec = bs->BuildScale3D;
 
 	// Calculate bounding sphere.
-	if (GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription)
-	{
-		UMeshDescription* MeshDescription = StaticMesh->GetMeshDescription(0);
-		CalcBoundingSphere(MeshDescription, bSphere, unitVec);
-		CalcBoundingSphere2(MeshDescription, bSphere2, unitVec);
-	}
-	else
-	{
-		FRawMesh RawMesh;
-		FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[0];
-		SrcModel.LoadRawMesh(RawMesh);
-		CalcBoundingSphere(RawMesh, bSphere, unitVec);
-		CalcBoundingSphere2(RawMesh, bSphere2, unitVec);
-	}
+	UMeshDescription* MeshDescription = StaticMesh->GetMeshDescription(0);
+	CalcBoundingSphere(MeshDescription, bSphere, unitVec);
+	CalcBoundingSphere2(MeshDescription, bSphere2, unitVec);
 
 	if(bSphere.W < bSphere2.W)
 		bestSphere = bSphere;
@@ -797,18 +767,8 @@ int32 GenerateSphylAsSimpleCollision(UStaticMesh* StaticMesh)
 	FVector unitVec = bs->BuildScale3D;
 
 	// Calculate bounding box.
-	if (GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription)
-	{
-		UMeshDescription* MeshDescription = StaticMesh->GetMeshDescription(0);
-		CalcBoundingSphyl(MeshDescription, sphere, length, rotation, unitVec);
-	}
-	else
-	{
-		FRawMesh RawMesh;
-		FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[0];
-		SrcModel.LoadRawMesh(RawMesh);
-		CalcBoundingSphyl(RawMesh, sphere, length, rotation, unitVec);
-	}
+	UMeshDescription* MeshDescription = StaticMesh->GetMeshDescription(0);
+	CalcBoundingSphyl(MeshDescription, sphere, length, rotation, unitVec);
 
 	// Dont use if radius is zero.
 	if (sphere.W <= 0.f)

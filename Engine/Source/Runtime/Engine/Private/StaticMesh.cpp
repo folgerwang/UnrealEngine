@@ -1387,15 +1387,8 @@ static FString BuildStaticMeshDerivedDataKey(UStaticMesh* Mesh, const FStaticMes
 	for (int32 LODIndex = 0; LODIndex < NumLODs; ++LODIndex)
 	{
 		FStaticMeshSourceModel& SrcModel = Mesh->SourceModels[LODIndex];
-		if (GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription)
-		{
-			UMeshDescription* MeshDescription = Mesh->GetOriginalMeshDescription(LODIndex);
-			KeySuffix += (MeshDescription != nullptr) ? MeshDescription->GetIdString() : TEXT("NoOriginalMeshDescriptionForLod") + FString::FromInt(LODIndex);
-		}
-		else
-		{
-			KeySuffix += SrcModel.RawMeshBulkData->GetIdString();
-		}
+		UMeshDescription* MeshDescription = Mesh->GetOriginalMeshDescription(LODIndex);
+		KeySuffix += (MeshDescription != nullptr) ? MeshDescription->GetIdString() : TEXT("NoOriginalMeshDescriptionForLod") + FString::FromInt(LODIndex);
 
 		// Serialize the build and reduction settings into a temporary array. The archive
 		// is flagged as persistent so that machines of different endianness produce
@@ -1572,12 +1565,9 @@ void FStaticMeshRenderData::Cache(UStaticMesh* Owner, const FStaticMeshLODSettin
 			FStaticMeshStatusMessageContext StatusContext( FText::Format( NSLOCTEXT("Engine", "BuildingStaticMeshStatus", "Building static mesh {StaticMeshName}..."), Args ) );
 
 			bool bUseMeshDescription = false;
-			if (GetDefault<UEditorExperimentalSettings>()->bUseMeshDescription)
+			if (Owner->GetOriginalMeshDescription(0) != nullptr)
 			{
-				if (Owner->GetOriginalMeshDescription(0) != nullptr)
-				{
-					bUseMeshDescription = true;
-				}
+				bUseMeshDescription = true;
 			}
 
 			if (bUseMeshDescription)

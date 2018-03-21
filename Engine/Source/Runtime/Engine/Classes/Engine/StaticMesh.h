@@ -164,8 +164,7 @@ struct FStaticMeshSourceModel
 	class UStaticMesh* StaticMeshOwner;
 	/*
 	 * Accessor to Load and save the raw mesh or the mesh description depending on the editor settings.
-	 * Temporary until we deprecate the RawMesh. It use UEditorExperimentalSettings::bUseMeshDescription to know which structure we use to save/load the data.
-	 * The SaveRawMesh make sure there is only one valid structure data (OriginalMeshDescription or RawMesh) not both. 
+	 * Temporary until we deprecate the RawMesh.
 	 */
 	ENGINE_API bool IsRawMeshEmpty() const;
 	ENGINE_API void LoadRawMesh(struct FRawMesh& OutRawMesh) const;

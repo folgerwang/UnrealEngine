@@ -136,10 +136,6 @@ public:
 	UPROPERTY(EditAnywhere, config, Category = Materials)
 	bool bExampleLayersAndBlends;
 
-	/** Allows usage of the mesh description instead of the raw mesh when we build static mesh */
-	UPROPERTY(EditAnywhere, config, Category = Tools, meta = (DisplayName = "Use Mesh Description"))
-	bool bUseMeshDescription;
-	
 	/**
 	 * Returns an event delegate that is executed when a setting has changed.
 	 *
