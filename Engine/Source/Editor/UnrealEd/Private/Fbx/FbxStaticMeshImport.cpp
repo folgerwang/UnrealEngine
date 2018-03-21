@@ -1722,13 +1722,11 @@ void UnFbx::FFbxImporter::PostImportStaticMesh(UStaticMesh* StaticMesh, TArray<F
 	// Build the staticmesh, we move the build here because we want to avoid building the staticmesh for every LOD
 	// when we import the mesh.
 	TArray<FText> BuildErrors;
-#if UE_BUILD_DEBUG
 	if (GIsAutomationTesting)
 	{
 		//Generate a random GUID to be sure it rebuild the asset
 		StaticMesh->BuildCacheAutomationTestGuid = FGuid::NewGuid();
 	}
-#endif
 
 	if (GIsAutomationTesting)
 	{

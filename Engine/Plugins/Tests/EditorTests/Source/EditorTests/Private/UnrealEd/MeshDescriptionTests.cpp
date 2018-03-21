@@ -482,7 +482,7 @@ bool FMeshDescriptionTest::ConversionTest(FAutomationTestExecutionInfo& Executio
 		FString FullAssetName = TEXT("/Game/Tests/MeshDescription/") + AssetName + TEXT(".") + AssetName;
 		UStaticMesh* AssetMesh = LoadObject<UStaticMesh>(nullptr, *FullAssetName, nullptr, LOAD_None, nullptr);
 
-#if UE_BUILD_DEBUG
+#if WITH_EDITOR
 		AssetMesh->BuildCacheAutomationTestGuid = FGuid::NewGuid();
 #endif
 

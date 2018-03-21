@@ -1374,13 +1374,11 @@ static FString BuildStaticMeshDerivedDataKey(UStaticMesh* Mesh, const FStaticMes
 		KeySuffix += Lex::ToString(Mesh->LightmapUVVersion);
 	}
 #if WITH_EDITOR
-#if UE_BUILD_DEBUG
 	if (GIsAutomationTesting && Mesh->BuildCacheAutomationTestGuid.IsValid())
 	{
 		//If we are in automation testing and the BuildCacheAutomationTestGuid was set
 		KeySuffix += Mesh->BuildCacheAutomationTestGuid.ToString(EGuidFormats::Digits);
 	}
-#endif
 #endif
 
 	int32 NumLODs = Mesh->SourceModels.Num();
