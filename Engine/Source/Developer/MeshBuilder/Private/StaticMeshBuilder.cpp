@@ -78,6 +78,7 @@ bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh, const FStaticMeshLODGrou
 			{
 				//Create an empty mesh description that the reduce will fill
 				MeshDescription = NewObject<UMeshDescription>(StaticMesh, NAME_None);
+				UStaticMesh::RegisterMeshAttributes(MeshDescription);
 			}
 			else if(StaticMesh->GetMeshDescription(0) != nullptr)
 			{

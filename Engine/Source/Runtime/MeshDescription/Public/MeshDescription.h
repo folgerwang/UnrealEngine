@@ -230,7 +230,9 @@ using FEdgeArray = TMeshElementArray<FMeshEdge, FEdgeID>;
 using FPolygonArray = TMeshElementArray<FMeshPolygon, FPolygonID>;
 using FPolygonGroupArray = TMeshElementArray<FMeshPolygonGroup, FPolygonGroupID>;
 
-#define MESHDESCRIPTION_VER TEXT("C173EAB944C94C608318FAB504BD0F81")
+
+#define MESHDESCRIPTION_VER TEXT("264A91765090413DA61FE2A819147655")
+
 
 UCLASS()
 class MESHDESCRIPTION_API UMeshDescription : public UObject
@@ -814,8 +816,6 @@ private:
 	/** Given a set of index remappings, remaps all attributes accordingly */
 	void RemapAttributes( const FElementIDRemappings& Remappings );
 
-	void RegisterBaseAttributes();
-	void UnRegisterBaseAttributes();
 
 	FVertexArray VertexArray;
 	FVertexInstanceArray VertexInstanceArray;

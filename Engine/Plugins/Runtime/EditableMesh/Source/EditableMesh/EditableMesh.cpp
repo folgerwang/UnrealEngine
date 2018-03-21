@@ -71,10 +71,15 @@ namespace EditableMesh
 	static FAutoConsoleVariable UseBoundlessOctree( TEXT( "EditableMesh.UseBoundlessOctree" ), 1, TEXT( "If enabled, the octree for editable meshes will have a huge bounding box.  Otherwise, we'll compute a tightly wrapped bounds.  However, the bounds will not be able to grow beyond it's original size." ) );
 }
 
-
 //
 // =========================================================
 //
+
+namespace MeshAttribute
+{
+	const FName PolygonGroup::MaterialAssetName( "MaterialAssetName" );
+}
+
 
 /** Traits class which specifies whether Lerp is defined for a given type */
 template <typename T> struct TIsAttributeTypeLerpable { static const bool Value = false; };
@@ -590,22 +595,6 @@ void UEditableMesh::RebuildRenderMesh()
 	}
 }
 
-bool UEditableMesh::FindOrAddMaterial(class UMaterialInterface* Material, int32& MaterialIndex, FName& ImportedMaterialName)
-{
-	//Only one adapter should add a material
-	//TODO: Do we want to support editing a SM and a SK sharing a MeshDescription?
-	for (UEditableMeshAdapter* Adapter : Adapters)
-	{
-		if (Adapter->FindOrAddMaterial(Material, MaterialIndex, ImportedMaterialName))
-		{
-			if (MaterialIndex != INDEX_NONE)
-			{
-				return true;
-			}
-		}
-	}
-	return false;
-}
 
 void UEditableMesh::StartModification( const EMeshModificationType MeshModificationType, const EMeshTopologyChange MeshTopologyChange )
 {

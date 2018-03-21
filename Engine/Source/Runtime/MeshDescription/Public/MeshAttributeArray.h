@@ -500,77 +500,11 @@ public:
 private:
 	friend FArchive& operator<<( FArchive& Ar, TAttributesMap& AttributesMap )
 	{
-		struct FRegisteredAttribute
-		{
-			FName Name;
-			int32 NumIndices;
-			AttributeType DefaultValue;
-			EMeshAttributeFlags Flags;
-		};
-
-		// If we are loading, get a list of currently registered attributes and their metadata.
-		// This will be used to update the loaded attribute map after serialization.
-		TArray<FRegisteredAttribute> RegisteredAttributes;
-		if( Ar.IsLoading() )
-		{
-			for( const auto& AttributeNameAndIndicesArray : AttributesMap.Map )
-			{
-				RegisteredAttributes.Emplace();
-				FRegisteredAttribute& RegisteredAttribute = RegisteredAttributes.Last();
-				RegisteredAttribute.Name = AttributeNameAndIndicesArray.Key;
-				RegisteredAttribute.NumIndices = AttributeNameAndIndicesArray.Value.GetNumIndices();
-				RegisteredAttribute.DefaultValue = AttributeNameAndIndicesArray.Value.GetDefaultValue();
-				RegisteredAttribute.Flags = AttributeNameAndIndicesArray.Value.GetFlags();
-			}
-		}
-
 		// First serialize the number of elements which each attribute should contain
 		Ar << AttributesMap.NumElements;
 
 		// Now serialize the attributes of this type.
 		Ar << AttributesMap.Map;
-
-		// If we are loading, the attributes just serialized may be out of sync with the currently registered attributes, so we need to fix this up now.
-		if( Ar.IsLoading() )
-		{
-			// Go through the list of registered attributes we just built
-			for( const FRegisteredAttribute& RegisteredAttribute : RegisteredAttributes )
-			{
-				AttributeIndicesArrayType* AttributeIndicesArray = AttributesMap.Map.Find( RegisteredAttribute.Name );
-				if( !AttributeIndicesArray )
-				{
-					// Re-register any attributes that aren't there
-					AttributeIndicesArrayType NewAttributeIndicesArray( RegisteredAttribute.NumIndices, RegisteredAttribute.DefaultValue, RegisteredAttribute.Flags, AttributesMap.NumElements );
-
-					UE_LOG( LogMeshDescription, Log, TEXT( "Didn't find attribute '%s' - adding" ), *RegisteredAttribute.Name.ToString() );
-					AttributesMap.Map.Add( RegisteredAttribute.Name, MoveTemp( NewAttributeIndicesArray ) );
-				}
-				else if( AttributeIndicesArray->GetNumIndices() != RegisteredAttribute.NumIndices )
-				{
-					// Amend the number of attribute indices for any which are not correct
-					UE_LOG( LogMeshDescription, Log, TEXT( "Found attribute '%s' with the wrong number of indices - amending" ), *RegisteredAttribute.Name.ToString() );
-					AttributeIndicesArray->SetNumIndices( RegisteredAttribute.NumIndices );
-				}
-				else
-				{
-//					UE_LOG( LogMeshDescription, Log, TEXT( "Found attribute '%s' OK" ), *RegisteredAttribute.Name.ToString() );
-					check( AttributeIndicesArray->GetArrayForIndex( 0 ).Num() == AttributesMap.NumElements );
-				}
-			}
-
-			// Finally, go through all the attributes in the container, and remove any entries which are not in the registered list
-			for( auto AttributesIt = AttributesMap.Map.CreateIterator(); AttributesIt; ++AttributesIt )
-			{
-				const FName& AttributeName = AttributesIt.Key();
-				if( !RegisteredAttributes.ContainsByPredicate(
-					[ &AttributeName ]( const FRegisteredAttribute& RegisteredAttribute ) { return RegisteredAttribute.Name == AttributeName; }
-				) )
-				{
-					UE_LOG( LogMeshDescription, Warning, TEXT( "Found unregistered attribute '%s' - removing" ), *AttributeName.ToString() );
-					AttributesIt.RemoveCurrent();
-				}
-			}
-		}
 
 		return Ar;
 	}

@@ -46,6 +46,18 @@ namespace OpenSubdiv
 #endif
 
 
+/**
+ * Additional mesh attributes required by EditableMesh
+ */
+namespace MeshAttribute
+{
+	namespace PolygonGroup
+	{
+		extern EDITABLEMESH_API const FName MaterialAssetName;
+	}
+}
+
+
 UENUM( BlueprintType )
 enum class EInsetPolygonsMode : uint8
 {
@@ -219,8 +231,6 @@ public:
 	/** Returns the indexed triangle of the triangulated polygon */
 	UFUNCTION( BlueprintPure, Category="Editable Mesh" )
 	FMeshTriangle GetPolygonTriangulatedTriangle( const FPolygonID PolygonID, int32 PolygonTriangleNumber ) const;
-
-	bool FindOrAddMaterial(class UMaterialInterface* Material, int32& MaterialIndex, FName& ImportedMaterialName);
 
 protected:
 

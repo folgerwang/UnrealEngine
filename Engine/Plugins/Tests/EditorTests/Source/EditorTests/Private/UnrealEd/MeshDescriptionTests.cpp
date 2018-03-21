@@ -535,6 +535,7 @@ bool FMeshDescriptionTest::ConversionTest(FAutomationTestExecutionInfo& Executio
 				AssetMesh->SourceModels[LodIndex].LoadRawMesh(ResultRawMesh);
 				//Create a temporary Mesh Description
 				UMeshDescription* MeshDescription = NewObject<UMeshDescription>(GetTransientPackage(), NAME_None, RF_Standalone);
+				UStaticMesh::RegisterMeshAttributes(MeshDescription);
 				FMeshDescriptionOperations::ConverFromRawMesh(ResultRawMesh, MeshDescription, MaterialMapInverse);
 				//Convert back the FRawmesh
 				FMeshDescriptionOperations::ConverToRawMesh(MeshDescription, ResultRawMesh, MaterialMap);

@@ -679,6 +679,12 @@ public:
 	 */
 	UPROPERTY(VisibleAnywhere, Category = MeshDescription)
 	TArray<class UMeshDescription*> MeshDescriptions;
+
+	/**
+	 * Registers the mesh attributes required by the mesh description for a static mesh.
+	 */
+	ENGINE_API static void RegisterMeshAttributes( UMeshDescription* MeshDescription );
+
 	/**
 	 * Accessors for the mesh description use to build the render data
 	 */

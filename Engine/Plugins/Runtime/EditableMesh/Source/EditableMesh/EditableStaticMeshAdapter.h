@@ -71,6 +71,10 @@ struct FRenderingPolygonGroup
 	UPROPERTY()
 	uint32 RenderingSectionIndex;
 
+	/** The material slot index assigned to this polygon group's material */
+	UPROPERTY()
+	int32 MaterialIndex;
+
 	/** Maximum number of triangles which have been reserved in the index buffer */
 	UPROPERTY()
 	int32 MaxTriangles;
@@ -96,6 +100,7 @@ struct FRenderingPolygonGroup
 	friend FArchive& operator<<( FArchive& Ar, FRenderingPolygonGroup& Section )
 	{
 		Ar << Section.RenderingSectionIndex;
+		Ar << Section.MaterialIndex;
 		Ar << Section.MaxTriangles;	// @todo mesheditor serialization: Should not need to be serialized if we triangulate after load
 		Ar << Section.Triangles;
 		return Ar;
@@ -120,8 +125,6 @@ public:
 	/** Creates a editable static mesh from the specified component and sub-mesh address */
 	void InitEditableStaticMesh( UEditableMesh* EditableMesh, class UPrimitiveComponent& Component, const FEditableMeshSubMeshAddress& InitSubMeshAddress );
 	EDITABLEMESH_API void InitFromBlankStaticMesh( UEditableMesh* EditableMesh, UStaticMesh& InStaticMesh );
-
-	virtual bool FindOrAddMaterial(class UMaterialInterface* Material, int32& MaterialIndex, FName& ImportedMaterialName) override;
 
 	virtual void InitializeFromEditableMesh( const UEditableMesh* EditableMesh ) override;
 	virtual void OnRebuildRenderMeshStart( const UEditableMesh* EditableMesh, const bool bInvalidateLighting ) override;

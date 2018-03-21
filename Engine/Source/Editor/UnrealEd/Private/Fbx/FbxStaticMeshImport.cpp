@@ -1345,6 +1345,7 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 		//Create private asset in the same package as the StaticMesh, and make sure reference are set to avoid GC
 		MeshDescription = NewObject<UMeshDescription>(StaticMesh, NAME_None, RF_NoFlags);
 		check(MeshDescription != nullptr);
+		UStaticMesh::RegisterMeshAttributes(MeshDescription);
 		StaticMesh->SetOriginalMeshDescription(LODIndex, MeshDescription);
 	}
 	
