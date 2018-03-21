@@ -27,6 +27,10 @@ public class ICU : ModuleRules
 		string PlatformFolderName = Target.Platform.ToString();
 
 		string TargetSpecificPath = ICURootPath + PlatformFolderName + "/";
+		if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
+		{
+			TargetSpecificPath = ICURootPath + "Linux/";
+		}
 
 		if ((Target.Platform == UnrealTargetPlatform.Win64) ||
 			(Target.Platform == UnrealTargetPlatform.Win32))
@@ -87,21 +91,21 @@ public class ICU : ModuleRules
 				break;
 			}
 		}
-		else if	(Target.Platform == UnrealTargetPlatform.Linux || Target.Platform == UnrealTargetPlatform.Android)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix) ||
+			Target.Platform == UnrealTargetPlatform.Android)
 		{
 			string StaticLibraryExtension = "a";
 
-			switch (Target.Platform)
+			if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 			{
-				case UnrealTargetPlatform.Linux:
 					TargetSpecificPath += Target.Architecture + "/";
-					break;
-				case UnrealTargetPlatform.Android:
+			}
+			else
+			{
 					PublicLibraryPaths.Add(TargetSpecificPath + "ARMv7/lib");
 					PublicLibraryPaths.Add(TargetSpecificPath + "ARM64/lib");
 					PublicLibraryPaths.Add(TargetSpecificPath + "x86/lib");
 					PublicLibraryPaths.Add(TargetSpecificPath + "x64/lib");
-					break;
 			}
 
 			string[] LibraryNameStems =
@@ -138,7 +142,7 @@ public class ICU : ModuleRules
 					}
 					break;
 				case EICULinkType.Dynamic:
-					if (Target.Platform == UnrealTargetPlatform.Linux)
+					if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 					{
 						string PathToBinary = String.Format("$(EngineDir)/Binaries/ThirdParty/ICU/{0}/{1}/{2}/", ICUVersion, Target.Platform.ToString(),
 							Target.Architecture);
@@ -317,7 +321,7 @@ public class ICU : ModuleRules
 		// common defines
 		if ((Target.Platform == UnrealTargetPlatform.Win64) ||
 			(Target.Platform == UnrealTargetPlatform.Win32) ||
-			(Target.Platform == UnrealTargetPlatform.Linux) ||
+			(Target.IsInPlatformGroup(UnrealPlatformGroup.Unix)) ||
 			(Target.Platform == UnrealTargetPlatform.Android) ||
 			(Target.Platform == UnrealTargetPlatform.Mac) ||
 			(Target.Platform == UnrealTargetPlatform.IOS) ||

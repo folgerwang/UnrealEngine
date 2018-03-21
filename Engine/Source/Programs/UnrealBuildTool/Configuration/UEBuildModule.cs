@@ -539,6 +539,7 @@ namespace UnrealBuildTool
 			UEBuildBinary SourceBinary,
 			List<DirectoryReference> LibraryPaths,
 			List<string> AdditionalLibraries,
+			List<FileReference> OutRuntimeDependencies,
 			List<string> Frameworks,
 			List<string> WeakFrameworks,
 			List<UEBuildFramework> AdditionalFrameworks,
@@ -578,7 +579,7 @@ namespace UnrealBuildTool
 						bool bIsInStaticLibrary = (DependencyModule.Binary != null && DependencyModule.Binary.Type == UEBuildBinaryType.StaticLibrary);
 						if (bIsExternalModule || bIsInStaticLibrary)
 						{
-							DependencyModule.SetupPublicLinkEnvironment(SourceBinary, LibraryPaths, AdditionalLibraries, Frameworks, WeakFrameworks,
+							DependencyModule.SetupPublicLinkEnvironment(SourceBinary, LibraryPaths, AdditionalLibraries, OutRuntimeDependencies, Frameworks, WeakFrameworks,
 								AdditionalFrameworks, AdditionalShadowFiles, AdditionalBundleResources, DelayLoadDLLs, BinaryDependencies, VisitedModules);
 						}
 					}
@@ -598,6 +599,11 @@ namespace UnrealBuildTool
 				AdditionalFrameworks.AddRange(PublicAdditionalFrameworks);
 				AdditionalShadowFiles.AddRange(PublicAdditionalShadowFiles);
 				DelayLoadDLLs.AddRange(PublicDelayLoadDLLs);
+
+				foreach(RuntimeDependency RuntimeDependency in RuntimeDependencies)
+				{
+					OutRuntimeDependencies.Add(RuntimeDependency.Path);
+				}
 			}
 		}
 
@@ -612,7 +618,7 @@ namespace UnrealBuildTool
 			)
 		{
 			// Allow the module's public dependencies to add library paths and additional libraries to the link environment.
-			SetupPublicLinkEnvironment(SourceBinary, LinkEnvironment.LibraryPaths, LinkEnvironment.AdditionalLibraries, LinkEnvironment.Frameworks, LinkEnvironment.WeakFrameworks,
+			SetupPublicLinkEnvironment(SourceBinary, LinkEnvironment.LibraryPaths, LinkEnvironment.AdditionalLibraries, LinkEnvironment.RuntimeDependencies, LinkEnvironment.Frameworks, LinkEnvironment.WeakFrameworks,
 				LinkEnvironment.AdditionalFrameworks, LinkEnvironment.AdditionalShadowFiles, LinkEnvironment.AdditionalBundleResources, LinkEnvironment.DelayLoadDLLs, BinaryDependencies, VisitedModules);
 
 			// Also allow the module's public and private dependencies to modify the link environment.
@@ -622,7 +628,7 @@ namespace UnrealBuildTool
 
 			foreach (UEBuildModule DependencyModule in AllDependencyModules)
 			{
-				DependencyModule.SetupPublicLinkEnvironment(SourceBinary, LinkEnvironment.LibraryPaths, LinkEnvironment.AdditionalLibraries, LinkEnvironment.Frameworks, LinkEnvironment.WeakFrameworks,
+				DependencyModule.SetupPublicLinkEnvironment(SourceBinary, LinkEnvironment.LibraryPaths, LinkEnvironment.AdditionalLibraries, LinkEnvironment.RuntimeDependencies, LinkEnvironment.Frameworks, LinkEnvironment.WeakFrameworks,
 					LinkEnvironment.AdditionalFrameworks, LinkEnvironment.AdditionalShadowFiles, LinkEnvironment.AdditionalBundleResources, LinkEnvironment.DelayLoadDLLs, BinaryDependencies, VisitedModules);
 			}
 		}

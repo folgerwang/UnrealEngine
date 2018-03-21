@@ -71,7 +71,7 @@ namespace
 
 
 /** Number of top function calls to hide when dumping the callstack as text. */
-#if PLATFORM_LINUX
+#if PLATFORM_UNIX
 
 	// Rationale: check() and ensure() handlers have different depth - worse, ensure() can optionally end up calling the same path as check().
 	// It is better to show the full callstack as is than accidentaly ignore a part of the problem
@@ -79,7 +79,7 @@ namespace
 
 #else
 	#define CALLSTACK_IGNOREDEPTH 2
-#endif // PLATFORM_LINUX
+#endif // PLATFORM_UNIX
 
 CORE_API void (*GPrintScriptCallStackFn)() = nullptr;
 

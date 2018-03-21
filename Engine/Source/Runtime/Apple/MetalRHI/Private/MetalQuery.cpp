@@ -303,7 +303,7 @@ void FMetalRHICommandContext::RHIEndRenderQuery(FRenderQueryRHIParamRef QueryRHI
 	}
 }
 
-void FMetalRHICommandContext::RHIBeginOcclusionQueryBatch()
+void FMetalRHICommandContext::RHIBeginOcclusionQueryBatch(uint32 NumQueriesInBatch)
 {
 	check(!CommandBufferFence.IsValid());
 	CommandBufferFence = MakeShareable(new FMetalCommandBufferFence);

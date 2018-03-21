@@ -58,7 +58,7 @@ public class VorbisFile : ModuleRules
 
 			PublicAdditionalLibraries.Add("vorbisfile");
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			PublicAdditionalLibraries.Add(VorbisPath + "lib/Linux/" + Target.Architecture + "/libvorbisfile.a");
 			PublicAdditionalLibraries.Add(VorbisPath + "lib/Linux/" + Target.Architecture + "/libvorbisenc.a");

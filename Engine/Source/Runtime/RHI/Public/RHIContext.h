@@ -250,7 +250,7 @@ public:
 
 	virtual void RHIEndRenderQuery(FRenderQueryRHIParamRef RenderQuery) = 0;
 
-	virtual void RHIBeginOcclusionQueryBatch() = 0;
+	virtual void RHIBeginOcclusionQueryBatch(uint32 NumQueriesInBatch) = 0;
 
 	virtual void RHIEndOcclusionQueryBatch() = 0;
 

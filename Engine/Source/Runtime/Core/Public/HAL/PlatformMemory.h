@@ -24,8 +24,10 @@
 #include "Android/AndroidMemory.h"
 #elif PLATFORM_HTML5
 #include "HTML5/HTML5PlatformMemory.h"
-#elif PLATFORM_LINUX
-#include "Linux/LinuxPlatformMemory.h"
+#elif PLATFORM_UNIX
+#include "Unix/UnixPlatformMemory.h"
 #elif PLATFORM_SWITCH
 #include "Switch/SwitchPlatformMemory.h"
+#else
+#error Unknown platform
 #endif

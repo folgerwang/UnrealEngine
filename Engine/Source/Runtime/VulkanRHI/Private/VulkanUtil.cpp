@@ -31,7 +31,11 @@ void FVulkanGPUTiming::PlatformStaticInitialize(void* UserData)
 			UE_LOG(LogVulkanRHI, Warning, TEXT("Timestamps not supported on Device"));
 			return;
 		}
+#if VULKAN_USE_NEW_QUERIES
+		GTimingFrequency = (uint64)((1.0f / Limits.timestampPeriod) * 1000.0f * 1000.0f * 1000.0f);
+#else
 		GTimingFrequency = 1;
+#endif
 	}
 }
 
@@ -49,8 +53,13 @@ void FVulkanGPUTiming::Initialize()
 	{
 		for (int32 Index = 0; Index < MaxTimers; ++Index)
 		{
+#if VULKAN_USE_NEW_QUERIES
+			Timers[Index].Begin = new FVulkanRenderQuery(CmdContext->GetDevice(), RQT_AbsoluteTime);
+			Timers[Index].End = new FVulkanRenderQuery(CmdContext->GetDevice(), RQT_AbsoluteTime);
+#else
 			Timers[Index].Begin = new FOLDVulkanRenderQuery(CmdContext->GetDevice(), RQT_AbsoluteTime);
 			Timers[Index].End = new FOLDVulkanRenderQuery(CmdContext->GetDevice(), RQT_AbsoluteTime);
+#endif
 		}
 	}
 }
@@ -79,11 +88,21 @@ void FVulkanGPUTiming::StartTiming(FVulkanCmdBuffer* CmdBuffer)
 	{
 		CurrentTimerIndex = (CurrentTimerIndex + 1) % MaxTimers;
 		NumActiveTimers = FMath::Min(NumActiveTimers + 1, (int32)MaxTimers);
+#if VULKAN_USE_NEW_QUERIES
+		if (CmdBuffer == nullptr)
+		{
+			CmdBuffer = CmdContext->GetCommandBufferManager()->GetActiveCmdBuffer();
+		}
+		Timers[CurrentTimerIndex].BeginCmdBuffer = CmdBuffer;
+		Timers[CurrentTimerIndex].BeginFenceCounter = CmdBuffer->GetFenceSignaledCounter();
+		CmdContext->RHIEndRenderQuery(Timers[CurrentTimerIndex].Begin);
+#else
 		if (CmdBuffer == nullptr)
 		{
 			CmdBuffer = CmdContext->GetCommandBufferManager()->GetActiveCmdBuffer();
 		}
 		CmdContext->EndRenderQueryInternal(CmdBuffer, Timers[CurrentTimerIndex].Begin);
+#endif
 		bIsTiming = true;
 	}
 }
@@ -97,11 +116,21 @@ void FVulkanGPUTiming::EndTiming(FVulkanCmdBuffer* CmdBuffer)
 	// Issue a timestamp query for the 'end' time.
 	if (GIsSupported && bIsTiming)
 	{
+#if VULKAN_USE_NEW_QUERIES
+		if (CmdBuffer == nullptr)
+		{
+			CmdBuffer = CmdContext->GetCommandBufferManager()->GetActiveCmdBuffer();
+		}
+		Timers[CurrentTimerIndex].EndCmdBuffer = CmdBuffer;
+		Timers[CurrentTimerIndex].EndFenceCounter = CmdBuffer->GetFenceSignaledCounter();
+		CmdContext->RHIEndRenderQuery(Timers[CurrentTimerIndex].End);
+#else
 		if (CmdBuffer == nullptr)
 		{
 			CmdBuffer = CmdContext->GetCommandBufferManager()->GetActiveCmdBuffer();
 		}
 		CmdContext->EndRenderQueryInternal(CmdBuffer, Timers[CurrentTimerIndex].End);
+#endif
 		bIsTiming = false;
 		bEndTimestampIssued = true;
 	}
@@ -124,7 +153,21 @@ uint64 FVulkanGPUTiming::GetTiming(bool bGetCurrentResultsAndBlock)
 			// Go backwards through the list
 			for (int32 Index = 1; Index < NumActiveTimers; ++Index)
 			{
+#if VULKAN_USE_NEW_QUERIES
+				check(Timers[TimerIndex].BeginCmdBuffer->GetSubmittedFenceCounter() >= Timers[TimerIndex].BeginFenceCounter);
+				check(Timers[TimerIndex].EndCmdBuffer->GetSubmittedFenceCounter() >= Timers[TimerIndex].EndFenceCounter);
+				if (Timers[TimerIndex].EndCmdBuffer->GetFenceSignaledCounter() <= Timers[TimerIndex].EndFenceCounter)
 				{
+					// Nothing here...
+					int i = 0;
+					++i;
+				}
+				else if (Timers[TimerIndex].Begin->HasQueryBeenEmitted() && Timers[TimerIndex].End->HasQueryBeenEmitted())
+#endif
+				{
+#if VULKAN_USE_NEW_QUERIES
+					check(Timers[TimerIndex].BeginCmdBuffer->GetFenceSignaledCounter() > Timers[TimerIndex].BeginFenceCounter);
+#endif
 					check(Device == CmdContext->GetDevice());
 					if (Timers[TimerIndex].Begin->GetResult(Device, BeginTime, false))
 					{
@@ -151,14 +194,23 @@ uint64 FVulkanGPUTiming::GetTiming(bool bGetCurrentResultsAndBlock)
 		if (bGetCurrentResultsAndBlock)
 		{
 			TimerIndex = CurrentTimerIndex;
+#if VULKAN_USE_NEW_QUERIES
+			check(Timers[TimerIndex].Begin->HasQueryBeenEmitted() && Timers[TimerIndex].End->HasQueryBeenEmitted());
+#endif
+
 			if (Timers[TimerIndex].Begin->GetResult(Device, BeginTime, true))
 			{
 				if (Timers[TimerIndex].End->GetResult(Device, EndTime, true))
 				{
+#if VULKAN_USE_NEW_QUERIES
+					check(BeginTime < EndTime);
+					return (EndTime - BeginTime);
+#else
 					if (BeginTime < EndTime)
 					{
 						return (EndTime - BeginTime);
 					}
+#endif
 				}
 				else
 				{
@@ -175,10 +227,13 @@ uint64 FVulkanGPUTiming::GetTiming(bool bGetCurrentResultsAndBlock)
 	return 0;
 }
 
+#if VULKAN_USE_NEW_QUERIES
+#else
 static double ConvertTiming(uint64 Delta)
 {
 	return Delta / 1e6;
 }
+#endif
 
 /** Start this frame of per tracking */
 void FVulkanEventNodeFrame::StartFrame()
@@ -200,7 +255,12 @@ float FVulkanEventNodeFrame::GetRootTimingResults()
 	{
 		const uint64 GPUTiming = RootEventTiming.GetTiming(true);
 
+#if VULKAN_USE_NEW_QUERIES
+		// In milliseconds
+		RootResult = (double)GPUTiming / (double)RootEventTiming.GetTimingFrequency();
+#else
 		RootResult = ConvertTiming(GPUTiming);
+#endif
 	}
 
 	return (float)RootResult;
@@ -213,7 +273,12 @@ float FVulkanEventNode::GetTiming()
 	if (Timing.IsSupported())
 	{
 		const uint64 GPUTiming = Timing.GetTiming(true);
+#if VULKAN_USE_NEW_QUERIES
+		// In milliseconds
+		Result = (double)GPUTiming / (double)Timing.GetTimingFrequency();
+#else
 		Result = ConvertTiming(GPUTiming);
+#endif
 	}
 
 	return Result;
@@ -322,6 +387,27 @@ void FVulkanGPUProfiler::EndFrame()
 	{
 		delete CurrentEventNodeFrame;
 		CurrentEventNodeFrame = nullptr;
+	}
+}
+
+#include "VulkanRHIBridge.h"
+namespace VulkanRHIBridge
+{
+	FVulkanDevice* GetDevice(FVulkanDynamicRHI* RHI)
+	{
+		return RHI->GetDevice();
+	}
+
+	// Returns a VkDevice
+	uint64 GetLogicalDevice(FVulkanDevice* Device)
+	{
+		return (uint64)Device->GetInstanceHandle();
+	}
+
+	// Returns a VkDeviceVkPhysicalDevice
+	uint64 GetPhysicalDevice(FVulkanDevice* Device)
+	{
+		return (uint64)Device->GetPhysicalHandle();
 	}
 }
 

@@ -244,7 +244,7 @@ uint32					GFrameNumberRenderThread		= 1;
 #if !(UE_BUILD_SHIPPING && WITH_EDITOR)
 // We cannot count on this variable to be accurate in a shipped game, so make sure no code tries to use it
 /** Whether we are the first instance of the game running.													*/
-#if !PLATFORM_LINUX
+#if !PLATFORM_UNIX
 bool					GIsFirstInstance				= true;
 #endif
 #endif

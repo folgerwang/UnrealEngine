@@ -92,9 +92,8 @@ public:
 
 	const VkComponentMapping& GetFormatComponentMapping(EPixelFormat UEFormat) const;
 	
-	inline VkDevice GetInstanceHandle()
+	inline VkDevice GetInstanceHandle() const
 	{
-		check(Device != VK_NULL_HANDLE);
 		return Device;
 	}
 
@@ -179,6 +178,10 @@ public:
 
 	void SubmitCommandsAndFlushGPU();
 
+#if VULKAN_USE_NEW_QUERIES
+	FVulkanOcclusionQueryPool* PrepareOcclusionQueryPool(uint32 NumQueries);
+	FVulkanTimestampQueryPool* PrepareTimestampQueryPool(bool& bOutRequiresReset);
+#else
 	inline FOLDVulkanBufferedQueryPool& FindAvailableQueryPool(TArray<FOLDVulkanBufferedQueryPool*>& Pools, VkQueryType QueryType)
 	{
 		// First try to find An available one
@@ -205,7 +208,7 @@ public:
 	{
 		return FindAvailableQueryPool(TimestampQueryPools, VK_QUERY_TYPE_TIMESTAMP);
 	}
-
+#endif
 	inline class FVulkanPipelineStateCache* GetPipelineStateCache()
 	{
 		return PipelineStateCache;
@@ -267,8 +270,14 @@ private:
 	// Info for formats that are not in the core Vulkan spec (i.e. extensions)
 	mutable TMap<VkFormat, VkFormatProperties> ExtensionFormatProperties;
 
+#if VULKAN_USE_NEW_QUERIES
+	int32 CurrentOcclusionQueryPool = 0;
+	TArray<FVulkanOcclusionQueryPool*> OcclusionQueryPools;
+	FVulkanTimestampQueryPool* TimestampQueryPool = nullptr;
+#else
 	TArray<FOLDVulkanBufferedQueryPool*> OcclusionQueryPools;
 	TArray<FOLDVulkanBufferedQueryPool*> TimestampQueryPools;
+#endif
 
 	FVulkanQueue* GfxQueue;
 	FVulkanQueue* ComputeQueue;

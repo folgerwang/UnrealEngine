@@ -23,6 +23,10 @@ struct APPLICATIONCORE_API FLinuxPlatformApplicationMisc : public FGenericPlatfo
 	static float GetDPIScaleFactorAtPoint(float X, float Y);
 	static void ClipboardCopy(const TCHAR* Str);
 	static void ClipboardPaste(class FString& Dest);
+
+	// Unix specific
+	static void EarlyUnixInitialization(class FString& OutCommandLine);
+	static bool ShouldIncreaseProcessLimits() { return true; }
 };
 
 typedef FLinuxPlatformApplicationMisc FPlatformApplicationMisc;

@@ -71,7 +71,7 @@ public class UElibPNG : ModuleRules
 
 			PublicAdditionalLibraries.Add("png");
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			// migrate all architectures to the newer binary
 			if (Target.Architecture.StartsWith("aarch64") || Target.Architecture.StartsWith("i686"))

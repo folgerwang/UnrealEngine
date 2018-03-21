@@ -21,7 +21,7 @@ public class MikkTSpace : ModuleRules
 			PublicLibraryPaths.Add(MikkTSpacePath + "lib/Win32/VS" + Target.WindowsPlatform.GetVisualStudioCompilerVersionName()); 
 			PublicAdditionalLibraries.Add("MikkTSpace.lib");
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			PublicAdditionalLibraries.Add(MikkTSpacePath + "/lib/Linux/" + Target.Architecture + "/libMikkTSpace.a");
 		}

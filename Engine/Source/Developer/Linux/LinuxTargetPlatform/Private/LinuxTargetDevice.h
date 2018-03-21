@@ -15,7 +15,6 @@
 	#include <pwd.h>
 #endif // PLATFORM_LINUX
 
-class FLinuxTargetDevice;
 class IFileManager;
 struct FProcHandle;
 

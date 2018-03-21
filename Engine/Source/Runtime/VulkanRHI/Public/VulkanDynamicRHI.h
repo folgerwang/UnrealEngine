@@ -280,6 +280,8 @@ private:
 	void PooledUniformBuffersBeginFrame();
 	void ReleasePooledUniformBuffers();
 
+	void SetupValidationLayers();
+
 protected:
 	VkInstance Instance;
 	TArray<const ANSICHAR*> InstanceExtensions;

@@ -192,7 +192,7 @@ void BeginFrame_QueryBatchCleanup()
 	GBatcher.PerFrameFlush();
 }
 
-void FOpenGLDynamicRHI::RHIBeginOcclusionQueryBatch()
+void FOpenGLDynamicRHI::RHIBeginOcclusionQueryBatch(uint32 NumQueriesInBatch)
 {
 	if (IsRunningRHIInSeparateThread())
 	{

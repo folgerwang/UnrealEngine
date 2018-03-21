@@ -77,7 +77,7 @@ public:
 
 	void EndRenderPass()
 	{
-		check(IsInsideRenderPass());
+		checkf(IsInsideRenderPass(), TEXT("Can't EndRP as we're NOT inside one! CmdBuffer 0x%p State=%d"), CommandBufferHandle, (int32)State);
 		VulkanRHI::vkCmdEndRenderPass(CommandBufferHandle);
 		State = EState::IsInsideBegin;
 	}
@@ -250,6 +250,8 @@ public:
 	VULKANRHI_API FVulkanCmdBuffer* GetUploadCmdBuffer();
 
 	VULKANRHI_API void SubmitUploadCmdBuffer(bool bWaitForFence);
+	VULKANRHI_API void SubmitUploadCmdBuffer(uint32 NumSignalSemaphore, VkSemaphore* Semaphores, bool bWaitForFence);
+
 	void SubmitActiveCmdBuffer(bool bWaitForFence);
 
 	void WaitForCmdBuffer(FVulkanCmdBuffer* CmdBuffer, float TimeInSecondsToWait = 1.0f);

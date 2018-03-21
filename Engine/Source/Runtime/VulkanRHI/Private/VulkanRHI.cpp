@@ -15,6 +15,8 @@
 #include "GenericPlatform/GenericPlatformDriver.h"
 #include "Modules/ModuleManager.h"
 #include "VulkanPipelineState.h"
+#include "Misc/CoreDelegates.h"
+#include "VulkanPlatform.h"
 
 #if VULKAN_ENABLE_DESKTOP_HMD_SUPPORT
 #include "Runtime/HeadMountedDisplay/Public/IHeadMountedDisplayModule.h"
@@ -32,6 +34,7 @@ static_assert(VK_API_VERSION >= UE_VK_API_VERSION, "Vulkan SDK is older than the
 #if defined(VK_HEADER_VERSION) && VK_HEADER_VERSION < 8 && (VK_API_VERSION < VK_MAKE_VERSION(1, 0, 3))
 	#include <vulkan/vk_ext_debug_report.h>
 #endif
+
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -262,6 +265,42 @@ FVulkanCommandListContext::FVulkanCommandListContext(FVulkanDynamicRHI* InRHI, F
 #endif
 #endif
 	UniformBufferUploader = new FVulkanUniformBufferUploader(Device, VULKAN_UB_RING_BUFFER_SIZE);
+
+#if 0
+	FCoreDelegates::OnGetOnScreenMessages.AddLambda([this](TMultiMap<FCoreDelegates::EOnScreenMessageSeverity, FText >& OutMessages)
+	{
+		OutMessages.Add(FCoreDelegates::EOnScreenMessageSeverity::Info, FText::FromString(FString::Printf(TEXT("Instrumented Vulkan Memory: Used: %.2f K, LargestAlloc: %.2f K, NumAllocations: %d"), 
+			GVulkanInstrumentedMemMgr.UsedMemory / 1024.0f, GVulkanInstrumentedMemMgr.MaxAllocSize / 1024.0f, GVulkanInstrumentedMemMgr.Allocs.Num())));
+
+		int32 MaxAllocatedTypes[VK_DESCRIPTOR_TYPE_RANGE_SIZE];
+		int32 NumAllocatedTypes[VK_DESCRIPTOR_TYPE_RANGE_SIZE];
+		int32 PeakAllocatedTypes[VK_DESCRIPTOR_TYPE_RANGE_SIZE];
+		FMemory::Memzero(MaxAllocatedTypes);
+		FMemory::Memzero(NumAllocatedTypes);
+		FMemory::Memzero(PeakAllocatedTypes);
+
+		for (auto Pool : DescriptorPools)
+		{
+			for (int32 i = 0; i < VK_DESCRIPTOR_TYPE_RANGE_SIZE; i++)
+			{
+				MaxAllocatedTypes[i] += Pool->MaxAllocatedTypes[i];
+				NumAllocatedTypes[i] += Pool->NumAllocatedTypes[i];
+				PeakAllocatedTypes[i] += Pool->PeakAllocatedTypes[i];
+			}
+		}
+		OutMessages.Add(FCoreDelegates::EOnScreenMessageSeverity::Info, FText::FromString(FString::Printf(TEXT("DescriptorPools.Num() = %d"), DescriptorPools.Num())));
+		for (int32 i = 0; i < VK_DESCRIPTOR_TYPE_RANGE_SIZE; i++)
+		{
+			if (NumAllocatedTypes[i] == 0)
+			{
+				continue;
+			}
+			int32 FirstPoolMax = DescriptorPools[0]->MaxAllocatedTypes[i];
+			OutMessages.Add(FCoreDelegates::EOnScreenMessageSeverity::Info, FText::FromString(FString::Printf(TEXT("  Total MaxAllocatedTypes[%d] = %d"), i, MaxAllocatedTypes[i])));
+			OutMessages.Add(FCoreDelegates::EOnScreenMessageSeverity::Info, FText::FromString(FString::Printf(TEXT("  Total NumAllocatedTypes[%d] = %d / %d"), i, NumAllocatedTypes[i], FirstPoolMax)));
+		}
+	});
+#endif
 }
 
 FVulkanCommandListContext::~FVulkanCommandListContext()
@@ -328,11 +367,11 @@ void FVulkanDynamicRHI::Init()
 {
 	if (!FVulkanPlatform::LoadVulkanLibrary())
 	{
-#if PLATFORM_LINUX
+#if PLATFORM_UNIX
 		// be more verbose on Linux
 		FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, *LOCTEXT("UnableToInitializeVulkanLinux", "Unable to load Vulkan library and/or acquire the necessary function pointers. Make sure an up-to-date libvulkan.so.1 is installed.").ToString(),
 									 *LOCTEXT("UnableToInitializeVulkanLinuxTitle", "Unable to initialize Vulkan.").ToString());
-#endif // PLATFORM_LINUX
+#endif // PLATFORM_UNIX
 		UE_LOG(LogVulkanRHI, Fatal, TEXT("Failed to find all required Vulkan entry points; make sure your driver supports Vulkan!"));
 	}
 
@@ -516,6 +555,28 @@ void FVulkanDynamicRHI::CreateInstance()
 #endif
 }
 
+//#todo-rco: Common RHI should handle this...
+static inline int32 PreferAdapterVendor()
+{
+	if (FParse::Param(FCommandLine::Get(), TEXT("preferAMD")))
+	{
+		return 0x1002;
+	}
+
+	if (FParse::Param(FCommandLine::Get(), TEXT("preferIntel")))
+	{
+		return 0x8086;
+	}
+
+	if (FParse::Param(FCommandLine::Get(), TEXT("preferNvidia")))
+	{
+		return 0x10DE;
+	}
+
+	return -1;
+}
+
+
 void FVulkanDynamicRHI::InitInstance()
 {
 	check(IsInGameThread());
@@ -555,8 +616,12 @@ void FVulkanDynamicRHI::InitInstance()
 			FVulkanDevice* HmdDevice = nullptr;
 			uint32 HmdDeviceIndex = 0;
 #endif
-			FVulkanDevice* DiscreteDevice = nullptr;
-			uint32 DiscreteDeviceIndex = 0;
+			struct FDiscreteDevice
+			{
+				FVulkanDevice* Device;
+				uint32 DeviceIndex;
+			};
+			TArray<FDiscreteDevice> DiscreteDevices;
 
 			UE_LOG(LogVulkanRHI, Display, TEXT("Found %d device(s)"), GpuCount);
 			for (uint32 Index = 0; Index < GpuCount; ++Index)
@@ -575,15 +640,13 @@ void FVulkanDynamicRHI::InitInstance()
 					HmdDeviceIndex = Index;
 				}
 #endif
-
-				if (!DiscreteDevice && bIsDiscrete)
+				if (bIsDiscrete)
 				{
-					DiscreteDevice = NewDevice;
-					DiscreteDeviceIndex = Index;
+					DiscreteDevices.Add({NewDevice, Index});
 				}
 			}
 
-			uint32 DeviceIndex;
+			uint32 DeviceIndex = -1;
 
 #if VULKAN_ENABLE_DESKTOP_HMD_SUPPORT
 			if (HmdDevice)
@@ -593,10 +656,27 @@ void FVulkanDynamicRHI::InitInstance()
 			} 
 			else
 #endif
-			if (DiscreteDevice)
+			if (DiscreteDevices.Num() > 0)
 			{
-				Device = DiscreteDevice;
-				DeviceIndex = DiscreteDeviceIndex;
+				if (DiscreteDevices.Num() > 1)
+				{
+					// Check for preferred
+					for (int32 Index = 0; Index < DiscreteDevices.Num(); ++Index)
+					{
+						if (DiscreteDevices[Index].Device->GpuProps.vendorID == PreferAdapterVendor())
+						{
+							DeviceIndex = DiscreteDevices[Index].DeviceIndex;
+							Device = DiscreteDevices[Index].Device;
+							break;
+						}
+					}
+				}
+
+				if (DeviceIndex == -1)
+				{
+					Device = DiscreteDevices[0].Device;
+					DeviceIndex = DiscreteDevices[0].DeviceIndex;
+				}
 			}
 			else
 			{
@@ -676,7 +756,7 @@ void FVulkanDynamicRHI::InitInstance()
 		GRHISupportsBaseVertexIndex = true;
 		GSupportsSeparateRenderTargetBlendState = true;
 
-		GSupportsDepthFetchDuringDepthTest = !PLATFORM_ANDROID;
+		GSupportsDepthFetchDuringDepthTest = FVulkanPlatform::SupportsDepthFetchDuringDepthTest();
 
 		GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES2] = GMaxRHIFeatureLevel == ERHIFeatureLevel::ES2 ? GMaxRHIShaderPlatform : SP_NumPlatforms;
 		GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES3_1] = GMaxRHIFeatureLevel == ERHIFeatureLevel::ES3_1 ? GMaxRHIShaderPlatform : SP_NumPlatforms;

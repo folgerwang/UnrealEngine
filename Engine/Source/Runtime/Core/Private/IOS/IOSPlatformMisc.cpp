@@ -718,6 +718,12 @@ FString FIOSPlatformMisc::GetCPUBrand()
 	return GetIOSDeviceIDString();
 }
 
+const FName& FIOSPlatformMisc::GetDefaultOnlineSubsystemName()
+{
+	static FName OSSName = IOS_SUBSYSTEM;
+	return OSSName;
+}
+
 void FIOSPlatformMisc::GetOSVersions(FString& out_OSVersionLabel, FString& out_OSSubVersionLabel)
 {
 #if PLATFORM_TVOS

@@ -599,6 +599,167 @@ inline FVulkanTextureBase* GetVulkanTextureFromRHITexture(FRHITexture* Texture)
 	}
 }
 
+#if VULKAN_USE_NEW_QUERIES
+extern FCriticalSection GOcclusionQueryCS;
+class FVulkanQueryPool : public VulkanRHI::FDeviceChild
+{
+public:
+	FVulkanQueryPool(FVulkanDevice* InDevice, uint32 InMaxQueries, VkQueryType InQueryType);
+	virtual ~FVulkanQueryPool();
+
+	inline uint32 GetMaxQueries() const
+	{
+		return MaxQueries;
+	}
+
+	int32 AllocateQuery();
+
+	inline uint32 GetNumAllocatedQueries() const
+	{
+		return NumUsedQueries;
+	}
+
+	void ResetAll(FVulkanCmdBuffer* InCmdBuffer);
+
+	inline VkQueryPool GetHandle() const
+	{
+		return QueryPool;
+	}
+
+protected:
+	VkQueryPool QueryPool;
+	int32 NumUsedQueries = 0;
+	const uint32 MaxQueries;
+	const VkQueryType QueryType;
+	TArray<uint64> QueryOutput;
+
+	VkResult InternalGetQueryPoolResults(uint32 FirstQuery, uint32 NumQueries, VkQueryResultFlags ExtraFlags);
+
+	inline VkResult InternalGetQueryPoolResults(VkQueryResultFlags ExtraFlags)
+	{
+		return InternalGetQueryPoolResults(0, NumUsedQueries, ExtraFlags);
+	}
+
+	friend class FVulkanDevice;
+};
+
+class FVulkanOcclusionQueryPool : public FVulkanQueryPool
+{
+public:
+	FVulkanOcclusionQueryPool(FVulkanDevice* InDevice, uint32 InMaxQueries)
+		: FVulkanQueryPool(InDevice, InMaxQueries, VK_QUERY_TYPE_OCCLUSION)
+	{
+	}
+
+	void SetFence(FVulkanCmdBuffer* InCmdBuffer);
+
+	bool GetResults(uint32 QueryIndex, bool bWait, uint64& OutResults)
+	{
+		if (bHasResults || GetAllResults(bWait))
+		{
+			OutResults = QueryOutput[QueryIndex];
+			return true;
+		}
+
+		return false;
+	}
+
+	void Reset(FVulkanCmdBuffer* InCmdBuffer);
+
+protected:
+	FVulkanCmdBuffer* CmdBuffer = nullptr;
+	uint64 FenceCounter = UINT32_MAX;
+
+	bool bHasResults = false;
+	bool GetAllResults(bool bWait);
+
+	friend class FVulkanDynamicRHI;
+	friend class FVulkanCommandListContext;
+};
+
+class FVulkanTimestampQueryPool : public FVulkanQueryPool
+{
+public:
+	FVulkanTimestampQueryPool(FVulkanDevice* InDevice, uint32 InMaxQueries)
+		: FVulkanQueryPool(InDevice, InMaxQueries, VK_QUERY_TYPE_TIMESTAMP)
+	{
+		//const uint32 ElementSize = sizeof(decltype(HasResultsMask)::ElementType);
+		//HasResultsMask.AddZeroed((InMaxQueries + (ElementSize - 1)) / ElementSize);
+	}
+
+	bool GetResults(uint32 QueryIndex, bool bWait, uint64& OutResults);
+/*
+	{
+		uint32 Word = QueryIndex / 64;
+		uint64 Bit = (uint64)1 << (uint64)(QueryIndex % 64);
+		if ((HasResultsMask[Word] & Bit) == Bit || GetResults(QueryIndex, Word, Bit, bWait, OutResults))
+		{
+			OutResults = QueryOutput[QueryIndex];
+			return true;
+		}
+
+		return false;
+	}
+*/
+
+protected:
+	//TArray<uint64> HasResultsMask;
+	//uint32 LastPresentAllocation = 0;
+
+	//bool GetResults(uint32 QueryIndex, uint32 Word, uint32 Bit, bool bWait, uint64& OutResults);
+
+	friend class FVulkanDevice;
+	friend class FVulkanGPUTiming;
+};
+
+class FVulkanRenderQuery : public FRHIRenderQuery
+{
+public:
+	FVulkanRenderQuery(FVulkanDevice* Device, ERenderQueryType InQueryType);
+	virtual ~FVulkanRenderQuery();
+
+	inline bool HasQueryBeenEmitted() const
+	{
+		return State == EState::InEnd;
+	}
+
+	//uint64 FrameCounter = 0;
+
+private:
+	int32 QueryIndex = INT32_MAX;
+
+	const ERenderQueryType QueryType;
+
+	FVulkanCmdBuffer* BeginCmdBuffer = nullptr;
+
+	friend class FVulkanDynamicRHI;
+	friend class FVulkanCommandListContext;
+	friend class FVulkanGPUTiming;
+
+	FVulkanQueryPool* Pool = nullptr;
+	enum class EState
+	{
+		Reset,
+		InBegin,
+		InEnd,
+		HasResults,
+	};
+	EState State = EState::Reset;
+	uint64 Result = 0;
+
+	void Reset(FVulkanQueryPool* InPool, int32 InQueryIndex)
+	{
+		QueryIndex = InQueryIndex;
+		Pool = InPool;
+		State = EState::Reset;
+	}
+	void Begin(FVulkanCmdBuffer* InCmdBuffer);
+	void End(FVulkanCmdBuffer* InCmdBuffer);
+
+	bool GetResult(FVulkanDevice* Device, uint64& OutResult, bool bWait);
+};
+
+#else
 class FOLDVulkanQueryPool : public VulkanRHI::FDeviceChild
 {
 public:
@@ -785,6 +946,7 @@ private:
 
 	bool GetResult(FVulkanDevice* Device, uint64& Result, bool bWait);
 };
+#endif
 
 struct FVulkanBufferView : public FRHIResource, public VulkanRHI::FDeviceChild
 {
@@ -1302,11 +1464,19 @@ struct TVulkanResourceTraits<FRHITextureCube>
 {
 	typedef FVulkanTextureCube TConcreteType;
 };
+#if VULKAN_USE_NEW_QUERIES
+template<>
+struct TVulkanResourceTraits<FRHIRenderQuery>
+{
+	typedef FVulkanRenderQuery TConcreteType;
+};
+#else
 template<>
 struct TVulkanResourceTraits<FRHIRenderQuery>
 {
 	typedef FOLDVulkanRenderQuery TConcreteType;
 };
+#endif
 template<>
 struct TVulkanResourceTraits<FRHIUniformBuffer>
 {

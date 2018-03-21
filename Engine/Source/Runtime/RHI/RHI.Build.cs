@@ -27,7 +27,7 @@ public class RHI : ModuleRules
 
 				if ((Target.Platform == UnrealTargetPlatform.Win64) ||
 					(Target.Platform == UnrealTargetPlatform.Win32) ||
-					(Target.Platform == UnrealTargetPlatform.Linux && Target.Architecture.StartsWith("x86_64")))	// temporary, not all archs can support Vulkan atm
+					(Target.IsInPlatformGroup(UnrealPlatformGroup.Unix) && Target.Architecture.StartsWith("x86_64")))	// temporary, not all archs can support Vulkan atm
 				{
 					DynamicallyLoadedModuleNames.Add("VulkanRHI");
 				}

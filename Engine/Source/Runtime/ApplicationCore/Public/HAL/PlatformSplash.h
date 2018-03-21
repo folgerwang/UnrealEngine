@@ -21,4 +21,6 @@
 #include "Linux/LinuxPlatformSplash.h"
 #elif PLATFORM_SWITCH
 #include "Switch/SwitchPlatformSplash.h"
+#else
+#error Unknown platform
 #endif

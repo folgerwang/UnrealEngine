@@ -28,12 +28,12 @@ const FPoolDesc& FGenericPlatformMallocCrash::GetPoolDesc( uint32 Index ) const
 	#error NUM_ALLOCS_MODIFIER already defined
 #endif // NUM_ALLOCS_MODIFIER
 
-#if PLATFORM_LINUX
+#if PLATFORM_UNIX
 	// Linux crash handling exhausts some of pools sometimes
 	#define NUM_ALLOCS_MODIFIER		2
 #else
 	#define NUM_ALLOCS_MODIFIER		1
-#endif // PLATFORM_LINUX
+#endif // PLATFORM_UNIX
 
 	static const FPoolDesc AllPoolDesc[NUM_POOLS]=
 	{

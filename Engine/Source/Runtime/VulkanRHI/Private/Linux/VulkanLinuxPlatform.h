@@ -10,7 +10,11 @@
 #define VULKAN_SIGNAL_UNIMPLEMENTED()				checkf(false, TEXT("Unimplemented vulkan functionality: %s"), __PRETTY_FUNCTION__)
 
 
-// this will get the vulkan function signatures 
+#define ENUM_VK_ENTRYPOINTS_PLATFORM_BASE(EnumMacro) \
+	EnumMacro(PFN_vkGetPhysicalDeviceProperties2KHR, vkGetPhysicalDeviceProperties2KHR)
+
+#define ENUM_VK_ENTRYPOINTS_PLATFORM_INSTANCE(EnumMacro)
+
 #include "../VulkanLoader.h"
 
 // and now, include the GenericPlatform class

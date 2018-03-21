@@ -33,11 +33,6 @@ public class libWebSockets : ModuleRules
 			PublicAdditionalLibraries.Add(Path.Combine(WebsocketPath, "lib", Target.Platform.ToString(), ConfigurationSubdir, "libwebsockets.a"));
 			break;
 
-		case UnrealTargetPlatform.Linux:
-			PlatformSubdir = Path.Combine(PlatformSubdir, Target.Architecture);
-			PublicAdditionalLibraries.Add(Path.Combine(WebsocketPath, "lib", PlatformSubdir, ConfigurationSubdir, "libwebsockets.a"));
-			break;
-
 		case UnrealTargetPlatform.Android:
 		    PublicIncludePaths.Add(Path.Combine(WebsocketPath, "include", PlatformSubdir, "ARMv7"));
 			PublicLibraryPaths.Add(Path.Combine(WebsocketPath, "lib", Target.Platform.ToString(), "ARMv7", ConfigurationSubdir));
@@ -50,6 +45,12 @@ public class libWebSockets : ModuleRules
 			PublicAdditionalLibraries.Add("websockets");
 			break;
         default:
+			if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
+			{
+				PlatformSubdir = "Linux/" + Target.Architecture;
+				PublicAdditionalLibraries.Add(Path.Combine(WebsocketPath, "lib", PlatformSubdir, ConfigurationSubdir, "libwebsockets.a"));
+				break;
+			}
 			return;
 		}
 

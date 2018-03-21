@@ -30,7 +30,7 @@ PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 	#elif PLATFORM_32BITS
 		#pragma pack(push,8)
 	#endif
-#elif PLATFORM_LINUX
+#elif PLATFORM_UNIX
 	#if (PLATFORM_CPU_X86_FAMILY && !PLATFORM_64BITS)
 		#pragma pack(push,16)
 	#endif
@@ -102,7 +102,7 @@ THIRD_PARTY_INCLUDES_END
 	#elif PLATFORM_32BITS
 		#pragma pack(pop)
 	#endif
-#elif PLATFORM_LINUX
+#elif PLATFORM_UNIX
 	#if (PLATFORM_CPU_X86_FAMILY && !PLATFORM_64BITS)
 		#pragma pack(pop)
 	#endif

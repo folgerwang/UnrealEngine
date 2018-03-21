@@ -262,7 +262,7 @@ public class Engine : ModuleRules
 					}
 				);
 			}
-			else if (Target.Platform == UnrealTargetPlatform.Linux)
+			else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 			{
 				DynamicallyLoadedModuleNames.AddRange(
 					new string[] {
@@ -406,7 +406,7 @@ public class Engine : ModuleRules
             PrivateDependencyModuleNames.Add("IOSRuntimeSettings");
         }
 
-		if (Target.Platform == UnrealTargetPlatform.Linux)
+		if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"UEOgg",

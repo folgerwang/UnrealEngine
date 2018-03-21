@@ -1454,8 +1454,30 @@ void FSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate& RHICmdList, b
 			// Depth tests, no depth writes, no color writes, opaque
 			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI();
 			
-			RHICmdList.BeginOcclusionQueryBatch();
-			
+			int32 NumQueriesForBatch = 0;
+			{
+				for(int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+				{
+					FViewOcclusionQueries& ViewQuery = ViewQueries[ViewIndex];
+					NumQueriesForBatch += ViewQuery.PointLightQueries.Num();
+					NumQueriesForBatch += ViewQuery.CSMQueries.Num();
+					NumQueriesForBatch += ViewQuery.ShadowQueries.Num();
+					NumQueriesForBatch += ViewQuery.ReflectionQueries.Num();
+
+					FViewInfo& View = Views[ViewIndex];
+					FSceneViewState* ViewState = (FSceneViewState*) View.State;
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+					if(!ViewState->HasViewParent() && !ViewState->bIsFrozen)
+#endif
+					{
+						NumQueriesForBatch += View.IndividualOcclusionQueries.GetQueriesNum();
+						NumQueriesForBatch += View.GroupedOcclusionQueries.GetQueriesNum();
+					}
+				}
+			}
+
+			RHICmdList.BeginOcclusionQueryBatch(NumQueriesForBatch);
+
 			for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 			{
 				SCOPED_DRAW_EVENTF(RHICmdList, ViewOcclusionTests, TEXT("ViewOcclusionTests %d"), ViewIndex);

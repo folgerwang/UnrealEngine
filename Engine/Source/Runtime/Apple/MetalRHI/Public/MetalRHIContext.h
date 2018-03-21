@@ -60,7 +60,7 @@ public:
 	
 	virtual void RHIEndRenderQuery(FRenderQueryRHIParamRef RenderQuery) final override;
 	
-	virtual void RHIBeginOcclusionQueryBatch() final override;
+	virtual void RHIBeginOcclusionQueryBatch(uint32 NumQueriesInBatch) final override;
 	
 	virtual void RHIEndOcclusionQueryBatch() final override;
 	

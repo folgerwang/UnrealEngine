@@ -352,7 +352,10 @@ public:
 				}
 			}
 
-			return (bWasHandled ? FReply::Handled() : FReply::Unhandled());
+			if (bWasHandled)
+			{
+				return FReply::Handled();
+			}
 		}
 
 		return STableViewBase::OnKeyDown(MyGeometry, InKeyEvent);

@@ -2,6 +2,7 @@
 
 #include "PlatformInfo.h"
 #include "DesktopPlatformPrivate.h"
+#include "Misc/DataDrivenPlatformInfoRegistry.h"
 
 #define LOCTEXT_NAMESPACE "PlatformInfo"
 
@@ -196,7 +197,7 @@ FPlatformEnumerator EnumeratePlatformInfoArray(bool bAccessiblePlatformsOnly)
 		{
 			FPlatformEnumerator Enumerator(AllPlatformInfoArray, ARRAY_COUNT(AllPlatformInfoArray));
 
-			const TArray<FString>& ConfidentalPlatforms = FPlatformMisc::GetConfidentialPlatforms();
+			const TArray<FString>& ConfidentalPlatforms = FDataDrivenPlatformInfoRegistry::GetConfidentialPlatforms();
 
 			for (const FPlatformInfo& PlatformInfo : Enumerator)
 			{

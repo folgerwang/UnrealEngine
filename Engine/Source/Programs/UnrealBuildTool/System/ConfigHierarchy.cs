@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Tools.DotNETCommon;
+using System.IO;
 
 namespace UnrealBuildTool
 {
@@ -706,6 +707,7 @@ namespace UnrealBuildTool
 		{
 			string BaseIniName = Enum.GetName(typeof(ConfigHierarchyType), Type);
 			string PlatformName = GetIniPlatformName(Platform);
+			string PlatformParentName = GetIniPlatformParentName(PlatformName);
 
 			// Engine/Config/Base.ini (included in every ini type, required)
 			yield return FileReference.Combine(UnrealBuildTool.EngineDirectory, "Config", "Base.ini");
@@ -713,6 +715,11 @@ namespace UnrealBuildTool
 			// Engine/Config/Base* ini
 			yield return FileReference.Combine(UnrealBuildTool.EngineDirectory, "Config", "Base" + BaseIniName + ".ini");
 
+			if (PlatformParentName != "")
+			{
+				// Engine/Config/Platform/BasePlatform* ini
+				yield return FileReference.Combine(UnrealBuildTool.EngineDirectory, "Config", PlatformParentName, "Base" + PlatformParentName + BaseIniName + ".ini");
+			}
 			if (Platform != UnrealTargetPlatform.Unknown)
 			{
 				// Engine/Config/Platform/BasePlatform* ini
@@ -736,6 +743,30 @@ namespace UnrealBuildTool
 
 				// Game/Config/NoRedist/Default* ini
 				yield return FileReference.Combine(ProjectDir, "Config", "NoRedist", "Default" + BaseIniName + ".ini");
+			}
+
+			if (PlatformParentName != "")
+			{
+				// Engine/Config/Platform/Platform* ini
+				yield return FileReference.Combine(UnrealBuildTool.EngineDirectory, "Config", PlatformParentName, PlatformParentName + BaseIniName + ".ini");
+
+				// Engine/Config/NotForLicensees/Platform/Platform* ini
+				yield return FileReference.Combine(UnrealBuildTool.EngineDirectory, "Config", "NotForLicensees", PlatformParentName, PlatformParentName + BaseIniName + ".ini");
+
+				// Engine/Config/NoRedist/Platform/Platform* ini
+				yield return FileReference.Combine(UnrealBuildTool.EngineDirectory, "Config", "NoRedist", PlatformParentName, PlatformParentName + BaseIniName + ".ini");
+
+				if (ProjectDir != null)
+				{
+					// Game/Config/Platform/Platform* ini
+					yield return FileReference.Combine(ProjectDir, "Config", PlatformParentName, PlatformParentName + BaseIniName + ".ini");
+
+					// Engine/Config/NotForLicensees/Platform/Platform* ini
+					yield return FileReference.Combine(ProjectDir, "Config", "NotForLicensees", PlatformParentName, PlatformParentName + BaseIniName + ".ini");
+
+					// Engine/Config/NoRedist/Platform/Platform* ini
+					yield return FileReference.Combine(ProjectDir, "Config", "NoRedist", PlatformParentName, PlatformParentName + BaseIniName + ".ini");
+				}
 			}
 
 			if (Platform != UnrealTargetPlatform.Unknown)
@@ -811,6 +842,15 @@ namespace UnrealBuildTool
 			{
 				return Enum.GetName(typeof(UnrealTargetPlatform), TargetPlatform);
 			}
+		}
+
+		/// <summary>
+		/// Returns the ConfigDataDrivenPlatformInfo for the given platform, or null if nothing was found
+		/// </summary>
+		public static string GetIniPlatformParentName(string IniPlatformName)
+		{
+			DataDrivenPlatformInfo.ConfigDataDrivenPlatformInfo Info = DataDrivenPlatformInfo.GetDataDrivenInfoForPlatform(IniPlatformName);
+			return (Info == null) ? "" : Info.IniParent;
 		}
 	}
 }

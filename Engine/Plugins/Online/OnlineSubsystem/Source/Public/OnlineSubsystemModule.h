@@ -55,6 +55,11 @@ private:
 	/**
 	 * Attempt to load the default subsystem specified in the configuration file
 	 */
+	bool TryLoadSubsystemAndSetDefault(FName ModuleName);
+
+	/**
+	 * Attempt to load the default subsystem specified in the configuration file
+	 */
 	void LoadDefaultSubsystem();
 
 	/**

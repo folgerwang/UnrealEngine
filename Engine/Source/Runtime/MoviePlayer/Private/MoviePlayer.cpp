@@ -121,9 +121,13 @@ IGameMoviePlayer& GetMoviePlayerRef()
 bool IsMoviePlayerEnabled()
 {
 	bool bEnabled = !GIsEditor && !IsRunningDedicatedServer() && !IsRunningCommandlet() && GUseThreadedRendering;
-	
+
 #if !UE_BUILD_SHIPPING
 	bEnabled &= !FParse::Param(FCommandLine::Get(), TEXT("NoLoadingScreen"));
+#endif
+
+#if PLATFORM_UNIX
+	bEnabled = false;
 #endif
 
 	return bEnabled;

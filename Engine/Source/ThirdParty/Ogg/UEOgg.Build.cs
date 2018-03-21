@@ -70,7 +70,7 @@ public class UEOgg : ModuleRules
 
 			PublicAdditionalLibraries.Add("ogg");
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			if (Target.LinkType == TargetLinkType.Monolithic)
 			{

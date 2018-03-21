@@ -88,40 +88,46 @@ void FOnlineSubsystemModule::ShutdownModule()
 	ShutdownOnlineSubsystem();
 }
 
+bool FOnlineSubsystemModule::TryLoadSubsystemAndSetDefault(FName ModuleName)
+{
+	// A module loaded with its factory method set for creation and a default instance of the online subsystem is required
+	if ((LoadSubsystemModule(ModuleName.ToString()) &&
+		OnlineFactories.Contains(ModuleName) &&
+		GetOnlineSubsystem(ModuleName) != NULL))
+	{
+		DefaultPlatformService = ModuleName;
+		return true;
+	}
+
+	return false;
+}
+
 void FOnlineSubsystemModule::LoadDefaultSubsystem()
 {
 	FString InterfaceString;
+	GConfig->GetString(TEXT("OnlineSubsystem"), TEXT("DefaultPlatformService"), InterfaceString, GEngineIni);
 
-	// Load the platform defined "default" online services module
-	if (GConfig->GetString(TEXT("OnlineSubsystem"), TEXT("DefaultPlatformService"), InterfaceString, GEngineIni) &&
-		InterfaceString.Len() > 0)
+	bool bHasLoadedModule = false;
+	if (InterfaceString.Len() > 0)
 	{
-		FName InterfaceName = FName(*InterfaceString);
-		// A module loaded with its factory method set for creation and a default instance of the online subsystem is required
-		if (LoadSubsystemModule(InterfaceString) &&
-			OnlineFactories.Contains(InterfaceName) &&
-			GetOnlineSubsystem(InterfaceName) != NULL)
-		{
-			DefaultPlatformService = InterfaceName;
-		}
-		else
-		{
-			UE_LOG(LogOnline, Log, TEXT("Unable to load default OnlineSubsystem module %s, using NULL interface"), *InterfaceString);
-			InterfaceString = TEXT("Null");
-			InterfaceName = FName(*InterfaceString);
-
-			// A module loaded with its factory method set for creation and a default instance of the online subsystem is required
-			if (LoadSubsystemModule(InterfaceString) &&
-				OnlineFactories.Contains(InterfaceName) &&
-				GetOnlineSubsystem(InterfaceName) != NULL)
-			{
-				DefaultPlatformService = InterfaceName;
-			}
-		}
+		bHasLoadedModule = TryLoadSubsystemAndSetDefault(FName(*InterfaceString));
 	}
-	else
+
+	// if the above failed, then attempt the platform's default
+	if (!bHasLoadedModule)
 	{
-		UE_LOG(LogOnline, Log, TEXT("No default platform service specified for OnlineSubsystem"));
+		bHasLoadedModule = TryLoadSubsystemAndSetDefault(FPlatformMisc::GetDefaultOnlineSubsystemName());
+	}
+
+	// if all else fails, attempt to load Null
+	if (!bHasLoadedModule)
+	{
+		bHasLoadedModule = TryLoadSubsystemAndSetDefault(NULL_SUBSYSTEM);
+	}
+
+	if (!bHasLoadedModule)
+	{
+		UE_LOG(LogOnline, Log, TEXT("Failed to load any Online Subsystem Modules"));
 	}
 }
 

@@ -237,9 +237,6 @@ chmod +x {0}
 		}
 	}
 
-	// -abslog only makes sense when running on the native platform and not remotely
-	public override bool UseAbsLog { get { return BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux; } }
-
 	public override void Package(ProjectParams Params, DeploymentContext SC, int WorkingCL)
 	{
 		// package up the program

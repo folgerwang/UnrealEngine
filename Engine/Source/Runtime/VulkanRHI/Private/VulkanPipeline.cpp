@@ -12,6 +12,10 @@
 #include "VulkanPendingState.h"
 #include "VulkanContext.h"
 #include "GlobalShader.h"
+#include "HAL/Runnable.h"
+#include "HAL/RunnableThread.h"
+#include "Misc/CoreDelegates.h"
+#include "UnrealEngine.h"
 
 static const double HitchTime = 1.0 / 1000.0;
 
@@ -45,6 +49,44 @@ static inline FSHAHash GetShaderHashForStage(const FGraphicsPipelineStateInitial
 	FSHAHash Dummy;
 	return Dummy;
 }
+
+
+struct FVulkanAsyncPSOLoadThread : public FRunnable
+{
+	FRunnableThread* Thread = nullptr;
+	FCriticalSection ThreadPtrDeleteLock;
+	TArray<FString> CacheFilenames;
+	FVulkanPipelineStateCache* PipelineStateCache;
+	FVulkanAsyncPSOLoadThread(const TArray<FString>& InCacheFilenames, FVulkanPipelineStateCache* InPipelineStateCache)
+		: CacheFilenames(InCacheFilenames)
+		, PipelineStateCache(InPipelineStateCache)
+	{
+		Thread = FRunnableThread::Create(this, TEXT("VulkanPSOLoading"), 0, FPlatformAffinity::GetRenderingThreadPriority(), FPlatformAffinity::GetPoolThreadMask());
+		check(Thread);
+	}
+
+	virtual ~FVulkanAsyncPSOLoadThread()
+	{
+		WaitForCompletion();
+	}
+
+	virtual uint32 Run() override final
+	{
+		FVulkanPipelineStateCache::LoadCacheFiles(PipelineStateCache, CacheFilenames);
+		return 0;
+	}
+
+	void WaitForCompletion()
+	{
+		FScopeLock Lock(&ThreadPtrDeleteLock);
+		if (Thread)
+		{
+			Thread->WaitForCompletion();
+			delete Thread;
+			Thread = nullptr;
+		}
+	}
+};
 
 FVulkanPipeline::FVulkanPipeline(FVulkanDevice* InDevice)
 	: Device(InDevice)
@@ -127,10 +169,24 @@ FVulkanPipelineStateCache::FVulkanPipelineStateCache(FVulkanDevice* InDevice)
 	: Device(InDevice)
 	, PipelineCache(VK_NULL_HANDLE)
 {
+
+	NumShaderCompiles = 0;
+	FCoreDelegates::OnGetOnScreenMessages.AddLambda([this](TMultiMap<FCoreDelegates::EOnScreenMessageSeverity, FText >& OutMessages)
+	{
+		FScopeLock Lock(&CompileTimeCS);
+		if (NumShaderCompiles)
+		{
+			GEngine->AddOnScreenDebugMessage(FPlatformMath::Rand(), 2.0f, FColor::Red, FString::Printf(TEXT("Compiled %d shaders, in %.2fms!"), NumShaderCompiles, (float)(ShaderCompileTime * 1000.0)));
+			NumShaderCompiles = 0;
+			ShaderCompileTime = 0;
+		}
+	});
 }
 
 FVulkanPipelineStateCache::~FVulkanPipelineStateCache()
 {
+	delete Loader;
+
 	DestroyCache();
 
 	// Only destroy layouts when quitting
@@ -143,8 +199,9 @@ FVulkanPipelineStateCache::~FVulkanPipelineStateCache()
 	PipelineCache = VK_NULL_HANDLE;
 }
 
-void FVulkanPipelineStateCache::Load(const TArray<FString>& CacheFilenames)
+void FVulkanPipelineStateCache::InternalLoadCacheFiles(const TArray<FString>& CacheFilenames)
 {
+	// Given a list of filenames, it will only use the first one it fully succeeds.
 	for (const FString& CacheFilename : CacheFilenames)
 	{
 		TArray<uint8> MemFile;
@@ -189,14 +246,7 @@ void FVulkanPipelineStateCache::Load(const TArray<FString>& CacheFilenames)
 				}
 			}
 
-			// Not using TMap::Append to avoid copying duplicate microcode
-			for (auto& Pair : FileShaderCacheData)
-			{
-				if (!ShaderCache.Data.Find(Pair.Key))
-				{
-					ShaderCache.Data.Add(Pair.Key, Pair.Value);
-				}
-			}
+			ShaderCache.Data.Append(FileShaderCacheData);
 
 			double BeginTime = FPlatformTime::Seconds();
 
@@ -284,6 +334,33 @@ void FVulkanPipelineStateCache::Load(const TArray<FString>& CacheFilenames)
 	}
 }
 
+void FVulkanPipelineStateCache::BeginLoad(const TArray<FString>& CacheFilenames)
+{
+	check(!Loader);
+	Loader = new FVulkanAsyncPSOLoadThread(CacheFilenames, this);
+}
+
+FVulkanGraphicsPipelineState* FVulkanPipelineStateCache::FindInRuntimeCache(const FGraphicsPipelineStateInitializer& Initializer, uint32& OutHash)
+{
+	if(Loader)
+	{
+		Loader->WaitForCompletion();
+	}
+
+	OutHash = FCrc::MemCrc32(&Initializer, sizeof(Initializer));
+
+	{
+		FScopeLock Lock(&InitializerToPipelineMapCS);
+		FVulkanGraphicsPipelineState** Found = InitializerToPipelineMap.Find(OutHash);
+		if(Found)
+		{
+			return *Found;
+		}
+	}
+
+	return nullptr;
+}
+
 void FVulkanPipelineStateCache::DestroyPipeline(FVulkanGfxPipeline* Pipeline)
 {
 	ensure(0);
@@ -301,19 +378,19 @@ void FVulkanPipelineStateCache::InitAndLoad(const TArray<FString>& CacheFilename
 	if (GEnablePipelineCacheLoadCvar.GetValueOnAnyThread() == 0)
 	{
 		UE_LOG(LogVulkanRHI, Display, TEXT("Not loading pipeline cache per r.Vulkan.PipelineCacheLoad=0"));
+
+		// Lazily create the cache in case the load failed
+		if (PipelineCache == VK_NULL_HANDLE)
+		{
+			VkPipelineCacheCreateInfo PipelineCacheInfo;
+			FMemory::Memzero(PipelineCacheInfo);
+			PipelineCacheInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+			VERIFYVULKANRESULT(VulkanRHI::vkCreatePipelineCache(Device->GetInstanceHandle(), &PipelineCacheInfo, nullptr, &PipelineCache));
+		}
 	}
 	else
 	{
-		Load(CacheFilenames);
-	}
-
-	// Lazily create the cache in case the load failed
-	if (PipelineCache == VK_NULL_HANDLE)
-	{
-		VkPipelineCacheCreateInfo PipelineCacheInfo;
-		FMemory::Memzero(PipelineCacheInfo);
-		PipelineCacheInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-		VERIFYVULKANRESULT(VulkanRHI::vkCreatePipelineCache(Device->GetInstanceHandle(), &PipelineCacheInfo, nullptr, &PipelineCache));
+		BeginLoad(CacheFilenames);
 	}
 }
 
@@ -375,6 +452,9 @@ FVulkanGraphicsPipelineState* FVulkanPipelineStateCache::CreateAndAdd(const FGra
 	if (Delta > HitchTime)
 	{
 		UE_LOG(LogVulkanRHI, Verbose, TEXT("Hitchy gfx pipeline (%.3f ms)"), (float)(Delta * 1000.0));
+		FScopeLock Lock(&CompileTimeCS);
+		NumShaderCompiles++;
+		ShaderCompileTime += Delta;
 	}
 
 	FVulkanGraphicsPipelineState* PipelineState = new FVulkanGraphicsPipelineState(PSOInitializer, Pipeline);
@@ -1322,7 +1402,10 @@ FGraphicsPipelineStateRHIRef FVulkanDynamicRHI::RHICreateGraphicsPipelineState(c
 
 FVulkanComputePipeline* FVulkanPipelineStateCache::GetOrCreateComputePipeline(FVulkanComputeShader* ComputeShader)
 {
-	FScopeLock ScopeLock(&CreateComputePipelineCS);
+	if (Loader)
+	{
+		Loader->WaitForCompletion();
+	}
 
 	// Fast path, try based on FVulkanComputeShader pointer
 	FVulkanComputePipeline** ComputePipelinePtr = ComputeShaderToPipelineMap.Find(ComputeShader);
@@ -1422,7 +1505,7 @@ FVulkanComputePipeline* FVulkanPipelineStateCache::CreateComputePipelineFromEntr
 	PipelineInfo.stage.pName = "main";
 	PipelineInfo.layout = ComputeEntry->Layout->GetPipelineLayout();
 		
-	VERIFYVULKANRESULT(VulkanRHI::vkCreateComputePipelines(Device->GetInstanceHandle(), VK_NULL_HANDLE, 1, &PipelineInfo, nullptr, &Pipeline->Pipeline));	
+	VERIFYVULKANRESULT(VulkanRHI::vkCreateComputePipelines(Device->GetInstanceHandle(), PipelineCache, 1, &PipelineInfo, nullptr, &Pipeline->Pipeline));	
 
 	Pipeline->Layout = ComputeEntry->Layout;
 

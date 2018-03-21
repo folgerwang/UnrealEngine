@@ -11,6 +11,7 @@ namespace UnrealBuildTool.Rules
 					"SteamVR/Private",
 					"../../../../../Source/Runtime/Renderer/Private",
 					"../../../../../Source/Runtime/VulkanRHI/Private",
+					"../../../../../Source/Runtime/VulkanRHI/Private/" + Target.Platform,
 					// ... add other private include paths required here ...
 				}
 				);

@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Linux/LinuxApplication.h"
+
 #include "HAL/PlatformTime.h"
 #include "Misc/StringUtility.h"
 #include "Misc/ConfigCacheIni.h"
@@ -1079,8 +1080,8 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 						TouchContext->Location = Location;
 						UE_LOG(LogLinuxWindow, Verbose, TEXT("OnTouchMoved at (%f, %f), finger %d (system touch id %llu)"), TouchContext->Location.X, TouchContext->Location.Y, TouchContext->TouchIndex, FingerId);
 						MessageHandler->OnTouchMoved(TouchContext->Location, TouchContext->TouchIndex, 0);// TouchContext->DeviceId);
-					}
-				}
+	}
+}
 			}
 			else
 			{

@@ -23,7 +23,7 @@ void FVideoCaptureProtocol::ConditionallyCreateWriter(const ICaptureProtocolHost
 {
 #if PLATFORM_MAC
 	static const TCHAR* Extension = TEXT(".mov");
-#elif PLATFORM_LINUX
+#elif PLATFORM_UNIX
 	static const TCHAR* Extension = TEXT(".unsupp");
 	UE_LOG(LogInit, Warning, TEXT("Writing movies is not currently supported on Linux"));
 	return;

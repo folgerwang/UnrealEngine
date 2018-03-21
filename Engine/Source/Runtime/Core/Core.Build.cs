@@ -98,13 +98,21 @@ public class Core : ModuleRules
 				"zlib"
 				);
 		}
-        else if ((Target.Platform == UnrealTargetPlatform.Linux))
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
         {
+			PublicIncludePaths.Add(string.Format("Runtime/Core/Public/{0}", Target.Platform.ToString()));
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"zlib",
 				"jemalloc",
 				"elftoolchain"
                 );
+
+			if (Target.Platform == UnrealTargetPlatform.Linux)
+			{
+				AddEngineThirdPartyPrivateStaticDependencies(Target,
+					"SDL2"
+					);
+			}
 
 			// Core uses dlopen()
 			PublicAdditionalLibraries.Add("dl");

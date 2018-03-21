@@ -217,11 +217,9 @@ namespace VulkanRHI
 	{
 		PrintfBegin(FString::Printf(TEXT("vkGetPhysicalDeviceProperties2KHR(PhysicalDevice=%p, Properties=%p)[...]"), PhysicalDevice, Properties));
 #if VULKAN_HAS_PHYSICAL_DEVICE_PROPERTIES2
-		extern PFN_vkGetPhysicalDeviceProperties2KHR GVkGetPhysicalDeviceProperties2KHR;
-		
-		if (GVkGetPhysicalDeviceProperties2KHR != nullptr)
+		if (VULKANAPINAMESPACE::vkGetPhysicalDeviceProperties2KHR != nullptr)
 		{
-			GVkGetPhysicalDeviceProperties2KHR(PhysicalDevice, Properties);
+			VULKANAPINAMESPACE::vkGetPhysicalDeviceProperties2KHR(PhysicalDevice, Properties);
 		}
 #endif
 	}

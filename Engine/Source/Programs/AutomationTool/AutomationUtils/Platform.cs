@@ -422,7 +422,7 @@ namespace AutomationTool
 		/// </summary>
 		public virtual bool UseAbsLog
 		{
-			get { return true; }
+			get { return BuildHostPlatform.Current.Platform == PlatformType; }
 		}
 
 		/// <summary>

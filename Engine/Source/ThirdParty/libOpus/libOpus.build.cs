@@ -45,7 +45,7 @@ public class libOpus : ModuleRules
 			PublicAdditionalLibraries.Add(OpusPath);
 			PublicAdditionalLibraries.Add(SpeexPath);
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
             if (Target.LinkType == TargetLinkType.Monolithic)
             {

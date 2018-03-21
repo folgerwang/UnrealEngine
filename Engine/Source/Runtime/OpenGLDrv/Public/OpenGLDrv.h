@@ -426,7 +426,7 @@ public:
 	virtual void RHICopyToResolveTarget(FTextureRHIParamRef SourceTexture, FTextureRHIParamRef DestTexture, bool bKeepOriginalSurface, const FResolveParams& ResolveParams) final override;
 	virtual void RHIBeginRenderQuery(FRenderQueryRHIParamRef RenderQuery) final override;
 	virtual void RHIEndRenderQuery(FRenderQueryRHIParamRef RenderQuery) final override;
-	virtual void RHIBeginOcclusionQueryBatch() final override;
+	virtual void RHIBeginOcclusionQueryBatch(uint32 NumQueriesInBatch) final override;
 	virtual void RHIEndOcclusionQueryBatch() final override;
 	virtual void RHISubmitCommandsHint() final override;
 	virtual void RHIBeginDrawingViewport(FViewportRHIParamRef Viewport, FTextureRHIParamRef RenderTargetRHI) final override;

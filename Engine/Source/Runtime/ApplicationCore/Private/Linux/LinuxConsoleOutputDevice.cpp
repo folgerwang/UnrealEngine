@@ -10,7 +10,6 @@
 #include "Misc/OutputDeviceHelper.h"
 #include "Misc/CoreDelegates.h"
 #include "Misc/App.h"
-#include "Linux/LinuxApplication.h"
 #include "Linux/LinuxPlatformApplicationMisc.h"
 
 #define CONSOLE_RED		"\x1b[31m"

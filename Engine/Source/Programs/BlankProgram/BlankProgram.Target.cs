@@ -3,6 +3,7 @@
 using UnrealBuildTool;
 using System.Collections.Generic;
 
+[SupportedPlatforms(UnrealPlatformClass.All)]
 public class BlankProgramTarget : TargetRules
 {
 	public BlankProgramTarget(TargetInfo Target) : base(Target)

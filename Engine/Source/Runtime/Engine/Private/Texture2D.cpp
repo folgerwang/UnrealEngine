@@ -837,7 +837,7 @@ FTextureResource* UTexture2D::CreateResource()
 	{
 		if (bFormatNotSupported)
 		{
-			UE_LOG(LogTexture, Error, TEXT("%s is %s which is not supported."), *GetFullName(), GPixelFormats[PixelFormat].Name);
+			UE_LOG(LogTexture, Error, TEXT("%s is %s [raw type %d] which is not supported."), *GetFullName(), GPixelFormats[PixelFormat].Name, static_cast<int32>(PixelFormat));
 		}
 		else if (bNotSupportedByRHI)
 		{

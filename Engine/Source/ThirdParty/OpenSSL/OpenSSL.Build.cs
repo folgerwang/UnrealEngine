@@ -45,7 +45,7 @@ public class OpenSSL : ModuleRules
 			PublicAdditionalLibraries.Add(Path.Combine(LibPath, "libeay" + LibPostfixAndExt));
 			PublicAdditionalLibraries.Add(Path.Combine(LibPath, "ssleay" + LibPostfixAndExt));
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			string platform = "/Linux/" + Target.Architecture;
 			string IncludePath = OpenSSL102hPath + "/include" + platform;

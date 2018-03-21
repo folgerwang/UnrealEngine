@@ -20,10 +20,8 @@ namespace UnrealBuildTool
 		bool bUseLld = false;
 
 		public LinuxToolChain(string InArchitecture)
-			: base(CppPlatform.Linux)
+			: this(CppPlatform.Linux, InArchitecture)
 		{
-			Architecture = InArchitecture;
-
 			if (!CrossCompiling())
 			{
 				// use native linux toolchain
@@ -115,12 +113,19 @@ namespace UnrealBuildTool
 			bUseLld = (CompilerVersionMajor >= 5);
 		}
 
+		public LinuxToolChain(CppPlatform InCppPlatform, string InArchitecture) 
+			: base(InCppPlatform)
+		{
+			Architecture = InArchitecture;
+		}
+
 		protected static bool CrossCompiling()
 		{
 			return BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Linux;
 		}
 
-		protected static bool UsingClang()
+
+		protected virtual bool UsingClang()
 		{
 			return !String.IsNullOrEmpty(ClangPath);
 		}
@@ -148,7 +153,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Queries compiler for the version
 		/// </summary>
-		private bool DetermineCompilerVersion()
+		protected bool DetermineCompilerVersion()
 		{
 			CompilerVersionString = null;
 			CompilerVersionMajor = -1;
@@ -234,7 +239,7 @@ namespace UnrealBuildTool
 			return Result;
 		}
 
-		static string ArchitectureSpecificDefines(string Architecture)
+		protected virtual string ArchitectureSpecificDefines(string Architecture)
 		{
 			string Result = "";
 
@@ -249,7 +254,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Gets architecture-specific ar paths
 		/// </summary>
-		private static string GetArPath(string Architecture)
+		protected virtual string GetArPath(string Architecture)
 		{
 			if (CrossCompiling())
 			{
@@ -262,7 +267,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Gets architecture-specific ranlib paths
 		/// </summary>
-		private static string GetRanlibPath(string Architecture)
+		protected virtual string GetRanlibPath(string Architecture)
 		{
 			if (CrossCompiling())
 			{
@@ -275,7 +280,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Gets architecture-specific strip path
 		/// </summary>
-		private static string GetStripPath(string Architecture)
+		protected virtual string GetStripPath(string Architecture)
 		{
 			if (CrossCompiling())
 			{
@@ -297,7 +302,7 @@ namespace UnrealBuildTool
 			return false;
 		}
 
-		string GetCLArguments_Global(CppCompileEnvironment CompileEnvironment)
+		protected virtual string GetCLArguments_Global(CppCompileEnvironment CompileEnvironment)
 		{
 			string Result = "";
 
@@ -463,7 +468,7 @@ namespace UnrealBuildTool
 			Result += ArchitectureSpecificDefines(CompileEnvironment.Architecture);
 			if (CrossCompiling())
 			{
-				if (UsingClang())
+				if (UsingClang() && !string.IsNullOrEmpty(CompileEnvironment.Architecture))
 				{
 					Result += String.Format(" -target {0}", CompileEnvironment.Architecture);        // Set target triple
 				}
@@ -564,7 +569,7 @@ namespace UnrealBuildTool
 			return Result;
 		}
 
-		string GetLinkArguments(LinkEnvironment LinkEnvironment)
+		protected virtual string GetLinkArguments(LinkEnvironment LinkEnvironment)
 		{
 			string Result = "";
 
@@ -596,7 +601,7 @@ namespace UnrealBuildTool
 			Result += " -Wl,-rpath=${ORIGIN}/../../../Engine/Binaries/ThirdParty/Steamworks/Steamv139/x86_64-unknown-linux-gnu";
 			if (LinkEnvironment.Architecture.StartsWith("x86_64"))
 			{
-				Result += " -Wl,-rpath=${ORIGIN}/../../../Engine/Binaries/ThirdParty/Qualcomm/Linux";
+			Result += " -Wl,-rpath=${ORIGIN}/../../../Engine/Binaries/ThirdParty/Qualcomm/Linux";
 			}
 			else
 			{
@@ -694,14 +699,14 @@ namespace UnrealBuildTool
 		}
 
 		// cache the location of NDK tools
-		static string BaseLinuxPath;
-		static string ClangPath;
-		static string GCCPath;
-		static string ArPath;
-		static string LlvmArPath;
-		static string RanlibPath;
-		static string StripPath;
-		static string MultiArchRoot;
+		protected string BaseLinuxPath;
+		protected string ClangPath;
+		protected string GCCPath;
+		protected string ArPath;
+		protected string LlvmArPath;
+		protected string RanlibPath;
+		protected string StripPath;
+		protected string MultiArchRoot;
 
 		/// <summary>
 		/// Version string of the current compiler, whether clang or gcc or whatever
@@ -828,6 +833,8 @@ namespace UnrealBuildTool
 			string Arguments = GetCLArguments_Global(CompileEnvironment);
 			string PCHArguments = "";
 
+			var BuildPlatform = UEBuildPlatform.GetBuildPlatformForCPPTargetPlatform(CompileEnvironment.Platform);
+
 			if (!bHasPrintedBuildDetails)
 			{
 				PrintBuildDetails(CompileEnvironment);
@@ -859,7 +866,7 @@ namespace UnrealBuildTool
 			{
 				// Add the precompiled header file's path to the include path so Clang can find it.
 				// This needs to be before the other include paths to ensure Clang uses it instead of the source header file.
-				string PrecompiledFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Linux).GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
+				string PrecompiledFileExtension = BuildPlatform.GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
 				PCHArguments += string.Format(" -include \"{0}\"", CompileEnvironment.PrecompiledHeaderFile.AbsolutePath.Replace(PrecompiledFileExtension, "").Replace('\\', '/'));
 			}
 
@@ -933,7 +940,7 @@ namespace UnrealBuildTool
 
 				if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Create)
 				{
-					string PrecompiledFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Linux).GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
+					string PrecompiledFileExtension = BuildPlatform.GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
 					// Add the precompiled header file to the produced item list.
 					FileItem PrecompiledHeaderFile = FileItem.GetItemByFileReference(
 						FileReference.Combine(
@@ -956,7 +963,7 @@ namespace UnrealBuildTool
 						CompileAction.PrerequisiteItems.Add(CompileEnvironment.PrecompiledHeaderFile);
 					}
 
-					string ObjectFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Linux).GetBinaryExtension(UEBuildBinaryType.Object);
+					string ObjectFileExtension = BuildPlatform.GetBinaryExtension(UEBuildBinaryType.Object);
 					// Add the object file to the produced item list.
 					FileItem ObjectFile = FileItem.GetItemByFileReference(
 						FileReference.Combine(
@@ -1157,6 +1164,12 @@ namespace UnrealBuildTool
 			}
 		}
 
+		// allow sub-platforms to modify the name of the output file
+		protected virtual FileItem GetLinkOutputFile(LinkEnvironment LinkEnvironment)
+		{
+			return FileItem.GetItemByFileReference(LinkEnvironment.OutputFilePath);
+		}
+
 
 		public override FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, ActionGraph ActionGraph)
 		{
@@ -1194,7 +1207,7 @@ namespace UnrealBuildTool
 			LinkAction.bProducesImportLibrary = LinkEnvironment.bIsBuildingDLL;
 
 			// Add the output file as a production of the link action.
-			FileItem OutputFile = FileItem.GetItemByFileReference(LinkEnvironment.OutputFilePath);
+			FileItem OutputFile = GetLinkOutputFile(LinkEnvironment);
 			LinkAction.ProducedItems.Add(OutputFile);
 			LinkAction.CommandDescription = LinkEnvironment.bAllowLTCG ? "Link-LTO" : "Link";	// LTO can take a lot of time, make it clear for the user
 			// because the logic choosing between lld and ld is somewhat messy atm (lld fails to link .DSO due to bugs), make the name of the linker clear
@@ -1236,6 +1249,22 @@ namespace UnrealBuildTool
 				if ((AdditionalLibrary.Contains("Plugins") || AdditionalLibrary.Contains("Binaries/ThirdParty") || AdditionalLibrary.Contains("Binaries\\ThirdParty")) && Path.GetDirectoryName(AdditionalLibrary) != Path.GetDirectoryName(OutputFile.AbsolutePath))
 				{
 					string RelativePath = new FileReference(AdditionalLibrary).Directory.MakeRelativeTo(OutputFile.Location.Directory);
+					if (!RPaths.Contains(RelativePath))
+					{
+						RPaths.Add(RelativePath);
+						ResponseLines.Add(string.Format(" -rpath=\"${{ORIGIN}}/{0}\"", RelativePath.Replace('\\', '/')));
+					}
+				}
+			}
+
+			foreach (FileReference RuntimeDependency in LinkEnvironment.RuntimeDependencies)
+			{
+				if (RuntimeDependency.ContainsName(new FileSystemName("Binaries"), 0) && RuntimeDependency.GetExtension() == ".so" && Path.GetDirectoryName(RuntimeDependency.FullName) != Path.GetDirectoryName(OutputFile.AbsolutePath))
+				{
+					string RelativeRootPath = RuntimeDependency.Directory.MakeRelativeTo(UnrealBuildTool.RootDirectory);
+					// We're assuming that the binary will be placed according to our ProjectName/Binaries/Platform scheme
+					string RelativePath = Path.Combine("..", "..", "..", RelativeRootPath);
+
 					if (!RPaths.Contains(RelativePath))
 					{
 						RPaths.Add(RelativePath);
@@ -1363,13 +1392,6 @@ namespace UnrealBuildTool
 			LinkAction.CommandArguments = LinkAction.CommandArguments.Replace("\\\\", "/");
 			LinkAction.CommandArguments = LinkAction.CommandArguments.Replace("\\", "/");
 
-			/* The linker script that hid global constructor signatures was needed to work around problems like third party libraries
-				alloctating classes through a custom new overload but deleting through global delete. This in particular was needed for Steam.
-				Right now we are not aware of third party libs behaving that way, and hiding global new/delete introduces other problems, particularly
-				when linking to libs that use STL. Hence the script is unnecessary and should not be used, unless you understand what it is doing
-				and you are sure you are running into a similar problem like above. The proper solution though is to always ask the library author
-				to use matching new/delete signatures.
-			*//*
 			// prepare a linker script
 			FileReference LinkerScriptPath = FileReference.Combine(LinkEnvironment.LocalShadowDirectory, "remove-sym.ldscript");
 			if (!DirectoryReference.Exists(LinkEnvironment.LocalShadowDirectory))
@@ -1380,28 +1402,6 @@ namespace UnrealBuildTool
 			{
 				FileReference.Delete(LinkerScriptPath);
 			}
-
-			using (StreamWriter Writer = File.CreateText(LinkerScriptPath.FullName))
-			{
-				Writer.WriteLine("UE4 {");
-				Writer.WriteLine("  global: *;");
-				Writer.WriteLine("  local: _Znwm;");
-				Writer.WriteLine("         _ZnwmRKSt9nothrow_t;");
-				Writer.WriteLine("         _Znam;");
-				Writer.WriteLine("         _ZnamRKSt9nothrow_t;");
-				Writer.WriteLine("         _ZdaPv;");
-				Writer.WriteLine("         _ZdaPvRKSt9nothrow_t;");
-				Writer.WriteLine("         _ZdlPv;");
-				Writer.WriteLine("         _ZdlPvRKSt9nothrow_t;");
-				// Hide ALL std:: symbols as they can collide
-				// with any c++ library out there (like LLVM)
-				// and this may lead to operator new/delete mismatches
-				Writer.WriteLine("         _ZNSt8*;");
-				Writer.WriteLine("};");
-			};
-
-			LinkAction.CommandArguments += string.Format(" -Wl,--version-script=\"{0}\"", LinkerScriptPath);
-			*/
 
 			// Only execute linking on the local PC.
 			LinkAction.bCanExecuteRemotely = false;

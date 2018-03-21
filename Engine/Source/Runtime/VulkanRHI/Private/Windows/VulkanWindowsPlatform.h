@@ -17,14 +17,18 @@
 #define VULKAN_HAS_PHYSICAL_DEVICE_PROPERTIES2	1
 #define VULKAN_ENABLE_DUMP_LAYER				0
 #define VULKAN_COMMANDWRAPPERS_ENABLE			1
-#define VULKAN_DYNAMICALLYLOADED				0
+#define VULKAN_DYNAMICALLYLOADED				1
 #define VULKAN_ENABLE_DESKTOP_HMD_SUPPORT		1
 #define VULKAN_SIGNAL_UNIMPLEMENTED()			checkf(false, TEXT("Unimplemented vulkan functionality: %s"), TEXT(__FUNCTION__))
 
-#include "Windows/AllowWindowsPlatformTypes.h"
-	#include <vulkan.h>
-#include "Windows/HideWindowsPlatformTypes.h"
 
+#define ENUM_VK_ENTRYPOINTS_PLATFORM_BASE(EnumMacro)
+
+#define ENUM_VK_ENTRYPOINTS_PLATFORM_INSTANCE(EnumMacro)	\
+	EnumMacro(PFN_vkCreateWin32SurfaceKHR, vkCreateWin32SurfaceKHR) \
+	EnumMacro(PFN_vkGetPhysicalDeviceProperties2KHR, vkGetPhysicalDeviceProperties2KHR)
+
+#include "../VulkanLoader.h"
 
 // and now, include the GenericPlatform class
 #include "../VulkanGenericPlatform.h"

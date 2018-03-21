@@ -15,7 +15,7 @@ public class FreeType2 : ModuleRules
 
 		if (Target.Platform == UnrealTargetPlatform.Win32 ||
 			Target.Platform == UnrealTargetPlatform.Win64 ||
-			Target.Platform == UnrealTargetPlatform.Linux ||
+			Target.IsInPlatformGroup(UnrealPlatformGroup.Unix) ||
 			Target.Platform == UnrealTargetPlatform.HTML5)
 		{
 			FreeType2Path = Target.UEThirdPartySourceDirectory + "FreeType2/FreeType2-2.6/";
@@ -87,7 +87,7 @@ public class FreeType2 : ModuleRules
 
 			PublicAdditionalLibraries.Add("freetype2412");
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			if (Target.Type == TargetType.Server)
 			{

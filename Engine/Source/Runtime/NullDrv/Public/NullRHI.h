@@ -433,7 +433,7 @@ public:
 		return true; 
 	}
 
-	virtual void RHIBeginOcclusionQueryBatch() final override
+	virtual void RHIBeginOcclusionQueryBatch(uint32 NumQueriesInBatch) final override
 	{
 
 	}

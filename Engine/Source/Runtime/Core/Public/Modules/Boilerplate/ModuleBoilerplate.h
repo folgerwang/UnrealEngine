@@ -41,7 +41,7 @@ class FFixedUObjectArray;
 class FFixedUObjectArray;
 
 // GDB/LLDB pretty printers don't use these - no need to export additional symbols. This also solves ODR violation reported by ASan on Linux
-#if PLATFORM_LINUX
+#if PLATFORM_UNIX
 #define UE4_VISUALIZERS_HELPERS
 #else
 #define UE4_VISUALIZERS_HELPERS \

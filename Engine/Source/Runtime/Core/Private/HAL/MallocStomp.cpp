@@ -5,7 +5,7 @@
 #include "HAL/UnrealMemory.h"
 #include "HAL/IConsoleManager.h"
 
-#if PLATFORM_LINUX
+#if PLATFORM_UNIX
 	#include <sys/mman.h>
 #endif
 
@@ -13,7 +13,7 @@
 
 #if PLATFORM_WINDOWS || PLATFORM_XBOXONE
 const uint32 FMallocStomp::NoAccessProtectMode = PAGE_NOACCESS;
-#elif PLATFORM_LINUX || PLATFORM_MAC
+#elif PLATFORM_UNIX || PLATFORM_MAC
 const uint32 FMallocStomp::NoAccessProtectMode = PROT_NONE;
 #else
 #error The stomp allocator isn't supported in this platform.
@@ -45,12 +45,12 @@ void* FMallocStomp::Malloc(SIZE_T Size, uint32 Alignment)
 	const SIZE_T AlignedSize = (Alignment > 0U) ? ((Size + Alignment - 1U) & -static_cast<int32>(Alignment)) : Size;
 	const SIZE_T AllocFullPageSize = AlignedSize + sizeof(FAllocationData) + (PageSize - 1) & ~(PageSize - 1U);
 
-#if PLATFORM_LINUX || PLATFORM_MAC
+#if PLATFORM_UNIX || PLATFORM_MAC
 	// Note: can't implement BinnedAllocFromOS as a mmap call. See Free() for the reason.
 	void *FullAllocationPointer = mmap(nullptr, AllocFullPageSize + PageSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
 #else
 	void *FullAllocationPointer = FPlatformMemory::BinnedAllocFromOS(AllocFullPageSize + PageSize);
-#endif // PLATFORM_LINUX || PLATFORM_MAC
+#endif // PLATFORM_UNIX || PLATFORM_MAC
 
 	void *ReturnedPointer = nullptr;
 	static const SIZE_T AllocationDataSize = sizeof(FAllocationData);
@@ -124,7 +124,7 @@ void FMallocStomp::Free(void* InPtr)
 		FPlatformMisc::DebugBreak();
 	}
 
-#if PLATFORM_LINUX || PLATFORM_MAC
+#if PLATFORM_UNIX || PLATFORM_MAC
 	// Note: Can't wrap munmap inside BinnedFreeToOS() because the code doesn't
 	// expect the size of the allocation to be freed to be available, nor the 
 	// pointer be aligned with the page size. We can guarantee that here so that's
@@ -132,7 +132,7 @@ void FMallocStomp::Free(void* InPtr)
 	munmap(AllocDataPtr->FullAllocationPointer, AllocDataPtr->FullSize);
 #else
 	FPlatformMemory::BinnedFreeToOS(AllocDataPtr->FullAllocationPointer, AllocDataPtr->FullSize);
-#endif // PLATFORM_LINUX || PLATFORM_MAC
+#endif // PLATFORM_UNIX || PLATFORM_MAC
 }
 
 bool FMallocStomp::GetAllocationSize(void *Original, SIZE_T &SizeOut) 

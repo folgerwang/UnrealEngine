@@ -64,7 +64,7 @@ public class UnrealFrontend : ModuleRules
 		{
 			PrivateDependencyModuleNames.AddRange(
 				new string[] {
-					"LinuxCommonStartup"
+					"UnixCommonStartup"
 				}
 			);
 		}

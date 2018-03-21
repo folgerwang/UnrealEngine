@@ -58,6 +58,9 @@
 #if !defined(PLATFORM_FREEBSD)
 	#define PLATFORM_FREEBSD 0
 #endif
+#if !defined(PLATFORM_UNIX)
+	#define PLATFORM_UNIX 0
+#endif
 
 // Platform specific compiler pre-setup.
 #if PLATFORM_WINDOWS
@@ -115,7 +118,7 @@
 #elif PLATFORM_SWITCH
 	#include "Switch/SwitchPlatform.h"
 #else
-	#error Unknown Compiler
+	#error Unknown platform
 #endif
 
 //------------------------------------------------------------------
@@ -481,7 +484,7 @@
 
 /** Branch prediction hints */
 #ifndef LIKELY						/* Hints compiler that expression is likely to be true, much softer than ASSUME - allows (penalized by worse performance) expression to be false */
-	#if ( defined(__clang__) || defined(__GNUC__) ) && PLATFORM_LINUX	// effect of these on non-Linux platform has not been analyzed as of 2016-03-21
+	#if ( defined(__clang__) || defined(__GNUC__) ) && (PLATFORM_UNIX)	// effect of these on non-Linux platform has not been analyzed as of 2016-03-21
 		#define LIKELY(x)			__builtin_expect(!!(x), 1)
 	#else
 		#define LIKELY(x)			(x)
@@ -489,7 +492,7 @@
 #endif
 
 #ifndef UNLIKELY					/* Hints compiler that expression is unlikely to be true, allows (penalized by worse performance) expression to be true */
-	#if ( defined(__clang__) || defined(__GNUC__) ) && PLATFORM_LINUX	// effect of these on non-Linux platform has not been analyzed as of 2016-03-21
+	#if ( defined(__clang__) || defined(__GNUC__) ) && (PLATFORM_UNIX)	// effect of these on non-Linux platform has not been analyzed as of 2016-03-21
 		#define UNLIKELY(x)			__builtin_expect(!!(x), 0)
 	#else
 		#define UNLIKELY(x)			(x)

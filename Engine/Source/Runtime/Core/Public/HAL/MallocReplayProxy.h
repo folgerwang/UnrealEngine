@@ -10,7 +10,7 @@
 
 #if !defined(UE_USE_MALLOC_REPLAY_PROXY)
 	// it is always enabled on Linux, but not always added to the malloc stack
-	#define UE_USE_MALLOC_REPLAY_PROXY						(PLATFORM_LINUX && !UE_BUILD_SHIPPING)
+	#define UE_USE_MALLOC_REPLAY_PROXY						(PLATFORM_UNIX && !UE_BUILD_SHIPPING)
 #endif // !defined(UE_USE_MALLOC_REPLAY_PROXY)
 
 #if UE_USE_MALLOC_REPLAY_PROXY

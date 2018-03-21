@@ -1680,7 +1680,9 @@ struct FRHICommandEndRenderQuery final : public FRHICommand<FRHICommandEndRender
 
 struct FRHICommandBeginOcclusionQueryBatch final : public FRHICommand<FRHICommandBeginOcclusionQueryBatch>
 {
-	FORCEINLINE_DEBUGGABLE FRHICommandBeginOcclusionQueryBatch()
+	uint32 NumQueriesInBatch;
+	FORCEINLINE_DEBUGGABLE FRHICommandBeginOcclusionQueryBatch(uint32 InNumQueriesInBatch)
+		: NumQueriesInBatch(InNumQueriesInBatch)
 	{
 	}
 	RHI_API void Execute(FRHICommandListBase& CmdList);
@@ -2307,14 +2309,14 @@ public:
 		new (AllocCommand<FRHICommandEndRenderQuery>()) FRHICommandEndRenderQuery(RenderQuery);
 	}
 
-	FORCEINLINE_DEBUGGABLE void BeginOcclusionQueryBatch()
+	FORCEINLINE_DEBUGGABLE void BeginOcclusionQueryBatch(uint32 NumQueriesInBatch)
 	{
-		if (Bypass())
+		if(Bypass())
 		{
-			CMD_CONTEXT(RHIBeginOcclusionQueryBatch)();
+			CMD_CONTEXT(RHIBeginOcclusionQueryBatch)(NumQueriesInBatch);
 			return;
 		}
-		new (AllocCommand<FRHICommandBeginOcclusionQueryBatch>()) FRHICommandBeginOcclusionQueryBatch();
+		new (AllocCommand<FRHICommandBeginOcclusionQueryBatch>()) FRHICommandBeginOcclusionQueryBatch(NumQueriesInBatch);
 	}
 
 	FORCEINLINE_DEBUGGABLE void EndOcclusionQueryBatch()
@@ -3122,14 +3124,14 @@ public:
 		new (AllocCommand<FRHICommandEndRenderQuery>()) FRHICommandEndRenderQuery(RenderQuery);
 	}
 
-	FORCEINLINE_DEBUGGABLE void BeginOcclusionQueryBatch()
+	FORCEINLINE_DEBUGGABLE void BeginOcclusionQueryBatch(uint32 NumQueriesInBatch)
 	{
-		if (Bypass())
+		if(Bypass())
 		{
-			CMD_CONTEXT(RHIBeginOcclusionQueryBatch)();
+			CMD_CONTEXT(RHIBeginOcclusionQueryBatch)(NumQueriesInBatch);
 			return;
 		}
-		new (AllocCommand<FRHICommandBeginOcclusionQueryBatch>()) FRHICommandBeginOcclusionQueryBatch();
+		new (AllocCommand<FRHICommandBeginOcclusionQueryBatch>()) FRHICommandBeginOcclusionQueryBatch(NumQueriesInBatch);
 	}
 
 	FORCEINLINE_DEBUGGABLE void EndOcclusionQueryBatch()

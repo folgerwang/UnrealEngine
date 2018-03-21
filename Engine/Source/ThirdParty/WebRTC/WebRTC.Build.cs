@@ -18,7 +18,7 @@ public class WebRTC : ModuleRules
 		{
 			bShouldUseWebRTC = true;
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Linux && Target.Architecture.StartsWith("x86_64"))
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix) && Target.Architecture.StartsWith("x86_64"))
 		{
 			bShouldUseWebRTC = true;
 		}
@@ -69,7 +69,7 @@ public class WebRTC : ModuleRules
 				PublicAdditionalLibraries.Add(Path.Combine(LibraryPath, "librtc_xmpp.a"));
 				PublicAdditionalLibraries.Add(Path.Combine(LibraryPath, "libexpat.a"));
 			}
-			else if (Target.Platform == UnrealTargetPlatform.Linux)
+			else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 			{
 				PublicDefinitions.Add("WEBRTC_LINUX=1");
 				PublicDefinitions.Add("WEBRTC_POSIX=1");

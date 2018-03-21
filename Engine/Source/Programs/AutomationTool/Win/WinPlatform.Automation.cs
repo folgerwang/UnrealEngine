@@ -189,6 +189,11 @@ public abstract class BaseWinPlatform : Platform
 		PrintRunTime();
 	}
 
+	public override bool UseAbsLog
+	{
+		get { return BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64 || BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win32; }
+	}
+
 	public override bool CanHostPlatform(UnrealTargetPlatform Platform)
 	{
 		if (Platform == UnrealTargetPlatform.Mac)
