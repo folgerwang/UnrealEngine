@@ -62,13 +62,12 @@ public:
 public:
 
 	/** Set this thumbnail section to draw a single thumbnail at the specified time */
-	virtual void SetSingleTime(float GlobalTime) = 0;
+	virtual void SetSingleTime(double GlobalTime) = 0;
 
 public:
 
 	//~ ISequencerSection interface
 
-	virtual void GenerateSectionLayout(ISectionLayoutBuilder& LayoutBuilder) const override { }
 	virtual void BuildSectionContextMenu(FMenuBuilder& MenuBuilder, const FGuid& ObjectBinding) override;
 	virtual TSharedRef<SWidget> GenerateSectionWidget() override;
 	virtual float GetSectionGripSize() const override;
@@ -84,10 +83,10 @@ protected:
 	void RedrawThumbnails();
 
 	/** Get the range that is currently visible in the section's time space */
-	TRange<float> GetVisibleRange() const;
+	TRange<double> GetVisibleRange() const;
 
 	/** Get the total range that thumbnails are to be generated for in the section's time space */
-	TRange<float> GetTotalRange() const;
+	TRange<double> GetTotalRange() const;
 
 protected:
 

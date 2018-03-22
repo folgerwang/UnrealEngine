@@ -13338,7 +13338,7 @@ bool AllowHighQualityLightmaps(ERHIFeatureLevel::Type FeatureLevel)
 // Helper function for changing system resolution via the r.setres console command
 void FSystemResolution::RequestResolutionChange(int32 InResX, int32 InResY, EWindowMode::Type InWindowMode)
 {
-	if (PLATFORM_LINUX)
+	if (PLATFORM_UNIX)
 	{
 		// Fullscreen and WindowedFullscreen behave the same on Linux, see FLinuxWindow::ReshapeWindow()/SetWindowMode().
 		// Allowing Fullscreen window mode confuses higher level code (see UE-19996).
@@ -14415,7 +14415,7 @@ static void PakFileTest(const TArray<FString>& Args)
 							}
 							else
 							{
-								while (!CallbackCalled)
+								while (!CallbackCalled) //-V654
 								{
 									FPlatformProcess::SleepNoStats(0);
 								}

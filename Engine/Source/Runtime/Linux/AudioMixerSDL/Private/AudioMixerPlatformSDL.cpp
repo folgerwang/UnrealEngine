@@ -387,7 +387,7 @@ namespace Audio
 
 	FAudioPlatformSettings FMixerPlatformSDL::GetPlatformSettings() const
 	{
-#if PLATFORM_LINUX
+#if PLATFORM_UNIX
 		return FAudioPlatformSettings::GetPlatformSettings(TEXT("/Script/LinuxTargetPlatform.LinuxTargetSettings"));
 #else
 		// On HTML5 and Windows, use default parameters.

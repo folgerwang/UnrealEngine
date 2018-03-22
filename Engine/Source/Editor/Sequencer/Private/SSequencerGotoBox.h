@@ -7,6 +7,7 @@
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/Input/NumericTypeInterface.h"
 #include "Sequencer.h"
+#include "QualifiedFrameTime.h"
 
 class USequencerSettings;
 
@@ -19,7 +20,7 @@ public:
 	SLATE_END_ARGS()
 
 	/** Construct the widget. */
-	void Construct(const FArguments& InArgs, const TSharedRef<FSequencer>& InSequencer, USequencerSettings& InSettings, const TSharedRef<INumericTypeInterface<float>>& InNumericTypeInterface);
+	void Construct(const FArguments& InArgs, const TSharedRef<FSequencer>& InSequencer, USequencerSettings& InSettings, const TSharedRef<INumericTypeInterface<double>>& InNumericTypeInterface);
 
 	/** Toggle the widget's visibility. */
 	void ToggleVisibility();
@@ -27,7 +28,10 @@ public:
 private:
 
 	/** Callback for committed values in the entry box. */
-	void HandleEntryBoxValueCommitted(float Value, ETextCommit::Type CommitType);
+	void HandleEntryBoxValueCommitted(double Value, ETextCommit::Type CommitType);
+
+	/** Callback for when the close button is clicked. */
+	FReply OnCloseButtonClicked();
 
 private:
 
@@ -35,13 +39,13 @@ private:
 	TSharedPtr<SWidget> Border;
 
 	/** The entry box widget. */
-	TSharedPtr<SNumericEntryBox<float>> EntryBox;
+	TSharedPtr<SNumericEntryBox<double>> EntryBox;
 
 	/** The widget that focused prior to this goto box. */
 	TWeakPtr<SWidget> LastFocusedWidget;
 
 	/** Numeric type interface used for converting parsing and generating strings from numbers. */
-	TSharedPtr<INumericTypeInterface<float>> NumericTypeInterface;
+	TSharedPtr<INumericTypeInterface<double>> NumericTypeInterface;
 
 	/** The main sequencer interface. */
 	TWeakPtr<FSequencer> SequencerPtr;

@@ -52,7 +52,7 @@ public:
 /* FTrackEditorThumbnail structors
  *****************************************************************************/
 
-FTrackEditorThumbnail::FTrackEditorThumbnail(const FOnThumbnailDraw& InOnDraw, const FIntPoint& InSize, TRange<float> InTimeRange, float InPosition)
+FTrackEditorThumbnail::FTrackEditorThumbnail(const FOnThumbnailDraw& InOnDraw, const FIntPoint& InSize, TRange<double> InTimeRange, double InPosition)
 	: OnDraw(InOnDraw)
 	, Size(InSize)
 	, Texture(nullptr)
@@ -299,12 +299,12 @@ FTrackEditorThumbnailCache::~FTrackEditorThumbnailCache()
 }
 
 
-void FTrackEditorThumbnailCache::SetSingleReferenceFrame(TOptional<float> InReferenceFrame)
+void FTrackEditorThumbnailCache::SetSingleReferenceFrame(TOptional<double> InReferenceFrame)
 {
 	CurrentCache.SingleReferenceFrame = InReferenceFrame;
 }
 
-void FTrackEditorThumbnailCache::Update(const TRange<float>& NewRange, const TRange<float>& VisibleRange, const FIntPoint& AllottedSize, const FIntPoint& InDesiredSize, EThumbnailQuality Quality, double InCurrentTime)
+void FTrackEditorThumbnailCache::Update(const TRange<double>& NewRange, const TRange<double>& VisibleRange, const FIntPoint& AllottedSize, const FIntPoint& InDesiredSize, EThumbnailQuality Quality, double InCurrentTime)
 {
 	PreviousCache.TimeRange = CurrentCache.TimeRange;
 	PreviousCache.VisibleRange = CurrentCache.VisibleRange;
@@ -495,14 +495,14 @@ void FTrackEditorThumbnailCache::UpdateSingleThumbnail()
 {
 	Thumbnails.Reset();
 
-	const float TimePerPx = CurrentCache.TimeRange.Size<float>() / CurrentCache.AllottedSize.X;
-	const float HalfRange = CurrentCache.DesiredSize.X*TimePerPx*.5f;
-	const float EvalPosition = CurrentCache.SingleReferenceFrame.GetValue();
+	const double TimePerPx    = CurrentCache.TimeRange.Size<double>() / CurrentCache.AllottedSize.X;
+	const double HalfRange    = CurrentCache.DesiredSize.X*TimePerPx*.5;
+	const double EvalPosition = CurrentCache.SingleReferenceFrame.GetValue();
 
 	TSharedPtr<FTrackEditorThumbnail> NewThumbnail = MakeShareable(new FTrackEditorThumbnail(
 		FOnThumbnailDraw::CreateRaw(this, &FTrackEditorThumbnailCache::DrawViewportThumbnail),
 		CurrentCache.DesiredSize,
-		TRange<float>(EvalPosition - HalfRange, EvalPosition + HalfRange),
+		TRange<double>(EvalPosition - HalfRange, EvalPosition + HalfRange),
 		EvalPosition
 	));
 
@@ -558,8 +558,8 @@ void FTrackEditorThumbnailCache::UpdateFilledThumbnails()
 		}
 	}
 
-	TRange<float> MaxRange(CurrentCache.VisibleRange.GetLowerBoundValue() - CurrentCache.VisibleRange.Size<float>(), CurrentCache.VisibleRange.GetUpperBoundValue() + CurrentCache.VisibleRange.Size<float>());
-	TRange<float> Boundary = TRange<float>::Intersection(CurrentCache.TimeRange, MaxRange);
+	TRange<double> MaxRange(CurrentCache.VisibleRange.GetLowerBoundValue() - CurrentCache.VisibleRange.Size<double>(), CurrentCache.VisibleRange.GetUpperBoundValue() + CurrentCache.VisibleRange.Size<double>());
+	TRange<double> Boundary = TRange<double>::Intersection(CurrentCache.TimeRange, MaxRange);
 
 	if (!Boundary.IsEmpty())
 	{
@@ -577,26 +577,26 @@ void FTrackEditorThumbnailCache::UpdateFilledThumbnails()
 }
 
 
-void FTrackEditorThumbnailCache::GenerateFront(const TRange<float>& Boundary)
+void FTrackEditorThumbnailCache::GenerateFront(const TRange<double>& Boundary)
 {
 	if (!Thumbnails.Num())
 	{
 		return;
 	}
 
-	const float TimePerPx = CurrentCache.TimeRange.Size<float>() / CurrentCache.AllottedSize.X;
-	float EndTime = Thumbnails[0]->GetTimeRange().GetLowerBoundValue();
+	const double TimePerPx = CurrentCache.TimeRange.Size<double>() / CurrentCache.AllottedSize.X;
+	double EndTime = Thumbnails[0]->GetTimeRange().GetLowerBoundValue();
 
 	while (EndTime > Boundary.GetLowerBoundValue())
 	{
 		FIntPoint TextureSize = CurrentCache.DesiredSize;
 
-		TRange<float> TimeRange(EndTime - TextureSize.X * TimePerPx, EndTime);
+		TRange<double> TimeRange(EndTime - TextureSize.X * TimePerPx, EndTime);
 
 		// Evaluate the thumbnail along the length of its duration, based on its position in the sequence
-		const float FrameLength = TimeRange.Size<float>();
-		float TotalLerp = (TimeRange.GetLowerBoundValue() - CurrentCache.TimeRange.GetLowerBoundValue()) / (CurrentCache.TimeRange.Size<float>() - FrameLength);
-		float EvalPosition = CurrentCache.TimeRange.GetLowerBoundValue() + FMath::Clamp(TotalLerp, 0.f, .99f)*CurrentCache.TimeRange.Size<float>();
+		const double FrameLength = TimeRange.Size<double>();
+		double TotalLerp = (TimeRange.GetLowerBoundValue() - CurrentCache.TimeRange.GetLowerBoundValue()) / (CurrentCache.TimeRange.Size<double>() - FrameLength);
+		double EvalPosition = CurrentCache.TimeRange.GetLowerBoundValue() + FMath::Clamp(TotalLerp, 0.0, .99)*CurrentCache.TimeRange.Size<double>();
 
 		TSharedPtr<FTrackEditorThumbnail> NewThumbnail = MakeShareable(new FTrackEditorThumbnail(
 			FOnThumbnailDraw::CreateRaw(this, &FTrackEditorThumbnailCache::DrawViewportThumbnail),
@@ -613,10 +613,10 @@ void FTrackEditorThumbnailCache::GenerateFront(const TRange<float>& Boundary)
 }
 
 
-void FTrackEditorThumbnailCache::GenerateBack(const TRange<float>& Boundary)
+void FTrackEditorThumbnailCache::GenerateBack(const TRange<double>& Boundary)
 {
-	const float TimePerPx = CurrentCache.TimeRange.Size<float>() / CurrentCache.AllottedSize.X;
-	float StartTime = Thumbnails.Num() ? Thumbnails.Last()->GetTimeRange().GetUpperBoundValue() : Boundary.GetLowerBoundValue();
+	const double TimePerPx = CurrentCache.TimeRange.Size<double>() / CurrentCache.AllottedSize.X;
+	double StartTime = Thumbnails.Num() ? Thumbnails.Last()->GetTimeRange().GetUpperBoundValue() : Boundary.GetLowerBoundValue();
 
 	while (StartTime < Boundary.GetUpperBoundValue())
 	{
@@ -624,18 +624,18 @@ void FTrackEditorThumbnailCache::GenerateBack(const TRange<float>& Boundary)
 
 		{
 			// Move the thumbnail to the center of the space if we're the only thumbnail, and we don't fit on
-			float Overflow = TextureSize.X*TimePerPx - CurrentCache.TimeRange.Size<float>();
+			double Overflow = TextureSize.X*TimePerPx - CurrentCache.TimeRange.Size<double>();
 			if (Thumbnails.Num() == 0 && Overflow > 0)
 			{
 				StartTime -= Overflow*.5f;
 			}
 		}
 
-		TRange<float> TimeRange(StartTime, StartTime + TextureSize.X * TimePerPx);
+		TRange<double> TimeRange(StartTime, StartTime + TextureSize.X * TimePerPx);
 
-		const float FrameLength = TimeRange.Size<float>();
-		float TotalLerp = (TimeRange.GetLowerBoundValue() - CurrentCache.TimeRange.GetLowerBoundValue()) / (CurrentCache.TimeRange.Size<float>() - FrameLength);
-		float EvalPosition = CurrentCache.TimeRange.GetLowerBoundValue() + FMath::Clamp(TotalLerp, 0.f, .99f)*CurrentCache.TimeRange.Size<float>();
+		const double FrameLength = TimeRange.Size<double>();
+		double TotalLerp = (TimeRange.GetLowerBoundValue() - CurrentCache.TimeRange.GetLowerBoundValue()) / (CurrentCache.TimeRange.Size<double>() - FrameLength);
+		double EvalPosition = CurrentCache.TimeRange.GetLowerBoundValue() + FMath::Clamp(TotalLerp, 0.0, .99)*CurrentCache.TimeRange.Size<double>();
 
 		TSharedPtr<FTrackEditorThumbnail> NewThumbnail = MakeShareable(new FTrackEditorThumbnail(
 			FOnThumbnailDraw::CreateRaw(this, &FTrackEditorThumbnailCache::DrawViewportThumbnail),

@@ -2,26 +2,24 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
-#include "PropertySection.h"
+#include "ISequencerSection.h"
 
 /**
  * A movie scene section for material parameters.
  */
 class FParameterSection
-	: public FPropertySection
+	: public FSequencerSection
 {
 public:
 
-	FParameterSection(UMovieSceneSection& InSectionObject, const FText& SectionName)
-		: FPropertySection(InSectionObject, SectionName)
+	FParameterSection(UMovieSceneSection& InSectionObject)
+		: FSequencerSection(InSectionObject)
 	{ }
 
 public:
 
 	//~ ISequencerSection interface
 
-	virtual void GenerateSectionLayout(class ISectionLayoutBuilder& LayoutBuilder) const override;
 	virtual bool RequestDeleteCategory(const TArray<FName>& CategoryNamePath) override;
 	virtual bool RequestDeleteKeyArea(const TArray<FName>& KeyAreaNamePath) override;
 };

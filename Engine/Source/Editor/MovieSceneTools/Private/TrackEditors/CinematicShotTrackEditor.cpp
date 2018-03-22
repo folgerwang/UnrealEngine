@@ -32,6 +32,9 @@
 #include "MovieSceneToolsProjectSettings.h"
 #include "Editor.h"
 #include "DragAndDrop/AssetDragDropOp.h"
+#include "MovieSceneTimeHelpers.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 #define LOCTEXT_NAMESPACE "FCinematicShotTrackEditor"
 
@@ -151,10 +154,17 @@ bool FCinematicShotTrackEditor::HandleAssetAdded(UObject* Asset, const FGuid& Ta
 
 	if (CanAddSubSequence(*Sequence))
 	{
-		AnimatablePropertyChanged(FOnKeyProperty::CreateRaw(this, &FCinematicShotTrackEditor::HandleSequenceAdded, Sequence));
+		const FScopedTransaction Transaction(LOCTEXT("AddShot_Transaction", "Add Shot"));
+		
+		int32 RowIndex = INDEX_NONE;
+		AnimatablePropertyChanged(FOnKeyProperty::CreateRaw(this, &FCinematicShotTrackEditor::HandleSequenceAdded, Sequence, RowIndex));
 
 		return true;
 	}
+		
+	FNotificationInfo Info(FText::Format( LOCTEXT("InvalidSequence", "Invalid level sequence {0}. There could be a circular dependency."), Sequence->GetDisplayName()));	
+	Info.bUseLargeFont = false;
+	FSlateNotificationManager::Get().AddNotification(Info);
 
 	return false;
 }
@@ -186,7 +196,7 @@ void FCinematicShotTrackEditor::Tick(float DeltaTime)
 	{
 		SequencerPin->EnterSilentMode();
 
-		float SavedTime = SequencerPin->GetGlobalTime();
+		FFrameTime SavedTime = SequencerPin->GetGlobalTime().Time;
 
 		if (DeltaTime > 0.f && ThumbnailPool->DrawThumbnails())
 		{
@@ -221,7 +231,7 @@ const FSlateBrush* FCinematicShotTrackEditor::GetIconBrush() const
 	return FEditorStyle::GetBrush("Sequencer.Tracks.CinematicShot");
 }
 
-bool FCinematicShotTrackEditor::OnAllowDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track)
+bool FCinematicShotTrackEditor::OnAllowDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track, int32 RowIndex, const FGuid& TargetObjectGuid)
 {
 	if (!Track->IsA(UMovieSceneCinematicShotTrack::StaticClass()))
 	{
@@ -249,7 +259,7 @@ bool FCinematicShotTrackEditor::OnAllowDrop(const FDragDropEvent& DragDropEvent,
 }
 
 
-FReply FCinematicShotTrackEditor::OnDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track)
+FReply FCinematicShotTrackEditor::OnDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track, int32 RowIndex, const FGuid& TargetObjectGuid)
 {
 	if (!Track->IsA(UMovieSceneCinematicShotTrack::StaticClass()))
 	{
@@ -272,7 +282,7 @@ FReply FCinematicShotTrackEditor::OnDrop(const FDragDropEvent& DragDropEvent, UM
 
 		if (Sequence)
 		{
-			AnimatablePropertyChanged( FOnKeyProperty::CreateRaw( this, &FCinematicShotTrackEditor::AddKeyInternal, Sequence) );
+			AnimatablePropertyChanged( FOnKeyProperty::CreateRaw( this, &FCinematicShotTrackEditor::AddKeyInternal, Sequence, RowIndex) );
 			
 			bAnyDropped = true;
 		}
@@ -281,9 +291,19 @@ FReply FCinematicShotTrackEditor::OnDrop(const FDragDropEvent& DragDropEvent, UM
 	return bAnyDropped ? FReply::Handled() : FReply::Unhandled();
 }
 
-UMovieSceneSubSection* FCinematicShotTrackEditor::CreateShotInternal(FString& NewShotName, float NewShotStartTime, UMovieSceneCinematicShotSection* ShotToDuplicate)
+UMovieSceneSubSection* FCinematicShotTrackEditor::CreateShotInternal(FString& NewShotName, FFrameNumber NewShotStartTime, UMovieSceneCinematicShotSection* ShotToDuplicate)
 {
-	FString NewShotPath = MovieSceneToolHelpers::GenerateNewShotPath(GetSequencer()->GetFocusedMovieSceneSequence()->GetMovieScene(), NewShotName);
+	FString NewShotPath;
+	
+	if (ShotToDuplicate != nullptr)
+	{
+		// If duplicating a shot, use that shot's path
+		NewShotPath = FPaths::GetPath(ShotToDuplicate->GetSequence()->GetPathName());
+	}
+	else
+	{
+		NewShotPath = MovieSceneToolHelpers::GenerateNewShotPath(GetSequencer()->GetFocusedMovieSceneSequence()->GetMovieScene(), NewShotName);
+	}
 
 	// Create a new level sequence asset with the appropriate name
 	IAssetTools& AssetTools = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools").Get();
@@ -317,16 +337,12 @@ UMovieSceneSubSection* FCinematicShotTrackEditor::CreateShotInternal(FString& Ne
 
 	UMovieSceneSequence* NewSequence = Cast<UMovieSceneSequence>(NewAsset);
 
-	float Duration = NewSequence->GetMovieScene()->GetPlaybackRange().Size<float>();
-	if (ShotToDuplicate != nullptr)
-	{
-		Duration = ShotToDuplicate->GetEndTime() - ShotToDuplicate->GetStartTime();
-	}
+	int32 Duration = MovieScene::DiscreteSize(ShotToDuplicate ? ShotToDuplicate->GetRange() : NewSequence->GetMovieScene()->GetPlaybackRange());
 
 	UMovieSceneCinematicShotTrack* CinematicShotTrack = FindOrCreateCinematicShotTrack();
 
 	// Create a cinematic shot section. 
-	UMovieSceneSubSection* NewSection = CinematicShotTrack->AddSequence(NewSequence, NewShotStartTime, Duration);	
+	UMovieSceneSubSection* NewSection = CinematicShotTrack->AddSequence(NewSequence, NewShotStartTime, Duration);
 	return NewSection;
 }
 
@@ -334,18 +350,21 @@ void FCinematicShotTrackEditor::InsertShot()
 {
 	const FScopedTransaction Transaction(LOCTEXT("InsertShot_Transaction", "Insert Shot"));
 
-	float NewShotStartTime = GetSequencer()->GetLocalTime();
+	FFrameTime NewShotStartTime = GetSequencer()->GetLocalTime().Time;
 
 	UMovieSceneCinematicShotTrack* CinematicShotTrack = FindOrCreateCinematicShotTrack();
-	FString NewShotName = MovieSceneToolHelpers::GenerateNewShotName(CinematicShotTrack->GetAllSections(), NewShotStartTime);
+	FString NewShotName = MovieSceneToolHelpers::GenerateNewShotName(CinematicShotTrack->GetAllSections(), NewShotStartTime.FrameNumber);
 
-	UMovieSceneSubSection* NewShot = CreateShotInternal(NewShotName, NewShotStartTime);
+	UMovieSceneSubSection* NewShot = CreateShotInternal(NewShotName, NewShotStartTime.FrameNumber);
 	if (NewShot)
 	{
 		NewShot->SetRowIndex(MovieSceneToolHelpers::FindAvailableRowIndex(CinematicShotTrack, NewShot));
 	}
 
 	GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
+	GetSequencer()->EmptySelection();
+	GetSequencer()->SelectSection(NewShot);
+	GetSequencer()->ThrobSectionSelection();
 }
 
 
@@ -355,22 +374,24 @@ void FCinematicShotTrackEditor::InsertFiller()
 
 	const FScopedTransaction Transaction(LOCTEXT("InsertFiller_Transaction", "Insert Filler"));
 
-	float NewShotStartTime = GetSequencer()->GetLocalTime();
+	FQualifiedFrameTime CurrentTime = GetSequencer()->GetLocalTime();
 
 	UMovieSceneCinematicShotTrack* CinematicShotTrack = FindOrCreateCinematicShotTrack();
 
-	float Duration = ProjectSettings->DefaultDuration;
+	int32 Duration = (ProjectSettings->DefaultDuration * CurrentTime.Rate).FrameNumber.Value;
 
 	UMovieSceneSequence* NullSequence = nullptr;
 
-	UMovieSceneSubSection* NewSection = CinematicShotTrack->AddSequence(NullSequence, NewShotStartTime, Duration);	
+	UMovieSceneSubSection* NewSection = CinematicShotTrack->AddSequence(NullSequence, CurrentTime.Time.FrameNumber, Duration);
 
 	UMovieSceneCinematicShotSection* NewCinematicShotSection = Cast<UMovieSceneCinematicShotSection>(NewSection);
 
 	NewCinematicShotSection->SetShotDisplayName(FText(LOCTEXT("Filler", "Filler")).ToString());
-	NewCinematicShotSection->SetRowIndex(MovieSceneToolHelpers::FindAvailableRowIndex(CinematicShotTrack, NewSection));
 
 	GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
+	GetSequencer()->EmptySelection();
+	GetSequencer()->SelectSection(NewSection);
+	GetSequencer()->ThrobSectionSelection();
 }
 
 
@@ -379,20 +400,24 @@ void FCinematicShotTrackEditor::DuplicateShot(UMovieSceneCinematicShotSection* S
 	const FScopedTransaction Transaction(LOCTEXT("DuplicateShot_Transaction", "Duplicate Shot"));
 
 	UMovieSceneCinematicShotTrack* CinematicShotTrack = FindOrCreateCinematicShotTrack();
-	FString NewShotName = MovieSceneToolHelpers::GenerateNewShotName(CinematicShotTrack->GetAllSections(), Section->GetStartTime());
+
+	FFrameNumber StartTime = Section->HasStartFrame() ? Section->GetInclusiveStartFrame() : 0;
+	FString NewShotName = MovieSceneToolHelpers::GenerateNewShotName(CinematicShotTrack->GetAllSections(), StartTime);
 
 	// Duplicate the shot and put it on the next available row
-	UMovieSceneSubSection* NewShot = CreateShotInternal(NewShotName, Section->GetStartTime(), Section);
+	UMovieSceneSubSection* NewShot = CreateShotInternal(NewShotName, StartTime, Section);
 	if (NewShot)
 	{
-		NewShot->SetStartTime(Section->GetStartTime());
-		NewShot->SetEndTime(Section->GetEndTime());
+		NewShot->SetRange(Section->GetRange());
 		NewShot->SetRowIndex(MovieSceneToolHelpers::FindAvailableRowIndex(CinematicShotTrack, NewShot));
-		NewShot->Parameters.StartOffset = Section->Parameters.StartOffset;
+		NewShot->Parameters.SetStartFrameOffset(Section->Parameters.GetStartFrameOffset());
 		NewShot->Parameters.TimeScale = Section->Parameters.TimeScale;
-		NewShot->SetPreRollTime(Section->GetPreRollTime());
+		NewShot->SetPreRollFrames(Section->GetPreRollFrames());
 
 		GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
+		GetSequencer()->EmptySelection();
+		GetSequencer()->SelectSection(NewShot);
+		GetSequencer()->ThrobSectionSelection();
 	}
 }
 
@@ -430,12 +455,12 @@ void FCinematicShotTrackEditor::NewTake(UMovieSceneCinematicShotSection* Section
 
 		FString NewShotName = MovieSceneToolHelpers::ComposeShotName(ShotPrefix, ShotNumber, NewTakeNumber);
 
-		float NewShotStartTime = Section->GetStartTime();
-		float NewShotEndTime = Section->GetEndTime();
-		float NewShotStartOffset = Section->Parameters.StartOffset;
-		float NewShotTimeScale = Section->Parameters.TimeScale;
-		float NewShotPrerollTime = Section->GetPreRollTime();
-		int32 NewRowIndex = Section->GetRowIndex();
+		TRange<FFrameNumber> NewShotRange         = Section->GetRange();
+		int32                NewShotStartOffset   = Section->Parameters.GetStartFrameOffset();
+		float                NewShotTimeScale     = Section->Parameters.TimeScale;
+		int32                NewShotPrerollFrames = Section->GetPreRollFrames();
+		int32                NewRowIndex          = Section->GetRowIndex();
+		FFrameNumber         NewShotStartTime     = NewShotRange.GetLowerBound().IsClosed() ? MovieScene::DiscreteInclusiveLower(NewShotRange) : 0;
 
 		UMovieSceneSubSection* NewShot = CreateShotInternal(NewShotName, NewShotStartTime, Section);
 
@@ -444,14 +469,16 @@ void FCinematicShotTrackEditor::NewTake(UMovieSceneCinematicShotSection* Section
 			UMovieSceneCinematicShotTrack* CinematicShotTrack = FindOrCreateCinematicShotTrack();
 			CinematicShotTrack->RemoveSection(*Section);
 
-			NewShot->SetStartTime(NewShotStartTime);
-			NewShot->SetEndTime(NewShotEndTime);
-			NewShot->Parameters.StartOffset = NewShotStartOffset;
+			NewShot->SetRange(NewShotRange);
+			NewShot->Parameters.SetStartFrameOffset(NewShotStartOffset);
 			NewShot->Parameters.TimeScale = NewShotTimeScale;
-			NewShot->SetPreRollTime(NewShotPrerollTime);
+			NewShot->SetPreRollFrames(NewShotPrerollFrames);
 			NewShot->SetRowIndex(NewRowIndex);
 
 			GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemsChanged );
+			GetSequencer()->EmptySelection();
+			GetSequencer()->SelectSection(NewShot);
+			GetSequencer()->ThrobSectionSelection();
 		}
 	}
 }
@@ -468,25 +495,27 @@ void FCinematicShotTrackEditor::SwitchTake(UMovieSceneCinematicShotSection* Sect
 		UMovieSceneSequence* MovieSceneSequence = CastChecked<UMovieSceneSequence>(TakeObject);
 
 		UMovieSceneCinematicShotTrack* CinematicShotTrack = FindOrCreateCinematicShotTrack();
-		
-		float NewShotStartTime = Section->GetStartTime();
-		float NewShotEndTime = Section->GetEndTime();
-		float NewShotStartOffset = Section->Parameters.StartOffset;
-		float NewShotTimeScale = Section->Parameters.TimeScale;
-		float NewShotPrerollTime = Section->GetPreRollTime();
 
-		const float Duration = NewShotEndTime - NewShotStartTime;
-		UMovieSceneSubSection* NewShot = CinematicShotTrack->AddSequence(MovieSceneSequence, NewShotStartTime, Duration);	
+		TRange<FFrameNumber> NewShotRange         = Section->GetRange();
+		int32                NewShotStartOffset   = Section->Parameters.GetStartFrameOffset();
+		float                NewShotTimeScale     = Section->Parameters.TimeScale;
+		int32                NewShotPrerollFrames = Section->GetPreRollFrames();
+		int32                NewRowIndex          = Section->GetRowIndex();
+		FFrameNumber         NewShotStartTime     = NewShotRange.GetLowerBound().IsClosed() ? MovieScene::DiscreteInclusiveLower(NewShotRange) : 0;
+		int32                NewShotRowIndex      = Section->GetRowIndex();
+
+		const int32 Duration = (NewShotRange.GetLowerBound().IsClosed() && NewShotRange.GetUpperBound().IsClosed() ) ? MovieScene::DiscreteSize(NewShotRange) : 1;
+		UMovieSceneSubSection* NewShot = CinematicShotTrack->AddSequence(MovieSceneSequence, NewShotStartTime, Duration);
 
 		if (NewShot != nullptr)
 		{
 			CinematicShotTrack->RemoveSection(*Section);
 
-			NewShot->SetStartTime(NewShotStartTime);
-			NewShot->SetEndTime(NewShotEndTime);
-			NewShot->Parameters.StartOffset = NewShotStartOffset;
+			NewShot->SetRange(NewShotRange);
+			NewShot->Parameters.SetStartFrameOffset(NewShotStartOffset);
 			NewShot->Parameters.TimeScale = NewShotTimeScale;
-			NewShot->SetPreRollTime(NewShotPrerollTime);
+			NewShot->SetPreRollFrames(NewShotPrerollFrames);
+			NewShot->SetRowIndex(NewShotRowIndex);
 		}
 
 		GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemsChanged );
@@ -508,7 +537,12 @@ bool FCinematicShotTrackEditor::HandleAddCinematicShotTrackMenuEntryCanExecute()
 
 void FCinematicShotTrackEditor::HandleAddCinematicShotTrackMenuEntryExecute()
 {
-	FindOrCreateCinematicShotTrack();
+	UMovieSceneCinematicShotTrack* ShotTrack = FindOrCreateCinematicShotTrack();
+	if (GetSequencer().IsValid())
+	{
+		GetSequencer()->OnAddTrack(ShotTrack);
+	}
+	GetSequencer()->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemAdded);
 }
 
 
@@ -563,23 +597,40 @@ void FCinematicShotTrackEditor::HandleAddCinematicShotComboButtonMenuEntryExecut
 	{
 		UMovieSceneSequence* MovieSceneSequence = CastChecked<UMovieSceneSequence>(AssetData.GetAsset());
 
-		AnimatablePropertyChanged( FOnKeyProperty::CreateRaw( this, &FCinematicShotTrackEditor::AddKeyInternal, MovieSceneSequence) );
+		int32 RowIndex = INDEX_NONE;
+		AnimatablePropertyChanged( FOnKeyProperty::CreateRaw( this, &FCinematicShotTrackEditor::AddKeyInternal, MovieSceneSequence, RowIndex) );
 	}
 }
 
 
-FKeyPropertyResult FCinematicShotTrackEditor::AddKeyInternal(float KeyTime, UMovieSceneSequence* InMovieSceneSequence)
+FKeyPropertyResult FCinematicShotTrackEditor::AddKeyInternal(FFrameNumber KeyTime, UMovieSceneSequence* InMovieSceneSequence, int32 RowIndex)
 {	
 	FKeyPropertyResult KeyPropertyResult;
 
 	if (CanAddSubSequence(*InMovieSceneSequence))
 	{
 		UMovieSceneCinematicShotTrack* CinematicShotTrack = FindOrCreateCinematicShotTrack();
-		float EndTime = InMovieSceneSequence->GetMovieScene()->GetPlaybackRange().Size<float>();
-		UMovieSceneSubSection* NewSection = CinematicShotTrack->AddSequence(InMovieSceneSequence, KeyTime, EndTime);
-		NewSection->SetRowIndex(MovieSceneToolHelpers::FindAvailableRowIndex(CinematicShotTrack, NewSection));
+		
+		const FQualifiedFrameTime InnerDuration = FQualifiedFrameTime(
+			MovieScene::DiscreteSize(InMovieSceneSequence->GetMovieScene()->GetPlaybackRange()),
+			InMovieSceneSequence->GetMovieScene()->GetFrameResolution());
+
+		const FFrameRate OuterFrameRate = CinematicShotTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		const int32      OuterDuration  = InnerDuration.ConvertTo(OuterFrameRate).FrameNumber.Value;
+
+		UMovieSceneSubSection* NewSection = CinematicShotTrack->AddSequenceOnRow(InMovieSceneSequence, KeyTime, OuterDuration, RowIndex);
 		KeyPropertyResult.bTrackModified = true;
+
+		GetSequencer()->EmptySelection();
+		GetSequencer()->SelectSection(NewSection);
+		GetSequencer()->ThrobSectionSelection();
+
+		return KeyPropertyResult;
 	}
+
+	FNotificationInfo Info(FText::Format( LOCTEXT("InvalidSequence", "Invalid level sequence {0}. There could be a circular dependency."), InMovieSceneSequence->GetDisplayName()));	
+	Info.bUseLargeFont = false;
+	FSlateNotificationManager::Get().AddNotification(Info);
 
 	return KeyPropertyResult;
 }
@@ -680,14 +731,19 @@ bool FCinematicShotTrackEditor::CanAddSubSequence(const UMovieSceneSequence& Seq
 
 	// make sure we are not contained in the other sequence (circular dependency)
 	// @todo sequencer: this check is not sufficient (does not prevent circular dependencies of 2+ levels)
-	UMovieSceneCinematicShotTrack* SequenceCinematicShotTrack = SequenceMovieScene->FindMasterTrack<UMovieSceneCinematicShotTrack>();
-
-	if (SequenceCinematicShotTrack == nullptr)
+	UMovieSceneSubTrack* SequenceSubTrack = SequenceMovieScene->FindMasterTrack<UMovieSceneSubTrack>();
+	if (SequenceSubTrack && SequenceSubTrack->ContainsSequence(*FocusedSequence, true))
 	{
-		return true;
+		return false;
 	}
 
-	return !SequenceCinematicShotTrack->ContainsSequence(*FocusedSequence, true);
+	UMovieSceneCinematicShotTrack* SequenceCinematicTrack = SequenceMovieScene->FindMasterTrack<UMovieSceneCinematicShotTrack>();
+	if (SequenceCinematicTrack && SequenceCinematicTrack->ContainsSequence(*FocusedSequence, true))
+	{
+		return false;
+	}
+
+	return true;
 }
 
 
@@ -698,15 +754,25 @@ void FCinematicShotTrackEditor::OnUpdateCameraCut(UObject* CameraObject, bool bJ
 }
 
 
-FKeyPropertyResult FCinematicShotTrackEditor::HandleSequenceAdded(float KeyTime, UMovieSceneSequence* Sequence)
+FKeyPropertyResult FCinematicShotTrackEditor::HandleSequenceAdded(FFrameNumber KeyTime, UMovieSceneSequence* Sequence, int32 RowIndex)
 {
 	FKeyPropertyResult KeyPropertyResult;
 
 	auto CinematicShotTrack = FindOrCreateCinematicShotTrack();
-	float Duration = Sequence->GetMovieScene()->GetPlaybackRange().Size<float>();
-	UMovieSceneSubSection* NewSection = CinematicShotTrack->AddSequence(Sequence, KeyTime, Duration);
-	NewSection->SetRowIndex(MovieSceneToolHelpers::FindAvailableRowIndex(CinematicShotTrack, NewSection));
+
+	const FQualifiedFrameTime InnerDuration = FQualifiedFrameTime(
+		MovieScene::DiscreteSize(Sequence->GetMovieScene()->GetPlaybackRange()),
+		Sequence->GetMovieScene()->GetFrameResolution());
+
+	const FFrameRate OuterFrameRate = CinematicShotTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	const int32      OuterDuration  = InnerDuration.ConvertTo(OuterFrameRate).FrameNumber.Value;
+
+	UMovieSceneSubSection* NewSection = CinematicShotTrack->AddSequenceOnRow(Sequence, KeyTime, OuterDuration, RowIndex);
 	KeyPropertyResult.bTrackModified = true;
+
+	GetSequencer()->EmptySelection();
+	GetSequencer()->SelectSection(NewSection);
+	GetSequencer()->ThrobSectionSelection();
 
 	return KeyPropertyResult;
 }
@@ -740,9 +806,8 @@ void FCinematicShotTrackEditor::ImportEDL()
 
 	const FMovieSceneCaptureSettings& Settings = MovieSceneCapture->GetSettings();
 	FString SaveDirectory = FPaths::ConvertRelativePathToFull(Settings.OutputDirectory.Path);
-	float FrameRate = Settings.FrameRate;
 
-	if (MovieSceneToolHelpers::ShowImportEDLDialog(MovieScene, FrameRate, SaveDirectory))
+	if (MovieSceneToolHelpers::ShowImportEDLDialog(MovieScene, Settings.FrameRate, SaveDirectory))
 	{
 		GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemsChanged );
 	}
@@ -779,9 +844,8 @@ void FCinematicShotTrackEditor::ExportEDL()
 	FString SaveDirectory = FPaths::ConvertRelativePathToFull(Settings.OutputDirectory.Path);
 	int32 HandleFrames = Settings.HandleFrames;
 
-	float FrameRate = 1.0f / MovieScene->GetFixedFrameInterval();
-
-	MovieSceneToolHelpers::ShowExportEDLDialog(MovieScene, FrameRate, SaveDirectory, HandleFrames);
+	// @todo: sequencer-timecode: resolution vs playrate
+	MovieSceneToolHelpers::ShowExportEDLDialog(MovieScene, MovieScene->GetFrameResolution(), SaveDirectory, HandleFrames);
 }
 
 

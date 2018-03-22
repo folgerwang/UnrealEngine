@@ -12,6 +12,8 @@
 #include "Modules/ModuleManager.h"
 #include "EditorViewportClient.h"
 #include "UnrealClient.h"
+#include "MovieScene.h"
+#include "Channels/MovieSceneChannelProxy.h"
 
 ASequencerKeyActor::ASequencerKeyActor()
 	: Super()
@@ -75,13 +77,15 @@ void ASequencerKeyActor::PropagateKeyChange()
 		// Mark the track section as dirty
 		TrackSection->Modify();
 
-		// Update the translation keys
-		FRichCurve& TransXCurve = TrackSection->GetTranslationCurve(EAxis::X);
-		FRichCurve& TransYCurve = TrackSection->GetTranslationCurve(EAxis::Y);
-		FRichCurve& TransZCurve = TrackSection->GetTranslationCurve(EAxis::Z);
-		TransXCurve.UpdateOrAddKey(KeyTime, GetActorTransform().GetLocation().X);
-		TransYCurve.UpdateOrAddKey(KeyTime, GetActorTransform().GetLocation().Y);
-		TransZCurve.UpdateOrAddKey(KeyTime, GetActorTransform().GetLocation().Z);
+		FFrameRate   FrameResolution = TrackSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		FFrameNumber FrameNumber     = (KeyTime * FrameResolution).RoundToFrame();
+
+		TArrayView<FMovieSceneFloatChannel*> FloatChannels = TrackSection->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
+
+		const FVector Translation = GetActorTransform().GetLocation();
+		FloatChannels[0]->GetInterface().UpdateOrAddKey(FrameNumber, FMovieSceneFloatValue(Translation.X));
+		FloatChannels[1]->GetInterface().UpdateOrAddKey(FrameNumber, FMovieSceneFloatValue(Translation.Y));
+		FloatChannels[2]->GetInterface().UpdateOrAddKey(FrameNumber, FMovieSceneFloatValue(Translation.Z));
 
 		// Draw a single transform track based on the data from this key
 		FEditorViewportClient* ViewportClient = StaticCast<FEditorViewportClient*>(GEditor->GetActiveViewport()->GetClient());

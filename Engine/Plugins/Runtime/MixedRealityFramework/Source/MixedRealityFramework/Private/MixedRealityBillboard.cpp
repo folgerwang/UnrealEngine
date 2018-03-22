@@ -6,7 +6,6 @@
 #include "UObject/ConstructorHelpers.h"
 #include "Materials/Material.h"
 #include "Engine/World.h"
-#include "MixedRealityUtilLibrary.h" // for GetHMDCameraComponent()
 #include "MixedRealityCaptureComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/LocalPlayer.h"
@@ -89,7 +88,7 @@ UMixedRealityBillboard::UMixedRealityBillboard(const FObjectInitializer& ObjectI
 //------------------------------------------------------------------------------
 void UMixedRealityBillboard::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
-	FVector ViewOffset = FVector::ForwardVector * (GNearClippingPlane + 0.01f);
+	FVector ViewOffset = FVector::ForwardVector * (GNearClippingPlane + FMath::Max(0.01f, DepthOffset));
 	if (GEngine->XRSystem.IsValid())
 	{
 		IIdentifiableXRDevice* HMDDevice = GEngine->XRSystem->GetXRCamera().Get();
@@ -111,7 +110,7 @@ void UMixedRealityBillboard::TickComponent(float DeltaTime, enum ELevelTick Tick
 					const FVector ViewToHMD = (HMDPos - ViewWorldPos);
 					const FVector ViewFacingDir = MRViewComponent->GetForwardVector();
 
-					const float HMDDepth = (/*DotProduct: */ViewFacingDir | ViewToHMD);
+					const float HMDDepth = (/*DotProduct: */ViewFacingDir | ViewToHMD) + DepthOffset;
 					ViewOffset = FVector::ForwardVector * HMDDepth;
 				}
 			}
@@ -119,6 +118,16 @@ void UMixedRealityBillboard::TickComponent(float DeltaTime, enum ELevelTick Tick
 	}
 
 	SetRelativeLocationAndRotation(ViewOffset, FRotator::ZeroRotator);
+}
+
+//------------------------------------------------------------------------------
+void UMixedRealityBillboard::EnableHMDDepthTracking(bool bEnable)
+{
+	SetComponentTickEnabled(bEnable);
+	if (!bEnable)
+	{
+		SetRelativeLocation( FVector::ForwardVector * (GNearClippingPlane + FMath::Max(0.01f, DepthOffset)) );
+	}
 }
 
 /* AMixedRealityBillboardActor
@@ -145,9 +154,7 @@ AMixedRealityProjectionActor::AMixedRealityProjectionActor(const FObjectInitiali
 
 	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
 
-	UWorld* MyWorld = GetWorld();
-	const bool bIsEditorInst = MyWorld && (MyWorld->WorldType == EWorldType::Editor || MyWorld->WorldType == EWorldType::EditorPreview);
-	
+	UWorld* MyWorld = GetWorld();	
 	ProjectionComponent = CreateDefaultSubobject<UMixedRealityBillboard>(TEXT("MR_ProjectionMesh"));
 	ProjectionComponent->SetupAttachment(RootComponent);
 	ProjectionComponent->AddElement(ConstructorStatics.DefaultMaterial.Object, 
@@ -160,8 +167,8 @@ AMixedRealityProjectionActor::AMixedRealityProjectionActor(const FObjectInitiali
 	ProjectionComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	// expects that this actor (or one of its owners) is used as the scene's view 
 	// actor (hidden in the editor via UMixedRealityBillboard::GetHiddenEditorViews)
-	ProjectionComponent->bOnlyOwnerSee = !bIsEditorInst;
-	ProjectionComponent->SetComponentTickEnabled(false);
+	ProjectionComponent->bOnlyOwnerSee = MyWorld && MyWorld->IsGameWorld();
+	ProjectionComponent->EnableHMDDepthTracking(true);
 	ProjectionComponent->SetRelativeLocation(FVector::ForwardVector * (GNearClippingPlane + 0.01f));
 }
 
@@ -179,7 +186,10 @@ void AMixedRealityProjectionActor::BeginPlay()
 		}
 	}
 
-	ProjectionComponent->SetRelativeLocation(FVector::ForwardVector * (GNearClippingPlane + 0.01f));
+	if (ProjectionComponent)
+	{
+		ProjectionComponent->SetRelativeLocation(FVector::ForwardVector * (GNearClippingPlane + 0.01f));
+	}
 }
 
 //------------------------------------------------------------------------------
@@ -204,54 +214,3 @@ void AMixedRealityProjectionActor::SetProjectionAspectRatio(const float NewAspec
 		ProjectionComponent->MarkRenderStateDirty();
 	}	
 }
-
-//------------------------------------------------------------------------------
-FVector AMixedRealityProjectionActor::GetTargetPosition() const
-{
-	if (AttachTarget.IsValid())
-	{
-		return AttachTarget->GetComponentLocation();
-	}
-	return GetActorLocation();
-}
-
-//------------------------------------------------------------------------------
-void AMixedRealityProjectionActor::SetDepthTarget(const APawn* PlayerPawn)
-{
-	if (AttachTarget.IsValid())
-	{
-		RemoveTickPrerequisiteComponent(AttachTarget.Get());
-	}
-
-	UCameraComponent* HMDCam = UMixedRealityUtilLibrary::GetHMDCameraComponent(PlayerPawn);
-	if (HMDCam)
-	{
-		AttachTarget = HMDCam;
-	}
-	else if (PlayerPawn)
-	{
-		AttachTarget = PlayerPawn->GetRootComponent();
-	}
-	else
-	{
-		AttachTarget.Reset();
-	}
-	RefreshTickState();
-}
-
-//------------------------------------------------------------------------------
-void AMixedRealityProjectionActor::RefreshTickState()
-{
-	if (USceneComponent* AttachParent = RootComponent->GetAttachParent())
-	{
-		AddTickPrerequisiteComponent(AttachParent);
-	}
-
-	const bool bValidAttachTarget = AttachTarget.IsValid();
-	if (bValidAttachTarget)
-	{
-		AddTickPrerequisiteComponent(AttachTarget.Get());
-	}
-	ProjectionComponent->SetComponentTickEnabled(bValidAttachTarget);
-}
-

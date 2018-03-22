@@ -21,12 +21,12 @@ FMovieSceneEvalTemplatePtr UMovieScene3DPathTrack::CreateTemplateForSection(cons
 }
 
 
-void UMovieScene3DPathTrack::AddConstraint(float KeyTime, float ConstraintEndTime, const FName SocketName, const FName ComponentName, const FMovieSceneObjectBindingID& ConstraintBindingID)
+void UMovieScene3DPathTrack::AddConstraint(FFrameNumber KeyTime, int32 Duration, const FName SocketName, const FName ComponentName, const FMovieSceneObjectBindingID& ConstraintBindingID)
 {
 	UMovieScene3DPathSection* NewSection = NewObject<UMovieScene3DPathSection>(this);
 	{
-		NewSection->AddPath(KeyTime, ConstraintEndTime, ConstraintBindingID);
-		NewSection->InitialPlacement( ConstraintSections, KeyTime, ConstraintEndTime, SupportsMultipleRows() );
+		NewSection->SetPathBindingID( ConstraintBindingID );
+		NewSection->InitialPlacement( ConstraintSections, KeyTime, Duration, SupportsMultipleRows() );
 	}
 
 	ConstraintSections.Add(NewSection);

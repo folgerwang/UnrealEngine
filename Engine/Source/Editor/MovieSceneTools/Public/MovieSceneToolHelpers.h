@@ -19,6 +19,9 @@ class UInterpTrackMoveAxis;
 struct FMovieSceneObjectBindingID;
 class UMovieSceneTrack;
 
+struct FMovieSceneFloatValue;
+template<typename ChannelType> struct TMovieSceneChannel;
+
 DECLARE_DELEGATE_TwoParams(FOnEnumSelectionChanged, int32 /*Selection*/, ESelectInfo::Type /*SelectionType*/);
 
 class MOVIESCENETOOLS_API MovieSceneToolHelpers
@@ -32,7 +35,7 @@ public:
 	 * @param Time	The time at which to trim
 	 * @param bTrimLeft Trim left or trim right
 	 */
-	static void TrimSection(const TSet<TWeakObjectPtr<UMovieSceneSection>>& Sections, float Time, bool bTrimLeft);
+	static void TrimSection(const TSet<TWeakObjectPtr<UMovieSceneSection>>& Sections, FFrameNumber Time, bool bTrimLeft);
 
 	/**
 	 * Splits sections at the given time
@@ -40,7 +43,7 @@ public:
 	 * @param Sections The sections to split
 	 * @param Time	The time at which to split
 	 */
-	static void SplitSection(const TSet<TWeakObjectPtr<UMovieSceneSection>>& Sections, float Time);
+	static void SplitSection(const TSet<TWeakObjectPtr<UMovieSceneSection>>& Sections, FFrameNumber Time);
 
 	/**
 	 * Parse a shot name into its components.
@@ -79,7 +82,7 @@ public:
 	 * @param Time The time to generate the new shot name at
 	 * @return The new shot name
 	 */
-	static FString GenerateNewShotName(const TArray<UMovieSceneSection*>& AllSections, float Time);
+	static FString GenerateNewShotName(const TArray<UMovieSceneSection*>& AllSections, FFrameNumber Time);
 
 	/**
 	 * Gather takes - level sequence assets that have the same shot prefix and shot number in the same asset path (directory)
@@ -128,7 +131,7 @@ public:
 	 * @param InOpenDirectory Optional directory path to open from. If none given, a dialog will pop up to prompt the user
 	 * @return Whether the import was successful
 	 */
-	static bool ShowImportEDLDialog(UMovieScene* InMovieScene, float InFrameRate, FString InOpenDirectory = TEXT(""));
+	static bool ShowImportEDLDialog(UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InOpenDirectory = TEXT(""));
 
 	/**
 	 * Show Export EDL Dialog
@@ -139,7 +142,7 @@ public:
 	 * @param InHandleFrames The number of handle frames to include for each shot.
 	 * @return Whether the export was successful
 	 */
-	static bool ShowExportEDLDialog(const UMovieScene* InMovieScene, float InFrameRate, FString InSaveDirectory = TEXT(""), int32 InHandleFrames = 8);
+	static bool ShowExportEDLDialog(const UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InSaveDirectory = TEXT(""), int32 InHandleFrames = 8);
 
 	/**
 	 * Import FBX
@@ -159,12 +162,13 @@ public:
 	static EInterpCurveMode RichCurveInterpolationToMatineeInterpolation( ERichCurveInterpMode InterpMode );
 
 	/*
-	 * Copy rich curve to move axis
+	 * Copy key data to move axis
 	 *
-	 * @param RichCurve The rich curve to copy from
+	 * @param KeyData The key data to copy from
 	 * @param MoveAxis The move axis to copy to
+	 * @param FrameRate The frame rate of the source channel
 	 */
-	static void CopyRichCurveToMoveAxis(const FRichCurve& RichCurve, UInterpTrackMoveAxis* MoveAxis);
+	static void CopyKeyDataToMoveAxis(const TMovieSceneChannel<FMovieSceneFloatValue>& KeyData, UInterpTrackMoveAxis* MoveAxis, FFrameRate FrameRate);
 
 	/*
 	 * Export the object binding to a camera anim

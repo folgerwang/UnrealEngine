@@ -32,12 +32,12 @@ FMovieSceneClipboardKey& FMovieSceneClipboardKey::operator=(const FMovieSceneCli
 	return *this;
 }
 
-float FMovieSceneClipboardKey::GetTime() const
+FFrameNumber FMovieSceneClipboardKey::GetTime() const
 {
 	return Time;
 }
 
-void FMovieSceneClipboardKey::SetTime(float InTime)
+void FMovieSceneClipboardKey::SetTime(FFrameNumber InTime)
 {
 	Time = InTime;
 }
@@ -149,7 +149,7 @@ FMovieSceneClipboardEnvironment& FMovieSceneClipboard::GetEnvironment()
 	return Environment;
 }
 
-FMovieSceneClipboard FMovieSceneClipboardBuilder::Commit(TOptional<float> CopyRelativeTo)
+FMovieSceneClipboard FMovieSceneClipboardBuilder::Commit(TOptional<FFrameNumber> CopyRelativeTo)
 {
 	FMovieSceneClipboard Clipboard;
 

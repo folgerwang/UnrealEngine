@@ -112,7 +112,7 @@ void FMenuPanel::ForcePanelOpen()
 	if (CurrentState != EPanelState::Open)
 	{
 		CurrentState = EPanelState::Open;
-		OnStateChanged.ExecuteIfBound(CurrentState == EPanelState::Open);
+		OnStateChanged.ExecuteIfBound(CurrentState == EPanelState::Open); //-V547
 	}
 }
 
@@ -122,7 +122,7 @@ void FMenuPanel::ForcePanelClosed()
 	if (CurrentState != EPanelState::Closed)
 	{
 		CurrentState = EPanelState::Closed;
-		OnStateChanged.ExecuteIfBound(CurrentState == EPanelState::Open);
+		OnStateChanged.ExecuteIfBound(CurrentState == EPanelState::Open); //-V547
 	}
 }
 

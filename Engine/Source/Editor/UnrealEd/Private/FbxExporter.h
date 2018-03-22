@@ -40,7 +40,7 @@ class FColorVertexBuffer;
 class UFbxExportOption;
 struct FAnimControlTrackKey;
 struct FExpressionInput;
-struct FRichCurve;
+struct FMovieSceneFloatChannel;
 
 namespace UnFbx
 {
@@ -414,7 +414,7 @@ private:
 	/**
 	 * Exports a level sequence 3D transform track into the FBX animation stack.
 	 */
-	void ExportLevelSequence3DTransformTrack( FbxNode& FbxActor, UMovieScene3DTransformTrack& TransformTrack, AActor* Actor, const TRange<float>& InPlaybackRange );
+	void ExportLevelSequence3DTransformTrack( FbxNode& FbxActor, UMovieScene3DTransformTrack& TransformTrack, AActor* Actor, const TRange<FFrameNumber>& InPlaybackRange );
 
 	/** 
 	 * Exports a level sequence float track into the FBX animation stack. 
@@ -430,8 +430,8 @@ private:
 		Fov
 	};
 
-	/** Exports an unreal rich curve to an fbx animation curve. */
-	void ExportRichCurveToFbxCurve(FbxAnimCurve& InFbxCurve, FRichCurve& InRichCurve, ERichCurveValueMode ValueMode = ERichCurveValueMode::Default, bool bNegative = false);
+	/** Exports a movie scene channel to an fbx animation curve. */
+	void ExportChannelToFbxCurve(FbxAnimCurve& InFbxCurve, const FMovieSceneFloatChannel& InChannel, FFrameRate FrameResolution, ERichCurveValueMode ValueMode = ERichCurveValueMode::Default, bool bNegative = false);
 
 	/**
 	 * Finds the given actor in the already-exported list of structures

@@ -299,7 +299,7 @@ public class PhysX : ModuleRules
 				PublicAdditionalLibraries.Add(String.Format(Lib, LibrarySuffix));
 			}
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		else if(Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			PhysXLibDir += "/Linux/" + Target.Architecture;
 			PxSharedLibDir += "/Linux/" + Target.Architecture;

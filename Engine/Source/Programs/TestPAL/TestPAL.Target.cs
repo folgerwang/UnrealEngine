@@ -3,7 +3,7 @@
 using UnrealBuildTool;
 using System.Collections.Generic;
 
-[SupportedPlatforms(UnrealPlatformClass.Server)]
+[SupportedPlatforms(UnrealPlatformClass.All)]
 public class TestPALTarget : TargetRules
 {
 	public TestPALTarget(TargetInfo Target) : base(Target)
@@ -20,7 +20,7 @@ public class TestPALTarget : TargetRules
 		//bBuildWithEditorOnlyData = false;
 
 		// Compile out references from Core to the rest of the engine
-		bCompileAgainstEngine = false;	// compiling without engine is broken (overridden functions do not override base class)
+		bCompileAgainstEngine = false;
 		bCompileAgainstCoreUObject = false;
 
 		// Logs are still useful to print the results

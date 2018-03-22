@@ -43,7 +43,13 @@ public:
 void FTestLeaderboardInterface::Test(UWorld* InWorld)
 {
 	IOnlineSubsystem* OnlineSub = Online::GetSubsystem(InWorld, FName(*Subsystem));
-	check(OnlineSub); 
+	if (!OnlineSub)
+	{
+		UE_LOG(LogOnline, Warning, TEXT("Failed to get online subsystem for %s"), *Subsystem);
+
+		bOverallSuccess = false;
+		return;
+	}
 
 	if (OnlineSub->GetIdentityInterface().IsValid())
 	{
@@ -52,7 +58,13 @@ void FTestLeaderboardInterface::Test(UWorld* InWorld)
 
 	// Cache interfaces
 	Leaderboards = OnlineSub->GetLeaderboardsInterface();
-	check(Leaderboards.IsValid());
+	if (!Leaderboards.IsValid())
+	{
+		UE_LOG(LogOnline, Warning, TEXT("Failed to get online leaderboards interface for %s"), *Subsystem);
+
+		bOverallSuccess = false;
+		return;
+	}
 
 	// Define delegates
 	LeaderboardFlushDelegate = FOnLeaderboardFlushCompleteDelegate::CreateRaw(this, &FTestLeaderboardInterface::OnLeaderboardFlushComplete);

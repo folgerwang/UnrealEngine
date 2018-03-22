@@ -76,7 +76,7 @@ namespace UnrealBuildTool.Rules
 					);
 			}
 
-			if (Target.Platform == UnrealTargetPlatform.Linux)
+			if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 			{
 				AddEngineThirdPartyPrivateStaticDependencies(Target,
 					"UEOgg",

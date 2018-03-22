@@ -30,7 +30,7 @@ public:
 	// Local functions.
 	void LocalPrint( const TCHAR* Str )
 	{
-#if PLATFORM_APPLE || PLATFORM_LINUX
+#if PLATFORM_APPLE || PLATFORM_UNIX
 		printf("%s", TCHAR_TO_ANSI(Str));
 #elif PLATFORM_WINDOWS
 		wprintf(TEXT("%ls"), Str);

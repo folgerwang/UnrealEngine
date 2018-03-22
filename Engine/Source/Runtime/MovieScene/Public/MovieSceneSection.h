@@ -3,19 +3,23 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "FrameTime.h"
 #include "UObject/ObjectMacros.h"
 #include "MovieSceneFwd.h"
 #include "KeyParams.h"
-#include "Curves/KeyHandle.h"
-#include "Curves/RichCurve.h"
 #include "MovieSceneSignedObject.h"
 #include "Evaluation/Blending/MovieSceneBlendType.h"
 #include "Generators/MovieSceneEasingFunction.h"
+#include "MovieSceneFrameMigration.h"
 #include "MovieSceneSection.generated.h"
 
 class FStructOnScope;
-class UAISenseEvent;
+
+struct FKeyHandle;
+struct FMovieSceneChannelProxy;
 struct FMovieSceneEvalTemplatePtr;
+
+template<typename> class TArrayView;
 
 /** Enumeration specifying how to handle state when this section is no longer evaluated */
 UENUM()
@@ -59,32 +63,35 @@ struct FMovieSceneEasingSettings
 	GENERATED_BODY()
 
 	FMovieSceneEasingSettings()
-		: AutoEaseInTime(0.f), AutoEaseOutTime(0.f)
-		, EaseIn(nullptr), bManualEaseIn(false), ManualEaseInTime(0.f)
-		, EaseOut(nullptr), bManualEaseOut(false), ManualEaseOutTime(0.f)
+		: AutoEaseInDuration(0), AutoEaseOutDuration(0)
+		, EaseIn(nullptr), bManualEaseIn(false), ManualEaseInDuration(0)
+		, EaseOut(nullptr), bManualEaseOut(false), ManualEaseOutDuration(0)
+#if WITH_EDITORONLY_DATA
+		, AutoEaseInTime_DEPRECATED(0.f), AutoEaseOutTime_DEPRECATED(0.f), ManualEaseInTime_DEPRECATED(0.f), ManualEaseOutTime_DEPRECATED(0.f)
+#endif
 	{}
 
 public:
 
-	float GetEaseInTime() const
+	int32 GetEaseInDuration() const
 	{
-		return bManualEaseIn ? ManualEaseInTime : AutoEaseInTime;
+		return bManualEaseIn ? ManualEaseInDuration : AutoEaseInDuration;
 	}
 
-	float GetEaseOutTime() const
+	int32 GetEaseOutDuration() const
 	{
-		return bManualEaseOut ? ManualEaseOutTime : AutoEaseOutTime;
+		return bManualEaseOut ? ManualEaseOutDuration : AutoEaseOutDuration;
 	}
 
 public:
 
-	/** Automatically applied ease in time */
+	/** Automatically applied ease in duration in frames */
 	UPROPERTY()
-	float AutoEaseInTime;
+	int32 AutoEaseInDuration;
 
 	/** Automatically applied ease out time */
 	UPROPERTY()
-	float AutoEaseOutTime;
+	int32 AutoEaseOutDuration;
 
 	UPROPERTY()
 	TScriptInterface<IMovieSceneEasingFunction> EaseIn;
@@ -93,9 +100,9 @@ public:
 	UPROPERTY()
 	bool bManualEaseIn;
 
-	/** Manually override this section's ease in time */
+	/** Manually override this section's ease in duration in frames */
 	UPROPERTY()
-	float ManualEaseInTime;
+	int32 ManualEaseInDuration;
 
 	UPROPERTY()
 	TScriptInterface<IMovieSceneEasingFunction> EaseOut;
@@ -104,9 +111,20 @@ public:
 	UPROPERTY()
 	bool bManualEaseOut;
 
-	/** Manually override this section's ease-out time */
+	/** Manually override this section's ease-out duration in frames */
 	UPROPERTY()
-	float ManualEaseOutTime;
+	int32 ManualEaseOutDuration;
+
+#if WITH_EDITORONLY_DATA
+	UPROPERTY()
+	float AutoEaseInTime_DEPRECATED;
+	UPROPERTY()
+	float AutoEaseOutTime_DEPRECATED;
+	UPROPERTY()
+	float ManualEaseInTime_DEPRECATED;
+	UPROPERTY()
+	float ManualEaseOutTime_DEPRECATED;
+#endif
 };
 
 /**
@@ -130,86 +148,91 @@ public:
 	 *
 	 * @return Returns whether this section is locked or not
 	 */
-	virtual MOVIESCENE_API bool TryModify(bool bAlwaysMarkDirty=true);
+	MOVIESCENE_API bool TryModify(bool bAlwaysMarkDirty=true);
 
-	/**
-	 * @return The start time of the section
-	 */
-	float GetStartTime() const
-	{
-		return StartTime;
-	}
-
-	/**
-	 * @return The end time of the section
-	 */
-	float GetEndTime() const
-	{
-		return EndTime;
-	}
-	
-	/**
-	 * @return The size of the time range of the section
-	 */
-	float GetTimeSize() const
-	{
-		return EndTime - StartTime;
-	}
-
-	/**
-	 * Sets a new end time for this section
-	 * 
-	 * @param InEndTime	The new end time
-	 */
-	void SetStartTime(float NewStartTime)
-	{ 
-		if (TryModify())
-		{
-			StartTime = NewStartTime;
-		}
-	}
-
-	/**
-	 * Sets a new end time for this section
-	 * 
-	 * @param InEndTime	The new end time
-	 */
-	void SetEndTime(float NewEndTime)
-	{ 
-		if (TryModify())
-		{
-			EndTime = NewEndTime;
-		}
-	}
-	
 	/**
 	 * @return The range of times of the section
 	 */
-	TRange<float> GetRange() const 
+	TRange<FFrameNumber> GetRange() const
 	{
-		// Use the single value constructor for zero sized ranges because it creates a range that is inclusive on both upper and lower
-		// bounds which isn't considered "empty".  Use the standard constructor for non-zero sized ranges so that they work well when
-		// calculating overlap with other non-zero sized ranges.
-		return (StartTime == EndTime)
-			? TRange<float>(StartTime)
-			: TRange<float>(StartTime, TRangeBound<float>::Inclusive(EndTime));
+		return SectionRange.Value;
 	}
-	
+
+	/**
+	 * Expands this section's range to include the specified time
+	 */
+	void ExpandToFrame(FFrameNumber InFrame)
+	{
+		SetRange(TRange<FFrameNumber>::Hull(GetRange(), TRange<FFrameNumber>::Inclusive(InFrame, InFrame)));
+	}
+
 	/**
 	 * Sets a new range of times for this section
 	 * 
 	 * @param NewRange	The new range of times
 	 */
-	void SetRange(TRange<float> NewRange)
+	void SetRange(const TRange<FFrameNumber>& NewRange)
 	{
-		check(NewRange.HasLowerBound() && NewRange.HasUpperBound());
-
 		if (TryModify())
 		{
-			StartTime = NewRange.GetLowerBoundValue();
-			EndTime = NewRange.GetUpperBoundValue();
+			check(NewRange.GetLowerBound().IsOpen() || NewRange.GetUpperBound().IsOpen() || NewRange.GetLowerBoundValue() <= NewRange.GetUpperBoundValue());
+			SectionRange.Value = NewRange;
 		}
 	}
+
+	/**
+	 * Check whether this section has a start frame (else infinite)
+	 * @return true if this section has an inclusive or exclusive start frame, false if it's open (infinite)
+	 */
+	bool HasStartFrame() const
+	{
+		return !SectionRange.Value.GetLowerBound().IsOpen();
+	}
+
+	/**
+	 * Check whether this section has an end frame (else infinite)
+	 * @return true if this section has an inclusive or exclusive end frame, false if it's open (infinite)
+	 */
+	bool HasEndFrame() const
+	{
+		return !SectionRange.Value.GetUpperBound().IsOpen();
+	}
+
+	/**
+	 * Gets the frame number at which this section starts
+	 *
+	 * @note Assumes a non-infinite start time. Check HasStartFrame first.
+	 * @return The frame number at which this section starts.
+	 */
+	FFrameNumber GetInclusiveStartFrame() const
+	{
+		TRangeBound<FFrameNumber> LowerBound = SectionRange.GetLowerBound();
+		return LowerBound.IsInclusive() ? LowerBound.GetValue() : LowerBound.GetValue() + 1;
+	}
+
+	/**
+	 * Gets the first frame number after the end of this section
+	 *
+	 * @note Assumes a non-infinite end time. Check HasEndFrame first.
+	 * @return The first frame after this section ends
+	 */
+	FFrameNumber GetExclusiveEndFrame() const
+	{
+		TRangeBound<FFrameNumber> UpperBound = SectionRange.GetUpperBound();
+		return UpperBound.IsInclusive() ? UpperBound.GetValue() + 1 : UpperBound.GetValue();
+	}
+
+	/**
+	 * Set this section's start frame in sequence resolution space.
+	 * @note: Will be clamped to the current end frame if necessary
+	 */
+	MOVIESCENE_API void SetStartFrame(TRangeBound<FFrameNumber> NewStartFrame);
+
+	/**
+	 * Set this section's end frame in sequence resolution space
+	 * @note: Will be clamped to the current start frame if necessary
+	 */
+	MOVIESCENE_API void SetEndFrame(TRangeBound<FFrameNumber> NewEndFrame);
 
 	/**
 	 * Returns whether or not a provided position in time is within the timespan of the section 
@@ -217,9 +240,9 @@ public:
 	 * @param Position	The position to check
 	 * @return true if the position is within the timespan, false otherwise
 	 */
-	bool IsTimeWithinSection(float Position) const 
+	bool IsTimeWithinSection(FFrameNumber Position) const 
 	{
-		return Position >= StartTime && Position <= EndTime;
+		return SectionRange.Value.Contains(Position);
 	}
 
 	/**
@@ -250,40 +273,23 @@ public:
 	 * Moves the section by a specific amount of time
 	 *
 	 * @param DeltaTime	The distance in time to move the curve
-	 * @param KeyHandles The key handles to operate on
 	 */
-	virtual void MoveSection(float DeltaTime, TSet<FKeyHandle>& KeyHandles)
-	{
-		if (TryModify())
-		{
-			StartTime += DeltaTime;
-			EndTime += DeltaTime;
-		}
-	}
-	
+	MOVIESCENE_API void MoveSection(FFrameNumber DeltaTime);
+
 	/**
-	 * Dilates the section by a specific factor
+	 * Return the range within which this section is effective. Used for automatic calculation of sequence bounds.
 	 *
-	 * @param DilationFactor The multiplier which scales this section
-	 * @param bFromStart Whether to dilate from the beginning or end (whichever stays put)
-	 * @param KeyHandles The key handles to operate on
+	 * @return the range within which this section is effective
 	 */
-	virtual void DilateSection(float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles)
-	{
-		if (TryModify())
-		{
-			StartTime = (StartTime - Origin) * DilationFactor + Origin;
-			EndTime = (EndTime - Origin) * DilationFactor + Origin;
-		}
-	}
-	
+	MOVIESCENE_API TRange<FFrameNumber> ComputeEffectiveRange() const;
+
 	/**
 	 * Split a section in two at the split time
 	 *
 	 * @param SplitTime The time at which to split
 	 * @return The newly created split section
 	 */
-	virtual MOVIESCENE_API UMovieSceneSection* SplitSection(float SplitTime);
+	MOVIESCENE_API virtual UMovieSceneSection* SplitSection(FFrameNumber SplitTime);
 
 	/**
 	 * Trim a section at the trim time
@@ -291,26 +297,15 @@ public:
 	 * @param TrimTime The time at which to trim
 	 * @param bTrimLeft Whether to trim left or right
 	 */
-	virtual MOVIESCENE_API void TrimSection(float TrimTime, bool bTrimLeft);
+	MOVIESCENE_API virtual void TrimSection(FFrameNumber TrimTime, bool bTrimLeft);
 
 	/**
-	 * Get the key handles for the keys on the curves within this section
+	 * Get the data structure representing the specified keys.
 	 *
-	 * @param OutKeyHandles Will contain the key handles of the keys on the curves within this section
-	 * @param TimeRange Optional time range that the keys must be in (default = all)
+	 * @param KeyHandles The handles of the keys.
+	 * @return The keys' data structure representation, or nullptr if key not found or no structure available.
 	 */
-	virtual void GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const { }
-
-	/**
-	 * Get the data structure representing the specified key.
-	 *
-	 * @param KeyHandle The handle of the key.
-	 * @return The key's data structure representation, or nullptr if key not found or no structure available.
-	 */
-	virtual TSharedPtr<FStructOnScope> GetKeyStruct(const TArray<FKeyHandle>& KeyHandles)
-	{
-		return nullptr;
-	}
+	MOVIESCENE_API virtual TSharedPtr<FStructOnScope> GetKeyStruct(TArrayView<const FKeyHandle> KeyHandles);
 
 	/**
 	 * Generate an evaluation template for this section
@@ -324,16 +319,21 @@ public:
 	 * @param OutSnapTimes The array of times we will to output
 	 * @param bGetSectionBorders Gets the section borders in addition to any custom snap times
 	 */
-	virtual void GetSnapTimes(TArray<float>& OutSnapTimes, bool bGetSectionBorders) const
+	virtual void GetSnapTimes(TArray<FFrameNumber>& OutSnapTimes, bool bGetSectionBorders) const
 	{
 		if (bGetSectionBorders)
 		{
-			OutSnapTimes.Add(StartTime);
-			OutSnapTimes.Add(EndTime);
+			if (SectionRange.Value.GetLowerBound().IsClosed())
+			{
+				OutSnapTimes.Add(SectionRange.Value.GetLowerBoundValue());
+			}
+
+			if (SectionRange.Value.GetUpperBound().IsClosed())
+			{
+				OutSnapTimes.Add(SectionRange.Value.GetUpperBoundValue());
+			}
 		}
 	}
-
-	virtual void GetAllKeyTimes(TArray<float>& OutKeyTimes) const {}
 
 	/** Sets this section's new row index */
 	void SetRowIndex(int32 NewRowIndex) {RowIndex = NewRowIndex;}
@@ -354,25 +354,6 @@ public:
 	}
 
 	/**
-	 * Adds a key to a rich curve, finding an existing key to modify or adding a new one.
-	 *
-	 * @param InCurve The curve to add keys to.
-	 * @param Time The time where the key should be added.
-	 * @param Value The value at the given time.
-	 * @param Interpolation The key interpolation to use.
-	 * @param bUnwindRotation Unwind rotation.
-	 */
-	void MOVIESCENE_API AddKeyToCurve(FRichCurve& InCurve, float Time, float Value, EMovieSceneKeyInterpolation Interpolation, const bool bUnwindRotation = false);
-
-	/**
-	 * Sets the default value for a curve.
-	 *
-	 * @param InCurve The curve to set a default value on.
-	 * @param Value The value to use as the default.
-	 */
-	void MOVIESCENE_API SetCurveDefault(FRichCurve& InCurve, float Value);
-
-	/**
 	 * Checks to see if this section overlaps with an array of other sections
 	 * given an optional time and track delta.
 	 *
@@ -381,17 +362,27 @@ public:
 	 * @param TimeDelta Optional offset to this section's time delta.
 	 * @return The first section that overlaps, or null if there is no overlap.
 	 */
-	virtual MOVIESCENE_API const UMovieSceneSection* OverlapsWithSections(const TArray<UMovieSceneSection*>& Sections, int32 TrackDelta = 0, float TimeDelta = 0.f) const;
+	virtual MOVIESCENE_API const UMovieSceneSection* OverlapsWithSections(const TArray<UMovieSceneSection*>& Sections, int32 TrackDelta = 0, int32 TimeDelta = 0) const;
 	
 	/**
 	 * Places this section at the first valid row at the specified time. Good for placement upon creation.
 	 *
 	 * @param Sections Sections that we can not overlap with.
 	 * @param InStartTime The new start time.
-	 * @param InEndTime The new end time.
+	 * @param InDuration The duration.
 	 * @param bAllowMultipleRows If false, it will move the section in the time direction to make it fit, rather than the row direction.
 	 */
-	virtual MOVIESCENE_API void InitialPlacement(const TArray<UMovieSceneSection*>& Sections, float InStartTime, float InEndTime, bool bAllowMultipleRows);
+	virtual MOVIESCENE_API void InitialPlacement(const TArray<UMovieSceneSection*>& Sections, FFrameNumber InStartTime, int32 InDuration, bool bAllowMultipleRows);
+
+	/**
+	 * Places this section at the specified row at the specified time. Overlapping sections will be moved down a row. Good for placement upon creation.
+	 *
+	 * @param Sections Sections that we can not overlap with.
+	 * @param InStartTime The new start time.
+	 * @param InDuration The duration.
+	 * @param InRowIndex The row index to place this section on.
+	 */
+	virtual MOVIESCENE_API void InitialPlacementOnRow(const TArray<UMovieSceneSection*>& Sections, FFrameNumber InStartTime, int32 InDuration, int32 InRowIndex);
 
 	/** Whether or not this section is active. */
 	void SetIsActive(bool bInIsActive) { bIsActive = bInIsActive; }
@@ -401,26 +392,17 @@ public:
 	void SetIsLocked(bool bInIsLocked) { bIsLocked = bInIsLocked; }
 	bool IsLocked() const { return bIsLocked; }
 
-	/** Whether or not this section is infinite. An infinite section will draw the entire width of the track. StartTime and EndTime will be ignored but not discarded. */
-	void SetIsInfinite(bool bInIsInfinite) { bIsInfinite = bInIsInfinite; }
-	bool IsInfinite() const { return bIsInfinite; }
+	/** Gets the number of frames to prepare this section for evaluation before it actually starts. */
+	void SetPreRollFrames(int32 InPreRollFrames) { if (TryModify()){ PreRollFrames = InPreRollFrames; } }
+	int32 GetPreRollFrames() const { return PreRollFrames.Value; }
 
-	/** Gets the amount of time to prepare this section for evaluation before it actually starts. */
-	void SetPreRollTime(float InPreRollTime) { PreRollTime = InPreRollTime; }
-	float GetPreRollTime() const { return PreRollTime; }
-
-	/** Gets/sets the amount of time to continue 'postrolling' this section for after evaluation has ended. */
-	void SetPostRollTime(float InPostRollTime) { PostRollTime = InPostRollTime; }
-	float GetPostRollTime() const { return PostRollTime; }
+	/** Gets/sets the number of frames to continue 'postrolling' this section for after evaluation has ended. */
+	void SetPostRollFrames(int32 InPostRollFrames) { if (TryModify()){ PostRollFrames = InPostRollFrames; } }
+	int32 GetPostRollFrames() const { return PostRollFrames.Value; }
 
 	/** The optional offset time of this section */
-	virtual TOptional<float> GetOffsetTime() const { return TOptional<float>(); }
+	virtual TOptional<FFrameTime> GetOffsetTime() const { return TOptional<FFrameTime>(); }
 
-	/** Gets the time for the key referenced by the supplied key handle. */
-	virtual TOptional<float> GetKeyTime( FKeyHandle KeyHandle ) const PURE_VIRTUAL( UAISenseEvent::GetKeyTime, return TOptional<float>(); );
-
-	/** Sets the time for the key referenced by the supplied key handle. */
-	virtual void SetKeyTime( FKeyHandle KeyHandle, float Time ) PURE_VIRTUAL( UAISenseEvent::SetKeyTime, );
 	/**
 	 * When guid bindings are updated to allow this section to fix-up any internal bindings
 	 *
@@ -435,36 +417,54 @@ public:
 	/**
 	 * Evaluate this sections's easing functions based on the specified time
 	 */
-	MOVIESCENE_API float EvaluateEasing(float InTime) const;
+	MOVIESCENE_API float EvaluateEasing(FFrameTime InTime) const;
 
 	/**
 	 * Evaluate this sections's easing functions based on the specified time
 	 */
-	MOVIESCENE_API void EvaluateEasing(float InTime, TOptional<float>& OutEaseInValue, TOptional<float>& OutEaseOutValue, float* OutEaseInInterp, float* OutEaseOutInterp) const;
+	MOVIESCENE_API void EvaluateEasing(FFrameTime InTime, TOptional<float>& OutEaseInValue, TOptional<float>& OutEaseOutValue, float* OutEaseInInterp, float* OutEaseOutInterp) const;
 
-	MOVIESCENE_API TRange<float> GetEaseInRange() const;
+	MOVIESCENE_API TRange<FFrameNumber> GetEaseInRange() const;
 
-	MOVIESCENE_API TRange<float> GetEaseOutRange() const;
+	MOVIESCENE_API TRange<FFrameNumber> GetEaseOutRange() const;
 
+	/**
+	 * Access this section's channel proxy, containing pointers to all existing data channels in this section
+	 * @note: Proxy can be reallocated at any time; this accessor is only for immediate use.
+	 *
+	 * @return A reference to this section's channel proxy.
+	 */
+	MOVIESCENE_API FMovieSceneChannelProxy& GetChannelProxy() const;
+
+	/** Does this movie section support infinite ranges for evaluation */
+	MOVIESCENE_API bool GetSupportsInfiniteRange() const { return bSupportsInfiniteRange; }
 protected:
 
 	//~ UObject interface
 	MOVIESCENE_API virtual void PostInitProperties() override;
+	MOVIESCENE_API virtual void Serialize(FArchive& Ar) override;
+
+	virtual void OnMoved(int32 DeltaTime) {}
+	virtual void OnDilated(float DilationFactor, FFrameNumber Origin) {}
 
 public:
 
 	UPROPERTY(EditAnywhere, Category="Easing", meta=(ShowOnlyInnerProperties))
 	FMovieSceneEasingSettings Easing;
 
+	/** The range in which this section is active */
+	UPROPERTY(EditAnywhere, Category="Section")
+	FMovieSceneFrameRange SectionRange;
 private:
 
-	/** The start time of the section */
-	UPROPERTY(EditAnywhere, Category="Section")
-	float StartTime;
 
-	/** The end time of the section */
-	UPROPERTY(EditAnywhere, Category="Section")
-	float EndTime;
+	/** The amount of time to prepare this section for evaluation before it actually starts. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category="Section", meta=(UIMin=0))
+	FFrameNumber PreRollFrames;
+
+	/** The amount of time to continue 'postrolling' this section for after evaluation has ended. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category="Section", meta=(UIMin=0))
+	FFrameNumber PostRollFrames;
 
 	/** The row index that this section sits on */
 	UPROPERTY()
@@ -482,20 +482,36 @@ private:
 	UPROPERTY(EditAnywhere, Category="Section")
 	uint32 bIsLocked : 1;
 
-	/** Toggle to set this section to be infinite */
-	UPROPERTY(EditAnywhere, Category="Section")
-	uint32 bIsInfinite : 1;
+protected:
+
+	/** The start time of the section */
+	UPROPERTY()
+	float StartTime_DEPRECATED;
+
+	/** The end time of the section */
+	UPROPERTY()
+	float EndTime_DEPRECATED;
 
 	/** The amount of time to prepare this section for evaluation before it actually starts. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category="Section", meta=(Units=s, UIMin=0))
-	float PreRollTime;
+	UPROPERTY()
+	float PreRollTime_DEPRECATED;
 
 	/** The amount of time to continue 'postrolling' this section for after evaluation has ended. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category="Section", meta=(Units=s, UIMin=0))
-	float PostRollTime;
+	UPROPERTY()
+	float PostRollTime_DEPRECATED;
+
+	/** Toggle to set this section to be infinite */
+	UPROPERTY()
+	uint32 bIsInfinite_DEPRECATED : 1;
 
 protected:
+	/** Does this section support infinite ranges in the track editor? */
+	UPROPERTY()
+	bool bSupportsInfiniteRange;
 
 	UPROPERTY()
 	FOptionalMovieSceneBlendType BlendType;
+
+	/** Shared channel proxy - to be populated and invalidated by derived types */
+	TSharedPtr<FMovieSceneChannelProxy> ChannelProxy;
 };

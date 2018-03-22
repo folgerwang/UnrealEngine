@@ -5,7 +5,6 @@
 #include "DisplayNodes/SequencerObjectBindingNode.h"
 #include "DisplayNodes/SequencerTrackNode.h"
 #include "SequencerCommonHelpers.h"
-#include "IKeyArea.h"
 
 FSequencerSelection::FSequencerSelection()
 	: SuspendBroadcastCount(0)
@@ -123,10 +122,7 @@ void FSequencerSelection::AddToSelection(FSequencerSelectedKey Key)
 	}
 
 	// Deselect any outliner nodes that aren't within the trunk of this key
-	if (Key.KeyArea.IsValid())
-	{
-		EmptySelectedOutlinerNodesWithoutSection(Key.KeyArea->GetOwningSection());
-	}
+	EmptySelectedOutlinerNodesWithoutSection(Key.Section);
 }
 
 void FSequencerSelection::AddToSelection(UMovieSceneSection* Section)

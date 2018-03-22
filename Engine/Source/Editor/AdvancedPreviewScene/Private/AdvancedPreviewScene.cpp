@@ -335,7 +335,7 @@ const bool FAdvancedPreviewScene::HandleInputKey(FViewport* InViewport, int32 Co
 	if (Event == IE_Pressed)
 	{
 		FModifierKeysState KeyState = FSlateApplication::Get().GetModifierKeys();
-		if (UICommandList->ProcessCommandBindings(Key, KeyState, (Event == IE_Repeat)))
+		if (UICommandList->ProcessCommandBindings(Key, KeyState, (Event == IE_Repeat))) //-V547
 		{
 			return true;
 		}

@@ -53,14 +53,6 @@ public:
 	virtual UMovieSceneSection* GetSectionObject() = 0;
 
 	/**
-	 * Allows each section to have it's own unique widget for advanced editing functionality
-	 * OnPaintSection will still be called if a widget is provided.  OnPaintSection is still used for the background section display
-	 * 
-	 * @return The generated widget 
-	 */
-	virtual TSharedRef<SWidget> GenerateSectionWidget() { return SNullWidget::NullWidget; }
-
-	/**
 	 * Called when the section should be painted
 	 *
 	 * @param Painter		Structure that affords common painting operations
@@ -68,19 +60,18 @@ public:
 	 */
 	virtual int32 OnPaintSection( FSequencerSectionPainter& InPainter ) const = 0;
 
-	/** Allows a section to override the brush to use for a key by handle.
-	 *
-	 * @param KeyHandle the handle of the key to get a brush for.
-	 * @return A const pointer to a slate brush if the brush should be overridden, otherwise null.
+	/**
+	 * Allows each section to have it's own unique widget for advanced editing functionality
+	 * OnPaintSection will still be called if a widget is provided.  OnPaintSection is still used for the background section display
+	 * 
+	 * @return The generated widget 
 	 */
+	virtual TSharedRef<SWidget> GenerateSectionWidget() { return SNullWidget::NullWidget; }
+
+	DEPRECATED(4.20, "Please override Sequencer::DrawKeys instead")
 	virtual const FSlateBrush* GetKeyBrush(FKeyHandle KeyHandle) const { return nullptr; }
 
-	/** When a section overrides the brush to use, this allows it to set the scale origin tfor use
-	 * when the brush is scaled to create border and selection effects
-	 *
-	 * @param KeyHandle the handle of the key to get a brush origin for.
-	 * @return A FVector2D describing the custom origin, in slate units
-	 */
+	DEPRECATED(4.20, "Please override Sequencer::DrawKeys instead")
 	virtual FVector2D GetKeyBrushOrigin( FKeyHandle KeyHandle ) const { return FVector2D(0.0f, 0.0f); }
 
 	/**
@@ -102,9 +93,6 @@ public:
 	 */
 	virtual FReply OnSectionDoubleClicked( const FGeometry& SectionGeometry, const FPointerEvent& MouseEvent, const FGuid& ObjectBinding) { return FReply::Unhandled(); }
 
-	DEPRECATED(4.17, "This function is no longer used")
-	virtual FText GetDisplayName() const { return FText(); }
-	
 	/**
 	 * @return The display name of the section in the section view
 	 */
@@ -120,7 +108,7 @@ public:
 	 *
 	 * @param LayoutBuilder	The builder utility for creating section layouts
 	 */	
-	virtual void GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const = 0;
+	SEQUENCER_API virtual void GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder );
 
 	/**
 	 * @return The height of the section
@@ -133,9 +121,6 @@ public:
 	 * @return Whether or not the user can resize this section.
 	 */
 	virtual bool SectionIsResizable() const {return true;}
-
-	DEPRECATED(4.17, "This function is no longer used")
-	virtual bool AreSectionsConnected() const { return false; }
 
 	/**
 	 * Ticks the section during the Slate tick
@@ -178,17 +163,7 @@ public:
 	 * @param ResizeTime The time to resize to
 	 */
 	virtual void BeginResizeSection() {}
-	virtual void ResizeSection(ESequencerSectionResizeMode ResizeMode, float ResizeTime) { ResizeMode == ESequencerSectionResizeMode::SSRM_LeadingEdge ? GetSectionObject()->SetStartTime(ResizeTime) : GetSectionObject()->SetEndTime(ResizeTime); }
-
-	/**
-	 * Dilates the section by a specific factor
-	 *
-	 * @param DilationFactor The multiplier which scales this section
-	 * @param bFromStart Whether to dilate from the beginning or end (whichever stays put)
-	 * @param KeyHandles The key handles to operate on
-	 */
-	virtual void BeginDilateSection() {}
-	virtual void DilateSection(float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles) { GetSectionObject()->DilateSection(DilationFactor, Origin, KeyHandles); }
+	SEQUENCER_API virtual void ResizeSection(ESequencerSectionResizeMode ResizeMode, FFrameNumber ResizeFrameNumber);
 
 	/**
 	 * Slips the section by a specific factor
@@ -196,5 +171,23 @@ public:
 	 * @param SlipTime The amount to slip this section by
 	 */
 	virtual void BeginSlipSection() {}
-	virtual void SlipSection(float SlipTime) {}
+	virtual void SlipSection(double SlipTime) {}
+};
+
+class FSequencerSection : public ISequencerSection
+{
+public:
+	FSequencerSection(UMovieSceneSection& InSection)
+		: WeakSection(&InSection)
+	{}
+
+	SEQUENCER_API virtual int32 OnPaintSection(FSequencerSectionPainter& Painter) const override;
+
+	virtual UMovieSceneSection* GetSectionObject() override final
+	{
+		return WeakSection.Get();
+	}
+
+protected:
+	TWeakObjectPtr<UMovieSceneSection> WeakSection;
 };

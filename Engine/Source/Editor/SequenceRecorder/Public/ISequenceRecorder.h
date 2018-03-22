@@ -6,6 +6,7 @@
 #include "Misc/Guid.h"
 #include "Modules/ModuleInterface.h"
 #include "Containers/ArrayView.h"
+#include "QualifiedFrameTime.h"
 
 class AActor;
 class ISequenceAudioRecorder;
@@ -32,7 +33,7 @@ public:
 	virtual bool IsRecording() = 0;
 
 	/** How long is the currently recording sequence */
-	virtual float GetCurrentRecordingLength() = 0;
+	virtual FQualifiedFrameTime GetCurrentRecordingLength() = 0;
 
 	/**
 	 * Start a recording, possibly with some delay (specified by the sequence recording settings).
@@ -107,4 +108,10 @@ public:
 
 	/** Get the sequence recorder finished delegate */
 	virtual FOnRecordingFinished& OnRecordingFinished() = 0;
+	
+	/** Get the name the of the sequence recording. */
+	virtual FString GetSequenceRecordingName() const = 0;
+	
+	/** Get the directory that the sequence should record into. */
+	virtual FString GetSequenceRecordingBasePath() const = 0;
 };

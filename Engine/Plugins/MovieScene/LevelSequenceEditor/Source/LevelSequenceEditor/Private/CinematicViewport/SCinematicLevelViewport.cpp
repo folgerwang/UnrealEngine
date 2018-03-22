@@ -21,7 +21,7 @@
 #include "Tracks/MovieSceneSubTrack.h"
 #include "Tracks/MovieSceneCinematicShotTrack.h"
 #include "Sections/MovieSceneCinematicShotSection.h"
-#include "ISequencerKeyCollection.h"
+#include "SequencerKeyCollection.h"
 #include "CinematicViewport/SCinematicTransportRange.h"
 #include "CinematicViewport/FilmOverlays.h"
 #include "Widgets/Layout/SWidgetSwitcher.h"
@@ -46,12 +46,12 @@ struct SNonThrottledSpinBox : SSpinBox<T>
 	}
 };
 
-struct FTypeInterfaceProxy : INumericTypeInterface<float>
+struct FTypeInterfaceProxy : INumericTypeInterface<double>
 {
-	TSharedPtr<INumericTypeInterface<float>> Impl;
+	TSharedPtr<INumericTypeInterface<double>> Impl;
 
 	/** Convert the type to/from a string */
-	virtual FString ToString(const float& Value) const override
+	virtual FString ToString(const double& Value) const override
 	{
 		if (Impl.IsValid())
 		{
@@ -60,13 +60,13 @@ struct FTypeInterfaceProxy : INumericTypeInterface<float>
 		return FString();
 	}
 
-	virtual TOptional<float> FromString(const FString& InString, const float& InExistingValue) override
+	virtual TOptional<double> FromString(const FString& InString, const double& InExistingValue) override
 	{
 		if (Impl.IsValid())
 		{
 			return Impl->FromString(InString, InExistingValue);
 		}
-		return TOptional<float>();
+		return TOptional<double>();
 	}
 
 	/** Check whether the typed character is valid */
@@ -195,16 +195,21 @@ void SCinematicLevelViewport::Construct(const FArguments& InArgs)
 			.BorderImage(nullptr)
 			.ForegroundColor(FEditorStyle::GetSlateColor("SelectionColor").GetColor(FWidgetStyle()))
 			[
-				SNew(SNonThrottledSpinBox<float>)
+				SNew(SNonThrottledSpinBox<double>)
 				.TypeInterface(TypeInterfaceProxy)
 				.Style(FEditorStyle::Get(), "Sequencer.HyperlinkSpinBox")
 				.Font(FEditorStyle::GetFontStyle("Sequencer.FixedFont"))
 				.OnValueCommitted(this, &SCinematicLevelViewport::OnTimeCommitted)
 				.OnValueChanged(this, &SCinematicLevelViewport::SetTime)
+				.MinValue(TOptional<double>())
+				.MaxValue(TOptional<double>())
 				.OnEndSliderMovement(this, &SCinematicLevelViewport::SetTime)
-				.MinValue(this, &SCinematicLevelViewport::GetMinTime)
-				.MaxValue(this, &SCinematicLevelViewport::GetMaxTime)
 				.Value(this, &SCinematicLevelViewport::GetTime)
+				.Delta_Lambda([=]()
+				{
+					return UIData.OuterResolution.AsDecimal() * UIData.OuterPlayRate.AsInterval(); 
+				})
+				.LinearDeltaSensitivity(25)
 			]
 		]
 
@@ -332,7 +337,7 @@ void SCinematicLevelViewport::Construct(const FArguments& InArgs)
 								SNew(STextBlock)
 								.Font(FEditorStyle::GetFontStyle("Sequencer.FixedFont"))
 								.ColorAndOpacity(Gray)
-								.Text_Lambda([=]{ return UIData.Frame; })
+								.Text_Lambda([=]{ return UIData.LocalPlaybackTime; })
 							]
 						]
 					]
@@ -431,48 +436,60 @@ EVisibility SCinematicLevelViewport::GetControlsVisibility() const
 	return CurrentToolkit.IsValid() ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
-TOptional<float> SCinematicLevelViewport::GetMinTime() const
+TOptional<double> SCinematicLevelViewport::GetMinTime() const
 {
 	ISequencer* Sequencer = GetSequencer();
 	if (Sequencer)
 	{
-		return Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene()->GetEditorData().WorkingRange.GetLowerBoundValue();
+		FFrameRate   PlayRate      = Sequencer->GetLocalTime().Rate;
+		UMovieScene* MovieScene    = Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene();
+		double       TimeInSeconds = MovieScene->GetEditorData().WorkStart;
+
+		return (TimeInSeconds*PlayRate).GetFrame().Value;
 	}
-	return TOptional<float>();
+	return TOptional<double>();
 }
 
-TOptional<float> SCinematicLevelViewport::GetMaxTime() const
+TOptional<double> SCinematicLevelViewport::GetMaxTime() const
 {
 	ISequencer* Sequencer = GetSequencer();
 	if (Sequencer)
 	{
-		return Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene()->GetEditorData().WorkingRange.GetUpperBoundValue();
+		FFrameRate   PlayRate      = Sequencer->GetLocalTime().Rate;
+		UMovieScene* MovieScene    = Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene();
+		double       TimeInSeconds = MovieScene->GetEditorData().WorkEnd;
+
+		return (TimeInSeconds*PlayRate).GetFrame().Value;
 	}
-	return TOptional<float>();
+	return TOptional<double>();
 }
 
-void SCinematicLevelViewport::OnTimeCommitted(float Value, ETextCommit::Type)
+void SCinematicLevelViewport::OnTimeCommitted(double Value, ETextCommit::Type)
 {
 	SetTime(Value);
 }
 
-void SCinematicLevelViewport::SetTime(float Value)
+void SCinematicLevelViewport::SetTime(double Value)
 {
+	// Clamp the value as the UI can't due to needing an unbounded spinbox for value-change-rate purposes.
+	Value = FMath::Clamp(Value, GetMinTime().GetValue(), GetMaxTime().GetValue());
+
 	ISequencer* Sequencer = GetSequencer();
 	if (Sequencer)
 	{
-		Sequencer->SetLocalTime(Value);
+		FFrameRate SequencerPlayRate = Sequencer->GetLocalTime().Rate;
+		Sequencer->SetLocalTime(FFrameTime::FromDecimal(Value));
 	}
 }
 
-float SCinematicLevelViewport::GetTime() const
+double SCinematicLevelViewport::GetTime() const
 {
 	ISequencer* Sequencer = GetSequencer();
 	if (Sequencer)
 	{
-		return Sequencer->GetLocalTime();
+		return Sequencer->GetLocalTime().Time.GetFrame().Value;
 	}
-	return 0.f;
+	return 0;
 }
 
 void SCinematicLevelViewport::CacheDesiredViewportSize(const FGeometry& AllottedGeometry)
@@ -526,7 +543,7 @@ void SCinematicLevelViewport::Setup(FLevelSequenceEditorToolkit& NewToolkit)
 	ISequencer* Sequencer = GetSequencer();
 	if (Sequencer)
 	{
-		TypeInterfaceProxy->Impl = Sequencer->GetZeroPadNumericTypeInterface();
+		TypeInterfaceProxy->Impl = Sequencer->GetNumericTypeInterface();
 
 		if (TransportRange.IsValid())
 		{
@@ -611,41 +628,40 @@ void SCinematicLevelViewport::Tick(const FGeometry& AllottedGeometry, const doub
 		SubTrack = Cast<UMovieSceneSubTrack>(Sequence->GetMovieScene()->FindMasterTrack(UMovieSceneSubTrack::StaticClass()));
 	}
 
+	const FFrameRate OuterResolution = Sequencer->GetFocusedFrameResolution();
+	const FFrameRate OuterPlayRate   = Sequencer->GetFocusedPlayRate();
+
+	const FFrameTime OuterTime       = Sequencer->GetLocalTime().ConvertTo(OuterResolution);
+	UIData.OuterResolution = OuterResolution;
+	UIData.OuterPlayRate = OuterPlayRate;
+
+
 	UMovieSceneSubSection* SubSection = nullptr;
 	if (SubTrack)
 	{
-		const float CurrentTime = Sequencer->GetLocalTime();
-
 		for (UMovieSceneSection* Section : SubTrack->GetAllSections())
 		{
-			if (Section->IsInfinite() || Section->IsTimeWithinSection(CurrentTime))
+			if (Section->GetRange().Contains(OuterTime.FrameNumber))
 			{
 				SubSection = CastChecked<UMovieSceneSubSection>(Section);
 			}
 		}
 	}
 
-	const float AbsoluteTime = Sequencer->GetLocalTime();
-
 	FText TimeFormat = LOCTEXT("TimeFormat", "{0}");
 
-	TSharedPtr<INumericTypeInterface<float>> ZeroPadTypeInterface = Sequencer->GetZeroPadNumericTypeInterface();
+	TSharedPtr<INumericTypeInterface<double>> TimeDisplayFormatInterface = Sequencer->GetNumericTypeInterface();
 
-	if (SubSection)
+	UMovieSceneSequence* SubSequence = SubSection ? SubSection->GetSequence() : nullptr;
+	if (SubSequence)
 	{
-		float PlaybackRangeStart = 0.f;
-		if (SubSection->GetSequence() != nullptr)
-		{
-			UMovieScene* ShotMovieScene = SubSection->GetSequence()->GetMovieScene();
-			PlaybackRangeStart = ShotMovieScene->GetPlaybackRange().GetLowerBoundValue();
-		}
+		FFrameRate                   InnerResolution       = SubSequence->GetMovieScene()->GetFrameResolution();
+		FMovieSceneSequenceTransform OuterToInnerTransform = SubSection->OuterToInnerTransform();
+		const FFrameTime             InnerShotPosition	   = OuterTime * OuterToInnerTransform;
 
-		const float InnerOffset = (AbsoluteTime - SubSection->GetStartTime()) * SubSection->Parameters.TimeScale;
-		const float AbsoluteShotPosition = PlaybackRangeStart + SubSection->Parameters.StartOffset + InnerOffset;
-
-		UIData.Frame = FText::Format(
+		UIData.LocalPlaybackTime = FText::Format(
 			TimeFormat,
-			FText::FromString(ZeroPadTypeInterface->ToString(AbsoluteShotPosition))
+			FText::FromString(TimeDisplayFormatInterface->ToString(InnerShotPosition.GetFrame().Value))
 		);
 
 		UMovieSceneCinematicShotSection* CinematicShotSection = Cast<UMovieSceneCinematicShotSection>(SubSection);
@@ -660,24 +676,28 @@ void SCinematicLevelViewport::Tick(const FGeometry& AllottedGeometry, const doub
 	}
 	else
 	{
-		UIData.Frame = FText::Format(
+		const FFrameTime DisplayTime = Sequencer->GetLocalTime().Time;
+
+		UIData.LocalPlaybackTime = FText::Format(
 			TimeFormat,
-			FText::FromString(ZeroPadTypeInterface->ToString(AbsoluteTime))
+			FText::FromString(TimeDisplayFormatInterface->ToString(DisplayTime.GetFrame().Value))
 			);
 
 		UIData.ShotName = Sequence->GetDisplayName();
 	}
 
-	TRange<float> EntireRange = Sequence->GetMovieScene()->GetEditorData().WorkingRange;
+	const FMovieSceneEditorData& EditorData = Sequence->GetMovieScene()->GetEditorData();
 
+	FQualifiedFrameTime MasterStartTime(EditorData.WorkStart * OuterPlayRate, OuterPlayRate);
 	UIData.MasterStartText = FText::Format(
 		TimeFormat,
-		FText::FromString(ZeroPadTypeInterface->ToString(EntireRange.GetLowerBoundValue()))
+		FText::FromString(TimeDisplayFormatInterface->ToString(MasterStartTime.Time.GetFrame().Value))
 	);
 
+	FQualifiedFrameTime MasterEndTime(EditorData.WorkEnd * OuterPlayRate, OuterPlayRate);
 	UIData.MasterEndText = FText::Format(
 		TimeFormat,
-		FText::FromString(ZeroPadTypeInterface->ToString(EntireRange.GetUpperBoundValue()))
+		FText::FromString(TimeDisplayFormatInterface->ToString(MasterEndTime.Time.GetFrame().Value))
 	);
 
 	UIData.CameraName = FText::GetEmpty();

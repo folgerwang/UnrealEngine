@@ -165,34 +165,17 @@ public:
 	 */
 	static IOnlineSubsystem* GetByPlatform(bool bAutoLoad=true)
 	{
-		if (PLATFORM_PS4)
+		FName PlatformDefaultSubsystemName = FPlatformMisc::GetDefaultOnlineSubsystemName();
+		if (PlatformDefaultSubsystemName == NAME_None)
 		{
-			if (bAutoLoad || IOnlineSubsystem::IsLoaded(PS4_SUBSYSTEM))
-			{
-				return IOnlineSubsystem::Get(PS4_SUBSYSTEM);
-			}
+			return nullptr;
 		}
-		else if (PLATFORM_XBOXONE)
+
+		if (bAutoLoad || IOnlineSubsystem::IsLoaded(PlatformDefaultSubsystemName))
 		{
-			if (bAutoLoad || IOnlineSubsystem::IsLoaded(LIVE_SUBSYSTEM))
-			{
-				return IOnlineSubsystem::Get(LIVE_SUBSYSTEM);
-			}
+			return IOnlineSubsystem::Get(PlatformDefaultSubsystemName);
 		}
-		else if (PLATFORM_ANDROID)
-		{
-			if (bAutoLoad || IOnlineSubsystem::IsLoaded(GOOGLEPLAY_SUBSYSTEM))
-			{
-				return IOnlineSubsystem::Get(GOOGLEPLAY_SUBSYSTEM);
-			}
-		}
-		else if (PLATFORM_IOS)
-		{
-			if (bAutoLoad || IOnlineSubsystem::IsLoaded(IOS_SUBSYSTEM))
-			{
-				return IOnlineSubsystem::Get(IOS_SUBSYSTEM);
-			}
-		}
+
 		return nullptr;
 	}
 

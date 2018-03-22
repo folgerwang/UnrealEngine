@@ -407,15 +407,15 @@ namespace UnrealBuildTool
 			{
 				case CppPlatform.Win32:			return UnrealTargetPlatform.Win32;
 				case CppPlatform.Win64:			return UnrealTargetPlatform.Win64;
-				case CppPlatform.Mac:				return UnrealTargetPlatform.Mac;
-				case CppPlatform.XboxOne:			return UnrealTargetPlatform.XboxOne;
-				case CppPlatform.PS4:				return UnrealTargetPlatform.PS4;
-				case CppPlatform.Android:			return UnrealTargetPlatform.Android;
-				case CppPlatform.IOS:				return UnrealTargetPlatform.IOS;
+				case CppPlatform.Mac:			return UnrealTargetPlatform.Mac;
+				case CppPlatform.XboxOne:		return UnrealTargetPlatform.XboxOne;
+				case CppPlatform.PS4:			return UnrealTargetPlatform.PS4;
+				case CppPlatform.Android:		return UnrealTargetPlatform.Android;
+				case CppPlatform.IOS:			return UnrealTargetPlatform.IOS;
 				case CppPlatform.HTML5:			return UnrealTargetPlatform.HTML5;
 				case CppPlatform.Linux:			return UnrealTargetPlatform.Linux;
 				case CppPlatform.TVOS:			return UnrealTargetPlatform.TVOS;
-				case CppPlatform.Switch: 			return UnrealTargetPlatform.Switch;
+				case CppPlatform.Switch: 		return UnrealTargetPlatform.Switch;
 			}
 			throw new BuildException("CPPTargetPlatformToUnrealTargetPlatform: Unknown CPPTargetPlatform {0}", InCPPPlatform.ToString());
 		}
@@ -819,6 +819,25 @@ namespace UnrealBuildTool
 			GlobalCompileEnvironment.bCreateDebugInfo =
 				!Target.bDisableDebugInfo && ShouldCreateDebugInfo(Target);
 			GlobalLinkEnvironment.bCreateDebugInfo = GlobalCompileEnvironment.bCreateDebugInfo;
+		}
+
+		/// <summary>
+		/// Checks if platform is part of a given platform group
+		/// </summary>
+		/// <param name="Platform">The platform to check</param>
+		/// <param name="PlatformGroup">The platform group to check</param>
+		/// <returns>True if platform is part of a platform group</returns>
+		internal static bool IsPlatformInGroup(UnrealTargetPlatform Platform, UnrealPlatformGroup PlatformGroup)
+		{
+			List<UnrealTargetPlatform> Platforms = UEBuildPlatform.GetPlatformsInGroup(PlatformGroup);
+			if (Platforms != null)
+			{
+				return Platforms.Contains(Platform);
+			}
+			else
+			{
+				return false;
+			}
 		}
 
 		/// <summary>

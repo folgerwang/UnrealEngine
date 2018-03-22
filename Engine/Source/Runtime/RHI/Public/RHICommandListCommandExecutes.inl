@@ -580,7 +580,7 @@ void FRHICommandEndRenderQuery::Execute(FRHICommandListBase& CmdList)
 void FRHICommandBeginOcclusionQueryBatch::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(BeginOcclusionQueryBatch);
-	INTERNAL_DECORATOR(RHIBeginOcclusionQueryBatch)();
+	INTERNAL_DECORATOR(RHIBeginOcclusionQueryBatch)(NumQueriesInBatch);
 }
 
 void FRHICommandEndOcclusionQueryBatch::Execute(FRHICommandListBase& CmdList)

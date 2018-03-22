@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "MovieSceneSpawnRegister.h"
+#include "UObject/Class.h"
 
 class IMovieScenePlayer;
 class IMovieSceneObjectSpawner;
@@ -18,6 +19,10 @@ protected:
 	/** ~ FMovieSceneSpawnRegister interface */
 	virtual UObject* SpawnObject(FMovieSceneSpawnable& Spawnable, FMovieSceneSequenceIDRef TemplateID, IMovieScenePlayer& Player) override;
 	virtual void DestroySpawnedObject(UObject& Object) override;
+
+#if WITH_EDITOR
+	virtual bool CanSpawnObject(UClass* InClass) const override;
+#endif
 
 protected:
 	/** Extension object spawners */

@@ -6,63 +6,11 @@
 #include "Camera/CameraComponent.h"
 #include "KeyParams.h"
 #include "MovieSceneSection.h"
+#include "Algo/Sort.h"
 
 
-TArray<UMovieSceneSection*> MovieSceneHelpers::GetAllTraversedSections( const TArray<UMovieSceneSection*>& Sections, float CurrentTime, float PreviousTime )
-{
-	TArray<UMovieSceneSection*> TraversedSections;
 
-	bool bPlayingBackwards = CurrentTime - PreviousTime < 0.0f;
-	float MaxTime = bPlayingBackwards ? PreviousTime : CurrentTime;
-	float MinTime = bPlayingBackwards ? CurrentTime : PreviousTime;
-
-	TRange<float> TraversedRange(MinTime, TRangeBound<float>::Inclusive(MaxTime));
-
-	for (int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex)
-	{
-		UMovieSceneSection* Section = Sections[SectionIndex];
-		if ((Section->GetStartTime() == CurrentTime) || TraversedRange.Overlaps(TRange<float>(Section->GetRange())))
-		{
-			TraversedSections.Add(Section);
-		}
-	}
-
-	return TraversedSections;
-}
-
-TArray<UMovieSceneSection*> MovieSceneHelpers::GetTraversedSections( const TArray<UMovieSceneSection*>& Sections, float CurrentTime, float PreviousTime )
-{
-	TArray<UMovieSceneSection*> TraversedSections = GetAllTraversedSections(Sections, CurrentTime, PreviousTime);
-
-	// Remove any overlaps that are underneath another
-	for (int32 RemoveAt = 0; RemoveAt < TraversedSections.Num(); )
-	{
-		UMovieSceneSection* Section = TraversedSections[RemoveAt];
-		
-		const bool bShouldRemove = TraversedSections.ContainsByPredicate([=](UMovieSceneSection* OtherSection){
-			if (Section->GetRowIndex() == OtherSection->GetRowIndex() &&
-				Section->GetRange().Overlaps(OtherSection->GetRange()) &&
-				Section->GetOverlapPriority() < OtherSection->GetOverlapPriority())
-			{
-				return true;
-			}
-			return false;
-		});
-		
-		if (bShouldRemove)
-		{
-			TraversedSections.RemoveAt(RemoveAt, 1, false);
-		}
-		else
-		{
-			++RemoveAt;
-		}
-	}
-
-	return TraversedSections;
-}
-
-UMovieSceneSection* MovieSceneHelpers::FindSectionAtTime( const TArray<UMovieSceneSection*>& Sections, float Time )
+UMovieSceneSection* MovieSceneHelpers::FindSectionAtTime( const TArray<UMovieSceneSection*>& Sections, FFrameNumber Time )
 {
 	for( int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex )
 	{
@@ -79,61 +27,59 @@ UMovieSceneSection* MovieSceneHelpers::FindSectionAtTime( const TArray<UMovieSce
 }
 
 
-UMovieSceneSection* MovieSceneHelpers::FindNearestSectionAtTime( const TArray<UMovieSceneSection*>& Sections, float Time )
+UMovieSceneSection* MovieSceneHelpers::FindNearestSectionAtTime( const TArray<UMovieSceneSection*>& Sections, FFrameNumber Time )
 {
-	// Only update the section if the position is within the time span of the section
-	// Or if there are no sections at the time, the left closest section to the time
-	// Or in the case that Time is before all sections, take the section with the earliest start time
-	UMovieSceneSection* ClosestSection = nullptr;
-	float ClosestSectionTime = 0.f;
-	UMovieSceneSection* EarliestSection = nullptr;
-	float EarliestSectionTime = 0.f;
-	for( int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex )
+	TArray<UMovieSceneSection*> OverlappingSections, NonOverlappingSections;
+	for (UMovieSceneSection* Section : Sections)
 	{
-		UMovieSceneSection* Section = Sections[SectionIndex];
-		checkSlow(Section);
-
-		if (Section->IsActive())
+		if (Section->GetRange().Contains(Time))
 		{
-			//@todo sequencer: There can be multiple sections overlapping in time. Returning instantly does not account for that.
-			if( Section->IsTimeWithinSection( Time ) )
-			{
-				return Section;
-			}
-
-			float EndTime = Section->GetEndTime();
-			if (EndTime < Time)
-			{
-				float ClosestTime = Time - EndTime;
-				if (!ClosestSection || ClosestTime < ClosestSectionTime)
-				{
-					ClosestSection = Section;
-					ClosestSectionTime = ClosestTime;
-				}
-			}
-
-			float StartTime = Section->GetStartTime();
-			if (!EarliestSection || StartTime < EarliestSectionTime)
-			{
-				EarliestSection = Section;
-				EarliestSectionTime = StartTime;
-			}
+			OverlappingSections.Add(Section);
+		}
+		else
+		{
+			NonOverlappingSections.Add(Section);
 		}
 	}
 
-	// if we get here, we are off of any section
-	// if ClosestSection, then we take the closest to left of this time
-	// else, we take the EarliestSection
-	// if that's nullptr, then there are no sections
-	return ClosestSection ? ClosestSection : EarliestSection;
+	if (OverlappingSections.Num())
+	{
+		Algo::Sort(OverlappingSections, SortOverlappingSections);
+		return OverlappingSections[0];
+	}
+
+	if (NonOverlappingSections.Num())
+	{
+		Algo::SortBy(NonOverlappingSections, [](const UMovieSceneSection* A) { return A->GetRange().GetUpperBound(); }, SortUpperBounds);
+
+		const int32 PreviousIndex = Algo::UpperBoundBy(NonOverlappingSections, TRangeBound<FFrameNumber>(Time), [](const UMovieSceneSection* A){ return A->GetRange().GetUpperBound(); }, SortUpperBounds)-1;
+		if (NonOverlappingSections.IsValidIndex(PreviousIndex))
+		{
+			return NonOverlappingSections[PreviousIndex];
+		}
+		else
+		{
+			Algo::SortBy(NonOverlappingSections, [](const UMovieSceneSection* A) { return A->GetRange().GetLowerBound(); }, SortLowerBounds);
+			return NonOverlappingSections[0];
+		}
+	}
+
+	return nullptr;
 }
 
+bool MovieSceneHelpers::SortOverlappingSections(const UMovieSceneSection* A, const UMovieSceneSection* B)
+{
+	return A->GetRowIndex() == B->GetRowIndex()
+		? A->GetOverlapPriority() < B->GetOverlapPriority()
+		: A->GetRowIndex() < B->GetRowIndex();
+}
 
 void MovieSceneHelpers::SortConsecutiveSections(TArray<UMovieSceneSection*>& Sections)
 {
 	Sections.Sort([](const UMovieSceneSection& A, const UMovieSceneSection& B)
 		{
-			return A.GetStartTime() < B.GetStartTime();
+			TRangeBound<FFrameNumber> LowerBoundA = A.GetRange().GetLowerBound();
+			return TRangeBound<FFrameNumber>::MinLower(LowerBoundA, B.GetRange().GetLowerBound()) == LowerBoundA;
 		}
 	);
 }
@@ -143,13 +89,22 @@ void MovieSceneHelpers::FixupConsecutiveSections(TArray<UMovieSceneSection*>& Se
 	// Find the previous section and extend it to take the place of the section being deleted
 	int32 SectionIndex = INDEX_NONE;
 
+	TRange<FFrameNumber> SectionRange = Section.GetRange();
+
 	if (Sections.Find(&Section, SectionIndex))
 	{
 		int32 PrevSectionIndex = SectionIndex - 1;
 		if( Sections.IsValidIndex( PrevSectionIndex ) )
 		{
 			// Extend the previous section
-			Sections[PrevSectionIndex]->SetEndTime( bDelete ? Section.GetEndTime() : Section.GetStartTime() );
+			if (bDelete)
+			{
+				Sections[PrevSectionIndex]->SetEndFrame(SectionRange.GetUpperBound());
+			}
+			else
+			{
+				Sections[PrevSectionIndex]->SetEndFrame(TRangeBound<FFrameNumber>::FlipInclusion(SectionRange.GetLowerBound()));
+			}
 		}
 
 		if( !bDelete )
@@ -158,7 +113,7 @@ void MovieSceneHelpers::FixupConsecutiveSections(TArray<UMovieSceneSection*>& Se
 			if(Sections.IsValidIndex(NextSectionIndex))
 			{
 				// Shift the next CameraCut's start time so that it starts when the new CameraCut ends
-				Sections[NextSectionIndex]->SetStartTime(Section.GetEndTime());
+				Sections[NextSectionIndex]->SetStartFrame(TRangeBound<FFrameNumber>::FlipInclusion(SectionRange.GetUpperBound()));
 			}
 		}
 	}
@@ -243,43 +198,6 @@ UCameraComponent* MovieSceneHelpers::CameraComponentFromRuntimeObject(UObject* R
 	}
 
 	return nullptr;
-}
-
-
-void MovieSceneHelpers::SetKeyInterpolation(FRichCurve& InCurve, FKeyHandle InKeyHandle, EMovieSceneKeyInterpolation InKeyInterpolation)
-{
-	switch (InKeyInterpolation)
-	{
-		case EMovieSceneKeyInterpolation::Auto:
-			InCurve.SetKeyInterpMode(InKeyHandle, RCIM_Cubic);
-			InCurve.SetKeyTangentMode(InKeyHandle, RCTM_Auto);
-			break;
-
-		case EMovieSceneKeyInterpolation::User:
-			InCurve.SetKeyInterpMode(InKeyHandle, RCIM_Cubic);
-			InCurve.SetKeyTangentMode(InKeyHandle, RCTM_User);
-			break;
-
-		case EMovieSceneKeyInterpolation::Break:
-			InCurve.SetKeyInterpMode(InKeyHandle, RCIM_Cubic);
-			InCurve.SetKeyTangentMode(InKeyHandle, RCTM_Break);
-			break;
-
-		case EMovieSceneKeyInterpolation::Linear:
-			InCurve.SetKeyInterpMode(InKeyHandle, RCIM_Linear);
-			InCurve.SetKeyTangentMode(InKeyHandle, RCTM_Auto);
-			break;
-
-		case EMovieSceneKeyInterpolation::Constant:
-			InCurve.SetKeyInterpMode(InKeyHandle, RCIM_Constant);
-			InCurve.SetKeyTangentMode(InKeyHandle, RCTM_Auto);
-			break;
-
-		default:
-			InCurve.SetKeyInterpMode(InKeyHandle, RCIM_Cubic);
-			InCurve.SetKeyTangentMode(InKeyHandle, RCTM_Auto);
-			break;
-	}
 }
 
 FTrackInstancePropertyBindings::FTrackInstancePropertyBindings( FName InPropertyName, const FString& InPropertyPath, const FName& InFunctionName, const FName& InNotifyFunctionName )

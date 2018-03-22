@@ -34,7 +34,10 @@ void FMovieScene3DAttachSectionRecorder::Record(float CurrentTime)
 	{
 		if(MovieSceneSection.IsValid())
 		{
-			MovieSceneSection->SetEndTime(CurrentTime);
+			FFrameRate FrameResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+			FFrameNumber CurrentFrame = (CurrentTime * FrameResolution).FloorToFrame();
+
+			MovieSceneSection->ExpandToFrame(CurrentFrame);
 		}
 
 		// get attachment and check if the actor we are attached to is being recorded
@@ -56,7 +59,11 @@ void FMovieScene3DAttachSectionRecorder::Record(float CurrentTime)
 			if(!MovieSceneSection.IsValid() || AttachedToActor != ActorAttachedTo.Get())
 			{
 				MovieSceneSection = Cast<UMovieScene3DAttachSection>(AttachTrack->CreateNewSection());
-				MovieSceneSection->SetStartTime(CurrentTime);
+
+				FFrameRate FrameResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+				FFrameNumber CurrentFrame = (CurrentTime * FrameResolution).FloorToFrame();
+
+				MovieSceneSection->SetRange(TRange<FFrameNumber>::Inclusive(CurrentFrame, CurrentFrame));
 				MovieSceneSection->SetConstraintId(Guid);
 				MovieSceneSection->AttachSocketName = SocketName;
 				MovieSceneSection->AttachComponentName = ComponentName;

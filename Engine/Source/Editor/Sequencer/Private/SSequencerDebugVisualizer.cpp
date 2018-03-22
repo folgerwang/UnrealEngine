@@ -7,6 +7,9 @@
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Layout/ArrangedChildren.h"
+#include "MovieSceneSequence.h"
+#include "MovieScene.h"
+#include "MovieSceneTimeHelpers.h"
 
 #define LOCTEXT_NAMESPACE "SSequencerDebugVisualizer"
 
@@ -37,13 +40,15 @@ void SSequencerDebugVisualizer::Refresh()
 		return;
 	}
 
+	const UMovieSceneSequence*           ActiveSequence = Sequencer->GetFocusedMovieSceneSequence();
 	const FMovieSceneEvaluationTemplate* ActiveTemplate = GetTemplate();
-	if (!ActiveTemplate)
+	if (!ActiveTemplate || !ActiveSequence)
 	{
 		return;
 	}
 
-	const FMovieSceneEvaluationField& EvaluationField = ActiveTemplate->EvaluationField;
+	const FFrameRate                  SequenceResolution = ActiveSequence->GetMovieScene()->GetFrameResolution();
+	const FMovieSceneEvaluationField& EvaluationField    = ActiveTemplate->EvaluationField;
 
 	CachedSignature = EvaluationField.GetSignature();
 
@@ -79,7 +84,7 @@ void SSequencerDebugVisualizer::Refresh()
 
 	for (int32 Index = 0; Index < EvaluationField.Size(); ++Index)
 	{
-		TRange<float> Range = EvaluationField.GetRange(Index);
+		TRange<FFrameNumber> Range = EvaluationField.GetRange(Index);
 
 		const float Complexity = SegmentComplexity[Index];
 		
@@ -91,7 +96,7 @@ void SSequencerDebugVisualizer::Refresh()
 
 		Children.Add(
 			SNew(SSequencerDebugSlot, Index)
-			.Visibility(this, &SSequencerDebugVisualizer::GetSegmentVisibility, Range)
+			.Visibility(this, &SSequencerDebugVisualizer::GetSegmentVisibility, Range / SequenceResolution)
 			.ToolTip(
 				SNew(SToolTip)
 				[
@@ -131,10 +136,10 @@ FGeometry SSequencerDebugVisualizer::GetSegmentGeometry(const FGeometry& Allotte
 		return AllottedGeometry.MakeChild(FVector2D(0,0), FVector2D(0,0));
 	}
 
-	TRange<float> SegmentRange = ActiveTemplate->EvaluationField.GetRange(Slot.GetSegmentIndex());
+	TRange<FFrameNumber> SegmentRange = ActiveTemplate->EvaluationField.GetRange(Slot.GetSegmentIndex());
 
-	float PixelStartX = SegmentRange.GetLowerBound().IsOpen() ? 0.f : TimeToPixelConverter.TimeToPixel(SegmentRange.GetLowerBoundValue());
-	float PixelEndX = SegmentRange.GetUpperBound().IsOpen() ? AllottedGeometry.GetDrawSize().X : TimeToPixelConverter.TimeToPixel(SegmentRange.GetUpperBoundValue());
+	float PixelStartX = SegmentRange.GetLowerBound().IsOpen() ? 0.f : TimeToPixelConverter.FrameToPixel(MovieScene::DiscreteInclusiveLower(SegmentRange));
+	float PixelEndX   = SegmentRange.GetUpperBound().IsOpen() ? AllottedGeometry.GetDrawSize().X : TimeToPixelConverter.FrameToPixel(MovieScene::DiscreteExclusiveUpper(SegmentRange));
 
 	const float MinSectionWidth = 0.f;
 	float SectionLength = FMath::Max(MinSectionWidth, PixelEndX - PixelStartX);
@@ -145,7 +150,7 @@ FGeometry SSequencerDebugVisualizer::GetSegmentGeometry(const FGeometry& Allotte
 		);
 }
 
-EVisibility SSequencerDebugVisualizer::GetSegmentVisibility(TRange<float> Range) const
+EVisibility SSequencerDebugVisualizer::GetSegmentVisibility(TRange<double> Range) const
 {
 	return ViewRange.Get().Overlaps(Range) ? EVisibility::Visible : EVisibility::Collapsed;
 }
@@ -209,7 +214,15 @@ void SSequencerDebugVisualizer::Tick( const FGeometry& AllottedGeometry, const d
 
 void SSequencerDebugVisualizer::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const
 {
-	FTimeToPixel TimeToPixelConverter = FTimeToPixel(AllottedGeometry, ViewRange.Get());
+	TSharedPtr<FSequencer>     Sequencer      = WeakSequencer.Pin();
+	const UMovieSceneSequence* ActiveSequence = Sequencer.IsValid() ? Sequencer->GetFocusedMovieSceneSequence() : nullptr;
+
+	if (!ActiveSequence)
+	{
+		return;
+	}
+
+	FTimeToPixel TimeToPixelConverter = FTimeToPixel(AllottedGeometry, ViewRange.Get(), ActiveSequence->GetMovieScene()->GetFrameResolution());
 
 	for (int32 WidgetIndex = 0; WidgetIndex < Children.Num(); ++WidgetIndex)
 	{

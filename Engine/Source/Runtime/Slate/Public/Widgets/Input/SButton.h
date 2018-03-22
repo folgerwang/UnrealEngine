@@ -117,7 +117,7 @@ public:
 
 
 	/** @return An image that represents this button's border*/
-	const FSlateBrush* GetBorder() const;
+	virtual const FSlateBrush* GetBorder() const;
 
 	/**
 	 * Returns true if this button is currently pressed

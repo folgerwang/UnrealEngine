@@ -2,6 +2,7 @@
 
 #include "MovieSceneTrack.h"
 #include "MovieScene.h"
+#include "MovieSceneTimeHelpers.h"
 #include "Evaluation/MovieSceneSegment.h"
 #include "Compilation/MovieSceneSegmentCompiler.h"
 #include "Compilation/MovieSceneCompilerRules.h"
@@ -17,6 +18,7 @@ UMovieSceneTrack::UMovieSceneTrack(const FObjectInitializer& InInitializer)
 {
 #if WITH_EDITORONLY_DATA
 	TrackTint = FColor(127, 127, 127, 0);
+	SortingOrder = -1;
 #endif
 }
 
@@ -64,11 +66,11 @@ void UMovieSceneTrack::UpdateEasing()
 
 			// Check overlaps with exclusive ranges so that sections can butt up against each other
 			UMovieSceneTrack* OuterTrack = CurrentSection->GetTypedOuter<UMovieSceneTrack>();
-			float MaxEaseIn = 0.f;
-			float MaxEaseOut = 0.f;
+			int32 MaxEaseIn = 0;
+			int32 MaxEaseOut = 0;
 			bool bIsEntirelyUnderlapped = false;
 
-			TRange<float> CurrentSectionRange = CurrentSection->GetRange();
+			TRange<FFrameNumber> CurrentSectionRange = CurrentSection->GetRange();
 			for (int32 OtherIndex = 0; OtherIndex < RowSections.Num(); ++OtherIndex)
 			{
 				if (OtherIndex == Index)
@@ -77,7 +79,7 @@ void UMovieSceneTrack::UpdateEasing()
 				}
 
 				UMovieSceneSection* Other = RowSections[OtherIndex];
-				TRange<float> OtherSectionRange = Other->GetRange();
+				TRange<FFrameNumber> OtherSectionRange = Other->GetRange();
 
 				bIsEntirelyUnderlapped = OtherSectionRange.Contains(CurrentSectionRange);
 
@@ -86,33 +88,35 @@ void UMovieSceneTrack::UpdateEasing()
 				const bool bSectionRangeContainsOtherLowerBound = !OtherSectionRange.GetLowerBound().IsOpen() && !CurrentSectionRange.GetUpperBound().IsOpen() && CurrentSectionRange.Contains(OtherSectionRange.GetLowerBoundValue());
 				if (bSectionRangeContainsOtherUpperBound && !bSectionRangeContainsOtherLowerBound)
 				{
-					MaxEaseIn = FMath::Max(MaxEaseIn, OtherSectionRange.GetUpperBoundValue() - CurrentSectionRange.GetLowerBoundValue());
+					const int32 Difference = MovieScene::DiscreteSize(TRange<FFrameNumber>(CurrentSectionRange.GetLowerBound(), OtherSectionRange.GetUpperBound()));
+					MaxEaseIn = FMath::Max(MaxEaseIn, Difference);
 				}
 
 				if (bSectionRangeContainsOtherLowerBound &&!bSectionRangeContainsOtherUpperBound)
 				{
-					MaxEaseOut = FMath::Max(MaxEaseOut, CurrentSectionRange.GetUpperBoundValue() - OtherSectionRange.GetLowerBoundValue());
+					const int32 Difference = MovieScene::DiscreteSize(TRange<FFrameNumber>(OtherSectionRange.GetLowerBoundValue(), CurrentSectionRange.GetUpperBoundValue()));
+					MaxEaseOut = FMath::Max(MaxEaseOut, Difference);
 				}
 			}
 
-			const bool bIsFinite = CurrentSectionRange.HasLowerBound() && CurrentSectionRange.HasUpperBound();
-			const float Max = bIsFinite ? CurrentSectionRange.Size<float>() : TNumericLimits<float>::Max();
+			const bool  bIsFinite = CurrentSectionRange.HasLowerBound() && CurrentSectionRange.HasUpperBound();
+			const int32 MaxSize   = bIsFinite ? MovieScene::DiscreteSize(CurrentSectionRange) : TNumericLimits<int32>::Max();
 
-			if (MaxEaseOut == 0.f && MaxEaseIn == 0.f && bIsEntirelyUnderlapped)
+			if (MaxEaseOut == 0 && MaxEaseIn == 0 && bIsEntirelyUnderlapped)
 			{
-				MaxEaseOut = MaxEaseIn = Max * 0.25f;
+				MaxEaseOut = MaxEaseIn = MaxSize / 4;
 			}
 
 			// Only modify the section if the ease in or out times have actually changed
-			MaxEaseIn = FMath::Clamp(MaxEaseIn, 0.f, Max);
-			MaxEaseOut = FMath::Clamp(MaxEaseOut, 0.f, Max);
+			MaxEaseIn  = FMath::Clamp(MaxEaseIn, 0, MaxSize);
+			MaxEaseOut = FMath::Clamp(MaxEaseOut, 0, MaxSize);
 
-			if (CurrentSection->Easing.AutoEaseInTime != MaxEaseIn || CurrentSection->Easing.AutoEaseOutTime != MaxEaseOut)
+			if (CurrentSection->Easing.AutoEaseInDuration != MaxEaseIn || CurrentSection->Easing.AutoEaseOutDuration != MaxEaseOut)
 			{
 				CurrentSection->Modify();
 
-				CurrentSection->Easing.AutoEaseInTime = MaxEaseIn;
-				CurrentSection->Easing.AutoEaseOutTime = MaxEaseOut;
+				CurrentSection->Easing.AutoEaseInDuration  = MaxEaseIn;
+				CurrentSection->Easing.AutoEaseOutDuration = MaxEaseOut;
 			}
 		}
 	}
@@ -199,7 +203,8 @@ EMovieSceneCompileResult UMovieSceneTrack::Compile(FMovieSceneEvaluationTrack& O
 	{
 		for (const UMovieSceneSection* Section : GetAllSections())
 		{
-			if (!Section->IsActive())
+			const TRange<FFrameNumber> SectionRange = Section->GetRange();
+			if (!Section->IsActive() || SectionRange.IsEmpty())
 			{
 				continue;
 			}
@@ -211,19 +216,17 @@ EMovieSceneCompileResult UMovieSceneTrack::Compile(FMovieSceneEvaluationTrack& O
 				NewTemplate->SetSourceSection(Section);
 
 				int32 TemplateIndex = OutTrack.AddChildTemplate(MoveTemp(NewTemplate));
-
-				const TRange<float> SectionRange = Section->IsInfinite() ? TRange<float>::All() : Section->GetRange();
 				OutTrack.AddTreeData(SectionRange, FSectionEvaluationData(TemplateIndex, ESectionEvaluationFlags::None));
 
-				if (!SectionRange.GetLowerBound().IsOpen() && Section->GetPreRollTime() > 0)
+				if (!SectionRange.GetLowerBound().IsOpen() && Section->GetPreRollFrames() > 0)
 				{
-					TRange<float> PreRollRange(SectionRange.GetLowerBoundValue() - Section->GetPreRollTime(), TRangeBound<float>::FlipInclusion(SectionRange.GetLowerBoundValue()));
+					TRange<FFrameNumber> PreRollRange = MovieScene::MakeDiscreteRangeFromUpper(TRangeBound<FFrameNumber>::FlipInclusion(SectionRange.GetLowerBoundValue()), Section->GetPreRollFrames());
 					OutTrack.AddTreeData(PreRollRange, FSectionEvaluationData(TemplateIndex, ESectionEvaluationFlags::PreRoll));
 				}
 
-				if (!SectionRange.GetUpperBound().IsOpen() && Section->GetPostRollTime() > 0)
+				if (!SectionRange.GetUpperBound().IsOpen() && Section->GetPostRollFrames() > 0)
 				{
-					TRange<float> PostRollRange(TRangeBound<float>::FlipInclusion(SectionRange.GetUpperBoundValue()), SectionRange.GetUpperBoundValue() + Section->GetPostRollTime());
+					TRange<FFrameNumber> PostRollRange = MovieScene::MakeDiscreteRangeFromLower(TRangeBound<FFrameNumber>::FlipInclusion(SectionRange.GetUpperBoundValue()), Section->GetPostRollFrames());
 					OutTrack.AddTreeData(PostRollRange, FSectionEvaluationData(TemplateIndex, ESectionEvaluationFlags::PostRoll));
 				}
 			}

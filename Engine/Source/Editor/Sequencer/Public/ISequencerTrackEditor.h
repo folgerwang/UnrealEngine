@@ -112,18 +112,28 @@ public:
 	 *
 	 * @param DragDropEvent The drag drop event.
 	 * @param Track The track that is receiving this drop event.
+	 * @param RowIndex The row index to drop onto.
+	 * @param TargetObjectGuid The object guid this asset is dropped onto, if applicable.
 	 * @return Whether the drop event can be handled.
 	 */
-	virtual bool OnAllowDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track) = 0;
+	virtual bool OnAllowDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track, int32 RowIndex, const FGuid& TargetObjectGuid) = 0;
+
+	DEPRECATED(4.19, "Use OnAllowDrop with a given RowIndex and Guid")
+	virtual bool OnAllowDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track) { return OnAllowDrop(DragDropEvent, Track, 0, FGuid()); }
 
 	/**
 	 * Called when an asset is dropped directly onto a track.
 	 *
 	 * @param DragDropEvent The drag drop event.
 	 * @param Track The track that is receiving this drop event.
+	 * @param RowIndex The row index to drop onto.
+	 * @param TargetObjectGuid The object guid this asset is dropped onto, if applicable.
 	 * @return Whether the drop event was handled.
 	 */	
-	virtual FReply OnDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track) = 0;
+	virtual FReply OnDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track, int32 RowIndex, const FGuid& TargetObjectGuid) = 0;
+
+	DEPRECATED(4.19, "Use OnDrop with a given RowIndex")
+	virtual FReply OnDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track) { return OnDrop(DragDropEvent, Track, 0, FGuid()); }
 
 	/**
 	 * Called to generate a section layout for a particular section.

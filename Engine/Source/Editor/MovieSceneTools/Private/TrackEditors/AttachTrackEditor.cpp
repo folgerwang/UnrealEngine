@@ -62,8 +62,6 @@ public:
 		return FText::GetEmpty(); 
 	}
 
-	virtual void GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const override {}
-
 	virtual int32 OnPaintSection( FSequencerSectionPainter& InPainter ) const override 
 	{
 		return InPainter.PaintSectionBackground();
@@ -209,7 +207,7 @@ void F3DAttachTrackEditor::ActorSocketPicked(const FName SocketName, USceneCompo
 	}
 }
 
-FKeyPropertyResult F3DAttachTrackEditor::AddKeyInternal( float KeyTime, const TArray<TWeakObjectPtr<UObject>> Objects, const FName SocketName, const FName ComponentName, FActorPickerID ActorPickerID)
+FKeyPropertyResult F3DAttachTrackEditor::AddKeyInternal( FFrameNumber KeyTime, const TArray<TWeakObjectPtr<UObject>> Objects, const FName SocketName, const FName ComponentName, FActorPickerID ActorPickerID)
 {
 	FKeyPropertyResult KeyPropertyResult;
 
@@ -248,12 +246,11 @@ FKeyPropertyResult F3DAttachTrackEditor::AddKeyInternal( float KeyTime, const TA
 			if (ensure(Track))
 			{
 				// Clamp to next attach section's start time or the end of the current sequencer view range
-				float AttachEndTime = GetSequencer()->GetViewRange().GetUpperBoundValue();
+				FFrameNumber AttachEndTime = (GetSequencer()->GetViewRange().GetUpperBoundValue() * Track->GetTypedOuter<UMovieScene>()->GetFrameResolution()).FrameNumber;
 
-				for (int32 AttachSectionIndex = 0; AttachSectionIndex < Track->GetAllSections().Num(); ++AttachSectionIndex)
+				for (UMovieSceneSection* Section : Track->GetAllSections())
 				{
-					float StartTime = Track->GetAllSections()[AttachSectionIndex]->GetStartTime();
-					float EndTime = Track->GetAllSections()[AttachSectionIndex]->GetEndTime();
+					FFrameNumber StartTime = Section->HasStartFrame() ? Section->GetInclusiveStartFrame() : 0;
 					if (KeyTime < StartTime)
 					{
 						if (AttachEndTime > StartTime)
@@ -263,7 +260,7 @@ FKeyPropertyResult F3DAttachTrackEditor::AddKeyInternal( float KeyTime, const TA
 					}
 				}
 
-				Cast<UMovieScene3DAttachTrack>(Track)->AddConstraint( KeyTime, AttachEndTime, SocketName, ComponentName, ConstraintBindingID);
+				Cast<UMovieScene3DAttachTrack>(Track)->AddConstraint( KeyTime, (AttachEndTime - KeyTime).Value, SocketName, ComponentName, ConstraintBindingID);
 				KeyPropertyResult.bTrackModified = true;
 			}
 		}

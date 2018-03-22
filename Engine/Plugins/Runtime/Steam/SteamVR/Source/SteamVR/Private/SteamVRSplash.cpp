@@ -46,6 +46,7 @@ void FSteamSplashTicker::Tick(float DeltaTime)
 	if (SteamVRHMD->pBridge && SteamVRHMD->VRCompositor && SteamVRHMD->bSplashIsShown)
 	{
 		SteamVRHMD->pBridge->FinishRendering();
+		check(!IsRunningRHIInSeparateThread() || IsInRHIThread());
 		SteamVRHMD->VRCompositor->PostPresentHandoff();
 	}
 }

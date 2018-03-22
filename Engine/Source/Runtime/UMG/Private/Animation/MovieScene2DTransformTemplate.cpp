@@ -16,29 +16,30 @@ FMovieScene2DTransformSectionTemplate::FMovieScene2DTransformSectionTemplate(con
 	: FMovieScenePropertySectionTemplate(Track.GetPropertyName(), Track.GetPropertyPath())
 	, BlendType(Section.GetBlendType().Get())
 {
-	Translation[0] = Section.GetTranslationCurve(EAxis::X);
-	Translation[1] = Section.GetTranslationCurve(EAxis::Y);
+	Translation[0] = Section.Translation[0];
+	Translation[1] = Section.Translation[1];
 
-	Rotation = Section.GetRotationCurve();
+	Rotation = Section.Rotation;
 
-	Scale[0] = Section.GetScaleCurve(EAxis::X);
-	Scale[1] = Section.GetScaleCurve(EAxis::Y);
+	Scale[0] = Section.Scale[0];
+	Scale[1] = Section.Scale[1];
 
-	Shear[0] = Section.GetShearCurve(EAxis::X);
-	Shear[1] = Section.GetShearCurve(EAxis::Y);
+	Shear[0] = Section.Shear[0];
+	Shear[1] = Section.Shear[1];
 }
 
 void FMovieScene2DTransformSectionTemplate::Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 {
-	const float Time = Context.GetTime();
+	const FFrameTime Time = Context.GetTime();
 	MovieScene::TMultiChannelValue<float, 7> AnimatedData;
 
 	// Only activate channels if the curve has data associated with it
-	auto EvalChannel = [&AnimatedData, Time](uint8 ChanneIndex, const FRichCurve& Curve)
+	auto EvalChannel = [&AnimatedData, Time](uint8 ChanneIndex, const FMovieSceneFloatChannel& Channel)
 	{
-		if (Curve.HasAnyData())
+		float Value = 0.f;
+		if (Channel.Evaluate(Time, Value))
 		{
-			AnimatedData.Set(ChanneIndex, Curve.Eval(Time));
+			AnimatedData.Set(ChanneIndex, Value);
 		}
 	};
 

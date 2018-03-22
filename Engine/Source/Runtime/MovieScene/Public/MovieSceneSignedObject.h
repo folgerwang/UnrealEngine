@@ -11,17 +11,17 @@
 class ITransactionObjectAnnotation;
 
 UCLASS()
-class UMovieSceneSignedObject : public UObject
+class MOVIESCENE_API UMovieSceneSignedObject : public UObject
 {
 public:
 	GENERATED_BODY()
 
-	MOVIESCENE_API UMovieSceneSignedObject(const FObjectInitializer& Init);
+	UMovieSceneSignedObject(const FObjectInitializer& Init);
 
 	/**
 	 * 
 	 */
-	MOVIESCENE_API void MarkAsChanged();
+	void MarkAsChanged();
 
 	/**
 	 * 
@@ -37,14 +37,14 @@ public:
 
 public:
 
-	MOVIESCENE_API virtual bool Modify(bool bAlwaysMarkDirty = true) override;
-	MOVIESCENE_API virtual void PostInitProperties() override;
-	MOVIESCENE_API virtual void PostLoad() override;
+	virtual bool Modify(bool bAlwaysMarkDirty = true) override;
+	virtual void PostInitProperties() override;
+	virtual void PostLoad() override;
 
 #if WITH_EDITOR
-	MOVIESCENE_API virtual void PostEditChangeProperty( struct FPropertyChangedEvent& PropertyChangedEvent) override;
-	MOVIESCENE_API virtual void PostEditUndo() override;
-	MOVIESCENE_API virtual void PostEditUndo(TSharedPtr<ITransactionObjectAnnotation> TransactionAnnotation) override;
+	virtual void PostEditChangeProperty( struct FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PostEditUndo() override;
+	virtual void PostEditUndo(TSharedPtr<ITransactionObjectAnnotation> TransactionAnnotation) override;
 #endif
 
 private:

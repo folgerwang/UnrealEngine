@@ -303,6 +303,17 @@ int32 FVulkanSwapChain::AcquireImageIndex(FVulkanSemaphore** OutSemaphore)
 	checkf(!(NumAcquireCalls == ImageAcquiredSemaphore.Num() - 1 && NumPresentCalls == 0), TEXT("vkAcquireNextImageKHR will fail as no images have been presented before acquiring all of them"));
 #if VULKAN_USE_IMAGE_ACQUIRE_FENCES
 	VulkanRHI::FFenceManager& FenceMgr = Device.GetFenceManager();
+	//#todo-rco: Is this the right place?
+	// Make sure the CPU doesn't get too ahead of the GPU
+	if (GShouldCpuWaitForFence)
+	{
+		SCOPE_CYCLE_COUNTER(STAT_VulkanWaitSwapchain);
+		if (!ImageAcquiredFences[SemaphoreIndex]->IsSignaled())
+		{
+			bool bResult = FenceMgr.WaitForFence(ImageAcquiredFences[SemaphoreIndex], UINT32_MAX);
+			ensure(bResult);
+		}
+	}
 	FenceMgr.ResetFence(ImageAcquiredFences[SemaphoreIndex]);
 #endif
 	VkResult Result = VulkanRHI::vkAcquireNextImageKHR(

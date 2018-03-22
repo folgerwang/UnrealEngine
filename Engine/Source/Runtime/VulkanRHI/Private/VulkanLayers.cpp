@@ -30,6 +30,14 @@ namespace VulkanRHI
 }
 #endif
 
+TAutoConsoleVariable<int32> GStandardValidationCvar(
+	TEXT("r.Vulkan.UseStandardValidation"),
+	1,
+	TEXT("1 to enable standard validation(default)\n")
+	TEXT("0 to disable standard validation"),
+	ECVF_ReadOnly | ECVF_RenderThreadSafe
+);
+
 #if VULKAN_HAS_DEBUGGING_ENABLED
 
 	#if VULKAN_ENABLE_DRAW_MARKERS
@@ -42,15 +50,11 @@ static const ANSICHAR* GRequiredLayersInstance[] =
 	nullptr,
 };
 
-// Disable to be able to selectively choose which validation layers you want
-#define VULKAN_ENABLE_STANDARD_VALIDATION	1
-
 // List of validation layers which we want to activate for the instance
-static const ANSICHAR* GValidationLayersInstance[] =
+static const ANSICHAR** GValidationLayersInstance = nullptr;
+
+static const ANSICHAR* GValidationLayersInstanceSpecific[] =
 {
-#if VULKAN_ENABLE_STANDARD_VALIDATION
-	"VK_LAYER_LUNARG_standard_validation",
-#else
 	"VK_LAYER_GOOGLE_threading",
 	"VK_LAYER_LUNARG_parameter_validation",
 	"VK_LAYER_LUNARG_object_tracker",
@@ -62,11 +66,16 @@ static const ANSICHAR* GValidationLayersInstance[] =
 	"VK_LAYER_LUNARG_swapchain",
 #endif
 	"VK_LAYER_GOOGLE_unique_objects",
-#endif
 
 	//"VK_LAYER_LUNARG_screenshot",
 	//"VK_LAYER_NV_optimus",
 	//"VK_LAYER_LUNARG_vktrace",		// Useful for future
+	nullptr
+};
+
+static const ANSICHAR* GValidationLayersInstanceStandard[] =
+{
+	"VK_LAYER_LUNARG_standard_validation",
 	nullptr
 };
 
@@ -76,14 +85,13 @@ static const ANSICHAR* GRequiredLayersDevice[] =
 	nullptr,
 };
 
+static const ANSICHAR** GValidationLayersDevice = nullptr;
+
 // List of validation layers which we want to activate for the device
-static const ANSICHAR* GValidationLayersDevice[] =
+static const ANSICHAR* GValidationLayersDeviceSpecific[] =
 {
 	// Only have device validation layers on SDKs below 13
 #if defined(VK_HEADER_VERSION) && (VK_HEADER_VERSION < 13)
-#if VULKAN_ENABLE_STANDARD_VALIDATION
-	"VK_LAYER_LUNARG_standard_validation",
-#else
 	"VK_LAYER_GOOGLE_threading",
 	"VK_LAYER_LUNARG_parameter_validation",
 	"VK_LAYER_LUNARG_object_tracker",
@@ -92,7 +100,6 @@ static const ANSICHAR* GValidationLayersDevice[] =
 	"VK_LAYER_LUNARG_swapchain",
 	"VK_LAYER_GOOGLE_unique_objects",
 	"VK_LAYER_LUNARG_core_validation",
-#endif	// Standard Validation
 #endif	// Header < 13
 	//"VK_LAYER_LUNARG_screenshot",
 	//"VK_LAYER_NV_optimus",
@@ -100,9 +107,15 @@ static const ANSICHAR* GValidationLayersDevice[] =
 	//"VK_LAYER_LUNARG_vktrace",		// Useful for future
 	nullptr
 };
+
+static const ANSICHAR* GValidationLayersDeviceStandard[] =
+{
+	"VK_LAYER_LUNARG_standard_validation",
+	nullptr
+};
 #endif // VULKAN_HAS_DEBUGGING_ENABLED
 
-// Instance Extensions to enable
+// Instance Extensions to enable for all platforms
 static const ANSICHAR* GInstanceExtensions[] =
 {
 #if VULKAN_HAS_DEBUGGING_ENABLED
@@ -118,7 +131,6 @@ static const ANSICHAR* GInstanceExtensions[] =
 // Device Extensions to enable
 static const ANSICHAR* GDeviceExtensions[] =
 {
-	//	VK_KHR_SURFACE_EXTENSION_NAME,			// Not supported, even if it's reported as a valid extension... (SDK/driver bug?)
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 
 	//"VK_KHX_device_group",
@@ -529,5 +541,39 @@ void FVulkanDevice::ParseOptionalDeviceExtensions(const TArray<const ANSICHAR *>
 #if !PLATFORM_ANDROID
 	// Verify the assumption on FVulkanSamplerState::FVulkanSamplerState()!
 	ensure(OptionalDeviceExtensions.HasMirrorClampToEdge != 0);
+#endif
+}
+
+void FVulkanDynamicRHI::SetupValidationLayers()
+{
+#if VULKAN_HAS_DEBUGGING_ENABLED
+	// Check whether options are overriden by command line
+
+	int32 VulkanValidationOption;
+	if (FParse::Value(FCommandLine::Get(), TEXT("vulkanvalidation="), VulkanValidationOption))
+	{
+		GValidationCvar->Set(VulkanValidationOption, ECVF_SetByCommandline);
+	}
+
+	if (FParse::Param(FCommandLine::Get(), TEXT("vulkanstandardvalidation")))
+	{
+		GStandardValidationCvar->Set(1, ECVF_SetByCommandline);
+	}
+	else if (FParse::Param(FCommandLine::Get(), TEXT("novulkanstandardvalidation")))
+	{
+		GStandardValidationCvar->Set(0, ECVF_SetByCommandline);
+	}
+
+	// Check whether requested full standard validation or not
+	if (GStandardValidationCvar.GetValueOnAnyThread() == 1)
+	{
+		GValidationLayersDevice = GValidationLayersDeviceStandard;
+		GValidationLayersInstance = GValidationLayersInstanceStandard;
+	}
+	else
+	{
+		GValidationLayersDevice = GValidationLayersDeviceSpecific;
+		GValidationLayersInstance = GValidationLayersInstanceSpecific;
+	}
 #endif
 }

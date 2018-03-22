@@ -14,7 +14,6 @@
 #include "ControlRig.h"
 
 struct FAssetData;
-class FFloatCurveKeyArea;
 class FMenuBuilder;
 class FSequencerSectionPainter;
 class UMovieSceneControlRigSection;
@@ -67,7 +66,7 @@ private:
 	void OnSequencerAssetSelected(const FAssetData& AssetData, FGuid ObjectBinding, UMovieSceneTrack* Track);
 
 	/** Delegate for AnimatablePropertyChanged in AddKey */
-	FKeyPropertyResult AddKeyInternal(float KeyTime, FGuid ObjectBinding, UControlRigSequence* Sequence, UMovieSceneTrack* Track);
+	FKeyPropertyResult AddKeyInternal(FFrameNumber KeyTime, FGuid ObjectBinding, UControlRigSequence* Sequence, UMovieSceneTrack* Track);
 
 	/** Callback for generating the menu of the "Add Sequence" combo button. */
 	TSharedRef<SWidget> HandleAddSubSequenceComboButtonGetMenuContent(FGuid ObjectBinding, UMovieSceneTrack* InTrack);

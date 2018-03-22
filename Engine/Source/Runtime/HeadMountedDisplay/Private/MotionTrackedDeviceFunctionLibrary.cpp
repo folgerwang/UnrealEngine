@@ -8,6 +8,7 @@
 #include "IMotionTrackingSystemManagement.h"
 #include "MotionControllerComponent.h"
 #include "XRMotionControllerBase.h" // for GetHandEnumForSourceName()
+#include "IXRTrackingSystem.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogMotionTracking, Log, All);
 
@@ -211,3 +212,8 @@ TArray<FName> UMotionTrackedDeviceFunctionLibrary::EnumerateMotionSources()
 	return SourceList;
 }
 
+FName UMotionTrackedDeviceFunctionLibrary::GetActiveTrackingSystemName()
+{
+	IXRTrackingSystem* TrackingSys = GEngine->XRSystem.Get();
+	return TrackingSys ? TrackingSys->GetSystemName() : NAME_None;
+}

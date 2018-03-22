@@ -10,7 +10,6 @@
 #include "ISectionLayoutBuilder.h"
 #include "ActorEditorUtils.h"
 #include "Components/SplineComponent.h"
-#include "FloatCurveKeyArea.h"
 
 
 #define LOCTEXT_NAMESPACE "FPathTrackEditor"
@@ -53,13 +52,6 @@ public:
 		}
 
 		return FText::GetEmpty(); 
-	}
-
-	virtual void GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const override
-	{
-		UMovieScene3DPathSection* PathSection = Cast<UMovieScene3DPathSection>( &Section );
-
-		LayoutBuilder.AddKeyArea("Timing", LOCTEXT("TimingArea", "Timing"), MakeShareable( new FFloatCurveKeyArea ( &PathSection->GetTimingCurve( ), PathSection ) ) );
 	}
 
 	virtual int32 OnPaintSection( FSequencerSectionPainter& InPainter ) const override 
@@ -195,7 +187,7 @@ void F3DPathTrackEditor::ActorSocketPicked(const FName SocketName, USceneCompone
 	}
 }
 
-FKeyPropertyResult F3DPathTrackEditor::AddKeyInternal( float KeyTime, const TArray<TWeakObjectPtr<UObject>> Objects, FActorPickerID ActorPickerID)
+FKeyPropertyResult F3DPathTrackEditor::AddKeyInternal( FFrameNumber KeyTime, const TArray<TWeakObjectPtr<UObject>> Objects, FActorPickerID ActorPickerID)
 {
 	FKeyPropertyResult KeyPropertyResult;
 
@@ -234,12 +226,11 @@ FKeyPropertyResult F3DPathTrackEditor::AddKeyInternal( float KeyTime, const TArr
 			if (ensure(Track))
 			{
 				// Clamp to next path section's start time or the end of the current sequencer view range
-				float PathEndTime = GetSequencer()->GetViewRange().GetUpperBoundValue();
+				FFrameNumber PathEndTime = ( GetSequencer()->GetViewRange().GetUpperBoundValue() * Track->GetTypedOuter<UMovieScene>()->GetFrameResolution() ).FrameNumber;
 	
-				for (int32 PathSectionIndex = 0; PathSectionIndex < Track->GetAllSections().Num(); ++PathSectionIndex)
+				for (UMovieSceneSection* Section : Track->GetAllSections())
 				{
-					float StartTime = Track->GetAllSections()[PathSectionIndex]->GetStartTime();
-					float EndTime = Track->GetAllSections()[PathSectionIndex]->GetEndTime();
+					FFrameNumber StartTime = Section->HasStartFrame() ? Section->GetInclusiveStartFrame() : TNumericLimits<int32>::Lowest();
 					if (KeyTime < StartTime)
 					{
 						if (PathEndTime > StartTime)
@@ -249,7 +240,7 @@ FKeyPropertyResult F3DPathTrackEditor::AddKeyInternal( float KeyTime, const TArr
 					}
 				}
 
-				Cast<UMovieScene3DPathTrack>(Track)->AddConstraint( KeyTime, PathEndTime, NAME_None, NAME_None, ConstraintBindingID );
+				Cast<UMovieScene3DPathTrack>(Track)->AddConstraint( KeyTime, (PathEndTime - KeyTime).Value, NAME_None, NAME_None, ConstraintBindingID );
 				KeyPropertyResult.bTrackModified = true;
 			}
 		}

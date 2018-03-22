@@ -6,26 +6,52 @@
 #include "Evaluation/MovieSceneEvaluationCustomVersion.h"
 #include "Compilation/MovieSceneSegmentCompiler.h"
 #include "UObject/SequencerObjectVersion.h"
+#include "CommonFrameRates.h"
+
+
+TOptional<TRangeBound<FFrameNumber>> GetMaxUpperBound(const UMovieSceneTrack* Track)
+{
+	TOptional<TRangeBound<FFrameNumber>> MaxBound;
+
+	// Find the largest closed upper bound of all the track's sections
+	for (UMovieSceneSection* Section : Track->GetAllSections())
+	{
+		TRangeBound<FFrameNumber> SectionUpper = Section->GetRange().GetUpperBound();
+		if (SectionUpper.IsClosed())
+		{
+			MaxBound = TRangeBound<FFrameNumber>::MaxUpper(MaxBound.Get(SectionUpper), SectionUpper);
+		}
+	}
+
+	return MaxBound;
+}
 
 /* UMovieScene interface
  *****************************************************************************/
 
 UMovieScene::UMovieScene(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, SelectionRange(FFloatRange::Empty())
-	, PlaybackRange(FFloatRange::Empty())
-#if WITH_EDITORONLY_DATA
-	, bPlaybackRangeLocked(false)
-#endif
-	, bForceFixedFrameIntervalPlayback(false)
-	, FixedFrameInterval(0.0f)
-	, InTime_DEPRECATED(FLT_MAX)
-	, OutTime_DEPRECATED(-FLT_MAX)
-	, StartTime_DEPRECATED(FLT_MAX)
-	, EndTime_DEPRECATED(-FLT_MAX)
 {
+	EvaluationType = EMovieSceneEvaluationType::WithSubFrames;
+	ClockSource = EUpdateClockSource::Tick;
+
+	if (!HasAnyFlags(RF_ClassDefaultObject) && GetLinkerCustomVersion(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::FloatToIntConversion)
+	{
+		FrameResolution = GetLegacyConversionFrameRate();
+	}
+
 #if WITH_EDITORONLY_DATA
-	EditorData.WorkingRange = EditorData.ViewRange = TRange<float>::Empty();
+	bPlaybackRangeLocked = false;
+	PlaybackRange.MigrationDefault = FFloatRange::Empty();
+	EditorData.WorkingRange_DEPRECATED = EditorData.ViewRange_DEPRECATED = TRange<float>::Empty();
+
+	bForceFixedFrameIntervalPlayback_DEPRECATED = false;
+	FixedFrameInterval_DEPRECATED = 0.0f;
+
+	InTime_DEPRECATED    =  FLT_MAX;
+	OutTime_DEPRECATED   = -FLT_MAX;
+	StartTime_DEPRECATED =  FLT_MAX;
+	EndTime_DEPRECATED   = -FLT_MAX;
 #endif
 }
 
@@ -49,6 +75,54 @@ void UMovieScene::Serialize( FArchive& Ar )
 #endif // WITH_EDITOR
 
 	Super::Serialize(Ar);
+
+#if WITH_EDITORONLY_DATA
+	if (Ar.CustomVer(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::FloatToIntConversion)
+	{
+		if (bForceFixedFrameIntervalPlayback_DEPRECATED)
+		{
+			EvaluationType = EMovieSceneEvaluationType::FrameLocked;
+		}
+
+		// Legacy fixed frame interval conversion to integer play rates
+		if      (FixedFrameInterval_DEPRECATED == 1 / 15.0f)  { PlayRate = FCommonFrameRates::FPS_15();  }
+		else if (FixedFrameInterval_DEPRECATED == 1 / 24.0f)  { PlayRate = FCommonFrameRates::FPS_24();  }
+		else if (FixedFrameInterval_DEPRECATED == 1 / 25.0f)  { PlayRate = FCommonFrameRates::FPS_25();  }
+		else if (FixedFrameInterval_DEPRECATED == 1 / 29.97)  { PlayRate = FCommonFrameRates::NTSC_30(); }
+		else if (FixedFrameInterval_DEPRECATED == 1 / 30.0f)  { PlayRate = FCommonFrameRates::FPS_30();  }
+		else if (FixedFrameInterval_DEPRECATED == 1 / 48.0f)  { PlayRate = FCommonFrameRates::FPS_48();  }
+		else if (FixedFrameInterval_DEPRECATED == 1 / 50.0f)  { PlayRate = FCommonFrameRates::FPS_50();  }
+		else if (FixedFrameInterval_DEPRECATED == 1 / 59.94)  { PlayRate = FCommonFrameRates::NTSC_60(); }
+		else if (FixedFrameInterval_DEPRECATED == 1 / 60.0f)  { PlayRate = FCommonFrameRates::FPS_60();  }
+		else if (FixedFrameInterval_DEPRECATED == 1 / 120.0f) { PlayRate = FCommonFrameRates::FPS_120(); }
+		else if (FixedFrameInterval_DEPRECATED != 0.f)
+		{
+			uint32 Numerator = FMath::RoundToInt(1.f / FixedFrameInterval_DEPRECATED);
+			PlayRate = FFrameRate(Numerator, 1);
+		}
+		else
+		{
+			// Sequences with 0 FixedFrameInterval used to be assigned a proper interval in SSequencer::OnSequenceInstanceActivated for some reason,
+			// But we don't have access to the relevant sequencer settings class here so we just have to make a hacky educated guess based on the class name.
+			UObject* Outer = GetOuter();
+			if (Outer && Outer->GetClass()->GetFName() == "WidgetAnimation")
+			{
+				// Widget animations defaulted to 0.05s
+				PlayRate = FFrameRate(20, 1);
+			}
+			else if (Outer && Outer->GetClass()->GetFName() == "ActorSequence")
+			{
+				// Actor sequences defaulted to 0.1s
+				PlayRate = FFrameRate(10, 1);
+			}
+			else
+			{
+				// Level sequences defaulted to 30fps - this is the fallback default for anything else
+				PlayRate = FFrameRate(30, 1);
+			}
+		}
+	}
+#endif
 }
 
 #if WITH_EDITOR
@@ -349,56 +423,66 @@ TArray<UMovieSceneFolder*>&  UMovieScene::GetRootFolders()
 }
 #endif
 
-
-void UMovieScene::SetPlaybackRange(float Start, float End, bool bAlwaysMarkDirty)
+void UMovieScene::SetPlaybackRange(FFrameNumber Start, int32 Duration, bool bAlwaysMarkDirty)
 {
-	if (ensure(End >= Start))
+	// Inclusive lower, Exclusive upper bound
+	SetPlaybackRange(TRange<FFrameNumber>(Start, Start + Duration), bAlwaysMarkDirty);
+}
+
+void UMovieScene::SetPlaybackRange(const TRange<FFrameNumber>& NewRange, bool bAlwaysMarkDirty)
+{
+	check(NewRange.GetLowerBound().IsClosed() && NewRange.GetUpperBound().IsClosed());
+
+	if (PlaybackRange.Value == NewRange)
 	{
-		const auto NewRange = TRange<float>(Start, TRangeBound<float>::Inclusive(End));
+		return;
+	}
 
-		if (PlaybackRange == NewRange)
-		{
-			return;
-		}
+	if (bAlwaysMarkDirty)
+	{
+		Modify();
+	}
 
-		if (bAlwaysMarkDirty)
-		{
-			Modify();
-		}
-
-		PlaybackRange = NewRange;
+	PlaybackRange.Value = NewRange;
 
 #if WITH_EDITORONLY_DATA
-		// Initialize the working and view range with a little bit more space
-		const float OutputViewSize = PlaybackRange.GetUpperBoundValue() - PlaybackRange.GetLowerBoundValue();
-		const float OutputChange = OutputViewSize * 0.1f;
+	// Update the working and view ranges to encompass the new range
+	const double RangeStartSeconds = NewRange.GetLowerBoundValue() / FrameResolution;
+	const double RangeEndSeconds   = NewRange.GetUpperBoundValue() / FrameResolution;
 
-		TRange<float> ExpandedPlaybackRange = TRange<float>(PlaybackRange.GetLowerBoundValue() - OutputChange, PlaybackRange.GetUpperBoundValue() + OutputChange);
+	// Initialize the working and view range with a little bit more space
+	const double OutputChange      = (RangeEndSeconds - RangeStartSeconds) * 0.1;
 
-		if (EditorData.WorkingRange.IsEmpty())
-		{
-			EditorData.WorkingRange = ExpandedPlaybackRange;
-		}
+	double ExpandedStart = RangeStartSeconds - OutputChange;
+	double ExpandedEnd   = RangeEndSeconds + OutputChange;
 
-		if (EditorData.ViewRange.IsEmpty())
-		{
-			EditorData.ViewRange = ExpandedPlaybackRange;
-		}
-#endif
+	if (EditorData.WorkStart >= EditorData.WorkEnd)
+	{
+		EditorData.WorkStart = ExpandedStart;
+		EditorData.WorkEnd   = ExpandedEnd;
 	}
+
+	if (EditorData.ViewStart >= EditorData.ViewEnd)
+	{
+		EditorData.ViewStart = ExpandedStart;
+		EditorData.ViewEnd   = ExpandedEnd;
+	}
+#endif
 }
 
 void UMovieScene::SetWorkingRange(float Start, float End)
 {
 #if WITH_EDITORONLY_DATA
-	EditorData.WorkingRange = TRange<float>(Start, End);
+	EditorData.WorkStart = Start;
+	EditorData.WorkEnd   = End;
 #endif
 }
 
 void UMovieScene::SetViewRange(float Start, float End)
 {
 #if WITH_EDITORONLY_DATA
-	EditorData.ViewRange = TRange<float>(Start, End);
+	EditorData.ViewStart = Start;
+	EditorData.ViewEnd   = End;
 #endif
 }
 
@@ -413,31 +497,6 @@ void UMovieScene::SetPlaybackRangeLocked(bool bLocked)
 	bPlaybackRangeLocked = bLocked;
 }
 #endif
-
-bool UMovieScene::GetForceFixedFrameIntervalPlayback() const
-{
-	return bForceFixedFrameIntervalPlayback;
-}
-
-
-void UMovieScene::SetForceFixedFrameIntervalPlayback( bool bInForceFixedFrameIntervalPlayback )
-{
-	bForceFixedFrameIntervalPlayback = bInForceFixedFrameIntervalPlayback;
-}
-
-
-void UMovieScene::SetFixedFrameInterval( float InFixedFrameInterval )
-{
-	FixedFrameInterval = InFixedFrameInterval;
-}
-
-
-const float UMovieScene::FixedFrameIntervalEpsilon = .0001f;
-
-float UMovieScene::CalculateFixedFrameTime( float Time, float FixedFrameInterval )
-{
-	return ( FMath::RoundToInt( Time / FixedFrameInterval ) ) * FixedFrameInterval + FixedFrameIntervalEpsilon;
-}
 
 
 TArray<UMovieSceneSection*> UMovieScene::GetAllSections() const
@@ -476,7 +535,7 @@ UMovieSceneTrack* UMovieScene::FindTrack(TSubclassOf<UMovieSceneTrack> TrackClas
 
 		for (const auto& Track : Binding.GetTracks())
 		{
-			if (Track->GetClass() == TrackClass)
+			if (TrackClass.GetDefaultObject() == nullptr ||  Track->GetClass() == TrackClass)
 			{
 				if (TrackName == NAME_None || Track->GetTrackName() == TrackName)
 				{
@@ -676,63 +735,98 @@ void UMovieScene::UpgradeTimeRanges()
 	// Level sequences defaulted to having a fixed play range.
 	// We now expose the playback range more visibly, but we need to upgrade the old data.
 
+	bool bFiniteRangeDefined = false;
+
+#if WITH_EDITORONLY_DATA
 	if (InTime_DEPRECATED != FLT_MAX && OutTime_DEPRECATED != -FLT_MAX)
 	{
 		// Finite range already defined in old data
-		PlaybackRange = TRange<float>(InTime_DEPRECATED, TRangeBound<float>::Inclusive(OutTime_DEPRECATED));
+		PlaybackRange.Value = TRange<FFrameNumber>(
+			FrameResolution.AsFrameNumber(InTime_DEPRECATED),
+			// Prefer exclusive upper bounds for playback ranges so we stop at the next frame
+			++FrameResolution.AsFrameNumber(OutTime_DEPRECATED)
+			);
+		bFiniteRangeDefined = true;
 	}
-	else if (PlaybackRange.IsEmpty())
+#endif
+	if (!bFiniteRangeDefined && PlaybackRange.Value.IsEmpty())
 	{
 		// No range specified, so automatically calculate one by determining the maximum upper bound of the sequence
 		// In this instance (UMG), playback always started at 0
-		float MaxBound = 0.f;
+		TRangeBound<FFrameNumber> MaxFrame = TRangeBound<FFrameNumber>::Exclusive(0);
 
-		for (const auto& Track : MasterTracks)
+		for (const UMovieSceneTrack* Track : MasterTracks)
 		{
-			auto Range = Track->GetSectionBoundaries();
-			if (Range.HasUpperBound())
+			TOptional<TRangeBound<FFrameNumber>> MaxUpper = GetMaxUpperBound(Track);
+			if (MaxUpper.IsSet())
 			{
-				MaxBound = FMath::Max(MaxBound, Range.GetUpperBoundValue());
+				MaxFrame = TRangeBound<FFrameNumber>::MaxUpper(MaxFrame, MaxUpper.GetValue());
 			}
 		}
 
-		for (const auto& Binding : ObjectBindings)
+		for (const FMovieSceneBinding& Binding : ObjectBindings)
 		{
-			auto Range = Binding.GetTimeRange();
-			if (Range.HasUpperBound())
+			for (UMovieSceneTrack* Track : Binding.GetTracks())
 			{
-				MaxBound = FMath::Max(MaxBound, Range.GetUpperBoundValue());
+				TOptional<TRangeBound<FFrameNumber>> MaxUpper = GetMaxUpperBound(Track);
+				if (MaxUpper.IsSet())
+				{
+					MaxFrame = TRangeBound<FFrameNumber>::MaxUpper(MaxFrame, MaxUpper.GetValue());
+				}
 			}
 		}
 
-		PlaybackRange = TRange<float>(0.f, TRangeBound<float>::Inclusive(MaxBound));
+		// Playback ranges should always have exclusive upper bounds
+		if (MaxFrame.IsInclusive())
+		{
+			MaxFrame = TRangeBound<FFrameNumber>::Exclusive(MaxFrame.GetValue() + 1);
+		}
+
+		PlaybackRange.Value = TRange<FFrameNumber>(TRangeBound<FFrameNumber>::Inclusive(0), MaxFrame);
 	}
-	else if (PlaybackRange.GetUpperBound().IsExclusive())
+	else if (PlaybackRange.Value.GetUpperBound().IsInclusive())
 	{
 		// playback ranges are now always inclusive
-		PlaybackRange = TRange<float>(PlaybackRange.GetLowerBound(), TRangeBound<float>::Inclusive(PlaybackRange.GetUpperBoundValue()));
+		PlaybackRange.Value = TRange<FFrameNumber>(PlaybackRange.Value.GetLowerBound(), TRangeBound<FFrameNumber>::Exclusive(PlaybackRange.Value.GetUpperBoundValue() + 1));
 	}
 
 	// PlaybackRange must always be defined to a finite range
-	if (!PlaybackRange.HasLowerBound() || !PlaybackRange.HasUpperBound() || PlaybackRange.IsDegenerate())
+	if (!PlaybackRange.Value.HasLowerBound() || !PlaybackRange.Value.HasUpperBound() || PlaybackRange.Value.IsDegenerate())
 	{
-		PlaybackRange = TRange<float>(0.f, 0.f);
+		PlaybackRange.Value = TRange<FFrameNumber>(FFrameNumber(0), FFrameNumber(0));
 	}
 
 #if WITH_EDITORONLY_DATA
+	if (GetLinkerCustomVersion(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::FloatToIntConversion)
+	{
+		EditorData.ViewStart    = EditorData.ViewRange_DEPRECATED.GetLowerBoundValue();
+		EditorData.ViewEnd      = EditorData.ViewRange_DEPRECATED.GetUpperBoundValue();
+
+		EditorData.WorkStart    = EditorData.WorkingRange_DEPRECATED.GetLowerBoundValue();
+		EditorData.WorkEnd      = EditorData.WorkingRange_DEPRECATED.GetUpperBoundValue();
+	}
+
 	// Legacy upgrade for working range
 	if (StartTime_DEPRECATED != FLT_MAX && EndTime_DEPRECATED != -FLT_MAX)
 	{
-		EditorData.WorkingRange = TRange<float>(StartTime_DEPRECATED, EndTime_DEPRECATED);
+		EditorData.WorkStart = StartTime_DEPRECATED;
+		EditorData.WorkEnd   = EndTime_DEPRECATED;
 	}
-	else if (EditorData.WorkingRange.IsEmpty())
+	else if (EditorData.WorkStart >= EditorData.WorkEnd)
 	{
-		EditorData.WorkingRange = PlaybackRange;
+		EditorData.WorkStart = PlaybackRange.Value.GetLowerBoundValue() / FrameResolution;
+		EditorData.WorkEnd   = PlaybackRange.Value.GetUpperBoundValue() / FrameResolution;
 	}
 
-	if (EditorData.ViewRange.IsEmpty())
+	if (EditorData.ViewStart >= EditorData.ViewEnd)
 	{
-		EditorData.ViewRange = PlaybackRange;
+		EditorData.ViewStart = PlaybackRange.Value.GetLowerBoundValue() / FrameResolution;
+		EditorData.ViewEnd   = PlaybackRange.Value.GetUpperBoundValue() / FrameResolution;
+	}
+
+	if (SelectionRange.Value.GetLowerBound().IsOpen() || SelectionRange.Value.GetUpperBound().IsOpen())
+	{
+		SelectionRange.Value = TRange<FFrameNumber>::Empty();
 	}
 #endif
 }

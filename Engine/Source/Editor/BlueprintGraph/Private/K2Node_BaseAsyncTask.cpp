@@ -85,6 +85,24 @@ void UK2Node_BaseAsyncTask::AllocateDefaultPins()
 		CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Object, ProxyClass, FBaseAsyncTaskHelper::GetAsyncTaskProxyName());
 	}
 
+	UFunction* Function = ProxyFactoryClass ? ProxyFactoryClass->FindFunctionByName(ProxyFactoryFunctionName) : nullptr;
+	if (!bHideThen && Function)
+	{
+		for (TFieldIterator<UProperty> PropIt(Function); PropIt && (PropIt->PropertyFlags & CPF_Parm); ++PropIt)
+		{
+			UProperty* Param = *PropIt;
+			// invert the check for function inputs (below) and exclude the factory func's return param - the assumption is
+			// that the factory method will be returning the proxy object, and that other outputs should be forwarded along 
+			// with the 'then' pin
+			const bool bIsFunctionOutput = Param->HasAnyPropertyFlags(CPF_OutParm) && !Param->HasAnyPropertyFlags(CPF_ReferenceParm) && !Param->HasAnyPropertyFlags(CPF_ReturnParm);
+			if (bIsFunctionOutput)
+			{
+				UEdGraphPin* Pin = CreatePin(EGPD_Output, NAME_None, Param->GetFName());
+				K2Schema->ConvertPropertyToPinType(Param, /*out*/ Pin->PinType);
+			}
+		}
+	}
+
 	UFunction* DelegateSignatureFunction = nullptr;
 	for (TFieldIterator<UProperty> PropertyIt(ProxyClass); PropertyIt; ++PropertyIt)
 	{
@@ -113,7 +131,6 @@ void UK2Node_BaseAsyncTask::AllocateDefaultPins()
 	}
 
 	bool bAllPinsGood = true;
-	UFunction* Function = ProxyFactoryClass ? ProxyFactoryClass->FindFunctionByName(ProxyFactoryFunctionName) : nullptr;
 	if (Function)
 	{
 		TSet<FName> PinsToHide;
@@ -327,15 +344,30 @@ void UK2Node_BaseAsyncTask::ExpandNode(class FKismetCompilerContext& CompilerCon
 
 	// GATHER OUTPUT PARAMETERS AND PAIR THEM WITH LOCAL VARIABLES
 	TArray<FBaseAsyncTaskHelper::FOutputPinAndLocalVariable> VariableOutputs;
+	bool bPassedFactoryOutputs = false;
 	for (UEdGraphPin* CurrentPin : Pins)
 	{
 		if ((OutputAsyncTaskProxy != CurrentPin) && FBaseAsyncTaskHelper::ValidDataPin(CurrentPin, EGPD_Output))
 		{
-			const FEdGraphPinType& PinType = CurrentPin->PinType;
-			UK2Node_TemporaryVariable* TempVarOutput = CompilerContext.SpawnInternalVariable(
-				this, PinType.PinCategory, PinType.PinSubCategory, PinType.PinSubCategoryObject.Get(), PinType.ContainerType, PinType.PinValueType);
-			bIsErrorFree &= TempVarOutput->GetVariablePin() && CompilerContext.MovePinLinksToIntermediate(*CurrentPin, *TempVarOutput->GetVariablePin()).CanSafeConnect();
-			VariableOutputs.Add(FBaseAsyncTaskHelper::FOutputPinAndLocalVariable(CurrentPin, TempVarOutput));
+			if (!bPassedFactoryOutputs)
+			{
+				UEdGraphPin* DestPin = CallCreateProxyObjectNode->FindPin(CurrentPin->PinName);
+				bIsErrorFree &= DestPin && CompilerContext.MovePinLinksToIntermediate(*CurrentPin, *DestPin).CanSafeConnect();
+			}
+			else
+			{
+				const FEdGraphPinType& PinType = CurrentPin->PinType;
+				UK2Node_TemporaryVariable* TempVarOutput = CompilerContext.SpawnInternalVariable(
+					this, PinType.PinCategory, PinType.PinSubCategory, PinType.PinSubCategoryObject.Get(), PinType.ContainerType, PinType.PinValueType);
+				bIsErrorFree &= TempVarOutput->GetVariablePin() && CompilerContext.MovePinLinksToIntermediate(*CurrentPin, *TempVarOutput->GetVariablePin()).CanSafeConnect();
+				VariableOutputs.Add(FBaseAsyncTaskHelper::FOutputPinAndLocalVariable(CurrentPin, TempVarOutput));
+			}
+		}
+		else if (!bPassedFactoryOutputs && CurrentPin && CurrentPin->Direction == EGPD_Output)
+		{
+			// the first exec that isn't the node's then pin is the start of the asyc delegate pins
+			// once we hit this point, we've iterated beyond all outputs for the factory function
+			bPassedFactoryOutputs = (CurrentPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Exec) && (CurrentPin->PinName != UEdGraphSchema_K2::PN_Then);
 		}
 	}
 

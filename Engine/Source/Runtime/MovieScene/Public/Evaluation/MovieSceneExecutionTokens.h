@@ -18,7 +18,7 @@
 struct FMovieSceneExecutionTokens
 {
 	FMovieSceneExecutionTokens()
-		: Context(FMovieSceneEvaluationRange(0.f), EMovieScenePlayerStatus::Stopped)
+		: Context(FMovieSceneEvaluationRange(FFrameTime(0), FFrameRate()), EMovieScenePlayerStatus::Stopped)
 	{
 	}
 

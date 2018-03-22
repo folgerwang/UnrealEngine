@@ -25,7 +25,7 @@ public:
 
 	virtual bool EnumerateRenderableDevices(TArray<int32>& DeviceListOut) override;
 	virtual int32 GetDeviceId(EControllerHand ControllerHand) override;
-	virtual UPrimitiveComponent* CreateRenderComponent(const int32 DeviceId, AActor* Owner, EObjectFlags Flags) override;
+	virtual UPrimitiveComponent* CreateRenderComponent(const int32 DeviceId, AActor* Owner, EObjectFlags Flags, const bool bForceSynchronous, const FXRComponentLoadComplete& OnLoadComplete) override;
 
 protected:
 	struct FAsyncLoadData
@@ -33,11 +33,11 @@ protected:
 		TWeakObjectPtr<UProceduralMeshComponent> ComponentPtr;
 	};
 	void OnMeshLoaded(int32 SubMeshIndex, const FSteamVRMeshData& MeshData, UTexture2D* DiffuseTex, FAsyncLoadData LoadData);
+	void OnComponentLoadComplete(TWeakObjectPtr<UProceduralMeshComponent> ComponentPtr, FXRComponentLoadComplete LoadCompleteCallback);
 	void OnModelFullyLoaded(FString ModelName);
 
 private:
 	TArray< TSharedPtr<FSteamVRAsyncMeshLoader> > AsyncMeshLoaders;
 	TSoftObjectPtr<UMaterial> DefaultDeviceMat;
-
 	TMap< FString, TSharedPtr<FSteamVRAsyncMeshLoader> > ActiveMeshLoaders;
 };

@@ -165,7 +165,7 @@ bool FD3D12Device::GetQueryData(FD3D12RenderQuery& Query, bool bWait)
 	}
 }
 
-void FD3D12CommandContext::RHIBeginOcclusionQueryBatch()
+void FD3D12CommandContext::RHIBeginOcclusionQueryBatch(uint32 NumQueriesInBatch)
 {
 	GetParentDevice()->GetQueryHeap()->StartQueryBatch(*this);
 }
@@ -342,6 +342,14 @@ uint32 FD3D12QueryHeap::AllocQuery(FD3D12CommandContext& CmdContext, D3D12_QUERY
 
 void FD3D12QueryHeap::StartQueryBatch(FD3D12CommandContext& CmdContext)
 {
+	//#todo-rco: Use NumQueriesInBatch!
+	static bool bWarned = false;
+	if (!bWarned)
+	{ 
+		bWarned = true;
+		UE_LOG(LogD3D12RHI, Warning, TEXT("NumQueriesInBatch is not used in FD3D12QueryHeap::StartQueryBatch(), this helpful warning exists to remind you about that. Remove it when this is fixed."));
+	}
+
 	check(&CmdContext == &GetParentDevice()->GetDefaultCommandContext());
 	check(!CurrentQueryBatch.bOpen);
 

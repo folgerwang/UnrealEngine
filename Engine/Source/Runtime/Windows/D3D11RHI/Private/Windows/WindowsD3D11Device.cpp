@@ -1428,15 +1428,15 @@ bool FD3D11DynamicRHI::RHIGetAvailableResolutions(FScreenResolutionArray& Resolu
 	int32 MinAllowableRefreshRate = 0;
 	int32 MaxAllowableRefreshRate = 10480;
 
-	if (MaxAllowableResolutionX == 0)
+	if (MaxAllowableResolutionX == 0) //-V547
 	{
 		MaxAllowableResolutionX = 10480;
 	}
-	if (MaxAllowableResolutionY == 0)
+	if (MaxAllowableResolutionY == 0) //-V547
 	{
 		MaxAllowableResolutionY = 10480;
 	}
-	if (MaxAllowableRefreshRate == 0)
+	if (MaxAllowableRefreshRate == 0) //-V547
 	{
 		MaxAllowableRefreshRate = 10480;
 	}
@@ -1565,7 +1565,7 @@ bool FD3D11DynamicRHI::RHIGetAvailableResolutions(FScreenResolutionArray& Resolu
 		++CurrentOutput;
 
 	// TODO: Cap at 1 for default output
-	} while(CurrentOutput < 1);
+	} while(CurrentOutput < 1); //-V654
 
 	return true;
 }

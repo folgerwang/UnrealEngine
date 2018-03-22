@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Linux/LinuxWindow.h"
+
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
 #include "Internationalization/Text.h"
@@ -830,3 +831,4 @@ void FLinuxWindow::CacheNativeProperties()
 }
 
 #undef LOCTEXT_NAMESPACE
+

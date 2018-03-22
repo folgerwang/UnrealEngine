@@ -19,7 +19,7 @@
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/CommandLine.h"
 
-#if PLATFORM_LINUX || PLATFORM_MAC || PLATFORM_IOS
+#if PLATFORM_UNIX || PLATFORM_MAC || PLATFORM_IOS
 	#include <sys/mman.h>
 	// more mmap()-based platforms can be added
 	#define UE4_PLATFORM_USES_MMAP_FOR_BINNED_OS_ALLOCS			1
@@ -29,7 +29,7 @@
 
 // on 64 bit Linux, it is easier to run out of vm.max_map_count than of other limits. Due to that, trade VIRT (address space) size for smaller amount of distinct mappings
 // by not leaving holes between them (kernel will coalesce the adjoining mappings into a single one)
-#define UE4_PLATFORM_REDUCE_NUMBER_OF_MAPS					(PLATFORM_LINUX && PLATFORM_64BITS)
+#define UE4_PLATFORM_REDUCE_NUMBER_OF_MAPS					(PLATFORM_UNIX && PLATFORM_64BITS)
 
 #ifndef MALLOC_LEAKDETECTION
 	#define MALLOC_LEAKDETECTION 0

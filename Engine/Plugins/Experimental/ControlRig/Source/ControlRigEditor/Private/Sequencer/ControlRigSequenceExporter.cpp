@@ -24,6 +24,7 @@
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
 #include "Widgets/Text/STextBlock.h"
+#include "MovieSceneTimeHelpers.h"
 
 #define LOCTEXT_NAMESPACE "ControlRigSequenceExporter"
 
@@ -235,18 +236,26 @@ void Convert(UControlRigSequence* Sequence, UAnimSequence* AnimSequence, USkelet
 			AnimSequence->InitializeNotifyTrack();
 
 			// Now run our sequence
-			double StartTime = Sequence->GetMovieScene()->GetPlaybackRange().GetLowerBoundValue();
-			double SequenceLength = AnimSequence->SequenceLength = Sequence->GetMovieScene()->GetPlaybackRange().Size<float>();
-			int32 FrameCount = AnimSequence->NumFrames = FMath::CeilToInt(SequenceLength * Settings->FrameRate);
+			FFrameRate   FrameResolution  = Sequence->GetMovieScene()->GetFrameResolution();
+			FFrameNumber StartFrame        = MovieScene::DiscreteInclusiveLower(Sequence->GetMovieScene()->GetPlaybackRange());
+			FFrameNumber SourceFrameCount  = MovieScene::DiscreteSize(Sequence->GetMovieScene()->GetPlaybackRange());
+
+			double       StartTime         = StartFrame / FrameResolution;
+			double       DurationSeconds   = SourceFrameCount / FrameResolution;
+			int32        FrameCount        = FMath::CeilToInt(DurationSeconds * Settings->FrameRate);
+
+			AnimSequence->SequenceLength = DurationSeconds;
+			AnimSequence->NumFrames      = FrameCount;
+
 			double FrameCountDouble = (double)FrameCount;
 			double FrameLength = 1.0 / (double)Settings->FrameRate;
 
 			for (int32 Frame = 0; Frame < FrameCount; ++Frame)
 			{
-				float CurrentTime = (float)(StartTime + FMath::Clamp(((double)Frame / FrameCountDouble) * SequenceLength, 0.0, SequenceLength));
+				float CurrentTime = (float)(StartTime + FMath::Clamp(((double)Frame / FrameCountDouble) * DurationSeconds, 0.0, DurationSeconds));
 
 				// Tick Sequence
-				LevelSequenceActor->SequencePlayer->SetPlaybackPosition(CurrentTime);
+				LevelSequenceActor->SequencePlayer->JumpToSeconds(CurrentTime);
 
 				// Tick skeletal mesh component
 				SkeletalMeshComponent->TickAnimation(FrameLength, false);

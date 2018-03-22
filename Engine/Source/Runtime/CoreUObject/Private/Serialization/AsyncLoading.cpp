@@ -41,7 +41,7 @@
 #include "HAL/LowLevelMemTracker.h"
 #include "ProfilingDebugging/CsvProfiler.h"
 
-#define FIND_MEMORY_STOMPS (1 && (PLATFORM_WINDOWS || PLATFORM_LINUX) && !WITH_EDITORONLY_DATA)
+#define FIND_MEMORY_STOMPS (1 && (PLATFORM_WINDOWS || PLATFORM_UNIX) && !WITH_EDITORONLY_DATA)
 
 DEFINE_LOG_CATEGORY(LogLoadingDev);
 
@@ -5542,7 +5542,7 @@ EAsyncPackageState::Type FAsyncPackage::TickAsyncPackage(bool InbUseTimeLimit, b
 		if (!GEventDrivenLoaderEnabled)
 		{
 			// Create raw linker. Needs to be async created via ticking before it can be used.
-			if (LoadingState == EAsyncPackageState::Complete)
+			if (LoadingState == EAsyncPackageState::Complete) //-V547
 			{
 				SCOPED_LOADTIMER(Package_CreateLinker);
 				LoadingState = CreateLinker();

@@ -25,7 +25,7 @@ public class XMPP : ModuleRules
 
 		if (Target.Platform == UnrealTargetPlatform.Win64 ||
 			Target.Platform == UnrealTargetPlatform.Win32 ||
-			Target.Platform == UnrealTargetPlatform.Linux ||
+			Target.IsInPlatformGroup(UnrealPlatformGroup.Unix) ||
 			Target.Platform == UnrealTargetPlatform.Mac ||
 			Target.Platform == UnrealTargetPlatform.PS4 )
 		{
@@ -55,7 +55,7 @@ public class XMPP : ModuleRules
 		{
 			AddEngineThirdPartyPrivateStaticDependencies(Target, "OpenSSL");
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			AddEngineThirdPartyPrivateStaticDependencies(Target, "libcurl");
 		}

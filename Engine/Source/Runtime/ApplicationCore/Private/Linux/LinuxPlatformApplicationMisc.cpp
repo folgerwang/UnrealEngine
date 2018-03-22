@@ -1,14 +1,18 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Linux/LinuxPlatformApplicationMisc.h"
-#include "Linux/LinuxApplication.h"
 #include "Misc/CommandLine.h"
 #include "Misc/App.h"
 #include "HAL/ThreadHeartBeat.h"
 #include "Modules/ModuleManager.h"
 #include "Linux/LinuxConsoleOutputDevice.h"
-#include "Linux/LinuxErrorOutputDevice.h"
-#include "LinuxFeedbackContext.h"
+#include "Unix/UnixErrorOutputDevice.h"
+#include "Unix/UnixFeedbackContext.h"
+#include "Linux/LinuxApplication.h"
+
+THIRD_PARTY_INCLUDES_START
+	#include <SDL.h>
+THIRD_PARTY_INCLUDES_END
 
 bool GInitializedSDL = false;
 
@@ -65,6 +69,7 @@ EAppReturnType::Type MessageBoxExtImpl(EAppMsgType::Type MsgType, const TCHAR* T
 		UE_LOG(LogLinux, Warning, TEXT("%s"), *Message);
 		return Answer;
 	}
+
 
 #if DO_CHECK
 	uint32 InitializedSubsystems = SDL_WasInit(SDL_INIT_EVERYTHING);
@@ -317,7 +322,6 @@ bool FLinuxPlatformApplicationMisc::InitSDL()
 			DisplayMetrics.PrintToLog();
 		}
 	}
-
 	return true;
 }
 
@@ -371,13 +375,13 @@ class FOutputDeviceConsole* FLinuxPlatformApplicationMisc::CreateConsoleOutputDe
 
 class FOutputDeviceError* FLinuxPlatformApplicationMisc::GetErrorOutputDevice()
 {
-	static FLinuxErrorOutputDevice Singleton;
+	static FUnixErrorOutputDevice Singleton;
 	return &Singleton;
 }
 
 class FFeedbackContext* FLinuxPlatformApplicationMisc::GetFeedbackContext()
 {
-	static FLinuxFeedbackContext Singleton;
+	static FUnixFeedbackContext Singleton;
 	return &Singleton;
 }
 
@@ -388,7 +392,6 @@ GenericApplication* FLinuxPlatformApplicationMisc::CreateApplication()
 
 bool FLinuxPlatformApplicationMisc::IsThisApplicationForeground()
 {
-	extern FLinuxApplication* LinuxApplication;
 	return (LinuxApplication != nullptr) ? LinuxApplication->IsForeground() : true;
 }
 
@@ -437,7 +440,6 @@ bool FLinuxPlatformApplicationMisc::ControlScreensaver(EScreenSaverAction Action
 	{
 		SDL_EnableScreenSaver();
 	}
-
 	return true;
 }
 
@@ -512,4 +514,8 @@ void FLinuxPlatformApplicationMisc::ClipboardPaste(class FString& Result)
 		Result = FString(UTF8_TO_TCHAR(ClipContent));
 	}
 	SDL_free(ClipContent);
+}
+
+void FLinuxPlatformApplicationMisc::EarlyUnixInitialization(FString& OutCommandLine)
+{
 }

@@ -467,7 +467,10 @@ public:
 	 */
 	FRenderQueryRHIParamRef BatchPrimitive(const FVector& BoundsOrigin,const FVector& BoundsBoxExtent);
 
-	int32 GetQueriesNum() const { return BatchOcclusionQueries.Num(); };
+	inline int32 GetQueriesNum() const
+	{
+		return BatchOcclusionQueries.Num();
+	}
 
 private:
 

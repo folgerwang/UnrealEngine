@@ -373,15 +373,16 @@ static void RHIExitAndStopRHIThread()
 #if HAS_GPU_STATS
 	FRealtimeGPUProfiler::Get()->Release();
 #endif
-	RHIExit();
 
-	// Stop the RHI Thread
-	if (GRHIThread_InternalUseOnly)
+	// Stop the RHI Thread (using GRHIThread_InternalUseOnly is unreliable since RT may be stopped)
+	if (FTaskGraphInterface::Get().IsThreadProcessingTasks(ENamedThreads::RHIThread))
 	{
 		DECLARE_CYCLE_STAT(TEXT("Wait For RHIThread Finish"), STAT_WaitForRHIThreadFinish, STATGROUP_TaskGraphTasks);
 		FGraphEventRef QuitTask = TGraphTask<FReturnGraphTask>::CreateTask(nullptr, ENamedThreads::GameThread).ConstructAndDispatchWhenReady(ENamedThreads::RHIThread);
 		FTaskGraphInterface::Get().WaitUntilTaskCompletes(QuitTask, ENamedThreads::GameThread_Local);
 	}
+
+	RHIExit();
 }
 #endif
 
@@ -2095,7 +2096,7 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 				return 1;
 			}
 
-#if PLATFORM_WINDOWS || PLATFORM_MAC || PLATFORM_LINUX
+#if PLATFORM_WINDOWS || PLATFORM_MAC || PLATFORM_UNIX
 			extern bool GIsConsoleExecutable;
 			if (GIsConsoleExecutable)
 			{

@@ -15,10 +15,28 @@ IMPLEMENT_MODULE(FDefaultModuleImpl, ActorSequence);
 UActorSequence::FOnInitialize UActorSequence::OnInitializeSequenceEvent;
 #endif
 
+static TAutoConsoleVariable<int32> CVarDefaultEvaluationType(
+	TEXT("ActorSequence.DefaultEvaluationType"),
+	0,
+	TEXT("0: Playback locked to playback frames\n1: Unlocked playback with sub frame interpolation"),
+	ECVF_Default);
+
+static TAutoConsoleVariable<FString> CVarDefaultFrameResolution(
+	TEXT("ActorSequence.DefaultFrameResolution"),
+	TEXT("24000fps"),
+	TEXT("Specifies default a frame resolution for newly created level sequences. Examples: 30 fps, 120/1 (120 fps), 30000/1001 (29.97), 0.01s (10ms)."),
+	ECVF_Default);
+
+static TAutoConsoleVariable<FString> CVarDefaultDisplayRate(
+	TEXT("ActorSequence.DefaultDisplayRate"),
+	TEXT("30fps"),
+	TEXT("Specifies default a display frame rate for newly created level sequences; also defines frame locked frame rate where sequences are set to be frame locked. Examples: 30 fps, 120/1 (120 fps), 30000/1001 (29.97), 0.01s (10ms)."),
+	ECVF_Default);
+
 UActorSequence::UActorSequence(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, MovieScene(nullptr)
-#if WITH_EDITOR
+#if WITH_EDITORONLY_DATA
 	, bHasBeenInitialized(false)
 #endif
 {
@@ -52,13 +70,29 @@ UBlueprint* UActorSequence::GetParentBlueprint() const
 void UActorSequence::PostInitProperties()
 {
 #if WITH_EDITOR && WITH_EDITORONLY_DATA
+
+	// We do not run the default initialization for actor sequences that are CDOs, or that are going to be loaded (since they will have already been initialized in that case)
+	EObjectFlags ExcludeFlags = RF_ClassDefaultObject | RF_NeedLoad | RF_NeedPostLoad | RF_NeedPostLoadSubobjects | RF_WasLoaded;
+
 	UActorComponent* OwnerComponent = Cast<UActorComponent>(GetOuter());
-	if (!bHasBeenInitialized && !HasAnyFlags(RF_ClassDefaultObject) && OwnerComponent && !OwnerComponent->HasAnyFlags(RF_ClassDefaultObject))
+	if (!bHasBeenInitialized && !HasAnyFlags(ExcludeFlags) && OwnerComponent && !OwnerComponent->HasAnyFlags(ExcludeFlags))
 	{
 		AActor* Actor = Cast<AActor>(OwnerComponent->GetOuter());
 
 		FGuid BindingID = MovieScene->AddPossessable(Actor ? Actor->GetActorLabel() : TEXT("Owner"), Actor ? Actor->GetClass() : AActor::StaticClass());
 		ObjectReferences.CreateBinding(BindingID, FActorSequenceObjectReference::CreateForContextActor());
+
+		const bool bFrameLocked = CVarDefaultEvaluationType.GetValueOnGameThread() != 0;
+
+		MovieScene->SetEvaluationType( bFrameLocked ? EMovieSceneEvaluationType::FrameLocked : EMovieSceneEvaluationType::WithSubFrames );
+
+		FFrameRate FrameResolution(60000, 1);
+		TryParseString(FrameResolution, *CVarDefaultFrameResolution.GetValueOnGameThread());
+		MovieScene->SetFrameResolutionDirectly(FrameResolution);
+
+		FFrameRate PlaybackFrameRate(30, 1);
+		TryParseString(PlaybackFrameRate, *CVarDefaultDisplayRate.GetValueOnGameThread());
+		MovieScene->SetPlaybackFrameRate(PlaybackFrameRate);
 
 		OnInitializeSequenceEvent.Broadcast(this);
 		bHasBeenInitialized = true;

@@ -2,18 +2,19 @@
 
 #include "Evaluation/MovieSceneEvaluationField.h"
 #include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
+#include "Evaluation/MovieSceneSequenceTemplateStore.h"
 #include "MovieSceneCommonHelpers.h"
 #include "Algo/Sort.h"
 
 #include "MovieSceneSequence.h"
 
-int32 FMovieSceneEvaluationField::GetSegmentFromTime(float Time) const
+int32 FMovieSceneEvaluationField::GetSegmentFromTime(FFrameNumber Time) const
 {
 	// Linear search
 	// @todo: accelerated search based on the last evaluated index?
 	for (int32 Index = 0; Index < Ranges.Num(); ++Index)
 	{
-		if (Ranges[Index].Contains(Time))
+		if (Ranges[Index].Value.Contains(Time))
 		{
 			return Index;
 		}
@@ -22,12 +23,12 @@ int32 FMovieSceneEvaluationField::GetSegmentFromTime(float Time) const
 	return INDEX_NONE;
 }
 
-TRange<int32> FMovieSceneEvaluationField::OverlapRange(TRange<float> Range) const
+TRange<int32> FMovieSceneEvaluationField::OverlapRange(TRange<FFrameNumber> Range) const
 {
 	int32 StartIndex = 0, Num = 0;
 	for (int32 Index = 0; Index < Ranges.Num(); ++Index)
 	{
-		if (Ranges[Index].Overlaps(Range))
+		if (Ranges[Index].Value.Overlaps(Range))
 		{
 			if (Num == 0)
 			{
@@ -44,7 +45,7 @@ TRange<int32> FMovieSceneEvaluationField::OverlapRange(TRange<float> Range) cons
 	return Num != 0 ? TRange<int32>(StartIndex, StartIndex + Num) : TRange<int32>::Empty();
 }
 
-void FMovieSceneEvaluationField::Invalidate(TRange<float> Range)
+void FMovieSceneEvaluationField::Invalidate(TRange<FFrameNumber> Range)
 {
 	TRange<int32> OverlappingRange = OverlapRange(Range);
 	if (!OverlappingRange.IsEmpty())
@@ -59,25 +60,26 @@ void FMovieSceneEvaluationField::Invalidate(TRange<float> Range)
 	}
 }
 
-int32 FMovieSceneEvaluationField::Insert(TRange<float> InRange, FMovieSceneEvaluationGroup&& InGroup, FMovieSceneEvaluationMetaData&& InMetaData)
+int32 FMovieSceneEvaluationField::Insert(FFrameNumber InsertTime, TRange<FFrameNumber> InRange, FMovieSceneEvaluationGroup&& InGroup, FMovieSceneEvaluationMetaData&& InMetaData)
 {
-	const int32 InsertIndex = Algo::UpperBoundBy(Ranges, InRange.GetLowerBound(), &TRange<float>::GetLowerBound, MovieSceneHelpers::SortLowerBounds);
+	const int32 InsertIndex = Algo::UpperBoundBy(Ranges, TRangeBound<FFrameNumber>(InsertTime), &FMovieSceneFrameRange::GetLowerBound, MovieSceneHelpers::SortLowerBounds);
 
-	// While we have floating point representations of ranges, there are a number of situations that can lead to the check firing:
-	// 		1. Consider ranges of (0,9.16666603f) and (9.16666698f,20) offset in an inner sequence by 98.8333511f:
-	//			Such transformation would result in the upper and lower bounds rounding to the same inclusive value (108.000015f) making them overlap in the parent space.
-	//		2. When compiling a segment at a particular time, that time transformed into an inner sequence could result in a compiled range that doesn't actually
-	//			include the global time when transformed back into the master space. In this scenario we always inflate the compiled range to include the global time, but this shouldn't be necessary
-	//			Such logic can lead to us attempting to add overlapping ranges into the field
+	// Intersect the supplied range with the allowable space between adjacent existing ranges
+	TRange<FFrameNumber> InsertSpace(
+		Ranges.IsValidIndex(InsertIndex-1) ? TRangeBound<FFrameNumber>::FlipInclusion(Ranges[InsertIndex-1].GetUpperBound()) : TRangeBound<FFrameNumber>::Open(),
+		Ranges.IsValidIndex(InsertIndex  ) ? TRangeBound<FFrameNumber>::FlipInclusion(Ranges[InsertIndex  ].GetLowerBound()) : TRangeBound<FFrameNumber>::Open()
+		);
+
+	InRange = TRange<FFrameNumber>::Intersection(InRange, InsertSpace);
 
 	// @todo: Remove this code and enforce the check below outright when we have proper time representation
-	if (Ranges.IsValidIndex(InsertIndex  ) && Ranges[InsertIndex  ].Overlaps(InRange))
+	if (Ranges.IsValidIndex(InsertIndex  ) && Ranges[InsertIndex  ].Value.Overlaps(InRange))
 	{
-		InRange = TRange<float>(InRange.GetLowerBound(), TRangeBound<float>::FlipInclusion(Ranges[InsertIndex].GetLowerBound()));
+		InRange = TRange<FFrameNumber>(InRange.GetLowerBound(), TRangeBound<FFrameNumber>::FlipInclusion(Ranges[InsertIndex].Value.GetLowerBound()));
 	}
-	if (Ranges.IsValidIndex(InsertIndex-1) && Ranges[InsertIndex-1].Overlaps(InRange))
+	if (Ranges.IsValidIndex(InsertIndex-1) && Ranges[InsertIndex-1].Value.Overlaps(InRange))
 	{
-		InRange = TRange<float>(TRangeBound<float>::FlipInclusion(Ranges[InsertIndex-1].GetUpperBound()), InRange.GetUpperBound());
+		InRange = TRange<FFrameNumber>(TRangeBound<FFrameNumber>::FlipInclusion(Ranges[InsertIndex-1].Value.GetUpperBound()), InRange.GetUpperBound());
 	}
 
 	if (!ensure(!InRange.IsEmpty()))
@@ -86,8 +88,8 @@ int32 FMovieSceneEvaluationField::Insert(TRange<float> InRange, FMovieSceneEvalu
 	}
 
 	const bool bOverlapping = 
-		(Ranges.IsValidIndex(InsertIndex  ) && Ranges[InsertIndex  ].Overlaps(InRange)) ||
-		(Ranges.IsValidIndex(InsertIndex-1) && Ranges[InsertIndex-1].Overlaps(InRange));
+		(Ranges.IsValidIndex(InsertIndex  ) && Ranges[InsertIndex  ].Value.Overlaps(InRange)) ||
+		(Ranges.IsValidIndex(InsertIndex-1) && Ranges[InsertIndex-1].Value.Overlaps(InRange));
 
 	if (!ensureAlwaysMsgf(!bOverlapping, TEXT("Attempting to insert an overlapping range into the evaluation field.")))
 	{
@@ -105,9 +107,9 @@ int32 FMovieSceneEvaluationField::Insert(TRange<float> InRange, FMovieSceneEvalu
 	return InsertIndex;
 }
 
-void FMovieSceneEvaluationField::Add(TRange<float> InRange, FMovieSceneEvaluationGroup&& InGroup, FMovieSceneEvaluationMetaData&& InMetaData)
+void FMovieSceneEvaluationField::Add(TRange<FFrameNumber> InRange, FMovieSceneEvaluationGroup&& InGroup, FMovieSceneEvaluationMetaData&& InMetaData)
 {
-	if (ensureAlwaysMsgf(!Ranges.Num() || !Ranges.Last().Overlaps(InRange), TEXT("Attempting to add overlapping ranges to sequence evaluation field.")))
+	if (ensureAlwaysMsgf(!Ranges.Num() || !Ranges.Last().Value.Overlaps(InRange), TEXT("Attempting to add overlapping ranges to sequence evaluation field.")))
 	{
 		Ranges.Add(InRange);
 		MetaData.Add(MoveTemp(InMetaData));
@@ -248,24 +250,32 @@ void FMovieSceneEvaluationMetaData::DiffEntities(const FMovieSceneEvaluationMeta
 	}
 }
 
-bool FMovieSceneEvaluationMetaData::IsDirty(UMovieSceneSequence& RootSequence, const FMovieSceneSequenceHierarchy& RootHierarchy, TRange<float>* OutSubRangeToInvalidate) const
+bool FMovieSceneEvaluationMetaData::IsDirty(UMovieSceneSequence& RootSequence, const FMovieSceneSequenceHierarchy& RootHierarchy, IMovieSceneSequenceTemplateStore& TemplateStore, TRange<FFrameNumber>* OutSubRangeToInvalidate) const
 {
 	bool bDirty = false;
 
-	for (const TTuple<FMovieSceneSequenceID, FGuid>& Pair : SubSequenceSignatures)
+	for (const TTuple<FMovieSceneSequenceID, FGuid>& Pair : SubTemplateSignatures)
 	{
 		// Sequence IDs at this point are relative to the root override template
 		const FMovieSceneSubSequenceData* SubData = RootHierarchy.FindSubData(Pair.Key);
 		UMovieSceneSequence* SubSequence = SubData ? SubData->GetSequence() : nullptr;
 
-		if (!SubSequence || SubSequence->GetSignature() != Pair.Value)
+		bool bThisSequenceIsDirty = true;
+		if (SubSequence)
+		{
+			FMovieSceneEvaluationTemplate& Template = TemplateStore.AccessTemplate(*SubSequence);
+
+			bThisSequenceIsDirty = Template.TemplateSignature != Pair.Value || Template.SequenceSignature != SubSequence->GetSignature();
+		}
+
+		if (bThisSequenceIsDirty)
 		{
 			bDirty = true;
 
 			if (OutSubRangeToInvalidate)
 			{
-				TRange<float> DirtyRange = SubData ? TRange<float>::Hull(TRange<float>::Hull(SubData->PreRollRange, SubData->PlayRange), SubData->PostRollRange) * SubData->RootToSequenceTransform.Inverse() : TRange<float>::All();
-				*OutSubRangeToInvalidate = TRange<float>::Hull(*OutSubRangeToInvalidate, DirtyRange);
+				TRange<FFrameNumber> DirtyRange = SubData ? TRange<FFrameNumber>::Hull(TRange<FFrameNumber>::Hull(SubData->PreRollRange.Value, SubData->PlayRange.Value), SubData->PostRollRange.Value) * SubData->RootToSequenceTransform.Inverse() : TRange<FFrameNumber>::All();
+				*OutSubRangeToInvalidate = TRange<FFrameNumber>::Hull(*OutSubRangeToInvalidate, DirtyRange);
 			}
 		}
 	}

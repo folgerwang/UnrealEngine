@@ -33,7 +33,7 @@ public class HTTP : ModuleRules
 
 			bWithCurl = true;
         }
-        else if (Target.Platform == UnrealTargetPlatform.Linux ||
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix) ||
 			Target.Platform == UnrealTargetPlatform.Android ||
 			Target.Platform == UnrealTargetPlatform.Switch)
 		{

@@ -86,7 +86,7 @@ FVulkanCmdBuffer::~FVulkanCmdBuffer()
 
 void FVulkanCmdBuffer::BeginRenderPass(const FVulkanRenderTargetLayout& Layout, FVulkanRenderPass* RenderPass, FVulkanFramebuffer* Framebuffer, const VkClearValue* AttachmentClearValues)
 {
-	check(IsOutsideRenderPass());
+	checkf(IsOutsideRenderPass(), TEXT("Can't BeginRP as already inside one! CmdBuffer 0x%p State=%d"), CommandBufferHandle, (int32)State);
 
 	VkRenderPassBeginInfo Info;
 	FMemory::Memzero(Info);
@@ -107,7 +107,7 @@ void FVulkanCmdBuffer::BeginRenderPass(const FVulkanRenderTargetLayout& Layout, 
 
 void FVulkanCmdBuffer::End()
 {
-	check(IsOutsideRenderPass());
+	checkf(IsOutsideRenderPass(), TEXT("Can't End as we're inside a render pass! CmdBuffer 0x%p State=%d"), CommandBufferHandle, (int32)State);
 
 	if (GVulkanProfileCmdBuffers)
 	{
@@ -136,7 +136,7 @@ inline void FVulkanCmdBuffer::InitializeTimings(FVulkanCommandListContext* InCon
 
 void FVulkanCmdBuffer::Begin()
 {
-	check(State == EState::ReadyForBegin);
+	checkf(State == EState::ReadyForBegin, TEXT("Can't Begin as we're NOT ready! CmdBuffer 0x%p State=%d"), CommandBufferHandle, (int32)State);
 
 	VkCommandBufferBeginInfo CmdBufBeginInfo;
 	FMemory::Memzero(CmdBufBeginInfo);
@@ -291,6 +291,15 @@ void FVulkanCommandBufferManager::SubmitUploadCmdBuffer(bool bWaitForFence)
 		Queue->Submit(UploadCmdBuffer, nullptr, 0, nullptr);
 	}
 
+	UploadCmdBuffer = nullptr;
+}
+
+void FVulkanCommandBufferManager::SubmitUploadCmdBuffer(uint32 NumSignalSemaphore, VkSemaphore* Semaphores, bool bWaitForFence)
+{
+	check(UploadCmdBuffer);
+	check(UploadCmdBuffer->IsOutsideRenderPass());
+	UploadCmdBuffer->End();
+	Device->GetGraphicsQueue()->Submit(UploadCmdBuffer, NumSignalSemaphore, Semaphores);
 	if (bWaitForFence)
 	{
 		if (UploadCmdBuffer->IsSubmitted())

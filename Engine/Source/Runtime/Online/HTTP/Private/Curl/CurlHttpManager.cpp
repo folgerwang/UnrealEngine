@@ -27,7 +27,7 @@ CURLSH* FCurlHttpManager::GShareHandle = NULL;
 
 FCurlHttpManager::FCurlRequestOptions FCurlHttpManager::CurlRequestOptions;
 
-#if PLATFORM_LINUX	// known to be available for Linux libcurl+libcrypto bundle at least
+#if PLATFORM_UNIX	// known to be available for Linux libcurl+libcrypto bundle at least
 extern "C"
 {
 void CRYPTO_get_mem_functions(
@@ -39,7 +39,7 @@ int CRYPTO_set_mem_functions(
 		void *(*r)(void *, size_t, const char *, int),
 		void (*f)(void *, const char *, int));
 }
-#endif // PLATFORM_LINUX
+#endif // PLATFORM_UNIX
 
 // set functions that will init the memory
 namespace LibCryptoMemHooks
@@ -83,10 +83,10 @@ namespace LibCryptoMemHooks
 	void SetMemoryHooks()
 	{
 		// do not set this in Shipping until we prove that the change in OpenSSL behavior is safe
-#if PLATFORM_LINUX && !UE_BUILD_SHIPPING
+#if PLATFORM_UNIX && !UE_BUILD_SHIPPING
 		CRYPTO_get_mem_functions(&ChainedMalloc, &ChainedRealloc, &ChainedFree);
 		CRYPTO_set_mem_functions(MallocWithInit, ReallocWithInit, Free);
-#endif // PLATFORM_LINUX && !UE_BUILD_SHIPPING
+#endif // PLATFORM_UNIX && !UE_BUILD_SHIPPING
 
 		bMemoryHooksSet = true;
 	}
@@ -97,9 +97,9 @@ namespace LibCryptoMemHooks
 		if (LibCryptoMemHooks::bMemoryHooksSet)
 		{
 			// do not set this in Shipping until we prove that the change in OpenSSL behavior is safe
-#if PLATFORM_LINUX && !UE_BUILD_SHIPPING
+#if PLATFORM_UNIX && !UE_BUILD_SHIPPING
 			CRYPTO_set_mem_functions(LibCryptoMemHooks::ChainedMalloc, LibCryptoMemHooks::ChainedRealloc, LibCryptoMemHooks::ChainedFree);
-#endif // PLATFORM_LINUX && !UE_BUILD_SHIPPING
+#endif // PLATFORM_UNIX && !UE_BUILD_SHIPPING
 
 			bMemoryHooksSet = false;
 			ChainedMalloc = nullptr;
@@ -207,7 +207,7 @@ void FCurlHttpManager::InitCurl()
 	}
 
 	// discover cert location
-	if (PLATFORM_LINUX)	// only relevant to Linux (for now?), not #ifdef'ed to keep the code checked by the compiler when compiling for other platforms
+	if (PLATFORM_UNIX)
 	{
 		static const char * KnownBundlePaths[] =
 		{

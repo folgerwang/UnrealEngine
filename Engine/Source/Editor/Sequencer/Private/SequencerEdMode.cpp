@@ -18,6 +18,7 @@
 #include "SequencerKeyActor.h"
 #include "EditorWorldExtension.h"
 #include "ViewportWorldInteraction.h"
+#include "SSequencer.h"
 #include "Evaluation/MovieScene3DTransformTemplate.h"
 
 const FEditorModeID FSequencerEdMode::EM_SequencerMode(TEXT("EM_SequencerMode"));
@@ -131,9 +132,8 @@ void FSequencerEdMode::AddReferencedObjects(FReferenceCollector& Collector)
 
 void FSequencerEdMode::OnKeySelected(FViewport* Viewport, HMovieSceneKeyProxy* KeyProxy)
 {
-	bool bCtrlDown = Viewport->KeyState(EKeys::LeftControl) || Viewport->KeyState(EKeys::RightControl);
-	bool bAltDown = Viewport->KeyState(EKeys::LeftAlt) || Viewport->KeyState(EKeys::RightAlt);
-	bool bShiftDown = Viewport->KeyState(EKeys::LeftShift) || Viewport->KeyState(EKeys::RightShift);
+	const bool bToggleSelection = Viewport->KeyState(EKeys::LeftControl) || Viewport->KeyState(EKeys::RightControl);
+	const bool bAddToSelection = Viewport->KeyState(EKeys::LeftShift) || Viewport->KeyState(EKeys::RightShift);
 
 	for (TWeakPtr<FSequencer> WeakSequencer : Sequencers)
 	{
@@ -142,12 +142,41 @@ void FSequencerEdMode::OnKeySelected(FViewport* Viewport, HMovieSceneKeyProxy* K
 		{
 			Sequencer->SetLocalTimeDirectly(KeyProxy->Key.Time);
 
+			FSequencerSelection& Selection = Sequencer->GetSelection();
+			if (!bAddToSelection && !bToggleSelection)
+			{
+				Sequencer->GetSelection().EmptySelectedKeys();
+			}
+
 			for (const FTrajectoryKey::FData KeyData : KeyProxy->Key.KeyData)
 			{
-				if (UMovieSceneSection* Section = KeyData.Section.Get())
+				UMovieSceneSection* Section = KeyData.Section.Get();
+				if (Section && KeyData.KeyHandle.IsSet())
 				{
-					Sequencer->SelectTrackKeys(Section, KeyProxy->Key.Time, bShiftDown, bCtrlDown);
+					TSet<TWeakObjectPtr<UMovieSceneSection>> SectionsToFind;
+					SectionsToFind.Add(Section);
+
+					// Find the key area with the specified channel name
+					TArray<FSectionHandle> SectionHandles = StaticCastSharedRef<SSequencer>(Sequencer->GetSequencerWidget())->GetSectionHandles(SectionsToFind);
+
+					for (FSectionHandle Handle : SectionHandles)
+					{
+						TArray<TSharedRef<FSequencerSectionKeyAreaNode>> KeyAreaNodes;
+						Handle.TrackNode->GetChildKeyAreaNodesRecursively(KeyAreaNodes);
+
+						for (TSharedRef<FSequencerSectionKeyAreaNode> KeyAreaNode : KeyAreaNodes)
+						{
+							TSharedPtr<IKeyArea> KeyArea = KeyAreaNode->GetKeyArea(Section);
+							if (KeyArea.IsValid() && KeyArea->GetName() == KeyData.ChannelName)
+							{
+								Sequencer->SelectKey(Section, KeyArea, KeyData.KeyHandle.GetValue(), bToggleSelection);
+								goto next_key;
+							}
+						}
+					}
 				}
+next_key:
+				continue;
 			}
 		}
 	}
@@ -200,11 +229,11 @@ void FSequencerEdMode::CleanUpMeshTrails()
 namespace SequencerEdMode_Draw3D
 {
 static const FColor	KeySelectedColor(255,128,0);
-static const float	DrawTrackTimeRes = 0.1f;
+static const int32	DrawTrackTimeRes = 10;
 static const float	CurveHandleScale = 0.5f;
 }
 
-FTransform FSequencerEdMode::GetRefFrame(const TSharedPtr<FSequencer>& Sequencer, const UObject* InObject, float KeyTime)
+FTransform FSequencerEdMode::GetRefFrame(const TSharedPtr<FSequencer>& Sequencer, const UObject* InObject, FFrameTime KeyTime)
 {
 	FTransform RefTM = FTransform::Identity;
 
@@ -226,7 +255,7 @@ FTransform FSequencerEdMode::GetRefFrame(const TSharedPtr<FSequencer>& Sequencer
 	return RefTM;
 }
 
-FTransform FSequencerEdMode::GetRefFrame(const TSharedPtr<FSequencer>& Sequencer, const AActor* Actor, float KeyTime)
+FTransform FSequencerEdMode::GetRefFrame(const TSharedPtr<FSequencer>& Sequencer, const AActor* Actor, FFrameTime KeyTime)
 {
 	FTransform RefTM = FTransform::Identity;
 
@@ -238,7 +267,7 @@ FTransform FSequencerEdMode::GetRefFrame(const TSharedPtr<FSequencer>& Sequencer
 	return RefTM;
 }
 
-FTransform FSequencerEdMode::GetRefFrame(const TSharedPtr<FSequencer>& Sequencer, const USceneComponent* SceneComponent, float KeyTime)
+FTransform FSequencerEdMode::GetRefFrame(const TSharedPtr<FSequencer>& Sequencer, const USceneComponent* SceneComponent, FFrameTime KeyTime)
 {
 	FTransform RefTM = FTransform::Identity;
 
@@ -279,7 +308,7 @@ FTransform FSequencerEdMode::GetRefFrame(const TSharedPtr<FSequencer>& Sequencer
 					{
 						for (const UMovieSceneSection* Section : TransformTrack->GetAllSections())
 						{
-							if (Section->IsTimeWithinSection(KeyTime))
+							if (Section->IsTimeWithinSection(KeyTime.FrameNumber))
 							{
 								const UMovieScene3DTransformSection* ParentSection = Cast<UMovieScene3DTransformSection>(Section);
 
@@ -313,12 +342,12 @@ FTransform FSequencerEdMode::GetRefFrame(const TSharedPtr<FSequencer>& Sequencer
 	return RefTM;
 }
 
-void FSequencerEdMode::GetLocationAtTime(FMovieSceneEvaluationTrack* Track, UObject* Object, float KeyTime, FVector& KeyPos, FRotator& KeyRot, const TSharedPtr<FSequencer>& Sequencer)
+void FSequencerEdMode::GetLocationAtTime(FMovieSceneEvaluationTrack* Track, UObject* Object, FFrameTime KeyTime, FVector& KeyPos, FRotator& KeyRot, const TSharedPtr<FSequencer>& Sequencer)
 {
 	FMovieSceneInterrogationData InterrogationData;
 	Sequencer->GetEvaluationTemplate().CopyActuators(InterrogationData.GetAccumulator());
 
-	FMovieSceneContext Context(KeyTime);
+	FMovieSceneContext Context(FMovieSceneEvaluationRange(KeyTime, Sequencer->GetFocusedFrameResolution()));
 	Track->Interrogate(Context, InterrogationData, Object);
 
 	for (const FTransform& Transform : InterrogationData.Iterate<FTransform>(UMovieScene3DTransformTrack::GetInterrogationKey()))
@@ -369,6 +398,7 @@ void FSequencerEdMode::DrawTransformTrack(const TSharedPtr<FSequencer>& Sequence
 		}
 	);
 	
+	FFrameRate FrameResolution = Sequencer->GetFocusedFrameResolution();
 	FMovieSceneEvaluationTemplate* Template = Sequencer->GetEvaluationTemplate().FindTemplate(Sequencer->GetFocusedTemplateID());
 	if (!bShowTrajectory || !Template || !TransformTrack->GetAllSections().ContainsByPredicate([](UMovieSceneSection* In){ return In->IsActive(); }))
 	{
@@ -380,7 +410,7 @@ void FSequencerEdMode::DrawTransformTrack(const TSharedPtr<FSequencer>& Sequence
 	// Draw one line per-track (should only really ever be one)
 	if (FMovieSceneEvaluationTrack* EvalTrack = Template->FindTrack(TransformTrack->GetSignature()))
 	{
-		TArray<FTrajectoryKey> TrajectoryKeys = TransformTrack->GetTrajectoryData(Sequencer->GetLocalTime(), Sequencer->GetSettings()->GetTrajectoryPathCap());
+		TArray<FTrajectoryKey> TrajectoryKeys = TransformTrack->GetTrajectoryData(Sequencer->GetLocalTime().Time.FrameNumber, Sequencer->GetSequencerSettings()->GetTrajectoryPathCap());
 		for (TWeakObjectPtr<> WeakBinding : BoundObjects)
 		{
 			UObject* BoundObject = WeakBinding.Get();
@@ -390,12 +420,12 @@ void FSequencerEdMode::DrawTransformTrack(const TSharedPtr<FSequencer>& Sequence
 			}
 
 			FVector OldKeyPos(0);
-			float OldKeyTime = 0.f;
+			FFrameTime OldKeyTime = 0;
 			int KeyTimeIndex = 0;
 
 			for (const FTrajectoryKey& NewTrajectoryKey : TrajectoryKeys)
 			{
-				float NewKeyTime = NewTrajectoryKey.Time;
+				FFrameTime NewKeyTime = NewTrajectoryKey.Time;
 
 				FVector NewKeyPos(0);
 				FRotator NewKeyRot(0,0,0);
@@ -405,13 +435,14 @@ void FSequencerEdMode::DrawTransformTrack(const TSharedPtr<FSequencer>& Sequence
 				// If not the first keypoint, draw a line to the last keypoint.
 				if(KeyTimeIndex > 0)
 				{
-					int32 NumSteps = FMath::CeilToInt( (NewKeyTime - OldKeyTime)/SequencerEdMode_Draw3D::DrawTrackTimeRes );
-									// Limit the number of steps to prevent a rendering performance hit
+					int32 NumSteps = ((NewKeyTime - OldKeyTime)*SequencerEdMode_Draw3D::DrawTrackTimeRes).CeilToFrame().Value;
+					// Limit the number of steps to prevent a rendering performance hit
 					NumSteps = FMath::Min( 100, NumSteps );
-					float DrawSubstep = (NewKeyTime - OldKeyTime)/NumSteps;
+
+					FFrameTime DrawSubstep = NumSteps == 0 ? 0 : (NewKeyTime - OldKeyTime)*(1.f/NumSteps);
 
 					// Find position on first keyframe.
-					float OldTime = OldKeyTime;
+					FFrameTime OldTime = OldKeyTime;
 
 					FVector OldPos(0);
 					FRotator OldRot(0,0,0);
@@ -438,7 +469,7 @@ void FSequencerEdMode::DrawTransformTrack(const TSharedPtr<FSequencer>& Sequence
 						// Then draw a line for each substep.
 						for (int32 j=1; j<NumSteps+1; j++)
 						{
-							float NewTime = OldKeyTime + j*DrawSubstep;
+							FFrameTime NewTime = OldKeyTime + DrawSubstep*j;
 
 							FVector NewPos(0);
 							FRotator NewRot(0,0,0);
@@ -460,7 +491,7 @@ void FSequencerEdMode::DrawTransformTrack(const TSharedPtr<FSequencer>& Sequence
 								}
 								else if (TrailActor != nullptr)
 								{
-									TrailActor->AddFrameMeshComponent(NewTime, FTransform(NewRot, NewPos, FVector(3.0f)));
+									TrailActor->AddFrameMeshComponent(NewTime / FrameResolution, FTransform(NewRot, NewPos, FVector(3.0f)));
 								}
 							}
 							OldTime = NewTime;
@@ -477,7 +508,7 @@ void FSequencerEdMode::DrawTransformTrack(const TSharedPtr<FSequencer>& Sequence
 			// Draw keypoints on top of curve
 			for (const FTrajectoryKey& TrajectoryKey : TrajectoryKeys)
 			{
-				float NewKeyTime = TrajectoryKey.Time;
+				FFrameTime NewKeyTime = TrajectoryKey.Time;
 
 				// Find the time, position and orientation of this Key.
 				FVector NewKeyPos(0);
@@ -512,7 +543,7 @@ void FSequencerEdMode::DrawTransformTrack(const TSharedPtr<FSequencer>& Sequence
 
 					for (UMovieScene3DTransformSection* Section : AllSections)
 					{
-						TrailActor->AddKeyMeshActor(NewKeyTime, FTransform(NewKeyRot, NewKeyPos, FVector(3.0f)), Section);
+						TrailActor->AddKeyMeshActor(NewKeyTime / FrameResolution, FTransform(NewKeyRot, NewKeyPos, FVector(3.0f)), Section);
 					}
 				}
 

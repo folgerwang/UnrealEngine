@@ -373,7 +373,7 @@ FMaterialPixelParameters GetMaterialPixelParameters(FVertexFactoryInterpolantsVS
 
 	// Calculate LocalToTangent directly from normal map texture.
 	float3x3 TangentToLocal = VertexFactoryGetPerPixelTangentBasis(Interpolants);
-	Result.TangentToWorld = mul(TangentToLocal, (float3x3)LocalToWorldNoScaling); 
+	Result.TangentToWorld = mul(TangentToLocal, (float3x3)LocalToWorldNoScaling);
 	Result.UnMirrored = 1;
 
 	Result.VertexColor = 1;

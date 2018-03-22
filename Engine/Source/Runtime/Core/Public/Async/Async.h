@@ -3,18 +3,19 @@
 #pragma once
 
 #include "CoreTypes.h"
-#include "Misc/AssertionMacros.h"
-#include "Containers/UnrealString.h"
-#include "Templates/Function.h"
-#include "HAL/ThreadSafeCounter.h"
-#include "Stats/Stats.h"
-#include "Async/TaskGraphInterfaces.h"
-#include "HAL/Runnable.h"
-#include "Misc/IQueuedWork.h"
-#include "HAL/RunnableThread.h"
-#include "Misc/QueuedThreadPool.h"
-#include "Misc/CoreStats.h"
 #include "Async/Future.h"
+#include "Async/TaskGraphInterfaces.h"
+#include "Containers/UnrealString.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/Runnable.h"
+#include "HAL/RunnableThread.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Misc/AssertionMacros.h"
+#include "Misc/CoreStats.h"
+#include "Misc/IQueuedWork.h"
+#include "Misc/QueuedThreadPool.h"
+#include "Stats/Stats.h"
+#include "Templates/Function.h"
 
 /**
  * Enumerates available asynchronous execution methods.
@@ -27,7 +28,7 @@ enum class EAsyncExecution
 	/** Execute in separate thread (for long running tasks). */
 	Thread,
 
-	/** Execute in queued thread pool. */
+	/** Execute in global queued thread pool. */
 	ThreadPool
 };
 
@@ -182,7 +183,7 @@ public:
 
 public:
 
-	// FRunnable interface
+	//~ FRunnable interface
 
 	virtual uint32 Run() override;
 
@@ -221,7 +222,7 @@ public:
 
 public:
 
-	// IQueuedWork interface
+	//~ IQueuedWork interface
 
 	virtual void DoThreadedWork() override
 	{
@@ -262,7 +263,7 @@ struct FAsyncThreadIndex
 
 
 /**
- * Executes a given function asynchronously.
+ * Execute a given function asynchronously.
  *
  * While we still support VS2012, we need to help the compiler deduce the ResultType
  * template argument for Async<T>(), which can be accomplished in two ways:
@@ -316,6 +317,7 @@ TFuture<ResultType> Async(EAsyncExecution Execution, TFunction<ResultType()> Fun
 		break;
 	
 	case EAsyncExecution::Thread:
+		if (FPlatformProcess::SupportsMultithreading())
 		{
 			TPromise<FRunnableThread*> ThreadPromise;
 			TAsyncRunnable<ResultType>* Runnable = new TAsyncRunnable<ResultType>(MoveTemp(Function), MoveTemp(Promise), ThreadPromise.GetFuture());
@@ -326,6 +328,10 @@ TFuture<ResultType> Async(EAsyncExecution Execution, TFunction<ResultType()> Fun
 			check(RunnableThread != nullptr);
 
 			ThreadPromise.SetValue(RunnableThread);
+		}
+		else
+		{
+			SetPromise(Promise, Function);
 		}
 		break;
 
@@ -344,7 +350,29 @@ TFuture<ResultType> Async(EAsyncExecution Execution, TFunction<ResultType()> Fun
 
 
 /**
- * Executes a given function asynchronously using a separate thread.
+ * Execute a given function asynchronously on the specified thread pool.
+ *
+ * @param ResultType The type of the function's return value.
+ * @param ThreadPool The thread pool to execute on.
+ * @param Function The function to execute.
+ * @param CompletionCallback An optional callback function that is executed when the function completed execution.
+ * @result A TFuture object that will receive the return value from the function.
+ */
+template<typename ResultType>
+TFuture<ResultType> AsyncPool(FQueuedThreadPool& ThreadPool, TFunction<ResultType()> Function, TFunction<void()> CompletionCallback = TFunction<void()>())
+{
+	TPromise<ResultType> Promise(MoveTemp(CompletionCallback));
+	TFuture<ResultType> Future = Promise.GetFuture();
+
+	ThreadPool.AddQueuedWork(new TAsyncQueuedWork<ResultType>(MoveTemp(Function), MoveTemp(Promise)));
+
+	return MoveTemp(Future);
+}
+
+
+/**
+ * Execute a given function asynchronously using a separate thread.
+ *
  * @param ResultType The type of the function's return value.
  * @param Function The function to execute.
  * @param StackSize stack space to allocate for the new thread
@@ -358,15 +386,22 @@ TFuture<ResultType> AsyncThread(TFunction<ResultType()> Function, uint32 StackSi
 	TPromise<ResultType> Promise(MoveTemp(CompletionCallback));
 	TFuture<ResultType> Future = Promise.GetFuture();
 
-	TPromise<FRunnableThread*> ThreadPromise;
-	TAsyncRunnable<ResultType>* Runnable = new TAsyncRunnable<ResultType>(MoveTemp(Function), MoveTemp(Promise), ThreadPromise.GetFuture());
+	if (FPlatformProcess::SupportsMultithreading())
+	{
+		TPromise<FRunnableThread*> ThreadPromise;
+		TAsyncRunnable<ResultType>* Runnable = new TAsyncRunnable<ResultType>(MoveTemp(Function), MoveTemp(Promise), ThreadPromise.GetFuture());
 
-	const FString TAsyncThreadName = FString::Printf(TEXT("TAsyncThread %d"), FAsyncThreadIndex::GetNext());
-	FRunnableThread* RunnableThread = FRunnableThread::Create(Runnable, *TAsyncThreadName, StackSize, ThreadPri);
+		const FString TAsyncThreadName = FString::Printf(TEXT("TAsyncThread %d"), FAsyncThreadIndex::GetNext());
+		FRunnableThread* RunnableThread = FRunnableThread::Create(Runnable, *TAsyncThreadName, StackSize, ThreadPri);
 
-	check(RunnableThread != nullptr);
+		check(RunnableThread != nullptr);
 
-	ThreadPromise.SetValue(RunnableThread);
+		ThreadPromise.SetValue(RunnableThread);
+	}
+	else
+	{
+		SetPromise(Promise, Function);
+	}
 
 	return MoveTemp(Future);
 }

@@ -15,6 +15,7 @@
 #include "Interfaces/IProjectTargetPlatformEditorModule.h"
 #include "Interfaces/IProjectManager.h"
 #include "InstalledPlatformInfo.h"
+#include "Misc/DataDrivenPlatformInfoRegistry.h"
 
 #define LOCTEXT_NAMESPACE "FPackageProjectMenu"
 
@@ -32,7 +33,7 @@ public:
 	 */
 	static void MakeMenu( FMenuBuilder& MenuBuilder )
 	{
-		const TArray<FString>& ConfidentalPlatforms = FPlatformMisc::GetConfidentialPlatforms();
+		const TArray<FString>& ConfidentalPlatforms = FDataDrivenPlatformInfoRegistry::GetConfidentialPlatforms();
 
 		TArray<PlatformInfo::FVanillaPlatformEntry> VanillaPlatforms = PlatformInfo::BuildPlatformHierarchy(PlatformInfo::EPlatformFilter::All);
 		if (!VanillaPlatforms.Num())

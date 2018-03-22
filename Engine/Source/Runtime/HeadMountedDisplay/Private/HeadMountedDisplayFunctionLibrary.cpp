@@ -10,6 +10,7 @@
 #include "IXRSystemAssets.h"
 #include "Components/PrimitiveComponent.h"
 #include "Features/IModularFeatures.h"
+#include "XRMotionControllerBase.h" // for GetHandEnumForSourceName()
 
 DEFINE_LOG_CATEGORY_STATIC(LogUHeadMountedDisplay, Log, All);
 
@@ -382,52 +383,4 @@ void UHeadMountedDisplayFunctionLibrary::GetDeviceWorldPose(UObject* WorldContex
 
 	FQuat WorldOrientation = TrackingToWorld.TransformRotation(Orientation.Quaternion());
 	Orientation = WorldOrientation.Rotator();
-}
-
-UPrimitiveComponent* UHeadMountedDisplayFunctionLibrary::AddDeviceVisualizationComponent(AActor* Target, const FXRDeviceId& XRDeviceId, bool bManualAttachment, const FTransform& RelativeTransform)
-{
-	if (!IsValid(Target))
-	{
-		UE_LOG(LogHMD, Warning, TEXT("The target actor is invalid. Therefore you're unable to add a device render component to it."));
-		return nullptr;
-	}
-	UPrimitiveComponent* DeviceProxy = nullptr;
-
-	TArray<IXRSystemAssets*> XRAssetSystems = IModularFeatures::Get().GetModularFeatureImplementations<IXRSystemAssets>(IXRSystemAssets::GetModularFeatureName());
-	for (IXRSystemAssets* AssetSys : XRAssetSystems)
-	{
-		if (!XRDeviceId.IsOwnedBy(AssetSys))
-		{
-			continue;
-		}
-
-		DeviceProxy = AssetSys->CreateRenderComponent(XRDeviceId.DeviceId, Target, RF_StrongRefOnFrame);
-		if (DeviceProxy == nullptr)
-		{
-			UE_LOG(LogHMD, Warning, TEXT("The specified XR device does not have an associated render model."));
-		}
-		break;
-	}
-
-	if (DeviceProxy)
-	{
-		if (!bManualAttachment)
-		{
-			USceneComponent* RootComponent = Target->GetRootComponent();
-			if (RootComponent == nullptr)
-			{
-				Target->SetRootComponent(DeviceProxy);
-			}
-			else
-			{
-				DeviceProxy->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
-			}
-		}
-		DeviceProxy->SetRelativeTransform(RelativeTransform);
-	}
-	else
-	{
-		UE_LOG(LogHMD, Warning, TEXT("Failed to find an active XR system with a model for the requested component."));
-	}
-	return DeviceProxy;
 }

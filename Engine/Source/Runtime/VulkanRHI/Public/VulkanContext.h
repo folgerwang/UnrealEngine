@@ -104,7 +104,7 @@ public:
 	virtual void RHIEndRenderQuery(FRenderQueryRHIParamRef RenderQuery) final override;
 
 	virtual void RHIUpdateTextureReference(FTextureReferenceRHIParamRef TextureRef, FTextureRHIParamRef NewTexture) final override;
-	virtual void RHIBeginOcclusionQueryBatch() final override;
+	virtual void RHIBeginOcclusionQueryBatch(uint32 NumQueriesInBatch) final override;
 	virtual void RHIEndOcclusionQueryBatch() final override;
 	virtual void RHISubmitCommandsHint() final override;
 
@@ -331,6 +331,9 @@ protected:
 	};
 	FTransitionState TransitionState;
 
+#if VULKAN_USE_NEW_QUERIES
+	FVulkanOcclusionQueryPool* CurrentOcclusionQueryPool = nullptr;
+#else
 	struct FOcclusionQueryData
 	{
 		FVulkanCmdBuffer* CmdBuffer;
@@ -369,6 +372,7 @@ protected:
 	};
 	FOcclusionQueryData CurrentOcclusionQueryData;
 	void AdvanceQuery(FOLDVulkanRenderQuery* Query);
+#endif
 
 	// List of UAVs which need setting for pixel shaders. D3D treats UAVs like rendertargets so the RHI doesn't make SetUAV calls at the right time
 	struct FPendingPixelUAV

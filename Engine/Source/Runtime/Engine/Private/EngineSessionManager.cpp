@@ -447,7 +447,7 @@ void FEngineSessionManager::SendAbnormalShutdownReport(const FSessionRecord& Rec
 {
 	FString PlatformName(FPlatformProperties::PlatformName());
 
-#if PLATFORM_WINDOWS | PLATFORM_MAC | PLATFORM_LINUX
+#if PLATFORM_WINDOWS | PLATFORM_MAC | PLATFORM_UNIX
 	// do nothing
 #elif PLATFORM_PS4
 	if (Record.bIsDeactivated && !Record.bCrashed)

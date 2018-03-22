@@ -14,6 +14,11 @@
 #include "MediaPlayer.h"
 #include "MediaPlayerFacade.h"
 
+#if PLATFORM_HTML5
+	#include "AudioDevice.h"
+	#include "Engine/Engine.h"
+#endif
+
 
 /* Static initialization
  *****************************************************************************/
@@ -66,6 +71,12 @@ bool UMediaSoundComponent::BP_GetAttenuationSettingsToApply(FSoundAttenuationSet
 	OutAttenuationSettings = *SelectedAttenuationSettings;
 
 	return true;
+}
+
+
+UMediaPlayer* UMediaSoundComponent::GetMediaPlayer() const
+{
+	return CurrentPlayer.Get();
 }
 
 
@@ -192,6 +203,7 @@ void UMediaSoundComponent::PostInitProperties()
 	if (UMediaSoundComponent::DefaultMediaSoundClassObject == nullptr)
 	{
 		const FSoftObjectPath DefaultMediaSoundClassName = GetDefault<UAudioSettings>()->DefaultMediaSoundClassName;
+
 		if (DefaultMediaSoundClassName.IsValid())
 		{
 			UMediaSoundComponent::DefaultMediaSoundClassObject = LoadObject<USoundClass>(nullptr, *DefaultMediaSoundClassName.ToString());

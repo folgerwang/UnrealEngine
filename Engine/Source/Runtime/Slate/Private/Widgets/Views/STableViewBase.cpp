@@ -511,7 +511,7 @@ FReply STableViewBase::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& 
 	}
 
 
-	return FReply::Unhandled();
+	return SCompoundWidget::OnKeyDown(MyGeometry, InKeyEvent); 
 }
 
 FCursorReply STableViewBase::OnCursorQuery( const FGeometry& MyGeometry, const FPointerEvent& CursorEvent ) const

@@ -23,6 +23,8 @@
 
 #define LOCTEXT_NAMESPACE "MovieSceneCapture"
 
+DEFINE_LOG_CATEGORY(LogMovieSceneCapture);
+
 class FMovieSceneCaptureModule : public IMovieSceneCaptureModule
 {
 private:
@@ -30,15 +32,22 @@ private:
 	/** Handle to a movie capture implementation created from the command line, to be initialized once a world is loaded */
 	FMovieSceneCaptureHandle StartupMovieCaptureHandle;
 	FMovieSceneCaptureProtocolRegistry ProtocolRegistry;
-
+	bool bStereoAllowed;
+	
 	virtual FMovieSceneCaptureProtocolRegistry& GetProtocolRegistry()
 	{
 		return ProtocolRegistry;
 	}
 
+	virtual bool IsStereoAllowed() override
+	{
+		return bStereoAllowed;
+	}
 	
 	virtual void StartupModule() override
 	{
+		bStereoAllowed = false;
+		
 		FCoreDelegates::OnPreExit.AddRaw(this, &FMovieSceneCaptureModule::PreExit);
 		FCoreUObjectDelegates::PostLoadMapWithWorld.AddRaw(this, &FMovieSceneCaptureModule::OnPostLoadMap );
 
@@ -124,7 +133,12 @@ private:
 		{
 			return nullptr;
 		}
-
+		
+		if (FParse::Param(FCommandLine::Get(), TEXT("EmulateStereo")))
+		{
+			bStereoAllowed = true;
+		}
+		
 		FString TypeName;
 		if( FParse::Value( FCommandLine::Get(), TEXT( "-MovieSceneCaptureType=" ), TypeName ) )
 		{

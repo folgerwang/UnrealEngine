@@ -11,6 +11,8 @@
 #include "Framework/Docking/TabManager.h"
 #include "Toolkits/AssetEditorToolkit.h"
 
+struct FFrameNumber;
+
 class AActor;
 class FMenuBuilder;
 class ILevelViewport;
@@ -104,7 +106,7 @@ protected:
 	void AddDefaultTracksForActor(AActor& Actor, const FGuid Binding);
 	
 	/** Add a shot to a master sequence */
-	void AddShot(UMovieSceneCinematicShotTrack* ShotTrack, const FString& ShotAssetName, const FString& ShotPackagePath, float ShotStartTime, float ShotEndTime, UObject* AssetToDuplicate, const FString& FirstShotAssetName);
+	void AddShot(UMovieSceneCinematicShotTrack* ShotTrack, const FString& ShotAssetName, const FString& ShotPackagePath, FFrameNumber ShotStartTime, FFrameNumber ShotEndTime, UObject* AssetToDuplicate, const FString& FirstShotAssetName);
 
 	/** Called whenever sequencer has received focus */
 	void OnSequencerReceivedFocus();

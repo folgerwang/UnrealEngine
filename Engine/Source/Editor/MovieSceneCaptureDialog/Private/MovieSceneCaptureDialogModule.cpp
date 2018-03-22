@@ -18,6 +18,8 @@
 #include "Widgets/SWindow.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Framework/Docking/TabManager.h"
+#include "Widgets/Input/NumericTypeInterface.h"
+#include "FrameNumberDetailsCustomization.h"
 
 #include "HAL/IConsoleManager.h"
 #include "HAL/PlatformProcess.h"
@@ -59,6 +61,7 @@
 #include "ErrorCodes.h"
 
 #include "GameFramework/WorldSettings.h"
+#include "FrameNumberNumericInterface.h"
 
 #define LOCTEXT_NAMESPACE "MovieSceneCaptureDialog"
 
@@ -71,6 +74,7 @@ class SRenderMovieSceneSettings : public SCompoundWidget, public FGCObject
 	SLATE_BEGIN_ARGS(SRenderMovieSceneSettings) : _InitialObject(nullptr) {}
 		SLATE_EVENT(FOnStartCapture, OnStartCapture)
 		SLATE_ARGUMENT(UMovieSceneCapture*, InitialObject)
+		SLATE_ARGUMENT(TSharedPtr<INumericTypeInterface<double>>, NumericTypeInterface)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs)
@@ -84,6 +88,7 @@ class SRenderMovieSceneSettings : public SCompoundWidget, public FGCObject
 		DetailsViewArgs.ViewIdentifier = "RenderMovieScene";
 
 		DetailView = PropertyEditor.CreateDetailView(DetailsViewArgs);
+		DetailView->RegisterInstancedCustomPropertyTypeLayout("FrameNumber", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FFrameNumberDetailsCustomization::MakeInstance, InArgs._NumericTypeInterface));
 
 		OnStartCapture = InArgs._OnStartCapture;
 
@@ -545,7 +550,7 @@ private:
 
 					FVector2D PreviewWindowSize(Settings.Resolution.ResX, Settings.Resolution.ResY);
 
-					// Keep scaling down the window size while we're bigger than half the destop width/height
+					// Keep scaling down the window size while we're bigger than half the desktop width/height
 					{
 						FDisplayMetrics DisplayMetrics;
 						FSlateApplication::Get().GetDisplayMetrics(DisplayMetrics);
@@ -654,7 +659,7 @@ class FMovieSceneCaptureDialogModule : public IMovieSceneCaptureDialogModule
 		return Pinned.IsValid() ? Pinned->GetWorld() : nullptr;
 	}
 
-	virtual void OpenDialog(const TSharedRef<FTabManager>& TabManager, UMovieSceneCapture* CaptureObject) override
+	virtual void OpenDialog(const TSharedRef<FTabManager>& TabManager, UMovieSceneCapture* CaptureObject, TSharedPtr<INumericTypeInterface<double>> InNumericTypeInterface) override
 	{
 		// Ensure the session services module is loaded otherwise we won't necessarily receive status updates from the movie capture session
 		FModuleManager::Get().LoadModuleChecked<ISessionServicesModule>("SessionServices").GetSessionManager();
@@ -688,6 +693,7 @@ class FMovieSceneCaptureDialogModule : public IMovieSceneCaptureDialogModule
 		ExistingWindow->SetContent(
 			SNew(SRenderMovieSceneSettings)
 			.InitialObject(CaptureObject)
+			.NumericTypeInterface(InNumericTypeInterface)
 			.OnStartCapture_Raw(this, &FMovieSceneCaptureDialogModule::OnStartCapture)
 		);
 

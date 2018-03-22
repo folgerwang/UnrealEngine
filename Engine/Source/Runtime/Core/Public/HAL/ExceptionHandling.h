@@ -32,7 +32,7 @@ extern CORE_API void NewReportEnsure( const TCHAR* ErrorMessage );
 #include <signal.h>
 extern CORE_API int32 ReportCrash( ucontext_t *Context, int32 Signal, struct __siginfo* Info );
 extern CORE_API void NewReportEnsure( const TCHAR* ErrorMessage );
-#elif PLATFORM_LINUX
+#elif PLATFORM_UNIX
 extern CORE_API void NewReportEnsure( const TCHAR* ErrorMessage );
 #endif
 

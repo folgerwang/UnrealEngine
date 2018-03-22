@@ -24,4 +24,6 @@ public:
 
 	// most platforms can query the surface for the present mode, and size, etc
 	static bool SupportsQuerySurfaceProperties() { return true; }
+
+	static bool SupportsDepthFetchDuringDepthTest() { return true; }
 };

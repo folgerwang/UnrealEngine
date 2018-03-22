@@ -14,6 +14,7 @@
 #include "Tracks/MovieSceneColorTrack.h"
 #include "Sections/MovieSceneVectorSection.h"
 #include "Tracks/MovieSceneVectorTrack.h"
+#include "Channels/MovieSceneChannelProxy.h"
 
 // current set of compiled-in property types
 
@@ -34,11 +35,16 @@ UMovieSceneSection* FMovieScenePropertyRecorder<bool>::AddSection(UObject* InObj
 			Track->SetPropertyNameAndPath(*Binding.GetProperty(*InObjectToRecord)->GetDisplayNameText().ToString(), Binding.GetPropertyPath());
 		}
 
-		UMovieSceneBoolSection* Section = Cast<UMovieSceneBoolSection>(Track->CreateNewSection());
-		Section->SetDefault(PreviousValue);
-		Section->SetStartTime(InTime);
-		Section->SetEndTime(InTime);
-		Section->AddKey(InTime, PreviousValue, EMovieSceneKeyInterpolation::Break);
+		UMovieSceneBoolSection* Section         = Cast<UMovieSceneBoolSection>(Track->CreateNewSection());
+
+		FFrameRate   FrameResolution = Section->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		FFrameNumber CurrentFrame    = (InTime * FrameResolution).FloorToFrame();
+
+		Section->SetRange(TRange<FFrameNumber>(CurrentFrame));
+
+		TArrayView<FMovieSceneFloatChannel*> FloatChannels = Section->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
+		FloatChannels[0]->SetDefault(PreviousValue);
+		FloatChannels[0]->AddCubicKey(CurrentFrame, PreviousValue, RCTM_Break);
 
 		Track->AddSection(*Section);
 
@@ -51,7 +57,7 @@ UMovieSceneSection* FMovieScenePropertyRecorder<bool>::AddSection(UObject* InObj
 template <>
 void FMovieScenePropertyRecorder<bool>::AddKeyToSection(UMovieSceneSection* InSection, const FPropertyKey<bool>& InKey)
 {
-	CastChecked<UMovieSceneBoolSection>(InSection)->AddKey(InKey.Time, InKey.Value, EMovieSceneKeyInterpolation::Break);
+	InSection->GetChannelProxy().GetChannel<FMovieSceneBoolChannel>(0)->GetInterface().AddKey(InKey.Time, InKey.Value);
 }
 
 template <>
@@ -77,10 +83,15 @@ UMovieSceneSection* FMovieScenePropertyRecorder<uint8>::AddSection(UObject* InOb
 		}
 
 		UMovieSceneByteSection* Section = Cast<UMovieSceneByteSection>(Track->CreateNewSection());
-		Section->SetDefault(PreviousValue);
-		Section->SetStartTime(InTime);
-		Section->SetEndTime(InTime);
-		Section->AddKey(InTime, PreviousValue, EMovieSceneKeyInterpolation::Break);
+
+		FFrameRate   FrameResolution = Section->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		FFrameNumber CurrentFrame    = (InTime * FrameResolution).FloorToFrame();
+
+		Section->SetRange(TRange<FFrameNumber>::Inclusive(CurrentFrame, CurrentFrame));
+
+		FMovieSceneByteChannel* Channel = Section->GetChannelProxy().GetChannel<FMovieSceneByteChannel>(0);
+		Channel->SetDefault(PreviousValue);
+		Channel->GetInterface().AddKey(CurrentFrame, PreviousValue);
 
 		Track->AddSection(*Section);
 
@@ -93,7 +104,7 @@ UMovieSceneSection* FMovieScenePropertyRecorder<uint8>::AddSection(UObject* InOb
 template <>
 void FMovieScenePropertyRecorder<uint8>::AddKeyToSection(UMovieSceneSection* InSection, const FPropertyKey<uint8>& InKey)
 {
-	CastChecked<UMovieSceneByteSection>(InSection)->AddKey(InKey.Time, InKey.Value, EMovieSceneKeyInterpolation::Break);
+	InSection->GetChannelProxy().GetChannel<FMovieSceneByteChannel>(0)->GetInterface().AddKey(InKey.Time, InKey.Value);
 }
 
 template <>
@@ -117,10 +128,15 @@ UMovieSceneSection* FMovieScenePropertyRecorderEnum::AddSection(UObject* InObjec
 		}
 
 		UMovieSceneEnumSection* Section = Cast<UMovieSceneEnumSection>(Track->CreateNewSection());
-		Section->SetDefault(PreviousValue);
-		Section->SetStartTime(InTime);
-		Section->SetEndTime(InTime);
-		Section->AddKey(InTime, PreviousValue, EMovieSceneKeyInterpolation::Break);
+
+		FFrameRate   FrameResolution = Section->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		FFrameNumber CurrentFrame    = (InTime * FrameResolution).FloorToFrame();
+
+		Section->SetRange(TRange<FFrameNumber>::Inclusive(CurrentFrame, CurrentFrame));
+
+		FMovieSceneByteChannel* Channel = Section->GetChannelProxy().GetChannel<FMovieSceneByteChannel>(0);
+		Channel->SetDefault(PreviousValue);
+		Channel->GetInterface().AddKey(CurrentFrame, PreviousValue);
 
 		Track->AddSection(*Section);
 
@@ -132,7 +148,7 @@ UMovieSceneSection* FMovieScenePropertyRecorderEnum::AddSection(UObject* InObjec
 
 void FMovieScenePropertyRecorderEnum::AddKeyToSection(UMovieSceneSection* InSection, const FPropertyKey<int64>& InKey)
 {
-	CastChecked<UMovieSceneEnumSection>(InSection)->AddKey(InKey.Time, InKey.Value, EMovieSceneKeyInterpolation::Break);
+	InSection->GetChannelProxy().GetChannel<FMovieSceneByteChannel>(0)->GetInterface().AddKey(InKey.Time, InKey.Value);
 }
 
 void FMovieScenePropertyRecorderEnum::ReduceKeys(UMovieSceneSection* InSection)
@@ -157,10 +173,17 @@ UMovieSceneSection* FMovieScenePropertyRecorder<float>::AddSection(UObject* InOb
 		}
 
 		UMovieSceneFloatSection* Section = Cast<UMovieSceneFloatSection>(Track->CreateNewSection());
-		Section->SetDefault(PreviousValue);
-		Section->SetStartTime(InTime);
-		Section->SetEndTime(InTime);
-		Section->AddKey(InTime, PreviousValue, EMovieSceneKeyInterpolation::Break);
+
+		FFrameRate   FrameResolution = Section->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		FFrameNumber CurrentFrame    = (InTime * FrameResolution).FloorToFrame();
+
+		Section->SetRange(TRange<FFrameNumber>::Inclusive(CurrentFrame, CurrentFrame));
+
+
+		FMovieSceneFloatChannel* Channel = Section->GetChannelProxy().GetChannel<FMovieSceneFloatChannel>(0);
+		check(Channel);
+		Channel->SetDefault(PreviousValue);
+		Channel->AddCubicKey(CurrentFrame, PreviousValue, RCTM_Break);
 
 		Track->AddSection(*Section);
 
@@ -173,13 +196,14 @@ UMovieSceneSection* FMovieScenePropertyRecorder<float>::AddSection(UObject* InOb
 template <>
 void FMovieScenePropertyRecorder<float>::AddKeyToSection(UMovieSceneSection* InSection, const FPropertyKey<float>& InKey)
 {
-	CastChecked<UMovieSceneFloatSection>(InSection)->AddKey(InKey.Time, InKey.Value, EMovieSceneKeyInterpolation::Auto);
+	InSection->GetChannelProxy().GetChannel<FMovieSceneFloatChannel>(0)->AddCubicKey(InKey.Time, InKey.Value);
 }
 
 template <>
 void FMovieScenePropertyRecorder<float>::ReduceKeys(UMovieSceneSection* InSection)
 {
-	CastChecked<UMovieSceneFloatSection>(InSection)->GetFloatCurve().RemoveRedundantKeys(KINDA_SMALL_NUMBER);
+	FKeyDataOptimizationParams Params;
+	MovieScene::Optimize(InSection->GetChannelProxy().GetChannel<FMovieSceneFloatChannel>(0), Params);
 }
 
 template <>
@@ -200,18 +224,25 @@ UMovieSceneSection* FMovieScenePropertyRecorder<FColor>::AddSection(UObject* InO
 		}
 
 		UMovieSceneColorSection* Section = Cast<UMovieSceneColorSection>(Track->CreateNewSection());
-		Section->SetDefault(FColorKey(EKeyColorChannel::Red, PreviousValue.R, false));
-		Section->SetDefault(FColorKey(EKeyColorChannel::Green, PreviousValue.G, false));
-		Section->SetDefault(FColorKey(EKeyColorChannel::Blue, PreviousValue.B, false));
-		Section->SetDefault(FColorKey(EKeyColorChannel::Alpha, PreviousValue.A, false));
 
-		Section->SetStartTime(InTime);
-		Section->SetEndTime(InTime);
+		FFrameRate   FrameResolution = Section->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		FFrameNumber CurrentFrame    = (InTime * FrameResolution).FloorToFrame();
 
-		Section->AddKey(InTime, FColorKey(EKeyColorChannel::Red, PreviousValue.R, false), EMovieSceneKeyInterpolation::Break);
-		Section->AddKey(InTime, FColorKey(EKeyColorChannel::Green, PreviousValue.G, false), EMovieSceneKeyInterpolation::Break);
-		Section->AddKey(InTime, FColorKey(EKeyColorChannel::Blue, PreviousValue.B, false), EMovieSceneKeyInterpolation::Break);
-		Section->AddKey(InTime, FColorKey(EKeyColorChannel::Alpha, PreviousValue.A, false), EMovieSceneKeyInterpolation::Break);
+		Section->SetRange(TRange<FFrameNumber>::Inclusive(CurrentFrame, CurrentFrame));
+
+		TArrayView<FMovieSceneFloatChannel*> FloatChannels = Section->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
+
+		FloatChannels[0]->SetDefault(PreviousValue.R);
+		FloatChannels[0]->AddCubicKey(CurrentFrame, PreviousValue.R, RCTM_Break);
+
+		FloatChannels[1]->SetDefault(PreviousValue.G);
+		FloatChannels[1]->AddCubicKey(CurrentFrame, PreviousValue.G, RCTM_Break);
+
+		FloatChannels[2]->SetDefault(PreviousValue.B);
+		FloatChannels[2]->AddCubicKey(CurrentFrame, PreviousValue.B, RCTM_Break);
+
+		FloatChannels[3]->SetDefault(PreviousValue.A);
+		FloatChannels[3]->AddCubicKey(CurrentFrame, PreviousValue.A, RCTM_Break);
 
 		Track->AddSection(*Section);
 
@@ -224,21 +255,23 @@ UMovieSceneSection* FMovieScenePropertyRecorder<FColor>::AddSection(UObject* InO
 template <>
 void FMovieScenePropertyRecorder<FColor>::AddKeyToSection(UMovieSceneSection* InSection, const FPropertyKey<FColor>& InKey)
 {
-	UMovieSceneColorSection* ColorSection = CastChecked<UMovieSceneColorSection>(InSection);
-	ColorSection->AddKey(InKey.Time, FColorKey(EKeyColorChannel::Red, InKey.Value.R, false), EMovieSceneKeyInterpolation::Auto);
-	ColorSection->AddKey(InKey.Time, FColorKey(EKeyColorChannel::Green, InKey.Value.G, false), EMovieSceneKeyInterpolation::Auto);
-	ColorSection->AddKey(InKey.Time, FColorKey(EKeyColorChannel::Blue, InKey.Value.B, false), EMovieSceneKeyInterpolation::Auto);
-	ColorSection->AddKey(InKey.Time, FColorKey(EKeyColorChannel::Alpha, InKey.Value.A, false), EMovieSceneKeyInterpolation::Auto);
+	TArrayView<FMovieSceneFloatChannel*> FloatChannels = InSection->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
+	FloatChannels[0]->AddCubicKey(InKey.Time, InKey.Value.R);
+	FloatChannels[1]->AddCubicKey(InKey.Time, InKey.Value.G);
+	FloatChannels[2]->AddCubicKey(InKey.Time, InKey.Value.B);
+	FloatChannels[3]->AddCubicKey(InKey.Time, InKey.Value.A);
 }
 
 template <>
 void FMovieScenePropertyRecorder<FColor>::ReduceKeys(UMovieSceneSection* InSection)
 {
-	UMovieSceneColorSection* ColorSection = CastChecked<UMovieSceneColorSection>(InSection);
-	ColorSection->GetRedCurve().RemoveRedundantKeys(KINDA_SMALL_NUMBER);
-	ColorSection->GetGreenCurve().RemoveRedundantKeys(KINDA_SMALL_NUMBER);
-	ColorSection->GetBlueCurve().RemoveRedundantKeys(KINDA_SMALL_NUMBER);
-	ColorSection->GetAlphaCurve().RemoveRedundantKeys(KINDA_SMALL_NUMBER);
+	TArrayView<FMovieSceneFloatChannel*> FloatChannels = InSection->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
+
+	FKeyDataOptimizationParams Params;
+	MovieScene::Optimize(FloatChannels[0], Params);
+	MovieScene::Optimize(FloatChannels[1], Params);
+	MovieScene::Optimize(FloatChannels[2], Params);
+	MovieScene::Optimize(FloatChannels[3], Params);
 }
 
 template <>
@@ -261,16 +294,21 @@ UMovieSceneSection* FMovieScenePropertyRecorder<FVector>::AddSection(UObject* In
 
 		UMovieSceneVectorSection* Section = Cast<UMovieSceneVectorSection>(Track->CreateNewSection());
 
-		Section->SetDefault(FVectorKey(EKeyVectorChannel::X, PreviousValue.X));
-		Section->SetDefault(FVectorKey(EKeyVectorChannel::Y, PreviousValue.Y));
-		Section->SetDefault(FVectorKey(EKeyVectorChannel::Z, PreviousValue.Z));
+		FFrameRate   FrameResolution = Section->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		FFrameNumber CurrentFrame    = (InTime * FrameResolution).FloorToFrame();
 
-		Section->SetStartTime(InTime);
-		Section->SetEndTime(InTime);
-		
-		Section->AddKey(InTime, FVectorKey(EKeyVectorChannel::X, PreviousValue.X), EMovieSceneKeyInterpolation::Break);
-		Section->AddKey(InTime, FVectorKey(EKeyVectorChannel::Y, PreviousValue.Y), EMovieSceneKeyInterpolation::Break);
-		Section->AddKey(InTime, FVectorKey(EKeyVectorChannel::Z, PreviousValue.Z), EMovieSceneKeyInterpolation::Break);
+		Section->SetRange(TRange<FFrameNumber>::Inclusive(CurrentFrame, CurrentFrame));
+
+		TArrayView<FMovieSceneFloatChannel*> FloatChannels = Section->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
+
+		FloatChannels[0]->SetDefault(PreviousValue.X);
+		FloatChannels[0]->AddCubicKey(CurrentFrame, PreviousValue.X, RCTM_Break);
+
+		FloatChannels[1]->SetDefault(PreviousValue.Y);
+		FloatChannels[1]->AddCubicKey(CurrentFrame, PreviousValue.Y, RCTM_Break);
+
+		FloatChannels[2]->SetDefault(PreviousValue.Z);
+		FloatChannels[2]->AddCubicKey(CurrentFrame, PreviousValue.Z, RCTM_Break);
 
 		Track->AddSection(*Section);
 
@@ -283,21 +321,21 @@ UMovieSceneSection* FMovieScenePropertyRecorder<FVector>::AddSection(UObject* In
 template <>
 void FMovieScenePropertyRecorder<FVector>::AddKeyToSection(UMovieSceneSection* InSection, const FPropertyKey<FVector>& InKey)
 {
-	UMovieSceneVectorSection* VectorSection = CastChecked<UMovieSceneVectorSection>(InSection);
-
-	VectorSection->AddKey(InKey.Time, FVectorKey(EKeyVectorChannel::X, InKey.Value.X), EMovieSceneKeyInterpolation::Auto);
-	VectorSection->AddKey(InKey.Time, FVectorKey(EKeyVectorChannel::Y, InKey.Value.Y), EMovieSceneKeyInterpolation::Auto);
-	VectorSection->AddKey(InKey.Time, FVectorKey(EKeyVectorChannel::Z, InKey.Value.Z), EMovieSceneKeyInterpolation::Auto);
+	TArrayView<FMovieSceneFloatChannel*> FloatChannels = InSection->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
+	FloatChannels[0]->AddCubicKey(InKey.Time, InKey.Value.X);
+	FloatChannels[1]->AddCubicKey(InKey.Time, InKey.Value.Y);
+	FloatChannels[2]->AddCubicKey(InKey.Time, InKey.Value.Z);
 }
 
 template <>
 void FMovieScenePropertyRecorder<FVector>::ReduceKeys(UMovieSceneSection* InSection)
 {
-	UMovieSceneVectorSection* VectorSection = CastChecked<UMovieSceneVectorSection>(InSection);
+	TArrayView<FMovieSceneFloatChannel*> FloatChannels = InSection->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
 
-	VectorSection->GetCurve(0).RemoveRedundantKeys(KINDA_SMALL_NUMBER);
-	VectorSection->GetCurve(1).RemoveRedundantKeys(KINDA_SMALL_NUMBER);
-	VectorSection->GetCurve(2).RemoveRedundantKeys(KINDA_SMALL_NUMBER);
+	FKeyDataOptimizationParams Params;
+	MovieScene::Optimize(FloatChannels[0], Params);
+	MovieScene::Optimize(FloatChannels[1], Params);
+	MovieScene::Optimize(FloatChannels[2], Params);
 }
 
 template class FMovieScenePropertyRecorder<bool>;

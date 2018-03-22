@@ -12,6 +12,7 @@ class FSlateWindowElementList;
 struct FContextMenuSuppressor;
 struct FScrubRangeToScreen;
 struct FSlateBrush;
+class FSequencer;
 
 struct FPaintPlaybackRangeArgs
 {
@@ -53,7 +54,7 @@ struct FPaintSectionAreaViewArgs
 class FSequencerTimeSliderController : public ITimeSliderController
 {
 public:
-	FSequencerTimeSliderController( const FTimeSliderArgs& InArgs );
+	FSequencerTimeSliderController( const FTimeSliderArgs& InArgs, TWeakPtr<FSequencer> InWeakSequencer );
 
 	/**
 	* Determines the optimal spacing between tick marks in the slider for a given pixel density
@@ -75,20 +76,20 @@ public:
 	virtual FCursorReply OnCursorQuery( TSharedRef<const SWidget> WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& CursorEvent ) const override;
 	/** End ITimeSliderController Interface */
 
+	/** Get the current play rate for this controller */
+	virtual FFrameRate GetPlayRate() const override { return TimeSliderArgs.PlayRate.Get(); }
+
+	/** Get the current frame resolution for this controller */
+	virtual FFrameRate GetFrameResolution() const override { return TimeSliderArgs.FrameResolution.Get(); }
+
 	/** Get the current view range for this controller */
 	virtual FAnimatedRange GetViewRange() const override { return TimeSliderArgs.ViewRange.Get(); }
 
-	/** Get the current clamp range for this controller */
+	/** Get the current clamp range for this controller in seconds. */
 	virtual FAnimatedRange GetClampRange() const override { return TimeSliderArgs.ClampRange.Get(); }
 
 	/** Get the current play range for this controller */
-	virtual TRange<float> GetPlayRange() const override { return TimeSliderArgs.PlaybackRange.Get(TRange<float>()); }
-
-	/** Convert time to frame */
-	virtual int32 TimeToFrame(float Time) const override;
-
-	/** Convert time to frame */
-	virtual float FrameToTime(int32 Frame) const override;
+	virtual TRange<FFrameNumber> GetPlayRange() const override { return TimeSliderArgs.PlaybackRange.Get(TRange<FFrameNumber>()); }
 
 	/**
 	 * Clamp the given range to the clamp range 
@@ -96,7 +97,7 @@ public:
 	 * @param NewRangeMin		The new lower bound of the range
 	 * @param NewRangeMax		The new upper bound of the range
 	 */	
-	void ClampViewRange(float& NewRangeMin, float& NewRangeMax);
+	void ClampViewRange(double& NewRangeMin, double& NewRangeMax);
 
 	/**
 	 * Set a new range based on a min, max and an interpolation mode
@@ -105,7 +106,7 @@ public:
 	 * @param NewRangeMax		The new upper bound of the range
 	 * @param Interpolation		How to set the new range (either immediately, or animated)
 	 */
-	virtual void SetViewRange( float NewRangeMin, float NewRangeMax, EViewRangeInterpolation Interpolation ) override;
+	virtual void SetViewRange( double NewRangeMin, double NewRangeMax, EViewRangeInterpolation Interpolation ) override;
 
 	/**
 	 * Set a new clamp range based on a min, max
@@ -113,15 +114,15 @@ public:
 	 * @param NewRangeMin		The new lower bound of the clamp range
 	 * @param NewRangeMax		The new upper bound of the clamp range
 	 */
-	virtual void SetClampRange( float NewRangeMin, float NewRangeMax ) override;
+	virtual void SetClampRange( double NewRangeMin, double NewRangeMax ) override;
 
 	/**
 	 * Set a new playback range based on a min, max
 	 * 
-	 * @param NewRangeMin		The new lower bound of the playback range
-	 * @param NewRangeMax		The new upper bound of the playback range
+	 * @param RangeStart		The new lower bound of the playback range
+	 * @param RangeDuration		The total number of frames that we play for
 	 */
-	virtual void SetPlayRange( float NewRangeMin, float NewRangeMax ) override;
+	virtual void SetPlayRange( FFrameNumber RangeStart, int32 RangeDuration ) override;
 
 	/**
 	 * Zoom the range by a given delta.
@@ -154,16 +155,17 @@ private:
 	 * @param NewValue				Value resulting from the user's interaction
 	 * @param bIsScrubbing			True if done via scrubbing, false if just releasing scrubbing
 	 */
-	void CommitScrubPosition( float NewValue, bool bIsScrubbing );
+	void CommitScrubPosition( FFrameTime NewValue, bool bIsScrubbing );
 
 	/**
 	 * Draw time tick marks
 	 *
 	 * @param OutDrawElements	List to add draw elements to
+	 * @param ViewRange			The currently visible time range in seconds
 	 * @param RangeToScreen		Time range to screen space converter
 	 * @param InArgs			Parameters for drawing the tick lines
 	 */
-	void DrawTicks( FSlateWindowElementList& OutDrawElements, const FScrubRangeToScreen& RangeToScreen, FDrawTickArgs& InArgs ) const;
+	void DrawTicks( FSlateWindowElementList& OutDrawElements, const TRange<double>& ViewRange, const FScrubRangeToScreen& RangeToScreen, FDrawTickArgs& InArgs ) const;
 
 	/**
 	 * Draw the selection range.
@@ -189,36 +191,55 @@ private:
 private:
 
 	/**
-	 * Hit test the lower bound of the playback range
+	 * Hit test the lower bound of a range
 	 */
-	bool HitTestScrubberStart(const FScrubRangeToScreen& RangeToScreen, const TRange<float>& PlaybackRange, float LocalHitPositionX, float ScrubPosition) const;
+	bool HitTestRangeStart(const FScrubRangeToScreen& RangeToScreen, const TRange<double>& Range, float HitPixel) const;
 
 	/**
-	 * Hit test the upper bound of the playback range
+	 * Hit test the upper bound of a range
 	 */
-	bool HitTestScrubberEnd(const FScrubRangeToScreen& RangeToScreen, const TRange<float>& PlaybackRange, float LocalHitPositionX, float ScrubPosition) const;
+	bool HitTestRangeEnd(const FScrubRangeToScreen& RangeToScreen, const TRange<double>& Range, float HitPixel) const;
 
-	float SnapTimeToNearestKey(const FScrubRangeToScreen& RangeToScreen, float CursorPos, float InTime);
+	FFrameTime SnapTimeToNearestKey(const FScrubRangeToScreen& RangeToScreen, float CursorPos, FFrameTime InTime) const;
 
-	void SetPlaybackRangeStart(float NewStart);
-	void SetPlaybackRangeEnd(float NewEnd);
+	void SetPlaybackRangeStart(FFrameNumber NewStart);
+	void SetPlaybackRangeEnd(FFrameNumber NewEnd);
 
-	void SetSelectionRangeStart(float NewStart);
-	void SetSelectionRangeEnd(float NewEnd);
+	void SetSelectionRangeStart(FFrameNumber NewStart);
+	void SetSelectionRangeEnd(FFrameNumber NewEnd);
 
-	TSharedRef<SWidget> OpenSetPlaybackRangeMenu(float MouseTime);
+	TSharedRef<SWidget> OpenSetPlaybackRangeMenu(FFrameNumber FrameNumber);
+	FFrameTime ComputeScrubTimeFromMouse(const FGeometry& Geometry, FVector2D ScreenSpacePosition, FScrubRangeToScreen RangeToScreen) const;
+	FFrameTime ComputeFrameTimeFromMouse(const FGeometry& Geometry, FVector2D ScreenSpacePosition, FScrubRangeToScreen RangeToScreen, bool CheckSnapping = true) const;
+private:
+
+	struct FScrubPixelRange
+	{
+		TRange<float> Range;
+		TRange<float> HandleRange;
+		bool bClamped;
+	};
+
+	FScrubPixelRange GetHitTestScrubberPixelRange(FFrameTime ScrubTime, const FScrubRangeToScreen& RangeToScreen) const;
+
+	FScrubPixelRange GetScrubberPixelRange(FFrameTime ScrubTime, const FScrubRangeToScreen& RangeToScreen) const;
+	FScrubPixelRange GetScrubberPixelRange(FFrameTime ScrubTime, FFrameRate Resolution, FFrameRate PlayRate, const FScrubRangeToScreen& RangeToScreen, float DilationPixels = 0.f) const;
 
 private:
+
+	/** Pointer back to the sequencer object */
+	TWeakPtr<FSequencer> WeakSequencer;
+
 	FTimeSliderArgs TimeSliderArgs;
 
-	/** The size of the scrub handle */
-	float ScrubHandleSize;
-	
-	/** Brush for drawing an upwards facing scrub handle */
-	const FSlateBrush* ScrubHandleUp;
+	/** Brush for drawingthe fill area on the scrubber */
+	const FSlateBrush* ScrubFillBrush;
+
+	/** Brush for drawing an upwards facing scrub handles */
+	const FSlateBrush* ScrubHandleUpBrush, *ClampedScrubHandleUpBrush;
 	
 	/** Brush for drawing a downwards facing scrub handle */
-	const FSlateBrush* ScrubHandleDown;
+	const FSlateBrush* ScrubHandleDownBrush, *ClampedScrubHandleDownBrush;
 	
 	/** Total mouse delta during dragging **/
 	float DistanceDragged;
@@ -239,12 +260,15 @@ private:
 	
 	/** If we are currently panning the panel */
 	bool bPanning;
-	
-	/** Mouse down time range */
-	FVector2D MouseDownRange;
-	
+
+	/** Mouse down position range */
+	FVector2D MouseDownPosition[2];
+
+	/** Geometry on mouse down */
+	FGeometry MouseDownGeometry;
+
 	/** Range stack */
-	TArray<FVector2D> RangeStack;
+	TArray<TRange<double>> ViewRangeStack;
 
 	/** When > 0, we should not show context menus */
 	int32 ContextMenuSuppression;

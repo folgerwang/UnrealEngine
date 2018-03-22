@@ -9,6 +9,7 @@
 #include "SequenceRecorderUtils.h"
 #include "SequenceRecorderSettings.h"
 #include "ActorRecording.h"
+#include "SequenceRecorder.h"
 
 TSharedPtr<IMovieSceneSectionRecorder> FMovieSceneAnimationSectionRecorderFactory::CreateSectionRecorder(const FActorRecordingSettings& InActorRecordingSettings) const
 {
@@ -71,13 +72,14 @@ void FMovieSceneAnimationSectionRecorder::CreateSection(UObject* InObjectToRecor
 				// build an asset path
 				const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
 
-				FString AssetPath = Settings->SequenceRecordingBasePath.Path;
+				FString AssetPath = FSequenceRecorder::Get().GetSequenceRecordingBasePath();
 				if (Settings->AnimationSubDirectory.Len() > 0)
 				{
 					AssetPath /= Settings->AnimationSubDirectory;
 				}
 
-				FString AssetName = Settings->SequenceName.Len() > 0 ? Settings->SequenceName : TEXT("RecordedSequence");
+				const FString SequenceName = FSequenceRecorder::Get().GetSequenceRecordingName();
+				FString AssetName = SequenceName.Len() > 0 ? SequenceName : TEXT("RecordedSequence");
 				AssetName += TEXT("_");
 				check(Actor);
 				AssetName += Actor->GetActorLabel();
@@ -101,7 +103,10 @@ void FMovieSceneAnimationSectionRecorder::CreateSection(UObject* InObjectToRecor
 					UMovieSceneSkeletalAnimationTrack* AnimTrack = MovieScene->AddTrack<UMovieSceneSkeletalAnimationTrack>(Guid);
 					if (AnimTrack)
 					{
-						AnimTrack->AddNewAnimation(Time, AnimSequence.Get());
+						FFrameRate   FrameResolution = AnimTrack->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+						FFrameNumber CurrentFrame    = (Time * FrameResolution).FloorToFrame();
+
+						AnimTrack->AddNewAnimation(CurrentFrame, AnimSequence.Get());
 						MovieSceneSection = Cast<UMovieSceneSkeletalAnimationSection>(AnimTrack->GetAllSections()[0]);
 					}
 				}
@@ -128,9 +133,12 @@ void FMovieSceneAnimationSectionRecorder::FinalizeSection()
 		FAnimationRecorderManager::Get().StopRecordingAnimation(SkeletalMeshComponent.Get(), bShowMessage);
 	}
 
-	if(MovieSceneSection.IsValid() && AnimSequence.IsValid())
+	if(MovieSceneSection.IsValid() && AnimSequence.IsValid() && MovieSceneSection->HasStartFrame())
 	{
-		MovieSceneSection->SetEndTime(MovieSceneSection->GetStartTime() + AnimSequence->GetPlayLength());
+		FFrameRate   FrameResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		FFrameNumber SequenceLength  = (AnimSequence->GetPlayLength() * FrameResolution).FloorToFrame();
+		
+		MovieSceneSection->SetEndFrame(TRangeBound<FFrameNumber>::Exclusive(MovieSceneSection->GetInclusiveStartFrame() + SequenceLength));
 	}
 }
 

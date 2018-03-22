@@ -17,15 +17,13 @@
  * to use a UMovieSceneVisibilityTrack through metadata.
  */
 class FVisibilityPropertyTrackEditor
-	: public FPropertyTrackEditor<UMovieSceneVisibilityTrack, UMovieSceneBoolSection, bool>
+	: public FPropertyTrackEditor<UMovieSceneVisibilityTrack>
 {
 public:
 
 	/** Constructor. */
 	FVisibilityPropertyTrackEditor(TSharedRef<ISequencer> InSequencer)
-		// Don't supply any property type names to watch since the FBoolPropertyTrackEditor is already watching for bool property changes.
-		// @todo: Is this right? comment says we should't be passing the property type name, yet we currently are.
-		: FPropertyTrackEditor<UMovieSceneVisibilityTrack, UMovieSceneBoolSection, bool>(InSequencer, GetAnimatedPropertyTypes())
+		: FPropertyTrackEditor(InSequencer, GetAnimatedPropertyTypes())
 	{ }
 
 	/**
@@ -44,14 +42,11 @@ public:
 	 */
 	static TSharedRef<ISequencerTrackEditor> CreateTrackEditor(TSharedRef<ISequencer> OwningSequencer);
 
-	//~ ISequencerTrackEditor interface
-
-	virtual TSharedRef<ISequencerSection> MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding) override;
-
 protected:
 
 	//~ FPropertyTrackEditor interface
 
-	virtual void GenerateKeysFromPropertyChanged(const FPropertyChangedParams& PropertyChangedParams, TArray<bool>& NewGeneratedKeys, TArray<bool>& DefaultGeneratedKeys) override;
+	virtual TSharedRef<ISequencerSection> MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding) override;
+	virtual void GenerateKeysFromPropertyChanged(const FPropertyChangedParams& PropertyChangedParams, FGeneratedTrackKeys& OutGeneratedKeys) override;
 	virtual bool ForCustomizedUseOnly() { return true; }
 };

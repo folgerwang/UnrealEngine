@@ -8,6 +8,7 @@
 #include "Containers/Map.h"
 #include "Containers/Queue.h"
 #include "Interfaces/IPv4/IPv4Endpoint.h"
+#include "Misc/SingleThreadRunnable.h"
 #include "Templates/SharedPointer.h"
 
 #include "IUdpMessageTunnel.h"
@@ -23,6 +24,7 @@ class FUdpMessageTunnelConnection;
 class FUdpMessageTunnel
 	: public FRunnable
 	, public IUdpMessageTunnel
+	, private FSingleThreadRunnable
 {
 	/** Structure for transport node information. */
 	struct FNodeInfo
@@ -54,6 +56,7 @@ public:
 
 	//~ FRunnable interface
 
+	virtual FSingleThreadRunnable* GetSingleThreadInterface() override;
 	virtual bool Init() override;
 	virtual uint32 Run() override;
 	virtual void Stop() override;
@@ -96,8 +99,17 @@ protected:
 	 */
 	void UdpToTcp(FSocket* Socket);
 
+	/** Update the tunnel. */
+	void Update();
+
 	/** Updates all active and pending connections. */
 	void UpdateConnections();
+
+protected:
+
+	//~ FSingleThreadRunnable interface
+
+	virtual void Tick() override;
 
 private:
 

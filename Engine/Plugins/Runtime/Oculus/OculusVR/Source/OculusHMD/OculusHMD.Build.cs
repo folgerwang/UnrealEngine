@@ -15,6 +15,7 @@ namespace UnrealBuildTool.Rules
 					"../../../../../Source/Runtime/Renderer/Private",
 					"../../../../../Source/Runtime/OpenGLDrv/Private",
 					"../../../../../Source/Runtime/VulkanRHI/Private",
+					"../../../../../Source/Runtime/VulkanRHI/Private/" + Target.Platform,
 					"../../../../../Source/Runtime/Engine/Classes/Components",
 				});
 

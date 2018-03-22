@@ -22,7 +22,7 @@ namespace OculusAssetManager_Impl
 
 	static FRenderableDevice RenderableDevices[] =
 	{
-		{ ovrpNode_Head,      FString(TEXT("/Engine/VREditor/Devices/Generic/GenericHMD.GenericHMD")) },
+		{ ovrpNode_Head,      FString(TEXT("/OculusVR/Meshes/RiftHMD.RiftHMD")) },
 #if PLATFORM_ANDROID
 		{ ovrpNode_HandLeft,  FString(TEXT("/OculusVR/Meshes/GearVRController.GearVRController")) },
 		{ ovrpNode_HandRight, FString(TEXT("/OculusVR/Meshes/GearVRController.GearVRController")) },
@@ -137,7 +137,7 @@ int32 FOculusAssetManager::GetDeviceId(EControllerHand ControllerHand)
 #endif
 }
 
-UPrimitiveComponent* FOculusAssetManager::CreateRenderComponent(const int32 DeviceId, AActor* Owner, EObjectFlags Flags)
+UPrimitiveComponent* FOculusAssetManager::CreateRenderComponent(const int32 DeviceId, AActor* Owner, EObjectFlags Flags, const bool /*bForceSynchronous*/, const FXRComponentLoadComplete& OnLoadComplete)
 {
 	UPrimitiveComponent* NewRenderComponent = nullptr;
 	if (UObject* DeviceMesh = OculusAssetManager_Impl::FindDeviceMesh(DeviceId))
@@ -161,5 +161,6 @@ UPrimitiveComponent* FOculusAssetManager::CreateRenderComponent(const int32 Devi
 		NewRenderComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 
+	OnLoadComplete.ExecuteIfBound(NewRenderComponent);
 	return NewRenderComponent;
 }

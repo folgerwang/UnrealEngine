@@ -83,6 +83,12 @@ FUdpMessageTunnel::~FUdpMessageTunnel()
 /* FRunnable interface
  *****************************************************************************/
 
+FSingleThreadRunnable* FUdpMessageTunnel::GetSingleThreadInterface()
+{
+	return this;
+}
+
+
 bool FUdpMessageTunnel::Init()
 {
 	return true;
@@ -93,17 +99,8 @@ uint32 FUdpMessageTunnel::Run()
 {
 	while (!Stopping)
 	{
-		CurrentTime = FDateTime::UtcNow();
-
-		UpdateConnections();
-
-		UdpToTcp(MulticastSocket);
-		UdpToTcp(UnicastSocket);
-
-		TcpToUdp();
-
-		RemoveExpiredNodes(LocalNodes);
-		RemoveExpiredNodes(RemoteNodes);
+		Update();
+		FPlatformProcess::Sleep(0.0f);
 	}
 
 	return 0;
@@ -333,6 +330,22 @@ void FUdpMessageTunnel::UdpToTcp(FSocket* Socket)
 }
 
 
+void FUdpMessageTunnel::Update()
+{
+	CurrentTime = FDateTime::UtcNow();
+
+	UpdateConnections();
+
+	UdpToTcp(MulticastSocket);
+	UdpToTcp(UnicastSocket);
+
+	TcpToUdp();
+
+	RemoveExpiredNodes(LocalNodes);
+	RemoveExpiredNodes(RemoteNodes);
+}
+
+
 void FUdpMessageTunnel::UpdateConnections()
 {
 	bool ConnectionsChanged = false;
@@ -365,6 +378,15 @@ void FUdpMessageTunnel::UpdateConnections()
 	{
 		ConnectionsChangedDelegate.ExecuteIfBound();
 	}
+}
+
+
+/* FSingleThreadRunnable interface
+ *****************************************************************************/
+
+void FUdpMessageTunnel::Tick()
+{
+	Update();
 }
 
 

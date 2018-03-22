@@ -5,8 +5,9 @@
 #include "OnlineIdentityOculus.h"
 #include "OnlineMessageMultiTaskOculus.h"
 #include "OnlineSubsystemOculusPackage.h"
+#include "Templates/SharedPointer.h"
 
-class FOnlineMessageMultiTaskOculusWriteAchievements : public FOnlineMessageMultiTaskOculus
+class FOnlineMessageMultiTaskOculusWriteAchievements : public FOnlineMessageMultiTaskOculus, public TSharedFromThis<FOnlineMessageMultiTaskOculusWriteAchievements>
 {
 private:
 
@@ -14,30 +15,54 @@ private:
 	FOnlineAchievementsWriteRef WriteObject;
 	FOnAchievementsWrittenDelegate AchievementDelegate;
 
+	// private to force the use of FOnlineMessageMultiTaskOculusWriteAchievements::Create()
+	FOnlineMessageMultiTaskOculusWriteAchievements(FOnlineSubsystemOculus& InOculusSubsystem, const FUniqueNetIdOculus& InPlayerId, FOnlineAchievementsWriteRef& InWriteObject, const FOnAchievementsWrittenDelegate& InAchievementDelegate)
+		: FOnlineMessageMultiTaskOculus(InOculusSubsystem, FOnlineMessageMultiTaskOculus::FFinalizeDelegate::CreateRaw(this, &FOnlineMessageMultiTaskOculusWriteAchievements::Finalize))
+		, PlayerId(InPlayerId)
+		, WriteObject(InWriteObject)
+		, AchievementDelegate(InAchievementDelegate)
+	{}
+
+	static TSet< TSharedRef<FOnlineMessageMultiTaskOculusWriteAchievements> > ActiveAchievementWriteTasks;
+
 PACKAGE_SCOPE:
 
-	FOnlineMessageMultiTaskOculusWriteAchievements(
+	static TSharedRef<FOnlineMessageMultiTaskOculusWriteAchievements> Create(
 		FOnlineSubsystemOculus& InOculusSubsystem,
 		const FUniqueNetIdOculus& InPlayerId,
 		FOnlineAchievementsWriteRef& InWriteObject,
-		const FOnAchievementsWrittenDelegate& InAchievementDelegate) :
-		FOnlineMessageMultiTaskOculus(InOculusSubsystem, FOnlineMessageMultiTaskOculus::FFinalizeDelegate::CreateRaw(this, &FOnlineMessageMultiTaskOculusWriteAchievements::Finalize)),
-		PlayerId(InPlayerId),
-		WriteObject(InWriteObject),
-		AchievementDelegate(InAchievementDelegate)
+		const FOnAchievementsWrittenDelegate& InAchievementDelegate)
 	{
+		TSharedRef<FOnlineMessageMultiTaskOculusWriteAchievements> NewTask = MakeShareable(new FOnlineMessageMultiTaskOculusWriteAchievements(InOculusSubsystem, InPlayerId, InWriteObject, InAchievementDelegate));
+		ActiveAchievementWriteTasks.Add(NewTask);
+
+		return NewTask;
 	}
 
 	void Finalize()
 	{
 		WriteObject->WriteState = (bDidAllRequestsFinishedSuccessfully) ? EOnlineAsyncTaskState::Done : EOnlineAsyncTaskState::Failed;
 		AchievementDelegate.ExecuteIfBound(PlayerId, true);
+
+		// this should delete this task object, make sure it happens last
+		ActiveAchievementWriteTasks.Remove(AsShared());
+	}
+
+	static void ClearAllActiveTasks()
+	{
+		ActiveAchievementWriteTasks.Empty();
 	}
 };
+TSet< TSharedRef<FOnlineMessageMultiTaskOculusWriteAchievements> > FOnlineMessageMultiTaskOculusWriteAchievements::ActiveAchievementWriteTasks;
 
 FOnlineAchievementsOculus::FOnlineAchievementsOculus(class FOnlineSubsystemOculus& InSubsystem)
 : OculusSubsystem(InSubsystem)
 {
+}
+
+FOnlineAchievementsOculus::~FOnlineAchievementsOculus()
+{
+	FOnlineMessageMultiTaskOculusWriteAchievements::ClearAllActiveTasks();
 }
 
 void FOnlineAchievementsOculus::WriteAchievements(const FUniqueNetId& PlayerId, FOnlineAchievementsWriteRef& WriteObject, const FOnAchievementsWrittenDelegate& Delegate)
@@ -68,7 +93,7 @@ void FOnlineAchievementsOculus::WriteAchievements(const FUniqueNetId& PlayerId, 
 	}
 
 	WriteObject->WriteState = EOnlineAsyncTaskState::InProgress;
-	auto MultiTask = new FOnlineMessageMultiTaskOculusWriteAchievements(OculusSubsystem, static_cast<FUniqueNetIdOculus>(PlayerId), WriteObject, Delegate);
+	TSharedRef<FOnlineMessageMultiTaskOculusWriteAchievements> MultiTask = FOnlineMessageMultiTaskOculusWriteAchievements::Create(OculusSubsystem, static_cast<FUniqueNetIdOculus>(PlayerId), WriteObject, Delegate);
 
 	// treat each achievement as unlocked
 	for (FStatPropertyArray::TConstIterator It(WriteObject->Properties); It; ++It)

@@ -27,7 +27,7 @@
 #include "Factories/Factory.h"
 #include "Factories/CurveFactory.h"
 #include "Editor.h"
-#include "RichCurveEditorCommands.h"
+#include "CurveEditorCommands.h"
 #include "CurveEditorSettings.h"
 #include "ScopedTransaction.h"
 #include "Framework/Commands/GenericCommands.h"
@@ -121,158 +121,142 @@ void SCurveEditor::Construct(const FArguments& InArgs)
 	Commands->MapAction(FGenericCommands::Get().Redo,
 		FExecuteAction::CreateSP(this, &SCurveEditor::RedoAction));
 
-	Commands->MapAction(FRichCurveEditorCommands::Get().ZoomToFitHorizontal,
+	Commands->MapAction(FCurveEditorCommands::Get().ZoomToFitHorizontal,
 		FExecuteAction::CreateSP(this, &SCurveEditor::ZoomToFitHorizontal, false));
 
-	Commands->MapAction(FRichCurveEditorCommands::Get().ZoomToFitVertical,
+	Commands->MapAction(FCurveEditorCommands::Get().ZoomToFitVertical,
 		FExecuteAction::CreateSP(this, &SCurveEditor::ZoomToFitVertical, false));
 
-	Commands->MapAction(FRichCurveEditorCommands::Get().ZoomToFit,
+	Commands->MapAction(FCurveEditorCommands::Get().ZoomToFit,
 		FExecuteAction::CreateSP(this, &SCurveEditor::ZoomToFit, false));
 
-	Commands->MapAction(FRichCurveEditorCommands::Get().ZoomToFitAll,
+	Commands->MapAction(FCurveEditorCommands::Get().ZoomToFitAll,
 		FExecuteAction::CreateSP(this, &SCurveEditor::ZoomToFit, true));
 
-	Commands->MapAction(FRichCurveEditorCommands::Get().ToggleInputSnapping,
+	Commands->MapAction(FCurveEditorCommands::Get().ToggleInputSnapping,
 		FExecuteAction::CreateSP(this, &SCurveEditor::ToggleInputSnapping),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &SCurveEditor::IsInputSnappingEnabled));
 
-	Commands->MapAction(FRichCurveEditorCommands::Get().ToggleOutputSnapping,
+	Commands->MapAction(FCurveEditorCommands::Get().ToggleOutputSnapping,
 		FExecuteAction::CreateSP(this, &SCurveEditor::ToggleOutputSnapping),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &SCurveEditor::IsOutputSnappingEnabled));
 
 	// Interpolation
-	Commands->MapAction(FRichCurveEditorCommands::Get().InterpolationConstant,
+	Commands->MapAction(FCurveEditorCommands::Get().InterpolationConstant,
 		FExecuteAction::CreateSP(this, &SCurveEditor::OnSelectInterpolationMode, RCIM_Constant, RCTM_Auto),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &SCurveEditor::IsInterpolationModeSelected, RCIM_Constant, RCTM_Auto));
 
-	Commands->MapAction(FRichCurveEditorCommands::Get().InterpolationLinear,
+	Commands->MapAction(FCurveEditorCommands::Get().InterpolationLinear,
 		FExecuteAction::CreateSP(this, &SCurveEditor::OnSelectInterpolationMode, RCIM_Linear, RCTM_Auto),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &SCurveEditor::IsInterpolationModeSelected, RCIM_Linear, RCTM_Auto));
 
-	Commands->MapAction(FRichCurveEditorCommands::Get().InterpolationCubicAuto,
+	Commands->MapAction(FCurveEditorCommands::Get().InterpolationCubicAuto,
 		FExecuteAction::CreateSP(this, &SCurveEditor::OnSelectInterpolationMode, RCIM_Cubic, RCTM_Auto),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &SCurveEditor::IsInterpolationModeSelected, RCIM_Cubic, RCTM_Auto));
 
-	Commands->MapAction(FRichCurveEditorCommands::Get().InterpolationCubicUser,
+	Commands->MapAction(FCurveEditorCommands::Get().InterpolationCubicUser,
 		FExecuteAction::CreateSP(this, &SCurveEditor::OnSelectInterpolationMode, RCIM_Cubic, RCTM_User),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &SCurveEditor::IsInterpolationModeSelected, RCIM_Cubic, RCTM_User));
 
-	Commands->MapAction(FRichCurveEditorCommands::Get().InterpolationCubicBreak,
+	Commands->MapAction(FCurveEditorCommands::Get().InterpolationCubicBreak,
 		FExecuteAction::CreateSP(this, &SCurveEditor::OnSelectInterpolationMode, RCIM_Cubic, RCTM_Break),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &SCurveEditor::IsInterpolationModeSelected, RCIM_Cubic, RCTM_Break));
 
 	// Tangents
-	Commands->MapAction(FRichCurveEditorCommands::Get().FlattenTangents,
+	Commands->MapAction(FCurveEditorCommands::Get().FlattenTangents,
 		FExecuteAction::CreateSP(this, &SCurveEditor::OnFlattenOrStraightenTangents, true));
 
-	Commands->MapAction(FRichCurveEditorCommands::Get().StraightenTangents,
+	Commands->MapAction(FCurveEditorCommands::Get().StraightenTangents,
 		FExecuteAction::CreateSP(this, &SCurveEditor::OnFlattenOrStraightenTangents, false));
 
 	// Bake and reduce
-	Commands->MapAction(FRichCurveEditorCommands::Get().BakeCurve,
+	Commands->MapAction(FCurveEditorCommands::Get().BakeCurve,
 		FExecuteAction::CreateSP(this, &SCurveEditor::OnBakeCurve));
 
-	Commands->MapAction(FRichCurveEditorCommands::Get().ReduceCurve,
+	Commands->MapAction(FCurveEditorCommands::Get().ReduceCurve,
 		FExecuteAction::CreateSP(this, &SCurveEditor::OnReduceCurve));
 
 	// Pre infinity extrapolation
-	Commands->MapAction(FRichCurveEditorCommands::Get().SetPreInfinityExtrapCycle,
+	Commands->MapAction(FCurveEditorCommands::Get().SetPreInfinityExtrapCycle,
 		FExecuteAction::CreateSP(this, &SCurveEditor::OnSelectPreInfinityExtrap, RCCE_Cycle),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &SCurveEditor::IsPreInfinityExtrapSelected, RCCE_Cycle));
 
-	Commands->MapAction(FRichCurveEditorCommands::Get().SetPreInfinityExtrapCycleWithOffset,
+	Commands->MapAction(FCurveEditorCommands::Get().SetPreInfinityExtrapCycleWithOffset,
 		FExecuteAction::CreateSP(this, &SCurveEditor::OnSelectPreInfinityExtrap, RCCE_CycleWithOffset),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &SCurveEditor::IsPreInfinityExtrapSelected, RCCE_CycleWithOffset));
 
-	Commands->MapAction(FRichCurveEditorCommands::Get().SetPreInfinityExtrapOscillate,
+	Commands->MapAction(FCurveEditorCommands::Get().SetPreInfinityExtrapOscillate,
 		FExecuteAction::CreateSP(this, &SCurveEditor::OnSelectPreInfinityExtrap, RCCE_Oscillate),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &SCurveEditor::IsPreInfinityExtrapSelected, RCCE_Oscillate));
 
-	Commands->MapAction(FRichCurveEditorCommands::Get().SetPreInfinityExtrapLinear,
+	Commands->MapAction(FCurveEditorCommands::Get().SetPreInfinityExtrapLinear,
 		FExecuteAction::CreateSP(this, &SCurveEditor::OnSelectPreInfinityExtrap, RCCE_Linear),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &SCurveEditor::IsPreInfinityExtrapSelected, RCCE_Linear));
 
-	Commands->MapAction(FRichCurveEditorCommands::Get().SetPreInfinityExtrapConstant,
+	Commands->MapAction(FCurveEditorCommands::Get().SetPreInfinityExtrapConstant,
 		FExecuteAction::CreateSP(this, &SCurveEditor::OnSelectPreInfinityExtrap, RCCE_Constant),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &SCurveEditor::IsPreInfinityExtrapSelected, RCCE_Constant));
 
 	// Post infinity extrapolation
-	Commands->MapAction(FRichCurveEditorCommands::Get().SetPostInfinityExtrapCycle,
+	Commands->MapAction(FCurveEditorCommands::Get().SetPostInfinityExtrapCycle,
 		FExecuteAction::CreateSP(this, &SCurveEditor::OnSelectPostInfinityExtrap, RCCE_Cycle),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &SCurveEditor::IsPostInfinityExtrapSelected, RCCE_Cycle));
 
-	Commands->MapAction(FRichCurveEditorCommands::Get().SetPostInfinityExtrapCycleWithOffset,
+	Commands->MapAction(FCurveEditorCommands::Get().SetPostInfinityExtrapCycleWithOffset,
 		FExecuteAction::CreateSP(this, &SCurveEditor::OnSelectPostInfinityExtrap, RCCE_CycleWithOffset),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &SCurveEditor::IsPostInfinityExtrapSelected, RCCE_CycleWithOffset));
 
-	Commands->MapAction(FRichCurveEditorCommands::Get().SetPostInfinityExtrapOscillate,
+	Commands->MapAction(FCurveEditorCommands::Get().SetPostInfinityExtrapOscillate,
 		FExecuteAction::CreateSP(this, &SCurveEditor::OnSelectPostInfinityExtrap, RCCE_Oscillate),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &SCurveEditor::IsPostInfinityExtrapSelected, RCCE_Oscillate));
 
-	Commands->MapAction(FRichCurveEditorCommands::Get().SetPostInfinityExtrapLinear,
+	Commands->MapAction(FCurveEditorCommands::Get().SetPostInfinityExtrapLinear,
 		FExecuteAction::CreateSP(this, &SCurveEditor::OnSelectPostInfinityExtrap, RCCE_Linear),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &SCurveEditor::IsPostInfinityExtrapSelected, RCCE_Linear));
 
-	Commands->MapAction(FRichCurveEditorCommands::Get().SetPostInfinityExtrapConstant,
+	Commands->MapAction(FCurveEditorCommands::Get().SetPostInfinityExtrapConstant,
 		FExecuteAction::CreateSP(this, &SCurveEditor::OnSelectPostInfinityExtrap, RCCE_Constant),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &SCurveEditor::IsPostInfinityExtrapSelected, RCCE_Constant));
 
-	// Curve Visibility
-	Commands->MapAction(FRichCurveEditorCommands::Get().SetAllCurveVisibility,
-		FExecuteAction::CreateLambda( [this]{ Settings->SetCurveVisibility( ECurveEditorCurveVisibility::AllCurves ); } ),
-		FCanExecuteAction::CreateLambda( []{ return true; } ),
-		FIsActionChecked::CreateLambda( [this]{ return Settings->GetCurveVisibility() == ECurveEditorCurveVisibility::AllCurves; } ) );
-
-	Commands->MapAction(FRichCurveEditorCommands::Get().SetSelectedCurveVisibility,
-		FExecuteAction::CreateLambda( [this]{ Settings->SetCurveVisibility( ECurveEditorCurveVisibility::SelectedCurves ); } ),
-		FCanExecuteAction::CreateLambda( []{ return true; } ),
-		FIsActionChecked::CreateLambda( [this]{ return Settings->GetCurveVisibility() == ECurveEditorCurveVisibility::SelectedCurves; } ) );
-
-	Commands->MapAction(FRichCurveEditorCommands::Get().SetAnimatedCurveVisibility,
-		FExecuteAction::CreateLambda( [this]{ Settings->SetCurveVisibility( ECurveEditorCurveVisibility::AnimatedCurves ); } ),
-		FCanExecuteAction::CreateLambda( []{ return true; } ),
-		FIsActionChecked::CreateLambda( [this]{ return Settings->GetCurveVisibility() == ECurveEditorCurveVisibility::AnimatedCurves; } ) );
-
 	// Tangent Visibility
-	Commands->MapAction(FRichCurveEditorCommands::Get().SetAllTangentsVisibility,
+	Commands->MapAction(FCurveEditorCommands::Get().SetAllTangentsVisibility,
 		FExecuteAction::CreateLambda( [this]{ Settings->SetTangentVisibility( ECurveEditorTangentVisibility::AllTangents ); } ),
 		FCanExecuteAction::CreateLambda( []{ return true; } ),
 		FIsActionChecked::CreateLambda( [this]{ return Settings->GetTangentVisibility() == ECurveEditorTangentVisibility::AllTangents; } ) );
 
-	Commands->MapAction(FRichCurveEditorCommands::Get().SetSelectedKeysTangentVisibility,
+	Commands->MapAction(FCurveEditorCommands::Get().SetSelectedKeysTangentVisibility,
 		FExecuteAction::CreateLambda( [this]{ Settings->SetTangentVisibility( ECurveEditorTangentVisibility::SelectedKeys ); } ),
 		FCanExecuteAction::CreateLambda( []{ return true; } ),
 		FIsActionChecked::CreateLambda( [this]{ return Settings->GetTangentVisibility() == ECurveEditorTangentVisibility::SelectedKeys; } ) );
 
-	Commands->MapAction(FRichCurveEditorCommands::Get().SetNoTangentsVisibility,
+	Commands->MapAction(FCurveEditorCommands::Get().SetNoTangentsVisibility,
 		FExecuteAction::CreateLambda( [this]{ Settings->SetTangentVisibility( ECurveEditorTangentVisibility::NoTangents ); } ),
 		FCanExecuteAction::CreateLambda( []{ return true; } ),
 		FIsActionChecked::CreateLambda( [this]{ return Settings->GetTangentVisibility() == ECurveEditorTangentVisibility::NoTangents; } ) );
 
-	Commands->MapAction(FRichCurveEditorCommands::Get().ToggleAutoFrameCurveEditor,
+	Commands->MapAction(FCurveEditorCommands::Get().ToggleAutoFrameCurveEditor,
 		FExecuteAction::CreateLambda( [this]{ Settings->SetAutoFrameCurveEditor( !Settings->GetAutoFrameCurveEditor() ); } ),
 		FCanExecuteAction::CreateLambda( []{ return true; } ),
 		FIsActionChecked::CreateLambda( [this]{ return Settings->GetAutoFrameCurveEditor(); } ) );
 
-	Commands->MapAction(FRichCurveEditorCommands::Get().ToggleShowCurveEditorCurveToolTips,
+	Commands->MapAction(FCurveEditorCommands::Get().ToggleShowCurveEditorCurveToolTips,
 		FExecuteAction::CreateLambda( [this]{ 
 		Settings->SetShowCurveEditorCurveToolTips( !Settings->GetShowCurveEditorCurveToolTips() ); 
 		if (!Settings->GetShowCurveEditorCurveToolTips())
@@ -681,18 +665,18 @@ void SCurveEditor::PushKeyMenu(const FGeometry& InMyGeometry, const FPointerEven
 	FMenuBuilder MenuBuilder(true, Commands.ToSharedRef());
 	MenuBuilder.BeginSection("CurveEditorInterpolation", LOCTEXT("KeyInterpolationMode", "Key Interpolation"));
 	{
-		MenuBuilder.AddMenuEntry(FRichCurveEditorCommands::Get().InterpolationCubicAuto);
-		MenuBuilder.AddMenuEntry(FRichCurveEditorCommands::Get().InterpolationCubicUser);
-		MenuBuilder.AddMenuEntry(FRichCurveEditorCommands::Get().InterpolationCubicBreak);
-		MenuBuilder.AddMenuEntry(FRichCurveEditorCommands::Get().InterpolationLinear);
-		MenuBuilder.AddMenuEntry(FRichCurveEditorCommands::Get().InterpolationConstant);
+		MenuBuilder.AddMenuEntry(FCurveEditorCommands::Get().InterpolationCubicAuto);
+		MenuBuilder.AddMenuEntry(FCurveEditorCommands::Get().InterpolationCubicUser);
+		MenuBuilder.AddMenuEntry(FCurveEditorCommands::Get().InterpolationCubicBreak);
+		MenuBuilder.AddMenuEntry(FCurveEditorCommands::Get().InterpolationLinear);
+		MenuBuilder.AddMenuEntry(FCurveEditorCommands::Get().InterpolationConstant);
 	}
 	MenuBuilder.EndSection(); //CurveEditorInterpolation
 
 	MenuBuilder.BeginSection("CurveEditorTangents", LOCTEXT("Tangents", "Tangents"));
 	{
-		MenuBuilder.AddMenuEntry(FRichCurveEditorCommands::Get().FlattenTangents);
-		MenuBuilder.AddMenuEntry(FRichCurveEditorCommands::Get().StraightenTangents);
+		MenuBuilder.AddMenuEntry(FCurveEditorCommands::Get().FlattenTangents);
+		MenuBuilder.AddMenuEntry(FCurveEditorCommands::Get().StraightenTangents);
 	}
 	MenuBuilder.EndSection(); //CurveEditorTangents
 
@@ -1415,7 +1399,7 @@ void SCurveEditor::AddNewKey(FGeometry InMyGeometry, FVector2D ScreenPosition, T
 				float Input = ScaleInfo.LocalXToInput(LocalClickPos.X);
 				float Output;
 				if (bAddKeysInline)
-				{
+			{
 					Output = SelectedCurve->Eval(Input);
 				}
 				else
@@ -3732,11 +3716,27 @@ void SCurveEditor::EndDragTransaction()
 	if ( TransactionIndex >= 0 )
 	{
 		TArray<FRichCurveEditInfo> ChangedCurveEditInfos;
-		for (auto CurveViewModel : CurveViewModels)
+
+		if (DragState == EDragState::DragKey || DragState == EDragState::FreeDrag)
 		{
-			ChangedCurveEditInfos.Add(CurveViewModel->CurveInfo);
+			for (auto SelectedKey : SelectedKeys)
+			{
+				ChangedCurveEditInfos.Add(GetViewModelForCurve(SelectedKey.Curve)->CurveInfo);
+			}
 		}
-		CurveOwner->OnCurveChanged(ChangedCurveEditInfos);
+		else if (DragState == EDragState::DragTangent)
+		{
+			for (auto SelectedTangent : SelectedTangents)
+			{
+				ChangedCurveEditInfos.Add(GetViewModelForCurve(SelectedTangent.Key.Curve)->CurveInfo);
+			}
+		}
+
+		if (ChangedCurveEditInfos.Num())
+		{
+			CurveOwner->OnCurveChanged(ChangedCurveEditInfos);
+		}
+		
 		GEditor->EndTransaction();
 		TransactionIndex = -1;
 	}

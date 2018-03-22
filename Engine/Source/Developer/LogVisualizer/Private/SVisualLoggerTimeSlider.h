@@ -4,13 +4,14 @@
 
 #include "CoreMinimal.h"
 #include "Input/Reply.h"
+#include "Widgets/SCompoundWidget.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
-#include "ITimeSlider.h"
 
 class FPaintArgs;
 class FSlateWindowElementList;
+class FVisualLoggerTimeSliderController;
 
-class SVisualLoggerTimeSlider : public ITimeSlider
+class SVisualLoggerTimeSlider : public SCompoundWidget
 {
 public:
 
@@ -27,7 +28,7 @@ public:
 	 * 
 	 * @param InArgs   A declaration from which to construct the widget
 	 */
-	void Construct( const FArguments& InArgs, TSharedRef<ITimeSliderController> InTimeSliderController );
+	void Construct( const FArguments& InArgs, TSharedRef<FVisualLoggerTimeSliderController> InTimeSliderController );
 
 protected:
 	// SWidget interface
@@ -38,7 +39,7 @@ protected:
 	virtual FReply OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnMouseWheel( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 private:
-	TSharedPtr<ITimeSliderController> TimeSliderController;
+	TSharedPtr<FVisualLoggerTimeSliderController> TimeSliderController;
 	bool bMirrorLabels;
 };
 

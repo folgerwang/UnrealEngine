@@ -658,7 +658,7 @@ bool FPendingSearchResultSteam::FillSessionFromServerRules()
 	{
 		SessionInfo->HostAddr = HostAddr;
 
-		if (SteamAddrKeysFound == 2)
+		if (SteamAddrKeysFound == 2) //-V547
 		{
 			SessionInfo->SteamP2PAddr = SteamP2PAddr;
 		}

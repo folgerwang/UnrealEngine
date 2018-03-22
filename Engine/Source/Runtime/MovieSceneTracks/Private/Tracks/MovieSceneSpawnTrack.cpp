@@ -54,9 +54,7 @@ void UMovieSceneSpawnTrack::PostLoad()
 
 UMovieSceneSection* UMovieSceneSpawnTrack::CreateNewSection()
 {
-	UMovieSceneSpawnSection* Section = NewObject<UMovieSceneSpawnSection>(this, NAME_None, RF_Transactional);
-	Section->GetCurve().SetDefaultValue(true);
-	return Section;
+	return NewObject<UMovieSceneSpawnSection>(this, NAME_None, RF_Transactional);
 }
 
 
@@ -81,12 +79,6 @@ void UMovieSceneSpawnTrack::RemoveSection(UMovieSceneSection& Section)
 bool UMovieSceneSpawnTrack::IsEmpty() const
 {
 	return Sections.Num() == 0;
-}
-
-
-TRange<float> UMovieSceneSpawnTrack::GetSectionBoundaries() const
-{
-	return TRange<float>::All();
 }
 
 
@@ -128,17 +120,22 @@ ECookOptimizationFlags UMovieSceneSpawnTrack::GetCookOptimizationFlags() const
 	for (UMovieSceneSection* Section : Sections)
 	{
 		UMovieSceneSpawnSection* BoolSection = CastChecked<UMovieSceneSpawnSection>(Section);
+		TMovieSceneChannel<bool> BoolChannel = BoolSection->GetChannel().GetInterface();
+
 		if (!BoolSection->IsActive())
 		{
 			continue;
 		}
-		else if (BoolSection->GetCurve().GetNumKeys() == 0 && BoolSection->GetCurve().GetDefaultValue())
+
+		// If this bool section doesn't have any keys but does have a default value, this shouldn't be cooked out
+		if (BoolChannel.GetTimes().Num() == 0 && BoolSection->GetChannel().GetDefault().Get(false))
 		{
 			return ECookOptimizationFlags::None;
 		}
-		else for (auto It = BoolSection->GetCurve().GetKeyIterator(); It; ++It)
+		// If there are any keys that will cause this object to be spawned, we can't cook the object out
+		else for (bool Key : BoolChannel.GetValues())
 		{
-			if (It->Value)
+			if (Key != false)
 			{
 				return ECookOptimizationFlags::None;
 			}

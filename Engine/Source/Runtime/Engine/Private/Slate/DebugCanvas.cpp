@@ -218,7 +218,14 @@ void FDebugCanvasDrawer::DrawRenderThread(FRHICommandListImmediate& RHICmdList, 
 				UE_LOG(LogProfilingDebugging, Log, TEXT("Allocated a %d x %d texture for HMD canvas layer"), RenderThreadCanvas->GetParentCanvasSize().X, RenderThreadCanvas->GetParentCanvasSize().Y);
 			}
 
-			FTexture2DRHIRef& LayerTextureRT = *reinterpret_cast<FTexture2DRHIRef*>(&LayerTexture->GetRenderTargetItem().ShaderResourceTexture);
+			IStereoLayers* const StereoLayers = (GEngine && GEngine->IsStereoscopic3D() && GEngine->StereoRenderingDevice.IsValid()) ? GEngine->StereoRenderingDevice->GetStereoLayers() : nullptr;
+
+			FTextureRHIRef HMDSwapchain = nullptr, HMDNull = nullptr;
+			if (StereoLayers)
+			{
+				StereoLayers->GetAllocatedTexture(LayerID, HMDSwapchain, HMDNull);
+			}
+			FTexture2DRHIRef& LayerTextureRT = *reinterpret_cast<FTexture2DRHIRef*>(HMDSwapchain == nullptr ? &LayerTexture->GetRenderTargetItem().ShaderResourceTexture : &HMDSwapchain);
 			RenderTarget->SetRenderTargetTexture(LayerTextureRT);
 		}
 		else

@@ -17,4 +17,6 @@ public:
 
 	virtual void OnKeyPropertyClicked(const IPropertyHandle& KeyedPropertyHandle) = 0;
 
+	virtual bool IsPropertyAnimated(const class IPropertyHandle& PropertyHandle, UObject *ParentObject) const = 0;
+
 };

@@ -5,7 +5,8 @@
 #include "DetailGroup.h"
 #include "DetailPropertyRow.h"
 #include "SDetailSingleItemRow.h"
-
+#include "IDetailKeyframeHandler.h"
+#include "ObjectPropertyNode.h"
 
 
 FDetailItemNode::FDetailItemNode(const FDetailLayoutCustomization& InCustomization, TSharedRef<FDetailCategoryImpl> InParentCategory, TAttribute<bool> InIsParentEnabled, TSharedPtr<IDetailGroup> InParentGroup)
@@ -392,7 +393,7 @@ ENodeVisibility FDetailItemNode::GetVisibility() const
 	return Visibility;
 }
 
-static bool PassesAllFilters( const FDetailLayoutCustomization& InCustomization, const FDetailFilter& InFilter, const FString& InCategoryName )
+static bool PassesAllFilters( FDetailItemNode* ItemNode, const FDetailLayoutCustomization& InCustomization, const FDetailFilter& InFilter, const FString& InCategoryName )
 {	
 	struct Local
 	{
@@ -413,22 +414,60 @@ static bool PassesAllFilters( const FDetailLayoutCustomization& InCustomization,
 			}
 			return false;
 		}
+		static bool ItemIsKeyable( FDetailItemNode *InItemNode, UClass *ObjectClass, TSharedPtr<FPropertyNode> PropertyNode)
+		{
+			IDetailsViewPrivate* DetailsView = InItemNode->GetDetailsView();
+			TSharedPtr<IDetailKeyframeHandler> KeyframeHandler = DetailsView->GetKeyframeHandler();
+			if (KeyframeHandler.IsValid())
+			{
+				TSharedPtr<IPropertyHandle> PropertyHandle = PropertyEditorHelpers::GetPropertyHandle(PropertyNode.ToSharedRef(), nullptr, nullptr);
+
+				return
+					KeyframeHandler->IsPropertyKeyingEnabled() &&
+					KeyframeHandler->IsPropertyKeyable(ObjectClass, *PropertyHandle);
+			}
+			return false;
+		}
+
+		static bool ItemIsAnimated(FDetailItemNode *InItemNode, TSharedPtr<FPropertyNode> PropertyNode)
+		{
+			IDetailsViewPrivate* DetailsView = InItemNode->GetDetailsView();
+			TSharedPtr<IDetailKeyframeHandler> KeyframeHandler = DetailsView->GetKeyframeHandler();
+			if (KeyframeHandler.IsValid())
+			{
+				TSharedPtr<IPropertyHandle> PropertyHandle = PropertyEditorHelpers::GetPropertyHandle(PropertyNode.ToSharedRef(), nullptr, nullptr);
+				FObjectPropertyNode *ParentPropertyNode = PropertyNode->FindObjectItemParent();
+				// Get an iterator for the enclosing objects.
+				for (int32 ObjIndex = 0; ObjIndex < ParentPropertyNode->GetNumObjects(); ++ObjIndex)
+				{
+					UObject* ParentObject = ParentPropertyNode->GetUObject(ObjIndex);
+
+					if (KeyframeHandler->IsPropertyAnimated(*PropertyHandle, ParentObject))
+					{
+						return true;
+					}
+				}
+			}
+			return false;
+		}
 	};
 
 	bool bPassesAllFilters = true;
 
-	if( InFilter.FilterStrings.Num() > 0 || InFilter.bShowOnlyModifiedProperties == true || InFilter.bShowOnlyDiffering == true )
+	if( InFilter.FilterStrings.Num() > 0 || InFilter.bShowOnlyModifiedProperties == true || InFilter.bShowOnlyDiffering == true 
+		|| InFilter.bShowKeyable == true || InFilter.bShowAnimated == true)
 	{
 		const bool bSearchFilterIsEmpty = InFilter.FilterStrings.Num() == 0;
 
 		TSharedPtr<FPropertyNode> PropertyNodePin = InCustomization.GetPropertyNode();
-
+		
 		const bool bPassesCategoryFilter = !bSearchFilterIsEmpty && InFilter.bShowAllChildrenIfCategoryMatches ? Local::StringPassesFilter(InFilter, InCategoryName) : false;
 
 		bPassesAllFilters = false;
 		if( PropertyNodePin.IsValid() && !PropertyNodePin->AsCategoryNode() )
 		{
-			
+			UClass* ObjectClass = PropertyNodePin->FindObjectItemParent()->GetObjectBaseClass();
+
 			const bool bIsNotBeingFiltered = PropertyNodePin->HasNodeFlags(EPropertyNodeFlags::IsBeingFiltered) == 0;
 			const bool bIsSeenDueToFiltering = PropertyNodePin->HasNodeFlags(EPropertyNodeFlags::IsSeenDueToFiltering) != 0;
 			const bool bIsParentSeenDueToFiltering = PropertyNodePin->HasNodeFlags(EPropertyNodeFlags::IsParentSeenDueToFiltering) != 0;
@@ -436,16 +475,20 @@ static bool PassesAllFilters( const FDetailLayoutCustomization& InCustomization,
 			const bool bPassesSearchFilter = bSearchFilterIsEmpty || ( bIsNotBeingFiltered || bIsSeenDueToFiltering || bIsParentSeenDueToFiltering );
 			const bool bPassesModifiedFilter = bPassesSearchFilter && ( InFilter.bShowOnlyModifiedProperties == false || PropertyNodePin->GetDiffersFromDefault() == true );
 			const bool bPassesDifferingFilter = InFilter.bShowOnlyDiffering ? InFilter.WhitelistedProperties.Find(*FPropertyNode::CreatePropertyPath(PropertyNodePin.ToSharedRef())) != nullptr : true;
+			const bool bPassesKeyableFilter = (InFilter.bShowKeyable == false || Local::ItemIsKeyable(ItemNode, ObjectClass, PropertyNodePin));
+			const bool bPassesAnimatedFilter = (InFilter.bShowAnimated == false || Local::ItemIsAnimated(ItemNode, PropertyNodePin));
 
 			// The property node is visible (note categories are never visible unless they have a child that is visible )
-			bPassesAllFilters = (bPassesSearchFilter && bPassesModifiedFilter && bPassesDifferingFilter) || bPassesCategoryFilter;
+			bPassesAllFilters = (bPassesSearchFilter && bPassesModifiedFilter && bPassesDifferingFilter && bPassesKeyableFilter && bPassesAnimatedFilter) || bPassesCategoryFilter;
 		}
 		else if (InCustomization.HasCustomWidget())
 		{
 			const bool bPassesTextFilter = Local::StringPassesFilter(InFilter, InCustomization.WidgetDecl->FilterTextString.ToString());
 			const bool bPassesModifiedFilter = (InFilter.bShowOnlyModifiedProperties == false || InCustomization.WidgetDecl->DiffersFromDefaultAttr.Get() == true);
-
-			bPassesAllFilters = (bPassesTextFilter && bPassesModifiedFilter) || bPassesCategoryFilter;
+			//@todo we need to support custom widgets for keyable,animated, in particularly for transforms(ComponentTransformDetails).
+			const bool bPassesKeyableFilter = (InFilter.bShowKeyable == false);
+			const bool bPassesAnimatedFilter = (InFilter.bShowAnimated == false);
+			bPassesAllFilters = (bPassesTextFilter && bPassesModifiedFilter && bPassesKeyableFilter && bPassesAnimatedFilter) || bPassesCategoryFilter;
 		}
 	}
 
@@ -539,7 +582,7 @@ TSharedPtr<IDetailPropertyRow> FDetailItemNode::GetRow() const
 
 void FDetailItemNode::FilterNode(const FDetailFilter& InFilter)
 {
-	bShouldBeVisibleDueToFiltering = PassesAllFilters( Customization, InFilter, ParentCategory.Pin()->GetDisplayName().ToString() );
+	bShouldBeVisibleDueToFiltering = PassesAllFilters( this, Customization, InFilter, ParentCategory.Pin()->GetDisplayName().ToString() );
 
 	bShouldBeVisibleDueToChildFiltering = false;
 

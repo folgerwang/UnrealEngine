@@ -105,7 +105,7 @@ public class PhysXVehicleLib : ModuleRules
 
             PublicAdditionalLibraries.Add(String.Format("PhysX3Vehicle{0}", LibrarySuffix));
         }
-        else if (Target.Platform == UnrealTargetPlatform.Linux)
+        else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
         {
             PublicLibraryPaths.Add(PhysXLibDir + "Linux/" + Target.Architecture);
 

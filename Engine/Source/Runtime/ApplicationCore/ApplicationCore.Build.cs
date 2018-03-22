@@ -43,7 +43,7 @@ public class ApplicationCore : ModuleRules
 				PublicAdditionalLibraries.Add("/System/Library/PrivateFrameworks/MultitouchSupport.framework/Versions/Current/MultitouchSupport");
 			}
 		}
-		else if ((Target.Platform == UnrealTargetPlatform.Linux))
+		else if (Target.Platform == UnrealTargetPlatform.Linux)
 		{
 			AddEngineThirdPartyPrivateStaticDependencies(Target, 
 				"SDL2"

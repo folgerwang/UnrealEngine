@@ -12,7 +12,7 @@ public class SSL : ModuleRules
 			Target.Platform == UnrealTargetPlatform.Mac ||
 			Target.Platform == UnrealTargetPlatform.Win32 ||
 			Target.Platform == UnrealTargetPlatform.Win64 ||
-			Target.Platform == UnrealTargetPlatform.Linux ||
+			Target.IsInPlatformGroup(UnrealPlatformGroup.Unix) ||
             Target.Platform == UnrealTargetPlatform.IOS ||
             Target.Platform == UnrealTargetPlatform.Android ||
             Target.Platform == UnrealTargetPlatform.PS4;

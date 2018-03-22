@@ -16,7 +16,7 @@
  * A property track editor for transforms.
  */
 class FTransformPropertyTrackEditor
-	: public FPropertyTrackEditor<UMovieSceneTransformTrack, UMovieScene3DTransformSection, FTransformKey>
+	: public FPropertyTrackEditor<UMovieSceneTransformTrack>
 {
 public:
 
@@ -26,7 +26,7 @@ public:
 	 * @param InSequencer The sequencer instance to be used by this tool.
 	 */
 	FTransformPropertyTrackEditor(TSharedRef<ISequencer> InSequencer)
-		: FPropertyTrackEditor<UMovieSceneTransformTrack, UMovieScene3DTransformSection, FTransformKey>(InSequencer, GetAnimatedPropertyTypes())
+		: FPropertyTrackEditor(InSequencer, GetAnimatedPropertyTypes())
 	{ }
 
 	/**
@@ -55,5 +55,5 @@ protected:
 
 	//~ FPropertyTrackEditor interface
 
-	virtual void GenerateKeysFromPropertyChanged(const FPropertyChangedParams& PropertyChangedParams, TArray<FTransformKey>& NewGeneratedKeys, TArray<FTransformKey>& DefaultGeneratedKeys) override;
+	virtual void GenerateKeysFromPropertyChanged(const FPropertyChangedParams& PropertyChangedParams, FGeneratedTrackKeys& OutGeneratedKeys) override;
 };

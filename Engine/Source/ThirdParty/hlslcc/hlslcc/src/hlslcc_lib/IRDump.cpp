@@ -326,6 +326,36 @@ void DebugPrintVisitor::visit(ir_texture* ir)
 			irdump_printf(")");
 			break;
 
+		case ir_txg:
+			irdump_printf(".GatherCmp(");
+			if (ir->SamplerState)
+			{
+				ir->SamplerState->accept(this);
+				irdump_printf(",");
+			}
+			ir->coordinate->accept(this);
+			if (ir->shadow_comparitor)
+			{
+				irdump_printf(",");
+				ir->shadow_comparitor->accept(this);
+			}
+			if (ir->offset)
+			{
+				irdump_printf(",");
+				ir->offset->accept(this);
+			}
+			switch (ir->channel)
+			{
+			case ir_channel_none : irdump_printf(", none"); break;
+			case ir_channel_red: irdump_printf(", red"); break;
+			case ir_channel_green: irdump_printf(", green"); break;
+			case ir_channel_blue: irdump_printf(", blue"); break;
+			case ir_channel_alpha: irdump_printf(", alpha"); break;
+			case ir_channel_unknown: irdump_printf(", unknown"); break;
+				break;
+			}
+			break;
+
 		default:
 			check(0);
 	}

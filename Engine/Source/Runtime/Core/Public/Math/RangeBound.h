@@ -100,6 +100,22 @@ public:
 		return Value;
 	}
 
+
+	/**
+	 * Sets the bound's value, maintining the inclusivity of the bound
+	 *
+	 * Use IsClosed() to verify that this bound is closed before calling this method.
+	 *
+	 * @param NewValue New bound value.
+	 * @see IsClosed
+	 */
+	FORCEINLINE_DEBUGGABLE void SetValue(ElementValueOrConstRef NewValue)
+	{
+		check(Type != ERangeBoundTypes::Open);
+
+		Value = NewValue;
+	}
+
 	/**
 	 * Checks whether the bound is closed.
 	 *

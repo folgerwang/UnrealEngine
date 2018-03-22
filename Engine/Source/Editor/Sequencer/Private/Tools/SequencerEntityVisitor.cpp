@@ -3,16 +3,18 @@
 #include "Tools/SequencerEntityVisitor.h"
 #include "IKeyArea.h"
 #include "DisplayNodes/SequencerTrackNode.h"
-#include "GroupedKeyArea.h"
 #include "MovieSceneTrack.h"
+#include "MovieSceneTimeHelpers.h"
 
-FSequencerEntityRange::FSequencerEntityRange(const TRange<float>& InRange)
-	: StartTime(InRange.GetLowerBoundValue()), EndTime(InRange.GetUpperBoundValue())
+FSequencerEntityRange::FSequencerEntityRange(const TRange<double>& InRange, FFrameRate InFrameResolution)
+	: FrameResolution(InFrameResolution)
+	, Range(InRange)
 {
 }
 
-FSequencerEntityRange::FSequencerEntityRange(FVector2D TopLeft, FVector2D BottomRight)
-	: StartTime(TopLeft.X), EndTime(BottomRight.X)
+FSequencerEntityRange::FSequencerEntityRange(FVector2D TopLeft, FVector2D BottomRight, FFrameRate InFrameResolution)
+	: FrameResolution(InFrameResolution)
+	, Range(TopLeft.X, BottomRight.X)
 	, VerticalTop(TopLeft.Y), VerticalBottom(BottomRight.Y)
 {
 }
@@ -20,7 +22,7 @@ FSequencerEntityRange::FSequencerEntityRange(FVector2D TopLeft, FVector2D Bottom
 bool FSequencerEntityRange::IntersectSection(const UMovieSceneSection* InSection, const TSharedRef<FSequencerTrackNode>& InTrackNode, int32 MaxRowIndex) const
 {
 	// Test horizontal bounds
-	if (!InSection->IsInfinite() && (InSection->GetStartTime() > EndTime || InSection->GetEndTime() < StartTime))
+	if (!(InSection->GetRange() / FrameResolution).Overlaps(Range))
 	{
 		return false;
 	}
@@ -195,18 +197,11 @@ void FSequencerEntityWalker::HandleSingleNode(const ISequencerEntityVisitor& Vis
 
 	if (bIterateKeyGroupings)
 	{
-		for (TSharedRef<ISequencerSection> SectionInterface : InSections)
+		if (InNode->GetChildNodes().Num() != 0 && Range.IntersectKeyArea(InNode, VirtualKeySize.X))
 		{
-			UMovieSceneSection* Section = SectionInterface->GetSectionObject();
-
-			if (Visitor.CheckEntityMask(ESequencerEntity::Key))
+			for (TSharedRef<FSequencerDisplayNode> ChildNode : InNode->GetChildNodes())
 			{
-				// Only handle grouped keys if we actually have children
-				if (InNode->GetChildNodes().Num() != 0 && Range.IntersectKeyArea(InNode, VirtualKeySize.X))
-				{
-					TSharedRef<IKeyArea> KeyArea = InNode->GetKeyGrouping(Section);
-					HandleKeyArea(Visitor, KeyArea, Section, InNode);
-				}
+				HandleSingleNode(Visitor, ChildNode, InSections);
 			}
 		}
 	}
@@ -233,13 +228,18 @@ void FSequencerEntityWalker::HandleKeyAreaNode(const ISequencerEntityVisitor& Vi
 
 void FSequencerEntityWalker::HandleKeyArea(const ISequencerEntityVisitor& Visitor, const TSharedRef<IKeyArea>& KeyArea, UMovieSceneSection* Section, const TSharedRef<FSequencerDisplayNode>& InNode)
 {
-	for (FKeyHandle KeyHandle : KeyArea->GetUnsortedKeyHandles())
+	TArray<FKeyHandle> Handles;
+	TArray<FFrameNumber> Times;
+
+	const FFrameTime HalfKeySizeFrames   = (VirtualKeySize.X*.5f) * Range.FrameResolution;
+	const FFrameTime RangeStartFrame     = Range.Range.GetLowerBoundValue() * Range.FrameResolution - FFrameTime(0, 0.5f);
+	const FFrameTime RangeEndFrame       = Range.Range.GetUpperBoundValue() * Range.FrameResolution - FFrameTime(0, 0.5f);
+
+	TRange<FFrameNumber> VisitRangeFrames( (RangeStartFrame-HalfKeySizeFrames).CeilToFrame(), (RangeEndFrame+HalfKeySizeFrames).FloorToFrame() );
+	KeyArea->GetKeyInfo(&Handles, &Times, VisitRangeFrames);
+
+	for (int32 Index = 0; Index < Times.Num(); ++Index)
 	{
-		float KeyPosition = KeyArea->GetKeyTime(KeyHandle);
-		if (KeyPosition + VirtualKeySize.X/2 > Range.StartTime &&
-			KeyPosition - VirtualKeySize.X/2 < Range.EndTime)
-		{
-			Visitor.VisitKey(KeyHandle, KeyPosition, KeyArea, Section, InNode);
-		}
+		Visitor.VisitKey(Handles[Index], Times[Index], KeyArea, Section, InNode);
 	}
 }

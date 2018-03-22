@@ -19,6 +19,7 @@
 #include "PipelineStateCache.h"
 #include "ClearQuad.h"
 #include "Engine/Texture2D.h"
+#include "RHI.h"
 
 #if WITH_EDITOR
 #include "AssetRegistryModule.h"
@@ -110,8 +111,8 @@ void UKismetRenderingLibrary::DrawMaterialToRenderTarget(UObject* WorldContextOb
 		UCanvas* Canvas = World->GetCanvasForDrawMaterialToRenderTarget();
 
 		FCanvas RenderCanvas(
-			TextureRenderTarget->GameThread_GetRenderTargetResource(),
-			nullptr,
+			TextureRenderTarget->GameThread_GetRenderTargetResource(), 
+			nullptr, 
 			World,
 			World->FeatureLevel);
 
@@ -184,7 +185,16 @@ void UKismetRenderingLibrary::ExportRenderTarget(UObject* WorldContextObject, UT
 			bool bSuccess = false;
 			if (TextureRenderTarget->RenderTargetFormat == RTF_RGBA16f)
 			{
-				bSuccess = FImageUtils::ExportRenderTarget2DAsHDR(TextureRenderTarget, Buffer);
+				// Note == is case insensitive
+				if (FPaths::GetExtension(TotalFileName) == TEXT("HDR"))
+				{
+					bSuccess = FImageUtils::ExportRenderTarget2DAsHDR(TextureRenderTarget, Buffer);
+				}
+				else
+				{
+					bSuccess = FImageUtils::ExportRenderTarget2DAsEXR(TextureRenderTarget, Buffer);
+				}
+				
 			}
 			else
 			{
@@ -204,6 +214,137 @@ void UKismetRenderingLibrary::ExportRenderTarget(UObject* WorldContextObject, UT
 		}
 	}
 }
+
+EPixelFormat ReadRenderTargetHelper(
+	TArray<FColor>& OutLDRValues,
+	TArray<FLinearColor>& OutHDRValues,
+	UObject* WorldContextObject,
+	UTextureRenderTarget2D* TextureRenderTarget,
+	int32 X,
+	int32 Y,
+	int32 Width,
+	int32 Height)
+{
+	EPixelFormat OutFormat = PF_Unknown;
+
+	if (!TextureRenderTarget)
+	{
+		return OutFormat;
+	}
+
+	FTextureRenderTarget2DResource* RTResource = (FTextureRenderTarget2DResource*)TextureRenderTarget->GameThread_GetRenderTargetResource();
+	if (!RTResource)
+	{
+		return OutFormat;
+	}
+
+	X = FMath::Clamp(X, 0, TextureRenderTarget->SizeX - 1);
+	Y = FMath::Clamp(Y, 0, TextureRenderTarget->SizeY - 1);
+	Width = FMath::Clamp(Width, 1, TextureRenderTarget->SizeX);
+	Height = FMath::Clamp(Height, 1, TextureRenderTarget->SizeY);
+	Width = Width - FMath::Max(X + Width - TextureRenderTarget->SizeX, 0);
+	Height = Height - FMath::Max(Y + Height - TextureRenderTarget->SizeY, 0);
+
+	FIntRect SampleRect(X, Y, X + Width, Y + Height);
+	FReadSurfaceDataFlags ReadSurfaceDataFlags;
+
+	FRenderTarget* RenderTarget = TextureRenderTarget->GameThread_GetRenderTargetResource();
+	OutFormat = TextureRenderTarget->GetFormat();
+
+	const int32 NumPixelsToRead = Width * Height;
+
+	switch (OutFormat)
+	{
+	case PF_B8G8R8A8:
+		OutLDRValues.SetNumUninitialized(NumPixelsToRead);
+		if (!RenderTarget->ReadPixelsPtr(OutLDRValues.GetData(), ReadSurfaceDataFlags, SampleRect))
+		{
+			OutFormat = PF_Unknown;
+		}
+		break;
+	case PF_FloatRGBA:
+		OutHDRValues.SetNumUninitialized(NumPixelsToRead);
+		if (!RenderTarget->ReadLinearColorPixelsPtr(OutHDRValues.GetData(), ReadSurfaceDataFlags, SampleRect))
+		{
+			OutFormat = PF_Unknown;
+		}
+		break;
+	default:
+		OutFormat = PF_Unknown;
+		break;
+	}
+
+	return OutFormat;
+}
+
+FColor UKismetRenderingLibrary::ReadRenderTargetUV(UObject* WorldContextObject, UTextureRenderTarget2D* TextureRenderTarget, float U, float V)
+{
+	if (!TextureRenderTarget)
+	{
+		return FColor::Red;
+	}
+
+	U = FMath::Clamp(U, 0.0f, 1.0f);
+	V = FMath::Clamp(V, 0.0f, 1.0f);
+	int32 XPos = U * (float)TextureRenderTarget->SizeX;
+	int32 YPos = V * (float)TextureRenderTarget->SizeY;
+
+	return ReadRenderTargetPixel(WorldContextObject, TextureRenderTarget, XPos, YPos);
+}
+
+FColor UKismetRenderingLibrary::ReadRenderTargetPixel(UObject* WorldContextObject, UTextureRenderTarget2D* TextureRenderTarget, int32 X, int32 Y)
+{	
+	TArray<FColor> Samples;
+	TArray<FLinearColor> LinearSamples;
+
+	switch (ReadRenderTargetHelper(Samples, LinearSamples, WorldContextObject, TextureRenderTarget, X, Y, 1, 1))
+	{
+	case PF_B8G8R8A8:
+		check(Samples.Num() == 1 && LinearSamples.Num() == 0);
+		return Samples[0];
+	case PF_FloatRGBA:
+		check(Samples.Num() == 0 && LinearSamples.Num() == 1);
+		return LinearSamples[0].ToFColor(true);
+	case PF_Unknown:
+	default:
+		return FColor::Red;
+	}
+}
+
+FLinearColor UKismetRenderingLibrary::ReadRenderTargetRawPixel(UObject * WorldContextObject, UTextureRenderTarget2D * TextureRenderTarget, int32 X, int32 Y)
+{
+	TArray<FColor> Samples;
+	TArray<FLinearColor> LinearSamples;
+
+	switch (ReadRenderTargetHelper(Samples, LinearSamples, WorldContextObject, TextureRenderTarget, X, Y, 1, 1))
+	{
+	case PF_B8G8R8A8:
+		check(Samples.Num() == 1 && LinearSamples.Num() == 0);
+		return FLinearColor(float(Samples[0].R), float(Samples[0].G), float(Samples[0].B), float(Samples[0].A));
+	case PF_FloatRGBA:
+		check(Samples.Num() == 0 && LinearSamples.Num() == 1);
+		return LinearSamples[0];
+	case PF_Unknown:
+	default:
+		return FLinearColor::Red;
+	}
+}
+
+FLinearColor UKismetRenderingLibrary::ReadRenderTargetRawUV(UObject * WorldContextObject, UTextureRenderTarget2D * TextureRenderTarget, float U, float V)
+{
+	if (!TextureRenderTarget)
+	{
+		return FLinearColor::Red;
+	}
+
+	U = FMath::Clamp(U, 0.0f, 1.0f);
+	V = FMath::Clamp(V, 0.0f, 1.0f);
+	int32 XPos = U * (float)TextureRenderTarget->SizeX;
+	int32 YPos = V * (float)TextureRenderTarget->SizeY;
+
+	return ReadRenderTargetRawPixel(WorldContextObject, TextureRenderTarget, XPos, YPos);
+}
+
 /*
 
 void UKismetRenderingLibrary::CreateTexture2DFromRenderTarget(UObject* WorldContextObject, UTextureRenderTarget2D* RenderTarget, const FString &TextureAssetName)
@@ -368,6 +509,11 @@ void UKismetRenderingLibrary::ExportTexture2D(UObject* WorldContextObject, UText
 	}
 }
 
+UTexture2D* UKismetRenderingLibrary::ImportFileAsTexture2D(UObject* WorldContextObject, const FString& Filename)
+{
+	return FImageUtils::ImportFileAsTexture2D(Filename);
+}
+
 void UKismetRenderingLibrary::BeginDrawCanvasToRenderTarget(UObject* WorldContextObject, UTextureRenderTarget2D* TextureRenderTarget, UCanvas*& Canvas, FVector2D& Size, FDrawToRenderTargetContext& Context)
 {
 	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull);
@@ -397,10 +543,10 @@ void UKismetRenderingLibrary::BeginDrawCanvasToRenderTarget(UObject* WorldContex
 		Size = FVector2D(TextureRenderTarget->SizeX, TextureRenderTarget->SizeY);
 
 		FCanvas* NewCanvas = new FCanvas(
-			TextureRenderTarget->GameThread_GetRenderTargetResource(),
-			nullptr,
+			TextureRenderTarget->GameThread_GetRenderTargetResource(), 
+			nullptr, 
 			World,
-			World->FeatureLevel,
+			World->FeatureLevel, 
 			// Draw immediately so that interleaved SetVectorParameter (etc) function calls work as expected
 			FCanvas::CDM_ImmediateDrawing);
 		Canvas->Init(TextureRenderTarget->SizeX, TextureRenderTarget->SizeY, nullptr, NewCanvas);

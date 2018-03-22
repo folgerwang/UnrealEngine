@@ -53,9 +53,12 @@ public:
 	virtual bool SupportsSequence(UMovieSceneSequence* InSequence) const override;
 	virtual bool SupportsType(TSubclassOf<UMovieSceneTrack> Type) const override;
 	virtual const FSlateBrush* GetIconBrush() const override;
-	virtual bool OnAllowDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track) override;
-	virtual FReply OnDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track) override;
+	virtual bool OnAllowDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track, int32 RowIndex, const FGuid& TargetObjectGuid) override;
+	virtual FReply OnDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track, int32 RowIndex, const FGuid& TargetObjectGuid) override;
 	
+	/** Switch the sub section's take */
+	void SwitchTake(UMovieSceneSubSection* Section, uint32 TakeNumber);
+
 protected:
 
 	/**
@@ -81,10 +84,10 @@ private:
 	void HandleAddSubSequenceComboButtonMenuEntryExecute(const FAssetData& AssetData, UMovieSceneTrack* InTrack);
 
 	/** Delegate for AnimatablePropertyChanged in AddKey */
-	FKeyPropertyResult AddKeyInternal(float KeyTime, UMovieSceneSequence* InMovieSceneSequence, UMovieSceneTrack* InTrack);
+	FKeyPropertyResult AddKeyInternal(FFrameNumber KeyTime, UMovieSceneSequence* InMovieSceneSequence, UMovieSceneTrack* InTrack, int32 RowIndex);
 
 	/** Callback for AnimatablePropertyChanged in HandleAssetAdded. */
-	FKeyPropertyResult HandleSequenceAdded(float KeyTime, UMovieSceneSequence* Sequence);
+	FKeyPropertyResult HandleSequenceAdded(FFrameNumber KeyTime, UMovieSceneSequence* Sequence, int32 RowIndex);
 
 	/** Check if we can record a new sequence (deny it if one is already primed) */
 	bool CanRecordNewSequence() const;
@@ -93,5 +96,5 @@ private:
 	void HandleRecordNewSequence(AActor* InActorToRecord, UMovieSceneTrack* InTrack);
 
 	/** Actually handles the adding of the section */
-	FKeyPropertyResult HandleRecordNewSequenceInternal(float KeyTime, AActor* InActorToRecord, UMovieSceneTrack* InTrack);
+	FKeyPropertyResult HandleRecordNewSequenceInternal(FFrameNumber KeyTime, AActor* InActorToRecord, UMovieSceneTrack* InTrack);
 };

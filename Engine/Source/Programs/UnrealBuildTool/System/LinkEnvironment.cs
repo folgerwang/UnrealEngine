@@ -84,6 +84,11 @@ namespace UnrealBuildTool
 		public List<string> AdditionalLibraries = new List<string>();
 
 		/// <summary>
+		/// A list of runtime dependencies for the resulting binary.
+		/// </summary>
+		public List<FileReference> RuntimeDependencies = new List<FileReference>();
+
+		/// <summary>
 		/// A list of additional frameworks to link in.
 		/// </summary>
 		public List<UEBuildFramework> AdditionalFrameworks = new List<UEBuildFramework>();

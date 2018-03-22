@@ -82,14 +82,6 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording", meta = (ClampMin="0.0", UIMin = "0.0", ClampMax="9.0", UIMax = "9.0"))
 	float RecordingDelay;
 
-	/** The base name of the sequence to record to. This name will also be used to auto-generate any assets created by this recording. */
-	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording")
-	FString SequenceName;
-
-	/** Base path for this recording. Sub-assets will be created in subdirectories as specified */
-	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording", meta=(ContentDir))
-	FDirectoryPath SequenceRecordingBasePath;
-
 	/** The name of the subdirectory animations will be placed in. Leave this empty to place into the same directory as the sequence base path */
 	UPROPERTY(Config, EditAnywhere, AdvancedDisplay, Category = "Sequence Recording")
 	FString AnimationSubDirectory;
@@ -110,7 +102,7 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording")
 	bool bSplitAudioChannelsIntoSeparateTracks;
 
-	/** Whether to record nearby spawned actors. */
+	/** Whether to record nearby spawned actors. If an actor matches a class in the ActorFilter, this state will by bypassed. */
 	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording")
 	bool bRecordNearbySpawnedActors;
 
@@ -134,7 +126,7 @@ public:
 	UPROPERTY(Transient, EditAnywhere, Category = "Sequence Recording")
 	TArray<TLazyObjectPtr<class ALevelSequenceActor>> LevelSequenceActorsToTrigger;
 
-	/** Default settings applied to animation recording */
+	/** Default animation settings which are used to initialize all new actor recording's animation settings */
 	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording")
 	FAnimationRecordingSettings DefaultAnimationSettings;
 

@@ -6,6 +6,7 @@
 #include "UObject/ObjectMacros.h"
 #include "Templates/SubclassOf.h"
 #include "Engine/EngineTypes.h"
+#include "FrameRate.h"
 #include "MovieSceneCaptureSettings.generated.h"
 
 
@@ -49,6 +50,7 @@ struct MOVIESCENECAPTURE_API FMovieSceneCaptureSettings
 	 * {quality}	- The image compression quality setting
 	 * {material}   - The material/render pass
 	 * {shot}       - The name of the level sequence asset shot being played
+	 * {camera}     - The name of the current camera
 	 */
 	UPROPERTY(config, EditAnywhere, Category=General, DisplayName="Filename Format")
 	FString OutputFormat;
@@ -71,7 +73,7 @@ struct MOVIESCENECAPTURE_API FMovieSceneCaptureSettings
 
 	/** The frame rate at which to capture */
 	UPROPERTY(config, EditAnywhere, Category=CaptureSettings, meta=(ClampMin=1, UIMin=1, ClampMax=200, UIMax=200))
-	int32 FrameRate;
+	FFrameRate FrameRate;
 
 	/** The resolution at which to capture */
 	UPROPERTY(config, EditAnywhere, Category=CaptureSettings, meta=(ShowOnlyInnerProperties))

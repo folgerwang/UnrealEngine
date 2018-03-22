@@ -18,8 +18,10 @@
 #include "Android/AndroidMath.h"
 #elif PLATFORM_HTML5
 #include "HTML5/HTML5PlatformMath.h"
-#elif PLATFORM_LINUX
-#include "Linux/LinuxPlatformMath.h"
+#elif PLATFORM_UNIX
+#include "Unix/UnixPlatformMath.h"
 #elif PLATFORM_SWITCH
 #include "Switch/SwitchPlatformMath.h"
+#else
+#error Unknown platform
 #endif

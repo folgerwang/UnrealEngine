@@ -25,6 +25,29 @@
 #define MEDIAPLAYERFACADE_TRACE_SINKOVERFLOWS 0
 
 
+/** Time spent in media player facade closing media. */
+DECLARE_CYCLE_STAT(TEXT("MediaUtils MediaPlayerFacade Close"), STAT_MediaUtils_FacadeClose, STATGROUP_Media);
+
+/** Time spent in media player facade opening media. */
+DECLARE_CYCLE_STAT(TEXT("MediaUtils MediaPlayerFacade Open"), STAT_MediaUtils_FacadeOpen, STATGROUP_Media);
+
+/** Time spent in media player facade event processing. */
+DECLARE_CYCLE_STAT(TEXT("MediaUtils MediaPlayerFacade ProcessEvent"), STAT_MediaUtils_FacadeProcessEvent, STATGROUP_Media);
+
+/** Time spent in media player facade fetch tick. */
+DECLARE_CYCLE_STAT(TEXT("MediaUtils MediaPlayerFacade TickFetch"), STAT_MediaUtils_FacadeTickFetch, STATGROUP_Media);
+
+/** Time spent in media player facade input tick. */
+DECLARE_CYCLE_STAT(TEXT("MediaUtils MediaPlayerFacade TickInput"), STAT_MediaUtils_FacadeTickInput, STATGROUP_Media);
+
+/** Time spent in media player facade output tick. */
+DECLARE_CYCLE_STAT(TEXT("MediaUtils MediaPlayerFacade TickOutput"), STAT_MediaUtils_FacadeTickOutput, STATGROUP_Media);
+
+/** Time spent in media player facade high frequency tick. */
+DECLARE_CYCLE_STAT(TEXT("MediaUtils MediaPlayerFacade TickTickable"), STAT_MediaUtils_FacadeTickTickable, STATGROUP_Media);
+
+
+
 /* Local helpers
 *****************************************************************************/
 
@@ -152,6 +175,8 @@ bool FMediaPlayerFacade::CanSeek() const
 
 void FMediaPlayerFacade::Close()
 {
+	SCOPE_CYCLE_COUNTER(STAT_MediaUtils_FacadeClose);
+
 	if (CurrentUrl.IsEmpty())
 	{
 		return;
@@ -388,6 +413,8 @@ bool FMediaPlayerFacade::IsReady() const
 
 bool FMediaPlayerFacade::Open(const FString& Url, const IMediaOptions* Options)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MediaUtils_FacadeOpen);
+
 	if (IsRunningDedicatedServer())
 	{
 		return false;
@@ -715,6 +742,8 @@ bool FMediaPlayerFacade::GetVideoTrackFormat(int32 TrackIndex, int32 FormatIndex
 
 void FMediaPlayerFacade::ProcessEvent(EMediaEvent Event)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MediaUtils_FacadeProcessEvent);
+
 	if (Event == EMediaEvent::TracksChanged)
 	{
 		SelectDefaultTracks();
@@ -773,6 +802,8 @@ void FMediaPlayerFacade::SelectDefaultTracks()
 
 void FMediaPlayerFacade::TickFetch(FTimespan DeltaTime, FTimespan Timecode)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MediaUtils_FacadeTickFetch);
+
 	// let the player generate samples & process events
 	if (Player.IsValid())
 	{
@@ -833,6 +864,8 @@ void FMediaPlayerFacade::TickFetch(FTimespan DeltaTime, FTimespan Timecode)
 
 void FMediaPlayerFacade::TickInput(FTimespan DeltaTime, FTimespan Timecode)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MediaUtils_FacadeTickInput);
+
 	if (Player.IsValid())
 	{
 		Player->TickInput(DeltaTime, Timecode);
@@ -842,6 +875,8 @@ void FMediaPlayerFacade::TickInput(FTimespan DeltaTime, FTimespan Timecode)
 
 void FMediaPlayerFacade::TickOutput(FTimespan DeltaTime, FTimespan /*Timecode*/)
 {
+	SCOPE_CYCLE_COUNTER(STAT_MediaUtils_FacadeTickOutput);
+
 	if (!Player.IsValid())
 	{
 		return;
@@ -857,6 +892,8 @@ void FMediaPlayerFacade::TickOutput(FTimespan DeltaTime, FTimespan /*Timecode*/)
 
 void FMediaPlayerFacade::TickTickable()
 {
+	SCOPE_CYCLE_COUNTER(STAT_MediaUtils_FacadeTickTickable);
+
 	if (LastRate == 0.0f)
 	{
 		return;

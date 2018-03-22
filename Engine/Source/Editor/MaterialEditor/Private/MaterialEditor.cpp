@@ -1788,7 +1788,7 @@ void FMaterialEditor::UpdateMaterialInfoList(bool bForceDisplay)
 		FeatureLevelsToDisplay[NumFeatureLevels++] = ERHIFeatureLevel::ES3_1;
 	}
 
-	if (NumFeatureLevels > 0)
+	if (NumFeatureLevels > 0) //-V547
 	{
 		UMaterial* MaterialForStats = bStatsFromPreviewMaterial ? Material : OriginalMaterial;
 

@@ -14,6 +14,10 @@ struct FActorRecordingSettings
 
 	FActorRecordingSettings();
 
+	FActorRecordingSettings(class UObject* InOuter);
+
+	void CreateSettingsObjectsFromFactory();
+
 	template <typename SettingsType>
 	SettingsType* GetSettingsObject() const
 	{
@@ -32,4 +36,7 @@ private:
 	/** External settings objects for recorders that supply them. Displayed via a details customization  */
 	UPROPERTY(EditAnywhere, Category = "Actor Recording")
 	TArray<UObject*> Settings;
+
+	/** An optional outer that settings objects should be created with. */
+	TWeakObjectPtr<UObject> Outer;
 };

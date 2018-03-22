@@ -349,7 +349,7 @@ struct FPreAnimatedCameraAnimTokenProducer : IMovieScenePreAnimatedTokenProducer
 
 FMovieSceneCameraAnimSectionTemplate::FMovieSceneCameraAnimSectionTemplate(const UMovieSceneCameraAnimSection& Section)
 	: SourceData(Section.AnimData)
-	, SectionStartTime(Section.GetStartTime())
+	, SectionStartTime(Section.HasStartFrame() ? Section.GetInclusiveStartFrame() : 0)
 {
 }
 
@@ -416,8 +416,8 @@ bool FMovieSceneCameraAnimSectionTemplate::UpdateCamera(ACameraActor& TempCamera
 	}
 	
 	// set camera anim to the correct time
-	const float NewCameraAnimTime = Context.GetTime() - SectionStartTime;
-	CameraAnimInstance->SetCurrentTime(NewCameraAnimTime);
+	const FFrameTime NewCameraAnimTime = Context.GetTime() - SectionStartTime;
+	CameraAnimInstance->SetCurrentTime(NewCameraAnimTime / Context.GetFrameRate());
 
 	if (CameraAnimInstance->CurrentBlendWeight <= 0.f)
 	{
@@ -457,7 +457,7 @@ struct FPreAnimatedCameraShakeTokenProducer : IMovieScenePreAnimatedTokenProduce
 
 FMovieSceneCameraShakeSectionTemplate::FMovieSceneCameraShakeSectionTemplate(const UMovieSceneCameraShakeSection& Section)
 	: SourceData(Section.ShakeData)
-	, SectionStartTime(Section.GetStartTime())
+	, SectionStartTime(Section.HasStartFrame() ? Section.GetInclusiveStartFrame() : 0)
 {
 }
 
@@ -529,8 +529,8 @@ bool FMovieSceneCameraShakeSectionTemplate::UpdateCamera(ACameraActor& TempCamer
 	}
 	
 	// set camera anim to the correct time
-	const float NewCameraAnimTime = Context.GetTime() - SectionStartTime;
-	CameraShakeInstance->SetCurrentTimeAndApplyShake(NewCameraAnimTime, POV);
+	const FFrameTime NewCameraAnimTime = Context.GetTime() - SectionStartTime;
+	CameraShakeInstance->SetCurrentTimeAndApplyShake(NewCameraAnimTime / Context.GetFrameRate(), POV);
 
 	return true;
 }

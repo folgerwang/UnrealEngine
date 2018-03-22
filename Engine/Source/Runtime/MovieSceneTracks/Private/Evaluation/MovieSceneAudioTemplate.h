@@ -7,6 +7,7 @@
 #include "Evaluation/MovieSceneEvalTemplate.h"
 #include "Runtime/Engine/Classes/Components/AudioComponent.h"
 #include "Sound/SoundAttenuation.h"
+#include "Channels/MovieSceneFloatChannel.h"
 #include "MovieSceneAudioTemplate.generated.h"
 
 class UAudioComponent;
@@ -31,18 +32,18 @@ struct FMovieSceneAudioSectionTemplateData
 	/** The offset into the beginning of the audio clip */
 	UPROPERTY()
 	float AudioStartOffset;
-	
-	/** The time range this audio plays */
+
+	/** The frame number at which the audio starts playing */
 	UPROPERTY()
-	FFloatRange AudioRange;
+	double SectionStartTimeSeconds;
 
 	/** The amount which this audio is time dilated by */
 	UPROPERTY()
-	FRichCurve AudioPitchMultiplierCurve;
+	FMovieSceneFloatChannel AudioPitchMultiplierCurve;
 
 	/** The volume the sound will be played with. */
 	UPROPERTY()
-	FRichCurve AudioVolumeCurve;
+	FMovieSceneFloatChannel AudioVolumeCurve;
 
 	/** The row index of the section */
 	UPROPERTY()

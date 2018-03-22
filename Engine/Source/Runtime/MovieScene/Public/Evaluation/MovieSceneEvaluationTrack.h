@@ -368,7 +368,7 @@ public:
 	 * @param InLocalRange 			The range in this track's space to overlap
 	 * @return A (potentially invalid) segment identifier for the first segment whose range overlaps the specified range
 	 */
-	FMovieSceneSegmentIdentifier FindFirstSegment(TRange<float> InLocalRange);
+	FMovieSceneSegmentIdentifier FindFirstSegment(TRange<FFrameNumber> InLocalRange);
 
 	/**
 	 * Find or compile a segment for the specified time
@@ -376,7 +376,7 @@ public:
 	 * @param InTime 				The time to lookup or compile for
 	 * @return A (potentially invalid) segment identifier for the segment whose range overlaps the specified time
 	 */
-	FMovieSceneSegmentIdentifier GetSegmentFromTime(float InTime);
+	FMovieSceneSegmentIdentifier GetSegmentFromTime(FFrameNumber InTime);
 
 	/**
 	 * Find or compile a segment for the specified iterator
@@ -392,7 +392,7 @@ public:
 	 * @param InLocalRange 			The range in this track's space to overlap
 	 * @return An (potentially empty) array of segment identifiers that overlap the specified range
 	 */
-	TArray<FMovieSceneSegmentIdentifier> GetSegmentsInRange(TRange<float> InLocalRange);
+	TArray<FMovieSceneSegmentIdentifier> GetSegmentsInRange(TRange<FFrameNumber> InLocalRange);
 
 	/**
 	 * Get the smallest range of unique FSectionEvaluationData combinations that overlaps the specified lower bound
@@ -400,7 +400,7 @@ public:
 	 * @param InLowerBound 			The lower bound from which to start looking for a time range
 	 * @return The smallest time range of unique evaluation data entries that encompasses the specified lower bound
 	 */
-	TRange<float> GetUniqueRangeFromLowerBound(TRangeBound<float> InLowerBound) const;
+	TRange<FFrameNumber> GetUniqueRangeFromLowerBound(TRangeBound<FFrameNumber> InLowerBound) const;
 
 	/**
 	 * Set the source track from which this track originates
@@ -424,7 +424,7 @@ public:
 	 * @param Range 		The range that the specified section data should apply to
 	 * @param EvalData 		The actual evaluation data
 	 */
-	void AddTreeData(TRange<float> Range, FSectionEvaluationData EvalData)
+	void AddTreeData(TRange<FFrameNumber> Range, FSectionEvaluationData EvalData)
 	{
 		EvaluationTree.Tree.Add(Range, EvalData);
 	}
@@ -435,7 +435,7 @@ public:
 	 * @param Range 		The range that the specified section data should apply to
 	 * @param EvalData 		The actual evaluation data
 	 */
-	void AddUniqueTreeData(TRange<float> Range, FSectionEvaluationData EvalData)
+	void AddUniqueTreeData(TRange<FFrameNumber> Range, FSectionEvaluationData EvalData)
 	{
 		EvaluationTree.Tree.AddUnique(Range, EvalData);
 	}

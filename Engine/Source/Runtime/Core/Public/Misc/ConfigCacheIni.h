@@ -246,6 +246,7 @@ enum class EConfigFileHierarchy : uint8
 	// Engine/Config/*.ini
 	EngineDirBase,
 	// Engine/Config/Platform/BasePlatform* ini
+	EngineDir_BasePlatformParent,
 	EngineDir_BasePlatform,
 	// Engine/Config/NotForLicensees/*.ini
 	EngineDirBase_NotForLicensees,
@@ -261,18 +262,25 @@ enum class EConfigFileHierarchy : uint8
 	// Game/Config/NoRedist*.ini
 	GameDirDefault_NoRedist,
 
+
 	// Engine/Config/PlatformName/PlatformName*.ini
+	EngineDir_PlatformParent,
 	EngineDir_Platform,
 	// Engine/Config/NotForLicensees/PlatformName/PlatformName*.ini
+	EngineDir_PlatformParent_NotForLicensees,
 	EngineDir_Platform_NotForLicensees,
 	// Engine/Config/NoRedist/PlatformName/PlatformName*.ini
+	EngineDir_PlatformParent_NoRedist,
 	EngineDir_Platform_NoRedist,
 
 	// Game/Config/PlatformName/PlatformName*.ini
+	GameDir_PlatformParent,
 	GameDir_Platform,
 	// Game/Config/NotForLicensees/PlatformName/PlatformName*.ini
+	GameDir_PlatformParent_NotForLicensees,
 	GameDir_Platform_NotForLicensees,
 	// Game/Config/NoRedist/PlatformName/PlatformName*.ini
+	GameDir_PlatformParent_NoRedist,
 	GameDir_Platform_NoRedist,
 
 	// <UserSettingsDir|AppData>/Unreal Engine/Engine/Config/User*.ini

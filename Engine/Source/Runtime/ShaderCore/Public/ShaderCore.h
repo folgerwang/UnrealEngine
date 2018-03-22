@@ -20,7 +20,7 @@ class Error;
  * Controls whether shader related logs are visible.
  * Note: The runtime verbosity is driven by the console variable 'r.ShaderDevelopmentMode'
  */
-#if UE_BUILD_DEBUG && PLATFORM_LINUX
+#if UE_BUILD_DEBUG && (PLATFORM_UNIX)
 SHADERCORE_API DECLARE_LOG_CATEGORY_EXTERN(LogShaders, Log, All);
 #else
 SHADERCORE_API DECLARE_LOG_CATEGORY_EXTERN(LogShaders, Error, All);

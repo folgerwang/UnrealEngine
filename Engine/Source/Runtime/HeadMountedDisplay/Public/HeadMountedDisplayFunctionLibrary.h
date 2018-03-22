@@ -271,21 +271,4 @@ class HEADMOUNTEDDISPLAY_API UHeadMountedDisplayFunctionLibrary : public UBluepr
 	 */
 	UFUNCTION(BlueprintCallable, Category="Input|XRTracking",  meta=(WorldContext="WorldContext"))
 	static void GetDeviceWorldPose(UObject* WorldContext, const FXRDeviceId& XRDeviceId, bool& bIsTracked, FRotator& Orientation, bool& bHasPositionalTracking, FVector& Position);
-
-	/**
-	 * Spawns a render component for the specified XR device.
-	 *
-	 * NOTE: The associated XR system backend has to provide a model for this to
-	 *       work - if one is not available for the specific device, then this
-	 *       will fail and return an invalid (null) object.
-	 *
-	 * @param  Target				The intended owner for the component to attach to.
-	 * @param  XRDeviceId			Specifies the device you're wanting a model for.
-	 * @param  bManualAttachment	If set, will leave the component unattached (mirror's the same option on the generic AddComponent node). When unset the component will attach to the actor's root.
-	 * @param  RelativeTransform	Specifies the component initial transform (relative to its attach parent).
-	 *
-	 * @return A new component representing the specified device (invalid/null if a model for the device doesn't exist).
-	 */
-	UFUNCTION(BlueprintCallable, Category="XR|Devices", meta=(DefaultToSelf = "Target"))
-	static UPrimitiveComponent* AddDeviceVisualizationComponent(AActor* Target, const FXRDeviceId& XRDeviceId, bool bManualAttachment, const FTransform& RelativeTransform);
 };

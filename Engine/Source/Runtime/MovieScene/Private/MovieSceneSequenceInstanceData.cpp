@@ -25,5 +25,6 @@ FMovieSceneSequenceInstanceDataPtr& FMovieSceneSequenceInstanceDataPtr::operator
 
 bool FMovieSceneSequenceInstanceDataPtr::Serialize(FArchive& Ar)
 {
-	return SerializeInlineValue(*this, Ar);
+	bool bShouldWarn = !WITH_EDITORONLY_DATA;
+	return SerializeInlineValue(*this, Ar, bShouldWarn);
 }

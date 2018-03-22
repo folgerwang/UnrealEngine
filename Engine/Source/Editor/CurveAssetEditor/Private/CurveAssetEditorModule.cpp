@@ -3,7 +3,7 @@
 #include "CurveAssetEditorModule.h"
 #include "Modules/ModuleManager.h"
 #include "CurveAssetEditor.h"
-#include "RichCurveEditorCommands.h"
+#include "CurveEditorCommands.h"
 //#include "Toolkits/ToolkitManager.h"
 
 IMPLEMENT_MODULE( FCurveAssetEditorModule, CurveAssetEditor );
@@ -14,7 +14,7 @@ const FName FCurveAssetEditorModule::CurveAssetEditorAppIdentifier( TEXT( "Curve
 void FCurveAssetEditorModule::StartupModule()
 {
 	MenuExtensibilityManager = MakeShareable(new FExtensibilityManager);
-	FRichCurveEditorCommands::Register();
+	FCurveEditorCommands::Register();
 }
 
 void FCurveAssetEditorModule::ShutdownModule()

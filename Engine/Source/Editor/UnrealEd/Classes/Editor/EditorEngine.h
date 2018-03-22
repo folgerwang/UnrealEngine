@@ -711,12 +711,6 @@ public:
 	DECLARE_EVENT_OneParam( UEditorEngine, FOnEndTransformCamera, UObject& );
 	FOnEndTransformCamera& OnEndCameraMovement() { return OnEndCameraTransformEvent; }
 
-	/** Delegate broadcast by the engine every tick when PIE/SIE is active, to check to see whether we need to
-		be able to capture state for simulating actor (for Sequencer recording features).  The single bool parameter
-		should be set to true if recording features are needed. */
-	DECLARE_EVENT_OneParam( UEditorEngine, FGetActorRecordingState, bool& /* bIsRecordingActive */ );
-	FGetActorRecordingState& GetActorRecordingState() { return GetActorRecordingStateEvent; }
-
 	/** Editor-only event triggered when a HLOD Actor is moved between clusters */
 	DECLARE_EVENT_TwoParams(UEngine, FHLODActorMovedEvent, const AActor*, const AActor*);
 	FHLODActorMovedEvent& OnHLODActorMoved() { return HLODActorMovedEvent; }
@@ -1765,7 +1759,7 @@ public:
 	 */
 	virtual void PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor );
 
-	virtual UGameInstance* CreatePIEGameInstance(int32 InPIEInstance, bool bInSimulateInEditor, bool bAnyBlueprintErrors, bool bStartInSpectatorMode, bool bPlayNetDedicated, float PIEStartTime);
+	virtual UGameInstance* CreatePIEGameInstance(int32 InPIEInstance, bool bInSimulateInEditor, bool bAnyBlueprintErrors, bool bStartInSpectatorMode, bool bPlayNetDedicated, bool bPlayStereoscopic, float PIEStartTime);
 
 	/**
 	 * Kills the Play From Here session
@@ -2804,10 +2798,6 @@ private:
 
 	/** Broadcasts after an Actor is removed from a cluster */
 	FHLODActorRemovedFromClusterEvent HLODActorRemovedFromClusterEvent;
-
-	/** Delegate broadcast by the engine every tick when PIE/SIE is active, to check to see whether we need to
-		be able to capture state for simulating actor (for Sequencer recording features) */
-	FGetActorRecordingState GetActorRecordingStateEvent;
 
 	/** Delegate to be called when a matinee is requested to be opened */
 	FShouldOpenMatineeCallback ShouldOpenMatineeCallback;

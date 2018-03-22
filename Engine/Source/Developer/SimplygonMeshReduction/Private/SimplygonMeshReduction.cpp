@@ -2678,7 +2678,7 @@ private:
 
 		InMappingImageSettings->SetGenerateMappingImage(true);
 		InMappingImageSettings->SetTexCoordLevel(0);
-		if (NumOutputMaterials > 1)
+		if (NumOutputMaterials > 1) //-V547
 		{
 			InMappingImageSettings->SetGenerateTexCoords(true);	//! check if it is possible to avoid this
 		}

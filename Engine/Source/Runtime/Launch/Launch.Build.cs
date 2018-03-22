@@ -79,7 +79,7 @@ public class Launch : ModuleRules
 				DynamicallyLoadedModuleNames.Add("CoreAudio");
 				DynamicallyLoadedModuleNames.Add("AudioMixerAudioUnit");
 			}
-			else if (Target.Platform == UnrealTargetPlatform.Linux)
+			else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 			{
 				DynamicallyLoadedModuleNames.Add("AudioMixerSDL");
 				PrivateDependencyModuleNames.Add("Json");
@@ -238,11 +238,11 @@ public class Launch : ModuleRules
 			bFasterWithoutUnity = true;
 		}
 
-		if (Target.Platform == UnrealTargetPlatform.Linux)
+		if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			PrivateDependencyModuleNames.AddRange(
 				new string[] {
-					"LinuxCommonStartup"
+					"UnixCommonStartup"
 				}
 			);
 		}

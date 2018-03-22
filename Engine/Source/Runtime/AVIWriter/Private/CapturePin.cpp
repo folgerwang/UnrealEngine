@@ -12,7 +12,7 @@ DEFINE_LOG_CATEGORY(LogMovieCapture);
 
 FCapturePin::FCapturePin(HRESULT *phr, CSource *pFilter, const FAVIWriter& InWriter)
         : CSourceStream(NAME("Push Source"), phr, pFilter, L"Capture")
-		, FrameLength(UNITS/InWriter.Options.CaptureFPS)
+		, FrameLength(UNITS / (InWriter.Options.CaptureFramerateNumerator / (double)InWriter.Options.CaptureFramerateDenominator))
 		, Writer(InWriter)
 {
 	ImageWidth  = Writer.GetWidth();

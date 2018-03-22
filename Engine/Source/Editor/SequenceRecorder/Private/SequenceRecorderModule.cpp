@@ -43,6 +43,7 @@
 #include "IStructureDetailsView.h"
 #include "WorkflowOrientedApp/WorkflowTabManager.h"
 #include "Framework/Docking/LayoutExtender.h"
+#include "MovieSceneTimeHelpers.h"
 
 #define LOCTEXT_NAMESPACE "SequenceRecorder"
 
@@ -459,7 +460,7 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 					}
 					return true;
 				}
-				else if(FilterType == EFilterType::Class)
+				else
 				{
 					UClass* FoundClass = FindObject<UClass>(ANY_PACKAGE, *SpecifierStr);
 					if(FoundClass != nullptr)
@@ -551,11 +552,15 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 		return FSequenceRecorder::Get().IsRecording();
 	}
 
-	virtual float GetCurrentRecordingLength() override
+	virtual FQualifiedFrameTime GetCurrentRecordingLength() override
 	{
-		TWeakObjectPtr<ULevelSequence> CurrentSequence = FSequenceRecorder::Get().GetCurrentSequence();
-
-		return CurrentSequence.IsValid() ? CurrentSequence->GetMovieScene()->GetPlaybackRange().Size<float>() : 0.0f;
+		ULevelSequence* CurrentSequence = FSequenceRecorder::Get().GetCurrentSequence().Get();
+		UMovieScene*    MovieScene      = CurrentSequence ? CurrentSequence->GetMovieScene() : nullptr;
+		if (MovieScene)
+		{
+			return FQualifiedFrameTime(FFrameTime(MovieScene::DiscreteSize(MovieScene->GetPlaybackRange())), MovieScene->GetFrameResolution());
+		}
+		return FQualifiedFrameTime();
 	}
 
 	virtual bool StartRecording(TArrayView<AActor* const> ActorsToRecord, const FString& PathToRecordTo, const FString& SequenceName) override
@@ -636,6 +641,16 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 	virtual FOnRecordingStarted& OnRecordingStarted() override { return FSequenceRecorder::Get().OnRecordingStartedDelegate; }
 
 	virtual FOnRecordingFinished& OnRecordingFinished() override { return FSequenceRecorder::Get().OnRecordingFinishedDelegate; }
+
+	virtual FString GetSequenceRecordingName() const override
+	{
+		return FSequenceRecorder::Get().GetSequenceRecordingName();
+	}
+
+	virtual FString GetSequenceRecordingBasePath() const override
+	{
+		return FSequenceRecorder::Get().GetSequenceRecordingBasePath();
+	}
 
 	static void TickSequenceRecorder(float DeltaSeconds)
 	{

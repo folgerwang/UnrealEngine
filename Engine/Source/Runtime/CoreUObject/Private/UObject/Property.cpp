@@ -1138,7 +1138,7 @@ const TCHAR* UProperty::ImportSingleProperty( const TCHAR* Str, void* DestData, 
 						Str = Result;
 					}
 				}
-				else if(ArrayOp == ADO_Remove)
+				else
 				{
 					int32 Size = ArrayProperty->Inner->ElementSize;
 
@@ -1175,7 +1175,7 @@ const TCHAR* UProperty::ImportSingleProperty( const TCHAR* Str, void* DestData, 
 					}
 				}
 			}
-			else if (ArrayOp == ADO_RemoveIndex)
+			else if (ArrayOp == ADO_RemoveIndex) //-V547
 			{
 				SkipWhitespace(Str);
 				if(*Str++ != '(')

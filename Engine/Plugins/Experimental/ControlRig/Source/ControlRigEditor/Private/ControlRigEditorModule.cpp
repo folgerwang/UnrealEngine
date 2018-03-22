@@ -504,7 +504,12 @@ void FControlRigEditorModule::HandleAssetEditorOpened(UObject* InAsset)
 void FControlRigEditorModule::OnInitializeSequence(UControlRigSequence* Sequence)
 {
 	auto* ProjectSettings = GetDefault<UMovieSceneToolsProjectSettings>();
-	Sequence->GetMovieScene()->SetPlaybackRange(ProjectSettings->DefaultStartTime, ProjectSettings->DefaultStartTime + ProjectSettings->DefaultDuration);
+	UMovieScene* MovieScene = Sequence->GetMovieScene();
+	
+	FFrameNumber StartFrame = (ProjectSettings->DefaultStartTime * MovieScene->GetFrameResolution()).RoundToFrame();
+	int32        Duration   = (ProjectSettings->DefaultDuration  * MovieScene->GetFrameResolution()).RoundToFrame().Value;
+
+	MovieScene->SetPlaybackRange(StartFrame, Duration);
 }
 
 void FControlRigEditorModule::BindCommands()

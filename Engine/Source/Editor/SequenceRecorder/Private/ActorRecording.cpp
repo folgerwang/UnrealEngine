@@ -22,6 +22,7 @@ static const FName MovieSceneSectionRecorderFactoryName("MovieSceneSectionRecord
 
 UActorRecording::UActorRecording(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, ActorSettings(this)
 {
 	bActive = true;
 	bWasSpawnedPostRecord = false;
@@ -328,7 +329,10 @@ void UActorRecording::StartRecordingActorProperties(ULevelSequence* CurrentSeque
 			// force set recording to record translations as we need this with no animation
 			UMovieScene3DTransformSectionRecorderSettings* TransformSettings = ActorSettings.GetSettingsObject<UMovieScene3DTransformSectionRecorderSettings>();
 			check(TransformSettings);
-			TransformSettings->bRecordTransforms = true;
+			if (!TransformSettings->bRecordTransforms)
+			{
+				UE_LOG(LogAnimation, Warning, TEXT("Transform recording is not enabled for '%s'. Resulting animation may not match gameplay."), *Actor->GetActorLabel());
+			}
 
 			// grab components so we can track attachments
 			// don't include non-CDO here as they wont be part of our initial BP (duplicated above)

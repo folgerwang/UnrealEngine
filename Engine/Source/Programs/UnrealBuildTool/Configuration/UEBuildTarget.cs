@@ -2646,6 +2646,7 @@ namespace UnrealBuildTool
 			if (Platform == UnrealTargetPlatform.Mac && !Rules.bIsBuildingConsoleApplication)
 			{
 				TargetToolChain.FixBundleBinariesPaths(this, Binaries);
+				TargetToolChain.FixBundleBinariesPaths(this, PrecompileOnlyBinaries);
 			}
 		}
 

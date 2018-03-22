@@ -7,8 +7,11 @@
 #include "ISequencer.h"
 #include "Modules/ModuleInterface.h"
 #include "AnimatedPropertyKey.h"
+#include "ISequencerChannelInterface.h"
 
+class IKeyArea;
 class FExtender;
+class FStructOnScope;
 class FExtensibilityManager;
 class FMenuBuilder;
 class ISequencerTrackEditor;
@@ -31,6 +34,9 @@ DECLARE_DELEGATE_RetVal_OneParam(TSharedRef<ISequencerEditorObjectBinding>, FOnC
 /** A delegate that is executed when adding menu content. */
 DECLARE_DELEGATE_TwoParams(FOnGetAddMenuContent, FMenuBuilder& /*MenuBuilder*/, TSharedRef<ISequencer>);
 
+/** A delegate that is executed when menu object is clicked. Unlike FExtender delegates we pass in the FGuid which exists even for deleted objects. */
+DECLARE_DELEGATE_TwoParams(FOnBuildCustomContextMenuForGuid, FMenuBuilder&, FGuid);
+
 /** A delegate that gets executed then a sequencer is created */
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnSequencerCreated, TSharedRef<ISequencer>);
 
@@ -39,10 +45,9 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnSequencerCreated, TSharedRef<ISequencer>)
  */
 struct FSequencerViewParams
 {
-	/** Initial Scrub Position. */
-	float InitialScrubPosition;
-
 	FOnGetAddMenuContent OnGetAddMenuContent;
+
+	FOnBuildCustomContextMenuForGuid OnBuildCustomContextMenuForGuid;
 
 	/** Called when this sequencer has received user focus */
 	FSimpleDelegate OnReceivedFocus;
@@ -60,8 +65,7 @@ struct FSequencerViewParams
 	bool bReadOnly;
 
 	FSequencerViewParams(FString InName = FString())
-		: InitialScrubPosition(0.0f)
-		, UniqueName(MoveTemp(InName))
+		: UniqueName(MoveTemp(InName))
 		, bReadOnly(false)
 	{ }
 };
@@ -101,7 +105,6 @@ struct FSequencerInitParams
 	{}
 };
 
-
 /**
  * Interface for the Sequencer module.
  */
@@ -109,6 +112,8 @@ class ISequencerModule
 	: public IModuleInterface
 {
 public:
+
+	virtual ~ISequencerModule();
 
 	/**
 	 * Create a new instance of a standalone sequencer that can be added to other UIs.
@@ -199,6 +204,22 @@ public:
 	 */
 	virtual TSharedPtr<FExtensibilityManager> GetToolBarExtensibilityManager() const = 0;
 
+	/**
+	 * Register a sequencer channel type. Include SequencerChannelInterface.h for definition.
+	 */
+	template<typename ChannelType>
+	void RegisterChannelInterface();
+
+	/**
+	 * Find a sequencer channel for the specified channel type ID
+	 */
+	ISequencerChannelInterface* FindChannelInterface(uint32 ChannelID) const
+	{
+		const TUniquePtr<ISequencerChannelInterface>* Found = ChannelToEditorInterfaceMap.Find(ChannelID);
+		ensureMsgf(Found, TEXT("No channel interface found for type ID. Did you call RegisterChannelInterface<> for that type?"));
+		return Found ? Found->Get() : nullptr;
+	}
+
 public:
 
 	/** 
@@ -227,4 +248,9 @@ public:
 	{
 		UnRegisterTrackEditor(InHandle);
 	}
+
+private:
+
+	/** */
+	TMap<uint32, TUniquePtr<ISequencerChannelInterface>> ChannelToEditorInterfaceMap;
 };

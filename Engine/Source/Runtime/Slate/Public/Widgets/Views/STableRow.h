@@ -679,7 +679,7 @@ public:
 				if (ReportedZone.IsSet())
 				{
 					FReply DropReply = OnAcceptDrop.Execute(DragDropEvent, ReportedZone.GetValue(), *MyItem);
-					if (DropReply.IsEventHandled())
+					if (DropReply.IsEventHandled() && ReportedZone.GetValue() == EItemDropZone::OntoItem)
 					{
 						// Expand the drop target just in case, so that what we dropped is visible.
 						OwnerWidget->Private_SetItemExpansion(*MyItem, true);

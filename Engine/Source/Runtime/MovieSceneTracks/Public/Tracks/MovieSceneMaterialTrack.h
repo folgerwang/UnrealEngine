@@ -27,7 +27,6 @@ public:
 	virtual void AddSection(UMovieSceneSection& Section) override;
 	virtual void RemoveSection(UMovieSceneSection& Section) override;
 	virtual bool IsEmpty() const override;
-	virtual TRange<float> GetSectionBoundaries() const override;
 	virtual const TArray<UMovieSceneSection*>& GetAllSections() const override;
 
 public:
@@ -38,7 +37,7 @@ public:
 	 * @param Time The time to add the new key.
 	 * @param The value for the new key.
 	 */
-	void AddScalarParameterKey(FName ParameterName, float Position, float Value);
+	void AddScalarParameterKey(FName ParameterName, FFrameNumber Position, float Value);
 
 	/**
 	* Adds a color parameter key to the track.
@@ -46,7 +45,7 @@ public:
 	* @param Time The time to add the new key.
 	* @param The value for the new key.
 	*/
-	void AddColorParameterKey(FName ParameterName, float Position, FLinearColor Value);
+	void AddColorParameterKey(FName ParameterName, FFrameNumber Position, FLinearColor Value);
 
 private:
 

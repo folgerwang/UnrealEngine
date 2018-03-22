@@ -4,6 +4,7 @@
 #include "Sections/MovieSceneSubSection.h"
 #include "MovieSceneSequence.h"
 #include "MovieScene.h"
+#include "MovieSceneTimeHelpers.h"
 
 FMovieSceneSubSequenceData::FMovieSceneSubSequenceData()
 	: Sequence(nullptr)
@@ -12,35 +13,39 @@ FMovieSceneSubSequenceData::FMovieSceneSubSequenceData()
 FMovieSceneSubSequenceData::FMovieSceneSubSequenceData(const UMovieSceneSubSection& InSubSection)
 	: Sequence(InSubSection.GetSequence())
 	, DeterministicSequenceID(InSubSection.GetSequenceID())
-	, PreRollRange(TRange<float>::Empty())
-	, PostRollRange(TRange<float>::Empty())
 	, HierarchicalBias(InSubSection.Parameters.HierarchicalBias)
 #if WITH_EDITORONLY_DATA
 	, SectionPath(*InSubSection.GetPathNameInMovieScene())
 #endif
 {
-	UMovieSceneSequence* SequencePtr = GetSequence();
+	PreRollRange.Value  = TRange<FFrameNumber>::Empty();
+	PostRollRange.Value = TRange<FFrameNumber>::Empty();
 
-	checkf(SequencePtr, TEXT("Attempting to construct sub sequence data with a null sequence."));
+	UMovieSceneSequence* SequencePtr   = GetSequence();
+	UMovieScene*         MovieScenePtr = SequencePtr ? SequencePtr->GetMovieScene() : nullptr;
 
-	const float StartTime = InSubSection.GetStartTime();
-	const float EndTime = InSubSection.GetEndTime();
+	checkf(MovieScenePtr, TEXT("Attempting to construct sub sequence data with a null sequence."));
 
-	RootToSequenceTransform = 
-		FMovieSceneSequenceTransform(SequencePtr->GetMovieScene()->GetPlaybackRange().GetLowerBoundValue() + InSubSection.Parameters.StartOffset) *		// Inner play offset
-		FMovieSceneSequenceTransform(0.f, InSubSection.Parameters.TimeScale) *		// Inner play rate
-		FMovieSceneSequenceTransform(-StartTime);					// Outer section start time
+	FrameResolution = MovieScenePtr->GetFrameResolution();
 
-	PlayRange = InSubSection.GetRange() * RootToSequenceTransform;
+	TRange<FFrameNumber> SubRange = InSubSection.GetRange();
+	checkf(SubRange.GetLowerBound().IsClosed() && SubRange.GetUpperBound().IsClosed(), TEXT("Use of open (infinite) bounds with sub sections is not supported."));
 
-	// Make sure pre/postroll ranges are in the inner sequence's time space
-	if (InSubSection.GetPreRollTime() > 0)
+	const FFrameNumber OuterStartTime = MovieScene::DiscreteInclusiveLower(SubRange);
+	const FFrameNumber OuterEndTime   = MovieScene::DiscreteExclusiveUpper(SubRange);
+
+	RootToSequenceTransform = InSubSection.OuterToInnerTransform();
+
+	PlayRange.Value = SubRange * RootToSequenceTransform;
+
+	// Make sure pre/postroll *ranges* are in the inner sequence's time space. Pre/PostRollFrames are in the outer sequence space.
+	if (InSubSection.GetPreRollFrames() > 0)
 	{
-		PreRollRange = TRange<float>(StartTime - InSubSection.GetPreRollTime(), TRangeBound<float>::Exclusive(StartTime)) * RootToSequenceTransform;
+		PreRollRange = MovieScene::MakeDiscreteRangeFromUpper( TRangeBound<FFrameNumber>::FlipInclusion(SubRange.GetLowerBound()), InSubSection.GetPreRollFrames() ) * RootToSequenceTransform;
 	}
-	if (InSubSection.GetPostRollTime() > 0)
+	if (InSubSection.GetPostRollFrames() > 0)
 	{
-		PostRollRange = TRange<float>(TRangeBound<float>::Exclusive(EndTime), EndTime + InSubSection.GetPostRollTime()) * RootToSequenceTransform;
+		PostRollRange = MovieScene::MakeDiscreteRangeFromLower( TRangeBound<FFrameNumber>::FlipInclusion(SubRange.GetUpperBound()), InSubSection.GetPostRollFrames() ) * RootToSequenceTransform;
 	}
 }
 

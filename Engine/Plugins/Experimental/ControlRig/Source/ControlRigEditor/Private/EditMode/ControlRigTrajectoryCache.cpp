@@ -100,7 +100,7 @@ FControlRigTrajectoryCache::FControlRigTrajectoryCache()
 	CurrentDisplayTime = 0.0f;
 }
 
-void FControlRigTrajectoryCache::Update(TSharedRef<ISequencer> Sequencer, const FGuid& InObjectBinding, const TRange<float>& NewRange, float FrameSnap, float DeltaTime, double InCurrentTime)
+void FControlRigTrajectoryCache::Update(TSharedRef<ISequencer> Sequencer, const FGuid& InObjectBinding, const TRange<double>& NewRange, float FrameSnap, float DeltaTime, double InCurrentTime)
 {
 	if (!SequencerPtr.IsValid() || Sequencer != SequencerPtr.Pin().ToSharedRef() ||
 		PreviousCache.FrameSnap != CurrentCache.FrameSnap ||
@@ -224,7 +224,7 @@ void FControlRigTrajectoryCache::ComputeQueuedFrames()
 			{
 				Sequencer->EnterSilentMode();
 				EMovieScenePlayerStatus::Type SavedPlaybackStatus = Sequencer->GetPlaybackStatus();
-				float PlaybackTime = Sequencer->GetLocalTime();
+				FQualifiedFrameTime PlaybackTime = Sequencer->GetLocalTime();
 
 				// Generate each frame
 				int32 FramesCalculatedThisTime = 0;
@@ -234,7 +234,7 @@ void FControlRigTrajectoryCache::ComputeQueuedFrames()
 					TSharedPtr<FControlRigTrajectoryFrame> Frame = QueuedTrajectoryFrames.Pop();
 
 					Sequencer->SetPlaybackStatus(EMovieScenePlayerStatus::Jumping);
-					Sequencer->SetLocalTimeDirectly(Frame->GetTime());
+					Sequencer->SetLocalTimeDirectly(Frame->GetTime() * PlaybackTime.Rate);
 
 					Sequencer->ForceEvaluate();
 
@@ -244,7 +244,7 @@ void FControlRigTrajectoryCache::ComputeQueuedFrames()
 
 				// Reset back to time before we generated
 				Sequencer->SetPlaybackStatus(EMovieScenePlayerStatus::Jumping);
-				Sequencer->SetLocalTimeDirectly(PlaybackTime);
+				Sequencer->SetLocalTimeDirectly(PlaybackTime.Time);
 
 				// force evaluate at time frame (pushes state to properties)
 				Sequencer->ForceEvaluate();

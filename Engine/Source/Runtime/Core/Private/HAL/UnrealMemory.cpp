@@ -279,7 +279,7 @@ static void FMallocBinnedOverrunTest()
 		[Pointer, ArraySize]()
 	{
 		//FPlatformProcess::Sleep(.01f);
-		Pointer[ArraySize / 2] = 0xcc;
+		Pointer[ArraySize / 2] = 0xcc; //-V774
 	},
 		TStatId()
 		);

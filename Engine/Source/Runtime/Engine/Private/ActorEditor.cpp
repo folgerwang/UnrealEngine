@@ -461,27 +461,37 @@ void AActor::EditorApplyRotation(const FRotator& DeltaRotation, bool bAltDown, b
 {
 	if( RootComponent != NULL )
 	{
-		const FRotator Rot = RootComponent->GetAttachParent() != NULL ? GetActorRotation() : RootComponent->RelativeRotation;
-
+		FRotator Rot = RootComponent->GetAttachParent() != NULL ? GetActorRotation() : RootComponent->RelativeRotation;
 		FRotator ActorRotWind, ActorRotRem;
 		Rot.GetWindingAndRemainder(ActorRotWind, ActorRotRem);
-
 		const FQuat ActorQ = ActorRotRem.Quaternion();
 		const FQuat DeltaQ = DeltaRotation.Quaternion();
-		const FQuat ResultQ = DeltaQ * ActorQ;
-		const FRotator NewActorRotRem = FRotator( ResultQ );
-		FRotator DeltaRot = NewActorRotRem - ActorRotRem;
-		DeltaRot.Normalize();
 
-		if( RootComponent->GetAttachParent() != NULL )
+		FRotator NewActorRotRem;
+		if(RootComponent->GetAttachParent() != NULL )
 		{
-			RootComponent->SetWorldRotation( Rot + DeltaRot );
+			//first we get the new rotation in relative space.
+			const FQuat ResultQ = DeltaQ * ActorQ;
+			NewActorRotRem = FRotator(ResultQ);
+			FRotator DeltaRot = NewActorRotRem - ActorRotRem;
+			FRotator NewRotation = Rot + DeltaRot;
+			FQuat NewRelRotation = NewRotation.Quaternion();
+			NewRelRotation = RootComponent->GetRelativeRotationFromWorld(NewRelRotation);
+			NewActorRotRem = FRotator(NewRelRotation);
+			//now we need to get current relative rotation to find the diff
+			Rot = RootComponent->RelativeRotation;
+			Rot.GetWindingAndRemainder(ActorRotWind, ActorRotRem);
 		}
 		else
 		{
-			// No attachment.  Directly set relative rotation (to support winding)
-			RootComponent->SetRelativeRotation( Rot + DeltaRot );
+			const FQuat ResultQ = DeltaQ * ActorQ;
+			NewActorRotRem = FRotator(ResultQ);
 		}
+
+		ActorRotRem.SetClosestToMe(NewActorRotRem);
+		FRotator DeltaRot = NewActorRotRem - ActorRotRem;
+		DeltaRot.Normalize();
+		RootComponent->SetRelativeRotationExact( Rot + DeltaRot );
 	}
 	else
 	{
@@ -546,7 +556,7 @@ void AActor::EditorApplyMirror(const FVector& MirrorScale, const FVector& PivotL
 
 	if( RootComponent != NULL )
 	{
-		GetRootComponent()->SetRelativeRotation( NewRot.Rotator() );
+		GetRootComponent()->SetRelativeRotationExact( NewRot.Rotator() );
 		FVector Loc = GetActorLocation();
 		Loc -= PivotLocation;
 		Loc *= MirrorScale;

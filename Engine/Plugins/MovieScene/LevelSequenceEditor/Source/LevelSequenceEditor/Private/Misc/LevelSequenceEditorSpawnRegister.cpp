@@ -156,7 +156,16 @@ void FLevelSequenceEditorSpawnRegister::SaveDefaultSpawnableState(const FGuid& B
 	}
 
 	UMovieSceneSequence* Sequence = Sequencer->GetEvaluationTemplate().GetSequence(TemplateID);
+	if (!Sequence)
+	{
+		return;
+	}
+
 	UMovieScene* MovieScene = Sequence ? Sequence->GetMovieScene() : nullptr;
+	if (!MovieScene)
+	{
+		return;
+	}
 
 	FMovieSceneSpawnable* Spawnable = MovieScene->FindSpawnable(BindingId);
 
@@ -308,7 +317,7 @@ TValueOrError<FNewSpawnable, FText> FLevelSequenceEditorSpawnRegister::CreateNew
 	return MakeError(LOCTEXT("NoSpawnerFound", "No spawner found to create new spawnable type"));
 }
 
-void FLevelSequenceEditorSpawnRegister::SetupDefaultsForSpawnable(UObject* SpawnedObject, const FGuid& Guid, const FTransformData& TransformData, TSharedRef<ISequencer> Sequencer, USequencerSettings* Settings)
+void FLevelSequenceEditorSpawnRegister::SetupDefaultsForSpawnable(UObject* SpawnedObject, const FGuid& Guid, const TOptional<FTransformData>& TransformData, TSharedRef<ISequencer> Sequencer, USequencerSettings* Settings)
 {
 	for (TSharedPtr<IMovieSceneObjectSpawner> MovieSceneObjectSpawner : MovieSceneObjectSpawners)
 	{
@@ -320,17 +329,17 @@ void FLevelSequenceEditorSpawnRegister::SetupDefaultsForSpawnable(UObject* Spawn
 	}
 }
 
-void FLevelSequenceEditorSpawnRegister::HandleConvertPossessableToSpawnable(UObject* OldObject, IMovieScenePlayer& Player, FTransformData& OutTransformData)
+void FLevelSequenceEditorSpawnRegister::HandleConvertPossessableToSpawnable(UObject* OldObject, IMovieScenePlayer& Player, TOptional<FTransformData>& OutTransformData)
 {
 	// @TODO: this could probably be handed off to a spawner if we need anything else to be convertible between spawnable/posessable
 
 	AActor* OldActor = Cast<AActor>(OldObject);
 	if (OldActor)
 	{
-		OutTransformData.Translation = OldActor->GetActorLocation();
-		OutTransformData.Rotation = OldActor->GetActorRotation();
-		OutTransformData.Scale = OldActor->GetActorScale();
-		OutTransformData.bValid = true;
+		OutTransformData.Emplace();
+		OutTransformData->Translation = OldActor->GetActorLocation();
+		OutTransformData->Rotation = OldActor->GetActorRotation();
+		OutTransformData->Scale = OldActor->GetActorScale();
 
 		GEditor->SelectActor(OldActor, false, true);
 		UWorld* World = Cast<UWorld>(Player.GetPlaybackContext());

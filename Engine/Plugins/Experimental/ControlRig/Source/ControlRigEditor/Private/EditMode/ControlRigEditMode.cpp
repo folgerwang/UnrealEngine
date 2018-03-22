@@ -367,9 +367,8 @@ void FControlRigEditMode::Tick(FEditorViewportClient* ViewportClient, float Delt
 		{
 			TSharedRef<ISequencer> Sequencer = WeakSequencer.Pin().ToSharedRef();
 			UMovieScene* MovieScene = Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene();
-			float FrameInterval = MovieScene->GetFixedFrameInterval();
-			float FrameSnap = MovieScene->GetFixedFrameInterval() == 0.0f ? 1.0f / 30.0f : FrameInterval;
-			TrajectoryCache.Update(Sequencer, ControlRigGuids[0], MovieScene->GetPlaybackRange(), FrameSnap, DeltaTime, FApp::GetCurrentTime());
+			float FrameSnap = MovieScene->GetPlaybackFrameRate().AsInterval();
+			TrajectoryCache.Update(Sequencer, ControlRigGuids[0], MovieScene->GetPlaybackRange() / MovieScene->GetFrameResolution(), FrameSnap, DeltaTime, FApp::GetCurrentTime());
 		}
 	}
 }

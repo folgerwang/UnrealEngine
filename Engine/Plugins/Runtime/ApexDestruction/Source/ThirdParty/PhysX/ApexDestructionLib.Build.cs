@@ -161,7 +161,7 @@ public class ApexDestructionLib : ModuleRules
                 RuntimeDependencies.Add(LibraryPath);
             }
         }
-        else if (Target.Platform == UnrealTargetPlatform.Linux)
+        else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
         {
             if (Target.Architecture.StartsWith("x86_64"))
             {

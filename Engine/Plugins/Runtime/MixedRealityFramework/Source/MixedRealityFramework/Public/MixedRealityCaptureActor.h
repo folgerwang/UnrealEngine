@@ -10,6 +10,7 @@ class USceneComponent;
 class FMRCaptureAutoTargeter;
 class UTexture;
 enum class ESpectatorScreenMode : uint8;
+class UStaticMesh;
 
 /**
  *	
@@ -74,4 +75,7 @@ private:
 		bool bIsCasting;
 	};
 	FCastingModeRestore BroadcastManager;
+
+	UPROPERTY(Transient)
+	UStaticMesh* DebugVisualizerMesh;
 };

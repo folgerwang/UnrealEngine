@@ -15,7 +15,7 @@
 // let the platform set up the headers and some defines
 #include "VulkanPlatform.h"
 
-// the configuration will set up anyhting not set up by the platform
+// the configuration will set up anything not set up by the platform
 #include "VulkanConfiguration.h"
 
 

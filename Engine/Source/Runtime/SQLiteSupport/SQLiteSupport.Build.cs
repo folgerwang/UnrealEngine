@@ -11,25 +11,29 @@ namespace UnrealBuildTool.Rules
 			string PlatformName = "";
 			string ConfigurationName = "";
 
-			switch (Target.Platform)
+			if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 			{
-				case UnrealTargetPlatform.Win32:
-					PlatformName = "Win32/";
-					break;
-				case UnrealTargetPlatform.Win64:
-					PlatformName = "x64/";
-					break;
-			
-			    case UnrealTargetPlatform.IOS:
-				case UnrealTargetPlatform.TVOS:
-					PlatformName = "IOS/";
-                    break;
-                case UnrealTargetPlatform.Mac:
-                    PlatformName = "Mac/";
-                    break;
-                case UnrealTargetPlatform.Linux:
-                    PlatformName = "Linux/";
-                    break;
+				PlatformName = "Linux/";
+			}
+			else
+			{
+				switch (Target.Platform)
+				{
+					case UnrealTargetPlatform.Win32:
+						PlatformName = "Win32/";
+						break;
+					case UnrealTargetPlatform.Win64:
+						PlatformName = "x64/";
+						break;
+				
+					case UnrealTargetPlatform.IOS:
+					case UnrealTargetPlatform.TVOS:
+						PlatformName = "IOS/";
+						break;
+					case UnrealTargetPlatform.Mac:
+						PlatformName = "Mac/";
+						break;
+				}
 			}
 
 			switch (Target.Configuration)

@@ -690,7 +690,7 @@ float UUserWidget::PauseAnimation(const UWidgetAnimation* InAnimation)
 		if ( FoundPlayer )
 		{
 			( *FoundPlayer )->Pause();
-			return (float)( *FoundPlayer )->GetTimeCursorPosition();
+			return (float)( *FoundPlayer )->GetCurrentTime().AsSeconds();
 		}
 	}
 
@@ -704,7 +704,7 @@ float UUserWidget::GetAnimationCurrentTime(const UWidgetAnimation* InAnimation) 
 		const UUMGSequencePlayer*const* FoundPlayer = ActiveSequencePlayers.FindByPredicate([&](const UUMGSequencePlayer* Player) { return Player->GetAnimation() == InAnimation; });
 		if (FoundPlayer)
 		{
-			return (float)(*FoundPlayer)->GetTimeCursorPosition();
+			return (float)(*FoundPlayer)->GetCurrentTime().AsSeconds();
 		}
 	}
 

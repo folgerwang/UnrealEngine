@@ -3,9 +3,12 @@
 #pragma once
 
 #include "Components/SceneCaptureComponent2D.h"
+#include "GameFramework/Actor.h"
+#include "MixedRealityConfigurationSaveGame.h" // for FGarbageMatteSaveData
 #include "MixedRealityGarbageMatteCaptureComponent.generated.h"
 
-class AActor;
+class AMixedRealityGarbageMatteActor;
+class UMixedRealityCalibrationData;
 
 /**
  *	
@@ -22,24 +25,66 @@ public:
 public:
 	//~ USceneCaptureComponent interface
 	virtual const AActor* GetViewOwner() const override;
-	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 
 public:
-	void ApplyConfiguration(const class UMixedRealityConfigurationSaveGame& SaveGameInstance);
+	UFUNCTION()
+	void SetTrackingOrigin(USceneComponent* TrackingOrigin);
 
-	// During garbage matte setup one may want to use a different actor for garbage matte capture, so that it live updates as the garbage matte is setup.
-	void SetExternalGarbageMatteActor(AActor* Actor);
-	void ClearExternalGarbageMatteActor();
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "MixedReality|GarbageMatting")
+	void ApplyCalibrationData(const UMixedRealityCalibrationData* ConfigData);
 
-public:
+	UFUNCTION(BlueprintCallable, Category = "MixedReality|GarbageMatting")
+	void SetGarbageMatteActor(AMixedRealityGarbageMatteActor* NewActor);
+
+	UFUNCTION(BlueprintCallable, Category = "MixedReality|GarbageMatting")
+	void GetGarbageMatteData(TArray<FGarbageMatteSaveData>& GarbageMatteDataOut);
+
+	UFUNCTION(BlueprintNativeEvent, Category = "MixedReality|GarbageMatting")
+	AMixedRealityGarbageMatteActor* SpawnNewGarbageMatteActor(USceneComponent* TrackingOrigin);
+
+private:
+	UPROPERTY(Transient, Config)
+	TSubclassOf<AMixedRealityGarbageMatteActor> GarbageMatteActorClass;
+
 	UPROPERTY(Transient)
-	UStaticMesh* GarbageMatteMesh;
+	AMixedRealityGarbageMatteActor* GarbageMatteActor;
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<USceneComponent> TrackingOriginPtr;
+};
+
+/* AMixedRealityGarbageMatteActor
+ *****************************************************************************/
+
+class UMaterial;
+class UStaticMesh;
+
+UCLASS(notplaceable, Blueprintable)
+class AMixedRealityGarbageMatteActor : public AActor
+{
+	GENERATED_UCLASS_BODY()
+
+
+public: 
+	UFUNCTION(BlueprintCallable, Category = "MixedReality|GarbageMatting")
+	void ApplyCalibrationData(const TArray<FGarbageMatteSaveData>& GarbageMatteData);
+
+	UFUNCTION(BlueprintCallable, Category = "MixedReality|GarbageMatting")
+	UPrimitiveComponent* AddNewGabageMatte(const FGarbageMatteSaveData& GarbageMatteData);
+
+	UFUNCTION(BlueprintNativeEvent, Category = "MixedReality|GarbageMatting")
+	UPrimitiveComponent* CreateGarbageMatte(const FGarbageMatteSaveData& GarbageMatteData);
+
+	UFUNCTION(BlueprintCallable, Category = "MixedReality|GarbageMatting")
+	void GetGarbageMatteData(TArray<FGarbageMatteSaveData>& GarbageMatteDataOut);
 
 private:
 	UPROPERTY(Transient)
-	AActor* GarbageMatteActor;
+	UStaticMesh* GarbageMatteMesh;
 
 	UPROPERTY(Transient)
-	AActor* ExternalGarbageMatteActor;
+	UMaterial* GarbageMatteMaterial;
 
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "MixedReality|GarbageMatting", meta=(AllowPrivateAccess="true"))
+	TArray<UPrimitiveComponent*> GarbageMattes;
 };

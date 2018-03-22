@@ -1146,10 +1146,7 @@ void FComponentTransformDetails::OnSetTransform(ETransformField::Type TransformF
 								ObjectToRelativeRotationMap.FindOrAdd(SceneComponent) = NewRotation;
 							}
 
-							SceneComponent->SetRelativeRotation(NewRotation);
-
-							// Also forcibly set it as the cache may have changed it slightly
-							SceneComponent->RelativeRotation = NewRotation;
+							SceneComponent->SetRelativeRotationExact(NewRotation);
 
 							// If it's a template, propagate the change out to any current instances of the object
 							if (bIsEditingTemplateObject)

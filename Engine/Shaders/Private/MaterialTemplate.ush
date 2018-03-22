@@ -165,6 +165,11 @@ struct FMaterialPixelParameters
 	 */
 	half3x3 TangentToWorld;
 
+#if USE_WORLDVERTEXNORMAL_CENTER_INTERPOLATION
+	/** World vertex normal interpolated at the pixel center that is safe to use for derivatives. */
+	half3 WorldVertexNormal_Center;
+#endif
+
 	/** 
 	 * Interpolated worldspace position of this pixel
 	 * todo: Make this TranslatedWorldPosition and also rename the VS/DS/HS WorldPosition to be TranslatedWorldPosition
@@ -1695,7 +1700,7 @@ float GetMaterialPixelDepthOffset(FPixelMaterialInputs PixelMaterialInputs)
 
 #if DECAL_PRIMITIVE
 
-float3 TransformTangentNormalToWorld(in FMaterialPixelParameters Parameters, float3 TangentNormal)
+float3 TransformTangentNormalToWorld(MaterialFloat3x3 TangentToWorld, float3 TangentNormal)
 {
 	// To transform the normals use tranpose(Inverse(DecalToWorld)) = transpose(WorldToDecal)
 	// But we want to only rotate the normals (we don't want to non-uniformaly scale them).
@@ -1715,9 +1720,9 @@ float3 TransformTangentNormalToWorld(in FMaterialPixelParameters Parameters, flo
 
 #else //DECAL_PRIMITIVE
 
-float3 TransformTangentNormalToWorld(in FMaterialPixelParameters Parameters, float3 TangentNormal)
+float3 TransformTangentNormalToWorld(MaterialFloat3x3 TangentToWorld, float3 TangentNormal)
 {
-	return normalize(float3(TransformTangentVectorToWorld(Parameters.TangentToWorld, TangentNormal)));
+	return normalize(float3(TransformTangentVectorToWorld(TangentToWorld, TangentNormal)));
 }
 
 #endif //DECAL_PRIMITIVE
@@ -1744,9 +1749,12 @@ void CalcPixelMaterialInputs(in out FMaterialPixelParameters Parameters, in out 
 
 	// normalizing after the tangent space to world space conversion improves quality with sheared bases (UV layout to WS causes shrearing)
 	// use full precision normalize to avoid overflows
-	Parameters.WorldNormal = TransformTangentNormalToWorld(Parameters, MaterialNormal);
+	Parameters.WorldNormal = TransformTangentNormalToWorld(Parameters.TangentToWorld, MaterialNormal);
+
 #else //MATERIAL_TANGENTSPACENORMAL
+
 	Parameters.WorldNormal = normalize(MaterialNormal);
+
 #endif //MATERIAL_TANGENTSPACENORMAL
 
 #if MATERIAL_TANGENTSPACENORMAL

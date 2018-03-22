@@ -17,7 +17,7 @@ UMovieSceneMaterialParameterCollectionTrack::UMovieSceneMaterialParameterCollect
 UMovieSceneSection* UMovieSceneMaterialParameterCollectionTrack::CreateNewSection()
 {
 	UMovieSceneSection* NewSection =  NewObject<UMovieSceneParameterSection>(this, UMovieSceneParameterSection::StaticClass(), NAME_None, RF_Transactional);
-	NewSection->SetIsInfinite(true);
+	NewSection->SetRange(TRange<FFrameNumber>::All());
 	return NewSection;
 }
 

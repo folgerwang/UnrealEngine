@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Linux/LinuxCursor.h"
+
 #include "Misc/App.h"
 #include "Linux/LinuxApplication.h"
 #include "Linux/LinuxPlatformApplicationMisc.h"

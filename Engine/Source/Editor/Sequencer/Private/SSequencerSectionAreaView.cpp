@@ -4,6 +4,8 @@
 #include "Types/PaintArgs.h"
 #include "Layout/ArrangedChildren.h"
 #include "CommonMovieSceneTools.h"
+#include "MovieSceneTrack.h"
+#include "MovieScene.h"
 
 namespace SequencerSectionAreaConstants
 {
@@ -24,24 +26,19 @@ namespace SequencerSectionUtils
 	 */
 	FGeometry GetSectionGeometry( const FGeometry& AllottedGeometry, int32 RowIndex, int32 MaxTracks, float NodeHeight, TSharedPtr<ISequencerSection> SectionInterface, const FTimeToPixel& TimeToPixelConverter )
 	{
-		const UMovieSceneSection* Section = SectionInterface->GetSectionObject();
-		float PixelStartX = TimeToPixelConverter.TimeToPixel( Section->GetStartTime() );
-		// Note the -1 pixel at the end is because the section does not actually end at the end time if there is a section starting at that same time.  It is more important that a section lines up correctly with it's true start time
-		float PixelEndX = TimeToPixelConverter.TimeToPixel( Section->GetEndTime() );
+		const UMovieSceneSection* Section    = SectionInterface->GetSectionObject();
+		const FFrameRate          Resolution = Section->GetTypedOuter<UMovieScene>()->GetFrameResolution();
 
-		// If the section is infinite, occupy the entire width of the geometry where the section is located.
-		const bool bIsInfinite = Section->IsInfinite();
-		if (bIsInfinite)
-		{
-			PixelStartX = AllottedGeometry.Position.X;
-			PixelEndX = AllottedGeometry.Position.X + AllottedGeometry.GetLocalSize().X;
-		}
+		// Sections with an infite (open) start bound use the currently visible geometry and time range
+		float PixelStartX = Section->HasStartFrame() ? TimeToPixelConverter.FrameToPixel( Section->GetInclusiveStartFrame() )     : AllottedGeometry.Position.X;
+		// Note the -1 pixel at the end is because the section does not actually end at the end time if there is a section starting at that same time.  It is more important that a section lines up correctly with it's true start time
+		float PixelEndX   = Section->HasEndFrame()   ? TimeToPixelConverter.FrameToPixel( Section->GetExclusiveEndFrame() ) : AllottedGeometry.Position.X + AllottedGeometry.GetLocalSize().X;
 
 		const float MinSectionWidth = 1.f;
 		float SectionLength = FMath::Max(MinSectionWidth, PixelEndX-PixelStartX);
 
 		float GripOffset = 0;
-		if (!bIsInfinite)
+		if (Section->HasStartFrame() && Section->HasEndFrame())
 		{
 			float NewSectionLength = FMath::Max(SectionLength, MinSectionWidth + SectionInterface->GetSectionGripSize() * 2.f);
 
@@ -69,7 +66,7 @@ void SSequencerSectionAreaView::Construct( const FArguments& InArgs, TSharedRef<
 
 	// Generate widgets for sections in this view
 	GenerateSectionWidgets();
-};
+}
 
 FVector2D SSequencerSectionAreaView::ComputeDesiredSize(float) const
 {
@@ -188,7 +185,10 @@ void SSequencerSectionAreaView::OnArrangeChildren( const FGeometry& AllottedGeom
 
 FTimeToPixel SSequencerSectionAreaView::GetTimeToPixel( const FGeometry& AllottedGeometry ) const
 {
-	return FTimeToPixel( AllottedGeometry, ViewRange.Get() );
+	const UMovieSceneTrack* Track      = SectionAreaNode->GetTrack();
+	const FFrameRate        Resolution = Track->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+
+	return FTimeToPixel( AllottedGeometry, ViewRange.Get(), Resolution );
 }
 
 

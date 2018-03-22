@@ -6,7 +6,9 @@
 
 #include "MovieSceneMediaSection.generated.h"
 
+class UMediaSoundComponent;
 class UMediaSource;
+class UMediaTexture;
 
 
 /**
@@ -24,6 +26,14 @@ public:
 	UPROPERTY(EditAnywhere, Category="Media")
 	FString Proxy;
 
+	/** The media sound component that receives the track's audio output. */
+	UPROPERTY(EditAnywhere, Category="Media")
+	UMediaSoundComponent* MediaSoundComponent;
+
+	/** The media texture that receives the track's video output. */
+	UPROPERTY(EditAnywhere, Category="Media")
+	UMediaTexture* MediaTexture;
+
 public:
 
 	/**
@@ -32,6 +42,8 @@ public:
 	 * @param ObjectInitializer The object initializer.
 	 */
 	UMovieSceneMediaSection(const FObjectInitializer& ObjectInitializer);
+
+	virtual void PostInitProperties() override;
 
 public:
 
@@ -76,7 +88,7 @@ public:
 
 private:
 
-	/** The source to play with this video track */
+	/** The source to play with this video track. */
 	UPROPERTY(EditAnywhere, Category="Media")
 	UMediaSource* MediaSource;
 

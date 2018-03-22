@@ -256,21 +256,30 @@ bool SGameLayerManager::OnVisualizeTooltip(const TSharedPtr<SWidget>& TooltipCon
 
 float SGameLayerManager::GetGameViewportDPIScale() const
 {
-	if ( const FSceneViewport* Viewport = SceneViewport.Get() )
+	const FSceneViewport* Viewport = SceneViewport.Get();
+
+	if (Viewport == nullptr)
 	{
-		FIntPoint ViewportSize = Viewport->GetSize();
-		const float GameUIScale = GetDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass())->GetDPIScaleBasedOnSize(ViewportSize);
-
-		// Remove the platform DPI scale from the incoming size.  Since the platform DPI is already
-		// attempt to normalize the UI for a high DPI, and the DPI scale curve is based on raw resolution
-		// for what a assumed platform scale of 1, extract that scale the calculated scale, since that will
-		// already be applied by slate.
-		const float FinalUIScale = GameUIScale / Viewport->GetCachedGeometry().Scale;
-
-		return FinalUIScale;
+		return 1;
 	}
 
-	return 1;
+	const auto UserInterfaceSettings = GetDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass());
+
+	if (UserInterfaceSettings == nullptr)
+	{
+		return 1;
+	}
+
+	FIntPoint ViewportSize = Viewport->GetSize();
+	const float GameUIScale = UserInterfaceSettings->GetDPIScaleBasedOnSize(ViewportSize);
+
+	// Remove the platform DPI scale from the incoming size.  Since the platform DPI is already
+	// attempt to normalize the UI for a high DPI, and the DPI scale curve is based on raw resolution
+	// for what a assumed platform scale of 1, extract that scale the calculated scale, since that will
+	// already be applied by slate.
+	const float FinalUIScale = GameUIScale / Viewport->GetCachedGeometry().Scale;
+
+	return FinalUIScale;
 }
 
 FOptionalSize SGameLayerManager::GetDefaultWindowTitleBarHeight() const
@@ -370,6 +379,11 @@ void SGameLayerManager::RemovePlayerWidgets(ULocalPlayer* LocalPlayer)
 
 void SGameLayerManager::AddOrUpdatePlayerLayers(const FGeometry& AllottedGeometry, UGameViewportClient* ViewportClient, const TArray<ULocalPlayer*>& GamePlayers)
 {
+	if (GamePlayers.Num() == 0)
+	{
+		return;
+	}
+
 	ESplitScreenType::Type SplitType = ViewportClient->GetCurrentSplitscreenConfiguration();
 	TArray<struct FSplitscreenData>& SplitInfo = ViewportClient->SplitscreenInfo;
 

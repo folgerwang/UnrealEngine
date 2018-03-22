@@ -110,7 +110,7 @@ bool FVulkanViewport::DoCheckedSwapChainJob(TFunction<int32(FVulkanViewport*)> S
 	{
 		if (Status == (int32)FVulkanSwapChain::EStatus::OutOfDate)
 		{
-			UE_LOG(LogVulkanRHI, Warning, TEXT("Swapchain is out of date! Trying to recreate the swapchain."));
+			UE_LOG(LogVulkanRHI, Verbose, TEXT("Swapchain is out of date! Trying to recreate the swapchain."));
 		}
 		else if (Status == (int32)FVulkanSwapChain::EStatus::SurfaceLost)
 		{

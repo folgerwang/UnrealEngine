@@ -14,6 +14,7 @@
 #include "Misc/RemoteConfigIni.h"
 #include "Misc/DefaultValueHelper.h"
 #include "Misc/ConfigManifest.h"
+#include "Misc/DataDrivenPlatformInfoRegistry.h"
 
 #if WITH_EDITOR
 	#define INI_CACHE 1
@@ -387,6 +388,21 @@ bool FConfigFile::Combine(const FString& Filename)
 	// needs file ops), and the other caller of this is already checking for disabled file ops
 	if( FFileHelper::LoadFileToString( Text, *Filename ) )
 	{
+		if (Text.StartsWith("#!"))
+		{
+			// this will import/"execute" another .ini file before this one - useful for subclassing platforms, like tvOS extending iOS
+			// the text following the #! is a relative path to another .ini file
+			FString TheLine;
+			int32 LinesConsumed = 0;
+			// skip over the #!
+			const TCHAR* Ptr = *Text + 2;
+			FParse::LineExtended(&Ptr, TheLine, LinesConsumed, false);
+			TheLine = TheLine.TrimEnd();
+		
+			// now import the relative path'd file (TVOS would have #!../IOS) recursively
+			Combine(FPaths::GetPath(Filename) / TheLine);
+		}
+
 		CombineFromBuffer(Text);
 		return true;
 	}
@@ -2978,6 +2994,8 @@ static void GetSourceIniHierarchyFilenames(const TCHAR* InBaseIniName, const TCH
 	 **************************************************/
 	
 	const FString PlatformName(InPlatformName ? InPlatformName : ANSI_TO_TCHAR(FPlatformProperties::IniPlatformName()));
+	// look up if there's a parent (for example, TVOS's IniParent is IOS)
+	const FString PlatformParentName = FDataDrivenPlatformInfoRegistry::GetPlatformInfo(PlatformName).IniParent;
 
 	// [[[[ ENGINE DEFAULTS ]]]]
 	// Engine/Config/Base.ini (included in every ini type, required)
@@ -2991,6 +3009,11 @@ static void GetSourceIniHierarchyFilenames(const TCHAR* InBaseIniName, const TCH
 	// Engine/Config/Base* ini
 	OutHierarchy.Add(EConfigFileHierarchy::EngineDirBase, FIniFilename(FString::Printf(TEXT("%sBase%s.ini"), EngineConfigDir, InBaseIniName), false));
 	// Engine/Config/Platform/BasePlatform* ini // this is to workaround the issue where Engine -> Project -> EnginePlat -> ProjectPlat would make the project's settings get overwritten by EnginePlat settings
+
+	if (PlatformParentName.Len() > 0)
+	{
+		OutHierarchy.Add(EConfigFileHierarchy::EngineDir_BasePlatformParent, FIniFilename(FString::Printf(TEXT("%s%s/Base%s%s.ini"), EngineConfigDir, *PlatformParentName, *PlatformParentName, InBaseIniName), false));
+	}
 	if (PlatformName.Len() > 0)
 	{
 		OutHierarchy.Add(EConfigFileHierarchy::EngineDir_BasePlatform, FIniFilename(FString::Printf(TEXT("%s%s/Base%s%s.ini"), EngineConfigDir, *PlatformName, *PlatformName, InBaseIniName), false));
@@ -3027,6 +3050,22 @@ static void GetSourceIniHierarchyFilenames(const TCHAR* InBaseIniName, const TCH
 	FString HierarchyCheckpointPath = FString::Printf(TEXT("%sNoRedist/Default%s.ini"), SourceConfigDir, InBaseIniName);
 	OutHierarchy.Add(EConfigFileHierarchy::GameDirDefault_NoRedist, FIniFilename(HierarchyCheckpointPath, false, GenerateHierarchyCacheKey(OutHierarchy, HierarchyCheckpointPath, InBaseIniName)));
 	
+	if (PlatformParentName.Len() > 0)
+	{
+		// [[[[ PLATFORM DEFAULTS AND PROJECT SETTINGS ]]]]
+		// Engine/Config/PlatformParent/PlatformParent* ini
+		OutHierarchy.Add(EConfigFileHierarchy::EngineDir_PlatformParent, FIniFilename(FString::Printf(TEXT("%s%s/%s%s.ini"), EngineConfigDir, *PlatformParentName, *PlatformParentName, InBaseIniName), false));
+		// Engine/Config/NotForLicensees/PlatformParent/PlatformParent* ini
+		OutHierarchy.Add(EConfigFileHierarchy::EngineDir_PlatformParent_NotForLicensees, FIniFilename(FString::Printf(TEXT("%sNotForLicensees/%s/%s%s.ini"), EngineConfigDir, *PlatformParentName, *PlatformParentName, InBaseIniName), false));
+		// Engine/Config/NoRedist/PlatformParent/PlatformParent* ini
+		OutHierarchy.Add(EConfigFileHierarchy::EngineDir_PlatformParent_NoRedist, FIniFilename(FString::Printf(TEXT("%sNoRedist/%s/%s%s.ini"), EngineConfigDir, *PlatformParentName, *PlatformParentName, InBaseIniName), false));
+		// Game/Config/PlatformParent/PlatformParent* ini
+		OutHierarchy.Add(EConfigFileHierarchy::GameDir_PlatformParent, FIniFilename(FString::Printf(TEXT("%s%s/%s%s.ini"), SourceConfigDir, *PlatformParentName, *PlatformParentName, InBaseIniName), false));
+		// Game/Config/NotForLicensee/PlatformParent/PlatformParent* ini
+		OutHierarchy.Add(EConfigFileHierarchy::GameDir_PlatformParent_NotForLicensees, FIniFilename(FString::Printf(TEXT("%sNotForLicensees/%s/%s%s.ini"), SourceConfigDir, *PlatformParentName, *PlatformParentName, InBaseIniName), false));
+		// Game/Config/NoRedist/PlatformParent/PlatformParent* ini
+		OutHierarchy.Add(EConfigFileHierarchy::GameDir_PlatformParent_NoRedist, FIniFilename(FString::Printf(TEXT("%sNoRedist/%s/%s%s.ini"), SourceConfigDir, *PlatformParentName, *PlatformParentName, InBaseIniName), false));
+	}
 	if (PlatformName.Len() > 0)
 	{
 		// [[[[ PLATFORM DEFAULTS AND PROJECT SETTINGS ]]]]
@@ -3402,7 +3441,6 @@ void FConfigFile::UpdateSections(const TCHAR* DiskFilename, const TCHAR* IniRoot
 	}
 	Write(DiskFilename, true, NewFile);
 }
-
 
 
 /**

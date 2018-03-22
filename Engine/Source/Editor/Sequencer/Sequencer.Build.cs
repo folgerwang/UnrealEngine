@@ -14,6 +14,12 @@ public class Sequencer : ModuleRules
 	}
         );
 
+		PublicDependencyModuleNames.AddRange(
+			new string[] {
+				"TimeManagement",
+			}
+		);
+
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"AppFramework", 
@@ -21,6 +27,7 @@ public class Sequencer : ModuleRules
                 "CinematicCamera",
 				"Core", 
 				"CoreUObject", 
+                "CurveEditor",
                 "InputCore",
 				"Engine", 
 				"Slate", 
@@ -64,6 +71,7 @@ public class Sequencer : ModuleRules
 			new string[] {
 				"PropertyEditor",
                 "SceneOutliner",
+                "CurveEditor",
             }
         );
 

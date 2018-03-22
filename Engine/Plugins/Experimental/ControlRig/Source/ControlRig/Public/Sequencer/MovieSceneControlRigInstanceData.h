@@ -5,7 +5,7 @@
 #include "Evaluation/MovieSceneSequenceInstanceData.h"
 #include "Evaluation/MovieSceneEvaluationOperand.h"
 #include "Animation/AnimData/BoneMaskFilter.h"
-#include "Curves/RichCurve.h"
+#include "Channels/MovieSceneFloatChannel.h"
 #include "MovieSceneControlRigInstanceData.generated.h"
 
 USTRUCT()
@@ -27,7 +27,7 @@ struct FMovieSceneControlRigInstanceData : public FMovieSceneSequenceInstanceDat
 
 	/** The weight curve for this animation controller section */
 	UPROPERTY()
-	FRichCurve Weight;
+	FMovieSceneFloatChannel Weight;
 
 	/** The operand the control rig instance should operate on */
 	UPROPERTY()

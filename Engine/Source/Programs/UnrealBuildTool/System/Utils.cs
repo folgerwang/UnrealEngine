@@ -299,19 +299,39 @@ namespace UnrealBuildTool
 		/// <param name="ExitCode">The return code from the process after it exits</param>
 		public static string RunLocalProcessAndReturnStdOut(string Command, string Args, out int ExitCode)
 		{
-			ProcessStartInfo StartInfo = new ProcessStartInfo(Command, Args);
-			StartInfo.UseShellExecute = false;
-			StartInfo.RedirectStandardOutput = true;
-			StartInfo.CreateNoWindow = true;
-
-			string FullOutput = "";
-			using (Process LocalProcess = Process.Start(StartInfo))
+			StringBuilder OutputBuilder = new StringBuilder();
+			StringBuilder ErrorBuilder = new StringBuilder();
+			using (Process LocalProcess = new Process())
 			{
-				StreamReader OutputReader = LocalProcess.StandardOutput;
-				// trim off any extraneous new lines, helpful for those one-line outputs
-				FullOutput = OutputReader.ReadToEnd().Trim();
+				LocalProcess.StartInfo.FileName = Command;
+				LocalProcess.StartInfo.Arguments = Args;
+				LocalProcess.StartInfo.UseShellExecute = false;
+				LocalProcess.StartInfo.RedirectStandardOutput = true;
+				LocalProcess.StartInfo.RedirectStandardError = true;
+				LocalProcess.StartInfo.CreateNoWindow = true;
+				LocalProcess.OutputDataReceived += (sender, e) => OutputBuilder.Append(e.Data);
+				LocalProcess.ErrorDataReceived += (sender, e) => ErrorBuilder.Append(e.Data);
+				LocalProcess.EnableRaisingEvents = true;
+				LocalProcess.Start();
+				LocalProcess.BeginOutputReadLine();
+				LocalProcess.BeginErrorReadLine();
+
 				LocalProcess.WaitForExit();
 				ExitCode = LocalProcess.ExitCode;
+			}
+
+			// trim off any extraneous new lines, helpful for those one-line outputs
+			string FullOutput = OutputBuilder.ToString().Trim();
+
+			// trim off any extraneous new lines, helpful for those one-line outputs
+			string ErrorOutput = ErrorBuilder.ToString().Trim();
+			if (ErrorOutput.Length > 0)
+			{
+				if (FullOutput.Length > 0)
+				{
+					FullOutput += Environment.NewLine;
+				}
+				FullOutput += ErrorOutput;
 			}
 
 			return FullOutput;
@@ -409,7 +429,6 @@ namespace UnrealBuildTool
 				return OtherPlatformNameStrings;
 			}
 		}
-
 
 		/// <summary>
 		/// Takes a path string and makes all of the path separator characters consistent. Also removes unnecessary multiple separators.

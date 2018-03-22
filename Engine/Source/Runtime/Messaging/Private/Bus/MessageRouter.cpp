@@ -31,6 +31,12 @@ FMessageRouter::~FMessageRouter()
 /* FRunnable interface
  *****************************************************************************/
 
+FSingleThreadRunnable* FMessageRouter::GetSingleThreadInterface()
+{
+	return this;
+}
+
+
 bool FMessageRouter::Init()
 {
 	return true;
@@ -45,14 +51,7 @@ uint32 FMessageRouter::Run()
 	{
 		if (WorkEvent->Wait(CalculateWaitTime()))
 		{
-			CurrentTime = FDateTime::UtcNow();
-			CommandDelegate Command;
-
-			while (Commands.Dequeue(Command))
-			{
-				Command.Execute();
-			}
-
+			ProcessCommands();
 			WorkEvent->Reset();
 		}
 
@@ -207,6 +206,18 @@ void FMessageRouter::FilterSubscriptions(
 }
 
 
+void FMessageRouter::ProcessCommands()
+{
+	CurrentTime = FDateTime::UtcNow();
+	CommandDelegate Command;
+
+	while (Commands.Dequeue(Command))
+	{
+		Command.Execute();
+	}
+}
+
+
 void FMessageRouter::ProcessDelayedMessages()
 {
 	FDelayedMessage DelayedMessage;
@@ -216,6 +227,16 @@ void FMessageRouter::ProcessDelayedMessages()
 		DelayedMessages.HeapPop(DelayedMessage);
 		DispatchMessage(DelayedMessage.Context.ToSharedRef());
 	}
+}
+
+
+/* FSingleThreadRunnable interface
+ *****************************************************************************/
+
+void FMessageRouter::Tick()
+{
+	ProcessCommands();
+	ProcessDelayedMessages();
 }
 
 

@@ -348,7 +348,7 @@ float ComputeAverageMass_AssumesLocked(const PxRigidActor* PActor1, const PxRigi
 		}
 
 		check(NumDynamic);
-		AverageMass = TotalMass / NumDynamic;
+		AverageMass = TotalMass / NumDynamic; //-V609
 	}
 
 	return AverageMass;

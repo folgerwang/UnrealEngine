@@ -149,6 +149,10 @@ struct FMovieSceneTrackImplementationPtr
 			StructOps.Construct(Allocation);
 			StructOps.Copy(Allocation, &RHS.GetValue(), 1);
 		}
+		else
+		{
+			Reset();
+		}
 
 		return *this;
 	}

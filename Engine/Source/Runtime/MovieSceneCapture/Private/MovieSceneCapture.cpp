@@ -40,7 +40,7 @@ FMovieSceneCaptureSettings::FMovieSceneCaptureSettings()
 	HandleFrames = 0;
 	GameModeOverride = nullptr;
 	OutputFormat = TEXT("{world}");
-	FrameRate = 24;
+	FrameRate = FFrameRate(24, 1);
 	ZeroPadFrameNumbers = 4;
 	bEnableTextureStreaming = false;
 	bCinematicEngineScalability = true;
@@ -67,7 +67,6 @@ UMovieSceneCapture::UMovieSceneCapture(const FObjectInitializer& Initializer)
 
 	Handle = FUniqueMovieSceneCaptureHandle();
 
-	FrameCount = 0;
 	bCapturing = false;
 	FrameNumberOffset = 0;
 	CaptureType = TEXT("Video");
@@ -129,7 +128,7 @@ void UMovieSceneCapture::Initialize(TSharedPtr<FSceneViewport> InSceneViewport, 
 		{
 			Settings.bUseRelativeFrameNumbers = bOverrideRelativeFrameNumbers;
 		}
-				
+
 		int32 HandleFramesOverride;
 		if( FParse::Value( FCommandLine::Get(), TEXT( "-HandleFrames=" ), HandleFramesOverride ) )
 		{
@@ -155,10 +154,13 @@ void UMovieSceneCapture::Initialize(TSharedPtr<FSceneViewport> InSceneViewport, 
 			InitializeSettings();
 		}
 
-		int32 FrameRateOverride;
-		if( FParse::Value( FCommandLine::Get(), TEXT( "-MovieFrameRate=" ), FrameRateOverride ) )
+		FString FrameRateOverrideString;
+		if ( FParse::Value( FCommandLine::Get(), TEXT( "-MovieFrameRate=" ), FrameRateOverrideString ) )
 		{
-			Settings.FrameRate = FrameRateOverride;
+			if (!TryParseString(Settings.FrameRate, *FrameRateOverrideString))
+			{
+				UE_LOG(LogMovieSceneCapture, Error, TEXT("Unrecognized capture frame rate: %s."), *FrameRateOverrideString);
+			}
 		}
 	}
 
@@ -170,8 +172,17 @@ void UMovieSceneCapture::Initialize(TSharedPtr<FSceneViewport> InSceneViewport, 
 	CachedMetrics.Width = InitSettings->DesiredSize.X;
 	CachedMetrics.Height = InitSettings->DesiredSize.Y;
 
+	double FrameRate = Settings.FrameRate.AsDecimal();
+
 	FormatMappings.Reserve(10);
-	FormatMappings.Add(TEXT("fps"), FString::Printf(TEXT("%d"), Settings.FrameRate));
+	if (FrameRate == FMath::RoundToDouble(FrameRate))
+	{
+		FormatMappings.Add(TEXT("fps"), FString::Printf(TEXT("%d"), FMath::RoundToInt(FrameRate)));
+	}
+	else
+	{
+		FormatMappings.Add(TEXT("fps"), FString::Printf(TEXT("%.2f"), FrameRate));
+	}
 	FormatMappings.Add(TEXT("width"), FString::Printf(TEXT("%d"), CachedMetrics.Width));
 	FormatMappings.Add(TEXT("height"), FString::Printf(TEXT("%d"), CachedMetrics.Height));
 	FormatMappings.Add(TEXT("world"), InSceneViewport->GetClient()->GetWorld()->GetName());
@@ -242,12 +253,9 @@ void UMovieSceneCapture::CaptureThisFrame(float DeltaSeconds)
 			);
 		CaptureProtocol->CaptureFrame(ThisFrameMetrics, *this);
 
-		++CachedMetrics.Frame;
+		UE_LOG(LogMovieSceneCapture, Verbose, TEXT("Captured frame: %d"), CachedMetrics.Frame);
 
-		if (!bFinalizeWhenReady && (FrameCount != 0 && CachedMetrics.Frame >= FrameCount))
-		{
-			FinalizeWhenReady();
-		}
+		++CachedMetrics.Frame;
 	}
 }
 
@@ -443,20 +451,20 @@ void UMovieSceneCapture::PostEditChangeProperty( struct FPropertyChangedEvent& P
 }
 #endif
 
-FFixedTimeStepCaptureStrategy::FFixedTimeStepCaptureStrategy(uint32 InTargetFPS)
-	: TargetFPS(InTargetFPS)
+FFixedTimeStepCaptureStrategy::FFixedTimeStepCaptureStrategy(FFrameRate InFrameRate)
+	: FrameRate(InFrameRate)
 {
 }
 
 void FFixedTimeStepCaptureStrategy::OnWarmup()
 {
-	FApp::SetFixedDeltaTime(1.0 / TargetFPS);
+	FApp::SetFixedDeltaTime(FrameRate.AsInterval());
 	FApp::SetUseFixedTimeStep(true);
 }
 
 void FFixedTimeStepCaptureStrategy::OnStart()
 {
-	FApp::SetFixedDeltaTime(1.0 / TargetFPS);
+	FApp::SetFixedDeltaTime(FrameRate.AsInterval());
 	FApp::SetUseFixedTimeStep(true);
 }
 
@@ -479,8 +487,8 @@ int32 FFixedTimeStepCaptureStrategy::GetDroppedFrames(double CurrentTimeSeconds,
 	return 0;
 }
 
-FRealTimeCaptureStrategy::FRealTimeCaptureStrategy(uint32 InTargetFPS)
-	: NextPresentTimeS(0), FrameLength(1.0 / InTargetFPS)
+FRealTimeCaptureStrategy::FRealTimeCaptureStrategy(FFrameRate InFrameRate)
+	: NextPresentTimeS(0), FrameLength(InFrameRate.AsInterval())
 {
 }
 

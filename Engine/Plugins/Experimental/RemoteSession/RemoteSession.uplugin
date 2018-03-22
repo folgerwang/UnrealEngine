@@ -1,0 +1,37 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "RemoteSession",
+	"Description": "A plugin for Unreal that allows one instance to act as a thin-client (rendering and input) to a second instance",
+	"Category": "Other",
+	"CreatedBy": "Andrew Grant",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": true,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"EnabledByDefault": true,
+
+	"Modules":
+	[
+		{
+			"Name": "RemoteSession",
+			"Type": "RuntimeNoCommandlet",
+			"LoadingPhase": "Default",
+			"BlacklistPlatforms" :
+			[
+				"HTML5"
+			]
+		}
+	],
+	"Plugins":
+	[
+        {
+            "Name": "BackChannel",
+            "Enabled": true
+        }
+    ]
+}

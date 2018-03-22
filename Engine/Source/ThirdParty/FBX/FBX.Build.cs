@@ -51,7 +51,7 @@ public class FBX : ModuleRules
 			string LibDir = FBXSDKDir + "lib/clang/release/";
 			PublicAdditionalLibraries.Add(LibDir + "libfbxsdk.dylib");
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			string LibDir = FBXSDKDir + "lib/gcc4/" + Target.Architecture + "/release/";
 			if (!Directory.Exists(LibDir))

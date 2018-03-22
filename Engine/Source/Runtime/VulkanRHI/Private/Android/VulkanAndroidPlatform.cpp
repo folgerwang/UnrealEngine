@@ -12,6 +12,8 @@ ENUM_VK_ENTRYPOINTS_ALL(DEFINE_VK_ENTRYPOINTS)
 void* FVulkanAndroidPlatform::VulkanLib = nullptr;
 bool FVulkanAndroidPlatform::bAttemptedLoad = false;
 
+#define CHECK_VK_ENTRYPOINTS(Type,Func) if (VulkanDynamicAPI::Func == NULL) { bFoundAllEntryPoints = false; UE_LOG(LogRHI, Warning, TEXT("Failed to find entry point for %s"), TEXT(#Func)); }
+
 bool FVulkanAndroidPlatform::LoadVulkanLibrary()
 {
 	if (bAttemptedLoad)
@@ -29,12 +31,13 @@ bool FVulkanAndroidPlatform::LoadVulkanLibrary()
 	}
 
 	bool bFoundAllEntryPoints = true;
-#define CHECK_VK_ENTRYPOINTS(Type,Func) if (VulkanDynamicAPI::Func == NULL) { bFoundAllEntryPoints = false; UE_LOG(LogRHI, Warning, TEXT("Failed to find entry point for %s"), TEXT(#Func)); }
 
-	// Initialize all of the entry points we have to query manually
 #define GET_VK_ENTRYPOINTS(Type,Func) VulkanDynamicAPI::Func = (Type)dlsym(VulkanLib, #Func);
+
 	ENUM_VK_ENTRYPOINTS_BASE(GET_VK_ENTRYPOINTS);
 	ENUM_VK_ENTRYPOINTS_BASE(CHECK_VK_ENTRYPOINTS);
+	ENUM_VK_ENTRYPOINTS_PLATFORM_INSTANCE(GET_VK_ENTRYPOINTS);
+	ENUM_VK_ENTRYPOINTS_PLATFORM_INSTANCE(CHECK_VK_ENTRYPOINTS);
 	if (!bFoundAllEntryPoints)
 	{
 		dlclose(VulkanLib);
@@ -42,8 +45,10 @@ bool FVulkanAndroidPlatform::LoadVulkanLibrary()
 		return false;
 	}
 
-	ENUM_VK_ENTRYPOINTS_OPTIONAL(GET_VK_ENTRYPOINTS);
-	//ENUM_VK_ENTRYPOINTS_OPTIONAL(CHECK_VK_ENTRYPOINTS);
+	ENUM_VK_ENTRYPOINTS_OPTIONAL_BASE(GET_VK_ENTRYPOINTS);
+	ENUM_VK_ENTRYPOINTS_OPTIONAL_BASE(CHECK_VK_ENTRYPOINTS);
+
+#undef GET_VK_ENTRYPOINTS
 
 	return true;
 }
@@ -51,13 +56,26 @@ bool FVulkanAndroidPlatform::LoadVulkanLibrary()
 bool FVulkanAndroidPlatform::LoadVulkanInstanceFunctions(VkInstance inInstance)
 {
 	bool bFoundAllEntryPoints = true;
-#define CHECK_VK_ENTRYPOINTS(Type,Func) if (VulkanDynamicAPI::Func == NULL) { bFoundAllEntryPoints = false; UE_LOG(LogRHI, Warning, TEXT("Failed to find entry point for %s"), TEXT(#Func)); }
 
 #define GETINSTANCE_VK_ENTRYPOINTS(Type, Func) VulkanDynamicAPI::Func = (Type)VulkanDynamicAPI::vkGetInstanceProcAddr(inInstance, #Func);
+
 	ENUM_VK_ENTRYPOINTS_INSTANCE(GETINSTANCE_VK_ENTRYPOINTS);
 	ENUM_VK_ENTRYPOINTS_INSTANCE(CHECK_VK_ENTRYPOINTS);
 
-	return bFoundAllEntryPoints;
+	ENUM_VK_ENTRYPOINTS_PLATFORM_INSTANCE(GETINSTANCE_VK_ENTRYPOINTS);
+	ENUM_VK_ENTRYPOINTS_PLATFORM_INSTANCE(CHECK_VK_ENTRYPOINTS);
+
+	if (!bFoundAllEntryPoints)
+	{
+		return false;
+	}
+
+	ENUM_VK_ENTRYPOINTS_OPTIONAL_INSTANCE(GETINSTANCE_VK_ENTRYPOINTS);
+	ENUM_VK_ENTRYPOINTS_OPTIONAL_INSTANCE(CHECK_VK_ENTRYPOINTS);
+
+#undef GETINSTANCE_VK_ENTRYPOINTS
+
+	return true;
 }
 
 void FVulkanAndroidPlatform::FreeVulkanLibrary()
@@ -72,6 +90,8 @@ void FVulkanAndroidPlatform::FreeVulkanLibrary()
 	}
 	bAttemptedLoad = false;
 }
+
+#undef CHECK_VK_ENTRYPOINTS
 
 void FVulkanAndroidPlatform::CreateSurface(void* WindowHandle, VkInstance Instance, VkSurfaceKHR* OutSurface)
 {

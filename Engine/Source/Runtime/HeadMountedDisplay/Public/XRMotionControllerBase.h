@@ -21,9 +21,11 @@ public:
 	virtual float GetCustomParameterValue(const FName MotionSource, FName ParameterName, bool& bValueFound) const { bValueFound = false;  return 0.f; }
 	// End IMotionController interface
 
-	// explicit (hand) source names
+	// explicit source names
 	static FName LeftHandSourceId;
 	static FName RightHandSourceId;
+	static FName HMDSourceId;
+
 	static bool GetHandEnumForSourceName(const FName Source, EControllerHand& OutHand);
 
 	// Original GetControllerOrientationAndPosition signature for backwards compatibility 

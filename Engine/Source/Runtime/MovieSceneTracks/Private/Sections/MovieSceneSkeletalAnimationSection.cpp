@@ -1,11 +1,13 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Sections/MovieSceneSkeletalAnimationSection.h"
+#include "Channels/MovieSceneChannelProxy.h"
 #include "Animation/AnimSequence.h"
 #include "Evaluation/MovieSceneSkeletalAnimationTemplate.h"
 #include "Logging/MessageLog.h"
 #include "MovieScene.h"
 #include "UObject/SequencerObjectVersion.h"
+#include "MovieSceneTimeHelpers.h"
 
 #define LOCTEXT_NAMESPACE "MovieSceneSkeletalAnimationSection"
 
@@ -22,7 +24,7 @@ FMovieSceneSkeletalAnimationParams::FMovieSceneSkeletalAnimationParams()
 	PlayRate = 1.f;
 	bReverse = false;
 	SlotName = DefaultSlotName;
-	Weight.SetDefaultValue(1.f);
+	Weight.SetDefault(1.f);
 }
 
 UMovieSceneSkeletalAnimationSection::UMovieSceneSkeletalAnimationSection( const FObjectInitializer& ObjectInitializer )
@@ -43,8 +45,23 @@ UMovieSceneSkeletalAnimationSection::UMovieSceneSkeletalAnimationSection( const 
 			EMovieSceneCompletionMode::ProjectDefault);
 
 #if WITH_EDITOR
+
 	PreviousPlayRate = Params.PlayRate;
+
+	static FMovieSceneChannelEditorData EditorData("Weight", LOCTEXT("WeightChannelName", "Weight"));
+	EditorData.bCanCollapseToTrack = false;
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(Params.Weight, EditorData, TMovieSceneExternalValue<float>());
+
+#else
+
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(Params.Weight);
+
 #endif
+}
+
+TOptional<FFrameTime> UMovieSceneSkeletalAnimationSection::GetOffsetTime() const
+{
+	return TOptional<FFrameTime>(Params.StartOffset * GetTypedOuter<UMovieScene>()->GetFrameResolution());
 }
 
 void UMovieSceneSkeletalAnimationSection::Serialize(FArchive& Ar)
@@ -131,27 +148,10 @@ FMovieSceneEvalTemplatePtr UMovieSceneSkeletalAnimationSection::GenerateTemplate
 	return FMovieSceneSkeletalAnimationSectionTemplate(*this);
 }
 
-void UMovieSceneSkeletalAnimationSection::MoveSection( float DeltaTime, TSet<FKeyHandle>& KeyHandles )
-{
-	Super::MoveSection(DeltaTime, KeyHandles);
-
-	Params.Weight.ShiftCurve(DeltaTime, KeyHandles);
-}
-
-
-void UMovieSceneSkeletalAnimationSection::DilateSection( float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles )
-{
-	Params.PlayRate /= DilationFactor;
-
-	Super::DilateSection(DilationFactor, Origin, KeyHandles);
-	
-	Params.Weight.ScaleCurve(Origin, DilationFactor, KeyHandles);
-}
-
-UMovieSceneSection* UMovieSceneSkeletalAnimationSection::SplitSection(float SplitTime)
+UMovieSceneSection* UMovieSceneSkeletalAnimationSection::SplitSection(FFrameNumber SplitTime)
 {
 	float AnimPlayRate = FMath::IsNearlyZero(Params.PlayRate) ? 1.0f : Params.PlayRate;
-	float AnimPosition = (SplitTime - GetStartTime()) * AnimPlayRate;
+	float AnimPosition = (SplitTime - GetRange().GetLowerBoundValue()) / GetTypedOuter<UMovieScene>()->GetFrameResolution() * AnimPlayRate;
 	float SeqLength = Params.GetSequenceLength() - (Params.StartOffset + Params.EndOffset);
 
 	float NewOffset = FMath::Fmod(AnimPosition, SeqLength);
@@ -167,41 +167,27 @@ UMovieSceneSection* UMovieSceneSkeletalAnimationSection::SplitSection(float Spli
 }
 
 
-void UMovieSceneSkeletalAnimationSection::GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const
-{
-	if (!TimeRange.Overlaps(GetRange()))
-	{
-		return;
-	}
-
-	for (auto It(Params.Weight.GetKeyHandleIterator()); It; ++It)
-	{
-		float Time = Params.Weight.GetKeyTime(It.Key());
-		if (TimeRange.Contains(Time))
-		{
-			OutKeyHandles.Add(It.Key());
-		}
-	}
-}
-
-
-void UMovieSceneSkeletalAnimationSection::GetSnapTimes(TArray<float>& OutSnapTimes, bool bGetSectionBorders) const
+void UMovieSceneSkeletalAnimationSection::GetSnapTimes(TArray<FFrameNumber>& OutSnapTimes, bool bGetSectionBorders) const
 {
 	Super::GetSnapTimes(OutSnapTimes, bGetSectionBorders);
 
-	float CurrentTime = GetStartTime();
-	float AnimPlayRate = FMath::IsNearlyZero(Params.PlayRate) ? 1.0f : Params.PlayRate;
-	float SeqLength = (Params.GetSequenceLength() - (Params.StartOffset + Params.EndOffset)) / AnimPlayRate;
+	const FFrameRate   FrameRate  = GetTypedOuter<UMovieScene>()->GetFrameResolution();
+	const FFrameNumber StartFrame = GetInclusiveStartFrame();
+	const FFrameNumber EndFrame   = GetExclusiveEndFrame() - 1; // -1 because we don't need to add the end frame twice
 
-	// Snap to the repeat times
-	while (CurrentTime <= GetEndTime() && !FMath::IsNearlyZero(SeqLength, KINDA_SMALL_NUMBER) && SeqLength > 0)
+	const float AnimPlayRate     = FMath::IsNearlyZero(Params.PlayRate) ? 1.0f : Params.PlayRate;
+	const float SeqLengthSeconds = (Params.GetSequenceLength() - (Params.StartOffset + Params.EndOffset)) / AnimPlayRate;
+
+	FFrameTime SequenceFrameLength = SeqLengthSeconds * FrameRate;
+	if (SequenceFrameLength.FrameNumber > 1)
 	{
-		if (CurrentTime >= GetStartTime())
+		// Snap to the repeat times
+		FFrameTime CurrentTime = StartFrame;
+		while (CurrentTime < EndFrame)
 		{
-			OutSnapTimes.Add(CurrentTime);
+			OutSnapTimes.Add(CurrentTime.FrameNumber);
+			CurrentTime += SequenceFrameLength;
 		}
-
-		CurrentTime += SeqLength;
 	}
 }
 
@@ -224,10 +210,9 @@ void UMovieSceneSkeletalAnimationSection::PostEditChangeProperty(FPropertyChange
 
 		if (!FMath::IsNearlyZero(NewPlayRate))
 		{
-			float CurrentDuration = GetEndTime() - GetStartTime();
+			float CurrentDuration = MovieScene::DiscreteSize(GetRange()) * PreviousPlayRate;
 			float NewDuration = CurrentDuration * (PreviousPlayRate / NewPlayRate);
-			float NewEndTime = GetStartTime() + NewDuration;
-			SetEndTime(NewEndTime);
+			SetEndFrame( GetInclusiveStartFrame() + FMath::FloorToInt(NewDuration * NewPlayRate) );
 
 			PreviousPlayRate = NewPlayRate;
 		}

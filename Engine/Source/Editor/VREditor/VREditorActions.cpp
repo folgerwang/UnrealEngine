@@ -451,7 +451,7 @@ void FVREditorActionCallbacks::PlayFromBeginning(UVREditorMode* InVRMode)
 	ISequencer* CurrentSequencer = InVRMode->GetCurrentSequencer();
 	if (CurrentSequencer != nullptr)
 	{
-		CurrentSequencer->SetLocalTime(0.0f);
+		CurrentSequencer->SetLocalTime(0);
 		CurrentSequencer->SetPlaybackSpeed(1.f);
 		CurrentSequencer->OnPlay(false);
 	}

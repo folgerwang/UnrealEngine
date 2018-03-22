@@ -9,6 +9,7 @@
 #include "Engine/StaticMeshActor.h"
 #include "Components/StaticMeshComponent.h"
 #include "MixedRealityUtilLibrary.h"
+#include "UObject/ConstructorHelpers.h"
 
 /* UMixedRealityGarbageMatteCaptureComponent
  *****************************************************************************/
@@ -23,6 +24,11 @@ UMixedRealityGarbageMatteCaptureComponent::UMixedRealityGarbageMatteCaptureCompo
 	PostProcessBlendWeight = 0.0f;
 	ShowFlags.SetAtmosphericFog(false);
 	ShowFlags.SetFog(false);
+
+	ConstructorHelpers::FObjectFinder<UTextureRenderTarget2D> DefaultTarget(TEXT("/MixedRealityFramework/T_MRGarbageMatteRenderTarget"));
+	TextureTarget = DefaultTarget.Object;
+
+	GarbageMatteActorClass = AMixedRealityGarbageMatteActor::StaticClass();
 }
 
 //------------------------------------------------------------------------------
@@ -46,87 +52,177 @@ const AActor* UMixedRealityGarbageMatteCaptureComponent::GetViewOwner() const
 }
 
 //------------------------------------------------------------------------------
-void UMixedRealityGarbageMatteCaptureComponent::ApplyConfiguration(const UMixedRealityConfigurationSaveGame& SaveGameInstance)
+void UMixedRealityGarbageMatteCaptureComponent::SetTrackingOrigin(USceneComponent* InTrackingOrigin)
 {
-	// garbage matte actor
+	TrackingOriginPtr = InTrackingOrigin;
+	
+	if (GarbageMatteActor)
 	{
-		// Spawn or clear out existing garbage matte actor
-		if (GarbageMatteActor)
-		{
-			ShowOnlyActors.Empty();
-			GarbageMatteActor->Destroy();
-			GarbageMatteActor = nullptr;
-		}
-
-		const FVector Location(EForceInit::ForceInitToZero);
-		const FRotator Rotation(EForceInit::ForceInitToZero);
-		FActorSpawnParameters SpawnParameters;
-		SpawnParameters.Name = TEXT("GarbageMatteActor");
-		GarbageMatteActor = GetWorld()->SpawnActor<AStaticMeshActor>(Location, Rotation, SpawnParameters);
-		check(GarbageMatteActor);
-
-		USceneComponent* RootComponent = GarbageMatteActor->GetRootComponent();
-		check(RootComponent);
-		RootComponent->SetVisibility(false, false);
-		RootComponent->SetMobility(EComponentMobility::Movable);
-
-		// Add garbage matte static meshes
-		for (const FGarbageMatteSaveData& Data : SaveGameInstance.GarbageMatteSaveDatas)
-		{
-			UStaticMeshComponent* MeshComponent = NewObject<UStaticMeshComponent>(GarbageMatteActor, NAME_None);
-			MeshComponent->SetStaticMesh(GarbageMatteMesh);
-			MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-			MeshComponent->SetCastShadow(false);
-			MeshComponent->SetRelativeTransform(Data.Transform);
-			MeshComponent->SetMaterial(0, LoadObject<UMaterial>(nullptr, TEXT("/MixedRealityFramework/GarbageMatteRuntimeMaterial.GarbageMatteRuntimeMaterial")));
-			MeshComponent->SetOnlyOwnerSee(true);
-			MeshComponent->SetMobility(EComponentMobility::Movable);
-			MeshComponent->SetupAttachment(RootComponent);
-			MeshComponent->RegisterComponent();
-		}
-	}
-	// GarbageMatteCaptureComponent
-	if (ExternalGarbageMatteActor == nullptr)
-	{
-		FOVAngle = SaveGameInstance.LensData.FOV;
-		ShowOnlyActors.Empty();
-		ShowOnlyActors.Push(GarbageMatteActor);
+		GarbageMatteActor->AttachToComponent(InTrackingOrigin, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 	}
 }
 
 //------------------------------------------------------------------------------
-void UMixedRealityGarbageMatteCaptureComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
+void UMixedRealityGarbageMatteCaptureComponent::ApplyCalibrationData_Implementation(const UMixedRealityCalibrationData* ConfigData)
 {
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	if (GarbageMatteActor)
+	if (ConfigData)
 	{
-		USceneComponent* GarbageMatteActorParentComponent = GarbageMatteActor->GetRootComponent()->GetAttachParent();
-		USceneComponent* HMDRootComponent = UMixedRealityUtilLibrary::GetHMDRootComponent(GetWorld(), 0);
-		if (GarbageMatteActorParentComponent != HMDRootComponent)
-		{	
-			GarbageMatteActor->AttachToComponent(HMDRootComponent, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		if (GarbageMatteActor == nullptr)
+		{
+			SetGarbageMatteActor( SpawnNewGarbageMatteActor(TrackingOriginPtr.Get()) );
+		}
+
+		FOVAngle = ConfigData->LensData.FOV;
+
+		if (ensure(GarbageMatteActor))
+		{
+			GarbageMatteActor->ApplyCalibrationData(ConfigData->GarbageMatteSaveDatas);
 		}
 	}
 }
 
-void UMixedRealityGarbageMatteCaptureComponent::SetExternalGarbageMatteActor(AActor* Actor)
+//------------------------------------------------------------------------------
+void UMixedRealityGarbageMatteCaptureComponent::GetGarbageMatteData(TArray<FGarbageMatteSaveData>& GarbageMatteDataOut)
 {
-	ExternalGarbageMatteActor = Actor;
-	ShowOnlyActors.Empty();
-	if (ExternalGarbageMatteActor != nullptr)
+	if (GarbageMatteActor)
 	{
-		ShowOnlyActors.Push(ExternalGarbageMatteActor);
+		GarbageMatteActor->GetGarbageMatteData(GarbageMatteDataOut);
+	}
+	else
+	{
+		GarbageMatteDataOut.Empty();
 	}
 }
 
-void UMixedRealityGarbageMatteCaptureComponent::ClearExternalGarbageMatteActor()
+//------------------------------------------------------------------------------
+AMixedRealityGarbageMatteActor* UMixedRealityGarbageMatteCaptureComponent::SpawnNewGarbageMatteActor_Implementation(USceneComponent* InTrackingOrigin)
 {
-	ExternalGarbageMatteActor = nullptr;
-	ShowOnlyActors.Empty();
-	if (GarbageMatteActor != nullptr)
+	AMixedRealityGarbageMatteActor* NewGarbageMatteActor = nullptr;
+
+	UWorld* MyWorld = GetWorld();
+	if (MyWorld && MyWorld->IsGameWorld())
 	{
-		ShowOnlyActors.Push(GarbageMatteActor);
+		FActorSpawnParameters SpawnParameters;
+		SpawnParameters.Name = TEXT("MR_GarbageMatteActor");
+
+		UClass* SpawnClass = GarbageMatteActorClass;
+		if (SpawnClass == nullptr)
+		{
+			SpawnClass = AMixedRealityGarbageMatteActor::StaticClass();
+		}
+
+		AActor* SpawnedActor = MyWorld->SpawnActor(GarbageMatteActorClass, /*Location =*/nullptr, /*Rotation =*/nullptr, SpawnParameters);
+		if (ensure(SpawnedActor) && InTrackingOrigin) 
+		{
+			SpawnedActor->AttachToComponent(InTrackingOrigin, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		}
+		NewGarbageMatteActor = CastChecked<AMixedRealityGarbageMatteActor>(SpawnedActor, ECastCheckedType::NullAllowed);
+	}
+	return NewGarbageMatteActor;
+}
+
+//------------------------------------------------------------------------------
+void UMixedRealityGarbageMatteCaptureComponent::SetGarbageMatteActor(AMixedRealityGarbageMatteActor* NewActor)
+{
+	TArray<FGarbageMatteSaveData> GarbageMatteData;
+	if (GarbageMatteActor)
+	{
+		GarbageMatteActor->GetGarbageMatteData(GarbageMatteData);
+
+		ShowOnlyActors.Remove(GarbageMatteActor);
+		GarbageMatteActor->Destroy();
+		GarbageMatteActor = nullptr;
+	}
+
+	GarbageMatteActor = NewActor;
+
+	if (NewActor)
+	{
+		ShowOnlyActors.Add(NewActor);
+		NewActor->ApplyCalibrationData(GarbageMatteData);
+
+		if (TrackingOriginPtr.IsValid())
+		{
+			NewActor->AttachToComponent(TrackingOriginPtr.Get(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		}
 	}
 }
 
+/* AMixedRealityGarbageMatteActor
+ *****************************************************************************/
+
+//------------------------------------------------------------------------------
+AMixedRealityGarbageMatteActor::AMixedRealityGarbageMatteActor(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	struct FConstructorStatics
+	{
+		ConstructorHelpers::FObjectFinder<UStaticMesh> DefaultGarbageMatteMesh;
+		ConstructorHelpers::FObjectFinder<UMaterial>   DefaultGarbageMatteMaterial;
+
+		FConstructorStatics()
+			: DefaultGarbageMatteMesh(TEXT("/MixedRealityFramework/GarbageMattePlane"))
+			, DefaultGarbageMatteMaterial(TEXT("/MixedRealityFramework/GarbageMatteRuntimeMaterial"))
+		{}
+	};
+	static FConstructorStatics ConstructorStatics;
+
+	GarbageMatteMesh = ConstructorStatics.DefaultGarbageMatteMesh.Object;
+	GarbageMatteMaterial = ConstructorStatics.DefaultGarbageMatteMaterial.Object;
+
+	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("CapturePoint"));
+}
+
+//------------------------------------------------------------------------------
+void AMixedRealityGarbageMatteActor::ApplyCalibrationData(const TArray<FGarbageMatteSaveData>& GarbageMatteData)
+{
+	for (UPrimitiveComponent* OldGarbageMatte : GarbageMattes)
+	{
+		OldGarbageMatte->DestroyComponent();
+	}
+	GarbageMattes.Empty(GarbageMatteData.Num());
+
+	for (const FGarbageMatteSaveData& Data : GarbageMatteData)
+	{
+		AddNewGabageMatte(Data);
+	}
+}
+
+//------------------------------------------------------------------------------
+UPrimitiveComponent* AMixedRealityGarbageMatteActor::AddNewGabageMatte(const FGarbageMatteSaveData& GarbageMatteData)
+{
+	UPrimitiveComponent* NewMatte = CreateGarbageMatte(GarbageMatteData);
+	GarbageMattes.Add(NewMatte);
+
+	return NewMatte;
+}
+
+//------------------------------------------------------------------------------
+UPrimitiveComponent* AMixedRealityGarbageMatteActor::CreateGarbageMatte_Implementation(const FGarbageMatteSaveData& GarbageMatteData)
+{
+	UStaticMeshComponent* MeshComponent = NewObject<UStaticMeshComponent>(this, NAME_None);
+	MeshComponent->SetStaticMesh(GarbageMatteMesh);
+	MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	MeshComponent->SetCastShadow(false);
+	MeshComponent->SetRelativeTransform(GarbageMatteData.Transform);
+	MeshComponent->SetMaterial(0, GarbageMatteMaterial);
+	MeshComponent->SetOnlyOwnerSee(true);
+	MeshComponent->SetMobility(EComponentMobility::Movable);
+	MeshComponent->SetupAttachment(RootComponent);
+	MeshComponent->RegisterComponent();
+
+	return MeshComponent;
+}
+
+//------------------------------------------------------------------------------
+void AMixedRealityGarbageMatteActor::GetGarbageMatteData(TArray<FGarbageMatteSaveData>& GarbageMatteDataOut)
+{
+	GarbageMatteDataOut.Empty(GarbageMattes.Num());
+
+	FGarbageMatteSaveData GarbageMatteData;
+	for (const UPrimitiveComponent* GarbageMatte : GarbageMattes)
+	{
+		GarbageMatteData.Transform = GarbageMatte->GetRelativeTransform();
+		GarbageMatteDataOut.Add(GarbageMatteData);
+	}
+}

@@ -6,7 +6,8 @@
 #include "NiagaraEmitterViewModel.h"
 
 #include "SequencerSectionPainter.h"
-#include "GenericKeyArea.h"
+#include "Rendering/DrawElements.h"
+#include "EditorStyleSet.h"
 #include "ISectionLayoutBuilder.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraEmitterSection"
@@ -71,15 +72,6 @@ FText FNiagaraEmitterSection::GetSectionTitle(void) const
 		return EmitterHandleviewModel->GetNameText();
 	}
 	return FText();
-}
-
-void FNiagaraEmitterSection::GenerateSectionLayout(ISectionLayoutBuilder &LayoutBuilder) const
-{
-	if (EmitterSection->GetBurstCurve().IsValid())
-	{
-		auto KeyArea = MakeShared<TGenericKeyArea<FMovieSceneBurstKey, float>>(MoveTemp(*EmitterSection->GetBurstCurve()), EmitterSection);
-		LayoutBuilder.SetSectionAsKeyArea(KeyArea);
-	}
 }
 
 #undef LOCTEXT_NAMESPACE

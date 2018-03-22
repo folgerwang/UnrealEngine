@@ -50,50 +50,35 @@ bool UMovieSceneMaterialTrack::IsEmpty() const
 }
 
 
-TRange<float> UMovieSceneMaterialTrack::GetSectionBoundaries() const
-{
-	TArray< TRange<float> > Bounds;
-
-	for (int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex)
-	{
-		Bounds.Add(Sections[SectionIndex]->GetRange());
-	}
-
-	return TRange<float>::Hull(Bounds);
-}
-
-
 const TArray<UMovieSceneSection*>& UMovieSceneMaterialTrack::GetAllSections() const
 {
 	return Sections;
 }
 
 
-void UMovieSceneMaterialTrack::AddScalarParameterKey(FName ParameterName, float Time, float Value)
+void UMovieSceneMaterialTrack::AddScalarParameterKey(FName ParameterName, FFrameNumber Time, float Value)
 {
 	UMovieSceneParameterSection* NearestSection = Cast<UMovieSceneParameterSection>(MovieSceneHelpers::FindNearestSectionAtTime(Sections, Time));
 	if (NearestSection == nullptr)
 	{
 		NearestSection = Cast<UMovieSceneParameterSection>(CreateNewSection());
-		NearestSection->SetStartTime(Time);
-		NearestSection->SetEndTime(Time);
+		NearestSection->SetRange(TRange<FFrameNumber>::Inclusive(Time, Time));
 		Sections.Add(NearestSection);
 	}
 	if (NearestSection->TryModify())
 	{
-		NearestSection->AddScalarParameterKey(ParameterName, Time, Value);	
+		NearestSection->AddScalarParameterKey(ParameterName, Time, Value);
 	}
 }
 
 
-void UMovieSceneMaterialTrack::AddColorParameterKey(FName ParameterName, float Time, FLinearColor Value)
+void UMovieSceneMaterialTrack::AddColorParameterKey(FName ParameterName, FFrameNumber Time, FLinearColor Value)
 {
 	UMovieSceneParameterSection* NearestSection = Cast<UMovieSceneParameterSection>(MovieSceneHelpers::FindNearestSectionAtTime(Sections, Time));
 	if (NearestSection == nullptr)
 	{
 		NearestSection = Cast<UMovieSceneParameterSection>(CreateNewSection());
-		NearestSection->SetStartTime(Time);
-		NearestSection->SetEndTime(Time);
+		NearestSection->SetRange(TRange<FFrameNumber>::Inclusive(Time, Time));
 		Sections.Add(NearestSection);
 	}
 	if (NearestSection->TryModify())

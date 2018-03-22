@@ -1862,7 +1862,7 @@ void FXmppMultiUserChatJingle::ChatroomEnteredStatus(
 				UE_LOG(LogXmpp, Log, TEXT("ChatroomEnteredStatus - queueing ChatRoomJoinPublicOpResult for %s"), *RoomId);
 				ResultOpQueue.Enqueue(new FXmppChatRoomJoinPublicOpResult(RoomId, bWasSuccessful, ErrorStr));
 			}
-			else if (LastStatus == FXmppRoomJingle::JoinPrivatePending)
+			else if (LastStatus == FXmppRoomJingle::JoinPrivatePending) //-V547
 			{
 				UE_LOG(LogXmpp, Log, TEXT("ChatroomEnteredStatus - queueing ChatRoomJoinPrivateOpResult result for %s"), *RoomId);
 				ResultOpQueue.Enqueue(new FXmppChatRoomJoinPrivateOpResult(RoomId, bWasSuccessful, ErrorStr));

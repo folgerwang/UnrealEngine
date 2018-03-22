@@ -19,7 +19,6 @@ public:
 	virtual int32 OnPaintSection(FSequencerSectionPainter& InPainter) const override;
 	virtual FText GetSectionTitle(void) const override;
 	virtual float GetSectionHeight() const override { return 20.0f; }
-	virtual void GenerateSectionLayout(ISectionLayoutBuilder &) const override;
 
 private:
 	UMovieSceneNiagaraEmitterSection* EmitterSection;

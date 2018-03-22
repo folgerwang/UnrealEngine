@@ -38,7 +38,7 @@ public class VHACD : ModuleRules
 			}
 			PublicFrameworks.AddRange(new string[] { "OpenCL" });
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			if (Target.LinkType == TargetLinkType.Monolithic)
 			{

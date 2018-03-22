@@ -96,8 +96,8 @@ bool UOculusNetDriver::InitConnect(FNetworkNotify* InNotify, const FURL& Connect
 {
 	UE_LOG(LogNet, Verbose, TEXT("Connecting to host: %s"), *ConnectURL.ToString(true));
 
-	auto OculusAddr = new FInternetAddrOculus(ConnectURL);
-	if (!OculusAddr->IsValid())
+	FInternetAddrOculus OculusAddr(ConnectURL);
+	if (!OculusAddr.IsValid())
 	{
 		UE_LOG(LogNet, Verbose, TEXT("Init as IPNetDriver connect"));
 		bIsPassthrough = true;
@@ -115,12 +115,12 @@ bool UOculusNetDriver::InitConnect(FNetworkNotify* InNotify, const FURL& Connect
 
 	// Set it as the server connection before anything else so everything knows this is a client
 	ServerConnection = Connection;
-	Connection->InitLocalConnection(this, nullptr, ConnectURL, ovr_Net_IsConnected(OculusAddr->GetID()) ? USOCK_Open : USOCK_Pending);
+	Connection->InitLocalConnection(this, nullptr, ConnectURL, ovr_Net_IsConnected(OculusAddr.GetID()) ? USOCK_Open : USOCK_Pending);
 
-	Connections.Add(OculusAddr->GetID(), Connection);
+	Connections.Add(OculusAddr.GetID(), Connection);
 
 	// Connect via OVR_Networking
-	ovr_Net_Connect(OculusAddr->GetID());
+	ovr_Net_Connect(OculusAddr.GetID());
 
 	// Create the control channel so we can send the Hello message
 	ServerConnection->CreateChannel(CHTYPE_Control, true, INDEX_NONE);
@@ -292,8 +292,8 @@ void UOculusNetDriver::LowLevelSend(FString Address, void* Data, int32 CountBits
 	{
 		return UIpNetDriver::LowLevelSend(Address, Data, CountBits);
 	}
-	auto OculusAddr = new FInternetAddrOculus(FURL(nullptr, *Address, ETravelType::TRAVEL_Absolute));
-	ovrID PeerID = OculusAddr->GetID();
+	FInternetAddrOculus OculusAddr(FURL(nullptr, *Address, ETravelType::TRAVEL_Absolute));
+	ovrID PeerID = OculusAddr.GetID();
 	if (ovr_Net_IsConnected(PeerID))
 	{
 		const uint8* DataToSend = reinterpret_cast<uint8*>(Data);

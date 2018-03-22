@@ -41,7 +41,14 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Constructor
 		/// </summary>
-		public LinuxPlatform(LinuxPlatformSDK InSDK) : base(UnrealTargetPlatform.Linux, CppPlatform.Linux)
+		public LinuxPlatform(LinuxPlatformSDK InSDK) 
+			: this(UnrealTargetPlatform.Linux, CppPlatform.Linux, InSDK)
+		{
+			SDK = InSDK;
+		}
+
+		public LinuxPlatform(UnrealTargetPlatform UnrealTarget, CppPlatform InCppPlatform, LinuxPlatformSDK InSDK)
+			: base(UnrealTarget, InCppPlatform)
 		{
 			SDK = InSDK;
 		}
@@ -315,6 +322,17 @@ namespace UnrealBuildTool
 			}
 		}
 
+		public virtual void SetUpSpecificEnvironment(CppCompileEnvironment CompileEnvironment, LinkEnvironment LinkEnvironment)
+		{
+			CompileEnvironment.Definitions.Add("PLATFORM_LINUX=1");
+			CompileEnvironment.Definitions.Add("PLATFORM_UNIX=1");
+
+			CompileEnvironment.Definitions.Add("LINUX=1"); // For libOGG
+
+			// this define does not set jemalloc as default, just indicates its support
+			CompileEnvironment.Definitions.Add("PLATFORM_SUPPORTS_JEMALLOC=1");
+		}
+
 		/// <summary>
 		/// Setup the target environment for building
 		/// </summary>
@@ -323,10 +341,6 @@ namespace UnrealBuildTool
 		/// <param name="LinkEnvironment">The link environment for this target</param>
 		public override void SetUpEnvironment(ReadOnlyTargetRules Target, CppCompileEnvironment CompileEnvironment, LinkEnvironment LinkEnvironment)
 		{
-			CompileEnvironment.Definitions.Add("PLATFORM_LINUX=1");
-			CompileEnvironment.Definitions.Add("LINUX=1");
-
-			CompileEnvironment.Definitions.Add("PLATFORM_SUPPORTS_JEMALLOC=1");	// this define does not set jemalloc as default, just indicates its support
 			CompileEnvironment.Definitions.Add("WITH_DATABASE_SUPPORT=0");		//@todo linux: valid?
 
 			// During the native builds, check the system includes as well (check toolchain when cross-compiling?)
@@ -356,6 +370,9 @@ namespace UnrealBuildTool
 
 			// link with Linux libraries.
 			LinkEnvironment.AdditionalLibraries.Add("pthread");
+
+			// let this class or a sub class do settings specific to that class
+			SetUpSpecificEnvironment(CompileEnvironment, LinkEnvironment);
 		}
 
 		/// <summary>

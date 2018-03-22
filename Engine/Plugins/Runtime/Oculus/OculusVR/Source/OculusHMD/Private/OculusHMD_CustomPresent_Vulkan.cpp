@@ -27,6 +27,7 @@ public:
 	// Implementation of FCustomPresent, called by Plugin itself
 	virtual bool IsUsingCorrectDisplayAdapter() const override;
 	virtual void* GetOvrpInstance() const override;
+	virtual void* GetOvrpPhysicalDevice() const override;
 	virtual void* GetOvrpDevice() const override;
 	virtual void* GetOvrpCommandQueue() const override;
 	virtual FTextureRHIRef CreateTexture_RenderThread(uint32 InSizeX, uint32 InSizeY, EPixelFormat InFormat, FClearValueBinding InBinding, uint32 InNumMips, uint32 InNumSamples, uint32 InNumSamplesTileMem, ERHIResourceType InResourceType, ovrpTextureHandle InTexture, uint32 InTexCreateFlags) override;
@@ -67,6 +68,13 @@ void* FVulkanCustomPresent::GetOvrpInstance() const
 {
 	FVulkanDynamicRHI* DynamicRHI = static_cast<FVulkanDynamicRHI*>(GDynamicRHI);
 	return DynamicRHI->GetInstance();
+}
+
+
+void* FVulkanCustomPresent::GetOvrpPhysicalDevice() const
+{
+	FVulkanDynamicRHI* DynamicRHI = static_cast<FVulkanDynamicRHI*>(GDynamicRHI);
+	return DynamicRHI->GetDevice()->GetPhysicalHandle();
 }
 
 

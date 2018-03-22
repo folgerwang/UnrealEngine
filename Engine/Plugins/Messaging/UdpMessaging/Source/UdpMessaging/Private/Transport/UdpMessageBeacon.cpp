@@ -76,6 +76,12 @@ void FUdpMessageBeacon::SetEndpointCount(int32 EndpointCount)
 /* FRunnable interface
  *****************************************************************************/
 
+FSingleThreadRunnable* FUdpMessageBeacon::GetSingleThreadInterface()
+{
+	return this;
+}
+
+
 bool FUdpMessageBeacon::Init()
 {
 	return true;
@@ -87,20 +93,11 @@ uint32 FUdpMessageBeacon::Run()
 	while (!Stopping)
 	{
 		FDateTime CurrentTime = FDateTime::UtcNow();
-
-		if (CurrentTime >= NextHelloTime)
-		{
-			// calculate the next send interval
-			BeaconInterval = FMath::Max(MinimumInterval, IntervalPerEndpoint * LastEndpointCount);
-			NextHelloTime = CurrentTime + BeaconInterval;
-
-			SendSegment(EUdpMessageSegments::Hello);
-		}
-
+		Update(CurrentTime, BeaconInterval);
 		EndpointLeftEvent->Wait(NextHelloTime - CurrentTime);
 	}
 
-	SendSegment(EUdpMessageSegments::Bye);
+	SendSegment(EUdpMessageSegments::Bye, BeaconInterval);
 
 	return 0;
 }
@@ -115,7 +112,7 @@ void FUdpMessageBeacon::Stop()
 /* FUdpMessageHelloSender implementation
  *****************************************************************************/
 
-void FUdpMessageBeacon::SendSegment(EUdpMessageSegments SegmentType)
+bool FUdpMessageBeacon::SendSegment(EUdpMessageSegments SegmentType, const FTimespan& SocketWaitTime)
 {
 	FUdpMessageSegment::FHeader Header;
 	{
@@ -132,6 +129,40 @@ void FUdpMessageBeacon::SendSegment(EUdpMessageSegments SegmentType)
 
 	int32 Sent;
 
-	Socket->Wait(ESocketWaitConditions::WaitForWrite, BeaconInterval);
-	Socket->SendTo(Writer.GetData(), Writer.Num(), Sent, *MulticastAddress);
+	if (!Socket->Wait(ESocketWaitConditions::WaitForWrite, SocketWaitTime))
+	{
+		return false; // socket not ready for sending
+	}
+
+	if (!Socket->SendTo(Writer.GetData(), Writer.Num(), Sent, *MulticastAddress))
+	{
+		return false; // send failed
+	}
+
+	return true;
+}
+
+
+void FUdpMessageBeacon::Update(const FDateTime& CurrentTime, const FTimespan& SocketWaitTime)
+{
+	if (CurrentTime < NextHelloTime)
+	{
+		return;
+	}
+
+	BeaconInterval = FMath::Max(MinimumInterval, IntervalPerEndpoint * LastEndpointCount);
+
+	if (SendSegment(EUdpMessageSegments::Hello, SocketWaitTime))
+	{
+		NextHelloTime = CurrentTime + BeaconInterval;
+	}
+}
+
+
+/* FSingleThreadRunnable interface
+ *****************************************************************************/
+
+void FUdpMessageBeacon::Tick()
+{
+	Update(FDateTime::UtcNow(), FTimespan::Zero());
 }

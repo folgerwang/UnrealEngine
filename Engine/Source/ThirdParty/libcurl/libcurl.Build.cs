@@ -14,7 +14,7 @@ public class libcurl : ModuleRules
 		string WinLibCurlPath = Target.UEThirdPartySourceDirectory + "libcurl/curl-7.55.1/";
 		string AndroidLibCurlPath = Target.UEThirdPartySourceDirectory + "libcurl/";
 
-		if (Target.Platform == UnrealTargetPlatform.Linux)
+		if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			string platform = "/Linux/" + Target.Architecture;
 			string IncludePath = LinuxLibCurlPath + "include" + platform;

@@ -14,6 +14,58 @@
 #include "Sections/MovieSceneCinematicShotSection.h"
 #include "TimerManager.h"
 #include "GameFramework/PlayerController.h"
+#include "Camera/CameraComponent.h"
+#include "MovieSceneCaptureModule.h"
+#include "MovieSceneTimeHelpers.h"
+
+struct FMovieSceneTimeController_FrameStep : FMovieSceneTimeController
+{
+	FMovieSceneTimeController_FrameStep()
+		: DeltaTime(0)
+		, CurrentTime(-1)
+	{}
+
+	virtual void OnTick(float DeltaSeconds, float InPlayRate) override
+	{
+		// Move onto the next frame in the sequence. Play rate dilation occurs in OnRequestCurrentTime, since this InPlayRate does not consider the global world settings dilation
+		DeltaTime = FFrameTime(1);
+	}
+
+	virtual void OnStartPlaying(const FQualifiedFrameTime& InStartTime)
+	{
+		DeltaTime   = FFrameTime(0);
+		CurrentTime = FFrameTime(-1);
+	}
+
+	virtual FFrameTime OnRequestCurrentTime(const FQualifiedFrameTime& InCurrentTime, float InPlayRate) override
+	{
+		TOptional<FQualifiedFrameTime> StartTimeIfPlaying = GetPlaybackStartTime();
+		if (!StartTimeIfPlaying.IsSet())
+		{
+			return InCurrentTime.Time;
+		}
+		else
+		{
+			// Scale the delta time (should be one frame) by this frame's play rate, and add it to the current time offset
+			if (InPlayRate == 1.f)
+			{
+				CurrentTime += DeltaTime;
+			}
+			else
+			{
+				CurrentTime += DeltaTime * InPlayRate;
+			}
+
+			DeltaTime = FFrameTime(0);
+
+			ensure(CurrentTime >= 0);
+			return StartTimeIfPlaying->ConvertTo(InCurrentTime.Rate) + CurrentTime;
+		}
+	}
+
+	FFrameTime DeltaTime;
+	FFrameTime CurrentTime;
+};
 
 UAutomatedLevelSequenceCapture::UAutomatedLevelSequenceCapture(const FObjectInitializer& Init)
 	: Super(Init)
@@ -25,11 +77,12 @@ UAutomatedLevelSequenceCapture::UAutomatedLevelSequenceCapture(const FObjectInit
 	}
 #else
 	bUseCustomStartFrame = false;
-	StartFrame = 0;
+	CustomStartFrame = 0;
 	bUseCustomEndFrame = false;
-	EndFrame = 1;
+	CustomEndFrame = 1;
 	WarmUpFrameCount = 0;
 	DelayBeforeWarmUp = 0.0f;
+	DelayBeforeShotWarmUp = 0.0f;
 	bWriteEditDecisionList = true;
 
 	RemainingWarmUpFrames = 0;
@@ -51,9 +104,12 @@ void UAutomatedLevelSequenceCapture::SetLevelSequenceAsset(FString AssetPath)
 void UAutomatedLevelSequenceCapture::AddFormatMappings(TMap<FString, FStringFormatArg>& OutFormatMappings, const FFrameMetrics& FrameMetrics) const
 {
 	OutFormatMappings.Add(TEXT("shot"), CachedState.CurrentShotName);
+	OutFormatMappings.Add(TEXT("shot_frame"), FString::Printf(TEXT("%0*d"), Settings.ZeroPadFrameNumbers, CachedState.CurrentShotLocalTime.Time.FrameNumber.Value));
 
-	const int32 FrameNumber = FMath::RoundToInt(CachedState.CurrentShotLocalTime * CachedState.Settings.FrameRate);
-	OutFormatMappings.Add(TEXT("shot_frame"), FString::Printf(TEXT("%0*d"), Settings.ZeroPadFrameNumbers, FrameNumber));
+	if (CachedState.CameraComponent && CachedState.CameraComponent->GetOwner())
+	{
+		OutFormatMappings.Add(TEXT("camera"), CachedState.CameraComponent->GetOwner()->GetName());
+	}
 }
 
 void UAutomatedLevelSequenceCapture::Initialize(TSharedPtr<FSceneViewport> InViewport, int32 PIEInstance)
@@ -75,14 +131,14 @@ void UAutomatedLevelSequenceCapture::Initialize(TSharedPtr<FSceneViewport> InVie
 		if( FParse::Value( FCommandLine::Get(), TEXT( "-MovieStartFrame=" ), StartFrameOverride ) )
 		{
 			bUseCustomStartFrame = true;
-			StartFrame = StartFrameOverride;
+			CustomStartFrame = StartFrameOverride;
 		}
 
 		int32 EndFrameOverride;
 		if( FParse::Value( FCommandLine::Get(), TEXT( "-MovieEndFrame=" ), EndFrameOverride ) )
 		{
 			bUseCustomEndFrame = true;
-			EndFrame = EndFrameOverride;
+			CustomEndFrame = EndFrameOverride;
 		}
 
 		int32 WarmUpFrameCountOverride;
@@ -95,6 +151,12 @@ void UAutomatedLevelSequenceCapture::Initialize(TSharedPtr<FSceneViewport> InVie
 		if( FParse::Value( FCommandLine::Get(), TEXT( "-MovieDelayBeforeWarmUp=" ), DelayBeforeWarmUpOverride ) )
 		{
 			DelayBeforeWarmUp = DelayBeforeWarmUpOverride;
+		}
+
+		float DelayBeforeShotWarmUpOverride;
+		if( FParse::Value( FCommandLine::Get(), TEXT( "-MovieDelayBeforeShotWarmUp=" ), DelayBeforeShotWarmUpOverride ) )
+		{
+			DelayBeforeShotWarmUp = DelayBeforeShotWarmUpOverride;
 		}
 	}
 
@@ -131,8 +193,6 @@ void UAutomatedLevelSequenceCapture::Initialize(TSharedPtr<FSceneViewport> InVie
 			// Spawn a new actor
 			Actor = InViewport->GetClient()->GetWorld()->SpawnActor<ALevelSequenceActor>();
 			Actor->SetSequence(Asset);
-			// Ensure it doesn't loop (-1 is indefinite)
-			Actor->PlaybackSettings.LoopCount = 0;
 		
 			LevelSequenceActor = Actor;
 		}
@@ -144,6 +204,11 @@ void UAutomatedLevelSequenceCapture::Initialize(TSharedPtr<FSceneViewport> InVie
 
 	if (Actor)
 	{
+		// Ensure it doesn't loop (-1 is indefinite)
+		Actor->PlaybackSettings.LoopCount = 0;
+		Actor->PlaybackSettings.TimeController = MakeShared<FMovieSceneTimeController_FrameStep>();
+		Actor->PlaybackSettings.bPauseAtEnd = true;
+
 		if (BurnInOptions)
 		{
 			Actor->BurnInOptions = BurnInOptions;
@@ -157,18 +222,26 @@ void UAutomatedLevelSequenceCapture::Initialize(TSharedPtr<FSceneViewport> InVie
 
 		Actor->RefreshBurnIn();
 
-		// Make sure we're not playing yet (in case AutoPlay was called from BeginPlay)
-		if( Actor->SequencePlayer != nullptr && Actor->SequencePlayer->IsPlaying() )
+		// Make sure we're not playing yet, and have a fully up to date player based on the above settings (in case AutoPlay was called from BeginPlay)
+		if( Actor->SequencePlayer != nullptr )
 		{
-			Actor->SequencePlayer->Stop();
+			if (Actor->SequencePlayer->IsPlaying())
+			{
+				Actor->SequencePlayer->Stop();
+			}
+			Actor->InitializePlayer();
 		}
 		Actor->bAutoPlay = false;
 
 		if (InitializeShots())
 		{
-			float StartTime, EndTime;
+			FFrameNumber StartTime, EndTime;
 			SetupShot(StartTime, EndTime);
 		}
+	}
+	else
+	{
+		UE_LOG(LogMovieSceneCapture, Error, TEXT("Could not find or create a Level Sequence Actor for this capture. Capturing will fail."));
 	}
 
 	ExportEDL();
@@ -228,26 +301,37 @@ bool UAutomatedLevelSequenceCapture::InitializeShots()
 		return false;
 	}
 
-	NumShots = CinematicShotTrack->GetAllSections().Num();					
+	NumShots = CinematicShotTrack->GetAllSections().Num();
 	ShotIndex = 0;
 	CachedPlaybackRange = MovieScene->GetPlaybackRange();
 
-	float HandleTime = (float)Settings.HandleFrames / (float)Settings.FrameRate;
-					
+	// Compute handle frames in frame resolution space since that is what the section ranges are defined in
+	FFrameNumber HandleFramesResolutionSpace = ConvertFrameTime(Settings.HandleFrames, Settings.FrameRate, MovieScene->GetFrameResolution()).RoundToFrame();
+
 	for (int32 SectionIndex = 0; SectionIndex < CinematicShotTrack->GetAllSections().Num(); ++SectionIndex)
 	{
 		UMovieSceneCinematicShotSection* ShotSection = Cast<UMovieSceneCinematicShotSection>(CinematicShotTrack->GetAllSections()[SectionIndex]);
 		UMovieScene* ShotMovieScene = ShotSection->GetSequence() ? ShotSection->GetSequence()->GetMovieScene() : nullptr;
-		CachedShotStates.Add(FCinematicShotCache(ShotSection->IsActive(), ShotSection->IsLocked(), TRange<float>(ShotSection->GetStartTime(), ShotSection->GetEndTime()), ShotMovieScene ? ShotMovieScene->GetPlaybackRange() : TRange<float>::Empty()));
 
-		if (ShotMovieScene)
+		if (ShotMovieScene != nullptr)
 		{
-			ShotMovieScene->SetPlaybackRange(ShotMovieScene->GetPlaybackRange().GetLowerBoundValue() - HandleTime, ShotMovieScene->GetPlaybackRange().GetUpperBoundValue() + HandleTime, false);
+			// Expand the inner shot section range by the handle size, multiplied by the difference between the outer and inner frame resolutions (and factoring in the time scale)
+			const float OuterToInnerRateDilation = (MovieScene->GetFrameResolution() == ShotMovieScene->GetFrameResolution()) ? 1.f : (ShotMovieScene->GetFrameResolution() / MovieScene->GetFrameResolution()).AsDecimal();
+			const float OuterToInnerScale = OuterToInnerRateDilation * ShotSection->Parameters.TimeScale;
+
+			CachedShotStates.Add(FCinematicShotCache(ShotSection->IsActive(), ShotSection->IsLocked(), ShotSection->GetRange(), ShotMovieScene ? ShotMovieScene->GetPlaybackRange() : TRange<FFrameNumber>::Empty()));
+
+			if (ShotMovieScene)
+			{
+				TRange<FFrameNumber> NewPlaybackRange = MovieScene::ExpandRange(ShotMovieScene->GetPlaybackRange(), FFrameNumber(FMath::FloorToInt(HandleFramesResolutionSpace.Value * OuterToInnerScale)));
+				ShotMovieScene->SetPlaybackRange(NewPlaybackRange, false);
+			}
+
+			ShotSection->SetIsLocked(false);
+			ShotSection->SetIsActive(false);
+
+			ShotSection->SetRange(MovieScene::ExpandRange(ShotSection->GetRange(), HandleFramesResolutionSpace));
 		}
-		ShotSection->SetIsLocked(false);
-		ShotSection->SetIsActive(false);
-		ShotSection->SetStartTime(ShotSection->GetStartTime() - HandleTime);
-		ShotSection->SetEndTime(ShotSection->GetEndTime() + HandleTime);
 	}
 	return NumShots > 0;
 }
@@ -271,26 +355,23 @@ void UAutomatedLevelSequenceCapture::RestoreShots()
 		return;
 	}
 
-	MovieScene->SetPlaybackRange(CachedPlaybackRange.GetLowerBoundValue(), CachedPlaybackRange.GetUpperBoundValue(), false);
+	MovieScene->SetPlaybackRange(CachedPlaybackRange, false);
 
-	float HandleTime = (float)Settings.HandleFrames / (float)Settings.FrameRate;
-					
 	for (int32 SectionIndex = 0; SectionIndex < CinematicShotTrack->GetAllSections().Num(); ++SectionIndex)
 	{
 		UMovieSceneCinematicShotSection* ShotSection = Cast<UMovieSceneCinematicShotSection>(CinematicShotTrack->GetAllSections()[SectionIndex]);
 		UMovieScene* ShotMovieScene = ShotSection->GetSequence() ? ShotSection->GetSequence()->GetMovieScene() : nullptr;
 		if (ShotMovieScene)
 		{
-			ShotMovieScene->SetPlaybackRange(CachedShotStates[SectionIndex].MovieSceneRange.GetLowerBoundValue(), CachedShotStates[SectionIndex].MovieSceneRange.GetUpperBoundValue(), false);
+			ShotMovieScene->SetPlaybackRange(CachedShotStates[SectionIndex].MovieSceneRange, false);
 		}
 		ShotSection->SetIsActive(CachedShotStates[SectionIndex].bActive);
-		ShotSection->SetStartTime(CachedShotStates[SectionIndex].ShotRange.GetLowerBoundValue());
-		ShotSection->SetEndTime(CachedShotStates[SectionIndex].ShotRange.GetUpperBoundValue());
+		ShotSection->SetRange(CachedShotStates[SectionIndex].ShotRange);
 		ShotSection->SetIsLocked(CachedShotStates[SectionIndex].bLocked);
 	}
 }
 
-bool UAutomatedLevelSequenceCapture::SetupShot(float& StartTime, float& EndTime)
+bool UAutomatedLevelSequenceCapture::SetupShot(FFrameNumber& StartTime, FFrameNumber& EndTime)
 {
 	if (Settings.HandleFrames <= 0)
 	{
@@ -314,8 +395,6 @@ bool UAutomatedLevelSequenceCapture::SetupShot(float& StartTime, float& EndTime)
 		return false;
 	}
 
-	float HandleTime = (float)Settings.HandleFrames / (float)Settings.FrameRate;
-
 	// Disable all shots unless it's the current one being rendered
 	for (int32 SectionIndex = 0; SectionIndex < CinematicShotTrack->GetAllSections().Num(); ++SectionIndex)
 	{
@@ -325,12 +404,12 @@ bool UAutomatedLevelSequenceCapture::SetupShot(float& StartTime, float& EndTime)
 
 		if (SectionIndex == ShotIndex)
 		{
-			StartTime = ShotSection->GetStartTime();
-			EndTime = ShotSection->GetEndTime();
+			TRange<FFrameNumber> TotalRange = TRange<FFrameNumber>::Intersection(ShotSection->GetRange(), CachedPlaybackRange);
 
-			StartTime = FMath::Clamp(StartTime, CachedPlaybackRange.GetLowerBoundValue(), CachedPlaybackRange.GetUpperBoundValue());
-			EndTime = FMath::Clamp(EndTime, CachedPlaybackRange.GetLowerBoundValue(), CachedPlaybackRange.GetUpperBoundValue());
-			MovieScene->SetPlaybackRange(StartTime, EndTime, false);
+			StartTime = TotalRange.IsEmpty() ? FFrameNumber(0) : MovieScene::DiscreteInclusiveLower(TotalRange);
+			EndTime   = TotalRange.IsEmpty() ? FFrameNumber(0) : MovieScene::DiscreteExclusiveUpper(TotalRange);
+
+			MovieScene->SetPlaybackRange(StartTime, (EndTime - StartTime).Value, false);
 		}
 	}
 
@@ -348,53 +427,43 @@ void UAutomatedLevelSequenceCapture::SetupFrameRange()
 			UMovieScene* MovieScene = LevelSequence->GetMovieScene();
 			if( MovieScene != nullptr )
 			{
-				const int32 SequenceStartFrame = FMath::RoundToInt( MovieScene->GetPlaybackRange().GetLowerBoundValue() * Settings.FrameRate );
-				const int32 SequenceEndFrame = FMath::Max( SequenceStartFrame, FMath::RoundToInt( MovieScene->GetPlaybackRange().GetUpperBoundValue() * Settings.FrameRate ) );
+				FFrameRate           SourceFrameRate = MovieScene->GetFrameResolution();
+				TRange<FFrameNumber> SequenceRange   = MovieScene->GetPlaybackRange();
 
-				// Default to playing back the sequence's stored playback range
-				int32 PlaybackStartFrame = SequenceStartFrame;
-				int32 PlaybackEndFrame = SequenceEndFrame;
+				FFrameNumber PlaybackStartFrame = ConvertFrameTime(MovieScene::DiscreteInclusiveLower(SequenceRange), SourceFrameRate, Settings.FrameRate).FloorToFrame();
+				FFrameNumber PlaybackEndFrame   = ConvertFrameTime(MovieScene::DiscreteExclusiveUpper(SequenceRange), SourceFrameRate, Settings.FrameRate).FloorToFrame();
 
 				if( bUseCustomStartFrame )
 				{
-					PlaybackStartFrame = Settings.bUseRelativeFrameNumbers ? ( SequenceStartFrame + StartFrame ) : StartFrame;
+					PlaybackStartFrame = Settings.bUseRelativeFrameNumbers ? ( PlaybackStartFrame + CustomStartFrame ) : CustomStartFrame;
 				}
 
 				if( !Settings.bUseRelativeFrameNumbers )
 				{
-					// NOTE: The frame number will be an offset from the first frame that we start capturing on, not the frame
-					// that we start playback at (in the case of WarmUpFrameCount being non-zero).  So we'll cache out frame
-					// number offset before adjusting for the warm up frames.
-					this->FrameNumberOffset = PlaybackStartFrame;
+				 	// NOTE: The frame number will be an offset from the first frame that we start capturing on, not the frame
+				 	// that we start playback at (in the case of WarmUpFrameCount being non-zero).  So we'll cache out frame
+				 	// number offset before adjusting for the warm up frames.
+				 	this->FrameNumberOffset = PlaybackStartFrame.Value;
 				}
 
 				if( bUseCustomEndFrame )
 				{
-					PlaybackEndFrame = FMath::Max( PlaybackStartFrame, Settings.bUseRelativeFrameNumbers ? ( SequenceEndFrame + EndFrame ) : EndFrame );
-
-					// We always add 1 to the number of frames we want to capture, because we want to capture both the start and end frames (which if the play range is 0, would still yield a single frame)
-					this->FrameCount = ( PlaybackEndFrame - PlaybackStartFrame ) + 1;
-				}
-				else
-				{
-					FrameCount = 0;
+				 	PlaybackEndFrame = FMath::Max( PlaybackStartFrame, Settings.bUseRelativeFrameNumbers ? ( PlaybackEndFrame + CustomEndFrame ) : CustomEndFrame );
 				}
 
 				RemainingWarmUpFrames = FMath::Max( WarmUpFrameCount, 0 );
 				if( RemainingWarmUpFrames > 0 )
 				{
-					// We were asked to playback additional frames before we start capturing
-					PlaybackStartFrame -= RemainingWarmUpFrames;
+				 	// We were asked to playback additional frames before we start capturing
+				 	PlaybackStartFrame -= RemainingWarmUpFrames;
 				}
 
 				// Override the movie scene's playback range
-				Actor->SequencePlayer->SetPlaybackRange(
-					(float)PlaybackStartFrame / (float)Settings.FrameRate,
-					(float)PlaybackEndFrame / (float)Settings.FrameRate );
-				Actor->SequencePlayer->SetPlaybackPosition(0.f);
+				Actor->SequencePlayer->SetFrameRate(Settings.FrameRate);
+				Actor->SequencePlayer->SetFrameRange(PlaybackStartFrame.Value, (PlaybackEndFrame - PlaybackStartFrame).Value);
+				Actor->SequencePlayer->JumpToFrame(PlaybackStartFrame.Value);
 
-				const float WarmupTime = WarmUpFrameCount / CachedState.Settings.FrameRate;
-				Actor->SequencePlayer->SetSnapshotOffsetTime(WarmupTime);
+				Actor->SequencePlayer->SetSnapshotOffsetFrames(WarmUpFrameCount);
 			}
 		}
 	}
@@ -463,12 +532,12 @@ void UAutomatedLevelSequenceCapture::Tick(float DeltaSeconds)
 	if( CaptureState == ELevelSequenceCaptureState::DelayBeforeWarmUp )
 	{
 		// Ensure evaluation at the start of the sequence/shot
-		Actor->SequencePlayer->SetPlaybackPosition(0.f);
+		Actor->SequencePlayer->JumpToFrame(0);
 	}
 	else if( CaptureState == ELevelSequenceCaptureState::ReadyToWarmUp )
 	{
 		Actor->SequencePlayer->SetSnapshotSettings(FLevelSequenceSnapshotSettings(Settings.ZeroPadFrameNumbers, Settings.FrameRate));
-		Actor->SequencePlayer->StartPlayingNextTick();
+		Actor->SequencePlayer->Play();
 		// Start warming up
 		CaptureState = ELevelSequenceCaptureState::WarmingUp;
 	}
@@ -488,12 +557,17 @@ void UAutomatedLevelSequenceCapture::Tick(float DeltaSeconds)
 	{
 		++ShotIndex;
 
-		float StartTime, EndTime;
+		FFrameNumber StartTime, EndTime;
 		if (SetupShot(StartTime, EndTime))
 		{
-			Actor->SequencePlayer->SetPlaybackRange(StartTime, EndTime);
-			Actor->SequencePlayer->SetPlaybackPosition(0.f);
-			Actor->SequencePlayer->StartPlayingNextTick();
+			UMovieScene* MovieScene = GetMovieScene(LevelSequenceActor);
+
+			FFrameNumber StartTimePlayRateSpace = ConvertFrameTime(StartTime, MovieScene->GetFrameResolution(), Settings.FrameRate).FloorToFrame();
+			FFrameNumber EndTimePlayRateSpace   = ConvertFrameTime(EndTime,   MovieScene->GetFrameResolution(), Settings.FrameRate).FloorToFrame();
+
+			Actor->SequencePlayer->SetFrameRange(StartTimePlayRateSpace.Value, (EndTimePlayRateSpace - StartTimePlayRateSpace).Value);
+			Actor->SequencePlayer->JumpToFrame(0);
+			Actor->SequencePlayer->Play();
 			CaptureState = ELevelSequenceCaptureState::FinishedWarmUp;
 			UpdateFrameState();
 		}
@@ -521,17 +595,17 @@ void UAutomatedLevelSequenceCapture::PauseFinished()
 	if (CachedPlayRate.IsSet())
 	{
 		ALevelSequenceActor* Actor = LevelSequenceActor.Get();
-	
+
 		// Force an evaluation to capture this frame
-		Actor->SequencePlayer->SetPlaybackPosition(Actor->SequencePlayer->GetPlaybackPosition());
-		
+		Actor->SequencePlayer->JumpToFrame(Actor->SequencePlayer->GetCurrentTime().Time);
+
 		// Continue playing forwards
 		Actor->SequencePlayer->SetPlayRate(CachedPlayRate.GetValue());
 		CachedPlayRate.Reset();
 	}
 }
 
-void UAutomatedLevelSequenceCapture::SequenceUpdated(const UMovieSceneSequencePlayer& Player, float CurrentTime, float PreviousTime)
+void UAutomatedLevelSequenceCapture::SequenceUpdated(const UMovieSceneSequencePlayer& Player, FFrameTime CurrentTime, FFrameTime PreviousTime)
 {
 	if (bCapturing)
 	{
@@ -546,16 +620,21 @@ void UAutomatedLevelSequenceCapture::SequenceUpdated(const UMovieSceneSequencePl
 			bool bHasMultipleShots = PreviousState.CurrentShotName != PreviousState.MasterName;
 			bool bNewShot = bHasMultipleShots && PreviousState.ShotID != CachedState.ShotID;
 			
-			if (bNewShot && Actor->SequencePlayer->IsPlaying() && DelayBeforeWarmUp > 0)
+			if (bNewShot && Actor->SequencePlayer->IsPlaying() && DelayBeforeShotWarmUp > 0)
 			{
 				CaptureState = ELevelSequenceCaptureState::Paused;
-				Actor->GetWorld()->GetTimerManager().SetTimer(DelayTimer, FTimerDelegate::CreateUObject(this, &UAutomatedLevelSequenceCapture::PauseFinished), DelayBeforeWarmUp, false);
+				Actor->GetWorld()->GetTimerManager().SetTimer(DelayTimer, FTimerDelegate::CreateUObject(this, &UAutomatedLevelSequenceCapture::PauseFinished), DelayBeforeShotWarmUp, false);
 				CachedPlayRate = Actor->SequencePlayer->GetPlayRate();
 				Actor->SequencePlayer->SetPlayRate(0.f);
 			}
 			else if (CaptureState == ELevelSequenceCaptureState::FinishedWarmUp)
 			{
-				CaptureThisFrame(CurrentTime - PreviousTime);
+				CaptureThisFrame( (CurrentTime - PreviousTime) / Settings.FrameRate);
+
+				if (bFinalizeWhenReady)
+				{
+					Actor->SequencePlayer->OnSequenceUpdated().Remove( OnPlayerUpdatedBinding );
+				}
 			}
 		}
 	}
@@ -585,8 +664,8 @@ void UAutomatedLevelSequenceCapture::LoadFromConfig()
 
 void UAutomatedLevelSequenceCapture::SaveToConfig()
 {
-	int32 CurrentStartFrame = StartFrame;
-	int32 CurrentEndFrame = EndFrame;
+	FFrameNumber CurrentStartFrame = CustomStartFrame;
+	FFrameNumber CurrentEndFrame = CustomEndFrame;
 	bool bRestoreFrameOverrides = RestoreFrameOverrides();
 
 	BurnInOptions->SaveConfig();
@@ -615,13 +694,13 @@ bool UAutomatedLevelSequenceCapture::RestoreFrameOverrides()
 	bool bAnySet = CachedStartFrame.IsSet() || CachedEndFrame.IsSet() || bCachedUseCustomStartFrame.IsSet() || bCachedUseCustomEndFrame.IsSet();
 	if (CachedStartFrame.IsSet())
 	{
-		StartFrame = CachedStartFrame.GetValue();
+		CustomStartFrame = CachedStartFrame.GetValue();
 		CachedStartFrame.Reset();
 	}
 
 	if (CachedEndFrame.IsSet())
 	{
-		EndFrame = CachedEndFrame.GetValue();
+		CustomEndFrame = CachedEndFrame.GetValue();
 		CachedEndFrame.Reset();
 	}
 
@@ -640,15 +719,15 @@ bool UAutomatedLevelSequenceCapture::RestoreFrameOverrides()
 	return bAnySet;
 }
 
-void UAutomatedLevelSequenceCapture::SetFrameOverrides(int32 InStartFrame, int32 InEndFrame)
+void UAutomatedLevelSequenceCapture::SetFrameOverrides(FFrameNumber InStartFrame, FFrameNumber InEndFrame)
 {
-	CachedStartFrame = StartFrame;
-	CachedEndFrame = EndFrame;
+	CachedStartFrame = CustomStartFrame;
+	CachedEndFrame = CustomEndFrame;
 	bCachedUseCustomStartFrame = bUseCustomStartFrame;
 	bCachedUseCustomEndFrame = bUseCustomEndFrame;
 
-	StartFrame = InStartFrame;
-	EndFrame = InEndFrame;
+	CustomStartFrame = InStartFrame;
+	CustomEndFrame = InEndFrame;
 	bUseCustomStartFrame = true;
 	bUseCustomEndFrame = true;
 }

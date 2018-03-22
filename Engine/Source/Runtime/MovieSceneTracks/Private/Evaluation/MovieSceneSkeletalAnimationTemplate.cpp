@@ -199,7 +199,7 @@ namespace MovieScene
 			const bool bFireNotifies = !bPreviewPlayback || (PlayerStatus != EMovieScenePlayerStatus::Jumping && PlayerStatus != EMovieScenePlayerStatus::Stopped);
 
 			// When jumping from one cut to another cut, the delta time should be 0 so that anim notifies before the current position are not evaluated. Note, anim notifies at the current time should still be evaluated.
-			const float DeltaTime = Context.HasJumped() ? 0.f : Context.GetRange().Size<float>();
+			const double DeltaTime = ( Context.HasJumped() ? FFrameTime(0) : Context.GetRange().Size<FFrameTime>() ) / Context.GetFrameRate();
 
 			const bool bResetDynamics = PlayerStatus == EMovieScenePlayerStatus::Stepping || 
 										PlayerStatus == EMovieScenePlayerStatus::Jumping || 
@@ -221,7 +221,7 @@ namespace MovieScene
 				{
 					SetAnimPosition(PersistentData, Player, SkeletalMeshComponent,
 						AnimParams.SlotName, AnimParams.Section, AnimParams.Animation, AnimParams.EvalTime, AnimParams.BlendWeight,
-						bLooping, bFireNotifies);
+						bLooping, Player.GetPlaybackStatus() == EMovieScenePlayerStatus::Playing, bFireNotifies);
 				}
 			}
 
@@ -245,7 +245,7 @@ namespace MovieScene
 			return nullptr;
 		}
 
-		void SetAnimPosition(FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player, USkeletalMeshComponent* SkeletalMeshComponent, FName SlotName, FObjectKey Section, UAnimSequenceBase* InAnimSequence, float InPosition, float Weight, bool bLooping, bool bFireNotifies)
+		void SetAnimPosition(FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player, USkeletalMeshComponent* SkeletalMeshComponent, FName SlotName, FObjectKey Section, UAnimSequenceBase* InAnimSequence, float InPosition, float Weight, bool bLooping, bool bPlaying, bool bFireNotifies)
 		{
 			if (!CanPlayAnimation(SkeletalMeshComponent, InAnimSequence))
 			{
@@ -278,9 +278,9 @@ namespace MovieScene
 					FMovieSceneAnimTypeID SlotTypeID = SectionToAnimationIDs.GetAnimTypeID(Section);
 					Player.SavePreAnimatedState(*Montage.Get(), SlotTypeID, FStopPlayingMontageTokenProducer(AnimInst, InstanceId));
 
-					// make sure it's playing
+					// make sure it's playing if the sequence is
 					FAnimMontageInstance* Instance = AnimInst->GetMontageInstanceForID(InstanceId);
-					Instance->bPlaying = true;
+					Instance->bPlaying = bPlaying;
 				}
 			}
 		}
@@ -343,7 +343,7 @@ template<> FMovieSceneAnimTypeID GetBlendingDataType<MovieScene::FBlendedAnimati
 }
 
 FMovieSceneSkeletalAnimationSectionTemplate::FMovieSceneSkeletalAnimationSectionTemplate(const UMovieSceneSkeletalAnimationSection& InSection)
-	: Params(InSection.Params, InSection.GetStartTime(), InSection.GetEndTime())
+	: Params(InSection.Params, InSection.GetInclusiveStartFrame(), InSection.GetExclusiveEndFrame())
 {
 }
 
@@ -352,8 +352,12 @@ void FMovieSceneSkeletalAnimationSectionTemplate::Evaluate(const FMovieSceneEval
 	if (Params.Animation)
 	{
 		// calculate the time at which to evaluate the animation
-		float EvalTime = Params.MapTimeToAnimation(Context.GetTime());
-		float Weight = Params.Weight.Eval(Context.GetTime()) * EvaluateEasing(Context.GetTime());
+		float EvalTime = Params.MapTimeToAnimation(Context.GetTime(), Context.GetFrameRate());
+
+		float ManualWeight = 1.f;
+		Params.Weight.Evaluate(Context.GetTime(), ManualWeight);
+
+		const float Weight = ManualWeight * EvaluateEasing(Context.GetTime());
 
 		FOptionalMovieSceneBlendType BlendType = SourceSection->GetBlendType();
 		check(BlendType.IsValid());
@@ -374,28 +378,25 @@ void FMovieSceneSkeletalAnimationSectionTemplate::Evaluate(const FMovieSceneEval
 	}
 }
 
-float FMovieSceneSkeletalAnimationSectionTemplateParameters::MapTimeToAnimation(float ThisPosition) const
+float FMovieSceneSkeletalAnimationSectionTemplateParameters::MapTimeToAnimation(FFrameTime InPosition, FFrameRate InFrameRate) const
 {
-	// @todo: Sequencer: what is this for??
-	//ThisPosition -= 1 / 1000.0f;
-
-	ThisPosition = FMath::Clamp(ThisPosition, SectionStartTime, SectionEndTime);
+	InPosition = FMath::Clamp(InPosition, FFrameTime(SectionStartTime), FFrameTime(SectionEndTime-1));
 
 	const float SectionPlayRate = PlayRate;
 	const float AnimPlayRate = FMath::IsNearlyZero(SectionPlayRate) ? 1.0f : SectionPlayRate;
 
 	const float SeqLength = GetSequenceLength() - (StartOffset + EndOffset);
 
-	ThisPosition = (ThisPosition - SectionStartTime) * AnimPlayRate;
+	float AnimPosition = FFrameTime::FromDecimal((InPosition - SectionStartTime).AsDecimal() * AnimPlayRate) / InFrameRate;
 	if (SeqLength > 0.f)
 	{
-		ThisPosition = FMath::Fmod(ThisPosition, SeqLength);
+		AnimPosition = FMath::Fmod(AnimPosition, SeqLength);
 	}
-	ThisPosition += StartOffset;
+	AnimPosition += StartOffset;
 	if (bReverse)
 	{
-		ThisPosition = (SeqLength - (ThisPosition - StartOffset)) + StartOffset;
+		AnimPosition = (SeqLength - (AnimPosition - StartOffset)) + StartOffset;
 	}
 
-	return ThisPosition;
+	return AnimPosition;
 }

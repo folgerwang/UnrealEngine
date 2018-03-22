@@ -85,10 +85,44 @@ class UKismetRenderingLibrary : public UBlueprintFunctionLibrary
 	static ENGINE_API void ExportRenderTarget(UObject* WorldContextObject, UTextureRenderTarget2D* TextureRenderTarget, const FString& FilePath, const FString& FileName);
 
 	/**
+	* Incredibly inefficient and slow operation! Read a value as sRGB color from a render target using integer pixel coordinates.
+	* LDR render targets are assumed to be in sRGB space. HDR ones are assumed to be in linear space.
+	* Result is 8-bit per channel [0,255] BGRA in sRGB space.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Rendering", meta = (Keywords = "ReadRenderTarget", WorldContext = "WorldContextObject"))
+	static ENGINE_API FColor ReadRenderTargetPixel(UObject* WorldContextObject, UTextureRenderTarget2D* TextureRenderTarget, int32 X, int32 Y);
+
+	/**
+	* Incredibly inefficient and slow operation! Read a value as sRGB color from a render target using UV [0,1]x[0,1] coordinates.
+	* LDR render targets are assumed to be in sRGB space. HDR ones are assumed to be in linear space.
+	* Result is 8-bit per channel [0,255] BGRA in sRGB space.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Rendering", meta = (Keywords = "ReadRenderTarget", WorldContext = "WorldContextObject"))
+	static ENGINE_API FColor ReadRenderTargetUV(UObject* WorldContextObject, UTextureRenderTarget2D* TextureRenderTarget, float U, float V);
+
+	/**
+	* Incredibly inefficient and slow operation! Read a value as-is from a render target using integer pixel coordinates.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Rendering", meta = (Keywords = "ReadRenderTarget", WorldContext = "WorldContextObject"))
+	static ENGINE_API FLinearColor ReadRenderTargetRawPixel(UObject* WorldContextObject, UTextureRenderTarget2D* TextureRenderTarget, int32 X, int32 Y);
+
+	/**
+	* Incredibly inefficient and slow operation! Read a value as-is color from a render target using UV [0,1]x[0,1] coordinates.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Rendering", meta = (Keywords = "ReadRenderTarget", WorldContext = "WorldContextObject"))
+	static ENGINE_API FLinearColor ReadRenderTargetRawUV(UObject* WorldContextObject, UTextureRenderTarget2D* TextureRenderTarget, float U, float V);
+
+	/**
 	 * Exports a Texture2D as a HDR image onto the disk.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Rendering", meta = (Keywords = "ExportTexture2D", WorldContext = "WorldContextObject"))
 	static ENGINE_API void ExportTexture2D(UObject* WorldContextObject, UTexture2D* Texture, const FString& FilePath, const FString& FileName);
+
+	/**
+	 * Imports a texture file from disk and creates Texture2D from it. 
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Rendering", meta = (WorldContext = "WorldContextObject"))
+	static ENGINE_API UTexture2D* ImportFileAsTexture2D(UObject* WorldContextObject, const FString& Filename);
 
 	/** 
 	 * Returns a Canvas object that can be used to draw to the specified render target.

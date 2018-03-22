@@ -1446,7 +1446,7 @@ EObjectDiff UDiffPackagesCommandlet::CompareNativePropertyValues( UObject* ObjA,
 // 				AppendComparisonResultText(PropDiff.DiffText, FString::Printf(TEXT("(%s) %s::%s"), GetDiffTypeText(PropDiff.DiffType,NumPackages), *FullPath, *PropName));
 // 				AppendComparisonResultText(PropDiff.DiffText, FString::Printf(TEXT("     Was: %s"), *PropTextAncestor));
 // 				AppendComparisonResultText(PropDiff.DiffText, FString::Printf(TEXT("     Now: %s"), *PropTextA));
-				if ( NativeDataComparison.DiffType == OD_None )
+				if ( NativeDataComparison.DiffType == OD_None ) //-V547
 				{
 					NativeDataComparison.DiffType = OD_ABSame;
 					AppendComparisonResultText(NativeDataComparison.DiffText, FString::Printf(TEXT("(%s) %s"), GetDiffTypeText(NativeDataComparison.DiffType, NumPackages), *ObjectPathName));
@@ -1472,7 +1472,7 @@ EObjectDiff UDiffPackagesCommandlet::CompareNativePropertyValues( UObject* ObjA,
 // 					AppendComparisonResultText(PropDiff.DiffText, FString::Printf(TEXT("     Was: %s"), *PropTextAncestor));
 // 					AppendComparisonResultText(PropDiff.DiffText, FString::Printf(TEXT("     Now: %s"), *PropTextB));
 
-					if ( NativeDataComparison.DiffType == OD_None )
+					if ( NativeDataComparison.DiffType == OD_None ) //-V547
 					{
 						NativeDataComparison.DiffType = OD_BOnly;
 					}
@@ -1491,7 +1491,7 @@ EObjectDiff UDiffPackagesCommandlet::CompareNativePropertyValues( UObject* ObjA,
 // 					AppendComparisonResultText(PropDiff.DiffText, FString::Printf(TEXT("     Was: %s"), *PropTextAncestor));
 // 					AppendComparisonResultText(PropDiff.DiffText, FString::Printf(TEXT("     Now: %s"), *PropTextA));
 
-					if (NativeDataComparison.DiffType == OD_None )
+					if (NativeDataComparison.DiffType == OD_None ) //-V547
 					{
 						NativeDataComparison.DiffType = OD_AOnly;
 						AppendComparisonResultText(NativeDataComparison.DiffText, FString::Printf(TEXT("(%s) %s"),

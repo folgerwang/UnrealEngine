@@ -862,6 +862,12 @@ public partial class Project : CommandUtils
 			{
 				return false;
 			}
+
+			if (NormalizedPath.EndsWith("/datadrivenplatforminfo.ini"))
+			{
+				return true;
+			}
+
 		}
 		return null;
 	}

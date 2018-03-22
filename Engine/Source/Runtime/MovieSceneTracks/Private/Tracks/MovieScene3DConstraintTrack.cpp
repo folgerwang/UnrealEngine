@@ -22,11 +22,6 @@ const TArray<UMovieSceneSection*>& UMovieScene3DConstraintTrack::GetAllSections(
 	return ConstraintSections;
 }
 
-void UMovieScene3DConstraintTrack::AddConstraint(float Time, float ConstraintEndTime, const FName SocketName, const FName ComponentName, const FGuid& ConstraintId)
-{
-	AddConstraint(Time, ConstraintEndTime, SocketName, ComponentName, FMovieSceneObjectBindingID(ConstraintId, MovieSceneSequenceID::Root));
-}
-
 
 void UMovieScene3DConstraintTrack::RemoveAllAnimationData()
 {
@@ -55,19 +50,6 @@ void UMovieScene3DConstraintTrack::RemoveSection(UMovieSceneSection& Section)
 bool UMovieScene3DConstraintTrack::IsEmpty() const
 {
 	return ConstraintSections.Num() == 0;
-}
-
-
-TRange<float> UMovieScene3DConstraintTrack::GetSectionBoundaries() const
-{
-	TArray< TRange<float> > Bounds;
-
-	for (int32 i = 0; i < ConstraintSections.Num(); ++i)
-	{
-		Bounds.Add(ConstraintSections[i]->GetRange());
-	}
-
-	return TRange<float>::Hull(Bounds);
 }
 
 #undef LOCTEXT_NAMESPACE

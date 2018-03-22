@@ -5,8 +5,12 @@
 #include "CoreMinimal.h"
 #include "Curves/KeyHandle.h"
 
+struct FFrameNumber;
+
 class IKeyArea;
 class UMovieSceneSection;
+
+template<typename> class TArrayView;
 
 /**
  * Represents a selected key in the sequencer
@@ -54,3 +58,26 @@ public:
 			KeyHandle.GetValue() == OtherKey.KeyHandle.GetValue();
 	}
 };
+
+struct FSelectedChannelInfo
+{
+	explicit FSelectedChannelInfo(uint32 InChannelTypeID, UMovieSceneSection* InOwningSection)
+		: ChannelTypeID(InChannelTypeID), OwningSection(InOwningSection)
+	{}
+
+	uint32 ChannelTypeID;
+	UMovieSceneSection* OwningSection;
+	TArray<FKeyHandle> KeyHandles;
+	TArray<int32> OriginalIndices;
+};
+
+struct FSelectedKeysByChannelType
+{
+	explicit FSelectedKeysByChannelType(TArrayView<const FSequencerSelectedKey> InSelectedKeys);
+
+	TMap<void*, FSelectedChannelInfo> ChannelToKeyHandleMap;
+};
+
+void GetKeyTimes(TArrayView<const FSequencerSelectedKey> InSelectedKeys, TArrayView<FFrameNumber> OutTimes);
+void SetKeyTimes(TArrayView<const FSequencerSelectedKey> InSelectedKeys, TArrayView<const FFrameNumber> InTimes);
+void DuplicateKeys(TArrayView<const FSequencerSelectedKey> InSelectedKeys, TArrayView<FKeyHandle> OutNewHandles);

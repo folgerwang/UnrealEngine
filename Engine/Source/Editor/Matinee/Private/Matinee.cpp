@@ -3004,7 +3004,10 @@ void FMatinee::OnMenuCreateMovie()
 	// Ensure that this matinee is up and running before we start capturing
 	MovieSceneCapture->SetPrerequisiteActor(MatineeActor);
 
-	IMovieSceneCaptureDialogModule::Get().OpenDialog(LevelEditorModule.GetLevelEditorTabManager().ToSharedRef(), MovieSceneCapture);
+	// We initialize a default numeric interface as Matinee doesn't support the new mixed frame resolution concepts.
+	TSharedPtr<INumericTypeInterface<double>> NumericTypeInterface = MakeShareable(new TDefaultNumericTypeInterface<double>);
+
+	IMovieSceneCaptureDialogModule::Get().OpenDialog(LevelEditorModule.GetLevelEditorTabManager().ToSharedRef(), MovieSceneCapture, NumericTypeInterface);
 }
 
 #undef LOCTEXT_NAMESPACE

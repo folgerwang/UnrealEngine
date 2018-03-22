@@ -37,7 +37,7 @@
 #include "Kismet2/DebuggerCommands.h"
 #include "Toolkits/AssetEditorCommonCommands.h"
 #include "SoundCueGraphEditorCommands.h"
-#include "RichCurveEditorCommands.h"
+#include "CurveEditorCommands.h"
 #include "EditorBuildUtils.h"
 #include "Logging/TokenizedMessage.h"
 #include "Logging/MessageLog.h"
@@ -268,7 +268,7 @@ void FUnrealEdMisc::OnInit()
 	FViewportNavigationCommands::Register();
 
 	// Register curve editor commands.
-	FRichCurveEditorCommands::Register();
+	FCurveEditorCommands::Register();
 
 	// Have the User Activity Tracker reject non-editor activities for this run
 	FUserActivityTracking::SetContextFilter(EUserActivityContext::Editor);

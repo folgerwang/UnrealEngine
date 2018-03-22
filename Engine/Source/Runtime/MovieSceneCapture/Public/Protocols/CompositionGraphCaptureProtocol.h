@@ -39,6 +39,8 @@ UCLASS(config=EditorPerProjectUserSettings, DisplayName="Composition Graph Optio
 class MOVIESCENECAPTURE_API UCompositionGraphCaptureSettings : public UMovieSceneCaptureProtocolSettings
 {
 public:
+	UCompositionGraphCaptureSettings(const FObjectInitializer& Init) : UMovieSceneCaptureProtocolSettings(Init), bDisableScreenPercentage(true) {}
+
 	GENERATED_BODY()
 	
 	/**~ UMovieSceneCaptureProtocolSettings implementation */
@@ -54,7 +56,7 @@ public:
 	bool bCaptureFramesInHDR;
 
 	/** Compression Quality for HDR Frames (0 for no compression, 1 for default compression which can be slow) */
-	UPROPERTY(config, EditAnywhere, Category="Composition Graph Options", meta = (EditCondition = "bCaptureFramesInHDR"))
+	UPROPERTY(config, EditAnywhere, Category="Composition Graph Options", meta = (EditCondition = "bCaptureFramesInHDR", UIMin=0, ClampMin=0, UIMax=1, ClampMax=1))
 	int32 HDRCompressionQuality;
 
 	/** The color gamut to use when storing HDR captured data. The gamut depends on whether the bCaptureFramesInHDR option is enabled. */
@@ -64,6 +66,10 @@ public:
 	/** Custom post processing material to use for rendering */
 	UPROPERTY(config, EditAnywhere, Category="Composition Graph Options", meta=(AllowedClasses=""))
 	FSoftObjectPath PostProcessingMaterial;
+
+	/** Whether to disable screen percentage */
+	UPROPERTY(config, EditAnywhere, Category="Composition Graph Options")
+	bool bDisableScreenPercentage;
 };
 
 struct MOVIESCENECAPTURE_API FCompositionGraphCaptureProtocol : IMovieSceneCaptureProtocol

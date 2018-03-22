@@ -747,6 +747,10 @@ namespace AutomationTool
             /// If NoLoggingOfRunCommand is set, it normally suppresses the run duration output. This turns it back on.
             /// </summary>
             LoggingOfRunDuration = 1 << 7,
+			/// <summary>
+			/// If set, a window is allowed to be created
+			/// </summary>
+			NoHideWindow = 1 << 8,
 
 			/// <summary>
 			/// Do not capture stdout in the process result
@@ -827,7 +831,7 @@ namespace AutomationTool
 					Proc.ErrorDataReceived += Result.StdErr;
 				}
 				Proc.StartInfo.RedirectStandardInput = Input != null;
-				Proc.StartInfo.CreateNoWindow = true;
+				Proc.StartInfo.CreateNoWindow = (Options & ERunOptions.NoHideWindow) == 0;
 				if ((Options & ERunOptions.UTF8Output) == ERunOptions.UTF8Output)
 				{
 					Proc.StartInfo.StandardOutputEncoding = new System.Text.UTF8Encoding(false, false);

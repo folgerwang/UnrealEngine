@@ -15,6 +15,9 @@ public:
 	TSharedPtr<FUICommandInfo> AddRecording;
 	TSharedPtr<FUICommandInfo> RemoveRecording;
 	TSharedPtr<FUICommandInfo> RemoveAllRecordings;
+	TSharedPtr<FUICommandInfo> AddRecordingGroup;
+	TSharedPtr<FUICommandInfo> RemoveRecordingGroup;
+	TSharedPtr<FUICommandInfo> DuplicateRecordingGroup;
 
 	/** Initialize commands */
 	virtual void RegisterCommands() override;

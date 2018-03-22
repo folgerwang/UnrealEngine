@@ -28,6 +28,12 @@ public:
 		return 0xFFFFFFFFFFFFFFFF;
 	}
 #endif // WITH_EDITOR
+
+public:
+	float DepthOffset = 0.0f;
+
+
+	void EnableHMDDepthTracking(bool bEnable = true);
 };
 
 /* AMixedRealityBillboardActor
@@ -49,11 +55,6 @@ public:
 public:
 	void SetProjectionMaterial(UMaterialInterface* VidProcessingMat);
 	void SetProjectionAspectRatio(const float NewAspectRatio);
-	FVector GetTargetPosition() const;
-	void SetDepthTarget(const APawn* PlayerPawn);
-
-protected:
-	void RefreshTickState();
 
 private:
 	UPROPERTY(Transient)

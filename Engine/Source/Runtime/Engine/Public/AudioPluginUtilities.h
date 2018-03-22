@@ -12,7 +12,7 @@ struct ENGINE_API AudioPluginUtilities
 	static const EAudioPlatform CurrentPlatform = EAudioPlatform::Windows;
 #elif PLATFORM_MAC
 	static const EAudioPlatform CurrentPlatform = EAudioPlatform::Mac;
-#elif PLATFORM_LINUX
+#elif PLATFORM_UNIX
 	static const EAudioPlatform CurrentPlatform = EAudioPlatform::Linux;
 #elif PLATFORM_IOS
 	static const EAudioPlatform CurrentPlatform = EAudioPlatform::IOS;

@@ -7,6 +7,7 @@
 #include "Sequencer.h"
 #include "SequencerClipboardReconciler.h"
 #include "ScopedTransaction.h"
+#include "Channels/MovieSceneChannelHandle.h"
 
 struct FEasingAreaHandle;
 class FMenuBuilder;
@@ -20,25 +21,19 @@ class UMovieSceneSection;
  */
 struct FSectionContextMenu : TSharedFromThis<FSectionContextMenu>
 {
-	static void BuildMenu(FMenuBuilder& MenuBuilder, FSequencer& Sequencer, float InMouseDownTime);
+	static void BuildMenu(FMenuBuilder& MenuBuilder, FSequencer& Sequencer, FFrameTime InMouseDownTime);
 
 private:
 
 	/** Hidden AsShared() methods to discourage CreateSP delegate use. */
 	using TSharedFromThis::AsShared;
 
-	FSectionContextMenu(FSequencer& InSeqeuncer, float InMouseDownTime)
-		: Sequencer(StaticCastSharedRef<FSequencer>(InSeqeuncer.AsShared()))
-		, MouseDownTime(InMouseDownTime)
-	{}
+	FSectionContextMenu(FSequencer& InSeqeuncer, FFrameTime InMouseDownTime);
 
 	void PopulateMenu(FMenuBuilder& MenuBuilder);
 
 	/** Add edit menu for trim and split */
 	void AddEditMenu(FMenuBuilder& MenuBuilder);
-
-	/** Add extrapolation menu for pre and post infinity */
-	void AddExtrapolationMenu(FMenuBuilder& MenuBuilder, bool bPreInfinity);
 
 	/** Add the Properties sub-menu. */
 	void AddPropertiesMenu(FMenuBuilder& MenuBuilder);
@@ -60,8 +55,6 @@ private:
 
 	bool CanPrimeForRecording() const;
 
-	bool CanSetExtrapolationMode() const;
-
 	void TrimSection(bool bTrimLeft);
 
 	void SplitSection();
@@ -71,10 +64,6 @@ private:
 	bool IsTrimmable() const;
 
 	bool CanReduceKeys() const;
-
-	void SetExtrapolationMode(ERichCurveExtrapolation ExtrapMode, bool bPreInfinity);
-
-	bool IsExtrapolationModeSelected(ERichCurveExtrapolation ExtrapMode, bool bPreInfinity) const;
 
 	void ToggleSectionActive();
 
@@ -100,14 +89,17 @@ private:
 	TSharedRef<FSequencer> Sequencer;
 
 	/** The time that we clicked on to summon this menu */
-	float MouseDownTime;
+	FFrameTime MouseDownTime;
+
+	TMap<uint32, TArray<TMovieSceneChannelHandle<void>>> ChannelsByType;
+	TMap<uint32, TArray<UMovieSceneSection*>> SectionsByType;
 };
 
 /** Arguments required for a paste operation */
 struct FPasteContextMenuArgs
 {
 	/** Paste the clipboard into the specified array of sequencer nodes, at the given time */
-	static FPasteContextMenuArgs PasteInto(TArray<TSharedRef<FSequencerDisplayNode>> InNodes, float InTime, TSharedPtr<FMovieSceneClipboard> InClipboard = nullptr)
+	static FPasteContextMenuArgs PasteInto(TArray<TSharedRef<FSequencerDisplayNode>> InNodes, FFrameNumber InTime, TSharedPtr<FMovieSceneClipboard> InClipboard = nullptr)
 	{
 		FPasteContextMenuArgs Args;
 		Args.Clipboard = InClipboard;
@@ -117,7 +109,7 @@ struct FPasteContextMenuArgs
 	}
 
 	/** Paste the clipboard at the given time, using the sequencer selection states to determine paste destinations */
-	static FPasteContextMenuArgs PasteAt(float InTime, TSharedPtr<FMovieSceneClipboard> InClipboard = nullptr)
+	static FPasteContextMenuArgs PasteAt(FFrameNumber InTime, TSharedPtr<FMovieSceneClipboard> InClipboard = nullptr)
 	{
 		FPasteContextMenuArgs Args;
 		Args.Clipboard = InClipboard;
@@ -129,7 +121,7 @@ struct FPasteContextMenuArgs
 	TSharedPtr<FMovieSceneClipboard> Clipboard;
 
 	/** The Time to paste at */
-	float PasteAtTime;
+	FFrameNumber PasteAtTime;
 
 	/** Optional user-supplied nodes to paste into */
 	TArray<TSharedRef<FSequencerDisplayNode>> DestinationNodes;
@@ -215,8 +207,8 @@ struct FKeyContextMenu : TSharedFromThis<FKeyContextMenu>
 
 private:
 
-	FKeyContextMenu(FSequencer& InSeqeuncer)
-		: Sequencer(StaticCastSharedRef<FSequencer>(InSeqeuncer.AsShared()))
+	FKeyContextMenu(FSequencer& InSequencer)
+		: Sequencer(StaticCastSharedRef<FSequencer>(InSequencer.AsShared()))
 	{}
 
 	/** Hidden AsShared() methods to discourage CreateSP delegate use. */
@@ -225,13 +217,13 @@ private:
 	/** Add the Properties sub-menu. */
 	void AddPropertiesMenu(FMenuBuilder& MenuBuilder);
 
-	/** Check if we can add the key properties menu */
-	bool CanAddPropertiesMenu() const;
-
 	void PopulateMenu(FMenuBuilder& MenuBuilder);
 
 	/** The sequencer */
 	TSharedRef<FSequencer> Sequencer;
+
+	TSharedPtr<FStructOnScope> KeyStruct;
+	TWeakObjectPtr<UMovieSceneSection> KeyStructSection;
 };
 
 
@@ -243,12 +235,14 @@ private:
  */
 struct FEasingContextMenu : TSharedFromThis<FEasingContextMenu>
 {
-	static void BuildMenu(FMenuBuilder& MenuBuilder, const TArray<FEasingAreaHandle>& InEasings, FSequencer& Sequencer, float InMouseDownTime);
+	static void BuildMenu(FMenuBuilder& MenuBuilder, const TArray<FEasingAreaHandle>& InEasings, FSequencer& Sequencer, FFrameTime InMouseDownTime);
 
 private:
 
-	FEasingContextMenu(const TArray<FEasingAreaHandle>& InEasings)
+	FEasingContextMenu(const TArray<FEasingAreaHandle>& InEasings, FSequencer& InSequencer)
 		: Easings(InEasings)
+		, Sequencer(StaticCastSharedRef<FSequencer>(InSequencer.AsShared()))
+
 	{}
 
 	/** Hidden AsShared() methods to discourage CreateSP delegate use. */
@@ -264,16 +258,18 @@ private:
 
 	void OnEasingTypeChanged(UClass* NewClass);
 
-	void OnUpdateLength(float NewLength);
+	void OnUpdateLength(int32 NewLength);
 
-	TOptional<float> GetCurrentLength() const;
+	TOptional<int32> GetCurrentLength() const;
 
 	ECheckBoxState GetAutoEasingCheckState() const;
 
 	void SetAutoEasing(bool bAutoEasing);
 
-	/** The sequencer */
 	TArray<FEasingAreaHandle> Easings;
+
+	/** The sequencer */
+	TSharedRef<FSequencer> Sequencer;
 
 	/** A scoped transaction for a current operation */
 	TUniquePtr<FScopedTransaction> ScopedTransaction;

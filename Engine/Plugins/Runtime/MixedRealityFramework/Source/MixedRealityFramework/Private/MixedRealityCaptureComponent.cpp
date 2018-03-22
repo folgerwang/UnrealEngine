@@ -28,47 +28,27 @@
 
 DEFINE_LOG_CATEGORY(LogMixedReality);
 
-/* FChromaKeyParams
+/* MRCaptureComponent_Impl
  *****************************************************************************/
 
+namespace MRCaptureComponent_Impl
+{
+	static UMixedRealityGarbageMatteCaptureComponent* CreateGarbageMatteComponent(UMixedRealityCaptureComponent* Outer);
+}
+
 //------------------------------------------------------------------------------
-void FChromaKeyParams::ApplyToMaterial(UMaterialInstanceDynamic* Material) const
+static UMixedRealityGarbageMatteCaptureComponent* MRCaptureComponent_Impl::CreateGarbageMatteComponent(UMixedRealityCaptureComponent* Outer)
 {
-	if (Material)
-	{
-		static FName ColorName("ChromaColor");
-		Material->SetVectorParameterValue(ColorName, ChromaColor);
+	ensureMsgf(Outer->IsActive(), TEXT("Spawning garbage mattes for a MR capture that isn't active."));
 
-		static FName ClipThresholdName("ChromaClipThreshold");
-		Material->SetScalarParameterValue(ClipThresholdName, ChromaClipThreshold);
+	UMixedRealityGarbageMatteCaptureComponent* NewGarbageMatteComp = NewObject<UMixedRealityGarbageMatteCaptureComponent>(Outer, TEXT("MR_GarbageMatteCapture"), RF_Transient | RF_TextExportTransient);
+	NewGarbageMatteComp->CaptureSortPriority = Outer->CaptureSortPriority + 1;
+	NewGarbageMatteComp->SetupAttachment(Outer);
+	NewGarbageMatteComp->RegisterComponent();
 
-		static FName ToleranceCapName("ChromaToleranceCap");
-		Material->SetScalarParameterValue(ToleranceCapName, ChromaToleranceCap);
-
-		static FName EdgeSoftnessName("EdgeSoftness");
-		Material->SetScalarParameterValue(EdgeSoftnessName, EdgeSoftness);
-	}
-}
-
-/* MixedRealityCaptureComponent_Impl
-*****************************************************************************/
-
-namespace MixedRealityCaptureComponent_Impl
-{
-	static bool IsGameInstance(UMixedRealityCaptureComponent* Inst);
-}
-
-static bool MixedRealityCaptureComponent_Impl::IsGameInstance(UMixedRealityCaptureComponent* Inst)
-{
-#if WITH_EDITORONLY_DATA
-	AActor* InstOwner = Inst->GetOwner();
-	UWorld* InstWorld = (InstOwner) ? InstOwner->GetWorld() : nullptr;
-	const bool bIsGameInst = InstWorld && InstWorld->WorldType != EWorldType::Editor && InstWorld->WorldType != EWorldType::EditorPreview;
-
-	return bIsGameInst;
-#else 
-	return !Inst->HasAnyFlags(RF_ClassDefaultObject);
-#endif
+	NewGarbageMatteComp->SetTrackingOrigin(Outer->GetAttachParent());
+	
+	return NewGarbageMatteComp;
 }
 
 /* UMixedRealityCaptureComponent
@@ -77,14 +57,14 @@ static bool MixedRealityCaptureComponent_Impl::IsGameInstance(UMixedRealityCaptu
 //------------------------------------------------------------------------------
 UMixedRealityCaptureComponent::UMixedRealityCaptureComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, bAutoLoadConfiguration(true)
+	, bProjectionDepthTracking(true)
 {
 	struct FConstructorStatics
 	{
 		ConstructorHelpers::FObjectFinder<UMediaPlayer> DefaultMediaSource;
 		ConstructorHelpers::FObjectFinder<UMaterial>    DefaultVideoProcessingMaterial;
 		ConstructorHelpers::FObjectFinder<UTextureRenderTarget2D> DefaultRenderTarget;
-		ConstructorHelpers::FObjectFinder<UTextureRenderTarget2D> DefaultGarbageMatteRenderTarget;
-		ConstructorHelpers::FObjectFinder<UStaticMesh> DefaultGarbageMatteMesh;
 #if WITH_EDITORONLY_DATA
 		ConstructorHelpers::FObjectFinder<UStaticMesh>  EditorCameraMesh;
 #endif
@@ -93,8 +73,6 @@ UMixedRealityCaptureComponent::UMixedRealityCaptureComponent(const FObjectInitia
 			: DefaultMediaSource(TEXT("/MixedRealityFramework/MRCameraSource"))
 			, DefaultVideoProcessingMaterial(TEXT("/MixedRealityFramework/M_MRCamSrcProcessing"))
 			, DefaultRenderTarget(TEXT("/MixedRealityFramework/T_MRRenderTarget"))
-			, DefaultGarbageMatteRenderTarget(TEXT("/MixedRealityFramework/T_MRGarbageMatteRenderTarget"))
-			, DefaultGarbageMatteMesh(TEXT("/MixedRealityFramework/GarbageMattePlane"))
 #if WITH_EDITORONLY_DATA
 			, EditorCameraMesh(TEXT("/Engine/EditorMeshes/MatineeCam_SM"))
 #endif
@@ -105,8 +83,6 @@ UMixedRealityCaptureComponent::UMixedRealityCaptureComponent(const FObjectInitia
 	MediaSource = ConstructorStatics.DefaultMediaSource.Object;
 	VideoProcessingMaterial = ConstructorStatics.DefaultVideoProcessingMaterial.Object;
 	TextureTarget = ConstructorStatics.DefaultRenderTarget.Object;
-	GarbageMatteCaptureTextureTarget = ConstructorStatics.DefaultGarbageMatteRenderTarget.Object;
-	GarbageMatteMesh = ConstructorStatics.DefaultGarbageMatteMesh.Object;
 
 #if WITH_EDITORONLY_DATA
 	if (!IsRunningCommandlet())
@@ -114,6 +90,15 @@ UMixedRealityCaptureComponent::UMixedRealityCaptureComponent(const FObjectInitia
 		ProxyMesh = ConstructorStatics.EditorCameraMesh.Object;
 	}
 #endif
+
+	// The default camera-processing (chroma keying) materials assume we're rendering with post-processing (they invert tonemapping, etc.).
+	// Also, the spectator screen's back buffer expects the texture data to be in sRGB space (a conversion that happens in post-processing).
+	// @TODO: Are we sure the resulting texture is in sRGB space? Unsure. We need to 100% confirm this
+	CaptureSource = ESceneCaptureSource::SCS_FinalColorLDR;
+	// For some reason, eye adaption isn't working with scene captures, which can result in a scene that is darker/lighter than expected.
+	// So, for the time being, use the mobile exposure method.
+	PostProcessSettings.bOverride_AutoExposureMethod = true;
+	PostProcessSettings.AutoExposureMethod = EAutoExposureMethod::AEM_Basic;
 
 	// ensure InitializeComponent() gets called
 	bWantsInitializeComponent = true;
@@ -176,16 +161,12 @@ void UMixedRealityCaptureComponent::Activate(bool bReset)
 			AMixedRealityProjectionActor* ProjectionActorObj = CastChecked<AMixedRealityProjectionActor>(ProjectionActor->GetChildActor());
 			ProjectionActorObj->SetProjectionMaterial(VideoProcessingMaterial);
 			ProjectionActorObj->SetProjectionAspectRatio(GetDesiredAspectRatio());
-		}
 
-		if (!GarbageMatteCaptureComponent)
-		{
-			GarbageMatteCaptureComponent = NewObject<UMixedRealityGarbageMatteCaptureComponent>(this, TEXT("MR_GarbageMatteCapture"), RF_Transient | RF_TextExportTransient);
-			GarbageMatteCaptureComponent->CaptureSortPriority = CaptureSortPriority + 1;
-			GarbageMatteCaptureComponent->TextureTarget = GarbageMatteCaptureTextureTarget;
-			GarbageMatteCaptureComponent->GarbageMatteMesh = GarbageMatteMesh;
-			GarbageMatteCaptureComponent->SetupAttachment(this);
-			GarbageMatteCaptureComponent->RegisterComponent();
+			if (ensure(ProjectionActorObj->ProjectionComponent))
+			{
+				ProjectionActorObj->ProjectionComponent->DepthOffset = ProjectionDepthOffset;
+				ProjectionActorObj->ProjectionComponent->EnableHMDDepthTracking(bProjectionDepthTracking);
+			}
 		}
 
 		RefreshCameraFeed();
@@ -204,11 +185,7 @@ void UMixedRealityCaptureComponent::Deactivate()
 			MediaSource->Close();
 		}
 
-		if (GarbageMatteCaptureComponent)
-		{
-			GarbageMatteCaptureComponent->DestroyComponent();
-			GarbageMatteCaptureComponent = nullptr;
-		}
+		// the GarbageMatte component's lifetime is governed by ApplyCalibrationData
 
 		if (ProjectionActor)
 		{
@@ -234,7 +211,11 @@ void UMixedRealityCaptureComponent::InitializeComponent()
 		SetVidProjectionMat(UMaterialInstanceDynamic::Create(VideoProcessingMaterial, this));
 	}
 
-	LoadDefaultConfiguration();
+	const UWorld* MyWorld = GetWorld();
+	if (MyWorld && MyWorld->IsGameWorld() && bAutoLoadConfiguration)
+	{
+		LoadDefaultConfiguration();
+	}
 
 	float CalibratedFOVOverride = FOVAngle;
 	if (GConfig->GetFloat(TEXT("/Script/MixedRealityFramework.MixedRealityFrameworkSettings"), TEXT("CalibratedFOVOverride"), CalibratedFOVOverride, GEngineIni))
@@ -347,7 +328,8 @@ void UMixedRealityCaptureComponent::UpdateSceneCaptureContents(FSceneInterface* 
 //------------------------------------------------------------------------------
 void UMixedRealityCaptureComponent::RefreshCameraFeed()
 {
-	if (CaptureFeedRef.DeviceURL.IsEmpty() && bIsActive && HasBeenInitialized() && MixedRealityCaptureComponent_Impl::IsGameInstance(this))
+	const UWorld* MyWorld = GetWorld();
+	if (CaptureFeedRef.DeviceURL.IsEmpty() && bIsActive && HasBeenInitialized() && MyWorld && MyWorld->IsGameWorld())
 	{
 		TArray<FMediaCaptureDeviceInfo> CaptureDevices;
 		MediaCaptureSupport::EnumerateVideoCaptureDevices(CaptureDevices);
@@ -370,7 +352,7 @@ void UMixedRealityCaptureComponent::RefreshCameraFeed()
 void UMixedRealityCaptureComponent::RefreshDevicePairing()
 {
 	AActor* MyOwner = GetOwner();
-	if (MyOwner && MixedRealityCaptureComponent_Impl::IsGameInstance(this))
+	if (MyOwner && MyOwner->GetWorld() && MyOwner->GetWorld()->IsGameWorld())
 	{
 		if (!TrackingSourceName.IsNone())
 		{
@@ -397,7 +379,10 @@ void UMixedRealityCaptureComponent::RefreshDevicePairing()
 					{
 						MyOwner->SetRootComponent(PairedTracker);
 					}
+
 					PairedTracker->RegisterComponent();
+					// if this is registered during initialization, then it will fail to auto-activate and won't track; so force it on here
+					PairedTracker->Activate(/*bReset =*/false);
 
 					FAttachmentTransformRules ReattachRules(EAttachmentRule::KeepRelative, /*bWeldSimulatedBodies =*/false);
 					AttachToComponent(PairedTracker, ReattachRules);
@@ -408,22 +393,21 @@ void UMixedRealityCaptureComponent::RefreshDevicePairing()
 		}
 		else if (PairedTracker)
 		{
-			PairedTracker->DestroyComponent(/*bPromoteChildren =*/true);
+			DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
+			if (USceneComponent* NewParent = PairedTracker->GetAttachParent())
+			{
+				AttachToComponent(NewParent, FAttachmentTransformRules::KeepRelativeTransform);
+			}
+			
+			if (MyOwner->GetRootComponent() == PairedTracker)
+			{
+				MyOwner->SetRootComponent(this);
+			}
+
+			PairedTracker->DestroyComponent();
 			PairedTracker = nullptr;
 		}
 	}
-}
-
-//------------------------------------------------------------------------------
-AMixedRealityProjectionActor* UMixedRealityCaptureComponent::GetProjectionActor() const
-{
-	return ProjectionActor ? Cast<AMixedRealityProjectionActor>(ProjectionActor->GetChildActor()) : nullptr;
-}
-
-//------------------------------------------------------------------------------
-AActor* UMixedRealityCaptureComponent::GetProjectionActor_K2() const
-{
-	return GetProjectionActor();
 }
 
 //------------------------------------------------------------------------------
@@ -433,6 +417,7 @@ void UMixedRealityCaptureComponent::SetVidProjectionMat(UMaterialInterface* NewM
 	if (MID != nullptr)
 	{
 		ChromaKeySettings.ApplyToMaterial(MID);
+		ApplyUVTextureToMaterial(MID);
 	}
 	// else, should we convert it to be a MID?
 
@@ -448,17 +433,6 @@ void UMixedRealityCaptureComponent::SetChromaSettings(const FChromaKeyParams& Ne
 {
 	NewChromaSettings.ApplyToMaterial(Cast<UMaterialInstanceDynamic>(VideoProcessingMaterial));
 	ChromaKeySettings = NewChromaSettings;
-}
-
-//------------------------------------------------------------------------------
-void UMixedRealityCaptureComponent::SetUnmaskedPixelHighlightColor(const FLinearColor& NewColor)
-{
-	UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(VideoProcessingMaterial);
-	if (MID != nullptr)
-	{
-		static FName ParamName("UnmaskedPixelHighlightColor");
-		MID->SetVectorParameterValue(ParamName, NewColor);
-	}
 }
 
 //------------------------------------------------------------------------------
@@ -478,8 +452,8 @@ void UMixedRealityCaptureComponent::DetatchFromDevice()
 //------------------------------------------------------------------------------
 void UMixedRealityCaptureComponent::SetCaptureDevice(const FMRCaptureDeviceIndex& FeedRef)
 {
-	const bool bIsInitialized = HasBeenInitialized();
-	if (bIsInitialized && bIsActive && MixedRealityCaptureComponent_Impl::IsGameInstance(this))
+	const UWorld* MyWorld = GetWorld();
+	if (HasBeenInitialized() && bIsActive && MyWorld && MyWorld->IsGameWorld())
 	{
 		if (MediaSource)
 		{
@@ -503,10 +477,64 @@ void UMixedRealityCaptureComponent::SetCaptureDevice(const FMRCaptureDeviceIndex
 	}
 }
 
+void UMixedRealityCaptureComponent::SetLensDistortionParameters(const FMRLensDistortion & ModelRef)
+{
+	if (ModelRef != LensDistortionParameters)
+	{
+		LensDistortionParameters = ModelRef;
+		UpdateUVLookupTexture();
+	}
+}
+
+void UMixedRealityCaptureComponent::SetLensDistortionCropping(float Alpha)
+{
+	if (LensDistortionCropping != Alpha)
+	{
+		LensDistortionCropping = Alpha;
+		UpdateUVLookupTexture();
+	}
+}
+
 //------------------------------------------------------------------------------
 void UMixedRealityCaptureComponent::SetTrackingDelay(int32 DelayMS)
 {
-	TrackingLatency = DelayMS;
+	TrackingLatency = FMath::Max(DelayMS, 0);
+}
+
+//------------------------------------------------------------------------------
+void UMixedRealityCaptureComponent::SetProjectionDepthOffset(float DepthOffset)
+{
+	ProjectionDepthOffset = DepthOffset;
+
+	AMixedRealityProjectionActor* ProjActor = GetProjectionActor();
+	if (ProjActor && ProjActor->ProjectionComponent)
+	{
+		ProjActor->ProjectionComponent->DepthOffset = ProjectionDepthOffset;
+	}
+}
+
+//------------------------------------------------------------------------------
+AActor* UMixedRealityCaptureComponent::GetProjectionActor_K2() const
+{
+	return GetProjectionActor();
+}
+
+//------------------------------------------------------------------------------
+AMixedRealityProjectionActor* UMixedRealityCaptureComponent::GetProjectionActor() const
+{
+	return ProjectionActor ? Cast<AMixedRealityProjectionActor>(ProjectionActor->GetChildActor()) : nullptr;
+}
+
+//------------------------------------------------------------------------------
+void UMixedRealityCaptureComponent::SetEnableProjectionDepthTracking(bool bEnable)
+{
+	bProjectionDepthTracking = bEnable;
+
+	AMixedRealityProjectionActor* ProjActor = GetProjectionActor();
+	if (ProjActor && ProjActor->ProjectionComponent)
+	{
+		ProjActor->ProjectionComponent->EnableHMDDepthTracking(bEnable);
+	}
 }
 
 //------------------------------------------------------------------------------
@@ -533,6 +561,34 @@ float UMixedRealityCaptureComponent::GetDesiredAspectRatio() const
 	}
 
 	return DesiredAspectRatio;
+}
+
+void UMixedRealityCaptureComponent::UpdateUVLookupTexture()
+{
+	if (LensDistortionParameters.IsSet() && TextureTarget)
+	{
+		float OutVFOV, OutAspectRatio;
+		UndistortionUVMap = LensDistortionParameters.CreateUndistortUVMap(FIntPoint(TextureTarget->SizeX, TextureTarget->SizeY), LensDistortionCropping, FOVAngle, OutVFOV, OutAspectRatio);
+	}
+	else
+	{
+		UndistortionUVMap = nullptr;
+	}
+
+	UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(VideoProcessingMaterial);
+	if (MID != nullptr)
+	{
+		ApplyUVTextureToMaterial(MID);
+	}
+}
+
+void UMixedRealityCaptureComponent::ApplyUVTextureToMaterial(UMaterialInstanceDynamic* MID) const
+{
+	check(MID != nullptr);
+	static FName EnableParamName("EnableMapping");
+	MID->SetScalarParameterValue(EnableParamName, UndistortionUVMap ? 1.0f : 0.0f);
+	static FName MapParamName("UVLookupTexture");
+	MID->SetTextureParameterValue(MapParamName, UndistortionUVMap);
 }
 
 //------------------------------------------------------------------------------
@@ -639,12 +695,13 @@ void UMixedRealityCaptureComponent::FillOutCalibrationData(UMixedRealityCalibrat
 		// view info
 		{
 			Dst->LensData.FOV = FOVAngle;
+			Dst->LensData.DistortionParameters = LensDistortionParameters;
 		}
 		// alignment info
 		{
 			const FTransform RelativeXform = GetRelativeTransform();
 			Dst->AlignmentData.CameraOrigin = RelativeXform.GetLocation();
-			Dst->AlignmentData.LookAtDir = RelativeXform.GetUnitAxis(EAxis::X);
+			Dst->AlignmentData.Orientation = RelativeXform.GetRotation().Rotator();
 
 			Dst->AlignmentData.TrackingAttachmentId = TrackingSourceName;
 		}
@@ -652,9 +709,23 @@ void UMixedRealityCaptureComponent::FillOutCalibrationData(UMixedRealityCalibrat
 		{
 			Dst->CompositingData.ChromaKeySettings = ChromaKeySettings;
 			Dst->CompositingData.CaptureDeviceURL = CaptureFeedRef;
+			Dst->CompositingData.DepthOffset = ProjectionDepthOffset;
+			Dst->CompositingData.TrackingLatency = TrackingLatency;
+		}
+		// garbage matte
+		{
+			if (GarbageMatteCaptureComponent)
+			{
+				GarbageMatteCaptureComponent->GetGarbageMatteData(Dst->GarbageMatteSaveDatas);
+			}
+			else
+			{
+				Dst->GarbageMatteSaveDatas.Empty();
+			}
 		}
 	}
 }
+
 
 //------------------------------------------------------------------------------
 void UMixedRealityCaptureComponent::ApplyCalibrationData_Implementation(UMixedRealityCalibrationData* ConfigData)
@@ -664,32 +735,57 @@ void UMixedRealityCaptureComponent::ApplyCalibrationData_Implementation(UMixedRe
 		// view data
 		{
 			FOVAngle = ConfigData->LensData.FOV;
+			SetLensDistortionParameters(ConfigData->LensData.DistortionParameters);
 		}
 		// alignment data
 		{
-			SetRelativeLocation(ConfigData->AlignmentData.CameraOrigin);
-			SetRelativeRotation(FRotationMatrix::MakeFromX(ConfigData->AlignmentData.LookAtDir).Rotator());
-
 			SetDeviceAttachment(ConfigData->AlignmentData.TrackingAttachmentId);
+
+			SetRelativeLocation(ConfigData->AlignmentData.CameraOrigin);
+			SetRelativeRotation(ConfigData->AlignmentData.Orientation);
 		}
 		// compositing data
 		{
 			SetChromaSettings(ConfigData->CompositingData.ChromaKeySettings);
 			SetCaptureDevice(ConfigData->CompositingData.CaptureDeviceURL);
+			SetTrackingDelay(ConfigData->CompositingData.TrackingLatency);
+			SetProjectionDepthOffset(ConfigData->CompositingData.DepthOffset);
+		}
+		// garbage matte
+		{
+			if (ConfigData->GarbageMatteSaveDatas.Num() > 0)
+			{
+				if (GarbageMatteCaptureComponent == nullptr)
+				{
+					GarbageMatteCaptureComponent = MRCaptureComponent_Impl::CreateGarbageMatteComponent(this);
+				}
+				GarbageMatteCaptureComponent->ApplyCalibrationData(ConfigData);
+			}
+			else if (GarbageMatteCaptureComponent)
+			{
+				GarbageMatteCaptureComponent->DestroyComponent();
+				GarbageMatteCaptureComponent = nullptr;
+			}
 		}
 	}	
 }
 
 //------------------------------------------------------------------------------
-void UMixedRealityCaptureComponent::SetExternalGarbageMatteActor(AActor* Actor)
+bool UMixedRealityCaptureComponent::SetGarbageMatteActor(AMixedRealityGarbageMatteActor* Actor)
 {
-	check(GarbageMatteCaptureComponent);
-	GarbageMatteCaptureComponent->SetExternalGarbageMatteActor(Actor);
-}
+	bool bSuccess = false;
+	if (GarbageMatteCaptureComponent)
+	{
+		GarbageMatteCaptureComponent->SetGarbageMatteActor(Actor);
+		bSuccess = true;
+	}
+	else if (bIsActive)
+	{
+		GarbageMatteCaptureComponent = MRCaptureComponent_Impl::CreateGarbageMatteComponent(this);
+		GarbageMatteCaptureComponent->SetGarbageMatteActor(Actor);
 
-//------------------------------------------------------------------------------
-void UMixedRealityCaptureComponent::ClearExternalGarbageMatteActor()
-{
-	check(GarbageMatteCaptureComponent);
-	GarbageMatteCaptureComponent->ClearExternalGarbageMatteActor();
+		bSuccess = true;
+	}
+
+	return bSuccess;
 }

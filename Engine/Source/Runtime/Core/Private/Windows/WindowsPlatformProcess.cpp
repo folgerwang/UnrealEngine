@@ -826,7 +826,7 @@ const TCHAR* FWindowsPlatformProcess::BaseDir()
 				{
 					if (Result[StringLength - 1] == TEXT('/') || Result[StringLength - 1] == TEXT('\\'))
 					{
-						if(--NumSubDirectories < 0)
+						if(--NumSubDirectories < 0) //-V547
 						{
 							break;
 						}

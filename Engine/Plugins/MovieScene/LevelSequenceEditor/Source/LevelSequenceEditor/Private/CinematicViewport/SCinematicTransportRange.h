@@ -10,7 +10,7 @@
 class FPaintArgs;
 class FSlateWindowElementList;
 class ISequencer;
-class ISequencerKeyCollection;
+class FSequencerKeyCollection;
 
 class SCinematicTransportRange : public SCompoundWidget
 {
@@ -43,7 +43,7 @@ private:
 	TWeakPtr<ISequencer> WeakSequencer;
 
 	/** The collection of keys for the currently active sequencer selection */
-	TUniquePtr<ISequencerKeyCollection> ActiveKeyCollection;
+	TUniquePtr<FSequencerKeyCollection> ActiveKeyCollection;
 
 	bool bDraggingTime;
 };

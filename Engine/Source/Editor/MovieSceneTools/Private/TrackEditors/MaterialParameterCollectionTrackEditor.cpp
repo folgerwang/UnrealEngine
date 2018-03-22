@@ -32,7 +32,7 @@ TSharedRef<ISequencerSection> FMaterialParameterCollectionTrackEditor::MakeSecti
 	UMovieSceneParameterSection* ParameterSection = Cast<UMovieSceneParameterSection>(&SectionObject);
 	checkf(ParameterSection != nullptr, TEXT("Unsupported section type."));
 
-	return MakeShareable(new FParameterSection(*ParameterSection, FText::FromName(ParameterSection->GetFName())));
+	return MakeShareable(new FParameterSection(*ParameterSection));
 }
 
 TSharedRef<SWidget> CreateAssetPicker(FOnAssetSelected OnAssetSelected)
@@ -137,6 +137,10 @@ void FMaterialParameterCollectionTrackEditor::AddTrackToSequence(const FAssetDat
 	Track->MPC = MPC;
 	Track->SetDisplayName(FText::FromString(MPC->GetName()));
 
+	if (GetSequencer().IsValid())
+	{
+		GetSequencer()->OnAddTrack(Track);
+	}
 	GetSequencer()->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemAdded);
 }
 
@@ -216,7 +220,7 @@ void FMaterialParameterCollectionTrackEditor::AddScalarParameter(UMovieSceneMate
 		return;
 	}
 
-	float KeyTime = GetTimeForKey();
+	FFrameNumber KeyTime = GetTimeForKey();
 
 	const FScopedTransaction Transaction(LOCTEXT("AddScalarParameter", "Add scalar parameter"));
 	Track->Modify();
@@ -232,7 +236,7 @@ void FMaterialParameterCollectionTrackEditor::AddVectorParameter(UMovieSceneMate
 		return;
 	}
 
-	float KeyTime = GetTimeForKey();
+	FFrameNumber KeyTime = GetTimeForKey();
 
 	const FScopedTransaction Transaction(LOCTEXT("AddVectorParameter", "Add vector parameter"));
 	Track->Modify();

@@ -62,7 +62,7 @@ ECheckBoxState SPropertyEditorBool::OnGetCheckState() const
 		{
 			ReturnState = ECheckBoxState::Checked;
 		}
-		else if( Value == false )
+		else
 		{
 			ReturnState = ECheckBoxState::Unchecked;
 		}

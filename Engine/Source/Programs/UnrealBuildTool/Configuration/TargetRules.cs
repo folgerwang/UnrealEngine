@@ -2049,5 +2049,15 @@ namespace UnrealBuildTool
 		{
 			get { return "../Binaries/ThirdParty/"; }
 		}
+
+		/// <summary>
+		/// Checks if current platform is part of a given platform group
+		/// </summary>
+		/// <param name="Group">The platform group to check</param>
+		/// <returns>True if current platform is part of a platform group</returns>
+		public bool IsInPlatformGroup(UnrealPlatformGroup Group)
+		{
+			return UEBuildPlatform.IsPlatformInGroup(Platform, Group);
+		}
 	}
 }

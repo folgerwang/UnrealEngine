@@ -8,6 +8,7 @@
 #include "Widgets/SWidget.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SCompoundWidget.h"
+#include "Widgets/Input/NumericTypeInterface.h"
 #include "Editor/Sequencer/Public/ISequencerInputHandler.h"
 #include "IMovieScenePlayer.h"
 
@@ -23,43 +24,44 @@ enum class EViewRangeInterpolation
 	Immediate,
 };
 
-DECLARE_DELEGATE_TwoParams( FOnScrubPositionChanged, float, bool )
-DECLARE_DELEGATE_TwoParams( FOnViewRangeChanged, TRange<float>, EViewRangeInterpolation )
-DECLARE_DELEGATE_OneParam( FOnRangeChanged, TRange<float> )
-DECLARE_DELEGATE_RetVal_OneParam( float, FOnGetNearestKey, float )
+DECLARE_DELEGATE_TwoParams( FOnScrubPositionChanged, FFrameTime, bool )
+DECLARE_DELEGATE_TwoParams( FOnViewRangeChanged, TRange<double>, EViewRangeInterpolation )
+DECLARE_DELEGATE_OneParam( FOnTimeRangeChanged, TRange<double> )
+DECLARE_DELEGATE_OneParam( FOnFrameRangeChanged, TRange<FFrameNumber> )
+DECLARE_DELEGATE_RetVal_OneParam( FFrameNumber, FOnGetNearestKey, FFrameTime )
 
 /** Structure used to wrap up a range, and an optional animation target */
-struct FAnimatedRange : public TRange<float>
+struct FAnimatedRange : public TRange<double>
 {
 	/** Default Construction */
 	FAnimatedRange() : TRange() {}
 	/** Construction from a lower and upper bound */
-	FAnimatedRange( float LowerBound, float UpperBound ) : TRange( LowerBound, UpperBound ) {}
+	FAnimatedRange( double LowerBound, double UpperBound ) : TRange( LowerBound, UpperBound ) {}
 	/** Copy-construction from simple range */
-	FAnimatedRange( const TRange<float>& InRange ) : TRange(InRange) {}
+	FAnimatedRange( const TRange<double>& InRange ) : TRange(InRange) {}
 
 	/** Helper function to wrap an attribute to an animated range with a non-animated one */
-	static TAttribute<TRange<float>> WrapAttribute( const TAttribute<FAnimatedRange>& InAttribute )
+	static TAttribute<TRange<double>> WrapAttribute( const TAttribute<FAnimatedRange>& InAttribute )
 	{
-		typedef TAttribute<TRange<float>> Attr;
+		typedef TAttribute<TRange<double>> Attr;
 		return Attr::Create(Attr::FGetter::CreateLambda([=](){ return InAttribute.Get(); }));
 	}
 
 	/** Helper function to wrap an attribute to a non-animated range with an animated one */
-	static TAttribute<FAnimatedRange> WrapAttribute( const TAttribute<TRange<float>>& InAttribute )
+	static TAttribute<FAnimatedRange> WrapAttribute( const TAttribute<TRange<double>>& InAttribute )
 	{
 		typedef TAttribute<FAnimatedRange> Attr;
 		return Attr::Create(Attr::FGetter::CreateLambda([=](){ return InAttribute.Get(); }));
 	}
 
 	/** Get the current animation target, or the whole view range when not animating */
-	const TRange<float>& GetAnimationTarget() const
+	const TRange<double>& GetAnimationTarget() const
 	{
 		return AnimationTarget.IsSet() ? AnimationTarget.GetValue() : *this;
 	}
 	
 	/** The animation target, if animating */
-	TOptional<TRange<float>> AnimationTarget;
+	TOptional<TRange<double>> AnimationTarget;
 };
 
 struct FTimeSliderArgs
@@ -68,18 +70,12 @@ struct FTimeSliderArgs
 		: ScrubPosition(0)
 		, ViewRange( FAnimatedRange(0.0f, 5.0f) )
 		, ClampRange( FAnimatedRange(-FLT_MAX/2.f, FLT_MAX/2.f) )
-		, OnScrubPositionChanged()
-		, OnBeginScrubberMovement()
-		, OnEndScrubberMovement()
-		, OnViewRangeChanged()
-		, OnClampRangeChanged()
-		, OnGetNearestKey()
 		, AllowZoom(true)
 		, Settings(nullptr)
 	{}
 
 	/** The scrub position */
-	TAttribute<float> ScrubPosition;
+	TAttribute<FFrameTime> ScrubPosition;
 
 	/** View time range */
 	TAttribute< FAnimatedRange > ViewRange;
@@ -100,19 +96,25 @@ struct FTimeSliderArgs
 	FOnViewRangeChanged OnViewRangeChanged;
 
 	/** Called when the clamp range changes */
-	FOnRangeChanged OnClampRangeChanged;
+	FOnTimeRangeChanged OnClampRangeChanged;
 
 	/** Delegate that is called when getting the nearest key */
 	FOnGetNearestKey OnGetNearestKey;
 
 	/** Attribute defining the active sub-sequence range for this controller */
-	TAttribute<TOptional<TRange<float>>> SubSequenceRange;
+	TAttribute<TOptional<TRange<FFrameNumber>>> SubSequenceRange;
 
 	/** Attribute defining the playback range for this controller */
-	TAttribute<TRange<float>> PlaybackRange;
+	TAttribute<TRange<FFrameNumber>> PlaybackRange;
+
+	/** Attribute for the current sequence's playback rate */
+	TAttribute<FFrameRate> PlayRate;
+
+	/** Attribute for the current sequence's frame resolution */
+	TAttribute<FFrameRate> FrameResolution;
 
 	/** Delegate that is called when the playback range wants to change */
-	FOnRangeChanged OnPlaybackRangeChanged;
+	FOnFrameRangeChanged OnPlaybackRangeChanged;
 
 	/** Called right before the playback range starts to be dragged */
 	FSimpleDelegate OnPlaybackRangeBeginDrag;
@@ -121,10 +123,10 @@ struct FTimeSliderArgs
 	FSimpleDelegate OnPlaybackRangeEndDrag;
 
 	/** Attribute defining the selection range for this controller */
-	TAttribute<TRange<float>> SelectionRange;
+	TAttribute<TRange<FFrameNumber>> SelectionRange;
 
 	/** Delegate that is called when the selection range wants to change */
-	FOnRangeChanged OnSelectionRangeChanged;
+	FOnFrameRangeChanged OnSelectionRangeChanged;
 
 	/** Called right before the selection range starts to be dragged */
 	FSimpleDelegate OnSelectionRangeBeginDrag;
@@ -148,6 +150,9 @@ struct FTimeSliderArgs
 
 	/** User-supplied settings object */
 	USequencerSettings* Settings;
+
+	/** Numeric Type interface for converting between frame numbers and display formats. */
+	TSharedPtr<INumericTypeInterface<double>> NumericTypeInterface;
 };
 
 class ITimeSliderController : public ISequencerInputHandler
@@ -157,6 +162,12 @@ public:
 	virtual int32 OnPaintTimeSlider( bool bMirrorLabels, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const = 0;
 	virtual FCursorReply OnCursorQuery( TSharedRef<const SWidget> WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& CursorEvent ) const = 0;
 
+	/** Get the current play rate for this controller */
+	virtual FFrameRate GetPlayRate() const = 0;
+
+	/** Get the current frame resolution for this controller */
+	virtual FFrameRate GetFrameResolution() const = 0;
+
 	/** Get the current view range for this controller */
 	virtual FAnimatedRange GetViewRange() const { return FAnimatedRange(); }
 
@@ -164,13 +175,7 @@ public:
 	virtual FAnimatedRange GetClampRange() const { return FAnimatedRange(); }
 
 	/** Get the current play range for this controller */
-	virtual TRange<float> GetPlayRange() const { return TRange<float>(); }
-
-	/** Convert a time to a frame */
-	virtual int32 TimeToFrame(float Time) const { return 1; }
-
-	/** Convert a time to a frame */
-	virtual float FrameToTime(int32 Frame) const { return 1.f; }
+	virtual TRange<FFrameNumber> GetPlayRange() const { return TRange<FFrameNumber>(); }
 
 	/**
 	 * Set a new range based on a min, max and an interpolation mode
@@ -179,7 +184,7 @@ public:
 	 * @param NewRangeMax		The new upper bound of the range
 	 * @param Interpolation		How to set the new range (either immediately, or animated)
 	 */
-	virtual void SetViewRange( float NewRangeMin, float NewRangeMax, EViewRangeInterpolation Interpolation ) {}
+	virtual void SetViewRange( double NewRangeMin, double NewRangeMax, EViewRangeInterpolation Interpolation ) {}
 
 	/**
 	 * Set a new clamp range based on a min, max
@@ -187,15 +192,15 @@ public:
 	 * @param NewRangeMin		The new lower bound of the clamp range
 	 * @param NewRangeMax		The new upper bound of the clamp range
 	 */
-	virtual void SetClampRange( float NewRangeMin, float NewRangeMax) {}
+	virtual void SetClampRange( double NewRangeMin, double NewRangeMax) {}
 
 	/**
 	 * Set a new playback range based on a min, max
 	 * 
-	 * @param NewRangeMin		The new lower bound of the playback range
-	 * @param NewRangeMax		The new upper bound of the playback range
+	 * @param RangeStart		The new lower bound of the playback range
+	 * @param RangeDuration		The total number of frames that we play for
 	 */
-	virtual void SetPlayRange( float NewRangeMin, float NewRangeMax ) {}
+	virtual void SetPlayRange( FFrameNumber RangeStart, int32 RangeDuration ) {}
 };
 
 /**

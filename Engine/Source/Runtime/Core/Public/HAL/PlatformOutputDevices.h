@@ -17,8 +17,8 @@
 #include "Android/AndroidOutputDevices.h"
 #elif PLATFORM_HTML5
 #include "HTML5/HTML5PlatformOutputDevices.h"
-#elif PLATFORM_LINUX
-#include "Linux/LinuxPlatformOutputDevices.h"
+#elif PLATFORM_UNIX
+#include "Unix/UnixPlatformOutputDevices.h"
 #elif PLATFORM_SWITCH
 #include "Switch/SwitchPlatformOutputDevices.h"
 #endif

@@ -36,12 +36,13 @@ FCameraCutSection::~FCameraCutSection()
 /* ISequencerSection interface
  *****************************************************************************/
 
-void FCameraCutSection::SetSingleTime(float GlobalTime)
+void FCameraCutSection::SetSingleTime(double GlobalTime)
 {
 	UMovieSceneCameraCutSection* CameraCutSection = Cast<UMovieSceneCameraCutSection>(Section);
-	if (CameraCutSection)
+	if (CameraCutSection && CameraCutSection->HasStartFrame())
 	{
-		CameraCutSection->SetThumbnailReferenceOffset(GlobalTime - CameraCutSection->GetStartTime());
+		double ReferenceOffsetSeconds = CameraCutSection->GetInclusiveStartFrame() / CameraCutSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		CameraCutSection->SetThumbnailReferenceOffset(GlobalTime - ReferenceOffsetSeconds);
 	}
 }
 
@@ -50,13 +51,14 @@ void FCameraCutSection::Tick(const FGeometry& AllottedGeometry, const FGeometry&
 	UMovieSceneCameraCutSection* CameraCutSection = Cast<UMovieSceneCameraCutSection>(Section);
 	if (CameraCutSection)
 	{
-		if (GetDefault<UMovieSceneUserThumbnailSettings>()->bDrawSingleThumbnails)
+		if (GetDefault<UMovieSceneUserThumbnailSettings>()->bDrawSingleThumbnails && CameraCutSection->HasStartFrame())
 		{
-			ThumbnailCache.SetSingleReferenceFrame(CameraCutSection->GetThumbnailReferenceOffset() + CameraCutSection->GetStartTime());
+			double ReferenceOffsetSeconds = CameraCutSection->GetInclusiveStartFrame() / CameraCutSection->GetTypedOuter<UMovieScene>()->GetFrameResolution() + CameraCutSection->GetThumbnailReferenceOffset();
+			ThumbnailCache.SetSingleReferenceFrame(ReferenceOffsetSeconds);
 		}
 		else
 		{
-			ThumbnailCache.SetSingleReferenceFrame(TOptional<float>());
+			ThumbnailCache.SetSingleReferenceFrame(TOptional<double>());
 		}
 	}
 
@@ -69,12 +71,12 @@ void FCameraCutSection::BuildSectionContextMenu(FMenuBuilder& MenuBuilder, const
 
 	UWorld* World = GEditor->GetEditorWorldContext().World();
 
-	if (World == nullptr)
+	if (World == nullptr || !Section->HasStartFrame())
 	{
 		return;
 	}
 
-	const AActor* CameraActor = GetCameraForFrame(Section->GetStartTime());
+	const AActor* CameraActor = GetCameraForFrame(Section->GetInclusiveStartFrame());
 
 	// get list of available cameras
 	TArray<AActor*> AllCameras;
@@ -119,7 +121,7 @@ void FCameraCutSection::BuildSectionContextMenu(FMenuBuilder& MenuBuilder, const
 /* FThumbnailSection interface
  *****************************************************************************/
 
-const AActor* FCameraCutSection::GetCameraForFrame(float Time) const
+const AActor* FCameraCutSection::GetCameraForFrame(FFrameNumber Time) const
 {
 	UMovieSceneCameraCutSection* CameraCutSection = Cast<UMovieSceneCameraCutSection>(Section);
 	TSharedPtr<ISequencer> Sequencer = SequencerPtr.Pin();
@@ -129,9 +131,12 @@ const AActor* FCameraCutSection::GetCameraForFrame(float Time) const
 		FMovieSceneSequenceID SequenceID = Sequencer->GetFocusedTemplateID();
 		if (CameraCutSection->GetCameraBindingID().GetSequenceID().IsValid())
 		{
-			// Ensure that this ID is resolvable from the root, based on the current local sequence ID
-			FMovieSceneObjectBindingID RootBindingID = CameraCutSection->GetCameraBindingID().ResolveLocalToRoot(SequenceID, Sequencer->GetEvaluationTemplate().GetHierarchy());
-			SequenceID = RootBindingID.GetSequenceID();
+			if (const FMovieSceneSubSequenceData* SubData = Sequencer->GetEvaluationTemplate().GetHierarchy().FindSubData(SequenceID))
+			{
+				// Ensure that this ID is resolvable from the root, based on the current local sequence ID
+				FMovieSceneObjectBindingID RootBindingID = CameraCutSection->GetCameraBindingID().ResolveLocalToRoot(SequenceID, Sequencer->GetEvaluationTemplate().GetHierarchy());
+				SequenceID = RootBindingID.GetSequenceID();
+			}
 		}
 
 		for (TWeakObjectPtr<>& Object : Sequencer->FindBoundObjects(CameraCutSection->GetCameraBindingID().GetGuid(), SequenceID))
@@ -172,7 +177,7 @@ int32 FCameraCutSection::OnPaintSection(FSequencerSectionPainter& InPainter) con
 
 FText FCameraCutSection::HandleThumbnailTextBlockText() const
 {
-	const AActor* CameraActor = GetCameraForFrame(Section->GetStartTime());
+	const AActor* CameraActor = Section->HasStartFrame() ? GetCameraForFrame(Section->GetInclusiveStartFrame()) : nullptr;
 	if (CameraActor)
 	{
 		return FText::FromString(CameraActor->GetActorLabel());

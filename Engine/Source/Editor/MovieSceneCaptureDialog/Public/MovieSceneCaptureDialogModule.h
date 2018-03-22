@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Modules/ModuleInterface.h"
 #include "Modules/ModuleManager.h"
+#include "Widgets/Input/NumericTypeInterface.h"
 
 class UMovieSceneCapture;
 
@@ -16,7 +17,7 @@ public:
 		static const FName ModuleName(TEXT("MovieSceneCaptureDialog"));
 		return FModuleManager::LoadModuleChecked<IMovieSceneCaptureDialogModule>(ModuleName);
 	}
-	virtual void OpenDialog(const TSharedRef<class FTabManager>& TabManager, UMovieSceneCapture* CaptureObject) = 0;
+	virtual void OpenDialog(const TSharedRef<class FTabManager>& TabManager, UMovieSceneCapture* CaptureObject, TSharedPtr<INumericTypeInterface<double>> InNumericTypeInterface) = 0;
 
 	/** Get the world we're currently recording from, if an in process record is happening */
 	virtual UWorld* GetCurrentlyRecordingWorld() = 0;

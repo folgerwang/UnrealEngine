@@ -29,10 +29,10 @@ UMovieSceneSequence* FMovieSceneTrackEditor::GetMovieSceneSequence() const
 	return Sequencer.Pin()->GetFocusedMovieSceneSequence();
 }
 
-float FMovieSceneTrackEditor::GetTimeForKey()
+FFrameNumber FMovieSceneTrackEditor::GetTimeForKey()
 { 
 	TSharedPtr<ISequencer> SequencerPin = Sequencer.Pin();
-	return SequencerPin.IsValid() ? SequencerPin->GetLocalTime() : 0.f;
+	return SequencerPin.IsValid() ? SequencerPin->GetLocalTime().Time.FrameNumber : FFrameNumber(0);
 }
 
 void FMovieSceneTrackEditor::UpdatePlaybackRange()
@@ -44,6 +44,11 @@ void FMovieSceneTrackEditor::UpdatePlaybackRange()
 	}
 }
 
+TSharedRef<ISequencerSection> FMovieSceneTrackEditor::MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding)
+{
+	return MakeShared<FSequencerSection>(SectionObject);
+}
+
 void FMovieSceneTrackEditor::AnimatablePropertyChanged( FOnKeyProperty OnKeyProperty )
 {
 	check(OnKeyProperty.IsBound());
@@ -52,40 +57,37 @@ void FMovieSceneTrackEditor::AnimatablePropertyChanged( FOnKeyProperty OnKeyProp
 	UMovieSceneSequence* MovieSceneSequence = GetMovieSceneSequence();
 	if (MovieSceneSequence)
 	{
-		float KeyTime = GetTimeForKey();
+		FFrameNumber KeyTime = GetTimeForKey();
 
-		if( !Sequencer.Pin()->IsRecordingLive() )
+		// @todo Sequencer - The sequencer probably should have taken care of this
+		MovieSceneSequence->SetFlags(RF_Transactional);
+	
+		// Create a transaction record because we are about to add keys
+		const bool bShouldActuallyTransact = !GIsTransacting;		// Don't transact if we're recording in a PIE world.  That type of keyframe capture cannot be undone.
+		FScopedTransaction AutoKeyTransaction( NSLOCTEXT("AnimatablePropertyTool", "PropertyChanged", "Animatable Property Changed"), bShouldActuallyTransact );
+
+		FKeyPropertyResult KeyPropertyResult = OnKeyProperty.Execute( KeyTime );
+
+		if (KeyPropertyResult.bTrackCreated)
 		{
-			// @todo Sequencer - The sequencer probably should have taken care of this
-			MovieSceneSequence->SetFlags(RF_Transactional);
-		
-			// Create a transaction record because we are about to add keys
-			const bool bShouldActuallyTransact = !GIsTransacting && !Sequencer.Pin()->IsRecordingLive();		// Don't transact if we're recording in a PIE world.  That type of keyframe capture cannot be undone.
-			FScopedTransaction AutoKeyTransaction( NSLOCTEXT("AnimatablePropertyTool", "PropertyChanged", "Animatable Property Changed"), bShouldActuallyTransact );
+			// If a track is created evaluate immediately so that the pre-animated state can be stored
+			Sequencer.Pin()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::RefreshAllImmediately );
+		}
+		else if (KeyPropertyResult.bTrackModified)
+		{
+			Sequencer.Pin()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
+		}
+		else if (KeyPropertyResult.bKeyCreated)
+		{
+			Sequencer.Pin()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::TrackValueChanged );
+		}
 
-			FKeyPropertyResult KeyPropertyResult = OnKeyProperty.Execute( KeyTime );
+		UpdatePlaybackRange();
 
-			if (KeyPropertyResult.bTrackCreated)
-			{
-				// If a track is created evaluate immediately so that the pre-animated state can be stored
-				Sequencer.Pin()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::RefreshAllImmediately );
-			}
-			else if (KeyPropertyResult.bTrackModified)
-			{
-				Sequencer.Pin()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
-			}
-			else if (KeyPropertyResult.bKeyCreated)
-			{
-				Sequencer.Pin()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::TrackValueChanged );
-			}
-
-			UpdatePlaybackRange();
-
-			TSharedPtr<FSequencer> SequencerToUpdate = StaticCastSharedPtr<FSequencer>(Sequencer.Pin());
-			if (SequencerToUpdate.IsValid())
-			{
-				SequencerToUpdate->SynchronizeSequencerSelectionWithExternalSelection();
-			}
+		TSharedPtr<FSequencer> SequencerToUpdate = StaticCastSharedPtr<FSequencer>(Sequencer.Pin());
+		if (SequencerToUpdate.IsValid())
+		{
+			SequencerToUpdate->SynchronizeSequencerSelectionWithExternalSelection();
 		}
 	}
 }
@@ -190,12 +192,12 @@ bool FMovieSceneTrackEditor::HandleAssetAdded(UObject* Asset, const FGuid& Targe
 	return false; 
 }
 
-bool FMovieSceneTrackEditor::OnAllowDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track)
+bool FMovieSceneTrackEditor::OnAllowDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track, int32 RowIndex, const FGuid& TargetObjectGuid)
 {
 	return false;
 }
 
-FReply FMovieSceneTrackEditor::OnDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track)
+FReply FMovieSceneTrackEditor::OnDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track, int32 RowIndex, const FGuid& TargetObjectGuid)
 {
 	return FReply::Unhandled();
 }

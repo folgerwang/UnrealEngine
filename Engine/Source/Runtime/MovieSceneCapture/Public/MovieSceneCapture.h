@@ -141,7 +141,7 @@ protected:
 	/**~ ICaptureProtocolHost interface */
 	virtual FString GenerateFilename(const FFrameMetrics& FrameMetrics, const TCHAR* Extension) const override;
 	virtual void EnsureFileWritable(const FString& File) const override;
-	virtual float GetCaptureFrequency() const { return Settings.FrameRate; }
+	virtual FFrameRate GetCaptureFrameRate() const { return Settings.FrameRate; }
 	virtual const ICaptureStrategy& GetCaptureStrategy() const { return *CaptureStrategy; }
 
 	/** Add additional format mappings to be used when generating filenames */
@@ -174,8 +174,6 @@ protected:
 	FCachedMetrics CachedMetrics;
 	/** Format mappings used for generating filenames */
 	TMap<FString, FStringFormatArg> FormatMappings;
-	/** The number of frames to capture.  If this is zero, we'll capture the entire sequence. */
-	int32 FrameCount;
 	/** Whether we have started capturing or not */
 	bool bCapturing;
 	/** Frame number index offset when saving out frames.  This is used to allow the frame numbers on disk to match
@@ -190,7 +188,7 @@ protected:
 /** A strategy that employs a fixed frame time-step, and as such never drops a frame. Potentially accelerated. */
 struct MOVIESCENECAPTURE_API FFixedTimeStepCaptureStrategy : ICaptureStrategy
 {
-	FFixedTimeStepCaptureStrategy(uint32 InTargetFPS);
+	FFixedTimeStepCaptureStrategy(FFrameRate InFrameRate);
 
 	virtual void OnWarmup() override;
 	virtual void OnStart() override;
@@ -200,13 +198,13 @@ struct MOVIESCENECAPTURE_API FFixedTimeStepCaptureStrategy : ICaptureStrategy
 	virtual int32 GetDroppedFrames(double CurrentTimeSeconds, uint32 FrameIndex) const override;
 
 private:
-	uint32 TargetFPS;
+	FFrameRate FrameRate;
 };
 
 /** A capture strategy that captures in real-time, potentially dropping frames to maintain a stable constant framerate video. */
 struct MOVIESCENECAPTURE_API FRealTimeCaptureStrategy : ICaptureStrategy
 {
-	FRealTimeCaptureStrategy(uint32 InTargetFPS);
+	FRealTimeCaptureStrategy(FFrameRate InFrameRate);
 
 	virtual void OnWarmup() override;
 	virtual void OnStart() override;

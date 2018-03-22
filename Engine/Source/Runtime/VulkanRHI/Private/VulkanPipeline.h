@@ -11,6 +11,7 @@
 #include "VulkanDescriptorSets.h"
 
 class FVulkanDevice;
+struct FVulkanAsyncPSOLoadThread;
 
 // Common pipeline class
 class FVulkanPipeline
@@ -109,21 +110,7 @@ public:
 class FVulkanPipelineStateCache
 {
 public:
-	inline FVulkanGraphicsPipelineState* FindInRuntimeCache(const FGraphicsPipelineStateInitializer& Initializer, uint32& OutHash)
-	{
-		OutHash = FCrc::MemCrc32(&Initializer, sizeof(Initializer));
-		
-		{
-			FScopeLock Lock(&InitializerToPipelineMapCS);
-			FVulkanGraphicsPipelineState** Found = InitializerToPipelineMap.Find(OutHash);
-			if (Found)
-			{
-				return *Found;
-			}
-		}
-
-		return nullptr;
-	}
+	FVulkanGraphicsPipelineState* FindInRuntimeCache(const FGraphicsPipelineStateInitializer& Initializer, uint32& OutHash);
 
 	void DestroyPipeline(FVulkanGfxPipeline* Pipeline);
 
@@ -554,11 +541,15 @@ private:
 
 	FShaderUCodeCache ShaderCache;
 
+	FCriticalSection CompileTimeCS;
+	int32 NumShaderCompiles;
+	double ShaderCompileTime;
+
 	FVulkanGraphicsPipelineState* CreateAndAdd(const FGraphicsPipelineStateInitializer& PSOInitializer, uint32 PSOInitializerHash, FGfxPipelineEntry* GfxEntry);
 	void CreateGfxPipelineFromEntry(const FGfxPipelineEntry* GfxEntry, FVulkanGfxPipeline* Pipeline);
 	FGfxPipelineEntry* CreateGfxEntry(const FGraphicsPipelineStateInitializer& PSOInitializer);
 	void CreatGfxEntryRuntimeObjects(FGfxPipelineEntry* GfxEntry);
-	void Load(const TArray<FString>& CacheFilenames);
+	void BeginLoad(const TArray<FString>& CacheFilenames);
 	void DestroyCache();
 
 	struct FShaderHashes
@@ -635,6 +626,16 @@ private:
 
 		static const ECompressionFlags CompressionFlags = (ECompressionFlags)(COMPRESS_ZLIB | COMPRESS_BiasSpeed);
 	};
+
+	FVulkanAsyncPSOLoadThread* Loader = nullptr;
+	void InternalLoadCacheFiles(const TArray<FString>& CacheFilenames);
+
+	static void LoadCacheFiles(FVulkanPipelineStateCache* InPipelineStateCache, const TArray<FString>& CacheFilenames)
+	{
+		InPipelineStateCache->InternalLoadCacheFiles(CacheFilenames);
+	}
+
+	friend struct FVulkanAsyncPSOLoadThread;
 };
 
 template<>

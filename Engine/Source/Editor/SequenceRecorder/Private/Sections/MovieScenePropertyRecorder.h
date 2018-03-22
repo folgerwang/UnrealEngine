@@ -6,6 +6,7 @@
 #include "MovieSceneCommonHelpers.h"
 #include "MovieSceneSection.h"
 #include "SequenceRecorderSettings.h"
+#include "MovieScene.h"
 
 
 /** Interface for a generic property recorder */
@@ -24,7 +25,7 @@ template <typename PropertyType>
 struct FPropertyKey
 {
 	PropertyType Value;
-	float Time;
+	FFrameNumber Time;
 };
 
 /** Recorder for a simple property of type PropertyType */
@@ -52,13 +53,16 @@ public:
 	{
 		if (InObjectToRecord != nullptr)
 		{
-			MovieSceneSection->SetEndTime(InCurrentTime);
+			FFrameRate   FrameResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+			FFrameNumber CurrentFrame    = (InCurrentTime * FrameResolution).FloorToFrame();
+
+			MovieSceneSection->ExpandToFrame(CurrentFrame);
 
 			PropertyType NewValue = Binding.GetCurrentValue<PropertyType>(*InObjectToRecord);
 			if (ShouldAddNewKey(NewValue))
 			{
 				FPropertyKey<PropertyType> Key;
-				Key.Time = InCurrentTime;
+				Key.Time = CurrentFrame;
 				Key.Value = NewValue;
 
 				Keys.Add(Key);
@@ -136,13 +140,16 @@ public:
 	{
 		if (InObjectToRecord != nullptr)
 		{
-			MovieSceneSection->SetEndTime(InCurrentTime);
+			FFrameRate   FrameResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetFrameResolution();
+			FFrameNumber CurrentFrame    = (InCurrentTime * FrameResolution).FloorToFrame();
+
+			MovieSceneSection->ExpandToFrame(CurrentFrame);
 
 			int64 NewValue = Binding.GetCurrentValueForEnum(*InObjectToRecord);
 			if (ShouldAddNewKey(NewValue))
 			{
 				FPropertyKey<int64> Key;
-				Key.Time = InCurrentTime;
+				Key.Time = CurrentFrame;
 				Key.Value = NewValue;
 
 				Keys.Add(Key);

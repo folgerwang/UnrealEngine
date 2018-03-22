@@ -10,7 +10,6 @@ public class LogVisualizer : ModuleRules
 			new string[] {
 				"DesktopPlatform",
 				"MainFrame",
-                "SequencerWidgets",
 				"LevelEditor"
 			}
 		);
@@ -34,7 +33,6 @@ public class LogVisualizer : ModuleRules
                 "EditorStyle",
 				"Engine",
 				"UnrealEd",
-                "SequencerWidgets",
 			}
 		);
 

@@ -158,6 +158,8 @@ void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 
 		//scale the thing
 		OutDisplayMetrics.TitleSafePaddingSize *= RequestedContentScaleFactor;
+
+		OutDisplayMetrics.ActionSafePaddingSize = OutDisplayMetrics.TitleSafePaddingSize;
 	}
 	else
 #endif

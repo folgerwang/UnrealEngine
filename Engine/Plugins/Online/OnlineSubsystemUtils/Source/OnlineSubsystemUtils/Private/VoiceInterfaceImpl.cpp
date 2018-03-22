@@ -541,7 +541,7 @@ bool FOnlineVoiceImpl::UnmuteRemoteTalker(uint8 LocalUserNum, const FUniqueNetId
 		UE_LOG(LogVoice, Warning, TEXT("Invalid user specified in UnmuteRemoteTalker(%d)"), LocalUserNum);
 	}
 
-	return Return == S_OK;
+	return Return == S_OK; //-V547
 }
 
 void FOnlineVoiceImpl::ProcessMuteChangeNotification()

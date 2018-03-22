@@ -76,25 +76,25 @@ public class APEX : ModuleRules
 
 		string ApexVersion = "APEX_1.4";
 
-        string APEXDir = Target.UEThirdPartySourceDirectory + "PhysX3/" + ApexVersion + "/";
+		string APEXDir = Target.UEThirdPartySourceDirectory + "PhysX3/" + ApexVersion + "/";
 
 		string APEXLibDir = Target.UEThirdPartySourceDirectory + "PhysX3/Lib";
 
 		PublicSystemIncludePaths.AddRange(
 			new string[] {
-                APEXDir + "include",
-                APEXDir + "include/clothing",
-                APEXDir + "include/nvparameterized",
-                APEXDir + "include/legacy",
-                APEXDir + "include/PhysX3",
-                APEXDir + "common/include",
+				APEXDir + "include",
+				APEXDir + "include/clothing",
+				APEXDir + "include/nvparameterized",
+				APEXDir + "include/legacy",
+				APEXDir + "include/PhysX3",
+				APEXDir + "common/include",
 				APEXDir + "common/include/autogen",
 				APEXDir + "framework/include",
 				APEXDir + "framework/include/autogen",
-                APEXDir + "shared/general/RenderDebug/public",
-                APEXDir + "shared/general/PairFilter/include",
+				APEXDir + "shared/general/RenderDebug/public",
+				APEXDir + "shared/general/PairFilter/include",
 				APEXDir + "shared/internal/include",
-                APEXDir + "externals/CUDA_6.5.19/include",
+				APEXDir + "externals/CUDA_6.5.19/include",
 			}
 			);
 
@@ -130,17 +130,17 @@ public class APEX : ModuleRules
 			};
 
 			string ApexBinariesDir = String.Format("$(EngineDir)/Binaries/ThirdParty/PhysX3/Win64/VS{0}/", Target.WindowsPlatform.GetVisualStudioCompilerVersionName());
-			foreach(string RuntimeDependency in RuntimeDependenciesX64)
+			foreach (string RuntimeDependency in RuntimeDependenciesX64)
 			{
 				string FileName = ApexBinariesDir + String.Format(RuntimeDependency, LibrarySuffix);
 				RuntimeDependencies.Add(FileName, StagedFileType.NonUFS);
 				RuntimeDependencies.Add(Path.ChangeExtension(FileName, ".pdb"), StagedFileType.DebugNonUFS);
 			}
-            if(LibrarySuffix != "")
-            {
-                PublicDefinitions.Add("UE_APEX_SUFFIX=" + LibrarySuffix);
-            }
-			
+			if (LibrarySuffix != "")
+			{
+				PublicDefinitions.Add("UE_APEX_SUFFIX=" + LibrarySuffix);
+			}
+
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Win32)
 		{
@@ -158,17 +158,17 @@ public class APEX : ModuleRules
 			};
 
 			string ApexBinariesDir = String.Format("$(EngineDir)/Binaries/ThirdParty/PhysX3/Win32/VS{0}/", Target.WindowsPlatform.GetVisualStudioCompilerVersionName());
-			foreach(string RuntimeDependency in RuntimeDependenciesX86)
+			foreach (string RuntimeDependency in RuntimeDependenciesX86)
 			{
 				string FileName = ApexBinariesDir + String.Format(RuntimeDependency, LibrarySuffix);
 				RuntimeDependencies.Add(FileName, StagedFileType.NonUFS);
 				RuntimeDependencies.Add(Path.ChangeExtension(FileName, ".pdb"), StagedFileType.DebugNonUFS);
 			}
-            if (LibrarySuffix != "")
-            {
-                PublicDefinitions.Add("UE_APEX_SUFFIX=" + LibrarySuffix);
-            }
-        }
+			if (LibrarySuffix != "")
+			{
+				PublicDefinitions.Add("UE_APEX_SUFFIX=" + LibrarySuffix);
+			}
+		}
 		else if (Target.Platform == UnrealTargetPlatform.Mac)
 		{
 			APEXLibDir += "/Mac";
@@ -201,7 +201,7 @@ public class APEX : ModuleRules
 				PublicDefinitions.Add("UE_APEX_SUFFIX=" + LibrarySuffix);
 			}
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			if (Target.Architecture.StartsWith("x86_64"))
 			{

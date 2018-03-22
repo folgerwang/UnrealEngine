@@ -1603,6 +1603,12 @@ FString FAndroidMisc::GetOSVersion()
 	return AndroidVersion;
 }
 
+const FName& FAndroidMisc::GetDefaultOnlineSubsystemName()
+{
+	static FName OSSName = GOOGLEPLAY_SUBSYSTEM;
+	return OSSName;
+}
+
 bool FAndroidMisc::GetDiskTotalAndFreeSpace(const FString& InPath, uint64& TotalNumberOfBytes, uint64& NumberOfFreeBytes)
 {
 	extern FString GExternalFilePath;

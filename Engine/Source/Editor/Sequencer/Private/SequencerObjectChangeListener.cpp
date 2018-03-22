@@ -92,9 +92,12 @@ void FSequencerObjectChangeListener::BroadcastPropertyChanged( FKeyPropertyParam
 	{
 		// If the property path is not truncated, then we are keying the leafmost property anyways, so set to NAME_None
 		// Otherwise always set to leafmost property of the non-truncated property path, so we correctly pick up struct members
-		const bool bTruncatedPropertyPath = PropertyPath.GetNumProperties() != KeyPropertyParams.PropertyPath.GetNumProperties();
-		FName StructPropertyNameToKey = !bTruncatedPropertyPath ? NAME_None : KeyPropertyParams.PropertyPath.GetLeafMostProperty().Property->GetFName();
-		FPropertyChangedParams Params(KeyableObjects, PropertyPath, StructPropertyNameToKey, KeyPropertyParams.KeyMode);
+		FPropertyPath StructPathToKey;
+		if (PropertyPath.GetNumProperties() < KeyPropertyParams.PropertyPath.GetNumProperties())
+		{
+			StructPathToKey = *KeyPropertyParams.PropertyPath.TrimRoot(PropertyPath.GetNumProperties());
+		}
+		FPropertyChangedParams Params(KeyableObjects, PropertyPath, StructPathToKey, KeyPropertyParams.KeyMode);
 		Delegate.Broadcast(Params);
 	}
 }

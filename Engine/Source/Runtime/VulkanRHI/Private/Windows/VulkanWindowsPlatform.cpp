@@ -6,16 +6,46 @@
 #include "Windows/AllowWindowsPlatformTypes.h"
 static HMODULE GVulkanDLLModule = nullptr;
 
+static PFN_vkGetInstanceProcAddr GGetInstanceProcAddr = nullptr;
+
+// Vulkan function pointers
+#define DEFINE_VK_ENTRYPOINTS(Type,Func) VULKANRHI_API Type VulkanDynamicAPI::Func = NULL;
+ENUM_VK_ENTRYPOINTS_ALL(DEFINE_VK_ENTRYPOINTS)
+
+#define CHECK_VK_ENTRYPOINTS(Type,Func) if (VulkanDynamicAPI::Func == NULL) { bFoundAllEntryPoints = false; UE_LOG(LogRHI, Warning, TEXT("Failed to find entry point for %s"), TEXT(#Func)); }
+
+#pragma warning(push)
+#pragma warning(disable : 4191) // warning C4191: 'type cast': unsafe conversion
 bool FVulkanWindowsPlatform::LoadVulkanLibrary()
 {
 	// Try to load the vulkan dll, as not everyone has the sdk installed
 	GVulkanDLLModule = ::LoadLibraryW(TEXT("vulkan-1.dll"));
-	return GVulkanDLLModule != nullptr;
-}
 
-namespace VulkanRHI
-{
-	extern PFN_vkGetPhysicalDeviceProperties2KHR GVkGetPhysicalDeviceProperties2KHR;
+	if (GVulkanDLLModule)
+	{
+#define GET_VK_ENTRYPOINTS(Type,Func) VulkanDynamicAPI::Func = (Type)FPlatformProcess::GetDllExport(GVulkanDLLModule, L#Func);
+		ENUM_VK_ENTRYPOINTS_BASE(GET_VK_ENTRYPOINTS);
+
+		bool bFoundAllEntryPoints = true;
+		ENUM_VK_ENTRYPOINTS_BASE(CHECK_VK_ENTRYPOINTS);
+		if (!bFoundAllEntryPoints)
+		{
+			FreeVulkanLibrary();
+			return false;
+		}
+
+		ENUM_VK_ENTRYPOINTS_OPTIONAL_BASE(GET_VK_ENTRYPOINTS);
+		ENUM_VK_ENTRYPOINTS_OPTIONAL_BASE(CHECK_VK_ENTRYPOINTS);
+
+		ENUM_VK_ENTRYPOINTS_PLATFORM_BASE(GET_VK_ENTRYPOINTS);
+		ENUM_VK_ENTRYPOINTS_PLATFORM_BASE(CHECK_VK_ENTRYPOINTS);
+
+#undef GET_VK_ENTRYPOINTS
+
+		return true;
+	}
+
+	return false;
 }
 
 bool FVulkanWindowsPlatform::LoadVulkanInstanceFunctions(VkInstance inInstance)
@@ -25,20 +55,36 @@ bool FVulkanWindowsPlatform::LoadVulkanInstanceFunctions(VkInstance inInstance)
 		return false;
 	}
 
-	PFN_vkGetInstanceProcAddr GetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)FPlatformProcess::GetDllExport(GVulkanDLLModule, TEXT("vkGetInstanceProcAddr"));
+	GGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)FPlatformProcess::GetDllExport(GVulkanDLLModule, TEXT("vkGetInstanceProcAddr"));
 
-	if (!GetInstanceProcAddr)
+	if (!GGetInstanceProcAddr)
 	{
 		return false;
 	}
 
-#pragma warning(push)
-#pragma warning(disable : 4191) // warning C4191: 'type cast': unsafe conversion
-	VulkanRHI::GVkGetPhysicalDeviceProperties2KHR = (PFN_vkGetPhysicalDeviceProperties2KHR)GetInstanceProcAddr(inInstance, "vkGetPhysicalDeviceProperties2KHR");
-#pragma warning(pop) // restore 4191
+	bool bFoundAllEntryPoints = true;
+#define CHECK_VK_ENTRYPOINTS(Type,Func) if (VulkanDynamicAPI::Func == NULL) { bFoundAllEntryPoints = false; UE_LOG(LogRHI, Warning, TEXT("Failed to find entry point for %s"), TEXT(#Func)); }
+
+	// Initialize all of the entry points we have to query manually
+#define GETINSTANCE_VK_ENTRYPOINTS(Type, Func) VulkanDynamicAPI::Func = (Type)VulkanDynamicAPI::vkGetInstanceProcAddr(inInstance, #Func);
+	ENUM_VK_ENTRYPOINTS_INSTANCE(GETINSTANCE_VK_ENTRYPOINTS);
+	ENUM_VK_ENTRYPOINTS_INSTANCE(CHECK_VK_ENTRYPOINTS);
+	if (!bFoundAllEntryPoints)
+	{
+		FreeVulkanLibrary();
+		return false;
+	}
+
+	ENUM_VK_ENTRYPOINTS_OPTIONAL_INSTANCE(GETINSTANCE_VK_ENTRYPOINTS);
+	ENUM_VK_ENTRYPOINTS_OPTIONAL_INSTANCE(CHECK_VK_ENTRYPOINTS);
+
+	ENUM_VK_ENTRYPOINTS_PLATFORM_INSTANCE(GETINSTANCE_VK_ENTRYPOINTS);
+	ENUM_VK_ENTRYPOINTS_PLATFORM_INSTANCE(CHECK_VK_ENTRYPOINTS);
+#undef GET_VK_ENTRYPOINTS
 
 	return true;
 }
+#pragma warning(pop) // restore 4191
 
 void FVulkanWindowsPlatform::FreeVulkanLibrary()
 {
@@ -73,5 +119,5 @@ void FVulkanWindowsPlatform::CreateSurface(void* WindowHandle, VkInstance Instan
 	SurfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
 	SurfaceCreateInfo.hinstance = GetModuleHandle(nullptr);
 	SurfaceCreateInfo.hwnd = (HWND)WindowHandle;
-	VERIFYVULKANRESULT(vkCreateWin32SurfaceKHR(Instance, &SurfaceCreateInfo, nullptr, OutSurface));
+	VERIFYVULKANRESULT(VulkanDynamicAPI::vkCreateWin32SurfaceKHR(Instance, &SurfaceCreateInfo, nullptr, OutSurface));
 }

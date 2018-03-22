@@ -443,15 +443,15 @@ FORCENOINLINE FRotator TestQuaternionToRotator(const FQuat& Quat)
 	// and we don't want fast approximations to be used here.
 	if (SingularityTest < -SINGULARITY_THRESHOLD)
 	{
-		RotatorFromQuat.Pitch = 270.f;
-		RotatorFromQuat.Yaw = atan2f(YawY, YawX) * RAD_TO_DEG;
-		RotatorFromQuat.Roll = -RotatorFromQuat.Yaw - (2.f * atan2f(X, W) * RAD_TO_DEG);
+		RotatorFromQuat.Pitch = -90.f;
+		RotatorFromQuat.Yaw = -2.0f * FMath::Atan2(X, W) * RAD_TO_DEG;
+		RotatorFromQuat.Roll = 0.0f;
 	}
 	else if (SingularityTest > SINGULARITY_THRESHOLD)
 	{
 		RotatorFromQuat.Pitch = 90.f;
-		RotatorFromQuat.Yaw = atan2f(YawY, YawX) * RAD_TO_DEG;
-		RotatorFromQuat.Roll = RotatorFromQuat.Yaw - (2.f * atan2f(X, W) * RAD_TO_DEG);
+		RotatorFromQuat.Yaw = 2.0f * FMath::Atan2(X, W) * RAD_TO_DEG;
+		RotatorFromQuat.Roll = 0.0f;
 	}
 	else
 	{

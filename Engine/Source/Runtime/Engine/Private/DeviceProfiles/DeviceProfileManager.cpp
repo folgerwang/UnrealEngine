@@ -10,6 +10,7 @@
 #include "SystemSettings.h"
 #include "DeviceProfiles/DeviceProfile.h"
 #include "IDeviceProfileSelectorModule.h"
+#include "Misc/DataDrivenPlatformInfoRegistry.h"
 #if WITH_EDITOR
 #include "Interfaces/ITargetPlatform.h"
 #include "Interfaces/ITargetPlatformManagerModule.h"
@@ -343,7 +344,7 @@ void UDeviceProfileManager::LoadProfiles()
 	if( !HasAnyFlags( RF_ClassDefaultObject ) )
 	{
 		TMap<FString, FString> DeviceProfileToPlatformConfigMap;
-		TArray<FString> ConfidentialPlatforms = FPlatformMisc::GetConfidentialPlatforms();
+		TArray<FString> ConfidentialPlatforms = FDataDrivenPlatformInfoRegistry::GetConfidentialPlatforms();
 		
 		checkf(ConfidentialPlatforms.Contains(FString(FPlatformProperties::IniPlatformName())) == false,
 			TEXT("UDeviceProfileManager::LoadProfiles is called from a confidential platform (%s). Confidential platforms are not expected to be editor/non-cooked builds."), 

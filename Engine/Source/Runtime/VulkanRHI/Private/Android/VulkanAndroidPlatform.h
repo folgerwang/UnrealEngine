@@ -13,7 +13,12 @@
 #define VULKAN_USE_DESCRIPTOR_POOL_MANAGER			0
 #define VULKAN_USE_IMAGE_ACQUIRE_FENCES				0
 
-// this will get the vulkan function signatures 
+
+#define ENUM_VK_ENTRYPOINTS_PLATFORM_BASE(EnumMacro)
+
+#define ENUM_VK_ENTRYPOINTS_PLATFORM_INSTANCE(EnumMacro) \
+	EnumMacro(PFN_vkCreateAndroidSurfaceKHR, vkCreateAndroidSurfaceKHR)
+
 #include "../VulkanLoader.h"
 
 // and now, include the GenericPlatform class
@@ -36,6 +41,8 @@ public:
 	static bool SupportsBCTextureFormats() { return false; }
 	static bool SupportsASTCTextureFormats() { return true; }
 	static bool SupportsQuerySurfaceProperties() { return false; }
+
+	static bool SupportsDepthFetchDuringDepthTest() { return false; }
 
 protected:
 	static void* VulkanLib;

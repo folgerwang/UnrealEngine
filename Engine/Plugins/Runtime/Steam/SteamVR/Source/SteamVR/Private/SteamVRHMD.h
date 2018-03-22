@@ -235,11 +235,12 @@ public:
 	class BridgeBaseImpl : public FRHICustomPresent
 	{
 	public:
-		BridgeBaseImpl(FSteamVRHMD* plugin) :
-			FRHICustomPresent(nullptr),
-			Plugin(plugin),
-			bNeedReinitRendererAPI(true),
-			bInitialized(false)
+		BridgeBaseImpl(FSteamVRHMD* plugin) 
+			: FRHICustomPresent(nullptr)
+			, Plugin(plugin)
+			, bNeedReinitRendererAPI(true)
+			, bInitialized(false)
+			, bUseExplicitTimingMode(false)
 		{}
 
 		bool IsInitialized() const { return bInitialized; }
@@ -253,10 +254,27 @@ public:
 		virtual void Reset() = 0;
 		virtual void Shutdown() = 0;
 		
+		bool IsUsingExplicitTimingMode() const
+		{
+			return bUseExplicitTimingMode;
+		}
+
+		/** Called only when we're in explicit timing mode, which needs to be paired with a call to PostPresentHandoff */
+		void BeginRendering_RHI()
+		{
+			check(!IsRunningRHIInSeparateThread() || IsInRHIThread());
+			Plugin->VRCompositor->SubmitExplicitTimingData();
+		}
+		
 	protected:
 		FSteamVRHMD*			Plugin;
 		bool					bNeedReinitRendererAPI;
 		bool					bInitialized;
+		
+		/** If we use explict timing mode, we must have matching calls to BeginRendering_RHI and PostPresentHandoff */
+		bool					bUseExplicitTimingMode;
+		
+		bool NeedsPostPresentHandoff() const;
 	};
 
 #if PLATFORM_WINDOWS

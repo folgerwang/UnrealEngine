@@ -20,7 +20,7 @@ public class MixedRealityFramework : ModuleRules
 
 		PublicDependencyModuleNames.AddRange(
 			new string[] {
-				"MediaAssets",
+				"MediaAssets"
 			}
 		);
 
@@ -34,8 +34,14 @@ public class MixedRealityFramework : ModuleRules
 				"InputCore",
                 "MediaUtils",
 				"RenderCore",
-				"LensDistortion"
+                "OpenCVHelper",
+                "OpenCV"
 			}
 		);
+
+		if (Target.bBuildEditor == true)
+		{
+			PrivateDependencyModuleNames.Add("UnrealEd");
+		}
 	}
 }

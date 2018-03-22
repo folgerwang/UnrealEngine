@@ -235,7 +235,7 @@ public:
 	virtual void RHITransitionResources(EResourceTransitionAccess TransitionType, FTextureRHIParamRef* InTextures, int32 NumTextures) final override;
 	virtual void RHIBeginRenderQuery(FRenderQueryRHIParamRef RenderQuery) final override;
 	virtual void RHIEndRenderQuery(FRenderQueryRHIParamRef RenderQuery) final override;
-	virtual void RHIBeginOcclusionQueryBatch() final override;
+	virtual void RHIBeginOcclusionQueryBatch(uint32 NumQueriesInBatch) final override;
 	virtual void RHIEndOcclusionQueryBatch() final override;
 	virtual void RHIBeginDrawingViewport(FViewportRHIParamRef Viewport, FTextureRHIParamRef RenderTargetRHI) final override;
 	virtual void RHIEndDrawingViewport(FViewportRHIParamRef Viewport, bool bPresent, bool bLockToVsync) final override;
@@ -483,9 +483,9 @@ public:
 	{
 		ContextRedirect(RHIEndRenderQuery(RenderQuery));
 	}
-	FORCEINLINE virtual void RHIBeginOcclusionQueryBatch() final override
+	FORCEINLINE virtual void RHIBeginOcclusionQueryBatch(uint32 NumQueriesInBatch) final override
 	{
-		ContextRedirect(RHIBeginOcclusionQueryBatch());
+		ContextRedirect(RHIBeginOcclusionQueryBatch(NumQueriesInBatch));
 	}
 	FORCEINLINE virtual void RHIEndOcclusionQueryBatch() final override
 	{

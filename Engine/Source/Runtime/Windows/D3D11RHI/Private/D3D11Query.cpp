@@ -6,7 +6,7 @@
 
 #include "D3D11RHIPrivate.h"
 
-void FD3D11DynamicRHI::RHIBeginOcclusionQueryBatch()
+void FD3D11DynamicRHI::RHIBeginOcclusionQueryBatch(uint32 NumQueriesInBatch)
 {
 }
 

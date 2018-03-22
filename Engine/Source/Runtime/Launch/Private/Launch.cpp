@@ -23,7 +23,7 @@
 
 IMPLEMENT_MODULE(FDefaultModuleImpl, Launch);
 
-#if PLATFORM_WINDOWS || PLATFORM_MAC || PLATFORM_LINUX
+#if PLATFORM_WINDOWS || PLATFORM_MAC || PLATFORM_UNIX
 
 FEngineLoop	GEngineLoop;
 bool GIsConsoleExecutable = false;

@@ -358,9 +358,9 @@ bool FRenderTargetPool::FindFreeElement(FRHICommandList& RHICmdList, const FPool
 		if (AliasingMode == 0)
 		{
 			if ((Desc.Flags & TexCreate_FastVRAM) && FPlatformMemory::SupportsFastVRAMMemory() )
-		{
-			PassCount = 2;
-		}
+			{
+				PassCount = 2;
+			}
 		}
 
 		bool bAllowMultipleDiscards = ( CVarAllowMultipleAliasingDiscardsPerFrame.GetValueOnRenderThread() != 0 );
@@ -368,7 +368,7 @@ bool FRenderTargetPool::FindFreeElement(FRHICommandList& RHICmdList, const FPool
 		// (easily we can run out of VRam, if this search becomes a performance problem we can optimize or we should use less TexCreate_FastVRAM)
 		for(uint32 Pass = 0; Pass < PassCount; ++Pass)
 		{
-			bool bExactMatch = (Pass == 0);
+			bool bExactMatch = (Pass == 0); //-V547
     
 			for(uint32 i = 0, Num = (uint32)PooledRenderTargets.Num(); i < Num; ++i)
 			{

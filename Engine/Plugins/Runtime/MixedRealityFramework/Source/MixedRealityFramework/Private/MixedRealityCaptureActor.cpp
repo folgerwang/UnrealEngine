@@ -13,6 +13,12 @@
 #include "Engine/TextureRenderTarget2D.h"
 #include "IXRTrackingSystem.h" // for GetHMDDevice()
 #include "IHeadMountedDisplay.h" // for GetSpectatorScreenController()
+#include "Misc/ConfigCacheIni.h"
+#include "Components/StaticMeshComponent.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Engine/CollisionProfile.h" // for UCollisionProfile::NoCollision_ProfileName
+#include "Engine/StaticMesh.h"
+#include "Components/ArrowComponent.h"
 
 #define LOCTEXT_NAMESPACE "MRCaptureActor"
 
@@ -120,6 +126,16 @@ AMixedRealityCaptureActor::AMixedRealityCaptureActor(const FObjectInitializer& O
 
 	CaptureComponent = CreateDefaultSubobject<UMixedRealityCaptureComponent>(TEXT("CaptureComponent"));
 	CaptureComponent->SetupAttachment(RootComponent);
+
+#if WITH_EDITORONLY_DATA
+	if (!IsRunningCommandlet())
+#endif
+#if WITH_EDITORONLY_DATA || !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	{
+		static ConstructorHelpers::FObjectFinder<UStaticMesh> VisualizerMeshFinder(TEXT("/Engine/BasicShapes/Cone"));
+		DebugVisualizerMesh = VisualizerMeshFinder.Object;
+	}	
+#endif
 }
 
 bool AMixedRealityCaptureActor::SetTargetPlayer(APawn* PlayerPawn, USceneComponent* AttachTo)
@@ -165,17 +181,10 @@ bool AMixedRealityCaptureActor::SetTargetPlayer(APawn* PlayerPawn, USceneCompone
 	}
 	PlayerPawn->OnDestroyed.AddDynamic(this, &AMixedRealityCaptureActor::OnTargetDestroyed);
 
-	AMixedRealityProjectionActor* ProjectionActor = CaptureComponent->GetProjectionActor();
-	if (ProjectionActor)
-	{
-		ProjectionActor->SetDepthTarget(PlayerPawn);
-	}
-
 	if (bSuccess)
 	{
 		AutoTargeter.Reset();
 	}
-
 	return bSuccess;
 }
 
@@ -215,6 +224,21 @@ void AMixedRealityCaptureActor::BeginPlay()
 	}
 
 	Super::BeginPlay();
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	bool bVisualizeCam = false;
+	if (GConfig->GetBool(TEXT("/Script/MixedRealityFramework.MixedRealityCaptureActor"), TEXT("bVisualizeCam"), bVisualizeCam, GEngineIni) && bVisualizeCam)
+	{
+		UStaticMeshComponent* CamVizualizer = NewObject<UStaticMeshComponent>(this, NAME_None, RF_Transactional | RF_TextExportTransient);
+		CamVizualizer->SetupAttachment(CaptureComponent);
+		CamVizualizer->SetStaticMesh(DebugVisualizerMesh);
+		CamVizualizer->SetRelativeTransform(FTransform(FRotator(90.f, 0.f, 0.f), FVector(7.5, 0.f, 0.f), FVector(0.15f)));
+		CamVizualizer->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
+		CamVizualizer->CastShadow = false;
+		CamVizualizer->PostPhysicsComponentTick.bCanEverTick = false;
+		CamVizualizer->RegisterComponent();
+	}
+#endif
 }
 
 void AMixedRealityCaptureActor::EndPlay(const EEndPlayReason::Type EndPlayReason)

@@ -541,7 +541,7 @@ void FArchive::SerializeCompressed( void* V, int64 Length, ECompressionFlags Fla
 		}
 		else
 		{
-			bHeaderWasValid = PackageFileTag.CompressedSize == PACKAGE_FILE_TAG;
+			bHeaderWasValid = PackageFileTag.CompressedSize == PACKAGE_FILE_TAG; //-V547
 		}
 
 		if (!bHeaderWasValid)
@@ -592,7 +592,7 @@ void FArchive::SerializeCompressed( void* V, int64 Length, ECompressionFlags Fla
 			// Read compressed data.
 			Serialize( CompressedBuffer, Chunk.CompressedSize );
 			// Decompress into dest pointer directly.
-			verify( FCompression::UncompressMemory( Flags, Dest, Chunk.UncompressedSize, CompressedBuffer, Chunk.CompressedSize, (Padding > 0) ? true : false, CompressionBitWindow ) );
+			verify( FCompression::UncompressMemory( Flags, Dest, Chunk.UncompressedSize, CompressedBuffer, Chunk.CompressedSize, (Padding > 0) ? true : false, CompressionBitWindow ) ); //-V547
 			// And advance it by read amount.
 			Dest += Chunk.UncompressedSize;
 		}

@@ -13,7 +13,7 @@
 	EnumMacro(PFN_vkEnumerateInstanceExtensionProperties, vkEnumerateInstanceExtensionProperties) \
 	EnumMacro(PFN_vkEnumerateInstanceLayerProperties, vkEnumerateInstanceLayerProperties)
 
-#if defined(PLATFORM_ANDROID) && PLATFORM_ANDROID
+#if PLATFORM_ANDROID
 
 // List all instance Vulkan entry points used by Unreal that need to be loaded manually
 #define ENUM_VK_ENTRYPOINTS_INSTANCE(EnumMacro) \
@@ -158,10 +158,9 @@
 	EnumMacro(PFN_vkDestroySwapchainKHR, vkDestroySwapchainKHR) \
 	EnumMacro(PFN_vkGetSwapchainImagesKHR, vkGetSwapchainImagesKHR) \
 	EnumMacro(PFN_vkAcquireNextImageKHR, vkAcquireNextImageKHR) \
-	EnumMacro(PFN_vkQueuePresentKHR, vkQueuePresentKHR) \
-	EnumMacro(PFN_vkCreateAndroidSurfaceKHR, vkCreateAndroidSurfaceKHR)
+	EnumMacro(PFN_vkQueuePresentKHR, vkQueuePresentKHR)
 
-#elif defined(PLATFORM_LINUX) && PLATFORM_LINUX
+#else
 
 // List all instance Vulkan entry points used by Unreal that need to be loaded manually
 #define ENUM_VK_ENTRYPOINTS_INSTANCE(EnumMacro) \
@@ -310,29 +309,41 @@
 
 #endif // PLATFORM_ANDROID
 
+// List all base Vulkan entry points used by Unreal that need to be loaded manually
+#define ENUM_VK_ENTRYPOINTS_BASE(EnumMacro) \
+	EnumMacro(PFN_vkCreateInstance, vkCreateInstance) \
+	EnumMacro(PFN_vkGetInstanceProcAddr, vkGetInstanceProcAddr) \
+	EnumMacro(PFN_vkGetDeviceProcAddr, vkGetDeviceProcAddr) \
+	EnumMacro(PFN_vkEnumerateInstanceExtensionProperties, vkEnumerateInstanceExtensionProperties) \
+	EnumMacro(PFN_vkEnumerateInstanceLayerProperties, vkEnumerateInstanceLayerProperties)
+
 // List all optional Vulkan entry points used by Unreal that need to be loaded manually
-#define ENUM_VK_ENTRYPOINTS_OPTIONAL(EnumMacro) \
+#define ENUM_VK_ENTRYPOINTS_OPTIONAL_BASE(EnumMacro) \
 	EnumMacro(PFN_vkGetPhysicalDeviceDisplayPropertiesKHR, vkGetPhysicalDeviceDisplayPropertiesKHR) \
 	EnumMacro(PFN_vkGetPhysicalDeviceDisplayPlanePropertiesKHR, vkGetPhysicalDeviceDisplayPlanePropertiesKHR) \
 	EnumMacro(PFN_vkGetDisplayPlaneSupportedDisplaysKHR, vkGetDisplayPlaneSupportedDisplaysKHR) \
 	EnumMacro(PFN_vkGetDisplayModePropertiesKHR, vkGetDisplayModePropertiesKHR) \
 	EnumMacro(PFN_vkCreateDisplayModeKHR, vkCreateDisplayModeKHR) \
-	EnumMacro(PFN_vkGetDisplayPlaneCapabilitiesKHR, vkGetDisplayPlaneCapabilitiesKHR) \
+	EnumMacro(PFN_vkGetDisplayPlaneCapabilitiesKHR, vkGetDisplayPlaneCapabilitiesKHR)
+
+// List all optional Vulkan entry points used by Unreal that need to be loaded manually
+#define ENUM_VK_ENTRYPOINTS_OPTIONAL_INSTANCE(EnumMacro) \
 	EnumMacro(PFN_vkCreateDisplayPlaneSurfaceKHR, vkCreateDisplayPlaneSurfaceKHR) \
 	EnumMacro(PFN_vkCreateSharedSwapchainsKHR, vkCreateSharedSwapchainsKHR) \
-	EnumMacro(PFN_vkDebugReportCallbackEXT, vkDebugReportCallbackEXT) \
 	EnumMacro(PFN_vkCreateDebugReportCallbackEXT, vkCreateDebugReportCallbackEXT) \
-	EnumMacro(PFN_vkDestroyDebugReportCallbackEXT, vkDestroyDebugReportCallbackEXT) \
-	EnumMacro(PFN_vkDebugReportMessageEXT, vkDebugReportMessageEXT)
+	EnumMacro(PFN_vkDestroyDebugReportCallbackEXT, vkDestroyDebugReportCallbackEXT)
 
 // List of all Vulkan entry points
 #define ENUM_VK_ENTRYPOINTS_ALL(EnumMacro) \
 	ENUM_VK_ENTRYPOINTS_BASE(EnumMacro) \
+	ENUM_VK_ENTRYPOINTS_OPTIONAL_BASE(EnumMacro) \
 	ENUM_VK_ENTRYPOINTS_INSTANCE(EnumMacro) \
-	ENUM_VK_ENTRYPOINTS_OPTIONAL(EnumMacro)
+	ENUM_VK_ENTRYPOINTS_OPTIONAL_INSTANCE(EnumMacro) \
+	ENUM_VK_ENTRYPOINTS_PLATFORM_BASE(EnumMacro) \
+	ENUM_VK_ENTRYPOINTS_PLATFORM_INSTANCE(EnumMacro)
 
 // Declare all Vulkan functions
-#define DECLARE_VK_ENTRYPOINTS(Type,Func) extern Type Func;
+#define DECLARE_VK_ENTRYPOINTS(Type,Func) extern VULKANRHI_API Type Func;
 namespace VulkanDynamicAPI
 {
 	ENUM_VK_ENTRYPOINTS_ALL(DECLARE_VK_ENTRYPOINTS);

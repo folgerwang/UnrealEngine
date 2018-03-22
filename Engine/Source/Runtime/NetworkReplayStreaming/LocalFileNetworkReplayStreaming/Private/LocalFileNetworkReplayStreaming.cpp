@@ -573,7 +573,7 @@ void FLocalFileNetworkReplayStreamer::AddOrUpdateEvent(const FString& Name, cons
 	EventName = CurrentStreamName + TEXT("_") + EventName;
 
 	// see if this event already exists
-	if (EventIndex == INDEX_NONE)
+	if (EventIndex == INDEX_NONE) //-V547
 	{
 		for (int32 i=0; i < ReplayInfo.Events.Num(); ++i)
 		{

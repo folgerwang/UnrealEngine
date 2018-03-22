@@ -1,22 +1,12 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "TrackEditors/PropertyTrackEditors/BytePropertyTrackEditor.h"
-#include "Sections/BytePropertySection.h"
 #include "UObject/EnumProperty.h"
 
 
 TSharedRef<ISequencerTrackEditor> FBytePropertyTrackEditor::CreateTrackEditor( TSharedRef<ISequencer> OwningSequencer )
 {
 	return MakeShareable(new FBytePropertyTrackEditor(OwningSequencer));
-}
-
-
-TSharedRef<ISequencerSection> FBytePropertyTrackEditor::MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding)
-{
-	UMovieSceneByteTrack* ByteTrack = Cast<UMovieSceneByteTrack>(&Track);
-	checkf(ByteTrack != nullptr, TEXT("Incompatible track in FBoolPropertyTrackEditor"));
-	return MakeShareable(new FBytePropertySection(GetSequencer().Get(), ObjectBinding, ByteTrack->GetPropertyName(), ByteTrack->GetPropertyPath(),
-		SectionObject, Track.GetDisplayName(), ByteTrack->GetEnum()));
 }
 
 
@@ -83,7 +73,8 @@ UMovieSceneTrack* FBytePropertyTrackEditor::AddTrack(UMovieScene* FocusedMovieSc
 }
 
 
-void FBytePropertyTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<uint8>& NewGeneratedKeys, TArray<uint8>& DefaultGeneratedKeys )
+void FBytePropertyTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, FGeneratedTrackKeys& OutGeneratedKeys )
 {
-	NewGeneratedKeys.Add( PropertyChangedParams.GetPropertyValue<uint8>() );
+	uint8 KeyedValue = PropertyChangedParams.GetPropertyValue<uint8>();
+	OutGeneratedKeys.Add(FMovieSceneChannelValueSetter::Create<FMovieSceneByteChannel>(0, KeyedValue, true));
 }

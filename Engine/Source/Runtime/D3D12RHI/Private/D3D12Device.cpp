@@ -95,7 +95,7 @@ void FD3D12Device::CreateCommandContexts()
 	{
 		FD3D12SubAllocatedOnlineHeap::SubAllocationDesc SubHeapDesc(&GlobalViewHeap, CurrentGlobalHeapOffset, DescriptorSuballocationPerContext);
 
-		const bool bIsDefaultContext = (i == 0);
+		const bool bIsDefaultContext = (i == 0); //-V547
 		const bool bIsAsyncComputeContext = true;
 		FD3D12CommandContext* NewCmdContext = GetOwningRHI()->CreateCommandContext(this, SubHeapDesc, bIsDefaultContext, bIsAsyncComputeContext);
 		CurrentGlobalHeapOffset += DescriptorSuballocationPerContext;

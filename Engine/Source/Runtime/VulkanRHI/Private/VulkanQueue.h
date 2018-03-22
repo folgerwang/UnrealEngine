@@ -32,6 +32,7 @@ public:
 	}
 
 	void Submit(FVulkanCmdBuffer* CmdBuffer, FVulkanSemaphore* WaitSemaphore, VkPipelineStageFlags WaitStageFlags, FVulkanSemaphore* SignalSemaphore);
+	void Submit(FVulkanCmdBuffer* CmdBuffer, uint32 NumSignalSemaphores, VkSemaphore* SignalSemaphore);
 
 	inline VkQueue GetHandle() const
 	{

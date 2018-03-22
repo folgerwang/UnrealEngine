@@ -17,8 +17,10 @@
 #include "Android/AndroidHttp.h"
 #elif PLATFORM_HTML5
 #include "HTML5/HTML5PlatformHttp.h"
-#elif PLATFORM_LINUX
-#include "Linux/LinuxPlatformHttp.h"
+#elif PLATFORM_UNIX
+#include "Unix/UnixPlatformHttp.h"
 #elif PLATFORM_SWITCH
 #include "Switch/SwitchPlatformHttp.h"
+#else
+#error Unknown platform
 #endif

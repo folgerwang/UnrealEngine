@@ -1011,7 +1011,7 @@ static FAutoConsoleVariableRef CVarTimeToBlockOnRenderFence(
 	);
 
 
-static int32 GTimeoutForBlockOnRenderFence = 30000;
+static int32 GTimeoutForBlockOnRenderFence = 120000;
 static FAutoConsoleVariableRef CVarTimeoutForBlockOnRenderFence(
 	TEXT("g.TimeoutForBlockOnRenderFence"),
 	GTimeoutForBlockOnRenderFence,

@@ -10,7 +10,8 @@ public class VulkanRHI : ModuleRules
 	{
 		bOutputPubliclyDistributable = true;
 
-		PrivateIncludePaths.Add("Runtime/Vulkan/Private");
+		PrivateIncludePaths.Add("Runtime/VulkanRHI/Private");
+		PrivateIncludePaths.Add("Runtime/VulkanRHI/Private/" + Target.Platform);
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
@@ -43,17 +44,6 @@ public class VulkanRHI : ModuleRules
 					// Older SDKs have an extra subfolder
 					PrivateIncludePaths.Add(VulkanSDKPath + "/Include/vulkan");
 
-					if (Target.Platform == UnrealTargetPlatform.Win32)
-					{
-						PublicLibraryPaths.Add(VulkanSDKPath + "/Source/lib32");
-					}
-					else
-					{
-						PublicLibraryPaths.Add(VulkanSDKPath + "/Source/lib");
-					}
-
-					PublicAdditionalLibraries.Add("vulkan-1.lib");
-					PublicAdditionalLibraries.Add("vkstatic.1.lib");
 					bUseThirdParty = false;
 				}
 			}
@@ -62,22 +52,29 @@ public class VulkanRHI : ModuleRules
 				AddEngineThirdPartyPrivateStaticDependencies(Target, "Vulkan");
 			}
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
-			AddEngineThirdPartyPrivateStaticDependencies(Target, "SDL2");
-
-			string VulkanSDKPath = Environment.GetEnvironmentVariable("VULKAN_SDK");
-			bool bSDKInstalled = !String.IsNullOrEmpty(VulkanSDKPath);
-			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Linux || !bSDKInstalled)
+			if (Target.Platform == UnrealTargetPlatform.Linux)
 			{
-				AddEngineThirdPartyPrivateStaticDependencies(Target, "Vulkan");
+				AddEngineThirdPartyPrivateStaticDependencies(Target, "SDL2");
+
+				string VulkanSDKPath = Environment.GetEnvironmentVariable("VULKAN_SDK");
+				bool bSDKInstalled = !String.IsNullOrEmpty(VulkanSDKPath);
+				if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Linux || !bSDKInstalled)
+				{
+					AddEngineThirdPartyPrivateStaticDependencies(Target, "Vulkan");
+				}
+				else
+				{
+					PrivateIncludePaths.Add(VulkanSDKPath + "/include");
+					PrivateIncludePaths.Add(VulkanSDKPath + "/include/vulkan");
+					PublicLibraryPaths.Add(VulkanSDKPath + "/lib");
+					PublicAdditionalLibraries.Add("vulkan");
+				}
 			}
 			else
 			{
-				PrivateIncludePaths.Add(VulkanSDKPath + "/include");
-				PrivateIncludePaths.Add(VulkanSDKPath + "/include/vulkan");
-				PublicLibraryPaths.Add(VulkanSDKPath + "/lib");
-				PublicAdditionalLibraries.Add("vulkan");
+				AddEngineThirdPartyPrivateStaticDependencies(Target, "VkHeadersExternal");
 			}
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Android || Target.Platform == UnrealTargetPlatform.Mac)
@@ -115,18 +112,6 @@ public class VulkanRHI : ModuleRules
 			{
 				bHaveVulkan = true;
 				PrivateIncludePaths.Add(VulkanSDKPath + "/Include");
-
-				if (Target.Platform == UnrealTargetPlatform.Win32)
-				{
-					PublicLibraryPaths.Add(VulkanSDKPath + "/Bin32");
-				}
-				else
-				{
-					PublicLibraryPaths.Add(VulkanSDKPath + "/Bin");
-				}
-
-				PublicAdditionalLibraries.Add("vulkan-1.lib");
-				PublicAdditionalLibraries.Add("vkstatic.1.lib");
 			}
 
 			if (bHaveVulkan)

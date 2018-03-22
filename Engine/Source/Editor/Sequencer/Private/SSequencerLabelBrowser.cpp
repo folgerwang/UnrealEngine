@@ -90,6 +90,11 @@ void SSequencerLabelBrowser::ReloadLabelList(bool FullyReload)
 			TArray<FString> Strings;
 			Label.ParseIntoArray(Strings, TEXT("."), true);
 
+			if (Strings.Num() == 0)
+			{
+				continue;
+			}
+
 			TSharedRef<FSequencerLabelTreeNode> NewNode = MakeShareable(
 				new FSequencerLabelTreeNode(Label, FText::FromString(Strings.Last())));
 
@@ -276,8 +281,16 @@ void SSequencerLabelBrowser::HandleRenameLabelMenuEntryExecute()
 bool SSequencerLabelBrowser::HandleRenameLabelMenuEntryCanExecute() const
 {
 	TArray<TSharedPtr<FSequencerLabelTreeNode>> SelectedItems;
-	return (LabelTreeView->GetSelectedItems(SelectedItems) > 0);
-}
+	if (LabelTreeView->GetSelectedItems(SelectedItems) > 0)
+	{
+		auto ListRow = StaticCastSharedPtr<SSequencerLabelListRow>(LabelTreeView->WidgetFromItem(SelectedItems[0]));
 
+		if (ListRow.IsValid())
+		{
+			return ListRow->CanEnterRenameMode();
+		}
+	}
+	return false;
+}
 
 #undef LOCTEXT_NAMESPACE

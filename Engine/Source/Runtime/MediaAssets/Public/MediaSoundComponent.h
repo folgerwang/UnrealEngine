@@ -8,6 +8,7 @@
 #include "HAL/CriticalSection.h"
 #include "MediaSampleQueue.h"
 #include "Misc/Timespan.h"
+#include "Templates/Atomic.h"
 #include "Templates/SharedPointer.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/ScriptMacros.h"
@@ -78,9 +79,19 @@ public:
 	bool BP_GetAttenuationSettingsToApply(FSoundAttenuationSettings& OutAttenuationSettings);
 
 	/**
+	 * Get the media player that provides the audio samples.
+	 *
+	 * @return The component's media player, or nullptr if not set.
+	 * @see SetMediaPlayer
+	 */
+	UFUNCTION(BlueprintCallable, Category="Media|MediaSoundComponent")
+	UMediaPlayer* GetMediaPlayer() const;
+
+	/**
 	 * Set the media player that provides the audio samples.
 	 *
 	 * @param NewMediaPlayer The player to set.
+	 * @see GetMediaPlayer
 	 */
 	UFUNCTION(BlueprintCallable, Category="Media|MediaSoundComponent")
 	void SetMediaPlayer(UMediaPlayer* NewMediaPlayer);
@@ -151,10 +162,10 @@ protected:
 private:
 
 	/** The player's current play rate (cached for use on audio thread). */
-	float CachedRate;
+	TAtomic<float> CachedRate;
 
 	/** The player's current time (cached for use on audio thread). */
-	FTimespan CachedTime;
+	TAtomic<FTimespan> CachedTime;
 
 	/** Critical section for synchronizing access to PlayerFacadePtr. */
 	FCriticalSection CriticalSection;

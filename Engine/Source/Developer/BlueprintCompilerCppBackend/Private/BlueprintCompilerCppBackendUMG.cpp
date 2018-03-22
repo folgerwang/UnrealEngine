@@ -130,9 +130,9 @@ bool FBackendHelperUMG::SpecialStructureConstructorUMG(const UStruct* Struct, co
 		if (OutResult)
 		{
 			const FSectionEvaluationData* SectionEvaluationData = reinterpret_cast<const FSectionEvaluationData*>(ValuePtr);
-			*OutResult = FString::Printf(TEXT("FSectionEvaluationData(%d, %s)")
+			*OutResult = FString::Printf(TEXT("FSectionEvaluationData(%d, %d)")
 				, SectionEvaluationData->ImplIndex
-				, *FEmitHelper::FloatToString(SectionEvaluationData->ForcedTime));
+				, SectionEvaluationData->ForcedTime.Value);
 		}
 		return true;
 	}

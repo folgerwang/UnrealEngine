@@ -25,11 +25,12 @@
 #include "MatineeImportTools.h"
 #include "Matinee/InterpTrackAnimControl.h"
 #include "SequencerUtilities.h"
-#include "FloatCurveKeyArea.h"
 #include "ISectionLayoutBuilder.h"
 #include "Animation/AnimMontage.h"
 #include "Animation/AnimSequence.h"
 #include "EditorStyleSet.h"
+#include "DragAndDrop/AssetDragDropOp.h"
+#include "MovieSceneTimeHelpers.h"
 
 
 namespace SkeletalAnimationEditorConstants
@@ -44,7 +45,7 @@ namespace SkeletalAnimationEditorConstants
 FSkeletalAnimationSection::FSkeletalAnimationSection( UMovieSceneSection& InSection )
 	: Section(*CastChecked<UMovieSceneSkeletalAnimationSection>(&InSection))
 	, InitialStartOffsetDuringResize(0.f)
-	, InitialStartTimeDuringResize(0.f)
+	, InitialStartTimeDuringResize(0)
 { }
 
 
@@ -69,13 +70,6 @@ float FSkeletalAnimationSection::GetSectionHeight() const
 	return (float)SkeletalAnimationEditorConstants::AnimationTrackHeight;
 }
 
-void FSkeletalAnimationSection::GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const
-{
-	WeightArea = MakeShareable( new FFloatCurveKeyArea( &Section.Params.Weight, &Section ) );
-
-	LayoutBuilder.AddKeyArea( "Weight", NSLOCTEXT( "FSkeletalAnimationSection", "WeightArea", "Weight" ), WeightArea.ToSharedRef() );
-}
-
 
 int32 FSkeletalAnimationSection::OnPaintSection( FSequencerSectionPainter& Painter ) const
 {
@@ -87,18 +81,25 @@ int32 FSkeletalAnimationSection::OnPaintSection( FSequencerSectionPainter& Paint
 
 	static const FSlateBrush* GenericDivider = FEditorStyle::GetBrush("Sequencer.GenericDivider");
 
+	if (!Section.HasStartFrame() || !Section.HasEndFrame())
+	{
+		return LayerId;
+	}
+
 	// Add lines where the animation starts and ends/loops
 	float AnimPlayRate = FMath::IsNearlyZero(Section.Params.PlayRate) ? 1.0f : Section.Params.PlayRate;
 	float SeqLength = (Section.Params.GetSequenceLength() - (Section.Params.StartOffset + Section.Params.EndOffset)) / AnimPlayRate;
 
+	FFrameRate FrameResolution = TimeToPixelConverter.GetFrameResolution();
 	if (!FMath::IsNearlyZero(SeqLength, KINDA_SMALL_NUMBER) && SeqLength > 0)
 	{
-		float MaxOffset = Section.GetRange().Size<float>();
+		float MaxOffset  = Section.GetRange().Size<FFrameTime>() / FrameResolution;
 		float OffsetTime = SeqLength;
+		float StartTime  = Section.GetInclusiveStartFrame() / FrameResolution;
 
 		while (OffsetTime < MaxOffset)
 		{
-			float OffsetPixel = TimeToPixelConverter.TimeToPixel(Section.GetStartTime() + OffsetTime) - TimeToPixelConverter.TimeToPixel(Section.GetStartTime());
+			float OffsetPixel = TimeToPixelConverter.SecondsToPixel(StartTime + OffsetTime) - TimeToPixelConverter.SecondsToPixel(StartTime);
 
 			FSlateDrawElement::MakeBox(
 				Painter.DrawElements,
@@ -121,21 +122,23 @@ int32 FSkeletalAnimationSection::OnPaintSection( FSequencerSectionPainter& Paint
 void FSkeletalAnimationSection::BeginResizeSection()
 {
 	InitialStartOffsetDuringResize = Section.Params.StartOffset;
-	InitialStartTimeDuringResize = Section.GetStartTime();
+	InitialStartTimeDuringResize   = Section.HasStartFrame() ? Section.GetInclusiveStartFrame() : 0;
 }
 
-void FSkeletalAnimationSection::ResizeSection(ESequencerSectionResizeMode ResizeMode, float ResizeTime)
+void FSkeletalAnimationSection::ResizeSection(ESequencerSectionResizeMode ResizeMode, FFrameNumber ResizeTime)
 {
 	// Adjust the start offset when resizing from the beginning
 	if (ResizeMode == SSRM_LeadingEdge)
 	{
-		float StartOffset = (ResizeTime - InitialStartTimeDuringResize) * Section.Params.PlayRate;
+		FFrameRate FrameRate   = Section.GetTypedOuter<UMovieScene>()->GetFrameResolution();
+		float      StartOffset = (ResizeTime - InitialStartTimeDuringResize) / FrameRate * Section.Params.PlayRate;
+
 		StartOffset += InitialStartOffsetDuringResize;
 
 		// Ensure start offset is not less than 0 and adjust ResizeTime
 		if (StartOffset < 0)
 		{
-			ResizeTime = ResizeTime - (StartOffset / Section.Params.PlayRate);
+			ResizeTime = ResizeTime - ((StartOffset * Section.Params.PlayRate) * FrameRate).RoundToFrame();
 
 			StartOffset = 0.f;
 		}
@@ -151,9 +154,9 @@ void FSkeletalAnimationSection::BeginSlipSection()
 	BeginResizeSection();
 }
 
-void FSkeletalAnimationSection::SlipSection(float SlipTime)
+void FSkeletalAnimationSection::SlipSection(double SlipTime)
 {
-	float StartOffset = (SlipTime - InitialStartTimeDuringResize) * Section.Params.PlayRate;
+	float StartOffset = (SlipTime - InitialStartTimeDuringResize / Section.GetTypedOuter<UMovieScene>()->GetFrameResolution()) * Section.Params.PlayRate;
 	StartOffset += InitialStartOffsetDuringResize;
 
 	// Ensure start offset is not less than 0
@@ -241,7 +244,10 @@ bool FSkeletalAnimationTrackEditor::HandleAssetAdded(UObject* Asset, const FGuid
 				
 				UMovieSceneTrack* Track = nullptr;
 
-				AnimatablePropertyChanged(FOnKeyProperty::CreateRaw(this, &FSkeletalAnimationTrackEditor::AddKeyInternal, Object, AnimSequence, Track));
+				const FScopedTransaction Transaction(LOCTEXT("AddAnimation_Transaction", "Add Animation"));
+
+				int32 RowIndex = INDEX_NONE;
+				AnimatablePropertyChanged(FOnKeyProperty::CreateRaw(this, &FSkeletalAnimationTrackEditor::AddKeyInternal, Object, AnimSequence, Track, RowIndex));
 
 				return true;
 			}
@@ -346,12 +352,13 @@ void FSkeletalAnimationTrackEditor::OnAnimationAssetSelected(const FAssetData& A
 		UAnimSequenceBase* AnimSequence = CastChecked<UAnimSequenceBase>(AssetData.GetAsset());
 
 		UObject* Object = SequencerPtr->FindSpawnedObjectOrTemplate(ObjectBinding);
-		AnimatablePropertyChanged( FOnKeyProperty::CreateRaw( this, &FSkeletalAnimationTrackEditor::AddKeyInternal, Object, AnimSequence, Track) );
+		int32 RowIndex = INDEX_NONE;
+		AnimatablePropertyChanged( FOnKeyProperty::CreateRaw( this, &FSkeletalAnimationTrackEditor::AddKeyInternal, Object, AnimSequence, Track, RowIndex) );
 	}
 }
 
 
-FKeyPropertyResult FSkeletalAnimationTrackEditor::AddKeyInternal( float KeyTime, UObject* Object, class UAnimSequenceBase* AnimSequence, UMovieSceneTrack* Track )
+FKeyPropertyResult FSkeletalAnimationTrackEditor::AddKeyInternal( FFrameNumber KeyTime, UObject* Object, class UAnimSequenceBase* AnimSequence, UMovieSceneTrack* Track, int32 RowIndex )
 {
 	FKeyPropertyResult KeyPropertyResult;
 
@@ -370,8 +377,12 @@ FKeyPropertyResult FSkeletalAnimationTrackEditor::AddKeyInternal( float KeyTime,
 		{
 			Track->Modify();
 
-			Cast<UMovieSceneSkeletalAnimationTrack>(Track)->AddNewAnimation( KeyTime, AnimSequence );
+			UMovieSceneSection* NewSection = Cast<UMovieSceneSkeletalAnimationTrack>(Track)->AddNewAnimationOnRow( KeyTime, AnimSequence, RowIndex );
 			KeyPropertyResult.bTrackModified = true;
+
+			GetSequencer()->EmptySelection();
+			GetSequencer()->SelectSection(NewSection);
+			GetSequencer()->ThrobSectionSelection();
 		}
 	}
 
@@ -413,7 +424,7 @@ USkeleton* FSkeletalAnimationTrackEditor::AcquireSkeletonFromObjectGuid(const FG
 
 void CopyInterpAnimControlTrack(TSharedRef<ISequencer> Sequencer, UInterpTrackAnimControl* MatineeAnimControlTrack, UMovieSceneSkeletalAnimationTrack* SkeletalAnimationTrack)
 {
-	float EndPlaybackRange = Sequencer.Get().GetFocusedMovieSceneSequence()->GetMovieScene()->GetPlaybackRange().GetUpperBoundValue();
+	FFrameNumber EndPlaybackRange = MovieScene::DiscreteExclusiveUpper(Sequencer.Get().GetFocusedMovieSceneSequence()->GetMovieScene()->GetPlaybackRange());
 
 	if (FMatineeImportTools::CopyInterpAnimControlTrack(MatineeAnimControlTrack, SkeletalAnimationTrack, EndPlaybackRange))
 	{
@@ -464,6 +475,84 @@ TSharedPtr<SWidget> FSkeletalAnimationTrackEditor::BuildOutlinerEditWidget(const
 	{
 		return TSharedPtr<SWidget>();
 	}
+}
+
+bool FSkeletalAnimationTrackEditor::OnAllowDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track, int32 RowIndex, const FGuid& TargetObjectGuid)
+{
+	if (!Track->IsA(UMovieSceneSkeletalAnimationTrack::StaticClass()))
+	{
+		return false;
+	}
+
+	TSharedPtr<FDragDropOperation> Operation = DragDropEvent.GetOperation();
+
+	if (!Operation.IsValid() || !Operation->IsOfType<FAssetDragDropOp>() )
+	{
+		return false;
+	}
+	
+	if (!TargetObjectGuid.IsValid())
+	{
+		return false;
+	}
+
+	USkeleton* Skeleton = AcquireSkeletonFromObjectGuid(TargetObjectGuid);
+
+	TSharedPtr<FAssetDragDropOp> DragDropOp = StaticCastSharedPtr<FAssetDragDropOp>( Operation );
+
+	for (const FAssetData& AssetData : DragDropOp->GetAssets())
+	{
+		UAnimSequenceBase* AnimSequence = Cast<UAnimSequenceBase>(AssetData.GetAsset());
+
+		if (AnimSequence && Skeleton && Skeleton == AnimSequence->GetSkeleton())
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+
+FReply FSkeletalAnimationTrackEditor::OnDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track, int32 RowIndex, const FGuid& TargetObjectGuid)
+{
+	if (!Track->IsA(UMovieSceneSkeletalAnimationTrack::StaticClass()))
+	{
+		return FReply::Unhandled();
+	}
+
+	TSharedPtr<FDragDropOperation> Operation = DragDropEvent.GetOperation();
+
+	if (!Operation.IsValid() || !Operation->IsOfType<FAssetDragDropOp>() )
+	{
+		return FReply::Unhandled();
+	}
+	
+	if (!TargetObjectGuid.IsValid())
+	{
+		return FReply::Unhandled();
+	}
+
+	USkeleton* Skeleton = AcquireSkeletonFromObjectGuid(TargetObjectGuid);
+
+	TSharedPtr<FAssetDragDropOp> DragDropOp = StaticCastSharedPtr<FAssetDragDropOp>( Operation );
+
+	bool bAnyDropped = false;
+	for (const FAssetData& AssetData : DragDropOp->GetAssets())
+	{
+		UAnimSequenceBase* AnimSequence = Cast<UAnimSequenceBase>(AssetData.GetAsset());
+
+		if (AnimSequence && Skeleton && Skeleton == AnimSequence->GetSkeleton())
+		{
+			UObject* Object = GetSequencer()->FindSpawnedObjectOrTemplate(TargetObjectGuid);
+				
+			AnimatablePropertyChanged( FOnKeyProperty::CreateRaw(this, &FSkeletalAnimationTrackEditor::AddKeyInternal, Object, AnimSequence, Track, RowIndex));
+
+			bAnyDropped = true;
+		}
+	}
+
+	return bAnyDropped ? FReply::Handled() : FReply::Unhandled();
 }
 
 #undef LOCTEXT_NAMESPACE

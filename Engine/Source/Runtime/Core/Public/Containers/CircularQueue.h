@@ -4,17 +4,19 @@
 
 #include "CoreTypes.h"
 #include "Containers/CircularBuffer.h"
+#include "Templates/Atomic.h"
 
 /**
  * Implements a lock-free first-in first-out queue using a circular array.
  *
- * This class is thread safe only in two-thread scenarios, where the first thread
- * always reads and the second thread always writes. The head and tail indices are
- * stored in volatile memory to prevent the compiler from reordering the instructions
- * that are meant to update the indices AFTER items have been inserted or removed.
+ * This class is thread safe only in single-producer single-consumer scenarios.
  *
  * The number of items that can be enqueued is one less than the queue's capacity,
  * because one item will be used for detecting full and empty states.
+ *
+ * There is some room for optimization via using fine grained memory fences, but
+ * the implications for all of our target platforms need further analysis, so
+ * we're using the simpler sequentially consistent model for now.
  *
  * @param ElementType The type of elements held in the queue.
  */
@@ -27,35 +29,32 @@ public:
 	 *
 	 * @param CapacityPlusOne The number of elements that the queue can hold (will be rounded up to the next power of 2).
 	 */
-	TCircularQueue(uint32 CapacityPlusOne)
+	explicit TCircularQueue(uint32 CapacityPlusOne)
 		: Buffer(CapacityPlusOne)
 		, Head(0)
 		, Tail(0)
 	{ }
-
-	/** Virtual destructor. */
-	virtual ~TCircularQueue() { }
 
 public:
 
 	/**
 	 * Gets the number of elements in the queue.
 	 *
-	 * The result reflects the calling thread's current view. Since no
-	 * locking is used, different threads may return different results.
+	 * Can be called from any thread. The result reflects the calling thread's current
+	 * view. Since no locking is used, different threads may return different results.
 	 *
 	 * @return Number of queued elements.
 	 */
 	uint32 Count() const
 	{
-		int32 Count = Tail - Head;
+		int64 Count = Tail.Load() - Head.Load();
 
 		if (Count < 0)
 		{
 			Count += Buffer.Capacity();
 		}
 
-		return Count;
+		return (uint32)Count;
 	}
 
 	/**
@@ -67,10 +66,12 @@ public:
 	 */
 	bool Dequeue(ElementType& OutElement)
 	{
-		if (Head != Tail)
+		const uint32 CurrentHead = Head.Load();
+
+		if (CurrentHead != Tail.Load())
 		{
-			OutElement = Buffer[Head];
-			Head = Buffer.GetNextIndex(Head);
+			OutElement = Buffer[CurrentHead];
+			Head.Store(Buffer.GetNextIndex(CurrentHead));
 
 			return true;
 		}
@@ -86,7 +87,7 @@ public:
 	 */
 	void Empty()
 	{
-		Head = Tail;
+		Head.Store(Tail.Load());
 	}
 
 	/**
@@ -98,12 +99,13 @@ public:
 	 */
 	bool Enqueue(const ElementType& Element)
 	{
-		uint32 NewTail = Buffer.GetNextIndex(Tail);
+		const uint32 CurrentTail = Tail.Load();
+		uint32 NewTail = Buffer.GetNextIndex(CurrentTail);
 
-		if (NewTail != Head)
+		if (NewTail != Head.Load())
 		{
-			Buffer[Tail] = Element;
-			Tail = NewTail;
+			Buffer[CurrentTail] = Element;
+			Tail.Store(NewTail);
 
 			return true;
 		}
@@ -114,29 +116,29 @@ public:
 	/**
 	 * Checks whether the queue is empty.
 	 *
-	 * The result reflects the calling thread's current view. Since no
-	 * locking is used, different threads may return different results.
+	 * Can be called from any thread. The result reflects the calling thread's current
+	 * view. Since no locking is used, different threads may return different results.
 	 *
 	 * @return true if the queue is empty, false otherwise.
 	 * @see Empty, IsFull
 	 */
 	FORCEINLINE bool IsEmpty() const
 	{
-		return (Head == Tail);
+		return (Head.Load() == Tail.Load());
 	}
 
 	/**
 	 * Checks whether the queue is full.
 	 *
-	 * The result reflects the calling thread's current view. Since no
-	 * locking is used, different threads may return different results.
+	 * Can be called from any thread. The result reflects the calling thread's current
+	 * view. Since no locking is used, different threads may return different results.
 	 *
 	 * @return true if the queue is full, false otherwise.
 	 * @see IsEmpty
 	 */
 	bool IsFull() const
 	{
-		return (Buffer.GetNextIndex(Tail) == Head);
+		return (Buffer.GetNextIndex(Tail.Load()) == Head.Load());
 	}
 
 	/**
@@ -148,9 +150,11 @@ public:
 	 */
 	bool Peek(ElementType& OutItem)
 	{
-		if (Head != Tail)
+		const uint32 CurrentHead = Head.Load();
+
+		if (CurrentHead != Tail.Load())
 		{
-			OutItem = Buffer[Head];
+			OutItem = Buffer[CurrentHead];
 
 			return true;
 		}
@@ -164,8 +168,8 @@ private:
 	TCircularBuffer<ElementType> Buffer;
 
 	/** Holds the index to the first item in the buffer. */
-	MS_ALIGN(PLATFORM_CACHE_LINE_SIZE) volatile uint32 Head GCC_ALIGN(PLATFORM_CACHE_LINE_SIZE);
+	TAtomic<uint32> Head;
 
 	/** Holds the index to the last item in the buffer. */
-	MS_ALIGN(PLATFORM_CACHE_LINE_SIZE) volatile uint32 Tail GCC_ALIGN(PLATFORM_CACHE_LINE_SIZE);
+	TAtomic<uint32> Tail;
 };

@@ -4,6 +4,7 @@
 #include "MovieScene.h"
 #include "SSequencer.h"
 #include "SSequencerTreeView.h"
+#include "MovieSceneTimeHelpers.h"
 #include "MovieSceneSequence.h"
 
 struct FSnapGridVisitor : ISequencerEntityVisitor
@@ -13,7 +14,7 @@ struct FSnapGridVisitor : ISequencerEntityVisitor
 		, Candidate(InCandidate)
 	{}
 
-	virtual void VisitKey(FKeyHandle KeyHandle, float KeyTime, const TSharedPtr<IKeyArea>& KeyArea, UMovieSceneSection* Section, TSharedRef<FSequencerDisplayNode>) const
+	virtual void VisitKey(FKeyHandle KeyHandle, FFrameNumber KeyTime, const TSharedPtr<IKeyArea>& KeyArea, UMovieSceneSection* Section, TSharedRef<FSequencerDisplayNode>) const
 	{
 		if (Candidate.IsKeyApplicable(KeyHandle, KeyArea, Section))
 		{
@@ -24,15 +25,22 @@ struct FSnapGridVisitor : ISequencerEntityVisitor
 	{
 		if (Candidate.AreSectionBoundsApplicable(Section))
 		{
-			Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::SectionBounds, Section->GetStartTime() });
-			Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::SectionBounds, Section->GetEndTime() });
+			if (Section->HasStartFrame())
+			{
+				Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::SectionBounds, Section->GetInclusiveStartFrame() });
+			}
+
+			if (Section->HasEndFrame())
+			{
+				Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::SectionBounds, Section->GetExclusiveEndFrame() });
+			}
 		}
 
 		if (Candidate.AreSectionCustomSnapsApplicable(Section))
 		{
-			TArray<float> CustomSnaps;
+			TArray<FFrameNumber> CustomSnaps;
 			Section->GetSnapTimes(CustomSnaps, false);
-			for (float Time : CustomSnaps)
+			for (FFrameNumber Time : CustomSnaps)
 			{
 				Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::CustomSection, Time });
 			}
@@ -53,25 +61,25 @@ FSequencerSnapField::FSequencerSnapField(const ISequencer& InSequencer, ISequenc
 		VisibleNodes.Add(Geometry.Node);
 	}
 
-	auto ViewRange = InSequencer.GetViewRange();
-	FSequencerEntityWalker Walker(ViewRange);
+	TRange<double> ViewRange = InSequencer.GetViewRange();
+	FSequencerEntityWalker Walker(FSequencerEntityRange(ViewRange, InSequencer.GetFocusedFrameResolution()));
 
 	// Traverse the visible space, collecting snapping times as we go
 	FSnapGridVisitor Visitor(Candidate, EntityMask);
 	Walker.Traverse(Visitor, VisibleNodes);
 
 	// Add the playback range start/end bounds as potential snap candidates
-	TRange<float> PlaybackRange = InSequencer.GetFocusedMovieSceneSequence()->GetMovieScene()->GetPlaybackRange();
+	TRange<FFrameNumber> PlaybackRange = InSequencer.GetFocusedMovieSceneSequence()->GetMovieScene()->GetPlaybackRange();
 	Visitor.Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::PlaybackRange, PlaybackRange.GetLowerBoundValue() });
 	Visitor.Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::PlaybackRange, PlaybackRange.GetUpperBoundValue() });
 
 	// Add the current time as a potential snap candidate
-	Visitor.Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::CurrentTime, InSequencer.GetLocalTime() });
+	Visitor.Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::CurrentTime, InSequencer.GetLocalTime().Time.FrameNumber });
 
 	// Add the selection range bounds as a potential snap candidate
-	TRange<float> SelectionRange = InSequencer.GetFocusedMovieSceneSequence()->GetMovieScene()->GetSelectionRange();
-	Visitor.Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::InOutRange, SelectionRange.GetLowerBoundValue() });
-	Visitor.Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::InOutRange, SelectionRange.GetUpperBoundValue() });
+	TRange<FFrameNumber> SelectionRange = InSequencer.GetFocusedMovieSceneSequence()->GetMovieScene()->GetSelectionRange();
+	Visitor.Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::InOutRange, MovieScene::DiscreteInclusiveLower(SelectionRange) });
+	Visitor.Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::InOutRange, MovieScene::DiscreteExclusiveUpper(SelectionRange) });
 
 	// Sort
 	Visitor.Snaps.Sort([](const FSequencerSnapPoint& A, const FSequencerSnapPoint& B){
@@ -81,12 +89,12 @@ FSequencerSnapField::FSequencerSnapField(const ISequencer& InSequencer, ISequenc
 	// Remove duplicates
 	for (int32 Index = 0; Index < Visitor.Snaps.Num(); ++Index)
 	{
-		const float CurrentTime = Visitor.Snaps[Index].Time;
+		const FFrameNumber CurrentTime = Visitor.Snaps[Index].Time;
 
 		int32 NumToMerge = 0;
 		for (int32 DuplIndex = Index + 1; DuplIndex < Visitor.Snaps.Num(); ++DuplIndex)
 		{
-			if (!FMath::IsNearlyEqual(CurrentTime, Visitor.Snaps[DuplIndex].Time))
+			if (CurrentTime != Visitor.Snaps[DuplIndex].Time)
 			{
 				break;
 			}
@@ -102,7 +110,7 @@ FSequencerSnapField::FSequencerSnapField(const ISequencer& InSequencer, ISequenc
 	SortedSnaps = MoveTemp(Visitor.Snaps);
 }
 
-TOptional<float> FSequencerSnapField::Snap(float InTime, float Threshold) const
+TOptional<FFrameNumber> FSequencerSnapField::Snap(FFrameNumber InTime, int32 Threshold) const
 {
 	int32 Min = 0;
 	int32 Max = SortedSnaps.Num();
@@ -112,7 +120,7 @@ TOptional<float> FSequencerSnapField::Snap(float InTime, float Threshold) const
 	{
 		int32 SearchIndex = Min + (Max - Min) / 2;
 
-		float ProspectiveSnapPos = SortedSnaps[SearchIndex].Time;
+		FFrameNumber ProspectiveSnapPos = SortedSnaps[SearchIndex].Time;
 		if (ProspectiveSnapPos > InTime + Threshold)
 		{
 			Max = SearchIndex;
@@ -125,12 +133,12 @@ TOptional<float> FSequencerSnapField::Snap(float InTime, float Threshold) const
 		{
 			// Linearly search forwards and backwards to find the closest snap
 
-			float SnapDelta = ProspectiveSnapPos - InTime;
+			FFrameNumber SnapDelta = ProspectiveSnapPos - InTime;
 
 			// Search forwards while we're in the threshold
 			for (int32 FwdIndex = SearchIndex+1; FwdIndex < Max-1 && SortedSnaps[FwdIndex].Time < InTime + Threshold; ++FwdIndex)
 			{
-				float ThisSnapDelta = InTime - SortedSnaps[FwdIndex].Time;
+				FFrameNumber ThisSnapDelta = InTime - SortedSnaps[FwdIndex].Time;
 				if (FMath::Abs(ThisSnapDelta) < FMath::Abs(SnapDelta))
 				{
 					SnapDelta = ThisSnapDelta;
@@ -141,7 +149,7 @@ TOptional<float> FSequencerSnapField::Snap(float InTime, float Threshold) const
 			// Search backwards while we're in the threshold
 			for (int32 BckIndex = SearchIndex-1; BckIndex >= Min && SortedSnaps[BckIndex].Time > InTime + Threshold; --BckIndex)
 			{
-				float ThisSnapDelta = InTime - SortedSnaps[BckIndex].Time;
+				FFrameNumber ThisSnapDelta = InTime - SortedSnaps[BckIndex].Time;
 				if (FMath::Abs(ThisSnapDelta) < FMath::Abs(SnapDelta))
 				{
 					SnapDelta = ThisSnapDelta;
@@ -153,23 +161,23 @@ TOptional<float> FSequencerSnapField::Snap(float InTime, float Threshold) const
 		}
 	}
 
-	return TOptional<float>();
+	return TOptional<FFrameNumber>();
 }
 
-TOptional<FSequencerSnapField::FSnapResult> FSequencerSnapField::Snap(const TArray<float>& InTimes, float Threshold) const
+TOptional<FSequencerSnapField::FSnapResult> FSequencerSnapField::Snap(const TArray<FFrameNumber>& InTimes, int32 Threshold) const
 {
 	TOptional<FSnapResult> ProspectiveSnap;
-	float SnapDelta = 0.f;
+	FFrameNumber SnapDelta(0);
 
-	for (float Time : InTimes)
+	for (FFrameNumber Time : InTimes)
 	{
-		TOptional<float> ThisSnap = Snap(Time, Threshold);
+		TOptional<FFrameNumber> ThisSnap = Snap(Time, Threshold);
 		if (!ThisSnap.IsSet())
 		{
 			continue;
 		}
 
-		float ThisSnapDelta = ThisSnap.GetValue() - Time;
+		FFrameNumber ThisSnapDelta = ThisSnap.GetValue() - Time;
 		if (!ProspectiveSnap.IsSet() || FMath::Abs(ThisSnapDelta) < FMath::Abs(SnapDelta))
 		{
 			ProspectiveSnap = FSnapResult{ Time, ThisSnap.GetValue() };

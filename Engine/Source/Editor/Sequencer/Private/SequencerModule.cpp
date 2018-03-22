@@ -15,8 +15,12 @@
 #include "IDetailKeyframeHandler.h"
 #include "AnimatedPropertyKey.h"
 
-
 #define LOCTEXT_NAMESPACE "SequencerEditor"
+
+// Destructor defined in CPP to avoid having to #include SequencerChannelInterface.h in the main module definition
+ISequencerModule::~ISequencerModule()
+{
+}
 
 /**
  * SequencerModule implementation (private)
