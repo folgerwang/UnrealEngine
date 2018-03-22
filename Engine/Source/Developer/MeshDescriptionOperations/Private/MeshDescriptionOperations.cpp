@@ -447,15 +447,17 @@ void FMeshDescriptionOperations::ConverFromRawMesh(const struct FRawMesh &Source
 			NewTriangle.SetVertexInstanceID(Corner, VertexInstanceID);
 		}
 	}
-	CreatePolygonNTB(DestinationMeshDescription, 0.0f);
+	DestinationMeshDescription->ComputePolygonTangentsAndNormals(0.0f);
 
-	if (!bHasNormals || !bHasTangents)
+	//Create the missing normals and tangents
+	if (!bHasNormals)
 	{
-		//Create the missing normals and tangents
-		if (!bHasNormals)
-		{
-			CreateNormals(DestinationMeshDescription, ETangentOptions::BlendOverlappingNormals, false);
-		}
+		//CreateNormals(DestinationMeshDescription, ETangentOptions::BlendOverlappingNormals, false);
+		DestinationMeshDescription->ComputeTangentsAndNormals(false, false);
+	}
+
+	if (!bHasTangents)
+	{
 		CreateMikktTangents(DestinationMeshDescription, ETangentOptions::BlendOverlappingNormals);
 	}
 

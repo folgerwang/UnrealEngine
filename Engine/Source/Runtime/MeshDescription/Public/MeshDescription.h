@@ -799,6 +799,16 @@ public:
 	void ComputePolygonTriangulation(const FPolygonID PolygonID, TArray<FMeshTriangle>& OutTriangles);
 	void TriangulateMesh();
 
+	/** Set the polygon tangent and normal only for the specified polygonIDs */
+	void ComputePolygonTangentsAndNormals(const TArray<FPolygonID>& PolygonIDs, float ComparisonThreshold = 0.0f);
+	/** Set the polygon tangent and normal for all polygons in the mesh description. */
+	void ComputePolygonTangentsAndNormals(float ComparisonThreshold = 0.0f);
+	
+	/** Set the vertex instance tangent and normal only for the specified VertexInstanceIDs */
+	void ComputeTangentsAndNormals(const TArray<FVertexInstanceID>& VertexInstanceIDs, bool bComputeTangents, bool bUseWeightedNormals);
+	/** Set the vertex instance tangent and normal for all vertex instances in the mesh description. */
+	void ComputeTangentsAndNormals(bool bComputeTangents, bool bUseWeightedNormals);
+
 	void ReversePolygonFacing(const FPolygonID PolygonID);
 	void ReverseAllPolygonFacing();
 
@@ -808,6 +818,32 @@ private:
 	FPlane ComputePolygonPlane(const FPolygonID PolygonID) const;
 	FVector ComputePolygonNormal(const FPolygonID PolygonID) const;
 
+	float GetPolygonCornerAngleForVertex(const FPolygonID PolygonID, const FVertexID VertexID) const;
+	bool ComputePolygonTangentsAndNormals(
+		  const FPolygonID PolygonID
+		, float ComparisonThreshold
+		, const TVertexAttributeArray<FVector>& VertexPositions
+		, const TVertexInstanceAttributeArray<FVector2D>& VertexUVs
+		, TPolygonAttributeArray<FVector>& PolygonNormals
+		, TPolygonAttributeArray<FVector>& PolygonTangents
+		, TPolygonAttributeArray<FVector>& PolygonBinormals
+		, TPolygonAttributeArray<FVector>& PolygonCenters
+	);
+
+	void GetVertexConnectedPolygonsInSameSoftEdgedGroup(const FVertexID VertexID, const FPolygonID PolygonID, TArray<FPolygonID>& OutPolygonIDs) const;
+	void GetPolygonsInSameSoftEdgedGroupAsPolygon(const FPolygonID PolygonID, const TArray<FPolygonID>& CandidatePolygonIDs, const TArray<FEdgeID>& SoftEdgeIDs, TArray<FPolygonID>& OutPolygonIDs) const;
+	void GetConnectedSoftEdges(const FVertexID VertexID, TArray<FEdgeID>& OutConnectedSoftEdges) const;
+	void ComputeTangentsAndNormals(
+		  const FVertexInstanceID& VertexInstanceID
+		, bool bComputeTangents
+		, bool bUseWeightedNormals
+		, const TPolygonAttributeArray<FVector>& PolygonNormals
+		, const TPolygonAttributeArray<FVector>& PolygonTangents
+		, const TPolygonAttributeArray<FVector>& PolygonBinormals
+		, TVertexInstanceAttributeArray<FVector>& VertexNormals
+		, TVertexInstanceAttributeArray<FVector>& VertexTangents
+		, TVertexInstanceAttributeArray<float>& VertexBinormalSigns
+	);
 private:
 
 	/** Given a set of index remappings, fixes up references to element IDs */
