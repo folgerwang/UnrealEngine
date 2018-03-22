@@ -2519,7 +2519,6 @@ static FStaticMeshRenderData& GetPlatformStaticMeshRenderData(UStaticMesh* Mesh,
 	return *PlatformRenderData;
 }
 
-#if WITH_EDITORONLY_DATA
 
 /**
  * Registers the mesh attributes required by the mesh description for a static mesh.
@@ -2552,6 +2551,9 @@ void UStaticMesh::RegisterMeshAttributes( UMeshDescription* MeshDescription )
 	MeshDescription->PolygonGroupAttributes().RegisterAttribute<bool>( MeshAttribute::PolygonGroup::EnableCollision ); //Deprecated
 	MeshDescription->PolygonGroupAttributes().RegisterAttribute<bool>( MeshAttribute::PolygonGroup::CastShadow ); //Deprecated
 }
+
+
+#if WITH_EDITORONLY_DATA
 
 UMeshDescription* UStaticMesh::GetMeshDescription(int32 LodIndex) const
 {
