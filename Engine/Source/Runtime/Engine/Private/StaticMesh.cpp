@@ -2488,38 +2488,6 @@ void FMeshSectionInfoMap::Serialize(FArchive& Ar)
 
 #endif // #if WITH_EDITORONLY_DATA
 
-#if WITH_EDITOR
-static FStaticMeshRenderData& GetPlatformStaticMeshRenderData(UStaticMesh* Mesh, const ITargetPlatform* Platform)
-{
-	check(Mesh && Mesh->RenderData);
-	const FStaticMeshLODSettings& PlatformLODSettings = Platform->GetStaticMeshLODSettings();
-	FString PlatformDerivedDataKey = BuildStaticMeshDerivedDataKey(Mesh, PlatformLODSettings.GetLODGroup(Mesh->LODGroup));
-	FStaticMeshRenderData* PlatformRenderData = Mesh->RenderData.Get();
-
-	if (Mesh->GetOutermost()->HasAnyPackageFlags(PKG_FilterEditorOnly))
-	{
-		check(PlatformRenderData);
-		return *PlatformRenderData;
-	}
-
-	while (PlatformRenderData && PlatformRenderData->DerivedDataKey != PlatformDerivedDataKey)
-	{
-		PlatformRenderData = PlatformRenderData->NextCachedRenderData.Get();
-	}
-	if (PlatformRenderData == NULL)
-	{
-		// Cache render data for this platform and insert it in to the linked list.
-		PlatformRenderData = new FStaticMeshRenderData();
-		PlatformRenderData->Cache(Mesh, PlatformLODSettings);
-		check(PlatformRenderData->DerivedDataKey == PlatformDerivedDataKey);
-		Swap(PlatformRenderData->NextCachedRenderData, Mesh->RenderData->NextCachedRenderData);
-		Mesh->RenderData->NextCachedRenderData = TUniquePtr<FStaticMeshRenderData>(PlatformRenderData);
-	}
-	check(PlatformRenderData);
-	return *PlatformRenderData;
-}
-
-
 /**
  * Registers the mesh attributes required by the mesh description for a static mesh.
  */
@@ -2550,6 +2518,38 @@ void UStaticMesh::RegisterMeshAttributes( UMeshDescription* MeshDescription )
 	MeshDescription->PolygonGroupAttributes().RegisterAttribute<FName>( MeshAttribute::PolygonGroup::ImportedMaterialSlotName ); //The unique key to match the mesh material slot
 	MeshDescription->PolygonGroupAttributes().RegisterAttribute<bool>( MeshAttribute::PolygonGroup::EnableCollision ); //Deprecated
 	MeshDescription->PolygonGroupAttributes().RegisterAttribute<bool>( MeshAttribute::PolygonGroup::CastShadow ); //Deprecated
+}
+
+
+#if WITH_EDITOR
+static FStaticMeshRenderData& GetPlatformStaticMeshRenderData(UStaticMesh* Mesh, const ITargetPlatform* Platform)
+{
+	check(Mesh && Mesh->RenderData);
+	const FStaticMeshLODSettings& PlatformLODSettings = Platform->GetStaticMeshLODSettings();
+	FString PlatformDerivedDataKey = BuildStaticMeshDerivedDataKey(Mesh, PlatformLODSettings.GetLODGroup(Mesh->LODGroup));
+	FStaticMeshRenderData* PlatformRenderData = Mesh->RenderData.Get();
+
+	if (Mesh->GetOutermost()->HasAnyPackageFlags(PKG_FilterEditorOnly))
+	{
+		check(PlatformRenderData);
+		return *PlatformRenderData;
+	}
+
+	while (PlatformRenderData && PlatformRenderData->DerivedDataKey != PlatformDerivedDataKey)
+	{
+		PlatformRenderData = PlatformRenderData->NextCachedRenderData.Get();
+	}
+	if (PlatformRenderData == NULL)
+	{
+		// Cache render data for this platform and insert it in to the linked list.
+		PlatformRenderData = new FStaticMeshRenderData();
+		PlatformRenderData->Cache(Mesh, PlatformLODSettings);
+		check(PlatformRenderData->DerivedDataKey == PlatformDerivedDataKey);
+		Swap(PlatformRenderData->NextCachedRenderData, Mesh->RenderData->NextCachedRenderData);
+		Mesh->RenderData->NextCachedRenderData = TUniquePtr<FStaticMeshRenderData>(PlatformRenderData);
+	}
+	check(PlatformRenderData);
+	return *PlatformRenderData;
 }
 
 
