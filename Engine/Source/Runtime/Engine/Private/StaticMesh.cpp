@@ -40,11 +40,11 @@
 #include "Model.h"
 #include "SplineMeshSceneProxy.h"
 #include "Templates/UniquePtr.h"
+#include "MeshDescription.h"
 
 #if WITH_EDITOR
 #include "RawMesh.h"
 #include "Settings/EditorExperimentalSettings.h"
-#include "MeshDescription.h"
 #include "MeshAttributes.h"
 #include "MeshBuilder.h"
 #include "MeshUtilities.h"
