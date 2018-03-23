@@ -7,6 +7,7 @@
 #pragma once
 
 #include "CoreTypes.h"
+#include "Unix/UnixSystemIncludes.h"
 #include "Misc/AssertionMacros.h"
 #include "GenericPlatform/GenericPlatformTLS.h"
 

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+
 #define VULKAN_HAS_PHYSICAL_DEVICE_PROPERTIES2		1
 #define VULKAN_COMMANDWRAPPERS_ENABLE				0
 #define VULKAN_DYNAMICALLYLOADED					1

@@ -5,6 +5,8 @@
 #define VK_NO_PROTOTYPES
 #include <vulkan.h>
 
+#include "CoreMinimal.h"
+
 // List all base Vulkan entry points used by Unreal that need to be loaded manually
 #define ENUM_VK_ENTRYPOINTS_BASE(EnumMacro) \
 	EnumMacro(PFN_vkCreateInstance, vkCreateInstance) \
