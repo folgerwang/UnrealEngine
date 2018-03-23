@@ -230,6 +230,15 @@ using FEdgeArray = TMeshElementArray<FMeshEdge, FEdgeID>;
 using FPolygonArray = TMeshElementArray<FMeshPolygon, FPolygonID>;
 using FPolygonGroupArray = TMeshElementArray<FMeshPolygonGroup, FPolygonGroupID>;
 
+UENUM()
+enum class EComputeNTBsOptions : uint32
+{
+	None = 0x00000000,	// No flags
+	Normals = 0x00000001, //Compute the normals
+	Tangents = 0x00000002, //Compute the tangents
+	WeightedNTBs = 0x00000004, //Use weight angle when computing NTBs to proportionally distribute the vertex instance contribution to the normal/tangent/binormal in a smooth group.    i.e. Weight solve the cylinder problem
+};
+ENUM_CLASS_FLAGS(EComputeNTBsOptions);
 
 #define MESHDESCRIPTION_VER TEXT("264A91765090413DA61FE2A819147655")
 
@@ -805,9 +814,9 @@ public:
 	void ComputePolygonTangentsAndNormals(float ComparisonThreshold = 0.0f);
 	
 	/** Set the vertex instance tangent and normal only for the specified VertexInstanceIDs */
-	void ComputeTangentsAndNormals(const TArray<FVertexInstanceID>& VertexInstanceIDs, bool bComputeTangents, bool bUseWeightedNormals);
+	void ComputeTangentsAndNormals(const TArray<FVertexInstanceID>& VertexInstanceIDs, EComputeNTBsOptions ComputeNTBsOptions);
 	/** Set the vertex instance tangent and normal for all vertex instances in the mesh description. */
-	void ComputeTangentsAndNormals(bool bComputeTangents, bool bUseWeightedNormals);
+	void ComputeTangentsAndNormals(EComputeNTBsOptions ComputeNTBsOptions);
 
 	void ReversePolygonFacing(const FPolygonID PolygonID);
 	void ReverseAllPolygonFacing();
@@ -835,8 +844,7 @@ private:
 	void GetConnectedSoftEdges(const FVertexID VertexID, TArray<FEdgeID>& OutConnectedSoftEdges) const;
 	void ComputeTangentsAndNormals(
 		  const FVertexInstanceID& VertexInstanceID
-		, bool bComputeTangents
-		, bool bUseWeightedNormals
+		, EComputeNTBsOptions ComputeNTBsOptions
 		, const TPolygonAttributeArray<FVector>& PolygonNormals
 		, const TPolygonAttributeArray<FVector>& PolygonTangents
 		, const TPolygonAttributeArray<FVector>& PolygonBinormals

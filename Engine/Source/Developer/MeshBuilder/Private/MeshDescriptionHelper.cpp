@@ -98,16 +98,15 @@ UMeshDescription* FMeshDescriptionHelper::GetRenderMeshDescription(UObject* Owne
 		{
 			if (!bHasAllNormals)
 			{
-				//FMeshDescriptionOperations::CreateNormals(RenderMeshDescription, (FMeshDescriptionOperations::ETangentOptions)TangentOptions, false);
-				RenderMeshDescription->ComputeTangentsAndNormals(false, false);
+				EComputeNTBsOptions ComputeNTBsOptions = EComputeNTBsOptions::Normals;
+				RenderMeshDescription->ComputeTangentsAndNormals(ComputeNTBsOptions);
 			}
 			FMeshDescriptionOperations::CreateMikktTangents(RenderMeshDescription, (FMeshDescriptionOperations::ETangentOptions)TangentOptions);
 		}
 		else if(!bHasAllNormals || !bHasAllTangents)
 		{
-			RenderMeshDescription->ComputeTangentsAndNormals(true, false);
-			//Set the compute tangent to true when we do not build using mikkt space
-			//FMeshDescriptionOperations::CreateNormals(RenderMeshDescription, (FMeshDescriptionOperations::ETangentOptions)TangentOptions, true);
+			EComputeNTBsOptions ComputeNTBsOptions = (bHasAllNormals ? EComputeNTBsOptions::None : EComputeNTBsOptions::Normals) | (bHasAllTangents ? EComputeNTBsOptions::None : EComputeNTBsOptions::Tangents);
+			RenderMeshDescription->ComputeTangentsAndNormals(ComputeNTBsOptions);
 		}
 	}
 

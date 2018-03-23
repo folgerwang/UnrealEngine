@@ -871,8 +871,7 @@ float UMeshDescription::GetPolygonCornerAngleForVertex(const FPolygonID PolygonI
 }
 
 void UMeshDescription::ComputeTangentsAndNormals(const FVertexInstanceID& VertexInstanceID
-	, bool bComputeTangents
-	, bool bUseWeightedNormals
+	, EComputeNTBsOptions ComputeNTBsOptions
 	, const TPolygonAttributeArray<FVector>& PolygonNormals
 	, const TPolygonAttributeArray<FVector>& PolygonTangents
 	, const TPolygonAttributeArray<FVector>& PolygonBinormals
@@ -880,6 +879,10 @@ void UMeshDescription::ComputeTangentsAndNormals(const FVertexInstanceID& Vertex
 	, TVertexInstanceAttributeArray<FVector>& VertexTangents
 	, TVertexInstanceAttributeArray<float>& VertexBinormalSigns)
 {
+	bool bComputeNormals = !!(ComputeNTBsOptions & EComputeNTBsOptions::Normals);
+	bool bComputeTangents = !!(ComputeNTBsOptions & EComputeNTBsOptions::Tangents);
+	bool bUseWeightedNormals = !!(ComputeNTBsOptions & EComputeNTBsOptions::WeightedNTBs);
+
 	FVector Normal = FVector::ZeroVector;
 	FVector Tangent = FVector::ZeroVector;
 	FVector Binormal = FVector::ZeroVector;
@@ -888,7 +891,7 @@ void UMeshDescription::ComputeTangentsAndNormals(const FVertexInstanceID& Vertex
 	FVector& TangentRef = VertexTangents[VertexInstanceID];
 	float& BinormalRef = VertexBinormalSigns[VertexInstanceID];
 
-	if (!NormalRef.IsNearlyZero() && !TangentRef.IsNearlyZero() && !FMath::IsNearlyZero(BinormalRef))
+	if (!bComputeNormals && !bComputeTangents)
 	{
 		//Nothing to compute
 		return;
@@ -896,30 +899,57 @@ void UMeshDescription::ComputeTangentsAndNormals(const FVertexInstanceID& Vertex
 
 	const FVertexID VertexID = GetVertexInstanceVertex(VertexInstanceID);
 
-	// Get all polygons connected to this vertex instance, and also any in the same smoothing group connected to a different vertex instance
-	// (as they still have influence over the normal).
-	static TArray<FPolygonID> AllConnectedPolygons;
-	const TArray<FPolygonID>& VertexInstanceConnectedPolygons = GetVertexInstanceConnectedPolygons(VertexInstanceID);
-	check(VertexInstanceConnectedPolygons.Num() > 0);
-	GetVertexConnectedPolygonsInSameSoftEdgedGroup(VertexID, VertexInstanceConnectedPolygons[0], AllConnectedPolygons);
-
-	// The vertex instance normal is computed as a sum of all connected polygons' normals, weighted by the angle they make with the vertex
-	for (const FPolygonID ConnectedPolygonID : AllConnectedPolygons)
+	if (bComputeNormals || NormalRef.IsNearlyZero())
 	{
-		const float Angle = bUseWeightedNormals ? GetPolygonCornerAngleForVertex(ConnectedPolygonID, VertexID) : 1.0f;
-
-		Normal += PolygonNormals[ConnectedPolygonID] * Angle;
-
-		// If this polygon is actually connected to the vertex instance we're processing, also include its contributions towards the tangent
-		if (VertexInstanceConnectedPolygons.Contains(ConnectedPolygonID))
+		// Get all polygons connected to this vertex instance
+		static TArray<FPolygonID> AllConnectedPolygons;
+		const TArray<FPolygonID>& VertexInstanceConnectedPolygons = GetVertexInstanceConnectedPolygons(VertexInstanceID);
+		check(VertexInstanceConnectedPolygons.Num() > 0);
+		// Add also any in the same smoothing group connected to a different vertex instance
+		// (as they still have influence over the normal).
+		GetVertexConnectedPolygonsInSameSoftEdgedGroup(VertexID, VertexInstanceConnectedPolygons[0], AllConnectedPolygons);
+		// The vertex instance normal is computed as a sum of all connected polygons' normals, weighted by the angle they make with the vertex
+		for (const FPolygonID ConnectedPolygonID : AllConnectedPolygons)
 		{
-			Tangent += PolygonTangents[ConnectedPolygonID] * Angle;
-			Binormal += PolygonBinormals[ConnectedPolygonID] * Angle;
+			const float Angle = bUseWeightedNormals ? GetPolygonCornerAngleForVertex(ConnectedPolygonID, VertexID) : 1.0f;
+
+			Normal += PolygonNormals[ConnectedPolygonID] * Angle;
+
+			// If this polygon is actually connected to the vertex instance we're processing, also include its contributions towards the tangent
+			if (VertexInstanceConnectedPolygons.Contains(ConnectedPolygonID))
+			{
+				Tangent += PolygonTangents[ConnectedPolygonID] * Angle;
+				Binormal += PolygonBinormals[ConnectedPolygonID] * Angle;
+			}
+		}
+		// Normalize Normal
+		Normal = Normal.GetSafeNormal();
+	}
+	else
+	{
+		//We use existing normals so just use all polygons having a vertex instance at the same location sharing the same normals
+		Normal = NormalRef;
+		TArray<FVertexInstanceID> VertexInstanceIDs = GetVertexVertexInstances(VertexID);
+		for (const FVertexInstanceID& ConnectedVertexInstanceID : VertexInstanceIDs)
+		{
+			if (ConnectedVertexInstanceID != VertexInstanceID && !VertexNormals[ConnectedVertexInstanceID].Equals(Normal))
+			{
+				continue;
+			}
+
+			const TArray<FPolygonID>& ConnectedPolygons = GetVertexInstanceConnectedPolygons(ConnectedVertexInstanceID);
+			for (const FPolygonID ConnectedPolygonID : ConnectedPolygons)
+			{
+				const float Angle = bUseWeightedNormals ? GetPolygonCornerAngleForVertex(ConnectedPolygonID, VertexID) : 1.0f;
+
+				// If this polygon is actually connected to the vertex instance we're processing, also include its contributions towards the tangent
+				Tangent += PolygonTangents[ConnectedPolygonID] * Angle;
+				Binormal += PolygonBinormals[ConnectedPolygonID] * Angle;
+			}
 		}
 	}
-
-	// Normalize Normal
-	Normal = Normal.GetSafeNormal();
+	
+	
 	float BinormalSign = 1.0f;
 	if (bComputeTangents)
 	{
@@ -949,7 +979,7 @@ void UMeshDescription::ComputeTangentsAndNormals(const FVertexInstanceID& Vertex
 	}
 }
 
-void UMeshDescription::ComputeTangentsAndNormals(const TArray<FVertexInstanceID>& VertexInstanceIDs, bool bComputeTangents, bool bUseWeightedNormals)
+void UMeshDescription::ComputeTangentsAndNormals(const TArray<FVertexInstanceID>& VertexInstanceIDs, EComputeNTBsOptions ComputeNTBsOptions)
 {
 	const TPolygonAttributeArray<FVector>& PolygonNormals = PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Normal);
 	const TPolygonAttributeArray<FVector>& PolygonTangents = PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Tangent);
@@ -961,11 +991,11 @@ void UMeshDescription::ComputeTangentsAndNormals(const TArray<FVertexInstanceID>
 
 	for (const FVertexInstanceID VertexInstanceID : VertexInstanceIDs)
 	{
-		ComputeTangentsAndNormals(VertexInstanceID, bComputeTangents, bUseWeightedNormals, PolygonNormals, PolygonTangents, PolygonBinormals, VertexNormals, VertexTangents, VertexBinormalSigns);
+		ComputeTangentsAndNormals(VertexInstanceID, ComputeNTBsOptions, PolygonNormals, PolygonTangents, PolygonBinormals, VertexNormals, VertexTangents, VertexBinormalSigns);
 	}
 }
 
-void UMeshDescription::ComputeTangentsAndNormals(bool bComputeTangents, bool bUseWeightedNormals)
+void UMeshDescription::ComputeTangentsAndNormals(EComputeNTBsOptions ComputeNTBsOptions)
 {
 	const TPolygonAttributeArray<FVector>& PolygonNormals = PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Normal);
 	const TPolygonAttributeArray<FVector>& PolygonTangents = PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Tangent);
@@ -977,7 +1007,7 @@ void UMeshDescription::ComputeTangentsAndNormals(bool bComputeTangents, bool bUs
 
 	for (const FVertexInstanceID VertexInstanceID : VertexInstances().GetElementIDs())
 	{
-		ComputeTangentsAndNormals(VertexInstanceID, bComputeTangents, bUseWeightedNormals, PolygonNormals, PolygonTangents, PolygonBinormals, VertexNormals, VertexTangents, VertexBinormalSigns);
+		ComputeTangentsAndNormals(VertexInstanceID, ComputeNTBsOptions, PolygonNormals, PolygonTangents, PolygonBinormals, VertexNormals, VertexTangents, VertexBinormalSigns);
 	}
 }
 
