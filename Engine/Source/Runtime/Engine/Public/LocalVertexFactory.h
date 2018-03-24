@@ -46,7 +46,7 @@ public:
 		OutEnvironment.SetDefine(TEXT("VF_SUPPORTS_SPEEDTREE_WIND"),TEXT("1"));
 
 		const bool ContainsManualVertexFetch = OutEnvironment.GetDefinitions().Contains("MANUAL_VERTEX_FETCH");
-		if (!ContainsManualVertexFetch && !IsMobileOpenGlPlatform(Platform) && (!IsMetalPlatform(Platform) || (!IsMobilePlatform(Platform) && RHIGetShaderLanguageVersion(Platform) >= 2)))
+		if (!ContainsManualVertexFetch && RHISupportsManualVertexFetch(Platform))
 		{
 			OutEnvironment.SetDefine(TEXT("MANUAL_VERTEX_FETCH"), TEXT("1"));
 		}
@@ -65,7 +65,6 @@ public:
 
 	// FRenderResource interface.
 	virtual void InitRHI() override;
-	virtual void ReleaseRHI() override;
 
 
 	static bool SupportsTessellationShaders() { return true; }

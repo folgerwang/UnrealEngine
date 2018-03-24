@@ -283,48 +283,48 @@ public:
 
 	void CreateGLBuffer(const void *InData, const GLuint ResourceToUse, const uint32 ResourceSize)
 	{
-		VERIFY_GL_SCOPE();
+			VERIFY_GL_SCOPE();
 		uint32 InSize = BaseType::GetSize();
-		RealSize = ResourceSize ? ResourceSize : InSize;
-		if( ResourceToUse )
-		{
-			Resource = ResourceToUse;
-			check( Type != GL_UNIFORM_BUFFER || !IsUniformBufferBound(Resource) );
-			Bind();
-			FOpenGL::BufferSubData(Type, 0, InSize, InData);
-		}
-		else
-		{
-			if (BaseType::GLSupportsType())
+			RealSize = ResourceSize ? ResourceSize : InSize;
+			if( ResourceToUse )
 			{
-				FOpenGL::GenBuffers(1, &Resource);
+				Resource = ResourceToUse;
 				check( Type != GL_UNIFORM_BUFFER || !IsUniformBufferBound(Resource) );
 				Bind();
-#if !RESTRICT_SUBDATA_SIZE
-				if( InData == NULL || RealSize <= InSize )
-				{
-					glBufferData(Type, RealSize, InData, GetAccess());
-				}
-				else
-				{
-					glBufferData(Type, RealSize, NULL, GetAccess());
-					FOpenGL::BufferSubData(Type, 0, InSize, InData);
-				}
-#else
-				glBufferData(Type, RealSize, NULL, GetAccess());
-				if ( InData != NULL )
-				{
-					LoadData( 0, FMath::Min<uint32>(InSize,RealSize), InData);
-				}
-#endif
-				IncrementBufferMemory(Type, BaseType::IsStructuredBuffer(), RealSize);
+				FOpenGL::BufferSubData(Type, 0, InSize, InData);
 			}
 			else
 			{
-				BaseType::CreateType(Resource, InData, InSize);
+				if (BaseType::GLSupportsType())
+				{
+					FOpenGL::GenBuffers(1, &Resource);
+					check( Type != GL_UNIFORM_BUFFER || !IsUniformBufferBound(Resource) );
+					Bind();
+#if !RESTRICT_SUBDATA_SIZE
+					if( InData == NULL || RealSize <= InSize )
+					{
+						glBufferData(Type, RealSize, InData, GetAccess());
+					}
+					else
+					{
+						glBufferData(Type, RealSize, NULL, GetAccess());
+						FOpenGL::BufferSubData(Type, 0, InSize, InData);
+					}
+#else
+					glBufferData(Type, RealSize, NULL, GetAccess());
+					if ( InData != NULL )
+					{
+						LoadData( 0, FMath::Min<uint32>(InSize,RealSize), InData);
+					}
+#endif
+					IncrementBufferMemory(Type, BaseType::IsStructuredBuffer(), RealSize);
+				}
+				else
+				{
+					BaseType::CreateType(Resource, InData, InSize);
+				}
 			}
 		}
-	}
 
 	virtual ~TOpenGLBuffer()
 	{
@@ -335,22 +335,22 @@ public:
 		{
 			auto DeleteGLResources = [Resource=Resource, RealSize= RealSize, bStreamDraw= (bool)bStreamDraw, LockBuffer = LockBuffer, bLockBufferWasAllocated=bLockBufferWasAllocated]()
 			{
-				VERIFY_GL_SCOPE();
+		VERIFY_GL_SCOPE();
 				if (BaseType::OnDelete(Resource, RealSize, bStreamDraw, 0))
-				{
-					FOpenGL::DeleteBuffers(1, &Resource);
-				}
-				if (LockBuffer != NULL)
-				{
-					if (bLockBufferWasAllocated)
-					{
-						FMemory::Free(LockBuffer);
-					}
-					else
-					{
+		{
+			FOpenGL::DeleteBuffers(1, &Resource);
+		}
+		if (LockBuffer != NULL)
+		{
+			if (bLockBufferWasAllocated)
+			{
+				FMemory::Free(LockBuffer);
+			}
+			else
+			{
 				UE_LOG(LogRHI,Warning,TEXT("Destroying TOpenGLBuffer without returning memory to the driver; possibly called RHIMapStagingSurface() but didn't call RHIUnmapStagingSurface()? Resource %u"), Resource);
-					}
-				}
+			}
+		}
 			};
 
 			RunOnGLRenderContextThread(MoveTemp(DeleteGLResources));
@@ -1046,6 +1046,7 @@ public:
 	, SRVResource( 0 )
 	, MemorySize( 0 )
 	, bIsPowerOfTwo(false)
+	, bIsAliased(false)
 	{}
 
 	int32 GetMemorySize() const
@@ -1068,6 +1069,16 @@ public:
 		return bIsPowerOfTwo != 0;
 	}
 
+	void SetAliased(const bool bInAliased)
+	{
+		bIsAliased = bInAliased ? 1 : 0;
+	}
+
+	bool IsAliased() const
+	{
+		return bIsAliased != 0;
+	}
+
 #if PLATFORM_ANDROIDESDEFERRED // Flithy hack to workaround radr://16011763
 	GLuint GetOpenGLFramebuffer(uint32 ArrayIndices, uint32 MipmapLevels);
 #endif
@@ -1076,6 +1087,7 @@ public:
 	{
 		Resource = Texture->Resource;
 		SRVResource = Texture->SRVResource;
+		bIsAliased = 1;
 	}
 
 	FOpenGLAssertRHIThreadFence CreationFence;
@@ -1083,6 +1095,7 @@ public:
 private:
 	uint32 MemorySize		: 31;
 	uint32 bIsPowerOfTwo	: 1;
+	uint32 bIsAliased : 1;
 };
 
 // Textures.
@@ -1198,50 +1211,55 @@ public:
 
 			OpenGLTextureDeleted(this);
 
-			auto DeleteGLResources = [OpenGLRHI= OpenGLRHI, Resource=Resource, SRVResource= SRVResource, Target= Target, Flags= this->GetFlags(), TextureRange= TextureRange]()
+			bool bIsAliasedCopy = IsAliased();
+
+			auto DeleteGLResources = [OpenGLRHI= OpenGLRHI, Resource=Resource, SRVResource= SRVResource, Target= Target, Flags= this->GetFlags(), TextureRange= TextureRange, bIsAliasedCopy]()
 			{
 				VERIFY_GL_SCOPE();
-				if (Resource != 0)
-				{
-					switch (Target)
-					{
-						case GL_TEXTURE_2D:
-						case GL_TEXTURE_2D_MULTISAMPLE:
-						case GL_TEXTURE_3D:
-						case GL_TEXTURE_CUBE_MAP:
-						case GL_TEXTURE_2D_ARRAY:
-						case GL_TEXTURE_CUBE_MAP_ARRAY:
-				#if PLATFORM_ANDROID
-						case GL_TEXTURE_EXTERNAL_OES:
-				#endif
-						{
-							OpenGLRHI->InvalidateTextureResourceInCache(Resource);
-							if (SRVResource)
-							{
-								OpenGLRHI->InvalidateTextureResourceInCache(SRVResource);
-							}
-
-							FOpenGL::DeleteTextures(1, &Resource);
-							if (SRVResource)
-							{
-								FOpenGL::DeleteTextures(1, &SRVResource);
-							}
-							break;
-						}
-						case GL_RENDERBUFFER:
-						{
-							if (!(Flags & TexCreate_Presentable))
-							{
-								glDeleteRenderbuffers(1, &Resource);
-							}
-							break;
-						}
-						default:
-						{
-							checkNoEntry();
-						}
-					}
-				}
+			    if (Resource != 0)
+			    {
+				    switch (Target)
+				    {
+					    case GL_TEXTURE_2D:
+					    case GL_TEXTURE_2D_MULTISAMPLE:
+					    case GL_TEXTURE_3D:
+					    case GL_TEXTURE_CUBE_MAP:
+					    case GL_TEXTURE_2D_ARRAY:
+					    case GL_TEXTURE_CUBE_MAP_ARRAY:
+    #if PLATFORM_ANDROID
+					    case GL_TEXTURE_EXTERNAL_OES:
+    #endif
+					    {
+						    OpenGLRHI->InvalidateTextureResourceInCache(Resource);
+						    if (SRVResource)
+						    {
+							    OpenGLRHI->InvalidateTextureResourceInCache(SRVResource);
+						    }
+    
+						    if (!bIsAliasedCopy)
+						    {
+						        FOpenGL::DeleteTextures(1, &Resource);
+						        if (SRVResource)
+						        {
+							        FOpenGL::DeleteTextures(1, &SRVResource);
+						        }
+						    }
+						    break;
+					    }
+					    case GL_RENDERBUFFER:
+					    {
+						    if (!(Flags & TexCreate_Presentable))
+						    {
+							    glDeleteRenderbuffers(1, &Resource);
+						    }
+						    break;
+					    }
+					    default:
+					    {
+						    checkNoEntry();
+					    }
+				    }
+			    }
 			};
 
 			RunOnGLRenderContextThread(MoveTemp(DeleteGLResources));

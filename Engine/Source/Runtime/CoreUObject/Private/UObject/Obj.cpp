@@ -1395,7 +1395,8 @@ public:
 	{
 		if( !ReferencingObject->GetClass()->IsChildOf(UClass::StaticClass()) )
 		{
-			ReferencingObject->SerializeScriptProperties(GetVerySlowReferenceCollectorArchive());
+			FVerySlowReferenceCollectorArchiveScope CollectorScope(GetVerySlowReferenceCollectorArchive(), ReferencingObject);
+			ReferencingObject->SerializeScriptProperties(CollectorScope.GetArchive());
 		}
 		// CallAddReferencedObjects doesn't modify the object with FSubobjectReferenceFinder passed in as parameter but may modify when called by GC
 		UObject* MutableReferencingObject = const_cast<UObject*>(ReferencingObject);
@@ -1437,7 +1438,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogCheckSubobjects, Fatal, All);
 	if (!(Pred)) \
 	{ \
 		Result = false; \
-		FPlatformMisc::DebugBreak(); \
+		UE_DEBUG_BREAK(); \
 		UE_LOG(LogCheckSubobjects, Log, TEXT("CompCheck %s failed."), TEXT(#Pred)); \
 	} 
 

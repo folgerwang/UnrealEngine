@@ -1,5 +1,5 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-// ...............
+// .
 
 #include "CoreMinimal.h"
 #include "MetalShaderFormat.h"
@@ -69,6 +69,21 @@ bool IsRemoteBuildingConfigured(const FShaderCompilerEnvironment* InEnvironment)
 			{
 				return false;
 			}
+		}
+
+		bool bUsingXGE = false;
+		GConfig->GetBool(TEXT("/Script/UnrealEd.UnrealEdOptions"), TEXT("UsingXGE"), bUsingXGE, GEditorIni);
+		if (bUsingXGE)
+		{
+			if (!GMetalLoggedRemoteCompileNotConfigured)
+			{
+				if (!PLATFORM_MAC || UNIXLIKE_TO_MAC_REMOTE_BUILDING)
+				{
+					UE_LOG(LogMetalShaderCompiler, Warning, TEXT("Remote shader compilation cannot be used with XGE interface (is this a Launch-on build? try to pre-cook shaders to speed up loading times)."));
+				}
+				GMetalLoggedRemoteCompileNotConfigured = true;
+			}
+			return false;
 		}
 
 		GRemoteBuildServerHost = "";
@@ -141,6 +156,7 @@ bool IsRemoteBuildingConfigured(const FShaderCompilerEnvironment* InEnvironment)
 		{
 			GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("SSHPrivateKeyOverridePath"), GRemoteBuildServerSSHKey, GEngineIni);
 
+			GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("SSHPrivateKeyOverridePath"), GRemoteBuildServerSSHKey, GEngineIni);
 			if (GRemoteBuildServerSSHKey.Len() == 0)
 			{
 				if (!FParse::Value(FCommandLine::Get(), TEXT("serverkey"), GRemoteBuildServerSSHKey) && GRemoteBuildServerSSHKey.Len() == 0)
@@ -211,7 +227,6 @@ bool IsRemoteBuildingConfigured(const FShaderCompilerEnvironment* InEnvironment)
 		GRSyncPath = FPaths::Combine(*DeltaCopyPath, TEXT("rsync.exe"));
 
 	#endif
-		UE_LOG(LogMetalShaderCompiler, Warning, TEXT("Remote Building host: '%s'"), *GRemoteBuildServerHost);
 		FString XcodePath = GetXcodePath();
 		if (XcodePath.Len() <= 0)
 		{
@@ -219,7 +234,7 @@ bool IsRemoteBuildingConfigured(const FShaderCompilerEnvironment* InEnvironment)
 			{
 				if (!PLATFORM_MAC || UNIXLIKE_TO_MAC_REMOTE_BUILDING)
 				{
-					UE_LOG(LogMetalShaderCompiler, Warning, TEXT("Remote Building is not configured: SSH run test failed."));
+					UE_LOG(LogMetalShaderCompiler, Warning, TEXT("Connection could not be established for remote shader compilation. Check your configuration and the connection to the remote server."));
 				}
 				GMetalLoggedRemoteCompileNotConfigured = true;
 			}
@@ -239,6 +254,38 @@ static bool CompileProcessAllowsRuntimeShaderCompiling(const FShaderCompilerInpu
     return !bArchiving && bDebug;
 }
 
+static bool ExecProcess(const TCHAR* Command, const TCHAR* Params, int32* OutReturnCode, FString* OutStdOut, FString* OutStdErr)
+{
+#if PLATFORM_MAC && !UNIXLIKE_TO_MAC_REMOTE_BUILDING
+	return FPlatformProcess::ExecProcess(Command, Params, OutReturnCode, OutStdOut, OutStdErr);
+#else
+	void* ReadPipe = nullptr, *WritePipe = nullptr;
+	FPlatformProcess::CreatePipe(ReadPipe, WritePipe);
+	FProcHandle Proc;
+
+	Proc = FPlatformProcess::CreateProc(Command, Params, true, true, true, NULL, -1, NULL, WritePipe);
+
+	if (!Proc.IsValid())
+	{
+		return false;
+	}
+
+	// Wait for the process to complete
+	int32 ReturnCode = 0;
+	FPlatformProcess::WaitForProc(Proc);
+	FPlatformProcess::GetProcReturnCode(Proc, &ReturnCode);
+
+	*OutStdOut = FPlatformProcess::ReadPipe(ReadPipe);
+	FPlatformProcess::ClosePipe(ReadPipe, WritePipe);
+	FPlatformProcess::CloseProc(Proc);
+	if (OutReturnCode)
+		*OutReturnCode = ReturnCode;
+
+	// Did it work?
+	return (ReturnCode == 0);
+#endif
+}
+
 bool ExecRemoteProcess(const TCHAR* Command, const TCHAR* Params, int32* OutReturnCode, FString* OutStdOut, FString* OutStdErr)
 {
 #if PLATFORM_MAC && !UNIXLIKE_TO_MAC_REMOTE_BUILDING
@@ -250,7 +297,8 @@ bool ExecRemoteProcess(const TCHAR* Command, const TCHAR* Params, int32* OutRetu
 	}
 
 	FString CmdLine = FString(TEXT("-i \"")) + GRemoteBuildServerSSHKey + TEXT("\" \"") + GRemoteBuildServerUser + '@' + GRemoteBuildServerHost + TEXT("\" ") + Command + TEXT(" ") + (Params != nullptr ? Params : TEXT(""));
-	return FPlatformProcess::ExecProcess(*GSSHPath, *CmdLine, OutReturnCode, OutStdOut, OutStdErr);
+	return ExecProcess(*GSSHPath, *CmdLine, OutReturnCode, OutStdOut, OutStdErr);
+
 #endif
 }
 
@@ -387,7 +435,7 @@ bool CopyLocalFileToRemote(FString const& LocalPath, FString const& RemotePath)
 
 	int32	returnCode;
 	FString	stdOut, stdErr;
-	return (FPlatformProcess::ExecProcess(*GRSyncPath, *params, &returnCode, &stdOut, &stdErr) && returnCode == 0);
+	return ExecProcess(*GRSyncPath, *params, &returnCode, &stdOut, &stdErr);
 #endif
 }
 
@@ -416,7 +464,7 @@ bool CopyRemoteFileToLocal(FString const& RemotePath, FString const& LocalPath)
 
 	int32	returnCode;
 	FString	stdOut, stdErr;
-	return (FPlatformProcess::ExecProcess(*GRSyncPath, *params, &returnCode, &stdOut, &stdErr) && returnCode == 0);
+	return ExecProcess(*GRSyncPath, *params, &returnCode, &stdOut, &stdErr);
 #endif
 }
 
@@ -2079,7 +2127,7 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
 	}
 
 	// Write out the preprocessed file and a batch file to compile it if requested (DumpDebugInfoPath is valid)
-	if (bDumpDebugInfo)
+	if (bDumpDebugInfo && !bDirectCompile)
 	{
 		FArchive* FileWriter = IFileManager::Get().CreateFileWriter(*(Input.DumpDebugInfoPath / FPaths::GetBaseFilename(Input.GetSourceFilename() + TEXT(".usf"))));
 		if (FileWriter)

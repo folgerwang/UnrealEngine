@@ -80,24 +80,34 @@ FString GetMaterialShaderMapDDCKey()
 // this is for the protocol, not the data, bump if FShaderCompilerInput or ProcessInputFromArchive changes (also search for the second one with the same name, todo: put into one header file)
 const int32 ShaderCompileWorkerInputVersion = 9;
 // this is for the protocol, not the data, bump if FShaderCompilerOutput or WriteToOutputArchive changes (also search for the second one with the same name, todo: put into one header file)
-const int32 ShaderCompileWorkerOutputVersion = 3;
+const int32 ShaderCompileWorkerOutputVersion = 4;
 // this is for the protocol, not the data, bump if FShaderCompilerOutput or WriteToOutputArchive changes (also search for the second one with the same name, todo: put into one header file)
 const int32 ShaderCompileWorkerSingleJobHeader = 'S';
 // this is for the protocol, not the data, bump if FShaderCompilerOutput or WriteToOutputArchive changes (also search for the second one with the same name, todo: put into one header file)
 const int32 ShaderCompileWorkerPipelineJobHeader = 'P';
 
-static void ModalErrorOrLog(const FString& Text)
+static float GRegularWorkerTimeToLive = 20.0f;
+static float GBuildWorkerTimeToLive = 600.0f;
+
+static void ModalErrorOrLog(const FString& Text, int64 CurrentFilePos = 0, int64 ExpectedFileSize = 0)
 {
+	FString BadFile;
+	if (CurrentFilePos > ExpectedFileSize)
+{
+		// Corrupt file
+		BadFile = FString::Printf(TEXT("(Truncated or corrupt output file! Current file pos %lld, file size %lld)"), CurrentFilePos, ExpectedFileSize);
+	}
+
 	if (FPlatformProperties::SupportsWindowedMode())
 	{
-		UE_LOG(LogShaderCompilers, Error, TEXT("%s"), *Text);
+		UE_LOG(LogShaderCompilers, Error, TEXT("%s%s"), *Text, *BadFile);
 		FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(Text));
 		FPlatformMisc::RequestExit(false);
 		return;
 	}
 	else
 	{
-		UE_LOG(LogShaderCompilers, Fatal, TEXT("%s"), *Text);
+		UE_LOG(LogShaderCompilers, Fatal, TEXT("%s%s"), *Text, *BadFile);
 	}
 }
 
@@ -258,6 +268,7 @@ namespace SCWErrorCode
 
 	void HandleGeneralCrash(const TCHAR* ExceptionInfo, const TCHAR* Callstack)
 	{
+		GLog->PanicFlushThreadedLogs();
 		UE_LOG(LogShaderCompilers, Fatal, TEXT("ShaderCompileWorker crashed!\n%s\n\t%s"), ExceptionInfo, Callstack);
 	}
 
@@ -600,6 +611,9 @@ void FShaderCompileUtilities::DoReadTaskResults(const TArray<FShaderCommonCompil
 		ModalErrorOrLog(Text);
 	}
 
+	int64 FileSize = 0;
+	OutputFile << FileSize;
+
 	int32 ErrorCode;
 	OutputFile << ErrorCode;
 
@@ -650,7 +664,6 @@ void FShaderCompileUtilities::DoReadTaskResults(const TArray<FShaderCommonCompil
 					{
 						FShaderCommonCompileJob* CommonJob = QueuedJobs[Index];
 						FShaderCompileJob* SingleJob = CommonJob->GetSingleShaderJob();
-						GLog->Flush();
 						if (SingleJob)
 						{
 							UE_LOG(LogShaderCompilers, Error, TEXT("Job %d [Single] %s"), Index, *DumpSingleJob(SingleJob));
@@ -710,12 +723,17 @@ void FShaderCompileUtilities::DoReadTaskResults(const TArray<FShaderCommonCompil
 		if (SingleJobHeader != ShaderCompileWorkerSingleJobHeader)
 		{
 			FString Text = FString::Printf(TEXT("Expecting ShaderCompilerWorker Single Jobs %d, got %d instead! Forgot to build ShaderCompilerWorker?"), ShaderCompileWorkerSingleJobHeader, SingleJobHeader);
-			ModalErrorOrLog(Text);
+			ModalErrorOrLog(Text, OutputFile.Tell(), FileSize);
 		}
 
 		int32 NumJobs;
 		OutputFile << NumJobs;
-		checkf(NumJobs == QueuedSingleJobs.Num(), TEXT("Worker returned %u single jobs, %u expected"), NumJobs, QueuedSingleJobs.Num());
+		if (NumJobs != QueuedSingleJobs.Num())
+		{
+			FString Text = FString::Printf(TEXT("ShaderCompileWorker returned %u single jobs, %u expected"), NumJobs, QueuedSingleJobs.Num());
+			ModalErrorOrLog(Text, OutputFile.Tell(), FileSize);
+		}
+
 		for (int32 JobIndex = 0; JobIndex < NumJobs; JobIndex++)
 		{
 			auto* CurrentJob = QueuedSingleJobs[JobIndex];
@@ -730,19 +748,27 @@ void FShaderCompileUtilities::DoReadTaskResults(const TArray<FShaderCommonCompil
 		if (PipelineJobHeader != ShaderCompileWorkerPipelineJobHeader)
 		{
 			FString Text = FString::Printf(TEXT("Expecting ShaderCompilerWorker Pipeline Jobs %d, got %d instead! Forgot to build ShaderCompilerWorker?"), ShaderCompileWorkerPipelineJobHeader, PipelineJobHeader);
-			ModalErrorOrLog(Text);
+			ModalErrorOrLog(Text, OutputFile.Tell(), FileSize);
 		}
 
 		int32 NumJobs;
 		OutputFile << NumJobs;
-		checkf(NumJobs == QueuedPipelineJobs.Num(), TEXT("Worker returned %u pipeline jobs, %u expected"), NumJobs, QueuedPipelineJobs.Num());
+		if (NumJobs != QueuedPipelineJobs.Num())
+		{
+			FString Text = FString::Printf(TEXT("Worker returned %u pipeline jobs, %u expected"), NumJobs, QueuedPipelineJobs.Num());
+			ModalErrorOrLog(Text, OutputFile.Tell(), FileSize);
+		}
 		for (int32 JobIndex = 0; JobIndex < NumJobs; JobIndex++)
 		{
 			FShaderPipelineCompileJob* CurrentJob = QueuedPipelineJobs[JobIndex];
 
 			FString PipelineName;
 			OutputFile << PipelineName;
-			checkf(PipelineName == CurrentJob->ShaderPipeline->GetName(), TEXT("Worker returned Pipeline %s, expected %s!"), *PipelineName, CurrentJob->ShaderPipeline->GetName());
+			if (PipelineName != CurrentJob->ShaderPipeline->GetName())
+			{
+				FString Text = FString::Printf(TEXT("Worker returned Pipeline %s, expected %s!"), *PipelineName, CurrentJob->ShaderPipeline->GetName());
+				ModalErrorOrLog(Text, OutputFile.Tell(), FileSize);
+			}
 
 			check(!CurrentJob->bFinalized);
 			CurrentJob->bFinalized = true;
@@ -753,7 +779,11 @@ void FShaderCompileUtilities::DoReadTaskResults(const TArray<FShaderCommonCompil
 
 			if (NumStageJobs != CurrentJob->StageJobs.Num())
 			{
-				checkf(NumJobs == QueuedPipelineJobs.Num(), TEXT("Worker returned %u stage pipeline jobs, %u expected"), NumStageJobs, CurrentJob->StageJobs.Num());
+				if (NumJobs != QueuedPipelineJobs.Num())
+				{
+					FString Text = FString::Printf(TEXT("Worker returned %u stage pipeline jobs, %u expected"), NumStageJobs, CurrentJob->StageJobs.Num());
+					ModalErrorOrLog(Text, OutputFile.Tell(), FileSize);
+				}
 			}
 
 			CurrentJob->bSucceeded = true;
@@ -921,6 +951,7 @@ uint32 FShaderCompileThreadRunnableBase::Run()
 			CompilingLoop();
 		}
 	}
+	UE_LOG(LogShaderCompilers, Display, TEXT("Shaders left to compile 0"));
 
 	return 0;
 }
@@ -958,6 +989,8 @@ int32 FShaderCompileThreadRunnable::PullTasksFromQueue()
 
 				if (Manager->CompileQueue.Num() > 0)
 				{
+					UE_LOG(LogShaderCompilers, Display, TEXT("Shaders left to compile %i"), Manager->CompileQueue.Num());
+
 					bool bAddedLowLatencyTask = false;
 					int32 JobIndex = 0;
 
@@ -1374,6 +1407,7 @@ FShaderCompilingManager* GShaderCompilingManager = NULL;
 FShaderCompilingManager::FShaderCompilingManager() :
 	bCompilingDuringGame(false),
 	NumOutstandingJobs(0),
+	NumExternalJobs(0),
 #if PLATFORM_MAC
 	ShaderCompileWorkerName(TEXT("../../../Engine/Binaries/Mac/ShaderCompileWorker")),
 #elif PLATFORM_LINUX
@@ -1419,6 +1453,8 @@ FShaderCompilingManager::FShaderCompilingManager() :
 	verify(GConfig->GetInt( TEXT("DevOptions.Shaders"), TEXT("MaxShaderJobBatchSize"), MaxShaderJobBatchSize, GEngineIni ));
 	verify(GConfig->GetBool( TEXT("DevOptions.Shaders"), TEXT("bPromptToRetryFailedShaderCompiles"), bPromptToRetryFailedShaderCompiles, GEngineIni ));
 	verify(GConfig->GetBool( TEXT("DevOptions.Shaders"), TEXT("bLogJobCompletionTimes"), bLogJobCompletionTimes, GEngineIni ));
+	GConfig->GetFloat(TEXT("DevOptions.Shaders"), TEXT("WorkerTimeToLive"), GRegularWorkerTimeToLive, GEngineIni);
+	GConfig->GetFloat(TEXT("DevOptions.Shaders"), TEXT("BuildWorkerTimeToLive"), GBuildWorkerTimeToLive, GEngineIni);
 
 	GRetryShaderCompilation = bPromptToRetryFailedShaderCompiles;
 
@@ -1480,16 +1516,36 @@ FShaderCompilingManager::FShaderCompilingManager() :
 
 	NumShaderCompilingThreadsDuringGame = FMath::Min<int32>(NumShaderCompilingThreadsDuringGame, NumShaderCompilingThreads);
 
+	bool bIsUsingXGEInterface = false;
 #if PLATFORM_WINDOWS
-	if (FShaderCompileXGEThreadRunnable_InterceptionInterface::IsSupported())
+	bool bCanUseXGE = true;
+	ITargetPlatformManagerModule* TPM = GetTargetPlatformManager();
+	if (TPM)
+	{
+		const TArray<ITargetPlatform*>& Platforms = TPM->GetActiveTargetPlatforms();
+
+		for (int32 Index = 0; Index < Platforms.Num(); Index++)
+		{
+			if (!Platforms[Index]->CanSupportXGEShaderCompile())
+			{
+				bCanUseXGE = false;
+				break;
+			}
+		}
+	}
+
+	
+	if (FShaderCompileXGEThreadRunnable_InterceptionInterface::IsSupported() && bCanUseXGE)
 	{
 		UE_LOG(LogShaderCompilers, Display, TEXT("Using XGE Shader Compiler (Interception Interface)."));
 		Thread = MakeUnique<FShaderCompileXGEThreadRunnable_InterceptionInterface>(this);
+		bIsUsingXGEInterface = true;
 	}
-	else if (FShaderCompileXGEThreadRunnable_XmlInterface::IsSupported())
+	else if (FShaderCompileXGEThreadRunnable_XmlInterface::IsSupported() && bCanUseXGE)
 	{
 		UE_LOG(LogShaderCompilers, Display, TEXT("Using XGE Shader Compiler (XML Interface)."));
 		Thread = MakeUnique<FShaderCompileXGEThreadRunnable_XmlInterface>(this);
+		bIsUsingXGEInterface = true;
 	}
 	else
 #endif // PLATFORM_WINDOWS
@@ -1497,6 +1553,7 @@ FShaderCompilingManager::FShaderCompilingManager() :
 		UE_LOG(LogShaderCompilers, Display, TEXT("Using Local Shader Compiler."));
 		Thread = MakeUnique<FShaderCompileThreadRunnable>(this);
 	}
+	GConfig->SetBool(TEXT("/Script/UnrealEd.UnrealEdOptions"), TEXT("UsingXGE"), bIsUsingXGEInterface, GEditorIni);
 	Thread->StartThread();
 }
 
@@ -1570,6 +1627,11 @@ FProcHandle FShaderCompilingManager::LaunchWorker(const FString& WorkingDirector
 	if ( GIsBuildMachine )
 	{
 		WorkerParameters += FString(TEXT(" -buildmachine "));
+		WorkerParameters += FString::Printf(TEXT(" -TimeToLive=%f"), GBuildWorkerTimeToLive);
+	}
+	else
+	{
+		WorkerParameters += FString::Printf(TEXT(" -TimeToLive=%f"), GRegularWorkerTimeToLive);
 	}
 	if (PLATFORM_LINUX) //-V560
 	{
@@ -1825,6 +1887,7 @@ void FShaderCompilingManager::ProcessCompiledShaderMaps(
 					auto* PipelineJob = CurrentJob.GetShaderPipelineJob();
 					for (int32 Index = 0; Index < PipelineJob->StageJobs.Num(); ++Index)
 					{
+						bSuccess = bSuccess && PipelineJob->StageJobs[Index]->bSucceeded;
 						CheckSingleJob(PipelineJob->StageJobs[Index]->GetSingleShaderJob(), Errors);
 					}
 				}
@@ -1876,17 +1939,9 @@ void FShaderCompilingManager::ProcessCompiledShaderMaps(
 								{
 									UE_LOG(LogShaderCompilers, Warning, TEXT("	%s"), *Errors[ErrorIndex]);
 								}
-#if USE_EDITOR_ONLY_DEFAULT_MATERIAL_FALLBACK
-								if (!Material->IsEditorOnlyDefaultMaterial())
-								{
-									UE_LOG(LogShaderCompilers, Error,TEXT("Failed to compile default material %s!"), *Material->GetDebugName());
-								}
-								else
-#endif
-								{
-									// Assert if a default material could not be compiled, since there will be nothing for other failed materials to fall back on.
-									UE_LOG(LogShaderCompilers, Fatal,TEXT("Failed to compile default material %s!"), *Material->GetDebugName());
-								}
+
+								// Assert if a default material could not be compiled, since there will be nothing for other failed materials to fall back on.
+								UE_LOG(LogShaderCompilers, Fatal,TEXT("Failed to compile default material %s!"), *Material->GetBaseMaterialPathName());
 							}
 
 							UE_LOG(LogShaderCompilers, Warning, TEXT("Failed to compile Material %s for platform %s, Default Material will be used in game."),
@@ -2180,7 +2235,7 @@ bool FShaderCompilingManager::HandlePotentialRetryOnError(TMap<int32, FShaderMap
 						// A shader compile error has occurred, see the debug output for information.
 						// Double click the errors in the VS.NET output window and the IDE will take you directly to the file and line of the error.
 						// Check ErrorJobs for more state on the failed shaders, for example in-memory includes like Material.usf
-						FPlatformMisc::DebugBreak();
+						UE_DEBUG_BREAK();
 						// Set GRetryShaderCompilation to true in the debugger to enable retries in debug
 						// NOTE: MaterialTemplate.usf will not be reloaded when retrying!
 						bRetryCompile = GRetryShaderCompilation;
@@ -2709,9 +2764,13 @@ void GlobalBeginCompileShader(
 			Input.DebugGroupName.ReplaceInline(TEXT("ForForward"), TEXT("Fwd"));
 			Input.DebugGroupName.ReplaceInline(TEXT("Shadow"), TEXT("Shdw"));
 			Input.DebugGroupName.ReplaceInline(TEXT("LightMap"), TEXT("LM"));
-			Input.DebugGroupName.ReplaceInline(TEXT("EAtmosphereRenderFlag==E_"), TEXT(""));
+			Input.DebugGroupName.ReplaceInline(TEXT("EHeightFogFeature==E_"), TEXT(""));
+			Input.DebugGroupName.ReplaceInline(TEXT("Capsule"), TEXT("Caps"));
+			Input.DebugGroupName.ReplaceInline(TEXT("Movable"), TEXT("Mov"));
+			Input.DebugGroupName.ReplaceInline(TEXT("Culling"), TEXT("Cull"));
 			Input.DebugGroupName.ReplaceInline(TEXT("Atmospheric"), TEXT("Atm"));
 			Input.DebugGroupName.ReplaceInline(TEXT("Atmosphere"), TEXT("Atm"));
+			Input.DebugGroupName.ReplaceInline(TEXT("Exponential"), TEXT("Exp"));
 			Input.DebugGroupName.ReplaceInline(TEXT("Ambient"), TEXT("Amb"));
 			Input.DebugGroupName.ReplaceInline(TEXT("Perspective"), TEXT("Persp"));
 			Input.DebugGroupName.ReplaceInline(TEXT("Occlusion"), TEXT("Occ"));
@@ -2745,6 +2804,7 @@ void GlobalBeginCompileShader(
 			Input.DebugGroupName.ReplaceInline(TEXT("Linear"), TEXT("Lin"));
 			Input.DebugGroupName.ReplaceInline(TEXT("INT32_MAX"), TEXT("IMAX"));
 			Input.DebugGroupName.ReplaceInline(TEXT("Policy"), TEXT("Pol"));
+			Input.DebugGroupName.ReplaceInline(TEXT("EAtmRenderFlag==E_"), TEXT(""));
 		}
 	}
 	

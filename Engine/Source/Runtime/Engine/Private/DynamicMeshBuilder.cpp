@@ -342,10 +342,14 @@ public:
 		TexCoordBuffer.VertexBufferRHI	= AllocVertexBuffer(TextureStride, NumTexCoords * Vertices.Num());
 		ColorBuffer.VertexBufferRHI		= AllocVertexBuffer(sizeof(FColor), Vertices.Num());
 
-		TangentBufferSRV = RHICreateShaderResourceView(TangentBuffer.VertexBufferRHI, 4, PF_R8G8B8A8);
-		TexCoordBufferSRV = RHICreateShaderResourceView(TexCoordBuffer.VertexBufferRHI, TextureStride, TextureFormat);
-		ColorBufferSRV = RHICreateShaderResourceView(ColorBuffer.VertexBufferRHI, 4, PF_R8G8B8A8);
-		PositionBufferSRV = RHICreateShaderResourceView(PositionBuffer.VertexBufferRHI, sizeof(float), PF_R32_FLOAT);
+		if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
+		{
+			TangentBufferSRV = RHICreateShaderResourceView(TangentBuffer.VertexBufferRHI, 4, PF_R8G8B8A8);
+			TexCoordBufferSRV = RHICreateShaderResourceView(TexCoordBuffer.VertexBufferRHI, TextureStride, TextureFormat);
+			ColorBufferSRV = RHICreateShaderResourceView(ColorBuffer.VertexBufferRHI, 4, PF_R8G8B8A8);
+
+			PositionBufferSRV = RHICreateShaderResourceView(PositionBuffer.VertexBufferRHI, sizeof(float), PF_R32_FLOAT);
+		}
 
 		void* TexCoordBufferData = RHILockVertexBuffer(TexCoordBuffer.VertexBufferRHI, 0, NumTexCoords * TextureStride * Vertices.Num(), RLM_WriteOnly);
 		FVector2D* TexCoordBufferData32 = !Use16bitTexCoord ? static_cast<FVector2D*>(TexCoordBufferData) : nullptr;
@@ -464,7 +468,6 @@ public:
 			);
 
 			Data.NumTexCoords = PooledVertexBuffer->GetNumTexCoords();
-			
 			{
 				Data.LightMapCoordinateIndex = PooledVertexBuffer->GetLightmapCoordinateIndex();
 				Data.TangentsSRV = PooledVertexBuffer->TangentBufferSRV;
@@ -691,7 +694,7 @@ void FDynamicMeshBuilder::GetMesh(const FMatrix& LocalToWorld, const FMaterialRe
 void FDynamicMeshBuilder::GetMesh(const FMatrix& LocalToWorld,const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriorityGroup, const FDynamicMeshBuilderSettings& Settings, FDynamicMeshDrawOffset const * const DrawOffset, int32 ViewIndex, FMeshElementCollector& Collector, const FHitProxyId HitProxyId )
 {
 	// Only draw non-empty meshes.
-	if(VertexBuffer->Vertices.Num() > 0)
+	if((VertexBuffer && VertexBuffer->Vertices.Num() > 0) || (DrawOffset != nullptr))
 	{
 		if (VertexBuffer || IndexBuffer)
 		{
@@ -710,7 +713,6 @@ void FDynamicMeshBuilder::GetMesh(const FMatrix& LocalToWorld,const FMaterialRen
 			{
 				OneFrameResources->IndexBuffer->InitResource();
 			}
-
 			OneFrameResources->VertexFactory = new FPooledDynamicMeshVertexFactory(FeatureLevel, VertexBuffer);
 			OneFrameResources->VertexFactory->InitResource();
 

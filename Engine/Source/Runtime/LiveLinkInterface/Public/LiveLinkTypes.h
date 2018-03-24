@@ -35,6 +35,141 @@ public:
 	float CurveValue;
 };
 
+USTRUCT()
+struct FLiveLinkWorldTime
+{
+public:
+	GENERATED_USTRUCT_BODY()
+
+	// Time for this frame. Used during interpolation. If this goes backwards we will dump already stored frames. 
+	UPROPERTY()
+	double Time;
+
+	// Value calculated on create to represent the different between the source time and client time
+	UPROPERTY()
+	double Offset;
+
+	FLiveLinkWorldTime()
+		: Offset(0.0)
+	{
+		Time = FPlatformTime::Seconds();
+	};
+
+	FLiveLinkWorldTime(const double InTime)
+		: Time(InTime)
+	{
+		Offset = FPlatformTime::Seconds() - InTime;
+	};
+};
+
+USTRUCT()
+struct FLiveLinkFrameRate
+{
+public:
+	GENERATED_USTRUCT_BODY()
+	
+	UPROPERTY()
+	uint32 Numerator;
+
+	UPROPERTY()
+	uint32 Denominator;
+
+	// Defaults to 60fps
+	FLiveLinkFrameRate()
+		: Numerator(60), Denominator(1)
+	{};
+
+	FLiveLinkFrameRate(uint32 InNumerator, uint32 InDenominator) :
+		Numerator(InNumerator), Denominator(InDenominator)
+	{};
+
+	FLiveLinkFrameRate(const FLiveLinkFrameRate& OtherFrameRate)
+	{
+		Numerator = OtherFrameRate.Numerator;
+		Denominator = OtherFrameRate.Denominator;
+	};
+
+	bool IsValid() const
+	{
+		return Denominator > 0;
+	};
+
+	static LIVELINKINTERFACE_API const FLiveLinkFrameRate FPS_15;
+	static LIVELINKINTERFACE_API const FLiveLinkFrameRate FPS_24;
+	static LIVELINKINTERFACE_API const FLiveLinkFrameRate FPS_25;
+	static LIVELINKINTERFACE_API const FLiveLinkFrameRate FPS_30;
+	static LIVELINKINTERFACE_API const FLiveLinkFrameRate FPS_48;
+	static LIVELINKINTERFACE_API const FLiveLinkFrameRate FPS_50;
+	static LIVELINKINTERFACE_API const FLiveLinkFrameRate FPS_60;
+	static LIVELINKINTERFACE_API const FLiveLinkFrameRate FPS_100;
+	static LIVELINKINTERFACE_API const FLiveLinkFrameRate FPS_120;
+	static LIVELINKINTERFACE_API const FLiveLinkFrameRate FPS_240;
+
+	static LIVELINKINTERFACE_API const FLiveLinkFrameRate NTSC_24;
+	static LIVELINKINTERFACE_API const FLiveLinkFrameRate NTSC_30;
+	static LIVELINKINTERFACE_API const FLiveLinkFrameRate NTSC_60;
+};
+
+// A Qualified TimeCode associated with 
+USTRUCT()
+struct FLiveLinkTimeCode
+{
+public:
+	GENERATED_USTRUCT_BODY()
+
+	// Integer Seconds since Epoch 
+	UPROPERTY()
+	int32 Seconds;
+
+	// Integer Frames since last second
+	UPROPERTY()
+	int32 Frames;
+
+	// Value calculated on create to represent the different between the source time and client time
+	UPROPERTY()
+	FLiveLinkFrameRate FrameRate;
+
+	FLiveLinkTimeCode()
+		: Seconds(0), Frames(0), FrameRate()
+	{};
+
+	FLiveLinkTimeCode(const int32 InSeconds, const int32 InFrames, const FLiveLinkFrameRate& InFrameRate)
+		: Seconds(InSeconds), Frames(InFrames), FrameRate(InFrameRate)
+	{ };
+};
+
+USTRUCT()
+struct FLiveLinkMetaData
+{
+public:
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	TMap<FName, FString> StringMetaData;
+
+	UPROPERTY()
+	FLiveLinkTimeCode SceneTime;
+};
+
+USTRUCT()
+struct FLiveLinkFrameData
+{
+public:
+	GENERATED_USTRUCT_BODY()
+	
+	UPROPERTY()
+	TArray<FTransform> Transforms;
+	
+	UPROPERTY()
+	TArray<FLiveLinkCurveElement> CurveElements;
+	
+	UPROPERTY()
+	FLiveLinkWorldTime WorldTime;
+
+	UPROPERTY()
+	FLiveLinkMetaData MetaData;
+};
+
 struct FOptionalCurveElement
 {
 	/** Curve Value */
@@ -83,18 +218,6 @@ struct FLiveLinkCurveKey
 	FLiveLinkCurveIntegrationData UpdateCurveKey(const TArray<FLiveLinkCurveElement>& CurveElements);
 };
 
-struct FLiveLinkTimeCode
-{
-	// Time for this frame. Used during interpolation. If this goes backwards we will dump already stored frames. 
-	double Time;
-
-	// Frame number for this data.
-	int32 FrameNum;
-
-	// Value calculated on create to represent the different between the source time and client time
-	double Offset;
-};
-
 struct FLiveLinkSubjectFrame
 {
 	// Ref Skeleton for transforms
@@ -111,4 +234,7 @@ struct FLiveLinkSubjectFrame
 	
 	// Curve data for this frame
 	TArray<FOptionalCurveElement>	Curves;
+
+	// Metadata for this frame
+	FLiveLinkMetaData MetaData;
 };

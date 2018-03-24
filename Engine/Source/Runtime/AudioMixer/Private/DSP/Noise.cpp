@@ -19,7 +19,7 @@ namespace Audio
 
 	float FWhiteNoise::Generate()
 	{
-		return Add + Scale * FMath::FRandRange(-1.0f, 1.0f);
+		return Add + Scale * FMath::SRand() * 2 - 1.0f;
 	}
 
 	FPinkNoise::FPinkNoise(const float InScale, const float InAdd)

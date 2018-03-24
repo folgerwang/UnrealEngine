@@ -1372,8 +1372,12 @@ bool UCookOnTheFlyServer::IsCookOnTheFlyMode() const
 FString UCookOnTheFlyServer::GetBaseDirectoryForDLC() const
 {
 	TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(CookByTheBookOptions->DlcName);
-	check(Plugin.IsValid());
-	return Plugin->GetBaseDir();
+	if (Plugin.IsValid())
+	{
+		return Plugin->GetBaseDir();
+	}
+
+	return FPaths::ProjectPluginsDir() / CookByTheBookOptions->DlcName;
 }
 
 COREUOBJECT_API extern bool GOutputCookingWarnings;
@@ -6091,7 +6095,7 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 				FString OriginalAssetRegistryPath = GetReleaseVersionAssetRegistryPath( BasedOnReleaseVersion, PlatformName ) / GetAssetRegistryFilename();
 
 				TArray<FName> PackageFiles;
-				verify( !GetAllPackageFilenamesFromAssetRegistry(OriginalAssetRegistryPath, PackageFiles) );
+				verify( GetAllPackageFilenamesFromAssetRegistry(OriginalAssetRegistryPath, PackageFiles) );
 
 				for ( const FName& PackageFilename : PackageFiles )
 				{

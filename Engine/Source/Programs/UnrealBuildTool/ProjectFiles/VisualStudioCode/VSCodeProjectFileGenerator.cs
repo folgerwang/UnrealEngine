@@ -254,7 +254,7 @@ namespace UnrealBuildTool
 			if (bForeignProject)
 			{
 				Projects = new List<ProjectFile>();
-				foreach (ProjectFile Project in AllProjectFiles)
+				foreach (var Project in AllProjectFiles)
 				{
 					if (GameProjectName == Project.ProjectFilePath.GetFileNameWithoutAnyExtensions())
 					{
@@ -382,7 +382,7 @@ namespace UnrealBuildTool
 
 						foreach (UnrealTargetPlatform Platform in Platforms)
 						{
-							UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform, true);
+							var BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform, true);
 							if (SupportedPlatforms.Contains(Platform) && (BuildPlatform != null) && (BuildPlatform.HasRequiredSDKsInstalled() == SDKStatus.Valid))
 							{
 								foreach (UnrealTargetConfiguration Config in Configs)
@@ -413,7 +413,7 @@ namespace UnrealBuildTool
 
 					if (HostPlatform == UnrealTargetPlatform.Win64)
 					{
-						RawIncludes.AddRange(VCToolChain.GetVCIncludePaths(CppPlatform.Win64, WindowsPlatform.GetDefaultCompiler()).Trim(';').Split(';'));
+						RawIncludes.AddRange(VCToolChain.GetVCIncludePaths(CppPlatform.Win64, WindowsPlatform.GetDefaultCompiler(null)).Trim(';').Split(';'));
 					}
 					else
 					{
@@ -591,7 +591,7 @@ namespace UnrealBuildTool
 
 						OutFile.BeginArray("includePath");
 						{
-							foreach (string Path in Projects.CombinedIncludePaths)
+							foreach (var Path in Projects.CombinedIncludePaths)
 							{
 								OutFile.AddUnnamedField(Path);
 							}

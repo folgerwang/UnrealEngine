@@ -206,9 +206,9 @@ struct FInstancedStaticMeshDataType
 	/** The stream to read the Lightmap Bias and Random instance ID from. */
 	FVertexStreamComponent InstanceLightmapAndShadowMapUVBiasComponent;
 
-	FShaderResourceViewRHIRef InstanceOriginSRV;
-	FShaderResourceViewRHIRef InstanceTransformSRV;
-	FShaderResourceViewRHIRef InstanceLightmapSRV;
+	FShaderResourceViewRHIParamRef InstanceOriginSRV;
+	FShaderResourceViewRHIParamRef InstanceTransformSRV;
+	FShaderResourceViewRHIParamRef InstanceLightmapSRV;
 };
 
 /**
@@ -239,7 +239,7 @@ public:
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		const bool ContainsManualVertexFetch = OutEnvironment.GetDefinitions().Contains("MANUAL_VERTEX_FETCH");
-		if (!ContainsManualVertexFetch && !IsMobileOpenGlPlatform(Platform) && (!IsMetalPlatform(Platform) || (!IsMobilePlatform(Platform) && RHIGetShaderLanguageVersion(Platform) >= 2)))
+		if (!ContainsManualVertexFetch && RHISupportsManualVertexFetch(Platform))
 		{
 			OutEnvironment.SetDefine(TEXT("MANUAL_VERTEX_FETCH"), TEXT("1"));
 		}

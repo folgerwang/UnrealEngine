@@ -58,14 +58,16 @@ FMaterialLayersFunctionsCustomization::FMaterialLayersFunctionsCustomization(con
 	{
 		if (MaterialLayersFunctions->Layers.Num() != MaterialLayersFunctions->RestrictToLayerRelatives.Num())
 		{
-			for (int32 LayerIt = 0; LayerIt < MaterialLayersFunctions->Layers.Num() - MaterialLayersFunctions->RestrictToLayerRelatives.Num(); LayerIt++)
+			int32 OriginalSize = MaterialLayersFunctions->RestrictToLayerRelatives.Num();
+			for (int32 LayerIt = 0; LayerIt < MaterialLayersFunctions->Layers.Num() - OriginalSize; LayerIt++)
 			{
 				MaterialLayersFunctions->RestrictToLayerRelatives.Add(false);
 			}
 		}
 		if (MaterialLayersFunctions->Blends.Num() != MaterialLayersFunctions->RestrictToBlendRelatives.Num())
 		{
-			for (int32 BlendIt = 0; BlendIt < MaterialLayersFunctions->Blends.Num() - MaterialLayersFunctions->RestrictToBlendRelatives.Num(); BlendIt++)
+			int32 OriginalSize = MaterialLayersFunctions->RestrictToBlendRelatives.Num();
+			for (int32 BlendIt = 0; BlendIt < MaterialLayersFunctions->Blends.Num() - OriginalSize; BlendIt++)
 			{
 				MaterialLayersFunctions->RestrictToBlendRelatives.Add(false);
 			}
@@ -293,7 +295,6 @@ void FMaterialLayersFunctionsCustomization::RefreshOnAssetChange(const struct FA
 		// Refresh the header so the reset to default button is no longer visible
 		SavedLayoutBuilder->ForceRefreshDetails();
 	}
-
 	RebuildChildren();
 }
 
@@ -416,11 +417,6 @@ void FMaterialLayerFunctionElement::GenerateHeaderRowContent(FDetailWidgetRow& N
 		ThumbnailOverride = FIntPoint(32, 32);
 	}
 	FOnSetObject AssetChanged = FOnSetObject::CreateSP(ParentCustomization, &FMaterialLayersFunctionsCustomization::RefreshOnAssetChange, Index, InAssociation);
-	TSharedRef<STextBlock> ParentTextBlock = SNew(STextBlock)
-		.Text(LOCTEXT("Parent", "Parent "))
-		.TextStyle(FEditorStyle::Get(), "TinyText");
-	ParentTextBlock->SetToolTipText(LOCTEXT("ParentTooltip", "This allows you to set the parent class of your layer or blend asset to filter the possible assets to use."));
-	ParentTextBlock->EnableToolTipForceField(true);
 
 	FMaterialParameterInfo FunctionInfo;
 	FunctionInfo.Index = Index;

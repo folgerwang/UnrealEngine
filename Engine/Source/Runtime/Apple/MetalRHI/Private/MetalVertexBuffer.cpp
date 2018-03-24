@@ -135,6 +135,8 @@ FMetalVertexBuffer::~FMetalVertexBuffer()
 	
 void FMetalVertexBuffer::Alloc(uint32 InSize)
 {
+	bool const bUsePrivateMem = !(GetUsage() & BUF_Volatile) && FMetalCommandQueue::SupportsFeature(EMetalFeaturesEfficientBufferBlits);
+	
 	if (!Buffer)
 	{
 		LLM_SCOPE(ELLMTag::VertexBuffer);
@@ -142,14 +144,14 @@ void FMetalVertexBuffer::Alloc(uint32 InSize)
 		// Zero-stride buffers must be separate in order to wrap appropriately
 		if(!(GetUsage() & BUF_ZeroStride))
 		{
-			MTLStorageMode Mode = (FMetalCommandQueue::SupportsFeature(EMetalFeaturesEfficientBufferBlits) ? MTLStorageModePrivate : BUFFER_STORAGE_MODE);
+			MTLStorageMode Mode = (bUsePrivateMem ? MTLStorageModePrivate : BUFFER_STORAGE_MODE);
 			FMetalPooledBufferArgs Args(GetMetalDeviceContext().GetDevice(), InSize, Mode);
 			Buffer = GetMetalDeviceContext().CreatePooledBuffer(Args);
 		}
 		else
 		{
 			check(!(GetUsage() & BUF_UnorderedAccess));
-			MTLResourceOptions StorageOptions = (FMetalCommandQueue::SupportsFeature(EMetalFeaturesEfficientBufferBlits) ? MTLResourceStorageModePrivate : BUFFER_MANAGED_MEM);
+			MTLResourceOptions StorageOptions = (bUsePrivateMem ? MTLResourceStorageModePrivate : BUFFER_MANAGED_MEM);
 			Buffer = [GetMetalDeviceContext().GetDevice() newBufferWithLength:InSize options:GetMetalDeviceContext().GetCommandQueue().GetCompatibleResourceOptions(BUFFER_CACHE_MODE|MTLResourceHazardTrackingModeUntracked|StorageOptions)];
 			TRACK_OBJECT(STAT_MetalBufferCount, Buffer);
 		}
@@ -167,7 +169,7 @@ void FMetalVertexBuffer::Alloc(uint32 InSize)
 		}
 	}
 	
-	if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesEfficientBufferBlits))
+	if (bUsePrivateMem)
 	{
 		if (CPUBuffer)
 		{
@@ -320,7 +322,7 @@ void FMetalVertexBuffer::Unlock()
 		if (LockSize && CPUBuffer)
 		{
 			// Synchronise the buffer with the GPU
-			GetMetalDeviceContext().CopyFromBufferToBuffer(CPUBuffer, 0, Buffer, 0, Buffer.length);
+			GetMetalDeviceContext().AsyncCopyFromBufferToBuffer(CPUBuffer, 0, Buffer, 0, Buffer.length);
 		}
 #if PLATFORM_MAC
 		else if(LockSize && Buffer.storageMode == MTLStorageModeManaged)
@@ -414,7 +416,7 @@ struct FMetalRHICommandInitialiseVertexBuffer : public FRHICommand<FMetalRHIComm
 	
 	void Execute(FRHICommandListBase& CmdList)
 	{
-		GetMetalDeviceContext().CopyFromBufferToBuffer(CPUBuffer, 0, Buffer, 0, Buffer.length);
+		GetMetalDeviceContext().AsyncCopyFromBufferToBuffer(CPUBuffer, 0, Buffer, 0, Buffer.length);
 	}
 };
 
@@ -430,6 +432,8 @@ FVertexBufferRHIRef FMetalDynamicRHI::CreateVertexBuffer_RenderThread(class FRHI
 			
 			if (VertexBuffer->CPUBuffer)
 			{
+				FMemory::Memzero(VertexBuffer->CPUBuffer.contents, VertexBuffer->CPUBuffer.length);
+				
 				FMemory::Memcpy(VertexBuffer->CPUBuffer.contents, CreateInfo.ResourceArray->GetResourceData(), Size);
 
 				if (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())

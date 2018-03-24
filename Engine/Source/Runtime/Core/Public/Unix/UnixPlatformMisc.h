@@ -11,6 +11,12 @@
 #include "GenericPlatform/GenericPlatformMisc.h"
 #include "Misc/Build.h"
 
+#if UE_BUILD_SHIPPING
+#define UE_DEBUG_BREAK() ((void)0)
+#else
+#define UE_DEBUG_BREAK() (FUnixPlatformMisc::DebugBreakInternal())
+#endif
+
 class Error;
 struct FGenericCrashContext;
 
@@ -31,19 +37,27 @@ struct CORE_API FUnixPlatformMisc : public FGenericPlatformMisc
 
 #if !UE_BUILD_SHIPPING
 	static bool IsDebuggerPresent();
-	static void DebugBreak();
+	static void DebugBreakInternal();
+
+	DEPRECATED(4.19, "FPlatformMisc::DebugBreak is deprecated. Use the UE_DEBUG_BREAK() macro instead.")
+	FORCEINLINE static void DebugBreak()
+	{
+		UE_DEBUG_BREAK();
+	}
 #endif // !UE_BUILD_SHIPPING
 
 	/** Break into debugger. Returning false allows this function to be used in conditionals. */
+	DEPRECATED(4.19, "FPlatformMisc::DebugBreakReturningFalse is deprecated. Use the (UE_DEBUG_BREAK(), false) expression instead.")
 	FORCEINLINE static bool DebugBreakReturningFalse()
 	{
 #if !UE_BUILD_SHIPPING
-		DebugBreak();
+		UE_DEBUG_BREAK();
 #endif
 		return false;
 	}
 
 	/** Prompts for remote debugging if debugger is not attached. Regardless of result, breaks into debugger afterwards. Returns false for use in conditionals. */
+	DEPRECATED(4.19, "FPlatformMisc::DebugBreakAndPromptForRemoteReturningFalse() is deprecated.")
 	static FORCEINLINE bool DebugBreakAndPromptForRemoteReturningFalse(bool bIsEnsure = false)
 	{
 #if !UE_BUILD_SHIPPING
@@ -52,7 +66,7 @@ struct CORE_API FUnixPlatformMisc : public FGenericPlatformMisc
 			PromptForRemoteDebugging(bIsEnsure);
 		}
 
-		DebugBreak();
+		UE_DEBUG_BREAK();
 #endif
 
 		return false;

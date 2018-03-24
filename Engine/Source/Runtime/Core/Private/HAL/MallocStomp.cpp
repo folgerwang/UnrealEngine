@@ -4,6 +4,7 @@
 #include "Math/UnrealMathUtility.h"
 #include "HAL/UnrealMemory.h"
 #include "HAL/IConsoleManager.h"
+#include "GenericPlatform/GenericPlatformMemory.h"
 
 #if PLATFORM_UNIX
 	#include <sys/mman.h>
@@ -51,6 +52,12 @@ void* FMallocStomp::Malloc(SIZE_T Size, uint32 Alignment)
 #else
 	void *FullAllocationPointer = FPlatformMemory::BinnedAllocFromOS(AllocFullPageSize + PageSize);
 #endif // PLATFORM_UNIX || PLATFORM_MAC
+
+	if (!FullAllocationPointer)
+	{
+		// this is expected not to return
+		FPlatformMemory::OnOutOfMemory(Size, Alignment);
+	}
 
 	void *ReturnedPointer = nullptr;
 	static const SIZE_T AllocationDataSize = sizeof(FAllocationData);
@@ -121,7 +128,7 @@ void FMallocStomp::Free(void* InPtr)
 	if(AllocDataPtr->Sentinel != SentinelExpectedValue)
 	{
 		// There was a memory underrun related to this allocation.
-		FPlatformMisc::DebugBreak();
+		UE_DEBUG_BREAK();
 	}
 
 #if PLATFORM_UNIX || PLATFORM_MAC

@@ -2346,6 +2346,15 @@ void FAudioDevice::SetListener(UWorld* World, const int32 InViewportIndex, const
 		bPluginListenersInitialized = true;
 	}
 
+	if (World)
+	{
+		for (TAudioPluginListenerPtr PluginManager : PluginListeners)
+		{
+			PluginManager->OnTick(World, InViewportIndex, ListenerTransformCopy, InDeltaSeconds);
+		}
+	}
+	
+
 	FAudioDevice* AudioDevice = this;
 	FAudioThread::RunCommandOnAudioThread([AudioDevice, WorldID, InViewportIndex, ListenerTransformCopy, InDeltaSeconds]()
 	{

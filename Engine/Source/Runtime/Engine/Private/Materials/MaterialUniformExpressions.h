@@ -14,8 +14,8 @@
 #include "Materials/MaterialLayersFunctions.h"
 #include "UObject/RenderingObjectVersion.h"
 
-// @TODO: Remove this. Temporary flag for toggling experimental material layers functionality
-bool AreNewMaterialLayersEnabled();
+// Temporary flag for toggling experimental material layers functionality
+bool AreExperimentalMaterialLayersEnabled();
 
 /**
  */
@@ -147,7 +147,7 @@ public:
 		{
 			const bool bOveriddenParameterOnly = ParameterInfo.Association == EMaterialParameterAssociation::GlobalParameter;
 			
-			if (AreNewMaterialLayersEnabled())
+			if (AreExperimentalMaterialLayersEnabled())
 			{
 				UMaterialInterface* Interface = Context.Material.GetMaterialInterface();
 				if (!Interface || !Interface->GetVectorParameterDefaultValue(ParameterInfo, OutValue, bOveriddenParameterOnly))
@@ -235,7 +235,7 @@ public:
 		{
 			const bool bOveriddenParameterOnly = ParameterInfo.Association == EMaterialParameterAssociation::GlobalParameter;
 			
-			if (AreNewMaterialLayersEnabled())
+			if (AreExperimentalMaterialLayersEnabled())
 			{
 				UMaterialInterface* Interface = Context.Material.GetMaterialInterface();
 				if (!Interface || !Interface->GetScalarParameterDefaultValue(ParameterInfo, OutValue.A, bOveriddenParameterOnly))
@@ -351,7 +351,7 @@ public:
 			{
 				UTexture* Value = nullptr;
 
-				if (AreNewMaterialLayersEnabled())
+				if (AreExperimentalMaterialLayersEnabled())
 				{
 					UMaterialInterface* Interface = Context.Material.GetMaterialInterface();
 					if (!Interface || !Interface->GetTextureParameterDefaultValue(ParameterInfo, Value))
@@ -377,10 +377,9 @@ public:
 		}
 		else
 		{
-			// @TODO: This should be unified with scalar/vector GetGameThreadValue
 			OutValue = NULL;
-			//const bool bOverrideValuesOnly = true;
-			if(!MaterialInterface->GetTextureParameterValue(ParameterInfo,OutValue))//,bOverrideValuesOnly))
+			const bool bOverrideValuesOnly = !AreExperimentalMaterialLayersEnabled();
+			if(!MaterialInterface->GetTextureParameterValue(ParameterInfo,OutValue,bOverrideValuesOnly))
 			{
 				OutValue = GetIndexedTexture(Material, TextureIndex);
 			}

@@ -683,7 +683,10 @@ void FMaterialEditor::InitMaterialEditor( const EToolkitMode::Type Mode, const T
 	}
 
 	// Store the name of this material (for the tutorial widget meta)
-	Material->MaterialGraph->OriginalMaterialFullName = OriginalMaterial->GetName();
+	if (OriginalMaterial != nullptr)
+	{
+		Material->MaterialGraph->OriginalMaterialFullName = OriginalMaterial->GetName();
+	}
 	Material->MaterialGraph->RebuildGraph();
 	RecenterEditor();
 
@@ -692,6 +695,17 @@ void FMaterialEditor::InitMaterialEditor( const EToolkitMode::Type Mode, const T
 	RegenerateCodeView(true);
 
 	ForceRefreshExpressionPreviews();
+
+	if (OriginalMaterial && OriginalMaterial->bUsedAsSpecialEngineMaterial)
+	{
+		FSuppressableWarningDialog::FSetupInfo Info(
+			NSLOCTEXT("UnrealEd", "Warning_EditingDefaultMaterial", "Editing this Default Material is an advanced workflow.\nDefault Materials must be available as a code fallback at all times, compilation errors are not handled gracefully.  Save your work."),
+			NSLOCTEXT("UnrealEd", "Warning_EditingDefaultMaterial_Title", "Warning: Editing Default Material"), "Warning_EditingDefaultMaterial");
+		Info.ConfirmText = NSLOCTEXT("ModalDialogs", "EditingDefaultMaterialOk", "Ok");
+
+		FSuppressableWarningDialog EditingDefaultMaterial(Info);
+		EditingDefaultMaterial.ShowModal();
+	}
 }
 
 FMaterialEditor::FMaterialEditor()
@@ -1161,24 +1175,34 @@ void FMaterialEditor::SaveAsset_Execute()
 {
 	UE_LOG(LogMaterialEditor, Log, TEXT("Saving and Compiling material %s"), *GetEditingObjects()[0]->GetName());
 	
+	bool bUpdateSucceeded = true;
+
 	if (bMaterialDirty)
 	{
-		UpdateOriginalMaterial();
+		bUpdateSucceeded = UpdateOriginalMaterial();
 	}
 
-	IMaterialEditor::SaveAsset_Execute();
+	if (bUpdateSucceeded)
+	{
+		IMaterialEditor::SaveAsset_Execute();
+	}
 }
 
 void FMaterialEditor::SaveAssetAs_Execute()
 {
 	UE_LOG(LogMaterialEditor, Log, TEXT("Saving and Compiling material %s"), *GetEditingObjects()[0]->GetName());
 
+	bool bUpdateSucceeded = true;
+
 	if (bMaterialDirty)
 	{
-		UpdateOriginalMaterial();
+		bUpdateSucceeded = UpdateOriginalMaterial();
 	}
 
-	IMaterialEditor::SaveAssetAs_Execute();
+	if (bUpdateSucceeded)
+	{
+		IMaterialEditor::SaveAssetAs_Execute();
+	}
 }
 
 bool FMaterialEditor::OnRequestClose()
@@ -1301,7 +1325,7 @@ void FMaterialEditor::DrawMessages( FViewport* InViewport, FCanvas* Canvas )
 		FString Name = FString::Printf( TEXT("Previewing: %s"), *PreviewExpression->GetName() );
 
 		// Size of the tile we are about to draw.  Should extend the length of the view in X.
-		const FIntPoint TileSize( InViewport->GetSizeXY().X, 25);
+		const FIntPoint TileSize( InViewport->GetSizeXY().X / Canvas->GetDPIScale(), 25);
 
 		const FColor PreviewColor( 70,100,200 );
 		const FColor FontColor( 255,255,128 );
@@ -1439,11 +1463,6 @@ void FMaterialEditor::LoadEditorSettings()
 			PreviewViewport->TogglePreviewGrid();
 		}
 
-		if (EditorOptions->bShowBackground)
-		{
-			PreviewViewport->TogglePreviewBackground();
-		}
-
 		if (EditorOptions->bRealtimeMaterialViewport)
 		{
 			PreviewViewport->OnToggleRealtime();
@@ -1472,7 +1491,6 @@ void FMaterialEditor::SaveEditorSettings()
 	if ( EditorOptions )
 	{
 		EditorOptions->bShowGrid					= PreviewViewport->IsTogglePreviewGridChecked();
-		EditorOptions->bShowBackground				= PreviewViewport->IsTogglePreviewBackgroundChecked();
 		EditorOptions->bRealtimeMaterialViewport	= PreviewViewport->IsRealtime();
 		EditorOptions->bShowMobileStats				= bShowMobileStats;
 		EditorOptions->bHideUnusedConnectors		= !IsOnShowConnectorsChecked();
@@ -1613,7 +1631,7 @@ void FMaterialEditor::UpdatePreviewMaterial( bool bForce )
 
 
 
-void FMaterialEditor::UpdateOriginalMaterial()
+bool FMaterialEditor::UpdateOriginalMaterial()
 {
 	// If the Material has compilation errors, warn the user
 	for (int32 i = ERHIFeatureLevel::SM5; i >= 0; --i)
@@ -1623,16 +1641,32 @@ void FMaterialEditor::UpdateOriginalMaterial()
 		{
 			FString FeatureLevelName;
 			GetFeatureLevelName(FeatureLevel, FeatureLevelName);
-			FSuppressableWarningDialog::FSetupInfo Info(
-				FText::Format(NSLOCTEXT("UnrealEd", "Warning_CompileErrorsInMaterial", "The current material has compilation errors, so it will not render correctly in feature level {0}.\nAre you sure you wish to continue?"),FText::FromString(*FeatureLevelName)),
-				NSLOCTEXT("UnrealEd", "Warning_CompileErrorsInMaterial_Title", "Warning: Compilation errors in this Material" ), "Warning_CompileErrorsInMaterial");
-			Info.ConfirmText = NSLOCTEXT("ModalDialogs", "CompileErrorsInMaterialConfirm", "Continue");
-			Info.CancelText = NSLOCTEXT("ModalDialogs", "CompileErrorsInMaterialCancel", "Abort");
 
-			FSuppressableWarningDialog CompileErrorsWarning( Info );
-			if( CompileErrorsWarning.ShowModal() == FSuppressableWarningDialog::Cancel )
+			if (Material->bUsedAsSpecialEngineMaterial)
 			{
-				return;
+				FSuppressableWarningDialog::FSetupInfo Info(
+					FText::Format(NSLOCTEXT("UnrealEd", "Error_CompileErrorsInDefaultMaterial", "The current material has compilation errors for feature level {0}.\nThis material is a Default Material which must be available as a code fallback at all times, compilation errors are not allowed."), FText::FromString(*FeatureLevelName)),
+					NSLOCTEXT("UnrealEd", "Warning_CompileErrorsInDefaultMaterial_Title", "Error: Compilation errors in Default Material"), "Error_CompileErrorsInDefaultMaterial");
+				Info.ConfirmText = NSLOCTEXT("ModalDialogs", "CompileErrorsInDefaultMaterialOk", "Ok");
+
+				FSuppressableWarningDialog CompileErrors(Info);
+				CompileErrors.ShowModal();
+
+				return false;
+			}
+			else
+			{
+				FSuppressableWarningDialog::FSetupInfo Info(
+					FText::Format(NSLOCTEXT("UnrealEd", "Warning_CompileErrorsInMaterial", "The current material has compilation errors, so it will not render correctly in feature level {0}.\nAre you sure you wish to continue?"), FText::FromString(*FeatureLevelName)),
+					NSLOCTEXT("UnrealEd", "Warning_CompileErrorsInMaterial_Title", "Warning: Compilation errors in this Material"), "Warning_CompileErrorsInMaterial");
+				Info.ConfirmText = NSLOCTEXT("ModalDialogs", "CompileErrorsInMaterialConfirm", "Continue");
+				Info.CancelText = NSLOCTEXT("ModalDialogs", "CompileErrorsInMaterialCancel", "Abort");
+
+				FSuppressableWarningDialog CompileErrorsWarning(Info);
+				if (CompileErrorsWarning.ShowModal() == FSuppressableWarningDialog::Cancel)
+				{
+					return false;
+				}
 			}
 		}
 	}
@@ -1771,6 +1805,8 @@ void FMaterialEditor::UpdateOriginalMaterial()
 	}
 
 	GWarn->EndSlowTask();
+
+	return true;
 }
 
 void FMaterialEditor::UpdateMaterialInfoList(bool bForceDisplay)

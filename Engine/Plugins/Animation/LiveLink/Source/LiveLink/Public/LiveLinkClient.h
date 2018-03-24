@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -17,27 +17,15 @@
 // Live Link Log Category
 DECLARE_LOG_CATEGORY_EXTERN(LogLiveLink, Log, All);
 
-// Structure that identifies an individual subject (MDW: 22/Nov/2017 XR classes came from Dev-VR, need to be reconciled with Dev-AnimPhys)
-struct FLiveLinkSubjectKeyXR
-{
-	// The Name of this subject
-	FName SubjectName;
-
-	// The guid for this subjects source
-	FGuid Source;
-
-	FLiveLinkSubjectKeyXR() {}
-	FLiveLinkSubjectKeyXR(FName InSubjectName, FGuid InSource) : SubjectName(InSubjectName), Source(InSource) {}
-	FLiveLinkSubjectKeyXR(const FLiveLinkSubjectKeyXR& Rhs) : SubjectName(Rhs.SubjectName), Source(Rhs.Source) {}
-};
-
 struct FLiveLinkFrame
 {
 public:
 	TArray<FTransform>		Transforms;
 	TArray<FOptionalCurveElement>	Curves;
 
-	FLiveLinkTimeCode TimeCode;
+	FLiveLinkMetaData		MetaData;
+
+	FLiveLinkWorldTime WorldTime;
 
 	void ExtendCurveData(int32 ExtraCurves)
 	{
@@ -77,8 +65,8 @@ struct FLiveLinkSubject
 	FLiveLinkSubject()
 	{}
 
-	// Add a frame of data to the subject
-	void AddFrame(const TArray<FTransform>& Transforms, const TArray<FLiveLinkCurveElement>& CurveElements, const FLiveLinkTimeCode& TimeCode, FGuid FrameSource);
+	// Add a frame of data from a FLiveLinkFrameData
+	void AddFrame(const FLiveLinkFrameData& FrameData, FGuid FrameSource);
 
 	// Populate OutFrame with a frame based off of the supplied time and our own offsets
 	void BuildInterpolatedFrame(const double InSeconds, FLiveLinkSubjectFrame& OutFrame);
@@ -108,7 +96,7 @@ struct FLiveLinkSubjectKey
 	FGuid Source;
 
 	FLiveLinkSubjectKey() {}
-	FLiveLinkSubjectKey(FName InSubjectName) : SubjectName(InSubjectName) {}
+	FLiveLinkSubjectKey(FName InSubjectName, FGuid InSource) : SubjectName(InSubjectName), Source(InSource) {}
 	FLiveLinkSubjectKey(const FLiveLinkSubjectKey& Rhs) : SubjectName(Rhs.SubjectName), Source(Rhs.Source) {}
 };
 
@@ -150,16 +138,13 @@ public:
 	void RemoveAllSources();
 
 	// ILiveLinkClient Interface
-	virtual FLiveLinkTimeCode MakeTimeCode(double InTime, int32 InFrameNum) const override;
-	virtual FLiveLinkTimeCode MakeTimeCodeFromTimeOnly(double InTime) const override;
 
 	virtual void AddSource(TSharedPtr<ILiveLinkSource> InSource) override;
 
-	virtual void PushSubjectSkeleton(FName SubjectName, const FLiveLinkRefSkeleton& RefSkeleton) override { PushSubjectSkeleton(FGuid(), SubjectName, RefSkeleton); }
 	virtual void PushSubjectSkeleton(FGuid SourceGuid, FName SubjectName, const FLiveLinkRefSkeleton& RefSkeleton) override;
 
 	virtual void ClearSubject(FName SubjectName) override;
-	virtual void PushSubjectData(FGuid SourceGuid, FName SubjectName, const TArray<FTransform>& Transforms, const TArray<FLiveLinkCurveElement>& CurveElements, const FLiveLinkTimeCode& TimeCode) override;
+	virtual void PushSubjectData(FGuid SourceGuid, FName SubjectName, const FLiveLinkFrameData& FrameData) override;
 	// End ILiveLinkClient Interface
 
 	// Add a new virtual subject to the client
@@ -195,13 +180,6 @@ public:
 	ULiveLinkSourceSettings* GetSourceSettingsForEntry(FGuid InEntryGuid);
 
 	void OnPropertyChanged(FGuid InEntryGuid, const FPropertyChangedEvent& PropertyChangedEvent);
-
-	// Get a list of currently active subjects
-	TArray<FLiveLinkSubjectKeyXR> GetSubjectsXR();
-
-	// Functions for managing sources changed delegate
-	FDelegateHandle RegisterSubjectsChangedHandleXR(const FSimpleMulticastDelegate::FDelegate& SubjectsChanged);
-	void UnregisterSubjectsChangedHandleXR(FDelegateHandle Handle);
 
 	// Functions for managing sources changed delegate
 	FDelegateHandle RegisterSourcesChangedHandle(const FSimpleMulticastDelegate::FDelegate& SourcesChanged);

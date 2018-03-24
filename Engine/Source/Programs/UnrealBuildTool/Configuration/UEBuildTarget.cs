@@ -1476,6 +1476,18 @@ namespace UnrealBuildTool
 				}
 				Manifest.LibraryBuildProducts.AddRange(LibraryBuildProducts.Select(x => x.FullName));
 
+				// Also add the version file if it's been specified
+				if (VersionFile != null)
+				{
+					Manifest.BuildProducts.Add(VersionFile.FullName);
+				}
+
+				// Add all the version manifests to the receipt
+				foreach (FileReference VersionManifestFile in FileReferenceToModuleManifestPairs.Select(x => x.Key))
+				{
+					Manifest.BuildProducts.Add(VersionManifestFile.FullName);
+				}
+
 				UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform);
 				if (OnlyModules.Count == 0)
 				{
@@ -1499,7 +1511,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Prepare all the receipts this target (all the .target and .modules files). See the VersionManifest class for an explanation of what these files are.
 		/// </summary>
-		void PrepareReceipts(UEToolChain ToolChain, List<KeyValuePair<FileReference, BuildProductType>> BuildProducts, List<KeyValuePair<FileReference, BuildProductType>> PrecompileOnlyBuildProducts)
+		void PrepareReceipts(UEToolChain ToolChain, List<KeyValuePair<FileReference, BuildProductType>> BuildProducts, List<KeyValuePair<FileReference, BuildProductType>> PrecompileOnlyBuildProducts, EHotReload HotReload)
 		{
 			// If linking is disabled, don't generate any receipt
 			if (Rules.bDisableLinking)
@@ -1524,9 +1536,9 @@ namespace UnrealBuildTool
 					// If this is a formal build, we can just the compatible changelist as the unique id.
 					Version.BuildId = String.Format("{0}", Version.EffectiveCompatibleChangelist);
 				}
-				else if (OnlyModules.Count > 0 || bEditorRecompile)
+				else if(HotReload != EHotReload.Disabled || OnlyModules.Count > 0)
 				{
-					// If we're hot reloading, just use the last version number.
+					// If we're hot reloading or doing a partial build, just use the last version number.
 					BuildVersion LastVersion;
 					if (VersionFile != null && BuildVersion.TryRead(VersionFile, out LastVersion))
 					{
@@ -2328,7 +2340,7 @@ namespace UnrealBuildTool
 			// Create a receipt for the target
 			if (!ProjectFileGenerator.bGenerateProjectFiles)
 			{
-				PrepareReceipts(TargetToolChain, BuildProducts, PrecompileOnlyBuildProducts);
+				PrepareReceipts(TargetToolChain, BuildProducts, PrecompileOnlyBuildProducts, HotReload);
 			}
 
 			// Make sure all the checked headers were valid
@@ -4114,6 +4126,10 @@ namespace UnrealBuildTool
 					else if (bUseSharedBuildEnvironment && ModuleFileName.IsUnderDirectory(UnrealBuildTool.EngineDirectory))
 					{
 						GeneratedCodeDirectory = UnrealBuildTool.EngineDirectory;
+					}
+					else if (bUseSharedBuildEnvironment && UnrealBuildTool.IsUnderAnEngineDirectory(ModuleFileName.Directory))
+					{
+						GeneratedCodeDirectory = UnrealBuildTool.EnterpriseDirectory;
 					}
 					else
 					{

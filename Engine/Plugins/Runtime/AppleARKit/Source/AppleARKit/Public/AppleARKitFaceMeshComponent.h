@@ -103,6 +103,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Components|ARFaceMesh")
 	void PublishViaLiveLink(FName SubjectName);
 
+	/** Get the transform that the AR camera has detected */
+	UFUNCTION(BlueprintPure, Category = "Components|ARFaceMesh")
+	FTransform GetTransform() const;
+
 	/**	Indicates whether collision should be created for this face mesh. This adds significant cost, so only use if you need to trace against the face mesh. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components|ARFaceMesh")
 	bool bWantsCollision;
@@ -114,6 +118,10 @@ public:
 	/**	Determines how the transform from tracking data and the component's transform are mixed together */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components|ARFaceMesh")
 	EARFaceComponentTransformMixing TransformSetting;
+
+	/**	If true, the face mesh will be rotated to face out of the screen (-X) rather than into the screen (+X) and corresponding axises to match */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components|ARFaceMesh")
+	bool bFlipTrackedRotation;
 
 	/** Used when rendering the face mesh (mostly debug reasons) */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components|ARFaceMesh")

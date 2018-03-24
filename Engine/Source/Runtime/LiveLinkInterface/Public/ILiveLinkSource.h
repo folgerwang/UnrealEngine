@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Misc/Guid.h"
+#include "LiveLinkTypes.h"
 
 class ILiveLinkClient;
 class ULiveLinkSourceSettings;

@@ -93,12 +93,15 @@ void FPoseDataContainer::MarkPoseFlags(USkeleton* InSkeleton, FName& InRetargetS
 		check(Pose.LocalSpacePose.Num() == Tracks.Num());
 
 		Pose.LocalSpacePoseMask.SetNumZeroed(Tracks.Num(), true);
-		for (int32 TrackIndex = 0; TrackIndex < Tracks.Num(); ++TrackIndex)
+		if (InSkeleton)
 		{
-			FTransform DefaultTransform = GetDefaultTransform(Tracks[TrackIndex], InSkeleton, InRetargetSourceName);
-			if (!Pose.LocalSpacePose[TrackIndex].Equals(DefaultTransform, KINDA_SMALL_NUMBER))
+			for (int32 TrackIndex = 0; TrackIndex < Tracks.Num(); ++TrackIndex)
 			{
-				Pose.LocalSpacePoseMask[TrackIndex] = true;
+				FTransform DefaultTransform = GetDefaultTransform(Tracks[TrackIndex], InSkeleton, InRetargetSourceName);
+				if (!Pose.LocalSpacePose[TrackIndex].Equals(DefaultTransform, KINDA_SMALL_NUMBER))
+				{
+					Pose.LocalSpacePoseMask[TrackIndex] = true;
+				}
 			}
 		}
 	}
@@ -493,7 +496,7 @@ bool UPoseAsset::GetAnimationPose(struct FCompactPose& OutPose, FBlendedCurve& O
 						}
 					}
 
-					const int32 StartBlendLoopIndex = (TotalLocalWeight < 1.f) ? 0 : 1;
+					const int32 StartBlendLoopIndex = (bAdditivePose || TotalLocalWeight < 1.f) ? 0 : 1;
 
 					if (BlendingTransform.Num() == 0)
 					{
@@ -502,7 +505,11 @@ bool UPoseAsset::GetAnimationPose(struct FCompactPose& OutPose, FBlendedCurve& O
 					}
 					else
 					{
-						if (StartBlendLoopIndex == 0)
+						if (bAdditivePose)
+						{
+							BlendedBoneTransform[TrackIndex] = OutPose[CompactIndex];
+						}
+						else if (StartBlendLoopIndex == 0)
 						{
 							BlendedBoneTransform[TrackIndex] = OutPose[CompactIndex] * ScalarRegister(1.f - TotalLocalWeight);
 						}
@@ -514,7 +521,15 @@ bool UPoseAsset::GetAnimationPose(struct FCompactPose& OutPose, FBlendedCurve& O
 
 					for (int32 BlendIndex = StartBlendLoopIndex; BlendIndex < BlendingTransform.Num(); ++BlendIndex)
 					{
-						BlendedBoneTransform[TrackIndex].AccumulateWithShortestRotation(BlendingTransform[BlendIndex], ScalarRegister(BlendingWeights[BlendIndex]));
+						if (bAdditivePose)
+						{
+							BlendedBoneTransform[TrackIndex].NormalizeRotation();
+							FTransform::BlendFromIdentityAndAccumulate(BlendedBoneTransform[TrackIndex], BlendingTransform[BlendIndex], ScalarRegister(BlendingWeights[BlendIndex]));
+						}
+						else
+						{
+							BlendedBoneTransform[TrackIndex].AccumulateWithShortestRotation(BlendingTransform[BlendIndex], ScalarRegister(BlendingWeights[BlendIndex]));
+						}
 					}
 				}
 			}
@@ -542,7 +557,7 @@ bool UPoseAsset::GetAnimationPose(struct FCompactPose& OutPose, FBlendedCurve& O
 				const FBoneIndices& LocalBoneIndices = BoneIndices[TrackIndex];
 				if (LocalBoneIndices.CompactBoneIndex != INDEX_NONE)
 				{
-					FAnimationRuntime::RetargetBoneTransform(MySkeleton, RetargetSource, BlendedBoneTransform[TrackIndex], LocalBoneIndices.SkeletonBoneIndex, LocalBoneIndices.CompactBoneIndex, RequiredBones, false);
+					FAnimationRuntime::RetargetBoneTransform(MySkeleton, RetargetSource, BlendedBoneTransform[TrackIndex], LocalBoneIndices.SkeletonBoneIndex, LocalBoneIndices.CompactBoneIndex, RequiredBones, bAdditivePose);
 					OutPose[LocalBoneIndices.CompactBoneIndex] = BlendedBoneTransform[TrackIndex];
 					OutPose.NormalizeRotations();
 				}
@@ -604,11 +619,7 @@ void UPoseAsset::Serialize(FArchive& Ar)
 	if (Ar.CustomVer(FFrameworkObjectVersion::GUID) < FFrameworkObjectVersion::PoseAssetSupportPerBoneMask)
 	{
 		// fix curve names
-		USkeleton* MySkeleton = GetSkeleton();
-		if (MySkeleton)
-		{
-			PoseContainer.MarkPoseFlags(MySkeleton, RetargetSource);
-		}
+		PoseContainer.MarkPoseFlags(GetSkeleton(), RetargetSource);
 	}
 
 #if WITH_EDITOR
@@ -1365,10 +1376,22 @@ bool UPoseAsset::GetBasePoseTransform(TArray<FTransform>& OutBasePose, TArray<fl
 	if (BasePoseIndex == -1)
 	{
 		OutBasePose.AddUninitialized(TotalNumTrack);
-		for (int32 TrackIndex = 0; TrackIndex < PoseContainer.Tracks.Num(); ++TrackIndex)
+
+		USkeleton* MySkeleton = GetSkeleton();
+		if (MySkeleton)
 		{
-			const FName& TrackName = PoseContainer.Tracks[TrackIndex];
-			OutBasePose[TrackIndex] = PoseContainer.GetDefaultTransform(TrackName, GetSkeleton(), RetargetSource);
+			for (int32 TrackIndex = 0; TrackIndex < PoseContainer.Tracks.Num(); ++TrackIndex)
+			{
+				const FName& TrackName = PoseContainer.Tracks[TrackIndex];
+				OutBasePose[TrackIndex] = PoseContainer.GetDefaultTransform(TrackName, GetSkeleton(), RetargetSource);
+			}
+		}
+		else
+		{
+			for (int32 TrackIndex = 0; TrackIndex < PoseContainer.Tracks.Num(); ++TrackIndex)
+			{
+				OutBasePose[TrackIndex].SetIdentity();
+			}
 		}
 
 		// add zero curves

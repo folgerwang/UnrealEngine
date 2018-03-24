@@ -362,6 +362,14 @@ void FSlateUser::FinishFrame()
 	FocusWidgetPathStrong.Reset();
 }
 
+void FSlateUser::NotifyWindowDestroyed(TSharedRef<SWindow> DestroyedWindow)
+{
+	if (FocusWidgetPathStrong.IsValid() && FocusWidgetPathStrong->IsValid() && DestroyedWindow == FocusWidgetPathStrong->GetWindow())
+	{
+		FocusWidgetPathStrong.Reset();
+	}
+}
+
 FSlateVirtualUser::FSlateVirtualUser(int32 InUserIndex, int32 InVirtualUserIndex)
 	: UserIndex(InUserIndex)
 	, VirtualUserIndex(InVirtualUserIndex)
@@ -2069,7 +2077,7 @@ void FSlateApplication::AddModalWindow( TSharedRef<SWindow> InSlateWindow, const
 		UE_LOG(LogSlate, Warning, TEXT("A modal window tried to take control while running in unattended script mode. The window was canceled."));
 		if (FPlatformMisc::IsDebuggerPresent())
 		{
-			FPlatformMisc::DebugBreak();
+			UE_DEBUG_BREAK();
 		}
 		else
 		{
@@ -2327,6 +2335,10 @@ void FSlateApplication::DismissMenuByWidget(const TSharedRef<SWidget>& InWidgetI
 
 void FSlateApplication::RequestDestroyWindow( TSharedRef<SWindow> InWindowToDestroy )
 {
+	ForEachUser([&] (FSlateUser* User) {
+		User->NotifyWindowDestroyed(InWindowToDestroy);
+	});
+
 	// Logging to track down window shutdown issues with movie loading threads. Too spammy in editor builds with all the windows
 #if !WITH_EDITOR
 	UE_LOG(LogSlate, Log, TEXT("Request Window '%s' being destroyed"), *InWindowToDestroy->GetTitle().ToString() );

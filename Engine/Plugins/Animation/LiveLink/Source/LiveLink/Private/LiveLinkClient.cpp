@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LiveLinkClient.h"
 #include "Misc/ScopeLock.h"
@@ -63,20 +63,20 @@ void Blend(const TArray<Type>& A, const TArray<Type>& B, TArray<Type>& Output, f
 	}
 }
 
-void FLiveLinkSubject::AddFrame(const TArray<FTransform>& Transforms, const TArray<FLiveLinkCurveElement>& CurveElements, const FLiveLinkTimeCode& TimeCode, FGuid FrameSource)
+void FLiveLinkSubject::AddFrame(const FLiveLinkFrameData& FrameData, FGuid FrameSource)
 {
 	LastModifier = FrameSource;
 
 	FLiveLinkFrame* NewFrame = nullptr;
 
-	if(CachedInterpolationSettings.bUseInterpolation)
+	if (CachedInterpolationSettings.bUseInterpolation)
 	{
-		if (TimeCode.Time < LastReadTime)
+		if (FrameData.WorldTime.Time < LastReadTime)
 		{
 			//Gone back in time
 			Frames.Reset();
 			LastReadTime = 0;
-			SubjectTimeOffset = TimeCode.Offset;
+			SubjectTimeOffset = FrameData.WorldTime.Offset;
 		}
 
 		if (Frames.Num() == 0)
@@ -98,7 +98,7 @@ void FLiveLinkSubject::AddFrame(const TArray<FTransform>& Transforms, const TArr
 
 			for (; FrameIndex >= 0; --FrameIndex)
 			{
-				if (Frames[FrameIndex].TimeCode.Time < TimeCode.Time)
+				if (Frames[FrameIndex].WorldTime.Time < FrameData.WorldTime.Time)
 				{
 					break;
 				}
@@ -126,15 +126,16 @@ void FLiveLinkSubject::AddFrame(const TArray<FTransform>& Transforms, const TArr
 		LastReadTime = 0;
 		LastReadFrame = 0;
 
-		SubjectTimeOffset = TimeCode.Offset;
+		SubjectTimeOffset = FrameData.WorldTime.Offset;
 	}
 
-	FLiveLinkCurveIntegrationData IntegrationData = CurveKeyData.UpdateCurveKey(CurveElements);
+	FLiveLinkCurveIntegrationData IntegrationData = CurveKeyData.UpdateCurveKey(FrameData.CurveElements);
 
 	check(NewFrame);
-	NewFrame->Transforms = Transforms;
+	NewFrame->Transforms = FrameData.Transforms;
 	NewFrame->Curves = MoveTemp(IntegrationData.CurveValues);
-	NewFrame->TimeCode = TimeCode;
+	NewFrame->MetaData = FrameData.MetaData;
+	NewFrame->WorldTime = FrameData.WorldTime;
 
 	// update existing curves
 	if (IntegrationData.NumNewCurves > 0)
@@ -145,6 +146,7 @@ void FLiveLinkSubject::AddFrame(const TArray<FTransform>& Transforms, const TArr
 		}
 	}
 }
+
 
 void FLiveLinkSubject::BuildInterpolatedFrame(const double InSeconds, FLiveLinkSubjectFrame& OutFrame)
 {
@@ -159,7 +161,8 @@ void FLiveLinkSubject::BuildInterpolatedFrame(const double InSeconds, FLiveLinkS
 	{
 		OutFrame.Transforms = Frames.Last().Transforms;
 		OutFrame.Curves = Frames.Last().Curves;
-		LastReadTime = Frames.Last().TimeCode.Time;
+		OutFrame.MetaData = Frames.Last().MetaData;
+		LastReadTime = Frames.Last().WorldTime.Time;
 		LastReadFrame = Frames.Num()-1;
 	}
 	else
@@ -170,7 +173,7 @@ void FLiveLinkSubject::BuildInterpolatedFrame(const double InSeconds, FLiveLinkS
 
 		for (int32 FrameIndex = Frames.Num() - 1; FrameIndex >= 0; --FrameIndex)
 		{
-			if (Frames[FrameIndex].TimeCode.Time < LastReadTime)
+			if (Frames[FrameIndex].WorldTime.Time < LastReadTime)
 			{
 				//Found Start frame
 
@@ -179,6 +182,7 @@ void FLiveLinkSubject::BuildInterpolatedFrame(const double InSeconds, FLiveLinkS
 					LastReadFrame = FrameIndex;
 					OutFrame.Transforms = Frames[FrameIndex].Transforms;
 					OutFrame.Curves = Frames[FrameIndex].Curves;
+					OutFrame.MetaData = Frames[FrameIndex].MetaData;
 					bBuiltFrame = true;
 					break;
 				}
@@ -189,10 +193,12 @@ void FLiveLinkSubject::BuildInterpolatedFrame(const double InSeconds, FLiveLinkS
 					const FLiveLinkFrame& PostFrame = Frames[FrameIndex + 1];
 
 					// Calc blend weight (Amount through frame gap / frame gap) 
-					const float BlendWeight = (LastReadTime - PreFrame.TimeCode.Time) / (PostFrame.TimeCode.Time - PreFrame.TimeCode.Time);
+					const float BlendWeight = (LastReadTime - PreFrame.WorldTime.Time) / (PostFrame.WorldTime.Time - PreFrame.WorldTime.Time);
 
 					Blend(PreFrame.Transforms, PostFrame.Transforms, OutFrame.Transforms, BlendWeight);
 					Blend(PreFrame.Curves, PostFrame.Curves, OutFrame.Curves, BlendWeight);
+					// MetaData doesn't interpolate so use the PreFrame
+					OutFrame.MetaData = PreFrame.MetaData;
 
 					bBuiltFrame = true;
 					break;
@@ -206,6 +212,7 @@ void FLiveLinkSubject::BuildInterpolatedFrame(const double InSeconds, FLiveLinkS
 			// Failed to find an interp point so just take earliest frame
 			OutFrame.Transforms = Frames[0].Transforms;
 			OutFrame.Curves = Frames[0].Curves;
+			OutFrame.MetaData = Frames[0].MetaData;
 		}
 	}
 }
@@ -357,10 +364,16 @@ void FLiveLinkClient::BuildVirtualSubjectFrame(FLiveLinkVirtualSubject& VirtualS
 
 	SnapshotSubject.Transforms.Reset(SnapshotSubject.RefSkeleton.GetBoneNames().Num());
 	SnapshotSubject.Transforms.Add(FTransform::Identity);
+	SnapshotSubject.MetaData.StringMetaData.Empty();
 	for (FName SubjectName : VirtualSubject.Subjects)
 	{
 		FLiveLinkSubjectFrame& SubjectFrame = ActiveSubjectSnapshots.FindChecked(SubjectName);
 		SnapshotSubject.Transforms.Append(SubjectFrame.Transforms);
+		for (const auto& MetaDatum : SubjectFrame.MetaData.StringMetaData)
+		{
+			FName QualifiedKey = FName(*(SubjectName.ToString() + MetaDatum.Key.ToString()));
+			SnapshotSubject.MetaData.StringMetaData.Emplace(SubjectName, MetaDatum.Value);
+		}
 	}
 }
 
@@ -431,22 +444,6 @@ void FLiveLinkClient::RemoveAllSources()
 	OnLiveLinkSourcesChanged.Broadcast();
 }
 
-FLiveLinkTimeCode FLiveLinkClient::MakeTimeCode(double InTime, int32 InFrameNum) const
-{
-	FLiveLinkTimeCode TC = MakeTimeCodeFromTimeOnly(InTime);
-	TC.FrameNum = InFrameNum;
-	return TC;
-}
-
-FLiveLinkTimeCode FLiveLinkClient::MakeTimeCodeFromTimeOnly(double InTime) const
-{
-	FLiveLinkTimeCode TC;
-	TC.Time = InTime;
-	TC.Offset = FPlatformTime::Seconds() - InTime;
-	return TC;
-}
-
-
 void FLiveLinkClient::PushSubjectSkeleton(FGuid SourceGuid, FName SubjectName, const FLiveLinkRefSkeleton& RefSkeleton)
 {
 	FScopeLock Lock(&SubjectDataAccessCriticalSection);
@@ -470,13 +467,13 @@ void FLiveLinkClient::ClearSubject(FName SubjectName)
 	LiveSubjectData.Remove(SubjectName);
 }
 
-void FLiveLinkClient::PushSubjectData(FGuid SourceGuid, FName SubjectName, const TArray<FTransform>& Transforms, const TArray<FLiveLinkCurveElement>& CurveElements, const FLiveLinkTimeCode& TimeCode)
+void FLiveLinkClient::PushSubjectData(FGuid SourceGuid, FName SubjectName, const FLiveLinkFrameData& FrameData)
 {
 	FScopeLock Lock(&SubjectDataAccessCriticalSection);
 
 	if (FLiveLinkSubject* Subject = LiveSubjectData.Find(SubjectName))
 	{
-		Subject->AddFrame(Transforms, CurveElements, TimeCode, SourceGuid);
+		Subject->AddFrame(FrameData, SourceGuid);
 	}
 }
 
@@ -499,16 +496,15 @@ TArray<FLiveLinkSubjectKey> FLiveLinkClient::GetSubjects()
 
 		for (const TPair<FName, FLiveLinkSubject>& LiveSubject : LiveSubjectData)
 		{
-			SubjectEntries.Emplace(LiveSubject.Key);
-			SubjectEntries.Last().Source = LiveSubject.Value.LastModifier;
+			SubjectEntries.Emplace(LiveSubject.Key, LiveSubject.Value.LastModifier);
 		}
 	}
 
 	for (TPair<FName, FLiveLinkVirtualSubject>& VirtualSubject : VirtualSubjects)
 	{
-		const int32 NewItem = SubjectEntries.Emplace(VirtualSubject.Key);
-		SubjectEntries[NewItem].Source = VirtualSubjectGuid;
+		const int32 NewItem = SubjectEntries.Emplace(VirtualSubject.Key, VirtualSubjectGuid);
 	}
+
 	return SubjectEntries;
 }
 
@@ -606,32 +602,6 @@ void FLiveLinkClient::OnPropertyChanged(FGuid InEntryGuid, const FPropertyChange
 	}
 }
 
-TArray<FLiveLinkSubjectKeyXR> FLiveLinkClient::GetSubjectsXR()
-{
-	TArray<FLiveLinkSubjectKeyXR> SubjectEntries;
-	{
-		FScopeLock Lock(&SubjectDataAccessCriticalSection);
-
-		SubjectEntries.Reserve(LiveSubjectData.Num());
-
-		for (const TPair<FName, FLiveLinkSubject>& LiveSubject : LiveSubjectData)
-		{
-			SubjectEntries.Emplace(LiveSubject.Key, LiveSubject.Value.LastModifier);
-		}
-	}
-	return SubjectEntries;
-}
-
-FDelegateHandle FLiveLinkClient::RegisterSubjectsChangedHandleXR(const FSimpleMulticastDelegate::FDelegate& SourcesChanged)
-{
-	return OnLiveLinkSubjectsChanged.Add(SourcesChanged);
-}
-
-void FLiveLinkClient::UnregisterSubjectsChangedHandleXR(FDelegateHandle Handle)
-{
-	OnLiveLinkSubjectsChanged.Remove(Handle);
-}
-
 FDelegateHandle FLiveLinkClient::RegisterSourcesChangedHandle(const FSimpleMulticastDelegate::FDelegate& SourcesChanged)
 {
 	return OnLiveLinkSourcesChanged.Add(SourcesChanged);
@@ -642,9 +612,9 @@ void FLiveLinkClient::UnregisterSourcesChangedHandle(FDelegateHandle Handle)
 	OnLiveLinkSourcesChanged.Remove(Handle);
 }
 
-FDelegateHandle FLiveLinkClient::RegisterSubjectsChangedHandle(const FSimpleMulticastDelegate::FDelegate& SourcesChanged)
+FDelegateHandle FLiveLinkClient::RegisterSubjectsChangedHandle(const FSimpleMulticastDelegate::FDelegate& SubjectsChanged)
 {
-	return OnLiveLinkSubjectsChanged.Add(SourcesChanged);
+	return OnLiveLinkSubjectsChanged.Add(SubjectsChanged);
 }
 
 void FLiveLinkClient::UnregisterSubjectsChangedHandle(FDelegateHandle Handle)

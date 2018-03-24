@@ -505,7 +505,7 @@ struct FSectionInfo
 
 	bool operator==(const FSectionInfo& Other) const
 	{
-		return Material == Other.Material && MaterialSlotName == Other.MaterialSlotName && EnabledProperties == Other.EnabledProperties && bProcessed == Other.bProcessed && MaterialIndex == Other.MaterialIndex && StartIndex == Other.StartIndex && EndIndex == Other.EndIndex;
+		return Material == Other.Material && EnabledProperties == Other.EnabledProperties;
 	}
 };
 

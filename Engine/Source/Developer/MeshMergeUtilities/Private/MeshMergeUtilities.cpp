@@ -229,12 +229,12 @@ void FMeshMergeUtilities::BakeMaterialsForComponent(TArray<TWeakObjectPtr<UObjec
 					// Add all user defined properties for baking out
 					for (const FPropertyEntry& Entry : MaterialOptions->Properties)
 					{
-						int32 NumTextureCoordinates;
-						bool bUsesVertexData;
-						Material->AnalyzeMaterialProperty(Entry.Property, NumTextureCoordinates, bUsesVertexData);
-
 						if (!Entry.bUseConstantValue && Entry.Property != MP_MAX)
 						{
+							int32 NumTextureCoordinates;
+							bool bUsesVertexData;
+							Material->AnalyzeMaterialProperty(Entry.Property, NumTextureCoordinates, bUsesVertexData);
+
 							MaterialSettings.PropertySizes.Add(Entry.Property, Entry.bUseCustomSize ? Entry.CustomSize : MaterialOptions->TextureSize);
 						}
 					}
@@ -2341,7 +2341,7 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 					for (int32 ChannelIdx = 0; ChannelIdx < MAX_MESH_TEXTURE_COORDS; ++ChannelIdx)
 					{
 						// Whether this channel has data
-						if (DataTracker.DoesUVChannelContainData(ChannelIdx, RetrievedLODIndex))
+						if (DataTracker.DoesUVChannelContainData(ChannelIdx, LODIndex))
 						{
 							const TArray<FVector2D>& SourceChannel = RawMeshPtr->WedgeTexCoords[ChannelIdx];
 							TArray<FVector2D>& TargetChannel = MergedMesh.WedgeTexCoords[ChannelIdx];

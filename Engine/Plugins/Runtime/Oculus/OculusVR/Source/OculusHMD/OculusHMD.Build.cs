@@ -76,6 +76,7 @@ namespace UnrealBuildTool.Rules
 					AddEngineThirdPartyPrivateStaticDependencies(Target, "NVAPI");
 					AddEngineThirdPartyPrivateStaticDependencies(Target, "DX11Audio");
 					AddEngineThirdPartyPrivateStaticDependencies(Target, "DirectSound");
+					AddEngineThirdPartyPrivateStaticDependencies(Target, "NVAftermath");
 				}
 
 				// Vulkan
