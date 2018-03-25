@@ -3,6 +3,7 @@
 #include "Rendering/SkinWeightVertexBuffer.h"
 #include "EngineUtils.h"
 #include "Rendering/SkeletalMeshLODModel.h"
+#include "RenderUtils.h"
 
 ///
 
