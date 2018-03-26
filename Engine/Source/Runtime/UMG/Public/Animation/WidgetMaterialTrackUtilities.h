@@ -30,7 +30,8 @@ public:
 	UMaterialInterface* GetMaterial() const;
 
 	/** Sets the new bound material */
-	void SetMaterial(UMaterialInterface* InMaterial);
+	void SetMaterial(UMaterialInterface* InMaterial, UWidget* OwnerWidget);
+
 private:
 	/** Struct typename for that the data is pointing to */
 	FName TypeName;

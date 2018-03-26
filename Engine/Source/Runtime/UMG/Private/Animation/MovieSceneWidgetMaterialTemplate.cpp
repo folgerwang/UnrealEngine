@@ -39,7 +39,7 @@ struct FWidgetMaterialAccessor : FDefaultMaterialAccessor
 		if (UWidget* Widget = Cast<UWidget>(&Object))
 		{
 			FWidgetMaterialHandle Handle = WidgetMaterialTrackUtilities::GetMaterialHandle(Widget, BrushPropertyNamePath);
-			Handle.SetMaterial(&Material);
+			Handle.SetMaterial(&Material, Widget);
 		}
 	}
 

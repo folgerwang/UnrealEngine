@@ -103,19 +103,25 @@ UMaterialInterface* FWidgetMaterialHandle::GetMaterial() const
 	}
 }
 
-void FWidgetMaterialHandle::SetMaterial(UMaterialInterface* InMaterial)
+void FWidgetMaterialHandle::SetMaterial(UMaterialInterface* InMaterial, UWidget* OwnerWidget)
 {
 	if(TypeName == TMaterialStructType<FSlateFontInfo>::GetTypeName())
 	{
-		return TMaterialStructType<FSlateFontInfo>::SetMaterial(Data, InMaterial);
+		TMaterialStructType<FSlateFontInfo>::SetMaterial(Data, InMaterial);
 	}
 	else if(TypeName == TMaterialStructType<FSlateBrush>::GetTypeName())
 	{
-		return TMaterialStructType<FSlateBrush>::SetMaterial(Data, InMaterial);
+		TMaterialStructType<FSlateBrush>::SetMaterial(Data, InMaterial);
 	}
 	else if(TypeName == TMaterialStructType<FFontOutlineSettings>::GetTypeName())
 	{
-		return TMaterialStructType<FFontOutlineSettings>::SetMaterial(Data, InMaterial);
+		TMaterialStructType<FFontOutlineSettings>::SetMaterial(Data, InMaterial);
+	}
+
+	TSharedPtr<SWidget> RawWidget = OwnerWidget->GetCachedWidget();
+	if (RawWidget.IsValid())
+	{
+		RawWidget->Invalidate(EInvalidateWidget::LayoutAndVolatility);
 	}
 }
 
