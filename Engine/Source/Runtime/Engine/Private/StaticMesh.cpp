@@ -45,7 +45,6 @@
 #if WITH_EDITOR
 #include "RawMesh.h"
 #include "Settings/EditorExperimentalSettings.h"
-#include "MeshAttributes.h"
 #include "MeshBuilder.h"
 #include "MeshUtilities.h"
 #include "DerivedDataCacheInterface.h"
@@ -53,6 +52,8 @@
 #include "IMeshBuilderModule.h"
 #include "MeshDescriptionOperations.h"
 #endif // #if WITH_EDITOR
+
+#include "MeshAttributes.h"
 
 #include "Engine/StaticMeshSocket.h"
 #include "EditorFramework/AssetImportData.h"
