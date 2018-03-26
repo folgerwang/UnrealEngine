@@ -173,7 +173,9 @@ public:
 	 */
 	void SetRange(const TRange<FFrameNumber>& NewRange)
 	{
-		if (TryModify())
+		// Do not modify for objects that still need initialization (i.e. we're in the object's constructor)
+		bool bCanSetRange = HasAnyFlags(RF_NeedInitialization) || TryModify();
+		if (bCanSetRange)
 		{
 			check(NewRange.GetLowerBound().IsOpen() || NewRange.GetUpperBound().IsOpen() || NewRange.GetLowerBoundValue() <= NewRange.GetUpperBoundValue());
 			SectionRange.Value = NewRange;
