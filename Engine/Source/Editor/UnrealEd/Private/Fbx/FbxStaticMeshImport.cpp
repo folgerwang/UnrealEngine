@@ -1741,6 +1741,13 @@ void UnFbx::FFbxImporter::PostImportStaticMesh(UStaticMesh* StaticMesh, TArray<F
 	IConsoleVariable* CVarDistanceFieldInterface = IConsoleManager::Get().FindConsoleVariable(TEXT("r.GenerateMeshDistanceFields"));
 	bool bOriginalGenerateMeshDistanceField = StaticMesh->bGenerateMeshDistanceField;
 	
+	//Always triangulate the original mesh description after we import it
+	UMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
+	if (MeshDescription)
+	{
+		MeshDescription->TriangulateMesh();
+	}
+
 	//Prebuild the static mesh when we use LodGroup and we want to modify the LodNumber
 	if (!ImportOptions->bImportScene)
 	{

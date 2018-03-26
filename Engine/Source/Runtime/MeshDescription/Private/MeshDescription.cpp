@@ -28,6 +28,14 @@ void UMeshDescription::Serialize( FArchive& Ar )
 	Ar << PolygonGroupAttributesSet;
 }
 
+void UMeshDescription::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+	
+	//We need to triangulate the mesh every time the mesh description change
+	TriangulateMesh();
+}
+
 void UMeshDescription::Empty()
 {
 	VertexArray.Reset();
@@ -72,6 +80,15 @@ FString UMeshDescription::GetIdString()
 	TPolygonGroupAttributeArray<bool>& PolygonGroupEnableCollisions = PolygonGroupAttributes().GetAttributes<bool>(MeshAttribute::PolygonGroup::EnableCollision);
 	TPolygonGroupAttributeArray<bool>& PolygonGroupCastShadows = PolygonGroupAttributes().GetAttributes<bool>(MeshAttribute::PolygonGroup::CastShadow);
 	
+	
+	//Fail safe, we always want to compute the string ID with the triangle triangulate
+	if(GetPolygon(Polygons().GetFirstValidID()).Triangles.Num() == 0)
+	{
+		//We should not get here since Triangulate is call when we import staticMesh and in the post edit change of the MeshDescription
+		ensure(GetPolygon(Polygons().GetFirstValidID()).Triangles.Num() != 0);
+		TriangulateMesh();
+	}
+
 	auto AddItemToSha = [&](auto ItemSerialization)
 	{
 		FMemoryWriter Ar(TempBytes);

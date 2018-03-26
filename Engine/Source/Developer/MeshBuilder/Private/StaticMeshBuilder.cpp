@@ -68,7 +68,6 @@ bool FStaticMeshBuilder::Build(UStaticMesh* StaticMesh, const FStaticMeshLODGrou
 
 		if (OriginalMeshDescription != nullptr)
 		{
-			OriginalMeshDescription->TriangulateMesh(); //Make sure the original mesh description is triangulate.
 			MeshDescription = MeshDescriptionHelper.GetRenderMeshDescription(StaticMesh);
 		}
 		
