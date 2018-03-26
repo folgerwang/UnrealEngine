@@ -482,12 +482,11 @@ bool FMeshDescriptionTest::ConversionTest(FAutomationTestExecutionInfo& Executio
 		FString FullAssetName = TEXT("/Game/Tests/MeshDescription/") + AssetName + TEXT(".") + AssetName;
 		UStaticMesh* AssetMesh = LoadObject<UStaticMesh>(nullptr, *FullAssetName, nullptr, LOAD_None, nullptr);
 
-#if WITH_EDITOR
-		AssetMesh->BuildCacheAutomationTestGuid = FGuid::NewGuid();
-#endif
-
 		if (AssetMesh != nullptr)
 		{
+#if WITH_EDITOR
+			AssetMesh->BuildCacheAutomationTestGuid = FGuid::NewGuid();
+#endif
 			TMap<FName, int32> MaterialMap;
 			TMap<int32, FName> MaterialMapInverse;
 			for (int32 MaterialIndex = 0; MaterialIndex < AssetMesh->StaticMaterials.Num(); ++MaterialIndex)
