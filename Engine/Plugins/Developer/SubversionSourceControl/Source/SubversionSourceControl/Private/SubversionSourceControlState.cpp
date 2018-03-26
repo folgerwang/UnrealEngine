@@ -136,7 +136,7 @@ FText FSubversionSourceControlState::GetDisplayName() const
 	case EWorkingCopyState::Added:
 		if(bCopied)
 		{
-			return LOCTEXT("Added", "Added With History");
+			return LOCTEXT("AddedWithHistory", "Added With History");
 		}
 		else
 		{
@@ -189,7 +189,7 @@ FText FSubversionSourceControlState::GetDisplayTooltip() const
 	case EWorkingCopyState::Added:
 		if(bCopied)
 		{
-			return LOCTEXT("Added_Tooltip", "Item is scheduled for addition with history");
+			return LOCTEXT("AddedWithHistory_Tooltip", "Item is scheduled for addition with history");
 		}
 		else
 		{

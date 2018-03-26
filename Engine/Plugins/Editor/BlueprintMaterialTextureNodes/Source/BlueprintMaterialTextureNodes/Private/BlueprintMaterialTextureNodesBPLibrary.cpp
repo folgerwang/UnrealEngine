@@ -120,14 +120,14 @@ FLinearColor UBlueprintMaterialTextureNodesBPLibrary::Texture2D_SampleUV_EditorO
 
 			}
 
-			FMessageLog("Blueprint").Warning(LOCTEXT("Texture2D_SampleUV_InvalidFormat.", "Texture2D_SampleUV_EditorOnly: Source was unavailable or of unsupported format."));
+			FMessageLog("Blueprint").Warning(LOCTEXT("Texture2D_SampleUV_InvalidFormat", "Texture2D_SampleUV_EditorOnly: Source was unavailable or of unsupported format."));
 		}
 
 	}
-	FMessageLog("Blueprint").Warning(LOCTEXT("Texture2D_SampleUV_InvalidTexture.", "Texture2D_SampleUV_EditorOnly: Texture2D must be non-null."));
+	FMessageLog("Blueprint").Warning(LOCTEXT("Texture2D_SampleUV_InvalidTexture", "Texture2D_SampleUV_EditorOnly: Texture2D must be non-null."));
 
 #else
-	FMessageLog("Blueprint").Error(LOCTEXT("Texture2D cannot be sampled at runtime.", "Texture2D_SampleUV: Can't sample Texture2D at run time."));
+	FMessageLog("Blueprint").Error(LOCTEXT("Texture2D_SampleUV_CannotBeSampledAtRuntime", "Texture2D_SampleUV: Can't sample Texture2D at run time."));
 #endif
 
 	return FLinearColor(0, 0, 0, 0);
@@ -141,12 +141,12 @@ TArray<FLinearColor> UBlueprintMaterialTextureNodesBPLibrary::RenderTarget_Sampl
 
 	if (!InRenderTarget)
 	{
-		FMessageLog("Blueprint").Warning(LOCTEXT("RenderTargetSampleUV_InvalidRenderTarget.", "RenderTargetSampleUVEditoOnly: Render Target must be non-null."));
+		FMessageLog("Blueprint").Warning(LOCTEXT("RenderTargetSampleUV_InvalidRenderTarget", "RenderTargetSampleUVEditoOnly: Render Target must be non-null."));
 		return { FLinearColor(0,0,0,0) };
 	}
 	else if (!InRenderTarget->Resource)
 	{
-		FMessageLog("Blueprint").Warning(LOCTEXT("RenderTargetSampleUV_ReleasedRenderTarget.", "RenderTargetSampleUVEditoOnly: Render Target has been released."));
+		FMessageLog("Blueprint").Warning(LOCTEXT("RenderTargetSampleUV_ReleasedRenderTarget", "RenderTargetSampleUVEditoOnly: Render Target has been released."));
 		return { FLinearColor(0,0,0,0) };
 	}
 	else
@@ -190,9 +190,9 @@ TArray<FLinearColor> UBlueprintMaterialTextureNodesBPLibrary::RenderTarget_Sampl
 			return OutVals;
 		}
 	}
-	FMessageLog("Blueprint").Warning(LOCTEXT("RenderTarget_SampleRectangle_InvalidTexture.", "RenderTarget_SampleRectangle_EditorOnly: Currently only 4 channel formats are supported: RTF_RGBA8, RTF_RGBA16f, and RTF_RGBA32f."));
+	FMessageLog("Blueprint").Warning(LOCTEXT("RenderTarget_SampleRectangle_InvalidTexture", "RenderTarget_SampleRectangle_EditorOnly: Currently only 4 channel formats are supported: RTF_RGBA8, RTF_RGBA16f, and RTF_RGBA32f."));
 #else
-	FMessageLog("Blueprint").Error(LOCTEXT("Render Targets Cannot Be Sampled at run time.", "RenderTarget_SampleRectangle: Can't sample Render Target at run time."));
+	FMessageLog("Blueprint").Error(LOCTEXT("RenderTarget_SampleRectangle_CannotBeSampledAtRuntime", "RenderTarget_SampleRectangle: Can't sample Render Target at run time."));
 #endif
 	return { FLinearColor(0,0,0,0) };
 }
@@ -203,12 +203,12 @@ FLinearColor UBlueprintMaterialTextureNodesBPLibrary::RenderTarget_SampleUV_Edit
 
 	if (!InRenderTarget)
 	{
-		FMessageLog("Blueprint").Warning(LOCTEXT("RenderTargetSampleUV_InvalidRenderTarget.", "RenderTargetSampleUVEditoOnly: Render Target must be non-null."));
+		FMessageLog("Blueprint").Warning(LOCTEXT("RenderTargetSampleUV_InvalidRenderTarget", "RenderTargetSampleUVEditoOnly: Render Target must be non-null."));
 		return FLinearColor(0, 0, 0, 0);
 	}
 	else if (!InRenderTarget->Resource)
 	{
-		FMessageLog("Blueprint").Warning(LOCTEXT("RenderTargetSampleUV_ReleasedRenderTarget.", "RenderTargetSampleUVEditoOnly: Render Target has been released."));
+		FMessageLog("Blueprint").Warning(LOCTEXT("RenderTargetSampleUV_ReleasedRenderTarget", "RenderTargetSampleUVEditoOnly: Render Target has been released."));
 		return FLinearColor(0, 0, 0, 0);
 	}
 	else
@@ -249,10 +249,10 @@ FLinearColor UBlueprintMaterialTextureNodesBPLibrary::RenderTarget_SampleUV_Edit
 
 			return OutVals[0];
 		}
-		FMessageLog("Blueprint").Warning(LOCTEXT("RenderTarget_SampleUV_InvalidTexture.", "RenderTarget_SampleUV_EditorOnly: Currently only 4 channel formats are supported: RTF_RGBA8, RTF_RGBA16f, and RTF_RGBA32f."));
+		FMessageLog("Blueprint").Warning(LOCTEXT("RenderTarget_SampleUV_InvalidTexture", "RenderTarget_SampleUV_EditorOnly: Currently only 4 channel formats are supported: RTF_RGBA8, RTF_RGBA16f, and RTF_RGBA32f."));
 	}
 #else
-	FMessageLog("Blueprint").Error(LOCTEXT("Render Targets Cannot Be Sampled at run time.", "RenderTarget_SampleUV: Can't sample Render Target at run time."));
+	FMessageLog("Blueprint").Error(LOCTEXT("RenderTarget_SampleUV_CannotBeSampledAtRuntime", "RenderTarget_SampleUV: Can't sample Render Target at run time."));
 #endif
 	return FLinearColor(0, 0, 0, 0);
 }
@@ -297,9 +297,9 @@ UMaterialInstanceConstant* UBlueprintMaterialTextureNodesBPLibrary::CreateMIC_Ed
 
 		return MIC;
 	}
-	FMessageLog("Blueprint").Warning(LOCTEXT("CreateMIC_InvalidMaterial.", "CreateMIC_EditorOnly: Material must be non-null."));
+	FMessageLog("Blueprint").Warning(LOCTEXT("CreateMIC_InvalidMaterial", "CreateMIC_EditorOnly: Material must be non-null."));
 #else
-	FMessageLog("Blueprint").Error(LOCTEXT("Material Instance Constants cannot be created at runtime.", "CreateMIC: Can't create MIC at run time."));
+	FMessageLog("Blueprint").Error(LOCTEXT("CreateMIC_CannotBeCreatedAtRuntime", "CreateMIC: Can't create MIC at run time."));
 #endif
 	return nullptr;
 }
@@ -327,9 +327,9 @@ bool UBlueprintMaterialTextureNodesBPLibrary::SetMICScalarParam_EditorOnly(UMate
 
 		return 1;
 	}
-	FMessageLog("Blueprint").Warning(LOCTEXT("SetMICScalarParam_InvalidMIC.", "SetMICScalarParam_EditorOnly: MIC must be non-null."));
+	FMessageLog("Blueprint").Warning(LOCTEXT("SetMICScalarParam_InvalidMIC", "SetMICScalarParam_EditorOnly: MIC must be non-null."));
 #else
-	FMessageLog("Blueprint").Error(LOCTEXT("Material Instance Constants cannot be modified at runtime.", "SetMICScalarParam: Can't modify MIC at run time."));
+	FMessageLog("Blueprint").Error(LOCTEXT("SetMICScalarParam_CannotBeModifiedAtRuntime", "SetMICScalarParam: Can't modify MIC at run time."));
 #endif
 	return 0;
 }
@@ -346,9 +346,9 @@ bool UBlueprintMaterialTextureNodesBPLibrary::SetMICVectorParam_EditorOnly(UMate
 
 		return 1;
 	}
-	FMessageLog("Blueprint").Warning(LOCTEXT("SetMICVectorParam_InvalidMIC.", "SetMICVectorParam_EditorOnly: MIC must be non-null."));
+	FMessageLog("Blueprint").Warning(LOCTEXT("SetMICVectorParam_InvalidMIC", "SetMICVectorParam_EditorOnly: MIC must be non-null."));
 #else
-	FMessageLog("Blueprint").Error(LOCTEXT("Material Instance Constants cannot be modified at runtime.", "SetMICVectorParam: Can't modify MIC at run time."));
+	FMessageLog("Blueprint").Error(LOCTEXT("SetMICVectorParam_CannotBeModifiedAtRuntime", "SetMICVectorParam: Can't modify MIC at run time."));
 #endif
 	return 0;
 }
@@ -365,9 +365,9 @@ bool UBlueprintMaterialTextureNodesBPLibrary::SetMICTextureParam_EditorOnly(UMat
 
 		return 1;
 	}
-	FMessageLog("Blueprint").Warning(LOCTEXT("SetMICTextureParam_InvalidMIC.", "SetMICTextureParam_EditorOnly: MIC must be non-null."));
+	FMessageLog("Blueprint").Warning(LOCTEXT("SetMICTextureParam_InvalidMIC", "SetMICTextureParam_EditorOnly: MIC must be non-null."));
 #else
-	FMessageLog("Blueprint").Error(LOCTEXT("Material Instance Constants cannot be modified at runtime.", "SetMICTextureParam: Can't modify MIC at run time."));
+	FMessageLog("Blueprint").Error(LOCTEXT("SetMICTextureParam_CannotBeModifiedAtRuntime", "SetMICTextureParam: Can't modify MIC at run time."));
 #endif
 	return 0;
 }
@@ -384,9 +384,9 @@ bool UBlueprintMaterialTextureNodesBPLibrary::SetMICShadingModel_EditorOnly(UMat
 
 		return 1;
 	}
-	FMessageLog("Blueprint").Warning(LOCTEXT("SetMICShadingModel_InvalidMIC.", "SetMICShadingModel_EditorOnly: MIC must be non-null."));
+	FMessageLog("Blueprint").Warning(LOCTEXT("SetMICShadingModel_InvalidMIC", "SetMICShadingModel_EditorOnly: MIC must be non-null."));
 #else
-	FMessageLog("Blueprint").Error(LOCTEXT("Material Instance Constants cannot be modified at runtime.", "SetMICShadingModel: Can't modify MIC at run time."));
+	FMessageLog("Blueprint").Error(LOCTEXT("SetMICShadingModel_CannotBeModifiedAtRuntime", "SetMICShadingModel: Can't modify MIC at run time."));
 #endif
 	return 0;
 }
@@ -402,9 +402,9 @@ bool UBlueprintMaterialTextureNodesBPLibrary::SetMICBlendMode_EditorOnly(UMateri
 
 		return 1;
 	}
-	FMessageLog("Blueprint").Warning(LOCTEXT("SetMICBlendMode_InvalidMIC.", "SetMICBlendMode_EditorOnly: MIC must be non-null."));
+	FMessageLog("Blueprint").Warning(LOCTEXT("SetMICBlendMode_InvalidMIC", "SetMICBlendMode_EditorOnly: MIC must be non-null."));
 #else
-	FMessageLog("Blueprint").Error(LOCTEXT("Material Instance Constants cannot be modified at runtime.", "SetMICBlendMode: Can't modify MIC at run time."));
+	FMessageLog("Blueprint").Error(LOCTEXT("SetMICBlendMode_CannotBeModifiedAtRuntime", "SetMICBlendMode: Can't modify MIC at run time."));
 #endif
 	return 0;
 }
@@ -420,9 +420,9 @@ bool UBlueprintMaterialTextureNodesBPLibrary::SetMICTwoSided_EditorOnly(UMateria
 
 		return 1;
 	}
-	FMessageLog("Blueprint").Warning(LOCTEXT("SetMICTwoSided_InvalidMIC.", "SetMICTwoSided_EditorOnly: MIC must be non-null."));
+	FMessageLog("Blueprint").Warning(LOCTEXT("SetMICTwoSided_InvalidMIC", "SetMICTwoSided_EditorOnly: MIC must be non-null."));
 #else
-	FMessageLog("Blueprint").Error(LOCTEXT("Material Instance Constants cannot be modified at runtime.", "SetMICTwoSided: Can't modify MIC at run time."));
+	FMessageLog("Blueprint").Error(LOCTEXT("SetMICTwoSided_CannotBeModifiedAtRuntime", "SetMICTwoSided: Can't modify MIC at run time."));
 #endif
 	return 0;
 }
@@ -438,9 +438,9 @@ bool UBlueprintMaterialTextureNodesBPLibrary::SetMICDitheredLODTransition_Editor
 
 		return 1;
 	}
-	FMessageLog("Blueprint").Warning(LOCTEXT("SetMICDitheredLODTransition_InvalidMIC.", "SetMICDitheredLODTransition_EditorOnly: MIC must be non-null."));
+	FMessageLog("Blueprint").Warning(LOCTEXT("SetMICDitheredLODTransition_InvalidMIC", "SetMICDitheredLODTransition_EditorOnly: MIC must be non-null."));
 #else
-	FMessageLog("Blueprint").Error(LOCTEXT("Material Instance Constants cannot be modified at runtime.", "SetMICDitherTransition: Can't modify MIC at run time."));
+	FMessageLog("Blueprint").Error(LOCTEXT("SetMICDitheredLODTransition_CannotBeModifiedAtRuntime", "SetMICDitherTransition: Can't modify MIC at run time."));
 #endif
 	return 0;
 }

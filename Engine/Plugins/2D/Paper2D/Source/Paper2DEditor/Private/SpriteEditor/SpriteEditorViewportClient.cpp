@@ -872,7 +872,7 @@ void FSpriteEditorViewportClient::TrackingStarted(const struct FInputEventState&
 
 	if (!bManipulating && bIsDragging && !bTrackingHandledExternally)
 	{
-		BeginTransaction(LOCTEXT("ModificationInViewport", "Modification in Viewport"));
+		BeginTransaction(LOCTEXT("ModificationInViewportTransaction", "Modification in Viewport"));
 		bManipulating = true;
 		bManipulationDirtiedSomething = false;
 	}

@@ -186,3 +186,5 @@ FReply SComposurePostMoveSettingsImportDialog::OnImportPressed()
 	OnImportSelected.ExecuteIfBound(FilePath, FrameRate, StartFrame);
 	return FReply::Handled();
 }
+
+#undef LOCTEXT_NAMESPACE

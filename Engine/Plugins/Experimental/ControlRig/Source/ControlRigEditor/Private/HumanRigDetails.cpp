@@ -970,7 +970,7 @@ TSharedRef<SWidget> FHumanRigDetails::CreateRenameNode() const
 					.Padding(2, 0)
 					[
 						SNew(STextBlock)
-						.Text(LOCTEXT("RenameNode_Node", "Old Name"))
+						.Text(LOCTEXT("RenameNode_OldName", "Old Name"))
 					]
 					+ SHorizontalBox::Slot()
 					.AutoWidth()
@@ -996,7 +996,7 @@ TSharedRef<SWidget> FHumanRigDetails::CreateRenameNode() const
 					.Padding(2, 0)
 					[
 						SNew(STextBlock)
-						.Text(LOCTEXT("RenameNode_Node", "New Name"))
+						.Text(LOCTEXT("RenameNode_NewName", "New Name"))
 					]
 					+ SHorizontalBox::Slot()
 					.AutoWidth()

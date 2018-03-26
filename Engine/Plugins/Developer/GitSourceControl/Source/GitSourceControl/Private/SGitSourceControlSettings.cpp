@@ -201,7 +201,7 @@ void SGitSourceControlSettings::Construct(const FArguments& InArgs)
 				.FillWidth(0.1f)
 				[
 					SNew(SCheckBox)
-					.ToolTipText(LOCTEXT("CreateGitAttributes_Tooltip", "Create and add a '.gitattributes' file to enable Git LFS for the whole 'Content/' directory (needs Git LFS extensions to be installed)."))
+					.ToolTipText(LOCTEXT("CreateGitAttributesAll_Tooltip", "Create and add a '.gitattributes' file to enable Git LFS for the whole 'Content/' directory (needs Git LFS extensions to be installed)."))
 					.IsChecked(ECheckBoxState::Unchecked)
 					.OnCheckStateChanged(this, &SGitSourceControlSettings::OnCheckedCreateGitAttributes)
 					.IsEnabled(this, &SGitSourceControlSettings::CanInitializeGitLfs)

@@ -876,7 +876,7 @@ void FSpriteGeometryEditingHelper::AbandonAddPolygonMode()
 
 	if ((AddingPolygonIndex != INDEX_NONE) && Geometry.Shapes.IsValidIndex(AddingPolygonIndex))
 	{
-		EditorContext->BeginTransaction(LOCTEXT("DeletePolygon", "Delete Polygon"));
+		EditorContext->BeginTransaction(LOCTEXT("DeletePolygonTransaction", "Delete Polygon"));
 
 		Geometry.Shapes.RemoveAt(AddingPolygonIndex);
 
@@ -1036,7 +1036,7 @@ void FSpriteGeometryEditingHelper::DeleteLastVertexFromAddPolygonMode()
 
 	if ((AddingPolygonIndex != INDEX_NONE) && Geometry.Shapes.IsValidIndex(AddingPolygonIndex))
 	{
-		EditorContext->BeginTransaction(LOCTEXT("DeleteLastAddedPoint", "Delete last added point"));
+		EditorContext->BeginTransaction(LOCTEXT("DeleteLastAddedPointTransaction", "Delete last added point"));
 
 		FSpriteGeometryShape& Shape = Geometry.Shapes[AddingPolygonIndex];
 		if (Shape.Vertices.Num() > 0)

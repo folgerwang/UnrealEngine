@@ -94,7 +94,7 @@ namespace SteamAudio
 					.OnClicked(this, &FBakeIndirectWindow::OnBakeSelected)
 					[
 						SNew(STextBlock)
-						.Text(NSLOCTEXT("SteamAudio", "BakeSelectedText", "Bake Selected"))
+						.Text(NSLOCTEXT("SteamAudio", "BakeSelected", "Bake Selected"))
 						.Font(IDetailLayoutBuilder::GetDetailFont())
 					]
 				]
@@ -145,7 +145,7 @@ namespace SteamAudio
 				+ SHorizontalBox::Slot()
 				[
 					SNew(STextBlock)
-					.Text(PrettyPrintedByte(Item->DataSize))
+					.Text(FText::AsMemory(Item->DataSize))
 					.Font(IDetailLayoutBuilder::GetDetailFont())
 				]
 			];

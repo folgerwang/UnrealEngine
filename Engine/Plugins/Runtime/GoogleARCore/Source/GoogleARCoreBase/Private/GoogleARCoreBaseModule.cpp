@@ -105,3 +105,5 @@ void FGoogleARCoreBaseModule::ShutdownModule()
 		SettingsModule->UnregisterSettings("Project", "Plugins", "GoogleARCore");
 	}
 }
+
+#undef LOCTEXT_NAMESPACE

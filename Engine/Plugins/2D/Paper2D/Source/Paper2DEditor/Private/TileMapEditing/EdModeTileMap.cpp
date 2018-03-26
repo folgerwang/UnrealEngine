@@ -689,7 +689,7 @@ bool FEdModeTileMap::UseActiveToolAtLocation(const FViewportCursorLocation& Ray)
 
 bool FEdModeTileMap::BlitLayer(UPaperTileLayer* SourceLayer, UPaperTileLayer* TargetLayer, FBox& OutDirtyRect, int32 OffsetX, int32 OffsetY, bool bBlitEmptyTiles)
 {
-	FScopedTransaction Transaction(LOCTEXT("TileMapPaintAction", "Tile Painting"));
+	FScopedTransaction Transaction(LOCTEXT("TileMapPaintActionTransaction", "Tile Painting"));
 
 	const int32 LayerCoord = TargetLayer->GetLayerIndex();
 
@@ -824,7 +824,7 @@ bool FEdModeTileMap::EraseTiles(const FViewportCursorLocation& Ray)
 		UPaperTileMap* TileMap = Layer->GetTileMap();
 		const int32 LayerCoord = Layer->GetLayerIndex();
 
-		FScopedTransaction Transaction( LOCTEXT("TileMapEraseAction", "Tile Erasing") );
+		FScopedTransaction Transaction( LOCTEXT("TileMapEraseActionTransaction", "Tile Erasing") );
 
 		for (int32 Y = 0; Y < BrushWidth; ++Y)
 		{
@@ -954,7 +954,7 @@ bool FEdModeTileMap::FloodFillTiles(const FViewportCursorLocation& Ray)
 		}
 		
 		// Now the reachability map should be populated, so we can use it to flood fill
-		FScopedTransaction Transaction( LOCTEXT("TileMapFloodFillAction", "Tile Paint Bucket") );
+		FScopedTransaction Transaction( LOCTEXT("TileMapFloodFillActionTransaction", "Tile Paint Bucket") );
 
 		// Figure out where the top left square of the map starts in the pattern, based on the seed point
 		UPaperTileLayer* SourceLayer = GetSourceInkLayer();
@@ -1037,7 +1037,7 @@ bool FEdModeTileMap::PaintTilesWithTerrain(const FViewportCursorLocation& Ray)
 
 		if ((DestTileX >= 0) && (DestTileY >= 0) && (DestTileX < TileMap->MapWidth) & (DestTileY < TileMap->MapHeight))
 		{
-			FScopedTransaction Transaction(LOCTEXT("TileMapTerrainBrushAction", "Terrain Brush"));
+			FScopedTransaction Transaction(LOCTEXT("TileMapTerrainBrushActionTransaction", "Terrain Brush"));
 
 			for (int32 OY = -1; OY <= 1; ++OY)
 			{

@@ -117,7 +117,7 @@ void UMRCaptureDeviceLibrary::GetFeedDescription(UMediaPlayer* MediaPlayer, FTex
 				Arguments.Add(TEXT("FpsLower"), FText::AsNumber(FrameRates.GetLowerBoundValue()));
 				Arguments.Add(TEXT("FpsUpper"), FText::AsNumber(FrameRates.GetUpperBoundValue()));
 
-				FormatDesc = FText::Format(LOCTEXT("TrackFormatMenuVideoFormat", "{Type} {DimX}x{DimY} {Fps} [{FpsLower}-{FpsUpper}] fps"), Arguments);
+				FormatDesc = FText::Format(LOCTEXT("TrackFormatMenuVideoFormat2", "{Type} {DimX}x{DimY} {Fps} [{FpsLower}-{FpsUpper}] fps"), Arguments);
 			}
 		}
 	}

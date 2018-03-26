@@ -1337,7 +1337,7 @@ void FAssetManagerEditorModule::SetCurrentRegistrySource(const FString& SourceNa
 			}
 			if (!bLoaded)
 			{
-				FNotificationInfo Info(FText::Format(LOCTEXT("LoadRegistryFailed", "Failed to load asset registry from {0}!"), FText::FromString(CurrentRegistrySource->SourceFilename)));
+				FNotificationInfo Info(FText::Format(LOCTEXT("LoadRegistryFailed_FailedToLoad", "Failed to load asset registry from {0}!"), FText::FromString(CurrentRegistrySource->SourceFilename)));
 				Info.ExpireDuration = 10.0f;
 				FSlateNotificationManager::Get().AddNotification(Info);
 				CurrentRegistrySource = RegistrySourceMap.Find(FAssetManagerEditorRegistrySource::EditorSourceName);
@@ -1415,7 +1415,7 @@ void FAssetManagerEditorModule::SetCurrentRegistrySource(const FString& SourceNa
 	}
 	else
 	{
-		FNotificationInfo Info(FText::Format(LOCTEXT("LoadRegistryFailed", "Can't find registry source {0}! Reverting to Editor."), FText::FromString(SourceName)));
+		FNotificationInfo Info(FText::Format(LOCTEXT("LoadRegistryFailed_MissingFile", "Can't find registry source {0}! Reverting to Editor."), FText::FromString(SourceName)));
 		Info.ExpireDuration = 10.0f;
 		FSlateNotificationManager::Get().AddNotification(Info);
 		CurrentRegistrySource = RegistrySourceMap.Find(FAssetManagerEditorRegistrySource::EditorSourceName);

@@ -201,36 +201,6 @@ namespace SteamAudio
 		}
 	}
 
-	// https://www.mbeckler.org/blog/?p=114
-	FText PrettyPrintedByte(const int32 NumBytes)
-	{
-		FString suffixes[7];
-		suffixes[0] = "B";
-		suffixes[1] = "KB";
-		suffixes[2] = "MB";
-		suffixes[3] = "GB";
-		suffixes[4] = "TB";
-		suffixes[5] = "PB";
-		suffixes[6] = "EB";
-		uint32 s = 0; // which suffix to use
-		double count = NumBytes;
-		while (count >= 1024 && s < 7)
-		{
-			s++;
-			count /= 1024;
-		}
-		
-		FFormatNamedArguments Arguments;
-		FNumberFormattingOptions NumberFormat;
-		NumberFormat.MinimumIntegralDigits = 1;
-		NumberFormat.MaximumIntegralDigits = 10000;
-		NumberFormat.MinimumFractionalDigits = 1;
-		NumberFormat.MaximumFractionalDigits = 1;
-		Arguments.Add(TEXT("Count"), FText::AsNumber(count, &NumberFormat));
-		Arguments.Add(TEXT("Suffix"), FText::FromString(suffixes[s]));
-		return FText::Format(NSLOCTEXT("ByteText", "ByteText", "{Count} {Suffix}"), Arguments);
-	}
-
 	FString StrippedMapName(const FString& MapName)
 	{
 		const FRegexPattern PieMapPattern(TEXT("UEDPIE_\\d_"));

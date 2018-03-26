@@ -36,8 +36,7 @@ namespace SteamAudio
 		Arguments.Add(TEXT("NumProbeVolumes"), FText::AsNumber(GNumProbeVolumes));
 		Arguments.Add(TEXT("NumBakeTasks"), FText::AsNumber(GNumBakeTasks));
 		Arguments.Add(TEXT("CurrentBakeTask"), FText::AsNumber(GCurrentBakeTask));
-		GBakeTickable->SetDisplayText(FText::Format(NSLOCTEXT("SteamAudio", "BakeText",
-			"Baking {CurrentBakeTask}/{NumBakeTasks} sources \n {CurrentProbeVolume}/{NumProbeVolumes} probe volumes ({BakeProgress} complete)"), Arguments));
+		GBakeTickable->SetDisplayText(FText::Format(NSLOCTEXT("SteamAudio", "BakeProgressFmt", "Baking {CurrentBakeTask}/{NumBakeTasks} sources \n {CurrentProbeVolume}/{NumProbeVolumes} probe volumes ({BakeProgress} complete)"), Arguments));
 	}
 
 	static void CancelBake()
@@ -54,7 +53,7 @@ namespace SteamAudio
 	{
 		GIsBaking.store(true);
 
-		GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Baking...", "Baking..."));
+		GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Baking", "Baking..."));
 		GBakeTickable->CreateNotificationWithCancel(FSimpleDelegate::CreateStatic(CancelBake));
 
 		auto World = GEditor->LevelViewportClients[0]->GetWorld();
@@ -85,7 +84,7 @@ namespace SteamAudio
 			if (!AtLeastOneProbe)
 			{
 				UE_LOG(LogSteamAudioEditor, Error, TEXT("Ensure at least one Phonon Probe Volume with probes exists."));
-				GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Bake failed.", "Bake failed. Create at least one Phonon Probe Volume that has probes."));
+				GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "BakeFailed_NoProbes", "Bake failed. Create at least one Phonon Probe Volume that has probes."));
 				GBakeTickable->DestroyNotification(SNotificationItem::CS_Fail);
 				GIsBaking.store(false);
 				return;
@@ -109,14 +108,14 @@ namespace SteamAudio
 			IPLhandle PhononEnvironment = nullptr;
 			FPhononSceneInfo PhononSceneInfo;
 
-			GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Loading scene...", "Loading scene..."));
+			GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "LoadingScene", "Loading scene..."));
 
 			// Load the scene
 			if (!LoadSceneFromDisk(World, ComputeDevice, SimulationSettings, &PhononScene, PhononSceneInfo))
 			{
 				// If we can't find the scene, then presumably they haven't generated probes either, so just exit
 				UE_LOG(LogSteamAudioEditor, Error, TEXT("Unable to create Phonon environment: .phononscene not found. Be sure to export the scene."));
-				GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Bake failed.", "Bake failed. Export scene first."));
+				GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "BakeFailed_NoScene", "Bake failed. Export scene first."));
 				GBakeTickable->DestroyNotification(SNotificationItem::CS_Fail);
 				GIsBaking.store(false);
 				return;
@@ -126,7 +125,7 @@ namespace SteamAudio
 
 			if (BakeReverb)
 			{
-				GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Baking...", "Baking..."));
+				GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Baking", "Baking..."));
 				GNumProbeVolumes = PhononProbeVolumes.Num();
 				GCurrentProbeVolume = 1;
 
@@ -175,7 +174,7 @@ namespace SteamAudio
 					iplDestroyEnvironment(&PhononEnvironment);
 					iplDestroyScene(&PhononScene);
 
-					GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Bake cancelled.", "Bake cancelled."));
+					GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "BakeCancelled", "Bake cancelled."));
 					GBakeTickable->DestroyNotification(SNotificationItem::CS_Fail);
 					return;
 				}
@@ -198,7 +197,7 @@ namespace SteamAudio
 				{
 					AudioComponent->AudioComponentUserID = PhononSourceComponent->UniqueIdentifier;
 
-					GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Baking...", "Baking..."));
+					GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Baking", "Baking..."));
 					GNumProbeVolumes = PhononProbeVolumes.Num();
 					GCurrentProbeVolume = 1;
 
@@ -263,12 +262,12 @@ namespace SteamAudio
 
 			if (!GIsBaking.load())
 			{
-				GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Bake cancelled.", "Bake cancelled."));
+				GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "BakeCancelled", "Bake cancelled."));
 				GBakeTickable->DestroyNotification(SNotificationItem::CS_Fail);
 			}
 			else
 			{
-				GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Bake propagation complete.", "Bake propagation complete."));
+				GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "BakePropagationComplete", "Bake propagation complete."));
 				GBakeTickable->DestroyNotification();
 				GIsBaking.store(false);
 			}

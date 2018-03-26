@@ -38,7 +38,7 @@ TSharedRef<SWidget> SFlipbookKeyframeWidget::GenerateContextMenu()
 		FNumberFormattingOptions NoCommas;
 		NoCommas.UseGrouping = false;
 		
-		const FText KeyframeSectionTitle = FText::Format(LOCTEXT("KeyframeActionsSectionHeader", "Keyframe #{0} Actions"), FText::AsNumber(FrameIndex, &NoCommas));
+		const FText KeyframeSectionTitle = FText::Format(LOCTEXT("KeyframeXActionsSectionHeader", "Keyframe #{0} Actions"), FText::AsNumber(FrameIndex, &NoCommas));
 		MenuBuilder.BeginSection("KeyframeActions", KeyframeSectionTitle);
 
 		// 		MenuBuilder.AddMenuEntry(FGenericCommands::Get().Cut);

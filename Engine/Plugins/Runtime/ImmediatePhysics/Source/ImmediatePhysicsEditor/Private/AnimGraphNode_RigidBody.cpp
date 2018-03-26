@@ -16,24 +16,24 @@ UAnimGraphNode_RigidBody::UAnimGraphNode_RigidBody(const FObjectInitializer& Obj
 
 FText UAnimGraphNode_RigidBody::GetControllerDescription() const
 {
-	return LOCTEXT("UAnimGraphNode_RigidBody", "Rigid body simulation for physics asset");
+	return LOCTEXT("AnimGraphNode_RigidBody_ControllerDescription", "Rigid body simulation for physics asset");
 }
 
 FText UAnimGraphNode_RigidBody::GetTooltipText() const
 {
-	return LOCTEXT("UAnimGraphNode_RigidBody_tooltip", "This simulates based on the skeletal mesh component's physics asset");
+	return LOCTEXT("AnimGraphNode_RigidBody_Tooltip", "This simulates based on the skeletal mesh component's physics asset");
 }
 
 FText UAnimGraphNode_RigidBody::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
-	return FText(LOCTEXT("UAnimGraphNode_RigidBody", "RigidBody"));
+	return FText(LOCTEXT("AnimGraphNode_RigidBody_NodeTitle", "RigidBody"));
 }
 
 void UAnimGraphNode_RigidBody::ValidateAnimNodeDuringCompilation(USkeleton* ForSkeleton, FCompilerResultsLog& MessageLog)
 {
 	if(Node.bEnableWorldGeometry && Node.SimulationSpace != ESimulationSpace::WorldSpace)
 	{
-		MessageLog.Error(*LOCTEXT("UAnimGraphNode_CompileError", "@@ - uses world collision without world space simulation. This is not supported").ToString());
+		MessageLog.Error(*LOCTEXT("AnimGraphNode_CompileError", "@@ - uses world collision without world space simulation. This is not supported").ToString());
 	}
 	
 	Super::ValidateAnimNodeDuringCompilation(ForSkeleton, MessageLog);

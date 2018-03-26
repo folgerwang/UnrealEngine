@@ -275,7 +275,7 @@ protected:
 			FText NotificationText;
 			if (NewActors.Num() == 1)
 			{
-				NotificationText = FText::Format(LOCTEXT("MatineeToLevelSequence_Result", "Conversion to {0} complete with {1} warnings"), FText::FromString(NewActors[0]->GetActorLabel()), FText::AsNumber(NumWarnings));
+				NotificationText = FText::Format(LOCTEXT("MatineeToLevelSequence_SingularResult", "Conversion to {0} complete with {1} warnings"), FText::FromString(NewActors[0]->GetActorLabel()), FText::AsNumber(NumWarnings));
 			}
 			else
 			{

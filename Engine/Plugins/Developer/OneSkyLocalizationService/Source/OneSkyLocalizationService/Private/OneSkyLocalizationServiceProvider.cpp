@@ -944,7 +944,7 @@ void FOneSkyLocalizationServiceProvider::ExportAllTargetsForTargetSetToOneSky(TW
 	FString EngineOrGamePath = LocalizationTargetSet->TargetObjects[0]->IsMemberOfEngineTargetSet() ? "Engine" : "Game";
 
 	bool bAccepted = GWarn->YesNof(
-		FText::Format(LOCTEXT("ExportAllCulturesForTargetToOneSkyConfirm", "All data in OneSky for the {0} set of Targets will be overwritten with your local copy!\nThis cannot be undone.\nAre you sure you want to export all cultures for all targets for this set of targets to OneSky?"),
+		FText::Format(LOCTEXT("ExportAllCulturesForTargetsToOneSkyConfirm", "All data in OneSky for the {0} set of Targets will be overwritten with your local copy!\nThis cannot be undone.\nAre you sure you want to export all cultures for all targets for this set of targets to OneSky?"),
 		FText::FromString(EngineOrGamePath)));
 
 	if (!bAccepted)

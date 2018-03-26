@@ -117,9 +117,6 @@ namespace SteamAudio
 	void STEAMAUDIO_API AnyHit(const IPLfloat32* Origin, const IPLfloat32* Direction, const IPLfloat32 MinDistance, const IPLfloat32 MaxDistance,
 		IPLint32* HitExists, IPLvoid* UserData);
 
-	/** Gives a nice representation of bytes (e.g. KB, MB, GB, ...). */
-	FText STEAMAUDIO_API PrettyPrintedByte(const int32 NumBytes);
-
 	/** Strips PIE prefix from map name for use in-editor. */
 	FString STEAMAUDIO_API StrippedMapName(const FString& MapName);
 
