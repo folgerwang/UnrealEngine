@@ -38,7 +38,7 @@ private:
 
 		if (!GraphPinObj->GetDefaultAsString().Equals(NewMotionSourceString))
 		{
-			const FScopedTransaction Transaction(NSLOCTEXT("GraphEditor", "ChangeStringPinValue", "Change Motion Source Pin Value"));
+			const FScopedTransaction Transaction(NSLOCTEXT("GraphEditor", "ChangeMotionSourcePinValue", "Change Motion Source Pin Value"));
 			GraphPinObj->Modify();
 
 			GraphPinObj->GetSchema()->TrySetDefaultValue(*GraphPinObj, NewMotionSourceString);

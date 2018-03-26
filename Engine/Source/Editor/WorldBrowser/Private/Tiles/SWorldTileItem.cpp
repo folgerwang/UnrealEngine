@@ -336,11 +336,11 @@ FText SWorldTileItem::GetPositionText() const
 	FTextFormat TextFormat;
 	if (bLocked)
 	{
-		TextFormat = LOCTEXT("PositionXYFmtLocked", "{0}, {1}, {2} (Locked)");
+		TextFormat = LOCTEXT("PositionXYZFmtLocked", "{0}, {1}, {2} (Locked)");
 	}
 	else
 	{
-		TextFormat = LOCTEXT("PositionXYFmt", "{0}, {1}, {2}");
+		TextFormat = LOCTEXT("PositionXYZFmt", "{0}, {1}, {2}");
 	}
 		
 	return FText::Format(TextFormat, FText::AsNumber(Position.X), FText::AsNumber(Position.Y), FText::AsNumber(Position.Z));

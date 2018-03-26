@@ -239,7 +239,7 @@ FReply SProfileVisualizer::OnSaveClicked()
 	}
 	else
 	{
-		Message = NSLOCTEXT("TaskGraph", "ExportMessage", "Could not write profile data to file");
+		Message = NSLOCTEXT("TaskGraph", "FailedExportMessage", "Could not write profile data to file");
 	}
 
 	struct Local

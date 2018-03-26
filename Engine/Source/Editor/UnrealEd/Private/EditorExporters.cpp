@@ -1581,7 +1581,7 @@ bool ULevelExporterFBX::ExportBinary( UObject* Object, const TCHAR* Type, FArchi
 			FNotificationInfo NotificationInfo(FText::GetEmpty());
 			NotificationInfo.Text = bSelectedOnly
 				? FText(NSLOCTEXT("UnrealEd", "ExportingLevelToFBX_Selection", "The selection has nothing that can be export to fbx!"))
-				: FText(NSLOCTEXT("UnrealEd", "ExportingLevelToFBX", "The world has nothing that can be export to fbx!"));
+				: FText(NSLOCTEXT("UnrealEd", "ExportingLevelToFBX_World", "The world has nothing that can be export to fbx!"));
 			NotificationInfo.ExpireDuration = 5.0f;
 			FSlateNotificationManager::Get().AddNotification(NotificationInfo);
 		}

@@ -180,9 +180,9 @@ static MTLLanguageVersion ValidateVersion(uint8 Version)
 #else
 		Args.Add(TEXT("RequiredOS"), FText::FromString(FString::Printf(TEXT("macOS %d.%d.%d"), MetaliOSVersions[Version][0], MetaliOSVersions[Version][1], MetaliOSVersions[Version][2])));
 #endif
-		FText LocalizedMsg = FText::Format(NSLOCTEXT("MetalRHI", "ShaderVersionUnsupported","The current OS version does not support {Version} required by the project. You must upgrade to {RequiredOS} to run this project."),Args);
+		FText LocalizedMsg = FText::Format(NSLOCTEXT("MetalRHI", "ShaderVersionUnsupported", "The current OS version does not support {Version} required by the project. You must upgrade to {RequiredOS} to run this project."),Args);
 		
-		FText Title = NSLOCTEXT("MetalRHI", "ShaderVersionUnsupported","Shader Version Unsupported");
+		FText Title = NSLOCTEXT("MetalRHI", "ShaderVersionUnsupportedTitle", "Shader Version Unsupported");
 		FMessageDialog::Open(EAppMsgType::Ok, LocalizedMsg, &Title);
 		
 		FPlatformMisc::RequestExit(true);

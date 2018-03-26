@@ -1806,7 +1806,7 @@ void FIOSTargetSettingsCustomization::SetShaderStandard(int32 Value)
 		}
 		else if (Value == 3 && (EIOSVersion)EnumValue < EIOSVersion::IOS_11)
 		{
-			Message = LOCTEXT("iOSMetalShaderVersion1_2","Enabling Metal Shader Standard v2.0 increases the minimum operating system requirement for Metal from iOS 8.0/tvOS 9.0 or later to iOS/tvOS 11.0 or later.");
+			Message = LOCTEXT("iOSMetalShaderVersion2_0","Enabling Metal Shader Standard v2.0 increases the minimum operating system requirement for Metal from iOS 8.0/tvOS 9.0 or later to iOS/tvOS 11.0 or later.");
 			SetMinVersion((int32)EIOSVersion::IOS_11);
 		}
 		

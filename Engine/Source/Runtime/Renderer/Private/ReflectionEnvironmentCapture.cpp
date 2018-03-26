@@ -835,7 +835,7 @@ void BeginReflectionCaptureSlowTask(int32 NumCaptures, const TCHAR* CaptureReaso
 		
 		if (CaptureReason)
 		{
-			Status = FText::Format(NSLOCTEXT("Engine", "UpdateReflectionCaptures", "Building reflection captures for {0}"), FText::FromString(FString(CaptureReason)));
+			Status = FText::Format(NSLOCTEXT("Engine", "UpdateReflectionCapturesForX", "Building reflection captures for {0}"), FText::FromString(FString(CaptureReason)));
 		}
 		else
 		{

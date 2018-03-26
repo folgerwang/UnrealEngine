@@ -10,6 +10,8 @@
 #include "PropertyCustomizationHelpers.h"
 #include "FrameRate.h"
 
+#define LOCTEXT_NAMESPACE "TimeManagement.QualifiedFrameTime"
+
 void FQualifiedFrameTimeDetailsCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> PropertyHandle, IDetailChildrenBuilder& ChildBuilder, IPropertyTypeCustomizationUtils& CustomizationUtils)
 {
 	TMap<FName, TSharedRef<IPropertyHandle>> CustomizedProperties;
@@ -25,12 +27,12 @@ void FQualifiedFrameTimeDetailsCustomization::CustomizeChildren(TSharedRef<IProp
 	}
 
 	TSharedRef<IPropertyHandle> FrameNumberProperty = CustomizedProperties.FindChecked(GET_MEMBER_NAME_CHECKED(FFrameNumber, Value));
-	ChildBuilder.AddCustomRow(NSLOCTEXT("TimeManagement", "TimeLabel", "Time"))
+	ChildBuilder.AddCustomRow(LOCTEXT("TimeLabel", "Time"))
 		.NameContent()
 		[
 			SNew(STextBlock)
-			.Text(NSLOCTEXT("TimeManagement", "TimeLabel", "Time"))
-			.ToolTipText(NSLOCTEXT("TimeManagement", "TimeLabelTooltip", "Time field which takes timecode, frames and time formats."))
+			.Text(LOCTEXT("TimeLabel", "Time"))
+			.ToolTipText(LOCTEXT("TimeLabelTooltip", "Time field which takes timecode, frames and time formats."))
 			.Font(CustomizationUtils.GetRegularFont())
 		]
 		.ValueContent()
@@ -78,3 +80,5 @@ void FQualifiedFrameTimeDetailsCustomization::OnTimeTextCommitted(const FText& I
 	// 	UE_LOG(LogTemp, Log, TEXT("Unknown"));
 	// }
 }
+
+#undef LOCTEXT_NAMESPACE

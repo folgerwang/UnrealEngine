@@ -130,7 +130,7 @@ void UK2Node_FunctionTerminator::ValidateNodeDuringCompilation(FCompilerResultsL
 		if (Pin && Pin->PinType.bIsWeakPointer && !Pin->PinType.IsContainer())
 		{
 			const FString ErrorString = FText::Format(
-				LOCTEXT("WeakPtrNotSupportedErrorFmt", "Weak prointer is not supported as function parameter. Pin '{0}' @@"),
+				LOCTEXT("WeakPtrNotSupportedErrorFmt", "Weak pointers are not supported as function parameters. Pin '{0}' @@"),
 				FText::FromString(Pin->GetName())
 			).ToString();
 			MessageLog.Error(*ErrorString, this);

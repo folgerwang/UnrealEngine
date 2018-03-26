@@ -4365,10 +4365,10 @@ FGraphAppearanceInfo FMaterialEditor::GetGraphAppearance() const
 		switch (MaterialFunction->GetMaterialFunctionUsage())
 		{
 		case EMaterialFunctionUsage::MaterialLayer:
-			AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText_MaterialFunction", "MATERIAL LAYER");
+			AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText_MaterialLayer", "MATERIAL LAYER");
 			break;
 		case EMaterialFunctionUsage::MaterialLayerBlend:
-			AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText_MaterialFunction", "MATERIAL LAYER BLEND");
+			AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText_MaterialLayerBlend", "MATERIAL LAYER BLEND");
 			break;
 		default:
 			AppearanceInfo.CornerText = LOCTEXT("AppearanceCornerText_MaterialFunction", "MATERIAL FUNCTION");

@@ -140,7 +140,7 @@ public:
 							FUIAction(FExecuteAction::CreateRaw(this, &FMaterialEditorModule::OpenSubstancePluginGetter)),
 							NAME_None,
 							NSLOCTEXT("MaterialEditor", "GetContentText_SubstanceToolbar", "Substance"),
-							NSLOCTEXT("MaterialEditor", "GetContentText_Substance", "Add Substance textures to the project"),
+							NSLOCTEXT("MaterialEditor", "GetContentText_SubstanceTooltip", "Add Substance textures to the project"),
 							FSlateIcon(FEditorStyle::GetStyleSetName(), "MaterialEditor.AddSubstanceSpecialToolbar")
 						);
 						ToolbarBuilder.EndSection();

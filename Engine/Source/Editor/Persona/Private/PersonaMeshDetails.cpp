@@ -1452,7 +1452,7 @@ void FPersonaMeshDetails::ApplyChanges()
 		// if LOD is imported, ask users if they want to regenerate or just leave it
 		if (bImportedLODs)
 		{
-			const FText Text(LOCTEXT("Warning_SimplygonApplyingToImportedMesh", "Some of LODs has been imported. Are you sure you'd like to apply mesh reduction to all LODs? This will destroy imported LOD."));
+			const FText Text(LOCTEXT("Warning_SimplygonApplyingToImportedMesh_All", "Some LODs have been imported. Are you sure you'd like to apply mesh reduction to all LODs? This will destroy imported LODs."));
 			EAppReturnType::Type Ret = FMessageDialog::Open(EAppMsgType::YesNo, Text);
 			if (Ret == EAppReturnType::Yes)
 			{

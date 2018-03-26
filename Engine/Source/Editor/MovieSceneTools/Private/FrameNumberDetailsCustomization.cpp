@@ -10,6 +10,8 @@
 #include "PropertyCustomizationHelpers.h"
 #include "FrameRate.h"
 
+#define LOCTEXT_NAMESPACE "TimeManagement.FrameNumber"
+
 void FFrameNumberDetailsCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> PropertyHandle, IDetailChildrenBuilder& ChildBuilder, IPropertyTypeCustomizationUtils& CustomizationUtils)
 {
 	// Check for Min/Max metadata on the property itself and we'll apply it to the child when changed.
@@ -43,12 +45,12 @@ void FFrameNumberDetailsCustomization::CustomizeChildren(TSharedRef<IPropertyHan
 
 	FrameNumberProperty = CustomizedProperties.FindChecked(GET_MEMBER_NAME_CHECKED(FFrameNumber, Value));
 
-	ChildBuilder.AddCustomRow(NSLOCTEXT("TimeManagement", "TimeLabel", "Time"))
+	ChildBuilder.AddCustomRow(LOCTEXT("TimeLabel", "Time"))
 		.NameContent()
 		[
 			SNew(STextBlock)
 			.Text(PropertyHandle->GetPropertyDisplayName())
-			.ToolTipText(NSLOCTEXT("TimeManagement", "TimeLabelTooltip", "Time field which takes timecode, frames and seconds formats."))
+			.ToolTipText(LOCTEXT("TimeLabelTooltip", "Time field which takes timecode, frames and seconds formats."))
 			.Font(CustomizationUtils.GetRegularFont())
 		]
 		.ValueContent()
@@ -81,3 +83,5 @@ void FFrameNumberDetailsCustomization::OnTimeTextCommitted(const FText& InText, 
 		FrameNumberProperty->SetValue((int32)ClampedValue);
 	}
 }
+
+#undef LOCTEXT_NAMESPACE

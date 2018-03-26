@@ -1006,7 +1006,7 @@ public:
 void GetBindableObjects(UWidgetTree* WidgetTree, TArray<FObjectAndDisplayName>& BindableObjects)
 {
 	// Add the 'this' widget so you can animate it.
-	BindableObjects.Add(FObjectAndDisplayName(LOCTEXT("RootWidgetFormat", "[[This]]"), WidgetTree->GetOuter()));
+	BindableObjects.Add(FObjectAndDisplayName(LOCTEXT("RootWidgetThis", "[[This]]"), WidgetTree->GetOuter()));
 
 	WidgetTree->ForEachWidget([&BindableObjects] (UWidget* Widget) {
 		
